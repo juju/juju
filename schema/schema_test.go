@@ -33,6 +33,10 @@ func (s *S) TestConst(c *C) {
 	out, err = sch.Coerce(42, aPath)
 	c.Assert(out, IsNil)
 	c.Assert(err, Matches, `<path>: expected "foo", got 42`)
+
+	out, err = sch.Coerce(nil, aPath)
+	c.Assert(out, IsNil)
+	c.Assert(err, Matches, `<path>: expected "foo", got nothing`)
 }
 
 func (s *S) TestAny(c *C) {
@@ -41,6 +45,10 @@ func (s *S) TestAny(c *C) {
 	out, err := sch.Coerce("foo", aPath)
 	c.Assert(err, IsNil)
 	c.Assert(out, Equals, "foo")
+
+	out, err = sch.Coerce(nil, aPath)
+	c.Assert(err, IsNil)
+	c.Assert(out, Equals, nil)
 }
 
 func (s *S) TestOneOf(c *C) {
@@ -73,6 +81,10 @@ func (s *S) TestBool(c *C) {
 	out, err = sch.Coerce(1, aPath)
 	c.Assert(out, IsNil)
 	c.Assert(err, Matches, "<path>: expected bool, got 1")
+
+	out, err = sch.Coerce(nil, aPath)
+	c.Assert(out, IsNil)
+	c.Assert(err, Matches, "<path>: expected bool, got nothing")
 }
 
 func (s *S) TestInt(c *C) {
@@ -89,6 +101,10 @@ func (s *S) TestInt(c *C) {
 	out, err = sch.Coerce(true, aPath)
 	c.Assert(out, IsNil)
 	c.Assert(err, Matches, "<path>: expected int, got true")
+
+	out, err = sch.Coerce(nil, aPath)
+	c.Assert(out, IsNil)
+	c.Assert(err, Matches, "<path>: expected int, got nothing")
 }
 
 func (s *S) TestFloat(c *C) {
@@ -105,6 +121,10 @@ func (s *S) TestFloat(c *C) {
 	out, err = sch.Coerce(true, aPath)
 	c.Assert(out, IsNil)
 	c.Assert(err, Matches, "<path>: expected float, got true")
+
+	out, err = sch.Coerce(nil, aPath)
+	c.Assert(out, IsNil)
+	c.Assert(err, Matches, "<path>: expected float, got nothing")
 }
 
 func (s *S) TestString(c *C) {
@@ -117,6 +137,10 @@ func (s *S) TestString(c *C) {
 	out, err = sch.Coerce(true, aPath)
 	c.Assert(out, IsNil)
 	c.Assert(err, Matches, "<path>: expected string, got true")
+
+	out, err = sch.Coerce(nil, aPath)
+	c.Assert(out, IsNil)
+	c.Assert(err, Matches, "<path>: expected string, got nothing")
 }
 
 func (s *S) TestSimpleRegexp(c *C) {
@@ -132,6 +156,10 @@ func (s *S) TestSimpleRegexp(c *C) {
 	out, err = sch.Coerce("[", aPath)
 	c.Assert(out, IsNil)
 	c.Assert(err, Matches, `<path>: expected valid regexp, got "\["`)
+
+	out, err = sch.Coerce(nil, aPath)
+	c.Assert(out, IsNil)
+	c.Assert(err, Matches, `<path>: expected regexp string, got nothing`)
 }
 
 func (s *S) TestList(c *C) {
@@ -143,6 +171,10 @@ func (s *S) TestList(c *C) {
 	out, err = sch.Coerce(42, aPath)
 	c.Assert(out, IsNil)
 	c.Assert(err, Matches, "<path>: expected list, got 42")
+
+	out, err = sch.Coerce(nil, aPath)
+	c.Assert(out, IsNil)
+	c.Assert(err, Matches, "<path>: expected list, got nothing")
 
 	out, err = sch.Coerce([]interface{}{1, true}, aPath)
 	c.Assert(out, IsNil)
@@ -158,6 +190,10 @@ func (s *S) TestMap(c *C) {
 	out, err = sch.Coerce(42, aPath)
 	c.Assert(out, IsNil)
 	c.Assert(err, Matches, "<path>: expected map, got 42")
+
+	out, err = sch.Coerce(nil, aPath)
+	c.Assert(out, IsNil)
+	c.Assert(err, Matches, "<path>: expected map, got nothing")
 
 	out, err = sch.Coerce(map[int]int{1: 1}, aPath)
 	c.Assert(out, IsNil)
@@ -187,6 +223,10 @@ func (s *S) TestFieldMap(c *C) {
 	out, err = sch.Coerce(42, aPath)
 	c.Assert(out, IsNil)
 	c.Assert(err, Matches, "<path>: expected map, got 42")
+
+	out, err = sch.Coerce(nil, aPath)
+	c.Assert(out, IsNil)
+	c.Assert(err, Matches, "<path>: expected map, got nothing")
 
 	out, err = sch.Coerce(map[string]interface{}{"a": "A", "b": "C"}, aPath)
 	c.Assert(out, IsNil)
@@ -237,6 +277,14 @@ func (s *S) TestSchemaMap(c *C) {
 	out, err = sch.Coerce(map[string]int{"type": 3, "b": 5}, aPath)
 	c.Assert(out, IsNil)
 	c.Assert(err, Matches, `<path>\.b: expected 4, got 5`)
+
+	out, err = sch.Coerce(42, aPath)
+	c.Assert(out, IsNil)
+	c.Assert(err, Matches, `<path>: expected map, got 42`)
+
+	out, err = sch.Coerce(nil, aPath)
+	c.Assert(out, IsNil)
+	c.Assert(err, Matches, `<path>: expected map, got nothing`)
 
 	// First path entry shouldn't have dots in an error message.
 	out, err = sch.Coerce(map[string]int{"a": 1}, nil)

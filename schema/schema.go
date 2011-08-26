@@ -107,14 +107,14 @@ func Bool() Checker {
 type boolC struct{}
 
 func (c boolC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
-	if reflect.TypeOf(v).Kind() == reflect.Bool {
+	if v != nil && reflect.TypeOf(v).Kind() == reflect.Bool {
 		return v, nil
 	}
 	return nil, error{"bool", v, path}
 }
 
 // Int returns a Checker that accepts any integer value, and returns
-// the same value typed as an int64.
+// the same value consistently typed as an int64.
 func Int() Checker {
 	return intC{}
 }
@@ -122,6 +122,9 @@ func Int() Checker {
 type intC struct{}
 
 func (c intC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
+	if v == nil {
+		return nil, error{"int", v, path}
+	}
 	switch reflect.TypeOf(v).Kind() {
 	case reflect.Int:
 	case reflect.Int8:
@@ -135,7 +138,7 @@ func (c intC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
 }
 
 // Int returns a Checker that accepts any float value, and returns
-// the same value typed as a float64.
+// the same value consistently typed as a float64.
 func Float() Checker {
 	return floatC{}
 }
@@ -143,6 +146,9 @@ func Float() Checker {
 type floatC struct{}
 
 func (c floatC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
+	if v == nil {
+		return nil, error{"float", v, path}
+	}
 	switch reflect.TypeOf(v).Kind() {
 	case reflect.Float32:
 	case reflect.Float64:
@@ -162,7 +168,7 @@ func String() Checker {
 type stringC struct{}
 
 func (c stringC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
-	if reflect.TypeOf(v).Kind() == reflect.String {
+	if v != nil && reflect.TypeOf(v).Kind() == reflect.String {
 		return reflect.ValueOf(v).String(), nil
 	}
 	return nil, error{"string", v, path}
@@ -178,7 +184,7 @@ func (c sregexpC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
 	// XXX The regexp package happens to be extremely simple right now.
 	//     Once exp/regexp goes mainstream, we'll have to update this
 	//     logic to use a more widely accepted regexp subset.
-	if reflect.TypeOf(v).Kind() == reflect.String {
+	if v != nil && reflect.TypeOf(v).Kind() == reflect.String {
 		s := reflect.ValueOf(v).String()
 		_, err := regexp.Compile(s)
 		if err != nil {
