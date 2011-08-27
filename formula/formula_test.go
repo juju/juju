@@ -1,10 +1,13 @@
 package formula_test
 
 import (
+	"io/ioutil"
 	"testing"
 	. "launchpad.net/gocheck"
 	"launchpad.net/ensemble/go/formula"
 	"launchpad.net/ensemble/go/schema"
+	"launchpad.net/goyaml"
+	"path/filepath"
 )
 
 func Test(t *testing.T) {
@@ -33,6 +36,57 @@ func (s *S) TestParseId(c *C) {
 
 	_, _, _, err = formula.ParseId("local:foo-x")
 	c.Assert(err, Matches, `Missing formula revision: "local:foo-x"`)
+}
+
+const dummyMeta = "testrepo/dummy/metadata.yaml"
+
+func (s *S) TestReadMeta(c *C) {
+	meta, err := formula.ReadMeta(dummyMeta)
+	c.Assert(err, IsNil)
+	c.Assert(meta.Name, Equals, "dummy")
+	c.Assert(meta.Revision, Equals, 1)
+	c.Assert(meta.Summary, Equals, "That's a dummy formula.")
+	c.Assert(meta.Description, Equals,
+		"This is a longer description which\npotentially contains multiple lines.\n")
+}
+
+func (s *S) TestParseMeta(c *C) {
+	data, err := ioutil.ReadFile(dummyMeta)
+	c.Assert(err, IsNil)
+
+	meta, err := formula.ParseMeta(data)
+	c.Assert(err, IsNil)
+	c.Assert(meta.Name, Equals, "dummy")
+	c.Assert(meta.Revision, Equals, 1)
+	c.Assert(meta.Summary, Equals, "That's a dummy formula.")
+	c.Assert(meta.Description, Equals,
+		"This is a longer description which\npotentially contains multiple lines.\n")
+}
+
+func (s *S) TestMetaHeader(c *C) {
+	yaml := ReadYaml(dummyMeta)
+	yaml["ensemble"] = "foo"
+	data := DumpYaml(yaml)
+
+	_, err := formula.ParseMeta(data)
+	c.Assert(err, Matches, `ensemble: expected "formula", got "foo"`)
+}
+
+func (s *S) TestMetaErrorWithPath(c *C) {
+	yaml := ReadYaml(dummyMeta)
+	yaml["ensemble"] = "foo"
+	data := DumpYaml(yaml)
+
+	path := filepath.Join(c.MkDir(), "mymeta.yaml")
+
+	_, err := formula.ReadMeta(path)
+	c.Assert(err, Matches, `.*/.*/mymeta\.yaml.*no such file.*`)
+
+	err = ioutil.WriteFile(path, data, 0644)
+	c.Assert(err, IsNil)
+
+	_, err = formula.ReadMeta(path)
+	c.Assert(err, Matches, `/.*/mymeta\.yaml: ensemble: expected "formula", got "foo"`)
 }
 
 // Test rewriting of a given interface specification into long form.
@@ -83,4 +137,26 @@ func (s *S) TestIfaceExpander(c *C) {
 	v, err = e.Coerce(schema.M{"interface": "http"}, path)
 	c.Assert(err, IsNil)
 	c.Assert(v, Equals, schema.M{"interface": "http", "limit": int64(1), "optional": false})
+}
+
+
+func ReadYaml(path string) map[interface{}]interface{} {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		panic(err)
+	}
+	m := make(map[interface{}]interface{})
+	err = goyaml.Unmarshal(data, m)
+	if err != nil {
+		panic(err)
+	}
+	return m
+}
+
+func DumpYaml(v interface{}) []byte {
+	data, err := goyaml.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return data
 }
