@@ -107,36 +107,36 @@ func (s *S) TestIfaceExpander(c *C) {
 	// Shorthand is properly rewritten
 	v, err := e.Coerce("http", path)
 	c.Assert(err, IsNil)
-	c.Assert(v, Equals, schema.M{"interface": "http", "limit": nil, "optional": false})
+	c.Assert(v, Equals, schema.MapType{"interface": "http", "limit": nil, "optional": false})
 
 	// Defaults are properly applied
-	v, err = e.Coerce(schema.M{"interface": "http"}, path)
+	v, err = e.Coerce(schema.MapType{"interface": "http"}, path)
 	c.Assert(err, IsNil)
-	c.Assert(v, Equals, schema.M{"interface": "http", "limit": nil, "optional": false})
+	c.Assert(v, Equals, schema.MapType{"interface": "http", "limit": nil, "optional": false})
 
-	v, err = e.Coerce(schema.M{"interface": "http", "limit": 2}, path)
+	v, err = e.Coerce(schema.MapType{"interface": "http", "limit": 2}, path)
 	c.Assert(err, IsNil)
-	c.Assert(v, Equals, schema.M{"interface": "http", "limit": int64(2), "optional": false})
+	c.Assert(v, Equals, schema.MapType{"interface": "http", "limit": int64(2), "optional": false})
 
-	v, err = e.Coerce(schema.M{"interface": "http", "optional": true}, path)
+	v, err = e.Coerce(schema.MapType{"interface": "http", "optional": true}, path)
 	c.Assert(err, IsNil)
-	c.Assert(v, Equals, schema.M{"interface": "http", "limit": nil, "optional": true})
+	c.Assert(v, Equals, schema.MapType{"interface": "http", "limit": nil, "optional": true})
 
 	// Invalid data raises an error.
 	v, err = e.Coerce(42, path)
 	c.Assert(err, Matches, "<path>: expected map, got 42")
 
-	v, err = e.Coerce(schema.M{"interface": "http", "optional": nil}, path)
+	v, err = e.Coerce(schema.MapType{"interface": "http", "optional": nil}, path)
 	c.Assert(err, Matches, "<path>.optional: expected bool, got nothing")
 
-	v, err = e.Coerce(schema.M{"interface": "http", "limit": "none, really"}, path)
+	v, err = e.Coerce(schema.MapType{"interface": "http", "limit": "none, really"}, path)
 	c.Assert(err, Matches, "<path>.limit: unsupported value")
 
 	// Can change default limit
 	e = formula.IfaceExpander(1)
-	v, err = e.Coerce(schema.M{"interface": "http"}, path)
+	v, err = e.Coerce(schema.MapType{"interface": "http"}, path)
 	c.Assert(err, IsNil)
-	c.Assert(v, Equals, schema.M{"interface": "http", "limit": int64(1), "optional": false})
+	c.Assert(v, Equals, schema.MapType{"interface": "http", "limit": int64(1), "optional": false})
 }
 
 

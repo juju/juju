@@ -66,7 +66,7 @@ func ParseMeta(data []byte) (meta *Meta, err os.Error) {
 	if err != nil {
 		return
 	}
-	m := v.(schema.M)
+	m := v.(schema.MapType)
 	meta = &Meta{}
 	meta.Name = m["name"].(string)
 	// Schema decodes as int64, but the int range should be good
@@ -113,7 +113,7 @@ var (
 func (c ifaceExpC) Coerce(v interface{}, path []string) (newv interface{}, err os.Error) {
 	s, err := stringC.Coerce(v, path)
 	if err == nil {
-		newv = schema.M{
+		newv = schema.MapType{
 			"interface": s,
 			"limit":     c.limit,
 			"optional":  false,
@@ -129,7 +129,7 @@ func (c ifaceExpC) Coerce(v interface{}, path []string) (newv interface{}, err o
 	if err != nil {
 		return
 	}
-	m := v.(schema.M)
+	m := v.(schema.MapType)
 	if _, ok := m["limit"]; !ok {
 		m["limit"] = c.limit
 	}
