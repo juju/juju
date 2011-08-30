@@ -6,33 +6,7 @@ import (
 	"launchpad.net/ensemble/go/schema"
 	"launchpad.net/goyaml"
 	"os"
-	"strconv"
-	"strings"
 )
-
-func errorf(format string, args ...interface{}) os.Error {
-	return os.NewError(fmt.Sprintf(format, args...))
-}
-
-// ParseId splits a formula identifier into its constituting parts.
-func ParseId(id string) (namespace string, name string, rev int, err os.Error) {
-	colon := strings.Index(id, ":")
-	if colon == -1 {
-		err = errorf("Missing formula namespace: %q", id)
-		return
-	}
-	dash := strings.LastIndex(id, "-")
-	if dash != -1 {
-		rev, err = strconv.Atoi(id[dash+1:])
-	}
-	if dash == -1 || err != nil {
-		err = errorf("Missing formula revision: %q", id)
-		return
-	}
-	namespace = id[:colon]
-	name = id[colon+1 : dash]
-	return
-}
 
 // Relation represents a single relation defined in the formula
 // metadata.yaml file.

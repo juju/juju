@@ -6,6 +6,7 @@ TARG=launchpad.net/ensemble/go/formula
 
 GOFILES=\
 	formula.go\
+	meta.go\
 
 GOFMT=gofmt
 BADFMT:=$(shell $(GOFMT) -l $(GOFILES) $(CGOFILES) $(wildcard *_test.go))
