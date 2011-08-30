@@ -5,6 +5,7 @@ all: package
 TARG=launchpad.net/ensemble/go/formula
 
 GOFILES=\
+	config.go\
 	formula.go\
 	meta.go\
 
