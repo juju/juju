@@ -11,8 +11,13 @@ func repoConfig(name string) (path string) {
 }
 
 func (s *S) TestReadConfig(c *C) {
-        config, err := formula.ReadConfig(repoConfig("dummy"))
+	config, err := formula.ReadConfig(repoConfig("dummy"))
 	c.Assert(err, IsNil)
 	c.Assert(config.Options["title"], Equals,
-		formula.Option{Default: "My Title", Description: "A descriptive title used for the service.", Type: "str"})
+		formula.Option{
+			Default:     "My Title",
+			Description: "A descriptive title used for the service.",
+			Type:        "string",
+		},
+	)
 }
