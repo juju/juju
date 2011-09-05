@@ -2,7 +2,9 @@ package formula
 
 import (
 	"fmt"
+	"io/ioutil"
 	"launchpad.net/ensemble/go/schema"
+	"launchpad.net/goyaml"
 	"os"
 	"strconv"
 	"strings"
@@ -32,11 +34,48 @@ func ParseId(id string) (namespace string, name string, rev int, err os.Error) {
 	return
 }
 
-var ifaceSchema = schema.FieldMap(schema.Fields{
-	"interface": schema.String(),
-	"limit":     schema.OneOf(schema.Const(nil), schema.Int()),
-	"optional":  schema.Bool(),
-}, nil)
+type Meta struct {
+	Name        string
+	Revision    int
+	Summary     string
+	Description string
+}
+
+// ReadMeta reads a metadata.yaml file and returns its representation.
+func ReadMeta(path string) (meta *Meta, err os.Error) {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return
+	}
+	meta, err = ParseMeta(data)
+	if err != nil {
+		err = os.NewError(fmt.Sprintf("%s: %s", path, err))
+	}
+	return
+}
+
+// ParseMeta parses the data of a metadata.yaml file and returns
+// its representation.
+func ParseMeta(data []byte) (meta *Meta, err os.Error) {
+	raw := make(map[interface{}]interface{})
+	err = goyaml.Unmarshal(data, raw)
+	if err != nil {
+		return
+	}
+	v, err := formulaSchema.Coerce(raw, nil)
+	if err != nil {
+		return
+	}
+	m := v.(schema.M)
+	meta = &Meta{}
+	meta.Name = m["name"].(string)
+	// Schema decodes as int64, but the int range should be good
+	// enough for revisions.
+	meta.Revision = int(m["revision"].(int64))
+	meta.Summary = m["summary"].(string)
+	meta.Description = m["description"].(string)
+	return
+}
 
 // Schema coercer that expands the interface shorthand notation.
 // A consistent format is easier to work with than considering the
@@ -99,3 +138,23 @@ func (c ifaceExpC) Coerce(v interface{}, path []string) (newv interface{}, err o
 	}
 	return ifaceSchema.Coerce(m, path)
 }
+
+var ifaceSchema = schema.FieldMap(schema.Fields{
+	"interface": schema.String(),
+	"limit":     schema.OneOf(schema.Const(nil), schema.Int()),
+	"optional":  schema.Bool(),
+}, nil)
+
+var formulaSchema = schema.FieldMap(
+	schema.Fields{
+		"ensemble":    schema.Const("formula"),
+		"name":        schema.String(),
+		"revision":    schema.Int(),
+		"summary":     schema.String(),
+		"description": schema.String(),
+		"peers":       schema.Map(schema.String(), ifaceExpander(1)),
+		"provides":    schema.Map(schema.String(), ifaceExpander(nil)),
+		"requires":    schema.Map(schema.String(), ifaceExpander(1)),
+	},
+	schema.Optional{"provides", "requires", "peers"},
+)
