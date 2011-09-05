@@ -38,10 +38,12 @@ func (s *S) TestParseId(c *C) {
 	c.Assert(err, Matches, `Missing formula revision: "local:foo-x"`)
 }
 
-const dummyMeta = "testrepo/dummy/metadata.yaml"
+func repoMeta(name string) (path string) {
+	return filepath.Join("testrepo", name, "metadata.yaml")
+}
 
 func (s *S) TestReadMeta(c *C) {
-	meta, err := formula.ReadMeta(dummyMeta)
+	meta, err := formula.ReadMeta(repoMeta("dummy"))
 	c.Assert(err, IsNil)
 	c.Assert(meta.Name, Equals, "dummy")
 	c.Assert(meta.Revision, Equals, 1)
@@ -51,7 +53,7 @@ func (s *S) TestReadMeta(c *C) {
 }
 
 func (s *S) TestParseMeta(c *C) {
-	data, err := ioutil.ReadFile(dummyMeta)
+	data, err := ioutil.ReadFile(repoMeta("dummy"))
 	c.Assert(err, IsNil)
 
 	meta, err := formula.ParseMeta(data)
@@ -64,7 +66,7 @@ func (s *S) TestParseMeta(c *C) {
 }
 
 func (s *S) TestMetaHeader(c *C) {
-	yaml := ReadYaml(dummyMeta)
+	yaml := ReadYaml(repoMeta("dummy"))
 	yaml["ensemble"] = "foo"
 	data := DumpYaml(yaml)
 
@@ -73,7 +75,7 @@ func (s *S) TestMetaHeader(c *C) {
 }
 
 func (s *S) TestMetaErrorWithPath(c *C) {
-	yaml := ReadYaml(dummyMeta)
+	yaml := ReadYaml(repoMeta("dummy"))
 	yaml["ensemble"] = "foo"
 	data := DumpYaml(yaml)
 
@@ -87,6 +89,29 @@ func (s *S) TestMetaErrorWithPath(c *C) {
 
 	_, err = formula.ReadMeta(path)
 	c.Assert(err, Matches, `/.*/mymeta\.yaml: ensemble: expected "formula", got "foo"`)
+}
+
+func (s *S) TestParseMetaRelations(c *C) {
+	meta, err := formula.ReadMeta(repoMeta("mysql"))
+	c.Assert(err, IsNil)
+	c.Assert(meta.Provides["server"], Equals, formula.Relation{Interface: "mysql"})
+	c.Assert(meta.Requires, IsNil)
+	c.Assert(meta.Peers, IsNil)
+
+	meta, err = formula.ReadMeta(repoMeta("riak"))
+	c.Assert(err, IsNil)
+	c.Assert(meta.Provides["endpoint"], Equals, formula.Relation{Interface: "http"})
+	c.Assert(meta.Provides["admin"], Equals, formula.Relation{Interface: "http"})
+	c.Assert(meta.Peers["ring"], Equals, formula.Relation{Interface: "riak", Limit: 1})
+	c.Assert(meta.Requires, IsNil)
+
+	meta, err = formula.ReadMeta(repoMeta("wordpress"))
+	c.Assert(err, IsNil)
+	c.Assert(meta.Provides["url"], Equals, formula.Relation{Interface: "http"})
+	c.Assert(meta.Requires["db"], Equals, formula.Relation{Interface: "mysql", Limit: 1})
+	c.Assert(meta.Requires["cache"], Equals, formula.Relation{Interface: "varnish", Limit: 2, Optional: true})
+	c.Assert(meta.Peers, IsNil)
+
 }
 
 // Test rewriting of a given interface specification into long form.

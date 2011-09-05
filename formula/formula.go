@@ -34,11 +34,24 @@ func ParseId(id string) (namespace string, name string, rev int, err os.Error) {
 	return
 }
 
+// Relation represents a single relation defined in the formula
+// metadata.yaml file.
+type Relation struct {
+	Interface string
+	Optional bool
+	Limit int
+}
+
+// Meta represents all the known content that may be defined
+// within a formula's metadata.yaml file.
 type Meta struct {
 	Name        string
 	Revision    int
 	Summary     string
 	Description string
+	Provides    map[string]Relation
+	Requires    map[string]Relation
+	Peers       map[string]Relation
 }
 
 // ReadMeta reads a metadata.yaml file and returns its representation.
@@ -74,7 +87,30 @@ func ParseMeta(data []byte) (meta *Meta, err os.Error) {
 	meta.Revision = int(m["revision"].(int64))
 	meta.Summary = m["summary"].(string)
 	meta.Description = m["description"].(string)
+	meta.Provides = parseRelations(m["provides"])
+	meta.Requires = parseRelations(m["requires"])
+	meta.Peers = parseRelations(m["peers"])
 	return
+}
+
+func parseRelations(relations interface{}) map[string]Relation {
+	if relations == nil {
+		return nil
+	}
+	result := make(map[string]Relation)
+	for name, rel := range relations.(schema.MapType) {
+		relMap := rel.(schema.MapType)
+		relation := Relation{}
+		relation.Interface = relMap["interface"].(string)
+		relation.Optional = relMap["optional"].(bool)
+		if relMap["limit"] != nil {
+			// Schema defaults to int64, but we know
+			// the int range should be more than enough.
+			relation.Limit = int(relMap["limit"].(int64))
+		}
+		result[name.(string)] = relation
+	}
+	return result
 }
 
 // Schema coercer that expands the interface shorthand notation.
