@@ -9,11 +9,11 @@ import (
 	"strings"
 )
 
-// All map types used in the schema package are of type M.
-type M map[interface{}]interface{}
+// All map types used in the schema package are of type MapType.
+type MapType map[interface{}]interface{}
 
-// All the slice types generated in the schema package are of type L.
-type L []interface{}
+// All the slice types generated in the schema package are of type ListType.
+type ListType []interface{}
 
 // The Coerce method of the Checker interface is called recursively when
 // v is being validated.  If err is nil, newv is used as the new value
@@ -200,7 +200,7 @@ func (c sregexpC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
 // provided slice value fails to be processed, processing will stop
 // and return with the obtained error.
 //
-// The coerced output value has type schema.L.
+// The coerced output value has type schema.ListType.
 func List(elem Checker) Checker {
 	return listC{elem}
 }
@@ -218,7 +218,7 @@ func (c listC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
 	path = append(path, "[", "?", "]")
 
 	l := rv.Len()
-	out := make(L, 0, l)
+	out := make(ListType, 0, l)
 	for i := 0; i != l; i++ {
 		path[len(path)-2] = strconv.Itoa(i)
 		elem, err := c.elem.Coerce(rv.Index(i).Interface(), path)
@@ -235,7 +235,7 @@ func (c listC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
 // value fails to be coerced, processing stops and returns with the
 // underlying error.
 //
-// The coerced output value has type schema.M.
+// The coerced output value has type schema.MapType.
 func Map(key Checker, value Checker) Checker {
 	return mapC{key, value}
 }
@@ -254,7 +254,7 @@ func (c mapC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
 	vpath := append(path, ".", "?")
 
 	l := rv.Len()
-	out := make(M, l)
+	out := make(MapType, l)
 	keys := rv.MapKeys()
 	for i := 0; i != l; i++ {
 		k := keys[i]
@@ -281,7 +281,7 @@ type Optional []string
 // individually. If a field fails to be processed, processing stops
 // and returns with the underlying error.
 //
-// The coerced output value has type schema.M.
+// The coerced output value has type schema.MapType.
 func FieldMap(fields Fields, optional Optional) Checker {
 	return fieldMapC{fields, optional}
 }
@@ -309,7 +309,7 @@ func (c fieldMapC) Coerce(v interface{}, path []string) (interface{}, os.Error) 
 	vpath := append(path, ".", "?")
 
 	l := rv.Len()
-	out := make(M, l)
+	out := make(MapType, l)
 	for k, checker := range c.fields {
 		vpath[len(vpath)-1] = k
 		var value interface{}
@@ -334,7 +334,7 @@ func (c fieldMapC) Coerce(v interface{}, path []string) (interface{}, os.Error) 
 // field processes the map correctly. If no checker processes
 // the selector value correctly, an error is returned.
 //
-// The coerced output value has type schema.M.
+// The coerced output value has type schema.MapType.
 func FieldMapSet(selector string, maps []Checker) Checker {
 	fmaps := make([]fieldMapC, len(maps))
 	for i, m := range maps {

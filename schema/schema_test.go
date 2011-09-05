@@ -166,7 +166,7 @@ func (s *S) TestList(c *C) {
 	sch := schema.List(schema.Int())
 	out, err := sch.Coerce([]int8{1, 2}, aPath)
 	c.Assert(err, IsNil)
-	c.Assert(out, Equals, schema.L{int64(1), int64(2)})
+	c.Assert(out, Equals, schema.ListType{int64(1), int64(2)})
 
 	out, err = sch.Coerce(42, aPath)
 	c.Assert(out, IsNil)
@@ -185,7 +185,7 @@ func (s *S) TestMap(c *C) {
 	sch := schema.Map(schema.String(), schema.Int())
 	out, err := sch.Coerce(map[string]interface{}{"a": 1, "b": int8(2)}, aPath)
 	c.Assert(err, IsNil)
-	c.Assert(out, Equals, schema.M{"a": int64(1), "b": int64(2)})
+	c.Assert(out, Equals, schema.MapType{"a": int64(1), "b": int64(2)})
 
 	out, err = sch.Coerce(42, aPath)
 	c.Assert(out, IsNil)
@@ -218,7 +218,7 @@ func (s *S) TestFieldMap(c *C) {
 
 	out, err := sch.Coerce(map[string]interface{}{"a": "A", "b": "B"}, aPath)
 	c.Assert(err, IsNil)
-	c.Assert(out, Equals, schema.M{"a": "A", "b": "B"})
+	c.Assert(out, Equals, schema.MapType{"a": "A", "b": "B"})
 
 	out, err = sch.Coerce(42, aPath)
 	c.Assert(out, IsNil)
@@ -239,7 +239,7 @@ func (s *S) TestFieldMap(c *C) {
 	// b is optional
 	out, err = sch.Coerce(map[string]interface{}{"a": "A"}, aPath)
 	c.Assert(err, IsNil)
-	c.Assert(out, Equals, schema.M{"a": "A"})
+	c.Assert(out, Equals, schema.MapType{"a": "A"})
 
 	// First path entry shouldn't have dots in an error message.
 	out, err = sch.Coerce(map[string]bool{"a": true}, nil)
@@ -260,11 +260,11 @@ func (s *S) TestSchemaMap(c *C) {
 
 	out, err := sch.Coerce(map[string]int{"type": 1, "a": 2}, aPath)
 	c.Assert(err, IsNil)
-	c.Assert(out, Equals, schema.M{"type": 1, "a": 2})
+	c.Assert(out, Equals, schema.MapType{"type": 1, "a": 2})
 
 	out, err = sch.Coerce(map[string]int{"type": 3, "b": 4}, aPath)
 	c.Assert(err, IsNil)
-	c.Assert(out, Equals, schema.M{"type": 3, "b": 4})
+	c.Assert(out, Equals, schema.MapType{"type": 3, "b": 4})
 
 	out, err = sch.Coerce(map[string]int{}, aPath)
 	c.Assert(out, IsNil)
