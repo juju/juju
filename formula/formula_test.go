@@ -1,9 +1,11 @@
 package formula_test
 
 import (
+	"io/ioutil"
 	"testing"
 	. "launchpad.net/gocheck"
 	"launchpad.net/ensemble/go/formula"
+	"launchpad.net/goyaml"
 )
 
 
@@ -33,4 +35,25 @@ func (s *S) TestParseId(c *C) {
 
 	_, _, _, err = formula.ParseId("local:foo-x")
 	c.Assert(err, Matches, `Missing formula revision: "local:foo-x"`)
+}
+
+func ReadYaml(path string) map[interface{}]interface{} {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		panic(err)
+	}
+	m := make(map[interface{}]interface{})
+	err = goyaml.Unmarshal(data, m)
+	if err != nil {
+		panic(err)
+	}
+	return m
+}
+
+func DumpYaml(v interface{}) []byte {
+	data, err := goyaml.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return data
 }

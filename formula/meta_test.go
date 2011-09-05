@@ -5,7 +5,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/ensemble/go/formula"
 	"launchpad.net/ensemble/go/schema"
-	"launchpad.net/goyaml"
 	"path/filepath"
 )
 
@@ -133,26 +132,4 @@ func (s *S) TestIfaceExpander(c *C) {
 	v, err = e.Coerce(schema.MapType{"interface": "http"}, path)
 	c.Assert(err, IsNil)
 	c.Assert(v, Equals, schema.MapType{"interface": "http", "limit": int64(1), "optional": false})
-}
-
-
-func ReadYaml(path string) map[interface{}]interface{} {
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		panic(err)
-	}
-	m := make(map[interface{}]interface{})
-	err = goyaml.Unmarshal(data, m)
-	if err != nil {
-		panic(err)
-	}
-	return m
-}
-
-func DumpYaml(v interface{}) []byte {
-	data, err := goyaml.Marshal(v)
-	if err != nil {
-		panic(err)
-	}
-	return data
 }
