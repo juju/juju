@@ -9,6 +9,12 @@ import (
 	"strings"
 )
 
+// All map types used in the schema package are of type M.
+type M map[interface{}]interface{}
+
+// All the slice types generated in the schema package are of type L.
+type L []interface{}
+
 // The Coerce method of the Checker interface is called recursively when
 // v is being validated.  If err is nil, newv is used as the new value
 // at the recursion point.  If err is non-nil, v is taken as invalid and
@@ -101,14 +107,14 @@ func Bool() Checker {
 type boolC struct{}
 
 func (c boolC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
-	if reflect.TypeOf(v).Kind() == reflect.Bool {
+	if v != nil && reflect.TypeOf(v).Kind() == reflect.Bool {
 		return v, nil
 	}
 	return nil, error{"bool", v, path}
 }
 
 // Int returns a Checker that accepts any integer value, and returns
-// the same value typed as an int64.
+// the same value consistently typed as an int64.
 func Int() Checker {
 	return intC{}
 }
@@ -116,6 +122,9 @@ func Int() Checker {
 type intC struct{}
 
 func (c intC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
+	if v == nil {
+		return nil, error{"int", v, path}
+	}
 	switch reflect.TypeOf(v).Kind() {
 	case reflect.Int:
 	case reflect.Int8:
@@ -129,7 +138,7 @@ func (c intC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
 }
 
 // Int returns a Checker that accepts any float value, and returns
-// the same value typed as a float64.
+// the same value consistently typed as a float64.
 func Float() Checker {
 	return floatC{}
 }
@@ -137,6 +146,9 @@ func Float() Checker {
 type floatC struct{}
 
 func (c floatC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
+	if v == nil {
+		return nil, error{"float", v, path}
+	}
 	switch reflect.TypeOf(v).Kind() {
 	case reflect.Float32:
 	case reflect.Float64:
@@ -156,7 +168,7 @@ func String() Checker {
 type stringC struct{}
 
 func (c stringC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
-	if reflect.TypeOf(v).Kind() == reflect.String {
+	if v != nil && reflect.TypeOf(v).Kind() == reflect.String {
 		return reflect.ValueOf(v).String(), nil
 	}
 	return nil, error{"string", v, path}
@@ -172,7 +184,7 @@ func (c sregexpC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
 	// XXX The regexp package happens to be extremely simple right now.
 	//     Once exp/regexp goes mainstream, we'll have to update this
 	//     logic to use a more widely accepted regexp subset.
-	if reflect.TypeOf(v).Kind() == reflect.String {
+	if v != nil && reflect.TypeOf(v).Kind() == reflect.String {
 		s := reflect.ValueOf(v).String()
 		_, err := regexp.Compile(s)
 		if err != nil {
@@ -183,10 +195,12 @@ func (c sregexpC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
 	return nil, error{"regexp string", v, path}
 }
 
-// String returns a Checker that accepts a slice value with values
+// List returns a Checker that accepts a slice value with values
 // that are processed with the elem checker.  If any element of the
 // provided slice value fails to be processed, processing will stop
 // and return with the obtained error.
+//
+// The coerced output value has type schema.L.
 func List(elem Checker) Checker {
 	return listC{elem}
 }
@@ -204,7 +218,7 @@ func (c listC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
 	path = append(path, "[", "?", "]")
 
 	l := rv.Len()
-	out := make([]interface{}, 0, l)
+	out := make(L, 0, l)
 	for i := 0; i != l; i++ {
 		path[len(path)-2] = strconv.Itoa(i)
 		elem, err := c.elem.Coerce(rv.Index(i).Interface(), path)
@@ -220,6 +234,8 @@ func (c listC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
 // in the map are processed with the respective checker, and if any
 // value fails to be coerced, processing stops and returns with the
 // underlying error.
+//
+// The coerced output value has type schema.M.
 func Map(key Checker, value Checker) Checker {
 	return mapC{key, value}
 }
@@ -238,7 +254,7 @@ func (c mapC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
 	vpath := append(path, ".", "?")
 
 	l := rv.Len()
-	out := make(map[interface{}]interface{}, l)
+	out := make(M, l)
 	keys := rv.MapKeys()
 	for i := 0; i != l; i++ {
 		k := keys[i]
@@ -264,6 +280,8 @@ type Optional []string
 // and processing will only succeed if all the values succeed
 // individually. If a field fails to be processed, processing stops
 // and returns with the underlying error.
+//
+// The coerced output value has type schema.M.
 func FieldMap(fields Fields, optional Optional) Checker {
 	return fieldMapC{fields, optional}
 }
@@ -291,7 +309,7 @@ func (c fieldMapC) Coerce(v interface{}, path []string) (interface{}, os.Error) 
 	vpath := append(path, ".", "?")
 
 	l := rv.Len()
-	out := make(map[string]interface{}, l)
+	out := make(M, l)
 	for k, checker := range c.fields {
 		vpath[len(vpath)-1] = k
 		var value interface{}
@@ -315,6 +333,8 @@ func (c fieldMapC) Coerce(v interface{}, path []string) (interface{}, os.Error) 
 // used is the first one whose checker associated with the selector
 // field processes the map correctly. If no checker processes
 // the selector value correctly, an error is returned.
+//
+// The coerced output value has type schema.M.
 func FieldMapSet(selector string, maps []Checker) Checker {
 	fmaps := make([]fieldMapC, len(maps))
 	for i, m := range maps {
