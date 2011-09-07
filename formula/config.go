@@ -1,7 +1,6 @@
 package formula
 
 import (
-	"fmt"
 	"io/ioutil"
 	"launchpad.net/ensemble/go/schema"
 	"launchpad.net/goyaml"
@@ -32,7 +31,7 @@ func ReadConfig(path string) (config *Config, err os.Error) {
 	}
 	config, err = ParseConfig(data)
 	if err != nil {
-		err = os.NewError(fmt.Sprintf("%s: %s", path, err))
+		err = errorf("%s: %s", path, err)
 	}
 	return
 }
@@ -80,7 +79,7 @@ func (c *Config) Validate(values map[string]string) (processed map[string]interf
 	for k, v := range values {
 		opt, ok := c.Options[k]
 		if !ok {
-			return nil, os.NewError(fmt.Sprintf("Unknown configuration option: %q", k))
+			return nil, errorf("Unknown configuration option: %q", k)
 		}
 		switch opt.Type {
 		case "string":
@@ -88,17 +87,17 @@ func (c *Config) Validate(values map[string]string) (processed map[string]interf
 		case "int":
 			i, err := strconv.Atoi64(v)
 			if err != nil {
-				return nil, os.NewError(fmt.Sprintf("Value for %q is not an int: %q", k, v))
+				return nil, errorf("Value for %q is not an int: %q", k, v)
 			}
 			out[k] = i
 		case "float":
 			f, err := strconv.Atof64(v)
 			if err != nil {
-				return nil, os.NewError(fmt.Sprintf("Value for %q is not a float: %q", k, v))
+				return nil, errorf("Value for %q is not a float: %q", k, v)
 			}
 			out[k] = f
 		default:
-			panic(fmt.Sprintf("Internal error: option type %q is unknown to Validate", opt.Type))
+			panic(errorf("Internal error: option type %q is unknown to Validate", opt.Type))
 		}
 	}
 	for k, opt := range c.Options {

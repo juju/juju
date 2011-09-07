@@ -6,6 +6,7 @@ TARG=launchpad.net/ensemble/go/formula
 
 GOFILES=\
 	config.go\
+	dir.go\
 	formula.go\
 	meta.go\
 
