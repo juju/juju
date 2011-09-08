@@ -8,7 +8,6 @@ import (
 	"launchpad.net/goyaml"
 )
 
-
 func Test(t *testing.T) {
 	TestingT(t)
 }

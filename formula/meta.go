@@ -12,8 +12,8 @@ import (
 // metadata.yaml file.
 type Relation struct {
 	Interface string
-	Optional bool
-	Limit int
+	Optional  bool
+	Limit     int
 }
 
 // Meta represents all the known content that may be defined
