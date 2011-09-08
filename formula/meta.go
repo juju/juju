@@ -1,7 +1,7 @@
 package formula
 
 import (
-	"fmt"
+	"io"
 	"io/ioutil"
 	"launchpad.net/ensemble/go/schema"
 	"launchpad.net/goyaml"
@@ -28,22 +28,13 @@ type Meta struct {
 	Peers       map[string]Relation
 }
 
-// ReadMeta reads a metadata.yaml file and returns its representation.
-func ReadMeta(path string) (meta *Meta, err os.Error) {
-	data, err := ioutil.ReadFile(path)
+// ReadMeta reads the content of a metadata.yaml file and returns
+// its representation.
+func ReadMeta(r io.Reader) (meta *Meta, err os.Error) {
+	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		return
 	}
-	meta, err = ParseMeta(data)
-	if err != nil {
-		err = os.NewError(fmt.Sprintf("%s: %s", path, err))
-	}
-	return
-}
-
-// ParseMeta parses the data of a metadata.yaml file and returns
-// its representation.
-func ParseMeta(data []byte) (meta *Meta, err os.Error) {
 	raw := make(map[interface{}]interface{})
 	err = goyaml.Unmarshal(data, raw)
 	if err != nil {
@@ -51,7 +42,7 @@ func ParseMeta(data []byte) (meta *Meta, err os.Error) {
 	}
 	v, err := formulaSchema.Coerce(raw, nil)
 	if err != nil {
-		return
+		return nil, os.NewError("metadata: " + err.String())
 	}
 	m := v.(schema.MapType)
 	meta = &Meta{}

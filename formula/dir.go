@@ -10,7 +10,12 @@ import (
 // ReadDir returns a Dir representing an expanded formula directory.
 func ReadDir(path string) (dir *Dir, err os.Error) {
 	dir = &Dir{path: path}
-	dir.meta, err = ReadMeta(dir.join("metadata.yaml"))
+	file, err := os.Open(dir.join("metadata.yaml"))
+	if err != nil {
+		return nil, err
+	}
+	dir.meta, err = ReadMeta(file)
+	file.Close()
 	if err != nil {
 		return nil, err
 	}

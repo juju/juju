@@ -2,7 +2,6 @@ package formula_test
 
 import (
 	"archive/zip"
-	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/ensemble/go/formula"
 	"path/filepath"
@@ -50,10 +49,7 @@ func (s *S) TestBundleTo(c *C) {
 	file, err := metaf.Open()
 	c.Assert(err, IsNil)
 	defer file.Close()
-	data, err := ioutil.ReadAll(file)
-	c.Assert(err, IsNil)
-
-	meta, err := formula.ParseMeta(data)
+	meta, err := formula.ReadMeta(file)
 	c.Assert(err, IsNil)
 	c.Assert(meta.Name, Equals, "dummy")
 }
