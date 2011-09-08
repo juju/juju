@@ -1,9 +1,12 @@
 package formula_test
 
 import (
+	"bytes"
+	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/ensemble/go/formula"
+	"os"
 	"path/filepath"
 )
 
@@ -28,11 +31,22 @@ options:
     type: float
 `
 
-func repoConfig(name string) (path string) {
-	return filepath.Join("testrepo", name, "config.yaml")
+func repoConfig(name string) io.Reader {
+	file, err := os.Open(filepath.Join("testrepo", name, "config.yaml"))
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		panic(err)
+	}
+	return bytes.NewBuffer(data)
 }
 
-func assertDummyConfig(c *C, config *formula.Config) {
+func (s *S) TestReadConfig(c *C) {
+	config, err := formula.ReadConfig(repoConfig("dummy"))
+	c.Assert(err, IsNil)
 	c.Assert(config.Options["title"], Equals,
 		formula.Option{
 			Default:     "My Title",
@@ -42,37 +56,13 @@ func assertDummyConfig(c *C, config *formula.Config) {
 	)
 }
 
-func (s *S) TestReadConfig(c *C) {
-	config, err := formula.ReadConfig(repoConfig("dummy"))
-	c.Assert(err, IsNil)
-	assertDummyConfig(c, config)
-}
-
-func (s *S) TestParseConfig(c *C) {
-	data, err := ioutil.ReadFile(repoConfig("dummy"))
-	c.Assert(err, IsNil)
-
-	config, err := formula.ParseConfig(data)
-	c.Assert(err, IsNil)
-	assertDummyConfig(c, config)
-}
-
-func (s *S) TestConfigErrorWithPath(c *C) {
-	path := filepath.Join(c.MkDir(), "mymeta.yaml")
-
-	_, err := formula.ReadConfig(path)
-	c.Assert(err, Matches, `.*/.*/mymeta\.yaml.*no such file.*`)
-
-	data := `options: {t: {type: foo}}`
-	err = ioutil.WriteFile(path, []byte(data), 0644)
-	c.Assert(err, IsNil)
-
-	_, err = formula.ReadConfig(path)
-	c.Assert(err, Matches, `/.*/mymeta\.yaml: options.t.type: unsupported value`)
+func (s *S) TestConfigError(c *C) {
+	_, err := formula.ReadConfig(bytes.NewBuffer([]byte(`options: {t: {type: foo}}`)))
+	c.Assert(err, Matches, `config: options.t.type: unsupported value`)
 }
 
 func (s *S) TestParseSample(c *C) {
-	config, err := formula.ParseConfig([]byte(sampleConfig))
+	config, err := formula.ReadConfig(bytes.NewBuffer([]byte(sampleConfig)))
 	c.Assert(err, IsNil)
 
 	opt := config.Options
@@ -105,7 +95,7 @@ func (s *S) TestParseSample(c *C) {
 }
 
 func (s *S) TestValidate(c *C) {
-	config, err := formula.ParseConfig([]byte(sampleConfig))
+	config, err := formula.ReadConfig(bytes.NewBuffer([]byte(sampleConfig)))
 	c.Assert(err, IsNil)
 
 	input := map[string]string{

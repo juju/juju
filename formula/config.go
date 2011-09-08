@@ -1,6 +1,7 @@
 package formula
 
 import (
+	"io"
 	"io/ioutil"
 	"launchpad.net/ensemble/go/schema"
 	"launchpad.net/goyaml"
@@ -24,21 +25,11 @@ type Config struct {
 }
 
 // ReadConfig reads a config.yaml file and returns its representation.
-func ReadConfig(path string) (config *Config, err os.Error) {
-	data, err := ioutil.ReadFile(path)
+func ReadConfig(r io.Reader) (config *Config, err os.Error) {
+	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		return
 	}
-	config, err = ParseConfig(data)
-	if err != nil {
-		err = errorf("%s: %s", path, err)
-	}
-	return
-}
-
-// ParseConfig parses the content of a config.yaml file and returns
-// its representation.
-func ParseConfig(data []byte) (config *Config, err os.Error) {
 	raw := make(map[interface{}]interface{})
 	err = goyaml.Unmarshal(data, raw)
 	if err != nil {
@@ -46,7 +37,7 @@ func ParseConfig(data []byte) (config *Config, err os.Error) {
 	}
 	v, err := configSchema.Coerce(raw, nil)
 	if err != nil {
-		return
+		return nil, os.NewError("config: " + err.String())
 	}
 	config = &Config{}
 	config.Options = make(map[string]Option)

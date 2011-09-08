@@ -40,20 +40,7 @@ func (s *S) TestParseId(c *C) {
 
 type YamlHacker map[interface{}]interface{}
 
-func ReadYaml(path string) YamlHacker {
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		panic(err)
-	}
-	m := make(map[interface{}]interface{})
-	err = goyaml.Unmarshal(data, m)
-	if err != nil {
-		panic(err)
-	}
-	return YamlHacker(m)
-}
-
-func ReadYaml_(r io.Reader) YamlHacker {
+func ReadYaml(r io.Reader) YamlHacker {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		panic(err)
@@ -72,12 +59,4 @@ func (yh YamlHacker) Reader() io.Reader {
 		panic(err)
 	}
 	return bytes.NewBuffer(data)
-}
-
-func DumpYaml(v interface{}) []byte {
-	data, err := goyaml.Marshal(v)
-	if err != nil {
-		panic(err)
-	}
-	return data
 }

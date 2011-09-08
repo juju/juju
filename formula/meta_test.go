@@ -36,7 +36,7 @@ func (s *S) TestReadMeta(c *C) {
 }
 
 func (s *S) TestMetaHeader(c *C) {
-	yaml := ReadYaml_(repoMeta("dummy"))
+	yaml := ReadYaml(repoMeta("dummy"))
 	yaml["ensemble"] = "foo"
 	_, err := formula.ReadMeta(yaml.Reader())
 	c.Assert(err, Matches, `metadata: ensemble: expected "formula", got "foo"`)

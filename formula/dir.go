@@ -19,7 +19,12 @@ func ReadDir(path string) (dir *Dir, err os.Error) {
 	if err != nil {
 		return nil, err
 	}
-	dir.config, err = ReadConfig(dir.join("config.yaml"))
+	file, err = os.Open(dir.join("config.yaml"))
+	if err != nil {
+		return nil, err
+	}
+	dir.config, err = ReadConfig(file)
+	file.Close()
 	if err != nil {
 		return nil, err
 	}
