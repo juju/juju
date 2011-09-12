@@ -10,12 +10,8 @@ import (
 // The Formula interface is implemented by any type that
 // may be handled as a formula.
 type Formula interface {
-	Path() string
 	Meta() *Meta
 	Config() *Config
-	IsExpanded() bool
-	//ExpandTo(path string) Formula
-	//BundleTo(path string) Formula
 }
 
 // ParseId splits a formula identifier into its constituting parts.

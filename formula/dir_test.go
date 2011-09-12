@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	. "launchpad.net/gocheck"
 	"launchpad.net/ensemble/go/formula"
+	"os"
 	"path/filepath"
 )
 
@@ -15,19 +16,20 @@ func (s *S) TestReadDir(c *C) {
 	path := repoDir("dummy")
 	dir, err := formula.ReadDir(path)
 	c.Assert(err, IsNil)
-	c.Assert(dir.Path(), Equals, path)
+	c.Assert(dir.Path, Equals, path)
 	c.Assert(dir.Meta().Name, Equals, "dummy")
 	c.Assert(dir.Config().Options["title"].Default, Equals, "My Title")
-	c.Assert(dir.IsExpanded(), Equals, true)
 }
 
 func (s *S) TestBundleTo(c *C) {
-	tmpdir := c.MkDir()
 	dir, err := formula.ReadDir(repoDir("dummy"))
 	c.Assert(err, IsNil)
 
-	path := filepath.Join(tmpdir, "bundle.charm")
-	err = dir.BundleTo(path)
+	path := filepath.Join(c.MkDir(), "bundle.charm")
+	file, err := os.Create(path)
+	c.Assert(err, IsNil)
+	err = dir.BundleTo(file)
+	file.Close()
 	c.Assert(err, IsNil)
 
 	zipr, err := zip.OpenReader(path)
@@ -46,10 +48,10 @@ func (s *S) TestBundleTo(c *C) {
 	}
 
 	c.Assert(metaf, NotNil)
-	file, err := metaf.Open()
+	reader, err := metaf.Open()
 	c.Assert(err, IsNil)
-	defer file.Close()
-	meta, err := formula.ReadMeta(file)
+	defer reader.Close()
+	meta, err := formula.ReadMeta(reader)
 	c.Assert(err, IsNil)
 	c.Assert(meta.Name, Equals, "dummy")
 }

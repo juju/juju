@@ -2,6 +2,7 @@ package formula
 
 import (
 	"archive/zip"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -9,7 +10,7 @@ import (
 
 // ReadDir returns a Dir representing an expanded formula directory.
 func ReadDir(path string) (dir *Dir, err os.Error) {
-	dir = &Dir{path: path}
+	dir = &Dir{Path: path}
 	file, err := os.Open(dir.join("metadata.yaml"))
 	if err != nil {
 		return nil, err
@@ -34,18 +35,13 @@ func ReadDir(path string) (dir *Dir, err os.Error) {
 // The Dir type encapsulates access to data and operations
 // on a formula directory.
 type Dir struct {
-	path   string
+	Path   string
 	meta   *Meta
 	config *Config
 }
 
 // Trick to ensure Dir implements the Formula interface.
 var _ Formula = (*Dir)(nil)
-
-// Path returns the directory the formula is expanded under.
-func (dir *Dir) Path() string {
-	return dir.path
-}
 
 // Meta returns the Meta representing the metadata.yaml file
 // for the formula expanded in dir.
@@ -59,38 +55,15 @@ func (dir *Dir) Config() *Config {
 	return dir.config
 }
 
-// IsExpanded returns true since Dir represents an expanded formula
-// directory. It will return false for a formula Bundle.
-// This is useful mainly when using a formula through the
-// generic Formula interface
-func (dir *Dir) IsExpanded() bool {
-	return true
-}
-
-// join builds a path rooted at the formula's expended directory
-// path and the extra path components provided.
-func (dir *Dir) join(parts ...string) string {
-	parts = append([]string{dir.path}, parts...)
-	return filepath.Join(parts...)
-}
-
-// BundleTo builds a formula file from the expanded formula in dir.
-func (dir *Dir) BundleTo(path string) (err os.Error) {
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	zipw := zip.NewWriter(file)
+// BundleTo creates a formula file from the formula expanded in dir.
+func (dir *Dir) BundleTo(w io.Writer) (err os.Error) {
+	zipw := zip.NewWriter(w)
 	defer func() {
 		zipw.Close()
-		file.Close()
 		handleZipError(&err)
-		if err != nil {
-			os.Remove(path)
-		}
 	}()
-	visitor := zipVisitor{zipw, dir.path}
-	walk(dir.path, &visitor)
+	visitor := zipVisitor{zipw, dir.Path}
+	walk(dir.Path, &visitor)
 	return nil
 }
 
@@ -137,4 +110,11 @@ func handleZipError(err *os.Error) {
 		return
 	}
 	panic(panicv) // Something else
+}
+
+// join builds a path rooted at the formula's expended directory
+// path and the extra path components provided.
+func (dir *Dir) join(parts ...string) string {
+	parts = append([]string{dir.Path}, parts...)
+	return filepath.Join(parts...)
 }
