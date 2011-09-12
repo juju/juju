@@ -40,7 +40,7 @@ type Dir struct {
 	config *Config
 }
 
-// Trick to ensure Dir implements the Formula interface.
+// Trick to ensure *Dir implements the Formula interface.
 var _ Formula = (*Dir)(nil)
 
 // Meta returns the Meta representing the metadata.yaml file
