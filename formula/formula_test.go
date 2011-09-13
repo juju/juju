@@ -8,6 +8,8 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/ensemble/go/formula"
 	"launchpad.net/goyaml"
+	"os"
+	"path/filepath"
 )
 
 func Test(t *testing.T) {
@@ -36,6 +38,19 @@ func (s *S) TestParseId(c *C) {
 
 	_, _, _, err = formula.ParseId("local:foo-x")
 	c.Assert(err, Matches, `Missing formula revision: "local:foo-x"`)
+}
+
+func checkDummy(c *C, f formula.Formula, path string) {
+	c.Assert(f.Meta().Name, Equals, "dummy")
+	c.Assert(f.Config().Options["title"].Default, Equals, "My Title")
+	switch f := f.(type) {
+	case *formula.Bundle:
+		c.Assert(f.Path, Equals, path)
+	case *formula.Dir:
+		c.Assert(f.Path, Equals, path)
+		_, err := os.Stat(filepath.Join(path, "src", "hello.c"))
+		c.Assert(err, IsNil)
+	}
 }
 
 type YamlHacker map[interface{}]interface{}
