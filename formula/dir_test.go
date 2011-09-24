@@ -16,9 +16,7 @@ func (s *S) TestReadDir(c *C) {
 	path := repoDir("dummy")
 	dir, err := formula.ReadDir(path)
 	c.Assert(err, IsNil)
-	c.Assert(dir.Path, Equals, path)
-	c.Assert(dir.Meta().Name, Equals, "dummy")
-	c.Assert(dir.Config().Options["title"].Default, Equals, "My Title")
+	checkDummy(c, dir, path)
 }
 
 func (s *S) TestBundleTo(c *C) {
