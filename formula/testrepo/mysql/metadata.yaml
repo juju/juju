@@ -1,7 +1,0 @@
-ensemble: formula
-name: mysql
-revision: 1
-summary: "Database engine"
-description: "A pretty popular database"
-provides:
-  server: mysql

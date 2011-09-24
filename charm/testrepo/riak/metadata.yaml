@@ -1,0 +1,12 @@
+name: riak
+revision: 7
+summary: "K/V storage engine"
+description: "Scalable K/V Store in Erlang with Clocks :-)"
+provides:
+  endpoint:
+    interface: http
+  admin:
+    interface: http
+peers:
+  ring:
+    interface: riak

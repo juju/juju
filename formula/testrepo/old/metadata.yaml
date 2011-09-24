@@ -1,7 +1,0 @@
-ensemble: formula
-name: sample
-revision: 1
-summary: "That's a sample formula."
-description: |
-    This is a longer description which
-    potentially contains multiple lines.

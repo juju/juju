@@ -3,7 +3,7 @@ package schema_test
 import (
 	"testing"
 	. "launchpad.net/gocheck"
-	"launchpad.net/ensemble/go/schema"
+	"launchpad.net/juju/go/schema"
 	"os"
 )
 

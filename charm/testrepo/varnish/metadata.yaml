@@ -1,0 +1,6 @@
+name: varnish
+revision: 1
+summary: "Database engine"
+description: "Another popular database"
+provides:
+  webcache: varnish

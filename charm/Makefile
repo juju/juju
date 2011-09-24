@@ -2,10 +2,16 @@ include $(GOROOT)/src/Make.inc
 
 all: package
 
-TARG=launchpad.net/juju/go/schema
+TARG=launchpad.net/juju/go/charm
 
 GOFILES=\
-	schema.go\
+	bundle.go\
+	config.go\
+	dir.go\
+	charm.go\
+	meta.go\
+	walk.go\
+	rel.go\
 
 GOFMT=gofmt
 BADFMT:=$(shell $(GOFMT) -l $(GOFILES) $(CGOFILES) $(wildcard *_test.go))
