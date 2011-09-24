@@ -6,6 +6,7 @@ import (
 	"launchpad.net/ensemble/go/schema"
 	"launchpad.net/goyaml"
 	"os"
+	"strconv"
 )
 
 // Option represents a single configuration option that is declared
@@ -65,6 +66,47 @@ func ParseConfig(data []byte) (config *Config, err os.Error) {
 		}
 	}
 	return
+}
+
+// Validate processes the values in the input map according to the
+// configuration in config, doing the following operations:
+//
+// - Values are converted from strings to the types defined
+// - Options with default values are introduced for missing keys
+// - Unknown keys and badly typed values are reported as errors
+// 
+func (c *Config) Validate(values map[string]string) (processed map[string]interface{}, err os.Error) {
+	out := make(map[string]interface{})
+	for k, v := range values {
+		opt, ok := c.Options[k]
+		if !ok {
+			return nil, os.NewError(fmt.Sprintf("Unknown configuration option: %q", k))
+		}
+		switch opt.Type {
+		case "string":
+			out[k] = v
+		case "int":
+			i, err := strconv.Atoi64(v)
+			if err != nil {
+				return nil, os.NewError(fmt.Sprintf("Value for %q is not an int: %q", k, v))
+			}
+			out[k] = i
+		case "float":
+			f, err := strconv.Atof64(v)
+			if err != nil {
+				return nil, os.NewError(fmt.Sprintf("Value for %q is not a float: %q", k, v))
+			}
+			out[k] = f
+		default:
+			panic(fmt.Sprintf("Internal error: option type %q is unknown to Validate", opt.Type))
+		}
+	}
+	for k, opt := range c.Options {
+		if _, ok := out[k]; !ok && opt.Default != nil {
+			out[k] = opt.Default
+		}
+	}
+	return out, nil
 }
 
 var optionSchema = schema.FieldMap(
