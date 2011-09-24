@@ -10,6 +10,7 @@ GOFILES=\
 	formula.go\
 	meta.go\
 	walk.go\
+	rel.go\
 
 GOFMT=gofmt
 BADFMT:=$(shell $(GOFMT) -l $(GOFILES) $(CGOFILES) $(wildcard *_test.go))

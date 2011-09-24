@@ -73,13 +73,13 @@ type zipVisitor struct {
 }
 
 func (zipw *zipVisitor) VisitDir(path string, f *os.FileInfo) bool {
-	relpath, err := filepath.Rel(path, zipw.root)
+	relpath, err := filepath_Rel(zipw.root, path)
 	zipw.Error(path, err)
 	return relpath != "build"
 }
 
 func (zipw *zipVisitor) VisitFile(path string, f *os.FileInfo) {
-	relpath, err := filepath.Rel(path, zipw.root)
+	relpath, err := filepath_Rel(zipw.root, path)
 	zipw.Error(path, err)
 	w, err := zipw.Create(relpath)
 	zipw.Error(path, err)
