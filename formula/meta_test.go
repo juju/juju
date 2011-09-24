@@ -1,15 +1,28 @@
 package formula_test
 
 import (
+	"bytes"
+	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/ensemble/go/formula"
 	"launchpad.net/ensemble/go/schema"
+	"os"
 	"path/filepath"
 )
 
-func repoMeta(name string) (path string) {
-	return filepath.Join("testrepo", name, "metadata.yaml")
+
+func repoMeta(name string) io.Reader {
+	file, err := os.Open(filepath.Join("testrepo", name, "metadata.yaml"))
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		panic(err)
+	}
+	return bytes.NewBuffer(data)
 }
 
 func (s *S) TestReadMeta(c *C) {
@@ -22,43 +35,11 @@ func (s *S) TestReadMeta(c *C) {
 		"This is a longer description which\npotentially contains multiple lines.\n")
 }
 
-func (s *S) TestParseMeta(c *C) {
-	data, err := ioutil.ReadFile(repoMeta("dummy"))
-	c.Assert(err, IsNil)
-
-	meta, err := formula.ParseMeta(data)
-	c.Assert(err, IsNil)
-	c.Assert(meta.Name, Equals, "dummy")
-	c.Assert(meta.Revision, Equals, 1)
-	c.Assert(meta.Summary, Equals, "That's a dummy formula.")
-	c.Assert(meta.Description, Equals,
-		"This is a longer description which\npotentially contains multiple lines.\n")
-}
-
 func (s *S) TestMetaHeader(c *C) {
 	yaml := ReadYaml(repoMeta("dummy"))
 	yaml["ensemble"] = "foo"
-	data := DumpYaml(yaml)
-
-	_, err := formula.ParseMeta(data)
-	c.Assert(err, Matches, `ensemble: expected "formula", got "foo"`)
-}
-
-func (s *S) TestMetaErrorWithPath(c *C) {
-	yaml := ReadYaml(repoMeta("dummy"))
-	yaml["ensemble"] = "foo"
-	data := DumpYaml(yaml)
-
-	path := filepath.Join(c.MkDir(), "mymeta.yaml")
-
-	_, err := formula.ReadMeta(path)
-	c.Assert(err, Matches, `.*/.*/mymeta\.yaml.*no such file.*`)
-
-	err = ioutil.WriteFile(path, data, 0644)
-	c.Assert(err, IsNil)
-
-	_, err = formula.ReadMeta(path)
-	c.Assert(err, Matches, `/.*/mymeta\.yaml: ensemble: expected "formula", got "foo"`)
+	_, err := formula.ReadMeta(yaml.Reader())
+	c.Assert(err, Matches, `metadata: ensemble: expected "formula", got "foo"`)
 }
 
 func (s *S) TestParseMetaRelations(c *C) {

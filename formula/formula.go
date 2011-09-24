@@ -7,8 +7,11 @@ import (
 	"strings"
 )
 
-func errorf(format string, args ...interface{}) os.Error {
-	return os.NewError(fmt.Sprintf(format, args...))
+// The Formula interface is implemented by any type that
+// may be handled as a formula.
+type Formula interface {
+	Meta() *Meta
+	Config() *Config
 }
 
 // ParseId splits a formula identifier into its constituting parts.
@@ -31,3 +34,6 @@ func ParseId(id string) (namespace string, name string, rev int, err os.Error) {
 	return
 }
 
+func errorf(format string, args ...interface{}) os.Error {
+	return os.NewError(fmt.Sprintf(format, args...))
+}

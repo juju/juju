@@ -1,7 +1,7 @@
 package formula
 
 import (
-	"fmt"
+	"io"
 	"io/ioutil"
 	"launchpad.net/ensemble/go/schema"
 	"launchpad.net/goyaml"
@@ -25,21 +25,11 @@ type Config struct {
 }
 
 // ReadConfig reads a config.yaml file and returns its representation.
-func ReadConfig(path string) (config *Config, err os.Error) {
-	data, err := ioutil.ReadFile(path)
+func ReadConfig(r io.Reader) (config *Config, err os.Error) {
+	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		return
 	}
-	config, err = ParseConfig(data)
-	if err != nil {
-		err = os.NewError(fmt.Sprintf("%s: %s", path, err))
-	}
-	return
-}
-
-// ParseConfig parses the content of a config.yaml file and returns
-// its representation.
-func ParseConfig(data []byte) (config *Config, err os.Error) {
 	raw := make(map[interface{}]interface{})
 	err = goyaml.Unmarshal(data, raw)
 	if err != nil {
@@ -47,7 +37,7 @@ func ParseConfig(data []byte) (config *Config, err os.Error) {
 	}
 	v, err := configSchema.Coerce(raw, nil)
 	if err != nil {
-		return
+		return nil, os.NewError("config: " + err.String())
 	}
 	config = &Config{}
 	config.Options = make(map[string]Option)
@@ -80,7 +70,7 @@ func (c *Config) Validate(values map[string]string) (processed map[string]interf
 	for k, v := range values {
 		opt, ok := c.Options[k]
 		if !ok {
-			return nil, os.NewError(fmt.Sprintf("Unknown configuration option: %q", k))
+			return nil, errorf("Unknown configuration option: %q", k)
 		}
 		switch opt.Type {
 		case "string":
@@ -88,17 +78,17 @@ func (c *Config) Validate(values map[string]string) (processed map[string]interf
 		case "int":
 			i, err := strconv.Atoi64(v)
 			if err != nil {
-				return nil, os.NewError(fmt.Sprintf("Value for %q is not an int: %q", k, v))
+				return nil, errorf("Value for %q is not an int: %q", k, v)
 			}
 			out[k] = i
 		case "float":
 			f, err := strconv.Atof64(v)
 			if err != nil {
-				return nil, os.NewError(fmt.Sprintf("Value for %q is not a float: %q", k, v))
+				return nil, errorf("Value for %q is not a float: %q", k, v)
 			}
 			out[k] = f
 		default:
-			panic(fmt.Sprintf("Internal error: option type %q is unknown to Validate", opt.Type))
+			panic(errorf("Internal error: option type %q is unknown to Validate", opt.Type))
 		}
 	}
 	for k, opt := range c.Options {

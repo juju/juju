@@ -1,13 +1,14 @@
 package formula_test
 
 import (
+	"bytes"
+	"io"
 	"io/ioutil"
 	"testing"
 	. "launchpad.net/gocheck"
 	"launchpad.net/ensemble/go/formula"
 	"launchpad.net/goyaml"
 )
-
 
 func Test(t *testing.T) {
 	TestingT(t)
@@ -37,8 +38,10 @@ func (s *S) TestParseId(c *C) {
 	c.Assert(err, Matches, `Missing formula revision: "local:foo-x"`)
 }
 
-func ReadYaml(path string) map[interface{}]interface{} {
-	data, err := ioutil.ReadFile(path)
+type YamlHacker map[interface{}]interface{}
+
+func ReadYaml(r io.Reader) YamlHacker {
+	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		panic(err)
 	}
@@ -47,13 +50,13 @@ func ReadYaml(path string) map[interface{}]interface{} {
 	if err != nil {
 		panic(err)
 	}
-	return m
+	return YamlHacker(m)
 }
 
-func DumpYaml(v interface{}) []byte {
-	data, err := goyaml.Marshal(v)
+func (yh YamlHacker) Reader() io.Reader {
+	data, err := goyaml.Marshal(yh)
 	if err != nil {
 		panic(err)
 	}
-	return data
+	return bytes.NewBuffer(data)
 }
