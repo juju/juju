@@ -1,7 +1,6 @@
 package charm
 
 import (
-	"path/filepath"
 	"runtime"
 	"testing"
 )
@@ -64,7 +63,7 @@ func TestRel(t *testing.T) {
 		tests = append(tests, winreltests...)
 	}
 	for _, test := range tests {
-		got, err := filepath.Rel(test.root, test.path)
+		got, err := filepath_Rel(test.root, test.path)
 		if test.want == "err" {
 			if err == nil {
 				t.Errorf("Rel(%q, %q)=%q, want error", test.root, test.path, got)

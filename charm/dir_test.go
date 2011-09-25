@@ -34,14 +34,18 @@ func (s *S) TestBundleTo(c *C) {
 	c.Assert(err, IsNil)
 	defer zipr.Close()
 
-	var metaf *zip.File
+	var metaf, instf *zip.File
 	for _, f := range zipr.File {
 		c.Logf("Bundled file: %s", f.Name)
 		switch f.Name {
 		case "metadata.yaml":
 			metaf = f
+		case "hooks/install":
+			instf = f
 		case "build/ignored":
-			c.Fatal("bundle includes build/*")
+			c.Errorf("bundle includes build/*: %s", f.Name)
+		case ".ignored", ".dir/ignored":
+			c.Errorf("bundle includes .* entries: %s", f.Name)
 		}
 	}
 
@@ -52,4 +56,9 @@ func (s *S) TestBundleTo(c *C) {
 	meta, err := charm.ReadMeta(reader)
 	c.Assert(err, IsNil)
 	c.Assert(meta.Name, Equals, "dummy")
+
+	c.Assert(instf, NotNil)
+	mode, err := instf.Mode()
+	c.Assert(err, IsNil)
+	c.Assert(mode & 0777, Equals, uint32(0755))
 }

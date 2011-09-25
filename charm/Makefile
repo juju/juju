@@ -10,7 +10,6 @@ GOFILES=\
 	dir.go\
 	charm.go\
 	meta.go\
-	walk.go\
 	rel.go\
 
 GOFMT=gofmt
