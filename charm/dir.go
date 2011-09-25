@@ -97,7 +97,7 @@ func (zp *zipPacker) Visit(path string, fi *os.FileInfo, err os.Error) os.Error 
 		if hidden {
 			return filepath.SkipDir
 		}
-		return nil
+		relpath += "/"
 	}
 	if hidden {
 		return nil
@@ -108,7 +108,7 @@ func (zp *zipPacker) Visit(path string, fi *os.FileInfo, err os.Error) os.Error 
 	}
 	h.SetMode(fi.Mode)
 	w, err := zp.CreateHeader(h)
-	if err != nil {
+	if err != nil || fi.IsDirectory() {
 		return err
 	}
 	data, err := ioutil.ReadFile(path)

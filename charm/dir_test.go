@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju/go/charm"
 	"os"
 	"path/filepath"
+	"syscall"
 )
 
 func repoDir(name string) (path string) {
@@ -34,7 +35,7 @@ func (s *S) TestBundleTo(c *C) {
 	c.Assert(err, IsNil)
 	defer zipr.Close()
 
-	var metaf, instf *zip.File
+	var metaf, instf, emptyf *zip.File
 	for _, f := range zipr.File {
 		c.Logf("Bundled file: %s", f.Name)
 		switch f.Name {
@@ -42,6 +43,8 @@ func (s *S) TestBundleTo(c *C) {
 			metaf = f
 		case "hooks/install":
 			instf = f
+		case "empty/":
+			emptyf = f
 		case "build/ignored":
 			c.Errorf("bundle includes build/*: %s", f.Name)
 		case ".ignored", ".dir/ignored":
@@ -61,4 +64,9 @@ func (s *S) TestBundleTo(c *C) {
 	mode, err := instf.Mode()
 	c.Assert(err, IsNil)
 	c.Assert(mode & 0777, Equals, uint32(0755))
+
+	c.Assert(emptyf, NotNil)
+	mode, err = emptyf.Mode()
+	c.Assert(err, IsNil)
+	c.Assert(mode & syscall.S_IFMT, Equals, uint32(syscall.S_IFDIR))
 }

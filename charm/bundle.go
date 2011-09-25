@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // ReadBundle returns a Bundle for the charm in path.
@@ -129,6 +130,14 @@ func (b *Bundle) ExpandTo(dir string) (err os.Error) {
 			continue
 		}
 		path := filepath.Join(dir, filepath.Clean(header.Name))
+		if strings.HasSuffix(header.Name, "/") {
+			err = os.MkdirAll(path, 0755)
+			if err != nil {
+				zf.Close()
+				lasterr = err
+			}
+			continue
+		}
 		base, _ := filepath.Split(path)
 		err = os.MkdirAll(base, 0755)
 		if err != nil {
