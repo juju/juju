@@ -1,7 +1,7 @@
 package charm
 
 import (
-	"exp/regexp"
+	"regexp"
 	"fmt"
 	"os"
 	"strconv"
@@ -51,11 +51,11 @@ func NewURL(url string) (*URL, os.Error) {
 	// ~<username>
 	if strings.HasPrefix(parts[0], "~") {
 		if u.Schema == "local" {
-			return nil, fmt.Errorf("local charm URL with user: %q", url)
+			return nil, fmt.Errorf("local charm URL with user name: %q", url)
 		}
 		u.User = parts[0][1:]
 		if !validUser.MatchString(u.User) {
-			return nil, fmt.Errorf("charm URL has invalid user: %q", url)
+			return nil, fmt.Errorf("charm URL has invalid user name: %q", url)
 		}
 		parts = parts[1:]
 	}
@@ -87,11 +87,11 @@ func NewURL(url string) (*URL, os.Error) {
 				panic(err) // We just checked it was right.
 			}
 			u.Name = u.Name[:i]
-			break
 		}
+		break
 	}
 	if !validName.MatchString(u.Name) {
-		return nil, fmt.Errorf("charm URL has invalid name: %q", url)
+		return nil, fmt.Errorf("charm URL has invalid charm name: %q", url)
 	}
 	return u, nil
 }
