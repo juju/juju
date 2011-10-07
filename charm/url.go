@@ -30,7 +30,7 @@ type Collection struct {
 
 var validUser = regexp.MustCompile("^[a-z0-9][a-zA-Z0-9+.-]+$")
 var validSeries = regexp.MustCompile("^[a-z]+([a-z-]+[a-z])?$")
-var validName = regexp.MustCompile("^[a-z]+([a-z0-9-]+[a-z])?$")
+var validName = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
 
 func NewURL(url string) (*URL, os.Error) {
 	u := &URL{}
