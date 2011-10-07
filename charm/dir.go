@@ -85,7 +85,7 @@ func (zp *zipPacker) Visit(path string, fi *os.FileInfo, err os.Error) os.Error 
 	if err != nil {
 		return err
 	}
-	relpath, err := filepath_Rel(zp.root, path)
+	relpath, err := filepath.Rel(zp.root, path)
 	if err != nil {
 		return err
 	}
