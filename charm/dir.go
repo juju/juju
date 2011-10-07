@@ -43,6 +43,13 @@ type Dir struct {
 // Trick to ensure *Dir implements the Charm interface.
 var _ Charm = (*Dir)(nil)
 
+// join builds a path rooted at the charm's expanded directory
+// path and the extra path components provided.
+func (dir *Dir) join(parts ...string) string {
+	parts = append([]string{dir.Path}, parts...)
+	return filepath.Join(parts...)
+}
+
 // Meta returns the Meta representing the metadata.yaml file
 // for the charm expanded in dir.
 func (dir *Dir) Meta() *Meta {
@@ -58,63 +65,56 @@ func (dir *Dir) Config() *Config {
 // BundleTo creates a charm file from the charm expanded in dir.
 func (dir *Dir) BundleTo(w io.Writer) (err os.Error) {
 	zipw := zip.NewWriter(w)
-	defer func() {
-		zipw.Close()
-		handleZipError(&err)
-	}()
-	visitor := zipVisitor{zipw, dir.Path}
-	walk(dir.Path, &visitor)
-	return nil
+	defer zipw.Close()
+	zp := zipPacker{zipw, dir.Path}
+	return filepath.Walk(dir.Path, zp.WalkFunc())
 }
 
-type zipVisitor struct {
+type zipPacker struct {
 	*zip.Writer
 	root string
 }
 
-func (zipw *zipVisitor) VisitDir(path string, f *os.FileInfo) bool {
-	relpath, err := filepath_Rel(zipw.root, path)
-	zipw.Error(path, err)
-	return relpath != "build"
+func (zp *zipPacker) WalkFunc() filepath.WalkFunc {
+	return func(path string, fi *os.FileInfo, err os.Error) os.Error {
+		return zp.Visit(path, fi, err)
+	}
 }
 
-func (zipw *zipVisitor) VisitFile(path string, f *os.FileInfo) {
-	relpath, err := filepath_Rel(zipw.root, path)
-	zipw.Error(path, err)
-	w, err := zipw.Create(relpath)
-	zipw.Error(path, err)
-	data, err := ioutil.ReadFile(path)
-	zipw.Error(path, err)
-	_, err = w.Write(data)
-	zipw.Error(path, err)
-}
-
-type zipError os.Error
-
-func (zipw *zipVisitor) Error(path string, err os.Error) {
+func (zp *zipPacker) Visit(path string, fi *os.FileInfo, err os.Error) os.Error {
 	if err != nil {
-		panic(zipError(err))
+		return err
 	}
-}
-
-func handleZipError(err *os.Error) {
-	if *err != nil {
-		return // Do not override a previous problem
+	relpath, err := filepath.Rel(zp.root, path)
+	if err != nil {
+		return err
 	}
-	panicv := recover()
-	if panicv == nil {
-		return
+	hidden := len(relpath) > 1 && relpath[0] == '.'
+	if fi.IsDirectory() {
+		if relpath == "build" {
+			return filepath.SkipDir
+		}
+		if hidden {
+			return filepath.SkipDir
+		}
+		relpath += "/"
 	}
-	if e, ok := panicv.(zipError); ok {
-		*err = (os.Error)(e)
-		return
+	if hidden {
+		return nil
 	}
-	panic(panicv) // Something else
-}
-
-// join builds a path rooted at the charm's expended directory
-// path and the extra path components provided.
-func (dir *Dir) join(parts ...string) string {
-	parts = append([]string{dir.Path}, parts...)
-	return filepath.Join(parts...)
+	h := &zip.FileHeader{
+		Name: relpath,
+		Method: zip.Deflate,
+	}
+	h.SetMode(fi.Mode)
+	w, err := zp.CreateHeader(h)
+	if err != nil || fi.IsDirectory() {
+		return err
+	}
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(data)
+	return err
 }

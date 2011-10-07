@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // ReadBundle returns a Bundle for the charm in path.
@@ -119,38 +120,43 @@ func (b *Bundle) ExpandTo(dir string) (err os.Error) {
 		return err
 	}
 
-	// From here on we won't stop with an error.
 	var lasterr os.Error
+	for _, zfile := range zipr.File {
+		if err := b.expand(dir, zfile); err != nil {
+			lasterr = err
+		}
+	}
+	return lasterr
+}
 
-	for _, header := range zipr.File {
-		zf, err := header.Open()
+func (b *Bundle) expand(dir string, zfile *zip.File) os.Error {
+	r, err := zfile.Open()
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	path := filepath.Join(dir, filepath.Clean(zfile.Name))
+	if strings.HasSuffix(zfile.Name, "/") {
+		err = os.MkdirAll(path, 0755)
 		if err != nil {
-			lasterr = err
-			continue
+			return err
 		}
-		path := filepath.Join(dir, filepath.Clean(header.Name))
-		base, _ := filepath.Split(path)
-		err = os.MkdirAll(base, 0755)
-		if err != nil {
-			zf.Close()
-			lasterr = err
-			continue
-		}
-		f, err := os.Create(path)
-		if err != nil {
-			zf.Close()
-			lasterr = err
-			continue
-		}
-		_, err = io.Copy(f, zf)
-		if err != nil {
-			lasterr = err
-		}
-		f.Close()
-		zf.Close()
+		return nil
 	}
 
-	return lasterr
+	base, _ := filepath.Split(path)
+	err = os.MkdirAll(base, 0755)
+	if err != nil {
+		return err
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(f, r)
+	f.Close()
+	return err
 }
 
 // FWIW, being able to do this is awesome.
