@@ -10,6 +10,7 @@ GOFILES=\
 	dir.go\
 	charm.go\
 	meta.go\
+	url.go\
 
 GOFMT=gofmt
 BADFMT:=$(shell $(GOFMT) -l $(GOFILES) $(CGOFILES) $(wildcard *_test.go))

@@ -10,7 +10,6 @@ import (
 )
 
 type BundleSuite struct {
-	S
 	bundlePath string
 }
 
