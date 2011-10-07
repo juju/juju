@@ -43,7 +43,7 @@ type Dir struct {
 // Trick to ensure *Dir implements the Charm interface.
 var _ Charm = (*Dir)(nil)
 
-// join builds a path rooted at the charm's expended directory
+// join builds a path rooted at the charm's expanded directory
 // path and the extra path components provided.
 func (dir *Dir) join(parts ...string) string {
 	parts = append([]string{dir.Path}, parts...)
