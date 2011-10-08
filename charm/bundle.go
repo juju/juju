@@ -2,9 +2,11 @@ package charm
 
 import (
 	"archive/zip"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -39,6 +41,7 @@ func readBundle(r io.ReaderAt, size int64) (bundle *Bundle, err os.Error) {
 	if err != nil {
 		return
 	}
+
 	reader, err := zipOpen(zipr, "metadata.yaml")
 	if err != nil {
 		return
@@ -48,6 +51,7 @@ func readBundle(r io.ReaderAt, size int64) (bundle *Bundle, err os.Error) {
 	if err != nil {
 		return
 	}
+
 	reader, err = zipOpen(zipr, "config.yaml")
 	if err != nil {
 		return
@@ -56,6 +60,19 @@ func readBundle(r io.ReaderAt, size int64) (bundle *Bundle, err os.Error) {
 	reader.Close()
 	if err != nil {
 		return
+	}
+
+	reader, err = zipOpen(zipr, "revision")
+	if err != nil {
+		if _, ok := err.(noBundleFile); !ok {
+			return
+		}
+		b.revision = b.meta.OldRevision
+	} else {
+		_, err = fmt.Fscan(reader, &b.revision)
+		if err != nil {
+			return nil, os.NewError("invalid revision file")
+		}
 	}
 	return b, nil
 }
@@ -66,21 +83,43 @@ func zipOpen(zipr *zip.Reader, path string) (rc io.ReadCloser, err os.Error) {
 			return fh.Open()
 		}
 	}
-	return nil, errorf("bundle file not found: %s", path)
+	return nil, noBundleFile{path}
+}
+
+type noBundleFile struct {
+	path string
+}
+
+func (err noBundleFile) String() string {
+	return fmt.Sprintf("bundle file not found: %s", err.path)
 }
 
 // The Bundle type encapsulates access to data and operations
 // on a charm bundle.
 type Bundle struct {
-	Path   string // May be empty if Bundle wasn't read from a file
-	meta   *Meta
-	config *Config
-	r      io.ReaderAt
-	size   int64
+	Path     string // May be empty if Bundle wasn't read from a file
+	meta     *Meta
+	config   *Config
+	revision int
+	r        io.ReaderAt
+	size     int64
 }
 
 // Trick to ensure *Bundle implements the Charm interface.
 var _ Charm = (*Bundle)(nil)
+
+// Revision returns the revision number for the charm
+// expanded in dir.
+func (b *Bundle) Revision() int {
+	return b.revision
+}
+
+// SetRevision changes the charm revision number. This affects the
+// revision reported by Revision and the revision of the charm
+// directory created by ExpandTo.
+func (b *Bundle) SetRevision(revision int) {
+	b.revision = revision
+}
 
 // Meta returns the Meta representing the metadata.yaml file from bundle.
 func (b *Bundle) Meta() *Meta {
@@ -126,17 +165,32 @@ func (b *Bundle) ExpandTo(dir string) (err os.Error) {
 			lasterr = err
 		}
 	}
+
+	revFile, err := os.Create(filepath.Join(dir, "revision"))
+	if err != nil {
+		return err
+	}
+	_, err = revFile.Write([]byte(strconv.Itoa(b.revision)))
+	revFile.Close()
+	if err != nil {
+		return err
+	}
 	return lasterr
 }
 
 func (b *Bundle) expand(dir string, zfile *zip.File) os.Error {
+	cleanName := filepath.Clean(zfile.Name)
+	if cleanName == "revision" {
+		return nil
+	}
+
 	r, err := zfile.Open()
 	if err != nil {
 		return err
 	}
 	defer r.Close()
 
-	path := filepath.Join(dir, filepath.Clean(zfile.Name))
+	path := filepath.Join(dir, cleanName)
 	if strings.HasSuffix(zfile.Name, "/") {
 		err = os.MkdirAll(path, 0755)
 		if err != nil {

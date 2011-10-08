@@ -21,6 +21,7 @@ type S struct{}
 var _ = Suite(&S{})
 
 func checkDummy(c *C, f charm.Charm, path string) {
+	c.Assert(f.Revision(), Equals, 1)
 	c.Assert(f.Meta().Name, Equals, "dummy")
 	c.Assert(f.Config().Options["title"].Default, Equals, "My Title")
 	switch f := f.(type) {
