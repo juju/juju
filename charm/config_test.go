@@ -32,7 +32,7 @@ options:
 `
 
 func repoConfig(name string) io.Reader {
-	file, err := os.Open(filepath.Join("testrepo", name, "config.yaml"))
+	file, err := os.Open(filepath.Join("testrepo", "series", name, "config.yaml"))
 	if err != nil {
 		panic(err)
 	}

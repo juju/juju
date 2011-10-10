@@ -1,6 +1,5 @@
-name: dummy
-revision: 1
-summary: "That's a dummy charm."
+name: sample
+summary: "That's a sample charm."
 description: |
     This is a longer description which
     potentially contains multiple lines.

@@ -1,5 +1,4 @@
 name: riak
-revision: 7
 summary: "K/V storage engine"
 description: "Scalable K/V Store in Erlang with Clocks :-)"
 provides:
