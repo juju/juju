@@ -32,7 +32,18 @@ var validUser = regexp.MustCompile("^[a-z0-9][a-zA-Z0-9+.-]+$")
 var validSeries = regexp.MustCompile("^[a-z]+([a-z-]+[a-z])?$")
 var validName = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
 
-func NewURL(url string) (*URL, os.Error) {
+// MustParseURL works like ParseURL, but panics in case of errors.
+func MustParseURL(url string) *URL {
+	u, err := ParseURL(url)
+	if err != nil {
+		panic(err)
+	}
+	return u
+}
+
+// ParseURL parses the provided charm URL string into its respective
+// structure.
+func ParseURL(url string) (*URL, os.Error) {
 	u := &URL{}
 	i := strings.Index(url, ":")
 	if i > 0 {

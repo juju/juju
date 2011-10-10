@@ -31,10 +31,10 @@ var urlTests = []struct{
 	{"local:name", "charm URL without series: .*", nil},
 }
 
-func (s *S) TestNewURL(c *C) {
+func (s *S) TestParseURL(c *C) {
 	for _, t := range urlTests {
-		url, err := charm.NewURL(t.s)
-		bug := Bug("NewURL(%q)", t.s)
+		url, err := charm.ParseURL(t.s)
+		bug := Bug("ParseURL(%q)", t.s)
 		if t.err != "" {
 			c.Check(err, Matches, t.err, bug)
 		} else {
@@ -42,4 +42,11 @@ func (s *S) TestNewURL(c *C) {
 			c.Check(t.url.String(), Equals, t.s)
 		}
 	}
+}
+
+func (s *S) TestMustParseURL(c *C) {
+	url := charm.MustParseURL("cs:series/name")
+	c.Assert(url, Equals, &charm.URL{"name", -1, charm.Collection{"cs", "", "series"}})
+	f := func() { charm.MustParseURL("local:name") }
+	c.Assert(f, Panics, "charm URL without series: .*")
 }
