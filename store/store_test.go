@@ -28,6 +28,8 @@ func (s *S) SetUpTest(c *C) {
 	var err os.Error
 	s.store, err = store.New(s.Addr)
 	c.Assert(err, IsNil)
+	store.SetLogger((*cLogger)(c))
+	store.SetDebug(true)
 }
 
 func (s *S) TearDownTest(c *C) {

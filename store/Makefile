@@ -5,6 +5,7 @@ all: package
 TARG=launchpad.net/juju/go/store
 
 GOFILES=\
+	log.go\
 	store.go\
 
 GOFMT=gofmt
