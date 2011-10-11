@@ -44,7 +44,7 @@ func (s *S) TestAddCharm(c *C) {
 	urlB := charm.MustParseURL("cs:oneiric/wordpress-b-2")
 	urls := []*charm.URL{urlA, urlB}
 
-	wc, err := s.store.AddCharm(urls)
+	wc, err := s.store.AddCharm(urls, "key")
 	c.Assert(err, IsNil)
 	dir, err := charm.ReadDir(repoDir("dummy"))
 	c.Assert(err, IsNil)
@@ -72,20 +72,20 @@ func (s *S) TestConflictingUpdates(c *C) {
 	urls := []*charm.URL{urlA, urlB}
 
 	// Initiate an update of B only to force a partial conflict.
-	wc, err := s.store.AddCharm(urls[1:])
+	wc, err := s.store.AddCharm(urls[1:], "key0")
 	c.Assert(err, IsNil)
 
 	// Partially conflicts with in-progress update above.
-	wc2, err := s.store.AddCharm(urls)
+	wc2, err := s.store.AddCharm(urls, "key1")
 
 	cerr := wc.Close()
 	c.Assert(cerr, IsNil)
 
-	c.Assert(err, Matches, "update already in progress")
+	c.Assert(err, Matches, "charm update already in progress")
 	c.Assert(wc2, IsNil)
 
 	// Trying again should work since wc was closed.
-	wc, err = s.store.AddCharm(urls)
+	wc, err = s.store.AddCharm(urls, "key2")
 	c.Assert(err, IsNil)
 	_, err = wc.Write([]byte("rev0"))
 	cerr = wc.Close()
@@ -106,7 +106,7 @@ func (s *S) TestExpiringConflict(c *C) {
 	urls := []*charm.URL{urlA, urlB}
 
 	// Initiate an update of B only to force a partial conflict.
-	wc, err := s.store.AddCharm(urls[1:])
+	wc, err := s.store.AddCharm(urls[1:], "key0")
 	c.Assert(err, IsNil)
 
 	_, err = wc.Write([]byte("rev0"))
@@ -120,7 +120,7 @@ func (s *S) TestExpiringConflict(c *C) {
 	c.Check(err, IsNil)
 
 	// Works due to expiration of previous lock.
-	wc2, err := s.store.AddCharm(urls)
+	wc2, err := s.store.AddCharm(urls, "key1")
 	c.Check(err, IsNil)
 
 	_, err = wc2.Write([]byte("rev0"))
@@ -150,7 +150,7 @@ func (s *S) TestRevisioning(c *C) {
 	}
 
 	for _, t := range tests {
-		wc, err := s.store.AddCharm(t.urls)
+		wc, err := s.store.AddCharm(t.urls, "key-" + t.data)
 		c.Assert(err, IsNil)
 		_, err = wc.Write([]byte(t.data))
 		cerr := wc.Close()
@@ -177,4 +177,38 @@ func (s *S) TestRevisioning(c *C) {
 	c.Assert(err, Equals, mgo.NotFound)
 	c.Assert(info, IsNil)
 	c.Assert(rc, IsNil)
+}
+
+func (s *S) TestUpdateIsCurrent(c *C) {
+	urlA := charm.MustParseURL("cs:oneiric/wordpress-a")
+	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
+	urls := []*charm.URL{urlA, urlB}
+
+	wc, err := s.store.AddCharm(urls, "key0")
+	c.Assert(err, IsNil)
+	_, err = wc.Write([]byte("rev0"))
+	c.Assert(err, IsNil)
+	err = wc.Close()
+	c.Assert(err, IsNil)
+
+	// All charms are already on key1.
+	wc, err = s.store.AddCharm(urls, "key0")
+	c.Assert(err, Matches, "charm is already up-to-date")
+	c.Assert(wc, IsNil)
+
+	// Now add a second revision just for wordpress-b.
+	wc, err = s.store.AddCharm(urls[1:], "key1")
+	c.Assert(err, IsNil)
+	_, err = wc.Write([]byte("rev1"))
+	c.Assert(err, IsNil)
+	err = wc.Close()
+	c.Assert(err, IsNil)
+
+	// Same key bumps revision because one of them was old.
+	wc, err = s.store.AddCharm(urls, "key1")
+	c.Assert(err, IsNil)
+	_, err = wc.Write([]byte("rev2"))
+	c.Assert(err, IsNil)
+	err = wc.Close()
+	c.Assert(err, IsNil)
 }

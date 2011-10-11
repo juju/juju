@@ -9,6 +9,21 @@ import (
 	"sort"
 )
 
+// TODO:
+// - Add sha256 support
+// - Document it.
+// - Logging
+// - Add meta and config information.
+
+const (
+	UpdateTimeout = 600e9
+)
+
+var (
+	UpdateConflict  = os.NewError("charm update already in progress")
+	UpdateIsCurrent = os.NewError("charm is already up-to-date")
+)
+
 type Store struct {
 	session storeSession
 }
@@ -26,6 +41,8 @@ func New(mongoAddr string) (store *Store, err os.Error) {
 		session.Close()
 		return nil, err
 	}
+	// Put the socket we used on EnsureIndex back in the pool.
+	session.Refresh()
 	return store, nil
 }
 
@@ -41,7 +58,7 @@ func dropRevisions(urls []*charm.URL) []*charm.URL {
 	return norev
 }
 
-func (s *Store) AddCharm(urls []*charm.URL) (wc io.WriteCloser, err os.Error) {
+func (s *Store) AddCharm(urls []*charm.URL, revKey string) (wc io.WriteCloser, err os.Error) {
 	urls = dropRevisions(urls)
 	session := s.session.Copy()
 	lock, err := session.LockUpdates(urls)
@@ -56,34 +73,39 @@ func (s *Store) AddCharm(urls []*charm.URL) (wc io.WriteCloser, err os.Error) {
 		}
 	}()
 
-	maxrev := -1
+	maxRev := -1
+	newKey := false
 	charms := session.Charms()
-	err = charms.EnsureIndexKey([]string{"url", "revision"})
-	if err != nil {
-		return nil, err
-	}
-	charm := infoDoc{}
+	charm := charmDoc{}
 	for i := range urls {
 		err := charms.Find(bson.D{{"url", urls[i].String()}}).Sort(bson.D{{"revision", -1}}).One(&charm)
 		if err == mgo.NotFound {
+			newKey = true
 			continue
+		}
+		if charm.RevisionKey != revKey {
+			newKey = true
 		}
 		if err != nil {
 			return nil, err
 		}
-		if charm.Revision > maxrev {
-			maxrev = charm.Revision
+		if charm.Revision > maxRev {
+			maxRev = charm.Revision
 		}
 	}
-	return &writer{session, nil, urls, lock, maxrev+1}, nil
+	if !newKey {
+		return nil, UpdateIsCurrent
+	}
+	return &writer{session, nil, urls, lock, maxRev + 1, revKey}, nil
 }
 
 type writer struct {
-	session storeSession
-	file *mgo.GridFile
-	urls []*charm.URL
-	lock *updateMutex
+	session  storeSession
+	file     *mgo.GridFile
+	urls     []*charm.URL
+	lock     *updateMutex
 	revision int
+	revKey   string
 }
 
 func (w *writer) Write(data []byte) (n int, err os.Error) {
@@ -109,7 +131,7 @@ func (w *writer) Close() os.Error {
 	}
 	charms := w.session.Charms()
 	for _, url := range w.urls {
-		err := charms.Insert(&infoDoc{url.String(), w.revision, id.(bson.ObjectId)})
+		err := charms.Insert(&charmDoc{url.String(), w.revision, w.revKey, id.(bson.ObjectId)})
 		if err != nil {
 			return maybeConflict(err)
 		}
@@ -128,7 +150,7 @@ func (s *Store) OpenCharm(url *charm.URL) (rc io.ReadCloser, info *CharmInfo, er
 	url = url.WithRevision(-1)
 
 	charms := session.Charms()
-	var charm infoDoc
+	var charm charmDoc
 	var qdoc interface{}
 	if rev == -1 {
 		qdoc = bson.D{{"url", url.String()}}
@@ -151,7 +173,7 @@ func (s *Store) OpenCharm(url *charm.URL) (rc io.ReadCloser, info *CharmInfo, er
 
 type reader struct {
 	session storeSession
-	file *mgo.GridFile
+	file    *mgo.GridFile
 }
 
 func (r *reader) Read(buf []byte) (n int, err os.Error) {
@@ -164,10 +186,11 @@ func (r *reader) Close() os.Error {
 	return err
 }
 
-type infoDoc struct {
-	URL string
-	Revision int
-	FileID bson.ObjectId
+type charmDoc struct {
+	URL         string
+	Revision    int
+	RevisionKey string
+	FileID      bson.ObjectId
 }
 
 type storeSession struct {
@@ -201,14 +224,15 @@ func (s storeSession) LockUpdates(urls []*charm.URL) (m *updateMutex, err os.Err
 }
 
 type updateMutex struct {
-	keys []string
+	keys  []string
 	locks mgo.Collection
-	time bson.Timestamp
+	time  bson.Timestamp
 }
 
 func (m *updateMutex) Unlock() {
-	for i := len(m.keys)-1; i >= 0; i-- {
-		// Using time ensures only the proper lock is removed.
+	for i := len(m.keys) - 1; i >= 0; i-- {
+		// Using time below ensures only the proper lock is removed.
+		// Can't do much about errors here. Locks will expire anyway.
 		m.locks.Remove(bson.D{{"_id", m.keys[i]}, {"time", m.time}})
 	}
 }
@@ -230,8 +254,8 @@ func (m *updateMutex) tryLock() os.Error {
 		}
 		// Couldn't lock everyone. Undo previous locks.
 		for i--; i >= 0; i-- {
-			// Can't do anything about errors here. They'll expire anyway.
-			// Using time should be unnecessary, but it's an extra check.
+			// Using time below should be unnecessary, but it's an extra check.
+			// Can't do anything about errors here. Lock will expire anyway.
 			m.locks.Remove(bson.D{{"_id", m.keys[i]}, {"time", m.time}})
 		}
 		return maybeConflict(err)
@@ -239,14 +263,10 @@ func (m *updateMutex) tryLock() os.Error {
 	return nil
 }
 
-const UpdateTimeout = 600e9
-
 func (m *updateMutex) tryExpire(key string) {
 	// Ignore errors. If nothing happens the key will continue locked.
-	m.locks.Remove(bson.D{{"_id", key}, {"time", bson.D{{"$lt", bson.Now()-UpdateTimeout}}}})
+	m.locks.Remove(bson.D{{"_id", key}, {"time", bson.D{{"$lt", bson.Now() - UpdateTimeout}}}})
 }
-
-var UpdateConflict = os.NewError("update already in progress")
 
 func maybeConflict(err os.Error) os.Error {
 	if lerr, ok := err.(*mgo.LastError); ok && lerr.Code == 11000 {
