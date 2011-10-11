@@ -28,6 +28,18 @@ type Collection struct {
 	Series string
 }
 
+// WithRevision returns a *URL with the same Name and Collection of url,
+// but with Revision set to the revision parameter. If url already has
+// the requested revision, url itself is returned.
+func (url *URL) WithRevision(revision int) *URL {
+	if url.Revision == revision {
+		return url
+	}
+	urlCopy := *url
+	urlCopy.Revision = revision
+	return &urlCopy
+}
+
 var validUser = regexp.MustCompile("^[a-z0-9][a-zA-Z0-9+.-]+$")
 var validSeries = regexp.MustCompile("^[a-z]+([a-z-]+[a-z])?$")
 var validName = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")

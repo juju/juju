@@ -50,3 +50,12 @@ func (s *S) TestMustParseURL(c *C) {
 	f := func() { charm.MustParseURL("local:name") }
 	c.Assert(f, Panics, "charm URL without series: .*")
 }
+
+func (s *S) TestWithRevision(c *C) {
+	url := charm.MustParseURL("cs:series/name")
+	other := url.WithRevision(1)
+	c.Assert(url, Equals, &charm.URL{"name", -1, charm.Collection{"cs", "", "series"}})
+	c.Assert(other, Equals, &charm.URL{"name", 1, charm.Collection{"cs", "", "series"}})
+
+	c.Assert(other.WithRevision(1) == other, Equals, true)
+}
