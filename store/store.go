@@ -1,6 +1,9 @@
 package store
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"hash"
 	"io"
 	"launchpad.net/gobson/bson"
 	"launchpad.net/juju/go/charm"
@@ -10,7 +13,6 @@ import (
 )
 
 // TODO:
-// - Add sha256 support
 // - Document it.
 // - Logging
 // - Add meta and config information.
@@ -96,12 +98,13 @@ func (s *Store) AddCharm(urls []*charm.URL, revKey string) (wc io.WriteCloser, e
 	if !newKey {
 		return nil, UpdateIsCurrent
 	}
-	return &writer{session, nil, urls, lock, maxRev + 1, revKey}, nil
+	return &writer{session, nil, nil, urls, lock, maxRev + 1, revKey}, nil
 }
 
 type writer struct {
 	session  storeSession
 	file     *mgo.GridFile
+	sha256   hash.Hash
 	urls     []*charm.URL
 	lock     *updateMutex
 	revision int
@@ -114,6 +117,11 @@ func (w *writer) Write(data []byte) (n int, err os.Error) {
 		if err != nil {
 			return 0, err
 		}
+		w.sha256 = sha256.New()
+	}
+	_, err = w.sha256.Write(data)
+	if err != nil {
+		panic("hash.Hash should never error")
 	}
 	return w.file.Write(data)
 }
@@ -131,7 +139,14 @@ func (w *writer) Close() os.Error {
 	}
 	charms := w.session.Charms()
 	for _, url := range w.urls {
-		err := charms.Insert(&charmDoc{url.String(), w.revision, w.revKey, id.(bson.ObjectId)})
+		charm := charmDoc{
+			url.String(),
+			w.revision,
+			w.revKey,
+			hex.EncodeToString(w.sha256.Sum()),
+			id.(bson.ObjectId),
+		}
+		err := charms.Insert(&charm)
 		if err != nil {
 			return maybeConflict(err)
 		}
@@ -141,6 +156,7 @@ func (w *writer) Close() os.Error {
 
 type CharmInfo struct {
 	Revision int
+	Sha256   string
 }
 
 func (s *Store) OpenCharm(url *charm.URL) (rc io.ReadCloser, info *CharmInfo, err os.Error) {
@@ -168,7 +184,7 @@ func (s *Store) OpenCharm(url *charm.URL) (rc io.ReadCloser, info *CharmInfo, er
 		session.Close()
 		return nil, nil, err
 	}
-	return &reader{session, file}, &CharmInfo{charm.Revision}, nil
+	return &reader{session, file}, &CharmInfo{charm.Revision, charm.Sha256}, nil
 }
 
 type reader struct {
@@ -190,6 +206,7 @@ type charmDoc struct {
 	URL         string
 	Revision    int
 	RevisionKey string
+	Sha256      string
 	FileID      bson.ObjectId
 }
 

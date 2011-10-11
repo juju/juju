@@ -212,3 +212,21 @@ func (s *S) TestUpdateIsCurrent(c *C) {
 	err = wc.Close()
 	c.Assert(err, IsNil)
 }
+
+func (s *S) TestSha256(c *C) {
+	url := charm.MustParseURL("cs:oneiric/wordpress")
+	urls := []*charm.URL{url}
+
+	wc, err := s.store.AddCharm(urls, "key")
+	c.Assert(err, IsNil)
+	_, err = wc.Write([]byte("Hello world!"))
+	c.Assert(err, IsNil)
+	err = wc.Close()
+	c.Assert(err, IsNil)
+
+	rc, info, err := s.store.OpenCharm(url)
+	c.Assert(err, IsNil)
+	c.Check(info.Sha256, Equals, "c0535e4be2b79ffd93291305436bf889314e4a3faec05ecffcbb7df31ad9e51a")
+	err = rc.Close()
+	c.Check(err, IsNil)
+}
