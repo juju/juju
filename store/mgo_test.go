@@ -1,21 +1,13 @@
-package main
+package store_test
 
 import (
-	"bufio"
 	"bytes"
 	"exec"
 	. "launchpad.net/gocheck"
 	"launchpad.net/mgo"
-	"net"
 	"os"
-	"sync"
-	"testing"
 	"time"
 )
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
 
 // ----------------------------------------------------------------------------
 // The mgo test suite
@@ -30,9 +22,10 @@ func (c *cLogger) Output(calldepth int, s string) os.Error {
 }
 
 type MgoSuite struct {
+	Addr    string
 	Session *mgo.Session
-	output bytes.Buffer
-	server *exec.Cmd
+	output  bytes.Buffer
+	server  *exec.Cmd
 }
 
 func (s *MgoSuite) SetUpSuite(c *C) {
@@ -67,7 +60,8 @@ func (s *MgoSuite) SetUpTest(c *C) {
 	}
 	mgo.SetLogger((*cLogger)(c))
 	mgo.ResetStats()
-	s.Session, err = mgo.Mongo("127.0.0.1:50017")
+	s.Addr = "127.0.0.1:50017"
+	s.Session, err = mgo.Mongo(s.Addr)
 	if err != nil {
 		panic(err)
 	}
