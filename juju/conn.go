@@ -7,8 +7,7 @@ import (
 
 // Conn represents a connection to a juju environment.
 type Conn struct {
-	env  Environ // the instantiated environment.
-	kind string  // the environment provider type.
+	env Environ // the instantiated environment.
 }
 
 // New returns a new Conn using the named environment.
@@ -32,8 +31,7 @@ func (envs *Environs) New(name string) (*Conn, os.Error) {
 		return nil, fmt.Errorf("cannot initialize environment %q: %v", name, err)
 	}
 	return &Conn{
-		env:  penv,
-		kind: e.kind,
+		env: penv,
 	}, nil
 }
 
