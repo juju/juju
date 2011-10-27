@@ -2,6 +2,9 @@
 // The configuration requires a single value, "basename", which
 // is used as the base name of any machines that are "created".
 // It has no persistent state.
+//
+// Note that this file contains no tests as such - it is
+// just used by the testing code.
 package juju_test
 
 import (
