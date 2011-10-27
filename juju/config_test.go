@@ -78,18 +78,17 @@ environments:
         type: dummy
         basename: bar
 `, func(c *C, es *juju.Environs) {
-		conn, err := es.New("")
+		e, err := es.New("")
 		c.Assert(err, IsNil)
-		checkDummyEnviron(c, conn, "bar")
+		checkDummyEnviron(c, e, "bar")
 	},
 	},
 }
 
-func checkDummyEnviron(c *C, conn *juju.Conn, basename string) {
-	c.Assert(conn, NotNil)
-	err := conn.Bootstrap()
+func checkDummyEnviron(c *C, e juju.Environ, basename string) {
+	c.Assert(e, NotNil)
+	err := e.Bootstrap()
 	c.Assert(err, IsNil)
-	e := conn.Environ()
 
 	m0, err := e.StartMachine()
 	c.Assert(err, IsNil)
