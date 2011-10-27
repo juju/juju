@@ -44,7 +44,7 @@ func (dummyProvider) ConfigChecker() schema.Checker {
 	)
 }
 
-type dummyConn struct {
+type dummyEnviron struct {
 	mu       sync.Mutex
 	baseName string
 	n        int // machine count
@@ -53,21 +53,21 @@ type dummyConn struct {
 
 func (dummyProvider) NewEnviron(name string, attributes interface{}) (e juju.Environ, err os.Error) {
 	cfg := attributes.(schema.MapType)
-	return &dummyConn{
+	return &dummyEnviron{
 		baseName: cfg["basename"].(string),
 		machines: make(map[int]*dummyMachine),
 	}, nil
 }
 
-func (*dummyConn) Bootstrap() os.Error {
+func (*dummyEnviron) Bootstrap() os.Error {
 	return nil
 }
 
-func (*dummyConn) Destroy() os.Error {
+func (*dummyEnviron) Destroy() os.Error {
 	return nil
 }
 
-func (c *dummyConn) StartMachine() (juju.Machine, os.Error) {
+func (c *dummyEnviron) StartMachine() (juju.Machine, os.Error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	m := &dummyMachine{
@@ -79,7 +79,7 @@ func (c *dummyConn) StartMachine() (juju.Machine, os.Error) {
 	return m, nil
 }
 
-func (c *dummyConn) StopMachines(ms []juju.Machine) os.Error {
+func (c *dummyEnviron) StopMachines(ms []juju.Machine) os.Error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, m := range ms {
@@ -88,7 +88,7 @@ func (c *dummyConn) StopMachines(ms []juju.Machine) os.Error {
 	return nil
 }
 
-func (c *dummyConn) Machines() ([]juju.Machine, os.Error) {
+func (c *dummyEnviron) Machines() ([]juju.Machine, os.Error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	var ms []juju.Machine
