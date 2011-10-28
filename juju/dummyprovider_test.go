@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	juju.Register("dummy", dummyProvider{})
+	juju.RegisterProvider("dummy", dummyProvider{})
 }
 
 type dummyMachine struct {
@@ -51,7 +51,7 @@ type dummyEnviron struct {
 	machines map[int]*dummyMachine
 }
 
-func (dummyProvider) NewEnviron(name string, attributes interface{}) (e juju.Environ, err os.Error) {
+func (dummyProvider) Open(name string, attributes interface{}) (e juju.Environ, err os.Error) {
 	cfg := attributes.(schema.MapType)
 	return &dummyEnviron{
 		baseName: cfg["basename"].(string),

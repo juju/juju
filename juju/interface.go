@@ -15,7 +15,7 @@ type EnvironProvider interface {
 	// NewEnviron creates a new Environ with
 	// the given attributes returned by the ConfigChecker.
 	// The name is that given in environments.yaml.
-	NewEnviron(name string, attributes interface{}) (Environ, os.Error)
+	Open(name string, attributes interface{}) (Environ, os.Error)
 }
 
 // Machine represents a running machine instance.
