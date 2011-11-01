@@ -36,12 +36,11 @@ var providers = make(map[string]EnvironProvider)
 
 // RegisterProvider registers a new environment provider. Name gives the name
 // of the provider, and p the interface to that provider.
-// If p is nil, the name will be unregistered.
 //
 // RegisterProvider will panic if the same provider name is registered more than
 // once.
 func RegisterProvider(name string, p EnvironProvider) {
-	if providers[name] != nil && p != nil {
+	if providers[name] != nil {
 		panic(fmt.Errorf("juju: duplicate provider name %q", name))
 	}
 	providers[name] = p
