@@ -18,6 +18,36 @@ type EnvironProvider interface {
 	NewEnviron(name string, attributes interface{}) (Environ, os.Error)
 }
 
+// MachineConstraint specifies a range of possible machine
+// types, including the OS that's running on the machine.
+// TODO change to specify softer constraints and so that it's not EC2 specific.
+// TODO change to specify more than just the OS image.
+type MachineConstraint struct {
+	UbuntuRelease     string
+	Architecture      string
+	PersistentStorage bool
+	Region            string
+	Daily             bool
+	Desktop           bool
+}
+
+// This may move into the Environ interface.
+var DefaultMachineConstraint = &MachineConstraint{
+	UbuntuRelease:     "oneiric",
+	Architecture:      "i386",
+	PersistentStorage: true,
+	Region:            "us-east-1",
+	Daily:             false,
+	Desktop:           false,
+}
+
+// MachineSpec represents one possible machine configuration
+// obtainable from a provider.
+// TODO change to specify more than just the OS.
+type MachineSpec interface {
+	UbuntuRelease() string
+}
+
 // Machine represents a running machine instance.
 type Machine interface {
 	Id() string
@@ -30,10 +60,18 @@ type Environ interface {
 	// Bootstrap initializes the new environment.
 	Bootstrap() os.Error
 
+	// FindMachineSpec finds a possible machine specification matching the
+	// given constraint, with the goal of minimising cost if all else is equal.
+	FindMachineSpec(constraint *MachineConstraint) (MachineSpec, os.Error)
+
 	// StartMachine asks for a new machine instance to be created.
-	// TODO add arguments to specify type of new machine
-	// and zookeeper instances.
-	StartMachine() (Machine, os.Error)
+	// The machine is identified with machineId, and spec gives the
+	// machine's requested specification. 
+	// The spec must have been created with the same Environ's
+	// FindMachineSpec method
+	// 
+	// TODO add arguments to specify zookeeper instances.
+	StartMachine(machineId string, spec MachineSpec) (Machine, os.Error)
 
 	// StopMachine shuts down the given Machine.
 	StopMachines([]Machine) os.Error

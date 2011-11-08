@@ -59,6 +59,12 @@ func (dummyProvider) NewEnviron(name string, attributes interface{}) (e juju.Env
 	}, nil
 }
 
+type dummyMachineSpec struct{}
+
+func (dummyMachineSpec) UbuntuRelease() string {
+	return "oneiric"
+}
+
 func (*dummyConn) Bootstrap() os.Error {
 	return nil
 }
@@ -67,7 +73,11 @@ func (*dummyConn) Destroy() os.Error {
 	return nil
 }
 
-func (c *dummyConn) StartMachine() (juju.Machine, os.Error) {
+func (c *dummyConn) FindMachineSpec(constraint *juju.MachineConstraint) (juju.MachineSpec, os.Error) {
+	return dummyMachineSpec{}, nil
+}
+
+func (c *dummyConn) StartMachine(machineId string, _ juju.MachineSpec) (juju.Machine, os.Error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	m := &dummyMachine{

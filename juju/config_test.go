@@ -2,7 +2,7 @@ package juju_test
 
 import (
 	"io/ioutil"
-	C "launchpad.net/gocheck"
+	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/juju"
 	"os"
 	"path/filepath"
@@ -10,23 +10,23 @@ import (
 
 type configTest struct {
 	env   string
-	check func(c *C.C, es *juju.Environs)
+	check func(c *C, es *juju.Environs)
 }
 
 var configTests = []struct {
 	env   string
-	check func(c *C.C, es *juju.Environs)
+	check func(c *C, es *juju.Environs)
 }{
 	{`
 environments:
     only:
         type: unknown
         other: anything
-`, func(c *C.C, es *juju.Environs) {
+`, func(c *C, es *juju.Environs) {
 		e, err := es.New("")
-		c.Assert(e, C.IsNil)
-		c.Assert(err, C.NotNil)
-		c.Assert(err.String(), C.Equals, `environment "only" has an unknown provider type: "unknown"`)
+		c.Assert(e, IsNil)
+		c.Assert(err, NotNil)
+		c.Assert(err.String(), Equals, `environment "only" has an unknown provider type: "unknown"`)
 	},
 	},
 	// one known environment, no defaults, bad attribute -> parse error
@@ -43,9 +43,9 @@ environments:
     only:
         type: dummy
         basename: foo
-`, func(c *C.C, es *juju.Environs) {
+`, func(c *C, es *juju.Environs) {
 		e, err := es.New("")
-		c.Assert(err, C.IsNil)
+		c.Assert(err, IsNil)
 		checkDummyEnviron(c, e, "foo")
 	},
 	},
@@ -58,11 +58,11 @@ environments:
     two:
         type: dummy
         basename: bar
-`, func(c *C.C, es *juju.Environs) {
+`, func(c *C, es *juju.Environs) {
 		e, err := es.New("")
-		c.Assert(err, C.NotNil)
+		c.Assert(err, NotNil)
 		e, err = es.New("one")
-		c.Assert(err, C.IsNil)
+		c.Assert(err, IsNil)
 		checkDummyEnviron(c, e, "foo")
 	},
 	},
@@ -77,57 +77,57 @@ environments:
     two:
         type: dummy
         basename: bar
-`, func(c *C.C, es *juju.Environs) {
+`, func(c *C, es *juju.Environs) {
 		conn, err := es.New("")
-		c.Assert(err, C.IsNil)
+		c.Assert(err, IsNil)
 		checkDummyEnviron(c, conn, "bar")
 	},
 	},
 }
 
-func checkDummyEnviron(c *C.C, conn *juju.Conn, basename string) {
-	c.Assert(conn, C.NotNil)
+func checkDummyEnviron(c *C, conn *juju.Conn, basename string) {
+	c.Assert(conn, NotNil)
 	err := conn.Bootstrap()
-	c.Assert(err, C.IsNil)
+	c.Assert(err, IsNil)
 	e := conn.Environ()
 
-	m0, err := e.StartMachine()
-	c.Assert(err, C.IsNil)
-	c.Assert(m0, C.NotNil)
-	c.Assert(m0.DNSName(), C.Equals, basename+"-0")
+	m0, err := e.StartMachine("zero", nil)
+	c.Assert(err, IsNil)
+	c.Assert(m0, NotNil)
+	c.Assert(m0.DNSName(), Equals, basename+"-0")
 
 	ms, err := e.Machines()
-	c.Assert(err, C.IsNil)
-	c.Assert(len(ms), C.Equals, 1)
-	c.Assert(ms[0], C.Equals, m0)
+	c.Assert(err, IsNil)
+	c.Assert(len(ms), Equals, 1)
+	c.Assert(ms[0], Equals, m0)
 
-	m1, err := e.StartMachine()
-	c.Assert(err, C.IsNil)
-	c.Assert(m1, C.NotNil)
-	c.Assert(m1.DNSName(), C.Equals, basename+"-1")
+	m1, err := e.StartMachine("one", nil)
+	c.Assert(err, IsNil)
+	c.Assert(m1, NotNil)
+	c.Assert(m1.DNSName(), Equals, basename+"-1")
 
 	ms, err = e.Machines()
-	c.Assert(err, C.IsNil)
-	c.Assert(len(ms), C.Equals, 2)
+	c.Assert(err, IsNil)
+	c.Assert(len(ms), Equals, 2)
 	if ms[0] == m1 {
 		ms[0], ms[1] = ms[1], ms[0]
 	}
-	c.Assert(ms[0], C.Equals, m0)
-	c.Assert(ms[1], C.Equals, m1)
+	c.Assert(ms[0], Equals, m0)
+	c.Assert(ms[1], Equals, m1)
 
 	err = e.StopMachines([]juju.Machine{m0})
-	c.Assert(err, C.IsNil)
+	c.Assert(err, IsNil)
 
 	ms, err = e.Machines()
-	c.Assert(err, C.IsNil)
-	c.Assert(len(ms), C.Equals, 1)
-	c.Assert(ms[0], C.Equals, m1)
+	c.Assert(err, IsNil)
+	c.Assert(len(ms), Equals, 1)
+	c.Assert(ms[0], Equals, m1)
 
 	err = e.Destroy()
-	c.Assert(err, C.IsNil)
+	c.Assert(err, IsNil)
 }
 
-func (suite) TestConfig(c *C.C) {
+func (suite) TestConfig(c *C) {
 	for i, t := range configTests {
 		c.Logf("running test %v", i)
 		es, err := juju.ParseEnvironments([]byte(t.env))
@@ -147,10 +147,10 @@ func (suite) TestConfig(c *C.C) {
 	}
 }
 
-func (suite) TestConfigFile(c *C.C) {
+func (suite) TestConfigFile(c *C) {
 	d := c.MkDir()
 	err := os.Mkdir(filepath.Join(d, ".juju"), 0777)
-	c.Assert(err, C.IsNil)
+	c.Assert(err, IsNil)
 
 	path := filepath.Join(d, ".juju", "environments.yaml")
 	env := `
@@ -160,13 +160,13 @@ environments:
         basename: foo
 `
 	err = ioutil.WriteFile(path, []byte(env), 0666)
-	c.Assert(err, C.IsNil)
+	c.Assert(err, IsNil)
 
 	// test reading from a named file
 	es, err := juju.ReadEnvironments(path)
-	c.Assert(err, C.IsNil)
+	c.Assert(err, IsNil)
 	e, err := es.New("")
-	c.Assert(err, C.IsNil)
+	c.Assert(err, IsNil)
 	checkDummyEnviron(c, e, "foo")
 
 	// test reading from the default environments.yaml file.
@@ -174,9 +174,9 @@ environments:
 	os.Setenv("HOME", d)
 
 	es, err = juju.ReadEnvironments("")
-	c.Assert(err, C.IsNil)
+	c.Assert(err, IsNil)
 	e, err = es.New("")
-	c.Assert(err, C.IsNil)
+	c.Assert(err, IsNil)
 	checkDummyEnviron(c, e, "foo")
 
 	// reset $HOME just in case something else relies on it.
