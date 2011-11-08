@@ -26,7 +26,7 @@ environments:
 		e, err := es.Open("")
 		c.Assert(e, IsNil)
 		c.Assert(err, NotNil)
-		c.Assert(err.String(), Equals, `environment "only" has an unknown provider type: "unknown"`)
+		c.Assert(err.Error(), Equals, `environment "only" has an unknown provider type: "unknown"`)
 	},
 	},
 	// one known environment, no defaults, bad attribute -> parse error

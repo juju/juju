@@ -4,7 +4,6 @@ import (
 	"testing"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/schema"
-	"os"
 )
 
 func Test(t *testing.T) {
@@ -17,7 +16,7 @@ var _ = Suite(&S{})
 
 type Dummy struct{}
 
-func (d *Dummy) Coerce(value interface{}, path []string) (coerced interface{}, err os.Error) {
+func (d *Dummy) Coerce(value interface{}, path []string) (coerced interface{}, err error) {
 	return "i-am-dummy", nil
 }
 
@@ -250,11 +249,11 @@ func (s *S) TestFieldMap(c *C) {
 func (s *S) TestSchemaMap(c *C) {
 	fields1 := schema.FieldMap(schema.Fields{
 		"type": schema.Const(1),
-		"a": schema.Const(2),
+		"a":    schema.Const(2),
 	}, nil)
 	fields2 := schema.FieldMap(schema.Fields{
 		"type": schema.Const(3),
-		"b": schema.Const(4),
+		"b":    schema.Const(4),
 	}, nil)
 	sch := schema.FieldMapSet("type", []schema.Checker{fields1, fields2})
 

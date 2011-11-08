@@ -1,14 +1,11 @@
 package juju
 
-import (
-	"fmt"
-	"os"
-)
+import "fmt"
 
 // New creates a new Environ using the
 // environment configuration with the given name.
 // If name is empty, the default environment will be used.
-func (envs *Environs) Open(name string) (Environ, os.Error) {
+func (envs *Environs) Open(name string) (Environ, error) {
 	if name == "" {
 		name = envs.Default
 		if name == "" {

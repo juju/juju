@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"launchpad.net/juju/go/juju"
 	"launchpad.net/juju/go/schema"
-	"os"
 	"sync"
 )
 
@@ -51,7 +50,7 @@ type dummyEnviron struct {
 	machines map[int]*dummyMachine
 }
 
-func (dummyProvider) Open(name string, attributes interface{}) (e juju.Environ, err os.Error) {
+func (dummyProvider) Open(name string, attributes interface{}) (e juju.Environ, err error) {
 	cfg := attributes.(schema.MapType)
 	return &dummyEnviron{
 		baseName: cfg["basename"].(string),
@@ -59,15 +58,15 @@ func (dummyProvider) Open(name string, attributes interface{}) (e juju.Environ, 
 	}, nil
 }
 
-func (*dummyEnviron) Bootstrap() os.Error {
+func (*dummyEnviron) Bootstrap() error {
 	return nil
 }
 
-func (*dummyEnviron) Destroy() os.Error {
+func (*dummyEnviron) Destroy() error {
 	return nil
 }
 
-func (c *dummyEnviron) StartMachine() (juju.Machine, os.Error) {
+func (c *dummyEnviron) StartMachine() (juju.Machine, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	m := &dummyMachine{
@@ -79,16 +78,16 @@ func (c *dummyEnviron) StartMachine() (juju.Machine, os.Error) {
 	return m, nil
 }
 
-func (c *dummyEnviron) StopMachines(ms []juju.Machine) os.Error {
+func (c *dummyEnviron) StopMachines(ms []juju.Machine) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, m := range ms {
-		c.machines[m.(*dummyMachine).id] = nil, false
+		delete(c.machines, m.(*dummyMachine).id)
 	}
 	return nil
 }
 
-func (c *dummyEnviron) Machines() ([]juju.Machine, os.Error) {
+func (c *dummyEnviron) Machines() ([]juju.Machine, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	var ms []juju.Machine

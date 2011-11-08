@@ -93,7 +93,7 @@ func (s *S) TestIfaceExpander(c *C) {
 
 	// Invalid data raises an error.
 	v, err = e.Coerce(42, path)
-	c.Assert(err, Matches, "<path>: expected map, got 42")
+	c.Assert(err, ErrorMatches, "<path>: expected map, got 42")
 
 	v, err = e.Coerce(schema.MapType{"interface": "http", "optional": nil}, path)
 	c.Assert(err, Matches, "<path>.optional: expected bool, got nothing")

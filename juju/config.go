@@ -1,6 +1,7 @@
 package juju
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -12,7 +13,7 @@ import (
 type environ struct {
 	kind   string      // the type of environment (e.g. ec2).
 	config interface{} // the configuration data for passing to NewEnviron.
-	err    os.Error    // an error if the config data could not be parsed.
+	err    error       // an error if the config data could not be parsed.
 }
 
 // Environs holds information about each named environment
@@ -50,7 +51,7 @@ func RegisterProvider(name string, p EnvironProvider) {
 // and returns its representation. An environment with an unknown type
 // will only generate an error when New is called for that environment.
 // Attributes for environments with known types are checked.
-func ReadEnvironsBytes(data []byte) (*Environs, os.Error) {
+func ReadEnvironsBytes(data []byte) (*Environs, error) {
 	var raw struct {
 		Default      string                 "default"
 		Environments map[string]interface{} "environments"
@@ -113,11 +114,11 @@ func ReadEnvironsBytes(data []byte) (*Environs, os.Error) {
 // on the file's contents.
 // If environsFile is empty, $HOME/.juju/environments.yaml
 // is used.
-func ReadEnvirons(environsFile string) (*Environs, os.Error) {
+func ReadEnvirons(environsFile string) (*Environs, error) {
 	if environsFile == "" {
 		home := os.Getenv("HOME")
 		if home == "" {
-			return nil, os.NewError("$HOME not set")
+			return nil, errors.New("$HOME not set")
 		}
 		environsFile = filepath.Join(home, ".juju/environments.yaml")
 	}

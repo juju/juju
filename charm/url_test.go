@@ -36,7 +36,7 @@ func (s *S) TestNewURL(c *C) {
 		url, err := charm.NewURL(t.s)
 		bug := Bug("NewURL(%q)", t.s)
 		if t.err != "" {
-			c.Check(err, Matches, t.err, bug)
+			c.Check(err.Error(), Matches, t.err, bug)
 		} else {
 			c.Check(url, Equals, t.url, bug)
 			c.Check(t.url.String(), Equals, t.s)

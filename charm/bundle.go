@@ -9,7 +9,7 @@ import (
 )
 
 // ReadBundle returns a Bundle for the charm in path.
-func ReadBundle(path string) (bundle *Bundle, err os.Error) {
+func ReadBundle(path string) (bundle *Bundle, err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return
@@ -29,11 +29,11 @@ func ReadBundle(path string) (bundle *Bundle, err os.Error) {
 
 // ReadBundleBytes returns a Bundle read from the given data.
 // Make sure the bundle fits in memory before using this.
-func ReadBundleBytes(data []byte) (bundle *Bundle, err os.Error) {
+func ReadBundleBytes(data []byte) (bundle *Bundle, err error) {
 	return readBundle(readAtBytes(data), int64(len(data)))
 }
 
-func readBundle(r io.ReaderAt, size int64) (bundle *Bundle, err os.Error) {
+func readBundle(r io.ReaderAt, size int64) (bundle *Bundle, err error) {
 	b := &Bundle{r: r, size: size}
 	zipr, err := zip.NewReader(r, size)
 	if err != nil {
@@ -60,7 +60,7 @@ func readBundle(r io.ReaderAt, size int64) (bundle *Bundle, err os.Error) {
 	return b, nil
 }
 
-func zipOpen(zipr *zip.Reader, path string) (rc io.ReadCloser, err os.Error) {
+func zipOpen(zipr *zip.Reader, path string) (rc io.ReadCloser, err error) {
 	for _, fh := range zipr.File {
 		if fh.Name == path {
 			return fh.Open()
@@ -96,7 +96,7 @@ func (b *Bundle) Config() *Config {
 // ExpandTo expands the charm bundle into dir, creating it if necessary.
 // If any errors occur during the expansion procedure, the process will
 // continue. Only the last error found is returned.
-func (b *Bundle) ExpandTo(dir string) (err os.Error) {
+func (b *Bundle) ExpandTo(dir string) (err error) {
 	// If we have a Path, reopen the file. Otherwise, try to use
 	// the original ReaderAt.
 	r := b.r
@@ -120,7 +120,7 @@ func (b *Bundle) ExpandTo(dir string) (err os.Error) {
 		return err
 	}
 
-	var lasterr os.Error
+	var lasterr error
 	for _, zfile := range zipr.File {
 		if err := b.expand(dir, zfile); err != nil {
 			lasterr = err
@@ -129,7 +129,7 @@ func (b *Bundle) ExpandTo(dir string) (err os.Error) {
 	return lasterr
 }
 
-func (b *Bundle) expand(dir string, zfile *zip.File) os.Error {
+func (b *Bundle) expand(dir string, zfile *zip.File) error {
 	r, err := zfile.Open()
 	if err != nil {
 		return err
@@ -162,6 +162,6 @@ func (b *Bundle) expand(dir string, zfile *zip.File) os.Error {
 // FWIW, being able to do this is awesome.
 type readAtBytes []byte
 
-func (b readAtBytes) ReadAt(out []byte, off int64) (n int, err os.Error) {
+func (b readAtBytes) ReadAt(out []byte, off int64) (n int, err error) {
 	return copy(out, b[off:]), nil
 }

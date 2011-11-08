@@ -9,7 +9,7 @@ import (
 )
 
 // ReadDir returns a Dir representing an expanded charm directory.
-func ReadDir(path string) (dir *Dir, err os.Error) {
+func ReadDir(path string) (dir *Dir, err error) {
 	dir = &Dir{Path: path}
 	file, err := os.Open(dir.join("metadata.yaml"))
 	if err != nil {
@@ -63,7 +63,7 @@ func (dir *Dir) Config() *Config {
 }
 
 // BundleTo creates a charm file from the charm expanded in dir.
-func (dir *Dir) BundleTo(w io.Writer) (err os.Error) {
+func (dir *Dir) BundleTo(w io.Writer) (err error) {
 	zipw := zip.NewWriter(w)
 	defer zipw.Close()
 	zp := zipPacker{zipw, dir.Path}
@@ -76,12 +76,12 @@ type zipPacker struct {
 }
 
 func (zp *zipPacker) WalkFunc() filepath.WalkFunc {
-	return func(path string, fi *os.FileInfo, err os.Error) os.Error {
+	return func(path string, fi *os.FileInfo, err error) error {
 		return zp.Visit(path, fi, err)
 	}
 }
 
-func (zp *zipPacker) Visit(path string, fi *os.FileInfo, err os.Error) os.Error {
+func (zp *zipPacker) Visit(path string, fi *os.FileInfo, err error) error {
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func (zp *zipPacker) Visit(path string, fi *os.FileInfo, err os.Error) os.Error 
 		return nil
 	}
 	h := &zip.FileHeader{
-		Name: relpath,
+		Name:   relpath,
 		Method: zip.Deflate,
 	}
 	h.SetMode(fi.Mode)

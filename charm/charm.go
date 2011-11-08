@@ -1,8 +1,8 @@
 package charm
 
 import (
+	"errors"
 	"fmt"
-	"os"
 )
 
 // The Charm interface is implemented by any type that
@@ -12,6 +12,6 @@ type Charm interface {
 	Config() *Config
 }
 
-func errorf(format string, args ...interface{}) os.Error {
-	return os.NewError(fmt.Sprintf(format, args...))
+func errorf(format string, args ...interface{}) error {
+	return errors.New(fmt.Sprintf(format, args...))
 }
