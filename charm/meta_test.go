@@ -96,10 +96,10 @@ func (s *S) TestIfaceExpander(c *C) {
 	c.Assert(err, ErrorMatches, "<path>: expected map, got 42")
 
 	v, err = e.Coerce(schema.MapType{"interface": "http", "optional": nil}, path)
-	c.Assert(err, Matches, "<path>.optional: expected bool, got nothing")
+	c.Assert(err, ErrorMatches, "<path>.optional: expected bool, got nothing")
 
 	v, err = e.Coerce(schema.MapType{"interface": "http", "limit": "none, really"}, path)
-	c.Assert(err, Matches, "<path>.limit: unsupported value")
+	c.Assert(err, ErrorMatches, "<path>.limit: unsupported value")
 
 	// Can change default limit
 	e = charm.IfaceExpander(1)
