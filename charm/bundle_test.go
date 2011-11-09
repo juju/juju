@@ -62,4 +62,3 @@ func bundleDir(c *C, dirpath string) (path string) {
 
 	return path
 }
-

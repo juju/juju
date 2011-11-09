@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 )
 
-
 func repoMeta(name string) io.Reader {
 	file, err := os.Open(filepath.Join("testrepo", name, "metadata.yaml"))
 	if err != nil {
