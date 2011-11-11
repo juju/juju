@@ -23,10 +23,10 @@ environments:
         type: unknown
         other: anything
 `, func(c *C, es *juju.Environs) {
-		e, err := es.New("")
+		e, err := es.Open("")
 		c.Assert(e, IsNil)
 		c.Assert(err, NotNil)
-		c.Assert(err.String(), Equals, `environment "only" has an unknown provider type: "unknown"`)
+		c.Assert(err.Error(), Equals, `environment "only" has an unknown provider type: "unknown"`)
 	},
 	},
 	// one known environment, no defaults, bad attribute -> parse error
@@ -44,7 +44,7 @@ environments:
         type: dummy
         basename: foo
 `, func(c *C, es *juju.Environs) {
-		e, err := es.New("")
+		e, err := es.Open("")
 		c.Assert(err, IsNil)
 		checkDummyEnviron(c, e, "foo")
 	},
@@ -59,9 +59,9 @@ environments:
         type: dummy
         basename: bar
 `, func(c *C, es *juju.Environs) {
-		e, err := es.New("")
+		e, err := es.Open("")
 		c.Assert(err, NotNil)
-		e, err = es.New("one")
+		e, err = es.Open("one")
 		c.Assert(err, IsNil)
 		checkDummyEnviron(c, e, "foo")
 	},
@@ -78,20 +78,19 @@ environments:
         type: dummy
         basename: bar
 `, func(c *C, es *juju.Environs) {
-		conn, err := es.New("")
+		e, err := es.Open("")
 		c.Assert(err, IsNil)
-		checkDummyEnviron(c, conn, "bar")
+		checkDummyEnviron(c, e, "bar")
 	},
 	},
 }
 
-func checkDummyEnviron(c *C, conn *juju.Conn, basename string) {
-	c.Assert(conn, NotNil)
-	err := conn.Bootstrap()
+func checkDummyEnviron(c *C, e juju.Environ, basename string) {
+	c.Assert(e, NotNil)
+	err := e.Bootstrap()
 	c.Assert(err, IsNil)
-	e := conn.Environ()
 
-	m0, err := e.StartMachine("zero", nil)
+	m0, err := e.StartMachine("0")
 	c.Assert(err, IsNil)
 	c.Assert(m0, NotNil)
 	c.Assert(m0.DNSName(), Equals, basename+"-0")
@@ -101,7 +100,7 @@ func checkDummyEnviron(c *C, conn *juju.Conn, basename string) {
 	c.Assert(len(ms), Equals, 1)
 	c.Assert(ms[0], Equals, m0)
 
-	m1, err := e.StartMachine("one", nil)
+	m1, err := e.StartMachine("1")
 	c.Assert(err, IsNil)
 	c.Assert(m1, NotNil)
 	c.Assert(m1.DNSName(), Equals, basename+"-1")
@@ -130,7 +129,7 @@ func checkDummyEnviron(c *C, conn *juju.Conn, basename string) {
 func (suite) TestConfig(c *C) {
 	for i, t := range configTests {
 		c.Logf("running test %v", i)
-		es, err := juju.ParseEnvironments([]byte(t.env))
+		es, err := juju.ReadEnvironsBytes([]byte(t.env))
 		if es == nil {
 			c.Logf("parse failed\n")
 			if t.check != nil {
@@ -163,9 +162,9 @@ environments:
 	c.Assert(err, IsNil)
 
 	// test reading from a named file
-	es, err := juju.ReadEnvironments(path)
+	es, err := juju.ReadEnvirons(path)
 	c.Assert(err, IsNil)
-	e, err := es.New("")
+	e, err := es.Open("")
 	c.Assert(err, IsNil)
 	checkDummyEnviron(c, e, "foo")
 
@@ -173,9 +172,9 @@ environments:
 	h := os.Getenv("HOME")
 	os.Setenv("HOME", d)
 
-	es, err = juju.ReadEnvironments("")
+	es, err = juju.ReadEnvirons("")
 	c.Assert(err, IsNil)
-	e, err = es.New("")
+	e, err = es.Open("")
 	c.Assert(err, IsNil)
 	checkDummyEnviron(c, e, "foo")
 

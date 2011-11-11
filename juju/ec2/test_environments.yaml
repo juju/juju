@@ -1,0 +1,11 @@
+juju: environments
+
+# missing keys for security reasons; set the following environment variables
+# to make the integration testing work.
+#  access-key: $AWS_ACCESS_KEY_ID
+#  admin-secret: $AWS_SECRET_ACCESS_KEY
+environments:
+  sample:
+    type: ec2
+    control-bucket: dummy
+    admin-secret: dummy

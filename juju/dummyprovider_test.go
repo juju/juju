@@ -11,17 +11,16 @@ import (
 	"fmt"
 	"launchpad.net/juju/go/juju"
 	"launchpad.net/juju/go/schema"
-	"os"
 	"sync"
 )
 
 func init() {
-	juju.Register("dummy", dummyProvider{})
+	juju.RegisterProvider("dummy", dummyProvider{})
 }
 
 type dummyMachine struct {
 	name string
-	id   int
+	id   string
 }
 
 func (m *dummyMachine) Id() string {
@@ -44,61 +43,51 @@ func (dummyProvider) ConfigChecker() schema.Checker {
 	)
 }
 
-type dummyConn struct {
+type dummyEnviron struct {
 	mu       sync.Mutex
 	baseName string
 	n        int // machine count
-	machines map[int]*dummyMachine
+	machines map[string]*dummyMachine
 }
 
-func (dummyProvider) NewEnviron(name string, attributes interface{}) (e juju.Environ, err os.Error) {
+func (dummyProvider) Open(name string, attributes interface{}) (e juju.Environ, err error) {
 	cfg := attributes.(schema.MapType)
-	return &dummyConn{
+	return &dummyEnviron{
 		baseName: cfg["basename"].(string),
-		machines: make(map[int]*dummyMachine),
+		machines: make(map[string]*dummyMachine),
 	}, nil
 }
 
-type dummyMachineSpec struct{}
-
-func (dummyMachineSpec) UbuntuRelease() string {
-	return "oneiric"
-}
-
-func (*dummyConn) Bootstrap() os.Error {
+func (*dummyEnviron) Bootstrap() error {
 	return nil
 }
 
-func (*dummyConn) Destroy() os.Error {
+func (*dummyEnviron) Destroy() error {
 	return nil
 }
 
-func (c *dummyConn) FindMachineSpec(constraint *juju.MachineConstraint) (juju.MachineSpec, os.Error) {
-	return dummyMachineSpec{}, nil
-}
-
-func (c *dummyConn) StartMachine(machineId string, _ juju.MachineSpec) (juju.Machine, os.Error) {
+func (c *dummyEnviron) StartMachine(id string) (juju.Machine, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	m := &dummyMachine{
 		name: fmt.Sprintf("%s-%d", c.baseName, c.n),
-		id:   c.n,
+		id:   id,
 	}
 	c.machines[m.id] = m
 	c.n++
 	return m, nil
 }
 
-func (c *dummyConn) StopMachines(ms []juju.Machine) os.Error {
+func (c *dummyEnviron) StopMachines(ms []juju.Machine) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, m := range ms {
-		c.machines[m.(*dummyMachine).id] = nil, false
+		delete(c.machines, m.(*dummyMachine).id)
 	}
 	return nil
 }
 
-func (c *dummyConn) Machines() ([]juju.Machine, os.Error) {
+func (c *dummyEnviron) Machines() ([]juju.Machine, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	var ms []juju.Machine

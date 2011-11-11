@@ -2,7 +2,6 @@ package schema
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -22,16 +21,16 @@ type ListType []interface{}
 // checking process the error happened. Checkers like OneOf may continue
 // with an alternative, for instance.
 type Checker interface {
-	Coerce(v interface{}, path []string) (newv interface{}, err os.Error)
+	Coerce(v interface{}, path []string) (newv interface{}, err error)
 }
 
-type error struct {
+type error_ struct {
 	want string
-	got interface{}
-	path    []string
+	got  interface{}
+	path []string
 }
 
-func (e error) String() string {
+func (e error_) Error() string {
 	var path string
 	if e.path[0] == "." {
 		path = strings.Join(e.path[1:], "")
@@ -55,10 +54,9 @@ func Any() Checker {
 
 type anyC struct{}
 
-func (c anyC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
+func (c anyC) Coerce(v interface{}, path []string) (interface{}, error) {
 	return v, nil
 }
-
 
 // Const returns a Checker that only succeeds if the input matches
 // value exactly.  The value is compared with reflect.DeepEqual.
@@ -70,11 +68,11 @@ type constC struct {
 	value interface{}
 }
 
-func (c constC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
+func (c constC) Coerce(v interface{}, path []string) (interface{}, error) {
 	if reflect.DeepEqual(v, c.value) {
 		return v, nil
 	}
-	return nil, error{fmt.Sprintf("%#v", c.value), v, path}
+	return nil, error_{fmt.Sprintf("%#v", c.value), v, path}
 }
 
 // OneOf returns a Checker that attempts to Coerce the value with each
@@ -89,14 +87,14 @@ type oneOfC struct {
 	options []Checker
 }
 
-func (c oneOfC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
+func (c oneOfC) Coerce(v interface{}, path []string) (interface{}, error) {
 	for _, o := range c.options {
 		newv, err := o.Coerce(v, path)
 		if err == nil {
 			return newv, nil
 		}
 	}
-	return nil, error{path: path}
+	return nil, error_{path: path}
 }
 
 // Bool returns a Checker that accepts boolean values only.
@@ -106,11 +104,11 @@ func Bool() Checker {
 
 type boolC struct{}
 
-func (c boolC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
+func (c boolC) Coerce(v interface{}, path []string) (interface{}, error) {
 	if v != nil && reflect.TypeOf(v).Kind() == reflect.Bool {
 		return v, nil
 	}
-	return nil, error{"bool", v, path}
+	return nil, error_{"bool", v, path}
 }
 
 // Int returns a Checker that accepts any integer value, and returns
@@ -121,9 +119,9 @@ func Int() Checker {
 
 type intC struct{}
 
-func (c intC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
+func (c intC) Coerce(v interface{}, path []string) (interface{}, error) {
 	if v == nil {
-		return nil, error{"int", v, path}
+		return nil, error_{"int", v, path}
 	}
 	switch reflect.TypeOf(v).Kind() {
 	case reflect.Int:
@@ -132,7 +130,7 @@ func (c intC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
 	case reflect.Int32:
 	case reflect.Int64:
 	default:
-		return nil, error{"int", v, path}
+		return nil, error_{"int", v, path}
 	}
 	return reflect.ValueOf(v).Int(), nil
 }
@@ -145,19 +143,18 @@ func Float() Checker {
 
 type floatC struct{}
 
-func (c floatC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
+func (c floatC) Coerce(v interface{}, path []string) (interface{}, error) {
 	if v == nil {
-		return nil, error{"float", v, path}
+		return nil, error_{"float", v, path}
 	}
 	switch reflect.TypeOf(v).Kind() {
 	case reflect.Float32:
 	case reflect.Float64:
 	default:
-		return nil, error{"float", v, path}
+		return nil, error_{"float", v, path}
 	}
 	return reflect.ValueOf(v).Float(), nil
 }
-
 
 // String returns a Checker that accepts a string value only and returns
 // it unprocessed.
@@ -167,11 +164,11 @@ func String() Checker {
 
 type stringC struct{}
 
-func (c stringC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
+func (c stringC) Coerce(v interface{}, path []string) (interface{}, error) {
 	if v != nil && reflect.TypeOf(v).Kind() == reflect.String {
 		return reflect.ValueOf(v).String(), nil
 	}
-	return nil, error{"string", v, path}
+	return nil, error_{"string", v, path}
 }
 
 func SimpleRegexp() Checker {
@@ -180,7 +177,7 @@ func SimpleRegexp() Checker {
 
 type sregexpC struct{}
 
-func (c sregexpC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
+func (c sregexpC) Coerce(v interface{}, path []string) (interface{}, error) {
 	// XXX The regexp package happens to be extremely simple right now.
 	//     Once exp/regexp goes mainstream, we'll have to update this
 	//     logic to use a more widely accepted regexp subset.
@@ -188,11 +185,11 @@ func (c sregexpC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
 		s := reflect.ValueOf(v).String()
 		_, err := regexp.Compile(s)
 		if err != nil {
-			return nil, error{"valid regexp", s, path}
+			return nil, error_{"valid regexp", s, path}
 		}
 		return v, nil
 	}
-	return nil, error{"regexp string", v, path}
+	return nil, error_{"regexp string", v, path}
 }
 
 // List returns a Checker that accepts a slice value with values
@@ -209,10 +206,10 @@ type listC struct {
 	elem Checker
 }
 
-func (c listC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
+func (c listC) Coerce(v interface{}, path []string) (interface{}, error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Slice {
-		return nil, error{"list", v, path}
+		return nil, error_{"list", v, path}
 	}
 
 	path = append(path, "[", "?", "]")
@@ -241,14 +238,14 @@ func Map(key Checker, value Checker) Checker {
 }
 
 type mapC struct {
-	key Checker
+	key   Checker
 	value Checker
 }
 
-func (c mapC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
+func (c mapC) Coerce(v interface{}, path []string) (interface{}, error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Map {
-		return nil, error{"map", v, path}
+		return nil, error_{"map", v, path}
 	}
 
 	vpath := append(path, ".", "?")
@@ -287,7 +284,7 @@ func FieldMap(fields Fields, optional Optional) Checker {
 }
 
 type fieldMapC struct {
-	fields Fields
+	fields   Fields
 	optional []string
 }
 
@@ -300,10 +297,10 @@ func (c fieldMapC) isOptional(key string) bool {
 	return false
 }
 
-func (c fieldMapC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
+func (c fieldMapC) Coerce(v interface{}, path []string) (interface{}, error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Map {
-		return nil, error{"map", v, path}
+		return nil, error_{"map", v, path}
 	}
 
 	vpath := append(path, ".", "?")
@@ -352,13 +349,13 @@ func FieldMapSet(selector string, maps []Checker) Checker {
 
 type mapSetC struct {
 	selector string
-	fmaps []fieldMapC
+	fmaps    []fieldMapC
 }
 
-func (c mapSetC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
+func (c mapSetC) Coerce(v interface{}, path []string) (interface{}, error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Map {
-		return nil, error{"map", v, path}
+		return nil, error_{"map", v, path}
 	}
 
 	var selector interface{}
@@ -373,5 +370,5 @@ func (c mapSetC) Coerce(v interface{}, path []string) (interface{}, os.Error) {
 			return fmap.Coerce(v, path)
 		}
 	}
-	return nil, error{"supported selector", selector, append(path, ".", c.selector)}
+	return nil, error_{"supported selector", selector, append(path, ".", c.selector)}
 }

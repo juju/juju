@@ -58,7 +58,7 @@ func (s *S) TestReadConfig(c *C) {
 
 func (s *S) TestConfigError(c *C) {
 	_, err := charm.ReadConfig(bytes.NewBuffer([]byte(`options: {t: {type: foo}}`)))
-	c.Assert(err, Matches, `config: options.t.type: unsupported value`)
+	c.Assert(err, ErrorMatches, `config: options.t.type: unsupported value`)
 }
 
 func (s *S) TestParseSample(c *C) {
@@ -126,18 +126,18 @@ func (s *S) TestValidate(c *C) {
 	// Check whether float errors are caught.
 	input["agility-ratio"] = "foo"
 	output, err = config.Validate(input)
-	c.Assert(err, Matches, `Value for "agility-ratio" is not a float: "foo"`)
+	c.Assert(err, ErrorMatches, `Value for "agility-ratio" is not a float: "foo"`)
 	input["agility-ratio"] = "0.5"
 
 	// Check whether int errors are caught.
 	input["skill-level"] = "foo"
 	output, err = config.Validate(input)
-	c.Assert(err, Matches, `Value for "skill-level" is not an int: "foo"`)
+	c.Assert(err, ErrorMatches, `Value for "skill-level" is not an int: "foo"`)
 	input["skill-level"] = "7"
 
 	// Now try to set a value outside the expected.
 	input["bad"] = "value"
 	output, err = config.Validate(input)
 	c.Assert(output, IsNil)
-	c.Assert(err, Matches, `Unknown configuration option: "bad"`)
+	c.Assert(err, ErrorMatches, `Unknown configuration option: "bad"`)
 }
