@@ -63,7 +63,7 @@ func (s *S) TestBundleTo(c *C) {
 	c.Assert(instf, NotNil)
 	mode, err := instf.Mode()
 	c.Assert(err, IsNil)
-	c.Assert(mode&0777, Equals, uint32(0755))
+	c.Assert(mode&0700, Equals, uint32(0700))
 
 	c.Assert(emptyf, NotNil)
 	mode, err = emptyf.Mode()

@@ -4,8 +4,8 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju/go/schema"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju/go/schema"
 	"strconv"
 )
 

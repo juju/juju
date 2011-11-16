@@ -1,8 +1,8 @@
 package charm
 
 import (
-	"regexp"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
