@@ -90,22 +90,22 @@ func checkDummyEnviron(c *C, e juju.Environ, basename string) {
 	err := e.Bootstrap()
 	c.Assert(err, IsNil)
 
-	m0, err := e.StartMachine("0")
+	m0, err := e.StartInstance("0")
 	c.Assert(err, IsNil)
 	c.Assert(m0, NotNil)
 	c.Assert(m0.DNSName(), Equals, basename+"-0")
 
-	ms, err := e.Machines()
+	ms, err := e.Instances()
 	c.Assert(err, IsNil)
 	c.Assert(len(ms), Equals, 1)
 	c.Assert(ms[0], Equals, m0)
 
-	m1, err := e.StartMachine("1")
+	m1, err := e.StartInstance("1")
 	c.Assert(err, IsNil)
 	c.Assert(m1, NotNil)
 	c.Assert(m1.DNSName(), Equals, basename+"-1")
 
-	ms, err = e.Machines()
+	ms, err = e.Instances()
 	c.Assert(err, IsNil)
 	c.Assert(len(ms), Equals, 2)
 	if ms[0] == m1 {
@@ -114,10 +114,10 @@ func checkDummyEnviron(c *C, e juju.Environ, basename string) {
 	c.Assert(ms[0], Equals, m0)
 	c.Assert(ms[1], Equals, m1)
 
-	err = e.StopMachines([]juju.Machine{m0})
+	err = e.StopInstances([]juju.Instance{m0})
 	c.Assert(err, IsNil)
 
-	ms, err = e.Machines()
+	ms, err = e.Instances()
 	c.Assert(err, IsNil)
 	c.Assert(len(ms), Equals, 1)
 	c.Assert(ms[0], Equals, m1)

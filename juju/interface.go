@@ -15,8 +15,10 @@ type EnvironProvider interface {
 	Open(name string, attributes interface{}) (Environ, error)
 }
 
-// Machine represents a running machine instance.
-type Machine interface {
+// Instance represents a running machine instance.
+type Instance interface {
+	// Id returns a provider-generated identifier for the Instance.
+	// N.B. this does not return the machine identifier.
 	Id() string
 	DNSName() string
 }
@@ -27,20 +29,17 @@ type Environ interface {
 	// Bootstrap initializes the new environment.
 	Bootstrap() error
 
-	// FindMachineSpec finds a possible machine specification matching the
-	// given constraint, with the goal of minimising cost if all else is equal.
-	//	FindMachineSpec(constraint *MachineConstraint) (MachineSpec, error)
-
-	// StartMachine asks for a new machine instance to be created.
+	// StartInstance asks for a new machine instance to be created,
+	// associated with the provided machine identifier
 	// TODO add arguments to specify type of new machine
 	// and zookeeper instances.
-	StartMachine(id string) (Machine, error)
+	StartInstance(machineId string) (Instance, error)
 
-	// StopMachine shuts down the given Machine.
-	StopMachines([]Machine) error
+	// StopInstance shuts down the given Instance.
+	StopInstances([]Instance) error
 
-	// Machines returns the list of currently started instances.
-	Machines() ([]Machine, error)
+	// Instances returns the list of currently started instances.
+	Instances() ([]Instance, error)
 
 	// Destroy shuts down all known machines and destroys the
 	// rest of the environment.

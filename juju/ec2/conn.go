@@ -236,7 +236,7 @@ func (c *conn) setUpGroups(machineId string) ([]string, error) {
 // machineId finds the id of a machine from its ec2 info.
 // The id is encoded as one of the machine groups (see setUpGroups).
 // It returns the empty string if no id was found.
-func (c *conn) machineId(inst *ec2.Instance, r *ec2.Reservation) string {
+func (c *conn) machineId(r *ec2.Reservation) string {
 	prefix := c.groupName() + "-"
 	for _, g := range r.SecurityGroups {
 		if strings.HasPrefix(g, prefix) {
@@ -259,7 +259,7 @@ func (c *conn) Machines() ([]juju.Machine, error) {
 		r := &resp.Reservations[i]
 		for j := range r.Instances {
 			inst := &r.Instances[j]
-			id := c.machineId(inst, r)
+			id := c.machineId(r)
 			if id == "" {
 				// ignore machines with no id.
 				// TODO should this count as an error?

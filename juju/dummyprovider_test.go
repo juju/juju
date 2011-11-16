@@ -18,16 +18,16 @@ func init() {
 	juju.RegisterProvider("dummy", dummyProvider{})
 }
 
-type dummyMachine struct {
+type dummyInstance struct {
 	name string
 	id   string
 }
 
-func (m *dummyMachine) Id() string {
+func (m *dummyInstance) Id() string {
 	return fmt.Sprintf("dummy-%d", m.id)
 }
 
-func (m *dummyMachine) DNSName() string {
+func (m *dummyInstance) DNSName() string {
 	return m.name
 }
 
@@ -47,14 +47,14 @@ type dummyEnviron struct {
 	mu       sync.Mutex
 	baseName string
 	n        int // machine count
-	machines map[string]*dummyMachine
+	machines map[string]*dummyInstance
 }
 
 func (dummyProvider) Open(name string, attributes interface{}) (e juju.Environ, err error) {
 	cfg := attributes.(schema.MapType)
 	return &dummyEnviron{
 		baseName: cfg["basename"].(string),
-		machines: make(map[string]*dummyMachine),
+		machines: make(map[string]*dummyInstance),
 	}, nil
 }
 
@@ -66,10 +66,10 @@ func (*dummyEnviron) Destroy() error {
 	return nil
 }
 
-func (c *dummyEnviron) StartMachine(id string) (juju.Machine, error) {
+func (c *dummyEnviron) StartInstance(id string) (juju.Instance, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	m := &dummyMachine{
+	m := &dummyInstance{
 		name: fmt.Sprintf("%s-%d", c.baseName, c.n),
 		id:   id,
 	}
@@ -78,19 +78,19 @@ func (c *dummyEnviron) StartMachine(id string) (juju.Machine, error) {
 	return m, nil
 }
 
-func (c *dummyEnviron) StopMachines(ms []juju.Machine) error {
+func (c *dummyEnviron) StopInstances(ms []juju.Instance) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, m := range ms {
-		delete(c.machines, m.(*dummyMachine).id)
+		delete(c.machines, m.(*dummyInstance).id)
 	}
 	return nil
 }
 
-func (c *dummyEnviron) Machines() ([]juju.Machine, error) {
+func (c *dummyEnviron) Instances() ([]juju.Instance, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	var ms []juju.Machine
+	var ms []juju.Instance
 	for _, m := range c.machines {
 		ms = append(ms, m)
 	}
