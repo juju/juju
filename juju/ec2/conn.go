@@ -143,9 +143,8 @@ func (c *conn) machineGroupName(machineId string) string {
 //
 // Instances launched by juju are tagged with a group so they
 // can be distinguished from other machines that might be running
-// on an EC2 account. This group can be specified explicitly or
-// implicitly defined by the environment name. In addition, a
-// specific machine security group is created for each machine,
+// on an EC2 account. This group is defined by the environment name.
+// In addition, a specific machine security group is created for each machine,
 // so that its firewall rules can be configured per machine.
 //
 // setUpGroups returns a slice of the group names used.
