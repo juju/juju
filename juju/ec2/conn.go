@@ -18,21 +18,20 @@ type conn struct {
 	ec2    *ec2.EC2
 }
 
-type Machine struct {
-	MachineId string
+type Instance struct {
 	*ec2.Instance
 	Reservation *ec2.Reservation
 }
 
-func (m *Machine) DNSName() string {
+func (m *Instance) DNSName() string {
 	return m.Instance.DNSName
 }
 
-func (m *Machine) Id() string {
-	return m.MachineId
+func (m *Instance) Id() string {
+	return m.InstanceId
 }
 
-func (m *Machine) PrivateDNSName() string {
+func (m *Instance) PrivateDNSName() string {
 	return m.Instance.PrivateDNSName
 }
 
@@ -71,18 +70,18 @@ func (c *conn) Bootstrap() error {
 
 // Destroy implements juju.Environ.Destroy
 func (c *conn) Destroy() error {
-	ms, err := c.Machines()
+	ms, err := c.Instances()
 	if err == notFound {
 		return errors.New("not bootstrapped")
 	}
 	if err != nil {
 		return err
 	}
-	return c.StopMachines(ms)
+	return c.StopInstances(ms)
 }
 
-// StartMachine implements juju.Environ.StartMachine
-func (c *conn) StartMachine(machineId string) (juju.Machine, error) {
+// StartInstance implements juju.Environ.StartInstance
+func (c *conn) StartInstance(machineId string) (juju.Instance, error) {
 	image, err := c.FindImageSpec(DefaultImageConstraint)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
@@ -112,17 +111,17 @@ func (c *conn) StartMachine(machineId string) (juju.Machine, error) {
 		SecurityGroups: groups,
 		Instances:      instances.Instances,
 	}
-	return &Machine{machineId, &instances.Instances[0], r}, nil
+	return &Instance{&instances.Instances[0], r}, nil
 }
 
-// StopMachines implements juju.Environ.StopMachines
-func (c *conn) StopMachines(ms []juju.Machine) error {
+// StopInstances implements juju.Environ.StopInstances
+func (c *conn) StopInstances(ms []juju.Instance) error {
 	if len(ms) == 0 {
 		return nil
 	}
 	names := make([]string, len(ms))
 	for i, m := range ms {
-		names[i] = m.(*Machine).InstanceId
+		names[i] = m.(*Instance).InstanceId
 	}
 	_, err := c.ec2.TerminateInstances(names)
 	return err
@@ -142,7 +141,7 @@ func (c *conn) machineGroupName(machineId string) string {
 
 // setUpGroups ensures that the juju group is in the machine launch groups.
 //
-// Machines launched by juju are tagged with a group so they
+// Instances launched by juju are tagged with a group so they
 // can be distinguished from other machines that might be running
 // on an EC2 account. This group can be specified explicitly or
 // implicitly defined by the environment name. In addition, a
@@ -156,17 +155,17 @@ func (c *conn) setUpGroups(machineId string) ([]string, error) {
 		return nil, fmt.Errorf("cannot get security groups: %v", err)
 	}
 	jujuGroupName := c.groupName()
-	jujuMachineGroupName := c.machineGroupName(machineId)
+	jujuInstanceGroupName := c.machineGroupName(machineId)
 
 	hasJujuGroup := false
-	hasJujuMachineGroup := false
+	hasJujuInstanceGroup := false
 
 	for _, g := range groups.SecurityGroups {
 		switch g.GroupName {
 		case jujuGroupName:
 			hasJujuGroup = true
-		case jujuMachineGroupName:
-			hasJujuMachineGroup = true
+		case jujuInstanceGroupName:
+			hasJujuInstanceGroup = true
 		}
 	}
 
@@ -221,32 +220,19 @@ func (c *conn) setUpGroups(machineId string) ([]string, error) {
 	// Create the machine-specific group, but first see if there's
 	// one already existing from a previous machine launch;
 	// if so, delete it, since it can have the wrong firewall setup
-	if hasJujuMachineGroup {
-		_, err := c.ec2.DeleteSecurityGroup(jujuMachineGroupName)
+	if hasJujuInstanceGroup {
+		_, err := c.ec2.DeleteSecurityGroup(jujuInstanceGroupName)
 		if err != nil {
-			return nil, fmt.Errorf("cannot delete old security group %q: %v", jujuMachineGroupName, err)
+			return nil, fmt.Errorf("cannot delete old security group %q: %v", jujuInstanceGroupName, err)
 		}
 	}
 	descr := fmt.Sprintf("juju group for %s machine %s", c.name, machineId)
-	_, err = c.ec2.CreateSecurityGroup(jujuMachineGroupName, descr)
+	_, err = c.ec2.CreateSecurityGroup(jujuInstanceGroupName, descr)
 
-	return []string{jujuGroupName, jujuMachineGroupName}, nil
+	return []string{jujuGroupName, jujuInstanceGroupName}, nil
 }
 
-// machineId finds the id of a machine from its ec2 info.
-// The id is encoded as one of the machine groups (see setUpGroups).
-// It returns the empty string if no id was found.
-func (c *conn) machineId(r *ec2.Reservation) string {
-	prefix := c.groupName() + "-"
-	for _, g := range r.SecurityGroups {
-		if strings.HasPrefix(g, prefix) {
-			return g[len(prefix):]
-		}
-	}
-	return ""
-}
-
-func (c *conn) Machines() ([]juju.Machine, error) {
+func (c *conn) Instances() ([]juju.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
 	filter.Add("group-name", c.groupName())
@@ -254,18 +240,11 @@ func (c *conn) Machines() ([]juju.Machine, error) {
 	if err != nil {
 		return nil, err
 	}
-	var m []juju.Machine
+	var m []juju.Instance
 	for i := range resp.Reservations {
 		r := &resp.Reservations[i]
 		for j := range r.Instances {
-			inst := &r.Instances[j]
-			id := c.machineId(r)
-			if id == "" {
-				// ignore machines with no id.
-				// TODO should this count as an error?
-				continue
-			}
-			m = append(m, &Machine{id, inst, r})
+			m = append(m, &Instance{&r.Instances[j], r})
 		}
 	}
 	return m, nil

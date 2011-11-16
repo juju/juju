@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"launchpad.net/goyaml"
 	"os"
 	"path/filepath"
-	"launchpad.net/goyaml"
 )
 
 // environ holds information about one environment.

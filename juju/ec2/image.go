@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"http"
+	"net/http"
 	"strings"
 )
 

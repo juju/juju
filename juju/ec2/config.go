@@ -2,9 +2,9 @@ package ec2
 
 import (
 	"fmt"
+	"launchpad.net/goamz/aws"
 	"launchpad.net/juju/go/juju"
 	"launchpad.net/juju/go/schema"
-	"launchpad.net/goamz/aws"
 )
 
 func init() {

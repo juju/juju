@@ -1,8 +1,8 @@
 package jujutest
 
 import (
-	"launchpad.net/juju/go/juju"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju/go/juju"
 )
 
 // Tests defines methods which test juju functionality against
@@ -10,7 +10,7 @@ import (
 // Name gives the name of the environment.
 type Tests struct {
 	Environs *juju.Environs
-	Name string
+	Name     string
 
 	environs []juju.Environ
 }

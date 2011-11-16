@@ -1,10 +1,10 @@
 package ec2_test
 
 import (
+	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/juju"
 	_ "launchpad.net/juju/go/juju/ec2"
 	"launchpad.net/juju/go/juju/jujutest"
-	. "launchpad.net/gocheck"
 	"testing"
 )
 

@@ -1,8 +1,8 @@
 package jujutest
 
 import (
-	"launchpad.net/juju/go/juju"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju/go/juju"
 )
 
 func (t *Tests) TestStartStop(c *C) {
@@ -15,18 +15,20 @@ func (t *Tests) TestStartStop(c *C) {
 
 	t.addEnviron(e)
 
-	ms, err := e.Machines()
+	ms, err := e.Instances()
 	c.Assert(err, IsNil)
 	c.Assert(len(ms), Equals, 0)
 
-	m, err := e.StartMachine("0")
-	c.Assert(m.Id(), Equals, "0")
+	m, err := e.StartInstance("0")
+	c.Assert(err, IsNil)
+	c.Assert(m, NotNil)
+	id0 := m.Id()
 
-	ms, err = e.Machines()
+	ms, err = e.Instances()
 	c.Assert(err, IsNil)
 	c.Assert(len(ms), Equals, 1)
-	c.Assert(m.Id(), Equals, "0")
+	c.Assert(m.Id(), Equals, id0)
 
-	err = e.StopMachines([]juju.Machine{m})
+	err = e.StopInstances([]juju.Instance{m})
 	c.Assert(err, IsNil)
 }
