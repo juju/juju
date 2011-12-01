@@ -47,14 +47,14 @@ type dummyEnviron struct {
 	baseName string
 	n        int // instance count
 
-	machines map[string]*dummyInstance
+	instances map[string]*dummyInstance
 }
 
 func (dummyProvider) Open(name string, attributes interface{}) (e juju.Environ, err error) {
 	cfg := attributes.(schema.MapType)
 	return &dummyEnviron{
-		baseName: cfg["basename"].(string),
-		machines: make(map[string]*dummyInstance),
+		baseName:  cfg["basename"].(string),
+		instances: make(map[string]*dummyInstance),
 	}, nil
 }
 
@@ -66,31 +66,31 @@ func (*dummyEnviron) Destroy() error {
 	return nil
 }
 
-func (c *dummyEnviron) StartInstance(id int) (juju.Instance, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+func (e *dummyEnviron) StartInstance(id int) (juju.Instance, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	i := &dummyInstance{
-		name: fmt.Sprintf("%s-%d", c.baseName, c.n),
+		name: fmt.Sprintf("%s-%d", e.baseName, c.n),
 	}
-	c.machines[i.name] = i
-	c.n++
+	e.instances[i.name] = i
+	e.n++
 	return i, nil
 }
 
-func (c *dummyEnviron) StopInstances(is []juju.Instance) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+func (e *dummyEnviron) StopInstances(is []juju.Instance) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	for _, i := range is {
-		delete(c.machines, i.(*dummyInstance).name)
+		delete(e.instances, i.(*dummyInstance).name)
 	}
 	return nil
 }
 
-func (c *dummyEnviron) Instances() ([]juju.Instance, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+func (e *dummyEnviron) Instances() ([]juju.Instance, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	var is []juju.Instance
-	for _, i := range c.machines {
+	for _, i := range e.instances {
 		is = append(is, i)
 	}
 	return is, nil

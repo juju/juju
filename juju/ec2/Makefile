@@ -2,12 +2,10 @@ include $(GOROOT)/src/Make.inc
 
 all: package
 
-TARG=launchpad.net/juju/go/juju
+TARG=launchpad.net/juju/go/juju/ec2
 
 GOFILES=\
-	open.go\
-	config.go\
-	interface.go\
+	ec2.go\
 
 GOFMT=gofmt
 BADFMT:=$(shell $(GOFMT) -l $(GOFILES) $(CGOFILES) $(wildcard *_test.go))
