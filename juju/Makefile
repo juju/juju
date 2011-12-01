@@ -8,6 +8,7 @@ GOFILES=\
 	conn.go\
 	config.go\
 	interface.go\
+	log.go\
 
 GOFMT=gofmt
 BADFMT:=$(shell $(GOFMT) -l $(GOFILES) $(CGOFILES) $(wildcard *_test.go))
