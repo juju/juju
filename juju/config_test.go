@@ -90,37 +90,37 @@ func checkDummyEnviron(c *C, e juju.Environ, basename string) {
 	err := e.Bootstrap()
 	c.Assert(err, IsNil)
 
-	m0, err := e.StartMachine()
+	i0, err := e.StartInstance(0)
 	c.Assert(err, IsNil)
-	c.Assert(m0, NotNil)
-	c.Assert(m0.DNSName(), Equals, basename+"-0")
+	c.Assert(i0, NotNil)
+	c.Assert(i0.DNSName(), Equals, basename+"-0")
 
-	ms, err := e.Machines()
+	is, err := e.Instances()
 	c.Assert(err, IsNil)
-	c.Assert(len(ms), Equals, 1)
-	c.Assert(ms[0], Equals, m0)
+	c.Assert(len(is), Equals, 1)
+	c.Assert(is[0], Equals, i0)
 
-	m1, err := e.StartMachine()
+	i1, err := e.StartInstance(1)
 	c.Assert(err, IsNil)
-	c.Assert(m1, NotNil)
-	c.Assert(m1.DNSName(), Equals, basename+"-1")
+	c.Assert(i1, NotNil)
+	c.Assert(i1.DNSName(), Equals, basename+"-1")
 
-	ms, err = e.Machines()
+	is, err = e.Instances()
 	c.Assert(err, IsNil)
-	c.Assert(len(ms), Equals, 2)
-	if ms[0] == m1 {
-		ms[0], ms[1] = ms[1], ms[0]
+	c.Assert(len(is), Equals, 2)
+	if is[0] == i1 {
+		is[0], is[1] = is[1], is[0]
 	}
-	c.Assert(ms[0], Equals, m0)
-	c.Assert(ms[1], Equals, m1)
+	c.Assert(is[0], Equals, i0)
+	c.Assert(is[1], Equals, i1)
 
-	err = e.StopMachines([]juju.Machine{m0})
+	err = e.StopInstances([]juju.Instance{i0})
 	c.Assert(err, IsNil)
 
-	ms, err = e.Machines()
+	is, err = e.Instances()
 	c.Assert(err, IsNil)
-	c.Assert(len(ms), Equals, 1)
-	c.Assert(ms[0], Equals, m1)
+	c.Assert(len(is), Equals, 1)
+	c.Assert(is[0], Equals, i1)
 
 	err = e.Destroy()
 	c.Assert(err, IsNil)

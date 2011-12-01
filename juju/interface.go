@@ -15,8 +15,9 @@ type EnvironProvider interface {
 	Open(name string, attributes interface{}) (Environ, error)
 }
 
-// Machine represents a running machine instance.
-type Machine interface {
+// Instance represents the provider-specific notion of a machine.
+type Instance interface {
+	// Id returns a provider-generated identifier for the Instance.
 	Id() string
 	DNSName() string
 }
@@ -27,16 +28,16 @@ type Environ interface {
 	// Bootstrap initializes the new environment.
 	Bootstrap() error
 
-	// StartMachine asks for a new machine instance to be created.
-	// TODO add arguments to specify type of new machine
-	// and zookeeper instances.
-	StartMachine() (Machine, error)
+	// StartInstance asks for a new instance to be created,
+	// associated with the provided machine identifier
+	// TODO add arguments to specify type of new machine.
+	StartInstance(machineId int) (Instance, error)
 
-	// StopMachine shuts down the given Machine.
-	StopMachines([]Machine) error
+	// StopInstances shuts down the given instances.
+	StopInstances([]Instance) error
 
-	// Machines returns the list of currently started instances.
-	Machines() ([]Machine, error)
+	// Instances returns the list of currently started instances.
+	Instances() ([]Instance, error)
 
 	// Destroy shuts down all known machines and destroys the
 	// rest of the environment.
