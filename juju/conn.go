@@ -23,5 +23,6 @@ func (envs *Environs) Open(name string) (Environ, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot initialize environment %q: %v", name, err)
 	}
+
 	return env, nil
 }

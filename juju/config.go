@@ -128,7 +128,7 @@ func ReadEnvirons(environsFile string) (*Environs, error) {
 	}
 	e, err := ReadEnvironsBytes(data)
 	if err != nil {
-		fmt.Errorf("cannot parse %q: %v", environsFile, err)
+		return nil, fmt.Errorf("cannot parse %q: %v", environsFile, err)
 	}
 	return e, nil
 }

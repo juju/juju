@@ -18,16 +18,15 @@ func init() {
 	juju.RegisterProvider("dummy", dummyProvider{})
 }
 
-type dummyMachine struct {
+type dummyInstance struct {
 	name string
-	id   int
 }
 
-func (m *dummyMachine) Id() string {
-	return fmt.Sprintf("dummy-%d", m.id)
+func (m *dummyInstance) Id() string {
+	return fmt.Sprintf("dummy-%s", m.name)
 }
 
-func (m *dummyMachine) DNSName() string {
+func (m *dummyInstance) DNSName() string {
 	return m.name
 }
 
@@ -46,15 +45,16 @@ func (dummyProvider) ConfigChecker() schema.Checker {
 type dummyEnviron struct {
 	mu       sync.Mutex
 	baseName string
-	n        int // machine count
-	machines map[int]*dummyMachine
+	n        int // instance count
+
+	machines map[string]*dummyInstance
 }
 
 func (dummyProvider) Open(name string, attributes interface{}) (e juju.Environ, err error) {
 	cfg := attributes.(schema.MapType)
 	return &dummyEnviron{
 		baseName: cfg["basename"].(string),
-		machines: make(map[int]*dummyMachine),
+		machines: make(map[string]*dummyInstance),
 	}, nil
 }
 
@@ -66,33 +66,32 @@ func (*dummyEnviron) Destroy() error {
 	return nil
 }
 
-func (c *dummyEnviron) StartMachine() (juju.Machine, error) {
+func (c *dummyEnviron) StartInstance(id int) (juju.Instance, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	m := &dummyMachine{
+	i := &dummyInstance{
 		name: fmt.Sprintf("%s-%d", c.baseName, c.n),
-		id:   c.n,
 	}
-	c.machines[m.id] = m
+	c.machines[i.name] = i
 	c.n++
-	return m, nil
+	return i, nil
 }
 
-func (c *dummyEnviron) StopMachines(ms []juju.Machine) error {
+func (c *dummyEnviron) StopInstances(is []juju.Instance) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	for _, m := range ms {
-		delete(c.machines, m.(*dummyMachine).id)
+	for _, i := range is {
+		delete(c.machines, i.(*dummyInstance).name)
 	}
 	return nil
 }
 
-func (c *dummyEnviron) Machines() ([]juju.Machine, error) {
+func (c *dummyEnviron) Instances() ([]juju.Instance, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	var ms []juju.Machine
-	for _, m := range c.machines {
-		ms = append(ms, m)
+	var is []juju.Instance
+	for _, i := range c.machines {
+		is = append(is, i)
 	}
-	return ms, nil
+	return is, nil
 }
