@@ -20,7 +20,6 @@ type conn struct {
 
 type Instance struct {
 	*ec2.Instance
-	Reservation *ec2.Reservation
 }
 
 func (m *Instance) DNSName() string {
@@ -81,7 +80,7 @@ func (c *conn) Destroy() error {
 }
 
 // StartInstance implements juju.Environ.StartInstance
-func (c *conn) StartInstance(machineId string) (juju.Instance, error) {
+func (c *conn) StartInstance(machineId int) (juju.Instance, error) {
 	image, err := c.FindImageSpec(DefaultImageConstraint)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
@@ -104,14 +103,7 @@ func (c *conn) StartInstance(machineId string) (juju.Instance, error) {
 	if len(instances.Instances) != 1 {
 		return nil, fmt.Errorf("expected 1 started instance, got %d", len(instances.Instances))
 	}
-	r := &ec2.Reservation{
-		ReservationId:  instances.ReservationId,
-		OwnerId:        instances.OwnerId,
-		RequesterId:    "", // TODO what should this be ??
-		SecurityGroups: groups,
-		Instances:      instances.Instances,
-	}
-	return &Instance{&instances.Instances[0], r}, nil
+	return &Instance{&instances.Instances[0]}, nil
 }
 
 // StopInstances implements juju.Environ.StopInstances
@@ -135,8 +127,8 @@ func (c *conn) groupName() string {
 
 // machineGroupName returns the name of the EC2 group which
 // a particular machine will be uniquely assigned to.
-func (c *conn) machineGroupName(machineId string) string {
-	return c.groupName() + "-" + machineId
+func (c *conn) machineGroupName(machineId int) string {
+	return fmt.Sprintf("%s-%d", c.groupName(), machineId)
 }
 
 // setUpGroups ensures that the juju group is in the machine launch groups.
@@ -148,7 +140,7 @@ func (c *conn) machineGroupName(machineId string) string {
 // so that its firewall rules can be configured per machine.
 //
 // setUpGroups returns a slice of the group names used.
-func (c *conn) setUpGroups(machineId string) ([]string, error) {
+func (c *conn) setUpGroups(machineId int) ([]string, error) {
 	groups, err := c.ec2.SecurityGroups(nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get security groups: %v", err)
@@ -243,7 +235,7 @@ func (c *conn) Instances() ([]juju.Instance, error) {
 	for i := range resp.Reservations {
 		r := &resp.Reservations[i]
 		for j := range r.Instances {
-			m = append(m, &Instance{&r.Instances[j], r})
+			m = append(m, &Instance{&r.Instances[j]})
 		}
 	}
 	return m, nil
