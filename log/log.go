@@ -7,26 +7,21 @@ type Logger interface {
 }
 
 var (
-	GlobalLogger Logger
-	Debug        bool
+	Target Logger
+	Debug  bool
 )
 
-const (
-	logPrefix = "JUJU "
-	dbgPrefix = "JUJU:DEBUG "
-)
-
-// Logf logs the formatted message onto the Logger set via SetLogger.
-func Logf(format string, v ...interface{}) {
-	if GlobalLogger != nil {
-		GlobalLogger.Output(2, logPrefix+fmt.Sprintf(format, v...))
+// Printf logs the formatted message onto the Target Logger.
+func Printf(format string, v ...interface{}) {
+	if Target != nil {
+		Target.Output(2, "JUJU "+fmt.Sprintf(format, v...))
 	}
 }
 
-// Debugf logs the formatted message onto the Logger set via SetLogger,
-// as long as debugging was enabled with SetDebug.
+// Debugf logs the formatted message onto the Target Logger
+// if Debug is true.
 func Debugf(format string, v ...interface{}) {
-	if Debug && GlobalLogger != nil {
-		GlobalLogger.Output(2, dbgPrefix+fmt.Sprintf(format, v...))
+	if Debug && Target != nil {
+		Target.Output(2, "JUJU:DEBUG "+fmt.Sprintf(format, v...))
 	}
 }
