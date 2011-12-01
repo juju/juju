@@ -7,8 +7,10 @@ import (
 	"log"
 )
 
-const logPrefix = "JUJU "
-const dbgPrefix = "JUJU:DEBUG "
+const (
+	logPrefix = "JUJU "
+	dbgPrefix = "JUJU:DEBUG "
+)
 
 type logTest struct {
 	input string
@@ -30,7 +32,7 @@ var logTests = []struct {
 }
 
 func (suite) TestLogger(c *C) {
-	buf := bytes.NewBuffer(make([]byte, 0))
+	buf := &bytes.Buffer{}
 	l := log.New(buf, "", 0)
 	juju.SetLogger(l)
 	for _, t := range logTests {
@@ -44,5 +46,6 @@ func (suite) TestLogger(c *C) {
 		} else {
 			c.Assert(buf.String(), Equals, "")
 		}
+		buf.Reset()
 	}
 }

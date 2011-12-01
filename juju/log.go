@@ -2,24 +2,20 @@ package juju
 
 import "fmt"
 
-// ---------------------------------------------------------------------------
-// Logging integration.
-
-// Avoid importing the log type information unnecessarily.  There's a small cost
-// associated with using an interface rather than the type.  Depending on how
-// often the logger is plugged in, it would be worth using the type instead.
-type log_Logger interface {
+type Logger interface {
 	Output(calldepth int, s string) error
 }
 
-var globalLogger log_Logger
+var globalLogger Logger
 var globalDebug bool
 
-const logPrefix = "JUJU "
-const dbgPrefix = "JUJU:DEBUG "
+const (
+	logPrefix = "JUJU "
+	dbgPrefix = "JUJU:DEBUG "
+)
 
 // Specify the *log.Logger object where log messages should be sent to.
-func SetLogger(logger log_Logger) {
+func SetLogger(logger Logger) {
 	globalLogger = logger
 }
 
@@ -29,12 +25,15 @@ func SetDebug(debug bool) {
 	globalDebug = debug
 }
 
+// Logf logs the formatted message onto the Logger set via SetLogger.
 func Logf(format string, v ...interface{}) {
 	if globalLogger != nil {
 		globalLogger.Output(2, logPrefix+fmt.Sprintf(format, v...))
 	}
 }
 
+// Debugf logs the formatted message onto the Logger set via SetLogger,
+// as long as debugging was enabled with SetDebug.
 func Debugf(format string, v ...interface{}) {
 	if globalDebug && globalLogger != nil {
 		globalLogger.Output(2, dbgPrefix+fmt.Sprintf(format, v...))
