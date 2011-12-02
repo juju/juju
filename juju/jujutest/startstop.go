@@ -6,14 +6,10 @@ import (
 )
 
 func (t *Tests) TestStartStop(c *C) {
-	e, err := t.Environs.Open(t.Name)
-	c.Assert(err, IsNil)
-	c.Assert(e, NotNil)
+	e := t.open(c)
 
-	err = e.Bootstrap()
+	err := e.Bootstrap()
 	c.Assert(err, IsNil)
-
-	t.addEnviron(e)
 
 	is, err := e.Instances()
 	c.Assert(err, IsNil)
@@ -31,4 +27,8 @@ func (t *Tests) TestStartStop(c *C) {
 
 	err = e.StopInstances([]juju.Instance{m})
 	c.Assert(err, IsNil)
+
+	is, err = e.Instances()
+	c.Assert(err, IsNil)
+	c.Assert(len(is), Equals, 0)
 }

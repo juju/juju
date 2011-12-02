@@ -51,7 +51,6 @@ func (m *instance) Id() string {
 	return fmt.Sprintf("dummy-%s", m.name)
 }
 
-// Open implements juju.EnvironProvider.Open
 func (environProvider) Open(name string, config interface{}) (e juju.Environ, err error) {
 	return &environ{
 		baseName:  name,
@@ -59,17 +58,14 @@ func (environProvider) Open(name string, config interface{}) (e juju.Environ, er
 	}, nil
 }
 
-// Bootstrap implements juju.Environ.Bootstrap
 func (e *environ) Bootstrap() error {
 	return nil
 }
 
-// Destroy implements juju.Environ.Destroy
 func (e *environ) Destroy() error {
 	return nil
 }
 
-// StartInstance implements juju.Environ.StartInstance
 func (e *environ) StartInstance(machineId int) (juju.Instance, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -81,7 +77,6 @@ func (e *environ) StartInstance(machineId int) (juju.Instance, error) {
 	return i, nil
 }
 
-// StopInstances implements juju.Environ.StopInstances
 func (e *environ) StopInstances(is []juju.Instance) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
