@@ -5,9 +5,9 @@ import (
 	"launchpad.net/juju/go/juju"
 )
 
-// Tests defines methods which test juju functionality against
-// a given environment within Environs.
-// Name gives the name of the environment.
+// Tests is a gocheck suite containing tests verifying
+// juju functionality against the environment with Name that
+// must exist within Environs.
 type Tests struct {
 	Environs *juju.Environs
 	Name     string
@@ -15,8 +15,12 @@ type Tests struct {
 	environs []juju.Environ
 }
 
-func (t *Tests) addEnviron(e juju.Environ) {
+func (t *Tests) open(c *C) juju.Environ {
+	e, err := t.Environs.Open(t.Name)
+	c.Assert(err, IsNil, Bug("opening environ %q", t.Name))
+	c.Assert(e, NotNil)
 	t.environs = append(t.environs, e)
+	return e
 }
 
 func (t *Tests) TearDownTest(c *C) {
