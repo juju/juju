@@ -5,7 +5,9 @@ all: package
 TARG=launchpad.net/juju/go/juju/ec2
 
 GOFILES=\
+	config.go\
 	ec2.go\
+	util.go\
 
 GOFMT=gofmt
 BADFMT:=$(shell $(GOFMT) -l $(GOFILES) $(CGOFILES) $(wildcard *_test.go))
