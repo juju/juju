@@ -58,10 +58,6 @@ func (dummyProvider) Open(name string, attributes interface{}) (e juju.Environ, 
 	}, nil
 }
 
-func (*dummyEnviron) Bootstrap() error {
-	return nil
-}
-
 func (*dummyEnviron) Destroy() error {
 	return nil
 }
@@ -70,7 +66,7 @@ func (e *dummyEnviron) StartInstance(id int) (juju.Instance, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	i := &dummyInstance{
-		name: fmt.Sprintf("%s-%d", e.baseName, c.n),
+		name: fmt.Sprintf("%s-%d", e.baseName, e.n),
 	}
 	e.instances[i.name] = i
 	e.n++
