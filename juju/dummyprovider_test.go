@@ -58,10 +58,6 @@ func (dummyProvider) Open(name string, attributes interface{}) (e juju.Environ, 
 	}, nil
 }
 
-func (*dummyEnviron) Bootstrap() error {
-	return nil
-}
-
 func (*dummyEnviron) Destroy() error {
 	return nil
 }
