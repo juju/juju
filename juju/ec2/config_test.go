@@ -21,6 +21,7 @@ var configTests = []struct {
 	{"type: ec2\nregion: unknown\n", nil, ".*invalid region name.*"},
 	{"type: ec2\nregion: test\n", &providerConfig{region: testRegion}, ""},
 	{"type: ec2\nregion: deleted\n", nil, ".*invalid region name.*"},
+	{"type: ec2\nregion: 666\n", nil, ".*expected string, got 666"},
 }
 
 func indent(s string, with string) string {
