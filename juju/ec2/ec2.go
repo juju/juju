@@ -58,11 +58,10 @@ func (environProvider) Open(name string, config interface{}) (e juju.Environ, er
 	}, nil
 }
 
-func (e *environ) Bootstrap() error {
-	return nil
-}
-
 func (e *environ) Destroy() error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.instances = make(map[string]*instance)
 	return nil
 }
 

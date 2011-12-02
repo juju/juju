@@ -8,9 +8,6 @@ import (
 func (t *Tests) TestStartStop(c *C) {
 	e := t.open(c)
 
-	err := e.Bootstrap()
-	c.Assert(err, IsNil)
-
 	is, err := e.Instances()
 	c.Assert(err, IsNil)
 	c.Assert(len(is), Equals, 0)
