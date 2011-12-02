@@ -1,16 +1,20 @@
-package juju_test
+package log_test
 
 import (
 	"bytes"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/juju"
-	"log"
+	"launchpad.net/juju/go/log"
+	stdlog "log"
+	"testing"
 )
 
-const (
-	logPrefix = "JUJU "
-	dbgPrefix = "JUJU:DEBUG "
-)
+func Test(t *testing.T) {
+	TestingT(t)
+}
+
+type suite struct{}
+
+var _ = Suite(suite{})
 
 type logTest struct {
 	input string
@@ -33,16 +37,15 @@ var logTests = []struct {
 
 func (suite) TestLogger(c *C) {
 	buf := &bytes.Buffer{}
-	l := log.New(buf, "", 0)
-	juju.SetLogger(l)
+	log.Target = stdlog.New(buf, "", 0)
 	for _, t := range logTests {
-		juju.SetDebug(t.debug)
-		juju.Logf(t.input)
-		c.Assert(buf.String(), Equals, logPrefix+t.input+"\n")
+		log.Debug = t.debug
+		log.Printf(t.input)
+		c.Assert(buf.String(), Equals, "JUJU "+t.input+"\n")
 		buf.Reset()
-		juju.Debugf(t.input)
+		log.Debugf(t.input)
 		if t.debug {
-			c.Assert(buf.String(), Equals, dbgPrefix+t.input+"\n")
+			c.Assert(buf.String(), Equals, "JUJU:DEBUG "+t.input+"\n")
 		} else {
 			c.Assert(buf.String(), Equals, "")
 		}
