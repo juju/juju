@@ -18,23 +18,13 @@ type providerConfig struct {
 	region aws.Region
 }
 
-// TODO move these known strings into goamz/aws?
-var regions = map[string]aws.Region{
+// TODO move these known strings into goamz/aws
+var Regions = map[string]aws.Region{
 	"ap-northeast-1": aws.APNortheast,
 	"ap-southeast-1": aws.APSoutheast,
 	"eu-west-1":      aws.EUWest,
 	"us-east-1":      aws.USEast,
 	"us-west-1":      aws.USWest,
-}
-
-// AddRegion adds an AWS region to the set of known regions.
-func AddRegion(name string, region aws.Region) {
-	regions[name] = region
-}
-
-// AddRegion removes an AWS region from the set of known regions.
-func RemoveRegion(name string) {
-	delete(regions, name)
 }
 
 func (environProvider) ConfigChecker() schema.Checker {
@@ -49,11 +39,8 @@ func (environProvider) ConfigChecker() schema.Checker {
 		checkerFunc(func(v interface{}, path []string) (newv interface{}, err error) {
 			m := v.(schema.MapType)
 			var c providerConfig
-			regionName := maybeString(m["region"])
-			if regionName == "" {
-				regionName = "us-east-1"
-			}
-			if r, ok := regions[regionName]; ok {
+			regionName := maybeString(m["region"], "us-east-1")
+			if r, ok := Regions[regionName]; ok {
 				c.region = r
 			} else {
 				return nil, fmt.Errorf("invalid region name %q", regionName)
@@ -63,9 +50,9 @@ func (environProvider) ConfigChecker() schema.Checker {
 	)
 }
 
-func maybeString(x interface{}) string {
+func maybeString(x interface{}, dflt string) string {
 	if x == nil {
-		return ""
+		return dflt
 	}
 	return x.(string)
 }
