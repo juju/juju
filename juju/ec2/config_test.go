@@ -12,7 +12,7 @@ var testRegion = aws.Region{
 	EC2Endpoint: "testregion.nowhere:1234",
 }
 
-var defa = aws.Auth{"gopher", "long teeth"}
+var testAuth = aws.Auth{"gopher", "long teeth"}
 
 type configTest struct {
 	env    string
@@ -21,10 +21,10 @@ type configTest struct {
 }
 
 var configTests = []configTest{
-	{"", &providerConfig{region: aws.USEast, auth: defa}, ""},
-	{"region: eu-west-1\n", &providerConfig{region: aws.EUWest, auth: defa}, ""},
+	{"", &providerConfig{region: aws.USEast, auth: testAuth}, ""},
+	{"region: eu-west-1\n", &providerConfig{region: aws.EUWest, auth: testAuth}, ""},
 	{"region: unknown\n", nil, ".*invalid region name.*"},
-	{"region: test\n", &providerConfig{region: testRegion, auth: defa}, ""},
+	{"region: test\n", &providerConfig{region: testRegion, auth: testAuth}, ""},
 	{"region: 666\n", nil, ".*expected string, got 666"},
 	{"access-key: 666\n", nil, ".*expected string, got 666"},
 	{"secret-key: 666\n", nil, ".*expected string, got 666"},
@@ -41,7 +41,7 @@ var configTests = []configTest{
 	{"access-key: jujuer\n", nil, ".*environment has access-key but no secret-key"},
 	{"secret-key: badness\n", nil, ".*environment has secret-key but no access-key"},
 	// unknown fields are discarded
-	{"unknown-something: 666\n", &providerConfig{region: aws.USEast, auth: defa}, ""},
+	{"unknown-something: 666\n", &providerConfig{region: aws.USEast, auth: testAuth}, ""},
 }
 
 func indent(s string, with string) string {
@@ -67,12 +67,12 @@ func (suite) TestConfig(c *C) {
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "")
 
 	// first try with no auth environment vars set
-	test := configTest{"", &providerConfig{region: aws.USEast, auth: defa}, ".*not found in environment"}
+	test := configTest{"", &providerConfig{region: aws.USEast, auth: testAuth}, ".*not found in environment"}
 	test.run(c)
 
-	// then set defaults
-	os.Setenv("AWS_ACCESS_KEY_ID", defa.AccessKey)
-	os.Setenv("AWS_SECRET_ACCESS_KEY", defa.SecretKey)
+	// then set testAuthults
+	os.Setenv("AWS_ACCESS_KEY_ID", testAuth.AccessKey)
+	os.Setenv("AWS_SECRET_ACCESS_KEY", testAuth.SecretKey)
 
 	for _, t := range configTests {
 		t.run(c)
