@@ -1,8 +1,8 @@
 package ec2
 
 import (
-	. "launchpad.net/gocheck"
 	"flag"
+	. "launchpad.net/gocheck"
 	"testing"
 )
 
