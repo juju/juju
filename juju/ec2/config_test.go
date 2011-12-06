@@ -48,8 +48,7 @@ func (suite) TestRegion(c *C) {
 		e, err := envs.Open("test")
 		c.Assert(err, IsNil)
 		c.Assert(e, NotNil)
-		ec2env, ok := e.(*environ)
-		c.Assert(ok, Equals, true, Bug("unexpected type %T, environ %q", ec2env, t.env))
-		c.Check(ec2env.config, Equals, t.config)
+		c.Assert(e, FitsTypeOf, (*environ)(nil), Bug("environ %q", t.env))
+		c.Check(e.(*environ).config, Equals, t.config, Bug("environ %q", t.env))
 	}
 }
