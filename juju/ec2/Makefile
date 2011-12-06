@@ -7,6 +7,7 @@ TARG=launchpad.net/juju/go/juju/ec2
 GOFILES=\
 	config.go\
 	ec2.go\
+	image.go\
 	util.go\
 
 GOFMT=gofmt
