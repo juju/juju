@@ -3,7 +3,6 @@ package ec2
 import (
 	"fmt"
 	"launchpad.net/juju/go/juju"
-	"launchpad.net/juju/go/schema"
 	"sync"
 )
 
@@ -11,23 +10,9 @@ func init() {
 	juju.RegisterProvider("ec2", environProvider{})
 }
 
-type checker struct{}
-
-func (checker) Coerce(v interface{}, path []string) (interface{}, error) {
-	return &providerConfig{}, nil
-}
-
 type environProvider struct{}
 
-func (environProvider) ConfigChecker() schema.Checker {
-	return checker{}
-}
-
 var _ juju.EnvironProvider = environProvider{}
-
-// providerConfig is a placeholder for any config information
-// that we will have in a configuration file.
-type providerConfig struct{}
 
 type environ struct {
 	mu       sync.Mutex
@@ -35,6 +20,7 @@ type environ struct {
 	n        int // instance count
 
 	instances map[string]*instance
+	config    *providerConfig
 }
 
 var _ juju.Environ = (*environ)(nil)
@@ -55,6 +41,7 @@ func (environProvider) Open(name string, config interface{}) (e juju.Environ, er
 	return &environ{
 		baseName:  name,
 		instances: make(map[string]*instance),
+		config:    config.(*providerConfig),
 	}, nil
 }
 
