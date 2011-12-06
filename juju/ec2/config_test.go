@@ -25,7 +25,6 @@ var configTests = []configTest{
 	{"region: eu-west-1\n", &providerConfig{region: aws.EUWest, auth: defa}, ""},
 	{"region: unknown\n", nil, ".*invalid region name.*"},
 	{"region: test\n", &providerConfig{region: testRegion, auth: defa}, ""},
-	{"region: deleted\n", nil, ".*invalid region name.*"},
 	{"region: 666\n", nil, ".*expected string, got 666"},
 	{"access-key: 666\n", nil, ".*expected string, got 666"},
 	{"secret-key: 666\n", nil, ".*expected string, got 666"},
@@ -59,9 +58,7 @@ func makeEnv(s string) []byte {
 }
 
 func (suite) TestConfig(c *C) {
-	AddRegion("test", testRegion)
-	AddRegion("deleted", aws.Region{S3Endpoint: "shouldneverbeseen.nowhere:1234"})
-	RemoveRegion("deleted")
+	Regions["test"] = testRegion
 
 	defer os.Setenv("AWS_ACCESS_KEY_ID", os.Getenv("AWS_ACCESS_KEY_ID"))
 	defer os.Setenv("AWS_SECRET_ACCESS_KEY", os.Getenv("AWS_SECRET_ACCESS_KEY"))
@@ -95,7 +92,6 @@ func (t configTest) run(c *C) {
 	e, err := envs.Open("test")
 	c.Assert(err, IsNil)
 	c.Assert(e, NotNil)
-	ec2env, ok := e.(*environ)
-	c.Assert(ok, Equals, true, Bug("unexpected type %T, environ %q", ec2env, t.env))
-	c.Check(ec2env.config, Equals, t.config, Bug("environ %q", t.env))
+	c.Assert(e, FitsTypeOf, (*environ)(nil), Bug("environ %q", t.env))
+	c.Check(e.(*environ).config, Equals, t.config, Bug("environ %q", t.env))
 }

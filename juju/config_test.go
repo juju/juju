@@ -86,10 +86,6 @@ environments:
 }
 
 func checkDummyEnviron(c *C, e juju.Environ, basename string) {
-	c.Assert(e, NotNil)
-	err := e.Bootstrap()
-	c.Assert(err, IsNil)
-
 	i0, err := e.StartInstance(0)
 	c.Assert(err, IsNil)
 	c.Assert(i0, NotNil)
