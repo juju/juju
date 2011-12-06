@@ -24,7 +24,8 @@ endif
 
 include $(GOROOT)/src/Make.pkg
 
+# regenerate doesn't remove images that have disappeared
+# but that's probably not a problem.
 regenerate:
-	bzr rm images
 	gotest -regenerate-images
 	bzr add images
