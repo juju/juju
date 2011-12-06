@@ -2,6 +2,7 @@ package ec2
 
 import (
 	"fmt"
+	"launchpad.net/goamz/ec2"
 	"launchpad.net/juju/go/juju"
 	"sync"
 )
@@ -21,6 +22,7 @@ type environ struct {
 
 	instances map[string]*instance
 	config    *providerConfig
+	ec2       *ec2.EC2
 }
 
 var _ juju.Environ = (*environ)(nil)
@@ -39,10 +41,12 @@ func (m *instance) Id() string {
 
 // Open implements juju.EnvironProvider.Open
 func (environProvider) Open(name string, config interface{}) (e juju.Environ, err error) {
+	cfg := config.(*providerConfig)
 	return &environ{
 		baseName:  name,
 		instances: make(map[string]*instance),
-		config:    config.(*providerConfig),
+		config:    cfg,
+		ec2:       ec2.New(cfg.auth, cfg.region),
 	}, nil
 }
 

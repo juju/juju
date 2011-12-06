@@ -70,7 +70,7 @@ func (e *dummyEnviron) StartInstance(id int) (juju.Instance, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	i := &dummyInstance{
-		name: fmt.Sprintf("%s-%d", e.baseName, c.n),
+		name: fmt.Sprintf("%s-%d", e.baseName, e.n),
 	}
 	e.instances[i.name] = i
 	e.n++
