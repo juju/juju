@@ -33,12 +33,12 @@ func (environProvider) ConfigChecker() schema.Checker {
 		schema.FieldMap(
 			schema.Fields{
 				"access-key": schema.String(),
-				"region":     schema.String(),
 				"secret-key": schema.String(),
+				"region":     schema.String(),
 			}, []string{
 				"access-key",
-				"region",
 				"secret-key",
+				"region",
 			},
 		),
 		checkerFunc(func(v interface{}, path []string) (newv interface{}, err error) {
