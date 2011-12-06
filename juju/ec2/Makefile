@@ -24,3 +24,7 @@ endif
 
 include $(GOROOT)/src/Make.pkg
 
+regenerate:
+	bzr rm images
+	gotest -regenerate-images
+	bzr add images
