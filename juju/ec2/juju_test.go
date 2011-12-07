@@ -2,12 +2,11 @@ package ec2
 
 import (
 	"fmt"
+	"launchpad.net/goamz/aws"
+	"launchpad.net/goamz/ec2/ec2test"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/juju"
 	"launchpad.net/juju/go/juju/jujutest"
-	"launchpad.net/goamz/ec2/ec2test"
-	"launchpad.net/goamz/aws"
-"log"
 )
 
 func registerJujuFunctionalTests() {
@@ -52,7 +51,6 @@ environments:
 `)
 
 func registerJujuIntegrationTests() {
-log.Printf("registering integration tests")
 	envs, err := juju.ReadEnvironsBytes(integration_test_environments)
 	if err != nil {
 		panic(fmt.Errorf("cannot read integration_test_environments.yaml: %v", err))

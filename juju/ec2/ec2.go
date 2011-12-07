@@ -15,9 +15,9 @@ type environProvider struct{}
 var _ juju.EnvironProvider = environProvider{}
 
 type environ struct {
-	name string
-	config    *providerConfig
-	ec2       *ec2.EC2
+	name   string
+	config *providerConfig
+	ec2    *ec2.EC2
 }
 
 var _ juju.Environ = (*environ)(nil)
@@ -39,9 +39,9 @@ func (m *instance) DNSName() string {
 func (environProvider) Open(name string, config interface{}) (e juju.Environ, err error) {
 	cfg := config.(*providerConfig)
 	return &environ{
-		name:  name,
-		config:    cfg,
-		ec2:       ec2.New(cfg.auth, cfg.region),
+		name:   name,
+		config: cfg,
+		ec2:    ec2.New(cfg.auth, cfg.region),
 	}, nil
 }
 
@@ -51,11 +51,11 @@ func (e *environ) StartInstance(machineId int) (juju.Instance, error) {
 		return nil, fmt.Errorf("cannot find image: %v", err)
 	}
 	instances, err := e.ec2.RunInstances(&ec2.RunInstances{
-		ImageId:        image.ImageId,
-		MinCount:       1,
-		MaxCount:       1,
-		UserData:       nil,
-		InstanceType:   "m1.small",
+		ImageId:      image.ImageId,
+		MinCount:     1,
+		MaxCount:     1,
+		UserData:     nil,
+		InstanceType: "m1.small",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot run instances: %v", err)
