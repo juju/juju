@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/juju/go/juju"
-	"sync"
 )
 
 func init() {
@@ -16,11 +15,7 @@ type environProvider struct{}
 var _ juju.EnvironProvider = environProvider{}
 
 type environ struct {
-	mu       sync.Mutex
-	baseName string
-	n        int // instance count
-
-	instances map[string]*instance
+	name string
 	config    *providerConfig
 	ec2       *ec2.EC2
 }
@@ -28,60 +23,83 @@ type environ struct {
 var _ juju.Environ = (*environ)(nil)
 
 type instance struct {
-	name string
+	*ec2.Instance
+}
+
+var _ juju.Instance = (*instance)(nil)
+
+func (m *instance) Id() string {
+	return m.InstanceId
 }
 
 func (m *instance) DNSName() string {
-	return m.name
-}
-
-func (m *instance) Id() string {
-	return fmt.Sprintf("dummy-%s", m.name)
+	return m.Instance.DNSName
 }
 
 func (environProvider) Open(name string, config interface{}) (e juju.Environ, err error) {
 	cfg := config.(*providerConfig)
 	return &environ{
-		baseName:  name,
-		instances: make(map[string]*instance),
+		name:  name,
 		config:    cfg,
 		ec2:       ec2.New(cfg.auth, cfg.region),
 	}, nil
 }
 
-func (e *environ) Destroy() error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.instances = make(map[string]*instance)
-	return nil
-}
-
 func (e *environ) StartInstance(machineId int) (juju.Instance, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	i := &instance{
-		name: fmt.Sprintf("%s-%d", e.baseName, e.n),
+	image, err := FindImageSpec(DefaultImageConstraint)
+	if err != nil {
+		return nil, fmt.Errorf("cannot find image: %v", err)
 	}
-	e.instances[i.name] = i
-	e.n++
-	return i, nil
+	instances, err := e.ec2.RunInstances(&ec2.RunInstances{
+		ImageId:        image.ImageId,
+		MinCount:       1,
+		MaxCount:       1,
+		UserData:       nil,
+		InstanceType:   "m1.small",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("cannot run instances: %v", err)
+	}
+	if len(instances.Instances) != 1 {
+		return nil, fmt.Errorf("expected 1 started instance, got %d", len(instances.Instances))
+	}
+	return &instance{&instances.Instances[0]}, nil
 }
 
 func (e *environ) StopInstances(is []juju.Instance) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	for _, i := range is {
-		delete(e.instances, i.(*instance).name)
+	if len(is) == 0 {
+		return nil
 	}
-	return nil
+	names := make([]string, len(is))
+	for i, inst := range is {
+		names[i] = inst.(*instance).InstanceId
+	}
+	_, err := e.ec2.TerminateInstances(names)
+	return err
 }
 
 func (e *environ) Instances() ([]juju.Instance, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	var is []juju.Instance
-	for _, i := range e.instances {
-		is = append(is, i)
+	filter := ec2.NewFilter()
+	filter.Add("instance-state-name", "pending", "running")
+
+	resp, err := e.ec2.Instances(nil, filter)
+	if err != nil {
+		return nil, err
 	}
-	return is, nil
+	var m []juju.Instance
+	for i := range resp.Reservations {
+		r := &resp.Reservations[i]
+		for j := range r.Instances {
+			m = append(m, &instance{&r.Instances[j]})
+		}
+	}
+	return m, nil
+}
+
+func (e *environ) Destroy() error {
+	ms, err := e.Instances()
+	if err != nil {
+		return err
+	}
+	return e.StopInstances(ms)
 }
