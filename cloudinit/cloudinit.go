@@ -1,5 +1,5 @@
 // The cloudinit package implements a way of creating
-// a cloudinit configuration file.
+// a cloud-init configuration file.
 // See https://help.ubuntu.com/community/CloudInit.
 package cloudinit
 
@@ -19,7 +19,7 @@ func New() *Config {
 	return &Config{make(map[string]interface{})}
 }
 
-// Render returns the cloudinit configuration as a YAML file.
+// Render returns the cloud-init configuration as a YAML file.
 func (cfg *Config) Render() ([]byte, error) {
 	data, err := yaml.Marshal(cfg.attrs)
 	if err != nil {
@@ -28,7 +28,7 @@ func (cfg *Config) Render() ([]byte, error) {
 	return append([]byte("#cloud-config\n"), data...), nil
 }
 
-// Option represents a cloudinit configuration option.
+// Option represents a cloud-init configuration option.
 // If it is added to a Config, Name and Value will be marshalled as a top level
 // attribute-value pair in the generated YAML.
 type Option struct {
@@ -126,47 +126,38 @@ func (t *Command) GetYAML() (tag string, value interface{}) {
 	return "", t.literal
 }
 
-// KeyType represents the type of an SSH Key.
-type KeyType int
+// keyType represents the type of an SSH Key.
+type keyType struct {
+	private bool
+	alg     int
+}
 
 const (
-	_ KeyType = iota
-	RSA
-	DSA
-
-	Private KeyType = 1 << 3
-	Public  KeyType = 0 << 3
-
-	RSAPrivate = RSA | Private
-	RSAPublic  = RSA | Public
-	DSAPrivate = DSA | Private
-	DSAPublic  = DSA | Public
+	algRSA = iota
+	algDSA
 )
 
-var _ yaml.Getter = Key{}
-
-// Key represents an SSH Key with the given type and associated key data.
-type Key struct {
-	Type KeyType
-	Data string
+var algNames = []string{
+	algRSA: "rsa",
+	algDSA: "dsa",
 }
+
+// key represents an SSH Key with the given type and associated key data.
+type key struct {
+	keyType keyType
+	data    string
+}
+
+var _ yaml.Getter = key{}
 
 // GetYaml implements yaml.Getter
-func (k Key) GetYAML() (tag string, value interface{}) {
-	return "", []string{k.Type.String(), k.Data}
+func (k key) GetYAML() (tag string, value interface{}) {
+	return "", []string{k.keyType.String(), k.data}
 }
 
-func (t KeyType) String() string {
-	var s string
-	switch t &^ (Private | Public) {
-	case RSA:
-		s = "rsa"
-	case DSA:
-		s = "dsa"
-	default:
-		panic("unknown key type")
-	}
-	if t&Private != 0 {
+func (t keyType) String() string {
+	s := algNames[t.alg]
+	if t.private {
 		s += "_private"
 	} else {
 		s += "_public"

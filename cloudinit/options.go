@@ -83,9 +83,24 @@ func Output(specs map[string]OutputSpec) Option {
 	return Option{"output", maybe(len(specs) > 0, specs)}
 }
 
-func SSHKeys(x []Key) Option {
+// SSHKeysDSA specifies a number of DSA ssh keys.
+func SSHKeysDSA(private bool, keys ...string) Option {
+	return sshKeys(keyType{private, algDSA}, keys)
+}
+
+// SSHKeysRSA specifies a number of RSA ssh keys.
+func SSHKeysRSA(private bool, keys ...string) Option {
+	return sshKeys(keyType{private, algRSA}, keys)
+}
+
+func sshKeys(keytype keyType, keys []string) Option {
 	// ssh
-	return Option{"ssh_keys", maybe(len(x) > 0, x)}
+	ks := make([]key, len(keys))
+	for i, s := range keys {
+		ks[i].keyType = keytype
+		ks[i].data = s
+	}
+	return Option{"ssh_keys", maybe(len(keys) > 0, ks)}
 }
 
 func DisableRoot(x bool) Option {
