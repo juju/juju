@@ -56,7 +56,7 @@ func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
 	for {
 		line, _, err := r.ReadLine()
 		if err != nil {
-			return nil, fmt.Errorf("cannot find matching instance: %v", err)
+			return nil, fmt.Errorf("cannot find matching image: %v", err)
 		}
 		f := strings.Split(string(line), "\t")
 		if len(f) < 8 {
