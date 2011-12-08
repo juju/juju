@@ -1,0 +1,25 @@
+natty	server	daily	20111201	ebs	amd64	ap-northeast-1	ami-a6b80fa7	aki-d409a2d5		paravirtual
+natty	server	daily	20111201	ebs	i386	ap-northeast-1	ami-9cb80f9d	aki-d209a2d3		paravirtual
+natty	server	daily	20111201	instance-store	amd64	ap-northeast-1	ami-7cb80f7d	aki-d409a2d5		paravirtual
+natty	server	daily	20111201	instance-store	i386	ap-northeast-1	ami-68b80f69	aki-d209a2d3		paravirtual
+natty	server	daily	20111201	ebs	amd64	ap-southeast-1	ami-62246130	aki-11d5aa43		paravirtual
+natty	server	daily	20111201	ebs	i386	ap-southeast-1	ami-7e24612c	aki-13d5aa41		paravirtual
+natty	server	daily	20111201	instance-store	amd64	ap-southeast-1	ami-74246126	aki-11d5aa43		paravirtual
+natty	server	daily	20111201	instance-store	i386	ap-southeast-1	ami-5e24610c	aki-13d5aa41		paravirtual
+natty	server	daily	20111201	ebs	amd64	eu-west-1	ami-431d2137	aki-4feec43b		paravirtual
+natty	server	daily	20111201	ebs	i386	eu-west-1	ami-691d211d	aki-4deec439		paravirtual
+natty	server	daily	20111201	instance-store	amd64	eu-west-1	ami-891c20fd	aki-4feec43b		paravirtual
+natty	server	daily	20111201	instance-store	i386	eu-west-1	ami-9b1c20ef	aki-4deec439		paravirtual
+natty	server	daily	20111201	ebs	amd64	us-east-1	ami-0fec2766			hvm
+natty	server	daily	20111201	ebs	amd64	us-east-1	ami-59ec2730	aki-427d952b		paravirtual
+natty	server	daily	20111201	ebs	i386	us-east-1	ami-95ed26fc	aki-407d9529		paravirtual
+natty	server	daily	20111201	instance-store	amd64	us-east-1	ami-1fed2676	aki-427d952b		paravirtual
+natty	server	daily	20111201	instance-store	i386	us-east-1	ami-3fed2656	aki-407d9529		paravirtual
+natty	server	daily	20111201	ebs	amd64	us-west-1	ami-c983dc8c	aki-9ba0f1de		paravirtual
+natty	server	daily	20111201	ebs	i386	us-west-1	ami-3583dc70	aki-99a0f1dc		paravirtual
+natty	server	daily	20111201	instance-store	amd64	us-west-1	ami-2f83dc6a	aki-9ba0f1de		paravirtual
+natty	server	daily	20111201	instance-store	i386	us-west-1	ami-2183dc64	aki-99a0f1dc		paravirtual
+natty	server	daily	20111201	ebs	amd64	us-west-2	ami-689d1058	aki-ace26f9c		paravirtual
+natty	server	daily	20111201	ebs	i386	us-west-2	ami-649d1054	aki-dce26fec		paravirtual
+natty	server	daily	20111201	instance-store	amd64	us-west-2	ami-7e9d104e	aki-ace26f9c		paravirtual
+natty	server	daily	20111201	instance-store	i386	us-west-2	ami-789d1048	aki-dce26fec		paravirtual

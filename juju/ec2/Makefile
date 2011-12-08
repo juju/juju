@@ -7,6 +7,7 @@ TARG=launchpad.net/juju/go/juju/ec2
 GOFILES=\
 	config.go\
 	ec2.go\
+	image.go\
 	util.go\
 
 GOFMT=gofmt
@@ -23,3 +24,8 @@ endif
 
 include $(GOROOT)/src/Make.pkg
 
+# regenerate doesn't remove images that have disappeared
+# but that's probably not a problem.
+regenerate:
+	gotest -regenerate-images
+	bzr add images
