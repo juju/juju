@@ -76,12 +76,12 @@ type zipPacker struct {
 }
 
 func (zp *zipPacker) WalkFunc() filepath.WalkFunc {
-	return func(path string, fi *os.FileInfo, err error) error {
+	return func(path string, fi os.FileInfo, err error) error {
 		return zp.Visit(path, fi, err)
 	}
 }
 
-func (zp *zipPacker) Visit(path string, fi *os.FileInfo, err error) error {
+func (zp *zipPacker) Visit(path string, fi os.FileInfo, err error) error {
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func (zp *zipPacker) Visit(path string, fi *os.FileInfo, err error) error {
 		return err
 	}
 	hidden := len(relpath) > 1 && relpath[0] == '.'
-	if fi.IsDirectory() {
+	if fi.IsDir() {
 		if relpath == "build" {
 			return filepath.SkipDir
 		}
@@ -106,9 +106,9 @@ func (zp *zipPacker) Visit(path string, fi *os.FileInfo, err error) error {
 		Name:   relpath,
 		Method: zip.Deflate,
 	}
-	h.SetMode(fi.Mode)
+	h.SetMode(fi.Mode())
 	w, err := zp.CreateHeader(h)
-	if err != nil || fi.IsDirectory() {
+	if err != nil || fi.IsDir() {
 		return err
 	}
 	data, err := ioutil.ReadFile(path)
