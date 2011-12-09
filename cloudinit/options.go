@@ -1,123 +1,160 @@
 package cloudinit
 
-func User(x string) Option {
+func (cfg *Config) SetUser(x string) {
 	// common
-	return Option{"user", maybe(x != "", x)}
+	cfg.set("user", x != "", x)
 }
 
-func AptUpgrade(yes bool) Option {
+func (cfg *Config) SetAptUpgrade(yes bool) {
 	// apt_update_upgrade
-	return Option{"apt_upgrade", maybe(yes, yes)}
+	cfg.set("apt_upgrade", yes, yes)
 }
 
-func AptUpdate(yes bool) Option {
+func (cfg *Config) SetAptUpdate(yes bool) {
 	// apt_update_upgrade
-	return Option{"apt_update", maybe(yes, yes)}
+	cfg.set("apt_update", yes, yes)
 }
 
-func AptMirror(url string) Option {
+func (cfg *Config) SetAptMirror(url string) {
 	// apt_update_upgrade
-	return Option{"apt_mirror", maybe(url != "", url)}
+	cfg.set("apt_mirror", url != "", url)
 }
 
-func AptPreserveSourcesList(yes bool) Option {
+func (cfg *Config) SetAptPreserveSourcesList(yes bool) {
 	// apt_update_upgrade
-	return Option{"apt_mirror", maybe(yes, yes)}
+	cfg.set("apt_mirror", yes, yes)
 }
 
-func AptOldMirror(url string) Option {
+func (cfg *Config) SetAptOldMirror(url string) {
 	// apt_update_upgrade
-	return Option{"apt_old_mirror", maybe(url != "", url)}
+	cfg.set("apt_old_mirror", url != "", url)
 }
 
-func AptSources(x ...*Source) Option {
+func (cfg *Config) AddAptSource(name, key string) {
 	// apt_update_upgrade
-	if len(x) == 0 {
-		return Option{"apt_sources", nil}
-	}
-	ss := make([]*source, len(x))
-	for i, s := range x {
-		ss[i] = &s.source
-	}
-	return Option{"apt_sources", ss}
+	src, _ := cfg.attrs["apt_sources"].([]*source)
+	cfg.attrs["apt_sources"] = append(src,
+		&source{
+			Source: name,
+			Key: key,
+		})
 }
 
-func DebConfSelections(x bool) Option {
+func (cfg *Config) AddAptSourceWithKeyId(name, keyId, keyServer string) {
 	// apt_update_upgrade
-	return Option{"debconf_selections", maybe(x, x)}
+	src, _ := cfg.attrs["apt_sources"].([]*source)
+	cfg.attrs["apt_sources"] = append(src,
+		&source{
+			Source:    name,
+			KeyId:     keyId,
+			KeyServer: keyServer,
+		})
 }
 
-func Packages(x ...string) Option {
+func (cfg *Config) SetDebConfSelections(x bool) {
 	// apt_update_upgrade
-	return Option{"packages", maybe(len(x) > 0, x)}
+	cfg.set("debconf_selections", x, x)
 }
 
-func BootCmd(x ...*Command) Option {
+func (cfg *Config) AddPackage(x string) {
+	// apt_update_upgrade
+	pkgs, _ := cfg.attrs["packages"].([]string)
+	cfg.attrs["packages"] = append(pkgs, x)
+}
+
+func (cfg *Config) addBootCmd(c *command) {
 	// bootcmd
-	return Option{"bootcmd", maybe(len(x) > 0, x)}
+	cmds, _ := cfg.attrs["bootcmd"].([]*command)
+	cfg.attrs["bootcmd"] = append(cmds, c)
 }
 
-func DisableEC2Metadata(x bool) Option {
+func (cfg *Config) AddBootCmd(cmd string) {
+	// bootcmd
+	cfg.addBootCmd(&command{literal: cmd})
+}
+
+func (cfg *Config) AddBootCmdArgs(args ...string) {
+	// bootcmd
+	cfg.addBootCmd(&command{args: args})
+}
+
+func (cfg *Config) SetDisableEC2Metadata(x bool) {
 	// disable_ec2_metadata
-	return Option{"disable_ec2_metadata", maybe(x, x)}
+	cfg.set("disable_ec2_metadata", x, x)
 }
 
-func FinalMessage(x string) Option {
+func (cfg *Config) SetFinalMessage(x string) {
 	// final_message
-	return Option{"final_message", maybe(x != "", x)}
+	cfg.set("final_message", x != "", x)
 }
 
-func Locale(x string) Option {
+func (cfg *Config) SetLocale(x string) {
 	// locale
-	return Option{"locale", maybe(x != "", x)}
+	cfg.set("locale", x != "", x)
 }
 
-func Mounts(x [][]string) Option {
+func (cfg *Config) AddMount(x ...string) {
 	// mounts
-	return Option{"mounts", maybe(len(x) > 0, x)}
+	mounts, _ := cfg.attrs["mounts"].([][]string)
+	cfg.attrs["mounts"] = append(mounts, x)
 }
 
-// Output specifies destination for command output.
-// Valid values for the string keys are "init", "config", "final" and "all".
-func Output(specs map[string]OutputSpec) Option {
-	return Option{"output", maybe(len(specs) > 0, specs)}
-}
-
-// SSHKeysDSA specifies a number of DSA ssh keys.
-func SSHKeysDSA(private bool, keys ...string) Option {
-	return sshKeys(keyType{private, algDSA}, keys)
-}
-
-// SSHKeysRSA specifies a number of RSA ssh keys.
-func SSHKeysRSA(private bool, keys ...string) Option {
-	return sshKeys(keyType{private, algRSA}, keys)
-}
-
-func sshKeys(keytype keyType, keys []string) Option {
-	// ssh
-	ks := make([]key, len(keys))
-	for i, s := range keys {
-		ks[i].keyType = keytype
-		ks[i].data = s
+// SetOutput specifies destination for command output.
+// Valid values for the kind "init", "config", "final" and "all".
+// Each of stdout and stderr can take one of the following forms:
+// >>file
+//	appends to file
+// >file
+//	overwrites file
+// |command
+//	pipes to the given command.
+// If stderr is "&1" or empty, it will be directed to the same
+// place as Stdout.
+func (cfg *Config) SetOutput(kind, stdout, stderr string) {
+	out, _ := cfg.attrs["output"].(map[string] interface{})
+	if out == nil {
+		out = make(map[string]interface{})
 	}
-	return Option{"ssh_keys", maybe(len(keys) > 0, ks)}
+	if stderr == "" {
+		out[kind] = stdout
+	} else {
+		out[kind] = []string{stdout, stderr}
+	}
+	cfg.attrs["output"] = out
 }
 
-func DisableRoot(x bool) Option {
+func (cfg *Config) AddSSHKey(alg Alg, private bool, keyData string) {
+	keys, _ := cfg.attrs["ssh_keys"].([]key)
+	cfg.attrs["ssh_keys"] = append(keys, key{alg, private, keyData})
+}
+
+func (cfg *Config) SetDisableRoot(x bool) {
 	// ssh
 	// note that disable_root defaults to true, so we include
 	// the option only if x is false.
-	return Option{"disable_root", maybe(!x, x)}
+	cfg.set("disable_root", !x, x)
 }
 
-func SSHAuthorizedKeys(x ...string) Option {
+func (cfg *Config) AddSSHAuthorizedKey(x string) {
 	// ssh
-	return Option{"ssh_authorized_keys", maybe(len(x) > 0, x)}
+	keys, _ := cfg.attrs["ssh_authorized_keys"].([]string)
+	cfg.attrs["ssh_authorized_keys"] = append(keys, x)
 }
 
-func RunCmd(x ...*Command) Option {
+func (cfg *Config) addRunCmd(c *command) {
+	// ssh
+	cmds, _ := cfg.attrs["runcmd"].([]*command)
+	cfg.attrs["runcmd"] = append(cmds, c)
+}
+
+func (cfg *Config) AddRunCmd(cmd string) {
 	// runcmd
-	return Option{"runcmd", maybe(len(x) > 0, x)}
+	cfg.addRunCmd(&command{literal: cmd})
+}
+
+func (cfg *Config) AddRunCmdArgs(args ...string) {
+	// runcmd
+	cfg.addRunCmd(&command{args: args})
 }
 
 // TODO

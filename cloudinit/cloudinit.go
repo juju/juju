@@ -4,9 +4,7 @@
 package cloudinit
 
 import (
-	"fmt"
 	yaml "launchpad.net/goyaml"
-	"reflect"
 )
 
 // Config represents a set of cloud-init configuration options.
@@ -28,42 +26,12 @@ func (cfg *Config) Render() ([]byte, error) {
 	return append([]byte("#cloud-config\n"), data...), nil
 }
 
-// Option represents a cloud-init configuration option.
-// If it is added to a Config, Name and Value will be marshalled as a top level
-// attribute-value pair in the generated YAML.
-type Option struct {
-	Name  string
-	Value interface{}
-}
-
-// Add sets the given configuration option in cfg.
-func (cfg *Config) Set(opt Option) {
-	if opt.Value != nil {
-		cfg.attrs[opt.Name] = opt.Value
+func (cfg *Config) set(opt string, yes bool, value interface{}) {
+	if yes {
+		cfg.attrs[opt] = value
+	} else {
+		delete(cfg.attrs, opt)
 	}
-}
-
-// Append appends the option's value to the existing value for
-// that option in cfg. The value must be of slice type.
-func (cfg *Config) Append(opt Option) {
-	if opt.Value == nil {
-		return
-	}
-	old := cfg.attrs[opt.Name]
-	if old == nil {
-		cfg.attrs[opt.Name] = opt.Value
-		return
-	}
-	v := reflect.ValueOf(opt.Value)
-	if v.Kind() != reflect.Slice {
-		panic(fmt.Errorf("cloudinit.Config.Append given option (%s) of non-slice type", opt.Name))
-	}
-	oldv := reflect.ValueOf(old)
-	if v.Type() != oldv.Type() {
-		panic(fmt.Errorf("cloudinit.Config.Append: mismatched type, expected %v got %v", oldv.Type(), v.Type()))
-	}
-
-	cfg.attrs[opt.Name] = reflect.AppendSlice(oldv, v).Interface()
 }
 
 // source is Key, or KeyId and KeyServer
@@ -74,125 +42,48 @@ type source struct {
 	KeyServer string `yaml:"keyserver,omitempty"`
 }
 
-// Source represents a source option to AptSources.
-type Source struct {
-	source source
-}
-
-// NewSource creates a Source with the given name from a key.
-func NewSource(name string, key string) *Source {
-	return &Source{source: source{
-		Source: name,
-		Key:    key,
-	}}
-}
-
-// NewSource creates a Source with the given name from a key id
-// and a key server.
-func NewSourceWithKeyId(name, keyId, keyServer string) *Source {
-	return &Source{source: source{
-		Source:    name,
-		KeyId:     keyId,
-		KeyServer: keyServer,
-	}}
-}
-
-// Command represents a shell command.
-type Command struct {
+// command represents a shell command.
+type command struct {
 	literal string
 	args    []string
 }
 
-// NewLiteralCommand returns a Command which
-// will run s as a shell command. Shell metacharacters
-// in s will be interpreted by the shell.
-func NewLiteralCommand(s string) *Command {
-	return &Command{literal: s}
-}
-
-// NewArgListCommand returns a Command which
-// run the given command and arguments. Any
-// shell metacharacters in the arguments will be
-// appropriately quoted.
-func NewArgListCommand(args ...string) *Command {
-	return &Command{args: args}
-}
-
 // GetYAML implements yaml.Getter
-func (t *Command) GetYAML() (tag string, value interface{}) {
+func (t *command) GetYAML() (tag string, value interface{}) {
 	if t.args != nil {
 		return "", t.args
 	}
 	return "", t.literal
 }
 
-// keyType represents the type of an SSH Key.
-type keyType struct {
-	private bool
-	alg     int
-}
-
+// Alg represents a possible SSH key type.
+type Alg uint
 const (
-	algRSA = iota
-	algDSA
+	RSA Alg = iota
+	DSA
 )
-
-var algNames = []string{
-	algRSA: "rsa",
-	algDSA: "dsa",
-}
 
 // key represents an SSH Key with the given type and associated key data.
 type key struct {
-	keyType keyType
+	alg Alg
+	private bool
 	data    string
+}
+
+var algNames = []string {
+	RSA: "rsa",
+	DSA: "dsa",
 }
 
 var _ yaml.Getter = key{}
 
 // GetYaml implements yaml.Getter
 func (k key) GetYAML() (tag string, value interface{}) {
-	return "", []string{k.keyType.String(), k.data}
-}
-
-func (t keyType) String() string {
-	s := algNames[t.alg]
-	if t.private {
+	s := algNames[k.alg]
+	if k.private {
 		s += "_private"
 	} else {
 		s += "_public"
 	}
-	return s
-}
-
-// OutputSpec represents the destination of a command.
-// Each of Stdout and Stderr can take one of the following forms:
-// >>file
-//	appends to file
-// >file
-//	overwrites file
-// |command
-//	pipes to the given command.
-// If Stderr is "&1", it will be directed to the same
-// place as Stdout.
-type OutputSpec struct {
-	Stdout string
-	Stderr string
-}
-
-var _ yaml.Getter = (*OutputSpec)(nil)
-
-func (o *OutputSpec) GetYAML() (tag string, value interface{}) {
-	if o.Stdout == o.Stderr {
-		return "", o.Stdout
-	}
-	return "", []string{o.Stdout, o.Stderr}
-}
-
-// maybe returns x if yes is true, otherwise it returns nil.
-func maybe(yes bool, x interface{}) interface{} {
-	if yes {
-		return x
-	}
-	return nil
+	return "", []string{s, k.data}
 }

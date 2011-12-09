@@ -19,48 +19,80 @@ func Test1(t *testing.T) {
 var ctests = []struct {
 	expect string
 	name   string
-	option cloudinit.Option
+	setOption func(cfg *cloudinit.Config)
 }{
 	{"user: me\n",
-		"User", cloudinit.User("me")},
+		"User", func(cfg *cloudinit.Config){cfg.SetUser("me")}},
 	{"apt_upgrade: true\n",
-		"AptUpgrade", cloudinit.AptUpgrade(true)},
+		"AptUpgrade", func(cfg *cloudinit.Config){cfg.SetAptUpgrade(true)}},
 	{"apt_update: true\n",
-		"AptUpdate", cloudinit.AptUpdate(true)},
+		"AptUpdate", func(cfg *cloudinit.Config){cfg.SetAptUpdate(true)}},
 	{"apt_mirror: http://foo.com\n",
-		"AptMirror", cloudinit.AptMirror("http://foo.com")},
+		"AptMirror", func(cfg *cloudinit.Config){cfg.SetAptMirror("http://foo.com")}},
 	{"apt_mirror: true\n",
-		"AptPreserveSourcesList", cloudinit.AptPreserveSourcesList(true)},
+		"AptPreserveSourcesList", func(cfg *cloudinit.Config){cfg.SetAptPreserveSourcesList(true)}},
 	{"apt_old_mirror: http://foo.com\n",
-		"AptOldMirror", cloudinit.AptOldMirror("http://foo.com")},
-	{"apt_sources:\n- source: keyName\n  key: someKey\n",
-		"AptSources", cloudinit.AptSources(cloudinit.NewSource("keyName", "someKey"))},
-	{"apt_sources:\n- source: keyName\n  keyid: someKey\n  keyserver: foo.com\n",
-		"AptSources", cloudinit.AptSources(cloudinit.NewSourceWithKeyId("keyName", "someKey", "foo.com"))},
+		"AptOldMirror", func(cfg *cloudinit.Config){cfg.SetAptOldMirror("http://foo.com")}},
 	{"debconf_selections: true\n",
-		"DebConfSelections", cloudinit.DebConfSelections(true)},
-	{"packages:\n- juju\n- ubuntu\n",
-		"Packages", cloudinit.Packages("juju", "ubuntu")},
-	{"bootcmd:\n- ls > /dev\n- - ls\n  - '>with space'\n",
-		"BootCmd", cloudinit.BootCmd(cloudinit.NewLiteralCommand("ls > /dev"), cloudinit.NewArgListCommand("ls", ">with space"))},
+		"DebConfSelections", func(cfg *cloudinit.Config){cfg.SetDebConfSelections(true)}},
 	{"disable_ec2_metadata: true\n",
-		"DisableEC2Metadata", cloudinit.DisableEC2Metadata(true)},
+		"DisableEC2Metadata", func(cfg *cloudinit.Config){cfg.SetDisableEC2Metadata(true)}},
 	{"final_message: goodbye\n",
-		"FinalMessage", cloudinit.FinalMessage("goodbye")},
+		"FinalMessage", func(cfg *cloudinit.Config){cfg.SetFinalMessage("goodbye")}},
 	{"locale: en_us\n",
-		"Locale", cloudinit.Locale("en_us")},
-	{"mounts:\n- - x\n  - \"y\"\n- - z\n  - w\n",
-		"Mounts", cloudinit.Mounts([][]string{{"x", "y"}, {"z", "w"}})},
-	{"output:\n  all:\n    stdout: '>foo'\n    stderr: '|bar'\n",
-		"Output", cloudinit.Output(map[string]cloudinit.OutputSpec{"all": {">foo", "|bar"}})},
-	{"ssh_keys:\n- - rsa_private\n  - key1data\n- - rsa_private\n  - key2data\n",
-		"SSHKeys", cloudinit.SSHKeysRSA(true, "key1data", "key2data")},
-	{"ssh_keys:\n- - dsa_public\n  - key1data\n- - dsa_public\n  - key2data\n",
-		"SSHKeys", cloudinit.SSHKeysDSA(false, "key1data", "key2data")},
+		"Locale", func(cfg *cloudinit.Config){cfg.SetLocale("en_us")}},
 	{"disable_root: false\n",
-		"DisableRoot", cloudinit.DisableRoot(false)},
+		"DisableRoot", func(cfg *cloudinit.Config){cfg.SetDisableRoot(false)}},
+
+
 	{"ssh_authorized_keys:\n- key1\n- key2\n",
-		"SSHAuthorizedKeys", cloudinit.SSHAuthorizedKeys("key1", "key2")},
+		"SSHAuthorizedKeys",
+		func(cfg *cloudinit.Config){
+			cfg.AddSSHAuthorizedKey("key1")
+			cfg.AddSSHAuthorizedKey("key2")
+		}},
+	{"ssh_keys:\n- - rsa_private\n  - key1data\n- - rsa_private\n  - key2data\n",
+		"SSHKeys RSA private", 
+		func(cfg *cloudinit.Config){
+			cfg.AddSSHKey(cloudinit.RSA, true, "key1data")
+			cfg.AddSSHKey(cloudinit.RSA, true, "key2data")
+		}},
+	{"ssh_keys:\n- - dsa_public\n  - key1data\n- - dsa_public\n  - key2data\n",
+		"SSHKeys DSA public",
+		func(cfg *cloudinit.Config){
+			cfg.AddSSHKey(cloudinit.DSA, false, "key1data")
+			cfg.AddSSHKey(cloudinit.DSA, false, "key2data")
+		}},
+	{"output:\n  all:\n  - '>foo'\n  - '|bar'\n",
+		"Output",
+		func(cfg *cloudinit.Config){
+			cfg.SetOutput("all", ">foo", "|bar")
+		}},
+	{"output:\n  all: '>foo'\n",
+		"Output",
+		func(cfg *cloudinit.Config){
+			cfg.SetOutput("all", ">foo", "")
+		}},
+	{"apt_sources:\n- source: keyName\n  key: someKey\n",
+		"AptSources", func(cfg *cloudinit.Config){cfg.AddAptSource("keyName", "someKey")}},
+	{"apt_sources:\n- source: keyName\n  keyid: someKey\n  keyserver: foo.com\n",
+		"AptSources", func(cfg *cloudinit.Config){cfg.AddAptSourceWithKeyId("keyName", "someKey", "foo.com")}},
+	{"packages:\n- juju\n- ubuntu\n",
+		"Packages",
+		func(cfg *cloudinit.Config){
+			cfg.AddPackage("juju")
+			cfg.AddPackage("ubuntu")
+		}},
+	{"bootcmd:\n- ls > /dev\n- - ls\n  - '>with space'\n",
+		"BootCmd", func(cfg *cloudinit.Config){
+			cfg.AddBootCmd("ls > /dev")
+			cfg.AddBootCmdArgs("ls", ">with space")
+		}},
+	{"mounts:\n- - x\n  - \"y\"\n- - z\n  - w\n",
+		"Mounts", func(cfg *cloudinit.Config){
+			cfg.AddMount("x", "y")
+			cfg.AddMount("z", "w")
+		}},
 }
 
 const header = "#cloud-config\n"
@@ -68,7 +100,7 @@ const header = "#cloud-config\n"
 func (S) TestOutput(c *C) {
 	for _, t := range ctests {
 		cfg := cloudinit.New()
-		cfg.Set(t.option)
+		t.setOption(cfg)
 		data, err := cfg.Render()
 		c.Assert(err, IsNil)
 		c.Assert(data, NotNil)
@@ -76,40 +108,6 @@ func (S) TestOutput(c *C) {
 	}
 }
 
-var atests = []struct {
-	expect  string
-	name    string
-	options []cloudinit.Option
-}{
-	{"ssh_authorized_keys:\n- key1\n- key2\n- key3\n- key4\n",
-		"SSHAuthorizedKeys",
-		[]cloudinit.Option{
-			cloudinit.SSHAuthorizedKeys("key1", "key2"),
-			cloudinit.SSHAuthorizedKeys("key3", "key4"),
-		},
-	},
-	{"apt_sources:\n- source: keyName\n  keyid: someKey\n  keyserver: foo.com\n- source: keyName\n  key: someKey\n",
-		"AptSources",
-		[]cloudinit.Option{
-			cloudinit.AptSources(cloudinit.NewSourceWithKeyId("keyName", "someKey", "foo.com")),
-			cloudinit.AptSources(cloudinit.NewSource("keyName", "someKey")),
-		},
-	},
-}
-
-func (S) TestAppend(c *C) {
-	for _, t := range atests {
-		cfg := cloudinit.New()
-		cfg.Set(t.options[0])
-		for _, o := range t.options[1:] {
-			cfg.Append(o)
-		}
-		data, err := cfg.Render()
-		c.Assert(err, IsNil)
-		c.Assert(data, NotNil)
-		c.Assert(string(data), Equals, header+t.expect, Bug("test %q output differs", t.name))
-	}
-}
 
 //#cloud-config
 //packages:
@@ -117,7 +115,8 @@ func (S) TestAppend(c *C) {
 //- ubuntu
 func ExampleConfig() {
 	cfg := cloudinit.New()
-	cfg.Set(cloudinit.Packages("juju", "ubuntu"))
+	cfg.AddPackage("juju")
+	cfg.AddPackage("ubuntu")
 	data, err := cfg.Render()
 	if err != nil {
 		fmt.Printf("render error: %v", err)
