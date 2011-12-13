@@ -58,6 +58,7 @@ func (t *command) GetYAML() (tag string, value interface{}) {
 
 // Alg represents a possible SSH key type.
 type Alg uint
+
 const (
 	RSA Alg = iota
 	DSA
@@ -65,12 +66,12 @@ const (
 
 // key represents an SSH Key with the given type and associated key data.
 type key struct {
-	alg Alg
+	alg     Alg
 	private bool
 	data    string
 }
 
-var algNames = []string {
+var algNames = []string{
 	RSA: "rsa",
 	DSA: "dsa",
 }
