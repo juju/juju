@@ -77,10 +77,10 @@ func (cfg *Config) addCmd(kind string, c *command) {
 	cfg.attrs[kind] = append(cmds, c)
 }
 
-// AddRunCommand adds a command to be executed
-// at (first?) boot. The command is simply written
-// to the shell script - any metacharacters in the
-// command will be interpreted by "sh".
+// AddRunCmd adds a command to be executed
+// at first boot. The command will be run
+// by the shell with any metacharacters retaining
+// their special meaning (that is, no quoting takes place).
 func (cfg *Config) AddRunCmd(cmd string) {
 	cfg.addCmd("runcmd", &command{literal: cmd})
 }
@@ -93,9 +93,7 @@ func (cfg *Config) AddRunCmdArgs(args ...string) {
 
 // AddBootCmd is like AddRunCmd except that the
 // command will run very early in the boot process,
-// only slightly after a 'boothook' would run.
-// AddBootCmd should really only be used for things that
-// could not be done later in the boot process.
+// and it will run on every boot, not just the first time.
 func (cfg *Config) AddBootCmd(cmd string) {
 	cfg.addCmd("bootcmd", &command{literal: cmd})
 }
@@ -127,8 +125,7 @@ func (cfg *Config) SetLocale(locale string) {
 }
 
 // AddMount adds a mount point. The given
-// arguments will be used as entries for an /etc/fstab
-// line.
+// arguments will be used as a line in /etc/fstab.
 func (cfg *Config) AddMount(args ...string) {
 	mounts, _ := cfg.attrs["mounts"].([][]string)
 	cfg.attrs["mounts"] = append(mounts, args)
@@ -147,12 +144,12 @@ const (
 // SetOutput specifies destination for command output.
 // Valid values for the kind "init", "config", "final" and "all".
 // Each of stdout and stderr can take one of the following forms:
-// >>file
-//	appends to file
-// >file
-//	overwrites file
-// |command
-//	pipes to the given command.
+//   >>file
+//       appends to file
+//   >file
+//       overwrites file
+//   |command
+//       pipes to the given command.
 func (cfg *Config) SetOutput(kind OutputKind, stdout, stderr string) {
 	out, _ := cfg.attrs["output"].(map[string]interface{})
 	if out == nil {
@@ -166,7 +163,7 @@ func (cfg *Config) SetOutput(kind OutputKind, stdout, stderr string) {
 	cfg.attrs["output"] = out
 }
 
-// AddSSHKey adds a pre-generated ssh private key to the
+// AddSSHKey adds a pre-generated ssh key to the
 // server keyring. Keys that are added like this will be
 // written to /etc/ssh and new random keys will not
 // be generated.
@@ -179,10 +176,13 @@ func (cfg *Config) AddSSHKey(keyType SSHKeyType, keyData string) {
 	keys[keyType] = keyData
 }
 
-func (cfg *Config) SetDisableRoot(yes bool) {
+// SetDisableRoot sets whether ssh login is disabled to the root account
+// via the ssh authorized key associated with the instance metadata.
+// It is true by default.
+func (cfg *Config) SetDisableRoot(disable bool) {
 	// note that disable_root defaults to true, so we include
-	// the option only if yes is false.
-	cfg.set("disable_root", !yes, yes)
+	// the option only if disable is false.
+	cfg.set("disable_root", !disable, disable)
 }
 
 // AddSSHAuthorizedKey adds a key that will be
