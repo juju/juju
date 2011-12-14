@@ -9,13 +9,13 @@ package juju_test
 
 import (
 	"fmt"
-	"launchpad.net/juju/go/juju"
+	"launchpad.net/juju/go/environ"
 	"launchpad.net/juju/go/schema"
 	"sync"
 )
 
 func init() {
-	juju.RegisterProvider("dummy", dummyProvider{})
+	environ.RegisterProvider("dummy", dummyProvider{})
 }
 
 type dummyInstance struct {
@@ -50,7 +50,7 @@ type dummyEnviron struct {
 	instances map[string]*dummyInstance
 }
 
-func (dummyProvider) Open(name string, attributes interface{}) (e juju.Environ, err error) {
+func (dummyProvider) Open(name string, attributes interface{}) (e environ.Environ, err error) {
 	cfg := attributes.(schema.MapType)
 	return &dummyEnviron{
 		baseName:  cfg["basename"].(string),
@@ -62,7 +62,7 @@ func (*dummyEnviron) Destroy() error {
 	return nil
 }
 
-func (e *dummyEnviron) StartInstance(id int) (juju.Instance, error) {
+func (e *dummyEnviron) StartInstance(id int) (environ.Instance, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	i := &dummyInstance{
@@ -73,7 +73,7 @@ func (e *dummyEnviron) StartInstance(id int) (juju.Instance, error) {
 	return i, nil
 }
 
-func (e *dummyEnviron) StopInstances(is []juju.Instance) error {
+func (e *dummyEnviron) StopInstances(is []environ.Instance) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	for _, i := range is {
@@ -82,10 +82,10 @@ func (e *dummyEnviron) StopInstances(is []juju.Instance) error {
 	return nil
 }
 
-func (e *dummyEnviron) Instances() ([]juju.Instance, error) {
+func (e *dummyEnviron) Instances() ([]environ.Instance, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	var is []juju.Instance
+	var is []environ.Instance
 	for _, i := range e.instances {
 		is = append(is, i)
 	}

@@ -3,26 +3,26 @@ package juju_test
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/juju"
+	"launchpad.net/juju/go/environ"
 	"os"
 	"path/filepath"
 )
 
 type configTest struct {
 	env   string
-	check func(c *C, es *juju.Environs)
+	check func(c *C, es *environ.Environs)
 }
 
 var configTests = []struct {
 	env   string
-	check func(c *C, es *juju.Environs)
+	check func(c *C, es *environ.Environs)
 }{
 	{`
 environments:
     only:
         type: unknown
         other: anything
-`, func(c *C, es *juju.Environs) {
+`, func(c *C, es *environ.Environs) {
 		e, err := es.Open("")
 		c.Assert(e, IsNil)
 		c.Assert(err, NotNil)
@@ -43,7 +43,7 @@ environments:
     only:
         type: dummy
         basename: foo
-`, func(c *C, es *juju.Environs) {
+`, func(c *C, es *environ.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, IsNil)
 		checkDummyEnviron(c, e, "foo")
@@ -58,7 +58,7 @@ environments:
     two:
         type: dummy
         basename: bar
-`, func(c *C, es *juju.Environs) {
+`, func(c *C, es *environ.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, NotNil)
 		e, err = es.Open("one")
@@ -77,7 +77,7 @@ environments:
     two:
         type: dummy
         basename: bar
-`, func(c *C, es *juju.Environs) {
+`, func(c *C, es *environ.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, IsNil)
 		checkDummyEnviron(c, e, "bar")
@@ -85,7 +85,7 @@ environments:
 	},
 }
 
-func checkDummyEnviron(c *C, e juju.Environ, basename string) {
+func checkDummyEnviron(c *C, e environ.Environ, basename string) {
 	i0, err := e.StartInstance(0)
 	c.Assert(err, IsNil)
 	c.Assert(i0, NotNil)
@@ -110,7 +110,7 @@ func checkDummyEnviron(c *C, e juju.Environ, basename string) {
 	c.Assert(is[0], Equals, i0)
 	c.Assert(is[1], Equals, i1)
 
-	err = e.StopInstances([]juju.Instance{i0})
+	err = e.StopInstances([]environ.Instance{i0})
 	c.Assert(err, IsNil)
 
 	is, err = e.Instances()
@@ -125,7 +125,7 @@ func checkDummyEnviron(c *C, e juju.Environ, basename string) {
 func (suite) TestConfig(c *C) {
 	for i, t := range configTests {
 		c.Logf("running test %v", i)
-		es, err := juju.ReadEnvironsBytes([]byte(t.env))
+		es, err := environ.ReadEnvironsBytes([]byte(t.env))
 		if es == nil {
 			c.Logf("parse failed\n")
 			if t.check != nil {
@@ -158,7 +158,7 @@ environments:
 	c.Assert(err, IsNil)
 
 	// test reading from a named file
-	es, err := juju.ReadEnvirons(path)
+	es, err := environ.ReadEnvirons(path)
 	c.Assert(err, IsNil)
 	e, err := es.Open("")
 	c.Assert(err, IsNil)
@@ -168,7 +168,7 @@ environments:
 	h := os.Getenv("HOME")
 	os.Setenv("HOME", d)
 
-	es, err = juju.ReadEnvirons("")
+	es, err = environ.ReadEnvirons("")
 	c.Assert(err, IsNil)
 	e, err = es.Open("")
 	c.Assert(err, IsNil)

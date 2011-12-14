@@ -2,7 +2,7 @@ include $(GOROOT)/src/Make.inc
 
 all: package
 
-TARG=launchpad.net/juju/go/juju
+TARG=launchpad.net/juju/go/environ
 
 GOFILES=\
 	open.go\
