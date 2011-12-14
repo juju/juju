@@ -5,7 +5,7 @@
 //
 // Note that this file contains no tests as such - it is
 // just used by the testing code.
-package juju_test
+package environ_test
 
 import (
 	"fmt"

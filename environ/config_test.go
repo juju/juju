@@ -1,4 +1,4 @@
-package juju_test
+package environ_test
 
 import (
 	"io/ioutil"

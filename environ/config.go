@@ -1,4 +1,4 @@
-package juju
+package environ
 
 import (
 	"errors"
