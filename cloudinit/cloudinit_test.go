@@ -57,17 +57,10 @@ var ctests = []struct {
 		},
 	},
 	{
-		"AptOldMirror",
-		"apt_old_mirror: http://foo.com\n",
-		func(cfg *cloudinit.Config) {
-			cfg.SetAptOldMirror("http://foo.com")
-		},
-	},
-	{
 		"DebconfSelections",
-		"debconf_selections: true\n",
+		"debconf_selections: '# Force debconf priority to critical.\n\n  debconf debconf/priority select critical\n\n'\n",
 		func(cfg *cloudinit.Config) {
-			cfg.SetDebconfSelections(true)
+			cfg.SetDebconfSelections("# Force debconf priority to critical.\ndebconf debconf/priority select critical\n")
 		},
 	},
 	{
@@ -107,19 +100,19 @@ var ctests = []struct {
 		},
 	},
 	{
-		"SSHKeys RSA private",
-		"ssh_keys:\n- - rsa_private\n  - key1data\n- - rsa_private\n  - key2data\n",
+		"SSHKeys RSA",
+		"ssh_keys:\n  rsa_private: key1data\n  rsa_public: key2data\n",
 		func(cfg *cloudinit.Config) {
-			cfg.AddSSHKey(cloudinit.RSA, true, "key1data")
-			cfg.AddSSHKey(cloudinit.RSA, true, "key2data")
+			cfg.AddSSHKey(cloudinit.RSAPrivate, "key1data")
+			cfg.AddSSHKey(cloudinit.RSAPublic, "key2data")
 		},
 	},
 	{
-		"SSHKeys DSA public",
-		"ssh_keys:\n- - dsa_public\n  - key1data\n- - dsa_public\n  - key2data\n",
+		"SSHKeys DSA",
+		"ssh_keys:\n  dsa_public: key1data\n  dsa_private: key2data\n",
 		func(cfg *cloudinit.Config) {
-			cfg.AddSSHKey(cloudinit.DSA, false, "key1data")
-			cfg.AddSSHKey(cloudinit.DSA, false, "key2data")
+			cfg.AddSSHKey(cloudinit.DSAPublic, "key1data")
+			cfg.AddSSHKey(cloudinit.DSAPrivate, "key2data")
 		},
 	},
 	{

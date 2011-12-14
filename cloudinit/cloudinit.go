@@ -64,27 +64,11 @@ const (
 	DSA
 )
 
-// key represents an SSH Key with the given type and associated key data.
-type key struct {
-	alg     Alg
-	private bool
-	data    string
-}
+type SSHKeyType string
 
-var algNames = []string{
-	RSA: "rsa",
-	DSA: "dsa",
-}
-
-var _ yaml.Getter = key{}
-
-// GetYaml implements yaml.Getter
-func (k key) GetYAML() (tag string, value interface{}) {
-	s := algNames[k.alg]
-	if k.private {
-		s += "_private"
-	} else {
-		s += "_public"
-	}
-	return "", []string{s, k.data}
-}
+const (
+	RSAPrivate SSHKeyType = "rsa_private"
+	RSAPublic  SSHKeyType = "rsa_public"
+	DSAPrivate SSHKeyType = "dsa_private"
+	DSAPublic  SSHKeyType = "dsa_public"
+)

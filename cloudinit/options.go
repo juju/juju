@@ -1,29 +1,40 @@
 package cloudinit
 
+// SetUser sets the user name that will be used for some other options.
+// The user will be assumed to already exist in the machine image.
+// The default user is "ubuntu".
 func (cfg *Config) SetUser(user string) {
 	cfg.set("user", user != "", user)
 }
 
+// SetAptUpgrade sets whether cloud-init runs "apt-get upgrade"
+// on first boot.
 func (cfg *Config) SetAptUpgrade(yes bool) {
 	cfg.set("apt_upgrade", yes, yes)
 }
 
+// SetUpdate sets whether cloud-init runs "apt-get update"
+// on first boot.
 func (cfg *Config) SetAptUpdate(yes bool) {
 	cfg.set("apt_update", yes, yes)
 }
 
+// SetAptMirror sets the URL to be used as the apt
+// mirror site. If not set, the URL is selected based
+// on cloud metadata in EC2 - <region>.archive.ubuntu.com
 func (cfg *Config) SetAptMirror(url string) {
 	cfg.set("apt_mirror", url != "", url)
 }
 
+// SetAptPreserveSourcesList sets whether /etc/apt/sources.list
+// is overwritten by the mirror. If true, SetAptMirror above
+// will have no effect.
 func (cfg *Config) SetAptPreserveSourcesList(yes bool) {
 	cfg.set("apt_mirror", yes, yes)
 }
 
-func (cfg *Config) SetAptOldMirror(url string) {
-	cfg.set("apt_old_mirror", url != "", url)
-}
-
+// AddAptSource adds an apt source. The key holds the
+// public key of the source, in the form expected by apt-key(8).
 func (cfg *Config) AddAptSource(name, key string) {
 	src, _ := cfg.attrs["apt_sources"].([]*source)
 	cfg.attrs["apt_sources"] = append(src,
@@ -33,6 +44,9 @@ func (cfg *Config) AddAptSource(name, key string) {
 		})
 }
 
+// AddAptSource adds an apt source. The public key for the
+// source is retrieved by fetching the given keyId from the
+// GPG key server at the given address.
 func (cfg *Config) AddAptSourceWithKeyId(name, keyId, keyServer string) {
 	src, _ := cfg.attrs["apt_sources"].([]*source)
 	cfg.attrs["apt_sources"] = append(src,
@@ -43,45 +57,84 @@ func (cfg *Config) AddAptSourceWithKeyId(name, keyId, keyServer string) {
 		})
 }
 
-func (cfg *Config) SetDebconfSelections(yes bool) {
-	cfg.set("debconf_selections", yes, yes)
+// SetDebconfSelections provides preseeded debconf answers
+// for the boot process. The given answers will be used as input
+// to debconf-set-selections(1).
+func (cfg *Config) SetDebconfSelections(answers string) {
+	cfg.set("debconf_selections", answers != "", answers)
 }
 
+// AddPackage adds a package to be installed on first boot.
+// If any packages are specified, "apt-get update"
+// will be called.
 func (cfg *Config) AddPackage(name string) {
 	pkgs, _ := cfg.attrs["packages"].([]string)
 	cfg.attrs["packages"] = append(pkgs, name)
 }
 
-func (cfg *Config) addBootCmd(c *command) {
-	cmds, _ := cfg.attrs["bootcmd"].([]*command)
-	cfg.attrs["bootcmd"] = append(cmds, c)
+func (cfg *Config) addCmd(kind string, c *command) {
+	cmds, _ := cfg.attrs[kind].([]*command)
+	cfg.attrs[kind] = append(cmds, c)
 }
 
+// AddRunCommand adds a command to be executed
+// at (first?) boot. The command is simply written
+// to the shell script - any metacharacters in the
+// command will be interpreted by "sh".
+func (cfg *Config) AddRunCmd(cmd string) {
+	cfg.addCmd("runcmd", &command{literal: cmd})
+}
+
+// AddRunCmdArgs is like AddRunCmd except that the command
+// will be executed with the given arguments properly quoted.
+func (cfg *Config) AddRunCmdArgs(args ...string) {
+	cfg.addCmd("runcmd", &command{args: args})
+}
+
+// AddBootCmd is like AddRunCmd except that the
+// command will run very early in the boot process,
+// only slightly after a 'boothook' would run.
+// AddBootCmd should really only be used for things that
+// could not be done later in the boot process.
 func (cfg *Config) AddBootCmd(cmd string) {
-	cfg.addBootCmd(&command{literal: cmd})
+	cfg.addCmd("bootcmd", &command{literal: cmd})
 }
 
+// AddBootCmdArgs is like AddBootCmd except that the command
+// will be executed with the given arguments properly quoted.
 func (cfg *Config) AddBootCmdArgs(args ...string) {
-	cfg.addBootCmd(&command{args: args})
+	cfg.addCmd("bootcmd", &command{args: args})
 }
 
+// SetDisableEC2Metadata sets whether access to the
+// EC2 metadata service is disabled early in boot
+// via a null route ( route del -host 169.254.169.254 reject).
 func (cfg *Config) SetDisableEC2Metadata(yes bool) {
 	cfg.set("disable_ec2_metadata", yes, yes)
 }
 
+// SetFinalMessage sets to message that will be written
+// when the system has finished booting for the first time.
+// By default, the message is:
+// "cloud-init boot finished at $TIMESTAMP. Up $UPTIME seconds".
 func (cfg *Config) SetFinalMessage(msg string) {
 	cfg.set("final_message", msg != "", msg)
 }
 
+// SetLocale sets the locale; it defaults to en_US.UTF-8.
 func (cfg *Config) SetLocale(locale string) {
 	cfg.set("locale", locale != "", locale)
 }
 
-func (cfg *Config) AddMount(mountArgs ...string) {
+// AddMount adds a mount point. The given
+// arguments will be used as entries for an /etc/fstab
+// line.
+func (cfg *Config) AddMount(args ...string) {
 	mounts, _ := cfg.attrs["mounts"].([][]string)
-	cfg.attrs["mounts"] = append(mounts, mountArgs)
+	cfg.attrs["mounts"] = append(mounts, args)
 }
 
+// OutputKind represents a destination for command output.
 type OutputKind string
 
 const (
@@ -113,9 +166,17 @@ func (cfg *Config) SetOutput(kind OutputKind, stdout, stderr string) {
 	cfg.attrs["output"] = out
 }
 
-func (cfg *Config) AddSSHKey(alg Alg, private bool, keyData string) {
-	keys, _ := cfg.attrs["ssh_keys"].([]key)
-	cfg.attrs["ssh_keys"] = append(keys, key{alg, private, keyData})
+// AddSSHKey adds a pre-generated ssh private key to the
+// server keyring. Keys that are added like this will be
+// written to /etc/ssh and new random keys will not
+// be generated.
+func (cfg *Config) AddSSHKey(keyType SSHKeyType, keyData string) {
+	keys, _ := cfg.attrs["ssh_keys"].(map[SSHKeyType]string)
+	if keys == nil {
+		keys = make(map[SSHKeyType]string)
+		cfg.attrs["ssh_keys"] = keys
+	}
+	keys[keyType] = keyData
 }
 
 func (cfg *Config) SetDisableRoot(yes bool) {
@@ -124,22 +185,12 @@ func (cfg *Config) SetDisableRoot(yes bool) {
 	cfg.set("disable_root", !yes, yes)
 }
 
+// AddSSHAuthorizedKey adds a key that will be
+// an entry in ~/.ssh/authorized_keys for the
+// configured user (see SetUser).
 func (cfg *Config) AddSSHAuthorizedKey(yes string) {
 	keys, _ := cfg.attrs["ssh_authorized_keys"].([]string)
 	cfg.attrs["ssh_authorized_keys"] = append(keys, yes)
-}
-
-func (cfg *Config) addRunCmd(c *command) {
-	cmds, _ := cfg.attrs["runcmd"].([]*command)
-	cfg.attrs["runcmd"] = append(cmds, c)
-}
-
-func (cfg *Config) AddRunCmd(cmd string) {
-	cfg.addRunCmd(&command{literal: cmd})
-}
-
-func (cfg *Config) AddRunCmdArgs(args ...string) {
-	cfg.addRunCmd(&command{args: args})
 }
 
 // TODO
