@@ -21,16 +21,16 @@ type configTest struct {
 }
 
 var configTests = []configTest{
-	{"", &providerConfig{region: aws.USEast, auth: testAuth}, ""},
-	{"region: eu-west-1\n", &providerConfig{region: aws.EUWest, auth: testAuth}, ""},
+	{"", &providerConfig{region: "us-east-1", auth: testAuth}, ""},
+	{"region: eu-west-1\n", &providerConfig{region: "eu-west-1", auth: testAuth}, ""},
 	{"region: unknown\n", nil, ".*invalid region name.*"},
-	{"region: configtest\n", &providerConfig{region: configTestRegion, auth: testAuth}, ""},
+	{"region: configtest\n", &providerConfig{region: "configtest", auth: testAuth}, ""},
 	{"region: 666\n", nil, ".*expected string, got 666"},
 	{"access-key: 666\n", nil, ".*expected string, got 666"},
 	{"secret-key: 666\n", nil, ".*expected string, got 666"},
 	{"access-key: jujuer\nsecret-key: open sesame\n",
 		&providerConfig{
-			region: aws.USEast,
+			region: "us-east-1",
 			auth: aws.Auth{
 				AccessKey: "jujuer",
 				SecretKey: "open sesame",
@@ -41,7 +41,7 @@ var configTests = []configTest{
 	{"access-key: jujuer\n", nil, ".*environment has access-key but no secret-key"},
 	{"secret-key: badness\n", nil, ".*environment has secret-key but no access-key"},
 	// unknown fields are discarded
-	{"unknown-something: 666\n", &providerConfig{region: aws.USEast, auth: testAuth}, ""},
+	{"unknown-something: 666\n", &providerConfig{region: "us-east-1", auth: testAuth}, ""},
 }
 
 func indent(s string, with string) string {
@@ -68,7 +68,7 @@ func (suite) TestConfig(c *C) {
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "")
 
 	// first try with no auth environment vars set
-	test := configTest{"", &providerConfig{region: aws.USEast, auth: testAuth}, ".*not found in environment"}
+	test := configTest{"", &providerConfig{region: "us-east-1", auth: testAuth}, ".*not found in environment"}
 	test.run(c)
 
 	// then set testAuthults

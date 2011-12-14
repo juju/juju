@@ -11,6 +11,8 @@ import (
 type Tests struct {
 	Environs *juju.Environs
 	Name     string
+	SetUp func(c *C)
+	TearDown func(c *C)
 
 	environs []juju.Environ
 }
