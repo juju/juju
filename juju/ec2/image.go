@@ -2,7 +2,6 @@ package ec2
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -57,7 +56,7 @@ func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
 	for {
 		line, _, err := r.ReadLine()
 		if err != nil {
-			return nil, errors.New("cannot find matching instance")
+			return nil, fmt.Errorf("cannot find matching image: %v", err)
 		}
 		f := strings.Split(string(line), "\t")
 		if len(f) < 8 {

@@ -10,6 +10,8 @@ import (
 	"testing"
 )
 
+// N.B. the image IDs in this test will need updating
+// if the image directory is regenerated.
 var imageTests = []struct {
 	constraint ImageConstraint
 	imageId    string
@@ -24,6 +26,30 @@ var imageTests = []struct {
 		Daily:             true,
 		Desktop:           true,
 	}, "ami-19fdc16d", ""},
+	{ImageConstraint{
+		UbuntuRelease:     "natty",
+		Architecture:      "i386",
+		PersistentStorage: true,
+		Region:            "ap-northeast-1",
+		Daily:             true,
+		Desktop:           true,
+	}, "ami-cc9621cd", ""},
+	{ImageConstraint{
+		UbuntuRelease:     "natty",
+		Architecture:      "i386",
+		PersistentStorage: false,
+		Region:            "ap-northeast-1",
+		Daily:             true,
+		Desktop:           true,
+	}, "ami-62962163", ""},
+	{ImageConstraint{
+		UbuntuRelease:     "natty",
+		Architecture:      "amd64",
+		PersistentStorage: false,
+		Region:            "ap-northeast-1",
+		Daily:             true,
+		Desktop:           true,
+	}, "ami-a69621a7", ""},
 	{ImageConstraint{
 		UbuntuRelease:     "zingy",
 		Architecture:      "amd64",
