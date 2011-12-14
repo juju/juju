@@ -56,14 +56,6 @@ func (t *command) GetYAML() (tag string, value interface{}) {
 	return "", t.literal
 }
 
-// Alg represents a possible SSH key type.
-type Alg uint
-
-const (
-	RSA Alg = iota
-	DSA
-)
-
 type SSHKeyType string
 
 const (
