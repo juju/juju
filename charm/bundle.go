@@ -19,7 +19,7 @@ func ReadBundle(path string) (bundle *Bundle, err error) {
 	if err != nil {
 		return
 	}
-	b, err := readBundle(f, fi.Size)
+	b, err := readBundle(f, fi.Size())
 	if err != nil {
 		return
 	}
@@ -112,7 +112,7 @@ func (b *Bundle) ExpandTo(dir string) (err error) {
 			return err
 		}
 		r = f
-		size = fi.Size
+		size = fi.Size()
 	}
 
 	zipr, err := zip.NewReader(r, size)
