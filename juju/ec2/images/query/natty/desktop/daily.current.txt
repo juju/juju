@@ -1,0 +1,25 @@
+natty	desktop	daily	20111205	ebs	amd64	ap-northeast-1	ami-d89621d9	aki-d409a2d5		paravirtual
+natty	desktop	daily	20111205	ebs	i386	ap-northeast-1	ami-cc9621cd	aki-d209a2d3		paravirtual
+natty	desktop	daily	20111205	instance-store	amd64	ap-northeast-1	ami-a69621a7	aki-d409a2d5		paravirtual
+natty	desktop	daily	20111205	instance-store	i386	ap-northeast-1	ami-62962163	aki-d209a2d3		paravirtual
+natty	desktop	daily	20111205	ebs	amd64	ap-southeast-1	ami-ac3471fe	aki-11d5aa43		paravirtual
+natty	desktop	daily	20111205	ebs	i386	ap-southeast-1	ami-a63471f4	aki-13d5aa41		paravirtual
+natty	desktop	daily	20111205	instance-store	amd64	ap-southeast-1	ami-8a3471d8	aki-11d5aa43		paravirtual
+natty	desktop	daily	20111205	instance-store	i386	ap-southeast-1	ami-ea3471b8	aki-13d5aa41		paravirtual
+natty	desktop	daily	20111205	ebs	amd64	eu-west-1	ami-abfdc1df	aki-4feec43b		paravirtual
+natty	desktop	daily	20111205	ebs	i386	eu-west-1	ami-c7fdc1b3	aki-4deec439		paravirtual
+natty	desktop	daily	20111205	instance-store	amd64	eu-west-1	ami-19fdc16d	aki-4feec43b		paravirtual
+natty	desktop	daily	20111205	instance-store	i386	eu-west-1	ami-79fdc10d	aki-4deec439		paravirtual
+natty	desktop	daily	20111205	ebs	amd64	us-east-1	ami-e7408b8e			hvm
+natty	desktop	daily	20111205	ebs	amd64	us-east-1	ami-37408b5e	aki-427d952b		paravirtual
+natty	desktop	daily	20111205	ebs	i386	us-east-1	ami-5d408b34	aki-407d9529		paravirtual
+natty	desktop	daily	20111205	instance-store	amd64	us-east-1	ami-e1418a88	aki-427d952b		paravirtual
+natty	desktop	daily	20111205	instance-store	i386	us-east-1	ami-914289f8	aki-407d9529		paravirtual
+natty	desktop	daily	20111205	ebs	amd64	us-west-1	ami-23a9f666	aki-9ba0f1de		paravirtual
+natty	desktop	daily	20111205	ebs	i386	us-west-1	ami-1ba9f65e	aki-99a0f1dc		paravirtual
+natty	desktop	daily	20111205	instance-store	amd64	us-west-1	ami-03a9f646	aki-9ba0f1de		paravirtual
+natty	desktop	daily	20111205	instance-store	i386	us-west-1	ami-77a9f632	aki-99a0f1dc		paravirtual
+natty	desktop	daily	20111205	ebs	amd64	us-west-2	ami-aa98159a	aki-ace26f9c		paravirtual
+natty	desktop	daily	20111205	ebs	i386	us-west-2	ami-a2981592	aki-dce26fec		paravirtual
+natty	desktop	daily	20111205	instance-store	amd64	us-west-2	ami-bc98158c	aki-ace26f9c		paravirtual
+natty	desktop	daily	20111205	instance-store	i386	us-west-2	ami-b0981580	aki-dce26fec		paravirtual
