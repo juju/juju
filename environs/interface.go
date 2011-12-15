@@ -1,4 +1,4 @@
-package environ
+package environs
 
 import "launchpad.net/juju/go/schema"
 

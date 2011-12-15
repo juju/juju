@@ -7,7 +7,7 @@ goto() {
 	echo building $*
 }
 
-dirs="environ environ/jujutest environ/ec2 schema charm"
+dirs="environs environs/jujutest environs/ec2 schema charm"
 
 for i in $dirs; do
 	goto "$root/$i"

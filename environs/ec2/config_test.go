@@ -3,12 +3,12 @@ package ec2
 import (
 	"launchpad.net/goamz/aws"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/juju"
+	"launchpad.net/juju/go/environs"
 	"os"
 	"strings"
 )
 
-var testRegion = aws.Region{
+var configTestRegion = aws.Region{
 	EC2Endpoint: "testregion.nowhere:1234",
 }
 
@@ -24,7 +24,7 @@ var configTests = []configTest{
 	{"", &providerConfig{region: aws.USEast, auth: testAuth}, ""},
 	{"region: eu-west-1\n", &providerConfig{region: aws.EUWest, auth: testAuth}, ""},
 	{"region: unknown\n", nil, ".*invalid region name.*"},
-	{"region: test\n", &providerConfig{region: testRegion, auth: testAuth}, ""},
+	{"region: configtest\n", &providerConfig{region: configTestRegion, auth: testAuth}, ""},
 	{"region: 666\n", nil, ".*expected string, got 666"},
 	{"access-key: 666\n", nil, ".*expected string, got 666"},
 	{"secret-key: 666\n", nil, ".*expected string, got 666"},
@@ -54,11 +54,12 @@ func indent(s string, with string) string {
 }
 
 func makeEnv(s string) []byte {
-	return []byte("environments:\n  test:\n    type: ec2\n" + indent(s, "    "))
+	return []byte("environments:\n  testenv:\n    type: ec2\n" + indent(s, "    "))
 }
 
 func (suite) TestConfig(c *C) {
-	Regions["test"] = testRegion
+	Regions["configtest"] = configTestRegion
+	defer delete(Regions, "configtest")
 
 	defer os.Setenv("AWS_ACCESS_KEY_ID", os.Getenv("AWS_ACCESS_KEY_ID"))
 	defer os.Setenv("AWS_SECRET_ACCESS_KEY", os.Getenv("AWS_SECRET_ACCESS_KEY"))
@@ -80,7 +81,7 @@ func (suite) TestConfig(c *C) {
 }
 
 func (t configTest) run(c *C) {
-	envs, err := juju.ReadEnvironsBytes(makeEnv(t.env))
+	envs, err := environs.ReadEnvironsBytes(makeEnv(t.env))
 	if err != nil {
 		if t.err != "" {
 			c.Check(err, ErrorMatches, t.err, Bug("environ %q", t.env))
@@ -89,7 +90,7 @@ func (t configTest) run(c *C) {
 		}
 		return
 	}
-	e, err := envs.Open("test")
+	e, err := envs.Open("testenv")
 	c.Assert(err, IsNil)
 	c.Assert(e, NotNil)
 	c.Assert(e, FitsTypeOf, (*environ)(nil), Bug("environ %q", t.env))

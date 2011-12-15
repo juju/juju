@@ -5,17 +5,17 @@
 //
 // Note that this file contains no tests as such - it is
 // just used by the testing code.
-package environ_test
+package environs_test
 
 import (
 	"fmt"
-	"launchpad.net/juju/go/environ"
+	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/schema"
 	"sync"
 )
 
 func init() {
-	environ.RegisterProvider("dummy", dummyProvider{})
+	environs.RegisterProvider("dummy", dummyProvider{})
 }
 
 type dummyInstance struct {
@@ -50,7 +50,7 @@ type dummyEnviron struct {
 	instances map[string]*dummyInstance
 }
 
-func (dummyProvider) Open(name string, attributes interface{}) (e environ.Environ, err error) {
+func (dummyProvider) Open(name string, attributes interface{}) (e environs.Environ, err error) {
 	cfg := attributes.(schema.MapType)
 	return &dummyEnviron{
 		baseName:  cfg["basename"].(string),
@@ -62,7 +62,7 @@ func (*dummyEnviron) Destroy() error {
 	return nil
 }
 
-func (e *dummyEnviron) StartInstance(id int) (environ.Instance, error) {
+func (e *dummyEnviron) StartInstance(id int) (environs.Instance, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	i := &dummyInstance{
@@ -73,7 +73,7 @@ func (e *dummyEnviron) StartInstance(id int) (environ.Instance, error) {
 	return i, nil
 }
 
-func (e *dummyEnviron) StopInstances(is []environ.Instance) error {
+func (e *dummyEnviron) StopInstances(is []environs.Instance) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	for _, i := range is {
@@ -82,10 +82,10 @@ func (e *dummyEnviron) StopInstances(is []environ.Instance) error {
 	return nil
 }
 
-func (e *dummyEnviron) Instances() ([]environ.Instance, error) {
+func (e *dummyEnviron) Instances() ([]environs.Instance, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	var is []environ.Instance
+	var is []environs.Instance
 	for _, i := range e.instances {
 		is = append(is, i)
 	}

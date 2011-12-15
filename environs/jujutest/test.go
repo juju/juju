@@ -2,20 +2,20 @@ package jujutest
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/juju"
+	"launchpad.net/juju/go/environs"
 )
 
 // Tests is a gocheck suite containing tests verifying
 // juju functionality against the environment with Name that
 // must exist within Environs.
 type Tests struct {
-	Environs *juju.Environs
+	Environs *environs.Environs
 	Name     string
 
-	environs []juju.Environ
+	environs []environs.Environ
 }
 
-func (t *Tests) open(c *C) juju.Environ {
+func (t *Tests) open(c *C) environs.Environ {
 	e, err := t.Environs.Open(t.Name)
 	c.Assert(err, IsNil, Bug("opening environ %q", t.Name))
 	c.Assert(e, NotNil)

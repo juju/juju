@@ -2,11 +2,13 @@ include $(GOROOT)/src/Make.inc
 
 all: package
 
-TARG=launchpad.net/juju/go/juju/jujutest
+TARG=launchpad.net/juju/go/environ/ec2
 
 GOFILES=\
-	test.go\
-	startstop.go\
+	config.go\
+	ec2.go\
+	image.go\
+	util.go\
 
 GOFMT=gofmt
 BADFMT:=$(shell $(GOFMT) -l $(GOFILES) $(CGOFILES) $(wildcard *_test.go))
@@ -22,3 +24,8 @@ endif
 
 include $(GOROOT)/src/Make.pkg
 
+# regenerate doesn't remove images that have disappeared
+# but that's probably not a problem.
+regenerate:
+	gotest -regenerate-images
+	bzr add images

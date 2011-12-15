@@ -1,4 +1,4 @@
-package environ_test
+package environs_test
 
 import (
 	. "launchpad.net/gocheck"
