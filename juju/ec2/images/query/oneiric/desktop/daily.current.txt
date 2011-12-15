@@ -1,0 +1,25 @@
+oneiric	desktop	daily	20111120	ebs	amd64	ap-northeast-1	ami-eaec5beb	aki-ee5df7ef		paravirtual
+oneiric	desktop	daily	20111120	ebs	i386	ap-northeast-1	ami-d4ec5bd5	aki-ec5df7ed		paravirtual
+oneiric	desktop	daily	20111120	instance-store	amd64	ap-northeast-1	ami-c0ec5bc1	aki-ee5df7ef		paravirtual
+oneiric	desktop	daily	20111120	instance-store	i386	ap-northeast-1	ami-9eec5b9f	aki-ec5df7ed		paravirtual
+oneiric	desktop	daily	20111120	ebs	amd64	ap-southeast-1	ami-48c9b31a	aki-aa225af8		paravirtual
+oneiric	desktop	daily	20111120	ebs	i386	ap-southeast-1	ami-58c9b30a	aki-a4225af6		paravirtual
+oneiric	desktop	daily	20111120	instance-store	amd64	ap-southeast-1	ami-b8c8b2ea	aki-aa225af8		paravirtual
+oneiric	desktop	daily	20111120	instance-store	i386	ap-southeast-1	ami-9ec8b2cc	aki-a4225af6		paravirtual
+oneiric	desktop	daily	20111120	ebs	amd64	eu-west-1	ami-817b47f5	aki-62695816		paravirtual
+oneiric	desktop	daily	20111120	ebs	i386	eu-west-1	ami-af7b47db	aki-64695810		paravirtual
+oneiric	desktop	daily	20111120	instance-store	amd64	eu-west-1	ami-137b4767	aki-62695816		paravirtual
+oneiric	desktop	daily	20111120	instance-store	i386	eu-west-1	ami-6f7b471b	aki-64695810		paravirtual
+oneiric	desktop	daily	20111120	ebs	amd64	us-east-1	ami-abed25c2			hvm
+oneiric	desktop	daily	20111120	ebs	amd64	us-east-1	ami-dded25b4	aki-825ea7eb		paravirtual
+oneiric	desktop	daily	20111120	ebs	i386	us-east-1	ami-f9ed2590	aki-805ea7e9		paravirtual
+oneiric	desktop	daily	20111120	instance-store	amd64	us-east-1	ami-6dec2404	aki-825ea7eb		paravirtual
+oneiric	desktop	daily	20111120	instance-store	i386	us-east-1	ami-53eb233a	aki-805ea7e9		paravirtual
+oneiric	desktop	daily	20111120	ebs	amd64	us-west-1	ami-7b421d3e	aki-8d396bc8		paravirtual
+oneiric	desktop	daily	20111120	ebs	i386	us-west-1	ami-79421d3c	aki-83396bc6		paravirtual
+oneiric	desktop	daily	20111120	instance-store	amd64	us-west-1	ami-8b431cce	aki-8d396bc8		paravirtual
+oneiric	desktop	daily	20111120	instance-store	i386	us-west-1	ami-e7431ca2	aki-83396bc6		paravirtual
+oneiric	desktop	daily	20111120	ebs	amd64	us-west-2	ami-be89048e	aki-98e26fa8		paravirtual
+oneiric	desktop	daily	20111120	ebs	i386	us-west-2	ami-bc89048c	aki-c2e26ff2		paravirtual
+oneiric	desktop	daily	20111120	instance-store	amd64	us-west-2	ami-48890478	aki-98e26fa8		paravirtual
+oneiric	desktop	daily	20111120	instance-store	i386	us-west-2	ami-58890468	aki-c2e26ff2		paravirtual
