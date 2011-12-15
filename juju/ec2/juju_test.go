@@ -25,13 +25,21 @@ type jujuTests struct {
 var scenarios = []struct {
 	name  string
 	setup func(*ec2test.Server)
-}{{
-	"normal", func(*ec2test.Server) {},
-}, {
-	"initial-running", func(srv *ec2test.Server) {
-		srv.SetInitialInstanceState(ec2test.Running)
+}{
+	{
+		"normal", func(*ec2test.Server) {},
+	}, {
+		"initial-state-running", func(srv *ec2test.Server) {
+			srv.SetInitialInstanceState(ec2test.Running)
+		},
+	}, {
+		"other-instances", func(srv *ec2test.Server) {
+			for _, state := range []ec2test.InstanceState{ec2test.ShuttingDown, ec2test.Terminated, ec2test.Stopped} {
+				srv.NewInstances(1, "m1.small", "ami-a7f539ce", state, nil)
+			}
+		},
 	},
-}}
+}
 
 func registerJujuFunctionalTests() {
 	Regions["test"] = aws.Region{}
