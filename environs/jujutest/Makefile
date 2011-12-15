@@ -6,7 +6,8 @@ TARG=launchpad.net/juju/go/environ/jujutest
 
 GOFILES=\
 	test.go\
-	startstop.go\
+	tests.go\
+	livetests.go\
 
 GOFMT=gofmt
 BADFMT:=$(shell $(GOFMT) -l $(GOFILES) $(CGOFILES) $(wildcard *_test.go))

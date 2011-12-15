@@ -32,3 +32,20 @@ func (t *Tests) TearDownTest(c *C) {
 	}
 	t.environs = nil
 }
+
+type LiveTests struct {
+	Environs *environs.Environs
+	Name     string
+	env environs.Environ
+}
+
+func (t *LiveTests) SetUpSuite(c *C) {
+	e, err := t.Environs.Open(t.Name)
+	c.Assert(err, IsNil, Bug("opening environ %q", t.Name))
+	c.Assert(e, NotNil)
+	t.env = e
+}
+
+func (t *LiveTests) TearDownSuite(c *C) {
+	t.env = nil
+}

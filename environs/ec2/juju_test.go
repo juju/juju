@@ -17,7 +17,7 @@ environments:
 `)
 
 type jujuTests struct {
-	*jujutest.Tests
+	*tests
 	srv   *ec2test.Server
 	setup func(*ec2test.Server)
 }
