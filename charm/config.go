@@ -76,13 +76,13 @@ func (c *Config) Validate(values map[string]string) (processed map[string]interf
 		case "string":
 			out[k] = v
 		case "int":
-			i, err := strconv.Atoi64(v)
+			i, err := strconv.ParseInt(v, 10, 64)
 			if err != nil {
 				return nil, errorf("Value for %q is not an int: %q", k, v)
 			}
 			out[k] = i
 		case "float":
-			f, err := strconv.Atof64(v)
+			f, err := strconv.ParseFloat(v, 64)
 			if err != nil {
 				return nil, errorf("Value for %q is not a float: %q", k, v)
 			}
