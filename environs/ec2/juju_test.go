@@ -9,6 +9,19 @@ import (
 	"launchpad.net/juju/go/environs/jujutest"
 )
 
+var functionalConfig = []byte(`
+environments:
+  sample:
+    type: ec2
+    region: test
+`)
+
+// jujuLocalTests wraps jujutest.Tests by adding
+// set up and tear down functions that start a new
+// ec2test server for each test.
+// The server is accessed by using the "test" region,
+// which is changed to point to the network address
+// of the local server.
 type jujuLocalTests struct {
 	*jujutest.Tests
 	srv localServer
@@ -25,31 +38,35 @@ type localServer struct {
 	setup func(*ec2test.Server)
 }
 
+// Each test is run in each of the following scenarios.
+// A scenario is implemented by mutating the ec2test
+// server after it starts.
 var scenarios = []struct {
 	name  string
 	setup func(*ec2test.Server)
 }{
-	{
-		"normal", func(*ec2test.Server) {},
-	}, {
-		"initial-state-running", func(srv *ec2test.Server) {
-			srv.SetInitialInstanceState(ec2test.Running)
-		},
-	}, {
-		"other-instances", func(srv *ec2test.Server) {
-			for _, state := range []ec2test.InstanceState{ec2test.ShuttingDown, ec2test.Terminated, ec2test.Stopped} {
-				srv.NewInstances(1, "m1.small", "ami-a7f539ce", state, nil)
-			}
-		},
-	},
+	{"normal", normalScenario},
+	{"initial-state-running", initialStateRunningScenario},
+	{"extra-instances", extraInstancesScenario},
 }
 
-var functionalConfig = []byte(`
-environments:
-  sample:
-    type: ec2
-    region: test
-`)
+func normalScenario(*ec2test.Server) {
+}
+
+func initialStateRunningScenario(srv *ec2test.Server) {
+	srv.SetInitialInstanceState(ec2test.Running)
+}
+
+func extraInstancesScenario(srv *ec2test.Server) {
+	states := []ec2test.InstanceState{
+		ec2test.ShuttingDown,
+		ec2test.Terminated,
+		ec2test.Stopped,
+	}
+	for _, state := range states {
+		srv.NewInstances(1, "m1.small", "ami-a7f539ce", state, nil)
+	}
+}
 
 func registerJujuFunctionalTests() {
 	Regions["test"] = aws.Region{}
@@ -137,5 +154,7 @@ func (srv *localServer) startServer(c *C) {
 
 func (srv *localServer) stopServer(c *C) {
 	srv.srv.Quit()
+	// Clear out the region because the server address is
+	// no longer valid.
 	Regions["test"] = aws.Region{}
 }
