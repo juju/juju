@@ -1,4 +1,4 @@
-package ec2 
+package ec2
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 // providerConfig is a placeholder for any config information
 // that we will have in a configuration file.
 type providerConfig struct {
-	region aws.Region
+	region string
 	auth   aws.Auth
 }
 
@@ -62,11 +62,10 @@ func (environProvider) ConfigChecker() schema.Checker {
 			}
 
 			regionName := maybeString(m["region"], "us-east-1")
-			if r, ok := Regions[regionName]; ok {
-				c.region = r
-			} else {
+			if _, ok := Regions[regionName]; !ok {
 				return nil, fmt.Errorf("invalid region name %q", regionName)
 			}
+			c.region = regionName
 			return &c, nil
 		}),
 	)

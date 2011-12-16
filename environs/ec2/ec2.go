@@ -41,7 +41,7 @@ func (environProvider) Open(name string, config interface{}) (e environs.Environ
 	return &environ{
 		name:   name,
 		config: cfg,
-		ec2:    ec2.New(cfg.auth, cfg.region),
+		ec2:    ec2.New(cfg.auth, Regions[cfg.region]),
 	}, nil
 }
 
@@ -66,12 +66,12 @@ func (e *environ) StartInstance(machineId int) (environs.Instance, error) {
 	return &instance{&instances.Instances[0]}, nil
 }
 
-func (e *environ) StopInstances(is []environs.Instance) error {
-	if len(is) == 0 {
+func (e *environ) StopInstances(insts []environs.Instance) error {
+	if len(insts) == 0 {
 		return nil
 	}
-	names := make([]string, len(is))
-	for i, inst := range is {
+	names := make([]string, len(insts))
+	for i, inst := range insts {
 		names[i] = inst.(*instance).InstanceId
 	}
 	_, err := e.ec2.TerminateInstances(names)
@@ -86,20 +86,20 @@ func (e *environ) Instances() ([]environs.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
-	var m []environs.Instance
+	var insts []environs.Instance
 	for i := range resp.Reservations {
 		r := &resp.Reservations[i]
 		for j := range r.Instances {
-			m = append(m, &instance{&r.Instances[j]})
+			insts = append(insts, &instance{&r.Instances[j]})
 		}
 	}
-	return m, nil
+	return insts, nil
 }
 
 func (e *environ) Destroy() error {
-	ms, err := e.Instances()
+	insts, err := e.Instances()
 	if err != nil {
 		return err
 	}
-	return e.StopInstances(ms)
+	return e.StopInstances(insts)
 }
