@@ -38,6 +38,9 @@ func (inst *instance) DNSName() string {
 
 func (environProvider) Open(name string, config interface{}) (e environs.Environ, err error) {
 	cfg := config.(*providerConfig)
+	if Regions[cfg.region].EC2Endpoint == "" {
+		return nil, fmt.Errorf("no ec2 endpoint found for region %q, opening %q", cfg.region, name)
+	}
 	return &environ{
 		name:   name,
 		config: cfg,

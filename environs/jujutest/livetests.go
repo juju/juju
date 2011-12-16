@@ -11,7 +11,6 @@ func (t *LiveTests) TestStartStop(c *C) {
 	names := make(map[string]environs.Instance)
 	insts, err := t.env.Instances()
 	c.Assert(err, IsNil)
-	c.Assert(insts, NotNil)
 
 	// check there are no duplicate instance ids
 	for _, inst := range insts {

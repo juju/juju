@@ -5,8 +5,8 @@ import (
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2/ec2test"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/environ/jujutest"
 	"launchpad.net/juju/go/environs"
+	"launchpad.net/juju/go/environs/jujutest"
 )
 
 type jujuLocalTests struct {
@@ -60,7 +60,6 @@ func registerJujuFunctionalTests() {
 
 	for _, name := range envs.Names() {
 		for _, scen := range scenarios {
-			scen := scen
 			Suite(&jujuLocalTests{
 				srv: localServer{
 					setup: scen.setup,
@@ -84,31 +83,44 @@ func registerJujuFunctionalTests() {
 }
 
 func (t *jujuLocalTests) SetUpTest(c *C) {
-	if t, ok := interface{}(t.Tests).(interface{SetUpTest(*C)}); ok {
+	t.srv.startServer(c)
+	if t, ok := interface{}(t.Tests).(interface {
+		SetUpTest(*C)
+	}); ok {
 		t.SetUpTest(c)
 	}
-	t.srv.startServer(c)
 }
 
 func (t *jujuLocalTests) TearDownTest(c *C) {
-	if t, ok := interface{}(t.Tests).(interface{TearDownTest(*C)}); ok {
+	if t, ok := interface{}(t.Tests).(interface {
+		TearDownTest(*C)
+	}); ok {
 		t.TearDownTest(c)
 	}
 	t.srv.stopServer(c)
 }
 
-func (t *jujuLocalLiveTests) SetUpTest(c *C) {
-	if t, ok := interface{}(t.LiveTests).(interface{SetUpTest(*C)}); ok {
-		t.SetUpTest(c)
-	}
+func (t *jujuLocalLiveTests) SetUpSuite(c *C) {
 	t.srv.startServer(c)
+	if t, ok := interface{}(t.LiveTests).(interface {
+		SetUpSuite(*C)
+	}); ok {
+		t.SetUpSuite(c)
+	}
 }
 
-func (t *jujuLocalLiveTests) TearDownTest(c *C) {
-	if t, ok := interface{}(t.LiveTests).(interface{TearDownTest(*C)}); ok {
-		t.TearDownTest(c)
-	}
+func (t *jujuLocalLiveTests) TearDownSuite(c *C) {
 	t.srv.stopServer(c)
+	if t, ok := interface{}(t.LiveTests).(interface {
+		TearDownSuite(*C)
+	}); ok {
+		t.TearDownSuite(c)
+	}
+}
+
+func (t *jujuLocalLiveTests) TestStartStop(c *C) {
+	c.Assert(Regions["test"].EC2Endpoint, Not(Equals), "")
+	t.LiveTests.TestStartStop(c)
 }
 
 func (srv *localServer) startServer(c *C) {
