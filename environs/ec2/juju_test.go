@@ -17,7 +17,7 @@ environments:
 `)
 
 type jujuTests struct {
-	*tests
+	*jujutest.Tests
 	srv   *ec2test.Server
 	setup func(*ec2test.Server)
 }
@@ -57,6 +57,10 @@ func registerJujuFunctionalTests() {
 					Environs: envs,
 					Name:     name,
 				},
+			})
+			Suite(&jujutest.LiveTests{
+				Environs: envs,
+				Name:     name,
 			})
 		}
 	}
@@ -100,7 +104,7 @@ func registerJujuIntegrationTests() {
 		panic(fmt.Errorf("cannot parse integration tests config data: %v", err))
 	}
 	for _, name := range envs.Names() {
-		Suite(&jujutest.Tests{
+		Suite(&jujutest.LiveTests{
 			Environs: envs,
 			Name:     name,
 		})

@@ -36,7 +36,7 @@ func (t *Tests) TearDownTest(c *C) {
 type LiveTests struct {
 	Environs *environs.Environs
 	Name     string
-	env environs.Environ
+	env      environs.Environ
 }
 
 func (t *LiveTests) SetUpSuite(c *C) {
