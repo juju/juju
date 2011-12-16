@@ -3,16 +3,16 @@ package ec2
 import (
 	"fmt"
 	"launchpad.net/goamz/ec2"
-	"launchpad.net/juju/go/juju"
+	"launchpad.net/juju/go/environs"
 )
 
 func init() {
-	juju.RegisterProvider("ec2", environProvider{})
+	environs.RegisterProvider("ec2", environProvider{})
 }
 
 type environProvider struct{}
 
-var _ juju.EnvironProvider = environProvider{}
+var _ environs.EnvironProvider = environProvider{}
 
 type environ struct {
 	name   string
@@ -20,23 +20,23 @@ type environ struct {
 	ec2    *ec2.EC2
 }
 
-var _ juju.Environ = (*environ)(nil)
+var _ environs.Environ = (*environ)(nil)
 
 type instance struct {
 	*ec2.Instance
 }
 
-var _ juju.Instance = (*instance)(nil)
+var _ environs.Instance = (*instance)(nil)
 
-func (inst *instance) Id() string {
-	return inst.InstanceId
+func (m *instance) Id() string {
+	return m.InstanceId
 }
 
-func (inst *instance) DNSName() string {
-	return inst.Instance.DNSName
+func (m *instance) DNSName() string {
+	return m.Instance.DNSName
 }
 
-func (environProvider) Open(name string, config interface{}) (e juju.Environ, err error) {
+func (environProvider) Open(name string, config interface{}) (e environs.Environ, err error) {
 	cfg := config.(*providerConfig)
 	return &environ{
 		name:   name,
@@ -45,7 +45,7 @@ func (environProvider) Open(name string, config interface{}) (e juju.Environ, er
 	}, nil
 }
 
-func (e *environ) StartInstance(machineId int) (juju.Instance, error) {
+func (e *environ) StartInstance(machineId int) (environs.Instance, error) {
 	image, err := FindImageSpec(DefaultImageConstraint)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
@@ -66,7 +66,7 @@ func (e *environ) StartInstance(machineId int) (juju.Instance, error) {
 	return &instance{&instances.Instances[0]}, nil
 }
 
-func (e *environ) StopInstances(insts []juju.Instance) error {
+func (e *environ) StopInstances(insts []environs.Instance) error {
 	if len(insts) == 0 {
 		return nil
 	}
@@ -78,7 +78,7 @@ func (e *environ) StopInstances(insts []juju.Instance) error {
 	return err
 }
 
-func (e *environ) Instances() ([]juju.Instance, error) {
+func (e *environ) Instances() ([]environs.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
 
@@ -86,7 +86,7 @@ func (e *environ) Instances() ([]juju.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
-	var insts []juju.Instance
+	var insts []environs.Instance
 	for i := range resp.Reservations {
 		r := &resp.Reservations[i]
 		for j := range r.Instances {

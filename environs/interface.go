@@ -1,4 +1,4 @@
-package juju
+package environs
 
 import "launchpad.net/juju/go/schema"
 

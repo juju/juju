@@ -3,7 +3,7 @@ package ec2
 import (
 	"launchpad.net/goamz/aws"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/juju"
+	"launchpad.net/juju/go/environs"
 	"os"
 	"strings"
 )
@@ -81,7 +81,7 @@ func (suite) TestConfig(c *C) {
 }
 
 func (t configTest) run(c *C) {
-	envs, err := juju.ReadEnvironsBytes(makeEnv(t.env))
+	envs, err := environs.ReadEnvironsBytes(makeEnv(t.env))
 	if err != nil {
 		if t.err != "" {
 			c.Check(err, ErrorMatches, t.err, Bug("environ %q", t.env))

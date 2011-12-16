@@ -2,7 +2,7 @@ package jujutest
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/juju"
+	"launchpad.net/juju/go/environs"
 )
 
 func (t *Tests) TestStartStop(c *C) {
@@ -22,7 +22,7 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(len(is), Equals, 1)
 	c.Assert(m.Id(), Equals, id0)
 
-	err = e.StopInstances([]juju.Instance{m})
+	err = e.StopInstances([]environs.Instance{m})
 	c.Assert(err, IsNil)
 
 	is, err = e.Instances()

@@ -5,8 +5,8 @@ import (
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2/ec2test"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/juju"
-	"launchpad.net/juju/go/juju/jujutest"
+	"launchpad.net/juju/go/environs"
+	"launchpad.net/juju/go/environs/jujutest"
 )
 
 var functionalConfig = []byte(`
@@ -60,7 +60,7 @@ func extraInstancesScenario(srv *ec2test.Server) {
 
 func registerJujuFunctionalTests() {
 	Regions["test"] = aws.Region{}
-	envs, err := juju.ReadEnvironsBytes(functionalConfig)
+	envs, err := environs.ReadEnvironsBytes(functionalConfig)
 	if err != nil {
 		panic(fmt.Errorf("cannot parse functional tests config data: %v", err))
 	}
@@ -114,7 +114,7 @@ environments:
 `)
 
 func registerJujuIntegrationTests() {
-	envs, err := juju.ReadEnvironsBytes(integrationConfig)
+	envs, err := environs.ReadEnvironsBytes(integrationConfig)
 	if err != nil {
 		panic(fmt.Errorf("cannot parse integration tests config data: %v", err))
 	}

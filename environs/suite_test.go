@@ -1,4 +1,4 @@
-package juju_test
+package environs_test
 
 import (
 	. "launchpad.net/gocheck"

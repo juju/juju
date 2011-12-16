@@ -1,4 +1,4 @@
-package juju
+package environs
 
 import "fmt"
 
