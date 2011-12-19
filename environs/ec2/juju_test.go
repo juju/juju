@@ -116,11 +116,6 @@ func (t *localLiveTests) TearDownSuite(c *C) {
 	t.LiveTests.TearDownSuite(c)
 }
 
-func (t *localLiveTests) TestStartStop(c *C) {
-	c.Assert(Regions["test"].EC2Endpoint, Not(Equals), "")
-	t.LiveTests.TestStartStop(c)
-}
-
 func (srv *localServer) startServer(c *C) {
 	var err error
 	srv.srv, err = ec2test.NewServer()
