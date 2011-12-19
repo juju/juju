@@ -20,12 +20,12 @@ type Relation struct {
 // within a charm's metadata.yaml file.
 type Meta struct {
 	Name        string
-	Revision    int
 	Summary     string
 	Description string
 	Provides    map[string]Relation
 	Requires    map[string]Relation
 	Peers       map[string]Relation
+	OldRevision int // Obsolete
 }
 
 // ReadMeta reads the content of a metadata.yaml file and returns
@@ -49,12 +49,15 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 	meta.Name = m["name"].(string)
 	// Schema decodes as int64, but the int range should be good
 	// enough for revisions.
-	meta.Revision = int(m["revision"].(int64))
 	meta.Summary = m["summary"].(string)
 	meta.Description = m["description"].(string)
 	meta.Provides = parseRelations(m["provides"])
 	meta.Requires = parseRelations(m["requires"])
 	meta.Peers = parseRelations(m["peers"])
+	if rev := m["revision"]; rev != nil {
+		// Obsolete
+		meta.OldRevision = int(m["revision"].(int64))
+	}
 	return
 }
 
@@ -149,12 +152,12 @@ var ifaceSchema = schema.FieldMap(schema.Fields{
 var charmSchema = schema.FieldMap(
 	schema.Fields{
 		"name":        schema.String(),
-		"revision":    schema.Int(),
 		"summary":     schema.String(),
 		"description": schema.String(),
 		"peers":       schema.Map(schema.String(), ifaceExpander(1)),
 		"provides":    schema.Map(schema.String(), ifaceExpander(nil)),
 		"requires":    schema.Map(schema.String(), ifaceExpander(1)),
+		"revision":    schema.Int(), // Obsolete
 	},
-	schema.Optional{"provides", "requires", "peers"},
+	schema.Optional{"provides", "requires", "peers", "revision"},
 )

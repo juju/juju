@@ -1,5 +1,4 @@
-name: varnish
-revision: 1
+name: varnish-alternative
 summary: "Database engine"
 description: "Another popular database"
 provides:

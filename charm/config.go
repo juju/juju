@@ -1,6 +1,7 @@
 package charm
 
 import (
+	"fmt"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -70,7 +71,7 @@ func (c *Config) Validate(values map[string]string) (processed map[string]interf
 	for k, v := range values {
 		opt, ok := c.Options[k]
 		if !ok {
-			return nil, errorf("Unknown configuration option: %q", k)
+			return nil, fmt.Errorf("Unknown configuration option: %q", k)
 		}
 		switch opt.Type {
 		case "string":
@@ -78,17 +79,17 @@ func (c *Config) Validate(values map[string]string) (processed map[string]interf
 		case "int":
 			i, err := strconv.ParseInt(v, 10, 64)
 			if err != nil {
-				return nil, errorf("Value for %q is not an int: %q", k, v)
+				return nil, fmt.Errorf("Value for %q is not an int: %q", k, v)
 			}
 			out[k] = i
 		case "float":
 			f, err := strconv.ParseFloat(v, 64)
 			if err != nil {
-				return nil, errorf("Value for %q is not a float: %q", k, v)
+				return nil, fmt.Errorf("Value for %q is not a float: %q", k, v)
 			}
 			out[k] = f
 		default:
-			panic(errorf("Internal error: option type %q is unknown to Validate", opt.Type))
+			panic(fmt.Errorf("Internal error: option type %q is unknown to Validate", opt.Type))
 		}
 	}
 	for k, opt := range c.Options {
