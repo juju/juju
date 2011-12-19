@@ -2,24 +2,14 @@ package store_test
 
 import (
 	"bytes"
-	"exec"
 	. "launchpad.net/gocheck"
 	"launchpad.net/mgo"
-	"os"
+	"os/exec"
 	"time"
 )
 
 // ----------------------------------------------------------------------------
 // The mgo test suite
-
-type cLogger C
-
-func (c *cLogger) Output(calldepth int, s string) os.Error {
-	ns := time.Nanoseconds()
-	t := float64(ns%100e9) / 1e9
-	((*C)(c)).Logf("%.05f %s", t, s)
-	return nil
-}
 
 type MgoSuite struct {
 	Addr    string
@@ -37,7 +27,8 @@ func (s *MgoSuite) SetUpSuite(c *C) {
 		"--bind_ip", "127.0.0.1",
 		"--port", "50017",
 		"--nssize", "1",
-		"--noprealloc", "--smallfiles",
+		"--noprealloc",
+		"--smallfiles",
 	}
 	s.server = exec.Command("mongod", args...)
 	s.server.Stdout = &s.output
@@ -58,7 +49,7 @@ func (s *MgoSuite) SetUpTest(c *C) {
 	if err != nil {
 		panic(err)
 	}
-	mgo.SetLogger((*cLogger)(c))
+	mgo.SetLogger(c)
 	mgo.ResetStats()
 	s.Addr = "127.0.0.1:50017"
 	s.Session, err = mgo.Mongo(s.Addr)
@@ -82,7 +73,7 @@ func (s *MgoSuite) TearDownTest(c *C) {
 	}
 }
 
-func DropAll(mongourl string) (err os.Error) {
+func DropAll(mongourl string) (err error) {
 	session, err := mgo.Mongo(mongourl)
 	if err != nil {
 		return err

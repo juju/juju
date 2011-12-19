@@ -7,7 +7,6 @@ import (
 	"launchpad.net/juju/go/store"
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/mgo"
-	"os"
 	"path/filepath"
 	"testing"
 )
@@ -25,10 +24,10 @@ type S struct {
 
 func (s *S) SetUpTest(c *C) {
 	s.MgoSuite.SetUpTest(c)
-	var err os.Error
+	var err error
 	s.store, err = store.New(s.Addr)
 	c.Assert(err, IsNil)
-	store.SetLogger((*cLogger)(c))
+	store.SetLogger(c)
 	store.SetDebug(true)
 }
 
@@ -83,7 +82,7 @@ func (s *S) TestConflictingUpdates(c *C) {
 	cerr := wc.Close()
 	c.Assert(cerr, IsNil)
 
-	c.Assert(err, Matches, "charm update already in progress")
+	c.Assert(err, ErrorMatches, "charm update already in progress")
 	c.Assert(wc2, IsNil)
 
 	// Trying again should work since wc was closed.
@@ -195,7 +194,7 @@ func (s *S) TestUpdateIsCurrent(c *C) {
 
 	// All charms are already on key1.
 	wc, err = s.store.AddCharm(urls, "key0")
-	c.Assert(err, Matches, "charm is already up-to-date")
+	c.Assert(err, ErrorMatches, "charm is already up-to-date")
 	c.Assert(wc, IsNil)
 
 	// Now add a second revision just for wordpress-b.

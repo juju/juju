@@ -3,12 +3,12 @@ package store
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"hash"
 	"io"
 	"launchpad.net/gobson/bson"
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/mgo"
-	"os"
 	"sort"
 )
 
@@ -21,15 +21,15 @@ const (
 )
 
 var (
-	UpdateConflict  = os.NewError("charm update already in progress")
-	UpdateIsCurrent = os.NewError("charm is already up-to-date")
+	UpdateConflict  = errors.New("charm update already in progress")
+	UpdateIsCurrent = errors.New("charm is already up-to-date")
 )
 
 type Store struct {
 	session storeSession
 }
 
-func New(mongoAddr string) (store *Store, err os.Error) {
+func New(mongoAddr string) (store *Store, err error) {
 	logf("New store created. Connecting to: %s", mongoAddr)
 	store = &Store{}
 	session, err := mgo.Mongo(mongoAddr)
@@ -62,7 +62,7 @@ func dropRevisions(urls []*charm.URL) []*charm.URL {
 	return norev
 }
 
-func (s *Store) AddCharm(urls []*charm.URL, revKey string) (wc io.WriteCloser, err os.Error) {
+func (s *Store) AddCharm(urls []*charm.URL, revKey string) (wc io.WriteCloser, err error) {
 	logf("Trying to add charms %v with key %q...", urls, revKey)
 	urls = dropRevisions(urls)
 	session := s.session.Copy()
@@ -120,7 +120,7 @@ type writer struct {
 	revKey   string
 }
 
-func (w *writer) Write(data []byte) (n int, err os.Error) {
+func (w *writer) Write(data []byte) (n int, err error) {
 	if w.file == nil {
 		w.file, err = w.session.CharmFS().Create("")
 		if err != nil {
@@ -137,7 +137,7 @@ func (w *writer) Write(data []byte) (n int, err os.Error) {
 	return w.file.Write(data)
 }
 
-func (w *writer) Close() os.Error {
+func (w *writer) Close() error {
 	defer w.session.Close()
 	defer w.lock.Unlock()
 	if w.file == nil {
@@ -156,7 +156,7 @@ func (w *writer) Close() os.Error {
 			urlStr,
 			w.revision,
 			w.revKey,
-			hex.EncodeToString(w.sha256.Sum()),
+			hex.EncodeToString(w.sha256.Sum(nil)),
 			id.(bson.ObjectId),
 		}
 		err := charms.Insert(&charm)
@@ -174,7 +174,7 @@ type CharmInfo struct {
 	Sha256   string
 }
 
-func (s *Store) OpenCharm(url *charm.URL) (rc io.ReadCloser, info *CharmInfo, err os.Error) {
+func (s *Store) OpenCharm(url *charm.URL) (rc io.ReadCloser, info *CharmInfo, err error) {
 	session := s.session.Copy()
 
 	debugf("Opening charm %s.", url)
@@ -210,11 +210,11 @@ type reader struct {
 	file    *mgo.GridFile
 }
 
-func (r *reader) Read(buf []byte) (n int, err os.Error) {
+func (r *reader) Read(buf []byte) (n int, err error) {
 	return r.file.Read(buf)
 }
 
-func (r *reader) Close() os.Error {
+func (r *reader) Close() error {
 	err := r.file.Close()
 	r.session.Close()
 	return err
@@ -244,7 +244,7 @@ func (s storeSession) CharmFS() *mgo.GridFS {
 	return s.DB("juju").GridFS("charmfs")
 }
 
-func (s storeSession) LockUpdates(urls []*charm.URL) (m *updateMutex, err os.Error) {
+func (s storeSession) LockUpdates(urls []*charm.URL) (m *updateMutex, err error) {
 	keys := make([]string, len(urls))
 	for i := range urls {
 		keys[i] = urls[i].String()
@@ -273,7 +273,7 @@ func (m *updateMutex) Unlock() {
 	}
 }
 
-func (m *updateMutex) tryLock() os.Error {
+func (m *updateMutex) tryLock() error {
 	for i, key := range m.keys {
 		debugf("Trying to lock charm %s for updates...", key)
 		doc := bson.D{{"_id", key}, {"time", m.time}}
@@ -292,7 +292,7 @@ func (m *updateMutex) tryLock() os.Error {
 			}
 		}
 		// Couldn't lock everyone. Undo previous locks.
-		for j := i-1; j >= 0; j-- {
+		for j := i - 1; j >= 0; j-- {
 			// Using time below should be unnecessary, but it's an extra check.
 			// Can't do anything about errors here. Lock will expire anyway.
 			m.locks.Remove(bson.D{{"_id", m.keys[j]}, {"time", m.time}})
@@ -309,7 +309,7 @@ func (m *updateMutex) tryExpire(key string) {
 	m.locks.Remove(bson.D{{"_id", key}, {"time", bson.D{{"$lt", bson.Now() - UpdateTimeout}}}})
 }
 
-func maybeConflict(err os.Error) os.Error {
+func maybeConflict(err error) error {
 	if lerr, ok := err.(*mgo.LastError); ok && lerr.Code == 11000 {
 		return UpdateConflict
 	}

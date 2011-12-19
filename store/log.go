@@ -1,9 +1,6 @@
 package store
 
-import (
-	"fmt"
-	"os"
-)
+import "fmt"
 
 // Logging integration.
 
@@ -11,13 +8,13 @@ import (
 // associated with using an interface rather than the type.  Depending on how
 // often the logger is plugged in, it would be worth using the type instead.
 type log_Logger interface {
-	Output(calldepth int, s string) os.Error
+	Output(calldepth int, s string) error
 }
 
 var globalLogger log_Logger
 var globalDebug bool
 
-const logPrefix = "STORE " 
+const logPrefix = "STORE "
 
 // Specify the *log.Logger object where log messages should be sent to.
 func SetLogger(logger log_Logger) {
@@ -32,36 +29,36 @@ func SetDebug(debug bool) {
 
 func log(v ...interface{}) {
 	if globalLogger != nil {
-		globalLogger.Output(2, logPrefix + fmt.Sprint(v...))
+		globalLogger.Output(2, logPrefix+fmt.Sprint(v...))
 	}
 }
 
 func logln(v ...interface{}) {
 	if globalLogger != nil {
-		globalLogger.Output(2, logPrefix + fmt.Sprintln(v...))
+		globalLogger.Output(2, logPrefix+fmt.Sprintln(v...))
 	}
 }
 
 func logf(format string, v ...interface{}) {
 	if globalLogger != nil {
-		globalLogger.Output(2, logPrefix + fmt.Sprintf(format, v...))
+		globalLogger.Output(2, logPrefix+fmt.Sprintf(format, v...))
 	}
 }
 
 func debug(v ...interface{}) {
 	if globalDebug && globalLogger != nil {
-		globalLogger.Output(2, logPrefix + fmt.Sprint(v...))
+		globalLogger.Output(2, logPrefix+fmt.Sprint(v...))
 	}
 }
 
 func debugln(v ...interface{}) {
 	if globalDebug && globalLogger != nil {
-		globalLogger.Output(2, logPrefix + fmt.Sprintln(v...))
+		globalLogger.Output(2, logPrefix+fmt.Sprintln(v...))
 	}
 }
 
 func debugf(format string, v ...interface{}) {
 	if globalDebug && globalLogger != nil {
-		globalLogger.Output(2, logPrefix + fmt.Sprintf(format, v...))
+		globalLogger.Output(2, logPrefix+fmt.Sprintf(format, v...))
 	}
 }
