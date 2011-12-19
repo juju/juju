@@ -102,38 +102,22 @@ func registerJujuFunctionalTests() {
 
 func (t *jujuLocalTests) SetUpTest(c *C) {
 	t.srv.startServer(c)
-	if t, ok := interface{}(t.Tests).(interface {
-		SetUpTest(*C)
-	}); ok {
-		t.SetUpTest(c)
-	}
+	t.Tests.SetUpTest(c)
 }
 
 func (t *jujuLocalTests) TearDownTest(c *C) {
-	if t, ok := interface{}(t.Tests).(interface {
-		TearDownTest(*C)
-	}); ok {
-		t.TearDownTest(c)
-	}
+	t.Tests.TearDownTest(c)
 	t.srv.stopServer(c)
 }
 
 func (t *jujuLocalLiveTests) SetUpSuite(c *C) {
 	t.srv.startServer(c)
-	if t, ok := interface{}(t.LiveTests).(interface {
-		SetUpSuite(*C)
-	}); ok {
-		t.SetUpSuite(c)
-	}
+	t.LiveTests.SetUpSuite(c)
 }
 
 func (t *jujuLocalLiveTests) TearDownSuite(c *C) {
 	t.srv.stopServer(c)
-	if t, ok := interface{}(t.LiveTests).(interface {
-		TearDownSuite(*C)
-	}); ok {
-		t.TearDownSuite(c)
-	}
+	t.LiveTests.TearDownSuite(c)
 }
 
 func (t *jujuLocalLiveTests) TestStartStop(c *C) {

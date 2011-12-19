@@ -23,6 +23,15 @@ func (t *Tests) open(c *C) environs.Environ {
 	return e
 }
 
+func (t *Tests) SetUpSuite(*C) {
+}
+
+func (t *Tests) TearDownSuite(*C) {
+}
+
+func (t *Tests) SetUpTest(*C) {
+}
+
 func (t *Tests) TearDownTest(c *C) {
 	for _, e := range t.environs {
 		err := e.Destroy()
@@ -48,4 +57,10 @@ func (t *LiveTests) SetUpSuite(c *C) {
 
 func (t *LiveTests) TearDownSuite(c *C) {
 	t.env = nil
+}
+
+func (t *LiveTests) SetUpTest(*C) {
+}
+
+func (t *LiveTests) TearDownTest(*C) {
 }
