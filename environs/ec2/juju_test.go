@@ -17,14 +17,24 @@ environments:
     region: test
 `)
 
-// jujuTests wraps jujutest.Tests by adding
+// localTests wraps jujutest.Tests by adding
 // set up and tear down functions that start a new
 // ec2test server for each test.
 // The server is accessed by using the "test" region,
 // which is changed to point to the network address
 // of the local server.
-type jujuTests struct {
+type localTests struct {
 	*jujutest.Tests
+	srv localServer
+}
+
+// localLiveTests performs the live test suite, but locally.
+type localLiveTests struct {
+	*jujutest.LiveTests
+	srv localServer
+}
+
+type localServer struct {
 	srv   *ec2test.Server
 	setup func(*ec2test.Server)
 }
@@ -59,7 +69,7 @@ func extraInstancesScenario(srv *ec2test.Server) {
 	}
 }
 
-func registerJujuFunctionalTests() {
+func registerLocalTests() {
 	Regions["test"] = aws.Region{}
 	envs, err := environs.ReadEnvironsBytes(functionalConfig)
 	if err != nil {
@@ -68,10 +78,16 @@ func registerJujuFunctionalTests() {
 
 	for _, name := range envs.Names() {
 		for _, scen := range scenarios {
-			scen := scen
-			Suite(&jujuTests{
-				setup: scen.setup,
+			Suite(&localTests{
+				srv: localServer{setup: scen.setup},
 				Tests: &jujutest.Tests{
+					Environs: envs,
+					Name:     name,
+				},
+			})
+			Suite(&localLiveTests{
+				srv: localServer{setup: scen.setup},
+				LiveTests: &jujutest.LiveTests{
 					Environs: envs,
 					Name:     name,
 				},
@@ -80,49 +96,41 @@ func registerJujuFunctionalTests() {
 	}
 }
 
-func (t *jujuTests) SetUpTest(c *C) {
+func (t *localTests) SetUpTest(c *C) {
+	t.srv.startServer(c)
+	t.Tests.SetUpTest(c)
+}
+
+func (t *localTests) TearDownTest(c *C) {
+	t.Tests.TearDownTest(c)
+	t.srv.stopServer(c)
+}
+
+func (t *localLiveTests) SetUpSuite(c *C) {
+	t.srv.startServer(c)
+	t.LiveTests.SetUpSuite(c)
+}
+
+func (t *localLiveTests) TearDownSuite(c *C) {
+	t.srv.stopServer(c)
+	t.LiveTests.TearDownSuite(c)
+}
+
+func (srv *localServer) startServer(c *C) {
 	var err error
-	t.srv, err = ec2test.NewServer()
+	srv.srv, err = ec2test.NewServer()
 	if err != nil {
 		c.Fatalf("cannot start ec2 test server: %v", err)
 	}
 	Regions["test"] = aws.Region{
-		EC2Endpoint: t.srv.Address(),
+		EC2Endpoint: srv.srv.Address(),
 	}
-	t.setup(t.srv)
+	srv.setup(srv.srv)
 }
 
-func (t *jujuTests) TearDownTest(c *C) {
-	t.Tests.TearDownTest(c)
-	t.srv.Quit()
-	t.srv = nil
+func (srv *localServer) stopServer(c *C) {
+	srv.srv.Quit()
 	// Clear out the region because the server address is
 	// no longer valid.
 	Regions["test"] = aws.Region{}
-}
-
-// integrationConfig holds the environments configuration
-// for running the amazon EC2 integration tests.
-//
-// This is missing keys for security reasons; set the following environment variables
-// to make the integration testing work:
-//  access-key: $AWS_ACCESS_KEY_ID
-//  secret-key: $AWS_SECRET_ACCESS_KEY
-var integrationConfig = []byte(`
-environments:
-  sample:
-    type: ec2
-`)
-
-func registerJujuIntegrationTests() {
-	envs, err := environs.ReadEnvironsBytes(integrationConfig)
-	if err != nil {
-		panic(fmt.Errorf("cannot parse integration tests config data: %v", err))
-	}
-	for _, name := range envs.Names() {
-		Suite(&jujutest.Tests{
-			Environs: envs,
-			Name:     name,
-		})
-	}
 }

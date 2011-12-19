@@ -28,16 +28,19 @@ type instance struct {
 
 var _ environs.Instance = (*instance)(nil)
 
-func (m *instance) Id() string {
-	return m.InstanceId
+func (inst *instance) Id() string {
+	return inst.InstanceId
 }
 
-func (m *instance) DNSName() string {
-	return m.Instance.DNSName
+func (inst *instance) DNSName() string {
+	return inst.Instance.DNSName
 }
 
 func (environProvider) Open(name string, config interface{}) (e environs.Environ, err error) {
 	cfg := config.(*providerConfig)
+	if Regions[cfg.region].EC2Endpoint == "" {
+		return nil, fmt.Errorf("no ec2 endpoint found for region %q, opening %q", cfg.region, name)
+	}
 	return &environ{
 		name:   name,
 		config: cfg,
