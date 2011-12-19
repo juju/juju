@@ -17,19 +17,19 @@ environments:
     region: test
 `)
 
-// jujuLocalTests wraps jujutest.Tests by adding
+// localTests wraps jujutest.Tests by adding
 // set up and tear down functions that start a new
 // ec2test server for each test.
 // The server is accessed by using the "test" region,
 // which is changed to point to the network address
 // of the local server.
-type jujuLocalTests struct {
+type localTests struct {
 	*jujutest.Tests
 	srv localServer
 }
 
-// jujuLocalLiveTests performs the live test suite, but locally.
-type jujuLocalLiveTests struct {
+// localLiveTests performs the live test suite, but locally.
+type localLiveTests struct {
 	*jujutest.LiveTests
 	srv localServer
 }
@@ -69,7 +69,7 @@ func extraInstancesScenario(srv *ec2test.Server) {
 	}
 }
 
-func registerJujuFunctionalTests() {
+func registerLocalTests() {
 	Regions["test"] = aws.Region{}
 	envs, err := environs.ReadEnvironsBytes(functionalConfig)
 	if err != nil {
@@ -78,19 +78,15 @@ func registerJujuFunctionalTests() {
 
 	for _, name := range envs.Names() {
 		for _, scen := range scenarios {
-			Suite(&jujuLocalTests{
-				srv: localServer{
-					setup: scen.setup,
-				},
+			Suite(&localTests{
+				srv: localServer{setup: scen.setup},
 				Tests: &jujutest.Tests{
 					Environs: envs,
 					Name:     name,
 				},
 			})
-			Suite(&jujuLocalLiveTests{
-				srv: localServer{
-					setup: scen.setup,
-				},
+			Suite(&localLiveTests{
+				srv: localServer{setup: scen.setup},
 				LiveTests: &jujutest.LiveTests{
 					Environs: envs,
 					Name:     name,
@@ -100,27 +96,27 @@ func registerJujuFunctionalTests() {
 	}
 }
 
-func (t *jujuLocalTests) SetUpTest(c *C) {
+func (t *localTests) SetUpTest(c *C) {
 	t.srv.startServer(c)
 	t.Tests.SetUpTest(c)
 }
 
-func (t *jujuLocalTests) TearDownTest(c *C) {
+func (t *localTests) TearDownTest(c *C) {
 	t.Tests.TearDownTest(c)
 	t.srv.stopServer(c)
 }
 
-func (t *jujuLocalLiveTests) SetUpSuite(c *C) {
+func (t *localLiveTests) SetUpSuite(c *C) {
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
 }
 
-func (t *jujuLocalLiveTests) TearDownSuite(c *C) {
+func (t *localLiveTests) TearDownSuite(c *C) {
 	t.srv.stopServer(c)
 	t.LiveTests.TearDownSuite(c)
 }
 
-func (t *jujuLocalLiveTests) TestStartStop(c *C) {
+func (t *localLiveTests) TestStartStop(c *C) {
 	c.Assert(Regions["test"].EC2Endpoint, Not(Equals), "")
 	t.LiveTests.TestStartStop(c)
 }

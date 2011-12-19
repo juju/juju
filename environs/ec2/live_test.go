@@ -7,7 +7,7 @@ import (
 	"launchpad.net/juju/go/environs/jujutest"
 )
 
-// integration_test_environments holds the environments configuration
+// integrationConfig holds the environments configuration
 // for running the amazon EC2 integration tests.
 //
 // This is missing keys for security reasons; set the following environment variables
@@ -20,13 +20,13 @@ environments:
     type: ec2
 `)
 
-func registerJujuIntegrationTests() {
+func registerIntegrationTests() {
 	envs, err := environs.ReadEnvironsBytes(integrationConfig)
 	if err != nil {
 		panic(fmt.Errorf("cannot parse integration tests config data: %v", err))
 	}
 	for _, name := range envs.Names() {
-		Suite(&jujutest.Tests{
+		Suite(&jujutest.LiveTests{
 			Environs: envs,
 			Name:     name,
 		})

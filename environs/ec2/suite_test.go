@@ -18,8 +18,8 @@ func TestEC2(t *testing.T) {
 		regenerateImages(t)
 	}
 	if *integration {
-		registerJujuIntegrationTests()
+		registerIntegrationTests()
 	}
-	registerJujuFunctionalTests()
+	registerLocalTests()
 	TestingT(t)
 }
