@@ -12,6 +12,18 @@ import (
 	"syscall"
 )
 
+// The Dir type encapsulates access to data and operations
+// on a charm directory.
+type Dir struct {
+	Path     string
+	meta     *Meta
+	config   *Config
+	revision int
+}
+
+// Trick to ensure *Dir implements the Charm interface.
+var _ Charm = (*Dir)(nil)
+
 // ReadDir returns a Dir representing an expanded charm directory.
 func ReadDir(path string) (dir *Dir, err error) {
 	dir = &Dir{Path: path}
@@ -44,18 +56,6 @@ func ReadDir(path string) (dir *Dir, err error) {
 	}
 	return dir, nil
 }
-
-// The Dir type encapsulates access to data and operations
-// on a charm directory.
-type Dir struct {
-	Path     string
-	meta     *Meta
-	config   *Config
-	revision int
-}
-
-// Trick to ensure *Dir implements the Charm interface.
-var _ Charm = (*Dir)(nil)
 
 // join builds a path rooted at the charm's expanded directory
 // path and the extra path components provided.

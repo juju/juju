@@ -11,6 +11,20 @@ import (
 	"strings"
 )
 
+// The Bundle type encapsulates access to data and operations
+// on a charm bundle.
+type Bundle struct {
+	Path     string // May be empty if Bundle wasn't read from a file
+	meta     *Meta
+	config   *Config
+	revision int
+	r        io.ReaderAt
+	size     int64
+}
+
+// Trick to ensure *Bundle implements the Charm interface.
+var _ Charm = (*Bundle)(nil)
+
 // ReadBundle returns a Bundle for the charm in path.
 func ReadBundle(path string) (bundle *Bundle, err error) {
 	f, err := os.Open(path)
@@ -94,20 +108,6 @@ type noBundleFile struct {
 func (err noBundleFile) Error() string {
 	return fmt.Sprintf("bundle file not found: %s", err.path)
 }
-
-// The Bundle type encapsulates access to data and operations
-// on a charm bundle.
-type Bundle struct {
-	Path     string // May be empty if Bundle wasn't read from a file
-	meta     *Meta
-	config   *Config
-	revision int
-	r        io.ReaderAt
-	size     int64
-}
-
-// Trick to ensure *Bundle implements the Charm interface.
-var _ Charm = (*Bundle)(nil)
 
 // Revision returns the revision number for the charm
 // expanded in dir.
