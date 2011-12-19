@@ -2,6 +2,7 @@ package charm
 
 import (
 	"archive/zip"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,7 +13,7 @@ import (
 )
 
 // ReadDir returns a Dir representing an expanded charm directory.
-func ReadDir(path string) (dir *Dir, err os.Error) {
+func ReadDir(path string) (dir *Dir, err error) {
 	dir = &Dir{Path: path}
 	file, err := os.Open(dir.join("metadata.yaml"))
 	if err != nil {
@@ -36,7 +37,7 @@ func ReadDir(path string) (dir *Dir, err os.Error) {
 		_, err = fmt.Fscan(file, &dir.revision)
 		file.Close()
 		if err != nil {
-			return nil, os.NewError("invalid revision file")
+			return nil, errors.New("invalid revision file")
 		}
 	} else {
 		dir.revision = dir.meta.OldRevision
@@ -91,7 +92,7 @@ func (dir *Dir) SetRevision(revision int) {
 
 // SetDiskRevision does the same as SetRevision but also changes
 // the revision file in the charm directory.
-func (dir *Dir) SetDiskRevision(revision int) os.Error {
+func (dir *Dir) SetDiskRevision(revision int) error {
 	dir.SetRevision(revision)
 	file, err := os.OpenFile(dir.join("revision"), os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
@@ -102,7 +103,8 @@ func (dir *Dir) SetDiskRevision(revision int) os.Error {
 	return err
 }
 
-func (dir *Dir) BundleTo(w io.Writer) (err os.Error) {
+// BundleTo creates a charm file from the charm expanded in dir.
+func (dir *Dir) BundleTo(w io.Writer) (err error) {
 	zipw := zip.NewWriter(w)
 	defer zipw.Close()
 	zp := zipPacker{zipw, dir.Path}
@@ -116,12 +118,12 @@ type zipPacker struct {
 }
 
 func (zp *zipPacker) WalkFunc() filepath.WalkFunc {
-	return func(path string, fi *os.FileInfo, err os.Error) os.Error {
+	return func(path string, fi os.FileInfo, err error) error {
 		return zp.visit(path, fi, err)
 	}
 }
 
-func (zp *zipPacker) AddRevision(revision int) os.Error {
+func (zp *zipPacker) AddRevision(revision int) error {
 	h := &zip.FileHeader{Name: "revision"}
 	h.SetMode(syscall.S_IFREG | 0644)
 	w, err := zp.CreateHeader(h)
@@ -131,7 +133,7 @@ func (zp *zipPacker) AddRevision(revision int) os.Error {
 	return err
 }
 
-func (zp *zipPacker) visit(path string, fi *os.FileInfo, err os.Error) os.Error {
+func (zp *zipPacker) visit(path string, fi os.FileInfo, err error) error {
 	if err != nil {
 		return err
 	}
@@ -141,7 +143,7 @@ func (zp *zipPacker) visit(path string, fi *os.FileInfo, err os.Error) os.Error 
 	}
 	method := zip.Deflate
 	hidden := len(relpath) > 1 && relpath[0] == '.'
-	if fi.IsDirectory() {
+	if fi.IsDir() {
 		if relpath == "build" {
 			return filepath.SkipDir
 		}
@@ -158,9 +160,9 @@ func (zp *zipPacker) visit(path string, fi *os.FileInfo, err os.Error) os.Error 
 		Name:   relpath,
 		Method: method,
 	}
-	h.SetMode(fi.Mode)
+	h.SetMode(fi.Mode())
 	w, err := zp.CreateHeader(h)
-	if err != nil || fi.IsDirectory() {
+	if err != nil || fi.IsDir() {
 		return err
 	}
 	data, err := ioutil.ReadFile(path)

@@ -1,9 +1,8 @@
 package charm
 
 import (
-	"regexp"
 	"fmt"
-	"os"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -32,7 +31,7 @@ var validUser = regexp.MustCompile("^[a-z0-9][a-zA-Z0-9+.-]+$")
 var validSeries = regexp.MustCompile("^[a-z]+([a-z-]+[a-z])?$")
 var validName = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
 
-func NewURL(url string) (*URL, os.Error) {
+func NewURL(url string) (*URL, error) {
 	u := &URL{}
 	i := strings.Index(url, ":")
 	if i > 0 {
@@ -75,13 +74,13 @@ func NewURL(url string) (*URL, os.Error) {
 	// <name>[-<revision>]
 	u.Name = parts[0]
 	u.Revision = -1
-	for i := len(u.Name)-1; i > 0; i-- {
+	for i := len(u.Name) - 1; i > 0; i-- {
 		c := u.Name[i]
 		if c >= '0' && c <= '9' {
 			continue
 		}
 		if c == '-' && i != len(u.Name)-1 {
-			var err os.Error
+			var err error
 			u.Revision, err = strconv.Atoi(u.Name[i+1:])
 			if err != nil {
 				panic(err) // We just checked it was right.
