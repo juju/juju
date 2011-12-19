@@ -130,7 +130,7 @@ func (s *S) TestDirRevisionFile(c *C) {
 	c.Assert(err, IsNil)
 
 	dir, err = charm.ReadDir(charmDir)
-	c.Assert(err, Matches, "invalid revision file")
+	c.Assert(err, ErrorMatches, "invalid revision file")
 	c.Assert(dir, IsNil)
 }
 

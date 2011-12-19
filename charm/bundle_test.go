@@ -1,13 +1,12 @@
 package charm_test
 
 import (
-	//"archive/zip"
-	"exec"
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/charm"
 	"os"
+	"os/exec"
 	"path/filepath"
 )
 
@@ -77,7 +76,7 @@ func (s *BundleSuite) TestBundleRevisionFile(c *C) {
 	c.Assert(err, IsNil)
 
 	bundle, err = charm.ReadBundle(extBundleDir(c, charmDir))
-	c.Assert(err, Matches, "invalid revision file")
+	c.Assert(err, ErrorMatches, "invalid revision file")
 	c.Assert(bundle, IsNil)
 }
 
