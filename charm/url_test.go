@@ -5,9 +5,9 @@ import (
 	"launchpad.net/juju/go/charm"
 )
 
-var urlTests = []struct{
+var urlTests = []struct {
 	s, err string
-	url *charm.URL
+	url    *charm.URL
 }{
 	{"cs:~user/series/name", "", &charm.URL{"name", -1, charm.Collection{"cs", "user", "series"}}},
 	{"cs:~user/series/name-0", "", &charm.URL{"name", 0, charm.Collection{"cs", "user", "series"}}},
@@ -36,7 +36,7 @@ func (s *S) TestParseURL(c *C) {
 		url, err := charm.ParseURL(t.s)
 		bug := Bug("ParseURL(%q)", t.s)
 		if t.err != "" {
-			c.Check(err, Matches, t.err, bug)
+			c.Check(err.Error(), Matches, t.err, bug)
 		} else {
 			c.Check(url, Equals, t.url, bug)
 			c.Check(t.url.String(), Equals, t.s)
@@ -48,7 +48,7 @@ func (s *S) TestMustParseURL(c *C) {
 	url := charm.MustParseURL("cs:series/name")
 	c.Assert(url, Equals, &charm.URL{"name", -1, charm.Collection{"cs", "", "series"}})
 	f := func() { charm.MustParseURL("local:name") }
-	c.Assert(f, Panics, "charm URL without series: .*")
+	c.Assert(f, PanicMatches, "charm URL without series: .*")
 }
 
 func (s *S) TestWithRevision(c *C) {

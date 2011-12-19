@@ -6,5 +6,4 @@ type Charm interface {
 	Meta() *Meta
 	Config() *Config
 	Revision() int
-	SetRevision(revision int)
 }

@@ -1,11 +1,11 @@
 package charm
 
 import (
+	"errors"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju/go/schema"
 	"launchpad.net/goyaml"
-	"os"
+	"launchpad.net/juju/go/schema"
 )
 
 // Relation represents a single relation defined in the charm
@@ -30,7 +30,7 @@ type Meta struct {
 
 // ReadMeta reads the content of a metadata.yaml file and returns
 // its representation.
-func ReadMeta(r io.Reader) (meta *Meta, err os.Error) {
+func ReadMeta(r io.Reader) (meta *Meta, err error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		return
@@ -42,7 +42,7 @@ func ReadMeta(r io.Reader) (meta *Meta, err os.Error) {
 	}
 	v, err := charmSchema.Coerce(raw, nil)
 	if err != nil {
-		return nil, os.NewError("metadata: " + err.String())
+		return nil, errors.New("metadata: " + err.Error())
 	}
 	m := v.(schema.MapType)
 	meta = &Meta{}
@@ -114,7 +114,7 @@ var (
 	mapC    = schema.Map(schema.String(), schema.Any())
 )
 
-func (c ifaceExpC) Coerce(v interface{}, path []string) (newv interface{}, err os.Error) {
+func (c ifaceExpC) Coerce(v interface{}, path []string) (newv interface{}, err error) {
 	s, err := stringC.Coerce(v, path)
 	if err == nil {
 		newv = schema.MapType{

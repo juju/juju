@@ -1,0 +1,25 @@
+oneiric	server	release	20111011	ebs	amd64	ap-northeast-1	ami-30902431	aki-ee5df7ef		paravirtual
+oneiric	server	release	20111011	ebs	i386	ap-northeast-1	ami-2e90242f	aki-ec5df7ed		paravirtual
+oneiric	server	release	20111011	instance-store	amd64	ap-northeast-1	ami-fa9723fb	aki-ee5df7ef		paravirtual
+oneiric	server	release	20111011	instance-store	i386	ap-northeast-1	ami-e49723e5	aki-ec5df7ed		paravirtual
+oneiric	server	release	20111011	ebs	amd64	ap-southeast-1	ami-7a057f28	aki-aa225af8		paravirtual
+oneiric	server	release	20111011	ebs	i386	ap-southeast-1	ami-76057f24	aki-a4225af6		paravirtual
+oneiric	server	release	20111011	instance-store	amd64	ap-southeast-1	ami-54057f06	aki-aa225af8		paravirtual
+oneiric	server	release	20111011	instance-store	i386	ap-southeast-1	ami-82047ed0	aki-a4225af6		paravirtual
+oneiric	server	release	20111011	ebs	amd64	eu-west-1	ami-61b28015	aki-62695816		paravirtual
+oneiric	server	release	20111011	ebs	i386	eu-west-1	ami-65b28011	aki-64695810		paravirtual
+oneiric	server	release	20111011	instance-store	amd64	eu-west-1	ami-75b28001	aki-62695816		paravirtual
+oneiric	server	release	20111011	instance-store	i386	eu-west-1	ami-dfcdffab	aki-64695810		paravirtual
+oneiric	server	release	20111011	ebs	amd64	us-east-1	ami-bff539d6			hvm
+oneiric	server	release	20111011	ebs	amd64	us-east-1	ami-bbf539d2	aki-825ea7eb		paravirtual
+oneiric	server	release	20111011	ebs	i386	us-east-1	ami-a7f539ce	aki-805ea7e9		paravirtual
+oneiric	server	release	20111011	instance-store	amd64	us-east-1	ami-21f53948	aki-825ea7eb		paravirtual
+oneiric	server	release	20111011	instance-store	i386	us-east-1	ami-29f43840	aki-805ea7e9		paravirtual
+oneiric	server	release	20111011	ebs	amd64	us-west-1	ami-7b772b3e	aki-8d396bc8		paravirtual
+oneiric	server	release	20111011	ebs	i386	us-west-1	ami-79772b3c	aki-83396bc6		paravirtual
+oneiric	server	release	20111011	instance-store	amd64	us-west-1	ami-4b772b0e	aki-8d396bc8		paravirtual
+oneiric	server	release	20111011	instance-store	i386	us-west-1	ami-a7762ae2	aki-83396bc6		paravirtual
+oneiric	server	release	20111011	ebs	amd64	us-west-2	ami-2af9741a	aki-98e26fa8		paravirtual
+oneiric	server	release	20111011	ebs	i386	us-west-2	ami-20f97410	aki-c2e26ff2		paravirtual
+oneiric	server	release	20111011	instance-store	amd64	us-west-2	ami-56f67b66	aki-98e26fa8		paravirtual
+oneiric	server	release	20111011	instance-store	i386	us-west-2	ami-52f67b62	aki-c2e26ff2		paravirtual

@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 )
 
-
 func repoMeta(name string) io.Reader {
 	file, err := os.Open(filepath.Join("testrepo", "series", name, "metadata.yaml"))
 	if err != nil {
@@ -93,13 +92,13 @@ func (s *S) TestIfaceExpander(c *C) {
 
 	// Invalid data raises an error.
 	v, err = e.Coerce(42, path)
-	c.Assert(err, Matches, "<path>: expected map, got 42")
+	c.Assert(err, ErrorMatches, "<path>: expected map, got 42")
 
 	v, err = e.Coerce(schema.MapType{"interface": "http", "optional": nil}, path)
-	c.Assert(err, Matches, "<path>.optional: expected bool, got nothing")
+	c.Assert(err, ErrorMatches, "<path>.optional: expected bool, got nothing")
 
 	v, err = e.Coerce(schema.MapType{"interface": "http", "limit": "none, really"}, path)
-	c.Assert(err, Matches, "<path>.limit: unsupported value")
+	c.Assert(err, ErrorMatches, "<path>.limit: unsupported value")
 
 	// Can change default limit
 	e = charm.IfaceExpander(1)

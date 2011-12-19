@@ -1,9 +1,8 @@
 package charm
 
 import (
-	"regexp"
 	"fmt"
-	"os"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -55,7 +54,7 @@ func MustParseURL(url string) *URL {
 
 // ParseURL parses the provided charm URL string into its respective
 // structure.
-func ParseURL(url string) (*URL, os.Error) {
+func ParseURL(url string) (*URL, error) {
 	u := &URL{}
 	i := strings.Index(url, ":")
 	if i > 0 {
@@ -98,13 +97,13 @@ func ParseURL(url string) (*URL, os.Error) {
 	// <name>[-<revision>]
 	u.Name = parts[0]
 	u.Revision = -1
-	for i := len(u.Name)-1; i > 0; i-- {
+	for i := len(u.Name) - 1; i > 0; i-- {
 		c := u.Name[i]
 		if c >= '0' && c <= '9' {
 			continue
 		}
 		if c == '-' && i != len(u.Name)-1 {
-			var err os.Error
+			var err error
 			u.Revision, err = strconv.Atoi(u.Name[i+1:])
 			if err != nil {
 				panic(err) // We just checked it was right.

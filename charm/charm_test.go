@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
-	"testing"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/charm"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju/go/charm"
 	"os"
 	"path/filepath"
+	"testing"
 )
 
 func Test(t *testing.T) {

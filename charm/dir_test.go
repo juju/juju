@@ -8,7 +8,6 @@ import (
 	"launchpad.net/juju/go/charm"
 	"os"
 	"path/filepath"
-	"syscall"
 )
 
 func repoDir(name string) (path string) {
@@ -75,12 +74,12 @@ func (s *S) TestBundleTo(c *C) {
 	c.Assert(instf, NotNil)
 	mode, err := instf.Mode()
 	c.Assert(err, IsNil)
-	c.Assert(mode & 0777, Equals, uint32(0755))
+	c.Assert(mode&0700, Equals, os.FileMode(0700))
 
 	c.Assert(emptyf, NotNil)
 	mode, err = emptyf.Mode()
 	c.Assert(err, IsNil)
-	c.Assert(mode & syscall.S_IFMT, Equals, uint32(syscall.S_IFDIR))
+	c.Assert(mode&os.ModeType, Equals, os.ModeDir)
 }
 
 func copyCharmDir(dst, src string) {
@@ -131,7 +130,7 @@ func (s *S) TestDirRevisionFile(c *C) {
 	c.Assert(err, IsNil)
 
 	dir, err = charm.ReadDir(charmDir)
-	c.Assert(err, Matches, "invalid revision file")
+	c.Assert(err, ErrorMatches, "invalid revision file")
 	c.Assert(dir, IsNil)
 }
 
