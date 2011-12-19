@@ -3,6 +3,7 @@ package ec2
 import (
 	"fmt"
 	"launchpad.net/goamz/aws"
+	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
@@ -48,7 +49,7 @@ func initialStateRunningScenario(srv *ec2test.Server) {
 }
 
 func extraInstancesScenario(srv *ec2test.Server) {
-	states := []ec2test.InstanceState{
+	states := []ec2.InstanceState{
 		ec2test.ShuttingDown,
 		ec2test.Terminated,
 		ec2test.Stopped,

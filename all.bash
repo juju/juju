@@ -4,15 +4,21 @@ root=`pwd`
 
 goto() {
 	cd "$@"
-	echo building $*
+	echo
+	echo ----- building $*
 }
 
-dirs="environs environs/jujutest environs/ec2 schema charm"
+dirs="schema environs environs/ec2 environs/jujutest charm"
 
-for i in $dirs; do
-	goto "$root/$i"
+for dir in $dirs; do
+	goto "$root/$dir"
 	make clean
-	gotest
 	make install
 done
+
+for dir in $dirs; do
+	goto "$root/$dir"
+	gotest
+done
+
 echo DONE

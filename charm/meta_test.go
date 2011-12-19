@@ -12,7 +12,7 @@ import (
 )
 
 func repoMeta(name string) io.Reader {
-	file, err := os.Open(filepath.Join("testrepo", name, "metadata.yaml"))
+	file, err := os.Open(filepath.Join("testrepo", "series", name, "metadata.yaml"))
 	if err != nil {
 		panic(err)
 	}
@@ -28,10 +28,10 @@ func (s *S) TestReadMeta(c *C) {
 	meta, err := charm.ReadMeta(repoMeta("dummy"))
 	c.Assert(err, IsNil)
 	c.Assert(meta.Name, Equals, "dummy")
-	c.Assert(meta.Revision, Equals, 1)
 	c.Assert(meta.Summary, Equals, "That's a dummy charm.")
 	c.Assert(meta.Description, Equals,
 		"This is a longer description which\npotentially contains multiple lines.\n")
+	c.Assert(meta.OldRevision, Equals, 0)
 }
 
 func (s *S) TestParseMetaRelations(c *C) {

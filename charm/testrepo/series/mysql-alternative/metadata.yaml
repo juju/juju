@@ -1,5 +1,4 @@
-name: mysql2
-revision: 1
+name: mysql-alternative
 summary: "Database engine"
 description: "A pretty popular database"
 provides:
