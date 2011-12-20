@@ -25,7 +25,7 @@ type S struct {
 func (s *S) SetUpTest(c *C) {
 	s.MgoSuite.SetUpTest(c)
 	var err error
-	s.store, err = store.New(s.Addr)
+	s.store, err = store.Open(s.Addr)
 	c.Assert(err, IsNil)
 	store.SetLogger(c)
 	store.SetDebug(true)
