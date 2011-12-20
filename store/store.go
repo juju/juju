@@ -8,6 +8,7 @@ import (
 	"io"
 	"launchpad.net/gobson/bson"
 	"launchpad.net/juju/go/charm"
+	"launchpad.net/juju/go/log"
 	"launchpad.net/mgo"
 	"sort"
 )
@@ -31,18 +32,18 @@ type Store struct {
 // Open creates a new session with the store for adding or
 // retrieving charms.
 func Open(mongoAddr string) (store *Store, err error) {
-	logf("Store opened. Connecting to: %s", mongoAddr)
+	log.Printf("Store opened. Connecting to: %s", mongoAddr)
 	store = &Store{}
 	session, err := mgo.Mongo(mongoAddr)
 	if err != nil {
-		logf("Error connecting to MongoDB: %s", err)
+		log.Printf("Error connecting to MongoDB: %v", err)
 		return nil, err
 	}
 	store = &Store{session: storeSession{session}}
 	charms := store.session.Charms()
 	err = charms.EnsureIndex(mgo.Index{Key: []string{"url", "revision"}, Unique: true})
 	if err != nil {
-		logf("Error ensuring charms index: %s", err)
+		log.Printf("Error ensuring charms index: %v", err)
 		session.Close()
 		return nil, err
 	}
@@ -73,7 +74,7 @@ func dropRevisions(urls []*charm.URL) []*charm.URL {
 // that represents the current charm content. An error is returned if
 // all of the provided urls are already associated to that revision key.
 func (s *Store) AddCharm(urls []*charm.URL, revisionKey string) (wc io.WriteCloser, err error) {
-	logf("Trying to add charms %v with key %q...", urls, revisionKey)
+	log.Printf("Trying to add charms %v with key %q...", urls, revisionKey)
 	urls = dropRevisions(urls)
 	session := s.session.Copy()
 	lock, err := session.LockUpdates(urls)
@@ -96,16 +97,16 @@ func (s *Store) AddCharm(urls []*charm.URL, revisionKey string) (wc io.WriteClos
 		urlStr := urls[i].String()
 		err := charms.Find(bson.D{{"url", urlStr}}).Sort(bson.D{{"revision", -1}}).One(&charm)
 		if err == mgo.NotFound {
-			logf("Charm %s not yet in the store.", urlStr)
+			log.Printf("Charm %s not yet in the store.", urlStr)
 			newKey = true
 			continue
 		}
 		if charm.RevisionKey != revisionKey {
-			logf("Charm %s is out of date with revision key %q.", urlStr, revisionKey)
+			log.Printf("Charm %s is out of date with revision key %q.", urlStr, revisionKey)
 			newKey = true
 		}
 		if err != nil {
-			logf("Unknown error looking for charm %s: %s", urlStr, err)
+			log.Printf("Unknown error looking for charm %s: %s", urlStr, err)
 			return nil, err
 		}
 		if charm.Revision > maxRev {
@@ -113,10 +114,10 @@ func (s *Store) AddCharm(urls []*charm.URL, revisionKey string) (wc io.WriteClos
 		}
 	}
 	if !newKey {
-		logf("All charms have revision key %q. Nothing to update.", revisionKey)
+		log.Printf("All charms have revision key %q. Nothing to update.", revisionKey)
 		return nil, UpdateIsCurrent
 	}
-	logf("Preparing writer to add charms with revision %d.", maxRev+1)
+	log.Printf("Preparing writer to add charms with revision %d.", maxRev+1)
 	return &writer{session, nil, nil, urls, lock, maxRev + 1, revisionKey}, nil
 }
 
@@ -136,11 +137,11 @@ func (w *writer) Write(data []byte) (n int, err error) {
 	if w.file == nil {
 		w.file, err = w.session.CharmFS().Create("")
 		if err != nil {
-			logf("Failed to create GridFS file: %s", err)
+			log.Printf("Failed to create GridFS file: %v", err)
 			return 0, err
 		}
 		w.sha256 = sha256.New()
-		logf("Creating GridFS file with id %q...", w.file.Id().(bson.ObjectId).Hex())
+		log.Printf("Creating GridFS file with id %q...", w.file.Id().(bson.ObjectId).Hex())
 	}
 	_, err = w.sha256.Write(data)
 	if err != nil {
@@ -160,7 +161,7 @@ func (w *writer) Close() error {
 	id := w.file.Id()
 	err := w.file.Close()
 	if err != nil {
-		logf("Failed to close GridFS file: %s", err)
+		log.Printf("Failed to close GridFS file: %v", err)
 		return err
 	}
 	charms := w.session.Charms()
@@ -177,7 +178,7 @@ func (w *writer) Close() error {
 		err := charms.Insert(&charm)
 		if err != nil {
 			err = maybeConflict(err)
-			logf("Failed to insert new revision of charm %s: %s", urlStr, err)
+			log.Printf("Failed to insert new revision of charm %s: %v", urlStr, err)
 			return err
 		}
 	}
@@ -195,7 +196,7 @@ type CharmInfo struct {
 func (s *Store) OpenCharm(url *charm.URL) (rc io.ReadCloser, info *CharmInfo, err error) {
 	session := s.session.Copy()
 
-	debugf("Opening charm %s.", url)
+	log.Debugf("Opening charm %s.", url)
 	rev := url.Revision
 	url = url.WithRevision(-1)
 
@@ -209,14 +210,14 @@ func (s *Store) OpenCharm(url *charm.URL) (rc io.ReadCloser, info *CharmInfo, er
 	}
 	err = charms.Find(qdoc).Sort(bson.D{{"revision", -1}}).One(&charm)
 	if err != nil {
-		logf("Failed to find charm %s: %s", url, err)
+		log.Printf("Failed to find charm %s: %v", url, err)
 		session.Close()
 		return nil, nil, err
 	}
 
 	file, err := session.CharmFS().OpenId(charm.FileId)
 	if err != nil {
-		logf("Failed to open GridFS file for charm %s: %s", url, err)
+		log.Printf("Failed to open GridFS file for charm %s: %v", url, err)
 		session.Close()
 		return nil, nil, err
 	}
@@ -297,7 +298,7 @@ type updateMutex struct {
 
 // Unlock removes previously acquired locks on all m.keys.
 func (m *updateMutex) Unlock() {
-	debugf("Unlocking charms for future updates: %v", m.keys)
+	log.Debugf("Unlocking charms for future updates: %v", m.keys)
 	for i := len(m.keys) - 1; i >= 0; i-- {
 		// Using time below ensures only the proper lock is removed.
 		// Can't do much about errors here. Locks will expire anyway.
@@ -312,19 +313,19 @@ func (m *updateMutex) Unlock() {
 // previous locks, and aborts with an error.
 func (m *updateMutex) tryLock() error {
 	for i, key := range m.keys {
-		debugf("Trying to lock charm %s for updates...", key)
+		log.Debugf("Trying to lock charm %s for updates...", key)
 		doc := bson.D{{"_id", key}, {"time", m.time}}
 		err := m.locks.Insert(doc)
 		if err == nil {
-			debugf("Charm %s is now locked for updates.", key)
+			log.Debugf("Charm %s is now locked for updates.", key)
 			continue
 		}
 		if lerr, ok := err.(*mgo.LastError); ok && lerr.Code == 11000 {
-			debugf("Charm %s is locked. Trying to expire lock.", key)
+			log.Debugf("Charm %s is locked. Trying to expire lock.", key)
 			m.tryExpire(key)
 			err = m.locks.Insert(doc)
 			if err == nil {
-				debugf("Charm %s is now locked for updates.", key)
+				log.Debugf("Charm %s is now locked for updates.", key)
 				continue
 			}
 		}
@@ -335,7 +336,7 @@ func (m *updateMutex) tryLock() error {
 			m.locks.Remove(bson.D{{"_id", m.keys[j]}, {"time", m.time}})
 		}
 		err = maybeConflict(err)
-		logf("Can't lock charms %v for updating: %s", m.keys, err)
+		log.Printf("Can't lock charms %v for updating: %v", m.keys, err)
 		return err
 	}
 	return nil

@@ -6,6 +6,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/store"
 	"launchpad.net/juju/go/charm"
+	"launchpad.net/juju/go/log"
 	"launchpad.net/mgo"
 	"path/filepath"
 	"testing"
@@ -27,8 +28,8 @@ func (s *S) SetUpTest(c *C) {
 	var err error
 	s.store, err = store.Open(s.Addr)
 	c.Assert(err, IsNil)
-	store.SetLogger(c)
-	store.SetDebug(true)
+	log.Target = c
+	log.Debug = true
 }
 
 func (s *S) TearDownTest(c *C) {
