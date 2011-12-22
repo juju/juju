@@ -78,23 +78,26 @@ func dropRevisions(urls []*charm.URL) []*charm.URL {
 	return norev
 }
 
-// AddCharm prepares the store to have a single new charm added to it.
-// The revisionKey parameter should contain the VCS revision identifier
-// that represents the current charm content. An error is returned if
-// all of the provided urls are already associated to that revision key.
+// AddCharm prepares the store to have charm added to it at all of
+// the provided urls. The revisionKey parameter must contain the VCS
+// revision identifier that represents the current charm content.
+// An error is returned if all of the provided urls are already
+// associated to that revision key.
 // On success, wc must be used to stream the charm content onto the
 // store, and once wc is closed successfully the content will be
-// available at all of the provided urls. The returned revision will be
-// assigned to the charm, and it's equal to the maximum current revision
-// from all of the urls plus one.
-func (s *Store) AddCharm(urls []*charm.URL, revisionKey string) (wc io.WriteCloser, revision int, err error) {
+// available at all of the provided urls.
+// The returned revision number will be assigned to the charm in the
+// store, and it's equal to the maximum current revision from all of
+// the urls plus one. It is the caller's responsibility to ensure
+// that the charm content written to wc represents that revision.
+func (s *Store) AddCharm(charm charm.Charm, urls []*charm.URL, revisionKey string) (wc io.WriteCloser, revision int, err error) {
 	log.Printf("Trying to add charms %v with key %q...", urls, revisionKey)
 	urls = dropRevisions(urls)
 	session := s.session.Copy()
 	lock, err := session.LockUpdates(urls)
 	if err != nil {
 		session.Close()
-		return nil, err
+		return
 	}
 	defer func() {
 		if err != nil {
@@ -106,33 +109,35 @@ func (s *Store) AddCharm(urls []*charm.URL, revisionKey string) (wc io.WriteClos
 	maxRev := -1
 	newKey := false
 	charms := session.Charms()
-	charm := charmDoc{}
+	doc := charmDoc{}
 	for i := range urls {
 		urlStr := urls[i].String()
-		err := charms.Find(bson.D{{"url", urlStr}}).Sort(bson.D{{"revision", -1}}).One(&charm)
+		err = charms.Find(bson.D{{"url", urlStr}}).Sort(bson.D{{"revision", -1}}).One(&doc)
 		if err == mgo.NotFound {
 			log.Printf("Charm %s not yet in the store.", urlStr)
 			newKey = true
 			continue
 		}
-		if charm.RevisionKey != revisionKey {
+		if doc.RevisionKey != revisionKey {
 			log.Printf("Charm %s is out of date with revision key %q.", urlStr, revisionKey)
 			newKey = true
 		}
 		if err != nil {
 			log.Printf("Unknown error looking for charm %s: %s", urlStr, err)
-			return nil, err
+			return
 		}
-		if charm.Revision > maxRev {
-			maxRev = charm.Revision
+		if doc.Revision > maxRev {
+			maxRev = doc.Revision
 		}
 	}
 	if !newKey {
 		log.Printf("All charms have revision key %q. Nothing to update.", revisionKey)
-		return nil, UpdateIsCurrent
+		err = UpdateIsCurrent
+		return
 	}
-	log.Printf("Preparing writer to add charms with revision %d.", maxRev+1)
-	return &writer{session, nil, nil, urls, lock, maxRev + 1, revisionKey}, nil
+	revision = maxRev + 1
+	log.Printf("Preparing writer to add charms with revision %d.", revision)
+	return &writer{session, nil, nil, urls, lock, revision, revisionKey}, revision, nil
 }
 
 type writer struct {

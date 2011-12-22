@@ -21,6 +21,7 @@ var _ = Suite(&S{})
 type S struct {
 	MgoSuite
 	store *store.Store
+	charm *charm.Dir
 }
 
 func (s *S) SetUpTest(c *C) {
@@ -30,6 +31,11 @@ func (s *S) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	log.Target = c
 	log.Debug = true
+
+	// A charm to play around with.
+	dir, err := charm.ReadDir(repoDir("dummy"))
+	c.Assert(err, IsNil)
+	s.charm = dir
 }
 
 func (s *S) TearDownTest(c *C) {
@@ -46,11 +52,11 @@ func (s *S) TestAddCharm(c *C) {
 	urlB := charm.MustParseURL("cs:oneiric/wordpress-b-2")
 	urls := []*charm.URL{urlA, urlB}
 
-	wc, err := s.store.AddCharm(urls, "key")
+	wc, revno, err := s.store.AddCharm(s.charm, urls, "key")
 	c.Assert(err, IsNil)
-	dir, err := charm.ReadDir(repoDir("dummy"))
-	c.Assert(err, IsNil)
-	err = dir.BundleTo(wc)
+	c.Assert(revno, Equals, 0)
+
+	err = s.charm.BundleTo(wc)
 	c.Assert(err, IsNil)
 	err = wc.Close()
 	c.Assert(err, IsNil)
@@ -74,21 +80,24 @@ func (s *S) TestConflictingUpdates(c *C) {
 	urls := []*charm.URL{urlA, urlB}
 
 	// Initiate an update of B only to force a partial conflict.
-	wc, err := s.store.AddCharm(urls[1:], "key0")
+	wc, revno, err := s.store.AddCharm(s.charm, urls[1:], "key0")
 	c.Assert(err, IsNil)
+	c.Assert(revno, Equals, 0)
 
 	// Partially conflicts with in-progress update above.
-	wc2, err := s.store.AddCharm(urls, "key1")
+	wc2, revno, err := s.store.AddCharm(s.charm, urls, "key1")
 
 	cerr := wc.Close()
 	c.Assert(cerr, IsNil)
 
 	c.Assert(err, ErrorMatches, "charm update already in progress")
+	c.Assert(revno, Equals, 0)
 	c.Assert(wc2, IsNil)
 
 	// Trying again should work since wc was closed.
-	wc, err = s.store.AddCharm(urls, "key2")
+	wc, revno, err = s.store.AddCharm(s.charm, urls, "key2")
 	c.Assert(err, IsNil)
+	c.Assert(revno, Equals, 0)
 	_, err = wc.Write([]byte("rev0"))
 	cerr = wc.Close()
 	c.Assert(cerr, IsNil)
@@ -108,7 +117,7 @@ func (s *S) TestExpiringConflict(c *C) {
 	urls := []*charm.URL{urlA, urlB}
 
 	// Initiate an update of B only to force a partial conflict.
-	wc, err := s.store.AddCharm(urls[1:], "key0")
+	wc, _, err := s.store.AddCharm(s.charm, urls[1:], "key0")
 	c.Assert(err, IsNil)
 
 	_, err = wc.Write([]byte("rev0"))
@@ -122,8 +131,9 @@ func (s *S) TestExpiringConflict(c *C) {
 	c.Check(err, IsNil)
 
 	// Works due to expiration of previous lock.
-	wc2, err := s.store.AddCharm(urls, "key1")
+	wc2, revno, err := s.store.AddCharm(s.charm, urls, "key1")
 	c.Check(err, IsNil)
+	c.Check(revno, Equals, 0)
 
 	_, err = wc2.Write([]byte("rev0"))
 	c.Check(err, IsNil)
@@ -151,9 +161,10 @@ func (s *S) TestRevisioning(c *C) {
 		{urls[0:], "rev2"},
 	}
 
-	for _, t := range tests {
-		wc, err := s.store.AddCharm(t.urls, "key-" + t.data)
+	for i, t := range tests {
+		wc, revno, err := s.store.AddCharm(s.charm, t.urls, "key-" + t.data)
 		c.Assert(err, IsNil)
+		c.Assert(revno, Equals, i)
 		_, err = wc.Write([]byte(t.data))
 		cerr := wc.Close()
 		c.Assert(err, IsNil)
@@ -186,29 +197,33 @@ func (s *S) TestUpdateIsCurrent(c *C) {
 	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
 	urls := []*charm.URL{urlA, urlB}
 
-	wc, err := s.store.AddCharm(urls, "key0")
+	wc, revno, err := s.store.AddCharm(s.charm, urls, "key0")
 	c.Assert(err, IsNil)
+	c.Assert(revno, Equals, 0)
 	_, err = wc.Write([]byte("rev0"))
 	c.Assert(err, IsNil)
 	err = wc.Close()
 	c.Assert(err, IsNil)
 
 	// All charms are already on key1.
-	wc, err = s.store.AddCharm(urls, "key0")
+	wc, revno, err = s.store.AddCharm(s.charm, urls, "key0")
 	c.Assert(err, ErrorMatches, "charm is already up-to-date")
+	c.Assert(revno, Equals, 0)
 	c.Assert(wc, IsNil)
 
 	// Now add a second revision just for wordpress-b.
-	wc, err = s.store.AddCharm(urls[1:], "key1")
+	wc, revno, err = s.store.AddCharm(s.charm, urls[1:], "key1")
 	c.Assert(err, IsNil)
+	c.Assert(revno, Equals, 1)
 	_, err = wc.Write([]byte("rev1"))
 	c.Assert(err, IsNil)
 	err = wc.Close()
 	c.Assert(err, IsNil)
 
 	// Same key bumps revision because one of them was old.
-	wc, err = s.store.AddCharm(urls, "key1")
+	wc, revno, err = s.store.AddCharm(s.charm, urls, "key1")
 	c.Assert(err, IsNil)
+	c.Assert(revno, Equals, 2)
 	_, err = wc.Write([]byte("rev2"))
 	c.Assert(err, IsNil)
 	err = wc.Close()
@@ -219,8 +234,9 @@ func (s *S) TestSha256(c *C) {
 	url := charm.MustParseURL("cs:oneiric/wordpress")
 	urls := []*charm.URL{url}
 
-	wc, err := s.store.AddCharm(urls, "key")
+	wc, revno, err := s.store.AddCharm(s.charm, urls, "key")
 	c.Assert(err, IsNil)
+	c.Assert(revno, Equals, 0)
 	_, err = wc.Write([]byte("Hello world!"))
 	c.Assert(err, IsNil)
 	err = wc.Close()
