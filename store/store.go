@@ -1,3 +1,15 @@
+
+// The store package is capable of storing and updating charms in a MongoDB
+// database, as well as maintaining further information about them such as
+// the VCS revision the charm was loaded from and the urls in which the
+// charm should be available.
+//
+// The following MongoDB collections are currently used:
+//
+//     juju.charms    - Information about the stored charms
+//     juju.charmfs.* - GridFS with the charm files
+//     juju.locks     - Has unique keys with url of updating charms
+// 
 package store
 
 import (
@@ -67,13 +79,15 @@ func dropRevisions(urls []*charm.URL) []*charm.URL {
 }
 
 // AddCharm prepares the store to have a single new charm added to it.
-// The charm content should be written onto the store via wc, and once
-// wc is closed the charm will be made available at all of the provided
-// urls.
 // The revisionKey parameter should contain the VCS revision identifier
 // that represents the current charm content. An error is returned if
 // all of the provided urls are already associated to that revision key.
-func (s *Store) AddCharm(urls []*charm.URL, revisionKey string) (wc io.WriteCloser, err error) {
+// On success, wc must be used to stream the charm content onto the
+// store, and once wc is closed successfully the content will be
+// available at all of the provided urls. The returned revision will be
+// assigned to the charm, and it's equal to the maximum current revision
+// from all of the urls plus one.
+func (s *Store) AddCharm(urls []*charm.URL, revisionKey string) (wc io.WriteCloser, revision int, err error) {
 	log.Printf("Trying to add charms %v with key %q...", urls, revisionKey)
 	urls = dropRevisions(urls)
 	session := s.session.Copy()
@@ -271,9 +285,12 @@ func (s storeSession) CharmFS() *mgo.GridFS {
 }
 
 // LockUpdates acquires a server-side lock for updating a single charm
-// that is supposed to be made available in all of the provided URLs.
-// If the lock can't be acquired, an error will be immediately returned.
-// The locks will also expire after UpdateTimeout.
+// that is supposed to be made available in all of the provided urls.
+// If the lock can't be acquired in any of the urls, an error will be
+// immediately returned.
+// In the usual case, any locking done is undone when an error happens,
+// or when m.Unlock is called. In case something else goes wrong, the
+// locks will also expire after the period defined in UpdateTimeout.
 func (s storeSession) LockUpdates(urls []*charm.URL) (m *updateMutex, err error) {
 	keys := make([]string, len(urls))
 	for i := range urls {
