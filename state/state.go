@@ -2,24 +2,16 @@
 //
 // Copyright (c) 2011 Canonical Ltd.
 
+// The state package monitor reads and monitors the
+// state data stored in the passed ZooKeeper connection.
+// The access to the topology is via the topology type,
+// a concurrently working manager which is updated
+// automatically using a gozk watch.
 package state
 
-// --------------------
-// IMPORT
-// --------------------
-
 import (
-	"errors"
 	"launchpad.net/gozk/zookeeper"
 )
-
-// --------------------
-// CONST
-// --------------------
-
-// --------------------
-// STATE
-// --------------------
 
 // State is the entry point to get access to the states
 // of the parts of the managed environmens.
@@ -27,37 +19,35 @@ type State struct {
 	topology *topology
 }
 
-// Open returns a new or already created instance of
-// the state.
-func Open(zkc *zookeeper.Conn) (*State, error) {
-	t, err := retrieveTopology(zkc)
+// Open returns a new instance of the state.
+func Open(zk *zookeeper.Conn) (*State, error) {
+	t, err := newTopology(zk)
 
 	if err != nil {
-		return nil, errors.New("state: " + err.Error())
+		return nil, err
 	}
 
-	return &State{
-		topology: t,
-	}, nil
+	return &State{t}, nil
 }
 
 // Service returns a service state by name.
 func (s *State) Service(serviceName string) (*Service, error) {
+	var svc *Service
+
 	// Search inside topology.
-	result, err := s.topology.execute(func(tn topologyNodes) (interface{}, error) {
-		spath, _, serr := tn.search(func(p []string, v interface{}) bool {
-			if len(p) == 3 && p[0] == "services" && p[len(p)-1] == "name" && v == serviceName {
-				return true
+	err := s.topology.execute(func(td *topologyData) error {
+		for k, v := range td.Services {
+			if v.Name == serviceName {
+				svc = v
+
+				svc.topology = s.topology
+				svc.id = k
+
+				return nil
 			}
-
-			return false
-		})
-
-		if serr != nil {
-			return "", serr
 		}
 
-		return spath[1], nil
+		return ErrServiceNotFound
 	})
 
 	// Check the result of the command.
@@ -65,7 +55,7 @@ func (s *State) Service(serviceName string) (*Service, error) {
 		return nil, err
 	}
 
-	return newService(s.topology, result.(string), serviceName), nil
+	return svc, nil
 }
 
 // EOF

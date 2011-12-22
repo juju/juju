@@ -4,12 +4,11 @@
 
 package state
 
-// --------------------
-// IMPORT
-// --------------------
+import (
+	"errors"
+)
 
-// --------------------
-// UTIL
-// --------------------
-
-// EOF
+var (
+	ErrServiceNotFound = errors.New("state: named service cannot be found")
+	ErrUnitNotFound    = errors.New("service: named unit cannot be found")
+)

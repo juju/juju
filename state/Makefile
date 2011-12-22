@@ -7,7 +7,9 @@ TARG=launchpad.net/juju/go/state
 GOFILES=\
 	state.go\
 	service.go\
+	unit.go\
 	topology.go\
+	util.go\
 
 GOFMT=gofmt
 BADFMT:=$(shell $(GOFMT) -l $(GOFILES) $(CGOFILES) $(wildcard *_test.go))
