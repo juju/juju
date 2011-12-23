@@ -22,40 +22,17 @@ type State struct {
 // Open returns a new instance of the state.
 func Open(zk *zookeeper.Conn) (*State, error) {
 	t, err := newTopology(zk)
-
 	if err != nil {
 		return nil, err
 	}
-
 	return &State{t}, nil
 }
 
 // Service returns a service state by name.
-func (s *State) Service(serviceName string) (*Service, error) {
-	var svc *Service
-
-	// Search inside topology.
-	err := s.topology.execute(func(td *topologyData) error {
-		for k, v := range td.Services {
-			if v.Name == serviceName {
-				svc = v
-
-				svc.topology = s.topology
-				svc.id = k
-
-				return nil
-			}
-		}
-
-		return ErrServiceNotFound
-	})
-
-	// Check the result of the command.
+func (s *State) Service(n string) (*Service, error) {
+	id, err := s.topology.serviceIdByName(n)
 	if err != nil {
 		return nil, err
 	}
-
-	return svc, nil
+	return newService(s.topology, id, n), nil
 }
-
-// EOF

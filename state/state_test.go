@@ -7,7 +7,6 @@ package state
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"testing"
 	"time"
@@ -18,7 +17,6 @@ const testTopology = `
 services:
     s-0:
         name: service-zero
-        charm: my-charm-zero
         units:
             u-0:
                 sequence: 0
@@ -26,11 +24,9 @@ services:
                 sequence: 1
     s-1:
         name: service-one
-        charm: my-charm-one
         units:
     s-2:
         name: service-two
-        charm: my-charm-two
         units:
 unit-sequence:
     service-zero: 2
@@ -38,40 +34,20 @@ unit-sequence:
     service-two: 0
 `
 
-// modifiedTestTopology is the starting topology as YAML string.
-const modifiedTestTopology = `
-services:
-    s-0:
-        name: service-zero
-        charm: my-charm-zero-modified
-        units:
-            u-0:
-                sequence: 0
-            u-1:
-                sequence: 1
-    s-1:
-        name: service-one
-        charm: my-charm-one
-        units:
-    s-2:
-        name: service-two
-        charm: my-charm-two
-        units:
-unit-sequence:
-    service-zero: 2
-    service-one: 0
-    service-two: 0
-`
-
-// setTopology sets the topology nodes in ZooKeeper.
-func setTopology(zk *zookeeper.Conn, topology string, c *C) {
-	cf := func(ov string, os *zookeeper.Stat) (string, error) {
-		return topology, nil
+// initZooKeeper writes the initial test data to ZK.
+func initZooKeeper(zk *zookeeper.Conn, c *C) {
+	create := func(p, v string) {
+		if _, err := zk.Create(p, v, 0, zookeeper.WorldACL(zookeeper.PERM_ALL)); err != nil {
+			c.Fatal("Cannot set path '"+p+"' in ZooKeeper: ", err)
+		}
 	}
-
-	if err := zk.RetryChange("/topology", zookeeper.EPHEMERAL, zookeeper.WorldACL(zookeeper.PERM_ALL), cf); err != nil {
-		c.Fatal("Cannot set topology in ZooKeeper: ", err)
-	}
+	// Create nodes.
+	create("/services", "")
+	create("/services/s-0", "charm: my-charm-zero")
+	create("/services/s-1", "charm: my-charm-one")
+	create("/services/s-2", "charm: my-charm-two")
+	create("/services/s-2/exposed", "")
+	create("/topology", testTopology)
 }
 
 func TestPackage(t *testing.T) {
@@ -119,7 +95,7 @@ func (s *StateSuite) SetUpSuite(c *C) {
 		c.Fatal("Cannot establish ZooKeeper connection: ", err)
 	}
 
-	setTopology(s.zkConn, testTopology, c)
+	initZooKeeper(s.zkConn, c)
 }
 
 // TearDownSuite stops ZooKeeper.
@@ -136,27 +112,7 @@ func (s StateSuite) TestService(c *C) {
 	var err error
 	var state *State
 	var service *Service
-
-	state, err = Open(s.zkConn)
-
-	c.Assert(err, IsNil)
-	c.Assert(state, Not(IsNil))
-
-	service, err = state.Service("service-one")
-
-	c.Assert(err, IsNil)
-	c.Assert(service, Not(IsNil))
-	c.Assert(service.CharmId, Equals, "my-charm-one")
-}
-
-// TestUnit tests the Unit method of the Service.
-func (s StateSuite) TestUnit(c *C) {
-	c.Log("Test unit ...")
-
-	var err error
-	var state *State
-	var service *Service
-	var unit *Unit
+	var charmId string
 
 	state, err = Open(s.zkConn)
 
@@ -168,39 +124,8 @@ func (s StateSuite) TestUnit(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(service, Not(IsNil))
 
-	unit, err = service.Unit("u-1")
+	charmId, err = service.CharmId()
 
 	c.Assert(err, IsNil)
-	c.Assert(unit, Not(IsNil))
-	c.Assert(unit.Sequence, Equals, 1)
-
-	unit, err = service.Unit("illegal-id")
-
-	c.Assert(err, Equals, ErrUnitNotFound)
-	c.Assert(unit, IsNil)
-}
-
-// TestSync tests the synchronization after a topology modification,
-// here w/o ZooKeeper.
-func (s StateSuite) TestSyncWithoutZookeeper(c *C) {
-	c.Log("Test sync without ZooKeeper ...")
-
-	oldTD := newTopologyData()
-	err := goyaml.Unmarshal([]byte(testTopology), oldTD)
-
-	c.Assert(err, IsNil)
-
-	service := oldTD.Services["s-0"]
-
-	c.Assert(service.CharmId, Equals, "my-charm-zero")
-
-	newTD := newTopologyData()
-	err = goyaml.Unmarshal([]byte(modifiedTestTopology), newTD)
-
-	c.Assert(err, IsNil)
-	c.Assert(newTD.Services["s-0"].CharmId, Equals, "my-charm-zero-modified")
-
-	oldTD.sync(newTD)
-
-	c.Assert(service.CharmId, Equals, "my-charm-zero-modified")
+	c.Assert(charmId, Equals, "my-charm-zero")
 }

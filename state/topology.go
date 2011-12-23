@@ -13,175 +13,115 @@ const (
 	Version = 1
 )
 
-// commandFunc is a function that will be sent to the backend
-// to work on the topology data.
-type commandFunc func(*topologyData) error
-
-// command will be sent to the backend goroutine to perform
-// the task and return a possible error.
-type command struct {
-	cmd       commandFunc
-	errorChan chan error
+// ZkTopology is the data stored in ZK below "/topology". It's
+// used only internally for marshalling/unmarshalling. All
+// ZkXyz types sadly have to be public for this.
+type ZkTopology struct {
+	Version      int
+	Services     map[string]*ZkService
+	UnitSequence map[string]int "unit-sequence"
 }
 
-// newCommand creates a new command with the given task
-// and a new channel for the feedback.
-func newCommand(cf commandFunc) *command {
-	return &command{cf, make(chan error)}
-}
-
-// execute performs the command and returns a
-// possible error
-func (c *command) execute(td *topologyData) {
-	c.errorChan <- c.cmd(td)
-}
-
-// topologyData is the data stored inside a topology.
-type topologyData struct {
-	Version      int                 "version"
-	Services     map[string]*Service "services"
-	UnitSequence map[string]int      "unit-sequence"
-}
-
-// newTopologyData creates an initial empty topology data with
+// newZkTopology creates an initial empty topology with
 // version 1.
-func newTopologyData() *topologyData {
-	return &topologyData{
+func newZkTopology() *ZkTopology {
+	return &ZkTopology{
 		Version:      1,
-		Services:     make(map[string]*Service),
+		Services:     make(map[string]*ZkService),
 		UnitSequence: make(map[string]int),
 	}
 }
 
-// sync synchronizes the topology data with newly fetched
-// data. So existing instances will be updated or maybe even
-// invalidated and new ones added. This is done after receiving
-// a modification signal via the ZK channel.
-func (td *topologyData) sync(newTD *topologyData) error {
-	// 1. Version.
-	td.Version = newTD.Version
+// ZkService is the service stored in ZK. It's used only 
+// internally for marshalling/unmarshalling.
+type ZkService struct {
+	Name    string
+	Charm   string
+	Units   map[string]*ZkUnit
+	Exposed bool
+}
 
-	// 2. Services. First store current ids, then update
-	// or add new services and at last remove invalid
-	// services.
-	currentServiceIds := make(map[string]bool)
-
-	for id, _ := range td.Services {
-		currentServiceIds[id] = true
-	}
-
-	for id, s := range newTD.Services {
-		if currentService, ok := td.Services[id]; ok {
-			// Sync service and mark as synced.
-			// OPEN: How to handle exposed services?
-			currentService.sync(s)
-
-			delete(currentServiceIds, id)
-		} else {
-			// Add new service.
-			td.Services[id] = s
-		}
-	}
-
-	for id, _ := range currentServiceIds {
-		// Mark as exposed for those who still have references.
-		td.Services[id].Exposed = true
-
-		delete(td.Services, id)
-	}
-
-	// 3. UnitSequence. Just a simple map, so take the
-	// new one.
-	td.UnitSequence = newTD.UnitSequence
-
-	return nil
+// ZkUnit is the unit stored in ZK. It's used only internally
+// for marshalling/unmarshalling.
+type ZkUnit struct {
+	Sequence int
+	Exposed  bool
 }
 
 // topology is an internal helper handling the topology informations
-// inside of ZooKeeper.
+// inside of ZooKeeper. It also keeps the connection to ZooKeeper for
+// easier usage by the values. The raw topology is kept to check for
+// changes before unmarshalling.
 type topology struct {
-	zk          *zookeeper.Conn
-	zkEventChan <-chan zookeeper.Event
-	commandChan chan *command
-	data        *topologyData
+	zk                   *zookeeper.Conn
+	currentRawZkTopology string
+	currentZkTopology    *ZkTopology
 }
 
 // newTopology connects ZooKeeper, retrieves the data as YAML,
-// parses it and stores the data.
+// parses it and stores it.
 func newTopology(zk *zookeeper.Conn) (*topology, error) {
 	t := &topology{
-		zk:          zk,
-		commandChan: make(chan *command),
-		data:        newTopologyData(),
+		zk:                zk,
+		currentZkTopology: newZkTopology(),
 	}
-
-	rawData, _, ec, err := zk.GetW("/topology")
-
-	t.zkEventChan = ec
-
-	if err != nil {
+	if err := t.reload(); err != nil {
 		return nil, err
 	}
-
-	if err = goyaml.Unmarshal([]byte(rawData), t.data); err != nil {
-		return nil, err
-	}
-
-	go t.backend()
-
 	return t, nil
 }
 
-// execute sends a command function to the backend for execution. 
-// This way the execution is serialized.
-func (t *topology) execute(cf commandFunc) error {
-	cmd := newCommand(cf)
-
-	t.commandChan <- cmd
-
-	return <-cmd.errorChan
+// get provides a simple access to ZooKeeper including unmarshalling
+// into a map of strings to strings.
+func (t *topology) getStringMap(path string) (map[string]string, error) {
+	// Fetch raw data.
+	raw, _, err := t.zk.Get(path)
+	if err != nil {
+		return nil, err
+	}
+	// Unmarshal it.
+	sm := make(map[string]string)
+	if err = goyaml.Unmarshal([]byte(raw), sm); err != nil {
+		return nil, err
+	}
+	return sm, nil
 }
 
-// backend manages the topology as a goroutine.
-func (t *topology) backend() {
-	for {
-		select {
-		case evt := <-t.zkEventChan:
-			// Change happened inside the topology.
-			if !evt.Ok() {
-				// TODO: Error handling, logging!
-			}
-
-			switch evt.Type {
-			case zookeeper.EVENT_CHANGED:
-				// Reload the data and sync it.
-				t.sync()
-			}
-		case cmd := <-t.commandChan:
-			// Perform the given command on the
-			// topology nodes.
-			cmd.execute(t.data)
+// reload reloads the topology. Parsing is only done again if the
+// raw string has changed.
+func (t *topology) reload() error {
+	// Fetch raw topology.
+	raw, _, err := t.zk.Get("/topology")
+	if err != nil {
+		return err
+	}
+	// Check and unmarshal it.
+	if raw != t.currentRawZkTopology {
+		t.currentRawZkTopology = raw
+		if err = goyaml.Unmarshal([]byte(raw), t.currentZkTopology); err != nil {
+			return err
+		}
+		if t.currentZkTopology.Version != Version {
+			return ErrIncompatibleVersion
 		}
 	}
+	return nil
 }
 
-// sync retrieves and parses the topology from ZooKeeper. This
-// data is passed to the topology data to synchronize the topology
-// entities.
-func (t *topology) sync() error {
-	rawData, _, err := t.zk.Get("/topology")
+// version returns the version of the topology.
+func (t *topology) version() int {
+	return t.currentZkTopology.Version
+}
 
-	if err != nil {
-		// TODO: Error handling, logging!
-		return err
+// serviceIdByName returns the id of a service by its name.
+func (t *topology) serviceIdByName(n string) (string, error) {
+	if err := t.reload(); err != nil {
+		return "", err
 	}
-
-	td := newTopologyData()
-
-	if err = goyaml.Unmarshal([]byte(rawData), td); err != nil {
-		// TODO: Error handling, logging!
-		return err
+	for id, svc := range t.currentZkTopology.Services {
+		if svc.Name == n {
+			return id, nil
+		}
 	}
-
-	return t.data.sync(td)
+	return "", ErrServiceNotFound
 }

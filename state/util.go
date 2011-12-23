@@ -9,6 +9,8 @@ import (
 )
 
 var (
-	ErrServiceNotFound = errors.New("state: named service cannot be found")
-	ErrUnitNotFound    = errors.New("service: named unit cannot be found")
+	ErrIncompatibleVersion = errors.New("state: loaded topology has incompatible version")
+	ErrServiceNotFound     = errors.New("state: named service cannot be found")
+	ErrServiceHasNoCharmId = errors.New("state: service has no charm id")
+	ErrUnitNotFound        = errors.New("state: named unit cannot be found")
 )

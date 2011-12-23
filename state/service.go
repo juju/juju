@@ -6,19 +6,18 @@ package state
 
 import (
 	"fmt"
-	"sync"
 )
 
-// Service represents the state of a service
-// and its subordinate parts.
+// Service represents the state of a service.
 type Service struct {
-	writeLock sync.Mutex
-	topology  *topology
-	id        string
-	Exposed   bool             "exposed"
-	Name      string           "name"
-	CharmId   string           "charm"
-	Units     map[string]*Unit "units"
+	topology *topology
+	id       string
+	name     string
+}
+
+// newService returns a new service instance
+func newService(t *topology, id, name string) *Service {
+	return &Service{t, id, name}
 }
 
 // Id returns the service id.
@@ -26,77 +25,37 @@ func (s Service) Id() string {
 	return s.id
 }
 
-// Unit returns the unit with the given id.
-func (s Service) Unit(id string) (*Unit, error) {
-	unit, ok := s.Units[id]
-
-	if ok {
-		unit.topology = s.topology
-		unit.id = id
-
-		return unit, nil
-	}
-
-	return nil, ErrUnitNotFound
+// Name returns the service name.
+func (s Service) Name() string {
+	return s.name
 }
 
-// sync synchronizes the service after an update event. This
-// is done recurively with all entities below.
-func (s *Service) sync(newSvc *Service) error {
-	s.writeLock.Lock()
-	defer s.writeLock.Unlock()
+// CharmId returns the charm id this service is supposed
+// to use.
+func (s Service) CharmId() (string, error) {
+	sm, err := s.topology.getStringMap(s.zkPath())
 
-	// 1. Own fields.
-	s.Exposed = newSvc.Exposed
-	s.Name = newSvc.Name
-	s.CharmId = newSvc.CharmId
-
-	// 2. Units. First store current ids, then update
-	// or add new units and at last remove invalid
-	// units.
-	currentUnitIds := make(map[string]bool)
-
-	for id, _ := range s.Units {
-		currentUnitIds[id] = true
+	if err != nil {
+		return "", err
 	}
-
-	for id, u := range newSvc.Units {
-		if currentUnit, ok := s.Units[id]; ok {
-			// Sync unit and mark as synced.
-			// OPEN: How to handle exposed units?
-			if err := currentUnit.sync(u); err != nil {
-				return err
-			}
-
-			delete(currentUnitIds, id)
-		} else {
-			// Add new unit.
-			s.Units[id] = u
-		}
+	if charmId, ok := sm["charm"]; ok {
+		return charmId, nil
 	}
-
-	for id, _ := range currentUnitIds {
-		// Mark exposed, for those who still have references.
-		s.Units[id].Exposed = true
-
-		delete(s.Units, id)
-	}
-
-	return nil
+	return "", ErrServiceHasNoCharmId
 }
 
-// zookeeperPath returns the path within ZooKeeper.
-func (s Service) zookeeperPath() string {
+// zkPath returns the path within ZooKeeper.
+func (s Service) zkPath() string {
 	return fmt.Sprintf("/services/%s", s.id)
 }
 
-// configPath returns the ZooKeeper path to the configuration.
-func (s Service) configPath() string {
-	return fmt.Sprintf("%s/config", s.zookeeperPath())
+// zkConfigPath returns the ZooKeeper path to the configuration.
+func (s Service) zkConfigPath() string {
+	return fmt.Sprintf("%s/config", s.zkPath())
 }
 
-// exposedPath, if exists in ZooKeeper, indicates, that a
+// zkExposedPath, if exists in ZooKeeper, indicates, that a
 // service is exposed.
-func (s Service) exposedPath() string {
+func (s Service) zkExposedPath() string {
 	return fmt.Sprintf("/services/%s/exposed", s.id)
 }
