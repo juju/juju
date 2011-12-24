@@ -207,40 +207,54 @@ func (w *writer) Close() error {
 type CharmInfo struct {
 	Revision int
 	Sha256   string
+
+	// Internal
+	fileId   bson.ObjectId
 }
 
-// OpenCharm opens for reading via rc the charm currently available at url.
-// rc must necessarily be closed after dealing with it or resources
-// will leak.
-func (s *Store) OpenCharm(url *charm.URL) (rc io.ReadCloser, info *CharmInfo, err error) {
+// CharmInfo retrieves the CharmInfo value for the charm at url.
+func (s *Store) CharmInfo(url *charm.URL) (info *CharmInfo, err error) {
 	session := s.session.Copy()
+	defer session.Close()
 
-	log.Debugf("Opening charm %s.", url)
+	log.Debugf("Retrieving charm info for %s", url)
 	rev := url.Revision
 	url = url.WithRevision(-1)
 
 	charms := session.Charms()
-	var charm charmDoc
+	var cdoc charmDoc
 	var qdoc interface{}
 	if rev == -1 {
 		qdoc = bson.D{{"url", url.String()}}
 	} else {
 		qdoc = bson.D{{"url", url.String()}, {"revision", rev}}
 	}
-	err = charms.Find(qdoc).Sort(bson.D{{"revision", -1}}).One(&charm)
+	err = charms.Find(qdoc).Sort(bson.D{{"revision", -1}}).One(&cdoc)
 	if err != nil {
 		log.Printf("Failed to find charm %s: %v", url, err)
-		session.Close()
+		return nil, err
+	}
+	return &CharmInfo{cdoc.Revision, cdoc.Sha256, cdoc.FileId}, nil
+}
+
+// OpenCharm opens for reading via rc the charm currently available at url.
+// rc must necessarily be closed after dealing with it or resources
+// will leak.
+func (s *Store) OpenCharm(url *charm.URL) (info *CharmInfo, rc io.ReadCloser, err error) {
+	log.Debugf("Opening charm %s", url)
+	info, err = s.CharmInfo(url)
+	if err != nil {
 		return nil, nil, err
 	}
-
-	file, err := session.CharmFS().OpenId(charm.FileId)
+	session := s.session.Copy()
+	file, err := session.CharmFS().OpenId(info.fileId)
 	if err != nil {
 		log.Printf("Failed to open GridFS file for charm %s: %v", url, err)
 		session.Close()
 		return nil, nil, err
 	}
-	return &reader{session, file}, &CharmInfo{charm.Revision, charm.Sha256}, nil
+	rc = &reader{session, file}
+	return
 }
 
 type reader struct {
