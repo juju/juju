@@ -1,9 +1,10 @@
-package ec2
+package ec2_test
 
 import (
 	"fmt"
 	"io"
 	. "launchpad.net/gocheck"
+	eec2 "launchpad.net/juju/go/environs/ec2"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,12 +14,12 @@ import (
 // N.B. the image IDs in this test will need updating
 // if the image directory is regenerated.
 var imageTests = []struct {
-	constraint ImageConstraint
+	constraint eec2.ImageConstraint
 	imageId    string
 	err        string
 }{
-	{*DefaultImageConstraint, "ami-a7f539ce", ""},
-	{ImageConstraint{
+	{*eec2.DefaultImageConstraint, "ami-a7f539ce", ""},
+	{eec2.ImageConstraint{
 		UbuntuRelease:     "natty",
 		Architecture:      "amd64",
 		PersistentStorage: false,
@@ -26,7 +27,7 @@ var imageTests = []struct {
 		Daily:             true,
 		Desktop:           true,
 	}, "ami-19fdc16d", ""},
-	{ImageConstraint{
+	{eec2.ImageConstraint{
 		UbuntuRelease:     "natty",
 		Architecture:      "i386",
 		PersistentStorage: true,
@@ -34,7 +35,7 @@ var imageTests = []struct {
 		Daily:             true,
 		Desktop:           true,
 	}, "ami-cc9621cd", ""},
-	{ImageConstraint{
+	{eec2.ImageConstraint{
 		UbuntuRelease:     "natty",
 		Architecture:      "i386",
 		PersistentStorage: false,
@@ -42,7 +43,7 @@ var imageTests = []struct {
 		Daily:             true,
 		Desktop:           true,
 	}, "ami-62962163", ""},
-	{ImageConstraint{
+	{eec2.ImageConstraint{
 		UbuntuRelease:     "natty",
 		Architecture:      "amd64",
 		PersistentStorage: false,
@@ -50,7 +51,7 @@ var imageTests = []struct {
 		Daily:             true,
 		Desktop:           true,
 	}, "ami-a69621a7", ""},
-	{ImageConstraint{
+	{eec2.ImageConstraint{
 		UbuntuRelease:     "zingy",
 		Architecture:      "amd64",
 		PersistentStorage: false,
@@ -65,7 +66,7 @@ func (suite) TestFindImageSpec(c *C) {
 	defer setTransport(setTransport(http.NewFileTransport(http.Dir("images"))))
 
 	for i, t := range imageTests {
-		id, err := FindImageSpec(&t.constraint)
+		id, err := eec2.FindImageSpec(&t.constraint)
 		if t.err != "" {
 			c.Check(err, ErrorMatches, t.err, Bug("test %d", i))
 			c.Check(id, IsNil, Bug("test %d", i))

@@ -8,6 +8,12 @@ import (
 	"strings"
 )
 
+// configSuite must be a separate type because config_test is in
+// the ec2 package because it needs to access package internals.
+type configSuite struct{}
+
+var _ = Suite(configSuite{})
+
 var configTestRegion = aws.Region{
 	EC2Endpoint: "testregion.nowhere:1234",
 }
@@ -57,7 +63,7 @@ func makeEnv(s string) []byte {
 	return []byte("environments:\n  testenv:\n    type: ec2\n" + indent(s, "    "))
 }
 
-func (suite) TestConfig(c *C) {
+func (configSuite) TestConfig(c *C) {
 	Regions["configtest"] = configTestRegion
 	defer delete(Regions, "configtest")
 
@@ -93,6 +99,6 @@ func (t configTest) run(c *C) {
 	e, err := envs.Open("testenv")
 	c.Assert(err, IsNil)
 	c.Assert(e, NotNil)
-	c.Assert(e, FitsTypeOf, (*environ)(nil), Bug("environ %q", t.env))
-	c.Check(e.(*environ).config, Equals, t.config, Bug("environ %q", t.env))
+	c.Assert(e, FitsTypeOf, (*Environ)(nil), Bug("environ %q", t.env))
+	c.Check(e.(*Environ).config, Equals, t.config, Bug("environ %q", t.env))
 }
