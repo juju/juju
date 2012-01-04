@@ -2,37 +2,50 @@
 //
 // Copyright (c) 2011 Canonical Ltd.
 
-// The state package monitor reads and monitors the
-// state data stored in the passed ZooKeeper connection.
-// The access to the topology is via the topology type,
-// a concurrently working manager which is updated
-// automatically using a gozk watch.
+// The state package enables reading, observing, and changing
+// the state stored in ZooKeeper of a whole environment
+// managed by juju.
 package state
 
 import (
 	"launchpad.net/gozk/zookeeper"
 )
 
-// State is the entry point to get access to the states
-// of the parts of the managed environmens.
+// State enables reading, observing, and changing the state 
+// of a whole environment managed by juju.
 type State struct {
+	zk       *zookeeper.Conn
 	topology *topology
 }
 
-// Open returns a new instance of the state.
+// Open returns a new State representing the environment
+// being accessed through the ZooKeeper connection.
 func Open(zk *zookeeper.Conn) (*State, error) {
-	t, err := newTopology(zk)
+	t, err := readTopology(zk)
 	if err != nil {
 		return nil, err
 	}
-	return &State{t}, nil
+	return &State{zk, t}, nil
 }
 
 // Service returns a service state by name.
-func (s *State) Service(n string) (*Service, error) {
-	id, err := s.topology.serviceIdByName(n)
+func (s *State) Service(serviceName string) (*Service, error) {
+	id, err := s.topology.serviceIdByName(serviceName)
 	if err != nil {
 		return nil, err
 	}
-	return newService(s.topology, id, n), nil
+	return &Service{s.zk, id, serviceName}, nil
+}
+
+// Unit returns a unit by name.
+func (s *State) Unit(unitName string) (*Unit, error) {
+	serviceName, _, err := parseUnitName(unitName)
+	if err != nil {
+		return nil, err
+	}
+	service, err := s.Service(serviceName)
+	if err != nil {
+		return nil, err
+	}
+	return service.Unit(unitName)
 }

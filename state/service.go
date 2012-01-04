@@ -6,18 +6,14 @@ package state
 
 import (
 	"fmt"
+	"launchpad.net/gozk/zookeeper"
 )
 
 // Service represents the state of a service.
 type Service struct {
-	topology *topology
-	id       string
-	name     string
-}
-
-// newService returns a new service instance
-func newService(t *topology, id, name string) *Service {
-	return &Service{t, id, name}
+	zk   *zookeeper.Conn
+	id   string
+	name string
 }
 
 // Id returns the service id.
@@ -32,24 +28,43 @@ func (s Service) Name() string {
 
 // CharmId returns the charm id this service is supposed
 // to use.
-func (s Service) CharmId() (string, error) {
-	sm, err := s.topology.getStringMap(s.zkPath())
-
-	if err != nil {
-		return "", err
-	}
-	if charmId, ok := sm["charm"]; ok {
-		return charmId, nil
-	}
-	return "", ErrServiceHasNoCharmId
+func (s Service) CharmId() (charmId string, err error) {
+	return zkStringMapField(s.zk, s.zkPath(), "charm")
 }
 
-// zkPath returns the path within ZooKeeper.
+// Unit returns a unit by name.
+func (s Service) Unit(unitName string) (*Unit, error) {
+	serviceName, sequenceNo, err := parseUnitName(unitName)
+	if err != nil {
+		return nil, err
+	}
+	// Check for matching service name.
+	if serviceName != s.name {
+		return nil, newError("service name '%v' of unit does not match with service name '%v'",
+			serviceName, s.name)
+	}
+	// Check if the topology has been changed.
+	topology, err := readTopology(s.zk)
+	if err != nil {
+		return nil, err
+	}
+	if !topology.hasService(s.id) {
+		return nil, newError("service state has changed")
+	}
+	// Read unit id and create unit.
+	unitId, err := topology.unitIdBySequence(s.id, sequenceNo)
+	if err != nil {
+		return nil, err
+	}
+	return &Unit{s.zk, unitId, s.id, serviceName, sequenceNo}, nil
+}
+
+// zkPath returns the ZooKeeper base path for the service.
 func (s Service) zkPath() string {
 	return fmt.Sprintf("/services/%s", s.id)
 }
 
-// zkConfigPath returns the ZooKeeper path to the configuration.
+// zkConfigPath returns the ZooKeeper path for the service configuration.
 func (s Service) zkConfigPath() string {
 	return fmt.Sprintf("%s/config", s.zkPath())
 }

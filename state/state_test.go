@@ -9,58 +9,30 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
 	"testing"
-	"time"
 )
 
-// testTopology is the starting topology as YAML string.
-const testTopology = `
-services:
-    s-0:
-        name: service-zero
-        units:
-            u-0:
-                sequence: 0
-            u-1:
-                sequence: 1
-    s-1:
-        name: service-one
-        units:
-    s-2:
-        name: service-two
-        units:
-unit-sequence:
-    service-zero: 2
-    service-one: 0
-    service-two: 0
-`
-
-// initZooKeeper writes the initial test data to ZK.
-func initZooKeeper(zk *zookeeper.Conn, c *C) {
-	create := func(p, v string) {
-		if _, err := zk.Create(p, v, 0, zookeeper.WorldACL(zookeeper.PERM_ALL)); err != nil {
-			c.Fatal("Cannot set path '"+p+"' in ZooKeeper: ", err)
-		}
+// zkCreate is a simple helper to create test scenarios in ZooKeeper.
+func zkCreate(zk *zookeeper.Conn, p, v string, c *C) {
+	if _, err := zk.Create(p, v, 0, zookeeper.WorldACL(zookeeper.PERM_ALL)); err != nil {
+		c.Fatal("Cannot set path '"+p+"' in ZooKeeper: ", err)
 	}
-	// Create nodes.
-	create("/services", "")
-	create("/services/s-0", "charm: my-charm-zero")
-	create("/services/s-1", "charm: my-charm-one")
-	create("/services/s-2", "charm: my-charm-two")
-	create("/services/s-2/exposed", "")
-	create("/topology", testTopology)
 }
 
+// TestPackage integrates the tests into gotest.
 func TestPackage(t *testing.T) {
 	TestingT(t)
 }
 
 // StateSuite for State and the related types.
 type StateSuite struct {
-	zkServer   *zookeeper.Server
-	zkConn     *zookeeper.Conn
-	zkTestRoot string
-	zkTestPort int
-	zkAddr     string
+	zkServer       *zookeeper.Server
+	zkTestRoot     string
+	zkTestPort     int
+	zkAddr         string
+	handles        []*zookeeper.Conn
+	events         []*zookeeper.Event
+	liveEventChans int
+	deadEventChans chan bool
 }
 
 var _ = Suite(&StateSuite{})
@@ -68,34 +40,22 @@ var _ = Suite(&StateSuite{})
 // SetUpSuite starts and inits ZooKeeper.
 func (s *StateSuite) SetUpSuite(c *C) {
 	var err error
-
-	// Start server.
 	s.zkTestRoot = c.MkDir() + "/zookeeper"
 	s.zkTestPort = 21812
 	s.zkAddr = fmt.Sprint("localhost:", s.zkTestPort)
+	s.deadEventChans = make(chan bool)
 
+	// Create server.
 	s.zkServer, err = zookeeper.CreateServer(s.zkTestPort, s.zkTestRoot, "")
-
 	if err != nil {
 		c.Fatal("Cannot set up ZooKeeper server environment: ", err)
 	}
 
+	// Start server.
 	err = s.zkServer.Start()
-
 	if err != nil {
 		c.Fatal("Cannot start ZooKeeper server: ", err)
 	}
-
-	// Establish connections after 30 seconds."
-	time.Sleep(30e9)
-
-	s.zkConn, _, err = zookeeper.Dial(s.zkAddr, 5e9)
-
-	if err != nil {
-		c.Fatal("Cannot establish ZooKeeper connection: ", err)
-	}
-
-	initZooKeeper(s.zkConn, c)
 }
 
 // TearDownSuite stops ZooKeeper.
@@ -105,27 +65,109 @@ func (s *StateSuite) TearDownSuite(c *C) {
 	}
 }
 
-// TestService tests the Service  method of the State.
-func (s StateSuite) TestService(c *C) {
-	c.Log("Test service ...")
-
-	var err error
-	var state *State
-	var service *Service
-	var charmId string
-
-	state, err = Open(s.zkConn)
-
+// init establishes a connection to ZooKeeper returns it together with the
+// event channel.
+func (s *StateSuite) init(c *C) (*zookeeper.Conn, <-chan zookeeper.Event) {
+	// Connect the server.
+	conn, eventChan, err := zookeeper.Dial(s.zkAddr, 5e9)
 	c.Assert(err, IsNil)
-	c.Assert(state, Not(IsNil))
 
-	service, err = state.Service("service-zero")
+	// Wait for connect signal.
+	event := <-eventChan
+	c.Assert(event.Type, Equals, zookeeper.EVENT_SESSION)
+	c.Assert(event.State, Equals, zookeeper.STATE_CONNECTED)
 
+	return conn, eventChan
+}
+
+// done closes a ZooKeeper connection.
+func (s *StateSuite) done(zk *zookeeper.Conn, c *C) {
+	// Delete possible nodes, ignore errors.
+	zk.Delete("/services/service-0", -1)
+	zk.Delete("/services", -1)
+	zk.Delete("/topology", -1)
+	zk.Delete("/units", -1)
+	zk.Close()
+}
+
+// TestReadService tests reading operations on services.
+func (s StateSuite) TestReadService(c *C) {
+	zk, _ := s.init(c)
+	defer s.done(zk, c)
+
+	// Create test scenario.
+	zkCreate(zk, "/services", "", c)
+	zkCreate(zk, "/services/service-0", "charm: local:series/dummy-1", c)
+	zkCreate(zk, "/topology", `
+services:
+    service-0:
+        name: wordpress
+`, c)
+
+	// Open state.
+	state, err := Open(zk)
 	c.Assert(err, IsNil)
-	c.Assert(service, Not(IsNil))
 
-	charmId, err = service.CharmId()
-
+	// Retrieve legal service.
+	service, err := state.Service("wordpress")
 	c.Assert(err, IsNil)
-	c.Assert(charmId, Equals, "my-charm-zero")
+	c.Assert(service.Id(), Equals, "service-0")
+	c.Assert(service.Name(), Equals, "wordpress")
+
+	// Retrieve charm id of legal service.
+	charmId, err := service.CharmId()
+	c.Assert(err, IsNil)
+	c.Assert(charmId, Equals, "local:series/dummy-1")
+
+	// Retrieve illegal service.
+	service, err = state.Service("pressword")
+	c.Assert(err, Not(IsNil))
+}
+
+// TestReadUnit tests reading on units.
+func (s StateSuite) TestReadUnit(c *C) {
+	zk, _ := s.init(c)
+	defer s.done(zk, c)
+
+	// Create test scenario.
+	zkCreate(zk, "/services", "", c)
+	zkCreate(zk, "/services/service-0", "charm: local:series/dummy-1", c)
+	zkCreate(zk, "/topology", `
+services:
+    service-0:
+        name: wordpress
+        units:
+            unit-0:
+                sequence: 0
+`, c)
+	zkCreate(zk, "/units", "", c)
+	zkCreate(zk, "/units/unit-0", "charm: local:series/dummy-1", c)
+
+	// Open state.
+	state, err := Open(zk)
+	c.Assert(err, IsNil)
+
+	// Retrieve legal service.
+	service, err := state.Service("wordpress")
+	c.Assert(err, IsNil)
+
+	// Retrieve legal unit.
+	unit, err := service.Unit("wordpress/0")
+	c.Assert(err, IsNil)
+	c.Assert(unit.Id(), Equals, "unit-0")
+	c.Assert(unit.Name(), Equals, "wordpress/0")
+
+	// Retrieve illegal unit names and illegal units.
+	unit, err = service.Unit("wordpress")
+	c.Assert(err, Not(IsNil))
+	unit, err = service.Unit("wordpress/0/0")
+	c.Assert(err, Not(IsNil))
+	unit, err = service.Unit("pressword/0")
+	c.Assert(err, Not(IsNil))
+
+	// Retrieve legal unit directly from state.
+	unit, err = state.Unit("wordpress/0")
+	c.Assert(err, IsNil)
+	c.Assert(unit.Id(), Equals, "unit-0")
+	c.Assert(unit.Name(), Equals, "wordpress/0")
 }
