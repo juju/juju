@@ -25,8 +25,6 @@ import (
 	"sort"
 )
 
-// TODO: Add meta and config information.
-
 var (
 	UpdateConflict  = errors.New("charm update already in progress")
 	UpdateIsCurrent = errors.New("charm is already up-to-date")
@@ -205,11 +203,19 @@ func (w *writer) Close() error {
 }
 
 type CharmInfo struct {
-	Revision int
-	Sha256   string
-
-	// Internal
+	revision int
+	sha256   string
 	fileId   bson.ObjectId
+}
+
+// Revision returns the store charm's revision.
+func (ci *CharmInfo) Revision() int {
+	return ci.revision
+}
+
+// Revision returns the sha256 checksum for the stored charm bundle.
+func (ci *CharmInfo) Sha256() string {
+	return ci.sha256
 }
 
 // CharmInfo retrieves the CharmInfo value for the charm at url.

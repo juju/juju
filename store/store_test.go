@@ -66,7 +66,7 @@ func (s *S) TestAddCharm(c *C) {
 		c.Assert(err, IsNil)
 		data, err := ioutil.ReadAll(rc)
 		err = rc.Close()
-		c.Assert(info.Revision, Equals, 0)
+		c.Assert(info.Revision(), Equals, 0)
 		c.Assert(err, IsNil)
 		bundle, err := charm.ReadBundleBytes(data)
 		c.Assert(err, IsNil)
@@ -110,7 +110,7 @@ func (s *S) TestConflictingUpdates(c *C) {
 	// Must be revision 0 since initial updates didn't write.
 	info, rc, err := s.store.OpenCharm(urls[1])
 	c.Assert(err, IsNil)
-	c.Assert(info.Revision, Equals, 0)
+	c.Assert(info.Revision(), Equals, 0)
 	err = rc.Close()
 	c.Assert(err, IsNil)
 }
@@ -182,7 +182,7 @@ func (s *S) TestRevisioning(c *C) {
 			c.Assert(err, IsNil)
 			data, err := ioutil.ReadAll(rc)
 			cerr := rc.Close()
-			c.Assert(info.Revision, Equals, i)
+			c.Assert(info.Revision(), Equals, i)
 			c.Assert(url.Revision, Equals, i) // Untouched.
 			c.Assert(cerr, IsNil)
 			c.Assert(string(data), Equals, string(t.data))
@@ -248,7 +248,7 @@ func (s *S) TestSha256(c *C) {
 
 	info, rc, err := s.store.OpenCharm(url)
 	c.Assert(err, IsNil)
-	c.Check(info.Sha256, Equals, "c0535e4be2b79ffd93291305436bf889314e4a3faec05ecffcbb7df31ad9e51a")
+	c.Check(info.Sha256(), Equals, "c0535e4be2b79ffd93291305436bf889314e4a3faec05ecffcbb7df31ad9e51a")
 	err = rc.Close()
 	c.Check(err, IsNil)
 }
