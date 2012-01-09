@@ -1,6 +1,6 @@
 // launchpad.net/juju/state
 //
-// Copyright (c) 2011 Canonical Ltd.
+// Copyright (c) 2011-2012 Canonical Ltd.
 
 package state
 
@@ -45,4 +45,20 @@ func zkStringMapField(zk *zookeeper.Conn, path, field string) (string, error) {
 		return "", newError("cannot find field '%s' in path '%s'", field, path)
 	}
 	return value, nil
+}
+
+// zkRemoveTree recursively removes a tree.
+func zkRemoveTree(zk *zookeeper.Conn, path string) error {
+	// First recursively delete the cildren.
+	children, _, err := zk.Children(path)
+	if err != nil {
+		return err
+	}
+	for _, child := range children {
+		if err = zkRemoveTree(zk, fmt.Sprintf("%s/%s", path, child)); err != nil {
+			return err
+		}
+	}
+	// Now delete the path itself.
+	return zk.Delete(path, -1)
 }

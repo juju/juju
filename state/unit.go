@@ -1,6 +1,6 @@
 // launchpad.net/juju/state
 //
-// Copyright (c) 2011 Canonical Ltd.
+// Copyright (c) 2011-2012 Canonical Ltd.
 
 package state
 
@@ -35,6 +35,28 @@ func (u Unit) Id() string {
 // name and the sequence number.
 func (u Unit) Name() string {
 	return fmt.Sprintf("%s/%d", u.serviceName, u.sequenceNo)
+}
+
+// UnassignFromMachine removes the assignment between this unit and
+// any machine it's assigned to.
+func (u Unit) UnassignFromMachine() error {
+	unassignUnit := func(t *topology) error {
+		if !t.hasService(u.id) || !t.hasUnit(u.serviceId, u.id) {
+			return newError("service state has changed")
+		}
+		// If for whatever reason it's already not assigned to a
+		// machine, ignore it and move forward so that we don't
+		// have to deal with conflicts.
+		machineId, err := t.unitMachineId(u.serviceId, u.id)
+		if err != nil {
+			return err
+		}
+		if machineId != "" {
+			t.unassignUnitFromMachine(u.serviceId, u.id)
+		}
+		return nil
+	}
+	return retryTopologyChange(u.zk, unassignUnit)
 }
 
 // zkPortsPath returns the ZooKeeper path for the open ports.

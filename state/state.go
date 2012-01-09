@@ -1,6 +1,6 @@
 // launchpad.net/juju/state
 //
-// Copyright (c) 2011 Canonical Ltd.
+// Copyright (c) 2011-2012 Canonical Ltd.
 
 // The state package enables reading, observing, and changing
 // the state stored in ZooKeeper of a whole environment
