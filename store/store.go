@@ -135,13 +135,14 @@ func (s *Store) AddCharm(charm charm.Charm, urls []*charm.URL, revisionKey strin
 	}
 	revision = maxRev + 1
 	log.Printf("Preparing writer to add charms with revision %d.", revision)
-	return &writer{session, nil, nil, urls, lock, revision, revisionKey}, revision, nil
+	return &writer{session, nil, nil, charm, urls, lock, revision, revisionKey}, revision, nil
 }
 
 type writer struct {
 	session  storeSession
 	file     *mgo.GridFile
 	sha256   hash.Hash
+	charm    charm.Charm
 	urls     []*charm.URL
 	lock     *updateMutex
 	revision int
@@ -191,6 +192,8 @@ func (w *writer) Close() error {
 			w.revKey,
 			sha256,
 			id.(bson.ObjectId),
+			w.charm.Meta(),
+			w.charm.Config(),
 		}
 		err := charms.Insert(&charm)
 		if err != nil {
@@ -206,7 +209,12 @@ type CharmInfo struct {
 	revision int
 	sha256   string
 	fileId   bson.ObjectId
+	meta     *charm.Meta
+	config   *charm.Config
 }
+
+// Statically ensure CharmInfo is a charm.Charm.
+var _ charm.Charm = (*CharmInfo)(nil)
 
 // Revision returns the store charm's revision.
 func (ci *CharmInfo) Revision() int {
@@ -216,6 +224,16 @@ func (ci *CharmInfo) Revision() int {
 // Revision returns the sha256 checksum for the stored charm bundle.
 func (ci *CharmInfo) Sha256() string {
 	return ci.sha256
+}
+
+// Meta returns the charm.Meta details for the stored charm.
+func (ci *CharmInfo) Meta() *charm.Meta {
+	return ci.meta
+}
+
+// Config returns the charm.Config details for the stored charm.
+func (ci *CharmInfo) Config() *charm.Config {
+	return ci.config
 }
 
 // CharmInfo retrieves the CharmInfo value for the charm at url.
@@ -240,7 +258,7 @@ func (s *Store) CharmInfo(url *charm.URL) (info *CharmInfo, err error) {
 		log.Printf("Failed to find charm %s: %v", url, err)
 		return nil, err
 	}
-	return &CharmInfo{cdoc.Revision, cdoc.Sha256, cdoc.FileId}, nil
+	return &CharmInfo{cdoc.Revision, cdoc.Sha256, cdoc.FileId, cdoc.Meta, cdoc.Config}, nil
 }
 
 // OpenCharm opens for reading via rc the charm currently available at url.
@@ -287,6 +305,8 @@ type charmDoc struct {
 	RevisionKey string
 	Sha256      string
 	FileId      bson.ObjectId
+	Meta        *charm.Meta
+	Config      *charm.Config
 }
 
 // storeSession wraps a mgo.Session ands adds a few convenience methods.

@@ -70,7 +70,15 @@ func (s *S) TestAddCharm(c *C) {
 		c.Assert(err, IsNil)
 		bundle, err := charm.ReadBundleBytes(data)
 		c.Assert(err, IsNil)
+
+		// The same information must be available by reading the
+		// full charm data..
 		c.Assert(bundle.Meta().Name, Equals, "dummy")
+		c.Assert(bundle.Config().Options["title"].Default, Equals, "My Title")
+
+		// .. and the queriable details.
+		c.Assert(info.Meta().Name, Equals, "dummy")
+		c.Assert(info.Config().Options["title"].Default, Equals, "My Title")
 
 		info2, err := s.store.CharmInfo(url.WithRevision(-1))
 		c.Assert(err, IsNil)
