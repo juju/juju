@@ -103,10 +103,10 @@ func (t *localTests) testInstanceGroups(c *C, conn *ec2.EC2) {
 
 	ec2conn := env.(*eec2.Environ).EC2
 
-	gnames := []string{
-		fmt.Sprintf("juju-%s", t.Name),
-		fmt.Sprintf("juju-%s-%d", t.Name, 98),
-		fmt.Sprintf("juju-%s-%d", t.Name, 99),
+	groups := []ec2.SecurityGroup{
+		{Name: fmt.Sprintf("juju-%s", t.Name)},
+		{Name: fmt.Sprintf("juju-%s-%d", t.Name, 98)},
+		{Name: fmt.Sprintf("juju-%s-%d", t.Name, 99)},
 	}
 
 	inst0, err := env.StartInstance(98)
@@ -116,7 +116,7 @@ func (t *localTests) testInstanceGroups(c *C, conn *ec2.EC2) {
 	// create a same-named group for the second instance
 	// before starting it, to check that it's deleted and
 	// recreated correctly.
-	oldGroupId := ensureGroupExists(c, ec2conn, gnames[2], "old group")
+	oldGroup := ensureGroupExists(c, ec2conn, groups[2], "old group")
 
 	inst1, err := env.StartInstance(99)
 	c.Assert(err, IsNil)
@@ -126,23 +126,22 @@ func (t *localTests) testInstanceGroups(c *C, conn *ec2.EC2) {
 	// been put into the correct groups.
 
 	// first check that the groups have been created.
-	groupsResp, err := ec2conn.SecurityGroups(gnames, nil)
+	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
 	c.Assert(err, IsNil)
-	c.Assert(len(groupsResp.SecurityGroups), Equals, len(gnames))
+	c.Assert(len(groupsResp.Groups), Equals, len(groups))
 
-	// find the SecurityGroup for each group name
-	groups := make([]ec2.SecurityGroup, len(gnames))
-	for i, name := range gnames {
+	// fill out the security group ids
+	for i, group := range groups {
 		found := false
-		for j, g := range groupsResp.SecurityGroups {
-			if g.GroupName == name {
-				groups[i] = g
+		for _, g := range groupsResp.Groups {
+			if g.Name == group.Name {
+				groups[i].Id = g.Id
 				found = true
 				break
 			}
 		}
 		if !found {
-			c.Fatalf("group %q not found", name)
+			c.Fatalf("group %q not found", group.Name)
 		}
 	}
 
@@ -160,7 +159,7 @@ func (t *localTests) testInstanceGroups(c *C, conn *ec2.EC2) {
 			c.Assert(hasSecurityGroup(r, groups[2]), Equals, false)
 		case inst1.Id():
 			c.Assert(hasSecurityGroup(r, groups[2]), Equals, true)
-			c.Assert(groups[2].GroupId, Not(Equals), oldGroupId)
+			c.Assert(groups[2].Id, Not(Equals), oldGroup.Id)
 			c.Assert(hasSecurityGroup(r, groups[1]), Equals, false)
 		default:
 			c.Errorf("unknown instance found: %v", inst)
@@ -169,29 +168,24 @@ func (t *localTests) testInstanceGroups(c *C, conn *ec2.EC2) {
 }
 
 // createGroup creates a new EC2 group if it doesn't already
-// exist, and returns the id of the group.
-func ensureGroupExists(c *C, ec2conn *ec2.EC2, name, descr string) string {
-	groups, err := ec2conn.SecurityGroups([]string{name}, nil)
+// exist, and returns full SecurityGroup.
+func ensureGroupExists(c *C, ec2conn *ec2.EC2, group ec2.SecurityGroup, descr string) ec2.SecurityGroup {
+	groups, err := ec2conn.SecurityGroups([]ec2.SecurityGroup{group}, nil)
 	c.Assert(err, IsNil)
 
-	if len(groups) > 0 {
-		return groups[0].GroupId
+	if len(groups.Groups) > 0 {
+		return groups.Groups[0].SecurityGroup
 	}
 
-	_, err = ec2conn.CreateSecurityGroup(jujuGroupName, "juju group for "+e.name)
+	resp, err := ec2conn.CreateSecurityGroup(group.Name, descr)
 	c.Assert(err, IsNil)
 
-	groups, err = ec2conn.SecurityGroups([]string{name}, nil)
-	c.Assert(err, IsNil)
-
-	// current version of API means we have to query the security
-	// groups to get the group id.
-	return groups[0].GroupId
+	return resp.SecurityGroup
 }
 
 func hasSecurityGroup(r ec2.Reservation, g ec2.SecurityGroup) bool {
-	for _, id := range r.SecurityGroups {
-		if id == g.GroupId {
+	for _, rg := range r.SecurityGroups {
+		if rg.Id == g.Id {
 			return true
 		}
 	}

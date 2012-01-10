@@ -53,7 +53,7 @@ func (e *Environ) StartInstance(machineId int) (environs.Instance, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
 	}
-	_, err = e.setUpGroups(machineId)
+	err = e.setUpGroups(machineId)
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
@@ -127,41 +127,31 @@ func (e *Environ) groupName() string {
 // implicitly defined by the environment name. In addition, a
 // specific machine security group is created for each machine,
 // so that its firewall rules can be configured per machine.
-//
-// setUpGroups returns a slice of the group names used.
-func (e *Environ) setUpGroups(machineId int) ([]string, error) {
+func (e *Environ) setUpGroups(machineId int) error {
 	groups, err := e.EC2.SecurityGroups(nil, nil)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get security groups: %v", err)
+		return fmt.Errorf("cannot get security groups: %v", err)
 	}
-	jujuGroupName := e.groupName()
-	jujuMachineGroupName := e.machineGroupName(machineId)
+	jujuGroup := ec2.SecurityGroup{Name: e.groupName()}
+	jujuMachineGroup := ec2.SecurityGroup{Name: e.machineGroupName(machineId)}
 
 	hasJujuGroup := false
 	hasJujuMachineGroup := false
 
-	for _, g := range groups.SecurityGroups {
-		switch g.GroupName {
-		case jujuGroupName:
+	for _, g := range groups.Groups {
+		switch g.Name {
+		case jujuGroup.Name:
 			hasJujuGroup = true
-		case jujuMachineGroupName:
+		case jujuMachineGroup.Name:
 			hasJujuMachineGroup = true
 		}
 	}
 
 	// Create the provider group if doesn't exist.
 	if !hasJujuGroup {
-		_, err := e.EC2.CreateSecurityGroup(jujuGroupName, "juju group for "+e.name)
+		_, err := e.EC2.CreateSecurityGroup(jujuGroup.Name, "juju group for "+e.name)
 		if err != nil {
-			return nil, fmt.Errorf("cannot create juju security group: %v", err)
-		}
-		// we need to get the group to pick up the owner id for auth.
-		groups, err := e.EC2.SecurityGroups([]string{jujuGroupName}, nil)
-		if err != nil {
-			return nil, fmt.Errorf("cannot re-get security groups: %v", err)
-		}
-		if len(groups.SecurityGroups) != 1 {
-			return nil, fmt.Errorf("expected 1 match for juju security group, got %d", len(groups.SecurityGroups))
+			return fmt.Errorf("cannot create juju security group: %v", err)
 		}
 	}
 
@@ -169,13 +159,16 @@ func (e *Environ) setUpGroups(machineId int) ([]string, error) {
 	// one already existing from a previous machine launch;
 	// if so, delete it, since it can have the wrong firewall setup
 	if hasJujuMachineGroup {
-		_, err := e.EC2.DeleteSecurityGroup(jujuMachineGroupName)
+		_, err := e.EC2.DeleteSecurityGroup(jujuMachineGroup)
 		if err != nil {
-			return nil, fmt.Errorf("cannot delete old security group %q: %v", jujuMachineGroupName, err)
+			return fmt.Errorf("cannot delete old security group %q: %v", jujuMachineGroup.Name, err)
 		}
 	}
 	descr := fmt.Sprintf("juju group for %s machine %d", e.name, machineId)
-	_, err = e.EC2.CreateSecurityGroup(jujuMachineGroupName, descr)
+	_, err = e.EC2.CreateSecurityGroup(jujuMachineGroup.Name, descr)
+	if err != nil {
+		return fmt.Errorf("cannot create machine group %q: %v", err)
+	}
 
-	return []string{jujuGroupName, jujuMachineGroupName}, nil
+	return err
 }
