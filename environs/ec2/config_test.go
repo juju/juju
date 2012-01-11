@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-// configSuite must be a separate type because config_test is in
-// the ec2 package because it needs to access package internals.
+// Use local suite since this file lives in the ec2 package
+// for testing internals.
 type configSuite struct{}
 
 var _ = Suite(configSuite{})
@@ -99,6 +99,6 @@ func (t configTest) run(c *C) {
 	e, err := envs.Open("testenv")
 	c.Assert(err, IsNil)
 	c.Assert(e, NotNil)
-	c.Assert(e, FitsTypeOf, (*Environ)(nil), Bug("environ %q", t.env))
-	c.Check(e.(*Environ).config, Equals, t.config, Bug("environ %q", t.env))
+	c.Assert(e, FitsTypeOf, (*environ)(nil), Bug("environ %q", t.env))
+	c.Check(e.(*environ).config, Equals, t.config, Bug("environ %q", t.env))
 }

@@ -14,13 +14,13 @@ type environProvider struct{}
 
 var _ environs.EnvironProvider = environProvider{}
 
-type Environ struct {
+type environ struct {
 	name   string
 	config *providerConfig
-	EC2    *ec2.EC2
+	ec2    *ec2.EC2
 }
 
-var _ environs.Environ = (*Environ)(nil)
+var _ environs.Environ = (*environ)(nil)
 
 type instance struct {
 	*ec2.Instance
@@ -41,14 +41,14 @@ func (environProvider) Open(name string, config interface{}) (e environs.Environ
 	if Regions[cfg.region].EC2Endpoint == "" {
 		return nil, fmt.Errorf("no ec2 endpoint found for region %q, opening %q", cfg.region, name)
 	}
-	return &Environ{
+	return &environ{
 		name:   name,
 		config: cfg,
-		EC2:    ec2.New(cfg.auth, Regions[cfg.region]),
+		ec2:    ec2.New(cfg.auth, Regions[cfg.region]),
 	}, nil
 }
 
-func (e *Environ) StartInstance(machineId int) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId int) (environs.Instance, error) {
 	image, err := FindImageSpec(DefaultImageConstraint)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
@@ -57,7 +57,7 @@ func (e *Environ) StartInstance(machineId int) (environs.Instance, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
-	instances, err := e.EC2.RunInstances(&ec2.RunInstances{
+	instances, err := e.ec2.RunInstances(&ec2.RunInstances{
 		ImageId:      image.ImageId,
 		MinCount:     1,
 		MaxCount:     1,
@@ -73,7 +73,7 @@ func (e *Environ) StartInstance(machineId int) (environs.Instance, error) {
 	return &instance{&instances.Instances[0]}, nil
 }
 
-func (e *Environ) StopInstances(insts []environs.Instance) error {
+func (e *environ) StopInstances(insts []environs.Instance) error {
 	if len(insts) == 0 {
 		return nil
 	}
@@ -81,15 +81,15 @@ func (e *Environ) StopInstances(insts []environs.Instance) error {
 	for i, inst := range insts {
 		names[i] = inst.(*instance).InstanceId
 	}
-	_, err := e.EC2.TerminateInstances(names)
+	_, err := e.ec2.TerminateInstances(names)
 	return err
 }
 
-func (e *Environ) Instances() ([]environs.Instance, error) {
+func (e *environ) Instances() ([]environs.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
 
-	resp, err := e.EC2.Instances(nil, filter)
+	resp, err := e.ec2.Instances(nil, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func (e *Environ) Instances() ([]environs.Instance, error) {
 	return insts, nil
 }
 
-func (e *Environ) Destroy() error {
+func (e *environ) Destroy() error {
 	insts, err := e.Instances()
 	if err != nil {
 		return err
@@ -111,11 +111,11 @@ func (e *Environ) Destroy() error {
 	return e.StopInstances(insts)
 }
 
-func (e *Environ) machineGroupName(machineId int) string {
+func (e *environ) machineGroupName(machineId int) string {
 	return fmt.Sprintf("%s-%s", e.groupName(), machineId)
 }
 
-func (e *Environ) groupName() string {
+func (e *environ) groupName() string {
 	return "juju-" + e.name
 }
 
@@ -127,8 +127,8 @@ func (e *Environ) groupName() string {
 // implicitly defined by the environment name. In addition, a
 // specific machine security group is created for each machine,
 // so that its firewall rules can be configured per machine.
-func (e *Environ) setUpGroups(machineId int) error {
-	groups, err := e.EC2.SecurityGroups(nil, nil)
+func (e *environ) setUpGroups(machineId int) error {
+	groups, err := e.ec2.SecurityGroups(nil, nil)
 	if err != nil {
 		return fmt.Errorf("cannot get security groups: %v", err)
 	}
@@ -149,7 +149,7 @@ func (e *Environ) setUpGroups(machineId int) error {
 
 	// Create the provider group if doesn't exist.
 	if !hasJujuGroup {
-		_, err := e.EC2.CreateSecurityGroup(jujuGroup.Name, "juju group for "+e.name)
+		_, err := e.ec2.CreateSecurityGroup(jujuGroup.Name, "juju group for "+e.name)
 		if err != nil {
 			return fmt.Errorf("cannot create juju security group: %v", err)
 		}
@@ -159,16 +159,16 @@ func (e *Environ) setUpGroups(machineId int) error {
 	// one already existing from a previous machine launch;
 	// if so, delete it, since it can have the wrong firewall setup
 	if hasJujuMachineGroup {
-		_, err := e.EC2.DeleteSecurityGroup(jujuMachineGroup)
+		_, err := e.ec2.DeleteSecurityGroup(jujuMachineGroup)
 		if err != nil {
 			return fmt.Errorf("cannot delete old security group %q: %v", jujuMachineGroup.Name, err)
 		}
 	}
 	descr := fmt.Sprintf("juju group for %s machine %d", e.name, machineId)
-	_, err = e.EC2.CreateSecurityGroup(jujuMachineGroup.Name, descr)
+	_, err = e.ec2.CreateSecurityGroup(jujuMachineGroup.Name, descr)
 	if err != nil {
-		return fmt.Errorf("cannot create machine group %q: %v", err)
+		return fmt.Errorf("cannot create machine group %q: %v", jujuMachineGroup.Name, err)
 	}
 
-	return err
+	return nil
 }

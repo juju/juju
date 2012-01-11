@@ -3,11 +3,11 @@ package ec2_test
 import (
 	"fmt"
 	"launchpad.net/goamz/aws"
-	"launchpad.net/goamz/ec2"
+	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
-	eec2 "launchpad.net/juju/go/environs/ec2"
+	ec2 "launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
 )
 
@@ -60,7 +60,7 @@ func initialStateRunningScenario(srv *ec2test.Server) {
 }
 
 func extraInstancesScenario(srv *ec2test.Server) {
-	states := []ec2.InstanceState{
+	states := []amzec2.InstanceState{
 		ec2test.ShuttingDown,
 		ec2test.Terminated,
 		ec2test.Stopped,
@@ -71,7 +71,7 @@ func extraInstancesScenario(srv *ec2test.Server) {
 }
 
 func registerLocalTests() {
-	eec2.Regions["test"] = aws.Region{}
+	ec2.Regions["test"] = aws.Region{}
 	envs, err := environs.ReadEnvironsBytes(functionalConfig)
 	if err != nil {
 		panic(fmt.Errorf("cannot parse functional tests config data: %v", err))
@@ -97,13 +97,13 @@ func registerLocalTests() {
 	}
 }
 
-func (t *localTests) testInstanceGroups(c *C, conn *ec2.EC2) {
+func (t *localTests) testInstanceGroups(c *C, conn *amzec2.EC2) {
 	env, err := t.Environs.Open(t.Name)
 	c.Assert(err, IsNil)
 
-	ec2conn := env.(*eec2.Environ).EC2
+	ec2conn := amzec2.New(aws.Auth{}, ec2.Regions["test"])
 
-	groups := []ec2.SecurityGroup{
+	groups := []amzec2.SecurityGroup{
 		{Name: fmt.Sprintf("juju-%s", t.Name)},
 		{Name: fmt.Sprintf("juju-%s-%d", t.Name, 98)},
 		{Name: fmt.Sprintf("juju-%s-%d", t.Name, 99)},
@@ -169,8 +169,8 @@ func (t *localTests) testInstanceGroups(c *C, conn *ec2.EC2) {
 
 // createGroup creates a new EC2 group if it doesn't already
 // exist, and returns full SecurityGroup.
-func ensureGroupExists(c *C, ec2conn *ec2.EC2, group ec2.SecurityGroup, descr string) ec2.SecurityGroup {
-	groups, err := ec2conn.SecurityGroups([]ec2.SecurityGroup{group}, nil)
+func ensureGroupExists(c *C, ec2conn *amzec2.EC2, group amzec2.SecurityGroup, descr string) amzec2.SecurityGroup {
+	groups, err := ec2conn.SecurityGroups([]amzec2.SecurityGroup{group}, nil)
 	c.Assert(err, IsNil)
 
 	if len(groups.Groups) > 0 {
@@ -183,7 +183,7 @@ func ensureGroupExists(c *C, ec2conn *ec2.EC2, group ec2.SecurityGroup, descr st
 	return resp.SecurityGroup
 }
 
-func hasSecurityGroup(r ec2.Reservation, g ec2.SecurityGroup) bool {
+func hasSecurityGroup(r amzec2.Reservation, g amzec2.SecurityGroup) bool {
 	for _, rg := range r.SecurityGroups {
 		if rg.Id == g.Id {
 			return true
@@ -218,7 +218,7 @@ func (srv *localServer) startServer(c *C) {
 	if err != nil {
 		c.Fatalf("cannot start ec2 test server: %v", err)
 	}
-	eec2.Regions["test"] = aws.Region{
+	ec2.Regions["test"] = aws.Region{
 		EC2Endpoint: srv.srv.Address(),
 	}
 	srv.setup(srv.srv)
@@ -228,5 +228,5 @@ func (srv *localServer) stopServer(c *C) {
 	srv.srv.Quit()
 	// Clear out the region because the server address is
 	// no longer valid.
-	eec2.Regions["test"] = aws.Region{}
+	ec2.Regions["test"] = aws.Region{}
 }
