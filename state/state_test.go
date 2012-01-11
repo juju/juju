@@ -101,7 +101,6 @@ services:
         name: wordpress
 `)
 
-	// Open state.
 	st, err := state.Open(zk)
 	c.Assert(err, IsNil)
 
@@ -115,7 +114,7 @@ services:
 
 	// Check that retrieving a non-existent service fails nicely.
 	service, err = st.Service("pressword")
-	c.Assert(err, ErrorMatches, "service with name \"pressword\" cannot be found")
+	c.Assert(err, ErrorMatches, `service with name "pressword" cannot be found`)
 }
 
 func (s StateSuite) TestReadUnit(c *C) {
@@ -154,11 +153,11 @@ unit-sequence:
 	// Check that retrieving a non-existent or an invalidly
 	// named unit fail nicely.
 	unit, err = service.Unit("wordpress")
-	c.Assert(err, ErrorMatches, "\"wordpress\" is no valid unit name")
+	c.Assert(err, ErrorMatches, `"wordpress" is no valid unit name`)
 	unit, err = service.Unit("wordpress/0/0")
-	c.Assert(err, ErrorMatches, "\"wordpress/0/0\" is no valid unit name")
+	c.Assert(err, ErrorMatches, `"wordpress/0/0" is no valid unit name`)
 	unit, err = service.Unit("pressword/0")
-	c.Assert(err, ErrorMatches, "can't find unit \"pressword/0\" on service \"wordpress\"")
+	c.Assert(err, ErrorMatches, `can't find unit "pressword/0" on service "wordpress"`)
 
 	// Check that retrieving a unit works.
 	unit, err = st.Unit("wordpress/1")
@@ -168,12 +167,14 @@ unit-sequence:
 	// Check that retrieving unit names works.
 	unitNames, err := service.UnitNames()
 	c.Assert(err, IsNil)
-	c.Assert(len(unitNames), Equals, 2)
+	c.Assert(unitNames, Equals, []string{"wordpress/0", "wordpress/1"})
 
 	// Check that retrieving all units works.
 	units, err := service.AllUnits()
 	c.Assert(err, IsNil)
 	c.Assert(len(units), Equals, 2)
+	c.Assert(units[0].Name(), Equals, "wordpress/0")
+	c.Assert(units[1].Name(), Equals, "wordpress/1")
 }
 
 func (s StateSuite) TestWriteUnit(c *C) {
@@ -219,7 +220,7 @@ machines:
 	c.Assert(err, IsNil)
 	unitNames, err := service.UnitNames()
 	c.Assert(err, IsNil)
-	c.Assert(len(unitNames), Equals, 2)
+	c.Assert(unitNames, Equals, []string{"wordpress/1", "wordpress/2"})
 
 	// Check that removing a non-existent unit fails nicely.
 	err = service.RemoveUnit(unit)

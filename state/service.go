@@ -14,7 +14,7 @@ import (
 // Service represents the state of a service.
 type Service struct {
 	zk   *zookeeper.Conn
-	node string
+	key  string
 	name string
 }
 
@@ -30,15 +30,12 @@ func (s *Service) CharmId() (charmId string, err error) {
 	if err != nil {
 		return "", nil
 	}
-	if s, ok := value.(string); ok {
-		return s, nil
-	}
-	return "", fmt.Errorf("charm has illegal type")
+	return value.(string), nil
 }
 
 // AddUnit() adds a new unit.
 func (s *Service) AddUnit() (*Unit, error) {
-	// Get charm id and create node.
+	// Get charm id and create ZooKeeper node.
 	charmId, err := s.CharmId()
 	if err != nil {
 		return nil, err
@@ -52,13 +49,13 @@ func (s *Service) AddUnit() (*Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	nodeName := strings.Split(path, "/")[2]
+	key := strings.Split(path, "/")[2]
 	sequenceNo := -1
 	addUnit := func(t *topology) error {
-		if !t.hasService(s.node) {
+		if !t.hasService(s.key) {
 			return stateChanged
 		}
-		sequenceNo, err = t.addUnit(s.node, nodeName)
+		sequenceNo, err = t.addUnit(s.key, key)
 		if err != nil {
 			return err
 		}
@@ -67,7 +64,7 @@ func (s *Service) AddUnit() (*Unit, error) {
 	if err := retryTopologyChange(s.zk, addUnit); err != nil {
 		return nil, err
 	}
-	return &Unit{s.zk, nodeName, s.node, s.name, sequenceNo}, nil
+	return &Unit{s.zk, key, s.key, s.name, sequenceNo}, nil
 }
 
 // RemoveUnit() removes a unit.
@@ -77,10 +74,10 @@ func (s *Service) RemoveUnit(unit *Unit) error {
 		return err
 	}
 	removeUnit := func(t *topology) error {
-		if !t.hasService(s.node) || !t.hasUnit(s.node, unit.node) {
+		if !t.hasService(s.key) || !t.hasUnit(s.key, unit.key) {
 			return stateChanged
 		}
-		if err := t.removeUnit(s.node, unit.node); err != nil {
+		if err := t.removeUnit(s.key, unit.key); err != nil {
 			return err
 		}
 		return nil
@@ -88,7 +85,7 @@ func (s *Service) RemoveUnit(unit *Unit) error {
 	if err := retryTopologyChange(s.zk, removeUnit); err != nil {
 		return err
 	}
-	return zkRemoveTree(s.zk, fmt.Sprintf("/units/%s", unit.node))
+	return zkRemoveTree(s.zk, fmt.Sprintf("/units/%s", unit.key))
 }
 
 // Unit returns the service's unit with name.
@@ -105,15 +102,15 @@ func (s *Service) Unit(name string) (*Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !topology.hasService(s.node) {
+	if !topology.hasService(s.key) {
 		return nil, stateChanged
 	}
-	// Read unit node name and create unit.
-	nodeName, err := topology.unitNodeFromSequence(s.node, sequenceNo)
+	// Read unit key and create unit.
+	key, err := topology.unitKeyFromSequence(s.key, sequenceNo)
 	if err != nil {
 		return nil, err
 	}
-	return &Unit{s.zk, nodeName, s.node, s.name, sequenceNo}, nil
+	return &Unit{s.zk, key, s.key, s.name, sequenceNo}, nil
 }
 
 // AllUnits returns all units of the service.
@@ -122,17 +119,17 @@ func (s *Service) AllUnits() ([]*Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !topology.hasService(s.node) {
+	if !topology.hasService(s.key) {
 		return nil, stateChanged
 	}
-	nodeNames, err := topology.unitNodes(s.node)
+	keys, err := topology.unitKeys(s.key)
 	if err != nil {
 		return nil, err
 	}
 	// Assemble units.
 	units := []*Unit{}
-	for _, nodeName := range nodeNames {
-		unitName, err := topology.unitName(s.node, nodeName)
+	for _, key := range keys {
+		unitName, err := topology.unitName(s.key, key)
 		if err != nil {
 			return nil, err
 		}
@@ -140,28 +137,28 @@ func (s *Service) AllUnits() ([]*Unit, error) {
 		if err != nil {
 			return nil, err
 		}
-		units = append(units, &Unit{s.zk, nodeName, s.node, serviceName, sequenceNo})
+		units = append(units, &Unit{s.zk, key, s.key, serviceName, sequenceNo})
 	}
 	return units, nil
 }
 
-// UnitNames returns the names of all units of service.
+// UnitNames returns the names of all units of s.
 func (s *Service) UnitNames() ([]string, error) {
 	topology, err := readTopology(s.zk)
 	if err != nil {
 		return nil, err
 	}
-	if !topology.hasService(s.node) {
+	if !topology.hasService(s.key) {
 		return nil, stateChanged
 	}
-	nodeNames, err := topology.unitNodes(s.node)
+	keys, err := topology.unitKeys(s.key)
 	if err != nil {
 		return nil, err
 	}
 	// Assemble unit names.
 	unitNames := []string{}
-	for _, nodeName := range nodeNames {
-		unitName, err := topology.unitName(s.node, nodeName)
+	for _, key := range keys {
+		unitName, err := topology.unitName(s.key, key)
 		if err != nil {
 			return nil, err
 		}
@@ -170,23 +167,23 @@ func (s *Service) UnitNames() ([]string, error) {
 	return unitNames, nil
 }
 
-// zkNodeName returns ZooKeeper node name of the service.
-func (s *Service) zkNodeName() string {
-	return s.node
+// zkKey returns ZooKeeper key of the service.
+func (s *Service) zkKey() string {
+	return s.key
 }
 
 // zkPath returns the ZooKeeper base path for the service.
 func (s *Service) zkPath() string {
-	return fmt.Sprintf("/services/%s", s.node)
+	return fmt.Sprintf("/services/%s", s.key)
 }
 
 // zkConfigPath returns the ZooKeeper path for the service configuration.
 func (s *Service) zkConfigPath() string {
-	return fmt.Sprintf("/services/%s/config", s.node)
+	return fmt.Sprintf("/services/%s/config", s.key)
 }
 
 // zkExposedPath, if exists in ZooKeeper, indicates, that a
 // service is exposed.
 func (s *Service) zkExposedPath() string {
-	return fmt.Sprintf("/services/%s/exposed", s.node)
+	return fmt.Sprintf("/services/%s/exposed", s.key)
 }

@@ -30,11 +30,11 @@ func Open(zk *zookeeper.Conn) (*State, error) {
 
 // Service returns a service state by name.
 func (s *State) Service(name string) (*Service, error) {
-	nodeName, err := s.topology.serviceNodeName(name)
+	key, err := s.topology.serviceKey(name)
 	if err != nil {
 		return nil, err
 	}
-	return &Service{s.zk, nodeName, name}, nil
+	return &Service{s.zk, key, name}, nil
 }
 
 // Unit returns a unit by name.

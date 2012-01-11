@@ -14,8 +14,8 @@ import (
 // Unit represents the state of a service unit.
 type Unit struct {
 	zk          *zookeeper.Conn
-	node        string
-	serviceNode   string
+	key         string
+	serviceKey  string
 	serviceName string
 	sequenceNo  int
 }
@@ -34,35 +34,35 @@ func (u *Unit) Name() string {
 // the machine it's assigned to.
 func (u *Unit) UnassignFromMachine() error {
 	unassignUnit := func(t *topology) error {
-		if !t.hasService(u.serviceNode) || !t.hasUnit(u.serviceNode, u.node) {
+		if !t.hasService(u.serviceKey) || !t.hasUnit(u.serviceKey, u.key) {
 			return stateChanged
 		}
 		// If for whatever reason it's already not assigned to a
 		// machine, ignore it and move forward so that we don't
 		// have to deal with conflicts.
-		machineNode, err := t.unitMachineNode(u.serviceNode, u.node)
-		if err == nil && machineNode != "" {
-			t.unassignUnitFromMachine(u.serviceNode, u.node)
+		key, err := t.unitMachineKey(u.serviceKey, u.key)
+		if err == nil && key != "" {
+			t.unassignUnitFromMachine(u.serviceKey, u.key)
 		}
 		return nil
 	}
 	return retryTopologyChange(u.zk, unassignUnit)
 }
 
-// zkNodeName returns the ZooKeeper node name of the unit.
-func (u *Unit) zkNodeName() string {
-	return u.node
+// zkKey returns the ZooKeeper key of the unit.
+func (u *Unit) zkKey() string {
+	return u.key
 }
 
 // Name returns the name of the unit based on the service
 // zkPortsPath returns the ZooKeeper path for the open ports.
 func (u *Unit) zkPortsPath() string {
-	return fmt.Sprintf("/units/%s/ports", u.node)
+	return fmt.Sprintf("/units/%s/ports", u.key)
 }
 
 // zkAgentPath returns the ZooKeeper path for the unit agent.
 func (u *Unit) zkAgentPath() string {
-	return fmt.Sprintf("/units/%s/agent", u.node)
+	return fmt.Sprintf("/units/%s/agent", u.key)
 }
 
 // parseUnitName parses a unit name like "wordpress/0" into
