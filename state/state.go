@@ -11,8 +11,8 @@ import (
 	"launchpad.net/gozk/zookeeper"
 )
 
-// State enables reading, observing, and changing the state 
-// of a whole environment managed by juju.
+// State represents the state of an environment
+// managed by juju.
 type State struct {
 	zk       *zookeeper.Conn
 	topology *topology
@@ -29,17 +29,17 @@ func Open(zk *zookeeper.Conn) (*State, error) {
 }
 
 // Service returns a service state by name.
-func (s *State) Service(serviceName string) (*Service, error) {
-	id, err := s.topology.serviceIdByName(serviceName)
+func (s *State) Service(name string) (*Service, error) {
+	nodeName, err := s.topology.serviceNodeName(name)
 	if err != nil {
 		return nil, err
 	}
-	return &Service{s.zk, id, serviceName}, nil
+	return &Service{s.zk, nodeName, name}, nil
 }
 
 // Unit returns a unit by name.
-func (s *State) Unit(unitName string) (*Unit, error) {
-	serviceName, _, err := parseUnitName(unitName)
+func (s *State) Unit(name string) (*Unit, error) {
+	serviceName, _, err := parseUnitName(name)
 	if err != nil {
 		return nil, err
 	}
@@ -47,5 +47,5 @@ func (s *State) Unit(unitName string) (*Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	return service.Unit(unitName)
+	return service.Unit(name)
 }

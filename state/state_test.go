@@ -12,10 +12,12 @@ import (
 	"testing"
 )
 
-// zkCreate is a simple helper to create test scenarios in ZooKeeper.
-func zkCreate(zk *zookeeper.Conn, p, v string, c *C) {
-	if _, err := zk.Create(p, v, 0, zookeeper.WorldACL(zookeeper.PERM_ALL)); err != nil {
-		c.Fatal("Cannot set path '"+p+"' in ZooKeeper: ", err)
+// zkCreate is a simple helper to create a node with a value based
+// on the path. It uses standard parameters for ZooKeeper and the
+// test fails when the node can't be created.
+func zkCreate(c *C, zk *zookeeper.Conn, path, value string) {
+	if _, err := zk.Create(path, value, 0, zookeeper.WorldACL(zookeeper.PERM_ALL)); err != nil {
+		c.Fatal("Cannot set path '"+path+"' in ZooKeeper: ", err)
 	}
 }
 
@@ -24,7 +26,6 @@ func TestPackage(t *testing.T) {
 	TestingT(t)
 }
 
-// StateSuite for State and the related types.
 type StateSuite struct {
 	zkServer       *zookeeper.Server
 	zkTestRoot     string
@@ -38,7 +39,6 @@ type StateSuite struct {
 
 var _ = Suite(&StateSuite{})
 
-// SetUpSuite starts and inits ZooKeeper.
 func (s *StateSuite) SetUpSuite(c *C) {
 	var err error
 	s.zkTestRoot = c.MkDir() + "/zookeeper"
@@ -46,27 +46,24 @@ func (s *StateSuite) SetUpSuite(c *C) {
 	s.zkAddr = fmt.Sprint("localhost:", s.zkTestPort)
 	s.deadEventChans = make(chan bool)
 
-	// Create server.
 	s.zkServer, err = zookeeper.CreateServer(s.zkTestPort, s.zkTestRoot, "")
 	if err != nil {
 		c.Fatal("Cannot set up ZooKeeper server environment: ", err)
 	}
 
-	// Start server.
 	err = s.zkServer.Start()
 	if err != nil {
 		c.Fatal("Cannot start ZooKeeper server: ", err)
 	}
 }
 
-// TearDownSuite stops ZooKeeper.
 func (s *StateSuite) TearDownSuite(c *C) {
 	if s.zkServer != nil {
 		s.zkServer.Destroy()
 	}
 }
 
-// init establishes a connection to ZooKeeper returns it together with the
+// init establishes a connection to ZooKeeper and returns it together with the
 // event channel.
 func (s *StateSuite) init(c *C) (*zookeeper.Conn, <-chan zookeeper.Event) {
 	// Connect the server.
@@ -81,7 +78,8 @@ func (s *StateSuite) init(c *C) (*zookeeper.Conn, <-chan zookeeper.Event) {
 	return conn, eventChan
 }
 
-// done closes a ZooKeeper connection.
+// done removes potentially created ZooKeeper nodes
+// recursively and then closes the ZooKeeper connection. 
 func (s *StateSuite) done(zk *zookeeper.Conn, c *C) {
 	// Delete possible nodes, ignore errors.
 	zkRemoveTree(zk, "/topology")
@@ -90,49 +88,44 @@ func (s *StateSuite) done(zk *zookeeper.Conn, c *C) {
 	zk.Close()
 }
 
-// TestReadService tests reading operations on services.
 func (s StateSuite) TestReadService(c *C) {
 	zk, _ := s.init(c)
 	defer s.done(zk, c)
 
 	// Create test scenario.
-	zkCreate(zk, "/services", "", c)
-	zkCreate(zk, "/services/service-0000000000", "charm: local:series/dummy-1", c)
-	zkCreate(zk, "/topology", `
+	zkCreate(c, zk, "/services", "")
+	zkCreate(c, zk, "/services/service-0000000000", "charm: local:series/dummy-1")
+	zkCreate(c, zk, "/topology", `
 services:
     service-0000000000:
         name: wordpress
-`, c)
+`)
 
 	// Open state.
-	jujuState, err := state.Open(zk)
+	st, err := state.Open(zk)
 	c.Assert(err, IsNil)
 
-	// Retrieve legal service.
-	service, err := jujuState.Service("wordpress")
+	// Check that retrieving a service works correctly.
+	service, err := st.Service("wordpress")
 	c.Assert(err, IsNil)
-	c.Assert(service.Id(), Equals, "service-0000000000")
 	c.Assert(service.Name(), Equals, "wordpress")
-
-	// Retrieve charm id of legal service.
 	charmId, err := service.CharmId()
 	c.Assert(err, IsNil)
 	c.Assert(charmId, Equals, "local:series/dummy-1")
 
-	// Retrieve illegal service.
-	service, err = jujuState.Service("pressword")
-	c.Assert(err, Not(IsNil))
+	// Check that retrieving a non-existent service fails nicely.
+	service, err = st.Service("pressword")
+	c.Assert(err, ErrorMatches, "service with name \"pressword\" cannot be found")
 }
 
-// TestReadUnit tests reading on units.
 func (s StateSuite) TestReadUnit(c *C) {
 	zk, _ := s.init(c)
 	defer s.done(zk, c)
 
 	// Create test scenario.
-	zkCreate(zk, "/services", "", c)
-	zkCreate(zk, "/services/service-0000000000", "charm: local:series/dummy-1", c)
-	zkCreate(zk, "/topology", `
+	zkCreate(c, zk, "/services", "")
+	zkCreate(c, zk, "/services/service-0000000000", "charm: local:series/dummy-1")
+	zkCreate(c, zk, "/topology", `
 services:
     service-0000000000:
         name: wordpress
@@ -143,62 +136,54 @@ services:
                 sequence: 1
 unit-sequence:
     wordpress: 2
-`, c)
-	zkCreate(zk, "/units", "", c)
-	zkCreate(zk, "/units/unit-0000000000", "charm: local:series/dummy-1", c)
-	zkCreate(zk, "/units/unit-0000000001", "charm: local:series/dummy-1", c)
+`)
+	zkCreate(c, zk, "/units", "")
+	zkCreate(c, zk, "/units/unit-0000000000", "charm: local:series/dummy-1")
+	zkCreate(c, zk, "/units/unit-0000000001", "charm: local:series/dummy-1")
 
-	// Open state.
-	jujuState, err := state.Open(zk)
+	st, err := state.Open(zk)
+	c.Assert(err, IsNil)
+	service, err := st.Service("wordpress")
 	c.Assert(err, IsNil)
 
-	// Retrieve legal service.
-	service, err := jujuState.Service("wordpress")
-	c.Assert(err, IsNil)
-
-	// Retrieve legal unit.
+	// Check that retrieving a unit works correctly.
 	unit, err := service.Unit("wordpress/0")
 	c.Assert(err, IsNil)
-	c.Assert(unit.Id(), Equals, "unit-0000000000")
 	c.Assert(unit.Name(), Equals, "wordpress/0")
 
-	// Retrieve illegal unit names and illegal units.
+	// Check that retrieving a non-existent or an invalidly
+	// named unit fail nicely.
 	unit, err = service.Unit("wordpress")
-	c.Assert(err, Not(IsNil))
-	c.Assert(err.Error(), Equals, "state: 'wordpress' is no valid unit name")
+	c.Assert(err, ErrorMatches, "\"wordpress\" is no valid unit name")
 	unit, err = service.Unit("wordpress/0/0")
-	c.Assert(err, Not(IsNil))
-	c.Assert(err.Error(), Equals, "state: 'wordpress/0/0' is no valid unit name")
+	c.Assert(err, ErrorMatches, "\"wordpress/0/0\" is no valid unit name")
 	unit, err = service.Unit("pressword/0")
-	c.Assert(err.Error(), Equals, "state: service name 'pressword' of unit does not match with service name 'wordpress'")
-	c.Assert(err, Not(IsNil))
+	c.Assert(err, ErrorMatches, "can't find unit \"pressword/0\" on service \"wordpress\"")
 
-	// Retrieve legal unit directly from state.
-	unit, err = jujuState.Unit("wordpress/1")
+	// Check that retrieving a unit works.
+	unit, err = st.Unit("wordpress/1")
 	c.Assert(err, IsNil)
-	c.Assert(unit.Id(), Equals, "unit-0000000001")
 	c.Assert(unit.Name(), Equals, "wordpress/1")
 
-	// Retrieve all unit names.
+	// Check that retrieving unit names works.
 	unitNames, err := service.UnitNames()
 	c.Assert(err, IsNil)
-	c.Assert(unitNames, Equals, []string{"wordpress/0", "wordpress/1"})
+	c.Assert(len(unitNames), Equals, 2)
 
-	// Retrieve all units.
+	// Check that retrieving all units works.
 	units, err := service.AllUnits()
 	c.Assert(err, IsNil)
 	c.Assert(len(units), Equals, 2)
 }
 
-// TestWriteUnit tests writing on units.
 func (s StateSuite) TestWriteUnit(c *C) {
 	zk, _ := s.init(c)
 	defer s.done(zk, c)
 
 	// Create test scenario.
-	zkCreate(zk, "/services", "", c)
-	zkCreate(zk, "/services/service-0000000000", "charm: local:series/dummy-1", c)
-	zkCreate(zk, "/topology", `
+	zkCreate(c, zk, "/services", "")
+	zkCreate(c, zk, "/services/service-0000000000", "charm: local:series/dummy-1")
+	zkCreate(c, zk, "/topology", `
 services:
     service-0000000000:
         name: wordpress
@@ -212,24 +197,22 @@ unit-sequence:
     wordpress: 2
 machines:
     machine-00000000:
-`, c)
-	zkCreate(zk, "/units", "", c)
-	zkCreate(zk, "/units/unit-0000000000", "charm: local:series/dummy-1", c)
-	zkCreate(zk, "/units/unit-0000000001", "charm: local:series/dummy-1", c)
+`)
+	zkCreate(c, zk, "/units", "")
+	zkCreate(c, zk, "/units/unit-0000000000", "charm: local:series/dummy-1")
+	zkCreate(c, zk, "/units/unit-0000000001", "charm: local:series/dummy-1")
 
-	// Open state and get a service.
-	jujuState, err := state.Open(zk)
+	st, err := state.Open(zk)
 	c.Assert(err, IsNil)
-	service, err := jujuState.Service("wordpress")
+	service, err := st.Service("wordpress")
 	c.Assert(err, IsNil)
 
-	// Add a unit.
+	// Check that adding a unit works.
 	unit, err := service.AddUnit()
 	c.Assert(err, IsNil)
-	c.Assert(unit.Id(), Equals, "unit-0000000002")
 	c.Assert(unit.Name(), Equals, "wordpress/2")
 
-	// Remove a legal unit.
+	// Check that removing a unit works.
 	unit, err = service.Unit("wordpress/0")
 	c.Assert(err, IsNil)
 	err = service.RemoveUnit(unit)
@@ -238,15 +221,14 @@ machines:
 	c.Assert(err, IsNil)
 	c.Assert(len(unitNames), Equals, 2)
 
-	// Remove an illegal unit.
+	// Check that removing a non-existent unit fails nicely.
 	err = service.RemoveUnit(unit)
-	c.Assert(err, Not(IsNil))
-	c.Assert(err.Error(), Equals, "state: service state has changed")
+	c.Assert(err, ErrorMatches, "environment state has changed")
 }
 
 // zkRemoveTree recursively removes a tree.
 func zkRemoveTree(zk *zookeeper.Conn, path string) error {
-	// First recursively delete the cildren.
+	// First recursively delete the children.
 	children, _, err := zk.Children(path)
 	if err != nil {
 		return err

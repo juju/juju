@@ -10,68 +10,51 @@ import (
 	"launchpad.net/gozk/zookeeper"
 )
 
-const (
-	Version = 1
-)
+// The protocol version, which is stored in the /topology node under
+// the "version" key. The protocol version should *only* be updated
+// when we know that a version is in fact actually incompatible.
+const topologyVersion = 1
 
-// ZkTopology is the data stored in ZooKeeper inside "/topology". It's
-// used only internally for marshalling/unmarshalling. All
-// ZkXyz types sadly have to be public for this.
+// zkTopology is used to marshal and unmarshal the content
+// of the /topology node in ZooKeeper.
 type zkTopology struct {
 	Version      int
 	Services     map[string]*zkService
 	UnitSequence map[string]int "unit-sequence"
 }
 
-// zkService is the service stored in ZooKeeper. It's used only 
-// internally for marshalling/unmarshalling.
+// zkService represents the service data within the /topology
+// node in ZooKeeper.
 type zkService struct {
 	Name  string
 	Units map[string]*zkUnit
 }
 
-// zkUnit is the unit stored in ZooKeeper. It's used only internally
-// for marshalling/unmarshalling.
+// zkUnit represents the unit data within the /topology
+// node in ZooKeeper.
 type zkUnit struct {
 	Sequence int
 	Machine  string
 }
 
-// topology is an internal helper handling the topology informations
-// inside of ZooKeeper. 
+// topology is an internal helper that handles the content
+// of the /topology node in ZooKeeper.
 type topology struct {
 	topology *zkTopology
 }
 
 // readTopology connects ZooKeeper, retrieves the data as YAML,
-// parses it and stores it.
+// parses it and returns it.
 func readTopology(zk *zookeeper.Conn) (*topology, error) {
-	t := &topology{topology: &zkTopology{Version: 1}}
-	// Fetch raw topology.
-	topologyYaml, _, err := zk.Get("/topology")
+	yaml, _, err := zk.Get("/topology")
 	if err != nil {
 		return nil, err
 	}
-	// Parse and check it.
-	if err = t.parse(topologyYaml); err != nil {
-		return nil, err
-	}
-	return t, nil
-}
-
-// parse parses the topology delivered as YAML.
-func (t topology) parse(topologyYaml string) error {
-	if err := goyaml.Unmarshal([]byte(topologyYaml), t.topology); err != nil {
-		return err
-	}
-	if t.topology.Version != Version {
-		return newError("loaded topology has incompatible version '%v'", t.topology.Version)
-	}
-	return nil
+	return parseTopology(yaml)
 }
 
 // dump returns the topology as YAML.
-func (t topology) dump() (string, error) {
+func (t *topology) dump() (string, error) {
 	topologyYaml, err := goyaml.Marshal(t.topology)
 	if err != nil {
 		return "", err
@@ -80,163 +63,177 @@ func (t topology) dump() (string, error) {
 }
 
 // version returns the version of the topology.
-func (t topology) version() int {
+func (t *topology) version() int {
 	return t.topology.Version
 }
 
-// hasService returns true if a service with the given id exists.
-func (t topology) hasService(serviceId string) bool {
-	return t.topology.Services[serviceId] != nil
+// hasService returns true if a service with the given node name exists.
+func (t *topology) hasService(node string) bool {
+	return t.topology.Services[node] != nil
 }
 
-// serviceIdByName returns the id of a service by its name.
-func (t topology) serviceIdByName(name string) (string, error) {
+// serviceNodeName returns the id of a service by its name.
+func (t *topology) serviceNodeName(name string) (string, error) {
 	for id, svc := range t.topology.Services {
 		if svc.Name == name {
 			return id, nil
 		}
 	}
-	return "", newError("service with name '%s' cannot be found", name)
+	return "", fmt.Errorf("service with name %q cannot be found", name)
 }
 
-// hasUnit returns true if a service with a given id exists.
-func (t topology) hasUnit(serviceId, unitId string) bool {
-	if t.hasService(serviceId) {
-		return t.topology.Services[serviceId].Units[unitId] != nil
+// hasUnit returns true if a unit with given service and unit node names exists.
+func (t *topology) hasUnit(serviceNode, unitNode string) bool {
+	if t.hasService(serviceNode) {
+		return t.topology.Services[serviceNode].Units[unitNode] != nil
 	}
 	return false
 }
 
 // addUnit adds a new unit and returns the sequence number. This
 // sequence number will be increased monotonically for each service.
-func (t *topology) addUnit(serviceId, unitId string) (int, error) {
-	if err := t.assertService(serviceId); err != nil {
+func (t *topology) addUnit(serviceNode, unitNode string) (int, error) {
+	if err := t.assertService(serviceNode); err != nil {
 		return -1, err
 	}
-	// Check if unit id is unused.
-	for id, svc := range t.topology.Services {
-		if _, ok := svc.Units[unitId]; ok {
-			return -1, newError("unit id '%s' already in use in servie '%s'", unitId, id)
+	// Check if unit node name is unused.
+	for node, svc := range t.topology.Services {
+		if _, ok := svc.Units[unitNode]; ok {
+			return -1, fmt.Errorf("unit %q already in use in servie %q", unitNode, node)
 		}
 	}
 	// Add unit and increase sequence number.
-	svc := t.topology.Services[serviceId]
+	svc := t.topology.Services[serviceNode]
 	sequenceNo := t.topology.UnitSequence[svc.Name]
-	svc.Units[unitId] = &zkUnit{Sequence: sequenceNo}
+	svc.Units[unitNode] = &zkUnit{Sequence: sequenceNo}
 	t.topology.UnitSequence[svc.Name] += 1
 	return sequenceNo, nil
 }
 
 // removeUnit removes a unit from a service.
-func (t *topology) removeUnit(serviceId, unitId string) error {
-	if err := t.assertUnit(serviceId, unitId); err != nil {
+func (t *topology) removeUnit(serviceNode, unitNode string) error {
+	if err := t.assertUnit(serviceNode, unitNode); err != nil {
 		return err
 	}
-	delete(t.topology.Services[serviceId].Units, unitId)
+	delete(t.topology.Services[serviceNode].Units, unitNode)
 	return nil
 }
 
-// unitIds returns the ids of all units of a service. 
-func (t topology) unitIds(serviceId string) ([]string, error) {
-	if err := t.assertService(serviceId); err != nil {
+// unitNodes returns the unit node names for all units of
+// the service with serviceNode node name.
+func (t *topology) unitNodes(serviceNode string) ([]string, error) {
+	if err := t.assertService(serviceNode); err != nil {
 		return nil, err
 	}
-	unitIds := []string{}
-	svc := t.topology.Services[serviceId]
-	for id, _ := range svc.Units {
-		unitIds = append(unitIds, id)
+	unitNodes := []string{}
+	svc := t.topology.Services[serviceNode]
+	for node, _ := range svc.Units {
+		unitNodes = append(unitNodes, node)
 	}
-	return unitIds, nil
+	return unitNodes, nil
 }
 
-// unitName returns the name of a unit by the id of its service
-// and its id. 
-func (t topology) unitName(serviceId, unitId string) (string, error) {
-	if err := t.assertUnit(serviceId, unitId); err != nil {
+// unitName returns the name of a unit by the node name of its service
+// and its own node name.
+func (t *topology) unitName(serviceNode, unitNode string) (string, error) {
+	if err := t.assertUnit(serviceNode, unitNode); err != nil {
 		return "", err
 	}
-	svc := t.topology.Services[serviceId]
-	unit := svc.Units[unitId]
+	svc := t.topology.Services[serviceNode]
+	unit := svc.Units[unitNode]
 	return fmt.Sprintf("%s/%d", svc.Name, unit.Sequence), nil
 }
 
-// unitIdBySequence returns the id of a unit by the id of its
+// unitNodeFromSequence returns the node name of a unit by the node mame of its
 // service and its sequence number.
-func (t topology) unitIdBySequence(serviceId string, sequenceNo int) (string, error) {
-	if err := t.assertService(serviceId); err != nil {
+func (t *topology) unitNodeFromSequence(serviceNode string, sequenceNo int) (string, error) {
+	if err := t.assertService(serviceNode); err != nil {
 		return "", err
 	}
-	svc := t.topology.Services[serviceId]
-	for id, unit := range svc.Units {
+	svc := t.topology.Services[serviceNode]
+	for node, unit := range svc.Units {
 		if unit.Sequence == sequenceNo {
-			return id, nil
+			return node, nil
 		}
 	}
-	return "", newError("unit with sequence number '%v' cannot be found", sequenceNo)
+	return "", fmt.Errorf("unit with sequence number %d cannot be found", sequenceNo)
 }
 
-// unitMachineId returns the id of an assigned machine of the unit. And empty
-// id means theres no machine assigned.
-func (t *topology) unitMachineId(serviceId, unitId string) (string, error) {
-	if err := t.assertUnit(serviceId, unitId); err != nil {
+// unitMachineNode returns the node name of an assigned machine of the unit. An empty
+// node name means theres no machine assigned.
+func (t *topology) unitMachineNode(serviceNode, unitNode string) (string, error) {
+	if err := t.assertUnit(serviceNode, unitNode); err != nil {
 		return "", err
 	}
-	unit := t.topology.Services[serviceId].Units[unitId]
+	unit := t.topology.Services[serviceNode].Units[unitNode]
 	return unit.Machine, nil
 }
 
 // unassignUnitFromMachine unassigns the unit from its current machine.
-func (t *topology) unassignUnitFromMachine(serviceId, unitId string) error {
-	if err := t.assertUnit(serviceId, unitId); err != nil {
+func (t *topology) unassignUnitFromMachine(serviceNode, unitNode string) error {
+	if err := t.assertUnit(serviceNode, unitNode); err != nil {
 		return err
 	}
-	unit := t.topology.Services[serviceId].Units[unitId]
+	unit := t.topology.Services[serviceNode].Units[unitNode]
 	if unit.Machine == "" {
-		return newError("unit '%s' in service '%s' is not assigned to a machine", unitId, serviceId)
+		return fmt.Errorf("unit %q in service %q is not assigned to a machine", unitNode, serviceNode)
 	}
 	unit.Machine = ""
 	return nil
 }
 
 // assertService checks if a service exists.
-func (t topology) assertService(serviceId string) error {
-	if _, ok := t.topology.Services[serviceId]; !ok {
-		return newError("service with id '%v' cannot be found", serviceId)
+func (t *topology) assertService(serviceNode string) error {
+	if _, ok := t.topology.Services[serviceNode]; !ok {
+		return fmt.Errorf("service with id %q cannot be found", serviceNode)
 	}
 	return nil
 }
 
 // assertUnit checks if a service with a unit exists.
-func (t topology) assertUnit(serviceId, unitId string) error {
-	if err := t.assertService(serviceId); err != nil {
+func (t *topology) assertUnit(serviceNode, unitNode string) error {
+	if err := t.assertService(serviceNode); err != nil {
 		return err
 	}
-	svc := t.topology.Services[serviceId]
-	if _, ok := svc.Units[unitId]; !ok {
-		return newError("unit with id '%v' cannot be found", serviceId)
+	svc := t.topology.Services[serviceNode]
+	if _, ok := svc.Units[unitNode]; !ok {
+		return fmt.Errorf("unit with id %q cannot be found", serviceNode)
 	}
 	return nil
 }
 
-// retryTopologyChange tries to change the topology with a function which 
-// accepts a topology instance as an argument. This function can read
-// and modify the topology instance, and after it returns (or after
-// the returned deferred fires) the modified topology will be
-// persisted into the /topology node.  Note that this function must
+// parseTopology returns the topology represented by yaml.
+func parseTopology(yaml string) (*topology, error) {
+	t := &topology{topology: &zkTopology{Version: topologyVersion}}
+	if err := goyaml.Unmarshal([]byte(yaml), t.topology); err != nil {
+		return nil, err
+	}
+	if t.topology.Version != topologyVersion {
+		return nil, fmt.Errorf("incompatible topology versions: got %d, want %d", t.topology.Version, topologyVersion)
+	}
+	return t, nil
+}
+
+// retryTopologyChange tries to change the topology with f.
+// This function can read and modify the topology instance, 
+// and after it returns the modified topology will be
+// persisted into the /topology node. Note that this f must
 // have no side-effects, since it may be called multiple times
 // depending on conflict situations.
-
 func retryTopologyChange(zk *zookeeper.Conn, f func(t *topology) error) error {
-	changeContent := func(topologyYaml string, stat *zookeeper.Stat) (string, error) {
-		t := &topology{topology: &zkTopology{Version: 1}}
-		if topologyYaml != "" {
-			t.parse(topologyYaml)
+	change := func(yaml string, stat *zookeeper.Stat) (string, error) {
+		var err error
+		it := &topology{topology: &zkTopology{Version: 1}}
+		if yaml != "" {
+			if it, err = parseTopology(yaml); err != nil {
+				return "", err
+			}
 		}
 		// Apply the passed function.
-		if err := f(t); err != nil {
+		if err = f(it); err != nil {
 			return "", err
 		}
-		return t.dump()
+		return it.dump()
 	}
-	return zk.RetryChange("/topology", 0, zookeeper.WorldACL(zookeeper.PERM_ALL), changeContent)
+	return zk.RetryChange("/topology", 0, zookeeper.WorldACL(zookeeper.PERM_ALL), change)
 }

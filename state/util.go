@@ -11,45 +11,41 @@ import (
 	"launchpad.net/gozk/zookeeper"
 )
 
-// newError allows a quick error creation with arguments.
-func newError(text string, args ...interface{}) error {
-	return errors.New(fmt.Sprintf("state: "+text, args...))
-}
+var (
+	stateChanged = errors.New("environment state has changed")
+)
 
-// zkStringMap returns a map of strings to strings read from ZK
-// based on a path.
-func zkStringMap(zk *zookeeper.Conn, path string) (map[string]string, error) {
-	// Fetch raw data.
-	raw, _, err := zk.Get(path)
+// zkMap reads the yaml data of path from zk and
+// parses it into a map.
+func zkMap(zk *zookeeper.Conn, path string) (map[string]interface{}, error) {
+	yaml, _, err := zk.Get(path)
 	if err != nil {
 		return nil, err
 	}
-	// Unmarshal it.
-	sm := make(map[string]string)
-	if err = goyaml.Unmarshal([]byte(raw), sm); err != nil {
+	sm := make(map[string]interface{})
+	if err = goyaml.Unmarshal([]byte(yaml), sm); err != nil {
 		return nil, err
 	}
 	return sm, nil
 }
 
-// zkStringMapField returns a field our of a string map returned by stringMap().
-func zkStringMapField(zk *zookeeper.Conn, path, field string) (string, error) {
-	// Get the map.
-	sm, err := zkStringMap(zk, path)
+// zkMapField reads path from zk as a yaml map, and returns
+// the value for field. 
+func zkMapField(zk *zookeeper.Conn, path, field string) (value interface{}, err error) {
+	sm, err := zkMap(zk, path)
 	if err != nil {
 		return "", err
 	}
-	// Look if field exists.
 	value, ok := sm[field]
 	if !ok {
-		return "", newError("cannot find field '%s' in path '%s'", field, path)
+		return "", fmt.Errorf("cannot find field %q in path %q", field, path)
 	}
 	return value, nil
 }
 
 // zkRemoveTree recursively removes a tree.
 func zkRemoveTree(zk *zookeeper.Conn, path string) error {
-	// First recursively delete the cildren.
+	// First recursively delete the children.
 	children, _, err := zk.Children(path)
 	if err != nil {
 		return err
