@@ -119,14 +119,13 @@ func (e *environ) groupName() string {
 	return "juju-" + e.name
 }
 
-// setUpGroups ensures that the juju group is in the machine launch groups.
+// setUpGroups creates the security groups for the new machine.
 //
-// Machines launched by juju are tagged with a group so they
-// can be distinguished from other machines that might be running
-// on an EC2 account. This group can be specified explicitly or
-// implicitly defined by the environment name. In addition, a
-// specific machine security group is created for each machine,
-// so that its firewall rules can be configured per machine.
+// Instances are tagged with a group so they
+// can be distinguished from other instances that might be running
+// on the same EC2 account. In addition, a specific machine security group
+// is created for each machine, so that its firewall rules can be configured
+// per machine.
 func (e *environ) setUpGroups(machineId int) error {
 	groups, err := e.ec2.SecurityGroups(nil, nil)
 	if err != nil {

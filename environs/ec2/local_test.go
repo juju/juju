@@ -103,11 +103,11 @@ func (t *localTests) testInstanceGroups(c *C, conn *amzec2.EC2) {
 
 	ec2conn := amzec2.New(aws.Auth{}, ec2.Regions["test"])
 
-	groups := []amzec2.SecurityGroup{
-		{Name: fmt.Sprintf("juju-%s", t.Name)},
-		{Name: fmt.Sprintf("juju-%s-%d", t.Name, 98)},
-		{Name: fmt.Sprintf("juju-%s-%d", t.Name, 99)},
-	}
+	groups := amzec2.SecurityGroupNames(
+		fmt.Sprintf("juju-%s", t.Name),
+		fmt.Sprintf("juju-%s-%d", t.Name, 98),
+		fmt.Sprintf("juju-%s-%d", t.Name, 99),
+	)
 
 	inst0, err := env.StartInstance(98)
 	c.Assert(err, IsNil)
@@ -122,7 +122,7 @@ func (t *localTests) testInstanceGroups(c *C, conn *amzec2.EC2) {
 	c.Assert(err, IsNil)
 	defer env.StopInstances([]environs.Instance{inst1})
 
-	// go behind the scenes the check the machines have
+	// go behind the scenes to check the machines have
 	// been put into the correct groups.
 
 	// first check that the groups have been created.
@@ -130,7 +130,7 @@ func (t *localTests) testInstanceGroups(c *C, conn *amzec2.EC2) {
 	c.Assert(err, IsNil)
 	c.Assert(len(groupsResp.Groups), Equals, len(groups))
 
-	// fill out the security group ids
+	// for each group, check that it exists and record its id.
 	for i, group := range groups {
 		found := false
 		for _, g := range groupsResp.Groups {
@@ -151,6 +151,7 @@ func (t *localTests) testInstanceGroups(c *C, conn *amzec2.EC2) {
 	c.Assert(len(resp.Reservations), Equals, 2)
 	for _, r := range resp.Reservations {
 		c.Assert(len(r.Instances), Equals, 1)
+		// each instance must be part of the general juju group.
 		c.Assert(hasSecurityGroup(r, groups[0]), Equals, true)
 		inst := r.Instances[0]
 		switch inst.InstanceId {
@@ -159,6 +160,10 @@ func (t *localTests) testInstanceGroups(c *C, conn *amzec2.EC2) {
 			c.Assert(hasSecurityGroup(r, groups[2]), Equals, false)
 		case inst1.Id():
 			c.Assert(hasSecurityGroup(r, groups[2]), Equals, true)
+
+			// check that the id of the second machine's group
+			// has changed - this implies that StartInstance has
+			// correctly deleted and re-created the group.
 			c.Assert(groups[2].Id, Not(Equals), oldGroup.Id)
 			c.Assert(hasSecurityGroup(r, groups[1]), Equals, false)
 		default:
