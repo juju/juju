@@ -97,7 +97,7 @@ func registerLocalTests() {
 	}
 }
 
-func (t *localTests) testInstanceGroups(c *C, conn *amzec2.EC2) {
+func (t *localTests) TestInstanceGroups(c *C) {
 	env, err := t.Environs.Open(t.Name)
 	c.Assert(err, IsNil)
 
@@ -125,8 +125,13 @@ func (t *localTests) testInstanceGroups(c *C, conn *amzec2.EC2) {
 	// go behind the scenes to check the machines have
 	// been put into the correct groups.
 
-	// first check that the groups have been created.
-	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
+	// first check that the old group has been deleted
+	groupsResp, err := ec2conn.SecurityGroups([]amzec2.SecurityGroup{oldGroup}, nil)
+	c.Assert(err, IsNil)
+	c.Check(len(groupsResp.Groups), Equals, 0)
+
+	// then check that the groups have been created.
+	groupsResp, err = ec2conn.SecurityGroups(groups, nil)
 	c.Assert(err, IsNil)
 	c.Assert(len(groupsResp.Groups), Equals, len(groups))
 
@@ -148,24 +153,25 @@ func (t *localTests) testInstanceGroups(c *C, conn *amzec2.EC2) {
 	// check that each instance is part of the correct groups.
 	resp, err := ec2conn.Instances([]string{inst0.Id(), inst1.Id()}, nil)
 	c.Assert(err, IsNil)
-	c.Assert(len(resp.Reservations), Equals, 2)
+	c.Assert(len(resp.Reservations), Equals, 2, Bug("reservations %#v", resp.Reservations))
 	for _, r := range resp.Reservations {
 		c.Assert(len(r.Instances), Equals, 1)
 		// each instance must be part of the general juju group.
-		c.Assert(hasSecurityGroup(r, groups[0]), Equals, true)
+		msg := Bug("reservation %#v", r)
+		c.Assert(hasSecurityGroup(r, groups[0]), Equals, true, msg)
 		inst := r.Instances[0]
 		switch inst.InstanceId {
 		case inst0.Id():
-			c.Assert(hasSecurityGroup(r, groups[1]), Equals, true)
-			c.Assert(hasSecurityGroup(r, groups[2]), Equals, false)
+			c.Assert(hasSecurityGroup(r, groups[1]), Equals, true, msg)
+			c.Assert(hasSecurityGroup(r, groups[2]), Equals, false, msg)
 		case inst1.Id():
-			c.Assert(hasSecurityGroup(r, groups[2]), Equals, true)
+			c.Assert(hasSecurityGroup(r, groups[2]), Equals, true, msg)
 
 			// check that the id of the second machine's group
 			// has changed - this implies that StartInstance has
 			// correctly deleted and re-created the group.
 			c.Assert(groups[2].Id, Not(Equals), oldGroup.Id)
-			c.Assert(hasSecurityGroup(r, groups[1]), Equals, false)
+			c.Assert(hasSecurityGroup(r, groups[1]), Equals, false, msg)
 		default:
 			c.Errorf("unknown instance found: %v", inst)
 		}
@@ -177,7 +183,6 @@ func (t *localTests) testInstanceGroups(c *C, conn *amzec2.EC2) {
 func ensureGroupExists(c *C, ec2conn *amzec2.EC2, group amzec2.SecurityGroup, descr string) amzec2.SecurityGroup {
 	groups, err := ec2conn.SecurityGroups([]amzec2.SecurityGroup{group}, nil)
 	c.Assert(err, IsNil)
-
 	if len(groups.Groups) > 0 {
 		return groups.Groups[0].SecurityGroup
 	}

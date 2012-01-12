@@ -114,7 +114,7 @@ var imagesRoot = "images"
 func copylocal(s string) error {
 	r, err := http.Get("http://uec-images.ubuntu.com/" + s)
 	if err != nil {
-		return fmt.Errorf("get %q: %v", err)
+		return fmt.Errorf("get %q: %v", s, err)
 	}
 	defer r.Body.Close()
 	if r.StatusCode != 200 {
