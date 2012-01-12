@@ -1,15 +1,6 @@
-
 // The store package is capable of storing and updating charms in a MongoDB
 // database, as well as maintaining further information about them such as
-// the VCS revision the charm was loaded from and the urls in which the
-// charm should be available.
-//
-// The following MongoDB collections are currently used:
-//
-//     juju.charms    - Information about the stored charms
-//     juju.charmfs.* - GridFS with the charm files
-//     juju.locks     - Has unique keys with url of updating charms
-// 
+// the VCS revision the charm was loaded from and the URLs for the charms.
 package store
 
 import (
@@ -25,6 +16,12 @@ import (
 	"sort"
 )
 
+// The following MongoDB collections are currently used:
+//
+//     juju.charms    - Information about the stored charms
+//     juju.charmfs.* - GridFS with the charm files
+//     juju.locks     - Has unique keys with url of updating charms
+
 var (
 	UpdateConflict  = errors.New("charm update already in progress")
 	UpdateIsCurrent = errors.New("charm is already up-to-date")
@@ -34,13 +31,14 @@ const (
 	UpdateTimeout = 600e9
 )
 
-// The Store type encapsulates communication with MongoDB to 
+// Store holds a connection to a charm store.
 type Store struct {
 	session storeSession
 }
 
-// Open creates a new session with the store for adding or
-// retrieving charms.
+// Open creates a new session with the store. It connects to the MongoDB
+// server at the given address (as expected by the Mongo function in the
+// launchpad.net/mgo package).
 func Open(mongoAddr string) (store *Store, err error) {
 	log.Printf("Store opened. Connecting to: %s", mongoAddr)
 	store = &Store{}
@@ -49,7 +47,7 @@ func Open(mongoAddr string) (store *Store, err error) {
 		log.Printf("Error connecting to MongoDB: %v", err)
 		return nil, err
 	}
-	store = &Store{session: storeSession{session}}
+	store = &Store{storeSession{session}}
 	charms := store.session.Charms()
 	err = charms.EnsureIndex(mgo.Index{Key: []string{"url", "revision"}, Unique: true})
 	if err != nil {
@@ -62,7 +60,7 @@ func Open(mongoAddr string) (store *Store, err error) {
 	return store, nil
 }
 
-// Close terminates the session with store.
+// Close terminates the connection with the store.
 func (s *Store) Close() {
 	s.session.Close()
 }
@@ -70,23 +68,24 @@ func (s *Store) Close() {
 // dropRevisions returns urls with their revisions removed.
 func dropRevisions(urls []*charm.URL) []*charm.URL {
 	norev := make([]*charm.URL, len(urls))
-	for i := range norev {
+	for i := range urls {
 		norev[i] = urls[i].WithRevision(-1)
 	}
 	return norev
 }
 
 // AddCharm prepares the store to have charm added to it at all of
-// the provided urls. The revisionKey parameter must contain the VCS
-// revision identifier that represents the current charm content.
+// the provided urls. The revisionKey parameter must contain the
+// unique identifier that represents the current charm content
+// (e.g. the VCS revision sha1).
 // An error is returned if all of the provided urls are already
 // associated to that revision key.
-// On success, wc must be used to stream the charm content onto the
+// On success, wc must be used to stream the charm bundle onto the
 // store, and once wc is closed successfully the content will be
 // available at all of the provided urls.
 // The returned revision number will be assigned to the charm in the
-// store, and it's equal to the maximum current revision from all of
-// the urls plus one. It is the caller's responsibility to ensure
+// store. The revision will be the maximum current revision from
+// all of the urls plus one. It is the caller's responsibility to ensure
 // that the charm content written to wc represents that revision.
 func (s *Store) AddCharm(charm charm.Charm, urls []*charm.URL, revisionKey string) (wc io.WriteCloser, revision int, err error) {
 	log.Printf("Trying to add charms %v with key %q...", urls, revisionKey)
@@ -135,7 +134,15 @@ func (s *Store) AddCharm(charm charm.Charm, urls []*charm.URL, revisionKey strin
 	}
 	revision = maxRev + 1
 	log.Printf("Preparing writer to add charms with revision %d.", revision)
-	return &writer{session, nil, nil, charm, urls, lock, revision, revisionKey}, revision, nil
+	w := &writer{
+		session:  session,
+		charm:    charm,
+		urls:     urls,
+		lock:     lock,
+		revision: revision,
+		revKey:   revisionKey,
+	}
+	return w, revision, nil
 }
 
 type writer struct {
@@ -149,8 +156,7 @@ type writer struct {
 	revKey   string
 }
 
-// Write streams to the database the data from a charm being inserted
-// into the store.
+// Write appends data to the charm bundle payload in the store.
 func (w *writer) Write(data []byte) (n int, err error) {
 	if w.file == nil {
 		w.file, err = w.session.CharmFS().Create("")
@@ -262,8 +268,7 @@ func (s *Store) CharmInfo(url *charm.URL) (info *CharmInfo, err error) {
 }
 
 // OpenCharm opens for reading via rc the charm currently available at url.
-// rc must necessarily be closed after dealing with it or resources
-// will leak.
+// rc must be closed after dealing with it or resources will leak.
 func (s *Store) OpenCharm(url *charm.URL) (info *CharmInfo, rc io.ReadCloser, err error) {
 	log.Debugf("Opening charm %s", url)
 	info, err = s.CharmInfo(url)
@@ -291,7 +296,7 @@ func (r *reader) Read(buf []byte) (n int, err error) {
 	return r.file.Read(buf)
 }
 
-// Close closes the opened charm, and frees associated resources.
+// Close closes the opened charm and frees associated resources.
 func (r *reader) Close() error {
 	err := r.file.Close()
 	r.session.Close()
@@ -334,8 +339,8 @@ func (s storeSession) CharmFS() *mgo.GridFS {
 // If the lock can't be acquired in any of the urls, an error will be
 // immediately returned.
 // In the usual case, any locking done is undone when an error happens,
-// or when m.Unlock is called. In case something else goes wrong, the
-// locks will also expire after the period defined in UpdateTimeout.
+// or when m.Unlock is called. If something else goes wrong, the locks
+// will also expire after the period defined in UpdateTimeout.
 func (s storeSession) LockUpdates(urls []*charm.URL) (m *updateMutex, err error) {
 	keys := make([]string, len(urls))
 	for i := range urls {
@@ -370,9 +375,9 @@ func (m *updateMutex) Unlock() {
 
 // tryLock tries locking m.keys, one at a time, and succeeds only if it
 // can lock all of them in order. The keys should be pre-sorted so that
-// two-way conflicts can't happen. In case any of the keys fail to be
-// locked, and expiring the old lock doesn't work, tryLock undoes all
-// previous locks, and aborts with an error.
+// two-way conflicts can't happen. If any of the keys fail to be locked,
+// and expiring the old lock doesn't work, tryLock undoes all previous
+// locks and aborts with an error.
 func (m *updateMutex) tryLock() error {
 	for i, key := range m.keys {
 		log.Debugf("Trying to lock charm %s for updates...", key)
@@ -410,7 +415,7 @@ func (m *updateMutex) tryExpire(key string) {
 	m.locks.Remove(bson.D{{"_id", key}, {"time", bson.D{{"$lt", bson.Now() - UpdateTimeout}}}})
 }
 
-// maybeConflict returns an UpdateConflict in case err is a mgo
+// maybeConflict returns an UpdateConflict if err is a mgo
 // insert conflict LastError, or err itself otherwise.
 func maybeConflict(err error) error {
 	if lerr, ok := err.(*mgo.LastError); ok && lerr.Code == 11000 {

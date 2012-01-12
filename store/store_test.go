@@ -4,9 +4,9 @@ import (
 	"io/ioutil"
 	"launchpad.net/gobson/bson"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/store"
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/log"
+	"launchpad.net/juju/go/store"
 	"launchpad.net/mgo"
 	"path/filepath"
 	"testing"
@@ -72,11 +72,11 @@ func (s *S) TestAddCharm(c *C) {
 		c.Assert(err, IsNil)
 
 		// The same information must be available by reading the
-		// full charm data..
+		// full charm data...
 		c.Assert(bundle.Meta().Name, Equals, "dummy")
 		c.Assert(bundle.Config().Options["title"].Default, Equals, "My Title")
 
-		// .. and the queriable details.
+		// ... and the queriable details.
 		c.Assert(info.Meta().Name, Equals, "dummy")
 		c.Assert(info.Config().Options["title"].Default, Equals, "My Title")
 
@@ -138,7 +138,7 @@ func (s *S) TestExpiringConflict(c *C) {
 	// Hack time to force an expiration.
 	locks := s.Session.DB("juju").C("locks")
 	selector := bson.M{"_id": urlB.String()}
-	update := bson.M{"time": bson.Now()-store.UpdateTimeout-10e9}
+	update := bson.M{"time": bson.Now() - store.UpdateTimeout - 10e9}
 	err = locks.Update(selector, update)
 	c.Check(err, IsNil)
 
@@ -164,7 +164,7 @@ func (s *S) TestRevisioning(c *C) {
 	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
 	urls := []*charm.URL{urlA, urlB}
 
-	var tests = []struct {
+	tests := []struct {
 		urls []*charm.URL
 		data string
 	}{
@@ -174,7 +174,7 @@ func (s *S) TestRevisioning(c *C) {
 	}
 
 	for i, t := range tests {
-		wc, revno, err := s.store.AddCharm(s.charm, t.urls, "key-" + t.data)
+		wc, revno, err := s.store.AddCharm(s.charm, t.urls, "key-"+t.data)
 		c.Assert(err, IsNil)
 		c.Assert(revno, Equals, i)
 		_, err = wc.Write([]byte(t.data))
