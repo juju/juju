@@ -355,7 +355,7 @@ func (s storeSession) LockUpdates(urls []*charm.URL) (m *updateMutex, err error)
 	return m, nil
 }
 
-// updateMutex manages the logic around locking, and is used
+// updateMutex manages the logic around locking and is used
 // via storeSession.LockUpdates.
 type updateMutex struct {
 	keys  []string
