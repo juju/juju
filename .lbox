@@ -1,1 +1,1 @@
-propose: -for lp:juju/go -cr
+propose -cr -for lp:juju/go
