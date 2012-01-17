@@ -8,6 +8,12 @@ import (
 	"strings"
 )
 
+// Use local suite since this file lives in the ec2 package
+// for testing internals.
+type configSuite struct{}
+
+var _ = Suite(configSuite{})
+
 var configTestRegion = aws.Region{
 	EC2Endpoint: "testregion.nowhere:1234",
 }
@@ -57,7 +63,7 @@ func makeEnv(s string) []byte {
 	return []byte("environments:\n  testenv:\n    type: ec2\n" + indent(s, "    "))
 }
 
-func (suite) TestConfig(c *C) {
+func (configSuite) TestConfig(c *C) {
 	Regions["configtest"] = configTestRegion
 	defer delete(Regions, "configtest")
 

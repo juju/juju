@@ -53,12 +53,17 @@ func (e *environ) StartInstance(machineId int) (environs.Instance, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
 	}
+	groups, err := e.setUpGroups(machineId)
+	if err != nil {
+		return nil, fmt.Errorf("cannot set up groups: %v", err)
+	}
 	instances, err := e.ec2.RunInstances(&ec2.RunInstances{
-		ImageId:      image.ImageId,
-		MinCount:     1,
-		MaxCount:     1,
-		UserData:     nil,
-		InstanceType: "m1.small",
+		ImageId:        image.ImageId,
+		MinCount:       1,
+		MaxCount:       1,
+		UserData:       nil,
+		InstanceType:   "m1.small",
+		SecurityGroups: groups,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot run instances: %v", err)
@@ -105,4 +110,62 @@ func (e *environ) Destroy() error {
 		return err
 	}
 	return e.StopInstances(insts)
+}
+
+func (e *environ) machineGroupName(machineId int) string {
+	return fmt.Sprintf("%s-%d", e.groupName(), machineId)
+}
+
+func (e *environ) groupName() string {
+	return "juju-" + e.name
+}
+
+// setUpGroups creates the security groups for the new machine, and
+// returns them.
+// 
+// Instances are tagged with a group so they can be distinguished from
+// other instances that might be running on the same EC2 account.  In
+// addition, a specific machine security group is created for each
+// machine, so that its firewall rules can be configured per machine.
+func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
+	jujuGroup := ec2.SecurityGroup{Name: e.groupName()}
+	jujuMachineGroup := ec2.SecurityGroup{Name: e.machineGroupName(machineId)}
+	groups, err := e.ec2.SecurityGroups([]ec2.SecurityGroup{jujuGroup, jujuMachineGroup}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get security groups: %v", err)
+	}
+
+	for _, g := range groups.Groups {
+		switch g.Name {
+		case jujuGroup.Name:
+			jujuGroup = g.SecurityGroup
+		case jujuMachineGroup.Name:
+			jujuMachineGroup = g.SecurityGroup
+		}
+	}
+
+	// Create the provider group if doesn't exist.
+	if jujuGroup.Id == "" {
+		r, err := e.ec2.CreateSecurityGroup(jujuGroup.Name, "juju group for "+e.name)
+		if err != nil {
+			return nil, fmt.Errorf("cannot create juju security group: %v", err)
+		}
+		jujuGroup = r.SecurityGroup
+	}
+
+	// Create the machine-specific group, but first see if there's
+	// one already existing from a previous machine launch;
+	// if so, delete it, since it can have the wrong firewall setup
+	if jujuMachineGroup.Id != "" {
+		_, err := e.ec2.DeleteSecurityGroup(jujuMachineGroup)
+		if err != nil {
+			return nil, fmt.Errorf("cannot delete old security group %q: %v", jujuMachineGroup.Name, err)
+		}
+	}
+	descr := fmt.Sprintf("juju group for %s machine %d", e.name, machineId)
+	r, err := e.ec2.CreateSecurityGroup(jujuMachineGroup.Name, descr)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create machine group %q: %v", jujuMachineGroup.Name, err)
+	}
+	return []ec2.SecurityGroup{jujuGroup, r.SecurityGroup}, nil
 }
