@@ -120,29 +120,27 @@ func (e *environ) groupName() string {
 	return "juju-" + e.name
 }
 
-// setUpGroups creates the security groups for the new machine,
-// and returns them.
-//
-// Instances are tagged with a group so they
-// can be distinguished from other instances that might be running
-// on the same EC2 account. In addition, a specific machine security group
-// is created for each machine, so that its firewall rules can be configured
-// per machine.
+// setUpGroups creates the security groups for the new machine, and
+// returns them.
+// 
+// Instances are tagged with a group so they can be distinguished from
+// other instances that might be running on the same EC2 account.  In
+// addition, a specific machine security group is created for each
+// machine, so that its firewall rules can be configured per machine.
 func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
-	allGroups, err := e.ec2.SecurityGroups(nil, nil)
+	jujuGroup := ec2.SecurityGroup{Name: e.groupName()}
+	jujuMachineGroup := ec2.SecurityGroup{Name: e.machineGroupName(machineId)}
+	groups, err := e.ec2.SecurityGroups([]ec2.SecurityGroup{jujuGroup, jujuMachineGroup}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get security groups: %v", err)
 	}
-	jujuGroup := ec2.SecurityGroup{Name: e.groupName()}
-	jujuMachineGroup := ec2.SecurityGroup{Name: e.machineGroupName(machineId)}
 
-	for _, g := range allGroups.Groups {
+	for _, g := range groups.Groups {
 		switch g.Name {
 		case jujuGroup.Name:
 			jujuGroup = g.SecurityGroup
 		case jujuMachineGroup.Name:
 			jujuMachineGroup = g.SecurityGroup
-		default:
 		}
 	}
 

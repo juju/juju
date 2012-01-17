@@ -7,7 +7,7 @@ import (
 	"launchpad.net/goamz/ec2/ec2test"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
-	ec2 "launchpad.net/juju/go/environs/ec2"
+	"launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
 )
 
