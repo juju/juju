@@ -6,6 +6,7 @@ TARG=launchpad.net/juju/go/state
 
 GOFILES=\
 	state.go\
+	charm.go\
 	service.go\
 	unit.go\
 	topology.go\

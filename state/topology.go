@@ -49,6 +49,13 @@ type topology struct {
 func readTopology(zk *zookeeper.Conn) (*topology, error) {
 	yaml, _, err := zk.Get("/topology")
 	if err != nil {
+		if zkErr, ok := err.(zookeeper.Error); ok {
+			// -101 is the error code for not existing nodes. So
+			// return an empty prepared topology.
+			if zkErr == -101 {
+				return parseTopology("")
+			}
+		}
 		return nil, err
 	}
 	return parseTopology(yaml)
@@ -56,16 +63,49 @@ func readTopology(zk *zookeeper.Conn) (*topology, error) {
 
 // dump returns the topology as YAML.
 func (t *topology) dump() (string, error) {
-	topologyYaml, err := goyaml.Marshal(t.topology)
+	yaml, err := goyaml.Marshal(t.topology)
 	if err != nil {
 		return "", err
 	}
-	return string(topologyYaml), nil
+	return string(yaml), nil
 }
 
 // version returns the version of the topology.
 func (t *topology) version() int {
 	return t.topology.Version
+}
+
+// addService adds a new service to the topology.
+func (t *topology) addService(key, name string) error {
+	if t.topology.Services == nil {
+		t.topology.Services = make(map[string]*zkService)
+	}
+	if t.hasService(key) {
+		return fmt.Errorf("attempted to add duplicated service %q", key)
+	}
+	if _, err := t.serviceKey(name); err == nil {
+		return fmt.Errorf("service name %q already in use", name)
+	}
+	t.topology.Services[key] = &zkService{
+		Name:  name,
+		Units: make(map[string]*zkUnit),
+	}
+	if t.topology.UnitSequence == nil {
+		t.topology.UnitSequence = make(map[string]int)
+	}
+	if _, ok := t.topology.UnitSequence[name]; !ok {
+		t.topology.UnitSequence[name] = 0
+	}
+	return nil
+}
+
+// removeService removes a service from the topology.
+func (t *topology) removeService(key string) error {
+	if err := t.assertService(key); err != nil {
+		return err
+	}
+	delete(t.topology.Services, key)
+	return nil
 }
 
 // hasService returns true if a service with the given key exists.

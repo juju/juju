@@ -5,9 +5,11 @@
 package state
 
 import (
+	"errors"
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju/go/charm"
 	"strings"
 )
 
@@ -26,11 +28,35 @@ func (s *Service) Name() string {
 // CharmId returns the charm id this service is supposed
 // to use.
 func (s *Service) CharmId() (charmId string, err error) {
-	value, err := zkMapField(s.zk, s.zkPath(), "charm")
+	cn, err := readConfigNode(s.zk, s.zkPath(), true)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
-	return value.(string), nil
+	return cn.Get("charm").(string), nil
+}
+
+// SetCharmId changes the charm id of the service.
+func (s *Service) SetCharmId(charmId string) error {
+	_, err := charm.NewURL(charmId)
+	if err != nil {
+		return err
+	}
+	cn, err := readConfigNode(s.zk, s.zkPath(), true)
+	if err != nil {
+		return err
+	}
+	cn.Set("charm", charmId)
+	_, err = cn.Write()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Charm returns the service's charm.
+func (s *Service) Charm() (*Charm, error) {
+	// TODO Add implementation when charm has been implemented.
+	return nil, errors.New("not yet implemented")
 }
 
 // AddUnit() adds a new unit.
@@ -165,6 +191,51 @@ func (s *Service) UnitNames() ([]string, error) {
 		unitNames = append(unitNames, unitName)
 	}
 	return unitNames, nil
+}
+
+// IsExposed tells if this service is set as exposed in
+// ZooKeeper.
+func (s *Service) IsExposed() (bool, error) {
+	stat, err := s.zk.Exists(s.zkExposedPath())
+	if err != nil {
+		return false, err
+	}
+	return stat != nil, nil
+}
+
+// SetExposed marks the service as exposed in ZooKeeper.
+func (s *Service) SetExposed() error {
+	if _, err := s.zk.Create(s.zkExposedPath(), "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL)); err != nil {
+		if zkErr, ok := err.(zookeeper.Error); ok {
+			// -110 is the error code for already existing nodes.
+			if zkErr == -110 {
+				return nil
+			}
+		}
+		return err
+	}
+	return nil
+}
+
+// ClearExposed removes the exposed flag of the service in ZooKeeper.
+func (s *Service) ClearExposed() error {
+	if err := s.zk.Delete(s.zkExposedPath(), -1); err != nil {
+		if zkErr, ok := err.(zookeeper.Error); ok {
+			// -101 is the error code for not existing nodes.
+			if zkErr == -101 {
+				return nil
+			}
+		}
+		return err
+	}
+	return nil
+}
+
+// Config returns the configuration node of the service. After
+// changes have been done the nodes Write() method has to be
+// used to merge and persist the changes.
+func (s *Service) Config() (*ConfigNode, error) {
+	return readConfigNode(s.zk, s.zkConfigPath(), false)
 }
 
 // zkKey returns ZooKeeper key of the service.
