@@ -9,8 +9,12 @@ type BootstrapCommand struct {
 
 var _ Command = (*BootstrapCommand)(nil)
 
+func (c *BootstrapCommand) Environment() string {
+    return c.environment
+}
+
 func (c *BootstrapCommand) Parse(args []string) error {
-	fs := flag.NewFlagSet("bootstrap", flag.ExitOnError)
+	fs := flag.NewFlagSet("bootstrap", flag.ContinueOnError)
 	fs.StringVar(&c.environment, "e", "", "juju environment to operate in")
 	fs.StringVar(&c.environment, "environment", "", "juju environment to operate in")
 	if err := fs.Parse(args); err != nil {

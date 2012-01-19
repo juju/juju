@@ -39,7 +39,7 @@ func (c *JujuCommand) Parse(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no args to parse")
 	}
-	fs := flag.NewFlagSet(args[0], flag.ExitOnError)
+	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	fs.StringVar(&c.logfile, "l", "", "where to log to")
 	fs.StringVar(&c.logfile, "log-file", "", "where to log to")
 	fs.BoolVar(&c.verbose, "v", false, "whether to be noisy")
@@ -66,4 +66,13 @@ func (c *JujuCommand) parseSubcmd(args []string) error {
 
 func (c *JujuCommand) Run() error {
 	return c.subcmd.Run()
+}
+
+func JujuMain(args []string) error {
+    jc := new(JujuCommand)
+    jc.Register("bootstrap", new(BootstrapCommand))
+    if err := jc.Parse(args); err != nil {
+        return err
+    }
+    return jc.Run()
 }
