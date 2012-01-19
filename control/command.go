@@ -16,14 +16,18 @@ type JujuCommand struct {
 	subcmd  Command
 }
 
+// Path to logfile specified on command line, or "".
 func (c *JujuCommand) Logfile() string {
 	return c.logfile
 }
 
+// true if verbose was specified on command line.
 func (c *JujuCommand) Verbose() bool {
 	return c.verbose
 }
 
+// Register a subcommand by name, which must not match that of a previously-
+// registered subcommand.
 func (c *JujuCommand) Register(name string, subcmd Command) error {
 	if c.subcmds == nil {
 		c.subcmds = make(map[string]Command)
@@ -36,6 +40,9 @@ func (c *JujuCommand) Register(name string, subcmd Command) error {
 	return nil
 }
 
+// Parse a command line. After normal option parsing is complete, the next arg
+// will be used to look up the requested subcommand by name, and its Parse
+// method will be called with all remaining args after the name.
 func (c *JujuCommand) Parse(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no args to parse")
@@ -65,6 +72,7 @@ func (c *JujuCommand) parseSubcmd(args []string) error {
 	return c.subcmd.Parse(args[1:])
 }
 
+// Run the subcommand specified in a previous call to Parse.
 func (c *JujuCommand) Run() error {
 	if c.subcmd == nil {
 		return fmt.Errorf("no subcommand selected")
@@ -72,6 +80,7 @@ func (c *JujuCommand) Run() error {
 	return c.subcmd.Run()
 }
 
+// Effective entry point for "juju" commands.
 func JujuMain(args []string) error {
 	jc := new(JujuCommand)
 	jc.Register("bootstrap", new(BootstrapCommand))
