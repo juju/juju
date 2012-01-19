@@ -88,6 +88,12 @@ func (c *Config) Validate(values map[string]string) (processed map[string]interf
 				return nil, fmt.Errorf("Value for %q is not a float: %q", k, v)
 			}
 			out[k] = f
+		case "boolean":
+			b, err := strconv.ParseBool(v)
+			if err != nil {
+				return nil, fmt.Errorf("Value for %q is not a boolean: %q", k, v)
+			}
+			out[k] = b
 		default:
 			panic(fmt.Errorf("Internal error: option type %q is unknown to Validate", opt.Type))
 		}
@@ -102,8 +108,8 @@ func (c *Config) Validate(values map[string]string) (processed map[string]interf
 
 var optionSchema = schema.FieldMap(
 	schema.Fields{
-		"type":        schema.OneOf(schema.Const("string"), schema.Const("int"), schema.Const("float")),
-		"default":     schema.OneOf(schema.String(), schema.Int(), schema.Float()),
+		"type":        schema.OneOf(schema.Const("string"), schema.Const("int"), schema.Const("float"), schema.Const("boolean")),
+		"default":     schema.OneOf(schema.String(), schema.Int(), schema.Float(), schema.Bool()),
 		"description": schema.String(),
 	},
 	schema.Optional{"default", "description"},
