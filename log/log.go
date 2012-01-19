@@ -5,13 +5,10 @@ import "io"
 import "os"
 import stdlog "log"
 
+var stderr io.Writer = os.Stderr
+
 type Logger interface {
 	Output(calldepth int, s string) error
-}
-
-type LogInfo interface {
-    Logfile() string
-    Verbose() bool
 }
 
 var (
@@ -19,17 +16,16 @@ var (
 	Debug  bool
 )
 
-func Init(i LogInfo) error {
-    var target io.Writer = os.Stderr
-    if i.Logfile() != "" {
-        logfile, err := os.OpenFile(i.Logfile(), os.O_WRONLY|os.O_APPEND, 0644)
+func SetFile(path string) error {
+    var target io.Writer = stderr
+    if path != "" {
+        logfile, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
         if err != nil {
             return err
         }
-        target = io.MultiWriter(logfile, os.Stderr)
+        target = io.MultiWriter(logfile, stderr)
     }
     Target = stdlog.New(target, "", 0)
-    Debug = i.Verbose()
     return nil
 }
 

@@ -27,6 +27,5 @@ func (c *BootstrapCommand) Parse(args []string) error {
 }
 
 func (c *BootstrapCommand) Run() error {
-	fmt.Println("Running bootstrap in environment ", c.environment)
 	return nil
 }

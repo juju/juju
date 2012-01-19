@@ -3,7 +3,10 @@ package log_test
 import (
 	"bytes"
 	. "launchpad.net/gocheck"
+    "io/ioutil"
 	"launchpad.net/juju/go/log"
+    "os"
+    "path"
 	stdlog "log"
 	"testing"
 )
@@ -51,4 +54,47 @@ func (suite) TestLogger(c *C) {
 		}
 		buf.Reset()
 	}
+}
+
+func patchStderr() (*bytes.Buffer, func()) {
+    stderr := *log.StderrPtr
+    buf := new(bytes.Buffer)
+    *log.StderrPtr = buf
+    return buf, func() {
+        *log.StderrPtr = stderr
+    }
+}
+
+var logfileTests = []struct {
+	expect string
+	debug bool
+}{
+	{
+		expect: "JUJU Salut le monde\nJUJU:DEBUG Au revoir l'espace\n",
+		debug: true,
+	},
+	{
+		expect: "JUJU Salut le monde\n",
+		debug: false,
+	},
+}
+
+func (suite) TestSetFile(c *C) {
+    buf, cleanup := patchStderr()
+    defer cleanup()
+	for _, t := range logfileTests {
+        logdir, _ := ioutil.TempDir("", "")
+        logfile := path.Join(logdir, "log")
+        defer os.RemoveAll(logdir)
+        ioutil.WriteFile(logfile, []byte("previous\n"), 0644)
+
+        log.Debug = t.debug
+        log.SetFile(logfile)
+        buf.Reset()
+        log.Printf("Salut le monde")
+        log.Debugf("Au revoir l'espace")
+        c.Assert(buf.String(), Equals, t.expect)
+        content, _ := ioutil.ReadFile(logfile)
+        c.Assert(string(content), Equals, "previous\n" + t.expect)
+    }
 }

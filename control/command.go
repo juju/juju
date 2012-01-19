@@ -72,11 +72,12 @@ func (c *JujuCommand) Run() error {
 func JujuMain(args []string) error {
     jc := new(JujuCommand)
     jc.Register("bootstrap", new(BootstrapCommand))
-
     if err := jc.Parse(args); err != nil {
         return err
     }
-    if err := log.Init(jc); err != nil {
+
+    log.Debug = jc.Verbose()
+    if err := log.SetFile(jc.Logfile()); err != nil {
         return err
     }
     return jc.Run()
