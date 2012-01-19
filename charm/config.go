@@ -1,8 +1,8 @@
 package charm
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"launchpad.net/goyaml"
