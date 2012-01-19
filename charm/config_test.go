@@ -29,6 +29,9 @@ options:
   agility-ratio:
     description: A number from 0 to 1 indicating agility.
     type: float
+  reticulate-splines:
+    description: Whether to reticulate splines on launch, or not.
+    type: boolean
 `
 
 func repoConfig(name string) io.Reader {
@@ -92,6 +95,12 @@ func (s *S) TestParseSample(c *C) {
 			Type:        "int",
 		},
 	)
+	c.Assert(opt["reticulate-splines"], Equals,
+		charm.Option{
+			Description: "Whether to reticulate splines on launch, or not.",
+			Type:        "boolean",
+		},
+	)
 }
 
 func (s *S) TestValidate(c *C) {
@@ -134,6 +143,12 @@ func (s *S) TestValidate(c *C) {
 	output, err = config.Validate(input)
 	c.Assert(err, ErrorMatches, `Value for "skill-level" is not an int: "foo"`)
 	input["skill-level"] = "7"
+
+	// Check whether boolean errors are caught.
+	input["reticulate-splines"] = "maybe"
+	output, err = config.Validate(input)
+	c.Assert(err, ErrorMatches, `Value for "reticulate-splines" is not a boolean: "maybe"`)
+	input["reticulate-splines"] = "false"
 
 	// Now try to set a value outside the expected.
 	input["bad"] = "value"
