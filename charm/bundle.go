@@ -68,18 +68,21 @@ func readBundle(r io.ReaderAt, size int64) (bundle *Bundle, err error) {
 	}
 
 	reader, err = zipOpen(zipr, "config.yaml")
-	if err != nil {
-		return
-	}
-	b.config, err = ReadConfig(reader)
-	reader.Close()
-	if err != nil {
-		return
+	if _, ok := err.(*noBundleFile); ok {
+		b.config = NewConfig()
+	} else if err != nil {
+		return nil, err
+	} else {
+		b.config, err = ReadConfig(reader)
+		reader.Close()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	reader, err = zipOpen(zipr, "revision")
 	if err != nil {
-		if _, ok := err.(noBundleFile); !ok {
+		if _, ok := err.(*noBundleFile); !ok {
 			return
 		}
 		b.revision = b.meta.OldRevision
@@ -98,7 +101,7 @@ func zipOpen(zipr *zip.Reader, path string) (rc io.ReadCloser, err error) {
 			return fh.Open()
 		}
 	}
-	return nil, noBundleFile{path}
+	return nil, &noBundleFile{path}
 }
 
 type noBundleFile struct {
