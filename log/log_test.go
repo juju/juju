@@ -5,7 +5,6 @@ import (
 	. "launchpad.net/gocheck"
     "io/ioutil"
 	"launchpad.net/juju/go/log"
-    "os"
     "path"
 	stdlog "log"
 	"testing"
@@ -84,9 +83,8 @@ func (suite) TestSetFile(c *C) {
     defer cleanup()
 	for _, t := range logfileTests {
         buf.Reset()
-        logdir, _ := ioutil.TempDir("", "")
+        logdir := c.MkDir()
         logfile := path.Join(logdir, "log")
-        defer os.RemoveAll(logdir)
         ioutil.WriteFile(logfile, []byte("previous\n"), 0644)
 
         log.Debug = t.debug

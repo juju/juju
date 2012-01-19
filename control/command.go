@@ -1,7 +1,7 @@
 package control
 
-import "fmt"
 import "flag"
+import "fmt"
 import "launchpad.net/juju/go/log"
 
 type Command interface {
@@ -30,7 +30,7 @@ func (c *JujuCommand) Register(name string, subcmd Command) error {
 	}
 	_, alreadythere := c.subcmds[name]
 	if alreadythere {
-		return fmt.Errorf("subcommand %s already registered", name)
+		return fmt.Errorf("subcommand %s is already registered", name)
 	}
 	c.subcmds[name] = subcmd
 	return nil
@@ -66,6 +66,9 @@ func (c *JujuCommand) parseSubcmd(args []string) error {
 }
 
 func (c *JujuCommand) Run() error {
+    if c.subcmd == nil {
+        return fmt.Errorf("no subcommand selected")
+    }
 	return c.subcmd.Run()
 }
 

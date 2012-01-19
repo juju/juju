@@ -1,7 +1,7 @@
 package control
 
-import "flag"
 import "fmt"
+import "launchpad.net/~rogpeppe/juju/gnuflag/flag"
 
 type BootstrapCommand struct {
 	environment string
@@ -17,7 +17,11 @@ func (c *BootstrapCommand) Parse(args []string) error {
 	fs := flag.NewFlagSet("bootstrap", flag.ContinueOnError)
 	fs.StringVar(&c.environment, "e", "", "juju environment to operate in")
 	fs.StringVar(&c.environment, "environment", "", "juju environment to operate in")
-	if err := fs.Parse(args); err != nil {
+
+    // ParseGnu(true... is meaningless is this specific case, but is generally
+    // required for juju subcommands, because many of them do have positional
+    // arguments and we need to allow interspersion to match the Python version.
+	if err := fs.ParseGnu(true, args); err != nil {
 		return err
 	}
 	if len(fs.Args()) != 0 {
