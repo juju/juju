@@ -2,6 +2,7 @@ package control
 
 import "fmt"
 import "flag"
+import "launchpad.net/juju/go/log"
 
 type Command interface {
 	Parse(args []string) error
@@ -71,7 +72,11 @@ func (c *JujuCommand) Run() error {
 func JujuMain(args []string) error {
     jc := new(JujuCommand)
     jc.Register("bootstrap", new(BootstrapCommand))
+
     if err := jc.Parse(args); err != nil {
+        return err
+    }
+    if err := log.Init(jc); err != nil {
         return err
     }
     return jc.Run()
