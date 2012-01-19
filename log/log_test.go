@@ -83,6 +83,7 @@ func (suite) TestSetFile(c *C) {
     buf, cleanup := patchStderr()
     defer cleanup()
 	for _, t := range logfileTests {
+        buf.Reset()
         logdir, _ := ioutil.TempDir("", "")
         logfile := path.Join(logdir, "log")
         defer os.RemoveAll(logdir)
@@ -90,7 +91,6 @@ func (suite) TestSetFile(c *C) {
 
         log.Debug = t.debug
         log.SetFile(logfile)
-        buf.Reset()
         log.Printf("Salut le monde")
         log.Debugf("Au revoir l'espace")
         c.Assert(buf.String(), Equals, t.expect)

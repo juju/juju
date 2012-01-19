@@ -16,6 +16,8 @@ var (
 	Debug  bool
 )
 
+// SetFile sets Target such that log functions will always write to os.Stderr
+// and optionally (ie if path is not empty) a log file.
 func SetFile(path string) error {
     var target io.Writer = stderr
     if path != "" {
