@@ -2,7 +2,7 @@ package control_test
 
 import (
 	"flag"
-    "fmt"
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/control"
 	"testing"
@@ -65,15 +65,15 @@ func (s *CommandSuite) TestSubcommandDispatch(c *C) {
 }
 
 func (s *CommandSuite) TestRegister(c *C) {
-    jc := new(control.JujuCommand)
-    err := jc.Register("flip", new(testCommand))
-    c.Assert(err, IsNil)
+	jc := new(control.JujuCommand)
+	err := jc.Register("flip", new(testCommand))
+	c.Assert(err, IsNil)
 
-    err = jc.Register("flop", new(testCommand))
-    c.Assert(err, IsNil)
+	err = jc.Register("flop", new(testCommand))
+	c.Assert(err, IsNil)
 
-    err = jc.Register("flop", new(testCommand))
-    c.Assert(err, ErrorMatches, "subcommand flop is already registered")
+	err = jc.Register("flop", new(testCommand))
+	c.Assert(err, ErrorMatches, "subcommand flop is already registered")
 }
 
 func (s *CommandSuite) TestVerbose(c *C) {
@@ -113,21 +113,21 @@ func (s *CommandSuite) TestLogfile(c *C) {
 }
 
 func (s *CommandSuite) TestRun(c *C) {
-    jc, _, err := parseDefenestrate([]string{"juju", "defenestrate", "--value", "cheese"})
-    c.Assert(err, IsNil)
+	jc, _, err := parseDefenestrate([]string{"juju", "defenestrate", "--value", "cheese"})
+	c.Assert(err, IsNil)
 
-    err = jc.Run()
-    c.Assert(err, ErrorMatches, "This doesn't work, but value is cheese.")
+	err = jc.Run()
+	c.Assert(err, ErrorMatches, "This doesn't work, but value is cheese.")
 }
 
 func (s *CommandSuite) TestRunBadParse(c *C) {
 	jc, err := parseEmpty([]string{"juju"})
-    c.Assert(err, ErrorMatches, "no subcommand specified")
-    err = jc.Run()
-    c.Assert(err, ErrorMatches, "no subcommand selected")
+	c.Assert(err, ErrorMatches, "no subcommand specified")
+	err = jc.Run()
+	c.Assert(err, ErrorMatches, "no subcommand selected")
 }
 
 func (s *CommandSuite) TestJujuMain(c *C) {
-    c.Log("I can't figure out how to test JujuMain usefully.")
-    c.Fail()
+	c.Log("I can't figure out how to test JujuMain usefully.")
+	c.Fail()
 }

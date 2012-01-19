@@ -66,22 +66,22 @@ func (c *JujuCommand) parseSubcmd(args []string) error {
 }
 
 func (c *JujuCommand) Run() error {
-    if c.subcmd == nil {
-        return fmt.Errorf("no subcommand selected")
-    }
+	if c.subcmd == nil {
+		return fmt.Errorf("no subcommand selected")
+	}
 	return c.subcmd.Run()
 }
 
 func JujuMain(args []string) error {
-    jc := new(JujuCommand)
-    jc.Register("bootstrap", new(BootstrapCommand))
-    if err := jc.Parse(args); err != nil {
-        return err
-    }
+	jc := new(JujuCommand)
+	jc.Register("bootstrap", new(BootstrapCommand))
+	if err := jc.Parse(args); err != nil {
+		return err
+	}
 
-    log.Debug = jc.Verbose()
-    if err := log.SetFile(jc.Logfile()); err != nil {
-        return err
-    }
-    return jc.Run()
+	log.Debug = jc.Verbose()
+	if err := log.SetFile(jc.Logfile()); err != nil {
+		return err
+	}
+	return jc.Run()
 }

@@ -19,16 +19,16 @@ var (
 // SetFile sets Target such that log functions will always write to os.Stderr
 // and optionally (ie if path is not empty) a log file.
 func SetFile(path string) error {
-    var target io.Writer = stderr
-    if path != "" {
-        logfile, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
-        if err != nil {
-            return err
-        }
-        target = io.MultiWriter(logfile, stderr)
-    }
-    Target = stdlog.New(target, "", 0)
-    return nil
+	var target io.Writer = stderr
+	if path != "" {
+		logfile, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+		if err != nil {
+			return err
+		}
+		target = io.MultiWriter(logfile, stderr)
+	}
+	Target = stdlog.New(target, "", 0)
+	return nil
 }
 
 // Printf logs the formatted message onto the Target Logger.

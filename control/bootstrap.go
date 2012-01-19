@@ -10,7 +10,7 @@ type BootstrapCommand struct {
 var _ Command = (*BootstrapCommand)(nil)
 
 func (c *BootstrapCommand) Environment() string {
-    return c.environment
+	return c.environment
 }
 
 func (c *BootstrapCommand) Parse(args []string) error {
@@ -18,9 +18,9 @@ func (c *BootstrapCommand) Parse(args []string) error {
 	fs.StringVar(&c.environment, "e", "", "juju environment to operate in")
 	fs.StringVar(&c.environment, "environment", "", "juju environment to operate in")
 
-    // ParseGnu(true... is meaningless is this specific case, but is generally
-    // required for juju subcommands, because many of them do have positional
-    // arguments and we need to allow interspersion to match the Python version.
+	// ParseGnu(true... is meaningless is this specific case, but is generally
+	// required for juju subcommands, because many of them do have positional
+	// arguments and we need to allow interspersion to match the Python version.
 	if err := fs.ParseGnu(true, args); err != nil {
 		return err
 	}
