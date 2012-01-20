@@ -24,6 +24,10 @@ func (c *testCommand) Parse(args []string) error {
 	return fs.Parse(args)
 }
 
+func (c *testCommand) Usage() string {
+	return "Crash bang wallop."
+}
+
 func (c *testCommand) Run() error {
 	return fmt.Errorf("This doesn't work, but value is %s.", c.value)
 }
@@ -118,6 +122,15 @@ func (s *CommandSuite) TestRun(c *C) {
 
 	err = jc.Run()
 	c.Assert(err, ErrorMatches, "This doesn't work, but value is cheese.")
+}
+
+func (s *CommandSuite) TestUsage(c *C) {
+	// Yes, this stuff will need to change.
+	jc, _, _ := parseDefenestrate([]string{"juju"})
+	c.Assert(jc.Usage(), Equals, "You're Doing It Wrong.")
+
+	jc, _, _ = parseDefenestrate([]string{"juju", "defenestrate"})
+	c.Assert(jc.Usage(), Equals, "Crash bang wallop.")
 }
 
 func (s *CommandSuite) TestRunBadParse(c *C) {
