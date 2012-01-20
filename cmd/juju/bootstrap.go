@@ -1,7 +1,7 @@
-package control
+package main
 
 import "fmt"
-import "launchpad.net/juju/go/log"
+import "launchpad.net/juju/go/juju"
 import "launchpad.net/~rogpeppe/juju/gnuflag/flag"
 
 // BootstrapCommand is responsible for launching the first machine in a juju
@@ -27,10 +27,10 @@ func (c *BootstrapCommand) Parse(args []string) error {
 	// normal flag usage output is not really appropriate
 	fs.Usage = func() {}
 
-	// ParseGnu(true, ...) is meaningless is this specific case, but is generally
+	// Parse(true, ...) is meaningless is this specific case, but is generally
 	// required for juju subcommands, because many of them *do* have positional
 	// arguments, and we need to allow interspersion to match the Python version.
-	if err := fs.ParseGnu(true, args); err != nil {
+	if err := fs.Parse(true, args); err != nil {
 		return err
 	}
 	if len(fs.Args()) != 0 {
@@ -48,6 +48,9 @@ func (c *BootstrapCommand) Usage() string {
 // Run will bootstrap the juju environment set in Parse, or the default environment
 // if none has been set.
 func (c *BootstrapCommand) Run() error {
-	log.Printf("Bootstrapping environment: %s\n", c.Environment())
-	return nil
+    conn, err := juju.NewConn(c.Environment())
+    if err != nil {
+        return err
+    }
+    return conn.Bootstrap()
 }

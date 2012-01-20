@@ -1,8 +1,8 @@
-package control_test
+package main_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/control"
+	main "launchpad.net/juju/go/cmd/juju"
 )
 
 type BootstrapSuite struct{}
@@ -10,7 +10,7 @@ type BootstrapSuite struct{}
 var _ = Suite(&BootstrapSuite{})
 
 func (s *BootstrapSuite) TestEnvironment(c *C) {
-	bc := new(control.BootstrapCommand)
+	bc := new(main.BootstrapCommand)
 	c.Assert(bc.Environment(), Equals, "")
 
 	err := bc.Parse([]string{})

@@ -1,9 +1,7 @@
-package control
+package main
 
 import "fmt"
-import "launchpad.net/juju/go/log"
 import "launchpad.net/~rogpeppe/juju/gnuflag/flag"
-import "os"
 
 // Command should "be implemented by" any subcommand that wants to be dispatched
 // to by a JujuCommand.
@@ -73,7 +71,7 @@ func (c *JujuCommand) Parse(args []string) error {
 	fs.Usage = func() {}
 
 	// no arg interspersing, lest we deliver options to the wrong FlagSet
-	if err := fs.ParseGnu(false, args[1:]); err != nil {
+	if err := fs.Parse(false, args[1:]); err != nil {
 		return err
 	}
 	return c.parseSubcmd(fs.Args())
@@ -99,36 +97,4 @@ func (c *JujuCommand) Run() error {
 		return fmt.Errorf("no subcommand selected")
 	}
 	return c.subcmd.Run()
-}
-
-// Main will parse args, set up logging, run the selected subcommand, and exit.
-func (c *JujuCommand) Main(args []string) {
-	if err := c.Parse(args); err != nil {
-		fmt.Println(c.Usage())
-		os.Exit(2)
-	}
-	log.Debug = c.Verbose()
-	if err := log.SetFile(c.Logfile()); err != nil {
-		log.Printf("%s\n", err)
-		os.Exit(1)
-	}
-	if err := c.Run(); err != nil {
-		log.Printf("%s\n", err)
-		os.Exit(1)
-	}
-	os.Exit(0)
-}
-
-// Subcommands for the "juju" executable
-var jujuMainCommands = map[string]Command{
-	"bootstrap": new(BootstrapCommand),
-}
-
-// JujuMainCommand will return a JujuCommand for the main "juju" executable.
-func JujuMainCommand() *JujuCommand {
-	jc := new(JujuCommand)
-	for name, subcmd := range jujuMainCommands {
-		jc.Register(name, subcmd)
-	}
-	return jc
 }
