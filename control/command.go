@@ -2,7 +2,6 @@ package control
 
 import "flag"
 import "fmt"
-import "launchpad.net/juju/go/log"
 
 type Command interface {
 	Parse(args []string) error
@@ -52,10 +51,18 @@ func (c *JujuCommand) Parse(args []string) error {
 	fs.StringVar(&c.logfile, "log-file", "", "where to log to")
 	fs.BoolVar(&c.verbose, "v", false, "whether to be noisy")
 	fs.BoolVar(&c.verbose, "verbose", false, "whether to be noisy")
+
+	// normal flag usage output is not really appropriate
+	fs.Usage = func() {}
+
 	if err := fs.Parse(args[1:]); err != nil {
 		return err
 	}
 	return c.parseSubcmd(fs.Args())
+}
+
+func (c *JujuCommand) Usage() {
+	fmt.Println("You're Doing It Wrong.")
 }
 
 func (c *JujuCommand) parseSubcmd(args []string) error {
@@ -80,17 +87,13 @@ func (c *JujuCommand) Run() error {
 	return c.subcmd.Run()
 }
 
-// Effective entry point for "juju" commands.
-func JujuMain(args []string) error {
-	jc := new(JujuCommand)
-	jc.Register("bootstrap", new(BootstrapCommand))
-	if err := jc.Parse(args); err != nil {
-		return err
-	}
+var jujuMainCommands = map[string]Command{"bootstrap": new(BootstrapCommand)}
 
-	log.Debug = jc.Verbose()
-	if err := log.SetFile(jc.Logfile()); err != nil {
-		return err
+// Return a JujuCommand for the main "juju" executable.
+func JujuMainCommand() *JujuCommand {
+	jc := new(JujuCommand)
+	for name, subcmd := range jujuMainCommands {
+		jc.Register(name, subcmd)
 	}
-	return jc.Run()
+	return jc
 }

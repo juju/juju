@@ -18,6 +18,9 @@ func (c *BootstrapCommand) Parse(args []string) error {
 	fs.StringVar(&c.environment, "e", "", "juju environment to operate in")
 	fs.StringVar(&c.environment, "environment", "", "juju environment to operate in")
 
+	// normal flag usage output is not really appropriate
+	fs.Usage = func() {}
+
 	// ParseGnu(true, ...) is meaningless is this specific case, but is generally
 	// required for juju subcommands, because many of them *do* have positional
 	// arguments, and we need to allow interspersion to match the Python version.

@@ -127,7 +127,27 @@ func (s *CommandSuite) TestRunBadParse(c *C) {
 	c.Assert(err, ErrorMatches, "no subcommand selected")
 }
 
-func (s *CommandSuite) TestJujuMain(c *C) {
-	c.Log("I can't figure out how to test JujuMain usefully.")
-	c.Fail()
+func (s *CommandSuite) TestJujuMainCommand(c *C) {
+	jmc := control.JujuMainCommand()
+	// Precise errors are not interesting here, this is a very high-level test
+	assertParses := func(args []string) { c.Assert(jmc.Parse(args), IsNil) }
+	assertErrors := func(args []string) { c.Assert(jmc.Parse(args), NotNil) }
+
+	assertErrors([]string{"juju"})
+	assertErrors([]string{"juju", "-v"})
+	assertErrors([]string{"juju", "-l"})
+	assertErrors([]string{"juju", "-l", "some.log"})
+	assertErrors([]string{"juju", "twiddle"})
+	assertErrors([]string{"juju", "-v", "twiddle"})
+	assertErrors([]string{"juju", "-l", "some.log", "twiddle"})
+
+	assertParses([]string{"juju", "bootstrap"})
+	assertParses([]string{"juju", "-v", "bootstrap"})
+	assertParses([]string{"juju", "-l", "some.log", "bootstrap"})
+	assertParses([]string{"juju", "bootstrap", "-e", "env"})
+	assertParses([]string{"juju", "-v", "bootstrap", "-e", "env"})
+	assertParses([]string{"juju", "-l", "some.log", "bootstrap", "-e", "env"})
+
+	assertErrors([]string{"juju", "bootstrap", "-v"})
+	assertErrors([]string{"juju", "bootstrap", "-l", "some.log"})
 }
