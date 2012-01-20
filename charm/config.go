@@ -1,12 +1,13 @@
 package charm
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju/go/schema"
+	"reflect"
 	"strconv"
 )
 
@@ -49,6 +50,11 @@ func ReadConfig(r io.Reader) (config *Config, err error) {
 		optType, _ := opt["type"].(string)
 		optDescr, _ := opt["description"].(string)
 		optDefault, _ := opt["default"]
+		if optDefault != nil {
+			if reflect.TypeOf(optDefault).Kind() != validTypes[optType] {
+				return nil, fmt.Errorf("Default for %q is not of type %s", name, optType)
+			}
+		}
 		config.Options[name.(string)] = Option{
 			Title:       optTitle,
 			Type:        optType,
@@ -104,6 +110,13 @@ func (c *Config) Validate(values map[string]string) (processed map[string]interf
 		}
 	}
 	return out, nil
+}
+
+var validTypes = map[string]reflect.Kind{
+	"string":  reflect.String,
+	"int":     reflect.Int64,
+	"boolean": reflect.Bool,
+	"float":   reflect.Float64,
 }
 
 var optionSchema = schema.FieldMap(

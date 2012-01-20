@@ -2,6 +2,7 @@ package charm_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
@@ -62,6 +63,20 @@ func (s *S) TestReadConfig(c *C) {
 func (s *S) TestConfigError(c *C) {
 	_, err := charm.ReadConfig(bytes.NewBuffer([]byte(`options: {t: {type: foo}}`)))
 	c.Assert(err, ErrorMatches, `config: options.t.type: unsupported value`)
+}
+
+func (s *S) TestDefaultType(c *C) {
+	assertTypeError := func(type_ string, value string) {
+		config := fmt.Sprintf(`options: {t: {type: %s, default: %s}}`, type_, value)
+		_, err := charm.ReadConfig(bytes.NewBuffer([]byte(config)))
+		expected := fmt.Sprintf(`Default for "t" is not of type %s`, type_)
+		c.Assert(err, ErrorMatches, expected)
+	}
+
+	assertTypeError("boolean", "henry")
+	assertTypeError("string", "2.5")
+	assertTypeError("float", "blob")
+	assertTypeError("int", "33.2")
 }
 
 func (s *S) TestParseSample(c *C) {
