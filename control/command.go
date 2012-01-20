@@ -1,9 +1,11 @@
 package control
 
 import "fmt"
+import "launchpad.net/juju/go/log"
 import "launchpad.net/~rogpeppe/juju/gnuflag/flag"
+import "os"
 
-// Command should be implemented by any subcommand that wants to be dispatched
+// Command should "be implemented by" any subcommand that wants to be dispatched
 // to by a JujuCommand.
 type Command interface {
 	Parse(args []string) error
@@ -99,7 +101,28 @@ func (c *JujuCommand) Run() error {
 	return c.subcmd.Run()
 }
 
-var jujuMainCommands = map[string]Command{"bootstrap": new(BootstrapCommand)}
+// Main will parse args, set up logging, run the selected subcommand, and exit.
+func (c *JujuCommand) Main(args []string) {
+	if err := c.Parse(args); err != nil {
+		fmt.Println(c.Usage())
+		os.Exit(2)
+	}
+	log.Debug = c.Verbose()
+	if err := log.SetFile(c.Logfile()); err != nil {
+		log.Printf("%s\n", err)
+		os.Exit(1)
+	}
+	if err := c.Run(); err != nil {
+		log.Printf("%s\n", err)
+		os.Exit(1)
+	}
+	os.Exit(0)
+}
+
+// Subcommands for the "juju" executable
+var jujuMainCommands = map[string]Command{
+	"bootstrap": new(BootstrapCommand),
+}
 
 // JujuMainCommand will return a JujuCommand for the main "juju" executable.
 func JujuMainCommand() *JujuCommand {
