@@ -49,10 +49,11 @@ func ReadConfig(r io.Reader) (config *Config, err error) {
 		optTitle, _ := opt["title"].(string)
 		optType, _ := opt["type"].(string)
 		optDescr, _ := opt["description"].(string)
-		optDefault, _ := opt["default"]
+		optDefault := opt["default"]
 		if optDefault != nil {
 			if reflect.TypeOf(optDefault).Kind() != validTypes[optType] {
-				return nil, fmt.Errorf("Default for %q is not of type %s", name, optType)
+                msg := "Bad default for %q: %v is not of type %s"
+				return nil, fmt.Errorf(msg, name, optDefault, optType)
 			}
 		}
 		config.Options[name.(string)] = Option{
