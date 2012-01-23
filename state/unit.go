@@ -34,15 +34,15 @@ func (u *Unit) Name() string {
 // the machine it's assigned to.
 func (u *Unit) UnassignFromMachine() error {
 	unassignUnit := func(t *topology) error {
-		if !t.hasService(u.serviceKey) || !t.hasUnit(u.serviceKey, u.key) {
+		if !t.HasService(u.serviceKey) || !t.HasUnit(u.serviceKey, u.key) {
 			return stateChanged
 		}
 		// If for whatever reason it's already not assigned to a
 		// machine, ignore it and move forward so that we don't
 		// have to deal with conflicts.
-		key, err := t.unitMachineKey(u.serviceKey, u.key)
+		key, err := t.UnitMachineKey(u.serviceKey, u.key)
 		if err == nil && key != "" {
-			t.unassignUnitFromMachine(u.serviceKey, u.key)
+			t.UnassignUnitFromMachine(u.serviceKey, u.key)
 		}
 		return nil
 	}

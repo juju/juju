@@ -9,14 +9,18 @@ import (
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
+	"sort"
 )
 
 var (
+	// stateChange is a common error inside the state processing.
 	stateChanged = errors.New("environment state has changed")
+	// zkPermAll is a convenience variable for creating new nodes.
+	zkPermAll = zookeeper.WorldACL(zookeeper.PERM_ALL)
 )
 
 const (
-	itemAdded = iota
+	itemAdded = iota + 1
 	itemModified
 	itemDeleted
 )
@@ -44,13 +48,10 @@ func (ic *ItemChange) String() string {
 		ic.changeType, ic.key, ic.newValue, ic.oldValue)
 }
 
-// ConfigNode provides a map like interface around a ZooKeeper node
-// containing serialised YAML data. The map provided represents the
-// local view of all node data. write() writes this information into 
-// the ZooKeeper node, using a retry until success and merges against 
-// any existing keys in ZooKeeper. The state of this object always 
-// represents the product of the pristine settings (from ZooKeeper) 
-// and the pending writes.
+// A ConfigNode represents the data of a ZooKeeper node
+// containing YAML-based settings. It manages changes to
+// the data as a delta in memory, and merges them back
+// onto the node when explicitly requested.
 type ConfigNode struct {
 	zk            *zookeeper.Conn
 	path          string
@@ -58,8 +59,7 @@ type ConfigNode struct {
 	cache         map[string]interface{}
 }
 
-// createConfigNode writes an initial config node, e.g. when adding
-// a new service.
+// createConfigNode writes an initial config node.
 func createConfigNode(zk *zookeeper.Conn, path string, values map[string]interface{}) (*ConfigNode, error) {
 	c := &ConfigNode{
 		zk:            zk,
@@ -74,7 +74,9 @@ func createConfigNode(zk *zookeeper.Conn, path string, values map[string]interfa
 	return c, nil
 }
 
-// readConfigNode reads the current ZooKeeper config data for a node.
+// readConfigNode returns the ConfigNode for path.
+// If required is true, an error will be returned if
+// the path doesn't exist.
 func readConfigNode(zk *zookeeper.Conn, path string, required bool) (*ConfigNode, error) {
 	c := &ConfigNode{
 		zk:            zk,
@@ -84,11 +86,8 @@ func readConfigNode(zk *zookeeper.Conn, path string, required bool) (*ConfigNode
 	}
 	yaml, _, err := c.zk.Get(c.path)
 	if err != nil {
-		if zkErr, ok := err.(zookeeper.Error); ok {
-			// -101 is the error code for not existing nodes.
-			if zkErr == -101 && required {
-				return nil, fmt.Errorf("config %q not found", c.path)
-			}
+		if err == zookeeper.ZNONODE && required {
+			return nil, fmt.Errorf("config %q not found", c.path)
 		}
 		return nil, err
 	}
@@ -99,20 +98,22 @@ func readConfigNode(zk *zookeeper.Conn, path string, required bool) (*ConfigNode
 	return c, nil
 }
 
-// write the current config data back to ZooKeper, the data will be
-// merged, the write buffer resetted.
+// Write writes changes made to c back onto its node.
+// Changes are written as a delta applied on top of the
+// latest version of the node, to prevent overwriting
+// unrelated changes made to the node since it was last read.
 func (c *ConfigNode) Write() ([]*ItemChange, error) {
 	cache := copyCache(c.cache)
 	pristineCache := copyCache(c.pristineCache)
 	c.pristineCache = copyCache(cache)
-	// Changes records the changes done in applyChanges.
-	missing := new(bool)
+	// changes is used by applyChanges to return the changes to
+	// this scope.
 	changes := []*ItemChange{}
-	logChange := func(changeType int, key string, oldValue, newValue interface{}) {
-		changes = append(changes, &ItemChange{changeType, key, oldValue, newValue})
-	}
+	// nil is a possible value for a key, so we use missing as
+	// a marker to simplify the algorithm below.
+	missing := new(bool)
 	applyChanges := func(yaml string, stat *zookeeper.Stat) (string, error) {
-		changes = []*ItemChange{}
+		changes = changes[:0]
 		current := make(map[string]interface{})
 		if yaml != "" {
 			if err := goyaml.Unmarshal([]byte(yaml), current); err != nil {
@@ -129,17 +130,19 @@ func (c *ConfigNode) Write() ([]*ItemChange, error) {
 				newValue = missing
 			}
 			if oldValue != newValue {
+				var change *ItemChange
 				if newValue != missing {
 					current[key] = newValue
 					if oldValue != missing {
-						logChange(itemModified, key, oldValue, newValue)
+						change = &ItemChange{itemModified, key, oldValue, newValue}
 					} else {
-						logChange(itemAdded, key, nil, newValue)
+						change = &ItemChange{itemAdded, key, nil, newValue}
 					}
 				} else if _, ok := current[key]; ok {
 					delete(current, key)
-					logChange(itemDeleted, key, oldValue, nil)
+					change = &ItemChange{itemDeleted, key, oldValue, nil}
 				}
+				changes = append(changes, change)
 			}
 		}
 		currentYaml, err := goyaml.Marshal(current)
@@ -148,49 +151,36 @@ func (c *ConfigNode) Write() ([]*ItemChange, error) {
 		}
 		return string(currentYaml), nil
 	}
-	if err := c.zk.RetryChange(c.path, 0, zookeeper.WorldACL(zookeeper.PERM_ALL), applyChanges); err != nil {
+	if err := c.zk.RetryChange(c.path, 0, zkPermAll, applyChanges); err != nil {
 		return nil, err
 	}
 	return changes, nil
 }
 
-// Keys returns the keys of a config node as slice.
+// Keys returns the current keys in alphabetical order.
 func (c *ConfigNode) Keys() []string {
 	keys := []string{}
 	for key := range c.cache {
 		keys = append(keys, key)
 	}
+	sort.Strings(keys)
 	return keys
 }
 
-// Get retrieves a value by its key and returns nil if it doesn't exist.
-func (c *ConfigNode) Get(key string) interface{} {
-	return c.cache[key]
+// Get returns the value of key and whether it was found.
+func (c *ConfigNode) Get(key string) (value interface{}, found bool) {
+	value, found = c.cache[key]
+	return
 }
 
-// GetDefault retrieves a value by its key and returns the default if
-// it doesn't exist.
-func (c *ConfigNode) GetDefault(key string, dflt interface{}) interface{} {
-	if value, ok := c.cache[key]; ok {
-		return value
-	}
-	return dflt
+// Set sets key to value
+func (c *ConfigNode) Set(key string, value interface{}) {
+	c.cache[key] = value
 }
 
-// Set sets the value for a given key. If the key exist it
-// returns the old value.
-func (c *ConfigNode) Set(key string, newValue interface{}) interface{} {
-	oldValue := c.cache[key]
-	c.cache[key] = newValue
-	return oldValue
-}
-
-// Delete removes a given key and value from the cache. If the key exist it
-// return the value.
-func (c *ConfigNode) Delete(key string) interface{} {
-	oldValue := c.cache[key]
+// Delete removes key.
+func (c *ConfigNode) Delete(key string) {
 	delete(c.cache, key)
-	return oldValue
 }
 
 // zkRemoveTree recursively removes a tree.
@@ -218,7 +208,7 @@ func copyCache(in map[string]interface{}) (out map[string]interface{}) {
 	return
 }
 
-// cacheKeys creates a slice of the keys of multiple caches.
+// cacheKeys returns the keys of all caches as a key=>true map.
 func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 	keys := make(map[string]bool)
 	for _, cache := range caches {

@@ -25,27 +25,30 @@ func (s *Service) Name() string {
 	return s.name
 }
 
-// CharmId returns the charm id this service is supposed
+// CharmURL returns the charm URL this service is supposed
 // to use.
-func (s *Service) CharmId() (charmId string, err error) {
+func (s *Service) CharmURL() (url *charm.URL, err error) {
 	cn, err := readConfigNode(s.zk, s.zkPath(), true)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return cn.Get("charm").(string), nil
+	if id, ok := cn.Get("charm"); ok {
+		url, err = charm.ParseURL(id.(string))
+		if err != nil {
+			return nil, err
+		}
+		return url, nil
+	}
+	return nil, errors.New("service has no charm URL")
 }
 
-// SetCharmId changes the charm id of the service.
-func (s *Service) SetCharmId(charmId string) error {
-	_, err := charm.NewURL(charmId)
-	if err != nil {
-		return err
-	}
+// SetCharmURL changes the charm URL for the service.
+func (s *Service) SetCharmURL(url *charm.URL) error {
 	cn, err := readConfigNode(s.zk, s.zkPath(), true)
 	if err != nil {
 		return err
 	}
-	cn.Set("charm", charmId)
+	cn.Set("charm", url.String())
 	_, err = cn.Write()
 	if err != nil {
 		return err
@@ -62,26 +65,26 @@ func (s *Service) Charm() (*Charm, error) {
 // AddUnit() adds a new unit.
 func (s *Service) AddUnit() (*Unit, error) {
 	// Get charm id and create ZooKeeper node.
-	charmId, err := s.CharmId()
+	url, err := s.CharmURL()
 	if err != nil {
 		return nil, err
 	}
-	unitData := map[string]string{"charm": charmId}
+	unitData := map[string]string{"charm": url.String()}
 	unitYaml, err := goyaml.Marshal(unitData)
 	if err != nil {
 		return nil, err
 	}
-	path, err := s.zk.Create("/units/unit-", string(unitYaml), zookeeper.SEQUENCE, zookeeper.WorldACL(zookeeper.PERM_ALL))
+	path, err := s.zk.Create("/units/unit-", string(unitYaml), zookeeper.SEQUENCE, zkPermAll)
 	if err != nil {
 		return nil, err
 	}
 	key := strings.Split(path, "/")[2]
 	sequenceNo := -1
 	addUnit := func(t *topology) error {
-		if !t.hasService(s.key) {
+		if !t.HasService(s.key) {
 			return stateChanged
 		}
-		sequenceNo, err = t.addUnit(s.key, key)
+		sequenceNo, err = t.AddUnit(s.key, key)
 		if err != nil {
 			return err
 		}
@@ -100,10 +103,10 @@ func (s *Service) RemoveUnit(unit *Unit) error {
 		return err
 	}
 	removeUnit := func(t *topology) error {
-		if !t.hasService(s.key) || !t.hasUnit(s.key, unit.key) {
+		if !t.HasService(s.key) || !t.HasUnit(s.key, unit.key) {
 			return stateChanged
 		}
-		if err := t.removeUnit(s.key, unit.key); err != nil {
+		if err := t.RemoveUnit(s.key, unit.key); err != nil {
 			return err
 		}
 		return nil
@@ -128,11 +131,11 @@ func (s *Service) Unit(name string) (*Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !topology.hasService(s.key) {
+	if !topology.HasService(s.key) {
 		return nil, stateChanged
 	}
 	// Read unit key and create unit.
-	key, err := topology.unitKeyFromSequence(s.key, sequenceNo)
+	key, err := topology.UnitKeyFromSequence(s.key, sequenceNo)
 	if err != nil {
 		return nil, err
 	}
@@ -145,17 +148,17 @@ func (s *Service) AllUnits() ([]*Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !topology.hasService(s.key) {
+	if !topology.HasService(s.key) {
 		return nil, stateChanged
 	}
-	keys, err := topology.unitKeys(s.key)
+	keys, err := topology.UnitKeys(s.key)
 	if err != nil {
 		return nil, err
 	}
 	// Assemble units.
 	units := []*Unit{}
 	for _, key := range keys {
-		unitName, err := topology.unitName(s.key, key)
+		unitName, err := topology.UnitName(s.key, key)
 		if err != nil {
 			return nil, err
 		}
@@ -174,17 +177,17 @@ func (s *Service) UnitNames() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !topology.hasService(s.key) {
+	if !topology.HasService(s.key) {
 		return nil, stateChanged
 	}
-	keys, err := topology.unitKeys(s.key)
+	keys, err := topology.UnitKeys(s.key)
 	if err != nil {
 		return nil, err
 	}
 	// Assemble unit names.
 	unitNames := []string{}
 	for _, key := range keys {
-		unitName, err := topology.unitName(s.key, key)
+		unitName, err := topology.UnitName(s.key, key)
 		if err != nil {
 			return nil, err
 		}
@@ -193,8 +196,10 @@ func (s *Service) UnitNames() ([]string, error) {
 	return unitNames, nil
 }
 
-// IsExposed tells if this service is set as exposed in
-// ZooKeeper.
+// IsExposed returns whether this service is exposed.
+// The explicitly open ports (with open-port) for exposed
+// services may be accessed from machines outside of the
+// local deployment network. See SetExposed and ClearExposed.
 func (s *Service) IsExposed() (bool, error) {
 	stat, err := s.zk.Exists(s.zkExposedPath())
 	if err != nil {
@@ -203,37 +208,27 @@ func (s *Service) IsExposed() (bool, error) {
 	return stat != nil, nil
 }
 
-// SetExposed marks the service as exposed in ZooKeeper.
+// SetExposed marks the service as exposed.
+// See ClearExposed and IsExposed.
 func (s *Service) SetExposed() error {
-	if _, err := s.zk.Create(s.zkExposedPath(), "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL)); err != nil {
-		if zkErr, ok := err.(zookeeper.Error); ok {
-			// -110 is the error code for already existing nodes.
-			if zkErr == -110 {
-				return nil
-			}
-		}
+	_, err := s.zk.Create(s.zkExposedPath(), "", 0, zkPermAll)
+	if err != nil && err != zookeeper.ZNODEEXISTS {
 		return err
 	}
 	return nil
 }
 
-// ClearExposed removes the exposed flag of the service in ZooKeeper.
+// ClearExposed removes the exposed flag from the service.
+// See SetExposed and IsExposed.
 func (s *Service) ClearExposed() error {
-	if err := s.zk.Delete(s.zkExposedPath(), -1); err != nil {
-		if zkErr, ok := err.(zookeeper.Error); ok {
-			// -101 is the error code for not existing nodes.
-			if zkErr == -101 {
-				return nil
-			}
-		}
+	err := s.zk.Delete(s.zkExposedPath(), -1)
+	if err != nil && err != zookeeper.ZNONODE {
 		return err
 	}
 	return nil
 }
 
-// Config returns the configuration node of the service. After
-// changes have been done the nodes Write() method has to be
-// used to merge and persist the changes.
+// Config returns the configuration node for the service.
 func (s *Service) Config() (*ConfigNode, error) {
 	return readConfigNode(s.zk, s.zkConfigPath(), false)
 }

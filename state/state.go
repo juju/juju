@@ -17,29 +17,24 @@ import (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	zk          *zookeeper.Conn
-	oldTopology *topology
+	zk *zookeeper.Conn
 }
 
 // Open returns a new State representing the environment
 // being accessed through the ZooKeeper connection.
 func Open(zk *zookeeper.Conn) (*State, error) {
-	t, err := readTopology(zk)
-	if err != nil {
-		return nil, err
-	}
-	return &State{zk, t}, nil
+	return &State{zk}, nil
 }
 
 // AddService creates a new service with the given unique name
 // and the charm state.
 func (s *State) AddService(name string, charm *Charm) (*Service, error) {
-	details := map[string]interface{}{"charm": charm.Id()}
+	details := map[string]interface{}{"charm": charm.URL().String()}
 	yaml, err := goyaml.Marshal(details)
 	if err != nil {
 		return nil, err
 	}
-	path, err := s.zk.Create("/services/service-", string(yaml), zookeeper.SEQUENCE, zookeeper.WorldACL(zookeeper.PERM_ALL))
+	path, err := s.zk.Create("/services/service-", string(yaml), zookeeper.SEQUENCE, zkPermAll)
 	if err != nil {
 		return nil, err
 	}
@@ -51,11 +46,11 @@ func (s *State) AddService(name string, charm *Charm) (*Service, error) {
 		return nil, err
 	}
 	addService := func(t *topology) error {
-		if _, err := t.serviceKey(name); err == nil {
+		if _, err := t.ServiceKey(name); err == nil {
 			// No error, so service name already in use.
 			return fmt.Errorf("service name %q is already in use", name)
 		}
-		return t.addService(key, name)
+		return t.AddService(key, name)
 	}
 	if err = retryTopologyChange(s.zk, addService); err != nil {
 		return nil, err
@@ -81,10 +76,10 @@ func (s *State) RemoveService(svc *Service) error {
 	}
 	// Remove the service from the topology.
 	removeService := func(t *topology) error {
-		if !t.hasService(svc.key) {
+		if !t.HasService(svc.key) {
 			return stateChanged
 		}
-		t.removeService(svc.key)
+		t.RemoveService(svc.key)
 		return nil
 	}
 	if err = retryTopologyChange(s.zk, removeService); err != nil {
@@ -99,7 +94,7 @@ func (s *State) Service(name string) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	key, err := topology.serviceKey(name)
+	key, err := topology.ServiceKey(name)
 	if err != nil {
 		return nil, err
 	}
@@ -124,19 +119,19 @@ func Initialize(zk *zookeeper.Conn) error {
 	stat, err := zk.Exists("/initialized")
 	if stat == nil && err == nil {
 		// Create new nodes.
-		if _, err := zk.Create("/charms", "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL)); err != nil {
+		if _, err := zk.Create("/charms", "", 0, zkPermAll); err != nil {
 			return err
 		}
-		if _, err := zk.Create("/services", "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL)); err != nil {
+		if _, err := zk.Create("/services", "", 0, zkPermAll); err != nil {
 			return err
 		}
-		if _, err := zk.Create("/machines", "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL)); err != nil {
+		if _, err := zk.Create("/machines", "", 0, zkPermAll); err != nil {
 			return err
 		}
-		if _, err := zk.Create("/units", "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL)); err != nil {
+		if _, err := zk.Create("/units", "", 0, zkPermAll); err != nil {
 			return err
 		}
-		if _, err := zk.Create("/relations", "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL)); err != nil {
+		if _, err := zk.Create("/relations", "", 0, zkPermAll); err != nil {
 			return err
 		}
 		// TODO Create node for bootstrap machine.
@@ -144,7 +139,7 @@ func Initialize(zk *zookeeper.Conn) error {
 		// TODO Setup default global settings information.
 
 		// Finally creation of /initialized as marker.
-		if _, err := zk.Create("/initialized", "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL)); err != nil {
+		if _, err := zk.Create("/initialized", "", 0, zkPermAll); err != nil {
 			return err
 		}
 	}

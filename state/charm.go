@@ -15,15 +15,20 @@ type Charm struct {
 	url *charm.URL
 }
 
-// Id the identifier of the charm.
-func (c *Charm) Id() string {
-	return c.url.String()
+// URL returns the URL that identifies the charm.
+func (c *Charm) URL() *charm.URL {
+	clone := *c.url
+	return &clone
 }
 
-// CharmMock returns a charm for tests as long as
-// the logic isn't implemented.
+// CharmMock returns a charm only for tests! It
+// will be removed when the charm implementation
+// reached a proper state.
 func CharmMock(url string) *Charm {
-	u, _ := charm.NewURL(url)
+	u, err := charm.ParseURL(url)
+	if err != nil {
+		panic(err)
+	}
 	return &Charm{
 		url: u,
 	}
