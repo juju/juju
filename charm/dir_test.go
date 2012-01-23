@@ -21,6 +21,16 @@ func (s *S) TestReadDir(c *C) {
 	checkDummy(c, dir, path)
 }
 
+func (s *S) TestReadDirWithoutConfig(c *C) {
+	path := repoDir("varnish")
+	dir, err := charm.ReadDir(path)
+	c.Assert(err, IsNil)
+
+	// A lacking config.yaml file still causes a proper
+	// Config value to be returned.
+	c.Assert(len(dir.Config().Options), Equals, 0)
+}
+
 func (s *S) TestBundleTo(c *C) {
 	dir, err := charm.ReadDir(repoDir("dummy"))
 	c.Assert(err, IsNil)
