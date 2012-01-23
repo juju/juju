@@ -66,18 +66,18 @@ func (s *S) TestConfigError(c *C) {
 }
 
 func (s *S) TestDefaultType(c *C) {
-    assertDefault := func(type_ string, value string, expected interface{}) {
+	assertDefault := func(type_ string, value string, expected interface{}) {
 		config := fmt.Sprintf(`options: {t: {type: %s, default: %s}}`, type_, value)
 		result, err := charm.ReadConfig(bytes.NewBuffer([]byte(config)))
-        c.Assert(err, IsNil)
-        c.Assert(result.Options["t"].Default, Equals, expected)
+		c.Assert(err, IsNil)
+		c.Assert(result.Options["t"].Default, Equals, expected)
 
-    }
+	}
 
-    assertDefault("boolean", "true", true)
-    assertDefault("string", "golden grahams", "golden grahams")
-    assertDefault("float", "2.2e11", 2.2e11)
-    assertDefault("int", "99", int64(99))
+	assertDefault("boolean", "true", true)
+	assertDefault("string", "golden grahams", "golden grahams")
+	assertDefault("float", "2.2e11", 2.2e11)
+	assertDefault("int", "99", int64(99))
 
 	assertTypeError := func(type_ string, value string) {
 		config := fmt.Sprintf(`options: {t: {type: %s, default: %s}}`, type_, value)

@@ -52,7 +52,7 @@ func ReadConfig(r io.Reader) (config *Config, err error) {
 		optDefault := opt["default"]
 		if optDefault != nil {
 			if reflect.TypeOf(optDefault).Kind() != validTypes[optType] {
-                msg := "Bad default for %q: %v is not of type %s"
+				msg := "Bad default for %q: %v is not of type %s"
 				return nil, fmt.Errorf(msg, name, optDefault, optType)
 			}
 		}
