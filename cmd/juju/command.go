@@ -2,21 +2,37 @@ package main
 
 import "fmt"
 import "launchpad.net/~rogpeppe/juju/gnuflag/flag"
+import "os"
 
 // Command should "be implemented by" any subcommand that wants to be dispatched
 // to by a JujuCommand.
 type Command interface {
+	PrintUsage()
 	Parse(args []string) error
-	Usage() string
 	Run() error
 }
 
 // JujuCommand handles top-level argument parsing and dispatch to subcommands.
 type JujuCommand struct {
+	flag    *flag.FlagSet
 	logfile string
 	verbose bool
 	subcmds map[string]Command
 	subcmd  Command
+}
+
+// NewJujuCommand will return a JujuCommand with the FlagSet set up, but no
+// subcommands registered.
+func NewJujuCommand() *JujuCommand {
+	jc := &JujuCommand{}
+	jc.subcmds = make(map[string]Command)
+	jc.flag = flag.NewFlagSet("juju", flag.ExitOnError)
+	jc.flag.StringVar(&jc.logfile, "l", "", "path to write log to")
+	jc.flag.StringVar(&jc.logfile, "log-file", "", "path to write log to")
+	jc.flag.BoolVar(&jc.verbose, "v", false, "if set, log additional messages")
+	jc.flag.BoolVar(&jc.verbose, "verbose", false, "if set, log additional messages")
+	jc.flag.Usage = func() { jc.PrintUsage() }
+	return jc
 }
 
 // Logfile will return the logfile path specified on the command line, or "".
@@ -34,9 +50,6 @@ func (c *JujuCommand) Verbose() bool {
 // dispatch args following "name" to that subcommand for Parse()ing; and
 // subsequent calls to Run() will call the subcommand's Run().
 func (c *JujuCommand) Register(name string, subcmd Command) error {
-	if c.subcmds == nil {
-		c.subcmds = make(map[string]Command)
-	}
 	_, alreadythere := c.subcmds[name]
 	if alreadythere {
 		return fmt.Errorf("subcommand %s is already registered", name)
@@ -45,13 +58,15 @@ func (c *JujuCommand) Register(name string, subcmd Command) error {
 	return nil
 }
 
-// Usage will return instructions for using this JujuCommand or the selected
-// subcommand. It isn't currently very helpful.
-func (c *JujuCommand) Usage() string {
+// PrintUsage will dump usage instructions to os.Stderr
+func (c *JujuCommand) PrintUsage() {
 	if c.subcmd != nil {
-		return c.subcmd.Usage()
+		c.subcmd.PrintUsage()
+		return
 	}
-	return "You're Doing It Wrong."
+	fmt.Fprintln(os.Stderr, "usage: juju [options] <command> ...")
+	c.flag.PrintDefaults()
+	fmt.Fprintln(os.Stderr, "commands:")
 }
 
 // Parse will parse a complete command line. After normal option parsing is
@@ -61,28 +76,13 @@ func (c *JujuCommand) Parse(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no args to parse")
 	}
-	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
-	fs.StringVar(&c.logfile, "l", "", "where to log to")
-	fs.StringVar(&c.logfile, "log-file", "", "where to log to")
-	fs.BoolVar(&c.verbose, "v", false, "whether to be noisy")
-	fs.BoolVar(&c.verbose, "verbose", false, "whether to be noisy")
-
-	// normal flag usage output is not really appropriate
-	fs.Usage = func() {}
-
-	// no arg interspersing, lest we deliver options to the wrong FlagSet
-	if err := fs.Parse(false, args[1:]); err != nil {
+	// Note: no arg interspersing, lest we deliver options to the wrong FlagSet
+	if err := c.flag.Parse(false, args[1:]); err != nil {
 		return err
 	}
-	return c.parseSubcmd(fs.Args())
-}
-
-func (c *JujuCommand) parseSubcmd(args []string) error {
+	args = c.flag.Args()
 	if len(args) == 0 {
 		return fmt.Errorf("no subcommand specified")
-	}
-	if c.subcmds == nil {
-		return fmt.Errorf("no subcommands registered")
 	}
 	exists := false
 	if c.subcmd, exists = c.subcmds[args[0]]; !exists {

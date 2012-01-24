@@ -1,22 +1,27 @@
 package main
 
 import (
-    "fmt"
-    "launchpad.net/juju/go/log"
-    "os"
+	"fmt"
+	"launchpad.net/juju/go/log"
+	"os"
 )
 
 var subcommands = map[string]Command{
-	"bootstrap": new(BootstrapCommand),
+	"bootstrap": NewBootstrapCommand(),
 }
 
 func main() {
-	jc := new(JujuCommand)
+	Main(os.Args)
+}
+
+func Main(args []string) {
+	jc := NewJujuCommand()
 	for name, subcmd := range subcommands {
 		jc.Register(name, subcmd)
 	}
-	if err := jc.Parse(os.Args); err != nil {
-		fmt.Println(jc.Usage())
+	if err := jc.Parse(args); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		jc.PrintUsage()
 		os.Exit(2)
 	}
 	log.Debug = jc.Verbose()

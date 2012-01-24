@@ -10,7 +10,7 @@ type BootstrapSuite struct{}
 var _ = Suite(&BootstrapSuite{})
 
 func (s *BootstrapSuite) TestEnvironment(c *C) {
-	bc := new(main.BootstrapCommand)
+	bc := main.NewBootstrapCommand()
 	c.Assert(bc.Environment(), Equals, "")
 
 	err := bc.Parse([]string{})
