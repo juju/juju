@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju/go/cloudinit"
 	"testing"
 )
+
 // TODO integration tests, but how?
 
 type S struct{}
