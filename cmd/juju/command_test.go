@@ -2,9 +2,9 @@ package main_test
 
 import (
 	"fmt"
-	"lanchpad.net/~rogpeppe/gnuflag/flag"
 	. "launchpad.net/gocheck"
 	main "launchpad.net/juju/go/cmd/juju"
+	"launchpad.net/~rogpeppe/juju/gnuflag/flag"
 )
 
 type testCommand struct {
@@ -14,7 +14,7 @@ type testCommand struct {
 func (c *testCommand) Parse(args []string) error {
 	fs := flag.NewFlagSet("defenestrate", flag.ContinueOnError)
 	fs.StringVar(&c.value, "value", "", "doc")
-	return fs.Parse(args)
+	return fs.Parse(true, args)
 }
 
 func (c *testCommand) PrintUsage() {}
@@ -24,13 +24,13 @@ func (c *testCommand) Run() error {
 }
 
 func parseEmpty(args []string) (*main.JujuCommand, error) {
-	jc := main.NewJujuCommand()
+	jc := new(main.JujuCommand)
 	err := jc.Parse(args)
 	return jc, err
 }
 
 func parseDefenestrate(args []string) (*main.JujuCommand, *testCommand, error) {
-	jc := main.NewJujuCommand()
+	jc := new(main.JujuCommand)
 	tc := new(testCommand)
 	jc.Register("defenestrate", tc)
 	err := jc.Parse(args)
@@ -57,7 +57,7 @@ func (s *CommandSuite) TestSubcommandDispatch(c *C) {
 }
 
 func (s *CommandSuite) TestRegister(c *C) {
-	jc := main.NewJujuCommand()
+	jc := new(main.JujuCommand)
 	err := jc.Register("flip", new(testCommand))
 	c.Assert(err, IsNil)
 

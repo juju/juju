@@ -8,25 +8,27 @@ import "os"
 // BootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
 type BootstrapCommand struct {
-	flag        *flag.FlagSet
+	_flag       *flag.FlagSet
 	environment string
 }
 
 // Ensure Command interface
 var _ Command = (*BootstrapCommand)(nil)
 
-func NewBootstrapCommand() *BootstrapCommand {
-	c := &BootstrapCommand{}
-	c.flag = flag.NewFlagSet("bootstrap", flag.ExitOnError)
-	c.flag.StringVar(&c.environment, "e", "", "juju environment to operate in")
-	c.flag.StringVar(&c.environment, "environment", "", "juju environment to operate in")
-	c.flag.Usage = func() { c.PrintUsage() }
-	return c
-}
-
 // Environment returns the name of the environment to be bootstrapped.
 func (c *BootstrapCommand) Environment() string {
 	return c.environment
+}
+
+// Initialise (if necessary) and return the FlagSet used by this command
+func (c *BootstrapCommand) flag() *flag.FlagSet {
+	if c._flag == nil {
+		c._flag = flag.NewFlagSet("bootstrap", flag.ExitOnError)
+		c._flag.StringVar(&c.environment, "e", "", "juju environment to operate in")
+		c._flag.StringVar(&c.environment, "environment", "", "juju environment to operate in")
+		c._flag.Usage = func() { c.PrintUsage() }
+	}
+	return c._flag
 }
 
 // Parse takes the list of args following "bootstrap" on the command line, and
@@ -35,18 +37,18 @@ func (c *BootstrapCommand) Parse(args []string) error {
 	// Parse(true, ...) is meaningless is this specific case, but is generally
 	// required for juju subcommands, because many of them *do* have positional
 	// arguments, and we need to allow interspersion to match the Python version.
-	if err := c.flag.Parse(true, args); err != nil {
+	if err := c.flag().Parse(true, args); err != nil {
 		return err
 	}
-	if len(c.flag.Args()) != 0 {
-		return fmt.Errorf("Unknown args: %s", c.flag.Args())
+	if len(c.flag().Args()) != 0 {
+		return fmt.Errorf("Unknown args: %s", c.flag().Args())
 	}
 	return nil
 }
 
 func (c *BootstrapCommand) PrintUsage() {
 	fmt.Fprintln(os.Stderr, "usage: juju bootstrap [options]")
-	c.flag.PrintDefaults()
+	c.flag().PrintDefaults()
 }
 
 // Run will bootstrap the juju environment set in Parse, or the default environment
