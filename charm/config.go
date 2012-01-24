@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju/go/schema"
+	"reflect"
 	"strconv"
 )
 
@@ -48,7 +49,13 @@ func ReadConfig(r io.Reader) (config *Config, err error) {
 		optTitle, _ := opt["title"].(string)
 		optType, _ := opt["type"].(string)
 		optDescr, _ := opt["description"].(string)
-		optDefault, _ := opt["default"]
+		optDefault := opt["default"]
+		if optDefault != nil {
+			if reflect.TypeOf(optDefault).Kind() != validTypes[optType] {
+				msg := "Bad default for %q: %v is not of type %s"
+				return nil, fmt.Errorf(msg, name, optDefault, optType)
+			}
+		}
 		config.Options[name.(string)] = Option{
 			Title:       optTitle,
 			Type:        optType,
@@ -104,6 +111,13 @@ func (c *Config) Validate(values map[string]string) (processed map[string]interf
 		}
 	}
 	return out, nil
+}
+
+var validTypes = map[string]reflect.Kind{
+	"string":  reflect.String,
+	"int":     reflect.Int64,
+	"boolean": reflect.Bool,
+	"float":   reflect.Float64,
 }
 
 var optionSchema = schema.FieldMap(
