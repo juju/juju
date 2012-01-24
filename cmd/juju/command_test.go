@@ -1,8 +1,8 @@
 package main_test
 
 import (
-	"flag"
 	"fmt"
+	"lanchpad.net/~rogpeppe/gnuflag/flag"
 	. "launchpad.net/gocheck"
 	main "launchpad.net/juju/go/cmd/juju"
 )
