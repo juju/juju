@@ -66,7 +66,7 @@ func (c *JujuCommand) PrintUsage() {
 	}
 	fmt.Fprintln(os.Stderr, "usage: juju [options] <command> ...")
 	c.flag.PrintDefaults()
-	fmt.Fprintln(os.Stderr, "commands:")
+	// TODO list commands...
 }
 
 // Parse will parse a complete command line. After normal option parsing is

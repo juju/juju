@@ -7,6 +7,8 @@ import (
 	main "launchpad.net/juju/go/cmd/juju"
 	"os"
 	"os/exec"
+	"path"
+	"strings"
 	"testing"
 )
 
@@ -21,26 +23,46 @@ var flagRunMain = flag.Bool("run-main", false, "Run the application's main funct
 
 // Reentrancy point for testing (something as close as possible to) the juju
 // tool itself.
-func (s *CommandSuite) TestRunMain(c *C) {
-	fmt.Println("HELLO", *flagRunMain)
-	fmt.Println(os.Args)
-	fmt.Println(flag.Args())
+func TestRunMain(t *testing.T) {
 	if *flagRunMain {
-		fmt.Println(os.Args)
-		fmt.Println(flag.Args())
 		main.Main(flag.Args())
 	}
 }
 
-func command(cmd ...string) *exec.Cmd {
-	args := append([]string{"-test.run", "TestRunMain", "-test.v", "-run-main", "--", "juju"}, cmd...)
-	fmt.Println(args)
-	return exec.Command(os.Args[0], args...)
+func badrun(c *C, exit int, cmd ...string) []string {
+	args := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "juju"}, cmd...)
+	ps := exec.Command(os.Args[0], args...)
+	output, err := ps.CombinedOutput()
+	c.Assert(err, ErrorMatches, fmt.Sprintf("exit status %d", exit))
+	return strings.Split(string(output), "\n")
 }
 
-func (s *CommandSuite) TestActuallyRun(c *C) {
-	ps := command("bootstrap", "--cheese")
-	output, _ := ps.CombinedOutput()
-	c.Assert(string(output), Equals, "")
+func (s *CommandSuite) TestActualRunBadJujuArg(c *C) {
+	lines := badrun(c, 2, "--cheese", "bootstrap")
+	c.Assert(lines[0], Equals, "flag provided but not defined: --cheese")
+	c.Assert(lines[1], Equals, "usage: juju [options] <command> ...")
+}
 
+func (s *CommandSuite) TestActualRunBadBootstrapArg(c *C) {
+	lines := badrun(c, 2, "bootstrap", "--cheese")
+	c.Assert(lines[0], Equals, "flag provided but not defined: --cheese")
+	c.Assert(lines[1], Equals, "usage: juju bootstrap [options]")
+}
+
+func (s *CommandSuite) TestActualRunCreatesLog(c *C) {
+	// Induce failure to load environments
+	os.Setenv("HOME", "")
+	logpath := path.Join(c.MkDir(), "log")
+	badrun(c, 1, "--log-file", logpath, "bootstrap")
+	_, err := os.Stat(logpath)
+	c.Assert(err, IsNil)
+}
+
+func (s *CommandSuite) TestActualRunLogNotInterspersed(c *C) {
+	logpath := path.Join(c.MkDir(), "log")
+	lines := badrun(c, 2, "bootstrap", "--log-file", logpath)
+	c.Assert(lines[0], Equals, "flag provided but not defined: --log-file")
+	c.Assert(lines[1], Equals, "usage: juju bootstrap [options]")
+	_, err := os.Stat(logpath)
+	c.Assert(err, NotNil)
 }
