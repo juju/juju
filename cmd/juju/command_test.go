@@ -53,7 +53,7 @@ func (s *CommandSuite) TestSubcommandDispatch(c *C) {
 	c.Assert(tc.value, Equals, "firmly")
 
 	_, tc, err = parseDefenestrate([]string{"juju", "defenestrate", "--gibberish", "burble"})
-	c.Assert(err, ErrorMatches, "flag provided but not defined: -gibberish")
+	c.Assert(err, ErrorMatches, "flag provided but not defined: --gibberish")
 }
 
 func (s *CommandSuite) TestRegister(c *C) {
