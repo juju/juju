@@ -1,14 +1,26 @@
 package main
 
-import "fmt"
-import "launchpad.net/~rogpeppe/juju/gnuflag/flag"
-import "os"
+import (
+	"fmt"
+	"io"
+	"launchpad.net/~rogpeppe/juju/gnuflag/flag"
+	"os"
+	"sort"
+)
 
 // Command should "be implemented by" any subcommand that wants to be dispatched
 // to by a JujuCommand.
 type Command interface {
+	// Dump usage information to Stderr
 	PrintUsage()
+
+	// Get a short one-line description of the command's purpose
+	Desc() string
+
+	// Interpret cmdline args remaining after command name has been consumed
 	Parse(args []string) error
+
+	// Actually run the command
 	Run() error
 }
 
@@ -44,6 +56,18 @@ func (c *JujuCommand) flag() *flag.FlagSet {
 	return c._flag
 }
 
+// Get sorted command names
+func (c *JujuCommand) keys() []string {
+	keys := make([]string, len(c.subcmds))
+	i := 0
+	for k, _ := range c.subcmds {
+		keys[i] = k
+		i++
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 // Register will register a subcommand by name (which must not match that of a
 // previously-registered subcommand), such that subsequent calls to Parse() will
 // dispatch args following "name" to that subcommand for Parse()ing; and
@@ -60,15 +84,25 @@ func (c *JujuCommand) Register(name string, subcmd Command) error {
 	return nil
 }
 
-// PrintUsage will dump usage instructions to os.Stderr
+// PrintUsage will dump usage instructions to os.Stderr.
 func (c *JujuCommand) PrintUsage() {
 	if c.subcmd != nil {
 		c.subcmd.PrintUsage()
 		return
 	}
 	fmt.Fprintln(os.Stderr, "usage: juju [options] <command> ...")
+	fmt.Fprintln(os.Stderr, "options:")
 	c.flag().PrintDefaults()
-	// TODO list commands...
+	fmt.Fprintln(os.Stderr, "commands:")
+	c.DescCommands(os.Stderr)
+}
+
+// DescCommands will write a short description of each subcommand to dst.
+func (c *JujuCommand) DescCommands(dst io.Writer) {
+	for _, k := range c.keys() {
+		fmt.Fprintln(dst, k)
+		fmt.Fprintf(dst, "    %s\n", c.subcmds[k].Desc())
+	}
 }
 
 // Parse will parse a complete command line. After normal option parsing is

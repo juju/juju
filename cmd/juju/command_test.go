@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"bytes"
 	"fmt"
 	. "launchpad.net/gocheck"
 	main "launchpad.net/juju/go/cmd/juju"
@@ -8,6 +9,7 @@ import (
 )
 
 type testCommand struct {
+	name  string
 	value string
 }
 
@@ -18,6 +20,10 @@ func (c *testCommand) Parse(args []string) error {
 }
 
 func (c *testCommand) PrintUsage() {}
+
+func (c *testCommand) Desc() string {
+	return fmt.Sprintf("command named %s", c.name)
+}
 
 func (c *testCommand) Run() error {
 	return fmt.Errorf("This doesn't work, but value is %s.", c.value)
@@ -30,8 +36,8 @@ func parseEmpty(args []string) (*main.JujuCommand, error) {
 }
 
 func parseDefenestrate(args []string) (*main.JujuCommand, *testCommand, error) {
-	jc := new(main.JujuCommand)
-	tc := new(testCommand)
+	jc := &main.JujuCommand{}
+	tc := &testCommand{name: "defenestrate"}
 	jc.Register("defenestrate", tc)
 	err := jc.Parse(args)
 	return jc, tc, err
@@ -57,15 +63,19 @@ func (s *CommandSuite) TestSubcommandDispatch(c *C) {
 }
 
 func (s *CommandSuite) TestRegister(c *C) {
-	jc := new(main.JujuCommand)
-	err := jc.Register("flip", new(testCommand))
+	jc := &main.JujuCommand{}
+	err := jc.Register("flip", &testCommand{name: "flip"})
 	c.Assert(err, IsNil)
 
-	err = jc.Register("flop", new(testCommand))
+	err = jc.Register("flap", &testCommand{name: "flap"})
 	c.Assert(err, IsNil)
 
-	err = jc.Register("flop", new(testCommand))
-	c.Assert(err, ErrorMatches, "subcommand flop is already registered")
+	err = jc.Register("flap", &testCommand{name: "another-flap"})
+	c.Assert(err, ErrorMatches, "subcommand flap is already registered")
+
+	buf := &bytes.Buffer{}
+	jc.DescCommands(buf)
+	c.Assert(buf.String(), Equals, "flap\n    command named flap\nflip\n    command named flip\n")
 }
 
 func (s *CommandSuite) TestVerbose(c *C) {

@@ -20,6 +20,15 @@ func (c *BootstrapCommand) Environment() string {
 	return c.environment
 }
 
+func (c *BootstrapCommand) PrintUsage() {
+	fmt.Fprintln(os.Stderr, "usage: juju bootstrap [options]")
+	c.flag().PrintDefaults()
+}
+
+func (c *BootstrapCommand) Desc() string {
+	return "bring up a running environment from scratch"
+}
+
 // Initialise (if necessary) and return the FlagSet used by this command
 func (c *BootstrapCommand) flag() *flag.FlagSet {
 	if c._flag == nil {
@@ -44,11 +53,6 @@ func (c *BootstrapCommand) Parse(args []string) error {
 		return fmt.Errorf("Unknown args: %s", c.flag().Args())
 	}
 	return nil
-}
-
-func (c *BootstrapCommand) PrintUsage() {
-	fmt.Fprintln(os.Stderr, "usage: juju bootstrap [options]")
-	c.flag().PrintDefaults()
 }
 
 // Run will bootstrap the juju environment set in Parse, or the default environment

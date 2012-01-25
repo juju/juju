@@ -29,23 +29,25 @@ default:
     erewhemos
 environments:
     erewhon:
-        type: dummy
+        type: bad
     erewhemos:
-        type: dummy
+        type: wrong
 `), 0644)
 
 	// Nasty hackish testing; inferring correct environ choice from errors
 	// caused by lack of registered providers. Will need to change if/when
 	// we get a globaly available dummy provider.
 	conn, err = juju.NewConn("")
-	c.Assert(err, ErrorMatches, `environment "erewhemos" has an unknown provider type: "dummy"`)
+	c.Assert(err, ErrorMatches, `environment "erewhemos" has an unknown provider type: "wrong"`)
 	c.Assert(conn, IsNil)
 
 	conn, err = juju.NewConn("erewhon")
-	c.Assert(err, ErrorMatches, `environment "erewhon" has an unknown provider type: "dummy"`)
+	c.Assert(err, ErrorMatches, `environment "erewhon" has an unknown provider type: "bad"`)
 	c.Assert(conn, IsNil)
 
 	conn, err = juju.NewConn("entstixenon")
 	c.Assert(err, ErrorMatches, `unknown environment "entstixenon"`)
 	c.Assert(conn, IsNil)
+
+	// TODO construct a Conn using a registered provider type
 }
