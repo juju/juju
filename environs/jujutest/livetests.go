@@ -1,10 +1,10 @@
 package jujutest
 
 import (
-	. "launchpad.net/gocheck"
 	"bytes"
-	"io/ioutil"
 	"fmt"
+	"io/ioutil"
+	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
 	"time"
 )

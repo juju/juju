@@ -18,11 +18,11 @@ type environProvider struct{}
 var _ environs.EnvironProvider = environProvider{}
 
 type environ struct {
-	name   string
-	config *providerConfig
-	ec2    *ec2.EC2
-	s3 *s3.S3
-	checkBucket sync.Once
+	name             string
+	config           *providerConfig
+	ec2              *ec2.EC2
+	s3               *s3.S3
+	checkBucket      sync.Once
 	checkBucketError error
 }
 
@@ -51,7 +51,7 @@ func (environProvider) Open(name string, config interface{}) (e environs.Environ
 		name:   name,
 		config: cfg,
 		ec2:    ec2.New(cfg.auth, Regions[cfg.region]),
-		s3: s3.New(cfg.auth, Regions[cfg.region]),
+		s3:     s3.New(cfg.auth, Regions[cfg.region]),
 	}, nil
 }
 
@@ -99,11 +99,11 @@ func (e *environ) startInstance(machineId int, master bool) (environs.Instance, 
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
 	instances, err := e.ec2.RunInstances(&ec2.RunInstances{
-		ImageId:      image.ImageId,
-		MinCount:     1,
-		MaxCount:     1,
-		UserData:     nil,
-		InstanceType: "m1.small",
+		ImageId:        image.ImageId,
+		MinCount:       1,
+		MaxCount:       1,
+		UserData:       nil,
+		InstanceType:   "m1.small",
 		SecurityGroups: groups,
 	})
 	if err != nil {
@@ -146,7 +146,7 @@ func (e *environ) Instances() ([]environs.Instance, error) {
 }
 
 func (e *environ) makeControlBucket() error {
-	e.checkBucket.Do(func(){
+	e.checkBucket.Do(func() {
 		b := e.controlBucket()
 		// As bucket LIST isn't implemented for the s3test server yet,
 		// we try to get an object from the control bucket
@@ -165,7 +165,6 @@ func (e *environ) makeControlBucket() error {
 	})
 	return e.checkBucketError
 }
-
 
 func (e *environ) PutFile(file string, r io.Reader, length int64) error {
 	if err := e.makeControlBucket(); err != nil {

@@ -9,9 +9,9 @@ import (
 // providerConfig is a placeholder for any config information
 // that we will have in a configuration file.
 type providerConfig struct {
-	region string
-	auth   aws.Auth
-	controlBucket       string
+	region        string
+	auth          aws.Auth
+	controlBucket string
 }
 
 type checker struct{}
@@ -33,10 +33,10 @@ func (environProvider) ConfigChecker() schema.Checker {
 	return combineCheckers(
 		schema.FieldMap(
 			schema.Fields{
-				"access-key": schema.String(),
-				"secret-key": schema.String(),
-				"region":     schema.String(),
-				"control-bucket":        schema.String(),
+				"access-key":     schema.String(),
+				"secret-key":     schema.String(),
+				"region":         schema.String(),
+				"control-bucket": schema.String(),
 			}, []string{
 				"access-key",
 				"secret-key",

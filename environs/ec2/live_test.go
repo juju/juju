@@ -1,9 +1,9 @@
 package ec2_test
 
 import (
+	"crypto/rand"
 	"fmt"
 	"io"
-	"crypto/rand"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/jujutest"

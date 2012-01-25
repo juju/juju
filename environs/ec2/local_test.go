@@ -38,9 +38,9 @@ type localLiveTests struct {
 }
 
 type localServer struct {
-	ec2srv   *ec2test.Server
-	s3srv   *s3test.Server
-	setup func(*localServer)
+	ec2srv *ec2test.Server
+	s3srv  *s3test.Server
+	setup  func(*localServer)
 }
 
 // Each test is run in each of the following scenarios.
@@ -237,7 +237,7 @@ func (srv *localServer) startServer(c *C) {
 	}
 	ec2.Regions["test"] = aws.Region{
 		EC2Endpoint: srv.ec2srv.Address(),
-		S3Endpoint: srv.s3srv.Address(),
+		S3Endpoint:  srv.s3srv.Address(),
 	}
 	srv.setup(srv)
 }

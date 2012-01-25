@@ -64,7 +64,7 @@ var configTests = []configTest{
 	},
 	{
 		"control-bucket: 666\n",
-		nil,	
+		nil,
 		".*expected string, got 666",
 	},
 	{
