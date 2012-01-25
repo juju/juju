@@ -14,10 +14,10 @@ type Command interface {
 	// Return an Info describing name, usage, etc.
 	Info() *Info
 
-	// Interpret cmdline args remaining after command name has been consumed
+	// Interpret cmdline args remaining after command name has been consumed.
 	Parse(args []string) error
 
-	// Actually run the command
+	// Actually run the command.
 	Run() error
 }
 
@@ -53,9 +53,9 @@ func (c *JujuCommand) flag() *flag.FlagSet {
 	return c._flag
 }
 
-// Register will register a subcommand by name (which must not match that of a
+// Register will register a subcommand (which must not have the same name as any
 // previously-registered subcommand), such that subsequent calls to Parse() will
-// dispatch args following "name" to that subcommand for Parse()ing; and
+// dispatch args following the name to that subcommand for Parse()ing; and that
 // subsequent calls to Run() will call the subcommand's Run().
 func (c *JujuCommand) Register(subcmd Command) error {
 	if c.subcmds == nil {

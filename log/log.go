@@ -1,9 +1,11 @@
 package log
 
-import "fmt"
-import "io"
-import "os"
-import stdlog "log"
+import (
+	"fmt"
+	"io"
+	stdlog "log"
+	"os"
+)
 
 var stderr io.Writer = os.Stderr
 

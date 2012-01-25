@@ -18,7 +18,7 @@ func (s *BootstrapSuite) TestEnvironment(c *C) {
 	c.Assert(bc.Environment(), Equals, "")
 
 	err = bc.Parse([]string{"hotdog"})
-	c.Assert(err, ErrorMatches, `Unknown args: \[hotdog\]`)
+	c.Assert(err, ErrorMatches, `unrecognised args: \[hotdog\]`)
 	c.Assert(bc.Environment(), Equals, "")
 
 	err = bc.Parse([]string{"-e", "walthamstow"})

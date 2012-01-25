@@ -1,8 +1,10 @@
 package main
 
-import "fmt"
-import "launchpad.net/juju/go/juju"
-import "launchpad.net/~rogpeppe/juju/gnuflag/flag"
+import (
+	"fmt"
+	"launchpad.net/juju/go/juju"
+	"launchpad.net/~rogpeppe/juju/gnuflag/flag"
+)
 
 // BootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
@@ -19,7 +21,7 @@ func (c *BootstrapCommand) Environment() string {
 	return c.environment
 }
 
-// Initialise (if necessary) and return the FlagSet used by this command
+// Initialise (if necessary) and return the FlagSet used by this command.
 func (c *BootstrapCommand) flag() *flag.FlagSet {
 	if c._flag == nil {
 		c._flag = flag.NewFlagSet("bootstrap", flag.ExitOnError)
@@ -30,7 +32,7 @@ func (c *BootstrapCommand) flag() *flag.FlagSet {
 	return c._flag
 }
 
-// Info will return an Info describing this command
+// Info will return an Info describing this command.
 func (c *BootstrapCommand) Info() *Info {
 	return &Info{
 		"bootstrap",
@@ -43,14 +45,14 @@ func (c *BootstrapCommand) Info() *Info {
 // Parse takes the list of args following "bootstrap" on the command line, and
 // will initialise the BootstrapCommand such that it uses them when Run()ning.
 func (c *BootstrapCommand) Parse(args []string) error {
-	// Parse(true, ...) is meaningless is this specific case, but is generally
+	// Parse(true, ...) is meaningless is this specific case, but is *generally*
 	// required for juju subcommands, because many of them *do* have positional
-	// arguments, and we need to allow interspersion to match the Python version.
+	// arguments, and we need to allow interspersing to match the Python version.
 	if err := c.flag().Parse(true, args); err != nil {
 		return err
 	}
 	if len(c.flag().Args()) != 0 {
-		return fmt.Errorf("Unknown args: %s", c.flag().Args())
+		return fmt.Errorf("unrecognised args: %s", c.flag().Args())
 	}
 	return nil
 }
