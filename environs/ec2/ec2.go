@@ -2,8 +2,11 @@ package ec2
 
 import (
 	"fmt"
+	"io"
 	"launchpad.net/goamz/ec2"
+	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
+	"sync"
 )
 
 func init() {
@@ -18,6 +21,9 @@ type environ struct {
 	name   string
 	config *providerConfig
 	ec2    *ec2.EC2
+	s3 *s3.S3
+	checkBucket sync.Once
+	checkBucketError error
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -45,10 +51,45 @@ func (environProvider) Open(name string, config interface{}) (e environs.Environ
 		name:   name,
 		config: cfg,
 		ec2:    ec2.New(cfg.auth, Regions[cfg.region]),
+		s3: s3.New(cfg.auth, Regions[cfg.region]),
 	}, nil
 }
 
+func (e *environ) findBootstrapMachine() (environs.Instance, error) {
+	_, err := e.Instances()
+	if err != nil {
+		return nil, fmt.Errorf("cannot list machines: %v", err)
+	}
+	return nil, nil
+}
+
+func (e *environ) zookeeperAddrs() ([]string, error) {
+	return nil, fmt.Errorf("not implemented zookeeper addtrs")
+}
+
+func (e *environ) Bootstrap() error {
+	addrs, err := e.zookeeperAddrs()
+	if err != nil {
+		return fmt.Errorf("cannot get zookeeper machine addresses: %v", err)
+	}
+	if len(addrs) > 0 {
+		return fmt.Errorf("environment is already bootstrapped")
+	}
+	_, err = e.startInstance(0, true)
+	return err
+}
+
 func (e *environ) StartInstance(machineId int) (environs.Instance, error) {
+	if machineId <= 0 {
+		panic(fmt.Errorf("StartInstance:invalid machine id: %d", machineId))
+	}
+	return e.startInstance(machineId, false)
+}
+
+// startInstance is the internal version of StartInstance, used by Bootstrap
+// as well as via StartInstance itself. If master is true, a bootstrap
+// instance will be started.
+func (e *environ) startInstance(machineId int, master bool) (environs.Instance, error) {
 	image, err := FindImageSpec(DefaultImageConstraint)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
@@ -58,11 +99,11 @@ func (e *environ) StartInstance(machineId int) (environs.Instance, error) {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
 	instances, err := e.ec2.RunInstances(&ec2.RunInstances{
-		ImageId:        image.ImageId,
-		MinCount:       1,
-		MaxCount:       1,
-		UserData:       nil,
-		InstanceType:   "m1.small",
+		ImageId:      image.ImageId,
+		MinCount:     1,
+		MaxCount:     1,
+		UserData:     nil,
+		InstanceType: "m1.small",
 		SecurityGroups: groups,
 	})
 	if err != nil {
@@ -104,7 +145,55 @@ func (e *environ) Instances() ([]environs.Instance, error) {
 	return insts, nil
 }
 
+func (e *environ) makeControlBucket() error {
+	e.checkBucket.Do(func(){
+		b := e.controlBucket()
+		// As bucket LIST isn't implemented for the s3test server yet,
+		// we try to get an object from the control bucket
+		// and determine whether the bucket exists using the resulting
+		// error message.
+		r, testErr := b.GetReader("testing123")
+		if testErr == nil {
+			r.Close()
+			return
+		}
+		if testErr, _ := testErr.(*s3.Error); testErr == nil || testErr.Code != "NoSuchBucket" {
+			return
+		}
+		// The bucket doesn't exist, so try to make it.
+		e.checkBucketError = b.PutBucket(s3.Private)
+	})
+	return e.checkBucketError
+}
+
+
+func (e *environ) PutFile(file string, r io.Reader, length int64) error {
+	if err := e.makeControlBucket(); err != nil {
+		return fmt.Errorf("cannot make S3 control bucket: %v", err)
+	}
+	err := e.controlBucket().PutReader(file, r, length, "binary/octet-stream", s3.Private)
+	if err != nil {
+		return fmt.Errorf("cannot read file %q from control bucket: %v", file)
+	}
+	return nil
+}
+
+func (e *environ) GetFile(file string) (io.ReadCloser, error) {
+	return e.controlBucket().GetReader(file)
+}
+
+func (e *environ) RemoveFile(file string) error {
+	return e.controlBucket().Del(file)
+}
+
+func (e *environ) controlBucket() *s3.Bucket {
+	return e.s3.Bucket(e.config.controlBucket)
+}
+
 func (e *environ) Destroy() error {
+	// TODO should we ignore error from this or give a warning or what?
+	e.controlBucket().DelBucket()
+
 	insts, err := e.Instances()
 	if err != nil {
 		return err

@@ -5,6 +5,7 @@ import (
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
+	"launchpad.net/goamz/s3/s3test"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/ec2"
@@ -16,6 +17,7 @@ environments:
   sample:
     type: ec2
     region: test
+    control-bucket: test-bucket
 `)
 
 // localTests wraps jujutest.Tests by adding
@@ -36,8 +38,9 @@ type localLiveTests struct {
 }
 
 type localServer struct {
-	srv   *ec2test.Server
-	setup func(*ec2test.Server)
+	ec2srv   *ec2test.Server
+	s3srv   *s3test.Server
+	setup func(*localServer)
 }
 
 // Each test is run in each of the following scenarios.
@@ -45,28 +48,28 @@ type localServer struct {
 // server after it starts.
 var scenarios = []struct {
 	name  string
-	setup func(*ec2test.Server)
+	setup func(*localServer)
 }{
 	{"normal", normalScenario},
 	{"initial-state-running", initialStateRunningScenario},
 	{"extra-instances", extraInstancesScenario},
 }
 
-func normalScenario(*ec2test.Server) {
+func normalScenario(*localServer) {
 }
 
-func initialStateRunningScenario(srv *ec2test.Server) {
-	srv.SetInitialInstanceState(ec2test.Running)
+func initialStateRunningScenario(srv *localServer) {
+	srv.ec2srv.SetInitialInstanceState(ec2test.Running)
 }
 
-func extraInstancesScenario(srv *ec2test.Server) {
+func extraInstancesScenario(srv *localServer) {
 	states := []amzec2.InstanceState{
 		ec2test.ShuttingDown,
 		ec2test.Terminated,
 		ec2test.Stopped,
 	}
 	for _, state := range states {
-		srv.NewInstances(1, "m1.small", "ami-a7f539ce", state, nil)
+		srv.ec2srv.NewInstances(1, "m1.small", "ami-a7f539ce", state, nil)
 	}
 }
 
@@ -224,18 +227,23 @@ func (t *localLiveTests) TearDownSuite(c *C) {
 
 func (srv *localServer) startServer(c *C) {
 	var err error
-	srv.srv, err = ec2test.NewServer()
+	srv.ec2srv, err = ec2test.NewServer()
 	if err != nil {
 		c.Fatalf("cannot start ec2 test server: %v", err)
 	}
-	ec2.Regions["test"] = aws.Region{
-		EC2Endpoint: srv.srv.Address(),
+	srv.s3srv, err = s3test.NewServer()
+	if err != nil {
+		c.Fatalf("cannot start s3 test server: %v", err)
 	}
-	srv.setup(srv.srv)
+	ec2.Regions["test"] = aws.Region{
+		EC2Endpoint: srv.ec2srv.Address(),
+		S3Endpoint: srv.s3srv.Address(),
+	}
+	srv.setup(srv)
 }
 
 func (srv *localServer) stopServer(c *C) {
-	srv.srv.Quit()
+	srv.ec2srv.Quit()
 	// Clear out the region because the server address is
 	// no longer valid.
 	ec2.Regions["test"] = aws.Region{}

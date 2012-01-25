@@ -1,6 +1,9 @@
 package environs
 
-import "launchpad.net/juju/go/schema"
+import (
+	"io"
+	"launchpad.net/juju/go/schema"
+)
 
 // A EnvironProvider represents a computing and storage provider.
 type EnvironProvider interface {
@@ -25,8 +28,11 @@ type Instance interface {
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
 type Environ interface {
+	Bootstrap() error
+
 	// StartInstance asks for a new instance to be created,
-	// associated with the provided machine identifier
+	// associated with the provided machine identifier,
+	// which must be greater than zero.
 	// TODO add arguments to specify type of new machine.
 	StartInstance(machineId int) (Instance, error)
 
@@ -35,6 +41,20 @@ type Environ interface {
 
 	// Instances returns the list of currently started instances.
 	Instances() ([]Instance, error)
+
+	// Put reads from r and writes to the given file in the
+	// environment's storage. The length must give the total
+	// length of the file.
+	PutFile(file string, r io.Reader, length int64) error
+
+	// Get opens the given file in the environment's storage
+	// and returns a ReadCloser that can be used to read its
+	// contents. It is the caller's responsibility to close it
+	// after use.
+	GetFile(file string) (io.ReadCloser, error)
+
+	// RemoveFile removes the given file from the environment's storage.
+	RemoveFile(file string) error
 
 	// Destroy shuts down all known machines and destroys the
 	// rest of the environment.

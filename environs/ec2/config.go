@@ -11,6 +11,7 @@ import (
 type providerConfig struct {
 	region string
 	auth   aws.Auth
+	controlBucket       string
 }
 
 type checker struct{}
@@ -35,16 +36,19 @@ func (environProvider) ConfigChecker() schema.Checker {
 				"access-key": schema.String(),
 				"secret-key": schema.String(),
 				"region":     schema.String(),
+				"control-bucket":        schema.String(),
 			}, []string{
 				"access-key",
 				"secret-key",
 				"region",
+				"control-bucket",
 			},
 		),
 		checkerFunc(func(v interface{}, path []string) (newv interface{}, err error) {
 			m := v.(schema.MapType)
 			var c providerConfig
 
+			c.controlBucket = maybeString(m["control-bucket"], "")
 			c.auth.AccessKey = maybeString(m["access-key"], "")
 			c.auth.SecretKey = maybeString(m["secret-key"], "")
 			if c.auth.AccessKey == "" || c.auth.SecretKey == "" {
