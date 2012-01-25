@@ -20,7 +20,7 @@ var integrationConfig = `
 environments:
   sample:
     type: ec2
-    control-bucket: %s
+    control-bucket: '%s'
 `
 
 func registerIntegrationTests() {

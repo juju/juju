@@ -1,9 +1,7 @@
 package jujutest
 
 import (
-	"bytes"
 	"fmt"
-	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
 	"time"
@@ -60,45 +58,24 @@ var contents = []byte("hello\n")
 var contents2 = []byte("goodbye\n\n")
 
 func (t *LiveTests) TestFile(c *C) {
-	name := fmt.Sprintf("testfile", time.Now().UnixNano())
+	name := fmt.Sprint("testfile", time.Now().UnixNano())
 
 	// check that file does not currently exist.
-	r, err := t.env.GetFile(name)
-	c.Check(r, IsNil)
-	c.Assert(err, NotNil)
+	checkFileDoesNotExist(c, t.env, name)
 
-	// create a new file
-	err = t.env.PutFile(name, bytes.NewBuffer(contents), int64(len(contents)))
-	c.Assert(err, IsNil)
+	checkPutFile(c, t.env, name, contents)
 
-	// check the file now exists...
-	r, err = t.env.GetFile(name)
-	c.Check(r, NotNil)
-	c.Assert(err, IsNil)
-
-	// ... and has the correct contents
-	data, err := ioutil.ReadAll(r)
-	c.Check(err, IsNil)
-	c.Check(data, Equals, contents)
+	checkFileHasContents(c, t.env, name, contents)
 
 	// check that we can overwrite the file
-	err = t.env.PutFile(name, bytes.NewBuffer(contents2), int64(len(contents2)))
-	c.Assert(err, IsNil)
+	checkPutFile(c, t.env, name, contents2)
 
-	// check the file now has the new contents
-	r, err = t.env.GetFile(name)
-	c.Check(r, NotNil)
-	c.Assert(err, IsNil)
-	data, err = ioutil.ReadAll(r)
-	c.Check(err, IsNil)
-	c.Check(data, Equals, contents2)
+	checkFileHasContents(c, t.env, name, contents2)
 
 	// remove the file...
-	err = t.env.RemoveFile(name)
+	err := t.env.RemoveFile(name)
 	c.Check(err, IsNil)
 
 	// ...and check that the file has been removed correctly.
-	r, err = t.env.GetFile(name)
-	c.Check(r, IsNil)
-	c.Assert(err, NotNil)
+	checkFileDoesNotExist(c, t.env, name)
 }

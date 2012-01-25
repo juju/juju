@@ -146,7 +146,7 @@ func (e *environ) PutFile(file string, r io.Reader, length int64) error {
 	}
 	err := e.controlBucket().PutReader(file, r, length, "binary/octet-stream", s3.Private)
 	if err != nil {
-		return fmt.Errorf("cannot read file %q from control bucket: %v", file)
+		return fmt.Errorf("cannot write file %q to control bucket: %v", file, err)
 	}
 	return nil
 }
@@ -192,7 +192,7 @@ func (e *environ) groupName() string {
 func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	jujuGroup := ec2.SecurityGroup{Name: e.groupName()}
 	jujuMachineGroup := ec2.SecurityGroup{Name: e.machineGroupName(machineId)}
-	groups, err := e.ec2.SecurityGroups([]ec2.SecurityGroup{jujuGroup, jujuMachineGroup}, nil)
+	groups, err := e.ec2.SecurityGroups(nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get security groups: %v", err)
 	}

@@ -28,8 +28,8 @@ type configTest struct {
 
 var configTests = []configTest{
 	{
-		"",
-		&providerConfig{region: "us-east-1", auth: testAuth},
+		"control-bucket: x\n",
+		&providerConfig{region: "us-east-1", auth: testAuth, controlBucket: "x"},
 		"",
 	},
 	{
@@ -38,7 +38,7 @@ var configTests = []configTest{
 		"",
 	},
 	{
-		"region: unknown\n",
+		"region: unknown\ncontrol-bucket: x\n",
 		nil,
 		".*invalid region name.*",
 	},
@@ -48,17 +48,17 @@ var configTests = []configTest{
 		"",
 	},
 	{
-		"region: 666\n",
+		"region: 666\ncontrol-bucket: x\n",
 		nil,
 		".*expected string, got 666",
 	},
 	{
-		"access-key: 666\n",
+		"access-key: 666\ncontrol-bucket: x\n",
 		nil,
 		".*expected string, got 666",
 	},
 	{
-		"secret-key: 666\n",
+		"secret-key: 666\ncontrol-bucket: x\n",
 		nil,
 		".*expected string, got 666",
 	},
@@ -80,12 +80,12 @@ var configTests = []configTest{
 		"",
 	},
 	{
-		"access-key: jujuer\n",
+		"access-key: jujuer\ncontrol-bucket: x\n",
 		nil,
 		".*environment has access-key but no secret-key",
 	},
 	{
-		"secret-key: badness\n",
+		"secret-key: badness\ncontrol-bucket: x\n",
 		nil,
 		".*environment has secret-key but no access-key",
 	},
@@ -121,7 +121,8 @@ func (configSuite) TestConfig(c *C) {
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "")
 
 	// first try with no auth environment vars set
-	test := configTest{"", &providerConfig{region: "us-east-1", auth: testAuth}, ".*not found in environment"}
+	test := configTests[0]
+	test.err = ".*not found in environment"
 	test.run(c)
 
 	// then set testAuthults
