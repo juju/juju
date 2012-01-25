@@ -2,6 +2,7 @@ package charm_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
@@ -62,6 +63,33 @@ func (s *S) TestReadConfig(c *C) {
 func (s *S) TestConfigError(c *C) {
 	_, err := charm.ReadConfig(bytes.NewBuffer([]byte(`options: {t: {type: foo}}`)))
 	c.Assert(err, ErrorMatches, `config: options.t.type: unsupported value`)
+}
+
+func (s *S) TestDefaultType(c *C) {
+	assertDefault := func(type_ string, value string, expected interface{}) {
+		config := fmt.Sprintf(`options: {t: {type: %s, default: %s}}`, type_, value)
+		result, err := charm.ReadConfig(bytes.NewBuffer([]byte(config)))
+		c.Assert(err, IsNil)
+		c.Assert(result.Options["t"].Default, Equals, expected)
+
+	}
+
+	assertDefault("boolean", "true", true)
+	assertDefault("string", "golden grahams", "golden grahams")
+	assertDefault("float", "2.2e11", 2.2e11)
+	assertDefault("int", "99", int64(99))
+
+	assertTypeError := func(type_ string, value string) {
+		config := fmt.Sprintf(`options: {t: {type: %s, default: %s}}`, type_, value)
+		_, err := charm.ReadConfig(bytes.NewBuffer([]byte(config)))
+		expected := fmt.Sprintf(`Bad default for "t": %s is not of type %s`, value, type_)
+		c.Assert(err, ErrorMatches, expected)
+	}
+
+	assertTypeError("boolean", "henry")
+	assertTypeError("string", "2.5")
+	assertTypeError("float", "blob")
+	assertTypeError("int", "33.2")
 }
 
 func (s *S) TestParseSample(c *C) {
