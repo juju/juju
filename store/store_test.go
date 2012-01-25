@@ -2,12 +2,12 @@ package store_test
 
 import (
 	"io/ioutil"
-	"launchpad.net/gobson/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/log"
 	"launchpad.net/juju/go/store"
 	"launchpad.net/mgo"
+	"launchpad.net/mgo/bson"
 	"path/filepath"
 	"testing"
 )

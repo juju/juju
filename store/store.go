@@ -9,10 +9,10 @@ import (
 	"errors"
 	"hash"
 	"io"
-	"launchpad.net/gobson/bson"
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/log"
 	"launchpad.net/mgo"
+	"launchpad.net/mgo/bson"
 	"sort"
 )
 
@@ -42,7 +42,7 @@ type Store struct {
 func Open(mongoAddr string) (store *Store, err error) {
 	log.Printf("Store opened. Connecting to: %s", mongoAddr)
 	store = &Store{}
-	session, err := mgo.Mongo(mongoAddr)
+	session, err := mgo.Dial(mongoAddr)
 	if err != nil {
 		log.Printf("Error connecting to MongoDB: %v", err)
 		return nil, err
@@ -325,7 +325,7 @@ func (s storeSession) Copy() storeSession {
 }
 
 // Charms returns the mongo collection where charms are stored.
-func (s storeSession) Charms() mgo.Collection {
+func (s storeSession) Charms() *mgo.Collection {
 	return s.DB("juju").C("charms")
 }
 
@@ -359,7 +359,7 @@ func (s storeSession) LockUpdates(urls []*charm.URL) (m *updateMutex, err error)
 // via storeSession.LockUpdates.
 type updateMutex struct {
 	keys  []string
-	locks mgo.Collection
+	locks *mgo.Collection
 	time  bson.Timestamp
 }
 
