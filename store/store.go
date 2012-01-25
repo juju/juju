@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"hash"
 	"io"
 	"launchpad.net/juju/go/charm"
@@ -14,17 +15,20 @@ import (
 	"launchpad.net/mgo"
 	"launchpad.net/mgo/bson"
 	"sort"
+	"time"
 )
 
 // The following MongoDB collections are currently used:
 //
+//     juju.changes  - Information about the stored charms
 //     juju.charms    - Information about the stored charms
 //     juju.charmfs.* - GridFS with the charm files
 //     juju.locks     - Has unique keys with url of updating charms
 
 var (
-	UpdateConflict  = errors.New("charm update already in progress")
-	UpdateIsCurrent = errors.New("charm is already up-to-date")
+	ErrUpdateConflict  = errors.New("charm update in progress")
+	ErrUpdateKnown = errors.New("charm is up-to-date")
+	ErrUnknownChange   = errors.New("charm change never attempted")
 )
 
 const (
@@ -33,7 +37,7 @@ const (
 
 // Store holds a connection to a charm store.
 type Store struct {
-	session storeSession
+	session *storeSession
 }
 
 // Open creates a new session with the store. It connects to the MongoDB
@@ -47,7 +51,7 @@ func Open(mongoAddr string) (store *Store, err error) {
 		log.Printf("Error connecting to MongoDB: %v", err)
 		return nil, err
 	}
-	store = &Store{storeSession{session}}
+	store = &Store{&storeSession{session}}
 	charms := store.session.Charms()
 	err = charms.EnsureIndex(mgo.Index{Key: []string{"url", "revision"}, Unique: true})
 	if err != nil {
@@ -77,12 +81,15 @@ func dropRevisions(urls []*charm.URL) []*charm.URL {
 // AddCharm prepares the store to have charm added to it at all of
 // the provided urls. The revisionKey parameter must contain the
 // unique identifier that represents the current charm content
-// (e.g. the VCS revision sha1).
-// An error is returned if all of the provided urls are already
-// associated to that revision key.
+// (e.g. the VCS revision sha1). An error is returned if all of
+// the provided urls are already associated to that revision key.
+//
 // On success, wc must be used to stream the charm bundle onto the
 // store, and once wc is closed successfully the content will be
-// available at all of the provided urls.
+// available at all of the provided urls, and a new CharmChange
+// saved to record the successful publishing atomically (it doesn't
+// get saved if there are any errors).
+//
 // The returned revision number will be assigned to the charm in the
 // store. The revision will be the maximum current revision from
 // all of the urls plus one. It is the caller's responsibility to ensure
@@ -129,12 +136,13 @@ func (s *Store) AddCharm(charm charm.Charm, urls []*charm.URL, revisionKey strin
 	}
 	if !newKey {
 		log.Printf("All charms have revision key %q. Nothing to update.", revisionKey)
-		err = UpdateIsCurrent
+		err = ErrUpdateKnown
 		return
 	}
 	revision = maxRev + 1
 	log.Printf("Preparing writer to add charms with revision %d.", revision)
 	w := &writer{
+		store: s,
 		session:  session,
 		charm:    charm,
 		urls:     urls,
@@ -146,7 +154,8 @@ func (s *Store) AddCharm(charm charm.Charm, urls []*charm.URL, revisionKey strin
 }
 
 type writer struct {
-	session  storeSession
+	store    *Store
+	session  *storeSession
 	file     *mgo.GridFile
 	sha256   hash.Hash
 	charm    charm.Charm
@@ -208,7 +217,12 @@ func (w *writer) Close() error {
 			return err
 		}
 	}
-	return nil
+	status := &CharmChange{
+		Status: CharmPublished,
+		RevisionKey: w.revKey,
+		URLs: w.urls,
+	}
+	return w.store.addCharmChange(status, w.session, false)
 }
 
 type CharmInfo struct {
@@ -287,7 +301,7 @@ func (s *Store) OpenCharm(url *charm.URL) (info *CharmInfo, rc io.ReadCloser, er
 }
 
 type reader struct {
-	session storeSession
+	session *storeSession
 	file    *mgo.GridFile
 }
 
@@ -320,18 +334,23 @@ type storeSession struct {
 }
 
 // Copy copies the storeSession and its underlying mgo session.
-func (s storeSession) Copy() storeSession {
-	return storeSession{s.Session.Copy()}
+func (s *storeSession) Copy() *storeSession {
+	return &storeSession{s.Session.Copy()}
 }
 
 // Charms returns the mongo collection where charms are stored.
-func (s storeSession) Charms() *mgo.Collection {
+func (s *storeSession) Charms() *mgo.Collection {
 	return s.DB("juju").C("charms")
 }
 
 // Charms returns a mgo.GridFS to read and write charms.
-func (s storeSession) CharmFS() *mgo.GridFS {
+func (s *storeSession) CharmFS() *mgo.GridFS {
 	return s.DB("juju").GridFS("charmfs")
+}
+
+// Changes returns the mongo collection where charm changes are stored.
+func (s *storeSession) Changes() *mgo.Collection {
+	return s.DB("juju").C("changes")
 }
 
 // LockUpdates acquires a server-side lock for updating a single charm
@@ -341,7 +360,7 @@ func (s storeSession) CharmFS() *mgo.GridFS {
 // In the usual case, any locking done is undone when an error happens,
 // or when m.Unlock is called. If something else goes wrong, the locks
 // will also expire after the period defined in UpdateTimeout.
-func (s storeSession) LockUpdates(urls []*charm.URL) (m *updateMutex, err error) {
+func (s *storeSession) LockUpdates(urls []*charm.URL) (m *updateMutex, err error) {
 	keys := make([]string, len(urls))
 	for i := range urls {
 		keys[i] = urls[i].String()
@@ -415,11 +434,127 @@ func (m *updateMutex) tryExpire(key string) {
 	m.locks.Remove(bson.D{{"_id", key}, {"time", bson.D{{"$lt", bson.Now() - UpdateTimeout}}}})
 }
 
-// maybeConflict returns an UpdateConflict if err is a mgo
+// maybeConflict returns an ErrUpdateConflict if err is a mgo
 // insert conflict LastError, or err itself otherwise.
 func maybeConflict(err error) error {
 	if lerr, ok := err.(*mgo.LastError); ok && lerr.Code == 11000 {
-		return UpdateConflict
+		return ErrUpdateConflict
 	}
 	return err
 }
+
+type CharmChangeStatus string
+
+const (
+	CharmPublished CharmChangeStatus = "published"
+	CharmFailed    CharmChangeStatus = "failed"
+)
+
+// CharmChange represents an attempt (successful or not) to
+// change the status of a charm in the store.
+type CharmChange struct {
+	Status      CharmChangeStatus
+	RevisionKey string
+	Revision    int
+	URLs        []*charm.URL
+	Errors      []string
+	Warnings    []string
+	Time        time.Time
+}
+
+// changeDoc is a shadow of CharmChange for marshalling purposes.
+type changeDoc struct {
+	Status      CharmChangeStatus
+	RevisionKey string
+	Revision    *int ",omitempty"
+	URLs        []string
+	Errors      []string ",omitempty"
+	Warnings    []string ",omitempty"
+	// TODO: Fix bson time.Time marshalling.
+	Time        bson.Timestamp
+}
+
+// AddCharmChange records change in the store. It must have at least
+// its Status, RevisionKey, and URLs fields properly set.
+func (s *Store) AddCharmChange(change *CharmChange) (err error) {
+	session := s.session.Copy()
+	defer session.Close()
+	return s.addCharmChange(change, session, true)
+}
+
+// addCharmChange is the implementation of AddCharmChange, and allows
+// adding a change with a pre-established session and without locking
+// the store first.
+func (s *Store) addCharmChange(change *CharmChange, session *storeSession, lockUrls bool) (err error) {
+	log.Printf("Adding charm change for %v with key %q: %s", change.URLs, change.RevisionKey, change.Status)
+	urls := dropRevisions(change.URLs)
+
+	if change.Status == "" || change.RevisionKey == "" || len(change.URLs) == 0 {
+		return fmt.Errorf("AddCharmChange: need valid Status, RevisionKey and URLs")
+	}
+	if lockUrls {
+		lock, err := session.LockUpdates(urls)
+		if err != nil {
+			return err
+		}
+		defer lock.Unlock()
+	}
+	urlStrs := make([]string, len(change.URLs))
+	for i, url := range change.URLs {
+		urlStrs[i] = url.String()
+	}
+	if change.Time.IsZero() {
+		change.Time = time.Now()
+	}
+	doc := &changeDoc{
+		Status:      change.Status,
+		URLs:        urlStrs,
+		RevisionKey: change.RevisionKey,
+		Errors:      change.Errors,
+		Warnings:    change.Warnings,
+		Time:        bson.Timestamp(change.Time.UnixNano()),
+	}
+	if change.Status == CharmPublished {
+		doc.Revision = &change.Revision
+	}
+	changes := session.Changes()
+	return changes.Insert(doc)
+}
+
+// CharmChange returns the attempted change associated with url
+// and revisionKey.  If the specified change isn't found the
+// error ErrUnknownChange will be returned.
+func (s *Store) CharmChange(url *charm.URL, revisionKey string) (*CharmChange, error) {
+	session := s.session.Copy()
+	defer session.Close()
+
+	changes := session.Changes()
+	doc := changeDoc{}
+	err := changes.Find(bson.D{{"urls", url.String()}, {"revisionkey", revisionKey}}).One(&doc)
+	if err == mgo.NotFound {
+		return nil, ErrUnknownChange
+	}
+	if err != nil {
+		return nil, err
+	}
+	urls := make([]*charm.URL, len(doc.URLs))
+	for i, url := range doc.URLs {
+		urls[i], err = charm.ParseURL(url)
+		if err != nil {
+			return nil, err
+		}
+	}
+	change := &CharmChange{
+		Status: doc.Status,
+		RevisionKey: revisionKey,
+		URLs: urls,
+		Errors: doc.Errors,
+		Warnings: doc.Warnings,
+		Time: time.Unix(0, int64(doc.Time)),
+	}
+	if doc.Revision != nil {
+		change.Revision = *doc.Revision
+	}
+	return change, nil
+}
+

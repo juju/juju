@@ -10,6 +10,7 @@ import (
 	"launchpad.net/mgo/bson"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func Test(t *testing.T) {
@@ -61,8 +62,10 @@ func (s *S) TestAddCharm(c *C) {
 	err = wc.Close()
 	c.Assert(err, IsNil)
 
+	urls = []*charm.URL{urls[0].WithRevision(-1), urls[1].WithRevision(-1)}
+
 	for _, url := range urls {
-		info, rc, err := s.store.OpenCharm(url.WithRevision(-1))
+		info, rc, err := s.store.OpenCharm(url)
 		c.Assert(err, IsNil)
 		data, err := ioutil.ReadAll(rc)
 		err = rc.Close()
@@ -80,9 +83,17 @@ func (s *S) TestAddCharm(c *C) {
 		c.Assert(info.Meta().Name, Equals, "dummy")
 		c.Assert(info.Config().Options["title"].Default, Equals, "My Title")
 
-		info2, err := s.store.CharmInfo(url.WithRevision(-1))
+		info2, err := s.store.CharmInfo(url)
 		c.Assert(err, IsNil)
 		c.Assert(info2, Equals, info)
+
+		// The successful completion is also recorded as a charm change.
+		change, err := s.store.CharmChange(url, "key")
+		c.Assert(change.Status, Equals, store.CharmPublished)
+		c.Assert(change.RevisionKey, Equals, "key")
+		c.Assert(change.URLs, Equals, urls)
+		c.Assert(change.Errors, IsNil)
+		c.Assert(change.Warnings, IsNil)
 	}
 }
 
@@ -102,7 +113,7 @@ func (s *S) TestConflictingUpdates(c *C) {
 	cerr := wc.Close()
 	c.Assert(cerr, IsNil)
 
-	c.Assert(err, ErrorMatches, "charm update already in progress")
+	c.Assert(err, ErrorMatches, "charm update in progress")
 	c.Assert(revno, Equals, 0)
 	c.Assert(wc2, IsNil)
 
@@ -155,7 +166,7 @@ func (s *S) TestExpiringConflict(c *C) {
 
 	// Failure. Lost the race.
 	err = wc.Close()
-	c.Check(err, Equals, store.UpdateConflict)
+	c.Check(err == store.ErrUpdateConflict, Equals, true)
 
 }
 
@@ -204,7 +215,7 @@ func (s *S) TestRevisioning(c *C) {
 	c.Assert(rc, IsNil)
 }
 
-func (s *S) TestUpdateIsCurrent(c *C) {
+func (s *S) TestUpdateKnown(c *C) {
 	urlA := charm.MustParseURL("cs:oneiric/wordpress-a")
 	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
 	urls := []*charm.URL{urlA, urlB}
@@ -219,7 +230,8 @@ func (s *S) TestUpdateIsCurrent(c *C) {
 
 	// All charms are already on key1.
 	wc, revno, err = s.store.AddCharm(s.charm, urls, "key0")
-	c.Assert(err, ErrorMatches, "charm is already up-to-date")
+	c.Assert(err, ErrorMatches, "charm is up-to-date")
+	c.Assert(err == store.ErrUpdateKnown, Equals, true)
 	c.Assert(revno, Equals, 0)
 	c.Assert(wc, IsNil)
 
@@ -259,4 +271,89 @@ func (s *S) TestSha256(c *C) {
 	c.Check(info.Sha256(), Equals, "c0535e4be2b79ffd93291305436bf889314e4a3faec05ecffcbb7df31ad9e51a")
 	err = rc.Close()
 	c.Check(err, IsNil)
+}
+
+func (s *S) TestAddCharmChange(c *C) {
+	url1 := charm.MustParseURL("cs:oneiric/wordpress")
+	url2 := charm.MustParseURL("cs:oneiric/mysql")
+	urls := []*charm.URL{url1, url2}
+
+	change1 := &store.CharmChange{
+		Status:      store.CharmPublished,
+		Revision:    42,
+		RevisionKey: "revKey1",
+		URLs:        urls,
+		Warnings:    []string{"A warning."},
+		Errors:      []string{"An error."},
+		Time:        time.Unix(1, 0),
+	}
+	change2 := &store.CharmChange{
+		Status:      store.CharmFailed,
+		RevisionKey: "revKey2",
+		URLs:        urls[:1],
+	}
+
+	err := s.store.AddCharmChange(change1)
+	c.Assert(err, IsNil)
+	err = s.store.AddCharmChange(change2)
+	c.Assert(err, IsNil)
+
+	changes := s.Session.DB("juju").C("changes")
+	var s1, s2 map[string]interface{}
+
+	err = changes.Find(bson.M{"errors": bson.M{"$exists": true}}).One(&s1)
+	c.Assert(err, IsNil)
+	c.Assert(s1["status"], Equals, "published")
+	c.Assert(s1["revisionkey"], Equals, "revKey1")
+	c.Assert(s1["urls"], Equals, []interface{}{"cs:oneiric/wordpress", "cs:oneiric/mysql"})
+	c.Assert(s1["warnings"], Equals, []interface{}{"A warning."})
+	c.Assert(s1["errors"], Equals, []interface{}{"An error."})
+	c.Assert(s1["time"], Equals, bson.Timestamp(1e9))
+
+	err = changes.Find(bson.M{"errors": bson.M{"$exists": false}}).One(&s2)
+	c.Assert(err, IsNil)
+	c.Assert(s2["status"], Equals, "failed")
+	c.Assert(s2["revisionkey"], Equals, "revKey2")
+	c.Assert(s2["urls"], Equals, []interface{}{"cs:oneiric/wordpress"})
+	c.Assert(s2["warnings"], IsNil)
+	c.Assert(s2["errors"], IsNil)
+	c.Assert(s2["time"].(bson.Timestamp) > bson.Now()-10e9, Equals, true)
+
+	// Mongo stores timestamps in milliseconds, so chop
+	// off the extra bits for comparison.
+	change2.Time = time.Unix(0, change2.Time.UnixNano()/1e6*1e6)
+
+	change, err := s.store.CharmChange(urls[0], "revKey2")
+	c.Assert(err, IsNil)
+	c.Assert(change, Equals, change2)
+
+	change, err = s.store.CharmChange(urls[1], "revKey1")
+	c.Assert(err, IsNil)
+	c.Assert(change, Equals, change1)
+
+	change, err = s.store.CharmChange(urls[1], "revKeyX")
+	c.Assert(err == store.ErrUnknownChange, Equals, true)
+	c.Assert(change, IsNil)
+}
+
+func (s *S) TestConflictingCharmChangeUpdate(c *C) {
+	url := charm.MustParseURL("cs:oneiric/wordpress")
+	urls := []*charm.URL{url}
+
+	// Initiate an update to force a conflict.
+	wc, _, err := s.store.AddCharm(s.charm, urls, "key0")
+	c.Assert(err, IsNil)
+
+	change := &store.CharmChange{
+		Status:      store.CharmFailed,
+		RevisionKey: "revKey",
+		URLs:        urls,
+	}
+
+	err = s.store.AddCharmChange(change)
+
+	cerr := wc.Close()
+	c.Assert(cerr, IsNil)
+
+	c.Assert(err, ErrorMatches, "charm update in progress")
 }
