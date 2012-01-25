@@ -52,7 +52,7 @@ func (s *MgoSuite) SetUpTest(c *C) {
 	mgo.SetLogger(c)
 	mgo.ResetStats()
 	s.Addr = "127.0.0.1:50017"
-	s.Session, err = mgo.Mongo(s.Addr)
+	s.Session, err = mgo.Dial(s.Addr)
 	if err != nil {
 		panic(err)
 	}
@@ -74,7 +74,7 @@ func (s *MgoSuite) TearDownTest(c *C) {
 }
 
 func DropAll(mongourl string) (err error) {
-	session, err := mgo.Mongo(mongourl)
+	session, err := mgo.Dial(mongourl)
 	if err != nil {
 		return err
 	}
