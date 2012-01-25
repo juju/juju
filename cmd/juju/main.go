@@ -6,22 +6,17 @@ import (
 	"os"
 )
 
-var subcommands = map[string]Command{
-	"bootstrap": &BootstrapCommand{},
-}
-
 func main() {
 	Main(os.Args)
 }
 
 func Main(args []string) {
 	jc := &JujuCommand{}
-	for name, subcmd := range subcommands {
-		jc.Register(name, subcmd)
-	}
+	jc.Register(&BootstrapCommand{})
+
 	if err := jc.Parse(args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		jc.PrintUsage()
+		jc.Info().PrintUsage()
 		os.Exit(2)
 	}
 	log.Debug = jc.Verbose()

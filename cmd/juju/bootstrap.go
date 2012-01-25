@@ -3,7 +3,6 @@ package main
 import "fmt"
 import "launchpad.net/juju/go/juju"
 import "launchpad.net/~rogpeppe/juju/gnuflag/flag"
-import "os"
 
 // BootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
@@ -20,24 +19,25 @@ func (c *BootstrapCommand) Environment() string {
 	return c.environment
 }
 
-func (c *BootstrapCommand) PrintUsage() {
-	fmt.Fprintln(os.Stderr, "usage: juju bootstrap [options]")
-	c.flag().PrintDefaults()
-}
-
-func (c *BootstrapCommand) Desc() string {
-	return "bring up a running environment from scratch"
-}
-
 // Initialise (if necessary) and return the FlagSet used by this command
 func (c *BootstrapCommand) flag() *flag.FlagSet {
 	if c._flag == nil {
 		c._flag = flag.NewFlagSet("bootstrap", flag.ExitOnError)
 		c._flag.StringVar(&c.environment, "e", "", "juju environment to operate in")
 		c._flag.StringVar(&c.environment, "environment", "", "juju environment to operate in")
-		c._flag.Usage = func() { c.PrintUsage() }
+		c._flag.Usage = func() { c.Info().PrintUsage() }
 	}
 	return c._flag
+}
+
+// Info will return an Info describing this command
+func (c *BootstrapCommand) Info() *Info {
+	return &Info{
+		"bootstrap",
+		"juju bootstrap [options]",
+		"start up an environment from scratch",
+		"",
+		func() { c.flag().PrintDefaults() }}
 }
 
 // Parse takes the list of args following "bootstrap" on the command line, and
