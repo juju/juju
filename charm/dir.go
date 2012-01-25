@@ -37,13 +37,16 @@ func ReadDir(path string) (dir *Dir, err error) {
 		return nil, err
 	}
 	file, err = os.Open(dir.join("config.yaml"))
-	if err != nil {
+	if _, ok := err.(*os.PathError); ok {
+		dir.config = NewConfig()
+	} else if err != nil {
 		return nil, err
-	}
-	dir.config, err = ReadConfig(file)
-	file.Close()
-	if err != nil {
-		return nil, err
+	} else {
+		dir.config, err = ReadConfig(file)
+		file.Close()
+		if err != nil {
+			return nil, err
+		}
 	}
 	if file, err = os.Open(dir.join("revision")); err == nil {
 		_, err = fmt.Fscan(file, &dir.revision)

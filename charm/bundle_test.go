@@ -26,6 +26,16 @@ func (s *BundleSuite) TestReadBundle(c *C) {
 	checkDummy(c, bundle, s.bundlePath)
 }
 
+func (s *BundleSuite) TestReadBundleWithoutConfig(c *C) {
+	path := bundleDir(c, repoDir("varnish"))
+	bundle, err := charm.ReadBundle(path)
+	c.Assert(err, IsNil)
+
+	// A lacking config.yaml file still causes a proper
+	// Config value to be returned.
+	c.Assert(len(bundle.Config().Options), Equals, 0)
+}
+
 func (s *BundleSuite) TestReadBundleBytes(c *C) {
 	data, err := ioutil.ReadFile(s.bundlePath)
 	c.Assert(err, IsNil)

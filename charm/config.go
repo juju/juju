@@ -26,6 +26,11 @@ type Config struct {
 	Options map[string]Option
 }
 
+// NewConfig returns a new Config without any options.
+func NewConfig() *Config {
+	return &Config{make(map[string]Option)}
+}
+
 // ReadConfig reads a config.yaml file and returns its representation.
 func ReadConfig(r io.Reader) (config *Config, err error) {
 	data, err := ioutil.ReadAll(r)
@@ -41,8 +46,7 @@ func ReadConfig(r io.Reader) (config *Config, err error) {
 	if err != nil {
 		return nil, errors.New("config: " + err.Error())
 	}
-	config = &Config{}
-	config.Options = make(map[string]Option)
+	config = NewConfig()
 	m := v.(schema.MapType)
 	for name, infov := range m["options"].(schema.MapType) {
 		opt := infov.(schema.MapType)
