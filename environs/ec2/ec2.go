@@ -63,33 +63,7 @@ func (e *environ) findBootstrapMachine() (environs.Instance, error) {
 	return nil, nil
 }
 
-func (e *environ) zookeeperAddrs() ([]string, error) {
-	return nil, fmt.Errorf("not implemented zookeeper addtrs")
-}
-
-func (e *environ) Bootstrap() error {
-	addrs, err := e.zookeeperAddrs()
-	if err != nil {
-		return fmt.Errorf("cannot get zookeeper machine addresses: %v", err)
-	}
-	if len(addrs) > 0 {
-		return fmt.Errorf("environment is already bootstrapped")
-	}
-	_, err = e.startInstance(0, true)
-	return err
-}
-
 func (e *environ) StartInstance(machineId int) (environs.Instance, error) {
-	if machineId <= 0 {
-		panic(fmt.Errorf("StartInstance:invalid machine id: %d", machineId))
-	}
-	return e.startInstance(machineId, false)
-}
-
-// startInstance is the internal version of StartInstance, used by Bootstrap
-// as well as via StartInstance itself. If master is true, a bootstrap
-// instance will be started.
-func (e *environ) startInstance(machineId int, master bool) (environs.Instance, error) {
 	image, err := FindImageSpec(DefaultImageConstraint)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
