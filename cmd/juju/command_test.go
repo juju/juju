@@ -30,7 +30,7 @@ func (c *testCommand) Run() error {
 }
 
 func parseEmpty(args []string) (*main.JujuCommand, error) {
-	jc := new(main.JujuCommand)
+	jc := &main.JujuCommand{}
 	err := jc.Parse(args)
 	return jc, err
 }

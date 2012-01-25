@@ -7,7 +7,7 @@ import (
 )
 
 var subcommands = map[string]Command{
-	"bootstrap": new(BootstrapCommand),
+	"bootstrap": &BootstrapCommand{},
 }
 
 func main() {
@@ -15,7 +15,7 @@ func main() {
 }
 
 func Main(args []string) {
-	jc := new(JujuCommand)
+	jc := &JujuCommand{}
 	for name, subcmd := range subcommands {
 		jc.Register(name, subcmd)
 	}
