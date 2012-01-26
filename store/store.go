@@ -27,7 +27,7 @@ import (
 
 var (
 	ErrUpdateConflict  = errors.New("charm update in progress")
-	ErrUpdateRedundant = errors.New("charm is up-to-date")
+	ErrRedundantUpdate = errors.New("charm is up-to-date")
 	ErrUnknownChange   = errors.New("charm change never attempted")
 )
 
@@ -72,8 +72,8 @@ func (s *Store) Close() {
 // AddCharm prepares the store to have charm added to it at all of
 // the provided urls. The revisionKey parameter must contain the
 // unique identifier that represents the current charm content
-// (e.g. the VCS revision sha1). An error is returned if all of
-// the provided urls are already associated to that revision key.
+// (e.g. the VCS revision sha1). ErrRedundantUpdate is returned if
+// all of the provided urls are already associated to that revision key.
 //
 // On success, wc must be used to stream the charm bundle onto the
 // store, and once wc is closed successfully the content will be
@@ -129,7 +129,7 @@ func (s *Store) AddCharm(charm charm.Charm, urls []*charm.URL, revisionKey strin
 	}
 	if !newKey {
 		log.Printf("All charms have revision key %q. Nothing to update.", revisionKey)
-		err = ErrUpdateRedundant
+		err = ErrRedundantUpdate
 		return
 	}
 	revision = maxRev + 1
