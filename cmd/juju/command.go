@@ -10,15 +10,27 @@ import (
 
 // Info holds everything necessary to describe a Command's intent and usage.
 type Info struct {
-	Name        string
-	Usage       string
+	// Name is the Command's name.
+	Name string
+
+	// Usage describes the format of a valid call to the Command.
+	Usage string
+
+	// Description is a short explanation of the Command's purpose.
 	Description string
-	Details     string
-	PrintMore   func(io.Writer)
+
+	// Doc is the long documentation for the Command.
+	Doc string
+
+	// PrintMore, when not nil, is used to print suppementary information
+	// after the Command's FlagSet options have been printed.
+	PrintMore func(io.Writer)
 }
 
+// Command is implemented by types that interpret any command-line arguments
+// passed to the "juju" command.
 type Command interface {
-	// Info returns a description of the command.
+	// Info returns information about the command.
 	Info() *Info
 
 	// InitFlagSet prepares a FlagSet such that Parse~ing that FlagSet will
@@ -46,8 +58,8 @@ func NewFlagSet(c Command) *flag.FlagSet {
 func PrintUsage(c Command) {
 	i := c.Info()
 	fmt.Fprintln(os.Stderr, "usage:", i.Usage)
-	if i.Details != "" {
-		fmt.Fprintf(os.Stderr, "\n%s\n", strings.TrimSpace(i.Details))
+	if i.Doc != "" {
+		fmt.Fprintf(os.Stderr, "\n%s\n", strings.TrimSpace(i.Doc))
 	}
 	fmt.Fprintln(os.Stderr, "\noptions:")
 	NewFlagSet(c).PrintDefaults()
