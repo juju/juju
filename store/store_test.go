@@ -48,9 +48,18 @@ func repoDir(name string) (path string) {
 	return filepath.Join("..", "charm", "testrepo", "series", name)
 }
 
+
+func (s *S) TestAddCharmWithRevisionedURL(c *C) {
+	urls := []*charm.URL{charm.MustParseURL("cs:oneiric/wordpress-0")}
+	wc, revno, err := s.store.AddCharm(s.charm, urls, "key")
+	c.Assert(err, ErrorMatches, "AddCharm: got charm URL with revision: cs:oneiric/wordpress-0")
+	c.Assert(revno, Equals, 0)
+	c.Assert(wc, IsNil)
+}
+
 func (s *S) TestAddCharm(c *C) {
-	urlA := charm.MustParseURL("cs:oneiric/wordpress-a-1")
-	urlB := charm.MustParseURL("cs:oneiric/wordpress-b-2")
+	urlA := charm.MustParseURL("cs:oneiric/wordpress-a")
+	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
 	urls := []*charm.URL{urlA, urlB}
 
 	wc, revno, err := s.store.AddCharm(s.charm, urls, "key")
@@ -61,8 +70,6 @@ func (s *S) TestAddCharm(c *C) {
 	c.Assert(err, IsNil)
 	err = wc.Close()
 	c.Assert(err, IsNil)
-
-	urls = []*charm.URL{urls[0].WithRevision(-1), urls[1].WithRevision(-1)}
 
 	for _, url := range urls {
 		info, rc, err := s.store.OpenCharm(url)
@@ -271,6 +278,22 @@ func (s *S) TestSha256(c *C) {
 	c.Check(info.Sha256(), Equals, "c0535e4be2b79ffd93291305436bf889314e4a3faec05ecffcbb7df31ad9e51a")
 	err = rc.Close()
 	c.Check(err, IsNil)
+}
+
+func (s *S) TestAddCharmChangeWithRevisionedURL(c *C) {
+	url := charm.MustParseURL("cs:oneiric/wordpress-0")
+	change := &store.CharmChange{
+		Status:      store.CharmFailed,
+		RevisionKey: "key",
+		URLs:        []*charm.URL{url},
+	}
+	err := s.store.AddCharmChange(change)
+	c.Assert(err, ErrorMatches, "AddCharmChange: got charm URL with revision: cs:oneiric/wordpress-0")
+
+	// TODO: This may work in the future, but not now.
+	change, err = s.store.CharmChange(url, "key")
+	c.Assert(err, ErrorMatches, "CharmChange: got charm URL with revision: cs:oneiric/wordpress-0")
+	c.Assert(change, IsNil)
 }
 
 func (s *S) TestAddCharmChange(c *C) {

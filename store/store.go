@@ -96,7 +96,9 @@ func dropRevisions(urls []*charm.URL) []*charm.URL {
 // that the charm content written to wc represents that revision.
 func (s *Store) AddCharm(charm charm.Charm, urls []*charm.URL, revisionKey string) (wc io.WriteCloser, revision int, err error) {
 	log.Printf("Trying to add charms %v with key %q...", urls, revisionKey)
-	urls = dropRevisions(urls)
+	if err = mustLackRevision("AddCharm", urls...); err != nil {
+		return
+	}
 	session := s.session.Copy()
 	lock, err := session.LockUpdates(urls)
 	if err != nil {
@@ -487,13 +489,14 @@ func (s *Store) AddCharmChange(change *CharmChange) (err error) {
 // the store first.
 func (s *Store) addCharmChange(change *CharmChange, session *storeSession, lockUrls bool) (err error) {
 	log.Printf("Adding charm change for %v with key %q: %s", change.URLs, change.RevisionKey, change.Status)
-	urls := dropRevisions(change.URLs)
-
+	if err = mustLackRevision("AddCharmChange", change.URLs...); err != nil {
+		return
+	}
 	if change.Status == "" || change.RevisionKey == "" || len(change.URLs) == 0 {
 		return fmt.Errorf("AddCharmChange: need valid Status, RevisionKey and URLs")
 	}
 	if lockUrls {
-		lock, err := session.LockUpdates(urls)
+		lock, err := session.LockUpdates(change.URLs)
 		if err != nil {
 			return err
 		}
@@ -525,6 +528,12 @@ func (s *Store) addCharmChange(change *CharmChange, session *storeSession, lockU
 // and revisionKey.  If the specified change isn't found the
 // error ErrUnknownChange will be returned.
 func (s *Store) CharmChange(url *charm.URL, revisionKey string) (*CharmChange, error) {
+	// TODO: It'd actually make sense to find the charm change after the
+	// revision id, but since we don't care about that now, just make sure
+	// we don't write bad code.
+	if err := mustLackRevision("CharmChange", url); err != nil {
+		return nil, err
+	}
 	session := s.session.Copy()
 	defer session.Close()
 
@@ -558,3 +567,14 @@ func (s *Store) CharmChange(url *charm.URL, revisionKey string) (*CharmChange, e
 	return change, nil
 }
 
+// mustLackRevision returns an error if any of the urls has a revision.
+func mustLackRevision(context string, urls ...*charm.URL) error {
+	for _, url := range urls {
+		if url.Revision != -1 {
+			err := fmt.Errorf("%s: got charm URL with revision: %s", context, url)
+			log.Printf("%v", err)
+			return err
+		}
+	}
+	return nil
+}
