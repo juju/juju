@@ -6,7 +6,6 @@ import (
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/log"
 	"launchpad.net/juju/go/store"
-	"launchpad.net/mgo"
 	"launchpad.net/mgo/bson"
 	"path/filepath"
 	"testing"
@@ -47,7 +46,6 @@ func (s *S) TearDownTest(c *C) {
 func repoDir(name string) (path string) {
 	return filepath.Join("..", "charm", "testrepo", "series", name)
 }
-
 
 func (s *S) TestAddCharmWithRevisionedURL(c *C) {
 	urls := []*charm.URL{charm.MustParseURL("cs:oneiric/wordpress-0")}
@@ -94,14 +92,20 @@ func (s *S) TestAddCharm(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(info2, Equals, info)
 
-		// The successful completion is also recorded as a charm change.
-		change, err := s.store.CharmChange(url, "key")
-		c.Assert(change.Status, Equals, store.CharmPublished)
-		c.Assert(change.RevisionKey, Equals, "key")
-		c.Assert(change.URLs, Equals, urls)
-		c.Assert(change.Errors, IsNil)
-		c.Assert(change.Warnings, IsNil)
+		// The successful completion is also recorded as a charm event.
+		event, err := s.store.CharmEvent(url, "key")
+		c.Assert(event.Kind, Equals, store.EventPublishDone)
+		c.Assert(event.RevisionKey, Equals, "key")
+		c.Assert(event.URLs, Equals, urls)
+		c.Assert(event.Errors, IsNil)
+		c.Assert(event.Warnings, IsNil)
 	}
+}
+
+func (s *S) TestCharmInfoNotFound(c *C) {
+	info, err := s.store.CharmInfo(charm.MustParseURL("cs:oneiric/wordpress"))
+	c.Assert(err == store.ErrNotFound, Equals, true)
+	c.Assert(info, IsNil)
 }
 
 func (s *S) TestConflictingUpdates(c *C) {
@@ -217,7 +221,7 @@ func (s *S) TestRevisioning(c *C) {
 	}
 
 	info, rc, err := s.store.OpenCharm(urlA.WithRevision(1))
-	c.Assert(err, Equals, mgo.NotFound)
+	c.Assert(err, Equals, store.ErrNotFound)
 	c.Assert(info, IsNil)
 	c.Assert(rc, IsNil)
 }
@@ -280,29 +284,29 @@ func (s *S) TestSha256(c *C) {
 	c.Check(err, IsNil)
 }
 
-func (s *S) TestAddCharmChangeWithRevisionedURL(c *C) {
+func (s *S) TestLogCharmEventWithRevisionedURL(c *C) {
 	url := charm.MustParseURL("cs:oneiric/wordpress-0")
-	change := &store.CharmChange{
-		Status:      store.CharmFailed,
+	event := &store.CharmEvent{
+		Kind:        store.EventPublishFailed,
 		RevisionKey: "key",
 		URLs:        []*charm.URL{url},
 	}
-	err := s.store.AddCharmChange(change)
-	c.Assert(err, ErrorMatches, "AddCharmChange: got charm URL with revision: cs:oneiric/wordpress-0")
+	err := s.store.LogCharmEvent(event)
+	c.Assert(err, ErrorMatches, "LogCharmEvent: got charm URL with revision: cs:oneiric/wordpress-0")
 
 	// TODO: This may work in the future, but not now.
-	change, err = s.store.CharmChange(url, "key")
-	c.Assert(err, ErrorMatches, "CharmChange: got charm URL with revision: cs:oneiric/wordpress-0")
-	c.Assert(change, IsNil)
+	event, err = s.store.CharmEvent(url, "key")
+	c.Assert(err, ErrorMatches, "CharmEvent: got charm URL with revision: cs:oneiric/wordpress-0")
+	c.Assert(event, IsNil)
 }
 
-func (s *S) TestAddCharmChange(c *C) {
+func (s *S) TestLogCharmEvent(c *C) {
 	url1 := charm.MustParseURL("cs:oneiric/wordpress")
 	url2 := charm.MustParseURL("cs:oneiric/mysql")
 	urls := []*charm.URL{url1, url2}
 
-	change1 := &store.CharmChange{
-		Status:      store.CharmPublished,
+	event1 := &store.CharmEvent{
+		Kind:        store.EventPublishDone,
 		Revision:    42,
 		RevisionKey: "revKey1",
 		URLs:        urls,
@@ -310,32 +314,32 @@ func (s *S) TestAddCharmChange(c *C) {
 		Errors:      []string{"An error."},
 		Time:        time.Unix(1, 0),
 	}
-	change2 := &store.CharmChange{
-		Status:      store.CharmFailed,
+	event2 := &store.CharmEvent{
+		Kind:        store.EventPublishFailed,
 		RevisionKey: "revKey2",
 		URLs:        urls[:1],
 	}
 
-	err := s.store.AddCharmChange(change1)
+	err := s.store.LogCharmEvent(event1)
 	c.Assert(err, IsNil)
-	err = s.store.AddCharmChange(change2)
+	err = s.store.LogCharmEvent(event2)
 	c.Assert(err, IsNil)
 
-	changes := s.Session.DB("juju").C("changes")
+	events := s.Session.DB("juju").C("events")
 	var s1, s2 map[string]interface{}
 
-	err = changes.Find(bson.M{"errors": bson.M{"$exists": true}}).One(&s1)
+	err = events.Find(bson.M{"errors": bson.M{"$exists": true}}).One(&s1)
 	c.Assert(err, IsNil)
-	c.Assert(s1["status"], Equals, "published")
+	c.Assert(s1["kind"], Equals, int(store.EventPublishDone))
 	c.Assert(s1["revisionkey"], Equals, "revKey1")
 	c.Assert(s1["urls"], Equals, []interface{}{"cs:oneiric/wordpress", "cs:oneiric/mysql"})
 	c.Assert(s1["warnings"], Equals, []interface{}{"A warning."})
 	c.Assert(s1["errors"], Equals, []interface{}{"An error."})
 	c.Assert(s1["time"], Equals, bson.Timestamp(1e9))
 
-	err = changes.Find(bson.M{"errors": bson.M{"$exists": false}}).One(&s2)
+	err = events.Find(bson.M{"errors": bson.M{"$exists": false}}).One(&s2)
 	c.Assert(err, IsNil)
-	c.Assert(s2["status"], Equals, "failed")
+	c.Assert(s2["kind"], Equals, int(store.EventPublishFailed))
 	c.Assert(s2["revisionkey"], Equals, "revKey2")
 	c.Assert(s2["urls"], Equals, []interface{}{"cs:oneiric/wordpress"})
 	c.Assert(s2["warnings"], IsNil)
@@ -344,22 +348,22 @@ func (s *S) TestAddCharmChange(c *C) {
 
 	// Mongo stores timestamps in milliseconds, so chop
 	// off the extra bits for comparison.
-	change2.Time = time.Unix(0, change2.Time.UnixNano()/1e6*1e6)
+	event2.Time = time.Unix(0, event2.Time.UnixNano()/1e6*1e6)
 
-	change, err := s.store.CharmChange(urls[0], "revKey2")
+	event, err := s.store.CharmEvent(urls[0], "revKey2")
 	c.Assert(err, IsNil)
-	c.Assert(change, Equals, change2)
+	c.Assert(event, Equals, event2)
 
-	change, err = s.store.CharmChange(urls[1], "revKey1")
+	event, err = s.store.CharmEvent(urls[1], "revKey1")
 	c.Assert(err, IsNil)
-	c.Assert(change, Equals, change1)
+	c.Assert(event, Equals, event1)
 
-	change, err = s.store.CharmChange(urls[1], "revKeyX")
-	c.Assert(err == store.ErrUnknownChange, Equals, true)
-	c.Assert(change, IsNil)
+	event, err = s.store.CharmEvent(urls[1], "revKeyX")
+	c.Assert(err == store.ErrNotFound, Equals, true)
+	c.Assert(event, IsNil)
 }
 
-func (s *S) TestConflictingCharmChangeUpdate(c *C) {
+func (s *S) TestConflictingCharmEventUpdate(c *C) {
 	url := charm.MustParseURL("cs:oneiric/wordpress")
 	urls := []*charm.URL{url}
 
@@ -367,16 +371,14 @@ func (s *S) TestConflictingCharmChangeUpdate(c *C) {
 	wc, _, err := s.store.AddCharm(s.charm, urls, "key0")
 	c.Assert(err, IsNil)
 
-	change := &store.CharmChange{
-		Status:      store.CharmFailed,
+	event := &store.CharmEvent{
+		Kind:        store.EventPublishFailed,
 		RevisionKey: "revKey",
 		URLs:        urls,
 	}
 
-	err = s.store.AddCharmChange(change)
-
+	err = s.store.LogCharmEvent(event)
 	cerr := wc.Close()
 	c.Assert(cerr, IsNil)
-
 	c.Assert(err, ErrorMatches, "charm update in progress")
 }

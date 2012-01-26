@@ -20,7 +20,7 @@ import (
 
 // The following MongoDB collections are currently used:
 //
-//     juju.changes  - Information about the stored charms
+//     juju.events    - Events relative to the lifecycle of the charm
 //     juju.charms    - Information about the stored charms
 //     juju.charmfs.* - GridFS with the charm files
 //     juju.locks     - Has unique keys with url of updating charms
@@ -28,7 +28,7 @@ import (
 var (
 	ErrUpdateConflict  = errors.New("charm update in progress")
 	ErrRedundantUpdate = errors.New("charm is up-to-date")
-	ErrUnknownChange   = errors.New("charm change never attempted")
+	ErrNotFound        = errors.New("entry not found")
 )
 
 const (
@@ -77,7 +77,7 @@ func (s *Store) Close() {
 //
 // On success, wc must be used to stream the charm bundle onto the
 // store, and once wc is closed successfully the content will be
-// available at all of the provided urls, and a new CharmChange
+// available at all of the provided urls, and a new CharmEvent
 // saved to record the successful publishing atomically (it doesn't
 // get saved if there are any errors).
 //
@@ -135,7 +135,7 @@ func (s *Store) AddCharm(charm charm.Charm, urls []*charm.URL, revisionKey strin
 	revision = maxRev + 1
 	log.Printf("Preparing writer to add charms with revision %d.", revision)
 	w := &writer{
-		store: s,
+		store:    s,
 		session:  session,
 		charm:    charm,
 		urls:     urls,
@@ -210,12 +210,12 @@ func (w *writer) Close() error {
 			return err
 		}
 	}
-	status := &CharmChange{
-		Status: CharmPublished,
+	status := &CharmEvent{
+		Kind:        EventPublishDone,
 		RevisionKey: w.revKey,
-		URLs: w.urls,
+		URLs:        w.urls,
 	}
-	return w.store.addCharmChange(status, w.session, false)
+	return w.store.logCharmEvent(status, w.session, false)
 }
 
 type CharmInfo struct {
@@ -269,7 +269,7 @@ func (s *Store) CharmInfo(url *charm.URL) (info *CharmInfo, err error) {
 	err = charms.Find(qdoc).Sort(bson.D{{"revision", -1}}).One(&cdoc)
 	if err != nil {
 		log.Printf("Failed to find charm %s: %v", url, err)
-		return nil, err
+		return nil, ErrNotFound
 	}
 	return &CharmInfo{cdoc.Revision, cdoc.Sha256, cdoc.FileId, cdoc.Meta, cdoc.Config}, nil
 }
@@ -341,9 +341,9 @@ func (s *storeSession) CharmFS() *mgo.GridFS {
 	return s.DB("juju").GridFS("charmfs")
 }
 
-// Changes returns the mongo collection where charm changes are stored.
-func (s *storeSession) Changes() *mgo.Collection {
-	return s.DB("juju").C("changes")
+// Events returns the mongo collection where charm events are stored.
+func (s *storeSession) Events() *mgo.Collection {
+	return s.DB("juju").C("events")
 }
 
 // LockUpdates acquires a server-side lock for updating a single charm
@@ -436,17 +436,17 @@ func maybeConflict(err error) error {
 	return err
 }
 
-type CharmChangeStatus string
+type CharmEventKind int
 
 const (
-	CharmPublished CharmChangeStatus = "published"
-	CharmFailed    CharmChangeStatus = "failed"
+	EventPublishStarted CharmEventKind = iota + 1
+	EventPublishFailed
+	EventPublishDone
 )
 
-// CharmChange represents an attempt (successful or not) to
-// change the status of a charm in the store.
-type CharmChange struct {
-	Status      CharmChangeStatus
+// CharmEvent is a record for an event relative to one or more charm URLs.
+type CharmEvent struct {
+	Kind        CharmEventKind
 	RevisionKey string
 	Revision    int
 	URLs        []*charm.URL
@@ -455,84 +455,83 @@ type CharmChange struct {
 	Time        time.Time
 }
 
-// changeDoc is a shadow of CharmChange for marshalling purposes.
-type changeDoc struct {
-	Status      CharmChangeStatus
+// eventDoc is a shadow of CharmEvent for marshalling purposes.
+type eventDoc struct {
+	Kind        CharmEventKind
 	RevisionKey string
 	Revision    *int ",omitempty"
 	URLs        []string
 	Errors      []string ",omitempty"
 	Warnings    []string ",omitempty"
 	// TODO: Fix bson time.Time marshalling.
-	Time        bson.Timestamp
+	Time bson.Timestamp
 }
 
-// AddCharmChange records change in the store. It must have at least
-// its Status, RevisionKey, and URLs fields properly set.
-func (s *Store) AddCharmChange(change *CharmChange) (err error) {
+// LogCharmEvent records an event related to one or more charm URLs.
+func (s *Store) LogCharmEvent(event *CharmEvent) (err error) {
 	session := s.session.Copy()
 	defer session.Close()
-	return s.addCharmChange(change, session, true)
+	return s.logCharmEvent(event, session, true)
 }
 
-// addCharmChange is the implementation of AddCharmChange, and allows
-// adding a change with a pre-established session and without locking
+// addCharmEvent is the implementation of LogCharmEvent, and allows
+// logging an event with a pre-established session and without locking
 // the store first.
-func (s *Store) addCharmChange(change *CharmChange, session *storeSession, lockUrls bool) (err error) {
-	log.Printf("Adding charm change for %v with key %q: %s", change.URLs, change.RevisionKey, change.Status)
-	if err = mustLackRevision("AddCharmChange", change.URLs...); err != nil {
+func (s *Store) logCharmEvent(event *CharmEvent, session *storeSession, lockUrls bool) (err error) {
+	log.Printf("Adding charm event for %v with key %q: %s", event.URLs, event.RevisionKey, event.Kind)
+	if err = mustLackRevision("LogCharmEvent", event.URLs...); err != nil {
 		return
 	}
-	if change.Status == "" || change.RevisionKey == "" || len(change.URLs) == 0 {
-		return fmt.Errorf("AddCharmChange: need valid Status, RevisionKey and URLs")
+	if event.Kind == 0 || event.RevisionKey == "" || len(event.URLs) == 0 {
+		return fmt.Errorf("LogCharmEvent: need valid Kind, RevisionKey and URLs")
 	}
 	if lockUrls {
-		lock, err := session.LockUpdates(change.URLs)
+		lock, err := session.LockUpdates(event.URLs)
 		if err != nil {
 			return err
 		}
 		defer lock.Unlock()
 	}
-	urlStrs := make([]string, len(change.URLs))
-	for i, url := range change.URLs {
+	urlStrs := make([]string, len(event.URLs))
+	for i, url := range event.URLs {
 		urlStrs[i] = url.String()
 	}
-	if change.Time.IsZero() {
-		change.Time = time.Now()
+	if event.Time.IsZero() {
+		event.Time = time.Now()
 	}
-	doc := &changeDoc{
-		Status:      change.Status,
+	doc := &eventDoc{
+		Kind:        event.Kind,
 		URLs:        urlStrs,
-		RevisionKey: change.RevisionKey,
-		Errors:      change.Errors,
-		Warnings:    change.Warnings,
-		Time:        bson.Timestamp(change.Time.UnixNano()),
+		RevisionKey: event.RevisionKey,
+		Errors:      event.Errors,
+		Warnings:    event.Warnings,
+		Time:        bson.Timestamp(event.Time.UnixNano()),
 	}
-	if change.Status == CharmPublished {
-		doc.Revision = &change.Revision
+	if event.Kind == EventPublishDone {
+		doc.Revision = &event.Revision
 	}
-	changes := session.Changes()
-	return changes.Insert(doc)
+	events := session.Events()
+	return events.Insert(doc)
 }
 
-// CharmChange returns the attempted change associated with url
-// and revisionKey.  If the specified change isn't found the
+// CharmEvent returns the attempted event associated with url
+// and revisionKey.  If the specified event isn't found the
 // error ErrUnknownChange will be returned.
-func (s *Store) CharmChange(url *charm.URL, revisionKey string) (*CharmChange, error) {
-	// TODO: It'd actually make sense to find the charm change after the
+func (s *Store) CharmEvent(url *charm.URL, revisionKey string) (*CharmEvent, error) {
+	// TODO: It'd actually make sense to find the charm event after the
 	// revision id, but since we don't care about that now, just make sure
 	// we don't write bad code.
-	if err := mustLackRevision("CharmChange", url); err != nil {
+	if err := mustLackRevision("CharmEvent", url); err != nil {
 		return nil, err
 	}
 	session := s.session.Copy()
 	defer session.Close()
 
-	changes := session.Changes()
-	doc := changeDoc{}
-	err := changes.Find(bson.D{{"urls", url.String()}, {"revisionkey", revisionKey}}).One(&doc)
+	events := session.Events()
+	doc := eventDoc{}
+	err := events.Find(bson.D{{"urls", url.String()}, {"revisionkey", revisionKey}}).One(&doc)
 	if err == mgo.NotFound {
-		return nil, ErrUnknownChange
+		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -544,18 +543,18 @@ func (s *Store) CharmChange(url *charm.URL, revisionKey string) (*CharmChange, e
 			return nil, err
 		}
 	}
-	change := &CharmChange{
-		Status: doc.Status,
+	event := &CharmEvent{
+		Kind:        doc.Kind,
 		RevisionKey: revisionKey,
-		URLs: urls,
-		Errors: doc.Errors,
-		Warnings: doc.Warnings,
-		Time: time.Unix(0, int64(doc.Time)),
+		URLs:        urls,
+		Errors:      doc.Errors,
+		Warnings:    doc.Warnings,
+		Time:        time.Unix(0, int64(doc.Time)),
 	}
 	if doc.Revision != nil {
-		change.Revision = *doc.Revision
+		event.Revision = *doc.Revision
 	}
-	return change, nil
+	return event, nil
 }
 
 // mustLackRevision returns an error if any of the urls has a revision.
