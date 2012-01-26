@@ -31,9 +31,9 @@ func (c *BootstrapCommand) InitFlagSet(f *flag.FlagSet) {
 	f.StringVar(&c.Environment, "environment", "", "juju environment to operate in")
 }
 
-// Unconsumed checks that no unexpected extra command-line arguments have been
-// specified.
-func (c *BootstrapCommand) Unconsumed(args []string) error {
+// ParsePositional checks that no unexpected extra command-line arguments have
+// been specified.
+func (c *BootstrapCommand) ParsePositional(args []string) error {
 	if len(args) != 0 {
 		return fmt.Errorf("unrecognised args: %s", args)
 	}

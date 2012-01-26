@@ -28,7 +28,7 @@ func (c *TestCommand) InitFlagSet(f *flag.FlagSet) {
 	f.StringVar(&c.Value, "value", "", "doc")
 }
 
-func (c *TestCommand) Unconsumed(args []string) error {
+func (c *TestCommand) ParsePositional(args []string) error {
 	if len(args) != 0 {
 		return fmt.Errorf("BADARGS: %s", args)
 	}

@@ -37,9 +37,9 @@ type Command interface {
 	// initialize the Command's options.
 	InitFlagSet(f *flag.FlagSet)
 
-	// Unconsumed is called by Parse to allow the Command to handle positional
-	// command-line arguments.
-	Unconsumed(args []string) error
+	// ParsePositional is called by Parse to allow the Command to handle
+	// positional command-line arguments.
+	ParsePositional(args []string) error
 
 	// Run will execute the command according to the options and positional
 	// arguments interpreted by a call to Parse.
@@ -74,5 +74,5 @@ func Parse(c Command, intersperse bool, args []string) error {
 	if err := f.Parse(intersperse, args); err != nil {
 		return err
 	}
-	return c.Unconsumed(f.Args())
+	return c.ParsePositional(f.Args())
 }

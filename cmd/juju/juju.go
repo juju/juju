@@ -80,9 +80,9 @@ func (c *JujuCommand) InitFlagSet(f *flag.FlagSet) {
 	f.BoolVar(&c.Verbose, "verbose", false, "if set, log additional messages")
 }
 
-// Unconsumed selects the subcommand specified by subargs and uses it to Parse
-// any remaining unconsumed command-line arguments.
-func (c *JujuCommand) Unconsumed(subargs []string) error {
+// ParsePositional selects the subcommand specified by subargs and uses it to
+// Parse any remaining unconsumed command-line arguments.
+func (c *JujuCommand) ParsePositional(subargs []string) error {
 	if len(subargs) == 0 {
 		return fmt.Errorf("no command specified")
 	}
