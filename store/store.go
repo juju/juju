@@ -69,15 +69,6 @@ func (s *Store) Close() {
 	s.session.Close()
 }
 
-// dropRevisions returns urls with their revisions removed.
-func dropRevisions(urls []*charm.URL) []*charm.URL {
-	norev := make([]*charm.URL, len(urls))
-	for i := range urls {
-		norev[i] = urls[i].WithRevision(-1)
-	}
-	return norev
-}
-
 // AddCharm prepares the store to have charm added to it at all of
 // the provided urls. The revisionKey parameter must contain the
 // unique identifier that represents the current charm content
