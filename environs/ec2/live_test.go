@@ -24,7 +24,7 @@ environments:
 `
 
 func registerIntegrationTests() {
-	cfg := fmt.Sprintf(integrationConfig, controlBucketName)
+	cfg := fmt.Sprintf(integrationConfig, bucketName)
 	envs, err := environs.ReadEnvironsBytes([]byte(cfg))
 	if err != nil {
 		panic(fmt.Errorf("cannot parse integration tests config data: %v", err))
@@ -37,7 +37,7 @@ func registerIntegrationTests() {
 	}
 }
 
-func controlBucketName() string {
+func bucketName() string {
 	buf := make([]byte, 8)
 	_, err := io.ReadFull(rand.Reader, buf)
 	if err != nil {

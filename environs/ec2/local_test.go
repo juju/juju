@@ -244,6 +244,7 @@ func (srv *localServer) startServer(c *C) {
 
 func (srv *localServer) stopServer(c *C) {
 	srv.ec2srv.Quit()
+	srv.s3srv.Quit()
 	// Clear out the region because the server address is
 	// no longer valid.
 	ec2.Regions["test"] = aws.Region{}

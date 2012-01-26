@@ -29,12 +29,12 @@ type configTest struct {
 var configTests = []configTest{
 	{
 		"control-bucket: x\n",
-		&providerConfig{region: "us-east-1", auth: testAuth, controlBucket: "x"},
+		&providerConfig{region: "us-east-1", auth: testAuth, bucket: "x"},
 		"",
 	},
 	{
 		"region: eu-west-1\ncontrol-bucket: x\n",
-		&providerConfig{region: "eu-west-1", auth: testAuth, controlBucket: "x"},
+		&providerConfig{region: "eu-west-1", auth: testAuth, bucket: "x"},
 		"",
 	},
 	{
@@ -44,7 +44,7 @@ var configTests = []configTest{
 	},
 	{
 		"region: configtest\ncontrol-bucket: x\n",
-		&providerConfig{region: "configtest", auth: testAuth, controlBucket: "x"},
+		&providerConfig{region: "configtest", auth: testAuth, bucket: "x"},
 		"",
 	},
 	{
@@ -75,7 +75,7 @@ var configTests = []configTest{
 				AccessKey: "jujuer",
 				SecretKey: "open sesame",
 			},
-			controlBucket: "x",
+			bucket: "x",
 		},
 		"",
 	},
@@ -92,7 +92,7 @@ var configTests = []configTest{
 	// unknown fields are discarded
 	{
 		"unknown-something: 666\ncontrol-bucket: x",
-		&providerConfig{region: "us-east-1", auth: testAuth, controlBucket: "x"},
+		&providerConfig{region: "us-east-1", auth: testAuth, bucket: "x"},
 		"",
 	},
 }

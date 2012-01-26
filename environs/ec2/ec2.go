@@ -118,7 +118,6 @@ func (e *environ) Instances() ([]environs.Instance, error) {
 	return insts, nil
 }
 
-
 func (e *environ) Destroy() error {
 	delErr := e.deleteState()
 
@@ -153,7 +152,10 @@ func (e *environ) groupName() string {
 func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	jujuGroup := ec2.SecurityGroup{Name: e.groupName()}
 	jujuMachineGroup := ec2.SecurityGroup{Name: e.machineGroupName(machineId)}
-	groups, err := e.ec2.SecurityGroups(nil, nil)
+
+	f := ec2.NewFilter()
+	f.Add("group-name", jujuGroup.Name, jujuMachineGroup.Name)
+	groups, err := e.ec2.SecurityGroups(nil, f)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get security groups: %v", err)
 	}

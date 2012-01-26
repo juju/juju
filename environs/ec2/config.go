@@ -9,9 +9,9 @@ import (
 // providerConfig is a placeholder for any config information
 // that we will have in a configuration file.
 type providerConfig struct {
-	region        string
-	auth          aws.Auth
-	controlBucket string
+	region string
+	auth   aws.Auth
+	bucket string
 }
 
 type checker struct{}
@@ -47,7 +47,7 @@ func (environProvider) ConfigChecker() schema.Checker {
 			m := v.(schema.MapType)
 			var c providerConfig
 
-			c.controlBucket = m["control-bucket"].(string)
+			c.bucket = m["control-bucket"].(string)
 			c.auth.AccessKey = maybeString(m["access-key"], "")
 			c.auth.SecretKey = maybeString(m["secret-key"], "")
 			if c.auth.AccessKey == "" || c.auth.SecretKey == "" {
