@@ -11,16 +11,16 @@ func main() {
 }
 
 func Main(args []string) {
-	jc := &JujuCommand{}
+	jc := NewJujuCommand()
 	jc.Register(&BootstrapCommand{})
 
-	if err := jc.Parse(args); err != nil {
+	if err := Parse(jc, false, args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		jc.Info().PrintUsage()
+		PrintUsage(jc)
 		os.Exit(2)
 	}
-	log.Debug = jc.Verbose()
-	if err := log.SetFile(jc.Logfile()); err != nil {
+	log.Debug = jc.Verbose
+	if err := log.SetFile(jc.Logfile); err != nil {
 		log.Printf("%s\n", err)
 		os.Exit(1)
 	}
