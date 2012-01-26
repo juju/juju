@@ -156,9 +156,7 @@ func (e *environ) bucket() *s3.Bucket {
 }
 
 func (e *environ) Destroy() error {
-	// TODO should we ignore error from this or give a warning or what?
-	e.bucket().DelBucket()
-
+	// TODO destroy control bucket
 	insts, err := e.Instances()
 	if err != nil {
 		return err

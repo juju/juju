@@ -14,7 +14,7 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(insts), Equals, 0)
 
-	inst, err := e.StartInstance(1)
+	inst, err := e.StartInstance(0)
 	c.Assert(err, IsNil)
 	c.Assert(inst, NotNil)
 	id0 := inst.Id()

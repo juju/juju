@@ -30,8 +30,7 @@ type Instance interface {
 type Environ interface {
 
 	// StartInstance asks for a new instance to be created,
-	// associated with the provided machine identifier,
-	// which must be greater than zero.
+	// associated with the provided machine identifier.
 	// TODO add arguments to specify type of new machine.
 	StartInstance(machineId int) (Instance, error)
 
