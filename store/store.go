@@ -27,7 +27,7 @@ import (
 
 var (
 	ErrUpdateConflict  = errors.New("charm update in progress")
-	ErrUpdateKnown = errors.New("charm is up-to-date")
+	ErrUpdateRedundant = errors.New("charm is up-to-date")
 	ErrUnknownChange   = errors.New("charm change never attempted")
 )
 
@@ -138,7 +138,7 @@ func (s *Store) AddCharm(charm charm.Charm, urls []*charm.URL, revisionKey strin
 	}
 	if !newKey {
 		log.Printf("All charms have revision key %q. Nothing to update.", revisionKey)
-		err = ErrUpdateKnown
+		err = ErrUpdateRedundant
 		return
 	}
 	revision = maxRev + 1

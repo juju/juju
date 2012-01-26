@@ -222,7 +222,7 @@ func (s *S) TestRevisioning(c *C) {
 	c.Assert(rc, IsNil)
 }
 
-func (s *S) TestUpdateKnown(c *C) {
+func (s *S) TestUpdateRedundant(c *C) {
 	urlA := charm.MustParseURL("cs:oneiric/wordpress-a")
 	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
 	urls := []*charm.URL{urlA, urlB}
@@ -238,7 +238,7 @@ func (s *S) TestUpdateKnown(c *C) {
 	// All charms are already on key1.
 	wc, revno, err = s.store.AddCharm(s.charm, urls, "key0")
 	c.Assert(err, ErrorMatches, "charm is up-to-date")
-	c.Assert(err == store.ErrUpdateKnown, Equals, true)
+	c.Assert(err == store.ErrUpdateRedundant, Equals, true)
 	c.Assert(revno, Equals, 0)
 	c.Assert(wc, IsNil)
 
