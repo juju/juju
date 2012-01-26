@@ -93,10 +93,8 @@ func (c *JujuCommand) Unconsumed(subargs []string) error {
 	return Parse(c.subcmd, true, subargs[1:])
 }
 
-// Run executes the selected subcommand.
+// Run executes the selected subcommand, which depends on Parse having been
+// called with the JujuCommand.
 func (c *JujuCommand) Run() error {
-	if c.subcmd == nil {
-		return fmt.Errorf("no command selected")
-	}
 	return c.subcmd.Run()
 }

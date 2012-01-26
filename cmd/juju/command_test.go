@@ -132,10 +132,3 @@ func (s *CommandSuite) TestRun(c *C) {
 	err = jc.Run()
 	c.Assert(err, ErrorMatches, "BORKEN: value is cheese.")
 }
-
-func (s *CommandSuite) TestRunBadParse(c *C) {
-	jc, err := parseEmpty([]string{})
-	c.Assert(err, ErrorMatches, "no command specified")
-	err = jc.Run()
-	c.Assert(err, ErrorMatches, "no command selected")
-}

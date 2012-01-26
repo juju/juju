@@ -5,7 +5,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/juju"
 	"os"
-	"path"
+	"path/filepath"
 	"testing"
 )
 
@@ -17,37 +17,33 @@ var _ = Suite(&ConnSuite{})
 
 func (s *ConnSuite) TestNewConn(c *C) {
 	home := c.MkDir()
+	defer os.Setenv("HOME", os.Getenv("HOME"))
 	os.Setenv("HOME", home)
 	conn, err := juju.NewConn("")
 	c.Assert(conn, IsNil)
 	c.Assert(err, ErrorMatches, ".*: no such file or directory")
 
-	os.Mkdir(path.Join(home, ".juju"), 0755)
-	envs := path.Join(home, ".juju", "environments.yaml")
-	ioutil.WriteFile(envs, []byte(`
+	if err := os.Mkdir(filepath.Join(home, ".juju"), 0755); err != nil {
+		c.Log("Could not create directory structure")
+		c.Fail()
+	}
+	envs := filepath.Join(home, ".juju", "environments.yaml")
+	err = ioutil.WriteFile(envs, []byte(`
 default:
     erewhemos
 environments:
-    erewhon:
-        type: bad
     erewhemos:
-        type: wrong
+        type: dummy
 `), 0644)
+	if err != nil {
+		c.Log("Could not create environments.yaml")
+		c.Fail()
+	}
 
-	// Nasty hackish testing; inferring correct environ choice from errors
-	// caused by lack of registered providers. Will need to change if/when
-	// we get a globaly available dummy provider.
+	// Tests current behaviour, not intended behaviour: once we have a
+	// globally-registered dummy provider, we'll expect to get a non-nil
+	// Conn back, and will have to figure out what needs to be tested on that.
 	conn, err = juju.NewConn("")
-	c.Assert(err, ErrorMatches, `environment "erewhemos" has an unknown provider type: "wrong"`)
+	c.Assert(err, ErrorMatches, `environment "erewhemos" has an unknown provider type: "dummy"`)
 	c.Assert(conn, IsNil)
-
-	conn, err = juju.NewConn("erewhon")
-	c.Assert(err, ErrorMatches, `environment "erewhon" has an unknown provider type: "bad"`)
-	c.Assert(conn, IsNil)
-
-	conn, err = juju.NewConn("entstixenon")
-	c.Assert(err, ErrorMatches, `unknown environment "entstixenon"`)
-	c.Assert(conn, IsNil)
-
-	// TODO construct a Conn using a registered provider type
 }
