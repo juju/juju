@@ -2,9 +2,21 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"launchpad.net/~rogpeppe/juju/gnuflag/flag"
 	"sort"
+	"strings"
+)
+
+var (
+	cmdTemplate = "%s\n    %s\n"
+	docTemplate = `
+juju provides easy, intelligent service orchestration on top of environments
+such as OpenStack, Amazon AWS, or bare metal.
+
+https://juju.ubuntu.com/
+
+commands:
+%s`
 )
 
 type JujuCommand struct {
@@ -32,20 +44,20 @@ func (c *JujuCommand) Register(subcmd Command) {
 	c.subcmds[name] = subcmd
 }
 
-// DescribeCommands will write a short description of each registered subcommand.
-func (c *JujuCommand) DescribeCommands(dst io.Writer) {
-	names := make([]string, len(c.subcmds))
+// DescribeCommands returns a short description of each registered subcommand.
+func (c *JujuCommand) DescribeCommands() string {
+	cmds := make([]string, len(c.subcmds))
 	i := 0
 	for name, _ := range c.subcmds {
-		names[i] = name
+		cmds[i] = name
 		i++
 	}
-	sort.Strings(names)
-	fmt.Fprintln(dst, "\ncommands:")
-	for _, name := range names {
-		fmt.Fprintln(dst, name)
-		fmt.Fprintf(dst, "    %s\n", c.subcmds[name].Info().Description)
+	sort.Strings(cmds)
+	for i, name := range cmds {
+		purpose := c.subcmds[name].Info().Purpose
+		cmds[i] = fmt.Sprintf(cmdTemplate, name, purpose)
 	}
+	return strings.Join(cmds, "")
 }
 
 // Info returns a description of the currently selected subcommand, or of the
@@ -56,14 +68,10 @@ func (c *JujuCommand) Info() *Info {
 	}
 	return &Info{
 		"juju",
-		"juju [options] <command> ...",
+		"juju <command> [options] ...",
 		"",
-		`
-juju provides easy, intelligent service orchestration on top of environments
-such as OpenStack, Amazon AWS, or bare metal.
-
-https://juju.ubuntu.com/`,
-		func(dst io.Writer) { c.DescribeCommands(dst) }}
+		fmt.Sprintf(docTemplate, c.DescribeCommands()),
+	}
 }
 
 // InitFlagSet prepares a FlagSet for use with the currently selected
@@ -72,17 +80,19 @@ https://juju.ubuntu.com/`,
 func (c *JujuCommand) InitFlagSet(f *flag.FlagSet) {
 	if c.subcmd != nil {
 		c.subcmd.InitFlagSet(f)
-		return
 	}
-	f.StringVar(&c.Logfile, "l", "", "path to write log to")
-	f.StringVar(&c.Logfile, "log-file", "", "path to write log to")
-	f.BoolVar(&c.Verbose, "v", false, "if set, log additional messages")
-	f.BoolVar(&c.Verbose, "verbose", false, "if set, log additional messages")
+	f.StringVar(&c.Logfile, "l", c.Logfile, "path to write log to")
+	f.StringVar(&c.Logfile, "log-file", c.Logfile, "path to write log to")
+	f.BoolVar(&c.Verbose, "v", c.Verbose, "if set, log additional messages")
+	f.BoolVar(&c.Verbose, "verbose", c.Verbose, "if set, log additional messages")
 }
 
 // ParsePositional selects the subcommand specified by subargs and uses it to
 // Parse any remaining unconsumed command-line arguments.
 func (c *JujuCommand) ParsePositional(subargs []string) error {
+	if c.subcmd != nil {
+		return c.subcmd.ParsePositional(subargs)
+	}
 	if len(subargs) == 0 {
 		return fmt.Errorf("no command specified")
 	}
@@ -90,7 +100,7 @@ func (c *JujuCommand) ParsePositional(subargs []string) error {
 	if c.subcmd, found = c.subcmds[subargs[0]]; !found {
 		return fmt.Errorf("unrecognised command: %s", subargs[0])
 	}
-	return Parse(c.subcmd, true, subargs[1:])
+	return Parse(c, true, subargs[1:])
 }
 
 // Run executes the selected subcommand, which depends on Parse having been

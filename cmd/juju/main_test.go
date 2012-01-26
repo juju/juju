@@ -7,7 +7,7 @@ import (
 	main "launchpad.net/juju/go/cmd/juju"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -39,19 +39,19 @@ func badrun(c *C, exit int, cmd ...string) []string {
 func (s *MainSuite) TestActualRunNoCommand(c *C) {
 	lines := badrun(c, 2)
 	c.Assert(lines[0], Equals, "no command specified")
-	c.Assert(lines[1], Equals, "usage: juju [options] <command> ...")
+	c.Assert(lines[1], Equals, "usage: juju <command> [options] ...")
 }
 
 func (s *MainSuite) TestActualRunBadCommand(c *C) {
 	lines := badrun(c, 2, "discombobulate")
 	c.Assert(lines[0], Equals, "unrecognised command: discombobulate")
-	c.Assert(lines[1], Equals, "usage: juju [options] <command> ...")
+	c.Assert(lines[1], Equals, "usage: juju <command> [options] ...")
 }
 
 func (s *MainSuite) TestActualRunBadJujuArg(c *C) {
 	lines := badrun(c, 2, "--cheese", "bootstrap")
 	c.Assert(lines[0], Equals, "flag provided but not defined: --cheese")
-	c.Assert(lines[1], Equals, "usage: juju [options] <command> ...")
+	c.Assert(lines[1], Equals, "usage: juju <command> [options] ...")
 }
 
 func (s *MainSuite) TestActualRunBadBootstrapArg(c *C) {
@@ -60,26 +60,45 @@ func (s *MainSuite) TestActualRunBadBootstrapArg(c *C) {
 	c.Assert(lines[1], Equals, "usage: juju bootstrap [options]")
 }
 
+func (s *MainSuite) TestActualRunSubcmdArgWorksNotInterspersed(c *C) {
+	lines := badrun(c, 2, "--environment", "erewhon", "bootstrap")
+	c.Assert(lines[0], Equals, "flag provided but not defined: --environment")
+	c.Assert(lines[1], Equals, "usage: juju <command> [options] ...")
+
+}
+
+// Induce failure to load environments and hence break Run.
+func breakJuju(c *C) (string, func()) {
+	home := os.Getenv("HOME")
+	path := c.MkDir()
+	os.Setenv("HOME", path)
+	msg := fmt.Sprintf("JUJU open %s/.juju/environments.yaml: no such file or directory", path)
+	return msg, func() { os.Setenv("HOME", home) }
+}
+
 func (s *MainSuite) TestActualRunCreatesLog(c *C) {
-	// Induce failure to load environments and hence break bootstrap
-	os.Setenv("HOME", "")
-	logpath := path.Join(c.MkDir(), "log")
-	badrun(c, 1, "--log-file", logpath, "--verbose", "bootstrap")
+	msg, unbreak := breakJuju(c)
+	defer unbreak()
+	logpath := filepath.Join(c.MkDir(), "log")
+	lines := badrun(c, 1, "--log-file", logpath, "--verbose", "bootstrap")
+	c.Assert(lines[0], Equals, msg)
 	_, err := os.Stat(logpath)
 	c.Assert(err, IsNil)
 }
 
-func (s *MainSuite) TestActualRunVerboseNotInterspersed(c *C) {
-	lines := badrun(c, 2, "bootstrap", "--verbose")
-	c.Assert(lines[0], Equals, "flag provided but not defined: --verbose")
-	c.Assert(lines[1], Equals, "usage: juju bootstrap [options]")
+func (s *MainSuite) TestActualRunLogfileWorksInterspersed(c *C) {
+	msg, unbreak := breakJuju(c)
+	defer unbreak()
+	logpath := filepath.Join(c.MkDir(), "log")
+	lines := badrun(c, 1, "bootstrap", "--log-file", logpath)
+	c.Assert(lines[0], Equals, msg)
+	_, err := os.Stat(logpath)
+	c.Assert(err, IsNil)
 }
 
-func (s *MainSuite) TestActualRunLogNotInterspersed(c *C) {
-	logpath := path.Join(c.MkDir(), "log")
-	lines := badrun(c, 2, "bootstrap", "--log-file", logpath)
-	c.Assert(lines[0], Equals, "flag provided but not defined: --log-file")
-	c.Assert(lines[1], Equals, "usage: juju bootstrap [options]")
-	_, err := os.Stat(logpath)
-	c.Assert(err, NotNil)
+func (s *MainSuite) TestActualRunVerboseWorksInterspersed(c *C) {
+	msg, unbreak := breakJuju(c)
+	defer unbreak()
+	lines := badrun(c, 1, "bootstrap", "--verbose")
+	c.Assert(lines[0], Equals, msg)
 }

@@ -1,7 +1,6 @@
 package main_test
 
 import (
-	"bytes"
 	"fmt"
 	. "launchpad.net/gocheck"
 	main "launchpad.net/juju/go/cmd/juju"
@@ -18,10 +17,10 @@ var _ main.Command = (*TestCommand)(nil)
 func (c *TestCommand) Info() *main.Info {
 	return &main.Info{
 		c.Name,
-		"",
-		fmt.Sprintf("command named %s", c.Name),
-		"",
-		nil}
+		"blah usage",
+		fmt.Sprintf("%s the juju", c.Name),
+		"blah doc",
+	}
 }
 
 func (c *TestCommand) InitFlagSet(f *flag.FlagSet) {
@@ -84,9 +83,8 @@ func (s *CommandSuite) TestRegister(c *C) {
 	badCall := func() { jc.Register(&TestCommand{Name: "flap"}) }
 	c.Assert(badCall, PanicMatches, "command already registered: flap")
 
-	buf := &bytes.Buffer{}
-	jc.DescribeCommands(buf)
-	c.Assert(buf.String(), Equals, "\ncommands:\nflap\n    command named flap\nflip\n    command named flip\n")
+	cmds := jc.DescribeCommands()
+	c.Assert(cmds, Equals, "flap\n    flap the juju\nflip\n    flip the juju\n")
 }
 
 func (s *CommandSuite) TestVerbose(c *C) {

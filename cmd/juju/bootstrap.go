@@ -22,10 +22,10 @@ func (c *BootstrapCommand) Info() *Info {
 		"juju bootstrap [options]",
 		"start up an environment from scratch",
 		"",
-		nil}
+	}
 }
 
-// InitFlagSet prepares a FlagSet for use with this BootstrapCommand
+// InitFlagSet prepares a FlagSet for use.
 func (c *BootstrapCommand) InitFlagSet(f *flag.FlagSet) {
 	f.StringVar(&c.Environment, "e", "", "juju environment to operate in")
 	f.StringVar(&c.Environment, "environment", "", "juju environment to operate in")

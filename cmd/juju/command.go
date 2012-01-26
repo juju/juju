@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"launchpad.net/~rogpeppe/juju/gnuflag/flag"
 	"os"
 	"strings"
@@ -16,15 +15,11 @@ type Info struct {
 	// Usage describes the format of a valid call to the Command.
 	Usage string
 
-	// Description is a short explanation of the Command's purpose.
-	Description string
+	// Purpose is a short explanation of the Command's purpose.
+	Purpose string
 
 	// Doc is the long documentation for the Command.
 	Doc string
-
-	// PrintMore, when not nil, is used to print suppementary information
-	// after the Command's FlagSet options have been printed.
-	PrintMore func(io.Writer)
 }
 
 // Command is implemented by types that interpret any command-line arguments
@@ -57,14 +52,12 @@ func NewFlagSet(c Command) *flag.FlagSet {
 // PrintUsage prints usage information for c to stderr.
 func PrintUsage(c Command) {
 	i := c.Info()
-	fmt.Fprintln(os.Stderr, "usage:", i.Usage)
+	fmt.Fprintf(os.Stderr, "usage: %s\n", i.Usage)
+	fmt.Fprintf(os.Stderr, "purpose: %s\n", i.Purpose)
+	fmt.Fprintf(os.Stderr, "\noptions:\n")
+	NewFlagSet(c).PrintDefaults()
 	if i.Doc != "" {
 		fmt.Fprintf(os.Stderr, "\n%s\n", strings.TrimSpace(i.Doc))
-	}
-	fmt.Fprintln(os.Stderr, "\noptions:")
-	NewFlagSet(c).PrintDefaults()
-	if i.PrintMore != nil {
-		i.PrintMore(os.Stderr)
 	}
 }
 
