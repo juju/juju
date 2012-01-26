@@ -108,79 +108,6 @@ func (s *S) TestCharmInfoNotFound(c *C) {
 	c.Assert(info, IsNil)
 }
 
-func (s *S) TestConflictingUpdates(c *C) {
-	urlA := charm.MustParseURL("cs:oneiric/wordpress-a")
-	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
-	urls := []*charm.URL{urlA, urlB}
-
-	// Initiate an update of B only to force a partial conflict.
-	wc, revno, err := s.store.AddCharm(s.charm, urls[1:], "key0")
-	c.Assert(err, IsNil)
-	c.Assert(revno, Equals, 0)
-
-	// Partially conflicts with in-progress update above.
-	wc2, revno, err := s.store.AddCharm(s.charm, urls, "key1")
-
-	cerr := wc.Close()
-	c.Assert(cerr, IsNil)
-
-	c.Assert(err, ErrorMatches, "charm update in progress")
-	c.Assert(revno, Equals, 0)
-	c.Assert(wc2, IsNil)
-
-	// Trying again should work since wc was closed.
-	wc, revno, err = s.store.AddCharm(s.charm, urls, "key2")
-	c.Assert(err, IsNil)
-	c.Assert(revno, Equals, 0)
-	_, err = wc.Write([]byte("rev0"))
-	cerr = wc.Close()
-	c.Assert(cerr, IsNil)
-	c.Assert(err, IsNil)
-
-	// Must be revision 0 since initial updates didn't write.
-	info, rc, err := s.store.OpenCharm(urls[1])
-	c.Assert(err, IsNil)
-	c.Assert(info.Revision(), Equals, 0)
-	err = rc.Close()
-	c.Assert(err, IsNil)
-}
-
-func (s *S) TestExpiringConflict(c *C) {
-	urlA := charm.MustParseURL("cs:oneiric/wordpress-a")
-	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
-	urls := []*charm.URL{urlA, urlB}
-
-	// Initiate an update of B only to force a partial conflict.
-	wc, _, err := s.store.AddCharm(s.charm, urls[1:], "key0")
-	c.Assert(err, IsNil)
-
-	_, err = wc.Write([]byte("rev0"))
-	c.Check(err, IsNil)
-
-	// Hack time to force an expiration.
-	locks := s.Session.DB("juju").C("locks")
-	selector := bson.M{"_id": urlB.String()}
-	update := bson.M{"time": bson.Now() - store.UpdateTimeout - 10e9}
-	err = locks.Update(selector, update)
-	c.Check(err, IsNil)
-
-	// Works due to expiration of previous lock.
-	wc2, revno, err := s.store.AddCharm(s.charm, urls, "key1")
-	c.Check(err, IsNil)
-	c.Check(revno, Equals, 0)
-
-	_, err = wc2.Write([]byte("rev0"))
-	c.Check(err, IsNil)
-
-	err = wc2.Close()
-	c.Check(err, IsNil)
-
-	// Failure. Lost the race.
-	err = wc.Close()
-	c.Check(err == store.ErrUpdateConflict, Equals, true)
-
-}
-
 func (s *S) TestRevisioning(c *C) {
 	urlA := charm.MustParseURL("cs:oneiric/wordpress-a")
 	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
@@ -224,6 +151,92 @@ func (s *S) TestRevisioning(c *C) {
 	c.Assert(err, Equals, store.ErrNotFound)
 	c.Assert(info, IsNil)
 	c.Assert(rc, IsNil)
+}
+
+func (s *S) TestLockUpdates(c *C) {
+	urlA := charm.MustParseURL("cs:oneiric/wordpress-a")
+	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
+	urls := []*charm.URL{urlA, urlB}
+
+	// Lock update of just B to force a partial conflict.
+	lock1, err := s.store.LockUpdates(urls[1:])
+	c.Assert(err, IsNil)
+
+	// Partially conflicts with locked update above.
+	lock2, err := s.store.LockUpdates(urls)
+	c.Check(err == store.ErrUpdateConflict, Equals, true)
+	c.Check(lock2, IsNil)
+
+	lock1.Unlock()
+
+	// Trying again should work since lock1 was released.
+	lock3, err := s.store.LockUpdates(urls)
+	c.Assert(err, IsNil)
+	lock3.Unlock()
+}
+
+func (s *S) TestLockUpdatesExpires(c *C) {
+	urlA := charm.MustParseURL("cs:oneiric/wordpress-a")
+	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
+	urls := []*charm.URL{urlA, urlB}
+
+	// Initiate an update of B only to force a partial conflict.
+	lock1, err := s.store.LockUpdates(urls[1:])
+	c.Assert(err, IsNil)
+
+	// Hack time to force an expiration.
+	locks := s.Session.DB("juju").C("locks")
+	selector := bson.M{"_id": urlB.String()}
+	update := bson.M{"time": bson.Now() - store.UpdateTimeout - 10e9}
+	err = locks.Update(selector, update)
+	c.Check(err, IsNil)
+
+	// Works due to expiration of previous lock.
+	lock2, err := s.store.LockUpdates(urls)
+	c.Assert(err, IsNil)
+	defer lock2.Unlock()
+
+	// The expired lock was forcefully killed. Unlocking it must
+	// not interfere with lock2 which is still alive.
+	lock1.Unlock()
+
+	// The above statement was a NOOP and lock2 is still in effect,
+	// so attempting another lock must necessarily fail.
+	lock3, err := s.store.LockUpdates(urls)
+	c.Check(err == store.ErrUpdateConflict, Equals, true)
+	c.Check(lock3, IsNil)
+}
+
+func (s *S) TestConflictingUpdate(c *C) {
+	// This test checks that if for whatever reason the locking
+	// safety-net fails, adding two charms in parallel still
+	// results in a sane outcome.
+	url := charm.MustParseURL("cs:oneiric/wordpress")
+	urls := []*charm.URL{url}
+
+	// Start writing charm.
+	wc1, revno1, err := s.store.AddCharm(s.charm, urls, "key0")
+	c.Assert(err, IsNil)
+	c.Assert(revno1, Equals, 0)
+
+	// Start writing the same charm again.
+	wc2, revno2, err := s.store.AddCharm(s.charm, urls, "key0")
+	c.Assert(err, IsNil)
+	c.Assert(revno2, Equals, 0)
+
+	// Finish the first attempt. This should work.
+	_, err = wc1.Write([]byte("rev0"))
+	c.Assert(err, IsNil)
+	err = wc1.Close()
+	c.Assert(err, IsNil)
+
+	// Attempting to complete the second attempt should break,
+	// since it lost the race and the given revision is already
+	// in place.
+	_, err = wc2.Write([]byte("rev0-again"))
+	c.Assert(err, IsNil)
+	err = wc2.Close()
+	c.Assert(err == store.ErrUpdateConflict, Equals, true)
 }
 
 func (s *S) TestRedundantUpdate(c *C) {
@@ -361,24 +374,4 @@ func (s *S) TestLogCharmEvent(c *C) {
 	event, err = s.store.CharmEvent(urls[1], "revKeyX")
 	c.Assert(err == store.ErrNotFound, Equals, true)
 	c.Assert(event, IsNil)
-}
-
-func (s *S) TestConflictingCharmEventUpdate(c *C) {
-	url := charm.MustParseURL("cs:oneiric/wordpress")
-	urls := []*charm.URL{url}
-
-	// Initiate an update to force a conflict.
-	wc, _, err := s.store.AddCharm(s.charm, urls, "key0")
-	c.Assert(err, IsNil)
-
-	event := &store.CharmEvent{
-		Kind:        store.EventPublishFailed,
-		RevisionKey: "revKey",
-		URLs:        urls,
-	}
-
-	err = s.store.LogCharmEvent(event)
-	cerr := wc.Close()
-	c.Assert(cerr, IsNil)
-	c.Assert(err, ErrorMatches, "charm update in progress")
 }

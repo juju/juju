@@ -78,8 +78,8 @@ func (s *Store) Close() {
 // On success, wc must be used to stream the charm bundle onto the
 // store, and once wc is closed successfully the content will be
 // available at all of the provided urls, and a new CharmEvent
-// saved to record the successful publishing atomically (it doesn't
-// get saved if there are any errors).
+// saved to record the successful publishing (it doesn't get saved
+// if there are any errors).
 //
 // The returned revision number will be assigned to the charm in the
 // store. The revision will be the maximum current revision from
@@ -91,14 +91,8 @@ func (s *Store) AddCharm(charm charm.Charm, urls []*charm.URL, revisionKey strin
 		return
 	}
 	session := s.session.Copy()
-	lock, err := session.LockUpdates(urls)
-	if err != nil {
-		session.Close()
-		return
-	}
 	defer func() {
 		if err != nil {
-			lock.Unlock()
 			session.Close()
 		}
 	}()
@@ -139,7 +133,6 @@ func (s *Store) AddCharm(charm charm.Charm, urls []*charm.URL, revisionKey strin
 		session:  session,
 		charm:    charm,
 		urls:     urls,
-		lock:     lock,
 		revision: revision,
 		revKey:   revisionKey,
 	}
@@ -153,7 +146,6 @@ type writer struct {
 	sha256   hash.Hash
 	charm    charm.Charm
 	urls     []*charm.URL
-	lock     *updateMutex
 	revision int
 	revKey   string
 }
@@ -180,7 +172,6 @@ func (w *writer) Write(data []byte) (n int, err error) {
 // After it completes the charm will be available for consumption.
 func (w *writer) Close() error {
 	defer w.session.Close()
-	defer w.lock.Unlock()
 	if w.file == nil {
 		return nil
 	}
@@ -210,12 +201,12 @@ func (w *writer) Close() error {
 			return err
 		}
 	}
-	status := &CharmEvent{
+	event := &CharmEvent{
 		Kind:        EventPublishDone,
 		RevisionKey: w.revKey,
 		URLs:        w.urls,
 	}
-	return w.store.logCharmEvent(status, w.session, false)
+	return w.store.LogCharmEvent(event)
 }
 
 type CharmInfo struct {
@@ -321,63 +312,40 @@ type charmDoc struct {
 	Config      *charm.Config
 }
 
-// storeSession wraps a mgo.Session ands adds a few convenience methods.
-type storeSession struct {
-	*mgo.Session
-}
-
-// Copy copies the storeSession and its underlying mgo session.
-func (s *storeSession) Copy() *storeSession {
-	return &storeSession{s.Session.Copy()}
-}
-
-// Charms returns the mongo collection where charms are stored.
-func (s *storeSession) Charms() *mgo.Collection {
-	return s.DB("juju").C("charms")
-}
-
-// Charms returns a mgo.GridFS to read and write charms.
-func (s *storeSession) CharmFS() *mgo.GridFS {
-	return s.DB("juju").GridFS("charmfs")
-}
-
-// Events returns the mongo collection where charm events are stored.
-func (s *storeSession) Events() *mgo.Collection {
-	return s.DB("juju").C("events")
-}
-
 // LockUpdates acquires a server-side lock for updating a single charm
 // that is supposed to be made available in all of the provided urls.
 // If the lock can't be acquired in any of the urls, an error will be
 // immediately returned.
 // In the usual case, any locking done is undone when an error happens,
-// or when m.Unlock is called. If something else goes wrong, the locks
+// or when l.Unlock is called. If something else goes wrong, the locks
 // will also expire after the period defined in UpdateTimeout.
-func (s *storeSession) LockUpdates(urls []*charm.URL) (m *updateMutex, err error) {
+func (s *Store) LockUpdates(urls []*charm.URL) (l *UpdateLock, err error) {
+	session := s.session.Copy()
 	keys := make([]string, len(urls))
 	for i := range urls {
 		keys[i] = urls[i].String()
 	}
 	sort.Strings(keys)
-	m = &updateMutex{keys, s.DB("juju").C("locks"), bson.Now()}
-	err = m.tryLock()
-	if err != nil {
+	l = &UpdateLock{keys, session.Locks(), bson.Now()}
+	if err = l.tryLock(); err != nil {
+		session.Close()
 		return nil, err
 	}
-	return m, nil
+	return l, nil
 }
 
-// updateMutex manages the logic around locking and is used
-// via storeSession.LockUpdates.
-type updateMutex struct {
+// UpdateLock represents an acquired update lock over a set of charm URLs.
+type UpdateLock struct {
 	keys  []string
 	locks *mgo.Collection
 	time  bson.Timestamp
 }
 
-// Unlock removes previously acquired locks on all m.keys.
-func (m *updateMutex) Unlock() {
+// Unlock removes the previously acquired server-side lock that prevents
+// other processes from attempting to update a set of charm URLs.
+func (m *UpdateLock) Unlock() {
 	log.Debugf("Unlocking charms for future updates: %v", m.keys)
+	defer m.locks.Database.Session.Close()
 	for i := len(m.keys) - 1; i >= 0; i-- {
 		// Using time below ensures only the proper lock is removed.
 		// Can't do much about errors here. Locks will expire anyway.
@@ -390,7 +358,7 @@ func (m *updateMutex) Unlock() {
 // two-way conflicts can't happen. If any of the keys fail to be locked,
 // and expiring the old lock doesn't work, tryLock undoes all previous
 // locks and aborts with an error.
-func (m *updateMutex) tryLock() error {
+func (m *UpdateLock) tryLock() error {
 	for i, key := range m.keys {
 		log.Debugf("Trying to lock charm %s for updates...", key)
 		doc := bson.D{{"_id", key}, {"time", m.time}}
@@ -422,7 +390,7 @@ func (m *updateMutex) tryLock() error {
 }
 
 // tryExpire attempts to remove outdated locks from the database.
-func (m *updateMutex) tryExpire(key string) {
+func (m *UpdateLock) tryExpire(key string) {
 	// Ignore errors. If nothing happens the key will continue locked.
 	m.locks.Remove(bson.D{{"_id", key}, {"time", bson.D{{"$lt", bson.Now() - UpdateTimeout}}}})
 }
@@ -434,6 +402,36 @@ func maybeConflict(err error) error {
 		return ErrUpdateConflict
 	}
 	return err
+}
+
+// storeSession wraps a mgo.Session ands adds a few convenience methods.
+type storeSession struct {
+	*mgo.Session
+}
+
+// Copy copies the storeSession and its underlying mgo session.
+func (s *storeSession) Copy() *storeSession {
+	return &storeSession{s.Session.Copy()}
+}
+
+// Charms returns the mongo collection where charms are stored.
+func (s *storeSession) Charms() *mgo.Collection {
+	return s.DB("juju").C("charms")
+}
+
+// Charms returns a mgo.GridFS to read and write charms.
+func (s *storeSession) CharmFS() *mgo.GridFS {
+	return s.DB("juju").GridFS("charmfs")
+}
+
+// Events returns the mongo collection where charm events are stored.
+func (s *storeSession) Events() *mgo.Collection {
+	return s.DB("juju").C("events")
+}
+
+// Locks returns the mongo collection where charm locks are stored.
+func (s *storeSession) Locks() *mgo.Collection {
+	return s.DB("juju").C("locks")
 }
 
 type CharmEventKind int
@@ -469,28 +467,14 @@ type eventDoc struct {
 
 // LogCharmEvent records an event related to one or more charm URLs.
 func (s *Store) LogCharmEvent(event *CharmEvent) (err error) {
-	session := s.session.Copy()
-	defer session.Close()
-	return s.logCharmEvent(event, session, true)
-}
-
-// addCharmEvent is the implementation of LogCharmEvent, and allows
-// logging an event with a pre-established session and without locking
-// the store first.
-func (s *Store) logCharmEvent(event *CharmEvent, session *storeSession, lockUrls bool) (err error) {
 	log.Printf("Adding charm event for %v with key %q: %s", event.URLs, event.RevisionKey, event.Kind)
 	if err = mustLackRevision("LogCharmEvent", event.URLs...); err != nil {
 		return
 	}
+	session := s.session.Copy()
+	defer session.Close()
 	if event.Kind == 0 || event.RevisionKey == "" || len(event.URLs) == 0 {
 		return fmt.Errorf("LogCharmEvent: need valid Kind, RevisionKey and URLs")
-	}
-	if lockUrls {
-		lock, err := session.LockUpdates(event.URLs)
-		if err != nil {
-			return err
-		}
-		defer lock.Unlock()
 	}
 	urlStrs := make([]string, len(event.URLs))
 	for i, url := range event.URLs {
