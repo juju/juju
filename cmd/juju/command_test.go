@@ -2,21 +2,54 @@ package main_test
 
 import (
 	"bytes"
+	"fmt"
 	. "launchpad.net/gocheck"
 	main "launchpad.net/juju/go/cmd/juju"
+	"launchpad.net/~rogpeppe/juju/gnuflag/flag"
 )
 
+type TestCommand struct {
+	Name  string
+	Value string
+}
+
+var _ main.Command = (*TestCommand)(nil)
+
+func (c *TestCommand) Info() *main.Info {
+	return &main.Info{
+		c.Name,
+		"",
+		fmt.Sprintf("command named %s", c.Name),
+		"",
+		nil}
+}
+
+func (c *TestCommand) InitFlagSet(f *flag.FlagSet) {
+	f.StringVar(&c.Value, "value", "", "doc")
+}
+
+func (c *TestCommand) Unconsumed(args []string) error {
+	if len(args) != 0 {
+		return fmt.Errorf("BADARGS: %s", args)
+	}
+	return nil
+}
+
+func (c *TestCommand) Run() error {
+	return fmt.Errorf("BORKEN: value is %s.", c.Value)
+}
+
 func parseEmpty(args []string) (*main.JujuCommand, error) {
-	jc := &main.JujuCommand{}
-	err := jc.Parse(args)
+	jc := main.NewJujuCommand()
+	err := main.Parse(jc, false, args)
 	return jc, err
 }
 
-func parseDefenestrate(args []string) (*main.JujuCommand, *main.TestCommand, error) {
-	jc := &main.JujuCommand{}
-	tc := &main.TestCommand{Name: "defenestrate"}
+func parseDefenestrate(args []string) (*main.JujuCommand, *TestCommand, error) {
+	jc := main.NewJujuCommand()
+	tc := &TestCommand{Name: "defenestrate"}
 	jc.Register(tc)
-	err := jc.Parse(args)
+	err := main.Parse(jc, false, args)
 	return jc, tc, err
 }
 
@@ -25,78 +58,75 @@ type CommandSuite struct{}
 var _ = Suite(&CommandSuite{})
 
 func (s *CommandSuite) TestSubcommandDispatch(c *C) {
-	_, err := parseEmpty([]string{"juju"})
+	_, err := parseEmpty([]string{})
 	c.Assert(err, ErrorMatches, `no command specified`)
 
-	_, _, err = parseDefenestrate([]string{"juju", "discombobulate"})
+	_, _, err = parseDefenestrate([]string{"discombobulate"})
 	c.Assert(err, ErrorMatches, "unrecognised command: discombobulate")
 
-	_, tc, err := parseDefenestrate([]string{"juju", "defenestrate"})
+	_, tc, err := parseDefenestrate([]string{"defenestrate"})
 	c.Assert(err, IsNil)
 	c.Assert(tc.Value, Equals, "")
 
-	_, tc, err = parseDefenestrate([]string{"juju", "defenestrate", "--value", "firmly"})
+	_, tc, err = parseDefenestrate([]string{"defenestrate", "--value", "firmly"})
 	c.Assert(err, IsNil)
 	c.Assert(tc.Value, Equals, "firmly")
 
-	_, tc, err = parseDefenestrate([]string{"juju", "defenestrate", "--gibberish", "burble"})
-	c.Assert(err, ErrorMatches, "flag provided but not defined: --gibberish")
+	_, tc, err = parseDefenestrate([]string{"defenestrate", "gibberish"})
+	c.Assert(err, ErrorMatches, `BADARGS: \[gibberish\]`)
 }
 
 func (s *CommandSuite) TestRegister(c *C) {
-	jc := &main.JujuCommand{}
-	err := jc.Register(&main.TestCommand{Name: "flip"})
-	c.Assert(err, IsNil)
+	jc := main.NewJujuCommand()
+	jc.Register(&TestCommand{Name: "flip"})
+	jc.Register(&TestCommand{Name: "flap"})
 
-	err = jc.Register(&main.TestCommand{Name: "flap"})
-	c.Assert(err, IsNil)
-
-	err = jc.Register(&main.TestCommand{Name: "flap"})
-	c.Assert(err, ErrorMatches, "command already registered: flap")
+	badCall := func() { jc.Register(&TestCommand{Name: "flap"}) }
+	c.Assert(badCall, PanicMatches, "command already registered: flap")
 
 	buf := &bytes.Buffer{}
-	jc.DescCommands(buf)
+	jc.DescribeCommands(buf)
 	c.Assert(buf.String(), Equals, "\ncommands:\nflap\n    command named flap\nflip\n    command named flip\n")
 }
 
 func (s *CommandSuite) TestVerbose(c *C) {
-	jc, err := parseEmpty([]string{"juju"})
+	jc, err := parseEmpty([]string{})
 	c.Assert(err, ErrorMatches, "no command specified")
-	c.Assert(jc.Verbose(), Equals, false)
+	c.Assert(jc.Verbose, Equals, false)
 
-	jc, _, err = parseDefenestrate([]string{"juju", "defenestrate"})
+	jc, _, err = parseDefenestrate([]string{"defenestrate"})
 	c.Assert(err, IsNil)
-	c.Assert(jc.Verbose(), Equals, false)
+	c.Assert(jc.Verbose, Equals, false)
 
-	jc, err = parseEmpty([]string{"juju", "--verbose"})
+	jc, err = parseEmpty([]string{"--verbose"})
 	c.Assert(err, ErrorMatches, "no command specified")
-	c.Assert(jc.Verbose(), Equals, true)
+	c.Assert(jc.Verbose, Equals, true)
 
-	jc, _, err = parseDefenestrate([]string{"juju", "-v", "defenestrate"})
+	jc, _, err = parseDefenestrate([]string{"-v", "defenestrate"})
 	c.Assert(err, IsNil)
-	c.Assert(jc.Verbose(), Equals, true)
+	c.Assert(jc.Verbose, Equals, true)
 }
 
 func (s *CommandSuite) TestLogfile(c *C) {
-	jc, err := parseEmpty([]string{"juju"})
+	jc, err := parseEmpty([]string{})
 	c.Assert(err, ErrorMatches, "no command specified")
-	c.Assert(jc.Logfile(), Equals, "")
+	c.Assert(jc.Logfile, Equals, "")
 
-	jc, _, err = parseDefenestrate([]string{"juju", "defenestrate"})
+	jc, _, err = parseDefenestrate([]string{"defenestrate"})
 	c.Assert(err, IsNil)
-	c.Assert(jc.Logfile(), Equals, "")
+	c.Assert(jc.Logfile, Equals, "")
 
-	jc, err = parseEmpty([]string{"juju", "-l", "foo"})
+	jc, err = parseEmpty([]string{"-l", "foo"})
 	c.Assert(err, ErrorMatches, "no command specified")
-	c.Assert(jc.Logfile(), Equals, "foo")
+	c.Assert(jc.Logfile, Equals, "foo")
 
-	jc, _, err = parseDefenestrate([]string{"juju", "--log-file", "bar", "defenestrate"})
+	jc, _, err = parseDefenestrate([]string{"--log-file", "bar", "defenestrate"})
 	c.Assert(err, IsNil)
-	c.Assert(jc.Logfile(), Equals, "bar")
+	c.Assert(jc.Logfile, Equals, "bar")
 }
 
 func (s *CommandSuite) TestRun(c *C) {
-	jc, _, err := parseDefenestrate([]string{"juju", "defenestrate", "--value", "cheese"})
+	jc, _, err := parseDefenestrate([]string{"defenestrate", "--value", "cheese"})
 	c.Assert(err, IsNil)
 
 	err = jc.Run()
@@ -104,7 +134,7 @@ func (s *CommandSuite) TestRun(c *C) {
 }
 
 func (s *CommandSuite) TestRunBadParse(c *C) {
-	jc, err := parseEmpty([]string{"juju"})
+	jc, err := parseEmpty([]string{})
 	c.Assert(err, ErrorMatches, "no command specified")
 	err = jc.Run()
 	c.Assert(err, ErrorMatches, "no command selected")

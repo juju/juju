@@ -11,21 +11,21 @@ var _ = Suite(&BootstrapSuite{})
 
 func (s *BootstrapSuite) TestEnvironment(c *C) {
 	bc := &main.BootstrapCommand{}
-	c.Assert(bc.Environment(), Equals, "")
+	c.Assert(bc.Environment, Equals, "")
 
-	err := bc.Parse([]string{})
+	err := main.Parse(bc, true, []string{})
 	c.Assert(err, IsNil)
-	c.Assert(bc.Environment(), Equals, "")
+	c.Assert(bc.Environment, Equals, "")
 
-	err = bc.Parse([]string{"hotdog"})
+	err = main.Parse(bc, true, []string{"hotdog"})
 	c.Assert(err, ErrorMatches, `unrecognised args: \[hotdog\]`)
-	c.Assert(bc.Environment(), Equals, "")
+	c.Assert(bc.Environment, Equals, "")
 
-	err = bc.Parse([]string{"-e", "walthamstow"})
+	err = main.Parse(bc, true, []string{"-e", "walthamstow"})
 	c.Assert(err, IsNil)
-	c.Assert(bc.Environment(), Equals, "walthamstow")
+	c.Assert(bc.Environment, Equals, "walthamstow")
 
-	err = bc.Parse([]string{"--environment", "peckham"})
+	err = main.Parse(bc, true, []string{"--environment", "peckham"})
 	c.Assert(err, IsNil)
-	c.Assert(bc.Environment(), Equals, "peckham")
+	c.Assert(bc.Environment, Equals, "peckham")
 }

@@ -88,12 +88,15 @@ func (c *JujuCommand) Unconsumed(subargs []string) error {
 	}
 	found := false
 	if c.subcmd, found = c.subcmds[subargs[0]]; !found {
-		fmt.Errorf("unrecognised command: %s", subargs[0])
+		return fmt.Errorf("unrecognised command: %s", subargs[0])
 	}
 	return Parse(c.subcmd, true, subargs[1:])
 }
 
 // Run executes the selected subcommand.
 func (c *JujuCommand) Run() error {
+	if c.subcmd == nil {
+		return fmt.Errorf("no command selected")
+	}
 	return c.subcmd.Run()
 }
