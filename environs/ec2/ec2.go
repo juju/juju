@@ -119,32 +119,24 @@ func (e *environ) Instances() ([]environs.Instance, error) {
 	return insts, nil
 }
 
-func (e *environ) makeControlBucket() error {
+// makeBucket makes the environent's control bucket, the
+// place where bootstrap information and deployed charms
+// are stored. To avoid two round trips on every PUT operation,
+// we do this only once for each environ.
+func (e *environ) makeBucket() error {
 	e.checkBucket.Do(func() {
-		b := e.controlBucket()
-		// As bucket LIST isn't implemented for the s3test server yet,
-		// we try to get an object from the control bucket
-		// and determine whether the bucket exists using the resulting
-		// error message.
-		r, testErr := b.GetReader("testing123")
-		if testErr == nil {
-			r.Close()
-			return
-		}
-		if testErr, _ := testErr.(*s3.Error); testErr == nil || testErr.Code != "NoSuchBucket" {
-			return
-		}
-		// The bucket doesn't exist, so try to make it.
-		e.checkBucketError = b.PutBucket(s3.Private)
+		// try to make the bucket - PutBucket will succeed if the
+		// bucket already exists.
+		e.checkBucketError = e.bucket().PutBucket(s3.Private)
 	})
 	return e.checkBucketError
 }
 
 func (e *environ) PutFile(file string, r io.Reader, length int64) error {
-	if err := e.makeControlBucket(); err != nil {
+	if err := e.makeBucket(); err != nil {
 		return fmt.Errorf("cannot make S3 control bucket: %v", err)
 	}
-	err := e.controlBucket().PutReader(file, r, length, "binary/octet-stream", s3.Private)
+	err := e.bucket().PutReader(file, r, length, "binary/octet-stream", s3.Private)
 	if err != nil {
 		return fmt.Errorf("cannot write file %q to control bucket: %v", file, err)
 	}
@@ -152,20 +144,20 @@ func (e *environ) PutFile(file string, r io.Reader, length int64) error {
 }
 
 func (e *environ) GetFile(file string) (io.ReadCloser, error) {
-	return e.controlBucket().GetReader(file)
+	return e.bucket().GetReader(file)
 }
 
 func (e *environ) RemoveFile(file string) error {
-	return e.controlBucket().Del(file)
+	return e.bucket().Del(file)
 }
 
-func (e *environ) controlBucket() *s3.Bucket {
-	return e.s3.Bucket(e.config.controlBucket)
+func (e *environ) bucket() *s3.Bucket {
+	return e.s3.Bucket(e.config.bucket)
 }
 
 func (e *environ) Destroy() error {
 	// TODO should we ignore error from this or give a warning or what?
-	e.controlBucket().DelBucket()
+	e.bucket().DelBucket()
 
 	insts, err := e.Instances()
 	if err != nil {
@@ -192,7 +184,10 @@ func (e *environ) groupName() string {
 func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	jujuGroup := ec2.SecurityGroup{Name: e.groupName()}
 	jujuMachineGroup := ec2.SecurityGroup{Name: e.machineGroupName(machineId)}
-	groups, err := e.ec2.SecurityGroups(nil, nil)
+
+	f := ec2.NewFilter()
+	f.Add("group-name", jujuGroup.Name, jujuMachineGroup.Name)
+	groups, err := e.ec2.SecurityGroups(nil, f)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get security groups: %v", err)
 	}
