@@ -14,7 +14,7 @@ func (e *environ) loadState() (bootstrapState, error) {
 
 func (e *environ) deleteState() error {
 	// TODO delete the bucket contents and the bucket itself.
-	err := e.controlBucket().Del(stateFile)
+	err := e.bucket().Del(stateFile)
 	// If we can't delete the object because the bucket doesn't
 	// exist, then we don't care.
 	if err, _ := err.(*s3.Error); err != nil && err.StatusCode == 404 {
