@@ -82,13 +82,11 @@ func (s *S) TestBundleTo(c *C) {
 	c.Assert(meta.Name, Equals, "dummy")
 
 	c.Assert(instf, NotNil)
-	mode, err := instf.Mode()
-	c.Assert(err, IsNil)
+	mode := instf.Mode()
 	c.Assert(mode&0700, Equals, os.FileMode(0700))
 
 	c.Assert(emptyf, NotNil)
-	mode, err = emptyf.Mode()
-	c.Assert(err, IsNil)
+	mode = emptyf.Mode()
 	c.Assert(mode&os.ModeType, Equals, os.ModeDir)
 }
 

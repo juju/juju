@@ -31,6 +31,10 @@ type instance struct {
 	*ec2.Instance
 }
 
+func (inst *instance) String() string {
+	return inst.Id()
+}
+
 var _ environs.Instance = (*instance)(nil)
 
 func (inst *instance) Id() string {
@@ -59,7 +63,7 @@ func (e *environ) Bootstrap() error {
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
-	if err, _ := err.(*s3.Error); err == nil || err.StatusCode != 404 {
+	if s3err, _ := err.(*s3.Error); s3err != nil && s3err.StatusCode != 404 {
 		return err
 	}
 	inst, err := e.startInstance(0, true)
