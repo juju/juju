@@ -324,48 +324,52 @@ func (s *S) TestLogCharmEvent(c *C) {
 		RevisionKey: "revKey1",
 		URLs:        urls,
 		Warnings:    []string{"A warning."},
-		Errors:      []string{"An error."},
 		Time:        time.Unix(1, 0),
 	}
 	event2 := &store.CharmEvent{
+		Kind:        store.EventPublishDone,
+		Revision:    42,
+		RevisionKey: "revKey2",
+		URLs:        urls,
+		Time:        time.Unix(1, 0),
+	}
+	event3 := &store.CharmEvent{
 		Kind:        store.EventPublishFailed,
 		RevisionKey: "revKey2",
+		Errors:      []string{"An error."},
 		URLs:        urls[:1],
 	}
 
-	err := s.store.LogCharmEvent(event1)
-	c.Assert(err, IsNil)
-	err = s.store.LogCharmEvent(event2)
-	c.Assert(err, IsNil)
+	for _, event := range []*store.CharmEvent{event1, event2, event3} {
+		err := s.store.LogCharmEvent(event)
+		c.Assert(err, IsNil)
+	}
 
 	events := s.Session.DB("juju").C("events")
 	var s1, s2 map[string]interface{}
 
-	err = events.Find(bson.M{"errors": bson.M{"$exists": true}}).One(&s1)
+	err := events.Find(bson.M{"revisionkey": "revKey1"}).One(&s1)
 	c.Assert(err, IsNil)
 	c.Assert(s1["kind"], Equals, int(store.EventPublishDone))
-	c.Assert(s1["revisionkey"], Equals, "revKey1")
 	c.Assert(s1["urls"], Equals, []interface{}{"cs:oneiric/wordpress", "cs:oneiric/mysql"})
 	c.Assert(s1["warnings"], Equals, []interface{}{"A warning."})
-	c.Assert(s1["errors"], Equals, []interface{}{"An error."})
+	c.Assert(s1["errors"], IsNil)
 	c.Assert(s1["time"], Equals, bson.Timestamp(1e9))
 
-	err = events.Find(bson.M{"errors": bson.M{"$exists": false}}).One(&s2)
+	err = events.Find(bson.M{"revisionkey": "revKey2", "kind": store.EventPublishFailed}).One(&s2)
 	c.Assert(err, IsNil)
-	c.Assert(s2["kind"], Equals, int(store.EventPublishFailed))
-	c.Assert(s2["revisionkey"], Equals, "revKey2")
 	c.Assert(s2["urls"], Equals, []interface{}{"cs:oneiric/wordpress"})
 	c.Assert(s2["warnings"], IsNil)
-	c.Assert(s2["errors"], IsNil)
+	c.Assert(s2["errors"], Equals, []interface{}{"An error."})
 	c.Assert(s2["time"].(bson.Timestamp) > bson.Now()-10e9, Equals, true)
 
 	// Mongo stores timestamps in milliseconds, so chop
 	// off the extra bits for comparison.
-	event2.Time = time.Unix(0, event2.Time.UnixNano()/1e6*1e6)
+	event3.Time = time.Unix(0, event3.Time.UnixNano()/1e6*1e6)
 
 	event, err := s.store.CharmEvent(urls[0], "revKey2")
 	c.Assert(err, IsNil)
-	c.Assert(event, Equals, event2)
+	c.Assert(event, Equals, event3)
 
 	event, err = s.store.CharmEvent(urls[1], "revKey1")
 	c.Assert(err, IsNil)
