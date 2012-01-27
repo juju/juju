@@ -1,9 +1,10 @@
 package ec2
+
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
-	"fmt"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/goyaml"
 )
@@ -11,7 +12,7 @@ import (
 const stateFile = "provider-state"
 
 type bootstrapState struct {
-	ZookeeperInstances []string	`yaml:"zookeeper-instances"`
+	ZookeeperInstances []string `yaml:"zookeeper-instances"`
 }
 
 func (e *environ) saveState(state *bootstrapState) error {
