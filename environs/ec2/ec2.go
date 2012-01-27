@@ -54,28 +54,33 @@ func (environProvider) Open(name string, config interface{}) (e environs.Environ
 	}, nil
 }
 
-func (e *environ) findBootstrapMachine() (environs.Instance, error) {
-	_, err := e.Instances()
-	if err != nil {
-		return nil, fmt.Errorf("cannot list machines: %v", err)
-	}
-	return nil, nil
-}
-
-func (e *environ) zookeeperAddrs() ([]string, error) {
-	return nil, fmt.Errorf("not implemented zookeeper addtrs")
-}
-
 func (e *environ) Bootstrap() error {
-	addrs, err := e.zookeeperAddrs()
-	if err != nil {
-		return fmt.Errorf("cannot get zookeeper machine addresses: %v", err)
-	}
-	if len(addrs) > 0 {
+	_, err := e.loadState()
+	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
-	_, err = e.startInstance(0, true)
-	return err
+	if err, _ := err.(*s3.Error); err == nil || err.StatusCode != 404 {
+		return err
+	}
+	inst, err := e.startInstance(0, true)
+	if err != nil {
+		return fmt.Errorf("cannot start bootstrap instance: %v", err)
+	}
+	err = e.saveState(&bootstrapState{
+		ZookeeperInstances: []string{inst.Id()},
+	})
+	if err != nil {
+		// ignore error on StopInstance because the previous error is
+		// more important.
+		e.StopInstances([]environs.Instance{inst})
+		return err
+	}
+	// TODO make safe in the case of racing Bootstraps
+	// If two Bootstraps are called concurrently, there's
+	// no way to use S3 to make sure that only one succeeds.
+	// Perhaps consider using SimpleDB for state storage
+	// which would enable that possibility.
+	return nil
 }
 
 func (e *environ) StartInstance(machineId int) (environs.Instance, error) {
@@ -86,10 +91,6 @@ func (e *environ) StartInstance(machineId int) (environs.Instance, error) {
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
 func (e *environ) startInstance(machineId int, master bool) (environs.Instance, error) {
-}
-
-
-func (e *environ) StartInstance(machineId int) (environs.Instance, error) {
 	image, err := FindImageSpec(DefaultImageConstraint)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
@@ -130,6 +131,7 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 func (e *environ) Instances() ([]environs.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
+	filter.Add("group-name", e.groupName())
 
 	resp, err := e.ec2.Instances(nil, filter)
 	if err != nil {
@@ -145,20 +147,25 @@ func (e *environ) Instances() ([]environs.Instance, error) {
 	return insts, nil
 }
 
+// oneError returns err1 if it's not not nil, otherwise err2.
+func oneError(err1, err2 error) error {
+	if err1 != nil {
+		return err1
+	}
+	return err2
+}
+
 func (e *environ) Destroy() error {
 	delErr := e.deleteState()
 
 	insts, err := e.Instances()
 	if err != nil {
-		return err
+		return oneError(delErr, err)
 	}
-	err := e.StopInstances(insts)
-	if err == nil {
-		// return the error from stopping the instances by preference,
-		// because instances are more expensive than buckets.
-		err = delErr
-	}
-	return err
+	err = e.StopInstances(insts)
+	// return the error from stopping the instances by preference,
+	// because instances are more expensive than buckets.
+	return oneError(err, delErr)
 }
 
 func (e *environ) machineGroupName(machineId int) string {

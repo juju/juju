@@ -1,4 +1,12 @@
 package ec2
+import (
+	"bytes"
+	"io"
+	"io/ioutil"
+	"fmt"
+	"launchpad.net/goamz/s3"
+	"launchpad.net/goyaml"
+)
 
 const stateFile = "provider-state"
 
@@ -6,10 +14,30 @@ type bootstrapState struct {
 	ZookeeperInstances []string	`yaml:"zookeeper-instances"`
 }
 
-func (e *environ) saveState(state bootstrapState) error {
+func (e *environ) saveState(state *bootstrapState) error {
+	data, err := goyaml.Marshal(state)
+	if err != nil {
+		return err
+	}
+	return e.PutFile(stateFile, bytes.NewBuffer(data), int64(len(data)))
 }
 
-func (e *environ) loadState() (bootstrapState, error) {
+func (e *environ) loadState() (*bootstrapState, error) {
+	r, err := e.GetFile(stateFile)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read %q: %v", stateFile, err)
+	}
+	defer r.Close()
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("error reading %q: %v", stateFile, err)
+	}
+	var state bootstrapState
+	err = goyaml.Unmarshal(data, &state)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshalling %q: %v", stateFile, err)
+	}
+	return &state, nil
 }
 
 func (e *environ) deleteState() error {
@@ -20,7 +48,10 @@ func (e *environ) deleteState() error {
 	if err, _ := err.(*s3.Error); err != nil && err.StatusCode == 404 {
 		return nil
 	}
-	return fmt.Errorf("cannot delete provider state: %v", err)
+	if err != nil {
+		return fmt.Errorf("cannot delete provider state: %v", err)
+	}
+	return nil
 }
 
 // makeBucket makes the environent's control bucket, the
