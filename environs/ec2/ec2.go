@@ -55,14 +55,6 @@ func (environProvider) Open(name string, config interface{}) (e environs.Environ
 	}, nil
 }
 
-func (e *environ) findBootstrapMachine() (environs.Instance, error) {
-	_, err := e.Instances()
-	if err != nil {
-		return nil, fmt.Errorf("cannot list machines: %v", err)
-	}
-	return nil, nil
-}
-
 func (e *environ) StartInstance(machineId int) (environs.Instance, error) {
 	image, err := FindImageSpec(DefaultImageConstraint)
 	if err != nil {
