@@ -27,27 +27,74 @@ type configTest struct {
 }
 
 var configTests = []configTest{
-	{"", &providerConfig{region: "us-east-1", auth: testAuth}, ""},
-	{"region: eu-west-1\n", &providerConfig{region: "eu-west-1", auth: testAuth}, ""},
-	{"region: unknown\n", nil, ".*invalid region name.*"},
-	{"region: configtest\n", &providerConfig{region: "configtest", auth: testAuth}, ""},
-	{"region: 666\n", nil, ".*expected string, got 666"},
-	{"access-key: 666\n", nil, ".*expected string, got 666"},
-	{"secret-key: 666\n", nil, ".*expected string, got 666"},
-	{"access-key: jujuer\nsecret-key: open sesame\n",
+	{
+		"control-bucket: x\n",
+		&providerConfig{region: "us-east-1", auth: testAuth, bucket: "x"},
+		"",
+	},
+	{
+		"region: eu-west-1\ncontrol-bucket: x\n",
+		&providerConfig{region: "eu-west-1", auth: testAuth, bucket: "x"},
+		"",
+	},
+	{
+		"region: unknown\ncontrol-bucket: x\n",
+		nil,
+		".*invalid region name.*",
+	},
+	{
+		"region: configtest\ncontrol-bucket: x\n",
+		&providerConfig{region: "configtest", auth: testAuth, bucket: "x"},
+		"",
+	},
+	{
+		"region: 666\ncontrol-bucket: x\n",
+		nil,
+		".*expected string, got 666",
+	},
+	{
+		"access-key: 666\ncontrol-bucket: x\n",
+		nil,
+		".*expected string, got 666",
+	},
+	{
+		"secret-key: 666\ncontrol-bucket: x\n",
+		nil,
+		".*expected string, got 666",
+	},
+	{
+		"control-bucket: 666\n",
+		nil,
+		".*expected string, got 666",
+	},
+	{
+		"access-key: jujuer\nsecret-key: open sesame\ncontrol-bucket: x\n",
 		&providerConfig{
 			region: "us-east-1",
 			auth: aws.Auth{
 				AccessKey: "jujuer",
 				SecretKey: "open sesame",
 			},
+			bucket: "x",
 		},
 		"",
 	},
-	{"access-key: jujuer\n", nil, ".*environment has access-key but no secret-key"},
-	{"secret-key: badness\n", nil, ".*environment has secret-key but no access-key"},
+	{
+		"access-key: jujuer\ncontrol-bucket: x\n",
+		nil,
+		".*environment has access-key but no secret-key",
+	},
+	{
+		"secret-key: badness\ncontrol-bucket: x\n",
+		nil,
+		".*environment has secret-key but no access-key",
+	},
 	// unknown fields are discarded
-	{"unknown-something: 666\n", &providerConfig{region: "us-east-1", auth: testAuth}, ""},
+	{
+		"unknown-something: 666\ncontrol-bucket: x",
+		&providerConfig{region: "us-east-1", auth: testAuth, bucket: "x"},
+		"",
+	},
 }
 
 func indent(s string, with string) string {
@@ -74,7 +121,8 @@ func (configSuite) TestConfig(c *C) {
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "")
 
 	// first try with no auth environment vars set
-	test := configTest{"", &providerConfig{region: "us-east-1", auth: testAuth}, ".*not found in environment"}
+	test := configTests[0]
+	test.err = ".*not found in environment"
 	test.run(c)
 
 	// then set testAuthults

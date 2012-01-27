@@ -9,6 +9,7 @@ package environs_test
 
 import (
 	"fmt"
+	"io"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/schema"
 	"sync"
@@ -90,4 +91,16 @@ func (e *dummyEnviron) Instances() ([]environs.Instance, error) {
 		is = append(is, i)
 	}
 	return is, nil
+}
+
+func (e *dummyEnviron) PutFile(file string, r io.Reader, length int64) error {
+	return fmt.Errorf("dummyEnviron doesn't implement files")
+}
+
+func (e *dummyEnviron) GetFile(file string) (io.ReadCloser, error) {
+	return nil, fmt.Errorf("dummyEnviron doesn't implement files")
+}
+
+func (e *dummyEnviron) RemoveFile(file string) error {
+	return fmt.Errorf("dummyEnviron doesn't implement files")
 }
