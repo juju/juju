@@ -20,7 +20,7 @@ import (
 
 // The following MongoDB collections are currently used:
 //
-//     juju.events    - Events relative to the lifecycle of the charm
+//     juju.events    - Log of events relating to the lifecycle of charms
 //     juju.charms    - Information about the stored charms
 //     juju.charmfs.* - GridFS with the charm files
 //     juju.locks     - Has unique keys with url of updating charms
@@ -444,7 +444,7 @@ const (
 	EventPublishDone
 )
 
-// CharmEvent is a record for an event relative to one or more charm URLs.
+// CharmEvent is a record for an event relating to one or more charm URLs.
 type CharmEvent struct {
 	Kind        CharmEventKind
 	RevisionKey string
@@ -514,7 +514,7 @@ func (s *Store) logCharmEvent(event *CharmEvent, session *storeSession, lockUrls
 	return events.Insert(doc)
 }
 
-// CharmEvent returns the attempted event associated with url
+// CharmEvent returns the most recent event associated with url
 // and revisionKey.  If the specified event isn't found the
 // error ErrUnknownChange will be returned.
 func (s *Store) CharmEvent(url *charm.URL, revisionKey string) (*CharmEvent, error) {
@@ -529,7 +529,9 @@ func (s *Store) CharmEvent(url *charm.URL, revisionKey string) (*CharmEvent, err
 
 	events := session.Events()
 	doc := eventDoc{}
-	err := events.Find(bson.D{{"urls", url.String()}, {"revisionkey", revisionKey}}).One(&doc)
+	query := events.Find(bson.D{{"urls", url.String()}, {"revisionkey", revisionKey}})
+	query.Sort(bson.D{{"time", -1}})
+	err := query.One(&doc)
 	if err == mgo.NotFound {
 		return nil, ErrNotFound
 	}
