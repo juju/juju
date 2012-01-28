@@ -64,8 +64,8 @@ func createConfigNode(zk *zookeeper.Conn, path string, values map[string]interfa
 	c := &ConfigNode{
 		zk:            zk,
 		path:          path,
-		pristineCache: copyCache(values),
-		cache:         make(map[string]interface{}),
+		pristineCache: make(map[string]interface{}),
+		cache:         copyCache(values),
 	}
 	_, err := c.Write()
 	if err != nil {
@@ -86,10 +86,12 @@ func readConfigNode(zk *zookeeper.Conn, path string, required bool) (*ConfigNode
 	}
 	yaml, _, err := c.zk.Get(c.path)
 	if err != nil {
-		if err == zookeeper.ZNONODE && required {
-			return nil, fmt.Errorf("config %q not found", c.path)
+		if err != zookeeper.ZNONODE {
+			return nil, err
 		}
-		return nil, err
+		if required {
+			return nil, fmt.Errorf("config %q not found", c.path)	
+		}
 	}
 	if err = goyaml.Unmarshal([]byte(yaml), c.cache); err != nil {
 		return nil, err

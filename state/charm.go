@@ -25,7 +25,7 @@ func (c *Charm) URL() *charm.URL {
 // will be removed when the charm implementation
 // reached a proper state.
 func CharmMock(url string) *Charm {
-	u, err := charm.ParseURL(url)
+	u, err := charm.NewURL(url)
 	if err != nil {
 		panic(err)
 	}

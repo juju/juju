@@ -185,55 +185,6 @@ func (s StateSuite) TestServiceExposed(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s StateSuite) TestConfigNode(c *C) {
-	// Service is needed here due to non-public creation of config nodes.
-	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
-	c.Assert(err, IsNil)
-
-	// Check if the config node is initially empty.
-	cfgA, err := wordpress.Config()
-	c.Assert(err, IsNil)
-	c.Assert(len(cfgA.Keys()), Equals, 0)
-
-	// Check if config values can be written.
-	cfgA.Set("foo", "one")
-	cfgA.Set("bar", 2)
-	cfgA.Set("baz", true)
-	changesA, err := cfgA.Write()
-	c.Assert(err, IsNil)
-	c.Assert(len(changesA), Equals, 3)
-	cfgB, err := wordpress.Config()
-	c.Assert(err, IsNil)
-	c.Assert(len(cfgB.Keys()), Equals, 3)
-	value, ok := cfgB.Get("foo")
-	c.Assert(ok, Equals, true)
-	c.Assert(value, Equals, "one")
-
-	// Check if config values can be changed.
-	cfgB.Set("bar", "two")
-	cfgB.Set("yadda", 4.1)
-	changesB, err := cfgB.Write()
-	c.Assert(err, IsNil)
-	c.Assert(len(changesB), Equals, 2)
-	cfgC, err := wordpress.Config()
-	c.Assert(err, IsNil)
-	c.Assert(len(cfgC.Keys()), Equals, 4)
-	value, ok = cfgC.Get("yadda")
-	c.Assert(ok, Equals, true)
-	c.Assert(value, Equals, 4.1)
-
-	// Check if access to non-existent keys returns ok=false.
-	value, ok = cfgC.Get("nokey")
-	c.Assert(ok, Equals, false)
-
-	// Check if keys can be deleted. Non-existent keys must not panic.
-	cfgC.Delete("baz")
-	value, ok = cfgC.Get("baz")
-	c.Assert(ok, Equals, false)
-	c.Assert(len(cfgC.Keys()), Equals, 3)
-	cfgC.Delete("nokey")
-}
-
 func (s StateSuite) TestAddUnit(c *C) {
 	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
 	c.Assert(err, IsNil)
