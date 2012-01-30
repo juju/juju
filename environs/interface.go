@@ -55,6 +55,7 @@ type Environ interface {
 	GetFile(file string) (io.ReadCloser, error)
 
 	// RemoveFile removes the given file from the environment's storage.
+	// It is not an error to remove a file that does not exist.
 	RemoveFile(file string) error
 
 	// Destroy shuts down all known machines and destroys the
