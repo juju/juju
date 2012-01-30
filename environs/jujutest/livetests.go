@@ -1,8 +1,10 @@
 package jujutest
 
 import (
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
+	"time"
 )
 
 // TestStartStop is similar to Tests.TestStartStop except
@@ -49,4 +51,20 @@ func (t *LiveTests) TestStartStop(c *C) {
 	for _, inst := range insts {
 		c.Assert(inst.Id(), Not(Equals), id0)
 	}
+}
+
+// TODO check that binary data works ok?
+var contents = []byte("hello\n")
+var contents2 = []byte("goodbye\n\n")
+
+func (t *LiveTests) TestFile(c *C) {
+	name := fmt.Sprint("testfile", time.Now().UnixNano())
+	checkFileDoesNotExist(c, t.env, name)
+	checkPutFile(c, t.env, name, contents)
+	checkFileHasContents(c, t.env, name, contents)
+	checkPutFile(c, t.env, name, contents2) // check that we can overwrite the file
+	checkFileHasContents(c, t.env, name, contents2)
+	err := t.env.RemoveFile(name)
+	c.Check(err, IsNil)
+	checkFileDoesNotExist(c, t.env, name)
 }

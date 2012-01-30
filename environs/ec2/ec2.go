@@ -2,8 +2,11 @@ package ec2
 
 import (
 	"fmt"
+	"io"
 	"launchpad.net/goamz/ec2"
+	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
+	"sync"
 )
 
 func init() {
@@ -15,9 +18,12 @@ type environProvider struct{}
 var _ environs.EnvironProvider = environProvider{}
 
 type environ struct {
-	name   string
-	config *providerConfig
-	ec2    *ec2.EC2
+	name             string
+	config           *providerConfig
+	ec2              *ec2.EC2
+	s3               *s3.S3
+	checkBucket      sync.Once
+	checkBucketError error
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -45,6 +51,7 @@ func (environProvider) Open(name string, config interface{}) (e environs.Environ
 		name:   name,
 		config: cfg,
 		ec2:    ec2.New(cfg.auth, Regions[cfg.region]),
+		s3:     s3.New(cfg.auth, Regions[cfg.region]),
 	}, nil
 }
 
@@ -53,12 +60,17 @@ func (e *environ) StartInstance(machineId int) (environs.Instance, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
 	}
+	groups, err := e.setUpGroups(machineId)
+	if err != nil {
+		return nil, fmt.Errorf("cannot set up groups: %v", err)
+	}
 	instances, err := e.ec2.RunInstances(&ec2.RunInstances{
-		ImageId:      image.ImageId,
-		MinCount:     1,
-		MaxCount:     1,
-		UserData:     nil,
-		InstanceType: "m1.small",
+		ImageId:        image.ImageId,
+		MinCount:       1,
+		MaxCount:       1,
+		UserData:       nil,
+		InstanceType:   "m1.small",
+		SecurityGroups: groups,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot run instances: %v", err)
@@ -99,10 +111,108 @@ func (e *environ) Instances() ([]environs.Instance, error) {
 	return insts, nil
 }
 
+// makeBucket makes the environent's control bucket, the
+// place where bootstrap information and deployed charms
+// are stored. To avoid two round trips on every PUT operation,
+// we do this only once for each environ.
+func (e *environ) makeBucket() error {
+	e.checkBucket.Do(func() {
+		// try to make the bucket - PutBucket will succeed if the
+		// bucket already exists.
+		e.checkBucketError = e.bucket().PutBucket(s3.Private)
+	})
+	return e.checkBucketError
+}
+
+func (e *environ) PutFile(file string, r io.Reader, length int64) error {
+	if err := e.makeBucket(); err != nil {
+		return fmt.Errorf("cannot make S3 control bucket: %v", err)
+	}
+	err := e.bucket().PutReader(file, r, length, "binary/octet-stream", s3.Private)
+	if err != nil {
+		return fmt.Errorf("cannot write file %q to control bucket: %v", file, err)
+	}
+	return nil
+}
+
+func (e *environ) GetFile(file string) (io.ReadCloser, error) {
+	return e.bucket().GetReader(file)
+}
+
+func (e *environ) RemoveFile(file string) error {
+	return e.bucket().Del(file)
+}
+
+func (e *environ) bucket() *s3.Bucket {
+	return e.s3.Bucket(e.config.bucket)
+}
+
 func (e *environ) Destroy() error {
+	// TODO destroy control bucket
 	insts, err := e.Instances()
 	if err != nil {
 		return err
 	}
 	return e.StopInstances(insts)
+}
+
+func (e *environ) machineGroupName(machineId int) string {
+	return fmt.Sprintf("%s-%d", e.groupName(), machineId)
+}
+
+func (e *environ) groupName() string {
+	return "juju-" + e.name
+}
+
+// setUpGroups creates the security groups for the new machine, and
+// returns them.
+// 
+// Instances are tagged with a group so they can be distinguished from
+// other instances that might be running on the same EC2 account.  In
+// addition, a specific machine security group is created for each
+// machine, so that its firewall rules can be configured per machine.
+func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
+	jujuGroup := ec2.SecurityGroup{Name: e.groupName()}
+	jujuMachineGroup := ec2.SecurityGroup{Name: e.machineGroupName(machineId)}
+
+	f := ec2.NewFilter()
+	f.Add("group-name", jujuGroup.Name, jujuMachineGroup.Name)
+	groups, err := e.ec2.SecurityGroups(nil, f)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get security groups: %v", err)
+	}
+
+	for _, g := range groups.Groups {
+		switch g.Name {
+		case jujuGroup.Name:
+			jujuGroup = g.SecurityGroup
+		case jujuMachineGroup.Name:
+			jujuMachineGroup = g.SecurityGroup
+		}
+	}
+
+	// Create the provider group if doesn't exist.
+	if jujuGroup.Id == "" {
+		r, err := e.ec2.CreateSecurityGroup(jujuGroup.Name, "juju group for "+e.name)
+		if err != nil {
+			return nil, fmt.Errorf("cannot create juju security group: %v", err)
+		}
+		jujuGroup = r.SecurityGroup
+	}
+
+	// Create the machine-specific group, but first see if there's
+	// one already existing from a previous machine launch;
+	// if so, delete it, since it can have the wrong firewall setup
+	if jujuMachineGroup.Id != "" {
+		_, err := e.ec2.DeleteSecurityGroup(jujuMachineGroup)
+		if err != nil {
+			return nil, fmt.Errorf("cannot delete old security group %q: %v", jujuMachineGroup.Name, err)
+		}
+	}
+	descr := fmt.Sprintf("juju group for %s machine %d", e.name, machineId)
+	r, err := e.ec2.CreateSecurityGroup(jujuMachineGroup.Name, descr)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create machine group %q: %v", jujuMachineGroup.Name, err)
+	}
+	return []ec2.SecurityGroup{jujuGroup, r.SecurityGroup}, nil
 }

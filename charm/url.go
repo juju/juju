@@ -27,11 +27,34 @@ type Collection struct {
 	Series string
 }
 
+// WithRevision returns a *URL with the same Name and Collection of url,
+// but with Revision set to the revision parameter. If url already has
+// the requested revision, url itself is returned.
+func (url *URL) WithRevision(revision int) *URL {
+	if url.Revision == revision {
+		return url
+	}
+	urlCopy := *url
+	urlCopy.Revision = revision
+	return &urlCopy
+}
+
 var validUser = regexp.MustCompile("^[a-z0-9][a-zA-Z0-9+.-]+$")
 var validSeries = regexp.MustCompile("^[a-z]+([a-z-]+[a-z])?$")
 var validName = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
 
-func NewURL(url string) (*URL, error) {
+// MustParseURL works like ParseURL, but panics in case of errors.
+func MustParseURL(url string) *URL {
+	u, err := ParseURL(url)
+	if err != nil {
+		panic(err)
+	}
+	return u
+}
+
+// ParseURL parses the provided charm URL string into its respective
+// structure.
+func ParseURL(url string) (*URL, error) {
 	u := &URL{}
 	i := strings.Index(url, ":")
 	if i > 0 {

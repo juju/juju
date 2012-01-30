@@ -138,7 +138,7 @@ func (s StateSuite) TestServiceCharm(c *C) {
 	url, err := wordpress.CharmURL()
 	c.Assert(err, IsNil)
 	c.Assert(url.String(), Equals, "local:myseries/mytest-1")
-	url, err = charm.NewURL("local:myseries/myprod-1")
+	url, err = charm.ParseURL("local:myseries/myprod-1")
 	c.Assert(err, IsNil)
 	err = wordpress.SetCharmURL(url)
 	c.Assert(err, IsNil)

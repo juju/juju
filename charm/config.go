@@ -1,12 +1,13 @@
 package charm
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju/go/schema"
+	"reflect"
 	"strconv"
 )
 
@@ -25,6 +26,11 @@ type Config struct {
 	Options map[string]Option
 }
 
+// NewConfig returns a new Config without any options.
+func NewConfig() *Config {
+	return &Config{make(map[string]Option)}
+}
+
 // ReadConfig reads a config.yaml file and returns its representation.
 func ReadConfig(r io.Reader) (config *Config, err error) {
 	data, err := ioutil.ReadAll(r)
@@ -40,15 +46,20 @@ func ReadConfig(r io.Reader) (config *Config, err error) {
 	if err != nil {
 		return nil, errors.New("config: " + err.Error())
 	}
-	config = &Config{}
-	config.Options = make(map[string]Option)
+	config = NewConfig()
 	m := v.(schema.MapType)
 	for name, infov := range m["options"].(schema.MapType) {
 		opt := infov.(schema.MapType)
 		optTitle, _ := opt["title"].(string)
 		optType, _ := opt["type"].(string)
 		optDescr, _ := opt["description"].(string)
-		optDefault, _ := opt["default"]
+		optDefault := opt["default"]
+		if optDefault != nil {
+			if reflect.TypeOf(optDefault).Kind() != validTypes[optType] {
+				msg := "Bad default for %q: %v is not of type %s"
+				return nil, fmt.Errorf(msg, name, optDefault, optType)
+			}
+		}
 		config.Options[name.(string)] = Option{
 			Title:       optTitle,
 			Type:        optType,
@@ -88,6 +99,12 @@ func (c *Config) Validate(values map[string]string) (processed map[string]interf
 				return nil, fmt.Errorf("Value for %q is not a float: %q", k, v)
 			}
 			out[k] = f
+		case "boolean":
+			b, err := strconv.ParseBool(v)
+			if err != nil {
+				return nil, fmt.Errorf("Value for %q is not a boolean: %q", k, v)
+			}
+			out[k] = b
 		default:
 			panic(fmt.Errorf("Internal error: option type %q is unknown to Validate", opt.Type))
 		}
@@ -100,10 +117,17 @@ func (c *Config) Validate(values map[string]string) (processed map[string]interf
 	return out, nil
 }
 
+var validTypes = map[string]reflect.Kind{
+	"string":  reflect.String,
+	"int":     reflect.Int64,
+	"boolean": reflect.Bool,
+	"float":   reflect.Float64,
+}
+
 var optionSchema = schema.FieldMap(
 	schema.Fields{
-		"type":        schema.OneOf(schema.Const("string"), schema.Const("int"), schema.Const("float")),
-		"default":     schema.OneOf(schema.String(), schema.Int(), schema.Float()),
+		"type":        schema.OneOf(schema.Const("string"), schema.Const("int"), schema.Const("float"), schema.Const("boolean")),
+		"default":     schema.OneOf(schema.String(), schema.Int(), schema.Float(), schema.Bool()),
 		"description": schema.String(),
 	},
 	schema.Optional{"default", "description"},

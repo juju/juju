@@ -24,12 +24,12 @@ func (c *Charm) URL() *charm.URL {
 // CharmMock returns a charm only for tests! It
 // will be removed when the charm implementation
 // reached a proper state.
-func CharmMock(url string) *Charm {
-	u, err := charm.NewURL(url)
+func CharmMock(id string) *Charm {
+	url, err := charm.ParseURL(id)
 	if err != nil {
 		panic(err)
 	}
 	return &Charm{
-		url: u,
+		url: url,
 	}
 }

@@ -33,7 +33,7 @@ func (s *Service) CharmURL() (url *charm.URL, err error) {
 		return nil, err
 	}
 	if id, ok := cn.Get("charm"); ok {
-		url, err = charm.NewURL(id.(string))
+		url, err = charm.ParseURL(id.(string))
 		if err != nil {
 			return nil, err
 		}

@@ -1,7 +1,9 @@
-package ec2
+package ec2_test
 
 import (
+	"crypto/rand"
 	"fmt"
+	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/jujutest"
@@ -14,14 +16,16 @@ import (
 // to make the integration testing work:
 //  access-key: $AWS_ACCESS_KEY_ID
 //  admin-secret: $AWS_SECRET_ACCESS_KEY
-var integrationConfig = []byte(`
+var integrationConfig = `
 environments:
   sample:
     type: ec2
-`)
+    control-bucket: '%s'
+`
 
 func registerIntegrationTests() {
-	envs, err := environs.ReadEnvironsBytes(integrationConfig)
+	cfg := fmt.Sprintf(integrationConfig, bucketName)
+	envs, err := environs.ReadEnvironsBytes([]byte(cfg))
 	if err != nil {
 		panic(fmt.Errorf("cannot parse integration tests config data: %v", err))
 	}
@@ -31,4 +35,13 @@ func registerIntegrationTests() {
 			Name:     name,
 		})
 	}
+}
+
+func bucketName() string {
+	buf := make([]byte, 8)
+	_, err := io.ReadFull(rand.Reader, buf)
+	if err != nil {
+		panic(fmt.Sprintf("error from crypto rand: %v", err))
+	}
+	return fmt.Sprintf("juju-test-%x", buf)
 }
