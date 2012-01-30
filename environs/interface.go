@@ -28,7 +28,7 @@ type Instance interface {
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
 type Environ interface {
-	// Bootstrap bootstraps a juju environment. It may start
+	// Bootstrap initializes the state for the environment. It may start
 	// one or more instances.
 	Bootstrap() error
 
