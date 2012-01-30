@@ -2,7 +2,11 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"launchpad.net/juju/go/log"
 	"launchpad.net/~rogpeppe/juju/gnuflag/flag"
+	stdlog "log"
+	"os"
 	"sort"
 	"strings"
 )
@@ -22,6 +26,7 @@ commands:
 type JujuCommand struct {
 	Logfile string
 	Verbose bool
+	Debug   bool
 	subcmds map[string]Command
 	subcmd  Command
 }
@@ -81,10 +86,11 @@ func (c *JujuCommand) InitFlagSet(f *flag.FlagSet) {
 	if c.subcmd != nil {
 		c.subcmd.InitFlagSet(f)
 	}
-	f.StringVar(&c.Logfile, "l", c.Logfile, "path to write log to")
-	f.StringVar(&c.Logfile, "log-file", c.Logfile, "path to write log to")
+	f.StringVar(&c.Logfile, "logfile", c.Logfile, "path to write log to")
 	f.BoolVar(&c.Verbose, "v", c.Verbose, "if set, log additional messages")
 	f.BoolVar(&c.Verbose, "verbose", c.Verbose, "if set, log additional messages")
+	f.BoolVar(&c.Debug, "d", c.Debug, "if set, log many additional messages")
+	f.BoolVar(&c.Debug, "debug", c.Debug, "if set, log many additional messages")
 }
 
 // ParsePositional selects the subcommand specified by subargs and uses it to
@@ -103,8 +109,35 @@ func (c *JujuCommand) ParsePositional(subargs []string) error {
 	return Parse(c, true, subargs[1:])
 }
 
+// initOutput sets up logging to a file, or to stderr, depending on what's been
+// requested on the command line.
+func (c *JujuCommand) initOutput() error {
+	if c.Debug {
+		log.Debug = true
+	}
+	var target io.Writer
+	if c.Logfile != "" {
+		var err error
+		target, err = os.OpenFile(c.Logfile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+		if err != nil {
+			return err
+		}
+	} else {
+		if c.Verbose || c.Debug {
+			target = os.Stderr
+		}
+	}
+	if target != nil {
+		log.Target = stdlog.New(target, "", 0)
+	}
+	return nil
+}
+
 // Run executes the selected subcommand, which depends on Parse having been
 // called with the JujuCommand.
 func (c *JujuCommand) Run() error {
+	if err := c.initOutput(); err != nil {
+		return err
+	}
 	return c.subcmd.Run()
 }

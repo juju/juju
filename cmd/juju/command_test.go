@@ -4,7 +4,10 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	main "launchpad.net/juju/go/cmd/juju"
+	"launchpad.net/juju/go/log"
 	"launchpad.net/~rogpeppe/juju/gnuflag/flag"
+	"os"
+	"path/filepath"
 )
 
 type TestCommand struct {
@@ -87,6 +90,24 @@ func (s *CommandSuite) TestRegister(c *C) {
 	c.Assert(cmds, Equals, "flap\n    flap the juju\nflip\n    flip the juju\n")
 }
 
+func (s *CommandSuite) TestDebug(c *C) {
+	jc, err := parseEmpty([]string{})
+	c.Assert(err, ErrorMatches, "no command specified")
+	c.Assert(jc.Debug, Equals, false)
+
+	jc, _, err = parseDefenestrate([]string{"defenestrate"})
+	c.Assert(err, IsNil)
+	c.Assert(jc.Debug, Equals, false)
+
+	jc, err = parseEmpty([]string{"--debug"})
+	c.Assert(err, ErrorMatches, "no command specified")
+	c.Assert(jc.Debug, Equals, true)
+
+	jc, _, err = parseDefenestrate([]string{"-d", "defenestrate"})
+	c.Assert(err, IsNil)
+	c.Assert(jc.Debug, Equals, true)
+}
+
 func (s *CommandSuite) TestVerbose(c *C) {
 	jc, err := parseEmpty([]string{})
 	c.Assert(err, ErrorMatches, "no command specified")
@@ -114,19 +135,56 @@ func (s *CommandSuite) TestLogfile(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(jc.Logfile, Equals, "")
 
-	jc, err = parseEmpty([]string{"-l", "foo"})
+	jc, err = parseEmpty([]string{"--logfile", "foo"})
 	c.Assert(err, ErrorMatches, "no command specified")
 	c.Assert(jc.Logfile, Equals, "foo")
 
-	jc, _, err = parseDefenestrate([]string{"--log-file", "bar", "defenestrate"})
+	jc, _, err = parseDefenestrate([]string{"--logfile", "bar", "defenestrate"})
 	c.Assert(err, IsNil)
 	c.Assert(jc.Logfile, Equals, "bar")
 }
 
-func (s *CommandSuite) TestRun(c *C) {
-	jc, _, err := parseDefenestrate([]string{"defenestrate", "--value", "cheese"})
+func saveLog() func() {
+	target, debug := log.Target, log.Debug
+	log.Target, log.Debug = nil, false
+	return func() {
+		log.Target, log.Debug = target, debug
+	}
+}
+
+func checkRun(c *C, args []string, debug bool, target Checker, logfile string) {
+	defer saveLog()()
+	args = append([]string{"defenestrate", "--value", "cheese"}, args...)
+	jc, _, err := parseDefenestrate(args)
 	c.Assert(err, IsNil)
 
 	err = jc.Run()
 	c.Assert(err, ErrorMatches, "BORKEN: value is cheese.")
+
+	c.Assert(log.Debug, Equals, debug)
+	c.Assert(log.Target, target)
+	if logfile != "" {
+		_, err := os.Stat(logfile)
+		c.Assert(err, IsNil)
+	}
+}
+
+func (s *CommandSuite) TestRun(c *C) {
+	checkRun(c, []string{}, false, IsNil, "")
+	checkRun(c, []string{"--debug"}, true, NotNil, "")
+	checkRun(c, []string{"--verbose"}, false, NotNil, "")
+	checkRun(c, []string{"--verbose", "--debug"}, true, NotNil, "")
+
+	tmp := c.MkDir()
+	path := filepath.Join(tmp, "log-1")
+	checkRun(c, []string{"--logfile", path}, false, NotNil, path)
+
+	path = filepath.Join(tmp, "log-2")
+	checkRun(c, []string{"--logfile", path, "--debug"}, true, NotNil, path)
+
+	path = filepath.Join(tmp, "log-3")
+	checkRun(c, []string{"--logfile", path, "--verbose"}, false, NotNil, path)
+
+	path = filepath.Join(tmp, "log-4")
+	checkRun(c, []string{"--logfile", path, "--verbose", "--debug"}, true, NotNil, path)
 }

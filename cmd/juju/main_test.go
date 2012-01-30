@@ -72,7 +72,7 @@ func breakJuju(c *C) (string, func()) {
 	home := os.Getenv("HOME")
 	path := c.MkDir()
 	os.Setenv("HOME", path)
-	msg := fmt.Sprintf("JUJU open %s/.juju/environments.yaml: no such file or directory", path)
+	msg := fmt.Sprintf("open %s/.juju/environments.yaml: no such file or directory", path)
 	return msg, func() { os.Setenv("HOME", home) }
 }
 
@@ -80,7 +80,7 @@ func (s *MainSuite) TestActualRunCreatesLog(c *C) {
 	msg, unbreak := breakJuju(c)
 	defer unbreak()
 	logpath := filepath.Join(c.MkDir(), "log")
-	lines := badrun(c, 1, "--log-file", logpath, "--verbose", "bootstrap")
+	lines := badrun(c, 1, "--logfile", logpath, "--verbose", "bootstrap")
 	c.Assert(lines[0], Equals, msg)
 	_, err := os.Stat(logpath)
 	c.Assert(err, IsNil)
@@ -90,7 +90,7 @@ func (s *MainSuite) TestActualRunLogfileWorksInterspersed(c *C) {
 	msg, unbreak := breakJuju(c)
 	defer unbreak()
 	logpath := filepath.Join(c.MkDir(), "log")
-	lines := badrun(c, 1, "bootstrap", "--log-file", logpath)
+	lines := badrun(c, 1, "bootstrap", "--logfile", logpath)
 	c.Assert(lines[0], Equals, msg)
 	_, err := os.Stat(logpath)
 	c.Assert(err, IsNil)
@@ -100,5 +100,12 @@ func (s *MainSuite) TestActualRunVerboseWorksInterspersed(c *C) {
 	msg, unbreak := breakJuju(c)
 	defer unbreak()
 	lines := badrun(c, 1, "bootstrap", "--verbose")
+	c.Assert(lines[0], Equals, msg)
+}
+
+func (s *MainSuite) TestActualRunDebugWorksInterspersed(c *C) {
+	msg, unbreak := breakJuju(c)
+	defer unbreak()
+	lines := badrun(c, 1, "bootstrap", "--debug")
 	c.Assert(lines[0], Equals, msg)
 }
