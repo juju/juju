@@ -100,6 +100,18 @@ func registerLocalTests() {
 	}
 }
 
+func (t *localTests) TestBootstrapStartsInstance(c *C) {
+	env, err := t.Environs.Open(t.Name)
+	c.Assert(err, IsNil)
+
+	err = env.Bootstrap()
+	c.Assert(err, IsNil)
+
+	insts, err := env.Instances()
+	c.Assert(err, IsNil)
+	c.Assert(len(insts), Equals, 1)
+}
+
 func (t *localTests) TestInstanceGroups(c *C) {
 	env, err := t.Environs.Open(t.Name)
 	c.Assert(err, IsNil)
