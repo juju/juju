@@ -248,8 +248,8 @@ func (srv *localServer) startServer(c *C) {
 		c.Fatalf("cannot start s3 test server: %v", err)
 	}
 	ec2.Regions["test"] = aws.Region{
-		EC2Endpoint: srv.ec2srv.Address(),
-		S3Endpoint:  srv.s3srv.Address(),
+		EC2Endpoint: srv.ec2srv.URL(),
+		S3Endpoint:  srv.s3srv.URL(),
 	}
 	srv.setup(srv)
 }
