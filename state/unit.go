@@ -70,7 +70,7 @@ func (u *Unit) zkAgentPath() string {
 func parseUnitName(name string) (serviceName string, seqNo int, err error) {
 	parts := strings.Split(name, "/")
 	if len(parts) != 2 {
-		return "", 0, fmt.Errorf("%q is no valid unit name", name)
+		return "", 0, fmt.Errorf("%q is not a valid unit name", name)
 	}
 	sequenceNo, err := strconv.ParseInt(parts[1], 10, 0)
 	if err != nil {

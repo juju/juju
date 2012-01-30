@@ -214,9 +214,9 @@ func (s StateSuite) TestReadUnit(c *C) {
 	// Check that retrieving a non-existent or an invalidly
 	// named unit fail nicely.
 	unit, err = wordpress.Unit("wordpress")
-	c.Assert(err, ErrorMatches, `"wordpress" is no valid unit name`)
+	c.Assert(err, ErrorMatches, `"wordpress" is not a valid unit name`)
 	unit, err = wordpress.Unit("wordpress/0/0")
-	c.Assert(err, ErrorMatches, `"wordpress/0/0" is no valid unit name`)
+	c.Assert(err, ErrorMatches, `"wordpress/0/0" is not a valid unit name`)
 	unit, err = wordpress.Unit("pressword/0")
 	c.Assert(err, ErrorMatches, `can't find unit "pressword/0" on service "wordpress"`)
 

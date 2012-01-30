@@ -40,7 +40,7 @@ func (s *State) AddService(name string, charm *Charm) (*Service, error) {
 	}
 	key := strings.Split(path, "/")[2]
 	service := &Service{s.zk, key, name}
-	// Create an empty chonfiguration node.
+	// Create an empty configuration node.
 	_, err = createConfigNode(s.zk, service.zkConfigPath(), map[string]interface{}{})
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func (s *State) AddService(name string, charm *Charm) (*Service, error) {
 }
 
 // RemoveService removes a service from the state. It will
-// also remove all its units and breaks any of its existing
+// also remove all its units and break any of its existing
 // relations.
 func (s *State) RemoveService(svc *Service) error {
 	// TODO Remove relations first, to prevent spurious hook execution.

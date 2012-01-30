@@ -72,6 +72,7 @@ func (s *TopologySuite) TearDownTest(c *C) {
 
 func (s TopologySuite) TestAddService(c *C) {
 	// Check that adding services works correctly.
+	c.Assert(s.t.HasService("s-0"), Equals, false)
 	err := s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
 	err = s.t.AddService("s-1", "mysql")
@@ -88,14 +89,6 @@ func (s TopologySuite) TestAddDuplicateService(c *C) {
 	c.Assert(err, ErrorMatches, `attempted to add duplicated service "s-0"`)
 	err = s.t.AddService("s-1", "wordpress")
 	c.Assert(err, ErrorMatches, `service name "wordpress" already in use`)
-}
-
-func (s TopologySuite) TestHasService(c *C) {
-	// Check that the test for a service by key works correctly.
-	c.Assert(s.t.HasService("s-0"), Equals, false)
-	err := s.t.AddService("s-0", "wordpress")
-	c.Assert(err, IsNil)
-	c.Assert(s.t.HasService("s-0"), Equals, true)
 }
 
 func (s TopologySuite) TestServiceKey(c *C) {
@@ -192,7 +185,7 @@ func (s TopologySuite) TestAddDuplicatedUnit(c *C) {
 	_, err = s.t.AddUnit("s-0", "u-0")
 	c.Assert(err, IsNil)
 	_, err = s.t.AddUnit("s-0", "u-0")
-	c.Assert(err, ErrorMatches, `unit "u-0" already in use in servie "s-0"`)
+	c.Assert(err, ErrorMatches, `unit "u-0" already in use in service "s-0"`)
 }
 
 func (s TopologySuite) TestAddUnitToNonExistingService(c *C) {
@@ -212,7 +205,7 @@ func (s TopologySuite) TestAddUnitToDifferentService(c *C) {
 	_, err = s.t.AddUnit("s-0", "u-0")
 	c.Assert(err, IsNil)
 	_, err = s.t.AddUnit("s-1", "u-0")
-	c.Assert(err, ErrorMatches, `unit "u-0" already in use in servie "s-0"`)
+	c.Assert(err, ErrorMatches, `unit "u-0" already in use in service "s-0"`)
 }
 
 func (s TopologySuite) TestUnitKeys(c *C) {
@@ -355,7 +348,7 @@ type ConfigNodeSuite struct {
 	zkAddr      string
 	zkConn      *zookeeper.Conn
 	zkEventChan <-chan zookeeper.Event
-	cn *ConfigNode
+	cn          *ConfigNode
 }
 
 var _ = Suite(&ConfigNodeSuite{})
@@ -462,7 +455,7 @@ func (s ConfigNodeSuite) TestDelete(c *C) {
 	s.cn.Delete("bar")
 	s.cn.Delete("non-existing")
 	keys := s.cn.Keys()
-	c.Assert(keys, Equals, []string{"baz", "foo", "test"})	
+	c.Assert(keys, Equals, []string{"baz", "foo", "test"})
 }
 
 func (s ConfigNodeSuite) TestWrite(c *C) {
@@ -478,7 +471,7 @@ func (s ConfigNodeSuite) TestWrite(c *C) {
 	cn, err := readConfigNode(s.zkConn, "/config", true)
 	c.Assert(err, IsNil)
 	keys := cn.Keys()
-	c.Assert(keys, Equals, []string{"bar", "baz", "foo"})		
+	c.Assert(keys, Equals, []string{"bar", "baz", "foo"})
 }
 
 func (s ConfigNodeSuite) TestSync(c *C) {

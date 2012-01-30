@@ -90,7 +90,7 @@ func readConfigNode(zk *zookeeper.Conn, path string, required bool) (*ConfigNode
 			return nil, err
 		}
 		if required {
-			return nil, fmt.Errorf("config %q not found", c.path)	
+			return nil, fmt.Errorf("config %q not found", c.path)
 		}
 	}
 	if err = goyaml.Unmarshal([]byte(yaml), c.cache); err != nil {

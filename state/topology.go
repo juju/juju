@@ -68,7 +68,7 @@ func (t *topology) dump() (string, error) {
 }
 
 // Version returns the version of the topology.
-func (t *topology) version() int {
+func (t *topology) Version() int {
 	return t.topology.Version
 }
 
@@ -145,7 +145,7 @@ func (t *topology) AddUnit(serviceKey, unitKey string) (int, error) {
 	// Check if unit key is unused.
 	for key, svc := range t.topology.Services {
 		if _, ok := svc.Units[unitKey]; ok {
-			return -1, fmt.Errorf("unit %q already in use in servie %q", unitKey, key)
+			return -1, fmt.Errorf("unit %q already in use in service %q", unitKey, key)
 		}
 	}
 	// Add unit and increase sequence number.
@@ -190,7 +190,7 @@ func (t *topology) UnitName(serviceKey, unitKey string) (string, error) {
 	return fmt.Sprintf("%s/%d", svc.Name, unit.Sequence), nil
 }
 
-// UnitKeyFromSequence returns the key of a unit by the its service key
+// UnitKeyFromSequence returns the key of a unit based on its service key
 // and its sequence number.
 func (t *topology) UnitKeyFromSequence(serviceKey string, sequenceNo int) (string, error) {
 	if err := t.assertService(serviceKey); err != nil {
