@@ -85,7 +85,6 @@ func (c *JujuCommand) Info() *Info {
 func (c *JujuCommand) InitFlagSet(f *flag.FlagSet) {
 	if c.subcmd != nil {
 		c.subcmd.InitFlagSet(f)
-		// Fall through
 	}
 	// All subcommands should also be expected to accept these options
 	f.StringVar(&c.Logfile, "logfile", c.Logfile, "path to write log to")
@@ -124,10 +123,8 @@ func (c *JujuCommand) initOutput() error {
 		if err != nil {
 			return err
 		}
-	} else {
-		if c.Verbose || c.Debug {
-			target = os.Stderr
-		}
+	} else if c.Verbose || c.Debug {
+		target = os.Stderr
 	}
 	if target != nil {
 		log.Target = stdlog.New(target, "", 0)

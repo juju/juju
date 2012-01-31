@@ -5,9 +5,9 @@ import (
 	"launchpad.net/juju/go/environs"
 )
 
-// Conn currently just holds an Environ, but will at some stage be extended to
-// hold a Zookeeper connection (when appropriate) as well.
+// Conn holds a connection to a juju.
 type Conn struct {
+	// TODO extend to hold an optional Zookeeper connection as well.
 	environ environs.Environ
 }
 
@@ -27,6 +27,7 @@ func NewConn(environName string) (*Conn, error) {
 
 // Bootstrap should initialize the Conn's environment and make it ready to
 // deploy services.
+// TODO implement this.
 func (c *Conn) Bootstrap() error {
 	return fmt.Errorf("This doesn't do anything yet.")
 }
