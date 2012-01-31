@@ -84,20 +84,28 @@ func readConfigNode(zk *zookeeper.Conn, path string, required bool) (*ConfigNode
 		pristineCache: make(map[string]interface{}),
 		cache:         make(map[string]interface{}),
 	}
+	if err := c.Read(required); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+// Read (re)reads the node data into c.
+func (c *ConfigNode) Read(required bool) error {
 	yaml, _, err := c.zk.Get(c.path)
 	if err != nil {
 		if err != zookeeper.ZNONODE {
-			return nil, err
+			return err
 		}
 		if required {
-			return nil, fmt.Errorf("config %q not found", c.path)
+			return fmt.Errorf("config %q not found", c.path)
 		}
 	}
 	if err = goyaml.Unmarshal([]byte(yaml), c.cache); err != nil {
-		return nil, err
+		return err
 	}
 	c.pristineCache = copyCache(c.cache)
-	return c, nil
+	return nil
 }
 
 // Write writes changes made to c back onto its node.
@@ -175,9 +183,27 @@ func (c *ConfigNode) Get(key string) (value interface{}, found bool) {
 	return
 }
 
+// Data returns all keys and values of the node.
+func (c *ConfigNode) Data() map[string]interface{} {
+	data := make(map[string]interface{})
+	for key, value := range c.cache {
+		data[key] = value
+	}
+	return data
+}
+
 // Set sets key to value
 func (c *ConfigNode) Set(key string, value interface{}) {
 	c.cache[key] = value
+}
+
+// Update sets multiple key/value pairs.
+func (c *ConfigNode) Update(kv map[string]interface{}) {
+	if kv != nil {
+		for key, value := range kv {
+			c.cache[key] = value
+		}
+	}
 }
 
 // Delete removes key.
@@ -204,8 +230,10 @@ func zkRemoveTree(zk *zookeeper.Conn, path string) error {
 // copyCache copies the keys and values of one cache into a new one.
 func copyCache(in map[string]interface{}) (out map[string]interface{}) {
 	out = make(map[string]interface{})
-	for key, value := range in {
-		out[key] = value
+	if in != nil {
+		for key, value := range in {
+			out[key] = value
+		}
 	}
 	return
 }
