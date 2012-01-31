@@ -12,6 +12,9 @@ type cloudinitSuite struct{}
 
 var _ = Suite(cloudinitSuite{})
 
+// When mutate is called on a known-good cloudConfig,
+// there should be an error complaining about the missing
+// field named by the adjacent err.
 var verifyTests = []struct {
 	err    string
 	mutate func(*cloudConfig)
@@ -32,6 +35,8 @@ var verifyTests = []struct {
 	}},
 }
 
+// Each test gives a cloudinit config - we check the
+// output to see if it looks correct.
 var cloudinitTests = []cloudConfig{
 	{
 		adminSecret:        "topsecret",
@@ -55,74 +60,52 @@ var cloudinitTests = []cloudConfig{
 	},
 }
 
-// cloundInitCheck runs a set of tests for one of the cloudConfig
+// cloundInitTest runs a set of tests for one of the cloudConfig
 // values above.
-type cloudinitCheck struct {
-	c   *C
+type cloudinitTest struct {
 	x   map[interface{}]interface{}		// the unmarshalled YAML.
 	cfg *cloudConfig			// the config being tested.
-	i   int							// the index of the test in cloudinitTests.
 }
 
-// addBug takes any "bug" info provided to cloudinitCheck.Assert or
-// cloudinitCheck.Check and adds contextual information.
-func (c *cloudinitCheck) addBug(args []interface{}) []interface{} {
-	args = append([]interface{}{}, args...)
-	bug := Bug("check %d; result %v", c.i, c.x)
-	if n := len(args); n > 0 {
-		if b, _ := args[n-1].(BugInfo); b != nil {
-			bug = Bug("check %d: %v; result %v", c.i, b.GetBugInfo(), c.x)
-			args = args[:n-1]
-		}
+func (t *cloudinitTest) check(c *C) {
+	t.checkPackage(c, "bzr")
+	t.checkOption(c, "apt_upgrade", true)
+	t.checkOption(c, "apt_update", true)
+	t.checkScripts(c, "mkdir -p /var/lib/juju")
+	t.checkMachineData(c)
+
+	if t.cfg.zookeeper {
+		t.checkPackage(c, "zookeeperd")
+		t.checkScripts(c, "juju-admin initialize")
+		t.checkScripts(c, regexp.QuoteMeta(t.cfg.instanceIdAccessor))
 	}
-	return append(args, bug)
-}
-
-func (c *cloudinitCheck) Assert(obtained interface{}, checker Checker, args ...interface{}) {
-	c.c.Assert(obtained, checker, c.addBug(args)...)
-}
-
-func (c *cloudinitCheck) Check(obtained interface{}, checker Checker, args ...interface{}) bool {
-	return c.c.Check(obtained, checker, c.addBug(args)...)
-}
-
-func (c *cloudinitCheck) check() {
-	c.checkPackage("bzr")
-	c.checkOption("apt_upgrade", true)
-	c.checkOption("apt_update", true)
-	c.checkScripts("python -m agents.machine")
-	c.checkScripts("mkdir -p /var/lib/juju")
-	c.checkMachineData()
-
-	if c.cfg.zookeeper {
-		c.checkPackage("zookeeperd")
-		c.checkScripts("juju-admin initialize")
-		c.checkScripts(regexp.QuoteMeta(c.cfg.instanceIdAccessor))
+	if t.cfg.origin != nil && t.cfg.origin.origin == originDistro {
+		t.checkScripts(c, "apt-get.*install juju")
 	}
-	if c.cfg.origin != nil && c.cfg.origin.origin == originDistro {
-		c.checkScripts("apt-get.*install juju")
-	}
-	if c.cfg.provisioner {
-		c.checkScripts("python -m agents.provision")
+	if t.cfg.provisioner {
+		t.checkScripts(c, "python -m juju.agents.provision")
 	}
 }
 
-func (c *cloudinitCheck) checkMachineData() {
-	mdata0 := c.x["machine-data"]
+func (t *cloudinitTest) checkMachineData(c *C) {
+	mdata0 := t.x["machine-data"]
 	c.Assert(mdata0, NotNil)
 	mdata, ok := mdata0.(map[interface{}]interface{})
 	c.Assert(ok, Equals, true)
 
 	m := mdata["machine-id"]
-	c.Assert(m, Equals, c.cfg.machineId)
+	c.Assert(m, Equals, t.cfg.machineId)
 }
 
-func (c *cloudinitCheck) checkOption(name string, value interface{}) {
-	c.Check(c.x[name], Equals, value, Bug("option %q", name))
+// checkOption checks that the given option name has the expected value.
+func (t *cloudinitTest) checkOption(c *C, name string, value interface{}) {
+	c.Check(t.x[name], Equals, value, Bug("option %q", name))
 }
 
-func (c *cloudinitCheck) checkScripts(pattern string) {
-	scripts0 := c.x["runcmd"]
+// checkScripts checks that at least one script started by
+// the cloudinit matches the given regexp pattern.
+func (t *cloudinitTest) checkScripts(c *C, pattern string) {
+	scripts0 := t.x["runcmd"]
 	if !c.Check(scripts0, NotNil, Bug("cloudinit has no entry for runcmd")) {
 		return
 	}
@@ -144,8 +127,9 @@ func (c *cloudinitCheck) checkScripts(pattern string) {
 	c.Check(found, Equals, true, Bug("script %q not found", pattern))
 }
 
-func (c *cloudinitCheck) checkPackage(pkg string) {
-	pkgs0 := c.x["packages"]
+// checkPackage checks that the cloudinit will install the given package.
+func (t *cloudinitTest) checkPackage(c *C, pkg string) {
+	pkgs0 := t.x["packages"]
 	if !c.Check(pkgs0, NotNil, Bug("cloudinit has no entry for packages")) {
 		return
 	}
@@ -166,29 +150,38 @@ func (c *cloudinitCheck) checkPackage(pkg string) {
 	c.Check(found, Equals, true, Bug("%q not found in packages", pkg))
 }
 
+// TestCloudInit checks that the output from the various tests
+// in cloudinitTests is well formed.
 func (cloudinitSuite) TestCloudInit(c *C) {
 	for i, cfg := range cloudinitTests {
-		t, err := newCloudInit(&cfg)
-		ch := &cloudinitCheck{
-			c:   c,
-			cfg: &cfg,
-			i:   i,
-		}
-		ch.Assert(err, IsNil)
-		ch.Check(t, NotNil)
+		c.Logf("check %d", i)
+		ci, err := newCloudInit(&cfg)
+		c.Assert(err, IsNil)
+		c.Check(ci, NotNil)
 
-		data, err := t.Render()
-		ch.Assert(err, IsNil)
+		// render the cloudinit config to bytes, and then
+		// back to a map so we can introspect it without
+		// worrying about internal details of the cloudinit
+		// package.
+
+		data, err := ci.Render()
+		c.Assert(err, IsNil)
 
 		x := make(map[interface{}]interface{})
 		err = goyaml.Unmarshal(data, &x)
-		ch.Assert(err, IsNil)
+		c.Assert(err, IsNil)
 
-		ch.x = x
-		ch.check()
+		c.Logf("result %v", x)
+		t := &cloudinitTest{
+			cfg: &cfg,
+			x: x,
+		}
+		t.check(c)
 	}
 }
 
+// TestCloudInitVerify checks that required fields are appropriately
+// checked for by newCloudInit.
 func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	cfg := &cloudConfig{
 		provisioner:        true,

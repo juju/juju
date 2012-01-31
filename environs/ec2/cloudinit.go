@@ -162,12 +162,12 @@ func newCloudInit(cfg *cloudConfig) (*cloudinit.Config, error) {
 	}
 
 	// machine data
-//	c.SetOption("machine-data",
-//		map[string]interface{}{
-//			"machine-id":           cfg.MachineId,
-//			"juju-provider-type":   cfg.ProviderType,
-//			"juju-zookeeper-hosts": zookeeperHosts,
-//		})
+	c.SetAttr("machine-data",
+		map[string]interface{}{
+			"machine-id":           cfg.machineId,
+			"juju-provider-type":   cfg.providerType,
+			"juju-zookeeper-hosts": zookeeperHosts,
+		})
 
 	// general options
 	c.SetAptUpgrade(true)
