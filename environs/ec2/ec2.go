@@ -2,8 +2,11 @@ package ec2
 
 import (
 	"fmt"
+	"io"
 	"launchpad.net/goamz/ec2"
+	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
+	"sync"
 )
 
 func init() {
@@ -15,9 +18,12 @@ type environProvider struct{}
 var _ environs.EnvironProvider = environProvider{}
 
 type environ struct {
-	name   string
-	config *providerConfig
-	ec2    *ec2.EC2
+	name             string
+	config           *providerConfig
+	ec2              *ec2.EC2
+	s3               *s3.S3
+	checkBucket      sync.Once
+	checkBucketError error
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -45,6 +51,7 @@ func (environProvider) Open(name string, config interface{}) (e environs.Environ
 		name:   name,
 		config: cfg,
 		ec2:    ec2.New(cfg.auth, Regions[cfg.region]),
+		s3:     s3.New(cfg.auth, Regions[cfg.region]),
 	}, nil
 }
 
@@ -104,7 +111,44 @@ func (e *environ) Instances() ([]environs.Instance, error) {
 	return insts, nil
 }
 
+// makeBucket makes the environent's control bucket, the
+// place where bootstrap information and deployed charms
+// are stored. To avoid two round trips on every PUT operation,
+// we do this only once for each environ.
+func (e *environ) makeBucket() error {
+	e.checkBucket.Do(func() {
+		// try to make the bucket - PutBucket will succeed if the
+		// bucket already exists.
+		e.checkBucketError = e.bucket().PutBucket(s3.Private)
+	})
+	return e.checkBucketError
+}
+
+func (e *environ) PutFile(file string, r io.Reader, length int64) error {
+	if err := e.makeBucket(); err != nil {
+		return fmt.Errorf("cannot make S3 control bucket: %v", err)
+	}
+	err := e.bucket().PutReader(file, r, length, "binary/octet-stream", s3.Private)
+	if err != nil {
+		return fmt.Errorf("cannot write file %q to control bucket: %v", file, err)
+	}
+	return nil
+}
+
+func (e *environ) GetFile(file string) (io.ReadCloser, error) {
+	return e.bucket().GetReader(file)
+}
+
+func (e *environ) RemoveFile(file string) error {
+	return e.bucket().Del(file)
+}
+
+func (e *environ) bucket() *s3.Bucket {
+	return e.s3.Bucket(e.config.bucket)
+}
+
 func (e *environ) Destroy() error {
+	// TODO destroy control bucket
 	insts, err := e.Instances()
 	if err != nil {
 		return err
@@ -130,7 +174,10 @@ func (e *environ) groupName() string {
 func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	jujuGroup := ec2.SecurityGroup{Name: e.groupName()}
 	jujuMachineGroup := ec2.SecurityGroup{Name: e.machineGroupName(machineId)}
-	groups, err := e.ec2.SecurityGroups([]ec2.SecurityGroup{jujuGroup, jujuMachineGroup}, nil)
+
+	f := ec2.NewFilter()
+	f.Add("group-name", jujuGroup.Name, jujuMachineGroup.Name)
+	groups, err := e.ec2.SecurityGroups(nil, f)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get security groups: %v", err)
 	}
