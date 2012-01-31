@@ -85,7 +85,9 @@ func (c *JujuCommand) Info() *Info {
 func (c *JujuCommand) InitFlagSet(f *flag.FlagSet) {
 	if c.subcmd != nil {
 		c.subcmd.InitFlagSet(f)
+		// Fall through
 	}
+	// All subcommands should also be expected to accept these options
 	f.StringVar(&c.Logfile, "logfile", c.Logfile, "path to write log to")
 	f.BoolVar(&c.Verbose, "v", c.Verbose, "if set, log additional messages")
 	f.BoolVar(&c.Verbose, "verbose", c.Verbose, "if set, log additional messages")

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"launchpad.net/juju/go/log"
 	"os"
 )
 
@@ -19,6 +20,7 @@ func Main(args []string) {
 		os.Exit(2)
 	}
 	if err := jc.Run(); err != nil {
+		log.Debugf("%s command failed: %s\n", jc.Info().Name, err)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

@@ -3,6 +3,7 @@ package main_test
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	. "launchpad.net/gocheck"
 	main "launchpad.net/juju/go/cmd/juju"
 	"os"
@@ -37,34 +38,38 @@ func badrun(c *C, exit int, cmd ...string) []string {
 }
 
 func (s *MainSuite) TestActualRunNoCommand(c *C) {
+	// Check error when command not specified
 	lines := badrun(c, 2)
 	c.Assert(lines[0], Equals, "no command specified")
 	c.Assert(lines[1], Equals, "usage: juju <command> [options] ...")
 }
 
 func (s *MainSuite) TestActualRunBadCommand(c *C) {
+	// Check error when command unknown
 	lines := badrun(c, 2, "discombobulate")
 	c.Assert(lines[0], Equals, "unrecognised command: discombobulate")
 	c.Assert(lines[1], Equals, "usage: juju <command> [options] ...")
 }
 
 func (s *MainSuite) TestActualRunBadJujuArg(c *C) {
+	// Check error when unknown option specified before command
 	lines := badrun(c, 2, "--cheese", "bootstrap")
 	c.Assert(lines[0], Equals, "flag provided but not defined: --cheese")
 	c.Assert(lines[1], Equals, "usage: juju <command> [options] ...")
 }
 
 func (s *MainSuite) TestActualRunBadBootstrapArg(c *C) {
+	// Check error when unknown option specified after command
 	lines := badrun(c, 2, "bootstrap", "--cheese")
 	c.Assert(lines[0], Equals, "flag provided but not defined: --cheese")
 	c.Assert(lines[1], Equals, "usage: juju bootstrap [options]")
 }
 
 func (s *MainSuite) TestActualRunSubcmdArgWorksNotInterspersed(c *C) {
+	// Check error when otherwise-valid option specified before command
 	lines := badrun(c, 2, "--environment", "erewhon", "bootstrap")
 	c.Assert(lines[0], Equals, "flag provided but not defined: --environment")
 	c.Assert(lines[1], Equals, "usage: juju <command> [options] ...")
-
 }
 
 // Induce failure to load environments and hence break Run.
@@ -76,36 +81,28 @@ func breakJuju(c *C) (string, func()) {
 	return msg, func() { os.Setenv("HOME", home) }
 }
 
-func (s *MainSuite) TestActualRunCreatesLog(c *C) {
+func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
+	// Check global args work when specified before command
 	msg, unbreak := breakJuju(c)
 	defer unbreak()
 	logpath := filepath.Join(c.MkDir(), "log")
-	lines := badrun(c, 1, "--logfile", logpath, "--verbose", "bootstrap")
+	lines := badrun(c, 1, "--logfile", logpath, "--verbose", "--debug", "bootstrap")
 	c.Assert(lines[0], Equals, msg)
-	_, err := os.Stat(logpath)
+	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
+	fullmsg := fmt.Sprintf("JUJU:DEBUG bootstrap command failed: %s\n", msg)
+	c.Assert(string(content), Equals, fullmsg)
 }
 
-func (s *MainSuite) TestActualRunLogfileWorksInterspersed(c *C) {
+func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
+	// Check global args work when specified after command
 	msg, unbreak := breakJuju(c)
 	defer unbreak()
 	logpath := filepath.Join(c.MkDir(), "log")
-	lines := badrun(c, 1, "bootstrap", "--logfile", logpath)
+	lines := badrun(c, 1, "bootstrap", "--logfile", logpath, "--verbose", "--debug")
 	c.Assert(lines[0], Equals, msg)
-	_, err := os.Stat(logpath)
+	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
-}
-
-func (s *MainSuite) TestActualRunVerboseWorksInterspersed(c *C) {
-	msg, unbreak := breakJuju(c)
-	defer unbreak()
-	lines := badrun(c, 1, "bootstrap", "--verbose")
-	c.Assert(lines[0], Equals, msg)
-}
-
-func (s *MainSuite) TestActualRunDebugWorksInterspersed(c *C) {
-	msg, unbreak := breakJuju(c)
-	defer unbreak()
-	lines := badrun(c, 1, "bootstrap", "--debug")
-	c.Assert(lines[0], Equals, msg)
+	fullmsg := fmt.Sprintf("JUJU:DEBUG bootstrap command failed: %s\n", msg)
+	c.Assert(string(content), Equals, fullmsg)
 }
