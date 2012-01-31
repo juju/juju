@@ -100,7 +100,7 @@ func registerLocalTests() {
 	}
 }
 
-func (t *localTests) TestBootstrapStartsInstance(c *C) {
+func (t *localTests) TestBootstrapInstanceAndState(c *C) {
 	env, err := t.Environs.Open(t.Name)
 	c.Assert(err, IsNil)
 
@@ -110,6 +110,11 @@ func (t *localTests) TestBootstrapStartsInstance(c *C) {
 	insts, err := env.Instances()
 	c.Assert(err, IsNil)
 	c.Assert(len(insts), Equals, 1)
+
+	state, err := ec2.LoadState(env)
+	c.Assert(err, IsNil)
+	c.Assert(len(state.ZookeeperInstances), Equals, 1)
+	c.Assert(state.ZookeeperInstances[0], Equals, insts[0].Id())
 }
 
 func (t *localTests) TestInstanceGroups(c *C) {
