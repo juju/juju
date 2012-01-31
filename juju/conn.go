@@ -25,8 +25,8 @@ func NewConn(environName string) (*Conn, error) {
 	return &Conn{environ}, nil
 }
 
-// Bootstrap should initialize the Conn's environment and make it ready to
-// deploy services.
+// Bootstrap initializes the Conn's environment and makes it ready to deploy
+// services.
 // TODO implement this.
 func (c *Conn) Bootstrap() error {
 	return fmt.Errorf("This doesn't do anything yet.")
