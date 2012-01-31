@@ -18,6 +18,7 @@ environments:
     type: ec2
     region: test
     control-bucket: test-bucket
+    admin-secret: verysecret
 `)
 
 // localTests wraps jujutest.Tests by adding

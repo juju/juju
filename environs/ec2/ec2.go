@@ -8,6 +8,8 @@ import (
 	"sync"
 )
 
+const zkPortSuffix = ":2181"
+
 func init() {
 	environs.RegisterProvider("ec2", environProvider{})
 }
@@ -85,6 +87,26 @@ func (e *environ) Bootstrap() error {
 	// Perhaps consider using SimpleDB for state storage
 	// which would enable that possibility.
 	return nil
+}
+
+func (e *environ) Zookeepers() ([]string, error) {
+	state, err := e.loadState()
+	if err != nil {
+		return nil, err
+	}
+	f := ec2.NewFilter()
+	f.Add("instance-id", state.ZookeeperInstances...)
+	resp, err := e.ec2.Instances(nil, f)
+	if err != nil {
+		return nil, err
+	}
+	var addrs []string
+	for _, r := range resp.Reservations {
+		for _, inst := range r.Instances {
+			addrs = append(addrs, inst.DNSName + zkPortSuffix)
+		}
+	}
+	return addrs, nil
 }
 
 func (e *environ) StartInstance(machineId int) (environs.Instance, error) {

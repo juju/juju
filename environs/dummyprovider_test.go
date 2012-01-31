@@ -59,6 +59,10 @@ func (dummyProvider) Open(name string, attributes interface{}) (e environs.Envir
 	}, nil
 }
 
+func Zookeepers() ([]string, error) {
+	return nil, nil
+}
+
 func (*dummyEnviron) Bootstrap() error {
 	return nil
 }

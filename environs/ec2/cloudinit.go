@@ -182,7 +182,7 @@ func (cfg *cloudConfig) zookeeperHostAddrs() string {
 		hosts = append(hosts, "localhost")
 	}
 	for i := range hosts {
-		hosts[i] += ":2181"
+		hosts[i] += zkPortSuffix
 	}
 	return strings.Join(hosts, ",")
 }

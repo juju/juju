@@ -32,6 +32,10 @@ type Environ interface {
 	// one or more instances.
 	Bootstrap() error
 
+	// Zookeepers returns a list of network addresses of zookeeper instances
+	// started by Bootstrap, in the form expected by net.Dial.
+	Zookeepers() ([]string, error)
+
 	// StartInstance asks for a new instance to be created,
 	// associated with the provided machine identifier.
 	// TODO add arguments to specify type of new machine.
