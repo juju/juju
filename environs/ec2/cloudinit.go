@@ -33,9 +33,9 @@ type cloudConfig struct {
 	zookeeperHosts []string
 
 	// jujuOrigin states where the juju instance should
-	// be obtained. If it is nil, a suitable default is chosen
+	// be obtained. If it is zero, a suitable default is chosen
 	// by examining the local environment.
-	origin *jujuOrigin
+	origin jujuOrigin
 
 	// MachineId identifies the new machine. It must be
 	// non-empty.
@@ -83,7 +83,7 @@ func newCloudInit(cfg *cloudConfig) (*cloudinit.Config, error) {
 	}
 	c := cloudinit.New()
 	origin := cfg.origin
-	if origin == nil {
+	if (origin == jujuOrigin{}) {
 		origin = defaultOrigin()
 	}
 
@@ -247,25 +247,29 @@ func (l *lines) nextWithPrefix(prefix string) (string, bool) {
 	panic("not reached")
 }
 
-var fallbackOrigin = &jujuOrigin{originDistro, ""}
+var fallbackOrigin = jujuOrigin{originDistro, ""}
 
 // defaultOrigin selects the best fit for running juju on cloudinit.
 // It is used only if the origin is not otherwise specified
 // in Config.origin.
-func defaultOrigin() *jujuOrigin {
+func defaultOrigin() jujuOrigin {
 	// TODO how can we (or should we?) determine if we're running from a branch?
 	data, err := exec.Command("apt-cache", "policy", "juju").Output()
 	if err != nil {
 		// TODO log the error?
 		return fallbackOrigin
 	}
-	out := lines(strings.Split(string(data), "\n"))
+	return policyToOrigin(string(data))
+}
+
+func policyToOrigin(policy string) jujuOrigin {
+	out := lines(strings.Split(policy, "\n"))
 	_, line := out.next()
 	if line == "" {
 		return fallbackOrigin
 	}
 	if line == "N: Unable to locate package juju" {
-		return &jujuOrigin{originBranch, "lp:juju"}
+		return jujuOrigin{originBranch, "lp:juju"}
 	}
 
 	// Find installed version.
@@ -275,7 +279,7 @@ func defaultOrigin() *jujuOrigin {
 		return fallbackOrigin
 	}
 	if version == "(none)" {
-		return &jujuOrigin{originBranch, "lp:juju"}
+		return jujuOrigin{originBranch, "lp:juju"}
 	}
 
 	_, ok = out.nextWithPrefix("Version table:")
@@ -291,7 +295,7 @@ func defaultOrigin() *jujuOrigin {
 	firstIndent, line := out.next()
 	for len(line) > 0 {
 		if strings.Contains(line, "http://ppa.launchpad.net/juju/pkgs/") {
-			return &jujuOrigin{originPPA, ""}
+			return jujuOrigin{originPPA, ""}
 		}
 		var indent int
 		indent, line = out.next()

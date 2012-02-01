@@ -10,8 +10,8 @@ import (
 	"strings"
 )
 
-// Given the name of a principle and a password, makeIdentity
-// transforms it into an identity of the form principle_name:hash that can be
+// Given the name of a principal and a password, makeIdentity
+// transforms it into an identity of the form principal_name:hash that can be
 // used for an access control list entry.
 func makeIdentity(name, password string) string {
 	h := sha1.New()
@@ -19,7 +19,7 @@ func makeIdentity(name, password string) string {
 	return name + ":" + base64.StdEncoding.EncodeToString(h.Sum(nil))
 }
 
-func isNotFound(e error) bool {
+func isNotFoundError(e error) bool {
 	if e == os.ENOENT {
 		return true
 	}
@@ -60,7 +60,7 @@ func authorizedKeys(path string) (string, error) {
 		}
 		data, err := ioutil.ReadFile(f)
 		if err != nil {
-			if finalError == nil && !isNotFound(err) {
+			if finalError == nil && !isNotFoundError(err) {
 				finalError = err
 			}
 			continue
