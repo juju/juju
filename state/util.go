@@ -20,32 +20,52 @@ var (
 )
 
 const (
-	itemAdded = iota + 1
-	itemModified
-	itemDeleted
+	ItemAdded = iota + 1
+	ItemModified
+	ItemDeleted
 )
 
 // ItemChange represents the change of an item in a configNode.
 type ItemChange struct {
-	changeType int
-	key        string
-	oldValue   interface{}
-	newValue   interface{}
+	ChangeType int
+	Key        string
+	OldValue   interface{}
+	NewValue   interface{}
 }
 
 // String returns the item change in a readable format.
 func (ic *ItemChange) String() string {
-	switch ic.changeType {
-	case itemAdded:
-		return fmt.Sprintf("setting added: %v = %v", ic.key, ic.newValue)
-	case itemModified:
+	switch ic.ChangeType {
+	case ItemAdded:
+		return fmt.Sprintf("setting added: %v = %v", ic.Key, ic.NewValue)
+	case ItemModified:
 		return fmt.Sprintf("setting modified: %v = %v (was %v)",
-			ic.key, ic.newValue, ic.oldValue)
-	case itemDeleted:
-		return fmt.Sprintf("setting deleted: %v (was %v)", ic.key, ic.oldValue)
+			ic.Key, ic.NewValue, ic.OldValue)
+	case ItemDeleted:
+		return fmt.Sprintf("setting deleted: %v (was %v)", ic.Key, ic.OldValue)
 	}
 	return fmt.Sprintf("unknown setting change type %d: %v = %v (was %v)",
-		ic.changeType, ic.key, ic.newValue, ic.oldValue)
+		ic.ChangeType, ic.Key, ic.NewValue, ic.OldValue)
+}
+
+// ItemChangeSlice contains a slice of item changes in a config node. 
+// It implements the sort interface to sort the items changes by key.
+type itemChangeSlice []ItemChange
+
+// Len is the number of item changes in the slice.
+func (ics itemChangeSlice) Len() int {
+	return len(ics)
+}
+
+// Less returns whether the item change with index i has a 
+// lower keythan the item change with index j.
+func (ics itemChangeSlice) Less(i, j int) bool {
+	return ics[i].Key < ics[j].Key
+}
+
+// Swap swaps the item changes with indexes i and j.
+func (ics itemChangeSlice) Swap(i, j int) {
+	ics[i], ics[j] = ics[j], ics[i]
 }
 
 // A ConfigNode represents the data of a ZooKeeper node
@@ -75,30 +95,25 @@ func createConfigNode(zk *zookeeper.Conn, path string, values map[string]interfa
 }
 
 // readConfigNode returns the ConfigNode for path.
-// If required is true, an error will be returned if
-// the path doesn't exist.
-func readConfigNode(zk *zookeeper.Conn, path string, required bool) (*ConfigNode, error) {
+func readConfigNode(zk *zookeeper.Conn, path string) (*ConfigNode, error) {
 	c := &ConfigNode{
 		zk:            zk,
 		path:          path,
-		pristineCache: make(map[string]interface{}),
-		cache:         make(map[string]interface{}),
 	}
-	if err := c.Read(required); err != nil {
+	if err := c.Read(); err != nil {
 		return nil, err
 	}
 	return c, nil
 }
 
 // Read (re)reads the node data into c.
-func (c *ConfigNode) Read(required bool) error {
+func (c *ConfigNode) Read() error {
+	c.pristineCache = make(map[string]interface{})
+	c.cache = make(map[string]interface{})
 	yaml, _, err := c.zk.Get(c.path)
 	if err != nil {
 		if err != zookeeper.ZNONODE {
 			return err
-		}
-		if required {
-			return fmt.Errorf("config %q not found", c.path)
 		}
 	}
 	if err = goyaml.Unmarshal([]byte(yaml), c.cache); err != nil {
@@ -112,13 +127,13 @@ func (c *ConfigNode) Read(required bool) error {
 // Changes are written as a delta applied on top of the
 // latest version of the node, to prevent overwriting
 // unrelated changes made to the node since it was last read.
-func (c *ConfigNode) Write() ([]*ItemChange, error) {
+func (c *ConfigNode) Write() ([]ItemChange, error) {
 	cache := copyCache(c.cache)
 	pristineCache := copyCache(c.pristineCache)
 	c.pristineCache = copyCache(cache)
 	// changes is used by applyChanges to return the changes to
 	// this scope.
-	changes := []*ItemChange{}
+	changes := []ItemChange{}
 	// nil is a possible value for a key, so we use missing as
 	// a marker to simplify the algorithm below.
 	missing := new(bool)
@@ -140,17 +155,17 @@ func (c *ConfigNode) Write() ([]*ItemChange, error) {
 				newValue = missing
 			}
 			if oldValue != newValue {
-				var change *ItemChange
+				var change ItemChange
 				if newValue != missing {
 					current[key] = newValue
 					if oldValue != missing {
-						change = &ItemChange{itemModified, key, oldValue, newValue}
+						change = ItemChange{ItemModified, key, oldValue, newValue}
 					} else {
-						change = &ItemChange{itemAdded, key, nil, newValue}
+						change = ItemChange{ItemAdded, key, nil, newValue}
 					}
 				} else if _, ok := current[key]; ok {
 					delete(current, key)
-					change = &ItemChange{itemDeleted, key, oldValue, nil}
+					change = ItemChange{ItemDeleted, key, oldValue, nil}
 				}
 				changes = append(changes, change)
 			}
@@ -164,6 +179,7 @@ func (c *ConfigNode) Write() ([]*ItemChange, error) {
 	if err := c.zk.RetryChange(c.path, 0, zkPermAll, applyChanges); err != nil {
 		return nil, err
 	}
+	sort.Sort(itemChangeSlice(changes))
 	return changes, nil
 }
 
@@ -183,8 +199,8 @@ func (c *ConfigNode) Get(key string) (value interface{}, found bool) {
 	return
 }
 
-// Data returns all keys and values of the node.
-func (c *ConfigNode) Data() map[string]interface{} {
+// Map returns all keys and values of the node.
+func (c *ConfigNode) Map() map[string]interface{} {
 	data := make(map[string]interface{})
 	for key, value := range c.cache {
 		data[key] = value

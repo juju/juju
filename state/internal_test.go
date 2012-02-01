@@ -403,7 +403,7 @@ func (s ConfigNodeSuite) TestCreateEmptyConfigNode(c *C) {
 
 func (s ConfigNodeSuite) TestReadWithoutWrite(c *C) {
 	// Check reading without writing.
-	node, err := readConfigNode(s.zkConn, s.path, false)
+	node, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
 	c.Assert(node, Not(IsNil))
 }
@@ -412,11 +412,11 @@ func (s ConfigNodeSuite) TestSetWithoutWrite(c *C) {
 	// Check that config values can be set.
 	_, err := s.zkConn.Create(s.path, "", 0, zkPermAll)
 	c.Assert(err, IsNil)
-	node, err := readConfigNode(s.zkConn, s.path, false)
+	node, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
     	options := map[string]interface{}{"alpha": "beta", "one": 1}
     	node.Update(options)
-    	c.Assert(node.Data(), Equals, options)
+    	c.Assert(node.Map(), Equals, options)
 	// Node data has to be empty.
 	yaml, _, err := s.zkConn.Get("/config")
 	c.Assert(err, IsNil)
@@ -425,15 +425,18 @@ func (s ConfigNodeSuite) TestSetWithoutWrite(c *C) {
 
 func (s ConfigNodeSuite) TestSetWithWrite(c *C) {
 	// Check that write updates the local and the ZooKeeper state.
-	node, err := readConfigNode(s.zkConn, s.path, false)
+	node, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
 	options := map[string]interface{}{"alpha": "beta", "one": 1}
     	node.Update(options)
     	changes, err := node.Write()
     	c.Assert(err, IsNil)
-    	c.Assert(len(changes), Equals, 2)
+    	c.Assert(changes, Equals, []ItemChange{
+    		ItemChange{ItemAdded, "alpha", nil, "beta"},
+    		ItemChange{ItemAdded, "one", nil, 1},
+    	})
     	// Check local state.
-    	c.Assert(node.Data(), Equals, options)
+    	c.Assert(node.Map(), Equals, options)
     	// Check ZooKeeper state.
 	yaml, _, err := s.zkConn.Get(s.path)
 	c.Assert(err, IsNil)
@@ -444,9 +447,9 @@ func (s ConfigNodeSuite) TestSetWithWrite(c *C) {
 
 func (s ConfigNodeSuite) TestConflictOnSet(c *C) {
 	// Check version conflict errors.
-	nodeOne, err := readConfigNode(s.zkConn, s.path, false)
+	nodeOne, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
-	nodeTwo, err := readConfigNode(s.zkConn, s.path, false)
+	nodeTwo, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
 
 	optionsOld := map[string]interface{}{"alpha": "beta", "one": 1}
@@ -456,23 +459,29 @@ func (s ConfigNodeSuite) TestConflictOnSet(c *C) {
 	nodeTwo.Update(optionsOld)
 	changes, err := nodeTwo.Write()
     	c.Assert(err, IsNil)
-    	c.Assert(len(changes), Equals, 2)
+    	c.Assert(changes, Equals, []ItemChange{
+    		ItemChange{ItemAdded, "alpha", nil, "beta"},
+    		ItemChange{ItemAdded, "one", nil, 1},
+    	})
 
     	// First test node one.
-    	c.Assert(nodeOne.Data(), Equals, optionsOld)
+    	c.Assert(nodeOne.Map(), Equals, optionsOld)
 
     	// Write on node one.
     	optionsNew := map[string]interface{}{"alpha": "gamma", "one": "two"}
 	nodeOne.Update(optionsNew)
 	changes, err = nodeOne.Write()
     	c.Assert(err, IsNil)
-    	c.Assert(len(changes), Equals, 2)
+	c.Assert(changes, Equals, []ItemChange{
+    		ItemChange{ItemModified, "alpha", "beta", "gamma"},
+    		ItemChange{ItemModified, "one", 1, "two"},
+    	})
 
     	// Verify that node one reports as expected.
-    	c.Assert(nodeOne.Data(), Equals, optionsNew)
+    	c.Assert(nodeOne.Map(), Equals, optionsNew)
 
     	// Verify that node two has still the old data.
-    	c.Assert(nodeTwo.Data(), Equals, optionsOld)
+    	c.Assert(nodeTwo.Map(), Equals, optionsOld)
 
     	// Now issue a Set/Write from node two. This will
     	// merge the data deleting 'one' and updating
@@ -484,25 +493,32 @@ func (s ConfigNodeSuite) TestConflictOnSet(c *C) {
 	expected := map[string]interface{}{"alpha": "cappa", "new": "next"}
 	changes, err = nodeTwo.Write()
     	c.Assert(err, IsNil)
-    	c.Assert(len(changes), Equals, 3)
-    	c.Assert(expected, Equals, nodeTwo.Data())
+	c.Assert(changes, Equals, []ItemChange{
+    		ItemChange{ItemModified, "alpha", "beta", "cappa"},
+    		ItemChange{ItemAdded, "new", nil, "next"},
+    		ItemChange{ItemDeleted, "one", 1, nil},
+    	})
+    	c.Assert(expected, Equals, nodeTwo.Map())
 
     	// But node one still reflects the former data.
-    	c.Assert(nodeOne.Data(), Equals, optionsNew)
+    	c.Assert(nodeOne.Map(), Equals, optionsNew)
 }
 
 func (s ConfigNodeSuite) TestSetItem(c *C) {
 	// Check that Set works as expected.
-	node, err := readConfigNode(s.zkConn, s.path, false)
+	node, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
 	options := map[string]interface{}{"alpha": "beta", "one": 1}
 	node.Set("alpha", "beta")
 	node.Set("one", 1)
 	changes, err := node.Write()
     	c.Assert(err, IsNil)
-    	c.Assert(len(changes), Equals, 2)
+    	c.Assert(changes, Equals, []ItemChange{
+    		ItemChange{ItemAdded, "alpha", nil, "beta"},
+    		ItemChange{ItemAdded, "one", nil, 1},
+    	})
 	// Check local state.
-    	c.Assert(node.Data(), Equals, options)
+    	c.Assert(node.Map(), Equals, options)
     	// Check ZooKeeper state.
 	yaml, _, err := s.zkConn.Get(s.path)
 	c.Assert(err, IsNil)
@@ -513,7 +529,7 @@ func (s ConfigNodeSuite) TestSetItem(c *C) {
 
 func (s ConfigNodeSuite) TestMultipleReads(c *C) {
 	// Check that reads without writes always resets the data.
-	nodeOne, err := readConfigNode(s.zkConn, s.path, false)
+	nodeOne, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
 	nodeOne.Update(map[string]interface{}{"alpha": "beta", "foo": "bar"})
 	value, ok := nodeOne.Get("alpha")
@@ -526,13 +542,16 @@ func (s ConfigNodeSuite) TestMultipleReads(c *C) {
 	c.Assert(ok, Equals, false)
 
         // A read resets the data to the empty state.
-	nodeOne, err = readConfigNode(s.zkConn, s.path, false)
+	err = nodeOne.Read()
 	c.Assert(err, IsNil)
-	c.Assert(nodeOne.Data(), Equals, map[string]interface{}{})
+	c.Assert(nodeOne.Map(), Equals, map[string]interface{}{})
 	nodeOne.Update(map[string]interface{}{"alpha": "beta", "foo": "bar"})
 	changes, err := nodeOne.Write()
     	c.Assert(err, IsNil)
-    	c.Assert(len(changes), Equals, 2)
+    	c.Assert(changes, Equals, []ItemChange{
+    		ItemChange{ItemAdded, "alpha", nil, "beta"},
+    		ItemChange{ItemAdded, "foo", nil, "bar"},
+    	})
 
     	// A write retains the newly set values.
     	value, ok = nodeOne.Get("alpha")
@@ -543,15 +562,17 @@ func (s ConfigNodeSuite) TestMultipleReads(c *C) {
 	c.Assert(value, Equals, "bar")
 
         // Now get another state instance and change ZooKeeper state.
-	nodeTwo, err := readConfigNode(s.zkConn, s.path, false)
+	nodeTwo, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
 	nodeTwo.Update(map[string]interface{}{"foo": "different"})
 	changes, err = nodeTwo.Write()
     	c.Assert(err, IsNil)
-    	c.Assert(len(changes), Equals, 1)
+    	c.Assert(changes, Equals, []ItemChange{
+    		ItemChange{ItemModified, "foo", "bar", "different"},
+    	})
 
     	// This should pull in the new state into node one.
-    	err = nodeOne.Read(false)
+    	err = nodeOne.Read()
    	c.Assert(err, IsNil)
     	value, ok = nodeOne.Get("alpha")
 	c.Assert(ok, Equals, true)
@@ -563,112 +584,118 @@ func (s ConfigNodeSuite) TestMultipleReads(c *C) {
 
 func (s ConfigNodeSuite) TestDeleteEmptiesState(c *C) {
 	// Check that delete creates an empty state.
-	node, err := readConfigNode(s.zkConn, s.path, false)
+	node, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
 	node.Set("a", "foo")
 	changes, err := node.Write()
     	c.Assert(err, IsNil)
-    	c.Assert(len(changes), Equals, 1)
+	c.Assert(changes, Equals, []ItemChange{
+    		ItemChange{ItemAdded, "a", nil, "foo"},
+    	})
     	node.Delete("a")
     	changes, err = node.Write()
     	c.Assert(err, IsNil)
-    	c.Assert(len(changes), Equals, 1)
-	c.Assert(node.Data(), Equals, map[string]interface{}{})
+    	c.Assert(changes, Equals, []ItemChange{
+    		ItemChange{ItemDeleted, "a", "foo", nil},
+    	})
+	c.Assert(node.Map(), Equals, map[string]interface{}{})
 }
 
 func (s ConfigNodeSuite) TestReadResync(c *C) {
 	// Check that read pulls the data into the node.
-	nodeOne, err := readConfigNode(s.zkConn, s.path, false)
+	nodeOne, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
 	nodeOne.Set("a", "foo")
 	changes, err := nodeOne.Write()
     	c.Assert(err, IsNil)
-    	c.Assert(len(changes), Equals, 1)
-
-	nodeTwo, err := readConfigNode(s.zkConn, s.path, false)
+	c.Assert(changes, Equals, []ItemChange{
+    		ItemChange{ItemAdded, "a", nil, "foo"},
+    	})
+	nodeTwo, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
 	nodeTwo.Delete("a")
 	changes, err = nodeTwo.Write()
     	c.Assert(err, IsNil)
-    	c.Assert(len(changes), Equals, 1)
+    	c.Assert(changes, Equals, []ItemChange{
+    		ItemChange{ItemDeleted, "a", "foo", nil},
+    	})
     	nodeTwo.Set("a", "bar")
     	changes, err = nodeTwo.Write()
     	c.Assert(err, IsNil)
-    	c.Assert(len(changes), Equals, 1)
-    	// Multiple reads, the one of node one should pick up the 
-    	// new value on the read.
-    	_, _, err = s.zkConn.Get(s.path)
+	c.Assert(changes, Equals, []ItemChange{
+    		ItemChange{ItemAdded, "a", nil, "bar"},
+    	})
+    	// Read of node one should pick up the new value.
+    	err = nodeOne.Read()
 	c.Assert(err, IsNil)
-	err = nodeOne.Read(false)
-	c.Assert(err, IsNil)
-    	_, _, err = s.zkConn.Get(s.path)
-	c.Assert(err, IsNil)
-	value, ok := nodeOne.Get("a")
+    	value, ok := nodeOne.Get("a")
 	c.Assert(ok, Equals, true)
 	c.Assert(value, Equals, "bar")
 }
 
 func (s ConfigNodeSuite) TestMultipleWrites(c *C) {
-	// Check that multiple writes only does the right changes.
-	node, err := readConfigNode(s.zkConn, s.path, false)
+	// Check that multiple writes only do the right changes.
+	node, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
 	node.Update(map[string]interface{}{"foo": "bar", "this": "that"})
 	changes, err := node.Write()
     	c.Assert(err, IsNil)
-    	c.Assert(len(changes), Equals, 2)
-
+    	c.Assert(changes, Equals, []ItemChange{
+    		ItemChange{ItemAdded, "foo", nil, "bar"},
+    		ItemChange{ItemAdded, "this", nil, "that"},
+    	})
     	node.Delete("this")
     	node.Set("another", "value")
 	changes, err = node.Write()
     	c.Assert(err, IsNil)
-    	c.Assert(len(changes), Equals, 2)
+    	c.Assert(changes, Equals, []ItemChange{
+    		ItemChange{ItemAdded, "another", nil, "value"},
+    		ItemChange{ItemDeleted, "this", "that", nil},
+    	})
 
 	expected := map[string]interface{}{"foo": "bar", "another": "value"}
-    	c.Assert(expected, Equals, node.Data())
+    	c.Assert(expected, Equals, node.Map())
     		
     	changes, err = node.Write()
     	c.Assert(err, IsNil)
-    	c.Assert(len(changes), Equals, 0)
+    	c.Assert(changes, Equals, []ItemChange{})
 
-    	err = node.Read(false)
+    	err = node.Read()
     	c.Assert(err, IsNil)
-    	c.Assert(expected, Equals, node.Data())
+    	c.Assert(expected, Equals, node.Map())
 
 	changes, err = node.Write()
     	c.Assert(err, IsNil)
-    	c.Assert(len(changes), Equals, 0)
+    	c.Assert(changes, Equals, []ItemChange{})
 }
 
 func (s ConfigNodeSuite) TestWriteTwice(c *C) {
 	// Check the correct writing into a node by two config nodes.
-	nodeOne, err := readConfigNode(s.zkConn, s.path, false)
+	nodeOne, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
     	nodeOne.Set("a", "foo")
 	changes, err := nodeOne.Write()
     	c.Assert(err, IsNil)
-    	c.Assert(len(changes), Equals, 1)
+	c.Assert(changes, Equals, []ItemChange{
+    		ItemChange{ItemAdded, "a", nil, "foo"},
+    	})
 
-    	nodeTwo, err := readConfigNode(s.zkConn, s.path, false)
+    	nodeTwo, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
     	nodeTwo.Set("a", "bar")
 	changes, err = nodeTwo.Write()
     	c.Assert(err, IsNil)
-    	c.Assert(len(changes), Equals, 1)
+	c.Assert(changes, Equals, []ItemChange{
+    		ItemChange{ItemModified, "a", "foo", "bar"},
+    	})
 
         // Shouldn't write again. Changes were already
         // flushed and acted upon by other parties.
         changes, err = nodeOne.Write()
     	c.Assert(err, IsNil)
-    	c.Assert(len(changes), Equals, 0)
+    	c.Assert(changes, Equals, []ItemChange{})
 
-	err = nodeOne.Read(false)
+	err = nodeOne.Read()
 	c.Assert(err, IsNil)
 	c.Assert(nodeOne, Equals, nodeTwo)
-}
-
-func (s ConfigNodeSuite) TestReadRequiresNode(c *C) {
-	// Check that reading a non-existing config node fails
-	// if 'required' is set to true.
-	_, err := readConfigNode(s.zkConn, s.path, true)
-	c.Assert(err, ErrorMatches, `config "/config" not found`)
 }
