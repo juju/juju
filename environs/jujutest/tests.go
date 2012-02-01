@@ -32,6 +32,28 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(len(insts), Equals, 0)
 }
 
+func (t *Tests) TestBootstrap(c *C) {
+	e := t.open(c)
+	err := e.Bootstrap()
+	c.Assert(err, IsNil)
+
+	err = e.Bootstrap()
+	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
+
+	e2 := t.open(c)
+	err = e.Bootstrap()
+	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
+
+	err = e2.Destroy()
+	c.Assert(err, IsNil)
+
+	err = e.Bootstrap()
+	c.Assert(err, IsNil)
+
+	err = e.Destroy()
+	c.Assert(err, IsNil)
+}
+
 func (t *Tests) TestPersistence(c *C) {
 	e := t.open(c)
 	name := "persistent-file"
