@@ -17,31 +17,29 @@ type cloudConfig struct {
 	// The new machine will run a zookeeper instance.
 	zookeeper bool
 
-	// InstanceIdAccessor holds bash code that evaluates to the current instance id.
+	// instanceIdAccessor holds bash code that evaluates to the current instance id.
 	instanceIdAccessor string
 
-	// AdminSecret holds a secret that will be used to authenticate to zookeeper.
+	// adminSecret holds a secret that will be used to authenticate to zookeeper.
 	adminSecret string
 
-	// ProviderType identifies the provider type so the host
+	// providerType identifies the provider type so the host
 	// knows which kind of provider to use.
 	providerType string
 
-	// ZookeeperHosts lists the names of hosts running zookeeper.
+	// zookeeperHosts lists the names of hosts running zookeeper.
 	// Unless the new machine is running zookeeper (Zookeeper is set),
 	// there must be at least one host name supplied.
 	zookeeperHosts []string
 
-	// jujuOrigin states where the juju instance should
-	// be obtained. If it is zero, a suitable default is chosen
-	// by examining the local environment.
+	// origin states what version of juju should be run on the instance.
+	// If it is zero, a suitable default is chosen by examining the local environment.
 	origin jujuOrigin
 
-	// MachineId identifies the new machine. It must be
-	// non-empty.
+	// machineId identifies the new machine. It must be non-empty.
 	machineId string
 
-	// SSHKeys specifies the keys that are allowed to
+	// sshKeys specifies the keys that are allowed to
 	// connect to the machine. If no keys are
 	// supplied, there can be no ssh access to the node.
 	// On a bootstrap machine, that is fatal. On other
@@ -232,7 +230,8 @@ func (l *lines) next() (int, string) {
 }
 
 // nextWithPrefix returns the next line from lines that
-// has the given prefix. If there is no such line, it
+// has the given prefix, with the prefix removed.
+// If there is no such line, it
 // returns the empty string and false.
 func (l *lines) nextWithPrefix(prefix string) (string, bool) {
 	for {
