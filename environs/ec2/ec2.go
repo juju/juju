@@ -124,6 +124,10 @@ func (e *environ) startInstance(machineId int, master bool) (environs.Instance, 
 		zookeeper: master,
 		instanceIdAccessor: TODO,
 		adminSecret: e.cfg.adminSecret,
+		providerType: "ec2",
+		machineId: "0",
+		
+	}
 		
 	groups, err := e.setUpGroups(machineId)
 	if err != nil {
