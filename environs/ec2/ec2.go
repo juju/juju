@@ -151,25 +151,16 @@ func (e *environ) Instances() ([]environs.Instance, error) {
 	return insts, nil
 }
 
-// oneError returns err1 if it's not not nil, otherwise err2.
-func oneError(err1, err2 error) error {
-	if err1 != nil {
-		return err1
-	}
-	return err2
-}
-
 func (e *environ) Destroy() error {
-	delErr := e.deleteState()
-
 	insts, err := e.Instances()
 	if err != nil {
-		return oneError(delErr, err)
+		return err
 	}
 	err = e.StopInstances(insts)
-	// return the error from stopping the instances by preference,
-	// because instances are more expensive than buckets.
-	return oneError(err, delErr)
+	if err != nil {
+		return err
+	}
+	return e.deleteState()
 }
 
 func (e *environ) machineGroupName(machineId int) string {

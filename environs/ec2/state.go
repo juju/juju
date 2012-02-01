@@ -43,12 +43,7 @@ func (e *environ) loadState() (*bootstrapState, error) {
 
 func (e *environ) deleteState() error {
 	// TODO delete the bucket contents and the bucket itself.
-	err := e.bucket().Del(stateFile)
-	// If we can't delete the object because the bucket doesn't
-	// exist, then we don't care.
-	if err, _ := err.(*s3.Error); err != nil && err.StatusCode == 404 {
-		return nil
-	}
+	err := e.RemoveFile(stateFile)
 	if err != nil {
 		return fmt.Errorf("cannot delete provider state: %v", err)
 	}
@@ -84,7 +79,13 @@ func (e *environ) GetFile(file string) (io.ReadCloser, error) {
 }
 
 func (e *environ) RemoveFile(file string) error {
-	return e.bucket().Del(file)
+	err := e.bucket().Del(file)
+	// If we can't delete the object because the bucket doesn't
+	// exist, then we don't care.
+	if err, _ := err.(*s3.Error); err != nil && err.StatusCode == 404 {
+		return nil
+	}
+	return err
 }
 
 func (e *environ) bucket() *s3.Bucket {
