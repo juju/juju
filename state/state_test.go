@@ -8,6 +8,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/state"
 	"testing"
 )
@@ -27,14 +28,13 @@ func TestPackage(t *testing.T) {
 }
 
 type StateSuite struct {
-	zkServer       *zookeeper.Server
-	zkTestRoot     string
-	zkTestPort     int
-	zkAddr         string
-	handles        []*zookeeper.Conn
-	events         []*zookeeper.Event
-	liveEventChans int
-	deadEventChans chan bool
+	zkServer    *zookeeper.Server
+	zkTestRoot  string
+	zkTestPort  int
+	zkAddr      string
+	zkConn      *zookeeper.Conn
+	zkEventChan <-chan zookeeper.Event
+	st          *state.State
 }
 
 var _ = Suite(&StateSuite{})
@@ -44,13 +44,11 @@ func (s *StateSuite) SetUpSuite(c *C) {
 	s.zkTestRoot = c.MkDir() + "/zookeeper"
 	s.zkTestPort = 21812
 	s.zkAddr = fmt.Sprint("localhost:", s.zkTestPort)
-	s.deadEventChans = make(chan bool)
 
 	s.zkServer, err = zookeeper.CreateServer(s.zkTestPort, s.zkTestRoot, "")
 	if err != nil {
 		c.Fatal("Cannot set up ZooKeeper server environment: ", err)
 	}
-
 	err = s.zkServer.Start()
 	if err != nil {
 		c.Fatal("Cannot start ZooKeeper server: ", err)
@@ -63,167 +61,197 @@ func (s *StateSuite) TearDownSuite(c *C) {
 	}
 }
 
-// init establishes a connection to ZooKeeper and returns it together with the
-// event channel.
-func (s *StateSuite) init(c *C) (*zookeeper.Conn, <-chan zookeeper.Event) {
+func (s *StateSuite) SetUpTest(c *C) {
+	var err error
 	// Connect the server.
-	conn, eventChan, err := zookeeper.Dial(s.zkAddr, 5e9)
+	s.zkConn, s.zkEventChan, err = zookeeper.Dial(s.zkAddr, 5e9)
 	c.Assert(err, IsNil)
-
 	// Wait for connect signal.
-	event := <-eventChan
+	event := <-s.zkEventChan
 	c.Assert(event.Type, Equals, zookeeper.EVENT_SESSION)
 	c.Assert(event.State, Equals, zookeeper.STATE_CONNECTED)
-
-	return conn, eventChan
+	// Init the environment and open a state.
+	err = state.Initialize(s.zkConn)
+	c.Assert(err, IsNil)
+	s.st, err = state.Open(s.zkConn)
+	c.Assert(err, IsNil)
 }
 
-// done removes potentially created ZooKeeper nodes
-// recursively and then closes the ZooKeeper connection. 
-func (s *StateSuite) done(zk *zookeeper.Conn, c *C) {
+func (s *StateSuite) TearDownTest(c *C) {
 	// Delete possible nodes, ignore errors.
-	zkRemoveTree(zk, "/topology")
-	zkRemoveTree(zk, "/services")
-	zkRemoveTree(zk, "/units")
-	zk.Close()
+	zkRemoveTree(s.zkConn, "/topology")
+	zkRemoveTree(s.zkConn, "/charms")
+	zkRemoveTree(s.zkConn, "/services")
+	zkRemoveTree(s.zkConn, "/machines")
+	zkRemoveTree(s.zkConn, "/units")
+	zkRemoveTree(s.zkConn, "/relations")
+	zkRemoveTree(s.zkConn, "/initialized")
+	s.zkConn.Close()
 }
 
-func (s StateSuite) TestReadService(c *C) {
-	zk, _ := s.init(c)
-	defer s.done(zk, c)
+func (s StateSuite) TestAddService(c *C) {
+	// Check that adding services works correctly.
+	charm := state.CharmMock("local:myseries/mytest-1")
+	wordpress, err := s.st.AddService("wordpress", charm)
+	c.Assert(err, IsNil)
+	c.Assert(wordpress.Name(), Equals, "wordpress")
+	mysql, err := s.st.AddService("mysql", charm)
+	c.Assert(err, IsNil)
+	c.Assert(mysql.Name(), Equals, "mysql")
 
-	// Create test scenario.
-	zkCreate(c, zk, "/services", "")
-	zkCreate(c, zk, "/services/service-0000000000", "charm: local:series/dummy-1")
-	zkCreate(c, zk, "/topology", `
-services:
-    service-0000000000:
-        name: wordpress
-`)
+	// Check that retrieving the new created services works correctly.
+	wordpress, err = s.st.Service("wordpress")
+	c.Assert(err, IsNil)
+	c.Assert(wordpress.Name(), Equals, "wordpress")
+	url, err := wordpress.CharmURL()
+	c.Assert(err, IsNil)
+	c.Assert(url.String(), Equals, "local:myseries/mytest-1")
+	mysql, err = s.st.Service("mysql")
+	c.Assert(err, IsNil)
+	c.Assert(mysql.Name(), Equals, "mysql")
+	url, err = mysql.CharmURL()
+	c.Assert(err, IsNil)
+	c.Assert(url.String(), Equals, "local:myseries/mytest-1")
+}
 
-	st, err := state.Open(zk)
+func (s StateSuite) TestRemoveService(c *C) {
+	service, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
 	c.Assert(err, IsNil)
 
-	// Check that retrieving a service works correctly.
-	service, err := st.Service("wordpress")
+	// Check that removing the service works correctly.
+	err = s.st.RemoveService(service)
 	c.Assert(err, IsNil)
-	c.Assert(service.Name(), Equals, "wordpress")
-	charmId, err := service.CharmId()
-	c.Assert(err, IsNil)
-	c.Assert(charmId, Equals, "local:series/dummy-1")
+	service, err = s.st.Service("wordpress")
+	c.Assert(err, ErrorMatches, `service with name "wordpress" cannot be found`)
+}
 
-	// Check that retrieving a non-existent service fails nicely.
-	service, err = st.Service("pressword")
+func (s StateSuite) TestReadNonExistentService(c *C) {
+	_, err := s.st.Service("pressword")
 	c.Assert(err, ErrorMatches, `service with name "pressword" cannot be found`)
 }
 
-func (s StateSuite) TestReadUnit(c *C) {
-	zk, _ := s.init(c)
-	defer s.done(zk, c)
-
-	// Create test scenario.
-	zkCreate(c, zk, "/services", "")
-	zkCreate(c, zk, "/services/service-0000000000", "charm: local:series/dummy-1")
-	zkCreate(c, zk, "/topology", `
-services:
-    service-0000000000:
-        name: wordpress
-        units:
-            unit-0000000000:
-                sequence: 0
-            unit-0000000001:
-                sequence: 1
-unit-sequence:
-    wordpress: 2
-`)
-	zkCreate(c, zk, "/units", "")
-	zkCreate(c, zk, "/units/unit-0000000000", "charm: local:series/dummy-1")
-	zkCreate(c, zk, "/units/unit-0000000001", "charm: local:series/dummy-1")
-
-	st, err := state.Open(zk)
+func (s StateSuite) TestServiceCharm(c *C) {
+	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
 	c.Assert(err, IsNil)
-	service, err := st.Service("wordpress")
+
+	// Check that setting the charm id works correctly.
+	url, err := wordpress.CharmURL()
+	c.Assert(err, IsNil)
+	c.Assert(url.String(), Equals, "local:myseries/mytest-1")
+	url, err = charm.ParseURL("local:myseries/myprod-1")
+	c.Assert(err, IsNil)
+	err = wordpress.SetCharmURL(url)
+	c.Assert(err, IsNil)
+	url, err = wordpress.CharmURL()
+	c.Assert(err, IsNil)
+	c.Assert(url.String(), Equals, "local:myseries/myprod-1")
+}
+
+func (s StateSuite) TestServiceExposed(c *C) {
+	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	c.Assert(err, IsNil)
+
+	// Check that querying for the exposed flag works correctly.
+	exposed, err := wordpress.IsExposed()
+	c.Assert(err, IsNil)
+	c.Assert(exposed, Equals, false)
+
+	// Check that setting and clearing the exposed flag works correctly.
+	err = wordpress.SetExposed()
+	c.Assert(err, IsNil)
+	exposed, err = wordpress.IsExposed()
+	c.Assert(err, IsNil)
+	c.Assert(exposed, Equals, true)
+	err = wordpress.ClearExposed()
+	c.Assert(err, IsNil)
+	exposed, err = wordpress.IsExposed()
+	c.Assert(err, IsNil)
+	c.Assert(exposed, Equals, false)
+
+	// Check that setting and clearing the exposed flag multiple doesn't fail.
+	err = wordpress.SetExposed()
+	c.Assert(err, IsNil)
+	err = wordpress.SetExposed()
+	c.Assert(err, IsNil)
+	err = wordpress.ClearExposed()
+	c.Assert(err, IsNil)
+	err = wordpress.ClearExposed()
+	c.Assert(err, IsNil)
+
+	// Check that setting and clearing the exposed flag on removed services also doesn't fail.
+	err = s.st.RemoveService(wordpress)
+	c.Assert(err, IsNil)
+	err = wordpress.ClearExposed()
+	c.Assert(err, IsNil)
+}
+
+func (s StateSuite) TestAddUnit(c *C) {
+	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	c.Assert(err, IsNil)
+
+	// Check that adding units works.
+	unitZero, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	c.Assert(unitZero.Name(), Equals, "wordpress/0")
+	unitOne, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	c.Assert(unitOne.Name(), Equals, "wordpress/1")
+}
+
+func (s StateSuite) TestReadUnit(c *C) {
+	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	c.Assert(err, IsNil)
+	_, err = wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	_, err = wordpress.AddUnit()
 	c.Assert(err, IsNil)
 
 	// Check that retrieving a unit works correctly.
-	unit, err := service.Unit("wordpress/0")
+	unit, err := wordpress.Unit("wordpress/0")
 	c.Assert(err, IsNil)
 	c.Assert(unit.Name(), Equals, "wordpress/0")
 
 	// Check that retrieving a non-existent or an invalidly
 	// named unit fail nicely.
-	unit, err = service.Unit("wordpress")
-	c.Assert(err, ErrorMatches, `"wordpress" is no valid unit name`)
-	unit, err = service.Unit("wordpress/0/0")
-	c.Assert(err, ErrorMatches, `"wordpress/0/0" is no valid unit name`)
-	unit, err = service.Unit("pressword/0")
+	unit, err = wordpress.Unit("wordpress")
+	c.Assert(err, ErrorMatches, `"wordpress" is not a valid unit name`)
+	unit, err = wordpress.Unit("wordpress/0/0")
+	c.Assert(err, ErrorMatches, `"wordpress/0/0" is not a valid unit name`)
+	unit, err = wordpress.Unit("pressword/0")
 	c.Assert(err, ErrorMatches, `can't find unit "pressword/0" on service "wordpress"`)
 
-	// Check that retrieving a unit works.
-	unit, err = st.Unit("wordpress/1")
-	c.Assert(err, IsNil)
-	c.Assert(unit.Name(), Equals, "wordpress/1")
-
 	// Check that retrieving unit names works.
-	unitNames, err := service.UnitNames()
+	unitNames, err := wordpress.UnitNames()
 	c.Assert(err, IsNil)
 	c.Assert(unitNames, Equals, []string{"wordpress/0", "wordpress/1"})
 
 	// Check that retrieving all units works.
-	units, err := service.AllUnits()
+	units, err := wordpress.AllUnits()
 	c.Assert(err, IsNil)
 	c.Assert(len(units), Equals, 2)
 	c.Assert(units[0].Name(), Equals, "wordpress/0")
 	c.Assert(units[1].Name(), Equals, "wordpress/1")
 }
 
-func (s StateSuite) TestWriteUnit(c *C) {
-	zk, _ := s.init(c)
-	defer s.done(zk, c)
-
-	// Create test scenario.
-	zkCreate(c, zk, "/services", "")
-	zkCreate(c, zk, "/services/service-0000000000", "charm: local:series/dummy-1")
-	zkCreate(c, zk, "/topology", `
-services:
-    service-0000000000:
-        name: wordpress
-        units:
-            unit-0000000000:
-                sequence: 0
-                machine: machine-00000000
-            unit-0000000001:
-                sequence: 1
-unit-sequence:
-    wordpress: 2
-machines:
-    machine-00000000:
-`)
-	zkCreate(c, zk, "/units", "")
-	zkCreate(c, zk, "/units/unit-0000000000", "charm: local:series/dummy-1")
-	zkCreate(c, zk, "/units/unit-0000000001", "charm: local:series/dummy-1")
-
-	st, err := state.Open(zk)
+func (s StateSuite) TestRemoveUnit(c *C) {
+	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
 	c.Assert(err, IsNil)
-	service, err := st.Service("wordpress")
+	_, err = wordpress.AddUnit()
 	c.Assert(err, IsNil)
-
-	// Check that adding a unit works.
-	unit, err := service.AddUnit()
+	_, err = wordpress.AddUnit()
 	c.Assert(err, IsNil)
-	c.Assert(unit.Name(), Equals, "wordpress/2")
 
 	// Check that removing a unit works.
-	unit, err = service.Unit("wordpress/0")
+	unit, err := wordpress.Unit("wordpress/0")
 	c.Assert(err, IsNil)
-	err = service.RemoveUnit(unit)
+	err = wordpress.RemoveUnit(unit)
 	c.Assert(err, IsNil)
-	unitNames, err := service.UnitNames()
+	unitNames, err := wordpress.UnitNames()
 	c.Assert(err, IsNil)
-	c.Assert(unitNames, Equals, []string{"wordpress/1", "wordpress/2"})
+	c.Assert(unitNames, Equals, []string{"wordpress/1"})
 
 	// Check that removing a non-existent unit fails nicely.
-	err = service.RemoveUnit(unit)
+	err = wordpress.RemoveUnit(unit)
 	c.Assert(err, ErrorMatches, "environment state has changed")
 }
 
