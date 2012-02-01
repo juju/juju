@@ -23,15 +23,16 @@ commands:
 %s`
 )
 
-// JujuCommand is a Command that, when Parse~d, selects a subcommand and takes
-// on the properties of that subcommand before Parse~ing itself again with any
-// left-over arguments. Info, InitFlagSet, and ParsePositional all dispatch to
-// the selected subcommand when appropriate; this is especially important in
-// the case of InitFlagSet, because it gives the JujuCommand an opportunity to
-// inject its own flag handlers into the command's FlagSet (thereby allowing a
-// natural `juju bootstrap -v -e foo` usage style, as opposed to forcing `juju
-// -v bootstrap -e foo` (or complicating the code by causing (sub-)Commands to
-// have some concept of "parent" Commands).
+// JujuCommand is a Command that selects a subcommand when Parse is first
+// called, and takes on the properties of that subcommand before calling Parse
+// again on itself, passing in any remaining command line arguments. Info,
+// InitFlagSet, and ParsePositional all dispatch to the selected subcommand
+// when appropriate; this is especially important in the case of InitFlagSet,
+// because it gives the JujuCommand an opportunity to inject its own flag
+// handlers into the command's FlagSet (thereby allowing a natural `juju
+// bootstrap -v -e foo` usage style, as opposed to forcing `juju -v bootstrap
+// -e foo` (or complicating the code by causing (sub-)Commands to have some
+// concept of "parent" Commands).
 type JujuCommand struct {
 	LogFile string
 	Verbose bool
