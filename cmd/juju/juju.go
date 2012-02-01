@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"io"
+	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/log"
-	"launchpad.net/~rogpeppe/juju/gnuflag/flag"
 	stdlog "log"
 	"os"
 	"sort"
@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	cmdTemplate = "%s\n    %s\n"
+	cmdTemplate = "    %-12s %s\n"
 	docTemplate = `
 juju provides easy, intelligent service orchestration on top of environments
 such as OpenStack, Amazon AWS, or bare metal.
@@ -23,16 +23,22 @@ commands:
 %s`
 )
 
+// JujuCommand is a Command that, when Parse~d, selects a subcommand and takes
+// on the properties of that subcommand before Parse~ing itself again with any
+// left-over arguments. Info, InitFlagSet, and ParsePositional all dispatch to
+// the selected subcommand when appropriate; this is especially important in
+// the case of InitFlagSet, because it gives the JujuCommand an opportunity to
+// inject its own flag handlers into the command's FlagSet (thereby allowing a
+// natural `juju bootstrap -v -e foo` usage style, as opposed to forcing `juju
+// -v bootstrap -e foo` (or complicating the code by causing (sub-)Commands to
+// have some concept of "parent" Commands).
 type JujuCommand struct {
-	Logfile string
+	LogFile string
 	Verbose bool
 	Debug   bool
 	subcmds map[string]Command
 	subcmd  Command
 }
-
-// Ensure Command interface.
-var _ Command = (*JujuCommand)(nil)
 
 // NewJujuCommand returns an initialized JujuCommand.
 func NewJujuCommand() *JujuCommand {
@@ -42,8 +48,8 @@ func NewJujuCommand() *JujuCommand {
 // Register makes a subcommand available for use on the command line.
 func (c *JujuCommand) Register(subcmd Command) {
 	name := subcmd.Info().Name
-	_, alreadythere := c.subcmds[name]
-	if alreadythere {
+	_, found := c.subcmds[name]
+	if found {
 		panic(fmt.Sprintf("command already registered: %s", name))
 	}
 	c.subcmds[name] = subcmd
@@ -82,16 +88,16 @@ func (c *JujuCommand) Info() *Info {
 // InitFlagSet prepares a FlagSet for use with the currently selected
 // subcommand, or with the juju command itself if no subcommand has been
 // specified.
-func (c *JujuCommand) InitFlagSet(f *flag.FlagSet) {
+func (c *JujuCommand) InitFlagSet(f *gnuflag.FlagSet) {
 	if c.subcmd != nil {
 		c.subcmd.InitFlagSet(f)
 	}
 	// All subcommands should also be expected to accept these options
-	f.StringVar(&c.Logfile, "logfile", c.Logfile, "path to write log to")
+	f.StringVar(&c.LogFile, "log-file", c.LogFile, "path to write log to")
 	f.BoolVar(&c.Verbose, "v", c.Verbose, "if set, log additional messages")
 	f.BoolVar(&c.Verbose, "verbose", c.Verbose, "if set, log additional messages")
-	f.BoolVar(&c.Debug, "d", c.Debug, "if set, log many additional messages")
-	f.BoolVar(&c.Debug, "debug", c.Debug, "if set, log many additional messages")
+	f.BoolVar(&c.Debug, "d", c.Debug, "if set, log debugging messages")
+	f.BoolVar(&c.Debug, "debug", c.Debug, "if set, log debugging messages")
 }
 
 // ParsePositional selects the subcommand specified by subargs and uses it to
@@ -110,16 +116,16 @@ func (c *JujuCommand) ParsePositional(subargs []string) error {
 	return Parse(c, true, subargs[1:])
 }
 
-// initOutput sets up logging to a file, or to stderr, depending on what's been
+// initOutput sets up logging to a file or to stderr depending on what's been
 // requested on the command line.
 func (c *JujuCommand) initOutput() error {
 	if c.Debug {
 		log.Debug = true
 	}
 	var target io.Writer
-	if c.Logfile != "" {
+	if c.LogFile != "" {
 		var err error
-		target, err = os.OpenFile(c.Logfile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+		target, err = os.OpenFile(c.LogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
 			return err
 		}
@@ -127,16 +133,18 @@ func (c *JujuCommand) initOutput() error {
 		target = os.Stderr
 	}
 	if target != nil {
-		log.Target = stdlog.New(target, "", 0)
+		log.Target = stdlog.New(target, "", stdlog.LstdFlags)
 	}
 	return nil
 }
 
-// Run executes the selected subcommand, which depends on Parse having been
-// called with the JujuCommand.
+// Run executes the subcommand that was selected when Parse was called.
 func (c *JujuCommand) Run() error {
 	if err := c.initOutput(); err != nil {
 		return err
+	}
+	if c.subcmd == nil {
+		panic("Run: missing subcommand; Parse failed or not called")
 	}
 	return c.subcmd.Run()
 }

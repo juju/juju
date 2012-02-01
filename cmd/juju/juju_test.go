@@ -2,10 +2,10 @@ package main_test
 
 import (
 	"fmt"
+	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	main "launchpad.net/juju/go/cmd/juju"
 	"launchpad.net/juju/go/log"
-	"launchpad.net/~rogpeppe/juju/gnuflag/flag"
 	"os"
 	"path/filepath"
 )
@@ -14,8 +14,6 @@ type TestCommand struct {
 	Name  string
 	Value string
 }
-
-var _ main.Command = (*TestCommand)(nil)
 
 func (c *TestCommand) Info() *main.Info {
 	return &main.Info{
@@ -26,7 +24,7 @@ func (c *TestCommand) Info() *main.Info {
 	}
 }
 
-func (c *TestCommand) InitFlagSet(f *flag.FlagSet) {
+func (c *TestCommand) InitFlagSet(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Value, "value", "", "doc")
 }
 
@@ -87,7 +85,7 @@ func (s *CommandSuite) TestRegister(c *C) {
 	c.Assert(badCall, PanicMatches, "command already registered: flap")
 
 	cmds := jc.DescribeCommands()
-	c.Assert(cmds, Equals, "flap\n    flap the juju\nflip\n    flip the juju\n")
+	c.Assert(cmds, Equals, "    flap         flap the juju\n    flip         flip the juju\n")
 }
 
 func (s *CommandSuite) TestDebug(c *C) {
@@ -126,22 +124,22 @@ func (s *CommandSuite) TestVerbose(c *C) {
 	c.Assert(jc.Verbose, Equals, true)
 }
 
-func (s *CommandSuite) TestLogfile(c *C) {
+func (s *CommandSuite) TestLogFile(c *C) {
 	jc, err := parseEmpty([]string{})
 	c.Assert(err, ErrorMatches, "no command specified")
-	c.Assert(jc.Logfile, Equals, "")
+	c.Assert(jc.LogFile, Equals, "")
 
 	jc, _, err = parseDefenestrate([]string{"defenestrate"})
 	c.Assert(err, IsNil)
-	c.Assert(jc.Logfile, Equals, "")
+	c.Assert(jc.LogFile, Equals, "")
 
-	jc, err = parseEmpty([]string{"--logfile", "foo"})
+	jc, err = parseEmpty([]string{"--log-file", "foo"})
 	c.Assert(err, ErrorMatches, "no command specified")
-	c.Assert(jc.Logfile, Equals, "foo")
+	c.Assert(jc.LogFile, Equals, "foo")
 
-	jc, _, err = parseDefenestrate([]string{"--logfile", "bar", "defenestrate"})
+	jc, _, err = parseDefenestrate([]string{"--log-file", "bar", "defenestrate"})
 	c.Assert(err, IsNil)
-	c.Assert(jc.Logfile, Equals, "bar")
+	c.Assert(jc.LogFile, Equals, "bar")
 }
 
 func saveLog() func() {
@@ -177,14 +175,14 @@ func (s *CommandSuite) TestRun(c *C) {
 
 	tmp := c.MkDir()
 	path := filepath.Join(tmp, "log-1")
-	checkRun(c, []string{"--logfile", path}, false, NotNil, path)
+	checkRun(c, []string{"--log-file", path}, false, NotNil, path)
 
 	path = filepath.Join(tmp, "log-2")
-	checkRun(c, []string{"--logfile", path, "--debug"}, true, NotNil, path)
+	checkRun(c, []string{"--log-file", path, "--debug"}, true, NotNil, path)
 
 	path = filepath.Join(tmp, "log-3")
-	checkRun(c, []string{"--logfile", path, "--verbose"}, false, NotNil, path)
+	checkRun(c, []string{"--log-file", path, "--verbose"}, false, NotNil, path)
 
 	path = filepath.Join(tmp, "log-4")
-	checkRun(c, []string{"--logfile", path, "--verbose", "--debug"}, true, NotNil, path)
+	checkRun(c, []string{"--log-file", path, "--verbose", "--debug"}, true, NotNil, path)
 }

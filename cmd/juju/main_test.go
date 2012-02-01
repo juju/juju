@@ -86,12 +86,12 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
 	msg, unbreak := breakJuju(c)
 	defer unbreak()
 	logpath := filepath.Join(c.MkDir(), "log")
-	lines := badrun(c, 1, "--logfile", logpath, "--verbose", "--debug", "bootstrap")
+	lines := badrun(c, 1, "--log-file", logpath, "--verbose", "--debug", "bootstrap")
 	c.Assert(lines[0], Equals, msg)
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
-	fullmsg := fmt.Sprintf("JUJU:DEBUG bootstrap command failed: %s\n", msg)
-	c.Assert(string(content), Equals, fullmsg)
+	fullmsg := fmt.Sprintf(`.* JUJU:DEBUG bootstrap command failed: %s\n`, msg)
+	c.Assert(string(content), Matches, fullmsg)
 }
 
 func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
@@ -99,10 +99,10 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 	msg, unbreak := breakJuju(c)
 	defer unbreak()
 	logpath := filepath.Join(c.MkDir(), "log")
-	lines := badrun(c, 1, "bootstrap", "--logfile", logpath, "--verbose", "--debug")
+	lines := badrun(c, 1, "bootstrap", "--log-file", logpath, "--verbose", "--debug")
 	c.Assert(lines[0], Equals, msg)
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
-	fullmsg := fmt.Sprintf("JUJU:DEBUG bootstrap command failed: %s\n", msg)
-	c.Assert(string(content), Equals, fullmsg)
+	fullmsg := fmt.Sprintf(`.* JUJU:DEBUG bootstrap command failed: %s\n`, msg)
+	c.Assert(string(content), Matches, fullmsg)
 }

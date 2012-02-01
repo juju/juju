@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"launchpad.net/~rogpeppe/juju/gnuflag/flag"
+	"launchpad.net/gnuflag"
 	"os"
 	"strings"
 )
@@ -30,7 +30,7 @@ type Command interface {
 
 	// InitFlagSet prepares a FlagSet such that Parse~ing that FlagSet will
 	// initialize the Command's options.
-	InitFlagSet(f *flag.FlagSet)
+	InitFlagSet(f *gnuflag.FlagSet)
 
 	// ParsePositional is called by Parse to allow the Command to handle
 	// positional command-line arguments.
@@ -42,8 +42,8 @@ type Command interface {
 }
 
 // NewFlagSet returns a FlagSet initialized for use with c.
-func NewFlagSet(c Command) *flag.FlagSet {
-	f := flag.NewFlagSet(c.Info().Name, flag.ExitOnError)
+func NewFlagSet(c Command) *gnuflag.FlagSet {
+	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ExitOnError)
 	f.Usage = func() { PrintUsage(c) }
 	c.InitFlagSet(f)
 	return f
@@ -61,7 +61,10 @@ func PrintUsage(c Command) {
 	}
 }
 
-// Parse prepares c for Run~ning.
+// Parse parses args on c. This must be called before c is Run.
+// If intersperse is true, flags and positional arguments
+// are allowed to be mixed. Otherwise, everything following
+// the first non-flag is handled as a positional argument.
 func Parse(c Command, intersperse bool, args []string) error {
 	f := NewFlagSet(c)
 	if err := f.Parse(intersperse, args); err != nil {

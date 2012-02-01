@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/juju"
-	"launchpad.net/~rogpeppe/juju/gnuflag/flag"
 )
 
 // BootstrapCommand is responsible for launching the first machine in a juju
@@ -11,9 +11,6 @@ import (
 type BootstrapCommand struct {
 	Environment string
 }
-
-// Ensure Command interface.
-var _ Command = (*BootstrapCommand)(nil)
 
 // Info returns a description of BootstrapCommand.
 func (c *BootstrapCommand) Info() *Info {
@@ -26,7 +23,7 @@ func (c *BootstrapCommand) Info() *Info {
 }
 
 // InitFlagSet prepares a FlagSet for use.
-func (c *BootstrapCommand) InitFlagSet(f *flag.FlagSet) {
+func (c *BootstrapCommand) InitFlagSet(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Environment, "e", "", "juju environment to operate in")
 	f.StringVar(&c.Environment, "environment", "", "juju environment to operate in")
 }

@@ -15,13 +15,13 @@ func Main(args []string) {
 	jc.Register(&BootstrapCommand{})
 
 	if err := Parse(jc, false, args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 		PrintUsage(jc)
 		os.Exit(2)
 	}
 	if err := jc.Run(); err != nil {
 		log.Debugf("%s command failed: %s\n", jc.Info().Name, err)
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 	os.Exit(0)
