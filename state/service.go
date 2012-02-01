@@ -28,7 +28,7 @@ func (s *Service) Name() string {
 // CharmURL returns the charm URL this service is supposed
 // to use.
 func (s *Service) CharmURL() (url *charm.URL, err error) {
-	cn, err := readConfigNode(s.zk, s.zkPath(), true)
+	cn, err := readConfigNode(s.zk, s.zkPath())
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func (s *Service) CharmURL() (url *charm.URL, err error) {
 
 // SetCharmURL changes the charm URL for the service.
 func (s *Service) SetCharmURL(url *charm.URL) error {
-	cn, err := readConfigNode(s.zk, s.zkPath(), true)
+	cn, err := readConfigNode(s.zk, s.zkPath())
 	if err != nil {
 		return err
 	}
@@ -230,7 +230,7 @@ func (s *Service) ClearExposed() error {
 
 // Config returns the configuration node for the service.
 func (s *Service) Config() (*ConfigNode, error) {
-	return readConfigNode(s.zk, s.zkConfigPath(), false)
+	return readConfigNode(s.zk, s.zkConfigPath())
 }
 
 // zkKey returns ZooKeeper key of the service.
