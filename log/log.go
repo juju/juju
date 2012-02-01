@@ -1,6 +1,8 @@
 package log
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Logger interface {
 	Output(calldepth int, s string) error
