@@ -121,6 +121,9 @@ func (e *environ) startInstance(machineId int, master bool) (environs.Instance, 
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
 	}
+	cfg := &cloudConfig{
+		
+	}
 	groups, err := e.setUpGroups(machineId)
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
