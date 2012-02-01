@@ -100,6 +100,29 @@ func registerLocalTests() {
 	}
 }
 
+func (t *localTests) TestBootstrapInstanceAndState(c *C) {
+	env, err := t.Environs.Open(t.Name)
+	c.Assert(err, IsNil)
+
+	err = env.Bootstrap()
+	c.Assert(err, IsNil)
+
+	insts, err := env.Instances()
+	c.Assert(err, IsNil)
+	c.Assert(len(insts), Equals, 1)
+
+	state, err := ec2.LoadState(env)
+	c.Assert(err, IsNil)
+	c.Assert(len(state.ZookeeperInstances), Equals, 1)
+	c.Assert(state.ZookeeperInstances[0], Equals, insts[0].Id())
+
+	err = env.Destroy()
+	c.Assert(err, IsNil)
+
+	_, err = ec2.LoadState(env)
+	c.Assert(err, NotNil)
+}
+
 func (t *localTests) TestInstanceGroups(c *C) {
 	env, err := t.Environs.Open(t.Name)
 	c.Assert(err, IsNil)
@@ -236,8 +259,8 @@ func (srv *localServer) startServer(c *C) {
 		c.Fatalf("cannot start s3 test server: %v", err)
 	}
 	ec2.Regions["test"] = aws.Region{
-		EC2Endpoint: srv.ec2srv.Address(),
-		S3Endpoint:  srv.s3srv.Address(),
+		EC2Endpoint: srv.ec2srv.URL(),
+		S3Endpoint:  srv.s3srv.URL(),
 	}
 	srv.setup(srv)
 }

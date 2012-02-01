@@ -2,7 +2,6 @@ package ec2
 
 import (
 	"fmt"
-	"io"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
@@ -32,6 +31,10 @@ type instance struct {
 	*ec2.Instance
 }
 
+func (inst *instance) String() string {
+	return inst.Id()
+}
+
 var _ environs.Instance = (*instance)(nil)
 
 func (inst *instance) Id() string {
@@ -55,7 +58,43 @@ func (environProvider) Open(name string, config interface{}) (e environs.Environ
 	}, nil
 }
 
+func (e *environ) Bootstrap() error {
+	_, err := e.loadState()
+	if err == nil {
+		return fmt.Errorf("environment is already bootstrapped")
+	}
+	if s3err, _ := err.(*s3.Error); s3err != nil && s3err.StatusCode != 404 {
+		return err
+	}
+	inst, err := e.startInstance(0, true)
+	if err != nil {
+		return fmt.Errorf("cannot start bootstrap instance: %v", err)
+	}
+	err = e.saveState(&bootstrapState{
+		ZookeeperInstances: []string{inst.Id()},
+	})
+	if err != nil {
+		// ignore error on StopInstance because the previous error is
+		// more important.
+		e.StopInstances([]environs.Instance{inst})
+		return err
+	}
+	// TODO make safe in the case of racing Bootstraps
+	// If two Bootstraps are called concurrently, there's
+	// no way to use S3 to make sure that only one succeeds.
+	// Perhaps consider using SimpleDB for state storage
+	// which would enable that possibility.
+	return nil
+}
+
 func (e *environ) StartInstance(machineId int) (environs.Instance, error) {
+	return e.startInstance(machineId, false)
+}
+
+// startInstance is the internal version of StartInstance, used by Bootstrap
+// as well as via StartInstance itself. If master is true, a bootstrap
+// instance will be started.
+func (e *environ) startInstance(machineId int, master bool) (environs.Instance, error) {
 	image, err := FindImageSpec(DefaultImageConstraint)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
@@ -96,6 +135,7 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 func (e *environ) Instances() ([]environs.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
+	filter.Add("group-name", e.groupName())
 
 	resp, err := e.ec2.Instances(nil, filter)
 	if err != nil {
@@ -111,49 +151,16 @@ func (e *environ) Instances() ([]environs.Instance, error) {
 	return insts, nil
 }
 
-// makeBucket makes the environent's control bucket, the
-// place where bootstrap information and deployed charms
-// are stored. To avoid two round trips on every PUT operation,
-// we do this only once for each environ.
-func (e *environ) makeBucket() error {
-	e.checkBucket.Do(func() {
-		// try to make the bucket - PutBucket will succeed if the
-		// bucket already exists.
-		e.checkBucketError = e.bucket().PutBucket(s3.Private)
-	})
-	return e.checkBucketError
-}
-
-func (e *environ) PutFile(file string, r io.Reader, length int64) error {
-	if err := e.makeBucket(); err != nil {
-		return fmt.Errorf("cannot make S3 control bucket: %v", err)
-	}
-	err := e.bucket().PutReader(file, r, length, "binary/octet-stream", s3.Private)
-	if err != nil {
-		return fmt.Errorf("cannot write file %q to control bucket: %v", file, err)
-	}
-	return nil
-}
-
-func (e *environ) GetFile(file string) (io.ReadCloser, error) {
-	return e.bucket().GetReader(file)
-}
-
-func (e *environ) RemoveFile(file string) error {
-	return e.bucket().Del(file)
-}
-
-func (e *environ) bucket() *s3.Bucket {
-	return e.s3.Bucket(e.config.bucket)
-}
-
 func (e *environ) Destroy() error {
-	// TODO destroy control bucket
 	insts, err := e.Instances()
 	if err != nil {
 		return err
 	}
-	return e.StopInstances(insts)
+	err = e.StopInstances(insts)
+	if err != nil {
+		return err
+	}
+	return e.deleteState()
 }
 
 func (e *environ) machineGroupName(machineId int) string {

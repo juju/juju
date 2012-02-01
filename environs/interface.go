@@ -28,6 +28,9 @@ type Instance interface {
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
 type Environ interface {
+	// Bootstrap initializes the state for the environment. It may start
+	// one or more instances.
+	Bootstrap() error
 
 	// StartInstance asks for a new instance to be created,
 	// associated with the provided machine identifier.
@@ -52,6 +55,7 @@ type Environ interface {
 	GetFile(file string) (io.ReadCloser, error)
 
 	// RemoveFile removes the given file from the environment's storage.
+	// It is not an error to remove a file that does not exist.
 	RemoveFile(file string) error
 
 	// Destroy shuts down all known machines and destroys the
