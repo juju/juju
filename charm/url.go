@@ -2,6 +2,7 @@ package charm
 
 import (
 	"fmt"
+	"launchpad.net/mgo/bson"
 	"regexp"
 	"strconv"
 	"strings"
@@ -129,4 +130,26 @@ func (u *URL) String() string {
 		return fmt.Sprintf("%s:%s/%s-%d", u.Schema, u.Series, u.Name, u.Revision)
 	}
 	return fmt.Sprintf("%s:%s/%s", u.Schema, u.Series, u.Name)
+}
+
+// GetBSON turns u into a bson.Getter so it can be saved directly
+// on a MongoDB database with mgo.
+func (u *URL) GetBSON() interface{} {
+	return u.String()
+}
+
+// SetBSON turns u into a bson.Setter so it can be loaded directly
+// from a MongoDB database with mgo.
+func (u *URL) SetBSON(raw bson.Raw) error {
+	var s string
+	err := raw.Unmarshal(&s)
+	if err != nil {
+		return err
+	}
+	url, err := ParseURL(s)
+	if err != nil {
+		return err
+	}
+	*u = *url
+	return nil
 }

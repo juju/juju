@@ -338,39 +338,39 @@ func (s *Store) LockUpdates(urls []*charm.URL) (l *UpdateLock, err error) {
 type UpdateLock struct {
 	keys  []string
 	locks *mgo.Collection
-	time  bson.Timestamp
+	time  time.Time
 }
 
 // Unlock removes the previously acquired server-side lock that prevents
 // other processes from attempting to update a set of charm URLs.
-func (m *UpdateLock) Unlock() {
-	log.Debugf("Unlocking charms for future updates: %v", m.keys)
-	defer m.locks.Database.Session.Close()
-	for i := len(m.keys) - 1; i >= 0; i-- {
+func (l *UpdateLock) Unlock() {
+	log.Debugf("Unlocking charms for future updates: %v", l.keys)
+	defer l.locks.Database.Session.Close()
+	for i := len(l.keys) - 1; i >= 0; i-- {
 		// Using time below ensures only the proper lock is removed.
 		// Can't do much about errors here. Locks will expire anyway.
-		m.locks.Remove(bson.D{{"_id", m.keys[i]}, {"time", m.time}})
+		l.locks.Remove(bson.D{{"_id", l.keys[i]}, {"time", l.time}})
 	}
 }
 
-// tryLock tries locking m.keys, one at a time, and succeeds only if it
+// tryLock tries locking l.keys, one at a time, and succeeds only if it
 // can lock all of them in order. The keys should be pre-sorted so that
 // two-way conflicts can't happen. If any of the keys fail to be locked,
 // and expiring the old lock doesn't work, tryLock undoes all previous
 // locks and aborts with an error.
-func (m *UpdateLock) tryLock() error {
-	for i, key := range m.keys {
+func (l *UpdateLock) tryLock() error {
+	for i, key := range l.keys {
 		log.Debugf("Trying to lock charm %s for updates...", key)
-		doc := bson.D{{"_id", key}, {"time", m.time}}
-		err := m.locks.Insert(doc)
+		doc := bson.D{{"_id", key}, {"time", l.time}}
+		err := l.locks.Insert(doc)
 		if err == nil {
 			log.Debugf("Charm %s is now locked for updates.", key)
 			continue
 		}
 		if lerr, ok := err.(*mgo.LastError); ok && lerr.Code == 11000 {
 			log.Debugf("Charm %s is locked. Trying to expire lock.", key)
-			m.tryExpire(key)
-			err = m.locks.Insert(doc)
+			l.tryExpire(key)
+			err = l.locks.Insert(doc)
 			if err == nil {
 				log.Debugf("Charm %s is now locked for updates.", key)
 				continue
@@ -380,19 +380,19 @@ func (m *UpdateLock) tryLock() error {
 		for j := i - 1; j >= 0; j-- {
 			// Using time below should be unnecessary, but it's an extra check.
 			// Can't do anything about errors here. Lock will expire anyway.
-			m.locks.Remove(bson.D{{"_id", m.keys[j]}, {"time", m.time}})
+			l.locks.Remove(bson.D{{"_id", l.keys[j]}, {"time", l.time}})
 		}
 		err = maybeConflict(err)
-		log.Printf("Can't lock charms %v for updating: %v", m.keys, err)
+		log.Printf("Can't lock charms %v for updating: %v", l.keys, err)
 		return err
 	}
 	return nil
 }
 
 // tryExpire attempts to remove outdated locks from the database.
-func (m *UpdateLock) tryExpire(key string) {
+func (l *UpdateLock) tryExpire(key string) {
 	// Ignore errors. If nothing happens the key will continue locked.
-	m.locks.Remove(bson.D{{"_id", key}, {"time", bson.D{{"$lt", bson.Now() - UpdateTimeout}}}})
+	l.locks.Remove(bson.D{{"_id", key}, {"time", bson.D{{"$lt", bson.Now().Add(-UpdateTimeout)}}}})
 }
 
 // maybeConflict returns an ErrUpdateConflict if err is a mgo
@@ -448,21 +448,9 @@ type CharmEvent struct {
 	RevisionKey string
 	Revision    int
 	URLs        []*charm.URL
-	Errors      []string
-	Warnings    []string
+	Errors      []string `bson:",omitempty"`
+	Warnings    []string `bson:",omitempty"`
 	Time        time.Time
-}
-
-// eventDoc is a shadow of CharmEvent for marshalling purposes.
-type eventDoc struct {
-	Kind        CharmEventKind
-	RevisionKey string
-	Revision    *int ",omitempty"
-	URLs        []string
-	Errors      []string ",omitempty"
-	Warnings    []string ",omitempty"
-	// TODO: Fix bson time.Time marshalling.
-	Time bson.Timestamp
 }
 
 // LogCharmEvent records an event related to one or more charm URLs.
@@ -476,26 +464,11 @@ func (s *Store) LogCharmEvent(event *CharmEvent) (err error) {
 	if event.Kind == 0 || event.RevisionKey == "" || len(event.URLs) == 0 {
 		return fmt.Errorf("LogCharmEvent: need valid Kind, RevisionKey and URLs")
 	}
-	urlStrs := make([]string, len(event.URLs))
-	for i, url := range event.URLs {
-		urlStrs[i] = url.String()
-	}
 	if event.Time.IsZero() {
 		event.Time = time.Now()
 	}
-	doc := &eventDoc{
-		Kind:        event.Kind,
-		URLs:        urlStrs,
-		RevisionKey: event.RevisionKey,
-		Errors:      event.Errors,
-		Warnings:    event.Warnings,
-		Time:        bson.Timestamp(event.Time.UnixNano()),
-	}
-	if event.Kind == EventPublishDone {
-		doc.Revision = &event.Revision
-	}
 	events := session.Events()
-	return events.Insert(doc)
+	return events.Insert(event)
 }
 
 // CharmEvent returns the most recent event associated with url
@@ -512,33 +485,15 @@ func (s *Store) CharmEvent(url *charm.URL, revisionKey string) (*CharmEvent, err
 	defer session.Close()
 
 	events := session.Events()
-	doc := eventDoc{}
+	event := &CharmEvent{RevisionKey: revisionKey}
 	query := events.Find(bson.D{{"urls", url.String()}, {"revisionkey", revisionKey}})
 	query.Sort(bson.D{{"time", -1}})
-	err := query.One(&doc)
+	err := query.One(&event)
 	if err == mgo.NotFound {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, err
-	}
-	urls := make([]*charm.URL, len(doc.URLs))
-	for i, url := range doc.URLs {
-		urls[i], err = charm.ParseURL(url)
-		if err != nil {
-			return nil, err
-		}
-	}
-	event := &CharmEvent{
-		Kind:        doc.Kind,
-		RevisionKey: revisionKey,
-		URLs:        urls,
-		Errors:      doc.Errors,
-		Warnings:    doc.Warnings,
-		Time:        time.Unix(0, int64(doc.Time)),
-	}
-	if doc.Revision != nil {
-		event.Revision = *doc.Revision
 	}
 	return event, nil
 }
