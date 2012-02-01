@@ -109,9 +109,7 @@ func (e *environ) Zookeepers() ([]string, error) {
 	return addrs, nil
 }
 
-func (e *environ) StartInstance(machineId int) (environs.Instance, error) {
-	return e.startInstance(machineId, false)
-}
+func (e *environ) StartInstance(machineId int) (environs.Instance, error) { 
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself. If master is true, a bootstrap
@@ -122,8 +120,11 @@ func (e *environ) startInstance(machineId int, master bool) (environs.Instance, 
 		return nil, fmt.Errorf("cannot find image: %v", err)
 	}
 	cfg := &cloudConfig{
+		provisioner: master,
+		zookeeper: master,
+		instanceIdAccessor: TODO,
+		adminSecret: e.cfg.adminSecret,
 		
-	}
 	groups, err := e.setUpGroups(machineId)
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
