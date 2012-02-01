@@ -44,13 +44,31 @@ func (t *LiveTests) TestStartStop(c *C) {
 
 	insts, err = t.env.Instances()
 	c.Assert(err, IsNil)
-	c.Assert(len(insts), Equals, 0)
+	c.Assert(len(insts), Equals, 0, Bug("instances: %v", insts))
 
 	// check the instance is no longer there.
 	found = true
 	for _, inst := range insts {
 		c.Assert(inst.Id(), Not(Equals), id0)
 	}
+}
+
+func (t *LiveTests) TestBootstrap(c *C) {
+	err := t.env.Bootstrap()
+	c.Assert(err, IsNil)
+
+	err = t.env.Bootstrap()
+	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
+
+	err = t.env.Destroy()
+	c.Assert(err, IsNil)
+
+	// check that we can bootstrap after destroy
+	err = t.env.Bootstrap()
+	c.Assert(err, IsNil)
+
+	err = t.env.Destroy()
+	c.Assert(err, IsNil)
 }
 
 // TODO check that binary data works ok?
