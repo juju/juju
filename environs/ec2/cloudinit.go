@@ -1,8 +1,6 @@
 package ec2
 
 import (
-	"crypto/sha1"
-	"encoding/base64"
 	"fmt"
 	"launchpad.net/juju/go/cloudinit"
 	"os/exec"
@@ -302,13 +300,4 @@ func defaultOrigin() *jujuOrigin {
 		}
 	}
 	return fallbackOrigin
-}
-
-// Given the name of a principle and a password, MakeIdentity
-// transforms it into an identity of the form principle_name:hash that can be
-// used for an access control list entry.
-func makeIdentity(name, password string) string {
-	h := sha1.New()
-	h.Write([]byte(name + ":" + password))
-	return name + ":" + base64.StdEncoding.EncodeToString(h.Sum(nil))
 }

@@ -14,3 +14,10 @@ func LoadState(e environs.Environ) (*BootstrapState, error) {
 	return &BootstrapState{s.ZookeeperInstances}, nil
 }
 
+func MakeIdentity(name, password string) string {
+	return makeIdentity(name, password)
+}
+
+func AuthorizedKeys(path string) (string, error) {
+	return authorizedKeys(path)
+}
