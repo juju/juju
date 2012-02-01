@@ -27,15 +27,15 @@ const (
 
 // ItemChange represents the change of an item in a configNode.
 type ItemChange struct {
-	ChangeType int
-	Key        string
-	OldValue   interface{}
-	NewValue   interface{}
+	Type     int
+	Key      string
+	OldValue interface{}
+	NewValue interface{}
 }
 
 // String returns the item change in a readable format.
 func (ic *ItemChange) String() string {
-	switch ic.ChangeType {
+	switch ic.Type {
 	case ItemAdded:
 		return fmt.Sprintf("setting added: %v = %v", ic.Key, ic.NewValue)
 	case ItemModified:
@@ -45,28 +45,16 @@ func (ic *ItemChange) String() string {
 		return fmt.Sprintf("setting deleted: %v (was %v)", ic.Key, ic.OldValue)
 	}
 	return fmt.Sprintf("unknown setting change type %d: %v = %v (was %v)",
-		ic.ChangeType, ic.Key, ic.NewValue, ic.OldValue)
+		ic.Type, ic.Key, ic.NewValue, ic.OldValue)
 }
 
-// ItemChangeSlice contains a slice of item changes in a config node. 
+// itemChangeSlice contains a slice of item changes in a config node. 
 // It implements the sort interface to sort the items changes by key.
 type itemChangeSlice []ItemChange
 
-// Len is the number of item changes in the slice.
-func (ics itemChangeSlice) Len() int {
-	return len(ics)
-}
-
-// Less returns whether the item change with index i has a 
-// lower keythan the item change with index j.
-func (ics itemChangeSlice) Less(i, j int) bool {
-	return ics[i].Key < ics[j].Key
-}
-
-// Swap swaps the item changes with indexes i and j.
-func (ics itemChangeSlice) Swap(i, j int) {
-	ics[i], ics[j] = ics[j], ics[i]
-}
+func (ics itemChangeSlice) Len() int { return len(ics) }
+func (ics itemChangeSlice) Less(i, j int) bool { return ics[i].Key < ics[j].Key }
+func (ics itemChangeSlice) Swap(i, j int) { ics[i], ics[j] = ics[j], ics[i] }
 
 // A ConfigNode represents the data of a ZooKeeper node
 // containing YAML-based settings. It manages changes to
@@ -97,8 +85,8 @@ func createConfigNode(zk *zookeeper.Conn, path string, values map[string]interfa
 // readConfigNode returns the ConfigNode for path.
 func readConfigNode(zk *zookeeper.Conn, path string) (*ConfigNode, error) {
 	c := &ConfigNode{
-		zk:            zk,
-		path:          path,
+		zk:   zk,
+		path: path,
 	}
 	if err := c.Read(); err != nil {
 		return nil, err
