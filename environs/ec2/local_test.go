@@ -115,6 +115,12 @@ func (t *localTests) TestBootstrapInstanceAndState(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(state.ZookeeperInstances), Equals, 1)
 	c.Assert(state.ZookeeperInstances[0], Equals, insts[0].Id())
+
+	err = env.Destroy()
+	c.Assert(err, IsNil)
+
+	_, err = ec2.LoadState(env)
+	c.Assert(err, NotNil)
 }
 
 func (t *localTests) TestInstanceGroups(c *C) {
