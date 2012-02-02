@@ -262,13 +262,7 @@ func (w *charmWriter) finish() error {
 			return err
 		}
 	}
-	event := &CharmEvent{
-		Kind:   EventPublished,
-		Digest: w.digest,
-		// Revision: w.revision, TESTME
-		URLs: w.urls,
-	}
-	return w.store.LogCharmEvent(event)
+	return nil
 }
 
 type CharmInfo struct {
