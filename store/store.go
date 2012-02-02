@@ -69,7 +69,7 @@ func (s *Store) Close() {
 	s.session.Close()
 }
 
-// A CharmPublisher is responsible for importing a charm bundle onto the store.
+// A CharmPublisher is responsible for importing a charm dir onto the store.
 type CharmPublisher struct {
 	revision int
 	w        *charmWriter
@@ -95,7 +95,8 @@ var _ CharmDir = (*charm.Dir)(nil)
 
 // Publish bundles charm and writes it to the store. It will also log events
 // recording the success or failure of the operation.
-// The written charm bundle will have the revision returned by Revision.
+// The written charm bundle will have its revision set to the result
+// of Revision.
 // Publish must be called only once for a CharmPublisher.
 func (p *CharmPublisher) Publish(charm CharmDir) error {
 	w := p.w
@@ -129,9 +130,9 @@ func (p *CharmPublisher) Publish(charm CharmDir) error {
 }
 
 // CharmPublisher returns a new CharmPublisher for importing a charm that
-// must be made available in the store at all of the provided URLs.
+// will be made available in the store at all of the provided URLs.
 // The digest parameter must contain the unique identifier that
-// represents the current charm content (e.g. the VCS revision sha1).
+// represents the charm data being imported (e.g. the VCS revision sha1).
 // ErrRedundantUpdate is returned if all of the provided urls are
 // already associated to that digest.
 func (s *Store) CharmPublisher(urls []*charm.URL, digest string) (p *CharmPublisher, err error) {
