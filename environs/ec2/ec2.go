@@ -5,6 +5,7 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
+	"launchpad.net/juju/go/state"
 	"sync"
 )
 
@@ -109,7 +110,13 @@ func (e *environ) Zookeepers() ([]string, error) {
 	return addrs, nil
 }
 
-func (e *environ) StartInstance(machineId int) (environs.Instance, error) { 
+func (e *environ) StateInfo() (*state.Info, error) {
+	return nil, fmt.Errorf("TODO")
+}
+
+func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Instance, error) {
+	return e.startInstance(machineId, false)
+}
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself. If master is true, a bootstrap
@@ -119,15 +126,14 @@ func (e *environ) startInstance(machineId int, master bool) (environs.Instance, 
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
 	}
-	cfg := &cloudConfig{
-		provisioner: master,
-		zookeeper: master,
-		instanceIdAccessor: TODO,
-		adminSecret: e.cfg.adminSecret,
-		providerType: "ec2",
-		machineId: "0",
-		
-	}
+//	cfg := &cloudConfig{
+//		provisioner: master,
+//		zookeeper: master,
+//		instanceIdAccessor: TODO,
+//		adminSecret: e.cfg.adminSecret,
+//		providerType: "ec2",
+//		machineId: "0",
+//	}
 		
 	groups, err := e.setUpGroups(machineId)
 	if err != nil {

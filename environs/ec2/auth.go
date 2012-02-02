@@ -1,23 +1,12 @@
 package ec2
 
 import (
-	"crypto/sha1"
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 )
-
-// Given the name of a principal and a password, makeIdentity
-// transforms it into an identity of the form principal_name:hash that can be
-// used for an access control list entry.
-func makeIdentity(name, password string) string {
-	h := sha1.New()
-	h.Write([]byte(name + ":" + password))
-	return name + ":" + base64.StdEncoding.EncodeToString(h.Sum(nil))
-}
 
 func isNotFoundError(e error) bool {
 	if e == os.ENOENT {

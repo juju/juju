@@ -136,7 +136,7 @@ func (t *localTests) TestInstanceGroups(c *C) {
 		fmt.Sprintf("juju-%s-%d", t.Name, 99),
 	)
 
-	inst0, err := env.StartInstance(98)
+	inst0, err := env.StartInstance(98, nil)
 	c.Assert(err, IsNil)
 	defer env.StopInstances([]environs.Instance{inst0})
 
@@ -145,7 +145,7 @@ func (t *localTests) TestInstanceGroups(c *C) {
 	// recreated correctly.
 	oldGroup := ensureGroupExists(c, ec2conn, groups[2], "old group")
 
-	inst1, err := env.StartInstance(99)
+	inst1, err := env.StartInstance(99, nil)
 	c.Assert(err, IsNil)
 	defer env.StopInstances([]environs.Instance{inst1})
 

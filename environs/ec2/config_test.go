@@ -22,14 +22,12 @@ var testAuth = aws.Auth{"gopher", "long teeth"}
 
 // the mandatory fields in config.
 var baseConfig = `control-bucket: x
-admin-secret: verysecret
 `
 
 // the result of parsing baseConfig.
 var baseConfigResult = providerConfig{
 	region: "us-east-1",
 	bucket: "x",
-	adminSecret: "verysecret",
 	auth: testAuth,
 }
 
