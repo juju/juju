@@ -12,29 +12,6 @@ type cloudinitSuite struct{}
 
 var _ = Suite(cloudinitSuite{})
 
-// When mutate is called on a known-good cloudConfig,
-// there should be an error complaining about the missing
-// field named by the adjacent err.
-var verifyTests = []struct {
-	err    string
-	mutate func(*cloudConfig)
-}{
-	{"machine id", func(cfg *cloudConfig) { cfg.machineId = "" }},
-	{"provider type", func(cfg *cloudConfig) { cfg.providerType = "" }},
-	{"instance id accessor", func(cfg *cloudConfig) {
-		cfg.zookeeper = true
-		cfg.instanceIdAccessor = ""
-	}},
-	{"admin secret", func(cfg *cloudConfig) {
-		cfg.zookeeper = true
-		cfg.adminSecret = ""
-	}},
-	{"zookeeper hosts", func(cfg *cloudConfig) {
-		cfg.zookeeper = false
-		cfg.zookeeperHosts = nil
-	}},
-}
-
 // Each test gives a cloudinit config - we check the
 // output to see if it looks correct.
 var cloudinitTests = []cloudConfig{
@@ -42,7 +19,7 @@ var cloudinitTests = []cloudConfig{
 		adminSecret:        "topsecret",
 		instanceIdAccessor: "$instance_id",
 		machineId:          "aMachine",
-		origin:             &jujuOrigin{originBranch, "lp:jujubranch"},
+		origin:             jujuOrigin{originBranch, "lp:jujubranch"},
 		providerType:       "ec2",
 		provisioner:        true,
 		sshKeys:            []string{"sshkey1"},
@@ -51,7 +28,7 @@ var cloudinitTests = []cloudConfig{
 	{
 		adminSecret:    "topsecret",
 		machineId:      "aMachine",
-		origin:         &jujuOrigin{originDistro, ""},
+		origin:         jujuOrigin{originDistro, ""},
 		providerType:   "ec2",
 		provisioner:    false,
 		sshKeys:        []string{"sshkey1"},
@@ -63,8 +40,8 @@ var cloudinitTests = []cloudConfig{
 // cloundInitTest runs a set of tests for one of the cloudConfig
 // values above.
 type cloudinitTest struct {
-	x   map[interface{}]interface{}		// the unmarshalled YAML.
-	cfg *cloudConfig			// the config being tested.
+	x   map[interface{}]interface{} // the unmarshalled YAML.
+	cfg *cloudConfig                // the config being tested.
 }
 
 func (t *cloudinitTest) check(c *C) {
@@ -79,7 +56,7 @@ func (t *cloudinitTest) check(c *C) {
 		t.checkScripts(c, "juju-admin initialize")
 		t.checkScripts(c, regexp.QuoteMeta(t.cfg.instanceIdAccessor))
 	}
-	if t.cfg.origin != nil && t.cfg.origin.origin == originDistro {
+	if t.cfg.origin != (jujuOrigin{}) && t.cfg.origin.origin == originDistro {
 		t.checkScripts(c, "apt-get.*install juju")
 	}
 	if t.cfg.provisioner {
@@ -174,10 +151,33 @@ func (cloudinitSuite) TestCloudInit(c *C) {
 		c.Logf("result %v", x)
 		t := &cloudinitTest{
 			cfg: &cfg,
-			x: x,
+			x:   x,
 		}
 		t.check(c)
 	}
+}
+
+// When mutate is called on a known-good cloudConfig,
+// there should be an error complaining about the missing
+// field named by the adjacent err.
+var verifyTests = []struct {
+	err    string
+	mutate func(*cloudConfig)
+}{
+	{"machine id", func(cfg *cloudConfig) { cfg.machineId = "" }},
+	{"provider type", func(cfg *cloudConfig) { cfg.providerType = "" }},
+	{"instance id accessor", func(cfg *cloudConfig) {
+		cfg.zookeeper = true
+		cfg.instanceIdAccessor = ""
+	}},
+	{"admin secret", func(cfg *cloudConfig) {
+		cfg.zookeeper = true
+		cfg.adminSecret = ""
+	}},
+	{"zookeeper hosts", func(cfg *cloudConfig) {
+		cfg.zookeeper = false
+		cfg.zookeeperHosts = nil
+	}},
 }
 
 // TestCloudInitVerify checks that required fields are appropriately
@@ -189,7 +189,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		instanceIdAccessor: "$instance_id",
 		adminSecret:        "topsecret",
 		providerType:       "ec2",
-		origin:             &jujuOrigin{originBranch, "lp:jujubranch"},
+		origin:             jujuOrigin{originBranch, "lp:jujubranch"},
 		machineId:          "aMachine",
 		sshKeys:            []string{"sshkey1"},
 		zookeeperHosts:     []string{"zkhost"},
@@ -204,5 +204,47 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		t, err := newCloudInit(&cfg1)
 		c.Assert(err, ErrorMatches, "cloud configuration requires "+test.err)
 		c.Assert(t, IsNil)
+	}
+}
+
+var policyTests = []struct {
+	policy string
+	origin jujuOrigin
+}{
+	{`
+		|juju:
+		|  Installed: 0.5+bzr411-1juju1~natty1
+		|  Candidate: 0.5+bzr411-1juju1~natty1
+		|  Version table:
+		| *** 0.5+bzr411-1juju1~natty1 0
+		|        100 /var/lib/dpkg/status
+		|     0.5+bzr398-0ubuntu1 0
+		|        500 http://gb.archive.ubuntu.com/ubuntu/ oneiric/universe amd64 Packages`,
+		jujuOrigin{
+			originDistro,
+			"",
+		},
+		// TODO add more tests with real output from apt_cache
+	},
+}
+
+var unindentPattern = regexp.MustCompile(`\n\s*\|`)
+
+// If the string doesn't start with a newline, unindent returns
+// it. Otherwise it removes the initial newline and the
+// indentation from each line of the string and adds a trailing newline.
+// Indentation is defined to be
+// a run of white space followed by a '|' character.
+func unindent(s string) string {
+	if s[0] != '\n' {
+		return s
+	}
+	return unindentPattern.ReplaceAllString(s, "\n")[1:] + "\n"
+}
+
+func (cloudinitSuite) TestCloudPolicyToOrigin(c *C) {
+	for i, t := range policyTests {
+		o := policyToOrigin(unindent(t.policy) + "\n")
+		c.Check(o, Equals, t.origin, Bug("test %d", i))
 	}
 }

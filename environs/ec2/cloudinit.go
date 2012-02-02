@@ -1,8 +1,6 @@
 package ec2
 
 import (
-	"crypto/sha1"
-	"encoding/base64"
 	"fmt"
 	"launchpad.net/juju/go/cloudinit"
 	"os/exec"
@@ -19,31 +17,29 @@ type cloudConfig struct {
 	// The new machine will run a zookeeper instance.
 	zookeeper bool
 
-	// InstanceIdAccessor holds bash code that evaluates to the current instance id.
+	// instanceIdAccessor holds bash code that evaluates to the current instance id.
 	instanceIdAccessor string
 
-	// AdminSecret holds a secret that will be used to authenticate to zookeeper.
+	// adminSecret holds a secret that will be used to authenticate to zookeeper.
 	adminSecret string
 
-	// ProviderType identifies the provider type so the host
+	// providerType identifies the provider type so the host
 	// knows which kind of provider to use.
 	providerType string
 
-	// ZookeeperHosts lists the names of hosts running zookeeper.
+	// zookeeperHosts lists the names of hosts running zookeeper.
 	// Unless the new machine is running zookeeper (Zookeeper is set),
 	// there must be at least one host name supplied.
 	zookeeperHosts []string
 
-	// jujuOrigin states where the juju instance should
-	// be obtained. If it is nil, a suitable default is chosen
-	// by examining the local environment.
-	origin *jujuOrigin
+	// origin states what version of juju should be run on the instance.
+	// If it is zero, a suitable default is chosen by examining the local environment.
+	origin jujuOrigin
 
-	// MachineId identifies the new machine. It must be
-	// non-empty.
+	// machineId identifies the new machine. It must be non-empty.
 	machineId string
 
-	// SSHKeys specifies the keys that are allowed to
+	// sshKeys specifies the keys that are allowed to
 	// connect to the machine. If no keys are
 	// supplied, there can be no ssh access to the node.
 	// On a bootstrap machine, that is fatal. On other
@@ -85,7 +81,7 @@ func newCloudInit(cfg *cloudConfig) (*cloudinit.Config, error) {
 	}
 	c := cloudinit.New()
 	origin := cfg.origin
-	if origin == nil {
+	if (origin == jujuOrigin{}) {
 		origin = defaultOrigin()
 	}
 
@@ -234,7 +230,8 @@ func (l *lines) next() (int, string) {
 }
 
 // nextWithPrefix returns the next line from lines that
-// has the given prefix. If there is no such line, it
+// has the given prefix, with the prefix removed.
+// If there is no such line, it
 // returns the empty string and false.
 func (l *lines) nextWithPrefix(prefix string) (string, bool) {
 	for {
@@ -249,25 +246,29 @@ func (l *lines) nextWithPrefix(prefix string) (string, bool) {
 	panic("not reached")
 }
 
-var fallbackOrigin = &jujuOrigin{originDistro, ""}
+var fallbackOrigin = jujuOrigin{originDistro, ""}
 
 // defaultOrigin selects the best fit for running juju on cloudinit.
 // It is used only if the origin is not otherwise specified
 // in Config.origin.
-func defaultOrigin() *jujuOrigin {
+func defaultOrigin() jujuOrigin {
 	// TODO how can we (or should we?) determine if we're running from a branch?
 	data, err := exec.Command("apt-cache", "policy", "juju").Output()
 	if err != nil {
 		// TODO log the error?
 		return fallbackOrigin
 	}
-	out := lines(strings.Split(string(data), "\n"))
+	return policyToOrigin(string(data))
+}
+
+func policyToOrigin(policy string) jujuOrigin {
+	out := lines(strings.Split(policy, "\n"))
 	_, line := out.next()
 	if line == "" {
 		return fallbackOrigin
 	}
 	if line == "N: Unable to locate package juju" {
-		return &jujuOrigin{originBranch, "lp:juju"}
+		return jujuOrigin{originBranch, "lp:juju"}
 	}
 
 	// Find installed version.
@@ -277,7 +278,7 @@ func defaultOrigin() *jujuOrigin {
 		return fallbackOrigin
 	}
 	if version == "(none)" {
-		return &jujuOrigin{originBranch, "lp:juju"}
+		return jujuOrigin{originBranch, "lp:juju"}
 	}
 
 	_, ok = out.nextWithPrefix("Version table:")
@@ -293,7 +294,7 @@ func defaultOrigin() *jujuOrigin {
 	firstIndent, line := out.next()
 	for len(line) > 0 {
 		if strings.Contains(line, "http://ppa.launchpad.net/juju/pkgs/") {
-			return &jujuOrigin{originPPA, ""}
+			return jujuOrigin{originPPA, ""}
 		}
 		var indent int
 		indent, line = out.next()
@@ -302,13 +303,4 @@ func defaultOrigin() *jujuOrigin {
 		}
 	}
 	return fallbackOrigin
-}
-
-// Given the name of a principle and a password, MakeIdentity
-// transforms it into an identity of the form principle_name:hash that can be
-// used for an access control list entry.
-func makeIdentity(name, password string) string {
-	h := sha1.New()
-	h.Write([]byte(name + ":" + password))
-	return name + ":" + base64.StdEncoding.EncodeToString(h.Sum(nil))
 }
