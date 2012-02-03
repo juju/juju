@@ -32,7 +32,7 @@ type Instance interface {
 type Environ interface {
 	// Bootstrap initializes the state for the environment,
 	// possibly starting one or more instances.
-	Bootstrap() error
+	Bootstrap() (*state.Info, error)
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.

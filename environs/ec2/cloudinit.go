@@ -20,9 +20,6 @@ type cloudConfig struct {
 	// instanceIdAccessor holds bash code that evaluates to the current instance id.
 	instanceIdAccessor string
 
-	// adminSecret holds a secret that will be used to authenticate to zookeeper.
-	adminSecret string
-
 	// providerType identifies the provider type so the host
 	// knows which kind of provider to use.
 	providerType string
@@ -39,13 +36,13 @@ type cloudConfig struct {
 	// machineId identifies the new machine. It must be non-empty.
 	machineId string
 
-	// sshKeys specifies the keys that are allowed to
-	// connect to the machine. If no keys are
-	// supplied, there can be no ssh access to the node.
+	// authorizedKeys specifies the keys that are allowed to
+	// connect to the machine (see cloudinit.SSHAddAuthorizedKeys)
+	// If no keys are supplied, there can be no ssh access to the node.
 	// On a bootstrap machine, that is fatal. On other
 	// machines it will mean that the ssh, scp and debug-hooks
 	// commands cannot work.
-	sshKeys []string
+	authorizedKeys string
 }
 
 type originKind int
@@ -85,9 +82,7 @@ func newCloudInit(cfg *cloudConfig) (*cloudinit.Config, error) {
 		origin = defaultOrigin()
 	}
 
-	for _, k := range cfg.sshKeys {
-		c.AddSSHAuthorizedKey(k)
-	}
+	c.AddSSHAuthorizedKeys(cfg.authorizedKeys)
 	pkgs := []string{
 		"bzr",
 		"byobu",
@@ -200,9 +195,6 @@ func verifyConfig(cfg *cloudConfig) error {
 	if cfg.zookeeper {
 		if cfg.instanceIdAccessor == "" {
 			return requiresError("instance id accessor")
-		}
-		if cfg.adminSecret == "" {
-			return requiresError("admin secret")
 		}
 	} else {
 		if len(cfg.zookeeperHosts) == 0 {

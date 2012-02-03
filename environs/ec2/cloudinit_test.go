@@ -16,22 +16,20 @@ var _ = Suite(cloudinitSuite{})
 // output to see if it looks correct.
 var cloudinitTests = []cloudConfig{
 	{
-		adminSecret:        "topsecret",
 		instanceIdAccessor: "$instance_id",
 		machineId:          "aMachine",
 		origin:             jujuOrigin{originBranch, "lp:jujubranch"},
 		providerType:       "ec2",
 		provisioner:        true,
-		sshKeys:            []string{"sshkey1"},
+		authorizedKeys:            "sshkey1",
 		zookeeper:          true,
 	},
 	{
-		adminSecret:    "topsecret",
 		machineId:      "aMachine",
 		origin:         jujuOrigin{originDistro, ""},
 		providerType:   "ec2",
 		provisioner:    false,
-		sshKeys:        []string{"sshkey1"},
+		authorizedKeys:            "sshkey1",
 		zookeeper:      false,
 		zookeeperHosts: []string{"zk1"},
 	},
@@ -170,10 +168,6 @@ var verifyTests = []struct {
 		cfg.zookeeper = true
 		cfg.instanceIdAccessor = ""
 	}},
-	{"admin secret", func(cfg *cloudConfig) {
-		cfg.zookeeper = true
-		cfg.adminSecret = ""
-	}},
 	{"zookeeper hosts", func(cfg *cloudConfig) {
 		cfg.zookeeper = false
 		cfg.zookeeperHosts = nil
@@ -187,11 +181,10 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		provisioner:        true,
 		zookeeper:          true,
 		instanceIdAccessor: "$instance_id",
-		adminSecret:        "topsecret",
 		providerType:       "ec2",
 		origin:             jujuOrigin{originBranch, "lp:jujubranch"},
 		machineId:          "aMachine",
-		sshKeys:            []string{"sshkey1"},
+		authorizedKeys:            "sshkey1",
 		zookeeperHosts:     []string{"zkhost"},
 	}
 	// check that the base configuration does not give an error

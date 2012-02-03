@@ -105,7 +105,10 @@ func (t *localTests) TestBootstrapInstanceAndState(c *C) {
 	env, err := t.Environs.Open(t.Name)
 	c.Assert(err, IsNil)
 
-	err = env.Bootstrap()
+	info, err := env.Bootstrap()
+	// TODO check that bootstrap state corresponds to the actual
+	// machine we've started
+	c.Assert(info, NotNil)
 	c.Assert(err, IsNil)
 
 	insts, err := env.Instances()

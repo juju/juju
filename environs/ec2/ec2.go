@@ -61,17 +61,17 @@ func (environProvider) Open(name string, config interface{}) (e environs.Environ
 	}, nil
 }
 
-func (e *environ) Bootstrap() error {
+func (e *environ) Bootstrap() (*state.Info, error) {
 	_, err := e.loadState()
 	if err == nil {
-		return fmt.Errorf("environment is already bootstrapped")
+		return nil, fmt.Errorf("environment is already bootstrapped")
 	}
 	if s3err, _ := err.(*s3.Error); s3err != nil && s3err.StatusCode != 404 {
-		return err
+		return nil, err
 	}
-	inst, err := e.startInstance(0, true)
+	inst, err := e.startInstance(0, nil, true)
 	if err != nil {
-		return fmt.Errorf("cannot start bootstrap instance: %v", err)
+		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
 	err = e.saveState(&bootstrapState{
 		ZookeeperInstances: []string{inst.Id()},
@@ -80,23 +80,23 @@ func (e *environ) Bootstrap() error {
 		// ignore error on StopInstance because the previous error is
 		// more important.
 		e.StopInstances([]environs.Instance{inst})
-		return err
+		return nil, err
 	}
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to use S3 to make sure that only one succeeds.
 	// Perhaps consider using SimpleDB for state storage
 	// which would enable that possibility.
-	return nil
+	return &state.Info{[]string{zkAddr(inst.(*instance).Instance)}}, nil
 }
 
-func (e *environ) Zookeepers() ([]string, error) {
-	state, err := e.loadState()
+func (e *environ) StateInfo() (*state.Info, error) {
+	st, err := e.loadState()
 	if err != nil {
 		return nil, err
 	}
 	f := ec2.NewFilter()
-	f.Add("instance-id", state.ZookeeperInstances...)
+	f.Add("instance-id", st.ZookeeperInstances...)
 	resp, err := e.ec2.Instances(nil, f)
 	if err != nil {
 		return nil, err
@@ -104,37 +104,52 @@ func (e *environ) Zookeepers() ([]string, error) {
 	var addrs []string
 	for _, r := range resp.Reservations {
 		for _, inst := range r.Instances {
-			addrs = append(addrs, inst.DNSName + zkPortSuffix)
+			addrs = append(addrs, zkAddr(&inst))
 		}
 	}
-	return addrs, nil
+	return &state.Info{addrs}, nil
 }
 
-func (e *environ) StateInfo() (*state.Info, error) {
-	return nil, fmt.Errorf("TODO")
+func zkAddr(inst *ec2.Instance) string {
+	return inst.DNSName + zkPortSuffix
 }
 
 func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Instance, error) {
-	return e.startInstance(machineId, false)
+	return e.startInstance(machineId, info, false)
+}
+
+func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte, error) {
+	cfg := &cloudConfig{
+		provisioner: master,
+		zookeeper: master,
+		instanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
+		providerType: "ec2",
+		machineId: fmt.Sprint(machineId),
+	}
+	var err error
+	cfg.authorizedKeys, err = authorizedKeys(e.config.authorizedKeys, e.config.authorizedKeysPath)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get ssh authorized keys: %v", err)
+	}
+	cloudcfg, err := newCloudInit(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return cloudcfg.Render()
 }
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
-func (e *environ) startInstance(machineId int, master bool) (environs.Instance, error) {
+func (e *environ) startInstance(machineId int, info *state.Info, master bool) (environs.Instance, error) {
 	image, err := FindImageSpec(DefaultImageConstraint)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
 	}
-//	cfg := &cloudConfig{
-//		provisioner: master,
-//		zookeeper: master,
-//		instanceIdAccessor: TODO,
-//		adminSecret: e.cfg.adminSecret,
-//		providerType: "ec2",
-//		machineId: "0",
-//	}
-		
+	userData, err := e.userData(machineId, info, master)
+	if err != nil {
+		return nil, err
+	}
 	groups, err := e.setUpGroups(machineId)
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
@@ -143,7 +158,7 @@ func (e *environ) startInstance(machineId int, master bool) (environs.Instance, 
 		ImageId:        image.ImageId,
 		MinCount:       1,
 		MaxCount:       1,
-		UserData:       nil,
+		UserData:       userData,
 		InstanceType:   "m1.small",
 		SecurityGroups: groups,
 	})

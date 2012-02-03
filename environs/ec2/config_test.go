@@ -98,6 +98,20 @@ var configTests = []configTest{
 		"",
 	},
 	{
+		"authorized-keys: authkeys\n" + baseConfig,
+		func(cfg *providerConfig){
+			cfg.authorizedKeys = "authkeys"
+		},
+		"",
+	},
+	{
+		"authorized-keys-path: 'some path'\n" + baseConfig,
+		func(cfg *providerConfig){
+			cfg.authorizedKeysPath = "some path"
+		},
+		"",
+	},
+	{
 		"access-key: jujuer\n" + baseConfig,
 		nil,
 		".*environment has access-key but no secret-key",
@@ -107,6 +121,7 @@ var configTests = []configTest{
 		nil,
 		".*environment has secret-key but no access-key",
 	},
+
 	// unknown fields are discarded
 	{
 		"unknown-something: 666\n" + baseConfig,

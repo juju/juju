@@ -34,24 +34,29 @@ func (t *Tests) TestStartStop(c *C) {
 
 func (t *Tests) TestBootstrap(c *C) {
 	e := t.open(c)
-	err := e.Bootstrap()
+	info, err := e.Bootstrap()
 	c.Assert(err, IsNil)
+	c.Assert(info, NotNil)
 
-	err = e.Bootstrap()
+	info, err = e.Bootstrap()
+	c.Assert(info, IsNil)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.open(c)
-	err = e.Bootstrap()
+	info, err = e.Bootstrap()
+	c.Assert(info, IsNil)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	err = e2.Destroy()
 	c.Assert(err, IsNil)
 
-	err = e.Bootstrap()
+	info, err = e.Bootstrap()
 	c.Assert(err, IsNil)
+	c.Assert(info, NotNil)
 
-	err = e.Destroy()
-	c.Assert(err, IsNil)
+	info, err = e.Bootstrap()
+	c.Assert(err, NotNil)
+	c.Assert(info, IsNil)
 }
 
 func (t *Tests) TestPersistence(c *C) {
@@ -84,8 +89,8 @@ func checkFileDoesNotExist(c *C, e environs.Environ, name string) {
 
 func checkFileHasContents(c *C, e environs.Environ, name string, contents []byte) {
 	r, err := e.GetFile(name)
-	c.Check(r, NotNil)
 	c.Assert(err, IsNil)
+	c.Check(r, NotNil)
 
 	data, err := ioutil.ReadAll(r)
 	c.Check(err, IsNil)

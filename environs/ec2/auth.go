@@ -27,21 +27,25 @@ func expandFileName(f string) string {
 	return f
 }
 
-// authorizedKeys finds an authorized_keys file and returns its contents
-// (see sshd(8) for a description of the format). If path is not empty,
-// it names the file to use; otherwise the user's .ssh directory will be
-// searched.  Home directory expansion will be performed on the path if it
-// starts with a ~; if the expanded path is relative, it will be
-// interpreted relative to $HOME/.ssh.
-func authorizedKeys(path string) (string, error) {
+// authorizedKeys implements the standard juju behaviour for finding
+// authorized_keys. It returns a set of keys in in authorized_keys format
+// (see sshd(8) for a description).  If keys is non-empty, it returns that.
+// If path is non-empty, it names the file to use; otherwise the user's .ssh
+// directory will be searched.  Home directory expansion will be performed
+// on the path if it starts with a ~; if the expanded path is relative,
+// it will be interpreted relative to $HOME/.ssh.
+func authorizedKeys(keys, path string) (string, error) {
+	if keys != "" {
+		return keys, nil
+	}
 	var files []string
 	if path == "" {
 		files = []string{"id_dsa.pub", "id_rsa.pub", "identity.pub"}
 	} else {
 		files = []string{path}
 	}
-	var finalError error
-	var keys []byte
+	var firstError error
+	var keyData []byte
 	for _, f := range files {
 		f = expandFileName(f)
 		if !filepath.IsAbs(f) {
@@ -49,23 +53,23 @@ func authorizedKeys(path string) (string, error) {
 		}
 		data, err := ioutil.ReadFile(f)
 		if err != nil {
-			if finalError == nil && !isNotFoundError(err) {
-				finalError = err
+			if firstError == nil && !isNotFoundError(err) {
+				firstError = err
 			}
 			continue
 		}
-		keys = append(keys, data...)
+		keyData = append(keyData, data...)
 		// ensure that a file without a final newline
 		// is properly separated from any others.
 		if len(data) > 0 && data[len(data)-1] != '\n' {
-			keys = append(keys, '\n')
+			keyData = append(keyData, '\n')
 		}
 	}
-	if len(keys) == 0 {
-		if finalError == nil {
-			finalError = fmt.Errorf("no keys found")
+	if len(keyData) == 0 {
+		if firstError == nil {
+			firstError = fmt.Errorf("no keys found")
 		}
-		return "", finalError
+		return "", firstError
 	}
-	return string(keys), nil
+	return string(keyData), nil
 }

@@ -12,6 +12,8 @@ type providerConfig struct {
 	region string
 	auth   aws.Auth
 	bucket string
+	authorizedKeys string
+	authorizedKeysPath string
 }
 
 type checker struct{}
@@ -37,10 +39,14 @@ func (environProvider) ConfigChecker() schema.Checker {
 				"secret-key":     schema.String(),
 				"region":         schema.String(),
 				"control-bucket": schema.String(),
+				"authorized-keys": schema.String(),
+				"authorized-keys-path": schema.String(),
 			}, []string{
 				"access-key",
 				"secret-key",
 				"region",
+				"authorized-keys",
+				"authorized-keys-path",
 			},
 		),
 		checkerFunc(func(v interface{}, path []string) (newv interface{}, err error) {
@@ -69,6 +75,8 @@ func (environProvider) ConfigChecker() schema.Checker {
 				return nil, fmt.Errorf("invalid region name %q", regionName)
 			}
 			c.region = regionName
+			c.authorizedKeys = maybeString(m["authorized-keys"], "")
+			c.authorizedKeysPath = maybeString(m["authorized-keys-path"], "")
 			return &c, nil
 		}),
 	)

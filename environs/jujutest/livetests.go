@@ -54,17 +54,20 @@ func (t *LiveTests) TestStartStop(c *C) {
 }
 
 func (t *LiveTests) TestBootstrap(c *C) {
-	err := t.env.Bootstrap()
+	info, err := t.env.Bootstrap()
+	c.Assert(info, NotNil)
 	c.Assert(err, IsNil)
 
-	err = t.env.Bootstrap()
+	info, err = t.env.Bootstrap()
+	c.Assert(info, IsNil)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	err = t.env.Destroy()
 	c.Assert(err, IsNil)
 
 	// check that we can bootstrap after destroy
-	err = t.env.Bootstrap()
+	info, err = t.env.Bootstrap()
+	c.Assert(info, NotNil)
 	c.Assert(err, IsNil)
 
 	err = t.env.Destroy()
