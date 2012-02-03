@@ -7,10 +7,10 @@ import (
 	"strings"
 )
 
-// cloudConfig represents initialization information for a new juju machine.
+// machineConfig represents initialization information for a new juju machine.
 // Creation of cloudinit data from this struct is largely provider-independent,
 // but we'll keep it internal until we need to factor it out.
-type cloudConfig struct {
+type machineConfig struct {
 	// The new machine will run a provisioning agent.
 	provisioner bool
 
@@ -63,7 +63,7 @@ const (
 type requiresError string
 
 func (e requiresError) Error() string {
-	return "cloud configuration requires " + string(e)
+	return "invalid machine configuration: missing " + string(e)
 }
 
 func addScripts(c *cloudinit.Config, scripts ...string) {
@@ -72,7 +72,7 @@ func addScripts(c *cloudinit.Config, scripts ...string) {
 	}
 }
 
-func newCloudInit(cfg *cloudConfig) (*cloudinit.Config, error) {
+func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 	if err := verifyConfig(cfg); err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func newCloudInit(cfg *cloudConfig) (*cloudinit.Config, error) {
 		addScripts(c,
 			"juju-admin initialize"+
 				" --instance-id="+shquote(cfg.instanceIdAccessor)+
-				" --admin-identity=sham" +
+				" --admin-identity=sham"+
 				" --provider-type="+shquote(cfg.providerType),
 		)
 	}
@@ -167,7 +167,7 @@ func newCloudInit(cfg *cloudConfig) (*cloudinit.Config, error) {
 	return c, nil
 }
 
-func (cfg *cloudConfig) zookeeperHostAddrs() string {
+func (cfg *machineConfig) zookeeperHostAddrs() string {
 	hosts := append([]string{}, cfg.zookeeperHosts...)
 	if cfg.zookeeper {
 		hosts = append(hosts, "localhost")
@@ -185,7 +185,7 @@ func shquote(s string) string {
 	return `'` + strings.Replace(s, `'`, `'"'"'`, -1) + `'`
 }
 
-func verifyConfig(cfg *cloudConfig) error {
+func verifyConfig(cfg *machineConfig) error {
 	if cfg.machineId == "" {
 		return requiresError("machine id")
 	}
@@ -206,9 +206,8 @@ func verifyConfig(cfg *cloudConfig) error {
 
 type lines []string
 
-// next finds the next non-blank line in lines
-// and returns the number of leading spaces
-// and the line itself, stripped of leading spaces.
+// next finds the next non-blank line in lines and returns the number of
+// leading spaces and the line itself, stripped of leading spaces.
 func (l *lines) next() (int, string) {
 	for len(*l) > 0 {
 		s := (*l)[0]
@@ -221,10 +220,9 @@ func (l *lines) next() (int, string) {
 	return 0, ""
 }
 
-// nextWithPrefix returns the next line from lines that
-// has the given prefix, with the prefix removed.
-// If there is no such line, it
-// returns the empty string and false.
+// nextWithPrefix returns the next line from lines that has the given prefix,
+// with the prefix removed.  If there is no such line, it returns the empty
+// string and false.
 func (l *lines) nextWithPrefix(prefix string) (string, bool) {
 	for {
 		_, line := l.next()

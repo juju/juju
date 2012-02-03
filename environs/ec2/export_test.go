@@ -1,4 +1,5 @@
 package ec2
+
 import "launchpad.net/juju/go/environs"
 
 type BootstrapState struct {

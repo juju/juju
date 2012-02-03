@@ -119,7 +119,7 @@ func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Insta
 }
 
 func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte, error) {
-	cfg := &cloudConfig{
+	cfg := &machineConfig{
 		provisioner: master,
 		zookeeper: master,
 		instanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
