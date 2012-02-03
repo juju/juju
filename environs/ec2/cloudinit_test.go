@@ -286,6 +286,10 @@ var policyTests = []struct {
 		|        100 /var/lib/dpkg/status`,
 		jujuOrigin{originPPA, ""},
 	},
+	{`
+		|N: VAT GEEV?`,
+		jujuOrigin{originDistro, ""},
+	},
 }
 
 var unindentPattern = regexp.MustCompile(`\n\s*\|`)
