@@ -36,7 +36,7 @@ func expandFileName(f string) string {
 func authorizedKeys(path string) (string, error) {
 	var files []string
 	if path == "" {
-		files = []string{"id_dsa.pub", "id_rsa.pub", "identity.pub", "authorized_keys"}
+		files = []string{"id_dsa.pub", "id_rsa.pub", "identity.pub"}
 	} else {
 		files = []string{path}
 	}
@@ -69,4 +69,3 @@ func authorizedKeys(path string) (string, error) {
 	}
 	return string(keys), nil
 }
-

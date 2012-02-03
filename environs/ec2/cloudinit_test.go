@@ -224,7 +224,80 @@ var policyTests = []struct {
 			originDistro,
 			"",
 		},
-		// TODO add more tests with real output from apt_cache
+	},
+	{`
+		|juju:
+		|  Installed: good-magic-1.0
+		|  Candidate: good-magic-1.0
+		|  Version table:
+		| *** good-magic-1.0
+		|        500 http://us.archive.ubuntu.com/ubuntu/ natty/main amd64 Packages
+		|        100 /var/lib/dpkg/status`,
+		jujuOrigin{originDistro, ""},
+	}, {`
+		|juju:
+		|  Installed: good-magic-1.0
+		|  Candidate: good-magic-1.0
+		|  Version table:
+		|     0.5+bzr366-1juju1~natty1 0
+		|        500 http://ppa.launchpad.net/juju/pkgs/ubuntu/ natty/main amd64 Packages
+		| *** good-magic-1.0 0
+		|        500 http://us.archive.ubuntu.com/ubuntu/ natty/main amd64 Packages
+		|        100 /var/lib/dpkg/status`,
+		jujuOrigin{originDistro, ""},
+	}, {`
+		|juju:
+		|  Installed: 0.5+bzr366-1juju1~natty1
+		|  Candidate: 0.5+bzr366-1juju1~natty1
+		|  Version table:
+		|     bad-magic-0.5 0
+		|        500 http://us.archive.ubuntu.com/ubuntu/ natty/main amd64 Packages
+		| *** 0.5+bzr366-1juju1~natty1 0
+		|        100 /var/lib/dpkg/status
+		|        500 http://ppa.launchpad.net/juju/pkgs/ubuntu/ natty/main amd64 Packages
+		|     0.5+bzr356-1juju1~natty1 0
+		|        500 http://us.archive.ubuntu.com/ubuntu/ natty/main amd64 Packages`,
+		jujuOrigin{originPPA, ""},
+	}, {`
+		|juju:
+		|  Installed: (none)
+		|  Candidate: good-magic-1.0
+		|  Version table:
+		|     0.5+bzr366-1juju1~natty1 0
+		|        100 /var/lib/dpkg/status
+		|        500 http://ppa.launchpad.net/juju/pkgs/ubuntu/ natty/main amd64 Packages
+		|     good-magic-1.0 0
+		|        500 http://us.archive.ubuntu.com/ubuntu/ natty/main amd64 Packages
+		|        100 /var/lib/dpkg/status`,
+		jujuOrigin{originBranch, "lp:juju"},
+	}, {`
+		|juju:
+		|  Installed: 0.5+bzr356-1juju1~natty1
+		|  Candidate: 0.5+bzr356-1juju1~natty1
+		|  Version table:
+		|     good-magic-1.0 0
+		|        500 http://us.archive.ubuntu.com/ubuntu/ natty/main amd64 Packages
+		| *** 0.5+bzr356-1juju1~natty1 0
+		|        500 http://ppa.launchpad.net/juju/pkgs/ubuntu/ natty/main amd64 Packages
+		|        100 /var/lib/dpkg/status`,
+		jujuOrigin{originPPA, ""},
+	}, {`
+		|juju:
+		|  Installed: whatever
+		|  Candidate: whatever-else
+		|  Nothing interesting here:`,
+		jujuOrigin{originDistro, ""},
+	}, {`N: VAT GEEV?`,
+		jujuOrigin{originDistro, ""},
+	}, {`
+		|juju:
+		|  Installed: good-magic-1.0
+		|  Candidate: good-magic-1.0
+		|  Version table:
+		| *** good-magic-1.0 0
+		|        500 http://ppa.launchpad.net/juju/pkgs/ubuntu/ natty/main amd64 Packages
+		|        100 /var/lib/dpkg/status`,
+		jujuOrigin{originPPA, ""},
 	},
 }
 
