@@ -134,8 +134,8 @@ func (u *URL) String() string {
 
 // GetBSON turns u into a bson.Getter so it can be saved directly
 // on a MongoDB database with mgo.
-func (u *URL) GetBSON() interface{} {
-	return u.String()
+func (u *URL) GetBSON() (interface{}, error) {
+	return u.String(), nil
 }
 
 // SetBSON turns u into a bson.Setter so it can be loaded directly

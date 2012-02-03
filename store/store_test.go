@@ -41,7 +41,9 @@ func (s *S) SetUpTest(c *C) {
 }
 
 func (s *S) TearDownTest(c *C) {
-	s.store.Close()
+	if s.store != nil {
+		s.store.Close()
+	}
 	s.MgoSuite.TearDownTest(c)
 }
 
@@ -130,6 +132,7 @@ func (s *S) TestCharmPublisher(c *C) {
 
 		// The successful completion is also recorded as a charm event.
 		event, err := s.store.CharmEvent(url, "some-digest")
+		c.Assert(err, IsNil)
 		c.Assert(event.Kind, Equals, store.EventPublished)
 		c.Assert(event.Digest, Equals, "some-digest")
 		c.Assert(event.URLs, Equals, urls)

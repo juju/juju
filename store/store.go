@@ -141,11 +141,7 @@ func (s *Store) CharmPublisher(urls []*charm.URL, digest string) (p *CharmPublis
 		return
 	}
 	session := s.session.Copy()
-	defer func() {
-		if err != nil {
-			session.Close()
-		}
-	}()
+	defer session.Close()
 
 	maxRev := -1
 	newKey := false
@@ -180,7 +176,6 @@ func (s *Store) CharmPublisher(urls []*charm.URL, digest string) (p *CharmPublis
 	log.Printf("Preparing writer to add charms with revision %d.", revision)
 	w := &charmWriter{
 		store:    s,
-		session:  session,
 		urls:     urls,
 		revision: revision,
 		digest:   digest,
@@ -204,6 +199,7 @@ type charmWriter struct {
 // and streams all written data into it.
 func (w *charmWriter) Write(data []byte) (n int, err error) {
 	if w.file == nil {
+		w.session = w.store.session.Copy()
 		w.file, err = w.session.CharmFS().Create("")
 		if err != nil {
 			log.Printf("Failed to create GridFS file: %v", err)
@@ -225,8 +221,8 @@ func (w *charmWriter) abort() {
 		// Ignore error. Already aborting due to a preceding bad situation
 		// elsewhere. This error is not important right now.
 		_ = w.file.Close()
+		w.session.Close()
 	}
-	w.session.Close()
 }
 
 // finish completes the charm writing process and inserts the final metadata.
