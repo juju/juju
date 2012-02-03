@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
+	"launchpad.net/juju/go/cmd"
 	"launchpad.net/juju/go/juju"
 )
 
@@ -13,8 +14,8 @@ type BootstrapCommand struct {
 }
 
 // Info returns a description of BootstrapCommand.
-func (c *BootstrapCommand) Info() *Info {
-	return &Info{
+func (c *BootstrapCommand) Info() *cmd.Info {
+	return &cmd.Info{
 		"bootstrap",
 		"juju bootstrap [options]",
 		"start up an environment from scratch",

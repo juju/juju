@@ -1,10 +1,10 @@
-package main_test
+package cmd_test
 
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
-	main "launchpad.net/juju/go/cmd/juju"
+	cmd "launchpad.net/juju/go/cmd"
 	"launchpad.net/juju/go/log"
 	"os"
 	"path/filepath"
@@ -15,8 +15,8 @@ type TestCommand struct {
 	Value string
 }
 
-func (c *TestCommand) Info() *main.Info {
-	return &main.Info{
+func (c *TestCommand) Info() *cmd.Info {
+	return &cmd.Info{
 		c.Name,
 		"blah usage",
 		fmt.Sprintf("%s the juju", c.Name),
@@ -39,17 +39,17 @@ func (c *TestCommand) Run() error {
 	return fmt.Errorf("BORKEN: value is %s.", c.Value)
 }
 
-func parseEmpty(args []string) (*main.JujuCommand, error) {
-	jc := main.NewJujuCommand()
-	err := main.Parse(jc, false, args)
+func parseEmpty(args []string) (*cmd.JujuCommand, error) {
+	jc := cmd.NewJujuCommand()
+	err := cmd.Parse(jc, false, args)
 	return jc, err
 }
 
-func parseDefenestrate(args []string) (*main.JujuCommand, *TestCommand, error) {
-	jc := main.NewJujuCommand()
+func parseDefenestrate(args []string) (*cmd.JujuCommand, *TestCommand, error) {
+	jc := cmd.NewJujuCommand()
 	tc := &TestCommand{Name: "defenestrate"}
 	jc.Register(tc)
-	err := main.Parse(jc, false, args)
+	err := cmd.Parse(jc, false, args)
 	return jc, tc, err
 }
 
@@ -77,7 +77,7 @@ func (s *CommandSuite) TestSubcommandDispatch(c *C) {
 }
 
 func (s *CommandSuite) TestRegister(c *C) {
-	jc := main.NewJujuCommand()
+	jc := cmd.NewJujuCommand()
 	jc.Register(&TestCommand{Name: "flip"})
 	jc.Register(&TestCommand{Name: "flap"})
 
