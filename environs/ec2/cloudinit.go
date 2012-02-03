@@ -5,6 +5,8 @@ import (
 	"launchpad.net/juju/go/cloudinit"
 	"os/exec"
 	"strings"
+"log"
+"local/runtime/debug"
 )
 
 // machineConfig represents initialization information for a new juju machine.
@@ -242,6 +244,7 @@ var fallbackOrigin = jujuOrigin{originDistro, ""}
 // It is used only if the origin is not otherwise specified
 // in Config.origin.
 func defaultOrigin() jujuOrigin {
+log.Printf("calling apt-cache policy, callers %s", debug.Callers(1))
 	// TODO how can we (or should we?) determine if we're running from a branch?
 	data, err := exec.Command("apt-cache", "policy", "juju").Output()
 	if err != nil {

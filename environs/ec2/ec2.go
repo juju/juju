@@ -124,6 +124,7 @@ func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte
 		zookeeper: master,
 		instanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		providerType: "ec2",
+		origin: jujuOrigin{originBranch, "lp:jujubranch"},
 		machineId: fmt.Sprint(machineId),
 	}
 	var err error
