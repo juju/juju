@@ -7,7 +7,7 @@ package cloudinit
 func (cfg *Config) SetAttr(name string, value interface{}) {
 	cfg.set(name, value != nil, value)
 }
-	
+
 // SetUser sets the user name that will be used for some other options.
 // The user will be assumed to already exist in the machine image.
 // The default user is "ubuntu".

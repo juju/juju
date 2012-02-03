@@ -85,4 +85,3 @@ func (authSuite) TestAuthorizedKeys(c *C) {
 	c.Check(err, IsNil)
 	c.Check(keys, Equals, "auth2\n")
 }
-

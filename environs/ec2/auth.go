@@ -69,4 +69,3 @@ func authorizedKeys(path string) (string, error) {
 	}
 	return string(keys), nil
 }
-
