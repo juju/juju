@@ -18,7 +18,7 @@ func isNotFoundError(e error) bool {
 	return false
 }
 
-func expandFileName(f string) string {
+func expandTilde(f string) string {
 	// TODO expansion of other user's home directories.
 	// Q what characters are valid in a user name?
 	if strings.HasPrefix(f, "~"+string(filepath.Separator)) {
@@ -40,17 +40,17 @@ func authorizedKeys(path string) (string, error) {
 	} else {
 		files = []string{path}
 	}
-	var finalError error
+	var firstError error
 	var keys []byte
 	for _, f := range files {
-		f = expandFileName(f)
+		f = expandTilde(f)
 		if !filepath.IsAbs(f) {
-			f = filepath.Join(expandFileName(filepath.Join("~", ".ssh")), f)
+			f = filepath.Join(os.Getenv("HOME"), ".ssh", f)
 		}
 		data, err := ioutil.ReadFile(f)
 		if err != nil {
-			if finalError == nil && !isNotFoundError(err) {
-				finalError = err
+			if firstError == nil && !isNotFoundError(err) {
+				firstError = err
 			}
 			continue
 		}
@@ -62,10 +62,10 @@ func authorizedKeys(path string) (string, error) {
 		}
 	}
 	if len(keys) == 0 {
-		if finalError == nil {
-			finalError = fmt.Errorf("no keys found")
+		if firstError == nil {
+			firstError = fmt.Errorf("no keys found")
 		}
-		return "", finalError
+		return "", firstError
 	}
 	return string(keys), nil
 }

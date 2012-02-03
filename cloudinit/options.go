@@ -3,7 +3,7 @@ package cloudinit
 // SetAttr sets an arbitrary attribute in the cloudinit config.
 // If value is nil the attribute will be deleted; otherwise
 // the value will be marshalled according to the rules
-// of the "launchpad.net/goyaml" Marshal function.
+// of the goyaml Marshal function.
 func (cfg *Config) SetAttr(name string, value interface{}) {
 	cfg.set(name, value != nil, value)
 }

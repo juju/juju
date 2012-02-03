@@ -14,7 +14,7 @@ var _ = Suite(cloudinitSuite{})
 
 // Each test gives a cloudinit config - we check the
 // output to see if it looks correct.
-var cloudinitTests = []cloudConfig{
+var cloudinitTests = []machineConfig{
 	{
 		adminSecret:        "topsecret",
 		instanceIdAccessor: "$instance_id",
@@ -37,17 +37,17 @@ var cloudinitTests = []cloudConfig{
 	},
 }
 
-// cloundInitTest runs a set of tests for one of the cloudConfig
+// cloundInitTest runs a set of tests for one of the machineConfig
 // values above.
 type cloudinitTest struct {
 	x   map[interface{}]interface{} // the unmarshalled YAML.
-	cfg *cloudConfig                // the config being tested.
+	cfg *machineConfig                // the config being tested.
 }
 
 func (t *cloudinitTest) check(c *C) {
 	t.checkPackage(c, "bzr")
-	t.checkOption(c, "apt_upgrade", true)
-	t.checkOption(c, "apt_update", true)
+	c.Check(t.x["apt_upgrade"], Equals, true)
+	c.Check(t.x["apt_update"], Equals, true)
 	t.checkScripts(c, "mkdir -p /var/lib/juju")
 	t.checkMachineData(c)
 
@@ -67,64 +67,53 @@ func (t *cloudinitTest) check(c *C) {
 func (t *cloudinitTest) checkMachineData(c *C) {
 	mdata0 := t.x["machine-data"]
 	c.Assert(mdata0, NotNil)
-	mdata, ok := mdata0.(map[interface{}]interface{})
-	c.Assert(ok, Equals, true)
-
+	mdata := mdata0.(map[interface{}]interface{})
 	m := mdata["machine-id"]
 	c.Assert(m, Equals, t.cfg.machineId)
-}
-
-// checkOption checks that the given option name has the expected value.
-func (t *cloudinitTest) checkOption(c *C, name string, value interface{}) {
-	c.Check(t.x[name], Equals, value, Bug("option %q", name))
 }
 
 // checkScripts checks that at least one script started by
 // the cloudinit matches the given regexp pattern.
 func (t *cloudinitTest) checkScripts(c *C, pattern string) {
 	scripts0 := t.x["runcmd"]
-	if !c.Check(scripts0, NotNil, Bug("cloudinit has no entry for runcmd")) {
+	if scripts0 == nil {
+		c.Errorf("cloudinit has no entry for runcmd")
 		return
 	}
-	scripts, ok := scripts0.([]interface{})
-	if !c.Check(ok, Equals, true, Bug("runcmd entry is wrong type; got %T want []interface{}", scripts0)) {
-		return
-	}
+	scripts := scripts0.([]interface{})
 	re := regexp.MustCompile(pattern)
 	found := false
 	for _, s0 := range scripts {
-		s, ok := s0.(string)
-		if !c.Check(ok, Equals, true, Bug("script entry has unexpected type %T want string", s0)) {
-			continue
-		}
+		s := s0.(string)
 		if re.MatchString(s) {
 			found = true
 		}
 	}
-	c.Check(found, Equals, true, Bug("script %q not found", pattern))
+	if !found {
+		c.Errorf("script %q not found", pattern)
+	}
 }
 
 // checkPackage checks that the cloudinit will install the given package.
 func (t *cloudinitTest) checkPackage(c *C, pkg string) {
 	pkgs0 := t.x["packages"]
-	if !c.Check(pkgs0, NotNil, Bug("cloudinit has no entry for packages")) {
+	if pkgs0 == nil {
+		c.Errorf("cloudinit has no entry for packages")
 		return
 	}
 
-	pkgs, ok := pkgs0.([]interface{})
-	if !c.Check(ok, Equals, true, Bug("cloudinit packages entry is wrong type; got %T want []interface{}", pkgs0)) {
-		return
-	}
+	pkgs := pkgs0.([]interface{})
 
 	found := false
 	for _, p0 := range pkgs {
-		p, ok := p0.(string)
-		c.Check(ok, Equals, true, Bug("cloudinit package entry is wrong type; got %T want string", p0))
+		p := p0.(string)
 		if p == pkg {
 			found = true
 		}
 	}
-	c.Check(found, Equals, true, Bug("%q not found in packages", pkg))
+	if !found {
+		c.Errorf("%q not found in packages", pkg)
+	}
 }
 
 // TestCloudInit checks that the output from the various tests
@@ -157,24 +146,24 @@ func (cloudinitSuite) TestCloudInit(c *C) {
 	}
 }
 
-// When mutate is called on a known-good cloudConfig,
+// When mutate is called on a known-good machineConfig,
 // there should be an error complaining about the missing
 // field named by the adjacent err.
 var verifyTests = []struct {
 	err    string
-	mutate func(*cloudConfig)
+	mutate func(*machineConfig)
 }{
-	{"machine id", func(cfg *cloudConfig) { cfg.machineId = "" }},
-	{"provider type", func(cfg *cloudConfig) { cfg.providerType = "" }},
-	{"instance id accessor", func(cfg *cloudConfig) {
+	{"machine id", func(cfg *machineConfig) { cfg.machineId = "" }},
+	{"provider type", func(cfg *machineConfig) { cfg.providerType = "" }},
+	{"instance id accessor", func(cfg *machineConfig) {
 		cfg.zookeeper = true
 		cfg.instanceIdAccessor = ""
 	}},
-	{"admin secret", func(cfg *cloudConfig) {
+	{"admin secret", func(cfg *machineConfig) {
 		cfg.zookeeper = true
 		cfg.adminSecret = ""
 	}},
-	{"zookeeper hosts", func(cfg *cloudConfig) {
+	{"zookeeper hosts", func(cfg *machineConfig) {
 		cfg.zookeeper = false
 		cfg.zookeeperHosts = nil
 	}},
@@ -183,7 +172,7 @@ var verifyTests = []struct {
 // TestCloudInitVerify checks that required fields are appropriately
 // checked for by newCloudInit.
 func (cloudinitSuite) TestCloudInitVerify(c *C) {
-	cfg := &cloudConfig{
+	cfg := &machineConfig{
 		provisioner:        true,
 		zookeeper:          true,
 		instanceIdAccessor: "$instance_id",
@@ -202,7 +191,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		cfg1 := *cfg
 		test.mutate(&cfg1)
 		t, err := newCloudInit(&cfg1)
-		c.Assert(err, ErrorMatches, "cloud configuration requires "+test.err)
+		c.Assert(err, ErrorMatches, "invalid machine configuration: missing "+test.err)
 		c.Assert(t, IsNil)
 	}
 }
@@ -286,8 +275,6 @@ var policyTests = []struct {
 		|  Installed: whatever
 		|  Candidate: whatever-else
 		|  Nothing interesting here:`,
-		jujuOrigin{originDistro, ""},
-	}, {`N: VAT GEEV?`,
 		jujuOrigin{originDistro, ""},
 	}, {`
 		|juju:
