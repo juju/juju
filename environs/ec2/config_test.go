@@ -28,7 +28,7 @@ var baseConfig = `control-bucket: x
 var baseConfigResult = providerConfig{
 	region: "us-east-1",
 	bucket: "x",
-	auth: testAuth,
+	auth:   testAuth,
 }
 
 // configTest specifies a config parsing test,
@@ -45,7 +45,7 @@ type configTest struct {
 var configTests = []configTest{
 	{
 		baseConfig,
-		func(cfg *providerConfig){},
+		func(cfg *providerConfig) {},
 		"",
 	},
 	{
@@ -62,7 +62,7 @@ var configTests = []configTest{
 	},
 	{
 		"region: configtest\n" + baseConfig,
-		func(cfg *providerConfig){
+		func(cfg *providerConfig) {
 			cfg.region = "configtest"
 		},
 		"",
@@ -89,7 +89,7 @@ var configTests = []configTest{
 	},
 	{
 		"access-key: jujuer\nsecret-key: open sesame\n" + baseConfig,
-		func(cfg *providerConfig){
+		func(cfg *providerConfig) {
 			cfg.auth = aws.Auth{
 				AccessKey: "jujuer",
 				SecretKey: "open sesame",
@@ -99,14 +99,14 @@ var configTests = []configTest{
 	},
 	{
 		"authorized-keys: authkeys\n" + baseConfig,
-		func(cfg *providerConfig){
+		func(cfg *providerConfig) {
 			cfg.authorizedKeys = "authkeys"
 		},
 		"",
 	},
 	{
 		"authorized-keys-path: 'some path'\n" + baseConfig,
-		func(cfg *providerConfig){
+		func(cfg *providerConfig) {
 			cfg.authorizedKeysPath = "some path"
 		},
 		"",
@@ -125,7 +125,7 @@ var configTests = []configTest{
 	// unknown fields are discarded
 	{
 		"unknown-something: 666\n" + baseConfig,
-		func(cfg *providerConfig){},
+		func(cfg *providerConfig) {},
 		"",
 	},
 }

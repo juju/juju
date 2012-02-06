@@ -3,10 +3,9 @@ package ec2
 import (
 	"fmt"
 	"launchpad.net/juju/go/cloudinit"
+	"launchpad.net/juju/go/state"
 	"os/exec"
 	"strings"
-"log"
-"local/runtime/debug"
 )
 
 // machineConfig represents initialization information for a new juju machine.
@@ -26,10 +25,10 @@ type machineConfig struct {
 	// knows which kind of provider to use.
 	providerType string
 
-	// zookeeperHosts lists the names of hosts running zookeeper.
-	// Unless the new machine is running zookeeper (Zookeeper is set),
-	// there must be at least one host name supplied.
-	zookeeperHosts []string
+	// stateInfo holds the means for the new instance to communicate with the
+	// juju state. Unless the new machine is running zookeeper (Zookeeper is
+	// set), there must be at least one zookeeper address supplied.
+	stateInfo *state.Info
 
 	// origin states what version of juju should be run on the instance.
 	// If it is zero, a suitable default is chosen by examining the local environment.
@@ -170,12 +169,12 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 }
 
 func (cfg *machineConfig) zookeeperHostAddrs() string {
-	hosts := append([]string{}, cfg.zookeeperHosts...)
+	var hosts []string
 	if cfg.zookeeper {
-		hosts = append(hosts, "localhost")
+		hosts = append(hosts, "localhost"+zkPortSuffix)
 	}
-	for i := range hosts {
-		hosts[i] += zkPortSuffix
+	if cfg.stateInfo != nil {
+		hosts = append(hosts, cfg.stateInfo.Addrs...)
 	}
 	return strings.Join(hosts, ",")
 }
@@ -199,7 +198,7 @@ func verifyConfig(cfg *machineConfig) error {
 			return requiresError("instance id accessor")
 		}
 	} else {
-		if len(cfg.zookeeperHosts) == 0 {
+		if cfg.stateInfo == nil || len(cfg.stateInfo.Addrs) == 0 {
 			return requiresError("zookeeper hosts")
 		}
 	}
@@ -244,7 +243,6 @@ var fallbackOrigin = jujuOrigin{originDistro, ""}
 // It is used only if the origin is not otherwise specified
 // in Config.origin.
 func defaultOrigin() jujuOrigin {
-log.Printf("calling apt-cache policy, callers %s", debug.Callers(1))
 	// TODO how can we (or should we?) determine if we're running from a branch?
 	data, err := exec.Command("apt-cache", "policy", "juju").Output()
 	if err != nil {

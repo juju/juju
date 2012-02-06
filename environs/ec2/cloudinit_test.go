@@ -3,6 +3,7 @@ package ec2
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju/go/state"
 	"regexp"
 )
 
@@ -21,7 +22,7 @@ var cloudinitTests = []machineConfig{
 		origin:             jujuOrigin{originBranch, "lp:jujubranch"},
 		providerType:       "ec2",
 		provisioner:        true,
-		authorizedKeys:            "sshkey1",
+		authorizedKeys:     "sshkey1",
 		zookeeper:          true,
 	},
 	{
@@ -29,9 +30,9 @@ var cloudinitTests = []machineConfig{
 		origin:         jujuOrigin{originDistro, ""},
 		providerType:   "ec2",
 		provisioner:    false,
-		authorizedKeys:            "sshkey1",
+		authorizedKeys: "sshkey1",
 		zookeeper:      false,
-		zookeeperHosts: []string{"zk1"},
+		stateInfo: &state.Info{Addrs: []string{"zk1"}},
 	},
 }
 
@@ -39,7 +40,7 @@ var cloudinitTests = []machineConfig{
 // values above.
 type cloudinitTest struct {
 	x   map[interface{}]interface{} // the unmarshalled YAML.
-	cfg *machineConfig                // the config being tested.
+	cfg *machineConfig              // the config being tested.
 }
 
 func (t *cloudinitTest) check(c *C) {
@@ -70,10 +71,16 @@ func (t *cloudinitTest) checkMachineData(c *C) {
 	c.Assert(m, Equals, t.cfg.machineId)
 }
 
-// checkScripts checks that at least one script started by
-// the cloudinit matches the given regexp pattern.
 func (t *cloudinitTest) checkScripts(c *C, pattern string) {
-	scripts0 := t.x["runcmd"]
+	CheckScripts(c, t.x, pattern)
+}
+
+// CheckScripts checks that at least one script started by
+// the cloudinit matches the given regexp pattern.
+// It's exported so it can be used by tests defined outside
+// the ec2 package.
+func CheckScripts(c *C, x map[interface{}]interface{}, pattern string) {
+	scripts0 := x["runcmd"]
 	if scripts0 == nil {
 		c.Errorf("cloudinit has no entry for runcmd")
 		return
@@ -92,9 +99,13 @@ func (t *cloudinitTest) checkScripts(c *C, pattern string) {
 	}
 }
 
-// checkPackage checks that the cloudinit will install the given package.
 func (t *cloudinitTest) checkPackage(c *C, pkg string) {
-	pkgs0 := t.x["packages"]
+	CheckPackage(c, t.x, pkg)
+}
+
+// checkPackage checks that the cloudinit will install the given package.
+func CheckPackage(c *C, x map[interface{}]interface{}, pkg string) {
+	pkgs0 := x["packages"]
 	if pkgs0 == nil {
 		c.Errorf("cloudinit has no entry for packages")
 		return
@@ -159,7 +170,11 @@ var verifyTests = []struct {
 	}},
 	{"zookeeper hosts", func(cfg *machineConfig) {
 		cfg.zookeeper = false
-		cfg.zookeeperHosts = nil
+		cfg.stateInfo = nil
+	}},
+	{"zookeeper hosts", func(cfg *machineConfig) {
+		cfg.zookeeper = false
+		cfg.stateInfo = &state.Info{}
 	}},
 }
 
@@ -173,8 +188,8 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		providerType:       "ec2",
 		origin:             jujuOrigin{originBranch, "lp:jujubranch"},
 		machineId:          "aMachine",
-		authorizedKeys:            "sshkey1",
-		zookeeperHosts:     []string{"zkhost"},
+		authorizedKeys:     "sshkey1",
+		stateInfo:     &state.Info{Addrs: []string{"zkhost"}},
 	}
 	// check that the base configuration does not give an error
 	_, err := newCloudInit(cfg)
@@ -278,6 +293,10 @@ var policyTests = []struct {
 		|        500 http://ppa.launchpad.net/juju/pkgs/ubuntu/ natty/main amd64 Packages
 		|        100 /var/lib/dpkg/status`,
 		jujuOrigin{originPPA, ""},
+	},
+	{`
+		|N: VAT GEEV?`,
+		jujuOrigin{originDistro, ""},
 	},
 }
 

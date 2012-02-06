@@ -187,7 +187,7 @@ func (s *S) TestLockUpdatesExpires(c *C) {
 	// Hack time to force an expiration.
 	locks := s.Session.DB("juju").C("locks")
 	selector := bson.M{"_id": urlB.String()}
-	update := bson.M{"time": bson.Now() - store.UpdateTimeout - 10e9}
+	update := bson.M{"time": bson.Now().Add(-store.UpdateTimeout-10e9)}
 	err = locks.Update(selector, update)
 	c.Check(err, IsNil)
 
@@ -354,14 +354,14 @@ func (s *S) TestLogCharmEvent(c *C) {
 	c.Assert(s1["urls"], Equals, []interface{}{"cs:oneiric/wordpress", "cs:oneiric/mysql"})
 	c.Assert(s1["warnings"], Equals, []interface{}{"A warning."})
 	c.Assert(s1["errors"], IsNil)
-	c.Assert(s1["time"], Equals, bson.Timestamp(1e9))
+	c.Assert(s1["time"], Equals, time.Unix(1, 0))
 
 	err = events.Find(bson.M{"revisionkey": "revKey2", "kind": store.EventPublishFailed}).One(&s2)
 	c.Assert(err, IsNil)
 	c.Assert(s2["urls"], Equals, []interface{}{"cs:oneiric/wordpress"})
 	c.Assert(s2["warnings"], IsNil)
 	c.Assert(s2["errors"], Equals, []interface{}{"An error."})
-	c.Assert(s2["time"].(bson.Timestamp) > bson.Now()-10e9, Equals, true)
+	c.Assert(s2["time"].(time.Time).After(bson.Now().Add(-10e9)), Equals, true)
 
 	// Mongo stores timestamps in milliseconds, so chop
 	// off the extra bits for comparison.

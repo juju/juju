@@ -120,13 +120,15 @@ func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Insta
 
 func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte, error) {
 	cfg := &machineConfig{
-		provisioner: master,
-		zookeeper: master,
+		provisioner:        master,
+		zookeeper:          master,
+		stateInfo:          info,
 		instanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
-		providerType: "ec2",
-		origin: jujuOrigin{originBranch, "lp:jujubranch"},
-		machineId: fmt.Sprint(machineId),
+		providerType:       "ec2",
+		origin:             jujuOrigin{originBranch, "lp:jujubranch"},
+		machineId:          fmt.Sprint(machineId),
 	}
+
 	var err error
 	cfg.authorizedKeys, err = authorizedKeys(e.config.authorizedKeys, e.config.authorizedKeysPath)
 	if err != nil {

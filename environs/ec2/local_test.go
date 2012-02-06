@@ -7,6 +7,7 @@ import (
 	"launchpad.net/goamz/ec2/ec2test"
 	"launchpad.net/goamz/s3/s3test"
 	. "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
@@ -115,6 +116,19 @@ func (t *localTests) TestBootstrapInstanceAndState(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(insts), Equals, 1)
 
+	inst := t.srv.ec2srv.Instance(insts[0].Id())
+	c.Assert(inst, NotNil)
+
+	x := make(map[interface{}]interface{})
+	err = goyaml.Unmarshal(inst.UserData, &x)
+	c.Assert(err, IsNil)
+
+	ec2.CheckPackage(c, x, "zookeeper")
+	ec2.CheckPackage(c, x, "zookeeperd")
+	ec2.CheckScripts(c, x, "juju-admin initialize")
+	ec2.CheckScripts(c, x, "python -m juju.agents.provision")
+	ec2.CheckScripts(c, x, "python -m juju.agents.machine")
+
 	state, err := ec2.LoadState(env)
 	c.Assert(err, IsNil)
 	c.Assert(len(state.ZookeeperInstances), Equals, 1)
@@ -139,7 +153,7 @@ func (t *localTests) TestInstanceGroups(c *C) {
 		fmt.Sprintf("juju-%s-%d", t.Name, 99),
 	)
 
-	inst0, err := env.StartInstance(98, nil)
+	inst0, err := env.StartInstance(98, jujutest.InvalidStateInfo)
 	c.Assert(err, IsNil)
 	defer env.StopInstances([]environs.Instance{inst0})
 
@@ -148,7 +162,7 @@ func (t *localTests) TestInstanceGroups(c *C) {
 	// recreated correctly.
 	oldGroup := ensureGroupExists(c, ec2conn, groups[2], "old group")
 
-	inst1, err := env.StartInstance(99, nil)
+	inst1, err := env.StartInstance(99, jujutest.InvalidStateInfo)
 	c.Assert(err, IsNil)
 	defer env.StopInstances([]environs.Instance{inst1})
 

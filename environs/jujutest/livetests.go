@@ -21,7 +21,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 		names[id] = inst
 	}
 
-	inst, err := t.env.StartInstance(0, nil)
+	inst, err := t.env.StartInstance(0, InvalidStateInfo)
 	c.Assert(err, IsNil)
 	c.Assert(inst, NotNil)
 	id0 := inst.Id()
