@@ -11,18 +11,6 @@ import (
 	"strings"
 )
 
-var (
-	cmdTemplate = "    %-12s %s\n"
-	docTemplate = `
-juju provides easy, intelligent service orchestration on top of environments
-such as OpenStack, Amazon AWS, or bare metal.
-
-https://juju.ubuntu.com/
-
-commands:
-%s`
-)
-
 // JujuCommand is a Command that selects a subcommand when Parse is first
 // called, and takes on the properties of that subcommand before calling Parse
 // again on itself, passing in any remaining command line arguments. Info,
@@ -34,6 +22,8 @@ commands:
 // -e foo` (or complicating the code by causing (sub-)Commands to have some
 // concept of "parent" Commands).
 type JujuCommand struct {
+	name    string
+	doc     string
 	LogFile string
 	Verbose bool
 	Debug   bool
@@ -42,8 +32,12 @@ type JujuCommand struct {
 }
 
 // NewJujuCommand returns an initialized JujuCommand.
-func NewJujuCommand() *JujuCommand {
-	return &JujuCommand{subcmds: make(map[string]Command)}
+func NewJujuCommand(name string, doc string) *JujuCommand {
+	return &JujuCommand{
+		subcmds: make(map[string]Command),
+		name:    name,
+		doc:     doc,
+	}
 }
 
 // Register makes a subcommand available for use on the command line.
@@ -67,22 +61,22 @@ func (c *JujuCommand) DescribeCommands() string {
 	sort.Strings(cmds)
 	for i, name := range cmds {
 		purpose := c.subcmds[name].Info().Purpose
-		cmds[i] = fmt.Sprintf(cmdTemplate, name, purpose)
+		cmds[i] = fmt.Sprintf("    %-12s %s\n", name, purpose)
 	}
-	return strings.Join(cmds, "")
+	return fmt.Sprintf("commands:\n%s", strings.Join(cmds, ""))
 }
 
 // Info returns a description of the currently selected subcommand, or of the
-// juju command itself if no subcommand has been specified.
+// JujuCommand itself if no subcommand has been specified.
 func (c *JujuCommand) Info() *Info {
 	if c.subcmd != nil {
 		return c.subcmd.Info()
 	}
 	return &Info{
-		"juju",
-		"juju <command> [options] ...",
+		c.name,
+		fmt.Sprintf("%s <command> [options] ...", c.name),
 		"",
-		fmt.Sprintf(docTemplate, c.DescribeCommands()),
+		fmt.Sprintf("%s\n\n%s", strings.TrimSpace(c.doc), c.DescribeCommands()),
 	}
 }
 
@@ -148,4 +142,19 @@ func (c *JujuCommand) Run() error {
 		panic("Run: missing subcommand; Parse failed or not called")
 	}
 	return c.subcmd.Run()
+}
+
+// Main will Parse and Run a JujuCommand, and exit appropriately.
+func Main(jc *JujuCommand, args []string) {
+	if err := Parse(jc, false, args[1:]); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		PrintUsage(jc)
+		os.Exit(2)
+	}
+	if err := jc.Run(); err != nil {
+		log.Debugf("%s command failed: %s\n", jc.Info().Name, err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	os.Exit(0)
 }

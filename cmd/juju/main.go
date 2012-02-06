@@ -1,29 +1,27 @@
 package main
 
 import (
-	"fmt"
 	"launchpad.net/juju/go/cmd"
-	"launchpad.net/juju/go/log"
 	"os"
+)
+
+var (
+	jujuDoc = `
+juju provides easy, intelligent service orchestration on top of environments
+such as OpenStack, Amazon AWS, or bare metal.
+
+https://juju.ubuntu.com/`
 )
 
 func main() {
 	Main(os.Args)
 }
 
+// Main registers subcommands for the juju executable, and hands over control
+// to the cmd package. This function is not redundant with main, because it
+// provides an entry point for testing with arbitrary command line arguments.
 func Main(args []string) {
-	jc := cmd.NewJujuCommand()
+	jc := cmd.NewJujuCommand("juju", jujuDoc)
 	jc.Register(&BootstrapCommand{})
-
-	if err := cmd.Parse(jc, false, args[1:]); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		cmd.PrintUsage(jc)
-		os.Exit(2)
-	}
-	if err := jc.Run(); err != nil {
-		log.Debugf("%s command failed: %s\n", jc.Info().Name, err)
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
-	os.Exit(0)
+	cmd.Main(jc, args)
 }

@@ -8,7 +8,10 @@ import (
 	"launchpad.net/juju/go/log"
 	"os"
 	"path/filepath"
+	"testing"
 )
+
+func Test(t *testing.T) { TestingT(t) }
 
 type TestCommand struct {
 	Name  string
@@ -40,13 +43,13 @@ func (c *TestCommand) Run() error {
 }
 
 func parseEmpty(args []string) (*cmd.JujuCommand, error) {
-	jc := cmd.NewJujuCommand()
+	jc := cmd.NewJujuCommand("", "")
 	err := cmd.Parse(jc, false, args)
 	return jc, err
 }
 
 func parseDefenestrate(args []string) (*cmd.JujuCommand, *TestCommand, error) {
-	jc := cmd.NewJujuCommand()
+	jc := cmd.NewJujuCommand("", "")
 	tc := &TestCommand{Name: "defenestrate"}
 	jc.Register(tc)
 	err := cmd.Parse(jc, false, args)
@@ -77,7 +80,7 @@ func (s *CommandSuite) TestSubcommandDispatch(c *C) {
 }
 
 func (s *CommandSuite) TestRegister(c *C) {
-	jc := cmd.NewJujuCommand()
+	jc := cmd.NewJujuCommand("", "")
 	jc.Register(&TestCommand{Name: "flip"})
 	jc.Register(&TestCommand{Name: "flap"})
 
@@ -85,7 +88,7 @@ func (s *CommandSuite) TestRegister(c *C) {
 	c.Assert(badCall, PanicMatches, "command already registered: flap")
 
 	cmds := jc.DescribeCommands()
-	c.Assert(cmds, Equals, "    flap         flap the juju\n    flip         flip the juju\n")
+	c.Assert(cmds, Equals, "commands:\n    flap         flap the juju\n    flip         flip the juju\n")
 }
 
 func (s *CommandSuite) TestDebug(c *C) {
