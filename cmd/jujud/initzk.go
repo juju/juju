@@ -3,9 +3,7 @@ package main
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
-	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/cmd"
-	"launchpad.net/juju/go/state"
 )
 
 type InitzkCommand struct {
@@ -14,6 +12,7 @@ type InitzkCommand struct {
 	ProviderType string
 }
 
+// Info returns a decription of the command.
 func (c *InitzkCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		"initzk",
@@ -23,12 +22,15 @@ func (c *InitzkCommand) Info() *cmd.Info {
 	}
 }
 
+// InitFlagSet prepares a FlagSet.
 func (c *InitzkCommand) InitFlagSet(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Zookeeper, "zookeeper-servers", "127.0.0.1:2181", "address of zookeeper to initialize")
 	f.StringVar(&c.InstanceId, "instance-id", "", "instance id of this machine")
 	f.StringVar(&c.ProviderType, "provider-type", "", "envionment machine provider type")
 }
 
+// ParsePositional checks that there are no unwanted arguments, and that all
+// required flags have been set.
 func (c *InitzkCommand) ParsePositional(args []string) error {
 	if c.Zookeeper == "" {
 		return requiredError("zookeeper-servers")
@@ -42,32 +44,15 @@ func (c *InitzkCommand) ParsePositional(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
+// Run initializes zookeeper state for an environment.
 func (c *InitzkCommand) Run() error {
-	conn, err := Connect(c.Zookeeper)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-	if err := state.Initialize(conn); err != nil {
-		return err
-	}
-	return nil
-}
-
-func Connect(zk string) (conn *zookeeper.Conn, err error) {
-	conn, session, err := zookeeper.Dial(zk, 5e9)
-	if err != nil {
-		return nil, err
-	}
-	event := <-session
-	if !event.Ok() {
-		conn.Close()
-		return nil, fmt.Errorf("%s", event)
-	}
-	go func() {
-		for {
-			<-session
-		}
-	}()
-	return conn, nil
+	// TODO connect once new state.Open is available
+	// (note, Zookeeper will likely need to become some sort of StateInfo)
+	// state, err := state.Open(c.Zookeeper)
+	// if err != nil {
+	//     return err
+	// }
+	// defer state.Close()
+	// return state.Initialize(c.InstanceId, c.ProviderType)
+	return fmt.Errorf("InitzkCommand.Run not implemented")
 }

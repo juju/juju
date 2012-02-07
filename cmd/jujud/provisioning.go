@@ -7,11 +7,11 @@ import (
 )
 
 type ProvisioningFlags struct {
-	agent *agent.ProvisioningAgent
+	agent *agent.Provisioning
 }
 
 func NewProvisioningFlags() *ProvisioningFlags {
-	return &ProvisioningFlags{&agent.ProvisioningAgent{}}
+	return &ProvisioningFlags{&agent.Provisioning{}}
 }
 
 // Name returns the agent's name.

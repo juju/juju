@@ -18,14 +18,16 @@ type AgentFlags interface {
 // AgentCommand is responsible for parsing common agent command line flags; it
 // delegates agent-specific behaviour to its contained AgentFlags.
 type AgentCommand struct {
-	agentFlags AgentFlags
-	conf       *agent.AgentConf
+	JujuDir     string
+	Zookeeper   string
+	SessionFile string
+	agentFlags  AgentFlags
 }
 
 func NewAgentCommand(agentFlags AgentFlags) *AgentCommand {
 	return &AgentCommand{
 		agentFlags: agentFlags,
-		conf:       &agent.AgentConf{JujuDir: "/var/lib/juju"},
+		JujuDir:    "/var/lib/juju",
 	}
 }
 
@@ -42,23 +44,23 @@ func (c *AgentCommand) Info() *cmd.Info {
 
 // InitFlagSet prepares a FlagSet.
 func (c *AgentCommand) InitFlagSet(f *gnuflag.FlagSet) {
-	f.StringVar(&c.conf.JujuDir, "juju-directory", c.conf.JujuDir, "juju working directory")
-	f.StringVar(&c.conf.Zookeeper, "z", c.conf.Zookeeper, "zookeeper servers to connect to")
-	f.StringVar(&c.conf.Zookeeper, "zookeeper-servers", c.conf.Zookeeper, "")
-	f.StringVar(&c.conf.SessionFile, "session-file", c.conf.SessionFile, "session id storage path")
+	f.StringVar(&c.JujuDir, "juju-directory", c.JujuDir, "juju working directory")
+	f.StringVar(&c.Zookeeper, "z", c.Zookeeper, "zookeeper servers to connect to")
+	f.StringVar(&c.Zookeeper, "zookeeper-servers", c.Zookeeper, "")
+	f.StringVar(&c.SessionFile, "session-file", c.SessionFile, "session id storage path")
 	c.agentFlags.InitFlagSet(f)
 }
 
-// ParsePositional checks that required AgentConf flags have been set, and
-// delegates to the AgentFlags for all other validation.
+// ParsePositional checks that required flags have been set, and delegates to
+// the AgentFlags for all other validation.
 func (c *AgentCommand) ParsePositional(args []string) error {
-	if c.conf.JujuDir == "" {
+	if c.JujuDir == "" {
 		return requiredError("juju-directory")
 	}
-	if c.conf.Zookeeper == "" {
+	if c.Zookeeper == "" {
 		return requiredError("zookeeper-servers")
 	}
-	if c.conf.SessionFile == "" {
+	if c.SessionFile == "" {
 		return requiredError("session-file")
 	}
 	return c.agentFlags.ParsePositional(args)
@@ -66,5 +68,13 @@ func (c *AgentCommand) ParsePositional(args []string) error {
 
 // Run runs the agent.
 func (c *AgentCommand) Run() error {
-	return agent.Run(c.agentFlags.Agent(), c.conf)
+	// TODO (re)connect once new state.Open is available
+	// (note, Zookeeper will likely need to become some sort of StateInfo)
+	// state, err := state.Open(conf.Zookeeper, conf.SessionFile)
+	// if err != nil {
+	//     return err
+	// }
+	// defer state.Close()
+	// return c.agentFlags.Agent().Run(state, conf.JujuDir)
+	return fmt.Errorf("agent.Run not implemented")
 }

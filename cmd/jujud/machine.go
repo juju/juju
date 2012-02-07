@@ -1,17 +1,20 @@
 package main
 
 import (
+	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/agent"
 	"launchpad.net/juju/go/cmd"
+	"strconv"
 )
 
 type MachineFlags struct {
-	agent *agent.MachineAgent
+	machineId string
+	agent     *agent.Machine
 }
 
 func NewMachineFlags() *MachineFlags {
-	return &MachineFlags{&agent.MachineAgent{}}
+	return &MachineFlags{agent: &agent.Machine{}}
 }
 
 // Name returns the agent's name.
@@ -26,7 +29,7 @@ func (af *MachineFlags) Agent() agent.Agent {
 
 // InitFlagSet prepares a FlagSet.
 func (af *MachineFlags) InitFlagSet(f *gnuflag.FlagSet) {
-	f.StringVar(&af.agent.Id, "machine-id", af.agent.Id, "id of the machine to run")
+	f.StringVar(&af.machineId, "machine-id", af.machineId, "id of the machine to run")
 }
 
 // ParsePositional checks that there are no unwanted arguments, and that any
@@ -35,8 +38,13 @@ func (af *MachineFlags) ParsePositional(args []string) error {
 	if err := cmd.CheckEmpty(args); err != nil {
 		return err
 	}
-	if af.agent.Id == "" {
+	if af.machineId == "" {
 		return requiredError("machine-id")
 	}
+	id, err := strconv.ParseUint(af.machineId, 10, 0)
+	if err != nil {
+		return fmt.Errorf("--machine-id option expects a non-negative integer")
+	}
+	af.agent.Id = uint(id)
 	return nil
 }

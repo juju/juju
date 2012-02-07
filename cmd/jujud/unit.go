@@ -7,11 +7,11 @@ import (
 )
 
 type UnitFlags struct {
-	agent *agent.UnitAgent
+	agent *agent.Unit
 }
 
 func NewUnitFlags() *UnitFlags {
-	return &UnitFlags{&agent.UnitAgent{}}
+	return &UnitFlags{&agent.Unit{}}
 }
 
 // Name returns the agent's name.
@@ -29,7 +29,7 @@ func (af *UnitFlags) InitFlagSet(f *gnuflag.FlagSet) {
 	f.StringVar(&af.agent.Name, "unit-name", af.agent.Name, "name of the unit to run")
 }
 
-// ParsePositional checks that there are no unwanted arguments, and that any
+// ParsePositional checks that there are no unwanted arguments, and that all
 // required flags have been set.
 func (af *UnitFlags) ParsePositional(args []string) error {
 	if err := cmd.CheckEmpty(args); err != nil {

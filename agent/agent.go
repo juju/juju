@@ -2,63 +2,43 @@ package agent
 
 import (
 	"fmt"
-	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju/go/state"
 )
 
-type AgentConf struct {
-	JujuDir     string
-	Zookeeper   string
-	SessionFile string
-}
+// Note: this package has no tests yet, because I can't think of anything that
+// isn't already tested by the compiler.
 
+// Agent must be implemented by every juju agent.
 type Agent interface {
-	run(conn *zookeeper.Conn, jujuDir string) error
+	Run(state *state.State, jujuDir string) error
 }
 
-func connect(conf *AgentConf) (*zookeeper.Conn, error) {
-	// TODO...
-	return nil, fmt.Errorf("agent.connect not implemented")
+// Unit is a juju agent responsible for managing a single service unit.
+type Unit struct {
+	Name string
 }
 
-func Run(agent Agent, conf *AgentConf) error {
-	conn, err := connect(conf)
-	if err != nil {
-		return err
-	}
-	return agent.run(conn, conf.JujuDir)
+// Run runs the agent.
+func (a *Unit) Run(state *state.State, jujuDir string) error {
+	return fmt.Errorf("agent.Unit.Run not implemented")
 }
 
-type UnitAgent struct {
-	conn    *zookeeper.Conn
-	jujuDir string
-	Name    string
+// Machine is a juju agent responsible for managing a single machine and
+// deploying service units onto it.
+type Machine struct {
+	Id uint
 }
 
-func (a *UnitAgent) run(conn *zookeeper.Conn, jujuDir string) error {
-	a.conn = conn
-	a.jujuDir = jujuDir
-	return fmt.Errorf("agent.UnitAgent.Run not implemented")
+// Run runs the agent.
+func (a *Machine) Run(state *state.State, jujuDir string) error {
+	return fmt.Errorf("agent.Machine.Run not implemented")
 }
 
-type MachineAgent struct {
-	conn    *zookeeper.Conn
-	jujuDir string
-	Id      string
+// Provisioning is a juju agent responsible for launching new machines.
+type Provisioning struct {
 }
 
-func (a *MachineAgent) run(conn *zookeeper.Conn, jujuDir string) error {
-	a.conn = conn
-	a.jujuDir = jujuDir
-	return fmt.Errorf("agent.MachineAgent.Run not implemented")
-}
-
-type ProvisioningAgent struct {
-	conn    *zookeeper.Conn
-	jujuDir string
-}
-
-func (a *ProvisioningAgent) run(conn *zookeeper.Conn, jujuDir string) error {
-	a.conn = conn
-	a.jujuDir = jujuDir
-	return fmt.Errorf("agent.ProvisioningAgent.Run not implemented")
+// Run runs the agent.
+func (a *Provisioning) Run(state *state.State, jujuDir string) error {
+	return fmt.Errorf("agent.Provisioning.Run not implemented")
 }

@@ -10,23 +10,21 @@ type BootstrapSuite struct{}
 
 var _ = Suite(&BootstrapSuite{})
 
+func checkEnv(c *C, args []string, expect string) {
+	bc := &main.BootstrapCommand{}
+	err := cmd.Parse(bc, true, args)
+	c.Assert(err, IsNil)
+	c.Assert(bc.Environment, Equals, expect)
+}
+
 func (s *BootstrapSuite) TestEnvironment(c *C) {
 	bc := &main.BootstrapCommand{}
 	c.Assert(bc.Environment, Equals, "")
-
-	err := cmd.Parse(bc, true, []string{})
-	c.Assert(err, IsNil)
-	c.Assert(bc.Environment, Equals, "")
-
-	err = cmd.Parse(bc, true, []string{"hotdog"})
+	err := cmd.Parse(bc, true, []string{"hotdog"})
 	c.Assert(err, ErrorMatches, `unrecognised args: \[hotdog\]`)
 	c.Assert(bc.Environment, Equals, "")
 
-	err = cmd.Parse(bc, true, []string{"-e", "walthamstow"})
-	c.Assert(err, IsNil)
-	c.Assert(bc.Environment, Equals, "walthamstow")
-
-	err = cmd.Parse(bc, true, []string{"--environment", "peckham"})
-	c.Assert(err, IsNil)
-	c.Assert(bc.Environment, Equals, "peckham")
+	checkEnv(c, []string{}, "")
+	checkEnv(c, []string{"-e", "walthamstow"}, "walthamstow")
+	checkEnv(c, []string{"--environment", "peckham"}, "peckham")
 }
