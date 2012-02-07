@@ -168,6 +168,13 @@ var ctests = []struct {
 			cfg.AddMount("z", "w")
 		},
 	},
+	{
+		"Attr",
+		"arbitraryAttr: someValue\n",
+		func(cfg *cloudinit.Config) {
+			cfg.SetAttr("arbitraryAttr", "someValue")
+		},
+	},
 }
 
 const header = "#cloud-config\n"
