@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"syscall"
 )
 
@@ -190,7 +189,10 @@ func (zp *zipPacker) visit(path string, fi os.FileInfo, err error) error {
 			return fmt.Errorf("symlink %q is absolute: %q", relpath, target)
 		}
 		reltarget, err := filepath.Rel(zp.root, filepath.Join(filepath.Dir(path), target))
-		if err != nil || strings.HasPrefix(reltarget, "../") {
+		if err != nil {
+			return err
+		}
+		if hasDotDot(reltarget) {
 			return fmt.Errorf("symlink %q links out of charm: %q", relpath, target)
 		}
 		data = []byte(target)
