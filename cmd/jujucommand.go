@@ -70,14 +70,14 @@ func (c *JujuCommand) DescribeCommands() string {
 // JujuCommand itself if no subcommand has been specified.
 func (c *JujuCommand) Info() *Info {
 	if c.subcmd != nil {
-		return c.subcmd.Info()
+		info := c.subcmd.Info()
+		info.Usage = fmt.Sprintf("%s %s", c.name, info.Usage)
+		return info
 	}
-	return &Info{
-		c.name,
-		fmt.Sprintf("%s <command> [options] ...", c.name),
-		"",
+	return NewInfo(
+		c.name, "<command> [options] ...", "",
 		fmt.Sprintf("%s\n\n%s", strings.TrimSpace(c.doc), c.DescribeCommands()),
-	}
+	)
 }
 
 // InitFlagSet prepares a FlagSet for use with the currently selected

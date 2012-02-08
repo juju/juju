@@ -22,6 +22,13 @@ type Info struct {
 	Doc string
 }
 
+// NewInfo returns an Info whose Usage is constructed from name and args,
+// to ensure that Usage matches Name.
+func NewInfo(name string, args string, purpose string, doc string) *Info {
+	usage := fmt.Sprintf("%s %s", name, args)
+	return &Info{name, usage, purpose, doc}
+}
+
 // Command is implemented by types that interpret any command-line arguments
 // passed to the "juju" command.
 type Command interface {

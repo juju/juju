@@ -19,12 +19,11 @@ type TestCommand struct {
 }
 
 func (c *TestCommand) Info() *cmd.Info {
-	return &cmd.Info{
-		c.Name,
-		"blah usage",
+	return cmd.NewInfo(
+		c.Name, "[options]",
 		fmt.Sprintf("%s the juju", c.Name),
 		"blah doc",
-	}
+	)
 }
 
 func (c *TestCommand) InitFlagSet(f *gnuflag.FlagSet) {
@@ -43,13 +42,13 @@ func (c *TestCommand) Run() error {
 }
 
 func parseEmpty(args []string) (*cmd.JujuCommand, error) {
-	jc := cmd.NewJujuCommand("", "")
+	jc := cmd.NewJujuCommand("jujutest", "")
 	err := cmd.Parse(jc, false, args)
 	return jc, err
 }
 
 func parseDefenestrate(args []string) (*cmd.JujuCommand, *TestCommand, error) {
-	jc := cmd.NewJujuCommand("", "")
+	jc := cmd.NewJujuCommand("jujutest", "")
 	tc := &TestCommand{Name: "defenestrate"}
 	jc.Register(tc)
 	err := cmd.Parse(jc, false, args)
@@ -61,15 +60,17 @@ type CommandSuite struct{}
 var _ = Suite(&CommandSuite{})
 
 func (s *CommandSuite) TestSubcommandDispatch(c *C) {
-	_, err := parseEmpty([]string{})
+	jc, err := parseEmpty([]string{})
 	c.Assert(err, ErrorMatches, `no command specified`)
+	c.Assert(jc.Info().Usage, Equals, "jujutest <command> [options] ...")
 
 	_, _, err = parseDefenestrate([]string{"discombobulate"})
 	c.Assert(err, ErrorMatches, "unrecognised command: discombobulate")
 
-	_, tc, err := parseDefenestrate([]string{"defenestrate"})
+	jc, tc, err := parseDefenestrate([]string{"defenestrate"})
 	c.Assert(err, IsNil)
 	c.Assert(tc.Value, Equals, "")
+	c.Assert(jc.Info().Usage, Equals, "jujutest defenestrate [options]")
 
 	_, tc, err = parseDefenestrate([]string{"defenestrate", "--value", "firmly"})
 	c.Assert(err, IsNil)
@@ -80,7 +81,7 @@ func (s *CommandSuite) TestSubcommandDispatch(c *C) {
 }
 
 func (s *CommandSuite) TestRegister(c *C) {
-	jc := cmd.NewJujuCommand("", "")
+	jc := cmd.NewJujuCommand("jujutest", "")
 	jc.Register(&TestCommand{Name: "flip"})
 	jc.Register(&TestCommand{Name: "flap"})
 

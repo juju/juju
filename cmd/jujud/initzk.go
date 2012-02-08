@@ -14,12 +14,11 @@ type InitzkCommand struct {
 
 // Info returns a decription of the command.
 func (c *InitzkCommand) Info() *cmd.Info {
-	return &cmd.Info{
-		"initzk",
-		"jujud initzk [options]",
+	return cmd.NewInfo(
+		"initzk", "[options]",
 		"initialize juju state in a local zookeeper",
 		"",
-	}
+	)
 }
 
 // InitFlagSet prepares a FlagSet.
