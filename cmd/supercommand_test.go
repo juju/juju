@@ -41,17 +41,17 @@ func (c *TestCommand) Run() error {
 	return fmt.Errorf("BORKEN: value is %s.", c.Value)
 }
 
-func parseEmpty(args []string) (*cmd.JujuCommand, error) {
-	jc := cmd.NewJujuCommand("jujutest", "")
-	err := cmd.Parse(jc, false, args)
+func parseEmpty(args []string) (*cmd.SuperCommand, error) {
+	jc := cmd.NewSuperCommand("jujutest", "")
+	err := cmd.Parse(jc, args)
 	return jc, err
 }
 
-func parseDefenestrate(args []string) (*cmd.JujuCommand, *TestCommand, error) {
-	jc := cmd.NewJujuCommand("jujutest", "")
+func parseDefenestrate(args []string) (*cmd.SuperCommand, *TestCommand, error) {
+	jc := cmd.NewSuperCommand("jujutest", "")
 	tc := &TestCommand{Name: "defenestrate"}
 	jc.Register(tc)
-	err := cmd.Parse(jc, false, args)
+	err := cmd.Parse(jc, args)
 	return jc, tc, err
 }
 
@@ -81,7 +81,7 @@ func (s *CommandSuite) TestSubcommandDispatch(c *C) {
 }
 
 func (s *CommandSuite) TestRegister(c *C) {
-	jc := cmd.NewJujuCommand("jujutest", "")
+	jc := cmd.NewSuperCommand("jujutest", "")
 	jc.Register(&TestCommand{Name: "flip"})
 	jc.Register(&TestCommand{Name: "flap"})
 

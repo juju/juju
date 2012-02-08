@@ -41,7 +41,7 @@ func (af *TestAgentFlags) ParsePositional(args []string) error {
 func parseTestAgentFlags(c *C, args []string) (*TestAgentFlags, *main.AgentCommand, error) {
 	f := &TestAgentFlags{}
 	ac := main.NewAgentCommand(f)
-	err := cmd.Parse(ac, true, args)
+	err := cmd.Parse(ac, args)
 	return f, ac, err
 }
 

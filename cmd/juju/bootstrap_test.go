@@ -12,7 +12,7 @@ var _ = Suite(&BootstrapSuite{})
 
 func checkEnv(c *C, args []string, expect string) {
 	bc := &main.BootstrapCommand{}
-	err := cmd.Parse(bc, true, args)
+	err := cmd.Parse(bc, args)
 	c.Assert(err, IsNil)
 	c.Assert(bc.Environment, Equals, expect)
 }
@@ -20,7 +20,7 @@ func checkEnv(c *C, args []string, expect string) {
 func (s *BootstrapSuite) TestEnvironment(c *C) {
 	bc := &main.BootstrapCommand{}
 	c.Assert(bc.Environment, Equals, "")
-	err := cmd.Parse(bc, true, []string{"hotdog"})
+	err := cmd.Parse(bc, []string{"hotdog"})
 	c.Assert(err, ErrorMatches, `unrecognised args: \[hotdog\]`)
 	c.Assert(bc.Environment, Equals, "")
 

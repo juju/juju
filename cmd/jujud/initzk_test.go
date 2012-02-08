@@ -12,7 +12,7 @@ var _ = Suite(&InitzkSuite{})
 
 func parseInitzkCommand(args []string) (*main.InitzkCommand, error) {
 	c := &main.InitzkCommand{}
-	err := cmd.Parse(c, true, args)
+	err := cmd.Parse(c, args)
 	return c, err
 }
 

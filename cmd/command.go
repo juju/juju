@@ -21,13 +21,17 @@ type Info struct {
 
 	// Doc is the long documentation for the Command.
 	Doc string
+
+	// Intersperse controls whether the Command will accept interspersed
+	// options and positional args.
+	Intersperse bool
 }
 
 // NewInfo returns an Info whose Usage is constructed from name and args,
 // to ensure that Usage matches Name.
 func NewInfo(name string, args string, purpose string, doc string) *Info {
 	usage := fmt.Sprintf("%s %s", name, args)
-	return &Info{name, usage, purpose, doc}
+	return &Info{name, usage, purpose, doc, true}
 }
 
 // Command is implemented by types that interpret any command-line arguments
@@ -70,12 +74,9 @@ func PrintUsage(c Command) {
 }
 
 // Parse parses args on c. This must be called before c is Run.
-// If intersperse is true, flags and positional arguments
-// are allowed to be mixed. Otherwise, everything following
-// the first non-flag is handled as a positional argument.
-func Parse(c Command, intersperse bool, args []string) error {
+func Parse(c Command, args []string) error {
 	f := NewFlagSet(c)
-	if err := f.Parse(intersperse, args); err != nil {
+	if err := f.Parse(c.Info().Intersperse, args); err != nil {
 		return err
 	}
 	return c.ParsePositional(f.Args())
@@ -91,7 +92,7 @@ func CheckEmpty(args []string) error {
 
 // Main will Parse and Run a Command, and exit appropriately.
 func Main(c Command, args []string) {
-	if err := Parse(c, false, args[1:]); err != nil {
+	if err := Parse(c, args[1:]); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		PrintUsage(c)
 		os.Exit(2)
