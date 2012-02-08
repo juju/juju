@@ -107,6 +107,22 @@ func (s *BundleSuite) TestBundleSetRevision(c *C) {
 	c.Assert(dir.Revision(), Equals, 42)
 }
 
+func (s *BundleSuite) TestExpandToWithBadLink(c *C) {
+	charmDir := c.MkDir()
+	copyCharmDir(charmDir, repoDir("dummy"))
+
+	// Symlink targetting non-charm content. 
+	err := os.Symlink("../../target", filepath.Join(charmDir, "hooks", "badlink"))
+	c.Assert(err, IsNil)
+
+	bundle, err := charm.ReadBundle(extBundleDir(c, charmDir))
+	c.Assert(err, IsNil)
+
+	path := filepath.Join(c.MkDir(), "charm")
+	err = bundle.ExpandTo(path)
+	c.Assert(err, ErrorMatches, `symlink "hooks/badlink" links out of charm: "../../target"`)
+}
+
 func bundleDir(c *C, dirpath string) (path string) {
 	dir, err := charm.ReadDir(dirpath)
 	c.Assert(err, IsNil)
@@ -125,7 +141,7 @@ func bundleDir(c *C, dirpath string) (path string) {
 
 func extBundleDir(c *C, dirpath string) (path string) {
 	path = filepath.Join(c.MkDir(), "bundle.charm")
-	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("cd %s; zip -r %s .", dirpath, path))
+	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("cd %s; zip --symlinks -r %s .", dirpath, path))
 	output, err := cmd.CombinedOutput()
 	c.Assert(err, IsNil, Bug("Command output: %s", output))
 	return path

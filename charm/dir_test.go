@@ -46,7 +46,7 @@ func (s *S) TestBundleTo(c *C) {
 	c.Assert(err, IsNil)
 	defer zipr.Close()
 
-	var metaf, instf, emptyf, revf *zip.File
+	var metaf, instf, emptyf, revf, symf *zip.File
 	for _, f := range zipr.File {
 		c.Logf("Bundled file: %s", f.Name)
 		switch f.Name {
@@ -56,6 +56,8 @@ func (s *S) TestBundleTo(c *C) {
 			metaf = f
 		case "hooks/install":
 			instf = f
+		case "hooks/symlink":
+			symf = f
 		case "empty/":
 			emptyf = f
 		case "build/ignored":
@@ -82,12 +84,19 @@ func (s *S) TestBundleTo(c *C) {
 	c.Assert(meta.Name, Equals, "dummy")
 
 	c.Assert(instf, NotNil)
-	mode := instf.Mode()
-	c.Assert(mode&0700, Equals, os.FileMode(0700))
+	c.Assert(instf.Mode()&0700, Equals, os.FileMode(0700))
+
+	c.Assert(symf, NotNil)
+	c.Assert(symf.Mode()&0700, Equals, os.FileMode(0700))
+	reader, err = symf.Open()
+	c.Assert(err, IsNil)
+	data, err = ioutil.ReadAll(reader)
+	reader.Close()
+	c.Assert(err, IsNil)
+	c.Assert(string(data), Equals, "../target")
 
 	c.Assert(emptyf, NotNil)
-	mode = emptyf.Mode()
-	c.Assert(mode&os.ModeType, Equals, os.ModeDir)
+	c.Assert(emptyf.Mode()&os.ModeType, Equals, os.ModeDir)
 }
 
 func copyCharmDir(dst, src string) {
@@ -108,6 +117,21 @@ func copyCharmDir(dst, src string) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (s *S) TestBundleToWithBadSymlinks(c *C) {
+	charmDir := c.MkDir()
+	copyCharmDir(charmDir, repoDir("dummy"))
+
+	// Symlink targetting non-charm content. 
+	err := os.Symlink("../../target", filepath.Join(charmDir, "hooks", "badlink"))
+	c.Assert(err, IsNil)
+
+	dir, err := charm.ReadDir(charmDir)
+	c.Assert(err, IsNil)
+
+	err = dir.BundleTo(&bytes.Buffer{})
+	c.Assert(err, ErrorMatches, `symlink "hooks/badlink" links out of charm: "../../target"`)
 }
 
 func (s *S) TestDirRevisionFile(c *C) {

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 )
 
@@ -156,6 +157,9 @@ func (zp *zipPacker) visit(path string, fi os.FileInfo, err error) error {
 		relpath += "/"
 		method = zip.Store
 	}
+	if fi.Mode() & os.ModeSymlink != 0 {
+		method = zip.Store
+	}
 	if hidden || relpath == "revision" {
 		return nil
 	}
@@ -168,9 +172,23 @@ func (zp *zipPacker) visit(path string, fi os.FileInfo, err error) error {
 	if err != nil || fi.IsDir() {
 		return err
 	}
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		return err
+	var data []byte
+	if fi.Mode() & os.ModeSymlink != 0 {
+		target, err := os.Readlink(path)
+		if err != nil {
+			return err
+		}
+		abstarget := filepath.Join(filepath.Dir(path), target)
+		reltarget, err := filepath.Rel(zp.root, abstarget)
+		if err != nil || strings.HasPrefix(reltarget, "..") {
+			return fmt.Errorf("symlink %q links out of charm: %q", relpath, target)
+		}
+		data = []byte(target)
+	} else {
+		data, err = ioutil.ReadFile(path)
+		if err != nil {
+			return err
+		}
 	}
 	_, err = w.Write(data)
 	return err

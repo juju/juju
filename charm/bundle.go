@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -194,9 +195,10 @@ func (b *Bundle) expand(dir string, zfile *zip.File) error {
 	}
 	defer r.Close()
 
+	mode := zfile.Mode()
 	path := filepath.Join(dir, cleanName)
 	if strings.HasSuffix(zfile.Name, "/") {
-		err = os.MkdirAll(path, 0755)
+		err = os.MkdirAll(path, mode & 0777)
 		if err != nil {
 			return err
 		}
@@ -208,7 +210,23 @@ func (b *Bundle) expand(dir string, zfile *zip.File) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.Create(path)
+
+	if mode & os.ModeSymlink != 0 {
+		data, err := ioutil.ReadAll(r)
+		if err != nil {
+			return err
+		}
+		target := string(data)
+		abstarget := filepath.Join(filepath.Dir(path), target)
+		reltarget, err := filepath.Rel(dir, abstarget)
+		if err != nil || strings.HasPrefix(reltarget, "..") {
+			return fmt.Errorf("symlink %q links out of charm: %q", cleanName, target)
+		}
+		os.Symlink(string(data), path)
+		return nil
+	}
+
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode & 0777)
 	if err != nil {
 		return err
 	}
