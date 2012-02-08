@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
+	"launchpad.net/juju/go/log"
 	"os"
 	"strings"
 )
@@ -86,4 +87,19 @@ func CheckEmpty(args []string) error {
 		return fmt.Errorf("unrecognised args: %s", args)
 	}
 	return nil
+}
+
+// Main will Parse and Run a Command, and exit appropriately.
+func Main(c Command, args []string) {
+	if err := Parse(c, false, args[1:]); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		PrintUsage(c)
+		os.Exit(2)
+	}
+	if err := c.Run(); err != nil {
+		log.Debugf("%s command failed: %s\n", c.Info().Name, err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	os.Exit(0)
 }

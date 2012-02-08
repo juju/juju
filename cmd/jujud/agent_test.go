@@ -76,3 +76,10 @@ func (s *AgentSuite) TestRequiredArgs(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(j.Value, Equals, "value")
 }
+
+func (s *AgentSuite) TestInfo(c *C) {
+	info := main.NewAgentCommand(&TestAgentFlags{}).Info()
+	c.Assert(info.Name, Equals, "secret")
+	c.Assert(info.Usage, Equals, "secret [options]")
+	c.Assert(info.Purpose, Equals, "run a juju secret agent")
+}

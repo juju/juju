@@ -143,18 +143,3 @@ func (c *JujuCommand) Run() error {
 	}
 	return c.subcmd.Run()
 }
-
-// Main will Parse and Run a JujuCommand, and exit appropriately.
-func Main(jc *JujuCommand, args []string) {
-	if err := Parse(jc, false, args[1:]); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		PrintUsage(jc)
-		os.Exit(2)
-	}
-	if err := jc.Run(); err != nil {
-		log.Debugf("%s command failed: %s\n", jc.Info().Name, err)
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
-	os.Exit(0)
-}

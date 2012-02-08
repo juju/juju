@@ -32,11 +32,8 @@ func (af *UnitFlags) InitFlagSet(f *gnuflag.FlagSet) {
 // ParsePositional checks that there are no unwanted arguments, and that all
 // required flags have been set.
 func (af *UnitFlags) ParsePositional(args []string) error {
-	if err := cmd.CheckEmpty(args); err != nil {
-		return err
-	}
 	if af.agent.Name == "" {
 		return requiredError("unit-name")
 	}
-	return nil
+	return cmd.CheckEmpty(args)
 }

@@ -27,6 +27,6 @@ func (s *UnitSuite) TestParseMissing(c *C) {
 
 func (s *UnitSuite) TestParseUnknown(c *C) {
 	f := main.NewUnitFlags()
-	err := ParseAgentFlags(c, f, []string{"thundering typhoons"})
+	err := ParseAgentFlags(c, f, []string{"--unit-name", "wordpress/1", "thundering typhoons"})
 	c.Assert(err, ErrorMatches, `unrecognised args: \[thundering typhoons\]`)
 }
