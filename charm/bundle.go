@@ -221,7 +221,7 @@ func (b *Bundle) expand(dir string, zfile *zip.File) error {
 			return fmt.Errorf("symlink %q is absolute: %q", cleanName, target)
 		}
 		reltarget, err := filepath.Rel(dir, filepath.Join(filepath.Dir(path), target))
-		if err != nil || strings.HasPrefix(reltarget, "..") {
+		if err != nil || strings.HasPrefix(reltarget, "../") {
 			return fmt.Errorf("symlink %q links out of charm: %q", cleanName, target)
 		}
 		return os.Symlink(target, path)
