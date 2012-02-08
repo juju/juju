@@ -69,33 +69,79 @@ func (s *Store) Close() {
 	s.session.Close()
 }
 
-// AddCharm prepares the store to have charm added to it at all of
-// the provided urls. The revisionKey parameter must contain the
-// unique identifier that represents the current charm content
-// (e.g. the VCS revision sha1). ErrRedundantUpdate is returned if
-// all of the provided urls are already associated to that revision key.
-//
-// On success, wc must be used to stream the charm bundle onto the
-// store, and once wc is closed successfully the content will be
-// available at all of the provided urls, and a new CharmEvent
-// saved to record the successful publishing (it doesn't get saved
-// if there are any errors).
-//
-// The returned revision number will be assigned to the charm in the
-// store. The revision will be the maximum current revision from
-// all of the urls plus one. It is the caller's responsibility to ensure
-// that the charm content written to wc represents that revision.
-func (s *Store) AddCharm(charm charm.Charm, urls []*charm.URL, revisionKey string) (wc io.WriteCloser, revision int, err error) {
-	log.Printf("Trying to add charms %v with key %q...", urls, revisionKey)
-	if err = mustLackRevision("AddCharm", urls...); err != nil {
+// A CharmPublisher is responsible for importing a charm dir onto the store.
+type CharmPublisher struct {
+	revision int
+	w        *charmWriter
+}
+
+// Revision returns the revision that will be assigned to the published charm.
+func (p *CharmPublisher) Revision() int {
+	return p.revision
+}
+
+// CharmDir matches the part of the interface of *charm.Dir that is necessary
+// to publish a charm. Using this interface rather than *charm.Dir directly
+// makes testing some aspects of the store possible.
+type CharmDir interface {
+	Meta() *charm.Meta
+	Config() *charm.Config
+	SetRevision(revision int)
+	BundleTo(w io.Writer) error
+}
+
+// Statically ensure that *charm.Dir is indeed a CharmDir.
+var _ CharmDir = (*charm.Dir)(nil)
+
+// Publish bundles charm and writes it to the store. It will also log events
+// recording the success or failure of the operation.
+// The written charm bundle will have its revision set to the result
+// of Revision.
+// Publish must be called only once for a CharmPublisher.
+func (p *CharmPublisher) Publish(charm CharmDir) error {
+	w := p.w
+	if w == nil {
+		panic("CharmPublisher already published a charm")
+	}
+	p.w = nil
+	w.charm = charm
+	event := &CharmEvent{
+		Kind:     EventPublished,
+		Digest:   w.digest,
+		URLs:     w.urls,
+		Revision: w.revision, // TESTME
+	}
+	// TODO: Refactor to BundleTo(w, revision)
+	charm.SetRevision(p.revision)
+	err := charm.BundleTo(w)
+	if err == nil {
+		err = w.finish()
+	}
+	if err != nil {
+		w.abort()
+		event.Kind = EventPublishError
+		event.Errors = []string{err.Error()}
+	}
+	logErr := w.store.LogCharmEvent(event)
+	if err == nil {
+		return logErr
+	}
+	return err
+}
+
+// CharmPublisher returns a new CharmPublisher for importing a charm that
+// will be made available in the store at all of the provided URLs.
+// The digest parameter must contain the unique identifier that
+// represents the charm data being imported (e.g. the VCS revision sha1).
+// ErrRedundantUpdate is returned if all of the provided urls are
+// already associated to that digest.
+func (s *Store) CharmPublisher(urls []*charm.URL, digest string) (p *CharmPublisher, err error) {
+	log.Printf("Trying to add charms %v with key %q...", urls, digest)
+	if err = mustLackRevision("CharmPublisher", urls...); err != nil {
 		return
 	}
 	session := s.session.Copy()
-	defer func() {
-		if err != nil {
-			session.Close()
-		}
-	}()
+	defer session.Close()
 
 	maxRev := -1
 	newKey := false
@@ -109,8 +155,8 @@ func (s *Store) AddCharm(charm charm.Charm, urls []*charm.URL, revisionKey strin
 			newKey = true
 			continue
 		}
-		if doc.RevisionKey != revisionKey {
-			log.Printf("Charm %s is out of date with revision key %q.", urlStr, revisionKey)
+		if doc.Digest != digest {
+			log.Printf("Charm %s is out of date with revision key %q.", urlStr, digest)
 			newKey = true
 		}
 		if err != nil {
@@ -122,37 +168,38 @@ func (s *Store) AddCharm(charm charm.Charm, urls []*charm.URL, revisionKey strin
 		}
 	}
 	if !newKey {
-		log.Printf("All charms have revision key %q. Nothing to update.", revisionKey)
+		log.Printf("All charms have revision key %q. Nothing to update.", digest)
 		err = ErrRedundantUpdate
 		return
 	}
-	revision = maxRev + 1
+	revision := maxRev + 1
 	log.Printf("Preparing writer to add charms with revision %d.", revision)
-	w := &writer{
+	w := &charmWriter{
 		store:    s,
-		session:  session,
-		charm:    charm,
 		urls:     urls,
 		revision: revision,
-		revKey:   revisionKey,
+		digest:   digest,
 	}
-	return w, revision, nil
+	return &CharmPublisher{revision, w}, nil
 }
 
-type writer struct {
+// charmWriter is an io.Writer that writes charm bundles to the charms GridFS.
+type charmWriter struct {
 	store    *Store
 	session  *storeSession
 	file     *mgo.GridFile
 	sha256   hash.Hash
-	charm    charm.Charm
+	charm    CharmDir
 	urls     []*charm.URL
 	revision int
-	revKey   string
+	digest   string
 }
 
-// Write appends data to the charm bundle payload in the store.
-func (w *writer) Write(data []byte) (n int, err error) {
+// Write creates an entry in the charms GridFS when first called,
+// and streams all written data into it.
+func (w *charmWriter) Write(data []byte) (n int, err error) {
 	if w.file == nil {
+		w.session = w.store.session.Copy()
 		w.file, err = w.session.CharmFS().Create("")
 		if err != nil {
 			log.Printf("Failed to create GridFS file: %v", err)
@@ -168,9 +215,19 @@ func (w *writer) Write(data []byte) (n int, err error) {
 	return w.file.Write(data)
 }
 
-// Close finishes the charm writing process and inserts the final metadata.
+// abort cancels the charm writing.
+func (w *charmWriter) abort() {
+	if w.file != nil {
+		// Ignore error. Already aborting due to a preceding bad situation
+		// elsewhere. This error is not important right now.
+		_ = w.file.Close()
+		w.session.Close()
+	}
+}
+
+// finish completes the charm writing process and inserts the final metadata.
 // After it completes the charm will be available for consumption.
-func (w *writer) Close() error {
+func (w *charmWriter) finish() error {
 	defer w.session.Close()
 	if w.file == nil {
 		return nil
@@ -188,7 +245,7 @@ func (w *writer) Close() error {
 		charm := charmDoc{
 			urlStr,
 			w.revision,
-			w.revKey,
+			w.digest,
 			sha256,
 			id.(bson.ObjectId),
 			w.charm.Meta(),
@@ -201,12 +258,7 @@ func (w *writer) Close() error {
 			return err
 		}
 	}
-	event := &CharmEvent{
-		Kind:        EventPublishDone,
-		RevisionKey: w.revKey,
-		URLs:        w.urls,
-	}
-	return w.store.LogCharmEvent(event)
+	return nil
 }
 
 type CharmInfo struct {
@@ -303,13 +355,13 @@ func (r *reader) Close() error {
 
 // charmDoc represents the document stored in MongoDB for a single charm revision.
 type charmDoc struct {
-	URL         string
-	Revision    int
-	RevisionKey string
-	Sha256      string
-	FileId      bson.ObjectId
-	Meta        *charm.Meta
-	Config      *charm.Config
+	URL      string
+	Revision int
+	Digest   string
+	Sha256   string
+	FileId   bson.ObjectId
+	Meta     *charm.Meta
+	Config   *charm.Config
 }
 
 // LockUpdates acquires a server-side lock for updating a single charm
@@ -437,32 +489,31 @@ func (s *storeSession) Locks() *mgo.Collection {
 type CharmEventKind int
 
 const (
-	EventPublishStarted CharmEventKind = iota + 1
-	EventPublishFailed
-	EventPublishDone
+	EventPublished CharmEventKind = iota + 1
+	EventPublishError
 )
 
 // CharmEvent is a record for an event relating to one or more charm URLs.
 type CharmEvent struct {
-	Kind        CharmEventKind
-	RevisionKey string
-	Revision    int
-	URLs        []*charm.URL
-	Errors      []string `bson:",omitempty"`
-	Warnings    []string `bson:",omitempty"`
-	Time        time.Time
+	Kind     CharmEventKind
+	Digest   string
+	Revision int
+	URLs     []*charm.URL
+	Errors   []string `bson:",omitempty"`
+	Warnings []string `bson:",omitempty"`
+	Time     time.Time
 }
 
 // LogCharmEvent records an event related to one or more charm URLs.
 func (s *Store) LogCharmEvent(event *CharmEvent) (err error) {
-	log.Printf("Adding charm event for %v with key %q: %s", event.URLs, event.RevisionKey, event.Kind)
+	log.Printf("Adding charm event for %v with key %q: %s", event.URLs, event.Digest, event.Kind)
 	if err = mustLackRevision("LogCharmEvent", event.URLs...); err != nil {
 		return
 	}
 	session := s.session.Copy()
 	defer session.Close()
-	if event.Kind == 0 || event.RevisionKey == "" || len(event.URLs) == 0 {
-		return fmt.Errorf("LogCharmEvent: need valid Kind, RevisionKey and URLs")
+	if event.Kind == 0 || event.Digest == "" || len(event.URLs) == 0 {
+		return fmt.Errorf("LogCharmEvent: need valid Kind, Digest and URLs")
 	}
 	if event.Time.IsZero() {
 		event.Time = time.Now()
@@ -472,9 +523,9 @@ func (s *Store) LogCharmEvent(event *CharmEvent) (err error) {
 }
 
 // CharmEvent returns the most recent event associated with url
-// and revisionKey.  If the specified event isn't found the
-// error ErrUnknownChange will be returned.
-func (s *Store) CharmEvent(url *charm.URL, revisionKey string) (*CharmEvent, error) {
+// and digest.  If the specified event isn't found the error
+// ErrUnknownChange will be returned.
+func (s *Store) CharmEvent(url *charm.URL, digest string) (*CharmEvent, error) {
 	// TODO: It'd actually make sense to find the charm event after the
 	// revision id, but since we don't care about that now, just make sure
 	// we don't write bad code.
@@ -485,8 +536,8 @@ func (s *Store) CharmEvent(url *charm.URL, revisionKey string) (*CharmEvent, err
 	defer session.Close()
 
 	events := session.Events()
-	event := &CharmEvent{RevisionKey: revisionKey}
-	query := events.Find(bson.D{{"urls", url.String()}, {"revisionkey", revisionKey}})
+	event := &CharmEvent{Digest: digest}
+	query := events.Find(bson.D{{"urls", url.String()}, {"digest", digest}})
 	query.Sort(bson.D{{"time", -1}})
 	err := query.One(&event)
 	if err == mgo.NotFound {
