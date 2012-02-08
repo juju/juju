@@ -197,8 +197,8 @@ func (b *Bundle) expand(dir string, zfile *zip.File) error {
 
 	mode := zfile.Mode()
 	path := filepath.Join(dir, cleanName)
-	if strings.HasSuffix(zfile.Name, "/") {
-		err = os.MkdirAll(path, mode & 0777)
+	if strings.HasSuffix(zfile.Name, "/") || mode&os.ModeDir != 0 {
+		err = os.MkdirAll(path, mode&0777)
 		if err != nil {
 			return err
 		}
@@ -211,7 +211,7 @@ func (b *Bundle) expand(dir string, zfile *zip.File) error {
 		return err
 	}
 
-	if mode & os.ModeSymlink != 0 {
+	if mode&os.ModeSymlink != 0 {
 		data, err := ioutil.ReadAll(r)
 		if err != nil {
 			return err
@@ -227,7 +227,11 @@ func (b *Bundle) expand(dir string, zfile *zip.File) error {
 		return os.Symlink(target, path)
 	}
 
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode & 0777)
+	if err := checkFileType(cleanName, mode); err != nil {
+		return err
+	}
+
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode&0777)
 	if err != nil {
 		return err
 	}

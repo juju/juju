@@ -154,7 +154,7 @@ func bundleDir(c *C, dirpath string) (path string) {
 
 func extBundleDir(c *C, dirpath string) (path string) {
 	path = filepath.Join(c.MkDir(), "bundle.charm")
-	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("cd %s; zip --symlinks -r %s .", dirpath, path))
+	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("cd %s; zip --fifo --symlinks -r %s .", dirpath, path))
 	output, err := cmd.CombinedOutput()
 	c.Assert(err, IsNil, Bug("Command output: %s", output))
 	return path

@@ -156,7 +156,12 @@ func (zp *zipPacker) visit(path string, fi os.FileInfo, err error) error {
 		relpath += "/"
 		method = zip.Store
 	}
-	if fi.Mode() & os.ModeSymlink != 0 {
+
+	mode := fi.Mode()
+	if err := checkFileType(relpath, mode); err != nil {
+		return err
+	}
+	if mode&os.ModeSymlink != 0 {
 		method = zip.Store
 	}
 	if hidden || relpath == "revision" {
@@ -168,19 +173,19 @@ func (zp *zipPacker) visit(path string, fi os.FileInfo, err error) error {
 	}
 
 	perm := os.FileMode(0644)
-	if fi.Mode() & os.ModeSymlink != 0 {
+	if mode&os.ModeSymlink != 0 {
 		perm = 0777
-	} else if fi.Mode()&0100 != 0 {
+	} else if mode&0100 != 0 {
 		perm = 0755
 	}
-	h.SetMode(fi.Mode()&^0777|perm)
+	h.SetMode(mode&^0777 | perm)
 
 	w, err := zp.CreateHeader(h)
 	if err != nil || fi.IsDir() {
 		return err
 	}
 	var data []byte
-	if fi.Mode() & os.ModeSymlink != 0 {
+	if mode&os.ModeSymlink != 0 {
 		target, err := os.Readlink(path)
 		if err != nil {
 			return err
@@ -204,4 +209,19 @@ func (zp *zipPacker) visit(path string, fi os.FileInfo, err error) error {
 	}
 	_, err = w.Write(data)
 	return err
+}
+
+func checkFileType(path string, mode os.FileMode) error {
+	e := "file has an unknown type: %q"
+	switch mode & os.ModeType {
+	case os.ModeDir, os.ModeSymlink, 0:
+		return nil
+	case os.ModeNamedPipe:
+		e = "file is a named pipe: %q"
+	case os.ModeSocket:
+		e = "file is a socket: %q"
+	case os.ModeDevice:
+		e = "file is a device: %q"
+	}
+	return fmt.Errorf(e, path)
 }

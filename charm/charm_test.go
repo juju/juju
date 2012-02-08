@@ -23,7 +23,10 @@ var _ = Suite(&S{})
 func init() {
 	// Bazaar can't hold subtle mode differences, so we enforce
 	// them here to run more interesting checks below.
-	modes := []struct{ path string; mode os.FileMode }{
+	modes := []struct {
+		path string
+		mode os.FileMode
+	}{
 		{"hooks/install", 0751},
 		{"empty", 0750},
 		{"src/hello.c", 0614},
@@ -52,17 +55,17 @@ func checkDummy(c *C, f charm.Charm, path string) {
 
 		info, err := os.Stat(filepath.Join(path, "src", "hello.c"))
 		c.Assert(err, IsNil)
-		c.Assert(info.Mode() & 0777, Equals, os.FileMode(0644))
-		c.Assert(info.Mode() & os.ModeType, Equals, os.FileMode(0))
+		c.Assert(info.Mode()&0777, Equals, os.FileMode(0644))
+		c.Assert(info.Mode()&os.ModeType, Equals, os.FileMode(0))
 
 		info, err = os.Stat(filepath.Join(path, "hooks", "install"))
 		c.Assert(err, IsNil)
-		c.Assert(info.Mode() & 0777, Equals, os.FileMode(0755))
-		c.Assert(info.Mode() & os.ModeType, Equals, os.FileMode(0))
+		c.Assert(info.Mode()&0777, Equals, os.FileMode(0755))
+		c.Assert(info.Mode()&os.ModeType, Equals, os.FileMode(0))
 
 		info, err = os.Stat(filepath.Join(path, "empty"))
 		c.Assert(err, IsNil)
-		c.Assert(info.Mode() & 0777, Equals, os.FileMode(0755))
+		c.Assert(info.Mode()&0777, Equals, os.FileMode(0755))
 
 		target, err := os.Readlink(filepath.Join(path, "hooks", "symlink"))
 		c.Assert(err, IsNil)
