@@ -71,6 +71,117 @@ func (s *TopologySuite) TearDownTest(c *C) {
 	s.zkConn.Close()
 }
 
+func (s TopologySuite) TestAddMachine(c *C) {
+	// Check that adding machines works correctly.
+	err := s.t.AddMachine("m-0")
+	c.Assert(err, IsNil)
+	err = s.t.AddMachine("m-1")
+	c.Assert(err, IsNil)
+	keys := s.t.MachineKeys()
+	c.Assert(keys, Equals, []string{"m-0", "m-1"})
+}
+
+func (s TopologySuite) TestAddDuplicatedMachine(c *C) {
+	// Check that adding a duplicated machine by key fails.
+	err := s.t.AddMachine("m-0")
+	c.Assert(err, IsNil)
+	err = s.t.AddMachine("m-0")
+	c.Assert(err, ErrorMatches, `attempted to add duplicated machine "m-0"`)
+}
+
+func (s TopologySuite) TestRemoveMachine(c *C) {
+	// Check that removing machines works correctly.
+	err := s.t.AddMachine("m-0")
+	c.Assert(err, IsNil)
+	err = s.t.AddMachine("m-1")
+	c.Assert(err, IsNil)
+	// Add non-assigned unit. This tests that the logic of
+	// checking for assigned units works correctly too.
+	err = s.t.AddService("s-0", "wordpress")
+	c.Assert(err, IsNil)
+	_, err = s.t.AddUnit("s-0", "u-0")
+	c.Assert(err, IsNil)
+
+	err = s.t.RemoveMachine("m-0")
+	c.Assert(err, IsNil)
+
+	found := s.t.HasMachine("m-0")
+	c.Assert(found, Equals, false)
+	found = s.t.HasMachine("m-1")
+	c.Assert(found, Equals, true)
+}
+
+func (s TopologySuite) TestRemoveNonExistentMachine(c *C) {
+	// Check that the removing of a non-existent machine fails.
+	err := s.t.RemoveMachine("m-0")
+	c.Assert(err, ErrorMatches, `machine with key "m-0" cannot be found`)
+}
+
+func (s TopologySuite) TestRemoveMachineWithAssignedUnits(c *C) {
+	// Check that a machine can't be removed when it has assigned units.
+	err := s.t.AddMachine("m-0")
+	c.Assert(err, IsNil)
+	err = s.t.AddService("s-0", "wordpress")
+	c.Assert(err, IsNil)
+	_, err = s.t.AddUnit("s-0", "u-0")
+	c.Assert(err, IsNil)
+	_, err = s.t.AddUnit("s-0", "u-1")
+	c.Assert(err, IsNil)
+	err = s.t.AssignUnitToMachine("s-0", "u-1", "m-0")
+	c.Assert(err, IsNil)
+	err = s.t.RemoveMachine("m-0")
+	c.Assert(err, ErrorMatches, `can't remove machine "m-0" while units ared assigned`)
+}
+
+func (s TopologySuite) TestMachineHasUnits(c *C) {
+	// Check various ways a machine might or might not be assigned
+	// to a unit.	
+	err := s.t.AddMachine("m-0")
+	c.Assert(err, IsNil)
+	err = s.t.AddMachine("m-1")
+	c.Assert(err, IsNil)
+	err = s.t.AddService("s-0", "wordpress")
+	c.Assert(err, IsNil)
+	_, err = s.t.AddUnit("s-0", "u-0")
+	c.Assert(err, IsNil)
+	_, err = s.t.AddUnit("s-0", "u-1")
+	c.Assert(err, IsNil)
+	err = s.t.AssignUnitToMachine("s-0", "u-1", "m-0")
+	c.Assert(err, IsNil)
+	ok, err := s.t.MachineHasUnits("m-0")
+	c.Assert(err, IsNil)
+	c.Assert(ok, Equals, true)
+	ok, err = s.t.MachineHasUnits("m-1")
+	c.Assert(err, IsNil)
+	c.Assert(ok, Equals, false)
+	ok, err = s.t.MachineHasUnits("m-99")
+	c.Assert(err, ErrorMatches, `machine with key "m-99" cannot be found`)
+}
+
+func (s TopologySuite) TestHasMachine(c *C) {
+	// Check that the test for a machine works correctly.
+	found := s.t.HasMachine("m-0")
+	c.Assert(found, Equals, false)
+	err := s.t.AddMachine("m-0")
+	c.Assert(err, IsNil)
+	found = s.t.HasMachine("m-0")
+	c.Assert(found, Equals, true)
+	found = s.t.HasMachine("m-1")
+	c.Assert(found, Equals, false)
+}
+
+func (s TopologySuite) TestMachineKeys(c *C) {
+	// Check that the retrieval of all services keys works correctly.
+	keys := s.t.MachineKeys()
+	c.Assert(keys, Equals, []string{})
+	err := s.t.AddMachine("m-0")
+	c.Assert(err, IsNil)
+	err = s.t.AddMachine("m-1")
+	c.Assert(err, IsNil)
+	keys = s.t.MachineKeys()
+	c.Assert(keys, Equals, []string{"m-0", "m-1"})
+}
+
 func (s TopologySuite) TestAddService(c *C) {
 	// Check that adding services works correctly.
 	c.Assert(s.t.HasService("s-0"), Equals, false)
@@ -82,14 +193,26 @@ func (s TopologySuite) TestAddService(c *C) {
 	c.Assert(s.t.HasService("s-1"), Equals, true)
 }
 
-func (s TopologySuite) TestAddDuplicateService(c *C) {
-	// Check that adding a duplicate service by key or name fails.
+func (s TopologySuite) TestAddDuplicatedService(c *C) {
+	// Check that adding a duplicated service by key or name fails.
 	err := s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
 	err = s.t.AddService("s-0", "mysql")
 	c.Assert(err, ErrorMatches, `attempted to add duplicated service "s-0"`)
 	err = s.t.AddService("s-1", "wordpress")
 	c.Assert(err, ErrorMatches, `service name "wordpress" already in use`)
+}
+
+func (s TopologySuite) TestHasService(c *C) {
+	// Check that the test for a service works correctly.
+	found := s.t.HasService("s-0")
+	c.Assert(found, Equals, false)
+	err := s.t.AddService("s-0", "wordpress")
+	c.Assert(err, IsNil)
+	found = s.t.HasService("s-0")
+	c.Assert(found, Equals, true)
+	found = s.t.HasService("s-1")
+	c.Assert(found, Equals, false)
 }
 
 func (s TopologySuite) TestServiceKey(c *C) {
@@ -101,6 +224,18 @@ func (s TopologySuite) TestServiceKey(c *C) {
 	key, err = s.t.ServiceKey("wordpress")
 	c.Assert(err, IsNil)
 	c.Assert(key, Equals, "s-0")
+}
+
+func (s TopologySuite) TestServiceKeys(c *C) {
+	// Check that the retrieval of all services keys works correctly.
+	keys := s.t.ServiceKeys()
+	c.Assert(keys, Equals, []string{})
+	err := s.t.AddService("s-0", "wordpress")
+	c.Assert(err, IsNil)
+	err = s.t.AddService("s-1", "mysql")
+	c.Assert(err, IsNil)
+	keys = s.t.ServiceKeys()
+	c.Assert(keys, Equals, []string{"s-0", "s-1"})
 }
 
 func (s TopologySuite) TestServiceName(c *C) {
@@ -128,8 +263,8 @@ func (s TopologySuite) TestRemoveService(c *C) {
 
 func (s TopologySuite) TestRemoveNonExistentService(c *C) {
 	// Check that the removing of a non-existent service fails.
-	err := s.t.RemoveService("n-0")
-	c.Assert(err, ErrorMatches, `service with key "n-0" cannot be found`)
+	err := s.t.RemoveService("s-99")
+	c.Assert(err, ErrorMatches, `service with key "s-99" cannot be found`)
 }
 
 func (s TopologySuite) TestAddUnit(c *C) {
@@ -244,7 +379,6 @@ func (s TopologySuite) TestHasUnit(c *C) {
 	err := s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
 	found := s.t.HasUnit("s-0", "u-0")
-	c.Assert(err, IsNil)
 	c.Assert(found, Equals, false)
 	_, err = s.t.AddUnit("s-0", "u-0")
 	c.Assert(err, IsNil)

@@ -26,6 +26,22 @@ func Open(zk *zookeeper.Conn) (*State, error) {
 	return &State{zk}, nil
 }
 
+// Add machine creates a new machine.
+func (s *State) AddMachine() (*Machine, error) {
+	path, err := s.zk.Create("/machines/machine-", "", zookeeper.SEQUENCE, zkPermAll)
+	if err != nil {
+		return nil, err
+	}
+	key := strings.Split(path, "/")[2]
+	addMachine := func(t *topology) error {
+		return t.AddMachine(key)
+	}
+	if err = retryTopologyChange(s.zk, addMachine); err != nil {
+		return nil, err
+	}
+	return &Machine{s.zk, key}, nil
+}
+
 // AddService creates a new service with the given unique name
 // and the charm state.
 func (s *State) AddService(name string, charm *Charm) (*Service, error) {
@@ -99,6 +115,23 @@ func (s *State) Service(name string) (*Service, error) {
 		return nil, err
 	}
 	return &Service{s.zk, key, name}, nil
+}
+
+// AllServices returns all deployed services in the environment.
+func (s *State) AllServices() ([]*Service, error) {
+	topology, err := readTopology(s.zk)
+	if err != nil {
+		return nil, err
+	}
+	services := []*Service{}
+	for _, key := range topology.ServiceKeys() {
+		name, err := topology.ServiceName(key)
+		if err != nil {
+			return nil, err
+		}
+		services = append(services, &Service{s.zk, key, name})
+	}
+	return services, nil
 }
 
 // Unit returns a unit by name.
