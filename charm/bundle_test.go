@@ -110,9 +110,10 @@ func (s *BundleSuite) TestBundleSetRevision(c *C) {
 func (s *BundleSuite) TestExpandToWithBadLink(c *C) {
 	charmDir := c.MkDir()
 	copyCharmDir(charmDir, repoDir("dummy"))
+	badLink := filepath.Join(charmDir, "hooks", "badlink")
 
-	// Symlink targetting non-charm content. 
-	err := os.Symlink("../../target", filepath.Join(charmDir, "hooks", "badlink"))
+	// Symlink targetting a path outside of the charm.
+	err := os.Symlink("../../target", badLink)
 	c.Assert(err, IsNil)
 
 	bundle, err := charm.ReadBundle(extBundleDir(c, charmDir))
@@ -121,6 +122,18 @@ func (s *BundleSuite) TestExpandToWithBadLink(c *C) {
 	path := filepath.Join(c.MkDir(), "charm")
 	err = bundle.ExpandTo(path)
 	c.Assert(err, ErrorMatches, `symlink "hooks/badlink" links out of charm: "../../target"`)
+
+	// Symlink targetting an absolute path.
+	os.Remove(badLink)
+	err = os.Symlink("/target", badLink)
+	c.Assert(err, IsNil)
+
+	bundle, err = charm.ReadBundle(extBundleDir(c, charmDir))
+	c.Assert(err, IsNil)
+
+	path = filepath.Join(c.MkDir(), "charm")
+	err = bundle.ExpandTo(path)
+	c.Assert(err, ErrorMatches, `symlink "hooks/badlink" is absolute: "/target"`)
 }
 
 func bundleDir(c *C, dirpath string) (path string) {

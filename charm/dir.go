@@ -167,7 +167,15 @@ func (zp *zipPacker) visit(path string, fi os.FileInfo, err error) error {
 		Name:   relpath,
 		Method: method,
 	}
-	h.SetMode(fi.Mode())
+
+	perm := os.FileMode(0644)
+	if fi.Mode() & os.ModeSymlink != 0 {
+		perm = 0777
+	} else if fi.Mode()&0100 != 0 {
+		perm = 0755
+	}
+	h.SetMode(fi.Mode()&^0777|perm)
+
 	w, err := zp.CreateHeader(h)
 	if err != nil || fi.IsDir() {
 		return err
@@ -178,9 +186,11 @@ func (zp *zipPacker) visit(path string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		abstarget := filepath.Join(filepath.Dir(path), target)
-		reltarget, err := filepath.Rel(zp.root, abstarget)
-		if err != nil || strings.HasPrefix(reltarget, "..") {
+		if filepath.IsAbs(target) {
+			return fmt.Errorf("symlink %q is absolute: %q", relpath, target)
+		}
+		reltarget, err := filepath.Rel(zp.root, filepath.Join(filepath.Dir(path), target))
+		if err != nil || strings.HasPrefix(reltarget, "../") {
 			return fmt.Errorf("symlink %q links out of charm: %q", relpath, target)
 		}
 		data = []byte(target)

@@ -84,10 +84,11 @@ func (s *S) TestBundleTo(c *C) {
 	c.Assert(meta.Name, Equals, "dummy")
 
 	c.Assert(instf, NotNil)
-	c.Assert(instf.Mode()&0700, Equals, os.FileMode(0700))
+	// Despite it being 0751, we pack and unpack it as 0755. 
+	c.Assert(instf.Mode()&0777, Equals, os.FileMode(0755))
 
 	c.Assert(symf, NotNil)
-	c.Assert(symf.Mode()&0700, Equals, os.FileMode(0700))
+	c.Assert(symf.Mode()&0777, Equals, os.FileMode(0777))
 	reader, err = symf.Open()
 	c.Assert(err, IsNil)
 	data, err = ioutil.ReadAll(reader)
@@ -97,6 +98,8 @@ func (s *S) TestBundleTo(c *C) {
 
 	c.Assert(emptyf, NotNil)
 	c.Assert(emptyf.Mode()&os.ModeType, Equals, os.ModeDir)
+	// Despite it being 0750, we pack and unpack it as 0755. 
+	c.Assert(emptyf.Mode()&0777, Equals, os.FileMode(0755))
 }
 
 func copyCharmDir(dst, src string) {
@@ -122,9 +125,10 @@ func copyCharmDir(dst, src string) {
 func (s *S) TestBundleToWithBadSymlinks(c *C) {
 	charmDir := c.MkDir()
 	copyCharmDir(charmDir, repoDir("dummy"))
+	badLink := filepath.Join(charmDir, "hooks", "badlink")
 
-	// Symlink targetting non-charm content. 
-	err := os.Symlink("../../target", filepath.Join(charmDir, "hooks", "badlink"))
+	// Symlink targetting a path outside of the charm.
+	err := os.Symlink("../../target", badLink)
 	c.Assert(err, IsNil)
 
 	dir, err := charm.ReadDir(charmDir)
@@ -132,6 +136,17 @@ func (s *S) TestBundleToWithBadSymlinks(c *C) {
 
 	err = dir.BundleTo(&bytes.Buffer{})
 	c.Assert(err, ErrorMatches, `symlink "hooks/badlink" links out of charm: "../../target"`)
+
+	// Symlink targetting an absolute path.
+	os.Remove(badLink)
+	err = os.Symlink("/target", badLink)
+	c.Assert(err, IsNil)
+
+	dir, err = charm.ReadDir(charmDir)
+	c.Assert(err, IsNil)
+
+	err = dir.BundleTo(&bytes.Buffer{})
+	c.Assert(err, ErrorMatches, `symlink "hooks/badlink" is absolute: "/target"`)
 }
 
 func (s *S) TestDirRevisionFile(c *C) {
