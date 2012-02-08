@@ -222,8 +222,7 @@ func (b *Bundle) expand(dir string, zfile *zip.File) error {
 		if err != nil || strings.HasPrefix(reltarget, "..") {
 			return fmt.Errorf("symlink %q links out of charm: %q", cleanName, target)
 		}
-		os.Symlink(string(data), path)
-		return nil
+		return os.Symlink(string(data), path)
 	}
 
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode & 0777)
