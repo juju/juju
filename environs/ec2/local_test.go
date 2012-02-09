@@ -175,7 +175,7 @@ func (t *localTests) TestInstanceGroups(c *C) {
 		fmt.Sprintf("juju-%s-%d", t.Name, 98),
 		fmt.Sprintf("juju-%s-%d", t.Name, 99),
 	)
-	info := make([]ec2.SecurityGroupInfo, len(groups))
+	info := make([]amzec2.SecurityGroupInfo, len(groups))
 
 	inst0, err := env.StartInstance(98, jujutest.InvalidStateInfo)
 	c.Assert(err, IsNil)
@@ -219,16 +219,15 @@ func (t *localTests) TestInstanceGroups(c *C) {
 		}
 	}
 
-	// check that the juju group authorizes SSH for anyone.
-	c.Assert(len(info[0].IPPerms), Equals, 1)
 	perms := info[0].IPPerms
-	c.Assert(len(perms), Equals, 1)
+	// check that the juju group authorizes SSH for anyone.
+	c.Assert(len(perms), Equals, 1, Bug("got security groups %#v", perms))
 	perm := perms[0]
 	c.Check(perm.Protocol, Equals, "tcp")
 	c.Check(perm.FromPort, Equals, 22)
 	c.Check(perm.ToPort, Equals, 22)
 	c.Check(perm.SourceIPs, Equals, []string{"0.0.0.0/0"})
-	c.Check(perm.SourceGroups, Equals, 0)
+	c.Check(len(perm.SourceGroups), Equals, 0)
 
 	// check that each instance is part of the correct groups.
 	resp, err := ec2conn.Instances([]string{inst0.Id(), inst1.Id()}, nil)
