@@ -1,33 +1,50 @@
 package main
 
 import (
+	"fmt"
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju/go/agent"
 	"launchpad.net/juju/go/cmd"
+	"launchpad.net/juju/go/state"
 )
 
-type ProvisioningFlags struct {
-	agent *agent.Provisioning
+type ProvisioningCommand struct {
+	Agent *ProvisioningAgent
+	conf  *AgentConf
 }
 
-func NewProvisioningFlags() *ProvisioningFlags {
-	return &ProvisioningFlags{&agent.Provisioning{}}
+func NewProvisioningCommand() *ProvisioningCommand {
+	return &ProvisioningCommand{&ProvisioningAgent{}, NewAgentConf()}
 }
 
-// Name returns the agent's name.
-func (af *ProvisioningFlags) Name() string {
-	return "provisioning"
+// Info returns a decription of the command.
+func (c *ProvisioningCommand) Info() *cmd.Info {
+	return &cmd.Info{"provisioning", "[options]", "run a juju provisioning agent", "", true}
 }
 
-// Agent returns the agent.
-func (af *ProvisioningFlags) Agent() agent.Agent {
-	return af.agent
+// InitFlagSet prepares a FlagSet.
+func (c *ProvisioningCommand) InitFlagSet(f *gnuflag.FlagSet) {
+	c.conf.InitFlagSet(f)
 }
 
-// InitFlagSet does nothing.
-func (af *ProvisioningFlags) InitFlagSet(f *gnuflag.FlagSet) {}
-
-// ParsePositional checks that there are no unwanted arguments.
-func (af *ProvisioningFlags) ParsePositional(args []string) error {
+// ParsePositional checks that there are no unwanted arguments, and that all
+// required flags have been set.
+func (c *ProvisioningCommand) ParsePositional(args []string) error {
+	if err := c.conf.Validate(); err != nil {
+		return err
+	}
 	return cmd.CheckEmpty(args)
+}
+
+// Run runs a provisioning agent.
+func (c *ProvisioningCommand) Run() error {
+	return c.conf.Run(c.Agent)
+}
+
+// ProvisioningAgent is responsible for launching new machines.
+type ProvisioningAgent struct {
+}
+
+// Run runs the agent.
+func (a *ProvisioningAgent) Run(state *state.State, jujuDir string) error {
+	return fmt.Errorf("ProvisioningAgent.Run not implemented")
 }

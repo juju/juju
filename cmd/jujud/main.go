@@ -18,9 +18,9 @@ https://juju.ubuntu.com/`
 func Main(args []string) {
 	jc := cmd.NewSuperCommand("jujud", jujudDoc)
 	jc.Register(&InitzkCommand{})
-	jc.Register(NewAgentCommand(NewUnitFlags()))
-	jc.Register(NewAgentCommand(NewMachineFlags()))
-	jc.Register(NewAgentCommand(NewProvisioningFlags()))
+	jc.Register(NewUnitCommand())
+	jc.Register(NewMachineCommand())
+	jc.Register(NewProvisioningCommand())
 	cmd.Main(jc, args)
 }
 

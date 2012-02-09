@@ -56,7 +56,7 @@ func (s *MainSuite) TestParseErrors(c *C) {
 	checkMessage(c, msga, "unit",
 		"--zookeeper-servers", "zk",
 		"--session-file", "sf",
-		"--unit-name", "un",
+		"--unit-name", "un/0",
 		"toastie")
 	checkMessage(c, msga, "machine",
 		"--zookeeper-servers", "zk",

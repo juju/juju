@@ -3,48 +3,61 @@ package main
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju/go/agent"
 	"launchpad.net/juju/go/cmd"
+	"launchpad.net/juju/go/state"
 	"strconv"
 )
 
-type MachineFlags struct {
+type MachineCommand struct {
+	Agent     *MachineAgent
+	conf      *AgentConf
 	machineId string
-	agent     *agent.Machine
 }
 
-func NewMachineFlags() *MachineFlags {
-	return &MachineFlags{agent: &agent.Machine{}}
+func NewMachineCommand() *MachineCommand {
+	return &MachineCommand{&MachineAgent{}, NewAgentConf(), ""}
 }
 
-// Name returns the agent's name.
-func (af *MachineFlags) Name() string {
-	return "machine"
-}
-
-// Agent returns the agent.
-func (af *MachineFlags) Agent() agent.Agent {
-	return af.agent
+// Info returns a decription of the command.
+func (c *MachineCommand) Info() *cmd.Info {
+	return &cmd.Info{"machine", "[options]", "run a juju machine agent", "", true}
 }
 
 // InitFlagSet prepares a FlagSet.
-func (af *MachineFlags) InitFlagSet(f *gnuflag.FlagSet) {
-	f.StringVar(&af.machineId, "machine-id", af.machineId, "id of the machine to run")
+func (c *MachineCommand) InitFlagSet(f *gnuflag.FlagSet) {
+	c.conf.InitFlagSet(f)
+	f.StringVar(&c.machineId, "machine-id", c.machineId, "id of the machine to run")
 }
 
-// ParsePositional checks that there are no unwanted arguments, and that any
+// ParsePositional checks that there are no unwanted arguments, and that all
 // required flags have been set.
-func (af *MachineFlags) ParsePositional(args []string) error {
-	if err := cmd.CheckEmpty(args); err != nil {
+func (c *MachineCommand) ParsePositional(args []string) error {
+	if err := c.conf.Validate(); err != nil {
 		return err
 	}
-	if af.machineId == "" {
+	if c.machineId == "" {
 		return requiredError("machine-id")
 	}
-	id, err := strconv.ParseUint(af.machineId, 10, 0)
+	id, err := strconv.ParseUint(c.machineId, 10, 0)
 	if err != nil {
 		return fmt.Errorf("--machine-id option expects a non-negative integer")
 	}
-	af.agent.Id = uint(id)
-	return nil
+	c.Agent.Id = uint(id)
+	return cmd.CheckEmpty(args)
+}
+
+// Run runs a machine agent.
+func (c *MachineCommand) Run() error {
+	return c.conf.Run(c.Agent)
+}
+
+// MachineAgent is responsible for managing a single machine and
+// deploying service units onto it.
+type MachineAgent struct {
+	Id uint
+}
+
+// Run runs the agent.
+func (a *MachineAgent) Run(state *state.State, jujuDir string) error {
+	return fmt.Errorf("MachineAgent.Run not implemented")
 }
