@@ -9,13 +9,13 @@ import (
 )
 
 type MachineCommand struct {
-	Agent     *MachineAgent
 	conf      *AgentConf
 	machineId string
+	MachineId uint
 }
 
 func NewMachineCommand() *MachineCommand {
-	return &MachineCommand{&MachineAgent{}, NewAgentConf(), ""}
+	return &MachineCommand{conf: NewAgentConf()}
 }
 
 // Info returns a decription of the command.
@@ -42,13 +42,13 @@ func (c *MachineCommand) ParsePositional(args []string) error {
 	if err != nil {
 		return fmt.Errorf("--machine-id option expects a non-negative integer")
 	}
-	c.Agent.Id = uint(id)
+	c.MachineId = uint(id)
 	return cmd.CheckEmpty(args)
 }
 
 // Run runs a machine agent.
 func (c *MachineCommand) Run() error {
-	return c.conf.Run(c.Agent)
+	return c.conf.Run(&MachineAgent{Id: c.MachineId})
 }
 
 // MachineAgent is responsible for managing a single machine and

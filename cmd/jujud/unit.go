@@ -11,12 +11,12 @@ import (
 )
 
 type UnitCommand struct {
-	Agent *UnitAgent
-	conf  *AgentConf
+	conf     *AgentConf
+	UnitName string
 }
 
 func NewUnitCommand() *UnitCommand {
-	return &UnitCommand{&UnitAgent{}, NewAgentConf()}
+	return &UnitCommand{conf: NewAgentConf()}
 }
 
 // Info returns a decription of the command.
@@ -27,7 +27,7 @@ func (c *UnitCommand) Info() *cmd.Info {
 // InitFlagSet prepares a FlagSet.
 func (c *UnitCommand) InitFlagSet(f *gnuflag.FlagSet) {
 	c.conf.InitFlagSet(f)
-	f.StringVar(&c.Agent.Name, "unit-name", c.Agent.Name, "name of the unit to run")
+	f.StringVar(&c.UnitName, "unit-name", c.UnitName, "name of the unit to run")
 }
 
 // ParsePositional checks that there are no unwanted arguments, and that all
@@ -36,12 +36,12 @@ func (c *UnitCommand) ParsePositional(args []string) error {
 	if err := c.conf.Validate(); err != nil {
 		return err
 	}
-	if c.Agent.Name == "" {
+	if c.UnitName == "" {
 		return requiredError("unit-name")
 	}
 
 	bad := fmt.Errorf("--unit-name option expects <service-name>/<non-negative integer>")
-	split := strings.Split(c.Agent.Name, "/")
+	split := strings.Split(c.UnitName, "/")
 	if len(split) != 2 {
 		return bad
 	}
@@ -57,7 +57,7 @@ func (c *UnitCommand) ParsePositional(args []string) error {
 
 // Run runs a machine agent.
 func (c *UnitCommand) Run() error {
-	return c.conf.Run(c.Agent)
+	return c.conf.Run(&UnitAgent{Name: c.UnitName})
 }
 
 // UnitAgent is responsible for managing a single service unit.

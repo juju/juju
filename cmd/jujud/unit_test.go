@@ -12,7 +12,7 @@ var _ = Suite(&UnitSuite{})
 func (s *UnitSuite) TestParseSuccess(c *C) {
 	create := func() main.AgentCommand { return main.NewUnitCommand() }
 	uc := CheckAgentCommand(c, create, []string{"--unit-name", "w0rd-pre55/1"})
-	c.Assert(uc.(*main.UnitCommand).Agent.Name, Equals, "w0rd-pre55/1")
+	c.Assert(uc.(*main.UnitCommand).UnitName, Equals, "w0rd-pre55/1")
 }
 
 func (s *UnitSuite) TestParseMissing(c *C) {

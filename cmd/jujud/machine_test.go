@@ -12,7 +12,7 @@ var _ = Suite(&MachineSuite{})
 func (s *MachineSuite) TestParseSuccess(c *C) {
 	create := func() main.AgentCommand { return main.NewMachineCommand() }
 	mc := CheckAgentCommand(c, create, []string{"--machine-id", "42"})
-	c.Assert(mc.(*main.MachineCommand).Agent.Id, Equals, uint(42))
+	c.Assert(mc.(*main.MachineCommand).MachineId, Equals, uint(42))
 }
 
 func (s *MachineSuite) TestParseMissing(c *C) {

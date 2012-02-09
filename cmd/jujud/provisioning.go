@@ -8,12 +8,11 @@ import (
 )
 
 type ProvisioningCommand struct {
-	Agent *ProvisioningAgent
-	conf  *AgentConf
+	conf *AgentConf
 }
 
 func NewProvisioningCommand() *ProvisioningCommand {
-	return &ProvisioningCommand{&ProvisioningAgent{}, NewAgentConf()}
+	return &ProvisioningCommand{conf: NewAgentConf()}
 }
 
 // Info returns a decription of the command.
@@ -37,7 +36,7 @@ func (c *ProvisioningCommand) ParsePositional(args []string) error {
 
 // Run runs a provisioning agent.
 func (c *ProvisioningCommand) Run() error {
-	return c.conf.Run(c.Agent)
+	return c.conf.Run(&ProvisioningAgent{})
 }
 
 // ProvisioningAgent is responsible for launching new machines.
