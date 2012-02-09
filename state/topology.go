@@ -5,6 +5,7 @@
 package state
 
 import (
+	"errors"
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
@@ -89,7 +90,7 @@ func (t *topology) AddMachine(key string) error {
 	return nil
 }
 
-// RemoveMachine removes a machine from the topology.
+// RemoveMachine removes the machine with key from the topology.
 func (t *topology) RemoveMachine(key string) error {
 	ok, err := t.MachineHasUnits(key)
 	if err != nil {
@@ -277,8 +278,11 @@ func (t *topology) UnitKeyFromSequence(serviceKey string, sequenceNo int) (strin
 	return "", fmt.Errorf("unit with sequence number %d not found", sequenceNo)
 }
 
-// UnitMachineKey returns the key of an assigned machine of the unit. An empty
-// key means there is no machine assigned.
+// unitNotAssigned indicates that a unit is not assigned to a machine.
+var unitNotAssigned = errors.New("unit not assigned to machine")
+
+// UnitMachineKey returns the key of an assigned machine of the unit. If no machine
+// is assigned the error unitNotAssigned will be returned.
 func (t *topology) UnitMachineKey(serviceKey, unitKey string) (string, error) {
 	if err := t.assertUnit(serviceKey, unitKey); err != nil {
 		return "", err

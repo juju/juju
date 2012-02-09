@@ -169,7 +169,7 @@ func (u *Unit) AssignToUnusedMachine() (*Machine, error) {
 					break
 				}
 			}
-			// Reset machineKey.
+			// Reset machine key.
 			machineKey = ""
 		}
 		if machineKey == "" {

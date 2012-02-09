@@ -15,8 +15,6 @@ import (
 var (
 	// stateChange is a common error inside the state processing.
 	stateChanged = errors.New("environment state has changed")
-	// unitNotAssigned indicates that a unit is not assigned to a machine.
-	unitNotAssigned = errors.New("unit not assigned to machine")
 	// zkPermAll is a convenience variable for creating new nodes.
 	zkPermAll = zookeeper.WorldACL(zookeeper.PERM_ALL)
 )
