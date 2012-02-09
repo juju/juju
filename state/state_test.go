@@ -28,13 +28,12 @@ func TestPackage(t *testing.T) {
 }
 
 type StateSuite struct {
-	zkServer    *zookeeper.Server
-	zkTestRoot  string
-	zkTestPort  int
-	zkAddr      string
-	zkConn      *zookeeper.Conn
-	zkEventChan <-chan zookeeper.Event
-	st          *state.State
+	zkServer   *zookeeper.Server
+	zkTestRoot string
+	zkTestPort int
+	zkAddr     string
+	zkConn     *zookeeper.Conn
+	st         *state.State
 }
 
 var _ = Suite(&StateSuite{})
@@ -62,18 +61,8 @@ func (s *StateSuite) TearDownSuite(c *C) {
 }
 
 func (s *StateSuite) SetUpTest(c *C) {
-	var err error
-	// Connect the server.
-	s.zkConn, s.zkEventChan, err = zookeeper.Dial(s.zkAddr, 5e9)
-	c.Assert(err, IsNil)
-	// Wait for connect signal.
-	event := <-s.zkEventChan
-	c.Assert(event.Type, Equals, zookeeper.EVENT_SESSION)
-	c.Assert(event.State, Equals, zookeeper.STATE_CONNECTED)
-	// Init the environment and open a state.
-	err = state.Initialize(s.zkConn)
-	c.Assert(err, IsNil)
-	s.st, err = state.Open(s.zkConn)
+	s.st, s.zkConn = state.OpenAddr(c, s.zkAddr)
+	err := s.st.Initialize()
 	c.Assert(err, IsNil)
 }
 
