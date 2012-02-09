@@ -1,6 +1,8 @@
 package store_test
 
 import (
+	"fmt"
+	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/charm"
@@ -39,7 +41,9 @@ func (s *S) SetUpTest(c *C) {
 }
 
 func (s *S) TearDownTest(c *C) {
-	s.store.Close()
+	if s.store != nil {
+		s.store.Close()
+	}
 	s.MgoSuite.TearDownTest(c)
 }
 
@@ -47,26 +51,60 @@ func repoDir(name string) (path string) {
 	return filepath.Join("..", "charm", "testrepo", "series", name)
 }
 
-func (s *S) TestAddCharmWithRevisionedURL(c *C) {
-	urls := []*charm.URL{charm.MustParseURL("cs:oneiric/wordpress-0")}
-	wc, revno, err := s.store.AddCharm(s.charm, urls, "key")
-	c.Assert(err, ErrorMatches, "AddCharm: got charm URL with revision: cs:oneiric/wordpress-0")
-	c.Assert(revno, Equals, 0)
-	c.Assert(wc, IsNil)
+// FakeCharmDir is a charm that implements the interface that the
+// store publisher cares about.
+type FakeCharmDir struct {
+	revision interface{} // so we can tell if it's not set.
+	error    string
 }
 
-func (s *S) TestAddCharm(c *C) {
+func (d *FakeCharmDir) Meta() *charm.Meta {
+	return &charm.Meta{
+		Name:        "fakecharm",
+		Summary:     "Fake charm for testing purposes.",
+		Description: "This is a fake charm for testing purposes.\n",
+		Provides:    make(map[string]charm.Relation),
+		Requires:    make(map[string]charm.Relation),
+		Peers:       make(map[string]charm.Relation),
+	}
+}
+
+func (d *FakeCharmDir) Config() *charm.Config {
+	return &charm.Config{make(map[string]charm.Option)}
+}
+
+func (d *FakeCharmDir) SetRevision(revision int) {
+	d.revision = revision
+}
+
+func (d *FakeCharmDir) BundleTo(w io.Writer) error {
+	if d.error == "beforeWrite" {
+		return fmt.Errorf(d.error)
+	}
+	_, err := w.Write([]byte(fmt.Sprintf("charm-revision-%v", d.revision)))
+	if d.error == "afterWrite" {
+		return fmt.Errorf(d.error)
+	}
+	return err
+}
+
+func (s *S) TestCharmPublisherWithRevisionedURL(c *C) {
+	urls := []*charm.URL{charm.MustParseURL("cs:oneiric/wordpress-0")}
+	pub, err := s.store.CharmPublisher(urls, "some-digest")
+	c.Assert(err, ErrorMatches, "CharmPublisher: got charm URL with revision: cs:oneiric/wordpress-0")
+	c.Assert(pub, IsNil)
+}
+
+func (s *S) TestCharmPublisher(c *C) {
 	urlA := charm.MustParseURL("cs:oneiric/wordpress-a")
 	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
 	urls := []*charm.URL{urlA, urlB}
 
-	wc, revno, err := s.store.AddCharm(s.charm, urls, "key")
+	pub, err := s.store.CharmPublisher(urls, "some-digest")
 	c.Assert(err, IsNil)
-	c.Assert(revno, Equals, 0)
+	c.Assert(pub.Revision(), Equals, 0)
 
-	err = s.charm.BundleTo(wc)
-	c.Assert(err, IsNil)
-	err = wc.Close()
+	err = pub.Publish(s.charm)
 	c.Assert(err, IsNil)
 
 	for _, url := range urls {
@@ -93,13 +131,61 @@ func (s *S) TestAddCharm(c *C) {
 		c.Assert(info2, Equals, info)
 
 		// The successful completion is also recorded as a charm event.
-		event, err := s.store.CharmEvent(url, "key")
-		c.Assert(event.Kind, Equals, store.EventPublishDone)
-		c.Assert(event.RevisionKey, Equals, "key")
+		event, err := s.store.CharmEvent(url, "some-digest")
+		c.Assert(err, IsNil)
+		c.Assert(event.Kind, Equals, store.EventPublished)
+		c.Assert(event.Digest, Equals, "some-digest")
 		c.Assert(event.URLs, Equals, urls)
 		c.Assert(event.Errors, IsNil)
 		c.Assert(event.Warnings, IsNil)
 	}
+}
+
+func (s *S) TestCharmPublishError(c *C) {
+	url := charm.MustParseURL("cs:oneiric/wordpress")
+	urls := []*charm.URL{url}
+
+	// Publish one successfully to bump the revision so we can
+	// make sure it is being correctly set below.
+	pub, err := s.store.CharmPublisher(urls, "one-digest")
+	c.Assert(err, IsNil)
+	c.Assert(pub.Revision(), Equals, 0)
+	err = pub.Publish(&FakeCharmDir{})
+	c.Assert(err, IsNil)
+
+	pub, err = s.store.CharmPublisher(urls, "another-digest")
+	c.Assert(err, IsNil)
+	c.Assert(pub.Revision(), Equals, 1)
+	err = pub.Publish(&FakeCharmDir{error: "beforeWrite"})
+	c.Assert(err, ErrorMatches, "beforeWrite")
+
+	want := &store.CharmEvent{
+		Kind: store.EventPublishError,
+		URLs: urls,
+		Digest: "another-digest",
+		Revision: 1,
+		Errors: []string{"beforeWrite"},
+	}
+	event, err := s.store.CharmEvent(url, "another-digest")
+	event.Time = time.Time{}
+	c.Assert(event, Equals, want)
+
+	pub, err = s.store.CharmPublisher(urls, "another-digest")
+	c.Assert(err, IsNil)
+	c.Assert(pub.Revision(), Equals, 1)
+	err = pub.Publish(&FakeCharmDir{error: "afterWrite"})
+	c.Assert(err, ErrorMatches, "afterWrite")
+
+	want = &store.CharmEvent{
+		Kind: store.EventPublishError,
+		URLs: urls,
+		Digest: "another-digest",
+		Revision: 1,
+		Errors: []string{"afterWrite"},
+	}
+	event, err = s.store.CharmEvent(url, "another-digest")
+	event.Time = time.Time{}
+	c.Assert(event, Equals, want)
 }
 
 func (s *S) TestCharmInfoNotFound(c *C) {
@@ -117,19 +203,18 @@ func (s *S) TestRevisioning(c *C) {
 		urls []*charm.URL
 		data string
 	}{
-		{urls[0:], "rev0"},
-		{urls[1:], "rev1"},
-		{urls[0:], "rev2"},
+		{urls[0:], "charm-revision-0"},
+		{urls[1:], "charm-revision-1"},
+		{urls[0:], "charm-revision-2"},
 	}
 
 	for i, t := range tests {
-		wc, revno, err := s.store.AddCharm(s.charm, t.urls, "key-"+t.data)
+		pub, err := s.store.CharmPublisher(t.urls, fmt.Sprintf("digest-%d", i))
 		c.Assert(err, IsNil)
-		c.Assert(revno, Equals, i)
-		_, err = wc.Write([]byte(t.data))
-		cerr := wc.Close()
+		c.Assert(pub.Revision(), Equals, i)
+
+		err = pub.Publish(&FakeCharmDir{})
 		c.Assert(err, IsNil)
-		c.Assert(cerr, IsNil)
 	}
 
 	for i, t := range tests {
@@ -187,7 +272,7 @@ func (s *S) TestLockUpdatesExpires(c *C) {
 	// Hack time to force an expiration.
 	locks := s.Session.DB("juju").C("locks")
 	selector := bson.M{"_id": urlB.String()}
-	update := bson.M{"time": bson.Now().Add(-store.UpdateTimeout-10e9)}
+	update := bson.M{"time": bson.Now().Add(-store.UpdateTimeout - 10e9)}
 	err = locks.Update(selector, update)
 	c.Check(err, IsNil)
 
@@ -214,28 +299,22 @@ func (s *S) TestConflictingUpdate(c *C) {
 	url := charm.MustParseURL("cs:oneiric/wordpress")
 	urls := []*charm.URL{url}
 
-	// Start writing charm.
-	wc1, revno1, err := s.store.AddCharm(s.charm, urls, "key0")
+	pub1, err := s.store.CharmPublisher(urls, "some-digest")
 	c.Assert(err, IsNil)
-	c.Assert(revno1, Equals, 0)
+	c.Assert(pub1.Revision(), Equals, 0)
 
-	// Start writing the same charm again.
-	wc2, revno2, err := s.store.AddCharm(s.charm, urls, "key0")
+	pub2, err := s.store.CharmPublisher(urls, "some-digest")
 	c.Assert(err, IsNil)
-	c.Assert(revno2, Equals, 0)
+	c.Assert(pub2.Revision(), Equals, 0)
 
-	// Finish the first attempt. This should work.
-	_, err = wc1.Write([]byte("rev0"))
-	c.Assert(err, IsNil)
-	err = wc1.Close()
+	// The first publishing attempt should work.
+	err = pub2.Publish(&FakeCharmDir{})
 	c.Assert(err, IsNil)
 
-	// Attempting to complete the second attempt should break,
+	// Attempting to finish the second attempt should break,
 	// since it lost the race and the given revision is already
 	// in place.
-	_, err = wc2.Write([]byte("rev0-again"))
-	c.Assert(err, IsNil)
-	err = wc2.Close()
+	err = pub1.Publish(&FakeCharmDir{})
 	c.Assert(err == store.ErrUpdateConflict, Equals, true)
 }
 
@@ -244,37 +323,30 @@ func (s *S) TestRedundantUpdate(c *C) {
 	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
 	urls := []*charm.URL{urlA, urlB}
 
-	wc, revno, err := s.store.AddCharm(s.charm, urls, "key0")
+	pub, err := s.store.CharmPublisher(urls, "digest-0")
 	c.Assert(err, IsNil)
-	c.Assert(revno, Equals, 0)
-	_, err = wc.Write([]byte("rev0"))
-	c.Assert(err, IsNil)
-	err = wc.Close()
+	c.Assert(pub.Revision(), Equals, 0)
+	err = pub.Publish(&FakeCharmDir{})
 	c.Assert(err, IsNil)
 
-	// All charms are already on key1.
-	wc, revno, err = s.store.AddCharm(s.charm, urls, "key0")
+	// All charms are already on digest-0.
+	pub, err = s.store.CharmPublisher(urls, "digest-0")
 	c.Assert(err, ErrorMatches, "charm is up-to-date")
 	c.Assert(err == store.ErrRedundantUpdate, Equals, true)
-	c.Assert(revno, Equals, 0)
-	c.Assert(wc, IsNil)
+	c.Assert(pub, IsNil)
 
 	// Now add a second revision just for wordpress-b.
-	wc, revno, err = s.store.AddCharm(s.charm, urls[1:], "key1")
+	pub, err = s.store.CharmPublisher(urls[1:], "digest-1")
 	c.Assert(err, IsNil)
-	c.Assert(revno, Equals, 1)
-	_, err = wc.Write([]byte("rev1"))
-	c.Assert(err, IsNil)
-	err = wc.Close()
+	c.Assert(pub.Revision(), Equals, 1)
+	err = pub.Publish(&FakeCharmDir{})
 	c.Assert(err, IsNil)
 
-	// Same key bumps revision because one of them was old.
-	wc, revno, err = s.store.AddCharm(s.charm, urls, "key1")
+	// Same digest bumps revision because one of them was old.
+	pub, err = s.store.CharmPublisher(urls, "digest-1")
 	c.Assert(err, IsNil)
-	c.Assert(revno, Equals, 2)
-	_, err = wc.Write([]byte("rev2"))
-	c.Assert(err, IsNil)
-	err = wc.Close()
+	c.Assert(pub.Revision(), Equals, 2)
+	err = pub.Publish(&FakeCharmDir{})
 	c.Assert(err, IsNil)
 }
 
@@ -282,17 +354,16 @@ func (s *S) TestSha256(c *C) {
 	url := charm.MustParseURL("cs:oneiric/wordpress")
 	urls := []*charm.URL{url}
 
-	wc, revno, err := s.store.AddCharm(s.charm, urls, "key")
+	pub, err := s.store.CharmPublisher(urls, "key")
 	c.Assert(err, IsNil)
-	c.Assert(revno, Equals, 0)
-	_, err = wc.Write([]byte("Hello world!"))
-	c.Assert(err, IsNil)
-	err = wc.Close()
+	c.Assert(pub.Revision(), Equals, 0)
+
+	err = pub.Publish(&FakeCharmDir{})
 	c.Assert(err, IsNil)
 
 	info, rc, err := s.store.OpenCharm(url)
 	c.Assert(err, IsNil)
-	c.Check(info.Sha256(), Equals, "c0535e4be2b79ffd93291305436bf889314e4a3faec05ecffcbb7df31ad9e51a")
+	c.Check(info.Sha256(), Equals, "319095521ac8a62fa1e8423351973512ecca8928c9f62025e37de57c9ef07a53")
 	err = rc.Close()
 	c.Check(err, IsNil)
 }
@@ -300,15 +371,15 @@ func (s *S) TestSha256(c *C) {
 func (s *S) TestLogCharmEventWithRevisionedURL(c *C) {
 	url := charm.MustParseURL("cs:oneiric/wordpress-0")
 	event := &store.CharmEvent{
-		Kind:        store.EventPublishFailed,
-		RevisionKey: "key",
-		URLs:        []*charm.URL{url},
+		Kind:   store.EventPublishError,
+		Digest: "some-digest",
+		URLs:   []*charm.URL{url},
 	}
 	err := s.store.LogCharmEvent(event)
 	c.Assert(err, ErrorMatches, "LogCharmEvent: got charm URL with revision: cs:oneiric/wordpress-0")
 
-	// TODO: This may work in the future, but not now.
-	event, err = s.store.CharmEvent(url, "key")
+	// This may work in the future, but not now.
+	event, err = s.store.CharmEvent(url, "some-digest")
 	c.Assert(err, ErrorMatches, "CharmEvent: got charm URL with revision: cs:oneiric/wordpress-0")
 	c.Assert(event, IsNil)
 }
@@ -319,25 +390,25 @@ func (s *S) TestLogCharmEvent(c *C) {
 	urls := []*charm.URL{url1, url2}
 
 	event1 := &store.CharmEvent{
-		Kind:        store.EventPublishDone,
-		Revision:    42,
-		RevisionKey: "revKey1",
-		URLs:        urls,
-		Warnings:    []string{"A warning."},
-		Time:        time.Unix(1, 0),
+		Kind:     store.EventPublished,
+		Revision: 42,
+		Digest:   "revKey1",
+		URLs:     urls,
+		Warnings: []string{"A warning."},
+		Time:     time.Unix(1, 0),
 	}
 	event2 := &store.CharmEvent{
-		Kind:        store.EventPublishDone,
-		Revision:    42,
-		RevisionKey: "revKey2",
-		URLs:        urls,
-		Time:        time.Unix(1, 0),
+		Kind:     store.EventPublished,
+		Revision: 42,
+		Digest:   "revKey2",
+		URLs:     urls,
+		Time:     time.Unix(1, 0),
 	}
 	event3 := &store.CharmEvent{
-		Kind:        store.EventPublishFailed,
-		RevisionKey: "revKey2",
-		Errors:      []string{"An error."},
-		URLs:        urls[:1],
+		Kind:   store.EventPublishError,
+		Digest: "revKey2",
+		Errors: []string{"An error."},
+		URLs:   urls[:1],
 	}
 
 	for _, event := range []*store.CharmEvent{event1, event2, event3} {
@@ -348,15 +419,15 @@ func (s *S) TestLogCharmEvent(c *C) {
 	events := s.Session.DB("juju").C("events")
 	var s1, s2 map[string]interface{}
 
-	err := events.Find(bson.M{"revisionkey": "revKey1"}).One(&s1)
+	err := events.Find(bson.M{"digest": "revKey1"}).One(&s1)
 	c.Assert(err, IsNil)
-	c.Assert(s1["kind"], Equals, int(store.EventPublishDone))
+	c.Assert(s1["kind"], Equals, int(store.EventPublished))
 	c.Assert(s1["urls"], Equals, []interface{}{"cs:oneiric/wordpress", "cs:oneiric/mysql"})
 	c.Assert(s1["warnings"], Equals, []interface{}{"A warning."})
 	c.Assert(s1["errors"], IsNil)
 	c.Assert(s1["time"], Equals, time.Unix(1, 0))
 
-	err = events.Find(bson.M{"revisionkey": "revKey2", "kind": store.EventPublishFailed}).One(&s2)
+	err = events.Find(bson.M{"digest": "revKey2", "kind": store.EventPublishError}).One(&s2)
 	c.Assert(err, IsNil)
 	c.Assert(s2["urls"], Equals, []interface{}{"cs:oneiric/wordpress"})
 	c.Assert(s2["warnings"], IsNil)
