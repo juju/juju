@@ -55,9 +55,9 @@ func (c *UnitCommand) ParsePositional(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-// Run runs a machine agent.
+// Run runs a unit agent.
 func (c *UnitCommand) Run() error {
-	return c.conf.Run(&UnitAgent{Name: c.UnitName})
+	return StartAgent(c.conf, &UnitAgent{Name: c.UnitName})
 }
 
 // UnitAgent is responsible for managing a single service unit.

@@ -11,8 +11,7 @@ type Agent interface {
 	Run(state *state.State, jujuDir string) error
 }
 
-// AgentConf is responsible for parsing command-line arguments common to every
-// agent, and for running an Agent in the environment defined by those args.
+// AgentConf is responsible for parsing command-line arguments common to every agent.
 type AgentConf struct {
 	JujuDir     string
 	Zookeeper   string
@@ -45,15 +44,15 @@ func (c *AgentConf) Validate() error {
 	return nil
 }
 
-// Run runs the Agent in the environment specified in the AgentConf.
-func (c *AgentConf) Run(a Agent) error {
+// StartAgent runs the Agent in the environment specified in the AgentConf.
+func StartAgent(conf *AgentConf, agent Agent) error {
 	// TODO (re)connect once new state.Open is available
 	// (note, Zookeeper will likely need to become some sort of StateInfo)
-	// state, err := state.Open(c.Zookeeper, c.SessionFile)
+	// state, err := state.Open(conf.Zookeeper, conf.SessionFile)
 	// if err != nil {
 	//     return err
 	// }
 	// defer state.Close()
-	// return a.Run(state, conf.JujuDir)
-	return fmt.Errorf("AgentConf.Run not implemented")
+	// return agent.Run(state, conf.JujuDir)
+	return fmt.Errorf("StartAgent not implemented")
 }

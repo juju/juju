@@ -36,7 +36,7 @@ func (c *ProvisioningCommand) ParsePositional(args []string) error {
 
 // Run runs a provisioning agent.
 func (c *ProvisioningCommand) Run() error {
-	return c.conf.Run(&ProvisioningAgent{})
+	return StartAgent(c.conf, &ProvisioningAgent{})
 }
 
 // ProvisioningAgent is responsible for launching new machines.

@@ -48,7 +48,7 @@ func (c *MachineCommand) ParsePositional(args []string) error {
 
 // Run runs a machine agent.
 func (c *MachineCommand) Run() error {
-	return c.conf.Run(&MachineAgent{Id: c.MachineId})
+	return StartAgent(c.conf, &MachineAgent{Id: c.MachineId})
 }
 
 // MachineAgent is responsible for managing a single machine and
