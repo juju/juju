@@ -275,5 +275,18 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot create machine group %q: %v", jujuMachineGroup.Name, err)
 	}
+
+	_, err = e.ec2.AuthorizeSecurityGroup(jujuGroup, []IPPerm{
+		{
+			Protocol: "tcp",
+			FromPort: 22,
+			ToPort: 22,
+			SourceIPs: []string{"0.0.0.0/0"},
+		},
+		// TODO authorize internal traffic
+	})
+	if err != nil {
+		return nil, err
+	}
 	return []ec2.SecurityGroup{jujuGroup, r.SecurityGroup}, nil
 }

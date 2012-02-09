@@ -62,19 +62,15 @@ func (s *StateSuite) TearDownSuite(c *C) {
 }
 
 func (s *StateSuite) SetUpTest(c *C) {
-	var err error
-	// Connect the server.
-	s.zkConn, s.zkEventChan, err = zookeeper.Dial(s.zkAddr, 5e9)
+	info := &state.Info{
+		Addrs: []string{s.zkAddr},
+	}
+	st, err := state.Open(info)
 	c.Assert(err, IsNil)
-	// Wait for connect signal.
-	event := <-s.zkEventChan
-	c.Assert(event.Type, Equals, zookeeper.EVENT_SESSION)
-	c.Assert(event.State, Equals, zookeeper.STATE_CONNECTED)
-	// Init the environment and open a state.
-	err = state.Initialize(s.zkConn)
+	err = st.Initialize()
 	c.Assert(err, IsNil)
-	s.st, err = state.Open(s.zkConn)
-	c.Assert(err, IsNil)
+	s.st = st
+	s.
 }
 
 func (s *StateSuite) TearDownTest(c *C) {

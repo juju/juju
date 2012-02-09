@@ -20,12 +20,6 @@ type State struct {
 	zk *zookeeper.Conn
 }
 
-// Open returns a new State representing the environment
-// being accessed through the ZooKeeper connection.
-func Open(zk *zookeeper.Conn) (*State, error) {
-	return &State{zk}, nil
-}
-
 // AddService creates a new service with the given unique name
 // and the charm state.
 func (s *State) AddService(name string, charm *Charm) (*Service, error) {
@@ -115,35 +109,36 @@ func (s *State) Unit(name string) (*Unit, error) {
 }
 
 // Initialize performs an initialization of the ZooKeeper nodes.
-func Initialize(zk *zookeeper.Conn) error {
-	stat, err := zk.Exists("/initialized")
-	if stat == nil && err == nil {
-		// Create new nodes.
-		if _, err := zk.Create("/charms", "", 0, zkPermAll); err != nil {
-			return err
-		}
-		if _, err := zk.Create("/services", "", 0, zkPermAll); err != nil {
-			return err
-		}
-		if _, err := zk.Create("/machines", "", 0, zkPermAll); err != nil {
-			return err
-		}
-		if _, err := zk.Create("/units", "", 0, zkPermAll); err != nil {
-			return err
-		}
-		if _, err := zk.Create("/relations", "", 0, zkPermAll); err != nil {
-			return err
-		}
-		// TODO Create node for bootstrap machine.
-
-		// TODO Setup default global settings information.
-
-		// Finally creation of /initialized as marker.
-		if _, err := zk.Create("/initialized", "", 0, zkPermAll); err != nil {
-			return err
-		}
-	}
+func (s *State) Initialize() error {
+	stat, err := s.zk.Exists("/initialized")
 	if err != nil {
+		return err
+	}
+	if stat != nil {
+		return nil
+	}
+	// Create new nodes.
+	if _, err := s.zk.Create("/charms", "", 0, zkPermAll); err != nil {
+		return err
+	}
+	if _, err := s.zk.Create("/services", "", 0, zkPermAll); err != nil {
+		return err
+	}
+	if _, err := s.zk.Create("/machines", "", 0, zkPermAll); err != nil {
+		return err
+	}
+	if _, err := s.zk.Create("/units", "", 0, zkPermAll); err != nil {
+		return err
+	}
+	if _, err := s.zk.Create("/relations", "", 0, zkPermAll); err != nil {
+		return err
+	}
+	// TODO Create node for bootstrap machine.
+
+	// TODO Setup default global settings information.
+
+	// Finally creation of /initialized as marker.
+	if _, err := s.zk.Create("/initialized", "", 0, zkPermAll); err != nil {
 		return err
 	}
 	return nil

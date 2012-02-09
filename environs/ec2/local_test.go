@@ -102,13 +102,11 @@ func registerLocalTests() {
 	}
 }
 
-func (t *localTests) TestBootstrapInstanceAndState(c *C) {
+func (t *localTests) TestBootstrapInstanceUserDataAndState(c *C) {
 	env, err := t.Environs.Open(t.Name)
 	c.Assert(err, IsNil)
 
 	info, err := env.Bootstrap()
-	// TODO check that bootstrap state corresponds to the actual
-	// machine we've started
 	c.Assert(info, NotNil)
 	c.Assert(err, IsNil)
 
@@ -116,23 +114,47 @@ func (t *localTests) TestBootstrapInstanceAndState(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(insts), Equals, 1)
 
+	// check that the user data is configured to start zookeeper
+	// and the machine and provisioning agents.
 	inst := t.srv.ec2srv.Instance(insts[0].Id())
 	c.Assert(inst, NotNil)
+	bootstrapDNS := insts[0].DNSName()
 
-	x := make(map[interface{}]interface{})
+	c.Logf("first instance: UserData: %q", inst.UserData)
+	var x map[interface{}]interface{}
 	err = goyaml.Unmarshal(inst.UserData, &x)
 	c.Assert(err, IsNil)
+	ec2.CheckPackage(c, x, "zookeeper", true)
+	ec2.CheckPackage(c, x, "zookeeperd", true)
+	ec2.CheckScripts(c, x, "juju-admin initialize", true)
+	ec2.CheckScripts(c, x, "python -m juju.agents.provision", true)
+	ec2.CheckScripts(c, x, "python -m juju.agents.machine", true)
+	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='localhost%s'", ec2.ZkPortSuffix), true)
+	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID='0'"), true)
+	x = nil
 
-	ec2.CheckPackage(c, x, "zookeeper")
-	ec2.CheckPackage(c, x, "zookeeperd")
-	ec2.CheckScripts(c, x, "juju-admin initialize")
-	ec2.CheckScripts(c, x, "python -m juju.agents.provision")
-	ec2.CheckScripts(c, x, "python -m juju.agents.machine")
-
+	// check that the state holds the id of the bootstrap machine.
 	state, err := ec2.LoadState(env)
 	c.Assert(err, IsNil)
 	c.Assert(len(state.ZookeeperInstances), Equals, 1)
 	c.Assert(state.ZookeeperInstances[0], Equals, insts[0].Id())
+
+	// check that a new instance will be started without
+	// zookeeper, with a machine agent, and without a
+	// provisioning agent.
+	inst1, err := env.StartInstance(1, info)
+	c.Assert(err, IsNil)
+	inst = t.srv.ec2srv.Instance(inst1.Id())
+	c.Assert(inst, NotNil)
+	c.Logf("second instance: UserData: %q", inst.UserData)
+	err = goyaml.Unmarshal(inst.UserData, &x)
+	c.Assert(err, IsNil)
+	ec2.CheckPackage(c, x, "zookeeperd", false)
+	ec2.CheckPackage(c, x, "python-zookeeper", true)
+	ec2.CheckScripts(c, x, "python -m juju.agents.machine", true)
+	ec2.CheckScripts(c, x, "python -m juju.agents.provision", false)
+	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='%s%s'", bootstrapDNS, ec2.ZkPortSuffix), true)
+	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID='1'"), true)
 
 	err = env.Destroy()
 	c.Assert(err, IsNil)
@@ -142,6 +164,7 @@ func (t *localTests) TestBootstrapInstanceAndState(c *C) {
 }
 
 func (t *localTests) TestInstanceGroups(c *C) {
+	// TODO there should probably be an option to run this against the amazon server.
 	env, err := t.Environs.Open(t.Name)
 	c.Assert(err, IsNil)
 
@@ -152,6 +175,7 @@ func (t *localTests) TestInstanceGroups(c *C) {
 		fmt.Sprintf("juju-%s-%d", t.Name, 98),
 		fmt.Sprintf("juju-%s-%d", t.Name, 99),
 	)
+	info := make([]ec2.SecurityGroupInfo, len(groups))
 
 	inst0, err := env.StartInstance(98, jujutest.InvalidStateInfo)
 	c.Assert(err, IsNil)
@@ -185,6 +209,7 @@ func (t *localTests) TestInstanceGroups(c *C) {
 		for _, g := range groupsResp.Groups {
 			if g.Name == group.Name {
 				groups[i].Id = g.Id
+				info[i] = g
 				found = true
 				break
 			}
@@ -193,6 +218,17 @@ func (t *localTests) TestInstanceGroups(c *C) {
 			c.Fatalf("group %q not found", group.Name)
 		}
 	}
+
+	// check that the juju group authorizes SSH for anyone.
+	c.Assert(len(info[0].IPPerms), Equals, 1)
+	perms := info[0].IPPerms
+	c.Assert(len(perms), Equals, 1)
+	perm := perms[0]
+	c.Check(perm.Protocol, Equals, "tcp")
+	c.Check(perm.FromPort, Equals, 22)
+	c.Check(perm.ToPort, Equals, 22)
+	c.Check(perm.SourceIPs, Equals, []string{"0.0.0.0/0"})
+	c.Check(perm.SourceGroups, Equals, 0)
 
 	// check that each instance is part of the correct groups.
 	resp, err := ec2conn.Instances([]string{inst0.Id(), inst1.Id()}, nil)

@@ -23,7 +23,6 @@ type TopologySuite struct {
 	zkTestPort  int
 	zkAddr      string
 	zkConn      *zookeeper.Conn
-	zkEventChan <-chan zookeeper.Event
 	t           *topology
 }
 

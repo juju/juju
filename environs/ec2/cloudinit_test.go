@@ -48,7 +48,6 @@ func (t *cloudinitTest) check(c *C) {
 	c.Check(t.x["apt_upgrade"], Equals, true)
 	c.Check(t.x["apt_update"], Equals, true)
 	t.checkScripts(c, "mkdir -p /var/lib/juju")
-	t.checkMachineData(c)
 
 	if t.cfg.zookeeper {
 		t.checkPackage(c, "zookeeperd")
@@ -63,23 +62,16 @@ func (t *cloudinitTest) check(c *C) {
 	}
 }
 
-func (t *cloudinitTest) checkMachineData(c *C) {
-	mdata0 := t.x["machine-data"]
-	c.Assert(mdata0, NotNil)
-	mdata := mdata0.(map[interface{}]interface{})
-	m := mdata["machine-id"]
-	c.Assert(m, Equals, t.cfg.machineId)
-}
-
 func (t *cloudinitTest) checkScripts(c *C, pattern string) {
-	CheckScripts(c, t.x, pattern)
+	CheckScripts(c, t.x, pattern, true)
 }
 
-// CheckScripts checks that at least one script started by
-// the cloudinit matches the given regexp pattern.
-// It's exported so it can be used by tests defined outside
+// If match is true, CheckScripts checks that at least one script started
+// by the cloudinit data matches the given regexp pattern, otherwise it
+// checks that no script matches.  It's exported so it can be used by tests
+// defined outside
 // the ec2 package.
-func CheckScripts(c *C, x map[interface{}]interface{}, pattern string) {
+func CheckScripts(c *C, x map[interface{}]interface{}, pattern string, match bool) {
 	scripts0 := x["runcmd"]
 	if scripts0 == nil {
 		c.Errorf("cloudinit has no entry for runcmd")
@@ -94,17 +86,22 @@ func CheckScripts(c *C, x map[interface{}]interface{}, pattern string) {
 			found = true
 		}
 	}
-	if !found {
+	switch {
+	case match && !found:
 		c.Errorf("script %q not found", pattern)
+	case !match && found:
+		c.Errorf("script %q found but not expected", pattern)
 	}
 }
 
 func (t *cloudinitTest) checkPackage(c *C, pkg string) {
-	CheckPackage(c, t.x, pkg)
+	CheckPackage(c, t.x, pkg, true)
 }
 
-// checkPackage checks that the cloudinit will install the given package.
-func CheckPackage(c *C, x map[interface{}]interface{}, pkg string) {
+// CheckPackage checks that the cloudinit will or won't install the given
+// package, depending on the value of match.  It's exported so it can be
+// used by tests defined outside the ec2 package.
+func CheckPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
 	pkgs0 := x["packages"]
 	if pkgs0 == nil {
 		c.Errorf("cloudinit has no entry for packages")
@@ -120,8 +117,11 @@ func CheckPackage(c *C, x map[interface{}]interface{}, pkg string) {
 			found = true
 		}
 	}
-	if !found {
+	switch{
+	case match && !found:
 		c.Errorf("%q not found in packages", pkg)
+	case !match && found:
+		c.Errorf("%q found in packages but not expected", pkg)
 	}
 }
 
