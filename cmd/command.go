@@ -13,8 +13,8 @@ type Info struct {
 	// Name is the Command's name.
 	Name string
 
-	// Usage describes the format of a valid call to the Command.
-	Usage string
+	// Args describes the format of a valid call to the Command.
+	Args string
 
 	// Purpose is a short explanation of the Command's purpose.
 	Purpose string
@@ -27,11 +27,9 @@ type Info struct {
 	Intersperse bool
 }
 
-// NewInfo returns an Info whose Usage is constructed from name and args,
-// to ensure that Usage matches Name.
-func NewInfo(name string, args string, purpose string, doc string) *Info {
-	usage := fmt.Sprintf("%s %s", name, args)
-	return &Info{name, usage, purpose, doc, true}
+// Usage combines Name and Args to describe the Command's intended usage.
+func (i *Info) Usage() string {
+	return fmt.Sprintf("%s %s", i.Name, i.Args)
 }
 
 // Command is implemented by types that interpret any command-line arguments
@@ -64,7 +62,7 @@ func NewFlagSet(c Command) *gnuflag.FlagSet {
 // PrintUsage prints usage information for c to stderr.
 func PrintUsage(c Command) {
 	i := c.Info()
-	fmt.Fprintf(os.Stderr, "usage: %s\n", i.Usage)
+	fmt.Fprintf(os.Stderr, "usage: %s\n", i.Usage())
 	fmt.Fprintf(os.Stderr, "purpose: %s\n", i.Purpose)
 	fmt.Fprintf(os.Stderr, "\noptions:\n")
 	NewFlagSet(c).PrintDefaults()

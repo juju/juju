@@ -14,18 +14,19 @@ type InitzkCommand struct {
 
 // Info returns a decription of the command.
 func (c *InitzkCommand) Info() *cmd.Info {
-	return cmd.NewInfo(
+	return &cmd.Info{
 		"initzk", "[options]",
 		"initialize juju state in a local zookeeper",
 		"",
-	)
+		true,
+	}
 }
 
 // InitFlagSet prepares a FlagSet.
 func (c *InitzkCommand) InitFlagSet(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Zookeeper, "zookeeper-servers", "127.0.0.1:2181", "address of zookeeper to initialize")
 	f.StringVar(&c.InstanceId, "instance-id", "", "instance id of this machine")
-	f.StringVar(&c.ProviderType, "provider-type", "", "envionment machine provider type")
+	f.StringVar(&c.ProviderType, "provider-type", "", "environment machine provider type")
 }
 
 // ParsePositional checks that there are no unwanted arguments, and that all

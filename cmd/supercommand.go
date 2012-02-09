@@ -22,8 +22,8 @@ import (
 // -e foo` (or complicating the code by causing (sub-)Commands to have some
 // concept of "parent" Commands).
 type SuperCommand struct {
-	name    string
-	doc     string
+	Name    string
+	Doc     string
 	LogFile string
 	Verbose bool
 	Debug   bool
@@ -35,8 +35,8 @@ type SuperCommand struct {
 func NewSuperCommand(name string, doc string) *SuperCommand {
 	return &SuperCommand{
 		subcmds: make(map[string]Command),
-		name:    name,
-		doc:     doc,
+		Name:    name,
+		Doc:     doc,
 	}
 }
 
@@ -72,15 +72,14 @@ func (c *SuperCommand) Info() *Info {
 	var info *Info
 	if c.subcmd != nil {
 		info = c.subcmd.Info()
-		info.Usage = fmt.Sprintf("%s %s", c.name, info.Usage)
+		info.Name = fmt.Sprintf("%s %s", c.Name, info.Name)
 		return info
 	}
-	info = NewInfo(
-		c.name, "<command> [options] ...", "",
-		fmt.Sprintf("%s\n\n%s", strings.TrimSpace(c.doc), c.DescribeCommands()),
-	)
-	info.Intersperse = false
-	return info
+	return &Info{
+		c.Name, "<command> [options] ...", "",
+		fmt.Sprintf("%s\n\n%s", strings.TrimSpace(c.Doc), c.DescribeCommands()),
+		false,
+	}
 }
 
 // InitFlagSet prepares a FlagSet for use with the currently selected

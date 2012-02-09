@@ -5,9 +5,6 @@ import (
 	"launchpad.net/juju/go/state"
 )
 
-// Note: this package has no tests yet, because I can't think of anything that
-// isn't already tested by the compiler.
-
 // Agent must be implemented by every juju agent.
 type Agent interface {
 	Run(state *state.State, jujuDir string) error

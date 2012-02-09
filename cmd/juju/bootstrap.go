@@ -14,11 +14,12 @@ type BootstrapCommand struct {
 
 // Info returns a description of BootstrapCommand.
 func (c *BootstrapCommand) Info() *cmd.Info {
-	return cmd.NewInfo(
+	return &cmd.Info{
 		"bootstrap", "[options]",
 		"start up an environment from scratch",
 		"",
-	)
+		true,
+	}
 }
 
 // InitFlagSet prepares a FlagSet for use.

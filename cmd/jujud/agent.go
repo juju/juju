@@ -34,11 +34,12 @@ func NewAgentCommand(agentFlags AgentFlags) *AgentCommand {
 // Info returns a description of the agent.
 func (c *AgentCommand) Info() *cmd.Info {
 	name := c.agentFlags.Name()
-	return cmd.NewInfo(
+	return &cmd.Info{
 		name, "[options]",
 		fmt.Sprintf("run a juju %s agent", name),
 		"",
-	)
+		true,
+	}
 }
 
 // InitFlagSet prepares a FlagSet.
