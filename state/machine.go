@@ -7,22 +7,23 @@ package state
 import (
 	"fmt"
 	"launchpad.net/gozk/zookeeper"
+	"strconv"
 	"strings"
 )
 
 // Machine represents the state of a machine.
 type Machine struct {
-	zk          *zookeeper.Conn
-	key         string
+	zk  *zookeeper.Conn
+	key string
 }
 
-// Key returns the public key of the machine.
-func (m *Machine) Key() string {
-	return publicMachineKey(m.key)
+// Id returns the machine id.
+func (m *Machine) Id() int {
+	return machineId(m.key)
 }
 
-// InternalKey returns the internal key of the machine.
-func (m *Machine) InternalKey() string {
+// zkKey returns the ZooKeeper key of the machine.
+func (m *Machine) zkKey() string {
 	return m.key
 }
 
@@ -36,18 +37,19 @@ func (m *Machine) zkAgentPath() string {
 	return fmt.Sprintf("/machines/%s/agent", m.key)
 }
 
-// publicMachineKey returns the internal machine key 
-// converted to an external one.
-func publicMachineKey(internalKey string) string {
-	if internalKey == "" {
-		return ""
+// machineId returns the machine id corresponding to machineKey.
+func machineId(machineKey string) (id int) {
+	if machineKey == "" {
+		panic("machineId: empty machine key")
 	}
-	parts := strings.Split(internalKey, "-")
-	sequence := parts[len(parts)-1]
-	publicKey := strings.TrimLeft(sequence, "0")
-	if len(publicKey) == 0 {
-		// Key had only zeros, so machine 0.
-		return "0"
+	i := strings.Index(machineKey, "-")
+	var id64 int64
+	var err error
+	if i >= 0 {
+		id64, err = strconv.ParseInt(machineKey[i+1:], 10, 32)
 	}
-	return publicKey
+	if i < 0 || err != nil {
+		panic("machineId: invalid machine key: " + machineKey)
+	}
+	return int(id64)
 }

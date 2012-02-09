@@ -15,6 +15,8 @@ import (
 var (
 	// stateChange is a common error inside the state processing.
 	stateChanged = errors.New("environment state has changed")
+	// unitNotAssigned indicates that a unit is not assigned to a machine.
+	unitNotAssigned = errors.New("unit not assigned to machine")
 	// zkPermAll is a convenience variable for creating new nodes.
 	zkPermAll = zookeeper.WorldACL(zookeeper.PERM_ALL)
 )
@@ -52,9 +54,9 @@ func (ic *ItemChange) String() string {
 // It implements the sort interface to sort the items changes by key.
 type itemChangeSlice []ItemChange
 
-func (ics itemChangeSlice) Len() int { return len(ics) }
+func (ics itemChangeSlice) Len() int           { return len(ics) }
 func (ics itemChangeSlice) Less(i, j int) bool { return ics[i].Key < ics[j].Key }
-func (ics itemChangeSlice) Swap(i, j int) { ics[i], ics[j] = ics[j], ics[i] }
+func (ics itemChangeSlice) Swap(i, j int)      { ics[i], ics[j] = ics[j], ics[i] }
 
 // A ConfigNode represents the data of a ZooKeeper node
 // containing YAML-based settings. It manages changes to

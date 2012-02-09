@@ -114,7 +114,7 @@ func (s TopologySuite) TestRemoveMachine(c *C) {
 func (s TopologySuite) TestRemoveNonExistentMachine(c *C) {
 	// Check that the removing of a non-existent machine fails.
 	err := s.t.RemoveMachine("m-0")
-	c.Assert(err, ErrorMatches, `machine with key "m-0" cannot be found`)
+	c.Assert(err, ErrorMatches, `machine with key "m-0" not found`)
 }
 
 func (s TopologySuite) TestRemoveMachineWithAssignedUnits(c *C) {
@@ -155,7 +155,7 @@ func (s TopologySuite) TestMachineHasUnits(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ok, Equals, false)
 	ok, err = s.t.MachineHasUnits("m-99")
-	c.Assert(err, ErrorMatches, `machine with key "m-99" cannot be found`)
+	c.Assert(err, ErrorMatches, `machine with key "m-99" not found`)
 }
 
 func (s TopologySuite) TestHasMachine(c *C) {
@@ -218,7 +218,7 @@ func (s TopologySuite) TestHasService(c *C) {
 func (s TopologySuite) TestServiceKey(c *C) {
 	// Check that the key retrieval for a service name works correctly.
 	key, err := s.t.ServiceKey("wordpress")
-	c.Assert(err, ErrorMatches, `service with name "wordpress" cannot be found`)
+	c.Assert(err, ErrorMatches, `service with name "wordpress" not found`)
 	err = s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
 	key, err = s.t.ServiceKey("wordpress")
@@ -241,7 +241,7 @@ func (s TopologySuite) TestServiceKeys(c *C) {
 func (s TopologySuite) TestServiceName(c *C) {
 	// Check that the name retrieval for a service name works correctly.
 	name, err := s.t.ServiceName("s-0")
-	c.Assert(err, ErrorMatches, `service with key "s-0" cannot be found`)
+	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
 	err = s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
 	name, err = s.t.ServiceName("s-0")
@@ -264,7 +264,7 @@ func (s TopologySuite) TestRemoveService(c *C) {
 func (s TopologySuite) TestRemoveNonExistentService(c *C) {
 	// Check that the removing of a non-existent service fails.
 	err := s.t.RemoveService("s-99")
-	c.Assert(err, ErrorMatches, `service with key "s-99" cannot be found`)
+	c.Assert(err, ErrorMatches, `service with key "s-99" not found`)
 }
 
 func (s TopologySuite) TestAddUnit(c *C) {
@@ -328,7 +328,7 @@ func (s TopologySuite) TestAddUnitToNonExistingService(c *C) {
 	// Check that the adding of a unit to a non-existing services
 	// fails correctly.
 	_, err := s.t.AddUnit("s-0", "u-0")
-	c.Assert(err, ErrorMatches, `service with key "s-0" cannot be found`)
+	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
 }
 
 func (s TopologySuite) TestAddUnitToDifferentService(c *C) {
@@ -371,7 +371,7 @@ func (s TopologySuite) TestUnitKeysWithNonExistingService(c *C) {
 	// Check if the retrieving of unit keys from a non-existing
 	// service fails correctly.
 	_, err := s.t.UnitKeys("s-0")
-	c.Assert(err, ErrorMatches, `service with key "s-0" cannot be found`)
+	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
 }
 
 func (s TopologySuite) TestHasUnit(c *C) {
@@ -415,15 +415,15 @@ func (s TopologySuite) TestUnitNameWithNonExistingServiceOrUnit(c *C) {
 	// Check if the retrieval of unit names fails if the service
 	// or the unit doesn't exist.
 	_, err := s.t.UnitName("s-0", "u-1")
-	c.Assert(err, ErrorMatches, `service with key "s-0" cannot be found`)
+	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
 	err = s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
 	_, err = s.t.UnitName("s-0", "u-1")
-	c.Assert(err, ErrorMatches, `unit with key "u-1" cannot be found`)
+	c.Assert(err, ErrorMatches, `unit with key "u-1" not found`)
 	_, err = s.t.AddUnit("s-0", "u-0")
 	c.Assert(err, IsNil)
 	_, err = s.t.UnitName("s-0", "u-1")
-	c.Assert(err, ErrorMatches, `unit with key "u-1" cannot be found`)
+	c.Assert(err, ErrorMatches, `unit with key "u-1" not found`)
 }
 
 func (s TopologySuite) TestRemoveUnit(c *C) {
@@ -445,11 +445,11 @@ func (s TopologySuite) TestRemoveUnit(c *C) {
 func (s TopologySuite) TestRemoveNonExistingUnit(c *C) {
 	// Check that the removing of non-existing units fails.
 	err := s.t.RemoveUnit("s-0", "u-0")
-	c.Assert(err, ErrorMatches, `service with key "s-0" cannot be found`)
+	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
 	err = s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
 	err = s.t.RemoveUnit("s-0", "u-0")
-	c.Assert(err, ErrorMatches, `unit with key "u-0" cannot be found`)
+	c.Assert(err, ErrorMatches, `unit with key "u-0" not found`)
 }
 
 func (s TopologySuite) TestUnitKeyFromSequence(c *C) {
@@ -468,12 +468,12 @@ func (s TopologySuite) TestUnitKeyFromSequence(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(key, Equals, "u-1")
 	key, err = s.t.UnitKeyFromSequence("s-0", 2)
-	c.Assert(err, ErrorMatches, `unit with sequence number 2 cannot be found`)
+	c.Assert(err, ErrorMatches, `unit with sequence number 2 not found`)
 }
 
 func (s TopologySuite) TestUnitKeyFromNonExistingService(c *C) {
 	_, err := s.t.UnitKeyFromSequence("s-0", 0)
-	c.Assert(err, ErrorMatches, `service with key "s-0" cannot be found`)
+	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
 }
 
 type ConfigNodeSuite struct {

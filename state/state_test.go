@@ -122,12 +122,12 @@ func (s StateSuite) TestRemoveService(c *C) {
 	err = s.st.RemoveService(service)
 	c.Assert(err, IsNil)
 	service, err = s.st.Service("wordpress")
-	c.Assert(err, ErrorMatches, `service with name "wordpress" cannot be found`)
+	c.Assert(err, ErrorMatches, `service with name "wordpress" not found`)
 }
 
 func (s StateSuite) TestReadNonExistentService(c *C) {
 	_, err := s.st.Service("pressword")
-	c.Assert(err, ErrorMatches, `service with name "pressword" cannot be found`)
+	c.Assert(err, ErrorMatches, `service with name "pressword" not found`)
 }
 
 func (s StateSuite) TestAllServices(c *C) {
@@ -160,7 +160,6 @@ func (s StateSuite) TestServiceCharm(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check that getting and setting the service charm URL works correctly.
-	// URL validation is done by charm.ParseURL().
 	url, err := wordpress.CharmURL()
 	c.Assert(err, IsNil)
 	c.Assert(url.String(), Equals, "local:myseries/mytest-1")
@@ -242,7 +241,7 @@ func (s StateSuite) TestReadUnit(c *C) {
 	c.Assert(unit.Name(), Equals, "wordpress/0")
 
 	// Check that retrieving a non-existent or an invalidly
-	// named unit fails nicely.
+	// named unit fail nicely.
 	unit, err = wordpress.Unit("wordpress")
 	c.Assert(err, ErrorMatches, `"wordpress" is not a valid unit name`)
 	unit, err = wordpress.Unit("wordpress/0/0")
@@ -274,7 +273,7 @@ func (s StateSuite) TestReadUnitWithChangingState(c *C) {
 	err = s.st.RemoveService(wordpress)
 	c.Assert(err, IsNil)
 	_, err = s.st.Unit("wordpress/0")
-	c.Assert(err, ErrorMatches, `service with name "wordpress" cannot be found`)
+	c.Assert(err, ErrorMatches, `service with name "wordpress" not found`)
 }
 
 func (s StateSuite) TestRemoveUnit(c *C) {
@@ -307,8 +306,7 @@ func (s StateSuite) TestGetSetPublicAddress(c *C) {
 
 	// Check that retrieving and setting of a public address works.
 	address, err := unit.PublicAddress()
-	c.Assert(err, IsNil)
-	c.Assert(address, Equals, "")
+	c.Assert(err, ErrorMatches, "unit has no public address")
 	err = unit.SetPublicAddress("example.foobar.com")
 	c.Assert(err, IsNil)
 	address, err = unit.PublicAddress()
@@ -324,8 +322,7 @@ func (s StateSuite) TestGetSetPrivateAddress(c *C) {
 
 	// Check that retrieving and setting of a private address works.
 	address, err := unit.PrivateAddress()
-	c.Assert(err, IsNil)
-	c.Assert(address, Equals, "")
+	c.Assert(err, ErrorMatches, "unit has no private address")
 	err = unit.SetPrivateAddress("example.local")
 	c.Assert(err, IsNil)
 	address, err = unit.PrivateAddress()
@@ -333,14 +330,13 @@ func (s StateSuite) TestGetSetPrivateAddress(c *C) {
 	c.Assert(address, Equals, "example.local")
 }
 
- func (s StateSuite) TestUnitCharm(c *C) {
+func (s StateSuite) TestUnitCharm(c *C) {
 	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
 	c.Assert(err, IsNil)
 	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 
 	// Check that getting and setting the unit charm URL works correctly.
-	// URL validation is done by charm.ParseURL().
 	url, err := unit.CharmURL()
 	c.Assert(err, IsNil)
 	c.Assert(url.String(), Equals, "local:myseries/mytest-1")
@@ -355,13 +351,13 @@ func (s StateSuite) TestGetSetPrivateAddress(c *C) {
 
 func (s StateSuite) TestUnassignUnitFromMachineWithoutBeingAssigned(c *C) {
 	// When unassigning a machine from a unit, it is possible that
-        // the machine has not been previously assigned, or that it
-        // was assigned but the state changed beneath us.  In either
-        // case, the end state is the intended state, so we simply
-        // move forward without any errors here, to avoid having to
-        // handle the extra complexity of dealing with the concurrency
-        // problems.
-        wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	// the machine has not been previously assigned, or that it
+	// was assigned but the state changed beneath us.  In either
+	// case, the end state is the intended state, so we simply
+	// move forward without any errors here, to avoid having to
+	// handle the extra complexity of dealing with the concurrency
+	// problems.
+	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
 	c.Assert(err, IsNil)
 	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -372,12 +368,11 @@ func (s StateSuite) TestUnassignUnitFromMachineWithoutBeingAssigned(c *C) {
 	// Check that the unit has no machine assigned.
 	wordpress, err = s.st.Service("wordpress")
 	c.Assert(err, IsNil)
-	units, err := wordpress.AllUnits()	
+	units, err := wordpress.AllUnits()
 	c.Assert(err, IsNil)
 	unit = units[0]
-	machineKey, err := unit.AssignedMachineKey()
-	c.Assert(err, IsNil)
-	c.Assert(machineKey, Equals, "")
+	_, err = unit.AssignedMachineId()
+	c.Assert(err, ErrorMatches, `unit not assigned to machine`)
 }
 
 func (s StateSuite) TestAssignUnitToMachineAgainFails(c *C) {
@@ -399,14 +394,14 @@ func (s StateSuite) TestAssignUnitToMachineAgainFails(c *C) {
 	// Assigning the unit to the same machine should return no error.
 	err = unit.AssignToMachine(machineOne)
 	c.Assert(err, IsNil)
-		
+
 	// Assigning the unit to a different machine should fail.
 	err = unit.AssignToMachine(machineTwo)
-	c.Assert(err, ErrorMatches, `unit "wordpress/0" already assigned to a machine`)
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" already assigned to machine 0`)
 
-	machineKey, err := unit.AssignedMachineKey()
+	machineId, err := unit.AssignedMachineId()
 	c.Assert(err, IsNil)
-	c.Assert(machineKey, Equals, "0")	
+	c.Assert(machineId, Equals, 0)
 }
 
 func (s StateSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
@@ -419,7 +414,7 @@ func (s StateSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 	// Remove the unit for the tests.
 	wordpress, err = s.st.Service("wordpress")
 	c.Assert(err, IsNil)
-	units, err := wordpress.AllUnits()	
+	units, err := wordpress.AllUnits()
 	c.Assert(err, IsNil)
 	unit = units[0]
 	err = wordpress.RemoveUnit(unit)
@@ -427,7 +422,7 @@ func (s StateSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 
 	err = unit.UnassignFromMachine()
 	c.Assert(err, ErrorMatches, "environment state has changed")
-	_, err = unit.AssignedMachineKey()
+	_, err = unit.AssignedMachineId()
 	c.Assert(err, ErrorMatches, "environment state has changed")
 
 	err = s.st.RemoveService(wordpress)
@@ -435,7 +430,7 @@ func (s StateSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 
 	err = unit.UnassignFromMachine()
 	c.Assert(err, ErrorMatches, "environment state has changed")
-	_, err = unit.AssignedMachineKey()
+	_, err = unit.AssignedMachineId()
 	c.Assert(err, ErrorMatches, "environment state has changed")
 }
 
@@ -462,7 +457,7 @@ func (s StateSuite) TestAssignUnitToUnusedMachine(c *C) {
 	wordpressMachine, err := wordpressUnit.AssignToUnusedMachine()
 	c.Assert(err, IsNil)
 
-	c.Assert(wordpressMachine.InternalKey(), Equals, mysqlMachine.InternalKey())
+	c.Assert(wordpressMachine.Id(), Equals, mysqlMachine.Id())
 }
 
 func (s StateSuite) TestAssignUnitToUnusedMachineWithChangingService(c *C) {
@@ -530,16 +525,16 @@ func (s StateSuite) TestAssignUnitToUnusedMachineOnlyZero(c *C) {
 	c.Assert(err, IsNil)
 	wordpressUnit, err := wordpressService.AddUnit()
 	c.Assert(err, IsNil)
-	
+
 	_, err = wordpressUnit.AssignToUnusedMachine()
 	c.Assert(err, ErrorMatches, "no unused machine found")
 }
 
 func (s StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
-	// Create root machine that shouldn't be useds.
+	// Create machine 0, that shouldn't be used.
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
-	// Check that assigning without unuused machine fails.	
+	// Check that assigning without unused machine fails.	
 	mysqlService, err := s.st.AddService("mysql", state.CharmMock("local:myseries/mytest-1"))
 	c.Assert(err, IsNil)
 	mysqlUnit, err := mysqlService.AddUnit()

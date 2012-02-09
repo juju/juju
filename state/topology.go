@@ -28,7 +28,6 @@ type zkTopology struct {
 // zkMachine represents the machine data within the /topology
 // node in ZooKeeper.
 type zkMachine struct {
-	
 }
 
 // zkService represents the service data within the /topology
@@ -83,19 +82,15 @@ func (t *topology) Version() int {
 func (t *topology) AddMachine(key string) error {
 	if t.topology.Machines == nil {
 		t.topology.Machines = make(map[string]*zkMachine)
-	}
-	if t.HasMachine(key) {
+	} else if t.HasMachine(key) {
 		return fmt.Errorf("attempted to add duplicated machine %q", key)
 	}
 	t.topology.Machines[key] = &zkMachine{}
 	return nil
 }
 
+// RemoveMachine removes a machine from the topology.
 func (t *topology) RemoveMachine(key string) error {
-	err := t.assertMachine(key)
-	if err != nil {
-		return err
-	}
 	ok, err := t.MachineHasUnits(key)
 	if err != nil {
 		return err
@@ -103,7 +98,7 @@ func (t *topology) RemoveMachine(key string) error {
 	if ok {
 		return fmt.Errorf("can't remove machine %q while units ared assigned", key)
 	}
-	// Machine exists and as no units, so remove it.
+	// Machine exists and has no units, so remove it.
 	delete(t.topology.Machines, key)
 	return nil
 }
@@ -118,12 +113,12 @@ func (t *topology) MachineKeys() []string {
 	return keys
 }
 
-// HasMachine returns true if a machine with the given key exists.
+// HasMachine returns whether a machine with key exists.
 func (t *topology) HasMachine(key string) bool {
 	return t.topology.Machines[key] != nil
 }
 
-// MachineHasUnits returns true if one of the units is assigned tp the machine.
+// MachineHasUnits returns whether the machine with key has any units assigned to it.
 func (t *topology) MachineHasUnits(key string) (bool, error) {
 	err := t.assertMachine(key)
 	if err != nil {
@@ -184,7 +179,7 @@ func (t *topology) ServiceKey(name string) (string, error) {
 			return key, nil
 		}
 	}
-	return "", fmt.Errorf("service with name %q cannot be found", name)
+	return "", fmt.Errorf("service with name %q not found", name)
 }
 
 // ServiceKeys returns all service keys.
@@ -202,7 +197,7 @@ func (t *topology) ServiceName(key string) (string, error) {
 	if svc, ok := t.topology.Services[key]; ok {
 		return svc.Name, nil
 	}
-	return "", fmt.Errorf("service with key %q cannot be found", key)
+	return "", fmt.Errorf("service with key %q not found", key)
 }
 
 // HasUnit returns true if a unit with given service and unit keys exists.
@@ -279,7 +274,7 @@ func (t *topology) UnitKeyFromSequence(serviceKey string, sequenceNo int) (strin
 			return key, nil
 		}
 	}
-	return "", fmt.Errorf("unit with sequence number %d cannot be found", sequenceNo)
+	return "", fmt.Errorf("unit with sequence number %d not found", sequenceNo)
 }
 
 // UnitMachineKey returns the key of an assigned machine of the unit. An empty
@@ -289,11 +284,14 @@ func (t *topology) UnitMachineKey(serviceKey, unitKey string) (string, error) {
 		return "", err
 	}
 	unit := t.topology.Services[serviceKey].Units[unitKey]
+	if unit.Machine == "" {
+		return "", unitNotAssigned
+	}
 	return unit.Machine, nil
 }
 
-// AssigneUnitToMachine assigns a unit to a machine. The unit must exist and
-// yet be unassigned.
+// AssignUnitToMachine assigns a unit to a machine. It is an error to reassign a 
+// unit that is already assigned
 func (t *topology) AssignUnitToMachine(serviceKey, unitKey, machineKey string) error {
 	err := t.assertUnit(serviceKey, unitKey)
 	if err != nil {
@@ -305,7 +303,8 @@ func (t *topology) AssignUnitToMachine(serviceKey, unitKey, machineKey string) e
 	}
 	unit := t.topology.Services[serviceKey].Units[unitKey]
 	if unit.Machine != "" {
-		return fmt.Errorf("service unit %q in service %q already assigned to a machine", unitKey, serviceKey)
+		return fmt.Errorf("unit %q in service %q already assigned to machine %q",
+			unitKey, serviceKey, unit.Machine)
 	}
 	unit.Machine = machineKey
 	return nil
@@ -318,7 +317,7 @@ func (t *topology) UnassignUnitFromMachine(serviceKey, unitKey string) error {
 	}
 	unit := t.topology.Services[serviceKey].Units[unitKey]
 	if unit.Machine == "" {
-		return fmt.Errorf("unit %q in service %q is not assigned to a machine", unitKey, serviceKey)
+		return fmt.Errorf("unit %q in service %q not assigned to a machine", unitKey, serviceKey)
 	}
 	unit.Machine = ""
 	return nil
@@ -327,7 +326,7 @@ func (t *topology) UnassignUnitFromMachine(serviceKey, unitKey string) error {
 // assertMachine checks if a machine exists.
 func (t *topology) assertMachine(machineKey string) error {
 	if _, ok := t.topology.Machines[machineKey]; !ok {
-		return fmt.Errorf("machine with key %q cannot be found", machineKey)
+		return fmt.Errorf("machine with key %q not found", machineKey)
 	}
 	return nil
 }
@@ -335,7 +334,7 @@ func (t *topology) assertMachine(machineKey string) error {
 // assertService checks if a service exists.
 func (t *topology) assertService(serviceKey string) error {
 	if _, ok := t.topology.Services[serviceKey]; !ok {
-		return fmt.Errorf("service with key %q cannot be found", serviceKey)
+		return fmt.Errorf("service with key %q not found", serviceKey)
 	}
 	return nil
 }
@@ -347,7 +346,7 @@ func (t *topology) assertUnit(serviceKey, unitKey string) error {
 	}
 	svc := t.topology.Services[serviceKey]
 	if _, ok := svc.Units[unitKey]; !ok {
-		return fmt.Errorf("unit with key %q cannot be found", unitKey)
+		return fmt.Errorf("unit with key %q not found", unitKey)
 	}
 	return nil
 }

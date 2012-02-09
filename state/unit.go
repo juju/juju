@@ -32,8 +32,7 @@ func (u *Unit) Name() string {
 	return fmt.Sprintf("%s/%d", u.serviceName, u.sequenceNo)
 }
 
-// PublicAddress returns the public address of the unit. If the unit 
-// is unassigned, or its unit agent hasn't started this value it may be empty.
+// PublicAddress returns the public address of the unit.
 func (u *Unit) PublicAddress() (string, error) {
 	cn, err := readConfigNode(u.zk, u.zkPath())
 	if err != nil {
@@ -42,7 +41,7 @@ func (u *Unit) PublicAddress() (string, error) {
 	if address, ok := cn.Get("public-address"); ok {
 		return address.(string), nil
 	}
-	return "", nil
+	return "", errors.New("unit has no public address")
 }
 
 // SetPublicAddress sets the public address of the unit.
@@ -51,7 +50,7 @@ func (u *Unit) SetPublicAddress(address string) error {
 	if err != nil {
 		return err
 	}
-	cn.Set("public-address", address)	
+	cn.Set("public-address", address)
 	_, err = cn.Write()
 	if err != nil {
 		return err
@@ -59,8 +58,7 @@ func (u *Unit) SetPublicAddress(address string) error {
 	return nil
 }
 
-// PrivateAddress returns the private address of the unit. If the unit 
-// is unassigned, or its unit agent hasn't started this value it may be empty.
+// PrivateAddress returns the private address of the unit.
 func (u *Unit) PrivateAddress() (string, error) {
 	cn, err := readConfigNode(u.zk, u.zkPath())
 	if err != nil {
@@ -69,7 +67,7 @@ func (u *Unit) PrivateAddress() (string, error) {
 	if address, ok := cn.Get("private-address"); ok {
 		return address.(string), nil
 	}
-	return "", nil
+	return "", errors.New("unit has no private address")
 }
 
 // SetPrivateAddress sets the private address of the unit.
@@ -78,7 +76,7 @@ func (u *Unit) SetPrivateAddress(address string) error {
 	if err != nil {
 		return err
 	}
-	cn.Set("private-address", address)	
+	cn.Set("private-address", address)
 	_, err = cn.Write()
 	if err != nil {
 		return err
@@ -117,23 +115,20 @@ func (u *Unit) SetCharmURL(url *charm.URL) error {
 	return nil
 }
 
-// AssignedMachineKey returns the key of the assigned machine.
-func (u *Unit) AssignedMachineKey() (string, error) {
+// AssignedMachineId returns the id of the assigned machine.
+func (u *Unit) AssignedMachineId() (int, error) {
 	topology, err := readTopology(u.zk)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
 	if !topology.HasService(u.serviceKey) || !topology.HasUnit(u.serviceKey, u.key) {
-		return "", stateChanged
+		return 0, stateChanged
 	}
 	machineKey, err := topology.UnitMachineKey(u.serviceKey, u.key)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
-	if machineKey != "" {
-		machineKey = publicMachineKey(machineKey)
-	}
-	return machineKey, nil
+	return machineId(machineKey), nil
 }
 
 // AssignToMachine assigns this unit to a given machine.
@@ -143,65 +138,52 @@ func (u *Unit) AssignToMachine(machine *Machine) error {
 			return stateChanged
 		}
 		machineKey, err := t.UnitMachineKey(u.serviceKey, u.key)
-		if err != nil {
+		if err == unitNotAssigned {
+			return t.AssignUnitToMachine(u.serviceKey, u.key, machine.key)
+		} else if err != nil {
 			return err
-		}
-		if machineKey == "" {
-			if err = t.AssignUnitToMachine(u.serviceKey, u.key, machine.key); err != nil {
-				return err
-			}
-			return nil
 		} else if machineKey == machine.key {
 			// Everything is fine, it's already assigned.
 			return nil
 		}
-		return fmt.Errorf("unit %q already assigned to a machine", u.Name())
+		return fmt.Errorf("unit %q already assigned to machine %d", u.Name(), machineId(machineKey))
 	}
 	return retryTopologyChange(u.zk, assignUnit)
 }
 
-// AssignToUnusedMachine assigns this unit to an unused machine (if available). 
-// Machine 0 is special, so it won't be reused. If there are no available
-// machines an error will be returned. This usually should lead to the
-// creation and assigning of a new machine.
+// AssignToUnusedMachine assigns u to a machine without other units.
+// If there are no unused machines besides machine 0, an error is returned.
 func (u *Unit) AssignToUnusedMachine() (*Machine, error) {
-	unusedMachineKeyWrapper := ""
+	machineKey := ""
 	assignUnusedUnit := func(t *topology) error {
 		if !t.HasService(u.serviceKey) || !t.HasUnit(u.serviceKey, u.key) {
 			return stateChanged
 		}
-		// We cannot reuse the "root" machine (used by the
-            	// provisioning agent), but the topology metadata does not
-            	// properly reflect its allocation.  In the future, once it
-            	// is managed like any other service, this special case can
-            	// be removed.
-            	rootMachine := fmt.Sprintf("machine-%010d", 0)
-            	unusedMachineKeys := []string{}
-            	for _, machineKey := range t.MachineKeys() {
-            		if machineKey != rootMachine {
-            			ok, err := t.MachineHasUnits(machineKey)
-            			if err != nil {
-            				return err
-            			}
-            			if !ok {
-            				unusedMachineKeys = append(unusedMachineKeys, machineKey)
-            			}
-            		}
-            	}
-            	if len(unusedMachineKeys) == 0 {
-            		return errors.New("no unused machine found")
-            	}
-            	unusedMachineKey := unusedMachineKeys[0]
-            	if err := t.AssignUnitToMachine(u.serviceKey, u.key, unusedMachineKey); err != nil {
-            		return err
-            	}
-            	unusedMachineKeyWrapper = unusedMachineKey
-            	return nil
+		for _, machineKey = range t.MachineKeys() {
+			if machineId(machineKey) != 0 {
+				hasUnits, err := t.MachineHasUnits(machineKey)
+				if err != nil {
+					return err
+				}
+				if !hasUnits {
+					break
+				}
+			}
+			// Reset machineKey.
+			machineKey = ""
+		}
+		if machineKey == "" {
+			return errors.New("no unused machine found")
+		}
+		if err := t.AssignUnitToMachine(u.serviceKey, u.key, machineKey); err != nil {
+			return err
+		}
+		return nil
 	}
 	if err := retryTopologyChange(u.zk, assignUnusedUnit); err != nil {
 		return nil, err
 	}
-	return &Machine{u.zk, unusedMachineKeyWrapper}, nil
+	return &Machine{u.zk, machineKey}, nil
 }
 
 // UnassignFromMachine removes the assignment between this unit and
