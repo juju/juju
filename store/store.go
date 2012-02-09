@@ -53,9 +53,16 @@ func Open(mongoAddr string) (store *Store, err error) {
 	}
 	store = &Store{&storeSession{session}}
 	charms := store.session.Charms()
-	err = charms.EnsureIndex(mgo.Index{Key: []string{"url", "revision"}, Unique: true})
+	err = charms.EnsureIndex(mgo.Index{Key: []string{"urls", "revision"}, Unique: true})
 	if err != nil {
 		log.Printf("Error ensuring charms index: %v", err)
+		session.Close()
+		return nil, err
+	}
+	events := store.session.Events()
+	err = events.EnsureIndex(mgo.Index{Key: []string{"urls", "digest"}})
+	if err != nil {
+		log.Printf("Error ensuring events index: %v", err)
 		session.Close()
 		return nil, err
 	}
@@ -149,9 +156,9 @@ func (s *Store) CharmPublisher(urls []*charm.URL, digest string) (p *CharmPublis
 	doc := charmDoc{}
 	for i := range urls {
 		urlStr := urls[i].String()
-		err = charms.Find(bson.D{{"url", urlStr}}).Sort(bson.D{{"revision", -1}}).One(&doc)
+		err = charms.Find(bson.D{{"urls", urlStr}}).Sort(bson.D{{"revision", -1}}).One(&doc)
 		if err == mgo.NotFound {
-			log.Printf("Charm %s not yet in the store.", urlStr)
+			log.Printf("Charm %s not yet in the store.", urls[i])
 			newKey = true
 			continue
 		}
@@ -240,23 +247,19 @@ func (w *charmWriter) finish() error {
 	}
 	charms := w.session.Charms()
 	sha256 := hex.EncodeToString(w.sha256.Sum(nil))
-	for _, url := range w.urls {
-		urlStr := url.String()
-		charm := charmDoc{
-			urlStr,
-			w.revision,
-			w.digest,
-			sha256,
-			id.(bson.ObjectId),
-			w.charm.Meta(),
-			w.charm.Config(),
-		}
-		err := charms.Insert(&charm)
-		if err != nil {
-			err = maybeConflict(err)
-			log.Printf("Failed to insert new revision of charm %s: %v", urlStr, err)
-			return err
-		}
+	charm := charmDoc{
+		w.urls,
+		w.revision,
+		w.digest,
+		sha256,
+		id.(bson.ObjectId),
+		w.charm.Meta(),
+		w.charm.Config(),
+	}
+	if err = charms.Insert(&charm); err != nil {
+		err = maybeConflict(err)
+		log.Printf("Failed to insert new revision of charm %v: %v", w.urls, err)
+		return err
 	}
 	return nil
 }
@@ -305,9 +308,9 @@ func (s *Store) CharmInfo(url *charm.URL) (info *CharmInfo, err error) {
 	var cdoc charmDoc
 	var qdoc interface{}
 	if rev == -1 {
-		qdoc = bson.D{{"url", url.String()}}
+		qdoc = bson.D{{"urls", url}}
 	} else {
-		qdoc = bson.D{{"url", url.String()}, {"revision", rev}}
+		qdoc = bson.D{{"urls", url}, {"revision", rev}}
 	}
 	err = charms.Find(qdoc).Sort(bson.D{{"revision", -1}}).One(&cdoc)
 	if err != nil {
@@ -353,9 +356,9 @@ func (r *reader) Close() error {
 	return err
 }
 
-// charmDoc represents the document stored in MongoDB for a single charm revision.
+// charmDoc represents the document stored in MongoDB for a charm.
 type charmDoc struct {
-	URL      string
+	URLs     []*charm.URL
 	Revision int
 	Digest   string
 	Sha256   string
@@ -537,7 +540,7 @@ func (s *Store) CharmEvent(url *charm.URL, digest string) (*CharmEvent, error) {
 
 	events := session.Events()
 	event := &CharmEvent{Digest: digest}
-	query := events.Find(bson.D{{"urls", url.String()}, {"digest", digest}})
+	query := events.Find(bson.D{{"urls", url}, {"digest", digest}})
 	query.Sort(bson.D{{"time", -1}})
 	err := query.One(&event)
 	if err == mgo.NotFound {
