@@ -17,24 +17,14 @@ import (
 type URL struct {
 	Name     string
 	Revision int // -1 if unset, 0 is valid
-	Collection
-}
-
-// A charm Collection represents a namespace of charms. The
-// collection precedes the charm name in a charm URL.
-type Collection struct {
 	Schema string
 	User   string
 	Series string
 }
 
-// WithRevision returns a *URL with the same Name and Collection of url,
-// but with Revision set to the revision parameter. If url already has
-// the requested revision, url itself is returned.
+// WithRevision returns a URL equivalent to url but with Revision set
+// to revision.
 func (url *URL) WithRevision(revision int) *URL {
-	if url.Revision == revision {
-		return url
-	}
 	urlCopy := *url
 	urlCopy.Revision = revision
 	return &urlCopy
