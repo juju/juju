@@ -18,13 +18,12 @@ func TestPackage(t *testing.T) {
 }
 
 type TopologySuite struct {
-	zkServer    *zookeeper.Server
-	zkTestRoot  string
-	zkTestPort  int
-	zkAddr      string
-	zkConn      *zookeeper.Conn
-	zkEventChan <-chan zookeeper.Event
-	t           *topology
+	zkServer   *zookeeper.Server
+	zkTestRoot string
+	zkTestPort int
+	zkAddr     string
+	zkConn     *zookeeper.Conn
+	t          *topology
 }
 
 var _ = Suite(&TopologySuite{})
@@ -52,15 +51,10 @@ func (s *TopologySuite) TearDownSuite(c *C) {
 }
 
 func (s *TopologySuite) SetUpTest(c *C) {
-	var err error
 	// Connect the server.
-	s.zkConn, s.zkEventChan, err = zookeeper.Dial(s.zkAddr, 5e9)
-	c.Assert(err, IsNil)
-	// Wait for connect signal.
-	event := <-s.zkEventChan
-	c.Assert(event.Type, Equals, zookeeper.EVENT_SESSION)
-	c.Assert(event.State, Equals, zookeeper.STATE_CONNECTED)
+	_, s.zkConn = OpenAddr(c, s.zkAddr)
 	// Read the toplogy.
+	var err error
 	s.t, err = readTopology(s.zkConn)
 	c.Assert(err, IsNil)
 }
@@ -343,13 +337,12 @@ func (s TopologySuite) TestUnitKeyFromNonExistingService(c *C) {
 }
 
 type ConfigNodeSuite struct {
-	zkServer    *zookeeper.Server
-	zkTestRoot  string
-	zkTestPort  int
-	zkAddr      string
-	zkConn      *zookeeper.Conn
-	zkEventChan <-chan zookeeper.Event
-	path        string
+	zkServer   *zookeeper.Server
+	zkTestRoot string
+	zkTestPort int
+	zkAddr     string
+	zkConn     *zookeeper.Conn
+	path       string
 }
 
 var _ = Suite(&ConfigNodeSuite{})
@@ -378,14 +371,7 @@ func (s *ConfigNodeSuite) TearDownSuite(c *C) {
 }
 
 func (s *ConfigNodeSuite) SetUpTest(c *C) {
-	var err error
-	// Connect the server.
-	s.zkConn, s.zkEventChan, err = zookeeper.Dial(s.zkAddr, 5e9)
-	c.Assert(err, IsNil)
-	// Wait for connect signal.
-	event := <-s.zkEventChan
-	c.Assert(event.Type, Equals, zookeeper.EVENT_SESSION)
-	c.Assert(event.State, Equals, zookeeper.STATE_CONNECTED)
+	_, s.zkConn = OpenAddr(c, s.zkAddr)
 }
 
 func (s *ConfigNodeSuite) TearDownTest(c *C) {
