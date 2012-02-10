@@ -3,56 +3,51 @@ package main
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju/go/state"
+	"launchpad.net/juju/go/cmd"
 )
 
-// Agent must be implemented by every agent to be used with AgentConf.
-type Agent interface {
-	Run(state *state.State, jujuDir string) error
+// agentConf implements most of the cmd.Command interface, except for Run(),
+// and is intended for embedding in types which implement juju agents, to
+// help the agent types implement cmd.Command with minimal boilerplate.
+type agentConf struct {
+	name        string
+	jujuDir     string // Defaults to "/var/lib/juju".
+	zookeeper   string
+	sessionFile string
 }
 
-// AgentConf is responsible for parsing command-line arguments common to every agent.
-type AgentConf struct {
-	JujuDir     string
-	Zookeeper   string
-	SessionFile string
-}
-
-func NewAgentConf() *AgentConf {
-	return &AgentConf{JujuDir: "/var/lib/juju"}
+// Info returns a decription of the command.
+func (c *agentConf) Info() *cmd.Info {
+	return &cmd.Info{
+		c.name, "[options]",
+		fmt.Sprintf("run a juju %s agent", c.name),
+		"",
+		true,
+	}
 }
 
 // InitFlagSet prepares a FlagSet.
-func (c *AgentConf) InitFlagSet(f *gnuflag.FlagSet) {
-	f.StringVar(&c.JujuDir, "juju-directory", c.JujuDir, "juju working directory")
-	f.StringVar(&c.Zookeeper, "z", c.Zookeeper, "zookeeper servers to connect to")
-	f.StringVar(&c.Zookeeper, "zookeeper-servers", c.Zookeeper, "")
-	f.StringVar(&c.SessionFile, "session-file", c.SessionFile, "session id storage path")
+func (c *agentConf) InitFlagSet(f *gnuflag.FlagSet) {
+	if c.jujuDir == "" {
+		c.jujuDir = "/var/lib/juju"
+	}
+	f.StringVar(&c.jujuDir, "juju-directory", c.jujuDir, "juju working directory")
+	f.StringVar(&c.zookeeper, "z", c.zookeeper, "zookeeper servers to connect to")
+	f.StringVar(&c.zookeeper, "zookeeper-servers", c.zookeeper, "")
+	f.StringVar(&c.sessionFile, "session-file", c.sessionFile, "session id storage path")
 }
 
-// Validate returns an error if any fields are unset.
-func (c *AgentConf) Validate() error {
-	if c.JujuDir == "" {
+// ParsePositional checks that there are no unwanted arguments, and that all
+// required flags have been set.
+func (c *agentConf) ParsePositional(args []string) error {
+	if c.jujuDir == "" {
 		return requiredError("juju-directory")
 	}
-	if c.Zookeeper == "" {
+	if c.zookeeper == "" {
 		return requiredError("zookeeper-servers")
 	}
-	if c.SessionFile == "" {
+	if c.sessionFile == "" {
 		return requiredError("session-file")
 	}
-	return nil
-}
-
-// StartAgent runs the Agent in the environment specified in the AgentConf.
-func StartAgent(conf *AgentConf, agent Agent) error {
-	// TODO (re)connect once new state.Open is available
-	// (note, Zookeeper will likely need to become some sort of StateInfo)
-	// state, err := state.Open(conf.Zookeeper, conf.SessionFile)
-	// if err != nil {
-	//     return err
-	// }
-	// defer state.Close()
-	// return agent.Run(state, conf.JujuDir)
-	return fmt.Errorf("StartAgent not implemented")
+	return cmd.CheckEmpty(args)
 }

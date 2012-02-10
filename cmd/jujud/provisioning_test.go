@@ -10,12 +10,12 @@ type ProvisioningSuite struct{}
 var _ = Suite(&ProvisioningSuite{})
 
 func (s *ProvisioningSuite) TestParseSuccess(c *C) {
-	create := func() main.AgentCommand { return main.NewProvisioningCommand() }
+	create := func() main.AgentCommand { return main.NewProvisioningAgent() }
 	CheckAgentCommand(c, create, []string{})
 }
 
 func (s *ProvisioningSuite) TestParseUnknown(c *C) {
-	pc := main.NewProvisioningCommand()
-	err := ParseAgentCommand(pc, []string{"nincompoops"})
+	a := main.NewProvisioningAgent()
+	err := ParseAgentCommand(a, []string{"nincompoops"})
 	c.Assert(err, ErrorMatches, `unrecognised args: \[nincompoops\]`)
 }

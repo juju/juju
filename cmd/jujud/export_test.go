@@ -6,15 +6,19 @@ import (
 
 type AgentCommand interface {
 	cmd.Command
-	Conf() *AgentConf
+	JujuDir() string
+	Zookeeper() string
+	SessionFile() string
 }
 
-func (c *UnitCommand) Conf() *AgentConf {
-	return c.conf
+func (c *agentConf) JujuDir() string {
+	return c.jujuDir
 }
-func (c *MachineCommand) Conf() *AgentConf {
-	return c.conf
+
+func (c *agentConf) Zookeeper() string {
+	return c.zookeeper
 }
-func (c *ProvisioningCommand) Conf() *AgentConf {
-	return c.conf
+
+func (c *agentConf) SessionFile() string {
+	return c.sessionFile
 }

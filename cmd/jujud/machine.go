@@ -3,61 +3,44 @@ package main
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju/go/cmd"
-	"launchpad.net/juju/go/state"
 	"strconv"
 )
 
-type MachineCommand struct {
-	conf      *AgentConf
+// MachineAgent is a cmd.Command responsible for running a machine agent.
+type MachineAgent struct {
+	*agentConf
 	machineId string
 	MachineId uint
 }
 
-func NewMachineCommand() *MachineCommand {
-	return &MachineCommand{conf: NewAgentConf()}
-}
-
-// Info returns a decription of the command.
-func (c *MachineCommand) Info() *cmd.Info {
-	return &cmd.Info{"machine", "[options]", "run a juju machine agent", "", true}
+func NewMachineAgent() *MachineAgent {
+	return &MachineAgent{agentConf: &agentConf{name: "machine"}}
 }
 
 // InitFlagSet prepares a FlagSet.
-func (c *MachineCommand) InitFlagSet(f *gnuflag.FlagSet) {
-	c.conf.InitFlagSet(f)
-	f.StringVar(&c.machineId, "machine-id", c.machineId, "id of the machine to run")
+func (a *MachineAgent) InitFlagSet(f *gnuflag.FlagSet) {
+	f.StringVar(&a.machineId, "machine-id", a.machineId, "id of the machine to run")
+	a.agentConf.InitFlagSet(f)
 }
 
 // ParsePositional checks that there are no unwanted arguments, and that all
 // required flags have been set.
-func (c *MachineCommand) ParsePositional(args []string) error {
-	if err := c.conf.Validate(); err != nil {
-		return err
-	}
-	if c.machineId == "" {
+func (a *MachineAgent) ParsePositional(args []string) error {
+	if a.machineId == "" {
 		return requiredError("machine-id")
 	}
-	id, err := strconv.ParseUint(c.machineId, 10, 0)
+	id, err := strconv.ParseUint(a.machineId, 10, 0)
 	if err != nil {
 		return fmt.Errorf("--machine-id option expects a non-negative integer")
 	}
-	c.MachineId = uint(id)
-	return cmd.CheckEmpty(args)
+	a.MachineId = uint(id)
+	return a.agentConf.ParsePositional(args)
 }
 
 // Run runs a machine agent.
-func (c *MachineCommand) Run() error {
-	return StartAgent(c.conf, &MachineAgent{Id: c.MachineId})
-}
-
-// MachineAgent is responsible for managing a single machine and
-// deploying service units onto it.
-type MachineAgent struct {
-	Id uint
-}
-
-// Run runs the agent.
-func (a *MachineAgent) Run(state *state.State, jujuDir string) error {
+func (a *MachineAgent) Run() error {
+	// TODO connect to state once Open interface settles down
+	// state, err := state.Open(a.zookeeper, a.sessionFile)
+	// ...
 	return fmt.Errorf("MachineAgent.Run not implemented")
 }
