@@ -26,7 +26,8 @@ func Open(info *Info) (*State, error) {
 	if len(info.Addrs) == 0 {
 		return nil, fmt.Errorf("no zookeeper addresses")
 	}
-	zk, session, err := zookeeper.Dial(strings.Join(info.Addrs, ","), zkTimeout)
+	addrs := strings.Join(info.Addrs, ",")
+	zk, session, err := zookeeper.Dial(addrs, zkTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("zookeeper dial %q failed: %v", addrs, err)
 	}
