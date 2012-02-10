@@ -8,7 +8,7 @@ import (
 )
 
 func (t *Tests) TestStartStop(c *C) {
-	e := t.open(c)
+	e := t.Open(c)
 
 	insts, err := e.Instances()
 	c.Assert(err, IsNil)
@@ -33,7 +33,7 @@ func (t *Tests) TestStartStop(c *C) {
 }
 
 func (t *Tests) TestBootstrap(c *C) {
-	e := t.open(c)
+	e := t.Open(c)
 	info, err := e.Bootstrap()
 	c.Assert(err, IsNil)
 	c.Assert(info, NotNil)
@@ -42,7 +42,7 @@ func (t *Tests) TestBootstrap(c *C) {
 	c.Assert(info, IsNil)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
-	e2 := t.open(c)
+	e2 := t.Open(c)
 	info, err = e.Bootstrap()
 	c.Assert(info, IsNil)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
@@ -60,12 +60,12 @@ func (t *Tests) TestBootstrap(c *C) {
 }
 
 func (t *Tests) TestPersistence(c *C) {
-	e := t.open(c)
+	e := t.Open(c)
 	name := "persistent-file"
 	checkFileDoesNotExist(c, e, name)
 	checkPutFile(c, e, name, contents)
 
-	e2 := t.open(c)
+	e2 := t.Open(c)
 	checkFileHasContents(c, e2, name, contents)
 
 	// remove the file...

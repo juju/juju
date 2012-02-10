@@ -7,27 +7,27 @@ import (
 )
 
 
-// InvalidStateInfo holds information about no
-// state - it will always give an error when connected to.
+// InvalidStateInfo holds information about no state - it will always give
+// an error when connected to.
 var InvalidStateInfo = &state.Info{
 	Addrs: []string{"0.1.2.3:1234"},
 }
-
-// Tests is a gocheck suite containing tests verifying
-// juju functionality against the environment with Name that
-// must exist within Environs.
+	
+// Tests is a gocheck suite containing tests verifying juju functionality
+// against the environment with Name that must exist within Environs.
+// Env holds an instance of that environment that is opened before each
+// test and Destroyed after each test.
 type Tests struct {
 	Environs *environs.Environs
 	Name     string
-
-	environs []environs.Environ
+	Env environs.Environ
 }
 
-func (t *Tests) open(c *C) environs.Environ {
+// Open opens an instance of the testing environment.
+func (t *Tests) Open(c *C) environs.Environ {
 	e, err := t.Environs.Open(t.Name)
 	c.Assert(err, IsNil, Bug("opening environ %q", t.Name))
 	c.Assert(e, NotNil)
-	t.environs = append(t.environs, e)
 	return e
 }
 
@@ -37,34 +37,35 @@ func (t *Tests) SetUpSuite(*C) {
 func (t *Tests) TearDownSuite(*C) {
 }
 
-func (t *Tests) SetUpTest(*C) {
+func (t *Tests) SetUpTest(c *C) {
+	t.Env = t.Open(c)
 }
 
-func (t *Tests) TearDownTest(c *C) {
-	for _, e := range t.environs {
-		err := e.Destroy()
-		if err != nil {
-			c.Errorf("error destroying environment after test: %v", err)
-		}
-	}
-	t.environs = nil
+func (t *Tests) TearDownTest(*C) {
+	t.Env.Destroy()
+	t.Env = nil
 }
 
+// LiveTests is a gocheck suite containing tests designed to run against a
+// live server.  It opens the environment with Name once only for the whole
+// suite, stores it in Env, and Destroys it after the suite has completed.
 type LiveTests struct {
 	Environs *environs.Environs
 	Name     string
-	env      environs.Environ
+	Env      environs.Environ
 }
 
 func (t *LiveTests) SetUpSuite(c *C) {
 	e, err := t.Environs.Open(t.Name)
 	c.Assert(err, IsNil, Bug("opening environ %q", t.Name))
 	c.Assert(e, NotNil)
-	t.env = e
+	t.Env = e
 }
 
 func (t *LiveTests) TearDownSuite(c *C) {
-	t.env = nil
+	err := t.Env.Destroy()
+	c.Check(err, IsNil)
+	t.Env = nil
 }
 
 func (t *LiveTests) SetUpTest(*C) {

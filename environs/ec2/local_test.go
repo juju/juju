@@ -22,32 +22,8 @@ environments:
     admin-secret: verysecret
 `)
 
-// localTests wraps jujutest.Tests by adding
-// set up and tear down functions that start a new
-// ec2test server for each test.
-// The server is accessed by using the "test" region,
-// which is changed to point to the network address
-// of the local server.
-type localTests struct {
-	*jujutest.Tests
-	srv localServer
-}
-
-// localLiveTests performs the live test suite, but locally.
-type localLiveTests struct {
-	*jujutest.LiveTests
-	srv localServer
-}
-
-type localServer struct {
-	ec2srv *ec2test.Server
-	s3srv  *s3test.Server
-	setup  func(*localServer)
-}
-
-// Each test is run in each of the following scenarios.
-// A scenario is implemented by mutating the ec2test
-// server after it starts.
+// Each test is run in each of the following scenarios.  A scenario is
+// implemented by mutating the ec2test server after it starts.
 var scenarios = []struct {
 	name  string
 	setup func(*localServer)
@@ -84,33 +60,110 @@ func registerLocalTests() {
 
 	for _, name := range envs.Names() {
 		for _, scen := range scenarios {
-			Suite(&localTests{
+			Suite(&localServerSuite{
 				srv: localServer{setup: scen.setup},
-				Tests: &jujutest.Tests{
+				Tests: jujutest.Tests{
 					Environs: envs,
 					Name:     name,
 				},
 			})
-			Suite(&localLiveTests{
+			Suite(&localLiveSuite{
 				srv: localServer{setup: scen.setup},
-				LiveTests: &jujutest.LiveTests{
-					Environs: envs,
-					Name:     name,
+				LiveTests: LiveTests{
+					jujutest.LiveTests{
+						Environs: envs,
+						Name:     name,
+					},
 				},
 			})
 		}
 	}
 }
 
-func (t *localTests) TestBootstrapInstanceUserDataAndState(c *C) {
-	env, err := t.Environs.Open(t.Name)
-	c.Assert(err, IsNil)
+// localLiveSuite performs the live test suite, but locally.
+type localLiveSuite struct {
+	LiveTests
+	srv localServer
+	env environs.Environ
+}
 
-	info, err := env.Bootstrap()
+func (t *localLiveSuite) SetUpSuite(c *C) {
+	t.srv.startServer(c)
+	t.LiveTests.SetUpSuite(c)
+	t.env = t.LiveTests.Env
+}
+
+func (t *localLiveSuite) TearDownSuite(c *C) {
+	t.LiveTests.TearDownSuite(c)
+	t.srv.stopServer(c)
+	t.env = nil
+}
+
+func (t *localLiveSuite) TestBootstrap(c *C) {
+	c.Skip("cannot test bootstrap on local server")
+}
+
+// localServer holds a connection to fake ec2 test
+// servers running locally. The setup function
+// sets up the servers for running a given test.
+type localServer struct {
+	ec2srv *ec2test.Server
+	s3srv  *s3test.Server
+	setup  func(*localServer)
+}
+
+func (srv *localServer) startServer(c *C) {
+	var err error
+	srv.ec2srv, err = ec2test.NewServer()
+	if err != nil {
+		c.Fatalf("cannot start ec2 test server: %v", err)
+	}
+	srv.s3srv, err = s3test.NewServer()
+	if err != nil {
+		c.Fatalf("cannot start s3 test server: %v", err)
+	}
+	ec2.Regions["test"] = aws.Region{
+		EC2Endpoint: srv.ec2srv.URL(),
+		S3Endpoint:  srv.s3srv.URL(),
+	}
+	srv.setup(srv)
+}
+
+func (srv *localServer) stopServer(c *C) {
+	srv.ec2srv.Quit()
+	srv.s3srv.Quit()
+	// Clear out the region because the server address is
+	// no longer valid.
+	ec2.Regions["test"] = aws.Region{}
+}
+
+// localServerSuite wraps jujutest.Tests by adding set up and tear down
+// functions that start a new ec2test server for each test.  The server is
+// accessed by using the "test" region, which is changed to point to the
+// network address of the local server.
+type localServerSuite struct {
+	jujutest.Tests
+	srv localServer
+	env environs.Environ
+}
+
+func (t *localServerSuite) SetUpTest(c *C) {
+	t.srv.startServer(c)
+	t.Tests.SetUpTest(c)
+	t.env = t.Tests.Env
+}
+
+func (t *localServerSuite) TearDownTest(c *C) {
+	t.Tests.TearDownTest(c)
+	t.srv.stopServer(c)
+}
+
+func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
+	info, err := t.env.Bootstrap()
 	c.Assert(info, NotNil)
 	c.Assert(err, IsNil)
 
-	insts, err := env.Instances()
+	insts, err := t.env.Instances()
 	c.Assert(err, IsNil)
 	c.Assert(len(insts), Equals, 1)
 
@@ -131,10 +184,9 @@ func (t *localTests) TestBootstrapInstanceUserDataAndState(c *C) {
 	ec2.CheckScripts(c, x, "python -m juju.agents.machine", true)
 	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='localhost%s'", ec2.ZkPortSuffix), true)
 	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID='0'"), true)
-	x = nil
 
 	// check that the state holds the id of the bootstrap machine.
-	state, err := ec2.LoadState(env)
+	state, err := ec2.LoadState(t.env)
 	c.Assert(err, IsNil)
 	c.Assert(len(state.ZookeeperInstances), Equals, 1)
 	c.Assert(state.ZookeeperInstances[0], Equals, insts[0].Id())
@@ -142,11 +194,12 @@ func (t *localTests) TestBootstrapInstanceUserDataAndState(c *C) {
 	// check that a new instance will be started without
 	// zookeeper, with a machine agent, and without a
 	// provisioning agent.
-	inst1, err := env.StartInstance(1, info)
+	inst1, err := t.env.StartInstance(1, info)
 	c.Assert(err, IsNil)
 	inst = t.srv.ec2srv.Instance(inst1.Id())
 	c.Assert(inst, NotNil)
 	c.Logf("second instance: UserData: %q", inst.UserData)
+	x = nil
 	err = goyaml.Unmarshal(inst.UserData, &x)
 	c.Assert(err, IsNil)
 	ec2.CheckPackage(c, x, "zookeeperd", false)
@@ -156,102 +209,11 @@ func (t *localTests) TestBootstrapInstanceUserDataAndState(c *C) {
 	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='%s%s'", bootstrapDNS, ec2.ZkPortSuffix), true)
 	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID='1'"), true)
 
-	err = env.Destroy()
+	err = t.env.Destroy()
 	c.Assert(err, IsNil)
 
-	_, err = ec2.LoadState(env)
+	_, err = ec2.LoadState(t.env)
 	c.Assert(err, NotNil)
-}
-
-func (t *localTests) TestInstanceGroups(c *C) {
-	// TODO there should probably be an option to run this against the amazon server.
-	env, err := t.Environs.Open(t.Name)
-	c.Assert(err, IsNil)
-
-	ec2conn := amzec2.New(aws.Auth{}, ec2.Regions["test"])
-
-	groups := amzec2.SecurityGroupNames(
-		fmt.Sprintf("juju-%s", t.Name),
-		fmt.Sprintf("juju-%s-%d", t.Name, 98),
-		fmt.Sprintf("juju-%s-%d", t.Name, 99),
-	)
-	info := make([]amzec2.SecurityGroupInfo, len(groups))
-
-	inst0, err := env.StartInstance(98, jujutest.InvalidStateInfo)
-	c.Assert(err, IsNil)
-	defer env.StopInstances([]environs.Instance{inst0})
-
-	// create a same-named group for the second instance
-	// before starting it, to check that it's deleted and
-	// recreated correctly.
-	oldGroup := ensureGroupExists(c, ec2conn, groups[2], "old group")
-
-	inst1, err := env.StartInstance(99, jujutest.InvalidStateInfo)
-	c.Assert(err, IsNil)
-	defer env.StopInstances([]environs.Instance{inst1})
-
-	// go behind the scenes to check the machines have
-	// been put into the correct groups.
-
-	// first check that the old group has been deleted
-	groupsResp, err := ec2conn.SecurityGroups([]amzec2.SecurityGroup{oldGroup}, nil)
-	c.Assert(err, IsNil)
-	c.Check(len(groupsResp.Groups), Equals, 0)
-
-	// then check that the groups have been created.
-	groupsResp, err = ec2conn.SecurityGroups(groups, nil)
-	c.Assert(err, IsNil)
-	c.Assert(len(groupsResp.Groups), Equals, len(groups))
-
-	// for each group, check that it exists and record its id.
-	for i, group := range groups {
-		found := false
-		for _, g := range groupsResp.Groups {
-			if g.Name == group.Name {
-				groups[i].Id = g.Id
-				info[i] = g
-				found = true
-				break
-			}
-		}
-		if !found {
-			c.Fatalf("group %q not found", group.Name)
-		}
-	}
-
-	perms := info[0].IPPerms
-	
-	// check that the juju group authorizes SSH for anyone.
-	c.Assert(len(perms), Equals, 2, Bug("got security groups %#v", perms))
-	checkPortAllowed(c, perms, 22)
-	checkPortAllowed(c, perms, 2181)
-
-	// check that each instance is part of the correct groups.
-	resp, err := ec2conn.Instances([]string{inst0.Id(), inst1.Id()}, nil)
-	c.Assert(err, IsNil)
-	c.Assert(len(resp.Reservations), Equals, 2, Bug("reservations %#v", resp.Reservations))
-	for _, r := range resp.Reservations {
-		c.Assert(len(r.Instances), Equals, 1)
-		// each instance must be part of the general juju group.
-		msg := Bug("reservation %#v", r)
-		c.Assert(hasSecurityGroup(r, groups[0]), Equals, true, msg)
-		inst := r.Instances[0]
-		switch inst.InstanceId {
-		case inst0.Id():
-			c.Assert(hasSecurityGroup(r, groups[1]), Equals, true, msg)
-			c.Assert(hasSecurityGroup(r, groups[2]), Equals, false, msg)
-		case inst1.Id():
-			c.Assert(hasSecurityGroup(r, groups[2]), Equals, true, msg)
-
-			// check that the id of the second machine's group
-			// has changed - this implies that StartInstance has
-			// correctly deleted and re-created the group.
-			c.Assert(groups[2].Id, Not(Equals), oldGroup.Id)
-			c.Assert(hasSecurityGroup(r, groups[1]), Equals, false, msg)
-		default:
-			c.Errorf("unknown instance found: %v", inst)
-		}
-	}
 }
 
 func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {
@@ -289,53 +251,4 @@ func hasSecurityGroup(r amzec2.Reservation, g amzec2.SecurityGroup) bool {
 		}
 	}
 	return false
-}
-
-func (t *localTests) SetUpTest(c *C) {
-	t.srv.startServer(c)
-	t.Tests.SetUpTest(c)
-}
-
-func (t *localTests) TearDownTest(c *C) {
-	t.Tests.TearDownTest(c)
-	t.srv.stopServer(c)
-}
-
-func (t *localLiveTests) SetUpSuite(c *C) {
-	t.srv.startServer(c)
-	t.LiveTests.SetUpSuite(c)
-}
-
-func (t *localLiveTests) TearDownSuite(c *C) {
-	t.srv.stopServer(c)
-	t.LiveTests.TearDownSuite(c)
-}
-
-func (t *localLiveTests) TestBootstrap(c *C) {
-	c.Skip("cannot test bootstrap on local server")
-}
-
-func (srv *localServer) startServer(c *C) {
-	var err error
-	srv.ec2srv, err = ec2test.NewServer()
-	if err != nil {
-		c.Fatalf("cannot start ec2 test server: %v", err)
-	}
-	srv.s3srv, err = s3test.NewServer()
-	if err != nil {
-		c.Fatalf("cannot start s3 test server: %v", err)
-	}
-	ec2.Regions["test"] = aws.Region{
-		EC2Endpoint: srv.ec2srv.URL(),
-		S3Endpoint:  srv.s3srv.URL(),
-	}
-	srv.setup(srv)
-}
-
-func (srv *localServer) stopServer(c *C) {
-	srv.ec2srv.Quit()
-	srv.s3srv.Quit()
-	// Clear out the region because the server address is
-	// no longer valid.
-	ec2.Regions["test"] = aws.Region{}
 }
