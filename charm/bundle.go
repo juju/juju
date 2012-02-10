@@ -217,12 +217,8 @@ func (b *Bundle) expand(dir string, zfile *zip.File) error {
 			return err
 		}
 		target := string(data)
-		if filepath.IsAbs(target) {
-			return fmt.Errorf("symlink %q is absolute: %q", cleanName, target)
-		}
-		reltarget, err := filepath.Rel(dir, filepath.Join(filepath.Dir(path), target))
-		if err != nil || hasDotDot(reltarget) {
-			return fmt.Errorf("symlink %q links out of charm: %q", cleanName, target)
+		if err := checkSymlinkTarget(dir, cleanName, target); err != nil {
+			return err
 		}
 		return os.Symlink(target, path)
 	}
@@ -240,8 +236,15 @@ func (b *Bundle) expand(dir string, zfile *zip.File) error {
 	return err
 }
 
-func hasDotDot(path string) bool {
-	return len(path) >= 2 && path[:2] == ".." && len(path) == 2 || path[2] == filepath.Separator
+func checkSymlinkTarget(basedir, symlink, target string) error {
+	if filepath.IsAbs(target) {
+		return fmt.Errorf("symlink %q is absolute: %q", symlink, target)
+	}
+	p := filepath.Join(filepath.Dir(symlink), target)
+	if len(p) >= 2 && p[:2] == ".." && len(p) == 2 || p[2] == filepath.Separator {
+		return fmt.Errorf("symlink %q links out of charm: %q", symlink, target)
+	}
+	return nil
 }
 
 // FWIW, being able to do this is awesome.

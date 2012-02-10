@@ -190,15 +190,8 @@ func (zp *zipPacker) visit(path string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if filepath.IsAbs(target) {
-			return fmt.Errorf("symlink %q is absolute: %q", relpath, target)
-		}
-		reltarget, err := filepath.Rel(zp.root, filepath.Join(filepath.Dir(path), target))
-		if err != nil {
+		if err := checkSymlinkTarget(zp.root, relpath, target); err != nil {
 			return err
-		}
-		if hasDotDot(reltarget) {
-			return fmt.Errorf("symlink %q links out of charm: %q", relpath, target)
 		}
 		data = []byte(target)
 	} else {

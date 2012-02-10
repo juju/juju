@@ -128,7 +128,7 @@ func (s *S) TestBundleToWithBadType(c *C) {
 	copyCharmDir(charmDir, repoDir("dummy"))
 	badFile := filepath.Join(charmDir, "hooks", "badfile")
 
-	// Symlink targetting a path outside of the charm.
+	// Symlink targeting a path outside of the charm.
 	err := os.Symlink("../../target", badFile)
 	c.Assert(err, IsNil)
 
@@ -138,7 +138,7 @@ func (s *S) TestBundleToWithBadType(c *C) {
 	err = dir.BundleTo(&bytes.Buffer{})
 	c.Assert(err, ErrorMatches, `symlink "hooks/badfile" links out of charm: "../../target"`)
 
-	// Symlink targetting an absolute path.
+	// Symlink targeting an absolute path.
 	os.Remove(badFile)
 	err = os.Symlink("/target", badFile)
 	c.Assert(err, IsNil)

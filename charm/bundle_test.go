@@ -112,7 +112,7 @@ func (s *BundleSuite) TestExpandToWithBadLink(c *C) {
 	copyCharmDir(charmDir, repoDir("dummy"))
 	badLink := filepath.Join(charmDir, "hooks", "badlink")
 
-	// Symlink targetting a path outside of the charm.
+	// Symlink targeting a path outside of the charm.
 	err := os.Symlink("../../target", badLink)
 	c.Assert(err, IsNil)
 
@@ -123,7 +123,7 @@ func (s *BundleSuite) TestExpandToWithBadLink(c *C) {
 	err = bundle.ExpandTo(path)
 	c.Assert(err, ErrorMatches, `symlink "hooks/badlink" links out of charm: "../../target"`)
 
-	// Symlink targetting an absolute path.
+	// Symlink targeting an absolute path.
 	os.Remove(badLink)
 	err = os.Symlink("/target", badLink)
 	c.Assert(err, IsNil)
