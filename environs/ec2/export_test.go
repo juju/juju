@@ -18,4 +18,4 @@ func AuthorizedKeys(keys, path string) (string, error) {
 	return authorizedKeys(keys, path)
 }
 
-const ZkPortSuffix = zkPortSuffix
+var ZkPortSuffix = zkPortSuffix

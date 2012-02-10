@@ -7,9 +7,11 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/state"
 	"sync"
+	"time"
 )
 
-const zkPortSuffix = ":2181"
+const zkPort = 2181
+var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
 
 func init() {
 	environs.RegisterProvider("ec2", environProvider{})
@@ -82,6 +84,30 @@ func (e *environ) Bootstrap() (*state.Info, error) {
 		e.StopInstances([]environs.Instance{inst})
 		return nil, err
 	}
+	// try a few times to get the dns name of the new instance.
+	for i := 0; i < 5; i++ {
+		if inst.DNSName() != "" {
+			break
+		}
+		time.Sleep(1e9)
+		insts, err := e.Instances()
+		if err != nil {
+			// TODO perhaps we should return nil, nil here
+			// as we have successfully bootstrapped - we just
+			// can't get the DNS address of the bootstrapped instance.
+			return nil, err
+		}
+		for _, x := range insts {
+			if x.Id() == inst.Id() {
+				inst = x
+				break
+			}
+		}
+	}
+	if inst.DNSName() == "" {
+		return nil, fmt.Errorf("timed out trying to get bootstrap instance DNS address")
+	}
+	
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to use S3 to make sure that only one succeeds.
@@ -260,6 +286,14 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 		}
 		jujuGroup = r.SecurityGroup
 		_, err = e.ec2.AuthorizeSecurityGroup(jujuGroup, []ec2.IPPerm{
+			// TODO delete this authorization when we can do
+			// the zookeeper ssh tunnelling.
+			{
+				Protocol: "tcp",
+				FromPort: zkPort,
+				ToPort: zkPort,
+				SourceIPs: []string{"0.0.0.0/0"},
+			},
 			{
 				Protocol: "tcp",
 				FromPort: 22,

@@ -220,14 +220,11 @@ func (t *localTests) TestInstanceGroups(c *C) {
 	}
 
 	perms := info[0].IPPerms
+	
 	// check that the juju group authorizes SSH for anyone.
-	c.Assert(len(perms), Equals, 1, Bug("got security groups %#v", perms))
-	perm := perms[0]
-	c.Check(perm.Protocol, Equals, "tcp")
-	c.Check(perm.FromPort, Equals, 22)
-	c.Check(perm.ToPort, Equals, 22)
-	c.Check(perm.SourceIPs, Equals, []string{"0.0.0.0/0"})
-	c.Check(len(perm.SourceGroups), Equals, 0)
+	c.Assert(len(perms), Equals, 2, Bug("got security groups %#v", perms))
+	checkPortAllowed(c, perms, 22)
+	checkPortAllowed(c, perms, 2181)
 
 	// check that each instance is part of the correct groups.
 	resp, err := ec2conn.Instances([]string{inst0.Id(), inst1.Id()}, nil)
@@ -255,6 +252,19 @@ func (t *localTests) TestInstanceGroups(c *C) {
 			c.Errorf("unknown instance found: %v", inst)
 		}
 	}
+}
+
+func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {
+	for _, perm := range perms {
+		if perm.FromPort == port {
+			c.Check(perm.Protocol, Equals, "tcp")
+			c.Check(perm.ToPort, Equals, port)
+			c.Check(perm.SourceIPs, Equals, []string{"0.0.0.0/0"})
+			c.Check(len(perm.SourceGroups), Equals, 0)
+			return
+		}
+	}
+	c.Errorf("ip port permission not found for %d in %#v", port, perms)
 }
 
 // createGroup creates a new EC2 group if it doesn't already
@@ -299,6 +309,10 @@ func (t *localLiveTests) SetUpSuite(c *C) {
 func (t *localLiveTests) TearDownSuite(c *C) {
 	t.srv.stopServer(c)
 	t.LiveTests.TearDownSuite(c)
+}
+
+func (t *localLiveTests) TestBootstrap(c *C) {
+	c.Skip("cannot test bootstrap on local server")
 }
 
 func (srv *localServer) startServer(c *C) {

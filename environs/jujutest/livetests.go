@@ -4,6 +4,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
+	"launchpad.net/juju/go/state"
 	"time"
 )
 
@@ -55,12 +56,25 @@ func (t *LiveTests) TestStartStop(c *C) {
 
 func (t *LiveTests) TestBootstrap(c *C) {
 	info, err := t.env.Bootstrap()
+	c.Assert(err, IsNil)
 	c.Assert(info, NotNil)
+
+	info2, err := t.env.Bootstrap()
+	c.Assert(info2, IsNil)
+	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
+
+	st, err := state.Open(info)
+	if err != nil {
+		c.Errorf("state open failed: %v, %T, %d", err, err, err)
+		err = t.env.Destroy()
+		c.Assert(err, IsNil)
+		return
+	}
+	err = st.Initialize()
 	c.Assert(err, IsNil)
 
-	info, err = t.env.Bootstrap()
-	c.Assert(info, IsNil)
-	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
+	// TODO uncomment when State has a close method
+	// st.Close()
 
 	err = t.env.Destroy()
 	c.Assert(err, IsNil)
