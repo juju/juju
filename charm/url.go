@@ -15,11 +15,11 @@ import (
 //     local:oneiric/wordpress
 //
 type URL struct {
-	Name     string
-	Revision int // -1 if unset, 0 is valid
-	Schema string
-	User   string
-	Series string
+	Schema   string // "cs" or "local"
+	User     string // "joe"
+	Series   string // "oneiric"
+	Name     string // "wordpress"
+	Revision int    // -1 if unset, N otherwise
 }
 
 // WithRevision returns a URL equivalent to url but with Revision set
