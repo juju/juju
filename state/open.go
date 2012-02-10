@@ -11,6 +11,9 @@ import (
 // or servers and can be used to make a connection to
 // that state.
 type Info struct {
+	// Addrs gives the addresses of the zookeeper
+	// servers for the state. Each address should be in the form
+	// expected by net.Dial (i.e. address:port).
 	Addrs []string
 }
 
