@@ -9,13 +9,13 @@ var urlTests = []struct {
 	s, err string
 	url    *charm.URL
 }{
-	{"cs:~user/series/name", "", &charm.URL{"name", -1, charm.Collection{"cs", "user", "series"}}},
-	{"cs:~user/series/name-0", "", &charm.URL{"name", 0, charm.Collection{"cs", "user", "series"}}},
-	{"cs:series/name", "", &charm.URL{"name", -1, charm.Collection{"cs", "", "series"}}},
-	{"cs:series/name-42", "", &charm.URL{"name", 42, charm.Collection{"cs", "", "series"}}},
-	{"local:series/name-1", "", &charm.URL{"name", 1, charm.Collection{"local", "", "series"}}},
-	{"local:series/name", "", &charm.URL{"name", -1, charm.Collection{"local", "", "series"}}},
-	{"local:series/n0-0n-n0", "", &charm.URL{"n0-0n-n0", -1, charm.Collection{"local", "", "series"}}},
+	{"cs:~user/series/name", "", &charm.URL{"name", -1, "cs", "user", "series"}},
+	{"cs:~user/series/name-0", "", &charm.URL{"name", 0, "cs", "user", "series"}},
+	{"cs:series/name", "", &charm.URL{"name", -1, "cs", "", "series"}},
+	{"cs:series/name-42", "", &charm.URL{"name", 42, "cs", "", "series"}},
+	{"local:series/name-1", "", &charm.URL{"name", 1, "local", "", "series"}},
+	{"local:series/name", "", &charm.URL{"name", -1, "local", "", "series"}},
+	{"local:series/n0-0n-n0", "", &charm.URL{"n0-0n-n0", -1, "local", "", "series"}},
 
 	{"bs:~user/series/name-1", "charm URL has invalid schema: .*", nil},
 	{"cs:~1/series/name-1", "charm URL has invalid user name: .*", nil},
@@ -46,7 +46,7 @@ func (s *S) TestParseURL(c *C) {
 
 func (s *S) TestMustParseURL(c *C) {
 	url := charm.MustParseURL("cs:series/name")
-	c.Assert(url, Equals, &charm.URL{"name", -1, charm.Collection{"cs", "", "series"}})
+	c.Assert(url, Equals, &charm.URL{"name", -1, "cs", "", "series"})
 	f := func() { charm.MustParseURL("local:name") }
 	c.Assert(f, PanicMatches, "charm URL without series: .*")
 }
@@ -54,8 +54,9 @@ func (s *S) TestMustParseURL(c *C) {
 func (s *S) TestWithRevision(c *C) {
 	url := charm.MustParseURL("cs:series/name")
 	other := url.WithRevision(1)
-	c.Assert(url, Equals, &charm.URL{"name", -1, charm.Collection{"cs", "", "series"}})
-	c.Assert(other, Equals, &charm.URL{"name", 1, charm.Collection{"cs", "", "series"}})
+	c.Assert(url, Equals, &charm.URL{"name", -1, "cs", "", "series"})
+	c.Assert(other, Equals, &charm.URL{"name", 1, "cs", "", "series"})
 
-	c.Assert(other.WithRevision(1) == other, Equals, true)
+	// Should always copy. The opposite behavior is error prone.
+	c.Assert(other.WithRevision(1) == other, Equals, false)
 }
