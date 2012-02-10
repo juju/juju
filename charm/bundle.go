@@ -241,7 +241,7 @@ func checkSymlinkTarget(basedir, symlink, target string) error {
 		return fmt.Errorf("symlink %q is absolute: %q", symlink, target)
 	}
 	p := filepath.Join(filepath.Dir(symlink), target)
-	if len(p) >= 2 && p[:2] == ".." && len(p) == 2 || p[2] == filepath.Separator {
+	if p == ".." || strings.HasPrefix(p, "../") {
 		return fmt.Errorf("symlink %q links out of charm: %q", symlink, target)
 	}
 	return nil
