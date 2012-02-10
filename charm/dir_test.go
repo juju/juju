@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju/go/charm"
 	"os"
 	"path/filepath"
+	"syscall"
 )
 
 func repoDir(name string) (path string) {
@@ -46,7 +47,7 @@ func (s *S) TestBundleTo(c *C) {
 	c.Assert(err, IsNil)
 	defer zipr.Close()
 
-	var metaf, instf, emptyf, revf *zip.File
+	var metaf, instf, emptyf, revf, symf *zip.File
 	for _, f := range zipr.File {
 		c.Logf("Bundled file: %s", f.Name)
 		switch f.Name {
@@ -56,6 +57,8 @@ func (s *S) TestBundleTo(c *C) {
 			metaf = f
 		case "hooks/install":
 			instf = f
+		case "hooks/symlink":
+			symf = f
 		case "empty/":
 			emptyf = f
 		case "build/ignored":
@@ -82,12 +85,22 @@ func (s *S) TestBundleTo(c *C) {
 	c.Assert(meta.Name, Equals, "dummy")
 
 	c.Assert(instf, NotNil)
-	mode := instf.Mode()
-	c.Assert(mode&0700, Equals, os.FileMode(0700))
+	// Despite it being 0751, we pack and unpack it as 0755. 
+	c.Assert(instf.Mode()&0777, Equals, os.FileMode(0755))
+
+	c.Assert(symf, NotNil)
+	c.Assert(symf.Mode()&0777, Equals, os.FileMode(0777))
+	reader, err = symf.Open()
+	c.Assert(err, IsNil)
+	data, err = ioutil.ReadAll(reader)
+	reader.Close()
+	c.Assert(err, IsNil)
+	c.Assert(string(data), Equals, "../target")
 
 	c.Assert(emptyf, NotNil)
-	mode = emptyf.Mode()
-	c.Assert(mode&os.ModeType, Equals, os.ModeDir)
+	c.Assert(emptyf.Mode()&os.ModeType, Equals, os.ModeDir)
+	// Despite it being 0750, we pack and unpack it as 0755. 
+	c.Assert(emptyf.Mode()&0777, Equals, os.FileMode(0755))
 }
 
 func copyCharmDir(dst, src string) {
@@ -108,6 +121,44 @@ func copyCharmDir(dst, src string) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (s *S) TestBundleToWithBadType(c *C) {
+	charmDir := c.MkDir()
+	copyCharmDir(charmDir, repoDir("dummy"))
+	badFile := filepath.Join(charmDir, "hooks", "badfile")
+
+	// Symlink targeting a path outside of the charm.
+	err := os.Symlink("../../target", badFile)
+	c.Assert(err, IsNil)
+
+	dir, err := charm.ReadDir(charmDir)
+	c.Assert(err, IsNil)
+
+	err = dir.BundleTo(&bytes.Buffer{})
+	c.Assert(err, ErrorMatches, `symlink "hooks/badfile" links out of charm: "../../target"`)
+
+	// Symlink targeting an absolute path.
+	os.Remove(badFile)
+	err = os.Symlink("/target", badFile)
+	c.Assert(err, IsNil)
+
+	dir, err = charm.ReadDir(charmDir)
+	c.Assert(err, IsNil)
+
+	err = dir.BundleTo(&bytes.Buffer{})
+	c.Assert(err, ErrorMatches, `symlink "hooks/badfile" is absolute: "/target"`)
+
+	// Can't bundle special files either.
+	os.Remove(badFile)
+	err = syscall.Mkfifo(badFile, 0644)
+	c.Assert(err, IsNil)
+
+	dir, err = charm.ReadDir(charmDir)
+	c.Assert(err, IsNil)
+
+	err = dir.BundleTo(&bytes.Buffer{})
+	c.Assert(err, ErrorMatches, `file is a named pipe: "hooks/badfile"`)
 }
 
 func (s *S) TestDirRevisionFile(c *C) {
