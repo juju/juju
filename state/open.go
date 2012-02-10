@@ -31,5 +31,10 @@ func Open(info *Info) (*State, error) {
 	if !(<-session).Ok() {
 		return nil, errors.New("Could not connect to zookeeper")
 	}
+	// throw away subsequent session events.
+	go func() {
+		for _ = range session {
+		}
+	}()
 	return &State{zk}, nil
 }
