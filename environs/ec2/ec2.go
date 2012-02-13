@@ -6,8 +6,10 @@ import (
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/state"
+	"strings"
 	"sync"
 	"time"
+"log"
 )
 
 const zkPort = 2181
@@ -85,11 +87,11 @@ func (e *environ) Bootstrap() (*state.Info, error) {
 		return nil, err
 	}
 	// try a few times to get the dns name of the new instance.
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 20; i++ {
 		if inst.DNSName() != "" {
 			break
 		}
-		time.Sleep(1e9)
+		time.Sleep(5e9)
 		insts, err := e.Instances()
 		if err != nil {
 			// TODO perhaps we should return nil, nil here
@@ -97,11 +99,16 @@ func (e *environ) Bootstrap() (*state.Info, error) {
 			// can't get the DNS address of the bootstrapped instance.
 			return nil, err
 		}
+		found := false
 		for _, x := range insts {
 			if x.Id() == inst.Id() {
 				inst = x
+				found = true
 				break
 			}
+		}
+		if !found {
+			return nil, fmt.Errorf("cannot find just-started bootstrap instance %q", inst.Id())
 		}
 	}
 	if inst.DNSName() == "" {
@@ -240,8 +247,59 @@ func (e *environ) Destroy() error {
 	if err != nil {
 		return err
 	}
-	return e.deleteState()
+	err = e.deleteState()
+	if err != nil {
+		return err
+	}
+	err = e.deleteSecurityGroups()
+	if err != nil {
+		return err
+	}
+	return nil
 }
+
+
+// delGroup deletes a security group, retrying if it is in use
+// (something that will happen for quite a while after an
+// environment has been destroyed)
+func (e *environ) delGroup(g ec2.SecurityGroup) error {
+	err := attempt("InvalidGroup.InUse", func() error {
+		_, err := e.ec2.DeleteSecurityGroup(g)
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("cannot delete juju security group: %v", err)
+	}
+	return nil
+}
+	
+
+func (e *environ) deleteSecurityGroups() error {
+	// destroy security groups in parallel as we can have
+	// many of them.
+	p := newParallel(20)
+
+	p.do(func() error {
+		return e.delGroup(ec2.SecurityGroup{Name: e.groupName()})
+	})
+
+	resp, err := e.ec2.SecurityGroups(nil, nil)
+	if err != nil {
+		return fmt.Errorf("cannot list security groups: %v", err)
+	}
+
+	prefix := e.groupName() + "-"
+	for _, g := range resp.Groups {
+		if strings.HasPrefix(g.Name, prefix) {
+			p.do(func() error {
+				return e.delGroup(g.SecurityGroup)
+			})
+		}
+	}
+	
+	return p.wait()
+}
+	
 
 func (e *environ) machineGroupName(machineId int) string {
 	return fmt.Sprintf("%s-%d", e.groupName(), machineId)
@@ -249,6 +307,26 @@ func (e *environ) machineGroupName(machineId int) string {
 
 func (e *environ) groupName() string {
 	return "juju-" + e.name
+}
+
+const retryDelay = time.Duration(2e9)
+
+// attempt calls the given function until it does not return an error with
+// the given ec2 error code.  This is to guard against ec2's "eventual
+// consistency" semantics.
+func attempt(code string, f func() error) (err error) {
+	for i := 0; i < 20; i++ {
+log.Printf("attempt %d", i)
+		err = f()
+log.Printf("error: %v", err)
+		ec2err, _ := f().(*ec2.Error)
+		if ec2err == nil || ec2err.Code != code {
+			return
+		}
+		time.Sleep(5e9)
+	}
+log.Printf("number of attempts exceeded (err %v)", err)
+	return
 }
 
 // setUpGroups creates the security groups for the new machine, and
@@ -280,30 +358,35 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 
 	// Create the provider group if doesn't exist.
 	if jujuGroup.Id == "" {
+log.Printf("creating security group %q", jujuGroup.Name)
 		r, err := e.ec2.CreateSecurityGroup(jujuGroup.Name, "juju group for "+e.name)
 		if err != nil {
 			return nil, fmt.Errorf("cannot create juju security group: %v", err)
 		}
 		jujuGroup = r.SecurityGroup
-		_, err = e.ec2.AuthorizeSecurityGroup(jujuGroup, []ec2.IPPerm{
-			// TODO delete this authorization when we can do
-			// the zookeeper ssh tunnelling.
-			{
-				Protocol: "tcp",
-				FromPort: zkPort,
-				ToPort: zkPort,
-				SourceIPs: []string{"0.0.0.0/0"},
-			},
-			{
-				Protocol: "tcp",
-				FromPort: 22,
-				ToPort: 22,
-				SourceIPs: []string{"0.0.0.0/0"},
-			},
-			// TODO authorize internal traffic
+log.Printf("authorizing security group %v", jujuGroup)
+		err = attempt("InvalidGroup.NotFound", func() error {
+			_, err := e.ec2.AuthorizeSecurityGroup(jujuGroup, []ec2.IPPerm{
+				// TODO delete this authorization when we can do
+				// the zookeeper ssh tunnelling.
+				{
+					Protocol: "tcp",
+					FromPort: zkPort,
+					ToPort: zkPort,
+					SourceIPs: []string{"0.0.0.0/0"},
+				},
+				{
+					Protocol: "tcp",
+					FromPort: 22,
+					ToPort: 22,
+					SourceIPs: []string{"0.0.0.0/0"},
+				},
+				// TODO authorize internal traffic
+			})
+			return err
 		})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("cannot authorize security group: %v", err)
 		}
 	}
 

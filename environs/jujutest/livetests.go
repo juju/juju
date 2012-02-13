@@ -55,14 +55,17 @@ func (t *LiveTests) TestStartStop(c *C) {
 }
 
 func (t *LiveTests) TestBootstrap(c *C) {
+	c.Logf("initial bootstrap")
 	info, err := t.Env.Bootstrap()
 	c.Assert(err, IsNil)
 	c.Assert(info, NotNil)
 
+	c.Logf("duplicate bootstrap")
 	info2, err := t.Env.Bootstrap()
 	c.Assert(info2, IsNil)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
+	c.Logf("open state")
 	st, err := state.Open(info)
 	if err != nil {
 		c.Errorf("state open failed: %v, %T, %d", err, err, err)
@@ -70,20 +73,24 @@ func (t *LiveTests) TestBootstrap(c *C) {
 		c.Assert(err, IsNil)
 		return
 	}
+	c.Logf("initialize state")
 	err = st.Initialize()
 	c.Assert(err, IsNil)
 
 	// TODO uncomment when State has a close method
 	// st.Close()
 
+	c.Logf("destroy env")
 	err = t.Env.Destroy()
 	c.Assert(err, IsNil)
 
+	c.Logf("bootstrap again")
 	// check that we can bootstrap after destroy
 	info, err = t.Env.Bootstrap()
-	c.Assert(info, NotNil)
 	c.Assert(err, IsNil)
+	c.Assert(info, NotNil)
 
+	c.Logf("final destroy")
 	err = t.Env.Destroy()
 	c.Assert(err, IsNil)
 }

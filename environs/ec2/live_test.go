@@ -11,25 +11,37 @@ import (
 	"launchpad.net/juju/go/environs/jujutest"
 )
 
-// integrationConfig holds the environments configuration
+// amazonConfig holds the environments configuration
 // for running the amazon EC2 integration tests.
 //
 // This is missing keys for security reasons; set the following environment variables
-// to make the integration testing work:
+// to make the Amazon testing work:
 //  access-key: $AWS_ACCESS_KEY_ID
 //  admin-secret: $AWS_SECRET_ACCESS_KEY
-var integrationConfig = `
+var amazonConfig = fmt.Sprintf(`
 environments:
-  sample:
+  sample-%s:
     type: ec2
-    control-bucket: '%s'
-`
+    control-bucket: 'juju-test-%s'
+`, uniqueName, uniqueName)
 
-func registerIntegrationTests() {
-	cfg := fmt.Sprintf(integrationConfig, bucketName)
-	envs, err := environs.ReadEnvironsBytes([]byte(cfg))
+// uniqueName is generated afresh for every test, so that
+// we are no polluted by previous test state.
+var uniqueName = randomName()
+
+func randomName() string {
+	buf := make([]byte, 8)
+	_, err := io.ReadFull(rand.Reader, buf)
 	if err != nil {
-		panic(fmt.Errorf("cannot parse integration tests config data: %v", err))
+		panic(fmt.Sprintf("error from crypto rand: %v", err))
+	}
+	return fmt.Sprintf("%x", buf)
+}
+
+func registerAmazonTests() {
+	envs, err := environs.ReadEnvironsBytes([]byte(amazonConfig))
+	if err != nil {
+		panic(fmt.Errorf("cannot parse amazon tests config data: %v", err))
 	}
 	for _, name := range envs.Names() {
 		Suite(&LiveTests{
@@ -41,39 +53,32 @@ func registerIntegrationTests() {
 	}
 }
 
-func bucketName() string {
-	buf := make([]byte, 8)
-	_, err := io.ReadFull(rand.Reader, buf)
-	if err != nil {
-		panic(fmt.Sprintf("error from crypto rand: %v", err))
-	}
-	return fmt.Sprintf("juju-test-%x", buf)
-}
-
 type LiveTests struct {
 	jujutest.LiveTests
 }
-
 
 func (t *LiveTests) TestInstanceGroups(c *C) {
 	ec2conn := ec2.EnvironEC2(t.Env)
 
 	groups := amzec2.SecurityGroupNames(
-		fmt.Sprintf("juju-%s", t.Name),
-		fmt.Sprintf("juju-%s-%d", t.Name, 98),
-		fmt.Sprintf("juju-%s-%d", t.Name, 99),
+		ec2.GroupName(t.Env),
+		ec2.MachineGroupName(t.Env, 98),
+		ec2.MachineGroupName(t.Env, 99),
 	)
 	info := make([]amzec2.SecurityGroupInfo, len(groups))
 
+	c.Logf("start instance 98")
 	inst0, err := t.Env.StartInstance(98, jujutest.InvalidStateInfo)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst0})
 
+	c.Logf("ensure old group exists")
 	// create a same-named group for the second instance
 	// before starting it, to check that it's deleted and
 	// recreated correctly.
-	oldGroup := ensureGroupExists(c, ec2conn, groups[2], "old group")
+	oldGroup := ensureGroupExists(c, ec2conn, groups[2].Name, "old group")
 
+	c.Logf("start instance 99")
 	inst1, err := t.Env.StartInstance(99, jujutest.InvalidStateInfo)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
@@ -81,12 +86,17 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	// go behind the scenes to check the machines have
 	// been put into the correct groups.
 
-	// first check that the old group has been deleted
-	groupsResp, err := ec2conn.SecurityGroups([]amzec2.SecurityGroup{oldGroup}, nil)
+	// first check that the old group has been deleted.
+	c.Logf("checking old group was deleted")
+	f := amzec2.NewFilter()
+	f.Add("group-name", oldGroup.Name)
+	f.Add("group-id", oldGroup.Id)
+	groupsResp, err := ec2conn.SecurityGroups(nil, f)
 	c.Assert(err, IsNil)
 	c.Check(len(groupsResp.Groups), Equals, 0)
 
 	// then check that the groups have been created.
+	c.Logf("checking new groups were deleted")
 	groupsResp, err = ec2conn.SecurityGroups(groups, nil)
 	c.Assert(err, IsNil)
 	c.Assert(len(groupsResp.Groups), Equals, len(groups))
@@ -108,12 +118,13 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	}
 
 	perms := info[0].IPPerms
-	
+
 	// check that the juju group authorizes SSH for anyone.
 	c.Assert(len(perms), Equals, 2, Bug("got security groups %#v", perms))
 	checkPortAllowed(c, perms, 22)
 	checkPortAllowed(c, perms, 2181)
 
+	c.Logf("checking that each insance is part of the correct groups")
 	// check that each instance is part of the correct groups.
 	resp, err := ec2conn.Instances([]string{inst0.Id(), inst1.Id()}, nil)
 	c.Assert(err, IsNil)
@@ -140,4 +151,41 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 			c.Errorf("unknown instance found: %v", inst)
 		}
 	}
+}
+
+// ensureGroupExists creates a new EC2 group if it doesn't already
+// exist, and returns full SecurityGroup.
+func ensureGroupExists(c *C, ec2conn *amzec2.EC2, groupName string, descr string) amzec2.SecurityGroup {
+	f := amzec2.NewFilter()
+	f.Add("group-name", groupName)
+	groups, err := ec2conn.SecurityGroups(nil, f)
+	c.Assert(err, IsNil)
+	if len(groups.Groups) > 0 {
+		return groups.Groups[0].SecurityGroup
+	}
+
+	resp, err := ec2conn.CreateSecurityGroup(groupName, descr)
+	c.Assert(err, IsNil)
+
+	return resp.SecurityGroup
+}
+
+func (t *LiveTests) TestBootstrap(c *C) {
+	t.LiveTests.TestBootstrap(c)
+	// After the bootstrap test, the environment should have been
+	// destroyed. Verify that the overall security group (invisible through the
+	// Environ interface) has been deleted.
+	ec2conn := ec2.EnvironEC2(t.Env)
+	_, err := ec2conn.SecurityGroups([]amzec2.SecurityGroup{{Name: ec2.GroupName(t.Env)}}, nil)
+	c.Assert(err, NotNil)
+	c.Assert(err.(*amzec2.Error).Code, Equals, "InvalidGroup.NotFound")
+}
+
+func hasSecurityGroup(r amzec2.Reservation, g amzec2.SecurityGroup) bool {
+	for _, rg := range r.SecurityGroups {
+		if rg.Id == g.Id {
+			return true
+		}
+	}
+	return false
 }

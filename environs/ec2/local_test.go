@@ -228,27 +228,3 @@ func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {
 	}
 	c.Errorf("ip port permission not found for %d in %#v", port, perms)
 }
-
-// createGroup creates a new EC2 group if it doesn't already
-// exist, and returns full SecurityGroup.
-func ensureGroupExists(c *C, ec2conn *amzec2.EC2, group amzec2.SecurityGroup, descr string) amzec2.SecurityGroup {
-	groups, err := ec2conn.SecurityGroups([]amzec2.SecurityGroup{group}, nil)
-	c.Assert(err, IsNil)
-	if len(groups.Groups) > 0 {
-		return groups.Groups[0].SecurityGroup
-	}
-
-	resp, err := ec2conn.CreateSecurityGroup(group.Name, descr)
-	c.Assert(err, IsNil)
-
-	return resp.SecurityGroup
-}
-
-func hasSecurityGroup(r amzec2.Reservation, g amzec2.SecurityGroup) bool {
-	for _, rg := range r.SecurityGroups {
-		if rg.Id == g.Id {
-			return true
-		}
-	}
-	return false
-}
