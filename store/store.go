@@ -220,10 +220,10 @@ func (w *charmWriter) abort() {
 // finish completes the charm writing process and inserts the final metadata.
 // After it completes the charm will be available for consumption.
 func (w *charmWriter) finish() error {
-	defer w.session.Close()
 	if w.file == nil {
 		return nil
 	}
+	defer w.session.Close()
 	id := w.file.Id()
 	err := w.file.Close()
 	if err != nil {
