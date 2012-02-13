@@ -100,10 +100,8 @@ type CharmDir interface {
 // Statically ensure that *charm.Dir is indeed a CharmDir.
 var _ CharmDir = (*charm.Dir)(nil)
 
-// Publish bundles charm and writes it to the store. It will also log events
-// recording the success or failure of the operation.
-// The written charm bundle will have its revision set to the result
-// of Revision.
+// Publish bundles charm and writes it to the store. The written charm
+// bundle will have its revision set to the result of Revision.
 // Publish must be called only once for a CharmPublisher.
 func (p *CharmPublisher) Publish(charm CharmDir) error {
 	w := p.w
@@ -112,26 +110,13 @@ func (p *CharmPublisher) Publish(charm CharmDir) error {
 	}
 	p.w = nil
 	w.charm = charm
-	event := &CharmEvent{
-		Kind:     EventPublished,
-		Digest:   w.digest,
-		URLs:     w.urls,
-		Revision: w.revision, // TESTME
-	}
 	// TODO: Refactor to BundleTo(w, revision)
 	charm.SetRevision(p.revision)
 	err := charm.BundleTo(w)
 	if err == nil {
 		err = w.finish()
-	}
-	if err != nil {
+	} else {
 		w.abort()
-		event.Kind = EventPublishError
-		event.Errors = []string{err.Error()}
-	}
-	logErr := w.store.LogCharmEvent(event)
-	if err == nil {
-		return logErr
 	}
 	return err
 }
