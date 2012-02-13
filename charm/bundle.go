@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -194,9 +195,10 @@ func (b *Bundle) expand(dir string, zfile *zip.File) error {
 	}
 	defer r.Close()
 
+	mode := zfile.Mode()
 	path := filepath.Join(dir, cleanName)
-	if strings.HasSuffix(zfile.Name, "/") {
-		err = os.MkdirAll(path, 0755)
+	if strings.HasSuffix(zfile.Name, "/") || mode&os.ModeDir != 0 {
+		err = os.MkdirAll(path, mode&0777)
 		if err != nil {
 			return err
 		}
@@ -208,13 +210,41 @@ func (b *Bundle) expand(dir string, zfile *zip.File) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.Create(path)
+
+	if mode&os.ModeSymlink != 0 {
+		data, err := ioutil.ReadAll(r)
+		if err != nil {
+			return err
+		}
+		target := string(data)
+		if err := checkSymlinkTarget(dir, cleanName, target); err != nil {
+			return err
+		}
+		return os.Symlink(target, path)
+	}
+
+	if err := checkFileType(cleanName, mode); err != nil {
+		return err
+	}
+
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode&0777)
 	if err != nil {
 		return err
 	}
 	_, err = io.Copy(f, r)
 	f.Close()
 	return err
+}
+
+func checkSymlinkTarget(basedir, symlink, target string) error {
+	if filepath.IsAbs(target) {
+		return fmt.Errorf("symlink %q is absolute: %q", symlink, target)
+	}
+	p := filepath.Join(filepath.Dir(symlink), target)
+	if p == ".." || strings.HasPrefix(p, "../") {
+		return fmt.Errorf("symlink %q links out of charm: %q", symlink, target)
+	}
+	return nil
 }
 
 // FWIW, being able to do this is awesome.
