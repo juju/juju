@@ -7,14 +7,13 @@ import (
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/state"
-	"log"
 	"strings"
 	"sync"
 )
 
 const zkPort = 2181
 
-const maxReqs = 20			// maximum concurrent ec2 requests
+const maxReqs = 20 // maximum concurrent ec2 requests
 
 var shortAttempt = attempt{
 	burstTotal: 5e9,
@@ -24,8 +23,8 @@ var shortAttempt = attempt{
 var longAttempt = attempt{
 	burstTotal: 5e9,
 	burstDelay: 0.2e9,
-	longTotal: 3*60e9,
-	longDelay: 5e9,
+	longTotal:  3 * 60e9,
+	longDelay:  5e9,
 }
 
 var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
@@ -212,7 +211,6 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 	if len(instances.Instances) != 1 {
 		return nil, fmt.Errorf("expected 1 started instance, got %d", len(instances.Instances))
 	}
-	log.Printf("started instance id %v", instances.Instances[0].InstanceId)
 	return &instance{&instances.Instances[0]}, nil
 }
 
@@ -441,13 +439,11 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	jujuMachineGroup := ec2.SecurityGroup{Name: e.machineGroupName(machineId)}
 
 	// Create the provider group.
-	log.Printf("creating security group %q", jujuGroup.Name)
 	_, err := e.ec2.CreateSecurityGroup(jujuGroup.Name, "juju group for "+e.name)
 	// If the group already exists, we don't mind.
 	if err != nil && !hasCode("InvalidGroup.Duplicate")(err) {
 		return nil, fmt.Errorf("cannot create juju security group: %v", err)
 	}
-	log.Printf("authorizing security group %v", jujuGroup)
 	err = shortAttempt.do(hasCode("InvalidGroup.NotFound"), func() error {
 		_, err := e.ec2.AuthorizeSecurityGroup(jujuGroup, []ec2.IPPerm{
 			// TODO delete this authorization when we can do

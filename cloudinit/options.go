@@ -1,4 +1,5 @@
 package cloudinit
+
 import (
 	"strings"
 )

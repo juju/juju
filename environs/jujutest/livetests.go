@@ -37,7 +37,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 		}
 		time.Sleep(0.25e9)
 	}
-	c.Assert(err, Equals, environs.ErrMissingInstance)	
+	c.Assert(err, Equals, environs.ErrMissingInstance)
 	c.Assert(len(insts), Equals, 0, Bug("instances: %v", insts))
 
 	// check the instance is no longer there.

@@ -9,7 +9,7 @@ import (
 type Conn struct {
 	// TODO extend to hold an optional Zookeeper connection as well.
 	environ environs.Environ
-	state *state.State
+	state   *state.State
 }
 
 // NewConn returns a Conn pointing at the environName environment, or the

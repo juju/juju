@@ -160,11 +160,11 @@ func (s *S) TestCharmPublishError(c *C) {
 	c.Assert(err, ErrorMatches, "beforeWrite")
 
 	want := &store.CharmEvent{
-		Kind: store.EventPublishError,
-		URLs: urls,
-		Digest: "another-digest",
+		Kind:     store.EventPublishError,
+		URLs:     urls,
+		Digest:   "another-digest",
 		Revision: 1,
-		Errors: []string{"beforeWrite"},
+		Errors:   []string{"beforeWrite"},
 	}
 	event, err := s.store.CharmEvent(url, "another-digest")
 	event.Time = time.Time{}
@@ -177,11 +177,11 @@ func (s *S) TestCharmPublishError(c *C) {
 	c.Assert(err, ErrorMatches, "afterWrite")
 
 	want = &store.CharmEvent{
-		Kind: store.EventPublishError,
-		URLs: urls,
-		Digest: "another-digest",
+		Kind:     store.EventPublishError,
+		URLs:     urls,
+		Digest:   "another-digest",
 		Revision: 1,
-		Errors: []string{"afterWrite"},
+		Errors:   []string{"afterWrite"},
 	}
 	event, err = s.store.CharmEvent(url, "another-digest")
 	event.Time = time.Time{}

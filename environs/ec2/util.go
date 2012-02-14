@@ -1,12 +1,10 @@
 package ec2
 
 import (
-	"log"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/juju/go/schema"
 	"sync"
 	"time"
-"local/runtime/debug"
 )
 
 // this stuff could/should be in the schema package.
@@ -119,17 +117,16 @@ func (p *parallel) wait() error {
 // total time is reached.
 // 
 type attempt struct {
-	burstTotal time.Duration		// total duration of burst.
-	burstDelay time.Duration		// interval between each try in the burst.
+	burstTotal time.Duration // total duration of burst.
+	burstDelay time.Duration // interval between each try in the burst.
 
-	longTotal time.Duration		// total duration for attempt after burst.
-	longDelay time.Duration		// interval between each try after initial burst.
+	longTotal time.Duration // total duration for attempt after burst.
+	longDelay time.Duration // interval between each try after initial burst.
 }
 
 // do calls the given function until it succeeds or returns an error such that
 // isTransient is false or the attempt times out.
 func (a attempt) do(isTransient func(error) bool, f func() error) (err error) {
-	log.Printf("attempt, callers %s", debug.Callers(1, 3))
 	start := time.Now()
 	i := 0
 	// try returns true if do should return.
@@ -145,18 +142,11 @@ func (a attempt) do(isTransient func(error) bool, f func() error) (err error) {
 		return false
 	}
 	if try(start.Add(a.burstTotal), a.burstDelay) {
-		if i > 0 {
-			log.Printf("after attempt %d, err %v", i, err)
-		}
 		return
 	}
-	if try(start.Add(a.burstTotal + a.longTotal), a.longDelay) {
-		if i > 0 {
-			log.Printf("after attempt %d, err %v", i, err)
-		}
+	if try(start.Add(a.burstTotal+a.longTotal), a.longDelay) {
 		return
 	}
-	log.Printf("attempt time (%d attempts, %gs) exceeded (err %v)", i, (a.burstTotal + a.longTotal).Seconds(), err)
 	return
 }
 

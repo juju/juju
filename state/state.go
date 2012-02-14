@@ -151,7 +151,7 @@ func (s *State) Initialize() error {
 		return nil
 	}
 	// Create new nodes.
-	create := func(name string){
+	create := func(name string) {
 		if err != nil {
 			return
 		}

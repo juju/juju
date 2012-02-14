@@ -6,13 +6,12 @@ import (
 	"launchpad.net/juju/go/state"
 )
 
-
 // InvalidStateInfo holds information about no state - it will always give
 // an error when connected to.
 var InvalidStateInfo = &state.Info{
 	Addrs: []string{"0.1.2.3:1234"},
 }
-	
+
 // Tests is a gocheck suite containing tests verifying juju functionality
 // against the environment with Name that must exist within Environs.
 // Env holds an instance of that environment that is opened before each
@@ -20,7 +19,7 @@ var InvalidStateInfo = &state.Info{
 type Tests struct {
 	Environs *environs.Environs
 	Name     string
-	Env environs.Environ
+	Env      environs.Environ
 }
 
 // Open opens an instance of the testing environment.
