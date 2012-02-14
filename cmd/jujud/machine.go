@@ -3,37 +3,30 @@ package main
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
-	"strconv"
 )
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
 	agentConf
-	machineId string
-	MachineId uint
+	MachineId int
 }
 
 func NewMachineAgent() *MachineAgent {
-	return &MachineAgent{agentConf: agentConf{name: "machine"}}
+	return &MachineAgent{agentConf: agentConf{name: "machine"}, MachineId: -1}
 }
 
 // InitFlagSet prepares a FlagSet.
 func (a *MachineAgent) InitFlagSet(f *gnuflag.FlagSet) {
-	f.StringVar(&a.machineId, "machine-id", a.machineId, "id of the machine to run")
+	f.IntVar(&a.MachineId, "machine-id", a.MachineId, "id of the machine to run")
 	a.agentConf.InitFlagSet(f)
 }
 
 // ParsePositional checks that there are no unwanted arguments, and that all
 // required flags have been set.
 func (a *MachineAgent) ParsePositional(args []string) error {
-	if a.machineId == "" {
-		return requiredError("machine-id")
+	if a.MachineId < 0 {
+		return fmt.Errorf("--machine-id option must be set, and expects a non-negative integer")
 	}
-	id, err := strconv.ParseUint(a.machineId, 10, 0)
-	if err != nil {
-		return fmt.Errorf("--machine-id option expects a non-negative integer")
-	}
-	a.MachineId = uint(id)
 	return a.agentConf.ParsePositional(args)
 }
 
