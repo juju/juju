@@ -42,7 +42,7 @@ func (t *Tests) SetUpTest(c *C) {
 }
 
 func (t *Tests) TearDownTest(*C) {
-	t.Env.Destroy()
+	t.Env.Destroy(nil)
 	t.Env = nil
 }
 
@@ -63,7 +63,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 }
 
 func (t *LiveTests) TearDownSuite(c *C) {
-	err := t.Env.Destroy()
+	err := t.Env.Destroy(nil)
 	c.Check(err, IsNil)
 	t.Env = nil
 }

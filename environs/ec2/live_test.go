@@ -4,11 +4,12 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	amzec2 "launchpad.net/goamz/ec2"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
-	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
+	"strings"
 )
 
 // amazonConfig holds the environments configuration
@@ -173,12 +174,16 @@ func ensureGroupExists(c *C, ec2conn *amzec2.EC2, groupName string, descr string
 func (t *LiveTests) TestBootstrap(c *C) {
 	t.LiveTests.TestBootstrap(c)
 	// After the bootstrap test, the environment should have been
-	// destroyed. Verify that the overall security group (invisible through the
-	// Environ interface) has been deleted.
+	// destroyed. Verify that the security groups have been deleted too.
 	ec2conn := ec2.EnvironEC2(t.Env)
-	_, err := ec2conn.SecurityGroups([]amzec2.SecurityGroup{{Name: ec2.GroupName(t.Env)}}, nil)
-	c.Assert(err, NotNil)
-	c.Assert(err.(*amzec2.Error).Code, Equals, "InvalidGroup.NotFound")
+	resp, err := ec2conn.SecurityGroups(nil, nil)
+	c.Assert(err, IsNil)
+	prefix := ec2.GroupName(t.Env)
+	for _, g := range resp.Groups {
+		if strings.HasPrefix(g.Name, prefix) {
+			c.Errorf("group %q has not been deleted", g.SecurityGroup)
+		}
+	}
 }
 
 func hasSecurityGroup(r amzec2.Reservation, g amzec2.SecurityGroup) bool {

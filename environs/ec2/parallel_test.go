@@ -1,11 +1,12 @@
 package ec2
+
 import (
 	. "launchpad.net/gocheck"
 	"sync"
 	"time"
 )
 
-type parSuite struct {}
+type parSuite struct{}
 
 var _ = Suite(parSuite{})
 
@@ -15,7 +16,7 @@ func (parSuite) TestParallelMaxPar(c *C) {
 	n := 0
 	p := newParallel(3)
 	for i := 0; i < 10; i++ {
-		p.do(func()error {
+		p.do(func() error {
 			mu.Lock()
 			n++
 			if n > max {
@@ -36,6 +37,7 @@ func (parSuite) TestParallelMaxPar(c *C) {
 }
 
 type intError int
+
 func (intError) Error() string {
 	return "error"
 }

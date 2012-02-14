@@ -10,26 +10,33 @@ import (
 func (t *Tests) TestStartStop(c *C) {
 	e := t.Open(c)
 
-	insts, err := e.Instances()
+	insts, err := e.Instances(nil)
 	c.Assert(err, IsNil)
 	c.Assert(len(insts), Equals, 0)
 
-	inst, err := e.StartInstance(0, InvalidStateInfo)
+	inst0, err := e.StartInstance(0, InvalidStateInfo)
 	c.Assert(err, IsNil)
-	c.Assert(inst, NotNil)
-	id0 := inst.Id()
+	c.Assert(inst0, NotNil)
+	id0 := inst0.Id()
 
-	insts, err = e.Instances()
+	inst1, err := e.StartInstance(1, InvalidStateInfo)
 	c.Assert(err, IsNil)
-	c.Assert(len(insts), Equals, 1)
+	c.Assert(inst1, NotNil)
+	id1 := inst1.Id()
+
+	insts, err = e.Instances([]string{id0, id1})
+	c.Assert(err, IsNil)
+	c.Assert(len(insts), Equals, 2)
 	c.Assert(insts[0].Id(), Equals, id0)
+	c.Assert(insts[1].Id(), Equals, id1)
 
-	err = e.StopInstances([]environs.Instance{inst})
+	err = e.StopInstances([]environs.Instance{inst0})
 	c.Assert(err, IsNil)
 
-	insts, err = e.Instances()
-	c.Assert(err, IsNil)
-	c.Assert(len(insts), Equals, 0)
+	// TODO eventual consistency.
+	insts, err = e.Instances([]string{id0, id1})
+	c.Assert(insts, Equals, []environs.Instance{nil, inst1})
+	c.Assert(err, Equals, environs.ErrMissingInstance)
 }
 
 func (t *Tests) TestBootstrap(c *C) {
@@ -38,16 +45,18 @@ func (t *Tests) TestBootstrap(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(info, NotNil)
 
+	// TODO eventual consistency.
 	info, err = e.Bootstrap()
 	c.Assert(info, IsNil)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
+	// TODO eventual consistency.
 	info, err = e.Bootstrap()
 	c.Assert(info, IsNil)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
-	err = e2.Destroy()
+	err = e2.Destroy(nil)
 	c.Assert(err, IsNil)
 
 	info, err = e.Bootstrap()
@@ -82,6 +91,7 @@ func checkPutFile(c *C, e environs.Environ, name string, contents []byte) {
 }
 
 func checkFileDoesNotExist(c *C, e environs.Environ, name string) {
+	// TODO eventual consistency
 	r, err := e.GetFile(name)
 	c.Check(r, IsNil)
 	c.Assert(err, NotNil)

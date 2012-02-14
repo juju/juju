@@ -1,8 +1,8 @@
 package ec2
 
 import (
-	"launchpad.net/juju/go/environs"
 	"launchpad.net/goamz/ec2"
+	"launchpad.net/juju/go/environs"
 )
 
 type BootstrapState struct {
@@ -28,7 +28,6 @@ func MachineGroupName(e environs.Environ, machineId int) string {
 func AuthorizedKeys(keys, path string) (string, error) {
 	return authorizedKeys(keys, path)
 }
-
 
 func EnvironEC2(e environs.Environ) *ec2.EC2 {
 	return e.(*environ).ec2

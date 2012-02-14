@@ -32,7 +32,7 @@ var cloudinitTests = []machineConfig{
 		provisioner:    false,
 		authorizedKeys: "sshkey1",
 		zookeeper:      false,
-		stateInfo: &state.Info{Addrs: []string{"zk1"}},
+		stateInfo:      &state.Info{Addrs: []string{"zk1"}},
 	},
 }
 
@@ -117,7 +117,7 @@ func CheckPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
 			found = true
 		}
 	}
-	switch{
+	switch {
 	case match && !found:
 		c.Errorf("%q not found in packages", pkg)
 	case !match && found:
@@ -189,7 +189,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		origin:             jujuOrigin{originBranch, "lp:jujubranch"},
 		machineId:          "aMachine",
 		authorizedKeys:     "sshkey1",
-		stateInfo:     &state.Info{Addrs: []string{"zkhost"}},
+		stateInfo:          &state.Info{Addrs: []string{"zkhost"}},
 	}
 	// check that the base configuration does not give an error
 	_, err := newCloudInit(cfg)

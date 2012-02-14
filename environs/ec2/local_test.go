@@ -163,7 +163,12 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(info, NotNil)
 	c.Assert(err, IsNil)
 
-	insts, err := t.env.Instances()
+	// check that the state holds the id of the bootstrap machine.
+	state, err := ec2.LoadState(t.env)
+	c.Assert(err, IsNil)
+	c.Assert(len(state.ZookeeperInstances), Equals, 1)
+
+	insts, err := t.env.Instances(state.ZookeeperInstances)
 	c.Assert(err, IsNil)
 	c.Assert(len(insts), Equals, 1)
 
@@ -185,12 +190,6 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='localhost%s'", ec2.ZkPortSuffix), true)
 	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID='0'"), true)
 
-	// check that the state holds the id of the bootstrap machine.
-	state, err := ec2.LoadState(t.env)
-	c.Assert(err, IsNil)
-	c.Assert(len(state.ZookeeperInstances), Equals, 1)
-	c.Assert(state.ZookeeperInstances[0], Equals, insts[0].Id())
-
 	// check that a new instance will be started without
 	// zookeeper, with a machine agent, and without a
 	// provisioning agent.
@@ -209,7 +208,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='%s%s'", bootstrapDNS, ec2.ZkPortSuffix), true)
 	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID='1'"), true)
 
-	err = t.env.Destroy()
+	err = t.env.Destroy(append(insts, inst1))
 	c.Assert(err, IsNil)
 
 	_, err = ec2.LoadState(t.env)

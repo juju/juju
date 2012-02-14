@@ -1,18 +1,33 @@
 package ec2
 
 import (
+	"errors"
 	"fmt"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/state"
+	"log"
 	"strings"
 	"sync"
-	"time"
-"log"
 )
 
 const zkPort = 2181
+
+const maxReqs = 20			// maximum concurrent ec2 requests
+
+var shortAttempt = attempt{
+	burstTotal: 5e9,
+	burstDelay: 0.2e9,
+}
+
+var longAttempt = attempt{
+	burstTotal: 5e9,
+	burstDelay: 0.2e9,
+	longTotal: 3*60e9,
+	longDelay: 5e9,
+}
+
 var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
 
 func init() {
@@ -86,41 +101,38 @@ func (e *environ) Bootstrap() (*state.Info, error) {
 		e.StopInstances([]environs.Instance{inst})
 		return nil, err
 	}
-	// try a few times to get the dns name of the new instance.
-	for i := 0; i < 20; i++ {
-		if inst.DNSName() != "" {
-			break
-		}
-		time.Sleep(5e9)
-		insts, err := e.Instances()
-		if err != nil {
-			// TODO perhaps we should return nil, nil here
-			// as we have successfully bootstrapped - we just
-			// can't get the DNS address of the bootstrapped instance.
-			return nil, err
-		}
-		found := false
-		for _, x := range insts {
-			if x.Id() == inst.Id() {
-				inst = x
-				found = true
-				break
-			}
-		}
-		if !found {
-			return nil, fmt.Errorf("cannot find just-started bootstrap instance %q", inst.Id())
-		}
-	}
 	if inst.DNSName() == "" {
-		return nil, fmt.Errorf("timed out trying to get bootstrap instance DNS address")
+		noDNS := errors.New("no dns addr")
+		longAttempt.do(
+			func(err error) bool {
+				return err == noDNS || hasCode("InvalidInstance.NotFound")(err)
+			},
+			func() error {
+				insts, err := e.Instances([]string{inst.Id()})
+				if err != nil {
+					return err
+				}
+				inst = insts[0]
+				if inst.DNSName() == "" {
+					return noDNS
+				}
+				return nil
+			},
+		)
+		if err != nil {
+			if err == noDNS {
+				return nil, fmt.Errorf("timed out trying to get bootstrap instance DNS address", inst.Id())
+			}
+			return nil, fmt.Errorf("cannot find just-started bootstrap instance %q: %v", inst.Id(), err)
+		}
 	}
-	
+
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to use S3 to make sure that only one succeeds.
 	// Perhaps consider using SimpleDB for state storage
 	// which would enable that possibility.
-	return &state.Info{[]string{zkAddr(inst.(*instance).Instance)}}, nil
+	return &state.Info{[]string{inst.DNSName() + zkPortSuffix}}, nil
 }
 
 func (e *environ) StateInfo() (*state.Info, error) {
@@ -128,23 +140,19 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	f := ec2.NewFilter()
-	f.Add("instance-id", st.ZookeeperInstances...)
-	resp, err := e.ec2.Instances(nil, f)
+	insts, err := e.Instances(st.ZookeeperInstances)
 	if err != nil {
 		return nil, err
 	}
-	var addrs []string
-	for _, r := range resp.Reservations {
-		for _, inst := range r.Instances {
-			addrs = append(addrs, zkAddr(&inst))
+	addrs := make([]string, len(insts))
+	for i, inst := range insts {
+		addr := inst.DNSName()
+		if addr == "" {
+			return nil, fmt.Errorf("zookeeper instance %q does not yet have a DNS address", inst.Id())
 		}
+		addrs[i] = addr + zkPortSuffix
 	}
 	return &state.Info{addrs}, nil
-}
-
-func zkAddr(inst *ec2.Instance) string {
-	return inst.DNSName + zkPortSuffix
 }
 
 func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Instance, error) {
@@ -204,6 +212,7 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 	if len(instances.Instances) != 1 {
 		return nil, fmt.Errorf("expected 1 started instance, got %d", len(instances.Instances))
 	}
+	log.Printf("started instance id %v", instances.Instances[0].InstanceId)
 	return &instance{&instances.Instances[0]}, nil
 }
 
@@ -211,40 +220,148 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 	if len(insts) == 0 {
 		return nil
 	}
-	names := make([]string, len(insts))
+	ids := make([]string, len(insts))
 	for i, inst := range insts {
-		names[i] = inst.(*instance).InstanceId
+		ids[i] = inst.(*instance).InstanceId
 	}
-	_, err := e.ec2.TerminateInstances(names)
-	return err
+	err := shortAttempt.do(hasCode("InvalidInstanceID.NotFound"), func() error {
+		_, err := e.ec2.TerminateInstances(ids)
+		return err
+	})
+	// If the instance is already gone, that's fine with us.
+	if err != nil && !hasCode("InvalidInstanceId.NotFound")(err) {
+		return err
+	}
+
+	// Delete the machine group for each instance.
+	// We could get the instance data for each instance
+	// in one request before doing the group deletion,
+	// but then we would have to cope with a possibly partial result.
+	prefix := e.groupName() + "-"
+	p := newParallel(maxReqs)
+	for _, inst := range insts {
+		inst := inst
+		p.do(func() error {
+			var resp *ec2.InstancesResp
+			err := shortAttempt.do(hasCode("InvalidInstanceID.NotFound"), func() error {
+				var err error
+				resp, err = e.ec2.Instances([]string{inst.Id()}, nil)
+				return err
+			})
+			if err != nil {
+				return fmt.Errorf("cannot get info about instance %q: %v", inst.Id(), err)
+			}
+			if len(resp.Reservations) != 1 {
+				return fmt.Errorf("unexpected number of instances found, expected 1 got %d", len(resp.Reservations))
+			}
+			for _, g := range resp.Reservations[0].SecurityGroups {
+				if strings.HasPrefix(g.Name, prefix) {
+					return e.delGroup(g)
+				}
+			}
+			return nil
+		})
+	}
+	return p.wait()
 }
 
-func (e *environ) Instances() ([]environs.Instance, error) {
+func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	insts := make([]environs.Instance, len(ids))
+	// make a series of requests to cope with eventual consistency.
+	// each request should add more instances to the requested
+	// set.
+	n := 0
+	err := shortAttempt.do(
+		func(err error) bool {
+			return err == environs.ErrMissingInstance
+		},
+		func() error {
+			var need []string
+			for i, inst := range insts {
+				if inst == nil {
+					need = append(need, ids[i])
+				}
+			}
+			if len(need) == 0 {
+				return nil
+			}
+			filter := ec2.NewFilter()
+			filter.Add("instance-state-name", "pending", "running")
+			filter.Add("group-name", e.groupName())
+			filter.Add("instance-id", need...)
+			resp, err := e.ec2.Instances(nil, filter)
+			if err != nil {
+				return err
+			}
+			// For each requested id, add it to the returned instances
+			// if we find it in the response.
+			for i, id := range ids {
+				if insts[i] != nil {
+					continue
+				}
+				for j := range resp.Reservations {
+					r := &resp.Reservations[j]
+					for k := range r.Instances {
+						if r.Instances[k].InstanceId == id {
+							inst := r.Instances[k]
+							insts[i] = &instance{&inst}
+							n++
+						}
+					}
+				}
+			}
+			if n < len(ids) {
+				return environs.ErrMissingInstance
+			}
+			return nil
+		},
+	)
+	if n == 0 {
+		return nil, err
+	}
+	return insts, err
+}
+
+func (e *environ) Destroy(insts []environs.Instance) error {
+	// Try to find all the instances in the environ's group.
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
 	filter.Add("group-name", e.groupName())
-
 	resp, err := e.ec2.Instances(nil, filter)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("cannot get instances: %v", err)
 	}
-	var insts []environs.Instance
-	for i := range resp.Reservations {
-		r := &resp.Reservations[i]
-		for j := range r.Instances {
-			insts = append(insts, &instance{&r.Instances[j]})
+	var ids []string
+	hasId := make(map[string]bool)
+	for _, r := range resp.Reservations {
+		for _, inst := range r.Instances {
+			ids = append(ids, inst.InstanceId)
+			hasId[inst.InstanceId] = true
 		}
 	}
-	return insts, nil
-}
 
-func (e *environ) Destroy() error {
-	insts, err := e.Instances()
-	if err != nil {
-		return err
+	// Then add any instances we've been told aboutbut haven't yet shown
+	// up in the instance list.
+	for _, inst := range insts {
+		id := inst.Id()
+		if !hasId[id] {
+			ids = append(ids, id)
+			hasId[id] = true
+		}
 	}
-	err = e.StopInstances(insts)
-	if err != nil {
+	if len(ids) > 0 {
+		err = shortAttempt.do(hasCode("InvalidInstance.NotFound"), func() error {
+			_, err := e.ec2.TerminateInstances(ids)
+			return err
+		})
+	}
+	// If the instance is still not found after waiting around,
+	// then it probably really doesn't exist, and we don't care
+	// about that.
+	if err != nil && !hasCode("InvalidInstance.NotFound")(err) {
 		return err
 	}
 	err = e.deleteState()
@@ -258,26 +375,26 @@ func (e *environ) Destroy() error {
 	return nil
 }
 
-
 // delGroup deletes a security group, retrying if it is in use
 // (something that will happen for quite a while after an
 // environment has been destroyed)
 func (e *environ) delGroup(g ec2.SecurityGroup) error {
-	err := attempt("InvalidGroup.InUse", func() error {
+	err := longAttempt.do(hasCode("InvalidGroup.InUse"), func() error {
 		_, err := e.ec2.DeleteSecurityGroup(g)
 		return err
 	})
-	if err != nil {
-		return fmt.Errorf("cannot delete juju security group: %v", err)
+	if err == nil || hasCode("InvalidGroup.NotFound")(err) {
+		return nil
 	}
-	return nil
+	return fmt.Errorf("cannot delete juju security group: %v", err)
 }
-	
 
+// deleteSecurityGroups deletes all the security groups
+// associated with the environ.
 func (e *environ) deleteSecurityGroups() error {
 	// destroy security groups in parallel as we can have
 	// many of them.
-	p := newParallel(20)
+	p := newParallel(maxReqs)
 
 	p.do(func() error {
 		return e.delGroup(ec2.SecurityGroup{Name: e.groupName()})
@@ -296,37 +413,20 @@ func (e *environ) deleteSecurityGroups() error {
 			})
 		}
 	}
-	
+
 	return p.wait()
 }
-	
 
+// machineGroupName returns the name of the security group
+// that will be assigned to an instance with the given machine id.
 func (e *environ) machineGroupName(machineId int) string {
 	return fmt.Sprintf("%s-%d", e.groupName(), machineId)
 }
 
+// groupName returns the name of the security group
+// that will be assigned to all machines started by the environ.
 func (e *environ) groupName() string {
 	return "juju-" + e.name
-}
-
-const retryDelay = time.Duration(2e9)
-
-// attempt calls the given function until it does not return an error with
-// the given ec2 error code.  This is to guard against ec2's "eventual
-// consistency" semantics.
-func attempt(code string, f func() error) (err error) {
-	for i := 0; i < 20; i++ {
-log.Printf("attempt %d", i)
-		err = f()
-log.Printf("error: %v", err)
-		ec2err, _ := f().(*ec2.Error)
-		if ec2err == nil || ec2err.Code != code {
-			return
-		}
-		time.Sleep(5e9)
-	}
-log.Printf("number of attempts exceeded (err %v)", err)
-	return
 }
 
 // setUpGroups creates the security groups for the new machine, and
@@ -340,71 +440,58 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	jujuGroup := ec2.SecurityGroup{Name: e.groupName()}
 	jujuMachineGroup := ec2.SecurityGroup{Name: e.machineGroupName(machineId)}
 
-	f := ec2.NewFilter()
-	f.Add("group-name", jujuGroup.Name, jujuMachineGroup.Name)
-	groups, err := e.ec2.SecurityGroups(nil, f)
-	if err != nil {
-		return nil, fmt.Errorf("cannot get security groups: %v", err)
+	// Create the provider group.
+	log.Printf("creating security group %q", jujuGroup.Name)
+	_, err := e.ec2.CreateSecurityGroup(jujuGroup.Name, "juju group for "+e.name)
+	// If the group already exists, we don't mind.
+	if err != nil && !hasCode("InvalidGroup.Duplicate")(err) {
+		return nil, fmt.Errorf("cannot create juju security group: %v", err)
 	}
-
-	for _, g := range groups.Groups {
-		switch g.Name {
-		case jujuGroup.Name:
-			jujuGroup = g.SecurityGroup
-		case jujuMachineGroup.Name:
-			jujuMachineGroup = g.SecurityGroup
-		}
-	}
-
-	// Create the provider group if doesn't exist.
-	if jujuGroup.Id == "" {
-log.Printf("creating security group %q", jujuGroup.Name)
-		r, err := e.ec2.CreateSecurityGroup(jujuGroup.Name, "juju group for "+e.name)
-		if err != nil {
-			return nil, fmt.Errorf("cannot create juju security group: %v", err)
-		}
-		jujuGroup = r.SecurityGroup
-log.Printf("authorizing security group %v", jujuGroup)
-		err = attempt("InvalidGroup.NotFound", func() error {
-			_, err := e.ec2.AuthorizeSecurityGroup(jujuGroup, []ec2.IPPerm{
-				// TODO delete this authorization when we can do
-				// the zookeeper ssh tunnelling.
-				{
-					Protocol: "tcp",
-					FromPort: zkPort,
-					ToPort: zkPort,
-					SourceIPs: []string{"0.0.0.0/0"},
-				},
-				{
-					Protocol: "tcp",
-					FromPort: 22,
-					ToPort: 22,
-					SourceIPs: []string{"0.0.0.0/0"},
-				},
-				// TODO authorize internal traffic
-			})
-			return err
+	log.Printf("authorizing security group %v", jujuGroup)
+	err = shortAttempt.do(hasCode("InvalidGroup.NotFound"), func() error {
+		_, err := e.ec2.AuthorizeSecurityGroup(jujuGroup, []ec2.IPPerm{
+			// TODO delete this authorization when we can do
+			// the zookeeper ssh tunnelling.
+			{
+				Protocol:  "tcp",
+				FromPort:  zkPort,
+				ToPort:    zkPort,
+				SourceIPs: []string{"0.0.0.0/0"},
+			},
+			{
+				Protocol:  "tcp",
+				FromPort:  22,
+				ToPort:    22,
+				SourceIPs: []string{"0.0.0.0/0"},
+			},
+			// TODO authorize internal traffic
 		})
-		if err != nil {
-			return nil, fmt.Errorf("cannot authorize security group: %v", err)
-		}
+		return err
+	})
+	// If the permission has already been granted we don't mind.
+	// TODO is it a problem if the group has more permissions than we want?
+	if err != nil && !hasCode("InvalidPermission.Duplicate")(err) {
+		return nil, fmt.Errorf("cannot authorize security group: %v", err)
 	}
 
-	// Create the machine-specific group, but first see if there's
-	// one already existing from a previous machine launch;
-	// if so, delete it, since it can have the wrong firewall setup
-	if jujuMachineGroup.Id != "" {
+	// Create the machine-specific group, but first try to delete it, since it
+	// can have the wrong firewall setup
+	err = shortAttempt.do(hasCode("InvalidGroup.InUse"), func() error {
 		_, err := e.ec2.DeleteSecurityGroup(jujuMachineGroup)
-		if err != nil {
-			return nil, fmt.Errorf("cannot delete old security group %q: %v", jujuMachineGroup.Name, err)
-		}
+		return err
+	})
+	if err != nil && !hasCode("InvalidGroup.NotFound")(err) {
+		return nil, fmt.Errorf("cannot delete old security group %q: %v", jujuMachineGroup.Name, err)
 	}
 
 	descr := fmt.Sprintf("juju group for %s machine %d", e.name, machineId)
-	r, err := e.ec2.CreateSecurityGroup(jujuMachineGroup.Name, descr)
+	err = shortAttempt.do(hasCode("InvalidGroup.Duplicate"), func() error {
+		_, err := e.ec2.CreateSecurityGroup(jujuMachineGroup.Name, descr)
+		return err
+	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot create machine group %q: %v", jujuMachineGroup.Name, err)
 	}
 
-	return []ec2.SecurityGroup{jujuGroup, r.SecurityGroup}, nil
+	return []ec2.SecurityGroup{jujuGroup, jujuMachineGroup}, nil
 }
