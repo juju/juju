@@ -10,12 +10,12 @@ import (
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {
-	*agentConf
+	agentConf
 	UnitName string
 }
 
 func NewUnitAgent() *UnitAgent {
-	return &UnitAgent{agentConf: &agentConf{name: "unit"}}
+	return &UnitAgent{agentConf: agentConf{name: "unit"}}
 }
 
 // InitFlagSet prepares a FlagSet.
@@ -48,7 +48,7 @@ func (a *UnitAgent) ParsePositional(args []string) error {
 // Run runs a unit agent.
 func (a *UnitAgent) Run() error {
 	// TODO connect to state once Open interface settles down
-	// state, err := state.Open(a.zookeeper, a.sessionFile)
+	// state, err := state.Open(a.zookeeperAddr, a.sessionFile)
 	// ...
 	return fmt.Errorf("UnitAgent.Run not implemented")
 }

@@ -10,7 +10,8 @@ var jujudDoc = `
 juju provides easy, intelligent service orchestration on top of environments
 such as OpenStack, Amazon AWS, or bare metal. jujud is a component of juju.
 
-https://juju.ubuntu.com/`
+https://juju.ubuntu.com/
+`
 
 // Main registers subcommands for the jujud executable, and hands over control
 // to the cmd package. This function is not redundant with main, because it

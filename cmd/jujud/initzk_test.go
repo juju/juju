@@ -23,19 +23,19 @@ func (s *InitzkSuite) TestParse(c *C) {
 
 	args = append(args, "--instance-id", "iWhatever")
 	_, err = parseInitzkCommand(args)
-	c.Assert(err, ErrorMatches, "--provider-type option must be set")
+	c.Assert(err, ErrorMatches, "--env-type option must be set")
 
-	args = append(args, "--provider-type", "dummy")
+	args = append(args, "--env-type", "dummy")
 	izk, err := parseInitzkCommand(args)
 	c.Assert(err, IsNil)
-	c.Assert(izk.Zookeeper, Equals, "127.0.0.1:2181")
+	c.Assert(izk.ZookeeperAddr, Equals, "127.0.0.1:2181")
 	c.Assert(izk.InstanceId, Equals, "iWhatever")
-	c.Assert(izk.ProviderType, Equals, "dummy")
+	c.Assert(izk.EnvType, Equals, "dummy")
 
 	args = append(args, "--zookeeper-servers", "zk")
 	izk, err = parseInitzkCommand(args)
 	c.Assert(err, IsNil)
-	c.Assert(izk.Zookeeper, Equals, "zk")
+	c.Assert(izk.ZookeeperAddr, Equals, "zk")
 
 	args = append(args, "haha disregard that")
 	_, err = parseInitzkCommand(args)

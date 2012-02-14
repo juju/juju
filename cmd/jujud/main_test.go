@@ -50,8 +50,8 @@ func (s *MainSuite) TestParseErrors(c *C) {
 	msga := "unrecognised args: [toastie]"
 	checkMessage(c, msga, "initzk",
 		"--zookeeper-servers", "zk",
-		"--provider-type", "pt",
 		"--instance-id", "ii",
+		"--env-type", "et",
 		"toastie")
 	checkMessage(c, msga, "unit",
 		"--zookeeper-servers", "zk",

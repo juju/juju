@@ -10,10 +10,10 @@ import (
 // and is intended for embedding in types which implement juju agents, to
 // help the agent types implement cmd.Command with minimal boilerplate.
 type agentConf struct {
-	name        string
-	jujuDir     string // Defaults to "/var/lib/juju".
-	zookeeper   string
-	sessionFile string
+	name          string
+	jujuDir       string // Defaults to "/var/lib/juju".
+	zookeeperAddr string
+	sessionFile   string
 }
 
 // Info returns a decription of the command.
@@ -32,8 +32,8 @@ func (c *agentConf) InitFlagSet(f *gnuflag.FlagSet) {
 		c.jujuDir = "/var/lib/juju"
 	}
 	f.StringVar(&c.jujuDir, "juju-directory", c.jujuDir, "juju working directory")
-	f.StringVar(&c.zookeeper, "z", c.zookeeper, "zookeeper servers to connect to")
-	f.StringVar(&c.zookeeper, "zookeeper-servers", c.zookeeper, "")
+	f.StringVar(&c.zookeeperAddr, "z", c.zookeeperAddr, "zookeeper servers to connect to")
+	f.StringVar(&c.zookeeperAddr, "zookeeper-servers", c.zookeeperAddr, "")
 	f.StringVar(&c.sessionFile, "session-file", c.sessionFile, "session id storage path")
 }
 
@@ -43,7 +43,7 @@ func (c *agentConf) ParsePositional(args []string) error {
 	if c.jujuDir == "" {
 		return requiredError("juju-directory")
 	}
-	if c.zookeeper == "" {
+	if c.zookeeperAddr == "" {
 		return requiredError("zookeeper-servers")
 	}
 	if c.sessionFile == "" {

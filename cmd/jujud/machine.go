@@ -8,13 +8,13 @@ import (
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
-	*agentConf
+	agentConf
 	machineId string
 	MachineId uint
 }
 
 func NewMachineAgent() *MachineAgent {
-	return &MachineAgent{agentConf: &agentConf{name: "machine"}}
+	return &MachineAgent{agentConf: agentConf{name: "machine"}}
 }
 
 // InitFlagSet prepares a FlagSet.
@@ -40,7 +40,7 @@ func (a *MachineAgent) ParsePositional(args []string) error {
 // Run runs a machine agent.
 func (a *MachineAgent) Run() error {
 	// TODO connect to state once Open interface settles down
-	// state, err := state.Open(a.zookeeper, a.sessionFile)
+	// state, err := state.Open(a.zookeeperAddr, a.sessionFile)
 	// ...
 	return fmt.Errorf("MachineAgent.Run not implemented")
 }
