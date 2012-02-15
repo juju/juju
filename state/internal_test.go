@@ -52,9 +52,12 @@ func (s *TopologySuite) TearDownSuite(c *C) {
 
 func (s *TopologySuite) SetUpTest(c *C) {
 	// Connect the server.
-	_, s.zkConn = OpenAddr(c, s.zkAddr)
+	st, err := Open(&Info{
+		Addrs: []string{s.zkAddr},
+	})
+	c.Assert(err, IsNil)
+	s.zkConn = ZkConn(st)
 	// Read the toplogy.
-	var err error
 	s.t, err = readTopology(s.zkConn)
 	c.Assert(err, IsNil)
 }
@@ -505,7 +508,12 @@ func (s *ConfigNodeSuite) TearDownSuite(c *C) {
 }
 
 func (s *ConfigNodeSuite) SetUpTest(c *C) {
-	_, s.zkConn = OpenAddr(c, s.zkAddr)
+	// Connect the server.
+	st, err := Open(&Info{
+		Addrs: []string{s.zkAddr},
+	})
+	c.Assert(err, IsNil)
+	s.zkConn = ZkConn(st)
 }
 
 func (s *ConfigNodeSuite) TearDownTest(c *C) {
@@ -818,4 +826,23 @@ func (s ConfigNodeSuite) TestWriteTwice(c *C) {
 	err = nodeOne.Read()
 	c.Assert(err, IsNil)
 	c.Assert(nodeOne, Equals, nodeTwo)
+}
+
+type QuoteSuite struct{}
+
+var _ = Suite(&QuoteSuite{})
+
+func (s QuoteSuite) TestUnmodified(c *C) {
+	// Check that a string containig only valid
+	// chars stays unmodified.
+	in := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-"
+	out := Quote(in)
+	c.Assert(out, Equals, in)
+}
+
+func (s QuoteSuite) TestQuote(c *C) {
+	// Check that invalid chars a translated correctly.
+	in := "hello_there/how'are~you-today.sir"
+	out := Quote(in)
+	c.Assert(out, Equals, "hello_5f_there_2f_how_27_are_7e_you-today.sir")
 }

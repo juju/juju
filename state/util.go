@@ -252,3 +252,19 @@ func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 	}
 	return keys
 }
+
+// Quote translates an unsafe string into a safe quoted one. ASCII
+// letters, ASCII digits, dot and dash stay the same, other bytes
+// are translated to their hex representation surrounded by 
+// underscores.
+func Quote(unsafe string) string {
+	safe := []byte{}
+	for _, b := range []byte(unsafe) {
+		if (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9') || b == '.' || b == '-' {
+			safe = append(safe, b)
+		} else {
+			safe = append(safe, []byte(fmt.Sprintf("_%02x_", b))...)
+		}
+	}
+	return string(safe)
+}

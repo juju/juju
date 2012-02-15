@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju/go/charm"
 	"strings"
 )
 
@@ -36,10 +37,44 @@ func (s *State) AddMachine() (*Machine, error) {
 	return &Machine{s.zk, key}, nil
 }
 
+// AddCharm registers metadata about the provided Charm.
+func (s *State) AddCharm(id string, ch charm.Charm, url string) (*Charm, error) {
+	data := &charmData{
+		Meta:   ch.Meta(),
+		Config: ch.Config(),
+		SHA256: "", // Yet missing.
+		URL:    url,
+	}
+	yaml, err := goyaml.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	_, err = s.zk.Create(charmPath(id), string(yaml), 0, zkPermAll)
+	if err != nil {
+		return nil, err
+	}
+	return newCharm(s.zk, id, data)
+}
+
+// Charm returns a charm by the given id.
+func (s *State) Charm(id string) (*Charm, error) {
+	yaml, _, err := s.zk.Get(charmPath(id))
+	if err == zookeeper.ZNONODE {
+		return nil, fmt.Errorf("charm %q not found", id)
+	} else if err != nil {
+		return nil, err
+	}
+	data := &charmData{}
+	if err = goyaml.Unmarshal([]byte(yaml), data); err != nil {
+		return nil, err
+	}
+	return newCharm(s.zk, id, data)
+}
+
 // AddService creates a new service with the given unique name
 // and the charm state.
-func (s *State) AddService(name string, charm *Charm) (*Service, error) {
-	details := map[string]interface{}{"charm": charm.URL().String()}
+func (s *State) AddService(name string, ch *Charm) (*Service, error) {
+	details := map[string]interface{}{"charm": ch.URL().String()}
 	yaml, err := goyaml.Marshal(details)
 	if err != nil {
 		return nil, err

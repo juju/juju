@@ -1,7 +1,6 @@
 // launchpad.net/juju/go/state
 //
 // Copyright (c) 2011-2012 Canonical Ltd.
-
 package state_test
 
 import (
@@ -10,16 +9,34 @@ import (
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/state"
+	"path/filepath"
 	"testing"
 )
 
-// zkCreate is a simple helper to create a node with a value based
-// on the path. It uses standard parameters for ZooKeeper and the
-// test fails when the node can't be created.
-func zkCreate(c *C, zk *zookeeper.Conn, path, value string) {
-	if _, err := zk.Create(path, value, 0, zookeeper.WorldACL(zookeeper.PERM_ALL)); err != nil {
-		c.Fatal("Cannot set path '"+path+"' in ZooKeeper: ", err)
-	}
+// charmRepoDir returns a directory containing test charms.
+func charmRepoDir(name string) string {
+	return filepath.Join("..", "charm", "testrepo", "series", name)
+}
+
+// readCharm returns a test charm by a name.
+func readCharm(c *C, name string) charm.Charm {
+	ch, err := charm.ReadDir(charmRepoDir(name))
+	c.Assert(err, IsNil)
+	return ch
+}
+
+// localCharmId returns the local id of a charm.
+func localCharmId(ch charm.Charm) string {
+	return fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision())
+}
+
+// addDummyCharm adds the 'dummy' charm state for those tests
+// where it's needed.
+func addDummyCharm(c *C, st *state.State) *state.Charm {
+	ch := readCharm(c, "dummy")
+	dummy, err := st.AddCharm(localCharmId(ch), ch, "http://example.com/abc")
+	c.Assert(err, IsNil)
+	return dummy
 }
 
 // TestPackage integrates the tests into gotest.
@@ -46,11 +63,11 @@ func (s *StateSuite) SetUpSuite(c *C) {
 
 	s.zkServer, err = zookeeper.CreateServer(s.zkTestPort, s.zkTestRoot, "")
 	if err != nil {
-		c.Fatal("Cannot set up ZooKeeper server environment: ", err)
+		c.Fatal("cannot set up ZooKeeper server environment: ", err)
 	}
 	err = s.zkServer.Start()
 	if err != nil {
-		c.Fatal("Cannot start ZooKeeper server: ", err)
+		c.Fatal("cannot start ZooKeeper server: ", err)
 	}
 }
 
@@ -61,9 +78,14 @@ func (s *StateSuite) TearDownSuite(c *C) {
 }
 
 func (s *StateSuite) SetUpTest(c *C) {
-	s.st, s.zkConn = state.OpenAddr(c, s.zkAddr)
-	err := s.st.Initialize()
+	var err error
+	s.st, err = state.Open(&state.Info{
+		Addrs: []string{s.zkAddr},
+	})
 	c.Assert(err, IsNil)
+	err = s.st.Initialize()
+	c.Assert(err, IsNil)
+	s.zkConn = state.ZkConn(s.st)
 }
 
 func (s *StateSuite) TearDownTest(c *C) {
@@ -78,13 +100,97 @@ func (s *StateSuite) TearDownTest(c *C) {
 	s.zkConn.Close()
 }
 
+func (s StateSuite) TestAddCharm(c *C) {
+	// Check that adding charms works correctly.
+	dummyCharm := readCharm(c, "dummy")
+	dummy, err := s.st.AddCharm(localCharmId(dummyCharm), dummyCharm, "http://example.com/abc")
+	c.Assert(err, IsNil)
+	c.Assert(dummy.Id(), Equals, "local:series/dummy-1")
+
+	children, _, err := s.zkConn.Children("/charms")
+	c.Assert(err, IsNil)
+	c.Assert(children, Equals, []string{"local_3a_series_2f_dummy-1"})
+}
+
+func (s StateSuite) TestCharm(c *C) {
+	// Check that reading a previously added charm works correctly.
+	dummyCharm := readCharm(c, "dummy")
+	dummy, err := s.st.AddCharm(localCharmId(dummyCharm), dummyCharm, "http://example.com/abc")
+	c.Assert(err, IsNil)
+
+	dummy, err = s.st.Charm("local:series/dummy-1")
+	c.Assert(err, IsNil)
+	c.Assert(dummy.Id(), Equals, "local:series/dummy-1")
+}
+
+func (s StateSuite) TestCharmAttributes(c *C) {
+	// Check that the basic (invariant) fields of the charm
+	// are correctly in place.
+	dummyCharm := readCharm(c, "dummy")
+	dummy, err := s.st.AddCharm(localCharmId(dummyCharm), dummyCharm, "http://example.com/abc")
+	c.Assert(err, IsNil)
+
+	dummy, err = s.st.Charm("local:series/dummy-1")
+	c.Assert(err, IsNil)
+	c.Assert(dummy.Id(), Equals, "local:series/dummy-1")
+	c.Assert(dummy.Name(), Equals, "dummy")
+	c.Assert(dummy.Revision(), Equals, 1)
+	c.Assert(dummy.BundleURL(), Equals, "http://example.com/abc")
+}
+
+func (s StateSuite) TestCharmMetadata(c *C) {
+	// Check that the charm metadata was correctly saved and loaded.
+	dummyCharm := readCharm(c, "dummy")
+	dummy, err := s.st.AddCharm(localCharmId(dummyCharm), dummyCharm, "")
+	c.Assert(err, IsNil)
+
+	dummy, err = s.st.Charm("local:series/dummy-1")
+	c.Assert(err, IsNil)
+	meta := dummy.Meta()
+	c.Assert(meta.Name, Equals, "dummy")
+}
+
+func (s StateSuite) TestCharmConfig(c *C) {
+	// Verify that the charm config is present and correct.
+	dummyCharm := readCharm(c, "dummy")
+	dummy, err := s.st.AddCharm(localCharmId(dummyCharm), dummyCharm, "")
+	c.Assert(err, IsNil)
+
+	dummy, err = s.st.Charm("local:series/dummy-1")
+	c.Assert(err, IsNil)
+	config := dummy.Config()
+	c.Assert(config.Options["title"], Equals,
+		charm.Option{
+			Default:     "My Title",
+			Description: "A descriptive title used for the service.",
+			Type:        "string",
+		},
+	)
+}
+
+func (s StateSuite) TestNonExistentCharmPriorToInitialization(c *C) {
+	// Check that getting a charm before anyone has been added fails nicely.
+	_, err := s.st.Charm("local:series/dummy-1")
+	c.Assert(err, ErrorMatches, `charm "local:series/dummy-1" not found`)
+}
+
+func (s StateSuite) TestGetNonExistentCharm(c *C) {	
+	// Check that getting a non-existent charm fails nicely.
+	dummyCharm := readCharm(c, "dummy")
+	_, err := s.st.AddCharm(localCharmId(dummyCharm), dummyCharm, "")
+	c.Assert(err, IsNil)
+
+	_, err = s.st.Charm("local:anotherseries/dummy-1")
+	c.Assert(err, ErrorMatches, `charm "local:anotherseries/dummy-1" not found`)
+}
+
 func (s StateSuite) TestAddService(c *C) {
 	// Check that adding services works correctly.
-	charm := state.CharmMock("local:myseries/mytest-1")
-	wordpress, err := s.st.AddService("wordpress", charm)
+	dummy := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	c.Assert(wordpress.Name(), Equals, "wordpress")
-	mysql, err := s.st.AddService("mysql", charm)
+	mysql, err := s.st.AddService("mysql", dummy)
 	c.Assert(err, IsNil)
 	c.Assert(mysql.Name(), Equals, "mysql")
 
@@ -94,17 +200,18 @@ func (s StateSuite) TestAddService(c *C) {
 	c.Assert(wordpress.Name(), Equals, "wordpress")
 	url, err := wordpress.CharmURL()
 	c.Assert(err, IsNil)
-	c.Assert(url.String(), Equals, "local:myseries/mytest-1")
+	c.Assert(url.String(), Equals, "local:series/dummy-1")
 	mysql, err = s.st.Service("mysql")
 	c.Assert(err, IsNil)
 	c.Assert(mysql.Name(), Equals, "mysql")
 	url, err = mysql.CharmURL()
 	c.Assert(err, IsNil)
-	c.Assert(url.String(), Equals, "local:myseries/mytest-1")
+	c.Assert(url.String(), Equals, "local:series/dummy-1")
 }
 
 func (s StateSuite) TestRemoveService(c *C) {
-	service, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	dummy := addDummyCharm(c, s.st)
+	service, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 
 	// Check that removing the service works correctly.
@@ -126,14 +233,14 @@ func (s StateSuite) TestAllServices(c *C) {
 	c.Assert(len(services), Equals, 0)
 
 	// Check that after adding services the result is ok.
-	charm := state.CharmMock("local:myseries/mytest-1")
-	_, err = s.st.AddService("wordpress", charm)
+	dummy := addDummyCharm(c, s.st)
+	_, err = s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	services, err = s.st.AllServices()
 	c.Assert(err, IsNil)
 	c.Assert(len(services), Equals, 1)
 
-	_, err = s.st.AddService("mysql", charm)
+	_, err = s.st.AddService("mysql", dummy)
 	c.Assert(err, IsNil)
 	services, err = s.st.AllServices()
 	c.Assert(err, IsNil)
@@ -145,24 +252,26 @@ func (s StateSuite) TestAllServices(c *C) {
 }
 
 func (s StateSuite) TestServiceCharm(c *C) {
-	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	dummy := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 
 	// Check that getting and setting the service charm URL works correctly.
 	url, err := wordpress.CharmURL()
 	c.Assert(err, IsNil)
-	c.Assert(url.String(), Equals, "local:myseries/mytest-1")
-	url, err = charm.ParseURL("local:myseries/myprod-1")
+	c.Assert(url.String(), Equals, "local:series/dummy-1")
+	url, err = charm.ParseURL("local:myseries/mydummy-1")
 	c.Assert(err, IsNil)
 	err = wordpress.SetCharmURL(url)
 	c.Assert(err, IsNil)
 	url, err = wordpress.CharmURL()
 	c.Assert(err, IsNil)
-	c.Assert(url.String(), Equals, "local:myseries/myprod-1")
+	c.Assert(url.String(), Equals, "local:myseries/mydummy-1")
 }
 
 func (s StateSuite) TestServiceExposed(c *C) {
-	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	dummy := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 
 	// Check that querying for the exposed flag works correctly.
@@ -200,7 +309,8 @@ func (s StateSuite) TestServiceExposed(c *C) {
 }
 
 func (s StateSuite) TestAddUnit(c *C) {
-	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	dummy := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 
 	// Check that adding units works.
@@ -213,13 +323,14 @@ func (s StateSuite) TestAddUnit(c *C) {
 }
 
 func (s StateSuite) TestReadUnit(c *C) {
-	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	dummy := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	_, err = wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	_, err = wordpress.AddUnit()
 	c.Assert(err, IsNil)
-	mysql, err := s.st.AddService("mysql", state.CharmMock("local:myseries/mytest-1"))
+	mysql, err := s.st.AddService("mysql", dummy)
 	c.Assert(err, IsNil)
 	_, err = mysql.AddUnit()
 	c.Assert(err, IsNil)
@@ -254,7 +365,8 @@ func (s StateSuite) TestReadUnit(c *C) {
 }
 
 func (s StateSuite) TestReadUnitWithChangingState(c *C) {
-	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	dummy := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 
 	// Check that reading a unit after removing the service
@@ -266,7 +378,8 @@ func (s StateSuite) TestReadUnitWithChangingState(c *C) {
 }
 
 func (s StateSuite) TestRemoveUnit(c *C) {
-	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	dummy := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	_, err = wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -288,7 +401,8 @@ func (s StateSuite) TestRemoveUnit(c *C) {
 }
 
 func (s StateSuite) TestGetSetPublicAddress(c *C) {
-	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	dummy := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -304,7 +418,8 @@ func (s StateSuite) TestGetSetPublicAddress(c *C) {
 }
 
 func (s StateSuite) TestGetSetPrivateAddress(c *C) {
-	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	dummy := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -320,7 +435,8 @@ func (s StateSuite) TestGetSetPrivateAddress(c *C) {
 }
 
 func (s StateSuite) TestUnitCharm(c *C) {
-	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	dummy := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -328,14 +444,14 @@ func (s StateSuite) TestUnitCharm(c *C) {
 	// Check that getting and setting the unit charm URL works correctly.
 	url, err := unit.CharmURL()
 	c.Assert(err, IsNil)
-	c.Assert(url.String(), Equals, "local:myseries/mytest-1")
-	url, err = charm.ParseURL("local:myseries/myprod-1")
+	c.Assert(url.String(), Equals, "local:series/dummy-1")
+	url, err = charm.ParseURL("local:myseries/mydummy-1")
 	c.Assert(err, IsNil)
 	err = unit.SetCharmURL(url)
 	c.Assert(err, IsNil)
 	url, err = unit.CharmURL()
 	c.Assert(err, IsNil)
-	c.Assert(url.String(), Equals, "local:myseries/myprod-1")
+	c.Assert(url.String(), Equals, "local:myseries/mydummy-1")
 }
 
 func (s StateSuite) TestUnassignUnitFromMachineWithoutBeingAssigned(c *C) {
@@ -346,7 +462,8 @@ func (s StateSuite) TestUnassignUnitFromMachineWithoutBeingAssigned(c *C) {
 	// move forward without any errors here, to avoid having to
 	// handle the extra complexity of dealing with the concurrency
 	// problems.
-	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	dummy := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -368,7 +485,8 @@ func (s StateSuite) TestAssignUnitToMachineAgainFails(c *C) {
 	// Check that assigning an already assigned unit to
 	// a machine fails if it isn't precisely the same
 	// machine. 
-	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	dummy := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -394,8 +512,9 @@ func (s StateSuite) TestAssignUnitToMachineAgainFails(c *C) {
 }
 
 func (s StateSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
-	// Check
-	wordpress, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	// Check that unassigning while the state changes fails nicely.
+	dummy := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -428,7 +547,8 @@ func (s StateSuite) TestAssignUnitToUnusedMachine(c *C) {
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 	// Check that a unit can be assigned to an unused machine.
-	mysqlService, err := s.st.AddService("mysql", state.CharmMock("local:myseries/mytest-1"))
+	dummy := addDummyCharm(c, s.st)
+	mysqlService, err := s.st.AddService("mysql", dummy)
 	c.Assert(err, IsNil)
 	mysqlUnit, err := mysqlService.AddUnit()
 	c.Assert(err, IsNil)
@@ -439,7 +559,7 @@ func (s StateSuite) TestAssignUnitToUnusedMachine(c *C) {
 	err = s.st.RemoveService(mysqlService)
 	c.Assert(err, IsNil)
 
-	wordpressService, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	wordpressService, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	wordpressUnit, err := wordpressService.AddUnit()
 	c.Assert(err, IsNil)
@@ -455,7 +575,8 @@ func (s StateSuite) TestAssignUnitToUnusedMachineWithChangingService(c *C) {
 	c.Assert(err, IsNil)
 	// Check for a 'state changed' error if a service is manipulated
 	// during reuse.
-	mysqlService, err := s.st.AddService("mysql", state.CharmMock("local:myseries/mytest-1"))
+	dummy := addDummyCharm(c, s.st)
+	mysqlService, err := s.st.AddService("mysql", dummy)
 	c.Assert(err, IsNil)
 	mysqlUnit, err := mysqlService.AddUnit()
 	c.Assert(err, IsNil)
@@ -466,7 +587,7 @@ func (s StateSuite) TestAssignUnitToUnusedMachineWithChangingService(c *C) {
 	err = s.st.RemoveService(mysqlService)
 	c.Assert(err, IsNil)
 
-	wordpressService, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	wordpressService, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	wordpressUnit, err := wordpressService.AddUnit()
 	c.Assert(err, IsNil)
@@ -483,7 +604,8 @@ func (s StateSuite) TestAssignUniToUnusedMachineWithChangingUnit(c *C) {
 	c.Assert(err, IsNil)
 	// Check for a 'state changed' error if a unit is manipulated
 	// during reuse.
-	mysqlService, err := s.st.AddService("mysql", state.CharmMock("local:myseries/mytest-1"))
+	dummy := addDummyCharm(c, s.st)
+	mysqlService, err := s.st.AddService("mysql", dummy)
 	c.Assert(err, IsNil)
 	mysqlUnit, err := mysqlService.AddUnit()
 	c.Assert(err, IsNil)
@@ -494,7 +616,7 @@ func (s StateSuite) TestAssignUniToUnusedMachineWithChangingUnit(c *C) {
 	err = s.st.RemoveService(mysqlService)
 	c.Assert(err, IsNil)
 
-	wordpressService, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	wordpressService, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	wordpressUnit, err := wordpressService.AddUnit()
 	c.Assert(err, IsNil)
@@ -510,7 +632,8 @@ func (s StateSuite) TestAssignUnitToUnusedMachineOnlyZero(c *C) {
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 	// Check that the unit can't be assigned to machine zero.
-	wordpressService, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	dummy := addDummyCharm(c, s.st)
+	wordpressService, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	wordpressUnit, err := wordpressService.AddUnit()
 	c.Assert(err, IsNil)
@@ -524,7 +647,8 @@ func (s StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 	// Check that assigning without unused machine fails.	
-	mysqlService, err := s.st.AddService("mysql", state.CharmMock("local:myseries/mytest-1"))
+	dummy := addDummyCharm(c, s.st)
+	mysqlService, err := s.st.AddService("mysql", dummy)
 	c.Assert(err, IsNil)
 	mysqlUnit, err := mysqlService.AddUnit()
 	c.Assert(err, IsNil)
@@ -533,7 +657,7 @@ func (s StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 	err = mysqlUnit.AssignToMachine(mysqlMachine)
 	c.Assert(err, IsNil)
 
-	wordpressService, err := s.st.AddService("wordpress", state.CharmMock("local:myseries/mytest-1"))
+	wordpressService, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	wordpressUnit, err := wordpressService.AddUnit()
 	c.Assert(err, IsNil)
