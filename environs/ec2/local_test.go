@@ -20,29 +20,6 @@ environments:
     control-bucket: test-bucket
 `)
 
-// localTests wraps jujutest.Tests by adding
-// set up and tear down functions that start a new
-// ec2test server for each test.
-// The server is accessed by using the "test" region,
-// which is changed to point to the network address
-// of the local server.
-type localTests struct {
-	*jujutest.Tests
-	srv localServer
-}
-
-// localLiveTests performs the live test suite, but locally.
-type localLiveTests struct {
-	*jujutest.LiveTests
-	srv localServer
-}
-
-type localServer struct {
-	ec2srv *ec2test.Server
-	s3srv  *s3test.Server
-	setup  func(*localServer)
-}
-
 // Each test is run in each of the following scenarios.
 // A scenario is implemented by mutating the ec2test
 // server after it starts.
@@ -82,170 +59,49 @@ func registerLocalTests() {
 
 	for _, name := range envs.Names() {
 		for _, scen := range scenarios {
-			Suite(&localTests{
+			Suite(&localServerSuite{
 				srv: localServer{setup: scen.setup},
-				Tests: &jujutest.Tests{
+				Tests: jujutest.Tests{
 					Environs: envs,
 					Name:     name,
 				},
 			})
-			Suite(&localLiveTests{
+			Suite(&localLiveSuite{
 				srv: localServer{setup: scen.setup},
-				LiveTests: &jujutest.LiveTests{
-					Environs: envs,
-					Name:     name,
+				LiveTests: LiveTests{
+					jujutest.LiveTests{
+						Environs: envs,
+						Name:     name,
+					},
 				},
 			})
 		}
 	}
 }
 
-func (t *localTests) TestBootstrapInstanceAndState(c *C) {
-	env, err := t.Environs.Open(t.Name)
-	c.Assert(err, IsNil)
-
-	err = env.Bootstrap()
-	c.Assert(err, IsNil)
-
-	insts, err := env.Instances()
-	c.Assert(err, IsNil)
-	c.Assert(len(insts), Equals, 1)
-
-	state, err := ec2.LoadState(env)
-	c.Assert(err, IsNil)
-	c.Assert(len(state.ZookeeperInstances), Equals, 1)
-	c.Assert(state.ZookeeperInstances[0], Equals, insts[0].Id())
-
-	err = env.Destroy()
-	c.Assert(err, IsNil)
-
-	_, err = ec2.LoadState(env)
-	c.Assert(err, NotNil)
+// localLiveSuite performs the live test suite, but locally.
+type localLiveSuite struct {
+	LiveTests
+	srv localServer
+	env environs.Environ
 }
 
-func (t *localTests) TestInstanceGroups(c *C) {
-	env, err := t.Environs.Open(t.Name)
-	c.Assert(err, IsNil)
-
-	ec2conn := amzec2.New(aws.Auth{}, ec2.Regions["test"])
-
-	groups := amzec2.SecurityGroupNames(
-		fmt.Sprintf("juju-%s", t.Name),
-		fmt.Sprintf("juju-%s-%d", t.Name, 98),
-		fmt.Sprintf("juju-%s-%d", t.Name, 99),
-	)
-
-	inst0, err := env.StartInstance(98)
-	c.Assert(err, IsNil)
-	defer env.StopInstances([]environs.Instance{inst0})
-
-	// create a same-named group for the second instance
-	// before starting it, to check that it's deleted and
-	// recreated correctly.
-	oldGroup := ensureGroupExists(c, ec2conn, groups[2], "old group")
-
-	inst1, err := env.StartInstance(99)
-	c.Assert(err, IsNil)
-	defer env.StopInstances([]environs.Instance{inst1})
-
-	// go behind the scenes to check the machines have
-	// been put into the correct groups.
-
-	// first check that the old group has been deleted
-	groupsResp, err := ec2conn.SecurityGroups([]amzec2.SecurityGroup{oldGroup}, nil)
-	c.Assert(err, IsNil)
-	c.Check(len(groupsResp.Groups), Equals, 0)
-
-	// then check that the groups have been created.
-	groupsResp, err = ec2conn.SecurityGroups(groups, nil)
-	c.Assert(err, IsNil)
-	c.Assert(len(groupsResp.Groups), Equals, len(groups))
-
-	// for each group, check that it exists and record its id.
-	for i, group := range groups {
-		found := false
-		for _, g := range groupsResp.Groups {
-			if g.Name == group.Name {
-				groups[i].Id = g.Id
-				found = true
-				break
-			}
-		}
-		if !found {
-			c.Fatalf("group %q not found", group.Name)
-		}
-	}
-
-	// check that each instance is part of the correct groups.
-	resp, err := ec2conn.Instances([]string{inst0.Id(), inst1.Id()}, nil)
-	c.Assert(err, IsNil)
-	c.Assert(len(resp.Reservations), Equals, 2, Bug("reservations %#v", resp.Reservations))
-	for _, r := range resp.Reservations {
-		c.Assert(len(r.Instances), Equals, 1)
-		// each instance must be part of the general juju group.
-		msg := Bug("reservation %#v", r)
-		c.Assert(hasSecurityGroup(r, groups[0]), Equals, true, msg)
-		inst := r.Instances[0]
-		switch inst.InstanceId {
-		case inst0.Id():
-			c.Assert(hasSecurityGroup(r, groups[1]), Equals, true, msg)
-			c.Assert(hasSecurityGroup(r, groups[2]), Equals, false, msg)
-		case inst1.Id():
-			c.Assert(hasSecurityGroup(r, groups[2]), Equals, true, msg)
-
-			// check that the id of the second machine's group
-			// has changed - this implies that StartInstance has
-			// correctly deleted and re-created the group.
-			c.Assert(groups[2].Id, Not(Equals), oldGroup.Id)
-			c.Assert(hasSecurityGroup(r, groups[1]), Equals, false, msg)
-		default:
-			c.Errorf("unknown instance found: %v", inst)
-		}
-	}
-}
-
-// createGroup creates a new EC2 group if it doesn't already
-// exist, and returns full SecurityGroup.
-func ensureGroupExists(c *C, ec2conn *amzec2.EC2, group amzec2.SecurityGroup, descr string) amzec2.SecurityGroup {
-	groups, err := ec2conn.SecurityGroups([]amzec2.SecurityGroup{group}, nil)
-	c.Assert(err, IsNil)
-	if len(groups.Groups) > 0 {
-		return groups.Groups[0].SecurityGroup
-	}
-
-	resp, err := ec2conn.CreateSecurityGroup(group.Name, descr)
-	c.Assert(err, IsNil)
-
-	return resp.SecurityGroup
-}
-
-func hasSecurityGroup(r amzec2.Reservation, g amzec2.SecurityGroup) bool {
-	for _, rg := range r.SecurityGroups {
-		if rg.Id == g.Id {
-			return true
-		}
-	}
-	return false
-}
-
-func (t *localTests) SetUpTest(c *C) {
-	t.srv.startServer(c)
-	t.Tests.SetUpTest(c)
-}
-
-func (t *localTests) TearDownTest(c *C) {
-	t.Tests.TearDownTest(c)
-	t.srv.stopServer(c)
-}
-
-func (t *localLiveTests) SetUpSuite(c *C) {
+func (t *localLiveSuite) SetUpSuite(c *C) {
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
+	t.env = t.LiveTests.Env
 }
 
-func (t *localLiveTests) TearDownSuite(c *C) {
-	t.srv.stopServer(c)
+func (t *localLiveSuite) TearDownSuite(c *C) {
 	t.LiveTests.TearDownSuite(c)
+	t.srv.stopServer(c)
+	t.env = nil
+}
+
+type localServer struct {
+	ec2srv *ec2test.Server
+	s3srv  *s3test.Server
+	setup  func(*localServer)
 }
 
 func (srv *localServer) startServer(c *C) {
@@ -272,3 +128,47 @@ func (srv *localServer) stopServer(c *C) {
 	// no longer valid.
 	ec2.Regions["test"] = aws.Region{}
 }
+
+// localServerSuite wraps jujutest.Tests by adding set up and tear down
+// functions that start a new ec2test server for each test.  The server is
+// accessed by using the "test" region, which is changed to point to the
+// network address of the local server.
+type localServerSuite struct {
+	jujutest.Tests
+	srv localServer
+	env environs.Environ
+}
+
+func (t *localServerSuite) SetUpTest(c *C) {
+	t.srv.startServer(c)
+	t.Tests.SetUpTest(c)
+	t.env = t.Tests.Env
+}
+
+func (t *localServerSuite) TearDownTest(c *C) {
+	t.Tests.TearDownTest(c)
+	t.srv.stopServer(c)
+}
+
+func (t *localServerSuite) TestBootstrapInstanceAndState(c *C) {
+	info, err := t.env.Bootstrap()
+	c.Assert(info, NotNil)
+	c.Assert(err, IsNil)
+
+	// check that the state holds the id of the bootstrap machine.
+	state, err := ec2.LoadState(t.env)
+	c.Assert(err, IsNil)
+	c.Assert(len(state.ZookeeperInstances), Equals, 1)
+
+	insts, err := t.env.Instances()
+	c.Assert(err, IsNil)
+	c.Assert(len(insts), Equals, 1)
+	c.Check(insts[0].Id(), Equals, state.ZookeeperInstances[0])
+
+	err = t.env.Destroy()
+	c.Assert(err, IsNil)
+
+	_, err = ec2.LoadState(t.env)
+	c.Assert(err, NotNil)
+}
+

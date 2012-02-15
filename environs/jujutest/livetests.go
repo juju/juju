@@ -11,7 +11,7 @@ import (
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *C) {
 	names := make(map[string]environs.Instance)
-	insts, err := t.env.Instances()
+	insts, err := t.Env.Instances()
 	c.Assert(err, IsNil)
 
 	// check there are no duplicate instance ids
@@ -21,12 +21,12 @@ func (t *LiveTests) TestStartStop(c *C) {
 		names[id] = inst
 	}
 
-	inst, err := t.env.StartInstance(0)
+	inst, err := t.Env.StartInstance(0, InvalidStateInfo)
 	c.Assert(err, IsNil)
 	c.Assert(inst, NotNil)
 	id0 := inst.Id()
 
-	insts, err = t.env.Instances()
+	insts, err = t.Env.Instances()
 	c.Assert(err, IsNil)
 
 	// check the new instance is found
@@ -39,10 +39,10 @@ func (t *LiveTests) TestStartStop(c *C) {
 	}
 	c.Check(found, Equals, true)
 
-	err = t.env.StopInstances([]environs.Instance{inst})
+	err = t.Env.StopInstances([]environs.Instance{inst})
 	c.Assert(err, IsNil)
 
-	insts, err = t.env.Instances()
+	insts, err = t.Env.Instances()
 	c.Assert(err, IsNil)
 	c.Assert(len(insts), Equals, 0, Bug("instances: %v", insts))
 
@@ -54,20 +54,25 @@ func (t *LiveTests) TestStartStop(c *C) {
 }
 
 func (t *LiveTests) TestBootstrap(c *C) {
-	err := t.env.Bootstrap()
+	info, err := t.Env.Bootstrap()
 	c.Assert(err, IsNil)
+	c.Assert(info, NotNil)
+	c.Assert(len(info.Addrs), Not(Equals), 0)
 
-	err = t.env.Bootstrap()
+	info2, err := t.Env.Bootstrap()
+	c.Assert(info2, IsNil)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
-	err = t.env.Destroy()
+	err = t.Env.Destroy()
 	c.Assert(err, IsNil)
 
 	// check that we can bootstrap after destroy
-	err = t.env.Bootstrap()
+	info, err = t.Env.Bootstrap()
 	c.Assert(err, IsNil)
+	c.Assert(info, NotNil)
+	c.Assert(len(info.Addrs), Not(Equals), 0)
 
-	err = t.env.Destroy()
+	err = t.Env.Destroy()
 	c.Assert(err, IsNil)
 }
 
@@ -77,12 +82,12 @@ var contents2 = []byte("goodbye\n\n")
 
 func (t *LiveTests) TestFile(c *C) {
 	name := fmt.Sprint("testfile", time.Now().UnixNano())
-	checkFileDoesNotExist(c, t.env, name)
-	checkPutFile(c, t.env, name, contents)
-	checkFileHasContents(c, t.env, name, contents)
-	checkPutFile(c, t.env, name, contents2) // check that we can overwrite the file
-	checkFileHasContents(c, t.env, name, contents2)
-	err := t.env.RemoveFile(name)
+	checkFileDoesNotExist(c, t.Env, name)
+	checkPutFile(c, t.Env, name, contents)
+	checkFileHasContents(c, t.Env, name, contents)
+	checkPutFile(c, t.Env, name, contents2) // check that we can overwrite the file
+	checkFileHasContents(c, t.Env, name, contents2)
+	err := t.Env.RemoveFile(name)
 	c.Check(err, IsNil)
-	checkFileDoesNotExist(c, t.env, name)
+	checkFileDoesNotExist(c, t.Env, name)
 }
