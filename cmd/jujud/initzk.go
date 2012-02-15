@@ -7,9 +7,9 @@ import (
 )
 
 type InitzkCommand struct {
-	ZookeeperAddr string
-	InstanceId    string
-	EnvType       string
+	ZookeeperAddrs []string
+	InstanceId     string
+	EnvType        string
 }
 
 // Info returns a decription of the command.
@@ -24,10 +24,10 @@ func (c *InitzkCommand) Info() *cmd.Info {
 
 // InitFlagSet prepares a FlagSet.
 func (c *InitzkCommand) InitFlagSet(f *gnuflag.FlagSet) {
-	if c.ZookeeperAddr == "" {
-		c.ZookeeperAddr = "127.0.0.1:2181"
+	if c.ZookeeperAddrs == nil {
+		c.ZookeeperAddrs = []string{"127.0.0.1:2181"}
 	}
-	f.StringVar(&c.ZookeeperAddr, "zookeeper-servers", c.ZookeeperAddr, "address of zookeeper to initialize")
+	f.Var(&zkAddrsValue{&c.ZookeeperAddrs}, "zookeeper-servers", "address of zookeeper to initialize")
 	f.StringVar(&c.InstanceId, "instance-id", c.InstanceId, "instance id of this machine")
 	f.StringVar(&c.EnvType, "env-type", c.EnvType, "environment type")
 }
@@ -35,7 +35,7 @@ func (c *InitzkCommand) InitFlagSet(f *gnuflag.FlagSet) {
 // ParsePositional checks that there are no unwanted arguments, and that all
 // required flags have been set.
 func (c *InitzkCommand) ParsePositional(args []string) error {
-	if c.ZookeeperAddr == "" {
+	if c.ZookeeperAddrs == nil {
 		return requiredError("zookeeper-servers")
 	}
 	if c.InstanceId == "" {

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"launchpad.net/juju/go/cmd"
 	"os"
 )
@@ -23,11 +22,6 @@ func Main(args []string) {
 	jc.Register(NewMachineAgent())
 	jc.Register(NewProvisioningAgent())
 	cmd.Main(jc, args)
-}
-
-// requiredError is useful when complaining about missing command-line options.
-func requiredError(name string) error {
-	return fmt.Errorf("--%s option must be set", name)
 }
 
 func main() {

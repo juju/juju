@@ -15,7 +15,7 @@ type acCreator func() main.AgentCommand
 func CheckAgentCommand(c *C, create acCreator, args []string) main.AgentCommand {
 	err := cmd.Parse(create(), args)
 	c.Assert(err, ErrorMatches, "--zookeeper-servers option must be set")
-	args = append(args, "--zookeeper-servers", "zk")
+	args = append(args, "--zookeeper-servers", "zk1:2181,zk2:2181")
 
 	err = cmd.Parse(create(), args)
 	c.Assert(err, ErrorMatches, "--session-file option must be set")
@@ -23,14 +23,14 @@ func CheckAgentCommand(c *C, create acCreator, args []string) main.AgentCommand 
 
 	ac := create()
 	c.Assert(cmd.Parse(ac, args), IsNil)
-	c.Assert(ac.ZookeeperAddr(), Equals, "zk")
+	c.Assert(ac.ZookeeperAddrs(), Equals, []string{"zk1:2181", "zk2:2181"})
 	c.Assert(ac.SessionFile(), Equals, "sf")
 	c.Assert(ac.JujuDir(), Equals, "/var/lib/juju")
 	args = append(args, "--juju-directory", "jd")
 
 	ac = create()
 	c.Assert(cmd.Parse(ac, args), IsNil)
-	c.Assert(ac.ZookeeperAddr(), Equals, "zk")
+	c.Assert(ac.ZookeeperAddrs(), Equals, []string{"zk1:2181", "zk2:2181"})
 	c.Assert(ac.SessionFile(), Equals, "sf")
 	c.Assert(ac.JujuDir(), Equals, "jd")
 	return ac
@@ -40,7 +40,7 @@ func CheckAgentCommand(c *C, create acCreator, args []string) main.AgentCommand 
 // before parsing an agent command and returning the result.
 func ParseAgentCommand(ac cmd.Command, args []string) error {
 	common := []string{
-		"--zookeeper-servers", "zk",
+		"--zookeeper-servers", "zk:2181",
 		"--session-file", "sf",
 		"--juju-directory", "jd",
 	}

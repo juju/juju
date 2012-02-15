@@ -39,32 +39,34 @@ func (s *MainSuite) TestParseErrors(c *C) {
 	// Check all the obvious parse errors
 	checkMessage(c, "no command specified")
 	checkMessage(c, "unrecognised command: cavitate", "cavitate")
-
 	msgf := "flag provided but not defined: --cheese"
 	checkMessage(c, msgf, "--cheese", "cavitate")
-	checkMessage(c, msgf, "initzk", "--cheese")
-	checkMessage(c, msgf, "unit", "--cheese")
-	checkMessage(c, msgf, "machine", "--cheese")
-	checkMessage(c, msgf, "provisioning", "--cheese")
+
+	cmds := []string{"initzk", "unit", "machine", "provisioning"}
+	msgz := `invalid value "localhost:2181,zk" for flag --zookeeper-servers: "zk" is not a valid zookeeper address`
+	for _, cmd := range cmds {
+		checkMessage(c, msgf, cmd, "--cheese")
+		checkMessage(c, msgz, cmd, "--zookeeper-servers", "localhost:2181,zk")
+	}
 
 	msga := "unrecognised args: [toastie]"
 	checkMessage(c, msga, "initzk",
-		"--zookeeper-servers", "zk",
+		"--zookeeper-servers", "zk:2181",
 		"--instance-id", "ii",
 		"--env-type", "et",
 		"toastie")
 	checkMessage(c, msga, "unit",
-		"--zookeeper-servers", "zk",
+		"--zookeeper-servers", "localhost:2181,zk:2181",
 		"--session-file", "sf",
 		"--unit-name", "un/0",
 		"toastie")
 	checkMessage(c, msga, "machine",
-		"--zookeeper-servers", "zk",
+		"--zookeeper-servers", "zk:2181",
 		"--session-file", "sf",
 		"--machine-id", "42",
 		"toastie")
 	checkMessage(c, msga, "provisioning",
-		"--zookeeper-servers", "zk",
+		"--zookeeper-servers", "127.0.0.1:2181",
 		"--session-file", "sf",
 		"toastie")
 }
