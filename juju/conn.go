@@ -9,7 +9,6 @@ import (
 type Conn struct {
 	// TODO extend to hold an optional Zookeeper connection as well.
 	environ environs.Environ
-	state   *state.State
 }
 
 // NewConn returns a Conn pointing at the environName environment, or the
@@ -26,17 +25,9 @@ func NewConn(environName string) (*Conn, error) {
 	return &Conn{environ}, nil
 }
 
-func (c *Conn) Connect() error {
-	state, err := c.environ.StateInfo().Connect()
-	if err != nil {
-		return err
-	}
-	c.state = state
-	return nil
-}
-
 // Bootstrap initializes the Conn's environment and makes it ready to deploy
 // services.
+// TODO implement this.
 func (c *Conn) Bootstrap() error {
-	return c.environ.Bootstrap()
+	return fmt.Errorf("This doesn't do anything yet.")
 }

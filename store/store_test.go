@@ -129,15 +129,6 @@ func (s *S) TestCharmPublisher(c *C) {
 		info2, err := s.store.CharmInfo(url)
 		c.Assert(err, IsNil)
 		c.Assert(info2, Equals, info)
-
-		// The successful completion is also recorded as a charm event.
-		event, err := s.store.CharmEvent(url, "some-digest")
-		c.Assert(err, IsNil)
-		c.Assert(event.Kind, Equals, store.EventPublished)
-		c.Assert(event.Digest, Equals, "some-digest")
-		c.Assert(event.URLs, Equals, urls)
-		c.Assert(event.Errors, IsNil)
-		c.Assert(event.Warnings, IsNil)
 	}
 }
 
@@ -159,33 +150,16 @@ func (s *S) TestCharmPublishError(c *C) {
 	err = pub.Publish(&FakeCharmDir{error: "beforeWrite"})
 	c.Assert(err, ErrorMatches, "beforeWrite")
 
-	want := &store.CharmEvent{
-		Kind:     store.EventPublishError,
-		URLs:     urls,
-		Digest:   "another-digest",
-		Revision: 1,
-		Errors:   []string{"beforeWrite"},
-	}
-	event, err := s.store.CharmEvent(url, "another-digest")
-	event.Time = time.Time{}
-	c.Assert(event, Equals, want)
-
 	pub, err = s.store.CharmPublisher(urls, "another-digest")
 	c.Assert(err, IsNil)
 	c.Assert(pub.Revision(), Equals, 1)
 	err = pub.Publish(&FakeCharmDir{error: "afterWrite"})
 	c.Assert(err, ErrorMatches, "afterWrite")
 
-	want = &store.CharmEvent{
-		Kind:     store.EventPublishError,
-		URLs:     urls,
-		Digest:   "another-digest",
-		Revision: 1,
-		Errors:   []string{"afterWrite"},
-	}
-	event, err = s.store.CharmEvent(url, "another-digest")
-	event.Time = time.Time{}
-	c.Assert(event, Equals, want)
+	// Still at the original charm revision that succeeded first.
+	info, err := s.store.CharmInfo(url)
+	c.Assert(err, IsNil)
+	c.Assert(info.Revision(), Equals, 0)
 }
 
 func (s *S) TestCharmInfoNotFound(c *C) {

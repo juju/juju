@@ -15,26 +15,16 @@ import (
 //     local:oneiric/wordpress
 //
 type URL struct {
-	Name     string
-	Revision int // -1 if unset, 0 is valid
-	Collection
+	Schema   string // "cs" or "local"
+	User     string // "joe"
+	Series   string // "oneiric"
+	Name     string // "wordpress"
+	Revision int    // -1 if unset, N otherwise
 }
 
-// A charm Collection represents a namespace of charms. The
-// collection precedes the charm name in a charm URL.
-type Collection struct {
-	Schema string
-	User   string
-	Series string
-}
-
-// WithRevision returns a *URL with the same Name and Collection of url,
-// but with Revision set to the revision parameter. If url already has
-// the requested revision, url itself is returned.
+// WithRevision returns a URL equivalent to url but with Revision set
+// to revision.
 func (url *URL) WithRevision(revision int) *URL {
-	if url.Revision == revision {
-		return url
-	}
 	urlCopy := *url
 	urlCopy.Revision = revision
 	return &urlCopy
