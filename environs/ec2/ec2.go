@@ -13,6 +13,8 @@ import (
 
 const zkPort = 2181
 
+var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
+
 const maxReqs = 20 // maximum concurrent ec2 requests
 
 var shortAttempt = attempt{
@@ -26,8 +28,6 @@ var longAttempt = attempt{
 	longTotal:  3 * 60e9,
 	longDelay:  5e9,
 }
-
-var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
 
 func init() {
 	environs.RegisterProvider("ec2", environProvider{})
@@ -169,10 +169,12 @@ func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte
 		machineId:          fmt.Sprint(machineId),
 	}
 
-	var err error
-	cfg.authorizedKeys, err = authorizedKeys(e.config.authorizedKeys, e.config.authorizedKeysPath)
-	if err != nil {
-		return nil, fmt.Errorf("cannot get ssh authorized keys: %v", err)
+	if e.config.authorizedKeys == "" {
+		var err error
+		cfg.authorizedKeys, err = authorizedKeys(e.config.authorizedKeysPath)
+		if err != nil {
+			return nil, fmt.Errorf("cannot get ssh authorized keys: %v", err)
+		}
 	}
 	cloudcfg, err := newCloudInit(cfg)
 	if err != nil {
