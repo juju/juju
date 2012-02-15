@@ -28,14 +28,9 @@ func (c *agentConf) Info() *cmd.Info {
 
 // InitFlagSet prepares a FlagSet.
 func (c *agentConf) InitFlagSet(f *gnuflag.FlagSet) {
-	if c.jujuDir == "" {
-		c.jujuDir = "/var/lib/juju"
-	}
-	f.StringVar(&c.jujuDir, "juju-directory", c.jujuDir, "juju working directory")
-	zkValue := &zkAddrsValue{&c.zookeeperAddrs}
-	f.Var(zkValue, "z", "zookeeper servers to connect to")
-	f.Var(zkValue, "zookeeper-servers", "")
-	f.StringVar(&c.sessionFile, "session-file", c.sessionFile, "session id storage path")
+	f.StringVar(&c.jujuDir, "juju-directory", "/var/lib/juju", "juju working directory")
+	zkAddrsVar(f, &c.zookeeperAddrs, "zookeeper-servers", nil, "zookeeper servers to connect to")
+	f.StringVar(&c.sessionFile, "session-file", "", "session id storage path")
 }
 
 // ParsePositional checks that there are no unwanted arguments, and that all

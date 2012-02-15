@@ -18,7 +18,7 @@ func NewUnitAgent() *UnitAgent {
 
 // InitFlagSet prepares a FlagSet.
 func (a *UnitAgent) InitFlagSet(f *gnuflag.FlagSet) {
-	f.StringVar(&a.UnitName, "unit-name", a.UnitName, "name of the unit to run")
+	f.StringVar(&a.UnitName, "unit-name", "", "name of the unit to run")
 	a.agentConf.InitFlagSet(f)
 }
 

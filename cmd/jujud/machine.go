@@ -12,12 +12,12 @@ type MachineAgent struct {
 }
 
 func NewMachineAgent() *MachineAgent {
-	return &MachineAgent{agentConf: agentConf{name: "machine"}, MachineId: -1}
+	return &MachineAgent{agentConf: agentConf{name: "machine"}}
 }
 
 // InitFlagSet prepares a FlagSet.
 func (a *MachineAgent) InitFlagSet(f *gnuflag.FlagSet) {
-	f.IntVar(&a.MachineId, "machine-id", a.MachineId, "id of the machine to run")
+	f.IntVar(&a.MachineId, "machine-id", -1, "id of the machine to run")
 	a.agentConf.InitFlagSet(f)
 }
 

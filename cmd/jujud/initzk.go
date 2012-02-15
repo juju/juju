@@ -24,12 +24,9 @@ func (c *InitzkCommand) Info() *cmd.Info {
 
 // InitFlagSet prepares a FlagSet.
 func (c *InitzkCommand) InitFlagSet(f *gnuflag.FlagSet) {
-	if c.ZookeeperAddrs == nil {
-		c.ZookeeperAddrs = []string{"127.0.0.1:2181"}
-	}
-	f.Var(&zkAddrsValue{&c.ZookeeperAddrs}, "zookeeper-servers", "address of zookeeper to initialize")
-	f.StringVar(&c.InstanceId, "instance-id", c.InstanceId, "instance id of this machine")
-	f.StringVar(&c.EnvType, "env-type", c.EnvType, "environment type")
+	zkAddrsVar(f, &c.ZookeeperAddrs, "zookeeper-servers", []string{"127.0.0.1:2181"}, "address of zookeeper to initialize")
+	f.StringVar(&c.InstanceId, "instance-id", "", "instance id of this machine")
+	f.StringVar(&c.EnvType, "env-type", "", "environment type")
 }
 
 // ParsePositional checks that there are no unwanted arguments, and that all
