@@ -6,6 +6,7 @@ import (
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/state"
+	"strings"
 	"sync"
 )
 
@@ -290,7 +291,7 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 // environment has been destroyed)
 func (e *environ) delGroup(g ec2.SecurityGroup) error {
 	_, err := e.ec2.DeleteSecurityGroup(g)
-	if err == nil || hasCode("InvalidGroup.NotFound")(err) {
+	if err == nil || hasCode(err, "InvalidGroup.NotFound") {
 		return nil
 	}
 	return fmt.Errorf("cannot delete juju security group %q: %v", g.Name, err)
@@ -386,12 +387,6 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	}
 
 	return []ec2.SecurityGroup{jujuGroup, jujuMachineGroup}, nil
-}
-
-// hasCode true if the provided error has the given ec2 error code.
-func hasCode(err error, code string) bool {
-	ec2err, _ := err.(*ec2.Error)
-	return ec2err != nil && ec2err.Code == code
 }
 
 // hasCode true if the provided error has the given ec2 error code.

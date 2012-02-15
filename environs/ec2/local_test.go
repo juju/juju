@@ -177,3 +177,5 @@ func (t *localServerSuite) TestBootstrapInstanceAndState(c *C) {
 	c.Assert(err, NotNil)
 }
 
+TODO test that StopInstances deletes security groups.
+TODO test that Destroy deletes security groups.
