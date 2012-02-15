@@ -1,5 +1,9 @@
 package cloudinit
 
+import (
+	"strings"
+)
+
 // SetAttr sets an arbitrary attribute in the cloudinit config.
 // If value is nil the attribute will be deleted; otherwise
 // the value will be marshalled according to the rules
@@ -193,12 +197,20 @@ func (cfg *Config) SetDisableRoot(disable bool) {
 	cfg.set("disable_root", !disable, disable)
 }
 
-// AddSSHAuthorizedKey adds a key that will be
-// an entry in ~/.ssh/authorized_keys for the
+// AddSSHAuthorizedKey adds a set of keys in
+// ssh authorized_keys format (see ssh(8) for details)
+// that will be added to ~/.ssh/authorized_keys for the
 // configured user (see SetUser).
-func (cfg *Config) AddSSHAuthorizedKey(yes string) {
-	keys, _ := cfg.attrs["ssh_authorized_keys"].([]string)
-	cfg.attrs["ssh_authorized_keys"] = append(keys, yes)
+func (cfg *Config) AddSSHAuthorizedKeys(keys string) {
+	akeys, _ := cfg.attrs["ssh_authorized_keys"].([]string)
+	lines := strings.Split(keys, "\n")
+	for _, line := range lines {
+		if line == "" || line[0] == '#' {
+			continue
+		}
+		akeys = append(akeys, line)
+	}
+	cfg.attrs["ssh_authorized_keys"] = akeys
 }
 
 // TODO

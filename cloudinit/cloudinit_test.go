@@ -96,23 +96,44 @@ var ctests = []struct {
 		"SSHAuthorizedKeys",
 		"ssh_authorized_keys:\n- key1\n- key2\n",
 		func(cfg *cloudinit.Config) {
-			cfg.AddSSHAuthorizedKey("key1")
-			cfg.AddSSHAuthorizedKey("key2")
+			cfg.AddSSHAuthorizedKeys("key1")
+			cfg.AddSSHAuthorizedKeys("key2")
 		},
 	},
 	{
-		"SSHKeys RSA",
-		"ssh_keys:\n  rsa_private: key1data\n  rsa_public: key2data\n",
+		"SSHAuthorizedKeys",
+		"ssh_authorized_keys:\n- key1\n- key2\n- key3\n",
+		func(cfg *cloudinit.Config) {
+			cfg.AddSSHAuthorizedKeys("#command\nkey1")
+			cfg.AddSSHAuthorizedKeys("key2\n# comment\n\nkey3\n")
+			cfg.AddSSHAuthorizedKeys("")
+		},
+	},
+	{
+		"SSHKeys RSAPrivate",
+		"ssh_keys:\n  rsa_private: key1data\n",
 		func(cfg *cloudinit.Config) {
 			cfg.AddSSHKey(cloudinit.RSAPrivate, "key1data")
+		},
+	},
+	{
+		"SSHKeys RSAPublic",
+		"ssh_keys:\n  rsa_public: key2data\n",
+		func(cfg *cloudinit.Config) {
 			cfg.AddSSHKey(cloudinit.RSAPublic, "key2data")
 		},
 	},
 	{
-		"SSHKeys DSA",
-		"ssh_keys:\n  dsa_public: key1data\n  dsa_private: key2data\n",
+		"SSHKeys DSAPublic",
+		"ssh_keys:\n  dsa_public: key1data\n",
 		func(cfg *cloudinit.Config) {
 			cfg.AddSSHKey(cloudinit.DSAPublic, "key1data")
+		},
+	},
+	{
+		"SSHKeys DSAPrivate",
+		"ssh_keys:\n  dsa_private: key2data\n",
+		func(cfg *cloudinit.Config) {
 			cfg.AddSSHKey(cloudinit.DSAPrivate, "key2data")
 		},
 	},
