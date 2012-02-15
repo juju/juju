@@ -20,45 +20,65 @@ var configTestRegion = aws.Region{
 
 var testAuth = aws.Auth{"gopher", "long teeth"}
 
+// the mandatory fields in config.
+var baseConfig = `control-bucket: x
+`
+
+// the result of parsing baseConfig.
+var baseConfigResult = providerConfig{
+	region: "us-east-1",
+	bucket: "x",
+	auth:   testAuth,
+}
+
+// configTest specifies a config parsing test,
+// checking that env when parsed as the ec2
+// section of a config file matches baseConfigResult
+// when mutated by the mutate function,
+// or that the parse matches the given error.
 type configTest struct {
 	env    string
-	config *providerConfig
+	mutate func(*providerConfig)
 	err    string
 }
 
 var configTests = []configTest{
 	{
-		"control-bucket: x\n",
-		&providerConfig{region: "us-east-1", auth: testAuth, bucket: "x"},
+		baseConfig,
+		func(cfg *providerConfig) {},
 		"",
 	},
 	{
-		"region: eu-west-1\ncontrol-bucket: x\n",
-		&providerConfig{region: "eu-west-1", auth: testAuth, bucket: "x"},
+		"region: eu-west-1\n" + baseConfig,
+		func(cfg *providerConfig) {
+			cfg.region = "eu-west-1"
+		},
 		"",
 	},
 	{
-		"region: unknown\ncontrol-bucket: x\n",
+		"region: unknown\n" + baseConfig,
 		nil,
 		".*invalid region name.*",
 	},
 	{
-		"region: configtest\ncontrol-bucket: x\n",
-		&providerConfig{region: "configtest", auth: testAuth, bucket: "x"},
+		"region: configtest\n" + baseConfig,
+		func(cfg *providerConfig) {
+			cfg.region = "configtest"
+		},
 		"",
 	},
 	{
-		"region: 666\ncontrol-bucket: x\n",
+		"region: 666\n" + baseConfig,
 		nil,
 		".*expected string, got 666",
 	},
 	{
-		"access-key: 666\ncontrol-bucket: x\n",
+		"access-key: 666\n" + baseConfig,
 		nil,
 		".*expected string, got 666",
 	},
 	{
-		"secret-key: 666\ncontrol-bucket: x\n",
+		"secret-key: 666\n" + baseConfig,
 		nil,
 		".*expected string, got 666",
 	},
@@ -68,31 +88,44 @@ var configTests = []configTest{
 		".*expected string, got 666",
 	},
 	{
-		"access-key: jujuer\nsecret-key: open sesame\ncontrol-bucket: x\n",
-		&providerConfig{
-			region: "us-east-1",
-			auth: aws.Auth{
+		"access-key: jujuer\nsecret-key: open sesame\n" + baseConfig,
+		func(cfg *providerConfig) {
+			cfg.auth = aws.Auth{
 				AccessKey: "jujuer",
 				SecretKey: "open sesame",
-			},
-			bucket: "x",
+			}
 		},
 		"",
 	},
 	{
-		"access-key: jujuer\ncontrol-bucket: x\n",
+		"authorized-keys: authkeys\n" + baseConfig,
+		func(cfg *providerConfig) {
+			cfg.authorizedKeys = "authkeys"
+		},
+		"",
+	},
+	{
+		"authorized-keys-path: 'some path'\n" + baseConfig,
+		func(cfg *providerConfig) {
+			cfg.authorizedKeysPath = "some path"
+		},
+		"",
+	},
+	{
+		"access-key: jujuer\n" + baseConfig,
 		nil,
 		".*environment has access-key but no secret-key",
 	},
 	{
-		"secret-key: badness\ncontrol-bucket: x\n",
+		"secret-key: badness\n" + baseConfig,
 		nil,
 		".*environment has secret-key but no access-key",
 	},
+
 	// unknown fields are discarded
 	{
-		"unknown-something: 666\ncontrol-bucket: x",
-		&providerConfig{region: "us-east-1", auth: testAuth, bucket: "x"},
+		"unknown-something: 666\n" + baseConfig,
+		func(cfg *providerConfig) {},
 		"",
 	},
 }
@@ -123,18 +156,18 @@ func (configSuite) TestConfig(c *C) {
 	// first try with no auth environment vars set
 	test := configTests[0]
 	test.err = ".*not found in environment"
-	test.run(c)
+	test.check(c)
 
 	// then set testAuthults
 	os.Setenv("AWS_ACCESS_KEY_ID", testAuth.AccessKey)
 	os.Setenv("AWS_SECRET_ACCESS_KEY", testAuth.SecretKey)
 
 	for _, t := range configTests {
-		t.run(c)
+		t.check(c)
 	}
 }
 
-func (t configTest) run(c *C) {
+func (t configTest) check(c *C) {
 	envs, err := environs.ReadEnvironsBytes(makeEnv(t.env))
 	if err != nil {
 		if t.err != "" {
@@ -148,5 +181,7 @@ func (t configTest) run(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(e, NotNil)
 	c.Assert(e, FitsTypeOf, (*environ)(nil), Bug("environ %q", t.env))
-	c.Check(e.(*environ).config, Equals, t.config, Bug("environ %q", t.env))
+	tconfig := baseConfigResult
+	t.mutate(&tconfig)
+	c.Check(e.(*environ).config, Equals, &tconfig, Bug("environ %q", t.env))
 }
