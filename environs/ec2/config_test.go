@@ -21,8 +21,7 @@ var configTestRegion = aws.Region{
 var testAuth = aws.Auth{"gopher", "long teeth"}
 
 // the mandatory fields in config.
-var baseConfig = `control-bucket: x
-`
+var baseConfig = "control-bucket: x\n"
 
 // the result of parsing baseConfig.
 var baseConfigResult = providerConfig{
