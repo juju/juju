@@ -167,35 +167,89 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 	return err
 }
 
-func (e *environ) Instances() ([]environs.Instance, error) {
+func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	insts := make([]environs.Instance, len(ids))
+
+	// TODO make a series of requests to cope with eventual consistency.
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
 	filter.Add("group-name", e.groupName())
-
+	filter.Add("instance-id", ids...)
 	resp, err := e.ec2.Instances(nil, filter)
 	if err != nil {
 		return nil, err
 	}
-	var insts []environs.Instance
-	for i := range resp.Reservations {
-		r := &resp.Reservations[i]
-		for j := range r.Instances {
-			insts = append(insts, &instance{&r.Instances[j]})
+	// For each requested id, add it to the returned instances
+	// if we find it in the response.
+	n := 0
+	for i, id := range ids {
+		if insts[i] != nil {
+			continue
+		}
+		for j := range resp.Reservations {
+			r := &resp.Reservations[j]
+			for k := range r.Instances {
+				inst := & r.Instances[k]
+				if inst.InstanceId == id {
+					insts[i] = &instance{inst}
+					n++
+				}
+			}
 		}
 	}
-	return insts, nil
+	if n == 0 {
+		return nil, environs.ErrMissingInstance
+	}
+	if n < len(ids) {
+		return insts, environs.ErrMissingInstance
+	}
+	return insts, err
 }
 
-func (e *environ) Destroy() error {
-	insts, err := e.Instances()
+func (e *environ) Destroy(insts []environs.Instance) error {
+	// Try to find all the instances in the environ's group.
+	filter := ec2.NewFilter()
+	filter.Add("instance-state-name", "pending", "running")
+	filter.Add("group-name", e.groupName())
+	resp, err := e.ec2.Instances(nil, filter)
+	if err != nil {
+		return fmt.Errorf("cannot get instances: %v", err)
+	}
+	var ids []string
+	hasId := make(map[string]bool)
+	for _, r := range resp.Reservations {
+		for _, inst := range r.Instances {
+			ids = append(ids, inst.InstanceId)
+			hasId[inst.InstanceId] = true
+		}
+	}
+
+	// Then add any instances we've been told about
+	// but haven't yet shown up in the instance list.
+	for _, inst := range insts {
+		id := inst.Id()
+		if !hasId[id] {
+			ids = append(ids, id)
+			hasId[id] = true
+		}
+	}
+	if len(ids) > 0 {
+		_, err = e.ec2.TerminateInstances(ids)
+	}
+	if err != nil {
+		// If the instance doesn't exist, we don't care
+		if ec2err, _ := err.(*ec2.Error); ec2err == nil || ec2err.Code == "InvalidInstance.NotFound" {
+			return err
+		}
+	}
+	err = e.deleteState()
 	if err != nil {
 		return err
 	}
-	err = e.StopInstances(insts)
-	if err != nil {
-		return err
-	}
-	return e.deleteState()
+	return nil
 }
 
 func (e *environ) machineGroupName(machineId int) string {

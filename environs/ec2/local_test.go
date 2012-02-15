@@ -160,12 +160,17 @@ func (t *localServerSuite) TestBootstrapInstanceAndState(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(state.ZookeeperInstances), Equals, 1)
 
-	insts, err := t.env.Instances()
+	insts, err := t.env.Instances(state.ZookeeperInstances)
 	c.Assert(err, IsNil)
 	c.Assert(len(insts), Equals, 1)
 	c.Check(insts[0].Id(), Equals, state.ZookeeperInstances[0])
 
-	err = t.env.Destroy()
+	// check that the user data is configured to start zookeeper
+	// and the machine and provisioning agents.
+	inst := t.srv.ec2srv.Instance(insts[0].Id())
+	c.Assert(inst, NotNil)
+
+	err = t.env.Destroy(insts)
 	c.Assert(err, IsNil)
 
 	_, err = ec2.LoadState(t.env)
