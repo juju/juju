@@ -33,4 +33,23 @@ func EnvironEC2(e environs.Environ) *ec2.EC2 {
 	return e.(*environ).ec2
 }
 
+var originalShortAttempt = shortAttempt
+var originalLongAttempt = longAttempt
+
+// ShortTimeouts sets the timeouts to a short period as we
+// know that the ec2test server doesn't get better with time,
+// and this reduces the test time from 30s to 3s.
+func ShortTimeouts(short bool) {
+	if short {
+		shortAttempt = attempt{
+			burstTotal: 0.25e9,
+			burstDelay: 0.01e9,
+		}
+		longAttempt = shortAttempt
+	} else {
+		shortAttempt = originalShortAttempt
+		longAttempt = originalLongAttempt
+	}
+}
+
 var ZkPortSuffix = zkPortSuffix
