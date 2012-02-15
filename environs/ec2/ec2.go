@@ -294,6 +294,27 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 			return nil, fmt.Errorf("cannot create juju security group: %v", err)
 		}
 		jujuGroup = r.SecurityGroup
+
+		_, err = e.ec2.AuthorizeSecurityGroup(jujuGroup, []ec2.IPPerm{
+			// TODO delete this authorization when we can do
+			// the zookeeper ssh tunnelling.
+			{
+				Protocol:  "tcp",
+				FromPort:  zkPort,
+				ToPort:    zkPort,
+				SourceIPs: []string{"0.0.0.0/0"},
+			},
+			{
+				Protocol:  "tcp",
+				FromPort:  22,
+				ToPort:    22,
+				SourceIPs: []string{"0.0.0.0/0"},
+			},
+			// TODO authorize internal traffic
+		})
+		if err != nil && !hasCode("InvalidPermission.Duplicate")(err) {
+			return nil, fmt.Errorf("cannot authorize security group: %v", err)
+		}
 	}
 
 	// Create the machine-specific group, but first see if there's
