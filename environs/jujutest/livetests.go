@@ -51,10 +51,13 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	info, err := t.Env.Bootstrap()
 	c.Assert(err, IsNil)
 	c.Assert(info, NotNil)
+	c.Assert(len(info.Addrs), Not(Equals), 0)
 
 	c.Logf("duplicate bootstrap")
 	var info2 *state.Info
-	// repeat for a while to let eventual consistency catch up, hopefully.
+	// repeat for a while to let eventual consistency catch up, hopefully,
+	// although if the second bootstrap has succeeded, we're probably
+	// stuffed in fact.
 	for i := 0; i < 20; i++ {
 		info2, err = t.Env.Bootstrap()
 		if err != nil {

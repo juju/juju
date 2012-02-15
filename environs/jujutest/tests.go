@@ -44,17 +44,25 @@ func (t *Tests) TestBootstrap(c *C) {
 	info, err := e.Bootstrap()
 	c.Assert(err, IsNil)
 	c.Assert(info, NotNil)
+	c.Check(len(info.Addrs), Not(Equals), 0)
 
 	// TODO eventual consistency.
 	info, err = e.Bootstrap()
 	c.Assert(info, IsNil)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
+
+	info2, err := e.StateInfo()
+	c.Assert(err, IsNil)
+	c.Check(info2, Equals, info)
 
 	e2 := t.Open(c)
 	// TODO eventual consistency.
 	info, err = e.Bootstrap()
 	c.Assert(info, IsNil)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
+
+	info2, err = e2.StateInfo()
+	c.Check(info2, Equals, info)
 
 	err = e2.Destroy(nil)
 	c.Assert(err, IsNil)
