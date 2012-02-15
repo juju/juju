@@ -154,6 +154,19 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	}
 }
 
+func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {
+	for _, perm := range perms {
+		if perm.FromPort == port {
+			c.Check(perm.Protocol, Equals, "tcp")
+			c.Check(perm.ToPort, Equals, port)
+			c.Check(perm.SourceIPs, Equals, []string{"0.0.0.0/0"})
+			c.Check(len(perm.SourceGroups), Equals, 0)
+			return
+		}
+	}
+	c.Errorf("ip port permission not found for %d in %#v", port, perms)
+}
+
 // ensureGroupExists creates a new EC2 group if it doesn't already
 // exist, and returns full SecurityGroup.
 func ensureGroupExists(c *C, ec2conn *amzec2.EC2, groupName string, descr string) amzec2.SecurityGroup {

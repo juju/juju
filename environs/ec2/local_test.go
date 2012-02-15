@@ -183,6 +183,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	insts, err := t.env.Instances(state.ZookeeperInstances)
 	c.Assert(err, IsNil)
 	c.Assert(len(insts), Equals, 1)
+	c.Check(insts[0].Id(), Equals, state.ZookeeperInstances[0])
 
 	// check that the user data is configured to start zookeeper
 	// and the machine and provisioning agents.
@@ -225,17 +226,4 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 
 	_, err = ec2.LoadState(t.env)
 	c.Assert(err, NotNil)
-}
-
-func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {
-	for _, perm := range perms {
-		if perm.FromPort == port {
-			c.Check(perm.Protocol, Equals, "tcp")
-			c.Check(perm.ToPort, Equals, port)
-			c.Check(perm.SourceIPs, Equals, []string{"0.0.0.0/0"})
-			c.Check(len(perm.SourceGroups), Equals, 0)
-			return
-		}
-	}
-	c.Errorf("ip port permission not found for %d in %#v", port, perms)
 }

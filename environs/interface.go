@@ -50,6 +50,8 @@ type Environ interface {
 
 	// StartInstance asks for a new instance to be created,
 	// associated with the provided machine identifier.
+	// The given info describes the juju state for the new
+	// instance to connect to.
 	// TODO add arguments to specify type of new machine.
 	StartInstance(machineId int, state *state.Info) (Instance, error)
 
