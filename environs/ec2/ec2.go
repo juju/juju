@@ -8,8 +8,7 @@ import (
 	"sync"
 )
 
-const zkPort = 2181
-var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
+const zkPortSuffix = ":2181"
 
 func init() {
 	environs.RegisterProvider("ec2", environProvider{})

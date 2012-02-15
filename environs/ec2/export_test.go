@@ -14,6 +14,6 @@ func LoadState(e environs.Environ) (*BootstrapState, error) {
 	return &BootstrapState{s.ZookeeperInstances}, nil
 }
 
-func AuthorizedKeys(keys, path string) (string, error) {
-	return authorizedKeys(keys, path)
+func AuthorizedKeys(path string) (string, error) {
+	return authorizedKeys(path)
 }
