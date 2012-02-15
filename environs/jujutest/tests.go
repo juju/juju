@@ -14,7 +14,7 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(insts), Equals, 0)
 
-	inst0, err := e.StartInstance(0, InvalidStateInfo)
+	inst0, err := e.StartInstance(0)
 	c.Assert(err, IsNil)
 	c.Assert(inst0, NotNil)
 	id0 := inst0.Id()
@@ -34,39 +34,24 @@ func (t *Tests) TestStartStop(c *C) {
 
 func (t *Tests) TestBootstrap(c *C) {
 	e := t.Open(c)
-	info, err := e.Bootstrap()
+	err := e.Bootstrap()
 	c.Assert(err, IsNil)
-	c.Assert(info, NotNil)
-	c.Check(len(info.Addrs), Not(Equals), 0)
 
-	// TODO eventual consistency.
-	info2, err := e.Bootstrap()
-	c.Assert(info2, IsNil)
+	err = e.Bootstrap()
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
-
-	info3, err := e.StateInfo()
-	c.Assert(err, IsNil)
-	c.Check(info3, Equals, info)
 
 	e2 := t.Open(c)
-	// TODO eventual consistency.
-	info4, err := e2.Bootstrap()
-	c.Assert(info4, IsNil)
+	err = e.Bootstrap()
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
-
-	info5, err := e2.StateInfo()
-	c.Check(info5, Equals, info)
 
 	err = e2.Destroy()
 	c.Assert(err, IsNil)
 
-	info, err = e.Bootstrap()
+	err = e.Bootstrap()
 	c.Assert(err, IsNil)
-	c.Assert(info, NotNil)
 
-	info, err = e.Bootstrap()
-	c.Assert(err, NotNil)
-	c.Assert(info, IsNil)
+	err = e.Destroy()
+	c.Assert(err, IsNil)
 }
 
 func (t *Tests) TestPersistence(c *C) {

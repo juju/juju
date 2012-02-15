@@ -12,7 +12,6 @@ import (
 	"io"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/schema"
-	"launchpad.net/juju/go/state"
 	"sync"
 )
 
@@ -60,19 +59,15 @@ func (dummyProvider) Open(name string, attributes interface{}) (e environs.Envir
 	}, nil
 }
 
-func (*dummyEnviron) Bootstrap() (*state.Info, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (*dummyEnviron) StateInfo() (*state.Info, error) {
-	return nil, fmt.Errorf("I'm a dummy, dummy!")
+func (*dummyEnviron) Bootstrap() error {
+	return nil
 }
 
 func (*dummyEnviron) Destroy() error {
 	return nil
 }
 
-func (e *dummyEnviron) StartInstance(id int, info *state.Info) (environs.Instance, error) {
+func (e *dummyEnviron) StartInstance(id int) (environs.Instance, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	i := &dummyInstance{

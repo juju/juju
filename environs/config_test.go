@@ -86,7 +86,7 @@ environments:
 }
 
 func checkDummyEnviron(c *C, e environs.Environ, basename string) {
-	i0, err := e.StartInstance(0, nil)
+	i0, err := e.StartInstance(0)
 	c.Assert(err, IsNil)
 	c.Assert(i0, NotNil)
 	c.Assert(i0.DNSName(), Equals, basename+"-0")
@@ -96,7 +96,7 @@ func checkDummyEnviron(c *C, e environs.Environ, basename string) {
 	c.Assert(len(is), Equals, 1)
 	c.Assert(is[0], Equals, i0)
 
-	i1, err := e.StartInstance(1, nil)
+	i1, err := e.StartInstance(1)
 	c.Assert(err, IsNil)
 	c.Assert(i1, NotNil)
 	c.Assert(i1.DNSName(), Equals, basename+"-1")
