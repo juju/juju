@@ -3,9 +3,7 @@ package main
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
-	"regexp"
-	"strconv"
-	"strings"
+	"launchpad.net/juju/go/juju"
 )
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
@@ -30,25 +28,13 @@ func (a *UnitAgent) ParsePositional(args []string) error {
 	if a.UnitName == "" {
 		return requiredError("unit-name")
 	}
-	bad := fmt.Errorf("--unit-name option expects <service-name>/<non-negative integer>")
-	split := strings.Split(a.UnitName, "/")
-	if len(split) != 2 {
-		return bad
-	}
-	validService := regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
-	if !validService.MatchString(split[0]) {
-		return bad
-	}
-	if _, err := strconv.ParseUint(split[1], 10, 0); err != nil {
-		return bad
+	if !juju.ValidUnit.MatchString(a.UnitName) {
+		return fmt.Errorf("--unit-name option expects <service-name>/<non-negative integer>")
 	}
 	return a.agentConf.ParsePositional(args)
 }
 
 // Run runs a unit agent.
 func (a *UnitAgent) Run() error {
-	// TODO connect to state once Open interface settles down
-	// state, err := state.Open(a.zookeeperAddr, a.sessionFile)
-	// ...
 	return fmt.Errorf("UnitAgent.Run not implemented")
 }

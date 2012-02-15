@@ -13,7 +13,7 @@ type Info struct {
 	// Name is the Command's name.
 	Name string
 
-	// Args describes the format of a valid call to the Command.
+	// Args describes the command's expected arguments.
 	Args string
 
 	// Purpose is a short explanation of the Command's purpose.
