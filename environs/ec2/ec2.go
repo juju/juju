@@ -12,6 +12,8 @@ import (
 const zkPort = 2181
 var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
 
+const maxReqs = 20 // maximum concurrent ec2 requests
+
 func init() {
 	environs.RegisterProvider("ec2", environProvider{})
 }
@@ -159,12 +161,41 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 	if len(insts) == 0 {
 		return nil
 	}
-	names := make([]string, len(insts))
+	ids := make([]string, len(insts))
 	for i, inst := range insts {
-		names[i] = inst.(*instance).InstanceId
+		ids[i] = inst.(*instance).InstanceId
 	}
-	_, err := e.ec2.TerminateInstances(names)
-	return err
+	_, err := e.ec2.TerminateInstances(ids)
+	// If the instance is already gone, that's fine with us.
+	if err != nil && !hasCode(err, "InvalidInstanceId.NotFound") {
+		return err
+	}
+
+	// Delete the machine group for each instance.
+	// We could get the instance data for each instance
+	// in one request before doing the group deletion,
+	// but then we would have to cope with a possibly partial result.
+	prefix := e.groupName() + "-"
+	p := newParallel(maxReqs)
+	for _, inst := range insts {
+		inst := inst
+		p.do(func() error {
+			resp, err := e.ec2.Instances([]string{inst.Id()}, nil)
+			if err != nil {
+				return fmt.Errorf("cannot get info about instance %q: %v", inst.Id(), err)
+			}
+			if len(resp.Reservations) != 1 {
+				return fmt.Errorf("unexpected number of instances found, expected 1 got %d", len(resp.Reservations))
+			}
+			for _, g := range resp.Reservations[0].SecurityGroups {
+				if strings.HasPrefix(g.Name, prefix) {
+					return e.delGroup(g)
+				}
+			}
+			return nil
+		})
+	}
+	return p.wait()
 }
 
 func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
@@ -239,17 +270,58 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 	if len(ids) > 0 {
 		_, err = e.ec2.TerminateInstances(ids)
 	}
-	if err != nil {
-		// If the instance doesn't exist, we don't care
-		if ec2err, _ := err.(*ec2.Error); ec2err == nil || ec2err.Code == "InvalidInstance.NotFound" {
-			return err
-		}
+	// If the instance doesn't exist, we don't care
+	if err != nil && !hasCode(err, "InvalidInstance.NotFound") {
+		return err
 	}
 	err = e.deleteState()
 	if err != nil {
 		return err
 	}
+	err = e.deleteSecurityGroups()
+	if err != nil {
+		return err
+	}
 	return nil
+}
+
+// delGroup deletes a security group, retrying if it is in use
+// (something that will happen for quite a while after an
+// environment has been destroyed)
+func (e *environ) delGroup(g ec2.SecurityGroup) error {
+	_, err := e.ec2.DeleteSecurityGroup(g)
+	if err == nil || hasCode("InvalidGroup.NotFound")(err) {
+		return nil
+	}
+	return fmt.Errorf("cannot delete juju security group %q: %v", g.Name, err)
+}
+
+// deleteSecurityGroups deletes all the security groups
+// associated with the environ.
+func (e *environ) deleteSecurityGroups() error {
+	// destroy security groups in parallel as we can have
+	// many of them.
+	p := newParallel(maxReqs)
+
+	p.do(func() error {
+		return e.delGroup(ec2.SecurityGroup{Name: e.groupName()})
+	})
+
+	resp, err := e.ec2.SecurityGroups(nil, nil)
+	if err != nil {
+		return fmt.Errorf("cannot list security groups: %v", err)
+	}
+
+	prefix := e.groupName() + "-"
+	for _, g := range resp.Groups {
+		if strings.HasPrefix(g.Name, prefix) {
+			p.do(func() error {
+				return e.delGroup(g.SecurityGroup)
+			})
+		}
+	}
+
+	return p.wait()
 }
 
 func (e *environ) machineGroupName(machineId int) string {
@@ -271,44 +343,53 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	jujuGroup := ec2.SecurityGroup{Name: e.groupName()}
 	jujuMachineGroup := ec2.SecurityGroup{Name: e.machineGroupName(machineId)}
 
-	f := ec2.NewFilter()
-	f.Add("group-name", jujuGroup.Name, jujuMachineGroup.Name)
-	groups, err := e.ec2.SecurityGroups(nil, f)
-	if err != nil {
-		return nil, fmt.Errorf("cannot get security groups: %v", err)
+	// Create the provider group.
+	_, err := e.ec2.CreateSecurityGroup(jujuGroup.Name, "juju group for "+e.name)
+	// If the group already exists, we don't mind.
+	if err != nil && !hasCode(err, "InvalidGroup.Duplicate") {
+		return nil, fmt.Errorf("cannot create juju security group: %v", err)
+	}
+	_, err = e.ec2.AuthorizeSecurityGroup(jujuGroup, []ec2.IPPerm{
+		// TODO delete this authorization when we can do
+		// the zookeeper ssh tunnelling.
+		{
+			Protocol:  "tcp",
+			FromPort:  zkPort,
+			ToPort:    zkPort,
+			SourceIPs: []string{"0.0.0.0/0"},
+		},
+		{
+			Protocol:  "tcp",
+			FromPort:  22,
+			ToPort:    22,
+			SourceIPs: []string{"0.0.0.0/0"},
+		},
+		// TODO authorize internal traffic
+	})
+	// If the permission has already been granted we don't mind.
+	// TODO is it a problem if the group has more permissions than we want?
+	if err != nil && !hasCode(err, "InvalidPermission.Duplicate") {
+		return nil, fmt.Errorf("cannot authorize security group: %v", err)
 	}
 
-	for _, g := range groups.Groups {
-		switch g.Name {
-		case jujuGroup.Name:
-			jujuGroup = g.SecurityGroup
-		case jujuMachineGroup.Name:
-			jujuMachineGroup = g.SecurityGroup
-		}
+	// Create the machine-specific group, but first try to delete it, since it
+	// can have the wrong firewall setup
+	_, err = e.ec2.DeleteSecurityGroup(jujuMachineGroup)
+	if err != nil && !hasCode(err, "InvalidGroup.NotFound") {
+		return nil, fmt.Errorf("cannot delete old security group %q: %v", jujuMachineGroup.Name, err)
 	}
 
-	// Create the provider group if doesn't exist.
-	if jujuGroup.Id == "" {
-		r, err := e.ec2.CreateSecurityGroup(jujuGroup.Name, "juju group for "+e.name)
-		if err != nil {
-			return nil, fmt.Errorf("cannot create juju security group: %v", err)
-		}
-		jujuGroup = r.SecurityGroup
-	}
-
-	// Create the machine-specific group, but first see if there's
-	// one already existing from a previous machine launch;
-	// if so, delete it, since it can have the wrong firewall setup
-	if jujuMachineGroup.Id != "" {
-		_, err := e.ec2.DeleteSecurityGroup(jujuMachineGroup)
-		if err != nil {
-			return nil, fmt.Errorf("cannot delete old security group %q: %v", jujuMachineGroup.Name, err)
-		}
-	}
 	descr := fmt.Sprintf("juju group for %s machine %d", e.name, machineId)
-	r, err := e.ec2.CreateSecurityGroup(jujuMachineGroup.Name, descr)
+	_, err = e.ec2.CreateSecurityGroup(jujuMachineGroup.Name, descr)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create machine group %q: %v", jujuMachineGroup.Name, err)
 	}
-	return []ec2.SecurityGroup{jujuGroup, r.SecurityGroup}, nil
+
+	return []ec2.SecurityGroup{jujuGroup, jujuMachineGroup}, nil
+}
+
+// hasCode true if the provided error has the given ec2 error code.
+func hasCode(err error, code string) bool {
+	ec2err, _ := err.(*ec2.Error)
+	return ec2err != nil && ec2err.Code == code
 }
