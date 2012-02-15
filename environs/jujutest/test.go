@@ -12,22 +12,21 @@ var InvalidStateInfo = &state.Info{
 	Addrs: []string{"0.1.2.3:1234"},
 }
 
-// Tests is a gocheck suite containing tests verifying
-// juju functionality against the environment with Name that
-// must exist within Environs.
+// Tests is a gocheck suite containing tests verifying juju functionality
+// against the environment with Name that must exist within Environs.
+// Env holds an instance of that environment that is opened before each
+// test and Destroyed after each test.
 type Tests struct {
 	Environs *environs.Environs
 	Name     string
 	Env      environs.Environ
-
-	environs []environs.Environ
 }
 
+// Open opens an instance of the testing environment.
 func (t *Tests) Open(c *C) environs.Environ {
 	e, err := t.Environs.Open(t.Name)
 	c.Assert(err, IsNil, Bug("opening environ %q", t.Name))
 	c.Assert(e, NotNil)
-	t.environs = append(t.environs, e)
 	return e
 }
 
@@ -42,10 +41,13 @@ func (t *Tests) SetUpTest(c *C) {
 }
 
 func (t *Tests) TearDownTest(*C) {
-	t.Env.Destroy()
+	t.Env.Destroy(nil)
 	t.Env = nil
 }
 
+// LiveTests is a gocheck suite containing tests designed to run against a
+// live server.  It opens the environment with Name once only for the whole
+// suite, stores it in Env, and Destroys it after the suite has completed.
 type LiveTests struct {
 	Environs *environs.Environs
 	Name     string
@@ -60,6 +62,8 @@ func (t *LiveTests) SetUpSuite(c *C) {
 }
 
 func (t *LiveTests) TearDownSuite(c *C) {
+	err := t.Env.Destroy(nil)
+	c.Check(err, IsNil)
 	t.Env = nil
 }
 
