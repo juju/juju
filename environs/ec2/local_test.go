@@ -170,4 +170,3 @@ func (t *localServerSuite) TestBootstrapInstanceAndState(c *C) {
 	_, err = ec2.LoadState(t.env)
 	c.Assert(err, NotNil)
 }
-
