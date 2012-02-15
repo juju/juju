@@ -393,3 +393,9 @@ func hasCode(err error, code string) bool {
 	ec2err, _ := err.(*ec2.Error)
 	return ec2err != nil && ec2err.Code == code
 }
+
+// hasCode true if the provided error has the given ec2 error code.
+func hasCode(err error, code string) bool {
+	ec2err, _ := err.(*ec2.Error)
+	return ec2err != nil && ec2err.Code == code
+}
