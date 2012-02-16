@@ -104,7 +104,7 @@ func (e *environ) Bootstrap() (*state.Info, error) {
 		noDNS := errors.New("no dns addr")
 		longAttempt.do(
 			func(err error) bool {
-				return err == noDNS || ec2ErrCode(err) == "InvalidInstance.NotFound")
+				return err == noDNS || ec2ErrCode(err) == "InvalidInstance.NotFound"
 			},
 			func() error {
 				insts, err := e.Instances([]string{inst.Id()})

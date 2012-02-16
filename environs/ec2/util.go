@@ -1,7 +1,6 @@
 package ec2
 
 import (
-	"launchpad.net/goamz/ec2"
 	"launchpad.net/juju/go/schema"
 	"sync"
 	"time"
