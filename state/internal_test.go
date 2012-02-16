@@ -5,17 +5,10 @@
 package state
 
 import (
-	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
-	"testing"
 )
-
-// TestPackage integrates the tests into gotest.
-func TestPackage(t *testing.T) {
-	TestingT(t)
-}
 
 type TopologySuite struct {
 	zkServer   *zookeeper.Server
@@ -28,32 +21,10 @@ type TopologySuite struct {
 
 var _ = Suite(&TopologySuite{})
 
-func (s *TopologySuite) SetUpSuite(c *C) {
-	var err error
-	s.zkTestRoot = c.MkDir() + "/zookeeper"
-	s.zkTestPort = 21812
-	s.zkAddr = fmt.Sprint("localhost:", s.zkTestPort)
-
-	s.zkServer, err = zookeeper.CreateServer(s.zkTestPort, s.zkTestRoot, "")
-	if err != nil {
-		c.Fatal("Cannot set up ZooKeeper server environment: ", err)
-	}
-	err = s.zkServer.Start()
-	if err != nil {
-		c.Fatal("Cannot start ZooKeeper server: ", err)
-	}
-}
-
-func (s *TopologySuite) TearDownSuite(c *C) {
-	if s.zkServer != nil {
-		s.zkServer.Destroy()
-	}
-}
-
 func (s *TopologySuite) SetUpTest(c *C) {
 	// Connect the server.
 	st, err := Open(&Info{
-		Addrs: []string{s.zkAddr},
+		Addrs: []string{ZkAddr},
 	})
 	c.Assert(err, IsNil)
 	s.zkConn = ZkConn(st)
@@ -485,32 +456,13 @@ type ConfigNodeSuite struct {
 var _ = Suite(&ConfigNodeSuite{})
 
 func (s *ConfigNodeSuite) SetUpSuite(c *C) {
-	var err error
-	s.zkTestRoot = c.MkDir() + "/zookeeper"
-	s.zkTestPort = 21812
-	s.zkAddr = fmt.Sprint("localhost:", s.zkTestPort)
 	s.path = "/config"
-
-	s.zkServer, err = zookeeper.CreateServer(s.zkTestPort, s.zkTestRoot, "")
-	if err != nil {
-		c.Fatal("Cannot set up ZooKeeper server environment: ", err)
-	}
-	err = s.zkServer.Start()
-	if err != nil {
-		c.Fatal("Cannot start ZooKeeper server: ", err)
-	}
-}
-
-func (s *ConfigNodeSuite) TearDownSuite(c *C) {
-	if s.zkServer != nil {
-		s.zkServer.Destroy()
-	}
 }
 
 func (s *ConfigNodeSuite) SetUpTest(c *C) {
 	// Connect the server.
 	st, err := Open(&Info{
-		Addrs: []string{s.zkAddr},
+		Addrs: []string{ZkAddr},
 	})
 	c.Assert(err, IsNil)
 	s.zkConn = ZkConn(st)
@@ -841,7 +793,7 @@ func (s QuoteSuite) TestUnmodified(c *C) {
 }
 
 func (s QuoteSuite) TestQuote(c *C) {
-	// Check that invalid chars a translated correctly.
+	// Check that invalid chars are translated correctly.
 	in := "hello_there/how'are~you-today.sir"
 	out := Quote(in)
 	c.Assert(out, Equals, "hello_5f_there_2f_how_27_are_7e_you-today.sir")

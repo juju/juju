@@ -14,7 +14,6 @@ import (
 type charmData struct {
 	Meta   *charm.Meta
 	Config *charm.Config
-	SHA256 string
 	URL    string
 }
 
@@ -24,7 +23,6 @@ type Charm struct {
 	url       *charm.URL
 	meta      *charm.Meta
 	config    *charm.Config
-	sha256    string
 	bundleURL string
 }
 
@@ -32,21 +30,18 @@ type Charm struct {
 func newCharm(zk *zookeeper.Conn, id string, data *charmData) (*Charm, error) {
 	url, err := charm.ParseURL(id)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	c := &Charm{
 		zk:        zk,
 		url:       url,
 		meta:      data.Meta,
 		config:    data.Config,
-		sha256:    data.SHA256,
 		bundleURL: data.URL,
 	}
 	// Just a health check.
 	if c.meta.Name != c.Name() {
-		// QUESTION: Maybe an error is enough here? In
-		// Py it's an assert.
-		panic("illegal charm name")
+		return nil, fmt.Errorf("illegal charm name")
 	}
 	return c, nil
 }
@@ -83,11 +78,6 @@ func (c *Charm) Meta() *charm.Meta {
 func (c *Charm) Config() *charm.Config {
 	clone := *c.config
 	return &clone
-}
-
-// SHA256 returns the SHA256 hash of the charm.
-func (c *Charm) SHA256() string {
-	return c.sha256
 }
 
 // BundleURL returns the url to the charm bundle in 

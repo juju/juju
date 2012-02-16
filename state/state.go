@@ -42,7 +42,6 @@ func (s *State) AddCharm(id string, ch charm.Charm, url string) (*Charm, error) 
 	data := &charmData{
 		Meta:   ch.Meta(),
 		Config: ch.Config(),
-		SHA256: "", // Yet missing.
 		URL:    url,
 	}
 	yaml, err := goyaml.Marshal(data)
@@ -61,11 +60,12 @@ func (s *State) Charm(id string) (*Charm, error) {
 	yaml, _, err := s.zk.Get(charmPath(id))
 	if err == zookeeper.ZNONODE {
 		return nil, fmt.Errorf("charm %q not found", id)
-	} else if err != nil {
+	} 
+	if err != nil {
 		return nil, err
 	}
 	data := &charmData{}
-	if err = goyaml.Unmarshal([]byte(yaml), data); err != nil {
+	if err := goyaml.Unmarshal([]byte(yaml), data); err != nil {
 		return nil, err
 	}
 	return newCharm(s.zk, id, data)

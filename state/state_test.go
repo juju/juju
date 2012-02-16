@@ -13,14 +13,22 @@ import (
 	"testing"
 )
 
-// charmRepoDir returns a directory containing test charms.
-func charmRepoDir(name string) string {
+// TestPackage integrates the tests into gotest.
+func TestPackage(t *testing.T) {
+	srv, dir := state.ZkSetUpEnvironment(t)
+	defer state.ZkTearDownEnvironment(t, srv, dir)
+
+	TestingT(t)
+}
+
+// charmDir returns a directory containing test charms.
+func charmDir(name string) string {
 	return filepath.Join("..", "charm", "testrepo", "series", name)
 }
 
 // readCharm returns a test charm by a name.
 func readCharm(c *C, name string) charm.Charm {
-	ch, err := charm.ReadDir(charmRepoDir(name))
+	ch, err := charm.ReadDir(charmDir(name))
 	c.Assert(err, IsNil)
 	return ch
 }
@@ -39,11 +47,6 @@ func addDummyCharm(c *C, st *state.State) *state.Charm {
 	return dummy
 }
 
-// TestPackage integrates the tests into gotest.
-func TestPackage(t *testing.T) {
-	TestingT(t)
-}
-
 type StateSuite struct {
 	zkServer   *zookeeper.Server
 	zkTestRoot string
@@ -55,32 +58,10 @@ type StateSuite struct {
 
 var _ = Suite(&StateSuite{})
 
-func (s *StateSuite) SetUpSuite(c *C) {
-	var err error
-	s.zkTestRoot = c.MkDir() + "/zookeeper"
-	s.zkTestPort = 21812
-	s.zkAddr = fmt.Sprint("localhost:", s.zkTestPort)
-
-	s.zkServer, err = zookeeper.CreateServer(s.zkTestPort, s.zkTestRoot, "")
-	if err != nil {
-		c.Fatal("cannot set up ZooKeeper server environment: ", err)
-	}
-	err = s.zkServer.Start()
-	if err != nil {
-		c.Fatal("cannot start ZooKeeper server: ", err)
-	}
-}
-
-func (s *StateSuite) TearDownSuite(c *C) {
-	if s.zkServer != nil {
-		s.zkServer.Destroy()
-	}
-}
-
 func (s *StateSuite) SetUpTest(c *C) {
 	var err error
 	s.st, err = state.Open(&state.Info{
-		Addrs: []string{s.zkAddr},
+		Addrs: []string{state.ZkAddr},
 	})
 	c.Assert(err, IsNil)
 	err = s.st.Initialize()

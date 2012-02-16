@@ -259,12 +259,18 @@ func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 // underscores.
 func Quote(unsafe string) string {
 	safe := []byte{}
-	for _, b := range []byte(unsafe) {
-		if (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9') || b == '.' || b == '-' {
-			safe = append(safe, b)
-		} else {
-			safe = append(safe, []byte(fmt.Sprintf("_%02x_", b))...)
-		}
+	for i := 0; i < len(unsafe); i++ {
+		b := unsafe[i]
+		switch {
+    		case b >= 'a' && b <= 'z',
+         		b >= 'A' && b <= 'Z',
+         		b >= '0' && b <= '9',
+         		b == '.',
+         		b == '-':
+         		safe = append(safe, b)
+         	default:
+         		safe = append(safe, fmt.Sprintf("_%02x_", b)...)
+         	}
 	}
 	return string(safe)
 }
