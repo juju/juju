@@ -240,7 +240,7 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 		_, err = e.ec2.TerminateInstances(ids)
 	}
 	// If the instance doesn't exist, we don't care
-	if err != nil && !hasCode(err, "InvalidInstance.NotFound") {
+	if err != nil && ec2ErrCode(err) != "InvalidInstance.NotFound" {
 		return err
 	}
 	err = e.deleteState()
@@ -310,7 +310,7 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 			},
 			// TODO authorize internal traffic
 		})
-		if err != nil && !hasCode(err, "InvalidPermission.Duplicate") {
+		if err != nil && ec2ErrCode(err) != "InvalidPermission.Duplicate" {
 			return nil, fmt.Errorf("cannot authorize security group: %v", err)
 		}
 	}
@@ -332,8 +332,12 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	return []ec2.SecurityGroup{jujuGroup, r.SecurityGroup}, nil
 }
 
-// hasCode true if the provided error has the given ec2 error code.
-func hasCode(err error, code string) bool {
+// If the err is of type *ec2.Error, ec2ErrCode returns
+// its code, otherwise it returns the empty string.
+func ec2ErrCode(err error) string {
 	ec2err, _ := err.(*ec2.Error)
-	return ec2err != nil && ec2err.Code == code
+	if ec2err == nil {
+		return ""
+	}
+	return ec2err.Code
 }
