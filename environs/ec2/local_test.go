@@ -176,6 +176,3 @@ func (t *localServerSuite) TestBootstrapInstanceAndState(c *C) {
 	_, err = ec2.LoadState(t.env)
 	c.Assert(err, NotNil)
 }
-
-TODO test that StopInstances deletes security groups.
-TODO test that Destroy deletes security groups.
