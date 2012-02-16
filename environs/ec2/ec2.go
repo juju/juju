@@ -408,6 +408,7 @@ func (e *environ) deleteSecurityGroups() error {
 	prefix := e.groupName() + "-"
 	for _, g := range resp.Groups {
 		if strings.HasPrefix(g.Name, prefix) {
+			g := g
 			p.do(func() error {
 				return e.delGroup(g.SecurityGroup)
 			})
