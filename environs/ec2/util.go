@@ -2,6 +2,7 @@ package ec2
 
 import (
 	"launchpad.net/juju/go/schema"
+"log"
 	"time"
 )
 
@@ -82,6 +83,7 @@ func (a attempt) do(isTransient func(error) bool, f func() error) (err error) {
 	if try(start.Add(a.burstTotal+a.longTotal), a.longDelay) {
 		return
 	}
+	log.Printf("time out after %v", time.Now().Sub(start))
 	return
 }
 

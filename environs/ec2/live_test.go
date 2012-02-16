@@ -161,15 +161,20 @@ func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {
 // it deletes the old one first.
 func createGroup(c *C, ec2conn *amzec2.EC2, groupName string, descr string) amzec2.SecurityGroup {
 	resp, err := ec2conn.CreateSecurityGroup(groupName, descr)
-	if err != nil {
-		if ec2err, _ := err.(*amzec2.Error); ec2err == nil || ec2err.Code != "InvalidGroup.Duplicate" {
-			c.Fatalf("cannot make group %q: %v", groupName, err)
-		}
+	if err != nil && ec2.EC2ErrCode(err) != "InvalidGroup.Duplicate" {
+		c.Fatalf("cannot make group %q: %v", groupName, err)
 	}
-	_, err = ec2conn.DeleteSecurityGroup(amzec2.SecurityGroup{Name: groupName})
+	err = ec2.LongDo(ec2.HasCode("InvalidGroup.InUse"), func() error {
+		_, err := ec2conn.DeleteSecurityGroup(amzec2.SecurityGroup{Name: groupName})
+		return err
+	})
 	c.Assert(err, IsNil)
 
-	resp, err = ec2conn.CreateSecurityGroup(groupName, descr)
+	err = ec2.ShortDo(ec2.HasCode("InvalidGroup.Duplicate"), func() error {
+		var err error
+		resp, err = ec2conn.CreateSecurityGroup(groupName, descr)
+		return err
+	})
 	c.Assert(err, IsNil)
 
 	return resp.SecurityGroup

@@ -52,4 +52,20 @@ func ShortTimeouts(short bool) {
 	}
 }
 
+func LongDo(t func(error)bool, f func() error) error {
+	return longAttempt.do(t, f)
+}
+
+func ShortDo(t func(error)bool, f func() error) error {
+	return shortAttempt.do(t, f)
+}
+
+func EC2ErrCode(err error) string {
+	return ec2ErrCode(err)
+}
+
+func HasCode(code string) func(error) bool {
+	return hasCode(code)
+}
+
 var ZkPortSuffix = zkPortSuffix

@@ -7,7 +7,6 @@ import (
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/state"
-	"log"
 	"sort"
 	"sync"
 )
@@ -103,7 +102,7 @@ func (e *environ) Bootstrap() (*state.Info, error) {
 	}
 	if inst.DNSName() == "" {
 		noDNS := errors.New("no dns addr")
-		longAttempt.do(
+		err = longAttempt.do(
 			func(err error) bool {
 				return err == noDNS || ec2ErrCode(err) == "InvalidInstance.NotFound"
 			},
@@ -201,8 +200,7 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
 	var instances *ec2.RunInstancesResp
-	log.Printf("startinstance calling runinstances")
-	shortAttempt.do(hasCode("InvalidGroup.NotFound"), func() error {
+	err = shortAttempt.do(hasCode("InvalidGroup.NotFound"), func() error {
 		var err error
 		instances, err = e.ec2.RunInstances(&ec2.RunInstances{
 			ImageId:        image.ImageId,
@@ -212,14 +210,10 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 			InstanceType:   "m1.small",
 			SecurityGroups: groups,
 		})
-		log.Printf("RunInstances returned %v, %v", instances, err)
 		return err
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot run instances: %v", err)
-	}
-	if err == nil && instances == nil {
-		log.Printf("ouch!")
 	}
 	if len(instances.Instances) != 1 {
 		return nil, fmt.Errorf("expected 1 started instance, got %d", len(instances.Instances))
@@ -389,11 +383,14 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 			// TODO authorize internal traffic
 		})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot ensure juju group: %v", err)
 	}
 
 	descr := fmt.Sprintf("juju group for %s machine %d", e.name, machineId)
 	jujuMachineGroup, err := e.ensureGroup(e.machineGroupName(machineId), descr, nil)
+	if err != nil {
+		return nil, fmt.Errorf("cannot ensure machine group: %v", err)
+	}
 	return []ec2.SecurityGroup{jujuGroup, jujuMachineGroup}, nil
 }
 
@@ -418,62 +415,86 @@ func (e *environ) ensureGroup(name, descr string, perms []ec2.IPPerm) (ec2.Secur
 		return zg, err
 	}
 
-	if err != nil {
-		// The group already exists, so check to see if it already
-		// has the required permissions. If it does, we need
-		// do nothing. While checking for the required permissions
-		// is quite involved, waiting for a group to be able to be
-		// deleted can take more than 2 minutes, so it's worth it.
+	var g ec2.SecurityGroup
+	if err == nil {
+		g = resp.SecurityGroup
+	} else {
+		var ok bool
+		ok, g, err = e.existingGroupOk(name, descr, perms)
+		if err != nil {
+			return zg, err
+		}
+		if ok {
+			return g, nil
+		}
+		g, err = e.recreateGroup(name, descr)
+		if err != nil {
+			return zg, err
+		}
+	}
 
-		var gresp *ec2.SecurityGroupsResp
-		err = shortAttempt.do(hasCode("InvalidGroup.NotFound"), func() error {
-			var err error
-			gresp, err = e.ec2.SecurityGroups(ec2.SecurityGroupNames(name), nil)
-			// TODO remove the below when the ec2test bug is fixed.
-			if len(gresp.Groups) == 0 {
-				err = &ec2.Error{Code: "InvalidGroup.NotFound"}
-			}
+	if perms != nil {
+		err := shortAttempt.do(hasCode("InvalidGroup.NotFound"), func() error {
+			_, err := e.ec2.AuthorizeSecurityGroup(g, perms)
 			return err
 		})
 		if err != nil {
 			return zg, err
 		}
-		if len(gresp.Groups) != 1 {
-			return zg, fmt.Errorf("unexpected number of groups found; expected 1 got %d", len(gresp.Groups))
-		}
-		if samePerms(gresp.Groups[0].IPPerms, perms)  {
-			// TODO the description might not match, but do we care?
-			return gresp.Groups[0].SecurityGroup, nil
-		}
-
-		// Delete the group so that we can recreate it with the correct permissions.
-		// TODO we could modify the permissions instead of deleting the group.
-		err = longAttempt.do(hasCode("InvalidGroup.InUse"), func() error {
-			_, err = e.ec2.DeleteSecurityGroup(ec2.SecurityGroup{Name: name})
-			return err
-		})
-		if err != nil {
-			return zg, fmt.Errorf("cannot delete old group %q: %v", name, err)
-		}
-		err = shortAttempt.do(hasCode("InvalidGroup.Duplicate"), func() error {
-			var err error
-			resp, err = e.ec2.CreateSecurityGroup(name, descr)
-			return err
-		})
-		if err != nil {
-			return zg, fmt.Errorf("cannot create group %q: %v", name, err)
-		}
 	}
+	return g, nil
+}
 
-	g := resp.SecurityGroup
+// We know that a group with the name we want already exists, so
+// existingGroupOk checks to see if it already has exactly the required
+// permissions. If it does, it returns ok==true and the group.
+// While checking for the required permissions is quite involved, waiting to
+// be able to delete a group can take more than 2 minutes, so it's worth it.
+func (e *environ) existingGroupOk(name, descr string, perms []ec2.IPPerm) (ok bool, g ec2.SecurityGroup, err error) {
+	var gresp *ec2.SecurityGroupsResp
 	err = shortAttempt.do(hasCode("InvalidGroup.NotFound"), func() error {
-		_, err := e.ec2.AuthorizeSecurityGroup(g, perms)
+		var err error
+		gresp, err = e.ec2.SecurityGroups(ec2.SecurityGroupNames(name), nil)
+		// TODO remove the below when the ec2test bug is fixed.
+		if len(gresp.Groups) == 0 {
+			err = &ec2.Error{Code: "InvalidGroup.NotFound"}
+		}
 		return err
 	})
 	if err != nil {
-		return zg, err
+		return false, zg, err
 	}
-	return g, nil
+	if len(gresp.Groups) != 1 {
+		return false, zg, fmt.Errorf("unexpected number of groups found; expected 1 got %d", len(gresp.Groups))
+	}
+	if samePerms(gresp.Groups[0].IPPerms, perms)  {
+		// TODO the description might not match, but do we care?
+		return true, gresp.Groups[0].SecurityGroup, nil
+	}
+	return false, zg, nil
+}
+
+// recreateGroup deletes the security group with the given name
+// and then creates it again so that it can be given the desired attributes.
+func (e *environ) recreateGroup(name, descr string) (ec2.SecurityGroup, error) {
+	// TODO we could modify the permissions instead of deleting the group.
+	err := longAttempt.do(hasCode("InvalidGroup.InUse"), func() error {
+		_, err := e.ec2.DeleteSecurityGroup(ec2.SecurityGroup{Name: name})
+		return err
+	})
+	if err != nil {
+		return zg, fmt.Errorf("cannot delete old group %q: %v", name, err)
+	}
+	var resp *ec2.CreateSecurityGroupResp
+	err = shortAttempt.do(hasCode("InvalidGroup.Duplicate"), func() error {
+		var err error
+		resp, err = e.ec2.CreateSecurityGroup(name, descr)
+		return err
+	})
+	if err != nil {
+		return zg, fmt.Errorf("cannot create group %q: %v", name, err)
+	}
+	return resp.SecurityGroup, nil
 }
 
 // samePerms returns true if p0 and p1 represent the
