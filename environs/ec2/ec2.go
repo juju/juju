@@ -6,7 +6,7 @@ import (
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/state"
-	"strings"
+	"sort"
 	"sync"
 )
 
@@ -171,32 +171,7 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 	if err != nil && ec2ErrCode(err) != "InvalidInstanceId.NotFound" {
 		return err
 	}
-
-	// Delete the machine group for each instance.
-	// We could get the instance data for each instance
-	// in one request before doing the group deletion,
-	// but then we would have to cope with a possibly partial result.
-	prefix := e.groupName() + "-"
-	p := newParallel(maxReqs)
-	for _, inst := range insts {
-		inst := inst
-		p.do(func() error {
-			resp, err := e.ec2.Instances([]string{inst.Id()}, nil)
-			if err != nil {
-				return fmt.Errorf("cannot get info about instance %q: %v", inst.Id(), err)
-			}
-			if len(resp.Reservations) != 1 {
-				return fmt.Errorf("unexpected number of instances found, expected 1 got %d", len(resp.Reservations))
-			}
-			for _, g := range resp.Reservations[0].SecurityGroups {
-				if strings.HasPrefix(g.Name, prefix) {
-					return e.delGroup(g)
-				}
-			}
-			return nil
-		})
-	}
-	return p.wait()
+	return nil
 }
 
 func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
@@ -279,51 +254,7 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 	if err != nil {
 		return err
 	}
-	err = e.deleteSecurityGroups()
-	if err != nil {
-		return err
-	}
 	return nil
-}
-
-// delGroup deletes a security group, retrying if it is in use
-// (something that will happen for quite a while after an
-// environment has been destroyed)
-func (e *environ) delGroup(g ec2.SecurityGroup) error {
-	_, err := e.ec2.DeleteSecurityGroup(g)
-	if err == nil || ec2ErrCode(err) == "InvalidGroup.NotFound" {
-		return nil
-	}
-	return fmt.Errorf("cannot delete juju security group %q: %v", g.Name, err)
-}
-
-// deleteSecurityGroups deletes all the security groups
-// associated with the environ.
-func (e *environ) deleteSecurityGroups() error {
-	// destroy security groups in parallel as we can have
-	// many of them.
-	p := newParallel(maxReqs)
-
-	p.do(func() error {
-		return e.delGroup(ec2.SecurityGroup{Name: e.groupName()})
-	})
-
-	resp, err := e.ec2.SecurityGroups(nil, nil)
-	if err != nil {
-		return fmt.Errorf("cannot list security groups: %v", err)
-	}
-
-	prefix := e.groupName() + "-"
-	for _, g := range resp.Groups {
-		if strings.HasPrefix(g.Name, prefix) {
-			g := g
-			p.do(func() error {
-				return e.delGroup(g.SecurityGroup)
-			})
-		}
-	}
-
-	return p.wait()
 }
 
 func (e *environ) machineGroupName(machineId int) string {
@@ -342,51 +273,29 @@ func (e *environ) groupName() string {
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
 func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
-	jujuGroup := ec2.SecurityGroup{Name: e.groupName()}
-	jujuMachineGroup := ec2.SecurityGroup{Name: e.machineGroupName(machineId)}
-
-	// Create the provider group.
-	_, err := e.ec2.CreateSecurityGroup(jujuGroup.Name, "juju group for "+e.name)
-	// If the group already exists, we don't mind.
-	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
-		return nil, fmt.Errorf("cannot create juju security group: %v", err)
-	}
-	_, err = e.ec2.AuthorizeSecurityGroup(jujuGroup, []ec2.IPPerm{
-		// TODO delete this authorization when we can do
-		// the zookeeper ssh tunnelling.
-		{
-			Protocol:  "tcp",
-			FromPort:  zkPort,
-			ToPort:    zkPort,
-			SourceIPs: []string{"0.0.0.0/0"},
-		},
-		{
-			Protocol:  "tcp",
-			FromPort:  22,
-			ToPort:    22,
-			SourceIPs: []string{"0.0.0.0/0"},
-		},
-		// TODO authorize internal traffic
-	})
-	// If the permission has already been granted we don't mind.
-	// TODO is it a problem if the group has more permissions than we want?
-	if err != nil && ec2ErrCode(err) != "InvalidPermission.Duplicate" {
-		return nil, fmt.Errorf("cannot authorize security group: %v", err)
-	}
-
-	// Create the machine-specific group, but first try to delete it, since it
-	// can have the wrong firewall setup
-	_, err = e.ec2.DeleteSecurityGroup(jujuMachineGroup)
-	if err != nil && ec2ErrCode(err) != "InvalidGroup.NotFound" {
-		return nil, fmt.Errorf("cannot delete old security group %q: %v", jujuMachineGroup.Name, err)
-	}
-
-	descr := fmt.Sprintf("juju group for %s machine %d", e.name, machineId)
-	_, err = e.ec2.CreateSecurityGroup(jujuMachineGroup.Name, descr)
+	jujuGroup, err := e.ensureGroup(e.groupName(), "juju group for "+e.name,
+		[]ec2.IPPerm{
+			// TODO delete this authorization when we can do
+			// the zookeeper ssh tunnelling.
+			{
+				Protocol:  "tcp",
+				FromPort:  zkPort,
+				ToPort:    zkPort,
+				SourceIPs: []string{"0.0.0.0/0"},
+			},
+			{
+				Protocol:  "tcp",
+				FromPort:  22,
+				ToPort:    22,
+				SourceIPs: []string{"0.0.0.0/0"},
+			},
+			// TODO authorize internal traffic
+		})
 	if err != nil {
-		return nil, fmt.Errorf("cannot create machine group %q: %v", jujuMachineGroup.Name, err)
+		return nil, err
 	}
-
+	descr := fmt.Sprintf("juju group for %s machine %d", e.name, machineId)
+	jujuMachineGroup, err := e.ensureGroup(e.machineGroupName(machineId), descr, nil)
 	return []ec2.SecurityGroup{jujuGroup, jujuMachineGroup}, nil
 }
 
@@ -398,4 +307,161 @@ func ec2ErrCode(err error) string {
 		return ""
 	}
 	return ec2err.Code
+}
+
+// ensureGroup tries to ensure that a security group exists with the given
+// name and permissions. If the group does not exist, it will be created
+// with the given description. It returns the group.
+func (e *environ) ensureGroup(name, descr string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
+	resp, err := e.ec2.CreateSecurityGroup(name, descr)
+	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
+		return
+	}
+
+	if err != nil {
+		// The group already exists, so check to see if it already
+		// has the required permissions. If it does, we need
+		// do nothing. While checking for the required permissions
+		// is quite involved, waiting for a group to be able to be
+		// deleted can take more than 2 minutes, so it's worth it.
+		f := ec2.NewFilter()
+		f.Add("group-name", name)
+		gresp, err := e.ec2.SecurityGroups(nil, f)
+		if err != nil {
+			return g, err
+		}
+		if len(gresp.Groups) != 1 {
+			return g, fmt.Errorf("unexpected number of groups found; expected 1 got %d", len(gresp.Groups))
+		}
+		if samePerms(gresp.Groups[0].IPPerms, perms)  {
+			// TODO the description might not match, but do we care?
+			return gresp.Groups[0].SecurityGroup, nil
+		}
+
+		// Delete the group so that we can recreate it with the correct permissions.
+		// TODO we could modify the permissions instead of deleting the group.
+		// TODO repeat until the group is not in use
+		_, err = e.ec2.DeleteSecurityGroup(ec2.SecurityGroup{Name: name})
+		if err != nil && ec2ErrCode(err) != "InvalidGroup.InUse" {
+			return g, err
+		}
+		resp, err = e.ec2.CreateSecurityGroup(name, descr)
+		if err != nil {
+			return g, err
+		}
+	}
+
+	g = resp.SecurityGroup
+	_, err = e.ec2.AuthorizeSecurityGroup(g, perms)
+	if err != nil {
+		return g, err
+	}
+	return g, nil
+}
+
+// samePerms returns true if p0 and p1 represent the
+// same set of permissions.
+// It mutates the contents of p0 and p1 to do the check.
+func samePerms(p0, p1 []ec2.IPPerm) bool {
+	if len(p0) != len(p1) {
+		return false
+	}
+	canonPerms(p0)
+	canonPerms(p1)
+	for i, p := range p0 {
+		if !eqPerm(p, p1[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// eqPerm returns true if the canonicalized permissions
+// p0 and p1 are identical (ignoring OwnerId and Id fields
+// in source groups).
+func eqPerm(p0, p1 ec2.IPPerm) bool {
+	same := p0.Protocol == p1.Protocol &&
+		p0.FromPort == p1.FromPort &&
+		p0.ToPort == p1.ToPort &&
+		len(p0.SourceIPs) == len(p1.SourceIPs) &&
+		len(p0.SourceGroups) == len(p1.SourceGroups)
+	if !same {
+		return false
+	}
+	for i, ip := range p0.SourceIPs {
+		if ip != p1.SourceIPs[i] {
+			return false
+		}
+	}
+	for i, g := range p0.SourceGroups {
+		if g.Name != p1.SourceGroups[i].Name {
+			return false
+		}
+	}
+	return true
+}
+
+// canonPerms canonicalizes a set of IPPerms by sorting them and the
+// slices inside them.
+func canonPerms(ps []ec2.IPPerm) {
+	// TODO if a permission has a source group owned by a different owner but
+	// with the same name, then it will compare equal. The only way of getting
+	// our own owner id is by creating a security group and looking at that.
+	for _, p := range ps {
+		sort.Strings(p.SourceIPs)
+		sort.Sort(groupSlice(p.SourceGroups))
+	}
+	sort.Sort(permSlice(ps))
+}
+
+type permSlice []ec2.IPPerm
+func (p permSlice) Less(i, j int) bool {
+	p0, p1 := p[i], p[j]
+	if p0.Protocol != p1.Protocol {
+		return p0.Protocol < p1.Protocol
+	}
+	if p0.FromPort != p1.FromPort {
+		return p0.FromPort < p1.FromPort
+	}
+	for i, ip0 := range p0.SourceIPs {
+		if i >= len(p1.SourceIPs) {
+			return false
+		}
+		ip1 := p1.SourceIPs[i]
+		if ip0 != ip1 {
+			return ip0 < ip1
+		}
+	}
+	if len(p0.SourceIPs) < len(p1.SourceIPs) {
+		return true
+	}
+	for i, g0 := range p0.SourceGroups {
+		if i >= len(p1.SourceGroups) {
+			return false
+		}
+		g1 := p1.SourceGroups[i]
+		// ignore Id and OwnerId because they will not be set
+		// in the perms passed to ensureGroup.
+		if g0.Name != g1.Name {
+			return g0.Name < g1.Name
+		}
+	}
+	return len(p0.SourceGroups) < len(p1.SourceGroups)
+}
+func (p permSlice) Len() int {
+	return len(p)
+}
+func (p permSlice) Swap(i, j int) {
+	p[i], p[j] = p[j], p[i]
+}
+
+type groupSlice []ec2.UserSecurityGroup
+func (g groupSlice) Less(i, j int) bool {
+	return g[i].Name < g[j].Name
+}
+func (g groupSlice) Len() int {
+	return len(g)
+}
+func (g groupSlice) Swap(i, j int) {
+	g[i], g[j] = g[j], g[i]
 }

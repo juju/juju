@@ -2,83 +2,128 @@ package ec2
 
 import (
 	. "launchpad.net/gocheck"
-	"sync"
-	"time"
+	"launchpad.net/goamz/ec2"
 )
 
-type parSuite struct{}
+type internalSuite struct{}
 
-var _ = Suite(parSuite{})
+var _ = Suite(internalSuite{})
 
-func (parSuite) testDoneAndMax(c *C, total, maxProc int) {
-	c.Logf("total %d, maxProc %d", total, maxProc)
-	var mu sync.Mutex
-	max := 0
-	done := make([]bool, total)
-	n := 0
-	p := newParallel(maxProc)
-	for i := 0; i < total; i++ {
-		i := i
-		p.do(func() error {
-			mu.Lock()
-			n++
-			if n > max {
-				max = n
-			}
-			mu.Unlock()
+var samePermsTests = []struct {
+	same bool
+	p0   []ec2.IPPerm
+	p1   []ec2.IPPerm
+}{
+	{true,
+		nil, nil},
+	{false,
+		nil, []ec2.IPPerm{{}}},
+	{true,
+		[]ec2.IPPerm{{}}, []ec2.IPPerm{{}}},
+	{true,
+		[]ec2.IPPerm{{
+			Protocol:  "a",
+			FromPort:  1,
+			ToPort:    2,
+			SourceIPs: []string{"y", "x"},
+			SourceGroups: []ec2.UserSecurityGroup{{
+				Id:      "ignored0",
+				OwnerId: "ignored0also",
+				Name:    "g1",
+			}},
+		}, {
+			Protocol:  "b",
+			FromPort:  5,
+			ToPort:    6,
+			SourceIPs: []string{"w", "z"},
+			SourceGroups: []ec2.UserSecurityGroup{{
+				Id:      "ignored1",
+				OwnerId: "ignored1also",
+				Name:    "g1",
+			}, {
+				Id:      "ignored2",
+				OwnerId: "ignored2also",
+				Name:    "g2",
+			}},
+		}},
+		[]ec2.IPPerm{{
+			Protocol:  "b",
+			FromPort:  5,
+			ToPort:    6,
+			SourceIPs: []string{"z", "w"},
+			SourceGroups: []ec2.UserSecurityGroup{{
+				Id:      "other0",
+				OwnerId: "other1",
+				Name:    "g2",
+			}, {
+				Id:      "ignored1",
+				OwnerId: "ignored1also",
+				Name:    "g1",
+			}},
+		}, {
+			Protocol:  "a",
+			FromPort:  1,
+			ToPort:    2,
+			SourceIPs: []string{"x", "y"},
+			SourceGroups: []ec2.UserSecurityGroup{{
+				Id:      "other2",
+				OwnerId: "other3",
+				Name:    "g1",
+			}},
+		}}},
+	{false,
+		[]ec2.IPPerm{{
+			Protocol:  "b",
+			FromPort:  5,
+			ToPort:    6,
+			SourceIPs: []string{"w", "z"},
+			SourceGroups: []ec2.UserSecurityGroup{{
+				Id:      "ignored1",
+				OwnerId: "ignored1also",
+				Name:    "g1",
+			}, {
+				Id:      "ignored2",
+				OwnerId: "ignored2also",
+				Name:    "g2",
+			}},
+		}},
+		[]ec2.IPPerm{{
+			Protocol:  "b",
+			FromPort:  5,
+			ToPort:    6,
+			SourceIPs: []string{"w", "z"},
+			SourceGroups: []ec2.UserSecurityGroup{{
+				Id:      "ignored2",
+				OwnerId: "ignored2also",
+				Name:    "g2",
+			}},
+		}}}}
 
-			time.Sleep(0.1e9)
 
-			mu.Lock()
-			n--
-			done[i] = true
-			mu.Unlock()
-			return nil
-		})
+// copyPerms makes a copy of the permissions
+// so that samePerms won't change the original.
+func copyPerms(ps []ec2.IPPerm) []ec2.IPPerm {
+	rs := make([]ec2.IPPerm, len(ps))
+	for i, p := range ps {
+		r := &rs[i]
+		*r = p
+		r.SourceIPs = make([]string, len(p.SourceIPs))
+		copy(r.SourceIPs, p.SourceIPs)
+		r.SourceGroups = make([]ec2.UserSecurityGroup, len(p.SourceGroups))
+		copy(r.SourceGroups, p.SourceGroups)
 	}
-	err := p.wait()
-	for i, ok := range done {
-		if !ok {
-			c.Errorf("parallel task %d was not done", i)
+	return rs
+}
+
+func (internalSuite) TestSamePerms(c *C) {
+	for i, t := range samePermsTests {
+		m := samePerms(copyPerms(t.p0), copyPerms(t.p1))
+		if m != t.same {
+			c.Errorf("test %d, expected %v got %v", i, t.same, m)
 		}
-	}
-	c.Check(n, Equals, 0)
-	c.Check(err, IsNil)
-	if maxProc < total {
-		c.Check(max, Equals, maxProc)
-	} else {
-		c.Check(max, Equals, total)
-	}
-}
-
-func (p parSuite) TestParallelMaxPar(c *C) {
-	p.testDoneAndMax(c, 10, 3)
-	p.testDoneAndMax(c, 3, 10)
-}
-
-type intError int
-
-func (intError) Error() string {
-	return "error"
-}
-
-func (parSuite) TestParallelError(c *C) {
-	p := newParallel(6)
-	for i := 0; i < 10; i++ {
-		i := i
-		if i > 5 {
-			p.do(func() error {
-				return intError(i)
-			})
-		} else {
-			p.do(func() error {
-				return nil
-			})
+		m = samePerms(copyPerms(t.p1), copyPerms(t.p0))
+		if m != t.same {
+			c.Errorf("test %d reversed, expected %v got %v", i, t.same, m)
 		}
-	}
-	err := p.wait()
-	c.Check(err, NotNil)
-	if err.(intError) <= 5 {
-		c.Errorf("unexpected error: %v", err)
 	}
 }

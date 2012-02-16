@@ -9,13 +9,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
-	"testing"
 )
-
-// TestPackage integrates the tests into gotest.
-func TestPackage(t *testing.T) {
-	TestingT(t)
-}
 
 type TopologySuite struct {
 	zkServer   *zookeeper.Server
