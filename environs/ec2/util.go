@@ -150,11 +150,20 @@ func (a attempt) do(isTransient func(error) bool, f func() error) (err error) {
 	return
 }
 
+// If the err is of type *ec2.Error, ec2ErrCode returns
+// its code, otherwise it returns the empty string.
+func ec2ErrCode(err error) string {
+	ec2err, _ := err.(*ec2.Error)
+	if ec2err == nil {
+		return ""
+	}
+	return ec2err.Code
+}
+
 // hasCode returns a function that returns true if the provided error has
 // the given ec2 error code.
 func hasCode(code string) func(error) bool {
 	return func(err error) bool {
-		ec2err, _ := err.(*ec2.Error)
-		return ec2err != nil && ec2err.Code == code
+		return ec2ErrCode(err) == code
 	}
 }

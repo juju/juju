@@ -104,7 +104,7 @@ func (e *environ) Bootstrap() (*state.Info, error) {
 		noDNS := errors.New("no dns addr")
 		longAttempt.do(
 			func(err error) bool {
-				return err == noDNS || hasCode("InvalidInstance.NotFound")(err)
+				return err == noDNS || ec2ErrCode(err) == "InvalidInstance.NotFound")
 			},
 			func() error {
 				insts, err := e.Instances([]string{inst.Id()})
@@ -229,7 +229,7 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 		return err
 	})
 	// If the instance is already gone, that's fine with us.
-	if err != nil && !hasCode("InvalidInstanceId.NotFound")(err) {
+	if err != nil && ec2ErrCode(err) != "InvalidInstanceId.NotFound" {
 		return err
 	}
 
@@ -361,7 +361,7 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 	// If the instance is still not found after waiting around,
 	// then it probably really doesn't exist, and we don't care
 	// about that.
-	if err != nil && !hasCode("InvalidInstance.NotFound")(err) {
+	if err != nil && ec2ErrCode(err) != "InvalidInstance.NotFound" {
 		return err
 	}
 	err = e.deleteState()
@@ -383,7 +383,7 @@ func (e *environ) delGroup(g ec2.SecurityGroup) error {
 		_, err := e.ec2.DeleteSecurityGroup(g)
 		return err
 	})
-	if err == nil || hasCode("InvalidGroup.NotFound")(err) {
+	if err == nil || ec2ErrCode(err) == "InvalidGroup.NotFound" {
 		return nil
 	}
 	return fmt.Errorf("cannot delete juju security group: %v", err)
@@ -444,7 +444,7 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	// Create the provider group.
 	_, err := e.ec2.CreateSecurityGroup(jujuGroup.Name, "juju group for "+e.name)
 	// If the group already exists, we don't mind.
-	if err != nil && !hasCode("InvalidGroup.Duplicate")(err) {
+	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
 		return nil, fmt.Errorf("cannot create juju security group: %v", err)
 	}
 	err = shortAttempt.do(hasCode("InvalidGroup.NotFound"), func() error {
@@ -469,7 +469,7 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	})
 	// If the permission has already been granted we don't mind.
 	// TODO is it a problem if the group has more permissions than we want?
-	if err != nil && !hasCode("InvalidPermission.Duplicate")(err) {
+	if err != nil && ec2ErrCode(err) != "InvalidPermission.Duplicate" {
 		return nil, fmt.Errorf("cannot authorize security group: %v", err)
 	}
 
@@ -479,7 +479,7 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 		_, err := e.ec2.DeleteSecurityGroup(jujuMachineGroup)
 		return err
 	})
-	if err != nil && !hasCode("InvalidGroup.NotFound")(err) {
+	if err != nil && ec2ErrCode(err) != "InvalidGroup.NotFound" {
 		return nil, fmt.Errorf("cannot delete old security group %q: %v", jujuMachineGroup.Name, err)
 	}
 
