@@ -84,7 +84,7 @@ func (e *environ) Bootstrap() error {
 	// TODO wait for the DNS name of the instance to appear.
 	// This will happen in a later CL.
 
-	// TOOD return state.Info.
+	// TODO return state.Info.
 
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's

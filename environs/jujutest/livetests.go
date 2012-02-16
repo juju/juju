@@ -85,4 +85,7 @@ func (t *LiveTests) TestFile(c *C) {
 	err := t.Env.RemoveFile(name)
 	c.Check(err, IsNil)
 	checkFileDoesNotExist(c, t.Env, name)
+	// removing a file that does not exist should not be an error.
+	err = t.Env.RemoveFile(name)
+	c.Check(err, IsNil)
 }

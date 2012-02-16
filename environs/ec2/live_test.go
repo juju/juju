@@ -75,8 +75,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst0})
 
-	c.Logf("ensure old group exists")
-	// create a same-named group for the second instance
+	// Create a same-named group for the second instance
 	// before starting it, to check that it's deleted and
 	// recreated correctly.
 	oldGroup := ensureGroupExists(c, ec2conn, groups[2].Name, "old group")
@@ -86,11 +85,10 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 
-	// go behind the scenes to check the machines have
+	// Go behind the scenes to check the machines have
 	// been put into the correct groups.
 
-	// first check that the old group has been deleted.
-	c.Logf("checking old group was deleted")
+	// First check that the old group has been deleted...
 	f := amzec2.NewFilter()
 	f.Add("group-name", oldGroup.Name)
 	f.Add("group-id", oldGroup.Id)
@@ -98,13 +96,12 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(len(groupsResp.Groups), Equals, 0)
 
-	// then check that the groups have been created.
-	c.Logf("checking new groups were deleted")
+	// ... then check that the groups have been created.
 	groupsResp, err = ec2conn.SecurityGroups(groups, nil)
 	c.Assert(err, IsNil)
 	c.Assert(len(groupsResp.Groups), Equals, len(groups))
 
-	// for each group, check that it exists and record its id.
+	// For each group, check that it exists and record its id.
 	for i, group := range groups {
 		found := false
 		for _, g := range groupsResp.Groups {
@@ -120,8 +117,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 		}
 	}
 
-	c.Logf("checking that each insance is part of the correct groups")
-	// check that each instance is part of the correct groups.
+	// Check that each instance is part of the correct groups.
 	resp, err := ec2conn.Instances([]string{inst0.Id(), inst1.Id()}, nil)
 	c.Assert(err, IsNil)
 	c.Assert(len(resp.Reservations), Equals, 2, Bug("reservations %#v", resp.Reservations))
