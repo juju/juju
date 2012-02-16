@@ -2,7 +2,6 @@ package ec2
 
 import (
 	"launchpad.net/juju/go/schema"
-	"sync"
 	"time"
 )
 
@@ -44,67 +43,6 @@ func oneOf(values ...interface{}) schema.Checker {
 	return schema.OneOf(c...)
 }
 
-// parallel represents a number of functions running concurrently.
-type parallel struct {
-	n        int
-	max      int
-	work     chan func() error
-	done     chan error
-	firstErr chan error
-	wg       sync.WaitGroup
-}
-
-// newParallel returns a new parallel instance.  It will run up to maxPar
-// functions concurrently.
-func newParallel(maxPar int) *parallel {
-	p := &parallel{
-		max:      maxPar,
-		work:     make(chan func() error),
-		done:     make(chan error),
-		firstErr: make(chan error),
-	}
-	// gather the errors from all dos and produce the first
-	// one only.
-	// TODO decide what to do with the other errors
-	go func() {
-		var err error
-		for e := range p.done {
-			if err == nil {
-				err = e
-			}
-		}
-		p.firstErr <- err
-	}()
-	return p
-}
-
-// do requests that p run f concurrently.  If there are already the maximum
-// number of functions running concurrently, it will block until one of
-// them has completed.
-func (p *parallel) do(f func() error) {
-	if p.n < p.max {
-		p.wg.Add(1)
-		go func() {
-			for f := range p.work {
-				p.done <- f()
-			}
-			p.wg.Done()
-		}()
-	}
-	p.work <- f
-	p.n++
-}
-
-// wait marks the parallel instance as complete and waits for all the
-// functions to complete.  It returns an error from some function that has
-// encountered one, discarding other errors.
-func (p *parallel) wait() error {
-	close(p.work)
-	p.wg.Wait()
-	close(p.done)
-	return <-p.firstErr
-}
-
 // attempt represents a strategy for waiting for an ec2 request to complete
 // successfully. A request may fail to due "eventual consistency" semantics,
 // which should resolve fairly quickly. A request may also fail due to
@@ -127,11 +65,9 @@ type attempt struct {
 // isTransient is false or the attempt times out.
 func (a attempt) do(isTransient func(error) bool, f func() error) (err error) {
 	start := time.Now()
-	i := 0
 	// try returns true if do should return.
 	try := func(end time.Time, delay time.Duration) bool {
 		for time.Now().Before(end) {
-			i++
 			err = f()
 			if err == nil || !isTransient(err) {
 				return true

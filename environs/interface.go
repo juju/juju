@@ -41,7 +41,8 @@ var ErrMissingInstance = errors.New("some instance ids not found")
 // 
 type Environ interface {
 	// Bootstrap initializes the state for the environment,
-	// possibly starting one or more instances.
+	// possibly starting one or more instances. It returns
+	// information about the state.
 	Bootstrap() (*state.Info, error)
 
 	// StateInfo returns information on the state initialized
@@ -53,7 +54,7 @@ type Environ interface {
 	// The given info describes the juju state for the new
 	// instance to connect to.
 	// TODO add arguments to specify type of new machine.
-	StartInstance(machineId int, state *state.Info) (Instance, error)
+	StartInstance(machineId int, info *state.Info) (Instance, error)
 
 	// StopInstances shuts down the given instances.
 	StopInstances([]Instance) error
