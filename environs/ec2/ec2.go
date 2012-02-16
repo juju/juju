@@ -494,3 +494,13 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 
 	return []ec2.SecurityGroup{jujuGroup, jujuMachineGroup}, nil
 }
+
+// If the err is of type *ec2.Error, ec2ErrCode returns
+// its code, otherwise it returns the empty string.
+func ec2ErrCode(err error) string {
+	ec2err, _ := err.(*ec2.Error)
+	if ec2err == nil {
+		return ""
+	}
+	return ec2err.Code
+}
