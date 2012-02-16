@@ -71,7 +71,6 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	c.Logf("start instance 98")
 	inst0, err := t.Env.StartInstance(98, jujutest.InvalidStateInfo)
 	c.Assert(err, IsNil)
-	defer t.Env.StopInstances([]environs.Instance{inst0})
 
 	c.Logf("ensure old group exists")
 	// create a same-named group for the second instance
@@ -82,7 +81,6 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	c.Logf("start instance 99")
 	inst1, err := t.Env.StartInstance(99, jujutest.InvalidStateInfo)
 	c.Assert(err, IsNil)
-	defer t.Env.StopInstances([]environs.Instance{inst1})
 
 	// go behind the scenes to check the machines have
 	// been put into the correct groups.
@@ -125,8 +123,8 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	checkPortAllowed(c, perms, 22)
 	checkPortAllowed(c, perms, 2181)
 
-	c.Logf("checking that each insance is part of the correct groups")
 	// check that each instance is part of the correct groups.
+	c.Logf("checking that each insance is part of the correct groups")
 	resp, err := ec2conn.Instances([]string{inst0.Id(), inst1.Id()}, nil)
 	c.Assert(err, IsNil)
 	c.Assert(len(resp.Reservations), Equals, 2, Bug("reservations %#v", resp.Reservations))
@@ -152,6 +150,39 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 			c.Errorf("unknown instance found: %v", inst)
 		}
 	}
+
+	// create a third instance to check that StopInstances doesn't
+	// destroy any extra groups.
+	_, err = t.Env.StartInstance(100, jujutest.InvalidStateInfo)
+	c.Assert(err, IsNil)
+	group2 := amzec2.SecurityGroup{Name: ec2.MachineGroupName(t.Env, 100)}
+
+	err = t.Env.StopInstances([]environs.Instance{inst0, inst1})
+	c.Assert(err, IsNil)
+
+	// check that StopInstances has deleted the machine groups.
+	f = amzec2.NewFilter()
+	f.Add("group-name", groups[1].Name, groups[2].Name, 	group2.Name)
+
+	groupsResp, err = ec2conn.SecurityGroups(nil, f)
+	c.Assert(err, IsNil)
+	c.Assert(len(groupsResp.Groups), Equals, 1)
+	c.Check(groupsResp.Groups[0].Name, Equals, group2.Name)
+
+	// create an extra group to check that Destroy will destroy
+	// groups not attached to machines.
+	group3 := ensureGroupExists(c, ec2conn, ec2.MachineGroupName(t.Env, 101), "test group 3")
+
+	c.Log("calling destroy")
+	err = t.Env.Destroy(nil)
+	c.Assert(err, IsNil)
+
+	// check that Destroy has deleted all groups.
+	f = amzec2.NewFilter()
+	f.Add("group-name", groups[0].Name, groups[1].Name, groups[2].Name, group2.Name, group3.Name)
+	groupsResp, err = ec2conn.SecurityGroups(nil, f)
+	c.Assert(err, IsNil)
+	c.Assert(len(groupsResp.Groups), Equals, 0, Bug("remaining groups: %v", groupsResp.Groups))
 }
 
 func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {

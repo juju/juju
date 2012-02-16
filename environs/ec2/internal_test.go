@@ -10,12 +10,15 @@ type parSuite struct{}
 
 var _ = Suite(parSuite{})
 
-func (parSuite) TestParallelMaxPar(c *C) {
+func (parSuite) testDoneAndMax(c *C, total, maxProc int) {
+	c.Logf("total %d, maxProc %d", total, maxProc)
 	var mu sync.Mutex
 	max := 0
+	done := make([]bool, total)
 	n := 0
-	p := newParallel(3)
-	for i := 0; i < 10; i++ {
+	p := newParallel(maxProc)
+	for i := 0; i < total; i++ {
+		i := i
 		p.do(func() error {
 			mu.Lock()
 			n++
@@ -23,17 +26,34 @@ func (parSuite) TestParallelMaxPar(c *C) {
 				max = n
 			}
 			mu.Unlock()
+
 			time.Sleep(0.1e9)
+
 			mu.Lock()
 			n--
+			done[i] = true
 			mu.Unlock()
 			return nil
 		})
 	}
 	err := p.wait()
+	for i, ok := range done {
+		if !ok {
+			c.Errorf("parallel task %d was not done", i)
+		}
+	}
 	c.Check(n, Equals, 0)
 	c.Check(err, IsNil)
-	c.Check(max, Equals, 3)
+	if maxProc < total {
+		c.Check(max, Equals, maxProc)
+	} else {
+		c.Check(max, Equals, total)
+	}
+}
+
+func (p parSuite) TestParallelMaxPar(c *C) {
+	p.testDoneAndMax(c, 10, 3)
+	p.testDoneAndMax(c, 3, 10)
 }
 
 type intError int
