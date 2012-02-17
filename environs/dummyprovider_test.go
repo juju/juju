@@ -28,8 +28,8 @@ func (m *dummyInstance) Id() string {
 	return m.id
 }
 
-func (m *dummyInstance) DNSName() string {
-	return m.id + ".foo"
+func (m *dummyInstance) DNSName() (string, error) {
+	return m.id + ".foo", nil
 }
 
 type dummyProvider struct{}

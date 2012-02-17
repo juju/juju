@@ -90,12 +90,14 @@ func (t *localLiveSuite) SetUpSuite(c *C) {
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
 	t.env = t.LiveTests.Env
+	ec2.ShortTimeouts(true)
 }
 
 func (t *localLiveSuite) TearDownSuite(c *C) {
 	t.LiveTests.TearDownSuite(c)
 	t.srv.stopServer(c)
 	t.env = nil
+	ec2.ShortTimeouts(false)
 }
 
 // localServer represents a fake EC2 server running within
@@ -141,6 +143,16 @@ type localServerSuite struct {
 	jujutest.Tests
 	srv localServer
 	env environs.Environ
+}
+
+func (t *localServerSuite) SetUpSuite(c *C) {
+	t.Tests.SetUpSuite(c)
+	ec2.ShortTimeouts(true)
+}
+
+func (t *localServerSuite) TearDownSuite(c *C) {
+	t.Tests.TearDownSuite(c)
+	ec2.ShortTimeouts(false)
 }
 
 func (t *localServerSuite) SetUpTest(c *C) {

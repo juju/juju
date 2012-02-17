@@ -32,3 +32,40 @@ func AuthorizedKeys(path string) (string, error) {
 func EnvironEC2(e environs.Environ) *ec2.EC2 {
 	return e.(*environ).ec2
 }
+
+var originalShortAttempt = shortAttempt
+var originalLongAttempt = longAttempt
+
+// ShortTimeouts sets the timeouts to a short period as we
+// know that the ec2test server doesn't get better with time,
+// and this reduces the test time from 30s to 3s.
+func ShortTimeouts(short bool) {
+	if short {
+		shortAttempt = attempt{
+			burstTotal: 0.25e9,
+			burstDelay: 0.01e9,
+		}
+		longAttempt = shortAttempt
+	} else {
+		shortAttempt = originalShortAttempt
+		longAttempt = originalLongAttempt
+	}
+}
+
+func LongDo(t func(error)bool, f func() error) error {
+	return longAttempt.do(t, f)
+}
+
+func ShortDo(t func(error)bool, f func() error) error {
+	return shortAttempt.do(t, f)
+}
+
+func EC2ErrCode(err error) string {
+	return ec2ErrCode(err)
+}
+
+func HasCode(code string) func(error) bool {
+	return hasCode(code)
+}
+
+var ZkPortSuffix = zkPortSuffix

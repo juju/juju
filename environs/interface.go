@@ -24,13 +24,21 @@ type EnvironProvider interface {
 type Instance interface {
 	// Id returns a provider-generated identifier for the Instance.
 	Id() string
-	DNSName() string
+	DNSName() (string, error)
 }
 
 var ErrMissingInstance = errors.New("some instance ids not found")
 
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
+// 
+// Due to the limitations of some providers (for example ec2), the
+// results of the Environ methods may not be fully sequentially
+// consistent. In particular, while a provider may retry when it
+// gets an error for an operation, it will not retry when
+// an operation succeeds, even if that success is not
+// consistent with a previous operation.
+// 
 type Environ interface {
 	// Bootstrap initializes the state for the environment,
 	// possibly starting one or more instances.
