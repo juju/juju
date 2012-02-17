@@ -29,7 +29,7 @@ func (a *UnitAgent) ParsePositional(args []string) error {
 		return requiredError("unit-name")
 	}
 	if !juju.ValidUnit.MatchString(a.UnitName) {
-		return fmt.Errorf("--unit-name option expects <service-name>/<non-negative integer>")
+		return fmt.Errorf(`--unit-name option expects "<service>/<n>" argument`)
 	}
 	return a.agentConf.ParsePositional(args)
 }

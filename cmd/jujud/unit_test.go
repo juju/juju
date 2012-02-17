@@ -30,7 +30,7 @@ func (s *UnitSuite) TestParseNonsense(c *C) {
 		[]string{"--unit-name", "20/20"},
 	} {
 		err := ParseAgentCommand(main.NewUnitAgent(), args)
-		c.Assert(err, ErrorMatches, "--unit-name option expects <service-name>/<non-negative integer>")
+		c.Assert(err, ErrorMatches, `--unit-name option expects "<service>/<n>" argument`)
 	}
 }
 

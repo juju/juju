@@ -7,9 +7,8 @@ import (
 )
 
 var (
-	validService = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
-	ValidService = regexp.MustCompile("^" + validService + "$")
-	ValidUnit    = regexp.MustCompile("^" + validService + "/[0-9]+$")
+	ValidService = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
+	ValidUnit    = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
 )
 
 // Conn holds a connection to a juju.
