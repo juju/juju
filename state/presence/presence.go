@@ -35,9 +35,7 @@ func NewChangeNode(conn *zookeeper.Conn, path string, data string) (*ChangeNode,
 // time-according-to-zookeeper at which this happened. This will cause
 // data watches on this node to fire.
 func (n *ChangeNode) Change() (time.Time, error) {
-	fmt.Println("A")
 	stat, err := n.conn.Set(n.path, n.data, -1)
-	fmt.Println("B")
 	if err != nil {
 		return time.Unix(0, 0), err
 	}
