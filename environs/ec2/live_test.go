@@ -144,6 +144,20 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 		}
 	}
 }
+
+func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {
+	for _, perm := range perms {
+		if perm.FromPort == port {
+			c.Check(perm.Protocol, Equals, "tcp")
+			c.Check(perm.ToPort, Equals, port)
+			c.Check(perm.SourceIPs, Equals, []string{"0.0.0.0/0"})
+			c.Check(len(perm.SourceGroups), Equals, 0)
+			return
+		}
+	}
+	c.Errorf("ip port permission not found for %d in %#v", port, perms)
+}
+
 func (t *LiveTests) TestStopInstances(c *C) {
 	// It would be nice if this test was in jujutest, but
 	// there's no way for jujutest to fabricate a valid-looking
@@ -162,19 +176,6 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	insts, err := t.Env.Instances([]string{inst0.Id(), inst2.Id()})
 	c.Check(err, Equals, environs.ErrMissingInstance)
 	c.Check(len(insts), Equals, 0)
-}
-
-func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {
-	for _, perm := range perms {
-		if perm.FromPort == port {
-			c.Check(perm.Protocol, Equals, "tcp")
-			c.Check(perm.ToPort, Equals, port)
-			c.Check(perm.SourceIPs, Equals, []string{"0.0.0.0/0"})
-			c.Check(len(perm.SourceGroups), Equals, 0)
-			return
-		}
-	}
-	c.Errorf("ip port permission not found for %d in %#v", port, perms)
 }
 
 // createGroup creates a new EC2 group and returns it. If it already exists,
