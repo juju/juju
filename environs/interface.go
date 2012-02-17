@@ -27,7 +27,7 @@ type Instance interface {
 	DNSName() string
 }
 
-var ErrMissingInstance = errors.New("some instance ids not found")
+var ErrMissingInstance = errors.New("one or more instance ids not found")
 
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
@@ -74,5 +74,8 @@ type Environ interface {
 	// Destroy shuts down all known machines and destroys the
 	// rest of the environment. A list of instances known to
 	// be part of the environment can be given with insts.
+	// This is because recently started machines might not
+	// yet be visible in the environment, so this method
+	// can wait until they are.
 	Destroy(insts []Instance) error
 }
