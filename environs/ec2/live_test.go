@@ -144,6 +144,25 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 		}
 	}
 }
+func (t *LiveTests) TestStopInstances(c *C) {
+	// It would be nice if this test was in jujutest, but
+	// there's no way for jujutest to fabricate a valid-looking
+	// instance id.
+	inst0, err := t.Env.StartInstance(40, jujutest.InvalidStateInfo)
+	c.Assert(err, IsNil)
+
+	inst1 := ec2.FabricateInstance(inst0, "i-aaaaa")
+
+	inst2, err := t.Env.StartInstance(41, jujutest.InvalidStateInfo)
+	c.Assert(err, IsNil)
+
+	err = t.Env.StopInstances([]environs.Instance{inst0, inst1, inst2})
+	c.Check(err, IsNil)
+
+	insts, err := t.Env.Instances([]string{inst0.Id(), inst2.Id()})
+	c.Check(err, Equals, environs.ErrMissingInstance)
+	c.Check(len(insts), Equals, 0)
+}
 
 func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {
 	for _, perm := range perms {

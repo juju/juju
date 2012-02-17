@@ -32,3 +32,13 @@ func AuthorizedKeys(path string) (string, error) {
 func EnvironEC2(e environs.Environ) *ec2.EC2 {
 	return e.(*environ).ec2
 }
+
+// FabricateInstance creates a new fictitious instance
+// given an existing instance and a new id.
+func FabricateInstance(inst environs.Instance, newId string) environs.Instance {
+	oldi := inst.(*instance)
+	newi := &instance{&ec2.Instance{}}
+	*newi.Instance = *oldi.Instance
+	newi.InstanceId = newId
+	return newi
+}
