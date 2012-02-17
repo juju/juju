@@ -25,6 +25,10 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Assert(insts[0], Equals, inst)
 	c.Assert(insts[1], Equals, inst)
 
+	dns, err := inst.DNSName()
+	c.Assert(err, IsNil
+	c.Assert(dns, Not(Equals), "")
+
 	err = t.Env.StopInstances([]environs.Instance{inst})
 	c.Assert(err, IsNil)
 
