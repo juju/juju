@@ -60,8 +60,8 @@ func (dummyProvider) Open(name string, attributes interface{}) (e environs.Envir
 	}, nil
 }
 
-func (*dummyEnviron) Bootstrap() (*state.Info, error) {
-	return nil, fmt.Errorf("not implemented")
+func (*dummyEnviron) Bootstrap() (error) {
+	return fmt.Errorf("not implemented")
 }
 
 func (*dummyEnviron) StateInfo() (*state.Info, error) {

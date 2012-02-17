@@ -30,9 +30,8 @@ type Instance interface {
 // in the environments.yaml file.
 type Environ interface {
 	// Bootstrap initializes the state for the environment,
-	// possibly starting one or more instances. It returns
-	// information about the state.
-	Bootstrap() (*state.Info, error)
+	// possibly starting one or more instances.
+	Bootstrap() error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.

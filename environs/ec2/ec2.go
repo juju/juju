@@ -61,17 +61,17 @@ func (environProvider) Open(name string, config interface{}) (e environs.Environ
 	}, nil
 }
 
-func (e *environ) Bootstrap() (*state.Info, error) {
+func (e *environ) Bootstrap() error {
 	_, err := e.loadState()
 	if err == nil {
-		return nil, fmt.Errorf("environment is already bootstrapped")
+		return fmt.Errorf("environment is already bootstrapped")
 	}
 	if s3err, _ := err.(*s3.Error); s3err != nil && s3err.StatusCode != 404 {
-		return nil, err
+		return err
 	}
 	inst, err := e.startInstance(0, nil, true)
 	if err != nil {
-		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
+		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
 	err = e.saveState(&bootstrapState{
 		ZookeeperInstances: []string{inst.Id()},
@@ -80,15 +80,15 @@ func (e *environ) Bootstrap() (*state.Info, error) {
 		// ignore error on StopInstance because the previous error is
 		// more important.
 		e.StopInstances([]environs.Instance{inst})
-		return nil, err
+		return err
 	}
-
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to use S3 to make sure that only one succeeds.
 	// Perhaps consider using SimpleDB for state storage
 	// which would enable that possibility.
-	return &state.Info{[]string{inst.DNSName() + zkPortSuffix}}, nil
+
+	return nil
 }
 
 func (e *environ) StateInfo() (*state.Info, error) {
