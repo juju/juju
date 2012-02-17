@@ -80,7 +80,8 @@ func registerLocalTests() {
 	}
 }
 
-// localLiveSuite performs the live test suite, but locally.
+// localLiveSuite runs tests from LiveTests using a fake
+// EC2 server that runs within the test process itself.
 type localLiveSuite struct {
 	LiveTests
 	srv localServer
@@ -105,9 +106,8 @@ func (t *localLiveSuite) TestBootstrap(c *C) {
 	c.Skip("cannot test bootstrap on local server")
 }
 
-// localServer holds a connection to fake ec2 test
-// servers running locally. The setup function
-// sets up the servers for running a given test.
+// localServer represents a fake EC2 server running within
+// the test process itself.
 type localServer struct {
 	ec2srv *ec2test.Server
 	s3srv  *s3test.Server
@@ -139,8 +139,10 @@ func (srv *localServer) stopServer(c *C) {
 	ec2.Regions["test"] = aws.Region{}
 }
 
-// localServerSuite wraps jujutest.Tests by adding set up and tear down
-// functions that start a new ec2test server for each test.  The server is
+// localServerSuite contains tests that run against a fake EC2 server
+// running within the test process itself.  These tests can test things that
+// would be unreasonably slow or expensive to test on a live Amazon server.
+// It starts a new local ec2test server for each test.  The server is
 // accessed by using the "test" region, which is changed to point to the
 // network address of the local server.
 type localServerSuite struct {
@@ -171,8 +173,7 @@ func (t *localServerSuite) TearDownTest(c *C) {
 }
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
-	info, err := t.env.Bootstrap()
-	c.Assert(info, NotNil)
+	err := t.env.Bootstrap()
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
@@ -185,11 +186,17 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(len(insts), Equals, 1)
 	c.Check(insts[0].Id(), Equals, state.ZookeeperInstances[0])
 
+	info, err := t.env.StateInfo()
+	c.Assert(err, IsNil)
+	c.Assert(info, NotNil)
+
 	// check that the user data is configured to start zookeeper
 	// and the machine and provisioning agents.
 	inst := t.srv.ec2srv.Instance(insts[0].Id())
 	c.Assert(inst, NotNil)
-	bootstrapDNS := insts[0].DNSName()
+	bootstrapDNS, err := insts[0].DNSName()
+	c.Assert(err, IsNil)
+	c.Assert(bootstrapDNS, Not(Equals), "")
 
 	c.Logf("first instance: UserData: %q", inst.UserData)
 	var x map[interface{}]interface{}

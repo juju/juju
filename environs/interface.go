@@ -24,7 +24,7 @@ type EnvironProvider interface {
 type Instance interface {
 	// Id returns a provider-generated identifier for the Instance.
 	Id() string
-	DNSName() string
+	DNSName() (string, error)
 }
 
 var ErrMissingInstance = errors.New("some instance ids not found")
@@ -41,9 +41,8 @@ var ErrMissingInstance = errors.New("some instance ids not found")
 // 
 type Environ interface {
 	// Bootstrap initializes the state for the environment,
-	// possibly starting one or more instances. It returns
-	// information about the state.
-	Bootstrap() (*state.Info, error)
+	// possibly starting one or more instances.
+	Bootstrap() error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.

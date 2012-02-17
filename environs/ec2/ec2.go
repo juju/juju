@@ -12,7 +12,6 @@ import (
 )
 
 const zkPort = 2181
-
 var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
 
 const maxReqs = 20 // maximum concurrent ec2 requests
@@ -49,6 +48,7 @@ type environ struct {
 var _ environs.Environ = (*environ)(nil)
 
 type instance struct {
+	e *environ
 	*ec2.Instance
 }
 
@@ -62,8 +62,36 @@ func (inst *instance) Id() string {
 	return inst.InstanceId
 }
 
-func (inst *instance) DNSName() string {
-	return inst.Instance.DNSName
+func (inst *instance) DNSName() (string, error) {
+	if inst.Instance.DNSName != "" {
+		return inst.Instance.DNSName, nil
+	}
+	// The DNS address for an instance takes a while to arrive.
+	noDNS := errors.New("no dns addr")
+	err := longAttempt.do(
+		func(err error) bool {
+			return err == noDNS || err == environs.ErrMissingInstance
+		},
+		func() error {
+			insts, err := inst.e.Instances([]string{inst.Id()})
+			if err != nil {
+				return err
+			}
+			freshInst := insts[0].(*instance).Instance
+			if freshInst.DNSName == "" {
+				return noDNS
+			}
+			inst.Instance.DNSName = freshInst.DNSName
+			return nil
+		},
+	)
+	if err != nil {
+		if err == noDNS {
+			return "", fmt.Errorf("timed out trying to get DNS address", inst.Id())
+		}
+		return "", fmt.Errorf("cannot find instance %q: %v", inst.Id(), err)
+	}
+	return inst.Instance.DNSName, nil
 }
 
 func (environProvider) Open(name string, config interface{}) (e environs.Environ, err error) {
@@ -79,17 +107,17 @@ func (environProvider) Open(name string, config interface{}) (e environs.Environ
 	}, nil
 }
 
-func (e *environ) Bootstrap() (*state.Info, error) {
+func (e *environ) Bootstrap() error {
 	_, err := e.loadState()
 	if err == nil {
-		return nil, fmt.Errorf("environment is already bootstrapped")
+		return fmt.Errorf("environment is already bootstrapped")
 	}
 	if s3err, _ := err.(*s3.Error); s3err != nil && s3err.StatusCode != 404 {
-		return nil, err
+		return err
 	}
 	inst, err := e.startInstance(0, nil, true)
 	if err != nil {
-		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
+		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
 	err = e.saveState(&bootstrapState{
 		ZookeeperInstances: []string{inst.Id()},
@@ -98,32 +126,7 @@ func (e *environ) Bootstrap() (*state.Info, error) {
 		// ignore error on StopInstance because the previous error is
 		// more important.
 		e.StopInstances([]environs.Instance{inst})
-		return nil, err
-	}
-	if inst.DNSName() == "" {
-		noDNS := errors.New("no dns addr")
-		err = longAttempt.do(
-			func(err error) bool {
-				return err == noDNS || ec2ErrCode(err) == "InvalidInstance.NotFound"
-			},
-			func() error {
-				insts, err := e.Instances([]string{inst.Id()})
-				if err != nil {
-					return err
-				}
-				inst = insts[0]
-				if inst.DNSName() == "" {
-					return noDNS
-				}
-				return nil
-			},
-		)
-		if err != nil {
-			if err == noDNS {
-				return nil, fmt.Errorf("timed out trying to get bootstrap instance DNS address", inst.Id())
-			}
-			return nil, fmt.Errorf("cannot find just-started bootstrap instance %q: %v", inst.Id(), err)
-		}
+		return err
 	}
 
 	// TODO make safe in the case of racing Bootstraps
@@ -131,7 +134,8 @@ func (e *environ) Bootstrap() (*state.Info, error) {
 	// no way to use S3 to make sure that only one succeeds.
 	// Perhaps consider using SimpleDB for state storage
 	// which would enable that possibility.
-	return &state.Info{[]string{inst.DNSName() + zkPortSuffix}}, nil
+
+	return nil
 }
 
 func (e *environ) StateInfo() (*state.Info, error) {
@@ -145,14 +149,15 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	}
 	addrs := make([]string, len(insts))
 	for i, inst := range insts {
-		addr := inst.DNSName()
-		if addr == "" {
-			return nil, fmt.Errorf("zookeeper instance %q does not yet have a DNS address", inst.Id())
+		addr, err := inst.DNSName()
+		if err != nil {
+			return nil, fmt.Errorf("cannot get zookeeper instance DNS address: %v", err)
 		}
 		addrs[i] = addr + zkPortSuffix
 	}
 	return &state.Info{Addrs: addrs}, nil
 }
+
 
 func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Instance, error) {
 	return e.startInstance(machineId, info, false)
@@ -218,7 +223,7 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 	if len(instances.Instances) != 1 {
 		return nil, fmt.Errorf("expected 1 started instance, got %d", len(instances.Instances))
 	}
-	return &instance{&instances.Instances[0]}, nil
+	return &instance{e, &instances.Instances[0]}, nil
 }
 
 func (e *environ) StopInstances(insts []environs.Instance) error {
@@ -282,7 +287,7 @@ func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
 					for k := range r.Instances {
 						if r.Instances[k].InstanceId == id {
 							inst := r.Instances[k]
-							insts[i] = &instance{&inst}
+							insts[i] = &instance{e, &inst}
 							n++
 						}
 					}

@@ -13,9 +13,10 @@ var InvalidStateInfo = &state.Info{
 }
 
 // Tests is a gocheck suite containing tests verifying juju functionality
-// against the environment with Name that must exist within Environs.
-// Env holds an instance of that environment that is opened before each
-// test and Destroyed after each test.
+// against the environment with Name that must exist within Environs. The
+// tests are not designed to be run against a live server - the Environ
+// is opened once for each test, and some potentially expensive operations
+// may be executed.
 type Tests struct {
 	Environs *environs.Environs
 	Name     string
@@ -45,9 +46,9 @@ func (t *Tests) TearDownTest(*C) {
 	t.Env = nil
 }
 
-// LiveTests is a gocheck suite containing tests designed to run against a
-// live server.  It opens the environment with Name once only for the whole
-// suite, stores it in Env, and Destroys it after the suite has completed.
+// LiveTests contains tests that are designed to run against a live server
+// (e.g. Amazon EC2).  The Environ is opened once only for all the tests
+// in the suite, stored in Env, and Destroyed after the suite has completed.
 type LiveTests struct {
 	Environs *environs.Environs
 	Name     string
