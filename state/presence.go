@@ -7,15 +7,16 @@ import (
 )
 
 // ChangeNode wraps a zookeeper node whose mtime will change every time Change
-// is called. The node itself will always be empty, but data watches will fire
+// is called. The actual node data will not change, but data watches will fire
 // on Change calls.
 type ChangeNode struct {
 	conn *zookeeper.Conn
 	path string
+	data string
 }
 
-func NewChangeNode(conn *zookeeper.Conn, path string) (*ChangeNode, error) {
-	n := &ChangeNode{conn, path}
+func NewChangeNode(conn *zookeeper.Conn, path string, data string) (*ChangeNode, error) {
+	n := &ChangeNode{conn, path, data}
 	stat, err := n.conn.Exists(n.path)
 	if err != nil {
 		return nil, err
@@ -23,7 +24,7 @@ func NewChangeNode(conn *zookeeper.Conn, path string) (*ChangeNode, error) {
 	if stat != nil {
 		return n, nil
 	}
-	_, err = n.conn.Create(n.path, "", 0, zkPermAll)
+	_, err = n.conn.Create(n.path, data, 0, zkPermAll)
 	if err != nil {
 		return nil, err
 	}
@@ -34,83 +35,94 @@ func NewChangeNode(conn *zookeeper.Conn, path string) (*ChangeNode, error) {
 // time-according-to-zookeeper at which this happened. This will cause
 // data watches on this node to fire.
 func (n *ChangeNode) Change() (time.Time, error) {
-	stat, err := n.conn.Set(n.path, "", -1)
+	stat, err := n.conn.Set(n.path, n.data, -1)
 	if err != nil {
 		return time.Unix(0, 0), err
 	}
 	return stat.MTime(), nil
 }
 
-// presenceNode holds all the data used by both PresenceNode and PresenceNodeClient.
-type presenceNode struct {
-	conn    *zookeeper.Conn
-	path    string
-	timeout time.Duration
+type Event struct {
+	// Is the node now occupied?
+	Occupied bool
+	// Non-nil if Occupied is invalid.
+	Error error
 }
 
-// PresenceNode is a replacement for a zookeeper ephemeral node; it can be used to
+type PresenceNode struct {
+	done chan<- bool
+}
+
+func (n *PresenceNode) Vacate() {
+	n.done <- true
+}
+
+// Occupy implements a replacement for a zookeeper ephemeral node; it can be used to
 // signal the presence of (eg) an agent in the same sort of way, but the timeout is
 // independent of zookeeper session timeout. This means that an agent can die, and
 // be restarted by upstart, and start sending keepalive ticks again *without*
 // either bouncing the session (and spuriously alerting watchers to the departure)
 // or attempting to re-establish the session and reconstruct watch state (which is
 // likely to become unpleasantly complex).
-type PresenceNode presenceNode
-
-func NewPresenceNode(conn *zookeeper.Conn, path string, timeout time.Duration) *PresenceNode {
-	return &PresenceNode{conn, path, timeout}
-}
-
-func (p *PresenceNode) Occupy() chan<- bool {
+func Occupy(conn *zookeeper.Conn, path string, timeout time.Duration) (*PresenceNode, error) {
+	n, err := NewChangeNode(conn, path, timeout.String())
+	if err != nil {
+		return nil, err
+	}
 	done := make(chan bool, 1)
 	go func() {
-		n, err := NewChangeNode(p.conn, p.path)
-		if err != nil {
-			panic(fmt.Sprintf("cannot occupy presence node at %s", p.path))
-		}
-		t := time.NewTicker(p.timeout / 2)
+		t := time.NewTicker(timeout / 2)
 		defer t.Stop()
 		for {
 			select {
 			case <-done:
-				p.conn.Delete(p.path, -1)
+				conn.Delete(path, -1)
 				return
 			case <-t.C:
 				n.Change()
 			}
 		}
 	}()
-	return done
+	return &PresenceNode{done}, nil
 }
 
 // PresenceNodeClient allows a remote zookeeper client to detect and watch the
 // occupation and vacation of a PresenceNode.
-type PresenceNodeClient presenceNode
+type PresenceNodeClient struct {
+	conn    *zookeeper.Conn
+	path    string
+	timeout time.Duration
+}
 
-func NewPresenceNodeClient(conn *zookeeper.Conn, path string, timeout time.Duration) *PresenceNodeClient {
-	return &PresenceNodeClient{conn, path, timeout}
+func NewPresenceNodeClient(conn *zookeeper.Conn, path string) *PresenceNodeClient {
+	return &PresenceNodeClient{conn, path, 0}
 }
 
 // Occupied returns whether a presence node is currently occupied.
 func (p *PresenceNodeClient) Occupied(clock *ChangeNode) (occupied bool, err error) {
-	_, occupied, err = p.occupied(clock)
+	occupied, _, err = p.occupied(clock)
 	return
 }
 
 // OccupiedW returns whether a presence node is currently occupied, and a
 // channel which will receive a single bool when occupation status changes.
-func (p *PresenceNodeClient) OccupiedW(clock *ChangeNode) (bool, <-chan bool, error) {
-	exists, occupied, err := p.occupied(clock)
+func (p *PresenceNodeClient) OccupiedW(clock *ChangeNode) (bool, <-chan Event, error) {
+	occupied, watch, err := p.occupied(clock)
 	if err != nil {
 		return false, nil, err
 	}
 	if occupied {
-		return p.occupiedW()
+		return true, p.occupiedW(watch), nil
 	}
-	if exists {
-		return p.unoccupiedW()
+	return false, p.unoccupiedW(watch), nil
+}
+
+func (p *PresenceNodeClient) readTimeout(data string) (err error) {
+	p.timeout, err = time.ParseDuration(data)
+	if err != nil {
+		err = fmt.Errorf("%s is not a valid presence node: %s", p.path, err)
 	}
-	return p.nonexistentW()
+	return
 }
 
 // occupied returns the node's existence and occupation status. The clock param
@@ -119,12 +131,22 @@ func (p *PresenceNodeClient) OccupiedW(clock *ChangeNode) (bool, <-chan bool, er
 // (approximately) what time is "now", according to zookeeper, so we can compare
 // that against the presence node's modified time and detect a node which has
 // not been keepalive'd recently enough to qualify as occupied.
-func (p *PresenceNodeClient) occupied(clock *ChangeNode) (exists bool, occupied bool, err error) {
-	stat, err := p.conn.Exists(p.path)
-	if err != nil || stat == nil {
+func (p *PresenceNodeClient) occupied(clock *ChangeNode) (occupied bool, watch <-chan zookeeper.Event, err error) {
+	data, stat, watch, err := p.conn.GetW(p.path)
+	if err == zookeeper.ZNONODE {
+		stat, watch, err = p.conn.ExistsW(p.path)
+		if stat != nil {
+			// Whoops, the node was just created, try again from the top.
+			return p.occupied(clock)
+		}
+		// All return values are set correctly, whether err == nil or not.
+		return
+	} else if err != nil {
 		return
 	}
-	exists = true
+	if err = p.readTimeout(data); err != nil {
+		return
+	}
 	mtime, err := clock.Change()
 	if err != nil {
 		return
@@ -134,78 +156,62 @@ func (p *PresenceNodeClient) occupied(clock *ChangeNode) (exists bool, occupied 
 }
 
 // occupiedW does the work of OccupiedW when the node was already occupied.
-func (p *PresenceNodeClient) occupiedW() (bool, <-chan bool, error) {
-	occupied := make(chan bool, 1)
-
+func (p *PresenceNodeClient) occupiedW(watch <-chan zookeeper.Event) <-chan Event {
+	occupied := make(chan Event, 1)
 	go func() {
 		for {
-			timeout := make(chan bool, 1)
-			go func(ch chan bool) {
-				time.Sleep(p.timeout)
-				ch <- true
-			}(timeout)
+			timeout := time.After(p.timeout)
+			select {
+			case event := <-watch:
+				if !event.Ok() {
+					occupied <- Event{Error: fmt.Errorf(event.String())}
+					return
+				} else if event.Type == zookeeper.EVENT_DELETED {
+					occupied <- Event{Occupied: false}
+					return
+				}
+			case <-timeout:
+				occupied <- Event{Occupied: false}
+				return
+			}
 
-			_, _, watch, err := p.conn.GetW(p.path)
+			var err error
+			var data string
+			data, _, watch, err = p.conn.GetW(p.path)
 			if err != nil {
-				if err.(zookeeper.Error) == zookeeper.ZNONODE {
-					occupied <- false
+				if err == zookeeper.ZNONODE {
+					occupied <- Event{Occupied: false}
+				} else {
+					occupied <- Event{Error: err}
 				}
 				return
 			}
-			select {
-			case event := <-watch:
-				if event.Ok() {
-					if event.Type == zookeeper.EVENT_DELETED {
-						occupied <- false
-						return
-					}
-				} else {
-					panic("zookeeper connection down")
-				}
-			case <-timeout:
-				occupied <- false
+			if err = p.readTimeout(data); err != nil {
+				occupied <- Event{Error: err}
 				return
 			}
 		}
 	}()
-
-	return true, occupied, nil
+	return occupied
 }
 
 // unoccupiedW does the work of OccupiedW when we're waiting for the node to
 // become occupied.
-func (p *PresenceNodeClient) unoccupiedW() (bool, <-chan bool, error) {
-	_, _, eWatch, err := p.conn.GetW(p.path)
-	if err != nil {
-		return false, nil, err
-	}
-	return false, waitFor(eWatch), nil
-}
-
-// nonexistentW does the work of OccupiedW when the node doesn't exist yet.
-func (p *PresenceNodeClient) nonexistentW() (bool, <-chan bool, error) {
-	// note: node could have been created in the meantime
-	stat, eWatch, err := p.conn.ExistsW(p.path)
-	if err != nil {
-		return false, nil, err
-	}
-	return stat != nil, waitFor(eWatch), nil
-}
-
-func waitFor(eWatch <-chan zookeeper.Event) <-chan bool {
-	oWatch := make(chan bool, 1)
+func (p *PresenceNodeClient) unoccupiedW(watch <-chan zookeeper.Event) <-chan Event {
+	occupied := make(chan Event, 1)
 	go func() {
-		event := <-eWatch
+		event := <-watch
 		if event.Ok() {
 			switch event.Type {
+			// Note: watch could have come from either GetW or ExistsW.
 			case zookeeper.EVENT_CREATED, zookeeper.EVENT_CHANGED:
-				oWatch <- true
+				occupied <- Event{Occupied: true}
 			case zookeeper.EVENT_DELETED:
-				oWatch <- false
+				occupied <- Event{Occupied: false}
 			}
 		} else {
-			panic("zookeeper connection down")
+			occupied <- Event{Error: fmt.Errorf(event.String())}
 		}
 	}()
-	return oWatch
+	return occupied
 }
