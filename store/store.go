@@ -272,7 +272,7 @@ func (ci *CharmInfo) BundleSha256() string {
 }
 
 // Digest returns the unique identifier that represents the charm
-// data imported. This is typicall set to the VCS revision digest.
+// data imported. This is typically set to the VCS revision digest.
 func (ci *CharmInfo) Digest() string {
 	return ci.digest
 }

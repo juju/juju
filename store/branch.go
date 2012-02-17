@@ -15,12 +15,12 @@ import (
 // PublishBazaarBranch checks out the Bazaar branch from burl and
 // publishes its latest revision at urls in the given store.
 // The digest parameter must be the most recent known Bazaar
-// revision id for the branch tip. In case publishing this specific
-// digest for these URLs has been attempted already, the publishing
+// revision id for the branch tip. If publishing this specific digest
+// for these URLs has been attempted already, the publishing
 // procedure may abort early. The published digest is the Bazaar
 // revision id of the checked out branch's tip, though, which may
-// differ from the provided parameter.
-func PublishBazaarBranch(store *Store, urls []*charm.URL, burl string, digest string) (err error) {
+// differ from the digest parameter.
+func PublishBazaarBranch(store *Store, urls []*charm.URL, burl string, digest string) error {
 
 	// Prevent other publishers from updating these specific URLs
 	// concurrently.
@@ -32,12 +32,12 @@ func PublishBazaarBranch(store *Store, urls []*charm.URL, burl string, digest st
 
 	var branchDir string
 NewTip:
-	// Prepare the charm publisher. This will already compute what will
-	// be the revision assigned to the charm, and it will also fail in
-	// case the operation is unnecessary because charms are up-to-date.
+	// Prepare the charm publisher. This will compute the revision
+	// to be assigned to the charm, and it will also fail if the
+	// operation is unnecessary because charms are up-to-date.
 	pub, err := store.CharmPublisher(urls, digest)
 	if err != nil {
-		return
+		return err
 	}
 
 	// Figure if publishing this charm was already attempted before and
