@@ -107,7 +107,7 @@ func (e *environ) StateInfo() (*state.Info, error) {
 			insts = append(insts, &instance{&r.Instances[j]})
 		}
 	}
-	
+
 	addrs := make([]string, len(insts))
 	for i, inst := range insts {
 		// TODO make this poll until the DNSName becomes available.
@@ -154,15 +154,11 @@ func (e *environ) startInstance(machineId int, _ *state.Info, master bool) (envi
 }
 
 func (e *environ) StopInstances(insts []environs.Instance) error {
-	if len(insts) == 0 {
-		return nil
-	}
-	names := make([]string, len(insts))
+	ids := make([]string, len(insts))
 	for i, inst := range insts {
-		names[i] = inst.(*instance).InstanceId
+		ids[i] = inst.(*instance).InstanceId
 	}
-	_, err := e.ec2.TerminateInstances(names)
-	return err
+	return e.terminateInstances(ids)
 }
 
 func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
@@ -190,7 +186,7 @@ func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
 		for j := range resp.Reservations {
 			r := &resp.Reservations[j]
 			for k := range r.Instances {
-				inst := & r.Instances[k]
+				inst := &r.Instances[k]
 				if inst.InstanceId == id {
 					insts[i] = &instance{inst}
 					n++
@@ -217,37 +213,55 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 		return fmt.Errorf("cannot get instances: %v", err)
 	}
 	var ids []string
-	hasId := make(map[string]bool)
+	found := make(map[string]bool)
 	for _, r := range resp.Reservations {
 		for _, inst := range r.Instances {
 			ids = append(ids, inst.InstanceId)
-			hasId[inst.InstanceId] = true
+			found[inst.InstanceId] = true
 		}
 	}
 
 	// Then add any instances we've been told about
 	// but haven't yet shown up in the instance list.
 	for _, inst := range insts {
-		id := inst.Id()
-		if !hasId[id] {
+		id := inst.(*instance).InstanceId
+		if !found[id] {
 			ids = append(ids, id)
-			hasId[id] = true
+			found[id] = true
 		}
 	}
-	if len(ids) > 0 {
-		_, err = e.ec2.TerminateInstances(ids)
-	}
+	err = e.terminateInstances(ids)
 	if err != nil {
-		// If the instance doesn't exist, we don't care
-		if ec2err, _ := err.(*ec2.Error); ec2err == nil || ec2err.Code == "InvalidInstance.NotFound" {
-			return err
-		}
+		return err
 	}
 	err = e.deleteState()
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (e *environ) terminateInstances(ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	_, err := e.ec2.TerminateInstances(ids)
+	if err == nil || ec2ErrCode(err) != "InvalidInstance.NotFound" {
+		return err
+	}
+	var firstErr error
+	// If we get a NotFound error, it means that no instances have been
+	// terminated, so try them one by one, ignoring NotFound errors.
+	for _, id := range ids {
+		_, err = e.ec2.TerminateInstances([]string{id})
+		if ec2ErrCode(err) == "InvalidInstance.NotFound" {
+			err = nil
+		}
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
 }
 
 func (e *environ) machineGroupName(machineId int) string {
@@ -309,4 +323,14 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 		return nil, fmt.Errorf("cannot create machine group %q: %v", jujuMachineGroup.Name, err)
 	}
 	return []ec2.SecurityGroup{jujuGroup, r.SecurityGroup}, nil
+}
+
+// If the err is of type *ec2.Error, ec2ErrCode returns
+// its code, otherwise it returns the empty string.
+func ec2ErrCode(err error) string {
+	ec2err, _ := err.(*ec2.Error)
+	if ec2err == nil {
+		return ""
+	}
+	return ec2err.Code
 }
