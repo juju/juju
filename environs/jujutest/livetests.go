@@ -4,7 +4,6 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
-	"launchpad.net/juju/go/state"
 	"time"
 )
 
@@ -47,36 +46,24 @@ func (t *LiveTests) TestStartStop(c *C) {
 }
 
 func (t *LiveTests) TestBootstrap(c *C) {
-	c.Logf("initial bootstrap")
-	info, err := t.Env.Bootstrap()
+	err := t.Env.Bootstrap()
 	c.Assert(err, IsNil)
-	c.Assert(info, NotNil)
-	c.Assert(len(info.Addrs), Not(Equals), 0)
 
-	c.Logf("duplicate bootstrap")
-	var info2 *state.Info
-	// repeat for a while to let eventual consistency catch up, hopefully,
-	// although if the second bootstrap has succeeded, we're probably
-	// stuffed in fact.
-	for i := 0; i < 20; i++ {
-		info2, err = t.Env.Bootstrap()
-		if err != nil {
-			break
-		}
-		time.Sleep(0.25e9)
-	}
-	c.Assert(info2, IsNil)
+	err = t.Env.Bootstrap()
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
-	c.Logf("destroy env")
+	info, err := t.Env.StateInfo()
+	c.Assert(err, IsNil)
+	c.Assert(info, NotNil)
+	c.Check(len(info.Addrs), Not(Equals), 0, Bug("addrs: %q", info.Addrs))
+
 	err = t.Env.Destroy(nil)
 	c.Assert(err, IsNil)
 
 	c.Logf("bootstrap again")
 	// check that we can bootstrap after destroy
-	info, err = t.Env.Bootstrap()
+	err = t.Env.Bootstrap()
 	c.Assert(err, IsNil)
-	c.Assert(info, NotNil)
 
 	c.Logf("final destroy")
 	err = t.Env.Destroy(nil)
@@ -97,4 +84,7 @@ func (t *LiveTests) TestFile(c *C) {
 	err := t.Env.RemoveFile(name)
 	c.Check(err, IsNil)
 	checkFileDoesNotExist(c, t.Env, name)
+	// removing a file that does not exist should not be an error.
+	err = t.Env.RemoveFile(name)
+	c.Check(err, IsNil)
 }
