@@ -81,9 +81,6 @@ func (e *environ) Bootstrap() error {
 		e.StopInstances([]environs.Instance{inst})
 		return err
 	}
-	// TODO wait for the DNS name of the instance to appear.
-	// This will happen in a later CL.
-
 	// TODO return state.Info.
 
 	// TODO make safe in the case of racing Bootstraps
