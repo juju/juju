@@ -73,7 +73,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	info := make([]amzec2.SecurityGroupInfo, len(groups))
 
 	c.Logf("start instance 98")
-	inst0, err := t.Env.StartInstance(98)
+	inst0, err := t.Env.StartInstance(98, jujutest.InvalidStateInfo)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst0})
 
@@ -83,7 +83,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	oldGroup := ensureGroupExists(c, ec2conn, groups[2].Name, "old group")
 
 	c.Logf("start instance 99")
-	inst1, err := t.Env.StartInstance(99)
+	inst1, err := t.Env.StartInstance(99, jujutest.InvalidStateInfo)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 

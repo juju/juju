@@ -5,6 +5,7 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
+	"launchpad.net/juju/go/state"
 	"sync"
 )
 
@@ -68,7 +69,7 @@ func (e *environ) Bootstrap() error {
 	if s3err, _ := err.(*s3.Error); s3err != nil && s3err.StatusCode != 404 {
 		return err
 	}
-	inst, err := e.startInstance(0, true)
+	inst, err := e.startInstance(0, nil, true)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -81,24 +82,52 @@ func (e *environ) Bootstrap() error {
 		e.StopInstances([]environs.Instance{inst})
 		return err
 	}
-	// TODO return state.Info.
-
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to use S3 to make sure that only one succeeds.
 	// Perhaps consider using SimpleDB for state storage
 	// which would enable that possibility.
+
 	return nil
 }
 
-func (e *environ) StartInstance(machineId int) (environs.Instance, error) {
-	return e.startInstance(machineId, false)
+func (e *environ) StateInfo() (*state.Info, error) {
+	st, err := e.loadState()
+	if err != nil {
+		return nil, err
+	}
+	resp, err := e.ec2.Instances(st.ZookeeperInstances, nil)
+	if err != nil {
+		return nil, fmt.Errorf("cannot list instances: %v", err)
+	}
+	var insts []environs.Instance
+	for i := range resp.Reservations {
+		r := &resp.Reservations[i]
+		for j := range r.Instances {
+			insts = append(insts, &instance{&r.Instances[j]})
+		}
+	}
+	
+	addrs := make([]string, len(insts))
+	for i, inst := range insts {
+		// TODO make this poll until the DNSName becomes available.
+		addr := inst.DNSName()
+		if addr == "" {
+			return nil, fmt.Errorf("zookeeper instance %q does not yet have a DNS address", inst.Id())
+		}
+		addrs[i] = addr + zkPortSuffix
+	}
+	return &state.Info{Addrs: addrs}, nil
+}
+
+func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Instance, error) {
+	return e.startInstance(machineId, info, false)
 }
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
-func (e *environ) startInstance(machineId int, master bool) (environs.Instance, error) {
+func (e *environ) startInstance(machineId int, _ *state.Info, master bool) (environs.Instance, error) {
 	image, err := FindImageSpec(DefaultImageConstraint)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)

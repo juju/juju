@@ -21,7 +21,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 		names[id] = inst
 	}
 
-	inst, err := t.Env.StartInstance(0)
+	inst, err := t.Env.StartInstance(0, InvalidStateInfo)
 	c.Assert(err, IsNil)
 	c.Assert(inst, NotNil)
 	id0 := inst.Id()
@@ -59,6 +59,11 @@ func (t *LiveTests) TestBootstrap(c *C) {
 
 	err = t.Env.Bootstrap()
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
+
+	info, err := t.Env.StateInfo()
+	c.Assert(err, IsNil)
+	c.Assert(info, NotNil)
+	c.Check(len(info.Addrs), Not(Equals), 0, Bug("addrs: %q", info.Addrs))
 
 	err = t.Env.Destroy()
 	c.Assert(err, IsNil)

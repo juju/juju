@@ -3,6 +3,7 @@ package environs
 import (
 	"io"
 	"launchpad.net/juju/go/schema"
+	"launchpad.net/juju/go/state"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -28,14 +29,20 @@ type Instance interface {
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
 type Environ interface {
-	// Bootstrap initializes the state for the environment. It may start
-	// one or more instances.
+	// Bootstrap initializes the state for the environment,
+	// possibly starting one or more instances.
 	Bootstrap() error
+
+	// StateInfo returns information on the state initialized
+	// by Bootstrap.
+	StateInfo() (*state.Info, error)
 
 	// StartInstance asks for a new instance to be created,
 	// associated with the provided machine identifier.
+	// The given info describes the juju state for the new
+	// instance to connect to.
 	// TODO add arguments to specify type of new machine.
-	StartInstance(machineId int) (Instance, error)
+	StartInstance(machineId int, info *state.Info) (Instance, error)
 
 	// StopInstances shuts down the given instances.
 	StopInstances([]Instance) error
