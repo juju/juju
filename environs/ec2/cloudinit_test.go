@@ -69,8 +69,7 @@ func (t *cloudinitTest) checkScripts(c *C, pattern string) {
 // If match is true, CheckScripts checks that at least one script started
 // by the cloudinit data matches the given regexp pattern, otherwise it
 // checks that no script matches.  It's exported so it can be used by tests
-// defined outside
-// the ec2 package.
+// defined in ec2_test.
 func CheckScripts(c *C, x map[interface{}]interface{}, pattern string, match bool) {
 	scripts0 := x["runcmd"]
 	if scripts0 == nil {

@@ -4,8 +4,8 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	. "launchpad.net/gocheck"
 	amzec2 "launchpad.net/goamz/ec2"
+	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
@@ -26,7 +26,7 @@ environments:
 `, uniqueName, uniqueName)
 
 // uniqueName is generated afresh for every test, so that
-// we are no polluted by previous test state.
+// we are not polluted by previous test state.
 var uniqueName = randomName()
 
 func randomName() string {
@@ -53,6 +53,8 @@ func registerAmazonTests() {
 	}
 }
 
+// LiveTests contains tests that can be run against the Amazon servers.
+// Each test runs using the same ec2 connection.
 type LiveTests struct {
 	jujutest.LiveTests
 }
