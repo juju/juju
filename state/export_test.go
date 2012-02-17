@@ -16,13 +16,3 @@ func OpenAddr(c *C, addr string) (st *State, zk *zookeeper.Conn) {
 	c.Assert(err, IsNil)
 	return st, st.zk
 }
-
-// ZkRemoveTree deletes everything without checking for errors.
-func ZkRemoveAll(conn *zookeeper.Conn) {
-	children, _, err := conn.Children("/")
-	if err == nil {
-		for _, child := range children {
-			zkRemoveTree(conn, "/"+child)
-		}
-	}
-}

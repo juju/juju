@@ -5,6 +5,7 @@
 package state_test
 
 import (
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
@@ -27,10 +28,55 @@ func TestPackage(t *testing.T) {
 }
 
 type StateSuite struct {
-	CommonSuite
+	zkServer   *zookeeper.Server
+	zkTestRoot string
+	zkTestPort int
+	zkAddr     string
+	zkConn     *zookeeper.Conn
+	st         *state.State
 }
 
 var _ = Suite(&StateSuite{})
+
+func (s *StateSuite) SetUpSuite(c *C) {
+	var err error
+	s.zkTestRoot = c.MkDir() + "/zookeeper"
+	s.zkTestPort = 21812
+	s.zkAddr = fmt.Sprint("localhost:", s.zkTestPort)
+
+	s.zkServer, err = zookeeper.CreateServer(s.zkTestPort, s.zkTestRoot, "")
+	if err != nil {
+		c.Fatal("Cannot set up ZooKeeper server environment: ", err)
+	}
+	err = s.zkServer.Start()
+	if err != nil {
+		c.Fatal("Cannot start ZooKeeper server: ", err)
+	}
+}
+
+func (s *StateSuite) TearDownSuite(c *C) {
+	if s.zkServer != nil {
+		s.zkServer.Destroy()
+	}
+}
+
+func (s *StateSuite) SetUpTest(c *C) {
+	s.st, s.zkConn = state.OpenAddr(c, s.zkAddr)
+	err := s.st.Initialize()
+	c.Assert(err, IsNil)
+}
+
+func (s *StateSuite) TearDownTest(c *C) {
+	// Delete possible nodes, ignore errors.
+	zkRemoveTree(s.zkConn, "/topology")
+	zkRemoveTree(s.zkConn, "/charms")
+	zkRemoveTree(s.zkConn, "/services")
+	zkRemoveTree(s.zkConn, "/machines")
+	zkRemoveTree(s.zkConn, "/units")
+	zkRemoveTree(s.zkConn, "/relations")
+	zkRemoveTree(s.zkConn, "/initialized")
+	s.zkConn.Close()
+}
 
 func (s StateSuite) TestAddService(c *C) {
 	// Check that adding services works correctly.
@@ -477,7 +523,7 @@ func (s StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 	// Create machine 0, that shouldn't be used.
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
-	// Check that assigning without unused machine fails.   
+	// Check that assigning without unused machine fails.	
 	mysqlService, err := s.st.AddService("mysql", state.CharmMock("local:myseries/mytest-1"))
 	c.Assert(err, IsNil)
 	mysqlUnit, err := mysqlService.AddUnit()
@@ -494,4 +540,20 @@ func (s StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 
 	_, err = wordpressUnit.AssignToUnusedMachine()
 	c.Assert(err, ErrorMatches, "no unused machine found")
+}
+
+// zkRemoveTree recursively removes a tree.
+func zkRemoveTree(zk *zookeeper.Conn, path string) error {
+	// First recursively delete the children.
+	children, _, err := zk.Children(path)
+	if err != nil {
+		return err
+	}
+	for _, child := range children {
+		if err = zkRemoveTree(zk, fmt.Sprintf("%s/%s", path, child)); err != nil {
+			return err
+		}
+	}
+	// Now delete the path itself.
+	return zk.Delete(path, -1)
 }
