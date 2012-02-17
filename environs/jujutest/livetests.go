@@ -25,17 +25,16 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Assert(insts[0], Equals, inst)
 	c.Assert(insts[1], Equals, inst)
 
+	insts, err = t.Env.Instances([]string{id0, ""})
+	c.Assert(err, Equals, environs.ErrMissingInstance)
+	c.Assert(len(insts), Equals, 2, Bug("instances: %v", insts))
+	c.Check(insts[0].Id(), Equals, id0)
+	c.Check(insts[1], IsNil)
+
 	err = t.Env.StopInstances([]environs.Instance{inst})
 	c.Assert(err, IsNil)
 
-	// repeat for a while to let eventual consistency catch up, hopefully.
-	for i := 0; i < 20; i++ {
-		insts, err = t.Env.Instances([]string{id0})
-		if err != nil {
-			break
-		}
-		time.Sleep(0.25e9)
-	}
+	insts, err = t.Env.Instances([]string{id0})
 	c.Assert(err, Equals, environs.ErrMissingInstance)
 	c.Assert(len(insts), Equals, 0, Bug("instances: %v", insts))
 
@@ -60,12 +59,10 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	err = t.Env.Destroy(nil)
 	c.Assert(err, IsNil)
 
-	c.Logf("bootstrap again")
 	// check that we can bootstrap after destroy
 	err = t.Env.Bootstrap()
 	c.Assert(err, IsNil)
 
-	c.Logf("final destroy")
 	err = t.Env.Destroy(nil)
 	c.Assert(err, IsNil)
 }
