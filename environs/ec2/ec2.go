@@ -9,8 +9,7 @@ import (
 	"sync"
 )
 
-const zkPort = 2181
-var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
+const zkPortSuffix = ":2181"
 
 func init() {
 	environs.RegisterProvider("ec2", environProvider{})
@@ -83,8 +82,6 @@ func (e *environ) Bootstrap() (*state.Info, error) {
 		e.StopInstances([]environs.Instance{inst})
 		return nil, err
 	}
-	// TODO wait for the DNS name of the instance to appear.
-	// This will happen in a later CL.
 
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's

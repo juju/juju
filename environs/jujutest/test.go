@@ -12,9 +12,11 @@ var InvalidStateInfo = &state.Info{
 	Addrs: []string{"0.1.2.3:1234"},
 }
 
-// Tests is a gocheck suite containing tests verifying
-// juju functionality against the environment with Name that
-// must exist within Environs.
+// Tests is a gocheck suite containing tests verifying juju functionality
+// against the environment with Name that must exist within Environs. The
+// tests are not designed to be run against a live server - the Environ
+// is opened once for each test, and some potentially expensive operations
+// may be executed.
 type Tests struct {
 	Environs *environs.Environs
 	Name     string
@@ -46,6 +48,9 @@ func (t *Tests) TearDownTest(*C) {
 	t.Env = nil
 }
 
+// LiveTests contains tests that are designed to run against a live server
+// (e.g. Amazon EC2).  The Environ is opened once only for all the tests
+// in the suite.
 type LiveTests struct {
 	Environs *environs.Environs
 	Name     string
