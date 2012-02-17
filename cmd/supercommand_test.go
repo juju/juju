@@ -1,26 +1,29 @@
-package main_test
+package cmd_test
 
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
-	main "launchpad.net/juju/go/cmd/juju"
+	cmd "launchpad.net/juju/go/cmd"
 	"launchpad.net/juju/go/log"
 	"os"
 	"path/filepath"
+	"testing"
 )
+
+func Test(t *testing.T) { TestingT(t) }
 
 type TestCommand struct {
 	Name  string
 	Value string
 }
 
-func (c *TestCommand) Info() *main.Info {
-	return &main.Info{
-		c.Name,
-		"blah usage",
+func (c *TestCommand) Info() *cmd.Info {
+	return &cmd.Info{
+		c.Name, "[options]",
 		fmt.Sprintf("%s the juju", c.Name),
 		"blah doc",
+		true,
 	}
 }
 
@@ -39,17 +42,17 @@ func (c *TestCommand) Run() error {
 	return fmt.Errorf("BORKEN: value is %s.", c.Value)
 }
 
-func parseEmpty(args []string) (*main.JujuCommand, error) {
-	jc := main.NewJujuCommand()
-	err := main.Parse(jc, false, args)
+func parseEmpty(args []string) (*cmd.SuperCommand, error) {
+	jc := cmd.NewSuperCommand("jujutest", "")
+	err := cmd.Parse(jc, args)
 	return jc, err
 }
 
-func parseDefenestrate(args []string) (*main.JujuCommand, *TestCommand, error) {
-	jc := main.NewJujuCommand()
+func parseDefenestrate(args []string) (*cmd.SuperCommand, *TestCommand, error) {
+	jc := cmd.NewSuperCommand("jujutest", "")
 	tc := &TestCommand{Name: "defenestrate"}
 	jc.Register(tc)
-	err := main.Parse(jc, false, args)
+	err := cmd.Parse(jc, args)
 	return jc, tc, err
 }
 
@@ -58,15 +61,17 @@ type CommandSuite struct{}
 var _ = Suite(&CommandSuite{})
 
 func (s *CommandSuite) TestSubcommandDispatch(c *C) {
-	_, err := parseEmpty([]string{})
+	jc, err := parseEmpty([]string{})
 	c.Assert(err, ErrorMatches, `no command specified`)
+	c.Assert(jc.Info().Usage(), Equals, "jujutest <command> [options] ...")
 
 	_, _, err = parseDefenestrate([]string{"discombobulate"})
 	c.Assert(err, ErrorMatches, "unrecognised command: discombobulate")
 
-	_, tc, err := parseDefenestrate([]string{"defenestrate"})
+	jc, tc, err := parseDefenestrate([]string{"defenestrate"})
 	c.Assert(err, IsNil)
 	c.Assert(tc.Value, Equals, "")
+	c.Assert(jc.Info().Usage(), Equals, "jujutest defenestrate [options]")
 
 	_, tc, err = parseDefenestrate([]string{"defenestrate", "--value", "firmly"})
 	c.Assert(err, IsNil)
@@ -77,7 +82,7 @@ func (s *CommandSuite) TestSubcommandDispatch(c *C) {
 }
 
 func (s *CommandSuite) TestRegister(c *C) {
-	jc := main.NewJujuCommand()
+	jc := cmd.NewSuperCommand("jujutest", "")
 	jc.Register(&TestCommand{Name: "flip"})
 	jc.Register(&TestCommand{Name: "flap"})
 
@@ -85,7 +90,7 @@ func (s *CommandSuite) TestRegister(c *C) {
 	c.Assert(badCall, PanicMatches, "command already registered: flap")
 
 	cmds := jc.DescribeCommands()
-	c.Assert(cmds, Equals, "    flap         flap the juju\n    flip         flip the juju\n")
+	c.Assert(cmds, Equals, "commands:\n    flap         flap the juju\n    flip         flip the juju\n")
 }
 
 func (s *CommandSuite) TestDebug(c *C) {

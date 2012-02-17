@@ -1,8 +1,9 @@
-package main
+package cmd
 
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
+	"launchpad.net/juju/go/log"
 	"os"
 	"strings"
 )
@@ -12,14 +13,23 @@ type Info struct {
 	// Name is the Command's name.
 	Name string
 
-	// Usage describes the format of a valid call to the Command.
-	Usage string
+	// Args describes the command's expected arguments.
+	Args string
 
 	// Purpose is a short explanation of the Command's purpose.
 	Purpose string
 
 	// Doc is the long documentation for the Command.
 	Doc string
+
+	// Intersperse controls whether the Command will accept interspersed
+	// options and positional args.
+	Intersperse bool
+}
+
+// Usage combines Name and Args to describe the Command's intended usage.
+func (i *Info) Usage() string {
+	return fmt.Sprintf("%s %s", i.Name, i.Args)
 }
 
 // Command is implemented by types that interpret any command-line arguments
@@ -52,7 +62,7 @@ func NewFlagSet(c Command) *gnuflag.FlagSet {
 // PrintUsage prints usage information for c to stderr.
 func PrintUsage(c Command) {
 	i := c.Info()
-	fmt.Fprintf(os.Stderr, "usage: %s\n", i.Usage)
+	fmt.Fprintf(os.Stderr, "usage: %s\n", i.Usage())
 	fmt.Fprintf(os.Stderr, "purpose: %s\n", i.Purpose)
 	fmt.Fprintf(os.Stderr, "\noptions:\n")
 	NewFlagSet(c).PrintDefaults()
@@ -62,13 +72,33 @@ func PrintUsage(c Command) {
 }
 
 // Parse parses args on c. This must be called before c is Run.
-// If intersperse is true, flags and positional arguments
-// are allowed to be mixed. Otherwise, everything following
-// the first non-flag is handled as a positional argument.
-func Parse(c Command, intersperse bool, args []string) error {
+func Parse(c Command, args []string) error {
 	f := NewFlagSet(c)
-	if err := f.Parse(intersperse, args); err != nil {
+	if err := f.Parse(c.Info().Intersperse, args); err != nil {
 		return err
 	}
 	return c.ParsePositional(f.Args())
+}
+
+// CheckEmpty is a utility function that returns an error if args is not empty.
+func CheckEmpty(args []string) error {
+	if len(args) != 0 {
+		return fmt.Errorf("unrecognised args: %s", args)
+	}
+	return nil
+}
+
+// Main will Parse and Run a Command, and exit appropriately.
+func Main(c Command, args []string) {
+	if err := Parse(c, args[1:]); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		PrintUsage(c)
+		os.Exit(2)
+	}
+	if err := c.Run(); err != nil {
+		log.Debugf("%s command failed: %s\n", c.Info().Name, err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	os.Exit(0)
 }
