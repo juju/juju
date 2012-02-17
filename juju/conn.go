@@ -3,6 +3,12 @@ package juju
 import (
 	"fmt"
 	"launchpad.net/juju/go/environs"
+	"regexp"
+)
+
+var (
+	ValidService = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
+	ValidUnit    = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
 )
 
 // Conn holds a connection to a juju.

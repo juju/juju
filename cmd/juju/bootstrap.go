@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"launchpad.net/gnuflag"
+	"launchpad.net/juju/go/cmd"
 	"launchpad.net/juju/go/juju"
 )
 
@@ -13,12 +13,12 @@ type BootstrapCommand struct {
 }
 
 // Info returns a description of BootstrapCommand.
-func (c *BootstrapCommand) Info() *Info {
-	return &Info{
-		"bootstrap",
-		"juju bootstrap [options]",
+func (c *BootstrapCommand) Info() *cmd.Info {
+	return &cmd.Info{
+		"bootstrap", "[options]",
 		"start up an environment from scratch",
 		"",
+		true,
 	}
 }
 
@@ -31,10 +31,7 @@ func (c *BootstrapCommand) InitFlagSet(f *gnuflag.FlagSet) {
 // ParsePositional checks that no unexpected extra command-line arguments have
 // been specified.
 func (c *BootstrapCommand) ParsePositional(args []string) error {
-	if len(args) != 0 {
-		return fmt.Errorf("unrecognised args: %s", args)
-	}
-	return nil
+	return cmd.CheckEmpty(args)
 }
 
 // Run connects to the environment specified on the command line and bootstraps

@@ -20,9 +20,8 @@ environments:
     control-bucket: test-bucket
 `)
 
-// Each test is run in each of the following scenarios.
-// A scenario is implemented by mutating the ec2test
-// server after it starts.
+// Each test is run in each of the following scenarios.  A scenario is
+// implemented by mutating the ec2test server after it starts.
 var scenarios = []struct {
 	name  string
 	setup func(*localServer)
@@ -79,7 +78,8 @@ func registerLocalTests() {
 	}
 }
 
-// localLiveSuite performs the live test suite, but locally.
+// localLiveSuite runs tests from LiveTests using a fake
+// EC2 server that runs within the test process itself.
 type localLiveSuite struct {
 	LiveTests
 	srv localServer
@@ -98,6 +98,8 @@ func (t *localLiveSuite) TearDownSuite(c *C) {
 	t.env = nil
 }
 
+// localServer represents a fake EC2 server running within
+// the test process itself.
 type localServer struct {
 	ec2srv *ec2test.Server
 	s3srv  *s3test.Server
@@ -129,8 +131,10 @@ func (srv *localServer) stopServer(c *C) {
 	ec2.Regions["test"] = aws.Region{}
 }
 
-// localServerSuite wraps jujutest.Tests by adding set up and tear down
-// functions that start a new ec2test server for each test.  The server is
+// localServerSuite contains tests that run against a fake EC2 server
+// running within the test process itself.  These tests can test things that
+// would be unreasonably slow or expensive to test on a live Amazon server.
+// It starts a new local ec2test server for each test.  The server is
 // accessed by using the "test" region, which is changed to point to the
 // network address of the local server.
 type localServerSuite struct {
@@ -151,8 +155,7 @@ func (t *localServerSuite) TearDownTest(c *C) {
 }
 
 func (t *localServerSuite) TestBootstrapInstanceAndState(c *C) {
-	info, err := t.env.Bootstrap()
-	c.Assert(info, NotNil)
+	err := t.env.Bootstrap()
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
@@ -176,4 +179,3 @@ func (t *localServerSuite) TestBootstrapInstanceAndState(c *C) {
 	_, err = ec2.LoadState(t.env)
 	c.Assert(err, NotNil)
 }
-

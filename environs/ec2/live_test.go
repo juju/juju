@@ -4,8 +4,8 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	. "launchpad.net/gocheck"
 	amzec2 "launchpad.net/goamz/ec2"
+	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
@@ -26,7 +26,7 @@ environments:
 `, uniqueName, uniqueName)
 
 // uniqueName is generated afresh for every test, so that
-// we are no polluted by previous test state.
+// we are not polluted by previous test state.
 var uniqueName = randomName()
 
 func randomName() string {
@@ -56,6 +56,8 @@ func registerAmazonTests() {
 	}
 }
 
+// LiveTests contains tests that can be run against the Amazon servers.
+// Each test runs using the same ec2 connection.
 type LiveTests struct {
 	jujutest.LiveTests
 }
@@ -75,8 +77,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst0})
 
-	c.Logf("ensure old group exists")
-	// create a same-named group for the second instance
+	// Create a same-named group for the second instance
 	// before starting it, to check that it's deleted and
 	// recreated correctly.
 	oldGroup := ensureGroupExists(c, ec2conn, groups[2].Name, "old group")
@@ -86,11 +87,10 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 
-	// go behind the scenes to check the machines have
+	// Go behind the scenes to check the machines have
 	// been put into the correct groups.
 
-	// first check that the old group has been deleted.
-	c.Logf("checking old group was deleted")
+	// First check that the old group has been deleted...
 	f := amzec2.NewFilter()
 	f.Add("group-name", oldGroup.Name)
 	f.Add("group-id", oldGroup.Id)
@@ -98,13 +98,12 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(len(groupsResp.Groups), Equals, 0)
 
-	// then check that the groups have been created.
-	c.Logf("checking new groups were deleted")
+	// ... then check that the groups have been created.
 	groupsResp, err = ec2conn.SecurityGroups(groups, nil)
 	c.Assert(err, IsNil)
 	c.Assert(len(groupsResp.Groups), Equals, len(groups))
 
-	// for each group, check that it exists and record its id.
+	// For each group, check that it exists and record its id.
 	for i, group := range groups {
 		found := false
 		for _, g := range groupsResp.Groups {
@@ -120,8 +119,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 		}
 	}
 
-	c.Logf("checking that each insance is part of the correct groups")
-	// check that each instance is part of the correct groups.
+	// Check that each instance is part of the correct groups.
 	resp, err := ec2conn.Instances([]string{inst0.Id(), inst1.Id()}, nil)
 	c.Assert(err, IsNil)
 	c.Assert(len(resp.Reservations), Equals, 2, Bug("reservations %#v", resp.Reservations))
@@ -139,8 +137,8 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 			c.Assert(hasSecurityGroup(r, groups[2]), Equals, true, msg)
 
 			// check that the id of the second machine's group
-			// has changed - this implies that StartInstance has
-			// correctly deleted and re-created the group.
+			// has changed - this implies that StartInstance
+			// has correctly deleted and re-created the group.
 			c.Assert(groups[2].Id, Not(Equals), oldGroup.Id)
 			c.Assert(hasSecurityGroup(r, groups[1]), Equals, false, msg)
 		default:

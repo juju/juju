@@ -40,7 +40,7 @@ func (authSuite) TestAuthorizedKeys(c *C) {
 	err := os.Mkdir(d, 0777)
 	c.Assert(err, IsNil)
 
-	keys, err := ec2.AuthorizedKeys("", "")
+	keys, err := ec2.AuthorizedKeys("")
 	c.Assert(err, ErrorMatches, "no keys found")
 
 	err = ioutil.WriteFile(filepath.Join(d, "id_dsa.pub"), []byte("dsa"), 0666)
@@ -54,7 +54,7 @@ func (authSuite) TestAuthorizedKeys(c *C) {
 	err = ioutil.WriteFile(filepath.Join(d, "authorized_keys2"), []byte("auth2\n"), 0666)
 	c.Assert(err, IsNil)
 
-	keys, err = ec2.AuthorizedKeys("", "")
+	keys, err = ec2.AuthorizedKeys("")
 	c.Assert(err, IsNil)
 
 	ks := strings.Split(keys, "\n")
@@ -70,23 +70,18 @@ func (authSuite) TestAuthorizedKeys(c *C) {
 		"rsa",
 	})
 
-	// keys given directly
-	keys, err = ec2.AuthorizedKeys("foo", "authorized_keys2")
-	c.Check(err, IsNil)
-	c.Check(keys, Equals, "foo")
-
 	// explicit path relative to home/.ssh
-	keys, err = ec2.AuthorizedKeys("", "authorized_keys2")
+	keys, err = ec2.AuthorizedKeys("authorized_keys2")
 	c.Check(err, IsNil)
 	c.Check(keys, Equals, "auth2\n")
 
 	// explicit path relative to home
-	keys, err = ec2.AuthorizedKeys("", filepath.Join("~", ".ssh", "authorized_keys2"))
+	keys, err = ec2.AuthorizedKeys(filepath.Join("~", ".ssh", "authorized_keys2"))
 	c.Check(err, IsNil)
 	c.Check(keys, Equals, "auth2\n")
 
 	// explicit absolute path
-	keys, err = ec2.AuthorizedKeys("", filepath.Join(d, "authorized_keys2"))
+	keys, err = ec2.AuthorizedKeys(filepath.Join(d, "authorized_keys2"))
 	c.Check(err, IsNil)
 	c.Check(keys, Equals, "auth2\n")
 }
