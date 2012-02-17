@@ -110,6 +110,7 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	
 	addrs := make([]string, len(insts))
 	for i, inst := range insts {
+		// TODO make this poll until the DNSName becomes available.
 		addr := inst.DNSName()
 		if addr == "" {
 			return nil, fmt.Errorf("zookeeper instance %q does not yet have a DNS address", inst.Id())
