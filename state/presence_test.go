@@ -35,8 +35,7 @@ func (s *PresenceSuite) TestChangeNode(c *C) {
 	_, _, watch, err = s.zkConn.GetW(path)
 	t1, err := node.Change()
 	<-watch
-	elapsedms := t1 - t0
-	c.Assert(elapsedms > 0, Equals, true)
+	c.Assert(t1.After(t0), Equals, true)
 }
 
 func (s *PresenceSuite) TestPresenceNode(c *C) {

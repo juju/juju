@@ -3,6 +3,7 @@ package ec2
 import (
 	"fmt"
 	"launchpad.net/juju/go/cloudinit"
+	"launchpad.net/juju/go/state"
 	"os/exec"
 	"strings"
 )
@@ -20,17 +21,14 @@ type machineConfig struct {
 	// instanceIdAccessor holds bash code that evaluates to the current instance id.
 	instanceIdAccessor string
 
-	// adminSecret holds a secret that will be used to authenticate to zookeeper.
-	adminSecret string
-
 	// providerType identifies the provider type so the host
 	// knows which kind of provider to use.
 	providerType string
 
-	// zookeeperHosts lists the names of hosts running zookeeper.
-	// Unless the new machine is running zookeeper (Zookeeper is set),
-	// there must be at least one host name supplied.
-	zookeeperHosts []string
+	// stateInfo holds the means for the new instance to communicate with the
+	// juju state. Unless the new machine is running zookeeper (Zookeeper is
+	// set), there must be at least one zookeeper address supplied.
+	stateInfo *state.Info
 
 	// origin states what version of juju should be run on the instance.
 	// If it is zero, a suitable default is chosen by examining the local environment.
@@ -39,13 +37,13 @@ type machineConfig struct {
 	// machineId identifies the new machine. It must be non-empty.
 	machineId string
 
-	// sshKeys specifies the keys that are allowed to
-	// connect to the machine. If no keys are
-	// supplied, there can be no ssh access to the node.
+	// authorizedKeys specifies the keys that are allowed to
+	// connect to the machine (see cloudinit.SSHAddAuthorizedKeys)
+	// If no keys are supplied, there can be no ssh access to the node.
 	// On a bootstrap machine, that is fatal. On other
 	// machines it will mean that the ssh, scp and debug-hooks
 	// commands cannot work.
-	sshKeys []string
+	authorizedKeys string
 }
 
 type originKind int
@@ -85,9 +83,7 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 		origin = defaultOrigin()
 	}
 
-	for _, k := range cfg.sshKeys {
-		c.AddSSHAuthorizedKey(k)
-	}
+	c.AddSSHAuthorizedKeys(cfg.authorizedKeys)
 	pkgs := []string{
 		"bzr",
 		"byobu",
@@ -157,14 +153,6 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 		)
 	}
 
-	// machine data
-	c.SetAttr("machine-data",
-		map[string]interface{}{
-			"machine-id":           cfg.machineId,
-			"juju-provider-type":   cfg.providerType,
-			"juju-zookeeper-hosts": zookeeperHosts,
-		})
-
 	// general options
 	c.SetAptUpgrade(true)
 	c.SetAptUpdate(true)
@@ -173,12 +161,12 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 }
 
 func (cfg *machineConfig) zookeeperHostAddrs() string {
-	hosts := append([]string{}, cfg.zookeeperHosts...)
+	var hosts []string
 	if cfg.zookeeper {
-		hosts = append(hosts, "localhost")
+		hosts = append(hosts, "localhost"+zkPortSuffix)
 	}
-	for i := range hosts {
-		hosts[i] += ":2181"
+	if cfg.stateInfo != nil {
+		hosts = append(hosts, cfg.stateInfo.Addrs...)
 	}
 	return strings.Join(hosts, ",")
 }
@@ -201,11 +189,8 @@ func verifyConfig(cfg *machineConfig) error {
 		if cfg.instanceIdAccessor == "" {
 			return requiresError("instance id accessor")
 		}
-		if cfg.adminSecret == "" {
-			return requiresError("admin secret")
-		}
 	} else {
-		if len(cfg.zookeeperHosts) == 0 {
+		if cfg.stateInfo == nil || len(cfg.stateInfo.Addrs) == 0 {
 			return requiresError("zookeeper hosts")
 		}
 	}

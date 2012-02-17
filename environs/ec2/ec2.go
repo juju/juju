@@ -8,6 +8,8 @@ import (
 	"sync"
 )
 
+const zkPortSuffix = ":2181"
+
 func init() {
 	environs.RegisterProvider("ec2", environProvider{})
 }
@@ -79,6 +81,8 @@ func (e *environ) Bootstrap() error {
 		e.StopInstances([]environs.Instance{inst})
 		return err
 	}
+	// TODO return state.Info.
+
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to use S3 to make sure that only one succeeds.

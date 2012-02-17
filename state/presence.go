@@ -31,12 +31,12 @@ func NewChangeNode(conn *zookeeper.Conn, path string) (*ChangeNode, error) {
 }
 
 // Change re-sets contents of the zookeeper node, and returns the (approximate)
-// time-according-to-zookeeper (in ms) at which this happened. This will cause
+// time-according-to-zookeeper at which this happened. This will cause
 // data watches on this node to fire.
-func (n *ChangeNode) Change() (int64, error) {
+func (n *ChangeNode) Change() (time.Time, error) {
 	stat, err := n.conn.Set(n.path, "", -1)
 	if err != nil {
-		return 0, err
+		return time.Unix(0, 0), err
 	}
 	return stat.MTime(), nil
 }
@@ -129,8 +129,7 @@ func (p *PresenceNodeClient) occupied(clock *ChangeNode) (exists bool, occupied 
 	if err != nil {
 		return
 	}
-	deltams := mtime - stat.MTime()
-	occupied = time.Duration(deltams*1e6) < p.timeout
+	occupied = mtime.Sub(stat.MTime()) < p.timeout
 	return
 }
 

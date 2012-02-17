@@ -3,6 +3,7 @@ package ec2
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju/go/state"
 	"regexp"
 )
 
@@ -16,24 +17,22 @@ var _ = Suite(cloudinitSuite{})
 // output to see if it looks correct.
 var cloudinitTests = []machineConfig{
 	{
-		adminSecret:        "topsecret",
 		instanceIdAccessor: "$instance_id",
 		machineId:          "aMachine",
 		origin:             jujuOrigin{originBranch, "lp:jujubranch"},
 		providerType:       "ec2",
 		provisioner:        true,
-		sshKeys:            []string{"sshkey1"},
+		authorizedKeys:     "sshkey1",
 		zookeeper:          true,
 	},
 	{
-		adminSecret:    "topsecret",
 		machineId:      "aMachine",
 		origin:         jujuOrigin{originDistro, ""},
 		providerType:   "ec2",
 		provisioner:    false,
-		sshKeys:        []string{"sshkey1"},
+		authorizedKeys: "sshkey1",
 		zookeeper:      false,
-		zookeeperHosts: []string{"zk1"},
+		stateInfo:      &state.Info{Addrs: []string{"zk1"}},
 	},
 }
 
@@ -41,7 +40,7 @@ var cloudinitTests = []machineConfig{
 // values above.
 type cloudinitTest struct {
 	x   map[interface{}]interface{} // the unmarshalled YAML.
-	cfg *machineConfig                // the config being tested.
+	cfg *machineConfig              // the config being tested.
 }
 
 func (t *cloudinitTest) check(c *C) {
@@ -49,7 +48,6 @@ func (t *cloudinitTest) check(c *C) {
 	c.Check(t.x["apt_upgrade"], Equals, true)
 	c.Check(t.x["apt_update"], Equals, true)
 	t.checkScripts(c, "mkdir -p /var/lib/juju")
-	t.checkMachineData(c)
 
 	if t.cfg.zookeeper {
 		t.checkPackage(c, "zookeeperd")
@@ -64,18 +62,16 @@ func (t *cloudinitTest) check(c *C) {
 	}
 }
 
-func (t *cloudinitTest) checkMachineData(c *C) {
-	mdata0 := t.x["machine-data"]
-	c.Assert(mdata0, NotNil)
-	mdata := mdata0.(map[interface{}]interface{})
-	m := mdata["machine-id"]
-	c.Assert(m, Equals, t.cfg.machineId)
+func (t *cloudinitTest) checkScripts(c *C, pattern string) {
+	CheckScripts(c, t.x, pattern, true)
 }
 
-// checkScripts checks that at least one script started by
-// the cloudinit matches the given regexp pattern.
-func (t *cloudinitTest) checkScripts(c *C, pattern string) {
-	scripts0 := t.x["runcmd"]
+// If match is true, CheckScripts checks that at least one script started
+// by the cloudinit data matches the given regexp pattern, otherwise it
+// checks that no script matches.  It's exported so it can be used by tests
+// defined in ec2_test.
+func CheckScripts(c *C, x map[interface{}]interface{}, pattern string, match bool) {
+	scripts0 := x["runcmd"]
 	if scripts0 == nil {
 		c.Errorf("cloudinit has no entry for runcmd")
 		return
@@ -89,14 +85,23 @@ func (t *cloudinitTest) checkScripts(c *C, pattern string) {
 			found = true
 		}
 	}
-	if !found {
+	switch {
+	case match && !found:
 		c.Errorf("script %q not found", pattern)
+	case !match && found:
+		c.Errorf("script %q found but not expected", pattern)
 	}
 }
 
-// checkPackage checks that the cloudinit will install the given package.
 func (t *cloudinitTest) checkPackage(c *C, pkg string) {
-	pkgs0 := t.x["packages"]
+	CheckPackage(c, t.x, pkg, true)
+}
+
+// CheckPackage checks that the cloudinit will or won't install the given
+// package, depending on the value of match.  It's exported so it can be
+// used by tests defined outside the ec2 package.
+func CheckPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
+	pkgs0 := x["packages"]
 	if pkgs0 == nil {
 		c.Errorf("cloudinit has no entry for packages")
 		return
@@ -111,8 +116,11 @@ func (t *cloudinitTest) checkPackage(c *C, pkg string) {
 			found = true
 		}
 	}
-	if !found {
+	switch {
+	case match && !found:
 		c.Errorf("%q not found in packages", pkg)
+	case !match && found:
+		c.Errorf("%q found in packages but not expected", pkg)
 	}
 }
 
@@ -159,13 +167,13 @@ var verifyTests = []struct {
 		cfg.zookeeper = true
 		cfg.instanceIdAccessor = ""
 	}},
-	{"admin secret", func(cfg *machineConfig) {
-		cfg.zookeeper = true
-		cfg.adminSecret = ""
+	{"zookeeper hosts", func(cfg *machineConfig) {
+		cfg.zookeeper = false
+		cfg.stateInfo = nil
 	}},
 	{"zookeeper hosts", func(cfg *machineConfig) {
 		cfg.zookeeper = false
-		cfg.zookeeperHosts = nil
+		cfg.stateInfo = &state.Info{}
 	}},
 }
 
@@ -176,12 +184,11 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		provisioner:        true,
 		zookeeper:          true,
 		instanceIdAccessor: "$instance_id",
-		adminSecret:        "topsecret",
 		providerType:       "ec2",
 		origin:             jujuOrigin{originBranch, "lp:jujubranch"},
 		machineId:          "aMachine",
-		sshKeys:            []string{"sshkey1"},
-		zookeeperHosts:     []string{"zkhost"},
+		authorizedKeys:     "sshkey1",
+		stateInfo:          &state.Info{Addrs: []string{"zkhost"}},
 	}
 	// check that the base configuration does not give an error
 	_, err := newCloudInit(cfg)
