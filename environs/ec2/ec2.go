@@ -9,7 +9,8 @@ import (
 	"sync"
 )
 
-const zkPortSuffix = ":2181"
+const zkPort = 2181
+var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
 
 func init() {
 	environs.RegisterProvider("ec2", environProvider{})
@@ -306,6 +307,27 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 			return nil, fmt.Errorf("cannot create juju security group: %v", err)
 		}
 		jujuGroup = r.SecurityGroup
+
+		_, err = e.ec2.AuthorizeSecurityGroup(jujuGroup, []ec2.IPPerm{
+			// TODO delete this authorization when we can do
+			// the zookeeper ssh tunnelling.
+			{
+				Protocol:  "tcp",
+				FromPort:  zkPort,
+				ToPort:    zkPort,
+				SourceIPs: []string{"0.0.0.0/0"},
+			},
+			{
+				Protocol:  "tcp",
+				FromPort:  22,
+				ToPort:    22,
+				SourceIPs: []string{"0.0.0.0/0"},
+			},
+			// TODO authorize internal traffic
+		})
+		if err != nil && ec2ErrCode(err) != "InvalidPermission.Duplicate" {
+			return nil, fmt.Errorf("cannot authorize security group: %v", err)
+		}
 	}
 
 	// Create the machine-specific group, but first see if there's
