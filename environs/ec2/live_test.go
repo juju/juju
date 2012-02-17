@@ -137,8 +137,8 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 			c.Assert(hasSecurityGroup(r, groups[2]), Equals, true, msg)
 
 			// check that the id of the second machine's group
-			// has changed - this implies that StartInstance has
-			// correctly deleted and re-created the group.
+			// has changed - this implies that StartInstance
+			// has correctly deleted and re-created the group.
 			c.Assert(groups[2].Id, Not(Equals), oldGroup.Id)
 			c.Assert(hasSecurityGroup(r, groups[1]), Equals, false, msg)
 		default:

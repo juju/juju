@@ -20,9 +20,8 @@ environments:
     control-bucket: test-bucket
 `)
 
-// Each test is run in each of the following scenarios.
-// A scenario is implemented by mutating the ec2test
-// server after it starts.
+// Each test is run in each of the following scenarios.  A scenario is
+// implemented by mutating the ec2test server after it starts.
 var scenarios = []struct {
 	name  string
 	setup func(*localServer)
