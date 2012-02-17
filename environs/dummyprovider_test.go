@@ -21,15 +21,15 @@ func init() {
 }
 
 type dummyInstance struct {
-	name string
+	id string
 }
 
 func (m *dummyInstance) Id() string {
-	return fmt.Sprintf("dummy-%s", m.name)
+	return m.id
 }
 
 func (m *dummyInstance) DNSName() string {
-	return m.name
+	return m.id + ".foo"
 }
 
 type dummyProvider struct{}
@@ -60,7 +60,7 @@ func (dummyProvider) Open(name string, attributes interface{}) (e environs.Envir
 	}, nil
 }
 
-func (*dummyEnviron) Bootstrap() (error) {
+func (*dummyEnviron) Bootstrap() error {
 	return fmt.Errorf("not implemented")
 }
 
@@ -68,17 +68,17 @@ func (*dummyEnviron) StateInfo() (*state.Info, error) {
 	return nil, fmt.Errorf("I'm a dummy, dummy!")
 }
 
-func (*dummyEnviron) Destroy() error {
+func (*dummyEnviron) Destroy([]environs.Instance) error {
 	return nil
 }
 
-func (e *dummyEnviron) StartInstance(id int, info *state.Info) (environs.Instance, error) {
+func (e *dummyEnviron) StartInstance(machineId int, _ *state.Info) (environs.Instance, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	i := &dummyInstance{
-		name: fmt.Sprintf("%s-%d", e.baseName, e.n),
+		id: fmt.Sprintf("%s-%d", e.baseName, e.n),
 	}
-	e.instances[i.name] = i
+	e.instances[i.id] = i
 	e.n++
 	return i, nil
 }
@@ -87,19 +87,22 @@ func (e *dummyEnviron) StopInstances(is []environs.Instance) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	for _, i := range is {
-		delete(e.instances, i.(*dummyInstance).name)
+		delete(e.instances, i.(*dummyInstance).id)
 	}
 	return nil
 }
 
-func (e *dummyEnviron) Instances() ([]environs.Instance, error) {
+func (e *dummyEnviron) Instances(ids []string) (insts []environs.Instance, err error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	var is []environs.Instance
-	for _, i := range e.instances {
-		is = append(is, i)
+	for _, id := range ids {
+		inst := e.instances[id]
+		if inst == nil {
+			err = environs.ErrMissingInstance
+		}
+		insts = append(insts, inst)
 	}
-	return is, nil
+	return
 }
 
 func (e *dummyEnviron) PutFile(file string, r io.Reader, length int64) error {

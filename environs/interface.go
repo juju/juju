@@ -1,6 +1,7 @@
 package environs
 
 import (
+	"errors"
 	"io"
 	"launchpad.net/juju/go/schema"
 	"launchpad.net/juju/go/state"
@@ -26,6 +27,8 @@ type Instance interface {
 	DNSName() string
 }
 
+var ErrMissingInstance = errors.New("one or more instance ids not found")
+
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
 type Environ interface {
@@ -47,8 +50,11 @@ type Environ interface {
 	// StopInstances shuts down the given instances.
 	StopInstances([]Instance) error
 
-	// Instances returns the list of currently started instances.
-	Instances() ([]Instance, error)
+	// Instances returns a slice of instances corresponding to
+	// the given instance ids. If some (but not all) of the instances are not
+	// found, the returned slice will have nil Inststances in those
+	// slots, and ErrMissingInstance will be returned.
+	Instances(ids []string) ([]Instance, error)
 
 	// Put reads from r and writes to the given file in the
 	// environment's storage. The length must give the total
@@ -66,6 +72,10 @@ type Environ interface {
 	RemoveFile(file string) error
 
 	// Destroy shuts down all known machines and destroys the
-	// rest of the environment.
-	Destroy() error
+	// rest of the environment. A list of instances known to
+	// be part of the environment can be given with insts.
+	// This is because recently started machines might not
+	// yet be visible in the environment, so this method
+	// can wait until they are.
+	Destroy(insts []Instance) error
 }

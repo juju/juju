@@ -10,7 +10,7 @@ import (
 func (t *Tests) TestStartStop(c *C) {
 	e := t.Open(c)
 
-	insts, err := e.Instances()
+	insts, err := e.Instances(nil)
 	c.Assert(err, IsNil)
 	c.Assert(len(insts), Equals, 0)
 
@@ -19,17 +19,24 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(inst0, NotNil)
 	id0 := inst0.Id()
 
-	insts, err = e.Instances()
+	inst1, err := e.StartInstance(1, InvalidStateInfo)
 	c.Assert(err, IsNil)
-	c.Assert(len(insts), Equals, 1)
+	c.Assert(inst1, NotNil)
+	id1 := inst1.Id()
+
+	insts, err = e.Instances([]string{id0, id1})
+	c.Assert(err, IsNil)
+	c.Assert(len(insts), Equals, 2)
 	c.Assert(insts[0].Id(), Equals, id0)
+	c.Assert(insts[1].Id(), Equals, id1)
 
 	err = e.StopInstances([]environs.Instance{inst0})
 	c.Assert(err, IsNil)
 
-	insts, err = e.Instances()
-	c.Assert(err, IsNil)
-	c.Assert(len(insts), Equals, 0)
+	// TODO eventual consistency.
+	insts, err = e.Instances([]string{id0, id1})
+	c.Assert(insts, Equals, []environs.Instance{nil, inst1})
+	c.Assert(err, Equals, environs.ErrMissingInstance)
 }
 
 func (t *Tests) TestBootstrap(c *C) {
@@ -53,7 +60,7 @@ func (t *Tests) TestBootstrap(c *C) {
 	info2, err := e2.StateInfo()
 	c.Check(info2, Equals, info)
 
-	err = e2.Destroy()
+	err = e2.Destroy(nil)
 	c.Assert(err, IsNil)
 
 	err = e.Bootstrap()

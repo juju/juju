@@ -10,44 +10,35 @@ import (
 // TestStartStop is similar to Tests.TestStartStop except
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *C) {
-	names := make(map[string]environs.Instance)
-	insts, err := t.Env.Instances()
+	insts, err := t.Env.Instances(nil)
 	c.Assert(err, IsNil)
-
-	// check there are no duplicate instance ids
-	for _, inst := range insts {
-		id := inst.Id()
-		c.Assert(names[id], IsNil)
-		names[id] = inst
-	}
+	c.Check(len(insts), Equals, 0)
 
 	inst, err := t.Env.StartInstance(0, InvalidStateInfo)
 	c.Assert(err, IsNil)
 	c.Assert(inst, NotNil)
 	id0 := inst.Id()
 
-	insts, err = t.Env.Instances()
+	insts, err = t.Env.Instances([]string{id0, id0})
 	c.Assert(err, IsNil)
+	c.Assert(len(insts), Equals, 2)
+	c.Assert(insts[0], Equals, inst)
+	c.Assert(insts[1], Equals, inst)
 
-	// check the new instance is found
-	found := false
-	for _, inst := range insts {
-		if inst.Id() == id0 {
-			c.Assert(found, Equals, false)
-			found = true
-		}
-	}
-	c.Check(found, Equals, true)
+	insts, err = t.Env.Instances([]string{id0, ""})
+	c.Assert(err, Equals, environs.ErrMissingInstance)
+	c.Assert(len(insts), Equals, 2, Bug("instances: %v", insts))
+	c.Check(insts[0].Id(), Equals, id0)
+	c.Check(insts[1], IsNil)
 
 	err = t.Env.StopInstances([]environs.Instance{inst})
 	c.Assert(err, IsNil)
 
-	insts, err = t.Env.Instances()
-	c.Assert(err, IsNil)
+	insts, err = t.Env.Instances([]string{id0})
+	c.Assert(err, Equals, environs.ErrMissingInstance)
 	c.Assert(len(insts), Equals, 0, Bug("instances: %v", insts))
 
 	// check the instance is no longer there.
-	found = true
 	for _, inst := range insts {
 		c.Assert(inst.Id(), Not(Equals), id0)
 	}
@@ -65,14 +56,14 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	c.Assert(info, NotNil)
 	c.Check(len(info.Addrs), Not(Equals), 0, Bug("addrs: %q", info.Addrs))
 
-	err = t.Env.Destroy()
+	err = t.Env.Destroy(nil)
 	c.Assert(err, IsNil)
 
 	// check that we can bootstrap after destroy
 	err = t.Env.Bootstrap()
 	c.Assert(err, IsNil)
 
-	err = t.Env.Destroy()
+	err = t.Env.Destroy(nil)
 	c.Assert(err, IsNil)
 }
 
