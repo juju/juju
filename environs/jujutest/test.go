@@ -48,7 +48,7 @@ func (t *Tests) TearDownTest(*C) {
 
 // LiveTests contains tests that are designed to run against a live server
 // (e.g. Amazon EC2).  The Environ is opened once only for all the tests
-// in the suite.
+// in the suite, stored in Env, and Destroyed after the suite has completed.
 type LiveTests struct {
 	Environs *environs.Environs
 	Name     string
