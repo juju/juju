@@ -90,7 +90,7 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
 	c.Assert(lines[0], Equals, msg)
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
-	fullmsg := fmt.Sprintf(`.* JUJU:DEBUG bootstrap command failed: %s\n`, msg)
+	fullmsg := fmt.Sprintf(`.* JUJU:DEBUG juju bootstrap command failed: %s\n`, msg)
 	c.Assert(string(content), Matches, fullmsg)
 }
 
@@ -103,6 +103,6 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 	c.Assert(lines[0], Equals, msg)
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
-	fullmsg := fmt.Sprintf(`.* JUJU:DEBUG bootstrap command failed: %s\n`, msg)
+	fullmsg := fmt.Sprintf(`.* JUJU:DEBUG juju bootstrap command failed: %s\n`, msg)
 	c.Assert(string(content), Matches, fullmsg)
 }

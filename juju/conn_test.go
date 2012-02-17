@@ -47,3 +47,20 @@ environments:
 	c.Assert(err, ErrorMatches, `environment "erewhemos" has an unknown provider type: "dummy"`)
 	c.Assert(conn, IsNil)
 }
+
+func (s *ConnSuite) TestValidRegexps(c *C) {
+	assertService := func(s string, expect bool) {
+		c.Assert(juju.ValidService.MatchString(s), Equals, expect)
+		c.Assert(juju.ValidUnit.MatchString(s+"/0"), Equals, expect)
+		c.Assert(juju.ValidUnit.MatchString(s+"/99"), Equals, expect)
+		c.Assert(juju.ValidUnit.MatchString(s+"/-1"), Equals, false)
+		c.Assert(juju.ValidUnit.MatchString(s+"/blah"), Equals, false)
+	}
+	assertService("", false)
+	assertService("33", false)
+	assertService("wordpress", true)
+	assertService("w0rd-pre55", true)
+	assertService("foo2", true)
+	assertService("foo-2", false)
+	assertService("foo-2foo", true)
+}
