@@ -60,13 +60,20 @@ type LiveTests struct {
 }
 
 func (t *LiveTests) TestInstanceDNSName(c *C) {
-	inst, err := t.Env.StartInstance()
+	inst, err := t.Env.StartInstance(30, jujutest.InvalidStateInfo)
 	c.Assert(err, IsNil)
+	defer t.Env.StopInstances([]environs.Instance{inst})
 	dns, err := inst.DNSName()
 	c.Check(err, IsNil)
 	c.Check(dns, Not(Equals), "")
 
-	ec2inst := ec2.InstanceEC2
+	insts, err := t.Env.Instances([]string{inst.Id()})
+	c.Assert(err, IsNil)
+	c.Assert(len(insts), Equals, 1)
+
+	ec2inst := ec2.InstanceEC2(insts[0])
+	c.Check(ec2inst.DNSName, Equals, dns)
+}
 
 func (t *LiveTests) TestInstanceGroups(c *C) {
 	ec2conn := ec2.EnvironEC2(t.Env)

@@ -164,7 +164,7 @@ func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Insta
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
-func (e *environ) startInstance(machineId int, info *state.Info, master bool) (environs.Instance, error) {
+func (e *environ) startInstance(machineId int, _ *state.Info, master bool) (environs.Instance, error) {
 	image, err := FindImageSpec(DefaultImageConstraint)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
