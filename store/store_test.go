@@ -18,15 +18,15 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
-var _ = Suite(&S{})
+var _ = Suite(&StoreSuite{})
 
-type S struct {
+type StoreSuite struct {
 	MgoSuite
 	store *store.Store
 	charm *charm.Dir
 }
 
-func (s *S) SetUpTest(c *C) {
+func (s *StoreSuite) SetUpTest(c *C) {
 	s.MgoSuite.SetUpTest(c)
 	var err error
 	s.store, err = store.Open(s.Addr)
@@ -40,7 +40,7 @@ func (s *S) SetUpTest(c *C) {
 	s.charm = dir
 }
 
-func (s *S) TearDownTest(c *C) {
+func (s *StoreSuite) TearDownTest(c *C) {
 	if s.store != nil {
 		s.store.Close()
 	}
@@ -88,14 +88,14 @@ func (d *FakeCharmDir) BundleTo(w io.Writer) error {
 	return err
 }
 
-func (s *S) TestCharmPublisherWithRevisionedURL(c *C) {
+func (s *StoreSuite) TestCharmPublisherWithRevisionedURL(c *C) {
 	urls := []*charm.URL{charm.MustParseURL("cs:oneiric/wordpress-0")}
 	pub, err := s.store.CharmPublisher(urls, "some-digest")
 	c.Assert(err, ErrorMatches, "CharmPublisher: got charm URL with revision: cs:oneiric/wordpress-0")
 	c.Assert(pub, IsNil)
 }
 
-func (s *S) TestCharmPublisher(c *C) {
+func (s *StoreSuite) TestCharmPublisher(c *C) {
 	urlA := charm.MustParseURL("cs:oneiric/wordpress-a")
 	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
 	urls := []*charm.URL{urlA, urlB}
@@ -110,9 +110,11 @@ func (s *S) TestCharmPublisher(c *C) {
 	for _, url := range urls {
 		info, rc, err := s.store.OpenCharm(url)
 		c.Assert(err, IsNil)
-		data, err := ioutil.ReadAll(rc)
-		err = rc.Close()
 		c.Assert(info.Revision(), Equals, 0)
+		c.Assert(info.Digest(), Equals, "some-digest")
+		data, err := ioutil.ReadAll(rc)
+		c.Check(err, IsNil)
+		err = rc.Close()
 		c.Assert(err, IsNil)
 		bundle, err := charm.ReadBundleBytes(data)
 		c.Assert(err, IsNil)
@@ -132,7 +134,7 @@ func (s *S) TestCharmPublisher(c *C) {
 	}
 }
 
-func (s *S) TestCharmPublishError(c *C) {
+func (s *StoreSuite) TestCharmPublishError(c *C) {
 	url := charm.MustParseURL("cs:oneiric/wordpress")
 	urls := []*charm.URL{url}
 
@@ -160,15 +162,16 @@ func (s *S) TestCharmPublishError(c *C) {
 	info, err := s.store.CharmInfo(url)
 	c.Assert(err, IsNil)
 	c.Assert(info.Revision(), Equals, 0)
+	c.Assert(info.Digest(), Equals, "one-digest")
 }
 
-func (s *S) TestCharmInfoNotFound(c *C) {
+func (s *StoreSuite) TestCharmInfoNotFound(c *C) {
 	info, err := s.store.CharmInfo(charm.MustParseURL("cs:oneiric/wordpress"))
 	c.Assert(err == store.ErrNotFound, Equals, true)
 	c.Assert(info, IsNil)
 }
 
-func (s *S) TestRevisioning(c *C) {
+func (s *StoreSuite) TestRevisioning(c *C) {
 	urlA := charm.MustParseURL("cs:oneiric/wordpress-a")
 	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
 	urls := []*charm.URL{urlA, urlB}
@@ -212,7 +215,7 @@ func (s *S) TestRevisioning(c *C) {
 	c.Assert(rc, IsNil)
 }
 
-func (s *S) TestLockUpdates(c *C) {
+func (s *StoreSuite) TestLockUpdates(c *C) {
 	urlA := charm.MustParseURL("cs:oneiric/wordpress-a")
 	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
 	urls := []*charm.URL{urlA, urlB}
@@ -234,7 +237,7 @@ func (s *S) TestLockUpdates(c *C) {
 	lock3.Unlock()
 }
 
-func (s *S) TestLockUpdatesExpires(c *C) {
+func (s *StoreSuite) TestLockUpdatesExpires(c *C) {
 	urlA := charm.MustParseURL("cs:oneiric/wordpress-a")
 	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
 	urls := []*charm.URL{urlA, urlB}
@@ -266,7 +269,7 @@ func (s *S) TestLockUpdatesExpires(c *C) {
 	c.Check(lock3, IsNil)
 }
 
-func (s *S) TestConflictingUpdate(c *C) {
+func (s *StoreSuite) TestConflictingUpdate(c *C) {
 	// This test checks that if for whatever reason the locking
 	// safety-net fails, adding two charms in parallel still
 	// results in a sane outcome.
@@ -292,7 +295,7 @@ func (s *S) TestConflictingUpdate(c *C) {
 	c.Assert(err == store.ErrUpdateConflict, Equals, true)
 }
 
-func (s *S) TestRedundantUpdate(c *C) {
+func (s *StoreSuite) TestRedundantUpdate(c *C) {
 	urlA := charm.MustParseURL("cs:oneiric/wordpress-a")
 	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
 	urls := []*charm.URL{urlA, urlB}
@@ -324,7 +327,7 @@ func (s *S) TestRedundantUpdate(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *S) TestSha256(c *C) {
+func (s *StoreSuite) TestBundleSha256(c *C) {
 	url := charm.MustParseURL("cs:oneiric/wordpress")
 	urls := []*charm.URL{url}
 
@@ -337,12 +340,12 @@ func (s *S) TestSha256(c *C) {
 
 	info, rc, err := s.store.OpenCharm(url)
 	c.Assert(err, IsNil)
-	c.Check(info.Sha256(), Equals, "319095521ac8a62fa1e8423351973512ecca8928c9f62025e37de57c9ef07a53")
+	c.Check(info.BundleSha256(), Equals, "319095521ac8a62fa1e8423351973512ecca8928c9f62025e37de57c9ef07a53")
 	err = rc.Close()
 	c.Check(err, IsNil)
 }
 
-func (s *S) TestLogCharmEventWithRevisionedURL(c *C) {
+func (s *StoreSuite) TestLogCharmEventWithRevisionedURL(c *C) {
 	url := charm.MustParseURL("cs:oneiric/wordpress-0")
 	event := &store.CharmEvent{
 		Kind:   store.EventPublishError,
@@ -358,7 +361,7 @@ func (s *S) TestLogCharmEventWithRevisionedURL(c *C) {
 	c.Assert(event, IsNil)
 }
 
-func (s *S) TestLogCharmEvent(c *C) {
+func (s *StoreSuite) TestLogCharmEvent(c *C) {
 	url1 := charm.MustParseURL("cs:oneiric/wordpress")
 	url2 := charm.MustParseURL("cs:oneiric/mysql")
 	urls := []*charm.URL{url1, url2}
