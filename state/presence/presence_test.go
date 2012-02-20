@@ -2,9 +2,11 @@ package presence_test
 
 import (
 	"fmt"
+	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/state/presence"
+	"net"
 	"testing"
 	"time"
 )
@@ -40,21 +42,19 @@ func (s *PresenceSuite) TearDownSuite(c *C) {
 		s.zkServer.Destroy()
 	}
 }
-
-func (s *PresenceSuite) connect(c *C) *zookeeper.Conn {
-	zk, session, err := zookeeper.Dial(s.zkAddr, 15e9)
+func (s *PresenceSuite) connect(c *C, addr string) *zookeeper.Conn {
+	zk, session, err := zookeeper.Dial(addr, 15e9)
 	c.Assert(err, IsNil)
 	c.Assert((<-session).Ok(), Equals, true)
 	return zk
 }
 
 func (s *PresenceSuite) SetUpTest(c *C) {
-	s.zkConn = s.connect(c)
+	s.zkConn = s.connect(c, s.zkAddr)
 }
 
 func (s *PresenceSuite) TearDownTest(c *C) {
-	// No trees are created in this suite, just top-level nodes; kill what we
-	// can see and ignore errors.
+	// No need to recurse in this suite; just try to delete what we can see.
 	children, _, err := s.zkConn.Children("/")
 	if err == nil {
 		for _, child := range children {
@@ -64,155 +64,229 @@ func (s *PresenceSuite) TearDownTest(c *C) {
 	s.zkConn.Close()
 }
 
-var _ = Suite(&PresenceSuite{})
+var (
+	_          = Suite(&PresenceSuite{})
+	timeout    = time.Duration(5e7) // 50ms
+	longEnough = timeout * 2
+	path       = "/presence"
+)
 
-func (s *PresenceSuite) TestChangeNode(c *C) {
-	// Set up infrastructure.
-	path := "/change"
+func (s *PresenceSuite) TestAliveWatchPinger(c *C) {
+	// Check not considered Alive before it exists.
+	alive, err := presence.Alive(s.zkConn, path)
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, false)
+
+	// Watch for life.
+	w, err := presence.Watch(s.zkConn, path)
+	c.Assert(err, IsNil)
+	c.Assert(w.Error, IsNil)
+	c.Assert(w.Alive, Equals, false)
+
+	// Start a Pinger.
+	p, err := presence.StartPing(s.zkConn, path, timeout)
+	c.Assert(err, IsNil)
+
+	// Check the watch fires.
+	t := time.After(longEnough)
+	select {
+	case <-t:
+		c.Log("liveness not detected")
+		c.FailNow()
+	case alive = <-w.C:
+		c.Assert(alive, Equals, true)
+		c.Assert(w.Error, IsNil)
+	}
+
+	// Check that Alive agrees.
+	alive, err = presence.Alive(s.zkConn, path)
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, true)
+
+	// Check that a living Pinger doesn't fire the watch again.
+	t = time.After(longEnough)
+	select {
+	case <-t:
+	case <-w.C:
+		c.Log("unexpected Alive change")
+		c.FailNow()
+	}
+
+	// Kill the Pinger, check the watch does fire.
+	p.Close()
+	t = time.After(longEnough)
+	select {
+	case <-t:
+		c.Log("deadness not detected")
+		c.FailNow()
+	case alive, ok := <-w.C:
+		c.Assert(alive, Equals, false)
+		c.Assert(ok, Equals, true)
+		c.Assert(w.Error, IsNil)
+	}
+
+	// Check Alive agrees it's not alive.
+	alive, err = presence.Alive(s.zkConn, path)
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, false)
+
+	// Start a new Pinger and check the watch fires again.
+	p, err = presence.StartPing(s.zkConn, path, timeout)
+	c.Assert(err, IsNil)
+	t = time.After(longEnough)
+	select {
+	case <-t:
+		c.Log("liveness not detected")
+		c.FailNow()
+	case alive = <-w.C:
+		c.Assert(alive, Equals, true)
+		c.Assert(w.Error, IsNil)
+	}
+
+	// Stop the watcher.
+	w.Close()
+	_, ok := <-w.C
+	c.Assert(ok, Equals, false)
+	c.Assert(w.Error, ErrorMatches, "stopped on request")
+
+	// Close the Pinger and check the path is deleted as expected.
+	p.Close()
 	stat, err := s.zkConn.Exists(path)
 	c.Assert(err, IsNil)
 	c.Assert(stat, IsNil)
 
-	// Check a node gets created.
-	node, err := presence.NewChangeNode(s.zkConn, path, "")
-	c.Assert(err, IsNil)
-	_, _, watch, err := s.zkConn.GetW(path)
-	c.Assert(err, IsNil)
-
-	// Check watch fires on Change.
-	t0, err := node.Change()
-	c.Assert(err, IsNil)
-	<-watch
-
-	// Check another Change fires another watch, and returns a later time.
-	time.Sleep(1e7)
-	_, _, watch, err = s.zkConn.GetW(path)
-	t1, err := node.Change()
-	<-watch
-	c.Assert(t1.After(t0), Equals, true)
+	// Verify that the Watcher didn't notice the Pinger closing.
+	c.Assert(w.Alive, Equals, true)
 }
 
-func (s *PresenceSuite) TestOccupyVacate(c *C) {
-	// Set up infrastructure
-	path := "/presence"
-	timeout := time.Duration(5e7) // 50ms
-	longEnough := timeout * 2
-	clock, err := presence.NewChangeNode(s.zkConn, "/clock", "")
+func (s *PresenceSuite) TestBadData(c *C) {
+	// Create a node that contains inappropriate data.
+	_, err := s.zkConn.Create(path, "roflcopter", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
 	c.Assert(err, IsNil)
 
-	// Check that a fresh node is unoccupied.
-	client := presence.NewClient(s.zkConn, path)
-	occupied, err := client.Occupied(clock)
-	c.Assert(err, IsNil)
-	c.Assert(occupied, Equals, false)
+	// Check it is not interpreted as a presence node by Alive.
+	_, err = presence.Alive(s.zkConn, path)
+	c.Assert(err, ErrorMatches, ".* is not a valid presence node: .*")
 
-	// Check that OccupiedW agrees...
-	occupied, watch, err := client.OccupiedW(clock)
-	c.Assert(err, IsNil)
-	c.Assert(occupied, Equals, false)
-
-	// ...and that the watch fires when it gets occupied.
-	node, err := presence.Occupy(s.zkConn, path, timeout)
-	c.Assert(err, IsNil)
-	event := <-watch
-	c.Assert(event.Error, IsNil)
-	c.Assert(event.Occupied, Equals, true)
-
-	// Check that Occupied sees the node is now occupied...
-	occupied, err = client.Occupied(clock)
-	c.Assert(err, IsNil)
-	c.Assert(occupied, Equals, true)
-
-	// ...and that OccupiedW agrees...
-	occupied, watch, err = client.OccupiedW(clock)
-	c.Assert(err, IsNil)
-	c.Assert(occupied, Equals, true)
-
-	// ...and that the watch doesn't fire while the node remains occupied.
-	stillThere := time.After(longEnough)
-	select {
-	case <-watch:
-		c.Log("vacated early")
-		c.Fail()
-	case <-stillThere:
-		// cool, didn't break
-	}
-
-	// Vacate the node; check that the watch fires...
-	node.Vacate()
-	tooLong := time.After(longEnough)
-	select {
-	case event = <-watch:
-		c.Assert(event.Error, IsNil)
-		c.Assert(event.Occupied, Equals, false)
-	case <-tooLong:
-		c.Log("vacation not detected")
-		c.Fail()
-	}
-
-	// ...and that the node has been deleted...
-	stat, err := s.zkConn.Exists(path)
-	c.Assert(err, IsNil)
-	c.Assert(stat, IsNil)
-
-	// ...and that Occupied still agrees.
-	occupied, err = client.Occupied(clock)
-	c.Assert(err, IsNil)
-	c.Assert(occupied, Equals, false)
+	// Check it is not interpreted as a presence node by Watch.
+	w, err := presence.Watch(s.zkConn, path)
+	c.Assert(w, IsNil)
+	c.Assert(err, ErrorMatches, ".* is not a valid presence node: .*")
 }
 
-func (s *PresenceSuite) TestNotAPresenceNode(c *C) {
-	// Set up infrastructure.
-	path := "/presence"
-	clock, err := presence.NewChangeNode(s.zkConn, "/clock", "")
+func (s *PresenceSuite) TestOldNode(c *C) {
+	// Create something that looks like a presence node, but is not being
+	// refreshed by a Pinger.
+	_, err := s.zkConn.Create(path, timeout.String(), 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
 	c.Assert(err, IsNil)
-	_, err = s.zkConn.Create(path, "roflcopter", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
-	c.Assert(err, IsNil)
+	time.Sleep(longEnough)
 
-	// Check we can tell it's not a presence node.
-	client := presence.NewClient(s.zkConn, path)
-	_, err = client.Occupied(clock)
-	c.Assert(err, NotNil)
-	_, _, err = client.OccupiedW(clock)
-	c.Assert(err, NotNil)
-}
-
-func (s *PresenceSuite) DONTTestOccupyDie(c *C) {
-	// Set up infrastructure.
-	path := "/presence"
-	timeout := time.Duration(5e7) // 50ms
-	longEnough := timeout * 2
-	clock, err := presence.NewChangeNode(s.zkConn, "/clock", "")
+	// Check it is interpreted as dead by Alive.
+	alive, err := presence.Alive(s.zkConn, path)
+	c.Assert(alive, Equals, false)
 	c.Assert(err, IsNil)
 
-	// Occupy a presence node with a separate connection.
-	otherConn := s.connect(c)
-	_, err = presence.Occupy(otherConn, path, timeout)
+	// Check it is interpreted as dead by Watch.
+	w, err := presence.Watch(s.zkConn, path)
+	c.Assert(w.Alive, Equals, false)
 	c.Assert(err, IsNil)
 
-	// Watch it with the "main" connection.
-	client := presence.NewClient(s.zkConn, path)
-	occupied, watch, err := client.OccupiedW(clock)
-	c.Assert(occupied, Equals, true)
+	// Start a Pinger.
+	p, err := presence.StartPing(s.zkConn, path, timeout)
+	c.Assert(err, IsNil)
 
-	// Kill the old connection and see whether we detect the vacation.
-	otherConn.Close()
-	tooLong := time.After(longEnough)
+	// Check that the Watcher sees the Pinger coming up.
+	t := time.After(longEnough)
 	select {
-	case event := <-watch:
-		c.Assert(event.Error, IsNil)
-		c.Assert(event.Occupied, Equals, false)
-	case <-tooLong:
-		c.Log("vacation not detected")
-		c.Fail()
+	case <-t:
+		c.Log("aliveness not detected")
+		c.FailNow()
+	case alive = <-w.C:
+		c.Assert(alive, Equals, true)
+		c.Assert(w.Alive, Equals, true)
+		c.Assert(w.Error, IsNil)
 	}
 
-	// Double check the node really is still there...
-	stat, err := s.zkConn.Exists(path)
-	c.Assert(stat, NotNil)
+	// Close watcher before pinger to avoid blocking on send to w.C.
+	w.Close()
+	p.Close()
+}
 
-	// ...but we still don't think it's occupied.
-	occupied, err = client.Occupied(clock)
+// forward will listen on proxyAddr and connect its client to dstAddr, and return
+// a channel which terminates the connection when it receives a value.
+func forward(c *C, proxyAddr string, dstAddr string) chan bool {
+	// This is necessary so I can close the alternate zk connection in
+	// TestDetectTimeout *without* explicitly closing the zookeeper.Conn itself
+	// (which causes an unrecoverable panic (in C) when Pinger tries to use the
+	// closed connection).
+	stop := make(chan bool)
+	go func() {
+		var client net.Conn
+		accepted := make(chan bool)
+		go func() {
+			listener, err := net.Listen("tcp", proxyAddr)
+			c.Assert(err, IsNil)
+			defer listener.Close()
+			client, err = listener.Accept()
+			c.Assert(err, IsNil)
+			accepted <- true
+		}()
+		select {
+		case <-accepted:
+			defer client.Close()
+		case <-stop:
+			return
+		}
+		server, err := net.Dial("tcp", dstAddr)
+		c.Assert(err, IsNil)
+		defer server.Close()
+		go io.Copy(client, server)
+		go io.Copy(server, client)
+		<-stop
+	}()
+	return stop
+}
+
+func (s *PresenceSuite) TestDetectTimeout(c *C) {
+	// Start a Pinger on an alternate connection.
+	done := forward(c, "localhost:21813", s.zkAddr)
+	altConn := s.connect(c, "localhost:21813")
+	_, err := presence.StartPing(altConn, path, timeout)
 	c.Assert(err, IsNil)
-	c.Assert(occupied, Equals, false)
+
+	// Watch the Pinger on the "main" connection.
+	w, err := presence.Watch(s.zkConn, path)
+	c.Assert(err, IsNil)
+	c.Assert(w.Alive, Equals, true)
+
+	// Kill the Pinger's connection, and check the Watcher detects the dead Pinger.
+	done <- true
+	t := time.After(longEnough)
+	select {
+	case <-t:
+		c.Log("deadness not detected")
+		c.FailNow()
+	case alive := <-w.C:
+		c.Assert(alive, Equals, false)
+		c.Assert(w.Alive, Equals, false)
+		c.Assert(w.Error, IsNil)
+	}
+
+	// Start a new Pinger, and check the Watcher detects it.
+	p, err := presence.StartPing(s.zkConn, path, timeout)
+	c.Assert(err, IsNil)
+	t = time.After(longEnough)
+	select {
+	case <-t:
+		c.Log("liveness not detected")
+		c.FailNow()
+	case alive := <-w.C:
+		c.Assert(alive, Equals, true)
+		c.Assert(w.Alive, Equals, true)
+		c.Assert(w.Error, IsNil)
+	}
+
+	// Close watcher before pinger to avoid blocking on send to w.C.
+	w.Close()
+	p.Close()
 }

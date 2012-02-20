@@ -6,214 +6,267 @@ import (
 	"time"
 )
 
-// ChangeNode wraps a zookeeper node whose mtime will change every time Change
-// is called. The actual node data will not change, but data watches will fire
-// on Change calls.
-type ChangeNode struct {
+// changeNode wraps a zookeeper node and can induce watches on that node to fire.
+type changeNode struct {
 	conn *zookeeper.Conn
 	path string
 	data string
 }
 
-func NewChangeNode(conn *zookeeper.Conn, path string, data string) (*ChangeNode, error) {
-	n := &ChangeNode{conn, path, data}
-	stat, err := n.conn.Exists(n.path)
-	if err != nil {
-		return nil, err
-	}
-	if stat != nil {
-		return n, nil
-	}
-	_, err = n.conn.Create(n.path, data, 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
-	if err != nil {
-		return nil, err
-	}
-	return n, nil
-}
-
-// Change re-sets contents of the zookeeper node, and returns the (approximate)
-// time-according-to-zookeeper at which this happened. This will cause
-// data watches on this node to fire.
-func (n *ChangeNode) Change() (time.Time, error) {
+// Change sets the zookeeper node's data (creating it if it doesn't exist) and
+// returns the node's new MTime. This allows it to act as an ad-hoc remote clock.
+func (n *changeNode) Change() (mtime time.Time, err error) {
 	stat, err := n.conn.Set(n.path, n.data, -1)
+	if err == zookeeper.ZNONODE {
+		_, err = n.conn.Create(n.path, n.data, 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
+		if err == nil {
+			stat, err = n.conn.Exists(n.path)
+		}
+	}
 	if err != nil {
-		return time.Unix(0, 0), err
+		return
 	}
 	return stat.MTime(), nil
 }
 
-type Event struct {
-	// Is the node now occupied?
-	Occupied bool
-	// Non-nil if Occupied is invalid.
-	Error error
+// getClock returns a changeNode wrapping /clock.
+func getClock(conn *zookeeper.Conn) *changeNode {
+	return &changeNode{conn, "/clock", ""}
 }
 
-type Node struct {
-	done chan<- bool
+// oneShot sends a single true value to ch and closes it.
+func oneShot(ch chan bool) {
+	ch <- true
+	close(ch)
 }
 
-func (n *Node) Vacate() {
-	n.done <- true
+// Pinger (in concert with Watcher) acts as a replacement for an ephemeral node
+// in zookeeper.
+type Pinger struct {
+	conn    *zookeeper.Conn
+	node    changeNode
+	timeout time.Duration
+	closing chan bool
+	closed  chan bool
+	Error   error
 }
 
-// Occupy implements a replacement for a zookeeper ephemeral node; it can be used to
-// signal the presence of (eg) an agent in the same sort of way, but the timeout is
-// independent of zookeeper session timeout. This means that an agent can die, and
-// be restarted by upstart, and start sending keepalive ticks again *without*
-// either bouncing the session (and spuriously alerting watchers to the departure)
-// or attempting to re-establish the session and reconstruct watch state (which is
-// likely to become unpleasantly complex).
-func Occupy(conn *zookeeper.Conn, path string, timeout time.Duration) (*Node, error) {
-	n, err := NewChangeNode(conn, path, timeout.String())
+// StartPing creates and returns an active Pinger which will delete path when
+// it's closed.
+func StartPing(conn *zookeeper.Conn, path string, timeout time.Duration) (*Pinger, error) {
+	n := changeNode{conn, path, timeout.String()}
+	_, err := n.Change()
 	if err != nil {
 		return nil, err
 	}
-	done := make(chan bool, 1)
-	go func() {
-		t := time.NewTicker(timeout / 2)
-		defer t.Stop()
-		for {
-			select {
-			case <-done:
-				conn.Delete(path, -1)
-				return
-			case <-t.C:
-				n.Change()
-			}
-		}
-	}()
-	return &Node{done}, nil
+	p := &Pinger{conn, n, timeout, make(chan bool), make(chan bool), nil}
+	go p.start()
+	return p, nil
 }
 
-// Client allows a remote zookeeper client to detect and watch the occupation
-// and vacation of a Node.
-type Client struct {
+// start writes timeout to p.path every timeout/2 nanoseconds.
+func (p *Pinger) start() {
+	t := time.NewTicker(p.timeout / 2)
+	defer t.Stop()
+	for {
+		select {
+		case <-p.closing:
+			p.conn.Delete(p.node.path, -1)
+			p.Error = fmt.Errorf("closed on request")
+		case <-t.C:
+			_, p.Error = p.node.Change()
+		}
+		if p.Error != nil {
+			oneShot(p.closed)
+			return
+		}
+	}
+}
+
+// Close deletes the target node, causing any connected Watchers to observe its
+// departure (almost) immediately.
+func (p *Pinger) Close() {
+	oneShot(p.closing)
+	<-p.closed
+}
+
+// Watcher (in concert with Pinger) acts as a replacement for a watch on an
+// ephemeral node in zookeeper.
+type Watcher struct {
 	conn    *zookeeper.Conn
 	path    string
 	timeout time.Duration
+	closing chan bool
+	closed  chan bool
+
+	// Is the node currently alive, to the best of our knowledge?
+	Alive bool
+	// Receives the new value of Alive whenever it changes.
+	C chan bool
+	// If non-nil, Alive is valid.
+	Error error
 }
 
-func NewClient(conn *zookeeper.Conn, path string) *Client {
-	return &Client{conn, path, 0}
-}
-
-// Occupied returns whether a presence node is currently occupied.
-func (c *Client) Occupied(clock *ChangeNode) (occupied bool, err error) {
-	occupied, _, err = c.occupied(clock)
-	return
-}
-
-// OccupiedW returns whether a presence node is currently occupied, and a
-// channel which will receive a single Event when occupation status changes.
-func (c *Client) OccupiedW(clock *ChangeNode) (occupied bool, watch <-chan Event, err error) {
-	occupied, zkWatch, err := c.occupied(clock)
-	if err == nil {
-		if occupied {
-			watch = c.occupiedW(zkWatch)
-		} else {
-			watch = c.unoccupiedW(zkWatch)
-		}
+// Watch creates and returns a new Watcher for path.
+func Watch(conn *zookeeper.Conn, path string) (*Watcher, error) {
+	w := &Watcher{
+		conn:    conn,
+		path:    path,
+		timeout: 0,
+		closing: make(chan bool),
+		closed:  make(chan bool),
+		C:       make(chan bool),
 	}
-	return
+	if err := w.watch(true); err != nil {
+		return nil, err
+	}
+	return w, nil
 }
 
-// readTimeout tries to parse the contents of a presence node as a Duration.
-func (c *Client) readTimeout(data string) (err error) {
-	c.timeout, err = time.ParseDuration(data)
+// Alive is a convenience function that wraps Watch, for use in situations where
+// a client wants to know that a Pinger is alive but doesn't need to be notified
+// if and when it dies.
+func Alive(conn *zookeeper.Conn, path string) (bool, error) {
+	w, err := Watch(conn, path)
 	if err != nil {
-		err = fmt.Errorf("%s is not a valid presence node: %s", c.path, err)
+		return false, err
+	}
+	w.Close()
+	return w.Alive, nil
+}
+
+// Close stops watching the node.
+func (w *Watcher) Close() {
+	oneShot(w.closing)
+	<-w.closed
+}
+
+// readTimeout attempts to read the timeout declared by the Pinger refreshing
+// w.path.
+func (w *Watcher) readTimeout(data string) (err error) {
+	w.timeout, err = time.ParseDuration(data)
+	if err != nil {
+		err = fmt.Errorf("%s is not a valid presence node: %s", w.path, err)
 	}
 	return
 }
 
-// occupied returns the node's existence and occupation status. The clock param
-// is necessary to allow a client to determine whether a node is occupied without
-// watching and waiting for a timeout (as in occupiedW); it lets us find out
-// (approximately) what time is "now", according to zookeeper, so we can compare
-// that against the presence node's modified time and detect a node which has
-// not been keepalive'd recently enough to qualify as occupied.
-func (c *Client) occupied(clock *ChangeNode) (occupied bool, watch <-chan zookeeper.Event, err error) {
-	data, stat, watch, err := c.conn.GetW(c.path)
+// watch starts or restarts a watch on w.path, whether or not the node exists,
+// and whether or not the remote Pinger is currently alive.
+func (w *Watcher) watch(firstTime bool) error {
+	data, stat, zkWatch, err := w.conn.GetW(w.path)
 	if err == zookeeper.ZNONODE {
-		stat, watch, err = c.conn.ExistsW(c.path)
+		stat, zkWatch, err = w.conn.ExistsW(w.path)
+		if err != nil {
+			return err
+		}
 		if stat != nil {
-			// Whoops, the node was just created, try again from the top.
-			return c.occupied(clock)
+			// Whoops, the Pinger was *just* started; try again.
+			return w.watch(firstTime)
 		}
-		// All return values are set correctly, whether err == nil or not.
-		return
+		w.dead(zkWatch)
+		return nil
 	} else if err != nil {
-		return
+		return err
 	}
-	if err = c.readTimeout(data); err != nil {
-		return
+	if err = w.readTimeout(data); err != nil {
+		return err
 	}
-	mtime, err := clock.Change()
+
+	mtime, err := getClock(w.conn).Change()
 	if err != nil {
+		return err
+	}
+	alive := mtime.Sub(stat.MTime()) < w.timeout
+	if firstTime {
+		// Set w.Alive before the forthcoming .update in .alive/.dead, to prevent
+		// .update from sending an unwanted liveness value into .C.
+		w.Alive = alive
+	}
+	if alive {
+		w.alive(zkWatch)
+	} else {
+		w.dead(zkWatch)
+	}
+	return nil
+}
+
+// rewatch delegates to watch to set up appropriate watches after a change in
+// remote state, and handles errors.
+func (w *Watcher) rewatch() {
+	err := w.watch(false)
+	if err != nil {
+		w.broken(err)
+	}
+}
+
+// update pushes the current liveness of the remote Pinger into C, so long as
+// it is different from the last known liveness.
+func (w *Watcher) update(alive bool) {
+	if w.Alive != alive {
+		w.Alive = alive
+		w.C <- alive
+	}
+}
+
+// alive should be called when the remote Pinger is known to be alive. zkWatch
+// must be a data watch on w.path.
+func (w *Watcher) alive(zkWatch <-chan zookeeper.Event) {
+	w.update(true)
+	if zkWatch == nil {
+		w.rewatch()
 		return
 	}
-	occupied = mtime.Sub(stat.MTime()) < c.timeout
-	return
-}
-
-// occupiedW does the work of OccupiedW when the node was already occupied.
-func (c *Client) occupiedW(watch <-chan zookeeper.Event) <-chan Event {
-	occupied := make(chan Event, 1)
 	go func() {
-		for {
-			timeout := time.After(c.timeout)
-			select {
-			case event := <-watch:
-				if !event.Ok() {
-					occupied <- Event{Error: fmt.Errorf(event.String())}
-					return
-				} else if event.Type == zookeeper.EVENT_DELETED {
-					occupied <- Event{Occupied: false}
-					return
-				}
-			case <-timeout:
-				occupied <- Event{Occupied: false}
-				return
+		timeout := time.After(w.timeout)
+		select {
+		case event := <-zkWatch:
+			if !event.Ok() {
+				w.broken(fmt.Errorf(event.String()))
+			} else if event.Type == zookeeper.EVENT_DELETED {
+				w.dead(nil)
+			} else {
+				w.rewatch()
 			}
-
-			var err error
-			var data string
-			data, _, watch, err = c.conn.GetW(c.path)
-			if err != nil {
-				if err == zookeeper.ZNONODE {
-					occupied <- Event{Occupied: false}
-				} else {
-					occupied <- Event{Error: err}
-				}
-				return
-			}
-			if err = c.readTimeout(data); err != nil {
-				occupied <- Event{Error: err}
-				return
-			}
+		case <-timeout:
+			w.dead(nil)
+		case <-w.closing:
+			w.broken(fmt.Errorf("stopped on request"))
 		}
 	}()
-	return occupied
 }
 
-// unoccupiedW does the work of OccupiedW when we're waiting for the node to
-// become occupied.
-func (c *Client) unoccupiedW(watch <-chan zookeeper.Event) <-chan Event {
-	occupied := make(chan Event, 1)
+// dead should be called when the remote Pinger is known to be dead. zkWatch can
+// be either an existence or a data watch on w.path.
+func (w *Watcher) dead(zkWatch <-chan zookeeper.Event) {
+	w.update(false)
+	if zkWatch == nil {
+		w.rewatch()
+		return
+	}
 	go func() {
-		event := <-watch
-		if event.Ok() {
-			switch event.Type {
-			// Note: watch could have come from either GetW or ExistsW.
-			case zookeeper.EVENT_CREATED, zookeeper.EVENT_CHANGED:
-				occupied <- Event{Occupied: true}
-			case zookeeper.EVENT_DELETED:
-				occupied <- Event{Occupied: false}
+		select {
+		case event := <-zkWatch:
+			if !event.Ok() {
+				w.broken(fmt.Errorf(event.String()))
+			} else {
+				switch event.Type {
+				case zookeeper.EVENT_CREATED, zookeeper.EVENT_CHANGED:
+					w.rewatch()
+				case zookeeper.EVENT_DELETED:
+					w.dead(nil)
+				}
 			}
-		} else {
-			occupied <- Event{Error: fmt.Errorf(event.String())}
+		case <-w.closing:
+			w.broken(fmt.Errorf("stopped on request"))
 		}
 	}()
-	return occupied
+}
+
+// broken should be called when w is no longer working correctly, for whatever
+// reason.
+func (w *Watcher) broken(err error) {
+	close(w.C)
+	w.Error = err
+	oneShot(w.closed)
 }
