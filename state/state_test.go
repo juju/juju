@@ -21,7 +21,7 @@ func TestPackage(t *testing.T) {
 	TestingT(t)
 }
 
-// charmDir returns a directory containing test charms.
+// charmDir returns a directory containing the given test charm.
 func charmDir(name string) string {
 	return filepath.Join("..", "charm", "testrepo", "series", name)
 }
@@ -96,10 +96,10 @@ func (s StateSuite) TestAddCharm(c *C) {
 func (s StateSuite) TestCharm(c *C) {
 	// Check that reading a previously added charm works correctly.
 	dummyCharm := readCharm(c, "dummy")
-	dummy, err := s.st.AddCharm(localCharmId(dummyCharm), dummyCharm, "http://example.com/abc")
+	_, err := s.st.AddCharm(localCharmId(dummyCharm), dummyCharm, "http://example.com/abc")
 	c.Assert(err, IsNil)
 
-	dummy, err = s.st.Charm("local:series/dummy-1")
+	dummy, err := s.st.Charm("local:series/dummy-1")
 	c.Assert(err, IsNil)
 	c.Assert(dummy.Id(), Equals, "local:series/dummy-1")
 }
@@ -108,10 +108,10 @@ func (s StateSuite) TestCharmAttributes(c *C) {
 	// Check that the basic (invariant) fields of the charm
 	// are correctly in place.
 	dummyCharm := readCharm(c, "dummy")
-	dummy, err := s.st.AddCharm(localCharmId(dummyCharm), dummyCharm, "http://example.com/abc")
+	_, err := s.st.AddCharm(localCharmId(dummyCharm), dummyCharm, "http://example.com/abc")
 	c.Assert(err, IsNil)
 
-	dummy, err = s.st.Charm("local:series/dummy-1")
+	dummy, err := s.st.Charm("local:series/dummy-1")
 	c.Assert(err, IsNil)
 	c.Assert(dummy.Id(), Equals, "local:series/dummy-1")
 	c.Assert(dummy.Name(), Equals, "dummy")
@@ -122,10 +122,10 @@ func (s StateSuite) TestCharmAttributes(c *C) {
 func (s StateSuite) TestCharmMetadata(c *C) {
 	// Check that the charm metadata was correctly saved and loaded.
 	dummyCharm := readCharm(c, "dummy")
-	dummy, err := s.st.AddCharm(localCharmId(dummyCharm), dummyCharm, "")
+	_, err := s.st.AddCharm(localCharmId(dummyCharm), dummyCharm, "")
 	c.Assert(err, IsNil)
 
-	dummy, err = s.st.Charm("local:series/dummy-1")
+	dummy, err := s.st.Charm("local:series/dummy-1")
 	c.Assert(err, IsNil)
 	meta := dummy.Meta()
 	c.Assert(meta.Name, Equals, "dummy")
@@ -134,10 +134,10 @@ func (s StateSuite) TestCharmMetadata(c *C) {
 func (s StateSuite) TestCharmConfig(c *C) {
 	// Verify that the charm config is present and correct.
 	dummyCharm := readCharm(c, "dummy")
-	dummy, err := s.st.AddCharm(localCharmId(dummyCharm), dummyCharm, "")
+	_, err := s.st.AddCharm(localCharmId(dummyCharm), dummyCharm, "")
 	c.Assert(err, IsNil)
 
-	dummy, err = s.st.Charm("local:series/dummy-1")
+	dummy, err := s.st.Charm("local:series/dummy-1")
 	c.Assert(err, IsNil)
 	config := dummy.Config()
 	c.Assert(config.Options["title"], Equals,
