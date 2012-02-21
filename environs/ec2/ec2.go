@@ -6,7 +6,6 @@ import (
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/state"
-	"sort"
 	"sync"
 )
 
@@ -308,161 +307,115 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	return []ec2.SecurityGroup{jujuGroup, jujuMachineGroup}, nil
 }
 
+var zg ec2.SecurityGroup
+
 // ensureGroup tries to ensure that a security group exists with the given
-// name and permissions. If the group does not exist, it will be created
+// name and permissions. If the group already exists, its permissions
+// will be changed accordingly. If the group does not exist, it will be created
 // with the given description. It returns the group.
 func (e *environ) ensureGroup(name, descr string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
 	resp, err := e.ec2.CreateSecurityGroup(name, descr)
 	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
-		return
+		return zg, nil
 	}
 
-	if err != nil {
-		// The group already exists, so check to see if it already
-		// has the required permissions. If it does, we need
-		// do nothing. While checking for the required permissions
-		// is quite involved, waiting for a group to be able to be
-		// deleted can take more than 2 minutes, so it's worth it.
-		f := ec2.NewFilter()
-		f.Add("group-name", name)
-		gresp, err := e.ec2.SecurityGroups(nil, f)
+	want := newPermSet(perms)
+	var have permSet
+	if err == nil {
+		g = resp.SecurityGroup
+	} else {
+		resp, err := e.ec2.SecurityGroups(ec2.SecurityGroupNames(name), nil)
 		if err != nil {
-			return g, err
+			return zg, err
 		}
-		if len(gresp.Groups) != 1 {
-			return g, fmt.Errorf("unexpected number of groups found; expected 1 got %d", len(gresp.Groups))
+		// TODO do we mind if the old group has the wrong description?
+		have = newPermSet(resp.Groups[0].IPPerms)
+		g = resp.Groups[0].SecurityGroup
+	}
+	revoke := make(permSet)
+	for p := range have {
+		if !want[p] {
+			revoke[p] = true
 		}
-		if samePerms(gresp.Groups[0].IPPerms, perms)  {
-			// TODO the description might not match, but do we care?
-			return gresp.Groups[0].SecurityGroup, nil
-		}
-
-		// Delete the group so that we can recreate it with the correct permissions.
-		// TODO we could modify the permissions instead of deleting the group.
-		// TODO repeat until the group is not in use
-		_, err = e.ec2.DeleteSecurityGroup(ec2.SecurityGroup{Name: name})
-		if err != nil && ec2ErrCode(err) != "InvalidGroup.InUse" {
-			return g, err
-		}
-		resp, err = e.ec2.CreateSecurityGroup(name, descr)
+	}
+	if len(revoke) > 0 {
+		_, err := e.ec2.RevokeSecurityGroup(g, revoke.ipPerms())
 		if err != nil {
-			return g, err
+			return zg, fmt.Errorf("cannot revoke security group: %v", err)
 		}
 	}
 
-	g = resp.SecurityGroup
-	_, err = e.ec2.AuthorizeSecurityGroup(g, perms)
-	if err != nil {
-		return g, err
+	add := make(map[ipPerm] bool)
+	for p := range want {
+		if !have[p] {
+			add[p] = true
+		}
+	}
+	if len(add) > 0 {
+		_, err := e.ec2.AuthorizeSecurityGroup(g, perms)
+		if err != nil {
+			return zg, fmt.Errorf("cannot authorize securityGroup: %v", err)
+		}
 	}
 	return g, nil
 }
 
-// samePerms returns true if p0 and p1 represent the
-// same set of permissions.
-// It mutates the contents of p0 and p1 to do the check.
-func samePerms(p0, p1 []ec2.IPPerm) bool {
-	if len(p0) != len(p1) {
-		return false
-	}
-	canonPerms(p0)
-	canonPerms(p1)
-	for i, p := range p0 {
-		if !eqPerm(p, p1[i]) {
-			return false
-		}
-	}
-	return true
+// ipPerm represents a permission for a group or an ip address range
+// to access the given range of ports. Only one of groupId or ipAddr
+// should be non-empty.
+type ipPerm struct {
+	protocol string
+	fromPort int
+	toPort int
+	groupId string
+	ipAddr string
 }
 
-// eqPerm returns true if the canonicalized permissions
-// p0 and p1 are identical (ignoring OwnerId and Id fields
-// in source groups).
-func eqPerm(p0, p1 ec2.IPPerm) bool {
-	same := p0.Protocol == p1.Protocol &&
-		p0.FromPort == p1.FromPort &&
-		p0.ToPort == p1.ToPort &&
-		len(p0.SourceIPs) == len(p1.SourceIPs) &&
-		len(p0.SourceGroups) == len(p1.SourceGroups)
-	if !same {
-		return false
-	}
-	for i, ip := range p0.SourceIPs {
-		if ip != p1.SourceIPs[i] {
-			return false
-		}
-	}
-	for i, g := range p0.SourceGroups {
-		if g.Name != p1.SourceGroups[i].Name {
-			return false
-		}
-	}
-	return true
-}
+type permSet map[ipPerm] bool
 
-// canonPerms canonicalizes a set of IPPerms by sorting them and the
-// slices inside them.
-func canonPerms(ps []ec2.IPPerm) {
-	// TODO if a permission has a source group owned by a different owner but
-	// with the same name, then it will compare equal. The only way of getting
-	// our own owner id is by creating a security group and looking at that.
+// newPermSet returns a set of all the permissions in the
+// given slice of IPPerms. It ignores the name and owner
+// id in source groups, using group ids only.
+func newPermSet(ps []ec2.IPPerm) permSet {
+	m := make(permSet)
 	for _, p := range ps {
-		sort.Strings(p.SourceIPs)
-		sort.Sort(groupSlice(p.SourceGroups))
+		ipp := ipPerm{
+			protocol: p.Protocol,
+			fromPort: p.FromPort,
+			toPort: p.ToPort,
+		}
+		for _, g := range p.SourceGroups {
+			ipp.groupId = g.Id
+			m[ipp] = true
+		}
+		ipp.groupId = ""
+		for _, ip := range p.SourceIPs {
+			ipp.ipAddr = ip
+			m[ipp] = true
+		}
 	}
-	sort.Sort(permSlice(ps))
+	return m
 }
 
-type permSlice []ec2.IPPerm
-func (p permSlice) Less(i, j int) bool {
-	p0, p1 := p[i], p[j]
-	if p0.Protocol != p1.Protocol {
-		return p0.Protocol < p1.Protocol
-	}
-	if p0.FromPort != p1.FromPort {
-		return p0.FromPort < p1.FromPort
-	}
-	for i, ip0 := range p0.SourceIPs {
-		if i >= len(p1.SourceIPs) {
-			return false
+// ipPerms returns the given set of permissions
+// as a slice of IPPerms.
+func (m permSet) ipPerms() (ps []ec2.IPPerm) {
+	// We could compact the permissions, but it
+	// hardly seems worth it.
+	for p := range m {
+		ipp := ec2.IPPerm{
+			Protocol: p.protocol,
+			FromPort: p.fromPort,
+			ToPort: p.toPort,
 		}
-		ip1 := p1.SourceIPs[i]
-		if ip0 != ip1 {
-			return ip0 < ip1
+		if p.ipAddr != "" {
+			ipp.SourceIPs = []string{p.ipAddr}
+		} else {
+			ipp.SourceGroups = []ec2.UserSecurityGroup{{Id: p.groupId}}
 		}
+		ps = append(ps, ipp)
 	}
-	if len(p0.SourceIPs) < len(p1.SourceIPs) {
-		return true
-	}
-	for i, g0 := range p0.SourceGroups {
-		if i >= len(p1.SourceGroups) {
-			return false
-		}
-		g1 := p1.SourceGroups[i]
-		// ignore Id and OwnerId because they will not be set
-		// in the perms passed to ensureGroup.
-		if g0.Name != g1.Name {
-			return g0.Name < g1.Name
-		}
-	}
-	return len(p0.SourceGroups) < len(p1.SourceGroups)
-}
-func (p permSlice) Len() int {
-	return len(p)
-}
-func (p permSlice) Swap(i, j int) {
-	p[i], p[j] = p[j], p[i]
-}
-
-type groupSlice []ec2.UserSecurityGroup
-func (g groupSlice) Less(i, j int) bool {
-	return g[i].Name < g[j].Name
-}
-func (g groupSlice) Len() int {
-	return len(g)
-}
-func (g groupSlice) Swap(i, j int) {
-	g[i], g[j] = g[j], g[i]
+	return
 }
 
 // If the err is of type *ec2.Error, ec2ErrCode returns

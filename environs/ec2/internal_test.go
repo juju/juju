@@ -114,16 +114,3 @@ func copyPerms(ps []ec2.IPPerm) []ec2.IPPerm {
 	}
 	return rs
 }
-
-func (internalSuite) TestSamePerms(c *C) {
-	for i, t := range samePermsTests {
-		m := samePerms(copyPerms(t.p0), copyPerms(t.p1))
-		if m != t.same {
-			c.Errorf("test %d, expected %v got %v", i, t.same, m)
-		}
-		m = samePerms(copyPerms(t.p1), copyPerms(t.p0))
-		if m != t.same {
-			c.Errorf("test %d reversed, expected %v got %v", i, t.same, m)
-		}
-	}
-}
