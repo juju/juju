@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/state"
 	"path/filepath"
+	"sort"
 	"testing"
 )
 
@@ -165,6 +166,83 @@ func (s StateSuite) TestGetNonExistentCharm(c *C) {
 	c.Assert(err, ErrorMatches, `charm "local:anotherseries/dummy-1" not found`)
 }
 
+func (s StateSuite) TestAddMachine(c *C) {
+	// Check that adding machines works correctly.
+	machineOne, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	c.Assert(machineOne.Id(), Equals, 0)
+	machineTwo, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	c.Assert(machineTwo.Id(), Equals, 1)
+
+	children, _, err := s.zkConn.Children("/machines")
+	c.Assert(err, IsNil)
+	sort.Strings(children)
+	c.Assert(children, Equals, []string{"machine-0000000000", "machine-0000000001"})
+}
+
+func (s StateSuite) TestRemoveMachine(c *C) {
+	// Check that removing a machine doesn't fail.
+	machineOne, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	_, err = s.st.AddMachine()
+	c.Assert(err, IsNil)
+	removed, err := s.st.RemoveMachine(machineOne.Id())
+	c.Assert(err, IsNil)
+	c.Assert(removed, Equals, true)
+
+	children, _, err := s.zkConn.Children("/machines")
+	c.Assert(err, IsNil)
+	sort.Strings(children)
+	c.Assert(children, Equals, []string{"machine-0000000001"})
+
+        // Removing a non-existing machine again won't fail, since the end
+        // intention is preserved.  This makes dealing with concurrency easier.
+        // However, false will be returned in this case.
+	removed, err = s.st.RemoveMachine(machineOne.Id())
+	c.Assert(err, IsNil)
+	c.Assert(removed, Equals, false)
+}
+
+func (s StateSuite) TestReadMachine(c *C) {
+	// Check that reading a machine doesn't fail.
+	machineOne, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	machineTwo, err := s.st.Machine(machineOne.Id())
+	c.Assert(err, IsNil)
+	c.Assert(machineOne.Id(), Equals, machineTwo.Id())
+}
+
+func (s StateSuite) TestReadNonExistentMachine(c *C) {
+	// Check that reading a non-existent machine fails nicely.
+	_, err := s.st.Machine(0)
+	c.Assert(err, ErrorMatches, "machine 0 not found")
+
+	_, err = s.st.AddMachine()
+	c.Assert(err, IsNil)
+	_, err = s.st.Machine(1)
+	c.Assert(err, ErrorMatches, "machine 1 not found")
+}
+
+func (s StateSuite) TestAllMachines(c *C) {
+	// Check that reading all machines works correctly.
+	machines, err := s.st.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(len(machines), Equals, 0)
+
+	_, err = s.st.AddMachine()
+	c.Assert(err, IsNil)
+	machines, err = s.st.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(len(machines), Equals, 1)
+
+	_, err = s.st.AddMachine()
+	c.Assert(err, IsNil)
+	machines, err = s.st.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(len(machines), Equals, 2)
+}
+
 func (s StateSuite) TestAddService(c *C) {
 	// Check that adding services works correctly.
 	dummy := addDummyCharm(c, s.st)
@@ -203,6 +281,7 @@ func (s StateSuite) TestRemoveService(c *C) {
 }
 
 func (s StateSuite) TestReadNonExistentService(c *C) {
+	// Check that reading a non-existent service fails nicely.
 	_, err := s.st.Service("pressword")
 	c.Assert(err, ErrorMatches, `service with name "pressword" not found`)
 }

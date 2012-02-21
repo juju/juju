@@ -37,6 +37,68 @@ func (s *State) AddMachine() (*Machine, error) {
 	return &Machine{s.zk, key}, nil
 }
 
+// RemoveMachine removes the machine with the given id.
+func (s *State) RemoveMachine(id int) (bool, error) {
+	key := fmt.Sprintf("machine-%010d", id)
+	mustDelete := false
+	removeMachine := func(t *topology) error {
+		// Removing a non-existing machine again won't fail, since
+		// the end intention is preserved. This makes dealing
+		// with concurrency easier.
+		if t.HasMachine(key) {
+			hasUnits, err := t.MachineHasUnits(key)
+			if err != nil {
+				return err
+			}
+			if hasUnits {
+				return fmt.Errorf("machine %d in use", id)
+			}
+			t.RemoveMachine(key)
+			mustDelete = true
+		} else {
+			mustDelete = false
+		}
+		return nil
+	}
+	if err := retryTopologyChange(s.zk, removeMachine); err != nil {
+		return false, err
+	}
+	if mustDelete {
+		// The node has to be deleted. If this is interrupted
+		// here, the node will stay around. This is not a big
+		// deal since it's not being referenced by the topology
+		// anymore.
+		zkRemoveTree(s.zk, fmt.Sprintf("/machines/%s", key))
+	}
+	return mustDelete, nil
+}
+
+// Machine returns the machine with the given id.
+func (s *State) Machine(id int) (*Machine, error) {
+	key := fmt.Sprintf("machine-%010d", id)
+	topology, err := readTopology(s.zk)
+	if err != nil {
+		return nil, err
+	}
+	if !topology.HasMachine(key) {
+		return nil, fmt.Errorf("machine %d not found", id)
+	}
+	return &Machine{s.zk, key}, nil
+}
+
+// AllMachines returns all machines in the environment.
+func (s *State) AllMachines() ([]*Machine, error) {
+	topology, err := readTopology(s.zk)
+	if err != nil {
+		return nil, err
+	}
+	machines := []*Machine{}
+        for _, key := range topology.MachineKeys() {
+		machines = append(machines, &Machine{s.zk, key})        		
+        }
+        return machines, nil
+}
+
 // AddCharm registers metadata about the provided Charm.
 func (s *State) AddCharm(id string, ch charm.Charm, url string) (*Charm, error) {
 	data := &charmData{
