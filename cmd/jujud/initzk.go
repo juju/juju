@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/cmd"
+	"launchpad.net/juju/go/state"
 )
 
 type InitzkCommand struct {
-	ZookeeperAddrs []string
-	InstanceId     string
-	EnvType        string
+	StateInfo  state.Info
+	InstanceId string
+	EnvType    string
 }
 
 // Info returns a decription of the command.
@@ -24,7 +25,7 @@ func (c *InitzkCommand) Info() *cmd.Info {
 
 // InitFlagSet prepares a FlagSet.
 func (c *InitzkCommand) InitFlagSet(f *gnuflag.FlagSet) {
-	zkAddrsVar(f, &c.ZookeeperAddrs, "zookeeper-servers", []string{"127.0.0.1:2181"}, "address of zookeeper to initialize")
+	stateInfoVar(f, &c.StateInfo, "zookeeper-servers", []string{"127.0.0.1:2181"}, "address of zookeeper to initialize")
 	f.StringVar(&c.InstanceId, "instance-id", "", "instance id of this machine")
 	f.StringVar(&c.EnvType, "env-type", "", "environment type")
 }
@@ -32,7 +33,7 @@ func (c *InitzkCommand) InitFlagSet(f *gnuflag.FlagSet) {
 // ParsePositional checks that there are no unwanted arguments, and that all
 // required flags have been set.
 func (c *InitzkCommand) ParsePositional(args []string) error {
-	if c.ZookeeperAddrs == nil {
+	if c.StateInfo.Addrs == nil {
 		return requiredError("zookeeper-servers")
 	}
 	if c.InstanceId == "" {
