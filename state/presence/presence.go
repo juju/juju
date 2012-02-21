@@ -19,8 +19,9 @@ func (n *changeNode) Change() (mtime time.Time, err error) {
 	stat, err := n.conn.Set(n.path, n.data, -1)
 	if err == zookeeper.ZNONODE {
 		_, err = n.conn.Create(n.path, n.data, 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
-		if err == nil {
-			stat, err = n.conn.Exists(n.path)
+		if err == nil || err == zookeeper.ZNODEEXISTS {
+			// *Someone* created the node anyway; just try again.
+			return n.Change()
 		}
 	}
 	if err != nil {
