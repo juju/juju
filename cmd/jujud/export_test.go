@@ -2,13 +2,14 @@ package main
 
 import (
 	"launchpad.net/juju/go/cmd"
+	"launchpad.net/juju/go/state"
 )
 
 type AgentCommand interface {
 	cmd.Command
 	JujuDir() string
 	SessionFile() string
-	ZookeeperAddrs() []string
+	StateInfo() state.Info
 }
 
 func (c agentConf) JujuDir() string {
@@ -19,6 +20,6 @@ func (c agentConf) SessionFile() string {
 	return c.sessionFile
 }
 
-func (c agentConf) ZookeeperAddrs() []string {
-	return c.zookeeperAddrs
+func (c agentConf) StateInfo() state.Info {
+	return c.stateInfo
 }

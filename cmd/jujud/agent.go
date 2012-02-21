@@ -4,16 +4,17 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/cmd"
+	"launchpad.net/juju/go/state"
 )
 
 // agentConf implements most of the cmd.Command interface, except for Run(),
 // and is intended for embedding in types which implement juju agents, to
 // help the agent types implement cmd.Command with minimal boilerplate.
 type agentConf struct {
-	name           string
-	jujuDir        string // Defaults to "/var/lib/juju".
-	zookeeperAddrs []string
-	sessionFile    string
+	name        string
+	jujuDir     string // Defaults to "/var/lib/juju".
+	stateInfo   state.Info
+	sessionFile string
 }
 
 // Info returns a decription of the command.
@@ -29,7 +30,7 @@ func (c *agentConf) Info() *cmd.Info {
 // InitFlagSet prepares a FlagSet.
 func (c *agentConf) InitFlagSet(f *gnuflag.FlagSet) {
 	f.StringVar(&c.jujuDir, "juju-directory", "/var/lib/juju", "juju working directory")
-	zkAddrsVar(f, &c.zookeeperAddrs, "zookeeper-servers", nil, "zookeeper servers to connect to")
+	stateInfoVar(f, &c.stateInfo, "zookeeper-servers", nil, "zookeeper servers to connect to")
 	f.StringVar(&c.sessionFile, "session-file", "", "session id storage path")
 }
 
@@ -39,7 +40,7 @@ func (c *agentConf) ParsePositional(args []string) error {
 	if c.jujuDir == "" {
 		return requiredError("juju-directory")
 	}
-	if c.zookeeperAddrs == nil {
+	if c.stateInfo.Addrs == nil {
 		return requiredError("zookeeper-servers")
 	}
 	if c.sessionFile == "" {
