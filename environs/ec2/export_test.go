@@ -33,6 +33,10 @@ func EnvironEC2(e environs.Environ) *ec2.EC2 {
 	return e.(*environ).ec2
 }
 
+func InstanceEC2(inst environs.Instance) *ec2.Instance {
+	return inst.(*instance).Instance
+}
+
 var originalShortAttempt = shortAttempt
 var originalLongAttempt = longAttempt
 
@@ -69,3 +73,13 @@ func HasCode(code string) func(error) bool {
 }
 
 var ZkPortSuffix = zkPortSuffix
+
+// FabricateInstance creates a new fictitious instance
+// given an existing instance and a new id.
+func FabricateInstance(inst environs.Instance, newId string) environs.Instance {
+	oldi := inst.(*instance)
+	newi := &instance{oldi.e, &ec2.Instance{}}
+	*newi.Instance = *oldi.Instance
+	newi.InstanceId = newId
+	return newi
+}

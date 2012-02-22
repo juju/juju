@@ -26,10 +26,21 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Assert(insts[0], Equals, inst)
 	c.Assert(insts[1], Equals, inst)
 
+	dns, err := inst.DNSName()
+	c.Assert(err, IsNil)
+	c.Assert(dns, Not(Equals), "")
+
+	insts, err = t.Env.Instances([]string{id0, ""})
+	c.Assert(err, Equals, environs.ErrMissingInstance)
+	c.Assert(len(insts), Equals, 2, Bug("instances: %v", insts))
+	c.Check(insts[0].Id(), Equals, id0)
+	c.Check(insts[1], IsNil)
+
 	err = t.Env.StopInstances([]environs.Instance{inst})
 	c.Assert(err, IsNil)
 
 	// repeat for a while to let eventual consistency catch up, hopefully.
+	// TODO use ShortDo
 	for i := 0; i < 20; i++ {
 		insts, err = t.Env.Instances([]string{id0})
 		if err != nil {

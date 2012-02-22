@@ -7,11 +7,12 @@ import (
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/state"
-	"sort"
+"log"
 	"sync"
 )
 
 const zkPort = 2181
+
 var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
 
 const maxReqs = 20 // maximum concurrent ec2 requests
@@ -128,7 +129,6 @@ func (e *environ) Bootstrap() error {
 		e.StopInstances([]environs.Instance{inst})
 		return err
 	}
-
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to use S3 to make sure that only one succeeds.
@@ -227,22 +227,11 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 }
 
 func (e *environ) StopInstances(insts []environs.Instance) error {
-	if len(insts) == 0 {
-		return nil
-	}
 	ids := make([]string, len(insts))
 	for i, inst := range insts {
 		ids[i] = inst.(*instance).InstanceId
 	}
-	err := shortAttempt.do(hasCode("InvalidInstanceID.NotFound"), func() error {
-		_, err := e.ec2.TerminateInstances(ids)
-		return err
-	})
-	// If the instance is already gone, that's fine with us.
-	if err != nil && ec2ErrCode(err) != "InvalidInstanceId.NotFound" {
-		return err
-	}
-	return nil
+	return e.terminateInstances(ids)
 }
 
 func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
@@ -315,40 +304,66 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 		return fmt.Errorf("cannot get instances: %v", err)
 	}
 	var ids []string
-	hasId := make(map[string]bool)
+	found := make(map[string]bool)
 	for _, r := range resp.Reservations {
 		for _, inst := range r.Instances {
 			ids = append(ids, inst.InstanceId)
-			hasId[inst.InstanceId] = true
+			found[inst.InstanceId] = true
 		}
 	}
 
 	// Then add any instances we've been told about but haven't yet shown
 	// up in the instance list.
 	for _, inst := range insts {
-		id := inst.Id()
-		if !hasId[id] {
+		id := inst.(*instance).InstanceId
+		if !found[id] {
 			ids = append(ids, id)
-			hasId[id] = true
+			found[id] = true
 		}
 	}
-	if len(ids) > 0 {
-		err = shortAttempt.do(hasCode("InvalidInstance.NotFound"), func() error {
-			_, err := e.ec2.TerminateInstances(ids)
-			return err
-		})
-	}
-	// If the instance is still not found after waiting around,
-	// then it probably really doesn't exist, and we don't care
-	// about that.
-	if err != nil && ec2ErrCode(err) != "InvalidInstance.NotFound" {
+log.Printf("terminateInstances %v", ids)
+	err = e.terminateInstances(ids)
+	if err != nil {
 		return err
 	}
+log.Printf("deleting state")
 	err = e.deleteState()
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (e *environ) terminateInstances(ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+log.Printf("first terminate attempt")
+	err := shortAttempt.do(hasCode("InvalidInstanceID.NotFound"), func() error {
+		_, err := e.ec2.TerminateInstances(ids)
+		return err
+	})
+	if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
+		return err
+	}
+	if len(ids) == 1 {
+		return err
+	}
+	var firstErr error
+	// If we get a NotFound error, it means that no instances have been
+	// terminated even if some exist, so try them one by one, ignoring
+	// NotFound errors.
+	for _, id := range ids {
+log.Printf("terminate single %v", id)
+		_, err = e.ec2.TerminateInstances([]string{id})
+		if ec2ErrCode(err) == "InvalidInstanceID.NotFound" {
+			err = nil
+		}
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
 }
 
 func (e *environ) machineGroupName(machineId int) string {
@@ -388,15 +403,126 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 			// TODO authorize internal traffic
 		})
 	if err != nil {
-		return nil, fmt.Errorf("cannot ensure juju group: %v", err)
+		return nil, err
 	}
-
 	descr := fmt.Sprintf("juju group for %s machine %d", e.name, machineId)
 	jujuMachineGroup, err := e.ensureGroup(e.machineGroupName(machineId), descr, nil)
 	if err != nil {
-		return nil, fmt.Errorf("cannot ensure machine group: %v", err)
+		return nil, err
 	}
 	return []ec2.SecurityGroup{jujuGroup, jujuMachineGroup}, nil
+}
+
+// zg holds the zero security group.
+var zg ec2.SecurityGroup
+
+// ensureGroup tries to ensure that a security group exists with the given
+// name and permissions. If the group already exists, its permissions
+// will be changed accordingly. If the group does not exist, it will be created
+// with the given description. It returns the group.
+func (e *environ) ensureGroup(name, descr string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
+	resp, err := e.ec2.CreateSecurityGroup(name, descr)
+	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
+		return zg, err
+	}
+
+	want := newPermSet(perms)
+	var have permSet
+	if err == nil {
+		g = resp.SecurityGroup
+	} else {
+		resp, err := e.ec2.SecurityGroups(ec2.SecurityGroupNames(name), nil)
+		if err != nil {
+			return zg, err
+		}
+		// TODO do we mind if the old group has the wrong description?
+		have = newPermSet(resp.Groups[0].IPPerms)
+		g = resp.Groups[0].SecurityGroup
+	}
+	revoke := make(permSet)
+	for p := range have {
+		if !want[p] {
+			revoke[p] = true
+		}
+	}
+	if len(revoke) > 0 {
+		_, err := e.ec2.RevokeSecurityGroup(g, revoke.ipPerms())
+		if err != nil {
+			return zg, fmt.Errorf("cannot revoke security group: %v", err)
+		}
+	}
+
+	add := make(permSet)
+	for p := range want {
+		if !have[p] {
+			add[p] = true
+		}
+	}
+	if len(add) > 0 {
+		_, err := e.ec2.AuthorizeSecurityGroup(g, add.ipPerms())
+		if err != nil {
+			return zg, fmt.Errorf("cannot authorize securityGroup: %v", err)
+		}
+	}
+	return g, nil
+}
+
+// ipPerm represents a permission for a group or an ip address range
+// to access the given range of ports. Only one of groupId or ipAddr
+// should be non-empty.
+type ipPerm struct {
+	protocol string
+	fromPort int
+	toPort   int
+	groupId  string
+	ipAddr   string
+}
+
+type permSet map[ipPerm]bool
+
+// newPermSet returns a set of all the permissions in the
+// given slice of IPPerms. It ignores the name and owner
+// id in source groups, using group ids only.
+func newPermSet(ps []ec2.IPPerm) permSet {
+	m := make(permSet)
+	for _, p := range ps {
+		ipp := ipPerm{
+			protocol: p.Protocol,
+			fromPort: p.FromPort,
+			toPort:   p.ToPort,
+		}
+		for _, g := range p.SourceGroups {
+			ipp.groupId = g.Id
+			m[ipp] = true
+		}
+		ipp.groupId = ""
+		for _, ip := range p.SourceIPs {
+			ipp.ipAddr = ip
+			m[ipp] = true
+		}
+	}
+	return m
+}
+
+// ipPerms returns the given set of permissions
+// as a slice of IPPerms.
+func (m permSet) ipPerms() (ps []ec2.IPPerm) {
+	// We could compact the permissions, but it
+	// hardly seems worth it.
+	for p := range m {
+		ipp := ec2.IPPerm{
+			Protocol: p.protocol,
+			FromPort: p.fromPort,
+			ToPort:   p.toPort,
+		}
+		if p.ipAddr != "" {
+			ipp.SourceIPs = []string{p.ipAddr}
+		} else {
+			ipp.SourceGroups = []ec2.UserSecurityGroup{{Id: p.groupId}}
+		}
+		ps = append(ps, ipp)
+	}
+	return
 }
 
 // If the err is of type *ec2.Error, ec2ErrCode returns
@@ -407,204 +533,4 @@ func ec2ErrCode(err error) string {
 		return ""
 	}
 	return ec2err.Code
-}
-
-var zg = ec2.SecurityGroup{}
-
-// ensureGroup tries to ensure that a security group exists with the given
-// name and permissions. If the group does not exist, it will be created
-// with the given description. It returns the group.
-func (e *environ) ensureGroup(name, descr string, perms []ec2.IPPerm) (ec2.SecurityGroup, error) {
-	resp, err := e.ec2.CreateSecurityGroup(name, descr)
-	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
-		return zg, err
-	}
-
-	var g ec2.SecurityGroup
-	if err == nil {
-		g = resp.SecurityGroup
-	} else {
-		var ok bool
-		ok, g, err = e.existingGroupOk(name, descr, perms)
-		if err != nil {
-			return zg, err
-		}
-		if ok {
-			return g, nil
-		}
-		g, err = e.recreateGroup(name, descr)
-		if err != nil {
-			return zg, err
-		}
-	}
-
-	if perms != nil {
-		err := shortAttempt.do(hasCode("InvalidGroup.NotFound"), func() error {
-			_, err := e.ec2.AuthorizeSecurityGroup(g, perms)
-			return err
-		})
-		if err != nil {
-			return zg, err
-		}
-	}
-	return g, nil
-}
-
-// We know that a group with the name we want already exists, so
-// existingGroupOk checks to see if it already has exactly the required
-// permissions. If it does, it returns ok==true and the group.
-// While checking for the required permissions is quite involved, waiting to
-// be able to delete a group can take more than 2 minutes, so it's worth it.
-func (e *environ) existingGroupOk(name, descr string, perms []ec2.IPPerm) (ok bool, g ec2.SecurityGroup, err error) {
-	var gresp *ec2.SecurityGroupsResp
-	err = shortAttempt.do(hasCode("InvalidGroup.NotFound"), func() error {
-		var err error
-		gresp, err = e.ec2.SecurityGroups(ec2.SecurityGroupNames(name), nil)
-		// TODO remove the below when the ec2test bug is fixed.
-		if len(gresp.Groups) == 0 {
-			err = &ec2.Error{Code: "InvalidGroup.NotFound"}
-		}
-		return err
-	})
-	if err != nil {
-		return false, zg, err
-	}
-	if len(gresp.Groups) != 1 {
-		return false, zg, fmt.Errorf("unexpected number of groups found; expected 1 got %d", len(gresp.Groups))
-	}
-	if samePerms(gresp.Groups[0].IPPerms, perms)  {
-		// TODO the description might not match, but do we care?
-		return true, gresp.Groups[0].SecurityGroup, nil
-	}
-	return false, zg, nil
-}
-
-// recreateGroup deletes the security group with the given name
-// and then creates it again so that it can be given the desired attributes.
-func (e *environ) recreateGroup(name, descr string) (ec2.SecurityGroup, error) {
-	// TODO we could modify the permissions instead of deleting the group.
-	err := longAttempt.do(hasCode("InvalidGroup.InUse"), func() error {
-		_, err := e.ec2.DeleteSecurityGroup(ec2.SecurityGroup{Name: name})
-		return err
-	})
-	if err != nil {
-		return zg, fmt.Errorf("cannot delete old group %q: %v", name, err)
-	}
-	var resp *ec2.CreateSecurityGroupResp
-	err = shortAttempt.do(hasCode("InvalidGroup.Duplicate"), func() error {
-		var err error
-		resp, err = e.ec2.CreateSecurityGroup(name, descr)
-		return err
-	})
-	if err != nil {
-		return zg, fmt.Errorf("cannot create group %q: %v", name, err)
-	}
-	return resp.SecurityGroup, nil
-}
-
-// samePerms returns true if p0 and p1 represent the
-// same set of permissions.
-// It mutates the contents of p0 and p1 to do the check.
-func samePerms(p0, p1 []ec2.IPPerm) bool {
-	if len(p0) != len(p1) {
-		return false
-	}
-	canonPerms(p0)
-	canonPerms(p1)
-	for i, p := range p0 {
-		if !eqPerm(p, p1[i]) {
-			return false
-		}
-	}
-	return true
-}
-
-// eqPerm returns true if the canonicalized permissions
-// p0 and p1 are identical (ignoring OwnerId and Id fields
-// in source groups).
-func eqPerm(p0, p1 ec2.IPPerm) bool {
-	same := p0.Protocol == p1.Protocol &&
-		p0.FromPort == p1.FromPort &&
-		p0.ToPort == p1.ToPort &&
-		len(p0.SourceIPs) == len(p1.SourceIPs) &&
-		len(p0.SourceGroups) == len(p1.SourceGroups)
-	if !same {
-		return false
-	}
-	for i, ip := range p0.SourceIPs {
-		if ip != p1.SourceIPs[i] {
-			return false
-		}
-	}
-	for i, g := range p0.SourceGroups {
-		if g.Name != p1.SourceGroups[i].Name {
-			return false
-		}
-	}
-	return true
-}
-
-// canonPerms canonicalizes a set of IPPerms by sorting them and the
-// slices inside them.
-func canonPerms(ps []ec2.IPPerm) {
-	// TODO if a permission has a source group owned by a different owner but
-	// with the same name, then it will compare equal. The only way of getting
-	// our own owner id is by creating a security group and looking at that.
-	for _, p := range ps {
-		sort.Strings(p.SourceIPs)
-		sort.Sort(groupSlice(p.SourceGroups))
-	}
-	sort.Sort(permSlice(ps))
-}
-
-type permSlice []ec2.IPPerm
-func (p permSlice) Less(i, j int) bool {
-	p0, p1 := p[i], p[j]
-	if p0.Protocol != p1.Protocol {
-		return p0.Protocol < p1.Protocol
-	}
-	if p0.FromPort != p1.FromPort {
-		return p0.FromPort < p1.FromPort
-	}
-	for i, ip0 := range p0.SourceIPs {
-		if i >= len(p1.SourceIPs) {
-			return false
-		}
-		ip1 := p1.SourceIPs[i]
-		if ip0 != ip1 {
-			return ip0 < ip1
-		}
-	}
-	if len(p0.SourceIPs) < len(p1.SourceIPs) {
-		return true
-	}
-	for i, g0 := range p0.SourceGroups {
-		if i >= len(p1.SourceGroups) {
-			return false
-		}
-		g1 := p1.SourceGroups[i]
-		// ignore Id and OwnerId because they will not be set
-		// in the perms passed to ensureGroup.
-		if g0.Name != g1.Name {
-			return g0.Name < g1.Name
-		}
-	}
-	return len(p0.SourceGroups) < len(p1.SourceGroups)
-}
-func (p permSlice) Len() int {
-	return len(p)
-}
-func (p permSlice) Swap(i, j int) {
-	p[i], p[j] = p[j], p[i]
-}
-
-type groupSlice []ec2.UserSecurityGroup
-func (g groupSlice) Less(i, j int) bool {
-	return g[i].Name < g[j].Name
-}
-func (g groupSlice) Len() int {
-	return len(g)
-}
-func (g groupSlice) Swap(i, j int) {
-	g[i], g[j] = g[j], g[i]
 }

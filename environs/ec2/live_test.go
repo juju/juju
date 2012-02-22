@@ -2,6 +2,7 @@ package ec2_test
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io"
 	amzec2 "launchpad.net/goamz/ec2"
@@ -9,7 +10,6 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
-	"strings"
 )
 
 // amazonConfig holds the environments configuration
@@ -60,6 +60,22 @@ type LiveTests struct {
 	jujutest.LiveTests
 }
 
+func (t *LiveTests) TestInstanceDNSName(c *C) {
+	inst, err := t.Env.StartInstance(30, jujutest.InvalidStateInfo)
+	c.Assert(err, IsNil)
+	defer t.Env.StopInstances([]environs.Instance{inst})
+	dns, err := inst.DNSName()
+	c.Check(err, IsNil)
+	c.Check(dns, Not(Equals), "")
+
+	insts, err := t.Env.Instances([]string{inst.Id()})
+	c.Assert(err, IsNil)
+	c.Assert(len(insts), Equals, 1)
+
+	ec2inst := ec2.InstanceEC2(insts[0])
+	c.Check(ec2inst.DNSName, Equals, dns)
+}
+
 func (t *LiveTests) TestInstanceGroups(c *C) {
 	ec2conn := ec2.EnvironEC2(t.Env)
 
@@ -75,13 +91,32 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	// and recreated correctly.
 	oldJujuGroup := createGroup(c, ec2conn, groups[0].Name, "old juju group")
 
+	// Add one permission the same as will be needed
+	// and one that will need deletion.
+	// N.B. this is unfortunately sensitive to the actual set of permissions used.
+	_, err := ec2conn.AuthorizeSecurityGroup(oldJujuGroup,
+		[]amzec2.IPPerm{
+			{
+				Protocol:  "tcp",
+				FromPort:  22,
+				ToPort:    22,
+				SourceIPs: []string{"0.0.0.0/0"},
+			},
+			{
+				Protocol:  "udp",
+				FromPort:  4321,
+				ToPort:    4322,
+				SourceIPs: []string{"3.4.5.6/32"},
+			},
+		})
+	c.Assert(err, IsNil)
+
 	inst0, err := t.Env.StartInstance(98, jujutest.InvalidStateInfo)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst0})
 
 	// Create a same-named group for the second instance
-	// before starting it, to check that it's deleted and
-	// recreated correctly.
+	// before starting it, to check that it's reused correctly.
 	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
 	inst1, err := t.Env.StartInstance(99, jujutest.InvalidStateInfo)
@@ -108,20 +143,20 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 		}
 	}
 
-	// If the id of the juju group has changed, it implies that
-	// the old juju group has correctly been deleted and recreated
-	// because it had different permissions.
-	c.Check(groups[0].Id, Not(Equals), oldJujuGroup.Id)
+	// The old juju group should have been reused.
+	c.Check(groups[0].Id, Equals, oldJujuGroup.Id)
 
-	// The old machine group should have been reused because
-	// it had the same permissions.
-	c.Check(groups[2].Id, Equals, oldMachineGroup.Id)
-
-	// Check that the juju group authorizes SSH for anyone.
+	// Check that it authorizes the correct ports and there
+	// are no extra permissions (in particular we are checking
+	// that the unneeded permission that we added earlier
+	// has been deleted).
 	perms := info[0].IPPerms
 	c.Assert(len(perms), Equals, 2, Bug("got security groups %#v", perms))
 	checkPortAllowed(c, perms, 22)
 	checkPortAllowed(c, perms, 2181)
+
+	// The old machine group should have been reused also.
+	c.Check(groups[2].Id, Equals, oldMachineGroup.Id)
 
 	// Check that each instance is part of the correct groups.
 	resp, err := ec2conn.Instances([]string{inst0.Id(), inst1.Id()}, nil)
@@ -159,27 +194,56 @@ func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {
 	c.Errorf("ip port permission not found for %d in %#v", port, perms)
 }
 
+func (t *LiveTests) TestStopInstances(c *C) {
+	// It would be nice if this test was in jujutest, but
+	// there's no way for jujutest to fabricate a valid-looking
+	// instance id.
+	inst0, err := t.Env.StartInstance(40, jujutest.InvalidStateInfo)
+	c.Assert(err, IsNil)
+
+	inst1 := ec2.FabricateInstance(inst0, "i-aaaaaaaa")
+
+	inst2, err := t.Env.StartInstance(41, jujutest.InvalidStateInfo)
+	c.Assert(err, IsNil)
+
+	err = t.Env.StopInstances([]environs.Instance{inst0, inst1, inst2})
+	c.Check(err, IsNil)
+
+	var insts []environs.Instance
+	errSuccess := errors.New("unexpected success")
+	err = ec2.ShortDo(func(err error) bool {
+			return err == errSuccess
+		}, func()error {
+			var err error
+			insts, err = t.Env.Instances([]string{inst0.Id(), inst2.Id()})
+			if err == nil {
+				err = errSuccess
+			}
+			return err
+		})
+	c.Check(err, Equals, environs.ErrMissingInstance)
+	c.Check(len(insts), Equals, 0)
+}
+
 // createGroup creates a new EC2 group and returns it. If it already exists,
-// it deletes the old one first.
-func createGroup(c *C, ec2conn *amzec2.EC2, groupName string, descr string) amzec2.SecurityGroup {
-	resp, err := ec2conn.CreateSecurityGroup(groupName, descr)
-	if err != nil && ec2.EC2ErrCode(err) != "InvalidGroup.Duplicate" {
-		c.Fatalf("cannot make group %q: %v", groupName, err)
+// it revokes all its permissions and returns the existing group.
+func createGroup(c *C, ec2conn *amzec2.EC2, name, descr string) amzec2.SecurityGroup {
+	resp, err := ec2conn.CreateSecurityGroup(name, descr)
+	if err == nil {
+		return resp.SecurityGroup
 	}
-	err = ec2.LongDo(ec2.HasCode("InvalidGroup.InUse"), func() error {
-		_, err := ec2conn.DeleteSecurityGroup(amzec2.SecurityGroup{Name: groupName})
-		return err
-	})
+	if err.(*amzec2.Error).Code != "InvalidGroup.Duplicate" {
+		c.Fatalf("cannot make group %q: %v", name, err)
+	}
+
+	// Found duplicate group, so revoke its permissions and return it.
+	gresp, err := ec2conn.SecurityGroups(amzec2.SecurityGroupNames(name), nil)
 	c.Assert(err, IsNil)
 
-	err = ec2.ShortDo(ec2.HasCode("InvalidGroup.Duplicate"), func() error {
-		var err error
-		resp, err = ec2conn.CreateSecurityGroup(groupName, descr)
-		return err
-	})
+	gi := gresp.Groups[0]
+	_, err = ec2conn.RevokeSecurityGroup(gi.SecurityGroup, gi.IPPerms)
 	c.Assert(err, IsNil)
-
-	return resp.SecurityGroup
+	return gi.SecurityGroup
 }
 
 func hasSecurityGroup(r amzec2.Reservation, g amzec2.SecurityGroup) bool {
@@ -189,19 +253,4 @@ func hasSecurityGroup(r amzec2.Reservation, g amzec2.SecurityGroup) bool {
 		}
 	}
 	return false
-}
-
-func (t *LiveTests) TestBootstrap(c *C) {
-	t.LiveTests.TestBootstrap(c)
-	// After the bootstrap test, the environment should have been
-	// destroyed. Verify that the security groups have been deleted too.
-	ec2conn := ec2.EnvironEC2(t.Env)
-	resp, err := ec2conn.SecurityGroups(nil, nil)
-	c.Assert(err, IsNil)
-	prefix := ec2.GroupName(t.Env)
-	for _, g := range resp.Groups {
-		if strings.HasPrefix(g.Name, prefix) {
-			c.Errorf("group %q has not been deleted", g.SecurityGroup)
-		}
-	}
 }

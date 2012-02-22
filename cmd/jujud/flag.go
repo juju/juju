@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
+	"launchpad.net/juju/go/state"
 	"regexp"
 	"strings"
 )
@@ -12,15 +13,15 @@ func requiredError(name string) error {
 	return fmt.Errorf("--%s option must be set", name)
 }
 
-// zkAddrsValue implements gnuflag.Value on a []string.
-type zkAddrsValue []string
+// stateInfoValue implements gnuflag.Value on a state.Info.
+type stateInfoValue state.Info
 
 var validAddr = regexp.MustCompile("^.*:[0-9]+$")
 
 // Set splits value into zookeeper addresses.
-func (v *zkAddrsValue) Set(value string) error {
-	*v = strings.Split(value, ",")
-	for _, addr := range *v {
+func (v *stateInfoValue) Set(value string) error {
+	v.Addrs = strings.Split(value, ",")
+	for _, addr := range v.Addrs {
 		if !validAddr.MatchString(addr) {
 			return fmt.Errorf("%q is not a valid zookeeper address", addr)
 		}
@@ -28,16 +29,16 @@ func (v *zkAddrsValue) Set(value string) error {
 	return nil
 }
 
-// String returns the original value passed to Set
-func (v *zkAddrsValue) String() string {
-	if *v != nil {
-		return strings.Join(*v, ",")
+// String returns the original value passed to Set.
+func (v *stateInfoValue) String() string {
+	if v.Addrs != nil {
+		return strings.Join(v.Addrs, ",")
 	}
 	return ""
 }
 
-// zkAddrsVar sets up a gnuflag flag analagously to FlagSet.*Var methods.
-func zkAddrsVar(fs *gnuflag.FlagSet, target *[]string, name string, value []string, usage string) {
-	*target = value
-	fs.Var((*zkAddrsValue)(target), name, usage)
+// stateInfoVar sets up a gnuflag flag analagously to FlagSet.*Var methods.
+func stateInfoVar(fs *gnuflag.FlagSet, target *state.Info, name string, value []string, usage string) {
+	target.Addrs = value
+	fs.Var((*stateInfoValue)(target), name, usage)
 }
