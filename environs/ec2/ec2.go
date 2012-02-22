@@ -7,7 +7,6 @@ import (
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/state"
-"log"
 	"sync"
 )
 
@@ -321,12 +320,10 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 			found[id] = true
 		}
 	}
-log.Printf("terminateInstances %v", ids)
 	err = e.terminateInstances(ids)
 	if err != nil {
 		return err
 	}
-log.Printf("deleting state")
 	err = e.deleteState()
 	if err != nil {
 		return err
@@ -338,7 +335,6 @@ func (e *environ) terminateInstances(ids []string) error {
 	if len(ids) == 0 {
 		return nil
 	}
-log.Printf("first terminate attempt")
 	err := shortAttempt.do(hasCode("InvalidInstanceID.NotFound"), func() error {
 		_, err := e.ec2.TerminateInstances(ids)
 		return err
@@ -354,7 +350,6 @@ log.Printf("first terminate attempt")
 	// terminated even if some exist, so try them one by one, ignoring
 	// NotFound errors.
 	for _, id := range ids {
-log.Printf("terminate single %v", id)
 		_, err = e.ec2.TerminateInstances([]string{id})
 		if ec2ErrCode(err) == "InvalidInstanceID.NotFound" {
 			err = nil
