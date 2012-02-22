@@ -86,9 +86,9 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 				SourceIPs: []string{"0.0.0.0/0"},
 			},
 			{
-				Protocol: "udp",
-				FromPort: 4321,
-				ToPort: 4322,
+				Protocol:  "udp",
+				FromPort:  4321,
+				ToPort:    4322,
 				SourceIPs: []string{"3.4.5.6/32"},
 			},
 		})

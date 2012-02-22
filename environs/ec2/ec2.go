@@ -10,6 +10,7 @@ import (
 )
 
 const zkPort = 2181
+
 var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
 
 func init() {
@@ -349,7 +350,7 @@ func (e *environ) ensureGroup(name, descr string, perms []ec2.IPPerm) (g ec2.Sec
 		}
 	}
 
-	add := make(map[ipPerm] bool)
+	add := make(map[ipPerm]bool)
 	for p := range want {
 		if !have[p] {
 			add[p] = true
@@ -370,12 +371,12 @@ func (e *environ) ensureGroup(name, descr string, perms []ec2.IPPerm) (g ec2.Sec
 type ipPerm struct {
 	protocol string
 	fromPort int
-	toPort int
-	groupId string
-	ipAddr string
+	toPort   int
+	groupId  string
+	ipAddr   string
 }
 
-type permSet map[ipPerm] bool
+type permSet map[ipPerm]bool
 
 // newPermSet returns a set of all the permissions in the
 // given slice of IPPerms. It ignores the name and owner
@@ -386,7 +387,7 @@ func newPermSet(ps []ec2.IPPerm) permSet {
 		ipp := ipPerm{
 			protocol: p.Protocol,
 			fromPort: p.FromPort,
-			toPort: p.ToPort,
+			toPort:   p.ToPort,
 		}
 		for _, g := range p.SourceGroups {
 			ipp.groupId = g.Id
@@ -410,7 +411,7 @@ func (m permSet) ipPerms() (ps []ec2.IPPerm) {
 		ipp := ec2.IPPerm{
 			Protocol: p.protocol,
 			FromPort: p.fromPort,
-			ToPort: p.toPort,
+			ToPort:   p.toPort,
 		}
 		if p.ipAddr != "" {
 			ipp.SourceIPs = []string{p.ipAddr}
