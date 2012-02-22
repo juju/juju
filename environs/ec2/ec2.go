@@ -248,7 +248,7 @@ func (e *environ) terminateInstances(ids []string) error {
 		return nil
 	}
 	_, err := e.ec2.TerminateInstances(ids)
-	if err == nil || ec2ErrCode(err) != "InvalidInstance.NotFound" {
+	if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
 		return err
 	}
 	var firstErr error
@@ -256,7 +256,7 @@ func (e *environ) terminateInstances(ids []string) error {
 	// terminated, so try them one by one, ignoring NotFound errors.
 	for _, id := range ids {
 		_, err = e.ec2.TerminateInstances([]string{id})
-		if ec2ErrCode(err) == "InvalidInstance.NotFound" {
+		if ec2ErrCode(err) == "InvalidInstanceID.NotFound" {
 			err = nil
 		}
 		if err != nil && firstErr == nil {
@@ -350,14 +350,14 @@ func (e *environ) ensureGroup(name, descr string, perms []ec2.IPPerm) (g ec2.Sec
 		}
 	}
 
-	add := make(map[ipPerm]bool)
+	add := make(permSet)
 	for p := range want {
 		if !have[p] {
 			add[p] = true
 		}
 	}
 	if len(add) > 0 {
-		_, err := e.ec2.AuthorizeSecurityGroup(g, perms)
+		_, err := e.ec2.AuthorizeSecurityGroup(g, add.ipPerms())
 		if err != nil {
 			return zg, fmt.Errorf("cannot authorize securityGroup: %v", err)
 		}
