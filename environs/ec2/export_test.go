@@ -73,3 +73,13 @@ func HasCode(code string) func(error) bool {
 }
 
 var ZkPortSuffix = zkPortSuffix
+
+// FabricateInstance creates a new fictitious instance
+// given an existing instance and a new id.
+func FabricateInstance(inst environs.Instance, newId string) environs.Instance {
+	oldi := inst.(*instance)
+	newi := &instance{oldi.e, &ec2.Instance{}}
+	*newi.Instance = *oldi.Instance
+	newi.InstanceId = newId
+	return newi
+}
