@@ -304,6 +304,9 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	}
 	descr := fmt.Sprintf("juju group for %s machine %d", e.name, machineId)
 	jujuMachineGroup, err := e.ensureGroup(e.machineGroupName(machineId), descr, nil)
+	if err != nil {
+		return nil, err
+	}
 	return []ec2.SecurityGroup{jujuGroup, jujuMachineGroup}, nil
 }
 
@@ -316,7 +319,7 @@ var zg ec2.SecurityGroup
 func (e *environ) ensureGroup(name, descr string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
 	resp, err := e.ec2.CreateSecurityGroup(name, descr)
 	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
-		return zg, nil
+		return zg, err
 	}
 
 	want := newPermSet(perms)
