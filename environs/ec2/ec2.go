@@ -304,11 +304,11 @@ func (e *environ) terminateInstances(ids []string) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	err := shortAttempt.do(hasCode("InvalidInstance.NotFound"), func() error {
+	err := shortAttempt.do(hasCode("InvalidInstanceID.NotFound"), func() error {
 		_, err := e.ec2.TerminateInstances(ids)
 		return err
 	})
-	if err == nil || ec2ErrCode(err) != "InvalidInstance.NotFound" {
+	if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
 		return err
 	}
 	if len(ids) == 1 {
@@ -320,7 +320,7 @@ func (e *environ) terminateInstances(ids []string) error {
 	// NotFound errors.
 	for _, id := range ids {
 		_, err = e.ec2.TerminateInstances([]string{id})
-		if ec2ErrCode(err) == "InvalidInstance.NotFound" {
+		if ec2ErrCode(err) == "InvalidInstanceID.NotFound" {
 			err = nil
 		}
 		if err != nil && firstErr == nil {
