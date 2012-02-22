@@ -212,15 +212,15 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	var insts []environs.Instance
 	errSuccess := errors.New("unexpected success")
 	err = ec2.ShortDo(func(err error) bool {
-			return err == errSuccess
-		}, func()error {
-			var err error
-			insts, err = t.Env.Instances([]string{inst0.Id(), inst2.Id()})
-			if err == nil {
-				err = errSuccess
-			}
-			return err
-		})
+		return err == errSuccess
+	}, func() error {
+		var err error
+		insts, err = t.Env.Instances([]string{inst0.Id(), inst2.Id()})
+		if err == nil {
+			err = errSuccess
+		}
+		return err
+	})
 	c.Check(err, Equals, environs.ErrMissingInstance)
 	c.Check(len(insts), Equals, 0)
 }

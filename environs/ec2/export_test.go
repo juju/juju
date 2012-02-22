@@ -56,11 +56,11 @@ func ShortTimeouts(short bool) {
 	}
 }
 
-func LongDo(t func(error)bool, f func() error) error {
+func LongDo(t func(error) bool, f func() error) error {
 	return longAttempt.do(t, f)
 }
 
-func ShortDo(t func(error)bool, f func() error) error {
+func ShortDo(t func(error) bool, f func() error) error {
 	return shortAttempt.do(t, f)
 }
 

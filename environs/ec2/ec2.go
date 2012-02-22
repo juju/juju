@@ -161,13 +161,42 @@ func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Insta
 	return e.startInstance(machineId, info, false)
 }
 
+func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte, error) {
+	cfg := &machineConfig{
+		provisioner:        master,
+		zookeeper:          master,
+		stateInfo:          info,
+		instanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
+		providerType:       "ec2",
+		origin:             jujuOrigin{originBranch, "lp:jujubranch"},
+		machineId:          fmt.Sprint(machineId),
+	}
+
+	if e.config.authorizedKeys == "" {
+		var err error
+		cfg.authorizedKeys, err = authorizedKeys(e.config.authorizedKeysPath)
+		if err != nil {
+			return nil, fmt.Errorf("cannot get ssh authorized keys: %v", err)
+		}
+	}
+	cloudcfg, err := newCloudInit(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return cloudcfg.Render()
+}
+
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
-func (e *environ) startInstance(machineId int, _ *state.Info, master bool) (environs.Instance, error) {
+func (e *environ) startInstance(machineId int, info *state.Info, master bool) (environs.Instance, error) {
 	image, err := FindImageSpec(DefaultImageConstraint)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
+	}
+	userData, err := e.userData(machineId, info, master)
+	if err != nil {
+		return nil, err
 	}
 	groups, err := e.setUpGroups(machineId)
 	if err != nil {
@@ -180,7 +209,7 @@ func (e *environ) startInstance(machineId int, _ *state.Info, master bool) (envi
 			ImageId:        image.ImageId,
 			MinCount:       1,
 			MaxCount:       1,
-			UserData:       nil,
+			UserData:       userData,
 			InstanceType:   "m1.small",
 			SecurityGroups: groups,
 		})
@@ -497,4 +526,3 @@ func ec2ErrCode(err error) string {
 	}
 	return ec2err.Code
 }
-

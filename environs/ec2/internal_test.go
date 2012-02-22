@@ -16,8 +16,8 @@ func (internalSuite) TestAttemptTiming(c *C) {
 		0.25e9, 0.1e9,
 		0.4e9, 0.15e9,
 	}
-	want := []time.Duration{0, 0.1e9, 0.2e9, 0.3e9,  0.45e9, 0.60e9}
-	got := make([]time.Duration, 0, len(want))	// avoid allocation when testing timing
+	want := []time.Duration{0, 0.1e9, 0.2e9, 0.3e9, 0.45e9, 0.60e9}
+	got := make([]time.Duration, 0, len(want)) // avoid allocation when testing timing
 	t0 := time.Now()
 	a.do(errorIs(err1), func() error {
 		got = append(got, time.Now().Sub(t0))
@@ -73,12 +73,12 @@ func never(error) bool {
 func (internalSuite) TestAttemptError(c *C) {
 	var iter int
 
-	tests := []struct{
+	tests := []struct {
 		transient func(error) bool
-		f func() error
-		err error
-		iter int
-	} {{
+		f         func() error
+		err       error
+		iter      int
+	}{{
 		never,
 		errorGen(&iter, nil),
 		nil,
