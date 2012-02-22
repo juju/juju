@@ -11,6 +11,7 @@ import (
 )
 
 const zkPort = 2181
+
 var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
 
 const maxReqs = 20 // maximum concurrent ec2 requests
@@ -369,9 +370,13 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	}
 	descr := fmt.Sprintf("juju group for %s machine %d", e.name, machineId)
 	jujuMachineGroup, err := e.ensureGroup(e.machineGroupName(machineId), descr, nil)
+	if err != nil {
+		return nil, err
+	}
 	return []ec2.SecurityGroup{jujuGroup, jujuMachineGroup}, nil
 }
 
+// zg holds the zero security group.
 var zg ec2.SecurityGroup
 
 // ensureGroup tries to ensure that a security group exists with the given
@@ -381,7 +386,7 @@ var zg ec2.SecurityGroup
 func (e *environ) ensureGroup(name, descr string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
 	resp, err := e.ec2.CreateSecurityGroup(name, descr)
 	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
-		return zg, nil
+		return zg, err
 	}
 
 	want := newPermSet(perms)
@@ -431,12 +436,12 @@ func (e *environ) ensureGroup(name, descr string, perms []ec2.IPPerm) (g ec2.Sec
 type ipPerm struct {
 	protocol string
 	fromPort int
-	toPort int
-	groupId string
-	ipAddr string
+	toPort   int
+	groupId  string
+	ipAddr   string
 }
 
-type permSet map[ipPerm] bool
+type permSet map[ipPerm]bool
 
 // newPermSet returns a set of all the permissions in the
 // given slice of IPPerms. It ignores the name and owner
@@ -447,7 +452,7 @@ func newPermSet(ps []ec2.IPPerm) permSet {
 		ipp := ipPerm{
 			protocol: p.Protocol,
 			fromPort: p.FromPort,
-			toPort: p.ToPort,
+			toPort:   p.ToPort,
 		}
 		for _, g := range p.SourceGroups {
 			ipp.groupId = g.Id
@@ -471,7 +476,7 @@ func (m permSet) ipPerms() (ps []ec2.IPPerm) {
 		ipp := ec2.IPPerm{
 			Protocol: p.protocol,
 			FromPort: p.fromPort,
-			ToPort: p.toPort,
+			ToPort:   p.toPort,
 		}
 		if p.ipAddr != "" {
 			ipp.SourceIPs = []string{p.ipAddr}
