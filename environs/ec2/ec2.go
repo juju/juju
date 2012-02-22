@@ -310,6 +310,7 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	return []ec2.SecurityGroup{jujuGroup, jujuMachineGroup}, nil
 }
 
+// zg holds the zero security group.
 var zg ec2.SecurityGroup
 
 // ensureGroup tries to ensure that a security group exists with the given
