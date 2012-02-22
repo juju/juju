@@ -157,7 +157,6 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	return &state.Info{Addrs: addrs}, nil
 }
 
-
 func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Instance, error) {
 	return e.startInstance(machineId, info, false)
 }
