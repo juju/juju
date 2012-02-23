@@ -107,7 +107,7 @@ func assertNoChange(c *C, watch <-chan bool) {
 	}
 }
 
-func (s *PresenceSuite) TestStartPinger(c *C) {
+func (s *PresenceSuite) TestNewPinger(c *C) {
 	// Check not considered Alive before it exists.
 	alive, err := presence.Alive(s.zkConn, path)
 	c.Assert(err, IsNil)
@@ -120,7 +120,7 @@ func (s *PresenceSuite) TestStartPinger(c *C) {
 	assertNoChange(c, watch)
 
 	// Start a Pinger, and check the watch fires.
-	p, err := presence.StartPing(s.zkConn, path, period)
+	p, err := presence.NewPinger(s.zkConn, path, period)
 	c.Assert(err, IsNil)
 	defer p.Close()
 	assertChange(c, watch, true)
@@ -139,7 +139,7 @@ func (s *PresenceSuite) TestStartPinger(c *C) {
 
 func (s *PresenceSuite) TestKillPinger(c *C) {
 	// Start a Pinger and a watch, and check sanity.
-	p, err := presence.StartPing(s.zkConn, path, period)
+	p, err := presence.NewPinger(s.zkConn, path, period)
 	c.Assert(err, IsNil)
 	alive, watch, err := presence.AliveW(s.zkConn, path)
 	c.Assert(err, IsNil)
@@ -161,7 +161,7 @@ func (s *PresenceSuite) TestKillPinger(c *C) {
 
 func (s *PresenceSuite) TestClosePinger(c *C) {
 	// Start a Pinger and a watch, and check sanity.
-	p, err := presence.StartPing(s.zkConn, path, period)
+	p, err := presence.NewPinger(s.zkConn, path, period)
 	c.Assert(err, IsNil)
 	alive, watch, err := presence.AliveW(s.zkConn, path)
 	c.Assert(err, IsNil)
@@ -198,7 +198,7 @@ func (s *PresenceSuite) TestBadData(c *C) {
 
 func (s *PresenceSuite) TestDisconnectAliveWatch(c *C) {
 	// Start a Pinger on the main connection
-	p, err := presence.StartPing(s.zkConn, path, period)
+	p, err := presence.NewPinger(s.zkConn, path, period)
 	c.Assert(err, IsNil)
 	defer p.Close()
 
@@ -215,7 +215,7 @@ func (s *PresenceSuite) TestDisconnectAliveWatch(c *C) {
 
 func (s *PresenceSuite) TestDisconnectDeadWatch(c *C) {
 	// Create a stale target node.
-	p, err := presence.StartPing(s.zkConn, path, period)
+	p, err := presence.NewPinger(s.zkConn, path, period)
 	c.Assert(err, IsNil)
 	p.Close()
 	time.Sleep(longEnough)
@@ -285,7 +285,7 @@ func (s *PresenceSuite) TestDisconnectPinger(c *C) {
 	// connection we can kill safely (see below).
 	kill := forward(c, "localhost:21811", s.zkAddr)
 	altConn := connect(c, "localhost:21811")
-	p, err := presence.StartPing(altConn, path, period)
+	p, err := presence.NewPinger(altConn, path, period)
 	c.Assert(err, IsNil)
 	defer p.Close()
 
