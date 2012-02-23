@@ -33,16 +33,21 @@ func readCharm(c *C, name string) charm.Charm {
 	return ch
 }
 
-// localCharmId returns the local id of a charm.
-func localCharmId(ch charm.Charm) string {
-	return fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision())
+// localCharmURL returns the local URL of a charm.
+func localCharmURL(ch charm.Charm) *charm.URL {
+	url := fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision())
+	charmURL, err := charm.ParseURL(url)
+	if err != nil {
+		panic(err)
+	}
+	return charmURL
 }
 
 // addDummyCharm adds the 'dummy' charm state for those tests
 // where it's needed.
 func addDummyCharm(c *C, st *state.State) *state.Charm {
 	ch := readCharm(c, "dummy")
-	dummy, err := st.AddCharm(localCharmId(ch), ch, "http://example.com/abc")
+	dummy, err := st.AddCharm(localCharmURL(ch), ch, "http://example.com/abc")
 	c.Assert(err, IsNil)
 	return dummy
 }
@@ -84,9 +89,9 @@ func (s *StateSuite) TearDownTest(c *C) {
 func (s StateSuite) TestAddCharm(c *C) {
 	// Check that adding charms works correctly.
 	dummyCharm := readCharm(c, "dummy")
-	dummy, err := s.st.AddCharm(localCharmId(dummyCharm), dummyCharm, "http://example.com/abc")
+	dummy, err := s.st.AddCharm(localCharmURL(dummyCharm), dummyCharm, "http://example.com/abc")
 	c.Assert(err, IsNil)
-	c.Assert(dummy.Id(), Equals, "local:series/dummy-1")
+	c.Assert(dummy.URL().String(), Equals, "local:series/dummy-1")
 
 	children, _, err := s.zkConn.Children("/charms")
 	c.Assert(err, IsNil)
@@ -96,24 +101,28 @@ func (s StateSuite) TestAddCharm(c *C) {
 func (s StateSuite) TestCharm(c *C) {
 	// Check that reading a previously added charm works correctly.
 	dummyCharm := readCharm(c, "dummy")
-	_, err := s.st.AddCharm(localCharmId(dummyCharm), dummyCharm, "http://example.com/abc")
+	_, err := s.st.AddCharm(localCharmURL(dummyCharm), dummyCharm, "http://example.com/abc")
 	c.Assert(err, IsNil)
 
-	dummy, err := s.st.Charm("local:series/dummy-1")
+	charmURL, err := charm.ParseURL("local:series/dummy-1")
 	c.Assert(err, IsNil)
-	c.Assert(dummy.Id(), Equals, "local:series/dummy-1")
+	dummy, err := s.st.Charm(charmURL)
+	c.Assert(err, IsNil)
+	c.Assert(dummy.URL().String(), Equals, "local:series/dummy-1")
 }
 
 func (s StateSuite) TestCharmAttributes(c *C) {
 	// Check that the basic (invariant) fields of the charm
 	// are correctly in place.
 	dummyCharm := readCharm(c, "dummy")
-	_, err := s.st.AddCharm(localCharmId(dummyCharm), dummyCharm, "http://example.com/abc")
+	_, err := s.st.AddCharm(localCharmURL(dummyCharm), dummyCharm, "http://example.com/abc")
 	c.Assert(err, IsNil)
 
-	dummy, err := s.st.Charm("local:series/dummy-1")
+	charmURL, err := charm.ParseURL("local:series/dummy-1")
 	c.Assert(err, IsNil)
-	c.Assert(dummy.Id(), Equals, "local:series/dummy-1")
+	dummy, err := s.st.Charm(charmURL)
+	c.Assert(err, IsNil)
+	c.Assert(dummy.URL().String(), Equals, "local:series/dummy-1")
 	c.Assert(dummy.Name(), Equals, "dummy")
 	c.Assert(dummy.Revision(), Equals, 1)
 	c.Assert(dummy.BundleURL(), Equals, "http://example.com/abc")
@@ -122,10 +131,12 @@ func (s StateSuite) TestCharmAttributes(c *C) {
 func (s StateSuite) TestCharmMetadata(c *C) {
 	// Check that the charm metadata was correctly saved and loaded.
 	dummyCharm := readCharm(c, "dummy")
-	_, err := s.st.AddCharm(localCharmId(dummyCharm), dummyCharm, "")
+	_, err := s.st.AddCharm(localCharmURL(dummyCharm), dummyCharm, "")
 	c.Assert(err, IsNil)
 
-	dummy, err := s.st.Charm("local:series/dummy-1")
+	charmURL, err := charm.ParseURL("local:series/dummy-1")
+	c.Assert(err, IsNil)
+	dummy, err := s.st.Charm(charmURL)
 	c.Assert(err, IsNil)
 	meta := dummy.Meta()
 	c.Assert(meta.Name, Equals, "dummy")
@@ -134,10 +145,12 @@ func (s StateSuite) TestCharmMetadata(c *C) {
 func (s StateSuite) TestCharmConfig(c *C) {
 	// Verify that the charm config is present and correct.
 	dummyCharm := readCharm(c, "dummy")
-	_, err := s.st.AddCharm(localCharmId(dummyCharm), dummyCharm, "")
+	_, err := s.st.AddCharm(localCharmURL(dummyCharm), dummyCharm, "")
 	c.Assert(err, IsNil)
 
-	dummy, err := s.st.Charm("local:series/dummy-1")
+	charmURL, err := charm.ParseURL("local:series/dummy-1")
+	c.Assert(err, IsNil)
+	dummy, err := s.st.Charm(charmURL)
 	c.Assert(err, IsNil)
 	config := dummy.Config()
 	c.Assert(config.Options["title"], Equals,
@@ -151,17 +164,21 @@ func (s StateSuite) TestCharmConfig(c *C) {
 
 func (s StateSuite) TestNonExistentCharmPriorToInitialization(c *C) {
 	// Check that getting a charm before anyone has been added fails nicely.
-	_, err := s.st.Charm("local:series/dummy-1")
+	charmURL, err := charm.ParseURL("local:series/dummy-1")
+	c.Assert(err, IsNil)
+	_, err = s.st.Charm(charmURL)
 	c.Assert(err, ErrorMatches, `charm "local:series/dummy-1" not found`)
 }
 
 func (s StateSuite) TestGetNonExistentCharm(c *C) {	
 	// Check that getting a non-existent charm fails nicely.
 	dummyCharm := readCharm(c, "dummy")
-	_, err := s.st.AddCharm(localCharmId(dummyCharm), dummyCharm, "")
+	_, err := s.st.AddCharm(localCharmURL(dummyCharm), dummyCharm, "")
 	c.Assert(err, IsNil)
 
-	_, err = s.st.Charm("local:anotherseries/dummy-1")
+	charmURL, err := charm.ParseURL("local:anotherseries/dummy-1")
+	c.Assert(err, IsNil)
+	_, err = s.st.Charm(charmURL)
 	c.Assert(err, ErrorMatches, `charm "local:anotherseries/dummy-1" not found`)
 }
 

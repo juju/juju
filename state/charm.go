@@ -6,6 +6,7 @@ package state
 
 import (
 	"fmt"
+	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
 )
@@ -26,15 +27,27 @@ type Charm struct {
 	bundleURL string
 }
 
-// newCharm creates a new charm.
-func newCharm(zk *zookeeper.Conn, id string, data *charmData) (*Charm, error) {
-	url, err := charm.ParseURL(id)
+// readCharm reads a charm by id.
+func readCharm(zk *zookeeper.Conn, charmURL *charm.URL) (*Charm, error) {
+	yaml, _, err := zk.Get(charmPath(charmURL))
+	if err == zookeeper.ZNONODE {
+		return nil, fmt.Errorf("charm %q not found", charmURL)
+	} 
 	if err != nil {
 		return nil, err
 	}
+	data := &charmData{}
+	if err := goyaml.Unmarshal([]byte(yaml), data); err != nil {
+		return nil, err
+	}
+	return newCharm(zk, charmURL, data)
+}
+
+// newCharm creates a new charm.
+func newCharm(zk *zookeeper.Conn, charmURL *charm.URL, data *charmData) (*Charm, error) {
 	c := &Charm{
 		zk:        zk,
-		url:       url,
+		url:       charmURL,
 		meta:      data.Meta,
 		config:    data.Config,
 		bundleURL: data.URL,
@@ -44,11 +57,6 @@ func newCharm(zk *zookeeper.Conn, id string, data *charmData) (*Charm, error) {
 		return nil, fmt.Errorf("illegal charm name")
 	}
 	return c, nil
-}
-
-// Id returns the charm id.
-func (c *Charm) Id() string {
-	return c.url.String()
 }
 
 // Name returns the name of the charm based on the URL.
@@ -87,7 +95,7 @@ func (c *Charm) BundleURL() string {
 }
 
 // Charm path returns the full qualified ZooKeeper path for a charm state
-// based on the id.
-func charmPath(id string) string {
-	return fmt.Sprintf("/charms/%s", Quote(id))
+// based on the URL.
+func charmPath(charmURL *charm.URL) string {
+	return fmt.Sprintf("/charms/%s", Quote(charmURL.String()))
 }
