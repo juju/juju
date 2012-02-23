@@ -378,7 +378,7 @@ func (e *environ) groupName() string {
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
 func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
-	jujuGroup, err := e.ensureGroup(e.groupName(), "juju group for "+e.name,
+	jujuGroup, err := e.ensureGroup(e.groupName(),
 		[]ec2.IPPerm{
 			// TODO delete this authorization when we can do
 			// the zookeeper ssh tunnelling.
@@ -399,25 +399,23 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	if err != nil {
 		return nil, err
 	}
-	descr := fmt.Sprintf("juju group for %s machine %d", e.name, machineId)
-	jujuMachineGroup, err := e.ensureGroup(e.machineGroupName(machineId), descr, nil)
+	jujuMachineGroup, err := e.ensureGroup(e.machineGroupName(machineId), nil)
 	if err != nil {
 		return nil, err
 	}
 	return []ec2.SecurityGroup{jujuGroup, jujuMachineGroup}, nil
 }
 
-// zg holds the zero security group.
-var zg ec2.SecurityGroup
+// zeroGroup holds the zero security group.
+var zeroGroup ec2.SecurityGroup
 
-// ensureGroup tries to ensure that a security group exists with the given
-// name and permissions. If the group already exists, its permissions
-// will be changed accordingly. If the group does not exist, it will be created
-// with the given description. It returns the group.
-func (e *environ) ensureGroup(name, descr string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
-	resp, err := e.ec2.CreateSecurityGroup(name, descr)
+// ensureGroup returns the security group with name and perms.
+// If a group with name does not exist, one will be created.
+// If it exists, its permissions are set to perms.
+func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
+	resp, err := e.ec2.CreateSecurityGroup(name, "juju group")
 	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
-		return zg, err
+		return zeroGroup, err
 	}
 
 	want := newPermSet(perms)
@@ -427,9 +425,12 @@ func (e *environ) ensureGroup(name, descr string, perms []ec2.IPPerm) (g ec2.Sec
 	} else {
 		resp, err := e.ec2.SecurityGroups(ec2.SecurityGroupNames(name), nil)
 		if err != nil {
-			return zg, err
+			return zeroGroup, err
 		}
-		// TODO do we mind if the old group has the wrong description?
+		// It's possible that the old group has the wrong
+		// description here, but if it does it's probably due
+		// to something deliberately playing games with juju,
+		// so we ignore it.
 		have = newPermSet(resp.Groups[0].IPPerms)
 		g = resp.Groups[0].SecurityGroup
 	}
@@ -442,7 +443,7 @@ func (e *environ) ensureGroup(name, descr string, perms []ec2.IPPerm) (g ec2.Sec
 	if len(revoke) > 0 {
 		_, err := e.ec2.RevokeSecurityGroup(g, revoke.ipPerms())
 		if err != nil {
-			return zg, fmt.Errorf("cannot revoke security group: %v", err)
+			return zeroGroup, fmt.Errorf("cannot revoke security group: %v", err)
 		}
 	}
 
@@ -455,16 +456,16 @@ func (e *environ) ensureGroup(name, descr string, perms []ec2.IPPerm) (g ec2.Sec
 	if len(add) > 0 {
 		_, err := e.ec2.AuthorizeSecurityGroup(g, add.ipPerms())
 		if err != nil {
-			return zg, fmt.Errorf("cannot authorize securityGroup: %v", err)
+			return zeroGroup, fmt.Errorf("cannot authorize securityGroup: %v", err)
 		}
 	}
 	return g, nil
 }
 
-// ipPerm represents a permission for a group or an ip address range
+// permKey represents a permission for a group or an ip address range
 // to access the given range of ports. Only one of groupId or ipAddr
 // should be non-empty.
-type ipPerm struct {
+type permKey struct {
 	protocol string
 	fromPort int
 	toPort   int
@@ -472,7 +473,7 @@ type ipPerm struct {
 	ipAddr   string
 }
 
-type permSet map[ipPerm]bool
+type permSet map[permKey]bool
 
 // newPermSet returns a set of all the permissions in the
 // given slice of IPPerms. It ignores the name and owner
@@ -480,26 +481,26 @@ type permSet map[ipPerm]bool
 func newPermSet(ps []ec2.IPPerm) permSet {
 	m := make(permSet)
 	for _, p := range ps {
-		ipp := ipPerm{
+		k := permKey{
 			protocol: p.Protocol,
 			fromPort: p.FromPort,
 			toPort:   p.ToPort,
 		}
 		for _, g := range p.SourceGroups {
-			ipp.groupId = g.Id
-			m[ipp] = true
+			k.groupId = g.Id
+			m[k] = true
 		}
-		ipp.groupId = ""
+		k.groupId = ""
 		for _, ip := range p.SourceIPs {
-			ipp.ipAddr = ip
-			m[ipp] = true
+			k.ipAddr = ip
+			m[k] = true
 		}
 	}
 	return m
 }
 
-// ipPerms returns the given set of permissions
-// as a slice of IPPerms.
+// ipPerms returns m as a slice of permissions usable
+// with the ec2 package.
 func (m permSet) ipPerms() (ps []ec2.IPPerm) {
 	// We could compact the permissions, but it
 	// hardly seems worth it.
