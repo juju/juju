@@ -74,8 +74,8 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	// and recreated correctly.
 	oldJujuGroup := createGroup(c, ec2conn, groups[0].Name, "old juju group")
 
-	// Add one permission the same as will be needed
-	// and one that will need deletion.
+	// Add two permissions: one is required and should be left alone;
+	// the other is not and should be deleted.
 	// N.B. this is unfortunately sensitive to the actual set of permissions used.
 	_, err := ec2conn.AuthorizeSecurityGroup(oldJujuGroup,
 		[]amzec2.IPPerm{
