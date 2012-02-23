@@ -70,9 +70,9 @@ func (p *Pinger) Kill() {
 	p.conn.Delete(p.target.path, -1)
 }
 
-// NewPinger creates and returns an active Pinger, refreshing the contents of
+// StartPinger creates and returns an active Pinger, refreshing the contents of
 // path every period nanoseconds.
-func NewPinger(conn *zk.Conn, path string, period time.Duration) (*Pinger, error) {
+func StartPinger(conn *zk.Conn, path string, period time.Duration) (*Pinger, error) {
 	target := changeNode{conn, path, period.String()}
 	_, err := target.change()
 	if err != nil {
@@ -153,56 +153,54 @@ func getPstateW(conn *zk.Conn, path string) (p pstate, zkWatch <-chan zk.Event, 
 // not been updated recently enough to still qualify as alive. It should only be
 // called when the node is known to be alive.
 func awaitDead(conn *zk.Conn, p pstate, zkWatch <-chan zk.Event, watch chan bool) {
-	select {
-	case <-time.After(p.timeout):
-		watch <- false
-	case event := <-zkWatch:
-		if !event.Ok() {
-			close(watch)
-			return
-		}
-		switch event.Type {
-		case zk.EVENT_DELETED:
-			watch <- false
-		case zk.EVENT_CHANGED:
-			p, zkWatch, err := getPstateW(conn, p.path)
-			if err != nil {
+	for p.alive {
+		select {
+		case <-time.After(p.timeout):
+			p.alive = false
+		case event := <-zkWatch:
+			if !event.Ok() {
 				close(watch)
 				return
 			}
-			if p.alive {
-				go awaitDead(conn, p, zkWatch, watch)
-			} else {
-				watch <- false
+			switch event.Type {
+			case zk.EVENT_DELETED:
+				p.alive = false
+			case zk.EVENT_CHANGED:
+				var err error
+				p, zkWatch, err = getPstateW(conn, p.path)
+				if err != nil {
+					close(watch)
+					return
+				}
 			}
 		}
 	}
+	watch <- false
 }
 
 // awaitAlive sends true to watch when the node is changed or created. It should
 // only be called when the node is known to be dead.
 func awaitAlive(conn *zk.Conn, p pstate, zkWatch <-chan zk.Event, watch chan bool) {
-	event := <-zkWatch
-	if !event.Ok() {
-		close(watch)
-		return
-	}
-	switch event.Type {
-	case zk.EVENT_CREATED, zk.EVENT_CHANGED:
-		watch <- true
-	case zk.EVENT_DELETED:
-		// The pinger is still dead (just differently dead); start a new watch.
-		p, zkWatch, err := getPstateW(conn, p.path)
-		if err != nil {
+	for !p.alive {
+		event := <-zkWatch
+		if !event.Ok() {
 			close(watch)
 			return
 		}
-		if p.alive {
-			watch <- true
-		} else {
-			go awaitAlive(conn, p, zkWatch, watch)
+		switch event.Type {
+		case zk.EVENT_CREATED, zk.EVENT_CHANGED:
+			p.alive = true
+		case zk.EVENT_DELETED:
+			// The pinger is still dead (just differently dead); start a new watch.
+			var err error
+			p, zkWatch, err = getPstateW(conn, p.path)
+			if err != nil {
+				close(watch)
+				return
+			}
 		}
 	}
+	watch <- true
 }
 
 // AliveW returns whether the Pinger at the given node path seems to be alive.
