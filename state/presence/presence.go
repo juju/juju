@@ -42,14 +42,13 @@ type Pinger struct {
 
 // run calls Change on p.target every p.period nanoseconds until p is closed.
 func (p *Pinger) run() {
-	t := time.NewTicker(p.period)
-	defer t.Stop()
 	for {
+		tick := time.After(p.period)
 		select {
 		case <-p.closing:
 			close(p.closed)
 			return
-		case <-t.C:
+		case <-tick:
 			_, err := p.target.Change()
 			if err != nil {
 				close(p.closed)
