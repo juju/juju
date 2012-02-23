@@ -8,16 +8,6 @@ import (
 	"strings"
 )
 
-func isNotFoundError(e error) bool {
-	if e == os.ENOENT {
-		return true
-	}
-	if e, ok := e.(*os.PathError); ok {
-		return e.Err == os.ENOENT
-	}
-	return false
-}
-
 func expandTilde(f string) string {
 	// TODO expansion of other user's home directories.
 	// Q what characters are valid in a user name?
@@ -50,7 +40,7 @@ func authorizedKeys(path string) (string, error) {
 		}
 		data, err := ioutil.ReadFile(f)
 		if err != nil {
-			if firstError == nil && !isNotFoundError(err) {
+			if firstError == nil && !os.IsNotExist(err) {
 				firstError = err
 			}
 			continue
