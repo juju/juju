@@ -93,14 +93,14 @@ func (s *State) AllMachines() ([]*Machine, error) {
 		return nil, err
 	}
 	machines := []*Machine{}
-        for _, key := range topology.MachineKeys() {
-		machines = append(machines, &Machine{s.zk, key})        		
-        }
-        return machines, nil
+	for _, key := range topology.MachineKeys() {
+		machines = append(machines, &Machine{s.zk, key})
+	}
+	return machines, nil
 }
 
 // AddCharm registers metadata about the provided Charm.
-func (s *State) AddCharm(id string, ch charm.Charm, url string) (*Charm, error) {
+func (s *State) AddCharm(charmURL *charm.URL, ch charm.Charm, url string) (*Charm, error) {
 	data := &charmData{
 		Meta:   ch.Meta(),
 		Config: ch.Config(),
@@ -110,27 +110,16 @@ func (s *State) AddCharm(id string, ch charm.Charm, url string) (*Charm, error) 
 	if err != nil {
 		return nil, err
 	}
-	_, err = s.zk.Create(charmPath(id), string(yaml), 0, zkPermAll)
+	_, err = s.zk.Create(charmPath(charmURL), string(yaml), 0, zkPermAll)
 	if err != nil {
 		return nil, err
 	}
-	return newCharm(s.zk, id, data)
+	return newCharm(s.zk, charmURL, data)
 }
 
 // Charm returns a charm by the given id.
-func (s *State) Charm(id string) (*Charm, error) {
-	yaml, _, err := s.zk.Get(charmPath(id))
-	if err == zookeeper.ZNONODE {
-		return nil, fmt.Errorf("charm %q not found", id)
-	} 
-	if err != nil {
-		return nil, err
-	}
-	data := &charmData{}
-	if err := goyaml.Unmarshal([]byte(yaml), data); err != nil {
-		return nil, err
-	}
-	return newCharm(s.zk, id, data)
+func (s *State) Charm(charmURL *charm.URL) (*Charm, error) {
+	return readCharm(s.zk, charmURL)
 }
 
 // AddService creates a new service with the given unique name

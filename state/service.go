@@ -58,8 +58,11 @@ func (s *Service) SetCharmURL(url *charm.URL) error {
 
 // Charm returns the service's charm.
 func (s *Service) Charm() (*Charm, error) {
-	// TODO Add implementation when charm has been implemented.
-	return nil, errors.New("not yet implemented")
+	url, err := s.CharmURL()
+	if err != nil {
+		return nil, err
+	}
+	return readCharm(s.zk, url)
 }
 
 // AddUnit() adds a new unit.

@@ -26,7 +26,7 @@ func ZkSetUpEnvironment(t *testing.T) (*zookeeper.Server, string) {
 	}
 	testRoot := dir + "/zookeeper"
 	testPort := 21812
-	srv, err := zookeeper.CreateServer(testPort, testRoot, "")	
+	srv, err := zookeeper.CreateServer(testPort, testRoot, "")
 	if err != nil {
 		t.Fatalf("cannot create ZooKeeper server: %v", err)
 	}
@@ -42,7 +42,7 @@ func ZkSetUpEnvironment(t *testing.T) (*zookeeper.Server, string) {
 func ZkTearDownEnvironment(t *testing.T, srv *zookeeper.Server, dir string) {
 	srv.Destroy()
 	if err := os.RemoveAll(dir); err != nil {
-	 	t.Fatal("cannot remove temporary directory: %v", err)		
+		t.Fatal("cannot remove temporary directory: %v", err)
 	}
 }
 

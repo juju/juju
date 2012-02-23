@@ -262,15 +262,15 @@ func Quote(unsafe string) string {
 	for i := 0; i < len(unsafe); i++ {
 		b := unsafe[i]
 		switch {
-    		case b >= 'a' && b <= 'z',
-         		b >= 'A' && b <= 'Z',
-         		b >= '0' && b <= '9',
-         		b == '.',
-         		b == '-':
-         		safe = append(safe, b)
-         	default:
-         		safe = append(safe, fmt.Sprintf("_%02x_", b)...)
-         	}
+		case b >= 'a' && b <= 'z',
+			b >= 'A' && b <= 'Z',
+			b >= '0' && b <= '9',
+			b == '.',
+			b == '-':
+			safe = append(safe, b)
+		default:
+			safe = append(safe, fmt.Sprintf("_%02x_", b)...)
+		}
 	}
 	return string(safe)
 }
