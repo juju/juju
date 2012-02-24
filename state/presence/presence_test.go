@@ -237,33 +237,37 @@ func (s *PresenceSuite) TestDisconnectMissingWatch(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 
-	// Kill the watch connection and check it's alerted.
+	// Kill the watch's connection and check it's alerted.
 	altConn.Close()
 	assertClose(c, watch)
 }
 
-func (s *PresenceSuite) DONTTestDisconnectAliveWatch(c *C) {
+func (s *PresenceSuite) TestDisconnectAliveWatch(c *C) {
+	c.ExpectFailure("Waiting on gozk change to eliminate occasional panic after Close")
+	c.FailNow()
+
 	// Start a Pinger on the main connection
 	p, err := presence.StartPinger(s.zkConn, path, period)
 	c.Assert(err, IsNil)
 	defer p.Close()
 
-	// Start watching on an alternate connection, forwarded over another
-	// connection we can kill safely.
+	// Start watching on an alternate connection.
 	altConn := s.connect(c)
 	waitFor(c, altConn, path)
 	alive, watch, err := presence.AliveW(altConn, path)
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
 
-	// Kill the watch connection and check it's alerted.
+	// Kill the watch's connection and check it's alerted.
 	altConn.Close()
 	assertClose(c, watch)
 }
 
-func (s *PresenceSuite) DONTTestDisconnectPinger(c *C) {
-	// Start a Pinger on an alternate connection, forwarded over another
-	// connection we can kill safely.
+func (s *PresenceSuite) TestDisconnectPinger(c *C) {
+	c.ExpectFailure("Waiting on gozk change to eliminate consistent panic after Close")
+	c.FailNow()
+
+	// Start a Pinger on an alternate connection.
 	altConn := s.connect(c)
 	p, err := presence.StartPinger(altConn, path, period)
 	c.Assert(err, IsNil)
