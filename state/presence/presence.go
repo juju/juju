@@ -83,33 +83,54 @@ func StartPinger(conn *zk.Conn, path string, period time.Duration) (*Pinger, err
 	return p, nil
 }
 
-// pstate holds information about a remote Pinger's state.
-type pstate struct {
+// state holds information about a remote Pinger's state.
+type state struct {
 	path    string
 	alive   bool
 	timeout time.Duration
 }
 
-// getPstate gets the latest known state of a remote Pinger, given the mtime and
-// content of its target node. path is present only for convenience's sake; this
-// function is *not* responsible for acquiring stat and content itself, because its
-// clients may or may not require a watch on the node; however, conn is still
-// required, so that a clock node can be created and used to check staleness.
-func getPstate(conn *zk.Conn, path string, mtime time.Time, content string) (pstate, error) {
+// newState gets the latest known state of a remote Pinger, given the mtime and
+// content of its target node. newState is *not* responsible for acquiring stat
+// and content itself, because its clients may or may not require a watch on the
+// node; however, conn is still required, so that a clock node can be created
+// and used to check staleness.
+func newState(conn *zk.Conn, path string, mtime time.Time, content string) (state, error) {
 	clock := changeNode{conn, "/clock", ""}
 	now, err := clock.change()
 	if err != nil {
-		return pstate{}, err
+		return state{}, err
 	}
 	delay := now.Sub(mtime)
 	period, err := time.ParseDuration(content)
 	if err != nil {
 		err := fmt.Errorf("%s is not a valid presence node: %s", path, err)
-		return pstate{}, err
+		return state{}, err
 	}
 	timeout := period * 2
 	alive := delay < timeout
-	return pstate{path, alive, timeout}, nil
+	return state{path, alive, timeout}, nil
+}
+
+// newStateW gets the latest known state of a remote Pinger targeting path, and
+// also returns a zookeeper watch which will fire on changes to the target node.
+func newStateW(conn *zk.Conn, path string) (s state, zkWatch <-chan zk.Event, err error) {
+	content, stat, zkWatch, err := conn.GetW(path)
+	if err == zk.ZNONODE {
+		stat, zkWatch, err = conn.ExistsW(path)
+		if err != nil {
+			return
+		}
+		if stat != nil {
+			// Whoops, node *just* appeared. Try again.
+			return newStateW(conn, path)
+		}
+		return
+	} else if err != nil {
+		return
+	}
+	s, err = newState(conn, path, stat.MTime(), content)
+	return
 }
 
 // Alive returns whether a remote Pinger targeting path is alive.
@@ -121,42 +142,21 @@ func Alive(conn *zk.Conn, path string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	p, err := getPstate(conn, path, stat.MTime(), content)
+	s, err := newState(conn, path, stat.MTime(), content)
 	if err != nil {
 		return false, err
 	}
-	return p.alive, err
-}
-
-// getPstateW gets the latest known state of a remote Pinger targeting path, and
-// also returns a zookeeper watch which will fire on changes to the target node.
-func getPstateW(conn *zk.Conn, path string) (p pstate, zkWatch <-chan zk.Event, err error) {
-	content, stat, zkWatch, err := conn.GetW(path)
-	if err == zk.ZNONODE {
-		stat, zkWatch, err = conn.ExistsW(path)
-		if err != nil {
-			return
-		}
-		if stat != nil {
-			// Whoops, node *just* appeared. Try again.
-			return getPstateW(conn, path)
-		}
-		return
-	} else if err != nil {
-		return
-	}
-	p, err = getPstate(conn, path, stat.MTime(), content)
-	return
+	return s.alive, err
 }
 
 // awaitDead sends false to watch when the node is deleted, or when it has
 // not been updated recently enough to still qualify as alive. It should only be
 // called when the node is known to be alive.
-func awaitDead(conn *zk.Conn, p pstate, zkWatch <-chan zk.Event, watch chan bool) {
-	for p.alive {
+func awaitDead(conn *zk.Conn, s state, zkWatch <-chan zk.Event, watch chan bool) {
+	for s.alive {
 		select {
-		case <-time.After(p.timeout):
-			p.alive = false
+		case <-time.After(s.timeout):
+			s.alive = false
 		case event := <-zkWatch:
 			if !event.Ok() {
 				close(watch)
@@ -164,10 +164,10 @@ func awaitDead(conn *zk.Conn, p pstate, zkWatch <-chan zk.Event, watch chan bool
 			}
 			switch event.Type {
 			case zk.EVENT_DELETED:
-				p.alive = false
+				s.alive = false
 			case zk.EVENT_CHANGED:
 				var err error
-				p, zkWatch, err = getPstateW(conn, p.path)
+				s, zkWatch, err = newStateW(conn, s.path)
 				if err != nil {
 					close(watch)
 					return
@@ -180,8 +180,8 @@ func awaitDead(conn *zk.Conn, p pstate, zkWatch <-chan zk.Event, watch chan bool
 
 // awaitAlive sends true to watch when the node is changed or created. It should
 // only be called when the node is known to be dead.
-func awaitAlive(conn *zk.Conn, p pstate, zkWatch <-chan zk.Event, watch chan bool) {
-	for !p.alive {
+func awaitAlive(conn *zk.Conn, s state, zkWatch <-chan zk.Event, watch chan bool) {
+	for !s.alive {
 		event := <-zkWatch
 		if !event.Ok() {
 			close(watch)
@@ -189,11 +189,11 @@ func awaitAlive(conn *zk.Conn, p pstate, zkWatch <-chan zk.Event, watch chan boo
 		}
 		switch event.Type {
 		case zk.EVENT_CREATED, zk.EVENT_CHANGED:
-			p.alive = true
+			s.alive = true
 		case zk.EVENT_DELETED:
 			// The pinger is still dead (just differently dead); start a new watch.
 			var err error
-			p, zkWatch, err = getPstateW(conn, p.path)
+			s, zkWatch, err = newStateW(conn, s.path)
 			if err != nil {
 				close(watch)
 				return
@@ -207,15 +207,15 @@ func awaitAlive(conn *zk.Conn, p pstate, zkWatch <-chan zk.Event, watch chan boo
 // It also returns a channel that will receive the new status when it changes.
 // If an error is encountered after AliveW returns, the channel will be closed.
 func AliveW(conn *zk.Conn, path string) (bool, <-chan bool, error) {
-	p, zkWatch, err := getPstateW(conn, path)
+	s, zkWatch, err := newStateW(conn, path)
 	if err != nil {
 		return false, nil, err
 	}
 	watch := make(chan bool)
-	if p.alive {
-		go awaitDead(conn, p, zkWatch, watch)
+	if s.alive {
+		go awaitDead(conn, s, zkWatch, watch)
 	} else {
-		go awaitAlive(conn, p, zkWatch, watch)
+		go awaitAlive(conn, s, zkWatch, watch)
 	}
-	return p.alive, watch, nil
+	return s.alive, watch, nil
 }
