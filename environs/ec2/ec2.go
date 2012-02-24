@@ -10,6 +10,7 @@ import (
 )
 
 const zkPort = 2181
+
 var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
 
 func init() {
@@ -247,7 +248,7 @@ func (e *environ) terminateInstances(ids []string) error {
 		return nil
 	}
 	_, err := e.ec2.TerminateInstances(ids)
-	if err == nil || ec2ErrCode(err) != "InvalidInstance.NotFound" {
+	if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
 		return err
 	}
 	var firstErr error
@@ -255,7 +256,7 @@ func (e *environ) terminateInstances(ids []string) error {
 	// terminated, so try them one by one, ignoring NotFound errors.
 	for _, id := range ids {
 		_, err = e.ec2.TerminateInstances([]string{id})
-		if ec2ErrCode(err) == "InvalidInstance.NotFound" {
+		if ec2ErrCode(err) == "InvalidInstanceID.NotFound" {
 			err = nil
 		}
 		if err != nil && firstErr == nil {
@@ -281,34 +282,8 @@ func (e *environ) groupName() string {
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
 func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
-	jujuGroup := ec2.SecurityGroup{Name: e.groupName()}
-	jujuMachineGroup := ec2.SecurityGroup{Name: e.machineGroupName(machineId)}
-
-	f := ec2.NewFilter()
-	f.Add("group-name", jujuGroup.Name, jujuMachineGroup.Name)
-	groups, err := e.ec2.SecurityGroups(nil, f)
-	if err != nil {
-		return nil, fmt.Errorf("cannot get security groups: %v", err)
-	}
-
-	for _, g := range groups.Groups {
-		switch g.Name {
-		case jujuGroup.Name:
-			jujuGroup = g.SecurityGroup
-		case jujuMachineGroup.Name:
-			jujuMachineGroup = g.SecurityGroup
-		}
-	}
-
-	// Create the provider group if doesn't exist.
-	if jujuGroup.Id == "" {
-		r, err := e.ec2.CreateSecurityGroup(jujuGroup.Name, "juju group for "+e.name)
-		if err != nil {
-			return nil, fmt.Errorf("cannot create juju security group: %v", err)
-		}
-		jujuGroup = r.SecurityGroup
-
-		_, err = e.ec2.AuthorizeSecurityGroup(jujuGroup, []ec2.IPPerm{
+	jujuGroup, err := e.ensureGroup(e.groupName(),
+		[]ec2.IPPerm{
 			// TODO delete this authorization when we can do
 			// the zookeeper ssh tunnelling.
 			{
@@ -325,26 +300,128 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 			},
 			// TODO authorize internal traffic
 		})
-		if err != nil && ec2ErrCode(err) != "InvalidPermission.Duplicate" {
-			return nil, fmt.Errorf("cannot authorize security group: %v", err)
+	if err != nil {
+		return nil, err
+	}
+	jujuMachineGroup, err := e.ensureGroup(e.machineGroupName(machineId), nil)
+	if err != nil {
+		return nil, err
+	}
+	return []ec2.SecurityGroup{jujuGroup, jujuMachineGroup}, nil
+}
+
+// zeroGroup holds the zero security group.
+var zeroGroup ec2.SecurityGroup
+
+// ensureGroup returns the security group with name and perms.
+// If a group with name does not exist, one will be created.
+// If it exists, its permissions are set to perms.
+func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
+	resp, err := e.ec2.CreateSecurityGroup(name, "juju group")
+	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
+		return zeroGroup, err
+	}
+
+	want := newPermSet(perms)
+	var have permSet
+	if err == nil {
+		g = resp.SecurityGroup
+	} else {
+		resp, err := e.ec2.SecurityGroups(ec2.SecurityGroupNames(name), nil)
+		if err != nil {
+			return zeroGroup, err
+		}
+		// It's possible that the old group has the wrong
+		// description here, but if it does it's probably due
+		// to something deliberately playing games with juju,
+		// so we ignore it.
+		have = newPermSet(resp.Groups[0].IPPerms)
+		g = resp.Groups[0].SecurityGroup
+	}
+	revoke := make(permSet)
+	for p := range have {
+		if !want[p] {
+			revoke[p] = true
+		}
+	}
+	if len(revoke) > 0 {
+		_, err := e.ec2.RevokeSecurityGroup(g, revoke.ipPerms())
+		if err != nil {
+			return zeroGroup, fmt.Errorf("cannot revoke security group: %v", err)
 		}
 	}
 
-	// Create the machine-specific group, but first see if there's
-	// one already existing from a previous machine launch;
-	// if so, delete it, since it can have the wrong firewall setup
-	if jujuMachineGroup.Id != "" {
-		_, err := e.ec2.DeleteSecurityGroup(jujuMachineGroup)
-		if err != nil {
-			return nil, fmt.Errorf("cannot delete old security group %q: %v", jujuMachineGroup.Name, err)
+	add := make(permSet)
+	for p := range want {
+		if !have[p] {
+			add[p] = true
 		}
 	}
-	descr := fmt.Sprintf("juju group for %s machine %d", e.name, machineId)
-	r, err := e.ec2.CreateSecurityGroup(jujuMachineGroup.Name, descr)
-	if err != nil {
-		return nil, fmt.Errorf("cannot create machine group %q: %v", jujuMachineGroup.Name, err)
+	if len(add) > 0 {
+		_, err := e.ec2.AuthorizeSecurityGroup(g, add.ipPerms())
+		if err != nil {
+			return zeroGroup, fmt.Errorf("cannot authorize securityGroup: %v", err)
+		}
 	}
-	return []ec2.SecurityGroup{jujuGroup, r.SecurityGroup}, nil
+	return g, nil
+}
+
+// permKey represents a permission for a group or an ip address range
+// to access the given range of ports. Only one of groupId or ipAddr
+// should be non-empty.
+type permKey struct {
+	protocol string
+	fromPort int
+	toPort   int
+	groupId  string
+	ipAddr   string
+}
+
+type permSet map[permKey]bool
+
+// newPermSet returns a set of all the permissions in the
+// given slice of IPPerms. It ignores the name and owner
+// id in source groups, using group ids only.
+func newPermSet(ps []ec2.IPPerm) permSet {
+	m := make(permSet)
+	for _, p := range ps {
+		k := permKey{
+			protocol: p.Protocol,
+			fromPort: p.FromPort,
+			toPort:   p.ToPort,
+		}
+		for _, g := range p.SourceGroups {
+			k.groupId = g.Id
+			m[k] = true
+		}
+		k.groupId = ""
+		for _, ip := range p.SourceIPs {
+			k.ipAddr = ip
+			m[k] = true
+		}
+	}
+	return m
+}
+
+// ipPerms returns m as a slice of permissions usable
+// with the ec2 package.
+func (m permSet) ipPerms() (ps []ec2.IPPerm) {
+	// We could compact the permissions, but it
+	// hardly seems worth it.
+	for p := range m {
+		ipp := ec2.IPPerm{
+			Protocol: p.protocol,
+			FromPort: p.fromPort,
+			ToPort:   p.toPort,
+		}
+		if p.ipAddr != "" {
+			ipp.SourceIPs = []string{p.ipAddr}
+		} else {
+			ipp.SourceGroups = []ec2.UserSecurityGroup{{Id: p.groupId}}
+		}
+		ps = append(ps, ipp)
+	}
+	return
 }
 
 // If the err is of type *ec2.Error, ec2ErrCode returns

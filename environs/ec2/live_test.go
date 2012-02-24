@@ -43,9 +43,6 @@ func registerAmazonTests() {
 	if err != nil {
 		panic(fmt.Errorf("cannot parse amazon tests config data: %v", err))
 	}
-	if err != nil {
-		panic(fmt.Errorf("cannot parse integration tests config data: %v", err))
-	}
 	for _, name := range envs.Names() {
 		Suite(&LiveTests{
 			jujutest.LiveTests{
@@ -72,34 +69,44 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	)
 	info := make([]amzec2.SecurityGroupInfo, len(groups))
 
-	c.Logf("start instance 98")
+	// Create a group with the same name as the juju group
+	// but with different permissions, to check that it's deleted
+	// and recreated correctly.
+	oldJujuGroup := createGroup(c, ec2conn, groups[0].Name, "old juju group")
+
+	// Add two permissions: one is required and should be left alone;
+	// the other is not and should be deleted.
+	// N.B. this is unfortunately sensitive to the actual set of permissions used.
+	_, err := ec2conn.AuthorizeSecurityGroup(oldJujuGroup,
+		[]amzec2.IPPerm{
+			{
+				Protocol:  "tcp",
+				FromPort:  22,
+				ToPort:    22,
+				SourceIPs: []string{"0.0.0.0/0"},
+			},
+			{
+				Protocol:  "udp",
+				FromPort:  4321,
+				ToPort:    4322,
+				SourceIPs: []string{"3.4.5.6/32"},
+			},
+		})
+	c.Assert(err, IsNil)
+
 	inst0, err := t.Env.StartInstance(98, jujutest.InvalidStateInfo)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst0})
 
 	// Create a same-named group for the second instance
-	// before starting it, to check that it's deleted and
-	// recreated correctly.
-	oldGroup := ensureGroupExists(c, ec2conn, groups[2].Name, "old group")
+	// before starting it, to check that it's reused correctly.
+	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
-	c.Logf("start instance 99")
 	inst1, err := t.Env.StartInstance(99, jujutest.InvalidStateInfo)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 
-	// Go behind the scenes to check the machines have
-	// been put into the correct groups.
-
-	// First check that the old group has been deleted...
-	f := amzec2.NewFilter()
-	f.Add("group-name", oldGroup.Name)
-	f.Add("group-id", oldGroup.Id)
-	groupsResp, err := ec2conn.SecurityGroups(nil, f)
-	c.Assert(err, IsNil)
-	c.Check(len(groupsResp.Groups), Equals, 0)
-
-	// ... then check that the groups have been created.
-	groupsResp, err = ec2conn.SecurityGroups(groups, nil)
+	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
 	c.Assert(err, IsNil)
 	c.Assert(len(groupsResp.Groups), Equals, len(groups))
 
@@ -119,14 +126,21 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 		}
 	}
 
-	perms := info[0].IPPerms
+	// The old juju group should have been reused.
+	c.Check(groups[0].Id, Equals, oldJujuGroup.Id)
 
-	// check that the juju group authorizes SSH for anyone.
+	// Check that it authorizes the correct ports and there
+	// are no extra permissions (in particular we are checking
+	// that the unneeded permission that we added earlier
+	// has been deleted).
+	perms := info[0].IPPerms
 	c.Assert(len(perms), Equals, 2, Bug("got security groups %#v", perms))
 	checkPortAllowed(c, perms, 22)
 	checkPortAllowed(c, perms, 2181)
 
-	c.Logf("checking that each insance is part of the correct groups")
+	// The old machine group should have been reused also.
+	c.Check(groups[2].Id, Equals, oldMachineGroup.Id)
+
 	// Check that each instance is part of the correct groups.
 	resp, err := ec2conn.Instances([]string{inst0.Id(), inst1.Id()}, nil)
 	c.Assert(err, IsNil)
@@ -143,11 +157,6 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 			c.Assert(hasSecurityGroup(r, groups[2]), Equals, false, msg)
 		case inst1.Id():
 			c.Assert(hasSecurityGroup(r, groups[2]), Equals, true, msg)
-
-			// check that the id of the second machine's group
-			// has changed - this implies that StartInstance
-			// has correctly deleted and re-created the group.
-			c.Assert(groups[2].Id, Not(Equals), oldGroup.Id)
 			c.Assert(hasSecurityGroup(r, groups[1]), Equals, false, msg)
 		default:
 			c.Errorf("unknown instance found: %v", inst)
@@ -188,21 +197,25 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	c.Check(len(insts), Equals, 0)
 }
 
-// ensureGroupExists creates a new EC2 group if it doesn't already
-// exist, and returns full SecurityGroup.
-func ensureGroupExists(c *C, ec2conn *amzec2.EC2, groupName string, descr string) amzec2.SecurityGroup {
-	f := amzec2.NewFilter()
-	f.Add("group-name", groupName)
-	groups, err := ec2conn.SecurityGroups(nil, f)
-	c.Assert(err, IsNil)
-	if len(groups.Groups) > 0 {
-		return groups.Groups[0].SecurityGroup
+// createGroup creates a new EC2 group and returns it. If it already exists,
+// it revokes all its permissions and returns the existing group.
+func createGroup(c *C, ec2conn *amzec2.EC2, name, descr string) amzec2.SecurityGroup {
+	resp, err := ec2conn.CreateSecurityGroup(name, descr)
+	if err == nil {
+		return resp.SecurityGroup
+	}
+	if err.(*amzec2.Error).Code != "InvalidGroup.Duplicate" {
+		c.Fatalf("cannot make group %q: %v", name, err)
 	}
 
-	resp, err := ec2conn.CreateSecurityGroup(groupName, descr)
+	// Found duplicate group, so revoke its permissions and return it.
+	gresp, err := ec2conn.SecurityGroups(amzec2.SecurityGroupNames(name), nil)
 	c.Assert(err, IsNil)
 
-	return resp.SecurityGroup
+	gi := gresp.Groups[0]
+	_, err = ec2conn.RevokeSecurityGroup(gi.SecurityGroup, gi.IPPerms)
+	c.Assert(err, IsNil)
+	return gi.SecurityGroup
 }
 
 func hasSecurityGroup(r amzec2.Reservation, g amzec2.SecurityGroup) bool {
