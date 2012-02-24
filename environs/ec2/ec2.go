@@ -5,10 +5,12 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
+	"launchpad.net/juju/go/state"
 	"sync"
 )
 
-const zkPortSuffix = ":2181"
+const zkPort = 2181
+var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
 
 func init() {
 	environs.RegisterProvider("ec2", environProvider{})
@@ -68,7 +70,7 @@ func (e *environ) Bootstrap() error {
 	if s3err, _ := err.(*s3.Error); s3err != nil && s3err.StatusCode != 404 {
 		return err
 	}
-	inst, err := e.startInstance(0, true)
+	inst, err := e.startInstance(0, nil, true)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -81,24 +83,52 @@ func (e *environ) Bootstrap() error {
 		e.StopInstances([]environs.Instance{inst})
 		return err
 	}
-	// TODO return state.Info.
-
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to use S3 to make sure that only one succeeds.
 	// Perhaps consider using SimpleDB for state storage
 	// which would enable that possibility.
+
 	return nil
 }
 
-func (e *environ) StartInstance(machineId int) (environs.Instance, error) {
-	return e.startInstance(machineId, false)
+func (e *environ) StateInfo() (*state.Info, error) {
+	st, err := e.loadState()
+	if err != nil {
+		return nil, err
+	}
+	resp, err := e.ec2.Instances(st.ZookeeperInstances, nil)
+	if err != nil {
+		return nil, fmt.Errorf("cannot list instances: %v", err)
+	}
+	var insts []environs.Instance
+	for i := range resp.Reservations {
+		r := &resp.Reservations[i]
+		for j := range r.Instances {
+			insts = append(insts, &instance{&r.Instances[j]})
+		}
+	}
+
+	addrs := make([]string, len(insts))
+	for i, inst := range insts {
+		// TODO make this poll until the DNSName becomes available.
+		addr := inst.DNSName()
+		if addr == "" {
+			return nil, fmt.Errorf("zookeeper instance %q does not yet have a DNS address", inst.Id())
+		}
+		addrs[i] = addr + zkPortSuffix
+	}
+	return &state.Info{Addrs: addrs}, nil
+}
+
+func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Instance, error) {
+	return e.startInstance(machineId, info, false)
 }
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
-func (e *environ) startInstance(machineId int, master bool) (environs.Instance, error) {
+func (e *environ) startInstance(machineId int, _ *state.Info, master bool) (environs.Instance, error) {
 	image, err := FindImageSpec(DefaultImageConstraint)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
@@ -125,46 +155,114 @@ func (e *environ) startInstance(machineId int, master bool) (environs.Instance, 
 }
 
 func (e *environ) StopInstances(insts []environs.Instance) error {
-	if len(insts) == 0 {
-		return nil
-	}
-	names := make([]string, len(insts))
+	ids := make([]string, len(insts))
 	for i, inst := range insts {
-		names[i] = inst.(*instance).InstanceId
+		ids[i] = inst.(*instance).InstanceId
 	}
-	_, err := e.ec2.TerminateInstances(names)
-	return err
+	return e.terminateInstances(ids)
 }
 
-func (e *environ) Instances() ([]environs.Instance, error) {
+func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	insts := make([]environs.Instance, len(ids))
+
+	// TODO make a series of requests to cope with eventual consistency.
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
 	filter.Add("group-name", e.groupName())
-
+	filter.Add("instance-id", ids...)
 	resp, err := e.ec2.Instances(nil, filter)
 	if err != nil {
 		return nil, err
 	}
-	var insts []environs.Instance
-	for i := range resp.Reservations {
-		r := &resp.Reservations[i]
-		for j := range r.Instances {
-			insts = append(insts, &instance{&r.Instances[j]})
+	// For each requested id, add it to the returned instances
+	// if we find it in the response.
+	n := 0
+	for i, id := range ids {
+		if insts[i] != nil {
+			continue
+		}
+		for j := range resp.Reservations {
+			r := &resp.Reservations[j]
+			for k := range r.Instances {
+				inst := &r.Instances[k]
+				if inst.InstanceId == id {
+					insts[i] = &instance{inst}
+					n++
+				}
+			}
 		}
 	}
-	return insts, nil
+	if n == 0 {
+		return nil, environs.ErrMissingInstance
+	}
+	if n < len(ids) {
+		return insts, environs.ErrMissingInstance
+	}
+	return insts, err
 }
 
-func (e *environ) Destroy() error {
-	insts, err := e.Instances()
+func (e *environ) Destroy(insts []environs.Instance) error {
+	// Try to find all the instances in the environ's group.
+	filter := ec2.NewFilter()
+	filter.Add("instance-state-name", "pending", "running")
+	filter.Add("group-name", e.groupName())
+	resp, err := e.ec2.Instances(nil, filter)
+	if err != nil {
+		return fmt.Errorf("cannot get instances: %v", err)
+	}
+	var ids []string
+	found := make(map[string]bool)
+	for _, r := range resp.Reservations {
+		for _, inst := range r.Instances {
+			ids = append(ids, inst.InstanceId)
+			found[inst.InstanceId] = true
+		}
+	}
+
+	// Then add any instances we've been told about
+	// but haven't yet shown up in the instance list.
+	for _, inst := range insts {
+		id := inst.(*instance).InstanceId
+		if !found[id] {
+			ids = append(ids, id)
+			found[id] = true
+		}
+	}
+	err = e.terminateInstances(ids)
 	if err != nil {
 		return err
 	}
-	err = e.StopInstances(insts)
+	err = e.deleteState()
 	if err != nil {
 		return err
 	}
-	return e.deleteState()
+	return nil
+}
+
+func (e *environ) terminateInstances(ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	_, err := e.ec2.TerminateInstances(ids)
+	if err == nil || ec2ErrCode(err) != "InvalidInstance.NotFound" {
+		return err
+	}
+	var firstErr error
+	// If we get a NotFound error, it means that no instances have been
+	// terminated, so try them one by one, ignoring NotFound errors.
+	for _, id := range ids {
+		_, err = e.ec2.TerminateInstances([]string{id})
+		if ec2ErrCode(err) == "InvalidInstance.NotFound" {
+			err = nil
+		}
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
 }
 
 func (e *environ) machineGroupName(machineId int) string {
@@ -209,6 +307,27 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 			return nil, fmt.Errorf("cannot create juju security group: %v", err)
 		}
 		jujuGroup = r.SecurityGroup
+
+		_, err = e.ec2.AuthorizeSecurityGroup(jujuGroup, []ec2.IPPerm{
+			// TODO delete this authorization when we can do
+			// the zookeeper ssh tunnelling.
+			{
+				Protocol:  "tcp",
+				FromPort:  zkPort,
+				ToPort:    zkPort,
+				SourceIPs: []string{"0.0.0.0/0"},
+			},
+			{
+				Protocol:  "tcp",
+				FromPort:  22,
+				ToPort:    22,
+				SourceIPs: []string{"0.0.0.0/0"},
+			},
+			// TODO authorize internal traffic
+		})
+		if err != nil && ec2ErrCode(err) != "InvalidPermission.Duplicate" {
+			return nil, fmt.Errorf("cannot authorize security group: %v", err)
+		}
 	}
 
 	// Create the machine-specific group, but first see if there's
@@ -226,4 +345,14 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 		return nil, fmt.Errorf("cannot create machine group %q: %v", jujuMachineGroup.Name, err)
 	}
 	return []ec2.SecurityGroup{jujuGroup, r.SecurityGroup}, nil
+}
+
+// If the err is of type *ec2.Error, ec2ErrCode returns
+// its code, otherwise it returns the empty string.
+func ec2ErrCode(err error) string {
+	ec2err, _ := err.(*ec2.Error)
+	if ec2err == nil {
+		return ""
+	}
+	return ec2err.Code
 }

@@ -86,39 +86,37 @@ environments:
 }
 
 func checkDummyEnviron(c *C, e environs.Environ, basename string) {
-	i0, err := e.StartInstance(0)
+	i0, err := e.StartInstance(0, nil)
 	c.Assert(err, IsNil)
 	c.Assert(i0, NotNil)
-	c.Assert(i0.DNSName(), Equals, basename+"-0")
+	c.Assert(i0.DNSName(), Equals, basename+"-0.foo")
 
-	is, err := e.Instances()
+	is, err := e.Instances([]string{i0.Id()})
 	c.Assert(err, IsNil)
 	c.Assert(len(is), Equals, 1)
 	c.Assert(is[0], Equals, i0)
 
-	i1, err := e.StartInstance(1)
+	i1, err := e.StartInstance(1, nil)
 	c.Assert(err, IsNil)
 	c.Assert(i1, NotNil)
-	c.Assert(i1.DNSName(), Equals, basename+"-1")
+	c.Assert(i1.DNSName(), Equals, basename+"-1.foo")
 
-	is, err = e.Instances()
+	is, err = e.Instances([]string{i0.Id(), i1.Id()})
 	c.Assert(err, IsNil)
 	c.Assert(len(is), Equals, 2)
-	if is[0] == i1 {
-		is[0], is[1] = is[1], is[0]
-	}
 	c.Assert(is[0], Equals, i0)
 	c.Assert(is[1], Equals, i1)
 
 	err = e.StopInstances([]environs.Instance{i0})
 	c.Assert(err, IsNil)
 
-	is, err = e.Instances()
-	c.Assert(err, IsNil)
-	c.Assert(len(is), Equals, 1)
-	c.Assert(is[0], Equals, i1)
+	is, err = e.Instances([]string{i0.Id(), i1.Id()})
+	c.Assert(err, Equals, environs.ErrMissingInstance)
+	c.Assert(len(is), Equals, 2)
+	c.Assert(is[0], IsNil)
+	c.Assert(is[1], Equals, i1)
 
-	err = e.Destroy()
+	err = e.Destroy(nil)
 	c.Assert(err, IsNil)
 }
 

@@ -251,6 +251,7 @@ func (w *charmWriter) finish() error {
 
 type CharmInfo struct {
 	revision int
+	digest   string
 	sha256   string
 	fileId   bson.ObjectId
 	meta     *charm.Meta
@@ -265,9 +266,15 @@ func (ci *CharmInfo) Revision() int {
 	return ci.revision
 }
 
-// Revision returns the sha256 checksum for the stored charm bundle.
-func (ci *CharmInfo) Sha256() string {
+// BundleSha256 returns the sha256 checksum for the stored charm bundle.
+func (ci *CharmInfo) BundleSha256() string {
 	return ci.sha256
+}
+
+// Digest returns the unique identifier that represents the charm
+// data imported. This is typically set to the VCS revision digest.
+func (ci *CharmInfo) Digest() string {
+	return ci.digest
 }
 
 // Meta returns the charm.Meta details for the stored charm.
@@ -302,7 +309,7 @@ func (s *Store) CharmInfo(url *charm.URL) (info *CharmInfo, err error) {
 		log.Printf("Failed to find charm %s: %v", url, err)
 		return nil, ErrNotFound
 	}
-	return &CharmInfo{cdoc.Revision, cdoc.Sha256, cdoc.FileId, cdoc.Meta, cdoc.Config}, nil
+	return &CharmInfo{cdoc.Revision, cdoc.Digest, cdoc.Sha256, cdoc.FileId, cdoc.Meta, cdoc.Config}, nil
 }
 
 // OpenCharm opens for reading via rc the charm currently available at url.

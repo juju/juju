@@ -1,8 +1,10 @@
 package environs
 
 import (
+	"errors"
 	"io"
 	"launchpad.net/juju/go/schema"
+	"launchpad.net/juju/go/state"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -25,23 +27,34 @@ type Instance interface {
 	DNSName() string
 }
 
+var ErrMissingInstance = errors.New("one or more instance ids not found")
+
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
 type Environ interface {
-	// Bootstrap initializes the state for the environment. It may start
-	// one or more instances.
+	// Bootstrap initializes the state for the environment,
+	// possibly starting one or more instances.
 	Bootstrap() error
+
+	// StateInfo returns information on the state initialized
+	// by Bootstrap.
+	StateInfo() (*state.Info, error)
 
 	// StartInstance asks for a new instance to be created,
 	// associated with the provided machine identifier.
+	// The given info describes the juju state for the new
+	// instance to connect to.
 	// TODO add arguments to specify type of new machine.
-	StartInstance(machineId int) (Instance, error)
+	StartInstance(machineId int, info *state.Info) (Instance, error)
 
 	// StopInstances shuts down the given instances.
 	StopInstances([]Instance) error
 
-	// Instances returns the list of currently started instances.
-	Instances() ([]Instance, error)
+	// Instances returns a slice of instances corresponding to
+	// the given instance ids. If some (but not all) of the instances are not
+	// found, the returned slice will have nil Inststances in those
+	// slots, and ErrMissingInstance will be returned.
+	Instances(ids []string) ([]Instance, error)
 
 	// Put reads from r and writes to the given file in the
 	// environment's storage. The length must give the total
@@ -59,6 +72,10 @@ type Environ interface {
 	RemoveFile(file string) error
 
 	// Destroy shuts down all known machines and destroys the
-	// rest of the environment.
-	Destroy() error
+	// rest of the environment. A list of instances known to
+	// be part of the environment can be given with insts.
+	// This is because recently started machines might not
+	// yet be visible in the environment, so this method
+	// can wait until they are.
+	Destroy(insts []Instance) error
 }

@@ -73,7 +73,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	info := make([]amzec2.SecurityGroupInfo, len(groups))
 
 	c.Logf("start instance 98")
-	inst0, err := t.Env.StartInstance(98)
+	inst0, err := t.Env.StartInstance(98, jujutest.InvalidStateInfo)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst0})
 
@@ -83,7 +83,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	oldGroup := ensureGroupExists(c, ec2conn, groups[2].Name, "old group")
 
 	c.Logf("start instance 99")
-	inst1, err := t.Env.StartInstance(99)
+	inst1, err := t.Env.StartInstance(99, jujutest.InvalidStateInfo)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 
@@ -119,6 +119,14 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 		}
 	}
 
+	perms := info[0].IPPerms
+
+	// check that the juju group authorizes SSH for anyone.
+	c.Assert(len(perms), Equals, 2, Bug("got security groups %#v", perms))
+	checkPortAllowed(c, perms, 22)
+	checkPortAllowed(c, perms, 2181)
+
+	c.Logf("checking that each insance is part of the correct groups")
 	// Check that each instance is part of the correct groups.
 	resp, err := ec2conn.Instances([]string{inst0.Id(), inst1.Id()}, nil)
 	c.Assert(err, IsNil)
@@ -145,6 +153,39 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 			c.Errorf("unknown instance found: %v", inst)
 		}
 	}
+}
+
+func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {
+	for _, perm := range perms {
+		if perm.FromPort == port {
+			c.Check(perm.Protocol, Equals, "tcp")
+			c.Check(perm.ToPort, Equals, port)
+			c.Check(perm.SourceIPs, Equals, []string{"0.0.0.0/0"})
+			c.Check(len(perm.SourceGroups), Equals, 0)
+			return
+		}
+	}
+	c.Errorf("ip port permission not found for %d in %#v", port, perms)
+}
+
+func (t *LiveTests) TestStopInstances(c *C) {
+	// It would be nice if this test was in jujutest, but
+	// there's no way for jujutest to fabricate a valid-looking
+	// instance id.
+	inst0, err := t.Env.StartInstance(40, jujutest.InvalidStateInfo)
+	c.Assert(err, IsNil)
+
+	inst1 := ec2.FabricateInstance(inst0, "i-aaaaa")
+
+	inst2, err := t.Env.StartInstance(41, jujutest.InvalidStateInfo)
+	c.Assert(err, IsNil)
+
+	err = t.Env.StopInstances([]environs.Instance{inst0, inst1, inst2})
+	c.Check(err, IsNil)
+
+	insts, err := t.Env.Instances([]string{inst0.Id(), inst2.Id()})
+	c.Check(err, Equals, environs.ErrMissingInstance)
+	c.Check(len(insts), Equals, 0)
 }
 
 // ensureGroupExists creates a new EC2 group if it doesn't already

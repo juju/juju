@@ -13,12 +13,62 @@ import (
 
 func Test(t *testing.T) { TestingT(t) }
 
-// connect returns a zookeeper connection to addr.
-func connect(c *C, addr string) *zookeeper.Conn {
+// connect returns a zookeeper connection to addr, and its session event channel.
+func connect(c *C, addr string) (*zookeeper.Conn, <-chan zookeeper.Event) {
 	zk, session, err := zookeeper.Dial(addr, 15e9)
 	c.Assert(err, IsNil)
 	c.Assert((<-session).Ok(), Equals, true)
-	return zk
+	return zk, session
+}
+
+// forward will listen on proxyAddr and connect its client to dstAddr, and return
+// a function to kill the connection (or, if not connected, cancel listening).
+// This is used for killing zookeeper connections without calling Close; doing
+// so when C code is running will cause an unrecoverable panic in C.
+func forward(c *C, proxyAddr string, dstAddr string) func() {
+	// This is necessary so I can close the alternate zk connection in
+	// TestDetectTimeout *without* explicitly closing the zookeeper.Conn itself
+	// (which causes an unrecoverable panic (in C) when Pinger tries to use the
+	// closed connection).
+	stop := make(chan bool)
+	go func() {
+		var client net.Conn
+		accepted := make(chan bool)
+		go func() {
+			listener, err := net.Listen("tcp", proxyAddr)
+			c.Assert(err, IsNil)
+			defer listener.Close()
+			client, err = listener.Accept()
+			c.Assert(err, IsNil)
+			accepted <- true
+		}()
+		select {
+		case <-accepted:
+			defer client.Close()
+		case <-stop:
+			return
+		}
+		server, err := net.Dial("tcp", dstAddr)
+		c.Assert(err, IsNil)
+		defer server.Close()
+		go io.Copy(client, server)
+		go io.Copy(server, client)
+		<-stop
+	}()
+	return func() { stop <- true }
+}
+
+// waitFor blocks until conn knows that path exists. This is necessary because
+// distinct zk connections don't always have precisely the same view of the data.
+func waitFor(c *C, conn *zookeeper.Conn, path string) {
+	stat, watch, err := conn.ExistsW(path)
+	c.Assert(err, IsNil)
+	if stat != nil {
+		return
+	}
+	// Test code only, local server; if this event *isn't* the node coming into
+	// existence, we'll find out soon enough, and we don't want to stay blocked.
+	<-watch
 }
 
 type PresenceSuite struct {
@@ -52,7 +102,7 @@ func (s *PresenceSuite) TearDownSuite(c *C) {
 }
 
 func (s *PresenceSuite) SetUpTest(c *C) {
-	s.zkConn = connect(c, s.zkAddr)
+	s.zkConn, _ = connect(c, s.zkAddr)
 }
 
 func (s *PresenceSuite) TearDownTest(c *C) {
@@ -196,32 +246,18 @@ func (s *PresenceSuite) TestBadData(c *C) {
 	c.Assert(err, ErrorMatches, ".* is not a valid presence node: .*")
 }
 
-func (s *PresenceSuite) TestDisconnectAliveWatch(c *C) {
-	// Start a Pinger on the main connection
-	p, err := presence.StartPinger(s.zkConn, path, period)
-	c.Assert(err, IsNil)
-	defer p.Close()
-
-	// Start watching on an alternate connection.
-	altConn := connect(c, s.zkAddr)
-	alive, watch, err := presence.AliveW(altConn, path)
-	c.Assert(err, IsNil)
-	c.Assert(alive, Equals, true)
-
-	// Kill the watch connection and check it's alerted.
-	altConn.Close()
-	assertClose(c, watch)
-}
-
 func (s *PresenceSuite) TestDisconnectDeadWatch(c *C) {
-	// Create a stale target node.
+	// Create a target node.
 	p, err := presence.StartPinger(s.zkConn, path, period)
 	c.Assert(err, IsNil)
 	p.Close()
+
+	// Start an alternate connection and ensure the node is stale.
+	altConn, _ := connect(c, s.zkAddr)
+	waitFor(c, altConn, path)
 	time.Sleep(longEnough)
 
-	// Start watching on an alternate connection.
-	altConn := connect(c, s.zkAddr)
+	// Start a watch using the alternate connection.
 	alive, watch, err := presence.AliveW(altConn, path)
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
@@ -235,7 +271,7 @@ func (s *PresenceSuite) TestDisconnectMissingWatch(c *C) {
 	// Don't even create a target node.
 
 	// Start watching on an alternate connection.
-	altConn := connect(c, s.zkAddr)
+	altConn, _ := connect(c, s.zkAddr)
 	alive, watch, err := presence.AliveW(altConn, path)
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
@@ -245,58 +281,49 @@ func (s *PresenceSuite) TestDisconnectMissingWatch(c *C) {
 	assertClose(c, watch)
 }
 
-// forward will listen on proxyAddr and connect its client to dstAddr, and return
-// a function to kill the connection (or, if not connected, cancel listening).
-func forward(c *C, proxyAddr string, dstAddr string) func() {
-	// This is necessary so I can close the alternate zk connection in
-	// TestDetectTimeout *without* explicitly closing the zookeeper.Conn itself
-	// (which causes an unrecoverable panic (in C) when Pinger tries to use the
-	// closed connection).
-	stop := make(chan bool)
+func (s *PresenceSuite) TestDisconnectAliveWatch(c *C) {
+	// Start a Pinger on the main connection
+	p, err := presence.StartPinger(s.zkConn, path, period)
+	c.Assert(err, IsNil)
+	defer p.Close()
+
+	// Start watching on an alternate connection, forwarded over another
+	// connection we can kill safely.
+	kill := forward(c, "localhost:21811", s.zkAddr)
+	altConn, session := connect(c, "localhost:21811")
 	go func() {
-		var client net.Conn
-		accepted := make(chan bool)
-		go func() {
-			listener, err := net.Listen("tcp", proxyAddr)
-			c.Assert(err, IsNil)
-			defer listener.Close()
-			client, err = listener.Accept()
-			c.Assert(err, IsNil)
-			accepted <- true
-		}()
-		select {
-		case <-accepted:
-			defer client.Close()
-		case <-stop:
-			return
-		}
-		server, err := net.Dial("tcp", dstAddr)
-		c.Assert(err, IsNil)
-		defer server.Close()
-		go io.Copy(client, server)
-		go io.Copy(server, client)
-		<-stop
+		// Assume the first session event will be as a result of the kill below,
+		// and explicitly close the connection to clear out the watches. This
+		// should be equivalent to what we actually do in a real situation.
+		<-session
+		altConn.Close()
 	}()
-	return func() { stop <- true }
+	waitFor(c, altConn, path)
+	alive, watch, err := presence.AliveW(altConn, path)
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, true)
+
+	// Kill the watch connection and check it's alerted.
+	kill()
+	assertClose(c, watch)
 }
 
 func (s *PresenceSuite) TestDisconnectPinger(c *C) {
 	// Start a Pinger on an alternate connection, forwarded over another
-	// connection we can kill safely (see below).
+	// connection we can kill safely.
 	kill := forward(c, "localhost:21811", s.zkAddr)
-	altConn := connect(c, "localhost:21811")
+	altConn, _ := connect(c, "localhost:21811")
 	p, err := presence.StartPinger(altConn, path, period)
 	c.Assert(err, IsNil)
 	defer p.Close()
 
 	// Watch on the "main" connection.
+	waitFor(c, s.zkConn, path)
 	alive, watch, err := presence.AliveW(s.zkConn, path)
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
 
-	// Yank the Pinger's connection out from under its feet; check watch fires.
-	// Note that it is not safe to just Close the connection; this can cause a
-	// panic if the Pinger is busy in C code when the Close occurs.
+	// Kill the pinger connection and check the watch notices.
 	kill()
 	assertChange(c, watch, false)
 }
