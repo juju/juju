@@ -192,6 +192,30 @@ func (s *PresenceSuite) TestClosePinger(c *C) {
 	c.Assert(stat, NotNil)
 }
 
+func (s *PresenceSuite) TestWatchDeadnessChange(c *C) {
+	// Create a stale node.
+	p, err := presence.StartPinger(s.zkConn, path, period)
+	c.Assert(err, IsNil)
+	p.Close()
+	time.Sleep(longEnough)
+
+	// Start watching for liveness.
+	alive, watch, err := presence.AliveW(s.zkConn, path)
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, false)
+
+	// Delete the node and check the watch doesn't fire.
+	err = s.zkConn.Delete(path, -1)
+	c.Assert(err, IsNil)
+	assertNoChange(c, watch)
+
+	// Start a new Pinger and check the watch does fire.
+	p, err = presence.StartPinger(s.zkConn, path, period)
+	c.Assert(err, IsNil)
+	defer p.Close()
+	assertChange(c, watch, true)
+}
+
 func (s *PresenceSuite) TestBadData(c *C) {
 	// Create a node that contains inappropriate data.
 	_, err := s.zkConn.Create(path, "roflcopter", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
