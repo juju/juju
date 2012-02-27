@@ -130,7 +130,7 @@ func (s *StoreSuite) TestCharmPublisher(c *C) {
 
 		info2, err := s.store.CharmInfo(url)
 		c.Assert(err, IsNil)
-		c.Assert(info2, Equals, info)
+		c.Assert(info2, DeepEquals, info)
 	}
 }
 
@@ -167,7 +167,7 @@ func (s *StoreSuite) TestCharmPublishError(c *C) {
 
 func (s *StoreSuite) TestCharmInfoNotFound(c *C) {
 	info, err := s.store.CharmInfo(charm.MustParseURL("cs:oneiric/wordpress"))
-	c.Assert(err == store.ErrNotFound, Equals, true)
+	c.Assert(err, Equals, store.ErrNotFound)
 	c.Assert(info, IsNil)
 }
 
@@ -226,7 +226,7 @@ func (s *StoreSuite) TestLockUpdates(c *C) {
 
 	// Partially conflicts with locked update above.
 	lock2, err := s.store.LockUpdates(urls)
-	c.Check(err == store.ErrUpdateConflict, Equals, true)
+	c.Check(err, Equals, store.ErrUpdateConflict)
 	c.Check(lock2, IsNil)
 
 	lock1.Unlock()
@@ -292,7 +292,7 @@ func (s *StoreSuite) TestConflictingUpdate(c *C) {
 	// since it lost the race and the given revision is already
 	// in place.
 	err = pub1.Publish(&FakeCharmDir{})
-	c.Assert(err == store.ErrUpdateConflict, Equals, true)
+	c.Assert(err, Equals, store.ErrUpdateConflict)
 }
 
 func (s *StoreSuite) TestRedundantUpdate(c *C) {
@@ -309,7 +309,7 @@ func (s *StoreSuite) TestRedundantUpdate(c *C) {
 	// All charms are already on digest-0.
 	pub, err = s.store.CharmPublisher(urls, "digest-0")
 	c.Assert(err, ErrorMatches, "charm is up-to-date")
-	c.Assert(err == store.ErrRedundantUpdate, Equals, true)
+	c.Assert(err, Equals, store.ErrRedundantUpdate)
 	c.Assert(pub, IsNil)
 
 	// Now add a second revision just for wordpress-b.
@@ -399,16 +399,16 @@ func (s *StoreSuite) TestLogCharmEvent(c *C) {
 	err := events.Find(bson.M{"digest": "revKey1"}).One(&s1)
 	c.Assert(err, IsNil)
 	c.Assert(s1["kind"], Equals, int(store.EventPublished))
-	c.Assert(s1["urls"], Equals, []interface{}{"cs:oneiric/wordpress", "cs:oneiric/mysql"})
-	c.Assert(s1["warnings"], Equals, []interface{}{"A warning."})
+	c.Assert(s1["urls"], DeepEquals, []interface{}{"cs:oneiric/wordpress", "cs:oneiric/mysql"})
+	c.Assert(s1["warnings"], DeepEquals, []interface{}{"A warning."})
 	c.Assert(s1["errors"], IsNil)
 	c.Assert(s1["time"], Equals, time.Unix(1, 0))
 
 	err = events.Find(bson.M{"digest": "revKey2", "kind": store.EventPublishError}).One(&s2)
 	c.Assert(err, IsNil)
-	c.Assert(s2["urls"], Equals, []interface{}{"cs:oneiric/wordpress"})
+	c.Assert(s2["urls"], DeepEquals, []interface{}{"cs:oneiric/wordpress"})
 	c.Assert(s2["warnings"], IsNil)
-	c.Assert(s2["errors"], Equals, []interface{}{"An error."})
+	c.Assert(s2["errors"], DeepEquals, []interface{}{"An error."})
 	c.Assert(s2["time"].(time.Time).After(bson.Now().Add(-10e9)), Equals, true)
 
 	// Mongo stores timestamps in milliseconds, so chop
@@ -417,13 +417,13 @@ func (s *StoreSuite) TestLogCharmEvent(c *C) {
 
 	event, err := s.store.CharmEvent(urls[0], "revKey2")
 	c.Assert(err, IsNil)
-	c.Assert(event, Equals, event3)
+	c.Assert(event, DeepEquals, event3)
 
 	event, err = s.store.CharmEvent(urls[1], "revKey1")
 	c.Assert(err, IsNil)
-	c.Assert(event, Equals, event1)
+	c.Assert(event, DeepEquals, event1)
 
 	event, err = s.store.CharmEvent(urls[1], "revKeyX")
-	c.Assert(err == store.ErrNotFound, Equals, true)
+	c.Assert(err, Equals, store.ErrNotFound)
 	c.Assert(event, IsNil)
 }
