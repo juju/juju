@@ -41,7 +41,7 @@ func (s *MgoSuite) SetUpSuite(c *C) {
 
 func (s *MgoSuite) TearDownSuite(c *C) {
 	s.server.Process.Kill()
-	s.server.Process.Wait(0)
+	s.server.Process.Wait()
 }
 
 func (s *MgoSuite) SetUpTest(c *C) {
