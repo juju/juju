@@ -173,11 +173,11 @@ func (t *localServerSuite) TestBootstrapInstanceAndState(c *C) {
 	// check that the state holds the id of the bootstrap machine.
 	state, err := ec2.LoadState(t.env)
 	c.Assert(err, IsNil)
-	c.Assert(len(state.ZookeeperInstances), Equals, 1)
+	c.Assert(state.ZookeeperInstances, HasLen, 1)
 
 	insts, err := t.env.Instances(state.ZookeeperInstances)
 	c.Assert(err, IsNil)
-	c.Assert(len(insts), Equals, 1)
+	c.Assert(insts, HasLen, 1)
 	c.Check(insts[0].Id(), Equals, state.ZookeeperInstances[0])
 
 	err = t.env.Destroy(insts)

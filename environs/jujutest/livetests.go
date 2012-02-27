@@ -12,7 +12,7 @@ import (
 func (t *LiveTests) TestStartStop(c *C) {
 	insts, err := t.Env.Instances(nil)
 	c.Assert(err, IsNil)
-	c.Check(len(insts), Equals, 0)
+	c.Check(insts, HasLen, 0)
 
 	inst, err := t.Env.StartInstance(0, InvalidStateInfo)
 	c.Assert(err, IsNil)
@@ -21,9 +21,9 @@ func (t *LiveTests) TestStartStop(c *C) {
 
 	insts, err = t.Env.Instances([]string{id0, id0})
 	c.Assert(err, IsNil)
-	c.Assert(len(insts), Equals, 2)
-	c.Assert(insts[0], Equals, inst)
-	c.Assert(insts[1], Equals, inst)
+	c.Assert(insts, HasLen, 2)
+	c.Assert(insts[0].Id(), Equals, id0)
+	c.Assert(insts[1].Id(), Equals, id0)
 
 	dns, err := inst.DNSName()
 	c.Assert(err, IsNil)
@@ -31,7 +31,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 
 	insts, err = t.Env.Instances([]string{id0, ""})
 	c.Assert(err, Equals, environs.ErrMissingInstance)
-	c.Assert(len(insts), Equals, 2, Bug("instances: %v", insts))
+	c.Assert(insts, HasLen, 2)
 	c.Check(insts[0].Id(), Equals, id0)
 	c.Check(insts[1], IsNil)
 
@@ -40,7 +40,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 
 	insts, err = t.Env.Instances([]string{id0})
 	c.Assert(err, Equals, environs.ErrMissingInstance)
-	c.Assert(len(insts), Equals, 0, Bug("instances: %v", insts))
+	c.Assert(insts, HasLen, 0)
 
 	// check the instance is no longer there.
 	for _, inst := range insts {
@@ -62,7 +62,7 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	info, err := t.Env.StateInfo()
 	c.Assert(err, IsNil)
 	c.Assert(info, NotNil)
-	c.Check(len(info.Addrs), Not(Equals), 0, Bug("addrs: %q", info.Addrs))
+	c.Check(info.Addrs, Not(HasLen), 0)
 
 	// TODO uncomment when State has a close method
 	// st.Close()
