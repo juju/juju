@@ -29,7 +29,7 @@ func (s *S) TestReadDirWithoutConfig(c *C) {
 
 	// A lacking config.yaml file still causes a proper
 	// Config value to be returned.
-	c.Assert(len(dir.Config().Options), Equals, 0)
+	c.Assert(dir.Config().Options, HasLen, 0)
 }
 
 func (s *S) TestBundleTo(c *C) {

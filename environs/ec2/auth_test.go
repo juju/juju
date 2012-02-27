@@ -59,7 +59,7 @@ func (authSuite) TestAuthorizedKeys(c *C) {
 
 	ks := strings.Split(keys, "\n")
 	sort.Strings(ks)
-	c.Check(ks, Equals, []string{
+	c.Check(ks, DeepEquals, []string{
 		"",
 		"",
 		"# first",
