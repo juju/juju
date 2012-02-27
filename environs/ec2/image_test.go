@@ -68,14 +68,14 @@ func (suite) TestFindImageSpec(c *C) {
 	for i, t := range imageTests {
 		id, err := ec2.FindImageSpec(&t.constraint)
 		if t.err != "" {
-			c.Check(err, ErrorMatches, t.err, Bug("test %d", i))
-			c.Check(id, IsNil, Bug("test %d", i))
+			c.Check(err, ErrorMatches, t.err, Commentf("test %d", i))
+			c.Check(id, IsNil, Commentf("test %d", i))
 			continue
 		}
-		if !c.Check(err, IsNil, Bug("test %d", i)) {
+		if !c.Check(err, IsNil, Commentf("test %d", i)) {
 			continue
 		}
-		if !c.Check(id, NotNil, Bug("test %d", i)) {
+		if !c.Check(id, NotNil, Commentf("test %d", i)) {
 			continue
 		}
 		c.Check(id.ImageId, Equals, t.imageId)
