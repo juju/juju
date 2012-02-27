@@ -94,7 +94,7 @@ func checkDummyEnviron(c *C, e environs.Environ, basename string) {
 	is, err := e.Instances([]string{i0.Id()})
 	c.Assert(err, IsNil)
 	c.Assert(is, HasLen, 1)
-	c.Assert(is[0], Equals, i0)
+	c.Assert(is[0].Id(), Equals, i0.Id())
 
 	i1, err := e.StartInstance(1, nil)
 	c.Assert(err, IsNil)

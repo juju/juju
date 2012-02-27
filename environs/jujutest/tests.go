@@ -35,7 +35,8 @@ func (t *Tests) TestStartStop(c *C) {
 
 	// TODO eventual consistency.
 	insts, err = e.Instances([]string{id0, id1})
-	c.Assert(insts, DeepEquals, []environs.Instance{nil, inst1})
+	c.Assert(insts[0], IsNil)
+	c.Assert(insts[1].Id(), Equals, id1)
 	c.Assert(err, Equals, environs.ErrMissingInstance)
 }
 

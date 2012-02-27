@@ -22,8 +22,8 @@ func (t *LiveTests) TestStartStop(c *C) {
 	insts, err = t.Env.Instances([]string{id0, id0})
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 2)
-	c.Assert(insts[0], DeepEquals, inst)
-	c.Assert(insts[1], DeepEquals, inst)
+	c.Assert(insts[0].Id(), Equals, id0)
+	c.Assert(insts[1].Id(), Equals, id0)
 
 	insts, err = t.Env.Instances([]string{id0, ""})
 	c.Assert(err, Equals, environs.ErrMissingInstance)
