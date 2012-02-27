@@ -170,17 +170,17 @@ func (t configTest) check(c *C) {
 	envs, err := environs.ReadEnvironsBytes(makeEnv(t.env))
 	if err != nil {
 		if t.err != "" {
-			c.Check(err, ErrorMatches, t.err, Bug("environ %q", t.env))
+			c.Check(err, ErrorMatches, t.err, Commentf("environ %q", t.env))
 		} else {
-			c.Check(err, IsNil, Bug("environ %q", t.env))
+			c.Check(err, IsNil, Commentf("environ %q", t.env))
 		}
 		return
 	}
 	e, err := envs.Open("testenv")
 	c.Assert(err, IsNil)
 	c.Assert(e, NotNil)
-	c.Assert(e, FitsTypeOf, (*environ)(nil), Bug("environ %q", t.env))
+	c.Assert(e, FitsTypeOf, (*environ)(nil), Commentf("environ %q", t.env))
 	tconfig := baseConfigResult
 	t.mutate(&tconfig)
-	c.Check(e.(*environ).config, Equals, &tconfig, Bug("environ %q", t.env))
+	c.Check(e.(*environ).config, DeepEquals, &tconfig, Commentf("environ %q", t.env))
 }

@@ -26,7 +26,7 @@ type Tests struct {
 // Open opens an instance of the testing environment.
 func (t *Tests) Open(c *C) environs.Environ {
 	e, err := t.Environs.Open(t.Name)
-	c.Assert(err, IsNil, Bug("opening environ %q", t.Name))
+	c.Assert(err, IsNil, Commentf("opening environ %q", t.Name))
 	c.Assert(e, NotNil)
 	return e
 }
@@ -57,7 +57,7 @@ type LiveTests struct {
 
 func (t *LiveTests) SetUpSuite(c *C) {
 	e, err := t.Environs.Open(t.Name)
-	c.Assert(err, IsNil, Bug("opening environ %q", t.Name))
+	c.Assert(err, IsNil, Commentf("opening environ %q", t.Name))
 	c.Assert(e, NotNil)
 	t.Env = e
 }
