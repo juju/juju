@@ -34,11 +34,11 @@ var urlTests = []struct {
 func (s *S) TestParseURL(c *C) {
 	for _, t := range urlTests {
 		url, err := charm.ParseURL(t.s)
-		bug := Bug("ParseURL(%q)", t.s)
+		comment := Commentf("ParseURL(%q)", t.s)
 		if t.err != "" {
-			c.Check(err.Error(), Matches, t.err, bug)
+			c.Check(err.Error(), Matches, t.err, comment)
 		} else {
-			c.Check(url, Equals, t.url, bug)
+			c.Check(url, DeepEquals, t.url, comment)
 			c.Check(t.url.String(), Equals, t.s)
 		}
 	}
@@ -46,7 +46,7 @@ func (s *S) TestParseURL(c *C) {
 
 func (s *S) TestMustParseURL(c *C) {
 	url := charm.MustParseURL("cs:series/name")
-	c.Assert(url, Equals, &charm.URL{"cs", "", "series", "name", -1})
+	c.Assert(url, DeepEquals, &charm.URL{"cs", "", "series", "name", -1})
 	f := func() { charm.MustParseURL("local:name") }
 	c.Assert(f, PanicMatches, "charm URL without series: .*")
 }
@@ -54,9 +54,10 @@ func (s *S) TestMustParseURL(c *C) {
 func (s *S) TestWithRevision(c *C) {
 	url := charm.MustParseURL("cs:series/name")
 	other := url.WithRevision(1)
-	c.Assert(url, Equals, &charm.URL{"cs", "", "series", "name", -1})
-	c.Assert(other, Equals, &charm.URL{"cs", "", "series", "name", 1})
+	c.Assert(url, DeepEquals, &charm.URL{"cs", "", "series", "name", -1})
+	c.Assert(other, DeepEquals, &charm.URL{"cs", "", "series", "name", 1})
 
 	// Should always copy. The opposite behavior is error prone.
-	c.Assert(other.WithRevision(1) == other, Equals, false)
+	c.Assert(other.WithRevision(1), Not(Equals), other)
+	c.Assert(other.WithRevision(1), DeepEquals, other)
 }

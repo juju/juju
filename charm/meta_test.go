@@ -75,20 +75,20 @@ func (s *S) TestIfaceExpander(c *C) {
 	// Shorthand is properly rewritten
 	v, err := e.Coerce("http", path)
 	c.Assert(err, IsNil)
-	c.Assert(v, Equals, schema.MapType{"interface": "http", "limit": nil, "optional": false})
+	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": nil, "optional": false})
 
 	// Defaults are properly applied
 	v, err = e.Coerce(schema.MapType{"interface": "http"}, path)
 	c.Assert(err, IsNil)
-	c.Assert(v, Equals, schema.MapType{"interface": "http", "limit": nil, "optional": false})
+	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": nil, "optional": false})
 
 	v, err = e.Coerce(schema.MapType{"interface": "http", "limit": 2}, path)
 	c.Assert(err, IsNil)
-	c.Assert(v, Equals, schema.MapType{"interface": "http", "limit": int64(2), "optional": false})
+	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": int64(2), "optional": false})
 
 	v, err = e.Coerce(schema.MapType{"interface": "http", "optional": true}, path)
 	c.Assert(err, IsNil)
-	c.Assert(v, Equals, schema.MapType{"interface": "http", "limit": nil, "optional": true})
+	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": nil, "optional": true})
 
 	// Invalid data raises an error.
 	v, err = e.Coerce(42, path)
@@ -104,5 +104,5 @@ func (s *S) TestIfaceExpander(c *C) {
 	e = charm.IfaceExpander(1)
 	v, err = e.Coerce(schema.MapType{"interface": "http"}, path)
 	c.Assert(err, IsNil)
-	c.Assert(v, Equals, schema.MapType{"interface": "http", "limit": int64(1), "optional": false})
+	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": int64(1), "optional": false})
 }
