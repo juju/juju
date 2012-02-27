@@ -9,6 +9,7 @@ import (
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/state"
+	"net/url"
 	"path/filepath"
 	"testing"
 )
@@ -43,7 +44,9 @@ func localCharmURL(ch charm.Charm) *charm.URL {
 func addDummyCharm(c *C, st *state.State) (*state.Charm, *charm.URL) {
 	ch := readCharm(c, "dummy")
 	curl := localCharmURL(ch)
-	dummy, err := st.AddCharm(ch, curl, "http://bundle.url")
+	bundleURL, err := url.Parse("http://bundle.url")
+	c.Assert(err, IsNil)
+	dummy, err := st.AddCharm(ch, curl, bundleURL)
 	c.Assert(err, IsNil)
 	return dummy, curl
 }
@@ -86,13 +89,13 @@ func (s StateSuite) TestAddCharm(c *C) {
 	// Check that adding charms works correctly.
 	dummyCharm := readCharm(c, "dummy")
 	curl := localCharmURL(dummyCharm)
-	dummy, err := s.st.AddCharm(dummyCharm, curl, "http://bundle.url")
+	bundleURL, err := url.Parse("http://bundle.url")
+	c.Assert(err, IsNil)
+	dummy, err := s.st.AddCharm(dummyCharm, curl, bundleURL)
 	c.Assert(err, IsNil)
 	c.Assert(dummy.URL().String(), Equals, curl.String())
-
-	children, _, err := s.zkConn.Children("/charms")
+	_, _, err = s.zkConn.Children("/charms")
 	c.Assert(err, IsNil)
-	c.Assert(children, DeepEquals, []string{"local_3a_series_2f_dummy-1"})
 }
 
 func (s StateSuite) TestCharm(c *C) {
@@ -113,25 +116,11 @@ func (s StateSuite) TestCharmAttributes(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(dummy.URL().String(), Equals, curl.String())
 	c.Assert(dummy.Revision(), Equals, 1)
-	c.Assert(dummy.BundleURL(), Equals, "http://bundle.url")
-}
-
-func (s StateSuite) TestCharmMetadata(c *C) {
-	// Check that the charm metadata was correctly saved and loaded.
-	dummy, curl := addDummyCharm(c, s.st)
-
-	dummy, err := s.st.Charm(curl)
+	bundleURL, err := url.Parse("http://bundle.url")
 	c.Assert(err, IsNil)
+	c.Assert(dummy.BundleURL(), DeepEquals, bundleURL)
 	meta := dummy.Meta()
 	c.Assert(meta.Name, Equals, "dummy")
-}
-
-func (s StateSuite) TestCharmConfig(c *C) {
-	// Verify that the charm config is present and correct.
-	dummy, curl := addDummyCharm(c, s.st)
-
-	dummy, err := s.st.Charm(curl)
-	c.Assert(err, IsNil)
 	config := dummy.Config()
 	c.Assert(config.Options["title"], Equals,
 		charm.Option{
@@ -143,7 +132,7 @@ func (s StateSuite) TestCharmConfig(c *C) {
 }
 
 func (s StateSuite) TestNonExistentCharmPriorToInitialization(c *C) {
-	// Check that getting a charm before anyone has been added fails nicely.
+	// Check that getting a charm before any other charm has been added fails nicely.
 	curl, err := charm.ParseURL("local:series/dummy-1")
 	c.Assert(err, IsNil)
 	_, err = s.st.Charm(curl)

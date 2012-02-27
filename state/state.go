@@ -12,6 +12,7 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
+	"net/url"
 	"strings"
 )
 
@@ -37,13 +38,15 @@ func (s *State) AddMachine() (*Machine, error) {
 	return &Machine{s.zk, key}, nil
 }
 
-// AddCharm creates a new charm state based on a charm, its URL
-// and its bundle URL.
-func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, url string) (*Charm, error) {
+// AddCharm adds the ch charm with curl to the state.
+// bundleUrl must be set to a URL where the bundle for ch
+// may be downloaded from.
+// On success the newly added charm state is returned.
+func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL) (*Charm, error) {
 	data := &charmData{
 		Meta:      ch.Meta(),
 		Config:    ch.Config(),
-		BundleURL: url,
+		BundleURL: bundleURL.String(),
 	}
 	yaml, err := goyaml.Marshal(data)
 	if err != nil {
@@ -57,7 +60,7 @@ func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, url string) (*Charm, e
 	if err != nil {
 		return nil, err
 	}
-	return newCharm(s, curl, data), nil
+	return newCharm(s, curl, data)
 }
 
 // Charm returns a charm by the given id.
@@ -77,7 +80,7 @@ func (s *State) Charm(curl *charm.URL) (*Charm, error) {
 	if err := goyaml.Unmarshal([]byte(yaml), data); err != nil {
 		return nil, err
 	}
-	return newCharm(s, curl, data), nil
+	return newCharm(s, curl, data)
 }
 
 // AddService creates a new service state with the given unique name

@@ -5,8 +5,8 @@ package state
 
 import (
 	"fmt"
-	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
+	"net/url"
 )
 
 // charmData contains the data stored inside the ZooKeeper charm node.
@@ -19,24 +19,27 @@ type charmData struct {
 // Charm represents the state of a charm in the environment.
 type Charm struct {
 	st        *State
-	zk        *zookeeper.Conn
 	url       *charm.URL
 	meta      *charm.Meta
 	config    *charm.Config
-	bundleURL string
+	bundleURL *url.URL
 }
 
 var _ charm.Charm = (*Charm)(nil)
 
-func newCharm(st *State, curl *charm.URL, data *charmData) *Charm {
+func newCharm(st *State, curl *charm.URL, data *charmData) (*Charm, error) {
+	burl, err := url.Parse(data.BundleURL)
+	if err != nil {
+		return nil, err
+	}
 	c := &Charm{
 		st:        st,
 		url:       curl,
 		meta:      data.Meta,
 		config:    data.Config,
-		bundleURL: data.BundleURL,
+		bundleURL: burl,
 	}
-	return c
+	return c, nil
 }
 
 // URL returns the URL that identifies the charm.
@@ -63,7 +66,7 @@ func (c *Charm) Config() *charm.Config {
 
 // BundleURL returns the url to the charm bundle in 
 // the provider storage.
-func (c *Charm) BundleURL() string {
+func (c *Charm) BundleURL() *url.URL {
 	return c.bundleURL
 }
 
