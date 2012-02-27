@@ -511,8 +511,8 @@ func (s ConfigNodeSuite) TestSetWithWrite(c *C) {
 	changes, err := node.Write()
 	c.Assert(err, IsNil)
 	c.Assert(changes, DeepEquals, []ItemChange{
-		ItemChange{ItemAdded, "alpha", nil, "beta"},
-		ItemChange{ItemAdded, "one", nil, 1},
+		{ItemAdded, "alpha", nil, "beta"},
+		{ItemAdded, "one", nil, 1},
 	})
 	// Check local state.
 	c.Assert(node.Map(), DeepEquals, options)
@@ -539,8 +539,8 @@ func (s ConfigNodeSuite) TestConflictOnSet(c *C) {
 	changes, err := nodeTwo.Write()
 	c.Assert(err, IsNil)
 	c.Assert(changes, DeepEquals, []ItemChange{
-		ItemChange{ItemAdded, "alpha", nil, "beta"},
-		ItemChange{ItemAdded, "one", nil, 1},
+		{ItemAdded, "alpha", nil, "beta"},
+		{ItemAdded, "one", nil, 1},
 	})
 
 	// First test node one.
@@ -552,8 +552,8 @@ func (s ConfigNodeSuite) TestConflictOnSet(c *C) {
 	changes, err = nodeOne.Write()
 	c.Assert(err, IsNil)
 	c.Assert(changes, DeepEquals, []ItemChange{
-		ItemChange{ItemModified, "alpha", "beta", "gamma"},
-		ItemChange{ItemModified, "one", 1, "two"},
+		{ItemModified, "alpha", "beta", "gamma"},
+		{ItemModified, "one", 1, "two"},
 	})
 
 	// Verify that node one reports as expected.
@@ -573,9 +573,9 @@ func (s ConfigNodeSuite) TestConflictOnSet(c *C) {
 	changes, err = nodeTwo.Write()
 	c.Assert(err, IsNil)
 	c.Assert(changes, DeepEquals, []ItemChange{
-		ItemChange{ItemModified, "alpha", "beta", "cappa"},
-		ItemChange{ItemAdded, "new", nil, "next"},
-		ItemChange{ItemDeleted, "one", 1, nil},
+		{ItemModified, "alpha", "beta", "cappa"},
+		{ItemAdded, "new", nil, "next"},
+		{ItemDeleted, "one", 1, nil},
 	})
 	c.Assert(expected, DeepEquals, nodeTwo.Map())
 
@@ -593,8 +593,8 @@ func (s ConfigNodeSuite) TestSetItem(c *C) {
 	changes, err := node.Write()
 	c.Assert(err, IsNil)
 	c.Assert(changes, DeepEquals, []ItemChange{
-		ItemChange{ItemAdded, "alpha", nil, "beta"},
-		ItemChange{ItemAdded, "one", nil, 1},
+		{ItemAdded, "alpha", nil, "beta"},
+		{ItemAdded, "one", nil, 1},
 	})
 	// Check local state.
 	c.Assert(node.Map(), DeepEquals, options)
@@ -628,8 +628,8 @@ func (s ConfigNodeSuite) TestMultipleReads(c *C) {
 	changes, err := nodeOne.Write()
 	c.Assert(err, IsNil)
 	c.Assert(changes, DeepEquals, []ItemChange{
-		ItemChange{ItemAdded, "alpha", nil, "beta"},
-		ItemChange{ItemAdded, "foo", nil, "bar"},
+		{ItemAdded, "alpha", nil, "beta"},
+		{ItemAdded, "foo", nil, "bar"},
 	})
 
 	// A write retains the newly set values.
@@ -647,7 +647,7 @@ func (s ConfigNodeSuite) TestMultipleReads(c *C) {
 	changes, err = nodeTwo.Write()
 	c.Assert(err, IsNil)
 	c.Assert(changes, DeepEquals, []ItemChange{
-		ItemChange{ItemModified, "foo", "bar", "different"},
+		{ItemModified, "foo", "bar", "different"},
 	})
 
 	// This should pull in the new state into node one.
@@ -669,13 +669,13 @@ func (s ConfigNodeSuite) TestDeleteEmptiesState(c *C) {
 	changes, err := node.Write()
 	c.Assert(err, IsNil)
 	c.Assert(changes, DeepEquals, []ItemChange{
-		ItemChange{ItemAdded, "a", nil, "foo"},
+		{ItemAdded, "a", nil, "foo"},
 	})
 	node.Delete("a")
 	changes, err = node.Write()
 	c.Assert(err, IsNil)
 	c.Assert(changes, DeepEquals, []ItemChange{
-		ItemChange{ItemDeleted, "a", "foo", nil},
+		{ItemDeleted, "a", "foo", nil},
 	})
 	c.Assert(node.Map(), DeepEquals, map[string]interface{}{})
 }
@@ -688,7 +688,7 @@ func (s ConfigNodeSuite) TestReadResync(c *C) {
 	changes, err := nodeOne.Write()
 	c.Assert(err, IsNil)
 	c.Assert(changes, DeepEquals, []ItemChange{
-		ItemChange{ItemAdded, "a", nil, "foo"},
+		{ItemAdded, "a", nil, "foo"},
 	})
 	nodeTwo, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
@@ -696,13 +696,13 @@ func (s ConfigNodeSuite) TestReadResync(c *C) {
 	changes, err = nodeTwo.Write()
 	c.Assert(err, IsNil)
 	c.Assert(changes, DeepEquals, []ItemChange{
-		ItemChange{ItemDeleted, "a", "foo", nil},
+		{ItemDeleted, "a", "foo", nil},
 	})
 	nodeTwo.Set("a", "bar")
 	changes, err = nodeTwo.Write()
 	c.Assert(err, IsNil)
 	c.Assert(changes, DeepEquals, []ItemChange{
-		ItemChange{ItemAdded, "a", nil, "bar"},
+		{ItemAdded, "a", nil, "bar"},
 	})
 	// Read of node one should pick up the new value.
 	err = nodeOne.Read()
@@ -720,16 +720,16 @@ func (s ConfigNodeSuite) TestMultipleWrites(c *C) {
 	changes, err := node.Write()
 	c.Assert(err, IsNil)
 	c.Assert(changes, DeepEquals, []ItemChange{
-		ItemChange{ItemAdded, "foo", nil, "bar"},
-		ItemChange{ItemAdded, "this", nil, "that"},
+		{ItemAdded, "foo", nil, "bar"},
+		{ItemAdded, "this", nil, "that"},
 	})
 	node.Delete("this")
 	node.Set("another", "value")
 	changes, err = node.Write()
 	c.Assert(err, IsNil)
 	c.Assert(changes, DeepEquals, []ItemChange{
-		ItemChange{ItemAdded, "another", nil, "value"},
-		ItemChange{ItemDeleted, "this", "that", nil},
+		{ItemAdded, "another", nil, "value"},
+		{ItemDeleted, "this", "that", nil},
 	})
 
 	expected := map[string]interface{}{"foo": "bar", "another": "value"}
@@ -756,7 +756,7 @@ func (s ConfigNodeSuite) TestWriteTwice(c *C) {
 	changes, err := nodeOne.Write()
 	c.Assert(err, IsNil)
 	c.Assert(changes, DeepEquals, []ItemChange{
-		ItemChange{ItemAdded, "a", nil, "foo"},
+		{ItemAdded, "a", nil, "foo"},
 	})
 
 	nodeTwo, err := readConfigNode(s.zkConn, s.path)
@@ -765,7 +765,7 @@ func (s ConfigNodeSuite) TestWriteTwice(c *C) {
 	changes, err = nodeTwo.Write()
 	c.Assert(err, IsNil)
 	c.Assert(changes, DeepEquals, []ItemChange{
-		ItemChange{ItemModified, "a", "foo", "bar"},
+		{ItemModified, "a", "foo", "bar"},
 	})
 
 	// Shouldn't write again. Changes were already

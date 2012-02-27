@@ -100,17 +100,16 @@ func (s StateSuite) TestAddCharm(c *C) {
 
 func (s StateSuite) TestCharm(c *C) {
 	// Check that reading a previously added charm works correctly.
-	dummy, curl := addDummyCharm(c, s.st)
+	_, curl := addDummyCharm(c, s.st)
 
-	dummy, err := s.st.Charm(curl)
+	_, err := s.st.Charm(curl)
 	c.Assert(err, IsNil)
-	c.Assert(dummy.URL().String(), Equals, curl.String())
 }
 
 func (s StateSuite) TestCharmAttributes(c *C) {
 	// Check that the basic (invariant) fields of the charm
 	// are correctly in place.
-	dummy, curl := addDummyCharm(c, s.st)
+	_, curl := addDummyCharm(c, s.st)
 
 	dummy, err := s.st.Charm(curl)
 	c.Assert(err, IsNil)
