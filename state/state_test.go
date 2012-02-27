@@ -92,7 +92,7 @@ func (s StateSuite) TestAddCharm(c *C) {
 
 	children, _, err := s.zkConn.Children("/charms")
 	c.Assert(err, IsNil)
-	c.Assert(children, Equals, []string{"local_3a_series_2f_dummy-1"})
+	c.Assert(children, DeepEquals, []string{"local_3a_series_2f_dummy-1"})
 }
 
 func (s StateSuite) TestCharm(c *C) {
@@ -329,7 +329,7 @@ func (s StateSuite) TestReadUnit(c *C) {
 	// Check that retrieving unit names works.
 	unitNames, err := wordpress.UnitNames()
 	c.Assert(err, IsNil)
-	c.Assert(unitNames, Equals, []string{"wordpress/0", "wordpress/1"})
+	c.Assert(unitNames, DeepEquals, []string{"wordpress/0", "wordpress/1"})
 
 	// Check that retrieving all units works.
 	units, err := wordpress.AllUnits()
@@ -368,7 +368,7 @@ func (s StateSuite) TestRemoveUnit(c *C) {
 	c.Assert(err, IsNil)
 	unitNames, err := wordpress.UnitNames()
 	c.Assert(err, IsNil)
-	c.Assert(unitNames, Equals, []string{"wordpress/1"})
+	c.Assert(unitNames, DeepEquals, []string{"wordpress/1"})
 
 	// Check that removing a non-existent unit fails nicely.
 	err = wordpress.RemoveUnit(unit)
@@ -573,7 +573,7 @@ func (s StateSuite) TestAssignUnitToUnusedMachineWithChangingService(c *C) {
 	c.Assert(err, ErrorMatches, "environment state has changed")
 }
 
-func (s StateSuite) TestAssignUniToUnusedMachineWithChangingUnit(c *C) {
+func (s StateSuite) TestAssignUnitToUnusedMachineWithChangingUnit(c *C) {
 	// Create root machine that shouldn't be useds.
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
