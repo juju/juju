@@ -1,10 +1,6 @@
 // launchpad.net/juju/state
 //
 // Copyright (c) 2011-2012 Canonical Ltd.
-
-// The state package enables reading, observing, and changing
-// the state stored in ZooKeeper of a whole environment
-// managed by juju.
 package state
 
 import (
@@ -38,7 +34,7 @@ func ZkSetUpEnvironment(t *testing.T) (*zookeeper.Server, string) {
 	return srv, dir
 }
 
-// ZkTearDownEnvironment destroys the ZooKeeper Test environment.
+// ZkTearDownEnvironment destroys the ZooKeeper test environment.
 func ZkTearDownEnvironment(t *testing.T, srv *zookeeper.Server, dir string) {
 	srv.Destroy()
 	if err := os.RemoveAll(dir); err != nil {

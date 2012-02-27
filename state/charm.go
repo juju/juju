@@ -1,25 +1,24 @@
 // launchpad.net/juju/state
 //
 // Copyright (c) 2011-2012 Canonical Ltd.
-
 package state
 
 import (
 	"fmt"
-	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
 )
 
 // charmData contains the data stored inside the ZooKeeper charm node.
 type charmData struct {
-	Meta   *charm.Meta
-	Config *charm.Config
-	URL    string
+	Meta      *charm.Meta
+	Config    *charm.Config
+	BundleURL string `yaml:"url"`
 }
 
 // Charm represents the state of a charm in the environment.
 type Charm struct {
+	st        *State
 	zk        *zookeeper.Conn
 	url       *charm.URL
 	meta      *charm.Meta
@@ -27,41 +26,17 @@ type Charm struct {
 	bundleURL string
 }
 
-// readCharm reads a charm by id.
-func readCharm(zk *zookeeper.Conn, charmURL *charm.URL) (*Charm, error) {
-	yaml, _, err := zk.Get(charmPath(charmURL))
-	if err == zookeeper.ZNONODE {
-		return nil, fmt.Errorf("charm %q not found", charmURL)
-	}
-	if err != nil {
-		return nil, err
-	}
-	data := &charmData{}
-	if err := goyaml.Unmarshal([]byte(yaml), data); err != nil {
-		return nil, err
-	}
-	return newCharm(zk, charmURL, data)
-}
+var _ charm.Charm = (*Charm)(nil)
 
-// newCharm creates a new charm.
-func newCharm(zk *zookeeper.Conn, charmURL *charm.URL, data *charmData) (*Charm, error) {
+func newCharm(st *State, curl *charm.URL, data *charmData) *Charm {
 	c := &Charm{
-		zk:        zk,
-		url:       charmURL,
+		st:        st,
+		url:       curl,
 		meta:      data.Meta,
 		config:    data.Config,
-		bundleURL: data.URL,
+		bundleURL: data.BundleURL,
 	}
-	// Just a health check.
-	if c.meta.Name != c.Name() {
-		return nil, fmt.Errorf("illegal charm name")
-	}
-	return c, nil
-}
-
-// Name returns the name of the charm based on the URL.
-func (c *Charm) Name() string {
-	return c.url.Name
+	return c
 }
 
 // URL returns the URL that identifies the charm.
@@ -78,14 +53,12 @@ func (c *Charm) Revision() int {
 
 // Meta returns the metadata of the charm.
 func (c *Charm) Meta() *charm.Meta {
-	clone := *c.meta
-	return &clone
+	return c.meta
 }
 
 // Config returns the configuration of the charm.
 func (c *Charm) Config() *charm.Config {
-	clone := *c.config
-	return &clone
+	return c.config
 }
 
 // BundleURL returns the url to the charm bundle in 
@@ -95,7 +68,10 @@ func (c *Charm) BundleURL() string {
 }
 
 // Charm path returns the full qualified ZooKeeper path for a charm state
-// based on the URL.
-func charmPath(charmURL *charm.URL) string {
-	return fmt.Sprintf("/charms/%s", Quote(charmURL.String()))
+// based on the charm URL.
+func charmPath(curl *charm.URL) (string, error) {
+	if curl.Revision < 0 {
+		return "", fmt.Errorf("charm URL revision is unset")
+	}
+	return fmt.Sprintf("/charms/%s", Quote(curl.String())), nil
 }

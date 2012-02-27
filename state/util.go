@@ -258,7 +258,7 @@ func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 // are translated to their hex representation surrounded by 
 // underscores.
 func Quote(unsafe string) string {
-	safe := []byte{}
+	safe := make([]byte, 0, len(unsafe)*4)
 	for i := 0; i < len(unsafe); i++ {
 		b := unsafe[i]
 		switch {

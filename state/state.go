@@ -21,7 +21,7 @@ type State struct {
 	zk *zookeeper.Conn
 }
 
-// Add machine creates a new machine.
+// AddMachine creates a new machine state.
 func (s *State) AddMachine() (*Machine, error) {
 	path, err := s.zk.Create("/machines/machine-", "", zookeeper.SEQUENCE, zkPermAll)
 	if err != nil {
@@ -99,27 +99,47 @@ func (s *State) AllMachines() ([]*Machine, error) {
 	return machines, nil
 }
 
-// AddCharm registers metadata about the provided Charm.
-func (s *State) AddCharm(charmURL *charm.URL, ch charm.Charm, url string) (*Charm, error) {
+// AddCharm creates a new charm state based on a charm, its URL
+// and its bundle URL.
+func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, url string) (*Charm, error) {
 	data := &charmData{
-		Meta:   ch.Meta(),
-		Config: ch.Config(),
-		URL:    url,
+		Meta:      ch.Meta(),
+		Config:    ch.Config(),
+		BundleURL: url,
 	}
 	yaml, err := goyaml.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
-	_, err = s.zk.Create(charmPath(charmURL), string(yaml), 0, zkPermAll)
+	path, err := charmPath(curl)
 	if err != nil {
 		return nil, err
 	}
-	return newCharm(s.zk, charmURL, data)
+	_, err = s.zk.Create(path, string(yaml), 0, zkPermAll)
+	if err != nil {
+		return nil, err
+	}
+	return newCharm(s, curl, data), nil
 }
 
 // Charm returns a charm by the given id.
-func (s *State) Charm(charmURL *charm.URL) (*Charm, error) {
-	return readCharm(s.zk, charmURL)
+func (s *State) Charm(curl *charm.URL) (*Charm, error) {
+	path, err := charmPath(curl)
+	if err != nil {
+		return nil, err
+	}
+	yaml, _, err := s.zk.Get(path)
+	if err == zookeeper.ZNONODE {
+		return nil, fmt.Errorf("charm not found: %q", curl)
+	}
+	if err != nil {
+		return nil, err
+	}
+	data := &charmData{}
+	if err := goyaml.Unmarshal([]byte(yaml), data); err != nil {
+		return nil, err
+	}
+	return newCharm(s, curl, data), nil
 }
 
 // AddService creates a new service with the given unique name
@@ -135,7 +155,7 @@ func (s *State) AddService(name string, ch *Charm) (*Service, error) {
 		return nil, err
 	}
 	key := strings.Split(path, "/")[2]
-	service := &Service{s.zk, key, name}
+	service := &Service{s, key, name}
 	// Create an empty configuration node.
 	_, err = createConfigNode(s.zk, service.zkConfigPath(), map[string]interface{}{})
 	if err != nil {
@@ -194,7 +214,7 @@ func (s *State) Service(name string) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{s.zk, key, name}, nil
+	return &Service{s, key, name}, nil
 }
 
 // AllServices returns all deployed services in the environment.
@@ -209,7 +229,7 @@ func (s *State) AllServices() ([]*Service, error) {
 		if err != nil {
 			return nil, err
 		}
-		services = append(services, &Service{s.zk, key, name})
+		services = append(services, &Service{s, key, name})
 	}
 	return services, nil
 }
