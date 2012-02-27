@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/state"
 	"sync"
+	"time"
 )
 
 const zkPort = 2181
@@ -17,15 +18,15 @@ var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
 const maxReqs = 20 // maximum concurrent ec2 requests
 
 var shortAttempt = attempt{
-	burstTotal: 5e9,
-	burstDelay: 0.2e9,
+	burstTotal: 5 * time.Second,
+	burstDelay: 200 * time.Millisecond,
 }
 
 var longAttempt = attempt{
-	burstTotal: 5e9,
-	burstDelay: 0.2e9,
-	longTotal:  3 * 60e9,
-	longDelay:  5e9,
+	burstTotal: 5 * time.Second,
+	burstDelay: 200 * time.Millisecond,
+	longTotal:  3 * time.Minute,
+	longDelay:  5 * time.Second,
 }
 
 func init() {
@@ -232,6 +233,52 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 	return e.terminateInstances(ids)
 }
 
+// gatherInstances tries to get information on each instance
+// id whose corresponding insts slot is nil.
+// It returns environs.ErrMissingInstance if the insts
+// slice has not been completely filled.
+func (e *environ) gatherInstances(ids []string, insts []environs.Instance) error {
+	var need []string
+	for i, inst := range insts {
+		if inst == nil {
+			need = append(need, ids[i])
+		}
+	}
+	if len(need) == 0 {
+		return nil
+	}
+	filter := ec2.NewFilter()
+	filter.Add("instance-state-name", "pending", "running")
+	filter.Add("group-name", e.groupName())
+	filter.Add("instance-id", need...)
+	resp, err := e.ec2.Instances(nil, filter)
+	if err != nil {
+		return err
+	}
+	n := 0
+	// For each requested id, add it to the returned instances
+	// if we find it in the response.
+	for i, id := range ids {
+		if insts[i] != nil {
+			continue
+		}
+		for j := range resp.Reservations {
+			r := &resp.Reservations[j]
+			for k := range r.Instances {
+				if r.Instances[k].InstanceId == id {
+					inst := r.Instances[k]
+					insts[i] = &instance{e, &inst}
+					n++
+				}
+			}
+		}
+	}
+	if n < len(ids) {
+		return environs.ErrMissingInstance
+	}
+	return nil
+}
+
 func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
@@ -240,56 +287,22 @@ func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
 	// Make a series of requests to cope with eventual consistency.
 	// each request should add more instances to the requested
 	// set.
-	n := 0
 	err := shortAttempt.do(
 		func(err error) bool {
 			return err == environs.ErrMissingInstance
 		},
 		func() error {
-			var need []string
-			for i, inst := range insts {
-				if inst == nil {
-					need = append(need, ids[i])
-				}
-			}
-			if len(need) == 0 {
-				return nil
-			}
-			filter := ec2.NewFilter()
-			filter.Add("instance-state-name", "pending", "running")
-			filter.Add("group-name", e.groupName())
-			filter.Add("instance-id", need...)
-			resp, err := e.ec2.Instances(nil, filter)
-			if err != nil {
-				return err
-			}
-			// For each requested id, add it to the returned instances
-			// if we find it in the response.
-			for i, id := range ids {
-				if insts[i] != nil {
-					continue
-				}
-				for j := range resp.Reservations {
-					r := &resp.Reservations[j]
-					for k := range r.Instances {
-						if r.Instances[k].InstanceId == id {
-							inst := r.Instances[k]
-							insts[i] = &instance{e, &inst}
-							n++
-						}
-					}
-				}
-			}
-			if n < len(ids) {
-				return environs.ErrMissingInstance
-			}
-			return nil
+			return e.gatherInstances(ids, insts)
 		},
 	)
-	if n == 0 {
-		return nil, err
+
+	// If any slot has been filled, we return the insts slice.
+	for _, inst := range insts {
+		if inst != nil {
+			return insts, err
+		}
 	}
-	return insts, err
+	return nil, err
 }
 
 func (e *environ) Destroy(insts []environs.Instance) error {

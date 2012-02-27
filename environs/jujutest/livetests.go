@@ -54,16 +54,9 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	c.Assert(err, IsNil)
 
 	c.Logf("duplicate bootstrap")
-	// repeat for a while to let eventual consistency catch up, hopefully,
-	// although if the second bootstrap has succeeded, we're probably
-	// stuffed in fact.
-	for i := 0; i < 20; i++ {
-		err = t.Env.Bootstrap()
-		if err != nil {
-			break
-		}
-		time.Sleep(0.25e9)
-	}
+	// Wait for a while to let eventual consistency catch up, hopefully.
+	time.Sleep(t.ConsistencyDelay)
+	err = t.Env.Bootstrap()
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	info, err := t.Env.StateInfo()
