@@ -24,7 +24,7 @@ func (internalSuite) TestAttemptTiming(c *C) {
 		return err1
 	})
 	t1 := time.Now()
-	c.Assert(len(got), Equals, len(want), Bug("got %v", got))
+	c.Assert(got, HasLen, len(want))
 	for i, got := range want {
 		lo := want[i] - delta
 		hi := want[i] + delta
@@ -115,7 +115,7 @@ func (internalSuite) TestAttemptError(c *C) {
 	for i, t := range tests {
 		iter = 0
 		err := a.do(t.transient, t.f)
-		c.Check(err, Equals, t.err, Bug("test %d", i))
-		c.Check(iter, Equals, t.iter, Bug("test %d", i))
+		c.Check(err, Equals, t.err, Commentf("test %d", i))
+		c.Check(iter, Equals, t.iter, Commentf("test %d", i))
 	}
 }

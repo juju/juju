@@ -51,7 +51,7 @@ func repoConfig(name string) io.Reader {
 func (s *S) TestReadConfig(c *C) {
 	config, err := charm.ReadConfig(repoConfig("dummy"))
 	c.Assert(err, IsNil)
-	c.Assert(config.Options["title"], Equals,
+	c.Assert(config.Options["title"], DeepEquals,
 		charm.Option{
 			Default:     "My Title",
 			Description: "A descriptive title used for the service.",
@@ -71,7 +71,6 @@ func (s *S) TestDefaultType(c *C) {
 		result, err := charm.ReadConfig(bytes.NewBuffer([]byte(config)))
 		c.Assert(err, IsNil)
 		c.Assert(result.Options["t"].Default, Equals, expected)
-
 	}
 
 	assertDefault("boolean", "true", true)
@@ -97,33 +96,33 @@ func (s *S) TestParseSample(c *C) {
 	c.Assert(err, IsNil)
 
 	opt := config.Options
-	c.Assert(opt["title"], Equals,
+	c.Assert(opt["title"], DeepEquals,
 		charm.Option{
 			Default:     "My Title",
 			Description: "A descriptive title used for the service.",
 			Type:        "string",
 		},
 	)
-	c.Assert(opt["outlook"], Equals,
+	c.Assert(opt["outlook"], DeepEquals,
 		charm.Option{
 			Description: "No default outlook.",
 			Type:        "string",
 		},
 	)
-	c.Assert(opt["username"], Equals,
+	c.Assert(opt["username"], DeepEquals,
 		charm.Option{
 			Default:     "admin001",
 			Description: "The name of the initial account (given admin permissions).",
 			Type:        "string",
 		},
 	)
-	c.Assert(opt["skill-level"], Equals,
+	c.Assert(opt["skill-level"], DeepEquals,
 		charm.Option{
 			Description: "A number indicating skill.",
 			Type:        "int",
 		},
 	)
-	c.Assert(opt["reticulate-splines"], Equals,
+	c.Assert(opt["reticulate-splines"], DeepEquals,
 		charm.Option{
 			Description: "Whether to reticulate splines on launch, or not.",
 			Type:        "boolean",
@@ -149,7 +148,7 @@ func (s *S) TestValidate(c *C) {
 
 	output, err := config.Validate(input)
 	c.Assert(err, IsNil)
-	c.Assert(output, Equals, expected)
+	c.Assert(output, DeepEquals, expected)
 
 	// Check whether float conversion is working.
 	input["agility-ratio"] = "0.5"
@@ -158,7 +157,7 @@ func (s *S) TestValidate(c *C) {
 	expected["skill-level"] = int64(7)
 	output, err = config.Validate(input)
 	c.Assert(err, IsNil)
-	c.Assert(output, Equals, expected)
+	c.Assert(output, DeepEquals, expected)
 
 	// Check whether float errors are caught.
 	input["agility-ratio"] = "foo"

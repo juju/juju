@@ -127,7 +127,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 
 	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
 	c.Assert(err, IsNil)
-	c.Assert(len(groupsResp.Groups), Equals, len(groups))
+	c.Assert(groupsResp.Groups, HasLen, len(groups))
 
 	// For each group, check that it exists and record its id.
 	for i, group := range groups {
@@ -153,7 +153,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	// that the unneeded permission that we added earlier
 	// has been deleted).
 	perms := info[0].IPPerms
-	c.Assert(len(perms), Equals, 2, Bug("got security groups %#v", perms))
+	c.Assert(perms, HasLen, 2)
 	checkPortAllowed(c, perms, 22)
 	checkPortAllowed(c, perms, 2181)
 
@@ -163,11 +163,11 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	// Check that each instance is part of the correct groups.
 	resp, err := ec2conn.Instances([]string{inst0.Id(), inst1.Id()}, nil)
 	c.Assert(err, IsNil)
-	c.Assert(len(resp.Reservations), Equals, 2, Bug("reservations %#v", resp.Reservations))
+	c.Assert(resp.Reservations, HasLen, 2)
 	for _, r := range resp.Reservations {
-		c.Assert(len(r.Instances), Equals, 1)
+		c.Assert(r.Instances, HasLen, 1)
 		// each instance must be part of the general juju group.
-		msg := Bug("reservation %#v", r)
+		msg := Commentf("reservation %#v", r)
 		c.Assert(hasSecurityGroup(r, groups[0]), Equals, true, msg)
 		inst := r.Instances[0]
 		switch inst.InstanceId {
@@ -188,8 +188,8 @@ func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {
 		if perm.FromPort == port {
 			c.Check(perm.Protocol, Equals, "tcp")
 			c.Check(perm.ToPort, Equals, port)
-			c.Check(perm.SourceIPs, Equals, []string{"0.0.0.0/0"})
-			c.Check(len(perm.SourceGroups), Equals, 0)
+			c.Check(perm.SourceIPs, DeepEquals, []string{"0.0.0.0/0"})
+			c.Check(perm.SourceGroups, HasLen, 0)
 			return
 		}
 	}
@@ -224,7 +224,7 @@ func (t *LiveTests) TestStopInstances(c *C) {
 		return err
 	})
 	c.Check(err, Equals, environs.ErrMissingInstance)
-	c.Check(len(insts), Equals, 0)
+	c.Check(insts, HasLen, 0)
 }
 
 // createGroup creates a new EC2 group and returns it. If it already exists,

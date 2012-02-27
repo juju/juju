@@ -23,14 +23,14 @@ func CheckAgentCommand(c *C, create acCreator, args []string) main.AgentCommand 
 
 	ac := create()
 	c.Assert(cmd.Parse(ac, args), IsNil)
-	c.Assert(ac.StateInfo().Addrs, Equals, []string{"zk1:2181", "zk2:2181"})
+	c.Assert(ac.StateInfo().Addrs, DeepEquals, []string{"zk1:2181", "zk2:2181"})
 	c.Assert(ac.SessionFile(), Equals, "sf")
 	c.Assert(ac.JujuDir(), Equals, "/var/lib/juju")
 	args = append(args, "--juju-directory", "jd")
 
 	ac = create()
 	c.Assert(cmd.Parse(ac, args), IsNil)
-	c.Assert(ac.StateInfo().Addrs, Equals, []string{"zk1:2181", "zk2:2181"})
+	c.Assert(ac.StateInfo().Addrs, DeepEquals, []string{"zk1:2181", "zk2:2181"})
 	c.Assert(ac.SessionFile(), Equals, "sf")
 	c.Assert(ac.JujuDir(), Equals, "jd")
 	return ac

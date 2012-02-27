@@ -12,7 +12,7 @@ func (t *Tests) TestStartStop(c *C) {
 
 	insts, err := e.Instances(nil)
 	c.Assert(err, IsNil)
-	c.Assert(len(insts), Equals, 0)
+	c.Assert(insts, HasLen, 0)
 
 	inst0, err := e.StartInstance(0, InvalidStateInfo)
 	c.Assert(err, IsNil)
@@ -26,7 +26,7 @@ func (t *Tests) TestStartStop(c *C) {
 
 	insts, err = e.Instances([]string{id0, id1})
 	c.Assert(err, IsNil)
-	c.Assert(len(insts), Equals, 2)
+	c.Assert(insts, HasLen, 2)
 	c.Assert(insts[0].Id(), Equals, id0)
 	c.Assert(insts[1].Id(), Equals, id1)
 
@@ -35,7 +35,8 @@ func (t *Tests) TestStartStop(c *C) {
 
 	// TODO eventual consistency.
 	insts, err = e.Instances([]string{id0, id1})
-	c.Assert(insts, Equals, []environs.Instance{nil, inst1})
+	c.Assert(insts[0], IsNil)
+	c.Assert(insts[1].Id(), Equals, id1)
 	c.Assert(err, Equals, environs.ErrMissingInstance)
 }
 
@@ -46,7 +47,7 @@ func (t *Tests) TestBootstrap(c *C) {
 
 	info, err := e.StateInfo()
 	c.Assert(info, NotNil)
-	c.Check(len(info.Addrs), Not(Equals), 0)
+	c.Check(info.Addrs, Not(HasLen), 0)
 
 	// TODO eventual consistency.
 	err = e.Bootstrap()
@@ -58,7 +59,7 @@ func (t *Tests) TestBootstrap(c *C) {
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	info2, err := e2.StateInfo()
-	c.Check(info2, Equals, info)
+	c.Check(info2, DeepEquals, info)
 
 	err = e2.Destroy(nil)
 	c.Assert(err, IsNil)
@@ -106,5 +107,5 @@ func checkFileHasContents(c *C, e environs.Environ, name string, contents []byte
 
 	data, err := ioutil.ReadAll(r)
 	c.Check(err, IsNil)
-	c.Check(data, Equals, contents)
+	c.Check(data, DeepEquals, contents)
 }
