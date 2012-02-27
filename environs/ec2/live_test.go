@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
+	"time"
 )
 
 // amazonConfig holds the environments configuration
@@ -49,6 +50,7 @@ func registerAmazonTests() {
 			jujutest.LiveTests{
 				Environs: envs,
 				Name:     name,
+				ConsistencyDelay: 5 * time.Second,
 			},
 		})
 	}
