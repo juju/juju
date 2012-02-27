@@ -1,21 +1,13 @@
 // launchpad.net/juju/go/state
 //
 // Copyright (c) 2011-2012 Canonical Ltd.
-
 package state
 
 import (
-	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
-	"testing"
 )
-
-// TestPackage integrates the tests into gotest.
-func TestPackage(t *testing.T) {
-	TestingT(t)
-}
 
 type TopologySuite struct {
 	zkServer   *zookeeper.Server
@@ -28,33 +20,14 @@ type TopologySuite struct {
 
 var _ = Suite(&TopologySuite{})
 
-func (s *TopologySuite) SetUpSuite(c *C) {
-	var err error
-	s.zkTestRoot = c.MkDir() + "/zookeeper"
-	s.zkTestPort = 21812
-	s.zkAddr = fmt.Sprint("localhost:", s.zkTestPort)
-
-	s.zkServer, err = zookeeper.CreateServer(s.zkTestPort, s.zkTestRoot, "")
-	if err != nil {
-		c.Fatal("Cannot set up ZooKeeper server environment: ", err)
-	}
-	err = s.zkServer.Start()
-	if err != nil {
-		c.Fatal("Cannot start ZooKeeper server: ", err)
-	}
-}
-
-func (s *TopologySuite) TearDownSuite(c *C) {
-	if s.zkServer != nil {
-		s.zkServer.Destroy()
-	}
-}
-
 func (s *TopologySuite) SetUpTest(c *C) {
 	// Connect the server.
-	_, s.zkConn = OpenAddr(c, s.zkAddr)
+	st, err := Open(&Info{
+		Addrs: []string{ZkAddr},
+	})
+	c.Assert(err, IsNil)
+	s.zkConn = ZkConn(st)
 	// Read the toplogy.
-	var err error
 	s.t, err = readTopology(s.zkConn)
 	c.Assert(err, IsNil)
 }
@@ -72,7 +45,7 @@ func (s TopologySuite) TestAddMachine(c *C) {
 	err = s.t.AddMachine("m-1")
 	c.Assert(err, IsNil)
 	keys := s.t.MachineKeys()
-	c.Assert(keys, Equals, []string{"m-0", "m-1"})
+	c.Assert(keys, DeepEquals, []string{"m-0", "m-1"})
 }
 
 func (s TopologySuite) TestAddDuplicatedMachine(c *C) {
@@ -129,7 +102,7 @@ func (s TopologySuite) TestRemoveMachineWithAssignedUnits(c *C) {
 
 func (s TopologySuite) TestMachineHasUnits(c *C) {
 	// Check various ways a machine might or might not be assigned
-	// to a unit.	
+	// to a unit.   
 	err := s.t.AddMachine("m-0")
 	c.Assert(err, IsNil)
 	err = s.t.AddMachine("m-1")
@@ -167,13 +140,13 @@ func (s TopologySuite) TestHasMachine(c *C) {
 func (s TopologySuite) TestMachineKeys(c *C) {
 	// Check that the retrieval of all services keys works correctly.
 	keys := s.t.MachineKeys()
-	c.Assert(keys, Equals, []string{})
+	c.Assert(keys, DeepEquals, []string{})
 	err := s.t.AddMachine("m-0")
 	c.Assert(err, IsNil)
 	err = s.t.AddMachine("m-1")
 	c.Assert(err, IsNil)
 	keys = s.t.MachineKeys()
-	c.Assert(keys, Equals, []string{"m-0", "m-1"})
+	c.Assert(keys, DeepEquals, []string{"m-0", "m-1"})
 }
 
 func (s TopologySuite) TestAddService(c *C) {
@@ -223,13 +196,13 @@ func (s TopologySuite) TestServiceKey(c *C) {
 func (s TopologySuite) TestServiceKeys(c *C) {
 	// Check that the retrieval of all services keys works correctly.
 	keys := s.t.ServiceKeys()
-	c.Assert(keys, Equals, []string{})
+	c.Assert(keys, DeepEquals, []string{})
 	err := s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
 	err = s.t.AddService("s-1", "mysql")
 	c.Assert(err, IsNil)
 	keys = s.t.ServiceKeys()
-	c.Assert(keys, Equals, []string{"s-0", "s-1"})
+	c.Assert(keys, DeepEquals, []string{"s-0", "s-1"})
 }
 
 func (s TopologySuite) TestServiceName(c *C) {
@@ -278,10 +251,10 @@ func (s TopologySuite) TestAddUnit(c *C) {
 	c.Assert(seq, Equals, 0)
 	keys, err := s.t.UnitKeys("s-0")
 	c.Assert(err, IsNil)
-	c.Assert(keys, Equals, []string{"u-05", "u-12"})
+	c.Assert(keys, DeepEquals, []string{"u-05", "u-12"})
 	keys, err = s.t.UnitKeys("s-1")
 	c.Assert(err, IsNil)
-	c.Assert(keys, Equals, []string{"u-07"})
+	c.Assert(keys, DeepEquals, []string{"u-07"})
 }
 
 func (s TopologySuite) TestGlobalUniqueUnitNames(c *C) {
@@ -346,7 +319,7 @@ func (s TopologySuite) TestUnitKeys(c *C) {
 	c.Assert(err, IsNil)
 	units, err := s.t.UnitKeys("s-0")
 	c.Assert(err, IsNil)
-	c.Assert(units, Equals, []string{})
+	c.Assert(units, DeepEquals, []string{})
 	_, err = s.t.AddUnit("s-0", "u-0")
 	c.Assert(err, IsNil)
 	_, err = s.t.AddUnit("s-0", "u-1")
@@ -355,10 +328,10 @@ func (s TopologySuite) TestUnitKeys(c *C) {
 	c.Assert(err, IsNil)
 	units, err = s.t.UnitKeys("s-0")
 	c.Assert(err, IsNil)
-	c.Assert(units, Equals, []string{"u-0", "u-1"})
+	c.Assert(units, DeepEquals, []string{"u-0", "u-1"})
 	units, err = s.t.UnitKeys("s-1")
 	c.Assert(err, IsNil)
-	c.Assert(units, Equals, []string{"u-2"})
+	c.Assert(units, DeepEquals, []string{"u-2"})
 }
 
 func (s TopologySuite) TestUnitKeysWithNonExistingService(c *C) {
@@ -482,30 +455,16 @@ type ConfigNodeSuite struct {
 var _ = Suite(&ConfigNodeSuite{})
 
 func (s *ConfigNodeSuite) SetUpSuite(c *C) {
-	var err error
-	s.zkTestRoot = c.MkDir() + "/zookeeper"
-	s.zkTestPort = 21812
-	s.zkAddr = fmt.Sprint("localhost:", s.zkTestPort)
 	s.path = "/config"
-
-	s.zkServer, err = zookeeper.CreateServer(s.zkTestPort, s.zkTestRoot, "")
-	if err != nil {
-		c.Fatal("Cannot set up ZooKeeper server environment: ", err)
-	}
-	err = s.zkServer.Start()
-	if err != nil {
-		c.Fatal("Cannot start ZooKeeper server: ", err)
-	}
-}
-
-func (s *ConfigNodeSuite) TearDownSuite(c *C) {
-	if s.zkServer != nil {
-		s.zkServer.Destroy()
-	}
 }
 
 func (s *ConfigNodeSuite) SetUpTest(c *C) {
-	_, s.zkConn = OpenAddr(c, s.zkAddr)
+	// Connect the server.
+	st, err := Open(&Info{
+		Addrs: []string{ZkAddr},
+	})
+	c.Assert(err, IsNil)
+	s.zkConn = ZkConn(st)
 }
 
 func (s *ConfigNodeSuite) TearDownTest(c *C) {
@@ -518,7 +477,7 @@ func (s ConfigNodeSuite) TestCreateEmptyConfigNode(c *C) {
 	// Check that creating an empty node works correctly.
 	node, err := createConfigNode(s.zkConn, s.path, nil)
 	c.Assert(err, IsNil)
-	c.Assert(node.Keys(), Equals, []string{})
+	c.Assert(node.Keys(), DeepEquals, []string{})
 }
 
 func (s ConfigNodeSuite) TestReadWithoutWrite(c *C) {
@@ -536,7 +495,7 @@ func (s ConfigNodeSuite) TestSetWithoutWrite(c *C) {
 	c.Assert(err, IsNil)
 	options := map[string]interface{}{"alpha": "beta", "one": 1}
 	node.Update(options)
-	c.Assert(node.Map(), Equals, options)
+	c.Assert(node.Map(), DeepEquals, options)
 	// Node data has to be empty.
 	yaml, _, err := s.zkConn.Get("/config")
 	c.Assert(err, IsNil)
@@ -551,18 +510,18 @@ func (s ConfigNodeSuite) TestSetWithWrite(c *C) {
 	node.Update(options)
 	changes, err := node.Write()
 	c.Assert(err, IsNil)
-	c.Assert(changes, Equals, []ItemChange{
-		ItemChange{ItemAdded, "alpha", nil, "beta"},
-		ItemChange{ItemAdded, "one", nil, 1},
+	c.Assert(changes, DeepEquals, []ItemChange{
+		{ItemAdded, "alpha", nil, "beta"},
+		{ItemAdded, "one", nil, 1},
 	})
 	// Check local state.
-	c.Assert(node.Map(), Equals, options)
+	c.Assert(node.Map(), DeepEquals, options)
 	// Check ZooKeeper state.
 	yaml, _, err := s.zkConn.Get(s.path)
 	c.Assert(err, IsNil)
 	zkData := make(map[string]interface{})
 	err = goyaml.Unmarshal([]byte(yaml), zkData)
-	c.Assert(zkData, Equals, options)
+	c.Assert(zkData, DeepEquals, options)
 }
 
 func (s ConfigNodeSuite) TestConflictOnSet(c *C) {
@@ -579,29 +538,29 @@ func (s ConfigNodeSuite) TestConflictOnSet(c *C) {
 	nodeTwo.Update(optionsOld)
 	changes, err := nodeTwo.Write()
 	c.Assert(err, IsNil)
-	c.Assert(changes, Equals, []ItemChange{
-		ItemChange{ItemAdded, "alpha", nil, "beta"},
-		ItemChange{ItemAdded, "one", nil, 1},
+	c.Assert(changes, DeepEquals, []ItemChange{
+		{ItemAdded, "alpha", nil, "beta"},
+		{ItemAdded, "one", nil, 1},
 	})
 
 	// First test node one.
-	c.Assert(nodeOne.Map(), Equals, optionsOld)
+	c.Assert(nodeOne.Map(), DeepEquals, optionsOld)
 
 	// Write on node one.
 	optionsNew := map[string]interface{}{"alpha": "gamma", "one": "two"}
 	nodeOne.Update(optionsNew)
 	changes, err = nodeOne.Write()
 	c.Assert(err, IsNil)
-	c.Assert(changes, Equals, []ItemChange{
-		ItemChange{ItemModified, "alpha", "beta", "gamma"},
-		ItemChange{ItemModified, "one", 1, "two"},
+	c.Assert(changes, DeepEquals, []ItemChange{
+		{ItemModified, "alpha", "beta", "gamma"},
+		{ItemModified, "one", 1, "two"},
 	})
 
 	// Verify that node one reports as expected.
-	c.Assert(nodeOne.Map(), Equals, optionsNew)
+	c.Assert(nodeOne.Map(), DeepEquals, optionsNew)
 
 	// Verify that node two has still the old data.
-	c.Assert(nodeTwo.Map(), Equals, optionsOld)
+	c.Assert(nodeTwo.Map(), DeepEquals, optionsOld)
 
 	// Now issue a Set/Write from node two. This will
 	// merge the data deleting 'one' and updating
@@ -613,15 +572,15 @@ func (s ConfigNodeSuite) TestConflictOnSet(c *C) {
 	expected := map[string]interface{}{"alpha": "cappa", "new": "next"}
 	changes, err = nodeTwo.Write()
 	c.Assert(err, IsNil)
-	c.Assert(changes, Equals, []ItemChange{
-		ItemChange{ItemModified, "alpha", "beta", "cappa"},
-		ItemChange{ItemAdded, "new", nil, "next"},
-		ItemChange{ItemDeleted, "one", 1, nil},
+	c.Assert(changes, DeepEquals, []ItemChange{
+		{ItemModified, "alpha", "beta", "cappa"},
+		{ItemAdded, "new", nil, "next"},
+		{ItemDeleted, "one", 1, nil},
 	})
-	c.Assert(expected, Equals, nodeTwo.Map())
+	c.Assert(expected, DeepEquals, nodeTwo.Map())
 
 	// But node one still reflects the former data.
-	c.Assert(nodeOne.Map(), Equals, optionsNew)
+	c.Assert(nodeOne.Map(), DeepEquals, optionsNew)
 }
 
 func (s ConfigNodeSuite) TestSetItem(c *C) {
@@ -633,18 +592,18 @@ func (s ConfigNodeSuite) TestSetItem(c *C) {
 	node.Set("one", 1)
 	changes, err := node.Write()
 	c.Assert(err, IsNil)
-	c.Assert(changes, Equals, []ItemChange{
-		ItemChange{ItemAdded, "alpha", nil, "beta"},
-		ItemChange{ItemAdded, "one", nil, 1},
+	c.Assert(changes, DeepEquals, []ItemChange{
+		{ItemAdded, "alpha", nil, "beta"},
+		{ItemAdded, "one", nil, 1},
 	})
 	// Check local state.
-	c.Assert(node.Map(), Equals, options)
+	c.Assert(node.Map(), DeepEquals, options)
 	// Check ZooKeeper state.
 	yaml, _, err := s.zkConn.Get(s.path)
 	c.Assert(err, IsNil)
 	zkData := make(map[string]interface{})
 	err = goyaml.Unmarshal([]byte(yaml), zkData)
-	c.Assert(zkData, Equals, options)
+	c.Assert(zkData, DeepEquals, options)
 }
 
 func (s ConfigNodeSuite) TestMultipleReads(c *C) {
@@ -664,13 +623,13 @@ func (s ConfigNodeSuite) TestMultipleReads(c *C) {
 	// A read resets the data to the empty state.
 	err = nodeOne.Read()
 	c.Assert(err, IsNil)
-	c.Assert(nodeOne.Map(), Equals, map[string]interface{}{})
+	c.Assert(nodeOne.Map(), DeepEquals, map[string]interface{}{})
 	nodeOne.Update(map[string]interface{}{"alpha": "beta", "foo": "bar"})
 	changes, err := nodeOne.Write()
 	c.Assert(err, IsNil)
-	c.Assert(changes, Equals, []ItemChange{
-		ItemChange{ItemAdded, "alpha", nil, "beta"},
-		ItemChange{ItemAdded, "foo", nil, "bar"},
+	c.Assert(changes, DeepEquals, []ItemChange{
+		{ItemAdded, "alpha", nil, "beta"},
+		{ItemAdded, "foo", nil, "bar"},
 	})
 
 	// A write retains the newly set values.
@@ -687,8 +646,8 @@ func (s ConfigNodeSuite) TestMultipleReads(c *C) {
 	nodeTwo.Update(map[string]interface{}{"foo": "different"})
 	changes, err = nodeTwo.Write()
 	c.Assert(err, IsNil)
-	c.Assert(changes, Equals, []ItemChange{
-		ItemChange{ItemModified, "foo", "bar", "different"},
+	c.Assert(changes, DeepEquals, []ItemChange{
+		{ItemModified, "foo", "bar", "different"},
 	})
 
 	// This should pull in the new state into node one.
@@ -709,16 +668,16 @@ func (s ConfigNodeSuite) TestDeleteEmptiesState(c *C) {
 	node.Set("a", "foo")
 	changes, err := node.Write()
 	c.Assert(err, IsNil)
-	c.Assert(changes, Equals, []ItemChange{
-		ItemChange{ItemAdded, "a", nil, "foo"},
+	c.Assert(changes, DeepEquals, []ItemChange{
+		{ItemAdded, "a", nil, "foo"},
 	})
 	node.Delete("a")
 	changes, err = node.Write()
 	c.Assert(err, IsNil)
-	c.Assert(changes, Equals, []ItemChange{
-		ItemChange{ItemDeleted, "a", "foo", nil},
+	c.Assert(changes, DeepEquals, []ItemChange{
+		{ItemDeleted, "a", "foo", nil},
 	})
-	c.Assert(node.Map(), Equals, map[string]interface{}{})
+	c.Assert(node.Map(), DeepEquals, map[string]interface{}{})
 }
 
 func (s ConfigNodeSuite) TestReadResync(c *C) {
@@ -728,22 +687,22 @@ func (s ConfigNodeSuite) TestReadResync(c *C) {
 	nodeOne.Set("a", "foo")
 	changes, err := nodeOne.Write()
 	c.Assert(err, IsNil)
-	c.Assert(changes, Equals, []ItemChange{
-		ItemChange{ItemAdded, "a", nil, "foo"},
+	c.Assert(changes, DeepEquals, []ItemChange{
+		{ItemAdded, "a", nil, "foo"},
 	})
 	nodeTwo, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
 	nodeTwo.Delete("a")
 	changes, err = nodeTwo.Write()
 	c.Assert(err, IsNil)
-	c.Assert(changes, Equals, []ItemChange{
-		ItemChange{ItemDeleted, "a", "foo", nil},
+	c.Assert(changes, DeepEquals, []ItemChange{
+		{ItemDeleted, "a", "foo", nil},
 	})
 	nodeTwo.Set("a", "bar")
 	changes, err = nodeTwo.Write()
 	c.Assert(err, IsNil)
-	c.Assert(changes, Equals, []ItemChange{
-		ItemChange{ItemAdded, "a", nil, "bar"},
+	c.Assert(changes, DeepEquals, []ItemChange{
+		{ItemAdded, "a", nil, "bar"},
 	})
 	// Read of node one should pick up the new value.
 	err = nodeOne.Read()
@@ -760,33 +719,33 @@ func (s ConfigNodeSuite) TestMultipleWrites(c *C) {
 	node.Update(map[string]interface{}{"foo": "bar", "this": "that"})
 	changes, err := node.Write()
 	c.Assert(err, IsNil)
-	c.Assert(changes, Equals, []ItemChange{
-		ItemChange{ItemAdded, "foo", nil, "bar"},
-		ItemChange{ItemAdded, "this", nil, "that"},
+	c.Assert(changes, DeepEquals, []ItemChange{
+		{ItemAdded, "foo", nil, "bar"},
+		{ItemAdded, "this", nil, "that"},
 	})
 	node.Delete("this")
 	node.Set("another", "value")
 	changes, err = node.Write()
 	c.Assert(err, IsNil)
-	c.Assert(changes, Equals, []ItemChange{
-		ItemChange{ItemAdded, "another", nil, "value"},
-		ItemChange{ItemDeleted, "this", "that", nil},
+	c.Assert(changes, DeepEquals, []ItemChange{
+		{ItemAdded, "another", nil, "value"},
+		{ItemDeleted, "this", "that", nil},
 	})
 
 	expected := map[string]interface{}{"foo": "bar", "another": "value"}
-	c.Assert(expected, Equals, node.Map())
+	c.Assert(expected, DeepEquals, node.Map())
 
 	changes, err = node.Write()
 	c.Assert(err, IsNil)
-	c.Assert(changes, Equals, []ItemChange{})
+	c.Assert(changes, DeepEquals, []ItemChange{})
 
 	err = node.Read()
 	c.Assert(err, IsNil)
-	c.Assert(expected, Equals, node.Map())
+	c.Assert(expected, DeepEquals, node.Map())
 
 	changes, err = node.Write()
 	c.Assert(err, IsNil)
-	c.Assert(changes, Equals, []ItemChange{})
+	c.Assert(changes, DeepEquals, []ItemChange{})
 }
 
 func (s ConfigNodeSuite) TestWriteTwice(c *C) {
@@ -796,8 +755,8 @@ func (s ConfigNodeSuite) TestWriteTwice(c *C) {
 	nodeOne.Set("a", "foo")
 	changes, err := nodeOne.Write()
 	c.Assert(err, IsNil)
-	c.Assert(changes, Equals, []ItemChange{
-		ItemChange{ItemAdded, "a", nil, "foo"},
+	c.Assert(changes, DeepEquals, []ItemChange{
+		{ItemAdded, "a", nil, "foo"},
 	})
 
 	nodeTwo, err := readConfigNode(s.zkConn, s.path)
@@ -805,17 +764,36 @@ func (s ConfigNodeSuite) TestWriteTwice(c *C) {
 	nodeTwo.Set("a", "bar")
 	changes, err = nodeTwo.Write()
 	c.Assert(err, IsNil)
-	c.Assert(changes, Equals, []ItemChange{
-		ItemChange{ItemModified, "a", "foo", "bar"},
+	c.Assert(changes, DeepEquals, []ItemChange{
+		{ItemModified, "a", "foo", "bar"},
 	})
 
 	// Shouldn't write again. Changes were already
 	// flushed and acted upon by other parties.
 	changes, err = nodeOne.Write()
 	c.Assert(err, IsNil)
-	c.Assert(changes, Equals, []ItemChange{})
+	c.Assert(changes, DeepEquals, []ItemChange{})
 
 	err = nodeOne.Read()
 	c.Assert(err, IsNil)
-	c.Assert(nodeOne, Equals, nodeTwo)
+	c.Assert(nodeOne, DeepEquals, nodeTwo)
+}
+
+type QuoteSuite struct{}
+
+var _ = Suite(&QuoteSuite{})
+
+func (s QuoteSuite) TestUnmodified(c *C) {
+	// Check that a string containig only valid
+	// chars stays unmodified.
+	in := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-"
+	out := Quote(in)
+	c.Assert(out, Equals, in)
+}
+
+func (s QuoteSuite) TestQuote(c *C) {
+	// Check that invalid chars are translated correctly.
+	in := "hello_there/how'are~you-today.sir"
+	out := Quote(in)
+	c.Assert(out, Equals, "hello_5f_there_2f_how_27_are_7e_you-today.sir")
 }
