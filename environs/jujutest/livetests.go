@@ -10,64 +10,60 @@ import (
 // TestStartStop is similar to Tests.TestStartStop except
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *C) {
-	names := make(map[string]environs.Instance)
-	insts, err := t.env.Instances()
+	insts, err := t.Env.Instances(nil)
 	c.Assert(err, IsNil)
+	c.Check(insts, HasLen, 0)
 
-	// check there are no duplicate instance ids
-	for _, inst := range insts {
-		id := inst.Id()
-		c.Assert(names[id], IsNil)
-		names[id] = inst
-	}
-
-	inst, err := t.env.StartInstance(0)
+	inst, err := t.Env.StartInstance(0, InvalidStateInfo)
 	c.Assert(err, IsNil)
 	c.Assert(inst, NotNil)
 	id0 := inst.Id()
 
-	insts, err = t.env.Instances()
+	insts, err = t.Env.Instances([]string{id0, id0})
+	c.Assert(err, IsNil)
+	c.Assert(insts, HasLen, 2)
+	c.Assert(insts[0].Id(), Equals, id0)
+	c.Assert(insts[1].Id(), Equals, id0)
+
+	insts, err = t.Env.Instances([]string{id0, ""})
+	c.Assert(err, Equals, environs.ErrMissingInstance)
+	c.Assert(insts, HasLen, 2)
+	c.Check(insts[0].Id(), Equals, id0)
+	c.Check(insts[1], IsNil)
+
+	err = t.Env.StopInstances([]environs.Instance{inst})
 	c.Assert(err, IsNil)
 
-	// check the new instance is found
-	found := false
-	for _, inst := range insts {
-		if inst.Id() == id0 {
-			c.Assert(found, Equals, false)
-			found = true
-		}
-	}
-	c.Check(found, Equals, true)
-
-	err = t.env.StopInstances([]environs.Instance{inst})
-	c.Assert(err, IsNil)
-
-	insts, err = t.env.Instances()
-	c.Assert(err, IsNil)
-	c.Assert(len(insts), Equals, 0, Bug("instances: %v", insts))
+	insts, err = t.Env.Instances([]string{id0})
+	c.Assert(err, Equals, environs.ErrMissingInstance)
+	c.Assert(insts, HasLen, 0)
 
 	// check the instance is no longer there.
-	found = true
 	for _, inst := range insts {
 		c.Assert(inst.Id(), Not(Equals), id0)
 	}
 }
 
 func (t *LiveTests) TestBootstrap(c *C) {
-	err := t.env.Bootstrap()
+	err := t.Env.Bootstrap()
 	c.Assert(err, IsNil)
 
-	err = t.env.Bootstrap()
+	err = t.Env.Bootstrap()
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
-	err = t.env.Destroy()
+	info, err := t.Env.StateInfo()
+	c.Assert(err, IsNil)
+	c.Assert(info, NotNil)
+	c.Check(info.Addrs, Not(HasLen), 0)
+
+	err = t.Env.Destroy(nil)
 	c.Assert(err, IsNil)
 
 	// check that we can bootstrap after destroy
-	err = t.env.Bootstrap()
+	err = t.Env.Bootstrap()
 	c.Assert(err, IsNil)
 
-	err = t.env.Destroy()
+	err = t.Env.Destroy(nil)
 	c.Assert(err, IsNil)
 }
 
@@ -77,12 +73,15 @@ var contents2 = []byte("goodbye\n\n")
 
 func (t *LiveTests) TestFile(c *C) {
 	name := fmt.Sprint("testfile", time.Now().UnixNano())
-	checkFileDoesNotExist(c, t.env, name)
-	checkPutFile(c, t.env, name, contents)
-	checkFileHasContents(c, t.env, name, contents)
-	checkPutFile(c, t.env, name, contents2) // check that we can overwrite the file
-	checkFileHasContents(c, t.env, name, contents2)
-	err := t.env.RemoveFile(name)
+	checkFileDoesNotExist(c, t.Env, name)
+	checkPutFile(c, t.Env, name, contents)
+	checkFileHasContents(c, t.Env, name, contents)
+	checkPutFile(c, t.Env, name, contents2) // check that we can overwrite the file
+	checkFileHasContents(c, t.Env, name, contents2)
+	err := t.Env.RemoveFile(name)
 	c.Check(err, IsNil)
-	checkFileDoesNotExist(c, t.env, name)
+	checkFileDoesNotExist(c, t.Env, name)
+	// removing a file that does not exist should not be an error.
+	err = t.Env.RemoveFile(name)
+	c.Check(err, IsNil)
 }
