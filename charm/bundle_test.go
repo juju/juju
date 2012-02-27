@@ -33,7 +33,7 @@ func (s *BundleSuite) TestReadBundleWithoutConfig(c *C) {
 
 	// A lacking config.yaml file still causes a proper
 	// Config value to be returned.
-	c.Assert(len(bundle.Config().Options), Equals, 0)
+	c.Assert(bundle.Config().Options, HasLen, 0)
 }
 
 func (s *BundleSuite) TestReadBundleBytes(c *C) {
@@ -156,6 +156,6 @@ func extBundleDir(c *C, dirpath string) (path string) {
 	path = filepath.Join(c.MkDir(), "bundle.charm")
 	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("cd %s; zip --fifo --symlinks -r %s .", dirpath, path))
 	output, err := cmd.CombinedOutput()
-	c.Assert(err, IsNil, Bug("Command output: %s", output))
+	c.Assert(err, IsNil, Commentf("Command output: %s", output))
 	return path
 }
