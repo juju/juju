@@ -11,14 +11,14 @@ type suite struct{}
 var _ = Suite(suite{})
 
 var regenerate = flag.Bool("regenerate-images", false, "regenerate all data in images directory")
-var integration = flag.Bool("i", false, "Enable integration tests")
+var amazon = flag.Bool("amazon", false, "Also run some tests on live Amazon servers")
 
 func TestEC2(t *testing.T) {
 	if *regenerate {
 		regenerateImages(t)
 	}
-	if *integration {
-		registerIntegrationTests()
+	if *amazon {
+		registerAmazonTests()
 	}
 	registerLocalTests()
 	TestingT(t)

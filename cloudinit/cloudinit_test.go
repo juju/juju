@@ -207,7 +207,7 @@ func (S) TestOutput(c *C) {
 		data, err := cfg.Render()
 		c.Assert(err, IsNil)
 		c.Assert(data, NotNil)
-		c.Assert(string(data), Equals, header+t.expect, Bug("test %q output differs", t.name))
+		c.Assert(string(data), Equals, header+t.expect, Commentf("test %q output differs", t.name))
 	}
 }
 

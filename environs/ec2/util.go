@@ -7,18 +7,18 @@ import (
 // this stuff could/should be in the schema package.
 
 // checkerFunc defines a schema.Checker using a function that
-// implemenets scheme.Checker.Coerce.
+// implements scheme.Checker.Coerce.
 type checkerFunc func(v interface{}, path []string) (newv interface{}, err error)
 
 func (f checkerFunc) Coerce(v interface{}, path []string) (newv interface{}, err error) {
 	return f(v, path)
 }
 
-// combineCheckers returns a Checker that checks a value by passing
-// it through the "pipeline" defined by checkers. When
-// the returned checker's Coerce method is called on a value,
-// the value is passed through the first checker in checkers;
-// the resulting value is used as input to the next checker, and so on.
+// combineCheckers returns a Checker that checks a value by passing it
+// through the "pipeline" defined by checkers. When the returned checker's
+// Coerce method is called on a value, the value is passed through the
+// first checker in checkers; the resulting value is used as input to the
+// next checker, and so on.
 func combineCheckers(checkers ...schema.Checker) schema.Checker {
 	f := func(v interface{}, path []string) (newv interface{}, err error) {
 		for _, c := range checkers {

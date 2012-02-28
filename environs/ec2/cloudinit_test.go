@@ -316,6 +316,6 @@ func unindent(s string) string {
 func (cloudinitSuite) TestCloudPolicyToOrigin(c *C) {
 	for i, t := range policyTests {
 		o := policyToOrigin(unindent(t.policy) + "\n")
-		c.Check(o, Equals, t.origin, Bug("test %d", i))
+		c.Check(o, DeepEquals, t.origin, Commentf("test %d", i))
 	}
 }
