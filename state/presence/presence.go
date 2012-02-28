@@ -92,26 +92,30 @@ type node struct {
 // setAlive sets the current values of n.alive and n.timeout, given the
 // content and stat of the zookeeper node (which must exist).
 func (n *node) setAlive(content string, stat *zk.Stat) error {
-	if n.timeout != 0 {
-		// If timeout has already been set, we've already run this function;
-		// and if this function is being run for the not-first time, we can
-		// be confident that the node is either still alive, or newly alive;
-		// ie there's no way it can be dead.
-		n.alive = true
-		return nil
-	}
-	clock := changeNode{n.conn, "/clock", ""}
-	now, err := clock.change()
-	if err != nil {
-		return err
-	}
+	// Always update the timeout (it could change) but check whether this is
+	// the first run of this method.
+	timeoutWasSet := n.timeout != 0
 	period, err := time.ParseDuration(content)
 	if err != nil {
 		return fmt.Errorf("%s is not a valid presence node: %s", n.path, err)
 	}
 	n.timeout = period * 2
-	delay := now.Sub(stat.MTime())
-	n.alive = delay < n.timeout
+	if timeoutWasSet {
+		// If timeout was already set, we've already run this method; and if
+		// this function is being run for the not-first time, we can be
+		// confident that the node is either still alive, or newly alive;
+		// that is, there's no way it can be dead, and there's no need to
+		// check for staleness with the clock node.
+		n.alive = true
+	} else {
+		clock := changeNode{n.conn, "/clock", ""}
+		now, err := clock.change()
+		if err != nil {
+			return err
+		}
+		delay := now.Sub(stat.MTime())
+		n.alive = delay < n.timeout
+	}
 	return nil
 }
 
