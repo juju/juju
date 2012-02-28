@@ -14,8 +14,7 @@ type changeNode struct {
 }
 
 // change sets the zookeeper node's content (creating it if it doesn't exist) and
-// returns the node's new MTime. This allows it to act as an ad-hoc remote clock
-// in addition to its primary purpose of triggering watches on the node.
+// returns the node's new MTime.
 func (n *changeNode) change() (mtime time.Time, err error) {
 	stat, err := n.conn.Set(n.path, n.content, -1)
 	if err == zk.ZNONODE {
@@ -31,47 +30,46 @@ func (n *changeNode) change() (mtime time.Time, err error) {
 	return stat.MTime(), nil
 }
 
-// Pinger continually updates a node in zookeeper when run.
+// Pinger periodically updates a node in zookeeper while it is running.
 type Pinger struct {
-	conn    *zk.Conn
-	target  changeNode
-	period  time.Duration
-	closing chan bool
+	conn     *zk.Conn
+	target   changeNode
+	period   time.Duration
+	stopping chan bool
 }
 
-// run calls change on p.target every p.period nanoseconds until p is closed.
+// run calls change on p.target every p.period nanoseconds until p is stopped.
 func (p *Pinger) run() {
 	for {
 		select {
-		case <-p.closing:
+		case <-p.stopping:
 			return
 		case <-time.After(p.period):
 			_, err := p.target.change()
 			if err != nil {
-				<-p.closing
+				<-p.stopping
 				return
 			}
 		}
 	}
 }
 
-// Close stops updating the node; AliveW watches will not notice any change
+// Stop stops updating the node; AliveW watches will not notice any change
 // until they time out. A final write to the node is triggered to ensure
 // watchers time out as late as possible.
-func (p *Pinger) Close() {
-	p.closing <- true
+func (p *Pinger) Stop() {
+	p.stopping <- true
 	p.target.change()
 }
 
 // Kill stops updating and deletes the node, causing any AliveW watches
 // to observe its departure (almost) immediately.
 func (p *Pinger) Kill() {
-	p.closing <- true
+	p.stopping <- true
 	p.conn.Delete(p.target.path, -1)
 }
 
-// StartPinger creates and returns an active Pinger, refreshing the contents of
-// path every period nanoseconds.
+// StartPinger returns a new Pinger that refreshes the content of path periodically.
 func StartPinger(conn *zk.Conn, path string, period time.Duration) (*Pinger, error) {
 	target := changeNode{conn, path, period.String()}
 	_, err := target.change()
@@ -91,7 +89,33 @@ type node struct {
 	timeout time.Duration
 }
 
-// update sets the current values of n.alive and n.timeout.
+// setAlive sets the current values of n.alive and n.timeout, given the
+// content and stat of the zookeeper node (which must exist).
+func (n *node) setAlive(content string, stat *zk.Stat) error {
+	if n.timeout != 0 {
+		// If timeout has already been set, we've already run this function;
+		// and if this function is being run for the not-first time, we can
+		// be confident that the node is either still alive, or newly alive;
+		// ie there's no way it can be dead.
+		n.alive = true
+		return nil
+	}
+	clock := changeNode{n.conn, "/clock", ""}
+	now, err := clock.change()
+	if err != nil {
+		return err
+	}
+	period, err := time.ParseDuration(content)
+	if err != nil {
+		return fmt.Errorf("%s is not a valid presence node: %s", n.path, err)
+	}
+	n.timeout = period * 2
+	delay := now.Sub(stat.MTime())
+	n.alive = delay < n.timeout
+	return nil
+}
+
+// update reads from ZooKeeper the current values of n.alive and n.timeout.
 func (n *node) update() error {
 	content, stat, err := n.conn.Get(n.path)
 	if err == zk.ZNONODE {
@@ -101,16 +125,17 @@ func (n *node) update() error {
 	} else if err != nil {
 		return err
 	}
-	return n.updateExists(content, stat)
+	return n.setAlive(content, stat)
 }
 
-// updateW sets the current values of n.alive and n.timeout, and returns a
-// zookeeper watch that will be notified of data or existence changes.
+// updateW reads from ZooKeeper the current values of n.alive and n.timeout,
+// and returns a ZooKeeper watch that will be notified of data or existence
+// changes.
 func (n *node) updateW() (<-chan zk.Event, error) {
 	content, stat, watch, err := n.conn.GetW(n.path)
 	if err == zk.ZNONODE {
 		n.alive = false
-		n.timeout = time.Duration(0)
+		n.timeout = 0
 		stat, watch, err = n.conn.ExistsW(n.path)
 		if err != nil {
 			return nil, err
@@ -123,31 +148,12 @@ func (n *node) updateW() (<-chan zk.Event, error) {
 	} else if err != nil {
 		return nil, err
 	}
-	return watch, n.updateExists(content, stat)
-}
-
-// updateExists sets the current values of n.alive and n.timeout, given the
-// content and stat of the zookeeper node (which must exist).
-func (n *node) updateExists(content string, stat *zk.Stat) error {
-	clock := changeNode{n.conn, "/clock", ""}
-	now, err := clock.change()
-	if err != nil {
-		return err
-	}
-	period, err := time.ParseDuration(content)
-	if err != nil {
-		err := fmt.Errorf("%s is not a valid presence node: %s", n.path, err)
-		return err
-	}
-	n.timeout = period * 2
-	delay := now.Sub(stat.MTime())
-	n.alive = delay < n.timeout
-	return nil
+	return watch, n.setAlive(content, stat)
 }
 
 // waitDead sends false to watch when the node is deleted, or when it has
-// not been updated recently enough to still qualify as alive. It should only be
-// called when the node is known to be alive.
+// not been updated recently enough to still qualify as alive. zkWatch must
+// be observing changes on the existent node at n.path.
 func (n *node) waitDead(zkWatch <-chan zk.Event, watch chan bool) {
 	for n.alive {
 		select {
@@ -176,8 +182,8 @@ func (n *node) waitDead(zkWatch <-chan zk.Event, watch chan bool) {
 	watch <- false
 }
 
-// waitAlive sends true to watch when the node is changed or created. It should
-// only be called when the node is known to be dead.
+// waitAlive sends true to watch when the node is changed or created. zkWatch
+// must be observing changes on the nonexistent node at n.path.
 func (n *node) waitAlive(zkWatch <-chan zk.Event, watch chan bool) {
 	for !n.alive {
 		event := <-zkWatch

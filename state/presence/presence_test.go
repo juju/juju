@@ -11,19 +11,6 @@ import (
 
 func Test(t *testing.T) { TestingT(t) }
 
-// waitFor blocks until conn knows that path exists. This is necessary because
-// distinct zk connections don't always have precisely the same view of the data.
-func waitFor(c *C, conn *zookeeper.Conn, path string) {
-	stat, watch, err := conn.ExistsW(path)
-	c.Assert(err, IsNil)
-	if stat != nil {
-		return
-	}
-	// Test code only, local server; if this event *isn't* the node coming into
-	// existence, we'll find out soon enough, and we don't want to stay blocked.
-	<-watch
-}
-
 type PresenceSuite struct {
 	zkServer   *zookeeper.Server
 	zkTestRoot string
@@ -58,7 +45,10 @@ func (s *PresenceSuite) TearDownSuite(c *C) {
 func (s *PresenceSuite) connect(c *C) *zookeeper.Conn {
 	zk, session, err := zookeeper.Dial(s.zkAddr, 15e9)
 	c.Assert(err, IsNil)
-	c.Assert((<-session).Ok(), Equals, true)
+	event := <-session
+	c.Assert(event.Ok(), Equals, true)
+	c.Assert(event.Type, Equals, zookeeper.EVENT_SESSION)
+	c.Assert(event.State, Equals, zookeeper.STATE_CONNECTED)
 	return zk
 }
 
@@ -85,11 +75,9 @@ var (
 )
 
 func assertChange(c *C, watch <-chan bool, expectAlive bool) {
-	t := time.After(longEnough)
 	select {
-	case <-t:
-		c.Log("Liveness change not detected")
-		c.FailNow()
+	case <-time.After(longEnough):
+		c.Fatal("Liveness change not detected")
 	case alive, ok := <-watch:
 		c.Assert(ok, Equals, true)
 		c.Assert(alive, Equals, expectAlive)
@@ -97,24 +85,20 @@ func assertChange(c *C, watch <-chan bool, expectAlive bool) {
 }
 
 func assertClose(c *C, watch <-chan bool) {
-	t := time.After(longEnough)
 	select {
-	case <-t:
-		c.Log("Connection loss not detected")
-		c.FailNow()
+	case <-time.After(longEnough):
+		c.Fatal("Connection loss not detected")
 	case _, ok := <-watch:
 		c.Assert(ok, Equals, false)
 	}
 }
 
 func assertNoChange(c *C, watch <-chan bool) {
-	t := time.After(longEnough)
 	select {
-	case <-t:
+	case <-time.After(longEnough):
 		return
 	case <-watch:
-		c.Log("Unexpected liveness change")
-		c.FailNow()
+		c.Fatal("Unexpected liveness change")
 	}
 }
 
@@ -133,7 +117,7 @@ func (s *PresenceSuite) TestNewPinger(c *C) {
 	// Start a Pinger, and check the watch fires.
 	p, err := presence.StartPinger(s.zkConn, path, period)
 	c.Assert(err, IsNil)
-	defer p.Close()
+	defer p.Stop()
 	assertChange(c, watch, true)
 
 	// Check that Alive agrees.
@@ -170,7 +154,7 @@ func (s *PresenceSuite) TestKillPinger(c *C) {
 	c.Assert(stat, IsNil)
 }
 
-func (s *PresenceSuite) TestClosePinger(c *C) {
+func (s *PresenceSuite) TestStopPinger(c *C) {
 	// Start a Pinger and a watch, and check sanity.
 	p, err := presence.StartPinger(s.zkConn, path, period)
 	c.Assert(err, IsNil)
@@ -179,8 +163,8 @@ func (s *PresenceSuite) TestClosePinger(c *C) {
 	c.Assert(alive, Equals, true)
 	assertNoChange(c, watch)
 
-	// Close the Pinger; check the watch fires and Alive agrees.
-	p.Close()
+	// Stop the Pinger; check the watch fires and Alive agrees.
+	p.Stop()
 	assertChange(c, watch, false)
 	alive, err = presence.Alive(s.zkConn, path)
 	c.Assert(err, IsNil)
@@ -196,7 +180,7 @@ func (s *PresenceSuite) TestWatchDeadnessChange(c *C) {
 	// Create a stale node.
 	p, err := presence.StartPinger(s.zkConn, path, period)
 	c.Assert(err, IsNil)
-	p.Close()
+	p.Stop()
 	time.Sleep(longEnough)
 
 	// Start watching for liveness.
@@ -212,7 +196,7 @@ func (s *PresenceSuite) TestWatchDeadnessChange(c *C) {
 	// Start a new Pinger and check the watch does fire.
 	p, err = presence.StartPinger(s.zkConn, path, period)
 	c.Assert(err, IsNil)
-	defer p.Close()
+	defer p.Stop()
 	assertChange(c, watch, true)
 }
 
@@ -235,11 +219,10 @@ func (s *PresenceSuite) TestDisconnectDeadWatch(c *C) {
 	// Create a target node.
 	p, err := presence.StartPinger(s.zkConn, path, period)
 	c.Assert(err, IsNil)
-	p.Close()
+	p.Stop()
 
 	// Start an alternate connection and ensure the node is stale.
 	altConn := s.connect(c)
-	waitFor(c, altConn, path)
 	time.Sleep(longEnough)
 
 	// Start a watch using the alternate connection.
@@ -267,17 +250,15 @@ func (s *PresenceSuite) TestDisconnectMissingWatch(c *C) {
 }
 
 func (s *PresenceSuite) TestDisconnectAliveWatch(c *C) {
-	c.ExpectFailure("Waiting on gozk change to eliminate occasional panic after Close")
-	c.FailNow()
+	c.Skip("Waiting on gozk change to eliminate occasional panic after Stop")
 
 	// Start a Pinger on the main connection
 	p, err := presence.StartPinger(s.zkConn, path, period)
 	c.Assert(err, IsNil)
-	defer p.Close()
+	defer p.Stop()
 
 	// Start watching on an alternate connection.
 	altConn := s.connect(c)
-	waitFor(c, altConn, path)
 	alive, watch, err := presence.AliveW(altConn, path)
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
@@ -288,17 +269,15 @@ func (s *PresenceSuite) TestDisconnectAliveWatch(c *C) {
 }
 
 func (s *PresenceSuite) TestDisconnectPinger(c *C) {
-	c.ExpectFailure("Waiting on gozk change to eliminate consistent panic after Close")
-	c.FailNow()
+	c.Skip("Waiting on gozk change to eliminate consistent panic after Stop")
 
 	// Start a Pinger on an alternate connection.
 	altConn := s.connect(c)
 	p, err := presence.StartPinger(altConn, path, period)
 	c.Assert(err, IsNil)
-	defer p.Close()
+	defer p.Stop()
 
 	// Watch on the "main" connection.
-	waitFor(c, s.zkConn, path)
 	alive, watch, err := presence.AliveW(s.zkConn, path)
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
