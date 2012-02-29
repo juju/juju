@@ -2,6 +2,7 @@ package charm
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"launchpad.net/goyaml"
@@ -25,14 +26,14 @@ type Relation struct {
 // Meta represents all the known content that may be defined
 // within a charm's metadata.yaml file.
 type Meta struct {
-	Name          string
-	Summary       string
-	Description   string
-	Provides      map[string]Relation
-	Requires      map[string]Relation
-	Peers         map[string]Relation
-	OldRevision   int // Obsolete
-	IsSubordinate bool
+	Name        string
+	Summary     string
+	Description string
+	Provides    map[string]Relation
+	Requires    map[string]Relation
+	Peers       map[string]Relation
+	OldRevision int // Obsolete
+	Subordinate bool
 }
 
 // ReadMeta reads the content of a metadata.yaml file and returns
@@ -65,19 +66,23 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 		// Obsolete
 		meta.OldRevision = int(m["revision"].(int64))
 	}
+	// Subordinate charms must have at least one relation that
+	// has container scope, otherwise they can't relate to the
+	// principal.
 	if subordinate := m["subordinate"]; subordinate != nil {
-		properSubordinate := false
+		valid := false
 		if meta.Requires != nil {
 			for _, relationData := range meta.Requires {
 				if relationData.Scope == ScopeContainer {
-					properSubordinate = true
+					valid = true
+					break
 				}
 			}
 		}
-		if !properSubordinate {
-			return nil, errors.New(meta.Name + " labeled subordinate but lacking scope:container `requires` relation")
+		if !valid {
+			return nil, fmt.Errorf("subordinate charm %q lacks requires relation with container scope", meta.Name)
 		}
-		meta.IsSubordinate = m["subordinate"].(bool)
+		meta.Subordinate = m["subordinate"].(bool)
 	}
 	return
 }
