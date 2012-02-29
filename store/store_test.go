@@ -22,8 +22,14 @@ var _ = Suite(&StoreSuite{})
 
 type StoreSuite struct {
 	MgoSuite
+	HTTPSuite
 	store *store.Store
 	charm *charm.Dir
+}
+
+func (s *StoreSuite) SetUpSuite(c *C) {
+	s.MgoSuite.SetUpSuite(c)
+	s.HTTPSuite.SetUpSuite(c)
 }
 
 func (s *StoreSuite) SetUpTest(c *C) {
@@ -41,6 +47,7 @@ func (s *StoreSuite) SetUpTest(c *C) {
 }
 
 func (s *StoreSuite) TearDownTest(c *C) {
+	s.HTTPSuite.TearDownTest(c)
 	if s.store != nil {
 		s.store.Close()
 	}
