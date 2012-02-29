@@ -32,27 +32,50 @@ func (s *S) TestReadMeta(c *C) {
 	c.Assert(meta.Description, Equals,
 		"This is a longer description which\npotentially contains multiple lines.\n")
 	c.Assert(meta.OldRevision, Equals, 0)
+	c.Assert(meta.Subordinate, Equals, false)
+}
+
+func (s *S) TestSubordinate(c *C) {
+	meta, err := charm.ReadMeta(repoMeta("logging"))
+	c.Assert(err, IsNil)
+	c.Assert(meta.Subordinate, Equals, true)
+}
+
+func (s *S) TestSubordinateWithoutContainerRelation(c *C) {
+	r := repoMeta("dummy")
+	hackYaml := ReadYaml(r)
+	hackYaml["subordinate"] = true
+	_, err := charm.ReadMeta(hackYaml.Reader())
+	c.Assert(err, ErrorMatches, "subordinate charm \"dummy\" lacks requires relation with container scope")
+}
+
+func (s *S) TestScopeConstraint(c *C) {
+	meta, err := charm.ReadMeta(repoMeta("logging"))
+	c.Assert(err, IsNil)
+	c.Assert(meta.Provides["logging-client"].Scope, Equals, charm.ScopeGlobal)
+	c.Assert(meta.Requires["logging-directory"].Scope, Equals, charm.ScopeContainer)
+	c.Assert(meta.Subordinate, Equals, true)
 }
 
 func (s *S) TestParseMetaRelations(c *C) {
 	meta, err := charm.ReadMeta(repoMeta("mysql"))
 	c.Assert(err, IsNil)
-	c.Assert(meta.Provides["server"], Equals, charm.Relation{Interface: "mysql"})
+	c.Assert(meta.Provides["server"], Equals, charm.Relation{Interface: "mysql", Scope: charm.ScopeGlobal})
 	c.Assert(meta.Requires, IsNil)
 	c.Assert(meta.Peers, IsNil)
 
 	meta, err = charm.ReadMeta(repoMeta("riak"))
 	c.Assert(err, IsNil)
-	c.Assert(meta.Provides["endpoint"], Equals, charm.Relation{Interface: "http"})
-	c.Assert(meta.Provides["admin"], Equals, charm.Relation{Interface: "http"})
-	c.Assert(meta.Peers["ring"], Equals, charm.Relation{Interface: "riak", Limit: 1})
+	c.Assert(meta.Provides["endpoint"], Equals, charm.Relation{Interface: "http", Scope: charm.ScopeGlobal})
+	c.Assert(meta.Provides["admin"], Equals, charm.Relation{Interface: "http", Scope: charm.ScopeGlobal})
+	c.Assert(meta.Peers["ring"], Equals, charm.Relation{Interface: "riak", Limit: 1, Scope: charm.ScopeGlobal})
 	c.Assert(meta.Requires, IsNil)
 
 	meta, err = charm.ReadMeta(repoMeta("wordpress"))
 	c.Assert(err, IsNil)
-	c.Assert(meta.Provides["url"], Equals, charm.Relation{Interface: "http"})
-	c.Assert(meta.Requires["db"], Equals, charm.Relation{Interface: "mysql", Limit: 1})
-	c.Assert(meta.Requires["cache"], Equals, charm.Relation{Interface: "varnish", Limit: 2, Optional: true})
+	c.Assert(meta.Provides["url"], Equals, charm.Relation{Interface: "http", Scope: charm.ScopeGlobal})
+	c.Assert(meta.Requires["db"], Equals, charm.Relation{Interface: "mysql", Limit: 1, Scope: charm.ScopeGlobal})
+	c.Assert(meta.Requires["cache"], Equals, charm.Relation{Interface: "varnish", Limit: 2, Optional: true, Scope: charm.ScopeGlobal})
 	c.Assert(meta.Peers, IsNil)
 
 }
@@ -75,20 +98,20 @@ func (s *S) TestIfaceExpander(c *C) {
 	// Shorthand is properly rewritten
 	v, err := e.Coerce("http", path)
 	c.Assert(err, IsNil)
-	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": nil, "optional": false})
+	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": nil, "optional": false, "scope": charm.ScopeGlobal})
 
 	// Defaults are properly applied
 	v, err = e.Coerce(schema.MapType{"interface": "http"}, path)
 	c.Assert(err, IsNil)
-	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": nil, "optional": false})
+	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": nil, "optional": false, "scope": charm.ScopeGlobal})
 
 	v, err = e.Coerce(schema.MapType{"interface": "http", "limit": 2}, path)
 	c.Assert(err, IsNil)
-	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": int64(2), "optional": false})
+	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": int64(2), "optional": false, "scope": charm.ScopeGlobal})
 
 	v, err = e.Coerce(schema.MapType{"interface": "http", "optional": true}, path)
 	c.Assert(err, IsNil)
-	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": nil, "optional": true})
+	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": nil, "optional": true, "scope": charm.ScopeGlobal})
 
 	// Invalid data raises an error.
 	v, err = e.Coerce(42, path)
@@ -104,5 +127,5 @@ func (s *S) TestIfaceExpander(c *C) {
 	e = charm.IfaceExpander(1)
 	v, err = e.Coerce(schema.MapType{"interface": "http"}, path)
 	c.Assert(err, IsNil)
-	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": int64(1), "optional": false})
+	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": int64(1), "optional": false, "scope": charm.ScopeGlobal})
 }
