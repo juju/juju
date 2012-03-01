@@ -36,8 +36,8 @@ func (s *StoreSuite) TestPublishCharmDistro(c *C) {
 	// exist. The redundant update with the known digest should be
 	// ignored, and skip-me isn't a supported branch name so it's
 	// ignored as well.
-	c.Assert(err, HasLen, 1)
-	berr := err.(store.BranchErrors)[0]
+	c.Assert(err, ErrorMatches, `1 branch\(es\) failed to be published`)
+	berr := err.(store.PublishBranchErrors)[0]
 	c.Assert(berr.URL, Equals, "file:///non-existent/~jeff/charms/precise/bad/trunk")
 	c.Assert(berr.Err, ErrorMatches, "(?s).*bzr: ERROR: Not a branch.*")
 

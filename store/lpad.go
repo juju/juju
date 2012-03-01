@@ -1,7 +1,6 @@
 package store
 
 import (
-	"bytes"
 	"fmt"
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/log"
@@ -10,22 +9,15 @@ import (
 	"time"
 )
 
-type BranchError struct {
+type PublishBranchError struct {
 	URL string
 	Err error
 }
 
-type BranchErrors []BranchError
+type PublishBranchErrors []PublishBranchError
 
-func (errs BranchErrors) Error() string {
-	var buf bytes.Buffer
-	for i := range errs {
-		buf.WriteString(errs[i].URL)
-		buf.WriteString(": ")
-		buf.WriteString(errs[i].Err.Error())
-		buf.WriteByte('\n')
-	}
-	return buf.String()
+func (errs PublishBranchErrors) Error() string {
+	return fmt.Sprintf("%d branch(es) failed to be published", len(errs))
 }
 
 // PublishCharmsDistro publishes all branch tips found in
@@ -34,7 +26,7 @@ func (errs BranchErrors) Error() string {
 // apiBase specifies the Launchpad base API URL, such
 // as lpad.Production or lpad.Staging.
 // Errors found while processing one or more branches are
-// all returned as a BranchErrors value.
+// all returned as a PublishBranchErrors value.
 func PublishCharmsDistro(store *Store, apiBase lpad.APIBase) error {
 	oauth := &lpad.OAuth{Anonymous: true, Consumer: "juju"}
 	root, err := lpad.Login(apiBase, oauth)
@@ -50,20 +42,20 @@ func PublishCharmsDistro(store *Store, apiBase lpad.APIBase) error {
 		return err
 	}
 
-	var errs BranchErrors
+	var errs PublishBranchErrors
 	for _, tip := range tips {
 		if !strings.HasSuffix(tip.UniqueName, "/trunk") {
 			continue
 		}
 		burl, curl, err := uniqueNameURLs(tip.UniqueName)
 		if err != nil {
-			errs = append(errs, BranchError{tip.UniqueName, err})
+			errs = append(errs, PublishBranchError{tip.UniqueName, err})
 			log.Printf("error: %v\n", err)
 			continue
 		}
 		log.Printf("----- %s\n", burl)
 		if tip.Revision == "" {
-			errs = append(errs, BranchError{burl, fmt.Errorf("branch has no revisions")})
+			errs = append(errs, PublishBranchError{burl, fmt.Errorf("branch has no revisions")})
 			log.Printf("error: branch has no revisions\n")
 			continue
 		}
@@ -83,7 +75,7 @@ func PublishCharmsDistro(store *Store, apiBase lpad.APIBase) error {
 			continue
 		}
 		if err != nil {
-			errs = append(errs, BranchError{burl, err})
+			errs = append(errs, PublishBranchError{burl, err})
 			log.Printf("error: %v\n", err)
 		}
 	}
