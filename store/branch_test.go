@@ -7,40 +7,41 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/store"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 )
 
-type BranchSuite struct {
-	StoreSuite
-	branch bzrDir
-	urls []*charm.URL
+func (s *StoreSuite) dummyBranch(c *C, suffix string) bzrDir {
+	tmpDir := c.MkDir()
+	if suffix != "" {
+		tmpDir = filepath.Join(tmpDir, suffix)
+		err := os.MkdirAll(tmpDir, 0755)
+		c.Assert(err, IsNil)
+	}
+	branch := bzrDir(tmpDir)
+	branch.init()
+
+	copyCharmDir(branch.path(), s.charm.Path)
+	branch.add()
+	branch.commit("Imported charm.")
+	return branch
 }
 
-var _ = Suite(&BranchSuite{})
-
-func (s *BranchSuite) SetUpTest(c *C) {
-	s.StoreSuite.SetUpTest(c)
-
-	s.branch = bzrDir(c.MkDir())
-	s.branch.init()
-
-	copyCharmDir(s.branch.path(), s.charm.Path)
-	s.branch.add()
-	s.branch.commit("Imported charm.")
-
-	url1 := charm.MustParseURL("cs:~joe/oneiric/dummy")
-	url2 := charm.MustParseURL("cs:oneiric/dummy")
-	s.urls = []*charm.URL{url1, url2}
+var urls = []*charm.URL{
+	charm.MustParseURL("cs:~joe/oneiric/dummy"),
+	charm.MustParseURL("cs:oneiric/dummy"),
 }
 
-func (s *BranchSuite) TestPublish(c *C) {
-	err := store.PublishBazaarBranch(s.store, s.urls, s.branch.path(), "wrong-rev")
+func (s *StoreSuite) TestPublish(c *C) {
+	branch := s.dummyBranch(c, "")
+
+	err := store.PublishBazaarBranch(s.store, urls, branch.path(), "wrong-rev")
 	c.Assert(err, IsNil)
 
-	for _, url := range s.urls {
+	for _, url := range urls {
 		info, rc, err := s.store.OpenCharm(url)
 		c.Assert(err, IsNil)
 		defer rc.Close()
@@ -59,7 +60,7 @@ func (s *BranchSuite) TestPublish(c *C) {
 	// Attempt to publish the same content again while providing the wrong
 	// tip revision. It must pick the real revision from the branch and
 	// note this was previously published.
-	err = store.PublishBazaarBranch(s.store, s.urls, s.branch.path(), "wrong-rev")
+	err = store.PublishBazaarBranch(s.store, urls, branch.path(), "wrong-rev")
 	c.Assert(err, Equals, store.ErrRedundantUpdate)
 
 	// Bump the content revision and lie again about the known tip revision.
@@ -69,17 +70,17 @@ func (s *BranchSuite) TestPublish(c *C) {
 	// publishing was attempted before. This is the mechanism that enables
 	// stopping fast without having to download every single branch. Real
 	// revision is picked in the next scan.
-	digest1 := s.branch.digest()
-	s.branch.change()
-	err = store.PublishBazaarBranch(s.store, s.urls, s.branch.path(), digest1)
+	digest1 := branch.digest()
+	branch.change()
+	err = store.PublishBazaarBranch(s.store, urls, branch.path(), digest1)
 	c.Assert(err, Equals, store.ErrRedundantUpdate)
 
 	// Now allow it to publish the new content by providing an unseen revision.
-	err = store.PublishBazaarBranch(s.store, s.urls, s.branch.path(), "wrong-rev")
+	err = store.PublishBazaarBranch(s.store, urls, branch.path(), "wrong-rev")
 	c.Assert(err, IsNil)
-	digest2 := s.branch.digest()
+	digest2 := branch.digest()
 
-	info, err := s.store.CharmInfo(s.urls[0])
+	info, err := s.store.CharmInfo(urls[0])
 	c.Assert(err, IsNil)
 	c.Assert(info.Revision(), Equals, 1)
 	c.Assert(info.Meta().Name, Equals, "dummy")
@@ -87,10 +88,10 @@ func (s *BranchSuite) TestPublish(c *C) {
 	// There are two events published, for each of the successful attempts.
 	// The failures are ignored given that they are artifacts of the
 	// publishing mechanism rather than actual problems.
-	_, err = s.store.CharmEvent(s.urls[0], "wrong-rev")
+	_, err = s.store.CharmEvent(urls[0], "wrong-rev")
 	c.Assert(err, Equals, store.ErrNotFound)
 	for i, digest := range []string{digest1, digest2} {
-		event, err := s.store.CharmEvent(s.urls[0], digest)
+		event, err := s.store.CharmEvent(urls[0], digest)
 		c.Assert(err, IsNil)
 		c.Assert(event.Kind, Equals, store.EventPublished)
 		c.Assert(event.Revision, Equals, i)
@@ -99,18 +100,20 @@ func (s *BranchSuite) TestPublish(c *C) {
 	}
 }
 
-func (s *BranchSuite) TestPublishError(c *C) {
+func (s *StoreSuite) TestPublishError(c *C) {
+	branch := s.dummyBranch(c, "")
+
 	// Corrupt the charm.
-	s.branch.remove("metadata.yaml")
-	s.branch.commit("Removed metadata.yaml.")
+	branch.remove("metadata.yaml")
+	branch.commit("Removed metadata.yaml.")
 
 	// Attempt to publish the erroneous content.
-	err := store.PublishBazaarBranch(s.store, s.urls, s.branch.path(), "wrong-rev")
+	err := store.PublishBazaarBranch(s.store, urls, branch.path(), "wrong-rev")
 	c.Assert(err, ErrorMatches, ".*/metadata.yaml: no such file or directory")
 
 	// The event should be logged as well, since this was an error in the charm
 	// that won't go away and must be communicated to the author.
-	event, err := s.store.CharmEvent(s.urls[0], s.branch.digest())
+	event, err := s.store.CharmEvent(urls[0], branch.digest())
 	c.Assert(err, IsNil)
 	c.Assert(event.Kind, Equals, store.EventPublishError)
 	c.Assert(event.Revision, Equals, 0)
