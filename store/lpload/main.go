@@ -28,10 +28,10 @@ func load() error {
 	}
 	defer s.Close()
 	err = store.PublishCharmsDistro(s, lpad.Production)
-	if _, ok := err.(store.PublishBranchErrors); !ok {
+	if _, ok := err.(store.PublishBranchErrors); ok {
 		// Ignore branch errors since they're commonplace here.
 		// They're logged, though.
-		return err
+		return nil
 	}
-	return nil
+	return err
 }
