@@ -486,7 +486,19 @@ type CharmEventKind int
 const (
 	EventPublished CharmEventKind = iota + 1
 	EventPublishError
+
+	EventKindCount
 )
+
+func (k CharmEventKind) String() string {
+	switch k {
+	case EventPublished:
+		return "published"
+	case EventPublishError:
+		return "publish-error"
+	}
+	panic("unreachable")
+}
 
 // CharmEvent is a record for an event relating to one or more charm URLs.
 type CharmEvent struct {

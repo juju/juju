@@ -19,6 +19,7 @@ func Test(t *testing.T) {
 }
 
 var _ = Suite(&StoreSuite{})
+var _ = Suite(&TrivialSuite{})
 
 type StoreSuite struct {
 	MgoSuite
@@ -26,6 +27,8 @@ type StoreSuite struct {
 	store *store.Store
 	charm *charm.Dir
 }
+
+type TrivialSuite struct{}
 
 func (s *StoreSuite) SetUpSuite(c *C) {
 	s.MgoSuite.SetUpSuite(c)
@@ -433,4 +436,14 @@ func (s *StoreSuite) TestLogCharmEvent(c *C) {
 	event, err = s.store.CharmEvent(urls[1], "revKeyX")
 	c.Assert(err, Equals, store.ErrNotFound)
 	c.Assert(event, IsNil)
+}
+
+func (s *TrivialSuite) TestEventString(c *C) {
+	c.Assert(store.EventPublished, Matches, "published")
+	c.Assert(store.EventPublishError, Matches, "publish-error")
+	for kind := store.CharmEventKind(1); kind < store.EventKindCount; kind++ {
+		// This guarantees the switch in String is properly
+		// updated with new event kinds.
+		c.Assert(kind.String(), Matches, "[a-z-]+")
+	}
 }
