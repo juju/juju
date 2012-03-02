@@ -497,7 +497,7 @@ func (k CharmEventKind) String() string {
 	case EventPublishError:
 		return "publish-error"
 	}
-	panic("unreachable")
+	panic(fmt.Errorf("unknown charm event kind %d", k))
 }
 
 // CharmEvent is a record for an event relating to one or more charm URLs.
