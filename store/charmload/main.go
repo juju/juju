@@ -7,6 +7,7 @@ import (
 	"launchpad.net/lpad"
 	stdlog "log"
 	"os"
+	"path/filepath"
 )
 
 func main() {
@@ -20,7 +21,7 @@ func main() {
 
 func load() error {
 	if len(os.Args) != 2 || len(os.Args[1]) == 0 || os.Args[1][0] == '-' {
-		return fmt.Errorf("usage: lpload <mongo addr>")
+		return fmt.Errorf("usage: %s <mongo addr>", filepath.Base(os.Args[0]))
 	}
 	s, err := store.Open(os.Args[1])
 	if err != nil {

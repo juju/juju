@@ -7,6 +7,7 @@ import (
 	stdlog "log"
 	"net/http"
 	"os"
+	"path/filepath"
 )
 
 func main() {
@@ -24,7 +25,7 @@ func goodArg(arg string) bool {
 
 func serve() error {
 	if len(os.Args) != 3 || !goodArg(os.Args[1]) || !goodArg(os.Args[2]) {
-		return fmt.Errorf("usage: csapi <mongo addr> <http addr>")
+		return fmt.Errorf("usage: %s <mongo addr> <http addr>", filepath.Base(os.Args[0]))
 	}
 	s, err := store.Open(os.Args[1])
 	if err != nil {
