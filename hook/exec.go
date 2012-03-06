@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-// JUJUC_PATH probably shouldn't just be hardcoded here, but I wasn't sure
+// JUJUC_PATH probably shouldn't just be hardcoded here, but I'm not sure
 // where else it ought to come from at this stage...
 var JUJUC_PATH = "/usr/bin/jujuc"
 
@@ -27,8 +27,8 @@ type Env struct {
 	Vars      map[string]string
 }
 
-// environ returns the environment variables required to execute the hook
-// defined by env and cs, expressed as an os.Environ-style []string.
+// environ returns the environment variables required to execute a hook in a
+// context defined by env and cs, expressed as an os.Environ-style []string.
 func (env *Env) environ(cs *cmdSet) []string {
 	path := fmt.Sprintf("%s:%s", cs.path, os.Getenv("PATH"))
 	path = strings.Trim(path, ":")
