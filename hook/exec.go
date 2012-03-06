@@ -5,19 +5,21 @@ package hook
 import (
 	"fmt"
 	"io/ioutil"
+	"launchpad.net/juju/go/cmd"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // JUJUC_PATH probably shouldn't just be hardcoded here, but I wasn't sure
 // where else it ought to come from at this stage...
 var JUJUC_PATH = "/usr/bin/jujuc"
 
-// Info holds the values of the environment variables that are always expected
+// Env holds the values of the environment variables that are always expected
 // in a hook execution environment, and a map[string]string for any additional
-// vars that may be expected (for example, JUJU_RELATION).
-type Info struct {
+// vars that may be expected in a particular context (such as JUJU_RELATION).
+type Env struct {
 	ClientId  string
 	AgentSock string
 	CharmDir  string
@@ -25,62 +27,22 @@ type Info struct {
 	Vars      map[string]string
 }
 
-// Context exposes information about a particular hook execution context, and
-// what Commands it makes available to that hook.
-type Context interface {
-	Info() *Info
-	Interface() []string
-}
-
-// cmdSet is responsible for generating symlinks to jujuc for use by a
-// particular hook, and for deleting them afterwards.
-type cmdSet struct {
-	path string
-}
-
-// newCmdSet creates a temporary directory containing symlinks to jujuc.
-func newCmdSet(names []string) (cs *cmdSet, err error) {
-	path, err := ioutil.TempDir("", "juju-cmdset-")
-	if err != nil {
-		return
-	}
-	defer func() {
-		if err != nil {
-			os.RemoveAll(path)
-		}
-	}()
-	for _, name := range names {
-		err = os.Symlink(JUJUC_PATH, filepath.Join(path, name))
-		if err != nil {
-			return
-		}
-	}
-	return &cmdSet{path}, nil
-}
-
-// delete deletes the cmdSet's symlinks dir.
-func (cs *cmdSet) delete() {
-	os.RemoveAll(cs.path)
-}
-
 // environ returns the environment variables required to execute the hook
-// defined by info and cs, expressed as an os.Environ-style []string.
-func environ(info *Info, cs *cmdSet) []string {
-	path := os.Getenv("PATH")
-	if cs.path != "" {
-		path = fmt.Sprintf("%s:%s", cs.path, path)
-	}
+// defined by env and cs, expressed as an os.Environ-style []string.
+func (env *Env) environ(cs *cmdSet) []string {
+	path := fmt.Sprintf("%s:%s", cs.path, os.Getenv("PATH"))
+	path = strings.Trim(path, ":")
 	vars := map[string]string{
 		"DEBIAN_FRONTEND":          "noninteractive",
 		"APT_LISTCHANGES_FRONTEND": "none",
-		"JUJU_CLIENT_ID":           info.ClientId,
-		"JUJU_AGENT_SOCKET":        info.AgentSock,
-		"JUJU_UNIT_NAME":           info.UnitName,
-		"CHARM_DIR":                info.CharmDir,
+		"JUJU_CLIENT_ID":           env.ClientId,
+		"JUJU_AGENT_SOCKET":        env.AgentSock,
+		"JUJU_UNIT_NAME":           env.UnitName,
+		"CHARM_DIR":                env.CharmDir,
 		"PATH":                     path,
 	}
-	if info.Vars != nil {
-		for k, v := range info.Vars {
+	if env.Vars != nil {
+		for k, v := range env.Vars {
 			vars[k] = v
 		}
 	}
@@ -93,11 +55,49 @@ func environ(info *Info, cs *cmdSet) []string {
 	return result
 }
 
+// Context exposes information about a particular hook execution context, and
+// what commands it makes available to that hook.
+type Context interface {
+	Env() *Env
+	Commands() []cmd.Command
+}
+
+// cmdSet is responsible for generating symlinks to jujuc for use by a
+// particular hook, and for deleting them afterwards.
+type cmdSet struct {
+	path string
+}
+
+// newCmdSet creates a temporary directory containing symlinks to jujuc.
+func newCmdSet(cmds []cmd.Command) (cs *cmdSet, err error) {
+	path, err := ioutil.TempDir("", "juju-cmdset-")
+	if err != nil {
+		return
+	}
+	defer func() {
+		if err != nil {
+			os.RemoveAll(path)
+		}
+	}()
+	for _, c := range cmds {
+		err = os.Symlink(JUJUC_PATH, filepath.Join(path, c.Info().Name))
+		if err != nil {
+			return
+		}
+	}
+	return &cmdSet{path}, nil
+}
+
+// delete deletes the cmdSet's symlinks dir.
+func (cs *cmdSet) delete() {
+	os.RemoveAll(cs.path)
+}
+
 // Exec executes the named hook in the environment defined by ctx (or silently
 // returns if the hook doesn't exist).
 func Exec(ctx Context, hookName string) error {
-	info := ctx.Info()
-	path := filepath.Join(info.CharmDir, "hooks", hookName)
+	env := ctx.Env()
+	path := filepath.Join(env.CharmDir, "hooks", hookName)
 	stat, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -109,13 +109,13 @@ func Exec(ctx Context, hookName string) error {
 	if stat.Mode()&0500 != 0500 {
 		return fmt.Errorf("hook is not executable: %s", path)
 	}
-	cs, err := newCmdSet(ctx.Interface())
+	cs, err := newCmdSet(ctx.Commands())
 	if err != nil {
 		return err
 	}
 	defer cs.delete()
 	ps := exec.Command(path)
-	ps.Dir = info.CharmDir
-	ps.Env = environ(info, cs)
+	ps.Dir = env.CharmDir
+	ps.Env = env.environ(cs)
 	return ps.Run()
 }

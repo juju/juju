@@ -3,7 +3,9 @@ package hook_test
 import (
 	"fmt"
 	"io/ioutil"
+	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju/go/cmd"
 	"launchpad.net/juju/go/hook"
 	"os"
 	"path/filepath"
@@ -13,20 +15,42 @@ import (
 
 func Test(t *testing.T) { TestingT(t) }
 
+type NilCmd struct {
+	name string
+}
+
+func (c *NilCmd) Info() *cmd.Info {
+	return &cmd.Info{Name: c.name}
+}
+
+func (c *NilCmd) InitFlagSet(f *gnuflag.FlagSet) {
+	panic("unreachable")
+}
+func (c *NilCmd) ParsePositional(args []string) error {
+	panic("unreachable")
+}
+func (c *NilCmd) Run() error {
+	panic("unreachable")
+}
+
 type TestContext struct {
 	charmDir string
 	names    []string
 	vars     map[string]string
 }
 
-func (c *TestContext) Info() *hook.Info {
-	return &hook.Info{
+func (c *TestContext) Env() *hook.Env {
+	return &hook.Env{
 		"client-id", "/path/to/socket", c.charmDir, "minecraft/0", c.vars,
 	}
 }
 
-func (c *TestContext) Interface() []string {
-	return c.names
+func (c *TestContext) Commands() []cmd.Command {
+	cmds := make([]cmd.Command, len(c.names))
+	for i, name := range c.names {
+		cmds[i] = &NilCmd{name}
+	}
+	return cmds
 }
 
 type ExecSuite struct {
