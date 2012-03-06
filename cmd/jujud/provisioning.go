@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"launchpad.net/juju/go/cmd"
+)
 
 // ProvisioningAgent is a cmd.Command responsible for running a provisioning agent.
 type ProvisioningAgent struct {
@@ -12,6 +15,6 @@ func NewProvisioningAgent() *ProvisioningAgent {
 }
 
 // Run runs a provisioning agent.
-func (a *ProvisioningAgent) Run() error {
+func (a *ProvisioningAgent) Run(ctx *cmd.Context) error {
 	return fmt.Errorf("MachineAgent.Run not implemented")
 }

@@ -36,7 +36,7 @@ func (c *BootstrapCommand) ParsePositional(args []string) error {
 
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists.
-func (c *BootstrapCommand) Run() error {
+func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConn(c.Environment)
 	if err != nil {
 		return err
