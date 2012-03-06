@@ -20,7 +20,7 @@ var JUJUC_PATH = "/usr/bin/jujuc"
 // in a hook execution environment, and a map[string]string for any additional
 // vars that may be expected in a particular context (such as JUJU_RELATION).
 type Env struct {
-	ClientId  string
+	ContextId string
 	AgentSock string
 	CharmDir  string
 	UnitName  string
@@ -35,7 +35,7 @@ func (env *Env) environ(cs *cmdSet) []string {
 	vars := map[string]string{
 		"DEBIAN_FRONTEND":          "noninteractive",
 		"APT_LISTCHANGES_FRONTEND": "none",
-		"JUJU_CLIENT_ID":           env.ClientId,
+		"JUJU_CONTEXT_ID":          env.ContextId,
 		"JUJU_AGENT_SOCKET":        env.AgentSock,
 		"JUJU_UNIT_NAME":           env.UnitName,
 		"CHARM_DIR":                env.CharmDir,

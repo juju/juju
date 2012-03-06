@@ -41,7 +41,7 @@ type TestContext struct {
 
 func (c *TestContext) Env() *hook.Env {
 	return &hook.Env{
-		"client-id", "/path/to/socket", c.charmDir, "minecraft/0", c.vars,
+		"ctx-id", "/path/to/socket", c.charmDir, "minecraft/0", c.vars,
 	}
 }
 
@@ -142,7 +142,7 @@ func (s *ExecSuite) AssertCalls(c *C, calls []string, env map[string]string) {
 		AssertCall(c, lines[0], calls[i])
 		AssertEnv(c, lines[1:], env)
 		AssertEnv(c, lines[1:], map[string]string{
-			"JUJU_CLIENT_ID":           "client-id",
+			"JUJU_CONTEXT_ID":          "ctx-id",
 			"JUJU_AGENT_SOCKET":        "/path/to/socket",
 			"JUJU_UNIT_NAME":           "minecraft/0",
 			"DEBIAN_FRONTEND":          "noninteractive",
