@@ -42,6 +42,10 @@ type responseCharm struct {
 }
 
 func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/charm-info" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 	r.ParseForm()
 	response := map[string]*responseCharm{}
 	for _, url := range r.Form["charms"] {

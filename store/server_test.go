@@ -52,3 +52,15 @@ func (s *StoreSuite) TestServerCharmInfo(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(obtained, DeepEquals, expected)
 }
+
+func (s *StoreSuite) TestServer404(c *C) {
+	server, err := store.NewServer(s.store)
+	c.Assert(err, IsNil)
+	for _, path := range []string{"/charm-info/foo"} {
+		req, err := http.NewRequest("GET", path, nil)
+		c.Assert(err, IsNil)
+		rec := httptest.NewRecorder()
+		server.ServeHTTP(rec, req)
+		c.Assert(rec.Code, Equals, 404)
+	}
+}
