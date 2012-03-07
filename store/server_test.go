@@ -42,6 +42,7 @@ func (s *StoreSuite) TestServerCharmInfo(c *C) {
 	err = json.NewDecoder(rec.Body).Decode(&obtained)
 	c.Assert(err, IsNil)
 	c.Assert(obtained, DeepEquals, expected)
+	c.Assert(rec.Header().Get("Content-Type"), Equals, "application/json")
 
 	// Now check an error condition.
 	req.Form["charms"] = []string{"cs:bad"}
@@ -69,6 +70,8 @@ func (s *StoreSuite) TestCharmStreaming(c *C) {
 
 	data, err := ioutil.ReadAll(rec.Body)
 	c.Assert(string(data), Equals, "charm-revision-0")
+
+	c.Assert(rec.Header().Get("Content-Type"), Equals, "application/octet-stream")
 }
 
 func (s *StoreSuite) TestServer404(c *C) {
