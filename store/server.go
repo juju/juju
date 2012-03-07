@@ -2,13 +2,15 @@ package store
 
 import (
 	"encoding/json"
+	"io"
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/log"
 	"net/http"
+	"strings"
 )
 
 // Server is an http.Handler that serves the HTTP API of juju
-// so that juju clients can consume published charms.
+// so that juju clients can retrieve published charms.
 type Server struct {
 	store *Store
 	mux   *http.ServeMux
@@ -22,6 +24,9 @@ func NewServer(store *Store) (*Server, error) {
 	}
 	s.mux.HandleFunc("/charm-info", func(w http.ResponseWriter, r *http.Request) {
 		s.serveInfo(w, r)
+	})
+	s.mux.HandleFunc("/charm/", func(w http.ResponseWriter, r *http.Request) {
+		s.serveCharm(w, r)
 	})
 	return s, nil
 }
@@ -72,5 +77,33 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 		log.Printf("can't write content: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
+	}
+}
+
+func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
+	if !strings.HasPrefix(r.URL.Path, "/charm/") {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	curl, err := charm.ParseURL("cs:" + r.URL.Path[len("/charm/"):])
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	_, rc, err := s.store.OpenCharm(curl)
+	if err == ErrNotFound {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Printf("can't open charm %q: %v", curl, err)
+		return
+	}
+	defer rc.Close()
+	w.Header()["Content-Type"] = []string{"application/octet-stream"}
+	_, err = io.Copy(w, rc)
+	if err != nil {
+		log.Printf("failed to stream charm %q: %v", curl, err)
 	}
 }
