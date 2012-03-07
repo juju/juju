@@ -70,7 +70,7 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	data, err := json.Marshal(response)
 	if err == nil {
-		w.Header()["Content-Type"] = []string{"application/json"}
+		w.Header().Set("Content-Type", "application/json")
 		_, err = w.Write(data)
 	}
 	if err != nil {
@@ -82,8 +82,7 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(r.URL.Path, "/charm/") {
-		w.WriteHeader(http.StatusNotFound)
-		return
+		panic("serveCharm: bad url")
 	}
 	curl, err := charm.ParseURL("cs:" + r.URL.Path[len("/charm/"):])
 	if err != nil {
@@ -101,7 +100,7 @@ func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rc.Close()
-	w.Header()["Content-Type"] = []string{"application/octet-stream"}
+	w.Header().Set("Content-Type", "application/octet-stream")
 	_, err = io.Copy(w, rc)
 	if err != nil {
 		log.Printf("failed to stream charm %q: %v", curl, err)
