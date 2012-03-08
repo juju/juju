@@ -50,8 +50,8 @@ func oneOf(values ...interface{}) schema.Checker {
 // release a security group after termination).
 // 
 type attemptStrategy struct {
-	total time.Duration		// total duration of attempt.
-	delay time.Duration		// interval between each try in the burst.
+	total time.Duration // total duration of attempt.
+	delay time.Duration // interval between each try in the burst.
 }
 
 type attempt struct {

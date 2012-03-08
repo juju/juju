@@ -47,8 +47,8 @@ func registerAmazonTests() {
 	for _, name := range envs.Names() {
 		Suite(&LiveTests{
 			jujutest.LiveTests{
-				Environs: envs,
-				Name:     name,
+				Environs:         envs,
+				Name:             name,
 				ConsistencyDelay: 5 * time.Second,
 			},
 		})

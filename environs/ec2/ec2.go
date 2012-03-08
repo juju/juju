@@ -22,8 +22,8 @@ var shortAttempt = attemptStrategy{
 }
 
 var longAttempt = attemptStrategy{
-	total:  3 * time.Minute,
-	delay:  5 * time.Second,
+	total: 3 * time.Minute,
+	delay: 5 * time.Second,
 }
 
 func init() {
@@ -507,4 +507,3 @@ func ec2ErrCode(err error) string {
 	}
 	return ec2err.Code
 }
-
