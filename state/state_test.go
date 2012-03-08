@@ -9,7 +9,7 @@ import (
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/state"
-	"launchpad.net/juju/go/testutil"
+	stdtesting "launchpad.net/juju/go/testing"
 	"net/url"
 	"path/filepath"
 	"testing"
@@ -17,7 +17,10 @@ import (
 
 // TestPackage integrates the tests into gotest.
 func TestPackage(t *testing.T) {
-	testutil.ZkTestingT(t, &state.ZkAddr)
+	srv := stdtesting.StartZkServer(t)
+	defer srv.Destroy()
+	state.ZkAddr = srv.Addr()
+	TestingT(t)
 }
 
 // charmDir returns a directory containing the given test charm.
