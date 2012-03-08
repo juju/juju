@@ -9,6 +9,7 @@ import (
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/state"
+	"launchpad.net/juju/go/testutil"
 	"net/url"
 	"path/filepath"
 	"testing"
@@ -16,10 +17,7 @@ import (
 
 // TestPackage integrates the tests into gotest.
 func TestPackage(t *testing.T) {
-	srv, dir := state.ZkSetUpEnvironment(t)
-	defer state.ZkTearDownEnvironment(t, srv, dir)
-
-	TestingT(t)
+	testutil.ZkTestingT(t, &state.ZkAddr)
 }
 
 // charmDir returns a directory containing the given test charm.
@@ -601,7 +599,7 @@ func (s StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 	// Create machine 0, that shouldn't be used.
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
-	// Check that assigning without unused machine fails.	
+	// Check that assigning without unused machine fails.   
 	dummy, _ := addDummyCharm(c, s.st)
 	mysqlService, err := s.st.AddService("mysql", dummy)
 	c.Assert(err, IsNil)
