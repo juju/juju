@@ -90,7 +90,8 @@ type node struct {
 }
 
 // setState sets the current values of n.alive and n.timeout, given the
-// content and stat of the zookeeper node (which must exist).
+// content and stat of the zookeeper node (which must exist). firstTime
+// should be true iff n.setState has not already been called.
 func (n *node) setState(content string, stat *zk.Stat, firstTime bool) error {
 	// Always check and reset timeout; it could change.
 	period, err := time.ParseDuration(content)
@@ -107,10 +108,9 @@ func (n *node) setState(content string, stat *zk.Stat, firstTime bool) error {
 		delay := now.Sub(stat.MTime())
 		n.alive = delay < n.timeout
 	} else {
-		// If this method is being run for the not-first time, we can be
-		// confident that the node is either still alive, or newly alive;
-		// that is, there's no way it can be dead, and there's no need to
-		// check for staleness with the clock node.
+		// If this method is not being run for the first time, we know that
+		// the node has just changed, so we know that it's alive and there's
+		// no need to check for staleness with the clock node.
 		n.alive = true
 	}
 	return nil
@@ -121,7 +121,7 @@ func (n *node) update() error {
 	content, stat, err := n.conn.Get(n.path)
 	if err == zk.ZNONODE {
 		n.alive = false
-		n.timeout = time.Duration(0)
+		n.timeout = 0
 		return nil
 	} else if err != nil {
 		return err
@@ -131,7 +131,7 @@ func (n *node) update() error {
 
 // updateW reads from ZooKeeper the current values of n.alive and n.timeout,
 // and returns a ZooKeeper watch that will be notified of data or existence
-// changes.
+// changes. firstTime should be true iff n.updateW has not already been called.
 func (n *node) updateW(firstTime bool) (<-chan zk.Event, error) {
 	content, stat, watch, err := n.conn.GetW(n.path)
 	if err == zk.ZNONODE {
@@ -184,7 +184,7 @@ func (n *node) waitDead(zkWatch <-chan zk.Event, watch chan bool) {
 }
 
 // waitAlive sends true to watch when the node is changed or created. zkWatch
-// must be observing changes on the nonexistent node at n.path.
+// must be observing changes on the stale/nonexistent node at n.path.
 func (n *node) waitAlive(zkWatch <-chan zk.Event, watch chan bool) {
 	for !n.alive {
 		event := <-zkWatch
