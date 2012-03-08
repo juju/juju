@@ -49,46 +49,33 @@ func oneOf(values ...interface{}) schema.Checker {
 // a slow state transition (for instance an instance taking a while to
 // release a security group after termination).
 // 
-// An attempt covers both angles by sending an initial burst of attempts
-// at relatively high frequency, then polling at low frequency until some
-// total time is reached.
-// 
-type attempt struct {
-	burstTotal time.Duration // total duration of burst.
-	burstDelay time.Duration // interval between each try in the burst.
-
-	longTotal time.Duration // total duration for attempt after burst.
-	longDelay time.Duration // interval between each try after initial burst.
+type attemptStrategy struct {
+	total time.Duration		// total duration of attempt.
+	delay time.Duration		// interval between each try in the burst.
 }
 
-// do calls the given function until it succeeds or returns an error such that
-// isTransient is false or the attempt times out.
-func (a attempt) do(isTransient func(error) bool, f func() error) (err error) {
-	start := time.Now()
-	// try returns true if do should return.
-	try := func(end time.Time, delay time.Duration) bool {
-		for time.Now().Before(end) {
-			err = f()
-			if err == nil || !isTransient(err) {
-				return true
-			}
-			time.Sleep(delay)
-		}
+type attempt struct {
+	attemptStrategy
+	end time.Time
+}
+
+func (a attemptStrategy) start() *attempt {
+	return &attempt{
+		attemptStrategy: a,
+	}
+}
+
+func (a *attempt) next() bool {
+	now := time.Now()
+	// we always make at least one attempt.
+	if a.end.IsZero() {
+		a.end = now.Add(a.total)
+		return true
+	}
+
+	if !now.Add(a.delay).Before(a.end) {
 		return false
 	}
-	if try(start.Add(a.burstTotal), a.burstDelay) {
-		return
-	}
-	if try(start.Add(a.burstTotal+a.longTotal), a.longDelay) {
-		return
-	}
-	return
-}
-
-// hasCode returns a function that returns true if the provided error has
-// the given ec2 error code.
-func hasCode(code string) func(error) bool {
-	return func(err error) bool {
-		return ec2ErrCode(err) == code
-	}
+	time.Sleep(a.delay)
+	return true
 }

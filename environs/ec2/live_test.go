@@ -2,7 +2,6 @@ package ec2_test
 
 import (
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"io"
 	amzec2 "launchpad.net/goamz/ec2"
@@ -212,19 +211,23 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	c.Check(err, IsNil)
 
 	var insts []environs.Instance
-	errSuccess := errors.New("unexpected success")
-	err = ec2.ShortDo(func(err error) bool {
-			return err == errSuccess
-		}, func()error {
-			var err error
-			insts, err = t.Env.Instances([]string{inst0.Id(), inst2.Id()})
-			if err == nil {
-				err = errSuccess
-			}
-			return err
-		})
-	c.Check(err, Equals, environs.ErrMissingInstance)
-	c.Check(insts, HasLen, 0)
+
+	gone := false
+	for a := ec2.ShortAttempt.Start(); a.Next(); {
+		insts, err = t.Env.Instances([]string{inst0.Id(), inst2.Id()})
+		if len(insts) > 0 {
+			// instances not gone yet.
+			continue
+		}
+		if err == environs.ErrMissingInstance {
+			gone = true
+			break
+		}
+		c.Fatalf("error getting instances: %v", err)
+	}
+	if !gone {
+		c.Errorf("after termination, instances remaining: %v", insts)
+	}
 }
 
 // createGroup creates a new EC2 group and returns it. If it already exists,

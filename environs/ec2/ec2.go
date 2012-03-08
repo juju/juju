@@ -1,7 +1,6 @@
 package ec2
 
 import (
-	"errors"
 	"fmt"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
@@ -17,16 +16,14 @@ var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
 
 const maxReqs = 20 // maximum concurrent ec2 requests
 
-var shortAttempt = attempt{
-	burstTotal: 5 * time.Second,
-	burstDelay: 200 * time.Millisecond,
+var shortAttempt = attemptStrategy{
+	total: 5 * time.Second,
+	delay: 200 * time.Millisecond,
 }
 
-var longAttempt = attempt{
-	burstTotal: 5 * time.Second,
-	burstDelay: 200 * time.Millisecond,
-	longTotal:  3 * time.Minute,
-	longDelay:  5 * time.Second,
+var longAttempt = attemptStrategy{
+	total:  3 * time.Minute,
+	delay:  5 * time.Second,
 }
 
 func init() {
@@ -67,30 +64,28 @@ func (inst *instance) DNSName() (string, error) {
 	if inst.Instance.DNSName != "" {
 		return inst.Instance.DNSName, nil
 	}
-	// The DNS address for an instance takes a while to arrive.
-	noDNS := errors.New("no dns addr")
-	err := longAttempt.do(
-		func(err error) bool {
-			return err == noDNS || err == environs.ErrMissingInstance
-		},
-		func() error {
-			insts, err := inst.e.Instances([]string{inst.Id()})
-			if err != nil {
-				return err
-			}
-			freshInst := insts[0].(*instance).Instance
-			if freshInst.DNSName == "" {
-				return noDNS
-			}
-			inst.Instance.DNSName = freshInst.DNSName
-			return nil
-		},
-	)
-	if err != nil {
-		if err == noDNS {
-			return "", fmt.Errorf("timed out trying to get DNS address", inst.Id())
+
+	var err error
+	for a := longAttempt.start(); a.next(); {
+		var insts []environs.Instance
+		insts, err = inst.e.Instances([]string{inst.Id()})
+		if err == environs.ErrMissingInstance {
+			continue
 		}
+		if err != nil {
+			break
+		}
+		freshInst := insts[0].(*instance).Instance
+		if freshInst.DNSName != "" {
+			inst.Instance.DNSName = freshInst.DNSName
+			break
+		}
+	}
+	if err != nil {
 		return "", fmt.Errorf("cannot find instance %q: %v", inst.Id(), err)
+	}
+	if inst.Instance.DNSName == "" {
+		return "", fmt.Errorf("timed out trying to get DNS address", inst.Id())
 	}
 	return inst.Instance.DNSName, nil
 }
@@ -175,8 +170,8 @@ func (e *environ) startInstance(machineId int, _ *state.Info, master bool) (envi
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
 	var instances *ec2.RunInstancesResp
-	err = shortAttempt.do(hasCode("InvalidGroup.NotFound"), func() error {
-		var err error
+
+	for a := shortAttempt.start(); a.next(); {
 		instances, err = e.ec2.RunInstances(&ec2.RunInstances{
 			ImageId:        image.ImageId,
 			MinCount:       1,
@@ -185,8 +180,10 @@ func (e *environ) startInstance(machineId int, _ *state.Info, master bool) (envi
 			InstanceType:   "m1.small",
 			SecurityGroups: groups,
 		})
-		return err
-	})
+		if err == nil || ec2ErrCode(err) != "InvalidGroup.NotFound" {
+			break
+		}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot run instances: %v", err)
 	}
@@ -258,14 +255,13 @@ func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
 	// Make a series of requests to cope with eventual consistency.
 	// each request should add more instances to the requested
 	// set.
-	err := shortAttempt.do(
-		func(err error) bool {
-			return err == environs.ErrMissingInstance
-		},
-		func() error {
-			return e.gatherInstances(ids, insts)
-		},
-	)
+	var err error
+	for a := shortAttempt.start(); a.next(); {
+		err = e.gatherInstances(ids, insts)
+		if err == nil || err != environs.ErrMissingInstance {
+			break
+		}
+	}
 
 	// If any slot has been filled, we return the insts slice.
 	for _, inst := range insts {
@@ -318,12 +314,12 @@ func (e *environ) terminateInstances(ids []string) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	err := shortAttempt.do(hasCode("InvalidInstanceID.NotFound"), func() error {
-		_, err := e.ec2.TerminateInstances(ids)
-		return err
-	})
-	if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
-		return err
+	var err error
+	for a := shortAttempt.start(); a.next(); {
+		_, err = e.ec2.TerminateInstances(ids)
+		if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
+			return err
+		}
 	}
 	if len(ids) == 1 {
 		return err

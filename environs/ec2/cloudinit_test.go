@@ -118,9 +118,9 @@ func CheckPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
 	}
 	switch {
 	case match && !found:
-		c.Errorf("%q not found in packages", pkg)
+		c.Errorf("package %q not found in %v", pkg, pkgs)
 	case !match && found:
-		c.Errorf("%q found in packages but not expected", pkg)
+		c.Errorf("%q found but not expected in ",pkg, pkgs)
 	}
 }
 
@@ -133,6 +133,8 @@ func (cloudinitSuite) TestCloudInit(c *C) {
 		c.Assert(err, IsNil)
 		c.Check(ci, NotNil)
 
+		c.Logf("newCloudInit returned %#v", ci)
+
 		// render the cloudinit config to bytes, and then
 		// back to a map so we can introspect it without
 		// worrying about internal details of the cloudinit
@@ -140,6 +142,7 @@ func (cloudinitSuite) TestCloudInit(c *C) {
 
 		data, err := ci.Render()
 		c.Assert(err, IsNil)
+		c.Logf("rendered to: %s", data)
 
 		x := make(map[interface{}]interface{})
 		err = goyaml.Unmarshal(data, &x)
