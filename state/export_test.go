@@ -48,3 +48,36 @@ func ZkTearDownEnvironment(t *testing.T, srv *zookeeper.Server, dir string) {
 func ZkConn(st *State) *zookeeper.Conn {
 	return st.zk
 }
+
+// DummyEntity is a helper to test the agent interface and the
+// helper functions to realize it. Those functions are only
+// visible inside the state package.
+type DummyEntity struct {
+	st *State
+}
+
+func NewDummyEntity(st *State) *DummyEntity {
+	return &DummyEntity{st}
+}
+
+func (d *DummyEntity) Key() string {
+	return "key-0000000001"
+}
+
+func (d *DummyEntity) zkAgentPath() string {
+	return fmt.Sprintf("/dummy/%s/agent", d.Key())
+}
+
+func (d *DummyEntity) HasAgent() (bool, error) {
+	return hasAgent(d.st, d.zkAgentPath())
+}
+
+func (d *DummyEntity) WatchAgent() *AgentWatcher {
+	return watchAgent(d.st, d.zkAgentPath())
+}
+
+func (d *DummyEntity) ConnectAgent() error {
+	return connectAgent(d.st, d.zkAgentPath())
+}
+
+var _ = Agent(&DummyEntity{})

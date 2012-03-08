@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju/go/state"
 	"net/url"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -49,6 +50,40 @@ func addDummyCharm(c *C, st *state.State) (*state.Charm, *charm.URL) {
 	dummy, err := st.AddCharm(ch, curl, bundleURL)
 	c.Assert(err, IsNil)
 	return dummy, curl
+}
+
+// zkDeepCreate creates nested complete paths in ZooKeeper.
+func zkDeepCreate(zk *zookeeper.Conn, path string) error {
+	parts := strings.Split(path, "/")
+	if len(parts) == 1 {
+		_, err := zk.Create(path, "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
+		return err
+	}
+	current := ""
+	for i := 1; i < len(parts); i++ {
+		current = current + "/" + parts[i]
+		_, err := zk.Create(current, "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// zkRemoveTree recursively removes a tree.
+func zkRemoveTree(zk *zookeeper.Conn, path string) error {
+	// First recursively delete the children.
+	children, _, err := zk.Children(path)
+	if err != nil {
+		return err
+	}
+	for _, child := range children {
+		if err = zkRemoveTree(zk, fmt.Sprintf("%s/%s", path, child)); err != nil {
+			return err
+		}
+	}
+	// Now delete the path itself.
+	return zk.Delete(path, -1)
 }
 
 type StateSuite struct {
@@ -621,18 +656,104 @@ func (s StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 	c.Assert(err, ErrorMatches, "no unused machine found")
 }
 
-// zkRemoveTree recursively removes a tree.
-func zkRemoveTree(zk *zookeeper.Conn, path string) error {
-	// First recursively delete the children.
-	children, _, err := zk.Children(path)
-	if err != nil {
-		return err
+type AgentSuite struct {
+	zkServer   *zookeeper.Server
+	zkTestRoot string
+	zkTestPort int
+	zkAddr     string
+	zkConn     *zookeeper.Conn
+	st         *state.State
+	path       string
+}
+
+var _ = Suite(&AgentSuite{})
+
+func (s *AgentSuite) SetUpTest(c *C) {
+	// Connect the server.
+	st, err := state.Open(&state.Info{
+		Addrs: []string{state.ZkAddr},
+	})
+	c.Assert(err, IsNil)
+	s.st = st
+	s.zkConn = state.ZkConn(st)
+	// Prepare path for dummy entity.
+	s.path = "/dummy/key-0000000001"
+	zkDeepCreate(s.zkConn, s.path)
+}
+
+func (s *AgentSuite) TearDownTest(c *C) {
+	if s.zkConn != nil {
+		// Delete possible nodes, ignore errors.
+		zkRemoveTree(s.zkConn, "/dummy")
+		s.zkConn.Close()
 	}
-	for _, child := range children {
-		if err = zkRemoveTree(zk, fmt.Sprintf("%s/%s", path, child)); err != nil {
-			return err
-		}
+}
+
+func (s AgentSuite) TestHasAgent(c *C) {
+	d := state.NewDummyEntity(s.st)
+	exists, err := d.HasAgent()
+	c.Assert(err, IsNil)
+	c.Assert(exists, Equals, false)
+
+	err = d.ConnectAgent()
+	c.Assert(err, IsNil)
+
+	exists, err = d.HasAgent()
+	c.Assert(err, IsNil)
+	c.Assert(exists, Equals, true)
+}
+
+func (s AgentSuite) TestWatchAgent(c *C) {
+	d := state.NewDummyEntity(s.st)
+	aw := d.WatchAgent()
+
+	select {
+	case ac := <-aw.Change:
+		// There should be no change yet.
+		c.Fatalf("Illegal agent change fired: %v", ac)
+	default:
 	}
-	// Now delete the path itself.
-	return zk.Delete(path, -1)
+
+	err := d.ConnectAgent()
+	c.Assert(err, IsNil)
+
+	ac := <-aw.Change
+	c.Assert(ac.Err, IsNil)
+	c.Assert(ac.Key, Equals, d.Key())
+	c.Assert(ac.Created, Equals, true)
+
+	zkRemoveTree(s.zkConn, "/dummy")
+
+	ac = <-aw.Change
+	c.Assert(ac.Err, IsNil)
+	c.Assert(ac.Key, Equals, d.Key())
+	c.Assert(ac.Created, Equals, false)
+
+	err = aw.Stop()
+	c.Assert(err, IsNil)
+}
+
+func (s *AgentSuite) TestConnectAgent(c *C) {
+	zkState, watch, err := s.zkConn.ExistsW(s.path + "/agent")
+	c.Assert(err, IsNil)
+	c.Assert(zkState, IsNil)
+
+	d := state.NewDummyEntity(s.st)
+	err = d.ConnectAgent()
+	c.Assert(err, IsNil)
+
+	e := <-watch
+	c.Assert(e.Type, Equals, zookeeper.EVENT_CREATED)
+
+	zkState, watch, err = s.zkConn.ExistsW(s.path + "/agent")
+	c.Assert(err, IsNil)
+	c.Assert(zkState, Not(IsNil))
+
+	// Force close to get a 'closed' event. Differs from Python
+	// client which returns a 'deleted' event.
+	s.zkConn.Close()
+	s.zkConn = nil
+
+	e = <-watch
+	c.Assert(e.Type, Equals, zookeeper.EVENT_CLOSED)
 }
