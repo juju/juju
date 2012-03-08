@@ -133,8 +133,6 @@ func (cloudinitSuite) TestCloudInit(c *C) {
 		c.Assert(err, IsNil)
 		c.Check(ci, NotNil)
 
-		c.Logf("newCloudInit returned %#v", ci)
-
 		// render the cloudinit config to bytes, and then
 		// back to a map so we can introspect it without
 		// worrying about internal details of the cloudinit
@@ -142,13 +140,11 @@ func (cloudinitSuite) TestCloudInit(c *C) {
 
 		data, err := ci.Render()
 		c.Assert(err, IsNil)
-		c.Logf("rendered to: %s", data)
 
 		x := make(map[interface{}]interface{})
 		err = goyaml.Unmarshal(data, &x)
 		c.Assert(err, IsNil)
 
-		c.Logf("result %v", x)
 		t := &cloudinitTest{
 			cfg: &cfg,
 			x:   x,
