@@ -9,15 +9,15 @@ import (
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/state"
-	stdtesting "launchpad.net/juju/go/testing"
+	"launchpad.net/juju/go/testing"
 	"net/url"
 	"path/filepath"
-	"testing"
+	stdtesting "testing"
 )
 
 // TestPackage integrates the tests into gotest.
-func TestPackage(t *testing.T) {
-	srv := stdtesting.StartZkServer(t)
+func TestPackage(t *stdtesting.T) {
+	srv := testing.StartZkServer(t)
 	defer srv.Destroy()
 	state.ZkAddr = srv.Addr()
 	TestingT(t)
