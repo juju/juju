@@ -1,3 +1,9 @@
+// The presence package is intended as a replacement for zookeeper ephemeral
+// nodes; the primary difference is that node timeout is unrelated to session
+// timeout, and this allows us to restart a presence-enabled process "silently"
+// (from the perspective of the rest of the system) without dealing with the
+// complication of session re-establishment.
+
 package presence
 
 import (
