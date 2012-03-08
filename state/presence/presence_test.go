@@ -19,6 +19,8 @@ type PresenceSuite struct {
 	zkConn     *zookeeper.Conn
 }
 
+var _ = Suite(&PresenceSuite{})
+
 func (s *PresenceSuite) SetUpSuite(c *C) {
 	var err error
 	s.zkTestRoot = c.MkDir() + "/zookeeper"
@@ -68,10 +70,16 @@ func (s *PresenceSuite) TearDownTest(c *C) {
 }
 
 var (
-	_          = Suite(&PresenceSuite{})
-	period     = time.Duration(2.5e7) // 25ms
-	longEnough = period * 4           // longest possible time to detect a close
-	path       = "/presence"
+	path   = "/presence"
+	period = time.Duration(2.5e7) // 25ms
+
+	// When hoping to detect a node status change, given a period of 25ms and
+	// therefore a timeout of 50ms, the worst-case timeline is:
+	//   0ms: Pinger fires for the last time
+	//  49ms: watcher checks; sees node is "alive"
+	//  99ms: watcher finally times out
+	// 100ms: long enough
+	longEnough = period * 4
 )
 
 func assertChange(c *C, watch <-chan bool, expectAlive bool) {
@@ -207,12 +215,12 @@ func (s *PresenceSuite) TestBadData(c *C) {
 
 	// Check it is not interpreted as a presence node by Alive.
 	_, err = presence.Alive(s.zkConn, path)
-	c.Assert(err, ErrorMatches, ".* is not a valid presence node: .*")
+	c.Assert(err, ErrorMatches, `/presence presence node has bad data: "roflcopter"`)
 
 	// Check it is not interpreted as a presence node by Watch.
 	_, watch, err := presence.AliveW(s.zkConn, path)
 	c.Assert(watch, IsNil)
-	c.Assert(err, ErrorMatches, ".* is not a valid presence node: .*")
+	c.Assert(err, ErrorMatches, `/presence presence node has bad data: "roflcopter"`)
 }
 
 func (s *PresenceSuite) TestDisconnectDeadWatch(c *C) {
@@ -250,8 +258,6 @@ func (s *PresenceSuite) TestDisconnectMissingWatch(c *C) {
 }
 
 func (s *PresenceSuite) TestDisconnectAliveWatch(c *C) {
-	c.Skip("Waiting on gozk change to eliminate occasional panic after Stop")
-
 	// Start a Pinger on the main connection
 	p, err := presence.StartPinger(s.zkConn, path, period)
 	c.Assert(err, IsNil)
@@ -269,8 +275,6 @@ func (s *PresenceSuite) TestDisconnectAliveWatch(c *C) {
 }
 
 func (s *PresenceSuite) TestDisconnectPinger(c *C) {
-	c.Skip("Waiting on gozk change to eliminate consistent panic after Stop")
-
 	// Start a Pinger on an alternate connection.
 	altConn := s.connect(c)
 	p, err := presence.StartPinger(altConn, path, period)

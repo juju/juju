@@ -102,7 +102,7 @@ func (n *node) setState(content string, stat *zk.Stat, firstTime bool) error {
 	// Always check and reset timeout; it could change.
 	period, err := time.ParseDuration(content)
 	if err != nil {
-		return fmt.Errorf("%s is not a valid presence node: %s", n.path, err)
+		return fmt.Errorf("%s presence node has bad data: %q", n.path, content)
 	}
 	n.timeout = period * 2
 	if firstTime {
