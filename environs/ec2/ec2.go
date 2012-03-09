@@ -14,8 +14,6 @@ const zkPort = 2181
 
 var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
 
-const maxReqs = 20 // maximum concurrent ec2 requests
-
 var shortAttempt = attemptStrategy{
 	total: 5 * time.Second,
 	delay: 200 * time.Millisecond,
@@ -23,7 +21,7 @@ var shortAttempt = attemptStrategy{
 
 var longAttempt = attemptStrategy{
 	total: 3 * time.Minute,
-	delay: 5 * time.Second,
+	delay: 1 * time.Second,
 }
 
 func init() {
@@ -64,30 +62,28 @@ func (inst *instance) DNSName() (string, error) {
 	if inst.Instance.DNSName != "" {
 		return inst.Instance.DNSName, nil
 	}
-
-	var err error
-	for a := longAttempt.start(); a.next(); {
-		var insts []environs.Instance
-		insts, err = inst.e.Instances([]string{inst.Id()})
-		if err == environs.ErrMissingInstance {
-			continue
-		}
-		if err != nil {
-			break
-		}
-		freshInst := insts[0].(*instance).Instance
-		if freshInst.DNSName != "" {
-			inst.Instance.DNSName = freshInst.DNSName
-			break
-		}
-	}
+	// Fetch the instance information again, in case
+	// the DNS information has become available.
+	insts, err := inst.e.Instances([]string{inst.Id()})
 	if err != nil {
-		return "", fmt.Errorf("cannot find instance %q: %v", inst.Id(), err)
+		return "", err
 	}
-	if inst.Instance.DNSName == "" {
-		return "", fmt.Errorf("timed out trying to get DNS address", inst.Id())
+	freshInst := insts[0].(*instance).Instance
+	if freshInst.DNSName == "" {
+		return "", environs.ErrNoDNSName
 	}
-	return inst.Instance.DNSName, nil
+	inst.Instance.DNSName = freshInst.DNSName
+	return freshInst.DNSName, nil
+}
+
+func (inst *instance) WaitDNSName() (string, error) {
+	for a := longAttempt.start(); a.next(); {
+		name, err := inst.DNSName()
+		if err == nil || err != environs.ErrNoDNSName {
+			return name, err
+		}
+	}
+	return "", fmt.Errorf("timed out trying to get DNS address for %v", inst.Id())
 }
 
 func (environProvider) Open(name string, config interface{}) (e environs.Environ, err error) {
@@ -138,17 +134,23 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	insts, err := e.Instances(st.ZookeeperInstances)
-	if err != nil {
-		return nil, err
-	}
-	addrs := make([]string, len(insts))
-	for i, inst := range insts {
-		addr, err := inst.DNSName()
-		if err != nil {
-			return nil, fmt.Errorf("cannot get zookeeper instance DNS address: %v", err)
+	var addrs []string
+	// Wait for the DNS names of any of the instances
+	// to become available.
+	for a := longAttempt.start(); len(addrs) == 0 && a.next(); {
+		insts, err := e.Instances(st.ZookeeperInstances)
+		if err != nil && err != environs.ErrPartialInstances {
+			return nil, err
 		}
-		addrs[i] = addr + zkPortSuffix
+		for _, inst := range insts {
+			name := inst.(*instance).Instance.DNSName
+			if name != "" {
+				addrs = append(addrs, name + zkPortSuffix)
+			}
+		}
+	}
+	if len(addrs) == 0 {
+		return nil, fmt.Errorf("timed out waiting for zk address from %v", st.ZookeeperInstances)
 	}
 	return &state.Info{Addrs: addrs}, nil
 }
@@ -203,7 +205,7 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 
 // gatherInstances tries to get information on each instance
 // id whose corresponding insts slot is nil.
-// It returns environs.ErrMissingInstance if the insts
+// It returns environs.ErrPartialInstances if the insts
 // slice has not been completely filled.
 func (e *environ) gatherInstances(ids []string, insts []environs.Instance) error {
 	var need []string
@@ -242,7 +244,7 @@ func (e *environ) gatherInstances(ids []string, insts []environs.Instance) error
 		}
 	}
 	if n < len(ids) {
-		return environs.ErrMissingInstance
+		return environs.ErrPartialInstances
 	}
 	return nil
 }
@@ -253,23 +255,27 @@ func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
 	}
 	insts := make([]environs.Instance, len(ids))
 	// Make a series of requests to cope with eventual consistency.
-	// each request should add more instances to the requested
+	// Each request will attempt to add more instances to the requested
 	// set.
 	var err error
 	for a := shortAttempt.start(); a.next(); {
 		err = e.gatherInstances(ids, insts)
-		if err == nil || err != environs.ErrMissingInstance {
+		if err == nil || err != environs.ErrPartialInstances {
 			break
 		}
 	}
-
-	// If any slot has been filled, we return the insts slice.
-	for _, inst := range insts {
-		if inst != nil {
-			return insts, err
+	if err == environs.ErrPartialInstances {
+		for _, inst := range insts {
+			if inst != nil {
+				return insts, environs.ErrPartialInstances
+			}
 		}
+		return nil, environs.ErrNoInstances
 	}
-	return nil, err
+	if err != nil {
+		return nil, err
+	}
+	return insts, nil
 }
 
 func (e *environ) Destroy(insts []environs.Instance) error {

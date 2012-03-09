@@ -89,7 +89,8 @@ func checkDummyEnviron(c *C, e environs.Environ, basename string) {
 	i0, err := e.StartInstance(0, nil)
 	c.Assert(err, IsNil)
 	c.Assert(i0, NotNil)
-	addr, _ := i0.DNSName()
+	addr, err := i0.DNSName()
+	c.Assert(err, IsNil)
 	c.Assert(addr, Equals, basename+"-0.foo")
 
 	is, err := e.Instances([]string{i0.Id()})
@@ -100,7 +101,8 @@ func checkDummyEnviron(c *C, e environs.Environ, basename string) {
 	i1, err := e.StartInstance(1, nil)
 	c.Assert(err, IsNil)
 	c.Assert(i1, NotNil)
-	addr, _= i1.DNSName()
+	addr, err = i1.DNSName()
+	c.Assert(err, IsNil)
 	c.Assert(addr, Equals, basename+"-1.foo")
 
 	is, err = e.Instances([]string{i0.Id(), i1.Id()})
@@ -113,7 +115,7 @@ func checkDummyEnviron(c *C, e environs.Environ, basename string) {
 	c.Assert(err, IsNil)
 
 	is, err = e.Instances([]string{i0.Id(), i1.Id()})
-	c.Assert(err, Equals, environs.ErrMissingInstance)
+	c.Assert(err, Equals, environs.ErrPartialInstances)
 	c.Assert(is, HasLen, 2)
 	c.Assert(is[0], IsNil)
 	c.Assert(is[1].Id(), Equals, i1.Id())

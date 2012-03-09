@@ -47,8 +47,8 @@ func registerAmazonTests() {
 	for _, name := range envs.Names() {
 		Suite(&LiveTests{
 			jujutest.LiveTests{
-				Environs:         envs,
-				Name:             name,
+				Environs: envs,
+				Name:     name,
 				ConsistencyDelay: 5 * time.Second,
 			},
 		})
@@ -65,7 +65,7 @@ func (t *LiveTests) TestInstanceDNSName(c *C) {
 	inst, err := t.Env.StartInstance(30, jujutest.InvalidStateInfo)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst})
-	dns, err := inst.DNSName()
+	dns, err := inst.WaitDNSName()
 	c.Check(err, IsNil)
 	c.Check(dns, Not(Equals), "")
 
@@ -215,11 +215,11 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	gone := false
 	for a := ec2.ShortAttempt.Start(); a.Next(); {
 		insts, err = t.Env.Instances([]string{inst0.Id(), inst2.Id()})
-		if len(insts) > 0 {
+		if err == environs.ErrPartialInstances {
 			// instances not gone yet.
 			continue
 		}
-		if err == environs.ErrMissingInstance {
+		if err == environs.ErrNoInstances {
 			gone = true
 			break
 		}

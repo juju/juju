@@ -43,11 +43,12 @@ func oneOf(values ...interface{}) schema.Checker {
 	return schema.OneOf(c...)
 }
 
-// attempt represents a strategy for waiting for an ec2 request to complete
-// successfully. A request may fail to due "eventual consistency" semantics,
-// which should resolve fairly quickly. A request may also fail due to
-// a slow state transition (for instance an instance taking a while to
-// release a security group after termination).
+// attemptStrategy represents a strategy for waiting for an ec2 request
+// to complete successfully.  A request may fail to due "eventual
+// consistency" semantics, which should resolve fairly quickly.  A
+// request may also fail due to a slow state transition (for instance an
+// instance taking a while to release a security group after
+// termination).
 // 
 type attemptStrategy struct {
 	total time.Duration // total duration of attempt.
