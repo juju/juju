@@ -20,14 +20,25 @@ type EnvironProvider interface {
 	Open(name string, attributes interface{}) (Environ, error)
 }
 
+var ErrNoDNSName = errors.New("DNS name not allocated")
+
 // Instance represents the provider-specific notion of a machine.
 type Instance interface {
 	// Id returns a provider-generated identifier for the Instance.
 	Id() string
+
+	// DNSName returns the DNS name for the instance.
+	// If the name is not yet allocated, it will return
+	// an ErrNoDNSName error.
 	DNSName() (string, error)
+
+	// WaitDNSName returns the DNS name for the instance,
+	// waiting until it is allocated if necessary.
+	WaitDNSName() (string, error)
 }
 
-var ErrMissingInstance = errors.New("one or more instance ids not found")
+var ErrNoInstances = errors.New("no instances found")
+var ErrPartialInstances = errors.New("only some instances were found")
 
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
@@ -58,10 +69,12 @@ type Environ interface {
 	// StopInstances shuts down the given instances.
 	StopInstances([]Instance) error
 
-	// Instances returns a slice of instances corresponding to
-	// the given instance ids. If some (but not all) of the instances are not
-	// found, the returned slice will have nil Inststances in those
-	// slots, and ErrMissingInstance will be returned.
+	// Instances returns a slice of instances corresponding to the
+	// given instance ids.  If no instances were found, but there
+	// was no other error, it will return ErrNoInstances.  If
+	// some but not all the instances were found, the returned slice
+	// will have some nil slots, and an ErrPartialInstances error
+	// will be returned.
 	Instances(ids []string) ([]Instance, error)
 
 	// Put reads from r and writes to the given file in the

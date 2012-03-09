@@ -32,6 +32,10 @@ func (m *dummyInstance) DNSName() (string, error) {
 	return m.id + ".foo", nil
 }
 
+func (m *dummyInstance) WaitDNSName() (string, error) {
+	return m.DNSName()
+}
+
 type dummyProvider struct{}
 
 func (dummyProvider) ConfigChecker() schema.Checker {
@@ -95,12 +99,17 @@ func (e *dummyEnviron) StopInstances(is []environs.Instance) error {
 func (e *dummyEnviron) Instances(ids []string) (insts []environs.Instance, err error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	n := 0
 	for _, id := range ids {
 		inst := e.instances[id]
 		if inst == nil {
-			err = environs.ErrMissingInstance
+			err = environs.ErrPartialInstances
+			n++
 		}
 		insts = append(insts, inst)
+	}
+	if n == len(ids) {
+		return nil, environs.ErrNoInstances
 	}
 	return
 }
