@@ -47,8 +47,8 @@ func registerAmazonTests() {
 	for _, name := range envs.Names() {
 		Suite(&LiveTests{
 			jujutest.LiveTests{
-				Environs: envs,
-				Name:     name,
+				Environs:         envs,
+				Name:             name,
 				ConsistencyDelay: 5 * time.Second,
 			},
 		})
@@ -212,6 +212,9 @@ func (t *LiveTests) TestStopInstances(c *C) {
 
 	var insts []environs.Instance
 
+	// We need the retry logic here because we are waiting
+	// for Instances to return an error, and it will not retry
+	// if it succeeds.
 	gone := false
 	for a := ec2.ShortAttempt.Start(); a.Next(); {
 		insts, err = t.Env.Instances([]string{inst0.Id(), inst2.Id()})

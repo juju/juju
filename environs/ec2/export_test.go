@@ -56,7 +56,6 @@ func ShortTimeouts(short bool) {
 	}
 }
 
-var LongAttempt = AttemptStrategy{&longAttempt}
 var ShortAttempt = AttemptStrategy{&shortAttempt}
 
 type AttemptStrategy struct {

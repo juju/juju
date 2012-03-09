@@ -14,6 +14,11 @@ const zkPort = 2181
 
 var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
 
+// A request may fail to due "eventual consistency" semantics, which
+// should resolve fairly quickly.  A request may also fail due to a slow
+// state transition (for instance an instance taking a while to release
+// a security group after termination).  The former failure mode is
+// dealt with by shortAttempt, the latter by longAttempt.
 var shortAttempt = attemptStrategy{
 	total: 5 * time.Second,
 	delay: 200 * time.Millisecond,
@@ -145,7 +150,7 @@ func (e *environ) StateInfo() (*state.Info, error) {
 		for _, inst := range insts {
 			name := inst.(*instance).Instance.DNSName
 			if name != "" {
-				addrs = append(addrs, name + zkPortSuffix)
+				addrs = append(addrs, name+zkPortSuffix)
 			}
 		}
 	}
