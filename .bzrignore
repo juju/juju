@@ -1,5 +1,2 @@
-*.6
-_obj
-_test
-6.out
-_testmain.go
+store/charmd/charmd
+store/charmload/charmload
