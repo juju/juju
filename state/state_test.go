@@ -630,35 +630,35 @@ func (s StateSuite) TestGetSetClearUnitUpgrate(c *C) {
 	c.Assert(err, IsNil)
 
 	// Defaults to false.
-	upgrade, err := unit.Upgrade()
+	upgrade, err := unit.NeedsUpgrade()
 	c.Assert(err, IsNil)
 	c.Assert(upgrade, Equals, false)
 
 	// Can be set.
-	err = unit.SetUpgrade()
+	err = unit.SetNeedsUpgrade()
 	c.Assert(err, IsNil)
-	upgrade, err = unit.Upgrade()
+	upgrade, err = unit.NeedsUpgrade()
 	c.Assert(err, IsNil)
 	c.Assert(upgrade, Equals, true)
 
 	// Can be set multiple times.
-	err = unit.SetUpgrade()
+	err = unit.SetNeedsUpgrade()
 	c.Assert(err, IsNil)
-	upgrade, err = unit.Upgrade()
+	upgrade, err = unit.NeedsUpgrade()
 	c.Assert(err, IsNil)
 	c.Assert(upgrade, Equals, true)
 
 	// Can be cleared.
-	err = unit.ClearUpgrade()
+	err = unit.ClearNeedsUpgrade()
 	c.Assert(err, IsNil)
-	upgrade, err = unit.Upgrade()
+	upgrade, err = unit.NeedsUpgrade()
 	c.Assert(err, IsNil)
 	c.Assert(upgrade, Equals, false)
 
 	// Can be cleared multiple times
-	err = unit.ClearUpgrade()
+	err = unit.ClearNeedsUpgrade()
 	c.Assert(err, IsNil)
-	upgrade, err = unit.Upgrade()
+	upgrade, err = unit.NeedsUpgrade()
 	c.Assert(err, IsNil)
 	c.Assert(upgrade, Equals, false)
 }
@@ -673,26 +673,26 @@ func (s StateSuite) TestGetSetClearResolved(c *C) {
 
 	setting, err := unit.Resolved()
 	c.Assert(err, IsNil)
-	c.Assert(setting, IsNil)
+	c.Assert(setting, Equals, state.ResolvedNoValue)
 
 	err = unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, IsNil)
 	err = unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, ErrorMatches, `unit "wordpress/0" resolved already enabled`)
-	setting, err = unit.Resolved()
+	retry, err := unit.Resolved()
 	c.Assert(err, IsNil)
-	c.Assert(setting, DeepEquals, map[string]interface{}{"retry": state.ResolvedNoHooks})
+	c.Assert(retry, Equals, state.ResolvedNoHooks)
 
 	err = unit.ClearResolved()
 	c.Assert(err, IsNil)
 	setting, err = unit.Resolved()
 	c.Assert(err, IsNil)
-	c.Assert(setting, IsNil)
+	c.Assert(setting, Equals, state.ResolvedNoValue)
 	err = unit.ClearResolved()
 	c.Assert(err, IsNil)
 
-	err = unit.SetResolved(-1)
-	c.Assert(err, ErrorMatches, `invalid retry value: -1`)
+	err = unit.SetResolved(state.RetryMode(999))
+	c.Assert(err, ErrorMatches, `invalid retry mode: 999`)
 }
 
 func (s StateSuite) TestGetOpenPorts(c *C) {
@@ -713,7 +713,7 @@ func (s StateSuite) TestGetOpenPorts(c *C) {
 	c.Assert(err, IsNil)
 	open, err = unit.OpenPorts()
 	c.Assert(err, IsNil)
-	c.Assert(open, DeepEquals, []state.PortProto{
+	c.Assert(open, DeepEquals, []state.Port{
 		{80, "tcp"},
 	})
 
@@ -721,7 +721,7 @@ func (s StateSuite) TestGetOpenPorts(c *C) {
 	c.Assert(err, IsNil)
 	open, err = unit.OpenPorts()
 	c.Assert(err, IsNil)
-	c.Assert(open, DeepEquals, []state.PortProto{
+	c.Assert(open, DeepEquals, []state.Port{
 		{80, "tcp"},
 		{53, "udp"},
 	})
@@ -730,7 +730,7 @@ func (s StateSuite) TestGetOpenPorts(c *C) {
 	c.Assert(err, IsNil)
 	open, err = unit.OpenPorts()
 	c.Assert(err, IsNil)
-	c.Assert(open, DeepEquals, []state.PortProto{
+	c.Assert(open, DeepEquals, []state.Port{
 		{80, "tcp"},
 		{53, "udp"},
 		{53, "tcp"},
@@ -740,7 +740,7 @@ func (s StateSuite) TestGetOpenPorts(c *C) {
 	c.Assert(err, IsNil)
 	open, err = unit.OpenPorts()
 	c.Assert(err, IsNil)
-	c.Assert(open, DeepEquals, []state.PortProto{
+	c.Assert(open, DeepEquals, []state.Port{
 		{80, "tcp"},
 		{53, "udp"},
 		{53, "tcp"},
@@ -751,7 +751,7 @@ func (s StateSuite) TestGetOpenPorts(c *C) {
 	c.Assert(err, IsNil)
 	open, err = unit.OpenPorts()
 	c.Assert(err, IsNil)
-	c.Assert(open, DeepEquals, []state.PortProto{
+	c.Assert(open, DeepEquals, []state.Port{
 		{53, "udp"},
 		{53, "tcp"},
 		{443, "tcp"},

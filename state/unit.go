@@ -14,14 +14,18 @@ import (
 	"strings"
 )
 
+// RetryMode is the type of allowed values for the retry
+// variable inside 
+type RetryMode int
+
 const (
-	ResolvedRetryHooks = 1000
-	ResolvedNoHooks    = 1001
+	ResolvedNoValue    RetryMode = -1
+	ResolvedRetryHooks RetryMode = 1000
+	ResolvedNoHooks    RetryMode = 1001
 )
 
-// PortProto describes the combination of a port
-// and a protocol.
-type PortProto struct {
+// Port identifies a network port for a particular protocol.
+type Port struct {
 	Port  int
 	Proto string
 }
@@ -218,18 +222,18 @@ func (u *Unit) UnassignFromMachine() error {
 	return retryTopologyChange(u.st.zk, unassignUnit)
 }
 
-// Upgrade returns if the upgrade flag is set.
-func (u *Unit) Upgrade() (bool, error) {
-	stat, err := u.st.zk.Exists(u.zkUpgradePath())
+// NeedsUpgrade returns whether the unit needs an upgrade.
+func (u *Unit) NeedsUpgrade() (bool, error) {
+	stat, err := u.st.zk.Exists(u.zkNeedsUpgradePath())
 	if err != nil {
 		return false, err
 	}
 	return stat != nil, nil
 }
 
-// SetUpgrade informs the unit that it should perform an upgrde.
-func (u *Unit) SetUpgrade() error {
-	_, err := u.st.zk.Create(u.zkUpgradePath(), "", 0, zkPermAll)
+// SetNeedsUpgrade informs the unit that it should perform an upgrde.
+func (u *Unit) SetNeedsUpgrade() error {
+	_, err := u.st.zk.Create(u.zkNeedsUpgradePath(), "", 0, zkPermAll)
 	if err == zookeeper.ZNODEEXISTS {
 		// Node already exists, so same state.
 		return nil
@@ -237,10 +241,10 @@ func (u *Unit) SetUpgrade() error {
 	return err
 }
 
-// ClearUpgrade clears the upgrade flag. This is typically
+// ClearNeedsUpgrade resets the upgrade notification. Itis typically
 // done by the unit agent before beginning the upgrade.
-func (u *Unit) ClearUpgrade() error {
-	err := u.st.zk.Delete(u.zkUpgradePath(), -1)
+func (u *Unit) ClearNeedsUpgrade() error {
+	err := u.st.zk.Delete(u.zkNeedsUpgradePath(), -1)
 	if err == zookeeper.ZNONODE {
 		// Node doesn't exist, so same state.
 		return nil
@@ -248,31 +252,44 @@ func (u *Unit) ClearUpgrade() error {
 	return err
 }
 
+// validRetryMode ensures that only valid values for the
+// resolved retry are used.
+func (u *Unit) validRetryMode(retry RetryMode) error {
+	if retry != ResolvedRetryHooks && retry != ResolvedNoHooks {
+		return fmt.Errorf("invalid retry mode: %d", retry)
+	}
+	return nil
+}
+
 // Resolved returns the value of the resolved setting if any.
-func (u *Unit) Resolved() (map[string]interface{}, error) {
+func (u *Unit) Resolved() (RetryMode, error) {
 	yaml, _, err := u.st.zk.Get(u.zkResolvedPath())
 	if err == zookeeper.ZNONODE {
 		// Default value.
-		return nil, nil
+		return ResolvedNoValue, nil
 	}
 	if err != nil {
-		return nil, err
+		return ResolvedNoValue, err
 	}
-	setting := make(map[string]interface{})
+	setting := make(map[string]RetryMode)
 	if err = goyaml.Unmarshal([]byte(yaml), setting); err != nil {
-		return nil, err
+		return ResolvedNoValue, err
 	}
-	return setting, nil
+	retry := setting["retry"]
+	if err := u.validRetryMode(retry); err != nil {
+		return ResolvedNoValue, err
+	}
+	return retry, nil
 }
 
 // SetResolved marks the unit as in need of being resolved. The
 // resolved setting is set by the command line to inform a unit
 // to attempt a retry transition from an error state.
-func (u *Unit) SetResolved(retry int) error {
-	if retry != ResolvedRetryHooks && retry != ResolvedNoHooks {
-		return fmt.Errorf("invalid retry value: %d", retry)
+func (u *Unit) SetResolved(retry RetryMode) error {
+	if err := u.validRetryMode(retry); err != nil {
+		return err
 	}
-	setting := map[string]interface{}{"retry": retry}
+	setting := map[string]RetryMode{"retry": retry}
 	yaml, err := goyaml.Marshal(setting)
 	if err != nil {
 		return err
@@ -297,24 +314,24 @@ func (u *Unit) ClearResolved() error {
 // OpenPort sets the policy that port (using proto) should be opened.
 func (u *Unit) OpenPort(port int, proto string) error {
 	openPort := func(yaml string, stat *zookeeper.Stat) (string, error) {
-		data := make(map[string][]PortProto)
+		data := map[string][]Port{}
 		if yaml != "" {
 			if err := goyaml.Unmarshal([]byte(yaml), data); err != nil {
 				return "", err
 			}
 		}
-		if data["open"] == nil {
-			data["open"] = []PortProto{}
-		}
 		open := data["open"]
-		portProto := PortProto{port, proto}
-		for i := range open {
-			if open[i] == portProto {
-				goto found
+		openPort := Port{port, proto}
+		found := false
+		for _, p := range open {
+			if p == openPort {
+				found = true
+				break
 			}
 		}
-		data["open"] = append(open, portProto)
-	found:
+		if !found {
+			data["open"] = append(open, openPort)
+		}
 		changedYaml, err := goyaml.Marshal(data)
 		if err != nil {
 			return "", err
@@ -327,19 +344,15 @@ func (u *Unit) OpenPort(port int, proto string) error {
 // ClosePort sets the policy that port (using proto) should be closed.
 func (u *Unit) ClosePort(port int, proto string) error {
 	closePort := func(yaml string, stat *zookeeper.Stat) (string, error) {
-		data := make(map[string][]PortProto)
+		data := map[string][]Port{}
 		if yaml != "" {
 			if err := goyaml.Unmarshal([]byte(yaml), data); err != nil {
 				return "", err
 			}
 		}
-		if data["open"] == nil {
-			data["open"] = []PortProto{}
-		}
 		open := data["open"]
-		portProto := PortProto{port, proto}
-		// Not optimal, but readable. 
-		changedOpen := make([]PortProto, 0)
+		portProto := Port{port, proto}
+		changedOpen := []Port{}
 		for _, pp := range open {
 			if pp != portProto {
 				changedOpen = append(changedOpen, pp)
@@ -356,24 +369,20 @@ func (u *Unit) ClosePort(port int, proto string) error {
 }
 
 // OpenPorts returns a slice containing the open ports of the unit.
-func (u *Unit) OpenPorts() ([]PortProto, error) {
+func (u *Unit) OpenPorts() ([]Port, error) {
 	yaml, _, err := u.st.zk.Get(u.zkPortsPath())
 	if err == zookeeper.ZNONODE {
 		// Default value.
-		return []PortProto{}, nil
+		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	data := make(map[string][]PortProto)
-	if err = goyaml.Unmarshal([]byte(yaml), data); err != nil {
+	var data map[string][]Port
+	if err = goyaml.Unmarshal([]byte(yaml), &data); err != nil {
 		return nil, err
 	}
-	open := data["open"]
-	if open == nil {
-		return []PortProto{}, nil
-	}
-	return open, nil
+	return data["open"], nil
 }
 
 // zkKey returns the ZooKeeper key of the unit.
@@ -397,8 +406,8 @@ func (u *Unit) zkAgentPath() string {
 	return fmt.Sprintf("/units/%s/agent", u.key)
 }
 
-// zkUpgradePath returns the ZooKeeper path for the upgrade flag.
-func (u *Unit) zkUpgradePath() string {
+// zkNeedsUpgradePath returns the ZooKeeper path for the upgrade flag.
+func (u *Unit) zkNeedsUpgradePath() string {
 	return fmt.Sprintf("/units/%s/upgrade", u.key)
 }
 
