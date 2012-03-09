@@ -148,6 +148,9 @@ func (e *environ) StateInfo() (*state.Info, error) {
 			return nil, err
 		}
 		for _, inst := range insts {
+			if inst == nil {
+				continue
+			}
 			name := inst.(*instance).Instance.DNSName
 			if name != "" {
 				addrs = append(addrs, name+zkPortSuffix)
