@@ -56,24 +56,6 @@ func ShortTimeouts(short bool) {
 	}
 }
 
-var ShortAttempt = AttemptStrategy{&shortAttempt}
-
-type AttemptStrategy struct {
-	*attemptStrategy
-}
-
-type Attempt struct {
-	*attempt
-}
-
-func (a AttemptStrategy) Start() *Attempt {
-	return &Attempt{a.start()}
-}
-
-func (a *Attempt) Next() bool {
-	return a.next()
-}
-
 func EC2ErrCode(err error) string {
 	return ec2ErrCode(err)
 }
