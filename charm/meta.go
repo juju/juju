@@ -2,10 +2,16 @@ package charm
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju/go/schema"
+)
+
+const (
+	ScopeGlobal    = "global"
+	ScopeContainer = "container"
 )
 
 // Relation represents a single relation defined in the charm
@@ -14,6 +20,7 @@ type Relation struct {
 	Interface string
 	Optional  bool
 	Limit     int
+	Scope     string
 }
 
 // Meta represents all the known content that may be defined
@@ -26,6 +33,7 @@ type Meta struct {
 	Requires    map[string]Relation
 	Peers       map[string]Relation
 	OldRevision int // Obsolete
+	Subordinate bool
 }
 
 // ReadMeta reads the content of a metadata.yaml file and returns
@@ -58,6 +66,24 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 		// Obsolete
 		meta.OldRevision = int(m["revision"].(int64))
 	}
+	// Subordinate charms must have at least one relation that
+	// has container scope, otherwise they can't relate to the
+	// principal.
+	if subordinate := m["subordinate"]; subordinate != nil {
+		valid := false
+		if meta.Requires != nil {
+			for _, relationData := range meta.Requires {
+				if relationData.Scope == ScopeContainer {
+					valid = true
+					break
+				}
+			}
+		}
+		if !valid {
+			return nil, fmt.Errorf("subordinate charm %q lacks requires relation with container scope", meta.Name)
+		}
+		meta.Subordinate = m["subordinate"].(bool)
+	}
 	return
 }
 
@@ -71,6 +97,9 @@ func parseRelations(relations interface{}) map[string]Relation {
 		relation := Relation{}
 		relation.Interface = relMap["interface"].(string)
 		relation.Optional = relMap["optional"].(bool)
+		if scope := relMap["scope"]; scope != nil {
+			relation.Scope = scope.(string)
+		}
 		if relMap["limit"] != nil {
 			// Schema defaults to int64, but we know
 			// the int range should be more than enough.
@@ -121,6 +150,7 @@ func (c ifaceExpC) Coerce(v interface{}, path []string) (newv interface{}, err e
 			"interface": s,
 			"limit":     c.limit,
 			"optional":  false,
+			"scope":     ScopeGlobal,
 		}
 		return
 	}
@@ -140,14 +170,21 @@ func (c ifaceExpC) Coerce(v interface{}, path []string) (newv interface{}, err e
 	if _, ok := m["optional"]; !ok {
 		m["optional"] = false
 	}
+	if _, ok := m["scope"]; !ok {
+		m["scope"] = ScopeGlobal
+	}
 	return ifaceSchema.Coerce(m, path)
 }
 
-var ifaceSchema = schema.FieldMap(schema.Fields{
-	"interface": schema.String(),
-	"limit":     schema.OneOf(schema.Const(nil), schema.Int()),
-	"optional":  schema.Bool(),
-}, nil)
+var ifaceSchema = schema.FieldMap(
+	schema.Fields{
+		"interface": schema.String(),
+		"limit":     schema.OneOf(schema.Const(nil), schema.Int()),
+		"scope":     schema.OneOf(schema.Const(ScopeGlobal), schema.Const(ScopeContainer)),
+		"optional":  schema.Bool(),
+	},
+	schema.Optional{"scope"},
+)
 
 var charmSchema = schema.FieldMap(
 	schema.Fields{
@@ -158,6 +195,7 @@ var charmSchema = schema.FieldMap(
 		"provides":    schema.Map(schema.String(), ifaceExpander(nil)),
 		"requires":    schema.Map(schema.String(), ifaceExpander(1)),
 		"revision":    schema.Int(), // Obsolete
+		"subordinate": schema.Bool(),
 	},
-	schema.Optional{"provides", "requires", "peers", "revision"},
+	schema.Optional{"provides", "requires", "peers", "revision", "subordinate"},
 )
