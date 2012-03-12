@@ -673,26 +673,26 @@ func (s StateSuite) TestGetSetClearResolved(c *C) {
 
 	setting, err := unit.Resolved()
 	c.Assert(err, IsNil)
-	c.Assert(setting, Equals, state.ResolvedNoValue)
+	c.Assert(setting, Equals, state.NotResolved)
 
-	err = unit.SetResolved(state.ResolvedNoHooks)
+	err = unit.SetResolved(state.Resolved)
 	c.Assert(err, IsNil)
-	err = unit.SetResolved(state.ResolvedNoHooks)
-	c.Assert(err, ErrorMatches, `unit "wordpress/0" resolved already enabled`)
+	err = unit.SetResolved(state.Resolved)
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" resolved flag already set`)
 	retry, err := unit.Resolved()
 	c.Assert(err, IsNil)
-	c.Assert(retry, Equals, state.ResolvedNoHooks)
+	c.Assert(retry, Equals, state.Resolved)
 
 	err = unit.ClearResolved()
 	c.Assert(err, IsNil)
 	setting, err = unit.Resolved()
 	c.Assert(err, IsNil)
-	c.Assert(setting, Equals, state.ResolvedNoValue)
+	c.Assert(setting, Equals, state.NotResolved)
 	err = unit.ClearResolved()
 	c.Assert(err, IsNil)
 
-	err = unit.SetResolved(state.RetryMode(999))
-	c.Assert(err, ErrorMatches, `invalid retry mode: 999`)
+	err = unit.SetResolved(state.ErrorResolution(999))
+	c.Assert(err, ErrorMatches, `invalid error resolution mode: 999`)
 }
 
 func (s StateSuite) TestGetOpenPorts(c *C) {
