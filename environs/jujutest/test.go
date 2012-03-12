@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/state"
+	"time"
 )
 
 // InvalidStateInfo holds information about no state - it will always give
@@ -53,6 +54,8 @@ type LiveTests struct {
 	Environs *environs.Environs
 	Name     string
 	Env      environs.Environ
+	// length of time to wait before environ becomes logically consistent.
+	ConsistencyDelay time.Duration
 }
 
 func (t *LiveTests) SetUpSuite(c *C) {

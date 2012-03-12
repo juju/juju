@@ -7,11 +7,27 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/state"
 	"sync"
+	"time"
 )
 
 const zkPort = 2181
 
 var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
+
+// A request may fail to due "eventual consistency" semantics, which
+// should resolve fairly quickly.  A request may also fail due to a slow
+// state transition (for instance an instance taking a while to release
+// a security group after termination).  The former failure mode is
+// dealt with by shortAttempt, the latter by longAttempt.
+var shortAttempt = attemptStrategy{
+	total: 5 * time.Second,
+	delay: 200 * time.Millisecond,
+}
+
+var longAttempt = attemptStrategy{
+	total: 3 * time.Minute,
+	delay: 1 * time.Second,
+}
 
 func init() {
 	environs.RegisterProvider("ec2", environProvider{})
@@ -33,6 +49,7 @@ type environ struct {
 var _ environs.Environ = (*environ)(nil)
 
 type instance struct {
+	e *environ
 	*ec2.Instance
 }
 
@@ -46,8 +63,32 @@ func (inst *instance) Id() string {
 	return inst.InstanceId
 }
 
-func (inst *instance) DNSName() string {
-	return inst.Instance.DNSName
+func (inst *instance) DNSName() (string, error) {
+	if inst.Instance.DNSName != "" {
+		return inst.Instance.DNSName, nil
+	}
+	// Fetch the instance information again, in case
+	// the DNS information has become available.
+	insts, err := inst.e.Instances([]string{inst.Id()})
+	if err != nil {
+		return "", err
+	}
+	freshInst := insts[0].(*instance).Instance
+	if freshInst.DNSName == "" {
+		return "", environs.ErrNoDNSName
+	}
+	inst.Instance.DNSName = freshInst.DNSName
+	return freshInst.DNSName, nil
+}
+
+func (inst *instance) WaitDNSName() (string, error) {
+	for a := longAttempt.start(); a.next(); {
+		name, err := inst.DNSName()
+		if err == nil || err != environs.ErrNoDNSName {
+			return name, err
+		}
+	}
+	return "", fmt.Errorf("timed out trying to get DNS address for %v", inst.Id())
 }
 
 func (environProvider) Open(name string, config interface{}) (e environs.Environ, err error) {
@@ -98,26 +139,26 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := e.ec2.Instances(st.ZookeeperInstances, nil)
-	if err != nil {
-		return nil, fmt.Errorf("cannot list instances: %v", err)
-	}
-	var insts []environs.Instance
-	for i := range resp.Reservations {
-		r := &resp.Reservations[i]
-		for j := range r.Instances {
-			insts = append(insts, &instance{&r.Instances[j]})
+	var addrs []string
+	// Wait for the DNS names of any of the instances
+	// to become available.
+	for a := longAttempt.start(); len(addrs) == 0 && a.next(); {
+		insts, err := e.Instances(st.ZookeeperInstances)
+		if err != nil && err != environs.ErrPartialInstances {
+			return nil, err
+		}
+		for _, inst := range insts {
+			if inst == nil {
+				continue
+			}
+			name := inst.(*instance).Instance.DNSName
+			if name != "" {
+				addrs = append(addrs, name+zkPortSuffix)
+			}
 		}
 	}
-
-	addrs := make([]string, len(insts))
-	for i, inst := range insts {
-		// TODO make this poll until the DNSName becomes available.
-		addr := inst.DNSName()
-		if addr == "" {
-			return nil, fmt.Errorf("zookeeper instance %q does not yet have a DNS address", inst.Id())
-		}
-		addrs[i] = addr + zkPortSuffix
+	if len(addrs) == 0 {
+		return nil, fmt.Errorf("timed out waiting for zk address from %v", st.ZookeeperInstances)
 	}
 	return &state.Info{Addrs: addrs}, nil
 }
@@ -138,21 +179,28 @@ func (e *environ) startInstance(machineId int, _ *state.Info, master bool) (envi
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
-	instances, err := e.ec2.RunInstances(&ec2.RunInstances{
-		ImageId:        image.ImageId,
-		MinCount:       1,
-		MaxCount:       1,
-		UserData:       nil,
-		InstanceType:   "m1.small",
-		SecurityGroups: groups,
-	})
+	var instances *ec2.RunInstancesResp
+
+	for a := shortAttempt.start(); a.next(); {
+		instances, err = e.ec2.RunInstances(&ec2.RunInstances{
+			ImageId:        image.ImageId,
+			MinCount:       1,
+			MaxCount:       1,
+			UserData:       nil,
+			InstanceType:   "m1.small",
+			SecurityGroups: groups,
+		})
+		if err == nil || ec2ErrCode(err) != "InvalidGroup.NotFound" {
+			break
+		}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot run instances: %v", err)
 	}
 	if len(instances.Instances) != 1 {
 		return nil, fmt.Errorf("expected 1 started instance, got %d", len(instances.Instances))
 	}
-	return &instance{&instances.Instances[0]}, nil
+	return &instance{e, &instances.Instances[0]}, nil
 }
 
 func (e *environ) StopInstances(insts []environs.Instance) error {
@@ -163,24 +211,31 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 	return e.terminateInstances(ids)
 }
 
-func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
-	if len(ids) == 0 {
-		return nil, nil
+// gatherInstances tries to get information on each instance
+// id whose corresponding insts slot is nil.
+// It returns environs.ErrPartialInstances if the insts
+// slice has not been completely filled.
+func (e *environ) gatherInstances(ids []string, insts []environs.Instance) error {
+	var need []string
+	for i, inst := range insts {
+		if inst == nil {
+			need = append(need, ids[i])
+		}
 	}
-	insts := make([]environs.Instance, len(ids))
-
-	// TODO make a series of requests to cope with eventual consistency.
+	if len(need) == 0 {
+		return nil
+	}
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
 	filter.Add("group-name", e.groupName())
-	filter.Add("instance-id", ids...)
+	filter.Add("instance-id", need...)
 	resp, err := e.ec2.Instances(nil, filter)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	n := 0
 	// For each requested id, add it to the returned instances
 	// if we find it in the response.
-	n := 0
 	for i, id := range ids {
 		if insts[i] != nil {
 			continue
@@ -188,21 +243,47 @@ func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
 		for j := range resp.Reservations {
 			r := &resp.Reservations[j]
 			for k := range r.Instances {
-				inst := &r.Instances[k]
-				if inst.InstanceId == id {
-					insts[i] = &instance{inst}
+				if r.Instances[k].InstanceId == id {
+					inst := r.Instances[k]
+					insts[i] = &instance{e, &inst}
 					n++
 				}
 			}
 		}
 	}
-	if n == 0 {
-		return nil, environs.ErrMissingInstance
-	}
 	if n < len(ids) {
-		return insts, environs.ErrMissingInstance
+		return environs.ErrPartialInstances
 	}
-	return insts, err
+	return nil
+}
+
+func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	insts := make([]environs.Instance, len(ids))
+	// Make a series of requests to cope with eventual consistency.
+	// Each request will attempt to add more instances to the requested
+	// set.
+	var err error
+	for a := shortAttempt.start(); a.next(); {
+		err = e.gatherInstances(ids, insts)
+		if err == nil || err != environs.ErrPartialInstances {
+			break
+		}
+	}
+	if err == environs.ErrPartialInstances {
+		for _, inst := range insts {
+			if inst != nil {
+				return insts, environs.ErrPartialInstances
+			}
+		}
+		return nil, environs.ErrNoInstances
+	}
+	if err != nil {
+		return nil, err
+	}
+	return insts, nil
 }
 
 func (e *environ) Destroy(insts []environs.Instance) error {
@@ -223,8 +304,8 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 		}
 	}
 
-	// Then add any instances we've been told about
-	// but haven't yet shown up in the instance list.
+	// Then add any instances we've been told about but haven't yet shown
+	// up in the instance list.
 	for _, inst := range insts {
 		id := inst.(*instance).InstanceId
 		if !found[id] {
@@ -247,13 +328,20 @@ func (e *environ) terminateInstances(ids []string) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	_, err := e.ec2.TerminateInstances(ids)
-	if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
+	var err error
+	for a := shortAttempt.start(); a.next(); {
+		_, err = e.ec2.TerminateInstances(ids)
+		if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
+			return err
+		}
+	}
+	if len(ids) == 1 {
 		return err
 	}
 	var firstErr error
 	// If we get a NotFound error, it means that no instances have been
-	// terminated, so try them one by one, ignoring NotFound errors.
+	// terminated even if some exist, so try them one by one, ignoring
+	// NotFound errors.
 	for _, id := range ids {
 		_, err = e.ec2.TerminateInstances([]string{id})
 		if ec2ErrCode(err) == "InvalidInstanceID.NotFound" {
