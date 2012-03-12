@@ -673,25 +673,25 @@ func (s StateSuite) TestGetSetClearResolved(c *C) {
 
 	setting, err := unit.Resolved()
 	c.Assert(err, IsNil)
-	c.Assert(setting, Equals, state.NotResolved)
+	c.Assert(setting, Equals, state.ResolvedNone)
 
-	err = unit.SetResolved(state.Resolved)
+	err = unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, IsNil)
-	err = unit.SetResolved(state.Resolved)
+	err = unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, ErrorMatches, `unit "wordpress/0" resolved flag already set`)
 	retry, err := unit.Resolved()
 	c.Assert(err, IsNil)
-	c.Assert(retry, Equals, state.Resolved)
+	c.Assert(retry, Equals, state.ResolvedNoHooks)
 
 	err = unit.ClearResolved()
 	c.Assert(err, IsNil)
 	setting, err = unit.Resolved()
 	c.Assert(err, IsNil)
-	c.Assert(setting, Equals, state.NotResolved)
+	c.Assert(setting, Equals, state.ResolvedNone)
 	err = unit.ClearResolved()
 	c.Assert(err, IsNil)
 
-	err = unit.SetResolved(state.ErrorResolution(999))
+	err = unit.SetResolved(state.ResolvedMode(999))
 	c.Assert(err, ErrorMatches, `invalid error resolution mode: 999`)
 }
 
@@ -709,52 +709,52 @@ func (s StateSuite) TestGetOpenPorts(c *C) {
 	c.Assert(open, HasLen, 0)
 
 	// Now open and close port.
-	err = unit.OpenPort(80, "tcp")
+	err = unit.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
 	open, err = unit.OpenPorts()
 	c.Assert(err, IsNil)
 	c.Assert(open, DeepEquals, []state.Port{
-		{80, "tcp"},
+		{"tcp", 80},
 	})
 
-	err = unit.OpenPort(53, "udp")
+	err = unit.OpenPort("udp", 53)
 	c.Assert(err, IsNil)
 	open, err = unit.OpenPorts()
 	c.Assert(err, IsNil)
 	c.Assert(open, DeepEquals, []state.Port{
-		{80, "tcp"},
-		{53, "udp"},
+		{"tcp", 80},
+		{"udp", 53},
 	})
 
-	err = unit.OpenPort(53, "tcp")
+	err = unit.OpenPort("tcp", 53)
 	c.Assert(err, IsNil)
 	open, err = unit.OpenPorts()
 	c.Assert(err, IsNil)
 	c.Assert(open, DeepEquals, []state.Port{
-		{80, "tcp"},
-		{53, "udp"},
-		{53, "tcp"},
+		{"tcp", 80},
+		{"udp", 53},
+		{"tcp", 53},
 	})
 
-	err = unit.OpenPort(443, "tcp")
+	err = unit.OpenPort("tcp", 443)
 	c.Assert(err, IsNil)
 	open, err = unit.OpenPorts()
 	c.Assert(err, IsNil)
 	c.Assert(open, DeepEquals, []state.Port{
-		{80, "tcp"},
-		{53, "udp"},
-		{53, "tcp"},
-		{443, "tcp"},
+		{"tcp", 80},
+		{"udp", 53},
+		{"tcp", 53},
+		{"tcp", 443},
 	})
 
-	err = unit.ClosePort(80, "tcp")
+	err = unit.ClosePort("tcp", 80)
 	c.Assert(err, IsNil)
 	open, err = unit.OpenPorts()
 	c.Assert(err, IsNil)
 	c.Assert(open, DeepEquals, []state.Port{
-		{53, "udp"},
-		{53, "tcp"},
-		{443, "tcp"},
+		{"udp", 53},
+		{"tcp", 53},
+		{"tcp", 443},
 	})
 }
 
