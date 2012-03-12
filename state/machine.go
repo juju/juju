@@ -6,14 +6,13 @@ package state
 
 import (
 	"fmt"
-	"launchpad.net/gozk/zookeeper"
 	"strconv"
 	"strings"
 )
 
 // Machine represents the state of a machine.
 type Machine struct {
-	zk  *zookeeper.Conn
+	st  *State
 	key string
 }
 
