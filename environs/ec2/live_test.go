@@ -216,10 +216,11 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	// for Instances to return an error, and it will not retry
 	// if it succeeds.
 	gone := false
-	for a := ec2.ShortAttempt.Start(); a.Next(); {
+	for i := 0; i < 5; i++ {
 		insts, err = t.Env.Instances([]string{inst0.Id(), inst2.Id()})
 		if err == environs.ErrPartialInstances {
 			// instances not gone yet.
+			time.Sleep(1e9)
 			continue
 		}
 		if err == environs.ErrNoInstances {
