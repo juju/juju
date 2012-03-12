@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju/go/charm"
+	"net/url"
 	"strings"
 )
 
@@ -20,7 +22,7 @@ type State struct {
 	zk *zookeeper.Conn
 }
 
-// Add machine creates a new machine.
+// AddMachine creates a new machine state.
 func (s *State) AddMachine() (*Machine, error) {
 	path, err := s.zk.Create("/machines/machine-", "", zookeeper.SEQUENCE, zkPermAll)
 	if err != nil {
@@ -36,10 +38,55 @@ func (s *State) AddMachine() (*Machine, error) {
 	return &Machine{s.zk, key}, nil
 }
 
-// AddService creates a new service with the given unique name
+// AddCharm adds the ch charm with curl to the state.
+// bundleUrl must be set to a URL where the bundle for ch
+// may be downloaded from.
+// On success the newly added charm state is returned.
+func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL) (*Charm, error) {
+	data := &charmData{
+		Meta:      ch.Meta(),
+		Config:    ch.Config(),
+		BundleURL: bundleURL.String(),
+	}
+	yaml, err := goyaml.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	path, err := charmPath(curl)
+	if err != nil {
+		return nil, err
+	}
+	_, err = s.zk.Create(path, string(yaml), 0, zkPermAll)
+	if err != nil {
+		return nil, err
+	}
+	return newCharm(s, curl, data)
+}
+
+// Charm returns a charm by the given id.
+func (s *State) Charm(curl *charm.URL) (*Charm, error) {
+	path, err := charmPath(curl)
+	if err != nil {
+		return nil, err
+	}
+	yaml, _, err := s.zk.Get(path)
+	if err == zookeeper.ZNONODE {
+		return nil, fmt.Errorf("charm not found: %q", curl)
+	}
+	if err != nil {
+		return nil, err
+	}
+	data := &charmData{}
+	if err := goyaml.Unmarshal([]byte(yaml), data); err != nil {
+		return nil, err
+	}
+	return newCharm(s, curl, data)
+}
+
+// AddService creates a new service state with the given unique name
 // and the charm state.
-func (s *State) AddService(name string, charm *Charm) (*Service, error) {
-	details := map[string]interface{}{"charm": charm.URL().String()}
+func (s *State) AddService(name string, ch *Charm) (*Service, error) {
+	details := map[string]interface{}{"charm": ch.URL().String()}
 	yaml, err := goyaml.Marshal(details)
 	if err != nil {
 		return nil, err
@@ -49,7 +96,7 @@ func (s *State) AddService(name string, charm *Charm) (*Service, error) {
 		return nil, err
 	}
 	key := strings.Split(path, "/")[2]
-	service := &Service{s.zk, key, name}
+	service := &Service{s, key, name}
 	// Create an empty configuration node.
 	_, err = createConfigNode(s.zk, service.zkConfigPath(), map[string]interface{}{})
 	if err != nil {
@@ -108,7 +155,7 @@ func (s *State) Service(name string) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{s.zk, key, name}, nil
+	return &Service{s, key, name}, nil
 }
 
 // AllServices returns all deployed services in the environment.
@@ -123,7 +170,7 @@ func (s *State) AllServices() ([]*Service, error) {
 		if err != nil {
 			return nil, err
 		}
-		services = append(services, &Service{s.zk, key, name})
+		services = append(services, &Service{s, key, name})
 	}
 	return services, nil
 }

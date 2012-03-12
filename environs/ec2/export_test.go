@@ -45,9 +45,9 @@ var originalLongAttempt = longAttempt
 // and this reduces the test time from 30s to 3s.
 func ShortTimeouts(short bool) {
 	if short {
-		shortAttempt = attempt{
-			burstTotal: 0.25e9,
-			burstDelay: 0.01e9,
+		shortAttempt = attemptStrategy{
+			total: 0.25e9,
+			delay: 0.01e9,
 		}
 		longAttempt = shortAttempt
 	} else {
@@ -56,20 +56,8 @@ func ShortTimeouts(short bool) {
 	}
 }
 
-func LongDo(t func(error) bool, f func() error) error {
-	return longAttempt.do(t, f)
-}
-
-func ShortDo(t func(error) bool, f func() error) error {
-	return shortAttempt.do(t, f)
-}
-
 func EC2ErrCode(err error) string {
 	return ec2ErrCode(err)
-}
-
-func HasCode(code string) func(error) bool {
-	return hasCode(code)
 }
 
 var ZkPortSuffix = zkPortSuffix

@@ -15,7 +15,7 @@ import (
 
 // Service represents the state of a service.
 type Service struct {
-	zk   *zookeeper.Conn
+	st   *State
 	key  string
 	name string
 }
@@ -28,7 +28,7 @@ func (s *Service) Name() string {
 // CharmURL returns the charm URL this service is supposed
 // to use.
 func (s *Service) CharmURL() (url *charm.URL, err error) {
-	cn, err := readConfigNode(s.zk, s.zkPath())
+	cn, err := readConfigNode(s.st.zk, s.zkPath())
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func (s *Service) CharmURL() (url *charm.URL, err error) {
 
 // SetCharmURL changes the charm URL for the service.
 func (s *Service) SetCharmURL(url *charm.URL) error {
-	cn, err := readConfigNode(s.zk, s.zkPath())
+	cn, err := readConfigNode(s.st.zk, s.zkPath())
 	if err != nil {
 		return err
 	}
@@ -58,8 +58,11 @@ func (s *Service) SetCharmURL(url *charm.URL) error {
 
 // Charm returns the service's charm.
 func (s *Service) Charm() (*Charm, error) {
-	// TODO Add implementation when charm has been implemented.
-	return nil, errors.New("not yet implemented")
+	url, err := s.CharmURL()
+	if err != nil {
+		return nil, err
+	}
+	return s.st.Charm(url)
 }
 
 // AddUnit() adds a new unit.
@@ -74,7 +77,7 @@ func (s *Service) AddUnit() (*Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	path, err := s.zk.Create("/units/unit-", string(unitYaml), zookeeper.SEQUENCE, zkPermAll)
+	path, err := s.st.zk.Create("/units/unit-", string(unitYaml), zookeeper.SEQUENCE, zkPermAll)
 	if err != nil {
 		return nil, err
 	}
@@ -90,10 +93,10 @@ func (s *Service) AddUnit() (*Unit, error) {
 		}
 		return nil
 	}
-	if err := retryTopologyChange(s.zk, addUnit); err != nil {
+	if err := retryTopologyChange(s.st.zk, addUnit); err != nil {
 		return nil, err
 	}
-	return &Unit{s.zk, key, s.key, s.name, sequenceNo}, nil
+	return &Unit{s.st.zk, key, s.key, s.name, sequenceNo}, nil
 }
 
 // RemoveUnit() removes a unit.
@@ -111,10 +114,10 @@ func (s *Service) RemoveUnit(unit *Unit) error {
 		}
 		return nil
 	}
-	if err := retryTopologyChange(s.zk, removeUnit); err != nil {
+	if err := retryTopologyChange(s.st.zk, removeUnit); err != nil {
 		return err
 	}
-	return zkRemoveTree(s.zk, fmt.Sprintf("/units/%s", unit.key))
+	return zkRemoveTree(s.st.zk, fmt.Sprintf("/units/%s", unit.key))
 }
 
 // Unit returns the service's unit with name.
@@ -127,7 +130,7 @@ func (s *Service) Unit(name string) (*Unit, error) {
 	if serviceName != s.name {
 		return nil, fmt.Errorf("can't find unit %q on service %q", name, s.name)
 	}
-	topology, err := readTopology(s.zk)
+	topology, err := readTopology(s.st.zk)
 	if err != nil {
 		return nil, err
 	}
@@ -139,12 +142,12 @@ func (s *Service) Unit(name string) (*Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Unit{s.zk, key, s.key, s.name, sequenceNo}, nil
+	return &Unit{s.st.zk, key, s.key, s.name, sequenceNo}, nil
 }
 
 // AllUnits returns all units of the service.
 func (s *Service) AllUnits() ([]*Unit, error) {
-	topology, err := readTopology(s.zk)
+	topology, err := readTopology(s.st.zk)
 	if err != nil {
 		return nil, err
 	}
@@ -166,14 +169,14 @@ func (s *Service) AllUnits() ([]*Unit, error) {
 		if err != nil {
 			return nil, err
 		}
-		units = append(units, &Unit{s.zk, key, s.key, serviceName, sequenceNo})
+		units = append(units, &Unit{s.st.zk, key, s.key, serviceName, sequenceNo})
 	}
 	return units, nil
 }
 
 // UnitNames returns the names of all units of s.
 func (s *Service) UnitNames() ([]string, error) {
-	topology, err := readTopology(s.zk)
+	topology, err := readTopology(s.st.zk)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +204,7 @@ func (s *Service) UnitNames() ([]string, error) {
 // services may be accessed from machines outside of the
 // local deployment network. See SetExposed and ClearExposed.
 func (s *Service) IsExposed() (bool, error) {
-	stat, err := s.zk.Exists(s.zkExposedPath())
+	stat, err := s.st.zk.Exists(s.zkExposedPath())
 	if err != nil {
 		return false, err
 	}
@@ -211,7 +214,7 @@ func (s *Service) IsExposed() (bool, error) {
 // SetExposed marks the service as exposed.
 // See ClearExposed and IsExposed.
 func (s *Service) SetExposed() error {
-	_, err := s.zk.Create(s.zkExposedPath(), "", 0, zkPermAll)
+	_, err := s.st.zk.Create(s.zkExposedPath(), "", 0, zkPermAll)
 	if err != nil && err != zookeeper.ZNODEEXISTS {
 		return err
 	}
@@ -221,7 +224,7 @@ func (s *Service) SetExposed() error {
 // ClearExposed removes the exposed flag from the service.
 // See SetExposed and IsExposed.
 func (s *Service) ClearExposed() error {
-	err := s.zk.Delete(s.zkExposedPath(), -1)
+	err := s.st.zk.Delete(s.zkExposedPath(), -1)
 	if err != nil && err != zookeeper.ZNONODE {
 		return err
 	}
@@ -230,7 +233,7 @@ func (s *Service) ClearExposed() error {
 
 // Config returns the configuration node for the service.
 func (s *Service) Config() (*ConfigNode, error) {
-	return readConfigNode(s.zk, s.zkConfigPath())
+	return readConfigNode(s.st.zk, s.zkConfigPath())
 }
 
 // zkKey returns ZooKeeper key of the service.

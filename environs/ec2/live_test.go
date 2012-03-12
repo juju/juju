@@ -2,7 +2,6 @@ package ec2_test
 
 import (
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"io"
 	amzec2 "launchpad.net/goamz/ec2"
@@ -48,8 +47,8 @@ func registerAmazonTests() {
 	for _, name := range envs.Names() {
 		Suite(&LiveTests{
 			jujutest.LiveTests{
-				Environs: envs,
-				Name:     name,
+				Environs:         envs,
+				Name:             name,
 				ConsistencyDelay: 5 * time.Second,
 			},
 		})
@@ -66,7 +65,7 @@ func (t *LiveTests) TestInstanceDNSName(c *C) {
 	inst, err := t.Env.StartInstance(30, jujutest.InvalidStateInfo)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst})
-	dns, err := inst.DNSName()
+	dns, err := inst.WaitDNSName()
 	c.Check(err, IsNil)
 	c.Check(dns, Not(Equals), "")
 
@@ -212,19 +211,27 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	c.Check(err, IsNil)
 
 	var insts []environs.Instance
-	errSuccess := errors.New("unexpected success")
-	err = ec2.ShortDo(func(err error) bool {
-		return err == errSuccess
-	}, func() error {
-		var err error
+
+	// We need the retry logic here because we are waiting
+	// for Instances to return an error, and it will not retry
+	// if it succeeds.
+	gone := false
+	for i := 0; i < 5; i++ {
 		insts, err = t.Env.Instances([]string{inst0.Id(), inst2.Id()})
-		if err == nil {
-			err = errSuccess
+		if err == environs.ErrPartialInstances {
+			// instances not gone yet.
+			time.Sleep(1e9)
+			continue
 		}
-		return err
-	})
-	c.Check(err, Equals, environs.ErrMissingInstance)
-	c.Check(insts, HasLen, 0)
+		if err == environs.ErrNoInstances {
+			gone = true
+			break
+		}
+		c.Fatalf("error getting instances: %v", err)
+	}
+	if !gone {
+		c.Errorf("after termination, instances remaining: %v", insts)
+	}
 }
 
 // createGroup creates a new EC2 group and returns it. If it already exists,

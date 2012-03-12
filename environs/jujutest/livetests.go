@@ -26,12 +26,12 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Assert(insts[0].Id(), Equals, id0)
 	c.Assert(insts[1].Id(), Equals, id0)
 
-	dns, err := inst.DNSName()
+	dns, err := inst.WaitDNSName()
 	c.Assert(err, IsNil)
 	c.Assert(dns, Not(Equals), "")
 
 	insts, err = t.Env.Instances([]string{id0, ""})
-	c.Assert(err, Equals, environs.ErrMissingInstance)
+	c.Assert(err, Equals, environs.ErrPartialInstances)
 	c.Assert(insts, HasLen, 2)
 	c.Check(insts[0].Id(), Equals, id0)
 	c.Check(insts[1], IsNil)
@@ -48,13 +48,8 @@ func (t *LiveTests) TestStartStop(c *C) {
 		}
 		time.Sleep(0.25e9)
 	}
-	c.Assert(err, Equals, environs.ErrMissingInstance)
+	c.Assert(err, Equals, environs.ErrNoInstances)
 	c.Assert(insts, HasLen, 0)
-
-	// check the instance is no longer there.
-	for _, inst := range insts {
-		c.Assert(inst.Id(), Not(Equals), id0)
-	}
 }
 
 func (t *LiveTests) TestBootstrap(c *C) {

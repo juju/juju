@@ -19,11 +19,20 @@ func Test(t *testing.T) {
 }
 
 var _ = Suite(&StoreSuite{})
+var _ = Suite(&TrivialSuite{})
 
 type StoreSuite struct {
 	MgoSuite
+	HTTPSuite
 	store *store.Store
 	charm *charm.Dir
+}
+
+type TrivialSuite struct{}
+
+func (s *StoreSuite) SetUpSuite(c *C) {
+	s.MgoSuite.SetUpSuite(c)
+	s.HTTPSuite.SetUpSuite(c)
 }
 
 func (s *StoreSuite) SetUpTest(c *C) {
@@ -41,6 +50,7 @@ func (s *StoreSuite) SetUpTest(c *C) {
 }
 
 func (s *StoreSuite) TearDownTest(c *C) {
+	s.HTTPSuite.TearDownTest(c)
 	if s.store != nil {
 		s.store.Close()
 	}
@@ -327,6 +337,8 @@ func (s *StoreSuite) TestRedundantUpdate(c *C) {
 	c.Assert(err, IsNil)
 }
 
+const fakeRevZeroSha = "319095521ac8a62fa1e8423351973512ecca8928c9f62025e37de57c9ef07a53"
+
 func (s *StoreSuite) TestBundleSha256(c *C) {
 	url := charm.MustParseURL("cs:oneiric/wordpress")
 	urls := []*charm.URL{url}
@@ -340,7 +352,7 @@ func (s *StoreSuite) TestBundleSha256(c *C) {
 
 	info, rc, err := s.store.OpenCharm(url)
 	c.Assert(err, IsNil)
-	c.Check(info.BundleSha256(), Equals, "319095521ac8a62fa1e8423351973512ecca8928c9f62025e37de57c9ef07a53")
+	c.Check(info.BundleSha256(), Equals, fakeRevZeroSha)
 	err = rc.Close()
 	c.Check(err, IsNil)
 }
@@ -426,4 +438,14 @@ func (s *StoreSuite) TestLogCharmEvent(c *C) {
 	event, err = s.store.CharmEvent(urls[1], "revKeyX")
 	c.Assert(err, Equals, store.ErrNotFound)
 	c.Assert(event, IsNil)
+}
+
+func (s *TrivialSuite) TestEventString(c *C) {
+	c.Assert(store.EventPublished, Matches, "published")
+	c.Assert(store.EventPublishError, Matches, "publish-error")
+	for kind := store.CharmEventKind(1); kind < store.EventKindCount; kind++ {
+		// This guarantees the switch in String is properly
+		// updated with new event kinds.
+		c.Assert(kind.String(), Matches, "[a-z-]+")
+	}
 }
