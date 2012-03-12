@@ -252,7 +252,7 @@ func (u *Unit) ClearNeedsUpgrade() error {
 	return err
 }
 
-// ResolvedNoHooks returns the value of the resolved setting if any.
+// Resolved returns the value of the resolved setting if any.
 func (u *Unit) Resolved() (ResolvedMode, error) {
 	yaml, _, err := u.st.zk.Get(u.zkResolvedPath())
 	if err == zookeeper.ZNONODE {
@@ -283,7 +283,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) error {
 	if err := validResolvedMode(mode); err != nil {
 		return err
 	}
-	setting := &struct{ Retry ResolvedMode }{Retry: mode}
+	setting := &struct{ Retry ResolvedMode }{mode}
 	yaml, err := goyaml.Marshal(setting)
 	if err != nil {
 		return err
@@ -305,7 +305,7 @@ func (u *Unit) ClearResolved() error {
 	return err
 }
 
-// OpenPort sets the policy of the port with protocol and number to open.
+// OpenPort sets the policy of the port with protocol and number to be opened.
 func (u *Unit) OpenPort(protocol string, number int) error {
 	openPort := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
 		ports := &struct{ Open []Port }{}
@@ -334,7 +334,7 @@ func (u *Unit) OpenPort(protocol string, number int) error {
 	return u.st.zk.RetryChange(u.zkPortsPath(), 0, zkPermAll, openPort)
 }
 
-// OpenPort sets the policy of the port with protocol and number to close.
+// ClosePort sets the policy of the port with protocol and number to be closed.
 func (u *Unit) ClosePort(protocol string, number int) error {
 	closePort := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
 		ports := &struct{ Open []Port }{}
