@@ -118,9 +118,9 @@ func CheckPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
 	}
 	switch {
 	case match && !found:
-		c.Errorf("%q not found in packages", pkg)
+		c.Errorf("package %q not found in %v", pkg, pkgs)
 	case !match && found:
-		c.Errorf("%q found in packages but not expected", pkg)
+		c.Errorf("%q found but not expected in ", pkg, pkgs)
 	}
 }
 
@@ -145,7 +145,6 @@ func (cloudinitSuite) TestCloudInit(c *C) {
 		err = goyaml.Unmarshal(data, &x)
 		c.Assert(err, IsNil)
 
-		c.Logf("result %v", x)
 		t := &cloudinitTest{
 			cfg: &cfg,
 			x:   x,
