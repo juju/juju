@@ -252,7 +252,7 @@ func (u *Unit) ClearNeedsUpgrade() error {
 	return err
 }
 
-// Resolved returns the value of the resolved setting if any.
+// Resolved returns the resolved mode for the unit.
 func (u *Unit) Resolved() (ResolvedMode, error) {
 	yaml, _, err := u.st.zk.Get(u.zkResolvedPath())
 	if err == zookeeper.ZNONODE {
