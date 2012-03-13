@@ -62,7 +62,7 @@ func (s *State) RemoveMachine(id int) error {
 
 // Machine returns the machine with the given id.
 func (s *State) Machine(id int) (*Machine, error) {
-	key := fmt.Sprintf("machine-%010d", id)
+	key := machineKey(id)
 	topology, err := readTopology(s.zk)
 	if err != nil {
 		return nil, err

@@ -143,12 +143,12 @@ func (s StateSuite) TestGetNonExistentCharm(c *C) {
 
 func (s StateSuite) TestAddMachine(c *C) {
 	// Check that adding machines works correctly.
-	machineOne, err := s.st.AddMachine()
+	machine0, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
-	c.Assert(machineOne.Id(), Equals, 0)
-	machineTwo, err := s.st.AddMachine()
+	c.Assert(machine0.Id(), Equals, 0)
+	machine1, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
-	c.Assert(machineTwo.Id(), Equals, 1)
+	c.Assert(machine1.Id(), Equals, 1)
 
 	children, _, err := s.zkConn.Children("/machines")
 	c.Assert(err, IsNil)
@@ -158,11 +158,11 @@ func (s StateSuite) TestAddMachine(c *C) {
 
 func (s StateSuite) TestRemoveMachine(c *C) {
 	// Check that removing a machine doesn't fail.
-	machineOne, err := s.st.AddMachine()
+	machine, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 	_, err = s.st.AddMachine()
 	c.Assert(err, IsNil)
-	err = s.st.RemoveMachine(machineOne.Id())
+	err = s.st.RemoveMachine(machine.Id())
 	c.Assert(err, IsNil)
 
 	children, _, err := s.zkConn.Children("/machines")
@@ -171,17 +171,18 @@ func (s StateSuite) TestRemoveMachine(c *C) {
 	c.Assert(children, DeepEquals, []string{"machine-0000000001"})
 
 	// Removing a non-existing machine has to fail.
-	err = s.st.RemoveMachine(machineOne.Id())
+	err = s.st.RemoveMachine(machine.Id())
 	c.Assert(err, ErrorMatches, "machine 0 does not exist")
 }
 
 func (s StateSuite) TestReadMachine(c *C) {
 	// Check that reading a machine doesn't fail.
-	machineOne, err := s.st.AddMachine()
+	machine, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
-	machineTwo, err := s.st.Machine(machineOne.Id())
+	expectedId := machine.Id()
+	machine, err = s.st.Machine(expectedId)
 	c.Assert(err, IsNil)
-	c.Assert(machineOne.Id(), Equals, machineTwo.Id())
+	c.Assert(machine.Id(), Equals, expectedId)
 }
 
 func (s StateSuite) TestReadNonExistentMachine(c *C) {
