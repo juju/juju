@@ -162,21 +162,17 @@ func (s StateSuite) TestRemoveMachine(c *C) {
 	c.Assert(err, IsNil)
 	_, err = s.st.AddMachine()
 	c.Assert(err, IsNil)
-	removed, err := s.st.RemoveMachine(machineOne.Id())
+	err = s.st.RemoveMachine(machineOne.Id())
 	c.Assert(err, IsNil)
-	c.Assert(removed, Equals, true)
 
 	children, _, err := s.zkConn.Children("/machines")
 	c.Assert(err, IsNil)
 	sort.Strings(children)
 	c.Assert(children, DeepEquals, []string{"machine-0000000001"})
 
-	// Removing a non-existing machine again won't fail, since the end
-	// intention is preserved.  This makes dealing with concurrency easier.
-	// However, false will be returned in this case.
-	removed, err = s.st.RemoveMachine(machineOne.Id())
-	c.Assert(err, IsNil)
-	c.Assert(removed, Equals, false)
+	// Removing a non-existing machine has to fail.
+	err = s.st.RemoveMachine(machineOne.Id())
+	c.Assert(err, ErrorMatches, "machine 0 does not exist")
 }
 
 func (s StateSuite) TestReadMachine(c *C) {

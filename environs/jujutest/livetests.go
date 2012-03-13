@@ -25,8 +25,12 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Assert(insts[0].Id(), Equals, id0)
 	c.Assert(insts[1].Id(), Equals, id0)
 
+	dns, err := inst.WaitDNSName()
+	c.Assert(err, IsNil)
+	c.Assert(dns, Not(Equals), "")
+
 	insts, err = t.Env.Instances([]string{id0, ""})
-	c.Assert(err, Equals, environs.ErrMissingInstance)
+	c.Assert(err, Equals, environs.ErrPartialInstances)
 	c.Assert(insts, HasLen, 2)
 	c.Check(insts[0].Id(), Equals, id0)
 	c.Check(insts[1], IsNil)
@@ -35,19 +39,18 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Assert(err, IsNil)
 
 	insts, err = t.Env.Instances([]string{id0})
-	c.Assert(err, Equals, environs.ErrMissingInstance)
+	c.Assert(err, Equals, environs.ErrNoInstances)
 	c.Assert(insts, HasLen, 0)
-
-	// check the instance is no longer there.
-	for _, inst := range insts {
-		c.Assert(inst.Id(), Not(Equals), id0)
-	}
 }
 
 func (t *LiveTests) TestBootstrap(c *C) {
+	c.Logf("initial bootstrap")
 	err := t.Env.Bootstrap()
 	c.Assert(err, IsNil)
 
+	c.Logf("duplicate bootstrap")
+	// Wait for a while to let eventual consistency catch up, hopefully.
+	time.Sleep(t.ConsistencyDelay)
 	err = t.Env.Bootstrap()
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
@@ -56,6 +59,10 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	c.Assert(info, NotNil)
 	c.Check(info.Addrs, Not(HasLen), 0)
 
+	// TODO uncomment when State has a close method
+	// st.Close()
+
+	c.Logf("destroy env")
 	err = t.Env.Destroy(nil)
 	c.Assert(err, IsNil)
 

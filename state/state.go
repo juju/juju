@@ -39,39 +39,25 @@ func (s *State) AddMachine() (*Machine, error) {
 }
 
 // RemoveMachine removes the machine with the given id.
-func (s *State) RemoveMachine(id int) (bool, error) {
-	key := fmt.Sprintf("machine-%010d", id)
-	mustDelete := false
+func (s *State) RemoveMachine(id int) error {
+	key := machineKey(id)
 	removeMachine := func(t *topology) error {
-		// Removing a non-existing machine again won't fail, since
-		// the end intention is preserved. This makes dealing
-		// with concurrency easier.
-		if t.HasMachine(key) {
-			hasUnits, err := t.MachineHasUnits(key)
-			if err != nil {
-				return err
-			}
-			if hasUnits {
-				return fmt.Errorf("machine %d in use", id)
-			}
-			t.RemoveMachine(key)
-			mustDelete = true
-		} else {
-			mustDelete = false
+		if !t.HasMachine(key) {
+			return fmt.Errorf("machine %d does not exist", id)
 		}
-		return nil
+		hasUnits, err := t.MachineHasUnits(key)
+		if err != nil {
+			return err
+		}
+		if hasUnits {
+			return fmt.Errorf("machine %d in use", id)
+		}
+		return t.RemoveMachine(key)
 	}
 	if err := retryTopologyChange(s.zk, removeMachine); err != nil {
-		return false, err
+		return err
 	}
-	if mustDelete {
-		// The node has to be deleted. If this is interrupted
-		// here, the node will stay around. This is not a big
-		// deal since it's not being referenced by the topology
-		// anymore.
-		zkRemoveTree(s.zk, fmt.Sprintf("/machines/%s", key))
-	}
-	return mustDelete, nil
+	return zkRemoveTree(s.zk, fmt.Sprintf("/machines/%s", key))
 }
 
 // Machine returns the machine with the given id.
