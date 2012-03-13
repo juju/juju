@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju/go/state"
 	"net/url"
 	"path/filepath"
+	"sort"
 	"testing"
 )
 
@@ -94,8 +95,9 @@ func (s StateSuite) TestAddCharm(c *C) {
 	dummy, err := s.st.AddCharm(dummyCharm, curl, bundleURL)
 	c.Assert(err, IsNil)
 	c.Assert(dummy.URL().String(), Equals, curl.String())
-	_, _, err = s.zkConn.Children("/charms")
+	children, _, err := s.zkConn.Children("/charms")
 	c.Assert(err, IsNil)
+	c.Assert(children, DeepEquals, []string{"local_3a_series_2f_dummy-1"})
 }
 
 func (s StateSuite) TestCharmAttributes(c *C) {
@@ -139,8 +141,76 @@ func (s StateSuite) TestGetNonExistentCharm(c *C) {
 	c.Assert(err, ErrorMatches, `charm not found: "local:anotherseries/dummy-1"`)
 }
 
+func (s StateSuite) TestAddMachine(c *C) {
+	machine0, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	c.Assert(machine0.Id(), Equals, 0)
+	machine1, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	c.Assert(machine1.Id(), Equals, 1)
+
+	children, _, err := s.zkConn.Children("/machines")
+	c.Assert(err, IsNil)
+	sort.Strings(children)
+	c.Assert(children, DeepEquals, []string{"machine-0000000000", "machine-0000000001"})
+}
+
+func (s StateSuite) TestRemoveMachine(c *C) {
+	machine, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	_, err = s.st.AddMachine()
+	c.Assert(err, IsNil)
+	err = s.st.RemoveMachine(machine.Id())
+	c.Assert(err, IsNil)
+
+	children, _, err := s.zkConn.Children("/machines")
+	c.Assert(err, IsNil)
+	sort.Strings(children)
+	c.Assert(children, DeepEquals, []string{"machine-0000000001"})
+
+	// Removing a non-existing machine has to fail.
+	err = s.st.RemoveMachine(machine.Id())
+	c.Assert(err, ErrorMatches, "can't remove machine 0: machine not found")
+}
+
+func (s StateSuite) TestReadMachine(c *C) {
+	machine, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	expectedId := machine.Id()
+	machine, err = s.st.Machine(expectedId)
+	c.Assert(err, IsNil)
+	c.Assert(machine.Id(), Equals, expectedId)
+}
+
+func (s StateSuite) TestReadNonExistentMachine(c *C) {
+	_, err := s.st.Machine(0)
+	c.Assert(err, ErrorMatches, "machine 0 not found")
+
+	_, err = s.st.AddMachine()
+	c.Assert(err, IsNil)
+	_, err = s.st.Machine(1)
+	c.Assert(err, ErrorMatches, "machine 1 not found")
+}
+
+func (s StateSuite) TestAllMachines(c *C) {
+	machines, err := s.st.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(len(machines), Equals, 0)
+
+	_, err = s.st.AddMachine()
+	c.Assert(err, IsNil)
+	machines, err = s.st.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(len(machines), Equals, 1)
+
+	_, err = s.st.AddMachine()
+	c.Assert(err, IsNil)
+	machines, err = s.st.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(len(machines), Equals, 2)
+}
+
 func (s StateSuite) TestAddService(c *C) {
-	// Check that adding services works correctly.
 	dummy, curl := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
@@ -169,7 +239,6 @@ func (s StateSuite) TestRemoveService(c *C) {
 	service, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 
-	// Check that removing the service works correctly.
 	err = s.st.RemoveService(service)
 	c.Assert(err, IsNil)
 	service, err = s.st.Service("wordpress")
@@ -182,7 +251,6 @@ func (s StateSuite) TestReadNonExistentService(c *C) {
 }
 
 func (s StateSuite) TestAllServices(c *C) {
-	// Check without existing services.
 	services, err := s.st.AllServices()
 	c.Assert(err, IsNil)
 	c.Assert(len(services), Equals, 0)
