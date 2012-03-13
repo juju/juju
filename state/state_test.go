@@ -19,7 +19,7 @@ import (
 func TestPackage(t *stdtesting.T) {
 	srv := testing.StartZkServer(t)
 	defer srv.Destroy()
-	state.ZkAddr = srv.Addr()
+	state.TestingZkAddr = srv.Addr()
 	TestingT(t)
 }
 
@@ -66,7 +66,7 @@ var _ = Suite(&StateSuite{})
 func (s *StateSuite) SetUpTest(c *C) {
 	var err error
 	s.st, err = state.Open(&state.Info{
-		Addrs: []string{state.ZkAddr},
+		Addrs: []string{state.TestingZkAddr},
 	})
 	c.Assert(err, IsNil)
 	err = s.st.Initialize()

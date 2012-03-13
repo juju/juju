@@ -18,15 +18,13 @@ type TopologySuite struct {
 	t          *topology
 }
 
-var (
-	_      = Suite(&TopologySuite{})
-	ZkAddr string
-)
+var _ = Suite(&TopologySuite{})
+var TestingZkAddr string
 
 func (s *TopologySuite) SetUpTest(c *C) {
 	// Connect the server.
 	st, err := Open(&Info{
-		Addrs: []string{ZkAddr},
+		Addrs: []string{TestingZkAddr},
 	})
 	c.Assert(err, IsNil)
 	s.zkConn = ZkConn(st)
@@ -464,7 +462,7 @@ func (s *ConfigNodeSuite) SetUpSuite(c *C) {
 func (s *ConfigNodeSuite) SetUpTest(c *C) {
 	// Connect the server.
 	st, err := Open(&Info{
-		Addrs: []string{ZkAddr},
+		Addrs: []string{TestingZkAddr},
 	})
 	c.Assert(err, IsNil)
 	s.zkConn = ZkConn(st)
