@@ -19,7 +19,6 @@ environments:
     type: ec2
     region: test
     control-bucket: test-bucket
-    admin-secret: verysecret
 `)
 
 // Each test is run in each of the following scenarios.  A scenario is

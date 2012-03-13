@@ -387,8 +387,6 @@ func (e *environ) machineGroupName(machineId int) string {
 	return fmt.Sprintf("%s-%d", e.groupName(), machineId)
 }
 
-// groupName returns the name of the security group
-// that will be assigned to all machines started by the environ.
 func (e *environ) groupName() string {
 	return "juju-" + e.name
 }

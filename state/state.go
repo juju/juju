@@ -192,31 +192,34 @@ func (s *State) Unit(name string) (*Unit, error) {
 func (s *State) Initialize() error {
 	stat, err := s.zk.Exists("/initialized")
 	if err != nil {
-		return fmt.Errorf("checking existence of /initialized: %v", err)
+		return err
 	}
 	if stat != nil {
 		return nil
 	}
 	// Create new nodes.
-	create := func(name string) {
-		if err != nil {
-			return
-		}
-		_, err = s.zk.Create(name, "", 0, zkPermAll)
-		if err != nil {
-			err = fmt.Errorf("cannot create %s: %v", name, err)
-		}
+	if _, err := s.zk.Create("/charms", "", 0, zkPermAll); err != nil {
+		return err
 	}
-	create("/charms")
-	create("/services")
-	create("/machines")
-	create("/units")
-	create("/relations")
+	if _, err := s.zk.Create("/services", "", 0, zkPermAll); err != nil {
+		return err
+	}
+	if _, err := s.zk.Create("/machines", "", 0, zkPermAll); err != nil {
+		return err
+	}
+	if _, err := s.zk.Create("/units", "", 0, zkPermAll); err != nil {
+		return err
+	}
+	if _, err := s.zk.Create("/relations", "", 0, zkPermAll); err != nil {
+		return err
+	}
 	// TODO Create node for bootstrap machine.
 
 	// TODO Setup default global settings information.
 
 	// Finally creation of /initialized as marker.
-	create("/initialized")
-	return err
+	if _, err := s.zk.Create("/initialized", "", 0, zkPermAll); err != nil {
+		return err
+	}
+	return nil
 }
