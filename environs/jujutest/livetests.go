@@ -39,8 +39,8 @@ func (t *LiveTests) TestStartStop(c *C) {
 	err = t.Env.StopInstances([]environs.Instance{inst})
 	c.Assert(err, IsNil)
 
-	// repeat for a while to let eventual consistency catch up, hopefully.
-	// TODO use ShortDo
+	// Stopping may not be noticed at first due to eventual
+	// consistency. Repeat a few times to ensure we get the error.
 	for i := 0; i < 20; i++ {
 		insts, err = t.Env.Instances([]string{id0})
 		if err != nil {
@@ -54,13 +54,12 @@ func (t *LiveTests) TestStartStop(c *C) {
 
 func (t *LiveTests) TestBootstrap(c *C) {
 	c.Logf("initial bootstrap")
-	err := t.Env.Bootstrap()
-	c.Assert(err, IsNil)
+	t.BootstrapOnce(c)
 
 	c.Logf("duplicate bootstrap")
 	// Wait for a while to let eventual consistency catch up, hopefully.
 	time.Sleep(t.ConsistencyDelay)
-	err = t.Env.Bootstrap()
+	err := t.Env.Bootstrap()
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	info, err := t.Env.StateInfo()
@@ -68,33 +67,26 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	c.Assert(info, NotNil)
 	c.Check(info.Addrs, Not(HasLen), 0)
 
-	c.Logf("open state")
-	st, err := state.Open(info)
-	if err != nil {
-		c.Errorf("state open failed: err)
-		err = t.Env.Destroy(nil)
+	if t.CanConnect {
+		c.Logf("open state")
+		st, err := state.Open(info)
 		c.Assert(err, IsNil)
-		return
+
+		c.Logf("initialize state")
+		err = st.Initialize()
+		c.Assert(err, IsNil)
 	}
-	c.Logf("initialize state")
-	err = st.Initialize()
-	c.Assert(err, IsNil)
+
 
 	// TODO uncomment when State has a close method
 	// st.Close()
 
 	c.Logf("destroy env")
-	err = t.Env.Destroy(nil)
-	c.Assert(err, IsNil)
+	t.Destroy(c)
 
 	c.Logf("bootstrap again")
 	// check that we can bootstrap after destroy
-	err = t.Env.Bootstrap()
-	c.Assert(err, IsNil)
-
-	c.Logf("final destroy")
-	err = t.Env.Destroy(nil)
-	c.Assert(err, IsNil)
+	t.BootstrapOnce(c)
 }
 
 // TODO check that binary data works ok?

@@ -21,35 +21,6 @@ environments:
     control-bucket: test-bucket
 `)
 
-// Each test is run in each of the following scenarios.  A scenario is
-// implemented by mutating the ec2test server after it starts.
-var scenarios = []struct {
-	name  string
-	setup func(*localServer)
-}{
-	{"normal", normalScenario},
-	{"initial-state-running", initialStateRunningScenario},
-	{"extra-instances", extraInstancesScenario},
-}
-
-func normalScenario(*localServer) {
-}
-
-func initialStateRunningScenario(srv *localServer) {
-	srv.ec2srv.SetInitialInstanceState(ec2test.Running)
-}
-
-func extraInstancesScenario(srv *localServer) {
-	states := []amzec2.InstanceState{
-		ec2test.ShuttingDown,
-		ec2test.Terminated,
-		ec2test.Stopped,
-	}
-	for _, state := range states {
-		srv.ec2srv.NewInstances(1, "m1.small", "ami-a7f539ce", state, nil)
-	}
-}
-
 func registerLocalTests() {
 	ec2.Regions["test"] = aws.Region{}
 	envs, err := environs.ReadEnvironsBytes(functionalConfig)
@@ -58,24 +29,20 @@ func registerLocalTests() {
 	}
 
 	for _, name := range envs.Names() {
-		for _, scen := range scenarios {
-			Suite(&localServerSuite{
-				srv: localServer{setup: scen.setup},
-				Tests: jujutest.Tests{
+		Suite(&localServerSuite{
+			Tests: jujutest.Tests{
+				Environs: envs,
+				Name:     name,
+			},
+		})
+		Suite(&localLiveSuite{
+			LiveTests: LiveTests{
+				jujutest.LiveTests{
 					Environs: envs,
 					Name:     name,
 				},
-			})
-			Suite(&localLiveSuite{
-				srv: localServer{setup: scen.setup},
-				LiveTests: LiveTests{
-					jujutest.LiveTests{
-						Environs: envs,
-						Name:     name,
-					},
-				},
-			})
-		}
+			},
+		})
 	}
 }
 
@@ -101,16 +68,11 @@ func (t *localLiveSuite) TearDownSuite(c *C) {
 	ec2.ShortTimeouts(false)
 }
 
-func (t *localLiveSuite) TestBootstrap(c *C) {
-	c.Skip("cannot test bootstrap on local server")
-}
-
 // localServer represents a fake EC2 server running within
 // the test process itself.
 type localServer struct {
 	ec2srv *ec2test.Server
 	s3srv  *s3test.Server
-	setup  func(*localServer)
 }
 
 func (srv *localServer) startServer(c *C) {
@@ -127,7 +89,20 @@ func (srv *localServer) startServer(c *C) {
 		EC2Endpoint: srv.ec2srv.URL(),
 		S3Endpoint:  srv.s3srv.URL(),
 	}
-	srv.setup(srv)
+	srv.addSpice(c)
+}
+
+// addSpice adds some "spice" to the local server
+// by adding state that may cause tests to fail.
+func (srv *localServer) addSpice(c *C) {
+	states := []amzec2.InstanceState{
+		ec2test.ShuttingDown,
+		ec2test.Terminated,
+		ec2test.Stopped,
+	}
+	for _, state := range states {
+		srv.ec2srv.NewInstances(1, "m1.small", "ami-a7f539ce", state, nil)
+	}
 }
 
 func (srv *localServer) stopServer(c *C) {
