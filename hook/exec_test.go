@@ -3,9 +3,7 @@ package hook_test
 import (
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/cmd"
 	"launchpad.net/juju/go/hook"
 	"os"
 	"path/filepath"
@@ -15,90 +13,56 @@ import (
 
 func Test(t *testing.T) { TestingT(t) }
 
-type NilCmd struct {
-	name string
-}
-
-func (c *NilCmd) Info() *cmd.Info {
-	return &cmd.Info{Name: c.name}
-}
-
-func (c *NilCmd) InitFlagSet(f *gnuflag.FlagSet) {
-	panic("unreachable")
-}
-func (c *NilCmd) ParsePositional(args []string) error {
-	panic("unreachable")
-}
-func (c *NilCmd) Run() error {
-	panic("unreachable")
-}
-
-type TestContext struct {
+type TestEnv struct {
 	charmDir string
-	names    []string
 	vars     map[string]string
 }
 
-func (c *TestContext) Env() *hook.Env {
-	return &hook.Env{
-		"ctx-id", "/path/to/socket", c.charmDir, "minecraft/0", c.vars,
-	}
+func (e *TestEnv) ContextId() string {
+	return "ctx-id"
 }
 
-func (c *TestContext) Commands() []cmd.Command {
-	cmds := make([]cmd.Command, len(c.names))
-	for i, name := range c.names {
-		cmds[i] = &NilCmd{name}
-	}
-	return cmds
+func (e *TestEnv) AgentSock() string {
+	return "/path/to/socket"
+}
+
+func (e *TestEnv) UnitName() string {
+	return "minecraft/0"
+}
+
+func (e *TestEnv) CharmDir() string {
+	return e.charmDir
+}
+
+func (e *TestEnv) Vars() map[string]string {
+	return e.vars
 }
 
 type ExecSuite struct {
-	origJujuc string
-	toolPath  string
-	outPath   string
+	outPath string
 }
 
-var (
-	_             = Suite(&ExecSuite{})
-	jujucTemplate = `#!/bin/bash
-echo command: $_ $* >> %s
-printenv >> %s
-exit 0
+var _ = Suite(&ExecSuite{})
+
+var template = `#!/bin/bash
+printenv > %s
+exit %d
 `
-)
 
-func (s *ExecSuite) SetUpSuite(c *C) {
-	dir := c.MkDir()
-	s.outPath = filepath.Join(dir, "jujuc.out")
-	jujuc := fmt.Sprintf(jujucTemplate, s.outPath, s.outPath)
-	s.toolPath = filepath.Join(dir, "jujuc")
-	err := ioutil.WriteFile(s.toolPath, []byte(jujuc), 0755)
-	c.Assert(err, IsNil)
-	s.origJujuc = hook.JUJUC_PATH
-	hook.JUJUC_PATH = s.toolPath
-}
-
-func (s *ExecSuite) TearDownSuite(c *C) {
-	hook.JUJUC_PATH = s.origJujuc
-}
-
-func (s *ExecSuite) SetUpTest(c *C) {
-	os.Remove(s.outPath)
-}
-
-func makeCharm(c *C, hookName string, perm os.FileMode, hook string) string {
+func makeCharm(c *C, hookName string, perm os.FileMode, code int) (string, string) {
 	charmDir := c.MkDir()
 	hooksDir := filepath.Join(charmDir, "hooks")
 	err := os.Mkdir(hooksDir, 0755)
 	c.Assert(err, IsNil)
 	hookPath := filepath.Join(hooksDir, hookName)
+	outPath := filepath.Join(c.MkDir(), "hook.out")
+	hook := fmt.Sprintf(template, outPath, code)
 	err = ioutil.WriteFile(hookPath, []byte(hook), perm)
 	c.Assert(err, IsNil)
-	return charmDir
+	return charmDir, outPath
 }
 
-func AssertEnv(c *C, lines []string, env map[string]string) {
+func AssertEnvContains(c *C, lines []string, env map[string]string) {
 	for k, v := range env {
 		sought := k + "=" + v
 		found := false
@@ -112,106 +76,47 @@ func AssertEnv(c *C, lines []string, env map[string]string) {
 		c.Assert(found, Equals, true, comment)
 	}
 }
-
-func AssertCall(c *C, actual, expected string) {
-	c.Log(actual)
-	c.Log(expected)
-	actuals := strings.Split(actual, " ")
-	expecteds := strings.Split(expected, " ")
-	c.Assert(actuals[1:], DeepEquals, expecteds[1:])
-	dir, name := filepath.Split(actuals[0])
-	c.Assert(name, Equals, expecteds[0])
-	_, err := os.Stat(dir)
-	comment := Commentf("symlinks dir not deleted")
-	c.Assert(os.IsNotExist(err), Equals, true, comment)
-}
-
-func (s *ExecSuite) AssertCalls(c *C, calls []string, env map[string]string) {
-	out, err := ioutil.ReadFile(s.outPath)
-	if len(calls) == 0 {
-		c.Assert(os.IsNotExist(err), Equals, true)
-		return
-	}
+func (s *ExecSuite) AssertEnv(c *C, outPath string, env map[string]string) {
+	out, err := ioutil.ReadFile(outPath)
 	c.Assert(err, IsNil)
-	records := strings.Split(string(out), "command: ")
-	c.Assert(records[0], Equals, "")
-	records = records[1:]
-	c.Assert(records, HasLen, len(calls))
-	for i, record := range records {
-		lines := strings.Split(record, "\n")
-		AssertCall(c, lines[0], calls[i])
-		AssertEnv(c, lines[1:], env)
-		AssertEnv(c, lines[1:], map[string]string{
-			"JUJU_CONTEXT_ID":          "ctx-id",
-			"JUJU_AGENT_SOCKET":        "/path/to/socket",
-			"JUJU_UNIT_NAME":           "minecraft/0",
-			"DEBIAN_FRONTEND":          "noninteractive",
-			"APT_LISTCHANGES_FRONTEND": "none",
-		})
-	}
+	lines := strings.Split(string(out), "\n")
+	AssertEnvContains(c, lines, env)
+	AssertEnvContains(c, lines, map[string]string{
+		"JUJU_CONTEXT_ID":          "ctx-id",
+		"JUJU_AGENT_SOCKET":        "/path/to/socket",
+		"JUJU_UNIT_NAME":           "minecraft/0",
+		"DEBIAN_FRONTEND":          "noninteractive",
+		"APT_LISTCHANGES_FRONTEND": "none",
+	})
 }
 
 func (s *ExecSuite) TestNoHook(c *C) {
-	charmDir := c.MkDir()
-	ctx := &TestContext{charmDir, []string{}, map[string]string{}}
-	err := hook.Exec(ctx, "tree-fell-in-forest")
+	env := &TestEnv{c.MkDir(), map[string]string{}}
+	err := hook.Exec(env, "tree-fell-in-forest")
 	c.Assert(err, IsNil)
-	s.AssertCalls(c, []string{}, map[string]string{})
 }
 
 func (s *ExecSuite) TestNonExecutableHook(c *C) {
-	charmDir := makeCharm(c, "something-happened", 0600, "")
-	ctx := &TestContext{charmDir, []string{}, map[string]string{}}
-	err := hook.Exec(ctx, "something-happened")
+	charmDir, _ := makeCharm(c, "something-happened", 0600, 0)
+	env := &TestEnv{charmDir, map[string]string{}}
+	err := hook.Exec(env, "something-happened")
 	c.Assert(err, ErrorMatches, "hook is not executable: .*/something-happened")
 }
 
 func (s *ExecSuite) TestGoodHook(c *C) {
-	charmDir := makeCharm(c, "something-happened", 0700, `#!/bin/bash
-set -e
-twiddle something
-adjust something else
-exit 0
-`)
-	ctx := &TestContext{charmDir, []string{"twiddle", "adjust"},
-		map[string]string{"FOOBAR": "BAZ QUX", "BLAM": "DINK"},
-	}
-	err := hook.Exec(ctx, "something-happened")
+	charmDir, outPath := makeCharm(c, "something-happened", 0700, 0)
+	env := &TestEnv{charmDir, map[string]string{"FOOBAR": "BAZ QUX", "BLAM": "DINK"}}
+	err := hook.Exec(env, "something-happened")
 	c.Assert(err, IsNil)
-	s.AssertCalls(c,
-		[]string{"twiddle something", "adjust something else"},
-		map[string]string{"CHARM_DIR": charmDir, "FOOBAR": "BAZ QUX", "BLAM": "DINK"})
+	s.AssertEnv(c, outPath, map[string]string{
+		"CHARM_DIR": charmDir, "FOOBAR": "BAZ QUX", "BLAM": "DINK",
+	})
 }
 
 func (s *ExecSuite) TestBadHook(c *C) {
-	charmDir := makeCharm(c, "occurrence-occurred", 0700, `#!/bin/bash
-set -e
-tweak malevolently
-rattle with glee
-exit 99
-`)
-	ctx := &TestContext{charmDir, []string{"rattle", "tweak"},
-		map[string]string{"PEWPEW": "LASERS"}}
-	err := hook.Exec(ctx, "occurrence-occurred")
+	charmDir, outPath := makeCharm(c, "occurrence-occurred", 0700, 99)
+	env := &TestEnv{charmDir, map[string]string{"PEWPEW": "LASERS"}}
+	err := hook.Exec(env, "occurrence-occurred")
 	c.Assert(err, ErrorMatches, "exit status 99")
-	s.AssertCalls(c,
-		[]string{"tweak malevolently", "rattle with glee"},
-		map[string]string{"CHARM_DIR": charmDir, "PEWPEW": "LASERS"})
-}
-
-func (s *ExecSuite) TestUnknownTool(c *C) {
-	charmDir := makeCharm(c, "bewildered-caveman", 0700, `#!/bin/bash
-set -e
-poke exploratorily
-fiddle ignorantly
-thump in frustration
-exit 0
-`)
-	ctx := &TestContext{charmDir, []string{"fiddle", "poke"},
-		map[string]string{"COMPLEXITY": "OVERWHELMING"}}
-	err := hook.Exec(ctx, "bewildered-caveman")
-	c.Assert(err, ErrorMatches, "exit status 127")
-	s.AssertCalls(c,
-		[]string{"poke exploratorily", "fiddle ignorantly"},
-		map[string]string{"CHARM_DIR": charmDir, "COMPLEXITY": "OVERWHELMING"})
+	s.AssertEnv(c, outPath, map[string]string{"CHARM_DIR": charmDir, "PEWPEW": "LASERS"})
 }
