@@ -43,19 +43,19 @@ func (s *State) RemoveMachine(id int) error {
 	key := machineKey(id)
 	removeMachine := func(t *topology) error {
 		if !t.HasMachine(key) {
-			return fmt.Errorf("machine %d does not exist", id)
+			return fmt.Errorf("machine not found")
 		}
 		hasUnits, err := t.MachineHasUnits(key)
 		if err != nil {
 			return err
 		}
 		if hasUnits {
-			return fmt.Errorf("machine %d in use", id)
+			return fmt.Errorf("machine has units")
 		}
 		return t.RemoveMachine(key)
 	}
 	if err := retryTopologyChange(s.zk, removeMachine); err != nil {
-		return err
+		return fmt.Errorf("can't remove machine %d: %v", id, err)
 	}
 	return zkRemoveTree(s.zk, fmt.Sprintf("/machines/%s", key))
 }

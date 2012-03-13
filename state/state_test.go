@@ -142,7 +142,6 @@ func (s StateSuite) TestGetNonExistentCharm(c *C) {
 }
 
 func (s StateSuite) TestAddMachine(c *C) {
-	// Check that adding machines works correctly.
 	machine0, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 	c.Assert(machine0.Id(), Equals, 0)
@@ -157,7 +156,6 @@ func (s StateSuite) TestAddMachine(c *C) {
 }
 
 func (s StateSuite) TestRemoveMachine(c *C) {
-	// Check that removing a machine doesn't fail.
 	machine, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 	_, err = s.st.AddMachine()
@@ -172,11 +170,10 @@ func (s StateSuite) TestRemoveMachine(c *C) {
 
 	// Removing a non-existing machine has to fail.
 	err = s.st.RemoveMachine(machine.Id())
-	c.Assert(err, ErrorMatches, "machine 0 does not exist")
+	c.Assert(err, ErrorMatches, "can't remove machine 0: machine not found")
 }
 
 func (s StateSuite) TestReadMachine(c *C) {
-	// Check that reading a machine doesn't fail.
 	machine, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 	expectedId := machine.Id()
@@ -186,7 +183,6 @@ func (s StateSuite) TestReadMachine(c *C) {
 }
 
 func (s StateSuite) TestReadNonExistentMachine(c *C) {
-	// Check that reading a non-existent machine fails nicely.
 	_, err := s.st.Machine(0)
 	c.Assert(err, ErrorMatches, "machine 0 not found")
 
@@ -197,7 +193,6 @@ func (s StateSuite) TestReadNonExistentMachine(c *C) {
 }
 
 func (s StateSuite) TestAllMachines(c *C) {
-	// Check that reading all machines works correctly.
 	machines, err := s.st.AllMachines()
 	c.Assert(err, IsNil)
 	c.Assert(len(machines), Equals, 0)
@@ -216,7 +211,6 @@ func (s StateSuite) TestAllMachines(c *C) {
 }
 
 func (s StateSuite) TestAddService(c *C) {
-	// Check that adding services works correctly.
 	dummy, curl := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
@@ -245,7 +239,6 @@ func (s StateSuite) TestRemoveService(c *C) {
 	service, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 
-	// Check that removing the service works correctly.
 	err = s.st.RemoveService(service)
 	c.Assert(err, IsNil)
 	service, err = s.st.Service("wordpress")
@@ -253,13 +246,11 @@ func (s StateSuite) TestRemoveService(c *C) {
 }
 
 func (s StateSuite) TestReadNonExistentService(c *C) {
-	// Check that reading a non-existent service fails nicely.
 	_, err := s.st.Service("pressword")
 	c.Assert(err, ErrorMatches, `service with name "pressword" not found`)
 }
 
 func (s StateSuite) TestAllServices(c *C) {
-	// Check without existing services.
 	services, err := s.st.AllServices()
 	c.Assert(err, IsNil)
 	c.Assert(len(services), Equals, 0)
