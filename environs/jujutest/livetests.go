@@ -71,7 +71,7 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	c.Logf("open state")
 	st, err := state.Open(info)
 	if err != nil {
-		c.Errorf("state open failed: %v, %T, %d", err, err, err)
+		c.Errorf("state open failed: err)
 		err = t.Env.Destroy(nil)
 		c.Assert(err, IsNil)
 		return
