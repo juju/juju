@@ -35,7 +35,7 @@ func (s *State) AddMachine() (*Machine, error) {
 	if err = retryTopologyChange(s.zk, addMachine); err != nil {
 		return nil, err
 	}
-	return &Machine{s.zk, key}, nil
+	return &Machine{s, key}, nil
 }
 
 // AddCharm adds the ch charm with curl to the state.

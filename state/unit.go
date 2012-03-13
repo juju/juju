@@ -7,15 +7,32 @@ package state
 import (
 	"errors"
 	"fmt"
+	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
 	"strconv"
 	"strings"
 )
 
+// ResolvedMode describes the way state transition errors 
+// are resolved. 
+type ResolvedMode int
+
+const (
+	ResolvedNone       ResolvedMode = 0
+	ResolvedRetryHooks ResolvedMode = 1000
+	ResolvedNoHooks    ResolvedMode = 1001
+)
+
+// Port identifies a network port number for a particular protocol.
+type Port struct {
+	Protocol string `yaml:"proto"`
+	Number   int    `yaml:"port"`
+}
+
 // Unit represents the state of a service unit.
 type Unit struct {
-	zk          *zookeeper.Conn
+	st          *State
 	key         string
 	serviceKey  string
 	serviceName string
@@ -34,7 +51,7 @@ func (u *Unit) Name() string {
 
 // PublicAddress returns the public address of the unit.
 func (u *Unit) PublicAddress() (string, error) {
-	cn, err := readConfigNode(u.zk, u.zkPath())
+	cn, err := readConfigNode(u.st.zk, u.zkPath())
 	if err != nil {
 		return "", err
 	}
@@ -46,7 +63,7 @@ func (u *Unit) PublicAddress() (string, error) {
 
 // SetPublicAddress sets the public address of the unit.
 func (u *Unit) SetPublicAddress(address string) error {
-	cn, err := readConfigNode(u.zk, u.zkPath())
+	cn, err := readConfigNode(u.st.zk, u.zkPath())
 	if err != nil {
 		return err
 	}
@@ -60,7 +77,7 @@ func (u *Unit) SetPublicAddress(address string) error {
 
 // PrivateAddress returns the private address of the unit.
 func (u *Unit) PrivateAddress() (string, error) {
-	cn, err := readConfigNode(u.zk, u.zkPath())
+	cn, err := readConfigNode(u.st.zk, u.zkPath())
 	if err != nil {
 		return "", err
 	}
@@ -72,7 +89,7 @@ func (u *Unit) PrivateAddress() (string, error) {
 
 // SetPrivateAddress sets the private address of the unit.
 func (u *Unit) SetPrivateAddress(address string) error {
-	cn, err := readConfigNode(u.zk, u.zkPath())
+	cn, err := readConfigNode(u.st.zk, u.zkPath())
 	if err != nil {
 		return err
 	}
@@ -87,7 +104,7 @@ func (u *Unit) SetPrivateAddress(address string) error {
 // CharmURL returns the charm URL this unit is supposed
 // to use.
 func (u *Unit) CharmURL() (url *charm.URL, err error) {
-	cn, err := readConfigNode(u.zk, u.zkPath())
+	cn, err := readConfigNode(u.st.zk, u.zkPath())
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +120,7 @@ func (u *Unit) CharmURL() (url *charm.URL, err error) {
 
 // SetCharmURL changes the charm URL for the unit.
 func (u *Unit) SetCharmURL(url *charm.URL) error {
-	cn, err := readConfigNode(u.zk, u.zkPath())
+	cn, err := readConfigNode(u.st.zk, u.zkPath())
 	if err != nil {
 		return err
 	}
@@ -117,7 +134,7 @@ func (u *Unit) SetCharmURL(url *charm.URL) error {
 
 // AssignedMachineId returns the id of the assigned machine.
 func (u *Unit) AssignedMachineId() (int, error) {
-	topology, err := readTopology(u.zk)
+	topology, err := readTopology(u.st.zk)
 	if err != nil {
 		return 0, err
 	}
@@ -148,7 +165,7 @@ func (u *Unit) AssignToMachine(machine *Machine) error {
 		}
 		return fmt.Errorf("unit %q already assigned to machine %d", u.Name(), machineId(machineKey))
 	}
-	return retryTopologyChange(u.zk, assignUnit)
+	return retryTopologyChange(u.st.zk, assignUnit)
 }
 
 // AssignToUnusedMachine assigns u to a machine without other units.
@@ -180,10 +197,10 @@ func (u *Unit) AssignToUnusedMachine() (*Machine, error) {
 		}
 		return nil
 	}
-	if err := retryTopologyChange(u.zk, assignUnusedUnit); err != nil {
+	if err := retryTopologyChange(u.st.zk, assignUnusedUnit); err != nil {
 		return nil, err
 	}
-	return &Machine{u.zk, machineKey}, nil
+	return &Machine{u.st, machineKey}, nil
 }
 
 // UnassignFromMachine removes the assignment between this unit and
@@ -202,7 +219,162 @@ func (u *Unit) UnassignFromMachine() error {
 		}
 		return nil
 	}
-	return retryTopologyChange(u.zk, unassignUnit)
+	return retryTopologyChange(u.st.zk, unassignUnit)
+}
+
+// NeedsUpgrade returns whether the unit needs an upgrade.
+func (u *Unit) NeedsUpgrade() (bool, error) {
+	stat, err := u.st.zk.Exists(u.zkNeedsUpgradePath())
+	if err != nil {
+		return false, err
+	}
+	return stat != nil, nil
+}
+
+// SetNeedsUpgrade informs the unit that it should perform an upgrade.
+func (u *Unit) SetNeedsUpgrade() error {
+	_, err := u.st.zk.Create(u.zkNeedsUpgradePath(), "", 0, zkPermAll)
+	if err == zookeeper.ZNODEEXISTS {
+		// Node already exists, so same state.
+		return nil
+	}
+	return err
+}
+
+// ClearNeedsUpgrade resets the upgrade notification. It is typically
+// done by the unit agent before beginning the upgrade.
+func (u *Unit) ClearNeedsUpgrade() error {
+	err := u.st.zk.Delete(u.zkNeedsUpgradePath(), -1)
+	if err == zookeeper.ZNONODE {
+		// Node doesn't exist, so same state.
+		return nil
+	}
+	return err
+}
+
+// Resolved returns the resolved mode for the unit.
+func (u *Unit) Resolved() (ResolvedMode, error) {
+	yaml, _, err := u.st.zk.Get(u.zkResolvedPath())
+	if err == zookeeper.ZNONODE {
+		// Default value.
+		return ResolvedNone, nil
+	}
+	if err != nil {
+		return ResolvedNone, err
+	}
+	setting := &struct{ Retry ResolvedMode }{}
+	if err = goyaml.Unmarshal([]byte(yaml), setting); err != nil {
+		return ResolvedNone, err
+	}
+	mode := setting.Retry
+	if err := validResolvedMode(mode); err != nil {
+		return ResolvedNone, err
+	}
+	return mode, nil
+}
+
+// SetResolved marks the unit as having had any previous state
+// transition problems resolved, and informs the unit that it may
+// attempt to reestablish normal workflow.
+// The resolved mode parameter informs whether to attempt to 
+// reexecute previous failed hooks or to continue as if they had 
+// succeeded before.
+func (u *Unit) SetResolved(mode ResolvedMode) error {
+	if err := validResolvedMode(mode); err != nil {
+		return err
+	}
+	setting := &struct{ Retry ResolvedMode }{mode}
+	yaml, err := goyaml.Marshal(setting)
+	if err != nil {
+		return err
+	}
+	_, err = u.st.zk.Create(u.zkResolvedPath(), string(yaml), 0, zkPermAll)
+	if err == zookeeper.ZNODEEXISTS {
+		return fmt.Errorf("unit %q resolved flag already set", u.Name())
+	}
+	return err
+}
+
+// ClearResolved removes any resolved setting on the unit.
+func (u *Unit) ClearResolved() error {
+	err := u.st.zk.Delete(u.zkResolvedPath(), -1)
+	if err == zookeeper.ZNONODE {
+		// Node doesn't exist, so same state.
+		return nil
+	}
+	return err
+}
+
+// OpenPort sets the policy of the port with protocol and number to be opened.
+func (u *Unit) OpenPort(protocol string, number int) error {
+	openPort := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
+		ports := &struct{ Open []Port }{}
+		if oldYaml != "" {
+			if err := goyaml.Unmarshal([]byte(oldYaml), ports); err != nil {
+				return "", err
+			}
+		}
+		portToOpen := Port{protocol, number}
+		found := false
+		for _, openPort := range ports.Open {
+			if openPort == portToOpen {
+				found = true
+				break
+			}
+		}
+		if !found {
+			ports.Open = append(ports.Open, portToOpen)
+		}
+		newYaml, err := goyaml.Marshal(ports)
+		if err != nil {
+			return "", err
+		}
+		return string(newYaml), nil
+	}
+	return u.st.zk.RetryChange(u.zkPortsPath(), 0, zkPermAll, openPort)
+}
+
+// ClosePort sets the policy of the port with protocol and number to be closed.
+func (u *Unit) ClosePort(protocol string, number int) error {
+	closePort := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
+		ports := &struct{ Open []Port }{}
+		if oldYaml != "" {
+			if err := goyaml.Unmarshal([]byte(oldYaml), ports); err != nil {
+				return "", err
+			}
+		}
+		portToClose := Port{protocol, number}
+		newOpenPorts := []Port{}
+		for _, oldOpenPort := range ports.Open {
+			if oldOpenPort != portToClose {
+				newOpenPorts = append(newOpenPorts, oldOpenPort)
+			}
+		}
+		ports.Open = newOpenPorts
+		newYaml, err := goyaml.Marshal(ports)
+		if err != nil {
+			return "", err
+		}
+		return string(newYaml), nil
+	}
+	return u.st.zk.RetryChange(u.zkPortsPath(), 0, zkPermAll, closePort)
+}
+
+// OpenPorts returns a slice containing the open ports of the unit.
+func (u *Unit) OpenPorts() ([]Port, error) {
+	yaml, _, err := u.st.zk.Get(u.zkPortsPath())
+	if err == zookeeper.ZNONODE {
+		// Default value.
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	ports := &struct{ Open []Port }{}
+	if err = goyaml.Unmarshal([]byte(yaml), &ports); err != nil {
+		return nil, err
+	}
+	return ports.Open, nil
 }
 
 // zkKey returns the ZooKeeper key of the unit.
@@ -215,7 +387,6 @@ func (u *Unit) zkPath() string {
 	return fmt.Sprintf("/units/%s", u.key)
 }
 
-// Name returns the name of the unit based on the service
 // zkPortsPath returns the ZooKeeper path for the open ports.
 func (u *Unit) zkPortsPath() string {
 	return fmt.Sprintf("/units/%s/ports", u.key)
@@ -224,6 +395,16 @@ func (u *Unit) zkPortsPath() string {
 // zkAgentPath returns the ZooKeeper path for the unit agent.
 func (u *Unit) zkAgentPath() string {
 	return fmt.Sprintf("/units/%s/agent", u.key)
+}
+
+// zkNeedsUpgradePath returns the ZooKeeper path for the upgrade flag.
+func (u *Unit) zkNeedsUpgradePath() string {
+	return fmt.Sprintf("/units/%s/upgrade", u.key)
+}
+
+// zkResolvedPath returns the ZooKeeper path for the mark to resolve a unit.
+func (u *Unit) zkResolvedPath() string {
+	return fmt.Sprintf("/units/%s/resolved", u.key)
 }
 
 // parseUnitName parses a unit name like "wordpress/0" into
@@ -238,4 +419,13 @@ func parseUnitName(name string) (serviceName string, seqNo int, err error) {
 		return "", 0, err
 	}
 	return parts[0], int(sequenceNo), nil
+}
+
+// validResolvedMode ensures that only valid values for the
+// resolved mode are used.
+func validResolvedMode(mode ResolvedMode) error {
+	if mode != ResolvedRetryHooks && mode != ResolvedNoHooks {
+		return fmt.Errorf("invalid error resolution mode: %d", mode)
+	}
+	return nil
 }
