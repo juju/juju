@@ -33,11 +33,10 @@ func (t *Tests) TestStartStop(c *C) {
 	err = e.StopInstances([]environs.Instance{inst0})
 	c.Assert(err, IsNil)
 
-	// TODO eventual consistency.
 	insts, err = e.Instances([]string{id0, id1})
+	c.Assert(err, Equals, environs.ErrPartialInstances)
 	c.Assert(insts[0], IsNil)
 	c.Assert(insts[1].Id(), Equals, id1)
-	c.Assert(err, Equals, environs.ErrMissingInstance)
 }
 
 func (t *Tests) TestBootstrap(c *C) {

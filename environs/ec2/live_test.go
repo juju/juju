@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
+	"time"
 )
 
 // amazonConfig holds the environments configuration
@@ -46,8 +47,9 @@ func registerAmazonTests() {
 	for _, name := range envs.Names() {
 		Suite(&LiveTests{
 			jujutest.LiveTests{
-				Environs: envs,
-				Name:     name,
+				Environs:         envs,
+				Name:             name,
+				ConsistencyDelay: 5 * time.Second,
 			},
 		})
 	}
@@ -57,6 +59,22 @@ func registerAmazonTests() {
 // Each test runs using the same ec2 connection.
 type LiveTests struct {
 	jujutest.LiveTests
+}
+
+func (t *LiveTests) TestInstanceDNSName(c *C) {
+	inst, err := t.Env.StartInstance(30, jujutest.InvalidStateInfo)
+	c.Assert(err, IsNil)
+	defer t.Env.StopInstances([]environs.Instance{inst})
+	dns, err := inst.WaitDNSName()
+	c.Check(err, IsNil)
+	c.Check(dns, Not(Equals), "")
+
+	insts, err := t.Env.Instances([]string{inst.Id()})
+	c.Assert(err, IsNil)
+	c.Assert(len(insts), Equals, 1)
+
+	ec2inst := ec2.InstanceEC2(insts[0])
+	c.Check(ec2inst.DNSName, Equals, dns)
 }
 
 func (t *LiveTests) TestInstanceGroups(c *C) {
@@ -184,7 +202,7 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	inst0, err := t.Env.StartInstance(40, jujutest.InvalidStateInfo)
 	c.Assert(err, IsNil)
 
-	inst1 := ec2.FabricateInstance(inst0, "i-aaaaa")
+	inst1 := ec2.FabricateInstance(inst0, "i-aaaaaaaa")
 
 	inst2, err := t.Env.StartInstance(41, jujutest.InvalidStateInfo)
 	c.Assert(err, IsNil)
@@ -192,9 +210,28 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	err = t.Env.StopInstances([]environs.Instance{inst0, inst1, inst2})
 	c.Check(err, IsNil)
 
-	insts, err := t.Env.Instances([]string{inst0.Id(), inst2.Id()})
-	c.Check(err, Equals, environs.ErrMissingInstance)
-	c.Check(insts, HasLen, 0)
+	var insts []environs.Instance
+
+	// We need the retry logic here because we are waiting
+	// for Instances to return an error, and it will not retry
+	// if it succeeds.
+	gone := false
+	for i := 0; i < 5; i++ {
+		insts, err = t.Env.Instances([]string{inst0.Id(), inst2.Id()})
+		if err == environs.ErrPartialInstances {
+			// instances not gone yet.
+			time.Sleep(1e9)
+			continue
+		}
+		if err == environs.ErrNoInstances {
+			gone = true
+			break
+		}
+		c.Fatalf("error getting instances: %v", err)
+	}
+	if !gone {
+		c.Errorf("after termination, instances remaining: %v", insts)
+	}
 }
 
 // createGroup creates a new EC2 group and returns it. If it already exists,

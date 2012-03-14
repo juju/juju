@@ -9,6 +9,7 @@ import (
 	"launchpad.net/gozk/zookeeper"
 	"os"
 	"testing"
+	"time"
 )
 
 // ZkAddr is the address for the connection to the server.
@@ -49,35 +50,36 @@ func ZkConn(st *State) *zookeeper.Conn {
 	return st.zk
 }
 
-// DummyEntity is a helper to test the agent interface and the
+// AgentProcessableEntitiy is a helper representing any state entity which
+// implements the agent processable interface. It uses the provided
 // helper functions to realize it. Those functions are only
 // visible inside the state package.
-type DummyEntity struct {
+type AgentProcessableEntitiy struct {
 	st *State
 }
 
-func NewDummyEntity(st *State) *DummyEntity {
-	return &DummyEntity{st}
+func NewAgentProcessableEntitiy(st *State) *AgentProcessableEntitiy {
+	return &AgentProcessableEntitiy{st}
 }
 
-func (d *DummyEntity) Key() string {
+func (e *AgentProcessableEntitiy) Key() string {
 	return "key-0000000001"
 }
 
-func (d *DummyEntity) zkAgentPath() string {
-	return fmt.Sprintf("/dummy/%s/agent", d.Key())
+func (e *AgentProcessableEntitiy) zkAgentPath() string {
+	return fmt.Sprintf("/dummy/%s/agent", e.Key())
 }
 
-func (d *DummyEntity) HasAgent() (bool, error) {
-	return hasAgent(d.st, d.zkAgentPath())
+func (e *AgentProcessableEntitiy) HasAgent() (bool, error) {
+	return hasAgent(e.st, e.zkAgentPath())
 }
 
-func (d *DummyEntity) WatchAgent() *AgentWatcher {
-	return watchAgent(d.st, d.zkAgentPath())
+func (e *AgentProcessableEntitiy) WatchAgent() (*AgentWatcher, error) {
+	return watchAgent(e.st, e.zkAgentPath())
 }
 
-func (d *DummyEntity) ConnectAgent() error {
-	return connectAgent(d.st, d.zkAgentPath())
+func (e *AgentProcessableEntitiy) ConnectAgent() error {
+	return connectAgent(e.st, e.zkAgentPath(), 5 * time.Second)
 }
 
-var _ = Agent(&DummyEntity{})
+var _ = AgentProcessable(&AgentProcessableEntitiy{})

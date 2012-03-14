@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestPackage integrates the tests into gotest.
@@ -656,11 +657,144 @@ func (s StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 	c.Assert(err, ErrorMatches, "no unused machine found")
 }
 
+func (s StateSuite) TestGetSetClearUnitUpgrate(c *C) {
+	// Check that setting and clearing an upgrade flag on a unit works.
+	dummy, _ := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	unit, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	// Defaults to false.
+	upgrade, err := unit.NeedsUpgrade()
+	c.Assert(err, IsNil)
+	c.Assert(upgrade, Equals, false)
+
+	// Can be set.
+	err = unit.SetNeedsUpgrade()
+	c.Assert(err, IsNil)
+	upgrade, err = unit.NeedsUpgrade()
+	c.Assert(err, IsNil)
+	c.Assert(upgrade, Equals, true)
+
+	// Can be set multiple times.
+	err = unit.SetNeedsUpgrade()
+	c.Assert(err, IsNil)
+	upgrade, err = unit.NeedsUpgrade()
+	c.Assert(err, IsNil)
+	c.Assert(upgrade, Equals, true)
+
+	// Can be cleared.
+	err = unit.ClearNeedsUpgrade()
+	c.Assert(err, IsNil)
+	upgrade, err = unit.NeedsUpgrade()
+	c.Assert(err, IsNil)
+	c.Assert(upgrade, Equals, false)
+
+	// Can be cleared multiple times
+	err = unit.ClearNeedsUpgrade()
+	c.Assert(err, IsNil)
+	upgrade, err = unit.NeedsUpgrade()
+	c.Assert(err, IsNil)
+	c.Assert(upgrade, Equals, false)
+}
+
+func (s StateSuite) TestGetSetClearResolved(c *C) {
+	// Check that setting and clearing the resolved setting on a unit works.
+	dummy, _ := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	unit, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	setting, err := unit.Resolved()
+	c.Assert(err, IsNil)
+	c.Assert(setting, Equals, state.ResolvedNone)
+
+	err = unit.SetResolved(state.ResolvedNoHooks)
+	c.Assert(err, IsNil)
+	err = unit.SetResolved(state.ResolvedNoHooks)
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" resolved flag already set`)
+	retry, err := unit.Resolved()
+	c.Assert(err, IsNil)
+	c.Assert(retry, Equals, state.ResolvedNoHooks)
+
+	err = unit.ClearResolved()
+	c.Assert(err, IsNil)
+	setting, err = unit.Resolved()
+	c.Assert(err, IsNil)
+	c.Assert(setting, Equals, state.ResolvedNone)
+	err = unit.ClearResolved()
+	c.Assert(err, IsNil)
+
+	err = unit.SetResolved(state.ResolvedMode(999))
+	c.Assert(err, ErrorMatches, `invalid error resolution mode: 999`)
+}
+
+func (s StateSuite) TestGetOpenPorts(c *C) {
+	// Check that changes to the open ports of units work porperly.
+	dummy, _ := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	unit, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	// Verify no open ports before activity.
+	open, err := unit.OpenPorts()
+	c.Assert(err, IsNil)
+	c.Assert(open, HasLen, 0)
+
+	// Now open and close port.
+	err = unit.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+	open, err = unit.OpenPorts()
+	c.Assert(err, IsNil)
+	c.Assert(open, DeepEquals, []state.Port{
+		{"tcp", 80},
+	})
+
+	err = unit.OpenPort("udp", 53)
+	c.Assert(err, IsNil)
+	open, err = unit.OpenPorts()
+	c.Assert(err, IsNil)
+	c.Assert(open, DeepEquals, []state.Port{
+		{"tcp", 80},
+		{"udp", 53},
+	})
+
+	err = unit.OpenPort("tcp", 53)
+	c.Assert(err, IsNil)
+	open, err = unit.OpenPorts()
+	c.Assert(err, IsNil)
+	c.Assert(open, DeepEquals, []state.Port{
+		{"tcp", 80},
+		{"udp", 53},
+		{"tcp", 53},
+	})
+
+	err = unit.OpenPort("tcp", 443)
+	c.Assert(err, IsNil)
+	open, err = unit.OpenPorts()
+	c.Assert(err, IsNil)
+	c.Assert(open, DeepEquals, []state.Port{
+		{"tcp", 80},
+		{"udp", 53},
+		{"tcp", 53},
+		{"tcp", 443},
+	})
+
+	err = unit.ClosePort("tcp", 80)
+	c.Assert(err, IsNil)
+	open, err = unit.OpenPorts()
+	c.Assert(err, IsNil)
+	c.Assert(open, DeepEquals, []state.Port{
+		{"udp", 53},
+		{"tcp", 53},
+		{"tcp", 443},
+	})
+}
+
 type AgentSuite struct {
-	zkServer   *zookeeper.Server
-	zkTestRoot string
-	zkTestPort int
-	zkAddr     string
 	zkConn     *zookeeper.Conn
 	st         *state.State
 	path       string
@@ -684,13 +818,14 @@ func (s *AgentSuite) SetUpTest(c *C) {
 func (s *AgentSuite) TearDownTest(c *C) {
 	if s.zkConn != nil {
 		// Delete possible nodes, ignore errors.
+		// zkRemoveTree(s.zkConn, "/dummy")
 		zkRemoveTree(s.zkConn, "/dummy")
 		s.zkConn.Close()
 	}
 }
 
 func (s AgentSuite) TestHasAgent(c *C) {
-	d := state.NewDummyEntity(s.st)
+	d := state.NewAgentProcessableEntitiy(s.st)
 	exists, err := d.HasAgent()
 	c.Assert(err, IsNil)
 	c.Assert(exists, Equals, false)
@@ -704,33 +839,26 @@ func (s AgentSuite) TestHasAgent(c *C) {
 }
 
 func (s AgentSuite) TestWatchAgent(c *C) {
-	d := state.NewDummyEntity(s.st)
-	aw := d.WatchAgent()
-
-	select {
-	case ac := <-aw.Change:
-		// There should be no change yet.
-		c.Fatalf("Illegal agent change fired: %v", ac)
-	default:
-	}
-
-	err := d.ConnectAgent()
+	d := state.NewAgentProcessableEntitiy(s.st)
+	aw, err := d.WatchAgent()
 	c.Assert(err, IsNil)
 
-	ac := <-aw.Change
-	c.Assert(ac.Err, IsNil)
-	c.Assert(ac.Key, Equals, d.Key())
-	c.Assert(ac.Created, Equals, true)
+	set, err := aw.IsSet(25 * time.Millisecond)
+	c.Assert(err, ErrorMatches, "watch timed out")
+	c.Assert(set, Equals, false)
+
+	err = d.ConnectAgent()
+	c.Assert(err, IsNil)
+
+	set, err = aw.IsSet(25 * time.Millisecond)
+	c.Assert(err, IsNil)
+	c.Assert(set, Equals, true)
 
 	zkRemoveTree(s.zkConn, "/dummy")
 
-	ac = <-aw.Change
-	c.Assert(ac.Err, IsNil)
-	c.Assert(ac.Key, Equals, d.Key())
-	c.Assert(ac.Created, Equals, false)
-
-	err = aw.Stop()
+	set, err = aw.IsSet(25 * time.Millisecond)
 	c.Assert(err, IsNil)
+	c.Assert(set, Equals, false)
 }
 
 func (s *AgentSuite) TestConnectAgent(c *C) {
@@ -738,7 +866,7 @@ func (s *AgentSuite) TestConnectAgent(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(zkState, IsNil)
 
-	d := state.NewDummyEntity(s.st)
+	d := state.NewAgentProcessableEntitiy(s.st)
 	err = d.ConnectAgent()
 	c.Assert(err, IsNil)
 
