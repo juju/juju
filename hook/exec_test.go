@@ -103,7 +103,7 @@ func (s *ExecSuite) TestNonExecutableHook(c *C) {
 	info := getInfo(charmDir, "")
 	ctx := &TestContext{}
 	err := hook.Exec("something-happened", info, ctx)
-	c.Assert(err, ErrorMatches, "hook is not executable: .*/something-happened")
+	c.Assert(err, ErrorMatches, `exec: ".*/something-happened": permission denied`)
 	c.Assert(ctx.flushed, Equals, false)
 }
 

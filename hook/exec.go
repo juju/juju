@@ -3,7 +3,6 @@
 package hook
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -42,27 +41,26 @@ func (info *ExecInfo) Vars() []string {
 	return vars
 }
 
-// Exec executes the named hook in the environment defined by ctx and info (or
-// silently returns if the hook doesn't exist).
+// isImportant returns false if err indicates that the hook didn't exist in the
+// first place.
+func isImportant(err error) bool {
+	ee, _ := err.(*exec.Error)
+	if ee == nil {
+		return true
+	}
+	return !os.IsNotExist(ee.Err)
+}
+
+// Exec executes the named hook in the environment defined by ctx and info.
 func Exec(hookName string, info *ExecInfo, ctx ExecContext) error {
-	path := filepath.Join(info.CharmDir, "hooks", hookName)
-	stat, err := os.Stat(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// Yes, yes, that's fine, we "executed the hook". It's cool.
-			return nil
-		}
-		return err
-	}
-	if stat.Mode()&0500 != 0500 {
-		return fmt.Errorf("hook is not executable: %s", path)
-	}
-	ps := exec.Command(path)
+	ps := exec.Command(filepath.Join(info.CharmDir, "hooks", hookName))
 	ps.Dir = info.CharmDir
 	ps.Env = append(info.Vars(), ctx.Vars()...)
-	err = ps.Run()
-	if err != nil {
-		return err
+	if err := ps.Run(); err != nil {
+		if isImportant(err) {
+			return err
+		}
+		return nil
 	}
 	return ctx.Flush()
 }
