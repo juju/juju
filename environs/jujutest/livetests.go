@@ -67,7 +67,7 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	c.Assert(info, NotNil)
 	c.Check(info.Addrs, Not(HasLen), 0)
 
-	if t.CanConnect {
+	if t.CanOpenState {
 		c.Logf("open state")
 		st, err := state.Open(info)
 		c.Assert(err, IsNil)

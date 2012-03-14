@@ -58,9 +58,9 @@ type LiveTests struct {
 	// environ becomes logically consistent.
 	ConsistencyDelay time.Duration
 
-	// CanConnect should be true if the testing environment allows
-	// connection to the state after bootstrapping.
-	CanConnect bool
+	// CanOpenState should be true if the testing environment allows
+	// the state to be opened after bootstrapping.
+	CanOpenState bool
 	bootstrapped bool
 }
 
