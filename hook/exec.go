@@ -9,49 +9,43 @@ import (
 	"path/filepath"
 )
 
-// Env exposes the values of the environment variables that are always expected
-// in a hook execution environment, and a map[string]string for any additional
-// vars that may be expected in a particular context (such as JUJU_RELATION).
-type Env interface {
-	ContextId() string
-	AgentSock() string
-	UnitName() string
-	CharmDir() string
-	Vars() map[string]string
+// ExecContext exposes the parts of Context that are necessary to integrate
+// with Exec. This is useful partly because Context is not yet implemented, and
+// partly for ease of testing.
+type ExecContext interface {
+	Vars() []string
+	Flush() error
 }
 
-// vars returns the environment variables required to execute a hook, expressed
-// as an os.Environ-style []string.
-func vars(env Env) []string {
-	vars := map[string]string{
-		"CHARM_DIR":                env.CharmDir(),
-		"JUJU_CONTEXT_ID":          env.ContextId(),
-		"JUJU_AGENT_SOCKET":        env.AgentSock(),
-		"JUJU_UNIT_NAME":           env.UnitName(),
-		"APT_LISTCHANGES_FRONTEND": "none",
-		"DEBIAN_FRONTEND":          "noninteractive",
-		"PATH":                     os.Getenv("PATH"),
-	}
-	extra := env.Vars()
-	if extra != nil {
-		for k, v := range extra {
-			vars[k] = v
-		}
-	}
-	i := 0
-	result := make([]string, len(vars))
-	for k, v := range vars {
-		result[i] = fmt.Sprintf("%s=%s", k, v)
-		i++
-	}
-	return result
+// ExecInfo is responsible for constructing those parts of a hook execution
+// environment which cannot be inferred from the Context itself.
+type ExecInfo struct {
+	ContextId   string
+	AgentSocket string
+	CharmDir    string
+	RemoteUnit  string
 }
 
-// Exec executes the named hook in the environment defined by ctx (or silently
-// returns if the hook doesn't exist).
-func Exec(env Env, hookName string) error {
-	dir := env.CharmDir()
-	path := filepath.Join(dir, "hooks", hookName)
+// Vars returns an os.Environ-style list of strings.
+func (info *ExecInfo) Vars() []string {
+	vars := []string{
+		"APT_LISTCHANGES_FRONTEND=none",
+		"DEBIAN_FRONTEND=noninteractive",
+		"PATH=" + os.Getenv("PATH"),
+		"CHARM_DIR=" + info.CharmDir,
+		"JUJU_CONTEXT_ID=" + info.ContextId,
+		"JUJU_AGENT_SOCKET=" + info.AgentSocket,
+	}
+	if info.RemoteUnit != "" {
+		vars = append(vars, "JUJU_REMOTE_UNIT="+info.RemoteUnit)
+	}
+	return vars
+}
+
+// Exec executes the named hook in the environment defined by ctx and info (or
+// silently returns if the hook doesn't exist).
+func Exec(hookName string, info *ExecInfo, ctx ExecContext) error {
+	path := filepath.Join(info.CharmDir, "hooks", hookName)
 	stat, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -64,7 +58,11 @@ func Exec(env Env, hookName string) error {
 		return fmt.Errorf("hook is not executable: %s", path)
 	}
 	ps := exec.Command(path)
-	ps.Dir = dir
-	ps.Env = vars(env)
-	return ps.Run()
+	ps.Dir = info.CharmDir
+	ps.Env = append(info.Vars(), ctx.Vars()...)
+	err = ps.Run()
+	if err != nil {
+		return err
+	}
+	return ctx.Flush()
 }
