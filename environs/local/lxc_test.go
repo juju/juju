@@ -26,31 +26,31 @@ func (s *S) TestCreate(c *C) {
 	var container container
 	container.Name = Defaultcontainer
 
-	_, err := container.Create()
+	_, err := container.create()
 	c.Assert(err, IsNil)
 
-	c.Assert(container.Running(), Equals, true)
+	c.Assert(container.running(), Equals, true)
 
-	_, err = container.Destroy()
+	_, err = container.destroy()
 	c.Assert(err, IsNil)
 
-	c.Assert(container.Running(), Equals, false)
+	c.Assert(container.running(), Equals, false)
 }
 
 func (s *S) TestStart(c *C) {
 	var container container
 	container.Name = Defaultcontainer
 
-	_, err := container.Create()
+	_, err := container.create()
 	c.Assert(err, IsNil)
 
-	_, err = container.Start()
+	_, err = container.start()
 	c.Assert(err, IsNil)
 
-	_, err = container.Stop()
+	_, err = container.stop()
 	c.Assert(err, IsNil)
 
-	_, err = container.Destroy()
+	_, err = container.destroy()
 	c.Assert(err, IsNil)
 }
 
@@ -58,12 +58,12 @@ func (s *S) TestIsRunningWhencontainerIsCreated(c *C) {
 	var container container
 	container.Name = Defaultcontainer
 
-	_, err := container.Create()
+	_, err := container.create()
 	c.Assert(err, IsNil)
 
-	c.Assert(container.Running(), Equals, true)
+	c.Assert(container.running(), Equals, true)
 
-	_, err = container.Destroy()
+	_, err = container.destroy()
 	c.Assert(err, IsNil)
 }
 
@@ -71,11 +71,11 @@ func (s *S) TestIsNotRunningWhencontainerIsNotCreated(c *C) {
 	var container container
 	container.Name = Defaultcontainer
 
-	c.Assert(container.Running(), Equals, false)
+	c.Assert(container.running(), Equals, false)
 }
 
 func (s *S) TestRootPath(c *C) {
 	var container container
 	container.Name = Defaultcontainer
-	c.Assert(container.RootPath(), Equals, "/var/lib/lxc/"+Defaultcontainer+"/rootfs/")
+	c.Assert(container.rootPath(), Equals, "/var/lib/lxc/"+Defaultcontainer+"/rootfs/")
 }

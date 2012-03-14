@@ -5,45 +5,40 @@ import (
 	"strings"
 )
 
-// Represents a lxc container.
+// container represents an LXC container with the given name.
 type container struct {
 	Name string
 }
 
-// RootPath returns the lxc container root filesystem path
-func (c *container) RootPath() string {
+// rootPath returns the LXC container root filesystem path.
+func (c *container) rootPath() string {
 	return "/var/lib/lxc/" + c.Name + "/rootfs/"
 }
 
-// Create the container executing lxc-create
-// to create a container and returns
-// the output and error from the this command.
-func (c *container) Create() ([]byte, error) {
+// create creates the LXC container.
+func (c *container) create() ([]byte, error) {
 	return exec.Command("sudo", "lxc-create", "-n", c.Name).Output()
 }
 
-// Starts the container executing lxc-start
-// and returns the output and error from this command.
-func (c *container) Start() ([]byte, error) {
+// start starts the LXC container.
+func (c *container) start() ([]byte, error) {
 	return exec.Command("sudo", "lxc-start", "--daemon", "-n", c.Name).Output()
 }
 
-// Stops the container executing lxc-stop
-// and returns the output and error from this command.
-func (c *container) Stop() ([]byte, error) {
+// stop stops the LXC container.
+func (c *container) stop() ([]byte, error) {
 	return exec.Command("sudo", "lxc-stop", "-n", c.Name).Output()
 }
 
-// Destroy the container using lxc-destroy
-// and returns the output and the error from this command.
-func (c *container) Destroy() ([]byte, error) {
+// destroy destroys the LXC container.
+func (c *container) destroy() ([]byte, error) {
 	return exec.Command("sudo", "lxc-destroy", "-n", c.Name).Output()
 }
 
-// Running returns true if the container name is in the
+// running returns true if the container name is in the
 // list of the containers that are running.
-func (c *container) Running() bool {
-	for _, containerName := range List() {
+func (c *container) running() bool {
+	for _, containerName := range list() {
 		if containerName == c.Name {
 			return true
 		}
@@ -51,9 +46,8 @@ func (c *container) Running() bool {
 	return false
 }
 
-// List returns a slice with the names of containers
-// that are running using the lxc-ls output for this.
-func List() []string {
+// list returns a list with the names of containers.
+func list() []string {
 	output, _ := exec.Command("sudo", "lxc-ls").Output()
 	return strings.Fields(string(output))
 }
