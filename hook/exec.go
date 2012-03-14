@@ -8,14 +8,6 @@ import (
 	"path/filepath"
 )
 
-// ExecContext exposes the parts of Context that are necessary to integrate
-// with Exec. This is useful partly because Context is not yet implemented, and
-// partly for ease of testing.
-type ExecContext interface {
-	Vars() []string
-	Flush() error
-}
-
 // ExecInfo is responsible for constructing those parts of a hook execution
 // environment which cannot be inferred from the Context itself.
 type ExecInfo struct {
@@ -52,15 +44,12 @@ func isImportant(err error) bool {
 }
 
 // Exec executes the named hook in the environment defined by ctx and info.
-func Exec(hookName string, info *ExecInfo, ctx ExecContext) error {
+func Exec(hookName string, info *ExecInfo) error {
 	ps := exec.Command(filepath.Join(info.CharmDir, "hooks", hookName))
 	ps.Dir = info.CharmDir
-	ps.Env = append(info.Vars(), ctx.Vars()...)
-	if err := ps.Run(); err != nil {
-		if isImportant(err) {
-			return err
-		}
-		return nil
+	ps.Env = info.Vars()
+	if err := ps.Run(); err != nil && isImportant(err) {
+		return err
 	}
-	return ctx.Flush()
+	return nil
 }

@@ -13,26 +13,6 @@ import (
 
 func Test(t *testing.T) { TestingT(t) }
 
-type TestContext struct {
-	flushed bool
-	vars    map[string]string
-}
-
-func (ctx *TestContext) Vars() []string {
-	result := make([]string, len(ctx.vars))
-	i := 0
-	for k, v := range ctx.vars {
-		result[i] = k + "=" + v
-		i++
-	}
-	return result
-}
-
-func (ctx *TestContext) Flush() error {
-	ctx.flushed = true
-	return nil
-}
-
 func getInfo(charmDir, remoteUnit string) *hook.ExecInfo {
 	return &hook.ExecInfo{"ctx-id", "/path/to/socket", charmDir, remoteUnit}
 }
@@ -92,32 +72,24 @@ func (s *ExecSuite) AssertEnv(c *C, outPath string, env map[string]string) {
 
 func (s *ExecSuite) TestNoHook(c *C) {
 	info := getInfo(c.MkDir(), "")
-	ctx := &TestContext{}
-	err := hook.Exec("tree-fell-in-forest", info, ctx)
+	err := hook.Exec("tree-fell-in-forest", info)
 	c.Assert(err, IsNil)
-	c.Assert(ctx.flushed, Equals, false)
 }
 
 func (s *ExecSuite) TestNonExecutableHook(c *C) {
 	charmDir, _ := makeCharm(c, "something-happened", 0600, 0)
 	info := getInfo(charmDir, "")
-	ctx := &TestContext{}
-	err := hook.Exec("something-happened", info, ctx)
+	err := hook.Exec("something-happened", info)
 	c.Assert(err, ErrorMatches, `exec: ".*/something-happened": permission denied`)
-	c.Assert(ctx.flushed, Equals, false)
 }
 
 func (s *ExecSuite) TestGoodHook(c *C) {
 	charmDir, outPath := makeCharm(c, "something-happened", 0700, 0)
 	info := getInfo(charmDir, "remote/123")
-	ctx := &TestContext{vars: map[string]string{"FOOBAR": "BAZ QUX", "BLAM": "DINK"}}
-	err := hook.Exec("something-happened", info, ctx)
+	err := hook.Exec("something-happened", info)
 	c.Assert(err, IsNil)
-	c.Assert(ctx.flushed, Equals, true)
 	s.AssertEnv(c, outPath, map[string]string{
 		"CHARM_DIR":        charmDir,
-		"FOOBAR":           "BAZ QUX",
-		"BLAM":             "DINK",
 		"JUJU_REMOTE_UNIT": "remote/123",
 	})
 }
@@ -125,9 +97,7 @@ func (s *ExecSuite) TestGoodHook(c *C) {
 func (s *ExecSuite) TestBadHook(c *C) {
 	charmDir, outPath := makeCharm(c, "occurrence-occurred", 0700, 99)
 	info := getInfo(charmDir, "")
-	ctx := &TestContext{vars: map[string]string{"PEWPEW": "LASERS"}}
-	err := hook.Exec("occurrence-occurred", info, ctx)
+	err := hook.Exec("occurrence-occurred", info)
 	c.Assert(err, ErrorMatches, "exit status 99")
-	c.Assert(ctx.flushed, Equals, false)
-	s.AssertEnv(c, outPath, map[string]string{"CHARM_DIR": charmDir, "PEWPEW": "LASERS"})
+	s.AssertEnv(c, outPath, map[string]string{"CHARM_DIR": charmDir})
 }
