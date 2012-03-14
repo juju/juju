@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju/go/state"
 	"net/url"
 	"path/filepath"
+	"sort"
 	"testing"
 )
 
@@ -94,8 +95,9 @@ func (s StateSuite) TestAddCharm(c *C) {
 	dummy, err := s.st.AddCharm(dummyCharm, curl, bundleURL)
 	c.Assert(err, IsNil)
 	c.Assert(dummy.URL().String(), Equals, curl.String())
-	_, _, err = s.zkConn.Children("/charms")
+	children, _, err := s.zkConn.Children("/charms")
 	c.Assert(err, IsNil)
+	c.Assert(children, DeepEquals, []string{"local_3a_series_2f_dummy-1"})
 }
 
 func (s StateSuite) TestCharmAttributes(c *C) {
@@ -139,8 +141,76 @@ func (s StateSuite) TestGetNonExistentCharm(c *C) {
 	c.Assert(err, ErrorMatches, `charm not found: "local:anotherseries/dummy-1"`)
 }
 
+func (s StateSuite) TestAddMachine(c *C) {
+	machine0, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	c.Assert(machine0.Id(), Equals, 0)
+	machine1, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	c.Assert(machine1.Id(), Equals, 1)
+
+	children, _, err := s.zkConn.Children("/machines")
+	c.Assert(err, IsNil)
+	sort.Strings(children)
+	c.Assert(children, DeepEquals, []string{"machine-0000000000", "machine-0000000001"})
+}
+
+func (s StateSuite) TestRemoveMachine(c *C) {
+	machine, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	_, err = s.st.AddMachine()
+	c.Assert(err, IsNil)
+	err = s.st.RemoveMachine(machine.Id())
+	c.Assert(err, IsNil)
+
+	children, _, err := s.zkConn.Children("/machines")
+	c.Assert(err, IsNil)
+	sort.Strings(children)
+	c.Assert(children, DeepEquals, []string{"machine-0000000001"})
+
+	// Removing a non-existing machine has to fail.
+	err = s.st.RemoveMachine(machine.Id())
+	c.Assert(err, ErrorMatches, "can't remove machine 0: machine not found")
+}
+
+func (s StateSuite) TestReadMachine(c *C) {
+	machine, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	expectedId := machine.Id()
+	machine, err = s.st.Machine(expectedId)
+	c.Assert(err, IsNil)
+	c.Assert(machine.Id(), Equals, expectedId)
+}
+
+func (s StateSuite) TestReadNonExistentMachine(c *C) {
+	_, err := s.st.Machine(0)
+	c.Assert(err, ErrorMatches, "machine 0 not found")
+
+	_, err = s.st.AddMachine()
+	c.Assert(err, IsNil)
+	_, err = s.st.Machine(1)
+	c.Assert(err, ErrorMatches, "machine 1 not found")
+}
+
+func (s StateSuite) TestAllMachines(c *C) {
+	machines, err := s.st.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(len(machines), Equals, 0)
+
+	_, err = s.st.AddMachine()
+	c.Assert(err, IsNil)
+	machines, err = s.st.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(len(machines), Equals, 1)
+
+	_, err = s.st.AddMachine()
+	c.Assert(err, IsNil)
+	machines, err = s.st.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(len(machines), Equals, 2)
+}
+
 func (s StateSuite) TestAddService(c *C) {
-	// Check that adding services works correctly.
 	dummy, curl := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
@@ -169,7 +239,6 @@ func (s StateSuite) TestRemoveService(c *C) {
 	service, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 
-	// Check that removing the service works correctly.
 	err = s.st.RemoveService(service)
 	c.Assert(err, IsNil)
 	service, err = s.st.Service("wordpress")
@@ -182,7 +251,6 @@ func (s StateSuite) TestReadNonExistentService(c *C) {
 }
 
 func (s StateSuite) TestAllServices(c *C) {
-	// Check without existing services.
 	services, err := s.st.AllServices()
 	c.Assert(err, IsNil)
 	c.Assert(len(services), Equals, 0)
@@ -619,6 +687,143 @@ func (s StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 
 	_, err = wordpressUnit.AssignToUnusedMachine()
 	c.Assert(err, ErrorMatches, "no unused machine found")
+}
+
+func (s StateSuite) TestGetSetClearUnitUpgrate(c *C) {
+	// Check that setting and clearing an upgrade flag on a unit works.
+	dummy, _ := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	unit, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	// Defaults to false.
+	upgrade, err := unit.NeedsUpgrade()
+	c.Assert(err, IsNil)
+	c.Assert(upgrade, Equals, false)
+
+	// Can be set.
+	err = unit.SetNeedsUpgrade()
+	c.Assert(err, IsNil)
+	upgrade, err = unit.NeedsUpgrade()
+	c.Assert(err, IsNil)
+	c.Assert(upgrade, Equals, true)
+
+	// Can be set multiple times.
+	err = unit.SetNeedsUpgrade()
+	c.Assert(err, IsNil)
+	upgrade, err = unit.NeedsUpgrade()
+	c.Assert(err, IsNil)
+	c.Assert(upgrade, Equals, true)
+
+	// Can be cleared.
+	err = unit.ClearNeedsUpgrade()
+	c.Assert(err, IsNil)
+	upgrade, err = unit.NeedsUpgrade()
+	c.Assert(err, IsNil)
+	c.Assert(upgrade, Equals, false)
+
+	// Can be cleared multiple times
+	err = unit.ClearNeedsUpgrade()
+	c.Assert(err, IsNil)
+	upgrade, err = unit.NeedsUpgrade()
+	c.Assert(err, IsNil)
+	c.Assert(upgrade, Equals, false)
+}
+
+func (s StateSuite) TestGetSetClearResolved(c *C) {
+	// Check that setting and clearing the resolved setting on a unit works.
+	dummy, _ := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	unit, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	setting, err := unit.Resolved()
+	c.Assert(err, IsNil)
+	c.Assert(setting, Equals, state.ResolvedNone)
+
+	err = unit.SetResolved(state.ResolvedNoHooks)
+	c.Assert(err, IsNil)
+	err = unit.SetResolved(state.ResolvedNoHooks)
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" resolved flag already set`)
+	retry, err := unit.Resolved()
+	c.Assert(err, IsNil)
+	c.Assert(retry, Equals, state.ResolvedNoHooks)
+
+	err = unit.ClearResolved()
+	c.Assert(err, IsNil)
+	setting, err = unit.Resolved()
+	c.Assert(err, IsNil)
+	c.Assert(setting, Equals, state.ResolvedNone)
+	err = unit.ClearResolved()
+	c.Assert(err, IsNil)
+
+	err = unit.SetResolved(state.ResolvedMode(999))
+	c.Assert(err, ErrorMatches, `invalid error resolution mode: 999`)
+}
+
+func (s StateSuite) TestGetOpenPorts(c *C) {
+	// Check that changes to the open ports of units work porperly.
+	dummy, _ := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	unit, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	// Verify no open ports before activity.
+	open, err := unit.OpenPorts()
+	c.Assert(err, IsNil)
+	c.Assert(open, HasLen, 0)
+
+	// Now open and close port.
+	err = unit.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+	open, err = unit.OpenPorts()
+	c.Assert(err, IsNil)
+	c.Assert(open, DeepEquals, []state.Port{
+		{"tcp", 80},
+	})
+
+	err = unit.OpenPort("udp", 53)
+	c.Assert(err, IsNil)
+	open, err = unit.OpenPorts()
+	c.Assert(err, IsNil)
+	c.Assert(open, DeepEquals, []state.Port{
+		{"tcp", 80},
+		{"udp", 53},
+	})
+
+	err = unit.OpenPort("tcp", 53)
+	c.Assert(err, IsNil)
+	open, err = unit.OpenPorts()
+	c.Assert(err, IsNil)
+	c.Assert(open, DeepEquals, []state.Port{
+		{"tcp", 80},
+		{"udp", 53},
+		{"tcp", 53},
+	})
+
+	err = unit.OpenPort("tcp", 443)
+	c.Assert(err, IsNil)
+	open, err = unit.OpenPorts()
+	c.Assert(err, IsNil)
+	c.Assert(open, DeepEquals, []state.Port{
+		{"tcp", 80},
+		{"udp", 53},
+		{"tcp", 53},
+		{"tcp", 443},
+	})
+
+	err = unit.ClosePort("tcp", 80)
+	c.Assert(err, IsNil)
+	open, err = unit.OpenPorts()
+	c.Assert(err, IsNil)
+	c.Assert(open, DeepEquals, []state.Port{
+		{"udp", 53},
+		{"tcp", 53},
+		{"tcp", 443},
+	})
 }
 
 // zkRemoveTree recursively removes a tree.

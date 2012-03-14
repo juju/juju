@@ -7,6 +7,7 @@ import (
 	"launchpad.net/goamz/ec2/ec2test"
 	"launchpad.net/goamz/s3/s3test"
 	. "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
@@ -20,35 +21,6 @@ environments:
     control-bucket: test-bucket
 `)
 
-// Each test is run in each of the following scenarios.  A scenario is
-// implemented by mutating the ec2test server after it starts.
-var scenarios = []struct {
-	name  string
-	setup func(*localServer)
-}{
-	{"normal", normalScenario},
-	{"initial-state-running", initialStateRunningScenario},
-	{"extra-instances", extraInstancesScenario},
-}
-
-func normalScenario(*localServer) {
-}
-
-func initialStateRunningScenario(srv *localServer) {
-	srv.ec2srv.SetInitialInstanceState(ec2test.Running)
-}
-
-func extraInstancesScenario(srv *localServer) {
-	states := []amzec2.InstanceState{
-		ec2test.ShuttingDown,
-		ec2test.Terminated,
-		ec2test.Stopped,
-	}
-	for _, state := range states {
-		srv.ec2srv.NewInstances(1, "m1.small", "ami-a7f539ce", state, nil)
-	}
-}
-
 func registerLocalTests() {
 	ec2.Regions["test"] = aws.Region{}
 	envs, err := environs.ReadEnvironsBytes(functionalConfig)
@@ -57,24 +29,20 @@ func registerLocalTests() {
 	}
 
 	for _, name := range envs.Names() {
-		for _, scen := range scenarios {
-			Suite(&localServerSuite{
-				srv: localServer{setup: scen.setup},
-				Tests: jujutest.Tests{
+		Suite(&localServerSuite{
+			Tests: jujutest.Tests{
+				Environs: envs,
+				Name:     name,
+			},
+		})
+		Suite(&localLiveSuite{
+			LiveTests: LiveTests{
+				jujutest.LiveTests{
 					Environs: envs,
 					Name:     name,
 				},
-			})
-			Suite(&localLiveSuite{
-				srv: localServer{setup: scen.setup},
-				LiveTests: LiveTests{
-					jujutest.LiveTests{
-						Environs: envs,
-						Name:     name,
-					},
-				},
-			})
-		}
+			},
+		})
 	}
 }
 
@@ -105,7 +73,6 @@ func (t *localLiveSuite) TearDownSuite(c *C) {
 type localServer struct {
 	ec2srv *ec2test.Server
 	s3srv  *s3test.Server
-	setup  func(*localServer)
 }
 
 func (srv *localServer) startServer(c *C) {
@@ -122,7 +89,20 @@ func (srv *localServer) startServer(c *C) {
 		EC2Endpoint: srv.ec2srv.URL(),
 		S3Endpoint:  srv.s3srv.URL(),
 	}
-	srv.setup(srv)
+	srv.addSpice(c)
+}
+
+// addSpice adds some "spice" to the local server
+// by adding state that may cause tests to fail.
+func (srv *localServer) addSpice(c *C) {
+	states := []amzec2.InstanceState{
+		ec2test.ShuttingDown,
+		ec2test.Terminated,
+		ec2test.Stopped,
+	}
+	for _, state := range states {
+		srv.ec2srv.NewInstances(1, "m1.small", "ami-a7f539ce", state, nil)
+	}
 }
 
 func (srv *localServer) stopServer(c *C) {
@@ -166,7 +146,7 @@ func (t *localServerSuite) TearDownTest(c *C) {
 	t.srv.stopServer(c)
 }
 
-func (t *localServerSuite) TestBootstrapInstanceAndState(c *C) {
+func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	err := t.env.Bootstrap()
 	c.Assert(err, IsNil)
 
@@ -180,7 +160,49 @@ func (t *localServerSuite) TestBootstrapInstanceAndState(c *C) {
 	c.Assert(insts, HasLen, 1)
 	c.Check(insts[0].Id(), Equals, state.ZookeeperInstances[0])
 
-	err = t.env.Destroy(insts)
+	info, err := t.env.StateInfo()
+	c.Assert(err, IsNil)
+	c.Assert(info, NotNil)
+
+	// check that the user data is configured to start zookeeper
+	// and the machine and provisioning agents.
+	inst := t.srv.ec2srv.Instance(insts[0].Id())
+	c.Assert(inst, NotNil)
+	bootstrapDNS, err := insts[0].DNSName()
+	c.Assert(err, IsNil)
+	c.Assert(bootstrapDNS, Not(Equals), "")
+
+	c.Logf("first instance: UserData: %q", inst.UserData)
+	var x map[interface{}]interface{}
+	err = goyaml.Unmarshal(inst.UserData, &x)
+	c.Assert(err, IsNil)
+	ec2.CheckPackage(c, x, "zookeeper", true)
+	ec2.CheckPackage(c, x, "zookeeperd", true)
+	ec2.CheckScripts(c, x, "juju-admin initialize", true)
+	ec2.CheckScripts(c, x, "python -m juju.agents.provision", true)
+	ec2.CheckScripts(c, x, "python -m juju.agents.machine", true)
+	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='localhost%s'", ec2.ZkPortSuffix), true)
+	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID='0'"), true)
+
+	// check that a new instance will be started without
+	// zookeeper, with a machine agent, and without a
+	// provisioning agent.
+	inst1, err := t.env.StartInstance(1, info)
+	c.Assert(err, IsNil)
+	inst = t.srv.ec2srv.Instance(inst1.Id())
+	c.Assert(inst, NotNil)
+	c.Logf("second instance: UserData: %q", inst.UserData)
+	x = nil
+	err = goyaml.Unmarshal(inst.UserData, &x)
+	c.Assert(err, IsNil)
+	ec2.CheckPackage(c, x, "zookeeperd", false)
+	ec2.CheckPackage(c, x, "python-zookeeper", true)
+	ec2.CheckScripts(c, x, "python -m juju.agents.machine", true)
+	ec2.CheckScripts(c, x, "python -m juju.agents.provision", false)
+	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='%s%s'", bootstrapDNS, ec2.ZkPortSuffix), true)
+	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID='1'"), true)
+
+	err = t.env.Destroy(append(insts, inst1))
 	c.Assert(err, IsNil)
 
 	_, err = ec2.LoadState(t.env)
