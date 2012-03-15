@@ -20,7 +20,11 @@ import (
 func TestPackage(t *stdtesting.T) {
 	srv := testing.StartZkServer(t)
 	defer srv.Destroy()
-	state.TestingZkAddr = srv.Addr()
+	var err error
+	state.TestingZkAddr, err = srv.Addr()
+	if err != nil {
+		t.Fatalf("could not get zk server address")
+	}
 	TestingT(t)
 }
 
