@@ -19,11 +19,12 @@ type TopologySuite struct {
 }
 
 var _ = Suite(&TopologySuite{})
+var TestingZkAddr string
 
 func (s *TopologySuite) SetUpTest(c *C) {
 	// Connect the server.
 	st, err := Open(&Info{
-		Addrs: []string{ZkAddr},
+		Addrs: []string{TestingZkAddr},
 	})
 	c.Assert(err, IsNil)
 	s.zkConn = ZkConn(st)
@@ -102,7 +103,7 @@ func (s TopologySuite) TestRemoveMachineWithAssignedUnits(c *C) {
 
 func (s TopologySuite) TestMachineHasUnits(c *C) {
 	// Check various ways a machine might or might not be assigned
-	// to a unit.   
+	// to a unit.
 	err := s.t.AddMachine("m-0")
 	c.Assert(err, IsNil)
 	err = s.t.AddMachine("m-1")
@@ -461,7 +462,7 @@ func (s *ConfigNodeSuite) SetUpSuite(c *C) {
 func (s *ConfigNodeSuite) SetUpTest(c *C) {
 	// Connect the server.
 	st, err := Open(&Info{
-		Addrs: []string{ZkAddr},
+		Addrs: []string{TestingZkAddr},
 	})
 	c.Assert(err, IsNil)
 	s.zkConn = ZkConn(st)

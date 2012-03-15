@@ -9,17 +9,22 @@ import (
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/state"
+	"launchpad.net/juju/go/testing"
 	"net/url"
 	"path/filepath"
 	"sort"
-	"testing"
+	stdtesting "testing"
 )
 
 // TestPackage integrates the tests into gotest.
-func TestPackage(t *testing.T) {
-	srv, dir := state.ZkSetUpEnvironment(t)
-	defer state.ZkTearDownEnvironment(t, srv, dir)
-
+func TestPackage(t *stdtesting.T) {
+	srv := testing.StartZkServer(t)
+	defer srv.Destroy()
+	var err error
+	state.TestingZkAddr, err = srv.Addr()
+	if err != nil {
+		t.Fatalf("could not get zk server address")
+	}
 	TestingT(t)
 }
 
@@ -66,7 +71,7 @@ var _ = Suite(&StateSuite{})
 func (s *StateSuite) SetUpTest(c *C) {
 	var err error
 	s.st, err = state.Open(&state.Info{
-		Addrs: []string{state.ZkAddr},
+		Addrs: []string{state.TestingZkAddr},
 	})
 	c.Assert(err, IsNil)
 	err = s.st.Initialize()
@@ -669,7 +674,7 @@ func (s StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 	// Create machine 0, that shouldn't be used.
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
-	// Check that assigning without unused machine fails.	
+	// Check that assigning without unused machine fails.   
 	dummy, _ := addDummyCharm(c, s.st)
 	mysqlService, err := s.st.AddService("mysql", dummy)
 	c.Assert(err, IsNil)
