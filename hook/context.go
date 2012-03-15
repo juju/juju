@@ -27,8 +27,8 @@ func NewRelationContext(
 	return &Context{state, unitName, relationName, members}
 }
 
-// NewBrokenContext returns a Context tied to a specific unit relation which is
-// known to have been broken.
+// NewBrokenContext returns a Context tied to a specific unit relation (which is
+// known to have been broken).
 func NewBrokenContext(state *state.State, unitName, relationName string) *Context {
 	return &Context{state, unitName, relationName, nil}
 }
@@ -65,7 +65,7 @@ func (ctx *Context) Log(debug bool, msg string) {
 }
 
 // Members is the core of the `relation-list` hook command. It returns a list
-// of unit names (exluding the local unit) participating in this context's
+// of unit names (excluding the local unit) participating in this context's
 // relation, and is always meaningful in any Context.
 func (ctx *Context) Members() []string {
 	if ctx.members != nil {

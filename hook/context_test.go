@@ -47,6 +47,8 @@ func AssertLogs(c *C, ctx *hook.Context, badge string) {
 	AssertLog(c, ctx, badge, false, false, true)
 }
 
+// statelessContexts is useful for testing the Context methods that don't need
+// to touch state, and can therefore be called without one.
 func statelessContexts() (*hook.Context, *hook.Context, *hook.Context) {
 	return hook.NewLocalContext(nil, "minecraft/0"),
 		hook.NewRelationContext(nil, "minecraft/0", "bot", []string{"bot/0"}),
