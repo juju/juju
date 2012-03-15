@@ -14,8 +14,8 @@ type container struct {
 // runLXCCommand runs an LXC command with the given arguments,
 // strip outing the usage message.
 func runLXCCommand(args ...string) ([]byte, error) {
-	output, err := exec.Command(args[0], args...).Output()
-	if i := bytes.Index(output, []byte("\nusage: ")); i > 0 {
+	output, err := exec.Command(args[0], args...).CombinedOutput()
+	if i := bytes.Index(bytes.ToLower(output), []byte("\nusage: ")); i > 0 {
 		output = output[:i]
 	}
 	return output, err
