@@ -20,9 +20,33 @@ type Info struct {
 const zkTimeout = 15e9
 
 // Open connects to the server described by the given
-// info and returns a new State representing the environment
-// connected to.
+// info, waits for it to be initialized, and returns a new State
+// representing the environment connected to.
 func Open(info *Info) (*State, error) {
+	st, err := open(info)
+	if err != nil {
+		return nil, err
+	}
+	err = st.waitForInitialization()
+	if err != nil {
+		return nil, err
+	}
+	return st, err
+}
+
+// Initialize performs an initialization of the ZooKeeper nodes
+// described by the given Info and returns  a new State representing
+// the environment connected to.
+func Initialize(info *Info) (*State, error) {
+	st, err := open(info)
+	if err != nil {
+		return nil, err
+	}
+	st.initialize()
+	return st, nil
+}
+
+func open(info *Info) (*State, error) {
 	if len(info.Addrs) == 0 {
 		return nil, fmt.Errorf("no zookeeper addresses")
 	}
@@ -37,4 +61,8 @@ func Open(info *Info) (*State, error) {
 	// TODO decide what to do with session events - currently
 	// we will panic if the session event channel fills up.
 	return &State{zk}, nil
+}
+
+func (st *State) Close() error {
+	return st.zk.Close()
 }

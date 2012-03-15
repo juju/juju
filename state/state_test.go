@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"io/ioutil"
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
@@ -15,10 +16,32 @@ import (
 	"testing"
 )
 
+// startServer starts up a new ZooKeeper server in a temporary
+// directory.
+func startServer(t *testing.T) *zookeeper.Server {
+	dir, err := ioutil.TempDir("", "statetest")
+	if err != nil {
+		t.Fatalf("cannot create temporary directory: %v", err)
+	}
+	srv, err := zookeeper.CreateServer(21812, dir, "")
+	if err != nil {
+		t.Fatalf("cannot create ZooKeeper server: %v", err)
+	}
+	err = srv.Start()
+	if err != nil {
+		t.Fatalf("cannot start ZooKeeper server: %v", err)
+	}
+	state.ZkAddr, err = srv.Addr()
+	if err != nil {
+		t.Fatalf("cannot get ZooKeeper address: %v", err)
+	}
+	return srv
+}
+
 // TestPackage integrates the tests into gotest.
 func TestPackage(t *testing.T) {
-	srv, dir := state.ZkSetUpEnvironment(t)
-	defer state.ZkTearDownEnvironment(t, srv, dir)
+	srv := startServer(t)
+	defer srv.Destroy()
 
 	TestingT(t)
 }
@@ -65,11 +88,9 @@ var _ = Suite(&StateSuite{})
 
 func (s *StateSuite) SetUpTest(c *C) {
 	var err error
-	s.st, err = state.Open(&state.Info{
+	s.st, err = state.Initialize(&state.Info{
 		Addrs: []string{state.ZkAddr},
 	})
-	c.Assert(err, IsNil)
-	err = s.st.Initialize()
 	c.Assert(err, IsNil)
 	s.zkConn = state.ZkConn(s.st)
 }
