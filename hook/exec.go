@@ -43,7 +43,7 @@ func isImportant(err error) bool {
 	return !os.IsNotExist(ee.Err)
 }
 
-// Exec executes the named hook in the environment defined by ctx and info.
+// Exec executes the named hook in the environment defined by info.
 func Exec(hookName string, info *ExecInfo) error {
 	ps := exec.Command(filepath.Join(info.CharmDir, "hooks", hookName))
 	ps.Dir = info.CharmDir
