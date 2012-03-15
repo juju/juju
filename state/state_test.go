@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 // TestPackage integrates the tests into gotest.
@@ -795,9 +794,11 @@ func (s StateSuite) TestGetOpenPorts(c *C) {
 }
 
 type AgentSuite struct {
-	zkConn     *zookeeper.Conn
-	st         *state.State
-	path       string
+	zkConn *zookeeper.Conn
+	st     *state.State
+	root   string
+	key    string
+	path   string
 }
 
 var _ = Suite(&AgentSuite{})
@@ -811,77 +812,87 @@ func (s *AgentSuite) SetUpTest(c *C) {
 	s.st = st
 	s.zkConn = state.ZkConn(st)
 	// Prepare path for dummy entity.
-	s.path = "/dummy/key-0000000001"
+	s.root = "ape"
+	s.key = "key-0000000001"
+	s.path = fmt.Sprintf("/%s/%s", s.root, s.key)
 	zkDeepCreate(s.zkConn, s.path)
 }
 
 func (s *AgentSuite) TearDownTest(c *C) {
-	if s.zkConn != nil {
-		// Delete possible nodes, ignore errors.
-		// zkRemoveTree(s.zkConn, "/dummy")
-		zkRemoveTree(s.zkConn, "/dummy")
-		s.zkConn.Close()
-	}
+	zkRemoveTree(s.zkConn, "/"+s.root)
+	s.zkConn.Close()
 }
 
-func (s AgentSuite) TestHasAgent(c *C) {
-	d := state.NewAgentProcessableEntitiy(s.st)
-	exists, err := d.HasAgent()
+func (s AgentSuite) TestConnected(c *C) {
+	ame := state.NewAgentMixinEntity(s.st, s.root, s.key)
+	connected, err := ame.AgentConnected()
 	c.Assert(err, IsNil)
-	c.Assert(exists, Equals, false)
+	c.Assert(connected, Equals, false)
 
-	err = d.ConnectAgent()
+	_, err = s.zkConn.Exists(s.path)
 	c.Assert(err, IsNil)
 
-	exists, err = d.HasAgent()
+	err = ame.ConnectAgent()
 	c.Assert(err, IsNil)
-	c.Assert(exists, Equals, true)
+	defer ame.DisconnectAgent()
+
+	connected, err = ame.AgentConnected()
+	c.Assert(err, IsNil)
+	c.Assert(connected, Equals, true)
 }
 
-func (s AgentSuite) TestWatchAgent(c *C) {
-	d := state.NewAgentProcessableEntitiy(s.st)
-	aw, err := d.WatchAgent()
+func (s AgentSuite) TestWaitConnected(c *C) {
+	ame := state.NewAgentMixinEntity(s.st, s.root, s.key)
+	connected, err := ame.AgentConnected()
+	c.Assert(err, IsNil)
+	c.Assert(connected, Equals, false)
+
+	err = ame.WaitAgentConnected()
+	c.Assert(err, ErrorMatches, "wait for connected agent timed out")
+
+	err = ame.ConnectAgent()
 	c.Assert(err, IsNil)
 
-	set, err := aw.IsSet(25 * time.Millisecond)
-	c.Assert(err, ErrorMatches, "watch timed out")
-	c.Assert(set, Equals, false)
-
-	err = d.ConnectAgent()
+	err = ame.WaitAgentConnected()
 	c.Assert(err, IsNil)
 
-	set, err = aw.IsSet(25 * time.Millisecond)
+	connected, err = ame.AgentConnected()
 	c.Assert(err, IsNil)
-	c.Assert(set, Equals, true)
+	c.Assert(connected, Equals, true)
 
-	zkRemoveTree(s.zkConn, "/dummy")
-
-	set, err = aw.IsSet(25 * time.Millisecond)
-	c.Assert(err, IsNil)
-	c.Assert(set, Equals, false)
-}
-
-func (s *AgentSuite) TestConnectAgent(c *C) {
-	zkState, watch, err := s.zkConn.ExistsW(s.path + "/agent")
-	c.Assert(err, IsNil)
-	c.Assert(zkState, IsNil)
-
-	d := state.NewAgentProcessableEntitiy(s.st)
-	err = d.ConnectAgent()
-	c.Assert(err, IsNil)
-
-	e := <-watch
-	c.Assert(e.Type, Equals, zookeeper.EVENT_CREATED)
-
-	zkState, watch, err = s.zkConn.ExistsW(s.path + "/agent")
+	// Test node existance directly in ZooKeeper.
+	zkState, err := s.zkConn.Exists(s.path + "/agent")
 	c.Assert(err, IsNil)
 	c.Assert(zkState, Not(IsNil))
 
-	// Force close to get a 'closed' event. Differs from Python
-	// client which returns a 'deleted' event.
-	s.zkConn.Close()
-	s.zkConn = nil
+	ame.DisconnectAgent()
 
-	e = <-watch
-	c.Assert(e.Type, Equals, zookeeper.EVENT_CLOSED)
+	connected, err = ame.AgentConnected()
+	c.Assert(err, IsNil)
+	c.Assert(connected, Equals, false)
+
+	// Test node removal directly in ZooKeeper.
+	zkState, err = s.zkConn.Exists(s.path + "/agent")
+	c.Assert(err, IsNil)
+	c.Assert(zkState, IsNil)
+}
+
+func (s *AgentSuite) TestConnect(c *C) {
+	ame := state.NewAgentMixinEntity(s.st, s.root, s.key)
+	connected, err := ame.AgentConnected()
+	c.Assert(err, IsNil)
+	c.Assert(connected, Equals, false)
+
+	err = ame.ConnectAgent()
+	c.Assert(err, IsNil)
+	defer ame.DisconnectAgent()
+
+	connected, err = ame.AgentConnected()
+	c.Assert(err, IsNil)
+	c.Assert(connected, Equals, true)
+
+	// Test node existance directly in ZooKeeper.
+	zkState, err := s.zkConn.Exists(s.path + "/agent")
+	c.Assert(err, IsNil)
+	c.Assert(zkState, Not(IsNil))
 }

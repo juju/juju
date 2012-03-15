@@ -9,7 +9,6 @@ import (
 	"launchpad.net/gozk/zookeeper"
 	"os"
 	"testing"
-	"time"
 )
 
 // ZkAddr is the address for the connection to the server.
@@ -50,36 +49,44 @@ func ZkConn(st *State) *zookeeper.Conn {
 	return st.zk
 }
 
-// AgentProcessableEntitiy is a helper representing any state entity which
+// AgentMixinEntity is a helper representing any state entity which
 // implements the agent processable interface. It uses the provided
 // helper functions to realize it. Those functions are only
 // visible inside the state package.
-type AgentProcessableEntitiy struct {
-	st *State
+type AgentMixinEntity struct {
+	root  string
+	key   string
+	mixin *agentMixin
 }
 
-func NewAgentProcessableEntitiy(st *State) *AgentProcessableEntitiy {
-	return &AgentProcessableEntitiy{st}
+func NewAgentMixinEntity(st *State, root, key string) *AgentMixinEntity {
+	ame := &AgentMixinEntity{root, key, nil}
+	ame.mixin = newAgentMixin(st, ame.zkAgentPath())
+	return ame
 }
 
-func (e *AgentProcessableEntitiy) Key() string {
-	return "key-0000000001"
+func (ame *AgentMixinEntity) Key() string {
+	return ame.key
 }
 
-func (e *AgentProcessableEntitiy) zkAgentPath() string {
-	return fmt.Sprintf("/dummy/%s/agent", e.Key())
+func (ame *AgentMixinEntity) zkAgentPath() string {
+	return fmt.Sprintf("/%s/%s/agent", ame.root, ame.key)
 }
 
-func (e *AgentProcessableEntitiy) HasAgent() (bool, error) {
-	return hasAgent(e.st, e.zkAgentPath())
+func (ame *AgentMixinEntity) AgentConnected() (bool, error) {
+	return ame.mixin.connected()
 }
 
-func (e *AgentProcessableEntitiy) WatchAgent() (*AgentWatcher, error) {
-	return watchAgent(e.st, e.zkAgentPath())
+func (ame *AgentMixinEntity) WaitAgentConnected() error {
+	return ame.mixin.waitConnected()
 }
 
-func (e *AgentProcessableEntitiy) ConnectAgent() error {
-	return connectAgent(e.st, e.zkAgentPath(), 5 * time.Second)
+func (ame *AgentMixinEntity) ConnectAgent() error {
+	return ame.mixin.connect()
 }
 
-var _ = AgentProcessable(&AgentProcessableEntitiy{})
+func (ame *AgentMixinEntity) DisconnectAgent() error {
+	return ame.mixin.disconnect()
+}
+
+var _ = AgentMixin(&AgentMixinEntity{})

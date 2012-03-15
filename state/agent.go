@@ -9,57 +9,79 @@ import (
 	"time"
 )
 
-// AgentWatcher monitores the changes of the agent flag of an 
-// entity's state.
-type AgentWatcher struct {
-	watch <-chan bool
-}
+const (
+	agentPingerPeriod = 25 * time.Millisecond
+	agentWaitTimeout  = 4 * agentPingerPeriod
+)
 
-// IsSet checks if the flag of this agent watcher is set.
-// It only waits for a given period to avoid deadlocks.
-func (aw *AgentWatcher) IsSet(period time.Duration) (set bool, err error) {
-	select {
-	case chg, ok := <-aw.watch:
-		if !ok {
-			return false, fmt.Errorf("watch has been closed")
-		}
-		return chg, nil
-	case <-time.After(period):
-		return false, fmt.Errorf("watch timed out")
-	}
-	return
-}
-
-// AgentProcessable has to be implemented by those state entities
+// AgentMixin has to be implemented by those state entities
 // which will have agent processes.
-type AgentProcessable interface {
-	// HasAgent returns true if this entity state has an agent connected.
-	HasAgent() (bool, error)
-	// WatchAgent returns a watcher to observe changes to an agent's presence.
-	WatchAgent() (*AgentWatcher, error)
+type AgentMixin interface {
+	// AgentConnected returns true if this entity state has an agent connected.
+	AgentConnected() (bool, error)
+	// WaitAgentConnected waits until an agent has connected.
+	WaitAgentConnected() error
 	// ConnectAgent informs juju that this associated agent is alive.
 	ConnectAgent() error
+	// DisconnectAgent informs juju that this associated agent stops working.
+	DisconnectAgent() error
 }
 
-// hasAgent is a helper to implement the HasAgent() method. It
-// needs the entity's state and the ZooKeeper path for the agent.
-func hasAgent(st *State, path string) (bool, error) {
-	return presence.Alive(st.zk, path)
+type agentMixin struct {
+	st     *State
+	path   string
+	pinger *presence.Pinger
 }
 
-// watchAgent is a helper to implement the WatchAgent() method. It
-// needs the entity's state and the ZooKeeper path for the agent.
-func watchAgent(st *State, path string) (*AgentWatcher, error) {
-	_, watch, err := presence.AliveW(st.zk, path)
+func newAgentMixin(st *State, path string) *agentMixin {
+	return &agentMixin{st, path, nil}
+}
+
+// connected is a helper to implement the AgentConnected() method.
+func (am *agentMixin) connected() (bool, error) {
+	return presence.Alive(am.st.zk, am.path)
+}
+
+// waitConnected is a helper to implement the WaitAgentConnected() method.
+func (am *agentMixin) waitConnected() error {
+	alive, watch, err := presence.AliveW(am.st.zk, am.path)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return &AgentWatcher{watch}, nil
+	// Quick return if already connected.
+	if alive {
+		return nil
+	}
+	// Wait for connection with timeout.
+	select {
+	case alive, ok := <-watch:
+		if !ok {
+			return fmt.Errorf("wait connection closed")
+		}
+		if !alive {
+			return fmt.Errorf("not connected, must not happen")
+		}
+	case <-time.After(agentWaitTimeout):
+		return fmt.Errorf("wait for connected agent timed out")
+	}
+	return nil
 }
 
 // connectAgent is a helper to implement the ConnectAgent() method.
-// It needs the entity's state and the ZooKeeper path for the agent.
-func connectAgent(st *State, path string, period time.Duration) error {
-	_, err := presence.StartPinger(st.zk, path, period)
-	return err
+func (am *agentMixin) connect() (err error) {
+	if am.pinger != nil {
+		return fmt.Errorf("agent is already connected")
+	}
+	am.pinger, err = presence.StartPinger(am.st.zk, am.path, agentPingerPeriod)
+	return
+}
+
+// disconnectAgent is a helper to implement the DisconnectAgent() method.
+func (am *agentMixin) disconnect() error {
+	if am.pinger == nil {
+		return fmt.Errorf("agent is not connected")
+	}
+	am.pinger.Kill()
+	am.pinger = nil
+	return nil
 }

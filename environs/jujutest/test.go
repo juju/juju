@@ -54,8 +54,14 @@ type LiveTests struct {
 	Environs *environs.Environs
 	Name     string
 	Env      environs.Environ
-	// length of time to wait before environ becomes logically consistent.
+	// ConsistencyDelay gives the length of time to wait before
+	// environ becomes logically consistent.
 	ConsistencyDelay time.Duration
+
+	// CanOpenState should be true if the testing environment allows
+	// the state to be opened after bootstrapping.
+	CanOpenState bool
+	bootstrapped bool
 }
 
 func (t *LiveTests) SetUpSuite(c *C) {
@@ -63,6 +69,21 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	c.Assert(err, IsNil, Commentf("opening environ %q", t.Name))
 	c.Assert(e, NotNil)
 	t.Env = e
+}
+
+func (t *LiveTests) BootstrapOnce(c *C) {
+	if t.bootstrapped {
+		return
+	}
+	err := t.Env.Bootstrap()
+	c.Assert(err, IsNil)
+	t.bootstrapped = true
+}
+
+func (t *LiveTests) Destroy(c *C) {
+	err := t.Env.Destroy(nil)
+	c.Assert(err, IsNil)
+	t.bootstrapped = false
 }
 
 func (t *LiveTests) TearDownSuite(c *C) {
