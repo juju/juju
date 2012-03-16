@@ -14,37 +14,22 @@ const (
 	agentWaitTimeout  = 4 * agentPingerPeriod
 )
 
-// AgentMixin has to be implemented by those state entities
-// which will have agent processes.
-type AgentMixin interface {
-	// AgentConnected returns true if this entity state has an agent connected.
-	AgentConnected() (bool, error)
-	// WaitAgentConnected waits until an agent has connected.
-	WaitAgentConnected() error
-	// ConnectAgent informs juju that this associated agent is alive.
-	ConnectAgent() error
-	// DisconnectAgent informs juju that this associated agent stops working.
-	DisconnectAgent() error
-}
-
-type agentMixin struct {
+// agendEmbed is a helper type to embed into those state entities which
+// have to provide a defined set of agent related methods.
+type agentEmbed struct {
 	st     *State
 	path   string
 	pinger *presence.Pinger
 }
 
-func newAgentMixin(st *State, path string) *agentMixin {
-	return &agentMixin{st, path, nil}
+// AgentConnected returns true if this entity state has an agent connected.
+func (ae *agentEmbed) AgentConnected() (bool, error) {
+	return presence.Alive(ae.st.zk, ae.path)
 }
 
-// connected is a helper to implement the AgentConnected() method.
-func (am *agentMixin) connected() (bool, error) {
-	return presence.Alive(am.st.zk, am.path)
-}
-
-// waitConnected is a helper to implement the WaitAgentConnected() method.
-func (am *agentMixin) waitConnected() error {
-	alive, watch, err := presence.AliveW(am.st.zk, am.path)
+// WaitAgentConnected waits until an agent has connected.
+func (ae *agentEmbed) WaitAgentConnected() error {
+	alive, watch, err := presence.AliveW(ae.st.zk, ae.path)
 	if err != nil {
 		return err
 	}
@@ -67,21 +52,21 @@ func (am *agentMixin) waitConnected() error {
 	return nil
 }
 
-// connectAgent is a helper to implement the ConnectAgent() method.
-func (am *agentMixin) connect() (err error) {
-	if am.pinger != nil {
+// ConnectAgent informs juju that this associated agent is alive.
+func (ae *agentEmbed) ConnectAgent() (err error) {
+	if ae.pinger != nil {
 		return fmt.Errorf("agent is already connected")
 	}
-	am.pinger, err = presence.StartPinger(am.st.zk, am.path, agentPingerPeriod)
+	ae.pinger, err = presence.StartPinger(ae.st.zk, ae.path, agentPingerPeriod)
 	return
 }
 
-// disconnectAgent is a helper to implement the DisconnectAgent() method.
-func (am *agentMixin) disconnect() error {
-	if am.pinger == nil {
+// DisconnectAgent informs juju that this associated agent stops working.
+func (ae *agentEmbed) DisconnectAgent() error {
+	if ae.pinger == nil {
 		return fmt.Errorf("agent is not connected")
 	}
-	am.pinger.Kill()
-	am.pinger = nil
+	ae.pinger.Kill()
+	ae.pinger = nil
 	return nil
 }

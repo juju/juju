@@ -49,44 +49,25 @@ func ZkConn(st *State) *zookeeper.Conn {
 	return st.zk
 }
 
-// AgentMixinEntity is a helper representing any state entity which
-// implements the agent processable interface. It uses the provided
-// helper functions to realize it. Those functions are only
-// visible inside the state package.
-type AgentMixinEntity struct {
-	root  string
-	key   string
-	mixin *agentMixin
+// AgentEmbedEntity is a helper representing any state entity which
+// embeds the agent embed type.
+type AgentEmbedEntity struct {
+	root string
+	key  string
+	agentEmbed
 }
 
-func NewAgentMixinEntity(st *State, root, key string) *AgentMixinEntity {
-	ame := &AgentMixinEntity{root, key, nil}
-	ame.mixin = newAgentMixin(st, ame.zkAgentPath())
+func NewAgentEmbedEntity(st *State, root, key string) *AgentEmbedEntity {
+	ame := &AgentEmbedEntity{root, key, agentEmbed{}}
+	ame.agentEmbed.st = st
+	ame.agentEmbed.path = ame.zkAgentPath()
 	return ame
 }
 
-func (ame *AgentMixinEntity) Key() string {
+func (ame *AgentEmbedEntity) Key() string {
 	return ame.key
 }
 
-func (ame *AgentMixinEntity) zkAgentPath() string {
+func (ame *AgentEmbedEntity) zkAgentPath() string {
 	return fmt.Sprintf("/%s/%s/agent", ame.root, ame.key)
 }
-
-func (ame *AgentMixinEntity) AgentConnected() (bool, error) {
-	return ame.mixin.connected()
-}
-
-func (ame *AgentMixinEntity) WaitAgentConnected() error {
-	return ame.mixin.waitConnected()
-}
-
-func (ame *AgentMixinEntity) ConnectAgent() error {
-	return ame.mixin.connect()
-}
-
-func (ame *AgentMixinEntity) DisconnectAgent() error {
-	return ame.mixin.disconnect()
-}
-
-var _ = AgentMixin(&AgentMixinEntity{})

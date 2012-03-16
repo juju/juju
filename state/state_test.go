@@ -812,7 +812,7 @@ func (s *AgentSuite) SetUpTest(c *C) {
 	s.st = st
 	s.zkConn = state.ZkConn(st)
 	// Prepare path for dummy entity.
-	s.root = "ape"
+	s.root = "aee"
 	s.key = "key-0000000001"
 	s.path = fmt.Sprintf("/%s/%s", s.root, s.key)
 	zkDeepCreate(s.zkConn, s.path)
@@ -824,39 +824,39 @@ func (s *AgentSuite) TearDownTest(c *C) {
 }
 
 func (s AgentSuite) TestConnected(c *C) {
-	ame := state.NewAgentMixinEntity(s.st, s.root, s.key)
-	connected, err := ame.AgentConnected()
+	aee := state.NewAgentEmbedEntity(s.st, s.root, s.key)
+	connected, err := aee.AgentConnected()
 	c.Assert(err, IsNil)
 	c.Assert(connected, Equals, false)
 
 	_, err = s.zkConn.Exists(s.path)
 	c.Assert(err, IsNil)
 
-	err = ame.ConnectAgent()
+	err = aee.ConnectAgent()
 	c.Assert(err, IsNil)
-	defer ame.DisconnectAgent()
+	defer aee.DisconnectAgent()
 
-	connected, err = ame.AgentConnected()
+	connected, err = aee.AgentConnected()
 	c.Assert(err, IsNil)
 	c.Assert(connected, Equals, true)
 }
 
 func (s AgentSuite) TestWaitConnected(c *C) {
-	ame := state.NewAgentMixinEntity(s.st, s.root, s.key)
-	connected, err := ame.AgentConnected()
+	aee := state.NewAgentEmbedEntity(s.st, s.root, s.key)
+	connected, err := aee.AgentConnected()
 	c.Assert(err, IsNil)
 	c.Assert(connected, Equals, false)
 
-	err = ame.WaitAgentConnected()
+	err = aee.WaitAgentConnected()
 	c.Assert(err, ErrorMatches, "wait for connected agent timed out")
 
-	err = ame.ConnectAgent()
+	err = aee.ConnectAgent()
 	c.Assert(err, IsNil)
 
-	err = ame.WaitAgentConnected()
+	err = aee.WaitAgentConnected()
 	c.Assert(err, IsNil)
 
-	connected, err = ame.AgentConnected()
+	connected, err = aee.AgentConnected()
 	c.Assert(err, IsNil)
 	c.Assert(connected, Equals, true)
 
@@ -865,9 +865,9 @@ func (s AgentSuite) TestWaitConnected(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(zkState, Not(IsNil))
 
-	ame.DisconnectAgent()
+	aee.DisconnectAgent()
 
-	connected, err = ame.AgentConnected()
+	connected, err = aee.AgentConnected()
 	c.Assert(err, IsNil)
 	c.Assert(connected, Equals, false)
 
@@ -878,16 +878,16 @@ func (s AgentSuite) TestWaitConnected(c *C) {
 }
 
 func (s *AgentSuite) TestConnect(c *C) {
-	ame := state.NewAgentMixinEntity(s.st, s.root, s.key)
-	connected, err := ame.AgentConnected()
+	aee := state.NewAgentEmbedEntity(s.st, s.root, s.key)
+	connected, err := aee.AgentConnected()
 	c.Assert(err, IsNil)
 	c.Assert(connected, Equals, false)
 
-	err = ame.ConnectAgent()
+	err = aee.ConnectAgent()
 	c.Assert(err, IsNil)
-	defer ame.DisconnectAgent()
+	defer aee.DisconnectAgent()
 
-	connected, err = ame.AgentConnected()
+	connected, err = aee.AgentConnected()
 	c.Assert(err, IsNil)
 	c.Assert(connected, Equals, true)
 
