@@ -7,23 +7,18 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju/go/charm"
-	"launchpad.net/juju/go/testing"
-	stdtesting "testing"
+	"testing"
 )
 
-func Test(t *stdtesting.T) {
+func Test(t *testing.T) {
 	TestingT(t)
 }
 
-type S struct {
-	repo *testing.Repo
-}
+type S struct{}
 
 var _ = Suite(&S{})
 
-func (s *S) SetUpSuite(c *C) {
-	s.repo = testing.NewRepo(c)
-}
+func (s *S) SetUpSuite(c *C) {}
 
 func checkDummy(c *C, f charm.Charm, path string) {
 	c.Assert(f.Revision(), Equals, 1)

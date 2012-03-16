@@ -1,63 +1,68 @@
 package testing
 
 import (
-	. "launchpad.net/gocheck"
+	"go/build"
 	"launchpad.net/juju/go/charm"
 	"os"
 	"os/exec"
 	"path/filepath"
 )
 
-var srcRepo = os.ExpandEnv("$GOPATH/src/launchpad.net/juju/go/testing/repo")
+func init() {
+	p, err := build.Import("launchpad.net/juju/go/testing", "", build.FindOnly)
+	check(err)
+	Charms = &Repo{Path: filepath.Join(p.Dir, "repo")}
+}
+
+func check(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
 
 type Repo struct {
-	path string
+	Path string
 }
 
-func clone(c *C, src string) string {
-	base := c.MkDir()
-	err := exec.Command("cp", "-r", src, base).Run()
-	c.Assert(err, IsNil)
-	return filepath.Join(base, filepath.Base(src))
-}
+var Charms *Repo
 
-func NewRepo(c *C) *Repo {
-	return &Repo{clone(c, srcRepo)}
+func clone(dst, src string) string {
+	check(exec.Command("cp", "-r", src, dst).Run())
+	return filepath.Join(dst, filepath.Base(src))
 }
 
 func (r *Repo) DirPath(name string) string {
-	return filepath.Join(r.path, "series", name)
+	return filepath.Join(r.Path, "series", name)
 }
 
-func (r *Repo) Dir(c *C, name string) *charm.Dir {
+func (r *Repo) Dir(name string) *charm.Dir {
 	ch, err := charm.ReadDir(r.DirPath(name))
-	c.Assert(err, IsNil)
+	check(err)
 	return ch
 }
 
-func (r *Repo) ClonedDirPath(c *C, name string) string {
-	return clone(c, r.DirPath(name))
+func (r *Repo) ClonedDirPath(dst, name string) string {
+	return clone(dst, r.DirPath(name))
 }
 
-func (r *Repo) ClonedDir(c *C, name string) *charm.Dir {
-	ch, err := charm.ReadDir(r.ClonedDirPath(c, name))
-	c.Assert(err, IsNil)
+func (r *Repo) ClonedDir(dst, name string) *charm.Dir {
+	ch, err := charm.ReadDir(r.ClonedDirPath(dst, name))
+	check(err)
 	return ch
 }
 
-func (r *Repo) BundlePath(c *C, name string) string {
-	dir := r.Dir(c, name)
-	path := filepath.Join(c.MkDir(), "bundle.charm")
+func (r *Repo) BundlePath(dst, name string) string {
+	dir := r.Dir(name)
+	path := filepath.Join(dst, "bundle.charm")
 	file, err := os.Create(path)
-	c.Assert(err, IsNil)
+	check(err)
 	defer file.Close()
-	err = dir.BundleTo(file)
-	c.Assert(err, IsNil)
+	check(dir.BundleTo(file))
 	return path
 }
 
-func (r *Repo) Bundle(c *C, name string) *charm.Bundle {
-	ch, err := charm.ReadBundle(r.BundlePath(c, name))
-	c.Assert(err, IsNil)
+func (r *Repo) Bundle(dst, name string) *charm.Bundle {
+	ch, err := charm.ReadBundle(r.BundlePath(dst, name))
+	check(err)
 	return ch
 }

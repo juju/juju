@@ -49,7 +49,7 @@ func (s *StateSuite) SetUpTest(c *C) {
 	err = s.st.Initialize()
 	c.Assert(err, IsNil)
 	s.zkConn = state.ZkConn(s.st)
-	s.ch = testing.NewRepo(c).Dir(c, "dummy")
+	s.ch = testing.Charms.Dir("dummy")
 	url := fmt.Sprintf("local:series/%s-%d", s.ch.Meta().Name, s.ch.Revision())
 	s.curl = charm.MustParseURL(url)
 }

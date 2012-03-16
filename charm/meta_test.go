@@ -12,8 +12,9 @@ import (
 	"path/filepath"
 )
 
-func repoMeta(repo *testing.Repo, name string) io.Reader {
-	file, err := os.Open(filepath.Join(repo.DirPath(name), "metadata.yaml"))
+func repoMeta(name string) io.Reader {
+	charmDir := testing.Charms.DirPath(name)
+	file, err := os.Open(filepath.Join(charmDir, "metadata.yaml"))
 	if err != nil {
 		panic(err)
 	}
@@ -26,7 +27,7 @@ func repoMeta(repo *testing.Repo, name string) io.Reader {
 }
 
 func (s *S) TestReadMeta(c *C) {
-	meta, err := charm.ReadMeta(repoMeta(s.repo, "dummy"))
+	meta, err := charm.ReadMeta(repoMeta("dummy"))
 	c.Assert(err, IsNil)
 	c.Assert(meta.Name, Equals, "dummy")
 	c.Assert(meta.Summary, Equals, "That's a dummy charm.")
@@ -37,13 +38,13 @@ func (s *S) TestReadMeta(c *C) {
 }
 
 func (s *S) TestSubordinate(c *C) {
-	meta, err := charm.ReadMeta(repoMeta(s.repo, "logging"))
+	meta, err := charm.ReadMeta(repoMeta("logging"))
 	c.Assert(err, IsNil)
 	c.Assert(meta.Subordinate, Equals, true)
 }
 
 func (s *S) TestSubordinateWithoutContainerRelation(c *C) {
-	r := repoMeta(s.repo, "dummy")
+	r := repoMeta("dummy")
 	hackYaml := ReadYaml(r)
 	hackYaml["subordinate"] = true
 	_, err := charm.ReadMeta(hackYaml.Reader())
@@ -51,7 +52,7 @@ func (s *S) TestSubordinateWithoutContainerRelation(c *C) {
 }
 
 func (s *S) TestScopeConstraint(c *C) {
-	meta, err := charm.ReadMeta(repoMeta(s.repo, "logging"))
+	meta, err := charm.ReadMeta(repoMeta("logging"))
 	c.Assert(err, IsNil)
 	c.Assert(meta.Provides["logging-client"].Scope, Equals, charm.ScopeGlobal)
 	c.Assert(meta.Requires["logging-directory"].Scope, Equals, charm.ScopeContainer)
@@ -59,20 +60,20 @@ func (s *S) TestScopeConstraint(c *C) {
 }
 
 func (s *S) TestParseMetaRelations(c *C) {
-	meta, err := charm.ReadMeta(repoMeta(s.repo, "mysql"))
+	meta, err := charm.ReadMeta(repoMeta("mysql"))
 	c.Assert(err, IsNil)
 	c.Assert(meta.Provides["server"], Equals, charm.Relation{Interface: "mysql", Scope: charm.ScopeGlobal})
 	c.Assert(meta.Requires, IsNil)
 	c.Assert(meta.Peers, IsNil)
 
-	meta, err = charm.ReadMeta(repoMeta(s.repo, "riak"))
+	meta, err = charm.ReadMeta(repoMeta("riak"))
 	c.Assert(err, IsNil)
 	c.Assert(meta.Provides["endpoint"], Equals, charm.Relation{Interface: "http", Scope: charm.ScopeGlobal})
 	c.Assert(meta.Provides["admin"], Equals, charm.Relation{Interface: "http", Scope: charm.ScopeGlobal})
 	c.Assert(meta.Peers["ring"], Equals, charm.Relation{Interface: "riak", Limit: 1, Scope: charm.ScopeGlobal})
 	c.Assert(meta.Requires, IsNil)
 
-	meta, err = charm.ReadMeta(repoMeta(s.repo, "wordpress"))
+	meta, err = charm.ReadMeta(repoMeta("wordpress"))
 	c.Assert(err, IsNil)
 	c.Assert(meta.Provides["url"], Equals, charm.Relation{Interface: "http", Scope: charm.ScopeGlobal})
 	c.Assert(meta.Requires["db"], Equals, charm.Relation{Interface: "mysql", Limit: 1, Scope: charm.ScopeGlobal})

@@ -10,7 +10,6 @@ import (
 	"launchpad.net/juju/go/store"
 	"launchpad.net/juju/go/testing"
 	"launchpad.net/mgo/bson"
-	"path/filepath"
 	stdtesting "testing"
 	"time"
 )
@@ -26,7 +25,6 @@ type StoreSuite struct {
 	MgoSuite
 	HTTPSuite
 	store *store.Store
-	charm *charm.Dir
 }
 
 type TrivialSuite struct{}
@@ -43,9 +41,6 @@ func (s *StoreSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	log.Target = c
 	log.Debug = true
-
-	// A charm to play around with.
-	s.charm = testing.NewRepo(c).Dir(c, "dummy")
 }
 
 func (s *StoreSuite) TearDownTest(c *C) {
@@ -54,10 +49,6 @@ func (s *StoreSuite) TearDownTest(c *C) {
 		s.store.Close()
 	}
 	s.MgoSuite.TearDownTest(c)
-}
-
-func repoDir(name string) (path string) {
-	return filepath.Join("..", "charm", "testrepo", "series", name)
 }
 
 // FakeCharmDir is a charm that implements the interface that the
@@ -113,7 +104,7 @@ func (s *StoreSuite) TestCharmPublisher(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(pub.Revision(), Equals, 0)
 
-	err = pub.Publish(s.charm)
+	err = pub.Publish(testing.Charms.ClonedDir(c.MkDir(), "dummy"))
 	c.Assert(err, IsNil)
 
 	for _, url := range urls {

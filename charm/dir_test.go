@@ -6,20 +6,21 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/charm"
+	"launchpad.net/juju/go/testing"
 	"os"
 	"path/filepath"
 	"syscall"
 )
 
 func (s *S) TestReadDir(c *C) {
-	path := s.repo.DirPath("dummy")
+	path := testing.Charms.DirPath("dummy")
 	dir, err := charm.ReadDir(path)
 	c.Assert(err, IsNil)
 	checkDummy(c, dir, path)
 }
 
 func (s *S) TestReadDirWithoutConfig(c *C) {
-	path := s.repo.DirPath("varnish")
+	path := testing.Charms.DirPath("varnish")
 	dir, err := charm.ReadDir(path)
 	c.Assert(err, IsNil)
 
@@ -29,7 +30,7 @@ func (s *S) TestReadDirWithoutConfig(c *C) {
 }
 
 func (s *S) TestBundleTo(c *C) {
-	dir := s.repo.Dir(c, "dummy")
+	dir := testing.Charms.Dir("dummy")
 	path := filepath.Join(c.MkDir(), "bundle.charm")
 	file, err := os.Create(path)
 	c.Assert(err, IsNil)
@@ -98,7 +99,7 @@ func (s *S) TestBundleTo(c *C) {
 }
 
 func (s *S) TestBundleToWithBadType(c *C) {
-	charmDir := s.repo.ClonedDirPath(c, "dummy")
+	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	badFile := filepath.Join(charmDir, "hooks", "badfile")
 
 	// Symlink targeting a path outside of the charm.
@@ -135,7 +136,7 @@ func (s *S) TestBundleToWithBadType(c *C) {
 }
 
 func (s *S) TestDirRevisionFile(c *C) {
-	charmDir := s.repo.ClonedDirPath(c, "dummy")
+	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	revPath := filepath.Join(charmDir, "revision")
 
 	// Missing revision file
@@ -166,7 +167,7 @@ func (s *S) TestDirRevisionFile(c *C) {
 }
 
 func (s *S) TestDirSetRevision(c *C) {
-	dir := s.repo.ClonedDir(c, "dummy")
+	dir := testing.Charms.ClonedDir(c.MkDir(), "dummy")
 	c.Assert(dir.Revision(), Equals, 1)
 	dir.SetRevision(42)
 	c.Assert(dir.Revision(), Equals, 42)
@@ -180,7 +181,7 @@ func (s *S) TestDirSetRevision(c *C) {
 }
 
 func (s *S) TestDirSetDiskRevision(c *C) {
-	charmDir := s.repo.ClonedDirPath(c, "dummy")
+	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	dir, err := charm.ReadDir(charmDir)
 	c.Assert(err, IsNil)
 

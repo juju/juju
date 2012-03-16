@@ -36,8 +36,9 @@ options:
     type: boolean
 `
 
-func repoConfig(repo *testing.Repo, name string) io.Reader {
-	file, err := os.Open(filepath.Join(repo.DirPath(name), "config.yaml"))
+func repoConfig(name string) io.Reader {
+	charmDir := testing.Charms.DirPath(name)
+	file, err := os.Open(filepath.Join(charmDir, "config.yaml"))
 	if err != nil {
 		panic(err)
 	}
@@ -50,7 +51,7 @@ func repoConfig(repo *testing.Repo, name string) io.Reader {
 }
 
 func (s *S) TestReadConfig(c *C) {
-	config, err := charm.ReadConfig(repoConfig(s.repo, "dummy"))
+	config, err := charm.ReadConfig(repoConfig("dummy"))
 	c.Assert(err, IsNil)
 	c.Assert(config.Options["title"], DeepEquals,
 		charm.Option{
