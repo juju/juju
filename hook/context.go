@@ -1,60 +1,82 @@
+// The hook package provides a mechanism by which charm hooks can be executed in
+// appropriate environments.
 package hook
 
 import (
 	"fmt"
 	"launchpad.net/juju/go/log"
-	"launchpad.net/juju/go/state"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
-// Context holds all information necessary to run a hook command.
-type Context struct {
-	state    *state.State
-	local    string
-	relation string
-	members  []string
+// ExecInfo is responsible for constructing those parts of a hook execution
+// environment which cannot be inferred from the Context itself.
+type ExecInfo struct {
+	ContextId   string
+	AgentSocket string
+	CharmDir    string
+	RemoteUnit  string
 }
 
-// NewLocalContext returns a Context tied to a specific unit.
-func NewLocalContext(state *state.State, unitName string) *Context {
-	return &Context{state, unitName, "", nil}
-}
-
-// NewRelationContext returns a Context tied to a specific unit relation .
-func NewRelationContext(
-	state *state.State, unitName, relationName string, members []string,
-) *Context {
-	return &Context{state, unitName, relationName, members}
-}
-
-// NewBrokenContext returns a Context tied to a specific unit relation (which is
-// known to have been broken).
-func NewBrokenContext(state *state.State, unitName, relationName string) *Context {
-	return &Context{state, unitName, relationName, nil}
-}
-
-// Vars returns an os.Environ-style list of strings that should be set when
-// executing a hook in this Context.
-func (ctx *Context) Vars() []string {
-	vars := []string{}
-	if ctx.local != "" {
-		vars = append(vars, "JUJU_UNIT_NAME="+ctx.local)
+// Vars returns an os.Environ-style list of strings.
+func (info *ExecInfo) Vars() []string {
+	vars := []string{
+		"APT_LISTCHANGES_FRONTEND=none",
+		"DEBIAN_FRONTEND=noninteractive",
+		"PATH=" + os.Getenv("PATH"),
+		"CHARM_DIR=" + info.CharmDir,
+		"JUJU_CONTEXT_ID=" + info.ContextId,
+		"JUJU_AGENT_SOCKET=" + info.AgentSocket,
 	}
-	if ctx.relation != "" {
-		vars = append(vars, "JUJU_RELATION="+ctx.relation)
+	if info.RemoteUnit != "" {
+		vars = append(vars, "JUJU_REMOTE_UNIT="+info.RemoteUnit)
 	}
 	return vars
+}
+
+// Context represents the environment in which a hook (and therefore any hook
+// commands called by that hook) will execute.
+// It implements the core functionality of the various commands, and runs hooks
+// in appropriately-configured environments.
+type Context struct {
+	Local    string // Name of the local unit
+	Relation string // Name of the relation
+}
+
+// Exec executes a hook in the environment defined by ctx and info.
+func (ctx *Context) Exec(hookName string, info *ExecInfo) error {
+	vars := info.Vars()
+	if ctx.Local != "" {
+		vars = append(vars, "JUJU_UNIT_NAME="+ctx.Local)
+	}
+	if ctx.Relation != "" {
+		vars = append(vars, "JUJU_RELATION="+ctx.Relation)
+	}
+	ps := exec.Command(filepath.Join(info.CharmDir, "hooks", hookName))
+	ps.Dir = info.CharmDir
+	ps.Env = vars
+	if err := ps.Run(); err != nil {
+		if ee, ok := err.(*exec.Error); ok {
+			if os.IsNotExist(ee.Err) {
+				return nil
+			}
+		}
+		return err
+	}
+	return nil
 }
 
 // Log is the core of the `log` hook command, and is always meaningful in any
 // Context.
 func (ctx *Context) Log(debug bool, msg string) {
 	s := []string{}
-	if ctx.local != "" {
-		s = append(s, ctx.local)
+	if ctx.Local != "" {
+		s = append(s, ctx.Local)
 	}
-	if ctx.relation != "" {
-		s = append(s, ctx.relation)
+	if ctx.Relation != "" {
+		s = append(s, ctx.Relation)
 	}
 	full := fmt.Sprintf("Context<%s>: %s", strings.Join(s, ", "), msg)
 	if debug {
@@ -62,14 +84,4 @@ func (ctx *Context) Log(debug bool, msg string) {
 	} else {
 		log.Printf(full)
 	}
-}
-
-// Members is the core of the `relation-list` hook command. It returns a list
-// of unit names (excluding the local unit) participating in this context's
-// relation, and is always meaningful in any Context.
-func (ctx *Context) Members() []string {
-	if ctx.members != nil {
-		return ctx.members
-	}
-	return []string{}
 }
