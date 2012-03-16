@@ -61,7 +61,11 @@ func ZkRemoveTree(t Fatalfer, zk *zookeeper.Conn, path string) {
 		return
 	}
 	err = zk.Delete(path, -1)
-	if err != nil {
+	// Technically we can't get a ZNONODE error unless something
+	// else is deleting nodes concurrently, because otherwise the
+	// call to Children above would have failed, but check anyway
+	// for completeness.
+	if err != nil && !zookeeper.IsError(err, zookeeper.ZNONODE) {
 		t.Fatalf("%v", err)
 	}
 }
