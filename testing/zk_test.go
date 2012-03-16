@@ -60,7 +60,7 @@ func (S) TestStartAndClean(c *C) {
 	c.Assert(msg, Not(Equals), "")
 	msg = ""
 
-	testing.ZkRemoveTree(t, conn, "/foo")
+	testing.ZkRemoveTree(t, conn, "/")
 	c.Assert(msg, Equals, "")
 
 	stat, err := conn.Exists("/foo")

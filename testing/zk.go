@@ -37,7 +37,7 @@ func StartZkServer(t Fatalfer) *zookeeper.Server {
 
 // ZkRemoveTree recursively removes a zookeeper node
 // and all its children, calling Fatalf on t if it encounters an error.
-// It does not delete the /zookeeper node, and it does not
+// It does not "/zookeeper" or the root node itself and it does not
 // consider deleting a nonexistent node to be an error.
 func ZkRemoveTree(t Fatalfer, zk *zookeeper.Conn, path string) {
 	// If we try to delete the zookeeper node (for example when
@@ -56,7 +56,10 @@ func ZkRemoveTree(t Fatalfer, zk *zookeeper.Conn, path string) {
 	for _, child := range children {
 		ZkRemoveTree(t, zk, pathpkg.Join(path, child))
 	}
-	// Now delete the path itself.
+	// Now delete the path itself unless it's the root node.
+	if path == "/" {
+		return
+	}
 	err = zk.Delete(path, -1)
 	if err != nil {
 		t.Fatalf("%v", err)
