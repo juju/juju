@@ -10,26 +10,24 @@ import (
 )
 
 const (
-	agentPingerPeriod = 25 * time.Millisecond
-	agentWaitTimeout  = 4 * agentPingerPeriod
+	agentPingerPeriod = 1 * time.Second
 )
 
-// agendEmbed is a helper type to embed into those state entities which
-// have to provide a defined set of agent related methods.
-type agentEmbed struct {
+// agent represents a juju agent.
+type agent struct {
 	st     *State
 	path   string
 	pinger *presence.Pinger
 }
 
-// AgentConnected returns true if this entity state has an agent connected.
-func (ae *agentEmbed) AgentConnected() (bool, error) {
-	return presence.Alive(ae.st.zk, ae.path)
+// Connected returns true if its entity state has an agent connected.
+func (a *agent) Connected() (bool, error) {
+	return presence.Alive(a.st.zk, a.path)
 }
 
-// WaitAgentConnected waits until an agent has connected.
-func (ae *agentEmbed) WaitAgentConnected() error {
-	alive, watch, err := presence.AliveW(ae.st.zk, ae.path)
+// WaitConnected waits until an agent has connected.
+func (a *agent) WaitConnected(timeout time.Duration) error {
+	alive, watch, err := presence.AliveW(a.st.zk, a.path)
 	if err != nil {
 		return err
 	}
@@ -46,27 +44,27 @@ func (ae *agentEmbed) WaitAgentConnected() error {
 		if !alive {
 			return fmt.Errorf("not connected, must not happen")
 		}
-	case <-time.After(agentWaitTimeout):
+	case <-time.After(timeout):
 		return fmt.Errorf("wait for connected agent timed out")
 	}
 	return nil
 }
 
-// ConnectAgent informs juju that this associated agent is alive.
-func (ae *agentEmbed) ConnectAgent() (err error) {
-	if ae.pinger != nil {
+// Connect informs juju that an associated agent is alive.
+func (a *agent) Connect() (err error) {
+	if a.pinger != nil {
 		return fmt.Errorf("agent is already connected")
 	}
-	ae.pinger, err = presence.StartPinger(ae.st.zk, ae.path, agentPingerPeriod)
+	a.pinger, err = presence.StartPinger(a.st.zk, a.path, agentPingerPeriod)
 	return
 }
 
-// DisconnectAgent informs juju that this associated agent stops working.
-func (ae *agentEmbed) DisconnectAgent() error {
-	if ae.pinger == nil {
+// Disconnect informs juju that an associated agent stops working.
+func (a *agent) Disconnect() error {
+	if a.pinger == nil {
 		return fmt.Errorf("agent is not connected")
 	}
-	ae.pinger.Kill()
-	ae.pinger = nil
+	a.pinger.Kill()
+	a.pinger = nil
 	return nil
 }

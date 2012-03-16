@@ -49,25 +49,29 @@ func ZkConn(st *State) *zookeeper.Conn {
 	return st.zk
 }
 
-// AgentEmbedEntity is a helper representing any state entity which
+// AgentEntity is a helper representing any state entity which
 // embeds the agent embed type.
-type AgentEmbedEntity struct {
-	root string
-	key  string
-	agentEmbed
+type AgentEntity struct {
+	root  string
+	key   string
+	agent *agent
 }
 
-func NewAgentEmbedEntity(st *State, root, key string) *AgentEmbedEntity {
-	ame := &AgentEmbedEntity{root, key, agentEmbed{}}
-	ame.agentEmbed.st = st
-	ame.agentEmbed.path = ame.zkAgentPath()
-	return ame
+func NewAgentEntity(st *State, root, key string) *AgentEntity {
+	a := &AgentEntity{root, key, &agent{}}
+	a.agent.st = st
+	a.agent.path = a.zkAgentPath()
+	return a
 }
 
-func (ame *AgentEmbedEntity) Key() string {
-	return ame.key
+func (a *AgentEntity) Key() string {
+	return a.key
 }
 
-func (ame *AgentEmbedEntity) zkAgentPath() string {
-	return fmt.Sprintf("/%s/%s/agent", ame.root, ame.key)
+func (a *AgentEntity) Agent() *agent {
+	return a.agent
+}
+
+func (a *AgentEntity) zkAgentPath() string {
+	return fmt.Sprintf("/%s/%s/agent", a.root, a.key)
 }

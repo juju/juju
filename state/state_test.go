@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestPackage integrates the tests into gotest.
@@ -794,11 +795,12 @@ func (s StateSuite) TestGetOpenPorts(c *C) {
 }
 
 type AgentSuite struct {
-	zkConn *zookeeper.Conn
-	st     *state.State
-	root   string
-	key    string
-	path   string
+	zkConn  *zookeeper.Conn
+	st      *state.State
+	root    string
+	key     string
+	path    string
+	timeout time.Duration
 }
 
 var _ = Suite(&AgentSuite{})
@@ -815,6 +817,7 @@ func (s *AgentSuite) SetUpTest(c *C) {
 	s.root = "aee"
 	s.key = "key-0000000001"
 	s.path = fmt.Sprintf("/%s/%s", s.root, s.key)
+	s.timeout = 2 * time.Second
 	zkDeepCreate(s.zkConn, s.path)
 }
 
@@ -823,40 +826,60 @@ func (s *AgentSuite) TearDownTest(c *C) {
 	s.zkConn.Close()
 }
 
+func (s *AgentSuite) TestConnect(c *C) {
+	a := state.NewAgentEntity(s.st, s.root, s.key)
+	connected, err := a.Agent().Connected()
+	c.Assert(err, IsNil)
+	c.Assert(connected, Equals, false)
+
+	err = a.Agent().Connect()
+	c.Assert(err, IsNil)
+	defer a.Agent().Disconnect()
+
+	connected, err = a.Agent().Connected()
+	c.Assert(err, IsNil)
+	c.Assert(connected, Equals, true)
+
+	// Test node existance directly in ZooKeeper.
+	zkState, err := s.zkConn.Exists(s.path + "/agent")
+	c.Assert(err, IsNil)
+	c.Assert(zkState, Not(IsNil))
+}
+
 func (s AgentSuite) TestConnected(c *C) {
-	aee := state.NewAgentEmbedEntity(s.st, s.root, s.key)
-	connected, err := aee.AgentConnected()
+	a := state.NewAgentEntity(s.st, s.root, s.key)
+	connected, err := a.Agent().Connected()
 	c.Assert(err, IsNil)
 	c.Assert(connected, Equals, false)
 
 	_, err = s.zkConn.Exists(s.path)
 	c.Assert(err, IsNil)
 
-	err = aee.ConnectAgent()
+	err = a.Agent().Connect()
 	c.Assert(err, IsNil)
-	defer aee.DisconnectAgent()
+	defer a.Agent().Disconnect()
 
-	connected, err = aee.AgentConnected()
+	connected, err = a.Agent().Connected()
 	c.Assert(err, IsNil)
 	c.Assert(connected, Equals, true)
 }
 
 func (s AgentSuite) TestWaitConnected(c *C) {
-	aee := state.NewAgentEmbedEntity(s.st, s.root, s.key)
-	connected, err := aee.AgentConnected()
+	a := state.NewAgentEntity(s.st, s.root, s.key)
+	connected, err := a.Agent().Connected()
 	c.Assert(err, IsNil)
 	c.Assert(connected, Equals, false)
 
-	err = aee.WaitAgentConnected()
+	err = a.Agent().WaitConnected(s.timeout)
 	c.Assert(err, ErrorMatches, "wait for connected agent timed out")
 
-	err = aee.ConnectAgent()
+	err = a.Agent().Connect()
 	c.Assert(err, IsNil)
 
-	err = aee.WaitAgentConnected()
+	err = a.Agent().WaitConnected(s.timeout)
 	c.Assert(err, IsNil)
 
-	connected, err = aee.AgentConnected()
+	connected, err = a.Agent().Connected()
 	c.Assert(err, IsNil)
 	c.Assert(connected, Equals, true)
 
@@ -865,9 +888,9 @@ func (s AgentSuite) TestWaitConnected(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(zkState, Not(IsNil))
 
-	aee.DisconnectAgent()
+	a.Agent().Disconnect()
 
-	connected, err = aee.AgentConnected()
+	connected, err = a.Agent().Connected()
 	c.Assert(err, IsNil)
 	c.Assert(connected, Equals, false)
 
@@ -875,24 +898,4 @@ func (s AgentSuite) TestWaitConnected(c *C) {
 	zkState, err = s.zkConn.Exists(s.path + "/agent")
 	c.Assert(err, IsNil)
 	c.Assert(zkState, IsNil)
-}
-
-func (s *AgentSuite) TestConnect(c *C) {
-	aee := state.NewAgentEmbedEntity(s.st, s.root, s.key)
-	connected, err := aee.AgentConnected()
-	c.Assert(err, IsNil)
-	c.Assert(connected, Equals, false)
-
-	err = aee.ConnectAgent()
-	c.Assert(err, IsNil)
-	defer aee.DisconnectAgent()
-
-	connected, err = aee.AgentConnected()
-	c.Assert(err, IsNil)
-	c.Assert(connected, Equals, true)
-
-	// Test node existance directly in ZooKeeper.
-	zkState, err := s.zkConn.Exists(s.path + "/agent")
-	c.Assert(err, IsNil)
-	c.Assert(zkState, Not(IsNil))
 }
