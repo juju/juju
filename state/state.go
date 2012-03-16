@@ -12,10 +12,8 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
-	"log"
 	"net/url"
 	"strings"
-	"local/runtime/debug"
 )
 
 // State represents the state of an environment
@@ -246,10 +244,8 @@ func (s *State) waitForInitialization() error {
 	if stat != nil {
 		return nil
 	}
-	log.Printf("waitForInitialization: %s", debug.Callers(0, 10))
 	// TODO time out here?
 	e := <-watch
-	log.Printf("initialization detected")
 	if !e.Ok() {
 		return fmt.Errorf("session error: %v", e)
 	}

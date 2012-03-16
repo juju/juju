@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"sort"
+	"time"
 	stdtesting "testing"
 )
 
@@ -80,6 +81,49 @@ func (s *StateSuite) SetUpTest(c *C) {
 func (s *StateSuite) TearDownTest(c *C) {
 	testing.ZkRemoveTree(c, s.zkConn, "/")
 	s.zkConn.Close()
+}
+
+func (s StateSuite) TestInitialize(c *C) {
+	info := &state.Info{
+		Addrs: []string{state.TestingZkAddr},
+	}
+	// Check that initialization of an already-initialized state succeeds.
+	st, err := state.Initialize(info)
+	c.Assert(err, IsNil)
+	c.Assert(st, NotNil)
+	st.Close()
+
+	// Check that Open blocks until Initialize has succeeded.
+	testing.ZkRemoveTree(c, s.zkConn, "/")
+
+	errc := make(chan error)
+	go func(){
+		st, err := state.Open(info)
+		errc <- err
+		if st != nil {
+			st.Close()
+		}
+	}()
+
+	// wait a little while to verify that it's actually blocking
+	time.Sleep(0.2e9)
+	select {
+	case err := <-errc:
+		c.Fatalf("state.Open did not block (returned error %v)", err)
+	default:
+	}
+
+	st, err = state.Initialize(info)
+	c.Assert(err, IsNil)
+	c.Assert(st, NotNil)
+	defer st.Close()
+
+	select {
+	case err := <-errc:
+		c.Assert(err, IsNil)
+	case <-time.After(1e9):
+		c.Fatalf("state.Open blocked forever")
+	}
 }
 
 func (s StateSuite) TestAddCharm(c *C) {
