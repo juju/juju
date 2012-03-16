@@ -7,36 +7,22 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju/go/charm"
-	"os"
-	"path/filepath"
-	"testing"
+	"launchpad.net/juju/go/testing"
+	stdtesting "testing"
 )
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	TestingT(t)
 }
 
-type S struct{}
+type S struct {
+	repo *testing.Repo
+}
 
 var _ = Suite(&S{})
 
-func init() {
-	// Bazaar can't hold subtle mode differences, so we enforce
-	// them here to run more interesting checks below.
-	modes := []struct {
-		path string
-		mode os.FileMode
-	}{
-		{"hooks/install", 0751},
-		{"empty", 0750},
-		{"src/hello.c", 0614},
-	}
-	for _, m := range modes {
-		err := os.Chmod(filepath.Join(repoDir("dummy"), m.path), m.mode)
-		if err != nil {
-			panic(err)
-		}
-	}
+func (s *S) SetUpSuite(c *C) {
+	s.repo = testing.NewRepo(c)
 }
 
 func checkDummy(c *C, f charm.Charm, path string) {
@@ -49,27 +35,6 @@ func checkDummy(c *C, f charm.Charm, path string) {
 
 	case *charm.Dir:
 		c.Assert(f.Path, Equals, path)
-		if path == repoDir("dummy") {
-			break // Don't test original Bazaar content.
-		}
-
-		info, err := os.Stat(filepath.Join(path, "src", "hello.c"))
-		c.Assert(err, IsNil)
-		c.Assert(info.Mode()&0777, Equals, os.FileMode(0644))
-		c.Assert(info.Mode()&os.ModeType, Equals, os.FileMode(0))
-
-		info, err = os.Stat(filepath.Join(path, "hooks", "install"))
-		c.Assert(err, IsNil)
-		c.Assert(info.Mode()&0777, Equals, os.FileMode(0755))
-		c.Assert(info.Mode()&os.ModeType, Equals, os.FileMode(0))
-
-		info, err = os.Stat(filepath.Join(path, "empty"))
-		c.Assert(err, IsNil)
-		c.Assert(info.Mode()&0777, Equals, os.FileMode(0755))
-
-		target, err := os.Readlink(filepath.Join(path, "hooks", "symlink"))
-		c.Assert(err, IsNil)
-		c.Assert(target, Equals, "../target")
 	}
 }
 

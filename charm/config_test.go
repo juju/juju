@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/charm"
+	"launchpad.net/juju/go/testing"
 	"os"
 	"path/filepath"
 )
@@ -35,8 +36,8 @@ options:
     type: boolean
 `
 
-func repoConfig(name string) io.Reader {
-	file, err := os.Open(filepath.Join("testrepo", "series", name, "config.yaml"))
+func repoConfig(repo *testing.Repo, name string) io.Reader {
+	file, err := os.Open(filepath.Join(repo.DirPath(name), "config.yaml"))
 	if err != nil {
 		panic(err)
 	}
@@ -49,7 +50,7 @@ func repoConfig(name string) io.Reader {
 }
 
 func (s *S) TestReadConfig(c *C) {
-	config, err := charm.ReadConfig(repoConfig("dummy"))
+	config, err := charm.ReadConfig(repoConfig(s.repo, "dummy"))
 	c.Assert(err, IsNil)
 	c.Assert(config.Options["title"], DeepEquals,
 		charm.Option{

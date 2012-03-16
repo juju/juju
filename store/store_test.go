@@ -8,13 +8,14 @@ import (
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/log"
 	"launchpad.net/juju/go/store"
+	"launchpad.net/juju/go/testing"
 	"launchpad.net/mgo/bson"
 	"path/filepath"
-	"testing"
+	stdtesting "testing"
 	"time"
 )
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	TestingT(t)
 }
 
@@ -44,9 +45,7 @@ func (s *StoreSuite) SetUpTest(c *C) {
 	log.Debug = true
 
 	// A charm to play around with.
-	dir, err := charm.ReadDir(repoDir("dummy"))
-	c.Assert(err, IsNil)
-	s.charm = dir
+	s.charm = testing.NewRepo(c).Dir(c, "dummy")
 }
 
 func (s *StoreSuite) TearDownTest(c *C) {
