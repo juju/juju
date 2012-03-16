@@ -48,30 +48,3 @@ func ZkTearDownEnvironment(t *testing.T, srv *zookeeper.Server, dir string) {
 func ZkConn(st *State) *zookeeper.Conn {
 	return st.zk
 }
-
-// AgentEntity is a helper representing any state entity which
-// embeds the agent embed type.
-type AgentEntity struct {
-	root  string
-	key   string
-	agent *agent
-}
-
-func NewAgentEntity(st *State, root, key string) *AgentEntity {
-	a := &AgentEntity{root, key, &agent{}}
-	a.agent.st = st
-	a.agent.path = a.zkAgentPath()
-	return a
-}
-
-func (a *AgentEntity) Key() string {
-	return a.key
-}
-
-func (a *AgentEntity) Agent() *agent {
-	return a.agent
-}
-
-func (a *AgentEntity) zkAgentPath() string {
-	return fmt.Sprintf("/%s/%s/agent", a.root, a.key)
-}

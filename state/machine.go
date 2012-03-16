@@ -12,13 +12,23 @@ import (
 
 // Machine represents the state of a machine.
 type Machine struct {
-	st  *State
-	key string
+	st    *State
+	key   string
+	agent *Agent
 }
 
 // Id returns the machine id.
 func (m *Machine) Id() int {
 	return machineId(m.key)
+}
+
+// Agent returns the agent of the machine. It's created
+// lazily to get it initialized with the right agent path.
+func (m *Machine) Agent() *Agent {
+	if m.agent == nil {
+		m.agent = &Agent{m.st, m.zkAgentPath(), nil}
+	}
+	return m.agent
 }
 
 // zkKey returns the ZooKeeper key of the machine.

@@ -32,7 +32,7 @@ func (s *TopologySuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *TopologySuite) TearDownTest(c *C) {
+func (s TopologySuite) TearDownTest(c *C) {
 	// Delete possible nodes, ignore errors.
 	zkRemoveTree(s.zkConn, "/topology")
 	s.zkConn.Close()

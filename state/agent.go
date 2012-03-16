@@ -13,20 +13,20 @@ const (
 	agentPingerPeriod = 1 * time.Second
 )
 
-// agent represents a juju agent.
-type agent struct {
+// Agent represents a juju agent.
+type Agent struct {
 	st     *State
 	path   string
 	pinger *presence.Pinger
 }
 
 // Connected returns true if its entity state has an agent connected.
-func (a *agent) Connected() (bool, error) {
+func (a *Agent) Connected() (bool, error) {
 	return presence.Alive(a.st.zk, a.path)
 }
 
 // WaitConnected waits until an agent has connected.
-func (a *agent) WaitConnected(timeout time.Duration) error {
+func (a *Agent) WaitConnected(timeout time.Duration) error {
 	alive, watch, err := presence.AliveW(a.st.zk, a.path)
 	if err != nil {
 		return err
@@ -51,7 +51,7 @@ func (a *agent) WaitConnected(timeout time.Duration) error {
 }
 
 // Connect informs juju that an associated agent is alive.
-func (a *agent) Connect() (err error) {
+func (a *Agent) Connect() (err error) {
 	if a.pinger != nil {
 		return fmt.Errorf("agent is already connected")
 	}
@@ -60,7 +60,7 @@ func (a *agent) Connect() (err error) {
 }
 
 // Disconnect informs juju that an associated agent stops working.
-func (a *agent) Disconnect() error {
+func (a *Agent) Disconnect() error {
 	if a.pinger == nil {
 		return fmt.Errorf("agent is not connected")
 	}

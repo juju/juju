@@ -96,7 +96,7 @@ func (s *Service) AddUnit() (*Unit, error) {
 	if err := retryTopologyChange(s.st.zk, addUnit); err != nil {
 		return nil, err
 	}
-	return &Unit{s.st, key, s.key, s.name, sequenceNo}, nil
+	return &Unit{s.st, key, s.key, s.name, sequenceNo, nil}, nil
 }
 
 // RemoveUnit() removes a unit.
@@ -142,7 +142,7 @@ func (s *Service) Unit(name string) (*Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Unit{s.st, key, s.key, s.name, sequenceNo}, nil
+	return &Unit{s.st, key, s.key, s.name, sequenceNo, nil}, nil
 }
 
 // AllUnits returns all units of the service.
@@ -169,7 +169,7 @@ func (s *Service) AllUnits() ([]*Unit, error) {
 		if err != nil {
 			return nil, err
 		}
-		units = append(units, &Unit{s.st, key, s.key, serviceName, sequenceNo})
+		units = append(units, &Unit{s.st, key, s.key, serviceName, sequenceNo, nil})
 	}
 	return units, nil
 }

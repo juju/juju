@@ -37,6 +37,7 @@ type Unit struct {
 	serviceKey  string
 	serviceName string
 	sequenceNo  int
+	agent       *Agent
 }
 
 // ServiceName returns the service name.
@@ -200,7 +201,7 @@ func (u *Unit) AssignToUnusedMachine() (*Machine, error) {
 	if err := retryTopologyChange(u.st.zk, assignUnusedUnit); err != nil {
 		return nil, err
 	}
-	return &Machine{u.st, machineKey}, nil
+	return &Machine{u.st, machineKey, nil}, nil
 }
 
 // UnassignFromMachine removes the assignment between this unit and
@@ -375,6 +376,15 @@ func (u *Unit) OpenPorts() ([]Port, error) {
 		return nil, err
 	}
 	return ports.Open, nil
+}
+
+// Agent returns the agent of the unit. It's created
+// lazily to get it initialized with the right agent path.
+func (u *Unit) Agent() *Agent {
+	if u.agent == nil {
+		u.agent = &Agent{u.st, u.zkAgentPath(), nil}
+	}
+	return u.agent
 }
 
 // zkKey returns the ZooKeeper key of the unit.
