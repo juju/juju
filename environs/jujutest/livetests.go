@@ -77,7 +77,6 @@ func (t *LiveTests) TestBootstrap(c *C) {
 		c.Assert(err, IsNil)
 	}
 
-
 	// TODO uncomment when State has a close method
 	// st.Close()
 
