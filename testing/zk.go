@@ -9,13 +9,13 @@ import (
 
 var ZkPort = 21812
 
-type TestingT interface {
+type Fatalfer interface {
 	Fatalf(format string, args ...interface{})
 }
 
 // StartZkServer starts a ZooKeeper server in a temporary directory.
 // It calls Fatalf on t if it encounters an error.
-func StartZkServer(t TestingT) *zookeeper.Server {
+func StartZkServer(t Fatalfer) *zookeeper.Server {
 	// In normal use, dir will be deleted by srv.Destroy, and does not need to
 	// be tracked separately.
 	dir, err := ioutil.TempDir("", "test-zk")
@@ -39,7 +39,7 @@ func StartZkServer(t TestingT) *zookeeper.Server {
 // and all its children, calling Fatalf on t if it encounters an error.
 // It does not delete the /zookeeper node, and it does not
 // consider deleting a nonexistent node to be an error.
-func ZkRemoveTree(t TestingT, zk *zookeeper.Conn, path string) {
+func ZkRemoveTree(t Fatalfer, zk *zookeeper.Conn, path string) {
 	// If we try to delete the zookeeper node (for example when
 	// calling zkRemoveTree(zk, "/")) we silently ignore it.
 	if path == "/zookeeper" {
