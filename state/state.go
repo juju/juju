@@ -120,7 +120,7 @@ func (s *State) Charm(curl *charm.URL) (*Charm, error) {
 		return nil, err
 	}
 	yaml, _, err := s.zk.Get(path)
-	if err == zookeeper.ZNONODE {
+	if zookeeper.IsError(err, zookeeper.ZNONODE) {
 		return nil, fmt.Errorf("charm not found: %q", curl)
 	}
 	if err != nil {
