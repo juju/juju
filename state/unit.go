@@ -234,7 +234,7 @@ func (u *Unit) NeedsUpgrade() (bool, error) {
 // SetNeedsUpgrade informs the unit that it should perform an upgrade.
 func (u *Unit) SetNeedsUpgrade() error {
 	_, err := u.st.zk.Create(u.zkNeedsUpgradePath(), "", 0, zkPermAll)
-	if err == zookeeper.ZNODEEXISTS {
+	if zookeeper.IsError(err, zookeeper.ZNODEEXISTS) {
 		// Node already exists, so same state.
 		return nil
 	}
@@ -245,7 +245,7 @@ func (u *Unit) SetNeedsUpgrade() error {
 // done by the unit agent before beginning the upgrade.
 func (u *Unit) ClearNeedsUpgrade() error {
 	err := u.st.zk.Delete(u.zkNeedsUpgradePath(), -1)
-	if err == zookeeper.ZNONODE {
+	if zookeeper.IsError(err, zookeeper.ZNONODE) {
 		// Node doesn't exist, so same state.
 		return nil
 	}
@@ -255,7 +255,7 @@ func (u *Unit) ClearNeedsUpgrade() error {
 // Resolved returns the resolved mode for the unit.
 func (u *Unit) Resolved() (ResolvedMode, error) {
 	yaml, _, err := u.st.zk.Get(u.zkResolvedPath())
-	if err == zookeeper.ZNONODE {
+	if zookeeper.IsError(err, zookeeper.ZNONODE) {
 		// Default value.
 		return ResolvedNone, nil
 	}
@@ -289,7 +289,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) error {
 		return err
 	}
 	_, err = u.st.zk.Create(u.zkResolvedPath(), string(yaml), 0, zkPermAll)
-	if err == zookeeper.ZNODEEXISTS {
+	if zookeeper.IsError(err, zookeeper.ZNODEEXISTS) {
 		return fmt.Errorf("unit %q resolved flag already set", u.Name())
 	}
 	return err
@@ -298,7 +298,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) error {
 // ClearResolved removes any resolved setting on the unit.
 func (u *Unit) ClearResolved() error {
 	err := u.st.zk.Delete(u.zkResolvedPath(), -1)
-	if err == zookeeper.ZNONODE {
+	if zookeeper.IsError(err, zookeeper.ZNONODE) {
 		// Node doesn't exist, so same state.
 		return nil
 	}
@@ -363,7 +363,7 @@ func (u *Unit) ClosePort(protocol string, number int) error {
 // OpenPorts returns a slice containing the open ports of the unit.
 func (u *Unit) OpenPorts() ([]Port, error) {
 	yaml, _, err := u.st.zk.Get(u.zkPortsPath())
-	if err == zookeeper.ZNONODE {
+	if zookeeper.IsError(err, zookeeper.ZNONODE) {
 		// Default value.
 		return nil, nil
 	}

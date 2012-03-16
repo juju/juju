@@ -100,7 +100,7 @@ func (c *ConfigNode) Read() error {
 	c.cache = make(map[string]interface{})
 	yaml, _, err := c.zk.Get(c.path)
 	if err != nil {
-		if err != zookeeper.ZNONODE {
+		if !zookeeper.IsError(err, zookeeper.ZNONODE) {
 			return err
 		}
 	}

@@ -56,7 +56,7 @@ type topology struct {
 func readTopology(zk *zookeeper.Conn) (*topology, error) {
 	yaml, _, err := zk.Get("/topology")
 	if err != nil {
-		if err == zookeeper.ZNONODE {
+		if zookeeper.IsError(err, zookeeper.ZNONODE) {
 			// No topology node, so return empty topology.
 			return parseTopology("")
 		}
