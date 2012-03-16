@@ -215,7 +215,7 @@ func (s *Service) IsExposed() (bool, error) {
 // See ClearExposed and IsExposed.
 func (s *Service) SetExposed() error {
 	_, err := s.st.zk.Create(s.zkExposedPath(), "", 0, zkPermAll)
-	if err != nil && err != zookeeper.ZNODEEXISTS {
+	if err != nil && !zookeeper.IsError(err, zookeeper.ZNODEEXISTS) {
 		return err
 	}
 	return nil
@@ -225,7 +225,7 @@ func (s *Service) SetExposed() error {
 // See SetExposed and IsExposed.
 func (s *Service) ClearExposed() error {
 	err := s.st.zk.Delete(s.zkExposedPath(), -1)
-	if err != nil && err != zookeeper.ZNONODE {
+	if err != nil && !zookeeper.IsError(err, zookeeper.ZNONODE) {
 		return err
 	}
 	return nil
