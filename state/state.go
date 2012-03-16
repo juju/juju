@@ -244,10 +244,20 @@ func (s *State) waitForInitialization() error {
 	if stat != nil {
 		return nil
 	}
-	// TODO time out here?
-	e := <-watch
-	if !e.Ok() {
-		return fmt.Errorf("session error: %v", e)
+	select {
+	case e := <-watch:
+		if !e.Ok() {
+			return fmt.Errorf("session error: %v", e)
+		}
+	case <-time.After(3 * time.Minute):
+		log.Printf("timed out waiting for initialisation")
+		ch, _, err := s.zk.Children("/")
+		if err != nil {
+			log.Printf("error getting root children: %v", err)
+		} else {
+			log.Printf("root children: %q", ch)
+		}
+		return fmt.Errorf("timed out waiting for initialization")
 	}
 	return nil
 }

@@ -13,8 +13,8 @@ import (
 	"net/url"
 	"path/filepath"
 	"sort"
-	"time"
 	stdtesting "testing"
+	"time"
 )
 
 // TestPackage integrates the tests into gotest.
@@ -97,7 +97,7 @@ func (s StateSuite) TestInitialize(c *C) {
 	testing.ZkRemoveTree(c, s.zkConn, "/")
 
 	errc := make(chan error)
-	go func(){
+	go func() {
 		st, err := state.Open(info)
 		errc <- err
 		if st != nil {

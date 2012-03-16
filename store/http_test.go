@@ -180,4 +180,3 @@ func (s *TestHTTPServer) Responses(n int, status int, headers map[string]string,
 func (s *TestHTTPServer) Response(status int, headers map[string]string, body string) {
 	s.Responses(1, status, headers, body)
 }
-

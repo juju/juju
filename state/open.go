@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju/go/log"
 	"strings"
 )
 
@@ -23,10 +24,12 @@ const zkTimeout = 15e9
 // info, waits for it to be initialized, and returns a new State
 // representing the environment connected to.
 func Open(info *Info) (*State, error) {
+	log.Printf("state: Open %v", info)
 	st, err := open(info)
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("state: waiting for initialization")
 	err = st.waitForInitialization()
 	if err != nil {
 		return nil, err

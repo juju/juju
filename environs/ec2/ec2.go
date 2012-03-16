@@ -5,6 +5,7 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
+	"launchpad.net/juju/go/log"
 	"launchpad.net/juju/go/state"
 	"sync"
 	"time"
@@ -92,6 +93,7 @@ func (inst *instance) WaitDNSName() (string, error) {
 }
 
 func (environProvider) Open(name string, config interface{}) (e environs.Environ, err error) {
+	log.Printf("environs/ec2: Open %q", name)
 	cfg := config.(*providerConfig)
 	if Regions[cfg.region].EC2Endpoint == "" {
 		return nil, fmt.Errorf("no ec2 endpoint found for region %q, opening %q", cfg.region, name)
@@ -105,6 +107,7 @@ func (environProvider) Open(name string, config interface{}) (e environs.Environ
 }
 
 func (e *environ) Bootstrap() error {
+	log.Printf("environs/ec2: Bootstrap %q", e.name)
 	_, err := e.loadState()
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
@@ -164,6 +167,7 @@ func (e *environ) StateInfo() (*state.Info, error) {
 }
 
 func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Instance, error) {
+	log.Printf("environs/ec2: StartInstance %q, machine %d", e.name, machineId)
 	return e.startInstance(machineId, info, false)
 }
 
