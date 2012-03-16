@@ -13,22 +13,22 @@ type Fatalfer interface {
 }
 
 // StartZkServer starts a ZooKeeper server in a temporary directory.
-func StartZkServer(f Fatalfer) *zookeeper.Server {
+func StartZkServer(t Fatalfer) *zookeeper.Server {
 	// In normal use, dir will be deleted by srv.Destroy, and does not need to
 	// be tracked separately.
 	dir, err := ioutil.TempDir("", "test-zk")
 	if err != nil {
-		f.Fatalf("cannot create temporary directory: %v", err)
+		t.Fatalf("cannot create temporary directory: %v", err)
 	}
 	srv, err := zookeeper.CreateServer(ZkPort, dir, "")
 	if err != nil {
 		os.RemoveAll(dir)
-		f.Fatalf("cannot create ZooKeeper server: %v", err)
+		t.Fatalf("cannot create ZooKeeper server: %v", err)
 	}
 	err = srv.Start()
 	if err != nil {
 		srv.Destroy()
-		f.Fatalf("cannot start ZooKeeper server: %v", err)
+		t.Fatalf("cannot start ZooKeeper server: %v", err)
 	}
 	return srv
 }

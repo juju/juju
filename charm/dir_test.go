@@ -15,7 +15,7 @@ func (s *S) TestReadDir(c *C) {
 	path := s.repo.DirPath("dummy")
 	dir, err := charm.ReadDir(path)
 	c.Assert(err, IsNil)
-	c.Assert(dir.Path, Equals, path)
+	checkDummy(c, dir, path)
 }
 
 func (s *S) TestReadDirWithoutConfig(c *C) {
