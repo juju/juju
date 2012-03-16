@@ -41,7 +41,7 @@ func StartZkServer(t Fatalfer) *zookeeper.Server {
 // consider deleting a nonexistent node to be an error.
 func ZkRemoveTree(t Fatalfer, zk *zookeeper.Conn, path string) {
 	// If we try to delete the zookeeper node (for example when
-	// calling zkRemoveTree(zk, "/")) we silently ignore it.
+	// calling ZkRemoveTree(zk, "/")) we silently ignore it.
 	if path == "/zookeeper" {
 		return
 	}
