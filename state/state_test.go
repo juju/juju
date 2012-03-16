@@ -78,14 +78,7 @@ func (s *StateSuite) SetUpTest(c *C) {
 }
 
 func (s *StateSuite) TearDownTest(c *C) {
-	// Delete possible nodes, ignore errors.
-	zkRemoveTree(s.zkConn, "/topology")
-	zkRemoveTree(s.zkConn, "/charms")
-	zkRemoveTree(s.zkConn, "/services")
-	zkRemoveTree(s.zkConn, "/machines")
-	zkRemoveTree(s.zkConn, "/units")
-	zkRemoveTree(s.zkConn, "/relations")
-	zkRemoveTree(s.zkConn, "/initialized")
+	testing.ZkRemoveTree(c, s.zkConn, "/")
 	s.zkConn.Close()
 }
 
@@ -827,20 +820,4 @@ func (s StateSuite) TestGetOpenPorts(c *C) {
 		{"tcp", 53},
 		{"tcp", 443},
 	})
-}
-
-// zkRemoveTree recursively removes a tree.
-func zkRemoveTree(zk *zookeeper.Conn, path string) error {
-	// First recursively delete the children.
-	children, _, err := zk.Children(path)
-	if err != nil {
-		return err
-	}
-	for _, child := range children {
-		if err = zkRemoveTree(zk, fmt.Sprintf("%s/%s", path, child)); err != nil {
-			return err
-		}
-	}
-	// Now delete the path itself.
-	return zk.Delete(path, -1)
 }
