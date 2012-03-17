@@ -32,6 +32,6 @@ func (a *MachineAgent) ParsePositional(args []string) error {
 }
 
 // Run runs a machine agent.
-func (a *MachineAgent) Run(ctx *cmd.Context) error {
+func (a *MachineAgent) Run(_ *cmd.Context) error {
 	return fmt.Errorf("MachineAgent.Run not implemented")
 }

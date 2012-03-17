@@ -12,9 +12,8 @@ import (
 	"path/filepath"
 )
 
-func getContext(c *C) *cmd.Context {
-	return &cmd.Context{
-		c.MkDir(), bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})}
+func dummyContext(c *C) *cmd.Context {
+	return &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}}
 }
 
 func str(stream io.Writer) string {
@@ -52,8 +51,8 @@ func (c *CtxCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-var (
-	fullUsage = `usage: cmd-name [options]
+var minUsage = "usage: cmd-name\n"
+var fullUsage = `usage: cmd-name [options]
 purpose: cmd-purpose
 
 options:
@@ -62,15 +61,12 @@ options:
 
 cmd-doc
 `
-	minUsage  = `usage: cmd-name
-`
-)
 
 type ContextSuite struct{}
 
 func AssertMainOutput(c *C, com cmd.Command, usage string) {
-	ctx := getContext(c)
-	result := ctx.Main(com, []string{"--unknown"})
+	ctx := dummyContext(c)
+	result := cmd.Main(com, ctx, []string{"--unknown"})
 	c.Assert(result, Equals, 2)
 	c.Assert(str(ctx.Stdout), Equals, "")
 	expected := "flag provided but not defined: --unknown\n" + usage
@@ -83,16 +79,16 @@ func (s *CommandSuite) TestMainOutput(c *C) {
 }
 
 func (s *CommandSuite) TestMainBadRun(c *C) {
-	ctx := getContext(c)
-	result := ctx.Main(&CtxCommand{}, []string{"--opt", "error"})
+	ctx := dummyContext(c)
+	result := cmd.Main(&CtxCommand{}, ctx, []string{"--opt", "error"})
 	c.Assert(result, Equals, 1)
 	c.Assert(str(ctx.Stdout), Equals, "")
 	c.Assert(str(ctx.Stderr), Equals, "oh noes!\n")
 }
 
 func (s *CommandSuite) TestMainSuccess(c *C) {
-	ctx := getContext(c)
-	result := ctx.Main(&CtxCommand{}, []string{"--opt", "success!"})
+	ctx := dummyContext(c)
+	result := cmd.Main(&CtxCommand{}, ctx, []string{"--opt", "success!"})
 	c.Assert(result, Equals, 0)
 	c.Assert(str(ctx.Stdout), Equals, "hello stdout: success!")
 	c.Assert(str(ctx.Stderr), Equals, "hello stderr: success!")
@@ -100,7 +96,7 @@ func (s *CommandSuite) TestMainSuccess(c *C) {
 
 func AssertInitLog(c *C, verbose bool, debug bool, logfile string, logre string) {
 	defer saveLog()()
-	ctx := getContext(c)
+	ctx := dummyContext(c)
 	err := ctx.InitLog(verbose, debug, logfile)
 	c.Assert(err, IsNil)
 	log.Printf("hello log")
@@ -135,7 +131,7 @@ func (s *CommandSuite) TestInitLog(c *C) {
 
 func (s *CommandSuite) TestRelativeLogFile(c *C) {
 	defer saveLog()()
-	ctx := getContext(c)
+	ctx := dummyContext(c)
 	err := ctx.InitLog(false, false, "logfile")
 	c.Assert(err, IsNil)
 	log.Printf("hello log")

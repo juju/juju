@@ -10,7 +10,12 @@ import (
 )
 
 // Context adds a layer of indirection between a Command and its environment,
-// to allow use of the cmd package within a host process.
+// to allow cmd.Commands to be run without using the current process's working
+// directory or output streams. This in turn enables "hosted" Command execution,
+// whereby a hook-invoked tool can delegate full responsibility for command
+// execution to the unit agent process (which holds the state required to
+// actually execute them) and dumbly produce output (and exit code) returned
+// from the agent.
 type Context struct {
 	Dir    string
 	Stdout io.Writer
@@ -62,7 +67,7 @@ func (ctx *Context) InitLog(verbose bool, debug bool, logfile string) (err error
 
 // Main will Parse and Run a Command, and return a process exit code. args
 // should contain flags and arguments only (and not the top-level command name).
-func (ctx *Context) Main(c Command, args []string) int {
+func Main(c Command, ctx *Context, args []string) int {
 	if err := Parse(c, args); err != nil {
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
 		printUsage(c, ctx.Stderr)

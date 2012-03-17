@@ -1,12 +1,10 @@
 package cmd
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"launchpad.net/gnuflag"
-	"os"
 	"strings"
 )
 
@@ -59,20 +57,14 @@ type Command interface {
 func newFlagSet(c Command, output io.Writer) *gnuflag.FlagSet {
 	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
 	f.SetOutput(output)
-	f.Usage = func() { printUsage(c, output) }
 	c.InitFlagSet(f)
 	return f
 }
 
-// options directs PrintDefaults on c's FlagSet to a temporary buffer and
-// returns its contents. Since FlagSet doesn't conveniently expose .formal,
-// this appears to be the best way to find out whether any options are actually
-// available.
-func options(c Command) string {
-	optOut := bytes.NewBuffer([]byte{})
-	f := newFlagSet(c, optOut)
-	f.PrintDefaults()
-	return strings.TrimSpace(optOut.String())
+// hasOptions returns true if f is set up to handle any flag.
+func hasOptions(f *gnuflag.FlagSet) (opts bool) {
+	f.VisitAll(func(f *gnuflag.Flag) { opts = true })
+	return
 }
 
 // printUsage prints usage information for c to output.
@@ -82,8 +74,10 @@ func printUsage(c Command, output io.Writer) {
 	if i.Purpose != "" {
 		fmt.Fprintf(output, "purpose: %s\n", i.Purpose)
 	}
-	if opt := options(c); opt != "" {
-		fmt.Fprintf(output, "\noptions:\n%s\n", opt)
+	f := newFlagSet(c, output)
+	if hasOptions(f) {
+		fmt.Fprintf(output, "\noptions:\n")
+		f.PrintDefaults()
 	}
 	if i.Doc != "" {
 		fmt.Fprintf(output, "\n%s\n", strings.TrimSpace(i.Doc))
@@ -109,10 +103,4 @@ func CheckEmpty(args []string) error {
 		return fmt.Errorf("unrecognised args: %s", args)
 	}
 	return nil
-}
-
-// Main will Parse and Run a Command in a default context suitable for a
-// command-line tool, and will call os.Exit with the appropriate code.
-func Main(c Command, args []string) {
-	os.Exit(DefaultContext().Main(c, args[1:]))
 }

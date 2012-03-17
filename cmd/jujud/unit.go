@@ -36,6 +36,6 @@ func (a *UnitAgent) ParsePositional(args []string) error {
 }
 
 // Run runs a unit agent.
-func (a *UnitAgent) Run(ctx *cmd.Context) error {
+func (a *UnitAgent) Run(_ *cmd.Context) error {
 	return fmt.Errorf("UnitAgent.Run not implemented")
 }

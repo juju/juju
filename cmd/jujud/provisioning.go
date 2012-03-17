@@ -15,6 +15,6 @@ func NewProvisioningAgent() *ProvisioningAgent {
 }
 
 // Run runs a provisioning agent.
-func (a *ProvisioningAgent) Run(ctx *cmd.Context) error {
+func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
 	return fmt.Errorf("MachineAgent.Run not implemented")
 }
