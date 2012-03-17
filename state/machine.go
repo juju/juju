@@ -52,3 +52,8 @@ func machineId(machineKey string) (id int) {
 	}
 	return int(id64)
 }
+
+// machineKey returns the machine key corresponding to machineId.
+func machineKey(machineId int) string {
+	return fmt.Sprintf("machine-%010d", machineId)
+}

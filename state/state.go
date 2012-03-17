@@ -38,6 +38,54 @@ func (s *State) AddMachine() (*Machine, error) {
 	return &Machine{s, key}, nil
 }
 
+// RemoveMachine removes the machine with the given id.
+func (s *State) RemoveMachine(id int) error {
+	key := machineKey(id)
+	removeMachine := func(t *topology) error {
+		if !t.HasMachine(key) {
+			return fmt.Errorf("machine not found")
+		}
+		hasUnits, err := t.MachineHasUnits(key)
+		if err != nil {
+			return err
+		}
+		if hasUnits {
+			return fmt.Errorf("machine has units")
+		}
+		return t.RemoveMachine(key)
+	}
+	if err := retryTopologyChange(s.zk, removeMachine); err != nil {
+		return fmt.Errorf("can't remove machine %d: %v", id, err)
+	}
+	return zkRemoveTree(s.zk, fmt.Sprintf("/machines/%s", key))
+}
+
+// Machine returns the machine with the given id.
+func (s *State) Machine(id int) (*Machine, error) {
+	key := machineKey(id)
+	topology, err := readTopology(s.zk)
+	if err != nil {
+		return nil, err
+	}
+	if !topology.HasMachine(key) {
+		return nil, fmt.Errorf("machine %d not found", id)
+	}
+	return &Machine{s, key}, nil
+}
+
+// AllMachines returns all machines in the environment.
+func (s *State) AllMachines() ([]*Machine, error) {
+	topology, err := readTopology(s.zk)
+	if err != nil {
+		return nil, err
+	}
+	machines := []*Machine{}
+	for _, key := range topology.MachineKeys() {
+		machines = append(machines, &Machine{s, key})
+	}
+	return machines, nil
+}
+
 // AddCharm adds the ch charm with curl to the state.
 // bundleUrl must be set to a URL where the bundle for ch
 // may be downloaded from.
@@ -70,7 +118,7 @@ func (s *State) Charm(curl *charm.URL) (*Charm, error) {
 		return nil, err
 	}
 	yaml, _, err := s.zk.Get(path)
-	if err == zookeeper.ZNONODE {
+	if zookeeper.IsError(err, zookeeper.ZNONODE) {
 		return nil, fmt.Errorf("charm not found: %q", curl)
 	}
 	if err != nil {

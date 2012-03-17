@@ -35,7 +35,7 @@ func (s *StoreSuite) TestServerCharmInfo(c *C) {
 	expected := map[string]interface{}{
 		curl.String(): map[string]interface{}{
 			"revision": float64(0),
-			"sha256": fakeRevZeroSha,
+			"sha256":   fakeRevZeroSha,
 		},
 	}
 	obtained := map[string]interface{}{}
@@ -51,7 +51,7 @@ func (s *StoreSuite) TestServerCharmInfo(c *C) {
 	expected = map[string]interface{}{
 		"cs:bad": map[string]interface{}{
 			"revision": float64(0),
-			"errors": []interface{}{`charm URL without series: "cs:bad"`},
+			"errors":   []interface{}{`charm URL without series: "cs:bad"`},
 		},
 	}
 	obtained = map[string]interface{}{}
@@ -63,7 +63,7 @@ func (s *StoreSuite) TestServerCharmInfo(c *C) {
 func (s *StoreSuite) TestCharmStreaming(c *C) {
 	server, curl := s.prepareServer(c)
 
-	req, err := http.NewRequest("GET", "/charm/" + curl.String()[3:], nil)
+	req, err := http.NewRequest("GET", "/charm/"+curl.String()[3:], nil)
 	c.Assert(err, IsNil)
 	rec := httptest.NewRecorder()
 	server.ServeHTTP(rec, req)

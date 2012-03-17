@@ -23,9 +23,9 @@ type changeNode struct {
 // returns the node's new MTime.
 func (n *changeNode) change() (mtime time.Time, err error) {
 	stat, err := n.conn.Set(n.path, n.content, -1)
-	if err == zk.ZNONODE {
+	if zk.IsError(err, zk.ZNONODE) {
 		_, err = n.conn.Create(n.path, n.content, 0, zk.WorldACL(zk.PERM_ALL))
-		if err == nil || err == zk.ZNODEEXISTS {
+		if err == nil || zk.IsError(err, zk.ZNODEEXISTS) {
 			// *Someone* created the node anyway; just try again.
 			return n.change()
 		}
@@ -125,7 +125,7 @@ func (n *node) setState(content string, stat *zk.Stat, firstTime bool) error {
 // update reads from ZooKeeper the current values of n.alive and n.timeout.
 func (n *node) update() error {
 	content, stat, err := n.conn.Get(n.path)
-	if err == zk.ZNONODE {
+	if zk.IsError(err, zk.ZNONODE) {
 		n.alive = false
 		n.timeout = 0
 		return nil
@@ -140,7 +140,7 @@ func (n *node) update() error {
 // changes. firstTime should be true iff n.updateW has not already been called.
 func (n *node) updateW(firstTime bool) (<-chan zk.Event, error) {
 	content, stat, watch, err := n.conn.GetW(n.path)
-	if err == zk.ZNONODE {
+	if zk.IsError(err, zk.ZNONODE) {
 		n.alive = false
 		n.timeout = 0
 		stat, watch, err = n.conn.ExistsW(n.path)

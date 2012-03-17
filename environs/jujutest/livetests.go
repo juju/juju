@@ -4,6 +4,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
+	"launchpad.net/juju/go/state"
 	"time"
 )
 
@@ -38,20 +39,27 @@ func (t *LiveTests) TestStartStop(c *C) {
 	err = t.Env.StopInstances([]environs.Instance{inst})
 	c.Assert(err, IsNil)
 
-	insts, err = t.Env.Instances([]string{id0})
+	// Stopping may not be noticed at first due to eventual
+	// consistency. Repeat a few times to ensure we get the error.
+	for i := 0; i < 20; i++ {
+		insts, err = t.Env.Instances([]string{id0})
+		if err != nil {
+			break
+		}
+		time.Sleep(0.25e9)
+	}
 	c.Assert(err, Equals, environs.ErrNoInstances)
 	c.Assert(insts, HasLen, 0)
 }
 
 func (t *LiveTests) TestBootstrap(c *C) {
 	c.Logf("initial bootstrap")
-	err := t.Env.Bootstrap()
-	c.Assert(err, IsNil)
+	t.BootstrapOnce(c)
 
 	c.Logf("duplicate bootstrap")
 	// Wait for a while to let eventual consistency catch up, hopefully.
 	time.Sleep(t.ConsistencyDelay)
-	err = t.Env.Bootstrap()
+	err := t.Env.Bootstrap()
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	info, err := t.Env.StateInfo()
@@ -59,19 +67,25 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	c.Assert(info, NotNil)
 	c.Check(info.Addrs, Not(HasLen), 0)
 
+	if t.CanOpenState {
+		c.Logf("open state")
+		st, err := state.Open(info)
+		c.Assert(err, IsNil)
+
+		c.Logf("initialize state")
+		err = st.Initialize()
+		c.Assert(err, IsNil)
+	}
+
 	// TODO uncomment when State has a close method
 	// st.Close()
 
 	c.Logf("destroy env")
-	err = t.Env.Destroy(nil)
-	c.Assert(err, IsNil)
+	t.Destroy(c)
 
+	c.Logf("bootstrap again")
 	// check that we can bootstrap after destroy
-	err = t.Env.Bootstrap()
-	c.Assert(err, IsNil)
-
-	err = t.Env.Destroy(nil)
-	c.Assert(err, IsNil)
+	t.BootstrapOnce(c)
 }
 
 // TODO check that binary data works ok?
