@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju/go/charm"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // State represents the state of an environment
@@ -244,10 +245,13 @@ func (s *State) waitForInitialization() error {
 	if stat != nil {
 		return nil
 	}
-	// TODO time out here?
-	e := <-watch
-	if !e.Ok() {
-		return fmt.Errorf("session error: %v", e)
+	select{
+	case e := <-watch:
+		if !e.Ok() {
+			return fmt.Errorf("session error: %v", e)
+		}
+	case <-time.After(3 * time.Minute):
+		return fmt.Errorf("timed out waiting for initialization")
 	}
 	return nil
 }
