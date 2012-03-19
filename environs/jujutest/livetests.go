@@ -71,6 +71,7 @@ func (t *LiveTests) TestBootstrap(c *C) {
 		st.Close()
 	}
 
+	c.Logf("destroy env")
 	t.Destroy(c)
 
 	// check that we can bootstrap after destroy

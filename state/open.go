@@ -6,6 +6,7 @@ import (
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/log"
 	"strings"
+	"time"
 )
 
 // Info encapsulates information about cluster of
@@ -23,14 +24,44 @@ const zkTimeout = 15e9
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
 // representing the environment connected to.
+// It is an error if the environment has not been initialized.
 func Open(info *Info) (*State, error) {
 	log.Printf("state: Open %v", info)
 	st, err := open(info)
 	if err != nil {
 		return nil, err
 	}
+	doneInit, err := st.initialized()
+	if err != nil {
+		st.Close()
+		return nil, err
+	}
+	if doneInit {
+		return st, nil
+	}
+	st.Close()
+	return nil, fmt.Errorf("state: not initialized")
+}
+
+// WaitOpen is like Open but will wait for the environment to be initialized
+// in necessary. It will not wait longer than the given duration.
+func WaitOpen(info *Info, timeout time.Duration) (*State, error) {
+	log.Printf("state: WaitOpen %v (timeout %v)", info, timeout)
+	st, err := open(info)
+	if err != nil {
+		return nil, err
+	}
+	doneInit, err := st.initialized()
+	if err != nil {
+		st.Close()
+		return nil, err
+	}
+	if doneInit {
+		return st, nil
+	}
+
 	log.Printf("state: waiting for initialization")
-	err = st.waitForInitialization()
+	err = st.waitForInitialization(timeout)
 	if err != nil {
 		return nil, err
 	}

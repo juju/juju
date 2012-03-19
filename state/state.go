@@ -238,7 +238,15 @@ func (s *State) Unit(name string) (*Unit, error) {
 	return service.Unit(name)
 }
 
-func (s *State) waitForInitialization() error {
+func (s *State) initialized() (bool, error) {
+	stat, err := s.zk.Exists("/initialized")
+	if err != nil {
+		return false, err
+	}
+	return stat != nil, nil
+}
+
+func (s *State) waitForInitialization(timeout time.Duration) error {
 	stat, watch, err := s.zk.ExistsW("/initialized")
 	if err != nil {
 		return err
@@ -246,31 +254,21 @@ func (s *State) waitForInitialization() error {
 	if stat != nil {
 		return nil
 	}
-	select{
+	select {
 	case e := <-watch:
 		if !e.Ok() {
 			return fmt.Errorf("session error: %v", e)
 		}
-	case <-time.After(3 * time.Minute):
-		log.Printf("timed out waiting for initialisation")
-		ch, _, err := s.zk.Children("/")
-		if err != nil {
-			log.Printf("error getting root children: %v", err)
-		} else {
-			log.Printf("root children: %q", ch)
-		}
+	case <-time.After(timeout):
 		return fmt.Errorf("timed out waiting for initialization")
 	}
 	return nil
 }
 
 func (s *State) initialize() error {
-	stat, err := s.zk.Exists("/initialized")
-	if err != nil {
+	already, err := s.initialized()
+	if err != nil || already {
 		return err
-	}
-	if stat != nil {
-		return nil
 	}
 	// Create new nodes.
 	if _, err := s.zk.Create("/charms", "", 0, zkPermAll); err != nil {
