@@ -1,6 +1,4 @@
-// The hook package provides a mechanism by which charm hooks can be executed in
-// appropriate environments.
-package hook
+package server
 
 import (
 	"fmt"
@@ -40,9 +38,9 @@ func (ctx *Context) Log(debug bool, msg string) {
 	}
 }
 
-// vars returns an os.Environ-style list of strings necessary to run a hook in,
-// and call back into, ctx.
-func vars(ctx *Context, charmDir, socketPath string) []string {
+// hookVars returns an os.Environ-style list of strings necessary to run a hook
+// in, and call back into, ctx.
+func (ctx *Context) hookVars(charmDir, socketPath string) []string {
 	vars := []string{
 		"APT_LISTCHANGES_FRONTEND=none",
 		"DEBIAN_FRONTEND=noninteractive",
@@ -63,11 +61,11 @@ func vars(ctx *Context, charmDir, socketPath string) []string {
 	return vars
 }
 
-// Exec executes a hook in an environment which allows it to to call back into
-// ctx to execute hook tools.
-func Exec(ctx *Context, hookName, charmDir, socketPath string) error {
+// RunHook executes a hook in an environment which allows it to to call back
+// into ctx to execute hook tools.
+func (ctx *Context) RunHook(hookName, charmDir, socketPath string) error {
 	ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
-	ps.Env = vars(ctx, charmDir, socketPath)
+	ps.Env = ctx.hookVars(charmDir, socketPath)
 	ps.Dir = charmDir
 	if err := ps.Run(); err != nil {
 		if ee, ok := err.(*exec.Error); ok {

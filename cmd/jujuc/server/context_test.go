@@ -1,11 +1,11 @@
-package hook_test
+package server_test
 
 import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/hook"
+	"launchpad.net/juju/go/cmd/jujuc/server"
 	"launchpad.net/juju/go/log"
 	stdlog "log"
 	"os"
@@ -30,7 +30,7 @@ func pushLog(debug bool) (buf *bytes.Buffer, pop func()) {
 	}
 }
 
-func AssertLog(c *C, ctx *hook.Context, badge string, logDebug, callDebug, expectMsg bool) {
+func AssertLog(c *C, ctx *server.Context, badge string, logDebug, callDebug, expectMsg bool) {
 	buf, pop := pushLog(logDebug)
 	defer pop()
 	msg := "the chickens are restless"
@@ -48,7 +48,7 @@ func AssertLog(c *C, ctx *hook.Context, badge string, logDebug, callDebug, expec
 	c.Assert(buf.String(), Equals, expect)
 }
 
-func AssertLogs(c *C, ctx *hook.Context, badge string) {
+func AssertLogs(c *C, ctx *server.Context, badge string) {
 	AssertLog(c, ctx, badge, true, true, true)
 	AssertLog(c, ctx, badge, true, false, true)
 	AssertLog(c, ctx, badge, false, true, false)
@@ -56,9 +56,9 @@ func AssertLogs(c *C, ctx *hook.Context, badge string) {
 }
 
 func (s *LogSuite) TestLog(c *C) {
-	local := &hook.Context{LocalUnitName: "minecraft/0"}
+	local := &server.Context{LocalUnitName: "minecraft/0"}
 	AssertLogs(c, local, "Context<minecraft/0>")
-	relation := &hook.Context{LocalUnitName: "minecraft/0", RelationName: "bot"}
+	relation := &server.Context{LocalUnitName: "minecraft/0", RelationName: "bot"}
 	AssertLogs(c, relation, "Context<minecraft/0, bot>")
 }
 
@@ -125,21 +125,23 @@ func (s *ExecSuite) AssertEnv(c *C, outPath string, env map[string]string) {
 }
 
 func (s *ExecSuite) TestNoHook(c *C) {
-	err := hook.Exec(&hook.Context{}, "tree-fell-in-forest", c.MkDir(), "")
+	ctx := &server.Context{}
+	err := ctx.RunHook("tree-fell-in-forest", c.MkDir(), "")
 	c.Assert(err, IsNil)
 }
 
 func (s *ExecSuite) TestNonExecutableHook(c *C) {
+	ctx := &server.Context{}
 	charmDir, _ := makeCharm(c, "something-happened", 0600, 0)
-	err := hook.Exec(&hook.Context{}, "something-happened", charmDir, "")
+	err := ctx.RunHook("something-happened", charmDir, "")
 	c.Assert(err, ErrorMatches, `exec: ".*/something-happened": permission denied`)
 }
 
 func (s *ExecSuite) TestBadHook(c *C) {
-	ctx := &hook.Context{Id: "ctx-id"}
+	ctx := &server.Context{Id: "ctx-id"}
 	charmDir, outPath := makeCharm(c, "occurrence-occurred", 0700, 99)
 	socketPath := "/path/to/socket"
-	err := hook.Exec(ctx, "occurrence-occurred", charmDir, socketPath)
+	err := ctx.RunHook("occurrence-occurred", charmDir, socketPath)
 	c.Assert(err, ErrorMatches, "exit status 99")
 	s.AssertEnv(c, outPath, map[string]string{
 		"CHARM_DIR":         charmDir,
@@ -149,7 +151,7 @@ func (s *ExecSuite) TestBadHook(c *C) {
 }
 
 func (s *ExecSuite) TestGoodHookWithVars(c *C) {
-	ctx := &hook.Context{
+	ctx := &server.Context{
 		Id:             "some-id",
 		LocalUnitName:  "local/99",
 		RemoteUnitName: "remote/123",
@@ -157,7 +159,7 @@ func (s *ExecSuite) TestGoodHookWithVars(c *C) {
 	}
 	charmDir, outPath := makeCharm(c, "something-happened", 0700, 0)
 	socketPath := "/path/to/socket"
-	err := hook.Exec(ctx, "something-happened", charmDir, socketPath)
+	err := ctx.RunHook("something-happened", charmDir, socketPath)
 	c.Assert(err, IsNil)
 	s.AssertEnv(c, outPath, map[string]string{
 		"CHARM_DIR":         charmDir,
