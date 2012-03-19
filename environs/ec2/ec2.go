@@ -320,7 +320,7 @@ func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
 }
 
 func (e *environ) Destroy(insts []environs.Instance) error {
-	log.Printf("environs/ec2: destroying environment %s", e.name)
+	log.Printf("environs/ec2: destroying environment %q", e.name)
 	// Try to find all the instances in the environ's group.
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
