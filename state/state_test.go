@@ -95,10 +95,13 @@ func (s StateSuite) TestInitialize(c *C) {
 
 	// Check that Open blocks until Initialize has succeeded.
 	testing.ZkRemoveTree(c, s.zkConn, "/")
+	st, err = state.Open(info)
+	c.Check(err, ErrorMatches, "state: not initialized")
+	c.Check(st, IsNil)
 
 	errc := make(chan error)
 	go func() {
-		st, err := state.Open(info)
+		st, err := state.WaitOpen(info, 5e9)
 		errc <- err
 		if st != nil {
 			st.Close()
