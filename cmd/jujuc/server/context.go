@@ -1,3 +1,6 @@
+// The cmd/jujuc/server package implements the server side of the jujuc proxy
+// tool, which forwards command invocations to the unit agent process so that
+// they can be executed against specific state.
 package server
 
 import (
@@ -9,10 +12,10 @@ import (
 	"strings"
 )
 
-// Context is responsible for the state against which a hook tool will execute;
-// it implements the core of the various hook tools and is involved in
-// constructing a suitable environment in which to execute a hook (which may
-// call hook tools that need to call back into the Context).
+// Context is responsible for the state against which a jujuc-forwarded command
+// will execute; it implements the core of the various jujuc tools, and is
+// involved in constructing a suitable environment in which to execute a hook
+// (which is likely to call jujuc tools that need this specific Context).
 type Context struct {
 	Id             string
 	LocalUnitName  string
@@ -20,8 +23,8 @@ type Context struct {
 	RelationName   string
 }
 
-// Log is the core of the `log` hook command, and is always meaningful in any
-// Context.
+// Log is the core of the `juju-log` hook command, and is always meaningful in
+// any Context.
 func (ctx *Context) Log(debug bool, msg string) {
 	s := []string{}
 	if ctx.LocalUnitName != "" {
@@ -39,7 +42,8 @@ func (ctx *Context) Log(debug bool, msg string) {
 }
 
 // hookVars returns an os.Environ-style list of strings necessary to run a hook
-// in, and call back into, ctx.
+// such that it can know what environment it's operating in, and can call back
+// into ctx.
 func (ctx *Context) hookVars(charmDir, socketPath string) []string {
 	vars := []string{
 		"APT_LISTCHANGES_FRONTEND=none",
