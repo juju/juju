@@ -106,7 +106,7 @@ func (s StateSuite) TestInitialize(c *C) {
 	}()
 
 	// wait a little while to verify that it's actually blocking
-	time.Sleep(0.2e9)
+	time.Sleep(200 * time.Millisecond)
 	select {
 	case err := <-errc:
 		c.Fatalf("state.Open did not block (returned error %v)", err)
