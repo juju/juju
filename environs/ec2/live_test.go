@@ -46,7 +46,7 @@ func registerAmazonTests() {
 	}
 	for _, name := range envs.Names() {
 		Suite(&LiveTests{
-			jujutest.LiveTests{
+			LiveTests: jujutest.LiveTests{
 				Environs:         envs,
 				Name:             name,
 				ConsistencyDelay: 5 * time.Second,
@@ -59,7 +59,18 @@ func registerAmazonTests() {
 // LiveTests contains tests that can be run against the Amazon servers.
 // Each test runs using the same ec2 connection.
 type LiveTests struct {
+	loggingSuite
 	jujutest.LiveTests
+}
+
+func (t *LiveTests) SetUpTest(c *C) {
+	t.loggingSuite.SetUpTest(c)
+	t.LiveTests.SetUpTest(c)
+}
+
+func (t *LiveTests) TearDownTest(c *C) {
+	t.LiveTests.TearDownTest(c)
+	t.loggingSuite.TearDownTest(c)
 }
 
 func (t *LiveTests) TestInstanceDNSName(c *C) {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
-	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/log"
+	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/state"
 	"sync"
 	"time"
@@ -320,6 +320,7 @@ func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
 }
 
 func (e *environ) Destroy(insts []environs.Instance) error {
+	log.Printf("environs/ec2: Destroy %s", e.name)
 	// Try to find all the instances in the environ's group.
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")

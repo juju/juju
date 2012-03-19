@@ -12,8 +12,10 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
+	"launchpad.net/juju/go/log"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // State represents the state of an environment
@@ -244,7 +246,7 @@ func (s *State) waitForInitialization() error {
 	if stat != nil {
 		return nil
 	}
-	select {
+	select{
 	case e := <-watch:
 		if !e.Ok() {
 			return fmt.Errorf("session error: %v", e)
