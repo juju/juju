@@ -794,47 +794,28 @@ func (s *StateSuite) TestGetOpenPorts(c *C) {
 	})
 }
 
-func (s *StateSuite) TestUnitConnectAgent(c *C) {
+func (s *StateSuite) TestUnitSetAgentAlive(c *C) {
 	dummy, _ := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 
-	connected, err := unit.Agent().Connected()
+	alive, err := unit.AgentAlive()
 	c.Assert(err, IsNil)
-	c.Assert(connected, Equals, false)
+	c.Assert(alive, Equals, false)
 
-	err = unit.Agent().Connect()
+	pinger, err := unit.SetAgentAlive()
 	c.Assert(err, IsNil)
-	defer unit.Agent().Disconnect()
+	c.Assert(pinger, Not(IsNil))
+	defer pinger.Kill()
 
-	connected, err = unit.Agent().Connected()
+	alive, err = unit.AgentAlive()
 	c.Assert(err, IsNil)
-	c.Assert(connected, Equals, true)
+	c.Assert(alive, Equals, true)
 }
 
-func (s *StateSuite) TestUnitConnectedAgent(c *C) {
-	dummy, _ := addDummyCharm(c, s.st)
-	wordpress, err := s.st.AddService("wordpress", dummy)
-	c.Assert(err, IsNil)
-	unit, err := wordpress.AddUnit()
-	c.Assert(err, IsNil)
-
-	connected, err := unit.Agent().Connected()
-	c.Assert(err, IsNil)
-	c.Assert(connected, Equals, false)
-
-	err = unit.Agent().Connect()
-	c.Assert(err, IsNil)
-	defer unit.Agent().Disconnect()
-
-	connected, err = unit.Agent().Connected()
-	c.Assert(err, IsNil)
-	c.Assert(connected, Equals, true)
-}
-
-func (s *StateSuite) TestUnitWaitConnectedAgent(c *C) {
+func (s *StateSuite) TestUnitWaitAgentAlive(c *C) {
 	timeout := 5 * time.Second
 	dummy, _ := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
@@ -842,26 +823,27 @@ func (s *StateSuite) TestUnitWaitConnectedAgent(c *C) {
 	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 
-	connected, err := unit.Agent().Connected()
+	alive, err := unit.AgentAlive()
 	c.Assert(err, IsNil)
-	c.Assert(connected, Equals, false)
+	c.Assert(alive, Equals, false)
 
-	err = unit.Agent().WaitConnected(timeout)
-	c.Assert(err, ErrorMatches, "wait for connected agent timed out")
+	err = unit.WaitAgentAlive(timeout)
+	c.Assert(err, ErrorMatches, "wait for alive agent timed out")
 
-	err = unit.Agent().Connect()
+	pinger, err := unit.SetAgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(pinger, Not(IsNil))
+
+	err = unit.WaitAgentAlive(timeout)
 	c.Assert(err, IsNil)
 
-	err = unit.Agent().WaitConnected(timeout)
+	alive, err = unit.AgentAlive()
 	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, true)
 
-	connected, err = unit.Agent().Connected()
+	pinger.Kill()
+
+	alive, err = unit.AgentAlive()
 	c.Assert(err, IsNil)
-	c.Assert(connected, Equals, true)
-
-	unit.Agent().Disconnect()
-
-	connected, err = unit.Agent().Connected()
-	c.Assert(err, IsNil)
-	c.Assert(connected, Equals, false)
+	c.Assert(alive, Equals, false)
 }

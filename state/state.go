@@ -35,7 +35,7 @@ func (s *State) AddMachine() (*Machine, error) {
 	if err = retryTopologyChange(s.zk, addMachine); err != nil {
 		return nil, err
 	}
-	return &Machine{s, key, nil}, nil
+	return &Machine{s, key}, nil
 }
 
 // RemoveMachine removes the machine with the given id.
@@ -70,7 +70,7 @@ func (s *State) Machine(id int) (*Machine, error) {
 	if !topology.HasMachine(key) {
 		return nil, fmt.Errorf("machine %d not found", id)
 	}
-	return &Machine{s, key, nil}, nil
+	return &Machine{s, key}, nil
 }
 
 // AllMachines returns all machines in the environment.
@@ -81,7 +81,7 @@ func (s *State) AllMachines() ([]*Machine, error) {
 	}
 	machines := []*Machine{}
 	for _, key := range topology.MachineKeys() {
-		machines = append(machines, &Machine{s, key, nil})
+		machines = append(machines, &Machine{s, key})
 	}
 	return machines, nil
 }

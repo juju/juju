@@ -6,15 +6,16 @@ package state
 
 import (
 	"fmt"
+	"launchpad.net/juju/go/state/presence"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Machine represents the state of a machine.
 type Machine struct {
-	st    *State
-	key   string
-	agent *Agent
+	st  *State
+	key string
 }
 
 // Id returns the machine id.
@@ -22,13 +23,41 @@ func (m *Machine) Id() int {
 	return machineId(m.key)
 }
 
-// Agent returns the agent of the machine. It's created
-// lazily to get it initialized with the right agent path.
-func (m *Machine) Agent() *Agent {
-	if m.agent == nil {
-		m.agent = &Agent{m.st, m.zkAgentPath(), nil}
+// AgentAlive returns whether the respective remote agent is alive.
+func (m *Machine) AgentAlive() (bool, error) {
+	return presence.Alive(m.st.zk, m.zkAgentPath())
+}
+
+// WaitAgentAlive blocks until the respective agent is alive.
+func (m *Machine) WaitAgentAlive(timeout time.Duration) error {
+	alive, watch, err := presence.AliveW(m.st.zk, m.zkAgentPath())
+	if err != nil {
+		return err
 	}
-	return m.agent
+	// Quick return if already alive.
+	if alive {
+		return nil
+	}
+	// Wait for alive agent with timeout.
+	select {
+	case alive, ok := <-watch:
+		if !ok {
+			return fmt.Errorf("wait for alive agent closed")
+		}
+		if !alive {
+			return fmt.Errorf("not alive, must not happen")
+		}
+	case <-time.After(timeout):
+		return fmt.Errorf("wait for alive agent timed out")
+	}
+	return nil
+}
+
+// SetAgentAlive signals that the respective agent is alive. By stopping
+// the returned pinger the agent can notify others about the end of its
+// work.
+func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
+	return presence.StartPinger(m.st.zk, m.zkAgentPath(), unitAgentPingerPeriod)
 }
 
 // zkKey returns the ZooKeeper key of the machine.

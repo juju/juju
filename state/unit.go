@@ -10,8 +10,10 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
+	"launchpad.net/juju/go/state/presence"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // ResolvedMode describes the way state transition errors 
@@ -22,6 +24,12 @@ const (
 	ResolvedNone       ResolvedMode = 0
 	ResolvedRetryHooks ResolvedMode = 1000
 	ResolvedNoHooks    ResolvedMode = 1001
+)
+
+// unitAgentPingerPeriod defines the period of pinging the
+// ZooKeeper to signal that a unit agent is alive.
+const (
+	unitAgentPingerPeriod = 1 * time.Second
 )
 
 // Port identifies a network port number for a particular protocol.
@@ -37,7 +45,6 @@ type Unit struct {
 	serviceKey  string
 	serviceName string
 	sequenceNo  int
-	agent       *Agent
 }
 
 // ServiceName returns the service name.
@@ -201,7 +208,7 @@ func (u *Unit) AssignToUnusedMachine() (*Machine, error) {
 	if err := retryTopologyChange(u.st.zk, assignUnusedUnit); err != nil {
 		return nil, err
 	}
-	return &Machine{u.st, machineKey, nil}, nil
+	return &Machine{u.st, machineKey}, nil
 }
 
 // UnassignFromMachine removes the assignment between this unit and
@@ -378,13 +385,41 @@ func (u *Unit) OpenPorts() ([]Port, error) {
 	return ports.Open, nil
 }
 
-// Agent returns the agent of the unit. It's created
-// lazily to get it initialized with the right agent path.
-func (u *Unit) Agent() *Agent {
-	if u.agent == nil {
-		u.agent = &Agent{u.st, u.zkAgentPath(), nil}
+// AgentAlive returns whether the respective remote agent is alive.
+func (u *Unit) AgentAlive() (bool, error) {
+	return presence.Alive(u.st.zk, u.zkAgentPath())
+}
+
+// WaitAgentAlive blocks until the respective agent is alive.
+func (u *Unit) WaitAgentAlive(timeout time.Duration) error {
+	alive, watch, err := presence.AliveW(u.st.zk, u.zkAgentPath())
+	if err != nil {
+		return err
 	}
-	return u.agent
+	// Quick return if already alive.
+	if alive {
+		return nil
+	}
+	// Wait for alive agent with timeout.
+	select {
+	case alive, ok := <-watch:
+		if !ok {
+			return fmt.Errorf("wait for alive agent closed")
+		}
+		if !alive {
+			return fmt.Errorf("not alive, must not happen")
+		}
+	case <-time.After(timeout):
+		return fmt.Errorf("wait for alive agent timed out")
+	}
+	return nil
+}
+
+// SetAgentAlive signals that the respective agent is alive. By stopping
+// the returned pinger the agent can notify others about the end of its
+// work.
+func (u *Unit) SetAgentAlive() (*presence.Pinger, error) {
+	return presence.StartPinger(u.st.zk, u.zkAgentPath(), unitAgentPingerPeriod)
 }
 
 // zkKey returns the ZooKeeper key of the unit.

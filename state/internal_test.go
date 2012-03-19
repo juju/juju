@@ -32,13 +32,13 @@ func (s *TopologySuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s TopologySuite) TearDownTest(c *C) {
+func (s *TopologySuite) TearDownTest(c *C) {
 	// Delete possible nodes, ignore errors.
 	zkRemoveTree(s.zkConn, "/topology")
 	s.zkConn.Close()
 }
 
-func (s TopologySuite) TestAddMachine(c *C) {
+func (s *TopologySuite) TestAddMachine(c *C) {
 	// Check that adding machines works correctly.
 	err := s.t.AddMachine("m-0")
 	c.Assert(err, IsNil)
@@ -48,7 +48,7 @@ func (s TopologySuite) TestAddMachine(c *C) {
 	c.Assert(keys, DeepEquals, []string{"m-0", "m-1"})
 }
 
-func (s TopologySuite) TestAddDuplicatedMachine(c *C) {
+func (s *TopologySuite) TestAddDuplicatedMachine(c *C) {
 	// Check that adding a duplicated machine by key fails.
 	err := s.t.AddMachine("m-0")
 	c.Assert(err, IsNil)
@@ -56,7 +56,7 @@ func (s TopologySuite) TestAddDuplicatedMachine(c *C) {
 	c.Assert(err, ErrorMatches, `attempted to add duplicated machine "m-0"`)
 }
 
-func (s TopologySuite) TestRemoveMachine(c *C) {
+func (s *TopologySuite) TestRemoveMachine(c *C) {
 	// Check that removing machines works correctly.
 	err := s.t.AddMachine("m-0")
 	c.Assert(err, IsNil)
@@ -78,13 +78,13 @@ func (s TopologySuite) TestRemoveMachine(c *C) {
 	c.Assert(found, Equals, true)
 }
 
-func (s TopologySuite) TestRemoveNonExistentMachine(c *C) {
+func (s *TopologySuite) TestRemoveNonExistentMachine(c *C) {
 	// Check that the removing of a non-existent machine fails.
 	err := s.t.RemoveMachine("m-0")
 	c.Assert(err, ErrorMatches, `machine with key "m-0" not found`)
 }
 
-func (s TopologySuite) TestRemoveMachineWithAssignedUnits(c *C) {
+func (s *TopologySuite) TestRemoveMachineWithAssignedUnits(c *C) {
 	// Check that a machine can't be removed when it has assigned units.
 	err := s.t.AddMachine("m-0")
 	c.Assert(err, IsNil)
@@ -100,7 +100,7 @@ func (s TopologySuite) TestRemoveMachineWithAssignedUnits(c *C) {
 	c.Assert(err, ErrorMatches, `can't remove machine "m-0" while units ared assigned`)
 }
 
-func (s TopologySuite) TestMachineHasUnits(c *C) {
+func (s *TopologySuite) TestMachineHasUnits(c *C) {
 	// Check various ways a machine might or might not be assigned
 	// to a unit.   
 	err := s.t.AddMachine("m-0")
@@ -125,7 +125,7 @@ func (s TopologySuite) TestMachineHasUnits(c *C) {
 	c.Assert(err, ErrorMatches, `machine with key "m-99" not found`)
 }
 
-func (s TopologySuite) TestHasMachine(c *C) {
+func (s *TopologySuite) TestHasMachine(c *C) {
 	// Check that the test for a machine works correctly.
 	found := s.t.HasMachine("m-0")
 	c.Assert(found, Equals, false)
@@ -137,7 +137,7 @@ func (s TopologySuite) TestHasMachine(c *C) {
 	c.Assert(found, Equals, false)
 }
 
-func (s TopologySuite) TestMachineKeys(c *C) {
+func (s *TopologySuite) TestMachineKeys(c *C) {
 	// Check that the retrieval of all services keys works correctly.
 	keys := s.t.MachineKeys()
 	c.Assert(keys, DeepEquals, []string{})
@@ -149,7 +149,7 @@ func (s TopologySuite) TestMachineKeys(c *C) {
 	c.Assert(keys, DeepEquals, []string{"m-0", "m-1"})
 }
 
-func (s TopologySuite) TestAddService(c *C) {
+func (s *TopologySuite) TestAddService(c *C) {
 	// Check that adding services works correctly.
 	c.Assert(s.t.HasService("s-0"), Equals, false)
 	err := s.t.AddService("s-0", "wordpress")
@@ -160,7 +160,7 @@ func (s TopologySuite) TestAddService(c *C) {
 	c.Assert(s.t.HasService("s-1"), Equals, true)
 }
 
-func (s TopologySuite) TestAddDuplicatedService(c *C) {
+func (s *TopologySuite) TestAddDuplicatedService(c *C) {
 	// Check that adding a duplicated service by key or name fails.
 	err := s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
@@ -170,7 +170,7 @@ func (s TopologySuite) TestAddDuplicatedService(c *C) {
 	c.Assert(err, ErrorMatches, `service name "wordpress" already in use`)
 }
 
-func (s TopologySuite) TestHasService(c *C) {
+func (s *TopologySuite) TestHasService(c *C) {
 	// Check that the test for a service works correctly.
 	found := s.t.HasService("s-0")
 	c.Assert(found, Equals, false)
@@ -182,7 +182,7 @@ func (s TopologySuite) TestHasService(c *C) {
 	c.Assert(found, Equals, false)
 }
 
-func (s TopologySuite) TestServiceKey(c *C) {
+func (s *TopologySuite) TestServiceKey(c *C) {
 	// Check that the key retrieval for a service name works correctly.
 	key, err := s.t.ServiceKey("wordpress")
 	c.Assert(err, ErrorMatches, `service with name "wordpress" not found`)
@@ -193,7 +193,7 @@ func (s TopologySuite) TestServiceKey(c *C) {
 	c.Assert(key, Equals, "s-0")
 }
 
-func (s TopologySuite) TestServiceKeys(c *C) {
+func (s *TopologySuite) TestServiceKeys(c *C) {
 	// Check that the retrieval of all services keys works correctly.
 	keys := s.t.ServiceKeys()
 	c.Assert(keys, DeepEquals, []string{})
@@ -205,7 +205,7 @@ func (s TopologySuite) TestServiceKeys(c *C) {
 	c.Assert(keys, DeepEquals, []string{"s-0", "s-1"})
 }
 
-func (s TopologySuite) TestServiceName(c *C) {
+func (s *TopologySuite) TestServiceName(c *C) {
 	// Check that the name retrieval for a service name works correctly.
 	name, err := s.t.ServiceName("s-0")
 	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
@@ -216,7 +216,7 @@ func (s TopologySuite) TestServiceName(c *C) {
 	c.Assert(name, Equals, "wordpress")
 }
 
-func (s TopologySuite) TestRemoveService(c *C) {
+func (s *TopologySuite) TestRemoveService(c *C) {
 	// Check that the removing of a service works correctly.
 	err := s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
@@ -228,13 +228,13 @@ func (s TopologySuite) TestRemoveService(c *C) {
 	c.Assert(s.t.HasService("s-1"), Equals, true)
 }
 
-func (s TopologySuite) TestRemoveNonExistentService(c *C) {
+func (s *TopologySuite) TestRemoveNonExistentService(c *C) {
 	// Check that the removing of a non-existent service fails.
 	err := s.t.RemoveService("s-99")
 	c.Assert(err, ErrorMatches, `service with key "s-99" not found`)
 }
 
-func (s TopologySuite) TestAddUnit(c *C) {
+func (s *TopologySuite) TestAddUnit(c *C) {
 	// Check that the adding of a unit works correctly.
 	err := s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
@@ -257,7 +257,7 @@ func (s TopologySuite) TestAddUnit(c *C) {
 	c.Assert(keys, DeepEquals, []string{"u-07"})
 }
 
-func (s TopologySuite) TestGlobalUniqueUnitNames(c *C) {
+func (s *TopologySuite) TestGlobalUniqueUnitNames(c *C) {
 	// Check that even if the underlying service is destroyed
 	// and a new one with the same name is created we'll never
 	// get a duplicate unit name.
@@ -281,7 +281,7 @@ func (s TopologySuite) TestGlobalUniqueUnitNames(c *C) {
 	c.Assert(name, Equals, "wordpress/2")
 }
 
-func (s TopologySuite) TestAddDuplicatedUnit(c *C) {
+func (s *TopologySuite) TestAddDuplicatedUnit(c *C) {
 	// Check that it's not possible to add a unit twice.
 	err := s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
@@ -291,14 +291,14 @@ func (s TopologySuite) TestAddDuplicatedUnit(c *C) {
 	c.Assert(err, ErrorMatches, `unit "u-0" already in use in service "s-0"`)
 }
 
-func (s TopologySuite) TestAddUnitToNonExistingService(c *C) {
+func (s *TopologySuite) TestAddUnitToNonExistingService(c *C) {
 	// Check that the adding of a unit to a non-existing services
 	// fails correctly.
 	_, err := s.t.AddUnit("s-0", "u-0")
 	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
 }
 
-func (s TopologySuite) TestAddUnitToDifferentService(c *C) {
+func (s *TopologySuite) TestAddUnitToDifferentService(c *C) {
 	// Check that the adding of the same unit to two different
 	// services fails correctly.
 	err := s.t.AddService("s-0", "wordpress")
@@ -311,7 +311,7 @@ func (s TopologySuite) TestAddUnitToDifferentService(c *C) {
 	c.Assert(err, ErrorMatches, `unit "u-0" already in use in service "s-0"`)
 }
 
-func (s TopologySuite) TestUnitKeys(c *C) {
+func (s *TopologySuite) TestUnitKeys(c *C) {
 	// Check if registered units from a service are returned correctly.
 	err := s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
@@ -334,14 +334,14 @@ func (s TopologySuite) TestUnitKeys(c *C) {
 	c.Assert(units, DeepEquals, []string{"u-2"})
 }
 
-func (s TopologySuite) TestUnitKeysWithNonExistingService(c *C) {
+func (s *TopologySuite) TestUnitKeysWithNonExistingService(c *C) {
 	// Check if the retrieving of unit keys from a non-existing
 	// service fails correctly.
 	_, err := s.t.UnitKeys("s-0")
 	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
 }
 
-func (s TopologySuite) TestHasUnit(c *C) {
+func (s *TopologySuite) TestHasUnit(c *C) {
 	// Check that the test for a unit in a service works correctly.
 	err := s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
@@ -355,7 +355,7 @@ func (s TopologySuite) TestHasUnit(c *C) {
 	c.Assert(found, Equals, false)
 }
 
-func (s TopologySuite) TestUnitName(c *C) {
+func (s *TopologySuite) TestUnitName(c *C) {
 	// Check that the human readable names are returned correctly.
 	err := s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
@@ -378,7 +378,7 @@ func (s TopologySuite) TestUnitName(c *C) {
 	c.Assert(name, Equals, "mysql/0")
 }
 
-func (s TopologySuite) TestUnitNameWithNonExistingServiceOrUnit(c *C) {
+func (s *TopologySuite) TestUnitNameWithNonExistingServiceOrUnit(c *C) {
 	// Check if the retrieval of unit names fails if the service
 	// or the unit doesn't exist.
 	_, err := s.t.UnitName("s-0", "u-1")
@@ -393,7 +393,7 @@ func (s TopologySuite) TestUnitNameWithNonExistingServiceOrUnit(c *C) {
 	c.Assert(err, ErrorMatches, `unit with key "u-1" not found`)
 }
 
-func (s TopologySuite) TestRemoveUnit(c *C) {
+func (s *TopologySuite) TestRemoveUnit(c *C) {
 	// Check that the removing of a unit works correctly.
 	err := s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
@@ -409,7 +409,7 @@ func (s TopologySuite) TestRemoveUnit(c *C) {
 	c.Assert(found, Equals, true)
 }
 
-func (s TopologySuite) TestRemoveNonExistingUnit(c *C) {
+func (s *TopologySuite) TestRemoveNonExistingUnit(c *C) {
 	// Check that the removing of non-existing units fails.
 	err := s.t.RemoveUnit("s-0", "u-0")
 	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
@@ -419,7 +419,7 @@ func (s TopologySuite) TestRemoveNonExistingUnit(c *C) {
 	c.Assert(err, ErrorMatches, `unit with key "u-0" not found`)
 }
 
-func (s TopologySuite) TestUnitKeyFromSequence(c *C) {
+func (s *TopologySuite) TestUnitKeyFromSequence(c *C) {
 	// Check that the retrieving of a unit key by service key
 	// and sequence number works correctly.
 	err := s.t.AddService("s-0", "wordpress")
@@ -438,7 +438,7 @@ func (s TopologySuite) TestUnitKeyFromSequence(c *C) {
 	c.Assert(err, ErrorMatches, `unit with sequence number 2 not found`)
 }
 
-func (s TopologySuite) TestUnitKeyFromNonExistingService(c *C) {
+func (s *TopologySuite) TestUnitKeyFromNonExistingService(c *C) {
 	_, err := s.t.UnitKeyFromSequence("s-0", 0)
 	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
 }
@@ -473,21 +473,21 @@ func (s *ConfigNodeSuite) TearDownTest(c *C) {
 	s.zkConn.Close()
 }
 
-func (s ConfigNodeSuite) TestCreateEmptyConfigNode(c *C) {
+func (s *ConfigNodeSuite) TestCreateEmptyConfigNode(c *C) {
 	// Check that creating an empty node works correctly.
 	node, err := createConfigNode(s.zkConn, s.path, nil)
 	c.Assert(err, IsNil)
 	c.Assert(node.Keys(), DeepEquals, []string{})
 }
 
-func (s ConfigNodeSuite) TestReadWithoutWrite(c *C) {
+func (s *ConfigNodeSuite) TestReadWithoutWrite(c *C) {
 	// Check reading without writing.
 	node, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
 	c.Assert(node, Not(IsNil))
 }
 
-func (s ConfigNodeSuite) TestSetWithoutWrite(c *C) {
+func (s *ConfigNodeSuite) TestSetWithoutWrite(c *C) {
 	// Check that config values can be set.
 	_, err := s.zkConn.Create(s.path, "", 0, zkPermAll)
 	c.Assert(err, IsNil)
@@ -502,7 +502,7 @@ func (s ConfigNodeSuite) TestSetWithoutWrite(c *C) {
 	c.Assert(yaml, Equals, "")
 }
 
-func (s ConfigNodeSuite) TestSetWithWrite(c *C) {
+func (s *ConfigNodeSuite) TestSetWithWrite(c *C) {
 	// Check that write updates the local and the ZooKeeper state.
 	node, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
@@ -524,7 +524,7 @@ func (s ConfigNodeSuite) TestSetWithWrite(c *C) {
 	c.Assert(zkData, DeepEquals, options)
 }
 
-func (s ConfigNodeSuite) TestConflictOnSet(c *C) {
+func (s *ConfigNodeSuite) TestConflictOnSet(c *C) {
 	// Check version conflict errors.
 	nodeOne, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
@@ -583,7 +583,7 @@ func (s ConfigNodeSuite) TestConflictOnSet(c *C) {
 	c.Assert(nodeOne.Map(), DeepEquals, optionsNew)
 }
 
-func (s ConfigNodeSuite) TestSetItem(c *C) {
+func (s *ConfigNodeSuite) TestSetItem(c *C) {
 	// Check that Set works as expected.
 	node, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
@@ -606,7 +606,7 @@ func (s ConfigNodeSuite) TestSetItem(c *C) {
 	c.Assert(zkData, DeepEquals, options)
 }
 
-func (s ConfigNodeSuite) TestMultipleReads(c *C) {
+func (s *ConfigNodeSuite) TestMultipleReads(c *C) {
 	// Check that reads without writes always resets the data.
 	nodeOne, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
@@ -661,7 +661,7 @@ func (s ConfigNodeSuite) TestMultipleReads(c *C) {
 	c.Assert(value, Equals, "different")
 }
 
-func (s ConfigNodeSuite) TestDeleteEmptiesState(c *C) {
+func (s *ConfigNodeSuite) TestDeleteEmptiesState(c *C) {
 	// Check that delete creates an empty state.
 	node, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
@@ -680,7 +680,7 @@ func (s ConfigNodeSuite) TestDeleteEmptiesState(c *C) {
 	c.Assert(node.Map(), DeepEquals, map[string]interface{}{})
 }
 
-func (s ConfigNodeSuite) TestReadResync(c *C) {
+func (s *ConfigNodeSuite) TestReadResync(c *C) {
 	// Check that read pulls the data into the node.
 	nodeOne, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
@@ -712,7 +712,7 @@ func (s ConfigNodeSuite) TestReadResync(c *C) {
 	c.Assert(value, Equals, "bar")
 }
 
-func (s ConfigNodeSuite) TestMultipleWrites(c *C) {
+func (s *ConfigNodeSuite) TestMultipleWrites(c *C) {
 	// Check that multiple writes only do the right changes.
 	node, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
@@ -748,7 +748,7 @@ func (s ConfigNodeSuite) TestMultipleWrites(c *C) {
 	c.Assert(changes, DeepEquals, []ItemChange{})
 }
 
-func (s ConfigNodeSuite) TestWriteTwice(c *C) {
+func (s *ConfigNodeSuite) TestWriteTwice(c *C) {
 	// Check the correct writing into a node by two config nodes.
 	nodeOne, err := readConfigNode(s.zkConn, s.path)
 	c.Assert(err, IsNil)
@@ -783,7 +783,7 @@ type QuoteSuite struct{}
 
 var _ = Suite(&QuoteSuite{})
 
-func (s QuoteSuite) TestUnmodified(c *C) {
+func (s *QuoteSuite) TestUnmodified(c *C) {
 	// Check that a string containig only valid
 	// chars stays unmodified.
 	in := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-"
@@ -791,7 +791,7 @@ func (s QuoteSuite) TestUnmodified(c *C) {
 	c.Assert(out, Equals, in)
 }
 
-func (s QuoteSuite) TestQuote(c *C) {
+func (s *QuoteSuite) TestQuote(c *C) {
 	// Check that invalid chars are translated correctly.
 	in := "hello_there/how'are~you-today.sir"
 	out := Quote(in)
