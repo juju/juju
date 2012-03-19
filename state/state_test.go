@@ -95,13 +95,10 @@ func (s StateSuite) TestInitialize(c *C) {
 
 	// Check that Open blocks until Initialize has succeeded.
 	testing.ZkRemoveTree(c, s.zkConn, "/")
-	st, err = state.Open(info)
-	c.Check(err, ErrorMatches, "state: not initialized")
-	c.Check(st, IsNil)
 
 	errc := make(chan error)
 	go func() {
-		st, err := state.WaitOpen(info, 5e9)
+		st, err := state.Open(info)
 		errc <- err
 		if st != nil {
 			st.Close()
@@ -109,7 +106,7 @@ func (s StateSuite) TestInitialize(c *C) {
 	}()
 
 	// wait a little while to verify that it's actually blocking
-	time.Sleep(0.2e9)
+	time.Sleep(200 * time.Millisecond)
 	select {
 	case err := <-errc:
 		c.Fatalf("state.Open did not block (returned error %v)", err)
