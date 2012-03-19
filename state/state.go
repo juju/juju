@@ -12,7 +12,6 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
-	"launchpad.net/juju/go/log"
 	"net/url"
 	"strings"
 	"time"

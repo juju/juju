@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
+	"launchpad.net/juju/go/testing"
 	"time"
 )
 
@@ -59,18 +60,18 @@ func registerAmazonTests() {
 // LiveTests contains tests that can be run against the Amazon servers.
 // Each test runs using the same ec2 connection.
 type LiveTests struct {
-	loggingSuite
+	testing.LoggingSuite
 	jujutest.LiveTests
 }
 
 func (t *LiveTests) SetUpTest(c *C) {
-	t.loggingSuite.SetUpTest(c)
+	t.LoggingSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
 }
 
 func (t *LiveTests) TearDownTest(c *C) {
 	t.LiveTests.TearDownTest(c)
-	t.loggingSuite.TearDownTest(c)
+	t.LoggingSuite.TearDownTest(c)
 }
 
 func (t *LiveTests) TestInstanceDNSName(c *C) {
