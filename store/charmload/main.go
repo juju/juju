@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"launchpad.net/juju/go/store"
 	"launchpad.net/juju/go/log"
+	"launchpad.net/juju/go/store"
 	"launchpad.net/lpad"
 	stdlog "log"
 	"os"

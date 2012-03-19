@@ -11,7 +11,6 @@ import (
 	"strings"
 )
 
-
 // PublishBazaarBranch checks out the Bazaar branch from burl and
 // publishes its latest revision at urls in the given store.
 // The digest parameter must be the most recent known Bazaar
@@ -102,7 +101,7 @@ NewTip:
 
 	// Publishing is done. Log failure or error.
 	event = &CharmEvent{
-		URLs: urls,
+		URLs:   urls,
 		Digest: digest,
 	}
 	if err == nil {
