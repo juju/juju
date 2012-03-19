@@ -71,15 +71,8 @@ func (t *LiveTests) TestBootstrap(c *C) {
 		c.Logf("open state")
 		st, err := state.Open(info)
 		c.Assert(err, IsNil)
-
-		c.Logf("initialize state")
-		err = st.Initialize()
-		c.Assert(err, IsNil)
+		st.Close()
 	}
-
-
-	// TODO uncomment when State has a close method
-	// st.Close()
 
 	c.Logf("destroy env")
 	t.Destroy(c)
