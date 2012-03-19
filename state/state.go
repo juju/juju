@@ -245,7 +245,7 @@ func (s *State) waitForInitialization() error {
 	if stat != nil {
 		return nil
 	}
-	select{
+	select {
 	case e := <-watch:
 		if !e.Ok() {
 			return fmt.Errorf("session error: %v", e)

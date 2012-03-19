@@ -50,7 +50,7 @@ func registerAmazonTests() {
 				Environs:         envs,
 				Name:             name,
 				ConsistencyDelay: 5 * time.Second,
-				CanOpenState: true,
+				CanOpenState:     true,
 			},
 		})
 	}

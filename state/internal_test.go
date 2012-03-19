@@ -479,7 +479,7 @@ func (s *ConfigNodeSuite) TearDownSuite(c *C) {
 func (s *ConfigNodeSuite) TearDownTest(c *C) {
 	// Delete the config node path.
 	zkRemoveTree(s.zkConn, s.path)
- }
+}
 
 func (s ConfigNodeSuite) TestCreateEmptyConfigNode(c *C) {
 	// Check that creating an empty node works correctly.
