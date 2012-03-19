@@ -237,15 +237,7 @@ func (s *State) Unit(name string) (*Unit, error) {
 	return service.Unit(name)
 }
 
-func (s *State) initialized() (bool, error) {
-	stat, err := s.zk.Exists("/initialized")
-	if err != nil {
-		return false, err
-	}
-	return stat != nil, nil
-}
-
-func (s *State) waitForInitialization(timeout time.Duration) error {
+func (s *State) waitForInitialization() error {
 	stat, watch, err := s.zk.ExistsW("/initialized")
 	if err != nil {
 		return err
@@ -258,16 +250,19 @@ func (s *State) waitForInitialization(timeout time.Duration) error {
 		if !e.Ok() {
 			return fmt.Errorf("session error: %v", e)
 		}
-	case <-time.After(timeout):
+	case <-time.After(3 * time.Minute):
 		return fmt.Errorf("timed out waiting for initialization")
 	}
 	return nil
 }
 
 func (s *State) initialize() error {
-	already, err := s.initialized()
-	if err != nil || already {
+	stat, err := s.zk.Exists("/initialized")
+	if err != nil {
 		return err
+	}
+	if stat != nil {
+		return nil
 	}
 	// Create new nodes.
 	if _, err := s.zk.Create("/charms", "", 0, zkPermAll); err != nil {
