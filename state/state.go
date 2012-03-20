@@ -235,39 +235,3 @@ func (s *State) Unit(name string) (*Unit, error) {
 	}
 	return service.Unit(name)
 }
-
-// Initialize performs an initialization of the ZooKeeper nodes.
-func (s *State) Initialize() error {
-	stat, err := s.zk.Exists("/initialized")
-	if err != nil {
-		return err
-	}
-	if stat != nil {
-		return nil
-	}
-	// Create new nodes.
-	if _, err := s.zk.Create("/charms", "", 0, zkPermAll); err != nil {
-		return err
-	}
-	if _, err := s.zk.Create("/services", "", 0, zkPermAll); err != nil {
-		return err
-	}
-	if _, err := s.zk.Create("/machines", "", 0, zkPermAll); err != nil {
-		return err
-	}
-	if _, err := s.zk.Create("/units", "", 0, zkPermAll); err != nil {
-		return err
-	}
-	if _, err := s.zk.Create("/relations", "", 0, zkPermAll); err != nil {
-		return err
-	}
-	// TODO Create node for bootstrap machine.
-
-	// TODO Setup default global settings information.
-
-	// Finally creation of /initialized as marker.
-	if _, err := s.zk.Create("/initialized", "", 0, zkPermAll); err != nil {
-		return err
-	}
-	return nil
-}

@@ -53,10 +53,8 @@ func (t *LiveTests) TestStartStop(c *C) {
 }
 
 func (t *LiveTests) TestBootstrap(c *C) {
-	c.Logf("initial bootstrap")
 	t.BootstrapOnce(c)
 
-	c.Logf("duplicate bootstrap")
 	// Wait for a while to let eventual consistency catch up, hopefully.
 	time.Sleep(t.ConsistencyDelay)
 	err := t.Env.Bootstrap()
@@ -68,22 +66,14 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	c.Check(info.Addrs, Not(HasLen), 0)
 
 	if t.CanOpenState {
-		c.Logf("open state")
 		st, err := state.Open(info)
 		c.Assert(err, IsNil)
-
-		c.Logf("initialize state")
-		err = st.Initialize()
-		c.Assert(err, IsNil)
+		st.Close()
 	}
-
-	// TODO uncomment when State has a close method
-	// st.Close()
 
 	c.Logf("destroy env")
 	t.Destroy(c)
 
-	c.Logf("bootstrap again")
 	// check that we can bootstrap after destroy
 	t.BootstrapOnce(c)
 }

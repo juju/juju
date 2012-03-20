@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"sort"
 	stdtesting "testing"
+	"time"
 )
 
 // TestPackage integrates the tests into gotest.
@@ -70,25 +71,59 @@ var _ = Suite(&StateSuite{})
 
 func (s *StateSuite) SetUpTest(c *C) {
 	var err error
-	s.st, err = state.Open(&state.Info{
+	s.st, err = state.Initialize(&state.Info{
 		Addrs: []string{state.TestingZkAddr},
 	})
-	c.Assert(err, IsNil)
-	err = s.st.Initialize()
 	c.Assert(err, IsNil)
 	s.zkConn = state.ZkConn(s.st)
 }
 
 func (s *StateSuite) TearDownTest(c *C) {
-	// Delete possible nodes, ignore errors.
-	zkRemoveTree(s.zkConn, "/topology")
-	zkRemoveTree(s.zkConn, "/charms")
-	zkRemoveTree(s.zkConn, "/services")
-	zkRemoveTree(s.zkConn, "/machines")
-	zkRemoveTree(s.zkConn, "/units")
-	zkRemoveTree(s.zkConn, "/relations")
-	zkRemoveTree(s.zkConn, "/initialized")
+	testing.ZkRemoveTree(c, s.zkConn, "/")
 	s.zkConn.Close()
+}
+
+func (s StateSuite) TestInitialize(c *C) {
+	info := &state.Info{
+		Addrs: []string{state.TestingZkAddr},
+	}
+	// Check that initialization of an already-initialized state succeeds.
+	st, err := state.Initialize(info)
+	c.Assert(err, IsNil)
+	c.Assert(st, NotNil)
+	st.Close()
+
+	// Check that Open blocks until Initialize has succeeded.
+	testing.ZkRemoveTree(c, s.zkConn, "/")
+
+	errc := make(chan error)
+	go func() {
+		st, err := state.Open(info)
+		errc <- err
+		if st != nil {
+			st.Close()
+		}
+	}()
+
+	// wait a little while to verify that it's actually blocking
+	time.Sleep(200 * time.Millisecond)
+	select {
+	case err := <-errc:
+		c.Fatalf("state.Open did not block (returned error %v)", err)
+	default:
+	}
+
+	st, err = state.Initialize(info)
+	c.Assert(err, IsNil)
+	c.Assert(st, NotNil)
+	defer st.Close()
+
+	select {
+	case err := <-errc:
+		c.Assert(err, IsNil)
+	case <-time.After(1e9):
+		c.Fatalf("state.Open blocked forever")
+	}
 }
 
 func (s StateSuite) TestAddCharm(c *C) {
@@ -829,20 +864,4 @@ func (s StateSuite) TestGetOpenPorts(c *C) {
 		{"tcp", 53},
 		{"tcp", 443},
 	})
-}
-
-// zkRemoveTree recursively removes a tree.
-func zkRemoveTree(zk *zookeeper.Conn, path string) error {
-	// First recursively delete the children.
-	children, _, err := zk.Children(path)
-	if err != nil {
-		return err
-	}
-	for _, child := range children {
-		if err = zkRemoveTree(zk, fmt.Sprintf("%s/%s", path, child)); err != nil {
-			return err
-		}
-	}
-	// Now delete the path itself.
-	return zk.Delete(path, -1)
 }

@@ -241,3 +241,27 @@ func AliveW(conn *zk.Conn, path string) (bool, <-chan bool, error) {
 	}
 	return alive, watch, nil
 }
+
+// WaitAlive blocks until the node at the given path 
+// has been recently pinged or a timeout occurs.
+func WaitAlive(conn *zk.Conn, path string, timeout time.Duration) error {
+	alive, watch, err := AliveW(conn, path)
+	if err != nil {
+		return err
+	}
+	if alive {
+		return nil
+	}
+	select {
+	case alive, ok := <-watch:
+		if !ok {
+			return fmt.Errorf("presence: channel closed while waiting")
+		}
+		if !alive {
+			return fmt.Errorf("presence: alive watch misbehaved while waiting")
+		}
+	case <-time.After(timeout):
+		return fmt.Errorf("presence: still not alive after timeout")
+	}
+	return nil
+}
