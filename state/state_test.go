@@ -280,7 +280,7 @@ func (s *StateSuite) TestMachineWaitAgentAlive(c *C) {
 	c.Assert(alive, Equals, false)
 
 	err = machine0.WaitAgentAlive(timeout)
-	c.Assert(err, ErrorMatches, `wait for machine agent 0 failed: presence: still not alive after timeout`)
+	c.Assert(err, ErrorMatches, `state: waiting for agent of machine 0: presence: still not alive after timeout`)
 
 	pinger, err := machine0.SetAgentAlive()
 	c.Assert(err, IsNil)
@@ -949,7 +949,7 @@ func (s *StateSuite) TestUnitWaitAgentAlive(c *C) {
 	c.Assert(alive, Equals, false)
 
 	err = unit.WaitAgentAlive(timeout)
-	c.Assert(err, ErrorMatches, `wait for unit agent "wordpress/0" failed: presence: still not alive after timeout`)
+	c.Assert(err, ErrorMatches, `state: waiting for agent of unit "wordpress/0": presence: still not alive after timeout`)
 
 	pinger, err := unit.SetAgentAlive()
 	c.Assert(err, IsNil)

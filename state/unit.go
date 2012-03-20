@@ -395,14 +395,14 @@ func (u *Unit) AgentAlive() (bool, error) {
 func (u *Unit) WaitAgentAlive(timeout time.Duration) error {
 	err := presence.WaitAlive(u.st.zk, u.zkAgentPath(), timeout)
 	if err != nil {
-		return fmt.Errorf("wait for unit agent %q failed: %v", u.Name(), err)
+		return fmt.Errorf("state: waiting for agent of unit %q: %v", u.Name(), err)
 	}
 	return nil
 }
 
-// SetAgentAlive signals that the respective agent is alive. By stopping
-// the returned pinger the agent can notify others about the end of its
-// work.
+// SetAgentAlive signals that the agent for unit u is alive
+// by starting a pinger on its presence node. It returns the
+// started pinger.
 func (u *Unit) SetAgentAlive() (*presence.Pinger, error) {
 	return presence.StartPinger(u.st.zk, u.zkAgentPath(), agentPingerPeriod)
 }

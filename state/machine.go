@@ -32,14 +32,14 @@ func (m *Machine) AgentAlive() (bool, error) {
 func (m *Machine) WaitAgentAlive(timeout time.Duration) error {
 	err := presence.WaitAlive(m.st.zk, m.zkAgentPath(), timeout)
 	if err != nil {
-		return fmt.Errorf("wait for machine agent %d failed: %v", m.Id(), err)
+		return fmt.Errorf("state: waiting for agent of machine %d: %v", m.Id(), err)
 	}
 	return nil
 }
 
-// SetAgentAlive signals that the respective agent is alive. By stopping
-// the returned pinger the agent can notify others about the end of its
-// work.
+// SetAgentAlive signals that the agent for machine m is alive
+// by starting a pinger on its presence node. It returns the
+// started pinger.
 func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 	return presence.StartPinger(m.st.zk, m.zkAgentPath(), agentPingerPeriod)
 }
