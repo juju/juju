@@ -291,17 +291,29 @@ func (s *PresenceSuite) TestDisconnectPinger(c *C) {
 	assertChange(c, watch, false)
 }
 
-func (s *PresenceSuite) TestWaitAliveTimeout(c *C) {
-	err := presence.WaitAliveTimeout(s.zkConn, path, longEnough)
+func (s *PresenceSuite) TestWaitAlive(c *C) {
+	err := presence.WaitAlive(s.zkConn, path, longEnough)
 	c.Assert(err, ErrorMatches, "presence: still not alive after timeout")
 
+	// Start a pinger with a short delay so that WaitAlive() detects it.
 	go func() {
 		time.Sleep(period * 2)
 		p, err := presence.StartPinger(s.zkConn, path, period)
 		c.Assert(err, IsNil)
-		defer p.Stop()
+		defer p.Kill()
 	}()
 
-	err = presence.WaitAliveTimeout(s.zkConn, path, longEnough)
+	err = presence.WaitAlive(s.zkConn, path, longEnough)
 	c.Assert(err, IsNil)
+
+	// Use alternative connection for closing test.
+	altConn := s.connect(c)
+
+	go func() {
+		time.Sleep(period * 2)
+		altConn.Close()
+	}()
+
+	err = presence.WaitAlive(altConn, path, longEnough)
+	c.Assert(err, ErrorMatches, "presence: channel closed while waiting")
 }
