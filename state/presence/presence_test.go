@@ -291,8 +291,8 @@ func (s *PresenceSuite) TestDisconnectPinger(c *C) {
 	assertChange(c, watch, false)
 }
 
-func (s *PresenceSuite) TestWaitAlive(c *C) {
-	err := presence.WaitAlive(s.zkConn, path, longEnough)
+func (s *PresenceSuite) TestWaitAliveTimeout(c *C) {
+	err := presence.WaitAliveTimeout(s.zkConn, path, longEnough)
 	c.Assert(err, ErrorMatches, "presence: still not alive after timeout")
 
 	go func() {
@@ -302,6 +302,6 @@ func (s *PresenceSuite) TestWaitAlive(c *C) {
 		defer p.Stop()
 	}()
 
-	err = presence.WaitAlive(s.zkConn, path, longEnough)
+	err = presence.WaitAliveTimeout(s.zkConn, path, longEnough)
 	c.Assert(err, IsNil)
 }

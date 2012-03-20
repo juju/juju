@@ -243,7 +243,7 @@ func AliveW(conn *zk.Conn, path string) (bool, <-chan bool, error) {
 }
 
 // WaitAlive blocks until the Pinger at the given path is alive.
-func WaitAlive(conn *zk.Conn, path string, timeout time.Duration) error {
+func WaitAlive(conn *zk.Conn, path string) error {
 	alive, watch, err := AliveW(conn, path)
 	if err != nil {
 		return err
@@ -251,14 +251,26 @@ func WaitAlive(conn *zk.Conn, path string, timeout time.Duration) error {
 	if alive {
 		return nil
 	}
+	alive, ok := <-watch
+	if !ok {
+		return fmt.Errorf("presence: channel closed while waiting")
+	}
+	if !alive {
+		return fmt.Errorf("presence: alive watch misbehaved while waiting")
+	}
+	return nil
+}
+
+// WaitAliveTimeout blocks until the Pinger at the given path is alive or
+// a timeout occurs.
+func WaitAliveTimeout(conn *zk.Conn, path string, timeout time.Duration) error {
+	errChan := make(chan error)
+	go func() {
+		errChan <- WaitAlive(conn, path)
+	}()
 	select {
-	case alive, ok := <-watch:
-		if !ok {
-			return fmt.Errorf("presence: channel closed while waiting")
-		}
-		if !alive {
-			return fmt.Errorf("presence: alive watch misbehaved while waiting")
-		}
+	case err := <-errChan:
+		return err
 	case <-time.After(timeout):
 		return fmt.Errorf("presence: still not alive after timeout")
 	}
