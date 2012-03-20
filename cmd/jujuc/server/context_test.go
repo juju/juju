@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"text/template"
 )
 
 func Test(t *testing.T) { TestingT(t) }
@@ -68,19 +67,6 @@ type ExecSuite struct {
 
 var _ = Suite(&ExecSuite{})
 
-var (
-	hookTemplate = template.Must(template.New("").Parse(
-		`#!/bin/bash
-printenv > {{.OutPath}}
-exit {{.ExitCode}}
-`))
-)
-
-type hookArgs struct {
-	OutPath  string
-	ExitCode int
-}
-
 // makeCharm constructs a fake charm dir containing a single named hook with
 // permissions perm and exit code code. It returns the charm directory and the
 // path to which the hook script will write environment variables.
@@ -93,7 +79,7 @@ func makeCharm(c *C, hookName string, perm os.FileMode, code int) (charmDir, out
 	c.Assert(err, IsNil)
 	defer hook.Close()
 	outPath = filepath.Join(c.MkDir(), "hook.out")
-	err = hookTemplate.Execute(hook, hookArgs{outPath, code})
+	_, err = fmt.Fprintf(hook, "#!/bin/bash\nenv > %s\nexit %d", outPath, code)
 	c.Assert(err, IsNil)
 	return charmDir, outPath
 }
