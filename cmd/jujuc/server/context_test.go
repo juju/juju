@@ -57,9 +57,9 @@ func AssertLogs(c *C, ctx *server.Context, badge string) {
 
 func (s *LogSuite) TestLog(c *C) {
 	local := &server.Context{LocalUnitName: "minecraft/0"}
-	AssertLogs(c, local, "Context<minecraft/0>")
+	AssertLogs(c, local, "minecraft/0")
 	relation := &server.Context{LocalUnitName: "minecraft/0", RelationName: "bot"}
-	AssertLogs(c, relation, "Context<minecraft/0, bot>")
+	AssertLogs(c, relation, "minecraft/0 bot")
 }
 
 type ExecSuite struct {
@@ -81,17 +81,18 @@ type hookArgs struct {
 	ExitCode int
 }
 
-func makeCharm(c *C, hookName string, perm os.FileMode, code int) (string, string) {
-	charmDir := c.MkDir()
+// makeCharm constructs a fake charm dir containing a single named hook with
+// permissions perm and exit code code. It returns the charm directory and the
+// path to which the hook script will write environment variables.
+func makeCharm(c *C, hookName string, perm os.FileMode, code int) (charmDir, outPath string) {
+	charmDir = c.MkDir()
 	hooksDir := filepath.Join(charmDir, "hooks")
 	err := os.Mkdir(hooksDir, 0755)
 	c.Assert(err, IsNil)
-	hook, err := os.OpenFile(
-		filepath.Join(hooksDir, hookName), os.O_CREATE|os.O_WRONLY, perm,
-	)
+	hook, err := os.OpenFile(filepath.Join(hooksDir, hookName), os.O_CREATE|os.O_WRONLY, perm)
 	c.Assert(err, IsNil)
 	defer hook.Close()
-	outPath := filepath.Join(c.MkDir(), "hook.out")
+	outPath = filepath.Join(c.MkDir(), "hook.out")
 	err = hookTemplate.Execute(hook, hookArgs{outPath, code})
 	c.Assert(err, IsNil)
 	return charmDir, outPath
@@ -112,7 +113,7 @@ func AssertEnvContains(c *C, lines []string, env map[string]string) {
 	}
 }
 
-func (s *ExecSuite) AssertEnv(c *C, outPath string, env map[string]string) {
+func AssertEnv(c *C, outPath string, env map[string]string) {
 	out, err := ioutil.ReadFile(outPath)
 	c.Assert(err, IsNil)
 	lines := strings.Split(string(out), "\n")
@@ -143,7 +144,7 @@ func (s *ExecSuite) TestBadHook(c *C) {
 	socketPath := "/path/to/socket"
 	err := ctx.RunHook("occurrence-occurred", charmDir, socketPath)
 	c.Assert(err, ErrorMatches, "exit status 99")
-	s.AssertEnv(c, outPath, map[string]string{
+	AssertEnv(c, outPath, map[string]string{
 		"CHARM_DIR":         charmDir,
 		"JUJU_AGENT_SOCKET": socketPath,
 		"JUJU_CONTEXT_ID":   "ctx-id",
@@ -161,7 +162,7 @@ func (s *ExecSuite) TestGoodHookWithVars(c *C) {
 	socketPath := "/path/to/socket"
 	err := ctx.RunHook("something-happened", charmDir, socketPath)
 	c.Assert(err, IsNil)
-	s.AssertEnv(c, outPath, map[string]string{
+	AssertEnv(c, outPath, map[string]string{
 		"CHARM_DIR":         charmDir,
 		"JUJU_AGENT_SOCKET": socketPath,
 		"JUJU_CONTEXT_ID":   "some-id",

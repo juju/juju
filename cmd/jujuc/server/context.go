@@ -33,11 +33,13 @@ func (ctx *Context) Log(debug bool, msg string) {
 	if ctx.RelationName != "" {
 		s = append(s, ctx.RelationName)
 	}
-	full := fmt.Sprintf("Context<%s>: %s", strings.Join(s, ", "), msg)
+	if len(s) > 0 {
+		msg = fmt.Sprintf("%s: ", strings.Join(s, " ")) + msg
+	}
 	if debug {
-		log.Debugf(full)
+		log.Debugf(msg)
 	} else {
-		log.Printf(full)
+		log.Printf(msg)
 	}
 }
 
