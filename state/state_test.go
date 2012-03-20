@@ -250,6 +250,56 @@ func (s *StateSuite) TestAllMachines(c *C) {
 	c.Assert(len(machines), Equals, 2)
 }
 
+func (s *StateSuite) TestMachineSetAgentAlive(c *C) {
+	machine0, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	c.Assert(machine0.Id(), Equals, 0)
+
+	alive, err := machine0.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, false)
+
+	pinger, err := machine0.SetAgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(pinger, Not(IsNil))
+	defer pinger.Kill()
+
+	alive, err = machine0.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, true)
+}
+
+func (s *StateSuite) TestMachineWaitAgentAlive(c *C) {
+	timeout := 5 * time.Second
+	machine0, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	c.Assert(machine0.Id(), Equals, 0)
+
+	alive, err := machine0.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, false)
+
+	err = machine0.WaitAgentAlive(timeout)
+	c.Assert(err, ErrorMatches, `wait for machine agent 0 failed: presence: still not alive after timeout`)
+
+	pinger, err := machine0.SetAgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(pinger, Not(IsNil))
+
+	err = machine0.WaitAgentAlive(timeout)
+	c.Assert(err, IsNil)
+
+	alive, err = machine0.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, true)
+
+	pinger.Kill()
+
+	alive, err = machine0.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, false)
+}
+
 func (s *StateSuite) TestAddService(c *C) {
 	dummy, curl := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
@@ -899,7 +949,7 @@ func (s *StateSuite) TestUnitWaitAgentAlive(c *C) {
 	c.Assert(alive, Equals, false)
 
 	err = unit.WaitAgentAlive(timeout)
-	c.Assert(err, ErrorMatches, "wait for alive agent timed out")
+	c.Assert(err, ErrorMatches, `wait for unit agent "wordpress/0" failed: presence: still not alive after timeout`)
 
 	pinger, err := unit.SetAgentAlive()
 	c.Assert(err, IsNil)

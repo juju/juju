@@ -26,10 +26,11 @@ const (
 	ResolvedNoHooks    ResolvedMode = 1001
 )
 
-// unitAgentPingerPeriod defines the period of pinging the
-// ZooKeeper to signal that a unit agent is alive.
+// agentPingerPeriod defines the period of pinging the
+// ZooKeeper to signal that a unit agent is alive. It's
+// also used by machine.
 const (
-	unitAgentPingerPeriod = 1 * time.Second
+	agentPingerPeriod = 1 * time.Second
 )
 
 // Port identifies a network port number for a particular protocol.
@@ -392,25 +393,9 @@ func (u *Unit) AgentAlive() (bool, error) {
 
 // WaitAgentAlive blocks until the respective agent is alive.
 func (u *Unit) WaitAgentAlive(timeout time.Duration) error {
-	alive, watch, err := presence.AliveW(u.st.zk, u.zkAgentPath())
+	err := presence.WaitAlive(u.st.zk, u.zkAgentPath(), timeout)
 	if err != nil {
-		return err
-	}
-	// Quick return if already alive.
-	if alive {
-		return nil
-	}
-	// Wait for alive agent with timeout.
-	select {
-	case alive, ok := <-watch:
-		if !ok {
-			return fmt.Errorf("wait for alive agent closed")
-		}
-		if !alive {
-			return fmt.Errorf("not alive, must not happen")
-		}
-	case <-time.After(timeout):
-		return fmt.Errorf("wait for alive agent timed out")
+		return fmt.Errorf("wait for unit agent %q failed: %v", u.Name(), err)
 	}
 	return nil
 }
@@ -419,7 +404,7 @@ func (u *Unit) WaitAgentAlive(timeout time.Duration) error {
 // the returned pinger the agent can notify others about the end of its
 // work.
 func (u *Unit) SetAgentAlive() (*presence.Pinger, error) {
-	return presence.StartPinger(u.st.zk, u.zkAgentPath(), unitAgentPingerPeriod)
+	return presence.StartPinger(u.st.zk, u.zkAgentPath(), agentPingerPeriod)
 }
 
 // zkKey returns the ZooKeeper key of the unit.

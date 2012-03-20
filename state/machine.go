@@ -30,25 +30,9 @@ func (m *Machine) AgentAlive() (bool, error) {
 
 // WaitAgentAlive blocks until the respective agent is alive.
 func (m *Machine) WaitAgentAlive(timeout time.Duration) error {
-	alive, watch, err := presence.AliveW(m.st.zk, m.zkAgentPath())
+	err := presence.WaitAlive(m.st.zk, m.zkAgentPath(), timeout)
 	if err != nil {
-		return err
-	}
-	// Quick return if already alive.
-	if alive {
-		return nil
-	}
-	// Wait for alive agent with timeout.
-	select {
-	case alive, ok := <-watch:
-		if !ok {
-			return fmt.Errorf("wait for alive agent closed")
-		}
-		if !alive {
-			return fmt.Errorf("not alive, must not happen")
-		}
-	case <-time.After(timeout):
-		return fmt.Errorf("wait for alive agent timed out")
+		return fmt.Errorf("wait for machine agent %d failed: %v", m.Id(), err)
 	}
 	return nil
 }
@@ -57,7 +41,7 @@ func (m *Machine) WaitAgentAlive(timeout time.Duration) error {
 // the returned pinger the agent can notify others about the end of its
 // work.
 func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
-	return presence.StartPinger(m.st.zk, m.zkAgentPath(), unitAgentPingerPeriod)
+	return presence.StartPinger(m.st.zk, m.zkAgentPath(), agentPingerPeriod)
 }
 
 // zkKey returns the ZooKeeper key of the machine.
