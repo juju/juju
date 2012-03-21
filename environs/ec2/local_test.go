@@ -20,6 +20,7 @@ environments:
     type: ec2
     region: test
     control-bucket: test-bucket
+    juju-origin: ppa
 `)
 
 func registerLocalTests() {

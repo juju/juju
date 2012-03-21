@@ -178,7 +178,7 @@ func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte
 		stateInfo:          info,
 		instanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		providerType:       "ec2",
-		origin:             jujuOrigin{originBranch, "lp:jujubranch"},
+		origin:             e.config.origin,
 		machineId:          fmt.Sprint(machineId),
 	}
 

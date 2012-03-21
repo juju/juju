@@ -14,6 +14,7 @@ type providerConfig struct {
 	bucket             string
 	authorizedKeys     string
 	authorizedKeysPath string
+	origin jujuOrigin
 }
 
 type checker struct{}
@@ -41,12 +42,14 @@ func (environProvider) ConfigChecker() schema.Checker {
 				"control-bucket":       schema.String(),
 				"authorized-keys":      schema.String(),
 				"authorized-keys-path": schema.String(),
+				"juju-origin": schema.String(),
 			}, []string{
 				"access-key",
 				"secret-key",
 				"region",
 				"authorized-keys",
 				"authorized-keys-path",
+				"juju-origin",
 			},
 		),
 		checkerFunc(func(v interface{}, path []string) (newv interface{}, err error) {
@@ -63,10 +66,9 @@ func (environProvider) ConfigChecker() schema.Checker {
 				if c.auth.SecretKey != "" {
 					return nil, fmt.Errorf("environment has secret-key but no access-key")
 				}
-				var err error
 				c.auth, err = aws.EnvAuth()
 				if err != nil {
-					return nil, err
+					return
 				}
 			}
 
@@ -77,6 +79,13 @@ func (environProvider) ConfigChecker() schema.Checker {
 			c.region = regionName
 			c.authorizedKeys = maybeString(m["authorized-keys"], "")
 			c.authorizedKeysPath = maybeString(m["authorized-keys-path"], "")
+
+			if origin, ok := m["juju-origin"].(string); ok {
+				c.origin, err = parseOrigin(origin)
+				if err != nil {
+					return
+				}
+			}
 			return &c, nil
 		}),
 	)
