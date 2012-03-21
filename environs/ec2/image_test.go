@@ -11,6 +11,10 @@ import (
 	"testing"
 )
 
+type imageSuite struct{}
+
+var _ = Suite(imageSuite{})
+
 // N.B. the image IDs in this test will need updating
 // if the image directory is regenerated.
 var imageTests = []struct {
@@ -61,7 +65,7 @@ var imageTests = []struct {
 	}, "", "error getting instance types:.*"},
 }
 
-func (suite) TestFindImageSpec(c *C) {
+func (imageSuite) TestFindImageSpec(c *C) {
 	// set up http so that all requests will be satisfied from the images directory.
 	defer setTransport(setTransport(http.NewFileTransport(http.Dir("images"))))
 

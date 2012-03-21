@@ -3,6 +3,7 @@ package ec2
 import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/juju/go/environs"
+	"net/http"
 )
 
 type BootstrapState struct {
@@ -35,6 +36,21 @@ func EnvironEC2(e environs.Environ) *ec2.EC2 {
 
 func InstanceEC2(inst environs.Instance) *ec2.Instance {
 	return inst.(*instance).Instance
+}
+
+var origImagesHost = imagesHost
+
+func init() {
+	// Make the images data accessible through the "file" protocol.
+	http.DefaultTransport.(*http.Transport).RegisterProtocol("file", http.NewFileTransport(http.Dir("images")))
+}
+
+func UseLocalImages(local bool) {
+	if local {
+		imagesHost = "file:"
+	} else {
+		imagesHost = origImagesHost
+	}
 }
 
 var originalShortAttempt = shortAttempt

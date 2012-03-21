@@ -57,6 +57,7 @@ type localLiveSuite struct {
 }
 
 func (t *localLiveSuite) SetUpSuite(c *C) {
+	ec2.UseLocalImages(true)
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
 	t.env = t.LiveTests.Env
@@ -68,6 +69,7 @@ func (t *localLiveSuite) TearDownSuite(c *C) {
 	t.srv.stopServer(c)
 	t.env = nil
 	ec2.ShortTimeouts(false)
+	ec2.UseLocalImages(false)
 }
 
 // localServer represents a fake EC2 server running within
@@ -129,6 +131,7 @@ type localServerSuite struct {
 }
 
 func (t *localServerSuite) SetUpSuite(c *C) {
+	ec2.UseLocalImages(true)
 	t.Tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
@@ -136,6 +139,7 @@ func (t *localServerSuite) SetUpSuite(c *C) {
 func (t *localServerSuite) TearDownSuite(c *C) {
 	t.Tests.TearDownSuite(c)
 	ec2.ShortTimeouts(false)
+	ec2.UseLocalImages(false)
 }
 
 func (t *localServerSuite) SetUpTest(c *C) {
