@@ -137,8 +137,8 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 
 	// machine scripts
 	addScripts(c, fmt.Sprintf(
-		"JUJU_MACHINE_ID=%s JUJU_ZOOKEEPER=%s"+
-			" python -m juju.agents.machine -n"+
+		"JUJU_MACHINE_ID=%s JUJU_ZOOKEEPER=%s "+
+			"python -m juju.agents.machine -n"+
 			" --logfile=/var/log/juju/machine-agent.log"+
 			" --pidfile=/var/run/juju/machine-agent.pid",
 		shquote(cfg.machineId), zookeeperHosts))
@@ -147,7 +147,7 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 	if cfg.provisioner {
 		addScripts(c,
 			"JUJU_ZOOKEEPER="+zookeeperHosts+
-				" python -m juju.agents.provision -n"+
+				"python -m juju.agents.provision -n"+
 				" --logfile=/var/log/juju/provision-agent.log"+
 				" --pidfile=/var/run/juju/provision-agent.pid",
 		)
