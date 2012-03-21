@@ -15,6 +15,14 @@ type imageSuite struct{}
 
 var _ = Suite(imageSuite{})
 
+func (imageSuite) SetUpSuite(c *C) {
+	ec2.UseLocalImages(true)
+}
+
+func (imageSuite) TearDownSuite(c *C) {
+	ec2.UseLocalImages(false)
+}
+
 // N.B. the image IDs in this test will need updating
 // if the image directory is regenerated.
 var imageTests = []struct {
@@ -66,8 +74,6 @@ var imageTests = []struct {
 }
 
 func (imageSuite) TestFindImageSpec(c *C) {
-	// set up http so that all requests will be satisfied from the images directory.
-	defer setTransport(setTransport(http.NewFileTransport(http.Dir("images"))))
 
 	for i, t := range imageTests {
 		id, err := ec2.FindImageSpec(&t.constraint)
@@ -84,12 +90,6 @@ func (imageSuite) TestFindImageSpec(c *C) {
 		}
 		c.Check(id.ImageId, Equals, t.imageId)
 	}
-}
-
-func setTransport(t http.RoundTripper) (old http.RoundTripper) {
-	old = http.DefaultTransport
-	http.DefaultTransport = t
-	return
 }
 
 // regenerate all data inside the images directory.
