@@ -31,6 +31,11 @@ type ImageSpec struct {
 	ImageId string
 }
 
+// imagesHost holds the address of the images http server.
+// It is a variable so that tests can change it to refer to a local
+// server when needed.
+var imagesHost = "http://uec-images.ubuntu.com"
+
 func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
 	// note: original get_image_id added three optional args:
 	// DefaultImageId		if found, returns that immediately
@@ -38,7 +43,7 @@ func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
 	// DefaultSeries		used if spec.UbuntuRelease is ""
 
 	hclient := new(http.Client)
-	uri := fmt.Sprintf("http://uec-images.ubuntu.com/query/%s/%s/%s.current.txt",
+	uri := fmt.Sprintf(imagesHost+"/query/%s/%s/%s.current.txt",
 		spec.UbuntuRelease,
 		either(spec.Desktop, "desktop", "server"), // variant.
 		either(spec.Daily, "daily", "released"),   // version.
