@@ -16,11 +16,11 @@ type imageSuite struct{}
 var _ = Suite(imageSuite{})
 
 func (imageSuite) SetUpSuite(c *C) {
-	ec2.UseLocalImages(true)
+	ec2.UseTestImageData(true)
 }
 
 func (imageSuite) TearDownSuite(c *C) {
-	ec2.UseLocalImages(false)
+	ec2.UseTestImageData(false)
 }
 
 // N.B. the image IDs in this test will need updating
