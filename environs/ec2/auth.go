@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"crypto/sha1"
+	"encoding/base64"
 )
 
 // Given the name of a principle and a password, makeIdentity

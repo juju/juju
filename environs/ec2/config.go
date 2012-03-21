@@ -15,6 +15,7 @@ type providerConfig struct {
 	authorizedKeys     string
 	authorizedKeysPath string
 	origin jujuOrigin
+	adminSecret string
 }
 
 type checker struct{}
@@ -43,6 +44,7 @@ func (environProvider) ConfigChecker() schema.Checker {
 				"authorized-keys":      schema.String(),
 				"authorized-keys-path": schema.String(),
 				"juju-origin": schema.String(),
+				"admin-secret": schema.String(),
 			}, []string{
 				"access-key",
 				"secret-key",
@@ -86,6 +88,7 @@ func (environProvider) ConfigChecker() schema.Checker {
 					return
 				}
 			}
+			c.adminSecret = m["admin-secret"].(string)
 			return &c, nil
 		}),
 	)

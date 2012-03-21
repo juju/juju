@@ -19,13 +19,14 @@ import (
 // This is missing keys for security reasons; set the following environment variables
 // to make the Amazon testing work:
 //  access-key: $AWS_ACCESS_KEY_ID
-//  admin-secret: $AWS_SECRET_ACCESS_KEY
+//  secret-key: $AWS_SECRET_ACCESS_KEY
 var amazonConfig = fmt.Sprintf(`
 environments:
   sample-%s:
     type: ec2
     control-bucket: 'juju-test-%s'
     juju-origin: distro
+    admin-secret: sham
 `, uniqueName, uniqueName)
 
 // uniqueName is generated afresh for every test, so that

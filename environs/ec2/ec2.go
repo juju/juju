@@ -181,6 +181,7 @@ func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte
 		providerType:       "ec2",
 		origin:             e.config.origin,
 		machineId:          fmt.Sprint(machineId),
+		adminSecret: e.config.adminSecret,
 	}
 
 	if e.config.authorizedKeys == "" {

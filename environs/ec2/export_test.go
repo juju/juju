@@ -26,6 +26,10 @@ func MachineGroupName(e environs.Environ, machineId int) string {
 	return e.(*environ).machineGroupName(machineId)
 }
 
+func MakeIdentity(name, password string) string {
+	return makeIdentity(name, password)
+}
+
 func AuthorizedKeys(path string) (string, error) {
 	return authorizedKeys(path)
 }

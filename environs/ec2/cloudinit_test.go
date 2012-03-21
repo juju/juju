@@ -5,7 +5,6 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju/go/state"
 	"regexp"
-	"strings"
 )
 
 // Use local suite since this file lives in the ec2 package
@@ -18,6 +17,7 @@ var _ = Suite(cloudinitSuite{})
 // output to see if it looks correct.
 var cloudinitTests = []machineConfig{
 	{
+		adminSecret:        "topsecret",
 		instanceIdAccessor: "$instance_id",
 		machineId:          "aMachine",
 		origin:             jujuOrigin{originBranch, "lp:jujubranch"},
@@ -27,6 +27,7 @@ var cloudinitTests = []machineConfig{
 		zookeeper:          true,
 	},
 	{
+		adminSecret:    "topsecret",
 		machineId:      "aMachine",
 		origin:         jujuOrigin{originDistro, ""},
 		providerType:   "ec2",
@@ -54,9 +55,6 @@ func (t *cloudinitTest) check(c *C) {
 		t.checkPackage(c, "zookeeperd")
 		t.checkScripts(c, "juju-admin initialize")
 		t.checkScripts(c, regexp.QuoteMeta(t.cfg.instanceIdAccessor))
-		t.checkScripts(c, "ZOOKEEPER='localhost"+zkPortSuffix+"' ")
-	}else{
-		t.checkScripts(c, "ZOOKEEPER='" + strings.Join(t.cfg.stateInfo.Addrs, ",") + "' ")
 	}
 	if t.cfg.origin != (jujuOrigin{}) && t.cfg.origin.origin == originDistro {
 		t.checkScripts(c, "apt-get.*install juju")
@@ -175,6 +173,10 @@ var verifyTests = []struct {
 		cfg.zookeeper = false
 		cfg.stateInfo = nil
 	}},
+	{"admin secret", func(cfg *machineConfig) {
+		cfg.zookeeper = true
+		cfg.adminSecret = ""
+	}},
 	{"zookeeper hosts", func(cfg *machineConfig) {
 		cfg.zookeeper = false
 		cfg.stateInfo = &state.Info{}
@@ -185,6 +187,7 @@ var verifyTests = []struct {
 // checked for by newCloudInit.
 func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	cfg := &machineConfig{
+		adminSecret:        "topsecret",
 		provisioner:        true,
 		zookeeper:          true,
 		instanceIdAccessor: "$instance_id",

@@ -21,20 +21,20 @@ var configTestRegion = aws.Region{
 var testAuth = aws.Auth{"gopher", "long teeth"}
 
 // the mandatory fields in config.
-var baseConfig = "control-bucket: x\n"
+var baseConfig = "control-bucket: x\nadmin-secret: foo\n"
 
 // the result of parsing baseConfig.
 var baseConfigResult = providerConfig{
 	region: "us-east-1",
 	bucket: "x",
 	auth:   testAuth,
+	adminSecret: "foo",
 }
 
-// configTest specifies a config parsing test,
-// checking that env when parsed as the ec2
-// section of a config file matches baseConfigResult
-// when mutated by the mutate function,
-// or that the parse matches the given error.
+// configTest specifies a config parsing test, checking that env when
+// parsed as the ec2 section of a config file matches baseConfigResult
+// when mutated by the mutate function, or that the parse matches the
+// given error.
 type configTest struct {
 	env    string
 	mutate func(*providerConfig)
@@ -85,6 +85,11 @@ var configTests = []configTest{
 		"control-bucket: 666\n",
 		nil,
 		".*expected string, got 666",
+	},
+	{
+		"control-bucket: x\n",
+		nil,
+		".*admin-secret: expected string, got nothing",
 	},
 	{
 		"access-key: jujuer\nsecret-key: open sesame\n" + baseConfig,

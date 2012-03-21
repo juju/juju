@@ -21,6 +21,9 @@ type machineConfig struct {
 	// instanceIdAccessor holds bash code that evaluates to the current instance id.
 	instanceIdAccessor string
 
+	// AdminSecret holds a secret that will be used to authenticate to zookeeper.
+	adminSecret string
+
 	// providerType identifies the provider type so the host
 	// knows which kind of provider to use.
 	providerType string
@@ -128,7 +131,7 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 		addScripts(c,
 			"juju-admin initialize"+
 				" --instance-id="+shquote(cfg.instanceIdAccessor)+
-				" --admin-identity=sham"+
+				" --admin-identity="+shquote(makeIdentity("admin", cfg.adminSecret))+
 				" --provider-type="+shquote(cfg.providerType),
 		)
 	}
@@ -188,6 +191,9 @@ func verifyConfig(cfg *machineConfig) error {
 	if cfg.zookeeper {
 		if cfg.instanceIdAccessor == "" {
 			return requiresError("instance id accessor")
+		}
+		if cfg.adminSecret == "" {
+			return requiresError("admin secret")
 		}
 	} else {
 		if cfg.stateInfo == nil || len(cfg.stateInfo.Addrs) == 0 {

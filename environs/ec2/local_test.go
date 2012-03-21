@@ -21,6 +21,7 @@ environments:
     region: test
     control-bucket: test-bucket
     juju-origin: ppa
+    admin-secret: topsecret
 `)
 
 func registerLocalTests() {
