@@ -8,6 +8,15 @@ import (
 	"strings"
 )
 
+// Given the name of a principle and a password, makeIdentity
+// transforms it into an identity of the form principle_name:hash that can be
+// used for an access control list entry.
+func makeIdentity(name, password string) string {
+	h := sha1.New()
+	h.Write([]byte(name + ":" + password))
+	return name + ":" + base64.StdEncoding.EncodeToString(h.Sum(nil))
+}
+
 func expandTilde(f string) string {
 	// TODO expansion of other user's home directories.
 	// Q what characters are valid in a user name?

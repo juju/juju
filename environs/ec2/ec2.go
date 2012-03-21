@@ -145,6 +145,7 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	var addrs []string
 	// Wait for the DNS names of any of the instances
 	// to become available.
+	log.Printf("environs/ec2: waiting for zookeeper DNS name(s) of instances %v", st.ZookeeperInstances)
 	for a := longAttempt.start(); len(addrs) == 0 && a.next(); {
 		insts, err := e.Instances(st.ZookeeperInstances)
 		if err != nil && err != environs.ErrPartialInstances {
@@ -233,7 +234,9 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 	if len(instances.Instances) != 1 {
 		return nil, fmt.Errorf("expected 1 started instance, got %d", len(instances.Instances))
 	}
-	return &instance{e, &instances.Instances[0]}, nil
+	inst := &instance{e, &instances.Instances[0]}
+	log.Printf("environs/ec2: started instance %q", inst.Id())
+	return inst, nil
 }
 
 func (e *environ) StopInstances(insts []environs.Instance) error {
