@@ -71,7 +71,7 @@ func (s *PresenceSuite) TearDownTest(c *C) {
 
 var (
 	path   = "/presence"
-	period = time.Duration(2.5e7) // 25ms
+	period = 25 * time.Millisecond
 
 	// When hoping to detect a node status change, given a period of 25ms and
 	// therefore a timeout of 50ms, the worst-case timeline is:
@@ -289,4 +289,31 @@ func (s *PresenceSuite) TestDisconnectPinger(c *C) {
 	// Kill the pinger connection and check the watch notices.
 	altConn.Close()
 	assertChange(c, watch, false)
+}
+
+func (s *PresenceSuite) TestWaitAlive(c *C) {
+	err := presence.WaitAlive(s.zkConn, path, longEnough)
+	c.Assert(err, ErrorMatches, "presence: still not alive after timeout")
+
+	// Start a pinger with a short delay so that WaitAlive() detects it.
+	go func() {
+		time.Sleep(period * 2)
+		p, err := presence.StartPinger(s.zkConn, path, period)
+		c.Assert(err, IsNil)
+		defer p.Kill()
+	}()
+
+	err = presence.WaitAlive(s.zkConn, path, longEnough)
+	c.Assert(err, IsNil)
+
+	// Use alternative connection for closing test.
+	altConn := s.connect(c)
+
+	go func() {
+		time.Sleep(period * 2)
+		altConn.Close()
+	}()
+
+	err = presence.WaitAlive(altConn, path, longEnough)
+	c.Assert(err, ErrorMatches, "presence: channel closed while waiting")
 }

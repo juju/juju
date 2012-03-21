@@ -8,10 +8,10 @@ import (
 	"launchpad.net/goamz/s3/s3test"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju/go/testing"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
+	"launchpad.net/juju/go/testing"
 )
 
 var functionalConfig = []byte(`
@@ -58,7 +58,7 @@ type localLiveSuite struct {
 }
 
 func (t *localLiveSuite) SetUpSuite(c *C) {
-	ec2.UseLocalImages(true)
+	ec2.UseTestImageData(true)
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
 	t.env = t.LiveTests.Env
@@ -70,7 +70,7 @@ func (t *localLiveSuite) TearDownSuite(c *C) {
 	t.srv.stopServer(c)
 	t.env = nil
 	ec2.ShortTimeouts(false)
-	ec2.UseLocalImages(false)
+	ec2.UseTestImageData(false)
 }
 
 // localServer represents a fake EC2 server running within
@@ -132,7 +132,7 @@ type localServerSuite struct {
 }
 
 func (t *localServerSuite) SetUpSuite(c *C) {
-	ec2.UseLocalImages(true)
+	ec2.UseTestImageData(true)
 	t.Tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
@@ -140,7 +140,7 @@ func (t *localServerSuite) SetUpSuite(c *C) {
 func (t *localServerSuite) TearDownSuite(c *C) {
 	t.Tests.TearDownSuite(c)
 	ec2.ShortTimeouts(false)
-	ec2.UseLocalImages(false)
+	ec2.UseTestImageData(false)
 }
 
 func (t *localServerSuite) SetUpTest(c *C) {
