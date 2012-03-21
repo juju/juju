@@ -74,15 +74,8 @@ func (e *environ) PutFile(file string, r io.Reader, length int64) error {
 	return nil
 }
 
-func (e *environ) GetFile(file string) (r io.ReadCloser, err error) {
-	for a := shortAttempt.start(); a.next(); {
-		r, err = e.bucket().GetReader(file)
-		if err, _ := err.(*s3.Error); err != nil && err.StatusCode == 404 {
-			continue
-		}
-		return
-	}
-	return
+func (e *environ) GetFile(file string) (io.ReadCloser, error) {
+	return e.bucket().GetReader(file)
 }
 
 func (e *environ) RemoveFile(file string) error {
