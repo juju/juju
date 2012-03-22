@@ -83,7 +83,7 @@ func (s *StateSuite) TearDownTest(c *C) {
 	s.zkConn.Close()
 }
 
-func (s StateSuite) TestInitialize(c *C) {
+func (s *StateSuite) TestInitialize(c *C) {
 	info := &state.Info{
 		Addrs: []string{state.TestingZkAddr},
 	}
@@ -105,7 +105,7 @@ func (s StateSuite) TestInitialize(c *C) {
 		}
 	}()
 
-	// wait a little while to verify that it's actually blocking
+	// Wait a little while to verify that it's actually blocking.
 	time.Sleep(200 * time.Millisecond)
 	select {
 	case err := <-errc:
@@ -126,7 +126,7 @@ func (s StateSuite) TestInitialize(c *C) {
 	}
 }
 
-func (s StateSuite) TestAddCharm(c *C) {
+func (s *StateSuite) TestAddCharm(c *C) {
 	// Check that adding charms works correctly.
 	dummyCharm := readCharm(c, "dummy")
 	curl := localCharmURL(dummyCharm)
@@ -140,7 +140,7 @@ func (s StateSuite) TestAddCharm(c *C) {
 	c.Assert(children, DeepEquals, []string{"local_3a_series_2f_dummy-1"})
 }
 
-func (s StateSuite) TestCharmAttributes(c *C) {
+func (s *StateSuite) TestCharmAttributes(c *C) {
 	// Check that the basic (invariant) fields of the charm
 	// are correctly in place.
 	_, curl := addDummyCharm(c, s.st)
@@ -164,7 +164,7 @@ func (s StateSuite) TestCharmAttributes(c *C) {
 	)
 }
 
-func (s StateSuite) TestNonExistentCharmPriorToInitialization(c *C) {
+func (s *StateSuite) TestNonExistentCharmPriorToInitialization(c *C) {
 	// Check that getting a charm before any other charm has been added fails nicely.
 	curl, err := charm.ParseURL("local:series/dummy-1")
 	c.Assert(err, IsNil)
@@ -172,7 +172,7 @@ func (s StateSuite) TestNonExistentCharmPriorToInitialization(c *C) {
 	c.Assert(err, ErrorMatches, `charm not found: "local:series/dummy-1"`)
 }
 
-func (s StateSuite) TestGetNonExistentCharm(c *C) {
+func (s *StateSuite) TestGetNonExistentCharm(c *C) {
 	// Check that getting a non-existent charm fails nicely.
 	addDummyCharm(c, s.st)
 
@@ -181,7 +181,7 @@ func (s StateSuite) TestGetNonExistentCharm(c *C) {
 	c.Assert(err, ErrorMatches, `charm not found: "local:anotherseries/dummy-1"`)
 }
 
-func (s StateSuite) TestAddMachine(c *C) {
+func (s *StateSuite) TestAddMachine(c *C) {
 	machine0, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 	c.Assert(machine0.Id(), Equals, 0)
@@ -195,7 +195,7 @@ func (s StateSuite) TestAddMachine(c *C) {
 	c.Assert(children, DeepEquals, []string{"machine-0000000000", "machine-0000000001"})
 }
 
-func (s StateSuite) TestRemoveMachine(c *C) {
+func (s *StateSuite) TestRemoveMachine(c *C) {
 	machine, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 	_, err = s.st.AddMachine()
@@ -213,7 +213,7 @@ func (s StateSuite) TestRemoveMachine(c *C) {
 	c.Assert(err, ErrorMatches, "can't remove machine 0: machine not found")
 }
 
-func (s StateSuite) TestReadMachine(c *C) {
+func (s *StateSuite) TestReadMachine(c *C) {
 	machine, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 	expectedId := machine.Id()
@@ -222,7 +222,7 @@ func (s StateSuite) TestReadMachine(c *C) {
 	c.Assert(machine.Id(), Equals, expectedId)
 }
 
-func (s StateSuite) TestReadNonExistentMachine(c *C) {
+func (s *StateSuite) TestReadNonExistentMachine(c *C) {
 	_, err := s.st.Machine(0)
 	c.Assert(err, ErrorMatches, "machine 0 not found")
 
@@ -232,7 +232,7 @@ func (s StateSuite) TestReadNonExistentMachine(c *C) {
 	c.Assert(err, ErrorMatches, "machine 1 not found")
 }
 
-func (s StateSuite) TestAllMachines(c *C) {
+func (s *StateSuite) TestAllMachines(c *C) {
 	machines, err := s.st.AllMachines()
 	c.Assert(err, IsNil)
 	c.Assert(len(machines), Equals, 0)
@@ -250,7 +250,57 @@ func (s StateSuite) TestAllMachines(c *C) {
 	c.Assert(len(machines), Equals, 2)
 }
 
-func (s StateSuite) TestAddService(c *C) {
+func (s *StateSuite) TestMachineSetAgentAlive(c *C) {
+	machine0, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	c.Assert(machine0.Id(), Equals, 0)
+
+	alive, err := machine0.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, false)
+
+	pinger, err := machine0.SetAgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(pinger, Not(IsNil))
+	defer pinger.Kill()
+
+	alive, err = machine0.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, true)
+}
+
+func (s *StateSuite) TestMachineWaitAgentAlive(c *C) {
+	timeout := 5 * time.Second
+	machine0, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	c.Assert(machine0.Id(), Equals, 0)
+
+	alive, err := machine0.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, false)
+
+	err = machine0.WaitAgentAlive(timeout)
+	c.Assert(err, ErrorMatches, `state: waiting for agent of machine 0: presence: still not alive after timeout`)
+
+	pinger, err := machine0.SetAgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(pinger, Not(IsNil))
+
+	err = machine0.WaitAgentAlive(timeout)
+	c.Assert(err, IsNil)
+
+	alive, err = machine0.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, true)
+
+	pinger.Kill()
+
+	alive, err = machine0.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, false)
+}
+
+func (s *StateSuite) TestAddService(c *C) {
 	dummy, curl := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
@@ -274,7 +324,7 @@ func (s StateSuite) TestAddService(c *C) {
 	c.Assert(url.String(), Equals, curl.String())
 }
 
-func (s StateSuite) TestRemoveService(c *C) {
+func (s *StateSuite) TestRemoveService(c *C) {
 	dummy, _ := addDummyCharm(c, s.st)
 	service, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
@@ -285,17 +335,16 @@ func (s StateSuite) TestRemoveService(c *C) {
 	c.Assert(err, ErrorMatches, `service with name "wordpress" not found`)
 }
 
-func (s StateSuite) TestReadNonExistentService(c *C) {
+func (s *StateSuite) TestReadNonExistentService(c *C) {
 	_, err := s.st.Service("pressword")
 	c.Assert(err, ErrorMatches, `service with name "pressword" not found`)
 }
 
-func (s StateSuite) TestAllServices(c *C) {
+func (s *StateSuite) TestAllServices(c *C) {
 	services, err := s.st.AllServices()
 	c.Assert(err, IsNil)
 	c.Assert(len(services), Equals, 0)
 
-	// Check that after adding services the result is ok.
 	dummy, _ := addDummyCharm(c, s.st)
 	_, err = s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
@@ -314,7 +363,7 @@ func (s StateSuite) TestAllServices(c *C) {
 	c.Assert(services[1].Name(), Equals, "mysql")
 }
 
-func (s StateSuite) TestServiceCharm(c *C) {
+func (s *StateSuite) TestServiceCharm(c *C) {
 	dummy, curl := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
@@ -332,7 +381,7 @@ func (s StateSuite) TestServiceCharm(c *C) {
 	c.Assert(testcurl.String(), Equals, "local:myseries/mydummy-1")
 }
 
-func (s StateSuite) TestServiceExposed(c *C) {
+func (s *StateSuite) TestServiceExposed(c *C) {
 	dummy, _ := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
@@ -371,7 +420,7 @@ func (s StateSuite) TestServiceExposed(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s StateSuite) TestAddUnit(c *C) {
+func (s *StateSuite) TestAddUnit(c *C) {
 	dummy, _ := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
@@ -385,7 +434,7 @@ func (s StateSuite) TestAddUnit(c *C) {
 	c.Assert(unitOne.Name(), Equals, "wordpress/1")
 }
 
-func (s StateSuite) TestReadUnit(c *C) {
+func (s *StateSuite) TestReadUnit(c *C) {
 	dummy, _ := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
@@ -427,7 +476,7 @@ func (s StateSuite) TestReadUnit(c *C) {
 	c.Assert(units[1].Name(), Equals, "wordpress/1")
 }
 
-func (s StateSuite) TestReadUnitWithChangingState(c *C) {
+func (s *StateSuite) TestReadUnitWithChangingState(c *C) {
 	dummy, _ := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
@@ -440,7 +489,7 @@ func (s StateSuite) TestReadUnitWithChangingState(c *C) {
 	c.Assert(err, ErrorMatches, `service with name "wordpress" not found`)
 }
 
-func (s StateSuite) TestRemoveUnit(c *C) {
+func (s *StateSuite) TestRemoveUnit(c *C) {
 	dummy, _ := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
@@ -463,7 +512,7 @@ func (s StateSuite) TestRemoveUnit(c *C) {
 	c.Assert(err, ErrorMatches, "environment state has changed")
 }
 
-func (s StateSuite) TestGetSetPublicAddress(c *C) {
+func (s *StateSuite) TestGetSetPublicAddress(c *C) {
 	dummy, _ := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
@@ -480,7 +529,7 @@ func (s StateSuite) TestGetSetPublicAddress(c *C) {
 	c.Assert(address, Equals, "example.foobar.com")
 }
 
-func (s StateSuite) TestGetSetPrivateAddress(c *C) {
+func (s *StateSuite) TestGetSetPrivateAddress(c *C) {
 	dummy, _ := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
@@ -497,7 +546,7 @@ func (s StateSuite) TestGetSetPrivateAddress(c *C) {
 	c.Assert(address, Equals, "example.local")
 }
 
-func (s StateSuite) TestUnitCharm(c *C) {
+func (s *StateSuite) TestUnitCharm(c *C) {
 	dummy, curl := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
@@ -517,7 +566,7 @@ func (s StateSuite) TestUnitCharm(c *C) {
 	c.Assert(testcurl.String(), Equals, "local:myseries/mydummy-1")
 }
 
-func (s StateSuite) TestUnassignUnitFromMachineWithoutBeingAssigned(c *C) {
+func (s *StateSuite) TestUnassignUnitFromMachineWithoutBeingAssigned(c *C) {
 	// When unassigning a machine from a unit, it is possible that
 	// the machine has not been previously assigned, or that it
 	// was assigned but the state changed beneath us.  In either
@@ -544,7 +593,7 @@ func (s StateSuite) TestUnassignUnitFromMachineWithoutBeingAssigned(c *C) {
 	c.Assert(err, ErrorMatches, `unit not assigned to machine`)
 }
 
-func (s StateSuite) TestAssignUnitToMachineAgainFails(c *C) {
+func (s *StateSuite) TestAssignUnitToMachineAgainFails(c *C) {
 	// Check that assigning an already assigned unit to
 	// a machine fails if it isn't precisely the same
 	// machine. 
@@ -574,7 +623,7 @@ func (s StateSuite) TestAssignUnitToMachineAgainFails(c *C) {
 	c.Assert(machineId, Equals, 0)
 }
 
-func (s StateSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
+func (s *StateSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 	// Check that unassigning while the state changes fails nicely.
 	dummy, _ := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
@@ -605,7 +654,7 @@ func (s StateSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 	c.Assert(err, ErrorMatches, "environment state has changed")
 }
 
-func (s StateSuite) TestAssignUnitToUnusedMachine(c *C) {
+func (s *StateSuite) TestAssignUnitToUnusedMachine(c *C) {
 	// Create root machine that shouldn't be useds.
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
@@ -632,7 +681,7 @@ func (s StateSuite) TestAssignUnitToUnusedMachine(c *C) {
 	c.Assert(wordpressMachine.Id(), Equals, mysqlMachine.Id())
 }
 
-func (s StateSuite) TestAssignUnitToUnusedMachineWithChangingService(c *C) {
+func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingService(c *C) {
 	// Create root machine that shouldn't be useds.
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
@@ -661,7 +710,7 @@ func (s StateSuite) TestAssignUnitToUnusedMachineWithChangingService(c *C) {
 	c.Assert(err, ErrorMatches, "environment state has changed")
 }
 
-func (s StateSuite) TestAssignUnitToUnusedMachineWithChangingUnit(c *C) {
+func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingUnit(c *C) {
 	// Create root machine that shouldn't be useds.
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
@@ -690,7 +739,7 @@ func (s StateSuite) TestAssignUnitToUnusedMachineWithChangingUnit(c *C) {
 	c.Assert(err, ErrorMatches, "environment state has changed")
 }
 
-func (s StateSuite) TestAssignUnitToUnusedMachineOnlyZero(c *C) {
+func (s *StateSuite) TestAssignUnitToUnusedMachineOnlyZero(c *C) {
 	// Create root machine that shouldn't be useds.
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
@@ -705,11 +754,11 @@ func (s StateSuite) TestAssignUnitToUnusedMachineOnlyZero(c *C) {
 	c.Assert(err, ErrorMatches, "no unused machine found")
 }
 
-func (s StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
+func (s *StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 	// Create machine 0, that shouldn't be used.
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
-	// Check that assigning without unused machine fails.   
+	// Check that assigning without unused machine fails.	
 	dummy, _ := addDummyCharm(c, s.st)
 	mysqlService, err := s.st.AddService("mysql", dummy)
 	c.Assert(err, IsNil)
@@ -729,7 +778,7 @@ func (s StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 	c.Assert(err, ErrorMatches, "no unused machine found")
 }
 
-func (s StateSuite) TestGetSetClearUnitUpgrate(c *C) {
+func (s *StateSuite) TestGetSetClearUnitUpgrate(c *C) {
 	// Check that setting and clearing an upgrade flag on a unit works.
 	dummy, _ := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
@@ -771,7 +820,7 @@ func (s StateSuite) TestGetSetClearUnitUpgrate(c *C) {
 	c.Assert(upgrade, Equals, false)
 }
 
-func (s StateSuite) TestGetSetClearResolved(c *C) {
+func (s *StateSuite) TestGetSetClearResolved(c *C) {
 	// Check that setting and clearing the resolved setting on a unit works.
 	dummy, _ := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
@@ -803,7 +852,7 @@ func (s StateSuite) TestGetSetClearResolved(c *C) {
 	c.Assert(err, ErrorMatches, `invalid error resolution mode: 999`)
 }
 
-func (s StateSuite) TestGetOpenPorts(c *C) {
+func (s *StateSuite) TestGetOpenPorts(c *C) {
 	// Check that changes to the open ports of units work porperly.
 	dummy, _ := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
@@ -864,4 +913,58 @@ func (s StateSuite) TestGetOpenPorts(c *C) {
 		{"tcp", 53},
 		{"tcp", 443},
 	})
+}
+
+func (s *StateSuite) TestUnitSetAgentAlive(c *C) {
+	dummy, _ := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	unit, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	alive, err := unit.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, false)
+
+	pinger, err := unit.SetAgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(pinger, Not(IsNil))
+	defer pinger.Kill()
+
+	alive, err = unit.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, true)
+}
+
+func (s *StateSuite) TestUnitWaitAgentAlive(c *C) {
+	timeout := 5 * time.Second
+	dummy, _ := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	unit, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	alive, err := unit.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, false)
+
+	err = unit.WaitAgentAlive(timeout)
+	c.Assert(err, ErrorMatches, `state: waiting for agent of unit "wordpress/0": presence: still not alive after timeout`)
+
+	pinger, err := unit.SetAgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(pinger, Not(IsNil))
+
+	err = unit.WaitAgentAlive(timeout)
+	c.Assert(err, IsNil)
+
+	alive, err = unit.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, true)
+
+	pinger.Kill()
+
+	alive, err = unit.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, false)
 }
