@@ -10,8 +10,8 @@ import (
 	"strings"
 )
 
-// Given the name of a principle and a password, makeIdentity
-// transforms it into an identity of the form principle_name:hash that can be
+// makeIdentity transforms the name of a principle and
+// a password into an identity of the form principle_name:hash that can be
 // used for an access control list entry.
 // This is only used for backward compatibility reasons and
 // will disappear eventually.
