@@ -6,8 +6,10 @@ package state
 
 import (
 	"fmt"
+	"launchpad.net/juju/go/state/presence"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Machine represents the state of a machine.
@@ -19,6 +21,27 @@ type Machine struct {
 // Id returns the machine id.
 func (m *Machine) Id() int {
 	return machineId(m.key)
+}
+
+// AgentAlive returns whether the respective remote agent is alive.
+func (m *Machine) AgentAlive() (bool, error) {
+	return presence.Alive(m.st.zk, m.zkAgentPath())
+}
+
+// WaitAgentAlive blocks until the respective agent is alive.
+func (m *Machine) WaitAgentAlive(timeout time.Duration) error {
+	err := presence.WaitAlive(m.st.zk, m.zkAgentPath(), timeout)
+	if err != nil {
+		return fmt.Errorf("state: waiting for agent of machine %d: %v", m.Id(), err)
+	}
+	return nil
+}
+
+// SetAgentAlive signals that the agent for machine m is alive
+// by starting a pinger on its presence node. It returns the
+// started pinger.
+func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
+	return presence.StartPinger(m.st.zk, m.zkAgentPath(), agentPingerPeriod)
 }
 
 // zkKey returns the ZooKeeper key of the machine.
