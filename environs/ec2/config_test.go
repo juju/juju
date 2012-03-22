@@ -28,7 +28,6 @@ var baseConfigResult = providerConfig{
 	region: "us-east-1",
 	bucket: "x",
 	auth:   testAuth,
-	adminSecret: "foo",
 }
 
 // configTest specifies a config parsing test, checking that env when

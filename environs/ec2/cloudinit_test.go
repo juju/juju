@@ -17,7 +17,6 @@ var _ = Suite(cloudinitSuite{})
 // output to see if it looks correct.
 var cloudinitTests = []machineConfig{
 	{
-		adminSecret:        "topsecret",
 		instanceIdAccessor: "$instance_id",
 		machineId:          "aMachine",
 		origin:             jujuOrigin{originBranch, "lp:jujubranch"},
@@ -27,7 +26,6 @@ var cloudinitTests = []machineConfig{
 		zookeeper:          true,
 	},
 	{
-		adminSecret:    "topsecret",
 		machineId:      "aMachine",
 		origin:         jujuOrigin{originDistro, ""},
 		providerType:   "ec2",
@@ -173,10 +171,6 @@ var verifyTests = []struct {
 		cfg.zookeeper = false
 		cfg.stateInfo = nil
 	}},
-	{"admin secret", func(cfg *machineConfig) {
-		cfg.zookeeper = true
-		cfg.adminSecret = ""
-	}},
 	{"zookeeper hosts", func(cfg *machineConfig) {
 		cfg.zookeeper = false
 		cfg.stateInfo = &state.Info{}
@@ -187,7 +181,6 @@ var verifyTests = []struct {
 // checked for by newCloudInit.
 func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	cfg := &machineConfig{
-		adminSecret:        "topsecret",
 		provisioner:        true,
 		zookeeper:          true,
 		instanceIdAccessor: "$instance_id",
