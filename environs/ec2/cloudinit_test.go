@@ -64,7 +64,6 @@ func (t *cloudinitTest) check(c *C) {
 	if t.cfg.provisioner {
 		t.checkScripts(c, "python -m juju.agents.provision")
 	}
-	
 }
 
 func (t *cloudinitTest) checkScripts(c *C, pattern string) {

@@ -45,7 +45,7 @@ func init() {
 	http.DefaultTransport.(*http.Transport).RegisterProtocol("file", http.NewFileTransport(http.Dir("images")))
 }
 
-func UseLocalImages(local bool) {
+func UseTestImageData(local bool) {
 	if local {
 		imagesHost = "file:"
 	} else {

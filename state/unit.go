@@ -10,8 +10,10 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
+	"launchpad.net/juju/go/state/presence"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // ResolvedMode describes the way state transition errors 
@@ -22,6 +24,13 @@ const (
 	ResolvedNone       ResolvedMode = 0
 	ResolvedRetryHooks ResolvedMode = 1000
 	ResolvedNoHooks    ResolvedMode = 1001
+)
+
+// agentPingerPeriod defines the period of pinging the
+// ZooKeeper to signal that a unit agent is alive. It's
+// also used by machine.
+const (
+	agentPingerPeriod = 1 * time.Second
 )
 
 // Port identifies a network port number for a particular protocol.
@@ -375,6 +384,27 @@ func (u *Unit) OpenPorts() ([]Port, error) {
 		return nil, err
 	}
 	return ports.Open, nil
+}
+
+// AgentAlive returns whether the respective remote agent is alive.
+func (u *Unit) AgentAlive() (bool, error) {
+	return presence.Alive(u.st.zk, u.zkAgentPath())
+}
+
+// WaitAgentAlive blocks until the respective agent is alive.
+func (u *Unit) WaitAgentAlive(timeout time.Duration) error {
+	err := presence.WaitAlive(u.st.zk, u.zkAgentPath(), timeout)
+	if err != nil {
+		return fmt.Errorf("state: waiting for agent of unit %q: %v", u.Name(), err)
+	}
+	return nil
+}
+
+// SetAgentAlive signals that the agent for unit u is alive
+// by starting a pinger on its presence node. It returns the
+// started pinger.
+func (u *Unit) SetAgentAlive() (*presence.Pinger, error) {
+	return presence.StartPinger(u.st.zk, u.zkAgentPath(), agentPingerPeriod)
 }
 
 // zkKey returns the ZooKeeper key of the unit.
