@@ -43,7 +43,6 @@ func (environProvider) ConfigChecker() schema.Checker {
 				"authorized-keys":      schema.String(),
 				"authorized-keys-path": schema.String(),
 				"juju-origin": schema.String(),
-				"admin-secret": schema.String(),
 			}, []string{
 				"access-key",
 				"secret-key",

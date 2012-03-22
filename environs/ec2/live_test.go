@@ -26,7 +26,6 @@ environments:
     type: ec2
     control-bucket: 'juju-test-%s'
     juju-origin: distro
-    admin-secret: sham
 `, uniqueName, uniqueName)
 
 // uniqueName is generated afresh for every test, so that

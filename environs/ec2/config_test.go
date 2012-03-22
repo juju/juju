@@ -21,7 +21,7 @@ var configTestRegion = aws.Region{
 var testAuth = aws.Auth{"gopher", "long teeth"}
 
 // the mandatory fields in config.
-var baseConfig = "control-bucket: x\nadmin-secret: foo\n"
+var baseConfig = "control-bucket: x\n"
 
 // the result of parsing baseConfig.
 var baseConfigResult = providerConfig{
@@ -84,11 +84,6 @@ var configTests = []configTest{
 		"control-bucket: 666\n",
 		nil,
 		".*expected string, got 666",
-	},
-	{
-		"control-bucket: x\n",
-		nil,
-		".*admin-secret: expected string, got nothing",
 	},
 	{
 		"access-key: jujuer\nsecret-key: open sesame\n" + baseConfig,
