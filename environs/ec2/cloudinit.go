@@ -231,6 +231,19 @@ func (l *lines) nextWithPrefix(prefix string) (string, bool) {
 
 var fallbackOrigin = jujuOrigin{originDistro, ""}
 
+func parseOrigin(s string) (jujuOrigin, error) {
+	switch s {
+	case "distro":
+		return jujuOrigin{originDistro, ""}, nil
+	case "ppa":
+		return jujuOrigin{originPPA, ""}, nil
+	}
+	if !strings.HasPrefix(s, "lp:") {
+		return jujuOrigin{}, fmt.Errorf("unknown juju origin %q", s)
+	}
+	return jujuOrigin{originBranch, s}, nil
+}
+
 // defaultOrigin selects the best fit for running juju on cloudinit.
 // It is used only if the origin is not otherwise specified
 // in Config.origin.
