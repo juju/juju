@@ -12,11 +12,6 @@ import (
 
 type authSuite struct{}
 
-func (authSuite) TestMakeIdentity(c *C) {
-	id := ec2.MakeIdentity("juju", "cloud")
-	c.Assert(id, Equals, "juju:gRGt5ZoxuwbrkoYErwi1DbjlPl4=")
-}
-
 func blankLine(k string) bool {
 	// TODO treat "\r" as blank?
 	return len(k) == 0 || k[0] == '#'
