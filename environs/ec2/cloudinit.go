@@ -128,7 +128,7 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 		addScripts(c,
 			"juju-admin initialize"+
 				" --instance-id="+shquote(cfg.instanceIdAccessor)+
-				" --admin-identity=sham"+
+				" --admin-identity="+shquote(makeIdentity("admin", "sham"))+
 				" --provider-type="+shquote(cfg.providerType),
 		)
 	}

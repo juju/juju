@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju/go/log"
 	"strings"
 	"time"
 )
@@ -28,6 +29,7 @@ func Open(info *Info) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("state: waiting for state to be initialized")
 	err = st.waitForInitialization(3 * time.Minute)
 	if err != nil {
 		return nil, err
@@ -36,6 +38,7 @@ func Open(info *Info) (*State, error) {
 }
 
 func open(info *Info) (*State, error) {
+	log.Printf("state: opening state; zookeeper addresses: %q", info.Addrs)
 	if len(info.Addrs) == 0 {
 		return nil, fmt.Errorf("no zookeeper addresses")
 	}
@@ -60,6 +63,7 @@ func Initialize(info *Info) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("state: initializing zookeeper")
 	err = st.initialize()
 	if err != nil {
 		st.Close()

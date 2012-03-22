@@ -30,11 +30,10 @@ var baseConfigResult = providerConfig{
 	auth:   testAuth,
 }
 
-// configTest specifies a config parsing test,
-// checking that env when parsed as the ec2
-// section of a config file matches baseConfigResult
-// when mutated by the mutate function,
-// or that the parse matches the given error.
+// configTest specifies a config parsing test, checking that env when
+// parsed as the ec2 section of a config file matches baseConfigResult
+// when mutated by the mutate function, or that the parse matches the
+// given error.
 type configTest struct {
 	env    string
 	mutate func(*providerConfig)
