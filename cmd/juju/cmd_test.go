@@ -6,9 +6,11 @@ import (
 	main "launchpad.net/juju/go/cmd/juju"
 )
 
-type BootstrapSuite struct{}
+type suite struct{}
 
-var _ = Suite(&BootstrapSuite{})
+var _ = Suite(suite{})
+
+func (suite) Test
 
 func checkEnv(c *C, args []string, expect string) {
 	bc := &main.BootstrapCommand{}
@@ -17,7 +19,30 @@ func checkEnv(c *C, args []string, expect string) {
 	c.Assert(bc.Environment, Equals, expect)
 }
 
-func (s *BootstrapSuite) TestEnvironment(c *C) {
+type cmdParseTest = []struct {
+	c cmd.Command
+	args []string
+	check func(*C, cmd.Command, error)
+} {{
+	&BootstrapCommand{},
+	[]string{"hotdog"},
+	func(c *C, com cmd.Command, err error){
+		c.Assert(err, ErrorMatches, `unrecognised args: \[hotdog\]`)
+	},
+}, {
+	&BootstrapCommand{},
+	[]string{},
+}, {
+	&BootstrapCommand{},
+	[]string{"-e", "walthamstow"},
+}, {
+	&BootstrapCommand{},
+	[]
+	
+		bc := com.(*BootstrapCommand)
+		c.Assert(b
+
+func (suite) TestBootstrapEnvironment(c *C) {
 	bc := &main.BootstrapCommand{}
 	c.Assert(bc.Environment, Equals, "")
 	err := cmd.Parse(bc, []string{"hotdog"})

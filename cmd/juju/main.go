@@ -5,6 +5,11 @@ import (
 	"os"
 )
 
+// Environment types to include.
+import (
+	_ "launchpad.net/juju/go/environs/ec2"
+)
+
 var jujuDoc = `
 juju provides easy, intelligent service orchestration on top of environments
 such as OpenStack, Amazon AWS, or bare metal.
