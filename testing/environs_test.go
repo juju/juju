@@ -1,11 +1,12 @@
 package testing_test
+
 import (
+	"fmt"
 	. "launchpad.net/gocheck"
-	_ "launchpad.net/juju/go/testing"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/jujutest"
+	_ "launchpad.net/juju/go/testing"
 	stdtesting "testing"
-	"fmt"
 )
 
 func init() {
@@ -21,11 +22,11 @@ environments:
 	}
 	Suite(jujutest.LiveTests{
 		Environs: envs,
-		Name: "only",
+		Name:     "only",
 	})
 	Suite(jujutest.Tests{
 		Environs: envs,
-		Name: "only",
+		Name:     "only",
 	})
 }
 

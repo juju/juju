@@ -6,11 +6,12 @@
 // Note that this file contains no tests as such - it is
 // just used by the testing code.
 package testing
+
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"bytes"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/schema"
 	"launchpad.net/juju/go/state"
@@ -31,24 +32,24 @@ const (
 // testEenvirons represents the testing provider.  There is only ever one
 // instance of this type (testingEnvirons)
 type testEenvirons struct {
-	mu sync.Mutex
+	mu    sync.Mutex
 	state *environState
-	ops chan<- EnvOp
+	ops   chan<- EnvOp
 }
 
 // environState represents the state of an environment.
 // It can be shared between several environ insts,
 // so that a given environment can be opened several times.
 type environState struct {
-	mu sync.Mutex
-	n        int // instance count
+	mu    sync.Mutex
+	n     int // instance count
 	insts map[string]*instance
-	files map[string] []byte
+	files map[string][]byte
 }
 
 func newState() *environState {
 	return &environState{
-		insts: make(map[string] *instance),
+		insts: make(map[string]*instance),
 		files: make(map[string][]byte),
 	}
 }
@@ -102,16 +103,16 @@ func (e *testEenvirons) Open(name string, attributes interface{}) (environs.Envi
 	defer e.mu.Unlock()
 	cfg := attributes.(schema.MapType)
 	return &environ{
-		baseName:  cfg["basename"].(string),
-		ops: e.ops,
-		state: e.state,
+		baseName: cfg["basename"].(string),
+		ops:      e.ops,
+		state:    e.state,
 	}, nil
 }
 
 type environ struct {
-	ops chan <- EnvOp
+	ops      chan<- EnvOp
 	baseName string
-	state *environState
+	state    *environState
 }
 
 func (e *environ) Bootstrap() error {
@@ -213,4 +214,3 @@ func (m *instance) DNSName() (string, error) {
 func (m *instance) WaitDNSName() (string, error) {
 	return m.DNSName()
 }
-
