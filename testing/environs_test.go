@@ -14,7 +14,7 @@ func init() {
 environments:
     only:
         type: testing
-        basename: foo
+        name: foo
 `
 	envs, err := environs.ReadEnvironsBytes([]byte(config))
 	if err != nil {

@@ -43,11 +43,11 @@ environments:
 environments:
     only:
         type: testing
-        basename: foo
+        name: foo
 `, func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, IsNil)
-		checkEnvironBasename(c, e, "foo")
+		checkEnvironName(c, e, "foo")
 	},
 	},
 	// several environments, no defaults -> parse ok, instantiate maybe error
@@ -55,16 +55,16 @@ environments:
 environments:
     one:
         type: testing
-        basename: foo
+        name: foo
     two:
         type: testing
-        basename: bar
+        name: bar
 `, func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, NotNil)
 		e, err = es.Open("one")
 		c.Assert(err, IsNil)
-		checkEnvironBasename(c, e, "foo")
+		checkEnvironName(c, e, "foo")
 	},
 	},
 	// several environments, default -> parse ok, instantiate ok
@@ -74,26 +74,26 @@ default:
 environments:
     one:
         type: testing
-        basename: foo
+        name: foo
     two:
         type: testing
-        basename: bar
+        name: bar
 `, func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, IsNil)
-		checkEnvironBasename(c, e, "bar")
+		checkEnvironName(c, e, "bar")
 	},
 	},
 }
 
-// checkEnvironBasename checks that a new instance started
-// by the given Environ has an id starting with basename,
+// checkEnvironName checks that a new instance started
+// by the given Environ has an id starting with name,
 // which implies that it is the expected environment.
-func checkEnvironBasename(c *C, e environs.Environ, basename string) {
+func checkEnvironName(c *C, e environs.Environ, name string) {
 	i0, err := e.StartInstance(0, nil)
 	c.Assert(err, IsNil)
 	c.Assert(i0, NotNil)
-	c.Assert(i0.Id(), Matches, basename+".*")
+	c.Assert(i0.Id(), Matches, name+".*")
 }
 
 func (suite) TestConfig(c *C) {
@@ -126,7 +126,7 @@ func (suite) TestConfigFile(c *C) {
 environments:
     only:
         type: testing
-        basename: foo
+        name: foo
 `
 	err = ioutil.WriteFile(path, []byte(env), 0666)
 	c.Assert(err, IsNil)
@@ -136,7 +136,7 @@ environments:
 	c.Assert(err, IsNil)
 	e, err := es.Open("")
 	c.Assert(err, IsNil)
-	checkEnvironBasename(c, e, "foo")
+	checkEnvironName(c, e, "foo")
 
 	// test reading from the default environments.yaml file.
 	h := os.Getenv("HOME")
@@ -146,7 +146,7 @@ environments:
 	c.Assert(err, IsNil)
 	e, err = es.Open("")
 	c.Assert(err, IsNil)
-	checkEnvironBasename(c, e, "foo")
+	checkEnvironName(c, e, "foo")
 
 	// reset $HOME just in case something else relies on it.
 	os.Setenv("HOME", h)
