@@ -55,8 +55,8 @@ func (t *cloudinitTest) check(c *C) {
 		t.checkScripts(c, "juju-admin initialize")
 		t.checkScripts(c, regexp.QuoteMeta(t.cfg.instanceIdAccessor))
 		t.checkScripts(c, "ZOOKEEPER='localhost"+zkPortSuffix+"' ")
-	}else{
-		t.checkScripts(c, "ZOOKEEPER='" + strings.Join(t.cfg.stateInfo.Addrs, ",") + "' ")
+	} else {
+		t.checkScripts(c, "ZOOKEEPER='"+strings.Join(t.cfg.stateInfo.Addrs, ",")+"' ")
 	}
 	if t.cfg.origin != (jujuOrigin{}) && t.cfg.origin.origin == originDistro {
 		t.checkScripts(c, "apt-get.*install juju")
