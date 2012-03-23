@@ -274,3 +274,14 @@ func Quote(unsafe string) string {
 	}
 	return string(safe)
 }
+
+// singleEventChan creates a ZooKeeper event channel with an
+// initial event for the usage inside of watchers.
+func singleEventChan(eventType int) <-chan zookeeper.Event {
+	eventChan := make(chan zookeeper.Event, 1)
+	eventChan <- zookeeper.Event{
+		State: zookeeper.STATE_CONNECTED,
+		Type:  eventType,
+	}
+	return eventChan
+}
