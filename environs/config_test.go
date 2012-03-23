@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
+	_ "launchpad.net/juju/go/testing"
 	"os"
 	"path/filepath"
 )
@@ -33,7 +34,7 @@ environments:
 	{`
 environments:
     only:
-        type: dummy
+        type: testing
         badattr: anything
 `, nil,
 	},
@@ -41,29 +42,29 @@ environments:
 	{`
 environments:
     only:
-        type: dummy
+        type: testing
         basename: foo
 `, func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, IsNil)
-		checkDummyEnviron(c, e, "foo")
+		checkEnvironBasename(c, e, "foo")
 	},
 	},
 	// several environments, no defaults -> parse ok, instantiate maybe error
 	{`
 environments:
     one:
-        type: dummy
+        type: testing
         basename: foo
     two:
-        type: dummy
+        type: testing
         basename: bar
 `, func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, NotNil)
 		e, err = es.Open("one")
 		c.Assert(err, IsNil)
-		checkDummyEnviron(c, e, "foo")
+		checkEnvironBasename(c, e, "foo")
 	},
 	},
 	// several environments, default -> parse ok, instantiate ok
@@ -72,56 +73,27 @@ default:
     two
 environments:
     one:
-        type: dummy
+        type: testing
         basename: foo
     two:
-        type: dummy
+        type: testing
         basename: bar
 `, func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, IsNil)
-		checkDummyEnviron(c, e, "bar")
+		checkEnvironBasename(c, e, "bar")
 	},
 	},
 }
 
-func checkDummyEnviron(c *C, e environs.Environ, basename string) {
+// checkEnvironBasename checks that a new instance started
+// by the given Environ has an id starting with basename,
+// which implies that it is the expected environment.
+func checkEnvironBasename(c *C, e environs.Environ, basename string) {
 	i0, err := e.StartInstance(0, nil)
 	c.Assert(err, IsNil)
 	c.Assert(i0, NotNil)
-	addr, err := i0.DNSName()
-	c.Assert(err, IsNil)
-	c.Assert(addr, Equals, basename+"-0.foo")
-
-	is, err := e.Instances([]string{i0.Id()})
-	c.Assert(err, IsNil)
-	c.Assert(is, HasLen, 1)
-	c.Assert(is[0].Id(), Equals, i0.Id())
-
-	i1, err := e.StartInstance(1, nil)
-	c.Assert(err, IsNil)
-	c.Assert(i1, NotNil)
-	addr, err = i1.DNSName()
-	c.Assert(err, IsNil)
-	c.Assert(addr, Equals, basename+"-1.foo")
-
-	is, err = e.Instances([]string{i0.Id(), i1.Id()})
-	c.Assert(err, IsNil)
-	c.Assert(is, HasLen, 2)
-	c.Assert(is[0].Id(), Equals, i0.Id())
-	c.Assert(is[1].Id(), Equals, i1.Id())
-
-	err = e.StopInstances([]environs.Instance{i0})
-	c.Assert(err, IsNil)
-
-	is, err = e.Instances([]string{i0.Id(), i1.Id()})
-	c.Assert(err, Equals, environs.ErrPartialInstances)
-	c.Assert(is, HasLen, 2)
-	c.Assert(is[0], IsNil)
-	c.Assert(is[1].Id(), Equals, i1.Id())
-
-	err = e.Destroy(nil)
-	c.Assert(err, IsNil)
+	c.Assert(i0.Id(), Matches, basename+".*")
 }
 
 func (suite) TestConfig(c *C) {
@@ -153,7 +125,7 @@ func (suite) TestConfigFile(c *C) {
 	env := `
 environments:
     only:
-        type: dummy
+        type: testing
         basename: foo
 `
 	err = ioutil.WriteFile(path, []byte(env), 0666)
@@ -164,7 +136,7 @@ environments:
 	c.Assert(err, IsNil)
 	e, err := es.Open("")
 	c.Assert(err, IsNil)
-	checkDummyEnviron(c, e, "foo")
+	checkEnvironBasename(c, e, "foo")
 
 	// test reading from the default environments.yaml file.
 	h := os.Getenv("HOME")
@@ -174,7 +146,7 @@ environments:
 	c.Assert(err, IsNil)
 	e, err = es.Open("")
 	c.Assert(err, IsNil)
-	checkDummyEnviron(c, e, "foo")
+	checkEnvironBasename(c, e, "foo")
 
 	// reset $HOME just in case something else relies on it.
 	os.Setenv("HOME", h)
