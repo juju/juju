@@ -4,13 +4,35 @@ import (
 	"io/ioutil"
 	"launchpad.net/gozk/zookeeper"
 	"os"
+	"time"
+	"math/rand"
 	pathpkg "path"
 )
 
-var ZkPort = 21812
-
 type Fatalfer interface {
 	Fatalf(format string, args ...interface{})
+}
+
+var randomPorts = make(chan int)
+func init() {
+	go func() {
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		for {
+			randomPorts <- r.Intn(65536 - 1025) + 1025
+		}
+	}()
+}
+
+func chooseZkPort() int {
+	for i := 0; i < 10; i++ {
+		p := <-randomPorts
+		l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p))
+		if err == nil {
+			l.Close()
+			return p
+		}
+	}
+	panic("too many attempts trying to find a port for zookeeper")
 }
 
 // StartZkServer starts a ZooKeeper server in a temporary directory.
