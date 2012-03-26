@@ -7,7 +7,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju/go/testing"
 )
 
 type TopologySuite struct {
@@ -31,7 +30,8 @@ func (s *TopologySuite) SetUpSuite(c *C) {
 }
 
 func (s *TopologySuite) TearDownSuite(c *C) {
-	testing.ZkRemoveTree(c, s.zkConn, "/")
+	err := zkRemoveTree(s.zkConn, "/")
+	c.Assert(err, IsNil)
 	s.zkConn.Close()
 }
 
@@ -43,7 +43,8 @@ func (s *TopologySuite) SetUpTest(c *C) {
 
 func (s *TopologySuite) TearDownTest(c *C) {
 	// Clear out the topology node.
-	testing.ZkRemoveTree(c, s.zkConn, "/topology")
+	err := zkRemoveTree(s.zkConn, "/topology")
+	c.Assert(err, IsNil)
 }
 
 func (s *TopologySuite) TestAddMachine(c *C) {
@@ -472,13 +473,15 @@ func (s *ConfigNodeSuite) SetUpSuite(c *C) {
 }
 
 func (s *ConfigNodeSuite) TearDownSuite(c *C) {
-	testing.ZkRemoveTree(c, s.zkConn, "/")
+	err := zkRemoveTree(s.zkConn, "/")
+	c.Assert(err, IsNil)
 	s.zkConn.Close()
 }
 
 func (s *ConfigNodeSuite) TearDownTest(c *C) {
 	// Delete the config node path.
-	zkRemoveTree(s.zkConn, s.path)
+	err := zkRemoveTree(s.zkConn, s.path)
+	c.Assert(err, IsNil)
 }
 
 func (s *ConfigNodeSuite) TestCreateEmptyConfigNode(c *C) {
