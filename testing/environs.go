@@ -45,7 +45,6 @@ type environState struct {
 	files map[string][]byte
 }
 
-
 var testingEnvirons testEenvirons
 
 // DiscardEnvOps can be used to pass to ListenEnvirons.
