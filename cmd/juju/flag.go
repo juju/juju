@@ -1,7 +1,8 @@
 package main
+
 import (
-	"launchpad.net/juju/go/juju"
 	"launchpad.net/gnuflag"
+	"launchpad.net/juju/go/juju"
 )
 
 // conn holds a juju connection and implements
@@ -9,7 +10,7 @@ import (
 // flags.
 type conn struct {
 	envName string
-	Conn *juju.Conn
+	Conn    *juju.Conn
 }
 
 // InitFlagSet defines the -e and -environment flags.

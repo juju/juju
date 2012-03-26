@@ -108,7 +108,6 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 	c.Assert(string(content), Matches, fullmsg)
 }
 
-
 var commandNames = []string{
 	"bootstrap",
 	"destroy-environment",

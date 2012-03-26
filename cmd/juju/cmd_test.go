@@ -1,11 +1,11 @@
 package main_test
 
 import (
+	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/cmd"
 	main "launchpad.net/juju/go/cmd/juju"
 	"launchpad.net/juju/go/testing"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 )
@@ -48,43 +48,55 @@ func (s *suite) TearDownTest(c *C) {
 }
 
 var cmdTests = []struct {
-	cmd cmd.Command
-	args []string
-	ops []testing.EnvOp
+	cmd      cmd.Command
+	args     []string
+	ops      []testing.EnvOp
 	parseErr string
-	runErr string
-} {
-// In the first few tests, we fully test the --environment
-// flag. In the others we do only a rudimentary test,
-// because we know that it's always implemented by
-// embedding a conn type, so checking that -e
-// works correctly is sufficient to infer that the other
-// behaviours work too.
-{
-	&main.BootstrapCommand{},
-	[]string{"hotdog"},
-	nil,
-	`unrecognised args: \[hotdog\]`,
-	"",
-}, {
-	&main.BootstrapCommand{},
-	[]string{},
-	envOps("peckham", testing.EnvBootstrap),
-	"",
-	"",
-}, {
-	&main.BootstrapCommand{},
-	[]string{"-e", "walthamstow"},
-	envOps("walthamstow", testing.EnvBootstrap),
-	"",
-	"",
-}, {
-	&main.BootstrapCommand{},
-	[]string{"-e", "walthamstow"},
-	envOps("walthamstow", testing.EnvBootstrap),
-	"",
-	"",
-},
+	runErr   string
+}{
+	// In the first few tests, we fully test the --environment
+	// flag. In the others we do only a rudimentary test,
+	// because we know that it's always implemented by
+	// embedding a conn type, so checking that -e
+	// works correctly is sufficient to infer that the other
+	// behaviours work too.
+	{
+		&main.BootstrapCommand{},
+		[]string{"hotdog"},
+		nil,
+		`unrecognised args: \[hotdog\]`,
+		"",
+	}, {
+		&main.BootstrapCommand{},
+		[]string{},
+		envOps("peckham", testing.EnvBootstrap),
+		"",
+		"",
+	}, {
+		&main.BootstrapCommand{},
+		[]string{"-e", "walthamstow"},
+		envOps("walthamstow", testing.EnvBootstrap),
+		"",
+		"",
+	}, {
+		&main.BootstrapCommand{},
+		[]string{"-e", "walthamstow"},
+		envOps("walthamstow", testing.EnvBootstrap),
+		"",
+		"",
+	}, {
+		&main.DestroyCommand{},
+		[]string{},
+		envOps("peckham", testing.EnvDestroy),
+		"",
+		"",
+	}, {
+		&main.DestroyCommand{},
+		[]string{"-e", "walthamstow"},
+		envOps("walthamstow", testing.EnvDestroy),
+		"",
+		"",
+	},
 }
 
 func (*suite) TestCommands(c *C) {
