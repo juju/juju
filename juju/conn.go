@@ -38,5 +38,5 @@ func (c *Conn) Bootstrap() error {
 
 // Destroy destroys the Conn's environment and all its instances.
 func (c *Conn) Destroy() error {
-	return c.Environ.Destroy()
+	return c.Environ.Destroy(nil)
 }

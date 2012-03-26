@@ -1,10 +1,7 @@
 package main
 
 import (
-	"fmt"
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/cmd"
-	"launchpad.net/juju/go/juju"
 )
 
 // DestroyCommand destroys an environment.
@@ -21,10 +18,13 @@ func (c *DestroyCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *DestroyCommand) ParsePositional(args []string) error {
+func (c *conn) ParsePositional(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
 func (c *DestroyCommand) Run() error {
-	return c.conn.Destroy()
+	if err := c.InitConn(); err != nil {
+		return err
+	}
+	return c.Conn.Destroy()
 }

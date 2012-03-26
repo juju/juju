@@ -38,7 +38,7 @@ type Command interface {
 	// Info returns information about the command.
 	Info() *Info
 
-	// InitFlagSet prepares a FlagSet such that Parse~ing that FlagSet will
+	// InitFlagSet prepares a FlagSet such that Parsing that FlagSet will
 	// initialize the Command's options.
 	InitFlagSet(f *gnuflag.FlagSet)
 

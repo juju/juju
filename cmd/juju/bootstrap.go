@@ -1,10 +1,7 @@
 package main
 
 import (
-	"fmt"
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/cmd"
-	"launchpad.net/juju/go/juju"
 )
 
 // BootstrapCommand is responsible for launching the first machine in a juju
@@ -27,5 +24,8 @@ func (c *BootstrapCommand) ParsePositional(args []string) error {
 }
 
 func (c *BootstrapCommand) Run() error {
-	return c.conn.Bootstrap()
+	if err := c.InitConn(); err != nil {
+		return err
+	}
+	return c.Conn.Bootstrap()
 }

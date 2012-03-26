@@ -1,10 +1,3 @@
-// Dummy is a bare minimum environs that doesn't actually do anything.
-// The configuration requires a single value, "basename", which
-// is used as the base name of any machines that are "created".
-// It has no persistent state.
-//
-// Note that this file contains no tests as such - it is
-// just used by the testing code.
 package testing
 
 import (
@@ -18,11 +11,16 @@ import (
 	"sync"
 )
 
+type EnvOp struct {
+	Kind EnvOpKind
+	Name string
+}
+
 // EnvOp represents an action on the testing provider.
-type EnvOp int
+type EnvOpKind int
 
 const (
-	_ EnvOp = iota
+	_ EnvOpKind = iota
 	EnvBootstrap
 	EnvDestroy
 	EnvStartInstance
@@ -47,52 +45,60 @@ type environState struct {
 	files map[string][]byte
 }
 
-func newState() *environState {
-	return &environState{
-		insts: make(map[string]*instance),
-		files: make(map[string][]byte),
-	}
-}
 
 var testingEnvirons testEenvirons
+
+// DiscardEnvOps can be used to pass to ListenEnvirons.
+// It discards all EnvOps written to it.
+var DiscardEnvOps chan<- EnvOp
 
 func init() {
 	environs.RegisterProvider("testing", &testingEnvirons)
 
 	// Prime the first ops channel, so that naive clients can use
 	// the testing environment by simply importing it.
-	ops := make(chan EnvOp)
+	c := make(chan EnvOp)
 	go func() {
-		for _ = range ops {
+		for _ = range c {
 		}
 	}()
-	testingEnvirons.ops = ops
-	testingEnvirons.state = newState()
+	DiscardEnvOps = c
+	ListenEnvirons(DiscardEnvOps)
 }
 
 // ListenEnvirons registers the given channel to receive operations
 // executed when the "testing" provider type is subsequently opened.
 // The opened environment will be freshly created for the
 // next Open.
+// The previously registered channel will be closed,
+// unless it was nil, and so will panic if any values are sent to it.
 // 
 // The configuration YAML for the testing environment
-// must specify a "basename" property. Instance ids will
-// start with this value.
+// must specify a "name" property. Instance ids will
+// start with this value, and the values sent on the channel
+// will contain it.
 // 
 // The DNS name of insts is the same as the Id,
 // with ".dns" appended.
 func ListenEnvirons(c chan<- EnvOp) {
 	testingEnvirons.mu.Lock()
+	defer testingEnvirons.mu.Unlock()
+	if testingEnvirons.ops != nil {
+		close(testingEnvirons.ops)
+	}
 	testingEnvirons.ops = c
-	testingEnvirons.state = newState()
-	testingEnvirons.mu.Unlock()
+	testingEnvirons.state = &environState{
+		insts: make(map[string]*instance),
+		files: make(map[string][]byte),
+	}
+
 }
 
 func (e *testEenvirons) ConfigChecker() schema.Checker {
 	return schema.FieldMap(
 		schema.Fields{
-			"type":     schema.Const("testing"),
-			"basename": schema.String(),
+			"type": schema.Const("testing"),
+			"name": schema.String(),
 		},
 		nil,
 	)
@@ -103,20 +109,20 @@ func (e *testEenvirons) Open(name string, attributes interface{}) (environs.Envi
 	defer e.mu.Unlock()
 	cfg := attributes.(schema.MapType)
 	return &environ{
-		baseName: cfg["basename"].(string),
-		ops:      e.ops,
-		state:    e.state,
+		name:  cfg["name"].(string),
+		ops:   e.ops,
+		state: e.state,
 	}, nil
 }
 
 type environ struct {
-	ops      chan<- EnvOp
-	baseName string
-	state    *environState
+	ops   chan<- EnvOp
+	name  string
+	state *environState
 }
 
 func (e *environ) Bootstrap() error {
-	e.ops <- EnvBootstrap
+	e.ops <- EnvOp{EnvBootstrap, e.name}
 	return nil
 }
 
@@ -126,16 +132,16 @@ func (*environ) StateInfo() (*state.Info, error) {
 }
 
 func (e *environ) Destroy([]environs.Instance) error {
-	e.ops <- EnvDestroy
+	e.ops <- EnvOp{EnvDestroy, e.name}
 	return nil
 }
 
 func (e *environ) StartInstance(machineId int, _ *state.Info) (environs.Instance, error) {
-	e.ops <- EnvStartInstance
+	e.ops <- EnvOp{EnvStartInstance, e.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	i := &instance{
-		id: fmt.Sprintf("%s-%d", e.baseName, e.state.n),
+		id: fmt.Sprintf("%s-%d", e.name, e.state.n),
 	}
 	e.state.insts[i.id] = i
 	e.state.n++
@@ -143,7 +149,7 @@ func (e *environ) StartInstance(machineId int, _ *state.Info) (environs.Instance
 }
 
 func (e *environ) StopInstances(is []environs.Instance) error {
-	e.ops <- EnvStopInstances
+	e.ops <- EnvOp{EnvStopInstances, e.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	for _, i := range is {

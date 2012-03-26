@@ -1,6 +1,5 @@
 package main
 import (
-	"fmt"
 	"launchpad.net/juju/go/juju"
 	"launchpad.net/gnuflag"
 )
@@ -9,23 +8,18 @@ import (
 // cmd.Command.InitFlagSet to define the -e and --environment
 // flags.
 type conn struct {
+	envName string
 	Conn *juju.Conn
 }
 
-// connFlag is used instead of conn so that types
-// embedding conn don't gain an inappropriate
-// Set method.
-type connFlag conn
-
+// InitFlagSet defines the -e and -environment flags.
 func (c *conn) InitFlagSet(f *gnuflag.FlagSet) {
-	f.StringVar((*connFlag)(c), "e", "", "juju environment to operate in")
-	f.StringVar((*connFlag)(c), "environment", "", "")
+	f.StringVar(&c.envName, "e", "", "juju environment to operate in")
+	f.StringVar(&c.envName, "environment", "", "")
 }
 
-func (c *connFlag) Set(value string) (err error) {
-	c.Conn, err = juju.NewConn(value)
-	if err != nil {
-		err = fmt.Errorf("error opening environment: %v", err)
-	}
+// InitConn opens the environment and sets c.Conn to it.
+func (c *conn) InitConn() (err error) {
+	c.Conn, err = juju.NewConn(c.envName)
 	return
 }
