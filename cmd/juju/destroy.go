@@ -18,7 +18,7 @@ func (c *DestroyCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *conn) ParsePositional(args []string) error {
+func (c *DestroyCommand) ParsePositional(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 

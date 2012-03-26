@@ -23,6 +23,7 @@ https://juju.ubuntu.com/
 func Main(args []string) {
 	jc := cmd.NewSuperCommand("juju", jujuDoc)
 	jc.Register(&BootstrapCommand{})
+	jc.Register(&DestroyCommand{})
 	cmd.Main(jc, args)
 }
 
