@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
-	"sort"
 	pathpkg "path"
+	"sort"
 )
 
 var (
