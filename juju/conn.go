@@ -13,7 +13,7 @@ var (
 // Conn holds a connection to a juju.
 type Conn struct {
 	// TODO extend to hold a *state.State.
-	Environ environs.Environ
+	environ environs.Environ
 }
 
 // NewConn returns a Conn pointing at the environName environment, or the
@@ -33,10 +33,10 @@ func NewConn(environName string) (*Conn, error) {
 // Bootstrap initializes the Conn's environment and makes it ready to deploy
 // services.
 func (c *Conn) Bootstrap() error {
-	return c.Environ.Bootstrap()
+	return c.environ.Bootstrap()
 }
 
 // Destroy destroys the Conn's environment and all its instances.
 func (c *Conn) Destroy() error {
-	return c.Environ.Destroy(nil)
+	return c.environ.Destroy(nil)
 }
