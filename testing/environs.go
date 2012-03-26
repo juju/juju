@@ -45,33 +45,33 @@ type environState struct {
 	files map[string][]byte
 }
 
-func newState() *environState {
-	return &environState{
-		insts: make(map[string]*instance),
-		files: make(map[string][]byte),
-	}
-}
 
 var testingEnvirons testEenvirons
+
+// DiscardEnvOps can be used to pass to ListenEnvirons.
+// It discards all EnvOps written to it.
+var DiscardEnvOps chan<- EnvOp
 
 func init() {
 	environs.RegisterProvider("testing", &testingEnvirons)
 
 	// Prime the first ops channel, so that naive clients can use
 	// the testing environment by simply importing it.
-	ops := make(chan EnvOp)
+	c := make(chan EnvOp)
 	go func() {
-		for _ = range ops {
+		for _ = range c {
 		}
 	}()
-	testingEnvirons.ops = ops
-	testingEnvirons.state = newState()
+	DiscardEnvOps = c
+	ListenEnvirons(DiscardEnvOps)
 }
 
 // ListenEnvirons registers the given channel to receive operations
 // executed when the "testing" provider type is subsequently opened.
 // The opened environment will be freshly created for the
 // next Open.
+// The previously registered channel will be closed,
+// unless it was nil, and so will panic if any values are sent to it.
 // 
 // The configuration YAML for the testing environment
 // must specify a "name" property. Instance ids will
@@ -82,9 +82,16 @@ func init() {
 // with ".dns" appended.
 func ListenEnvirons(c chan<- EnvOp) {
 	testingEnvirons.mu.Lock()
+	defer testingEnvirons.mu.Unlock()
+	if testingEnvirons.ops != nil {
+		close(testingEnvirons.ops)
+	}
 	testingEnvirons.ops = c
-	testingEnvirons.state = newState()
-	testingEnvirons.mu.Unlock()
+	testingEnvirons.state = &environState{
+		insts: make(map[string]*instance),
+		files: make(map[string][]byte),
+	}
+
 }
 
 func (e *testEenvirons) ConfigChecker() schema.Checker {
