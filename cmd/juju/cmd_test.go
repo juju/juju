@@ -143,7 +143,7 @@ func envOps(name string, events ...dummy.OperationKind) []dummy.Operation {
 	for i, e := range events {
 		ops[i] = dummy.Operation{
 			EnvironName: name,
-			Kind: e,
+			Kind:        e,
 		}
 	}
 	return ops
