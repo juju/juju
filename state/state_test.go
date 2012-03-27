@@ -19,7 +19,7 @@ import (
 
 // TestPackage integrates the tests into gotest.
 func TestPackage(t *stdtesting.T) {
-	srv := testing.StartZkServer(t)
+	srv := testing.StartZkServer()
 	defer srv.Destroy()
 	var err error
 	state.TestingZkAddr, err = srv.Addr()
@@ -79,7 +79,7 @@ func (s *StateSuite) SetUpTest(c *C) {
 }
 
 func (s *StateSuite) TearDownTest(c *C) {
-	testing.ZkRemoveTree(c, s.zkConn, "/")
+	testing.ZkRemoveTree(s.zkConn, "/")
 	s.zkConn.Close()
 }
 
@@ -94,7 +94,7 @@ func (s *StateSuite) TestInitialize(c *C) {
 	st.Close()
 
 	// Check that Open blocks until Initialize has succeeded.
-	testing.ZkRemoveTree(c, s.zkConn, "/")
+	testing.ZkRemoveTree(s.zkConn, "/")
 
 	errc := make(chan error)
 	go func() {
