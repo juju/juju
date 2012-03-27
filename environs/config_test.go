@@ -16,37 +16,70 @@ type configTest struct {
 
 var configTests = []struct {
 	env   string
+	err   string
 	check func(c *C, es *environs.Environs)
 }{
-	{`
+	{"'",
+		"YAML error:.*",
+		nil,
+	}, {`
+default: unknown
+environments:
+    only:
+        type: unknown
+`, `default environment .* does not exist`,
+		nil,
+	}, {`
+environments:
+    only:
+`,
+		`environment .* does not have attributes`,
+		nil,
+	}, {`
+environments:
+    only:
+        foo: bar
+`,
+		`environment .* has no type`,
+		nil,
+	}, {`
+environments:
+    only:
+        type: dummy
+`, `.*zookeeper: expected false, got nothing`,
+		nil,
+	}, {`
 environments:
     only:
         type: unknown
         other: anything
         zookeeper: false
-`, func(c *C, es *environs.Environs) {
-		e, err := es.Open("")
-		c.Assert(e, IsNil)
-		c.Assert(err, NotNil)
-		c.Assert(err.Error(), Equals, `environment "only" has an unknown provider type: "unknown"`)
+`,
+		"",
+		func(c *C, es *environs.Environs) {
+			e, err := es.Open("")
+			c.Assert(e, IsNil)
+			c.Assert(err, NotNil)
+			c.Assert(err.Error(), Equals, `environment "only" has an unknown provider type: "unknown"`)
+		},
 	},
-	},
-	// one known environment, no defaults, bad attribute -> parse error
-	{`
-environments:
-    only:
-        type: dummy
-        badattr: anything
-        zookeeper: false
-`, nil,
-	},
+	// should this fail or not?
+	//	// one known environment, no defaults, bad attribute -> parse error
+	//	{`
+	//environments:
+	//    only:
+	//        type: dummy
+	//        badattr: anything
+	//        zookeeper: false
+	//`, nil,
+	//	},
 	// one known environment, no defaults -> parse ok, instantiate ok
 	{`
 environments:
     only:
         type: dummy
         zookeeper: false
-`, func(c *C, es *environs.Environs) {
+`, "", func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, IsNil)
 		checkEnvironName(c, e, "only")
@@ -61,7 +94,7 @@ environments:
     two:
         type: dummy
         zookeeper: false
-`, func(c *C, es *environs.Environs) {
+`, "", func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, NotNil)
 		e, err = es.Open("one")
@@ -80,7 +113,7 @@ environments:
    two:
         type: dummy
         zookeeper: false
-`, func(c *C, es *environs.Environs) {
+`, "", func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, IsNil)
 		checkEnvironName(c, e, "two")
@@ -102,17 +135,11 @@ func (suite) TestConfig(c *C) {
 	for i, t := range configTests {
 		c.Logf("running test %v", i)
 		es, err := environs.ReadEnvironsBytes([]byte(t.env))
-		if es == nil {
-			c.Logf("parse failed\n")
-			if t.check != nil {
-				c.Errorf("test %d failed: %v", i, err)
-			}
+		if t.err != "" {
+			c.Check(err, ErrorMatches, t.err)
 		} else {
-			if t.check == nil {
-				c.Errorf("test %d parsed ok but should have failed", i)
-				continue
-			}
-			c.Logf("checking...")
+			c.Assert(es, NotNil)
+			c.Assert(err, IsNil)
 			t.check(c, es)
 		}
 	}

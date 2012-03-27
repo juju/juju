@@ -4,8 +4,8 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
-	"launchpad.net/juju/go/environs/jujutest"
 	_ "launchpad.net/juju/go/environs/dummy"
+	"launchpad.net/juju/go/environs/jujutest"
 	"testing"
 )
 

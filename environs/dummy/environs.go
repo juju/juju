@@ -9,11 +9,10 @@ import (
 	"launchpad.net/juju/go/schema"
 	"launchpad.net/juju/go/state"
 	"sync"
-"log"
 )
 
 type Operation struct {
-	Kind OperationKind
+	Kind        OperationKind
 	EnvironName string
 }
 
@@ -40,10 +39,10 @@ type dummyEnvirons struct {
 // It can be shared between several environ values,
 // so that a given environment can be opened several times.
 type environState struct {
-	mu    sync.Mutex
-	n     int // instance count
-	insts map[string]*instance
-	files map[string][]byte
+	mu           sync.Mutex
+	n            int // instance count
+	insts        map[string]*instance
+	files        map[string][]byte
 	bootstrapped bool
 }
 
@@ -98,7 +97,7 @@ func Reset(c chan<- Operation) {
 func (e *dummyEnvirons) ConfigChecker() schema.Checker {
 	return schema.FieldMap(
 		schema.Fields{
-			"type": schema.Const("dummy"),
+			"type":      schema.Const("dummy"),
 			"zookeeper": schema.Const(false),
 		},
 		[]string{},
@@ -106,22 +105,21 @@ func (e *dummyEnvirons) ConfigChecker() schema.Checker {
 }
 
 func (e *dummyEnvirons) Open(name string, attributes interface{}) (environs.Environ, error) {
-log.Printf("open %q %#v\n", name, attributes)
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	cfg := attributes.(schema.MapType)
 	return &environ{
-		name: name,
-		zookeeper:  cfg["zookeeper"].(bool),
-		ops:   e.ops,
-		state: e.state,
+		name:      name,
+		zookeeper: cfg["zookeeper"].(bool),
+		ops:       e.ops,
+		state:     e.state,
 	}, nil
 }
 
 type environ struct {
-	ops   chan<- Operation
-	name  string
-	state *environState
+	ops       chan<- Operation
+	name      string
+	state     *environState
 	zookeeper bool
 }
 

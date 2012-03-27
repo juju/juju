@@ -7,7 +7,6 @@ import (
 	"launchpad.net/goyaml"
 	"os"
 	"path/filepath"
-"log"
 )
 
 // environ holds information about one environment.
@@ -98,9 +97,7 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 			}
 			continue
 		}
-log.Printf("env %q: calling coerce on %#v\n", name, attrs)
 		cfg, err := p.ConfigChecker().Coerce(attrs, nil)
-log.Printf("env %q: calling coerce on %#v -> %#v, %v\n", name, attrs, cfg, err)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing environment %q: %v", name, err)
 		}
