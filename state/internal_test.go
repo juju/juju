@@ -31,7 +31,7 @@ func (s *TopologySuite) SetUpSuite(c *C) {
 }
 
 func (s *TopologySuite) TearDownSuite(c *C) {
-	testing.ZkRemoveTree(c, s.zkConn, "/")
+	testing.ZkRemoveTree(s.zkConn, "/")
 	s.zkConn.Close()
 }
 
@@ -43,7 +43,7 @@ func (s *TopologySuite) SetUpTest(c *C) {
 
 func (s *TopologySuite) TearDownTest(c *C) {
 	// Clear out the topology node.
-	testing.ZkRemoveTree(c, s.zkConn, "/topology")
+	testing.ZkRemoveTree(s.zkConn, "/topology")
 }
 
 func (s *TopologySuite) TestAddMachine(c *C) {
@@ -472,7 +472,7 @@ func (s *ConfigNodeSuite) SetUpSuite(c *C) {
 }
 
 func (s *ConfigNodeSuite) TearDownSuite(c *C) {
-	testing.ZkRemoveTree(c, s.zkConn, "/")
+	testing.ZkRemoveTree(s.zkConn, "/")
 	s.zkConn.Close()
 }
 
