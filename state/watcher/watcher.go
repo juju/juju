@@ -15,7 +15,7 @@ type updater interface {
 	// returns the next watch and a continuation flag to the watcher.
 	// The latter will be set to false in case of an error or the
 	// receiving of a stop signal.
-	update() (nextWatch <-chan zookeeper.Event, cont bool)
+	update(eventType zookeeper.Event) (nextWatch <-chan zookeeper.Event, cont bool)
 	// close is called if the watcher ends its work.
 	close()
 }
@@ -29,9 +29,9 @@ type watcher struct {
 }
 
 // init assigns the updater and then starts the watching loop.
-func (w *watcher) init(updater updater) {
+func (w *watcher) init(updater updater, event zookeeper.Event) {
 	w.updater = updater
-	go w.loop()
+	go w.loop(event)
 }
 
 // Stop ends the watching.
@@ -41,19 +41,23 @@ func (w *watcher) Stop() error {
 }
 
 // loop is the backend for watching.
-func (w *watcher) loop() {
+func (w *watcher) loop(event zookeeper.Event) {
 	defer w.tomb.Done()
 	defer w.updater.close()
 
+	watch, cont := w.updater.update(event)
+	if !cont {
+		return
+	}
 	// Fire an initial event.
-	watch := func() <-chan zookeeper.Event {
-		eventChan := make(chan zookeeper.Event, 1)
-		eventChan <- zookeeper.Event{
-			State: zookeeper.STATE_CONNECTED,
-			Type:  zookeeper.EVENT_CHANGED,
-		}
-		return eventChan
-	}()
+	// watch := func() <-chan zookeeper.Event {
+	// 	eventChan := make(chan zookeeper.Event, 1)
+	// 	eventChan <- zookeeper.Event{
+	// 		State: zookeeper.STATE_CONNECTED,
+	// 		Type:  zookeeper.EVENT_CHANGED,
+	// 	}
+	// 	return eventChan
+	// }()
 
 	for {
 		select {
@@ -64,8 +68,7 @@ func (w *watcher) loop() {
 				w.tomb.Killf("watcher: critical session event: %v", evt)
 				return
 			}
-			var cont bool
-			watch, cont = w.updater.update()
+			watch, cont = w.updater.update(event)
 			if !cont {
 				return
 			}
@@ -90,7 +93,11 @@ func NewContentWatcher(zk *zookeeper.Conn, path string) (*ContentWatcher, error)
 		path:       path,
 		changeChan: make(chan string),
 	}
-	w.watcher.init(w)
+	evt := zookeeper.Event{
+		State: zookeeper.STATE_CONNECTED,
+		Type:  zookeeper.EVENT_CHANGED,
+	}
+	w.watcher.init(w, evt)
 	return w, nil
 }
 
@@ -103,7 +110,10 @@ func (w *ContentWatcher) Changes() <-chan string {
 // update is documented in the updater interface above. For the
 // ContentWatcher it retrieves the nodes content as string and
 // emits changed content via the changeChan.
-func (w *ContentWatcher) update() (nextWatch <-chan zookeeper.Event, cont bool) {
+func (w *ContentWatcher) update(event zookeeper.Event) (nextWatch <-chan zookeeper.Event, cont bool) {
+	if event.Type == zookeeper.EVENT_DELETED {
+		return nil, false
+	}
 	content, _, watch, err := w.zk.GetW(w.path)
 	if err != nil {
 		w.tomb.Kill(err)
@@ -154,7 +164,11 @@ func NewChildrenWatcher(zk *zookeeper.Conn, path string) (*ChildrenWatcher, erro
 		changeChan: make(chan ChildrenChange),
 		children:   make(map[string]bool),
 	}
-	w.watcher.init(w)
+	evt := zookeeper.Event{
+		State: zookeeper.STATE_CONNECTED,
+		Type:  zookeeper.EVENT_CHILD,
+	}
+	w.watcher.init(w, evt)
 	return w, nil
 }
 
@@ -167,7 +181,10 @@ func (w *ChildrenWatcher) Changes() <-chan ChildrenChange {
 // update is documented in the updater interface above. For the
 // ChildrenWatcher it retrieves the nodes children, checks which
 // are added or deleted and emits these changes via the changeChan.
-func (w *ChildrenWatcher) update() (nextWatch <-chan zookeeper.Event, cont bool) {
+func (w *ChildrenWatcher) update(event zookeeper.Event) (nextWatch <-chan zookeeper.Event, cont bool) {
+	if event.Type == zookeeper.EVENT_DELETED {
+		return nil, false
+	}
 	children, _, watch, err := w.zk.ChildrenW(w.path)
 	if err != nil {
 		w.tomb.Kill(err)

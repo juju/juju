@@ -2,7 +2,6 @@ package watcher_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/state/watcher"
 	"launchpad.net/juju/go/testing"
@@ -11,13 +10,6 @@ import (
 )
 
 var zkAddr string
-
-// wrapper shows the returning of user defined types instead of
-// pure sting slices by the users of a watcher.
-type wrapper struct {
-	FieldA string
-	FieldB string
-}
 
 func TestPackage(t *stdtesting.T) {
 	srv := testing.StartZkServer(t)
@@ -66,6 +58,9 @@ func (s *WatcherSuite) TestContentWatcher(c *C) {
 		s.changeContent(c, "foo")
 
 		time.Sleep(50 * time.Millisecond)
+		s.changeContent(c, "foo")
+
+		time.Sleep(50 * time.Millisecond)
 		s.changeContent(c, "bar")
 	}()
 
@@ -80,63 +75,21 @@ func (s *WatcherSuite) TestContentWatcher(c *C) {
 	select {
 	case <-watcher.Changes():
 		c.Fail()
-	case <-time.After(time.Second):
+	case <-time.After(200 * time.Millisecond):
 		// The timeout is expected.
 	}
 
 	err = watcher.Stop()
 	c.Assert(err, IsNil)
-}
 
-func (s *WatcherSuite) TestWrappedContentWatcher(c *C) {
-	watcher, err := watcher.NewContentWatcher(s.zkConn, s.path)
-	c.Assert(err, IsNil)
-
-	wrapperChan := make(chan *wrapper, 1)
-
-	go func() {
-		// Receive raw changes and send as wrapper instance.
-		for change := range watcher.Changes() {
-			w := &wrapper{}
-			err := goyaml.Unmarshal([]byte(change), w)
-			c.Assert(err, IsNil)
-			wrapperChan <- w
-		}
-	}()
-
-	go func() {
-		time.Sleep(50 * time.Millisecond)
-		w := &wrapper{"foo", "bar"}
-		yaml, err := goyaml.Marshal(w)
-		c.Assert(err, IsNil)
-		s.changeContent(c, string(yaml))
-
-		time.Sleep(50 * time.Millisecond)
-		w = &wrapper{"bar", "foo"}
-		yaml, err = goyaml.Marshal(w)
-		c.Assert(err, IsNil)
-		s.changeContent(c, string(yaml))
-	}()
-
-	// Receive the two changes.
-	change := <-wrapperChan
-	c.Assert(change.FieldA, Equals, "foo")
-	c.Assert(change.FieldB, Equals, "bar")
-
-	change = <-wrapperChan
-	c.Assert(change.FieldA, Equals, "bar")
-	c.Assert(change.FieldB, Equals, "foo")
-
-	// No more changes.
+	// Changes() has to be closed
 	select {
-	case <-watcher.Changes():
+	case _, ok := <-watcher.Changes():
+		c.Assert(ok, Equals, false)
+	case <-time.After(200 * time.Millisecond):
+		// Timeout should not bee needed.
 		c.Fail()
-	case <-time.After(time.Second):
-		// The timeout is expected.
 	}
-
-	err = watcher.Stop()
-	c.Assert(err, IsNil)
 }
 
 func (s *WatcherSuite) TestChildrenWatcher(c *C) {
@@ -174,6 +127,34 @@ func (s *WatcherSuite) TestChildrenWatcher(c *C) {
 
 	err = watcher.Stop()
 	c.Assert(err, IsNil)
+
+	// Changes() has to be closed
+	select {
+	case _, ok := <-watcher.Changes():
+		c.Assert(ok, Equals, false)
+	case <-time.After(200 * time.Millisecond):
+		// Timeout should not bee needed.
+		c.Fail()
+	}
+}
+
+func (s *WatcherSuite) TestDeletedNode(c *C) {
+	watcher, err := watcher.NewContentWatcher(s.zkConn, s.path)
+	c.Assert(err, IsNil)
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		testing.ZkRemoveTree(c, s.zkConn, s.path)
+	}()
+
+	// Changes() has to be closed
+	select {
+	case _, ok := <-watcher.Changes():
+		c.Assert(ok, Equals, false)
+	case <-time.After(200 * time.Millisecond):
+		// Timeout should not bee needed.
+		c.Fail()
+	}
 }
 
 func (s *WatcherSuite) changeContent(c *C, content string) {
@@ -186,7 +167,6 @@ func (s *WatcherSuite) changeChildren(c *C, add bool, child string) {
 	path := s.path + "/" + child
 	if add {
 		_, err = s.zkConn.Create(path, "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
-		c.Assert(err, IsNil)
 	} else {
 		err = s.zkConn.Delete(path, -1)
 	}
