@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju/go/schema"
 	"launchpad.net/juju/go/state"
 	"sync"
+"log"
 )
 
 type Operation struct {
@@ -100,11 +101,12 @@ func (e *dummyEnvirons) ConfigChecker() schema.Checker {
 			"type": schema.Const("dummy"),
 			"zookeeper": schema.Const(false),
 		},
-		nil,
+		[]string{},
 	)
 }
 
 func (e *dummyEnvirons) Open(name string, attributes interface{}) (environs.Environ, error) {
+log.Printf("open %q %#v\n", name, attributes)
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	cfg := attributes.(schema.MapType)

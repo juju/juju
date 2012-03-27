@@ -4,7 +4,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
-	_ "launchpad.net/juju/go/testing"
+	_ "launchpad.net/juju/go/environs/dummy"
 	"os"
 	"path/filepath"
 )
@@ -23,6 +23,7 @@ environments:
     only:
         type: unknown
         other: anything
+        zookeeper: false
 `, func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(e, IsNil)
@@ -34,37 +35,38 @@ environments:
 	{`
 environments:
     only:
-        type: testing
+        type: dummy
         badattr: anything
+        zookeeper: false
 `, nil,
 	},
 	// one known environment, no defaults -> parse ok, instantiate ok
 	{`
 environments:
     only:
-        type: testing
-        name: foo
+        type: dummy
+        zookeeper: false
 `, func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, IsNil)
-		checkEnvironName(c, e, "foo")
+		checkEnvironName(c, e, "only")
 	},
 	},
 	// several environments, no defaults -> parse ok, instantiate maybe error
 	{`
 environments:
     one:
-        type: testing
-        name: foo
+        type: dummy
+        zookeeper: false
     two:
-        type: testing
-        name: bar
+        type: dummy
+        zookeeper: false
 `, func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, NotNil)
 		e, err = es.Open("one")
 		c.Assert(err, IsNil)
-		checkEnvironName(c, e, "foo")
+		checkEnvironName(c, e, "one")
 	},
 	},
 	// several environments, default -> parse ok, instantiate ok
@@ -72,16 +74,16 @@ environments:
 default:
     two
 environments:
-    one:
-        type: testing
-        name: foo
-    two:
-        type: testing
-        name: bar
+   one:
+        type: dummy
+        zookeeper: false
+   two:
+        type: dummy
+        zookeeper: false
 `, func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, IsNil)
-		checkEnvironName(c, e, "bar")
+		checkEnvironName(c, e, "two")
 	},
 	},
 }
@@ -125,8 +127,8 @@ func (suite) TestConfigFile(c *C) {
 	env := `
 environments:
     only:
-        type: testing
-        name: foo
+        type: dummy
+        zookeeper: false
 `
 	err = ioutil.WriteFile(path, []byte(env), 0666)
 	c.Assert(err, IsNil)
@@ -136,7 +138,7 @@ environments:
 	c.Assert(err, IsNil)
 	e, err := es.Open("")
 	c.Assert(err, IsNil)
-	checkEnvironName(c, e, "foo")
+	checkEnvironName(c, e, "only")
 
 	// test reading from the default environments.yaml file.
 	h := os.Getenv("HOME")
@@ -146,7 +148,7 @@ environments:
 	c.Assert(err, IsNil)
 	e, err = es.Open("")
 	c.Assert(err, IsNil)
-	checkEnvironName(c, e, "foo")
+	checkEnvironName(c, e, "only")
 
 	// reset $HOME just in case something else relies on it.
 	os.Setenv("HOME", h)
