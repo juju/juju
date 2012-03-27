@@ -1,4 +1,4 @@
-package testing
+package dummy
 
 import (
 	"bytes"
@@ -11,28 +11,28 @@ import (
 	"sync"
 )
 
-type EnvOp struct {
-	Kind EnvOpKind
+type Operation struct {
+	Kind OperationKind
 	Name string
 }
 
-// EnvOp represents an action on the testing provider.
-type EnvOpKind int
+// Operation represents an action on the testing provider.
+type OperationKind int
 
 const (
-	_ EnvOpKind = iota
-	EnvBootstrap
-	EnvDestroy
-	EnvStartInstance
-	EnvStopInstances
+	_ OperationKind = iota
+	OpBootstrap
+	OpDestroy
+	OpStartInstance
+	OpStopInstances
 )
 
-// testEenvirons represents the testing provider.  There is only ever one
+// testEenvirons represents the dummy provider.  There is only ever one
 // instance of this type (testingEnvirons)
 type testEenvirons struct {
 	mu    sync.Mutex
 	state *environState
-	ops   chan<- EnvOp
+	ops   chan<- Operation
 }
 
 // environState represents the state of an environment.
@@ -43,26 +43,27 @@ type environState struct {
 	n     int // instance count
 	insts map[string]*instance
 	files map[string][]byte
+	bootstrapped bool
 }
 
 var testingEnvirons testEenvirons
 
-// DiscardEnvOps can be used to pass to ListenEnvirons.
-// It discards all EnvOps written to it.
-var DiscardEnvOps chan<- EnvOp
+// DiscardOperations can be used to pass to ListenEnvirons.
+// It discards all Operations written to it.
+var DiscardOperations chan<- Operation
 
 func init() {
-	environs.RegisterProvider("testing", &testingEnvirons)
+	environs.RegisterProvider("dummy", &testingEnvirons)
 
 	// Prime the first ops channel, so that naive clients can use
 	// the testing environment by simply importing it.
-	c := make(chan EnvOp)
+	c := make(chan Operation)
 	go func() {
 		for _ = range c {
 		}
 	}()
-	DiscardEnvOps = c
-	ListenEnvirons(DiscardEnvOps)
+	DiscardOperations = c
+	ListenEnvirons(DiscardOperations)
 }
 
 // ListenEnvirons registers the given channel to receive operations
@@ -79,7 +80,7 @@ func init() {
 // 
 // The DNS name of insts is the same as the Id,
 // with ".dns" appended.
-func ListenEnvirons(c chan<- EnvOp) {
+func ListenEnvirons(c chan<- Operation) {
 	testingEnvirons.mu.Lock()
 	defer testingEnvirons.mu.Unlock()
 	if testingEnvirons.ops != nil {
@@ -96,7 +97,7 @@ func ListenEnvirons(c chan<- EnvOp) {
 func (e *testEenvirons) ConfigChecker() schema.Checker {
 	return schema.FieldMap(
 		schema.Fields{
-			"type": schema.Const("testing"),
+			"type": schema.Const("dummy"),
 			"name": schema.String(),
 		},
 		nil,
@@ -115,28 +116,37 @@ func (e *testEenvirons) Open(name string, attributes interface{}) (environs.Envi
 }
 
 type environ struct {
-	ops   chan<- EnvOp
+	ops   chan<- Operation
 	name  string
 	state *environState
 }
 
 func (e *environ) Bootstrap() error {
-	e.ops <- EnvOp{EnvBootstrap, e.name}
+	e.ops <- Operation{OpBootstrap, e.name}
+	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
+	if e.state.bootstrapped {
+		return fmt.Errorf("environment is already bootstrapped")
+	}
+	e.state.bootstrapped = true
 	return nil
 }
 
 func (*environ) StateInfo() (*state.Info, error) {
 	// TODO start a zookeeper server
-	return nil, fmt.Errorf("not yet implemented")
+	return &state.Info{Addrs: []string{"3.2.1.0:0"}}, nil
 }
 
 func (e *environ) Destroy([]environs.Instance) error {
-	e.ops <- EnvOp{EnvDestroy, e.name}
+	e.ops <- Operation{OpDestroy, e.name}
+	e.state.mu.Lock()
+	e.state.bootstrapped = false
+	e.state.mu.Unlock()
 	return nil
 }
 
 func (e *environ) StartInstance(machineId int, _ *state.Info) (environs.Instance, error) {
-	e.ops <- EnvOp{EnvStartInstance, e.name}
+	e.ops <- Operation{OpStartInstance, e.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	i := &instance{
@@ -148,7 +158,7 @@ func (e *environ) StartInstance(machineId int, _ *state.Info) (environs.Instance
 }
 
 func (e *environ) StopInstances(is []environs.Instance) error {
-	e.ops <- EnvOp{EnvStopInstances, e.name}
+	e.ops <- Operation{OpStopInstances, e.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	for _, i := range is {
@@ -158,18 +168,21 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 }
 
 func (e *environ) Instances(ids []string) (insts []environs.Instance, err error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
-	n := 0
+	notFound := 0
 	for _, id := range ids {
 		inst := e.state.insts[id]
 		if inst == nil {
 			err = environs.ErrPartialInstances
-			n++
+			notFound++
 		}
 		insts = append(insts, inst)
 	}
-	if n == len(ids) {
+	if notFound == len(ids) {
 		return nil, environs.ErrNoInstances
 	}
 	return
