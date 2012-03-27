@@ -13,7 +13,7 @@ import (
 
 type Operation struct {
 	Kind OperationKind
-	Name string
+	EnvironName string
 }
 
 // Operation represents an action on the testing provider.
@@ -27,16 +27,16 @@ const (
 	OpStopInstances
 )
 
-// testEenvirons represents the dummy provider.  There is only ever one
-// instance of this type (testingEnvirons)
-type testEenvirons struct {
+// dummyEnvirons represents the dummy provider.  There is only ever one
+// instance of this type (environsInstance)
+type dummyEnvirons struct {
 	mu    sync.Mutex
 	state *environState
 	ops   chan<- Operation
 }
 
 // environState represents the state of an environment.
-// It can be shared between several environ insts,
+// It can be shared between several environ values,
 // so that a given environment can be opened several times.
 type environState struct {
 	mu    sync.Mutex
@@ -46,14 +46,13 @@ type environState struct {
 	bootstrapped bool
 }
 
-var testingEnvirons testEenvirons
+var environsInstance dummyEnvirons
 
-// DiscardOperations can be used to pass to ListenEnvirons.
-// It discards all Operations written to it.
-var DiscardOperations chan<- Operation
+// discardOperations discards all Operations written to it.
+var discardOperations chan<- Operation
 
 func init() {
-	environs.RegisterProvider("dummy", &testingEnvirons)
+	environs.RegisterProvider("dummy", &environsInstance)
 
 	// Prime the first ops channel, so that naive clients can use
 	// the testing environment by simply importing it.
@@ -62,54 +61,56 @@ func init() {
 		for _ = range c {
 		}
 	}()
-	DiscardOperations = c
-	ListenEnvirons(DiscardOperations)
+	discardOperations = c
+	Reset(discardOperations)
 }
 
-// ListenEnvirons registers the given channel to receive operations
-// executed when the "testing" provider type is subsequently opened.
-// The opened environment will be freshly created for the
-// next Open.
-// The previously registered channel will be closed,
-// unless it was nil, and so will panic if any values are sent to it.
+// Reset closes any previously registered operation channel,
+// cleans the environment state, and registers c to receive
+// notifications of operations performed on newly opened
+// dummy environments. All opened environments after a Reset
+// will share the same underlying state (instances, etc).
 // 
 // The configuration YAML for the testing environment
-// must specify a "name" property. Instance ids will
-// start with this value, and the values sent on the channel
-// will contain it.
+// must specify a "zookeeper" property with a boolean
+// value. If this is true, a zookeeper instance will be started
+// the first time StateInfo is called on a newly reset environment.
 // 
-// The DNS name of insts is the same as the Id,
+// The DNS name of instances is the same as the Id,
 // with ".dns" appended.
-func ListenEnvirons(c chan<- Operation) {
-	testingEnvirons.mu.Lock()
-	defer testingEnvirons.mu.Unlock()
-	if testingEnvirons.ops != nil {
-		close(testingEnvirons.ops)
+func Reset(c chan<- Operation) {
+	environsInstance.mu.Lock()
+	defer environsInstance.mu.Unlock()
+	if c == nil {
+		c = discardOperations
 	}
-	testingEnvirons.ops = c
-	testingEnvirons.state = &environState{
+	if ops := environsInstance.ops; ops != discardOperations && ops != nil {
+		close(ops)
+	}
+	environsInstance.ops = c
+	environsInstance.state = &environState{
 		insts: make(map[string]*instance),
 		files: make(map[string][]byte),
 	}
-
 }
 
-func (e *testEenvirons) ConfigChecker() schema.Checker {
+func (e *dummyEnvirons) ConfigChecker() schema.Checker {
 	return schema.FieldMap(
 		schema.Fields{
 			"type": schema.Const("dummy"),
-			"name": schema.String(),
+			"zookeeper": schema.Const(false),
 		},
 		nil,
 	)
 }
 
-func (e *testEenvirons) Open(name string, attributes interface{}) (environs.Environ, error) {
+func (e *dummyEnvirons) Open(name string, attributes interface{}) (environs.Environ, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	cfg := attributes.(schema.MapType)
 	return &environ{
-		name:  cfg["name"].(string),
+		name: name,
+		zookeeper:  cfg["zookeeper"].(bool),
 		ops:   e.ops,
 		state: e.state,
 	}, nil
@@ -119,6 +120,7 @@ type environ struct {
 	ops   chan<- Operation
 	name  string
 	state *environState
+	zookeeper bool
 }
 
 func (e *environ) Bootstrap() error {

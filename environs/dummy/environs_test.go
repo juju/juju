@@ -14,7 +14,7 @@ func init() {
 environments:
     only:
         type: dummy
-        name: foo
+        zookeeper: false
 `
 	envs, err := environs.ReadEnvironsBytes([]byte(config))
 	if err != nil {
