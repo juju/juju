@@ -185,23 +185,23 @@ func (w *ChildrenWatcher) update(event zookeeper.Event) (nextWatch <-chan zookee
 	if event.Type == zookeeper.EVENT_DELETED {
 		return nil, false
 	}
-	children, _, watch, err := w.zk.ChildrenW(w.path)
+	retrievedChildren, _, watch, err := w.zk.ChildrenW(w.path)
 	if err != nil {
 		w.tomb.Kill(err)
 		return nil, false
 	}
-	diff := make(map[string]bool)
-	for _, child := range children {
-		diff[child] = true
+	children := make(map[string]bool)
+	for _, child := range retrievedChildren {
+		children[child] = true
 	}
 	var change ChildrenChange
 	for child, _ := range w.children {
-		if !diff[child] {
+		if !children[child] {
 			change.Del = append(change.Del, child)
 			delete(w.children, child)
 		}
 	}
-	for child, _ := range diff {
+	for child, _ := range children {
 		if !w.children[child] {
 			change.New = append(change.New, child)
 			w.children[child] = true
