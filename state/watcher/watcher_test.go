@@ -1,7 +1,3 @@
-// launchpad.net/juju/go/state/watcher
-//
-// Copyright (c) 2011-2012 Canonical Ltd.
-
 package watcher_test
 
 import (
@@ -61,13 +57,8 @@ func (s *WatcherSuite) TearDownTest(c *C) {
 	s.zkConn.Close()
 }
 
-func (s *WatcherSuite) TestIllegalWatcher(c *C) {
-	_, err := watcher.NewWatcher(s.zkConn, s.path, -1)
-	c.Assert(err, ErrorMatches, "watcher: illegal watcher type")
-}
-
 func (s *WatcherSuite) TestContentWatcher(c *C) {
-	watcher, err := watcher.NewWatcher(s.zkConn, s.path, watcher.ContentChange)
+	watcher, err := watcher.NewContentWatcher(s.zkConn, s.path)
 	c.Assert(err, IsNil)
 
 	go func() {
@@ -80,12 +71,10 @@ func (s *WatcherSuite) TestContentWatcher(c *C) {
 
 	// Receive the two changes.
 	change := <-watcher.Changes()
-	c.Assert(change, HasLen, 1)
-	c.Assert(change[0], Equals, "foo")
+	c.Assert(change, Equals, "foo")
 
 	change = <-watcher.Changes()
-	c.Assert(change, HasLen, 1)
-	c.Assert(change[0], Equals, "bar")
+	c.Assert(change, Equals, "bar")
 
 	// No more changes.
 	select {
@@ -100,7 +89,7 @@ func (s *WatcherSuite) TestContentWatcher(c *C) {
 }
 
 func (s *WatcherSuite) TestWrappedContentWatcher(c *C) {
-	watcher, err := watcher.NewWatcher(s.zkConn, s.path, watcher.ContentChange)
+	watcher, err := watcher.NewContentWatcher(s.zkConn, s.path)
 	c.Assert(err, IsNil)
 
 	wrapperChan := make(chan *wrapper, 1)
@@ -109,7 +98,7 @@ func (s *WatcherSuite) TestWrappedContentWatcher(c *C) {
 		// Receive raw changes and send as wrapper instance.
 		for change := range watcher.Changes() {
 			w := &wrapper{}
-			err := goyaml.Unmarshal([]byte(change[0]), w)
+			err := goyaml.Unmarshal([]byte(change), w)
 			c.Assert(err, IsNil)
 			wrapperChan <- w
 		}
@@ -151,7 +140,7 @@ func (s *WatcherSuite) TestWrappedContentWatcher(c *C) {
 }
 
 func (s *WatcherSuite) TestChildrenWatcher(c *C) {
-	watcher, err := watcher.NewWatcher(s.zkConn, s.path, watcher.ChildrenChange)
+	watcher, err := watcher.NewChildrenWatcher(s.zkConn, s.path)
 	c.Assert(err, IsNil)
 
 	go func() {
@@ -167,16 +156,13 @@ func (s *WatcherSuite) TestChildrenWatcher(c *C) {
 
 	// Receive the three changes.
 	change := <-watcher.Changes()
-	c.Assert(change, HasLen, 1)
-	c.Assert(change[0], Equals, "foo")
+	c.Assert(change.New, DeepEquals, []string{"foo"})
 
 	change = <-watcher.Changes()
-	c.Assert(change, HasLen, 2)
-	c.Assert(change, DeepEquals, []string{"bar", "foo"})
+	c.Assert(change.New, DeepEquals, []string{"bar"})
 
 	change = <-watcher.Changes()
-	c.Assert(change, HasLen, 1)
-	c.Assert(change, DeepEquals, []string{"bar"})
+	c.Assert(change.Del, DeepEquals, []string{"foo"})
 
 	// No more changes.
 	select {
