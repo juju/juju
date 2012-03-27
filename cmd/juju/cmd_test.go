@@ -5,7 +5,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/cmd"
 	main "launchpad.net/juju/go/cmd/juju"
-	"launchpad.net/juju/go/testing"
+	"launchpad.net/juju/go/environs/dummy"
 	"os"
 	"path/filepath"
 )
@@ -21,11 +21,11 @@ default:
     peckham
 environments:
     peckham:
-        type: testing
-        name: peckham
+        type: dummy
+        zookeeper: false
     walthamstow:
-        type: testing
-        name: walthamstow
+        type: dummy
+        zookeeper: false
 `
 
 func (s *suite) SetUpTest(c *C) {
@@ -43,14 +43,13 @@ func (s *suite) SetUpTest(c *C) {
 func (s *suite) TearDownTest(c *C) {
 	os.Setenv("HOME", s.home)
 
-	// enable other tests to use the testing environment with impunity.
-	testing.ListenEnvirons(testing.DiscardEnvOps)
+	dummy.Reset(nil)
 }
 
 var cmdTests = []struct {
 	cmd      cmd.Command
 	args     []string
-	ops      []testing.EnvOp
+	ops      []dummy.Operation
 	parseErr string
 	runErr   string
 }{
@@ -69,31 +68,31 @@ var cmdTests = []struct {
 	}, {
 		&main.BootstrapCommand{},
 		[]string{},
-		envOps("peckham", testing.EnvBootstrap),
+		envOps("peckham", dummy.OpBootstrap),
 		"",
 		"",
 	}, {
 		&main.BootstrapCommand{},
 		[]string{"-e", "walthamstow"},
-		envOps("walthamstow", testing.EnvBootstrap),
+		envOps("walthamstow", dummy.OpBootstrap),
 		"",
 		"",
 	}, {
 		&main.BootstrapCommand{},
 		[]string{"-e", "walthamstow"},
-		envOps("walthamstow", testing.EnvBootstrap),
+		envOps("walthamstow", dummy.OpBootstrap),
 		"",
 		"",
 	}, {
 		&main.DestroyCommand{},
 		[]string{},
-		envOps("peckham", testing.EnvDestroy),
+		envOps("peckham", dummy.OpDestroy),
 		"",
 		"",
 	}, {
 		&main.DestroyCommand{},
 		[]string{"-e", "walthamstow"},
-		envOps("walthamstow", testing.EnvDestroy),
+		envOps("walthamstow", dummy.OpDestroy),
 		"",
 		"",
 	},
@@ -106,10 +105,10 @@ func (*suite) TestCommands(c *C) {
 		checkError(c, "parse", err, t.parseErr)
 
 		// gather operations as they happen
-		opc := make(chan testing.EnvOp)
-		testing.ListenEnvirons(opc)
+		opc := make(chan dummy.Operation)
+		dummy.Reset(opc)
 		done := make(chan bool)
-		var ops []testing.EnvOp
+		var ops []dummy.Operation
 		go func() {
 			for op := range opc {
 				ops = append(ops, op)
@@ -121,7 +120,7 @@ func (*suite) TestCommands(c *C) {
 		checkError(c, "run", err, t.runErr)
 
 		// signal that we're done with this listener channel.
-		testing.ListenEnvirons(nil)
+		dummy.Reset(nil)
 		<-done
 
 		c.Check(ops, DeepEquals, t.ops)
@@ -139,11 +138,11 @@ func checkError(c *C, kind string, err error, expect string) {
 	}
 }
 
-func envOps(name string, events ...testing.EnvOpKind) []testing.EnvOp {
-	ops := make([]testing.EnvOp, len(events))
+func envOps(name string, events ...dummy.OperationKind) []dummy.Operation {
+	ops := make([]dummy.Operation, len(events))
 	for i, e := range events {
-		ops[i] = testing.EnvOp{
-			Name: name,
+		ops[i] = dummy.Operation{
+			EnvironName: name,
 			Kind: e,
 		}
 	}

@@ -4,7 +4,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
-	_ "launchpad.net/juju/go/testing"
+	_ "launchpad.net/juju/go/environs/dummy"
 	"os"
 	"path/filepath"
 )
@@ -16,55 +16,90 @@ type configTest struct {
 
 var configTests = []struct {
 	env   string
+	err   string
 	check func(c *C, es *environs.Environs)
 }{
-	{`
+	{"'",
+		"YAML error:.*",
+		nil,
+	}, {`
+default: unknown
+environments:
+    only:
+        type: unknown
+`, `default environment .* does not exist`,
+		nil,
+	}, {`
+environments:
+    only:
+`,
+		`environment .* does not have attributes`,
+		nil,
+	}, {`
+environments:
+    only:
+        foo: bar
+`,
+		`environment .* has no type`,
+		nil,
+	}, {`
+environments:
+    only:
+        type: dummy
+`, `.*zookeeper: expected false, got nothing`,
+		nil,
+	}, {`
 environments:
     only:
         type: unknown
         other: anything
-`, func(c *C, es *environs.Environs) {
-		e, err := es.Open("")
-		c.Assert(e, IsNil)
-		c.Assert(err, NotNil)
-		c.Assert(err.Error(), Equals, `environment "only" has an unknown provider type: "unknown"`)
+        zookeeper: false
+`,
+		"",
+		func(c *C, es *environs.Environs) {
+			e, err := es.Open("")
+			c.Assert(e, IsNil)
+			c.Assert(err, NotNil)
+			c.Assert(err.Error(), Equals, `environment "only" has an unknown provider type: "unknown"`)
+		},
 	},
-	},
-	// one known environment, no defaults, bad attribute -> parse error
-	{`
-environments:
-    only:
-        type: testing
-        badattr: anything
-`, nil,
-	},
+	// should this fail or not?
+	//	// one known environment, no defaults, bad attribute -> parse error
+	//	{`
+	//environments:
+	//    only:
+	//        type: dummy
+	//        badattr: anything
+	//        zookeeper: false
+	//`, nil,
+	//	},
 	// one known environment, no defaults -> parse ok, instantiate ok
 	{`
 environments:
     only:
-        type: testing
-        name: foo
-`, func(c *C, es *environs.Environs) {
+        type: dummy
+        zookeeper: false
+`, "", func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, IsNil)
-		checkEnvironName(c, e, "foo")
+		checkEnvironName(c, e, "only")
 	},
 	},
 	// several environments, no defaults -> parse ok, instantiate maybe error
 	{`
 environments:
     one:
-        type: testing
-        name: foo
+        type: dummy
+        zookeeper: false
     two:
-        type: testing
-        name: bar
-`, func(c *C, es *environs.Environs) {
+        type: dummy
+        zookeeper: false
+`, "", func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, NotNil)
 		e, err = es.Open("one")
 		c.Assert(err, IsNil)
-		checkEnvironName(c, e, "foo")
+		checkEnvironName(c, e, "one")
 	},
 	},
 	// several environments, default -> parse ok, instantiate ok
@@ -72,16 +107,16 @@ environments:
 default:
     two
 environments:
-    one:
-        type: testing
-        name: foo
-    two:
-        type: testing
-        name: bar
-`, func(c *C, es *environs.Environs) {
+   one:
+        type: dummy
+        zookeeper: false
+   two:
+        type: dummy
+        zookeeper: false
+`, "", func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, IsNil)
-		checkEnvironName(c, e, "bar")
+		checkEnvironName(c, e, "two")
 	},
 	},
 }
@@ -100,17 +135,11 @@ func (suite) TestConfig(c *C) {
 	for i, t := range configTests {
 		c.Logf("running test %v", i)
 		es, err := environs.ReadEnvironsBytes([]byte(t.env))
-		if es == nil {
-			c.Logf("parse failed\n")
-			if t.check != nil {
-				c.Errorf("test %d failed: %v", i, err)
-			}
+		if t.err != "" {
+			c.Check(err, ErrorMatches, t.err)
 		} else {
-			if t.check == nil {
-				c.Errorf("test %d parsed ok but should have failed", i)
-				continue
-			}
-			c.Logf("checking...")
+			c.Assert(es, NotNil)
+			c.Assert(err, IsNil)
 			t.check(c, es)
 		}
 	}
@@ -125,8 +154,8 @@ func (suite) TestConfigFile(c *C) {
 	env := `
 environments:
     only:
-        type: testing
-        name: foo
+        type: dummy
+        zookeeper: false
 `
 	err = ioutil.WriteFile(path, []byte(env), 0666)
 	c.Assert(err, IsNil)
@@ -136,7 +165,7 @@ environments:
 	c.Assert(err, IsNil)
 	e, err := es.Open("")
 	c.Assert(err, IsNil)
-	checkEnvironName(c, e, "foo")
+	checkEnvironName(c, e, "only")
 
 	// test reading from the default environments.yaml file.
 	h := os.Getenv("HOME")
@@ -146,7 +175,7 @@ environments:
 	c.Assert(err, IsNil)
 	e, err = es.Open("")
 	c.Assert(err, IsNil)
-	checkEnvironName(c, e, "foo")
+	checkEnvironName(c, e, "only")
 
 	// reset $HOME just in case something else relies on it.
 	os.Setenv("HOME", h)
