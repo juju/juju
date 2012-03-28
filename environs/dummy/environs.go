@@ -28,7 +28,7 @@ const (
 )
 
 // environProvider represents the dummy provider.  There is only ever one
-// instance of this type (environsInstance)
+// instance of this type (providerInstance)
 type environProvider struct {
 	mu    sync.Mutex
 	state *environState
@@ -46,13 +46,13 @@ type environState struct {
 	bootstrapped bool
 }
 
-var environsInstance environProvider
+var providerInstance environProvider
 
 // discardOperations discards all Operations written to it.
 var discardOperations chan<- Operation
 
 func init() {
-	environs.RegisterProvider("dummy", &environsInstance)
+	environs.RegisterProvider("dummy", &providerInstance)
 
 	// Prime the first ops channel, so that naive clients can use
 	// the testing environment by simply importing it.
@@ -80,16 +80,16 @@ func init() {
 // The DNS name of instances is the same as the Id,
 // with ".dns" appended.
 func Reset(c chan<- Operation) {
-	environsInstance.mu.Lock()
-	defer environsInstance.mu.Unlock()
+	providerInstance.mu.Lock()
+	defer providerInstance.mu.Unlock()
 	if c == nil {
 		c = discardOperations
 	}
-	if ops := environsInstance.ops; ops != discardOperations && ops != nil {
+	if ops := providerInstance.ops; ops != discardOperations && ops != nil {
 		close(ops)
 	}
-	environsInstance.ops = c
-	environsInstance.state = &environState{
+	providerInstance.ops = c
+	providerInstance.state = &environState{
 		insts: make(map[string]*instance),
 		files: make(map[string][]byte),
 	}
