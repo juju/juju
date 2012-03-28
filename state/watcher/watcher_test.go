@@ -50,8 +50,7 @@ func (s *WatcherSuite) TearDownTest(c *C) {
 }
 
 func (s *WatcherSuite) TestContentWatcher(c *C) {
-	watcher, err := watcher.NewContentWatcher(s.zkConn, s.path)
-	c.Assert(err, IsNil)
+	watcher := watcher.NewContentWatcher(s.zkConn, s.path)
 
 	go func() {
 		time.Sleep(50 * time.Millisecond)
@@ -79,7 +78,7 @@ func (s *WatcherSuite) TestContentWatcher(c *C) {
 		// The timeout is expected.
 	}
 
-	err = watcher.Stop()
+	err := watcher.Stop()
 	c.Assert(err, IsNil)
 
 	// Changes() has to be closed
@@ -93,8 +92,7 @@ func (s *WatcherSuite) TestContentWatcher(c *C) {
 }
 
 func (s *WatcherSuite) TestChildrenWatcher(c *C) {
-	watcher, err := watcher.NewChildrenWatcher(s.zkConn, s.path)
-	c.Assert(err, IsNil)
+	watcher := watcher.NewChildrenWatcher(s.zkConn, s.path)
 
 	go func() {
 		time.Sleep(50 * time.Millisecond)
@@ -109,13 +107,13 @@ func (s *WatcherSuite) TestChildrenWatcher(c *C) {
 
 	// Receive the three changes.
 	change := <-watcher.Changes()
-	c.Assert(change.New, DeepEquals, []string{"foo"})
+	c.Assert(change.Added, DeepEquals, []string{"foo"})
 
 	change = <-watcher.Changes()
-	c.Assert(change.New, DeepEquals, []string{"bar"})
+	c.Assert(change.Added, DeepEquals, []string{"bar"})
 
 	change = <-watcher.Changes()
-	c.Assert(change.Del, DeepEquals, []string{"foo"})
+	c.Assert(change.Deleted, DeepEquals, []string{"foo"})
 
 	// No more changes.
 	select {
@@ -125,7 +123,7 @@ func (s *WatcherSuite) TestChildrenWatcher(c *C) {
 		// The timeout is expected.
 	}
 
-	err = watcher.Stop()
+	err := watcher.Stop()
 	c.Assert(err, IsNil)
 
 	// Changes() has to be closed
@@ -139,8 +137,7 @@ func (s *WatcherSuite) TestChildrenWatcher(c *C) {
 }
 
 func (s *WatcherSuite) TestDeletedNode(c *C) {
-	watcher, err := watcher.NewContentWatcher(s.zkConn, s.path)
-	c.Assert(err, IsNil)
+	watcher := watcher.NewContentWatcher(s.zkConn, s.path)
 
 	go func() {
 		time.Sleep(50 * time.Millisecond)
@@ -155,6 +152,9 @@ func (s *WatcherSuite) TestDeletedNode(c *C) {
 		// Timeout should not bee needed.
 		c.Fail()
 	}
+
+	err := watcher.Stop()
+	c.Assert(err, ErrorMatches, `watcher: node "/watcher" has been deleted`)
 }
 
 func (s *WatcherSuite) changeContent(c *C, content string) {
