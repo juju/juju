@@ -17,13 +17,15 @@ type ContentWatcher struct {
 	content    string
 }
 
-func NewContentWatcher(zk *zookeeper.Conn, path string) *ContentWatcher {
+// NewContentWatcher creates a ContentWatcher observing
+// the ZooKeeper node at watchedPath.
+func NewContentWatcher(zk *zookeeper.Conn, watchedPath string) *ContentWatcher {
 	w := &ContentWatcher{
 		zk:         zk,
-		path:       path,
+		path:       watchedPath,
 		changeChan: make(chan string),
 	}
-	go w.loop(zookeeper.EVENT_CHANGED)
+	go w.loop()
 	return w
 }
 
@@ -34,19 +36,21 @@ func (w *ContentWatcher) Changes() <-chan string {
 	return w.changeChan
 }
 
-// Stop ends the watching.
+// Stop stops the watch and returns any error encountered
+// while watching. This method should always be called before
+// discarding the watcher.
 func (w *ContentWatcher) Stop() error {
 	w.tomb.Kill(nil)
 	return w.tomb.Wait()
 }
 
 // loop is the backend for watching.
-func (w *ContentWatcher) loop(eventType int) {
+func (w *ContentWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
 
-	watch, err := w.update(eventType)
-	if err != nil {
+	watch, err := w.update(zookeeper.EVENT_CHANGED)
+	if watch == nil {
 		w.tomb.Kill(err)
 		return
 	}
@@ -70,7 +74,7 @@ func (w *ContentWatcher) loop(eventType int) {
 }
 
 // update retrieves the node content and emits it to the change
-// channel. It returns the next watch.
+// channel. It returns the next watch if it has changed.
 func (w *ContentWatcher) update(eventType int) (nextWatch <-chan zookeeper.Event, err error) {
 	if eventType == zookeeper.EVENT_DELETED {
 		return nil, fmt.Errorf("watcher: node %q has been deleted", w.path)
@@ -108,14 +112,16 @@ type ChildrenWatcher struct {
 	children   map[string]bool
 }
 
-func NewChildrenWatcher(zk *zookeeper.Conn, path string) *ChildrenWatcher {
+// NewChildrenWatcher creates a ChildrenWatcher observing
+// the ZooKeeper node at watchedPath.
+func NewChildrenWatcher(zk *zookeeper.Conn, watchedPath string) *ChildrenWatcher {
 	w := &ChildrenWatcher{
 		zk:         zk,
-		path:       path,
+		path:       watchedPath,
 		changeChan: make(chan ChildrenChange),
 		children:   make(map[string]bool),
 	}
-	go w.loop(zookeeper.EVENT_CHILD)
+	go w.loop()
 	return w
 }
 
@@ -127,19 +133,21 @@ func (w *ChildrenWatcher) Changes() <-chan ChildrenChange {
 	return w.changeChan
 }
 
-// Stop ends the watching.
+// Stop stops the watch and returns any error encountered
+// while watching. This method should always be called before
+// discarding the watcher.
 func (w *ChildrenWatcher) Stop() error {
 	w.tomb.Kill(nil)
 	return w.tomb.Wait()
 }
 
 // loop is the backend for watching.
-func (w *ChildrenWatcher) loop(eventType int) {
+func (w *ChildrenWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
 
-	watch, err := w.update(eventType)
-	if err != nil {
+	watch, err := w.update(zookeeper.EVENT_CHILD)
+	if watch == nil {
 		w.tomb.Kill(err)
 		return
 	}
@@ -163,7 +171,7 @@ func (w *ChildrenWatcher) loop(eventType int) {
 }
 
 // update retrieves the node children and emits the added or deleted children to 
-// the change channel. It returns the next watch.
+// the change channel. It returns the next watch if it has changed.
 func (w *ChildrenWatcher) update(eventType int) (nextWatch <-chan zookeeper.Event, err error) {
 	if eventType == zookeeper.EVENT_DELETED {
 		return nil, fmt.Errorf("watcher: node %q has been deleted", w.path)
