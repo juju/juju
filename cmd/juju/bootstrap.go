@@ -1,17 +1,16 @@
 package main
 
 import (
+	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/cmd"
 	"launchpad.net/juju/go/juju"
-	"log"
-	"launchpad.net/gnuflag"
 )
 
 // BootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
 type BootstrapCommand struct {
 	envName string
-	Conn *juju.Conn
+	Conn    *juju.Conn
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
@@ -37,6 +36,5 @@ func (c *BootstrapCommand) ParsePositional(args []string) (err error) {
 }
 
 func (c *BootstrapCommand) Run() (err error) {
-log.Printf("calling conn.Bootstrap on %v\n", c.Conn)
 	return c.Conn.Bootstrap()
 }

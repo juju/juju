@@ -1,16 +1,15 @@
 package main
 
 import (
+	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/cmd"
 	"launchpad.net/juju/go/juju"
-	"log"
-	"launchpad.net/gnuflag"
 )
 
 // DestroyCommand destroys an environment.
 type DestroyCommand struct {
 	envName string
-	Conn *juju.Conn
+	Conn    *juju.Conn
 }
 
 func (c *DestroyCommand) Info() *cmd.Info {
@@ -36,6 +35,5 @@ func (c *DestroyCommand) ParsePositional(args []string) (err error) {
 }
 
 func (c *DestroyCommand) Run() error {
-log.Printf("calling conn.Destroy on %v\n", c.Conn)
 	return c.Conn.Destroy()
 }

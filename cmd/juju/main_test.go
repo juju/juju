@@ -73,12 +73,28 @@ func (s *MainSuite) TestActualRunSubcmdArgWorksNotInterspersed(c *C) {
 	c.Assert(lines[1], Equals, "usage: juju <command> [options] ...")
 }
 
+var brokenConfig = `
+environments:
+    one:
+        type: dummy
+        zookeeper: false
+        broken: true
+`
+
 // Induce failure to load environments and hence break Run.
 func breakJuju(c *C) (string, func()) {
 	home := os.Getenv("HOME")
 	path := c.MkDir()
 	os.Setenv("HOME", path)
-	msg := fmt.Sprintf("open %s/.juju/environments.yaml: no such file or directory", path)
+
+	jujuDir := filepath.Join(path, ".juju")
+	err := os.Mkdir(jujuDir, 0777)
+	c.Assert(err, IsNil)
+
+	err = ioutil.WriteFile(filepath.Join(jujuDir, "environments.yaml"), []byte(brokenConfig), 0666)
+	c.Assert(err, IsNil)
+
+	msg := "broken environment"
 	return msg, func() { os.Setenv("HOME", home) }
 }
 
@@ -88,7 +104,7 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
 	defer unbreak()
 	logpath := filepath.Join(c.MkDir(), "log")
 	lines := badrun(c, 1, "--log-file", logpath, "--verbose", "--debug", "bootstrap")
-	c.Assert(lines[0], Equals, msg, Commentf("output: %s", strings.Join(lines, "\n")))
+	c.Assert(lines[0], Equals, msg)
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
 	fullmsg := fmt.Sprintf(`.* JUJU:DEBUG juju bootstrap command failed: %s\n`, msg)
@@ -100,8 +116,8 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 	msg, unbreak := breakJuju(c)
 	defer unbreak()
 	logpath := filepath.Join(c.MkDir(), "log")
-	lines := badrun(c, 2, "bootstrap", "--log-file", logpath, "--verbose", "--debug")
-	c.Assert(lines[0], Equals, msg, Commentf("output: %s", strings.Join(lines, "\n")))
+	lines := badrun(c, 1, "bootstrap", "--log-file", logpath, "--verbose", "--debug")
+	c.Assert(lines[0], Equals, msg)
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
 	fullmsg := fmt.Sprintf(`.* JUJU:DEBUG juju bootstrap command failed: %s\n`, msg)

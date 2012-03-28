@@ -4,9 +4,9 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/cmd"
-	"launchpad.net/juju/go/juju"
 	main "launchpad.net/juju/go/cmd/juju"
 	"launchpad.net/juju/go/environs/dummy"
+	"launchpad.net/juju/go/juju"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -76,10 +76,10 @@ func testConn(c *C, com cmd.Command, name string) {
 // All members of genericTests are tested for the -environment and -e
 // flags, and that extra arguments will cause parsing to fail.
 var genericParseTests = []struct {
-	cmd cmd.Command
-	args []string
+	cmd            cmd.Command
+	args           []string
 	allowExtraArgs bool
-} {
+}{
 	{
 		cmd: &main.BootstrapCommand{},
 	}, {
@@ -112,10 +112,10 @@ var cmdTests = []struct {
 	ops      []dummy.Operation
 	parseErr string
 	runErr   string
-} {
+}{
 	{
-		cmd: &main.BootstrapCommand{},
-		args: []string{"hotdog"},
+		cmd:      &main.BootstrapCommand{},
+		args:     []string{"hotdog"},
 		parseErr: `unrecognised args: \[hotdog\]`,
 	}, {
 		cmd: &main.BootstrapCommand{},
@@ -154,7 +154,7 @@ func (*cmdSuite) TestCommands(c *C) {
 		} else {
 			c.Assert(err, IsNil)
 		}
-	
+
 		// signal that we're done with this listener channel.
 		dummy.Reset(nil)
 		<-done
@@ -169,7 +169,7 @@ func envOps(name string, events ...dummy.OperationKind) []dummy.Operation {
 	for i, e := range events {
 		ops[i] = dummy.Operation{
 			EnvironName: name,
-			Kind: e,
+			Kind:        e,
 		}
 	}
 	return ops
