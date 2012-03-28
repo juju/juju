@@ -16,7 +16,7 @@ type Operation struct {
 	EnvironName string
 }
 
-// Operation represents an action on the testing provider.
+// Operation represents an action on the dummy provider.
 type OperationKind int
 
 const (
@@ -39,9 +39,9 @@ func (k OperationKind) String() string {
 	return kindNames[k]
 }
 
-// dummyEnvirons represents the dummy provider.  There is only ever one
+// environProvider represents the dummy provider.  There is only ever one
 // instance of this type (environsInstance)
-type dummyEnvirons struct {
+type environProvider struct {
 	mu    sync.Mutex
 	state *environState
 	ops   chan<- Operation
@@ -52,13 +52,13 @@ type dummyEnvirons struct {
 // so that a given environment can be opened several times.
 type environState struct {
 	mu           sync.Mutex
-	n            int // instance count
+	maxId        int // maximum instance id allocated so far.
 	insts        map[string]*instance
 	files        map[string][]byte
 	bootstrapped bool
 }
 
-var environsInstance dummyEnvirons
+var environsInstance environProvider
 
 // discardOperations discards all Operations written to it.
 var discardOperations chan<- Operation
@@ -87,6 +87,7 @@ func init() {
 // must specify a "zookeeper" property with a boolean
 // value. If this is true, a zookeeper instance will be started
 // the first time StateInfo is called on a newly reset environment.
+// NOTE: ZooKeeper isn't actually being started yet.
 // 
 // The DNS name of instances is the same as the Id,
 // with ".dns" appended.
@@ -106,17 +107,17 @@ func Reset(c chan<- Operation) {
 	}
 }
 
-func (e *dummyEnvirons) ConfigChecker() schema.Checker {
+func (e *environProvider) ConfigChecker() schema.Checker {
 	return schema.FieldMap(
 		schema.Fields{
 			"type":      schema.Const("dummy"),
-			"zookeeper": schema.Const(false),
+			"zookeeper": schema.Const(false), // TODO
 		},
 		[]string{},
 	)
 }
 
-func (e *dummyEnvirons) Open(name string, attributes interface{}) (environs.Environ, error) {
+func (e *environProvider) Open(name string, attributes interface{}) (environs.Environ, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	cfg := attributes.(schema.MapType)
@@ -170,10 +171,10 @@ func (e *environ) StartInstance(machineId int, _ *state.Info) (environs.Instance
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	i := &instance{
-		id: fmt.Sprintf("%s-%d", e.name, e.state.n),
+		id: fmt.Sprintf("%s-%d", e.name, e.state.maxId),
 	}
 	e.state.insts[i.id] = i
-	e.state.n++
+	e.state.maxId++
 	return i, nil
 }
 
