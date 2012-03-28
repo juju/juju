@@ -46,13 +46,16 @@ func (s *suite) TearDownTest(c *C) {
 	dummy.Reset(nil)
 }
 
-var cmdTests = []struct {
+type cmdTest struct {
+	description string
 	cmd      cmd.Command
 	args     []string
 	ops      []dummy.Operation
 	parseErr string
 	runErr   string
-}{
+}
+
+var cmdTests = []cmdTest {
 	// In the first few tests, we fully test the --environment
 	// flag. In the others we do only a rudimentary test,
 	// because we know that it's always implemented by
@@ -98,12 +101,68 @@ var cmdTests = []struct {
 	},
 }
 
+// All members of genericTests are tested for the -environment and -e
+// flags, and that extra arguments will cause parsing to fail.
+var genericParseTests = []struct {
+	cmd cmd.Command
+	args []string
+	allowsExtraArgs
+} {{
+		cmd: &main.Bootstrap.Command{},
+	}, {
+		cmd: &main.DestroyCommand{},
+	},
+}
+
+func newCommand(old cmd.Command) cmd.Command {
+	v := reflect.New(reflect.TypeOf(old).Elem())
+	return v.Interface().(cmd.Command)
+}
+
+	args     []string
+	ops      []dummy.Operation
+	parseErr string
+	runErr   string
+
+func testParse(c *C, com cmd.Command, args []string, errPat string) cmd.Command {
+	com = newCommand(com)
+	err := cmd.Parse(com, args)
+	if err != nil {
+		c.Assert(err, ErrorMatches, errPat)
+	} else {
+		c.Assert(err, IsNil)
+	}
+	return com
+}
+
+func testConn(c *C, com cmd.Command, name string) {
+	v := reflect.NewValue(com).Elem().FieldByName("Conn")
+	c.Assert(v.IsValid(), Equals, true)
+	conn := v.Interface().(*juju.Conn)
+	c.Assert(dummy.EnvironName(conn.Environ), Equals, name)
+}
+
+func (*suite) TestGeneric() {
+	for _, t := range genericTests {
+		com := testParse(c, t.cmd, t.args, "")
+		testConn(c, com, "peckham")
+
+		com = testParse(c, t.cmd, append([]string{"-e", "walthamstow"}, args), "")
+		testConn(c, com, "walthamstow")
+
+		com = testParse(c, t.cmd, append([]string{"-environment", "walthamstow"}, args), "")
+		testConn(c, com, "walthamstow")
+
+		testParse(c, t.cmd, append([]string{"-e", "unknown"}, args), "some error")
+	}
+}
+
 func (*suite) TestCommands(c *C) {
 	for i, t := range cmdTests {
 		c.Log("test %d", i)
 		err := cmd.Parse(t.cmd, t.args)
 		checkError(c, "parse", err, t.parseErr)
-
+	
 		// gather operations as they happen
 		opc := make(chan dummy.Operation)
 		dummy.Reset(opc)
@@ -115,14 +174,14 @@ func (*suite) TestCommands(c *C) {
 			}
 			done <- true
 		}()
-
+	
 		err = t.cmd.Run()
 		checkError(c, "run", err, t.runErr)
-
+	
 		// signal that we're done with this listener channel.
 		dummy.Reset(nil)
 		<-done
-
+	
 		c.Check(ops, DeepEquals, t.ops)
 	}
 }
@@ -138,12 +197,19 @@ func checkError(c *C, kind string, err error, expect string) {
 	}
 }
 
+// envOps returns a slice of expected operations on a given
+// environment name. The returned slice always starts
+// with dummy.OpOpen.
 func envOps(name string, events ...dummy.OperationKind) []dummy.Operation {
-	ops := make([]dummy.Operation, len(events))
+	ops := make([]dummy.Operation, len(events)+1)
+	ops[0] = dummy.Operation{
+		EnvironName: name,
+		Kind: dummy.OpOpen,
+	}
 	for i, e := range events {
-		ops[i] = dummy.Operation{
+		ops[i+1] = dummy.Operation{
 			EnvironName: name,
-			Kind:        e,
+			Kind: e,
 		}
 	}
 	return ops

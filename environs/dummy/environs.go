@@ -21,6 +21,7 @@ type OperationKind int
 
 const (
 	_ OperationKind = iota
+	OpOpen
 	OpBootstrap
 	OpDestroy
 	OpStartInstance
@@ -105,6 +106,7 @@ func (e *dummyEnvirons) ConfigChecker() schema.Checker {
 }
 
 func (e *dummyEnvirons) Open(name string, attributes interface{}) (environs.Environ, error) {
+	e.ops <- Operation{OpOpen, e.name}
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	cfg := attributes.(schema.MapType)
@@ -121,6 +123,12 @@ type environ struct {
 	name      string
 	state     *environState
 	zookeeper bool
+}
+
+// EnvironName returns the name of the environment,
+// which must be opened from a dummy environment.
+func EnvironName(e environs.Environ) string {
+	return e.(*environ).name
 }
 
 func (e *environ) Bootstrap() error {
