@@ -21,12 +21,23 @@ type OperationKind int
 
 const (
 	_ OperationKind = iota
-	OpOpen
 	OpBootstrap
 	OpDestroy
 	OpStartInstance
 	OpStopInstances
 )
+
+var kindNames = []string{
+	0: "OpUninitialized",
+	OpBootstrap: "OpBootstrap",
+	OpDestroy: "OpDestroy",
+	OpStartInstance: "OpStartInstance",
+	OpStopInstances: "OpStopInstances",
+}
+
+func (k OperationKind) String() string {
+	return kindNames[k]
+}
 
 // dummyEnvirons represents the dummy provider.  There is only ever one
 // instance of this type (environsInstance)
@@ -106,7 +117,6 @@ func (e *dummyEnvirons) ConfigChecker() schema.Checker {
 }
 
 func (e *dummyEnvirons) Open(name string, attributes interface{}) (environs.Environ, error) {
-	e.ops <- Operation{OpOpen, e.name}
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	cfg := attributes.(schema.MapType)

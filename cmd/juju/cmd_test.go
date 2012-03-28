@@ -4,17 +4,19 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/cmd"
+	"launchpad.net/juju/go/juju"
 	main "launchpad.net/juju/go/cmd/juju"
 	"launchpad.net/juju/go/environs/dummy"
 	"os"
 	"path/filepath"
+	"reflect"
 )
 
-type suite struct {
+type cmdSuite struct {
 	home string
 }
 
-var _ = Suite(suite{})
+var _ = Suite(&cmdSuite{})
 
 var config = `
 default:
@@ -28,7 +30,7 @@ environments:
         zookeeper: false
 `
 
-func (s *suite) SetUpTest(c *C) {
+func (s *cmdSuite) SetUpTest(c *C) {
 	// Arrange so that the "home" directory points
 	// to a temporary directory containing the config file.
 	s.home = os.Getenv("HOME")
@@ -40,89 +42,38 @@ func (s *suite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *suite) TearDownTest(c *C) {
+func (s *cmdSuite) TearDownTest(c *C) {
 	os.Setenv("HOME", s.home)
 
 	dummy.Reset(nil)
 }
 
-type cmdTest struct {
-	description string
+var cmdTests = []struct {
 	cmd      cmd.Command
 	args     []string
 	ops      []dummy.Operation
 	parseErr string
 	runErr   string
-}
-
-var cmdTests = []cmdTest {
-	// In the first few tests, we fully test the --environment
-	// flag. In the others we do only a rudimentary test,
-	// because we know that it's always implemented by
-	// embedding a conn type, so checking that -e
-	// works correctly is sufficient to infer that the other
-	// behaviours work too.
+} {
 	{
-		&main.BootstrapCommand{},
-		[]string{"hotdog"},
-		nil,
-		`unrecognised args: \[hotdog\]`,
-		"",
+		cmd: &main.BootstrapCommand{},
+		args: []string{"hotdog"},
+		parseErr: `unrecognised args: \[hotdog\]`,
 	}, {
-		&main.BootstrapCommand{},
-		[]string{},
-		envOps("peckham", dummy.OpBootstrap),
-		"",
-		"",
-	}, {
-		&main.BootstrapCommand{},
-		[]string{"-e", "walthamstow"},
-		envOps("walthamstow", dummy.OpBootstrap),
-		"",
-		"",
-	}, {
-		&main.BootstrapCommand{},
-		[]string{"-e", "walthamstow"},
-		envOps("walthamstow", dummy.OpBootstrap),
-		"",
-		"",
-	}, {
-		&main.DestroyCommand{},
-		[]string{},
-		envOps("peckham", dummy.OpDestroy),
-		"",
-		"",
-	}, {
-		&main.DestroyCommand{},
-		[]string{"-e", "walthamstow"},
-		envOps("walthamstow", dummy.OpDestroy),
-		"",
-		"",
-	},
-}
-
-// All members of genericTests are tested for the -environment and -e
-// flags, and that extra arguments will cause parsing to fail.
-var genericParseTests = []struct {
-	cmd cmd.Command
-	args []string
-	allowsExtraArgs
-} {{
-		cmd: &main.Bootstrap.Command{},
+		cmd: &main.BootstrapCommand{},
+		ops: envOps("peckham", dummy.OpBootstrap),
 	}, {
 		cmd: &main.DestroyCommand{},
+		ops: envOps("peckham", dummy.OpDestroy),
 	},
 }
 
+// newCommand makes a new Command of the same
+// type as the old one.
 func newCommand(old cmd.Command) cmd.Command {
 	v := reflect.New(reflect.TypeOf(old).Elem())
 	return v.Interface().(cmd.Command)
 }
-
-	args     []string
-	ops      []dummy.Operation
-	parseErr string
-	runErr   string
 
 func testParse(c *C, com cmd.Command, args []string, errPat string) cmd.Command {
 	com = newCommand(com)
@@ -136,30 +87,48 @@ func testParse(c *C, com cmd.Command, args []string, errPat string) cmd.Command 
 }
 
 func testConn(c *C, com cmd.Command, name string) {
-	v := reflect.NewValue(com).Elem().FieldByName("Conn")
+	v := reflect.ValueOf(com).Elem().FieldByName("Conn")
 	c.Assert(v.IsValid(), Equals, true)
 	conn := v.Interface().(*juju.Conn)
 	c.Assert(dummy.EnvironName(conn.Environ), Equals, name)
 }
 
-func (*suite) TestGeneric() {
-	for _, t := range genericTests {
+// All members of genericTests are tested for the -environment and -e
+// flags, and that extra arguments will cause parsing to fail.
+var genericParseTests = []struct {
+	cmd cmd.Command
+	args []string
+	allowExtraArgs bool
+} {
+	{
+		cmd: &main.BootstrapCommand{},
+	}, {
+		cmd: &main.DestroyCommand{},
+	},
+}
+
+func (*cmdSuite) TestGenericBehaviour(c *C) {
+	for _, t := range genericParseTests {
 		com := testParse(c, t.cmd, t.args, "")
 		testConn(c, com, "peckham")
 
-		com = testParse(c, t.cmd, append([]string{"-e", "walthamstow"}, args), "")
+		com = testParse(c, t.cmd, append([]string{"-e", "walthamstow"}, t.args...), "")
 		testConn(c, com, "walthamstow")
 
-		com = testParse(c, t.cmd, append([]string{"-environment", "walthamstow"}, args), "")
+		com = testParse(c, t.cmd, append([]string{"-environment", "walthamstow"}, t.args...), "")
 		testConn(c, com, "walthamstow")
 
-		testParse(c, t.cmd, append([]string{"-e", "unknown"}, args), "some error")
+		testParse(c, t.cmd, append([]string{"-e", "unknown"}, t.args...), "some error")
+
+		if !t.allowExtraArgs {
+			testParse(c, t.cmd, append(t.args, "hotdog"), "no args allowed")
+		}
 	}
 }
 
-func (*suite) TestCommands(c *C) {
+func (*cmdSuite) TestCommands(c *C) {
 	for i, t := range cmdTests {
-		c.Log("test %d", i)
+		c.Logf("test %d", i)
 		err := cmd.Parse(t.cmd, t.args)
 		checkError(c, "parse", err, t.parseErr)
 	
@@ -174,14 +143,13 @@ func (*suite) TestCommands(c *C) {
 			}
 			done <- true
 		}()
-	
+		c.Logf("running %T %#v\n", t.cmd, t.cmd)
 		err = t.cmd.Run()
 		checkError(c, "run", err, t.runErr)
 	
 		// signal that we're done with this listener channel.
 		dummy.Reset(nil)
 		<-done
-	
 		c.Check(ops, DeepEquals, t.ops)
 	}
 }
@@ -198,16 +166,11 @@ func checkError(c *C, kind string, err error, expect string) {
 }
 
 // envOps returns a slice of expected operations on a given
-// environment name. The returned slice always starts
-// with dummy.OpOpen.
+// environment name.
 func envOps(name string, events ...dummy.OperationKind) []dummy.Operation {
-	ops := make([]dummy.Operation, len(events)+1)
-	ops[0] = dummy.Operation{
-		EnvironName: name,
-		Kind: dummy.OpOpen,
-	}
+	ops := make([]dummy.Operation, len(events))
 	for i, e := range events {
-		ops[i+1] = dummy.Operation{
+		ops[i] = dummy.Operation{
 			EnvironName: name,
 			Kind: e,
 		}
