@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/tomb"
-	"sort"
 )
 
 // ContentWatcher observes a ZooKeeper node and delivers a
@@ -200,8 +199,6 @@ func (w *ChildrenWatcher) update(eventType int) (nextWatch <-chan zookeeper.Even
 	if len(change.Deleted) == 0 && len(change.Added) == 0 {
 		return watch, nil
 	}
-	sort.Strings(change.Added)
-	sort.Strings(change.Deleted)
 	select {
 	case <-w.tomb.Dying():
 		return nil, nil
