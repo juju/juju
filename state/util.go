@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
+	pathpkg "path"
 	"sort"
 )
 
@@ -215,20 +216,37 @@ func (c *ConfigNode) Delete(key string) {
 	delete(c.cache, key)
 }
 
-// zkRemoveTree recursively removes a tree.
+// zkRemoveTree recursively removes a zookeeper node and all its
+// children.  It does not delete "/zookeeper" or the root node itself
+// and it does not consider deleting a nonexistent node to be an error.
 func zkRemoveTree(zk *zookeeper.Conn, path string) error {
+	// If we try to delete the zookeeper node (for example when
+	// calling ZkRemoveTree(zk, "/")) we silently ignore it.
+	if path == "/zookeeper" {
+		return nil
+	}
 	// First recursively delete the children.
 	children, _, err := zk.Children(path)
 	if err != nil {
+		if zookeeper.IsError(err, zookeeper.ZNONODE) {
+			return nil
+		}
 		return err
 	}
 	for _, child := range children {
-		if err = zkRemoveTree(zk, fmt.Sprintf("%s/%s", path, child)); err != nil {
+		if err := zkRemoveTree(zk, pathpkg.Join(path, child)); err != nil {
 			return err
 		}
 	}
-	// Now delete the path itself.
-	return zk.Delete(path, -1)
+	// Now delete the path itself unless it's the root node.
+	if path == "/" {
+		return nil
+	}
+	err = zk.Delete(path, -1)
+	if err != nil && !zookeeper.IsError(err, zookeeper.ZNONODE) {
+		return err
+	}
+	return nil
 }
 
 // copyCache copies the keys and values of one cache into a new one.
