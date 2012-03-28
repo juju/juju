@@ -100,7 +100,7 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 	msg, unbreak := breakJuju(c)
 	defer unbreak()
 	logpath := filepath.Join(c.MkDir(), "log")
-	lines := badrun(c, 1, "bootstrap", "--log-file", logpath, "--verbose", "--debug")
+	lines := badrun(c, 2, "bootstrap", "--log-file", logpath, "--verbose", "--debug")
 	c.Assert(lines[0], Equals, msg, Commentf("output: %s", strings.Join(lines, "\n")))
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)

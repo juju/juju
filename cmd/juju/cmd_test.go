@@ -48,26 +48,6 @@ func (s *cmdSuite) TearDownTest(c *C) {
 	dummy.Reset(nil)
 }
 
-var cmdTests = []struct {
-	cmd      cmd.Command
-	args     []string
-	ops      []dummy.Operation
-	parseErr string
-	runErr   string
-} {
-	{
-		cmd: &main.BootstrapCommand{},
-		args: []string{"hotdog"},
-		parseErr: `unrecognised args: \[hotdog\]`,
-	}, {
-		cmd: &main.BootstrapCommand{},
-		ops: envOps("peckham", dummy.OpBootstrap),
-	}, {
-		cmd: &main.DestroyCommand{},
-		ops: envOps("peckham", dummy.OpDestroy),
-	},
-}
-
 // newCommand makes a new Command of the same
 // type as the old one.
 func newCommand(old cmd.Command) cmd.Command {
@@ -78,7 +58,7 @@ func newCommand(old cmd.Command) cmd.Command {
 func testParse(c *C, com cmd.Command, args []string, errPat string) cmd.Command {
 	com = newCommand(com)
 	err := cmd.Parse(com, args)
-	if err != nil {
+	if errPat != "" {
 		c.Assert(err, ErrorMatches, errPat)
 	} else {
 		c.Assert(err, IsNil)
@@ -115,26 +95,42 @@ func (*cmdSuite) TestGenericBehaviour(c *C) {
 		com = testParse(c, t.cmd, append([]string{"-e", "walthamstow"}, t.args...), "")
 		testConn(c, com, "walthamstow")
 
-		com = testParse(c, t.cmd, append([]string{"-environment", "walthamstow"}, t.args...), "")
+		com = testParse(c, t.cmd, append([]string{"--environment", "walthamstow"}, t.args...), "")
 		testConn(c, com, "walthamstow")
 
-		testParse(c, t.cmd, append([]string{"-e", "unknown"}, t.args...), "some error")
+		testParse(c, t.cmd, append([]string{"-e", "unknown"}, t.args...), "unknown environment .*")
 
 		if !t.allowExtraArgs {
-			testParse(c, t.cmd, append(t.args, "hotdog"), "no args allowed")
+			testParse(c, t.cmd, append(t.args, "hotdog"), "unrecognised args.*")
 		}
 	}
 }
 
+var cmdTests = []struct {
+	cmd      cmd.Command
+	args     []string
+	ops      []dummy.Operation
+	parseErr string
+	runErr   string
+} {
+	{
+		cmd: &main.BootstrapCommand{},
+		args: []string{"hotdog"},
+		parseErr: `unrecognised args: \[hotdog\]`,
+	}, {
+		cmd: &main.BootstrapCommand{},
+		ops: envOps("peckham", dummy.OpBootstrap),
+	}, {
+		cmd: &main.DestroyCommand{},
+		ops: envOps("peckham", dummy.OpDestroy),
+	},
+}
+
 func (*cmdSuite) TestCommands(c *C) {
 	for i, t := range cmdTests {
-		c.Logf("test %d", i)
-		err := cmd.Parse(t.cmd, t.args)
-		checkError(c, "parse", err, t.parseErr)
-	
+		c.Logf("test %d: %T", i, t.cmd)
 		// gather operations as they happen
 		opc := make(chan dummy.Operation)
-		dummy.Reset(opc)
 		done := make(chan bool)
 		var ops []dummy.Operation
 		go func() {
@@ -143,25 +139,26 @@ func (*cmdSuite) TestCommands(c *C) {
 			}
 			done <- true
 		}()
-		c.Logf("running %T %#v\n", t.cmd, t.cmd)
+		dummy.Reset(opc)
+
+		err := cmd.Parse(t.cmd, t.args)
+		if t.parseErr != "" {
+			c.Assert(err, ErrorMatches, t.parseErr)
+			continue
+		}
+		c.Assert(err, IsNil)
+
 		err = t.cmd.Run()
-		checkError(c, "run", err, t.runErr)
+		if t.runErr != "" {
+			c.Assert(err, ErrorMatches, t.parseErr)
+		} else {
+			c.Assert(err, IsNil)
+		}
 	
 		// signal that we're done with this listener channel.
 		dummy.Reset(nil)
 		<-done
 		c.Check(ops, DeepEquals, t.ops)
-	}
-}
-
-func checkError(c *C, kind string, err error, expect string) {
-	switch {
-	case err != nil && expect == "":
-		c.Fatalf("unexpected %s error: %v", kind, err)
-	case err != nil && expect != "":
-		c.Assert(err, ErrorMatches, expect)
-	case err == nil && expect != "":
-		c.Fatalf("unexpected %s success: expected %q", kind, expect)
 	}
 }
 
