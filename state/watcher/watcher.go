@@ -73,7 +73,7 @@ func (w *ContentWatcher) loop() {
 }
 
 // update retrieves the node content and emits it to the change
-// channel. It returns the next watch if it has changed.
+// channel if it has changed. It returns the next watch.
 func (w *ContentWatcher) update(eventType int) (nextWatch <-chan zookeeper.Event, err error) {
 	if eventType == zookeeper.EVENT_DELETED {
 		return nil, fmt.Errorf("watcher: node %q has been deleted", w.path)
@@ -170,7 +170,7 @@ func (w *ChildrenWatcher) loop() {
 }
 
 // update retrieves the node children and emits the added or deleted children to 
-// the change channel. It returns the next watch if it has changed.
+// the change channel if it has changed. It returns the next watch.
 func (w *ChildrenWatcher) update(eventType int) (nextWatch <-chan zookeeper.Event, err error) {
 	if eventType == zookeeper.EVENT_DELETED {
 		return nil, fmt.Errorf("watcher: node %q has been deleted", w.path)
