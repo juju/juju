@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/log"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -34,6 +35,10 @@ func NewServer(store *Store) (*Server, error) {
 // ServeHTTP serves an http request.
 // This method turns *Server into an http.Handler.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/" {
+		http.Redirect(w, r, "https://juju.ubuntu.com", http.StatusSeeOther)
+		return
+	}
 	s.mux.ServeHTTP(w, r)
 }
 
@@ -89,7 +94,7 @@ func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	_, rc, err := s.store.OpenCharm(curl)
+	info, rc, err := s.store.OpenCharm(curl)
 	if err == ErrNotFound {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -100,7 +105,9 @@ func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rc.Close()
+	w.Header().Set("Connection", "close") // No keep-alive for now.
 	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Length", strconv.FormatInt(info.BundleSize(), 10))
 	_, err = io.Copy(w, rc)
 	if err != nil {
 		log.Printf("failed to stream charm %q: %v", curl, err)

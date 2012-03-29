@@ -12,7 +12,7 @@ import (
 var zkAddr string
 
 func TestPackage(t *stdtesting.T) {
-	srv := testing.StartZkServer(t)
+	srv := testing.StartZkServer()
 	defer srv.Destroy()
 	var err error
 	zkAddr, err = srv.Addr()
@@ -45,7 +45,7 @@ func (s *WatcherSuite) SetUpTest(c *C) {
 }
 
 func (s *WatcherSuite) TearDownTest(c *C) {
-	testing.ZkRemoveTree(c, s.zkConn, s.path)
+	testing.ZkRemoveTree(s.zkConn, s.path)
 	s.zkConn.Close()
 }
 
@@ -141,7 +141,7 @@ func (s *WatcherSuite) TestDeletedNode(c *C) {
 
 	go func() {
 		time.Sleep(50 * time.Millisecond)
-		testing.ZkRemoveTree(c, s.zkConn, s.path)
+		testing.ZkRemoveTree(s.zkConn, s.path)
 	}()
 
 	// Changes() has to be closed
