@@ -225,6 +225,7 @@ func (w *charmWriter) finish() error {
 	}
 	defer w.session.Close()
 	id := w.file.Id()
+	size := w.file.Size()
 	err := w.file.Close()
 	if err != nil {
 		log.Printf("Failed to close GridFS file: %v", err)
@@ -237,6 +238,7 @@ func (w *charmWriter) finish() error {
 		w.revision,
 		w.digest,
 		sha256,
+		size,
 		id.(bson.ObjectId),
 		w.charm.Meta(),
 		w.charm.Config(),
@@ -253,6 +255,7 @@ type CharmInfo struct {
 	revision int
 	digest   string
 	sha256   string
+	size     int64
 	fileId   bson.ObjectId
 	meta     *charm.Meta
 	config   *charm.Config
@@ -269,6 +272,11 @@ func (ci *CharmInfo) Revision() int {
 // BundleSha256 returns the sha256 checksum for the stored charm bundle.
 func (ci *CharmInfo) BundleSha256() string {
 	return ci.sha256
+}
+
+// BundleSize returns the size for the stored charm bundle.
+func (ci *CharmInfo) BundleSize() int64 {
+	return ci.size
 }
 
 // Digest returns the unique identifier that represents the charm
@@ -309,7 +317,16 @@ func (s *Store) CharmInfo(url *charm.URL) (info *CharmInfo, err error) {
 		log.Printf("Failed to find charm %s: %v", url, err)
 		return nil, ErrNotFound
 	}
-	return &CharmInfo{cdoc.Revision, cdoc.Digest, cdoc.Sha256, cdoc.FileId, cdoc.Meta, cdoc.Config}, nil
+	info = &CharmInfo{
+		cdoc.Revision,
+		cdoc.Digest,
+		cdoc.Sha256,
+		cdoc.Size,
+		cdoc.FileId,
+		cdoc.Meta,
+		cdoc.Config,
+	}
+	return info, nil
 }
 
 // OpenCharm opens for reading via rc the charm currently available at url.
@@ -354,6 +371,7 @@ type charmDoc struct {
 	Revision int
 	Digest   string
 	Sha256   string
+	Size     int64
 	FileId   bson.ObjectId
 	Meta     *charm.Meta
 	Config   *charm.Config
