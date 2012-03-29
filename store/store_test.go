@@ -339,7 +339,7 @@ func (s *StoreSuite) TestRedundantUpdate(c *C) {
 
 const fakeRevZeroSha = "319095521ac8a62fa1e8423351973512ecca8928c9f62025e37de57c9ef07a53"
 
-func (s *StoreSuite) TestBundleSha256(c *C) {
+func (s *StoreSuite) TestCharmBundleData(c *C) {
 	url := charm.MustParseURL("cs:oneiric/wordpress")
 	urls := []*charm.URL{url}
 
@@ -353,6 +353,7 @@ func (s *StoreSuite) TestBundleSha256(c *C) {
 	info, rc, err := s.store.OpenCharm(url)
 	c.Assert(err, IsNil)
 	c.Check(info.BundleSha256(), Equals, fakeRevZeroSha)
+	c.Check(info.BundleSize(), Equals, int64(len("charm-revision-0")))
 	err = rc.Close()
 	c.Check(err, IsNil)
 }
