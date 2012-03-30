@@ -71,7 +71,9 @@ func (s *StoreSuite) TestCharmStreaming(c *C) {
 	data, err := ioutil.ReadAll(rec.Body)
 	c.Assert(string(data), Equals, "charm-revision-0")
 
+	c.Assert(rec.Header().Get("Connection"), Equals, "close")
 	c.Assert(rec.Header().Get("Content-Type"), Equals, "application/octet-stream")
+	c.Assert(rec.Header().Get("Content-Length"), Equals, "16")
 }
 
 func (s *StoreSuite) TestServer404(c *C) {
@@ -89,4 +91,15 @@ func (s *StoreSuite) TestServer404(c *C) {
 		server.ServeHTTP(rec, req)
 		c.Assert(rec.Code, Equals, 404)
 	}
+}
+
+func (s *StoreSuite) TestRootRedirect(c *C) {
+	server, err := store.NewServer(s.store)
+	c.Assert(err, IsNil)
+	req, err := http.NewRequest("GET", "/", nil)
+	c.Assert(err, IsNil)
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+	c.Assert(rec.Code, Equals, 303)
+	c.Assert(rec.Header().Get("Location"), Equals, "https://juju.ubuntu.com")
 }

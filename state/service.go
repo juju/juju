@@ -10,17 +10,15 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
-	"launchpad.net/tomb"
-	"reflect"
+	"launchpad.net/juju/go/state/watcher"
 	"strings"
 )
 
 // ServiceConfigWatcher
 type ServiceConfigWatcher struct {
-	svc     *Service
+	service *Service
+	watcher *watcher.ContentWatcher
 	changes chan *ConfigNode
-	config  *ConfigNode
-	tomb    tomb.Tomb
 }
 
 // Changes returns a channel delivering the changed service configurations.
@@ -30,63 +28,19 @@ func (w *ServiceConfigWatcher) Changes() <-chan *ConfigNode {
 
 // Stop ends the service configuration watching.
 func (w *ServiceConfigWatcher) Stop() error {
-	w.tomb.Kill(nil)
-	return w.tomb.Wait()
+	return w.watcher.Stop()
 }
 
 // loop is the backend for watching the service configuration node.
 func (w *ServiceConfigWatcher) loop() {
-	defer w.tomb.Done()
-	defer close(w.changes)
-
-	config, err := readConfigNode(w.svc.st.zk, w.svc.zkConfigPath())
-	if err != nil {
-		w.tomb.Kill(err)
-		return
-	}
-	w.config = config
-
-	watch := singleEventChan(zookeeper.EVENT_CHANGED)
-	for {
-		select {
-		case <-w.tomb.Dying():
+	for content := range w.watcher.Changes() {
+		configNode, err := parseConfigNode(w.service.st.zk, w.service.zkConfigPath(), content)
+		if err != nil {
+			w.watcher.Kill(err)
 			return
-		case evt := <-watch:
-			if !evt.Ok() {
-				w.tomb.Killf("zookeeper critical session event: %v", evt)
-				return
-			}
-			_, nextWatch, err := w.svc.st.zk.ExistsW(w.svc.zkConfigPath())
-			if err != nil {
-				w.tomb.Kill(err)
-				return
-			}
-			watch = nextWatch
-			if !w.update() {
-				return
-			}
 		}
+		w.changes <- configNode
 	}
-}
-
-// update reads the config node of the service and writes
-// it to the changes channel if it has changed.
-func (w *ServiceConfigWatcher) update() bool {
-	config, err := readConfigNode(w.svc.st.zk, w.svc.zkConfigPath())
-	if err != nil {
-		w.tomb.Kill(err)
-		return false
-	}
-	if reflect.DeepEqual(config, w.config) {
-		return true
-	}
-	w.config = config
-	select {
-	case <-w.tomb.Dying():
-		return false
-	case w.changes <- w.config:
-	}
-	return true
 }
 
 // Service represents the state of a service.
@@ -312,9 +266,12 @@ func (s *Service) Config() (*ConfigNode, error) {
 	return readConfigNode(s.st.zk, s.zkConfigPath())
 }
 
+// WatchConfig creates a watcher for the configuration node
+// of the service.
 func (s *Service) WatchConfig() *ServiceConfigWatcher {
 	w := &ServiceConfigWatcher{
-		svc:     s,
+		service: s,
+		watcher: watcher.NewContentWatcher(s.st.zk, s.zkConfigPath()),
 		changes: make(chan *ConfigNode),
 	}
 	go w.loop()
