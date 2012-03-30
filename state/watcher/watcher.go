@@ -42,8 +42,8 @@ func (w *ContentWatcher) Kill(err error) {
 	w.tomb.Kill(err)
 }
 
-// Dying returns a channel to signal a pipelined goroutine
-// that the watcher stops working.
+// Dying returns a channel that indicates
+// that the watcher is about to finish.
 func (w *ContentWatcher) Dying() <-chan struct{} {
 	return w.tomb.Dying()
 }
@@ -152,8 +152,8 @@ func (w *ChildrenWatcher) Kill(err error) {
 	w.tomb.Kill(err)
 }
 
-// Dying returns a channel to signal a pipelined goroutine
-// that the watcher stops working.
+// Dying returns a channel that indicates
+// that the watcher is about to finish.
 func (w *ChildrenWatcher) Dying() <-chan struct{} {
 	return w.tomb.Dying()
 }

@@ -14,7 +14,8 @@ import (
 	"strings"
 )
 
-// ServiceConfigWatcher observices configuration changes of a service.
+// ServiceConfigWatcher observes changes to the configuration
+// of a service.
 type ServiceConfigWatcher struct {
 	service *Service
 	watcher *watcher.ContentWatcher
