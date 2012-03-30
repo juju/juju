@@ -42,6 +42,12 @@ func (w *ContentWatcher) Kill(err error) {
 	w.tomb.Kill(err)
 }
 
+// Dying returns a channel to signal a pipelined goroutine
+// that the watcher stops working.
+func (w *ContentWatcher) Dying() <-chan struct{} {
+	return w.tomb.Dying()
+}
+
 // Stop stops the watch and returns any error encountered
 // while watching. This method should always be called before
 // discarding the watcher.
@@ -144,6 +150,12 @@ func (w *ChildrenWatcher) Changes() <-chan ChildrenChange {
 // an illegal format or state.
 func (w *ChildrenWatcher) Kill(err error) {
 	w.tomb.Kill(err)
+}
+
+// Dying returns a channel to signal a pipelined goroutine
+// that the watcher stops working.
+func (w *ChildrenWatcher) Dying() <-chan struct{} {
+	return w.tomb.Dying()
 }
 
 // Stop stops the watch and returns any error encountered

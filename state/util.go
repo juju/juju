@@ -83,13 +83,14 @@ func createConfigNode(zk *zookeeper.Conn, path string, values map[string]interfa
 	return c, nil
 }
 
+// parseConfigNode creates a config node based on a pre-read content. It's
+// not implicit written to ZooKeeper.
 func parseConfigNode(zk *zookeeper.Conn, path, content string) (*ConfigNode, error) {
 	c := &ConfigNode{
-		zk:    zk,
-		path:  path,
-		cache: make(map[string]interface{}),
+		zk:   zk,
+		path: path,
 	}
-	if err := goyaml.Unmarshal([]byte(content), c.cache); err != nil {
+	if err := goyaml.Unmarshal([]byte(content), &c.cache); err != nil {
 		return nil, err
 	}
 	c.pristineCache = copyCache(c.cache)
@@ -304,15 +305,4 @@ func Quote(unsafe string) string {
 		}
 	}
 	return string(safe)
-}
-
-// singleEventChan creates a ZooKeeper event channel with an
-// initial event for the usage inside of watchers.
-func singleEventChan(eventType int) <-chan zookeeper.Event {
-	eventChan := make(chan zookeeper.Event, 1)
-	eventChan <- zookeeper.Event{
-		State: zookeeper.STATE_CONNECTED,
-		Type:  eventType,
-	}
-	return eventChan
 }

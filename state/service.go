@@ -14,14 +14,14 @@ import (
 	"strings"
 )
 
-// ServiceConfigWatcher
+// ServiceConfigWatcher observices configuration changes of a service.
 type ServiceConfigWatcher struct {
 	service *Service
 	watcher *watcher.ContentWatcher
 	changes chan *ConfigNode
 }
 
-// Changes returns a channel delivering the changed service configurations.
+// Changes returns the channel delivering the changed service configurations.
 func (w *ServiceConfigWatcher) Changes() <-chan *ConfigNode {
 	return w.changes
 }
@@ -33,13 +33,19 @@ func (w *ServiceConfigWatcher) Stop() error {
 
 // loop is the backend for watching the service configuration node.
 func (w *ServiceConfigWatcher) loop() {
+	defer close(w.changes)
+
 	for content := range w.watcher.Changes() {
 		configNode, err := parseConfigNode(w.service.st.zk, w.service.zkConfigPath(), content)
 		if err != nil {
 			w.watcher.Kill(err)
 			return
 		}
-		w.changes <- configNode
+		select {
+		case <-w.watcher.Dying():
+			return
+		case w.changes <- configNode:
+		}
 	}
 }
 
