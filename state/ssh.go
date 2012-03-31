@@ -1,0 +1,255 @@
+package state
+
+import (
+	"bufio"
+	"fmt"
+	"io"
+	"launchpad.net/gozk/zookeeper"
+	"log"
+	"launchpad.net/tomb"
+	"net"
+	"os/exec"
+	"strings"
+	"time"
+)
+
+// sshDial dials the ZooKeeper instance at addr through
+// an SSH proxy.
+func sshDial(addr string) (*sshForwarder, *zookeeper.Conn, error) {
+	fwd, err := newSSHForwarder(addr)
+	if err != nil {
+		return nil, nil, err
+	}
+	zk, session, err := zookeeper.Dial(fwd.localAddr, zkTimeout)
+	if err != nil {
+		fwd.Kill(nil)
+		return nil, nil, err
+	}
+
+	select {
+	case e := <-session:
+		fwd.Kill(nil)
+		if !e.Ok() {
+			return nil, nil, fmt.Errorf("critical zk event: %v", e)
+		}
+	case <-fwd.Dead():
+		zk.Close()
+		return nil, nil, fwd.Wait()
+	}
+	return fwd, zk, nil
+}
+
+type sshForwarder struct {
+	tomb.Tomb
+	localAddr string
+	remoteHost string
+	remotePort string
+}
+
+// newSSHForwarder starts an ssh proxy connecting to the
+// remote TCP address. The localAddr field holds the
+// name of the local proxy address.
+func newSSHForwarder(remoteAddr string) (*sshForwarder, error) {
+	remoteHost, remotePort, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		return nil, err
+	}
+	localPort, err := chooseZkPort()
+	if err != nil {
+		return nil, fmt.Errorf("cannot choose local port: %v", err)
+	}
+	fwd := &sshForwarder{
+		localAddr: fmt.Sprintf("localhost:%d", localPort),
+		remoteHost: remoteHost,
+		remotePort: remotePort,
+	}
+	p, err := fwd.start()
+	if err != nil {
+		return nil, err
+	}
+	go fwd.run(p)
+	return fwd, nil
+}
+
+func (fwd *sshForwarder) stop() error {
+	fwd.Kill(nil)
+	return fwd.Wait()
+}
+
+var sshRetryInterval = time.Second
+
+// run is called with the ssh process already active.
+// It loops, restarting ssh until it gets an unrecoverable error.
+func (fwd *sshForwarder) run(p *sshProc) {
+	defer fwd.Done()
+	restartCount := 0
+	startTime := time.Now()
+	var timeout <-chan time.Time
+	for {
+		var waitErr error
+		select {
+		case <-fwd.Dying():
+			p.stop()
+			return
+
+		case sshErr := <-p.error:
+			log.Printf("state: ssh error (will retry: %v): %v", sshErr, !sshErr.fatal)
+			if sshErr.fatal {
+				p.stop()
+				fwd.Kill(sshErr)
+				return
+			}
+			// If the ssh process dies repeatedly after running
+			// for a very short time and we don't recognise the
+			// error, we assume that something unknown is
+			// going wrong and quit.
+			if sshErr.unknown && time.Now().Sub(startTime) < 500 * time.Millisecond {
+				if restartCount++; restartCount > 10 {
+					p.stop()
+					log.Printf("state: too many ssh errors")
+					fwd.Kill(fmt.Errorf("too many errors: %v", sshErr))
+					return
+				}
+			} else {
+				restartCount = 0
+			}
+					
+		case waitErr = <-p.wait:
+			// If ssh has exited, we'll wait a little while
+			// in case we've got the exit status before we've
+			// received the error.
+			timeout = time.After(100 * time.Millisecond)
+			continue
+
+		case <-timeout:
+			// If ssh has exited without printing any
+			// errors, it's probably best to treat it as fatal.
+			p.stop()
+			if waitErr == nil {
+				waitErr = fmt.Errorf("ssh exited silently")
+			} else {
+				waitErr = fmt.Errorf("ssh exited silently: %v", waitErr)
+			}
+			fwd.Kill(waitErr)
+			return
+		}
+		p.stop()
+		var err error
+		time.Sleep(sshRetryInterval)
+		startTime = time.Now()
+		p, err = fwd.start()
+		if err != nil {
+			fwd.Kill(err)
+			return
+		}
+	}
+}
+
+func (fwd *sshForwarder) start() (p *sshProc, err error) {
+	c := exec.Command(
+		"ssh",
+		"-T",
+		"-o", "PasswordAuthentication no",
+		"-L", fmt.Sprintf(fmt.Sprintf("%s:localhost:%s", fwd.localAddr, fwd.remotePort)),
+		"ubuntu@"+fwd.remoteHost,
+	)
+	output, err := c.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+	c.Stderr = c.Stdout
+
+	err = c.Start()
+	if err != nil {
+		return nil, err
+	}
+
+	wait := make(chan error, 1)
+	go func() {
+		wait <- c.Wait()
+	}()
+
+	errorc := make(chan *sshError, 1)
+	go func() {
+		r := bufio.NewReader(output)
+		for {
+			line, err := r.ReadString('\n')
+			if err != nil {
+				// Discard any error, because it's likely to be
+				// from the output being closed, and we can't do
+				// much about it anyway - we're more interested
+				// in the ssh exit status.
+				return
+			}
+			if err := parseSSHError(line[0:len(line)-1]); err != nil {
+				errorc <- err
+				return
+			}
+		}
+	}()
+
+	return &sshProc{
+		error:  errorc,
+		wait:   wait,
+		output: output,
+		cmd:    c,
+	}, nil
+}
+
+// sshProc represents a running ssh process.
+type sshProc struct {
+	error  <-chan *sshError // Error printed by ssh.
+	wait   <-chan error     // SSH exit status.
+	output io.Closer        // The output pipe.
+	cmd    *exec.Cmd        // The running command. 
+}
+
+func (p *sshProc) stop() {
+	p.output.Close()
+	p.cmd.Process.Kill()
+}
+
+// sshError represents an error printed by ssh.
+type sshError struct {
+	fatal bool // If true, there's no point in retrying.
+	unknown bool	// Whether we've have not recognised the error message.
+	msg   string
+}
+
+func (e *sshError) Error() string {
+	return e.msg
+}
+
+// parseSSHError parses an error as printed by ssh.
+// If it's not actually an error, it returns nil.
+func parseSSHError(s string) *sshError {
+	err := &sshError{msg: s}
+	switch {
+	case strings.HasPrefix(s, "Warning: Permanently added"):
+		// Even with a null host file, and ignoring strict host checking
+		// we'll end up with a "Permanently added" warning.
+		// suppress it as it's effectively normal for our usage...
+		return nil
+
+	case strings.HasPrefix(s, "ssh: Could not resolve hostname"):
+		err.fatal = true
+
+	case strings.Contains(s, "Permission denied"):
+		err.msg = "Invalid SSH key"
+		err.fatal = true
+
+	default:
+		err.msg = "SSH forwarding error: " + err.msg
+		err.unknown = true
+	}
+	return err
+}
+
+func chooseZkPort() (int, error) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	l.Close()
+	return l.Addr().(*net.TCPAddr).Port, nil
+}
