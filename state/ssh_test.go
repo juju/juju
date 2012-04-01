@@ -11,7 +11,6 @@ type sshSuite struct{}
 
 var _ = Suite(sshSuite{})
 
-
 // fakeSSHRun represents the behaviour of the ssh command when run once.
 type fakeSSHRun struct {
 	Output string // The fake ssh will print this...
@@ -68,9 +67,9 @@ func xs(i int) string {
 // executable named ssh that exhibits a particular desired misbehaviour.
 // errorTests holds the various misbehaviours that we wish to test.
 var errorTests = []struct {
-	runs []fakeSSHRun	// sequence of SSH behaviours.
-	err1 string // error returned from newSSHForwarder.
-	err2 string // error returned from fwd.stop.
+	runs []fakeSSHRun // sequence of SSH behaviours.
+	err1 string       // error returned from newSSHForwarder.
+	err2 string       // error returned from fwd.stop.
 }{{
 	[]fakeSSHRun{{"Warning: Permanently added something", 0}},
 	"",

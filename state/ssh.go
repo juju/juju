@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 	"launchpad.net/gozk/zookeeper"
-	"log"
 	"launchpad.net/tomb"
+	"log"
 	"net"
 	"os/exec"
 	"strings"
@@ -41,7 +41,7 @@ func sshDial(addr string) (*sshForwarder, *zookeeper.Conn, error) {
 
 type sshForwarder struct {
 	tomb.Tomb
-	localAddr string
+	localAddr  string
 	remoteHost string
 	remotePort string
 }
@@ -59,7 +59,7 @@ func newSSHForwarder(remoteAddr string) (*sshForwarder, error) {
 		return nil, fmt.Errorf("cannot choose local port: %v", err)
 	}
 	fwd := &sshForwarder{
-		localAddr: fmt.Sprintf("localhost:%d", localPort),
+		localAddr:  fmt.Sprintf("localhost:%d", localPort),
 		remoteHost: remoteHost,
 		remotePort: remotePort,
 	}
@@ -103,7 +103,7 @@ func (fwd *sshForwarder) run(p *sshProc) {
 			// for a very short time and we don't recognise the
 			// error, we assume that something unknown is
 			// going wrong and quit.
-			if sshErr.unknown && time.Now().Sub(startTime) < 500 * time.Millisecond {
+			if sshErr.unknown && time.Now().Sub(startTime) < 500*time.Millisecond {
 				if restartCount++; restartCount > 10 {
 					p.stop()
 					log.Printf("state: too many ssh errors")
@@ -113,7 +113,7 @@ func (fwd *sshForwarder) run(p *sshProc) {
 			} else {
 				restartCount = 0
 			}
-					
+
 		case waitErr = <-p.wait:
 			// If ssh has exited, we'll wait a little while
 			// in case we've got the exit status before we've
@@ -181,7 +181,7 @@ func (fwd *sshForwarder) start() (p *sshProc, err error) {
 				// in the ssh exit status.
 				return
 			}
-			if err := parseSSHError(line[0:len(line)-1]); err != nil {
+			if err := parseSSHError(line[0 : len(line)-1]); err != nil {
 				errorc <- err
 				return
 			}
@@ -211,9 +211,9 @@ func (p *sshProc) stop() {
 
 // sshError represents an error printed by ssh.
 type sshError struct {
-	fatal bool // If true, there's no point in retrying.
-	unknown bool	// Whether we've have not recognised the error message.
-	msg   string
+	fatal   bool // If true, there's no point in retrying.
+	unknown bool // Whether we've have not recognised the error message.
+	msg     string
 }
 
 func (e *sshError) Error() string {
