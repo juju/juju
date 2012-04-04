@@ -12,6 +12,8 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
+	"launchpad.net/juju/go/state/watcher"
+	"launchpad.net/tomb"
 	"net/url"
 	"strings"
 )
@@ -234,4 +236,67 @@ func (s *State) Unit(name string) (*Unit, error) {
 		return nil, err
 	}
 	return service.Unit(name)
+}
+
+// ConfigWatcher observes changes to any configuration node.
+type ConfigWatcher struct {
+	st         *State
+	path       string
+	tomb       tomb.Tomb
+	watcher    *watcher.ContentWatcher
+	changeChan chan *ConfigNode
+}
+
+// newConfigWatcher creates and starts a new config watcher for
+// the given path.
+func newConfigWatcher(st *State, path string) *ConfigWatcher {
+	w := &ConfigWatcher{
+		st:         st,
+		path:       path,
+		changeChan: make(chan *ConfigNode),
+		watcher:    watcher.NewContentWatcher(st.zk, path),
+	}
+	go w.loop()
+	return w
+
+}
+
+// Changes returns the channel delivering the changed configurations.
+func (w *ConfigWatcher) Changes() <-chan *ConfigNode {
+	return w.changeChan
+}
+
+// Stop ends the configuration watching.
+func (w *ConfigWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	if err := w.watcher.Stop(); err != nil {
+		return err
+	}
+	return w.tomb.Wait()
+}
+
+// loop is the backend for watching the configuration node.
+func (w *ConfigWatcher) loop() {
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case content := <-w.watcher.Changes():
+			configNode, err := parseConfigNode(w.st.zk, w.path, content)
+			if err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			select {
+			case <-w.watcher.Dying():
+				return
+			case <-w.tomb.Dying():
+				return
+			case w.changeChan <- configNode:
+			}
+		}
+	}
 }

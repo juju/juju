@@ -14,7 +14,6 @@ func (s *StateSuite) TestServiceWatchConfig(c *C) {
 	config, err := wordpress.Config()
 	c.Assert(err, IsNil)
 	c.Assert(config.Keys(), HasLen, 0)
-
 	watcher := wordpress.WatchConfig()
 
 	// Recieve initial event after creation.

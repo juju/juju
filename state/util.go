@@ -83,8 +83,7 @@ func createConfigNode(zk *zookeeper.Conn, path string, values map[string]interfa
 	return c, nil
 }
 
-// parseConfigNode creates a config node based on a pre-read content. It's
-// not implicit written to ZooKeeper.
+// parseConfigNode creates a config node based on a pre-read content.
 func parseConfigNode(zk *zookeeper.Conn, path, content string) (*ConfigNode, error) {
 	c := &ConfigNode{
 		zk:   zk,

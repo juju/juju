@@ -35,15 +35,8 @@ func (w *ContentWatcher) Changes() <-chan string {
 	return w.changeChan
 }
 
-// Kill allows a pipelined goroutine to stop the watcher
-// due to an own processing error, e.g. if the content has
-// an illegal format or state.
-func (w *ContentWatcher) Kill(err error) {
-	w.tomb.Kill(err)
-}
-
-// Dying returns a channel that indicates
-// that the watcher is about to finish.
+// Dying returns a channel that is closed when the
+// watcher has stopped or is about to stop.
 func (w *ContentWatcher) Dying() <-chan struct{} {
 	return w.tomb.Dying()
 }
@@ -101,7 +94,7 @@ func (w *ContentWatcher) update(eventType int) (nextWatch <-chan zookeeper.Event
 	w.content = content
 	select {
 	case <-w.tomb.Dying():
-		return nil, nil
+		return nil, tomb.ErrDying
 	case w.changeChan <- w.content:
 	}
 	return watch, nil
@@ -145,15 +138,8 @@ func (w *ChildrenWatcher) Changes() <-chan ChildrenChange {
 	return w.changeChan
 }
 
-// Kill allows a pipelined goroutine to stop the watcher
-// due to an own processing error, e.g. if the content has
-// an illegal format or state.
-func (w *ChildrenWatcher) Kill(err error) {
-	w.tomb.Kill(err)
-}
-
-// Dying returns a channel that indicates
-// that the watcher is about to finish.
+// Dying returns a channel that is closed when the
+// watcher has stopped or is about to stop.
 func (w *ChildrenWatcher) Dying() <-chan struct{} {
 	return w.tomb.Dying()
 }
@@ -227,7 +213,7 @@ func (w *ChildrenWatcher) update(eventType int) (nextWatch <-chan zookeeper.Even
 	}
 	select {
 	case <-w.tomb.Dying():
-		return nil, nil
+		return nil, tomb.ErrDying
 	case w.changeChan <- change:
 	}
 	return watch, nil

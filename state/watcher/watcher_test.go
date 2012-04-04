@@ -1,7 +1,6 @@
 package watcher_test
 
 import (
-	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/state/watcher"
@@ -92,27 +91,6 @@ func (s *WatcherSuite) TestContentWatcher(c *C) {
 	}
 }
 
-func (s *WatcherSuite) TestContentWatcherKill(c *C) {
-	watcher := watcher.NewContentWatcher(s.zkConn, s.path)
-	raisedErr := fmt.Errorf("test error")
-
-	go func() {
-		time.Sleep(50 * time.Millisecond)
-		watcher.Kill(raisedErr)
-	}()
-
-	select {
-	case _, ok := <-watcher.Changes():
-		c.Assert(ok, Equals, false)
-	case <-time.After(200 * time.Millisecond):
-		// Timeout should not be needed.
-		c.Fail()
-	}
-
-	err := watcher.Stop()
-	c.Assert(err, Equals, raisedErr)
-}
-
 func (s *WatcherSuite) TestChildrenWatcher(c *C) {
 	watcher := watcher.NewChildrenWatcher(s.zkConn, s.path)
 
@@ -156,27 +134,6 @@ func (s *WatcherSuite) TestChildrenWatcher(c *C) {
 		// Timeout should not be needed.
 		c.Fail()
 	}
-}
-
-func (s *WatcherSuite) TestChildrenWatcherKill(c *C) {
-	watcher := watcher.NewChildrenWatcher(s.zkConn, s.path)
-	raisedErr := fmt.Errorf("test error")
-
-	go func() {
-		time.Sleep(50 * time.Millisecond)
-		watcher.Kill(raisedErr)
-	}()
-
-	select {
-	case _, ok := <-watcher.Changes():
-		c.Assert(ok, Equals, false)
-	case <-time.After(200 * time.Millisecond):
-		// Timeout should not be needed.
-		c.Fail()
-	}
-
-	err := watcher.Stop()
-	c.Assert(err, Equals, raisedErr)
 }
 
 func (s *WatcherSuite) TestDeletedNode(c *C) {

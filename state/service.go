@@ -10,45 +10,8 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
-	"launchpad.net/juju/go/state/watcher"
 	"strings"
 )
-
-// ServiceConfigWatcher observes changes to the configuration
-// of a service.
-type ServiceConfigWatcher struct {
-	service *Service
-	watcher *watcher.ContentWatcher
-	changes chan *ConfigNode
-}
-
-// Changes returns the channel delivering the changed service configurations.
-func (w *ServiceConfigWatcher) Changes() <-chan *ConfigNode {
-	return w.changes
-}
-
-// Stop ends the service configuration watching.
-func (w *ServiceConfigWatcher) Stop() error {
-	return w.watcher.Stop()
-}
-
-// loop is the backend for watching the service configuration node.
-func (w *ServiceConfigWatcher) loop() {
-	defer close(w.changes)
-
-	for content := range w.watcher.Changes() {
-		configNode, err := parseConfigNode(w.service.st.zk, w.service.zkConfigPath(), content)
-		if err != nil {
-			w.watcher.Kill(err)
-			return
-		}
-		select {
-		case <-w.watcher.Dying():
-			return
-		case w.changes <- configNode:
-		}
-	}
-}
 
 // Service represents the state of a service.
 type Service struct {
@@ -275,14 +238,8 @@ func (s *Service) Config() (*ConfigNode, error) {
 
 // WatchConfig creates a watcher for the configuration node
 // of the service.
-func (s *Service) WatchConfig() *ServiceConfigWatcher {
-	w := &ServiceConfigWatcher{
-		service: s,
-		watcher: watcher.NewContentWatcher(s.st.zk, s.zkConfigPath()),
-		changes: make(chan *ConfigNode),
-	}
-	go w.loop()
-	return w
+func (s *Service) WatchConfig() *ConfigWatcher {
+	return newConfigWatcher(s.st, s.zkConfigPath())
 }
 
 // zkKey returns ZooKeeper key of the service.
