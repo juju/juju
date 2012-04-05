@@ -35,6 +35,12 @@ func (w *ContentWatcher) Changes() <-chan string {
 	return w.changeChan
 }
 
+// Dying returns a channel that is closed when the
+// watcher has stopped or is about to stop.
+func (w *ContentWatcher) Dying() <-chan struct{} {
+	return w.tomb.Dying()
+}
+
 // Stop stops the watch and returns any error encountered
 // while watching. This method should always be called before
 // discarding the watcher.
@@ -49,7 +55,7 @@ func (w *ContentWatcher) loop() {
 	defer close(w.changeChan)
 
 	watch, err := w.update(zookeeper.EVENT_CHANGED)
-	if watch == nil {
+	if err != nil {
 		w.tomb.Kill(err)
 		return
 	}
@@ -64,7 +70,7 @@ func (w *ContentWatcher) loop() {
 				return
 			}
 			watch, err = w.update(evt.Type)
-			if watch == nil {
+			if err != nil {
 				w.tomb.Kill(err)
 				return
 			}
@@ -88,7 +94,7 @@ func (w *ContentWatcher) update(eventType int) (nextWatch <-chan zookeeper.Event
 	w.content = content
 	select {
 	case <-w.tomb.Dying():
-		return nil, nil
+		return nil, tomb.ErrDying
 	case w.changeChan <- w.content:
 	}
 	return watch, nil
@@ -132,6 +138,12 @@ func (w *ChildrenWatcher) Changes() <-chan ChildrenChange {
 	return w.changeChan
 }
 
+// Dying returns a channel that is closed when the
+// watcher has stopped or is about to stop.
+func (w *ChildrenWatcher) Dying() <-chan struct{} {
+	return w.tomb.Dying()
+}
+
 // Stop stops the watch and returns any error encountered
 // while watching. This method should always be called before
 // discarding the watcher.
@@ -146,7 +158,7 @@ func (w *ChildrenWatcher) loop() {
 	defer close(w.changeChan)
 
 	watch, err := w.update(zookeeper.EVENT_CHILD)
-	if watch == nil {
+	if err != nil {
 		w.tomb.Kill(err)
 		return
 	}
@@ -161,7 +173,7 @@ func (w *ChildrenWatcher) loop() {
 				return
 			}
 			watch, err = w.update(evt.Type)
-			if watch == nil {
+			if err != nil {
 				w.tomb.Kill(err)
 				return
 			}
@@ -201,7 +213,7 @@ func (w *ChildrenWatcher) update(eventType int) (nextWatch <-chan zookeeper.Even
 	}
 	select {
 	case <-w.tomb.Dying():
-		return nil, nil
+		return nil, tomb.ErrDying
 	case w.changeChan <- change:
 	}
 	return watch, nil

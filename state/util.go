@@ -83,6 +83,19 @@ func createConfigNode(zk *zookeeper.Conn, path string, values map[string]interfa
 	return c, nil
 }
 
+// parseConfigNode creates a config node based on a pre-read content.
+func parseConfigNode(zk *zookeeper.Conn, path, content string) (*ConfigNode, error) {
+	c := &ConfigNode{
+		zk:   zk,
+		path: path,
+	}
+	if err := goyaml.Unmarshal([]byte(content), &c.cache); err != nil {
+		return nil, err
+	}
+	c.pristineCache = copyCache(c.cache)
+	return c, nil
+}
+
 // readConfigNode returns the ConfigNode for path.
 func readConfigNode(zk *zookeeper.Conn, path string) (*ConfigNode, error) {
 	c := &ConfigNode{

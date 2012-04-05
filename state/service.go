@@ -236,6 +236,12 @@ func (s *Service) Config() (*ConfigNode, error) {
 	return readConfigNode(s.st.zk, s.zkConfigPath())
 }
 
+// WatchConfig creates a watcher for the configuration node
+// of the service.
+func (s *Service) WatchConfig() *ConfigWatcher {
+	return newConfigWatcher(s.st, s.zkConfigPath())
+}
+
 // zkKey returns ZooKeeper key of the service.
 func (s *Service) zkKey() string {
 	return s.key

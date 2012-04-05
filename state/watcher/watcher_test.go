@@ -73,7 +73,7 @@ func (s *WatcherSuite) TestContentWatcher(c *C) {
 	// No more changes.
 	select {
 	case <-watcher.Changes():
-		c.Fail()
+		c.Fatalf("no more changes expected")
 	case <-time.After(200 * time.Millisecond):
 		// The timeout is expected.
 	}
@@ -86,8 +86,8 @@ func (s *WatcherSuite) TestContentWatcher(c *C) {
 	case _, ok := <-watcher.Changes():
 		c.Assert(ok, Equals, false)
 	case <-time.After(200 * time.Millisecond):
-		// Timeout should not bee needed.
-		c.Fail()
+		// Timeout should not be needed.
+		c.Fatalf("timeout should not happen")
 	}
 }
 
@@ -118,7 +118,7 @@ func (s *WatcherSuite) TestChildrenWatcher(c *C) {
 	// No more changes.
 	select {
 	case <-watcher.Changes():
-		c.Fail()
+		c.Fatalf("no more changes expected")
 	case <-time.After(time.Second):
 		// The timeout is expected.
 	}
@@ -131,8 +131,8 @@ func (s *WatcherSuite) TestChildrenWatcher(c *C) {
 	case _, ok := <-watcher.Changes():
 		c.Assert(ok, Equals, false)
 	case <-time.After(200 * time.Millisecond):
-		// Timeout should not bee needed.
-		c.Fail()
+		// Timeout should not be needed.
+		c.Fatalf("timeout should not happen")
 	}
 }
 
@@ -149,8 +149,8 @@ func (s *WatcherSuite) TestDeletedNode(c *C) {
 	case _, ok := <-watcher.Changes():
 		c.Assert(ok, Equals, false)
 	case <-time.After(200 * time.Millisecond):
-		// Timeout should not bee needed.
-		c.Fail()
+		// Timeout should not be needed.
+		c.Fatalf("timeout should not happen")
 	}
 
 	err := watcher.Stop()
