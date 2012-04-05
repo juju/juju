@@ -20,16 +20,16 @@ func (s *StateSuite) TestServiceWatchConfig(c *C) {
 	changedConfig := <-watcher.Changes()
 	c.Assert(changedConfig.Keys(), HasLen, 0)
 
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		config.Set("foo", "bar")
-		config.Set("baz", "yadda")
-		config.Write()
+	// Two more change events.
+	config.Set("foo", "bar")
+	config.Set("baz", "yadda")
+	_, err = config.Write()
+	c.Assert(err, IsNil)
 
-		time.Sleep(100 * time.Millisecond)
-		config.Delete("foo")
-		config.Write()
-	}()
+	time.Sleep(100 * time.Millisecond)
+	config.Delete("foo")
+	_, err = config.Write()
+	c.Assert(err, IsNil)
 
 	// Receive the two changes.
 	changedConfig = <-watcher.Changes()
@@ -49,7 +49,7 @@ func (s *StateSuite) TestServiceWatchConfig(c *C) {
 	// No more changes.
 	select {
 	case <-watcher.Changes():
-		c.Fail()
+		c.Fatalf("no more config changes expected")
 	case <-time.After(200 * time.Millisecond):
 		// The timeout is expected.
 	}
@@ -75,7 +75,7 @@ func (s *StateSuite) TestServiceWatchConfigIllegalData(c *C) {
 		c.Assert(ok, Equals, false)
 	case <-time.After(200 * time.Millisecond):
 		// Timeout should not be needed.
-		c.Fail()
+		c.Fatalf("config change channel should have been closed due to the illegal data")
 	}
 
 	err = watcher.Stop()

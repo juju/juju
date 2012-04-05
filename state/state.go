@@ -261,15 +261,20 @@ func newConfigWatcher(st *State, path string) *ConfigWatcher {
 
 }
 
-// Changes returns the channel delivering the changed configurations.
+// Changes returns a channel that will receive the new
+// *ConfigNode when a change is detected. Note that multiple
+// changes may be observed as a single event in the channel.
 func (w *ConfigWatcher) Changes() <-chan *ConfigNode {
 	return w.changeChan
 }
 
-// Stop ends the configuration watching.
+// Stop stops the watch and returns any error encountered
+// while watching. This method should always be called
+// before discarding the watcher.
 func (w *ConfigWatcher) Stop() error {
 	w.tomb.Kill(nil)
 	if err := w.watcher.Stop(); err != nil {
+		w.tomb.Wait()
 		return err
 	}
 	return w.tomb.Wait()

@@ -55,7 +55,7 @@ func (w *ContentWatcher) loop() {
 	defer close(w.changeChan)
 
 	watch, err := w.update(zookeeper.EVENT_CHANGED)
-	if watch == nil {
+	if err != nil {
 		w.tomb.Kill(err)
 		return
 	}
@@ -70,7 +70,7 @@ func (w *ContentWatcher) loop() {
 				return
 			}
 			watch, err = w.update(evt.Type)
-			if watch == nil {
+			if err != nil {
 				w.tomb.Kill(err)
 				return
 			}
@@ -158,7 +158,7 @@ func (w *ChildrenWatcher) loop() {
 	defer close(w.changeChan)
 
 	watch, err := w.update(zookeeper.EVENT_CHILD)
-	if watch == nil {
+	if err != nil {
 		w.tomb.Kill(err)
 		return
 	}
@@ -173,7 +173,7 @@ func (w *ChildrenWatcher) loop() {
 				return
 			}
 			watch, err = w.update(evt.Type)
-			if watch == nil {
+			if err != nil {
 				w.tomb.Kill(err)
 				return
 			}
