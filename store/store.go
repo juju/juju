@@ -15,6 +15,7 @@ import (
 	"launchpad.net/mgo"
 	"launchpad.net/mgo/bson"
 	"sort"
+	"strconv"
 	"time"
 )
 
@@ -51,7 +52,20 @@ func Open(mongoAddr string) (store *Store, err error) {
 		log.Printf("Error connecting to MongoDB: %v", err)
 		return nil, err
 	}
+
 	store = &Store{&storeSession{session}}
+
+	// Ignore error. It'll always fail after created.
+	_ = store.session.DB("juju").Run(bson.D{{"create", "stat.counters"}, {"autoIndexId", false}}, nil)
+
+	counters := store.session.StatCounters()
+	err = counters.EnsureIndex(mgo.Index{Key: []string{"k", "t"}, Unique: true})
+	if err != nil {
+		log.Printf("Error ensuring stat.counters index: %v", err)
+		session.Close()
+		return nil, err
+	}
+
 	charms := store.session.Charms()
 	err = charms.EnsureIndex(mgo.Index{Key: []string{"urls", "revision"}, Unique: true})
 	if err != nil {
@@ -59,6 +73,7 @@ func Open(mongoAddr string) (store *Store, err error) {
 		session.Close()
 		return nil, err
 	}
+
 	events := store.session.Events()
 	err = events.EnsureIndex(mgo.Index{Key: []string{"urls", "digest"}})
 	if err != nil {
@@ -66,7 +81,8 @@ func Open(mongoAddr string) (store *Store, err error) {
 		session.Close()
 		return nil, err
 	}
-	// Put the socket we used on EnsureIndex back in the pool.
+
+	// Put the socket we used back in the pool.
 	session.Refresh()
 	return store, nil
 }
@@ -74,6 +90,99 @@ func Open(mongoAddr string) (store *Store, err error) {
 // Close terminates the connection with the store.
 func (s *Store) Close() {
 	s.session.Close()
+}
+
+type statsToken struct {
+	Id    int    "_id"
+	Token string "t"
+}
+
+func (s *Store) statsKey(session *storeSession, key []string) (string, error) {
+	if len(key) == 0 {
+		return "", fmt.Errorf("store: empty statistics key")
+	}
+	// TODO Cache token=>id map in s.
+	tokens := session.StatTokens()
+	skey := make([]byte, 0, len(key)*4)
+	// Retry limit is mainly to prevent infinite recursion in edge cases,
+	// such as if the database is ever run in read-only mode.
+	// The logic below should deteministically stop in normal scenarios.
+	var failed error
+	for i, retry := 0, 30; i < len(key) && retry > 0; retry-- {
+		failed = nil
+		var t statsToken
+		err := tokens.Find(bson.D{{"t", key[i]}}).One(&t)
+		if err == mgo.NotFound {
+			count, err := tokens.Count()
+			if err != nil {
+				failed = err
+				continue
+			}
+			t = statsToken{count + 1, key[i]}
+			err = tokens.Insert(&t)
+			if err != nil {
+				failed = err
+				continue
+			}
+		}
+		if err != nil {
+			failed = err
+			continue
+		}
+		skey = strconv.AppendInt(skey, int64(t.Id), 32)
+		skey = append(skey, ':')
+		i++
+	}
+	if failed != nil {
+		return "", failed
+	}
+	return string(skey), nil
+}
+
+var counterEpoch = time.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
+
+// IncCounter increases by one the counter associated with the composed key.
+func (s *Store) IncCounter(key []string) error {
+	session := s.session.Copy()
+	defer session.Close()
+	counters := session.StatCounters()
+	skey, err := s.statsKey(session, key)
+	if err != nil {
+		return err
+	}
+	t := time.Now().UTC()
+	// 1 minute resolution
+	t = t.Add(-time.Duration(t.Second()) * time.Second)
+	_, err = counters.Upsert(bson.D{{"k", skey}, {"t", int32(t.Unix() - counterEpoch)}}, bson.D{{"$inc", bson.D{{"c", 1}}}})
+	return err
+}
+
+// SumCounter returns the sum of all the counters that exactly match key,
+// or that are prefixed by it if prefix is true.
+func (s *Store) SumCounter(key []string, prefix bool) (count int64, err error) {
+	session := s.session.Copy()
+	defer session.Close()
+	counters := session.StatCounters()
+	skey, err := s.statsKey(session, key)
+	var regex string
+	if prefix {
+		regex = "^" + skey
+	} else {
+		regex = "^" + skey + "$"
+	}
+	if err != nil {
+		return 0, err
+	}
+	job := mgo.MapReduce{
+		Map:    "function() { emit('count', this.c); }",
+		Reduce: "function(key, values) { return Array.sum(values); }",
+	}
+	var result []struct{ Value int64 }
+	_, err = counters.Find(bson.D{{"k", bson.D{{"$regex", regex}}}}).MapReduce(job, &result)
+	if len(result) > 0 {
+		return result[0].Value, err
+	}
+	return 0, err
 }
 
 // A CharmPublisher is responsible for importing a charm dir onto the store.
@@ -497,6 +606,17 @@ func (s *storeSession) Events() *mgo.Collection {
 // Locks returns the mongo collection where charm locks are stored.
 func (s *storeSession) Locks() *mgo.Collection {
 	return s.DB("juju").C("locks")
+}
+
+// StatTokens returns the mongo collection for storing key tokens
+// for statistics collection.
+func (s *storeSession) StatTokens() *mgo.Collection {
+	return s.DB("juju").C("stat.tokens")
+}
+
+// StatCounters returns the mongo collection for counter values.
+func (s *storeSession) StatCounters() *mgo.Collection {
+	return s.DB("juju").C("stat.counters")
 }
 
 type CharmEventKind int

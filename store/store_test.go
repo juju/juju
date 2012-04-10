@@ -441,6 +441,74 @@ func (s *StoreSuite) TestLogCharmEvent(c *C) {
 	c.Assert(event, IsNil)
 }
 
+func (s *StoreSuite) TestCounters(c *C) {
+	sum, err := s.store.SumCounter([]string{"a"}, false)
+	c.Assert(err, IsNil)
+	c.Assert(sum, Equals, int64(0))
+
+	for i := 0; i < 10; i++ {
+		err := s.store.IncCounter([]string{"a", "b", "c"})
+		c.Assert(err, IsNil)
+	}
+	for i := 0; i < 7; i++ {
+		s.store.IncCounter([]string{"a", "b"})
+		c.Assert(err, IsNil)
+	}
+	for i := 0; i < 3; i++ {
+		s.store.IncCounter([]string{"a", "z", "b"})
+		c.Assert(err, IsNil)
+	}
+
+	tests := []struct {
+		key    []string
+		prefix bool
+		result int64
+	}{
+		{[]string{"a", "b", "c"}, false, 10},
+		{[]string{"a", "b"}, false, 7},
+		{[]string{"a", "z", "b"}, false, 3},
+		{[]string{"a", "b", "c"}, true, 10},
+		{[]string{"a", "b"}, true, 17},
+		{[]string{"a"}, true, 20},
+		{[]string{"b"}, true, 0},
+	}
+
+	for _, t := range tests {
+		c.Logf("Test: %#v\n", t)
+		sum, err := s.store.SumCounter(t.key, t.prefix)
+		c.Assert(err, IsNil)
+		c.Assert(sum, Equals, t.result)
+	}
+
+	// High-level interface works. Now check that the data is
+	// stored correctly.
+	counters := s.Session.DB("juju").C("stat.counters")
+	docs1, err := counters.Count()
+	c.Assert(err, IsNil)
+	if docs1 != 3 && docs1 != 4 {
+		fmt.Errorf("Expected 3 or 4 docs in counters collection, got %d", docs1)
+	}
+
+	// Hack times so that the next operation adds another document.
+	err = counters.Update(nil, bson.D{{"$set", bson.D{{"t", 1}}}})
+	c.Check(err, IsNil)
+
+	err = s.store.IncCounter([]string{"a", "b", "c"})
+	c.Assert(err, IsNil)
+
+	docs2, err := counters.Count()
+	c.Assert(err, IsNil)
+	c.Assert(docs2, Equals, docs1+1)
+
+	sum, err = s.store.SumCounter([]string{"a", "b", "c"}, false)
+	c.Assert(err, IsNil)
+	c.Assert(sum, Equals, int64(11))
+
+	sum, err = s.store.SumCounter([]string{"a"}, true)
+	c.Assert(err, IsNil)
+	c.Assert(sum, Equals, int64(21))
+}
+
 func (s *TrivialSuite) TestEventString(c *C) {
 	c.Assert(store.EventPublished, Matches, "published")
 	c.Assert(store.EventPublishError, Matches, "publish-error")
