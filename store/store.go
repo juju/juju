@@ -148,14 +148,15 @@ var counterEpoch = time.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
 func (s *Store) IncCounter(key []string) error {
 	session := s.session.Copy()
 	defer session.Close()
-	counters := session.StatCounters()
+
 	skey, err := s.statsKey(session, key, true)
 	if err != nil {
 		return err
 	}
+
 	t := time.Now().UTC()
-	// 1 minute resolution
-	t = t.Add(-time.Duration(t.Second()) * time.Second)
+	t = t.Add(-time.Duration(t.Second()) * time.Second) // 1 min resolution
+	counters := session.StatCounters()
 	_, err = counters.Upsert(bson.D{{"k", skey}, {"t", int32(t.Unix() - counterEpoch)}}, bson.D{{"$inc", bson.D{{"c", 1}}}})
 	return err
 }
@@ -165,7 +166,7 @@ func (s *Store) IncCounter(key []string) error {
 func (s *Store) SumCounter(key []string, prefix bool) (count int64, err error) {
 	session := s.session.Copy()
 	defer session.Close()
-	counters := session.StatCounters()
+
 	skey, err := s.statsKey(session, key, false)
 	if err == ErrNotFound {
 		return 0, nil
@@ -173,17 +174,20 @@ func (s *Store) SumCounter(key []string, prefix bool) (count int64, err error) {
 	if err != nil {
 		return 0, err
 	}
+
 	var regex string
 	if prefix {
 		regex = "^" + skey
 	} else {
 		regex = "^" + skey + "$"
 	}
+
 	job := mgo.MapReduce{
 		Map:    "function() { emit('count', this.c); }",
 		Reduce: "function(key, values) { return Array.sum(values); }",
 	}
 	var result []struct{ Value int64 }
+	counters := session.StatCounters()
 	_, err = counters.Find(bson.D{{"k", bson.D{{"$regex", regex}}}}).MapReduce(job, &result)
 	if len(result) > 0 {
 		return result[0].Value, err
