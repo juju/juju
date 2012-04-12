@@ -97,7 +97,7 @@ type statsToken struct {
 	Token string "t"
 }
 
-func (s *Store) statsKey(session *storeSession, key []string) (string, error) {
+func (s *Store) statsKey(session *storeSession, key []string, write bool) (string, error) {
 	if len(key) == 0 {
 		return "", fmt.Errorf("store: empty statistics key")
 	}
@@ -113,6 +113,9 @@ func (s *Store) statsKey(session *storeSession, key []string) (string, error) {
 		var t statsToken
 		err := tokens.Find(bson.D{{"t", key[i]}}).One(&t)
 		if err == mgo.NotFound {
+			if !write {
+				return "", ErrNotFound
+			}
 			count, err := tokens.Count()
 			if err != nil {
 				failed = err
@@ -146,7 +149,7 @@ func (s *Store) IncCounter(key []string) error {
 	session := s.session.Copy()
 	defer session.Close()
 	counters := session.StatCounters()
-	skey, err := s.statsKey(session, key)
+	skey, err := s.statsKey(session, key, true)
 	if err != nil {
 		return err
 	}
@@ -163,15 +166,18 @@ func (s *Store) SumCounter(key []string, prefix bool) (count int64, err error) {
 	session := s.session.Copy()
 	defer session.Close()
 	counters := session.StatCounters()
-	skey, err := s.statsKey(session, key)
+	skey, err := s.statsKey(session, key, false)
+	if err == ErrNotFound {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
 	var regex string
 	if prefix {
 		regex = "^" + skey
 	} else {
 		regex = "^" + skey + "$"
-	}
-	if err != nil {
-		return 0, err
 	}
 	job := mgo.MapReduce{
 		Map:    "function() { emit('count', this.c); }",

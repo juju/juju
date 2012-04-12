@@ -509,6 +509,18 @@ func (s *StoreSuite) TestCounters(c *C) {
 	c.Assert(sum, Equals, int64(21))
 }
 
+func (s *StoreSuite) TestCountersReadOnlySum(c *C) {
+	// Summing up an unknown key shouldn't add the key to the database.
+	sum, err := s.store.SumCounter([]string{"a", "b", "c"}, false)
+	c.Assert(err, IsNil)
+	c.Assert(sum, Equals, int64(0))
+
+	tokens := s.Session.DB("juju").C("stat.tokens")
+	n, err := tokens.Count()
+	c.Assert(err, IsNil)
+	c.Assert(n, Equals, 0)
+}
+
 func (s *TrivialSuite) TestEventString(c *C) {
 	c.Assert(store.EventPublished, Matches, "published")
 	c.Assert(store.EventPublishError, Matches, "publish-error")
