@@ -25,39 +25,47 @@ func (s *StoreSuite) prepareServer(c *C) (*store.Server, *charm.URL) {
 
 func (s *StoreSuite) TestServerCharmInfo(c *C) {
 	server, curl := s.prepareServer(c)
-
 	req, err := http.NewRequest("GET", "/charm-info", nil)
 	c.Assert(err, IsNil)
-	req.Form = url.Values{"charms": []string{curl.String()}}
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
 
-	expected := map[string]interface{}{
-		curl.String(): map[string]interface{}{
-			"revision": float64(0),
-			"sha256":   fakeRevZeroSha,
-		},
+	var tests = []struct{ url, sha, err string }{
+		{curl.String(), fakeRevZeroSha, ""},
+		{"cs:oneiric/non-existent", "", "entry not found"},
+		{"cs:bad", "", `charm URL without series: "cs:bad"`},
 	}
-	obtained := map[string]interface{}{}
-	err = json.NewDecoder(rec.Body).Decode(&obtained)
-	c.Assert(err, IsNil)
-	c.Assert(obtained, DeepEquals, expected)
-	c.Assert(rec.Header().Get("Content-Type"), Equals, "application/json")
 
-	// Now check an error condition.
-	req.Form["charms"] = []string{"cs:bad"}
-	rec = httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
-	expected = map[string]interface{}{
-		"cs:bad": map[string]interface{}{
-			"revision": float64(0),
-			"errors":   []interface{}{`charm URL without series: "cs:bad"`},
-		},
+	for _, t := range tests {
+		req.Form = url.Values{"charms": []string{t.url}}
+		rec := httptest.NewRecorder()
+		server.ServeHTTP(rec, req)
+
+		expected := make(map[string]interface{})
+		if t.sha != "" {
+			expected[t.url] = map[string]interface{}{
+				"revision": float64(0),
+				"sha256": t.sha,
+			}
+		} else {
+			expected[t.url] = map[string]interface{}{
+				"revision": float64(0),
+				"errors": []interface{}{t.err},
+			}
+		}
+		obtained := map[string]interface{}{}
+		err = json.NewDecoder(rec.Body).Decode(&obtained)
+		c.Assert(err, IsNil)
+		c.Assert(obtained, DeepEquals, expected)
+		c.Assert(rec.Header().Get("Content-Type"), Equals, "application/json")
 	}
-	obtained = map[string]interface{}{}
-	err = json.NewDecoder(rec.Body).Decode(&obtained)
+
+	// Check that statistics were properly collected.
+	sum, err := s.store.SumCounter([]string{"charm-info", curl.Series, curl.Name}, false)
 	c.Assert(err, IsNil)
-	c.Assert(obtained, DeepEquals, expected)
+	c.Assert(sum, Equals, int64(1))
+
+	sum, err = s.store.SumCounter([]string{"charm-missing", "oneiric", "non-existent"}, false)
+	c.Assert(err, IsNil)
+	c.Assert(sum, Equals, int64(1))
 }
 
 func (s *StoreSuite) TestCharmStreaming(c *C) {
@@ -74,6 +82,11 @@ func (s *StoreSuite) TestCharmStreaming(c *C) {
 	c.Assert(rec.Header().Get("Connection"), Equals, "close")
 	c.Assert(rec.Header().Get("Content-Type"), Equals, "application/octet-stream")
 	c.Assert(rec.Header().Get("Content-Length"), Equals, "16")
+
+	// Check that it was accounted for in statistics.
+	sum, err := s.store.SumCounter([]string{"charm-bundle", curl.Series, curl.Name}, false)
+	c.Assert(err, IsNil)
+	c.Assert(sum, Equals, int64(1))
 }
 
 func (s *StoreSuite) TestServer404(c *C) {

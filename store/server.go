@@ -66,11 +66,27 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			info, err = s.store.CharmInfo(curl)
 		}
+		var skey []string
 		if err == nil {
+			if curl.User == "" {
+				skey = []string{"charm-info", curl.Series, curl.Name}
+			} else {
+				skey = []string{"charm-info", curl.Series, curl.Name, curl.User}
+			}
 			r.Sha256 = info.BundleSha256()
 			r.Revision = info.Revision()
 		} else {
+			if err == ErrNotFound {
+				if curl.User == "" {
+					skey = []string{"charm-missing", curl.Series, curl.Name}
+				} else {
+					skey = []string{"charm-missing", curl.Series, curl.Name, curl.User}
+				}
+			}
 			r.Errors = append(r.Errors, err.Error())
+		}
+		if skey != nil {
+			s.store.IncCounter(skey)
 		}
 	}
 	data, err := json.Marshal(response)
@@ -103,6 +119,11 @@ func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Printf("can't open charm %q: %v", curl, err)
 		return
+	}
+	if curl.User == "" {
+		s.store.IncCounter([]string{"charm-bundle", curl.Series, curl.Name})
+	} else {
+		s.store.IncCounter([]string{"charm-bundle", curl.Series, curl.Name, curl.User})
 	}
 	defer rc.Close()
 	w.Header().Set("Connection", "close") // No keep-alive for now.
