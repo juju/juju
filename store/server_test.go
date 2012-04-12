@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 )
 
 func (s *StoreSuite) prepareServer(c *C) (*store.Server, *charm.URL) {
@@ -76,20 +77,28 @@ func (s *StoreSuite) TestCharmStreaming(c *C) {
 	c.Assert(rec.Header().Get("Content-Length"), Equals, "16")
 }
 
-func (s *StoreSuite) TestServer404(c *C) {
+func (s *StoreSuite) TestServerStatus(c *C) {
 	server, err := store.NewServer(s.store)
 	c.Assert(err, IsNil)
-	tests := []string{
-		"/charm-info/any",
-		"/charm/bad-url",
-		"/charm/bad-series/wordpress",
+	tests := []struct {
+		path string
+		code int
+	}{
+		{"/charm-info/any", 404},
+		{"/charm/bad-url", 404},
+		{"/charm/bad-series/wordpress", 404},
+		{"/stats/counter/", 403},
+		{"/stats/counter/*", 403},
+		{"/stats/counter/any/", 404},
+		{"/stats/", 404},
+		{"/stats/any", 404},
 	}
-	for _, path := range tests {
-		req, err := http.NewRequest("GET", path, nil)
+	for _, test := range tests {
+		req, err := http.NewRequest("GET", test.path, nil)
 		c.Assert(err, IsNil)
 		rec := httptest.NewRecorder()
 		server.ServeHTTP(rec, req)
-		c.Assert(rec.Code, Equals, 404)
+		c.Assert(rec.Code, Equals, test.code, Commentf("Path: %s", test.path))
 	}
 }
 
@@ -102,4 +111,32 @@ func (s *StoreSuite) TestRootRedirect(c *C) {
 	server.ServeHTTP(rec, req)
 	c.Assert(rec.Code, Equals, 303)
 	c.Assert(rec.Header().Get("Location"), Equals, "https://juju.ubuntu.com")
+}
+
+func (s *StoreSuite) TestStatsCounter(c *C) {
+	for _, key := range [][]string{{"a", "b"}, {"a", "b"}, {"a"}} {
+		err := s.store.IncCounter(key)
+		c.Assert(err, IsNil)
+	}
+
+	server, _ := s.prepareServer(c)
+
+	expected := map[string]string{
+		"a:b": "2",
+		"a:*": "3",
+		"a":   "1",
+	}
+
+	for counter, n := range expected {
+		req, err := http.NewRequest("GET", "/stats/counter/" + counter, nil)
+		c.Assert(err, IsNil)
+		rec := httptest.NewRecorder()
+		server.ServeHTTP(rec, req)
+
+		data, err := ioutil.ReadAll(rec.Body)
+		c.Assert(string(data), Equals, n)
+
+		c.Assert(rec.Header().Get("Content-Type"), Equals, "text/plain")
+		c.Assert(rec.Header().Get("Content-Length"), Equals, strconv.Itoa(len(n)))
+	}
 }

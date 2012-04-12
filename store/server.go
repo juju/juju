@@ -29,6 +29,9 @@ func NewServer(store *Store) (*Server, error) {
 	s.mux.HandleFunc("/charm/", func(w http.ResponseWriter, r *http.Request) {
 		s.serveCharm(w, r)
 	})
+	s.mux.HandleFunc("/stats/counter/", func(w http.ResponseWriter, r *http.Request) {
+		s.serveStats(w, r)
+	})
 	return s, nil
 }
 
@@ -111,5 +114,44 @@ func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 	_, err = io.Copy(w, rc)
 	if err != nil {
 		log.Printf("failed to stream charm %q: %v", curl, err)
+	}
+}
+
+func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
+	// TODO: Adopt a smarter mux that simplifies this logic.
+	const base = "/stats/counter/"
+	if !strings.HasPrefix(r.URL.Path, base) {
+		panic("bad url")
+	}
+	if strings.Index(r.URL.Path[len(base):], "/") > 0 {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	if len(r.URL.Path) == len(base) {
+		w.WriteHeader(http.StatusForbidden)
+	}
+	key := strings.Split(r.URL.Path[len(base):], ":")
+	prefix := false
+	if key[len(key)-1] == "*" {
+		prefix = true
+		key = key[:len(key)-1]
+		if len(key) == 0 {
+			// No point in counting something unknown.
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+	}
+	r.ParseForm()
+	sum, err := s.store.SumCounter(key, prefix)
+	if err == nil {
+		data := []byte(strconv.FormatInt(sum, 10))
+		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+		_, err = w.Write(data)
+	}
+	if err != nil {
+		log.Printf("can't write content: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 }
