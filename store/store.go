@@ -56,6 +56,7 @@ func Open(mongoAddr string) (store *Store, err error) {
 	store = &Store{&storeSession{session}}
 
 	// Ignore error. It'll always fail after created.
+	// TODO Check the error once mgo handles it to us.
 	_ = store.session.DB("juju").Run(bson.D{{"create", "stat.counters"}, {"autoIndexId", false}}, nil)
 
 	counters := store.session.StatCounters()
@@ -97,6 +98,11 @@ type statsToken struct {
 	Token string "t"
 }
 
+// statsKey returns the compound statistics identifier that represents key.
+// Identifiers have a form similar to "ab:c:def:", where each section is a
+// base-32 number that represents the respective word in key. This form
+// allows efficiently indexing and searching for prefixes, while detaching
+// the key content and size from the actual words used in key.
 func (s *Store) statsKey(session *storeSession, key []string) (string, error) {
 	if len(key) == 0 {
 		return "", fmt.Errorf("store: empty statistics key")
@@ -151,7 +157,7 @@ func (s *Store) IncCounter(key []string) error {
 		return err
 	}
 	t := time.Now().UTC()
-	// 1 minute resolution
+	// Round to the start of the minute so we get one document per minute at most.
 	t = t.Add(-time.Duration(t.Second()) * time.Second)
 	_, err = counters.Upsert(bson.D{{"k", skey}, {"t", int32(t.Unix() - counterEpoch)}}, bson.D{{"$inc", bson.D{{"c", 1}}}})
 	return err
