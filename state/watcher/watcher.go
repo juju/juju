@@ -62,7 +62,7 @@ func (w *ContentWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
 
-	watch, err := w.update(zookeeper.EVENT_CHANGED)
+	watch, err := w.update()
 	if err != nil {
 		w.tomb.Kill(err)
 		return
@@ -77,7 +77,7 @@ func (w *ContentWatcher) loop() {
 				w.tomb.Killf("watcher: critical session event: %v", evt)
 				return
 			}
-			watch, err = w.update(evt.Type)
+			watch, err = w.update()
 			if err != nil {
 				w.tomb.Kill(err)
 				return
@@ -86,31 +86,26 @@ func (w *ContentWatcher) loop() {
 	}
 }
 
-// update retrieves the node content and emits it to the change
-// channel if it has changed. It returns the next watch.
-func (w *ContentWatcher) update(lastEventType int) (nextWatch <-chan zookeeper.Event, err error) {
+// update retrieves the node content and emits it as well as an existence
+// flag to the change channel if it has changed. It returns the next watch.
+func (w *ContentWatcher) update() (nextWatch <-chan zookeeper.Event, err error) {
 	var content string
 	var stat *zookeeper.Stat
-	var watch <-chan zookeeper.Event
 	var exists bool
 	// Repeat until we have a valid watch or an error.
-	eventType := lastEventType
 	for {
-		if eventType != zookeeper.EVENT_DELETED {
-			content, stat, watch, err = w.zk.GetW(w.path)
-			if err == nil {
-				// Node exists, so leave the loop.
-				exists = true
-				break
-			}
+		content, stat, nextWatch, err = w.zk.GetW(w.path)
+		if err == nil {
+			// Node exists, so leave the loop.
+			exists = true
+			break
 		}
-		if zookeeper.IsError(err, zookeeper.ZNONODE) || eventType == zookeeper.EVENT_DELETED {
+		if zookeeper.IsError(err, zookeeper.ZNONODE) {
 			// Need a new watch to receive a signal when the node is created.
-			stat, watch, err = w.zk.ExistsW(w.path)
+			stat, nextWatch, err = w.zk.ExistsW(w.path)
 			if stat != nil {
 				// Node has been created just before ExistsW(),
 				// so call GetW() with new loop run again.
-				eventType = zookeeper.EVENT_CREATED
 				continue
 			}
 			if err == nil {
@@ -123,16 +118,14 @@ func (w *ContentWatcher) update(lastEventType int) (nextWatch <-chan zookeeper.E
 		return nil, fmt.Errorf("watcher: can't get content of node %q: %v", w.path, err)
 	}
 	if exists {
-		// Check if already exists and content has changed.
 		if w.content.Exists && content == w.content.Content {
-			return watch, nil
+			return nextWatch, nil
 		}
 		w.content.Exists = true
 		w.content.Content = content
 	} else {
-		// Check if not yet exists..
 		if !w.content.Exists {
-			return watch, nil
+			return nextWatch, nil
 		}
 		w.content.Exists = false
 		w.content.Content = ""
@@ -142,7 +135,7 @@ func (w *ContentWatcher) update(lastEventType int) (nextWatch <-chan zookeeper.E
 		return nil, tomb.ErrDying
 	case w.changeChan <- w.content:
 	}
-	return watch, nil
+	return nextWatch, nil
 }
 
 // ChildrenChange contains information about
