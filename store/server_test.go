@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"time"
 )
 
 func (s *StoreSuite) prepareServer(c *C) (*store.Server, *charm.URL) {
@@ -58,14 +59,27 @@ func (s *StoreSuite) TestServerCharmInfo(c *C) {
 		c.Assert(rec.Header().Get("Content-Type"), Equals, "application/json")
 	}
 
-	// Check that statistics were properly collected.
-	sum, err := s.store.SumCounter([]string{"charm-info", curl.Series, curl.Name}, false)
-	c.Assert(err, IsNil)
-	c.Assert(sum, Equals, int64(1))
+	s.checkCounterSum(c, []string{"charm-info", curl.Series, curl.Name}, false, 1)
+	s.checkCounterSum(c, []string{"charm-missing", "oneiric", "non-existent"}, false, 1)
+}
 
-	sum, err = s.store.SumCounter([]string{"charm-missing", "oneiric", "non-existent"}, false)
-	c.Assert(err, IsNil)
-	c.Assert(sum, Equals, int64(1))
+// checkCounterSum checks that statistics are properly collected.
+// It retries a few times as they are generally collected in background.
+func (s *StoreSuite) checkCounterSum(c *C, key []string, prefix bool, expected int64) {
+	var sum int64
+	var err error
+	for retry := 0; retry < 10; retry++ {
+		time.Sleep(1e8)
+		sum, err = s.store.SumCounter(key, prefix)
+		c.Assert(err, IsNil)
+		if sum == expected {
+			if expected == 0 && retry < 2 {
+				continue // Wait a bit to make sure.
+			}
+			return
+		}
+	}
+	c.Errorf("counter sum for %#v is %d, want %d", key, sum, expected)
 }
 
 func (s *StoreSuite) TestCharmStreaming(c *C) {
@@ -84,9 +98,7 @@ func (s *StoreSuite) TestCharmStreaming(c *C) {
 	c.Assert(rec.Header().Get("Content-Length"), Equals, "16")
 
 	// Check that it was accounted for in statistics.
-	sum, err := s.store.SumCounter([]string{"charm-bundle", curl.Series, curl.Name}, false)
-	c.Assert(err, IsNil)
-	c.Assert(sum, Equals, int64(1))
+	s.checkCounterSum(c, []string{"charm-bundle", curl.Series, curl.Name}, false, 1)
 }
 
 func (s *StoreSuite) TestDisableStats(c *C) {
@@ -104,9 +116,7 @@ func (s *StoreSuite) TestDisableStats(c *C) {
 
 	// No statistics should have been collected given the use of stats=0.
 	for _, prefix := range []string{"charm-info", "charm-bundle", "charm-missing"} {
-		sum, err := s.store.SumCounter([]string{prefix}, true)
-		c.Assert(err, IsNil)
-		c.Assert(sum, Equals, int64(0), Commentf("prefix: %s", prefix))
+		s.checkCounterSum(c, []string{prefix}, true, 0)
 	}
 }
 
