@@ -51,6 +51,10 @@ type responseCharm struct {
 	Warnings []string `json:"warnings,omitempty"`
 }
 
+func statsEnabled(req *http.Request) bool {
+	return req.Form.Get("stats") != "0"
+}
+
 func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/charm-info" {
 		w.WriteHeader(http.StatusNotFound)
@@ -59,8 +63,8 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	response := map[string]*responseCharm{}
 	for _, url := range r.Form["charms"] {
-		r := &responseCharm{}
-		response[url] = r
+		c := &responseCharm{}
+		response[url] = c
 		curl, err := charm.ParseURL(url)
 		var info *CharmInfo
 		if err == nil {
@@ -73,8 +77,8 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 			} else {
 				skey = []string{"charm-info", curl.Series, curl.Name, curl.User}
 			}
-			r.Sha256 = info.BundleSha256()
-			r.Revision = info.Revision()
+			c.Sha256 = info.BundleSha256()
+			c.Revision = info.Revision()
 		} else {
 			if err == ErrNotFound {
 				if curl.User == "" {
@@ -83,9 +87,9 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 					skey = []string{"charm-missing", curl.Series, curl.Name, curl.User}
 				}
 			}
-			r.Errors = append(r.Errors, err.Error())
+			c.Errors = append(c.Errors, err.Error())
 		}
-		if skey != nil {
+		if skey != nil && statsEnabled(r) {
 			s.store.IncCounter(skey)
 		}
 	}
@@ -120,10 +124,12 @@ func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 		log.Printf("can't open charm %q: %v", curl, err)
 		return
 	}
-	if curl.User == "" {
-		s.store.IncCounter([]string{"charm-bundle", curl.Series, curl.Name})
-	} else {
-		s.store.IncCounter([]string{"charm-bundle", curl.Series, curl.Name, curl.User})
+	if statsEnabled(r) {
+		if curl.User == "" {
+			s.store.IncCounter([]string{"charm-bundle", curl.Series, curl.Name})
+		} else {
+			s.store.IncCounter([]string{"charm-bundle", curl.Series, curl.Name, curl.User})
+		}
 	}
 	defer rc.Close()
 	w.Header().Set("Connection", "close") // No keep-alive for now.
