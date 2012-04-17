@@ -77,6 +77,23 @@ func (s *StoreSuite) TestCharmStreaming(c *C) {
 	c.Assert(rec.Header().Get("Content-Length"), Equals, "16")
 }
 
+// This is necessary to run performance tests with blitz.io.
+func (s *StoreSuite) TestBlitzKey(c *C) {
+	server, _ := s.prepareServer(c)
+
+	req, err := http.NewRequest("GET", "/mu-35700a31-6bf320ca-a800b670-05f845ee", nil)
+	c.Assert(err, IsNil)
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	data, err := ioutil.ReadAll(rec.Body)
+	c.Assert(string(data), Equals, "42")
+
+	c.Assert(rec.Header().Get("Connection"), Equals, "close")
+	c.Assert(rec.Header().Get("Content-Type"), Equals, "text/plain")
+	c.Assert(rec.Header().Get("Content-Length"), Equals, "2")
+}
+
 func (s *StoreSuite) TestServerStatus(c *C) {
 	server, err := store.NewServer(s.store)
 	c.Assert(err, IsNil)
