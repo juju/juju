@@ -99,11 +99,12 @@ type statsToken struct {
 }
 
 // statsKey returns the compound statistics identifier that represents key.
+// If write is true, the identifier will be created if necessary.
 // Identifiers have a form similar to "ab:c:def:", where each section is a
 // base-32 number that represents the respective word in key. This form
 // allows efficiently indexing and searching for prefixes, while detaching
 // the key content and size from the actual words used in key.
-func (s *Store) statsKey(session *storeSession, key []string) (string, error) {
+func (s *Store) statsKey(session *storeSession, key []string, write bool) (string, error) {
 	if len(key) == 0 {
 		return "", fmt.Errorf("store: empty statistics key")
 	}
@@ -119,6 +120,9 @@ func (s *Store) statsKey(session *storeSession, key []string) (string, error) {
 		var t statsToken
 		err := tokens.Find(bson.D{{"t", key[i]}}).One(&t)
 		if err == mgo.NotFound {
+			if !write {
+				return "", ErrNotFound
+			}
 			count, err := tokens.Count()
 			if err != nil {
 				failed = err
@@ -151,14 +155,16 @@ var counterEpoch = time.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
 func (s *Store) IncCounter(key []string) error {
 	session := s.session.Copy()
 	defer session.Close()
-	counters := session.StatCounters()
-	skey, err := s.statsKey(session, key)
+
+	skey, err := s.statsKey(session, key, true)
 	if err != nil {
 		return err
 	}
+
 	t := time.Now().UTC()
 	// Round to the start of the minute so we get one document per minute at most.
 	t = t.Add(-time.Duration(t.Second()) * time.Second)
+	counters := session.StatCounters()
 	_, err = counters.Upsert(bson.D{{"k", skey}, {"t", int32(t.Unix() - counterEpoch)}}, bson.D{{"$inc", bson.D{{"c", 1}}}})
 	return err
 }
@@ -168,22 +174,28 @@ func (s *Store) IncCounter(key []string) error {
 func (s *Store) SumCounter(key []string, prefix bool) (count int64, err error) {
 	session := s.session.Copy()
 	defer session.Close()
-	counters := session.StatCounters()
-	skey, err := s.statsKey(session, key)
+
+	skey, err := s.statsKey(session, key, false)
+	if err == ErrNotFound {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+
 	var regex string
 	if prefix {
 		regex = "^" + skey
 	} else {
 		regex = "^" + skey + "$"
 	}
-	if err != nil {
-		return 0, err
-	}
+
 	job := mgo.MapReduce{
 		Map:    "function() { emit('count', this.c); }",
 		Reduce: "function(key, values) { return Array.sum(values); }",
 	}
 	var result []struct{ Value int64 }
+	counters := session.StatCounters()
 	_, err = counters.Find(bson.D{{"k", bson.D{{"$regex", regex}}}}).MapReduce(job, &result)
 	if len(result) > 0 {
 		return result[0].Value, err
