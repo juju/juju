@@ -89,6 +89,27 @@ func (s *StoreSuite) TestCharmStreaming(c *C) {
 	c.Assert(sum, Equals, int64(1))
 }
 
+func (s *StoreSuite) TestDisableStats(c *C) {
+	server, curl := s.prepareServer(c)
+
+	req, err := http.NewRequest("GET", "/charm-info", nil)
+	c.Assert(err, IsNil)
+	req.Form = url.Values{"charms": []string{curl.String()}, "stats": []string{"0"}}
+	server.ServeHTTP(httptest.NewRecorder(), req)
+
+	req, err = http.NewRequest("GET", "/charms/"+curl.String()[:3], nil)
+	c.Assert(err, IsNil)
+	req.Form = url.Values{"stats": []string{"0"}}
+	server.ServeHTTP(httptest.NewRecorder(), req)
+
+	// No statistics should have been collected given the use of stats=0.
+	for _, prefix := range []string{"charm-info", "charm-bundle", "charm-missing"} {
+		sum, err := s.store.SumCounter([]string{prefix}, true)
+		c.Assert(err, IsNil)
+		c.Assert(sum, Equals, int64(0), Commentf("prefix: %s", prefix))
+	}
+}
+
 func (s *StoreSuite) TestServer404(c *C) {
 	server, err := store.NewServer(s.store)
 	c.Assert(err, IsNil)
