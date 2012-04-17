@@ -16,6 +16,7 @@ import (
 	"launchpad.net/mgo/bson"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -39,6 +40,11 @@ const (
 // Store holds a connection to a charm store.
 type Store struct {
 	session *storeSession
+
+	// Cache for statistics key words (two generations).
+	cacheMu     sync.RWMutex
+	statsToken1 map[string]int
+	statsToken2 map[string]int
 }
 
 // Open creates a new session with the store. It connects to the MongoDB
@@ -53,7 +59,7 @@ func Open(mongoAddr string) (store *Store, err error) {
 		return nil, err
 	}
 
-	store = &Store{&storeSession{session}}
+	store = &Store{session: &storeSession{session}}
 
 	// Ignore error. It'll always fail after created.
 	// TODO Check the error once mgo handles it to us.
@@ -107,45 +113,84 @@ func (s *Store) statsKey(session *storeSession, key []string, write bool) (strin
 	if len(key) == 0 {
 		return "", fmt.Errorf("store: empty statistics key")
 	}
-	// TODO Cache token=>id map in s.
 	tokens := session.StatTokens()
 	skey := make([]byte, 0, len(key)*4)
 	// Retry limit is mainly to prevent infinite recursion in edge cases,
 	// such as if the database is ever run in read-only mode.
 	// The logic below should deteministically stop in normal scenarios.
-	var failed error
+	var err error
 	for i, retry := 0, 30; i < len(key) && retry > 0; retry-- {
-		failed = nil
-		var t statsToken
-		err := tokens.Find(bson.D{{"t", key[i]}}).One(&t)
-		if err == mgo.NotFound {
-			if !write {
-				return "", ErrNotFound
+		id, found := s.cachedStatsTokenId(key[i])
+		if !found {
+			var t struct{ Id int "_id"; Token string "t" }
+			err = tokens.Find(bson.D{{"t", key[i]}}).One(&t)
+			if err == mgo.NotFound {
+				if !write {
+					return "", ErrNotFound
+				}
+				t.Id, err = tokens.Count()
+				if err != nil {
+					continue
+				}
+				t.Id++
+				t.Token = key[i]
+				err = tokens.Insert(&t)
 			}
-			count, err := tokens.Count()
 			if err != nil {
-				failed = err
 				continue
 			}
-			t = statsToken{count + 1, key[i]}
-			err = tokens.Insert(&t)
-			if err != nil {
-				failed = err
-				continue
-			}
+			s.cacheStatsTokenId(t.Token, t.Id)
+			id = t.Id
 		}
-		if err != nil {
-			failed = err
-			continue
-		}
-		skey = strconv.AppendInt(skey, int64(t.Id), 32)
+		skey = strconv.AppendInt(skey, int64(id), 32)
 		skey = append(skey, ':')
 		i++
 	}
-	if failed != nil {
-		return "", failed
+	if err != nil {
+		return "", err
 	}
 	return string(skey), nil
+}
+
+const statsTokenCacheSize = 512
+
+// cacheStatsTokenId adds the id for token into the cache.
+// The cache has two generations so that the least frequently used
+// tokens are evicted regularly.
+func (s *Store) cacheStatsTokenId(token string, id int) {
+	s.cacheMu.Lock()
+	if len(s.statsToken1) == statsTokenCacheSize {
+		s.statsToken2 = s.statsToken1
+		s.statsToken1 = nil
+	}
+	if s.statsToken1 == nil {
+		s.statsToken1 = make(map[string]int, statsTokenCacheSize)
+	}
+	s.statsToken1[token] = id
+	s.cacheMu.Unlock()
+}
+
+// cachedStatsTokenId returns the id for token from the cache, if found.
+func (s *Store) cachedStatsTokenId(token string) (id int, found bool) {
+	s.cacheMu.RLock()
+	defer s.cacheMu.RUnlock()
+
+	if s.statsToken1 == nil {
+		return
+	}
+	if id, found = s.statsToken1[token]; found {
+		return
+	}
+
+	if s.statsToken2 == nil {
+		return
+	}
+	if id, found = s.statsToken2[token]; found {
+		s.cacheMu.RUnlock()
+		s.cacheStatsTokenId(token, id)
+		s.cacheMu.RLock()
+	}
+	return
 }
 
 var counterEpoch = time.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
