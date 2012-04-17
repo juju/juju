@@ -56,7 +56,7 @@ func Open(mongoAddr string) (store *Store, err error) {
 	store = &Store{&storeSession{session}}
 
 	// Ignore error. It'll always fail after created.
-	// TODO Check the error once mgo handles it to us.
+	// TODO Check the error once mgo hands it to us.
 	_ = store.session.DB("juju").Run(bson.D{{"create", "stat.counters"}, {"autoIndexId", false}}, nil)
 
 	counters := store.session.StatCounters()
