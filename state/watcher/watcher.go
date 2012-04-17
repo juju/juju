@@ -6,14 +6,22 @@ import (
 	"launchpad.net/tomb"
 )
 
+// ContentChange holds information on the existence
+// and contents of a node. Content will be empty when the
+// node does not exist.
+type ContentChange struct {
+	Exists  bool
+	Content string
+}
+
 // ContentWatcher observes a ZooKeeper node and delivers a
 // notification when a content change is detected.
 type ContentWatcher struct {
 	zk         *zookeeper.Conn
 	path       string
 	tomb       tomb.Tomb
-	changeChan chan string
-	content    string
+	changeChan chan ContentChange
+	content    ContentChange
 }
 
 // NewContentWatcher creates a ContentWatcher observing
@@ -22,7 +30,7 @@ func NewContentWatcher(zk *zookeeper.Conn, watchedPath string) *ContentWatcher {
 	w := &ContentWatcher{
 		zk:         zk,
 		path:       watchedPath,
-		changeChan: make(chan string),
+		changeChan: make(chan ContentChange),
 	}
 	go w.loop()
 	return w
@@ -31,7 +39,7 @@ func NewContentWatcher(zk *zookeeper.Conn, watchedPath string) *ContentWatcher {
 // Changes returns a channel that will receive the new node
 // content when a change is detected. Note that multiple
 // changes may be observed as a single event in the channel.
-func (w *ContentWatcher) Changes() <-chan string {
+func (w *ContentWatcher) Changes() <-chan ContentChange {
 	return w.changeChan
 }
 
@@ -80,18 +88,55 @@ func (w *ContentWatcher) loop() {
 
 // update retrieves the node content and emits it to the change
 // channel if it has changed. It returns the next watch.
-func (w *ContentWatcher) update(eventType int) (nextWatch <-chan zookeeper.Event, err error) {
-	if eventType == zookeeper.EVENT_DELETED {
-		return nil, fmt.Errorf("watcher: node %q has been deleted", w.path)
-	}
-	content, _, watch, err := w.zk.GetW(w.path)
-	if err != nil {
+func (w *ContentWatcher) update(lastEventType int) (nextWatch <-chan zookeeper.Event, err error) {
+	var content string
+	var stat *zookeeper.Stat
+	var watch <-chan zookeeper.Event
+	var exists bool
+	// Repeat until we have a valid watch or an error.
+	eventType := lastEventType
+	for {
+		if eventType != zookeeper.EVENT_DELETED {
+			content, stat, watch, err = w.zk.GetW(w.path)
+			if err == nil {
+				// Node exists, so leave the loop.
+				exists = true
+				break
+			}
+		}
+		if zookeeper.IsError(err, zookeeper.ZNONODE) || eventType == zookeeper.EVENT_DELETED {
+			// Need a new watch to receive a signal when the node is created.
+			stat, watch, err = w.zk.ExistsW(w.path)
+			if stat != nil {
+				// Node has been created just before ExistsW(),
+				// so call GetW() with new loop run again.
+				eventType = zookeeper.EVENT_CREATED
+				continue
+			}
+			if err == nil {
+				// Got a valid watch, so leave loop.
+				exists = false
+				break
+			}
+		}
+		// Any other error during GetW() or ExistsW().
 		return nil, fmt.Errorf("watcher: can't get content of node %q: %v", w.path, err)
 	}
-	if content == w.content {
-		return watch, nil
+	if exists {
+		// Check if already exists and content has changed.
+		if w.content.Exists && content == w.content.Content {
+			return watch, nil
+		}
+		w.content.Exists = true
+		w.content.Content = content
+	} else {
+		// Check if not yet exists..
+		if !w.content.Exists {
+			return watch, nil
+		}
+		w.content.Exists = false
+		w.content.Content = ""
 	}
-	w.content = content
 	select {
 	case <-w.tomb.Dying():
 		return nil, tomb.ErrDying

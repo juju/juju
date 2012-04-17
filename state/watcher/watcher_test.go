@@ -40,7 +40,6 @@ func (s *WatcherSuite) SetUpTest(c *C) {
 	s.zkConn = zk
 	s.path = "/watcher"
 
-	_, err = s.zkConn.Create(s.path, "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
 	c.Assert(err, IsNil)
 }
 
@@ -50,111 +49,127 @@ func (s *WatcherSuite) TearDownTest(c *C) {
 }
 
 func (s *WatcherSuite) TestContentWatcher(c *C) {
+	receiveChange := func(w *watcher.ContentWatcher) (*watcher.ContentChange, bool, bool) {
+		select {
+		case change, ok := <-w.Changes():
+			return &change, ok, false
+		case <-time.After(200 * time.Millisecond):
+			return nil, false, true
+		}
+		return nil, false, false
+	}
 	watcher := watcher.NewContentWatcher(s.zkConn, s.path)
 
 	go func() {
 		time.Sleep(50 * time.Millisecond)
-		s.changeContent(c, "foo")
-
+		s.createPath(c, "init")
 		time.Sleep(50 * time.Millisecond)
 		s.changeContent(c, "foo")
-
 		time.Sleep(50 * time.Millisecond)
-		s.changeContent(c, "bar")
+		s.changeContent(c, "foo")
+		time.Sleep(50 * time.Millisecond)
+		s.removePath(c)
+		time.Sleep(50 * time.Millisecond)
+		s.createPath(c, "done")
 	}()
 
-	// Receive the two changes.
-	change := <-watcher.Changes()
-	c.Assert(change, Equals, "foo")
+	// Receive the four changes create, content change, 
+	// delete and create again.
+	change, ok, timeout := receiveChange(watcher)
+	c.Assert(timeout, Equals, false)
+	c.Assert(ok, Equals, true)
+	c.Assert(change.Exists, Equals, true)
+	c.Assert(change.Content, Equals, "init")
 
-	change = <-watcher.Changes()
-	c.Assert(change, Equals, "bar")
+	change, ok, timeout = receiveChange(watcher)
+	c.Assert(timeout, Equals, false)
+	c.Assert(ok, Equals, true)
+	c.Assert(change.Exists, Equals, true)
+	c.Assert(change.Content, Equals, "foo")
+
+	change, ok, timeout = receiveChange(watcher)
+	c.Assert(timeout, Equals, false)
+	c.Assert(ok, Equals, true)
+	c.Assert(change.Exists, Equals, false)
+	c.Assert(change.Content, Equals, "")
+
+	change, ok, timeout = receiveChange(watcher)
+	c.Assert(timeout, Equals, false)
+	c.Assert(ok, Equals, true)
+	c.Assert(change.Exists, Equals, true)
+	c.Assert(change.Content, Equals, "done")
 
 	// No more changes.
-	select {
-	case <-watcher.Changes():
-		c.Fatalf("no more changes expected")
-	case <-time.After(200 * time.Millisecond):
-		// The timeout is expected.
-	}
+	_, _, timeout = receiveChange(watcher)
+	c.Assert(timeout, Equals, true)
 
 	err := watcher.Stop()
 	c.Assert(err, IsNil)
 
-	// Changes() has to be closed
-	select {
-	case _, ok := <-watcher.Changes():
-		c.Assert(ok, Equals, false)
-	case <-time.After(200 * time.Millisecond):
-		// Timeout should not be needed.
-		c.Fatalf("timeout should not happen")
-	}
+	// Changes() has to be closed.
+	_, ok, timeout = receiveChange(watcher)
+	c.Assert(ok, Equals, false)
+	c.Assert(timeout, Equals, false)
 }
 
 func (s *WatcherSuite) TestChildrenWatcher(c *C) {
+	receiveChange := func(w *watcher.ChildrenWatcher) (*watcher.ChildrenChange, bool, bool) {
+		select {
+		case change, ok := <-w.Changes():
+			return &change, ok, false
+		case <-time.After(200 * time.Millisecond):
+			return nil, false, true
+		}
+		return nil, false, false
+	}
+	s.createPath(c, "init")
 	watcher := watcher.NewChildrenWatcher(s.zkConn, s.path)
 
 	go func() {
 		time.Sleep(50 * time.Millisecond)
 		s.changeChildren(c, true, "foo")
-
 		time.Sleep(50 * time.Millisecond)
 		s.changeChildren(c, true, "bar")
-
 		time.Sleep(50 * time.Millisecond)
 		s.changeChildren(c, false, "foo")
 	}()
 
 	// Receive the three changes.
-	change := <-watcher.Changes()
+	change, ok, timeout := receiveChange(watcher)
+	c.Assert(timeout, Equals, false)
+	c.Assert(ok, Equals, true)
 	c.Assert(change.Added, DeepEquals, []string{"foo"})
 
-	change = <-watcher.Changes()
+	change, ok, timeout = receiveChange(watcher)
+	c.Assert(timeout, Equals, false)
+	c.Assert(ok, Equals, true)
 	c.Assert(change.Added, DeepEquals, []string{"bar"})
 
-	change = <-watcher.Changes()
+	change, ok, timeout = receiveChange(watcher)
+	c.Assert(timeout, Equals, false)
+	c.Assert(ok, Equals, true)
 	c.Assert(change.Deleted, DeepEquals, []string{"foo"})
 
 	// No more changes.
-	select {
-	case <-watcher.Changes():
-		c.Fatalf("no more changes expected")
-	case <-time.After(time.Second):
-		// The timeout is expected.
-	}
+	_, _, timeout = receiveChange(watcher)
+	c.Assert(timeout, Equals, true)
 
 	err := watcher.Stop()
 	c.Assert(err, IsNil)
 
-	// Changes() has to be closed
-	select {
-	case _, ok := <-watcher.Changes():
-		c.Assert(ok, Equals, false)
-	case <-time.After(200 * time.Millisecond):
-		// Timeout should not be needed.
-		c.Fatalf("timeout should not happen")
-	}
+	// Changes() has to be closed.
+	_, ok, timeout = receiveChange(watcher)
+	c.Assert(ok, Equals, false)
+	c.Assert(timeout, Equals, false)
 }
 
-func (s *WatcherSuite) TestDeletedNode(c *C) {
-	watcher := watcher.NewContentWatcher(s.zkConn, s.path)
+func (s *WatcherSuite) createPath(c *C, content string) {
+	_, err := s.zkConn.Create(s.path, content, 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
+	c.Assert(err, IsNil)
+}
 
-	go func() {
-		time.Sleep(50 * time.Millisecond)
-		testing.ZkRemoveTree(s.zkConn, s.path)
-	}()
-
-	// Changes() has to be closed
-	select {
-	case _, ok := <-watcher.Changes():
-		c.Assert(ok, Equals, false)
-	case <-time.After(200 * time.Millisecond):
-		// Timeout should not be needed.
-		c.Fatalf("timeout should not happen")
-	}
-
-	err := watcher.Stop()
-	c.Assert(err, ErrorMatches, `watcher: node "/watcher" has been deleted`)
+func (s *WatcherSuite) removePath(c *C) {
+	testing.ZkRemoveTree(s.zkConn, s.path)
 }
 
 func (s *WatcherSuite) changeContent(c *C, content string) {
