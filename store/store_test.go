@@ -527,9 +527,11 @@ func (s *StoreSuite) TestCountersTokenCaching(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(sum, Equals, int64(0))
 
+	const genSize = 512
+
 	// All of these will be cached, as we have two generations
-	// of 512 entries each.
-	for i := 0; i < 1024; i++ {
+	// of genSize entries each.
+	for i := 0; i < genSize*2; i++ {
 		err := s.store.IncCounter([]string{strconv.Itoa(i)})
 		c.Assert(err, IsNil)
 	}
@@ -541,7 +543,7 @@ func (s *StoreSuite) TestCountersTokenCaching(c *C) {
 
 	// We can consult the counters for the cached entries still.
 	// First, check that the newest generation is good.
-	for i := 512; i < 1024; i++ {
+	for i := genSize; i < genSize*2; i++ {
 		n, err := s.store.SumCounter([]string{strconv.Itoa(i)}, false)
 		c.Assert(err, IsNil)
 		c.Assert(n, Equals, int64(1))
@@ -550,13 +552,13 @@ func (s *StoreSuite) TestCountersTokenCaching(c *C) {
 	// Now, we can still access a single entry of the older generation,
 	// but this will cause the generations to flip and thus the rest
 	// of the old generation will go away as the top half of the
-	// 1024 entries is turned into the old generation.
+	// entries is turned into the old generation.
 	n, err := s.store.SumCounter([]string{"0"}, false)
 	c.Assert(err, IsNil)
 	c.Assert(n, Equals, int64(1))
 
 	// Now we've lost access to the rest of the old generation.
-	for i := 1; i < 512; i++ {
+	for i := 1; i < genSize; i++ {
 		n, err := s.store.SumCounter([]string{strconv.Itoa(i)}, false)
 		c.Assert(err, IsNil)
 		c.Assert(n, Equals, int64(0))
@@ -564,7 +566,7 @@ func (s *StoreSuite) TestCountersTokenCaching(c *C) {
 
 	// But we still have all of the top half available since it was
 	// moved into the old generation.
-	for i := 512; i < 1024; i++ {
+	for i := genSize; i < genSize*2; i++ {
 		n, err := s.store.SumCounter([]string{strconv.Itoa(i)}, false)
 		c.Assert(err, IsNil)
 		c.Assert(n, Equals, int64(1))

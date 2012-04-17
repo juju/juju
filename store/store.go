@@ -42,9 +42,9 @@ type Store struct {
 	session *storeSession
 
 	// Cache for statistics key words (two generations).
-	cacheMu     sync.RWMutex
-	statsToken1 map[string]int
-	statsToken2 map[string]int
+	cacheMu       sync.RWMutex
+	statsTokenNew map[string]int
+	statsTokenOld map[string]int
 }
 
 // Open creates a new session with the store. It connects to the MongoDB
@@ -99,11 +99,6 @@ func (s *Store) Close() {
 	s.session.Close()
 }
 
-type statsToken struct {
-	Id    int    "_id"
-	Token string "t"
-}
-
 // statsKey returns the compound statistics identifier that represents key.
 // If write is true, the identifier will be created if necessary.
 // Identifiers have a form similar to "ab:c:def:", where each section is a
@@ -121,9 +116,12 @@ func (s *Store) statsKey(session *storeSession, key []string, write bool) (strin
 	// The logic below should deteministically stop in normal scenarios.
 	var err error
 	for i, retry := 0, 30; i < len(key) && retry > 0; retry-- {
-		id, found := s.cachedStatsTokenId(key[i])
+		id, found := s.statsTokenId(key[i])
 		if !found {
-			var t struct{ Id int "_id"; Token string "t" }
+			var t struct {
+				Id    int    "_id"
+				Token string "t"
+			}
 			err = tokens.Find(bson.D{{"t", key[i]}}).One(&t)
 			if err == mgo.NotFound {
 				if !write {
@@ -160,36 +158,30 @@ const statsTokenCacheSize = 512
 // tokens are evicted regularly.
 func (s *Store) cacheStatsTokenId(token string, id int) {
 	s.cacheMu.Lock()
-	if len(s.statsToken1) == statsTokenCacheSize {
-		s.statsToken2 = s.statsToken1
-		s.statsToken1 = nil
+	defer s.cacheMu.Unlock()
+	// Can't possibly be >, but reviews want it for defensiveness.
+	if len(s.statsTokenNew) >= statsTokenCacheSize {
+		s.statsTokenOld = s.statsTokenNew
+		s.statsTokenNew = nil
 	}
-	if s.statsToken1 == nil {
-		s.statsToken1 = make(map[string]int, statsTokenCacheSize)
+	if s.statsTokenNew == nil {
+		s.statsTokenNew = make(map[string]int, statsTokenCacheSize)
 	}
-	s.statsToken1[token] = id
-	s.cacheMu.Unlock()
+	s.statsTokenNew[token] = id
 }
 
-// cachedStatsTokenId returns the id for token from the cache, if found.
-func (s *Store) cachedStatsTokenId(token string) (id int, found bool) {
+// statsTokenId returns the id for token from the cache, if found.
+func (s *Store) statsTokenId(token string) (id int, found bool) {
 	s.cacheMu.RLock()
-	defer s.cacheMu.RUnlock()
-
-	if s.statsToken1 == nil {
-		return
-	}
-	if id, found = s.statsToken1[token]; found {
-		return
-	}
-
-	if s.statsToken2 == nil {
-		return
-	}
-	if id, found = s.statsToken2[token]; found {
+	id, found = s.statsTokenNew[token]
+	if found {
 		s.cacheMu.RUnlock()
+		return
+	}
+	id, found = s.statsTokenOld[token]
+	s.cacheMu.RUnlock()
+	if found {
 		s.cacheStatsTokenId(token, id)
-		s.cacheMu.RLock()
 	}
 	return
 }
