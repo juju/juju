@@ -32,6 +32,12 @@ func NewServer(store *Store) (*Server, error) {
 	s.mux.HandleFunc("/stats/counter/", func(w http.ResponseWriter, r *http.Request) {
 		s.serveStats(w, r)
 	})
+
+	// This is just a validation key to allow blitz.io to run
+	// performance tests against the site.
+	s.mux.HandleFunc("/mu-35700a31-6bf320ca-a800b670-05f845ee", func(w http.ResponseWriter, r *http.Request) {
+		s.serveBlitzKey(w, r)
+	})
 	return s, nil
 }
 
@@ -180,4 +186,11 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 		log.Printf("can't write content: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+}
+
+func (s *Server) serveBlitzKey(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Connection", "close")
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Length", "2")
+	w.Write([]byte("42"))
 }
