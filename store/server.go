@@ -55,6 +55,13 @@ func statsEnabled(req *http.Request) bool {
 	return req.Form.Get("stats") != "0"
 }
 
+func charmStatsKey(curl *charm.URL, kind string) []string {
+	if curl.User == "" {
+		return []string{kind, curl.Series, curl.Name}
+	}
+	return []string{kind, curl.Series, curl.Name, curl.User}
+}
+
 func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/charm-info" {
 		w.WriteHeader(http.StatusNotFound)
@@ -72,25 +79,17 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 		}
 		var skey []string
 		if err == nil {
-			if curl.User == "" {
-				skey = []string{"charm-info", curl.Series, curl.Name}
-			} else {
-				skey = []string{"charm-info", curl.Series, curl.Name, curl.User}
-			}
+			skey = charmStatsKey(curl, "charms-info")
 			c.Sha256 = info.BundleSha256()
 			c.Revision = info.Revision()
 		} else {
 			if err == ErrNotFound {
-				if curl.User == "" {
-					skey = []string{"charm-missing", curl.Series, curl.Name}
-				} else {
-					skey = []string{"charm-missing", curl.Series, curl.Name, curl.User}
-				}
+				skey = charmStatsKey(curl, "charm-missing")
 			}
 			c.Errors = append(c.Errors, err.Error())
 		}
 		if skey != nil && statsEnabled(r) {
-			s.store.IncCounter(skey)
+			go s.store.IncCounter(skey)
 		}
 	}
 	data, err := json.Marshal(response)
@@ -125,11 +124,7 @@ func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if statsEnabled(r) {
-		if curl.User == "" {
-			s.store.IncCounter([]string{"charm-bundle", curl.Series, curl.Name})
-		} else {
-			s.store.IncCounter([]string{"charm-bundle", curl.Series, curl.Name, curl.User})
-		}
+		go s.store.IncCounter(charmStatsKey(curl, "charm-bundle"))
 	}
 	defer rc.Close()
 	w.Header().Set("Connection", "close") // No keep-alive for now.
