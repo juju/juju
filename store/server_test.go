@@ -121,23 +121,6 @@ func (s *StoreSuite) TestDisableStats(c *C) {
 	}
 }
 
-// This is necessary to run performance tests with blitz.io.
-func (s *StoreSuite) TestBlitzKey(c *C) {
-	server, _ := s.prepareServer(c)
-
-	req, err := http.NewRequest("GET", "/mu-35700a31-6bf320ca-a800b670-05f845ee", nil)
-	c.Assert(err, IsNil)
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
-
-	data, err := ioutil.ReadAll(rec.Body)
-	c.Assert(string(data), Equals, "42")
-
-	c.Assert(rec.Header().Get("Connection"), Equals, "close")
-	c.Assert(rec.Header().Get("Content-Type"), Equals, "text/plain")
-	c.Assert(rec.Header().Get("Content-Length"), Equals, "2")
-}
-
 func (s *StoreSuite) TestServerStatus(c *C) {
 	server, err := store.NewServer(s.store)
 	c.Assert(err, IsNil)
@@ -200,4 +183,22 @@ func (s *StoreSuite) TestStatsCounter(c *C) {
 		c.Assert(rec.Header().Get("Content-Type"), Equals, "text/plain")
 		c.Assert(rec.Header().Get("Content-Length"), Equals, strconv.Itoa(len(n)))
 	}
+}
+
+func (s *StoreSuite) TestBlitzKey(c *C) {
+	server, _ := s.prepareServer(c)
+
+	// This is just a validation key to allow blitz.io to run
+	// performance tests against the site.
+	req, err := http.NewRequest("GET", "/mu-35700a31-6bf320ca-a800b670-05f845ee", nil)
+	c.Assert(err, IsNil)
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	data, err := ioutil.ReadAll(rec.Body)
+	c.Assert(string(data), Equals, "42")
+
+	c.Assert(rec.Header().Get("Connection"), Equals, "close")
+	c.Assert(rec.Header().Get("Content-Type"), Equals, "text/plain")
+	c.Assert(rec.Header().Get("Content-Length"), Equals, "2")
 }

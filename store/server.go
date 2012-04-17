@@ -33,7 +33,8 @@ func NewServer(store *Store) (*Server, error) {
 		s.serveStats(w, r)
 	})
 
-	// This is necessary to run performance tests with blitz.io.
+	// This is just a validation key to allow blitz.io to run
+	// performance tests against the site.
 	s.mux.HandleFunc("/mu-35700a31-6bf320ca-a800b670-05f845ee", func(w http.ResponseWriter, r *http.Request) {
 		s.serveBlitzKey(w, r)
 	})
