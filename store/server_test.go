@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strconv"
+	"time"
 )
 
 func (s *StoreSuite) prepareServer(c *C) (*store.Server, *charm.URL) {
@@ -26,39 +27,60 @@ func (s *StoreSuite) prepareServer(c *C) (*store.Server, *charm.URL) {
 
 func (s *StoreSuite) TestServerCharmInfo(c *C) {
 	server, curl := s.prepareServer(c)
-
 	req, err := http.NewRequest("GET", "/charm-info", nil)
 	c.Assert(err, IsNil)
-	req.Form = url.Values{"charms": []string{curl.String()}}
-	rec := httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
 
-	expected := map[string]interface{}{
-		curl.String(): map[string]interface{}{
-			"revision": float64(0),
-			"sha256":   fakeRevZeroSha,
-		},
+	var tests = []struct{ url, sha, err string }{
+		{curl.String(), fakeRevZeroSha, ""},
+		{"cs:oneiric/non-existent", "", "entry not found"},
+		{"cs:bad", "", `charm URL without series: "cs:bad"`},
 	}
-	obtained := map[string]interface{}{}
-	err = json.NewDecoder(rec.Body).Decode(&obtained)
-	c.Assert(err, IsNil)
-	c.Assert(obtained, DeepEquals, expected)
-	c.Assert(rec.Header().Get("Content-Type"), Equals, "application/json")
 
-	// Now check an error condition.
-	req.Form["charms"] = []string{"cs:bad"}
-	rec = httptest.NewRecorder()
-	server.ServeHTTP(rec, req)
-	expected = map[string]interface{}{
-		"cs:bad": map[string]interface{}{
-			"revision": float64(0),
-			"errors":   []interface{}{`charm URL without series: "cs:bad"`},
-		},
+	for _, t := range tests {
+		req.Form = url.Values{"charms": []string{t.url}}
+		rec := httptest.NewRecorder()
+		server.ServeHTTP(rec, req)
+
+		expected := make(map[string]interface{})
+		if t.sha != "" {
+			expected[t.url] = map[string]interface{}{
+				"revision": float64(0),
+				"sha256": t.sha,
+			}
+		} else {
+			expected[t.url] = map[string]interface{}{
+				"revision": float64(0),
+				"errors": []interface{}{t.err},
+			}
+		}
+		obtained := map[string]interface{}{}
+		err = json.NewDecoder(rec.Body).Decode(&obtained)
+		c.Assert(err, IsNil)
+		c.Assert(obtained, DeepEquals, expected)
+		c.Assert(rec.Header().Get("Content-Type"), Equals, "application/json")
 	}
-	obtained = map[string]interface{}{}
-	err = json.NewDecoder(rec.Body).Decode(&obtained)
-	c.Assert(err, IsNil)
-	c.Assert(obtained, DeepEquals, expected)
+
+	s.checkCounterSum(c, []string{"charm-info", curl.Series, curl.Name}, false, 1)
+	s.checkCounterSum(c, []string{"charm-missing", "oneiric", "non-existent"}, false, 1)
+}
+
+// checkCounterSum checks that statistics are properly collected.
+// It retries a few times as they are generally collected in background.
+func (s *StoreSuite) checkCounterSum(c *C, key []string, prefix bool, expected int64) {
+	var sum int64
+	var err error
+	for retry := 0; retry < 10; retry++ {
+		time.Sleep(1e8)
+		sum, err = s.store.SumCounter(key, prefix)
+		c.Assert(err, IsNil)
+		if sum == expected {
+			if expected == 0 && retry < 2 {
+				continue // Wait a bit to make sure.
+			}
+			return
+		}
+	}
+	c.Errorf("counter sum for %#v is %d, want %d", key, sum, expected)
 }
 
 func (s *StoreSuite) TestCharmStreaming(c *C) {
@@ -75,6 +97,28 @@ func (s *StoreSuite) TestCharmStreaming(c *C) {
 	c.Assert(rec.Header().Get("Connection"), Equals, "close")
 	c.Assert(rec.Header().Get("Content-Type"), Equals, "application/octet-stream")
 	c.Assert(rec.Header().Get("Content-Length"), Equals, "16")
+
+	// Check that it was accounted for in statistics.
+	s.checkCounterSum(c, []string{"charm-bundle", curl.Series, curl.Name}, false, 1)
+}
+
+func (s *StoreSuite) TestDisableStats(c *C) {
+	server, curl := s.prepareServer(c)
+
+	req, err := http.NewRequest("GET", "/charm-info", nil)
+	c.Assert(err, IsNil)
+	req.Form = url.Values{"charms": []string{curl.String()}, "stats": []string{"0"}}
+	server.ServeHTTP(httptest.NewRecorder(), req)
+
+	req, err = http.NewRequest("GET", "/charms/"+curl.String()[:3], nil)
+	c.Assert(err, IsNil)
+	req.Form = url.Values{"stats": []string{"0"}}
+	server.ServeHTTP(httptest.NewRecorder(), req)
+
+	// No statistics should have been collected given the use of stats=0.
+	for _, prefix := range []string{"charm-info", "charm-bundle", "charm-missing"} {
+		s.checkCounterSum(c, []string{prefix}, true, 0)
+	}
 }
 
 // This is necessary to run performance tests with blitz.io.
