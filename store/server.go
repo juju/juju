@@ -79,7 +79,7 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 		}
 		var skey []string
 		if err == nil {
-			skey = charmStatsKey(curl, "charms-info")
+			skey = charmStatsKey(curl, "charm-info")
 			c.Sha256 = info.BundleSha256()
 			c.Revision = info.Revision()
 		} else {
