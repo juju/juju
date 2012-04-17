@@ -54,6 +54,17 @@ type responseCharm struct {
 	Warnings []string `json:"warnings,omitempty"`
 }
 
+func statsEnabled(req *http.Request) bool {
+	return req.Form.Get("stats") != "0"
+}
+
+func charmStatsKey(curl *charm.URL, kind string) []string {
+	if curl.User == "" {
+		return []string{kind, curl.Series, curl.Name}
+	}
+	return []string{kind, curl.Series, curl.Name, curl.User}
+}
+
 func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/charm-info" {
 		w.WriteHeader(http.StatusNotFound)
@@ -62,18 +73,26 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	response := map[string]*responseCharm{}
 	for _, url := range r.Form["charms"] {
-		r := &responseCharm{}
-		response[url] = r
+		c := &responseCharm{}
+		response[url] = c
 		curl, err := charm.ParseURL(url)
 		var info *CharmInfo
 		if err == nil {
 			info, err = s.store.CharmInfo(curl)
 		}
+		var skey []string
 		if err == nil {
-			r.Sha256 = info.BundleSha256()
-			r.Revision = info.Revision()
+			skey = charmStatsKey(curl, "charm-info")
+			c.Sha256 = info.BundleSha256()
+			c.Revision = info.Revision()
 		} else {
-			r.Errors = append(r.Errors, err.Error())
+			if err == ErrNotFound {
+				skey = charmStatsKey(curl, "charm-missing")
+			}
+			c.Errors = append(c.Errors, err.Error())
+		}
+		if skey != nil && statsEnabled(r) {
+			go s.store.IncCounter(skey)
 		}
 	}
 	data, err := json.Marshal(response)
@@ -106,6 +125,9 @@ func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Printf("can't open charm %q: %v", curl, err)
 		return
+	}
+	if statsEnabled(r) {
+		go s.store.IncCounter(charmStatsKey(curl, "charm-bundle"))
 	}
 	defer rc.Close()
 	w.Header().Set("Connection", "close") // No keep-alive for now.
