@@ -62,7 +62,7 @@ func Open(mongoAddr string) (store *Store, err error) {
 	store = &Store{session: &storeSession{session}}
 
 	// Ignore error. It'll always fail after created.
-	// TODO Check the error once mgo handles it to us.
+	// TODO Check the error once mgo hands it to us.
 	_ = store.session.DB("juju").Run(bson.D{{"create", "stat.counters"}, {"autoIndexId", false}}, nil)
 
 	counters := store.session.StatCounters()
@@ -105,6 +105,7 @@ type statsToken struct {
 }
 
 // statsKey returns the compound statistics identifier that represents key.
+// If write is true, the identifier will be created if necessary.
 // Identifiers have a form similar to "ab:c:def:", where each section is a
 // base-32 number that represents the respective word in key. This form
 // allows efficiently indexing and searching for prefixes, while detaching
