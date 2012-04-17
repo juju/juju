@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju/go/store"
 	"launchpad.net/mgo/bson"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -519,6 +520,55 @@ func (s *StoreSuite) TestCountersReadOnlySum(c *C) {
 	n, err := tokens.Count()
 	c.Assert(err, IsNil)
 	c.Assert(n, Equals, 0)
+}
+
+func (s *StoreSuite) TestCountersTokenCaching(c *C) {
+	sum, err := s.store.SumCounter([]string{"a"}, false)
+	c.Assert(err, IsNil)
+	c.Assert(sum, Equals, int64(0))
+
+	// All of these will be cached, as we have two generations
+	// of 512 entries each.
+	for i := 0; i < 1024; i++ {
+		err := s.store.IncCounter([]string{strconv.Itoa(i)})
+		c.Assert(err, IsNil)
+	}
+
+	// Now go behind the scenes and corrupt all the tokens.
+	tokens := s.Session.DB("juju").C("stat.tokens")
+	err = tokens.UpdateAll(nil, bson.M{"$set": bson.M{"t": "corrupted"}})
+	c.Assert(err, IsNil)
+
+	// We can consult the counters for the cached entries still.
+	// First, check that the newest generation is good.
+	for i := 512; i < 1024; i++ {
+		n, err := s.store.SumCounter([]string{strconv.Itoa(i)}, false)
+		c.Assert(err, IsNil)
+		c.Assert(n, Equals, int64(1))
+	}
+
+	// Now, we can still access a single entry of the older generation,
+	// but this will cause the generations to flip and thus the rest
+	// of the old generation will go away as the top half of the
+	// 1024 entries is turned into the old generation.
+	n, err := s.store.SumCounter([]string{"0"}, false)
+	c.Assert(err, IsNil)
+	c.Assert(n, Equals, int64(1))
+
+	// Now we've lost access to the rest of the old generation.
+	for i := 1; i < 512; i++ {
+		n, err := s.store.SumCounter([]string{strconv.Itoa(i)}, false)
+		c.Assert(err, IsNil)
+		c.Assert(n, Equals, int64(0))
+	}
+
+	// But we still have all of the top half available since it was
+	// moved into the old generation.
+	for i := 512; i < 1024; i++ {
+		n, err := s.store.SumCounter([]string{strconv.Itoa(i)}, false)
+		c.Assert(err, IsNil)
+		c.Assert(n, Equals, int64(1))
+	}
 }
 
 func (s *TrivialSuite) TestEventString(c *C) {
