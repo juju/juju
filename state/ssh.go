@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/tomb"
 	"launchpad.net/juju/go/log"
+	"launchpad.net/tomb"
 	"net"
 	"os/exec"
 	"strings"
@@ -16,10 +16,10 @@ import (
 // These two variables would be constants but they are varied
 // for testing purposes.
 var (
-	sshRemotePort = 22
+	sshRemotePort    = 22
 	sshRetryInterval = time.Second
-	sshUser = "ubuntu@"
-	sshKeyFile string
+	sshUser          = "ubuntu@"
+	sshKeyFile       string
 )
 
 // sshDial dials the ZooKeeper instance at addr through
@@ -96,7 +96,7 @@ func (fwd *sshForwarder) run(p *sshProc) {
 	// waitErrTimeout and waitErr become valid when the ssh client has exited.
 	var (
 		waitErrTimeout <-chan time.Time
-		waitErr error
+		waitErr        error
 	)
 	for {
 		select {
@@ -175,7 +175,7 @@ func (fwd *sshForwarder) start() (p *sshProc, err error) {
 	if sshKeyFile != "" {
 		args = append(args, "-i", sshKeyFile)
 	}
-	args = append(args, sshUser + fwd.remoteHost)
+	args = append(args, sshUser+fwd.remoteHost)
 
 	c := exec.Command(
 		"ssh",

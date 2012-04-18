@@ -5,6 +5,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/testing"
+	"local/runtime/debug"
 	"net"
 	"os"
 	"os/exec"
@@ -13,10 +14,9 @@ import (
 	"strings"
 	"text/template"
 	"time"
-	"local/runtime/debug"
 )
 
-type sshSuite struct{
+type sshSuite struct {
 	testing.LoggingSuite
 }
 
@@ -308,8 +308,8 @@ func (*sshSuite) TestSSHSimpleConnect(c *C) {
 		c.Logf("ssh forwarder died: %v", err)
 	}()
 
-//	c.Logf("local addr %s; remote port %d", fwd.localAddr, serverPort)
-//	select{}
+	//	c.Logf("local addr %s; remote port %d", fwd.localAddr, serverPort)
+	//	select{}
 
 	c.Logf("--------- starting server")
 
@@ -377,7 +377,7 @@ func (t *sshTest) dial(addr string, msg string) {
 			time.Sleep(300 * time.Millisecond)
 			continue
 		}
-		t.assert(line, Equals, "reply: " + msg)
+		t.assert(line, Equals, "reply: "+msg)
 		return
 	}
 	panic("not reached")
@@ -407,12 +407,12 @@ func (t *sshTest) accept1(l net.Listener) {
 
 func (t *sshTest) sshDaemon(sshdPort, serverPort int) *os.Process {
 	cmd := exec.Command("sshd",
-//		"-ddd",
+		//		"-ddd",
 		"-f", t.file("sshd_config"),
 		"-h", t.file("id_rsa"),
 		"-D",
 		"-o", fmt.Sprintf("AuthorizedKeysFile %s", t.file("authorized_keys")),
-//		"-o", fmt.Sprintf("PermitOpen localhost:%d", serverPort),
+		//		"-o", fmt.Sprintf("PermitOpen localhost:%d", serverPort),
 		"-o", fmt.Sprintf("ListenAddress localhost:%d", sshdPort),
 	)
 	cmd.Env = []string{
