@@ -282,7 +282,9 @@ func (*sshSuite) TestSSHDial(c *C) {
 }
 
 // TestSSHSimpleConnect tests a slightly simpler configuration
-// than TestSSHConnect
+// than TestSSHConnect - it doesn't test the error paths.
+// TODO Remove this test once things are stable - it's
+// only useful because it makes the problems easier to diagnose.
 func (*sshSuite) TestSSHSimpleConnect(c *C) {
 	t := newSSHTest(c)
 
