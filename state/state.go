@@ -258,7 +258,6 @@ func newConfigWatcher(st *State, path string) *ConfigWatcher {
 	}
 	go w.loop()
 	return w
-
 }
 
 // Changes returns a channel that will receive the new
