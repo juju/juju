@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
+	"launchpad.net/juju/go/testing"
 )
 
 var functionalConfig = []byte(`
@@ -19,6 +20,7 @@ environments:
     type: ec2
     region: test
     control-bucket: test-bucket
+    juju-origin: ppa
 `)
 
 func registerLocalTests() {
@@ -37,7 +39,7 @@ func registerLocalTests() {
 		})
 		Suite(&localLiveSuite{
 			LiveTests: LiveTests{
-				jujutest.LiveTests{
+				LiveTests: jujutest.LiveTests{
 					Environs: envs,
 					Name:     name,
 				},
@@ -49,12 +51,14 @@ func registerLocalTests() {
 // localLiveSuite runs tests from LiveTests using a fake
 // EC2 server that runs within the test process itself.
 type localLiveSuite struct {
+	testing.LoggingSuite
 	LiveTests
 	srv localServer
 	env environs.Environ
 }
 
 func (t *localLiveSuite) SetUpSuite(c *C) {
+	ec2.UseTestImageData(true)
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
 	t.env = t.LiveTests.Env
@@ -66,6 +70,7 @@ func (t *localLiveSuite) TearDownSuite(c *C) {
 	t.srv.stopServer(c)
 	t.env = nil
 	ec2.ShortTimeouts(false)
+	ec2.UseTestImageData(false)
 }
 
 // localServer represents a fake EC2 server running within
@@ -120,12 +125,14 @@ func (srv *localServer) stopServer(c *C) {
 // accessed by using the "test" region, which is changed to point to the
 // network address of the local server.
 type localServerSuite struct {
+	testing.LoggingSuite
 	jujutest.Tests
 	srv localServer
 	env environs.Environ
 }
 
 func (t *localServerSuite) SetUpSuite(c *C) {
+	ec2.UseTestImageData(true)
 	t.Tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
@@ -133,9 +140,11 @@ func (t *localServerSuite) SetUpSuite(c *C) {
 func (t *localServerSuite) TearDownSuite(c *C) {
 	t.Tests.TearDownSuite(c)
 	ec2.ShortTimeouts(false)
+	ec2.UseTestImageData(false)
 }
 
 func (t *localServerSuite) SetUpTest(c *C) {
+	t.LoggingSuite.SetUpTest(c)
 	t.srv.startServer(c)
 	t.Tests.SetUpTest(c)
 	t.env = t.Tests.Env
@@ -144,6 +153,7 @@ func (t *localServerSuite) SetUpTest(c *C) {
 func (t *localServerSuite) TearDownTest(c *C) {
 	t.Tests.TearDownTest(c)
 	t.srv.stopServer(c)
+	t.LoggingSuite.TearDownTest(c)
 }
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {

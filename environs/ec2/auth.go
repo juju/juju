@@ -1,12 +1,25 @@
 package ec2
 
 import (
+	"crypto/sha1"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+// makeIdentity transforms the name of a principle and
+// a password into an identity of the form principle_name:hash that can be
+// used for an access control list entry.
+// This is only used for backward compatibility reasons and
+// will disappear eventually.
+func makeIdentity(name, password string) string {
+	h := sha1.New()
+	h.Write([]byte(name + ":" + password))
+	return name + ":" + base64.StdEncoding.EncodeToString(h.Sum(nil))
+}
 
 func expandTilde(f string) string {
 	// TODO expansion of other user's home directories.

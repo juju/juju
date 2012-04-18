@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju/go/store"
 	"launchpad.net/juju/go/testing"
 	"launchpad.net/mgo/bson"
+	"strconv"
 	stdtesting "testing"
 	"time"
 )
@@ -329,7 +330,7 @@ func (s *StoreSuite) TestRedundantUpdate(c *C) {
 
 const fakeRevZeroSha = "319095521ac8a62fa1e8423351973512ecca8928c9f62025e37de57c9ef07a53"
 
-func (s *StoreSuite) TestBundleSha256(c *C) {
+func (s *StoreSuite) TestCharmBundleData(c *C) {
 	url := charm.MustParseURL("cs:oneiric/wordpress")
 	urls := []*charm.URL{url}
 
@@ -343,6 +344,7 @@ func (s *StoreSuite) TestBundleSha256(c *C) {
 	info, rc, err := s.store.OpenCharm(url)
 	c.Assert(err, IsNil)
 	c.Check(info.BundleSha256(), Equals, fakeRevZeroSha)
+	c.Check(info.BundleSize(), Equals, int64(len("charm-revision-0")))
 	err = rc.Close()
 	c.Check(err, IsNil)
 }
@@ -428,6 +430,137 @@ func (s *StoreSuite) TestLogCharmEvent(c *C) {
 	event, err = s.store.CharmEvent(urls[1], "revKeyX")
 	c.Assert(err, Equals, store.ErrNotFound)
 	c.Assert(event, IsNil)
+}
+
+func (s *StoreSuite) TestCounters(c *C) {
+	sum, err := s.store.SumCounter([]string{"a"}, false)
+	c.Assert(err, IsNil)
+	c.Assert(sum, Equals, int64(0))
+
+	for i := 0; i < 10; i++ {
+		err := s.store.IncCounter([]string{"a", "b", "c"})
+		c.Assert(err, IsNil)
+	}
+	for i := 0; i < 7; i++ {
+		s.store.IncCounter([]string{"a", "b"})
+		c.Assert(err, IsNil)
+	}
+	for i := 0; i < 3; i++ {
+		s.store.IncCounter([]string{"a", "z", "b"})
+		c.Assert(err, IsNil)
+	}
+
+	tests := []struct {
+		key    []string
+		prefix bool
+		result int64
+	}{
+		{[]string{"a", "b", "c"}, false, 10},
+		{[]string{"a", "b"}, false, 7},
+		{[]string{"a", "z", "b"}, false, 3},
+		{[]string{"a", "b", "c"}, true, 10},
+		{[]string{"a", "b"}, true, 17},
+		{[]string{"a"}, true, 20},
+		{[]string{"b"}, true, 0},
+	}
+
+	for _, t := range tests {
+		c.Logf("Test: %#v\n", t)
+		sum, err := s.store.SumCounter(t.key, t.prefix)
+		c.Assert(err, IsNil)
+		c.Assert(sum, Equals, t.result)
+	}
+
+	// High-level interface works. Now check that the data is
+	// stored correctly.
+	counters := s.Session.DB("juju").C("stat.counters")
+	docs1, err := counters.Count()
+	c.Assert(err, IsNil)
+	if docs1 != 3 && docs1 != 4 {
+		fmt.Errorf("Expected 3 or 4 docs in counters collection, got %d", docs1)
+	}
+
+	// Hack times so that the next operation adds another document.
+	err = counters.Update(nil, bson.D{{"$set", bson.D{{"t", 1}}}})
+	c.Check(err, IsNil)
+
+	err = s.store.IncCounter([]string{"a", "b", "c"})
+	c.Assert(err, IsNil)
+
+	docs2, err := counters.Count()
+	c.Assert(err, IsNil)
+	c.Assert(docs2, Equals, docs1+1)
+
+	sum, err = s.store.SumCounter([]string{"a", "b", "c"}, false)
+	c.Assert(err, IsNil)
+	c.Assert(sum, Equals, int64(11))
+
+	sum, err = s.store.SumCounter([]string{"a"}, true)
+	c.Assert(err, IsNil)
+	c.Assert(sum, Equals, int64(21))
+}
+
+func (s *StoreSuite) TestCountersReadOnlySum(c *C) {
+	// Summing up an unknown key shouldn't add the key to the database.
+	sum, err := s.store.SumCounter([]string{"a", "b", "c"}, false)
+	c.Assert(err, IsNil)
+	c.Assert(sum, Equals, int64(0))
+
+	tokens := s.Session.DB("juju").C("stat.tokens")
+	n, err := tokens.Count()
+	c.Assert(err, IsNil)
+	c.Assert(n, Equals, 0)
+}
+
+func (s *StoreSuite) TestCountersTokenCaching(c *C) {
+	sum, err := s.store.SumCounter([]string{"a"}, false)
+	c.Assert(err, IsNil)
+	c.Assert(sum, Equals, int64(0))
+
+	const genSize = 512
+
+	// All of these will be cached, as we have two generations
+	// of genSize entries each.
+	for i := 0; i < genSize*2; i++ {
+		err := s.store.IncCounter([]string{strconv.Itoa(i)})
+		c.Assert(err, IsNil)
+	}
+
+	// Now go behind the scenes and corrupt all the tokens.
+	tokens := s.Session.DB("juju").C("stat.tokens")
+	err = tokens.UpdateAll(nil, bson.M{"$set": bson.M{"t": "corrupted"}})
+	c.Assert(err, IsNil)
+
+	// We can consult the counters for the cached entries still.
+	// First, check that the newest generation is good.
+	for i := genSize; i < genSize*2; i++ {
+		n, err := s.store.SumCounter([]string{strconv.Itoa(i)}, false)
+		c.Assert(err, IsNil)
+		c.Assert(n, Equals, int64(1))
+	}
+
+	// Now, we can still access a single entry of the older generation,
+	// but this will cause the generations to flip and thus the rest
+	// of the old generation will go away as the top half of the
+	// entries is turned into the old generation.
+	n, err := s.store.SumCounter([]string{"0"}, false)
+	c.Assert(err, IsNil)
+	c.Assert(n, Equals, int64(1))
+
+	// Now we've lost access to the rest of the old generation.
+	for i := 1; i < genSize; i++ {
+		n, err := s.store.SumCounter([]string{strconv.Itoa(i)}, false)
+		c.Assert(err, IsNil)
+		c.Assert(n, Equals, int64(0))
+	}
+
+	// But we still have all of the top half available since it was
+	// moved into the old generation.
+	for i := genSize; i < genSize*2; i++ {
+		n, err := s.store.SumCounter([]string{strconv.Itoa(i)}, false)
+		c.Assert(err, IsNil)
+		c.Assert(n, Equals, int64(1))
+	}
 }
 
 func (s *TrivialSuite) TestEventString(c *C) {

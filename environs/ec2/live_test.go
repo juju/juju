@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
+	"launchpad.net/juju/go/testing"
 	"time"
 )
 
@@ -18,12 +19,13 @@ import (
 // This is missing keys for security reasons; set the following environment variables
 // to make the Amazon testing work:
 //  access-key: $AWS_ACCESS_KEY_ID
-//  admin-secret: $AWS_SECRET_ACCESS_KEY
+//  secret-key: $AWS_SECRET_ACCESS_KEY
 var amazonConfig = fmt.Sprintf(`
 environments:
   sample-%s:
     type: ec2
     control-bucket: 'juju-test-%s'
+    juju-origin: distro
 `, uniqueName, uniqueName)
 
 // uniqueName is generated afresh for every test, so that
@@ -46,7 +48,7 @@ func registerAmazonTests() {
 	}
 	for _, name := range envs.Names() {
 		Suite(&LiveTests{
-			jujutest.LiveTests{
+			LiveTests: jujutest.LiveTests{
 				Environs:         envs,
 				Name:             name,
 				ConsistencyDelay: 5 * time.Second,
@@ -59,7 +61,18 @@ func registerAmazonTests() {
 // LiveTests contains tests that can be run against the Amazon servers.
 // Each test runs using the same ec2 connection.
 type LiveTests struct {
+	testing.LoggingSuite
 	jujutest.LiveTests
+}
+
+func (t *LiveTests) SetUpTest(c *C) {
+	t.LoggingSuite.SetUpTest(c)
+	t.LiveTests.SetUpTest(c)
+}
+
+func (t *LiveTests) TearDownTest(c *C) {
+	t.LiveTests.TearDownTest(c)
+	t.LoggingSuite.TearDownTest(c)
 }
 
 func (t *LiveTests) TestInstanceDNSName(c *C) {

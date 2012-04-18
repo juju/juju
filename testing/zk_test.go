@@ -25,13 +25,7 @@ func (f testt) Fatalf(format string, args ...interface{}) {
 var allPerms = zk.WorldACL(zk.PERM_ALL)
 
 func (S) TestStartAndClean(c *C) {
-	msg := ""
-	t := testt(func(s string) {
-		msg = s
-	})
-
-	srv := testing.StartZkServer(t)
-	c.Assert(msg, Equals, "")
+	srv := testing.StartZkServer()
 	defer srv.Destroy()
 
 	addr, err := srv.Addr()
@@ -50,18 +44,13 @@ func (S) TestStartAndClean(c *C) {
 	_, err = conn.Create("/foo/bletch", "bar", 0, allPerms)
 	c.Assert(err, IsNil)
 
-	testing.ZkRemoveTree(t, conn, "/fdsvfdsvfds")
-	c.Assert(msg, Equals, "")
+	testing.ZkRemoveTree(conn, "/fdsvfdsvfds")
 
-	testing.ZkRemoveTree(t, conn, "/zookeeper")
-	c.Assert(msg, Equals, "")
+	testing.ZkRemoveTree(conn, "/zookeeper")
 
-	testing.ZkRemoveTree(t, conn, "//dsafsa")
-	c.Assert(msg, Not(Equals), "")
-	msg = ""
+	c.Assert(func() { testing.ZkRemoveTree(conn, "//dsafsa") }, PanicMatches, ".+")
 
-	testing.ZkRemoveTree(t, conn, "/")
-	c.Assert(msg, Equals, "")
+	testing.ZkRemoveTree(conn, "/")
 
 	stat, err := conn.Exists("/foo")
 	c.Assert(err, IsNil)
