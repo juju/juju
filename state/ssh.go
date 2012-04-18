@@ -6,11 +6,20 @@ import (
 	"io"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/tomb"
-	"log"
+	"launchpad.net/juju/go/log"
 	"net"
 	"os/exec"
 	"strings"
 	"time"
+)
+
+// These two variables would be constants but they are varied
+// for testing purposes.
+var (
+	sshRemotePort = 22
+	sshRetryInterval = time.Second
+	sshUser = "ubuntu@"
+	sshKeyFile string
 )
 
 // sshDial dials the ZooKeeper instance at addr through
@@ -28,8 +37,9 @@ func sshDial(addr string) (*sshForwarder, *zookeeper.Conn, error) {
 
 	select {
 	case e := <-session:
-		fwd.Kill(nil)
 		if !e.Ok() {
+			fwd.Kill(nil)
+			fwd.Wait()
 			return nil, nil, fmt.Errorf("critical zk event: %v", e)
 		}
 	case <-fwd.Dead():
@@ -76,24 +86,26 @@ func (fwd *sshForwarder) stop() error {
 	return fwd.Wait()
 }
 
-var sshRetryInterval = time.Second
-
 // run is called with the ssh process already active.
 // It loops, restarting ssh until it gets an unrecoverable error.
 func (fwd *sshForwarder) run(p *sshProc) {
 	defer fwd.Done()
 	restartCount := 0
 	startTime := time.Now()
-	var timeout <-chan time.Time
+
+	// waitErrTimeout and waitErr become valid when the ssh client has exited.
+	var (
+		waitErrTimeout <-chan time.Time
+		waitErr error
+	)
 	for {
-		var waitErr error
 		select {
 		case <-fwd.Dying():
 			p.stop()
 			return
 
 		case sshErr := <-p.error:
-			log.Printf("state: ssh error (will retry: %v): %v", sshErr, !sshErr.fatal)
+			log.Printf("state: ssh error (will retry: %v): %v", !sshErr.fatal, sshErr)
 			if sshErr.fatal {
 				p.stop()
 				fwd.Kill(sshErr)
@@ -115,15 +127,19 @@ func (fwd *sshForwarder) run(p *sshProc) {
 			}
 
 		case waitErr = <-p.wait:
+			log.Printf("ssh client exited: %v", waitErr)
 			// If ssh has exited, we'll wait a little while
 			// in case we've got the exit status before we've
 			// received the error.
-			timeout = time.After(100 * time.Millisecond)
+			waitErrTimeout = time.After(100 * time.Millisecond)
 			continue
 
-		case <-timeout:
-			// If ssh has exited without printing any
-			// errors, it's probably best to treat it as fatal.
+		case <-waitErrTimeout:
+			log.Printf("ssh client died silently")
+			// We only get here if ssh exits when no fatal
+			// errors have been printed by ssh.  In that
+			// case, it's probably best to treat it as fatal
+			// rather than restarting blindly.
 			p.stop()
 			if waitErr == nil {
 				waitErr = fmt.Errorf("ssh exited silently")
@@ -145,14 +161,27 @@ func (fwd *sshForwarder) run(p *sshProc) {
 	}
 }
 
+// start starts an ssh client to forward connections
+// from a local port to the remote port.
 func (fwd *sshForwarder) start() (p *sshProc, err error) {
-	c := exec.Command(
-		"ssh",
+	// TODO how does the user specify a particular ssh identity? (IdentityFile?)
+	args := []string{
 		"-T",
+		"-o", "StrictHostKeyChecking no",
 		"-o", "PasswordAuthentication no",
 		"-L", fmt.Sprintf(fmt.Sprintf("%s:localhost:%s", fwd.localAddr, fwd.remotePort)),
-		"ubuntu@"+fwd.remoteHost,
+		"-p", fmt.Sprint(sshRemotePort),
+	}
+	if sshKeyFile != "" {
+		args = append(args, "-i", sshKeyFile)
+	}
+	args = append(args, sshUser + fwd.remoteHost)
+
+	c := exec.Command(
+		"ssh",
+		args...,
 	)
+	log.Printf("ssh client: %q\n", c.Args)
 	output, err := c.StdoutPipe()
 	if err != nil {
 		return nil, err
@@ -171,6 +200,7 @@ func (fwd *sshForwarder) start() (p *sshProc, err error) {
 
 	errorc := make(chan *sshError, 1)
 	go func() {
+		defer log.Printf("eof from ssh")
 		r := bufio.NewReader(output)
 		for {
 			line, err := r.ReadString('\n')
@@ -181,7 +211,7 @@ func (fwd *sshForwarder) start() (p *sshProc, err error) {
 				// in the ssh exit status.
 				return
 			}
-			if err := parseSSHError(line[0 : len(line)-1]); err != nil {
+			if err := parseSSHError(stripNewline(line)); err != nil {
 				errorc <- err
 				return
 			}
@@ -194,6 +224,16 @@ func (fwd *sshForwarder) start() (p *sshProc, err error) {
 		output: output,
 		cmd:    c,
 	}, nil
+}
+
+func stripNewline(s string) string {
+	if s != "" && s[len(s)-1] == '\n' {
+		s = s[:len(s)-1]
+	}
+	if s != "" && s[len(s)-1] == '\r' {
+		s = s[:len(s)-1]
+	}
+	return s
 }
 
 // sshProc represents a running ssh process.
@@ -212,7 +252,7 @@ func (p *sshProc) stop() {
 // sshError represents an error printed by ssh.
 type sshError struct {
 	fatal   bool // If true, there's no point in retrying.
-	unknown bool // Whether we've have not recognised the error message.
+	unknown bool // Whether we've failed to recognise the error message.
 	msg     string
 }
 
@@ -223,6 +263,7 @@ func (e *sshError) Error() string {
 // parseSSHError parses an error as printed by ssh.
 // If it's not actually an error, it returns nil.
 func parseSSHError(s string) *sshError {
+	log.Printf("parseSSHError %q", s)
 	err := &sshError{msg: s}
 	switch {
 	case strings.HasPrefix(s, "Warning: Permanently added"):
@@ -235,7 +276,7 @@ func parseSSHError(s string) *sshError {
 		err.fatal = true
 
 	case strings.Contains(s, "Permission denied"):
-		err.msg = "Invalid SSH key"
+		err.msg = "Invalid SSH key: " + err.msg
 		err.fatal = true
 
 	default:

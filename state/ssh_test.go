@@ -1,15 +1,26 @@
 package state
 
 import (
+	"bufio"
+	"fmt"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju/go/testing"
+	"net"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"text/template"
+	"time"
+	"local/runtime/debug"
 )
 
-type sshSuite struct{}
+type sshSuite struct{
+	testing.LoggingSuite
+}
 
-var _ = Suite(sshSuite{})
+var _ = Suite(&sshSuite{})
 
 // fakeSSHRun represents the behaviour of the ssh command when run once.
 type fakeSSHRun struct {
@@ -81,7 +92,7 @@ var errorTests = []struct {
 }, {
 	[]fakeSSHRun{{"ssh: cannot open key: Permission denied", 1}},
 	"",
-	"Invalid SSH key",
+	"Invalid SSH key: .*",
 }, {
 	[]fakeSSHRun{
 		{"cannot connect for some reason", 1},
@@ -95,7 +106,7 @@ var errorTests = []struct {
 	"too many errors: .*",
 }}
 
-func (sshSuite) TestSSHErrors(c *C) {
+func (*sshSuite) TestSSHErrors(c *C) {
 	oldPath := os.Getenv("PATH")
 	defer os.Setenv("PATH", oldPath)
 
@@ -133,8 +144,11 @@ func (sshSuite) TestSSHErrors(c *C) {
 		} else {
 			c.Assert(err, IsNil)
 		}
-
-		<-fwd.Dying()
+		select {
+		case <-fwd.Dying():
+		case <-time.After(time.Second):
+			c.Fatalf("timeout waiting for ssh forwarder to complete")
+		}
 
 		err = fwd.stop()
 		if t.err2 != "" {
@@ -163,74 +177,281 @@ func writeScript(c *C, dir string, runs []fakeSSHRun) {
 	c.Assert(err, IsNil)
 }
 
-//func (sshSuite) TestSSHConnect(c *C) {
-//	sshdPort, err := FindPort()
-//	c.Assert(err, IsNil)
-//	serverPort, err := FindPort()
-//	c.Assert(err, IsNil)
-//	c.Assert(serverPort, Not(Equals), sshdPort)
-//
-//	// defer set remoteSSHPort = current value
-//	remoteSSHport = sshdPort
-//	fwd, err := newSSHForwarder("localhost:"+port)
-//	time.Sleep(500 * time.Millisecond)		// wait until the first ssh attempt has failed.
-//	go sshClient(c, fwd.localAddress, wg)
-//	go sshDaemon(c, sshdPort, wg)
-//	time.Sleep(500 * time.Millisecond)		// wait until the port attempt fails	go server(c, remotePort, wg)
-//	wg.Wait()
-//	check log file for:
-//		error starting ssh (sshd not up)
-//		error connecting to remote side
-//		attempting to connect again
-//}
-//
-//func sshClient(c *C, addr string, wg *sync.WaitGroup) {
-//	defer wg.Done()
-//	responses := []string{"error on first connect\n", "server to client\n"}
-//	for i := 0; i < 2; i++ {
-//		dialClient(c, addr, responses[i])
-//	}
-//}
-//
-//type sshTest struct{
-//	done chan struct{}
-//	c *C
-//}
-//
-//func (t sshTest) dial(addr string, expectedResponse string) {
-//	defer t.wg.Done()
-//	conn, err := net.Dial("tcp", addr)
-//	t.assert(err, NotNil)
-//
-//	defer conn.Close()
-//	fmt.Fprintf(conn, "client to server\n")
-//
-//	r := bufio.NewReader(conn)
-//	line, err := r.ReadString('\n')
-//	t.assert(err, IsNil)
-//	t.assert(line, Equals, "server to client\n")
-//}
-//
-//func (t sshTest) server() {
-//	listen for dial attempt
-//	read message, write error
-//
-//	listen for dial attempt
-//	read message, write message
-//
-//	signal done
-//}
-//
-//func (t sshTest) sshd(sshdPort int, wg *sync.WaitGroup) {
-//	start sshd (with specific authorized keys and permissions)
-//	HOME=$tmpdir sshd -D -p $sshport nie
-//}	
-//
-//// assert is like C.Assert except that it calls Check and then runtime.Goexit
-//// if the assertion fails.
-//func (t sshTest) assert(c *C, obtained interface{}, checker Checker, args ...interface{}) {
-//	if !c.Check(obtained, checker, args...) {
-//		runtime.Goexit()
-//	}
-//}
-//
+func (*sshSuite) TestSSHConnect(c *C) {
+	sshdPort := testing.FindTCPPort()
+	serverPort := testing.FindTCPPort()
+	c.Assert(serverPort, Not(Equals), sshdPort)
+
+	c.Logf("sshd port %d; server port %d", sshdPort, serverPort)
+
+	// Connect to local sshd instance.
+	oldPort := sshRemotePort
+	defer func() {
+		sshRemotePort = oldPort
+	}()
+	sshRemotePort = sshdPort
+
+	t := newSSHTest(c)
+
+	// Use key file in sshtest directory.
+	oldKeyFile := sshKeyFile
+	defer func() {
+		sshKeyFile = oldKeyFile
+	}()
+	sshKeyFile = t.file("id_rsa")
+
+	// Connect as local user.
+	oldUser := sshUser
+	defer func() {
+		sshUser = oldUser
+	}()
+	sshUser = ""
+
+	c.Logf("--------- starting forwarder")
+	fwd, err := newSSHForwarder(fmt.Sprintf("localhost:%d", serverPort))
+	c.Assert(err, IsNil)
+	c.Assert(fwd, NotNil)
+	defer func() {
+		err := fwd.stop()
+		c.Assert(err, IsNil)
+	}()
+	go func() {
+		err := fwd.Wait()
+		c.Logf("ssh forwarder died: %v", err)
+	}()
+
+	// The SSH forwarder will have tried to start the SSH
+	// client, but it will fail because there's no daemon to
+	// connect to. Wait a while to allow this to happen.
+	time.Sleep(500 * time.Millisecond)
+
+	// Start the daemon and the client.
+	c.Logf("--------- starting sshd")
+	p := t.sshDaemon(sshdPort, serverPort)
+	defer p.Kill()
+
+	c.Logf("------------ starting client")
+	clientDone := make(chan struct{})
+	go t.client(fwd.localAddr, clientDone)
+
+	// The SSH client process should now successfully start,
+	// but the client will fail to connect because the server
+	// has not been started. Wait a while for this to happen.
+	time.Sleep(2000 * time.Millisecond)
+
+	// Start the server to finally allow the full connection
+	// to take place.
+	c.Logf("--------- starting server")
+	go t.server(fmt.Sprintf("localhost:%d", serverPort))
+
+	// If the client completes, then all the intermediate units
+	// have completed too, so we don't need to wait for them too.
+	select {
+	case <-clientDone:
+	case <-time.After(5 * time.Second):
+		c.Fatalf("timeout waiting for client to complete")
+	}
+
+	// TODO check log file for the following:
+	//	error starting ssh (sshd not up)
+	//	error connecting to remote side
+	//	attempting to connect again
+}
+
+func (*sshSuite) TestSSHSimpleConnect(c *C) {
+	sshdPort := testing.FindTCPPort()
+	serverPort := testing.FindTCPPort()
+	c.Assert(serverPort, Not(Equals), sshdPort)
+
+	c.Logf("sshd port %d; server port %d", sshdPort, serverPort)
+
+	// Connect to local sshd instance.
+	oldPort := sshRemotePort
+	defer func() {
+		sshRemotePort = oldPort
+	}()
+	sshRemotePort = sshdPort
+
+	t := newSSHTest(c)
+
+	// Use key file in sshtest directory.
+	oldKeyFile := sshKeyFile
+	defer func() {
+		sshKeyFile = oldKeyFile
+	}()
+	sshKeyFile = t.file("id_rsa")
+
+	// Connect as local user.
+	oldUser := sshUser
+	defer func() {
+		sshUser = oldUser
+	}()
+	sshUser = ""
+
+	c.Logf("--------- starting sshd")
+
+	p := t.sshDaemon(sshdPort, serverPort)
+	defer p.Kill()
+
+	c.Logf("--------- starting forwarder")
+
+	fwd, err := newSSHForwarder(fmt.Sprintf("localhost:%d", serverPort))
+	c.Assert(err, IsNil)
+	c.Assert(fwd, NotNil)
+	defer func() {
+		err := fwd.stop()
+		c.Assert(err, IsNil)
+	}()
+
+	go func() {
+		err := fwd.Wait()
+		c.Logf("ssh forwarder died: %v", err)
+	}()
+
+//	c.Logf("local addr %s; remote port %d", fwd.localAddr, serverPort)
+//	select{}
+
+	c.Logf("--------- starting server")
+
+	go t.server(fmt.Sprintf("localhost:%d", serverPort))
+
+	c.Logf("------------ starting client")
+	clientDone := make(chan struct{})
+	go t.client(fwd.localAddr, clientDone)
+
+	// If the client completes, then all the intermediate units
+	// have completed too, so we don't need to wait for them too.
+	select {
+	case <-clientDone:
+	case <-time.After(5 * time.Second):
+		c.Fatalf("timeout waiting for client to complete")
+	}
+}
+
+type sshTest struct {
+	c   *C
+	dir string
+}
+
+func newSSHTest(c *C) *sshTest {
+	t := &sshTest{
+		c: c,
+	}
+	var err error
+	t.dir, err = os.Getwd()
+	c.Assert(err, IsNil)
+	return t
+}
+
+// file returns the full path name of an ssh test file.
+func (t *sshTest) file(name string) string {
+	return filepath.Join(t.dir, "sshtest", name)
+}
+
+func (t *sshTest) client(addr string, done chan<- struct{}) {
+	defer close(done)
+
+	t.dial(addr, "client to server 1\n")
+	t.dial(addr, "client to server 2\n")
+}
+
+// dial makes repeated attempts to dial the server.
+func (t *sshTest) dial(addr string, msg string) {
+	for attempt := 0; ; attempt++ {
+		t.assert(attempt < 20, Equals, true)
+		conn, err := net.Dial("tcp", addr)
+		if err != nil {
+			t.c.Logf("client dial %s: %v", addr, err)
+			time.Sleep(300 * time.Millisecond)
+			continue
+		}
+		fmt.Fprint(conn, msg)
+		// If the server is not yet up but the port forwarder
+		// is, the connect will succeed but we will get an
+		// immediate EOF when reading the response.
+		r := bufio.NewReader(conn)
+		line, err := r.ReadString('\n')
+		conn.Close()
+		if err != nil {
+			t.c.Logf("client dial read error: %v", err)
+			time.Sleep(300 * time.Millisecond)
+			continue
+		}
+		t.assert(line, Equals, "reply: " + msg)
+		return
+	}
+	panic("not reached")
+}
+
+func (t *sshTest) server(addr string) {
+	l, err := net.Listen("tcp", addr)
+	t.assert(err, IsNil)
+
+	t.accept1(l)
+	t.accept1(l)
+}
+
+// accept1 accepts one connection, checks that
+// the expected message is received and replies to it.
+func (t *sshTest) accept1(l net.Listener) {
+	conn, err := l.Accept()
+	t.assert(err, IsNil)
+	defer conn.Close()
+
+	r := bufio.NewReader(conn)
+	line, err := r.ReadString('\n')
+	t.assert(err, IsNil)
+	t.assert(line, Matches, "client to server [0-9]\n")
+	fmt.Fprint(conn, "reply: "+line)
+}
+
+func (t *sshTest) sshDaemon(sshdPort, serverPort int) *os.Process {
+	cmd := exec.Command("sshd",
+//		"-ddd",
+		"-f", t.file("sshd_config"),
+		"-h", t.file("id_rsa"),
+		"-D",
+		"-o", fmt.Sprintf("AuthorizedKeysFile %s", t.file("authorized_keys")),
+//		"-o", fmt.Sprintf("PermitOpen localhost:%d", serverPort),
+		"-o", fmt.Sprintf("ListenAddress localhost:%d", sshdPort),
+	)
+	cmd.Env = []string{
+		"HOME=" + t.file(""),
+		"PATH=" + os.Getenv("PATH"),
+	}
+	r, err := cmd.StderrPipe()
+	t.c.Assert(err, IsNil)
+	cmd.Stdout = cmd.Stderr
+
+	// Ensure that sshd is invoked with an absolute path so it
+	// can re-exec itself correctly.
+	cmd.Args[0] = cmd.Path
+	t.c.Logf("starting sshd: %q", cmd.Args)
+	err = cmd.Start()
+	t.c.Assert(err, IsNil)
+
+	go func() {
+		defer r.Close()
+		br := bufio.NewReader(r)
+		for {
+			line, _, err := br.ReadLine()
+			if err != nil {
+				break
+			}
+			t.c.Logf("sshd: %s", line)
+		}
+		err := cmd.Wait()
+		t.c.Logf("ssh has exited: %v", err)
+	}()
+
+	return cmd.Process
+}
+
+// assert is like C.Assert except that it calls Check and then runtime.Goexit
+// if the assertion fails.
+func (t *sshTest) assert(obtained interface{}, checker Checker, args ...interface{}) {
+	if !t.c.Check(obtained, checker, args...) {
+		t.c.Logf("callers: %s", debug.Callers(1, 10))
+		runtime.Goexit()
+	}
+}

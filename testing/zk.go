@@ -13,7 +13,12 @@ type Fatalfer interface {
 	Fatalf(format string, args ...interface{})
 }
 
-func chooseZkPort() int {
+// FindTCPPort finds an unused TCP port and returns it.
+// Use of this function has an inherent race condition - another
+// process may claim the port before we try to use it.
+// We hope that the probability is small enough during
+// testing to be negligible.
+func FindTCPPort() int {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		panic(err)
@@ -31,7 +36,7 @@ func StartZkServer() *zookeeper.Server {
 	if err != nil {
 		panic(fmt.Errorf("cannot create temporary directory: %v", err))
 	}
-	srv, err := zookeeper.CreateServer(chooseZkPort(), dir, "")
+	srv, err := zookeeper.CreateServer(FindTCPPort(), dir, "")
 	if err != nil {
 		os.RemoveAll(dir)
 		panic(fmt.Errorf("cannot create ZooKeeper server: %v", err))
