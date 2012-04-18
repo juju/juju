@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -239,15 +240,46 @@ func (*sshSuite) TestSSHConnect(c *C) {
 	//	error connecting to remote side
 	//	attempting to connect again
 }
-//
-//func (*sshSuite) TestSSHDial(c *C) {
-//	sshdPort := testing.FindTCPPort()
-//	
-//	srv := testing.StartZkServer()
-//
-//	t.setSSHParams(sshdPort)
-//	defer t.resetSSHParams()
-//}
+
+func testingZkPort() int {
+	_, serverPort, err := net.SplitHostPort(TestingZkAddr)
+	if err != nil {
+		panic("bad local zk address: " + TestingZkAddr)
+	}
+	port, err := strconv.Atoi(serverPort)
+	if err != nil {
+		panic("bad local zk port: " + TestingZkAddr)
+	}
+	return port
+}
+
+func (*sshSuite) TestSSHDial(c *C) {
+	t := newSSHTest(c)
+	sshdPort := testing.FindTCPPort()
+
+	t.setSSHParams(sshdPort)
+	defer t.resetSSHParams()
+
+	serverPort := testingZkPort()
+
+	p := t.sshDaemon(sshdPort, serverPort)
+	defer p.Kill()
+
+	fwd, zk, err := sshDial(TestingZkAddr)
+	c.Assert(err, IsNil)
+	defer func() {
+		err := fwd.stop()
+		c.Assert(err, IsNil)
+	}()
+
+	// Simplest test to make sure the connection is working.
+
+	_, err = zk.Create("/testit", "", 0, zkPermAll)
+	c.Assert(err, IsNil)
+
+	err = zk.Delete("/testit", -1)
+	c.Assert(err, IsNil)
+}
 
 // TestSSHSimpleConnect tests a slightly simpler configuration
 // than TestSSHConnect
@@ -263,12 +295,10 @@ func (*sshSuite) TestSSHSimpleConnect(c *C) {
 	defer t.resetSSHParams()
 
 	c.Logf("--------- starting sshd")
-
 	p := t.sshDaemon(sshdPort, serverPort)
 	defer p.Kill()
 
 	c.Logf("--------- starting forwarder")
-
 	fwd, err := newSSHForwarder(fmt.Sprintf("localhost:%d", serverPort))
 	c.Assert(err, IsNil)
 	c.Assert(fwd, NotNil)
@@ -276,13 +306,12 @@ func (*sshSuite) TestSSHSimpleConnect(c *C) {
 		err := fwd.stop()
 		c.Assert(err, IsNil)
 	}()
-
 	go func() {
 		err := fwd.Wait()
 		c.Logf("ssh forwarder died: %v", err)
 	}()
-	c.Logf("--------- starting server")
 
+	c.Logf("--------- starting server")
 	go t.server(fmt.Sprintf("localhost:%d", serverPort))
 
 	c.Logf("------------ starting client")
@@ -301,11 +330,11 @@ func (*sshSuite) TestSSHSimpleConnect(c *C) {
 //sshTest represents a running SSH test.
 type sshTest struct {
 	c   *C
-	dir string		// the current directory.
+	dir string // the current directory.
 
 	oldSSHRemotePort int
-	oldSSHKeyFile string
-	oldSSHUser string
+	oldSSHKeyFile    string
+	oldSSHUser       string
 }
 
 func newSSHTest(c *C) *sshTest {
