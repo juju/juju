@@ -289,8 +289,9 @@ func (w *ConfigWatcher) loop() {
 		select {
 		case <-w.tomb.Dying():
 			return
-		case content := <-w.watcher.Changes():
-			configNode, err := parseConfigNode(w.st.zk, w.path, content)
+		case change := <-w.watcher.Changes():
+			// A non-existing node is treaten as an empty node.
+			configNode, err := parseConfigNode(w.st.zk, w.path, change.Content)
 			if err != nil {
 				w.tomb.Kill(err)
 				return
