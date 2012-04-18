@@ -178,34 +178,16 @@ func writeScript(c *C, dir string, runs []fakeSSHRun) {
 }
 
 func (*sshSuite) TestSSHConnect(c *C) {
+	t := newSSHTest(c)
+
 	sshdPort := testing.FindTCPPort()
 	serverPort := testing.FindTCPPort()
 	c.Assert(serverPort, Not(Equals), sshdPort)
 
 	c.Logf("sshd port %d; server port %d", sshdPort, serverPort)
 
-	// Connect to local sshd instance.
-	oldPort := sshRemotePort
-	defer func() {
-		sshRemotePort = oldPort
-	}()
-	sshRemotePort = sshdPort
-
-	t := newSSHTest(c)
-
-	// Use key file in sshtest directory.
-	oldKeyFile := sshKeyFile
-	defer func() {
-		sshKeyFile = oldKeyFile
-	}()
-	sshKeyFile = t.file("id_rsa")
-
-	// Connect as local user.
-	oldUser := sshUser
-	defer func() {
-		sshUser = oldUser
-	}()
-	sshUser = ""
+	t.setSSHParams(sshdPort)
+	defer t.resetSSHParams()
 
 	c.Logf("--------- starting forwarder")
 	fwd, err := newSSHForwarder(fmt.Sprintf("localhost:%d", serverPort))
@@ -257,36 +239,28 @@ func (*sshSuite) TestSSHConnect(c *C) {
 	//	error connecting to remote side
 	//	attempting to connect again
 }
+//
+//func (*sshSuite) TestSSHDial(c *C) {
+//	sshdPort := testing.FindTCPPort()
+//	
+//	srv := testing.StartZkServer()
+//
+//	t.setSSHParams(sshdPort)
+//	defer t.resetSSHParams()
+//}
 
+// TestSSHSimpleConnect tests a slightly simpler configuration
+// than TestSSHConnect
 func (*sshSuite) TestSSHSimpleConnect(c *C) {
+	t := newSSHTest(c)
+
 	sshdPort := testing.FindTCPPort()
 	serverPort := testing.FindTCPPort()
 	c.Assert(serverPort, Not(Equals), sshdPort)
-
 	c.Logf("sshd port %d; server port %d", sshdPort, serverPort)
 
-	// Connect to local sshd instance.
-	oldPort := sshRemotePort
-	defer func() {
-		sshRemotePort = oldPort
-	}()
-	sshRemotePort = sshdPort
-
-	t := newSSHTest(c)
-
-	// Use key file in sshtest directory.
-	oldKeyFile := sshKeyFile
-	defer func() {
-		sshKeyFile = oldKeyFile
-	}()
-	sshKeyFile = t.file("id_rsa")
-
-	// Connect as local user.
-	oldUser := sshUser
-	defer func() {
-		sshUser = oldUser
-	}()
-	sshUser = ""
+	t.setSSHParams(sshdPort)
+	defer t.resetSSHParams()
 
 	c.Logf("--------- starting sshd")
 
@@ -307,10 +281,6 @@ func (*sshSuite) TestSSHSimpleConnect(c *C) {
 		err := fwd.Wait()
 		c.Logf("ssh forwarder died: %v", err)
 	}()
-
-	//	c.Logf("local addr %s; remote port %d", fwd.localAddr, serverPort)
-	//	select{}
-
 	c.Logf("--------- starting server")
 
 	go t.server(fmt.Sprintf("localhost:%d", serverPort))
@@ -328,9 +298,14 @@ func (*sshSuite) TestSSHSimpleConnect(c *C) {
 	}
 }
 
+//sshTest represents a running SSH test.
 type sshTest struct {
 	c   *C
-	dir string
+	dir string		// the current directory.
+
+	oldSSHRemotePort int
+	oldSSHKeyFile string
+	oldSSHUser string
 }
 
 func newSSHTest(c *C) *sshTest {
@@ -343,11 +318,29 @@ func newSSHTest(c *C) *sshTest {
 	return t
 }
 
+func (t *sshTest) setSSHParams(sshdPort int) {
+	t.oldSSHRemotePort = sshRemotePort
+	t.oldSSHKeyFile = sshKeyFile
+	t.oldSSHUser = sshUser
+
+	sshRemotePort = sshdPort
+	sshKeyFile = t.file("id_rsa")
+	sshUser = ""
+}
+
+func (t *sshTest) resetSSHParams() {
+	sshRemotePort = t.oldSSHRemotePort
+	sshKeyFile = t.oldSSHKeyFile
+	sshUser = t.oldSSHUser
+}
+
 // file returns the full path name of an ssh test file.
 func (t *sshTest) file(name string) string {
 	return filepath.Join(t.dir, "sshtest", name)
 }
 
+// client tests that a client can contact a server through the
+// port forwarding ssh client and daemon.
 func (t *sshTest) client(addr string, done chan<- struct{}) {
 	defer close(done)
 
@@ -355,7 +348,8 @@ func (t *sshTest) client(addr string, done chan<- struct{}) {
 	t.dial(addr, "client to server 2\n")
 }
 
-// dial makes repeated attempts to dial the server.
+// dial makes repeated attempts to dial the server through the
+// port forwarder.
 func (t *sshTest) dial(addr string, msg string) {
 	for attempt := 0; ; attempt++ {
 		t.assert(attempt < 20, Equals, true)
@@ -383,6 +377,7 @@ func (t *sshTest) dial(addr string, msg string) {
 	panic("not reached")
 }
 
+// server is the server side of the client-server equation.
 func (t *sshTest) server(addr string) {
 	l, err := net.Listen("tcp", addr)
 	t.assert(err, IsNil)
@@ -407,12 +402,11 @@ func (t *sshTest) accept1(l net.Listener) {
 
 func (t *sshTest) sshDaemon(sshdPort, serverPort int) *os.Process {
 	cmd := exec.Command("sshd",
-		//		"-ddd",
 		"-f", t.file("sshd_config"),
 		"-h", t.file("id_rsa"),
 		"-D",
 		"-o", fmt.Sprintf("AuthorizedKeysFile %s", t.file("authorized_keys")),
-		//		"-o", fmt.Sprintf("PermitOpen localhost:%d", serverPort),
+		"-o", fmt.Sprintf("PermitOpen localhost:%d", serverPort),
 		"-o", fmt.Sprintf("ListenAddress localhost:%d", sshdPort),
 	)
 	cmd.Env = []string{
@@ -448,7 +442,7 @@ func (t *sshTest) sshDaemon(sshdPort, serverPort int) *os.Process {
 }
 
 // assert is like C.Assert except that it calls Check and then runtime.Goexit
-// if the assertion fails.
+// if the assertion fails, allowing independent goroutines to use it.
 func (t *sshTest) assert(obtained interface{}, checker Checker, args ...interface{}) {
 	if !t.c.Check(obtained, checker, args...) {
 		t.c.Logf("callers: %s", debug.Callers(1, 10))

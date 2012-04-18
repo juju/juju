@@ -127,7 +127,6 @@ func (fwd *sshForwarder) run(p *sshProc) {
 			}
 
 		case waitErr = <-p.wait:
-			log.Printf("ssh client exited: %v", waitErr)
 			// If ssh has exited, we'll wait a little while
 			// in case we've got the exit status before we've
 			// received the error.
@@ -135,7 +134,7 @@ func (fwd *sshForwarder) run(p *sshProc) {
 			continue
 
 		case <-waitErrTimeout:
-			log.Printf("ssh client died silently")
+			log.Printf("state: ssh client exited silently: %v", waitErr)
 			// We only get here if ssh exits when no fatal
 			// errors have been printed by ssh.  In that
 			// case, it's probably best to treat it as fatal
@@ -181,7 +180,7 @@ func (fwd *sshForwarder) start() (p *sshProc, err error) {
 		"ssh",
 		args...,
 	)
-	log.Printf("ssh client: %q\n", c.Args)
+	log.Printf("state: starting ssh client: %q", c.Args)
 	output, err := c.StdoutPipe()
 	if err != nil {
 		return nil, err
@@ -200,7 +199,6 @@ func (fwd *sshForwarder) start() (p *sshProc, err error) {
 
 	errorc := make(chan *sshError, 1)
 	go func() {
-		defer log.Printf("eof from ssh")
 		r := bufio.NewReader(output)
 		for {
 			line, err := r.ReadString('\n')
@@ -263,7 +261,7 @@ func (e *sshError) Error() string {
 // parseSSHError parses an error as printed by ssh.
 // If it's not actually an error, it returns nil.
 func parseSSHError(s string) *sshError {
-	log.Printf("parseSSHError %q", s)
+	log.Printf("state: ssh client says %q", s)
 	err := &sshError{msg: s}
 	switch {
 	case strings.HasPrefix(s, "Warning: Permanently added"):

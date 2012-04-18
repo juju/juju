@@ -9,10 +9,6 @@ import (
 	pathpkg "path"
 )
 
-type Fatalfer interface {
-	Fatalf(format string, args ...interface{})
-}
-
 // FindTCPPort finds an unused TCP port and returns it.
 // Use of this function has an inherent race condition - another
 // process may claim the port before we try to use it.
