@@ -263,8 +263,8 @@ func (u *Unit) ClearNeedsUpgrade() error {
 	return err
 }
 
-// WatchNeedsUpgrade creates a watcher for the upgrade notification 
-// of the unit.
+// WatchNeedsUpgrade creates a watcher for the upgrade notification
+// of the unit. See SetNeedsUpgrade and ClearNeedsUpgrade for details.
 func (u *Unit) WatchNeedsUpgrade() *NeedsUpgradeWatcher {
 	return newNeedsUpgradeWatcher(u.st, u.zkNeedsUpgradePath())
 }
