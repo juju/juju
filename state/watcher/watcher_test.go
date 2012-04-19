@@ -49,16 +49,7 @@ func (s *WatcherSuite) TearDownTest(c *C) {
 }
 
 func (s *WatcherSuite) TestContentWatcher(c *C) {
-	receiveChange := func(w *watcher.ContentWatcher) (*watcher.ContentChange, bool, bool) {
-		select {
-		case change, ok := <-w.Changes():
-			return &change, ok, false
-		case <-time.After(200 * time.Millisecond):
-			return nil, false, true
-		}
-		return nil, false, false
-	}
-	watcher := watcher.NewContentWatcher(s.zkConn, s.path)
+	contentWatcher := watcher.NewContentWatcher(s.zkConn, s.path)
 
 	go func() {
 		time.Sleep(50 * time.Millisecond)
@@ -73,57 +64,42 @@ func (s *WatcherSuite) TestContentWatcher(c *C) {
 		s.createPath(c, "done")
 	}()
 
-	// Receive the four changes create, content change, 
-	// delete and create again.
-	change, ok, timeout := receiveChange(watcher)
-	c.Assert(timeout, Equals, false)
-	c.Assert(ok, Equals, true)
-	c.Assert(change.Exists, Equals, true)
-	c.Assert(change.Content, Equals, "init")
+	var expectedChanges = []watcher.ContentChange{
+		{true, "init"},
+		{true, "foo"},
+		{false, ""},
+		{true, "done"},
+	}
+	for _, want := range expectedChanges {
+		select {
+		case got, ok := <-contentWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got, Equals, want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", want)
+		}
+	}
 
-	change, ok, timeout = receiveChange(watcher)
-	c.Assert(timeout, Equals, false)
-	c.Assert(ok, Equals, true)
-	c.Assert(change.Exists, Equals, true)
-	c.Assert(change.Content, Equals, "foo")
+	select {
+	case got, _ := <-contentWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
 
-	change, ok, timeout = receiveChange(watcher)
-	c.Assert(timeout, Equals, false)
-	c.Assert(ok, Equals, true)
-	c.Assert(change.Exists, Equals, false)
-	c.Assert(change.Content, Equals, "")
-
-	change, ok, timeout = receiveChange(watcher)
-	c.Assert(timeout, Equals, false)
-	c.Assert(ok, Equals, true)
-	c.Assert(change.Exists, Equals, true)
-	c.Assert(change.Content, Equals, "done")
-
-	// No more changes.
-	_, _, timeout = receiveChange(watcher)
-	c.Assert(timeout, Equals, true)
-
-	err := watcher.Stop()
+	err := contentWatcher.Stop()
 	c.Assert(err, IsNil)
 
-	// Changes() has to be closed.
-	_, ok, timeout = receiveChange(watcher)
-	c.Assert(ok, Equals, false)
-	c.Assert(timeout, Equals, false)
+	select {
+	case _, ok := <-contentWatcher.Changes():
+		c.Assert(ok, Equals, false)
+	case <-time.After(200 * time.Millisecond):
+		c.Fatalf("unexpected timeout")
+	}
 }
 
 func (s *WatcherSuite) TestChildrenWatcher(c *C) {
-	receiveChange := func(w *watcher.ChildrenWatcher) (*watcher.ChildrenChange, bool, bool) {
-		select {
-		case change, ok := <-w.Changes():
-			return &change, ok, false
-		case <-time.After(200 * time.Millisecond):
-			return nil, false, true
-		}
-		return nil, false, false
-	}
 	s.createPath(c, "init")
-	watcher := watcher.NewChildrenWatcher(s.zkConn, s.path)
+	childrenWatcher := watcher.NewChildrenWatcher(s.zkConn, s.path)
 
 	go func() {
 		time.Sleep(50 * time.Millisecond)
@@ -134,33 +110,36 @@ func (s *WatcherSuite) TestChildrenWatcher(c *C) {
 		s.changeChildren(c, false, "foo")
 	}()
 
-	// Receive the three changes.
-	change, ok, timeout := receiveChange(watcher)
-	c.Assert(timeout, Equals, false)
-	c.Assert(ok, Equals, true)
-	c.Assert(change.Added, DeepEquals, []string{"foo"})
+	var expectedChanges = []watcher.ChildrenChange{
+		{[]string{"foo"}, nil},
+		{[]string{"bar"}, nil},
+		{nil, []string{"foo"}},
+	}
+	for _, want := range expectedChanges {
+		select {
+		case got, ok := <-childrenWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got, DeepEquals, want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", want)
+		}
+	}
 
-	change, ok, timeout = receiveChange(watcher)
-	c.Assert(timeout, Equals, false)
-	c.Assert(ok, Equals, true)
-	c.Assert(change.Added, DeepEquals, []string{"bar"})
+	select {
+	case got, _ := <-childrenWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
 
-	change, ok, timeout = receiveChange(watcher)
-	c.Assert(timeout, Equals, false)
-	c.Assert(ok, Equals, true)
-	c.Assert(change.Deleted, DeepEquals, []string{"foo"})
-
-	// No more changes.
-	_, _, timeout = receiveChange(watcher)
-	c.Assert(timeout, Equals, true)
-
-	err := watcher.Stop()
+	err := childrenWatcher.Stop()
 	c.Assert(err, IsNil)
 
-	// Changes() has to be closed.
-	_, ok, timeout = receiveChange(watcher)
-	c.Assert(ok, Equals, false)
-	c.Assert(timeout, Equals, false)
+	select {
+	case _, ok := <-childrenWatcher.Changes():
+		c.Assert(ok, Equals, false)
+	case <-time.After(200 * time.Millisecond):
+		c.Fatalf("unexpected timeout")
+	}
 }
 
 func (s *WatcherSuite) createPath(c *C, content string) {

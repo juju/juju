@@ -490,9 +490,9 @@ func newNeedsUpgradeWatcher(st *State, path string) *NeedsUpgradeWatcher {
 	return w
 }
 
-// Changes returns a channel that will receive the new
-// resolved mode when a change is detected. Note that multiple
-// changes may be observed as a single event in the channel.
+// Changes returns a channel that emits upgrade notifications
+// of the unit. Note that multiple changes may be observed as 
+// a single event in the channel.
 func (w *NeedsUpgradeWatcher) Changes() <-chan bool {
 	return w.changeChan
 }
@@ -518,7 +518,11 @@ func (w *NeedsUpgradeWatcher) loop() {
 		select {
 		case <-w.tomb.Dying():
 			return
-		case change := <-w.watcher.Changes():
+		case change, ok := <-w.watcher.Changes():
+			if !ok {
+				w.tomb.Kill(nil)
+				return
+			}
 			select {
 			case <-w.watcher.Dying():
 				return
