@@ -91,13 +91,11 @@ func (w *ContentWatcher) loop() {
 func (w *ContentWatcher) update() (nextWatch <-chan zookeeper.Event, err error) {
 	var content string
 	var stat *zookeeper.Stat
-	var exists bool
 	// Repeat until we have a valid watch or an error.
 	for {
 		content, stat, nextWatch, err = w.zk.GetW(w.path)
 		if err == nil {
 			// Node exists, so leave the loop.
-			exists = true
 			break
 		}
 		if zookeeper.IsError(err, zookeeper.ZNONODE) {
@@ -110,14 +108,13 @@ func (w *ContentWatcher) update() (nextWatch <-chan zookeeper.Event, err error) 
 			}
 			if err == nil {
 				// Got a valid watch, so leave loop.
-				exists = false
 				break
 			}
 		}
 		// Any other error during GetW() or ExistsW().
 		return nil, fmt.Errorf("watcher: can't get content of node %q: %v", w.path, err)
 	}
-	if exists {
+	if stat != nil {
 		if w.content.Exists && content == w.content.Content {
 			return nextWatch, nil
 		}
