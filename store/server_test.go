@@ -74,7 +74,7 @@ func (s *StoreSuite) checkCounterSum(c *C, key []string, prefix bool, expected i
 		sum, err = s.store.SumCounter(key, prefix)
 		c.Assert(err, IsNil)
 		if sum == expected {
-			if expected == 0 && retry < 5 {
+			if expected == 0 && retry < 2 {
 				continue // Wait a bit to make sure.
 			}
 			return
