@@ -13,38 +13,35 @@ import (
 	"time"
 )
 
-// These two variables would be constants but they are varied
+// These variables would be constants but they are varied
 // for testing purposes.
 var (
 	sshRemotePort    = 22
 	sshRetryInterval = time.Second
 	sshUser          = "ubuntu@"
-	sshKeyFile       string
 )
 
 // sshDial dials the ZooKeeper instance at addr through
 // an SSH proxy.
-func sshDial(addr string) (*sshForwarder, *zookeeper.Conn, error) {
-	fwd, err := newSSHForwarder(addr)
+func sshDial(addr, keyFile string) (*sshForwarder, *zookeeper.Conn, error) {
+	fwd, err := newSSHForwarder(addr, keyFile)
 	if err != nil {
 		return nil, nil, err
 	}
 	zk, session, err := zookeeper.Dial(fwd.localAddr, zkTimeout)
 	if err != nil {
-		fwd.Kill(nil)
+		fwd.stop()
 		return nil, nil, err
 	}
 
 	select {
 	case e := <-session:
 		if !e.Ok() {
-			fwd.Kill(nil)
-			fwd.Wait()
+			fwd.stop()
 			return nil, nil, fmt.Errorf("critical zk event: %v", e)
 		}
 	case <-fwd.Dead():
-		zk.Close()
-		return nil, nil, fwd.Wait()
+		return nil, nil, fwd.stop()
 	}
 	return fwd, zk, nil
 }
@@ -54,12 +51,14 @@ type sshForwarder struct {
 	localAddr  string
 	remoteHost string
 	remotePort string
+	keyFile string
 }
 
 // newSSHForwarder starts an ssh proxy connecting to the
 // remote TCP address. The localAddr field holds the
-// name of the local proxy address.
-func newSSHForwarder(remoteAddr string) (*sshForwarder, error) {
+// name of the local proxy address. If keyFile is non-empty,
+// it should name a file containing a private identity key.
+func newSSHForwarder(remoteAddr, keyFile string) (*sshForwarder, error) {
 	remoteHost, remotePort, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
 		return nil, err
@@ -72,12 +71,13 @@ func newSSHForwarder(remoteAddr string) (*sshForwarder, error) {
 		localAddr:  fmt.Sprintf("localhost:%d", localPort),
 		remoteHost: remoteHost,
 		remotePort: remotePort,
+		keyFile: keyFile,
 	}
-	p, err := fwd.start()
+	proc, err := fwd.start()
 	if err != nil {
 		return nil, err
 	}
-	go fwd.run(p)
+	go fwd.run(proc)
 	return fwd, nil
 }
 
@@ -88,7 +88,7 @@ func (fwd *sshForwarder) stop() error {
 
 // run is called with the ssh process already active.
 // It loops, restarting ssh until it gets an unrecoverable error.
-func (fwd *sshForwarder) run(p *sshProc) {
+func (fwd *sshForwarder) run(proc *sshProc) {
 	defer fwd.Done()
 	restartCount := 0
 	startTime := time.Now()
@@ -101,13 +101,13 @@ func (fwd *sshForwarder) run(p *sshProc) {
 	for {
 		select {
 		case <-fwd.Dying():
-			p.stop()
+			proc.stop()
 			return
 
-		case sshErr := <-p.error:
+		case sshErr := <-proc.error:
 			log.Printf("state: ssh error (will retry: %v): %v", !sshErr.fatal, sshErr)
 			if sshErr.fatal {
-				p.stop()
+				proc.stop()
 				fwd.Kill(sshErr)
 				return
 			}
@@ -117,7 +117,7 @@ func (fwd *sshForwarder) run(p *sshProc) {
 			// going wrong and quit.
 			if sshErr.unknown && time.Now().Sub(startTime) < 500*time.Millisecond {
 				if restartCount++; restartCount > 10 {
-					p.stop()
+					proc.stop()
 					log.Printf("state: too many ssh errors")
 					fwd.Kill(fmt.Errorf("too many errors: %v", sshErr))
 					return
@@ -126,7 +126,7 @@ func (fwd *sshForwarder) run(p *sshProc) {
 				restartCount = 0
 			}
 
-		case waitErr = <-p.wait:
+		case waitErr = <-proc.wait:
 			// If ssh has exited, we'll wait a little while
 			// in case we've got the exit status before we've
 			// received the error.
@@ -139,7 +139,7 @@ func (fwd *sshForwarder) run(p *sshProc) {
 			// errors have been printed by ssh.  In that
 			// case, it's probably best to treat it as fatal
 			// rather than restarting blindly.
-			p.stop()
+			proc.stop()
 			if waitErr == nil {
 				waitErr = fmt.Errorf("ssh exited silently")
 			} else {
@@ -148,11 +148,11 @@ func (fwd *sshForwarder) run(p *sshProc) {
 			fwd.Kill(waitErr)
 			return
 		}
-		p.stop()
+		proc.stop()
 		var err error
 		time.Sleep(sshRetryInterval)
 		startTime = time.Now()
-		p, err = fwd.start()
+		proc, err = fwd.start()
 		if err != nil {
 			fwd.Kill(err)
 			return
@@ -163,7 +163,6 @@ func (fwd *sshForwarder) run(p *sshProc) {
 // start starts an ssh client to forward connections
 // from a local port to the remote port.
 func (fwd *sshForwarder) start() (p *sshProc, err error) {
-	// TODO how does the user specify a particular ssh identity? (IdentityFile?)
 	args := []string{
 		"-T",
 		"-o", "StrictHostKeyChecking no",
@@ -171,15 +170,12 @@ func (fwd *sshForwarder) start() (p *sshProc, err error) {
 		"-L", fmt.Sprintf(fmt.Sprintf("%s:localhost:%s", fwd.localAddr, fwd.remotePort)),
 		"-p", fmt.Sprint(sshRemotePort),
 	}
-	if sshKeyFile != "" {
-		args = append(args, "-i", sshKeyFile)
+	if fwd.keyFile != "" {
+		args = append(args, "-i", fwd.keyFile)
 	}
 	args = append(args, sshUser+fwd.remoteHost)
 
-	c := exec.Command(
-		"ssh",
-		args...,
-	)
+	c := exec.Command("ssh", args...)
 	log.Printf("state: starting ssh client: %q", c.Args)
 	output, err := c.StdoutPipe()
 	if err != nil {
@@ -209,7 +205,7 @@ func (fwd *sshForwarder) start() (p *sshProc, err error) {
 				// in the ssh exit status.
 				return
 			}
-			if err := parseSSHError(stripNewline(line)); err != nil {
+			if err := parseSSHError(strings.TrimRight(line, "\r\n")); err != nil {
 				errorc <- err
 				return
 			}
@@ -255,13 +251,16 @@ type sshError struct {
 }
 
 func (e *sshError) Error() string {
-	return e.msg
+	return "ssh: "+e.msg
 }
 
 // parseSSHError parses an error as printed by ssh.
 // If it's not actually an error, it returns nil.
 func parseSSHError(s string) *sshError {
-	log.Printf("state: ssh client says %q", s)
+	if strings.HasPrefix(s, "ssh: ") {
+		s = s[len("ssh: "):]
+	}
+	log.Printf("state: ssh: %s", s)
 	err := &sshError{msg: s}
 	switch {
 	case strings.HasPrefix(s, "Warning: Permanently added"):
@@ -270,15 +269,15 @@ func parseSSHError(s string) *sshError {
 		// suppress it as it's effectively normal for our usage...
 		return nil
 
-	case strings.HasPrefix(s, "ssh: Could not resolve hostname"):
+	case strings.HasPrefix(s, "Could not resolve hostname"):
 		err.fatal = true
 
 	case strings.Contains(s, "Permission denied"):
+		// Clarify misleading error message.
 		err.msg = "Invalid SSH key: " + err.msg
 		err.fatal = true
 
 	default:
-		err.msg = "SSH forwarding error: " + err.msg
 		err.unknown = true
 	}
 	return err

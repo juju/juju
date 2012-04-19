@@ -5,7 +5,6 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/testing"
-	"local/runtime/debug"
 	"net"
 	"os"
 	"os/exec"
@@ -91,9 +90,9 @@ var errorTests = []struct {
 	"",
 	"ssh: Could not resolve hostname",
 }, {
-	[]fakeSSHRun{{"ssh: cannot open key: Permission denied", 1}},
+	[]fakeSSHRun{{"Permission denied (foo, bar)", 1}},
 	"",
-	"Invalid SSH key: .*",
+	"ssh: Invalid SSH key: .*",
 }, {
 	[]fakeSSHRun{
 		{"cannot connect for some reason", 1},
@@ -119,7 +118,7 @@ func (*sshSuite) TestSSHErrors(c *C) {
 
 	// Try first with no executable.
 	os.Setenv("PATH", "")
-	fwd, err := newSSHForwarder("somewhere.com:9999")
+	fwd, err := newSSHForwarder("somewhere.com:9999", "")
 	c.Assert(fwd, IsNil)
 	c.Assert(err, NotNil)
 
@@ -139,7 +138,7 @@ func (*sshSuite) TestSSHErrors(c *C) {
 		err = rcf.Truncate(0)
 		c.Assert(err, IsNil)
 
-		fwd, err := newSSHForwarder("somewhere.com:9999")
+		fwd, err := newSSHForwarder("somewhere.com:9999", "")
 		if t.err1 != "" {
 			c.Assert(err, ErrorMatches, t.err1)
 		} else {
@@ -191,7 +190,7 @@ func (*sshSuite) TestSSHConnect(c *C) {
 	defer t.resetSSHParams()
 
 	c.Logf("--------- starting forwarder")
-	fwd, err := newSSHForwarder(fmt.Sprintf("localhost:%d", serverPort))
+	fwd, err := newSSHForwarder(fmt.Sprintf("localhost:%d", serverPort), t.file("id_rsa"))
 	c.Assert(err, IsNil)
 	c.Assert(fwd, NotNil)
 	defer func() {
@@ -265,7 +264,7 @@ func (*sshSuite) TestSSHDial(c *C) {
 	p := t.sshDaemon(sshdPort, serverPort)
 	defer p.Kill()
 
-	fwd, zk, err := sshDial(TestingZkAddr)
+	fwd, zk, err := sshDial(TestingZkAddr, t.file("id_rsa"))
 	c.Assert(err, IsNil)
 	defer func() {
 		err := fwd.stop()
@@ -301,7 +300,7 @@ func (*sshSuite) TestSSHSimpleConnect(c *C) {
 	defer p.Kill()
 
 	c.Logf("--------- starting forwarder")
-	fwd, err := newSSHForwarder(fmt.Sprintf("localhost:%d", serverPort))
+	fwd, err := newSSHForwarder(fmt.Sprintf("localhost:%d", serverPort), t.file("id_rsa"))
 	c.Assert(err, IsNil)
 	c.Assert(fwd, NotNil)
 	defer func() {
@@ -349,19 +348,17 @@ func newSSHTest(c *C) *sshTest {
 	return t
 }
 
+
 func (t *sshTest) setSSHParams(sshdPort int) {
 	t.oldSSHRemotePort = sshRemotePort
-	t.oldSSHKeyFile = sshKeyFile
 	t.oldSSHUser = sshUser
 
 	sshRemotePort = sshdPort
-	sshKeyFile = t.file("id_rsa")
 	sshUser = ""
 }
 
 func (t *sshTest) resetSSHParams() {
 	sshRemotePort = t.oldSSHRemotePort
-	sshKeyFile = t.oldSSHKeyFile
 	sshUser = t.oldSSHUser
 }
 
@@ -476,7 +473,6 @@ func (t *sshTest) sshDaemon(sshdPort, serverPort int) *os.Process {
 // if the assertion fails, allowing independent goroutines to use it.
 func (t *sshTest) assert(obtained interface{}, checker Checker, args ...interface{}) {
 	if !t.c.Check(obtained, checker, args...) {
-		t.c.Logf("callers: %s", debug.Callers(1, 10))
 		runtime.Goexit()
 	}
 }
