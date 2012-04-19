@@ -51,7 +51,7 @@ type sshForwarder struct {
 	localAddr  string
 	remoteHost string
 	remotePort string
-	keyFile string
+	keyFile    string
 }
 
 // newSSHForwarder starts an ssh proxy connecting to the
@@ -71,7 +71,7 @@ func newSSHForwarder(remoteAddr, keyFile string) (*sshForwarder, error) {
 		localAddr:  fmt.Sprintf("localhost:%d", localPort),
 		remoteHost: remoteHost,
 		remotePort: remotePort,
-		keyFile: keyFile,
+		keyFile:    keyFile,
 	}
 	proc, err := fwd.start()
 	if err != nil {
@@ -252,7 +252,7 @@ type sshError struct {
 }
 
 func (e *sshError) Error() string {
-	return "ssh: "+e.msg
+	return "ssh: " + e.msg
 }
 
 // parseSSHError parses an error as printed by ssh.

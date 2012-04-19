@@ -165,7 +165,7 @@ func (e *environ) StateInfo() (*state.Info, error) {
 		return nil, fmt.Errorf("timed out waiting for zk address from %v", st.ZookeeperInstances)
 	}
 	return &state.Info{
-		Addrs: addrs,
+		Addrs:  addrs,
 		UseSSH: true,
 	}, nil
 }

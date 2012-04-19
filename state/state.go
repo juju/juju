@@ -19,7 +19,7 @@ import (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	zk *zookeeper.Conn
+	zk  *zookeeper.Conn
 	fwd *sshForwarder
 }
 

@@ -348,7 +348,6 @@ func newSSHTest(c *C) *sshTest {
 	return t
 }
 
-
 func (t *sshTest) setSSHParams(sshdPort int) {
 	t.oldSSHRemotePort = sshRemotePort
 	t.oldSSHUser = sshUser
