@@ -74,7 +74,7 @@ func (s *StoreSuite) checkCounterSum(c *C, key []string, prefix bool, expected i
 		sum, err = s.store.SumCounter(key, prefix)
 		c.Assert(err, IsNil)
 		if sum == expected {
-			if expected == 0 && retry < 2 {
+			if expected == 0 && retry < 5 {
 				continue // Wait a bit to make sure.
 			}
 			return
@@ -110,7 +110,7 @@ func (s *StoreSuite) TestDisableStats(c *C) {
 	req.Form = url.Values{"charms": []string{curl.String()}, "stats": []string{"0"}}
 	server.ServeHTTP(httptest.NewRecorder(), req)
 
-	req, err = http.NewRequest("GET", "/charms/"+curl.String()[:3], nil)
+	req, err = http.NewRequest("GET", "/charm/"+curl.String()[3:], nil)
 	c.Assert(err, IsNil)
 	req.Form = url.Values{"stats": []string{"0"}}
 	server.ServeHTTP(httptest.NewRecorder(), req)

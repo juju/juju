@@ -61,6 +61,9 @@ type responseCharm struct {
 }
 
 func statsEnabled(req *http.Request) bool {
+	// It's fine to parse the form more than once, and it avoids
+	// bugs from not parsing it.
+	req.ParseForm()
 	return req.Form.Get("stats") != "0"
 }
 
