@@ -291,7 +291,7 @@ func (w *ConfigWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
-				w.tomb.Killf("config watcher: unexpected close of changes channel")
+				w.tomb.Kill(nil)
 				return
 			}
 			// A non-existing node is treated as an empty node.
