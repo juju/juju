@@ -145,6 +145,16 @@ func (s *State) waitForInitialization(timeout time.Duration) error {
 	return nil
 }
 
-func (st *State) Close() error {
-	return st.zk.Close()
+func (st *State) Close() (err error) {
+	zkErr := st.zk.Close()
+	if st.fwd != nil {
+		err = st.fwd.stop()
+	}
+	// Perhaps an SSH forwarding error might be more
+	// interesting than a zk close error; few
+	// people check Close errors anyway.
+	if err == nil {
+		err = zkErr
+	}
+	return
 }
