@@ -6,10 +6,6 @@ import (
 	"testing"
 )
 
-type suite struct{}
-
-var _ = Suite(suite{})
-
 var regenerate = flag.Bool("regenerate-images", false, "regenerate all data in images directory")
 var amazon = flag.Bool("amazon", false, "Also run some tests on live Amazon servers")
 

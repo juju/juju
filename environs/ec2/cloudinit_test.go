@@ -5,6 +5,7 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju/go/state"
 	"regexp"
+	"strings"
 )
 
 // Use local suite since this file lives in the ec2 package
@@ -53,6 +54,9 @@ func (t *cloudinitTest) check(c *C) {
 		t.checkPackage(c, "zookeeperd")
 		t.checkScripts(c, "juju-admin initialize")
 		t.checkScripts(c, regexp.QuoteMeta(t.cfg.instanceIdAccessor))
+		t.checkScripts(c, "ZOOKEEPER='localhost"+zkPortSuffix+"' ")
+	} else {
+		t.checkScripts(c, "ZOOKEEPER='"+strings.Join(t.cfg.stateInfo.Addrs, ",")+"' ")
 	}
 	if t.cfg.origin != (jujuOrigin{}) && t.cfg.origin.origin == originDistro {
 		t.checkScripts(c, "apt-get.*install juju")

@@ -15,6 +15,8 @@ import (
 	"launchpad.net/mgo"
 	"launchpad.net/mgo/bson"
 	"sort"
+	"strconv"
+	"sync"
 	"time"
 )
 
@@ -38,6 +40,11 @@ const (
 // Store holds a connection to a charm store.
 type Store struct {
 	session *storeSession
+
+	// Cache for statistics key words (two generations).
+	cacheMu       sync.RWMutex
+	statsTokenNew map[string]int
+	statsTokenOld map[string]int
 }
 
 // Open creates a new session with the store. It connects to the MongoDB
@@ -51,7 +58,21 @@ func Open(mongoAddr string) (store *Store, err error) {
 		log.Printf("Error connecting to MongoDB: %v", err)
 		return nil, err
 	}
-	store = &Store{&storeSession{session}}
+
+	store = &Store{session: &storeSession{session}}
+
+	// Ignore error. It'll always fail after created.
+	// TODO Check the error once mgo hands it to us.
+	_ = store.session.DB("juju").Run(bson.D{{"create", "stat.counters"}, {"autoIndexId", false}}, nil)
+
+	counters := store.session.StatCounters()
+	err = counters.EnsureIndex(mgo.Index{Key: []string{"k", "t"}, Unique: true})
+	if err != nil {
+		log.Printf("Error ensuring stat.counters index: %v", err)
+		session.Close()
+		return nil, err
+	}
+
 	charms := store.session.Charms()
 	err = charms.EnsureIndex(mgo.Index{Key: []string{"urls", "revision"}, Unique: true})
 	if err != nil {
@@ -59,6 +80,7 @@ func Open(mongoAddr string) (store *Store, err error) {
 		session.Close()
 		return nil, err
 	}
+
 	events := store.session.Events()
 	err = events.EnsureIndex(mgo.Index{Key: []string{"urls", "digest"}})
 	if err != nil {
@@ -66,7 +88,8 @@ func Open(mongoAddr string) (store *Store, err error) {
 		session.Close()
 		return nil, err
 	}
-	// Put the socket we used on EnsureIndex back in the pool.
+
+	// Put the socket we used back in the pool.
 	session.Refresh()
 	return store, nil
 }
@@ -74,6 +97,147 @@ func Open(mongoAddr string) (store *Store, err error) {
 // Close terminates the connection with the store.
 func (s *Store) Close() {
 	s.session.Close()
+}
+
+// statsKey returns the compound statistics identifier that represents key.
+// If write is true, the identifier will be created if necessary.
+// Identifiers have a form similar to "ab:c:def:", where each section is a
+// base-32 number that represents the respective word in key. This form
+// allows efficiently indexing and searching for prefixes, while detaching
+// the key content and size from the actual words used in key.
+func (s *Store) statsKey(session *storeSession, key []string, write bool) (string, error) {
+	if len(key) == 0 {
+		return "", fmt.Errorf("store: empty statistics key")
+	}
+	tokens := session.StatTokens()
+	skey := make([]byte, 0, len(key)*4)
+	// Retry limit is mainly to prevent infinite recursion in edge cases,
+	// such as if the database is ever run in read-only mode.
+	// The logic below should deteministically stop in normal scenarios.
+	var err error
+	for i, retry := 0, 30; i < len(key) && retry > 0; retry-- {
+		id, found := s.statsTokenId(key[i])
+		if !found {
+			var t struct {
+				Id    int    "_id"
+				Token string "t"
+			}
+			err = tokens.Find(bson.D{{"t", key[i]}}).One(&t)
+			if err == mgo.NotFound {
+				if !write {
+					return "", ErrNotFound
+				}
+				t.Id, err = tokens.Count()
+				if err != nil {
+					continue
+				}
+				t.Id++
+				t.Token = key[i]
+				err = tokens.Insert(&t)
+			}
+			if err != nil {
+				continue
+			}
+			s.cacheStatsTokenId(t.Token, t.Id)
+			id = t.Id
+		}
+		skey = strconv.AppendInt(skey, int64(id), 32)
+		skey = append(skey, ':')
+		i++
+	}
+	if err != nil {
+		return "", err
+	}
+	return string(skey), nil
+}
+
+const statsTokenCacheSize = 512
+
+// cacheStatsTokenId adds the id for token into the cache.
+// The cache has two generations so that the least frequently used
+// tokens are evicted regularly.
+func (s *Store) cacheStatsTokenId(token string, id int) {
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+	// Can't possibly be >, but reviews want it for defensiveness.
+	if len(s.statsTokenNew) >= statsTokenCacheSize {
+		s.statsTokenOld = s.statsTokenNew
+		s.statsTokenNew = nil
+	}
+	if s.statsTokenNew == nil {
+		s.statsTokenNew = make(map[string]int, statsTokenCacheSize)
+	}
+	s.statsTokenNew[token] = id
+}
+
+// statsTokenId returns the id for token from the cache, if found.
+func (s *Store) statsTokenId(token string) (id int, found bool) {
+	s.cacheMu.RLock()
+	id, found = s.statsTokenNew[token]
+	if found {
+		s.cacheMu.RUnlock()
+		return
+	}
+	id, found = s.statsTokenOld[token]
+	s.cacheMu.RUnlock()
+	if found {
+		s.cacheStatsTokenId(token, id)
+	}
+	return
+}
+
+var counterEpoch = time.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
+
+// IncCounter increases by one the counter associated with the composed key.
+func (s *Store) IncCounter(key []string) error {
+	session := s.session.Copy()
+	defer session.Close()
+
+	skey, err := s.statsKey(session, key, true)
+	if err != nil {
+		return err
+	}
+
+	t := time.Now().UTC()
+	// Round to the start of the minute so we get one document per minute at most.
+	t = t.Add(-time.Duration(t.Second()) * time.Second)
+	counters := session.StatCounters()
+	_, err = counters.Upsert(bson.D{{"k", skey}, {"t", int32(t.Unix() - counterEpoch)}}, bson.D{{"$inc", bson.D{{"c", 1}}}})
+	return err
+}
+
+// SumCounter returns the sum of all the counters that exactly match key,
+// or that are prefixed by it if prefix is true.
+func (s *Store) SumCounter(key []string, prefix bool) (count int64, err error) {
+	session := s.session.Copy()
+	defer session.Close()
+
+	skey, err := s.statsKey(session, key, false)
+	if err == ErrNotFound {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	var regex string
+	if prefix {
+		regex = "^" + skey
+	} else {
+		regex = "^" + skey + "$"
+	}
+
+	job := mgo.MapReduce{
+		Map:    "function() { emit('count', this.c); }",
+		Reduce: "function(key, values) { return Array.sum(values); }",
+	}
+	var result []struct{ Value int64 }
+	counters := session.StatCounters()
+	_, err = counters.Find(bson.D{{"k", bson.D{{"$regex", regex}}}}).MapReduce(job, &result)
+	if len(result) > 0 {
+		return result[0].Value, err
+	}
+	return 0, err
 }
 
 // A CharmPublisher is responsible for importing a charm dir onto the store.
@@ -225,6 +389,7 @@ func (w *charmWriter) finish() error {
 	}
 	defer w.session.Close()
 	id := w.file.Id()
+	size := w.file.Size()
 	err := w.file.Close()
 	if err != nil {
 		log.Printf("Failed to close GridFS file: %v", err)
@@ -237,6 +402,7 @@ func (w *charmWriter) finish() error {
 		w.revision,
 		w.digest,
 		sha256,
+		size,
 		id.(bson.ObjectId),
 		w.charm.Meta(),
 		w.charm.Config(),
@@ -253,6 +419,7 @@ type CharmInfo struct {
 	revision int
 	digest   string
 	sha256   string
+	size     int64
 	fileId   bson.ObjectId
 	meta     *charm.Meta
 	config   *charm.Config
@@ -269,6 +436,11 @@ func (ci *CharmInfo) Revision() int {
 // BundleSha256 returns the sha256 checksum for the stored charm bundle.
 func (ci *CharmInfo) BundleSha256() string {
 	return ci.sha256
+}
+
+// BundleSize returns the size for the stored charm bundle.
+func (ci *CharmInfo) BundleSize() int64 {
+	return ci.size
 }
 
 // Digest returns the unique identifier that represents the charm
@@ -309,7 +481,16 @@ func (s *Store) CharmInfo(url *charm.URL) (info *CharmInfo, err error) {
 		log.Printf("Failed to find charm %s: %v", url, err)
 		return nil, ErrNotFound
 	}
-	return &CharmInfo{cdoc.Revision, cdoc.Digest, cdoc.Sha256, cdoc.FileId, cdoc.Meta, cdoc.Config}, nil
+	info = &CharmInfo{
+		cdoc.Revision,
+		cdoc.Digest,
+		cdoc.Sha256,
+		cdoc.Size,
+		cdoc.FileId,
+		cdoc.Meta,
+		cdoc.Config,
+	}
+	return info, nil
 }
 
 // OpenCharm opens for reading via rc the charm currently available at url.
@@ -354,6 +535,7 @@ type charmDoc struct {
 	Revision int
 	Digest   string
 	Sha256   string
+	Size     int64
 	FileId   bson.ObjectId
 	Meta     *charm.Meta
 	Config   *charm.Config
@@ -479,6 +661,17 @@ func (s *storeSession) Events() *mgo.Collection {
 // Locks returns the mongo collection where charm locks are stored.
 func (s *storeSession) Locks() *mgo.Collection {
 	return s.DB("juju").C("locks")
+}
+
+// StatTokens returns the mongo collection for storing key tokens
+// for statistics collection.
+func (s *storeSession) StatTokens() *mgo.Collection {
+	return s.DB("juju").C("stat.tokens")
+}
+
+// StatCounters returns the mongo collection for counter values.
+func (s *storeSession) StatCounters() *mgo.Collection {
+	return s.DB("juju").C("stat.counters")
 }
 
 type CharmEventKind int

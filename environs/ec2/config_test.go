@@ -30,11 +30,10 @@ var baseConfigResult = providerConfig{
 	auth:   testAuth,
 }
 
-// configTest specifies a config parsing test,
-// checking that env when parsed as the ec2
-// section of a config file matches baseConfigResult
-// when mutated by the mutate function,
-// or that the parse matches the given error.
+// configTest specifies a config parsing test, checking that env when
+// parsed as the ec2 section of a config file matches baseConfigResult
+// when mutated by the mutate function, or that the parse matches the
+// given error.
 type configTest struct {
 	env    string
 	mutate func(*providerConfig)
@@ -119,6 +118,32 @@ var configTests = []configTest{
 		"secret-key: badness\n" + baseConfig,
 		nil,
 		".*environment has secret-key but no access-key",
+	},
+	{
+		"juju-origin: wrong\n" + baseConfig,
+		nil,
+		`.*unknown juju origin "wrong"`,
+	},
+	{
+		"juju-origin: distro\n" + baseConfig,
+		func(cfg *providerConfig) {
+			cfg.origin = jujuOrigin{originDistro, ""}
+		},
+		"",
+	},
+	{
+		"juju-origin: 'lp:~foo/bar'\n" + baseConfig,
+		func(cfg *providerConfig) {
+			cfg.origin = jujuOrigin{originBranch, "lp:~foo/bar"}
+		},
+		"",
+	},
+	{
+		"juju-origin: ppa\n" + baseConfig,
+		func(cfg *providerConfig) {
+			cfg.origin = jujuOrigin{originPPA, ""}
+		},
+		"",
 	},
 
 	// unknown fields are discarded

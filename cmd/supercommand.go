@@ -85,7 +85,7 @@ func (c *SuperCommand) InitFlagSet(f *gnuflag.FlagSet) {
 	if c.subcmd != nil {
 		c.subcmd.InitFlagSet(f)
 	}
-	// SuperCommand's flags are always added to subcommands./ Note that the
+	// SuperCommand's flags are always added to subcommands. Note that the
 	// flag defaults come from the SuperCommand itself, so that ParsePositional
 	// can call Parse twice on the same SuperCommand without losing information.
 	f.StringVar(&c.LogFile, "log-file", c.LogFile, "path to write log to")

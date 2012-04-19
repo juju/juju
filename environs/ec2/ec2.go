@@ -5,6 +5,7 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
+	"launchpad.net/juju/go/log"
 	"launchpad.net/juju/go/state"
 	"sync"
 	"time"
@@ -92,6 +93,7 @@ func (inst *instance) WaitDNSName() (string, error) {
 }
 
 func (environProvider) Open(name string, config interface{}) (e environs.Environ, err error) {
+	log.Printf("environs/ec2: opening environment %q", name)
 	cfg := config.(*providerConfig)
 	if Regions[cfg.region].EC2Endpoint == "" {
 		return nil, fmt.Errorf("no ec2 endpoint found for region %q, opening %q", cfg.region, name)
@@ -105,6 +107,7 @@ func (environProvider) Open(name string, config interface{}) (e environs.Environ
 }
 
 func (e *environ) Bootstrap() error {
+	log.Printf("environs/ec2: bootstrapping environment %q", e.name)
 	_, err := e.loadState()
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
@@ -142,6 +145,7 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	var addrs []string
 	// Wait for the DNS names of any of the instances
 	// to become available.
+	log.Printf("environs/ec2: waiting for zookeeper DNS name(s) of instances %v", st.ZookeeperInstances)
 	for a := longAttempt.start(); len(addrs) == 0 && a.next(); {
 		insts, err := e.Instances(st.ZookeeperInstances)
 		if err != nil && err != environs.ErrPartialInstances {
@@ -164,6 +168,7 @@ func (e *environ) StateInfo() (*state.Info, error) {
 }
 
 func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Instance, error) {
+	log.Printf("environs/ec2: starting machine %d in %q", machineId, e.name)
 	return e.startInstance(machineId, info, false)
 }
 
@@ -174,7 +179,7 @@ func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte
 		stateInfo:          info,
 		instanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		providerType:       "ec2",
-		origin:             jujuOrigin{originBranch, "lp:jujubranch"},
+		origin:             e.config.origin,
 		machineId:          fmt.Sprint(machineId),
 	}
 
@@ -229,7 +234,9 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 	if len(instances.Instances) != 1 {
 		return nil, fmt.Errorf("expected 1 started instance, got %d", len(instances.Instances))
 	}
-	return &instance{e, &instances.Instances[0]}, nil
+	inst := &instance{e, &instances.Instances[0]}
+	log.Printf("environs/ec2: started instance %q", inst.Id())
+	return inst, nil
 }
 
 func (e *environ) StopInstances(insts []environs.Instance) error {
@@ -316,6 +323,7 @@ func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
 }
 
 func (e *environ) Destroy(insts []environs.Instance) error {
+	log.Printf("environs/ec2: destroying environment %q", e.name)
 	// Try to find all the instances in the environ's group.
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")

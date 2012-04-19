@@ -11,6 +11,18 @@ import (
 	"testing"
 )
 
+type imageSuite struct{}
+
+var _ = Suite(imageSuite{})
+
+func (imageSuite) SetUpSuite(c *C) {
+	ec2.UseTestImageData(true)
+}
+
+func (imageSuite) TearDownSuite(c *C) {
+	ec2.UseTestImageData(false)
+}
+
 // N.B. the image IDs in this test will need updating
 // if the image directory is regenerated.
 var imageTests = []struct {
@@ -61,9 +73,7 @@ var imageTests = []struct {
 	}, "", "error getting instance types:.*"},
 }
 
-func (suite) TestFindImageSpec(c *C) {
-	// set up http so that all requests will be satisfied from the images directory.
-	defer setTransport(setTransport(http.NewFileTransport(http.Dir("images"))))
+func (imageSuite) TestFindImageSpec(c *C) {
 
 	for i, t := range imageTests {
 		id, err := ec2.FindImageSpec(&t.constraint)
@@ -80,12 +90,6 @@ func (suite) TestFindImageSpec(c *C) {
 		}
 		c.Check(id.ImageId, Equals, t.imageId)
 	}
-}
-
-func setTransport(t http.RoundTripper) (old http.RoundTripper) {
-	old = http.DefaultTransport
-	http.DefaultTransport = t
-	return
 }
 
 // regenerate all data inside the images directory.
