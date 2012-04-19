@@ -166,9 +166,8 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	// that the unneeded permission that we added earlier
 	// has been deleted).
 	perms := info[0].IPPerms
-	c.Assert(perms, HasLen, 2)
+	c.Assert(perms, HasLen, 1)
 	checkPortAllowed(c, perms, 22)
-	checkPortAllowed(c, perms, 2181)
 
 	// The old machine group should have been reused also.
 	c.Check(groups[2].Id, Equals, oldMachineGroup.Id)

@@ -164,7 +164,10 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	if len(addrs) == 0 {
 		return nil, fmt.Errorf("timed out waiting for zk address from %v", st.ZookeeperInstances)
 	}
-	return &state.Info{Addrs: addrs}, nil
+	return &state.Info{
+		Addrs: addrs,
+		UseSSH: true,
+	}, nil
 }
 
 func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Instance, error) {
@@ -409,14 +412,6 @@ func (e *environ) groupName() string {
 func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	jujuGroup, err := e.ensureGroup(e.groupName(),
 		[]ec2.IPPerm{
-			// TODO delete this authorization when we can do
-			// the zookeeper ssh tunnelling.
-			{
-				Protocol:  "tcp",
-				FromPort:  zkPort,
-				ToPort:    zkPort,
-				SourceIPs: []string{"0.0.0.0/0"},
-			},
 			{
 				Protocol:  "tcp",
 				FromPort:  22,

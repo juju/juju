@@ -20,6 +20,7 @@ import (
 // managed by juju.
 type State struct {
 	zk *zookeeper.Conn
+	fwd *sshForwarder
 }
 
 // AddMachine creates a new machine state.

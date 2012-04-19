@@ -17,6 +17,11 @@ type Info struct {
 	// servers for the state. Each address should be in the form
 	// address:port.
 	Addrs []string
+
+	// UseSSH specifies whether the Zookeeper
+	// should be contacted through an SSH port
+	// forwarder,
+	UseSSH bool
 }
 
 const zkTimeout = 15e9
@@ -42,17 +47,26 @@ func open(info *Info) (*State, error) {
 	if len(info.Addrs) == 0 {
 		return nil, fmt.Errorf("no zookeeper addresses")
 	}
-	zk, session, err := zookeeper.Dial(strings.Join(info.Addrs, ","), zkTimeout)
+	if !info.UseSSH {
+		zk, session, err := zookeeper.Dial(strings.Join(info.Addrs, ","), zkTimeout)
+		if err != nil {
+			return nil, err
+		}
+		if !(<-session).Ok() {
+			return nil, errors.New("Could not connect to zookeeper")
+		}
+		// TODO decide what to do with session events - currently
+		// we will panic if the session event channel fills up.
+		return &State{zk, nil}, nil
+	}
+	if len(info.Addrs) > 1 {
+		return nil, fmt.Errorf("ssh connect does not support multiple addresses")
+	}
+	fwd, zk, err := sshDial(info.Addrs[0], "")
 	if err != nil {
 		return nil, err
 	}
-	if !(<-session).Ok() {
-		return nil, errors.New("Could not connect to zookeeper")
-	}
-
-	// TODO decide what to do with session events - currently
-	// we will panic if the session event channel fills up.
-	return &State{zk}, nil
+	return &State{zk, fwd}, nil
 }
 
 // Initialize sets up an initial empty state in ZooKeeper and returns

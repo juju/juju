@@ -165,6 +165,7 @@ func (fwd *sshForwarder) run(proc *sshProc) {
 func (fwd *sshForwarder) start() (p *sshProc, err error) {
 	args := []string{
 		"-T",
+		"-N",
 		"-o", "StrictHostKeyChecking no",
 		"-o", "PasswordAuthentication no",
 		"-L", fmt.Sprintf(fmt.Sprintf("%s:localhost:%s", fwd.localAddr, fwd.remotePort)),
