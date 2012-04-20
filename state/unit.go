@@ -490,9 +490,9 @@ func newNeedsUpgradeWatcher(st *State, path string) *NeedsUpgradeWatcher {
 	return w
 }
 
-// Changes returns a channel that emits upgrade notifications
-// of the unit. Note that multiple changes may be observed as 
-// a single event in the channel.
+// Changes returns a channel that will receive notifications
+// about upgrades for the unit. Note that multiple changes
+// may be observed as a single event in the channel.
 func (w *NeedsUpgradeWatcher) Changes() <-chan bool {
 	return w.changeChan
 }

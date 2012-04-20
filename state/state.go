@@ -293,7 +293,7 @@ func (w *ConfigWatcher) loop() {
 				w.tomb.Kill(nil)
 				return
 			}
-			// A nonexistent node is treated as an empty node.
+			// A non-existent node is treated as an empty node.
 			configNode, err := parseConfigNode(w.st.zk, w.path, change.Content)
 			if err != nil {
 				w.tomb.Kill(err)
