@@ -36,10 +36,13 @@ type runSpec struct {
 	Runs []fakeSSHRun
 }
 
-const backQuote = "`"
+func init() {
+	scriptTemplate.Funcs(template.FuncMap{"xs": xs})
+	template.Must(scriptTemplate.Parse(scriptText))
+}
 
-var scriptTemplate = template.Must(new(template.Template).
-	Funcs(template.FuncMap{"xs": xs}).Parse(`#!/bin/sh
+var scriptTemplate template.Template
+var scriptText = `#!/bin/bash
 
 # We use the runcount file as a unary counter
 # to determine which behaviour step we will choose.
@@ -49,7 +52,7 @@ echo -n x >> {{.Dir}}/runcount
 
 # Decide which action to take based on the current contents of the
 # runcount file.
-case ` + backQuote + `cat {{.Dir}}/runcount` + backQuote + `
+case $(cat {{.Dir}}/runcount)
 in{{range $i, $out := .Runs}}
 {{xs $i}})
 	{{if .Output}}
@@ -64,7 +67,7 @@ in{{range $i, $out := .Runs}}
 	exit 5
 	;;
 esac
-`))
+`
 
 // xs returns a repeated string of the letter x,
 // used as a unary run counter in the generated
@@ -92,7 +95,7 @@ var errorTests = []struct {
 }, {
 	[]fakeSSHRun{{"Permission denied (foo, bar)", 1}},
 	"",
-	"ssh: Invalid SSH key: .*",
+	"ssh: Permission denied .*",
 }, {
 	[]fakeSSHRun{
 		{"cannot connect for some reason", 1},
@@ -120,7 +123,7 @@ func (*sshSuite) TestSSHErrors(c *C) {
 	os.Setenv("PATH", "")
 	fwd, err := newSSHForwarder("somewhere.com:9999", "")
 	c.Assert(fwd, IsNil)
-	c.Assert(err, NotNil)
+	c.Assert(err, ErrorMatches, ".*executable file not found.*")
 
 	// Then set the path to a temporary directory
 	// and create an executable named ssh in it
@@ -145,7 +148,7 @@ func (*sshSuite) TestSSHErrors(c *C) {
 			c.Assert(err, IsNil)
 		}
 		select {
-		case <-fwd.Dying():
+		case <-fwd.Dead():
 		case <-time.After(time.Second):
 			c.Fatalf("timeout waiting for ssh forwarder to complete")
 		}
@@ -214,7 +217,7 @@ func (*sshSuite) TestSSHConnect(c *C) {
 
 	c.Logf("------------ starting client")
 	clientDone := make(chan struct{})
-	go t.client(fwd.localAddr, clientDone)
+	go t.dialTwice(fwd.localAddr, clientDone)
 
 	// The SSH client process should now successfully start,
 	// but the client will fail to connect because the server
@@ -224,7 +227,7 @@ func (*sshSuite) TestSSHConnect(c *C) {
 	// Start the server to finally allow the full connection
 	// to take place.
 	c.Logf("--------- starting server")
-	go t.server(fmt.Sprintf("localhost:%d", serverPort))
+	go t.acceptTwice(fmt.Sprintf("localhost:%d", serverPort))
 
 	// If the client completes, then all the intermediate units
 	// have completed too, so we don't need to wait for them too.
@@ -313,11 +316,11 @@ func (*sshSuite) TestSSHSimpleConnect(c *C) {
 	}()
 
 	c.Logf("--------- starting server")
-	go t.server(fmt.Sprintf("localhost:%d", serverPort))
+	go t.acceptTwice(fmt.Sprintf("localhost:%d", serverPort))
 
 	c.Logf("------------ starting client")
 	clientDone := make(chan struct{})
-	go t.client(fwd.localAddr, clientDone)
+	go t.dialTwice(fwd.localAddr, clientDone)
 
 	// If the client completes, then all the intermediate units
 	// have completed too, so we don't need to wait for them too.
@@ -328,7 +331,7 @@ func (*sshSuite) TestSSHSimpleConnect(c *C) {
 	}
 }
 
-//sshTest represents a running SSH test.
+// sshTest represents a running SSH test.
 type sshTest struct {
 	c   *C
 	dir string // the current directory.
@@ -366,9 +369,10 @@ func (t *sshTest) file(name string) string {
 	return filepath.Join(t.dir, "sshtest", name)
 }
 
-// client tests that a client can contact a server through the
+// dialTwice tests that a client can contact a server through the
 // port forwarding ssh client and daemon.
-func (t *sshTest) client(addr string, done chan<- struct{}) {
+// It represents the Zookeeper client.
+func (t *sshTest) dialTwice(addr string, done chan<- struct{}) {
 	defer close(done)
 
 	t.dial(addr, "client to server 1\n")
@@ -404,8 +408,9 @@ func (t *sshTest) dial(addr string, msg string) {
 	panic("not reached")
 }
 
-// server is the server side of the client-server equation.
-func (t *sshTest) server(addr string) {
+// acceptTwice waits twice to be dialled. It represents the Zookeeper
+// server.
+func (t *sshTest) acceptTwice(addr string) {
 	l, err := net.Listen("tcp", addr)
 	t.assert(err, IsNil)
 

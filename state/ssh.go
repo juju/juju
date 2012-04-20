@@ -221,16 +221,6 @@ func (fwd *sshForwarder) start() (p *sshProc, err error) {
 	}, nil
 }
 
-func stripNewline(s string) string {
-	if s != "" && s[len(s)-1] == '\n' {
-		s = s[:len(s)-1]
-	}
-	if s != "" && s[len(s)-1] == '\r' {
-		s = s[:len(s)-1]
-	}
-	return s
-}
-
 // sshProc represents a running ssh process.
 type sshProc struct {
 	error  <-chan *sshError // Error printed by ssh.
@@ -274,8 +264,6 @@ func parseSSHError(s string) *sshError {
 		err.fatal = true
 
 	case strings.Contains(s, "Permission denied"):
-		// Clarify misleading error message.
-		err.msg = "Invalid SSH key: " + err.msg
 		err.fatal = true
 
 	default:
