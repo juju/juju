@@ -51,7 +51,7 @@ type sshForwarder struct {
 	localAddr  string
 	remoteHost string
 	remotePort string
-	keyFile string
+	keyFile    string
 }
 
 // newSSHForwarder starts an ssh proxy connecting to the
@@ -71,7 +71,7 @@ func newSSHForwarder(remoteAddr, keyFile string) (*sshForwarder, error) {
 		localAddr:  fmt.Sprintf("localhost:%d", localPort),
 		remoteHost: remoteHost,
 		remotePort: remotePort,
-		keyFile: keyFile,
+		keyFile:    keyFile,
 	}
 	proc, err := fwd.start()
 	if err != nil {
@@ -220,16 +220,6 @@ func (fwd *sshForwarder) start() (p *sshProc, err error) {
 	}, nil
 }
 
-func stripNewline(s string) string {
-	if s != "" && s[len(s)-1] == '\n' {
-		s = s[:len(s)-1]
-	}
-	if s != "" && s[len(s)-1] == '\r' {
-		s = s[:len(s)-1]
-	}
-	return s
-}
-
 // sshProc represents a running ssh process.
 type sshProc struct {
 	error  <-chan *sshError // Error printed by ssh.
@@ -251,7 +241,7 @@ type sshError struct {
 }
 
 func (e *sshError) Error() string {
-	return "ssh: "+e.msg
+	return "ssh: " + e.msg
 }
 
 // parseSSHError parses an error as printed by ssh.
@@ -273,8 +263,6 @@ func parseSSHError(s string) *sshError {
 		err.fatal = true
 
 	case strings.Contains(s, "Permission denied"):
-		// Clarify misleading error message.
-		err.msg = "Invalid SSH key: " + err.msg
 		err.fatal = true
 
 	default:
