@@ -258,7 +258,6 @@ func newConfigWatcher(st *State, path string) *ConfigWatcher {
 	}
 	go w.loop()
 	return w
-
 }
 
 // Changes returns a channel that will receive the new
@@ -294,7 +293,7 @@ func (w *ConfigWatcher) loop() {
 				w.tomb.Kill(nil)
 				return
 			}
-			// A non-existing node is treated as an empty node.
+			// A non-existent node is treated as an empty node.
 			configNode, err := parseConfigNode(w.st.zk, w.path, change.Content)
 			if err != nil {
 				w.tomb.Kill(err)
