@@ -2,9 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju/go/log"
-	"os"
 	"strings"
 )
 
@@ -29,13 +29,15 @@ type Info struct {
 
 // Usage combines Name and Args to describe the Command's intended usage.
 func (i *Info) Usage() string {
+	if i.Args == "" {
+		return i.Name
+	}
 	return fmt.Sprintf("%s %s", i.Name, i.Args)
 }
 
-// Command is implemented by types that interpret any command-line arguments
-// passed to the "juju" command.
+// Command is implemented by types that interpret command-line arguments.
 type Command interface {
-	// Info returns information about the command.
+	// Info returns information about the Command.
 	Info() *Info
 
 	// InitFlagSet prepares a FlagSet such that Parse~ing that FlagSet will
@@ -46,34 +48,49 @@ type Command interface {
 	// positional command-line arguments.
 	ParsePositional(args []string) error
 
-	// Run will execute the command according to the options and positional
+	// Run will execute the Command according to the options and positional
 	// arguments interpreted by a call to Parse.
-	Run() error
+	Run(ctx *Context) error
 }
 
-// NewFlagSet returns a FlagSet initialized for use with c.
-func NewFlagSet(c Command) *gnuflag.FlagSet {
-	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ExitOnError)
-	f.Usage = func() { PrintUsage(c) }
+// newFlagSet returns a FlagSet initialized for use with c.
+func newFlagSet(c Command, output io.Writer) *gnuflag.FlagSet {
+	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
+	f.SetOutput(output)
 	c.InitFlagSet(f)
 	return f
 }
 
-// PrintUsage prints usage information for c to stderr.
-func PrintUsage(c Command) {
+// hasOptions returns true if f is set up to handle any flag.
+func hasOptions(f *gnuflag.FlagSet) (opts bool) {
+	f.VisitAll(func(f *gnuflag.Flag) { opts = true })
+	return
+}
+
+// printUsage prints usage information for c to output.
+func printUsage(c Command, output io.Writer) {
 	i := c.Info()
-	fmt.Fprintf(os.Stderr, "usage: %s\n", i.Usage())
-	fmt.Fprintf(os.Stderr, "purpose: %s\n", i.Purpose)
-	fmt.Fprintf(os.Stderr, "\noptions:\n")
-	NewFlagSet(c).PrintDefaults()
+	fmt.Fprintf(output, "usage: %s\n", i.Usage())
+	if i.Purpose != "" {
+		fmt.Fprintf(output, "purpose: %s\n", i.Purpose)
+	}
+	f := newFlagSet(c, output)
+	if hasOptions(f) {
+		fmt.Fprintf(output, "\noptions:\n")
+		f.PrintDefaults()
+	}
 	if i.Doc != "" {
-		fmt.Fprintf(os.Stderr, "\n%s\n", strings.TrimSpace(i.Doc))
+		fmt.Fprintf(output, "\n%s\n", strings.TrimSpace(i.Doc))
 	}
 }
 
 // Parse parses args on c. This must be called before c is Run.
 func Parse(c Command, args []string) error {
-	f := NewFlagSet(c)
+	// If we use nil instead of Discard, gnuflag will interpret that as meaning
+	// "print to os.Stderr"; but our intent is to entirely suppress gnuflag's
+	// interactions with the os package, and handle to handle and all errors in
+	// exactly the same way, regardless of source.
+	f := newFlagSet(c, ioutil.Discard)
 	if err := f.Parse(c.Info().Intersperse, args); err != nil {
 		return err
 	}
@@ -86,19 +103,4 @@ func CheckEmpty(args []string) error {
 		return fmt.Errorf("unrecognised args: %s", args)
 	}
 	return nil
-}
-
-// Main will Parse and Run a Command, and exit appropriately.
-func Main(c Command, args []string) {
-	if err := Parse(c, args[1:]); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		PrintUsage(c)
-		os.Exit(2)
-	}
-	if err := c.Run(); err != nil {
-		log.Debugf("%s command failed: %s\n", c.Info().Name, err)
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
-	os.Exit(0)
 }

@@ -2,20 +2,10 @@ package state_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/state"
 	"time"
 )
 
 func (s *StateSuite) TestServiceWatchConfig(c *C) {
-	receiveChange := func(w *state.ConfigWatcher) (*state.ConfigNode, bool, bool) {
-		select {
-		case change, ok := <-w.Changes():
-			return change, ok, false
-		case <-time.After(100 * time.Millisecond):
-			return nil, false, true
-		}
-		return nil, false, false
-	}
 	dummy, _ := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
@@ -24,15 +14,9 @@ func (s *StateSuite) TestServiceWatchConfig(c *C) {
 	config, err := wordpress.Config()
 	c.Assert(err, IsNil)
 	c.Assert(config.Keys(), HasLen, 0)
-	watcher := wordpress.WatchConfig()
+	configWatcher := wordpress.WatchConfig()
 
-	// Recieve initial event after creation.
-	changedConfig, ok, timeout := receiveChange(watcher)
-	c.Assert(timeout, Equals, false)
-	c.Assert(ok, Equals, true)
-	c.Assert(changedConfig.Keys(), HasLen, 0)
-
-	// Two more change events.
+	// Two change events.
 	config.Set("foo", "bar")
 	config.Set("baz", "yadda")
 	_, err = config.Write()
@@ -42,79 +26,69 @@ func (s *StateSuite) TestServiceWatchConfig(c *C) {
 	_, err = config.Write()
 	c.Assert(err, IsNil)
 
-	// Receive the two changes.
-	changedConfig, ok, timeout = receiveChange(watcher)
-	c.Assert(timeout, Equals, false)
-	c.Assert(ok, Equals, true)
-	c.Assert(changedConfig.Map(), DeepEquals, map[string]interface{}{"foo": "bar", "baz": "yadda"})
-	foo, found := changedConfig.Get("foo")
-	c.Assert(found, Equals, true)
-	c.Assert(foo, Equals, "bar")
+	var expectedChanges = []map[string]interface{}{
+		{},
+		{"foo": "bar", "baz": "yadda"},
+		{"baz": "yadda"},
+	}
+	for _, want := range expectedChanges {
+		select {
+		case got, ok := <-configWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got.Map(), DeepEquals, want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", want)
+		}
+	}
 
-	changedConfig, ok, timeout = receiveChange(watcher)
-	c.Assert(timeout, Equals, false)
-	c.Assert(ok, Equals, true)
-	c.Assert(changedConfig.Map(), DeepEquals, map[string]interface{}{"baz": "yadda"})
-	foo, found = changedConfig.Get("foo")
-	c.Assert(found, Equals, false)
-	baz, found := changedConfig.Get("baz")
-	c.Assert(found, Equals, true)
-	c.Assert(baz, Equals, "yadda")
+	select {
+	case got, _ := <-configWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
 
-	// No more changes.
-	_, _, timeout = receiveChange(watcher)
-	c.Assert(timeout, Equals, true)
-
-	err = watcher.Stop()
+	err = configWatcher.Stop()
 	c.Assert(err, IsNil)
 }
 
 func (s *StateSuite) TestServiceWatchConfigIllegalData(c *C) {
-	receiveChange := func(w *state.ConfigWatcher) (*state.ConfigNode, bool, bool) {
-		select {
-		case change, ok := <-w.Changes():
-			return change, ok, false
-		case <-time.After(100 * time.Millisecond):
-			return nil, false, true
-		}
-		return nil, false, false
-	}
 	dummy, _ := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	c.Assert(wordpress.Name(), Equals, "wordpress")
-	watcher := wordpress.WatchConfig()
+	configWatcher := wordpress.WatchConfig()
 
-	// Create with illegal data.
+	// Receive empty change after service adding.
+	select {
+	case got, ok := <-configWatcher.Changes():
+		c.Assert(ok, Equals, true)
+		c.Assert(got.Map(), DeepEquals, map[string]interface{}{})
+	case <-time.After(100 * time.Millisecond):
+		c.Fatalf("unexpected timeout")
+	}
+
+	// Set config to illegal data.
 	_, err = s.zkConn.Set("/services/service-0000000000/config", "---", -1)
 	c.Assert(err, IsNil)
 
-	// Changes() has to be closed.
-	_, ok, timeout := receiveChange(watcher)
-	c.Assert(ok, Equals, false)
-	c.Assert(timeout, Equals, false)
+	select {
+	case _, ok := <-configWatcher.Changes():
+		c.Assert(ok, Equals, false)
+	case <-time.After(100 * time.Millisecond):
+	}
 
-	err = watcher.Stop()
+	err = configWatcher.Stop()
 	c.Assert(err, ErrorMatches, "YAML error: .*")
 }
 
 func (s *StateSuite) TestUnitWatchNeedsUpgrade(c *C) {
-	receiveChange := func(w *state.NeedsUpgradeWatcher) (bool, bool, bool) {
-		select {
-		case change, ok := <-w.Changes():
-			return change, ok, false
-		case <-time.After(100 * time.Millisecond):
-			return false, false, true
-		}
-		return false, false, false
-	}
 	dummy, _ := addDummyCharm(c, s.st)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	c.Assert(wordpress.Name(), Equals, "wordpress")
 	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
-	watcher := unit.WatchNeedsUpgrade()
+	needsUpgradeWatcher := unit.WatchNeedsUpgrade()
 
 	go func() {
 		time.Sleep(50 * time.Millisecond)
@@ -123,23 +97,33 @@ func (s *StateSuite) TestUnitWatchNeedsUpgrade(c *C) {
 		time.Sleep(50 * time.Millisecond)
 		err = unit.ClearNeedsUpgrade()
 		c.Assert(err, IsNil)
+		time.Sleep(50 * time.Millisecond)
+		err = unit.SetNeedsUpgrade()
+		c.Assert(err, IsNil)
 	}()
 
-	// Receive the changes.
-	upgrade, ok, timeout := receiveChange(watcher)
-	c.Assert(timeout, Equals, false)
-	c.Assert(ok, Equals, true)
-	c.Assert(upgrade, Equals, true)
-	upgrade, ok, timeout = receiveChange(watcher)
-	c.Assert(ok, Equals, true)
-	c.Assert(timeout, Equals, false)
-	c.Assert(upgrade, Equals, false)
+	var expectedChanges = []bool{
+		true,
+		false,
+		true,
+	}
+	for _, want := range expectedChanges {
+		select {
+		case got, ok := <-needsUpgradeWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got, Equals, want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", want)
+		}
+	}
 
-	// No more changes.
-	_, _, timeout = receiveChange(watcher)
-	c.Assert(timeout, Equals, true)
+	select {
+	case got, _ := <-needsUpgradeWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
 
-	err = watcher.Stop()
+	err = needsUpgradeWatcher.Stop()
 	c.Assert(err, IsNil)
 }
 
