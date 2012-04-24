@@ -13,14 +13,14 @@ import (
 // servers holding juju state and can be used to make a
 // connection to that cluster.
 type Info struct {
-	// Addrs gives the addresses of the Zookeeper
+	// Addrs gives the addresses of the ZooKeeper
 	// servers for the state. Each address should be in the form
 	// address:port.
 	Addrs []string
 
-	// UseSSH specifies whether the Zookeeper
+	// UseSSH specifies whether ZooKeeper
 	// should be contacted through an SSH port
-	// forwarder,
+	// forwarder.
 	UseSSH bool
 }
 

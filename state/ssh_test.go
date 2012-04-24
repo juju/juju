@@ -383,7 +383,7 @@ func (t *sshTest) file(name string) string {
 
 // dialTwice tests that a client can contact a server through the
 // port forwarding ssh client and daemon.
-// It represents the Zookeeper client.
+// It represents the ZooKeeper client.
 func (t *sshTest) dialTwice(addr string, done chan<- struct{}) {
 	defer close(done)
 
@@ -420,7 +420,7 @@ func (t *sshTest) dial(addr string, msg string) {
 	panic("not reached")
 }
 
-// acceptTwice waits twice to be dialled. It represents the Zookeeper
+// acceptTwice waits twice to be dialled. It represents the ZooKeeper
 // server.
 func (t *sshTest) acceptTwice(addr string) {
 	l, err := net.Listen("tcp", addr)
