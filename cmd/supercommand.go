@@ -2,11 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"io"
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju/go/log"
-	stdlog "log"
-	"os"
 	"sort"
 	"strings"
 )
@@ -89,7 +85,7 @@ func (c *SuperCommand) InitFlagSet(f *gnuflag.FlagSet) {
 	if c.subcmd != nil {
 		c.subcmd.InitFlagSet(f)
 	}
-	// SuperCommand's flags are always added to subcommands./ Note that the
+	// SuperCommand's flags are always added to subcommands. Note that the
 	// flag defaults come from the SuperCommand itself, so that ParsePositional
 	// can call Parse twice on the same SuperCommand without losing information.
 	f.StringVar(&c.LogFile, "log-file", c.LogFile, "path to write log to")
@@ -115,35 +111,13 @@ func (c *SuperCommand) ParsePositional(subargs []string) error {
 	return Parse(c, subargs[1:])
 }
 
-// initOutput sets up logging to a file or to stderr depending on what's been
-// requested on the command line.
-func (c *SuperCommand) initOutput() error {
-	if c.Debug {
-		log.Debug = true
-	}
-	var target io.Writer
-	if c.LogFile != "" {
-		var err error
-		target, err = os.OpenFile(c.LogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
-		if err != nil {
-			return err
-		}
-	} else if c.Verbose || c.Debug {
-		target = os.Stderr
-	}
-	if target != nil {
-		log.Target = stdlog.New(target, "", stdlog.LstdFlags)
-	}
-	return nil
-}
-
 // Run executes the subcommand that was selected when Parse was called.
-func (c *SuperCommand) Run() error {
-	if err := c.initOutput(); err != nil {
+func (c *SuperCommand) Run(ctx *Context) error {
+	if err := ctx.InitLog(c.Verbose, c.Debug, c.LogFile); err != nil {
 		return err
 	}
 	if c.subcmd == nil {
 		panic("Run: missing subcommand; Parse failed or not called")
 	}
-	return c.subcmd.Run()
+	return c.subcmd.Run(ctx)
 }

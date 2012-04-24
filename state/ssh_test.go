@@ -20,6 +20,18 @@ type sshSuite struct {
 	testing.LoggingSuite
 }
 
+func init() {
+	// Make the SSH private key inaccessible by other users to
+	// prevent SSH from giving an error.  We ignore any error
+	// because:
+	// a) We might not actually be running the SSH tests, so failing
+	// because of (for instance) a read-only filesystem would seem
+	// unnecessary.
+	// b) we'll get an error later anyway if the file mode is not as
+	// requested.
+	os.Chmod("sshtest/id_rsa", 0600)
+}
+
 var _ = Suite(&sshSuite{})
 
 // fakeSSHRun represents the behaviour of the ssh command when run once.
