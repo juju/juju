@@ -284,7 +284,7 @@ func (u *Unit) Resolved() (ResolvedMode, error) {
 		return ResolvedNone, err
 	}
 	mode := setting.Retry
-	if err := validResolvedMode(mode); err != nil {
+	if err := validResolvedMode(mode, false); err != nil {
 		return ResolvedNone, err
 	}
 	return mode, nil
@@ -297,7 +297,7 @@ func (u *Unit) Resolved() (ResolvedMode, error) {
 // reexecute previous failed hooks or to continue as if they had 
 // succeeded before.
 func (u *Unit) SetResolved(mode ResolvedMode) error {
-	if err := validResolvedMode(mode); err != nil {
+	if err := validResolvedMode(mode, false); err != nil {
 		return err
 	}
 	setting := &struct{ Retry ResolvedMode }{mode}
@@ -320,6 +320,13 @@ func (u *Unit) ClearResolved() error {
 		return nil
 	}
 	return err
+}
+
+// WatchResolved returns a watcher that fires when the unit 
+// is marked as having had its problems resolved. See 
+// SetResolved for details.
+func (u *Unit) WatchResolved() *ResolvedWatcher {
+	return newResolvedWatcher(u.st, u.zkResolvedPath())
 }
 
 // OpenPort sets the policy of the port with protocol and number to be opened.
@@ -459,9 +466,28 @@ func parseUnitName(name string) (serviceName string, seqNo int, err error) {
 	return parts[0], int(sequenceNo), nil
 }
 
+// parseResolvedMode parses a given YAML for the resolve mode
+// and checks if it's valid.
+func parseResolvedMode(yaml string) (ResolvedMode, error) {
+	var setting struct {
+		Retry ResolvedMode
+	}
+	if err := goyaml.Unmarshal([]byte(yaml), &setting); err != nil {
+		return ResolvedNone, err
+	}
+	mode := setting.Retry
+	if err := validResolvedMode(mode, true); err != nil {
+		return ResolvedNone, err
+	}
+	return mode, nil
+}
+
 // validResolvedMode ensures that only valid values for the
 // resolved mode are used.
-func validResolvedMode(mode ResolvedMode) error {
+func validResolvedMode(mode ResolvedMode, acceptNone bool) error {
+	if acceptNone && mode == ResolvedNone {
+		return nil
+	}
 	if mode != ResolvedRetryHooks && mode != ResolvedNoHooks {
 		return fmt.Errorf("invalid error resolution mode: %d", mode)
 	}
@@ -525,6 +551,73 @@ func (w *NeedsUpgradeWatcher) loop() {
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- change.Exists:
+			}
+		}
+	}
+}
+
+// ResolvedWatcher observes changes to a resolved flag node.
+type ResolvedWatcher struct {
+	st         *State
+	path       string
+	tomb       tomb.Tomb
+	watcher    *watcher.ContentWatcher
+	changeChan chan ResolvedMode
+}
+
+// newResolvedWatcher creates and starts a new resolved flag node 
+// watcher for the given path.
+func newResolvedWatcher(st *State, path string) *ResolvedWatcher {
+	w := &ResolvedWatcher{
+		st:         st,
+		path:       path,
+		changeChan: make(chan ResolvedMode),
+		watcher:    watcher.NewContentWatcher(st.zk, path),
+	}
+	go w.loop()
+	return w
+}
+
+// Changes returns a channel that will receive the new
+// resolved mode when a change is detected. Note that multiple
+// changes may be observed as a single event in the channel.
+func (w *ResolvedWatcher) Changes() <-chan ResolvedMode {
+	return w.changeChan
+}
+
+// Stop stops the watch and returns any error encountered
+// while watching. This method should always be called
+// before discarding the watcher.
+func (w *ResolvedWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	if err := w.watcher.Stop(); err != nil {
+		w.tomb.Wait()
+		return err
+	}
+	return w.tomb.Wait()
+}
+
+// loop is the backend for watching the resolved flag node.
+func (w *ResolvedWatcher) loop() {
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case change := <-w.watcher.Changes():
+			mode, err := parseResolvedMode(change.Content)
+			if err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			select {
+			case <-w.watcher.Dying():
+				return
+			case <-w.tomb.Dying():
+				return
+			case w.changeChan <- mode:
 			}
 		}
 	}
