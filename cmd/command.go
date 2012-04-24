@@ -2,10 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"io"
-	"io/ioutil"
 	"launchpad.net/gnuflag"
-	"strings"
 )
 
 // Info holds everything necessary to describe a Command's intent and usage.

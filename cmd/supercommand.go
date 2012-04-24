@@ -7,7 +7,10 @@ import (
 	"strings"
 )
 
-// SuperCommand XXXXXXXXXXXXXX
+// SuperCommand is a Command that selects a subcommand and assumes its
+// properties; any command line arguments that were not used in selecting
+// the subcommand are passed down to it, and to Run a SuperCommand is to run
+// its selected subcommand.
 type SuperCommand struct {
 	Name    string
 	Purpose string
@@ -64,20 +67,17 @@ func (c *SuperCommand) Info() *Info {
 	return &Info{
 		c.Name, "<command> [options] ...", c.Purpose,
 		fmt.Sprintf("%s\n\n%s", strings.TrimSpace(c.Doc), c.DescribeCommands()),
-		false,
 	}
 }
 
 // Init initializes the command for running.
-// subcommand, or with the SuperCommand itself if no subcommand has been
-// specified.
 func (c *SuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	f.StringVar(&c.LogFile, "log-file", c.LogFile, "path to write log to")
 	f.BoolVar(&c.Verbose, "v", c.Verbose, "if set, log additional messages")
 	f.BoolVar(&c.Verbose, "verbose", c.Verbose, "if set, log additional messages")
 	f.BoolVar(&c.Debug, "debug", c.Debug, "if set, log debugging messages")
 
-	if err != f.Parse(false, args); err != nil {
+	if err := f.Parse(false, args); err != nil {
 		return err
 	}
 	subargs := f.Args()
@@ -91,7 +91,7 @@ func (c *SuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return c.subcmd.Init(f, subargs[1:])
 }
 
-// Run executes the subcommand that was selected when Parse was called.
+// Run executes the subcommand that was selected in Init.
 func (c *SuperCommand) Run(ctx *Context) error {
 	if err := ctx.InitLog(c.Verbose, c.Debug, c.LogFile); err != nil {
 		return err

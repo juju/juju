@@ -27,7 +27,7 @@ type CtxCommand struct {
 
 func (c *CtxCommand) Info() *cmd.Info {
 	if c.Minimal {
-		return &cmd.Info{"cmd-name", "", "", "", true}
+		return &cmd.Info{"cmd-name", "", "", ""}
 	}
 	return &cmd.Info{"cmd-name", "[options]", "cmd-purpose", "cmd-doc"}
 }

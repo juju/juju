@@ -19,7 +19,6 @@ func NewMachineAgent() *MachineAgent {
 // Init initializes the command for running.
 func (a *MachineAgent) Init(f *gnuflag.FlagSet, args []string) error {
 	f.IntVar(&a.MachineId, "machine-id", -1, "id of the machine to run")
-	a.agentConf.InitFlagSet(f)
 	if err := a.agentConf.Init(f, args); err != nil {
 		return err
 	}
