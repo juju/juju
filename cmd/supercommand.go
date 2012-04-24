@@ -71,7 +71,7 @@ func (c *SuperCommand) Info() *Info {
 		return info
 	}
 	return &Info{
-		c.Name, "<command> [options] ...", "",
+		c.Name, "<command> [options] ...", c.Purpose,
 		fmt.Sprintf("%s\n\n%s", strings.TrimSpace(c.Doc), c.DescribeCommands()),
 		false,
 	}
