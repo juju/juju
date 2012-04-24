@@ -76,7 +76,6 @@ func (c *SuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	f.BoolVar(&c.Verbose, "v", false, "if set, log additional messages")
 	f.BoolVar(&c.Verbose, "verbose", false, "if set, log additional messages")
 	f.BoolVar(&c.Debug, "debug", false, "if set, log debugging messages")
-
 	if err := f.Parse(false, args); err != nil {
 		return err
 	}

@@ -37,8 +37,8 @@ type Command interface {
 	// to f before processing args.
 	Init(f *gnuflag.FlagSet, args []string) error
 
-	// Run will execute the Command according to the options and positional
-	// arguments interpreted by a call to Init.
+	// Run will execute the Command as directed by the options and positional
+	// arguments passed to Init.
 	Run(ctx *Context) error
 }
 
