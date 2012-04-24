@@ -47,7 +47,7 @@ func (s *MainSuite) TestActualRunNoCommand(c *C) {
 func (s *MainSuite) TestActualRunBadCommand(c *C) {
 	// Check error when command unknown
 	lines := badrun(c, 2, "discombobulate")
-	c.Assert(lines[0], Equals, "unrecognised command: discombobulate")
+	c.Assert(lines[0], Equals, "unrecognised command: juju discombobulate")
 	c.Assert(lines[1], Equals, "usage: juju <command> [options] ...")
 }
 

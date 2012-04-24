@@ -43,13 +43,13 @@ func (c *TestCommand) Run(ctx *cmd.Context) error {
 }
 
 func parseEmpty(args []string) (*cmd.SuperCommand, error) {
-	jc := cmd.NewSuperCommand("jujutest", "")
+	jc := cmd.NewSuperCommand("jujutest", "", "")
 	err := cmd.Parse(jc, args)
 	return jc, err
 }
 
 func parseDefenestrate(args []string) (*cmd.SuperCommand, *TestCommand, error) {
-	jc := cmd.NewSuperCommand("jujutest", "")
+	jc := cmd.NewSuperCommand("jujutest", "", "")
 	tc := &TestCommand{Name: "defenestrate"}
 	jc.Register(tc)
 	err := cmd.Parse(jc, args)
@@ -66,7 +66,7 @@ func (s *CommandSuite) TestSubcommandDispatch(c *C) {
 	c.Assert(jc.Info().Usage(), Equals, "jujutest <command> [options] ...")
 
 	_, _, err = parseDefenestrate([]string{"discombobulate"})
-	c.Assert(err, ErrorMatches, "unrecognised command: discombobulate")
+	c.Assert(err, ErrorMatches, "unrecognised command: jujutest discombobulate")
 
 	jc, tc, err := parseDefenestrate([]string{"defenestrate"})
 	c.Assert(err, IsNil)
@@ -82,7 +82,7 @@ func (s *CommandSuite) TestSubcommandDispatch(c *C) {
 }
 
 func (s *CommandSuite) TestRegister(c *C) {
-	jc := cmd.NewSuperCommand("jujutest", "")
+	jc := cmd.NewSuperCommand("jujutest", "", "")
 	jc.Register(&TestCommand{Name: "flip"})
 	jc.Register(&TestCommand{Name: "flap"})
 

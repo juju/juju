@@ -19,6 +19,7 @@ import (
 // concept of "parent" Commands).
 type SuperCommand struct {
 	Name    string
+	Purpose string
 	Doc     string
 	LogFile string
 	Verbose bool
@@ -28,10 +29,11 @@ type SuperCommand struct {
 }
 
 // NewSuperCommand returns an initialized SuperCommand.
-func NewSuperCommand(name string, doc string) *SuperCommand {
+func NewSuperCommand(name, purpose, doc string) *SuperCommand {
 	return &SuperCommand{
 		subcmds: make(map[string]Command),
 		Name:    name,
+		Purpose: purpose,
 		Doc:     doc,
 	}
 }
@@ -51,14 +53,11 @@ func (c *SuperCommand) DescribeCommands() string {
 	cmds := make([]string, len(c.subcmds))
 	i := 0
 	for name, _ := range c.subcmds {
-		cmds[i] = name
+		purpose := c.subcmds[name].Info().Purpose
+		cmds[i] = fmt.Sprintf("    %-12s %s\n", name, purpose)
 		i++
 	}
 	sort.Strings(cmds)
-	for i, name := range cmds {
-		purpose := c.subcmds[name].Info().Purpose
-		cmds[i] = fmt.Sprintf("    %-12s %s\n", name, purpose)
-	}
 	return fmt.Sprintf("commands:\n%s", strings.Join(cmds, ""))
 }
 
@@ -106,7 +105,7 @@ func (c *SuperCommand) ParsePositional(subargs []string) error {
 	}
 	found := false
 	if c.subcmd, found = c.subcmds[subargs[0]]; !found {
-		return fmt.Errorf("unrecognised command: %s", subargs[0])
+		return fmt.Errorf("unrecognised command: %s %s", c.Info().Name, subargs[0])
 	}
 	return Parse(c, subargs[1:])
 }
