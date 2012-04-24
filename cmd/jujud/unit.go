@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
+	"launchpad.net/juju/go/cmd"
 	"launchpad.net/juju/go/juju"
 )
 
@@ -35,6 +36,6 @@ func (a *UnitAgent) ParsePositional(args []string) error {
 }
 
 // Run runs a unit agent.
-func (a *UnitAgent) Run() error {
+func (a *UnitAgent) Run(_ *cmd.Context) error {
 	return fmt.Errorf("UnitAgent.Run not implemented")
 }

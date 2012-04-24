@@ -46,7 +46,7 @@ func (c *InitzkCommand) ParsePositional(args []string) error {
 }
 
 // Run initializes zookeeper state for an environment.
-func (c *InitzkCommand) Run() error {
+func (c *InitzkCommand) Run(_ *cmd.Context) error {
 	// TODO connect to zookeeper; call State.Initialize
 	return fmt.Errorf("InitzkCommand.Run not implemented")
 }
