@@ -23,20 +23,17 @@ func (c *agentConf) Info() *cmd.Info {
 		c.name, "[options]",
 		fmt.Sprintf("run a juju %s agent", c.name),
 		"",
-		true,
 	}
 }
 
-// InitFlagSet prepares a FlagSet.
-func (c *agentConf) InitFlagSet(f *gnuflag.FlagSet) {
+// Init initializes the command for running,
+func (c *agentConf) Init(f *gnuflag.FlagSet, args []string) error {
 	f.StringVar(&c.jujuDir, "juju-directory", "/var/lib/juju", "juju working directory")
 	stateInfoVar(f, &c.stateInfo, "zookeeper-servers", nil, "zookeeper servers to connect to")
 	f.StringVar(&c.sessionFile, "session-file", "", "session id storage path")
-}
-
-// ParsePositional checks that there are no unwanted arguments, and that all
-// required flags have been set.
-func (c *agentConf) ParsePositional(args []string) error {
+	if err := f.Parse(true, args); err != nil {
+		return err
+	}
 	if c.jujuDir == "" {
 		return requiredError("juju-directory")
 	}
@@ -46,5 +43,5 @@ func (c *agentConf) ParsePositional(args []string) error {
 	if c.sessionFile == "" {
 		return requiredError("session-file")
 	}
-	return cmd.CheckEmpty(args)
+	return cmd.CheckEmpty(f.Args())
 }

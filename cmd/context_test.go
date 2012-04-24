@@ -29,17 +29,17 @@ func (c *CtxCommand) Info() *cmd.Info {
 	if c.Minimal {
 		return &cmd.Info{"cmd-name", "", "", "", true}
 	}
-	return &cmd.Info{"cmd-name", "[options]", "cmd-purpose", "cmd-doc", true}
+	return &cmd.Info{"cmd-name", "[options]", "cmd-purpose", "cmd-doc"}
 }
 
-func (c *CtxCommand) InitFlagSet(f *gnuflag.FlagSet) {
+func (c *CtxCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if !c.Minimal {
 		f.StringVar(&c.Value, "opt", "", "opt-doc")
 	}
-}
-
-func (c *CtxCommand) ParsePositional(args []string) error {
-	return cmd.CheckEmpty(args)
+	if err := f.Parse(true, args); err != nil {
+		return err
+	}
+	return cmd.CheckEmpty(f.Args())
 }
 
 func (c *CtxCommand) Run(ctx *cmd.Context) error {

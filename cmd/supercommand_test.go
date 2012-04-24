@@ -27,15 +27,12 @@ func (c *TestCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *TestCommand) InitFlagSet(f *gnuflag.FlagSet) {
+func (c *TestCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	f.StringVar(&c.Value, "value", "", "doc")
-}
-
-func (c *TestCommand) ParsePositional(args []string) error {
-	if len(args) != 0 {
-		return fmt.Errorf("BADARGS: %s", args)
+	if err := f.Parse(true, args); err != nil {
+		return err
 	}
-	return nil
+	return cmd.CheckEmpty(args)
 }
 
 func (c *TestCommand) Run(ctx *cmd.Context) error {
@@ -78,7 +75,7 @@ func (s *CommandSuite) TestSubcommandDispatch(c *C) {
 	c.Assert(tc.Value, Equals, "firmly")
 
 	_, tc, err = parseDefenestrate([]string{"defenestrate", "gibberish"})
-	c.Assert(err, ErrorMatches, `BADARGS: \[gibberish\]`)
+	c.Assert(err, ErrorMatches, `unrecognised args: \[gibberish\]`)
 }
 
 func (s *CommandSuite) TestRegister(c *C) {

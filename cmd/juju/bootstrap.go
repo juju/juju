@@ -18,20 +18,17 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 		"bootstrap", "[options]",
 		"start up an environment from scratch",
 		"",
-		true,
 	}
 }
 
-// InitFlagSet prepares a FlagSet for use.
-func (c *BootstrapCommand) InitFlagSet(f *gnuflag.FlagSet) {
+// Init initializes the command for running.
+func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	f.StringVar(&c.Environment, "e", "", "juju environment to operate in")
 	f.StringVar(&c.Environment, "environment", "", "juju environment to operate in")
-}
-
-// ParsePositional checks that no unexpected extra command-line arguments have
-// been specified.
-func (c *BootstrapCommand) ParsePositional(args []string) error {
-	return cmd.CheckEmpty(args)
+	if err := f.Parse(true, args); err != nil {
+		return err
+	}
+	return cmd.CheckEmpty(f.Args())
 }
 
 // Run connects to the environment specified on the command line and bootstraps

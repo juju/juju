@@ -7,16 +7,7 @@ import (
 	"strings"
 )
 
-// SuperCommand is a Command that selects a subcommand when Parse is first
-// called, and takes on the properties of that subcommand before calling Parse
-// again on itself, passing in any remaining command line arguments. Info,
-// InitFlagSet, and ParsePositional all dispatch to the selected subcommand
-// when appropriate; this is especially important in the case of InitFlagSet,
-// because it gives the SuperCommand an opportunity to inject its own flag
-// handlers into the command's FlagSet (thereby allowing a natural `juju
-// bootstrap -v -e foo` usage style, as opposed to forcing `juju -v bootstrap
-// -e foo` (or complicating the code by causing (sub-)Commands to have some
-// concept of "parent" Commands).
+// SuperCommand XXXXXXXXXXXXXX
 type SuperCommand struct {
 	Name    string
 	Purpose string
@@ -77,29 +68,20 @@ func (c *SuperCommand) Info() *Info {
 	}
 }
 
-// InitFlagSet prepares a FlagSet for use with the currently selected
+// Init initializes the command for running.
 // subcommand, or with the SuperCommand itself if no subcommand has been
 // specified.
-func (c *SuperCommand) InitFlagSet(f *gnuflag.FlagSet) {
-	if c.subcmd != nil {
-		c.subcmd.InitFlagSet(f)
-	}
-	// SuperCommand's flags are always added to subcommands. Note that the
-	// flag defaults come from the SuperCommand itself, so that ParsePositional
-	// can call Parse twice on the same SuperCommand without losing information.
+func (c *SuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	f.StringVar(&c.LogFile, "log-file", c.LogFile, "path to write log to")
 	f.BoolVar(&c.Verbose, "v", c.Verbose, "if set, log additional messages")
 	f.BoolVar(&c.Verbose, "verbose", c.Verbose, "if set, log additional messages")
 	f.BoolVar(&c.Debug, "d", c.Debug, "if set, log debugging messages")
 	f.BoolVar(&c.Debug, "debug", c.Debug, "if set, log debugging messages")
-}
 
-// ParsePositional selects the subcommand specified by subargs and uses it to
-// Parse any remaining unconsumed command-line arguments.
-func (c *SuperCommand) ParsePositional(subargs []string) error {
-	if c.subcmd != nil {
-		return c.subcmd.ParsePositional(subargs)
+	if err != f.Parse(false, args); err != nil {
+		return err
 	}
+	subargs := f.Args()
 	if len(subargs) == 0 {
 		return fmt.Errorf("no command specified")
 	}
@@ -107,7 +89,7 @@ func (c *SuperCommand) ParsePositional(subargs []string) error {
 	if c.subcmd, found = c.subcmds[subargs[0]]; !found {
 		return fmt.Errorf("unrecognised command: %s %s", c.Info().Name, subargs[0])
 	}
-	return Parse(c, subargs[1:])
+	return c.subcmd.Init(f, subargs[1:])
 }
 
 // Run executes the subcommand that was selected when Parse was called.
