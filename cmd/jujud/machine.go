@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
+	"launchpad.net/juju/go/cmd"
 )
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
@@ -31,6 +32,6 @@ func (a *MachineAgent) ParsePositional(args []string) error {
 }
 
 // Run runs a machine agent.
-func (a *MachineAgent) Run() error {
+func (a *MachineAgent) Run(_ *cmd.Context) error {
 	return fmt.Errorf("MachineAgent.Run not implemented")
 }

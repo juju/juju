@@ -108,12 +108,16 @@ func (s *StoreSuite) TestDisableStats(c *C) {
 	req, err := http.NewRequest("GET", "/charm-info", nil)
 	c.Assert(err, IsNil)
 	req.Form = url.Values{"charms": []string{curl.String()}, "stats": []string{"0"}}
-	server.ServeHTTP(httptest.NewRecorder(), req)
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+	c.Assert(rec.Code, Equals, 200)
 
-	req, err = http.NewRequest("GET", "/charms/"+curl.String()[:3], nil)
+	req, err = http.NewRequest("GET", "/charm/"+curl.String()[3:], nil)
 	c.Assert(err, IsNil)
 	req.Form = url.Values{"stats": []string{"0"}}
-	server.ServeHTTP(httptest.NewRecorder(), req)
+	rec = httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+	c.Assert(rec.Code, Equals, 200)
 
 	// No statistics should have been collected given the use of stats=0.
 	for _, prefix := range []string{"charm-info", "charm-bundle", "charm-missing"} {

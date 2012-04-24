@@ -38,7 +38,7 @@ func (c *TestCommand) ParsePositional(args []string) error {
 	return nil
 }
 
-func (c *TestCommand) Run() error {
+func (c *TestCommand) Run(ctx *cmd.Context) error {
 	return fmt.Errorf("BORKEN: value is %s.", c.Value)
 }
 
@@ -149,7 +149,6 @@ func (s *CommandSuite) TestLogFile(c *C) {
 
 func saveLog() func() {
 	target, debug := log.Target, log.Debug
-	log.Target, log.Debug = nil, false
 	return func() {
 		log.Target, log.Debug = target, debug
 	}
@@ -161,7 +160,7 @@ func checkRun(c *C, args []string, debug bool, target Checker, logfile string) {
 	jc, _, err := parseDefenestrate(args)
 	c.Assert(err, IsNil)
 
-	err = jc.Run()
+	err = jc.Run(cmd.DefaultContext())
 	c.Assert(err, ErrorMatches, "BORKEN: value is cheese.")
 
 	c.Assert(log.Debug, Equals, debug)
