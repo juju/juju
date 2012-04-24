@@ -103,7 +103,7 @@ func (s *CommandSuite) TestDebug(c *C) {
 	c.Assert(err, ErrorMatches, "no command specified")
 	c.Assert(jc.Debug, Equals, true)
 
-	jc, _, err = parseDefenestrate([]string{"-d", "defenestrate"})
+	jc, _, err = parseDefenestrate([]string{"--debug", "defenestrate"})
 	c.Assert(err, IsNil)
 	c.Assert(jc.Debug, Equals, true)
 }
