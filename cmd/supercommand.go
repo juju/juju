@@ -90,7 +90,6 @@ func (c *SuperCommand) InitFlagSet(f *gnuflag.FlagSet) {
 	f.StringVar(&c.LogFile, "log-file", c.LogFile, "path to write log to")
 	f.BoolVar(&c.Verbose, "v", c.Verbose, "if set, log additional messages")
 	f.BoolVar(&c.Verbose, "verbose", c.Verbose, "if set, log additional messages")
-	f.BoolVar(&c.Debug, "d", c.Debug, "if set, log debugging messages")
 	f.BoolVar(&c.Debug, "debug", c.Debug, "if set, log debugging messages")
 }
 
