@@ -28,6 +28,13 @@ const (
 	ResolvedNoHooks    ResolvedMode = 1001
 )
 
+// NeedsUpgrade describes if a unit needs an
+// upgrade and if this is forced.
+type NeedsUpgrade struct {
+	Upgrade bool
+	Force   bool
+}
+
 // agentPingerPeriod defines the period of pinging the
 // ZooKeeper to signal that a unit agent is alive. It's
 // also used by machine.
@@ -233,23 +240,49 @@ func (u *Unit) UnassignFromMachine() error {
 	return retryTopologyChange(u.st.zk, unassignUnit)
 }
 
-// NeedsUpgrade returns whether the unit needs an upgrade.
-func (u *Unit) NeedsUpgrade() (bool, error) {
-	stat, err := u.st.zk.Exists(u.zkNeedsUpgradePath())
-	if err != nil {
-		return false, err
+// NeedsUpgrade returns whether the unit needs an upgrade 
+// and if it does, if this is forced.
+func (u *Unit) NeedsUpgrade() (*NeedsUpgrade, error) {
+	yaml, _, err := u.st.zk.Get(u.zkNeedsUpgradePath())
+	if zookeeper.IsError(err, zookeeper.ZNONODE) {
+		return &NeedsUpgrade{false, false}, nil
 	}
-	return stat != nil, nil
+	if err != nil {
+		return &NeedsUpgrade{false, false}, err
+	}
+	var setting struct {
+		Force bool
+	}
+	if err = goyaml.Unmarshal([]byte(yaml), &setting); err != nil {
+		return &NeedsUpgrade{false, false}, err
+	}
+	return &NeedsUpgrade{true, setting.Force}, nil
 }
 
-// SetNeedsUpgrade informs the unit that it should perform an upgrade.
-func (u *Unit) SetNeedsUpgrade() error {
-	_, err := u.st.zk.Create(u.zkNeedsUpgradePath(), "", 0, zkPermAll)
-	if zookeeper.IsError(err, zookeeper.ZNODEEXISTS) {
-		// Node already exists, so same state.
-		return nil
+// SetNeedsUpgrade informs the unit that it should perform 
+// a regular or forced upgrade.
+func (u *Unit) SetNeedsUpgrade(force bool) error {
+	setNeedsUpgrade := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
+		var setting struct {
+			Force bool
+		}
+		if oldYaml == "" {
+			setting.Force = force
+			newYaml, err := goyaml.Marshal(setting)
+			if err != nil {
+				return "", err
+			}
+			return string(newYaml), nil
+		}
+		if err := goyaml.Unmarshal([]byte(oldYaml), &setting); err != nil {
+			return "", err
+		}
+		if setting.Force != force {
+			return "", fmt.Errorf("unit upgrade already enabled: %q", u.Name())
+		}
+		return oldYaml, nil
 	}
-	return err
+	return u.st.zk.RetryChange(u.zkNeedsUpgradePath(), 0, zkPermAll, setNeedsUpgrade)
 }
 
 // ClearNeedsUpgrade resets the upgrade notification. It is typically
@@ -474,7 +507,7 @@ type NeedsUpgradeWatcher struct {
 	path       string
 	tomb       tomb.Tomb
 	watcher    *watcher.ContentWatcher
-	changeChan chan bool
+	changeChan chan NeedsUpgrade
 }
 
 // newNeedsUpgradeWatcher creates and starts a new resolved flag node 
@@ -483,7 +516,7 @@ func newNeedsUpgradeWatcher(st *State, path string) *NeedsUpgradeWatcher {
 	w := &NeedsUpgradeWatcher{
 		st:         st,
 		path:       path,
-		changeChan: make(chan bool),
+		changeChan: make(chan NeedsUpgrade),
 		watcher:    watcher.NewContentWatcher(st.zk, path),
 	}
 	go w.loop()
@@ -493,7 +526,7 @@ func newNeedsUpgradeWatcher(st *State, path string) *NeedsUpgradeWatcher {
 // Changes returns a channel that will receive notifications
 // about upgrades for the unit. Note that multiple changes
 // may be observed as a single event in the channel.
-func (w *NeedsUpgradeWatcher) Changes() <-chan bool {
+func (w *NeedsUpgradeWatcher) Changes() <-chan NeedsUpgrade {
 	return w.changeChan
 }
 
@@ -523,12 +556,24 @@ func (w *NeedsUpgradeWatcher) loop() {
 				w.tomb.Kill(nil)
 				return
 			}
+			var needsUpgrade NeedsUpgrade
+			if change.Exists {
+				needsUpgrade.Upgrade = true
+				var setting struct {
+					Force bool
+				}
+				if err := goyaml.Unmarshal([]byte(change.Content), &setting); err != nil {
+					w.tomb.Kill(err)
+					return
+				}
+				needsUpgrade.Force = setting.Force
+			}
 			select {
 			case <-w.watcher.Dying():
 				return
 			case <-w.tomb.Dying():
 				return
-			case w.changeChan <- change.Exists:
+			case w.changeChan <- needsUpgrade:
 			}
 		}
 	}
