@@ -35,6 +35,12 @@ type NeedsUpgrade struct {
 	Force   bool
 }
 
+// needsUpgradeNode represents the content of the
+// upgrade node of a unit.
+type needsUpgradeNode struct {
+	Force bool
+}
+
 // agentPingerPeriod defines the period of pinging the
 // ZooKeeper to signal that a unit agent is alive. It's
 // also used by machine.
@@ -245,16 +251,14 @@ func (u *Unit) UnassignFromMachine() error {
 func (u *Unit) NeedsUpgrade() (*NeedsUpgrade, error) {
 	yaml, _, err := u.st.zk.Get(u.zkNeedsUpgradePath())
 	if zookeeper.IsError(err, zookeeper.ZNONODE) {
-		return &NeedsUpgrade{false, false}, nil
+		return &NeedsUpgrade{}, nil
 	}
 	if err != nil {
-		return &NeedsUpgrade{false, false}, err
+		return nil, err
 	}
-	var setting struct {
-		Force bool
-	}
+	var setting needsUpgradeNode
 	if err = goyaml.Unmarshal([]byte(yaml), &setting); err != nil {
-		return &NeedsUpgrade{false, false}, err
+		return nil, err
 	}
 	return &NeedsUpgrade{true, setting.Force}, nil
 }
@@ -263,9 +267,7 @@ func (u *Unit) NeedsUpgrade() (*NeedsUpgrade, error) {
 // a regular or forced upgrade.
 func (u *Unit) SetNeedsUpgrade(force bool) error {
 	setNeedsUpgrade := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
-		var setting struct {
-			Force bool
-		}
+		var setting needsUpgradeNode
 		if oldYaml == "" {
 			setting.Force = force
 			newYaml, err := goyaml.Marshal(setting)
@@ -278,7 +280,7 @@ func (u *Unit) SetNeedsUpgrade(force bool) error {
 			return "", err
 		}
 		if setting.Force != force {
-			return "", fmt.Errorf("unit upgrade already enabled: %q", u.Name())
+			return "", fmt.Errorf("upgrade already enabled for unit %q", u.Name())
 		}
 		return oldYaml, nil
 	}
@@ -559,9 +561,7 @@ func (w *NeedsUpgradeWatcher) loop() {
 			var needsUpgrade NeedsUpgrade
 			if change.Exists {
 				needsUpgrade.Upgrade = true
-				var setting struct {
-					Force bool
-				}
+				var setting needsUpgradeNode
 				if err := goyaml.Unmarshal([]byte(change.Content), &setting); err != nil {
 					w.tomb.Kill(err)
 					return
