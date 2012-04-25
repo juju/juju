@@ -19,11 +19,7 @@ type TestCommand struct {
 }
 
 func (c *TestCommand) Info() *cmd.Info {
-	return &cmd.Info{
-		c.Name, "<something>",
-		fmt.Sprintf("%s the juju", c.Name),
-		fmt.Sprintf("%s doc", c.Name),
-	}
+	return &cmd.Info{c.Name, "<something>", c.Name + " the juju", c.Name + " doc"}
 }
 
 func (c *TestCommand) Init(f *gnuflag.FlagSet, args []string) error {
