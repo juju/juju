@@ -203,7 +203,7 @@ func (e *environ) PutFile(name string, r io.Reader, length int64) error {
 	return nil
 }
 
-func (*environ) UploadTools(r io.Reader, length int64, version string) error {
+func (*environ) UploadTools(r io.Reader, length int64, version version.Version) error {
 	return fmt.Errorf("dummy environ does not support executable upload")
 }
 

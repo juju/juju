@@ -86,7 +86,7 @@ type Environ interface {
 	// containing juju executables read from r. The length
 	// in bytes of the archive is given by length. The tools will be
 	// tagged with the given Juju version.
-	UploadTools(r io.Reader, length int64, version string) error
+	UploadTools(r io.Reader, length int64, version version.Version) error
 
 	// Get opens the given file in the environment's storage
 	// and returns a ReadCloser that can be used to read its
