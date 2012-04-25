@@ -17,22 +17,19 @@ func NewUnitAgent() *UnitAgent {
 	return &UnitAgent{agentConf: agentConf{name: "unit"}}
 }
 
-// InitFlagSet prepares a FlagSet.
-func (a *UnitAgent) InitFlagSet(f *gnuflag.FlagSet) {
+// Init initializes the command for running.
+func (a *UnitAgent) Init(f *gnuflag.FlagSet, args []string) error {
 	f.StringVar(&a.UnitName, "unit-name", "", "name of the unit to run")
-	a.agentConf.InitFlagSet(f)
-}
-
-// ParsePositional checks that there are no unwanted arguments, and that all
-// required flags have been set.
-func (a *UnitAgent) ParsePositional(args []string) error {
+	if err := a.agentConf.Init(f, args); err != nil {
+		return err
+	}
 	if a.UnitName == "" {
 		return requiredError("unit-name")
 	}
 	if !juju.ValidUnit.MatchString(a.UnitName) {
 		return fmt.Errorf(`--unit-name option expects "<service>/<n>" argument`)
 	}
-	return a.agentConf.ParsePositional(args)
+	return nil
 }
 
 // Run runs a unit agent.
