@@ -71,17 +71,27 @@ func (ctx *Context) InitLog(verbose bool, debug bool, logfile string) (err error
 // process exit code. args should contain flags and arguments only (and not
 // the top-level command name).
 func Main(c Command, ctx *Context, args []string) int {
+	var err error
+	printErr := func() { fmt.Fprintf(ctx.Stderr, "ERROR: %v\n", err) }
+
 	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
+	f.Usage = func() {}
 	f.SetOutput(ioutil.Discard)
-	if err := c.Init(f, args); err != nil {
-		fmt.Fprintf(ctx.Stderr, "%v\n", err)
-		c.Info().printUsage(ctx.Stderr, f)
+	printHelp := func() { c.Info().printHelp(ctx.Stderr, f) }
+
+	switch err = c.Init(f, args); err {
+	case nil:
+		if err = c.Run(ctx); err != nil {
+			log.Debugf("%s command failed: %s\n", c.Info().Name, err)
+			printErr()
+			return 1
+		}
+	case gnuflag.ErrHelp:
+		printHelp()
+	default:
+		printErr()
+		printHelp()
 		return 2
-	}
-	if err := c.Run(ctx); err != nil {
-		log.Debugf("%s command failed: %s\n", c.Info().Name, err)
-		fmt.Fprintf(ctx.Stderr, "%v\n", err)
-		return 1
 	}
 	return 0
 }

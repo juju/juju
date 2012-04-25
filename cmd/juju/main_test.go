@@ -40,35 +40,35 @@ func badrun(c *C, exit int, cmd ...string) []string {
 func (s *MainSuite) TestActualRunNoCommand(c *C) {
 	// Check error when command not specified
 	lines := badrun(c, 2)
-	c.Assert(lines[0], Equals, "no command specified")
+	c.Assert(lines[0], Equals, "ERROR: no command specified")
 	c.Assert(lines[1], Equals, "usage: juju [options] <command> ...")
 }
 
 func (s *MainSuite) TestActualRunBadCommand(c *C) {
 	// Check error when command unknown
 	lines := badrun(c, 2, "discombobulate")
-	c.Assert(lines[0], Equals, "unrecognised command: juju discombobulate")
+	c.Assert(lines[0], Equals, "ERROR: unrecognised command: juju discombobulate")
 	c.Assert(lines[1], Equals, "usage: juju [options] <command> ...")
 }
 
 func (s *MainSuite) TestActualRunBadJujuArg(c *C) {
 	// Check error when unknown option specified before command
 	lines := badrun(c, 2, "--cheese", "bootstrap")
-	c.Assert(lines[0], Equals, "flag provided but not defined: --cheese")
+	c.Assert(lines[0], Equals, "ERROR: flag provided but not defined: --cheese")
 	c.Assert(lines[1], Equals, "usage: juju [options] <command> ...")
 }
 
 func (s *MainSuite) TestActualRunBadBootstrapArg(c *C) {
 	// Check error when unknown option specified after command
 	lines := badrun(c, 2, "bootstrap", "--cheese")
-	c.Assert(lines[0], Equals, "flag provided but not defined: --cheese")
+	c.Assert(lines[0], Equals, "ERROR: flag provided but not defined: --cheese")
 	c.Assert(lines[1], Equals, "usage: juju bootstrap [options]")
 }
 
 func (s *MainSuite) TestActualRunSubcmdArgWorksNotInterspersed(c *C) {
 	// Check error when otherwise-valid option specified before command
 	lines := badrun(c, 2, "--environment", "erewhon", "bootstrap")
-	c.Assert(lines[0], Equals, "flag provided but not defined: --environment")
+	c.Assert(lines[0], Equals, "ERROR: flag provided but not defined: --environment")
 	c.Assert(lines[1], Equals, "usage: juju [options] <command> ...")
 }
 
@@ -87,7 +87,7 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
 	defer unbreak()
 	logpath := filepath.Join(c.MkDir(), "log")
 	lines := badrun(c, 1, "--log-file", logpath, "--verbose", "--debug", "bootstrap")
-	c.Assert(lines[0], Equals, msg)
+	c.Assert(lines[0], Equals, "ERROR: "+msg)
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
 	fullmsg := fmt.Sprintf(`.* JUJU:DEBUG juju bootstrap command failed: %s\n`, msg)
@@ -100,7 +100,7 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 	defer unbreak()
 	logpath := filepath.Join(c.MkDir(), "log")
 	lines := badrun(c, 1, "bootstrap", "--log-file", logpath, "--verbose", "--debug")
-	c.Assert(lines[0], Equals, msg)
+	c.Assert(lines[0], Equals, "ERROR: "+msg)
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
 	fullmsg := fmt.Sprintf(`.* JUJU:DEBUG juju bootstrap command failed: %s\n`, msg)

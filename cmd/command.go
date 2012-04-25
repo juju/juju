@@ -26,10 +26,11 @@ type Info struct {
 	Doc string
 }
 
-// printUsage writes i's content to output, along with documentation for any
-// flags defined in f. If f was not originally sending output to ioutil.Discard,
-// its output stream should be set again after calling this method.
-func (i *Info) printUsage(output io.Writer, f *gnuflag.FlagSet) {
+// printHelp writes i's usage information and description to output, along with
+// documentation for any flags defined in f. If f was not originally sending
+// output to ioutil.Discard, its output stream should be set again after
+// calling this method.
+func (i *Info) printHelp(output io.Writer, f *gnuflag.FlagSet) {
 	fmt.Fprintf(output, "usage: %s", i.Name)
 	hasOptions := false
 	f.VisitAll(func(f *gnuflag.Flag) { hasOptions = true })
