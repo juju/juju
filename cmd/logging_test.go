@@ -9,13 +9,6 @@ import (
 	"path/filepath"
 )
 
-func saveLog() func() {
-	target, debug := log.Target, log.Debug
-	return func() {
-		log.Target, log.Debug = target, debug
-	}
-}
-
 type LogSuite struct{}
 
 var _ = Suite(&LogSuite{})
@@ -64,7 +57,7 @@ func (s *LogSuite) TestStart(c *C) {
 	}
 }
 
-func (s *LogSuite) TestStderr(c *C) {
+func (s *LogSuite) TestStderrLog(c *C) {
 	defer saveLog()()
 	l := &cmd.Log{Verbose: true}
 	ctx := dummyContext(c)
