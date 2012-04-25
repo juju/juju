@@ -11,6 +11,8 @@ import (
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/state/presence"
+	"launchpad.net/juju/go/state/watcher"
+	"launchpad.net/tomb"
 	"strconv"
 	"strings"
 	"time"
@@ -261,6 +263,12 @@ func (u *Unit) ClearNeedsUpgrade() error {
 	return err
 }
 
+// WatchNeedsUpgrade creates a watcher for the upgrade notification
+// of the unit. See SetNeedsUpgrade and ClearNeedsUpgrade for details.
+func (u *Unit) WatchNeedsUpgrade() *NeedsUpgradeWatcher {
+	return newNeedsUpgradeWatcher(u.st, u.zkNeedsUpgradePath())
+}
+
 // Resolved returns the resolved mode for the unit.
 func (u *Unit) Resolved() (ResolvedMode, error) {
 	yaml, _, err := u.st.zk.Get(u.zkResolvedPath())
@@ -276,7 +284,7 @@ func (u *Unit) Resolved() (ResolvedMode, error) {
 		return ResolvedNone, err
 	}
 	mode := setting.Retry
-	if err := validResolvedMode(mode); err != nil {
+	if err := validResolvedMode(mode, false); err != nil {
 		return ResolvedNone, err
 	}
 	return mode, nil
@@ -289,7 +297,7 @@ func (u *Unit) Resolved() (ResolvedMode, error) {
 // reexecute previous failed hooks or to continue as if they had 
 // succeeded before.
 func (u *Unit) SetResolved(mode ResolvedMode) error {
-	if err := validResolvedMode(mode); err != nil {
+	if err := validResolvedMode(mode, false); err != nil {
 		return err
 	}
 	setting := &struct{ Retry ResolvedMode }{mode}
@@ -312,6 +320,13 @@ func (u *Unit) ClearResolved() error {
 		return nil
 	}
 	return err
+}
+
+// WatchResolved returns a watcher that fires when the unit 
+// is marked as having had its problems resolved. See 
+// SetResolved for details.
+func (u *Unit) WatchResolved() *ResolvedWatcher {
+	return newResolvedWatcher(u.st, u.zkResolvedPath())
 }
 
 // OpenPort sets the policy of the port with protocol and number to be opened.
@@ -451,11 +466,168 @@ func parseUnitName(name string) (serviceName string, seqNo int, err error) {
 	return parts[0], int(sequenceNo), nil
 }
 
-// validResolvedMode ensures that only valid values for the
-// resolved mode are used.
-func validResolvedMode(mode ResolvedMode) error {
+// parseResolvedMode returns the resolved mode serialized
+// in yaml if it is valid, or an error otherwise.
+func parseResolvedMode(yaml string) (ResolvedMode, error) {
+	var setting struct {
+		Retry ResolvedMode
+	}
+	if err := goyaml.Unmarshal([]byte(yaml), &setting); err != nil {
+		return ResolvedNone, err
+	}
+	mode := setting.Retry
+	if err := validResolvedMode(mode, true); err != nil {
+		return ResolvedNone, err
+	}
+	return mode, nil
+}
+
+// validResolvedMode returns an error if the provided
+// mode isn't valid. ResolvedNone is only considered a
+// valid mode if acceptNone is true.
+func validResolvedMode(mode ResolvedMode, acceptNone bool) error {
+	if acceptNone && mode == ResolvedNone {
+		return nil
+	}
 	if mode != ResolvedRetryHooks && mode != ResolvedNoHooks {
 		return fmt.Errorf("invalid error resolution mode: %d", mode)
 	}
 	return nil
+}
+
+// NeedsUpgradeWatcher observes changes to a unit's upgrade flag.
+type NeedsUpgradeWatcher struct {
+	st         *State
+	path       string
+	tomb       tomb.Tomb
+	watcher    *watcher.ContentWatcher
+	changeChan chan bool
+}
+
+// newNeedsUpgradeWatcher creates and starts a new resolved flag node 
+// watcher for the given path.
+func newNeedsUpgradeWatcher(st *State, path string) *NeedsUpgradeWatcher {
+	w := &NeedsUpgradeWatcher{
+		st:         st,
+		path:       path,
+		changeChan: make(chan bool),
+		watcher:    watcher.NewContentWatcher(st.zk, path),
+	}
+	go w.loop()
+	return w
+}
+
+// Changes returns a channel that will receive notifications
+// about upgrades for the unit. Note that multiple changes
+// may be observed as a single event in the channel.
+func (w *NeedsUpgradeWatcher) Changes() <-chan bool {
+	return w.changeChan
+}
+
+// Stop stops the watch and returns any error encountered
+// while watching. This method should always be called
+// before discarding the watcher.
+func (w *NeedsUpgradeWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	if err := w.watcher.Stop(); err != nil {
+		w.tomb.Wait()
+		return err
+	}
+	return w.tomb.Wait()
+}
+
+// loop is the backend for watching the resolved flag node.
+func (w *NeedsUpgradeWatcher) loop() {
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case change, ok := <-w.watcher.Changes():
+			if !ok {
+				w.tomb.Kill(nil)
+				return
+			}
+			select {
+			case <-w.watcher.Dying():
+				return
+			case <-w.tomb.Dying():
+				return
+			case w.changeChan <- change.Exists:
+			}
+		}
+	}
+}
+
+// ResolvedWatcher observes changes to a unit's resolved
+// mode. See SetResolved for details.
+type ResolvedWatcher struct {
+	st         *State
+	path       string
+	tomb       tomb.Tomb
+	watcher    *watcher.ContentWatcher
+	changeChan chan ResolvedMode
+}
+
+// newResolvedWatcher returns a new ResolvedWatcher watching path.
+func newResolvedWatcher(st *State, path string) *ResolvedWatcher {
+	w := &ResolvedWatcher{
+		st:         st,
+		path:       path,
+		changeChan: make(chan ResolvedMode),
+		watcher:    watcher.NewContentWatcher(st.zk, path),
+	}
+	go w.loop()
+	return w
+}
+
+// Changes returns a channel that will receive the new
+// resolved mode when a change is detected. Note that multiple
+// changes may be observed as a single event in the channel.
+func (w *ResolvedWatcher) Changes() <-chan ResolvedMode {
+	return w.changeChan
+}
+
+// Stop stops the watch and returns any error encountered
+// while watching. This method should always be called
+// before discarding the watcher.
+func (w *ResolvedWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	if err := w.watcher.Stop(); err != nil {
+		w.tomb.Wait()
+		return err
+	}
+	return w.tomb.Wait()
+}
+
+// loop is the backend for watching the resolved flag node.
+func (w *ResolvedWatcher) loop() {
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case change, ok := <-w.watcher.Changes():
+			if !ok {
+				w.tomb.Kill(nil)
+				return
+			}
+			mode, err := parseResolvedMode(change.Content)
+			if err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			select {
+			case <-w.watcher.Dying():
+				return
+			case <-w.tomb.Dying():
+				return
+			case w.changeChan <- mode:
+			}
+		}
+	}
 }
