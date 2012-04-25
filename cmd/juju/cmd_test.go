@@ -2,11 +2,11 @@ package main_test
 
 import (
 	"io/ioutil"
+	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/cmd"
 	main "launchpad.net/juju/go/cmd/juju"
 	"launchpad.net/juju/go/environs/dummy"
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/juju"
 	"os"
 	"path/filepath"
