@@ -10,7 +10,6 @@ import (
 	"launchpad.net/juju/go/schema"
 	"launchpad.net/juju/go/state"
 	"sync"
-	"errors"
 )
 
 type Operation struct {
@@ -102,11 +101,7 @@ func Reset(c chan<- Operation) {
 	providerInstance.reset(c)
 }
 
-<<<<<<< TREE
 func (e *environProvider) reset(c chan <-Operation) {
-=======
-func (e *environProvider) reset(c chan<- Operation) {
->>>>>>> MERGE-SOURCE
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if c == nil {
@@ -127,11 +122,7 @@ func (e *environProvider) ConfigChecker() schema.Checker {
 		schema.Fields{
 			"type":      schema.Const("dummy"),
 			"zookeeper": schema.Const(false), // TODO
-<<<<<<< TREE
 			"broken": schema.Bool(),
-=======
-			"broken":    schema.Bool(),
->>>>>>> MERGE-SOURCE
 		},
 		[]string{
 			"broken",
