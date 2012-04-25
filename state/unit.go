@@ -466,8 +466,8 @@ func parseUnitName(name string) (serviceName string, seqNo int, err error) {
 	return parts[0], int(sequenceNo), nil
 }
 
-// parseResolvedMode parses a given YAML for the resolve mode
-// and checks if it's valid.
+// parseResolvedMode returns the resolved mode serialized
+// in yaml if it is valid, or an error otherwise.
 func parseResolvedMode(yaml string) (ResolvedMode, error) {
 	var setting struct {
 		Retry ResolvedMode
@@ -482,8 +482,9 @@ func parseResolvedMode(yaml string) (ResolvedMode, error) {
 	return mode, nil
 }
 
-// validResolvedMode ensures that only valid values for the
-// resolved mode are used.
+// validResolvedMode returns an error if the provided
+// mode isn't valid. ResolvedNone is only considered a
+// valid mode if acceptNone is true.
 func validResolvedMode(mode ResolvedMode, acceptNone bool) error {
 	if acceptNone && mode == ResolvedNone {
 		return nil
@@ -560,7 +561,8 @@ func (w *NeedsUpgradeWatcher) loop() {
 	}
 }
 
-// ResolvedWatcher observes changes to a resolved flag node.
+// ResolvedWatcher observes changes to a unit's resolved
+// mode. See SetResolved for details.
 type ResolvedWatcher struct {
 	st         *State
 	path       string
@@ -569,8 +571,7 @@ type ResolvedWatcher struct {
 	changeChan chan ResolvedMode
 }
 
-// newResolvedWatcher creates and starts a new resolved flag node 
-// watcher for the given path.
+// newResolvedWatcher returns a new ResolvedWatcher watching path.
 func newResolvedWatcher(st *State, path string) *ResolvedWatcher {
 	w := &ResolvedWatcher{
 		st:         st,
@@ -610,7 +611,11 @@ func (w *ResolvedWatcher) loop() {
 		select {
 		case <-w.tomb.Dying():
 			return
-		case change := <-w.watcher.Changes():
+		case change, ok := <-w.watcher.Changes():
+			if !ok {
+				w.tomb.Kill(nil)
+				return
+			}
 			mode, err := parseResolvedMode(change.Content)
 			if err != nil {
 				w.tomb.Kill(err)
