@@ -27,8 +27,7 @@ type Info struct {
 }
 
 // printUsage writes i's content to output, along with documentation for any
-// flags defined in f. If f was not originally sending output to ioutil.Discard,
-// its output stream should be set again after calling this method.
+// flags defined in f. It calls f.SetOutput(ioutil.Discard).
 func (i *Info) printUsage(output io.Writer, f *gnuflag.FlagSet) {
 	fmt.Fprintf(output, "usage: %s", i.Name)
 	hasOptions := false
@@ -46,8 +45,8 @@ func (i *Info) printUsage(output io.Writer, f *gnuflag.FlagSet) {
 		fmt.Fprintf(output, "\n\noptions:\n")
 		f.SetOutput(output)
 		f.PrintDefaults()
-		f.SetOutput(ioutil.Discard)
 	}
+	f.SetOutput(ioutil.Discard)
 	if i.Doc != "" {
 		fmt.Fprintf(output, "\n%s", strings.TrimSpace(i.Doc))
 	}

@@ -44,13 +44,12 @@ func (c *SuperCommand) Register(subcmd Command) {
 
 // describeCommands returns a short description of each registered subcommand.
 func (c *SuperCommand) describeCommands() string {
-	count := len(c.subcmds)
-	if count == 0 {
+	cmds := make([]string, len(c.subcmds))
+	if len(cmds) == 0 {
 		return ""
 	}
-	cmds := make([]string, count)
 	i := 0
-	for name, _ := range c.subcmds {
+	for name := range c.subcmds {
 		purpose := c.subcmds[name].Info().Purpose
 		cmds[i] = fmt.Sprintf("    %-12s %s\n", name, purpose)
 		i++
@@ -104,7 +103,7 @@ func (c *SuperCommand) Run(ctx *Context) error {
 		return err
 	}
 	if c.subcmd == nil {
-		panic("Run: missing subcommand; Parse failed or not called")
+		panic("Run: missing subcommand; Init failed or not called")
 	}
 	return c.subcmd.Run(ctx)
 }

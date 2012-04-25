@@ -11,13 +11,9 @@ import (
 	"path/filepath"
 )
 
-// Context adds a layer of indirection between a Command and its environment,
-// to allow Commands to be run without using the current process's working
-// directory or output streams. This in turn enables "hosted" Command execution,
-// whereby a hook-invoked tool can delegate full responsibility for command
-// execution to the unit agent process (which holds the state required to
-// actually execute them) and dumbly produce output (and exit code) returned
-// from the agent.
+// Context represents the run context of a Command. Command implementations
+// should interpret file names relative to Dir (see AbsPath below), and print
+// output and errors to Stdout and Stderr respectively.
 type Context struct {
 	Dir    string
 	Stdout io.Writer
@@ -67,9 +63,9 @@ func (ctx *Context) InitLog(verbose bool, debug bool, logfile string) (err error
 	return
 }
 
-// Main will Init and Run a Command, in the supplied Context, and return a
-// process exit code. args should contain flags and arguments only (and not
-// the top-level command name).
+// Main runs the given Command in the supplied Context with the given
+// arguments, which should not include the command name. It returns a code
+// suitable for passing to os.Exit.
 func Main(c Command, ctx *Context, args []string) int {
 	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
 	f.SetOutput(ioutil.Discard)
