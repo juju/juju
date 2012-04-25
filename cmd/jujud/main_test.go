@@ -38,7 +38,7 @@ func checkMessage(c *C, msg string, cmd ...string) {
 func (s *MainSuite) TestParseErrors(c *C) {
 	// Check all the obvious parse errors
 	checkMessage(c, "no command specified")
-	checkMessage(c, "unrecognised command: cavitate", "cavitate")
+	checkMessage(c, "unrecognised command: jujud cavitate", "cavitate")
 	msgf := "flag provided but not defined: --cheese"
 	checkMessage(c, msgf, "--cheese", "cavitate")
 
