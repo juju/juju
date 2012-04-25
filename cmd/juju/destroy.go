@@ -8,8 +8,7 @@ import (
 
 // DestroyCommand destroys an environment.
 type DestroyCommand struct {
-	envName string
-	Conn    *juju.Conn
+	Conn *juju.Conn
 }
 
 func (c *DestroyCommand) Info() *cmd.Info {
@@ -17,23 +16,27 @@ func (c *DestroyCommand) Info() *cmd.Info {
 		"destroy-environment", "[options]",
 		"terminate all machines and other associated resources for an environment",
 		"",
-		true,
 	}
 }
 
-func (c *DestroyCommand) InitFlagSet(f *gnuflag.FlagSet) {
-	f.StringVar(&c.envName, "e", "", "juju environment to operate in")
-	f.StringVar(&c.envName, "environment", "", "")
-}
-
-func (c *DestroyCommand) ParsePositional(args []string) (err error) {
-	c.Conn, err = juju.NewConn(c.envName)
+func (c *DestroyCommand) Init(f *gnuflag.FlagSet, args []string) error {
+	var envName string
+	f.StringVar(&envName, "e", "", "juju environment to operate in")
+	f.StringVar(&envName, "environment", "", "")
+	if err := f.Parse(true, args); err != nil {
+		return err
+	}
+	if err := cmd.CheckEmpty(f.Args()); err != nil {
+		return err
+	}
+	conn, err := juju.NewConn(envName)
 	if err != nil {
 		return err
 	}
-	return cmd.CheckEmpty(args)
+	c.Conn = conn
+	return nil
 }
 
-func (c *DestroyCommand) Run() error {
+func (c *DestroyCommand) Run(_ *cmd.Context) error {
 	return c.Conn.Destroy()
 }

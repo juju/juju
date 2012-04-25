@@ -134,7 +134,7 @@ func (s *MainSuite) TestHelp(c *C) {
 	// by checking the help output.
 
 	lines := badrun(c, 2, "-help")
-	c.Assert(lines[0], Matches, "usage: juju.*")
+	c.Assert(lines[0], Matches, "flag: help requested.*")
 
 	for ; len(lines) > 0; lines = lines[1:] {
 		if lines[0] == "commands:" {
