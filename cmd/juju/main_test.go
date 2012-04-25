@@ -41,21 +41,21 @@ func (s *MainSuite) TestActualRunNoCommand(c *C) {
 	// Check error when command not specified
 	lines := badrun(c, 2)
 	c.Assert(lines[0], Equals, "no command specified")
-	c.Assert(lines[1], Equals, "usage: juju <command> [options] ...")
+	c.Assert(lines[1], Equals, "usage: juju [options] <command> ...")
 }
 
 func (s *MainSuite) TestActualRunBadCommand(c *C) {
 	// Check error when command unknown
 	lines := badrun(c, 2, "discombobulate")
 	c.Assert(lines[0], Equals, "unrecognised command: juju discombobulate")
-	c.Assert(lines[1], Equals, "usage: juju <command> [options] ...")
+	c.Assert(lines[1], Equals, "usage: juju [options] <command> ...")
 }
 
 func (s *MainSuite) TestActualRunBadJujuArg(c *C) {
 	// Check error when unknown option specified before command
 	lines := badrun(c, 2, "--cheese", "bootstrap")
 	c.Assert(lines[0], Equals, "flag provided but not defined: --cheese")
-	c.Assert(lines[1], Equals, "usage: juju <command> [options] ...")
+	c.Assert(lines[1], Equals, "usage: juju [options] <command> ...")
 }
 
 func (s *MainSuite) TestActualRunBadBootstrapArg(c *C) {
@@ -69,7 +69,7 @@ func (s *MainSuite) TestActualRunSubcmdArgWorksNotInterspersed(c *C) {
 	// Check error when otherwise-valid option specified before command
 	lines := badrun(c, 2, "--environment", "erewhon", "bootstrap")
 	c.Assert(lines[0], Equals, "flag provided but not defined: --environment")
-	c.Assert(lines[1], Equals, "usage: juju <command> [options] ...")
+	c.Assert(lines[1], Equals, "usage: juju [options] <command> ...")
 }
 
 // Induce failure to load environments and hence break Run.

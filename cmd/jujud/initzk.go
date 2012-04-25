@@ -15,11 +15,7 @@ type InitzkCommand struct {
 
 // Info returns a decription of the command.
 func (c *InitzkCommand) Info() *cmd.Info {
-	return &cmd.Info{
-		"initzk", "[options]",
-		"initialize juju state in a local zookeeper",
-		"",
-	}
+	return &cmd.Info{"initzk", "", "initialize juju state in a local zookeeper", ""}
 }
 
 // Init initializes the command for running.

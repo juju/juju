@@ -9,11 +9,10 @@ import (
 	stdlog "log"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // Context adds a layer of indirection between a Command and its environment,
-// to allow cmd.Commands to be run without using the current process's working
+// to allow Commands to be run without using the current process's working
 // directory or output streams. This in turn enables "hosted" Command execution,
 // whereby a hook-invoked tool can delegate full responsibility for command
 // execution to the unit agent process (which holds the state required to
@@ -68,14 +67,15 @@ func (ctx *Context) InitLog(verbose bool, debug bool, logfile string) (err error
 	return
 }
 
-// Main will Parse and Run a Command, and return a process exit code. args
-// should contain flags and arguments only (and not the top-level command name).
+// Main will Init and Run a Command, in the supplied Context, and return a
+// process exit code. args should contain flags and arguments only (and not
+// the top-level command name).
 func Main(c Command, ctx *Context, args []string) int {
 	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
 	f.SetOutput(ioutil.Discard)
 	if err := c.Init(f, args); err != nil {
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
-		printUsage(c, f, ctx.Stderr)
+		c.Info().printUsage(ctx.Stderr, f)
 		return 2
 	}
 	if err := c.Run(ctx); err != nil {
@@ -84,24 +84,4 @@ func Main(c Command, ctx *Context, args []string) int {
 		return 1
 	}
 	return 0
-}
-
-// printUsage prints usage information for c to output.
-func printUsage(c Command, f *gnuflag.FlagSet, output io.Writer) {
-	i := c.Info()
-	fmt.Fprintf(output, "usage: %s\n", i.Usage())
-	if i.Purpose != "" {
-		fmt.Fprintf(output, "purpose: %s\n", i.Purpose)
-	}
-	hasOptions := false
-	f.VisitAll(func(f *gnuflag.Flag) { hasOptions = true })
-	if hasOptions {
-		fmt.Fprintf(output, "\noptions:\n")
-		f.SetOutput(output)
-		f.PrintDefaults()
-		f.SetOutput(ioutil.Discard)
-	}
-	if i.Doc != "" {
-		fmt.Fprintf(output, "\n%s\n", strings.TrimSpace(i.Doc))
-	}
 }

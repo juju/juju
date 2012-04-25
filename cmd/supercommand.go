@@ -42,9 +42,13 @@ func (c *SuperCommand) Register(subcmd Command) {
 	c.subcmds[name] = subcmd
 }
 
-// DescribeCommands returns a short description of each registered subcommand.
-func (c *SuperCommand) DescribeCommands() string {
-	cmds := make([]string, len(c.subcmds))
+// describeCommands returns a short description of each registered subcommand.
+func (c *SuperCommand) describeCommands() string {
+	count := len(c.subcmds)
+	if count == 0 {
+		return ""
+	}
+	cmds := make([]string, count)
 	i := 0
 	for name, _ := range c.subcmds {
 		purpose := c.subcmds[name].Info().Purpose
@@ -64,10 +68,14 @@ func (c *SuperCommand) Info() *Info {
 		info.Name = fmt.Sprintf("%s %s", c.Name, info.Name)
 		return info
 	}
-	return &Info{
-		c.Name, "<command> [options] ...", c.Purpose,
-		fmt.Sprintf("%s\n\n%s", strings.TrimSpace(c.Doc), c.DescribeCommands()),
+	docParts := []string{}
+	if doc := strings.TrimSpace(c.Doc); doc != "" {
+		docParts = append(docParts, doc)
 	}
+	if cmds := strings.TrimSpace(c.describeCommands()); cmds != "" {
+		docParts = append(docParts, cmds)
+	}
+	return &Info{c.Name, "<command> ...", c.Purpose, strings.Join(docParts, "\n\n")}
 }
 
 // Init initializes the command for running.

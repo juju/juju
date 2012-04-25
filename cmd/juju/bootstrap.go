@@ -15,7 +15,7 @@ type BootstrapCommand struct {
 // Info returns a description of BootstrapCommand.
 func (c *BootstrapCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"bootstrap", "[options]",
+		"bootstrap", "",
 		"start up an environment from scratch",
 		"",
 	}
