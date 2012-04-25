@@ -82,6 +82,12 @@ type Environ interface {
 	// length of the file.
 	PutFile(file string, r io.Reader, length int64) error
 
+	// UploadTools uploads a gzipped tar archive
+	// containing juju executables read from r. The length
+	// in bytes of the archive is given by length. The tools will be
+	// tagged with the given Juju version.
+	UploadTools(r io.Reader, length int64, version string) error
+
 	// Get opens the given file in the environment's storage
 	// and returns a ReadCloser that can be used to read its
 	// contents. It is the caller's responsibility to close it

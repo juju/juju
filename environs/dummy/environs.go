@@ -203,6 +203,10 @@ func (e *environ) PutFile(name string, r io.Reader, length int64) error {
 	return nil
 }
 
+func (*environ) UploadTools(r io.Reader, length int64, version string) error {
+	return fmt.Errorf("dummy environ does not support executable upload")
+}
+
 func (e *environ) GetFile(name string) (io.ReadCloser, error) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
