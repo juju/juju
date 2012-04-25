@@ -15,9 +15,6 @@ type SuperCommand struct {
 	Name    string
 	Purpose string
 	Doc     string
-	LogFile string
-	Verbose bool
-	Debug   bool
 	subcmds map[string]Command
 	subcmd  Command
 }
@@ -79,10 +76,6 @@ func (c *SuperCommand) Info() *Info {
 
 // Init initializes the command for running.
 func (c *SuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	f.StringVar(&c.LogFile, "log-file", "", "path to write log to")
-	f.BoolVar(&c.Verbose, "v", false, "if set, log additional messages")
-	f.BoolVar(&c.Verbose, "verbose", false, "if set, log additional messages")
-	f.BoolVar(&c.Debug, "debug", false, "if set, log debugging messages")
 	if err := f.Parse(false, args); err != nil {
 		return err
 	}
@@ -99,11 +92,34 @@ func (c *SuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run executes the subcommand that was selected in Init.
 func (c *SuperCommand) Run(ctx *Context) error {
-	if err := ctx.InitLog(c.Verbose, c.Debug, c.LogFile); err != nil {
-		return err
-	}
 	if c.subcmd == nil {
 		panic("Run: missing subcommand; Init failed or not called")
 	}
 	return c.subcmd.Run(ctx)
+}
+
+// LoggingSuperCommand is a trivial extension of SuperCommand that exposes
+// command-line flags to control logging.
+type LoggingSuperCommand struct {
+	*SuperCommand
+	log Log
+}
+
+// NewLoggingSuperCommand returns an initialized LoggingSuperCommand.
+func NewLoggingSuperCommand(name, purpose, doc string) *LoggingSuperCommand {
+	return &LoggingSuperCommand{SuperCommand: NewSuperCommand(name, purpose, doc)}
+}
+
+// Init injects logging flags into f and delegates to SuperCommand.
+func (c *LoggingSuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
+	c.log.InitFlagSet(f)
+	return c.SuperCommand.Init(f, args)
+}
+
+// Run starts logging as directed in Init and delegates to SuperCommand.
+func (c *LoggingSuperCommand) Run(ctx *Context) error {
+	if err := c.log.Start(ctx); err != nil {
+		return err
+	}
+	return c.SuperCommand.Run(ctx)
 }

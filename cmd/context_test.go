@@ -4,12 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"io/ioutil"
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
-	cmd "launchpad.net/juju/go/cmd"
-	"launchpad.net/juju/go/log"
-	"path/filepath"
+	"launchpad.net/juju/go/cmd"
 )
 
 func dummyContext(c *C) *cmd.Context {
@@ -64,6 +61,8 @@ cmd-doc
 
 type ContextSuite struct{}
 
+var _ = Suite(&ContextSuite{})
+
 func AssertMainOutput(c *C, com cmd.Command, usage string) {
 	ctx := dummyContext(c)
 	result := cmd.Main(com, ctx, []string{"--unknown"})
@@ -102,50 +101,4 @@ func (s *CommandSuite) TestHelp(c *C) {
 		c.Assert(str(ctx.Stdout), Equals, "")
 		c.Assert(str(ctx.Stderr), Equals, fullUsage)
 	}
-}
-
-func AssertInitLog(c *C, verbose bool, debug bool, logfile string, logre string) {
-	defer saveLog()()
-	ctx := dummyContext(c)
-	err := ctx.InitLog(verbose, debug, logfile)
-	c.Assert(err, IsNil)
-	log.Printf("hello log")
-	log.Debugf("hello debug")
-	c.Assert(str(ctx.Stdout), Equals, "")
-
-	if logfile == "" {
-		c.Assert(str(ctx.Stderr), Matches, logre)
-	} else {
-		c.Assert(str(ctx.Stderr), Equals, "")
-		raw, err := ioutil.ReadFile(logfile)
-		c.Assert(err, IsNil)
-		c.Assert(string(raw), Matches, logre)
-	}
-}
-
-func (s *CommandSuite) TestInitLog(c *C) {
-	printfre := ".* JUJU hello log\n"
-	debugfre := ".* JUJU:DEBUG hello debug\n"
-
-	AssertInitLog(c, false, false, "", "")
-	AssertInitLog(c, true, false, "", printfre)
-	AssertInitLog(c, false, true, "", printfre+debugfre)
-	AssertInitLog(c, true, true, "", printfre+debugfre)
-
-	tmp := c.MkDir()
-	AssertInitLog(c, false, false, filepath.Join(tmp, "1.log"), printfre)
-	AssertInitLog(c, true, false, filepath.Join(tmp, "2.log"), printfre)
-	AssertInitLog(c, false, true, filepath.Join(tmp, "3.log"), printfre+debugfre)
-	AssertInitLog(c, true, true, filepath.Join(tmp, "4.log"), printfre+debugfre)
-}
-
-func (s *CommandSuite) TestRelativeLogFile(c *C) {
-	defer saveLog()()
-	ctx := dummyContext(c)
-	err := ctx.InitLog(false, false, "logfile")
-	c.Assert(err, IsNil)
-	log.Printf("hello log")
-	raw, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "logfile"))
-	c.Assert(err, IsNil)
-	c.Assert(string(raw), Matches, ".* JUJU hello log\n")
 }

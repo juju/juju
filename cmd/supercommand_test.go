@@ -1,13 +1,10 @@
 package cmd_test
 
 import (
-	"fmt"
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
-	cmd "launchpad.net/juju/go/cmd"
+	"launchpad.net/juju/go/cmd"
 	"launchpad.net/juju/go/log"
-	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -31,7 +28,8 @@ func (c *TestCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *TestCommand) Run(ctx *cmd.Context) error {
-	return fmt.Errorf("BORKEN: value is %s.", c.Value)
+	log.Debugf(c.Value)
+	return nil
 }
 
 func initCmd(c cmd.Command, args []string) error {
@@ -54,7 +52,7 @@ type CommandSuite struct{}
 
 var _ = Suite(&CommandSuite{})
 
-func (s *CommandSuite) TestSubcommandDispatch(c *C) {
+func (s *CommandSuite) TestDispatch(c *C) {
 	jc, err := initEmpty([]string{})
 	c.Assert(err, ErrorMatches, `no command specified`)
 	info := jc.Info()
@@ -85,13 +83,13 @@ func (s *CommandSuite) TestSubcommandDispatch(c *C) {
 	c.Assert(err, ErrorMatches, `unrecognised args: \[gibberish\]`)
 }
 
-func (s *CommandSuite) TestRegister(c *C) {
+func (s *CommandSuite) TestSubcommands(c *C) {
 	jc := cmd.NewSuperCommand("jujutest", "to be purposeful", "doc\nblah\ndoc")
 	jc.Register(&TestCommand{Name: "flip"})
 	jc.Register(&TestCommand{Name: "flap"})
-
 	badCall := func() { jc.Register(&TestCommand{Name: "flap"}) }
 	c.Assert(badCall, PanicMatches, "command already registered: flap")
+
 	info := jc.Info()
 	c.Assert(info.Name, Equals, "jujutest")
 	c.Assert(info.Purpose, Equals, "to be purposeful")
@@ -104,100 +102,12 @@ commands:
     flip         flip the juju`)
 }
 
-func (s *CommandSuite) TestDebug(c *C) {
-	jc, err := initEmpty([]string{})
-	c.Assert(err, ErrorMatches, "no command specified")
-	c.Assert(jc.Debug, Equals, false)
-
-	jc, _, err = initDefenestrate([]string{"defenestrate"})
-	c.Assert(err, IsNil)
-	c.Assert(jc.Debug, Equals, false)
-
-	jc, err = initEmpty([]string{"--debug"})
-	c.Assert(err, ErrorMatches, "no command specified")
-	c.Assert(jc.Debug, Equals, true)
-
-	jc, _, err = initDefenestrate([]string{"--debug", "defenestrate"})
-	c.Assert(err, IsNil)
-	c.Assert(jc.Debug, Equals, true)
-}
-
-func (s *CommandSuite) TestVerbose(c *C) {
-	jc, err := initEmpty([]string{})
-	c.Assert(err, ErrorMatches, "no command specified")
-	c.Assert(jc.Verbose, Equals, false)
-
-	jc, _, err = initDefenestrate([]string{"defenestrate"})
-	c.Assert(err, IsNil)
-	c.Assert(jc.Verbose, Equals, false)
-
-	jc, err = initEmpty([]string{"--verbose"})
-	c.Assert(err, ErrorMatches, "no command specified")
-	c.Assert(jc.Verbose, Equals, true)
-
-	jc, _, err = initDefenestrate([]string{"-v", "defenestrate"})
-	c.Assert(err, IsNil)
-	c.Assert(jc.Verbose, Equals, true)
-}
-
-func (s *CommandSuite) TestLogFile(c *C) {
-	jc, err := initEmpty([]string{})
-	c.Assert(err, ErrorMatches, "no command specified")
-	c.Assert(jc.LogFile, Equals, "")
-
-	jc, _, err = initDefenestrate([]string{"defenestrate"})
-	c.Assert(err, IsNil)
-	c.Assert(jc.LogFile, Equals, "")
-
-	jc, err = initEmpty([]string{"--log-file", "foo"})
-	c.Assert(err, ErrorMatches, "no command specified")
-	c.Assert(jc.LogFile, Equals, "foo")
-
-	jc, _, err = initDefenestrate([]string{"--log-file", "bar", "defenestrate"})
-	c.Assert(err, IsNil)
-	c.Assert(jc.LogFile, Equals, "bar")
-}
-
-func saveLog() func() {
-	target, debug := log.Target, log.Debug
-	return func() {
-		log.Target, log.Debug = target, debug
-	}
-}
-
-func checkRun(c *C, args []string, debug bool, target Checker, logfile string) {
+func (s *CommandSuite) TestLogging(c *C) {
 	defer saveLog()()
-	args = append([]string{"defenestrate", "--value", "cheese"}, args...)
-	jc, _, err := initDefenestrate(args)
-	c.Assert(err, IsNil)
-
-	err = jc.Run(cmd.DefaultContext())
-	c.Assert(err, ErrorMatches, "BORKEN: value is cheese.")
-
-	c.Assert(log.Debug, Equals, debug)
-	c.Assert(log.Target, target)
-	if logfile != "" {
-		_, err := os.Stat(logfile)
-		c.Assert(err, IsNil)
-	}
-}
-
-func (s *CommandSuite) TestRun(c *C) {
-	checkRun(c, []string{}, false, IsNil, "")
-	checkRun(c, []string{"--debug"}, true, NotNil, "")
-	checkRun(c, []string{"--verbose"}, false, NotNil, "")
-	checkRun(c, []string{"--verbose", "--debug"}, true, NotNil, "")
-
-	tmp := c.MkDir()
-	path := filepath.Join(tmp, "log-1")
-	checkRun(c, []string{"--log-file", path}, false, NotNil, path)
-
-	path = filepath.Join(tmp, "log-2")
-	checkRun(c, []string{"--log-file", path, "--debug"}, true, NotNil, path)
-
-	path = filepath.Join(tmp, "log-3")
-	checkRun(c, []string{"--log-file", path, "--verbose"}, false, NotNil, path)
-
-	path = filepath.Join(tmp, "log-4")
-	checkRun(c, []string{"--log-file", path, "--verbose", "--debug"}, true, NotNil, path)
+	jc := cmd.NewLoggingSuperCommand("jujutest", "", "")
+	jc.Register(&TestCommand{Name: "blah"})
+	ctx := dummyContext(c)
+	code := cmd.Main(jc, ctx, []string{"blah", "--value", "arrived", "--debug"})
+	c.Assert(code, Equals, 0)
+	c.Assert(str(ctx.Stderr), Matches, `.* JUJU:DEBUG arrived\n`)
 }
