@@ -24,7 +24,7 @@ func (c *Log) InitFlagSet(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Debug, "debug", false, "if set, log debugging messages")
 }
 
-// Start starts logging via ctx.
+// Start starts logging using the given Context.
 func (c *Log) Start(ctx *Context) (err error) {
 	log.Debug = c.Debug
 	var target io.Writer

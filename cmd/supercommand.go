@@ -98,7 +98,7 @@ func (c *SuperCommand) Run(ctx *Context) error {
 	return c.subcmd.Run(ctx)
 }
 
-// LoggingSuperCommand is a trivial extension of SuperCommand that exposes
+// LoggingSuperCommand is an extension of SuperCommand that exposes
 // command-line flags to control logging.
 type LoggingSuperCommand struct {
 	*SuperCommand
@@ -107,16 +107,16 @@ type LoggingSuperCommand struct {
 
 // NewLoggingSuperCommand returns an initialized LoggingSuperCommand.
 func NewLoggingSuperCommand(name, purpose, doc string) *LoggingSuperCommand {
-	return &LoggingSuperCommand{SuperCommand: NewSuperCommand(name, purpose, doc)}
+	return &LoggingSuperCommand{
+		SuperCommand: NewSuperCommand(name, purpose, doc),
+	}
 }
 
-// Init injects logging flags into f and delegates to SuperCommand.
 func (c *LoggingSuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	c.log.InitFlagSet(f)
 	return c.SuperCommand.Init(f, args)
 }
 
-// Run starts logging as directed in Init and delegates to SuperCommand.
 func (c *LoggingSuperCommand) Run(ctx *Context) error {
 	if err := c.log.Start(ctx); err != nil {
 		return err
