@@ -2,6 +2,7 @@ package dummy
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -29,9 +30,9 @@ const (
 )
 
 var kindNames = []string{
-	0: "OpUninitialized",
-	OpBootstrap: "OpBootstrap",
-	OpDestroy: "OpDestroy",
+	0:               "OpUninitialized",
+	OpBootstrap:     "OpBootstrap",
+	OpDestroy:       "OpDestroy",
 	OpStartInstance: "OpStartInstance",
 	OpStopInstances: "OpStopInstances",
 }
@@ -101,7 +102,11 @@ func Reset(c chan<- Operation) {
 	providerInstance.reset(c)
 }
 
+<<<<<<< TREE
 func (e *environProvider) reset(c chan <-Operation) {
+=======
+func (e *environProvider) reset(c chan<- Operation) {
+>>>>>>> MERGE-SOURCE
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if c == nil {
@@ -122,7 +127,11 @@ func (e *environProvider) ConfigChecker() schema.Checker {
 		schema.Fields{
 			"type":      schema.Const("dummy"),
 			"zookeeper": schema.Const(false), // TODO
+<<<<<<< TREE
 			"broken": schema.Bool(),
+=======
+			"broken":    schema.Bool(),
+>>>>>>> MERGE-SOURCE
 		},
 		[]string{
 			"broken",
@@ -134,7 +143,7 @@ func (e *environProvider) Open(name string, attributes interface{}) (environs.En
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	cfg := attributes.(schema.MapType)
-	
+
 	env := &environ{
 		name:      name,
 		zookeeper: cfg["zookeeper"].(bool),
@@ -149,7 +158,7 @@ type environ struct {
 	ops       chan<- Operation
 	name      string
 	state     *environState
-	broken bool
+	broken    bool
 	zookeeper bool
 }
 
