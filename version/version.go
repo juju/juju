@@ -10,11 +10,16 @@ import (
 
 var ClientVersion = MustParse("0.0.0")
 
-// Version represents a parsed version.
+// Version represents a juju version. When bugs are
+// fixed the patch number is incremented; when new features are added
+// the minor number is incremented and patch is reset; and when
+// compatibility is broken the major version is incremented and minor
+// and patch are reset.  If any of the numbers is odd it
+// indicates that the release is still in development.
 type Version struct {
-	Major int // The major version number.
-	Minor int // The minor version number.
-	Patch int // The patch version number.
+	Major int
+	Minor int
+	Patch int
 }
 
 var versionPat = regexp.MustCompile(`^([0-9]{1,9})\.([0-9]{1,9})\.([0-9]{1,9})$`)
@@ -54,7 +59,7 @@ func atoi(s string) int {
 	return n
 }
 
-func (v *Version) String() string {
+func (v Version) String() string {
 	return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
 }
 
@@ -80,7 +85,5 @@ func isOdd(x int) bool {
 // version. A version with an odd-numbered major, minor
 // or patch version is considered to be a development version.
 func (v Version) IsDev() bool {
-	return isOdd(v.Major) ||
-		isOdd(v.Minor) ||
-		isOdd(v.Patch)
+	return isOdd(v.Major) || isOdd(v.Minor) || isOdd(v.Patch)
 }
