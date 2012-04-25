@@ -45,25 +45,23 @@ func (ctx *Context) AbsPath(path string) string {
 // arguments, which should not include the command name. It returns a code
 // suitable for passing to os.Exit.
 func Main(c Command, ctx *Context, args []string) int {
-	var err error
-	printErr := func() { fmt.Fprintf(ctx.Stderr, "ERROR: %v\n", err) }
-
 	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
 	f.Usage = func() {}
 	f.SetOutput(ioutil.Discard)
 	printHelp := func() { c.Info().printHelp(ctx.Stderr, f) }
+	printErr := func(err error) { fmt.Fprintf(ctx.Stderr, "ERROR: %v\n", err) }
 
-	switch err = c.Init(f, args); err {
+	switch err := c.Init(f, args); err {
 	case nil:
 		if err = c.Run(ctx); err != nil {
 			log.Debugf("%s command failed: %s\n", c.Info().Name, err)
-			printErr()
+			printErr(err)
 			return 1
 		}
 	case gnuflag.ErrHelp:
 		printHelp()
 	default:
-		printErr()
+		printErr(err)
 		printHelp()
 		return 2
 	}
