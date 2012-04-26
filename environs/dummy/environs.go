@@ -21,7 +21,7 @@ type Operation struct {
 type OperationKind int
 
 const (
-	_ OperationKind = iota
+	OpNone OperationKind = iota
 	OpBootstrap
 	OpDestroy
 	OpStartInstance
@@ -29,7 +29,7 @@ const (
 )
 
 var kindNames = []string{
-	0:               "OpUninitialized",
+	OpNone:              "OpNone",
 	OpBootstrap:     "OpBootstrap",
 	OpDestroy:       "OpDestroy",
 	OpStartInstance: "OpStartInstance",
@@ -91,7 +91,7 @@ func init() {
 // NOTE: ZooKeeper isn't actually being started yet.
 // 
 // The configuration data also accepts a "broken" property
-// of type boolean. If this is non-empty, any operation on
+// of type boolean. If this is non-empty, any operation
 // after the environment has been opened will return
 // the error "broken environment", and will also log that.
 // 
@@ -101,7 +101,7 @@ func Reset(c chan<- Operation) {
 	providerInstance.reset(c)
 }
 
-func (e *environProvider) reset(c chan<- Operation) {
+func (e *environProvider) reset(c chan <-Operation) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if c == nil {
@@ -122,7 +122,7 @@ func (e *environProvider) ConfigChecker() schema.Checker {
 		schema.Fields{
 			"type":      schema.Const("dummy"),
 			"zookeeper": schema.Const(false), // TODO
-			"broken":    schema.Bool(),
+			"broken": schema.Bool(),
 		},
 		[]string{
 			"broken",
@@ -134,7 +134,6 @@ func (e *environProvider) Open(name string, attributes interface{}) (environs.En
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	cfg := attributes.(schema.MapType)
-
 	env := &environ{
 		name:      name,
 		zookeeper: cfg["zookeeper"].(bool),
