@@ -11,6 +11,7 @@ import (
 	"net/rpc"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 var jujucPurpose = "invoke a hosted command inside the unit agent process"
@@ -60,22 +61,22 @@ func (j *Jujuc) cmd(contextId string) (cmd.Command, error) {
 	return sc, nil
 }
 
-// badReq returns an error indicating a bad Request.
-func badReq(format string, v ...interface{}) error {
+// badReqErr returns an error indicating a bad Request.
+func badReqErr(format string, v ...interface{}) error {
 	return fmt.Errorf("bad request: "+format, v...)
 }
 
 // Main runs the Command specified by req, and fills in resp.
 func (j *Jujuc) Main(req Request, resp *Response) error {
 	if req.Args == nil || len(req.Args) < 1 {
-		return badReq("Args is too short")
+		return badReqErr("Args is too short")
 	}
 	if !filepath.IsAbs(req.Dir) {
-		return badReq("Dir is not absolute")
+		return badReqErr("Dir is not absolute")
 	}
 	c, err := j.cmd(req.ContextId)
 	if err != nil {
-		return badReq("%s", err)
+		return badReqErr("%s", err)
 	}
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
@@ -92,76 +93,63 @@ type Server struct {
 	socketPath string
 	listener   net.Listener
 	server     *rpc.Server
-	Started    chan bool
-	Stopped    chan bool
+	closed     chan bool
 	closing    chan bool
-	conns      chan bool
-	maxConns   int
+	wg         sync.WaitGroup
 }
 
-// NewServer starts an RPC server which runs on socketPath and which executes
-// cmd.Commands in appropriate contexts (taken from getCmds).
-func NewServer(getCmds CmdsGetter, socketPath string) (s *Server, err error) {
+// NewServer creates an RPC server bound to socketPath, which can execute
+// remote command invocations against an appropriate Context. It will not
+// actually do so until Run is called.
+func NewServer(getCmds CmdsGetter, socketPath string) (*Server, error) {
 	server := rpc.NewServer()
-	if err = server.Register(&Jujuc{getCmds}); err != nil {
-		return
+	if err := server.Register(&Jujuc{getCmds}); err != nil {
+		return nil, err
 	}
-	maxConns := 16
-	s = &Server{
+	listener, err := net.Listen("unix", socketPath)
+	if err != nil {
+		return nil, err
+	}
+	s := &Server{
 		socketPath: socketPath,
+		listener:   listener,
 		server:     server,
-		Started:    make(chan bool),
-		Stopped:    make(chan bool),
-		closing:    make(chan bool, 1),
-		conns:      make(chan bool, maxConns),
-		maxConns:   maxConns,
+		closed:     make(chan bool),
+		closing:    make(chan bool),
 	}
-	return
+	return s, nil
 }
 
-// Run runs the server.
+// Run accepts new connections until it encounters an error, or until Close is
+// called, and then blocks until all existing connections have been closed.
 func (s *Server) Run() (err error) {
-	defer close(s.Stopped)
-	s.listener, err = net.Listen("unix", s.socketPath)
-	if err != nil {
-		return
-	}
-	close(s.Started)
 	var conn net.Conn
 	for {
 		conn, err = s.listener.Accept()
 		if err != nil {
 			break
 		}
-		go s.serveConn(conn)
+		s.wg.Add(1)
+		go func(conn net.Conn) {
+			s.server.ServeConn(conn)
+			s.wg.Done()
+		}(conn)
 	}
-
 	select {
 	case <-s.closing:
 		err = nil
 	default:
 	}
-	for i := 0; i < s.maxConns; i++ {
-		s.conns <- false
-	}
+	s.wg.Wait()
+	close(s.closed)
 	return
 }
 
-// serveConn serves a single connection.
-func (s *Server) serveConn(conn net.Conn) {
-	s.conns <- true
-	s.server.ServeConn(conn)
-	<-s.conns
-}
-
-// Close stops a running RPC server.
+// Close immediately stops accepting connections, and blocks until all existing
+// connections have been closed.
 func (s *Server) Close() {
-	s.closing <- true
-	select {
-	case <-s.Started:
-		s.listener.Close()
-		os.Remove(s.socketPath)
-	default:
-	}
-	<-s.Stopped
+	close(s.closing)
+	s.listener.Close()
+	os.Remove(s.socketPath)
+	<-s.closed
 }

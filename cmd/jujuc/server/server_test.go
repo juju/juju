@@ -62,15 +62,9 @@ func (s *ServerSuite) SetUpTest(c *C) {
 	s.server = srv
 	s.err = make(chan error)
 	go func() { s.err <- s.server.Run() }()
-	select {
-	case <-s.server.Started:
-	case <-s.server.Stopped:
-		c.Fatalf("could not start server: %s", <-s.err)
-	}
 }
 
 func (s *ServerSuite) TearDownTest(c *C) {
-	fmt.Println("POW")
 	s.server.Close()
 	c.Assert(<-s.err, IsNil)
 	_, err := os.Open(s.sockPath)
