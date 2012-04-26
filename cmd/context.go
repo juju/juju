@@ -68,24 +68,21 @@ func (ctx *Context) InitLog(verbose bool, debug bool, logfile string) (err error
 // suitable for passing to os.Exit.
 func Main(c Command, ctx *Context, args []string) int {
 	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
-	f.Usage = func() {}
 	f.SetOutput(ioutil.Discard)
-	printHelp := func() { c.Info().printHelp(ctx.Stderr, f) }
-	printErr := func(err error) { fmt.Fprintf(ctx.Stderr, "ERROR: %v\n", err) }
-
-	switch err := c.Init(f, args); err {
-	case nil:
-		if err = c.Run(ctx); err != nil {
-			log.Debugf("%s command failed: %s\n", c.Info().Name, err)
-			printErr(err)
-			return 1
+	if err := c.Init(f, args); err != nil {
+		help := c.Info().help(f)
+		if err == gnuflag.ErrHelp {
+			ctx.Stderr.Write(help)
+			return 0
 		}
-	case gnuflag.ErrHelp:
-		printHelp()
-	default:
-		printErr(err)
-		printHelp()
+		fmt.Fprintf(ctx.Stderr, "ERROR: %v\n", err)
+		ctx.Stderr.Write(help)
 		return 2
+	}
+	if err := c.Run(ctx); err != nil {
+		log.Debugf("%s command failed: %s\n", c.Info().Name, err)
+		fmt.Fprintf(ctx.Stderr, "ERROR: %v\n", err)
+		return 1
 	}
 	return 0
 }
