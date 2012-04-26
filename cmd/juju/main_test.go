@@ -34,7 +34,9 @@ func badrun(c *C, exit int, cmd ...string) []string {
 	args := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "juju"}, cmd...)
 	ps := exec.Command(os.Args[0], args...)
 	output, err := ps.CombinedOutput()
-	c.Assert(err, ErrorMatches, fmt.Sprintf("exit status %d", exit))
+	if exit != 0 {
+		c.Assert(err, ErrorMatches, fmt.Sprintf("exit status %d", exit))
+	}
 	return strings.Split(string(output), "\n")
 }
 
@@ -138,8 +140,8 @@ func (s *MainSuite) TestHelp(c *C) {
 	// Check that we have correctly registered all the commands
 	// by checking the help output.
 
-	lines := badrun(c, 2, "-help")
-	c.Assert(lines[0], Matches, "flag: help requested.*")
+	lines := badrun(c, 0, "-help")
+	c.Assert(lines[0], Matches, `usage: juju .*`)
 
 	for ; len(lines) > 0; lines = lines[1:] {
 		if lines[0] == "commands:" {
