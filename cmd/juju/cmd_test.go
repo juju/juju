@@ -91,9 +91,9 @@ func assertConnName(c *C, com cmd.Command, name string) {
 	c.Assert(v.Interface(), Equals, name)
 }
 
-// All members of genericTests are tested for the -environment and -e
+// All members of EnvironmentInitTests are tested for the -environment and -e
 // flags, and that extra arguments will cause parsing to fail.
-var genericInitTests = []cmd.Command{
+var EnvironmentInitTests = []cmd.Command{
 	&main.BootstrapCommand{},
 	&main.DestroyCommand{},
 }
@@ -102,7 +102,7 @@ var genericInitTests = []cmd.Command{
 // the --environment variable initialise their
 // environment name correctly.
 func (*cmdSuite) TestEnvironmentInit(c *C) {
-	for i, command := range genericInitTests {
+	for i, command := range EnvironmentInitTests {
 		c.Logf("test %d", i)
 		com := testInit(c, command, nil, "")
 		assertConnName(c, com, "")
@@ -117,7 +117,7 @@ func (*cmdSuite) TestEnvironmentInit(c *C) {
 	}
 }
 
-var cmdTests = []struct {
+var CommandsTests = []struct {
 	cmd     cmd.Command
 	args    []string          // Arguments to give to command.
 	ops     []dummy.Operation // Expected operations performed by command.
@@ -148,7 +148,7 @@ var cmdTests = []struct {
 }
 
 func (*cmdSuite) TestCommands(c *C) {
-	for i, t := range cmdTests {
+	for i, t := range CommandsTests {
 		c.Logf("test %d: %T", i, t.cmd)
 
 		// Gather operations as they happen.

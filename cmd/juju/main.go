@@ -6,7 +6,9 @@ import (
 	"os"
 )
 
-// Environment types to include.
+// When we import an environment provider implementation
+// here, it will register itself with environs, and hence
+// be available to the juju command.
 import (
 	_ "launchpad.net/juju/go/environs/ec2"
 )
