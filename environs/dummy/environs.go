@@ -101,7 +101,7 @@ func Reset(c chan<- Operation) {
 	providerInstance.reset(c)
 }
 
-func (e *environProvider) reset(c chan <-Operation) {
+func (e *environProvider) reset(c chan<- Operation) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if c == nil {
@@ -122,7 +122,7 @@ func (e *environProvider) ConfigChecker() schema.Checker {
 		schema.Fields{
 			"type":      schema.Const("dummy"),
 			"zookeeper": schema.Const(false), // TODO
-			"broken": schema.Bool(),
+			"broken":    schema.Bool(),
 		},
 		[]string{
 			"broken",
@@ -134,7 +134,6 @@ func (e *environProvider) Open(name string, attributes interface{}) (environs.En
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	cfg := attributes.(schema.MapType)
-
 	env := &environ{
 		name:      name,
 		zookeeper: cfg["zookeeper"].(bool),
