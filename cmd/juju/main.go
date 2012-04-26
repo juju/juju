@@ -5,6 +5,11 @@ import (
 	"os"
 )
 
+// Environment types to include.
+import (
+	_ "launchpad.net/juju/go/environs/ec2"
+)
+
 var jujuDoc = `
 juju provides easy, intelligent service orchestration on top of environments
 such as OpenStack, Amazon AWS, or bare metal.
@@ -18,6 +23,7 @@ https://juju.ubuntu.com/
 func Main(args []string) {
 	juju := cmd.NewSuperCommand("juju", "", jujuDoc)
 	juju.Register(&BootstrapCommand{})
+	juju.Register(&DestroyCommand{})
 	os.Exit(cmd.Main(juju, cmd.DefaultContext(), args[1:]))
 }
 

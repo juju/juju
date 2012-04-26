@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -72,12 +73,28 @@ func (s *MainSuite) TestActualRunSubcmdArgWorksNotInterspersed(c *C) {
 	c.Assert(lines[1], Equals, "usage: juju <command> [options] ...")
 }
 
+var brokenConfig = `
+environments:
+    one:
+        type: dummy
+        zookeeper: false
+        broken: true
+`
+
 // Induce failure to load environments and hence break Run.
 func breakJuju(c *C) (string, func()) {
 	home := os.Getenv("HOME")
 	path := c.MkDir()
 	os.Setenv("HOME", path)
-	msg := fmt.Sprintf("open %s/.juju/environments.yaml: no such file or directory", path)
+
+	jujuDir := filepath.Join(path, ".juju")
+	err := os.Mkdir(jujuDir, 0777)
+	c.Assert(err, IsNil)
+
+	err = ioutil.WriteFile(filepath.Join(jujuDir, "environments.yaml"), []byte(brokenConfig), 0666)
+	c.Assert(err, IsNil)
+
+	msg := "broken environment"
 	return msg, func() { os.Setenv("HOME", home) }
 }
 
@@ -105,4 +122,36 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 	c.Assert(err, IsNil)
 	fullmsg := fmt.Sprintf(`.* JUJU:DEBUG juju bootstrap command failed: %s\n`, msg)
 	c.Assert(string(content), Matches, fullmsg)
+}
+
+var commandNames = []string{
+	"bootstrap",
+	"destroy-environment",
+}
+
+func (s *MainSuite) TestHelp(c *C) {
+	// Check that we have correctly registered all the commands
+	// by checking the help output.
+
+	lines := badrun(c, 2, "-help")
+	c.Assert(lines[0], Matches, "flag: help requested.*")
+
+	for ; len(lines) > 0; lines = lines[1:] {
+		if lines[0] == "commands:" {
+			break
+		}
+	}
+	c.Assert(lines, Not(HasLen), 0)
+
+	var names []string
+	for lines = lines[1:]; len(lines) > 0; lines = lines[1:] {
+		f := strings.Fields(lines[0])
+		if len(f) == 0 {
+			continue
+		}
+		c.Assert(f, Not(HasLen), 0)
+		names = append(names, f[0])
+	}
+	sort.Strings(names)
+	c.Assert(names, DeepEquals, commandNames)
 }
