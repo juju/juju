@@ -32,7 +32,7 @@ func checkMessage(c *C, msg string, cmd ...string) {
 	output, err := ps.CombinedOutput()
 	c.Assert(err, ErrorMatches, "exit status 2")
 	lines := strings.Split(string(output), "\n")
-	c.Assert(lines[0], Equals, "ERROR: "+msg)
+	c.Assert(lines[len(lines)-2], Equals, "error: "+msg)
 }
 
 func (s *MainSuite) TestParseErrors(c *C) {
