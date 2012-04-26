@@ -46,13 +46,21 @@ func (c *SuperCommand) describeCommands() string {
 		return ""
 	}
 	i := 0
+	longest := 0
 	for name := range c.subcmds {
-		purpose := c.subcmds[name].Info().Purpose
-		cmds[i] = fmt.Sprintf("    %-12s %s\n", name, purpose)
+		if len(name) > longest {
+			longest = len(name)
+		}
+		cmds[i] = name
 		i++
 	}
 	sort.Strings(cmds)
-	return fmt.Sprintf("commands:\n%s", strings.Join(cmds, ""))
+	for i, name := range cmds {
+		purpose := c.subcmds[name].Info().Purpose
+		padded := name + strings.Repeat(" ", longest-len(name))
+		cmds[i] = fmt.Sprintf("    %s  %s", padded, purpose)
+	}
+	return fmt.Sprintf("commands:\n%s", strings.Join(cmds, "\n"))
 }
 
 // Info returns a description of the currently selected subcommand, or of the
@@ -68,7 +76,7 @@ func (c *SuperCommand) Info() *Info {
 	if doc := strings.TrimSpace(c.Doc); doc != "" {
 		docParts = append(docParts, doc)
 	}
-	if cmds := strings.TrimSpace(c.describeCommands()); cmds != "" {
+	if cmds := c.describeCommands(); cmds != "" {
 		docParts = append(docParts, cmds)
 	}
 	return &Info{c.Name, "<command> ...", c.Purpose, strings.Join(docParts, "\n\n")}

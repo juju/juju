@@ -65,7 +65,7 @@ func (s *CommandSuite) TestDispatch(c *C) {
 	info = jc.Info()
 	c.Assert(info.Name, Equals, "jujutest")
 	c.Assert(info.Args, Equals, "<command> ...")
-	c.Assert(info.Doc, Equals, "commands:\n    defenestrate defenestrate the juju")
+	c.Assert(info.Doc, Equals, "commands:\n    defenestrate  defenestrate the juju")
 
 	jc, tc, err := initDefenestrate([]string{"defenestrate"})
 	c.Assert(err, IsNil)
@@ -86,9 +86,9 @@ func (s *CommandSuite) TestDispatch(c *C) {
 func (s *CommandSuite) TestSubcommands(c *C) {
 	jc := cmd.NewSuperCommand("jujutest", "to be purposeful", "doc\nblah\ndoc")
 	jc.Register(&TestCommand{Name: "flip"})
-	jc.Register(&TestCommand{Name: "flap"})
-	badCall := func() { jc.Register(&TestCommand{Name: "flap"}) }
-	c.Assert(badCall, PanicMatches, "command already registered: flap")
+	jc.Register(&TestCommand{Name: "flapbabble"})
+	badCall := func() { jc.Register(&TestCommand{Name: "flip"}) }
+	c.Assert(badCall, PanicMatches, "command already registered: flip")
 
 	info := jc.Info()
 	c.Assert(info.Name, Equals, "jujutest")
@@ -98,8 +98,8 @@ blah
 doc
 
 commands:
-    flap         flap the juju
-    flip         flip the juju`)
+    flapbabble  flapbabble the juju
+    flip        flip the juju`)
 }
 
 func (s *CommandSuite) TestLogging(c *C) {
