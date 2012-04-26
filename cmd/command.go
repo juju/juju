@@ -29,9 +29,7 @@ func (i *Info) help(f *gnuflag.FlagSet) []byte {
 	buf := &bytes.Buffer{}
 	fmt.Fprintf(buf, "usage: %s", i.Name)
 	hasOptions := false
-	if f != nil {
-		f.VisitAll(func(f *gnuflag.Flag) { hasOptions = true })
-	}
+	f.VisitAll(func(f *gnuflag.Flag) { hasOptions = true })
 	if hasOptions {
 		fmt.Fprintf(buf, " [options]")
 	}
