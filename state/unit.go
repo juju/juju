@@ -54,6 +54,12 @@ type Port struct {
 	Number   int    `yaml:"port"`
 }
 
+// openPortsNode represents the content of the
+// ports node of a unit.
+type openPortsNode struct {
+	Open []Port
+}
+
 // Unit represents the state of a service unit.
 type Unit struct {
 	st          *State
@@ -367,9 +373,9 @@ func (u *Unit) WatchResolved() *ResolvedWatcher {
 // OpenPort sets the policy of the port with protocol and number to be opened.
 func (u *Unit) OpenPort(protocol string, number int) error {
 	openPort := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
-		ports := &struct{ Open []Port }{}
+		var ports openPortsNode
 		if oldYaml != "" {
-			if err := goyaml.Unmarshal([]byte(oldYaml), ports); err != nil {
+			if err := goyaml.Unmarshal([]byte(oldYaml), &ports); err != nil {
 				return "", err
 			}
 		}
@@ -396,9 +402,9 @@ func (u *Unit) OpenPort(protocol string, number int) error {
 // ClosePort sets the policy of the port with protocol and number to be closed.
 func (u *Unit) ClosePort(protocol string, number int) error {
 	closePort := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
-		ports := &struct{ Open []Port }{}
+		var ports openPortsNode
 		if oldYaml != "" {
-			if err := goyaml.Unmarshal([]byte(oldYaml), ports); err != nil {
+			if err := goyaml.Unmarshal([]byte(oldYaml), &ports); err != nil {
 				return "", err
 			}
 		}
@@ -429,16 +435,16 @@ func (u *Unit) OpenPorts() ([]Port, error) {
 	if err != nil {
 		return nil, err
 	}
-	ports := &struct{ Open []Port }{}
+	var ports openPortsNode
 	if err = goyaml.Unmarshal([]byte(yaml), &ports); err != nil {
 		return nil, err
 	}
 	return ports.Open, nil
 }
 
-// WatchResolved returns a watcher that fires when the list
-// of ports of the unit changes by opening or closing them.
-// See OpenPort for details.
+// WatchResolved returns a watcher that fires when the
+// list of open ports of the unit is changed.
+// See OpenPorts for details.
 func (u *Unit) WatchPorts() *PortsWatcher {
 	return newPortsWatcher(u.st, u.zkPortsPath())
 }
@@ -737,9 +743,7 @@ func (w *PortsWatcher) loop() {
 			if !ok {
 				return
 			}
-			var ports struct {
-				Open []Port
-			}
+			var ports openPortsNode
 			if err := goyaml.Unmarshal([]byte(change.Content), &ports); err != nil {
 				w.tomb.Kill(err)
 				return
