@@ -70,13 +70,16 @@ func Main(c Command, ctx *Context, args []string) int {
 	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
 	f.SetOutput(ioutil.Discard)
 	if err := c.Init(f, args); err != nil {
-		fmt.Fprintf(ctx.Stderr, "%v\n", err)
-		ctx.Stderr.Write(c.Info().usage(f))
+		ctx.Stderr.Write(c.Info().help(f))
+		if err == gnuflag.ErrHelp {
+			return 0
+		}
+		fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
 		return 2
 	}
 	if err := c.Run(ctx); err != nil {
 		log.Debugf("%s command failed: %s\n", c.Info().Name, err)
-		fmt.Fprintf(ctx.Stderr, "%v\n", err)
+		fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
 		return 1
 	}
 	return 0

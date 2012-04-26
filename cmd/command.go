@@ -23,9 +23,9 @@ type Info struct {
 	Doc string
 }
 
-// usage renders i's content, along with documentation for any
+// help renders i's content, along with documentation for any
 // flags defined in f. It calls f.SetOutput(ioutil.Discard).
-func (i *Info) usage(f *gnuflag.FlagSet) []byte {
+func (i *Info) help(f *gnuflag.FlagSet) []byte {
 	buf := &bytes.Buffer{}
 	fmt.Fprintf(buf, "usage: %s", i.Name)
 	hasOptions := false
