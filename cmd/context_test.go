@@ -29,7 +29,7 @@ func (c *CtxCommand) Info() *cmd.Info {
 	if c.Minimal {
 		return &cmd.Info{"cmd-name", "", "", ""}
 	}
-	return &cmd.Info{"cmd-name", "[options]", "cmd-purpose", "cmd-doc"}
+	return &cmd.Info{"cmd-name", "<some arg>", "cmd-purpose", "cmd-doc"}
 }
 
 func (c *CtxCommand) Init(f *gnuflag.FlagSet, args []string) error {
@@ -52,7 +52,7 @@ func (c *CtxCommand) Run(ctx *cmd.Context) error {
 }
 
 var minUsage = "usage: cmd-name\n"
-var fullUsage = `usage: cmd-name [options]
+var fullUsage = `usage: cmd-name [options] <some arg>
 purpose: cmd-purpose
 
 options:
@@ -69,7 +69,7 @@ func AssertMainOutput(c *C, com cmd.Command, usage string) {
 	result := cmd.Main(com, ctx, []string{"--unknown"})
 	c.Assert(result, Equals, 2)
 	c.Assert(str(ctx.Stdout), Equals, "")
-	expected := "flag provided but not defined: --unknown\n" + usage
+	expected := usage + "error: flag provided but not defined: --unknown\n"
 	c.Assert(str(ctx.Stderr), Equals, expected)
 }
 
@@ -83,7 +83,7 @@ func (s *CommandSuite) TestMainBadRun(c *C) {
 	result := cmd.Main(&CtxCommand{}, ctx, []string{"--opt", "error"})
 	c.Assert(result, Equals, 1)
 	c.Assert(str(ctx.Stdout), Equals, "")
-	c.Assert(str(ctx.Stderr), Equals, "oh noes!\n")
+	c.Assert(str(ctx.Stderr), Equals, "error: oh noes!\n")
 }
 
 func (s *CommandSuite) TestMainSuccess(c *C) {
@@ -92,6 +92,16 @@ func (s *CommandSuite) TestMainSuccess(c *C) {
 	c.Assert(result, Equals, 0)
 	c.Assert(str(ctx.Stdout), Equals, "hello stdout: success!")
 	c.Assert(str(ctx.Stderr), Equals, "hello stderr: success!")
+}
+
+func (s *CommandSuite) TestHelp(c *C) {
+	for _, arg := range []string{"-h", "--help"} {
+		ctx := dummyContext(c)
+		result := cmd.Main(&CtxCommand{}, ctx, []string{arg})
+		c.Assert(result, Equals, 0)
+		c.Assert(str(ctx.Stdout), Equals, "")
+		c.Assert(str(ctx.Stderr), Equals, fullUsage)
+	}
 }
 
 func AssertInitLog(c *C, verbose bool, debug bool, logfile string, logre string) {
