@@ -1,11 +1,14 @@
 package main
 
 import (
+	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/cmd"
 	"os"
 )
 
-// Environment types to include.
+// When we import an environment provider implementation
+// here, it will register itself with environs, and hence
+// be available to the juju command.
 import (
 	_ "launchpad.net/juju/go/environs/ec2"
 )
@@ -29,4 +32,9 @@ func Main(args []string) {
 
 func main() {
 	Main(os.Args)
+}
+
+func addEnvironFlags(name *string, f *gnuflag.FlagSet) {
+	f.StringVar(name, "e", "", "juju environment to operate in")
+	f.StringVar(name, "environment", "", "")
 }
