@@ -15,7 +15,7 @@ import (
 )
 
 var jujucPurpose = "invoke a hosted command inside the unit agent process"
-var jujucDoc = `
+var JUJUC_DOC = `
 The jujuc command forwards invocations over RPC for execution by another
 process. It expects to be called via a symlink named for the desired remote
 command, and expects JUJU_AGENT_SOCKET and JUJU_CONTEXT_ID be set in its
@@ -53,7 +53,7 @@ func (j *Jujuc) cmd(contextId string) (cmd.Command, error) {
 		return nil, err
 	}
 	sc := &cmd.SuperCommand{
-		Name: "(-> jujuc)", Purpose: jujucPurpose, Doc: jujucDoc,
+		Name: "(-> jujuc)", Purpose: jujucPurpose, Doc: JUJUC_DOC,
 	}
 	for _, c := range cmds {
 		sc.Register(c)
