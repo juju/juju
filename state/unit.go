@@ -54,6 +54,12 @@ type Port struct {
 	Number   int    `yaml:"port"`
 }
 
+// openPortsNode represents the content of the
+// ports node of a unit.
+type openPortsNode struct {
+	Open []Port
+}
+
 // Unit represents the state of a service unit.
 type Unit struct {
 	st          *State
@@ -367,9 +373,9 @@ func (u *Unit) WatchResolved() *ResolvedWatcher {
 // OpenPort sets the policy of the port with protocol and number to be opened.
 func (u *Unit) OpenPort(protocol string, number int) error {
 	openPort := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
-		ports := &struct{ Open []Port }{}
+		var ports openPortsNode
 		if oldYaml != "" {
-			if err := goyaml.Unmarshal([]byte(oldYaml), ports); err != nil {
+			if err := goyaml.Unmarshal([]byte(oldYaml), &ports); err != nil {
 				return "", err
 			}
 		}
@@ -396,9 +402,9 @@ func (u *Unit) OpenPort(protocol string, number int) error {
 // ClosePort sets the policy of the port with protocol and number to be closed.
 func (u *Unit) ClosePort(protocol string, number int) error {
 	closePort := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
-		ports := &struct{ Open []Port }{}
+		var ports openPortsNode
 		if oldYaml != "" {
-			if err := goyaml.Unmarshal([]byte(oldYaml), ports); err != nil {
+			if err := goyaml.Unmarshal([]byte(oldYaml), &ports); err != nil {
 				return "", err
 			}
 		}
@@ -429,11 +435,18 @@ func (u *Unit) OpenPorts() ([]Port, error) {
 	if err != nil {
 		return nil, err
 	}
-	ports := &struct{ Open []Port }{}
+	var ports openPortsNode
 	if err = goyaml.Unmarshal([]byte(yaml), &ports); err != nil {
 		return nil, err
 	}
 	return ports.Open, nil
+}
+
+// WatchResolved returns a watcher that fires when the
+// list of open ports of the unit is changed.
+// See OpenPorts for details.
+func (u *Unit) WatchPorts() *PortsWatcher {
+	return newPortsWatcher(u.st, u.zkPortsPath())
 }
 
 // AgentAlive returns whether the respective remote agent is alive.
@@ -582,7 +595,6 @@ func (w *NeedsUpgradeWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
-				w.tomb.Kill(nil)
 				return
 			}
 			var needsUpgrade NeedsUpgrade
@@ -658,7 +670,6 @@ func (w *ResolvedWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
-				w.tomb.Kill(nil)
 				return
 			}
 			mode, err := parseResolvedMode(change.Content)
@@ -672,6 +683,77 @@ func (w *ResolvedWatcher) loop() {
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- mode:
+			}
+		}
+	}
+}
+
+// PortsWatcher observes changes to a unit's open ports.
+// See OpenPort for details.
+type PortsWatcher struct {
+	st         *State
+	path       string
+	tomb       tomb.Tomb
+	watcher    *watcher.ContentWatcher
+	changeChan chan []Port
+}
+
+// newPortsWatcher creates and starts a new ports node 
+// watcher for the given path.
+func newPortsWatcher(st *State, path string) *PortsWatcher {
+	w := &PortsWatcher{
+		st:         st,
+		path:       path,
+		changeChan: make(chan []Port),
+		watcher:    watcher.NewContentWatcher(st.zk, path),
+	}
+	go w.loop()
+	return w
+}
+
+// Changes returns a channel that will receive the actual
+// open ports when a change is detected. Note that multiple
+// changes may be observed as a single event in the channel.
+func (w *PortsWatcher) Changes() <-chan []Port {
+	return w.changeChan
+}
+
+// Stop stops the watch and returns any error encountered
+// while watching. This method should always be called
+// before discarding the watcher.
+func (w *PortsWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	if err := w.watcher.Stop(); err != nil {
+		w.tomb.Wait()
+		return err
+	}
+	return w.tomb.Wait()
+}
+
+// loop is the backend for watching the ports node.
+func (w *PortsWatcher) loop() {
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case change, ok := <-w.watcher.Changes():
+			if !ok {
+				return
+			}
+			var ports openPortsNode
+			if err := goyaml.Unmarshal([]byte(change.Content), &ports); err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			select {
+			case <-w.watcher.Dying():
+				return
+			case <-w.tomb.Dying():
+				return
+			case w.changeChan <- ports.Open:
 			}
 		}
 	}
