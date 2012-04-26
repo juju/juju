@@ -42,17 +42,27 @@ func (c *SuperCommand) Register(subcmd Command) {
 	c.subcmds[name] = subcmd
 }
 
-// DescribeCommands returns a short description of each registered subcommand.
-func (c *SuperCommand) DescribeCommands() string {
+// describeCommands returns a short description of each registered subcommand.
+func (c *SuperCommand) describeCommands() string {
 	cmds := make([]string, len(c.subcmds))
+	if len(cmds) == 0 {
+		return ""
+	}
 	i := 0
-	for name, _ := range c.subcmds {
-		purpose := c.subcmds[name].Info().Purpose
-		cmds[i] = fmt.Sprintf("    %-12s %s\n", name, purpose)
+	longest := 0
+	for name := range c.subcmds {
+		if len(name) > longest {
+			longest = len(name)
+		}
+		cmds[i] = name
 		i++
 	}
 	sort.Strings(cmds)
-	return fmt.Sprintf("commands:\n%s", strings.Join(cmds, ""))
+	for i, name := range cmds {
+		purpose := c.subcmds[name].Info().Purpose
+		cmds[i] = fmt.Sprintf("    %-*s - %s", longest, name, purpose)
+	}
+	return fmt.Sprintf("commands:\n%s", strings.Join(cmds, "\n"))
 }
 
 // Info returns a description of the currently selected subcommand, or of the
@@ -64,10 +74,14 @@ func (c *SuperCommand) Info() *Info {
 		info.Name = fmt.Sprintf("%s %s", c.Name, info.Name)
 		return info
 	}
-	return &Info{
-		c.Name, "<command> [options] ...", c.Purpose,
-		fmt.Sprintf("%s\n\n%s", strings.TrimSpace(c.Doc), c.DescribeCommands()),
+	docParts := []string{}
+	if doc := strings.TrimSpace(c.Doc); doc != "" {
+		docParts = append(docParts, doc)
 	}
+	if cmds := c.describeCommands(); cmds != "" {
+		docParts = append(docParts, cmds)
+	}
+	return &Info{c.Name, "<command> ...", c.Purpose, strings.Join(docParts, "\n\n")}
 }
 
 // Init initializes the command for running.
@@ -96,7 +110,7 @@ func (c *SuperCommand) Run(ctx *Context) error {
 		return err
 	}
 	if c.subcmd == nil {
-		panic("Run: missing subcommand; Parse failed or not called")
+		panic("Run: missing subcommand; Init failed or not called")
 	}
 	return c.subcmd.Run(ctx)
 }

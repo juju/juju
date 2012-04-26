@@ -1,16 +1,19 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"launchpad.net/gnuflag"
+	"strings"
 )
 
-// Info holds everything necessary to describe a Command's intent and usage.
+// Info holds some of the usage documentation of a Command.
 type Info struct {
 	// Name is the Command's name.
 	Name string
 
-	// Args describes the command's expected arguments.
+	// Args describes the command's expected positional arguments.
 	Args string
 
 	// Purpose is a short explanation of the Command's purpose.
@@ -20,12 +23,33 @@ type Info struct {
 	Doc string
 }
 
-// Usage combines Name and Args to describe the Command's intended usage.
-func (i *Info) Usage() string {
-	if i.Args == "" {
-		return i.Name
+// help renders i's content, along with documentation for any
+// flags defined in f. It calls f.SetOutput(ioutil.Discard).
+func (i *Info) help(f *gnuflag.FlagSet) []byte {
+	buf := &bytes.Buffer{}
+	fmt.Fprintf(buf, "usage: %s", i.Name)
+	hasOptions := false
+	f.VisitAll(func(f *gnuflag.Flag) { hasOptions = true })
+	if hasOptions {
+		fmt.Fprintf(buf, " [options]")
 	}
-	return fmt.Sprintf("%s %s", i.Name, i.Args)
+	if i.Args != "" {
+		fmt.Fprintf(buf, " %s", i.Args)
+	}
+	if i.Purpose != "" {
+		fmt.Fprintf(buf, "\npurpose: %s", i.Purpose)
+	}
+	if hasOptions {
+		fmt.Fprintf(buf, "\n\noptions:\n")
+		f.SetOutput(buf)
+		f.PrintDefaults()
+	}
+	f.SetOutput(ioutil.Discard)
+	if i.Doc != "" {
+		fmt.Fprintf(buf, "\n%s", strings.TrimSpace(i.Doc))
+	}
+	fmt.Fprintf(buf, "\n")
+	return buf.Bytes()
 }
 
 // Command is implemented by types that interpret command-line arguments.
