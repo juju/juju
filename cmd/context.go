@@ -71,7 +71,7 @@ func Main(c Command, ctx *Context, args []string) int {
 	f.SetOutput(ioutil.Discard)
 	if err := c.Init(f, args); err != nil {
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
-		c.Info().printUsage(ctx.Stderr, f)
+		ctx.Stderr.Write(c.Info().usage(f))
 		return 2
 	}
 	if err := c.Run(ctx); err != nil {
