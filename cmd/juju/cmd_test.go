@@ -57,27 +57,15 @@ func newFlagSet() *gnuflag.FlagSet {
 	return gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
 }
 
-// newCommand makes a new Command of the same
-// type as the old one.
-func newCommand(old cmd.Command) cmd.Command {
-	v := reflect.New(reflect.TypeOf(old).Elem())
-	return v.Interface().(cmd.Command)
-}
-
 // testInit checks that a command initialises correctly
-// with the given set of arguments. It copies the
-// command so that we can run several tests on
-// the same command type, and returns the newly
-// copied and parsed command.
-func testInit(c *C, com cmd.Command, args []string, errPat string) cmd.Command {
-	com = newCommand(com)
+// with the given set of arguments.
+func testInit(c *C, com cmd.Command, args []string, errPat string){
 	err := com.Init(newFlagSet(), args)
 	if errPat != "" {
 		c.Assert(err, ErrorMatches, errPat)
 	} else {
 		c.Assert(err, IsNil)
 	}
-	return com
 }
 
 // assertConnName asserts that the Command is using
@@ -93,27 +81,31 @@ func assertConnName(c *C, com cmd.Command, name string) {
 
 // All members of EnvironmentInitTests are tested for the -environment and -e
 // flags, and that extra arguments will cause parsing to fail.
-var EnvironmentInitTests = []cmd.Command{
-	&main.BootstrapCommand{},
-	&main.DestroyCommand{},
+var EnvironmentInitTests = []func()cmd.Command{
+	func() cmd.Command{return &main.BootstrapCommand{}},
+	func() cmd.Command{return &main.DestroyCommand{}},
 }
 
 // TestEnvironmentInit tests that all commands which accept
 // the --environment variable initialise their
 // environment name correctly.
 func (*cmdSuite) TestEnvironmentInit(c *C) {
-	for i, command := range EnvironmentInitTests {
+	for i, cmdFunc := range EnvironmentInitTests {
 		c.Logf("test %d", i)
-		com := testInit(c, command, nil, "")
+		com := cmdFunc()
+		testInit(c, com, nil, "")
 		assertConnName(c, com, "")
 
-		com = testInit(c, command, []string{"-e", "walthamstow"}, "")
+		com = cmdFunc()
+		testInit(c, com, []string{"-e", "walthamstow"}, "")
 		assertConnName(c, com, "walthamstow")
 
-		com = testInit(c, command, []string{"--environment", "walthamstow"}, "")
+		com = cmdFunc()
+		testInit(c, com, []string{"--environment", "walthamstow"}, "")
 		assertConnName(c, com, "walthamstow")
 
-		testInit(c, command, []string{"hotdog"}, "unrecognised args.*")
+		com = cmdFunc()
+		testInit(c, com, []string{"hotdog"}, "unrecognised args.*")
 	}
 }
 
@@ -163,13 +155,13 @@ func (*cmdSuite) TestCommands(c *C) {
 		}()
 		dummy.Reset(opc)
 
-		com := testInit(c, t.cmd, t.args, t.initErr)
+		testInit(c, t.cmd, t.args, t.initErr)
 		if t.initErr != "" {
 			// It's already passed the test in testParse.
 			continue
 		}
 
-		err := com.Run(cmd.DefaultContext())
+		err := t.cmd.Run(cmd.DefaultContext())
 		// signal that we're done with this listener channel.
 		dummy.Reset(nil)
 		<-done
