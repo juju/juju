@@ -5,6 +5,7 @@ import (
 	"io"
 	"launchpad.net/juju/go/schema"
 	"launchpad.net/juju/go/state"
+	"launchpad.net/juju/go/version"
 )
 
 // A EnvironProvider represents a computing and storage provider.
