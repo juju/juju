@@ -401,6 +401,13 @@ func (u *Unit) OpenPorts() ([]Port, error) {
 	return ports.Open, nil
 }
 
+// WatchResolved returns a watcher that fires when the list
+// of ports of the unit changes by opening or closing them.
+// See OpenPort for details.
+func (u *Unit) WatchPorts() *PortsWatcher {
+	return newPortsWatcher(u.st, u.zkPortsPath())
+}
+
 // AgentAlive returns whether the respective remote agent is alive.
 func (u *Unit) AgentAlive() (bool, error) {
 	return presence.Alive(u.st.zk, u.zkAgentPath())
@@ -627,6 +634,80 @@ func (w *ResolvedWatcher) loop() {
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- mode:
+			}
+		}
+	}
+}
+
+// PortsWatcher observes changes to a unit's open ports.
+// See OpenPort for details.
+type PortsWatcher struct {
+	st         *State
+	path       string
+	tomb       tomb.Tomb
+	watcher    *watcher.ContentWatcher
+	changeChan chan []Port
+}
+
+// newPortsWatcher creates and starts a new resolved flag node 
+// watcher for the given path.
+func newPortsWatcher(st *State, path string) *PortsWatcher {
+	w := &PortsWatcher{
+		st:         st,
+		path:       path,
+		changeChan: make(chan []Port),
+		watcher:    watcher.NewContentWatcher(st.zk, path),
+	}
+	go w.loop()
+	return w
+}
+
+// Changes returns a channel that will receive the actual
+// open ports when a change is detected. Note that multiple
+// changes may be observed as a single event in the channel.
+func (w *PortsWatcher) Changes() <-chan []Port {
+	return w.changeChan
+}
+
+// Stop stops the watch and returns any error encountered
+// while watching. This method should always be called
+// before discarding the watcher.
+func (w *PortsWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	if err := w.watcher.Stop(); err != nil {
+		w.tomb.Wait()
+		return err
+	}
+	return w.tomb.Wait()
+}
+
+// loop is the backend for watching the ports node.
+func (w *PortsWatcher) loop() {
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case change, ok := <-w.watcher.Changes():
+			if !ok {
+				w.tomb.Kill(nil)
+				return
+			}
+			var ports struct {
+				Open []Port
+			}
+			if err := goyaml.Unmarshal([]byte(change.Content), &ports); err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			select {
+			case <-w.watcher.Dying():
+				return
+			case <-w.tomb.Dying():
+				return
+			case w.changeChan <- ports.Open:
 			}
 		}
 	}
