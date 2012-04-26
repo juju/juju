@@ -833,7 +833,7 @@ func (s *StateSuite) TestGetSetClearUnitUpgrade(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{true, true})
 
-	// Can't be set multipe with different force flag. (TODO)
+	// Can't be set multipe with different force flag.
 	err = unit.SetNeedsUpgrade(false)
 	c.Assert(err, ErrorMatches, `upgrade already enabled for unit "wordpress/0"`)
 }
