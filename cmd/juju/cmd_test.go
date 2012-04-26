@@ -131,7 +131,7 @@ func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc
 
 func (*cmdSuite) TestBootstrapCommand(c *C) {
 	// normal bootstrap
-	opc, errc = runCommand(new(main.BootstrapCommand))
+	opc, errc := runCommand(new(main.BootstrapCommand))
 	c.Check(<-opc, Equals, op(dummy.OpBootstrap, "peckham"))
 	c.Check(<-errc, IsNil)
 
@@ -143,7 +143,7 @@ func (*cmdSuite) TestBootstrapCommand(c *C) {
 
 func (*cmdSuite) TestDestroyCommand(c *C) {
 	// normal destroy
-	opc, errc = runCommand(new(main.DestroyCommand))
+	opc, errc := runCommand(new(main.DestroyCommand))
 	c.Check(<-opc, Equals, op(dummy.OpDestroy, "peckham"))
 	c.Check(<-errc, IsNil)
 
