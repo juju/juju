@@ -59,7 +59,7 @@ func newFlagSet() *gnuflag.FlagSet {
 
 // testInit checks that a command initialises correctly
 // with the given set of arguments.
-func testInit(c *C, com cmd.Command, args []string, errPat string){
+func testInit(c *C, com cmd.Command, args []string, errPat string) {
 	err := com.Init(newFlagSet(), args)
 	if errPat != "" {
 		c.Assert(err, ErrorMatches, errPat)
@@ -81,9 +81,9 @@ func assertConnName(c *C, com cmd.Command, name string) {
 
 // All members of EnvironmentInitTests are tested for the -environment and -e
 // flags, and that extra arguments will cause parsing to fail.
-var EnvironmentInitTests = []func()cmd.Command{
-	func() cmd.Command{return &main.BootstrapCommand{}},
-	func() cmd.Command{return &main.DestroyCommand{}},
+var EnvironmentInitTests = []func() cmd.Command{
+	func() cmd.Command { return &main.BootstrapCommand{} },
+	func() cmd.Command { return &main.DestroyCommand{} },
 }
 
 // TestEnvironmentInit tests that all commands which accept
