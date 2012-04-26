@@ -9,13 +9,6 @@ import (
 	"path/filepath"
 )
 
-func saveLog() func() {
-	target, debug := log.Target, log.Debug
-	return func() {
-		log.Target, log.Debug = target, debug
-	}
-}
-
 type LogSuite struct {
 	restoreLog func()
 }
@@ -23,7 +16,10 @@ type LogSuite struct {
 var _ = Suite(&LogSuite{})
 
 func (s *LogSuite) SetUpTest(c *C) {
-	s.restoreLog = saveLog()
+	target, debug := log.Target, log.Debug
+	s.restoreLog = func() {
+		log.Target, log.Debug = target, debug
+	}
 }
 
 func (s *LogSuite) TearDownTest(c *C) {
@@ -49,7 +45,6 @@ func (s *LogSuite) TestAddFlags(c *C) {
 }
 
 func (s *LogSuite) TestStart(c *C) {
-	defer saveLog()()
 	for _, t := range []struct {
 		path    string
 		verbose bool
@@ -75,7 +70,6 @@ func (s *LogSuite) TestStart(c *C) {
 }
 
 func (s *LogSuite) TestStderr(c *C) {
-	defer saveLog()()
 	l := &cmd.Log{Verbose: true}
 	ctx := dummyContext(c)
 	err := l.Start(ctx)
@@ -85,7 +79,6 @@ func (s *LogSuite) TestStderr(c *C) {
 }
 
 func (s *LogSuite) TestRelPathLog(c *C) {
-	defer saveLog()()
 	l := &cmd.Log{Path: "foo.log"}
 	ctx := dummyContext(c)
 	err := l.Start(ctx)
@@ -98,7 +91,6 @@ func (s *LogSuite) TestRelPathLog(c *C) {
 }
 
 func (s *LogSuite) TestAbsPathLog(c *C) {
-	defer saveLog()()
 	path := filepath.Join(c.MkDir(), "foo.log")
 	l := &cmd.Log{Path: path}
 	ctx := dummyContext(c)
