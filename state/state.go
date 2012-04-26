@@ -291,7 +291,6 @@ func (w *ConfigWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
-				w.tomb.Kill(nil)
 				return
 			}
 			// A non-existent node is treated as an empty node.

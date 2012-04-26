@@ -19,11 +19,7 @@ type agentConf struct {
 
 // Info returns a decription of the command.
 func (c *agentConf) Info() *cmd.Info {
-	return &cmd.Info{
-		c.name, "[options]",
-		fmt.Sprintf("run a juju %s agent", c.name),
-		"",
-	}
+	return &cmd.Info{c.name, "", fmt.Sprintf("run a juju %s agent", c.name), ""}
 }
 
 // Init initializes the command for running,

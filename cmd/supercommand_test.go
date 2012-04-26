@@ -19,11 +19,7 @@ type TestCommand struct {
 }
 
 func (c *TestCommand) Info() *cmd.Info {
-	return &cmd.Info{
-		c.Name, "[options]",
-		fmt.Sprintf("%s the juju", c.Name),
-		"blah doc",
-	}
+	return &cmd.Info{c.Name, "<something>", c.Name + " the juju", c.Name + " doc"}
 }
 
 func (c *TestCommand) Init(f *gnuflag.FlagSet, args []string) error {
@@ -61,15 +57,25 @@ var _ = Suite(&CommandSuite{})
 func (s *CommandSuite) TestSubcommandDispatch(c *C) {
 	jc, err := initEmpty([]string{})
 	c.Assert(err, ErrorMatches, `no command specified`)
-	c.Assert(jc.Info().Usage(), Equals, "jujutest <command> [options] ...")
+	info := jc.Info()
+	c.Assert(info.Name, Equals, "jujutest")
+	c.Assert(info.Args, Equals, "<command> ...")
+	c.Assert(info.Doc, Equals, "")
 
-	_, _, err = initDefenestrate([]string{"discombobulate"})
+	jc, _, err = initDefenestrate([]string{"discombobulate"})
 	c.Assert(err, ErrorMatches, "unrecognised command: jujutest discombobulate")
+	info = jc.Info()
+	c.Assert(info.Name, Equals, "jujutest")
+	c.Assert(info.Args, Equals, "<command> ...")
+	c.Assert(info.Doc, Equals, "commands:\n    defenestrate - defenestrate the juju")
 
 	jc, tc, err := initDefenestrate([]string{"defenestrate"})
 	c.Assert(err, IsNil)
 	c.Assert(tc.Value, Equals, "")
-	c.Assert(jc.Info().Usage(), Equals, "jujutest defenestrate [options]")
+	info = jc.Info()
+	c.Assert(info.Name, Equals, "jujutest defenestrate")
+	c.Assert(info.Args, Equals, "<something>")
+	c.Assert(info.Doc, Equals, "defenestrate doc")
 
 	_, tc, err = initDefenestrate([]string{"defenestrate", "--value", "firmly"})
 	c.Assert(err, IsNil)
@@ -80,15 +86,22 @@ func (s *CommandSuite) TestSubcommandDispatch(c *C) {
 }
 
 func (s *CommandSuite) TestRegister(c *C) {
-	jc := cmd.NewSuperCommand("jujutest", "", "")
+	jc := cmd.NewSuperCommand("jujutest", "to be purposeful", "doc\nblah\ndoc")
 	jc.Register(&TestCommand{Name: "flip"})
-	jc.Register(&TestCommand{Name: "flap"})
+	jc.Register(&TestCommand{Name: "flapbabble"})
 
-	badCall := func() { jc.Register(&TestCommand{Name: "flap"}) }
-	c.Assert(badCall, PanicMatches, "command already registered: flap")
+	badCall := func() { jc.Register(&TestCommand{Name: "flip"}) }
+	c.Assert(badCall, PanicMatches, "command already registered: flip")
+	info := jc.Info()
+	c.Assert(info.Name, Equals, "jujutest")
+	c.Assert(info.Purpose, Equals, "to be purposeful")
+	c.Assert(info.Doc, Equals, `doc
+blah
+doc
 
-	cmds := jc.DescribeCommands()
-	c.Assert(cmds, Equals, "commands:\n    flap         flap the juju\n    flip         flip the juju\n")
+commands:
+    flapbabble - flapbabble the juju
+    flip       - flip the juju`)
 }
 
 func (s *CommandSuite) TestDebug(c *C) {
