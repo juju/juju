@@ -57,27 +57,15 @@ func newFlagSet() *gnuflag.FlagSet {
 	return gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
 }
 
-// newCommand makes a new Command of the same
-// type as the old one.
-func newCommand(old cmd.Command) cmd.Command {
-	v := reflect.New(reflect.TypeOf(old).Elem())
-	return v.Interface().(cmd.Command)
-}
-
 // testInit checks that a command initialises correctly
-// with the given set of arguments. It copies the
-// command so that we can run several tests on
-// the same command type, and returns the newly
-// copied and parsed command.
-func testInit(c *C, com cmd.Command, args []string, errPat string) cmd.Command {
-	com = newCommand(com)
+// with the given set of arguments.
+func testInit(c *C, com cmd.Command, args []string, errPat string) {
 	err := com.Init(newFlagSet(), args)
 	if errPat != "" {
 		c.Assert(err, ErrorMatches, errPat)
 	} else {
 		c.Assert(err, IsNil)
 	}
-	return com
 }
 
 // assertConnName asserts that the Command is using
@@ -93,104 +81,81 @@ func assertConnName(c *C, com cmd.Command, name string) {
 
 // All members of EnvironmentInitTests are tested for the -environment and -e
 // flags, and that extra arguments will cause parsing to fail.
-var EnvironmentInitTests = []cmd.Command{
-	&main.BootstrapCommand{},
-	&main.DestroyCommand{},
+var EnvironmentInitTests = []func() cmd.Command{
+	func() cmd.Command { return new(main.BootstrapCommand) },
+	func() cmd.Command { return new(main.DestroyCommand) },
 }
 
 // TestEnvironmentInit tests that all commands which accept
 // the --environment variable initialise their
 // environment name correctly.
 func (*cmdSuite) TestEnvironmentInit(c *C) {
-	for i, command := range EnvironmentInitTests {
+	for i, cmdFunc := range EnvironmentInitTests {
 		c.Logf("test %d", i)
-		com := testInit(c, command, nil, "")
+		com := cmdFunc()
+		testInit(c, com, nil, "")
 		assertConnName(c, com, "")
 
-		com = testInit(c, command, []string{"-e", "walthamstow"}, "")
+		com = cmdFunc()
+		testInit(c, com, []string{"-e", "walthamstow"}, "")
 		assertConnName(c, com, "walthamstow")
 
-		com = testInit(c, command, []string{"--environment", "walthamstow"}, "")
+		com = cmdFunc()
+		testInit(c, com, []string{"--environment", "walthamstow"}, "")
 		assertConnName(c, com, "walthamstow")
 
-		testInit(c, command, []string{"hotdog"}, "unrecognised args.*")
+		com = cmdFunc()
+		testInit(c, com, []string{"hotdog"}, "unrecognised args.*")
 	}
 }
 
-var CommandsTests = []struct {
-	cmd     cmd.Command
-	args    []string          // Arguments to give to command.
-	ops     []dummy.Operation // Expected operations performed by command.
-	initErr string            // Expected error from Init.
-	runErr  string            // Expected error from Run.
-}{
-	{
-		cmd:     &main.BootstrapCommand{},
-		args:    []string{"hotdog"},
-		initErr: `unrecognised args: \[hotdog\]`,
-	}, {
-		cmd: &main.BootstrapCommand{},
-		ops: envOps("peckham", dummy.OpBootstrap),
-	}, {
-		cmd:    &main.BootstrapCommand{},
-		args:   []string{"-e", "barking"},
-		ops:    envOps("barking", dummy.OpBootstrap),
-		runErr: "broken environment",
-	}, {
-		cmd: &main.DestroyCommand{},
-		ops: envOps("peckham", dummy.OpDestroy),
-	}, {
-		cmd:    &main.DestroyCommand{},
-		args:   []string{"-e", "barking"},
-		ops:    envOps("barking", dummy.OpDestroy),
-		runErr: "broken environment",
-	},
+func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc chan error) {
+	errc = make(chan error, 1)
+	opc = make(chan dummy.Operation)
+	dummy.Reset(opc)
+	go func() {
+		// signal that we're done with this ops channel.
+		defer dummy.Reset(nil)
+
+		err := com.Init(newFlagSet(), args)
+		if err != nil {
+			errc <- err
+			return
+		}
+
+		err = com.Run(cmd.DefaultContext())
+		errc <- err
+	}()
+	return
 }
 
-func (*cmdSuite) TestCommands(c *C) {
-	for i, t := range CommandsTests {
-		c.Logf("test %d: %T", i, t.cmd)
+func (*cmdSuite) TestBootstrapCommand(c *C) {
+	// normal bootstrap
+	opc, errc = runCommand(new(main.BootstrapCommand))
+	c.Check(<-opc, Equals, op(dummy.OpBootstrap, "peckham"))
+	c.Check(<-errc, IsNil)
 
-		// Gather operations as they happen.
-		opc := make(chan dummy.Operation)
-		done := make(chan bool)
-		var ops []dummy.Operation
-		go func() {
-			for op := range opc {
-				ops = append(ops, op)
-			}
-			done <- true
-		}()
-		dummy.Reset(opc)
-
-		com := testInit(c, t.cmd, t.args, t.initErr)
-		if t.initErr != "" {
-			// It's already passed the test in testParse.
-			continue
-		}
-
-		err := com.Run(cmd.DefaultContext())
-		// signal that we're done with this listener channel.
-		dummy.Reset(nil)
-		<-done
-		if t.runErr != "" {
-			c.Assert(err, ErrorMatches, t.runErr)
-			continue
-		}
-		c.Assert(err, IsNil)
-		c.Check(ops, DeepEquals, t.ops)
-	}
+	// bootstrap with broken environment
+	opc, errc = runCommand(new(main.BootstrapCommand), "-e", "barking")
+	c.Check((<-opc).Kind, Equals, dummy.OpNone)
+	c.Check(<-errc, ErrorMatches, `broken environment`)
 }
 
-// envOps returns a slice of expected operations on a given
-// environment name.
-func envOps(name string, events ...dummy.OperationKind) []dummy.Operation {
-	ops := make([]dummy.Operation, len(events))
-	for i, e := range events {
-		ops[i] = dummy.Operation{
-			EnvironName: name,
-			Kind:        e,
-		}
+func (*cmdSuite) TestDestroyCommand(c *C) {
+	// normal destroy
+	opc, errc = runCommand(new(main.DestroyCommand))
+	c.Check(<-opc, Equals, op(dummy.OpDestroy, "peckham"))
+	c.Check(<-errc, IsNil)
+
+	// destroy with broken environment
+	opc, errc = runCommand(new(main.DestroyCommand), "-e", "barking")
+	c.Check((<-opc).Kind, Equals, dummy.OpNone)
+	c.Check(<-errc, ErrorMatches, `broken environment`)
+}
+
+func op(kind dummy.OperationKind, name string) dummy.Operation {
+	return dummy.Operation{
+		EnvironName: name,
+		Kind:        kind,
 	}
-	return ops
 }
