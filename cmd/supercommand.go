@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -59,10 +58,9 @@ func (c *SuperCommand) describeCommands() string {
 		i++
 	}
 	sort.Strings(cmds)
-	format := " %-" + strconv.Itoa(longest) + "s - %s"
 	for i, name := range cmds {
 		purpose := c.subcmds[name].Info().Purpose
-		cmds[i] = fmt.Sprintf(format, name, purpose)
+		cmds[i] = fmt.Sprintf("    %-*s - %s", longest, name, purpose)
 	}
 	return fmt.Sprintf("commands:\n%s", strings.Join(cmds, "\n"))
 }
