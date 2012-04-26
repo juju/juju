@@ -13,9 +13,9 @@ func Test(t *testing.T) { TestingT(t) }
 
 type ConnSuite struct{}
 
-var _ = Suite(&ConnSuite{})
+var _ = Suite(ConnSuite{})
 
-func (s *ConnSuite) TestNewConn(c *C) {
+func (ConnSuite) TestNewConn(c *C) {
 	home := c.MkDir()
 	defer os.Setenv("HOME", os.Getenv("HOME"))
 	os.Setenv("HOME", home)
@@ -48,7 +48,7 @@ environments:
 	c.Assert(conn, IsNil)
 }
 
-func (s *ConnSuite) TestValidRegexps(c *C) {
+func (ConnSuite) TestValidRegexps(c *C) {
 	assertService := func(s string, expect bool) {
 		c.Assert(juju.ValidService.MatchString(s), Equals, expect)
 		c.Assert(juju.ValidUnit.MatchString(s+"/0"), Equals, expect)
