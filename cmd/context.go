@@ -53,8 +53,7 @@ func Main(c Command, ctx *Context, args []string) int {
 			ctx.Stderr.Write(help)
 			return 0
 		}
-		fmt.Fprintf(ctx.Stderr, "ERROR: %v\n", err)
-		ctx.Stderr.Write(help)
+		fmt.Fprintf(ctx.Stderr, "ERROR: %v\n%s", err, help)
 		return 2
 	}
 	if err := c.Run(ctx); err != nil {

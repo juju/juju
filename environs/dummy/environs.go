@@ -2,6 +2,7 @@ package dummy
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -20,12 +21,24 @@ type Operation struct {
 type OperationKind int
 
 const (
-	_ OperationKind = iota
+	OpNone OperationKind = iota
 	OpBootstrap
 	OpDestroy
 	OpStartInstance
 	OpStopInstances
 )
+
+var kindNames = []string{
+	OpNone:              "OpNone",
+	OpBootstrap:     "OpBootstrap",
+	OpDestroy:       "OpDestroy",
+	OpStartInstance: "OpStartInstance",
+	OpStopInstances: "OpStopInstances",
+}
+
+func (k OperationKind) String() string {
+	return kindNames[k]
+}
 
 // environProvider represents the dummy provider.  There is only ever one
 // instance of this type (providerInstance)
@@ -77,19 +90,28 @@ func init() {
 // the first time StateInfo is called on a newly reset environment.
 // NOTE: ZooKeeper isn't actually being started yet.
 // 
+// The configuration data also accepts a "broken" property
+// of type boolean. If this is non-empty, any operation
+// after the environment has been opened will return
+// the error "broken environment", and will also log that.
+// 
 // The DNS name of instances is the same as the Id,
 // with ".dns" appended.
 func Reset(c chan<- Operation) {
-	providerInstance.mu.Lock()
-	defer providerInstance.mu.Unlock()
+	providerInstance.reset(c)
+}
+
+func (e *environProvider) reset(c chan <-Operation) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	if c == nil {
 		c = discardOperations
 	}
-	if ops := providerInstance.ops; ops != discardOperations && ops != nil {
+	if ops := e.ops; ops != discardOperations && ops != nil {
 		close(ops)
 	}
-	providerInstance.ops = c
-	providerInstance.state = &environState{
+	e.ops = c
+	e.state = &environState{
 		insts: make(map[string]*instance),
 		files: make(map[string][]byte),
 	}
@@ -100,8 +122,11 @@ func (e *environProvider) ConfigChecker() schema.Checker {
 		schema.Fields{
 			"type":      schema.Const("dummy"),
 			"zookeeper": schema.Const(false), // TODO
+			"broken": schema.Bool(),
 		},
-		[]string{},
+		[]string{
+			"broken",
+		},
 	)
 }
 
@@ -109,22 +134,36 @@ func (e *environProvider) Open(name string, attributes interface{}) (environs.En
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	cfg := attributes.(schema.MapType)
-	return &environ{
+	env := &environ{
 		name:      name,
 		zookeeper: cfg["zookeeper"].(bool),
 		ops:       e.ops,
 		state:     e.state,
-	}, nil
+	}
+	env.broken, _ = cfg["broken"].(bool)
+	return env, nil
 }
 
 type environ struct {
 	ops       chan<- Operation
 	name      string
 	state     *environState
+	broken    bool
 	zookeeper bool
 }
 
+var errBroken = errors.New("broken environment")
+
+// EnvironName returns the name of the environment,
+// which must be opened from a dummy environment.
+func EnvironName(e environs.Environ) string {
+	return e.(*environ).name
+}
+
 func (e *environ) Bootstrap() error {
+	if e.broken {
+		return errBroken
+	}
 	e.ops <- Operation{OpBootstrap, e.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
@@ -135,12 +174,18 @@ func (e *environ) Bootstrap() error {
 	return nil
 }
 
-func (*environ) StateInfo() (*state.Info, error) {
+func (e *environ) StateInfo() (*state.Info, error) {
+	if e.broken {
+		return nil, errBroken
+	}
 	// TODO start a zookeeper server
 	return &state.Info{Addrs: []string{"3.2.1.0:0"}}, nil
 }
 
 func (e *environ) Destroy([]environs.Instance) error {
+	if e.broken {
+		return errBroken
+	}
 	e.ops <- Operation{OpDestroy, e.name}
 	e.state.mu.Lock()
 	e.state.bootstrapped = false
@@ -149,6 +194,9 @@ func (e *environ) Destroy([]environs.Instance) error {
 }
 
 func (e *environ) StartInstance(machineId int, _ *state.Info) (environs.Instance, error) {
+	if e.broken {
+		return nil, errBroken
+	}
 	e.ops <- Operation{OpStartInstance, e.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
@@ -161,6 +209,9 @@ func (e *environ) StartInstance(machineId int, _ *state.Info) (environs.Instance
 }
 
 func (e *environ) StopInstances(is []environs.Instance) error {
+	if e.broken {
+		return errBroken
+	}
 	e.ops <- Operation{OpStopInstances, e.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
@@ -171,6 +222,9 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 }
 
 func (e *environ) Instances(ids []string) (insts []environs.Instance, err error) {
+	if e.broken {
+		return nil, errBroken
+	}
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -192,6 +246,9 @@ func (e *environ) Instances(ids []string) (insts []environs.Instance, err error)
 }
 
 func (e *environ) PutFile(name string, r io.Reader, length int64) error {
+	if e.broken {
+		return errBroken
+	}
 	var buf bytes.Buffer
 	_, err := io.Copy(&buf, r)
 	if err != nil {
@@ -204,6 +261,9 @@ func (e *environ) PutFile(name string, r io.Reader, length int64) error {
 }
 
 func (e *environ) GetFile(name string) (io.ReadCloser, error) {
+	if e.broken {
+		return nil, errBroken
+	}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	data, ok := e.state.files[name]
@@ -214,6 +274,9 @@ func (e *environ) GetFile(name string) (io.ReadCloser, error) {
 }
 
 func (e *environ) RemoveFile(name string) error {
+	if e.broken {
+		return errBroken
+	}
 	e.state.mu.Lock()
 	delete(e.state.files, name)
 	e.state.mu.Unlock()

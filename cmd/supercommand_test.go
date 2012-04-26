@@ -65,7 +65,7 @@ func (s *CommandSuite) TestDispatch(c *C) {
 	info = jc.Info()
 	c.Assert(info.Name, Equals, "jujutest")
 	c.Assert(info.Args, Equals, "<command> ...")
-	c.Assert(info.Doc, Equals, "commands:\n    defenestrate  defenestrate the juju")
+	c.Assert(info.Doc, Equals, "commands:\n    defenestrate - defenestrate the juju")
 
 	jc, tc, err := initDefenestrate([]string{"defenestrate"})
 	c.Assert(err, IsNil)
@@ -100,8 +100,8 @@ blah
 doc
 
 commands:
-    flapbabble  flapbabble the juju
-    flip        flip the juju`)
+    flapbabble - flapbabble the juju
+    flip       - flip the juju`)
 }
 
 func (s *CommandSuite) TestLogging(c *C) {
