@@ -8,7 +8,7 @@ import (
 
 // DestroyCommand destroys an environment.
 type DestroyCommand struct {
-	Conn *juju.Conn
+	EnvName string
 }
 
 func (c *DestroyCommand) Info() *cmd.Info {
@@ -20,23 +20,20 @@ func (c *DestroyCommand) Info() *cmd.Info {
 }
 
 func (c *DestroyCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	var envName string
-	f.StringVar(&envName, "e", "", "juju environment to operate in")
-	f.StringVar(&envName, "environment", "", "")
+	addEnvironFlags(&c.EnvName, f)
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
 	if err := cmd.CheckEmpty(f.Args()); err != nil {
 		return err
 	}
-	conn, err := juju.NewConn(envName)
-	if err != nil {
-		return err
-	}
-	c.Conn = conn
 	return nil
 }
 
 func (c *DestroyCommand) Run(_ *cmd.Context) error {
-	return c.Conn.Destroy()
+	conn, err := juju.NewConn(c.EnvName)
+	if err != nil {
+		return err
+	}
+	return conn.Destroy()
 }

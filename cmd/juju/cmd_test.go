@@ -7,7 +7,6 @@ import (
 	"launchpad.net/juju/go/cmd"
 	main "launchpad.net/juju/go/cmd/juju"
 	"launchpad.net/juju/go/environs/dummy"
-	"launchpad.net/juju/go/juju"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -87,10 +86,9 @@ func testInit(c *C, com cmd.Command, args []string, errPat string) cmd.Command {
 // we use reflection to look at the value of the
 // Conn field in the value.
 func assertConnName(c *C, com cmd.Command, name string) {
-	v := reflect.ValueOf(com).Elem().FieldByName("Conn")
+	v := reflect.ValueOf(com).Elem().FieldByName("EnvName")
 	c.Assert(v.IsValid(), Equals, true)
-	conn := v.Interface().(*juju.Conn)
-	c.Assert(dummy.EnvironName(conn.Environ), Equals, name)
+	c.Assert(v.Interface(), Equals, name)
 }
 
 // All members of genericTests are tested for the -environment and -e
@@ -102,20 +100,18 @@ var genericInitTests = []cmd.Command{
 
 // TestEnvironmentInit tests that all commands which accept
 // the --environment variable initialise their
-// environment connection correctly.
+// environment name correctly.
 func (*cmdSuite) TestEnvironmentInit(c *C) {
 	for i, command := range genericInitTests {
 		c.Logf("test %d", i)
 		com := testInit(c, command, nil, "")
-		assertConnName(c, com, "peckham")
+		assertConnName(c, com, "")
 
 		com = testInit(c, command, []string{"-e", "walthamstow"}, "")
 		assertConnName(c, com, "walthamstow")
 
 		com = testInit(c, command, []string{"--environment", "walthamstow"}, "")
 		assertConnName(c, com, "walthamstow")
-
-		testInit(c, command, []string{"-e", "unknown"}, "unknown environment .*")
 
 		testInit(c, command, []string{"hotdog"}, "unrecognised args.*")
 	}
