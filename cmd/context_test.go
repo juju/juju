@@ -69,7 +69,7 @@ func AssertMainOutput(c *C, com cmd.Command, usage string) {
 	result := cmd.Main(com, ctx, []string{"--unknown"})
 	c.Assert(result, Equals, 2)
 	c.Assert(str(ctx.Stdout), Equals, "")
-	expected := "ERROR: flag provided but not defined: --unknown\n" + usage
+	expected := usage + "error: flag provided but not defined: --unknown\n"
 	c.Assert(str(ctx.Stderr), Equals, expected)
 }
 
@@ -83,7 +83,7 @@ func (s *CommandSuite) TestMainBadRun(c *C) {
 	result := cmd.Main(&CtxCommand{}, ctx, []string{"--opt", "error"})
 	c.Assert(result, Equals, 1)
 	c.Assert(str(ctx.Stdout), Equals, "")
-	c.Assert(str(ctx.Stderr), Equals, "ERROR: oh noes!\n")
+	c.Assert(str(ctx.Stderr), Equals, "error: oh noes!\n")
 }
 
 func (s *CommandSuite) TestMainSuccess(c *C) {
