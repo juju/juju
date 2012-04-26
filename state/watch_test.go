@@ -93,26 +93,26 @@ func (s *StateSuite) TestUnitWatchNeedsUpgrade(c *C) {
 
 	go func() {
 		time.Sleep(50 * time.Millisecond)
-		err = unit.SetNeedsUpgrade()
+		err = unit.SetNeedsUpgrade(false)
 		c.Assert(err, IsNil)
 		time.Sleep(50 * time.Millisecond)
 		err = unit.ClearNeedsUpgrade()
 		c.Assert(err, IsNil)
 		time.Sleep(50 * time.Millisecond)
-		err = unit.SetNeedsUpgrade()
+		err = unit.SetNeedsUpgrade(true)
 		c.Assert(err, IsNil)
 	}()
 
-	var expectedChanges = []bool{
-		true,
-		false,
-		true,
+	var expectedChanges = []state.NeedsUpgrade{
+		{true, false},
+		{false, false},
+		{true, true},
 	}
 	for _, want := range expectedChanges {
 		select {
 		case got, ok := <-needsUpgradeWatcher.Changes():
 			c.Assert(ok, Equals, true)
-			c.Assert(got, Equals, want)
+			c.Assert(got, DeepEquals, want)
 		case <-time.After(200 * time.Millisecond):
 			c.Fatalf("didn't get change: %#v", want)
 		}
