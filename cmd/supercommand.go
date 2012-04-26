@@ -60,8 +60,7 @@ func (c *SuperCommand) describeCommands() string {
 	sort.Strings(cmds)
 	for i, name := range cmds {
 		purpose := c.subcmds[name].Info().Purpose
-		padded := name + strings.Repeat(" ", longest-len(name))
-		cmds[i] = fmt.Sprintf("    %s  %s", padded, purpose)
+		cmds[i] = fmt.Sprintf("    %-*s - %s", longest, name, purpose)
 	}
 	return fmt.Sprintf("commands:\n%s", strings.Join(cmds, "\n"))
 }
