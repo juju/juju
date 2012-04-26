@@ -37,12 +37,12 @@ func initCmd(c cmd.Command, args []string) error {
 }
 
 func initEmpty(args []string) (*cmd.SuperCommand, error) {
-	jc := cmd.NewSuperCommand("jujutest", "", "")
+	jc := &cmd.SuperCommand{Name: "jujutest"}
 	return jc, initCmd(jc, args)
 }
 
 func initDefenestrate(args []string) (*cmd.SuperCommand, *TestCommand, error) {
-	jc := cmd.NewSuperCommand("jujutest", "", "")
+	jc := &cmd.SuperCommand{Name: "jujutest"}
 	tc := &TestCommand{Name: "defenestrate"}
 	jc.Register(tc)
 	return jc, tc, initCmd(jc, args)
@@ -84,7 +84,9 @@ func (s *CommandSuite) TestDispatch(c *C) {
 }
 
 func (s *CommandSuite) TestSubcommands(c *C) {
-	jc := cmd.NewSuperCommand("jujutest", "to be purposeful", "doc\nblah\ndoc")
+	jc := &cmd.SuperCommand{
+		Name: "jujutest", Purpose: "to be purposeful", Doc: "doc\nblah\ndoc",
+	}
 	jc.Register(&TestCommand{Name: "flip"})
 	jc.Register(&TestCommand{Name: "flapbabble"})
 	badCall := func() { jc.Register(&TestCommand{Name: "flip"}) }
@@ -103,8 +105,11 @@ commands:
 }
 
 func (s *CommandSuite) TestLogging(c *C) {
-	defer saveLog()()
-	jc := cmd.NewLoggingSuperCommand("jujutest", "", "")
+	target, debug := log.Target, log.Debug
+	defer func() {
+		log.Target, log.Debug = target, debug
+	}()
+	jc := &cmd.SuperCommand{Name: "jujutest", Log: &cmd.Log{}}
 	jc.Register(&TestCommand{Name: "blah"})
 	ctx := dummyContext(c)
 	code := cmd.Main(jc, ctx, []string{"blah", "--value", "arrived", "--debug"})

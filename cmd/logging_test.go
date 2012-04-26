@@ -16,14 +16,24 @@ func saveLog() func() {
 	}
 }
 
-type LogSuite struct{}
+type LogSuite struct {
+	restoreLog func()
+}
 
 var _ = Suite(&LogSuite{})
 
-func (s *LogSuite) TestInitFlagSet(c *C) {
+func (s *LogSuite) SetUpTest(c *C) {
+	s.restoreLog = saveLog()
+}
+
+func (s *LogSuite) TearDownTest(c *C) {
+	s.restoreLog()
+}
+
+func (s *LogSuite) TestAddFlags(c *C) {
 	l := &cmd.Log{}
 	f := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
-	l.InitFlagSet(f)
+	l.AddFlags(f)
 
 	err := f.Parse(false, []string{})
 	c.Assert(err, IsNil)

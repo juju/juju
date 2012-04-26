@@ -15,22 +15,16 @@ type SuperCommand struct {
 	Name    string
 	Purpose string
 	Doc     string
+	Log     *Log
 	subcmds map[string]Command
 	subcmd  Command
 }
 
-// NewSuperCommand returns an initialized SuperCommand.
-func NewSuperCommand(name, purpose, doc string) *SuperCommand {
-	return &SuperCommand{
-		subcmds: make(map[string]Command),
-		Name:    name,
-		Purpose: purpose,
-		Doc:     doc,
-	}
-}
-
 // Register makes a subcommand available for use on the command line.
 func (c *SuperCommand) Register(subcmd Command) {
+	if c.subcmds == nil {
+		c.subcmds = make(map[string]Command)
+	}
 	name := subcmd.Info().Name
 	_, found := c.subcmds[name]
 	if found {
@@ -84,6 +78,9 @@ func (c *SuperCommand) Info() *Info {
 
 // Init initializes the command for running.
 func (c *SuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
+	if c.Log != nil {
+		c.Log.AddFlags(f)
+	}
 	if err := f.Parse(false, args); err != nil {
 		return err
 	}
@@ -100,34 +97,13 @@ func (c *SuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run executes the subcommand that was selected in Init.
 func (c *SuperCommand) Run(ctx *Context) error {
+	if c.Log != nil {
+		if err := c.Log.Start(ctx); err != nil {
+			return err
+		}
+	}
 	if c.subcmd == nil {
 		panic("Run: missing subcommand; Init failed or not called")
 	}
 	return c.subcmd.Run(ctx)
-}
-
-// LoggingSuperCommand is an extension of SuperCommand that exposes
-// command-line flags to control logging.
-type LoggingSuperCommand struct {
-	*SuperCommand
-	log Log
-}
-
-// NewLoggingSuperCommand returns an initialized LoggingSuperCommand.
-func NewLoggingSuperCommand(name, purpose, doc string) *LoggingSuperCommand {
-	return &LoggingSuperCommand{
-		SuperCommand: NewSuperCommand(name, purpose, doc),
-	}
-}
-
-func (c *LoggingSuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	c.log.InitFlagSet(f)
-	return c.SuperCommand.Init(f, args)
-}
-
-func (c *LoggingSuperCommand) Run(ctx *Context) error {
-	if err := c.log.Start(ctx); err != nil {
-		return err
-	}
-	return c.SuperCommand.Run(ctx)
 }
