@@ -29,7 +29,7 @@ func (c *CtxCommand) Info() *cmd.Info {
 	if c.Minimal {
 		return &cmd.Info{"cmd-name", "", "", ""}
 	}
-	return &cmd.Info{"cmd-name", "[options]", "cmd-purpose", "cmd-doc"}
+	return &cmd.Info{"cmd-name", "<some arg>", "cmd-purpose", "cmd-doc"}
 }
 
 func (c *CtxCommand) Init(f *gnuflag.FlagSet, args []string) error {
@@ -52,7 +52,7 @@ func (c *CtxCommand) Run(ctx *cmd.Context) error {
 }
 
 var minUsage = "usage: cmd-name\n"
-var fullUsage = `usage: cmd-name [options]
+var fullUsage = `usage: cmd-name [options] <some arg>
 purpose: cmd-purpose
 
 options:
