@@ -45,12 +45,12 @@ func (s *StoreSuite) TestServerCharmInfo(c *C) {
 		if t.sha != "" {
 			expected[t.url] = map[string]interface{}{
 				"revision": float64(0),
-				"sha256": t.sha,
+				"sha256":   t.sha,
 			}
 		} else {
 			expected[t.url] = map[string]interface{}{
 				"revision": float64(0),
-				"errors": []interface{}{t.err},
+				"errors":   []interface{}{t.err},
 			}
 		}
 		obtained := map[string]interface{}{}
@@ -176,7 +176,7 @@ func (s *StoreSuite) TestStatsCounter(c *C) {
 	}
 
 	for counter, n := range expected {
-		req, err := http.NewRequest("GET", "/stats/counter/" + counter, nil)
+		req, err := http.NewRequest("GET", "/stats/counter/"+counter, nil)
 		c.Assert(err, IsNil)
 		rec := httptest.NewRecorder()
 		server.ServeHTTP(rec, req)

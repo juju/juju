@@ -1,7 +1,6 @@
 package cmd_test
 
 import (
-	"bytes"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/cmd"
 	"path/filepath"
@@ -22,32 +21,32 @@ func (s *CmdSuite) TestContext(c *C) {
 
 func (s *CmdSuite) TestInfo(c *C) {
 	minimal := &TestCommand{Name: "verb", Minimal: true}
-	buf := &bytes.Buffer{}
-	f := dummyFlagSet()
-	minimal.Info().PrintHelp(buf, f)
-	c.Assert(str(buf), Equals, minimalHelp)
+	help := minimal.Info().Help(dummyFlagSet())
+	c.Assert(string(help), Equals, minimalHelp)
 
 	full := &TestCommand{Name: "verb"}
-	buf = &bytes.Buffer{}
+	f := dummyFlagSet()
 	var ignored string
 	f.StringVar(&ignored, "option", "", "option-doc")
-	full.Info().PrintHelp(buf, f)
-	c.Assert(str(buf), Equals, fullHelp)
+	help = full.Info().Help(f)
+	c.Assert(string(help), Equals, fullHelp)
+}
+
+var initErrorTests = []struct {
+	c    *TestCommand
+	help string
+}{
+	{&TestCommand{Name: "verb"}, fullHelp},
+	{&TestCommand{Name: "verb", Minimal: true}, minimalHelp},
 }
 
 func (s *CmdSuite) TestMainInitError(c *C) {
-	for _, t := range []struct {
-		c    *TestCommand
-		help string
-	}{
-		{&TestCommand{Name: "verb"}, fullHelp},
-		{&TestCommand{Name: "verb", Minimal: true}, minimalHelp},
-	} {
+	for _, t := range initErrorTests {
 		ctx := dummyContext(c)
 		result := cmd.Main(t.c, ctx, []string{"--unknown"})
 		c.Assert(result, Equals, 2)
 		c.Assert(str(ctx.Stdout), Equals, "")
-		expected := "ERROR: flag provided but not defined: --unknown\n" + t.help
+		expected := t.help + "error: flag provided but not defined: --unknown\n"
 		c.Assert(str(ctx.Stderr), Equals, expected)
 	}
 }
@@ -57,7 +56,7 @@ func (s *CmdSuite) TestMainRunError(c *C) {
 	result := cmd.Main(&TestCommand{Name: "verb"}, ctx, []string{"--option", "error"})
 	c.Assert(result, Equals, 1)
 	c.Assert(str(ctx.Stdout), Equals, "")
-	c.Assert(str(ctx.Stderr), Equals, "ERROR: BAM!\n")
+	c.Assert(str(ctx.Stderr), Equals, "error: BAM!\n")
 }
 
 func (s *CmdSuite) TestMainSuccess(c *C) {

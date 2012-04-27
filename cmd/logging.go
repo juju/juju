@@ -16,8 +16,8 @@ type Log struct {
 	Debug   bool
 }
 
-// InitFlagSet sets appropriate flags on f.
-func (c *Log) InitFlagSet(f *gnuflag.FlagSet) {
+// AddFlags adds appropriate flags to f.
+func (c *Log) AddFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Path, "log-file", "", "path to write log to")
 	f.BoolVar(&c.Verbose, "v", false, "if set, log additional messages")
 	f.BoolVar(&c.Verbose, "verbose", false, "if set, log additional messages")

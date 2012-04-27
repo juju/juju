@@ -9,14 +9,27 @@ import (
 	"path/filepath"
 )
 
-type LogSuite struct{}
+type LogSuite struct {
+	restoreLog func()
+}
 
 var _ = Suite(&LogSuite{})
 
-func (s *LogSuite) TestInitFlagSet(c *C) {
+func (s *LogSuite) SetUpTest(c *C) {
+	target, debug := log.Target, log.Debug
+	s.restoreLog = func() {
+		log.Target, log.Debug = target, debug
+	}
+}
+
+func (s *LogSuite) TearDownTest(c *C) {
+	s.restoreLog()
+}
+
+func (s *LogSuite) TestAddFlags(c *C) {
 	l := &cmd.Log{}
 	f := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
-	l.InitFlagSet(f)
+	l.AddFlags(f)
 
 	err := f.Parse(false, []string{})
 	c.Assert(err, IsNil)
@@ -32,7 +45,6 @@ func (s *LogSuite) TestInitFlagSet(c *C) {
 }
 
 func (s *LogSuite) TestStart(c *C) {
-	defer saveLog()()
 	for _, t := range []struct {
 		path    string
 		verbose bool
@@ -57,8 +69,7 @@ func (s *LogSuite) TestStart(c *C) {
 	}
 }
 
-func (s *LogSuite) TestStderrLog(c *C) {
-	defer saveLog()()
+func (s *LogSuite) TestStderr(c *C) {
 	l := &cmd.Log{Verbose: true}
 	ctx := dummyContext(c)
 	err := l.Start(ctx)
@@ -68,7 +79,6 @@ func (s *LogSuite) TestStderrLog(c *C) {
 }
 
 func (s *LogSuite) TestRelPathLog(c *C) {
-	defer saveLog()()
 	l := &cmd.Log{Path: "foo.log"}
 	ctx := dummyContext(c)
 	err := l.Start(ctx)
@@ -81,7 +91,6 @@ func (s *LogSuite) TestRelPathLog(c *C) {
 }
 
 func (s *LogSuite) TestAbsPathLog(c *C) {
-	defer saveLog()()
 	path := filepath.Join(c.MkDir(), "foo.log")
 	l := &cmd.Log{Path: path}
 	ctx := dummyContext(c)

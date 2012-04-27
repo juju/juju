@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -43,10 +44,7 @@ func (ctx *Context) AbsPath(path string) string {
 	return filepath.Join(ctx.Dir, path)
 }
 
-// Info holds everything necessary to describe a Command's intent and usage,
-// excluding information about the specific flags accepted; this information is
-// stored in a separate FlagSet, which may include additional flags injected by
-// support code, and cannot be determined by examining a Command in isolation.
+// Info holds some of the usage documentation of a Command.
 type Info struct {
 	// Name is the Command's name.
 	Name string
@@ -61,31 +59,33 @@ type Info struct {
 	Doc string
 }
 
-// PrintHelp writes i's usage information and description to output, along with
-// documentation for any flags defined in f. It calls f.SetOutput(ioutil.Discard).
-func (i *Info) PrintHelp(output io.Writer, f *gnuflag.FlagSet) {
-	fmt.Fprintf(output, "usage: %s", i.Name)
+// Help renders i's content, along with documentation for any
+// flags defined in f. It calls f.SetOutput(ioutil.Discard).
+func (i *Info) Help(f *gnuflag.FlagSet) []byte {
+	buf := &bytes.Buffer{}
+	fmt.Fprintf(buf, "usage: %s", i.Name)
 	hasOptions := false
 	f.VisitAll(func(f *gnuflag.Flag) { hasOptions = true })
 	if hasOptions {
-		fmt.Fprintf(output, " [options]")
+		fmt.Fprintf(buf, " [options]")
 	}
 	if i.Args != "" {
-		fmt.Fprintf(output, " %s", i.Args)
+		fmt.Fprintf(buf, " %s", i.Args)
 	}
 	if i.Purpose != "" {
-		fmt.Fprintf(output, "\npurpose: %s", i.Purpose)
+		fmt.Fprintf(buf, "\npurpose: %s", i.Purpose)
 	}
 	if hasOptions {
-		fmt.Fprintf(output, "\n\noptions:\n")
-		f.SetOutput(output)
+		fmt.Fprintf(buf, "\n\noptions:\n")
+		f.SetOutput(buf)
 		f.PrintDefaults()
 	}
 	f.SetOutput(ioutil.Discard)
 	if i.Doc != "" {
-		fmt.Fprintf(output, "\n%s", strings.TrimSpace(i.Doc))
+		fmt.Fprintf(buf, "\n%s", strings.TrimSpace(i.Doc))
 	}
-	fmt.Fprintf(output, "\n")
+	fmt.Fprintf(buf, "\n")
+	return buf.Bytes()
 }
 
 // Main runs the given Command in the supplied Context with the given
@@ -93,24 +93,19 @@ func (i *Info) PrintHelp(output io.Writer, f *gnuflag.FlagSet) {
 // suitable for passing to os.Exit.
 func Main(c Command, ctx *Context, args []string) int {
 	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
-	f.Usage = func() {}
 	f.SetOutput(ioutil.Discard)
-	printHelp := func() { c.Info().PrintHelp(ctx.Stderr, f) }
-	printErr := func(err error) { fmt.Fprintf(ctx.Stderr, "ERROR: %v\n", err) }
-
-	switch err := c.Init(f, args); err {
-	case nil:
-		if err = c.Run(ctx); err != nil {
-			log.Debugf("%s command failed: %s\n", c.Info().Name, err)
-			printErr(err)
-			return 1
+	if err := c.Init(f, args); err != nil {
+		ctx.Stderr.Write(c.Info().Help(f))
+		if err == gnuflag.ErrHelp {
+			return 0
 		}
-	case gnuflag.ErrHelp:
-		printHelp()
-	default:
-		printErr(err)
-		printHelp()
+		fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
 		return 2
+	}
+	if err := c.Run(ctx); err != nil {
+		log.Debugf("%s command failed: %s\n", c.Info().Name, err)
+		fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
+		return 1
 	}
 	return 0
 }
