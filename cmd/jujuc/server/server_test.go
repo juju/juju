@@ -2,7 +2,6 @@ package server_test
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
@@ -72,7 +71,6 @@ func (s *ServerSuite) TearDownTest(c *C) {
 }
 
 func (s *ServerSuite) Call(c *C, req server.Request) (resp server.Response, err error) {
-	fmt.Println("calling", req.Args)
 	client, err := rpc.Dial("unix", s.sockPath)
 	c.Assert(err, IsNil)
 	defer client.Close()
@@ -132,22 +130,30 @@ func lines(s string) []string {
 func (s *ServerSuite) TestUnknownCommand(c *C) {
 	resp := s.AssertBadCommand(c, []string{"witchcraft"}, 2)
 	c.Assert(resp.Stdout, Equals, "")
+	stderr := lines(resp.Stderr)
 	usageStart := []string{
-		"ERROR: unrecognised command: (-> jujuc) witchcraft",
 		"usage: (-> jujuc) <command> ...",
 		"purpose: invoke a hosted command inside the unit agent process",
 	}
-	c.Assert(lines(resp.Stderr)[:3], DeepEquals, usageStart)
+	c.Assert(stderr[:2], DeepEquals, usageStart)
+	usageEnd := []string{
+		"error: unrecognised command: (-> jujuc) witchcraft", "",
+	}
+	c.Assert(stderr[len(stderr)-2:], DeepEquals, usageEnd)
 }
 
 func (s *ServerSuite) TestParseError(c *C) {
 	resp := s.AssertBadCommand(c, []string{"magic", "--cheese"}, 2)
 	c.Assert(resp.Stdout, Equals, "")
-	c.Assert(lines(resp.Stderr)[0], Equals, "ERROR: flag provided but not defined: --cheese")
+	stderr := lines(resp.Stderr)
+	usageEnd := []string{
+		"error: flag provided but not defined: --cheese", "",
+	}
+	c.Assert(stderr[len(stderr)-2:], DeepEquals, usageEnd)
 }
 
 func (s *ServerSuite) TestBrokenCommand(c *C) {
 	resp := s.AssertBadCommand(c, []string{"magic"}, 1)
 	c.Assert(resp.Stdout, Equals, "")
-	c.Assert(lines(resp.Stderr)[0], Equals, "ERROR: insufficiently magic")
+	c.Assert(lines(resp.Stderr)[0], Equals, "error: insufficiently magic")
 }
