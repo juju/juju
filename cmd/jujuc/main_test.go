@@ -122,6 +122,11 @@ func (s *MainSuite) TestHappyPath(c *C) {
 	c.Assert(output, Equals, "success!\n")
 }
 
+func (s *MainSuite) TestCommandBase(c *C) {
+	output := run(c, s.sockPath, "bill", 0, "/path/to/remote")
+	c.Assert(output, Equals, "success!\n")
+}
+
 func (s *MainSuite) TestBadCommand(c *C) {
 	output := run(c, s.sockPath, "bill", 1, "unknown")
 	c.Assert(output, Equals, expectHelp+"error: bad request: bad command: unknown\n")
