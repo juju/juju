@@ -7,7 +7,7 @@ import (
 )
 
 func (s *StateSuite) TestServiceWatchConfig(c *C) {
-	dummy, _ := addDummyCharm(c, s.st)
+	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	c.Assert(wordpress.Name(), Equals, "wordpress")
@@ -53,7 +53,7 @@ func (s *StateSuite) TestServiceWatchConfig(c *C) {
 }
 
 func (s *StateSuite) TestServiceWatchConfigIllegalData(c *C) {
-	dummy, _ := addDummyCharm(c, s.st)
+	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	c.Assert(wordpress.Name(), Equals, "wordpress")
@@ -83,7 +83,7 @@ func (s *StateSuite) TestServiceWatchConfigIllegalData(c *C) {
 }
 
 func (s *StateSuite) TestUnitWatchNeedsUpgrade(c *C) {
-	dummy, _ := addDummyCharm(c, s.st)
+	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	c.Assert(wordpress.Name(), Equals, "wordpress")
@@ -129,7 +129,7 @@ func (s *StateSuite) TestUnitWatchNeedsUpgrade(c *C) {
 }
 
 func (s *StateSuite) TestUnitWatchResolved(c *C) {
-	dummy, _ := addDummyCharm(c, s.st)
+	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	c.Assert(wordpress.Name(), Equals, "wordpress")
@@ -175,7 +175,7 @@ func (s *StateSuite) TestUnitWatchResolved(c *C) {
 }
 
 func (s *StateSuite) TestUnitWatchPorts(c *C) {
-	dummy, _ := addDummyCharm(c, s.st)
+	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	c.Assert(wordpress.Name(), Equals, "wordpress")
