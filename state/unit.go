@@ -28,6 +28,19 @@ const (
 	ResolvedNoHooks    ResolvedMode = 1001
 )
 
+// NeedsUpgrade describes if a unit needs an
+// upgrade and if this is forced.
+type NeedsUpgrade struct {
+	Upgrade bool
+	Force   bool
+}
+
+// needsUpgradeNode represents the content of the
+// upgrade node of a unit.
+type needsUpgradeNode struct {
+	Force bool
+}
+
 // agentPingerPeriod defines the period of pinging the
 // ZooKeeper to signal that a unit agent is alive. It's
 // also used by machine.
@@ -39,6 +52,12 @@ const (
 type Port struct {
 	Protocol string `yaml:"proto"`
 	Number   int    `yaml:"port"`
+}
+
+// openPortsNode represents the content of the
+// ports node of a unit.
+type openPortsNode struct {
+	Open []Port
 }
 
 // Unit represents the state of a service unit.
@@ -233,23 +252,45 @@ func (u *Unit) UnassignFromMachine() error {
 	return retryTopologyChange(u.st.zk, unassignUnit)
 }
 
-// NeedsUpgrade returns whether the unit needs an upgrade.
-func (u *Unit) NeedsUpgrade() (bool, error) {
-	stat, err := u.st.zk.Exists(u.zkNeedsUpgradePath())
-	if err != nil {
-		return false, err
+// NeedsUpgrade returns whether the unit needs an upgrade 
+// and if it does, if this is forced.
+func (u *Unit) NeedsUpgrade() (*NeedsUpgrade, error) {
+	yaml, _, err := u.st.zk.Get(u.zkNeedsUpgradePath())
+	if zookeeper.IsError(err, zookeeper.ZNONODE) {
+		return &NeedsUpgrade{}, nil
 	}
-	return stat != nil, nil
+	if err != nil {
+		return nil, err
+	}
+	var setting needsUpgradeNode
+	if err = goyaml.Unmarshal([]byte(yaml), &setting); err != nil {
+		return nil, err
+	}
+	return &NeedsUpgrade{true, setting.Force}, nil
 }
 
-// SetNeedsUpgrade informs the unit that it should perform an upgrade.
-func (u *Unit) SetNeedsUpgrade() error {
-	_, err := u.st.zk.Create(u.zkNeedsUpgradePath(), "", 0, zkPermAll)
-	if zookeeper.IsError(err, zookeeper.ZNODEEXISTS) {
-		// Node already exists, so same state.
-		return nil
+// SetNeedsUpgrade informs the unit that it should perform 
+// a regular or forced upgrade.
+func (u *Unit) SetNeedsUpgrade(force bool) error {
+	setNeedsUpgrade := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
+		var setting needsUpgradeNode
+		if oldYaml == "" {
+			setting.Force = force
+			newYaml, err := goyaml.Marshal(setting)
+			if err != nil {
+				return "", err
+			}
+			return string(newYaml), nil
+		}
+		if err := goyaml.Unmarshal([]byte(oldYaml), &setting); err != nil {
+			return "", err
+		}
+		if setting.Force != force {
+			return "", fmt.Errorf("upgrade already enabled for unit %q", u.Name())
+		}
+		return oldYaml, nil
 	}
-	return err
+	return u.st.zk.RetryChange(u.zkNeedsUpgradePath(), 0, zkPermAll, setNeedsUpgrade)
 }
 
 // ClearNeedsUpgrade resets the upgrade notification. It is typically
@@ -284,7 +325,7 @@ func (u *Unit) Resolved() (ResolvedMode, error) {
 		return ResolvedNone, err
 	}
 	mode := setting.Retry
-	if err := validResolvedMode(mode); err != nil {
+	if err := validResolvedMode(mode, false); err != nil {
 		return ResolvedNone, err
 	}
 	return mode, nil
@@ -297,7 +338,7 @@ func (u *Unit) Resolved() (ResolvedMode, error) {
 // reexecute previous failed hooks or to continue as if they had 
 // succeeded before.
 func (u *Unit) SetResolved(mode ResolvedMode) error {
-	if err := validResolvedMode(mode); err != nil {
+	if err := validResolvedMode(mode, false); err != nil {
 		return err
 	}
 	setting := &struct{ Retry ResolvedMode }{mode}
@@ -322,12 +363,19 @@ func (u *Unit) ClearResolved() error {
 	return err
 }
 
+// WatchResolved returns a watcher that fires when the unit 
+// is marked as having had its problems resolved. See 
+// SetResolved for details.
+func (u *Unit) WatchResolved() *ResolvedWatcher {
+	return newResolvedWatcher(u.st, u.zkResolvedPath())
+}
+
 // OpenPort sets the policy of the port with protocol and number to be opened.
 func (u *Unit) OpenPort(protocol string, number int) error {
 	openPort := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
-		ports := &struct{ Open []Port }{}
+		var ports openPortsNode
 		if oldYaml != "" {
-			if err := goyaml.Unmarshal([]byte(oldYaml), ports); err != nil {
+			if err := goyaml.Unmarshal([]byte(oldYaml), &ports); err != nil {
 				return "", err
 			}
 		}
@@ -354,9 +402,9 @@ func (u *Unit) OpenPort(protocol string, number int) error {
 // ClosePort sets the policy of the port with protocol and number to be closed.
 func (u *Unit) ClosePort(protocol string, number int) error {
 	closePort := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
-		ports := &struct{ Open []Port }{}
+		var ports openPortsNode
 		if oldYaml != "" {
-			if err := goyaml.Unmarshal([]byte(oldYaml), ports); err != nil {
+			if err := goyaml.Unmarshal([]byte(oldYaml), &ports); err != nil {
 				return "", err
 			}
 		}
@@ -387,11 +435,18 @@ func (u *Unit) OpenPorts() ([]Port, error) {
 	if err != nil {
 		return nil, err
 	}
-	ports := &struct{ Open []Port }{}
+	var ports openPortsNode
 	if err = goyaml.Unmarshal([]byte(yaml), &ports); err != nil {
 		return nil, err
 	}
 	return ports.Open, nil
+}
+
+// WatchResolved returns a watcher that fires when the
+// list of open ports of the unit is changed.
+// See OpenPorts for details.
+func (u *Unit) WatchPorts() *PortsWatcher {
+	return newPortsWatcher(u.st, u.zkPortsPath())
 }
 
 // AgentAlive returns whether the respective remote agent is alive.
@@ -459,9 +514,29 @@ func parseUnitName(name string) (serviceName string, seqNo int, err error) {
 	return parts[0], int(sequenceNo), nil
 }
 
-// validResolvedMode ensures that only valid values for the
-// resolved mode are used.
-func validResolvedMode(mode ResolvedMode) error {
+// parseResolvedMode returns the resolved mode serialized
+// in yaml if it is valid, or an error otherwise.
+func parseResolvedMode(yaml string) (ResolvedMode, error) {
+	var setting struct {
+		Retry ResolvedMode
+	}
+	if err := goyaml.Unmarshal([]byte(yaml), &setting); err != nil {
+		return ResolvedNone, err
+	}
+	mode := setting.Retry
+	if err := validResolvedMode(mode, true); err != nil {
+		return ResolvedNone, err
+	}
+	return mode, nil
+}
+
+// validResolvedMode returns an error if the provided
+// mode isn't valid. ResolvedNone is only considered a
+// valid mode if acceptNone is true.
+func validResolvedMode(mode ResolvedMode, acceptNone bool) error {
+	if acceptNone && mode == ResolvedNone {
+		return nil
+	}
 	if mode != ResolvedRetryHooks && mode != ResolvedNoHooks {
 		return fmt.Errorf("invalid error resolution mode: %d", mode)
 	}
@@ -474,7 +549,7 @@ type NeedsUpgradeWatcher struct {
 	path       string
 	tomb       tomb.Tomb
 	watcher    *watcher.ContentWatcher
-	changeChan chan bool
+	changeChan chan NeedsUpgrade
 }
 
 // newNeedsUpgradeWatcher creates and starts a new resolved flag node 
@@ -483,7 +558,7 @@ func newNeedsUpgradeWatcher(st *State, path string) *NeedsUpgradeWatcher {
 	w := &NeedsUpgradeWatcher{
 		st:         st,
 		path:       path,
-		changeChan: make(chan bool),
+		changeChan: make(chan NeedsUpgrade),
 		watcher:    watcher.NewContentWatcher(st.zk, path),
 	}
 	go w.loop()
@@ -493,7 +568,7 @@ func newNeedsUpgradeWatcher(st *State, path string) *NeedsUpgradeWatcher {
 // Changes returns a channel that will receive notifications
 // about upgrades for the unit. Note that multiple changes
 // may be observed as a single event in the channel.
-func (w *NeedsUpgradeWatcher) Changes() <-chan bool {
+func (w *NeedsUpgradeWatcher) Changes() <-chan NeedsUpgrade {
 	return w.changeChan
 }
 
@@ -520,7 +595,86 @@ func (w *NeedsUpgradeWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
-				w.tomb.Kill(nil)
+				return
+			}
+			var needsUpgrade NeedsUpgrade
+			if change.Exists {
+				needsUpgrade.Upgrade = true
+				var setting needsUpgradeNode
+				if err := goyaml.Unmarshal([]byte(change.Content), &setting); err != nil {
+					w.tomb.Kill(err)
+					return
+				}
+				needsUpgrade.Force = setting.Force
+			}
+			select {
+			case <-w.watcher.Dying():
+				return
+			case <-w.tomb.Dying():
+				return
+			case w.changeChan <- needsUpgrade:
+			}
+		}
+	}
+}
+
+// ResolvedWatcher observes changes to a unit's resolved
+// mode. See SetResolved for details.
+type ResolvedWatcher struct {
+	st         *State
+	path       string
+	tomb       tomb.Tomb
+	watcher    *watcher.ContentWatcher
+	changeChan chan ResolvedMode
+}
+
+// newResolvedWatcher returns a new ResolvedWatcher watching path.
+func newResolvedWatcher(st *State, path string) *ResolvedWatcher {
+	w := &ResolvedWatcher{
+		st:         st,
+		path:       path,
+		changeChan: make(chan ResolvedMode),
+		watcher:    watcher.NewContentWatcher(st.zk, path),
+	}
+	go w.loop()
+	return w
+}
+
+// Changes returns a channel that will receive the new
+// resolved mode when a change is detected. Note that multiple
+// changes may be observed as a single event in the channel.
+func (w *ResolvedWatcher) Changes() <-chan ResolvedMode {
+	return w.changeChan
+}
+
+// Stop stops the watch and returns any error encountered
+// while watching. This method should always be called
+// before discarding the watcher.
+func (w *ResolvedWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	if err := w.watcher.Stop(); err != nil {
+		w.tomb.Wait()
+		return err
+	}
+	return w.tomb.Wait()
+}
+
+// loop is the backend for watching the resolved flag node.
+func (w *ResolvedWatcher) loop() {
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case change, ok := <-w.watcher.Changes():
+			if !ok {
+				return
+			}
+			mode, err := parseResolvedMode(change.Content)
+			if err != nil {
+				w.tomb.Kill(err)
 				return
 			}
 			select {
@@ -528,7 +682,78 @@ func (w *NeedsUpgradeWatcher) loop() {
 				return
 			case <-w.tomb.Dying():
 				return
-			case w.changeChan <- change.Exists:
+			case w.changeChan <- mode:
+			}
+		}
+	}
+}
+
+// PortsWatcher observes changes to a unit's open ports.
+// See OpenPort for details.
+type PortsWatcher struct {
+	st         *State
+	path       string
+	tomb       tomb.Tomb
+	watcher    *watcher.ContentWatcher
+	changeChan chan []Port
+}
+
+// newPortsWatcher creates and starts a new ports node 
+// watcher for the given path.
+func newPortsWatcher(st *State, path string) *PortsWatcher {
+	w := &PortsWatcher{
+		st:         st,
+		path:       path,
+		changeChan: make(chan []Port),
+		watcher:    watcher.NewContentWatcher(st.zk, path),
+	}
+	go w.loop()
+	return w
+}
+
+// Changes returns a channel that will receive the actual
+// open ports when a change is detected. Note that multiple
+// changes may be observed as a single event in the channel.
+func (w *PortsWatcher) Changes() <-chan []Port {
+	return w.changeChan
+}
+
+// Stop stops the watch and returns any error encountered
+// while watching. This method should always be called
+// before discarding the watcher.
+func (w *PortsWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	if err := w.watcher.Stop(); err != nil {
+		w.tomb.Wait()
+		return err
+	}
+	return w.tomb.Wait()
+}
+
+// loop is the backend for watching the ports node.
+func (w *PortsWatcher) loop() {
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case change, ok := <-w.watcher.Changes():
+			if !ok {
+				return
+			}
+			var ports openPortsNode
+			if err := goyaml.Unmarshal([]byte(change.Content), &ports); err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			select {
+			case <-w.watcher.Dying():
+				return
+			case <-w.tomb.Dying():
+				return
+			case w.changeChan <- ports.Open:
 			}
 		}
 	}

@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -32,7 +31,7 @@ type RemoteCommand struct {
 	msg string
 }
 
-var expectUsage = `usage: (-> jujuc) remote [options]
+var expectUsage = `usage: remote [options]
 purpose: test jujuc
 
 options:
@@ -40,6 +39,12 @@ options:
     if set, fail
 
 here is some documentation
+`
+
+var expectHelp = `The jujuc command forwards invocations over RPC for execution by the juju
+unit agent. It expects to be called via a symlink named for the desired
+remote command, and expects JUJU_AGENT_SOCKET and JUJU_CONTEXT_ID be set
+in its environment.
 `
 
 func (c *RemoteCommand) Info() *cmd.Info {
@@ -57,7 +62,6 @@ func (c *RemoteCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 func (c *RemoteCommand) Run(ctx *cmd.Context) error {
 	if c.msg != "" {
-		fmt.Println("BLAM", c.msg)
 		return errors.New(c.msg)
 	}
 	fmt.Fprintf(ctx.Stdout, "success!\n")
@@ -89,11 +93,14 @@ type MainSuite struct {
 var _ = Suite(&MainSuite{})
 
 func (s *MainSuite) SetUpSuite(c *C) {
-	factory := func(contextId string) ([]cmd.Command, error) {
+	factory := func(contextId, cmdName string) (cmd.Command, error) {
 		if contextId != "bill" {
 			return nil, fmt.Errorf("bad context: %s", contextId)
 		}
-		return []cmd.Command{&RemoteCommand{}}, nil
+		if cmdName != "remote" {
+			return nil, fmt.Errorf("bad command: %s", cmdName)
+		}
+		return &RemoteCommand{}, nil
 	}
 	s.sockPath = filepath.Join(c.MkDir(), "test.sock")
 	srv, err := server.NewServer(factory, s.sockPath)
@@ -115,56 +122,44 @@ func (s *MainSuite) TestHappyPath(c *C) {
 	c.Assert(output, Equals, "success!\n")
 }
 
+func (s *MainSuite) TestBadCommand(c *C) {
+	output := run(c, s.sockPath, "bill", 1, "unknown")
+	c.Assert(output, Equals, expectHelp+"error: bad request: bad command: unknown\n")
+}
+
 func (s *MainSuite) TestBadRun(c *C) {
 	output := run(c, s.sockPath, "bill", 1, "remote", "--error", "borken")
-	c.Assert(output, Equals, "ERROR: borken\n")
+	c.Assert(output, Equals, "error: borken\n")
 }
 
 func (s *MainSuite) TestBadFlag(c *C) {
 	output := run(c, s.sockPath, "bill", 2, "remote", "--unknown")
-	c.Assert(output, Equals, "ERROR: flag provided but not defined: --unknown\n"+expectUsage)
+	c.Assert(output, Equals, expectUsage+"error: flag provided but not defined: --unknown\n")
 }
 
 func (s *MainSuite) TestBadArg(c *C) {
 	output := run(c, s.sockPath, "bill", 2, "remote", "unwanted")
-	c.Assert(output, Equals, "ERROR: unrecognised args: [unwanted]\n"+expectUsage)
-}
-
-func (s *MainSuite) TestBadCommand(c *C) {
-	output := run(c, s.sockPath, "bill", 2, "unknown")
-	lines := strings.Split(output, "\n")
-	c.Assert(lines[:3], DeepEquals, []string{
-		"ERROR: unrecognised command: (-> jujuc) unknown",
-		"usage: (-> jujuc) <command> ...",
-		"purpose: invoke a hosted command inside the unit agent process",
-	})
-	c.Assert(lines[len(lines)-3:], DeepEquals, []string{
-		"commands:",
-		"    remote  test jujuc",
-		"",
-	})
-}
-
-func AssertOutput(c *C, actual, expected string) {
-	c.Assert(actual, Matches, expected+server.JUJUC_DOC)
+	c.Assert(output, Equals, expectUsage+"error: unrecognised args: [unwanted]\n")
 }
 
 func (s *MainSuite) TestNoSockPath(c *C) {
 	output := run(c, "", "bill", 1, "remote")
-	AssertOutput(c, output, "FATAL: JUJU_AGENT_SOCKET not set\n")
+	c.Assert(output, Equals, expectHelp+"error: JUJU_AGENT_SOCKET not set\n")
 }
 
 func (s *MainSuite) TestBadSockPath(c *C) {
-	output := run(c, filepath.Join(c.MkDir(), "bad.sock"), "bill", 1, "remote")
-	AssertOutput(c, output, "FATAL: dial unix .*: no such file or directory\n")
+	badSock := filepath.Join(c.MkDir(), "bad.sock")
+	output := run(c, badSock, "bill", 1, "remote")
+	err := fmt.Sprintf("error: dial unix %s: no such file or directory\n", badSock)
+	c.Assert(output, Equals, expectHelp+err)
 }
 
 func (s *MainSuite) TestNoClientId(c *C) {
 	output := run(c, s.sockPath, "", 1, "remote")
-	AssertOutput(c, output, "FATAL: JUJU_CONTEXT_ID not set\n")
+	c.Assert(output, Equals, expectHelp+"error: JUJU_CONTEXT_ID not set\n")
 }
 
 func (s *MainSuite) TestBadClientId(c *C) {
 	output := run(c, s.sockPath, "ben", 1, "remote")
-	AssertOutput(c, output, "FATAL: bad request: bad context: ben\n")
+	c.Assert(output, Equals, expectHelp+"error: bad request: bad context: ben\n")
 }

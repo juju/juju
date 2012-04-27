@@ -19,7 +19,7 @@ type RpcCommand struct {
 }
 
 func (c *RpcCommand) Info() *cmd.Info {
-	return &cmd.Info{"magic", "[options]", "do magic", "blah doc"}
+	return &cmd.Info{"magic", "", "do magic", "blah doc"}
 }
 
 func (c *RpcCommand) Init(f *gnuflag.FlagSet, args []string) error {
@@ -39,11 +39,14 @@ func (c *RpcCommand) Run(ctx *cmd.Context) error {
 	return ioutil.WriteFile(ctx.AbsPath("local"), []byte{}, 0644)
 }
 
-func factory(contextId string) ([]cmd.Command, error) {
+func factory(contextId, cmdName string) (cmd.Command, error) {
 	if contextId != "merlin" {
 		return nil, errors.New("unknown client")
 	}
-	return []cmd.Command{&RpcCommand{}}, nil
+	if cmdName != "magic" {
+		return nil, fmt.Errorf("unknown command %q", cmdName)
+	}
+	return &RpcCommand{}, nil
 }
 
 type ServerSuite struct {
@@ -72,7 +75,6 @@ func (s *ServerSuite) TearDownTest(c *C) {
 }
 
 func (s *ServerSuite) Call(c *C, req server.Request) (resp server.Response, err error) {
-	fmt.Println("calling", req.Args)
 	client, err := rpc.Dial("unix", s.sockPath)
 	c.Assert(err, IsNil)
 	defer client.Close()
@@ -83,30 +85,27 @@ func (s *ServerSuite) Call(c *C, req server.Request) (resp server.Response, err 
 func (s *ServerSuite) TestHappyPath(c *C) {
 	dir := c.MkDir()
 	resp, err := s.Call(c, server.Request{
-		"merlin", dir, []string{"magic", "--value", "zyxxy"}})
+		"merlin", dir, "magic", []string{"--value", "zyxxy"}})
 	c.Assert(err, IsNil)
 	c.Assert(resp.Code, Equals, 0)
-	c.Assert(resp.Stdout, Equals, "eye of newt\n")
-	c.Assert(resp.Stderr, Equals, "toe of frog\n")
+	c.Assert(string(resp.Stdout), Equals, "eye of newt\n")
+	c.Assert(string(resp.Stderr), Equals, "toe of frog\n")
 	_, err = os.Stat(filepath.Join(dir, "local"))
 	c.Assert(err, IsNil)
 }
 
-func (s *ServerSuite) TestBadArgs(c *C) {
+func (s *ServerSuite) TestBadCommandName(c *C) {
 	dir := c.MkDir()
-	for _, req := range []server.Request{
-		{"merlin", dir, nil},
-		{"mordred", dir, nil},
-	} {
-		_, err := s.Call(c, req)
-		c.Assert(err, ErrorMatches, "bad request: Args is too short")
-	}
+	_, err := s.Call(c, server.Request{"merlin", dir, "", nil})
+	c.Assert(err, ErrorMatches, "bad request: command not specified")
+	_, err = s.Call(c, server.Request{"merlin", dir, "witchcraft", nil})
+	c.Assert(err, ErrorMatches, `bad request: unknown command "witchcraft"`)
 }
 
 func (s *ServerSuite) TestBadDir(c *C) {
 	for _, req := range []server.Request{
-		{"merlin", "", []string{"cmd"}},
-		{"merlin", "foo/bar", []string{"cmd"}},
+		{"merlin", "", "cmd", nil},
+		{"merlin", "foo/bar", "cmd", nil},
 	} {
 		_, err := s.Call(c, req)
 		c.Assert(err, ErrorMatches, "bad request: Dir is not absolute")
@@ -114,40 +113,38 @@ func (s *ServerSuite) TestBadDir(c *C) {
 }
 
 func (s *ServerSuite) TestBadContextId(c *C) {
-	_, err := s.Call(c, server.Request{"mordred", c.MkDir(), []string{"magic"}})
+	_, err := s.Call(c, server.Request{"mordred", c.MkDir(), "magic", nil})
 	c.Assert(err, ErrorMatches, "bad request: unknown client")
 }
 
 func (s *ServerSuite) AssertBadCommand(c *C, args []string, code int) server.Response {
-	resp, err := s.Call(c, server.Request{"merlin", c.MkDir(), args})
+	resp, err := s.Call(c, server.Request{"merlin", c.MkDir(), args[0], args[1:]})
 	c.Assert(err, IsNil)
 	c.Assert(resp.Code, Equals, code)
 	return resp
 }
 
-func lines(s string) []string {
-	return strings.Split(s, "\n")
-}
-
-func (s *ServerSuite) TestUnknownCommand(c *C) {
-	resp := s.AssertBadCommand(c, []string{"witchcraft"}, 2)
-	c.Assert(resp.Stdout, Equals, "")
-	usageStart := []string{
-		"ERROR: unrecognised command: (-> jujuc) witchcraft",
-		"usage: (-> jujuc) <command> ...",
-		"purpose: invoke a hosted command inside the unit agent process",
-	}
-	c.Assert(lines(resp.Stderr)[:3], DeepEquals, usageStart)
+func lines(b []byte) []string {
+	return strings.Split(string(b), "\n")
 }
 
 func (s *ServerSuite) TestParseError(c *C) {
 	resp := s.AssertBadCommand(c, []string{"magic", "--cheese"}, 2)
-	c.Assert(resp.Stdout, Equals, "")
-	c.Assert(lines(resp.Stderr)[0], Equals, "ERROR: flag provided but not defined: --cheese")
+	c.Assert(string(resp.Stdout), Equals, "")
+	c.Assert(string(resp.Stderr), Equals, `usage: magic [options]
+purpose: do magic
+
+options:
+--value (= "")
+    doc
+
+blah doc
+error: flag provided but not defined: --cheese
+`)
 }
 
 func (s *ServerSuite) TestBrokenCommand(c *C) {
 	resp := s.AssertBadCommand(c, []string{"magic"}, 1)
-	c.Assert(resp.Stdout, Equals, "")
-	c.Assert(lines(resp.Stderr)[0], Equals, "ERROR: insufficiently magic")
+	c.Assert(string(resp.Stdout), Equals, "")
+	c.Assert(string(resp.Stderr), Equals, "error: insufficiently magic\n")
 }
