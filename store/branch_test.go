@@ -7,6 +7,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/store"
+	"launchpad.net/juju/go/testing"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,7 +25,7 @@ func (s *StoreSuite) dummyBranch(c *C, suffix string) bzrDir {
 	branch := bzrDir(tmpDir)
 	branch.init()
 
-	copyCharmDir(branch.path(), s.charm.Path)
+	copyCharmDir(branch.path(), testing.Charms.Dir("dummy"))
 	branch.add()
 	branch.commit("Imported charm.")
 	return branch
@@ -177,13 +178,9 @@ func (dir bzrDir) digest() string {
 	return string(f[1])
 }
 
-func copyCharmDir(dst, src string) {
-	dir, err := charm.ReadDir(src)
-	if err != nil {
-		panic(err)
-	}
+func copyCharmDir(dst string, dir *charm.Dir) {
 	var b bytes.Buffer
-	err = dir.BundleTo(&b)
+	err := dir.BundleTo(&b)
 	if err != nil {
 		panic(err)
 	}

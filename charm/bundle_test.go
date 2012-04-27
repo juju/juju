@@ -1,23 +1,26 @@
 package charm_test
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/charm"
+	"launchpad.net/juju/go/testing"
 	"os"
 	"os/exec"
 	"path/filepath"
 )
 
 type BundleSuite struct {
+	repo       *testing.Repo
 	bundlePath string
 }
 
 var _ = Suite(&BundleSuite{})
 
 func (s *BundleSuite) SetUpSuite(c *C) {
-	s.bundlePath = bundleDir(c, repoDir("dummy"))
+	s.bundlePath = testing.Charms.BundlePath(c.MkDir(), "dummy")
 }
 
 func (s *BundleSuite) TestReadBundle(c *C) {
@@ -27,7 +30,7 @@ func (s *BundleSuite) TestReadBundle(c *C) {
 }
 
 func (s *BundleSuite) TestReadBundleWithoutConfig(c *C) {
-	path := bundleDir(c, repoDir("varnish"))
+	path := testing.Charms.BundlePath(c.MkDir(), "varnish")
 	bundle, err := charm.ReadBundle(path)
 	c.Assert(err, IsNil)
 
@@ -58,9 +61,58 @@ func (s *BundleSuite) TestExpandTo(c *C) {
 	checkDummy(c, dir, path)
 }
 
+func (s *BundleSuite) TestBundleFileModes(c *C) {
+	// Apply subtler mode differences than can be expressed in Bazaar.
+	srcPath := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	modes := []struct {
+		path string
+		mode os.FileMode
+	}{
+		{"hooks/install", 0751},
+		{"empty", 0750},
+		{"src/hello.c", 0614},
+	}
+	for _, m := range modes {
+		err := os.Chmod(filepath.Join(srcPath, m.path), m.mode)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	// Bundle and extract the charm to a new directory.
+	dir, err := charm.ReadDir(srcPath)
+	c.Assert(err, IsNil)
+	buf := new(bytes.Buffer)
+	err = dir.BundleTo(buf)
+	c.Assert(err, IsNil)
+	bundle, err := charm.ReadBundleBytes(buf.Bytes())
+	c.Assert(err, IsNil)
+	path := c.MkDir()
+	err = bundle.ExpandTo(path)
+	c.Assert(err, IsNil)
+
+	// Check sensible file modes once round-tripped.
+	info, err := os.Stat(filepath.Join(path, "src", "hello.c"))
+	c.Assert(err, IsNil)
+	c.Assert(info.Mode()&0777, Equals, os.FileMode(0644))
+	c.Assert(info.Mode()&os.ModeType, Equals, os.FileMode(0))
+
+	info, err = os.Stat(filepath.Join(path, "hooks", "install"))
+	c.Assert(err, IsNil)
+	c.Assert(info.Mode()&0777, Equals, os.FileMode(0755))
+	c.Assert(info.Mode()&os.ModeType, Equals, os.FileMode(0))
+
+	info, err = os.Stat(filepath.Join(path, "empty"))
+	c.Assert(err, IsNil)
+	c.Assert(info.Mode()&0777, Equals, os.FileMode(0755))
+
+	target, err := os.Readlink(filepath.Join(path, "hooks", "symlink"))
+	c.Assert(err, IsNil)
+	c.Assert(target, Equals, "../target")
+}
+
 func (s *BundleSuite) TestBundleRevisionFile(c *C) {
-	charmDir := c.MkDir()
-	copyCharmDir(charmDir, repoDir("dummy"))
+	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	revPath := filepath.Join(charmDir, "revision")
 
 	// Missing revision file
@@ -108,8 +160,7 @@ func (s *BundleSuite) TestBundleSetRevision(c *C) {
 }
 
 func (s *BundleSuite) TestExpandToWithBadLink(c *C) {
-	charmDir := c.MkDir()
-	copyCharmDir(charmDir, repoDir("dummy"))
+	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	badLink := filepath.Join(charmDir, "hooks", "badlink")
 
 	// Symlink targeting a path outside of the charm.
@@ -134,22 +185,6 @@ func (s *BundleSuite) TestExpandToWithBadLink(c *C) {
 	path = filepath.Join(c.MkDir(), "charm")
 	err = bundle.ExpandTo(path)
 	c.Assert(err, ErrorMatches, `symlink "hooks/badlink" is absolute: "/target"`)
-}
-
-func bundleDir(c *C, dirpath string) (path string) {
-	dir, err := charm.ReadDir(dirpath)
-	c.Assert(err, IsNil)
-
-	path = filepath.Join(c.MkDir(), "bundle.charm")
-
-	file, err := os.Create(path)
-	c.Assert(err, IsNil)
-
-	err = dir.BundleTo(file)
-	c.Assert(err, IsNil)
-	file.Close()
-
-	return path
 }
 
 func extBundleDir(c *C, dirpath string) (path string) {

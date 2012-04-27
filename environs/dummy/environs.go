@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/schema"
 	"launchpad.net/juju/go/state"
+	"launchpad.net/juju/go/version"
 	"sync"
 )
 
@@ -29,7 +30,7 @@ const (
 )
 
 var kindNames = []string{
-	OpNone:              "OpNone",
+	OpNone:          "OpNone",
 	OpBootstrap:     "OpBootstrap",
 	OpDestroy:       "OpDestroy",
 	OpStartInstance: "OpStartInstance",
@@ -101,7 +102,7 @@ func Reset(c chan<- Operation) {
 	providerInstance.reset(c)
 }
 
-func (e *environProvider) reset(c chan <-Operation) {
+func (e *environProvider) reset(c chan<- Operation) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if c == nil {
@@ -122,7 +123,7 @@ func (e *environProvider) ConfigChecker() schema.Checker {
 		schema.Fields{
 			"type":      schema.Const("dummy"),
 			"zookeeper": schema.Const(false), // TODO
-			"broken": schema.Bool(),
+			"broken":    schema.Bool(),
 		},
 		[]string{
 			"broken",
@@ -258,6 +259,10 @@ func (e *environ) PutFile(name string, r io.Reader, length int64) error {
 	e.state.files[name] = buf.Bytes()
 	e.state.mu.Unlock()
 	return nil
+}
+
+func (*environ) UploadTools(r io.Reader, length int64, version version.Version) error {
+	return fmt.Errorf("dummy environment does not support executable upload")
 }
 
 func (e *environ) GetFile(name string) (io.ReadCloser, error) {
