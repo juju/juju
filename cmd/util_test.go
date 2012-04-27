@@ -8,7 +8,6 @@ import (
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/cmd"
-	"launchpad.net/juju/go/log"
 )
 
 func dummyFlagSet() *gnuflag.FlagSet {
@@ -21,13 +20,6 @@ func dummyContext(c *C) *cmd.Context {
 
 func str(stream io.Writer) string {
 	return stream.(*bytes.Buffer).String()
-}
-
-func saveLog() func() {
-	target, debug := log.Target, log.Debug
-	return func() {
-		log.Target, log.Debug = target, debug
-	}
 }
 
 // TestCommand is used by several different tests.
