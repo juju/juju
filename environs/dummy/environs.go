@@ -11,11 +11,17 @@ import (
 	"launchpad.net/juju/go/state"
 	"launchpad.net/juju/go/version"
 	"sync"
+	"time"
 )
 
 type Operation struct {
 	Kind        OperationKind
-	EnvironName string
+	Env string
+
+	// Valid for OpUploadTools only. The receiver must close the reader
+	// when done.
+	Upload io.ReadCloser
+	Version version.Version	
 }
 
 // Operation represents an action on the dummy provider.
@@ -27,6 +33,7 @@ const (
 	OpDestroy
 	OpStartInstance
 	OpStopInstances
+	OpUploadTools
 )
 
 var kindNames = []string{
@@ -165,7 +172,7 @@ func (e *environ) Bootstrap() error {
 	if e.broken {
 		return errBroken
 	}
-	e.ops <- Operation{OpBootstrap, e.name}
+	e.ops <- Operation{Kind: OpBootstrap, Env: e.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if e.state.bootstrapped {
@@ -187,7 +194,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	if e.broken {
 		return errBroken
 	}
-	e.ops <- Operation{OpDestroy, e.name}
+	e.ops <- Operation{Kind: OpDestroy, Env: e.name}
 	e.state.mu.Lock()
 	e.state.bootstrapped = false
 	e.state.mu.Unlock()
@@ -198,7 +205,7 @@ func (e *environ) StartInstance(machineId int, _ *state.Info) (environs.Instance
 	if e.broken {
 		return nil, errBroken
 	}
-	e.ops <- Operation{OpStartInstance, e.name}
+	e.ops <- Operation{Kind: OpStartInstance, Env: e.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	i := &instance{
@@ -213,7 +220,7 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 	if e.broken {
 		return errBroken
 	}
-	e.ops <- Operation{OpStopInstances, e.name}
+	e.ops <- Operation{Kind: OpStopInstances, Env: e.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	for _, i := range is {
@@ -261,8 +268,25 @@ func (e *environ) PutFile(name string, r io.Reader, length int64) error {
 	return nil
 }
 
-func (*environ) UploadTools(r io.Reader, length int64, version version.Version) error {
-	return fmt.Errorf("dummy environment does not support executable upload")
+func (e *environ) UploadTools(r io.Reader, length int64, version version.Version) error {
+	if e.broken {
+		return errBroken
+	}
+	notify := make(chan bool)
+	e.ops <- Operation{
+		Kind: OpUploadTools,
+		Env: e.name,
+		Upload: &notifyCloser{r, notify},
+		Version: version,
+	}
+	// Make sure that if we get a test wrong that we don't hang up
+	// indefinitely.
+	select {
+	case <-notify:
+	case <-time.After(2 * time.Second):
+		panic("dummy environment upload tools reader has taken too long to be closed")
+	}
+	return nil
 }
 
 func (e *environ) GetFile(name string) (io.ReadCloser, error) {
@@ -302,4 +326,16 @@ func (m *instance) DNSName() (string, error) {
 
 func (m *instance) WaitDNSName() (string, error) {
 	return m.DNSName()
+}
+
+// notifyCloser sends on the notify channel when
+// it's closed.
+type notifyCloser struct {
+	io.Reader
+	notify chan bool
+}
+
+func (r *notifyCloser) Close() error {
+	r.notify <- true
+	return nil
 }

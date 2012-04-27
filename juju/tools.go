@@ -2,10 +2,15 @@ package juju
 import (
 	"archive/tar"
 	"compress/gzip"
+	"fmt"
+	"os/exec"
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
+	"reflect"
+	"launchpad.net/juju/go/version"
 )
 
 // tarHeader returns a file header given the 
@@ -41,7 +46,7 @@ func archive(w io.Writer, dir string) error {
 	defer tarw.Close()
 	for _, ent := range entries {
 		if !isExecutable(ent) {
-			continue
+			panic(fmt.Errorf("go install has created non-executable file %q", ent.Name()))
 		}
 		h := tarHeader(ent)
 		// ignore local umask
@@ -65,4 +70,63 @@ func copyFile(w io.Writer, file string) error {
 	defer f.Close()
 	_, err = io.Copy(w, f)
 	return err
+}
+
+var jujuRoot string
+
+func init() {
+	// Find out the juju root by introspecting a locally defined type.
+	type t int
+	p := reflect.TypeOf(t(0)).PkgPath()
+	root, j := path.Split(p)
+	if j != "juju" {
+		panic(fmt.Errorf("unexpected juju package path %q", p))
+	}
+	jujuRoot = root
+}
+
+// bundleTools bundles all the current juju tools in gzipped tar
+// format to the given writer.
+func bundleTools(w io.Writer) error {
+	dir, err := ioutil.TempDir("", "juju-tools")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
+	cmd := exec.Command("go", "install", path.Join(jujuRoot, "cmd", "..."))
+	cmd.Env = []string{
+		"GOPATH="+os.Getenv("GOPATH"),
+		"GOBIN="+dir,
+		"PATH="+os.Getenv("PATH"),
+	}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("build failed: %v; %s", err, out)
+	}
+	return archive(w, dir)
+}
+
+func (c *Conn) UploadTools() error {
+	// We create the entire archive
+	// before asking the environment to start uploading
+	// so that we can be sure we have archived correctly.
+	f, err := ioutil.TempFile("", "juju-tgz")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	defer os.Remove(f.Name())
+	err = bundleTools(f)
+	if err != nil {
+		return err
+	}
+	_, err = f.Seek(0, 0)
+	if err != nil {
+		return err
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	return c.Environ.UploadTools(f, fi.Size(), version.Current)
 }
