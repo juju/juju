@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -42,7 +43,8 @@ func archive(w io.Writer, dir string) error {
 		return err
 	}
 
-	tarw := tar.NewWriter(gzip.NewWriter(w))
+	gzw := gzip.NewWriter(w)
+	tarw := tar.NewWriter(gzw)
 	defer tarw.Close()
 	for _, ent := range entries {
 		if !isExecutable(ent) {
@@ -59,7 +61,8 @@ func archive(w io.Writer, dir string) error {
 			return err
 		}
 	}
-	return tarw.Flush()
+	tarw.Close()
+	return gzw.Close()
 }
 
 func copyFile(w io.Writer, file string) error {
@@ -115,7 +118,7 @@ func (c *Conn) UploadTools() error {
 		return err
 	}
 	defer f.Close()
-	defer os.Remove(f.Name())
+//	defer os.Remove(f.Name())
 	err = bundleTools(f)
 	if err != nil {
 		return err
@@ -128,5 +131,6 @@ func (c *Conn) UploadTools() error {
 	if err != nil {
 		return err
 	}
+log.Printf("written archive, size %d", fi.Size())
 	return c.Environ.UploadTools(f, fi.Size(), version.Current)
 }

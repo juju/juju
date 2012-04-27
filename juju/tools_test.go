@@ -1,16 +1,16 @@
 package juju_test
 
-
 import (
-	. "launchpad.net/gocheck"
 	"io"
-	"os/exec"
-	"path/filepath"
-	"launchpad.net/juju/go/environs/dummy"
+	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
+	"launchpad.net/juju/go/environs/dummy"
 	"launchpad.net/juju/go/juju"
 	"launchpad.net/juju/go/version"
+	"os/exec"
+	"path/filepath"
 )
+
 type ToolsSuite struct{}
 
 var envs *environs.Environs
@@ -35,14 +35,14 @@ func (ToolsSuite) TearDownTest(c *C) {
 var _ = Suite(&ToolsSuite{})
 
 var tools = []struct {
-	args []string
+	args   []string
 	output string
-} {{
+}{{
 	[]string{"juju", "arble"},
-	"unknown command",
+	`usage: juju (.|\n)*`,
 }, {
 	[]string{"jujud", "arble"},
-	"dsomething",
+	`usage: jujud (.|\n)*`,
 }}
 
 func (ToolsSuite) TestUploadTools(c *C) {
@@ -65,22 +65,22 @@ func (ToolsSuite) TestUploadTools(c *C) {
 	// UploadTools calls.
 	dir := c.MkDir()
 	unarchive(c, dir, op.Upload)
+	dummy.Reset(nil)
 	c.Assert((<-opc).Kind, Equals, dummy.OpNone)
 	c.Assert(<-errc, IsNil)
 
 	// Verify that each tool executes and produces some
 	// characteristic output.
 	for _, t := range tools {
-		out, err := exec.Command(
+		out, _ := exec.Command(
 			filepath.Join(dir, t.args[0]),
 			t.args[1:]...).CombinedOutput()
-		c.Check(err, IsNil)
-		c.Check(string(out), Equals, t.output)
+		c.Check(string(out), Matches, t.output)
 	}
 }
 
 func (ToolsSuite) TestUploadBadBuild(c *C) {
-}	
+}
 
 func unarchive(c *C, dir string, r io.ReadCloser) {
 	defer r.Close()
