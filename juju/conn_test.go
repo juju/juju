@@ -33,7 +33,7 @@ default:
     erewhemos
 environments:
     erewhemos:
-        type: dummy
+        type: fruitloop
 `), 0644)
 	if err != nil {
 		c.Log("Could not create environments.yaml")
@@ -44,7 +44,7 @@ environments:
 	// globally-registered dummy provider, we'll expect to get a non-nil
 	// Conn back, and will have to figure out what needs to be tested on that.
 	conn, err = juju.NewConn("")
-	c.Assert(err, ErrorMatches, `environment "erewhemos" has an unknown provider type: "dummy"`)
+	c.Assert(err, ErrorMatches, `environment "erewhemos" has an unknown provider type: "fruitloop"`)
 	c.Assert(conn, IsNil)
 }
 
