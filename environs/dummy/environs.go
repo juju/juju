@@ -15,13 +15,13 @@ import (
 )
 
 type Operation struct {
-	Kind        OperationKind
-	Env string
+	Kind OperationKind
+	Env  string
 
 	// Valid for OpUploadTools only. The receiver must close the reader
 	// when done.
-	Upload io.ReadCloser
-	Version version.Version	
+	Upload  io.ReadCloser
+	Version version.Version
 }
 
 // Operation represents an action on the dummy provider.
@@ -277,9 +277,9 @@ func (e *environ) UploadTools(r io.Reader, length int64, version version.Version
 	}
 	notify := make(chan bool)
 	e.ops <- Operation{
-		Kind: OpUploadTools,
-		Env: e.name,
-		Upload: &notifyCloser{r, notify},
+		Kind:    OpUploadTools,
+		Env:     e.name,
+		Upload:  &notifyCloser{r, notify},
 		Version: version,
 	}
 	// Make sure that if we get a test wrong that we don't hang up

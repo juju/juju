@@ -155,7 +155,7 @@ func (*cmdSuite) TestDestroyCommand(c *C) {
 
 func op(kind dummy.OperationKind, name string) dummy.Operation {
 	return dummy.Operation{
-		Env: name,
-		Kind:        kind,
+		Env:  name,
+		Kind: kind,
 	}
 }
