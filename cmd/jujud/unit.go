@@ -9,18 +9,19 @@ import (
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {
-	agentConf
+	agent
 	UnitName string
 }
 
 func NewUnitAgent() *UnitAgent {
-	return &UnitAgent{agentConf: agentConf{name: "unit"}}
+	return &UnitAgent{agent: agent{name: "unit"}}
 }
 
 // Init initializes the command for running.
 func (a *UnitAgent) Init(f *gnuflag.FlagSet, args []string) error {
+	a.addFlags(f)
 	f.StringVar(&a.UnitName, "unit-name", "", "name of the unit to run")
-	if err := a.agentConf.Init(f, args); err != nil {
+	if err := f.Parse(true, args); err != nil {
 		return err
 	}
 	if a.UnitName == "" {
@@ -29,7 +30,7 @@ func (a *UnitAgent) Init(f *gnuflag.FlagSet, args []string) error {
 	if !juju.ValidUnit.MatchString(a.UnitName) {
 		return fmt.Errorf(`--unit-name option expects "<service>/<n>" argument`)
 	}
-	return nil
+	return a.checkArgs(f.Args())
 }
 
 // Run runs a unit agent.

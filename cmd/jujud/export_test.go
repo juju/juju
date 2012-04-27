@@ -8,18 +8,13 @@ import (
 type AgentCommand interface {
 	cmd.Command
 	JujuDir() string
-	SessionFile() string
 	StateInfo() state.Info
 }
 
-func (c agentConf) JujuDir() string {
+func (c agent) JujuDir() string {
 	return c.jujuDir
 }
 
-func (c agentConf) SessionFile() string {
-	return c.sessionFile
-}
-
-func (c agentConf) StateInfo() state.Info {
+func (c agent) StateInfo() state.Info {
 	return c.stateInfo
 }
