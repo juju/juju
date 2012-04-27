@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"launchpad.net/juju/go/version"
-	"log"
 	"os"
 	"os/exec"
 	"path"
