@@ -262,7 +262,7 @@ func (e *environ) PutFile(name string, r io.Reader, length int64) error {
 }
 
 func (*environ) UploadTools(r io.Reader, length int64, version version.Version) error {
-	return fmt.Errorf("dummy environ does not support executable upload")
+	return fmt.Errorf("dummy environment does not support executable upload")
 }
 
 func (e *environ) GetFile(name string) (io.ReadCloser, error) {
