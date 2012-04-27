@@ -1,19 +1,19 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju/go/log"
-	"os"
 	"strings"
 )
 
-// Info holds everything necessary to describe a Command's intent and usage.
+// Info holds some of the usage documentation of a Command.
 type Info struct {
 	// Name is the Command's name.
 	Name string
 
-	// Args describes the command's expected arguments.
+	// Args describes the command's expected positional arguments.
 	Args string
 
 	// Purpose is a short explanation of the Command's purpose.
@@ -21,63 +21,49 @@ type Info struct {
 
 	// Doc is the long documentation for the Command.
 	Doc string
-
-	// Intersperse controls whether the Command will accept interspersed
-	// options and positional args.
-	Intersperse bool
 }
 
-// Usage combines Name and Args to describe the Command's intended usage.
-func (i *Info) Usage() string {
-	return fmt.Sprintf("%s %s", i.Name, i.Args)
+// help renders i's content, along with documentation for any
+// flags defined in f. It calls f.SetOutput(ioutil.Discard).
+func (i *Info) help(f *gnuflag.FlagSet) []byte {
+	buf := &bytes.Buffer{}
+	fmt.Fprintf(buf, "usage: %s", i.Name)
+	hasOptions := false
+	f.VisitAll(func(f *gnuflag.Flag) { hasOptions = true })
+	if hasOptions {
+		fmt.Fprintf(buf, " [options]")
+	}
+	if i.Args != "" {
+		fmt.Fprintf(buf, " %s", i.Args)
+	}
+	if i.Purpose != "" {
+		fmt.Fprintf(buf, "\npurpose: %s", i.Purpose)
+	}
+	if hasOptions {
+		fmt.Fprintf(buf, "\n\noptions:\n")
+		f.SetOutput(buf)
+		f.PrintDefaults()
+	}
+	f.SetOutput(ioutil.Discard)
+	if i.Doc != "" {
+		fmt.Fprintf(buf, "\n%s", strings.TrimSpace(i.Doc))
+	}
+	fmt.Fprintf(buf, "\n")
+	return buf.Bytes()
 }
 
-// Command is implemented by types that interpret any command-line arguments
-// passed to the "juju" command.
+// Command is implemented by types that interpret command-line arguments.
 type Command interface {
-	// Info returns information about the command.
+	// Info returns information about the Command.
 	Info() *Info
 
-	// InitFlagSet prepares a FlagSet such that Parse~ing that FlagSet will
-	// initialize the Command's options.
-	InitFlagSet(f *gnuflag.FlagSet)
+	// Init initializes the Command before running. The command may add options
+	// to f before processing args.
+	Init(f *gnuflag.FlagSet, args []string) error
 
-	// ParsePositional is called by Parse to allow the Command to handle
-	// positional command-line arguments.
-	ParsePositional(args []string) error
-
-	// Run will execute the command according to the options and positional
-	// arguments interpreted by a call to Parse.
-	Run() error
-}
-
-// NewFlagSet returns a FlagSet initialized for use with c.
-func NewFlagSet(c Command) *gnuflag.FlagSet {
-	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ExitOnError)
-	f.Usage = func() { PrintUsage(c) }
-	c.InitFlagSet(f)
-	return f
-}
-
-// PrintUsage prints usage information for c to stderr.
-func PrintUsage(c Command) {
-	i := c.Info()
-	fmt.Fprintf(os.Stderr, "usage: %s\n", i.Usage())
-	fmt.Fprintf(os.Stderr, "purpose: %s\n", i.Purpose)
-	fmt.Fprintf(os.Stderr, "\noptions:\n")
-	NewFlagSet(c).PrintDefaults()
-	if i.Doc != "" {
-		fmt.Fprintf(os.Stderr, "\n%s\n", strings.TrimSpace(i.Doc))
-	}
-}
-
-// Parse parses args on c. This must be called before c is Run.
-func Parse(c Command, args []string) error {
-	f := NewFlagSet(c)
-	if err := f.Parse(c.Info().Intersperse, args); err != nil {
-		return err
-	}
-	return c.ParsePositional(f.Args())
+	// Run will execute the Command as directed by the options and positional
+	// arguments passed to Init.
+	Run(ctx *Context) error
 }
 
 // CheckEmpty is a utility function that returns an error if args is not empty.
@@ -86,19 +72,4 @@ func CheckEmpty(args []string) error {
 		return fmt.Errorf("unrecognised args: %s", args)
 	}
 	return nil
-}
-
-// Main will Parse and Run a Command, and exit appropriately.
-func Main(c Command, args []string) {
-	if err := Parse(c, args[1:]); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		PrintUsage(c)
-		os.Exit(2)
-	}
-	if err := c.Run(); err != nil {
-		log.Debugf("%s command failed: %s\n", c.Info().Name, err)
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
-	os.Exit(0)
 }

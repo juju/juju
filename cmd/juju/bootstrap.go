@@ -9,35 +9,25 @@ import (
 // BootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
 type BootstrapCommand struct {
-	Environment string
+	EnvName string
 }
 
-// Info returns a description of BootstrapCommand.
 func (c *BootstrapCommand) Info() *cmd.Info {
-	return &cmd.Info{
-		"bootstrap", "[options]",
-		"start up an environment from scratch",
-		"",
-		true,
+	return &cmd.Info{"bootstrap", "", "start up an environment from scratch", ""}
+}
+
+func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
+	addEnvironFlags(&c.EnvName, f)
+	if err := f.Parse(true, args); err != nil {
+		return err
 	}
-}
-
-// InitFlagSet prepares a FlagSet for use.
-func (c *BootstrapCommand) InitFlagSet(f *gnuflag.FlagSet) {
-	f.StringVar(&c.Environment, "e", "", "juju environment to operate in")
-	f.StringVar(&c.Environment, "environment", "", "juju environment to operate in")
-}
-
-// ParsePositional checks that no unexpected extra command-line arguments have
-// been specified.
-func (c *BootstrapCommand) ParsePositional(args []string) error {
-	return cmd.CheckEmpty(args)
+	return cmd.CheckEmpty(f.Args())
 }
 
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists.
-func (c *BootstrapCommand) Run() error {
-	conn, err := juju.NewConn(c.Environment)
+func (c *BootstrapCommand) Run(_ *cmd.Context) error {
+	conn, err := juju.NewConn(c.EnvName)
 	if err != nil {
 		return err
 	}

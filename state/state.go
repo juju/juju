@@ -21,7 +21,8 @@ import (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	zk *zookeeper.Conn
+	zk  *zookeeper.Conn
+	fwd *sshForwarder
 }
 
 // AddMachine creates a new machine state.
@@ -290,7 +291,6 @@ func (w *ConfigWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
-				w.tomb.Kill(nil)
 				return
 			}
 			// A non-existent node is treated as an empty node.

@@ -1,13 +1,10 @@
 package cmd_test
 
 import (
-	"fmt"
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
-	cmd "launchpad.net/juju/go/cmd"
+	"launchpad.net/juju/go/cmd"
 	"launchpad.net/juju/go/log"
-	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -19,175 +16,103 @@ type TestCommand struct {
 }
 
 func (c *TestCommand) Info() *cmd.Info {
-	return &cmd.Info{
-		c.Name, "[options]",
-		fmt.Sprintf("%s the juju", c.Name),
-		"blah doc",
-		true,
-	}
+	return &cmd.Info{c.Name, "<something>", c.Name + " the juju", c.Name + " doc"}
 }
 
-func (c *TestCommand) InitFlagSet(f *gnuflag.FlagSet) {
+func (c *TestCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	f.StringVar(&c.Value, "value", "", "doc")
+	if err := f.Parse(true, args); err != nil {
+		return err
+	}
+	return cmd.CheckEmpty(f.Args())
 }
 
-func (c *TestCommand) ParsePositional(args []string) error {
-	if len(args) != 0 {
-		return fmt.Errorf("BADARGS: %s", args)
-	}
+func (c *TestCommand) Run(ctx *cmd.Context) error {
+	log.Debugf(c.Value)
 	return nil
 }
 
-func (c *TestCommand) Run() error {
-	return fmt.Errorf("BORKEN: value is %s.", c.Value)
+func initCmd(c cmd.Command, args []string) error {
+	return c.Init(gnuflag.NewFlagSet("", gnuflag.ContinueOnError), args)
 }
 
-func parseEmpty(args []string) (*cmd.SuperCommand, error) {
-	jc := cmd.NewSuperCommand("jujutest", "")
-	err := cmd.Parse(jc, args)
-	return jc, err
+func initEmpty(args []string) (*cmd.SuperCommand, error) {
+	jc := &cmd.SuperCommand{Name: "jujutest"}
+	return jc, initCmd(jc, args)
 }
 
-func parseDefenestrate(args []string) (*cmd.SuperCommand, *TestCommand, error) {
-	jc := cmd.NewSuperCommand("jujutest", "")
+func initDefenestrate(args []string) (*cmd.SuperCommand, *TestCommand, error) {
+	jc := &cmd.SuperCommand{Name: "jujutest"}
 	tc := &TestCommand{Name: "defenestrate"}
 	jc.Register(tc)
-	err := cmd.Parse(jc, args)
-	return jc, tc, err
+	return jc, tc, initCmd(jc, args)
 }
 
 type CommandSuite struct{}
 
 var _ = Suite(&CommandSuite{})
 
-func (s *CommandSuite) TestSubcommandDispatch(c *C) {
-	jc, err := parseEmpty([]string{})
+func (s *CommandSuite) TestDispatch(c *C) {
+	jc, err := initEmpty([]string{})
 	c.Assert(err, ErrorMatches, `no command specified`)
-	c.Assert(jc.Info().Usage(), Equals, "jujutest <command> [options] ...")
+	info := jc.Info()
+	c.Assert(info.Name, Equals, "jujutest")
+	c.Assert(info.Args, Equals, "<command> ...")
+	c.Assert(info.Doc, Equals, "")
 
-	_, _, err = parseDefenestrate([]string{"discombobulate"})
-	c.Assert(err, ErrorMatches, "unrecognised command: discombobulate")
+	jc, _, err = initDefenestrate([]string{"discombobulate"})
+	c.Assert(err, ErrorMatches, "unrecognised command: jujutest discombobulate")
+	info = jc.Info()
+	c.Assert(info.Name, Equals, "jujutest")
+	c.Assert(info.Args, Equals, "<command> ...")
+	c.Assert(info.Doc, Equals, "commands:\n    defenestrate - defenestrate the juju")
 
-	jc, tc, err := parseDefenestrate([]string{"defenestrate"})
+	jc, tc, err := initDefenestrate([]string{"defenestrate"})
 	c.Assert(err, IsNil)
 	c.Assert(tc.Value, Equals, "")
-	c.Assert(jc.Info().Usage(), Equals, "jujutest defenestrate [options]")
+	info = jc.Info()
+	c.Assert(info.Name, Equals, "jujutest defenestrate")
+	c.Assert(info.Args, Equals, "<something>")
+	c.Assert(info.Doc, Equals, "defenestrate doc")
 
-	_, tc, err = parseDefenestrate([]string{"defenestrate", "--value", "firmly"})
+	_, tc, err = initDefenestrate([]string{"defenestrate", "--value", "firmly"})
 	c.Assert(err, IsNil)
 	c.Assert(tc.Value, Equals, "firmly")
 
-	_, tc, err = parseDefenestrate([]string{"defenestrate", "gibberish"})
-	c.Assert(err, ErrorMatches, `BADARGS: \[gibberish\]`)
+	_, tc, err = initDefenestrate([]string{"defenestrate", "gibberish"})
+	c.Assert(err, ErrorMatches, `unrecognised args: \[gibberish\]`)
 }
 
-func (s *CommandSuite) TestRegister(c *C) {
-	jc := cmd.NewSuperCommand("jujutest", "")
+func (s *CommandSuite) TestSubcommands(c *C) {
+	jc := &cmd.SuperCommand{
+		Name: "jujutest", Purpose: "to be purposeful", Doc: "doc\nblah\ndoc",
+	}
 	jc.Register(&TestCommand{Name: "flip"})
-	jc.Register(&TestCommand{Name: "flap"})
+	jc.Register(&TestCommand{Name: "flapbabble"})
+	badCall := func() { jc.Register(&TestCommand{Name: "flip"}) }
+	c.Assert(badCall, PanicMatches, "command already registered: flip")
 
-	badCall := func() { jc.Register(&TestCommand{Name: "flap"}) }
-	c.Assert(badCall, PanicMatches, "command already registered: flap")
+	info := jc.Info()
+	c.Assert(info.Name, Equals, "jujutest")
+	c.Assert(info.Purpose, Equals, "to be purposeful")
+	c.Assert(info.Doc, Equals, `doc
+blah
+doc
 
-	cmds := jc.DescribeCommands()
-	c.Assert(cmds, Equals, "commands:\n    flap         flap the juju\n    flip         flip the juju\n")
+commands:
+    flapbabble - flapbabble the juju
+    flip       - flip the juju`)
 }
 
-func (s *CommandSuite) TestDebug(c *C) {
-	jc, err := parseEmpty([]string{})
-	c.Assert(err, ErrorMatches, "no command specified")
-	c.Assert(jc.Debug, Equals, false)
-
-	jc, _, err = parseDefenestrate([]string{"defenestrate"})
-	c.Assert(err, IsNil)
-	c.Assert(jc.Debug, Equals, false)
-
-	jc, err = parseEmpty([]string{"--debug"})
-	c.Assert(err, ErrorMatches, "no command specified")
-	c.Assert(jc.Debug, Equals, true)
-
-	jc, _, err = parseDefenestrate([]string{"-d", "defenestrate"})
-	c.Assert(err, IsNil)
-	c.Assert(jc.Debug, Equals, true)
-}
-
-func (s *CommandSuite) TestVerbose(c *C) {
-	jc, err := parseEmpty([]string{})
-	c.Assert(err, ErrorMatches, "no command specified")
-	c.Assert(jc.Verbose, Equals, false)
-
-	jc, _, err = parseDefenestrate([]string{"defenestrate"})
-	c.Assert(err, IsNil)
-	c.Assert(jc.Verbose, Equals, false)
-
-	jc, err = parseEmpty([]string{"--verbose"})
-	c.Assert(err, ErrorMatches, "no command specified")
-	c.Assert(jc.Verbose, Equals, true)
-
-	jc, _, err = parseDefenestrate([]string{"-v", "defenestrate"})
-	c.Assert(err, IsNil)
-	c.Assert(jc.Verbose, Equals, true)
-}
-
-func (s *CommandSuite) TestLogFile(c *C) {
-	jc, err := parseEmpty([]string{})
-	c.Assert(err, ErrorMatches, "no command specified")
-	c.Assert(jc.LogFile, Equals, "")
-
-	jc, _, err = parseDefenestrate([]string{"defenestrate"})
-	c.Assert(err, IsNil)
-	c.Assert(jc.LogFile, Equals, "")
-
-	jc, err = parseEmpty([]string{"--log-file", "foo"})
-	c.Assert(err, ErrorMatches, "no command specified")
-	c.Assert(jc.LogFile, Equals, "foo")
-
-	jc, _, err = parseDefenestrate([]string{"--log-file", "bar", "defenestrate"})
-	c.Assert(err, IsNil)
-	c.Assert(jc.LogFile, Equals, "bar")
-}
-
-func saveLog() func() {
+func (s *CommandSuite) TestLogging(c *C) {
 	target, debug := log.Target, log.Debug
-	log.Target, log.Debug = nil, false
-	return func() {
+	defer func() {
 		log.Target, log.Debug = target, debug
-	}
-}
-
-func checkRun(c *C, args []string, debug bool, target Checker, logfile string) {
-	defer saveLog()()
-	args = append([]string{"defenestrate", "--value", "cheese"}, args...)
-	jc, _, err := parseDefenestrate(args)
-	c.Assert(err, IsNil)
-
-	err = jc.Run()
-	c.Assert(err, ErrorMatches, "BORKEN: value is cheese.")
-
-	c.Assert(log.Debug, Equals, debug)
-	c.Assert(log.Target, target)
-	if logfile != "" {
-		_, err := os.Stat(logfile)
-		c.Assert(err, IsNil)
-	}
-}
-
-func (s *CommandSuite) TestRun(c *C) {
-	checkRun(c, []string{}, false, IsNil, "")
-	checkRun(c, []string{"--debug"}, true, NotNil, "")
-	checkRun(c, []string{"--verbose"}, false, NotNil, "")
-	checkRun(c, []string{"--verbose", "--debug"}, true, NotNil, "")
-
-	tmp := c.MkDir()
-	path := filepath.Join(tmp, "log-1")
-	checkRun(c, []string{"--log-file", path}, false, NotNil, path)
-
-	path = filepath.Join(tmp, "log-2")
-	checkRun(c, []string{"--log-file", path, "--debug"}, true, NotNil, path)
-
-	path = filepath.Join(tmp, "log-3")
-	checkRun(c, []string{"--log-file", path, "--verbose"}, false, NotNil, path)
-
-	path = filepath.Join(tmp, "log-4")
-	checkRun(c, []string{"--log-file", path, "--verbose", "--debug"}, true, NotNil, path)
+	}()
+	jc := &cmd.SuperCommand{Name: "jujutest", Log: &cmd.Log{}}
+	jc.Register(&TestCommand{Name: "blah"})
+	ctx := dummyContext(c)
+	code := cmd.Main(jc, ctx, []string{"blah", "--value", "arrived", "--debug"})
+	c.Assert(code, Equals, 0)
+	c.Assert(str(ctx.Stderr), Matches, `.* JUJU:DEBUG arrived\n`)
 }

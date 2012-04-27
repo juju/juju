@@ -759,7 +759,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 	c.Assert(err, ErrorMatches, "no unused machine found")
 }
 
-func (s *StateSuite) TestGetSetClearUnitUpgrate(c *C) {
+func (s *StateSuite) TestGetSetClearUnitUpgrade(c *C) {
 	// Check that setting and clearing an upgrade flag on a unit works.
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
@@ -767,38 +767,56 @@ func (s *StateSuite) TestGetSetClearUnitUpgrate(c *C) {
 	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 
-	// Defaults to false.
-	upgrade, err := unit.NeedsUpgrade()
+	// Defaults to false and false.
+	needsUpgrade, err := unit.NeedsUpgrade()
 	c.Assert(err, IsNil)
-	c.Assert(upgrade, Equals, false)
+	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{false, false})
 
 	// Can be set.
-	err = unit.SetNeedsUpgrade()
+	err = unit.SetNeedsUpgrade(false)
 	c.Assert(err, IsNil)
-	upgrade, err = unit.NeedsUpgrade()
+	needsUpgrade, err = unit.NeedsUpgrade()
 	c.Assert(err, IsNil)
-	c.Assert(upgrade, Equals, true)
+	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{true, false})
 
 	// Can be set multiple times.
-	err = unit.SetNeedsUpgrade()
+	err = unit.SetNeedsUpgrade(false)
 	c.Assert(err, IsNil)
-	upgrade, err = unit.NeedsUpgrade()
+	needsUpgrade, err = unit.NeedsUpgrade()
 	c.Assert(err, IsNil)
-	c.Assert(upgrade, Equals, true)
+	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{true, false})
 
 	// Can be cleared.
 	err = unit.ClearNeedsUpgrade()
 	c.Assert(err, IsNil)
-	upgrade, err = unit.NeedsUpgrade()
+	needsUpgrade, err = unit.NeedsUpgrade()
 	c.Assert(err, IsNil)
-	c.Assert(upgrade, Equals, false)
+	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{false, false})
 
 	// Can be cleared multiple times
 	err = unit.ClearNeedsUpgrade()
 	c.Assert(err, IsNil)
-	upgrade, err = unit.NeedsUpgrade()
+	needsUpgrade, err = unit.NeedsUpgrade()
 	c.Assert(err, IsNil)
-	c.Assert(upgrade, Equals, false)
+	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{false, false})
+
+	// Can be set forced.
+	err = unit.SetNeedsUpgrade(true)
+	c.Assert(err, IsNil)
+	needsUpgrade, err = unit.NeedsUpgrade()
+	c.Assert(err, IsNil)
+	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{true, true})
+
+	// Can be set forced multiple times.
+	err = unit.SetNeedsUpgrade(true)
+	c.Assert(err, IsNil)
+	needsUpgrade, err = unit.NeedsUpgrade()
+	c.Assert(err, IsNil)
+	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{true, true})
+
+	// Can't be set multipe with different force flag.
+	err = unit.SetNeedsUpgrade(false)
+	c.Assert(err, ErrorMatches, `upgrade already enabled for unit "wordpress/0"`)
 }
 
 func (s *StateSuite) TestGetSetClearResolved(c *C) {

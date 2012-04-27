@@ -20,6 +20,18 @@ type sshSuite struct {
 	testing.LoggingSuite
 }
 
+func init() {
+	// Make the SSH private key inaccessible by other users to
+	// prevent SSH from giving an error.  We ignore any error
+	// because:
+	// a) We might not actually be running the SSH tests, so failing
+	// because of (for instance) a read-only filesystem would seem
+	// unnecessary.
+	// b) we'll get an error later anyway if the file mode is not as
+	// requested.
+	os.Chmod("sshtest/id_rsa", 0600)
+}
+
 var _ = Suite(&sshSuite{})
 
 // fakeSSHRun represents the behaviour of the ssh command when run once.
@@ -371,7 +383,7 @@ func (t *sshTest) file(name string) string {
 
 // dialTwice tests that a client can contact a server through the
 // port forwarding ssh client and daemon.
-// It represents the Zookeeper client.
+// It represents the ZooKeeper client.
 func (t *sshTest) dialTwice(addr string, done chan<- struct{}) {
 	defer close(done)
 
@@ -408,7 +420,7 @@ func (t *sshTest) dial(addr string, msg string) {
 	panic("not reached")
 }
 
-// acceptTwice waits twice to be dialled. It represents the Zookeeper
+// acceptTwice waits twice to be dialled. It represents the ZooKeeper
 // server.
 func (t *sshTest) acceptTwice(addr string) {
 	l, err := net.Listen("tcp", addr)

@@ -21,6 +21,8 @@ environments:
     region: test
     control-bucket: test-bucket
     juju-origin: ppa
+    access-key: x
+    secret-key: x
 `)
 
 func registerLocalTests() {

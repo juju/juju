@@ -2,6 +2,7 @@ package state_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju/go/state"
 	"time"
 )
 
@@ -92,26 +93,26 @@ func (s *StateSuite) TestUnitWatchNeedsUpgrade(c *C) {
 
 	go func() {
 		time.Sleep(50 * time.Millisecond)
-		err = unit.SetNeedsUpgrade()
+		err = unit.SetNeedsUpgrade(false)
 		c.Assert(err, IsNil)
 		time.Sleep(50 * time.Millisecond)
 		err = unit.ClearNeedsUpgrade()
 		c.Assert(err, IsNil)
 		time.Sleep(50 * time.Millisecond)
-		err = unit.SetNeedsUpgrade()
+		err = unit.SetNeedsUpgrade(true)
 		c.Assert(err, IsNil)
 	}()
 
-	var expectedChanges = []bool{
-		true,
-		false,
-		true,
+	var expectedChanges = []state.NeedsUpgrade{
+		{true, false},
+		{false, false},
+		{true, true},
 	}
 	for _, want := range expectedChanges {
 		select {
 		case got, ok := <-needsUpgradeWatcher.Changes():
 			c.Assert(ok, Equals, true)
-			c.Assert(got, Equals, want)
+			c.Assert(got, DeepEquals, want)
 		case <-time.After(200 * time.Millisecond):
 			c.Fatalf("didn't get change: %#v", want)
 		}
@@ -124,5 +125,97 @@ func (s *StateSuite) TestUnitWatchNeedsUpgrade(c *C) {
 	}
 
 	err = needsUpgradeWatcher.Stop()
+	c.Assert(err, IsNil)
+}
+
+func (s *StateSuite) TestUnitWatchResolved(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	c.Assert(wordpress.Name(), Equals, "wordpress")
+	unit, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	resolvedWatcher := unit.WatchResolved()
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		err = unit.SetResolved(state.ResolvedRetryHooks)
+		c.Assert(err, IsNil)
+		time.Sleep(50 * time.Millisecond)
+		err = unit.ClearResolved()
+		c.Assert(err, IsNil)
+		time.Sleep(50 * time.Millisecond)
+		err = unit.SetResolved(state.ResolvedNoHooks)
+		c.Assert(err, IsNil)
+	}()
+
+	var expectedChanges = []state.ResolvedMode{
+		state.ResolvedRetryHooks,
+		state.ResolvedNone,
+		state.ResolvedNoHooks,
+	}
+	for _, want := range expectedChanges {
+		select {
+		case got, ok := <-resolvedWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got, Equals, want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", want)
+		}
+	}
+
+	select {
+	case got, _ := <-resolvedWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	err = resolvedWatcher.Stop()
+	c.Assert(err, IsNil)
+}
+
+func (s *StateSuite) TestUnitWatchPorts(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	c.Assert(wordpress.Name(), Equals, "wordpress")
+	unit, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	portsWatcher := unit.WatchPorts()
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		err = unit.OpenPort("tcp", 80)
+		c.Assert(err, IsNil)
+		time.Sleep(50 * time.Millisecond)
+		err = unit.OpenPort("udp", 53)
+		c.Assert(err, IsNil)
+		time.Sleep(50 * time.Millisecond)
+		err = unit.ClosePort("tcp", 80)
+		c.Assert(err, IsNil)
+	}()
+
+	var expectedChanges = [][]state.Port{
+		[]state.Port{{"tcp", 80}},
+		[]state.Port{{"tcp", 80}, {"udp", 53}},
+		[]state.Port{{"udp", 53}},
+	}
+	for _, want := range expectedChanges {
+		select {
+		case got, ok := <-portsWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got, DeepEquals, want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", want)
+		}
+	}
+
+	select {
+	case got, _ := <-portsWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	err = portsWatcher.Stop()
 	c.Assert(err, IsNil)
 }

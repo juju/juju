@@ -32,13 +32,13 @@ func checkMessage(c *C, msg string, cmd ...string) {
 	output, err := ps.CombinedOutput()
 	c.Assert(err, ErrorMatches, "exit status 2")
 	lines := strings.Split(string(output), "\n")
-	c.Assert(lines[0], Equals, msg)
+	c.Assert(lines[len(lines)-2], Equals, "error: "+msg)
 }
 
 func (s *MainSuite) TestParseErrors(c *C) {
 	// Check all the obvious parse errors
 	checkMessage(c, "no command specified")
-	checkMessage(c, "unrecognised command: cavitate", "cavitate")
+	checkMessage(c, "unrecognised command: jujud cavitate", "cavitate")
 	msgf := "flag provided but not defined: --cheese"
 	checkMessage(c, msgf, "--cheese", "cavitate")
 
