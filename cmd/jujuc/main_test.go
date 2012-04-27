@@ -41,12 +41,6 @@ options:
 here is some documentation
 `
 
-var expectHelp = `The jujuc command forwards invocations over RPC for execution by the juju
-unit agent. It expects to be called via a symlink named for the desired
-remote command, and expects JUJU_AGENT_SOCKET and JUJU_CONTEXT_ID be set
-in its environment.
-`
-
 func (c *RemoteCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		"remote", "", "test jujuc", "here is some documentation"}
@@ -129,7 +123,7 @@ func (s *MainSuite) TestCommandBase(c *C) {
 
 func (s *MainSuite) TestBadCommand(c *C) {
 	output := run(c, s.sockPath, "bill", 1, "unknown")
-	c.Assert(output, Equals, expectHelp+"error: bad request: bad command: unknown\n")
+	c.Assert(output, Equals, main.Help+"error: bad request: bad command: unknown\n")
 }
 
 func (s *MainSuite) TestBadRun(c *C) {
@@ -149,22 +143,22 @@ func (s *MainSuite) TestBadArg(c *C) {
 
 func (s *MainSuite) TestNoSockPath(c *C) {
 	output := run(c, "", "bill", 1, "remote")
-	c.Assert(output, Equals, expectHelp+"error: JUJU_AGENT_SOCKET not set\n")
+	c.Assert(output, Equals, main.Help+"error: JUJU_AGENT_SOCKET not set\n")
 }
 
 func (s *MainSuite) TestBadSockPath(c *C) {
 	badSock := filepath.Join(c.MkDir(), "bad.sock")
 	output := run(c, badSock, "bill", 1, "remote")
-	err := fmt.Sprintf("error: dial unix %s: no such file or directory\n", badSock)
-	c.Assert(output, Equals, expectHelp+err)
+	err := fmt.Sprintf("error: dial unix %s: .*\n", badSock)
+	c.Assert(output, Matches, main.Help+err)
 }
 
 func (s *MainSuite) TestNoClientId(c *C) {
 	output := run(c, s.sockPath, "", 1, "remote")
-	c.Assert(output, Equals, expectHelp+"error: JUJU_CONTEXT_ID not set\n")
+	c.Assert(output, Equals, main.Help+"error: JUJU_CONTEXT_ID not set\n")
 }
 
 func (s *MainSuite) TestBadClientId(c *C) {
 	output := run(c, s.sockPath, "ben", 1, "remote")
-	c.Assert(output, Equals, expectHelp+"error: bad request: bad context: ben\n")
+	c.Assert(output, Equals, main.Help+"error: bad request: bad context: ben\n")
 }

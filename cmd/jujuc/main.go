@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 )
 
-var jujucDoc = `
+var Help = `
 The jujuc command forwards invocations over RPC for execution by the juju
 unit agent. It expects to be called via a symlink named for the desired
 remote command, and expects JUJU_AGENT_SOCKET and JUJU_CONTEXT_ID be set
@@ -17,7 +17,7 @@ in its environment.
 
 // die prints an error and exits.
 func die(err error) {
-	fmt.Fprintf(os.Stderr, jujucDoc)
+	fmt.Fprintf(os.Stderr, Help)
 	fmt.Fprintf(os.Stderr, "error: %v\n", err)
 	os.Exit(1)
 }
@@ -42,14 +42,17 @@ func getwd() string {
 	return abs
 }
 
-// Main uses JUJU_CONTEXT_ID and JUJU_AGENT_SOCKET to ask a running unit agent to
-// execute a Command on our behalf. This function is not redundant with main,
-// because it provides an entry point for testing with arbitrary command line
-// arguments. Individual commands should be exposed by symlinking the command
-// name to this executable.
+// Main uses JUJU_CONTEXT_ID and JUJU_AGENT_SOCKET to ask a running unit agent
+// to execute a Command on our behalf. Individual commands should be exposed
+// by symlinking the command name to this executable.
+// This function is not redundant with main, because it is exported, and can
+// thus be called by testing code.
 func Main(args []string) {
 	req := server.Request{
-		getenv("JUJU_CONTEXT_ID"), getwd(), filepath.Base(args[0]), args[1:],
+		ContextId:   getenv("JUJU_CONTEXT_ID"),
+		Dir:         getwd(),
+		CommandName: filepath.Base(args[0]),
+		Args:        args[1:],
 	}
 	client, err := rpc.Dial("unix", getenv("JUJU_AGENT_SOCKET"))
 	if err != nil {
@@ -61,8 +64,8 @@ func Main(args []string) {
 	if err != nil {
 		die(err)
 	}
-	os.Stdout.Write([]byte(resp.Stdout))
-	os.Stderr.Write([]byte(resp.Stderr))
+	os.Stdout.Write(resp.Stdout)
+	os.Stderr.Write(resp.Stderr)
 	os.Exit(resp.Code)
 }
 
