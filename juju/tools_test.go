@@ -79,7 +79,19 @@ func (ToolsSuite) TestUploadTools(c *C) {
 	}
 }
 
+// Test that the upload procedure fails correctly
+// when the build process fails (because we've
+// got a bad go install path in this case).
 func (ToolsSuite) TestUploadBadBuild(c *C) {
+	oldJujuRoot := juju.SetJujuRoot("-/invalid")
+	defer juju.SetJujuRoot(oldJujuRoot)
+
+	env, err := envs.Open("")
+	c.Assert(err, IsNil)
+
+	conn := &juju.Conn{env}
+	err = conn.UploadTools()
+	c.Assert(err, ErrorMatches, `build failed(.|\n)*`)
 }
 
 func unarchive(c *C, dir string, r io.ReadCloser) {

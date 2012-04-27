@@ -79,7 +79,10 @@ func init() {
 	// the testing environment by simply importing it.
 	c := make(chan Operation)
 	go func() {
-		for _ = range c {
+		for op := range c {
+			if op.Kind == OpUploadTools {
+				op.Upload.Close()
+			}
 		}
 	}()
 	discardOperations = c

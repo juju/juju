@@ -1,38 +1,39 @@
 package juju
+
 import (
 	"archive/tar"
 	"compress/gzip"
 	"fmt"
-	"os/exec"
 	"io"
 	"io/ioutil"
+	"launchpad.net/juju/go/version"
 	"log"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"reflect"
-	"launchpad.net/juju/go/version"
 )
 
 // tarHeader returns a file header given the 
 func tarHeader(i os.FileInfo) *tar.Header {
 	return &tar.Header{
-		Typeflag: tar.TypeReg,
-		Name: i.Name(),
-		Size: i.Size(),
-		Mode: int64(i.Mode() & 0777),
-		ModTime: i.ModTime(),
+		Typeflag:   tar.TypeReg,
+		Name:       i.Name(),
+		Size:       i.Size(),
+		Mode:       int64(i.Mode() & 0777),
+		ModTime:    i.ModTime(),
 		AccessTime: i.ModTime(),
 		ChangeTime: i.ModTime(),
-		Uname: "ubuntu",
-		Gname: "ubuntu",
+		Uname:      "ubuntu",
+		Gname:      "ubuntu",
 	}
 }
 
 // isExecutable returns whether the given info
 // represents a regular file executable by (at least) the user.
 func isExecutable(i os.FileInfo) bool {
-	return i.Mode() & (0100 | os.ModeType) == 0100
+	return i.Mode()&(0100|os.ModeType) == 0100
 }
 
 // archive writes the executable files found in the given
@@ -98,9 +99,9 @@ func bundleTools(w io.Writer) error {
 	defer os.RemoveAll(dir)
 	cmd := exec.Command("go", "install", path.Join(jujuRoot, "cmd", "..."))
 	cmd.Env = []string{
-		"GOPATH="+os.Getenv("GOPATH"),
-		"GOBIN="+dir,
-		"PATH="+os.Getenv("PATH"),
+		"GOPATH=" + os.Getenv("GOPATH"),
+		"GOBIN=" + dir,
+		"PATH=" + os.Getenv("PATH"),
 	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -118,7 +119,7 @@ func (c *Conn) UploadTools() error {
 		return err
 	}
 	defer f.Close()
-//	defer os.Remove(f.Name())
+	defer os.Remove(f.Name())
 	err = bundleTools(f)
 	if err != nil {
 		return err
@@ -131,6 +132,5 @@ func (c *Conn) UploadTools() error {
 	if err != nil {
 		return err
 	}
-log.Printf("written archive, size %d", fi.Size())
 	return c.Environ.UploadTools(f, fi.Size(), version.Current)
 }
