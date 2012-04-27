@@ -14,7 +14,8 @@ import (
 	"reflect"
 )
 
-// tarHeader returns a file header given the 
+// tarHeader returns a tar file header given the file's stat
+// information.
 func tarHeader(i os.FileInfo) *tar.Header {
 	return &tar.Header{
 		Typeflag:   tar.TypeReg,
@@ -37,15 +38,18 @@ func isExecutable(i os.FileInfo) bool {
 
 // archive writes the executable files found in the given
 // directory in gzipped tar format to w.
-func archive(w io.Writer, dir string) error {
+func archive(w io.Writer, dir string) (err error) {
 	entries, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return err
 	}
 
 	gzw := gzip.NewWriter(w)
+	defer closeErrorCheck(&err, gzw)
+
 	tarw := tar.NewWriter(gzw)
-	defer tarw.Close()
+	defer closeErrorCheck(&err, tarw)
+
 	for _, ent := range entries {
 		if !isExecutable(ent) {
 			panic(fmt.Errorf("go install has created non-executable file %q", ent.Name()))
@@ -61,8 +65,16 @@ func archive(w io.Writer, dir string) error {
 			return err
 		}
 	}
-	tarw.Close()
-	return gzw.Close()
+	return nil
+}
+
+// closeErrorCheck means that we can ensure that
+// Close errors do not get lost even when we defer them,
+func closeErrorCheck(errp *error, c io.Closer) {
+	err := c.Close()
+	if *errp == nil {
+		*errp = err
+	}
 }
 
 func copyFile(w io.Writer, file string) error {
