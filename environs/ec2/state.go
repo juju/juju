@@ -101,5 +101,5 @@ func (e *environ) bucket() *s3.Bucket {
 }
 
 func (*environ) UploadTools(r io.Reader, length int64, version version.Version) error {
-	return fmt.Errorf("ec2 environ does not support executable upload")
+	return fmt.Errorf("ec2 environment does not support executable upload")
 }
