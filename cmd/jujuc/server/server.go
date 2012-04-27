@@ -14,14 +14,6 @@ import (
 	"sync"
 )
 
-var jujucPurpose = "invoke a hosted command inside the unit agent process"
-var jujucDoc = `
-The jujuc command forwards invocations over RPC for execution by another
-process. It expects to be called via a symlink named for the desired remote
-command, and expects JUJU_AGENT_SOCKET and JUJU_CONTEXT_ID be set in its
-environment.
-`
-
 // Request contains the information necessary to run a Command remotely.
 type Request struct {
 	ContextId   string
