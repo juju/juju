@@ -8,14 +8,14 @@ import (
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/log"
 	"launchpad.net/juju/go/store"
+	"launchpad.net/juju/go/testing"
 	"launchpad.net/mgo/bson"
-	"path/filepath"
 	"strconv"
-	"testing"
+	stdtesting "testing"
 	"time"
 )
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	TestingT(t)
 }
 
@@ -26,7 +26,6 @@ type StoreSuite struct {
 	MgoSuite
 	HTTPSuite
 	store *store.Store
-	charm *charm.Dir
 }
 
 type TrivialSuite struct{}
@@ -43,11 +42,6 @@ func (s *StoreSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	log.Target = c
 	log.Debug = true
-
-	// A charm to play around with.
-	dir, err := charm.ReadDir(repoDir("dummy"))
-	c.Assert(err, IsNil)
-	s.charm = dir
 }
 
 func (s *StoreSuite) TearDownTest(c *C) {
@@ -56,10 +50,6 @@ func (s *StoreSuite) TearDownTest(c *C) {
 		s.store.Close()
 	}
 	s.MgoSuite.TearDownTest(c)
-}
-
-func repoDir(name string) (path string) {
-	return filepath.Join("..", "charm", "testrepo", "series", name)
 }
 
 // FakeCharmDir is a charm that implements the interface that the
@@ -115,7 +105,7 @@ func (s *StoreSuite) TestCharmPublisher(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(pub.Revision(), Equals, 0)
 
-	err = pub.Publish(s.charm)
+	err = pub.Publish(testing.Charms.ClonedDir(c.MkDir(), "dummy"))
 	c.Assert(err, IsNil)
 
 	for _, url := range urls {
