@@ -7,12 +7,14 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/schema"
+	"launchpad.net/juju/go/testing"
 	"os"
 	"path/filepath"
 )
 
 func repoMeta(name string) io.Reader {
-	file, err := os.Open(filepath.Join("testrepo", "series", name, "metadata.yaml"))
+	charmDir := testing.Charms.DirPath(name)
+	file, err := os.Open(filepath.Join(charmDir, "metadata.yaml"))
 	if err != nil {
 		panic(err)
 	}

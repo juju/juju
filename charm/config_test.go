@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/charm"
+	"launchpad.net/juju/go/testing"
 	"os"
 	"path/filepath"
 )
@@ -36,7 +37,8 @@ options:
 `
 
 func repoConfig(name string) io.Reader {
-	file, err := os.Open(filepath.Join("testrepo", "series", name, "config.yaml"))
+	charmDir := testing.Charms.DirPath(name)
+	file, err := os.Open(filepath.Join(charmDir, "config.yaml"))
 	if err != nil {
 		panic(err)
 	}
