@@ -6,24 +6,21 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/charm"
+	"launchpad.net/juju/go/testing"
 	"os"
 	"path/filepath"
 	"syscall"
 )
 
-func repoDir(name string) (path string) {
-	return filepath.Join("testrepo", "series", name)
-}
-
 func (s *S) TestReadDir(c *C) {
-	path := repoDir("dummy")
+	path := testing.Charms.DirPath("dummy")
 	dir, err := charm.ReadDir(path)
 	c.Assert(err, IsNil)
 	checkDummy(c, dir, path)
 }
 
 func (s *S) TestReadDirWithoutConfig(c *C) {
-	path := repoDir("varnish")
+	path := testing.Charms.DirPath("varnish")
 	dir, err := charm.ReadDir(path)
 	c.Assert(err, IsNil)
 
@@ -33,9 +30,7 @@ func (s *S) TestReadDirWithoutConfig(c *C) {
 }
 
 func (s *S) TestBundleTo(c *C) {
-	dir, err := charm.ReadDir(repoDir("dummy"))
-	c.Assert(err, IsNil)
-
+	dir := testing.Charms.Dir("dummy")
 	path := filepath.Join(c.MkDir(), "bundle.charm")
 	file, err := os.Create(path)
 	c.Assert(err, IsNil)
@@ -85,7 +80,7 @@ func (s *S) TestBundleTo(c *C) {
 	c.Assert(meta.Name, Equals, "dummy")
 
 	c.Assert(instf, NotNil)
-	// Despite it being 0751, we pack and unpack it as 0755. 
+	// Despite it being 0751, we pack and unpack it as 0755.
 	c.Assert(instf.Mode()&0777, Equals, os.FileMode(0755))
 
 	c.Assert(symf, NotNil)
@@ -99,33 +94,12 @@ func (s *S) TestBundleTo(c *C) {
 
 	c.Assert(emptyf, NotNil)
 	c.Assert(emptyf.Mode()&os.ModeType, Equals, os.ModeDir)
-	// Despite it being 0750, we pack and unpack it as 0755. 
+	// Despite it being 0750, we pack and unpack it as 0755.
 	c.Assert(emptyf.Mode()&0777, Equals, os.FileMode(0755))
 }
 
-func copyCharmDir(dst, src string) {
-	dir, err := charm.ReadDir(src)
-	if err != nil {
-		panic(err)
-	}
-	var b bytes.Buffer
-	err = dir.BundleTo(&b)
-	if err != nil {
-		panic(err)
-	}
-	bundle, err := charm.ReadBundleBytes(b.Bytes())
-	if err != nil {
-		panic(err)
-	}
-	err = bundle.ExpandTo(dst)
-	if err != nil {
-		panic(err)
-	}
-}
-
 func (s *S) TestBundleToWithBadType(c *C) {
-	charmDir := c.MkDir()
-	copyCharmDir(charmDir, repoDir("dummy"))
+	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	badFile := filepath.Join(charmDir, "hooks", "badfile")
 
 	// Symlink targeting a path outside of the charm.
@@ -162,8 +136,7 @@ func (s *S) TestBundleToWithBadType(c *C) {
 }
 
 func (s *S) TestDirRevisionFile(c *C) {
-	charmDir := c.MkDir()
-	copyCharmDir(charmDir, repoDir("dummy"))
+	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	revPath := filepath.Join(charmDir, "revision")
 
 	// Missing revision file
@@ -194,15 +167,13 @@ func (s *S) TestDirRevisionFile(c *C) {
 }
 
 func (s *S) TestDirSetRevision(c *C) {
-	dir, err := charm.ReadDir(repoDir("dummy"))
-	c.Assert(err, IsNil)
-
+	dir := testing.Charms.ClonedDir(c.MkDir(), "dummy")
 	c.Assert(dir.Revision(), Equals, 1)
 	dir.SetRevision(42)
 	c.Assert(dir.Revision(), Equals, 42)
 
 	var b bytes.Buffer
-	err = dir.BundleTo(&b)
+	err := dir.BundleTo(&b)
 	c.Assert(err, IsNil)
 
 	bundle, err := charm.ReadBundleBytes(b.Bytes())
@@ -210,9 +181,7 @@ func (s *S) TestDirSetRevision(c *C) {
 }
 
 func (s *S) TestDirSetDiskRevision(c *C) {
-	charmDir := c.MkDir()
-	copyCharmDir(charmDir, repoDir("dummy"))
-
+	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	dir, err := charm.ReadDir(charmDir)
 	c.Assert(err, IsNil)
 
