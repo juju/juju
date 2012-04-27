@@ -173,3 +173,49 @@ func (s *StateSuite) TestUnitWatchResolved(c *C) {
 	err = resolvedWatcher.Stop()
 	c.Assert(err, IsNil)
 }
+
+func (s *StateSuite) TestUnitWatchPorts(c *C) {
+	dummy, _ := addDummyCharm(c, s.st)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	c.Assert(wordpress.Name(), Equals, "wordpress")
+	unit, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	portsWatcher := unit.WatchPorts()
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		err = unit.OpenPort("tcp", 80)
+		c.Assert(err, IsNil)
+		time.Sleep(50 * time.Millisecond)
+		err = unit.OpenPort("udp", 53)
+		c.Assert(err, IsNil)
+		time.Sleep(50 * time.Millisecond)
+		err = unit.ClosePort("tcp", 80)
+		c.Assert(err, IsNil)
+	}()
+
+	var expectedChanges = [][]state.Port{
+		[]state.Port{{"tcp", 80}},
+		[]state.Port{{"tcp", 80}, {"udp", 53}},
+		[]state.Port{{"udp", 53}},
+	}
+	for _, want := range expectedChanges {
+		select {
+		case got, ok := <-portsWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got, DeepEquals, want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", want)
+		}
+	}
+
+	select {
+	case got, _ := <-portsWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	err = portsWatcher.Stop()
+	c.Assert(err, IsNil)
+}
