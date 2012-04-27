@@ -11,7 +11,6 @@ import (
 	"net/rpc"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 type RpcCommand struct {
@@ -122,10 +121,6 @@ func (s *ServerSuite) AssertBadCommand(c *C, args []string, code int) server.Res
 	c.Assert(err, IsNil)
 	c.Assert(resp.Code, Equals, code)
 	return resp
-}
-
-func lines(b []byte) []string {
-	return strings.Split(string(b), "\n")
 }
 
 func (s *ServerSuite) TestParseError(c *C) {
