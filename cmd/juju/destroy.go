@@ -24,10 +24,7 @@ func (c *DestroyCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
-	if err := cmd.CheckEmpty(f.Args()); err != nil {
-		return err
-	}
-	return nil
+	return cmd.CheckEmpty(f.Args())
 }
 
 func (c *DestroyCommand) Run(_ *cmd.Context) error {
