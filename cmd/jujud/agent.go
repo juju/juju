@@ -44,7 +44,7 @@ func stateInfoVar(fs *gnuflag.FlagSet, target *state.Info, name string, value []
 	fs.Var((*stateInfoValue)(target), name, usage)
 }
 
-// agent implements common agent functionality.
+// agent provides common agent functionality.
 type agent struct {
 	name      string
 	jujuDir   string // Defaults to "/var/lib/juju".
@@ -52,22 +52,22 @@ type agent struct {
 }
 
 // Info returns a decription of the agent command.
-func (c *agent) Info() *cmd.Info {
-	return &cmd.Info{c.name, "", fmt.Sprintf("run a juju %s agent", c.name), ""}
+func (a *agent) Info() *cmd.Info {
+	return &cmd.Info{a.name, "", fmt.Sprintf("run a juju %s agent", a.name), ""}
 }
 
 // addFlags injects common agent flags into f.
-func (c *agent) addFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.jujuDir, "juju-directory", "/var/lib/juju", "juju working directory")
-	stateInfoVar(f, &c.stateInfo, "zookeeper-servers", nil, "zookeeper servers to connect to")
+func (a *agent) addFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&a.jujuDir, "juju-directory", "/var/lib/juju", "juju working directory")
+	stateInfoVar(f, &a.stateInfo, "zookeeper-servers", nil, "zookeeper servers to connect to")
 }
 
 // checkArgs checks that required flags have been set and that args is empty.
-func (c *agent) checkArgs(args []string) error {
-	if c.jujuDir == "" {
+func (a *agent) checkArgs(args []string) error {
+	if a.jujuDir == "" {
 		return requiredError("juju-directory")
 	}
-	if c.stateInfo.Addrs == nil {
+	if a.stateInfo.Addrs == nil {
 		return requiredError("zookeeper-servers")
 	}
 	return cmd.CheckEmpty(args)

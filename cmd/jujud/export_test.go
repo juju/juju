@@ -11,10 +11,10 @@ type AgentCommand interface {
 	StateInfo() state.Info
 }
 
-func (c agent) JujuDir() string {
-	return c.jujuDir
+func (a *agent) JujuDir() string {
+	return a.jujuDir
 }
 
-func (c agent) StateInfo() state.Info {
-	return c.stateInfo
+func (a *agent) StateInfo() state.Info {
+	return a.stateInfo
 }
