@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/schema"
 	"launchpad.net/juju/go/state"
+	"launchpad.net/juju/go/version"
 	"sync"
 )
 
@@ -258,6 +259,10 @@ func (e *environ) PutFile(name string, r io.Reader, length int64) error {
 	e.state.files[name] = buf.Bytes()
 	e.state.mu.Unlock()
 	return nil
+}
+
+func (*environ) UploadTools(r io.Reader, length int64, version version.Version) error {
+	return fmt.Errorf("dummy environment does not support executable upload")
 }
 
 func (e *environ) GetFile(name string) (io.ReadCloser, error) {
