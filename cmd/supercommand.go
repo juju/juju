@@ -15,25 +15,16 @@ type SuperCommand struct {
 	Name    string
 	Purpose string
 	Doc     string
-	LogFile string
-	Verbose bool
-	Debug   bool
+	Log     *Log
 	subcmds map[string]Command
 	subcmd  Command
 }
 
-// NewSuperCommand returns an initialized SuperCommand.
-func NewSuperCommand(name, purpose, doc string) *SuperCommand {
-	return &SuperCommand{
-		subcmds: make(map[string]Command),
-		Name:    name,
-		Purpose: purpose,
-		Doc:     doc,
-	}
-}
-
 // Register makes a subcommand available for use on the command line.
 func (c *SuperCommand) Register(subcmd Command) {
+	if c.subcmds == nil {
+		c.subcmds = make(map[string]Command)
+	}
 	name := subcmd.Info().Name
 	_, found := c.subcmds[name]
 	if found {
@@ -86,10 +77,9 @@ func (c *SuperCommand) Info() *Info {
 
 // Init initializes the command for running.
 func (c *SuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	f.StringVar(&c.LogFile, "log-file", "", "path to write log to")
-	f.BoolVar(&c.Verbose, "v", false, "if set, log additional messages")
-	f.BoolVar(&c.Verbose, "verbose", false, "if set, log additional messages")
-	f.BoolVar(&c.Debug, "debug", false, "if set, log debugging messages")
+	if c.Log != nil {
+		c.Log.AddFlags(f)
+	}
 	if err := f.Parse(false, args); err != nil {
 		return err
 	}
@@ -106,8 +96,10 @@ func (c *SuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run executes the subcommand that was selected in Init.
 func (c *SuperCommand) Run(ctx *Context) error {
-	if err := ctx.InitLog(c.Verbose, c.Debug, c.LogFile); err != nil {
-		return err
+	if c.Log != nil {
+		if err := c.Log.Start(ctx); err != nil {
+			return err
+		}
 	}
 	if c.subcmd == nil {
 		panic("Run: missing subcommand; Init failed or not called")
