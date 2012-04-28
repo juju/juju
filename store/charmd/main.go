@@ -23,7 +23,7 @@ func main() {
 
 type config struct {
 	MongoURL string `yaml:"mongo-url"`
-	APIAddr string `yaml:"api-addr"`
+	APIAddr  string `yaml:"api-addr"`
 }
 
 func readConfig(path string, conf interface{}) error {
