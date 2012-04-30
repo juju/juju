@@ -5,11 +5,10 @@ package server
 
 import (
 	"fmt"
-	"launchpad.net/juju/go/log"
+	"launchpad.net/juju/go/cmd"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 // Context is responsible for the state against which a jujuc-forwarded command
@@ -23,24 +22,16 @@ type Context struct {
 	RelationName   string
 }
 
-// Log is the core of the `juju-log` hook command, and is always meaningful in
-// any Context.
-func (ctx *Context) Log(debug bool, msg string) {
-	s := []string{}
-	if ctx.LocalUnitName != "" {
-		s = append(s, ctx.LocalUnitName)
+// GetCommand returns an instance of the named Command, initialized to execute
+// against this Context.
+func (ctx *Context) GetCommand(name string) (c cmd.Command, err error) {
+	switch name {
+	case "juju-log":
+		c = &JujuLogCommand{ctx: ctx}
+	default:
+		err = fmt.Errorf("unknown command: %s", name)
 	}
-	if ctx.RelationName != "" {
-		s = append(s, ctx.RelationName)
-	}
-	if len(s) > 0 {
-		msg = fmt.Sprintf("%s: ", strings.Join(s, " ")) + msg
-	}
-	if debug {
-		log.Debugf(msg)
-	} else {
-		log.Printf(msg)
-	}
+	return
 }
 
 // hookVars returns an os.Environ-style list of strings necessary to run a hook
@@ -68,7 +59,7 @@ func (ctx *Context) hookVars(charmDir, socketPath string) []string {
 }
 
 // RunHook executes a hook in an environment which allows it to to call back
-// into ctx to execute hook tools.
+// into ctx to execute jujuc tools.
 func (ctx *Context) RunHook(hookName, charmDir, socketPath string) error {
 	ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
 	ps.Env = ctx.hookVars(charmDir, socketPath)
