@@ -40,7 +40,7 @@ var commonLogTests = []struct {
 }
 
 func assertLogs(c *C, ctx *server.Context, badge string) {
-	msg := "the chickens are restless"
+	msg := "the chickens are 110% AWESOME"
 	com, err := ctx.GetCommand("juju-log")
 	c.Assert(err, IsNil)
 	for _, t := range commonLogTests {
@@ -77,7 +77,7 @@ func (s *JujuLogSuite) TestErrors(c *C) {
 	com, err := ctx.GetCommand("juju-log")
 	c.Assert(err, IsNil)
 	err = com.Init(dummyFlagSet(), nil)
-	c.Assert(err, ErrorMatches, "no <message> specified")
+	c.Assert(err, ErrorMatches, "no message specified")
 	err = com.Init(dummyFlagSet(), []string{"foo", "bar"})
 	c.Assert(err, ErrorMatches, `unrecognised args: \[bar\]`)
 }

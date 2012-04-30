@@ -2,7 +2,6 @@ package server
 
 import (
 	"errors"
-	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/cmd"
 	"launchpad.net/juju/go/log"
@@ -23,13 +22,13 @@ func (c *JujuLogCommand) Info() *cmd.Info {
 
 // Init parses the command line and returns any errors encountered.
 func (c *JujuLogCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	f.BoolVar(&c.Debug, "debug", false, "log <message> at debug level")
+	f.BoolVar(&c.Debug, "debug", false, "log message at debug level")
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
 	args = f.Args()
 	if args == nil {
-		return errors.New("no <message> specified")
+		return errors.New("no message specified")
 	}
 	c.Message = args[0]
 	return cmd.CheckEmpty(args[1:])
@@ -46,12 +45,12 @@ func (c *JujuLogCommand) Run(_ *cmd.Context) error {
 	}
 	msg := c.Message
 	if len(s) > 0 {
-		msg = fmt.Sprintf("%s: ", strings.Join(s, " ")) + msg
+		msg = strings.Join(s, " ") + ": " + msg
 	}
 	if c.Debug {
-		log.Debugf(msg)
+		log.Debugf("%s", msg)
 	} else {
-		log.Printf(msg)
+		log.Printf("%s", msg)
 	}
 	return nil
 }
