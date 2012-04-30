@@ -27,11 +27,9 @@ type Context struct {
 func (ctx *Context) GetCommand(name string) (c cmd.Command, err error) {
 	switch name {
 	case "juju-log":
-		c = &JujuLogCommand{ctx: ctx}
-	default:
-		err = fmt.Errorf("unknown command: %s", name)
+		return &JujuLogCommand{ctx: ctx}, nil
 	}
-	return
+	return nil, fmt.Errorf("unknown command: %s", name)
 }
 
 // hookVars returns an os.Environ-style list of strings necessary to run a hook
