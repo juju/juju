@@ -111,34 +111,34 @@ func (s *MainSuite) TearDownSuite(c *C) {
 	s.server.Close()
 }
 
-func (s *MainSuite) TestHappyPath(c *C) {
-	output := run(c, s.sockPath, "bill", 0, "remote")
-	c.Assert(output, Equals, "success!\n")
+var argsTests = []struct {
+	args   []string
+	code   int
+	output string
+}{
+	{[]string{"remote"}, 0, "success!\n"},
+	{[]string{"/path/to/remote"}, 0, "success!\n"},
+	{[]string{"unknown"}, 1, main.Help + "error: bad request: bad command: unknown\n"},
+	{[]string{"remote", "--error", "borken"}, 1, "error: borken\n"},
+	{[]string{"remote", "--unknown"}, 2, expectUsage + "error: flag provided but not defined: --unknown\n"},
+	{[]string{"remote", "unwanted"}, 2, expectUsage + "error: unrecognised args: [unwanted]\n"},
 }
 
-func (s *MainSuite) TestCommandBase(c *C) {
-	output := run(c, s.sockPath, "bill", 0, "/path/to/remote")
-	c.Assert(output, Equals, "success!\n")
+func (s *MainSuite) TestArgs(c *C) {
+	for _, t := range argsTests {
+		output := run(c, s.sockPath, "bill", t.code, t.args...)
+		c.Assert(output, Equals, t.output)
+	}
 }
 
-func (s *MainSuite) TestBadCommand(c *C) {
-	output := run(c, s.sockPath, "bill", 1, "unknown")
-	c.Assert(output, Equals, main.Help+"error: bad request: bad command: unknown\n")
+func (s *MainSuite) TestNoClientId(c *C) {
+	output := run(c, s.sockPath, "", 1, "remote")
+	c.Assert(output, Equals, main.Help+"error: JUJU_CONTEXT_ID not set\n")
 }
 
-func (s *MainSuite) TestBadRun(c *C) {
-	output := run(c, s.sockPath, "bill", 1, "remote", "--error", "borken")
-	c.Assert(output, Equals, "error: borken\n")
-}
-
-func (s *MainSuite) TestBadFlag(c *C) {
-	output := run(c, s.sockPath, "bill", 2, "remote", "--unknown")
-	c.Assert(output, Equals, expectUsage+"error: flag provided but not defined: --unknown\n")
-}
-
-func (s *MainSuite) TestBadArg(c *C) {
-	output := run(c, s.sockPath, "bill", 2, "remote", "unwanted")
-	c.Assert(output, Equals, expectUsage+"error: unrecognised args: [unwanted]\n")
+func (s *MainSuite) TestBadClientId(c *C) {
+	output := run(c, s.sockPath, "ben", 1, "remote")
+	c.Assert(output, Equals, main.Help+"error: bad request: bad context: ben\n")
 }
 
 func (s *MainSuite) TestNoSockPath(c *C) {
@@ -151,14 +151,4 @@ func (s *MainSuite) TestBadSockPath(c *C) {
 	output := run(c, badSock, "bill", 1, "remote")
 	err := fmt.Sprintf("error: dial unix %s: .*\n", badSock)
 	c.Assert(output, Matches, main.Help+err)
-}
-
-func (s *MainSuite) TestNoClientId(c *C) {
-	output := run(c, s.sockPath, "", 1, "remote")
-	c.Assert(output, Equals, main.Help+"error: JUJU_CONTEXT_ID not set\n")
-}
-
-func (s *MainSuite) TestBadClientId(c *C) {
-	output := run(c, s.sockPath, "ben", 1, "remote")
-	c.Assert(output, Equals, main.Help+"error: bad request: bad context: ben\n")
 }
