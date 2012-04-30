@@ -1,13 +1,16 @@
-package juju_test
+package environs_test
 
 import (
+	"fmt"
+	"runtime"
 	"io"
+	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
-	"launchpad.net/juju/go/environs/dummy"
-	"launchpad.net/juju/go/juju"
+	_ "launchpad.net/juju/go/environs/dummy"
 	"launchpad.net/juju/go/version"
 	"os/exec"
+	"os"
 	"path/filepath"
 )
 
@@ -15,26 +18,24 @@ type ToolsSuite struct{}
 
 var envs *environs.Environs
 
-func init() {
-	var err error
-	envs, err = environs.ReadEnvironsBytes([]byte(`
+const toolsConf = `
 environments:
     foo:
         type: dummy
         zookeeper: false
-`))
+`
+
+func init() {
+	var err error
+	envs, err = environs.ReadEnvironsBytes([]byte(toolsConf))
 	if err != nil {
 		panic(err)
 	}
 }
 
-func (ToolsSuite) TearDownTest(c *C) {
-	dummy.Reset(nil)
-}
-
 var _ = Suite(&ToolsSuite{})
 
-var tools = []struct {
+var toolTests = []struct {
 	args   []string
 	output string
 }{{
@@ -46,52 +47,53 @@ var tools = []struct {
 }}
 
 func (ToolsSuite) TestUploadTools(c *C) {
-	opc := make(chan dummy.Operation)
-	dummy.Reset(opc)
 	env, err := envs.Open("")
 	c.Assert(err, IsNil)
 
-	conn := &juju.Conn{env}
-	errc := make(chan error, 1)
-	go func() {
-		errc <- conn.UploadTools()
-	}()
-	op := <-opc
-	c.Assert(op.Kind, Equals, dummy.OpUploadTools)
-	c.Assert(op.Version, Equals, version.Current)
+	err = environs.UploadTools(env)
+	c.Assert(err, IsNil)
 
-	// Unarchive the tool executables from the reader
-	// that's been given to the dummy environment
-	// UploadTools calls.
+	name := fmt.Sprintf("tools/juju-%v-%s-%s.tgz", version.Current, runtime.GOOS, runtime.GOARCH)
+	r, err := env.GetFile(name)
+	c.Assert(err, IsNil)
+
+	// Unarchive the tool executables into a temp directory.
 	dir := c.MkDir()
-	unarchive(c, dir, op.Upload)
-	dummy.Reset(nil)
-	c.Assert((<-opc).Kind, Equals, dummy.OpNone)
-	c.Assert(<-errc, IsNil)
+	unarchive(c, dir, r)
 
 	// Verify that each tool executes and produces some
 	// characteristic output.
-	for _, t := range tools {
-		out, _ := exec.Command(
+	for _, t := range toolTests {
+		out, err := exec.Command(
 			filepath.Join(dir, t.args[0]),
 			t.args[1:]...).CombinedOutput()
+		if err != nil {
+			c.Assert(err, FitsTypeOf, (*exec.ExitError)(nil))
+		}
 		c.Check(string(out), Matches, t.output)
 	}
 }
 
 // Test that the upload procedure fails correctly
-// when the build process fails (because we've
-// got a bad go install path in this case).
+// when the build process fails (because of a bad Go source
+// file in this case).
 func (ToolsSuite) TestUploadBadBuild(c *C) {
-	oldJujuRoot := juju.SetJujuRoot("-/invalid")
-	defer juju.SetJujuRoot(oldJujuRoot)
+	gopath := c.MkDir()
+	pkgdir := filepath.Join(gopath, "src", "launchpad.net", "juju", "go", "cmd", "broken")
+	err := os.MkdirAll(pkgdir, 0777)
+	c.Assert(err, IsNil)
+
+	err = ioutil.WriteFile(filepath.Join(pkgdir, "broken.go"), []byte("nope"), 0666)
+	c.Assert(err, IsNil)
+
+	defer os.Setenv("GOPATH", os.Getenv("GOPATH"))
+	os.Setenv("GOPATH", gopath)
 
 	env, err := envs.Open("")
 	c.Assert(err, IsNil)
 
-	conn := &juju.Conn{env}
-	err = conn.UploadTools()
-	c.Assert(err, ErrorMatches, `build failed(.|\n)*`)
+	err = environs.UploadTools(env)
+	c.Assert(err, ErrorMatches, `build failed: exit status 1; can't load package:(.|\n)*`)
 }
 
 func unarchive(c *C, dir string, r io.ReadCloser) {

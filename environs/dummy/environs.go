@@ -9,19 +9,12 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/schema"
 	"launchpad.net/juju/go/state"
-	"launchpad.net/juju/go/version"
 	"sync"
-	"time"
 )
 
 type Operation struct {
 	Kind OperationKind
 	Env  string
-
-	// Valid for OpUploadTools only. The receiver must close the reader
-	// when done.
-	Upload  io.ReadCloser
-	Version version.Version
 }
 
 // Operation represents an action on the dummy provider.
@@ -33,7 +26,7 @@ const (
 	OpDestroy
 	OpStartInstance
 	OpStopInstances
-	OpUploadTools
+	OpPutFile
 )
 
 var kindNames = []string{
@@ -42,6 +35,7 @@ var kindNames = []string{
 	OpDestroy:       "OpDestroy",
 	OpStartInstance: "OpStartInstance",
 	OpStopInstances: "OpStopInstances",
+	OpPutFile: "OpPutFile",
 }
 
 func (k OperationKind) String() string {
@@ -79,10 +73,7 @@ func init() {
 	// the testing environment by simply importing it.
 	c := make(chan Operation)
 	go func() {
-		for op := range c {
-			if op.Kind == OpUploadTools {
-				op.Upload.Close()
-			}
+		for _ = range c {
 		}
 	}()
 	discardOperations = c
@@ -260,6 +251,7 @@ func (e *environ) PutFile(name string, r io.Reader, length int64) error {
 	if e.broken {
 		return errBroken
 	}
+	e.ops <- Operation{Kind: OpPutFile, Env: e.name}
 	var buf bytes.Buffer
 	_, err := io.Copy(&buf, r)
 	if err != nil {
@@ -268,27 +260,6 @@ func (e *environ) PutFile(name string, r io.Reader, length int64) error {
 	e.state.mu.Lock()
 	e.state.files[name] = buf.Bytes()
 	e.state.mu.Unlock()
-	return nil
-}
-
-func (e *environ) UploadTools(r io.Reader, length int64, version version.Version) error {
-	if e.broken {
-		return errBroken
-	}
-	notify := make(chan bool)
-	e.ops <- Operation{
-		Kind:    OpUploadTools,
-		Env:     e.name,
-		Upload:  &notifyCloser{r, notify},
-		Version: version,
-	}
-	// Make sure that if we get a test wrong that we don't hang up
-	// indefinitely.
-	select {
-	case <-notify:
-	case <-time.After(2 * time.Second):
-		panic("dummy environment upload tools reader has taken too long to be closed")
-	}
 	return nil
 }
 

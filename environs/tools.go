@@ -1,4 +1,4 @@
-package juju
+package environs
 
 import (
 	"archive/tar"
@@ -9,9 +9,8 @@ import (
 	"launchpad.net/juju/go/version"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
-	"reflect"
+	"runtime"
 )
 
 // tarHeader returns a tar file header given the file's stat
@@ -38,6 +37,8 @@ func isExecutable(i os.FileInfo) bool {
 
 // archive writes the executable files found in the given
 // directory in gzipped tar format to w.
+// An error is returned if an entry inside dir is not
+// a regular executable file.
 func archive(w io.Writer, dir string) (err error) {
 	entries, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -52,7 +53,7 @@ func archive(w io.Writer, dir string) (err error) {
 
 	for _, ent := range entries {
 		if !isExecutable(ent) {
-			panic(fmt.Errorf("go install has created non-executable file %q", ent.Name()))
+			return fmt.Errorf("archive: found non-executable file %q", filepath.Join(dir, ent.Name()))
 		}
 		h := tarHeader(ent)
 		// ignore local umask
@@ -87,19 +88,6 @@ func copyFile(w io.Writer, file string) error {
 	return err
 }
 
-var jujuRoot string
-
-func init() {
-	// Find out the juju root by introspecting a locally defined type.
-	type t int
-	p := reflect.TypeOf(t(0)).PkgPath()
-	root, j := path.Split(p)
-	if j != "juju" {
-		panic(fmt.Errorf("unexpected juju package path %q", p))
-	}
-	jujuRoot = root
-}
-
 // bundleTools bundles all the current juju tools in gzipped tar
 // format to the given writer.
 func bundleTools(w io.Writer) error {
@@ -108,7 +96,7 @@ func bundleTools(w io.Writer) error {
 		return err
 	}
 	defer os.RemoveAll(dir)
-	cmd := exec.Command("go", "install", path.Join(jujuRoot, "cmd", "..."))
+	cmd := exec.Command("go", "install", "launchpad.net/juju/go/cmd/...")
 	cmd.Env = []string{
 		"GOPATH=" + os.Getenv("GOPATH"),
 		"GOBIN=" + dir,
@@ -121,10 +109,13 @@ func bundleTools(w io.Writer) error {
 	return archive(w, dir)
 }
 
-func (c *Conn) UploadTools() error {
-	// We create the entire archive
-	// before asking the environment to start uploading
-	// so that we can be sure we have archived correctly.
+// UploadTools uploads the current version of the juju tools
+// executables to the given environment.
+// TODO find binaries from $PATH when go dev environment not available.
+func UploadTools(env Environ) error {
+	// We create the entire archive before asking the environment to
+	// start uploading so that we can be sure we have archived
+	// correctly.
 	f, err := ioutil.TempFile("", "juju-tgz")
 	if err != nil {
 		return err
@@ -143,5 +134,6 @@ func (c *Conn) UploadTools() error {
 	if err != nil {
 		return err
 	}
-	return c.Environ.UploadTools(f, fi.Size(), version.Current)
+	name := fmt.Sprintf("tools/juju-%v-%s-%s.tgz", version.Current, runtime.GOOS, runtime.GOARCH)
+	return env.PutFile(name, f, fi.Size())
 }
