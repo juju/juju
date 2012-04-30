@@ -35,17 +35,6 @@ func init() {
 
 var _ = Suite(&ToolsSuite{})
 
-var toolTests = []struct {
-	args   []string
-	output string
-}{{
-	[]string{"juju", "arble"},
-	`usage: juju (.|\n)*`,
-}, {
-	[]string{"jujud", "arble"},
-	`usage: jujud (.|\n)*`,
-}}
-
 func (ToolsSuite) TestUploadTools(c *C) {
 	env, err := envs.Open("")
 	c.Assert(err, IsNil)
@@ -63,14 +52,12 @@ func (ToolsSuite) TestUploadTools(c *C) {
 
 	// Verify that each tool executes and produces some
 	// characteristic output.
-	for _, t := range toolTests {
-		out, err := exec.Command(
-			filepath.Join(dir, t.args[0]),
-			t.args[1:]...).CombinedOutput()
+	for _, tool := range []string{"juju", "jujud"} {
+		out, err := exec.Command(filepath.Join(dir, tool), "arble").CombinedOutput()
 		if err != nil {
 			c.Assert(err, FitsTypeOf, (*exec.ExitError)(nil))
 		}
-		c.Check(string(out), Matches, t.output)
+		c.Check(string(out), Matches, fmt.Sprintf(`usage: %s (.|\n)*`, tool))
 	}
 }
 
