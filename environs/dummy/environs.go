@@ -35,7 +35,7 @@ var kindNames = []string{
 	OpDestroy:       "OpDestroy",
 	OpStartInstance: "OpStartInstance",
 	OpStopInstances: "OpStopInstances",
-	OpPutFile: "OpPutFile",
+	OpPutFile:       "OpPutFile",
 }
 
 func (k OperationKind) String() string {

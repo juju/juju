@@ -2,16 +2,16 @@ package environs_test
 
 import (
 	"fmt"
-	"runtime"
 	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
 	_ "launchpad.net/juju/go/environs/dummy"
 	"launchpad.net/juju/go/version"
-	"os/exec"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 )
 
 type ToolsSuite struct{}
