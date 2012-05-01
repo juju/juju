@@ -135,6 +135,14 @@ func (*cmdSuite) TestBootstrapCommand(c *C) {
 	c.Check(<-opc, Equals, op(dummy.OpBootstrap, "peckham"))
 	c.Check(<-errc, IsNil)
 
+	// bootstrap with tool uploading - checking that a file
+	// is uploaded should be sufficient, as the detailed semantics
+	// of UploadTools are tested in environs.
+	opc, errc = runCommand(new(main.BootstrapCommand), "--upload-tools")
+	c.Check(<-opc, Equals, op(dummy.OpPutFile, "peckham"))
+	c.Check(<-opc, Equals, op(dummy.OpBootstrap, "peckham"))
+	c.Check(<-errc, IsNil)
+
 	// bootstrap with broken environment
 	opc, errc = runCommand(new(main.BootstrapCommand), "-e", "barking")
 	c.Check((<-opc).Kind, Equals, dummy.OpNone)
