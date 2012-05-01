@@ -98,3 +98,35 @@ func (e *environ) RemoveFile(file string) error {
 func (e *environ) bucket() *s3.Bucket {
 	return e.s3.Bucket(e.config.bucket)
 }
+
+var toolFilePat = regexp.MustCompile("^juju-([0-9]+\.[0-9]+\.[0-9]+)-([^-]+)-([^-]+)$")
+
+// findTools returns a URL from which the juju tools can
+// be downloaded. If exact is true, only a version which exactly
+// matches version.Current will be used.
+func (e *environs) findTools(spec *ImageConstraint, exact string) (url string, err error) {
+	resp, err := e.bucket().List("tools/", "/", "", 0)
+	if err != nil {
+		// TODO look in public bucket
+		return err
+	}
+	bestVersion := version.Version{Major: -1}
+	bestKey := ""
+	for _, k := range resp.Contents {
+		m := toolFilePat.FindStringSubmatch(k.Key)
+		if m == nil {
+			continue
+		}
+		vers, err := version.Parse(m[1])
+		if err != nil {
+			log.Printf("failed to parse version %q: %v", err)
+			continue
+		}
+		if m[2] != 
+		if vers.Major != version.Current.Major {
+			continue
+		}
+		if bestVersion.Less(vers) {
+			bestVersion = vers
+			bestKey = 
+	}

@@ -106,7 +106,7 @@ func (environProvider) Open(name string, config interface{}) (e environs.Environ
 	}, nil
 }
 
-func (e *environ) Bootstrap() error {
+func (e *environ) Bootstrap(uploadTools bool) error {
 	log.Printf("environs/ec2: bootstrapping environment %q", e.name)
 	_, err := e.loadState()
 	if err == nil {
@@ -204,6 +204,9 @@ func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
 func (e *environ) startInstance(machineId int, info *state.Info, master bool) (environs.Instance, error) {
+	constraint := DefaultImageConstraint
+	constraint.Region = e.config.region
+
 	image, err := FindImageSpec(DefaultImageConstraint)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
