@@ -23,9 +23,15 @@ func (c *ConfigGetCommand) checkCtx() error {
 	return nil
 }
 
+var purpose = "write service configuration to stdout"
+var doc = `
+If <key> is not specified, the full service configuration will be written;
+if it is, a single value will be written.
+`
+
 // Info returns usage information.
 func (c *ConfigGetCommand) Info() *cmd.Info {
-	return &cmd.Info{"config-get", "[<key>]", "retrieve service configuration", ""}
+	return &cmd.Info{"config-get", "[<key>]", purpose, doc}
 }
 
 // Init parses the command line and returns any errors encountered.

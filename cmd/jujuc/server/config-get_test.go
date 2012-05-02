@@ -74,12 +74,45 @@ func (s *ConfigGetSuite) TearDownTest(c *C) {
 	testing.ZkRemoveTree(zk, "/")
 }
 
-func (s *ConfigGetSuite) TestBlah(c *C) {
+var configGetTests = []struct {
+	args []string
+	out  string
+}{
+	{[]string{"monsters"}, "false\n"},
+	{[]string{"spline-reticulation"}, "45\n"},
+	{[]string{"missing"}, "<nil>\n"},
+	{nil, "map[spline-reticulation:45 monsters:false]\n"},
+}
+
+func (s *ConfigGetSuite) TestOutput(c *C) {
+	for _, t := range configGetTests {
+		com, err := s.ctx.GetCommand("config-get")
+		c.Assert(err, IsNil)
+		ctx := dummyContext(c)
+		code := cmd.Main(com, ctx, t.args)
+		c.Assert(code, Equals, 0)
+		c.Assert(str(ctx.Stderr), Equals, "")
+		c.Assert(str(ctx.Stdout), Equals, t.out)
+	}
+}
+
+func (s *ConfigGetSuite) TestUnknownArg(c *C) {
 	com, err := s.ctx.GetCommand("config-get")
 	c.Assert(err, IsNil)
-	ctx := dummyContext(c)
-	code := cmd.Main(com, ctx, nil)
-	c.Assert(code, Equals, 0)
-	c.Assert(str(ctx.Stderr), Equals, "")
-	c.Assert(str(ctx.Stdout), Equals, "")
+	err = com.Init(dummyFlagSet(), []string{"multiple", "keys"})
+	c.Assert(err, ErrorMatches, `unrecognized args: \["keys"\]`)
+}
+
+func (s *ConfigGetSuite) TestBadState(c *C) {
+	s.ctx.St = nil
+	com, err := s.ctx.GetCommand("config-get")
+	c.Assert(com, IsNil)
+	c.Assert(err, ErrorMatches, "context TestCtx cannot access state")
+}
+
+func (s *ConfigGetSuite) TestBadUnit(c *C) {
+	s.ctx.LocalUnitName = ""
+	com, err := s.ctx.GetCommand("config-get")
+	c.Assert(com, IsNil)
+	c.Assert(err, ErrorMatches, "context TestCtx is not attached to a unit")
 }
