@@ -6,35 +6,30 @@ import (
 	"launchpad.net/juju/go/cmd"
 )
 
-// ConfigGetCommand implements the `config-get` command. It requires a Context
-// whose St and LocalUnitName fields are non-zero.
+// ConfigGetCommand implements the config-get command.
 type ConfigGetCommand struct {
 	ctx *Context
 	Key string
 }
 
-// checkCtx validates that the command's Context is suitable.
-func (c *ConfigGetCommand) checkCtx() error {
-	if c.ctx.St == nil {
+// checkContext checks that the command has non-zero state and local unit name.
+func (c *ConfigGetCommand) checkContext() error {
+	if c.ctx.State == nil {
 		return fmt.Errorf("context %s cannot access state", c.ctx.Id)
-	} else if c.ctx.LocalUnitName == "" {
+	}
+	if c.ctx.LocalUnitName == "" {
 		return fmt.Errorf("context %s is not attached to a unit", c.ctx.Id)
 	}
 	return nil
 }
 
-var purpose = "write service configuration to stdout"
-var doc = `
-If <key> is not specified, the full service configuration will be written;
-if it is, a single value will be written.
-`
+var purpose = "print service configuration"
+var doc = "If a key is given, only the value for that key will be printed"
 
-// Info returns usage information.
 func (c *ConfigGetCommand) Info() *cmd.Info {
 	return &cmd.Info{"config-get", "[<key>]", purpose, doc}
 }
 
-// Init parses the command line and returns any errors encountered.
 func (c *ConfigGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if err := f.Parse(true, args); err != nil {
 		return err
@@ -47,13 +42,12 @@ func (c *ConfigGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
-// Run retrieves the requested information and writes it to stdout.
 func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
-	unit, err := c.ctx.St.Unit(c.ctx.LocalUnitName)
+	unit, err := c.ctx.State.Unit(c.ctx.LocalUnitName)
 	if err != nil {
 		return err
 	}
-	service, err := c.ctx.St.Service(unit.ServiceName())
+	service, err := c.ctx.State.Service(unit.ServiceName())
 	if err != nil {
 		return err
 	}
@@ -68,6 +62,6 @@ func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
 		value, _ = conf.Get(c.Key)
 	}
 	// TODO --format ( = "smart")
-	fmt.Fprintf(ctx.Stdout, "%v\n", value)
+	fmt.Fprintln(ctx.Stdout, value)
 	return nil
 }

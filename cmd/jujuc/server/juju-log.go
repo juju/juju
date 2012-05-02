@@ -8,24 +8,21 @@ import (
 	"strings"
 )
 
-// JujuLogCommand implements the `juju-log` command.
+// JujuLogCommand implements the juju-log command.
 type JujuLogCommand struct {
 	ctx     *Context
 	Message string
 	Debug   bool
 }
 
-// checkCtx validates that the command's Context is suitable.
-func (c *JujuLogCommand) checkCtx() error {
+func (c *JujuLogCommand) checkContext() error {
 	return nil
 }
 
-// Info returns usage information.
 func (c *JujuLogCommand) Info() *cmd.Info {
 	return &cmd.Info{"juju-log", "<message>", "write a message to the juju log", ""}
 }
 
-// Init parses the command line and returns any errors encountered.
 func (c *JujuLogCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	f.BoolVar(&c.Debug, "debug", false, "log at debug level")
 	if err := f.Parse(true, args); err != nil {
@@ -39,7 +36,6 @@ func (c *JujuLogCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return nil
 }
 
-// Run writes to the juju log as directed in Init.
 func (c *JujuLogCommand) Run(_ *cmd.Context) error {
 	s := []string{}
 	if c.ctx.LocalUnitName != "" {
