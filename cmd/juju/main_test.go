@@ -56,7 +56,7 @@ func (s *MainSuite) TestActualRunBadCommand(c *C) {
 	// Check error when command unknown
 	lines := badrun(c, 2, "discombobulate")
 	c.Assert(lines[0], Equals, "usage: juju [options] <command> ...")
-	assertError(c, lines, "error: unrecognised command: juju discombobulate")
+	assertError(c, lines, "error: unrecognized command: juju discombobulate")
 }
 
 func (s *MainSuite) TestActualRunBadJujuArg(c *C) {
