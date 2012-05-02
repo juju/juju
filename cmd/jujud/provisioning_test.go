@@ -17,5 +17,5 @@ func (s *ProvisioningSuite) TestParseSuccess(c *C) {
 func (s *ProvisioningSuite) TestParseUnknown(c *C) {
 	a := main.NewProvisioningAgent()
 	err := ParseAgentCommand(a, []string{"nincompoops"})
-	c.Assert(err, ErrorMatches, `unrecognised args: \[nincompoops\]`)
+	c.Assert(err, ErrorMatches, `unrecognized args: \["nincompoops"\]`)
 }

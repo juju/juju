@@ -126,7 +126,7 @@ func DefaultContext() *Context {
 // CheckEmpty is a utility function that returns an error if args is not empty.
 func CheckEmpty(args []string) error {
 	if len(args) != 0 {
-		return fmt.Errorf("unrecognised args: %s", args)
+		return fmt.Errorf("unrecognized args: %q", args)
 	}
 	return nil
 }

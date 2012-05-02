@@ -28,5 +28,5 @@ func (s *MachineSuite) TestParseNonsense(c *C) {
 func (s *MachineSuite) TestParseUnknown(c *C) {
 	a := main.NewMachineAgent()
 	err := ParseAgentCommand(a, []string{"--machine-id", "42", "blistering barnacles"})
-	c.Assert(err, ErrorMatches, `unrecognised args: \[blistering barnacles\]`)
+	c.Assert(err, ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
 }

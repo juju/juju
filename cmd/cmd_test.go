@@ -79,5 +79,5 @@ func (s *CmdSuite) TestMainHelp(c *C) {
 
 func (s *CmdSuite) TestCheckEmpty(c *C) {
 	c.Assert(cmd.CheckEmpty(nil), IsNil)
-	c.Assert(cmd.CheckEmpty([]string{"boo!"}), ErrorMatches, `unrecognised args: \[boo!\]`)
+	c.Assert(cmd.CheckEmpty([]string{"boo!"}), ErrorMatches, `unrecognized args: \["boo!"\]`)
 }

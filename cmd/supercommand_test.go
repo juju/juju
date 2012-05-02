@@ -27,7 +27,7 @@ func (s *SuperCommandSuite) TestDispatch(c *C) {
 	c.Assert(info.Doc, Equals, "")
 
 	jc, _, err = initDefenestrate([]string{"discombobulate"})
-	c.Assert(err, ErrorMatches, "unrecognised command: jujutest discombobulate")
+	c.Assert(err, ErrorMatches, "unrecognized command: jujutest discombobulate")
 	info = jc.Info()
 	c.Assert(info.Name, Equals, "jujutest")
 	c.Assert(info.Args, Equals, "<command> ...")
@@ -46,7 +46,7 @@ func (s *SuperCommandSuite) TestDispatch(c *C) {
 	c.Assert(tc.Option, Equals, "firmly")
 
 	_, tc, err = initDefenestrate([]string{"defenestrate", "gibberish"})
-	c.Assert(err, ErrorMatches, `unrecognised args: \[gibberish\]`)
+	c.Assert(err, ErrorMatches, `unrecognized args: \["gibberish"\]`)
 }
 
 func (s *SuperCommandSuite) TestRegister(c *C) {
@@ -57,6 +57,10 @@ func (s *SuperCommandSuite) TestRegister(c *C) {
 	c.Assert(badCall, PanicMatches, "command already registered: flap")
 }
 
+var commandsDoc = `commands:
+    flapbabble - flapbabble the juju
+    flip       - flip the juju`
+
 func (s *SuperCommandSuite) TestInfo(c *C) {
 	jc := &cmd.SuperCommand{
 		Name: "jujutest", Purpose: "to be purposeful", Doc: "doc\nblah\ndoc",
@@ -64,26 +68,16 @@ func (s *SuperCommandSuite) TestInfo(c *C) {
 	info := jc.Info()
 	c.Assert(info.Name, Equals, "jujutest")
 	c.Assert(info.Purpose, Equals, "to be purposeful")
-	c.Assert(info.Doc, Equals, `doc
-blah
-doc`)
+	c.Assert(info.Doc, Equals, jc.Doc)
 
 	jc.Register(&TestCommand{Name: "flip"})
 	jc.Register(&TestCommand{Name: "flapbabble"})
 	info = jc.Info()
-	c.Assert(info.Doc, Equals, `doc
-blah
-doc
-
-commands:
-    flapbabble - flapbabble the juju
-    flip       - flip the juju`)
+	c.Assert(info.Doc, Equals, jc.Doc+"\n\n"+commandsDoc)
 
 	jc.Doc = ""
 	info = jc.Info()
-	c.Assert(info.Doc, Equals, `commands:
-    flapbabble - flapbabble the juju
-    flip       - flip the juju`)
+	c.Assert(info.Doc, Equals, commandsDoc)
 }
 
 func (s *SuperCommandSuite) TestLogging(c *C) {
