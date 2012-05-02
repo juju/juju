@@ -37,5 +37,5 @@ func (s *InitzkSuite) TestParse(c *C) {
 
 	args = append(args, "haha disregard that")
 	_, err = initInitzkCommand(args)
-	c.Assert(err, ErrorMatches, `unrecognised args: \[haha disregard that\]`)
+	c.Assert(err, ErrorMatches, `unrecognized args: \["haha disregard that"\]`)
 }
