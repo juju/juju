@@ -30,8 +30,8 @@ func (c *JujuLogCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if args == nil {
 		return errors.New("no message specified")
 	}
-	c.Message = args[0]
-	return cmd.CheckEmpty(args[1:])
+	c.Message = strings.Join(args, " ")
+	return nil
 }
 
 // Run writes to the juju log as directed in Init.

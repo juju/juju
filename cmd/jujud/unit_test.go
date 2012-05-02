@@ -37,5 +37,5 @@ func (s *UnitSuite) TestParseNonsense(c *C) {
 func (s *UnitSuite) TestParseUnknown(c *C) {
 	uc := main.NewUnitAgent()
 	err := ParseAgentCommand(uc, []string{"--unit-name", "wordpress/1", "thundering typhoons"})
-	c.Assert(err, ErrorMatches, `unrecognised args: \[thundering typhoons\]`)
+	c.Assert(err, ErrorMatches, `unrecognized args: \["thundering typhoons"\]`)
 }
