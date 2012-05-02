@@ -6,6 +6,7 @@ package server
 import (
 	"fmt"
 	"launchpad.net/juju/go/cmd"
+	"launchpad.net/juju/go/state"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,19 +18,33 @@ import (
 // (which is likely to call jujuc tools that need this specific Context).
 type Context struct {
 	Id             string
+	St             *state.State
 	LocalUnitName  string
 	RemoteUnitName string
 	RelationName   string
 }
 
+type ctxCheckCommand interface {
+	cmd.Command
+	checkCtx() error
+}
+
 // GetCommand returns an instance of the named Command, initialized to execute
 // against this Context.
-func (ctx *Context) GetCommand(name string) (c cmd.Command, err error) {
+func (ctx *Context) GetCommand(name string) (cmd.Command, error) {
+	var com ctxCheckCommand
 	switch name {
+	case "config-get":
+		com = &ConfigGetCommand{ctx: ctx}
 	case "juju-log":
-		return &JujuLogCommand{ctx: ctx}, nil
+		com = &JujuLogCommand{ctx: ctx}
 	}
-	return nil, fmt.Errorf("unknown command: %s", name)
+	if com == nil {
+		return nil, fmt.Errorf("unknown command: %s", name)
+	} else if err := com.checkCtx(); err != nil {
+		return nil, err
+	}
+	return com, nil
 }
 
 // hookVars returns an os.Environ-style list of strings necessary to run a hook

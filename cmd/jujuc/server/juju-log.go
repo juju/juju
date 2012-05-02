@@ -15,6 +15,11 @@ type JujuLogCommand struct {
 	Debug   bool
 }
 
+// checkCtx validates that the command's Context is suitable.
+func (c *JujuLogCommand) checkCtx() error {
+	return nil
+}
+
 // Info returns usage information.
 func (c *JujuLogCommand) Info() *cmd.Info {
 	return &cmd.Info{"juju-log", "<message>", "write a message to the juju log", ""}

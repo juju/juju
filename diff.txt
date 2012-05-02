@@ -1,0 +1,123 @@
+=== modified file 'cmd/jujuc/server/context.go'
+--- cmd/jujuc/server/context.go	2012-04-30 13:32:22 +0000
++++ cmd/jujuc/server/context.go	2012-04-30 14:40:54 +0000
+@@ -6,6 +6,7 @@
+ import (
+ 	"fmt"
+ 	"launchpad.net/juju/go/cmd"
++	"launchpad.net/juju/go/state"
+ 	"os"
+ 	"os/exec"
+ 	"path/filepath"
+@@ -17,19 +18,33 @@
+ // (which is likely to call jujuc tools that need this specific Context).
+ type Context struct {
+ 	Id             string
++	St             *state.State
+ 	LocalUnitName  string
+ 	RemoteUnitName string
+ 	RelationName   string
+ }
+ 
++type ctxCheckCommand interface {
++	cmd.Command
++	checkCtx() error
++}
++
+ // GetCommand returns an instance of the named Command, initialized to execute
+ // against this Context.
+-func (ctx *Context) GetCommand(name string) (c cmd.Command, err error) {
++func (ctx *Context) GetCommand(name string) (cmd.Command, error) {
++	var com ctxCheckCommand
+ 	switch name {
++	case "config-get":
++		com = &ConfigGetCommand{ctx: ctx}
+ 	case "juju-log":
+-		return &JujuLogCommand{ctx: ctx}, nil
+-	}
+-	return nil, fmt.Errorf("unknown command: %s", name)
++		com = &JujuLogCommand{ctx: ctx}
++	}
++	if com == nil {
++		return nil, fmt.Errorf("unknown command: %s", name)
++	} else if err := com.checkCtx(); err != nil {
++		return nil, err
++	}
++	return com, nil
+ }
+ 
+ // hookVars returns an os.Environ-style list of strings necessary to run a hook
+
+=== modified file 'cmd/jujuc/server/context_test.go'
+--- cmd/jujuc/server/context_test.go	2012-04-30 12:23:25 +0000
++++ cmd/jujuc/server/context_test.go	2012-04-30 15:05:42 +0000
+@@ -5,13 +5,26 @@
+ 	"io/ioutil"
+ 	. "launchpad.net/gocheck"
+ 	"launchpad.net/juju/go/cmd/jujuc/server"
++	"launchpad.net/juju/go/state"
++	"launchpad.net/juju/go/testing"
+ 	"os"
+ 	"path/filepath"
+ 	"strings"
+-	"testing"
++	stdtesting "testing"
+ )
+ 
+-func Test(t *testing.T) { TestingT(t) }
++var zkAddr string
++
++func TestPackage(t *stdtesting.T) {
++	srv := testing.StartZkServer()
++	defer srv.Destroy()
++	var err error
++	zkAddr, err = srv.Addr()
++	if err != nil {
++		t.Fatalf("could not get ZooKeeper server address")
++	}
++	TestingT(t)
++}
+ 
+ type GetCommandSuite struct{}
+ 
+@@ -22,18 +35,21 @@
+ 	err  string
+ }{
+ 	{"juju-log", ""},
++	{"config-get", ""},
+ 	{"random", "unknown command: random"},
+ }
+ 
+ func (s *GetCommandSuite) TestGetCommand(c *C) {
+-	ctx := &server.Context{}
++	ctx := &server.Context{
++		Id: "ctxid", St: &state.State{},
++		LocalUnitName: "minecraft/0"}
+ 	for _, t := range getCommandTests {
+ 		com, err := ctx.GetCommand(t.name)
+ 		if t.err == "" {
+ 			// At this level, just check basic sanity; commands are tested in
+ 			// more detail elsewhere.
++			c.Assert(err, IsNil)
+ 			c.Assert(com.Info().Name, Equals, t.name)
+-			c.Assert(err, IsNil)
+ 		} else {
+ 			c.Assert(com, IsNil)
+ 			c.Assert(err, ErrorMatches, t.err)
+
+=== modified file 'cmd/jujuc/server/juju-log.go'
+--- cmd/jujuc/server/juju-log.go	2012-04-30 13:32:22 +0000
++++ cmd/jujuc/server/juju-log.go	2012-04-30 14:18:40 +0000
+@@ -15,6 +15,11 @@
+ 	Debug   bool
+ }
+ 
++// checkCtx validates that the command's Context is suitable.
++func (c *JujuLogCommand) checkCtx() error {
++	return nil
++}
++
+ // Info returns usage information.
+ func (c *JujuLogCommand) Info() *cmd.Info {
+ 	return &cmd.Info{"juju-log", "<message>", "write a message to the juju log", ""}
+
