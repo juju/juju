@@ -22,7 +22,7 @@ func (c *JujuLogCommand) Info() *cmd.Info {
 
 // Init parses the command line and returns any errors encountered.
 func (c *JujuLogCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	f.BoolVar(&c.Debug, "debug", false, "log message at debug level")
+	f.BoolVar(&c.Debug, "debug", false, "log at debug level")
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

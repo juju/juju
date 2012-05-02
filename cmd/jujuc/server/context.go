@@ -24,7 +24,7 @@ type Context struct {
 
 // GetCommand returns an instance of the named Command, initialized to execute
 // against this Context.
-func (ctx *Context) GetCommand(name string) (c cmd.Command, err error) {
+func (ctx *Context) GetCommand(name string) (cmd.Command, error) {
 	switch name {
 	case "juju-log":
 		return &JujuLogCommand{ctx: ctx}, nil
