@@ -105,7 +105,7 @@ func (*cmdSuite) TestEnvironmentInit(c *C) {
 		assertConnName(c, com, "walthamstow")
 
 		com = cmdFunc()
-		testInit(c, com, []string{"hotdog"}, "unrecognised args.*")
+		testInit(c, com, []string{"hotdog"}, "unrecognized args.*")
 	}
 }
 
@@ -155,7 +155,7 @@ func (*cmdSuite) TestDestroyCommand(c *C) {
 
 func op(kind dummy.OperationKind, name string) dummy.Operation {
 	return dummy.Operation{
-		EnvironName: name,
-		Kind:        kind,
+		Env:  name,
+		Kind: kind,
 	}
 }

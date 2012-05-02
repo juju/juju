@@ -48,35 +48,33 @@ func (s *WatcherSuite) TearDownTest(c *C) {
 	s.zkConn.Close()
 }
 
+type contentWatcherTest struct {
+	test    func(*C, *WatcherSuite)
+	want    watcher.ContentChange
+	timeout bool
+}
+
+var contentWatcherTests = []contentWatcherTest{
+	{func(c *C, s *WatcherSuite) { s.createPath(c, "init") }, watcher.ContentChange{true, "init"}, false},
+	{func(c *C, s *WatcherSuite) { s.changeContent(c, "foo") }, watcher.ContentChange{true, "foo"}, false},
+	{func(c *C, s *WatcherSuite) { s.changeContent(c, "foo") }, watcher.ContentChange{}, true},
+	{func(c *C, s *WatcherSuite) { s.removePath(c) }, watcher.ContentChange{false, ""}, false},
+	{func(c *C, s *WatcherSuite) { s.createPath(c, "done") }, watcher.ContentChange{true, "done"}, false},
+}
+
 func (s *WatcherSuite) TestContentWatcher(c *C) {
 	contentWatcher := watcher.NewContentWatcher(s.zkConn, s.path)
 
-	go func() {
-		time.Sleep(50 * time.Millisecond)
-		s.createPath(c, "init")
-		time.Sleep(50 * time.Millisecond)
-		s.changeContent(c, "foo")
-		time.Sleep(50 * time.Millisecond)
-		s.changeContent(c, "foo")
-		time.Sleep(50 * time.Millisecond)
-		s.removePath(c)
-		time.Sleep(50 * time.Millisecond)
-		s.createPath(c, "done")
-	}()
-
-	var expectedChanges = []watcher.ContentChange{
-		{true, "init"},
-		{true, "foo"},
-		{false, ""},
-		{true, "done"},
-	}
-	for _, want := range expectedChanges {
+	for _, test := range contentWatcherTests {
+		test.test(c, s)
 		select {
 		case got, ok := <-contentWatcher.Changes():
 			c.Assert(ok, Equals, true)
-			c.Assert(got, Equals, want)
+			c.Assert(got, Equals, test.want)
 		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("didn't get change: %#v", want)
+			if !test.timeout {
+				c.Fatalf("didn't get change: %#v", test.want)
+			}
 		}
 	}
 
@@ -97,31 +95,29 @@ func (s *WatcherSuite) TestContentWatcher(c *C) {
 	}
 }
 
+type childrenWatcherTest struct {
+	test func(*C, *WatcherSuite)
+	want watcher.ChildrenChange
+}
+
+var childrenWatcherTests = []childrenWatcherTest{
+	{func(c *C, s *WatcherSuite) { s.changeChildren(c, true, "foo") }, watcher.ChildrenChange{[]string{"foo"}, nil}},
+	{func(c *C, s *WatcherSuite) { s.changeChildren(c, true, "bar") }, watcher.ChildrenChange{[]string{"bar"}, nil}},
+	{func(c *C, s *WatcherSuite) { s.changeChildren(c, false, "foo") }, watcher.ChildrenChange{nil, []string{"foo"}}},
+}
+
 func (s *WatcherSuite) TestChildrenWatcher(c *C) {
 	s.createPath(c, "init")
 	childrenWatcher := watcher.NewChildrenWatcher(s.zkConn, s.path)
 
-	go func() {
-		time.Sleep(50 * time.Millisecond)
-		s.changeChildren(c, true, "foo")
-		time.Sleep(50 * time.Millisecond)
-		s.changeChildren(c, true, "bar")
-		time.Sleep(50 * time.Millisecond)
-		s.changeChildren(c, false, "foo")
-	}()
-
-	var expectedChanges = []watcher.ChildrenChange{
-		{[]string{"foo"}, nil},
-		{[]string{"bar"}, nil},
-		{nil, []string{"foo"}},
-	}
-	for _, want := range expectedChanges {
+	for _, test := range childrenWatcherTests {
+		test.test(c, s)
 		select {
 		case got, ok := <-childrenWatcher.Changes():
 			c.Assert(ok, Equals, true)
-			c.Assert(got, DeepEquals, want)
+			c.Assert(got, DeepEquals, test.want)
 		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("didn't get change: %#v", want)
+			c.Fatalf("didn't get change: %#v", test.want)
 		}
 	}
 
