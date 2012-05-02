@@ -106,7 +106,7 @@ func (environProvider) Open(name string, config interface{}) (e environs.Environ
 	}, nil
 }
 
-func (e *environ) Bootstrap() error {
+func (e *environ) Bootstrap(uploadTools bool) error {
 	log.Printf("environs/ec2: bootstrapping environment %q", e.name)
 	_, err := e.loadState()
 	if err == nil {

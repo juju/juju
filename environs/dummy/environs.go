@@ -162,7 +162,7 @@ func EnvironName(e environs.Environ) string {
 	return e.(*environ).name
 }
 
-func (e *environ) Bootstrap(uploadTools boolt) error {
+func (e *environ) Bootstrap(uploadTools bool) error {
 	if e.broken {
 		return errBroken
 	}

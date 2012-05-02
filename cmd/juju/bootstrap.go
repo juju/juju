@@ -3,7 +3,6 @@ package main
 import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/cmd"
-	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/juju"
 )
 
@@ -34,10 +33,5 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	if c.UploadTools {
-		if err := environs.UploadTools(conn.Environ); err != nil {
-			return err
-		}
-	}
-	return conn.Bootstrap()
+	return conn.Bootstrap(c.UploadTools)
 }
