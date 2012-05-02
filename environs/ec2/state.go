@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju/go/version"
 )
 
 const stateFile = "provider-state"
@@ -98,8 +97,4 @@ func (e *environ) RemoveFile(file string) error {
 
 func (e *environ) bucket() *s3.Bucket {
 	return e.s3.Bucket(e.config.bucket)
-}
-
-func (*environ) UploadTools(r io.Reader, length int64, version version.Version) error {
-	return fmt.Errorf("ec2 environment does not support executable upload")
 }
