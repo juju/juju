@@ -162,9 +162,15 @@ func EnvironName(e environs.Environ) string {
 	return e.(*environ).name
 }
 
-func (e *environ) Bootstrap() error {
+func (e *environ) Bootstrap(uploadTools boolt) error {
 	if e.broken {
 		return errBroken
+	}
+	if uploadTools {
+		err := environs.UploadTools(e)
+		if err != nil {
+			return err
+		}
 	}
 	e.ops <- Operation{Kind: OpBootstrap, Env: e.name}
 	e.state.mu.Lock()
