@@ -18,9 +18,9 @@ https://juju.ubuntu.com/
 func Main(args []string) {
 	jujud := &cmd.SuperCommand{Name: "jujud", Doc: jujudDoc, Log: &cmd.Log{}}
 	jujud.Register(&InitzkCommand{})
-	jujud.Register(NewUnitAgent())
-	jujud.Register(NewMachineAgent())
-	jujud.Register(NewProvisioningAgent())
+	jujud.Register(&UnitAgent{})
+	jujud.Register(&MachineAgent{})
+	jujud.Register(&ProvisioningAgent{})
 	os.Exit(cmd.Main(jujud, cmd.DefaultContext(), args[1:]))
 }
 

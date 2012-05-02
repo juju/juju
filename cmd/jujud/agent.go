@@ -46,24 +46,24 @@ func stateInfoVar(fs *gnuflag.FlagSet, target *state.Info, name string, value []
 	fs.Var((*stateInfoValue)(target), name, usage)
 }
 
-// commonFlags handles command-line flags shared by all agents.
-type agent struct {
+// AgentConf handles command-line flags shared by all agents.
+type AgentConf struct {
 	JujuDir   string // Defaults to "/var/lib/juju".
 	StateInfo state.Info
 }
 
 // addFlags injects common agent flags into f.
-func (a *agent) addFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&a.JujuDir, "juju-directory", "/var/lib/juju", "juju working directory")
-	stateInfoVar(f, &a.StateInfo, "zookeeper-servers", nil, "zookeeper servers to connect to")
+func (c *AgentConf) addFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.JujuDir, "juju-directory", "/var/lib/juju", "juju working directory")
+	stateInfoVar(f, &c.StateInfo, "zookeeper-servers", nil, "zookeeper servers to connect to")
 }
 
 // checkArgs checks that required flags have been set and that args is empty.
-func (a *agent) checkArgs(args []string) error {
-	if a.JujuDir == "" {
+func (c *AgentConf) checkArgs(args []string) error {
+	if c.JujuDir == "" {
 		return requiredError("juju-directory")
 	}
-	if a.StateInfo.Addrs == nil {
+	if c.StateInfo.Addrs == nil {
 		return requiredError("zookeeper-servers")
 	}
 	return cmd.CheckEmpty(args)
