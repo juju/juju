@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/cmd"
@@ -10,6 +11,7 @@ import (
 // whose St and LocalUnitName fields are non-zero.
 type ConfigGetCommand struct {
 	ctx *Context
+	out resultWriter
 	Key string
 }
 
@@ -36,6 +38,10 @@ func (c *ConfigGetCommand) Info() *cmd.Info {
 
 // Init parses the command line and returns any errors encountered.
 func (c *ConfigGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
+	c.out.addFlags(f, "smart", converters{
+		"smart": convertSmart,
+		"json":  json.Marshal,
+	})
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
@@ -47,7 +53,7 @@ func (c *ConfigGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
-// Run retrieves the requested information and writes it to stdout.
+// Run retrieves the requested information and writes it out.
 func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
 	unit, err := c.ctx.St.Unit(c.ctx.LocalUnitName)
 	if err != nil {
@@ -67,7 +73,5 @@ func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
 	} else {
 		value, _ = conf.Get(c.Key)
 	}
-	// TODO --format ( = "smart")
-	fmt.Fprintf(ctx.Stdout, "%v\n", value)
-	return nil
+	return c.out.write(ctx, value)
 }

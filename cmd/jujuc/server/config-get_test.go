@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
@@ -12,6 +13,7 @@ import (
 	"launchpad.net/juju/go/state"
 	"launchpad.net/juju/go/testing"
 	"net/url"
+	"path/filepath"
 )
 
 func addDummyCharm(c *C, st *state.State) *state.Charm {
@@ -79,12 +81,20 @@ var configGetTests = []struct {
 	out  string
 }{
 	{[]string{"monsters"}, "false\n"},
+	{[]string{"--format", "smart", "monsters"}, "false\n"},
+	{[]string{"--format", "json", "monsters"}, "false\n"},
 	{[]string{"spline-reticulation"}, "45\n"},
-	{[]string{"missing"}, "<nil>\n"},
+	{[]string{"--format", "smart", "spline-reticulation"}, "45\n"},
+	{[]string{"--format", "json", "spline-reticulation"}, "45\n"},
+	{[]string{"missing"}, ""},
+	{[]string{"--format", "smart", "missing"}, ""},
+	{[]string{"--format", "json", "missing"}, "null\n"},
 	{nil, "map[spline-reticulation:45 monsters:false]\n"},
+	{[]string{"--format", "smart"}, "map[spline-reticulation:45 monsters:false]\n"},
+	{[]string{"--format", "json"}, `{"monsters":false,"spline-reticulation":45}` + "\n"},
 }
 
-func (s *ConfigGetSuite) TestOutput(c *C) {
+func (s *ConfigGetSuite) TestOutputFormat(c *C) {
 	for _, t := range configGetTests {
 		com, err := s.ctx.GetCommand("config-get")
 		c.Assert(err, IsNil)
@@ -94,6 +104,19 @@ func (s *ConfigGetSuite) TestOutput(c *C) {
 		c.Assert(str(ctx.Stderr), Equals, "")
 		c.Assert(str(ctx.Stdout), Equals, t.out)
 	}
+}
+
+func (s *ConfigGetSuite) TestOutputPath(c *C) {
+	com, err := s.ctx.GetCommand("config-get")
+	c.Assert(err, IsNil)
+	ctx := dummyContext(c)
+	code := cmd.Main(com, ctx, []string{"--output", "some-file", "monsters"})
+	c.Assert(code, Equals, 0)
+	c.Assert(str(ctx.Stderr), Equals, "")
+	c.Assert(str(ctx.Stdout), Equals, "")
+	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
+	c.Assert(err, IsNil)
+	c.Assert(string(content), Equals, "false\n")
 }
 
 func (s *ConfigGetSuite) TestUnknownArg(c *C) {
