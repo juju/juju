@@ -41,7 +41,7 @@ func (t *Tests) TestStartStop(c *C) {
 
 func (t *Tests) TestBootstrap(c *C) {
 	e := t.Open(c)
-	err := e.Bootstrap()
+	err := e.Bootstrap(false)
 	c.Assert(err, IsNil)
 
 	info, err := e.StateInfo()
@@ -49,12 +49,12 @@ func (t *Tests) TestBootstrap(c *C) {
 	c.Check(info.Addrs, Not(HasLen), 0)
 
 	// TODO eventual consistency.
-	err = e.Bootstrap()
+	err = e.Bootstrap(false)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
 	// TODO eventual consistency.
-	err = e2.Bootstrap()
+	err = e2.Bootstrap(false)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	info2, err := e2.StateInfo()
@@ -63,10 +63,10 @@ func (t *Tests) TestBootstrap(c *C) {
 	err = e2.Destroy(nil)
 	c.Assert(err, IsNil)
 
-	err = e.Bootstrap()
+	err = e.Bootstrap(false)
 	c.Assert(err, IsNil)
 
-	err = e.Bootstrap()
+	err = e.Bootstrap(false)
 	c.Assert(err, NotNil)
 }
 

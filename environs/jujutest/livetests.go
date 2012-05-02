@@ -57,7 +57,7 @@ func (t *LiveTests) TestBootstrap(c *C) {
 
 	// Wait for a while to let eventual consistency catch up, hopefully.
 	time.Sleep(t.ConsistencyDelay)
-	err := t.Env.Bootstrap()
+	err := t.Env.Bootstrap(false)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	info, err := t.Env.StateInfo()
