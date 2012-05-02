@@ -48,7 +48,7 @@ func (s *ConfigGetSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	s.ctx = &server.Context{
 		Id:            "TestCtx",
-		St:            st,
+		State:         st,
 		LocalUnitName: "minecraft/0",
 	}
 	dummy := addDummyCharm(c, st)
@@ -127,7 +127,7 @@ func (s *ConfigGetSuite) TestUnknownArg(c *C) {
 }
 
 func (s *ConfigGetSuite) TestBadState(c *C) {
-	s.ctx.St = nil
+	s.ctx.State = nil
 	com, err := s.ctx.GetCommand("config-get")
 	c.Assert(com, IsNil)
 	c.Assert(err, ErrorMatches, "context TestCtx cannot access state")

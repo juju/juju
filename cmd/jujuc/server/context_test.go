@@ -41,8 +41,10 @@ var getCommandTests = []struct {
 
 func (s *GetCommandSuite) TestGetCommand(c *C) {
 	ctx := &server.Context{
-		Id: "ctxid", St: &state.State{},
-		LocalUnitName: "minecraft/0"}
+		Id:            "ctxid",
+		State:         &state.State{},
+		LocalUnitName: "minecraft/0",
+	}
 	for _, t := range getCommandTests {
 		com, err := ctx.GetCommand(t.name)
 		if t.err == "" {

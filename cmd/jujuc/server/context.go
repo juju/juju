@@ -18,24 +18,24 @@ import (
 // (which is likely to call jujuc tools that need this specific Context).
 type Context struct {
 	Id             string
-	St             *state.State
+	State          *state.State
 	LocalUnitName  string
 	RemoteUnitName string
 	RelationName   string
 }
 
-type ctxCheckCommand interface {
+type command interface {
 	cmd.Command
 
-	// checkCtx should return an error if the ctxCheckCommand is not
-	// attached to a suitable Context.
-	checkCtx() error
+	// checkContext should return an error if the command does not have a
+	// suitable Context.
+	checkContext() error
 }
 
 // GetCommand returns an instance of the named Command, initialized to execute
 // against this Context.
 func (ctx *Context) GetCommand(name string) (cmd.Command, error) {
-	var com ctxCheckCommand
+	var com command
 	switch name {
 	case "config-get":
 		com = &ConfigGetCommand{ctx: ctx}
@@ -44,7 +44,7 @@ func (ctx *Context) GetCommand(name string) (cmd.Command, error) {
 	default:
 		return nil, fmt.Errorf("unknown command: %s", name)
 	}
-	if err := com.checkCtx(); err != nil {
+	if err := com.checkContext(); err != nil {
 		return nil, err
 	}
 	return com, nil
