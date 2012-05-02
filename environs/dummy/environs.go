@@ -9,13 +9,12 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/schema"
 	"launchpad.net/juju/go/state"
-	"launchpad.net/juju/go/version"
 	"sync"
 )
 
 type Operation struct {
-	Kind        OperationKind
-	EnvironName string
+	Kind OperationKind
+	Env  string
 }
 
 // Operation represents an action on the dummy provider.
@@ -27,6 +26,7 @@ const (
 	OpDestroy
 	OpStartInstance
 	OpStopInstances
+	OpPutFile
 )
 
 var kindNames = []string{
@@ -35,6 +35,7 @@ var kindNames = []string{
 	OpDestroy:       "OpDestroy",
 	OpStartInstance: "OpStartInstance",
 	OpStopInstances: "OpStopInstances",
+	OpPutFile:       "OpPutFile",
 }
 
 func (k OperationKind) String() string {
@@ -165,7 +166,7 @@ func (e *environ) Bootstrap() error {
 	if e.broken {
 		return errBroken
 	}
-	e.ops <- Operation{OpBootstrap, e.name}
+	e.ops <- Operation{Kind: OpBootstrap, Env: e.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if e.state.bootstrapped {
@@ -187,7 +188,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	if e.broken {
 		return errBroken
 	}
-	e.ops <- Operation{OpDestroy, e.name}
+	e.ops <- Operation{Kind: OpDestroy, Env: e.name}
 	e.state.mu.Lock()
 	e.state.bootstrapped = false
 	e.state.mu.Unlock()
@@ -198,7 +199,7 @@ func (e *environ) StartInstance(machineId int, _ *state.Info) (environs.Instance
 	if e.broken {
 		return nil, errBroken
 	}
-	e.ops <- Operation{OpStartInstance, e.name}
+	e.ops <- Operation{Kind: OpStartInstance, Env: e.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	i := &instance{
@@ -213,7 +214,7 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 	if e.broken {
 		return errBroken
 	}
-	e.ops <- Operation{OpStopInstances, e.name}
+	e.ops <- Operation{Kind: OpStopInstances, Env: e.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	for _, i := range is {
@@ -250,6 +251,7 @@ func (e *environ) PutFile(name string, r io.Reader, length int64) error {
 	if e.broken {
 		return errBroken
 	}
+	e.ops <- Operation{Kind: OpPutFile, Env: e.name}
 	var buf bytes.Buffer
 	_, err := io.Copy(&buf, r)
 	if err != nil {
@@ -259,10 +261,6 @@ func (e *environ) PutFile(name string, r io.Reader, length int64) error {
 	e.state.files[name] = buf.Bytes()
 	e.state.mu.Unlock()
 	return nil
-}
-
-func (*environ) UploadTools(r io.Reader, length int64, version version.Version) error {
-	return fmt.Errorf("dummy environment does not support executable upload")
 }
 
 func (e *environ) GetFile(name string) (io.ReadCloser, error) {
@@ -302,4 +300,16 @@ func (m *instance) DNSName() (string, error) {
 
 func (m *instance) WaitDNSName() (string, error) {
 	return m.DNSName()
+}
+
+// notifyCloser sends on the notify channel when
+// it's closed.
+type notifyCloser struct {
+	io.Reader
+	notify chan bool
+}
+
+func (r *notifyCloser) Close() error {
+	r.notify <- true
+	return nil
 }
