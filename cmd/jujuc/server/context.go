@@ -26,6 +26,9 @@ type Context struct {
 
 type ctxCheckCommand interface {
 	cmd.Command
+
+	// checkCtx should return an error if the ctxCheckCommand is not
+	// attached to a suitable Context.
 	checkCtx() error
 }
 
@@ -38,10 +41,10 @@ func (ctx *Context) GetCommand(name string) (cmd.Command, error) {
 		com = &ConfigGetCommand{ctx: ctx}
 	case "juju-log":
 		com = &JujuLogCommand{ctx: ctx}
-	}
-	if com == nil {
+	default:
 		return nil, fmt.Errorf("unknown command: %s", name)
-	} else if err := com.checkCtx(); err != nil {
+	}
+	if err := com.checkCtx(); err != nil {
 		return nil, err
 	}
 	return com, nil

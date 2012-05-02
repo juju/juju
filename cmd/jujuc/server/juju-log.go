@@ -27,7 +27,7 @@ func (c *JujuLogCommand) Info() *cmd.Info {
 
 // Init parses the command line and returns any errors encountered.
 func (c *JujuLogCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	f.BoolVar(&c.Debug, "debug", false, "log message at debug level")
+	f.BoolVar(&c.Debug, "debug", false, "log at debug level")
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
@@ -35,8 +35,8 @@ func (c *JujuLogCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if args == nil {
 		return errors.New("no message specified")
 	}
-	c.Message = args[0]
-	return cmd.CheckEmpty(args[1:])
+	c.Message = strings.Join(args, " ")
+	return nil
 }
 
 // Run writes to the juju log as directed in Init.

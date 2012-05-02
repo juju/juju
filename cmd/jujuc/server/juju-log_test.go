@@ -40,7 +40,8 @@ var commonLogTests = []struct {
 }
 
 func assertLogs(c *C, ctx *server.Context, badge string) {
-	msg := "the chickens are 110% AWESOME"
+	msg1 := "the chickens"
+	msg2 := "are 110% AWESOME"
 	com, err := ctx.GetCommand("juju-log")
 	c.Assert(err, IsNil)
 	for _, t := range commonLogTests {
@@ -49,9 +50,9 @@ func assertLogs(c *C, ctx *server.Context, badge string) {
 
 		var args []string
 		if t.debugFlag {
-			args = []string{"--debug", msg}
+			args = []string{"--debug", msg1, msg2}
 		} else {
-			args = []string{msg}
+			args = []string{msg1, msg2}
 		}
 		code := cmd.Main(com, &cmd.Context{}, args)
 		c.Assert(code, Equals, 0)
@@ -59,7 +60,7 @@ func assertLogs(c *C, ctx *server.Context, badge string) {
 		if t.target == "" {
 			c.Assert(buf.String(), Equals, "")
 		} else {
-			expect := fmt.Sprintf("%s %s: %s\n", t.target, badge, msg)
+			expect := fmt.Sprintf("%s %s: %s %s\n", t.target, badge, msg1, msg2)
 			c.Assert(buf.String(), Equals, expect)
 		}
 	}
@@ -72,12 +73,10 @@ func (s *JujuLogSuite) TestBadges(c *C) {
 	assertLogs(c, relation, "minecraft/0 bot")
 }
 
-func (s *JujuLogSuite) TestErrors(c *C) {
+func (s *JujuLogSuite) TestRequiresMessage(c *C) {
 	ctx := &server.Context{}
 	com, err := ctx.GetCommand("juju-log")
 	c.Assert(err, IsNil)
 	err = com.Init(dummyFlagSet(), nil)
 	c.Assert(err, ErrorMatches, "no message specified")
-	err = com.Init(dummyFlagSet(), []string{"foo", "bar"})
-	c.Assert(err, ErrorMatches, `unrecognised args: \[bar\]`)
 }
