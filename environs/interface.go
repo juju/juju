@@ -53,7 +53,10 @@ var ErrPartialInstances = errors.New("only some instances were found")
 type Environ interface {
 	// Bootstrap initializes the state for the environment,
 	// possibly starting one or more instances.
-	Bootstrap() error
+	// If uploadTools is true, the current version of
+	// the juju tools will be uploaded and used
+	// on the environment's instances.
+	Bootstrap(uploadTools bool) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
