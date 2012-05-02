@@ -5,7 +5,6 @@ import (
 	"io"
 	"launchpad.net/juju/go/schema"
 	"launchpad.net/juju/go/state"
-	"launchpad.net/juju/go/version"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -78,18 +77,17 @@ type Environ interface {
 	// will be returned.
 	Instances(ids []string) ([]Instance, error)
 
-	// Put reads from r and writes to the given file in the
+	// PutFile reads from r and writes to the given file in the
 	// environment's storage. The length must give the total
 	// length of the file.
+	//
+	// If the name is prefixed with "tools/", it should be an
+	// archive of the juju tools in gzipped tar format; the full
+	// name should be of the form:
+	//     tools/juju-$VERSION-$GOOS-$GOARCH.tgz
 	PutFile(file string, r io.Reader, length int64) error
 
-	// UploadTools uploads a gzipped tar archive
-	// containing juju executables read from r. The length
-	// in bytes of the archive is given by length. The tools will be
-	// tagged with the given Juju version.
-	UploadTools(r io.Reader, length int64, version version.Version) error
-
-	// Get opens the given file in the environment's storage
+	// GetFile opens the given file in the environment's storage
 	// and returns a ReadCloser that can be used to read its
 	// contents. It is the caller's responsibility to close it
 	// after use.
