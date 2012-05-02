@@ -17,20 +17,22 @@ func requiredError(name string) error {
 // stateInfoValue implements gnuflag.Value on a state.Info.
 type stateInfoValue state.Info
 
-var validAddr = regexp.MustCompile("^.*:[0-9]+$")
+var validAddr = regexp.MustCompile("^.+:[0-9]+$")
 
-// Set splits value into zookeeper addresses.
+// Set splits the comma-separated list of ZooKeeper addresses and stores
+// onto v's Addrs. Addresses must include port numbers.
 func (v *stateInfoValue) Set(value string) error {
-	v.Addrs = strings.Split(value, ",")
-	for _, addr := range v.Addrs {
+	addrs := strings.Split(value, ",")
+	for _, addr := range addrs {
 		if !validAddr.MatchString(addr) {
 			return fmt.Errorf("%q is not a valid zookeeper address", addr)
 		}
 	}
+	v.Addrs = addrs
 	return nil
 }
 
-// String returns the original value passed to Set.
+// String returns the list of ZooKeeper addresses joined by commas.
 func (v *stateInfoValue) String() string {
 	if v.Addrs != nil {
 		return strings.Join(v.Addrs, ",")
@@ -44,30 +46,24 @@ func stateInfoVar(fs *gnuflag.FlagSet, target *state.Info, name string, value []
 	fs.Var((*stateInfoValue)(target), name, usage)
 }
 
-// agent provides common agent functionality.
+// commonFlags handles command-line flags shared by all agents.
 type agent struct {
-	name      string
-	jujuDir   string // Defaults to "/var/lib/juju".
-	stateInfo state.Info
-}
-
-// Info returns a decription of the agent command.
-func (a *agent) Info() *cmd.Info {
-	return &cmd.Info{a.name, "", fmt.Sprintf("run a juju %s agent", a.name), ""}
+	JujuDir   string // Defaults to "/var/lib/juju".
+	StateInfo state.Info
 }
 
 // addFlags injects common agent flags into f.
 func (a *agent) addFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&a.jujuDir, "juju-directory", "/var/lib/juju", "juju working directory")
-	stateInfoVar(f, &a.stateInfo, "zookeeper-servers", nil, "zookeeper servers to connect to")
+	f.StringVar(&a.JujuDir, "juju-directory", "/var/lib/juju", "juju working directory")
+	stateInfoVar(f, &a.StateInfo, "zookeeper-servers", nil, "zookeeper servers to connect to")
 }
 
 // checkArgs checks that required flags have been set and that args is empty.
 func (a *agent) checkArgs(args []string) error {
-	if a.jujuDir == "" {
+	if a.JujuDir == "" {
 		return requiredError("juju-directory")
 	}
-	if a.stateInfo.Addrs == nil {
+	if a.StateInfo.Addrs == nil {
 		return requiredError("zookeeper-servers")
 	}
 	return cmd.CheckEmpty(args)
