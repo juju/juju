@@ -26,7 +26,7 @@ func convertSmart(value interface{}) ([]byte, error) {
 
 // converterValue implements gnuflag.Value for a --format flag.
 type converterValue struct {
-	value      string
+	name       string
 	converters converters
 }
 
@@ -40,18 +40,18 @@ func newConverterValue(initial string, converters converters) *converterValue {
 	return v
 }
 
-// Set stores the chosen converter name in v.value.
+// Set stores the chosen converter name in v.name.
 func (v *converterValue) Set(value string) error {
-	if _, found := v.converters[value]; !found {
+	if v.converters[value] == nil {
 		return fmt.Errorf("unknown format: %s", value)
 	}
-	v.value = value
+	v.name = value
 	return nil
 }
 
 // String returns the chosen converter name.
 func (v *converterValue) String() string {
-	return v.value
+	return v.name
 }
 
 // doc returns documentation for the --format flag.
@@ -63,13 +63,13 @@ func (v *converterValue) doc() string {
 		i++
 	}
 	sort.Strings(choices)
-	return "specify output format (%s)" + strings.Join(choices, "|")
+	return "specify output format (" + strings.Join(choices, "|") + ")"
 }
 
 // write uses the chosen converter to convert value to a []byte, and writes it
 // to target.
 func (v *converterValue) write(target io.Writer, value interface{}) (err error) {
-	bytes, err := v.converters[v.value](value)
+	bytes, err := v.converters[v.name](value)
 	if err != nil {
 		return
 	}
@@ -102,7 +102,7 @@ func (rw *resultWriter) write(ctx *cmd.Context, value interface{}) (err error) {
 		target = ctx.Stdout
 	} else {
 		path := ctx.AbsPath(rw.outPath)
-		if target, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0644); err != nil {
+		if target, err = os.Create(path); err != nil {
 			return
 		}
 	}

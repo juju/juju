@@ -106,6 +106,26 @@ func (s *ConfigGetSuite) TestOutputFormat(c *C) {
 	}
 }
 
+func (s *ConfigGetSuite) TestHelp(c *C) {
+	com, err := s.ctx.GetCommand("config-get")
+	c.Assert(err, IsNil)
+	ctx := dummyContext(c)
+	code := cmd.Main(com, ctx, []string{"--help"})
+	c.Assert(code, Equals, 0)
+	c.Assert(str(ctx.Stdout), Equals, "")
+	c.Assert(str(ctx.Stderr), Equals, `usage: config-get [options] [<key>]
+purpose: print service configuration
+
+options:
+--format  (= smart)
+    specify output format (json|smart)
+-o, --output (= "")
+    specify an output file
+
+If a key is given, only the value for that key will be printed
+`)
+}
+
 func (s *ConfigGetSuite) TestOutputPath(c *C) {
 	com, err := s.ctx.GetCommand("config-get")
 	c.Assert(err, IsNil)
