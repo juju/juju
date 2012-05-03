@@ -23,7 +23,7 @@ var flagRunMain = flag.Bool("run-main", false, "Run the application's main funct
 // tool itself.
 func TestRunMain(t *testing.T) {
 	if *flagRunMain {
-		main.Main(flag.Args())
+		os.Exit(main.Main(flag.Args()))
 	}
 }
 
@@ -116,9 +116,10 @@ var argsTests = []struct {
 	code   int
 	output string
 }{
+	{[]string{"jujuc", "whatever"}, 2, main.Help},
 	{[]string{"remote"}, 0, "success!\n"},
 	{[]string{"/path/to/remote"}, 0, "success!\n"},
-	{[]string{"unknown"}, 1, main.Help + "error: bad request: bad command: unknown\n"},
+	{[]string{"unknown"}, 1, "error: bad request: bad command: unknown\n"},
 	{[]string{"remote", "--error", "borken"}, 1, "error: borken\n"},
 	{[]string{"remote", "--unknown"}, 2, expectUsage + "error: flag provided but not defined: --unknown\n"},
 	{[]string{"remote", "unwanted"}, 2, expectUsage + `error: unrecognized args: ["unwanted"]` + "\n"},
@@ -133,22 +134,22 @@ func (s *MainSuite) TestArgs(c *C) {
 
 func (s *MainSuite) TestNoClientId(c *C) {
 	output := run(c, s.sockPath, "", 1, "remote")
-	c.Assert(output, Equals, main.Help+"error: JUJU_CONTEXT_ID not set\n")
+	c.Assert(output, Equals, "error: JUJU_CONTEXT_ID not set\n")
 }
 
 func (s *MainSuite) TestBadClientId(c *C) {
 	output := run(c, s.sockPath, "ben", 1, "remote")
-	c.Assert(output, Equals, main.Help+"error: bad request: bad context: ben\n")
+	c.Assert(output, Equals, "error: bad request: bad context: ben\n")
 }
 
 func (s *MainSuite) TestNoSockPath(c *C) {
 	output := run(c, "", "bill", 1, "remote")
-	c.Assert(output, Equals, main.Help+"error: JUJU_AGENT_SOCKET not set\n")
+	c.Assert(output, Equals, "error: JUJU_AGENT_SOCKET not set\n")
 }
 
 func (s *MainSuite) TestBadSockPath(c *C) {
 	badSock := filepath.Join(c.MkDir(), "bad.sock")
 	output := run(c, badSock, "bill", 1, "remote")
 	err := fmt.Sprintf("error: dial unix %s: .*\n", badSock)
-	c.Assert(output, Matches, main.Help+err)
+	c.Assert(output, Matches, err)
 }
