@@ -81,7 +81,7 @@ var configGetTests = []struct {
 	{[]string{"monsters"}, "false\n"},
 	{[]string{"spline-reticulation"}, "45\n"},
 	{[]string{"missing"}, "<nil>\n"},
-	{nil, "map[spline-reticulation:45 monsters:false]\n"},
+	{nil, `map\[(spline-reticulation:45 monsters:false|monsters:false spline-reticulation:45)\]` + "\n"},
 }
 
 func (s *ConfigGetSuite) TestOutput(c *C) {
@@ -92,7 +92,7 @@ func (s *ConfigGetSuite) TestOutput(c *C) {
 		code := cmd.Main(com, ctx, t.args)
 		c.Assert(code, Equals, 0)
 		c.Assert(str(ctx.Stderr), Equals, "")
-		c.Assert(str(ctx.Stdout), Equals, t.out)
+		c.Assert(str(ctx.Stdout), Matches, t.out)
 	}
 }
 

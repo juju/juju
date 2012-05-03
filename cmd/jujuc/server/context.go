@@ -24,30 +24,19 @@ type Context struct {
 	RelationName   string
 }
 
-type command interface {
-	cmd.Command
-
-	// checkContext should return an error if the command does not have a
-	// suitable Context.
-	checkContext() error
+var commands = map[string]func(*Context) (cmd.Command, error){
+	"config-get": NewConfigGetCommand,
+	"juju-log":   NewJujuLogCommand,
 }
 
 // GetCommand returns an instance of the named Command, initialized to execute
 // against this Context.
 func (ctx *Context) GetCommand(name string) (cmd.Command, error) {
-	var com command
-	switch name {
-	case "config-get":
-		com = &ConfigGetCommand{ctx: ctx}
-	case "juju-log":
-		com = &JujuLogCommand{ctx: ctx}
-	default:
+	getCommand := commands[name]
+	if getCommand == nil {
 		return nil, fmt.Errorf("unknown command: %s", name)
 	}
-	if err := com.checkContext(); err != nil {
-		return nil, err
-	}
-	return com, nil
+	return getCommand(ctx)
 }
 
 // hookVars returns an os.Environ-style list of strings necessary to run a hook
