@@ -57,16 +57,13 @@ func (s *MainSuite) TestParseErrors(c *C) {
 		"toastie")
 	checkMessage(c, msga, "unit",
 		"--zookeeper-servers", "localhost:2181,zk:2181",
-		"--session-file", "sf",
 		"--unit-name", "un/0",
 		"toastie")
 	checkMessage(c, msga, "machine",
 		"--zookeeper-servers", "zk:2181",
-		"--session-file", "sf",
 		"--machine-id", "42",
 		"toastie")
 	checkMessage(c, msga, "provisioning",
 		"--zookeeper-servers", "127.0.0.1:2181",
-		"--session-file", "sf",
 		"toastie")
 }
