@@ -36,7 +36,7 @@ func str(w io.Writer) string {
 }
 
 type ConfigGetSuite struct {
-	ctx *server.Context
+	ctx *server.ClientContext
 }
 
 var _ = Suite(&ConfigGetSuite{})
@@ -46,7 +46,7 @@ func (s *ConfigGetSuite) SetUpTest(c *C) {
 		Addrs: []string{zkAddr},
 	})
 	c.Assert(err, IsNil)
-	s.ctx = &server.Context{
+	s.ctx = &server.ClientContext{
 		Id:            "TestCtx",
 		State:         st,
 		LocalUnitName: "minecraft/0",
