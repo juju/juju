@@ -35,30 +35,25 @@ func getwd() (string, error) {
 	return abs, nil
 }
 
-// exitCode prints err and returns 1.
-func exitCode(err error) int {
-	fmt.Fprintf(os.Stderr, "error: %v\n", err)
-	return 1
-}
-
 // Main uses JUJU_CONTEXT_ID and JUJU_AGENT_SOCKET to ask a running unit agent
 // to execute a Command on our behalf. Individual commands should be exposed
 // by symlinking the command name to this executable.
 // This function is not redundant with main, because it is exported, and can
 // thus be called by testing code.
-func Main(args []string) int {
+func Main(args []string) (code int, err error) {
 	commandName := filepath.Base(args[0])
 	if commandName == "jujuc" {
 		fmt.Fprint(os.Stderr, Help)
-		return 2
+		return 2, fmt.Errorf("jujuc should not be called directly")
 	}
+	code = 1
 	contextId, err := getenv("JUJU_CONTEXT_ID")
 	if err != nil {
-		return exitCode(err)
+		return
 	}
 	dir, err := getwd()
 	if err != nil {
-		return exitCode(err)
+		return
 	}
 	req := server.Request{
 		ContextId:   contextId,
@@ -68,23 +63,27 @@ func Main(args []string) int {
 	}
 	socketPath, err := getenv("JUJU_AGENT_SOCKET")
 	if err != nil {
-		return exitCode(err)
+		return
 	}
 	client, err := rpc.Dial("unix", socketPath)
 	if err != nil {
-		return exitCode(err)
+		return
 	}
 	defer client.Close()
 	var resp server.Response
 	err = client.Call("Jujuc.Main", req, &resp)
 	if err != nil {
-		return exitCode(err)
+		return
 	}
 	os.Stdout.Write(resp.Stdout)
 	os.Stderr.Write(resp.Stderr)
-	return resp.Code
+	return resp.Code, nil
 }
 
 func main() {
-	os.Exit(Main(os.Args))
+	code, err := Main(os.Args)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+	}
+	os.Exit(code)
 }
