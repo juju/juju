@@ -30,6 +30,11 @@ func (s *CmdSuite) TestInfo(c *C) {
 	f.StringVar(&ignored, "option", "", "option-doc")
 	help = full.Info().Help(f)
 	c.Assert(string(help), Equals, fullHelp)
+
+	optionInfo := full.Info()
+	optionInfo.Doc = ""
+	help = optionInfo.Help(f)
+	c.Assert(string(help), Equals, optionHelp)
 }
 
 var initErrorTests = []struct {
