@@ -48,7 +48,7 @@ func str(w io.Writer) string {
 }
 
 type UnitFixture struct {
-	ctx     *server.Context
+	ctx     *server.ClientContext
 	service *state.Service
 	unit    *state.Unit
 }
@@ -58,7 +58,7 @@ func (f *UnitFixture) SetUpTest(c *C) {
 		Addrs: []string{zkAddr},
 	})
 	c.Assert(err, IsNil)
-	f.ctx = &server.Context{
+	f.ctx = &server.ClientContext{
 		Id:            "TestCtx",
 		State:         st,
 		LocalUnitName: "minecraft/0",
@@ -81,12 +81,12 @@ func (f *UnitFixture) TearDownTest(c *C) {
 }
 
 func (f *UnitFixture) AssertUnitCommand(c *C, name string) {
-	ctx := &server.Context{Id: "TestCtx", State: f.ctx.State}
+	ctx := &server.ClientContext{Id: "TestCtx", State: f.ctx.State}
 	com, err := ctx.NewCommand(name)
 	c.Assert(com, IsNil)
 	c.Assert(err, ErrorMatches, "context TestCtx is not attached to a unit")
 
-	ctx = &server.Context{Id: "TestCtx", LocalUnitName: f.ctx.LocalUnitName}
+	ctx = &server.ClientContext{Id: "TestCtx", LocalUnitName: f.ctx.LocalUnitName}
 	com, err = ctx.NewCommand(name)
 	c.Assert(com, IsNil)
 	c.Assert(err, ErrorMatches, "context TestCtx cannot access state")

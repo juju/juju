@@ -7,16 +7,16 @@ import (
 
 // ConfigGetCommand implements the config-get command.
 type ConfigGetCommand struct {
-	ctx *Context
+	*ClientContext
+	Key string // The key to show. If empty, show all.
 	out resultWriter
-	Key string
 }
 
-func NewConfigGetCommand(ctx *Context) (cmd.Command, error) {
-	if err := ctx.checkUnitState(); err != nil {
+func NewConfigGetCommand(ctx *ClientContext) (cmd.Command, error) {
+	if err := ctx.check(); err != nil {
 		return nil, err
 	}
-	return &ConfigGetCommand{ctx: ctx}, nil
+	return &ConfigGetCommand{ClientContext: ctx}, nil
 }
 
 func (c *ConfigGetCommand) Info() *cmd.Info {
@@ -41,11 +41,11 @@ func (c *ConfigGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
-	unit, err := c.ctx.State.Unit(c.ctx.LocalUnitName)
+	unit, err := c.State.Unit(c.LocalUnitName)
 	if err != nil {
 		return err
 	}
-	service, err := c.ctx.State.Service(unit.ServiceName())
+	service, err := c.State.Service(unit.ServiceName())
 	if err != nil {
 		return err
 	}

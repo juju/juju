@@ -14,7 +14,7 @@ const portFormat = "<port>[/<protocol>]"
 
 // portCommand implements the open-port and close-port commands.
 type portCommand struct {
-	ctx      *Context
+	*ClientContext
 	info     func() *cmd.Info
 	action   func(*state.Unit, string, int) error
 	Protocol string
@@ -61,19 +61,19 @@ func (c *portCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *portCommand) Run(_ *cmd.Context) error {
-	unit, err := c.ctx.State.Unit(c.ctx.LocalUnitName)
+	unit, err := c.State.Unit(c.LocalUnitName)
 	if err != nil {
 		return err
 	}
 	return c.action(unit, c.Protocol, c.Port)
 }
 
-func NewOpenPortCommand(ctx *Context) (cmd.Command, error) {
-	if err := ctx.checkUnitState(); err != nil {
+func NewOpenPortCommand(ctx *ClientContext) (cmd.Command, error) {
+	if err := ctx.check(); err != nil {
 		return nil, err
 	}
 	return &portCommand{
-		ctx: ctx,
+		ClientContext: ctx,
 		info: func() *cmd.Info {
 			return &cmd.Info{
 				"open-port", portFormat, "register a port to open",
@@ -86,12 +86,12 @@ func NewOpenPortCommand(ctx *Context) (cmd.Command, error) {
 	}, nil
 }
 
-func NewClosePortCommand(ctx *Context) (cmd.Command, error) {
-	if err := ctx.checkUnitState(); err != nil {
+func NewClosePortCommand(ctx *ClientContext) (cmd.Command, error) {
+	if err := ctx.check(); err != nil {
 		return nil, err
 	}
 	return &portCommand{
-		ctx: ctx,
+		ClientContext: ctx,
 		info: func() *cmd.Info {
 			return &cmd.Info{
 				"close-port", portFormat, "ensure a port is always closed", "",
