@@ -60,7 +60,6 @@ options:
     specify output format (json|smart)
 -o, --output (= "")
     specify an output file
-
 `)
 }
 
