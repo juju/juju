@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/cmd"
 )
@@ -14,11 +13,8 @@ type ConfigGetCommand struct {
 }
 
 func NewConfigGetCommand(ctx *Context) (cmd.Command, error) {
-	if ctx.State == nil {
-		return nil, fmt.Errorf("context %s cannot access state", ctx.Id)
-	}
-	if ctx.LocalUnitName == "" {
-		return nil, fmt.Errorf("context %s is not attached to a unit", ctx.Id)
+	if err := ctx.checkUnitState(); err != nil {
+		return nil, err
 	}
 	return &ConfigGetCommand{ctx: ctx}, nil
 }
