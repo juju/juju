@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"launchpad.net/gnuflag"
@@ -12,27 +13,32 @@ import (
 
 // converter converts an arbitrary object into a []byte.
 type converter func(value interface{}) ([]byte, error)
-type converters map[string]converter
 
-// convertSmart is an output converter which is not as smart as it sounds.
+// convertSmart converts value to a byte array containing its string
+// representation. The output is therefore golang-specific, just as
+// the python "smart" format produces python-specific output.
 func convertSmart(value interface{}) ([]byte, error) {
 	if value == nil {
 		return nil, nil
 	}
-	// In python, we'd be returning str(value)... but it seems moderately
-	// insane to spend any time at all writing a python stringifier for go.
-	return []byte(fmt.Sprintf("%v", value)), nil
+	return []byte(fmt.Sprint(value)), nil
+}
+
+// defaultConverters are used by many jujuc Commands.
+var defaultConverters = map[string]converter{
+	"smart": convertSmart,
+	"json":  json.Marshal,
 }
 
 // converterValue implements gnuflag.Value for a --format flag.
 type converterValue struct {
 	name       string
-	converters converters
+	converters map[string]converter
 }
 
 // newConverterValue returns a new converterValue. The initial converter name
 // must be present in converters.
-func newConverterValue(initial string, converters converters) *converterValue {
+func newConverterValue(initial string, converters map[string]converter) *converterValue {
 	v := &converterValue{converters: converters}
 	if err := v.Set(initial); err != nil {
 		panic(err)
@@ -66,22 +72,13 @@ func (v *converterValue) doc() string {
 	return "specify output format (" + strings.Join(choices, "|") + ")"
 }
 
-// write uses the chosen converter to convert value to a []byte, and writes it
-// to target.
-func (v *converterValue) write(target io.Writer, value interface{}) (err error) {
-	bytes, err := v.converters[v.name](value)
-	if err != nil {
-		return
-	}
-	if bytes != nil {
-		bytes = append(bytes, byte('\n'))
-		_, err = target.Write(bytes)
-	}
-	return
+// convert runs the chosen converter on value.
+func (v *converterValue) convert(value interface{}) ([]byte, error) {
+	return v.converters[v.name](value)
 }
 
-// resultWriter is responsible for writing command output, and exposes flags
-// to allow the user to specify format and target.
+// resultWriter exposes flags allowing the user to control the format and
+// target of a Command's output.
 type resultWriter struct {
 	converter *converterValue
 	outPath   string
@@ -106,5 +103,16 @@ func (rw *resultWriter) write(ctx *cmd.Context, value interface{}) (err error) {
 			return
 		}
 	}
-	return rw.converter.write(target, value)
+	var bytes []byte
+	bytes, err = rw.converter.convert(value)
+	if err != nil {
+		return
+	}
+	if bytes != nil {
+		_, err = target.Write(bytes)
+		if err == nil {
+			_, err = target.Write([]byte{'\n'})
+		}
+	}
+	return
 }

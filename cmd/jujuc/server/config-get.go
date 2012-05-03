@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/cmd"
@@ -14,15 +13,14 @@ type ConfigGetCommand struct {
 	Key string
 }
 
-// checkContext checks that the command has non-zero state and local unit name.
-func (c *ConfigGetCommand) checkContext() error {
-	if c.ctx.State == nil {
-		return fmt.Errorf("context %s cannot access state", c.ctx.Id)
+func NewConfigGetCommand(ctx *Context) (cmd.Command, error) {
+	if ctx.State == nil {
+		return nil, fmt.Errorf("context %s cannot access state", ctx.Id)
 	}
-	if c.ctx.LocalUnitName == "" {
-		return fmt.Errorf("context %s is not attached to a unit", c.ctx.Id)
+	if ctx.LocalUnitName == "" {
+		return nil, fmt.Errorf("context %s is not attached to a unit", ctx.Id)
 	}
-	return nil
+	return &ConfigGetCommand{ctx: ctx}, nil
 }
 
 var purpose = "print service configuration"
@@ -33,10 +31,7 @@ func (c *ConfigGetCommand) Info() *cmd.Info {
 }
 
 func (c *ConfigGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	c.out.addFlags(f, "smart", converters{
-		"smart": convertSmart,
-		"json":  json.Marshal,
-	})
+	c.out.addFlags(f, "smart", defaultConverters)
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

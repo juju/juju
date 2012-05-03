@@ -76,6 +76,7 @@ func (s *ConfigGetSuite) TearDownTest(c *C) {
 	testing.ZkRemoveTree(zk, "/")
 }
 
+var smartMapOutput = `map\[(spline-reticulation:45 monsters:false|monsters:false spline-reticulation:45)\]` + "\n"
 var configGetTests = []struct {
 	args []string
 	out  string
@@ -89,8 +90,8 @@ var configGetTests = []struct {
 	{[]string{"missing"}, ""},
 	{[]string{"--format", "smart", "missing"}, ""},
 	{[]string{"--format", "json", "missing"}, "null\n"},
-	{nil, "map[spline-reticulation:45 monsters:false]\n"},
-	{[]string{"--format", "smart"}, "map[spline-reticulation:45 monsters:false]\n"},
+	{nil, smartMapOutput},
+	{[]string{"--format", "smart"}, smartMapOutput},
 	{[]string{"--format", "json"}, `{"monsters":false,"spline-reticulation":45}` + "\n"},
 }
 
@@ -102,7 +103,7 @@ func (s *ConfigGetSuite) TestOutputFormat(c *C) {
 		code := cmd.Main(com, ctx, t.args)
 		c.Assert(code, Equals, 0)
 		c.Assert(str(ctx.Stderr), Equals, "")
-		c.Assert(str(ctx.Stdout), Equals, t.out)
+		c.Assert(str(ctx.Stdout), Matches, t.out)
 	}
 }
 

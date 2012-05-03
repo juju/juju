@@ -15,8 +15,8 @@ type JujuLogCommand struct {
 	Debug   bool
 }
 
-func (c *JujuLogCommand) checkContext() error {
-	return nil
+func NewJujuLogCommand(ctx *Context) (cmd.Command, error) {
+	return &JujuLogCommand{ctx: ctx}, nil
 }
 
 func (c *JujuLogCommand) Info() *cmd.Info {
