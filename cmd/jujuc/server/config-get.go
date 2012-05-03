@@ -8,18 +8,18 @@ import (
 
 // ConfigGetCommand implements the config-get command.
 type ConfigGetCommand struct {
-	ctx *Context
-	Key string
+	*ClientContext
+	Key string // The key to show. If empty, show all.
 }
 
-func NewConfigGetCommand(ctx *Context) (cmd.Command, error) {
+func NewConfigGetCommand(ctx *ClientContext) (cmd.Command, error) {
 	if ctx.State == nil {
 		return nil, fmt.Errorf("context %s cannot access state", ctx.Id)
 	}
 	if ctx.LocalUnitName == "" {
 		return nil, fmt.Errorf("context %s is not attached to a unit", ctx.Id)
 	}
-	return &ConfigGetCommand{ctx: ctx}, nil
+	return &ConfigGetCommand{ClientContext: ctx}, nil
 }
 
 func (c *ConfigGetCommand) Info() *cmd.Info {
@@ -43,11 +43,11 @@ func (c *ConfigGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
-	unit, err := c.ctx.State.Unit(c.ctx.LocalUnitName)
+	unit, err := c.State.Unit(c.LocalUnitName)
 	if err != nil {
 		return err
 	}
-	service, err := c.ctx.State.Service(unit.ServiceName())
+	service, err := c.State.Service(unit.ServiceName())
 	if err != nil {
 		return err
 	}
