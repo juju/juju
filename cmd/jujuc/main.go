@@ -22,24 +22,24 @@ func die(err error) {
 	os.Exit(1)
 }
 
-func getenv(name string) string {
+func getenv(name string) (string, error) {
 	value := os.Getenv(name)
 	if value == "" {
-		die(fmt.Errorf("%s not set", name))
+		return "", fmt.Errorf("%s not set", name)
 	}
-	return value
+	return value, nil
 }
 
-func getwd() string {
+func getwd() (string, error) {
 	dir, err := os.Getwd()
 	if err != nil {
-		die(err)
+		return "", err
 	}
 	abs, err := filepath.Abs(dir)
 	if err != nil {
-		die(err)
+		return "", err
 	}
-	return abs
+	return abs, nil
 }
 
 // Main uses JUJU_CONTEXT_ID and JUJU_AGENT_SOCKET to ask a running unit agent
@@ -48,13 +48,25 @@ func getwd() string {
 // This function is not redundant with main, because it is exported, and can
 // thus be called by testing code.
 func Main(args []string) {
+	contextId, err := getenv("JUJU_CONTEXT_ID")
+	if err != nil {
+		die(err)
+	}
+	dir, err := getwd()
+	if err != nil {
+		die(err)
+	}
 	req := server.Request{
-		ContextId:   getenv("JUJU_CONTEXT_ID"),
-		Dir:         getwd(),
+		ContextId:   contextId,
+		Dir:         dir,
 		CommandName: filepath.Base(args[0]),
 		Args:        args[1:],
 	}
-	client, err := rpc.Dial("unix", getenv("JUJU_AGENT_SOCKET"))
+	socketPath, err := getenv("JUJU_AGENT_SOCKET")
+	if err != nil {
+		die(err)
+	}
+	client, err := rpc.Dial("unix", socketPath)
 	if err != nil {
 		die(err)
 	}
