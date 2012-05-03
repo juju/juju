@@ -86,7 +86,7 @@ var configGetTests = []struct {
 
 func (s *ConfigGetSuite) TestOutput(c *C) {
 	for _, t := range configGetTests {
-		com, err := s.ctx.GetCommand("config-get")
+		com, err := s.ctx.NewCommand("config-get")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, t.args)
@@ -97,7 +97,7 @@ func (s *ConfigGetSuite) TestOutput(c *C) {
 }
 
 func (s *ConfigGetSuite) TestUnknownArg(c *C) {
-	com, err := s.ctx.GetCommand("config-get")
+	com, err := s.ctx.NewCommand("config-get")
 	c.Assert(err, IsNil)
 	err = com.Init(dummyFlagSet(), []string{"multiple", "keys"})
 	c.Assert(err, ErrorMatches, `unrecognized args: \["keys"\]`)
@@ -105,14 +105,14 @@ func (s *ConfigGetSuite) TestUnknownArg(c *C) {
 
 func (s *ConfigGetSuite) TestBadState(c *C) {
 	s.ctx.State = nil
-	com, err := s.ctx.GetCommand("config-get")
+	com, err := s.ctx.NewCommand("config-get")
 	c.Assert(com, IsNil)
 	c.Assert(err, ErrorMatches, "context TestCtx cannot access state")
 }
 
 func (s *ConfigGetSuite) TestBadUnit(c *C) {
 	s.ctx.LocalUnitName = ""
-	com, err := s.ctx.GetCommand("config-get")
+	com, err := s.ctx.NewCommand("config-get")
 	c.Assert(com, IsNil)
 	c.Assert(err, ErrorMatches, "context TestCtx is not attached to a unit")
 }

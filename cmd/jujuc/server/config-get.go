@@ -22,11 +22,12 @@ func NewConfigGetCommand(ctx *Context) (cmd.Command, error) {
 	return &ConfigGetCommand{ctx: ctx}, nil
 }
 
-var purpose = "print service configuration"
-var doc = "If a key is given, only the value for that key will be printed"
-
 func (c *ConfigGetCommand) Info() *cmd.Info {
-	return &cmd.Info{"config-get", "[<key>]", purpose, doc}
+	return &cmd.Info{
+		"config-get", "[<key>]",
+		"print service configuration",
+		"If a key is given, only the value for that key will be printed.",
+	}
 }
 
 func (c *ConfigGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
