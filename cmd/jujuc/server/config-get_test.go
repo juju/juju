@@ -96,16 +96,6 @@ func (s *ConfigGetSuite) TestUnknownArg(c *C) {
 	c.Assert(err, ErrorMatches, `unrecognized args: \["keys"\]`)
 }
 
-func (s *ConfigGetSuite) TestBadState(c *C) {
-	s.ctx.State = nil
-	com, err := s.ctx.NewCommand("config-get")
-	c.Assert(com, IsNil)
-	c.Assert(err, ErrorMatches, "context TestCtx cannot access state")
-}
-
-func (s *ConfigGetSuite) TestBadUnit(c *C) {
-	s.ctx.LocalUnitName = ""
-	com, err := s.ctx.NewCommand("config-get")
-	c.Assert(com, IsNil)
-	c.Assert(err, ErrorMatches, "context TestCtx is not attached to a unit")
+func (s *ConfigGetSuite) TestUnitCommand(c *C) {
+	s.AssertUnitCommand(c, "config-get")
 }

@@ -38,8 +38,10 @@ func (ctx *Context) checkUnitState() error {
 
 // newCommands maps Command names to initializers.
 var newCommands = map[string]func(*Context) (cmd.Command, error){
+	"close-port": NewClosePortCommand,
 	"config-get": NewConfigGetCommand,
 	"juju-log":   NewJujuLogCommand,
+	"open-port":  NewOpenPortCommand,
 	"unit-get":   NewUnitGetCommand,
 }
 

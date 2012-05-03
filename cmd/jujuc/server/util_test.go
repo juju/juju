@@ -79,3 +79,15 @@ func (f *UnitFixture) TearDownTest(c *C) {
 	c.Assert(event.State, Equals, zookeeper.STATE_CONNECTED)
 	testing.ZkRemoveTree(zk, "/")
 }
+
+func (f *UnitFixture) AssertUnitCommand(c *C, name string) {
+	ctx := &server.Context{Id: "TestCtx", State: f.ctx.State}
+	com, err := ctx.NewCommand(name)
+	c.Assert(com, IsNil)
+	c.Assert(err, ErrorMatches, "context TestCtx is not attached to a unit")
+
+	ctx = &server.Context{Id: "TestCtx", LocalUnitName: f.ctx.LocalUnitName}
+	com, err = ctx.NewCommand(name)
+	c.Assert(com, IsNil)
+	c.Assert(err, ErrorMatches, "context TestCtx cannot access state")
+}

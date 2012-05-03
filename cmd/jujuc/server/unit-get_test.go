@@ -90,16 +90,6 @@ func (s *UnitGetSuite) TestUnknownArg(c *C) {
 	c.Assert(err, ErrorMatches, `unrecognized args: \["blah"\]`)
 }
 
-func (s *UnitGetSuite) TestBadState(c *C) {
-	s.ctx.State = nil
-	com, err := s.ctx.NewCommand("unit-get")
-	c.Assert(com, IsNil)
-	c.Assert(err, ErrorMatches, "context TestCtx cannot access state")
-}
-
-func (s *UnitGetSuite) TestBadUnit(c *C) {
-	s.ctx.LocalUnitName = ""
-	com, err := s.ctx.NewCommand("unit-get")
-	c.Assert(com, IsNil)
-	c.Assert(err, ErrorMatches, "context TestCtx is not attached to a unit")
+func (s *UnitGetSuite) TestUnitCommand(c *C) {
+	s.AssertUnitCommand(c, "unit-get")
 }
