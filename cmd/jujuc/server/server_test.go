@@ -18,7 +18,7 @@ type RpcCommand struct {
 }
 
 func (c *RpcCommand) Info() *cmd.Info {
-	return &cmd.Info{"magic", "", "do magic", "blah doc"}
+	return &cmd.Info{"remote", "", "act at a distance", "blah doc"}
 }
 
 func (c *RpcCommand) Init(f *gnuflag.FlagSet, args []string) error {
@@ -30,19 +30,19 @@ func (c *RpcCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *RpcCommand) Run(ctx *cmd.Context) error {
-	if c.Value != "zyxxy" {
-		return errors.New("insufficiently magic")
+	if c.Value == "error" {
+		return errors.New("blam")
 	}
 	ctx.Stdout.Write([]byte("eye of newt\n"))
 	ctx.Stderr.Write([]byte("toe of frog\n"))
-	return ioutil.WriteFile(ctx.AbsPath("local"), []byte{}, 0644)
+	return ioutil.WriteFile(ctx.AbsPath("local"), []byte(c.Value), 0644)
 }
 
 func factory(contextId, cmdName string) (cmd.Command, error) {
-	if contextId != "merlin" {
-		return nil, errors.New("unknown client")
+	if contextId != "validCtx" {
+		return nil, fmt.Errorf("unknown context %q", contextId)
 	}
-	if cmdName != "magic" {
+	if cmdName != "remote" {
 		return nil, fmt.Errorf("unknown command %q", cmdName)
 	}
 	return &RpcCommand{}, nil
@@ -84,27 +84,28 @@ func (s *ServerSuite) Call(c *C, req server.Request) (resp server.Response, err 
 func (s *ServerSuite) TestHappyPath(c *C) {
 	dir := c.MkDir()
 	resp, err := s.Call(c, server.Request{
-		"merlin", dir, "magic", []string{"--value", "zyxxy"}})
+		"validCtx", dir, "remote", []string{"--value", "something"}})
 	c.Assert(err, IsNil)
 	c.Assert(resp.Code, Equals, 0)
 	c.Assert(string(resp.Stdout), Equals, "eye of newt\n")
 	c.Assert(string(resp.Stderr), Equals, "toe of frog\n")
-	_, err = os.Stat(filepath.Join(dir, "local"))
+	content, err := ioutil.ReadFile(filepath.Join(dir, "local"))
 	c.Assert(err, IsNil)
+	c.Assert(string(content), Equals, "something")
 }
 
 func (s *ServerSuite) TestBadCommandName(c *C) {
 	dir := c.MkDir()
-	_, err := s.Call(c, server.Request{"merlin", dir, "", nil})
+	_, err := s.Call(c, server.Request{"validCtx", dir, "", nil})
 	c.Assert(err, ErrorMatches, "bad request: command not specified")
-	_, err = s.Call(c, server.Request{"merlin", dir, "witchcraft", nil})
+	_, err = s.Call(c, server.Request{"validCtx", dir, "witchcraft", nil})
 	c.Assert(err, ErrorMatches, `bad request: unknown command "witchcraft"`)
 }
 
 func (s *ServerSuite) TestBadDir(c *C) {
 	for _, req := range []server.Request{
-		{"merlin", "", "cmd", nil},
-		{"merlin", "foo/bar", "cmd", nil},
+		{"validCtx", "", "anything", nil},
+		{"validCtx", "foo/bar", "anything", nil},
 	} {
 		_, err := s.Call(c, req)
 		c.Assert(err, ErrorMatches, "bad request: Dir is not absolute")
@@ -112,22 +113,22 @@ func (s *ServerSuite) TestBadDir(c *C) {
 }
 
 func (s *ServerSuite) TestBadContextId(c *C) {
-	_, err := s.Call(c, server.Request{"mordred", c.MkDir(), "magic", nil})
-	c.Assert(err, ErrorMatches, "bad request: unknown client")
+	_, err := s.Call(c, server.Request{"whatever", c.MkDir(), "remote", nil})
+	c.Assert(err, ErrorMatches, `bad request: unknown context "whatever"`)
 }
 
 func (s *ServerSuite) AssertBadCommand(c *C, args []string, code int) server.Response {
-	resp, err := s.Call(c, server.Request{"merlin", c.MkDir(), args[0], args[1:]})
+	resp, err := s.Call(c, server.Request{"validCtx", c.MkDir(), args[0], args[1:]})
 	c.Assert(err, IsNil)
 	c.Assert(resp.Code, Equals, code)
 	return resp
 }
 
 func (s *ServerSuite) TestParseError(c *C) {
-	resp := s.AssertBadCommand(c, []string{"magic", "--cheese"}, 2)
+	resp := s.AssertBadCommand(c, []string{"remote", "--cheese"}, 2)
 	c.Assert(string(resp.Stdout), Equals, "")
-	c.Assert(string(resp.Stderr), Equals, `usage: magic [options]
-purpose: do magic
+	c.Assert(string(resp.Stderr), Equals, `usage: remote [options]
+purpose: act at a distance
 
 options:
 --value (= "")
@@ -139,7 +140,7 @@ error: flag provided but not defined: --cheese
 }
 
 func (s *ServerSuite) TestBrokenCommand(c *C) {
-	resp := s.AssertBadCommand(c, []string{"magic"}, 1)
+	resp := s.AssertBadCommand(c, []string{"remote", "--value", "error"}, 1)
 	c.Assert(string(resp.Stdout), Equals, "")
-	c.Assert(string(resp.Stderr), Equals, "error: insufficiently magic\n")
+	c.Assert(string(resp.Stderr), Equals, "error: blam\n")
 }
