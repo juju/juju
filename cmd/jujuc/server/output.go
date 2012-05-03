@@ -103,8 +103,7 @@ func (rw *resultWriter) write(ctx *cmd.Context, value interface{}) (err error) {
 			return
 		}
 	}
-	var bytes []byte
-	bytes, err = rw.converter.convert(value)
+	bytes, err := rw.converter.convert(value)
 	if err != nil {
 		return
 	}

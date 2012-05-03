@@ -10,16 +10,16 @@ import (
 
 // UnitGetCommand implements the unit-get command.
 type UnitGetCommand struct {
-	ctx *Context
+	*ClientContext
 	out resultWriter
-	Arg string
+	Key string
 }
 
-func NewUnitGetCommand(ctx *Context) (cmd.Command, error) {
-	if err := ctx.checkUnitState(); err != nil {
+func NewUnitGetCommand(ctx *ClientContext) (cmd.Command, error) {
+	if err := ctx.check(); err != nil {
 		return nil, err
 	}
-	return &UnitGetCommand{ctx: ctx}, nil
+	return &UnitGetCommand{ClientContext: ctx}, nil
 }
 
 func (c *UnitGetCommand) Info() *cmd.Info {
@@ -40,18 +40,18 @@ func (c *UnitGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if args[0] != "private-address" && args[0] != "public-address" {
 		return fmt.Errorf("unknown setting %q", args[0])
 	}
-	c.Arg = args[0]
+	c.Key = args[0]
 	return cmd.CheckEmpty(args[1:])
 }
 
 func (c *UnitGetCommand) Run(ctx *cmd.Context) (err error) {
 	var unit *state.Unit
-	unit, err = c.ctx.State.Unit(c.ctx.LocalUnitName)
+	unit, err = c.State.Unit(c.LocalUnitName)
 	if err != nil {
 		return
 	}
 	var value string
-	if c.Arg == "private-address" {
+	if c.Key == "private-address" {
 		value, err = unit.PrivateAddress()
 	} else {
 		value, err = unit.PublicAddress()

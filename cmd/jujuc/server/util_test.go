@@ -48,7 +48,7 @@ func str(w io.Writer) string {
 }
 
 type UnitFixture struct {
-	ctx     *server.Context
+	ctx     *server.ClientContext
 	service *state.Service
 	unit    *state.Unit
 }
@@ -58,7 +58,7 @@ func (f *UnitFixture) SetUpTest(c *C) {
 		Addrs: []string{zkAddr},
 	})
 	c.Assert(err, IsNil)
-	f.ctx = &server.Context{
+	f.ctx = &server.ClientContext{
 		Id:            "TestCtx",
 		State:         st,
 		LocalUnitName: "minecraft/0",
