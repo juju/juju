@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/goyaml"
+	"regexp"
+	"sync"
 )
 
 const stateFile = "provider-state"
@@ -99,15 +101,22 @@ func (e *environ) bucket() *s3.Bucket {
 	return e.s3.Bucket(e.config.bucket)
 }
 
-var toolFilePat = regexp.MustCompile("^juju-([0-9]+\.[0-9]+\.[0-9]+)-([^-]+)-([^-]+)$")
+var toolFilePat = regexp.MustCompile(`^juju-([0-9]+\.[0-9]+\.[0-9]+)-([^-]+)-([^-]+)\.tgz$`)
+
+var errToolsNotFound = errors.New("no compatible tools found")
 
 // findTools returns a URL from which the juju tools can
 // be downloaded. If exact is true, only a version which exactly
 // matches version.Current will be used.
-func (e *environs) findTools(spec *ImageConstraint, exact string) (url string, err error) {
-	resp, err := e.bucket().List("tools/", "/", "", 0)
+func (e *environs) findTools() (url string, err error) {
+	return findToolsInBucket(e.bucket())
+	// TODO look in public bucket on error
+}
+
+func (e *environs) findToolsInBucket(bucket *s3.Bucket) (url string, err error) {
+	prefix := "tools/"
+	resp, err := bucket.List(prefix, "/", "", 0)
 	if err != nil {
-		// TODO look in public bucket
 		return err
 	}
 	bestVersion := version.Version{Major: -1}
@@ -122,11 +131,23 @@ func (e *environs) findTools(spec *ImageConstraint, exact string) (url string, e
 			log.Printf("failed to parse version %q: %v", err)
 			continue
 		}
-		if m[2] != 
+		if m[2] != runtime.GOOS {
+			continue
+		}
+		// TODO allow different architectures.
+		if m[3] != runtime.GOARCH {
+			continue
+		}
 		if vers.Major != version.Current.Major {
 			continue
 		}
 		if bestVersion.Less(vers) {
 			bestVersion = vers
-			bestKey = 
+			bestKey = k.Key
+		}
 	}
+	if bestVersion.Major < 0 {
+		return "", errToolsNotFound
+	}
+	return bucket.URL(prefix + bestKey), nil
+}

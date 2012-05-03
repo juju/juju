@@ -115,6 +115,13 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	if s3err, _ := err.(*s3.Error); s3err != nil && s3err.StatusCode != 404 {
 		return err
 	}
+
+	if uploadTools {
+		err := environs.UploadTools(e)
+		if err != nil {
+			return err
+		}
+	}
 	inst, err := e.startInstance(0, nil, true)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
@@ -204,9 +211,6 @@ func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
 func (e *environ) startInstance(machineId int, info *state.Info, master bool) (environs.Instance, error) {
-	constraint := DefaultImageConstraint
-	constraint.Region = e.config.region
-
 	image, err := FindImageSpec(DefaultImageConstraint)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
