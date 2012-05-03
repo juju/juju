@@ -46,7 +46,7 @@ func (s *GetCommandSuite) TestGetCommand(c *C) {
 		LocalUnitName: "minecraft/0",
 	}
 	for _, t := range getCommandTests {
-		com, err := ctx.GetCommand(t.name)
+		com, err := ctx.NewCommand(t.name)
 		if t.err == "" {
 			// At this level, just check basic sanity; commands are tested in
 			// more detail elsewhere.

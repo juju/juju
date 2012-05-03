@@ -24,19 +24,20 @@ type Context struct {
 	RelationName   string
 }
 
-var commands = map[string]func(*Context) (cmd.Command, error){
+// newCommands maps Command names to initializers.
+var newCommands = map[string]func(*Context) (cmd.Command, error){
 	"config-get": NewConfigGetCommand,
 	"juju-log":   NewJujuLogCommand,
 }
 
-// GetCommand returns an instance of the named Command, initialized to execute
+// NewCommand returns an instance of the named Command, initialized to execute
 // against this Context.
-func (ctx *Context) GetCommand(name string) (cmd.Command, error) {
-	getCommand := commands[name]
-	if getCommand == nil {
+func (ctx *Context) NewCommand(name string) (cmd.Command, error) {
+	f := newCommands[name]
+	if f == nil {
 		return nil, fmt.Errorf("unknown command: %s", name)
 	}
-	return getCommand(ctx)
+	return f(ctx)
 }
 
 // hookVars returns an os.Environ-style list of strings necessary to run a hook
