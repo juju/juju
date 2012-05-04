@@ -8,19 +8,21 @@ import (
 	"strings"
 )
 
-// JujuLogCommand implements the `juju-log` command.
+// JujuLogCommand implements the juju-log command.
 type JujuLogCommand struct {
-	ctx     *Context
+	*ClientContext
 	Message string
 	Debug   bool
 }
 
-// Info returns usage information.
+func NewJujuLogCommand(ctx *ClientContext) (cmd.Command, error) {
+	return &JujuLogCommand{ClientContext: ctx}, nil
+}
+
 func (c *JujuLogCommand) Info() *cmd.Info {
 	return &cmd.Info{"juju-log", "<message>", "write a message to the juju log", ""}
 }
 
-// Init parses the command line and returns any errors encountered.
 func (c *JujuLogCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	f.BoolVar(&c.Debug, "debug", false, "log at debug level")
 	if err := f.Parse(true, args); err != nil {
@@ -34,14 +36,13 @@ func (c *JujuLogCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return nil
 }
 
-// Run writes to the juju log as directed in Init.
 func (c *JujuLogCommand) Run(_ *cmd.Context) error {
 	s := []string{}
-	if c.ctx.LocalUnitName != "" {
-		s = append(s, c.ctx.LocalUnitName)
+	if c.LocalUnitName != "" {
+		s = append(s, c.LocalUnitName)
 	}
-	if c.ctx.RelationName != "" {
-		s = append(s, c.ctx.RelationName)
+	if c.RelationName != "" {
+		s = append(s, c.RelationName)
 	}
 	msg := c.Message
 	if len(s) > 0 {

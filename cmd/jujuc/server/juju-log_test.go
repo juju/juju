@@ -39,10 +39,10 @@ var commonLogTests = []struct {
 	{true, true, "JUJU:DEBUG"},
 }
 
-func assertLogs(c *C, ctx *server.Context, badge string) {
+func assertLogs(c *C, ctx *server.ClientContext, badge string) {
 	msg1 := "the chickens"
 	msg2 := "are 110% AWESOME"
-	com, err := ctx.GetCommand("juju-log")
+	com, err := ctx.NewCommand("juju-log")
 	c.Assert(err, IsNil)
 	for _, t := range commonLogTests {
 		buf, pop := pushLog(t.debugEnabled)
@@ -67,15 +67,15 @@ func assertLogs(c *C, ctx *server.Context, badge string) {
 }
 
 func (s *JujuLogSuite) TestBadges(c *C) {
-	local := &server.Context{LocalUnitName: "minecraft/0"}
+	local := &server.ClientContext{LocalUnitName: "minecraft/0"}
 	assertLogs(c, local, "minecraft/0")
-	relation := &server.Context{LocalUnitName: "minecraft/0", RelationName: "bot"}
+	relation := &server.ClientContext{LocalUnitName: "minecraft/0", RelationName: "bot"}
 	assertLogs(c, relation, "minecraft/0 bot")
 }
 
 func (s *JujuLogSuite) TestRequiresMessage(c *C) {
-	ctx := &server.Context{}
-	com, err := ctx.GetCommand("juju-log")
+	ctx := &server.ClientContext{}
+	com, err := ctx.NewCommand("juju-log")
 	c.Assert(err, IsNil)
 	err = com.Init(dummyFlagSet(), nil)
 	c.Assert(err, ErrorMatches, "no message specified")

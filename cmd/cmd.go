@@ -72,19 +72,19 @@ func (i *Info) Help(f *gnuflag.FlagSet) []byte {
 	if i.Args != "" {
 		fmt.Fprintf(buf, " %s", i.Args)
 	}
+	fmt.Fprintf(buf, "\n")
 	if i.Purpose != "" {
-		fmt.Fprintf(buf, "\npurpose: %s", i.Purpose)
+		fmt.Fprintf(buf, "purpose: %s\n", i.Purpose)
 	}
 	if hasOptions {
-		fmt.Fprintf(buf, "\n\noptions:\n")
+		fmt.Fprintf(buf, "\noptions:\n")
 		f.SetOutput(buf)
 		f.PrintDefaults()
 	}
 	f.SetOutput(ioutil.Discard)
 	if i.Doc != "" {
-		fmt.Fprintf(buf, "\n%s", strings.TrimSpace(i.Doc))
+		fmt.Fprintf(buf, "\n%s\n", strings.TrimSpace(i.Doc))
 	}
-	fmt.Fprintf(buf, "\n")
 	return buf.Bytes()
 }
 

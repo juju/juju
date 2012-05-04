@@ -30,6 +30,11 @@ func (s *CmdSuite) TestInfo(c *C) {
 	f.StringVar(&ignored, "option", "", "option-doc")
 	help = full.Info().Help(f)
 	c.Assert(string(help), Equals, fullHelp)
+
+	optionInfo := full.Info()
+	optionInfo.Doc = ""
+	help = optionInfo.Help(f)
+	c.Assert(string(help), Equals, optionHelp)
 }
 
 var initErrorTests = []struct {
@@ -45,9 +50,9 @@ func (s *CmdSuite) TestMainInitError(c *C) {
 		ctx := dummyContext(c)
 		result := cmd.Main(t.c, ctx, []string{"--unknown"})
 		c.Assert(result, Equals, 2)
-		c.Assert(str(ctx.Stdout), Equals, "")
+		c.Assert(bufferString(ctx.Stdout), Equals, "")
 		expected := t.help + "error: flag provided but not defined: --unknown\n"
-		c.Assert(str(ctx.Stderr), Equals, expected)
+		c.Assert(bufferString(ctx.Stderr), Equals, expected)
 	}
 }
 
@@ -55,16 +60,16 @@ func (s *CmdSuite) TestMainRunError(c *C) {
 	ctx := dummyContext(c)
 	result := cmd.Main(&TestCommand{Name: "verb"}, ctx, []string{"--option", "error"})
 	c.Assert(result, Equals, 1)
-	c.Assert(str(ctx.Stdout), Equals, "")
-	c.Assert(str(ctx.Stderr), Equals, "error: BAM!\n")
+	c.Assert(bufferString(ctx.Stdout), Equals, "")
+	c.Assert(bufferString(ctx.Stderr), Equals, "error: BAM!\n")
 }
 
 func (s *CmdSuite) TestMainSuccess(c *C) {
 	ctx := dummyContext(c)
 	result := cmd.Main(&TestCommand{Name: "verb"}, ctx, []string{"--option", "success!"})
 	c.Assert(result, Equals, 0)
-	c.Assert(str(ctx.Stdout), Equals, "success!\n")
-	c.Assert(str(ctx.Stderr), Equals, "")
+	c.Assert(bufferString(ctx.Stdout), Equals, "success!\n")
+	c.Assert(bufferString(ctx.Stderr), Equals, "")
 }
 
 func (s *CmdSuite) TestMainHelp(c *C) {
@@ -72,8 +77,8 @@ func (s *CmdSuite) TestMainHelp(c *C) {
 		ctx := dummyContext(c)
 		result := cmd.Main(&TestCommand{Name: "verb"}, ctx, []string{arg})
 		c.Assert(result, Equals, 0)
-		c.Assert(str(ctx.Stdout), Equals, "")
-		c.Assert(str(ctx.Stderr), Equals, fullHelp)
+		c.Assert(bufferString(ctx.Stdout), Equals, "")
+		c.Assert(bufferString(ctx.Stderr), Equals, fullHelp)
 	}
 }
 
