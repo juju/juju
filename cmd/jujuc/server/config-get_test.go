@@ -29,7 +29,7 @@ func dummyContext(c *C) *cmd.Context {
 	return &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}}
 }
 
-func str(w io.Writer) string {
+func bufferString(w io.Writer) string {
 	return w.(*bytes.Buffer).String()
 }
 
@@ -91,8 +91,8 @@ func (s *ConfigGetSuite) TestOutput(c *C) {
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Assert(code, Equals, 0)
-		c.Assert(str(ctx.Stderr), Equals, "")
-		c.Assert(str(ctx.Stdout), Matches, t.out)
+		c.Assert(bufferString(ctx.Stderr), Equals, "")
+		c.Assert(bufferString(ctx.Stdout), Matches, t.out)
 	}
 }
 
