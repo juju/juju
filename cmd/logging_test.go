@@ -75,7 +75,7 @@ func (s *LogSuite) TestStderr(c *C) {
 	err := l.Start(ctx)
 	c.Assert(err, IsNil)
 	log.Printf("hello")
-	c.Assert(str(ctx.Stderr), Matches, `.* JUJU hello\n`)
+	c.Assert(bufferString(ctx.Stderr), Matches, `.* JUJU hello\n`)
 }
 
 func (s *LogSuite) TestRelPathLog(c *C) {
@@ -84,7 +84,7 @@ func (s *LogSuite) TestRelPathLog(c *C) {
 	err := l.Start(ctx)
 	c.Assert(err, IsNil)
 	log.Printf("hello")
-	c.Assert(str(ctx.Stderr), Equals, "")
+	c.Assert(bufferString(ctx.Stderr), Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
 	c.Assert(err, IsNil)
 	c.Assert(string(content), Matches, `.* JUJU hello\n`)
@@ -97,7 +97,7 @@ func (s *LogSuite) TestAbsPathLog(c *C) {
 	err := l.Start(ctx)
 	c.Assert(err, IsNil)
 	log.Printf("hello")
-	c.Assert(str(ctx.Stderr), Equals, "")
+	c.Assert(bufferString(ctx.Stderr), Equals, "")
 	content, err := ioutil.ReadFile(path)
 	c.Assert(err, IsNil)
 	c.Assert(string(content), Matches, `.* JUJU hello\n`)
