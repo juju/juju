@@ -18,7 +18,7 @@ func dummyContext(c *C) *cmd.Context {
 	return &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}}
 }
 
-func str(stream io.Writer) string {
+func bufferString(stream io.Writer) string {
 	return stream.(*bytes.Buffer).String()
 }
 
