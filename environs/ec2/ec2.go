@@ -43,8 +43,9 @@ type environ struct {
 	config           *providerConfig
 	ec2              *ec2.EC2
 	s3               *s3.S3
-	checkBucket      sync.Once
-	checkBucketError error
+	bucketMutex      sync.Mutex
+	bucketError error
+	madeBucket bool
 }
 
 var _ environs.Environ = (*environ)(nil)
