@@ -10,6 +10,7 @@ import (
 type ConfigGetCommand struct {
 	*ClientContext
 	Key string // The key to show. If empty, show all.
+	out resultWriter
 }
 
 func NewConfigGetCommand(ctx *ClientContext) (cmd.Command, error) {
@@ -31,6 +32,7 @@ func (c *ConfigGetCommand) Info() *cmd.Info {
 }
 
 func (c *ConfigGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
+	c.out.addFlags(f, "smart", defaultConverters)
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
@@ -61,7 +63,5 @@ func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
 	} else {
 		value, _ = conf.Get(c.Key)
 	}
-	// TODO --format ( = "smart")
-	fmt.Fprintln(ctx.Stdout, value)
-	return nil
+	return c.out.write(ctx, value)
 }
