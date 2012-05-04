@@ -40,8 +40,8 @@ func (s *UnitGetSuite) TestOutputFormat(c *C) {
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Assert(code, Equals, 0)
-		c.Assert(str(ctx.Stderr), Equals, "")
-		c.Assert(str(ctx.Stdout), Matches, t.out)
+		c.Assert(bufferString(ctx.Stderr), Equals, "")
+		c.Assert(bufferString(ctx.Stdout), Matches, t.out)
 	}
 }
 
@@ -51,8 +51,8 @@ func (s *UnitGetSuite) TestHelp(c *C) {
 	ctx := dummyContext(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, Equals, 0)
-	c.Assert(str(ctx.Stdout), Equals, "")
-	c.Assert(str(ctx.Stderr), Equals, `usage: unit-get [options] <setting>
+	c.Assert(bufferString(ctx.Stdout), Equals, "")
+	c.Assert(bufferString(ctx.Stderr), Equals, `usage: unit-get [options] <setting>
 purpose: print public-address or private-address
 
 options:
@@ -69,8 +69,8 @@ func (s *UnitGetSuite) TestOutputPath(c *C) {
 	ctx := dummyContext(c)
 	code := cmd.Main(com, ctx, []string{"--output", "some-file", "private-address"})
 	c.Assert(code, Equals, 0)
-	c.Assert(str(ctx.Stderr), Equals, "")
-	c.Assert(str(ctx.Stdout), Equals, "")
+	c.Assert(bufferString(ctx.Stderr), Equals, "")
+	c.Assert(bufferString(ctx.Stdout), Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, IsNil)
 	c.Assert(string(content), Equals, "192.168.0.99\n")
