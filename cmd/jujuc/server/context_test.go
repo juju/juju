@@ -5,13 +5,26 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/cmd/jujuc/server"
+	"launchpad.net/juju/go/state"
+	"launchpad.net/juju/go/testing"
 	"os"
 	"path/filepath"
 	"strings"
-	"testing"
+	stdtesting "testing"
 )
 
-func Test(t *testing.T) { TestingT(t) }
+var zkAddr string
+
+func TestPackage(t *stdtesting.T) {
+	srv := testing.StartZkServer()
+	defer srv.Destroy()
+	var err error
+	zkAddr, err = srv.Addr()
+	if err != nil {
+		t.Fatalf("could not get ZooKeeper server address")
+	}
+	TestingT(t)
+}
 
 type GetCommandSuite struct{}
 
@@ -22,18 +35,23 @@ var getCommandTests = []struct {
 	err  string
 }{
 	{"juju-log", ""},
+	{"config-get", ""},
 	{"random", "unknown command: random"},
 }
 
 func (s *GetCommandSuite) TestGetCommand(c *C) {
-	ctx := &server.Context{}
+	ctx := &server.ClientContext{
+		Id:            "ctxid",
+		State:         &state.State{},
+		LocalUnitName: "minecraft/0",
+	}
 	for _, t := range getCommandTests {
-		com, err := ctx.GetCommand(t.name)
+		com, err := ctx.NewCommand(t.name)
 		if t.err == "" {
 			// At this level, just check basic sanity; commands are tested in
 			// more detail elsewhere.
-			c.Assert(com.Info().Name, Equals, t.name)
 			c.Assert(err, IsNil)
+			c.Assert(com.Info().Name, Equals, t.name)
 		} else {
 			c.Assert(com, IsNil)
 			c.Assert(err, ErrorMatches, t.err)
@@ -92,20 +110,20 @@ func AssertEnv(c *C, outPath string, env map[string]string) {
 }
 
 func (s *RunHookSuite) TestNoHook(c *C) {
-	ctx := &server.Context{}
+	ctx := &server.ClientContext{}
 	err := ctx.RunHook("tree-fell-in-forest", c.MkDir(), "")
 	c.Assert(err, IsNil)
 }
 
 func (s *RunHookSuite) TestNonExecutableHook(c *C) {
-	ctx := &server.Context{}
+	ctx := &server.ClientContext{}
 	charmDir, _ := makeCharm(c, "something-happened", 0600, 0)
 	err := ctx.RunHook("something-happened", charmDir, "")
 	c.Assert(err, ErrorMatches, `exec: ".*/something-happened": permission denied`)
 }
 
 func (s *RunHookSuite) TestBadHook(c *C) {
-	ctx := &server.Context{Id: "ctx-id"}
+	ctx := &server.ClientContext{Id: "ctx-id"}
 	charmDir, outPath := makeCharm(c, "occurrence-occurred", 0700, 99)
 	socketPath := "/path/to/socket"
 	err := ctx.RunHook("occurrence-occurred", charmDir, socketPath)
@@ -118,7 +136,7 @@ func (s *RunHookSuite) TestBadHook(c *C) {
 }
 
 func (s *RunHookSuite) TestGoodHookWithVars(c *C) {
-	ctx := &server.Context{
+	ctx := &server.ClientContext{
 		Id:             "some-id",
 		LocalUnitName:  "local/99",
 		RemoteUnitName: "remote/123",
