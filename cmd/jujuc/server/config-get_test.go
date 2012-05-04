@@ -31,7 +31,7 @@ func dummyContext(c *C) *cmd.Context {
 	return &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}}
 }
 
-func str(w io.Writer) string {
+func bufferString(w io.Writer) string {
 	return w.(*bytes.Buffer).String()
 }
 
@@ -102,8 +102,8 @@ func (s *ConfigGetSuite) TestOutputFormat(c *C) {
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Assert(code, Equals, 0)
-		c.Assert(str(ctx.Stderr), Equals, "")
-		c.Assert(str(ctx.Stdout), Matches, t.out)
+		c.Assert(bufferString(ctx.Stderr), Equals, "")
+		c.Assert(bufferString(ctx.Stdout), Matches, t.out)
 	}
 }
 
@@ -113,8 +113,8 @@ func (s *ConfigGetSuite) TestHelp(c *C) {
 	ctx := dummyContext(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, Equals, 0)
-	c.Assert(str(ctx.Stdout), Equals, "")
-	c.Assert(str(ctx.Stderr), Equals, `usage: config-get [options] [<key>]
+	c.Assert(bufferString(ctx.Stdout), Equals, "")
+	c.Assert(bufferString(ctx.Stderr), Equals, `usage: config-get [options] [<key>]
 purpose: print service configuration
 
 options:
@@ -133,8 +133,8 @@ func (s *ConfigGetSuite) TestOutputPath(c *C) {
 	ctx := dummyContext(c)
 	code := cmd.Main(com, ctx, []string{"--output", "some-file", "monsters"})
 	c.Assert(code, Equals, 0)
-	c.Assert(str(ctx.Stderr), Equals, "")
-	c.Assert(str(ctx.Stdout), Equals, "")
+	c.Assert(bufferString(ctx.Stderr), Equals, "")
+	c.Assert(bufferString(ctx.Stdout), Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, IsNil)
 	c.Assert(string(content), Equals, "false\n")
