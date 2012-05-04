@@ -3,6 +3,7 @@ package version_test
 import (
 	"."
 	. "launchpad.net/gocheck"
+	"regexp"
 	"testing"
 )
 
@@ -99,5 +100,14 @@ func (suite) TestParse(c *C) {
 			c.Assert(v, Equals, test.expect)
 			c.Check(v.IsDev(), Equals, test.dev)
 		}
+	}
+}
+
+var toolsPattern = regexp.MustCompile(`^[^/]+/\d+\.\d+\.\d+-[^/-]+-[^/]+\.tgz$`)
+
+func (suite) TestToolsPath(c *C) {
+	// Test that nothing strange is going on with the tools path.
+	if !toolsPattern.MatchString(version.ToolsPath) {
+		c.Errorf("tools path does not fit expected pattern: %q", version.ToolsPath)
 	}
 }
