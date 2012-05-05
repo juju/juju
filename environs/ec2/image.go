@@ -28,9 +28,9 @@ var DefaultImageConstraint = &ImageConstraint{
 }
 
 type ImageSpec struct {
-	ImageId string
-	Architecture string	// The architecture the image will run on.
-	OS string			// The OS the image will run on.
+	ImageId      string
+	Architecture string // The architecture the image will run on.
+	OS           string // The OS the image will run on.
 }
 
 // imagesHost holds the address of the images http server.
@@ -75,9 +75,9 @@ func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
 		}
 		if f[5] == spec.Architecture && f[6] == spec.Region {
 			return &ImageSpec{
-				ImageId: f[7],
+				ImageId:      f[7],
 				Architecture: spec.Architecture,
-				OS: "linux",
+				OS:           "linux",
 			}, nil
 		}
 	}
