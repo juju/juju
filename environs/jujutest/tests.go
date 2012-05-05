@@ -88,7 +88,7 @@ func (t *Tests) TestPersistence(c *C) {
 }
 
 func checkPutFile(c *C, e environs.Environ, name string, contents []byte) {
-	err := e.PutFile(name, bytes.NewBuffer(contents), int64(len(contents)))
+	err := e.PutFile(name, bytes.NewReader(contents))
 	c.Assert(err, IsNil)
 }
 

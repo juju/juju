@@ -78,14 +78,13 @@ type Environ interface {
 	Instances(ids []string) ([]Instance, error)
 
 	// PutFile reads from r and writes to the given file in the
-	// environment's storage. The length must give the total
-	// length of the file.
+	// environment's storage.
 	//
 	// If the name is prefixed with "tools/", it should be an
 	// archive of the juju tools in gzipped tar format; the full
 	// name should be of the form:
 	//     tools/juju-$VERSION-$GOOS-$GOARCH.tgz
-	PutFile(file string, r io.Reader, length int64) error
+	PutFile(file string, r io.ReadSeeker) error
 
 	// GetFile opens the given file in the environment's storage
 	// and returns a ReadCloser that can be used to read its

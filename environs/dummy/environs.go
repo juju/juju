@@ -247,7 +247,7 @@ func (e *environ) Instances(ids []string) (insts []environs.Instance, err error)
 	return
 }
 
-func (e *environ) PutFile(name string, r io.Reader, length int64) error {
+func (e *environ) PutFile(name string, r io.ReadSeeker) error {
 	if e.broken {
 		return errBroken
 	}
