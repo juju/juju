@@ -20,7 +20,7 @@ type ImageConstraint struct {
 
 var DefaultImageConstraint = &ImageConstraint{
 	UbuntuRelease:     "oneiric",
-	Architecture:      "386",
+	Architecture:      "i386",
 	PersistentStorage: true,
 	Region:            "us-east-1",
 	Daily:             false,
@@ -60,11 +60,6 @@ func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
 	defer resp.Body.Close()
 	ebsMatch := either(spec.PersistentStorage, "ebs", "instance-store")
 
-	// Use Go format for specifying the architecture.
-	arch := spec.Architecture
-	if arch == "i386" {
-		arch = "386"
-	}
 	r := bufio.NewReader(resp.Body)
 	for {
 		line, _, err := r.ReadLine()
@@ -78,9 +73,9 @@ func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
 		if f[4] != ebsMatch {
 			continue
 		}
-		if f[5] == arch && f[6] == spec.Region {
+		if f[5] == spec.Architecture && f[6] == spec.Region {
 			return &ImageSpec{
-				ImageID: f[7],
+				ImageId: f[7],
 				Architecture: spec.Architecture,
 				OS: "linux",
 			}, nil

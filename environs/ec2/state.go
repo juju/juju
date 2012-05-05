@@ -2,11 +2,14 @@ package ec2
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju/go/log"
+	"launchpad.net/juju/go/version"
 	"regexp"
 	"os"
 	"sync"
@@ -155,15 +158,18 @@ var errToolsNotFound = errors.New("no compatible tools found")
 // be downloaded. If exact is true, only a version which exactly
 // matches version.Current will be used.
 func (e *environ) findTools() (url string, err error) {
-	return findToolsInBucket(e.bucket())
+	return e.findToolsInBucket(e.bucket())
 	// TODO look in public bucket on error
 }
+
+// This is a variable so that we can alter it for testing purposes.
+var versionCurrentMajor = version.Current.Major
 
 func (e *environ) findToolsInBucket(bucket *s3.Bucket) (url string, err error) {
 	prefix := "tools/"
 	resp, err := bucket.List(prefix, "/", "", 0)
 	if err != nil {
-		return err
+		return "", err
 	}
 	bestVersion := version.Version{Major: -1}
 	bestKey := ""
@@ -177,14 +183,14 @@ func (e *environ) findToolsInBucket(bucket *s3.Bucket) (url string, err error) {
 			log.Printf("failed to parse version %q: %v", err)
 			continue
 		}
-		if m[2] != runtime.GOOS {
+		if m[2] != version.CurrentOS {
 			continue
 		}
 		// TODO allow different architectures.
-		if m[3] != runtime.GOARCH {
+		if m[3] != version.CurrentArch {
 			continue
 		}
-		if vers.Major != version.Current.Major {
+		if vers.Major != versionCurrentMajor {
 			continue
 		}
 		if bestVersion.Less(vers) {

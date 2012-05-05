@@ -11,6 +11,8 @@ type BootstrapState struct {
 	ZookeeperInstances []string
 }
 
+var VersionCurrentMajor = &versionCurrentMajor
+
 func LoadState(e environs.Environ) (*BootstrapState, error) {
 	s, err := e.(*environ).loadState()
 	if err != nil {
@@ -39,7 +41,7 @@ func EnvironBucket(e environs.Environ) *s3.Bucket {
 	return e.(*environ).bucket()
 }
 
-func FindTools(e environs.Environ) (string, err) {
+func FindTools(e environs.Environ) (string, error) {
 	return e.(*environ).findTools()
 }
 

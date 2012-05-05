@@ -74,7 +74,6 @@ var imageTests = []struct {
 }
 
 func (imageSuite) TestFindImageSpec(c *C) {
-
 	for i, t := range imageTests {
 		id, err := ec2.FindImageSpec(&t.constraint)
 		if t.err != "" {
