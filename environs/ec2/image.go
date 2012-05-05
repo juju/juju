@@ -7,29 +7,33 @@ import (
 	"strings"
 )
 
-// ImageConstraint specifies a range of possible machine images.
-// TODO allow specification of softer constraints?
-type ImageConstraint struct {
+// TODO implement constraints properly.
+
+// InstanceConstraint specifies a range of possible instances
+// and the images that can run on them.
+type InstanceConstraint struct {
 	UbuntuRelease     string
-	Architecture      string
+	Arch      string
 	PersistentStorage bool
 	Region            string
 	Daily             bool
 	Desktop           bool
 }
 
-var DefaultImageConstraint = &ImageConstraint{
+var DefaultInstanceConstraint = &InstanceConstraint{
 	UbuntuRelease:     "oneiric",
-	Architecture:      "i386",
+	Arch:      "i386",
 	PersistentStorage: true,
 	Region:            "us-east-1",
 	Daily:             false,
 	Desktop:           false,
 }
 
-type ImageSpec struct {
+// InstanceSpec specifies a particular machine type and the OS that
+// will run on it.
+type InstanceSpec struct {
 	ImageId string
-	Architecture string	// The architecture the image will run on.
+	Arch string	// The architecture the image will run on.
 	OS string			// The OS the image will run on.
 }
 
@@ -38,12 +42,9 @@ type ImageSpec struct {
 // server when needed.
 var imagesHost = "http://uec-images.ubuntu.com"
 
-func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
-	// note: original get_image_id added three optional args:
-	// DefaultImageId		if found, returns that immediately
-	// Region				overrides spec.Region
-	// DefaultSeries		used if spec.UbuntuRelease is ""
-
+// FindInstanceSpec finds a suitable instance specification given
+// the specified constraints.
+func FindInstanceSpec(spec *InstanceConstraint) (*InstanceSpec, error) {
 	hclient := new(http.Client)
 	uri := fmt.Sprintf(imagesHost+"/query/%s/%s/%s.current.txt",
 		spec.UbuntuRelease,
@@ -73,10 +74,10 @@ func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
 		if f[4] != ebsMatch {
 			continue
 		}
-		if f[5] == spec.Architecture && f[6] == spec.Region {
-			return &ImageSpec{
+		if f[5] == spec.Arch && f[6] == spec.Region {
+			return &InstanceSpec{
 				ImageId: f[7],
-				Architecture: spec.Architecture,
+				Arch: spec.Arch,
 				OS: "linux",
 			}, nil
 		}

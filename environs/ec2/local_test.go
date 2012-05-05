@@ -241,54 +241,68 @@ func toolsPath(vers, os, arch string) string {
 
 var findToolsTests = []struct{
 	major int
+	os string
+	arch string
 	contents []string
 	expect string
 	err string
 } {{
 	version.Current.Major,
+	version.CurrentOS,
+	version.CurrentArch,
 	[]string{version.ToolsPath},
 	version.ToolsPath,
 	"",
 }, {
 	1,
+	"linux",
+	"amd64",
 	[]string{
-		toolsPath("0.0.9", version.CurrentOS, version.CurrentArch),
+		toolsPath("0.0.9", "linux", "amd64"),
 	},
 	"",
 	"no compatible tools found",
 }, {
 	1,
+	"linux",
+	"amd64",
 	[]string{
-		toolsPath("2.0.9", version.CurrentOS, version.CurrentArch),
+		toolsPath("2.0.9", "linux", "amd64"),
 	},
 	"",
 	"no compatible tools found",
 }, {
 	1,
+	"linux",
+	"amd64",
 	[]string{
-		toolsPath("1.0.9", version.CurrentOS, version.CurrentArch),
-		toolsPath("1.0.10", version.CurrentOS, version.CurrentArch),
-		toolsPath("1.0.11", version.CurrentOS, version.CurrentArch),
+		toolsPath("1.0.9", "linux", "amd64"),
+		toolsPath("1.0.10", "linux", "amd64"),
+		toolsPath("1.0.11", "linux", "amd64"),
 	},
-	toolsPath("1.0.11", version.CurrentOS, version.CurrentArch),
+	toolsPath("1.0.11", "linux", "amd64"),
 	"",
 },{
 	1,
+	"linux",
+	"amd64",
 	[]string{
-		toolsPath("1.9.11", version.CurrentOS, version.CurrentArch),
-		toolsPath("1.10.10", version.CurrentOS, version.CurrentArch),
-		toolsPath("1.11.9", version.CurrentOS, version.CurrentArch),
+		toolsPath("1.9.11", "linux", "amd64"),
+		toolsPath("1.10.10", "linux", "amd64"),
+		toolsPath("1.11.9", "linux", "amd64"),
 	},
 	toolsPath("1.11.9", version.CurrentOS, version.CurrentArch),
 	"",
 }, {
 	1,
+	"freebsd",
+	"cell",
 	[]string{
-		toolsPath("1.9.9", "foo", version.CurrentArch),
-		toolsPath("1.9.9", version.CurrentOS, "foo"),
-		toolsPath("1.0.0", version.CurrentOS, version.CurrentArch),
+		toolsPath("1.9.9", "linux", "cell"),
+		toolsPath("1.9.9", "freebsd", "amd64"),
+		toolsPath("1.0.0", "freebsd", "cell"),
 	},
-	toolsPath("1.0.0", version.CurrentOS, version.CurrentArch),
+	toolsPath("1.0.0", "freebsd", "cell"),
 	"",
 }}
 	
@@ -305,7 +319,7 @@ func (t *localServerSuite) TestFindTools(c *C) {
 			err := t.env.PutFile(name, strings.NewReader(name))
 			c.Assert(err, IsNil)
 		}
-		url, err := ec2.FindTools(t.env)
+		url, err := ec2.FindTools(t.env, &ec2.InstanceSpec{OS: tt.os, Arch: tt.arch})
 		if tt.err != "" {
 			c.Assert(err, ErrorMatches, tt.err)
 		} else {

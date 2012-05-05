@@ -208,7 +208,7 @@ func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
 func (e *environ) startInstance(machineId int, info *state.Info, master bool) (environs.Instance, error) {
-	image, err := FindImageSpec(DefaultImageConstraint)
+	image, err := FindInstanceSpec(DefaultInstanceConstraint)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
 	}

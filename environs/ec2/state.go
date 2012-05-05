@@ -161,17 +161,17 @@ var toolFilePat = regexp.MustCompile(`^tools/juju([0-9]+\.[0-9]+\.[0-9]+)-([^-]+
 var errToolsNotFound = errors.New("no compatible tools found")
 
 // findTools returns a URL from which the juju tools can
-// be downloaded. If exact is true, only a version which exactly
-// matches version.Current will be used.
-func (e *environ) findTools() (url string, err error) {
-	return e.findToolsInBucket(e.bucket())
+// be downloaded appropriate to be run on an image with the
+// given specifications.
+func (e *environ) findTools(spec *InstanceSpec) (url string, err error) {
+	return e.findToolsInBucket(spec, e.bucket())
 	// TODO look in public bucket on error
 }
 
 // This is a variable so that we can alter it for testing purposes.
 var versionCurrentMajor = version.Current.Major
 
-func (e *environ) findToolsInBucket(bucket *s3.Bucket) (url string, err error) {
+func (e *environ) findToolsInBucket(spec *InstanceSpec, bucket *s3.Bucket) (url string, err error) {
 	resp, err := bucket.List("tools/", "/", "", 0)
 	if err != nil {
 		return "", err
@@ -189,11 +189,10 @@ func (e *environ) findToolsInBucket(bucket *s3.Bucket) (url string, err error) {
 			log.Printf("failed to parse version %q: %v", k.Key, err)
 			continue
 		}
-		if m[2] != version.CurrentOS {
+		if m[2] != spec.OS {
 			continue
 		}
-		// TODO allow different architectures.
-		if m[3] != version.CurrentArch {
+		if m[3] != spec.Arch {
 			continue
 		}
 		if vers.Major != versionCurrentMajor {

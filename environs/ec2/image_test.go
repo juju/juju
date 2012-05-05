@@ -26,46 +26,46 @@ func (imageSuite) TearDownSuite(c *C) {
 // N.B. the image IDs in this test will need updating
 // if the image directory is regenerated.
 var imageTests = []struct {
-	constraint ec2.ImageConstraint
+	constraint ec2.InstanceConstraint
 	imageId    string
 	err        string
 }{
-	{*ec2.DefaultImageConstraint, "ami-a7f539ce", ""},
-	{ec2.ImageConstraint{
+	{*ec2.DefaultInstanceConstraint, "ami-a7f539ce", ""},
+	{ec2.InstanceConstraint{
 		UbuntuRelease:     "natty",
-		Architecture:      "amd64",
+		Arch:      "amd64",
 		PersistentStorage: false,
 		Region:            "eu-west-1",
 		Daily:             true,
 		Desktop:           true,
 	}, "ami-19fdc16d", ""},
-	{ec2.ImageConstraint{
+	{ec2.InstanceConstraint{
 		UbuntuRelease:     "natty",
-		Architecture:      "i386",
+		Arch:      "i386",
 		PersistentStorage: true,
 		Region:            "ap-northeast-1",
 		Daily:             true,
 		Desktop:           true,
 	}, "ami-cc9621cd", ""},
-	{ec2.ImageConstraint{
+	{ec2.InstanceConstraint{
 		UbuntuRelease:     "natty",
-		Architecture:      "i386",
+		Arch:      "i386",
 		PersistentStorage: false,
 		Region:            "ap-northeast-1",
 		Daily:             true,
 		Desktop:           true,
 	}, "ami-62962163", ""},
-	{ec2.ImageConstraint{
+	{ec2.InstanceConstraint{
 		UbuntuRelease:     "natty",
-		Architecture:      "amd64",
+		Arch:      "amd64",
 		PersistentStorage: false,
 		Region:            "ap-northeast-1",
 		Daily:             true,
 		Desktop:           true,
 	}, "ami-a69621a7", ""},
-	{ec2.ImageConstraint{
+	{ec2.InstanceConstraint{
 		UbuntuRelease:     "zingy",
-		Architecture:      "amd64",
+		Arch:      "amd64",
 		PersistentStorage: false,
 		Region:            "eu-west-1",
 		Daily:             true,
@@ -73,21 +73,24 @@ var imageTests = []struct {
 	}, "", "error getting instance types:.*"},
 }
 
-func (imageSuite) TestFindImageSpec(c *C) {
+func (imageSuite) TestFindInstanceSpec(c *C) {
 	for i, t := range imageTests {
-		id, err := ec2.FindImageSpec(&t.constraint)
+		c.Logf("test %d", i)
+		id, err := ec2.FindInstanceSpec(&t.constraint)
 		if t.err != "" {
-			c.Check(err, ErrorMatches, t.err, Commentf("test %d", i))
-			c.Check(id, IsNil, Commentf("test %d", i))
+			c.Check(err, ErrorMatches, t.err)
+			c.Check(id, IsNil)
 			continue
 		}
-		if !c.Check(err, IsNil, Commentf("test %d", i)) {
+		if !c.Check(err, IsNil) {
 			continue
 		}
-		if !c.Check(id, NotNil, Commentf("test %d", i)) {
+		if !c.Check(id, NotNil) {
 			continue
 		}
 		c.Check(id.ImageId, Equals, t.imageId)
+		c.Check(id.OS, Equals, "linux")
+		c.Check(id.Arch, Equals, t.constraint.Arch)
 	}
 }
 
