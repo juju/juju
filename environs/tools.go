@@ -129,9 +129,5 @@ func UploadTools(env Environ) error {
 	if err != nil {
 		return err
 	}
-	fi, err := f.Stat()
-	if err != nil {
-		return err
-	}
-	return env.PutFile(version.ToolsPath, f, fi.Size())
+	return env.PutFile(version.ToolsPath, f)
 }

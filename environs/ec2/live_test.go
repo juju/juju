@@ -198,9 +198,9 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 }
 
 func (t *LiveTests) TestDestroy(c *C) {
-	err := t.Env.PutFile("foo", strings.NewReader("foo"), 3)
+	err := t.Env.PutFile("foo", strings.NewReader("foo"))
 	c.Assert(err, IsNil)
-	err = t.Env.PutFile("bar", strings.NewReader("bar"), 3)
+	err = t.Env.PutFile("bar", strings.NewReader("bar"))
 	c.Assert(err, IsNil)
 
 	// Check that bucket exists, so we can be sure

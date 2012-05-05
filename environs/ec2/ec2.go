@@ -7,7 +7,6 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/log"
 	"launchpad.net/juju/go/state"
-	"sync"
 	"time"
 )
 
@@ -43,9 +42,6 @@ type environ struct {
 	config      *providerConfig
 	ec2         *ec2.EC2
 	s3          *s3.S3
-	bucketMutex sync.Mutex
-	bucketError error
-	madeBucket  bool
 }
 
 var _ environs.Environ = (*environ)(nil)

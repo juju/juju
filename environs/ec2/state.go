@@ -8,6 +8,7 @@ import (
 	"launchpad.net/goamz/s3"
 	"launchpad.net/goyaml"
 	"regexp"
+	"os"
 	"sync"
 )
 
@@ -22,7 +23,7 @@ func (e *environ) saveState(state *bootstrapState) error {
 	if err != nil {
 		return err
 	}
-	return e.PutFile(stateFile, bytes.NewBuffer(data), int64(len(data)))
+	return e.PutFile(stateFile, bytes.NewReader(data))
 }
 
 func (e *environ) loadState() (*bootstrapState, error) {
@@ -44,8 +45,6 @@ func (e *environ) loadState() (*bootstrapState, error) {
 }
 
 func (e *environ) deleteState() error {
-	e.bucketMutex.Lock()
-	defer e.bucketMutex.Unlock()
 	b := e.bucket()
 	resp, err := b.List("", "", "", 0)
 	if err != nil {
@@ -76,42 +75,41 @@ func (e *environ) deleteState() error {
 		return fmt.Errorf("cannot delete provider state: %v", err)
 	default:
 	}
-	err = b.DelBucket()
-	if err == nil {
-		e.madeBucket = false
-		e.bucketError = nil
-	}
-	return err
+	return b.DelBucket()
 }
 
-// makeBucket makes the environent's control bucket, the
-// place where bootstrap information and deployed charms
-// are stored. To avoid two round trips on every PUT operation,
-// we do this only once for each environ.
-func (e *environ) makeBucket() error {
-	e.bucketMutex.Lock()
-	defer e.bucketMutex.Unlock()
-	if e.bucketError != nil {
-		return e.bucketError
-	}
-	// try to make the bucket - PutBucket will succeed if the
-	// bucket already exists.
-	e.bucketError = e.bucket().PutBucket(s3.Private)
-	if e.bucketError == nil {
-		e.madeBucket = true
-	}
-	return e.bucketError
-}
-
-func (e *environ) PutFile(file string, r io.Reader, length int64) error {
-	if err := e.makeBucket(); err != nil {
-		return fmt.Errorf("cannot make S3 control bucket: %v", err)
-	}
-	err := e.bucket().PutReader(file, r, length, "binary/octet-stream", s3.Private)
+func (e *environ) PutFile(file string, r io.ReadSeeker) error {
+	// Find out the length of the file by seeking to
+	// the end and back again.
+	curPos, err := r.Seek(0, os.SEEK_CUR)
 	if err != nil {
-		return fmt.Errorf("cannot write file %q to control bucket: %v", file, err)
+		return err
 	}
-	return nil
+	length, err := r.Seek(0, os.SEEK_END)
+	if err != nil {
+		return err
+	}
+	if _, err := r.Seek(curPos, os.SEEK_SET); err != nil {
+		return err
+	}
+	// To avoid round-tripping on each PutFile, we attempt to put the
+	// file and only make the bucket if it fails due to the bucket's
+	// non-existence.
+	err = e.bucket().PutReader(file, r, length - curPos, "binary/octet-stream", s3.Private)
+	if err == nil {
+		return nil
+	}
+	if s3err, _ := err.(*s3.Error); s3err == nil || s3err.Code != "NoSuchBucket" {
+		return err
+	}
+	// Make the bucket and repeat.
+	if err := e.bucket().PutBucket(s3.Private); err != nil {
+		return err
+	}
+	if _, err := r.Seek(curPos, os.SEEK_SET); err != nil {
+		return err
+	}
+	return e.bucket().PutReader(file, r, length - curPos, "binary/octet-stream", s3.Private)
 }
 
 func (e *environ) GetFile(file string) (r io.ReadCloser, err error) {
