@@ -102,7 +102,8 @@ func (e *environ) PutFile(file string, r io.ReadSeeker) error {
 	if s3err, _ := err.(*s3.Error); s3err == nil || s3err.Code != "NoSuchBucket" {
 		return err
 	}
-	// Make the bucket and repeat.
+	// Make the bucket and repeat. PutBucket will succeed if the bucket
+	// already exists (for instance as a result of a concurrent PutFile)
 	if err := e.bucket().PutBucket(s3.Private); err != nil {
 		return err
 	}
