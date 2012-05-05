@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 )
 
 type ToolsSuite struct{}
@@ -42,8 +41,7 @@ func (ToolsSuite) TestUploadTools(c *C) {
 	err = environs.UploadTools(env)
 	c.Assert(err, IsNil)
 
-	name := fmt.Sprintf("tools/juju-%v-%s-%s.tgz", version.Current, runtime.GOOS, runtime.GOARCH)
-	r, err := env.GetFile(name)
+	r, err := env.GetFile(version.ToolsPath)
 	c.Assert(err, IsNil)
 
 	// Unarchive the tool executables into a temp directory.

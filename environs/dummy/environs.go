@@ -77,7 +77,7 @@ func init() {
 		}
 	}()
 	discardOperations = c
-	Reset(discardOperations)
+	Reset(discardOperations, true)
 }
 
 // Reset closes any previously registered operation channel,
@@ -85,6 +85,8 @@ func init() {
 // notifications of operations performed on newly opened
 // dummy environments. All opened environments after a Reset
 // will share the same underlying state (instances, etc).
+// If clean is true, this will be empty; otherwise
+// it will remain the same as before.
 // 
 // The configuration YAML for the testing environment
 // must specify a "zookeeper" property with a boolean
@@ -99,11 +101,11 @@ func init() {
 // 
 // The DNS name of instances is the same as the Id,
 // with ".dns" appended.
-func Reset(c chan<- Operation) {
-	providerInstance.reset(c)
+func Reset(c chan<- Operation, clean bool) {
+	providerInstance.reset(c, clean)
 }
 
-func (e *environProvider) reset(c chan<- Operation) {
+func (e *environProvider) reset(c chan<- Operation, clean bool) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if c == nil {
@@ -113,9 +115,12 @@ func (e *environProvider) reset(c chan<- Operation) {
 		close(ops)
 	}
 	e.ops = c
-	e.state = &environState{
-		insts: make(map[string]*instance),
-		files: make(map[string][]byte),
+
+	if clean {
+		e.state = &environState{
+			insts: make(map[string]*instance),
+			files: make(map[string][]byte),
+		}
 	}
 }
 

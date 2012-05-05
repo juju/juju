@@ -6,7 +6,9 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/cmd"
 	main "launchpad.net/juju/go/cmd/juju"
+	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/dummy"
+	"launchpad.net/juju/go/version"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -50,7 +52,7 @@ func (s *cmdSuite) SetUpTest(c *C) {
 func (s *cmdSuite) TearDownTest(c *C) {
 	os.Setenv("HOME", s.home)
 
-	dummy.Reset(nil)
+	dummy.Reset(nil, true)
 }
 
 func newFlagSet() *gnuflag.FlagSet {
@@ -112,10 +114,10 @@ func (*cmdSuite) TestEnvironmentInit(c *C) {
 func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc chan error) {
 	errc = make(chan error, 1)
 	opc = make(chan dummy.Operation)
-	dummy.Reset(opc)
+	dummy.Reset(opc, true)
 	go func() {
 		// signal that we're done with this ops channel.
-		defer dummy.Reset(nil)
+		defer dummy.Reset(nil, false)
 
 		err := com.Init(newFlagSet(), args)
 		if err != nil {
@@ -130,6 +132,8 @@ func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc
 }
 
 func (*cmdSuite) TestBootstrapCommand(c *C) {
+	defer dummy.Reset(nil, true)
+
 	// normal bootstrap
 	opc, errc := runCommand(new(main.BootstrapCommand))
 	c.Check(<-opc, Equals, op(dummy.OpBootstrap, "peckham"))
@@ -142,6 +146,14 @@ func (*cmdSuite) TestBootstrapCommand(c *C) {
 	c.Check(<-opc, Equals, op(dummy.OpPutFile, "peckham"))
 	c.Check(<-opc, Equals, op(dummy.OpBootstrap, "peckham"))
 	c.Check(<-errc, IsNil)
+
+	envs, err := environs.ReadEnvirons("")
+	c.Assert(err, IsNil)
+	env, err := envs.Open("peckham")
+	c.Assert(err, IsNil)
+	r, err := env.GetFile(version.ToolsPath)
+	c.Assert(err, IsNil)
+	r.Close()
 
 	// bootstrap with broken environment
 	opc, errc = runCommand(new(main.BootstrapCommand), "-e", "barking")

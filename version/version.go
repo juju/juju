@@ -5,10 +5,15 @@ package version
 import (
 	"fmt"
 	"regexp"
+	"runtime"
 	"strconv"
 )
 
 var Current = MustParse("0.0.0")
+
+// ToolsPath gives the path for the current juju tools, as expected
+// by environs.Environ.PutFile, for example.
+var ToolsPath = fmt.Sprintf("tools/%v-%s-%s.tgz", Current, runtime.GOOS, runtime.GOARCH)
 
 // Version represents a juju version. When bugs are
 // fixed the patch number is incremented; when new features are added
@@ -22,7 +27,7 @@ type Version struct {
 	Patch int
 }
 
-var versionPat = regexp.MustCompile(`^([0-9]{1,9})\.([0-9]{1,9})\.([0-9]{1,9})$`)
+var versionPat = regexp.MustCompile(`^(\d{1,9})\.(\d{1,9})\.(\d{1,9})$`)
 
 // MustParse parses a version and panics if it does
 // not parse correctly.
