@@ -103,7 +103,7 @@ func (suite) TestParse(c *C) {
 	}
 }
 
-var toolsPattern = regexp.MustCompile(`^[^/]+/\d+\.\d+\.\d+-[^/-]+-[^/]+\.tgz$`)
+var toolsPattern = regexp.MustCompile(`^[^/]+/juju\d+\.\d+\.\d+-[^/-]+-[^/]+\.tgz$`)
 
 func (suite) TestToolsPath(c *C) {
 	// Test that nothing strange is going on with the tools path.

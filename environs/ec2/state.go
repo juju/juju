@@ -32,7 +32,7 @@ func (e *environ) saveState(state *bootstrapState) error {
 func (e *environ) loadState() (*bootstrapState, error) {
 	r, err := e.GetFile(stateFile)
 	if err != nil {
-		return nil, fmt.Errorf("cannot read %q: %v", stateFile, err)
+		return nil, err
 	}
 	defer r.Close()
 	data, err := ioutil.ReadAll(r)
@@ -100,6 +100,7 @@ func (e *environ) PutFile(file string, r io.ReadSeeker) error {
 	// non-existence.
 	err = e.bucket().PutReader(file, r, length - curPos, "binary/octet-stream", s3.Private)
 	if err == nil {
+		log.Printf("environs/ec2: put file %q", file)
 		return nil
 	}
 	if s3err, _ := err.(*s3.Error); s3err == nil || s3err.Code != "NoSuchBucket" {
@@ -110,10 +111,15 @@ func (e *environ) PutFile(file string, r io.ReadSeeker) error {
 	if err := e.bucket().PutBucket(s3.Private); err != nil {
 		return err
 	}
+	log.Printf("environs/ec2: put bucket %q", file)
 	if _, err := r.Seek(curPos, os.SEEK_SET); err != nil {
 		return err
 	}
-	return e.bucket().PutReader(file, r, length - curPos, "binary/octet-stream", s3.Private)
+	err = e.bucket().PutReader(file, r, length - curPos, "binary/octet-stream", s3.Private)
+	if err == nil {
+		log.Printf("environs/ec2: put file %q", file)
+	}
+	return err
 }
 
 func (e *environ) GetFile(file string) (r io.ReadCloser, err error) {
@@ -150,7 +156,7 @@ func (e *environ) bucket() *s3.Bucket {
 	return e.s3.Bucket(e.config.bucket)
 }
 
-var toolFilePat = regexp.MustCompile(`^juju-([0-9]+\.[0-9]+\.[0-9]+)-([^-]+)-([^-]+)\.tgz$`)
+var toolFilePat = regexp.MustCompile(`^tools/juju([0-9]+\.[0-9]+\.[0-9]+)-([^-]+)-([^-]+)\.tgz$`)
 
 var errToolsNotFound = errors.New("no compatible tools found")
 
@@ -166,8 +172,7 @@ func (e *environ) findTools() (url string, err error) {
 var versionCurrentMajor = version.Current.Major
 
 func (e *environ) findToolsInBucket(bucket *s3.Bucket) (url string, err error) {
-	prefix := "tools/"
-	resp, err := bucket.List(prefix, "/", "", 0)
+	resp, err := bucket.List("tools/", "/", "", 0)
 	if err != nil {
 		return "", err
 	}
@@ -176,11 +181,12 @@ func (e *environ) findToolsInBucket(bucket *s3.Bucket) (url string, err error) {
 	for _, k := range resp.Contents {
 		m := toolFilePat.FindStringSubmatch(k.Key)
 		if m == nil {
+			log.Printf("unexpected tools file found %q", k.Key)
 			continue
 		}
 		vers, err := version.Parse(m[1])
 		if err != nil {
-			log.Printf("failed to parse version %q: %v", err)
+			log.Printf("failed to parse version %q: %v", k.Key, err)
 			continue
 		}
 		if m[2] != version.CurrentOS {
@@ -201,5 +207,5 @@ func (e *environ) findToolsInBucket(bucket *s3.Bucket) (url string, err error) {
 	if bestVersion.Major < 0 {
 		return "", errToolsNotFound
 	}
-	return bucket.URL(prefix + bestKey), nil
+	return bucket.URL(bestKey), nil
 }

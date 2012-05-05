@@ -27,7 +27,7 @@ var ToolsPath = ToolsPathForVersion(Current, CurrentOS, CurrentArch)
 // ToolsPathForVersion returns a path for the juju tools with the
 // given version, OS and architecture.
 func ToolsPathForVersion(v Version, os, arch string) string {
-	return fmt.Sprintf("tools/%v-%s-%s.tgz", Current, os, arch)
+	return fmt.Sprintf("tools/juju%v-%s-%s.tgz", v, os, arch)
 }
 
 // Version represents a juju version. When bugs are

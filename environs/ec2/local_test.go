@@ -314,7 +314,8 @@ func (t *localServerSuite) TestFindTools(c *C) {
 			c.Assert(err, IsNil)
 			data, err := ioutil.ReadAll(resp.Body)
 			c.Assert(err, IsNil)
-			c.Assert(string(data), Equals, tt.expect)
+			c.Assert(string(data), Equals, tt.expect, Commentf("url %s", url))
 		}
+		t.env.Destroy(nil)
 	}
 }
