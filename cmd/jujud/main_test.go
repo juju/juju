@@ -38,7 +38,7 @@ func checkMessage(c *C, msg string, cmd ...string) {
 func (s *MainSuite) TestParseErrors(c *C) {
 	// Check all the obvious parse errors
 	checkMessage(c, "no command specified")
-	checkMessage(c, "unrecognised command: jujud cavitate", "cavitate")
+	checkMessage(c, "unrecognized command: jujud cavitate", "cavitate")
 	msgf := "flag provided but not defined: --cheese"
 	checkMessage(c, msgf, "--cheese", "cavitate")
 
@@ -49,7 +49,7 @@ func (s *MainSuite) TestParseErrors(c *C) {
 		checkMessage(c, msgz, cmd, "--zookeeper-servers", "localhost:2181,zk")
 	}
 
-	msga := "unrecognised args: [toastie]"
+	msga := `unrecognized args: ["toastie"]`
 	checkMessage(c, msga, "initzk",
 		"--zookeeper-servers", "zk:2181",
 		"--instance-id", "ii",
@@ -57,16 +57,13 @@ func (s *MainSuite) TestParseErrors(c *C) {
 		"toastie")
 	checkMessage(c, msga, "unit",
 		"--zookeeper-servers", "localhost:2181,zk:2181",
-		"--session-file", "sf",
 		"--unit-name", "un/0",
 		"toastie")
 	checkMessage(c, msga, "machine",
 		"--zookeeper-servers", "zk:2181",
-		"--session-file", "sf",
 		"--machine-id", "42",
 		"toastie")
 	checkMessage(c, msga, "provisioning",
 		"--zookeeper-servers", "127.0.0.1:2181",
-		"--session-file", "sf",
 		"toastie")
 }

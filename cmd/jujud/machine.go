@@ -8,24 +8,26 @@ import (
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
-	agentConf
+	Conf      AgentConf
 	MachineId int
 }
 
-func NewMachineAgent() *MachineAgent {
-	return &MachineAgent{agentConf: agentConf{name: "machine"}}
+// Info returns usage information for the command.
+func (a *MachineAgent) Info() *cmd.Info {
+	return &cmd.Info{"machine", "", "run a juju machine agent", ""}
 }
 
 // Init initializes the command for running.
 func (a *MachineAgent) Init(f *gnuflag.FlagSet, args []string) error {
+	a.Conf.addFlags(f)
 	f.IntVar(&a.MachineId, "machine-id", -1, "id of the machine to run")
-	if err := a.agentConf.Init(f, args); err != nil {
+	if err := f.Parse(true, args); err != nil {
 		return err
 	}
 	if a.MachineId < 0 {
 		return fmt.Errorf("--machine-id option must be set, and expects a non-negative integer")
 	}
-	return nil
+	return a.Conf.checkArgs(f.Args())
 }
 
 // Run runs a machine agent.

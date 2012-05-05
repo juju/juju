@@ -1,71 +1,69 @@
 package server_test
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/cmd/jujuc/server"
-	"launchpad.net/juju/go/log"
-	stdlog "log"
+	"launchpad.net/juju/go/state"
+	"launchpad.net/juju/go/testing"
 	"os"
 	"path/filepath"
 	"strings"
-	"testing"
+	stdtesting "testing"
 )
 
-func Test(t *testing.T) { TestingT(t) }
+var zkAddr string
 
-type LogSuite struct{}
-
-var _ = Suite(&LogSuite{})
-
-func pushLog(debug bool) (buf *bytes.Buffer, pop func()) {
-	oldTarget, oldDebug := log.Target, log.Debug
-	buf = new(bytes.Buffer)
-	log.Target, log.Debug = stdlog.New(buf, "", 0), debug
-	return buf, func() {
-		log.Target, log.Debug = oldTarget, oldDebug
+func TestPackage(t *stdtesting.T) {
+	srv := testing.StartZkServer()
+	defer srv.Destroy()
+	var err error
+	zkAddr, err = srv.Addr()
+	if err != nil {
+		t.Fatalf("could not get ZooKeeper server address")
 	}
+	TestingT(t)
 }
 
-func AssertLog(c *C, ctx *server.Context, badge string, logDebug, callDebug, expectMsg bool) {
-	buf, pop := pushLog(logDebug)
-	defer pop()
-	msg := "the chickens are restless"
-	ctx.Log(callDebug, msg)
-	expect := ""
-	if expectMsg {
-		var logBadge string
-		if callDebug {
-			logBadge = "JUJU:DEBUG"
+type GetCommandSuite struct{}
+
+var _ = Suite(&GetCommandSuite{})
+
+var getCommandTests = []struct {
+	name string
+	err  string
+}{
+	{"juju-log", ""},
+	{"config-get", ""},
+	{"random", "unknown command: random"},
+}
+
+func (s *GetCommandSuite) TestGetCommand(c *C) {
+	ctx := &server.ClientContext{
+		Id:            "ctxid",
+		State:         &state.State{},
+		LocalUnitName: "minecraft/0",
+	}
+	for _, t := range getCommandTests {
+		com, err := ctx.NewCommand(t.name)
+		if t.err == "" {
+			// At this level, just check basic sanity; commands are tested in
+			// more detail elsewhere.
+			c.Assert(err, IsNil)
+			c.Assert(com.Info().Name, Equals, t.name)
 		} else {
-			logBadge = "JUJU"
+			c.Assert(com, IsNil)
+			c.Assert(err, ErrorMatches, t.err)
 		}
-		expect = fmt.Sprintf("%s %s: %s\n", logBadge, badge, msg)
 	}
-	c.Assert(buf.String(), Equals, expect)
 }
 
-func AssertLogs(c *C, ctx *server.Context, badge string) {
-	AssertLog(c, ctx, badge, true, true, true)
-	AssertLog(c, ctx, badge, true, false, true)
-	AssertLog(c, ctx, badge, false, true, false)
-	AssertLog(c, ctx, badge, false, false, true)
-}
-
-func (s *LogSuite) TestLog(c *C) {
-	local := &server.Context{LocalUnitName: "minecraft/0"}
-	AssertLogs(c, local, "minecraft/0")
-	relation := &server.Context{LocalUnitName: "minecraft/0", RelationName: "bot"}
-	AssertLogs(c, relation, "minecraft/0 bot")
-}
-
-type ExecSuite struct {
+type RunHookSuite struct {
 	outPath string
 }
 
-var _ = Suite(&ExecSuite{})
+var _ = Suite(&RunHookSuite{})
 
 // makeCharm constructs a fake charm dir containing a single named hook with
 // permissions perm and exit code code. It returns the charm directory and the
@@ -111,21 +109,21 @@ func AssertEnv(c *C, outPath string, env map[string]string) {
 	})
 }
 
-func (s *ExecSuite) TestNoHook(c *C) {
-	ctx := &server.Context{}
+func (s *RunHookSuite) TestNoHook(c *C) {
+	ctx := &server.ClientContext{}
 	err := ctx.RunHook("tree-fell-in-forest", c.MkDir(), "")
 	c.Assert(err, IsNil)
 }
 
-func (s *ExecSuite) TestNonExecutableHook(c *C) {
-	ctx := &server.Context{}
+func (s *RunHookSuite) TestNonExecutableHook(c *C) {
+	ctx := &server.ClientContext{}
 	charmDir, _ := makeCharm(c, "something-happened", 0600, 0)
 	err := ctx.RunHook("something-happened", charmDir, "")
 	c.Assert(err, ErrorMatches, `exec: ".*/something-happened": permission denied`)
 }
 
-func (s *ExecSuite) TestBadHook(c *C) {
-	ctx := &server.Context{Id: "ctx-id"}
+func (s *RunHookSuite) TestBadHook(c *C) {
+	ctx := &server.ClientContext{Id: "ctx-id"}
 	charmDir, outPath := makeCharm(c, "occurrence-occurred", 0700, 99)
 	socketPath := "/path/to/socket"
 	err := ctx.RunHook("occurrence-occurred", charmDir, socketPath)
@@ -137,8 +135,8 @@ func (s *ExecSuite) TestBadHook(c *C) {
 	})
 }
 
-func (s *ExecSuite) TestGoodHookWithVars(c *C) {
-	ctx := &server.Context{
+func (s *RunHookSuite) TestGoodHookWithVars(c *C) {
+	ctx := &server.ClientContext{
 		Id:             "some-id",
 		LocalUnitName:  "local/99",
 		RemoteUnitName: "remote/123",

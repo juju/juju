@@ -89,7 +89,7 @@ func (c *SuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	}
 	found := false
 	if c.subcmd, found = c.subcmds[subargs[0]]; !found {
-		return fmt.Errorf("unrecognised command: %s %s", c.Info().Name, subargs[0])
+		return fmt.Errorf("unrecognized command: %s %s", c.Info().Name, subargs[0])
 	}
 	return c.subcmd.Init(f, subargs[1:])
 }
