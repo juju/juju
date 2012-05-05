@@ -94,7 +94,7 @@ func (e *environ) PutFile(file string, r io.ReadSeeker) error {
 	// To avoid round-tripping on each PutFile, we attempt to put the
 	// file and only make the bucket if it fails due to the bucket's
 	// non-existence.
-	err = e.bucket().PutReader(file, r, length - curPos, "binary/octet-stream", s3.Private)
+	err = e.bucket().PutReader(file, r, length-curPos, "binary/octet-stream", s3.Private)
 	if err == nil {
 		return nil
 	}
@@ -109,7 +109,7 @@ func (e *environ) PutFile(file string, r io.ReadSeeker) error {
 	if _, err := r.Seek(curPos, os.SEEK_SET); err != nil {
 		return err
 	}
-	return e.bucket().PutReader(file, r, length - curPos, "binary/octet-stream", s3.Private)
+	return e.bucket().PutReader(file, r, length-curPos, "binary/octet-stream", s3.Private)
 }
 
 func (e *environ) GetFile(file string) (r io.ReadCloser, err error) {
