@@ -239,10 +239,10 @@ func toolsPath(vers, os, arch string) string {
 	return version.ToolsPathForVersion(v, os, arch)
 }
 
-var findToolsTests = []struct{
-	major int
-	os string
-	arch string
+var findToolsTests = []struct {
+	major    int
+	os       string
+	arch     string
 	contents []string
 	expect   string
 	err      string

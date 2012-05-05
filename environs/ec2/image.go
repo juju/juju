@@ -13,7 +13,7 @@ import (
 // and the images that can run on them.
 type InstanceConstraint struct {
 	UbuntuRelease     string
-	Arch      string
+	Arch              string
 	PersistentStorage bool
 	Region            string
 	Daily             bool
@@ -22,7 +22,7 @@ type InstanceConstraint struct {
 
 var DefaultInstanceConstraint = &InstanceConstraint{
 	UbuntuRelease:     "oneiric",
-	Arch:      "i386",
+	Arch:              "i386",
 	PersistentStorage: true,
 	Region:            "us-east-1",
 	Daily:             false,
@@ -33,8 +33,8 @@ var DefaultInstanceConstraint = &InstanceConstraint{
 // will run on it.
 type InstanceSpec struct {
 	ImageId string
-	Arch string	// The architecture the image will run on.
-	OS string			// The OS the image will run on.
+	Arch    string // The architecture the image will run on.
+	OS      string // The OS the image will run on.
 }
 
 // imagesHost holds the address of the images http server.
@@ -77,8 +77,8 @@ func FindInstanceSpec(spec *InstanceConstraint) (*InstanceSpec, error) {
 		if f[5] == spec.Arch && f[6] == spec.Region {
 			return &InstanceSpec{
 				ImageId: f[7],
-				Arch: spec.Arch,
-				OS: "linux",
+				Arch:    spec.Arch,
+				OS:      "linux",
 			}, nil
 		}
 	}

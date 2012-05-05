@@ -33,7 +33,7 @@ var imageTests = []struct {
 	{*ec2.DefaultInstanceConstraint, "ami-a7f539ce", ""},
 	{ec2.InstanceConstraint{
 		UbuntuRelease:     "natty",
-		Arch:      "amd64",
+		Arch:              "amd64",
 		PersistentStorage: false,
 		Region:            "eu-west-1",
 		Daily:             true,
@@ -41,7 +41,7 @@ var imageTests = []struct {
 	}, "ami-19fdc16d", ""},
 	{ec2.InstanceConstraint{
 		UbuntuRelease:     "natty",
-		Arch:      "i386",
+		Arch:              "i386",
 		PersistentStorage: true,
 		Region:            "ap-northeast-1",
 		Daily:             true,
@@ -49,7 +49,7 @@ var imageTests = []struct {
 	}, "ami-cc9621cd", ""},
 	{ec2.InstanceConstraint{
 		UbuntuRelease:     "natty",
-		Arch:      "i386",
+		Arch:              "i386",
 		PersistentStorage: false,
 		Region:            "ap-northeast-1",
 		Daily:             true,
@@ -57,7 +57,7 @@ var imageTests = []struct {
 	}, "ami-62962163", ""},
 	{ec2.InstanceConstraint{
 		UbuntuRelease:     "natty",
-		Arch:      "amd64",
+		Arch:              "amd64",
 		PersistentStorage: false,
 		Region:            "ap-northeast-1",
 		Daily:             true,
@@ -65,7 +65,7 @@ var imageTests = []struct {
 	}, "ami-a69621a7", ""},
 	{ec2.InstanceConstraint{
 		UbuntuRelease:     "zingy",
-		Arch:      "amd64",
+		Arch:              "amd64",
 		PersistentStorage: false,
 		Region:            "eu-west-1",
 		Daily:             true,

@@ -41,7 +41,7 @@ func EnvironBucket(e environs.Environ) *s3.Bucket {
 	return e.(*environ).bucket()
 }
 
-func FindTools(e environs.Environ, spec*InstanceSpec) (string, error) {
+func FindTools(e environs.Environ, spec *InstanceSpec) (string, error) {
 	return e.(*environ).findTools(spec)
 }
 
