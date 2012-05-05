@@ -113,7 +113,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
-	if s3err, _ := err.(*s3.Error); s3err != nil && s3err.StatusCode != 404 {
+	if err != nil && s3ErrorStatusCode(err) != 404 {
 		return err
 	}
 
