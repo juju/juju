@@ -10,8 +10,8 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju/go/log"
 	"launchpad.net/juju/go/version"
-	"regexp"
 	"os"
+	"regexp"
 	"sync"
 )
 
@@ -98,7 +98,7 @@ func (e *environ) PutFile(file string, r io.ReadSeeker) error {
 	// To avoid round-tripping on each PutFile, we attempt to put the
 	// file and only make the bucket if it fails due to the bucket's
 	// non-existence.
-	err = e.bucket().PutReader(file, r, length - curPos, "binary/octet-stream", s3.Private)
+	err = e.bucket().PutReader(file, r, length-curPos, "binary/octet-stream", s3.Private)
 	if err == nil {
 		log.Printf("environs/ec2: put file %q", file)
 		return nil
@@ -115,7 +115,7 @@ func (e *environ) PutFile(file string, r io.ReadSeeker) error {
 	if _, err := r.Seek(curPos, os.SEEK_SET); err != nil {
 		return err
 	}
-	err = e.bucket().PutReader(file, r, length - curPos, "binary/octet-stream", s3.Private)
+	err = e.bucket().PutReader(file, r, length-curPos, "binary/octet-stream", s3.Private)
 	if err == nil {
 		log.Printf("environs/ec2: put file %q", file)
 	}

@@ -2,6 +2,7 @@ package ec2_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
@@ -13,9 +14,8 @@ import (
 	"launchpad.net/juju/go/environs/jujutest"
 	"launchpad.net/juju/go/testing"
 	"launchpad.net/juju/go/version"
-	"strings"
 	"net/http"
-	"io/ioutil"
+	"strings"
 )
 
 var functionalConfig = []byte(`
@@ -244,9 +244,9 @@ var findToolsTests = []struct{
 	os string
 	arch string
 	contents []string
-	expect string
-	err string
-} {{
+	expect   string
+	err      string
+}{{
 	version.Current.Major,
 	version.CurrentOS,
 	version.CurrentArch,
@@ -282,7 +282,7 @@ var findToolsTests = []struct{
 	},
 	toolsPath("1.0.11", "linux", "amd64"),
 	"",
-},{
+}, {
 	1,
 	"linux",
 	"amd64",
@@ -305,7 +305,6 @@ var findToolsTests = []struct{
 	toolsPath("1.0.0", "freebsd", "cell"),
 	"",
 }}
-	
 
 func (t *localServerSuite) TestFindTools(c *C) {
 	oldMajorVersion := *ec2.VersionCurrentMajor
