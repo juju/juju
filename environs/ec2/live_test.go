@@ -217,6 +217,10 @@ func (t *LiveTests) TestDestroy(c *C) {
 	c.Assert(err.(*s3.Error).StatusCode, Equals, 404)
 }
 
+func (t *LiveTests) TestFindTools(c *C) {
+	var wg sync.WaitGroup
+	
+
 func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {
 	for _, perm := range perms {
 		if perm.FromPort == port {

@@ -39,6 +39,10 @@ func EnvironBucket(e environs.Environ) *s3.Bucket {
 	return e.(*environ).bucket()
 }
 
+func FindTools(e environs.Environ) (string, err) {
+	return e.(*environ).findTools()
+}
+
 func InstanceEC2(inst environs.Instance) *ec2.Instance {
 	return inst.(*instance).Instance
 }

@@ -153,12 +153,12 @@ var errToolsNotFound = errors.New("no compatible tools found")
 // findTools returns a URL from which the juju tools can
 // be downloaded. If exact is true, only a version which exactly
 // matches version.Current will be used.
-func (e *environs) findTools() (url string, err error) {
+func (e *environ) findTools() (url string, err error) {
 	return findToolsInBucket(e.bucket())
 	// TODO look in public bucket on error
 }
 
-func (e *environs) findToolsInBucket(bucket *s3.Bucket) (url string, err error) {
+func (e *environ) findToolsInBucket(bucket *s3.Bucket) (url string, err error) {
 	prefix := "tools/"
 	resp, err := bucket.List(prefix, "/", "", 0)
 	if err != nil {
