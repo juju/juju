@@ -29,6 +29,20 @@ type bridge struct {
 	Name string `xml:"name,attr"`
 }
 
+// newNetwork starts and returns a network
+func newNetwork(name string, subnet int) (*network, error) {
+	n := network{Name: name, Subnet: subnet}
+	err := n.start()
+	if err != nil {
+		return nil, err
+	}
+	err = n.loadAttributes()
+	if err != nil {
+		return nil, err
+	}
+	return &n, nil
+}
+
 // loadAttributes loads the attributes for a network.
 func (n *network) loadAttributes() error {
 	output, err := exec.Command("virsh", "net-dumpxml", n.Name).Output()
@@ -74,15 +88,15 @@ var libVirtNetworkTemplate = template.Must(template.New("").Parse(`
 // start ensure that a network is started.
 // If the nework does not exists, it is created.
 func (n *network) start() error {
-    exists, err := n.exists()
-    if err != nil {
-        return err
-    }
+	exists, err := n.exists()
+	if err != nil {
+		return err
+	}
 	if exists {
-        running, err := n.running()
-        if err != nil {
-            return err
-        }
+		running, err := n.running()
+		if err != nil {
+			return err
+		}
 		if running {
 			return nil
 		}
