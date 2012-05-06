@@ -9,61 +9,56 @@ import (
 	"text/template"
 )
 
-// networks represents a network with the given name, bridge, ip and subnet informations.
+// networks represents local virtual network.
 type network struct {
 	XMLName xml.Name `xml:"network"`
 	Name    string   `xml:"name"`
-	Bridge  bridge
-	Ip      ip
+	Bridge  bridge   `xml:"bridge"`
+	Ip      ip       `xml:"ip"`
 	Subnet  int
 }
 
 // ip represents an ip with the given address and netmask.
 type ip struct {
-	XMLName xml.Name `xml:"ip"`
-	Address string   `xml:"address,attr"`
-	Netmask string   `xml:"netmask,attr"`
+	Ip   string `xml:"address,attr"`
+	Mask string `xml:"netmask,attr"`
 }
 
 // bridge represents a briddge with the given name.
 type bridge struct {
-	XMLName xml.Name `xml:"bridge"`
-	Name    string   `xml:"name,attr"`
+	Name string `xml:"name,attr"`
 }
 
 // loadAttributes loads the attributes for a network.
-// It's use virsh net-dumpxml to get network info.
 func (n *network) loadAttributes() error {
 	output, err := exec.Command("virsh", "net-dumpxml", n.Name).Output()
 	if err != nil {
 		return err
 	}
-	xml.Unmarshal(output, &n)
-	return nil
+	return xml.Unmarshal(output, &n)
 }
 
 // running returns true if the network name is in the
 // list of networks and is active.
-func (n *network) running() bool {
+func (n *network) running() (bool, error) {
 	networks, err := listNetworks()
 	if err != nil {
-		return false
+		return false, err
 	}
-	return networks[n.Name]
+	return networks[n.Name], nil
 }
 
 // exists returns true if the network name is in the
 // list of networks.
-func (n *network) exists() bool {
+func (n *network) exists() (bool, error) {
 	networks, err := listNetworks()
 	if err != nil {
-		return false
+		return false, err
 	}
-	check, _ := networks[n.Name]
-	return check
+	return networks[n.Name], nil
 }
 
-const libVirtNetworkTemplate = `
+var libVirtNetworkTemplate = template.Must(template.New("").Parse(`
 <network>
   <name>{{.Name}}</name>
   <bridge name='vbr-{{.Name}}-%d' />
@@ -74,33 +69,35 @@ const libVirtNetworkTemplate = `
     </dhcp>
   </ip>
 </network>
-`
+`))
 
-// start starts a network if the networks isn't already active.
-// It's use virsh net-start to start the network.
-// If the network does not exists, the network is created using
-// virsh net-define.
+// start ensure that a network is started.
+// If the nework does not exists, it is created.
 func (n *network) start() error {
-	if n.exists() {
-		if n.running() {
+    exists, err := n.exists()
+    if err != nil {
+        return err
+    }
+	if exists {
+        running, err := n.running()
+        if err != nil {
+            return err
+        }
+		if running {
 			return nil
-		} else {
-			return exec.Command("virsh", "net-start", n.Name).Run()
 		}
+		return exec.Command("virsh", "net-start", n.Name).Run()
 	}
 	file, err := ioutil.TempFile(os.TempDir(), "network")
 	if err != nil {
 		return err
 	}
-	tmpl, err := template.New("network").Parse(libVirtNetworkTemplate)
+	defer file.Close()
+	defer os.Remove(file.Name())
+	err = libVirtNetworkTemplate.Execute(file, n)
 	if err != nil {
 		return err
 	}
-	err = tmpl.Execute(file, n)
-	if err != nil {
-		return err
-	}
-	file.Close()
 	err = exec.Command("virsh", "net-define", file.Name()).Run()
 	if err != nil {
 		return err
@@ -108,20 +105,15 @@ func (n *network) start() error {
 	return exec.Command("virsh", "net-start", n.Name).Run()
 }
 
-// destroy destroys a network.
-func (n *network) destroy() error {
-	return exec.Command("virsh", "net-undefine", n.Name).Run()
-}
-
-// listNetworks Returns a map[string]bool of network name to active status.
+// listNetworks returns a map from network name to active status.
 func listNetworks() (map[string]bool, error) {
-	networks := map[string]bool{}
 	output, err := exec.Command("virsh", "net-list", "--all").Output()
 	if err != nil {
-		return networks, nil
+		return nil, err
 	}
-	// Take the header off
+	// Remove the header.
 	lines := strings.Split(string(output), "\n")[2:]
+	networks := map[string]bool{}
 	for _, line := range lines {
 		if line == "" {
 			continue
