@@ -130,6 +130,10 @@ func UploadTools(env Environ) error {
 	if err != nil {
 		return err
 	}
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
 	name := fmt.Sprintf("tools/juju-%v-%s-%s.tgz", version.Current, runtime.GOOS, runtime.GOARCH)
-	return env.PutFile(name, f)
+	return env.PutFile(name, f, fi.Size())
 }
