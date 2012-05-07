@@ -27,7 +27,6 @@ environments:
   sample-%s:
     type: ec2
     control-bucket: 'juju-test-%s'
-    juju-origin: distro
 `, uniqueName, uniqueName)
 
 // uniqueName is generated afresh for every test, so that

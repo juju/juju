@@ -112,11 +112,10 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	if err != nil && s3ErrorStatusCode(err) != 404 {
 		return err
 	}
-
 	if uploadTools {
 		err := environs.UploadTools(e)
 		if err != nil {
-			return err
+			return fmt.Errorf("cannot upload tools: %v", err)
 		}
 	}
 	inst, err := e.startInstance(0, nil, true)
@@ -179,15 +178,15 @@ func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Insta
 	return e.startInstance(machineId, info, false)
 }
 
-func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte, error) {
+func (e *environ) userData(machineId int, info *state.Info, master bool, toolsURL string) ([]byte, error) {
 	cfg := &machineConfig{
 		provisioner:        master,
 		zookeeper:          master,
 		stateInfo:          info,
 		instanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		providerType:       "ec2",
-		origin:             e.config.origin,
-		machineId:          fmt.Sprint(machineId),
+		toolsURL: toolsURL,
+		machineId:          machineId,
 	}
 
 	if e.config.authorizedKeys == "" {
@@ -212,7 +211,11 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
 	}
-	userData, err := e.userData(machineId, info, master)
+	toolsURL, err := e.findTools(image)
+	if err != nil {
+		return nil, err
+	}
+	userData, err := e.userData(machineId, info, master, toolsURL)
 	if err != nil {
 		return nil, err
 	}

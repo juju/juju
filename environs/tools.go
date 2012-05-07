@@ -129,5 +129,9 @@ func UploadTools(env Environ) error {
 	if err != nil {
 		return err
 	}
-	return env.PutFile(version.ToolsPath, f)
+	err = env.PutFile(version.ToolsPath, f)
+	if err != nil {
+		return fmt.Errorf("cannot put file %q: %v", version.ToolsPath, err)
+	}
+	return nil
 }

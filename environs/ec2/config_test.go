@@ -86,6 +86,18 @@ var configTests = []configTest{
 		".*expected string, got 666",
 	},
 	{
+		"public-bucket: 666\n" + baseConfig,
+		nil,
+		".*expected string, got 666",
+	},
+	{
+		"public-bucket: foo\n" + baseConfig,
+		func(cfg *providerConfig) {
+			cfg.publicBucket = "foo"
+		},
+		"",
+	},
+	{
 		"access-key: jujuer\nsecret-key: open sesame\n" + baseConfig,
 		func(cfg *providerConfig) {
 			cfg.auth = aws.Auth{
@@ -118,32 +130,6 @@ var configTests = []configTest{
 		"secret-key: badness\n" + baseConfig,
 		nil,
 		".*environment has secret-key but no access-key",
-	},
-	{
-		"juju-origin: wrong\n" + baseConfig,
-		nil,
-		`.*unknown juju origin "wrong"`,
-	},
-	{
-		"juju-origin: distro\n" + baseConfig,
-		func(cfg *providerConfig) {
-			cfg.origin = jujuOrigin{originDistro, ""}
-		},
-		"",
-	},
-	{
-		"juju-origin: 'lp:~foo/bar'\n" + baseConfig,
-		func(cfg *providerConfig) {
-			cfg.origin = jujuOrigin{originBranch, "lp:~foo/bar"}
-		},
-		"",
-	},
-	{
-		"juju-origin: ppa\n" + baseConfig,
-		func(cfg *providerConfig) {
-			cfg.origin = jujuOrigin{originPPA, ""}
-		},
-		"",
 	},
 
 	// unknown fields are discarded

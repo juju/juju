@@ -95,6 +95,7 @@ func (e *environ) PutFile(file string, r io.ReadSeeker) error {
 	if _, err := r.Seek(curPos, os.SEEK_SET); err != nil {
 		return err
 	}
+log.Printf("put reader 1 %d-%d bytes", length, curPos)
 	// To avoid round-tripping on each PutFile, we attempt to put the
 	// file and only make the bucket if it fails due to the bucket's
 	// non-existence.
@@ -106,6 +107,7 @@ func (e *environ) PutFile(file string, r io.ReadSeeker) error {
 	if s3err, _ := err.(*s3.Error); s3err == nil || s3err.Code != "NoSuchBucket" {
 		return err
 	}
+log.Printf("put bucket")
 	// Make the bucket and repeat. PutBucket will succeed if the bucket
 	// already exists (for instance as a result of a concurrent PutFile)
 	if err := e.bucket().PutBucket(s3.Private); err != nil {
@@ -115,6 +117,8 @@ func (e *environ) PutFile(file string, r io.ReadSeeker) error {
 	if _, err := r.Seek(curPos, os.SEEK_SET); err != nil {
 		return err
 	}
+log.Printf("put reader 2")
+
 	err = e.bucket().PutReader(file, r, length-curPos, "binary/octet-stream", s3.Private)
 	if err == nil {
 		log.Printf("environs/ec2: put file %q", file)
@@ -156,6 +160,10 @@ func (e *environ) bucket() *s3.Bucket {
 	return e.s3.Bucket(e.config.bucket)
 }
 
+func (e *environ) publicBucket() *s3.Bucket {
+	return e.s3.Bucket(e.config.publicBucket)
+}
+
 var toolFilePat = regexp.MustCompile(`^tools/juju([0-9]+\.[0-9]+\.[0-9]+)-([^-]+)-([^-]+)\.tgz$`)
 
 var errToolsNotFound = errors.New("no compatible tools found")
@@ -164,14 +172,21 @@ var errToolsNotFound = errors.New("no compatible tools found")
 // be downloaded appropriate to be run on an image with the
 // given specifications.
 func (e *environ) findTools(spec *InstanceSpec) (url string, err error) {
-	return e.findToolsInBucket(spec, e.bucket())
-	// TODO look in public bucket on error
+	url, err = e.findToolsInBucket(spec, e.bucket())
+	if err == nil {
+		return
+	}
+	if b := e.publicBucket(); b != nil {
+		url, err = e.findToolsInBucket(spec, b)
+	}
+	return
 }
 
 // This is a variable so that we can alter it for testing purposes.
 var versionCurrentMajor = version.Current.Major
 
 func (e *environ) findToolsInBucket(spec *InstanceSpec, bucket *s3.Bucket) (url string, err error) {
+	log.Printf("looking for tools in bucket %q", bucket.Name)
 	resp, err := bucket.List("tools/", "/", "", 0)
 	if err != nil {
 		return "", err

@@ -19,20 +19,20 @@ var _ = Suite(cloudinitSuite{})
 var cloudinitTests = []machineConfig{
 	{
 		instanceIdAccessor: "$instance_id",
-		machineId:          "aMachine",
-		origin:             jujuOrigin{originBranch, "lp:jujubranch"},
+		machineId:          0,
 		providerType:       "ec2",
 		provisioner:        true,
 		authorizedKeys:     "sshkey1",
+		toolsURL:	"http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
 		zookeeper:          true,
 	},
 	{
-		machineId:      "aMachine",
-		origin:         jujuOrigin{originDistro, ""},
+		machineId:      99,
 		providerType:   "ec2",
 		provisioner:    false,
 		authorizedKeys: "sshkey1",
 		zookeeper:      false,
+		toolsURL:	"http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
 		stateInfo:      &state.Info{Addrs: []string{"zk1"}},
 	},
 }
@@ -45,25 +45,23 @@ type cloudinitTest struct {
 }
 
 func (t *cloudinitTest) check(c *C) {
-	t.checkPackage(c, "bzr")
+	t.checkPackage(c, "byobu")
 	c.Check(t.x["apt_upgrade"], Equals, true)
 	c.Check(t.x["apt_update"], Equals, true)
 	t.checkScripts(c, "mkdir -p /var/lib/juju")
+	t.checkScripts(c, "wget.*"+regexp.QuoteMeta(t.cfg.toolsURL)+".*tar .* xz")
 
 	if t.cfg.zookeeper {
 		t.checkPackage(c, "zookeeperd")
-		t.checkScripts(c, "juju-admin initialize")
+		t.checkScripts(c, "jujud initzk")
 		t.checkScripts(c, regexp.QuoteMeta(t.cfg.instanceIdAccessor))
-		t.checkScripts(c, "ZOOKEEPER='localhost"+zkPortSuffix+"' ")
+		t.checkScripts(c, "JUJU_ZOOKEEPER='localhost"+zkPortSuffix+"'")
 	} else {
-		t.checkScripts(c, "ZOOKEEPER='"+strings.Join(t.cfg.stateInfo.Addrs, ",")+"' ")
+		t.checkScripts(c, "JUJU_ZOOKEEPER='"+strings.Join(t.cfg.stateInfo.Addrs, ",")+"'")
 	}
-	if t.cfg.origin != (jujuOrigin{}) && t.cfg.origin.origin == originDistro {
-		t.checkScripts(c, "apt-get.*install juju")
-	}
-	if t.cfg.provisioner {
-		t.checkScripts(c, "python -m juju.agents.provision")
-	}
+	t.checkScripts(c, "JUJU_MACHINE_ID=[0-9]+")
+
+	// TODO check provisioner and machine agent scripts.
 }
 
 func (t *cloudinitTest) checkScripts(c *C, pattern string) {
@@ -85,15 +83,16 @@ func CheckScripts(c *C, x map[interface{}]interface{}, pattern string, match boo
 	found := false
 	for _, s0 := range scripts {
 		s := s0.(string)
+c.Logf("matching %q against %q -> %v", s, pattern, re.MatchString(s))
 		if re.MatchString(s) {
 			found = true
 		}
 	}
 	switch {
 	case match && !found:
-		c.Errorf("script %q not found", pattern)
+		c.Errorf("script %q not found in %q", pattern, scripts)
 	case !match && found:
-		c.Errorf("script %q found but not expected", pattern)
+		c.Errorf("script %q found but not expected in %q", pattern, scripts)
 	}
 }
 
@@ -164,18 +163,22 @@ var verifyTests = []struct {
 	err    string
 	mutate func(*machineConfig)
 }{
-	{"machine id", func(cfg *machineConfig) { cfg.machineId = "" }},
-	{"provider type", func(cfg *machineConfig) { cfg.providerType = "" }},
-	{"instance id accessor", func(cfg *machineConfig) {
+	{"negative machine id", func(cfg *machineConfig) { cfg.machineId = -1 }},
+	{"missing provider type", func(cfg *machineConfig) { cfg.providerType = "" }},
+	{"missing instance id accessor", func(cfg *machineConfig) {
 		cfg.zookeeper = true
 		cfg.instanceIdAccessor = ""
 	}},
-	{"zookeeper hosts", func(cfg *machineConfig) {
+	{"missing zookeeper hosts", func(cfg *machineConfig) {
 		cfg.zookeeper = false
 		cfg.stateInfo = nil
 	}},
-	{"zookeeper hosts", func(cfg *machineConfig) {
+	{"missing zookeeper hosts", func(cfg *machineConfig) {
 		cfg.zookeeper = false
+		cfg.stateInfo = &state.Info{}
+	}},
+	{"missing tools URL", func(cfg *machineConfig) {
+		cfg.toolsURL = ""
 		cfg.stateInfo = &state.Info{}
 	}},
 }
@@ -188,8 +191,8 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		zookeeper:          true,
 		instanceIdAccessor: "$instance_id",
 		providerType:       "ec2",
-		origin:             jujuOrigin{originBranch, "lp:jujubranch"},
-		machineId:          "aMachine",
+		machineId:          99,
+		toolsURL:		"http://foo/bar.tgz",
 		authorizedKeys:     "sshkey1",
 		stateInfo:          &state.Info{Addrs: []string{"zkhost"}},
 	}
@@ -201,124 +204,8 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		cfg1 := *cfg
 		test.mutate(&cfg1)
 		t, err := newCloudInit(&cfg1)
-		c.Assert(err, ErrorMatches, "invalid machine configuration: missing "+test.err)
+		c.Assert(err, ErrorMatches, "invalid machine configuration: "+test.err)
 		c.Assert(t, IsNil)
 	}
 }
 
-var policyTests = []struct {
-	policy string
-	origin jujuOrigin
-}{
-	{`
-		|juju:
-		|  Installed: 0.5+bzr411-1juju1~natty1
-		|  Candidate: 0.5+bzr411-1juju1~natty1
-		|  Version table:
-		| *** 0.5+bzr411-1juju1~natty1 0
-		|        100 /var/lib/dpkg/status
-		|     0.5+bzr398-0ubuntu1 0
-		|        500 http://gb.archive.ubuntu.com/ubuntu/ oneiric/universe amd64 Packages`,
-		jujuOrigin{
-			originDistro,
-			"",
-		},
-	},
-	{`
-		|juju:
-		|  Installed: good-magic-1.0
-		|  Candidate: good-magic-1.0
-		|  Version table:
-		| *** good-magic-1.0
-		|        500 http://us.archive.ubuntu.com/ubuntu/ natty/main amd64 Packages
-		|        100 /var/lib/dpkg/status`,
-		jujuOrigin{originDistro, ""},
-	}, {`
-		|juju:
-		|  Installed: good-magic-1.0
-		|  Candidate: good-magic-1.0
-		|  Version table:
-		|     0.5+bzr366-1juju1~natty1 0
-		|        500 http://ppa.launchpad.net/juju/pkgs/ubuntu/ natty/main amd64 Packages
-		| *** good-magic-1.0 0
-		|        500 http://us.archive.ubuntu.com/ubuntu/ natty/main amd64 Packages
-		|        100 /var/lib/dpkg/status`,
-		jujuOrigin{originDistro, ""},
-	}, {`
-		|juju:
-		|  Installed: 0.5+bzr366-1juju1~natty1
-		|  Candidate: 0.5+bzr366-1juju1~natty1
-		|  Version table:
-		|     bad-magic-0.5 0
-		|        500 http://us.archive.ubuntu.com/ubuntu/ natty/main amd64 Packages
-		| *** 0.5+bzr366-1juju1~natty1 0
-		|        100 /var/lib/dpkg/status
-		|        500 http://ppa.launchpad.net/juju/pkgs/ubuntu/ natty/main amd64 Packages
-		|     0.5+bzr356-1juju1~natty1 0
-		|        500 http://us.archive.ubuntu.com/ubuntu/ natty/main amd64 Packages`,
-		jujuOrigin{originPPA, ""},
-	}, {`
-		|juju:
-		|  Installed: (none)
-		|  Candidate: good-magic-1.0
-		|  Version table:
-		|     0.5+bzr366-1juju1~natty1 0
-		|        100 /var/lib/dpkg/status
-		|        500 http://ppa.launchpad.net/juju/pkgs/ubuntu/ natty/main amd64 Packages
-		|     good-magic-1.0 0
-		|        500 http://us.archive.ubuntu.com/ubuntu/ natty/main amd64 Packages
-		|        100 /var/lib/dpkg/status`,
-		jujuOrigin{originBranch, "lp:juju"},
-	}, {`
-		|juju:
-		|  Installed: 0.5+bzr356-1juju1~natty1
-		|  Candidate: 0.5+bzr356-1juju1~natty1
-		|  Version table:
-		|     good-magic-1.0 0
-		|        500 http://us.archive.ubuntu.com/ubuntu/ natty/main amd64 Packages
-		| *** 0.5+bzr356-1juju1~natty1 0
-		|        500 http://ppa.launchpad.net/juju/pkgs/ubuntu/ natty/main amd64 Packages
-		|        100 /var/lib/dpkg/status`,
-		jujuOrigin{originPPA, ""},
-	}, {`
-		|juju:
-		|  Installed: whatever
-		|  Candidate: whatever-else
-		|  Nothing interesting here:`,
-		jujuOrigin{originDistro, ""},
-	}, {`
-		|juju:
-		|  Installed: good-magic-1.0
-		|  Candidate: good-magic-1.0
-		|  Version table:
-		| *** good-magic-1.0 0
-		|        500 http://ppa.launchpad.net/juju/pkgs/ubuntu/ natty/main amd64 Packages
-		|        100 /var/lib/dpkg/status`,
-		jujuOrigin{originPPA, ""},
-	},
-	{`
-		|N: VAT GEEV?`,
-		jujuOrigin{originDistro, ""},
-	},
-}
-
-var unindentPattern = regexp.MustCompile(`\n\s*\|`)
-
-// If the string doesn't start with a newline, unindent returns
-// it. Otherwise it removes the initial newline and the
-// indentation from each line of the string and adds a trailing newline.
-// Indentation is defined to be
-// a run of white space followed by a '|' character.
-func unindent(s string) string {
-	if s[0] != '\n' {
-		return s
-	}
-	return unindentPattern.ReplaceAllString(s, "\n")[1:] + "\n"
-}
-
-func (cloudinitSuite) TestCloudPolicyToOrigin(c *C) {
-	for i, t := range policyTests {
-		o := policyToOrigin(unindent(t.policy) + "\n")
-		c.Check(o, DeepEquals, t.origin, Commentf("test %d", i))
-	}
-}
