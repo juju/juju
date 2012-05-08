@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -148,9 +149,12 @@ func (c *Conf) render() (string, error) {
 		return "", err
 	}
 	parts := []string{fmt.Sprintf(descT, c.Desc), start}
+	envs := []string{}
 	for k, v := range c.Env {
-		parts = append(parts, fmt.Sprintf(envT, k, v))
+		envs = append(envs, fmt.Sprintf(envT, k, v))
 	}
+	sort.Strings(envs)
+	parts = append(parts, envs...)
 	out := c.Out
 	if out == "" {
 		out = fmt.Sprintf(outT, c.Name)
@@ -183,7 +187,7 @@ func (c *Conf) InstallCommands() ([]string, error) {
 		return nil, err
 	}
 	return []string{
-		fmt.Sprintf("cat >> %c << EOF\n%sEOF\n", c.path(), conf),
+		fmt.Sprintf("cat >> %s << EOF\n%sEOF\n", c.path(), conf),
 		"start " + c.Name,
 	}, nil
 }
