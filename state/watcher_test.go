@@ -216,23 +216,14 @@ type machinesWatchTest struct {
 }
 
 var machinesWatchTests = []machinesWatchTest{
-	{
-		func(s *state.State) error { _, err := s.AddMachine(); return err },
-		watcher.ChildrenChange{
-			Added: []string{"machine-0000000000"},
-		},
+	{func(s *state.State) error { _, err := s.AddMachine(); return err },
+		watcher.ChildrenChange{Added: []string{"machine-0000000000"}},
 	},
-	{
-		func(s *state.State) error { _, err := s.AddMachine(); return err },
-		watcher.ChildrenChange{
-			Added: []string{"machine-0000000001"},
-		},
+	{func(s *state.State) error { _, err := s.AddMachine(); return err },
+		watcher.ChildrenChange{Added: []string{"machine-0000000001"}},
 	},
-	{
-		func(s *state.State) error { return s.RemoveMachine(1) },
-		watcher.ChildrenChange{
-			Deleted: []string{"machine-0000000001"},
-		},
+	{func(s *state.State) error { return s.RemoveMachine(1) },
+		watcher.ChildrenChange{Deleted: []string{"machine-0000000001"}},
 	},
 }
 
