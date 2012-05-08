@@ -12,6 +12,10 @@ import (
 	"strings"
 )
 
+const (
+	zkMachines = "/machines" 	// machines parent key
+)
+
 // State represents the state of an environment
 // managed by juju.
 type State struct {
@@ -57,9 +61,9 @@ func (s *State) RemoveMachine(id int) error {
 	return zkRemoveTree(s.zk, fmt.Sprintf("/machines/%s", key))
 }
 
-// WatchMachine watches for new Machines added or removed.
-func (s *State) WatchMachine() *MachineWatcher {
-	return newMachineWatcher(s, "/machines")
+// WatchMachines watches for new Machines added or removed.
+func (s *State) WatchMachines() *MachinesWatcher {
+	return newMachinesWatcher(s, zkMachines)
 }
 
 // Machine returns the machine with the given id.

@@ -210,21 +210,36 @@ func (s *StateSuite) TestUnitWatchPorts(c *C) {
 	c.Assert(err, IsNil)
 }
 
-type machineWatchTest struct {
+type machinesWatchTest struct {
 	test func(*state.State) error
 	want watcher.ChildrenChange
 }
 
-var machineWatchTests = []machineWatchTest{
-	{func(s *state.State) error { _, err := s.AddMachine(); return err }, watcher.ChildrenChange{Added: []string{"machine-0000000000"}}},
-	{func(s *state.State) error { _, err := s.AddMachine(); return err }, watcher.ChildrenChange{Added: []string{"machine-0000000001"}}},
-	{func(s *state.State) error { return s.RemoveMachine(1) }, watcher.ChildrenChange{Deleted: []string{"machine-0000000001"}}},
+var machinesWatchTests = []machinesWatchTest{
+	{
+		func(s *state.State) error { _, err := s.AddMachine(); return err },
+		watcher.ChildrenChange{
+			Added: []string{"machine-0000000000"},
+		},
+	},
+	{
+		func(s *state.State) error { _, err := s.AddMachine(); return err },
+		watcher.ChildrenChange{
+			Added: []string{"machine-0000000001"},
+		},
+	},
+	{
+		func(s *state.State) error { return s.RemoveMachine(1) },
+		watcher.ChildrenChange{
+			Deleted: []string{"machine-0000000001"},
+		},
+	},
 }
 
-func (s *StateSuite) TestWatchMachine(c *C) {
-	w := s.st.WatchMachine()
+func (s *StateSuite) TestWatchMachines(c *C) {
+	w := s.st.WatchMachines()
 
-	for _, test := range machineWatchTests {
+	for _, test := range machinesWatchTests {
 		err := test.test(s.st)
 		c.Assert(err, IsNil)
 		select {
