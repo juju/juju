@@ -136,6 +136,14 @@ stop on runlevel [!2345]
 respawn
 `
 
+func dummyConf(c *C) *upstart.Conf {
+	return &upstart.Conf{
+		Service: upstart.Service{Name: "some-service", InitDir: c.MkDir()},
+		Desc:    "this is an upstart service",
+		Cmd:     "do something",
+	}
+}
+
 func (s *UpstartSuite) assertInstall(c *C, conf *upstart.Conf, expectEnd string) {
 	expectContent := expectStart + expectEnd
 	expectPath := filepath.Join(conf.InitDir, "some-service.conf")
@@ -159,36 +167,21 @@ func (s *UpstartSuite) assertInstall(c *C, conf *upstart.Conf, expectEnd string)
 }
 
 func (s *UpstartSuite) TestInstallSimple(c *C) {
-	conf := &upstart.Conf{
-		Service: upstart.Service{Name: "some-service", InitDir: c.MkDir()},
-		Desc:    "this is an upstart service",
-		Cmd:     "do something",
-	}
+	conf := dummyConf(c)
 	s.assertInstall(c, conf, "exec do something >> /tmp/some-service.output 2>&1\n")
 }
 
+func (s *UpstartSuite) TestInstallOutput(c *C) {
+	conf := dummyConf(c)
+	conf.Out = "/some/output/path"
+	s.assertInstall(c, conf, "exec do something >> /some/output/path 2>&1\n")
+}
+
 func (s *UpstartSuite) TestInstallEnv(c *C) {
-	conf := &upstart.Conf{
-		Service: upstart.Service{Name: "some-service", InitDir: c.MkDir()},
-		Desc:    "this is an upstart service",
-		Cmd:     "do something",
-		Env: map[string]string{
-			"FOO": "bar baz",
-			"QUX": "ping pong",
-		},
-	}
+	conf := dummyConf(c)
+	conf.Env = map[string]string{"FOO": "bar baz", "QUX": "ping pong"}
 	s.assertInstall(c, conf, `env FOO="bar baz"
 env QUX="ping pong"
 exec do something >> /tmp/some-service.output 2>&1
 `)
-}
-
-func (s *UpstartSuite) TestInstallOutput(c *C) {
-	conf := &upstart.Conf{
-		Service: upstart.Service{Name: "some-service", InitDir: c.MkDir()},
-		Desc:    "this is an upstart service",
-		Cmd:     "do something",
-		Out:     "/some/output/path",
-	}
-	s.assertInstall(c, conf, "exec do something >> /some/output/path 2>&1\n")
 }
