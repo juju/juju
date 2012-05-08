@@ -60,6 +60,7 @@ func (m *Machine) zkAgentPath() string {
 	return path.Join(m.zkPath(), "agent")
 }
 
+// zkMachinesPath returns the ZooKeeper parent path for all machines.
 func zkMachinesPath() string { return "/machines" }
 
 // machineId returns the machine id corresponding to machineKey.
