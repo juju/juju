@@ -292,3 +292,60 @@ func (w *PortsWatcher) loop() {
 		}
 	}
 }
+
+// MachineWatcher observes changes children of the /machines key.
+type MachineWatcher struct {
+	st      *State
+	path    string
+	tomb    tomb.Tomb
+	watcher *watcher.ChildrenWatcher
+	Changes chan watcher.ChildrenChange
+}
+
+// newMachineWatcher creates and starts a new machine watcher for
+// the given path.
+func newMachineWatcher(st *State, path string) *MachineWatcher {
+	w := &MachineWatcher{
+		st:      st,
+		path:    path,
+		Changes: make(chan watcher.ChildrenChange),
+		watcher: watcher.NewChildrenWatcher(st.zk, path),
+	}
+	go w.loop()
+	return w
+}
+
+// Stop stops the watch and returns any error encountered
+// while watching. This method should always be called
+// before discarding the watcher.
+func (w *MachineWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	if err := w.watcher.Stop(); err != nil {
+		w.tomb.Wait()
+		return err
+	}
+	return w.tomb.Wait()
+}
+
+// loop is the backend for watching the ports node.
+func (w *MachineWatcher) loop() {
+	defer w.tomb.Done()
+	defer close(w.Changes)
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case change, ok := <-w.watcher.Changes():
+			if !ok {
+				return
+			}
+			select {
+			case <-w.watcher.Dying():
+				return
+			case <-w.tomb.Dying():
+				return
+			case w.Changes <- change:
+			}
+		}
+	}
+}
