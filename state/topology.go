@@ -46,14 +46,14 @@ type zkUnit struct {
 // /topology node in ZooKeeper.
 type zkRelation struct {
 	Interface string
-	Scope     string
+	Scope     RelationScope
 	Services  map[string]*zkServiceSettings
 }
 
 // zkServiceSettings represents the service settings for
 // a relation within the /topology node in ZooKeeper.
 type zkServiceSettings struct {
-	Role string
+	Role RelationRole
 	Name string
 }
 
@@ -353,7 +353,7 @@ func (t *topology) HasRelation(key string) bool {
 
 // AddRelation adds a relation with the given key and of
 // the given type.
-func (t *topology) AddRelation(key, relationType, scope string) error {
+func (t *topology) AddRelation(key, relationType string, scope RelationScope) error {
 	if t.topology.Relations == nil {
 		t.topology.Relations = make(map[string]*zkRelation)
 	}
@@ -395,9 +395,9 @@ func (t *topology) RelationType(key string) (string, error) {
 }
 
 // RelationScope returns the scope of a relation.
-func (t *topology) RelationScope(key string) (string, error) {
+func (t *topology) RelationScope(key string) (RelationScope, error) {
 	if err := t.assertRelation(key); err != nil {
-		return "", err
+		return ScopeNone, err
 	}
 	return t.topology.Relations[key].Scope, nil
 }
@@ -423,7 +423,7 @@ func (t *topology) RemoveRelation(key string) error {
 
 // AssignServiceToRelation associates a service to a relation.
 // Relation role and name have to be passed.
-func (t *topology) AssignServiceToRelation(relationKey, serviceKey, name, role string) error {
+func (t *topology) AssignServiceToRelation(relationKey, serviceKey, name string, role RelationRole) error {
 	if err := t.assertService(serviceKey); err != nil {
 		return err
 	}
@@ -465,8 +465,8 @@ func (t *topology) UnassignServiceFromRelation(relationKey, serviceKey string) e
 type relationInfo struct {
 	Key       string
 	Interface string
-	Scope     string
-	Role      string
+	Scope     RelationScope
+	Role      RelationRole
 	Name      string
 }
 
