@@ -29,7 +29,7 @@ func (c *UnitGetCommand) Info() *cmd.Info {
 }
 
 func (c *UnitGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	c.out.addFlags(f, "smart", defaultConverters)
+	c.out.addFlags(f, "yaml", defaultConverters)
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

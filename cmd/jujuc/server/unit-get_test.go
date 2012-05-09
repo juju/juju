@@ -25,11 +25,11 @@ var unitGetTests = []struct {
 	args []string
 	out  string
 }{
-	{[]string{"private-address"}, "192.168.0.99\n"},
-	{[]string{"private-address", "--format", "smart"}, "192.168.0.99\n"},
+	{[]string{"private-address"}, "192.168.0.99\n\n"},
+	{[]string{"private-address", "--format", "yaml"}, "192.168.0.99\n\n"},
 	{[]string{"private-address", "--format", "json"}, `"192.168.0.99"` + "\n"},
-	{[]string{"public-address"}, "gimli.minecraft.example.com\n"},
-	{[]string{"public-address", "--format", "smart"}, "gimli.minecraft.example.com\n"},
+	{[]string{"public-address"}, "gimli.minecraft.example.com\n\n"},
+	{[]string{"public-address", "--format", "yaml"}, "gimli.minecraft.example.com\n\n"},
 	{[]string{"public-address", "--format", "json"}, `"gimli.minecraft.example.com"` + "\n"},
 }
 
@@ -56,8 +56,8 @@ func (s *UnitGetSuite) TestHelp(c *C) {
 purpose: print public-address or private-address
 
 options:
---format  (= smart)
-    specify output format (json|smart)
+--format  (= yaml)
+    specify output format (json|yaml)
 -o, --output (= "")
     specify an output file
 `)
@@ -73,7 +73,7 @@ func (s *UnitGetSuite) TestOutputPath(c *C) {
 	c.Assert(bufferString(ctx.Stdout), Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, IsNil)
-	c.Assert(string(content), Equals, "192.168.0.99\n")
+	c.Assert(string(content), Equals, "192.168.0.99\n\n")
 }
 
 func (s *UnitGetSuite) TestUnknownSetting(c *C) {
