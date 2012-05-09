@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/cmd"
 	"launchpad.net/juju/go/state"
@@ -40,6 +39,6 @@ func (c *InitzkCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run initializes zookeeper state for an environment.
 func (c *InitzkCommand) Run(_ *cmd.Context) error {
-	// TODO connect to zookeeper; call State.Initialize
-	return fmt.Errorf("InitzkCommand.Run not implemented")
+	_, err := state.Initialize(&a.Conf.StateInfo)
+	return err
 }
