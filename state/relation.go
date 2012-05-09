@@ -23,23 +23,30 @@ const (
 
 // RelationEndpoint represents one endpoint of a relation.
 type RelationEndpoint struct {
-	ServiceName   string        `yaml:"service_name"`
-	RelationType  string        `yaml:"relation_type"`
-	RelationName  string        `yaml:"relation_name"`
-	RelationRole  RelationRole  `yaml:"relation_role"`
-	RelationScope RelationScope `yaml:"relation_scope"`
+	ServiceName   string        `yaml:"service-name"`
+	RelationType  string        `yaml:"relation-type"`
+	RelationRole  RelationRole  `yaml:"relation-role"`
+	RelationScope RelationScope `yaml:"relation-scope"`
 }
 
-// MayRelateTo tests whether the "other"`" endpoint may be used in a common 
+// CanRelateTo tests whether the "other"`" endpoint can be used in a common 
 // relation.
 // 
-// RelationEndpoints may be related if they share the same RelationType
+// RelationEndpoints can be related if they share the same RelationType
 // (which is called an "interface" in charms) and one is a 'provides'
 // and the other is a 'requires'; or if both endpoints have a
 // RelationRole of 'peers'.
-func (e *RelationEndpoint) MayRelateTo(other *RelationEndpoint) bool {
-	return (e.RelationType == other.RelationType &&
-		((e.RelationRole == RoleServer && other.RelationRole == RoleClient) ||
-			(e.RelationRole == RoleClient && other.RelationRole == RoleServer) ||
-			(e.RelationRole == RolePeer && other.RelationRole == RolePeer)))
+func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
+	if e.RelationType != other.RelationType {
+		return false
+	}
+	switch e.RelationRole {
+	case RoleServer:
+		return other.RelationRole == RoleClient
+	case RoleClient:
+		return other.RelationRole == RoleServer
+	case RolePeer:
+		return other.RelationRole == RolePeer
+	}
+	return false
 }
