@@ -15,12 +15,25 @@ type imageSuite struct{}
 
 var _ = Suite(imageSuite{})
 
+var testConstraint = &ec2.InstanceConstraint{
+	UbuntuRelease:     "precise",
+	Arch:              "amd64",
+	PersistentStorage: true,
+	Region:            "us-east-1",
+	Daily:             false,
+	Desktop:           false,
+}
+
+var oldDefaultConstraint = ec2.DefaultInstanceConstraint
+
 func (imageSuite) SetUpSuite(c *C) {
 	ec2.UseTestImageData(true)
+	ec2.DefaultInstanceConstraint = testConstraint
 }
 
 func (imageSuite) TearDownSuite(c *C) {
 	ec2.UseTestImageData(false)
+	ec2.DefaultInstanceConstraint = oldDefaultConstraint
 }
 
 // N.B. the image IDs in this test will need updating
