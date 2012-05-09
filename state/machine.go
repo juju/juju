@@ -7,9 +7,14 @@ package state
 import (
 	"fmt"
 	"launchpad.net/juju/go/state/presence"
+	"path"
 	"strconv"
 	"strings"
 	"time"
+)
+
+const (
+	zkMachinesPath = "/machines"
 )
 
 // Machine represents the state of a machine.
@@ -51,12 +56,12 @@ func (m *Machine) zkKey() string {
 
 // zkPath returns the ZooKeeper base path for the machine.
 func (m *Machine) zkPath() string {
-	return fmt.Sprintf("/machines/%s", m.key)
+	return path.Join(zkMachinesPath, m.zkKey())
 }
 
 // zkAgentPath returns the ZooKeeper path for the machine agent.
 func (m *Machine) zkAgentPath() string {
-	return fmt.Sprintf("/machines/%s/agent", m.key)
+	return path.Join(m.zkPath(), "agent")
 }
 
 // machineId returns the machine id corresponding to machineKey.
