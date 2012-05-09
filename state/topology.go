@@ -515,6 +515,85 @@ func (t *topology) RelationsForService(serviceKey string) ([]*relationInfo, erro
 	return relationInfos, nil
 }
 
+// HasRelationBetweenEndpoints checks if relation exists between 
+// 'endpoints'.
+//
+// The relation, with a 'relation type' common to the
+// endpoints, must exist between all endpoints (presumably one
+// for peer, two for client-server). The topology for the
+// relations looks like the following in YAML:
+//
+// relations:
+//     relation-0000000000:
+//     - mysql
+//     - global
+//     - service-0000000000: {name: db, role: client}
+//       service-0000000001: {name: server, role: server}
+func (t *topology) HasRelationBetweenEndpoints(endpoints ...RelationEndpoint) (bool, error) {
+	if t.topology.Relations == nil {
+		return false, nil
+	}
+	serviceIds := make(map[RelationEndpoint]string)
+	for _, e := range endpoints {
+		key, err := t.ServiceKey(e.ServiceName)
+		if err != nil {
+			return false, err
+		}
+		serviceIds[e] = key
+	}
+	for _, relation := range t.topology.Relations {
+		scope := relation.Scope
+		services := relation.Services
+		miss := false
+		for _, e := range endpoints {
+			service := services[serviceIds[e]]
+			if service == nil || service.Name != e.RelationName || scope != e.RelationScope {
+				miss = true
+				break
+			}
+		}
+		if !miss {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// RelationKeyBetweenEndpoints returns the relation key existing
+// between "endpoints" or "found" will be false.
+func (t *topology) RelationKeyBetweenEndpoints(endpoints ...RelationEndpoint) (key string, found bool, err error) {
+	if t.topology.Relations == nil {
+		return "", false, nil
+	}
+	serviceIds := make(map[RelationEndpoint]string)
+	for _, e := range endpoints {
+		key, err := t.ServiceKey(e.ServiceName)
+		if err != nil {
+			return "", false, err
+		}
+		serviceIds[e] = key
+	}
+	for key, relation := range t.topology.Relations {
+		ifce := relation.Interface
+		services := relation.Services
+		miss := false
+		if ifce != endpoints[0].RelationType {
+			continue
+		}
+		for _, e := range endpoints {
+			service := services[serviceIds[e]]
+			if service == nil || service.Name != e.RelationName {
+				miss = true
+				break
+			}
+		}
+		if !miss {
+			return key, true, nil
+		}
+	}
+	return "", false, nil
+}
+
 // assertMachine checks if a machine exists.
 func (t *topology) assertMachine(machineKey string) error {
 	if _, ok := t.topology.Machines[machineKey]; !ok {
