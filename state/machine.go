@@ -13,6 +13,10 @@ import (
 	"time"
 )
 
+const (
+	zkMachinesPath = "/machines"
+)
+
 // Machine represents the state of a machine.
 type Machine struct {
 	st  *State
@@ -52,16 +56,13 @@ func (m *Machine) zkKey() string {
 
 // zkPath returns the ZooKeeper base path for the machine.
 func (m *Machine) zkPath() string {
-	return path.Join(zkMachinesPath(), m.zkKey())
+	return path.Join(zkMachinesPath, m.zkKey())
 }
 
 // zkAgentPath returns the ZooKeeper path for the machine agent.
 func (m *Machine) zkAgentPath() string {
 	return path.Join(m.zkPath(), "agent")
 }
-
-// zkMachinesPath returns the ZooKeeper parent path for all machines.
-func zkMachinesPath() string { return "/machines" }
 
 // machineId returns the machine id corresponding to machineKey.
 func machineId(machineKey string) (id int) {

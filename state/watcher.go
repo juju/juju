@@ -293,26 +293,33 @@ func (w *PortsWatcher) loop() {
 	}
 }
 
-// MachinesWatcher observes changes children of the /machines key.
+// MachinesWatcher observes changes to children of the /machines key.
 type MachinesWatcher struct {
-	st      *State
-	path    string
-	tomb    tomb.Tomb
-	watcher *watcher.ChildrenWatcher
-	Changes chan watcher.ChildrenChange
+	st         *State
+	path       string
+	tomb       tomb.Tomb
+	watcher    *watcher.ChildrenWatcher
+	changeChan chan watcher.ChildrenChange
 }
 
 // newMachinesWatcher creates and starts a new machine watcher for
 // the given path.
 func newMachinesWatcher(st *State, path string) *MachinesWatcher {
 	w := &MachinesWatcher{
-		st:      st,
-		path:    path,
-		Changes: make(chan watcher.ChildrenChange),
-		watcher: watcher.NewChildrenWatcher(st.zk, path),
+		st:         st,
+		path:       path,
+		changeChan: make(chan watcher.ChildrenChange),
+		watcher:    watcher.NewChildrenWatcher(st.zk, path),
 	}
 	go w.loop()
 	return w
+}
+
+// Changes returns a channel that will receive the actual
+// watcher.ChildrenChanges. Note that multiple changes may 
+// be observed as a single event in the channel.
+func (w *MachinesWatcher) Changes() <-chan watcher.ChildrenChange {
+	return w.changeChan
 }
 
 // Stop stops the watch and returns any error encountered
@@ -330,7 +337,7 @@ func (w *MachinesWatcher) Stop() error {
 // loop is the backend for watching the ports node.
 func (w *MachinesWatcher) loop() {
 	defer w.tomb.Done()
-	defer close(w.Changes)
+	defer close(w.changeChan)
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -344,7 +351,7 @@ func (w *MachinesWatcher) loop() {
 				return
 			case <-w.tomb.Dying():
 				return
-			case w.Changes <- change:
+			case w.changeChan <- change:
 			}
 		}
 	}

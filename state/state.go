@@ -59,7 +59,7 @@ func (s *State) RemoveMachine(id int) error {
 
 // WatchMachines watches for new Machines added or removed.
 func (s *State) WatchMachines() *MachinesWatcher {
-	return newMachinesWatcher(s, zkMachinesPath())
+	return newMachinesWatcher(s, zkMachinesPath)
 }
 
 // Machine returns the machine with the given id.

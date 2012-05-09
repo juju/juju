@@ -216,13 +216,24 @@ type machinesWatchTest struct {
 }
 
 var machinesWatchTests = []machinesWatchTest{
-	{func(s *state.State) error { _, err := s.AddMachine(); return err },
+	{
+		func(s *state.State) error {
+			_, err := s.AddMachine()
+			return err
+		},
 		watcher.ChildrenChange{Added: []string{"machine-0000000000"}},
 	},
-	{func(s *state.State) error { _, err := s.AddMachine(); return err },
+	{
+		func(s *state.State) error {
+			_, err := s.AddMachine()
+			return err
+		},
 		watcher.ChildrenChange{Added: []string{"machine-0000000001"}},
 	},
-	{func(s *state.State) error { return s.RemoveMachine(1) },
+	{
+		func(s *state.State) error {
+			return s.RemoveMachine(1)
+		},
 		watcher.ChildrenChange{Deleted: []string{"machine-0000000001"}},
 	},
 }
@@ -234,7 +245,7 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 		err := test.test(s.st)
 		c.Assert(err, IsNil)
 		select {
-		case got, ok := <-w.Changes:
+		case got, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
 			c.Assert(got, DeepEquals, test.want)
 		case <-time.After(200 * time.Millisecond):
@@ -243,7 +254,7 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 	}
 
 	select {
-	case got, _ := <-w.Changes:
+	case got, _ := <-w.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
