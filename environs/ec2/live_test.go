@@ -27,7 +27,8 @@ environments:
   sample-%s:
     type: ec2
     control-bucket: 'juju-test-%s'
-`, uniqueName, uniqueName)
+    public-bucket: 'juju-public-test-%s'
+`, uniqueName, uniqueName, uniqueName)
 
 // uniqueName is generated afresh for every test, so that
 // we are not polluted by previous test state.
@@ -64,6 +65,27 @@ func registerAmazonTests() {
 type LiveTests struct {
 	testing.LoggingSuite
 	jujutest.LiveTests
+}
+
+func (t *LiveTests) SetUpSuite(c *C) {
+	e, err := t.Environs.Open("")
+	c.Assert(err, IsNil)
+	// Put some fake tools in place so that tests that are simply
+	// starting instances without any need to check if those instances
+	// are running will find them in the public bucket.
+	putFakeTools(c, ec2.EnvironPublicBucket(e))
+	t.LiveTests.SetUpSuite(c)
+}
+
+func (t *LiveTests) TearDownSuite(c *C) {
+	if t.Env != nil {
+		// This can happen if SetUpSuite fails.
+		return
+	}
+	err := ec2.DeleteBucket(t.Env, ec2.EnvironPublicBucket(t.Env))
+	err2 := ec2.DeleteBucket(t.Env, ec2.EnvironBucket(t.Env))
+	c.Assert(err, IsNil)
+	c.Assert(err2, IsNil)
 }
 
 func (t *LiveTests) SetUpTest(c *C) {
@@ -211,7 +233,14 @@ func (t *LiveTests) TestDestroy(c *C) {
 
 	t.Destroy(c)
 
-	resp, err = b.List("", "", "", 0)
+	for i := 0; i < 10; i++ {
+		_, err = b.List("", "", "", 0)
+		if err != nil {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+
 	c.Assert(err, NotNil)
 	c.Assert(err.(*s3.Error).StatusCode, Equals, 404)
 }

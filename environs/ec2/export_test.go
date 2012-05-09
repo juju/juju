@@ -5,6 +5,7 @@ import (
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
 	"net/http"
+	"launchpad.net/juju/go/log"
 )
 
 type BootstrapState struct {
@@ -39,6 +40,14 @@ func EnvironEC2(e environs.Environ) *ec2.EC2 {
 
 func EnvironBucket(e environs.Environ) *s3.Bucket {
 	return e.(*environ).bucket()
+}
+
+func EnvironPublicBucket(e environs.Environ) *s3.Bucket {
+	return e.(*environ).publicBucket()
+}
+
+func DeleteBucket(e environs.Environ, b *s3.Bucket) error {
+	return e.(*environ).deleteBucket(b)
 }
 
 func FindTools(e environs.Environ, spec *InstanceSpec) (string, error) {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"launchpad.net/juju/go/version"
 )
 
 // TODO implement constraints properly.
@@ -21,8 +22,8 @@ type InstanceConstraint struct {
 }
 
 var DefaultInstanceConstraint = &InstanceConstraint{
-	UbuntuRelease:     "oneiric",
-	Arch:              "i386",
+	UbuntuRelease:     "precise",
+	Arch:              version.CurrentArch,
 	PersistentStorage: true,
 	Region:            "us-east-1",
 	Daily:             false,
@@ -68,7 +69,11 @@ func FindInstanceSpec(spec *InstanceConstraint) (*InstanceSpec, error) {
 			return nil, fmt.Errorf("cannot find matching image: %v", err)
 		}
 		f := strings.Split(string(line), "\t")
-		if len(f) < 8 {
+		if len(f) < 11 {
+			continue
+		}
+		// TODO hvm heuristics (see python code)
+		if f[10] != "paravirtual" {
 			continue
 		}
 		if f[4] != ebsMatch {

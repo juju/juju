@@ -30,7 +30,7 @@ var imageTests = []struct {
 	imageId    string
 	err        string
 }{
-	{*ec2.DefaultInstanceConstraint, "ami-a7f539ce", ""},
+	{*ec2.DefaultInstanceConstraint, "ami-a29943cb", ""},
 	{ec2.InstanceConstraint{
 		UbuntuRelease:     "natty",
 		Arch:              "amd64",
@@ -38,7 +38,7 @@ var imageTests = []struct {
 		Region:            "eu-west-1",
 		Daily:             true,
 		Desktop:           true,
-	}, "ami-19fdc16d", ""},
+	}, "ami-856f55f1", ""},
 	{ec2.InstanceConstraint{
 		UbuntuRelease:     "natty",
 		Arch:              "i386",
@@ -46,7 +46,7 @@ var imageTests = []struct {
 		Region:            "ap-northeast-1",
 		Daily:             true,
 		Desktop:           true,
-	}, "ami-cc9621cd", ""},
+	}, "ami-408f3f41", ""},
 	{ec2.InstanceConstraint{
 		UbuntuRelease:     "natty",
 		Arch:              "i386",
@@ -54,7 +54,7 @@ var imageTests = []struct {
 		Region:            "ap-northeast-1",
 		Daily:             true,
 		Desktop:           true,
-	}, "ami-62962163", ""},
+	}, "ami-e48e3ee5", ""},
 	{ec2.InstanceConstraint{
 		UbuntuRelease:     "natty",
 		Arch:              "amd64",
@@ -62,7 +62,7 @@ var imageTests = []struct {
 		Region:            "ap-northeast-1",
 		Daily:             true,
 		Desktop:           true,
-	}, "ami-a69621a7", ""},
+	}, "ami-108f3f11", ""},
 	{ec2.InstanceConstraint{
 		UbuntuRelease:     "zingy",
 		Arch:              "amd64",
@@ -103,7 +103,7 @@ func regenerateImages(t *testing.T) {
 	}
 	for _, variant := range []string{"desktop", "server"} {
 		for _, version := range []string{"daily", "released"} {
-			for _, release := range []string{"natty", "oneiric"} {
+			for _, release := range []string{"natty", "oneiric", "precise", "quantal"} {
 				s := fmt.Sprintf("query/%s/%s/%s.current.txt", release, variant, version)
 				t.Logf("regenerating images from %q", s)
 				err := copylocal(s)

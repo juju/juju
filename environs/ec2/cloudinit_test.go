@@ -45,11 +45,10 @@ type cloudinitTest struct {
 }
 
 func (t *cloudinitTest) check(c *C) {
-	t.checkPackage(c, "byobu")
 	c.Check(t.x["apt_upgrade"], Equals, true)
 	c.Check(t.x["apt_update"], Equals, true)
 	t.checkScripts(c, "mkdir -p /var/lib/juju")
-	t.checkScripts(c, "wget.*"+regexp.QuoteMeta(t.cfg.toolsURL)+".*tar .* xz")
+	t.checkScripts(c, "wget.*"+regexp.QuoteMeta(t.cfg.toolsURL)+".*tar .*xz")
 
 	if t.cfg.zookeeper {
 		t.checkPackage(c, "zookeeperd")
@@ -83,7 +82,6 @@ func CheckScripts(c *C, x map[interface{}]interface{}, pattern string, match boo
 	found := false
 	for _, s0 := range scripts {
 		s := s0.(string)
-c.Logf("matching %q against %q -> %v", s, pattern, re.MatchString(s))
 		if re.MatchString(s) {
 			found = true
 		}
@@ -106,7 +104,9 @@ func (t *cloudinitTest) checkPackage(c *C, pkg string) {
 func CheckPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
 	pkgs0 := x["packages"]
 	if pkgs0 == nil {
-		c.Errorf("cloudinit has no entry for packages")
+		if match {
+			c.Errorf("cloudinit has no entry for packages")
+		}
 		return
 	}
 

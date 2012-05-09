@@ -65,19 +65,16 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 	c := cloudinit.New()
 
 	c.AddSSHAuthorizedKeys(cfg.authorizedKeys)
-	pkgs := []string{
-		"byobu",
-		"tmux",
-	}
 	if cfg.zookeeper {
-		pkgs = append(pkgs, []string{
+		pkgs := []string{
 			"default-jre-headless",
 			"zookeeper",
 			"zookeeperd",
-		}...)
-	}
-	for _, pkg := range pkgs {
-		c.AddPackage(pkg)
+			"libzookeeper-mt2",
+		}
+		for _, pkg := range pkgs {
+			c.AddPackage(pkg)
+		}
 	}
 
 	addScripts(c,
@@ -90,7 +87,7 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 	addScripts(c,
 		"bin="+shquote("/var/lib/juju/tools/" + versionDir(cfg.toolsURL)),
 		"mkdir -p $bin",
-		fmt.Sprintf("wget -O - %s | tar -C $bin xz", shquote(cfg.toolsURL)),
+		fmt.Sprintf("wget -O - %s | tar xz -C $bin", shquote(cfg.toolsURL)),
 		`export PATH="$bin:$PATH"`,
 	)
 
@@ -103,8 +100,10 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 	if cfg.zookeeper {
 		addScripts(c,
 			"jujud initzk"+
-				" --instance-id="+shquote(cfg.instanceIdAccessor)+
-				" --env-type="+shquote(cfg.providerType),
+				" --instance-id "+cfg.instanceIdAccessor+
+				" --env-type "+shquote(cfg.providerType)+
+				" --zookeeper-servers localhost"+zkPortSuffix+
+				" --env-type ec2",
 		)
 	}
 
@@ -123,10 +122,8 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 // by using the last element stripped of its extension.
 func versionDir(toolsURL string) string {
 	name := path.Base(toolsURL)
-	if ext := path.Ext(name); ext != "" {
-		name = name[0:len(name)-len(ext)-1]
-	}
-	return name
+	ext := path.Ext(name)
+	return name[:len(name)-len(ext)]
 }
 
 func (cfg *machineConfig) zookeeperHostAddrs() string {

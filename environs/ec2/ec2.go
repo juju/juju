@@ -129,7 +129,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		// ignore error on StopInstance because the previous error is
 		// more important.
 		e.StopInstances([]environs.Instance{inst})
-		return err
+		return fmt.Errorf("cannot save state: %v", err)
 	}
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
@@ -213,11 +213,11 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 	}
 	toolsURL, err := e.findTools(image)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot find tools: %v", err)
 	}
 	userData, err := e.userData(machineId, info, master, toolsURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	groups, err := e.setUpGroups(machineId)
 	if err != nil {

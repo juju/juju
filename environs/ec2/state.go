@@ -47,8 +47,7 @@ func (e *environ) loadState() (*bootstrapState, error) {
 	return &state, nil
 }
 
-func (e *environ) deleteState() error {
-	b := e.bucket()
+func (e *environ) deleteBucket(b *s3.Bucket) error {
 	resp, err := b.List("", "", "", 0)
 	if err != nil {
 		if s3ErrorStatusCode(err) == 404 {
@@ -66,7 +65,7 @@ func (e *environ) deleteState() error {
 	for _, obj := range resp.Contents {
 		name := obj.Key
 		go func() {
-			if err := e.RemoveFile(name); err != nil {
+			if err := e.removeFile(b, name); err != nil {
 				errc <- err
 			}
 			wg.Done()
@@ -79,6 +78,10 @@ func (e *environ) deleteState() error {
 	default:
 	}
 	return b.DelBucket()
+}
+
+func (e *environ) deleteState() error {
+	return e.deleteBucket(e.bucket())
 }
 
 func (e *environ) PutFile(file string, r io.ReadSeeker) error {
@@ -95,19 +98,17 @@ func (e *environ) PutFile(file string, r io.ReadSeeker) error {
 	if _, err := r.Seek(curPos, os.SEEK_SET); err != nil {
 		return err
 	}
-log.Printf("put reader 1 %d-%d bytes", length, curPos)
 	// To avoid round-tripping on each PutFile, we attempt to put the
 	// file and only make the bucket if it fails due to the bucket's
 	// non-existence.
-	err = e.bucket().PutReader(file, r, length-curPos, "binary/octet-stream", s3.Private)
+	err = e.bucket().PutReader(file, r, length-curPos, "binary/octet-stream", s3.PublicRead)
 	if err == nil {
-		log.Printf("environs/ec2: put file %q", file)
+		log.Printf("environs/ec2: put file %q (%d bytes)", file, length-curPos)
 		return nil
 	}
 	if s3err, _ := err.(*s3.Error); s3err == nil || s3err.Code != "NoSuchBucket" {
 		return err
 	}
-log.Printf("put bucket")
 	// Make the bucket and repeat. PutBucket will succeed if the bucket
 	// already exists (for instance as a result of a concurrent PutFile)
 	if err := e.bucket().PutBucket(s3.Private); err != nil {
@@ -117,11 +118,10 @@ log.Printf("put bucket")
 	if _, err := r.Seek(curPos, os.SEEK_SET); err != nil {
 		return err
 	}
-log.Printf("put reader 2")
 
-	err = e.bucket().PutReader(file, r, length-curPos, "binary/octet-stream", s3.Private)
+	err = e.bucket().PutReader(file, r, length-curPos, "binary/octet-stream", s3.PublicRead)
 	if err == nil {
-		log.Printf("environs/ec2: put file %q", file)
+		log.Printf("environs/ec2: put file %q (%d bytes)", file, length-curPos)
 	}
 	return err
 }
@@ -146,8 +146,9 @@ func s3ErrorStatusCode(err error) int {
 	return 0
 }
 
-func (e *environ) RemoveFile(file string) error {
-	err := e.bucket().Del(file)
+// removeFile removes a file from the given bucket.
+func (e *environ) removeFile(b *s3.Bucket, path string) error {
+	err := b.Del(path)
 	// If we can't delete the object because the bucket doesn't
 	// exist, then we don't care.
 	if s3ErrorStatusCode(err) == 404 {
@@ -156,12 +157,19 @@ func (e *environ) RemoveFile(file string) error {
 	return err
 }
 
+func (e *environ) RemoveFile(path string) error {
+	return e.removeFile(e.bucket(), path)
+}
+
 func (e *environ) bucket() *s3.Bucket {
 	return e.s3.Bucket(e.config.bucket)
 }
 
 func (e *environ) publicBucket() *s3.Bucket {
-	return e.s3.Bucket(e.config.publicBucket)
+	if e.config.publicBucket != "" {
+		return e.s3.Bucket(e.config.publicBucket)
+	}
+	return nil
 }
 
 var toolFilePat = regexp.MustCompile(`^tools/juju([0-9]+\.[0-9]+\.[0-9]+)-([^-]+)-([^-]+)\.tgz$`)
@@ -186,14 +194,23 @@ func (e *environ) findTools(spec *InstanceSpec) (url string, err error) {
 var versionCurrentMajor = version.Current.Major
 
 func (e *environ) findToolsInBucket(spec *InstanceSpec, bucket *s3.Bucket) (url string, err error) {
+	var resp *s3.ListResp
 	log.Printf("looking for tools in bucket %q", bucket.Name)
-	resp, err := bucket.List("tools/", "/", "", 0)
-	if err != nil {
-		return "", err
+	for a := shortAttempt.start(); a.next(); {
+		resp, err = bucket.List("tools/", "/", "", 0)
+		if s3ErrorStatusCode(err) == 404 {
+			continue
+		}
+		break
 	}
+	if err != nil {
+		return "", fmt.Errorf("cannot list items in bucket: %v", err)
+	}
+
 	bestVersion := version.Version{Major: -1}
 	bestKey := ""
 	for _, k := range resp.Contents {
+		log.Printf("possible tool: %v", k.Key)
 		m := toolFilePat.FindStringSubmatch(k.Key)
 		if m == nil {
 			log.Printf("unexpected tools file found %q", k.Key)
@@ -205,12 +222,15 @@ func (e *environ) findToolsInBucket(spec *InstanceSpec, bucket *s3.Bucket) (url 
 			continue
 		}
 		if m[2] != spec.OS {
+			log.Printf("wrong OS")
 			continue
 		}
 		if m[3] != spec.Arch {
+			log.Printf("wrong arch; expect %s; got %s", spec.Arch, m[3])
 			continue
 		}
 		if vers.Major != versionCurrentMajor {
+			log.Printf("wrong major version")
 			continue
 		}
 		if bestVersion.Less(vers) {

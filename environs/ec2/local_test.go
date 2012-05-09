@@ -101,26 +101,29 @@ func (srv *localServer) startServer(c *C) {
 		EC2Endpoint: srv.ec2srv.URL(),
 		S3Endpoint:  srv.s3srv.URL(),
 	}
-	srv.putFakeTools(c)
+	s3 := amzs3.New(aws.Auth{}, ec2.Regions["test"])
+	putFakeTools(c, s3.Bucket("public-tools"))
 	srv.addSpice(c)
 }
 
 // putFakeTools sets up a bucket containing something
-// that looks like a tools archive so that Bootstrap can
-// find a tools URL to put in the cloudinit data.
-func (srv *localServer) putFakeTools(c *C) {
-	s3 := amzs3.New(aws.Auth{}, ec2.Regions["test"])
-	b := s3.Bucket("public-tools")
+// that looks like a tools archive so test methods
+// that start an instance can succeed even though they
+// do not upload tools.
+func putFakeTools(c *C, b *amzs3.Bucket) {
+	if b == nil {
+		panic("fake tools into nil bucket")
+	}
 	err := b.PutBucket(amzs3.PublicRead)
 	if err != nil {
-		panic(err)
+		c.Fatalf("cannot put bucket %q: %v", b.Name, err)
 	}
 	name := version.ToolsPathForVersion(version.Current, version.CurrentOS, ec2.DefaultInstanceConstraint.Arch)
 	err = b.Put(name, []byte("tools archive, honest guv"), "binary/octet-stream", amzs3.PublicRead)
 	if err != nil {
-		panic(err)
+		c.Fatal(err)
 	}
-}
+}	
 
 // addSpice adds some "spice" to the local server
 // by adding state that may cause tests to fail.
