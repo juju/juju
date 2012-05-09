@@ -170,7 +170,7 @@ func (c *Conf) Install() error {
 		return err
 	}
 	if c.Installed() {
-		if err := c.Stop(); err != nil {
+		if err := c.Remove(); err != nil {
 			return err
 		}
 	}
