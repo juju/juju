@@ -3,6 +3,7 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/state"
+	"launchpad.net/juju/go/state/watcher"
 	"time"
 )
 
@@ -207,4 +208,56 @@ func (s *StateSuite) TestUnitWatchPorts(c *C) {
 
 	err = portsWatcher.Stop()
 	c.Assert(err, IsNil)
+}
+
+type machinesWatchTest struct {
+	test func(*state.State) error
+	want watcher.ChildrenChange
+}
+
+var machinesWatchTests = []machinesWatchTest{
+	{
+		func(s *state.State) error {
+			_, err := s.AddMachine()
+			return err
+		},
+		watcher.ChildrenChange{Added: []string{"machine-0000000000"}},
+	},
+	{
+		func(s *state.State) error {
+			_, err := s.AddMachine()
+			return err
+		},
+		watcher.ChildrenChange{Added: []string{"machine-0000000001"}},
+	},
+	{
+		func(s *state.State) error {
+			return s.RemoveMachine(1)
+		},
+		watcher.ChildrenChange{Deleted: []string{"machine-0000000001"}},
+	},
+}
+
+func (s *StateSuite) TestWatchMachines(c *C) {
+	w := s.st.WatchMachines()
+
+	for _, test := range machinesWatchTests {
+		err := test.test(s.st)
+		c.Assert(err, IsNil)
+		select {
+		case got, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got, DeepEquals, test.want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", test.want)
+		}
+	}
+
+	select {
+	case got, _ := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	c.Assert(w.Stop(), IsNil)
 }
