@@ -85,13 +85,13 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 	// then fetch the tools and unarchive them
 	// into it.
 	addScripts(c,
-		"bin="+shquote("/var/lib/juju/tools/" + versionDir(cfg.toolsURL)),
+		"bin="+shquote("/var/lib/juju/tools/"+versionDir(cfg.toolsURL)),
 		"mkdir -p $bin",
 		fmt.Sprintf("wget -O - %s | tar xz -C $bin", shquote(cfg.toolsURL)),
 		`export PATH="$bin:$PATH"`,
 	)
 
-	addScripts(c, 
+	addScripts(c,
 		"JUJU_ZOOKEEPER="+shquote(cfg.zookeeperHostAddrs()),
 		fmt.Sprintf("JUJU_MACHINE_ID=%d", cfg.machineId),
 	)
@@ -146,7 +146,7 @@ func shquote(s string) string {
 
 func verifyConfig(cfg *machineConfig) error {
 	if cfg.machineId < 0 {
-		return fmt.Errorf("invalid machine configuration: negative machine id") 
+		return fmt.Errorf("invalid machine configuration: negative machine id")
 	}
 	if cfg.providerType == "" {
 		return requiresError("provider type")

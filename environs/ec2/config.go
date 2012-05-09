@@ -12,7 +12,7 @@ type providerConfig struct {
 	region             string
 	auth               aws.Auth
 	bucket             string
-	publicBucket	string
+	publicBucket       string
 	authorizedKeys     string
 	authorizedKeysPath string
 }
@@ -40,7 +40,7 @@ func (environProvider) ConfigChecker() schema.Checker {
 				"secret-key":           schema.String(),
 				"region":               schema.String(),
 				"control-bucket":       schema.String(),
-				"public-bucket":	schema.String(),
+				"public-bucket":        schema.String(),
 				"authorized-keys":      schema.String(),
 				"authorized-keys-path": schema.String(),
 			}, []string{

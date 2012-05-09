@@ -185,7 +185,7 @@ func (e *environ) userData(machineId int, info *state.Info, master bool, toolsUR
 		stateInfo:          info,
 		instanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		providerType:       "ec2",
-		toolsURL: toolsURL,
+		toolsURL:           toolsURL,
 		machineId:          machineId,
 	}
 

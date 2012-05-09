@@ -3,9 +3,9 @@ package ec2
 import (
 	"bufio"
 	"fmt"
+	"launchpad.net/juju/go/version"
 	"net/http"
 	"strings"
-	"launchpad.net/juju/go/version"
 )
 
 // TODO implement constraints properly.

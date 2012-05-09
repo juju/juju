@@ -23,7 +23,7 @@ var cloudinitTests = []machineConfig{
 		providerType:       "ec2",
 		provisioner:        true,
 		authorizedKeys:     "sshkey1",
-		toolsURL:	"http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
+		toolsURL:           "http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
 		zookeeper:          true,
 	},
 	{
@@ -32,7 +32,7 @@ var cloudinitTests = []machineConfig{
 		provisioner:    false,
 		authorizedKeys: "sshkey1",
 		zookeeper:      false,
-		toolsURL:	"http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
+		toolsURL:       "http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
 		stateInfo:      &state.Info{Addrs: []string{"zk1"}},
 	},
 }
@@ -192,7 +192,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		instanceIdAccessor: "$instance_id",
 		providerType:       "ec2",
 		machineId:          99,
-		toolsURL:		"http://foo/bar.tgz",
+		toolsURL:           "http://foo/bar.tgz",
 		authorizedKeys:     "sshkey1",
 		stateInfo:          &state.Info{Addrs: []string{"zkhost"}},
 	}
@@ -208,4 +208,3 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		c.Assert(t, IsNil)
 	}
 }
-

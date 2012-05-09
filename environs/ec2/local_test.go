@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
-	amzs3 "launchpad.net/goamz/s3"
 	"launchpad.net/goamz/ec2/ec2test"
+	amzs3 "launchpad.net/goamz/s3"
 	"launchpad.net/goamz/s3/s3test"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
@@ -123,7 +123,7 @@ func putFakeTools(c *C, b *amzs3.Bucket) {
 	if err != nil {
 		c.Fatal(err)
 	}
-}	
+}
 
 // addSpice adds some "spice" to the local server
 // by adding state that may cause tests to fail.

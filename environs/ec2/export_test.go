@@ -4,8 +4,8 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
-	"net/http"
 	"launchpad.net/juju/go/log"
+	"net/http"
 )
 
 type BootstrapState struct {
