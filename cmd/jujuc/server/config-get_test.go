@@ -25,22 +25,22 @@ func (s *ConfigGetSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-var configGetSmartMap = `map\[(spline-reticulation:45 monsters:false|monsters:false spline-reticulation:45)\]` + "\n"
+var configGetYamlMap = "(spline-reticulation: 45\nmonsters: false\n|monsters: false\nspline-reticulation: 45\n)\n"
 var configGetTests = []struct {
 	args []string
 	out  string
 }{
-	{[]string{"monsters"}, "false\n"},
-	{[]string{"--format", "smart", "monsters"}, "false\n"},
+	{[]string{"monsters"}, "false\n\n"},
+	{[]string{"--format", "yaml", "monsters"}, "false\n\n"},
 	{[]string{"--format", "json", "monsters"}, "false\n"},
-	{[]string{"spline-reticulation"}, "45\n"},
-	{[]string{"--format", "smart", "spline-reticulation"}, "45\n"},
+	{[]string{"spline-reticulation"}, "45\n\n"},
+	{[]string{"--format", "yaml", "spline-reticulation"}, "45\n\n"},
 	{[]string{"--format", "json", "spline-reticulation"}, "45\n"},
 	{[]string{"missing"}, ""},
-	{[]string{"--format", "smart", "missing"}, ""},
+	{[]string{"--format", "yaml", "missing"}, ""},
 	{[]string{"--format", "json", "missing"}, "null\n"},
-	{nil, configGetSmartMap},
-	{[]string{"--format", "smart"}, configGetSmartMap},
+	{nil, configGetYamlMap},
+	{[]string{"--format", "yaml"}, configGetYamlMap},
 	{[]string{"--format", "json"}, `{"monsters":false,"spline-reticulation":45}` + "\n"},
 }
 
@@ -67,8 +67,8 @@ func (s *ConfigGetSuite) TestHelp(c *C) {
 purpose: print service configuration
 
 options:
---format  (= smart)
-    specify output format (json|smart)
+--format  (= yaml)
+    specify output format (json|yaml)
 -o, --output (= "")
     specify an output file
 
@@ -86,7 +86,7 @@ func (s *ConfigGetSuite) TestOutputPath(c *C) {
 	c.Assert(bufferString(ctx.Stdout), Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, IsNil)
-	c.Assert(string(content), Equals, "false\n")
+	c.Assert(string(content), Equals, "false\n\n")
 }
 
 func (s *ConfigGetSuite) TestUnknownArg(c *C) {
