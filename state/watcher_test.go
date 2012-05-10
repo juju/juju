@@ -297,9 +297,6 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 	config, ok := <-w.Changes()
 	c.Assert(ok, Equals, true)
 
-	// TODO(dfc) why does config need to be primed before Set can be used ? 
-	config.Read()
-
 	for _, test := range environmentWatchTests {
 		err := test.test(config)
 		c.Assert(err, IsNil)

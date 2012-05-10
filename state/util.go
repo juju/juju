@@ -88,6 +88,7 @@ func parseConfigNode(zk *zookeeper.Conn, path, content string) (*ConfigNode, err
 	c := &ConfigNode{
 		zk:   zk,
 		path: path,
+		cache: make(map[string]interface{}),
 	}
 	if err := goyaml.Unmarshal([]byte(content), &c.cache); err != nil {
 		return nil, err
@@ -217,10 +218,8 @@ func (c *ConfigNode) Set(key string, value interface{}) {
 
 // Update sets multiple key/value pairs.
 func (c *ConfigNode) Update(kv map[string]interface{}) {
-	if kv != nil {
-		for key, value := range kv {
-			c.cache[key] = value
-		}
+	for key, value := range kv {
+		c.cache[key] = value
 	}
 }
 
@@ -263,12 +262,11 @@ func zkRemoveTree(zk *zookeeper.Conn, path string) error {
 }
 
 // copyCache copies the keys and values of one cache into a new one.
+// If in is nil, out will be an empty map.
 func copyCache(in map[string]interface{}) (out map[string]interface{}) {
 	out = make(map[string]interface{})
-	if in != nil {
-		for key, value := range in {
-			out[key] = value
-		}
+	for key, value := range in {
+		out[key] = value
 	}
 	return
 }
