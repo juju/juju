@@ -10,7 +10,6 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju/go/log"
 	"launchpad.net/juju/go/version"
-	"os"
 	"regexp"
 	"sync"
 )
@@ -26,7 +25,7 @@ func (e *environ) saveState(state *bootstrapState) error {
 	if err != nil {
 		return err
 	}
-	return e.PutFile(stateFile, bytes.NewReader(data))
+	return e.PutFile(stateFile, bytes.NewBuffer(data), int64(len(data)))
 }
 
 func (e *environ) loadState() (*bootstrapState, error) {
@@ -48,6 +47,8 @@ func (e *environ) loadState() (*bootstrapState, error) {
 }
 
 func (e *environ) deleteState() error {
+	e.bucketMutex.Lock()
+	defer e.bucketMutex.Unlock()
 	b := e.bucket()
 	resp, err := b.List("", "", "", 0)
 	if err != nil {
@@ -75,51 +76,37 @@ func (e *environ) deleteState() error {
 	wg.Wait()
 	select {
 	case err := <-errc:
-		return fmt.Errorf("cannot delete provider state: %v", err)
+		return fmt.Errorf("cannot delete all provider state: %v", err)
 	default:
 	}
 	return b.DelBucket()
 }
 
-func (e *environ) PutFile(file string, r io.ReadSeeker) error {
-	// Find out the length of the file by seeking to
-	// the end and back again.
-	curPos, err := r.Seek(0, os.SEEK_CUR)
-	if err != nil {
-		return err
-	}
-	length, err := r.Seek(0, os.SEEK_END)
-	if err != nil {
-		return err
-	}
-	if _, err := r.Seek(curPos, os.SEEK_SET); err != nil {
-		return err
-	}
-	// To avoid round-tripping on each PutFile, we attempt to put the
-	// file and only make the bucket if it fails due to the bucket's
-	// non-existence.
-	err = e.bucket().PutReader(file, r, length-curPos, "binary/octet-stream", s3.Private)
+// makeBucket makes the environent's control bucket, the
+// place where bootstrap information and deployed charms
+// are stored. To avoid two round trips on every PUT operation,
+// we do this only once for each environ.
+func (e *environ) makeBucket() error {
+	e.bucketMutex.Lock()
+	defer e.bucketMutex.Unlock()
+	// try to make the bucket - PutBucket will succeed if the
+	// bucket already exists.
+	err := e.bucket().PutBucket(s3.Private)
 	if err == nil {
-		log.Printf("environs/ec2: put file %q", file)
-		return nil
-	}
-	if s3err, _ := err.(*s3.Error); s3err == nil || s3err.Code != "NoSuchBucket" {
-		return err
-	}
-	// Make the bucket and repeat. PutBucket will succeed if the bucket
-	// already exists (for instance as a result of a concurrent PutFile)
-	if err := e.bucket().PutBucket(s3.Private); err != nil {
-		return err
-	}
-	log.Printf("environs/ec2: put bucket %q", file)
-	if _, err := r.Seek(curPos, os.SEEK_SET); err != nil {
-		return err
-	}
-	err = e.bucket().PutReader(file, r, length-curPos, "binary/octet-stream", s3.Private)
-	if err == nil {
-		log.Printf("environs/ec2: put file %q", file)
+		e.madeBucket = true
 	}
 	return err
+}
+
+func (e *environ) PutFile(file string, r io.Reader, length int64) error {
+	if err := e.makeBucket(); err != nil {
+		return fmt.Errorf("cannot make S3 control bucket: %v", err)
+	}
+	err := e.bucket().PutReader(file, r, length, "binary/octet-stream", s3.Private)
+	if err != nil {
+		return fmt.Errorf("cannot write file %q to control bucket: %v", file, err)
+	}
+	return nil
 }
 
 func (e *environ) GetFile(file string) (r io.ReadCloser, err error) {

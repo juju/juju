@@ -315,7 +315,7 @@ func (t *localServerSuite) TestFindTools(c *C) {
 		c.Logf("test %d", i)
 		*ec2.VersionCurrentMajor = tt.major
 		for _, name := range tt.contents {
-			err := t.env.PutFile(name, strings.NewReader(name))
+			err := t.env.PutFile(name, strings.NewReader(name), int64(len(name)))
 			c.Assert(err, IsNil)
 		}
 		url, err := ec2.FindTools(t.env, &ec2.InstanceSpec{OS: tt.os, Arch: tt.arch})

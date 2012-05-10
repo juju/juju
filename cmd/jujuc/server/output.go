@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"launchpad.net/gnuflag"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju/go/cmd"
 	"os"
 	"sort"
@@ -14,20 +15,18 @@ import (
 // converter converts an arbitrary object into a []byte.
 type converter func(value interface{}) ([]byte, error)
 
-// convertSmart converts value to a byte array containing its string
-// representation. The output is therefore golang-specific, just as
-// the python "smart" format produces python-specific output.
-func convertSmart(value interface{}) ([]byte, error) {
+// convertYaml marshals value to a yaml-formatted []byte, unless value is nil.
+func convertYaml(value interface{}) ([]byte, error) {
 	if value == nil {
 		return nil, nil
 	}
-	return []byte(fmt.Sprint(value)), nil
+	return goyaml.Marshal(value)
 }
 
 // defaultConverters are used by many jujuc Commands.
 var defaultConverters = map[string]converter{
-	"smart": convertSmart,
-	"json":  json.Marshal,
+	"yaml": convertYaml,
+	"json": json.Marshal,
 }
 
 // converterValue implements gnuflag.Value for a --format flag.
