@@ -44,7 +44,6 @@ type environ struct {
 	ec2         *ec2.EC2
 	s3          *s3.S3
 	bucketMutex sync.Mutex
-	bucketError error
 	madeBucket  bool
 }
 

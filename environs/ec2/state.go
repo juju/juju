@@ -72,15 +72,10 @@ func (e *environ) deleteState() error {
 	wg.Wait()
 	select {
 	case err := <-errc:
-		return fmt.Errorf("cannot delete provider state: %v", err)
+		return fmt.Errorf("cannot delete all provider state: %v", err)
 	default:
 	}
-	err = b.DelBucket()
-	if err == nil {
-		e.madeBucket = false
-		e.bucketError = nil
-	}
-	return err
+	return b.DelBucket()
 }
 
 // makeBucket makes the environent's control bucket, the
@@ -90,16 +85,13 @@ func (e *environ) deleteState() error {
 func (e *environ) makeBucket() error {
 	e.bucketMutex.Lock()
 	defer e.bucketMutex.Unlock()
-	if e.bucketError != nil {
-		return e.bucketError
-	}
 	// try to make the bucket - PutBucket will succeed if the
 	// bucket already exists.
-	e.bucketError = e.bucket().PutBucket(s3.Private)
-	if e.bucketError == nil {
+	err := e.bucket().PutBucket(s3.Private)
+	if err == nil {
 		e.madeBucket = true
 	}
-	return e.bucketError
+	return err
 }
 
 func (e *environ) PutFile(file string, r io.Reader, length int64) error {
