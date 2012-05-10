@@ -2,6 +2,7 @@ package state_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/state"
 	"launchpad.net/juju/go/state/watcher"
 	"time"
@@ -248,6 +249,64 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 		case got, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
 			c.Assert(got, DeepEquals, test.want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", test.want)
+		}
+	}
+
+	select {
+	case got, _ := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	c.Assert(w.Stop(), IsNil)
+}
+
+type any map[string]interface{}
+
+var environmentWatchTests = []struct {
+	test func(*state.ConfigNode) error
+	want map[string]interface{}
+}{
+	{func(config *state.ConfigNode) error {
+		config.Set("providor", "dummy")
+		_, err := config.Write()
+		return err
+	}, any{"providor": "dummy"}},
+	{func(config *state.ConfigNode) error {
+		config.Set("secret", "shhh")
+		_, err := config.Write()
+		return err
+	}, any{"providor": "dummy", "secret": "shhh"}},
+	{func(config *state.ConfigNode) error {
+		config.Update(any{"providor": "aws"})
+		_, err := config.Write()
+		return err
+	}, any{"providor": "aws", "secret": "shhh"}},
+}
+
+func (s *StateSuite) TestWatchEnvironment(c *C) {
+	// make sure there is an /environment key
+	path, err := s.zkConn.Create("/environment", "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
+	c.Assert(err, IsNil)
+	c.Assert(path, Equals, "/environment")
+
+	// fetch the /environment key as a *ConfigNode
+	w := s.st.WatchEnvironment()
+	config, ok := <-w.Changes()
+	c.Assert(ok, Equals, true)
+
+	// TODO(dfc) why does config need to be primed before Set can be used ? 
+	config.Read()
+
+	for _, test := range environmentWatchTests {
+		err := test.test(config)
+		c.Assert(err, IsNil)
+		select {
+		case got, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got.Map(), DeepEquals, test.want)
 		case <-time.After(200 * time.Millisecond):
 			c.Fatalf("didn't get change: %#v", test.want)
 		}
