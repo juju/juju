@@ -57,6 +57,11 @@ func (s *State) RemoveMachine(id int) error {
 	return zkRemoveTree(s.zk, fmt.Sprintf("/machines/%s", key))
 }
 
+// WatchMachines watches for new Machines added or removed.
+func (s *State) WatchMachines() *MachinesWatcher {
+	return newMachinesWatcher(s, zkMachinesPath)
+}
+
 // Machine returns the machine with the given id.
 func (s *State) Machine(id int) (*Machine, error) {
 	key := machineKey(id)

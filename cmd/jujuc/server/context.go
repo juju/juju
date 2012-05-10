@@ -24,10 +24,22 @@ type ClientContext struct {
 	RelationName   string
 }
 
+// checkUnitState returns an error if ctx has nil State or LocalUnitName fields.
+func (ctx *ClientContext) check() error {
+	if ctx.State == nil {
+		return fmt.Errorf("context %s cannot access state", ctx.Id)
+	}
+	if ctx.LocalUnitName == "" {
+		return fmt.Errorf("context %s is not attached to a unit", ctx.Id)
+	}
+	return nil
+}
+
 // newCommands maps Command names to initializers.
 var newCommands = map[string]func(*ClientContext) (cmd.Command, error){
 	"config-get": NewConfigGetCommand,
 	"juju-log":   NewJujuLogCommand,
+	"unit-get":   NewUnitGetCommand,
 }
 
 // NewCommand returns an instance of the named Command, initialized to execute
