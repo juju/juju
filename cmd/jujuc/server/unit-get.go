@@ -11,8 +11,8 @@ import (
 // UnitGetCommand implements the unit-get command.
 type UnitGetCommand struct {
 	*ClientContext
-	out resultWriter
 	Key string
+	out formatter
 }
 
 func NewUnitGetCommand(ctx *ClientContext) (cmd.Command, error) {
@@ -59,5 +59,5 @@ func (c *UnitGetCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return
 	}
-	return c.out.write(ctx, value)
+	return c.out.run(ctx, value)
 }

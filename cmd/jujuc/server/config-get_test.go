@@ -56,6 +56,10 @@ func (s *ConfigGetSuite) TestOutputFormat(c *C) {
 	}
 }
 
+func (s *ConfigGetSuite) TestTestMode(c *C) {
+	c.Fatalf("write me")
+}
+
 func (s *ConfigGetSuite) TestHelp(c *C) {
 	com, err := s.ctx.NewCommand("config-get")
 	c.Assert(err, IsNil)
@@ -71,6 +75,8 @@ options:
     specify output format (json|yaml)
 -o, --output (= "")
     specify an output file
+--test  (= false)
+    suppress output; communicate result truthiness in return code
 
 If a key is given, only the value for that key will be printed.
 `)

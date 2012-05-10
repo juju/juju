@@ -45,6 +45,10 @@ func (s *UnitGetSuite) TestOutputFormat(c *C) {
 	}
 }
 
+func (s *UnitGetSuite) TestTestMode(c *C) {
+	c.Fatalf("write me")
+}
+
 func (s *UnitGetSuite) TestHelp(c *C) {
 	com, err := s.ctx.NewCommand("unit-get")
 	c.Assert(err, IsNil)
@@ -60,6 +64,8 @@ options:
     specify output format (json|yaml)
 -o, --output (= "")
     specify an output file
+--test  (= false)
+    suppress output; communicate result truthiness in return code
 `)
 }
 

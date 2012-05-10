@@ -9,7 +9,7 @@ import (
 type ConfigGetCommand struct {
 	*ClientContext
 	Key string // The key to show. If empty, show all.
-	out resultWriter
+	out formatter
 }
 
 func NewConfigGetCommand(ctx *ClientContext) (cmd.Command, error) {
@@ -59,5 +59,5 @@ func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
 	} else {
 		value, _ = conf.Get(c.Key)
 	}
-	return c.out.write(ctx, value)
+	return c.out.run(ctx, value)
 }
