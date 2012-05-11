@@ -346,8 +346,8 @@ func (t *topology) HasRelation(key string) bool {
 	return t.topology.Relations[key] != nil
 }
 
-// AddClientServerRelation adds a relation between the client and
-// the server. It will get the given key, interface and scope.
+// AddClientServerRelation adds a new relation between the client and
+// the server.
 func (t *topology) AddClientServerRelation(relationKey, clientKey, serverKey, ifce string, scope RelationScope) error {
 	if t.topology.Relations == nil {
 		t.topology.Relations = make(map[string]*zkRelation)
@@ -375,8 +375,7 @@ func (t *topology) AddClientServerRelation(relationKey, clientKey, serverKey, if
 	return nil
 }
 
-// AddPeerRelation adds a relation with the peer. It
-// will get the given key, interface and scope. 
+// AddPeerRelation adds a new relation with the peer.
 func (t *topology) AddPeerRelation(relationKey, peerKey, ifce string, scope RelationScope) error {
 	if t.topology.Relations == nil {
 		t.topology.Relations = make(map[string]*zkRelation)
