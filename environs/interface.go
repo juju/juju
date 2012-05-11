@@ -3,21 +3,24 @@ package environs
 import (
 	"errors"
 	"io"
-	"launchpad.net/juju/go/schema"
 	"launchpad.net/juju/go/state"
 )
+
+type Getter interface {
+	Get(key string) (interface{}, error)
+}
 
 // A EnvironProvider represents a computing and storage provider.
 type EnvironProvider interface {
 	// ConfigChecker is used to check sections of the environments.yaml
 	// file that specify this provider. The value passed to the Checker is
 	// that returned from the yaml parse, of type schema.MapType.
-	ConfigChecker() schema.Checker
+	Check(attrs Getter) (attributes interface{}, err error)
 
 	// NewEnviron creates a new Environ with
 	// the given attributes returned by the ConfigChecker.
 	// The name is that given in environments.yaml.
-	Open(name string, attributes interface{}) (Environ, error)
+	Open(attributes interface{}) (Environ, error)
 }
 
 var ErrNoDNSName = errors.New("DNS name not allocated")
@@ -40,6 +43,10 @@ type Instance interface {
 var ErrNoInstances = errors.New("no instances found")
 var ErrPartialInstances = errors.New("only some instances were found")
 
+type Setter interface {
+	Set(key string, value interface{})
+}
+
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
 // 
@@ -51,6 +58,13 @@ var ErrPartialInstances = errors.New("only some instances were found")
 // consistent with a previous operation.
 // 
 type Environ interface {
+	// Write requests the Environ to write its settings to the given
+	// Setter.  The attributes written should include
+	// "environment-type" and "name", the name of the environment as
+	// passed to EnvironProvider.Open.
+	// If secret is false, no secret settings should be written.
+	Write(setter Setter, secret bool)
+
 	// Bootstrap initializes the state for the environment,
 	// possibly starting one or more instances.
 	Bootstrap() error
