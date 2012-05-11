@@ -23,8 +23,8 @@ const (
 
 // RelationEndpoint represents one endpoint of a relation.
 type RelationEndpoint struct {
-	ServiceName   string        `yaml:"service-name"`
-	RelationType  string        `yaml:"relation-type"`
+	ServiceName   string `yaml:"service-name"`
+	Interface     string
 	RelationRole  RelationRole  `yaml:"relation-role"`
 	RelationScope RelationScope `yaml:"relation-scope"`
 }
@@ -32,12 +32,11 @@ type RelationEndpoint struct {
 // CanRelateTo tests whether the "other"`" endpoint can be used in a common 
 // relation.
 // 
-// RelationEndpoints can be related if they share the same RelationType
-// (which is called an "interface" in charms) and one is a 'provides'
-// and the other is a 'requires'; or if both endpoints have a
-// RelationRole of 'peers'.
+// RelationEndpoints can be related if they share the same interface
+// and one is a 'server' while the other is a 'client'; or if both endpoints 
+// have a role of 'peers'.
 func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
-	if e.RelationType != other.RelationType {
+	if e.Interface != other.Interface {
 		return false
 	}
 	switch e.RelationRole {
@@ -48,5 +47,5 @@ func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
 	case RolePeer:
 		return other.RelationRole == RolePeer
 	}
-	return false
+	panic("invalid endpoint role")
 }

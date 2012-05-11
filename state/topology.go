@@ -11,6 +11,7 @@ import (
 // The protocol version, which is stored in the /topology node under
 // the "version" key. The protocol version should *only* be updated
 // when we know that a version is in fact actually incompatible.
+
 const topologyVersion = 1
 
 // zkTopology is used to marshal and unmarshal the content
@@ -43,9 +44,8 @@ type zkUnit struct {
 }
 
 // zkRelation represents the relation data within the 
-// /topology node in ZooKeeper. "Server", "Client" and
-// "Peer" contain the according service keys, the right
-// combination (server/client or peer) has to be validated.
+// /topology node in ZooKeeper. "Members" references to
+// the service keys of server and client or a peer.
 type zkRelation struct {
 	Interface string
 	Scope     RelationScope
@@ -346,6 +346,57 @@ func (t *topology) HasRelation(key string) bool {
 	return t.topology.Relations[key] != nil
 }
 
+// AddClientServerRelation adds a relation between the client and
+// the server. It will get the given key, interface and scope.
+func (t *topology) AddClientServerRelation(relationKey, clientKey, serverKey, ifce string, scope RelationScope) error {
+	if t.topology.Relations == nil {
+		t.topology.Relations = make(map[string]*zkRelation)
+	}
+	if t.HasRelation(relationKey) {
+		return fmt.Errorf("relation key %q already in use", relationKey)
+	}
+	if clientKey == serverKey {
+		return fmt.Errorf("client and server keys must not be the same")
+	}
+	if err := t.assertService(clientKey); err != nil {
+		return err
+	}
+	if err := t.assertService(serverKey); err != nil {
+		return err
+	}
+	t.topology.Relations[relationKey] = &zkRelation{
+		Interface: ifce,
+		Scope:     scope,
+		Members: map[RelationRole]string{
+			RoleClient: clientKey,
+			RoleServer: serverKey,
+		},
+	}
+	return nil
+}
+
+// AddPeerRelation adds a relation with the peer. It
+// will get the given key, interface and scope. 
+func (t *topology) AddPeerRelation(relationKey, peerKey, ifce string, scope RelationScope) error {
+	if t.topology.Relations == nil {
+		t.topology.Relations = make(map[string]*zkRelation)
+	}
+	if t.HasRelation(relationKey) {
+		return fmt.Errorf("relation key %q already in use", relationKey)
+	}
+	if err := t.assertService(peerKey); err != nil {
+		return err
+	}
+	t.topology.Relations[relationKey] = &zkRelation{
+		Interface: ifce,
+		Scope:     scope,
+		Members: map[RelationRole]string{
+			RolePeer: peerKey,
+		},
+	}
+	return nil
+}
+
 // AddRelation adds a relation with the given key and of
 // the given type.
 func (t *topology) AddRelation(key, relationType string, scope RelationScope) error {
@@ -389,8 +440,8 @@ func (t *topology) RelationServices(key string) (map[string]RelationRole, error)
 	return services, nil
 }
 
-// RelationType returns the type of a relation (its interface name).
-func (t *topology) RelationType(key string) (string, error) {
+// RelationInterface returns the interface of a relation.
+func (t *topology) RelationInterface(key string) (string, error) {
 	if err := t.assertRelation(key); err != nil {
 		return "", err
 	}
@@ -421,28 +472,6 @@ func (t *topology) RelationHasService(relationKey, serviceKey string) bool {
 // RemoveRelation removes a relation.
 func (t *topology) RemoveRelation(key string) {
 	delete(t.topology.Relations, key)
-}
-
-// AssignServiceToRelation adds a service to a relation.
-func (t *topology) AssignServiceToRelation(relationKey, serviceKey string, role RelationRole) error {
-	if err := t.assertService(serviceKey); err != nil {
-		return err
-	}
-	if err := t.assertRelation(relationKey); err != nil {
-		return err
-	}
-	relation := t.topology.Relations[relationKey]
-	for _, member := range relation.Members {
-		if member == serviceKey {
-			return fmt.Errorf("service %q is already assigned to relation %q", serviceKey, relationKey)
-		}
-	}
-	member := relation.Members[role]
-	if member != "" {
-		return fmt.Errorf("another service %q is already providing %q role in relation", member, role)
-	}
-	relation.Members[role] = serviceKey
-	return nil
 }
 
 // endpointInfo bundles the informations of an endpoint
