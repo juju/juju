@@ -2,6 +2,7 @@ package ec2
 
 import (
 	"launchpad.net/goamz/ec2"
+	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
 	"net/http"
 )
@@ -32,6 +33,10 @@ func AuthorizedKeys(path string) (string, error) {
 
 func EnvironEC2(e environs.Environ) *ec2.EC2 {
 	return e.(*environ).ec2
+}
+
+func EnvironBucket(e environs.Environ) *s3.Bucket {
+	return e.(*environ).bucket()
 }
 
 func InstanceEC2(inst environs.Instance) *ec2.Instance {
