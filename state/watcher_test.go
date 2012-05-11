@@ -24,19 +24,36 @@ func (s *StateSuite) TestServiceWatchConfig(c *C) {
 	c.Assert(config.Keys(), HasLen, 0)
 	configWatcher := wordpress.WatchConfig()
 
+	time.Sleep(100 * time.Millisecond)
+
 	// Two change events.
 	config.Set("foo", "bar")
 	config.Set("baz", "yadda")
-	_, err = config.Write()
+	changes, err := config.Write()
 	c.Assert(err, IsNil)
+	c.Assert(changes, DeepEquals, []state.ItemChange{{
+		Key: "baz",
+		Type: state.ItemAdded,
+		NewValue: "yadda",
+	}, {
+		Key: "foo",
+		Type: state.ItemAdded,
+		NewValue: "bar",
+	}})
 	time.Sleep(100 * time.Millisecond)
 	config.Delete("foo")
-	_, err = config.Write()
+	changes, err = config.Write()
 	c.Assert(err, IsNil)
+	c.Assert(changes, DeepEquals, []state.ItemChange{{
+		Key: "foo",
+		Type: state.ItemDeleted,
+		OldValue: "bar",
+	}})
 
 	for _, want := range serviceWatchConfigData {
 		select {
 		case got, ok := <-configWatcher.Changes():
+			c.Logf("got configNode %p", got)
 			c.Assert(ok, Equals, true)
 			c.Assert(got.Map(), DeepEquals, want)
 		case <-time.After(200 * time.Millisecond):

@@ -31,6 +31,10 @@ func NewContentWatcher(zk *zookeeper.Conn, watchedPath string) *ContentWatcher {
 		zk:         zk,
 		path:       watchedPath,
 		changeChan: make(chan ContentChange),
+		// Use an impossible content (non-existent with some data)
+		// to make sure that we always send the initial state
+		// as the first message on the channel.
+		content: ContentChange{Content: "blah"},
 	}
 	go w.loop()
 	return w
@@ -114,24 +118,19 @@ func (w *ContentWatcher) update() (nextWatch <-chan zookeeper.Event, err error) 
 		// Any other error during GetW() or ExistsW().
 		return nil, fmt.Errorf("watcher: can't get content of node %q: %v", w.path, err)
 	}
-	if stat != nil {
-		if w.content.Exists && content == w.content.Content {
-			return nextWatch, nil
-		}
-		w.content.Exists = true
-		w.content.Content = content
-	} else {
-		if !w.content.Exists {
-			return nextWatch, nil
-		}
-		w.content.Exists = false
-		w.content.Content = ""
+	newContent := ContentChange{
+		Exists: stat != nil,
+		Content: content,
+	}
+	if newContent == w.content {
+		return nextWatch, nil
 	}
 	select {
 	case <-w.tomb.Dying():
 		return nil, tomb.ErrDying
-	case w.changeChan <- w.content:
+	case w.changeChan <- newContent:
 	}
+	w.content = newContent
 	return nextWatch, nil
 }
 
