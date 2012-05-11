@@ -13,10 +13,6 @@ import (
 	"time"
 )
 
-const (
-	zkMachinesPath = "/machines"
-)
-
 // Machine represents the state of a machine.
 type Machine struct {
 	st  *State
