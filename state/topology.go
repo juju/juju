@@ -397,23 +397,6 @@ func (t *topology) AddPeerRelation(relationKey, peerKey, ifce string, scope Rela
 	return nil
 }
 
-// AddRelation adds a relation with the given key and of
-// the given type.
-func (t *topology) AddRelation(key, relationType string, scope RelationScope) error {
-	if t.topology.Relations == nil {
-		t.topology.Relations = make(map[string]*zkRelation)
-	}
-	if t.HasRelation(key) {
-		return fmt.Errorf("relation key %q already in use", key)
-	}
-	t.topology.Relations[key] = &zkRelation{
-		Interface: relationType,
-		Scope:     scope,
-		Members:   make(map[RelationRole]string),
-	}
-	return nil
-}
-
 // RelationKeys returns all relation keys.
 func (t *topology) RelationKeys() []string {
 	keys := []string{}
@@ -474,7 +457,7 @@ func (t *topology) RemoveRelation(key string) {
 	delete(t.topology.Relations, key)
 }
 
-// endpointInfo bundles the informations of an endpoint
+// endpointInfo bundles the information of an endpoint
 // between a service and a relation.
 type endpointInfo struct {
 	ServiceKey  string
@@ -484,7 +467,7 @@ type endpointInfo struct {
 	Role        RelationRole
 }
 
-// ActiveServiceEndpoint returns informations about the endpoint
+// ActiveServiceEndpoint returns information about the endpoint
 // between a service and a relation.
 func (t *topology) ActiveServiceEndpoint(serviceKey, relationKey string) (*endpointInfo, error) {
 	if err := t.assertService(serviceKey); err != nil {
@@ -508,7 +491,7 @@ func (t *topology) ActiveServiceEndpoint(serviceKey, relationKey string) (*endpo
 	return nil, fmt.Errorf("service %q is not assigned to relation %q", serviceKey, relationKey)
 }
 
-// ActiveServiceEndpoints returns all informations of the endpoints
+// ActiveServiceEndpoints returns all information of the endpoints
 // between a service and its relations.
 func (t *topology) ActiveServiceEndpoints(serviceKey string) ([]*endpointInfo, error) {
 	if err := t.assertService(serviceKey); err != nil {

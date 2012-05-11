@@ -457,8 +457,8 @@ func (s *TopologySuite) TestHasRelation(c *C) {
 	// relations work correctly.
 	found := s.t.HasRelation("r-1")
 	c.Assert(found, Equals, false)
-	err := s.t.AddRelation("r-1", "type", "global")
-	c.Assert(err, IsNil)
+	s.t.AddService("s-p", "riak")
+	s.t.AddPeerRelation("r-1", "s-p", "ifce", ScopeGlobal)
 	found = s.t.HasRelation("r-1")
 	c.Assert(found, Equals, true)
 }
