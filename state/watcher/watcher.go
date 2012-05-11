@@ -119,18 +119,18 @@ func (w *ContentWatcher) update() (nextWatch <-chan zookeeper.Event, err error) 
 		return nil, fmt.Errorf("watcher: can't get content of node %q: %v", w.path, err)
 	}
 	newContent := ContentChange{
-		Exists: stat != nil,
+		Exists:  stat != nil,
 		Content: content,
 	}
 	if newContent == w.content {
 		return nextWatch, nil
 	}
+	w.content = newContent
 	select {
 	case <-w.tomb.Dying():
 		return nil, tomb.ErrDying
-	case w.changeChan <- newContent:
+	case w.changeChan <- w.content:
 	}
-	w.content = newContent
 	return nextWatch, nil
 }
 

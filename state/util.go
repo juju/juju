@@ -62,8 +62,8 @@ func (ics itemChangeSlice) Swap(i, j int)      { ics[i], ics[j] = ics[j], ics[i]
 // the data as a delta in memory, and merges them back
 // onto the node when explicitly requested.
 type ConfigNode struct {
-	zk            *zookeeper.Conn
-	path          string
+	zk   *zookeeper.Conn
+	path string
 	// pristineCache holds the values in the config node before
 	// any attributes have been set. It is reset on Read and Write
 	// operations.
@@ -72,14 +72,14 @@ type ConfigNode struct {
 	// The difference between pristineCache and cache
 	// determines the delta to be applied when ConfigNode.Write
 	// is called.
-	cache         map[string]interface{}
+	cache map[string]interface{}
 }
 
 func newConfigNode(zk *zookeeper.Conn, path string) *ConfigNode {
 	return &ConfigNode{
-		zk:            zk,
-		path:          path,
-		cache:         make(map[string]interface{}),
+		zk:    zk,
+		path:  path,
+		cache: make(map[string]interface{}),
 	}
 }
 
