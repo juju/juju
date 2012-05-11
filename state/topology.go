@@ -11,6 +11,7 @@ import (
 // The protocol version, which is stored in the /topology node under
 // the "version" key. The protocol version should *only* be updated
 // when we know that a version is in fact actually incompatible.
+
 const topologyVersion = 1
 
 // zkTopology is used to marshal and unmarshal the content
@@ -42,19 +43,13 @@ type zkUnit struct {
 	Machine  string
 }
 
-// zkRelations represents the relation data within the 
-// /topology node in ZooKeeper.
+// zkRelation represents the relation data within the 
+// /topology node in ZooKeeper. "Members" references to
+// the service keys of server and client or a peer.
 type zkRelation struct {
 	Interface string
 	Scope     RelationScope
-	Services  map[string]*zkServiceSettings
-}
-
-// zkServiceSettings represents the service settings for
-// a relation within the /topology node in ZooKeeper.
-type zkServiceSettings struct {
-	Role RelationRole
-	Name string
+	Members   map[RelationRole]string
 }
 
 // topology is an internal helper that handles the content
@@ -176,12 +171,12 @@ func (t *topology) RemoveService(key string) error {
 	if err := t.assertService(key); err != nil {
 		return err
 	}
-	infos, err := t.RelationsForService(key)
+	infos, err := t.ActiveServiceEndpoints(key)
 	if err != nil {
 		return err
 	}
 	if len(infos) > 0 {
-		return fmt.Errorf("service %q is associated to relations", key)
+		return fmt.Errorf("cannot remove service %q with active relations", key)
 	}
 	delete(t.topology.Services, key)
 	return nil
@@ -351,19 +346,52 @@ func (t *topology) HasRelation(key string) bool {
 	return t.topology.Relations[key] != nil
 }
 
-// AddRelation adds a relation with the given key and of
-// the given type.
-func (t *topology) AddRelation(key, relationType string, scope RelationScope) error {
+// AddClientServerRelation adds a new relation between the client and
+// the server.
+func (t *topology) AddClientServerRelation(relationKey, clientKey, serverKey, ifce string, scope RelationScope) error {
 	if t.topology.Relations == nil {
 		t.topology.Relations = make(map[string]*zkRelation)
 	}
-	if t.HasRelation(key) {
-		return fmt.Errorf("relation key %q already in use", key)
+	if t.HasRelation(relationKey) {
+		return fmt.Errorf("relation key %q already in use", relationKey)
 	}
-	t.topology.Relations[key] = &zkRelation{
-		Interface: relationType,
+	if clientKey == serverKey {
+		return fmt.Errorf("client and server keys must not be the same")
+	}
+	if err := t.assertService(clientKey); err != nil {
+		return err
+	}
+	if err := t.assertService(serverKey); err != nil {
+		return err
+	}
+	t.topology.Relations[relationKey] = &zkRelation{
+		Interface: ifce,
 		Scope:     scope,
-		Services:  make(map[string]*zkServiceSettings),
+		Members: map[RelationRole]string{
+			RoleClient: clientKey,
+			RoleServer: serverKey,
+		},
+	}
+	return nil
+}
+
+// AddPeerRelation adds a new relation with the peer.
+func (t *topology) AddPeerRelation(relationKey, peerKey, ifce string, scope RelationScope) error {
+	if t.topology.Relations == nil {
+		t.topology.Relations = make(map[string]*zkRelation)
+	}
+	if t.HasRelation(relationKey) {
+		return fmt.Errorf("relation key %q already in use", relationKey)
+	}
+	if err := t.assertService(peerKey); err != nil {
+		return err
+	}
+	t.topology.Relations[relationKey] = &zkRelation{
+		Interface: ifce,
+		Scope:     scope,
+		Members: map[RelationRole]string{
+			RolePeer: peerKey,
+		},
 	}
 	return nil
 }
@@ -378,16 +406,24 @@ func (t *topology) RelationKeys() []string {
 	return keys
 }
 
-// RelationServices returns all services associated to the relation.
-func (t *topology) RelationServices(key string) (map[string]*zkServiceSettings, error) {
+// RelationServices returns the keys and roles of all services which are members 
+// of the relation.
+func (t *topology) RelationServices(key string) (map[string]RelationRole, error) {
 	if err := t.assertRelation(key); err != nil {
 		return nil, err
 	}
-	return t.topology.Relations[key].Services, nil
+	services := make(map[string]RelationRole)
+	for role, serviceKey := range t.topology.Relations[key].Members {
+		services[serviceKey] = role
+	}
+	if len(services) == 0 {
+		return nil, nil
+	}
+	return services, nil
 }
 
-// RelationType returns the type of a relation (its interface name).
-func (t *topology) RelationType(key string) (string, error) {
+// RelationInterface returns the interface of a relation.
+func (t *topology) RelationInterface(key string) (string, error) {
 	if err := t.assertRelation(key); err != nil {
 		return "", err
 	}
@@ -403,76 +439,36 @@ func (t *topology) RelationScope(key string) (RelationScope, error) {
 }
 
 // RelationHasService returns true if 'serviceKey' is 
-// assigned to 'relationKey'.
+// a member of the relation.
 func (t *topology) RelationHasService(relationKey, serviceKey string) bool {
 	if t.HasRelation(relationKey) {
-		services := t.topology.Relations[relationKey].Services
-		return services != nil && services[serviceKey] != nil
+		for _, key := range t.topology.Relations[relationKey].Members {
+			if key == serviceKey {
+				return true
+			}
+		}
 	}
 	return false
 }
 
-// RemoveRelation removes a relation if it exists.
-func (t *topology) RemoveRelation(key string) error {
-	if err := t.assertRelation(key); err != nil {
-		return err
-	}
+// RemoveRelation removes a relation.
+func (t *topology) RemoveRelation(key string) {
 	delete(t.topology.Relations, key)
-	return nil
 }
 
-// AssignServiceToRelation associates a service to a relation.
-// Relation role and name have to be passed.
-func (t *topology) AssignServiceToRelation(relationKey, serviceKey, name string, role RelationRole) error {
-	if err := t.assertService(serviceKey); err != nil {
-		return err
-	}
-	if err := t.assertRelation(relationKey); err != nil {
-		return err
-	}
-	for skey, serviceSettings := range t.topology.Relations[relationKey].Services {
-		if skey == serviceKey {
-			return fmt.Errorf("service %q is already assigned to relation %q",
-				serviceKey, relationKey)
-		}
-		if serviceSettings.Role == role {
-			return fmt.Errorf("another service %q is already providing %q "+
-				"role in relation", skey, serviceSettings.Role)
-		}
-	}
-	t.topology.Relations[relationKey].Services[serviceKey] = &zkServiceSettings{role, name}
-	return nil
+// endpointInfo bundles the informations of an endpoint
+// between a service and a relation.
+type endpointInfo struct {
+	ServiceKey  string
+	RelationKey string
+	Interface   string
+	Scope       RelationScope
+	Role        RelationRole
 }
 
-// UnassignServiceFromRelation disassociates a service from a relation.
-func (t *topology) UnassignServiceFromRelation(relationKey, serviceKey string) error {
-	if err := t.assertService(serviceKey); err != nil {
-		return err
-	}
-	if err := t.assertRelation(relationKey); err != nil {
-		return err
-	}
-	if t.topology.Relations[relationKey].Services[serviceKey] == nil {
-		return fmt.Errorf("service %q is not assigned to relation %q",
-			serviceKey, relationKey)
-	}
-	delete(t.topology.Relations[relationKey].Services, serviceKey)
-	return nil
-}
-
-// relationInfo bundles the informations of a relation and an
-// associated service.
-type relationInfo struct {
-	Key       string
-	Interface string
-	Scope     RelationScope
-	Role      RelationRole
-	Name      string
-}
-
-// RelationServiceSettings returns the relation interface and the settings for a 
-// service assigned to a relation.
-func (t *topology) RelationServiceSettings(relationKey, serviceKey string) (*relationInfo, error) {
+// ActiveServiceEndpoint returns informations about the endpoint
+// between a service and a relation.
+func (t *topology) ActiveServiceEndpoint(serviceKey, relationKey string) (*endpointInfo, error) {
 	if err := t.assertService(serviceKey); err != nil {
 		return nil, err
 	}
@@ -480,118 +476,73 @@ func (t *topology) RelationServiceSettings(relationKey, serviceKey string) (*rel
 		return nil, err
 	}
 	relation := t.topology.Relations[relationKey]
-	if relation.Services[serviceKey] == nil {
-		return nil, fmt.Errorf("service %q is not assigned to relation %q",
-			serviceKey, relationKey)
+	for role, key := range relation.Members {
+		if key == serviceKey {
+			return &endpointInfo{
+				ServiceKey:  serviceKey,
+				RelationKey: relationKey,
+				Interface:   relation.Interface,
+				Scope:       relation.Scope,
+				Role:        role,
+			}, nil
+		}
 	}
-	info := &relationInfo{
-		Key:       relationKey,
-		Interface: relation.Interface,
-		Scope:     relation.Scope,
-		Role:      relation.Services[serviceKey].Role,
-		Name:      relation.Services[serviceKey].Name,
-	}
-	return info, nil
+	return nil, fmt.Errorf("service %q is not assigned to relation %q", serviceKey, relationKey)
 }
 
-// RelationsForService returns the relations for a given service key.
-func (t *topology) RelationsForService(serviceKey string) ([]*relationInfo, error) {
+// ActiveServiceEndpoints returns all informations of the endpoints
+// between a service and its relations.
+func (t *topology) ActiveServiceEndpoints(serviceKey string) ([]*endpointInfo, error) {
 	if err := t.assertService(serviceKey); err != nil {
 		return nil, err
 	}
-	relationInfos := []*relationInfo{}
+	endpointInfos := []*endpointInfo{}
 	for relationKey, relation := range t.topology.Relations {
-		if relation.Services != nil && relation.Services[serviceKey] != nil {
-			info := &relationInfo{
-				Key:       relationKey,
-				Interface: relation.Interface,
-				Scope:     relation.Scope,
-				Role:      relation.Services[serviceKey].Role,
-				Name:      relation.Services[serviceKey].Name,
-			}
-			relationInfos = append(relationInfos, info)
-		}
-	}
-	return relationInfos, nil
-}
-
-// HasRelationBetweenEndpoints checks if relation exists between 
-// 'endpoints'.
-//
-// The relation, with a 'relation type' common to the
-// endpoints, must exist between all endpoints (presumably one
-// for peer, two for client-server). The topology for the
-// relations looks like the following in YAML:
-//
-// relations:
-//     relation-0000000000:
-//     - mysql
-//     - global
-//     - service-0000000000: {name: db, role: client}
-//       service-0000000001: {name: server, role: server}
-func (t *topology) HasRelationBetweenEndpoints(endpoints ...RelationEndpoint) (bool, error) {
-	if t.topology.Relations == nil {
-		return false, nil
-	}
-	serviceIds := make(map[RelationEndpoint]string)
-	for _, e := range endpoints {
-		key, err := t.ServiceKey(e.ServiceName)
-		if err != nil {
-			return false, err
-		}
-		serviceIds[e] = key
-	}
-	for _, relation := range t.topology.Relations {
-		scope := relation.Scope
-		services := relation.Services
-		miss := false
-		for _, e := range endpoints {
-			service := services[serviceIds[e]]
-			if service == nil || service.Name != e.RelationName || scope != e.RelationScope {
-				miss = true
-				break
+		for role, key := range relation.Members {
+			if key == serviceKey {
+				info := &endpointInfo{
+					ServiceKey:  serviceKey,
+					RelationKey: relationKey,
+					Interface:   relation.Interface,
+					Scope:       relation.Scope,
+					Role:        role,
+				}
+				endpointInfos = append(endpointInfos, info)
 			}
 		}
-		if !miss {
-			return true, nil
-		}
 	}
-	return false, nil
+	return endpointInfos, nil
 }
 
-// RelationKeyBetweenEndpoints returns the relation key existing
-// between "endpoints" or "found" will be false.
-func (t *topology) RelationKeyBetweenEndpoints(endpoints ...RelationEndpoint) (key string, found bool, err error) {
+// RelationKey returns the key of a client/server relation with a matching
+// interface between two endpoints. If it doesn't exist "" is returned.
+func (t *topology) RelationKey(ep1, ep2 RelationEndpoint) (string, error) {
 	if t.topology.Relations == nil {
-		return "", false, nil
+		return "", nil
 	}
-	serviceIds := make(map[RelationEndpoint]string)
-	for _, e := range endpoints {
-		key, err := t.ServiceKey(e.ServiceName)
-		if err != nil {
-			return "", false, err
-		}
-		serviceIds[e] = key
+	ep1Key, err := t.ServiceKey(ep1.ServiceName)
+	if err != nil {
+		return "", err
+	}
+	ep2Key, err := t.ServiceKey(ep2.ServiceName)
+	if err != nil {
+		return "", err
 	}
 	for key, relation := range t.topology.Relations {
-		ifce := relation.Interface
-		services := relation.Services
-		miss := false
-		if ifce != endpoints[0].RelationType {
+		clientKey := relation.Members[RoleClient]
+		serverKey := relation.Members[RoleServer]
+		if clientKey == "" || serverKey == "" {
+			// It's a peer relation.
 			continue
 		}
-		for _, e := range endpoints {
-			service := services[serviceIds[e]]
-			if service == nil || service.Name != e.RelationName {
-				miss = true
-				break
-			}
+		if ep1.Interface != relation.Interface || ep2.Interface != relation.Interface {
+			continue
 		}
-		if !miss {
-			return key, true, nil
+		if (clientKey == ep1Key && serverKey == ep2Key) || (clientKey == ep2Key && serverKey == ep1Key) {
+			return key, nil
 		}
 	}
-	return "", false, nil
+	return "", nil
 }
 
 // assertMachine checks if a machine exists.

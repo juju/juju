@@ -455,8 +455,6 @@ func (s *TopologySuite) TestUnitKeyFromNonExistingService(c *C) {
 func (s *TopologySuite) TestHasRelation(c *C) {
 	// Check that tests for existing and non-existing
 	// relations work correctly.
-	// err := s.t.AddService("s-0", "wordpress")
-	// c.Assert(err, IsNil)
 	found := s.t.HasRelation("r-1")
 	c.Assert(found, Equals, false)
 	err := s.t.AddRelation("r-1", "type", "global")
@@ -465,120 +463,62 @@ func (s *TopologySuite) TestHasRelation(c *C) {
 	c.Assert(found, Equals, true)
 }
 
-func (s *TopologySuite) TestAddRelation(c *C) {
-	// Check that adding a relation works and 
-	// can only be done once with a given id.
+func (s *TopologySuite) TestAddClientServerRelation(c *C) {
+	// Check that adding a relation between client and server 
+	// works and can only be done once and with valid client
+	// and server.
 	found := s.t.HasRelation("r-1")
 	c.Assert(found, Equals, false)
-	err := s.t.AddRelation("r-1", "type", ScopeGlobal)
+	err := s.t.AddClientServerRelation("r-1", "s-0", "s-0", "ifce", ScopeGlobal)
+	c.Assert(err, ErrorMatches, `client and server keys must not be the same`)
+	err = s.t.AddClientServerRelation("r-1", "s-c", "s-s", "ifce", ScopeGlobal)
+	c.Assert(err, ErrorMatches, `service with key "s-c" not found`)
+	s.t.AddService("s-c", "wordpress")
+	err = s.t.AddClientServerRelation("r-1", "s-c", "s-s", "ifce", ScopeGlobal)
+	c.Assert(err, ErrorMatches, `service with key "s-s" not found`)
+	s.t.AddService("s-s", "mysql")
+	err = s.t.AddClientServerRelation("r-1", "s-c", "s-s", "ifce", ScopeGlobal)
 	c.Assert(err, IsNil)
-	err = s.t.AddRelation("r-1", "type", ScopeGlobal)
+
+	found = s.t.RelationHasService("r-1", "s-c")
+	c.Assert(found, Equals, true)
+	found = s.t.RelationHasService("r-1", "s-s")
+	c.Assert(found, Equals, true)
+
+	err = s.t.AddClientServerRelation("r-1", "s-c", "s-s", "ifce", ScopeGlobal)
 	c.Assert(err, ErrorMatches, `relation key "r-1" already in use`)
 }
 
-func (s *TopologySuite) TestAssignServiceToRelation(c *C) {
-	// Check if a service can be associated to a relation. First
-	// service and relation must be valid.
-	err := s.t.AssignServiceToRelation("r-1", "s-0", "name", RolePeer)
-	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
-	s.t.AddService("s-0", "wordpress")
-	err = s.t.AssignServiceToRelation("r-1", "s-0", "name", RolePeer)
-	c.Assert(err, ErrorMatches, `relation with key "r-1" not found`)
-	s.t.AddRelation("r-1", "type", ScopeGlobal)
-
-	// Assign the service to the relation.
-	found := s.t.RelationHasService("r-1", "s-0")
+func (s *TopologySuite) TestAddPeerRelation(c *C) {
+	// Check that adding a relation with the peer 
+	// works and can only be done once and with valid peer.
+	found := s.t.HasRelation("r-1")
 	c.Assert(found, Equals, false)
-	err = s.t.AssignServiceToRelation("r-1", "s-0", "name", RolePeer)
-	infos, err := s.t.RelationsForService("s-0")
+	err := s.t.AddPeerRelation("r-1", "s-p", "ifce", ScopeGlobal)
+	c.Assert(err, ErrorMatches, `service with key "s-p" not found`)
+	s.t.AddService("s-p", "riak")
+	err = s.t.AddPeerRelation("r-1", "s-p", "ifce", ScopeGlobal)
 	c.Assert(err, IsNil)
-	c.Assert(infos, DeepEquals, []*relationInfo{
-		{"r-1", "type", ScopeGlobal, RolePeer, "name"},
-	})
 
-	// Repeated assignment leads to an error, even with different
-	// name and role.
-	err = s.t.AssignServiceToRelation("r-1", "s-0", "name2", RoleServer)
-	c.Assert(err, ErrorMatches, `service "s-0" is already assigned to relation "r-1"`)
-
-	// Second service with same role can't be assigned.
-	s.t.AddService("s-1", "database")
-	err = s.t.AssignServiceToRelation("r-1", "s-1", "name", RolePeer)
-	c.Assert(err, ErrorMatches, `another service "s-0" is already providing "peer" role in relation`)
-}
-
-func (s *TopologySuite) TestUnassignServiceFromRelation(c *C) {
-	// Check that a service can be disassociated from a relation. First
-	// service and relation must be valid.
-	err := s.t.AssignServiceToRelation("r-1", "s-0", "name", RolePeer)
-	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
-	s.t.AddService("s-0", "wordpress")
-	err = s.t.AssignServiceToRelation("r-1", "s-0", "name", RolePeer)
-	c.Assert(err, ErrorMatches, `relation with key "r-1" not found`)
-	s.t.AddRelation("r-1", "type", ScopeGlobal)
-
-	// Return an error if service is not assigned.
-	err = s.t.UnassignServiceFromRelation("r-1", "s-0")
-	c.Assert(err, ErrorMatches, `service "s-0" is not assigned to relation "r-1"`)
-
-	err = s.t.AssignServiceToRelation("r-1", "s-0", "name", RolePeer)
-	infos, err := s.t.RelationsForService("s-0")
-	c.Assert(err, IsNil)
-	c.Assert(infos, DeepEquals, []*relationInfo{
-		{"r-1", "type", ScopeGlobal, RolePeer, "name"},
-	})
-
-	// Check that unassigning returns no error.
-	err = s.t.UnassignServiceFromRelation("r-1", "s-0")
-	c.Assert(err, IsNil)
-	infos, err = s.t.RelationsForService("s-0")
-	c.Assert(err, IsNil)
-	c.Assert(infos, DeepEquals, []*relationInfo{})
-}
-
-func (s *TopologySuite) TestRelationHasService(c *C) {
-	// Check the test if a service is associated to a relation.
-	found := s.t.RelationHasService("r-1", "s-0")
-	c.Assert(found, Equals, false)
-	s.t.AddRelation("r-1", "type", ScopeGlobal)
-	s.t.AddService("s-0", "wordpress")
-	s.t.AssignServiceToRelation("r-1", "s-0", "name", RolePeer)
-	found = s.t.RelationHasService("r-1", "s-0")
+	found = s.t.RelationHasService("r-1", "s-p")
 	c.Assert(found, Equals, true)
+
+	err = s.t.AddPeerRelation("r-1", "s-p", "ifce", ScopeGlobal)
+	c.Assert(err, ErrorMatches, `relation key "r-1" already in use`)
 }
 
-func (s *TopologySuite) TestRelationServiceSettings(c *C) {
-	// Check the fetching of service settings.
-	info, err := s.t.RelationServiceSettings("r-1", "s-0")
-	c.Assert(info, IsNil)
-	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
-	s.t.AddService("s-0", "wordpress")
-	info, err = s.t.RelationServiceSettings("r-1", "s-0")
-	c.Assert(info, IsNil)
-	c.Assert(err, ErrorMatches, `relation with key "r-1" not found`)
-	s.t.AddRelation("r-1", "type", ScopeGlobal)
-
-	// Fetching settings for an unassigned service leads to an error.
-	info, err = s.t.RelationServiceSettings("r-1", "s-0")
-	c.Assert(info, IsNil)
-	c.Assert(err, ErrorMatches, `service "s-0" is not assigned to relation "r-1"`)
-
-	s.t.AssignServiceToRelation("r-1", "s-0", "name", RolePeer)
-	info, err = s.t.RelationServiceSettings("r-1", "s-0")
-	c.Assert(err, IsNil)
-	c.Assert(info, DeepEquals, &relationInfo{"r-1", "type", ScopeGlobal, RolePeer, "name"})
-}
-
-func (s *TopologySuite) TestRelationType(c *C) {
+func (s *TopologySuite) TestRelationInterface(c *C) {
 	// Check that fetching the relation type works.
-	relationType, err := s.t.RelationType("r-1")
-	c.Assert(relationType, Equals, "")
+	ifce, err := s.t.RelationInterface("r-1")
+	c.Assert(ifce, Equals, "")
 	c.Assert(err, ErrorMatches, `relation with key "r-1" not found`)
 
-	s.t.AddRelation("r-1", "type", ScopeGlobal)
-	relationType, err = s.t.RelationType("r-1")
+	s.t.AddService("s-p", "riak")
+	s.t.AddPeerRelation("r-1", "s-p", "ifce", ScopeGlobal)
+
+	ifce, err = s.t.RelationInterface("r-1")
 	c.Assert(err, IsNil)
-	c.Assert(relationType, Equals, "type")
+	c.Assert(ifce, Equals, "ifce")
 }
 
 func (s *TopologySuite) TestRelationKeys(c *C) {
@@ -586,27 +526,27 @@ func (s *TopologySuite) TestRelationKeys(c *C) {
 	keys := s.t.RelationKeys()
 	c.Assert(keys, DeepEquals, []string{})
 
-	s.t.AddRelation("r-1", "type", ScopeGlobal)
+	s.t.AddService("s-p", "riak")
+	s.t.AddPeerRelation("r-1", "s-p", "ifce", ScopeGlobal)
 	keys = s.t.RelationKeys()
 	c.Assert(keys, DeepEquals, []string{"r-1"})
 
-	s.t.AddRelation("r-2", "type", ScopeGlobal)
+	s.t.AddPeerRelation("r-2", "s-p", "ifce", ScopeGlobal)
 	keys = s.t.RelationKeys()
 	c.Assert(keys, DeepEquals, []string{"r-1", "r-2"})
 }
 
 func (s *TopologySuite) TestRemoveRelation(c *C) {
 	// Check that removing of a relation works.
-	err := s.t.RemoveRelation("r-1")
-	c.Assert(err, ErrorMatches, `relation with key "r-1" not found`)
+	s.t.AddService("s-c", "wordpress")
+	s.t.AddService("s-s", "mysql")
 
-	s.t.AddService("s-0", "wordpress")
-	s.t.AddRelation("r-1", "type", ScopeGlobal)
-	s.t.AssignServiceToRelation("r-1", "s-0", "name", RolePeer)
+	err := s.t.AddClientServerRelation("r-1", "s-c", "s-s", "ifce", ScopeGlobal)
+	c.Assert(err, IsNil)
+
 	found := s.t.HasRelation("r-1")
 	c.Assert(found, Equals, true)
-	err = s.t.RemoveRelation("r-1")
-	c.Assert(err, IsNil)
+	s.t.RemoveRelation("r-1")
 	found = s.t.HasRelation("r-1")
 	c.Assert(found, Equals, false)
 }
@@ -614,12 +554,11 @@ func (s *TopologySuite) TestRemoveRelation(c *C) {
 func (s *TopologySuite) TestRemoveServiceWithRelations(c *C) {
 	// Check that the removing of a service with
 	// associated relations leads to an error.
-	s.t.AddService("s-0", "wordpress")
-	s.t.AddRelation("r-1", "type", ScopeGlobal)
-	s.t.AssignServiceToRelation("r-1", "s-0", "name", RolePeer)
+	s.t.AddService("s-0", "riak")
+	s.t.AddPeerRelation("r-1", "s-0", "ifce", ScopeGlobal)
 
 	err := s.t.RemoveService("s-0")
-	c.Assert(err, ErrorMatches, `service "s-0" is associated to relations`)
+	c.Assert(err, ErrorMatches, `cannot remove service "s-0" with active relations`)
 }
 
 func (s *TopologySuite) TestHasRelationBetweenDyadicEndpoints(c *C) {
