@@ -13,58 +13,58 @@ import (
 	"strings"
 )
 
-// converter converts an arbitrary object into a []byte.
-type converter func(value interface{}) ([]byte, error)
+// formatter converts an arbitrary object into a []byte.
+type formatter func(value interface{}) ([]byte, error)
 
-// convertYaml marshals value to a yaml-formatted []byte, unless value is nil.
-func convertYaml(value interface{}) ([]byte, error) {
+// formatYaml marshals value to a yaml-formatted []byte, unless value is nil.
+func formatYaml(value interface{}) ([]byte, error) {
 	if value == nil {
 		return nil, nil
 	}
 	return goyaml.Marshal(value)
 }
 
-// defaultConverters are used by many jujuc Commands.
-var defaultConverters = map[string]converter{
-	"yaml": convertYaml,
+// defaultFormatters are used by many jujuc Commands.
+var defaultFormatters = map[string]formatter{
+	"yaml": formatYaml,
 	"json": json.Marshal,
 }
 
-// converterValue implements gnuflag.Value for a --format flag.
-type converterValue struct {
+// formatterValue implements gnuflag.Value for the --format flag.
+type formatterValue struct {
 	name       string
-	converters map[string]converter
+	formatters map[string]formatter
 }
 
-// newConverterValue returns a new converterValue. The initial converter name
-// must be present in converters.
-func newConverterValue(initial string, converters map[string]converter) *converterValue {
-	v := &converterValue{converters: converters}
+// newFormatterValue returns a new formatterValue. The initial formatter name
+// must be present in formatters.
+func newFormatterValue(initial string, formatters map[string]formatter) *formatterValue {
+	v := &formatterValue{formatters: formatters}
 	if err := v.Set(initial); err != nil {
 		panic(err)
 	}
 	return v
 }
 
-// Set stores the chosen converter name in v.name.
-func (v *converterValue) Set(value string) error {
-	if v.converters[value] == nil {
+// Set stores the chosen formatter name in v.name.
+func (v *formatterValue) Set(value string) error {
+	if v.formatters[value] == nil {
 		return fmt.Errorf("unknown format: %s", value)
 	}
 	v.name = value
 	return nil
 }
 
-// String returns the chosen converter name.
-func (v *converterValue) String() string {
+// String returns the chosen formatter name.
+func (v *formatterValue) String() string {
 	return v.name
 }
 
 // doc returns documentation for the --format flag.
-func (v *converterValue) doc() string {
-	choices := make([]string, len(v.converters))
+func (v *formatterValue) doc() string {
+	choices := make([]string, len(v.formatters))
 	i := 0
-	for name := range v.converters {
+	for name := range v.formatters {
 		choices[i] = name
 		i++
 	}
@@ -72,67 +72,43 @@ func (v *converterValue) doc() string {
 	return "specify output format (" + strings.Join(choices, "|") + ")"
 }
 
-// convert runs the chosen converter on value.
-func (v *converterValue) convert(value interface{}) ([]byte, error) {
-	return v.converters[v.name](value)
+// format runs the chosen formatter on value.
+func (v *formatterValue) format(value interface{}) ([]byte, error) {
+	return v.formatters[v.name](value)
 }
 
-// isTruthy return false if value is nil, false, 0, or an empty array/map/slice/string.
-func isTruthy(value interface{}) bool {
-	v := reflect.ValueOf(value)
-	switch v.Kind() {
-	case reflect.Bool:
-		return v.Bool()
-	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
-		return v.Len() != 0
-	case reflect.Float32, reflect.Float64:
-		return v.Float() != 0
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return v.Int() != 0
-	case reflect.Uint, reflect.Uintptr, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return v.Uint() != 0
-	case reflect.Interface, reflect.Ptr:
-		return !v.IsNil()
-	}
-	return true
-}
-
-// formatter exposes flags allowing the user to control the format and
-// target of a Command's output.
-type formatter struct {
-	converter *converterValue
+// output is responsible for interpreting output-related command line flags
+// and writing a value to a file or to stdout as directed. The testMode field,
+// controlled by the --test flag, is used to indicate that output should be
+// suppressed and instead communicated entirely in the process exit code.
+type output struct {
+	formatter *formatterValue
 	outPath   string
 	testMode  bool
 }
 
 // addFlags injects appropriate command line flags into f.
-func (fm *formatter) addFlags(f *gnuflag.FlagSet, name string, converters map[string]converter) {
-	fm.converter = newConverterValue(name, converters)
-	f.Var(fm.converter, "format", fm.converter.doc())
-	f.StringVar(&fm.outPath, "o", "", "specify an output file")
-	f.StringVar(&fm.outPath, "output", "", "")
-	f.BoolVar(&fm.testMode, "test", false, "suppress output; communicate result truthiness in return code")
+func (c *output) addFlags(f *gnuflag.FlagSet, name string, formatters map[string]formatter) {
+	c.formatter = newFormatterValue(name, formatters)
+	f.Var(c.formatter, "format", c.formatter.doc())
+	f.StringVar(&c.outPath, "o", "", "specify an output file")
+	f.StringVar(&c.outPath, "output", "", "")
+	f.BoolVar(&c.testMode, "test", false, "suppress output; communicate result truthiness in return code")
 }
 
-// run communicates value to the user, as requested on the command line.
-func (fm *formatter) run(ctx *cmd.Context, value interface{}) (err error) {
-	if fm.testMode {
-		if isTruthy(value) {
-			return nil
-		} else {
-			return cmd.ErrSilent
-		}
-	}
+// write formats and outputs value as directed by the --format and --output
+// command line flags.
+func (c *output) write(ctx *cmd.Context, value interface{}) (err error) {
 	var target io.Writer
-	if fm.outPath == "" {
+	if c.outPath == "" {
 		target = ctx.Stdout
 	} else {
-		path := ctx.AbsPath(fm.outPath)
+		path := ctx.AbsPath(c.outPath)
 		if target, err = os.Create(path); err != nil {
 			return
 		}
 	}
-	bytes, err := fm.converter.convert(value)
+	bytes, err := c.formatter.format(value)
 	if err != nil {
 		return
 	}
@@ -143,4 +119,31 @@ func (fm *formatter) run(ctx *cmd.Context, value interface{}) (err error) {
 		}
 	}
 	return
+}
+
+// truthError returns cmd.ErrSilent if value is nil, false, or 0, or an empty
+// array, map, slice, or string.
+func truthError(value interface{}) error {
+	b := true
+	v := reflect.ValueOf(value)
+	switch v.Kind() {
+	case reflect.Invalid:
+		b = false
+	case reflect.Bool:
+		b = v.Bool()
+	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
+		b = v.Len() != 0
+	case reflect.Float32, reflect.Float64:
+		b = v.Float() != 0
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		b = v.Int() != 0
+	case reflect.Uint, reflect.Uintptr, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		b = v.Uint() != 0
+	case reflect.Interface, reflect.Ptr:
+		b = !v.IsNil()
+	}
+	if b {
+		return nil
+	}
+	return cmd.ErrSilent
 }

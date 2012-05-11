@@ -56,8 +56,26 @@ func (s *ConfigGetSuite) TestOutputFormat(c *C) {
 	}
 }
 
+var configGetTestModeTests = []struct {
+	args []string
+	code int
+}{
+	{[]string{"monsters", "--test"}, 1},
+	{[]string{"spline-reticulation", "--test"}, 0},
+	{[]string{"missing", "--test"}, 1},
+	{[]string{"--test"}, 0},
+}
+
 func (s *ConfigGetSuite) TestTestMode(c *C) {
-	c.Fatalf("write me")
+	for _, t := range configGetTestModeTests {
+		com, err := s.ctx.NewCommand("config-get")
+		c.Assert(err, IsNil)
+		ctx := dummyContext(c)
+		code := cmd.Main(com, ctx, t.args)
+		c.Assert(code, Equals, t.code)
+		c.Assert(bufferString(ctx.Stderr), Equals, "")
+		c.Assert(bufferString(ctx.Stdout), Equals, "")
+	}
 }
 
 func (s *ConfigGetSuite) TestHelp(c *C) {

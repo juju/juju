@@ -46,7 +46,15 @@ func (s *UnitGetSuite) TestOutputFormat(c *C) {
 }
 
 func (s *UnitGetSuite) TestTestMode(c *C) {
-	c.Fatalf("write me")
+	for _, key := range []string{"public-address", "private-address"} {
+		com, err := s.ctx.NewCommand("unit-get")
+		c.Assert(err, IsNil)
+		ctx := dummyContext(c)
+		code := cmd.Main(com, ctx, []string{"--test", key})
+		c.Assert(code, Equals, 0)
+		c.Assert(bufferString(ctx.Stderr), Equals, "")
+		c.Assert(bufferString(ctx.Stdout), Equals, "")
+	}
 }
 
 func (s *UnitGetSuite) TestHelp(c *C) {
