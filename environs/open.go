@@ -19,7 +19,7 @@ func (envs *Environs) Open(name string) (Environ, error) {
 	if e.err != nil {
 		return nil, e.err
 	}
-	env, err := providers[e.kind].Open(e.config)
+	env, err := providers[e.kind].Open(name, e.config)
 	if err != nil {
 		return nil, fmt.Errorf("cannot initialize environment %q: %v", name, err)
 	}

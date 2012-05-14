@@ -97,16 +97,14 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 			}
 			continue
 		}
-		attrs, err := p.Check(nil) // TODO
-		// cfg, err := p.ConfigChecker().Coerce(attrs, nil)
+		cfg, err := p.ConfigChecker().Coerce(attrs, nil)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing environment %q: %v", name, err)
 		}
-		environ, err := p.Open(attrs)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing environment %q: %v", name, err)
+		environs[name] = environ{
+			kind:   kind,
+			config: cfg,
 		}
-		environs[name] = environ 
 	}
 	return &Environs{raw.Default, environs}, nil
 }
