@@ -109,6 +109,44 @@ func ParseURL(url string) (*URL, error) {
 	return u, nil
 }
 
+// InferURL inserts default series and schema into the provided url string,
+// where necessary, and attempts to parse the result.
+func InferURL(src, defaultSeries string) (*URL, error) {
+	if u, err := ParseURL(src); err == nil {
+		// src was a valid charm URL already
+		return u, nil
+	}
+	if strings.HasPrefix(src, "~") {
+		return nil, fmt.Errorf("cannot infer charm URL with user but no schema: %q", src)
+	}
+	// infer schema if omitted
+	var schema, rest string
+	if i := strings.Index(src, ":"); i == -1 {
+		schema = "cs"
+		rest = src
+	} else {
+		schema = src[:i]
+		rest = src[i+1:]
+	}
+	// construct full url string, inferring series if omitted
+	full := fmt.Sprintf("%s:%s", schema, rest)
+	switch parts := strings.Split(rest, "/"); len(parts) {
+	case 1:
+		full = fmt.Sprintf("%s:%s/%s", schema, defaultSeries, rest)
+	case 2:
+		if strings.HasPrefix(parts[0], "~") {
+			full = fmt.Sprintf("%s:%s/%s/%s", schema, parts[0], defaultSeries, parts[1])
+		}
+	}
+	u, err := ParseURL(full)
+	if err != nil {
+		if src != full {
+			err = fmt.Errorf("%s (URL inferred from %q)", err, src)
+		}
+	}
+	return u, err
+}
+
 func (u *URL) String() string {
 	if u.User != "" {
 		if u.Revision >= 0 {
