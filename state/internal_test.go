@@ -457,8 +457,8 @@ func (s *TopologySuite) TestHasRelation(c *C) {
 	// relations work correctly.
 	found := s.t.HasRelation("r-1")
 	c.Assert(found, Equals, false)
-	err := s.t.AddRelation("r-1", "type", "global")
-	c.Assert(err, IsNil)
+	s.t.AddService("s-p", "riak")
+	s.t.AddPeerRelation("r-1", "s-p", "ifce", ScopeGlobal)
 	found = s.t.HasRelation("r-1")
 	c.Assert(found, Equals, true)
 }
@@ -561,125 +561,90 @@ func (s *TopologySuite) TestRemoveServiceWithRelations(c *C) {
 	c.Assert(err, ErrorMatches, `cannot remove service "s-0" with active relations`)
 }
 
-func (s *TopologySuite) TestHasRelationBetweenDyadicEndpoints(c *C) {
-	mysqlep := RelationEndpoint{"mysqldb", "mysql", "db", RoleServer, ScopeGlobal}
-	blogep := RelationEndpoint{"wordpress", "mysql", "mysql", RoleClient, ScopeGlobal}
-	s.t.AddService("s-0", "wordpress")
-	s.t.AddService("s-1", "mysqldb")
-	s.t.AddRelation("r-0", "mysql", ScopeGlobal)
-	s.t.AssignServiceToRelation("r-0", "s-0", "mysql", RoleClient)
-	s.t.AssignServiceToRelation("r-0", "s-1", "db", RoleServer)
-	found, err := s.t.HasRelationBetweenEndpoints(mysqlep, blogep)
-	c.Assert(err, IsNil)
-	c.Assert(found, Equals, true)
-	found, err = s.t.HasRelationBetweenEndpoints(blogep, mysqlep)
-	c.Assert(err, IsNil)
-	c.Assert(found, Equals, true)
-}
+func (s *TopologySuite) TestRelationKeyClientServerEndpoints(c *C) {
+	mysqlep1 := RelationEndpoint{"mysqldb", "ifce1", RoleServer, ScopeGlobal}
+	blogep1 := RelationEndpoint{"wordpress", "ifce1", RoleClient, ScopeGlobal}
+	mysqlep2 := RelationEndpoint{"mysqldb", "ifce2", RoleServer, ScopeGlobal}
+	blogep2 := RelationEndpoint{"wordpress", "ifce2", RoleClient, ScopeGlobal}
+	mysqlep3 := RelationEndpoint{"mysqldb", "ifce3", RoleServer, ScopeGlobal}
+	blogep3 := RelationEndpoint{"wordpress", "ifce3", RoleClient, ScopeGlobal}
+	s.t.AddService("s-c", "wordpress")
+	s.t.AddService("s-s", "mysqldb")
+	s.t.AddClientServerRelation("r-0", "s-c", "s-s", "ifce1", ScopeGlobal)
+	s.t.AddClientServerRelation("r-1", "s-c", "s-s", "ifce2", ScopeGlobal)
 
-func (s *TopologySuite) TestHasRelationBetweenDyadicEndpointsMissingAssignment(c *C) {
-	mysqlep := RelationEndpoint{"mysqldb", "mysql", "db", RoleServer, ScopeGlobal}
-	blogep := RelationEndpoint{"wordpress", "mysql", "mysql", RoleClient, ScopeGlobal}
-	s.t.AddService("s-0", "wordpress")
-	s.t.AddService("s-1", "mysqldb")
-	s.t.AddRelation("r-0", "mysql", ScopeGlobal)
-	s.t.AssignServiceToRelation("r-0", "s-1", "db", RoleServer)
-	found, err := s.t.HasRelationBetweenEndpoints(mysqlep, blogep)
+	// Valid relations.
+	key, err := s.t.RelationKey(mysqlep1, blogep1)
 	c.Assert(err, IsNil)
-	c.Assert(found, Equals, false)
-	found, err = s.t.HasRelationBetweenEndpoints(blogep, mysqlep)
-	c.Assert(err, IsNil)
-	c.Assert(found, Equals, false)
-}
-
-func (s *TopologySuite) TestHasRelationBetweenDyadicEndpointsWrongRelationName(c *C) {
-	mysqlep := RelationEndpoint{"mysqldb", "mysql", "wrong-name", RoleServer, ScopeGlobal}
-	blogep := RelationEndpoint{"wordpress", "mysql", "mysql", RoleClient, ScopeGlobal}
-	s.t.AddService("s-0", "wordpress")
-	s.t.AddService("s-1", "mysqldb")
-	s.t.AddRelation("r-0", "mysql", ScopeGlobal)
-	s.t.AssignServiceToRelation("r-0", "s-0", "mysql", RoleClient)
-	s.t.AssignServiceToRelation("r-0", "s-1", "db", RoleServer)
-	found, err := s.t.HasRelationBetweenEndpoints(mysqlep, blogep)
-	c.Assert(err, IsNil)
-	c.Assert(found, Equals, false)
-	found, err = s.t.HasRelationBetweenEndpoints(blogep, mysqlep)
-	c.Assert(err, IsNil)
-	c.Assert(found, Equals, false)
-}
-
-func (s *TopologySuite) TestHasRelationBetweenMonadicEndpoints(c *C) {
-	riakep := RelationEndpoint{"riak", "riak", "riak", RolePeer, ScopeGlobal}
-	s.t.AddService("s-0", "riak")
-	s.t.AddRelation("r-0", "riak", ScopeGlobal)
-	s.t.AssignServiceToRelation("r-0", "s-0", "riak", RolePeer)
-	found, err := s.t.HasRelationBetweenEndpoints(riakep)
-	c.Assert(err, IsNil)
-	c.Assert(found, Equals, true)
-}
-
-func (s *TopologySuite) TestRelationKeyBetweenDyadicEndpoints(c *C) {
-	mysqlep := RelationEndpoint{"mysqldb", "mysql", "db", RoleServer, ScopeGlobal}
-	blogep := RelationEndpoint{"wordpress", "mysql", "mysql", RoleClient, ScopeGlobal}
-	s.t.AddService("s-0", "wordpress")
-	s.t.AddService("s-1", "mysqldb")
-	s.t.AddRelation("r-0", "mysql", ScopeGlobal)
-	s.t.AssignServiceToRelation("r-0", "s-0", "mysql", RoleClient)
-	s.t.AssignServiceToRelation("r-0", "s-1", "db", RoleServer)
-	key, found, err := s.t.RelationKeyBetweenEndpoints(mysqlep, blogep)
-	c.Assert(err, IsNil)
-	c.Assert(found, Equals, true)
 	c.Assert(key, Equals, "r-0")
-	key, found, err = s.t.RelationKeyBetweenEndpoints(blogep, mysqlep)
+	key, err = s.t.RelationKey(blogep1, mysqlep1)
 	c.Assert(err, IsNil)
-	c.Assert(found, Equals, true)
 	c.Assert(key, Equals, "r-0")
-}
+	key, err = s.t.RelationKey(mysqlep2, blogep2)
+	c.Assert(err, IsNil)
+	c.Assert(key, Equals, "r-1")
+	key, err = s.t.RelationKey(blogep2, mysqlep2)
+	c.Assert(err, IsNil)
+	c.Assert(key, Equals, "r-1")
 
-func (s *TopologySuite) TestRelationKeyBetweenDyadicEndpointsMissingAssignment(c *C) {
-	mysqlep := RelationEndpoint{"mysqldb", "mysql", "db", RoleServer, ScopeGlobal}
-	blogep := RelationEndpoint{"wordpress", "mysql", "mysql", RoleClient, ScopeGlobal}
-	s.t.AddService("s-0", "wordpress")
-	s.t.AddService("s-1", "mysqldb")
-	s.t.AddRelation("r-0", "mysql", ScopeGlobal)
-	s.t.AssignServiceToRelation("r-0", "s-0", "mysql", RoleClient)
-	key, found, err := s.t.RelationKeyBetweenEndpoints(mysqlep, blogep)
+	// Endpoints without relation.
+	key, err = s.t.RelationKey(mysqlep3, blogep3)
 	c.Assert(err, IsNil)
-	c.Assert(found, Equals, false)
 	c.Assert(key, Equals, "")
-	key, found, err = s.t.RelationKeyBetweenEndpoints(blogep, mysqlep)
-	c.Assert(err, IsNil)
-	c.Assert(found, Equals, false)
-	c.Assert(key, Equals, "")
-}
 
-func (s *TopologySuite) TestRelationKeyBetweenDyadicEndpointsWrongRelationName(c *C) {
-	mysqlep := RelationEndpoint{"mysqldb", "mysql", "wrong-name", RoleServer, ScopeGlobal}
-	blogep := RelationEndpoint{"wordpress", "mysql", "mysql", RoleClient, ScopeGlobal}
-	s.t.AddService("s-0", "wordpress")
-	s.t.AddService("s-1", "mysqldb")
-	s.t.AddRelation("r-0", "mysql", ScopeGlobal)
-	s.t.AssignServiceToRelation("r-0", "s-0", "mysql", RoleClient)
-	s.t.AssignServiceToRelation("r-0", "s-1", "db", RoleServer)
-	key, found, err := s.t.RelationKeyBetweenEndpoints(mysqlep, blogep)
+	// Mix of endpoints of two relations.
+	key, err = s.t.RelationKey(mysqlep1, blogep2)
 	c.Assert(err, IsNil)
-	c.Assert(found, Equals, false)
-	c.Assert(key, Equals, "")
-	key, found, err = s.t.RelationKeyBetweenEndpoints(blogep, mysqlep)
-	c.Assert(err, IsNil)
-	c.Assert(found, Equals, false)
 	c.Assert(key, Equals, "")
 }
 
-func (s *TopologySuite) TestRelationKeyBetweenMonadicEndpoints(c *C) {
-	riakep := RelationEndpoint{"riak", "riak", "riak", RolePeer, ScopeGlobal}
-	s.t.AddService("s-0", "riak")
-	s.t.AddRelation("r-0", "riak", ScopeGlobal)
-	s.t.AssignServiceToRelation("r-0", "s-0", "riak", RolePeer)
-	key, found, err := s.t.RelationKeyBetweenEndpoints(riakep)
+func (s *TopologySuite) TestRelationKeyClientServerIllegalEndpoints(c *C) {
+	mysqlep1 := RelationEndpoint{"mysqldb", "ifce", RoleServer, ScopeGlobal}
+	blogep1 := RelationEndpoint{"wordpress", "ifce", RoleClient, ScopeGlobal}
+	mysqlep2 := RelationEndpoint{"illegal-mysqldb", "ifce", RoleServer, ScopeGlobal}
+	blogep2 := RelationEndpoint{"illegal-wordpress", "ifce", RoleClient, ScopeGlobal}
+	s.t.AddService("s-c", "wordpress")
+	s.t.AddService("s-s", "mysqldb")
+	s.t.AddClientServerRelation("r-0", "s-c", "s-s", "ifce", ScopeGlobal)
+
+	key, err := s.t.RelationKey(mysqlep1, blogep2)
+	c.Assert(key, Equals, "")
+	c.Assert(err, ErrorMatches, `service with name "illegal-wordpress" not found`)
+	key, err = s.t.RelationKey(mysqlep2, blogep1)
+	c.Assert(key, Equals, "")
+	c.Assert(err, ErrorMatches, `service with name "illegal-mysqldb" not found`)
+}
+
+func (s *TopologySuite) TestRelationKeyPeerEndpoints(c *C) {
+	riakep1 := RelationEndpoint{"riak", "ifce1", RolePeer, ScopeGlobal}
+	riakep2 := RelationEndpoint{"riak", "ifce2", RolePeer, ScopeGlobal}
+	riakep3 := RelationEndpoint{"riak", "ifce3", RolePeer, ScopeGlobal}
+	s.t.AddService("s-p", "riak")
+	s.t.AddPeerRelation("r-0", "s-p", "ifce1", ScopeGlobal)
+	s.t.AddPeerRelation("r-1", "s-p", "ifce2", ScopeGlobal)
+
+	// Valid relations.
+	key, err := s.t.PeerRelationKey(riakep1)
 	c.Assert(err, IsNil)
-	c.Assert(found, Equals, true)
 	c.Assert(key, Equals, "r-0")
+	key, err = s.t.PeerRelationKey(riakep2)
+	c.Assert(err, IsNil)
+	c.Assert(key, Equals, "r-1")
+
+	// Endpoint without relation.
+	key, err = s.t.PeerRelationKey(riakep3)
+	c.Assert(err, IsNil)
+	c.Assert(key, Equals, "")
+}
+
+func (s *TopologySuite) TestRelationKeyPeerIllegalEndpoints(c *C) {
+	riakep1 := RelationEndpoint{"illegal-riak", "ifce", RolePeer, ScopeGlobal}
+	s.t.AddService("s-p", "riak")
+	s.t.AddPeerRelation("r-0", "s-p", "ifce", ScopeGlobal)
+
+	key, err := s.t.PeerRelationKey(riakep1)
+	c.Assert(key, Equals, "")
+	c.Assert(err, ErrorMatches, `service with name "illegal-riak" not found`)
 }
 
 type ConfigNodeSuite struct {

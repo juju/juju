@@ -456,7 +456,7 @@ func (t *topology) RemoveRelation(key string) {
 	delete(t.topology.Relations, key)
 }
 
-// endpointInfo bundles the informations of an endpoint
+// endpointInfo bundles the information of an endpoint
 // between a service and a relation.
 type endpointInfo struct {
 	ServiceKey  string
@@ -466,7 +466,7 @@ type endpointInfo struct {
 	Role        RelationRole
 }
 
-// ActiveServiceEndpoint returns informations about the endpoint
+// ActiveServiceEndpoint returns information about the endpoint
 // between a service and a relation.
 func (t *topology) ActiveServiceEndpoint(serviceKey, relationKey string) (*endpointInfo, error) {
 	if err := t.assertService(serviceKey); err != nil {
@@ -490,7 +490,7 @@ func (t *topology) ActiveServiceEndpoint(serviceKey, relationKey string) (*endpo
 	return nil, fmt.Errorf("service %q is not assigned to relation %q", serviceKey, relationKey)
 }
 
-// ActiveServiceEndpoints returns all informations of the endpoints
+// ActiveServiceEndpoints returns all information of the endpoints
 // between a service and its relations.
 func (t *topology) ActiveServiceEndpoints(serviceKey string) ([]*endpointInfo, error) {
 	if err := t.assertService(serviceKey); err != nil {
@@ -539,6 +539,32 @@ func (t *topology) RelationKey(ep1, ep2 RelationEndpoint) (string, error) {
 			continue
 		}
 		if (clientKey == ep1Key && serverKey == ep2Key) || (clientKey == ep2Key && serverKey == ep1Key) {
+			return key, nil
+		}
+	}
+	return "", nil
+}
+
+// PeerRelationKey returns the key of a peer relation with a matching
+// interface for one endpoint. If it doesn't exist "" is returned.
+func (t *topology) PeerRelationKey(ep RelationEndpoint) (string, error) {
+	if t.topology.Relations == nil {
+		return "", nil
+	}
+	epKey, err := t.ServiceKey(ep.ServiceName)
+	if err != nil {
+		return "", err
+	}
+	for key, relation := range t.topology.Relations {
+		peerKey := relation.Members[RolePeer]
+		if peerKey == "" {
+			// It's a client/server relation.
+			continue
+		}
+		if ep.Interface != relation.Interface {
+			continue
+		}
+		if peerKey == epKey {
 			return key, nil
 		}
 	}
