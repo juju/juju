@@ -287,7 +287,8 @@ var environmentWatchTests = []struct {
 }
 
 func (s *StateSuite) TestWatchEnvironment(c *C) {
-	// make sure there is an /environment key
+	// create a blank /environment key manually as it is 
+	// not created by state.Init().
 	path, err := s.zkConn.Create("/environment", "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
 	c.Assert(err, IsNil)
 	c.Assert(path, Equals, "/environment")
