@@ -269,21 +269,30 @@ var environmentWatchTests = []struct {
 	test func(*state.ConfigNode) error
 	want map[string]interface{}
 }{
-	{func(config *state.ConfigNode) error {
-		config.Set("providor", "dummy")
-		_, err := config.Write()
-		return err
-	}, any{"providor": "dummy"}},
-	{func(config *state.ConfigNode) error {
-		config.Set("secret", "shhh")
-		_, err := config.Write()
-		return err
-	}, any{"providor": "dummy", "secret": "shhh"}},
-	{func(config *state.ConfigNode) error {
-		config.Update(any{"providor": "aws"})
-		_, err := config.Write()
-		return err
-	}, any{"providor": "aws", "secret": "shhh"}},
+	{
+		func(config *state.ConfigNode) error {
+			config.Set("providor", "dummy")
+			_, err := config.Write()
+			return err
+		},
+		any{"providor": "dummy"},
+	},
+	{
+		func(config *state.ConfigNode) error {
+			config.Set("secret", "shhh")
+			_, err := config.Write()
+			return err
+		},
+		any{"providor": "dummy", "secret": "shhh"},
+	},
+	{
+		func(config *state.ConfigNode) error {
+			config.Update(any{"providor": "aws"})
+			_, err := config.Write()
+			return err
+		},
+		any{"providor": "aws", "secret": "shhh"},
+	},
 }
 
 func (s *StateSuite) TestWatchEnvironment(c *C) {
