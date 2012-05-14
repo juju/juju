@@ -2,6 +2,8 @@ package charm_test
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
@@ -13,20 +15,27 @@ import (
 )
 
 type BundleSuite struct {
-	repo       *testing.Repo
-	bundlePath string
+	repo         *testing.Repo
+	bundlePath   string
+	bundleSha256 string
 }
 
 var _ = Suite(&BundleSuite{})
 
 func (s *BundleSuite) SetUpSuite(c *C) {
 	s.bundlePath = testing.Charms.BundlePath(c.MkDir(), "dummy")
+	data, err := ioutil.ReadFile(s.bundlePath)
+	c.Assert(err, IsNil)
+	h := sha256.New()
+	h.Write(data)
+	s.bundleSha256 = hex.EncodeToString(h.Sum(nil))
 }
 
 func (s *BundleSuite) TestReadBundle(c *C) {
 	bundle, err := charm.ReadBundle(s.bundlePath)
 	c.Assert(err, IsNil)
 	checkDummy(c, bundle, s.bundlePath)
+	c.Assert(bundle.Sha256(), Equals, s.bundleSha256)
 }
 
 func (s *BundleSuite) TestReadBundleWithoutConfig(c *C) {
@@ -46,6 +55,7 @@ func (s *BundleSuite) TestReadBundleBytes(c *C) {
 	bundle, err := charm.ReadBundleBytes(data)
 	c.Assert(err, IsNil)
 	checkDummy(c, bundle, "")
+	c.Assert(bundle.Sha256(), Equals, s.bundleSha256)
 }
 
 func (s *BundleSuite) TestExpandTo(c *C) {

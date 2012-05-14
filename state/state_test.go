@@ -35,7 +35,7 @@ type StateSuite struct {
 	zkAddr     string
 	zkConn     *zookeeper.Conn
 	st         *state.State
-	ch         charm.Charm
+	ch         *charm.Bundle
 	curl       *charm.URL
 }
 
@@ -48,7 +48,7 @@ func (s *StateSuite) SetUpTest(c *C) {
 	})
 	c.Assert(err, IsNil)
 	s.zkConn = state.ZkConn(s.st)
-	s.ch = testing.Charms.Dir("dummy")
+	s.ch = testing.Charms.Bundle(c.MkDir(), "dummy")
 	url := fmt.Sprintf("local:series/%s-%d", s.ch.Meta().Name, s.ch.Revision())
 	s.curl = charm.MustParseURL(url)
 }
@@ -134,6 +134,7 @@ func (s *StateSuite) TestCharmAttributes(c *C) {
 	bundleURL, err := url.Parse("http://bundle.url")
 	c.Assert(err, IsNil)
 	c.Assert(dummy.BundleURL(), DeepEquals, bundleURL)
+	c.Assert(dummy.Sha256(), Equals, s.ch.Sha256())
 	meta := dummy.Meta()
 	c.Assert(meta.Name, Equals, "dummy")
 	config := dummy.Config()
