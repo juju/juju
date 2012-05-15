@@ -97,7 +97,7 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 			}
 			continue
 		}
-		cfg, err := p.ConfigChecker().Coerce(attrs, nil)
+		cfg, err := p.Check(attrs)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing environment %q: %v", name, err)
 		}

@@ -32,8 +32,8 @@ var Regions = map[string]aws.Region{
 	"us-west-1":      aws.USWest,
 }
 
-func (environProvider) ConfigChecker() schema.Checker {
-	return combineCheckers(
+func (environProvider) Check(attributes interface{}) (interface{}, error) {
+	checker := combineCheckers(
 		schema.FieldMap(
 			schema.Fields{
 				"access-key":           schema.String(),
@@ -89,6 +89,7 @@ func (environProvider) ConfigChecker() schema.Checker {
 			return &c, nil
 		}),
 	)
+	return checker.Coerce(attributes, nil)
 }
 
 func maybeString(x interface{}, dflt string) string {

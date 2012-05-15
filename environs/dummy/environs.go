@@ -119,8 +119,8 @@ func (e *environProvider) reset(c chan<- Operation) {
 	}
 }
 
-func (e *environProvider) ConfigChecker() schema.Checker {
-	return schema.FieldMap(
+func (e *environProvider) Check(attributes interface{}) (interface{}, error) {
+	checker := schema.FieldMap(
 		schema.Fields{
 			"type":      schema.Const("dummy"),
 			"zookeeper": schema.Const(false), // TODO
@@ -130,6 +130,7 @@ func (e *environProvider) ConfigChecker() schema.Checker {
 			"broken",
 		},
 	)
+	return checker.Coerce(attributes, nil)
 }
 
 func (e *environProvider) Open(name string, attributes interface{}) (environs.Environ, error) {

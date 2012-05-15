@@ -1,8 +1,6 @@
 package environs
 
-import (
-	"fmt"
-)
+import "fmt"
 
 // Open creates a new Environ using the environment configuration with the 
 // given name. If name is empty, the default environment will be used.
@@ -35,7 +33,7 @@ func NewEnviron(kind string, config map[string]interface{}) (Environ, error) {
 	if !ok {
 		return nil, fmt.Errorf("no registered provider for kind: %q", kind)
 	}
-	cfg, err := p.ConfigChecker().Coerce(config, nil)
+	cfg, err := p.Check(config)
 	if err != nil {
 		return nil, fmt.Errorf("error validating environment: %v", err)
 	}

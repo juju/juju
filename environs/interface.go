@@ -3,19 +3,17 @@ package environs
 import (
 	"errors"
 	"io"
-	"launchpad.net/juju/go/schema"
 	"launchpad.net/juju/go/state"
 )
 
 // A EnvironProvider represents a computing and storage provider.
 type EnvironProvider interface {
-	// ConfigChecker is used to check sections of the environments.yaml
+	// Check is used to check sections of the environments.yaml
 	// file that specify this provider. The value passed to the Checker is
 	// that returned from the yaml parse, of type schema.MapType.
-	ConfigChecker() schema.Checker
+	Check(attributes interface{}) (interface{}, error)
 
-	// NewEnviron creates a new Environ with
-	// the given attributes returned by the ConfigChecker.
+	// Open creates a new Environ with the attributes returned by Check. 
 	// The name is that given in environments.yaml.
 	Open(name string, attributes interface{}) (Environ, error)
 }
