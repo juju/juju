@@ -9,7 +9,9 @@ import (
 // A EnvironProvider represents a computing and storage provider.
 type EnvironProvider interface {
 	// Check is used to validate the configuration attributes.
-	Check(attributes interface{}) (interface{}, error)
+	// The attributes returned on successful validation are 
+	// specific to the Provider.
+	Check(attributes interface{}) (attributes interface{}, err error)
 
 	// Open creates a new Environ with the attributes returned by Check. 
 	// The name is that given in environments.yaml.
