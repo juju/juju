@@ -8,9 +8,7 @@ import (
 
 // A EnvironProvider represents a computing and storage provider.
 type EnvironProvider interface {
-	// Check is used to check sections of the environments.yaml
-	// file that specify this provider. The value passed to the Checker is
-	// that returned from the yaml parse, of type schema.MapType.
+	// Check is used to validate the configuration attributes.
 	Check(attributes interface{}) (interface{}, error)
 
 	// Open creates a new Environ with the attributes returned by Check. 
