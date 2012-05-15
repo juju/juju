@@ -218,10 +218,8 @@ func (c *ConfigNode) Set(key string, value interface{}) {
 
 // Update sets multiple key/value pairs.
 func (c *ConfigNode) Update(kv map[string]interface{}) {
-	if kv != nil {
-		for key, value := range kv {
-			c.cache[key] = value
-		}
+	for key, value := range kv {
+		c.cache[key] = value
 	}
 }
 
@@ -266,10 +264,8 @@ func zkRemoveTree(zk *zookeeper.Conn, path string) error {
 // copyCache copies the keys and values of one cache into a new one.
 func copyCache(in map[string]interface{}) (out map[string]interface{}) {
 	out = make(map[string]interface{})
-	if in != nil {
-		for key, value := range in {
-			out[key] = value
-		}
+	for key, value := range in {
+		out[key] = value
 	}
 	return
 }
