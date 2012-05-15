@@ -41,5 +41,5 @@ func NewEnviron(kind string, config map[string]interface{}) (Environ, error) {
 	}
 	// TODO(dfc) remove the requirement for an environment to know it's name, it's
 	// type should be sufficient.
-	return p.Open("default", toMap(cfg))
+	return p.Open("default", cfg)
 }
