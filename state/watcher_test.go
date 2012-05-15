@@ -266,33 +266,13 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 type any map[string]interface{}
 
 var environmentWatchTests = []struct {
-	test func(*state.ConfigNode) error
-	want map[string]interface{}
+	key   string
+	value interface{}
+	want  map[string]interface{}
 }{
-	{
-		func(config *state.ConfigNode) error {
-			config.Set("providor", "dummy")
-			_, err := config.Write()
-			return err
-		},
-		any{"providor": "dummy"},
-	},
-	{
-		func(config *state.ConfigNode) error {
-			config.Set("secret", "shhh")
-			_, err := config.Write()
-			return err
-		},
-		any{"providor": "dummy", "secret": "shhh"},
-	},
-	{
-		func(config *state.ConfigNode) error {
-			config.Update(any{"providor": "aws"})
-			_, err := config.Write()
-			return err
-		},
-		any{"providor": "aws", "secret": "shhh"},
-	},
+	{"provider", "dummy", any{"provider": "dummy"}},
+	{"secret", "shhh", any{"provider": "dummy", "secret": "shhh"}},
+	{"provider", "aws", any{"provider": "aws", "secret": "shhh"}},
 }
 
 func (s *StateSuite) TestWatchEnvironment(c *C) {
@@ -308,7 +288,8 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 	c.Assert(ok, Equals, true)
 
 	for _, test := range environmentWatchTests {
-		err := test.test(config)
+		config.Set(test.key, test.value)
+		_, err := config.Write()
 		c.Assert(err, IsNil)
 		select {
 		case got, ok := <-w.Changes():

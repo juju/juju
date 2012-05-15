@@ -12,9 +12,7 @@ import (
 	"strings"
 )
 
-const (
-	zkEnvironmentPath = "/environment"
-)
+const zkEnvironmentPath = "/environment"
 
 // State represents the state of an environment
 // managed by juju.
@@ -66,9 +64,8 @@ func (s *State) WatchMachines() *MachinesWatcher {
 	return newMachinesWatcher(s, zkMachinesPath)
 }
 
-// WatchEnvironment watches for changes to the /environment key
-// and returns a *ConfigNode containing the settings for the 
-// current Environment.
+// WatchEnvironConfig returns a watcher for observing
+// changes to the environment configuration.
 func (s *State) WatchEnvironment() *ConfigWatcher {
 	return newConfigWatcher(s, zkEnvironmentPath)
 }
