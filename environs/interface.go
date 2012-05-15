@@ -17,7 +17,7 @@ type EnvironProvider interface {
 	// NewEnviron creates a new Environ with
 	// the given attributes returned by the ConfigChecker.
 	// The name is that given in environments.yaml.
-	Open(name string, attributes interface{}) (Environ, error)
+	Open(name string, attributes map[string]interface{}) (Environ, error)
 }
 
 var ErrNoDNSName = errors.New("DNS name not allocated")

@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju/go/schema"
 	"os"
 	"path/filepath"
 )
 
 // environ holds information about one environment.
 type environ struct {
-	kind   string      // the type of environment (e.g. ec2).
-	config interface{} // the configuration data for passing to NewEnviron.
-	err    error       // an error if the config data could not be parsed.
+	kind   string                 // the type of environment (e.g. ec2).
+	config map[string]interface{} // the configuration data for passing to Open.
+	err    error                  // an error if the config data could not be parsed.
 }
 
 // Environs holds information about each named environment
@@ -103,10 +104,27 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 		}
 		environs[name] = environ{
 			kind:   kind,
-			config: cfg,
+			config: toMap(cfg),
 		}
 	}
 	return &Environs{raw.Default, environs}, nil
+}
+
+// toMap converts the unknown output of Coerce into a
+// map[string] interface suitable for configuring 
+// environs. If the output cannot be converted, an 
+// empty map will be returned.
+func toMap(unknown interface{}) map[string]interface{} {
+	m := make(map[string]interface{})
+	switch t := unknown.(type) {
+	case schema.MapType:
+		for k, v := range t {
+			if k, ok := k.(string); ok {
+				m[k] = v
+			}
+		}
+	}
+	return m
 }
 
 // ReadEnvirons reads the juju environments.yaml file

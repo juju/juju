@@ -92,7 +92,7 @@ func (inst *instance) WaitDNSName() (string, error) {
 	return "", fmt.Errorf("timed out trying to get DNS address for %v", inst.Id())
 }
 
-func (environProvider) Open(name string, config interface{}) (e environs.Environ, err error) {
+func (environProvider) Open(name string, config map[string]interface{}) (e environs.Environ, err error) {
 	log.Printf("environs/ec2: opening environment %q", name)
 	cfg := config.(*providerConfig)
 	if Regions[cfg.region].EC2Endpoint == "" {
