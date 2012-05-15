@@ -283,7 +283,7 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 	c.Assert(path, Equals, "/environment")
 
 	// fetch the /environment key as a *ConfigNode
-	w := s.st.WatchEnvironment()
+	w := s.st.WatchEnvrionConfig()
 	config, ok := <-w.Changes()
 	c.Assert(ok, Equals, true)
 

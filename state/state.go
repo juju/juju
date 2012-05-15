@@ -66,7 +66,7 @@ func (s *State) WatchMachines() *MachinesWatcher {
 
 // WatchEnvironConfig returns a watcher for observing
 // changes to the environment configuration.
-func (s *State) WatchEnvironment() *ConfigWatcher {
+func (s *State) WatchEnvrionConfig() *ConfigWatcher {
 	return newConfigWatcher(s, zkEnvironmentPath)
 }
 
