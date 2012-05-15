@@ -5,16 +5,15 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju/go/schema"
 	"os"
 	"path/filepath"
 )
 
 // environ holds information about one environment.
 type environ struct {
-	kind   string                 // the type of environment (e.g. ec2).
+	kind   string      // the type of environment (e.g. ec2).
 	config interface{} // the configuration data for passing to Open.
-	err    error                  // an error if the config data could not be parsed.
+	err    error       // an error if the config data could not be parsed.
 }
 
 // Environs holds information about each named environment
