@@ -100,12 +100,12 @@ func (s *State) AllMachines() ([]*Machine, error) {
 // bundleUrl must be set to a URL where the bundle for ch
 // may be downloaded from.
 // On success the newly added charm state is returned.
-func (s *State) AddCharm(ch *charm.Bundle, curl *charm.URL, bundleURL *url.URL) (*Charm, error) {
+func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSHA256 string) (*Charm, error) {
 	data := &charmData{
 		Meta:      ch.Meta(),
 		Config:    ch.Config(),
 		BundleURL: bundleURL.String(),
-		Sha256:    ch.Sha256(),
+		Sha256:    bundleSHA256,
 	}
 	yaml, err := goyaml.Marshal(data)
 	if err != nil {

@@ -35,7 +35,7 @@ type StateSuite struct {
 	zkAddr     string
 	zkConn     *zookeeper.Conn
 	st         *state.State
-	ch         *charm.Bundle
+	ch         charm.Charm
 	curl       *charm.URL
 }
 
@@ -48,7 +48,7 @@ func (s *StateSuite) SetUpTest(c *C) {
 	})
 	c.Assert(err, IsNil)
 	s.zkConn = state.ZkConn(s.st)
-	s.ch = testing.Charms.Bundle(c.MkDir(), "dummy")
+	s.ch = testing.Charms.Dir("dummy")
 	url := fmt.Sprintf("local:series/%s-%d", s.ch.Meta().Name, s.ch.Revision())
 	s.curl = charm.MustParseURL(url)
 }
@@ -105,7 +105,7 @@ func (s *StateSuite) TestAddCharm(c *C) {
 	// Check that adding charms works correctly.
 	bundleURL, err := url.Parse("http://bundle.url")
 	c.Assert(err, IsNil)
-	dummy, err := s.st.AddCharm(s.ch, s.curl, bundleURL)
+	dummy, err := s.st.AddCharm(s.ch, s.curl, bundleURL, "dummy-sha256")
 	c.Assert(err, IsNil)
 	c.Assert(dummy.URL().String(), Equals, s.curl.String())
 	children, _, err := s.zkConn.Children("/charms")
@@ -117,7 +117,7 @@ func (s *StateSuite) TestAddCharm(c *C) {
 func (s *StateSuite) addDummyCharm(c *C) *state.Charm {
 	bundleURL, err := url.Parse("http://bundle.url")
 	c.Assert(err, IsNil)
-	dummy, err := s.st.AddCharm(s.ch, s.curl, bundleURL)
+	dummy, err := s.st.AddCharm(s.ch, s.curl, bundleURL, "dummy-sha256")
 	c.Assert(err, IsNil)
 	return dummy
 }
@@ -134,7 +134,7 @@ func (s *StateSuite) TestCharmAttributes(c *C) {
 	bundleURL, err := url.Parse("http://bundle.url")
 	c.Assert(err, IsNil)
 	c.Assert(dummy.BundleURL(), DeepEquals, bundleURL)
-	c.Assert(dummy.Sha256(), Equals, s.ch.Sha256())
+	c.Assert(dummy.Sha256(), Equals, "dummy-sha256")
 	meta := dummy.Meta()
 	c.Assert(meta.Name, Equals, "dummy")
 	config := dummy.Config()

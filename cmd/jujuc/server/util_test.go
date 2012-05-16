@@ -29,7 +29,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 func addDummyCharm(c *C, st *state.State) *state.Charm {
-	ch := testing.Charms.Bundle(c.MkDir(), "dummy")
+	ch := testing.Charms.Dir("dummy")
 	u := fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL(u)
 	burl, err := url.Parse("http://bundle.url")

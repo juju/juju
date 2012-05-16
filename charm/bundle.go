@@ -2,8 +2,6 @@ package charm
 
 import (
 	"archive/zip"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -21,7 +19,6 @@ type Bundle struct {
 	meta     *Meta
 	config   *Config
 	revision int
-	sha256   string
 	r        io.ReaderAt
 	size     int64
 }
@@ -56,13 +53,6 @@ func ReadBundleBytes(data []byte) (bundle *Bundle, err error) {
 
 func readBundle(r io.ReaderAt, size int64) (bundle *Bundle, err error) {
 	b := &Bundle{r: r, size: size}
-	h := sha256.New()
-	_, err = io.Copy(h, io.NewSectionReader(r, 0, size))
-	if err != nil {
-		return
-	}
-	b.sha256 = hex.EncodeToString(h.Sum(nil))
-
 	zipr, err := zip.NewReader(r, size)
 	if err != nil {
 		return
@@ -145,11 +135,6 @@ func (b *Bundle) Meta() *Meta {
 // for the charm bundle.
 func (b *Bundle) Config() *Config {
 	return b.config
-}
-
-// Sha256 returns the SHA256 digest of the original bundle bytes.
-func (b *Bundle) Sha256() string {
-	return b.sha256
 }
 
 // ExpandTo expands the charm bundle into dir, creating it if necessary.
