@@ -53,7 +53,7 @@ func (environProvider) ConfigChecker() schema.Checker {
 			},
 		),
 		checkerFunc(func(v interface{}, path []string) (newv interface{}, err error) {
-			m := v.(schema.MapType)
+			m := v.(schema.StringMapType)
 			var c providerConfig
 
 			c.bucket = m["control-bucket"].(string)

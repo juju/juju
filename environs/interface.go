@@ -11,12 +11,11 @@ import (
 type EnvironProvider interface {
 	// ConfigChecker is used to check sections of the environments.yaml
 	// file that specify this provider. The value passed to the Checker is
-	// that returned from the yaml parse, of type schema.MapType.
+	// that returned from the yaml parse, of type schema.StringMapType.
 	ConfigChecker() schema.Checker
 
-	// NewEnviron creates a new Environ with
-	// the given attributes returned by the ConfigChecker.
-	// The name is that given in environments.yaml.
+	// Open creates a new Environ with the given attributes returned by the
+	// ConfigChecker.  The name is that given in environments.yaml.
 	Open(name string, attributes interface{}) (Environ, error)
 }
 

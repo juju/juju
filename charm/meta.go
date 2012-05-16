@@ -52,7 +52,7 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 	if err != nil {
 		return nil, errors.New("metadata: " + err.Error())
 	}
-	m := v.(schema.MapType)
+	m := v.(schema.StringMapType)
 	meta = &Meta{}
 	meta.Name = m["name"].(string)
 	// Schema decodes as int64, but the int range should be good
@@ -92,8 +92,8 @@ func parseRelations(relations interface{}) map[string]Relation {
 		return nil
 	}
 	result := make(map[string]Relation)
-	for name, rel := range relations.(schema.MapType) {
-		relMap := rel.(schema.MapType)
+	for name, rel := range relations.(schema.StringMapType) {
+		relMap := rel.(schema.StringMapType)
 		relation := Relation{}
 		relation.Interface = relMap["interface"].(string)
 		relation.Optional = relMap["optional"].(bool)
@@ -105,7 +105,7 @@ func parseRelations(relations interface{}) map[string]Relation {
 			// the int range should be more than enough.
 			relation.Limit = int(relMap["limit"].(int64))
 		}
-		result[name.(string)] = relation
+		result[name] = relation
 	}
 	return result
 }
@@ -146,7 +146,7 @@ var (
 func (c ifaceExpC) Coerce(v interface{}, path []string) (newv interface{}, err error) {
 	s, err := stringC.Coerce(v, path)
 	if err == nil {
-		newv = schema.MapType{
+		newv = schema.StringMapType{
 			"interface": s,
 			"limit":     c.limit,
 			"optional":  false,
@@ -191,9 +191,9 @@ var charmSchema = schema.FieldMap(
 		"name":        schema.String(),
 		"summary":     schema.String(),
 		"description": schema.String(),
-		"peers":       schema.Map(schema.String(), ifaceExpander(1)),
-		"provides":    schema.Map(schema.String(), ifaceExpander(nil)),
-		"requires":    schema.Map(schema.String(), ifaceExpander(1)),
+		"peers":       schema.StringMap(ifaceExpander(1)),
+		"provides":    schema.StringMap(ifaceExpander(nil)),
+		"requires":    schema.StringMap(ifaceExpander(1)),
 		"revision":    schema.Int(), // Obsolete
 		"subordinate": schema.Bool(),
 	},

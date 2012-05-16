@@ -208,6 +208,34 @@ func (s *S) TestMap(c *C) {
 	c.Assert(err, ErrorMatches, `a: expected int, got true`)
 }
 
+func (s *S) TestStringMap(c *C) {
+	sch := schema.StringMap(schema.Int())
+	out, err := sch.Coerce(map[string]interface{}{"a": 1, "b": int8(2)}, aPath)
+	c.Assert(err, IsNil)
+	c.Assert(out, DeepEquals, schema.StringMapType{"a": int64(1), "b": int64(2)})
+
+	out, err = sch.Coerce(42, aPath)
+	c.Assert(out, IsNil)
+	c.Assert(err, ErrorMatches, "<path>: expected map, got 42")
+
+	out, err = sch.Coerce(nil, aPath)
+	c.Assert(out, IsNil)
+	c.Assert(err, ErrorMatches, "<path>: expected map, got nothing")
+
+	out, err = sch.Coerce(map[int]int{1: 1}, aPath)
+	c.Assert(out, IsNil)
+	c.Assert(err, ErrorMatches, "<path>: expected string, got 1")
+
+	out, err = sch.Coerce(map[string]bool{"a": true}, aPath)
+	c.Assert(out, IsNil)
+	c.Assert(err, ErrorMatches, `<path>\.a: expected int, got true`)
+
+	// First path entry shouldn't have dots in an error message.
+	out, err = sch.Coerce(map[string]bool{"a": true}, nil)
+	c.Assert(out, IsNil)
+	c.Assert(err, ErrorMatches, `a: expected int, got true`)
+}
+
 func (s *S) TestFieldMap(c *C) {
 	fields := schema.Fields{
 		"a": schema.Const("A"),
@@ -217,7 +245,7 @@ func (s *S) TestFieldMap(c *C) {
 
 	out, err := sch.Coerce(map[string]interface{}{"a": "A", "b": "B"}, aPath)
 	c.Assert(err, IsNil)
-	c.Assert(out, DeepEquals, schema.MapType{"a": "A", "b": "B"})
+	c.Assert(out, DeepEquals, schema.StringMapType{"a": "A", "b": "B"})
 
 	out, err = sch.Coerce(42, aPath)
 	c.Assert(out, IsNil)
@@ -238,7 +266,7 @@ func (s *S) TestFieldMap(c *C) {
 	// b is optional
 	out, err = sch.Coerce(map[string]interface{}{"a": "A"}, aPath)
 	c.Assert(err, IsNil)
-	c.Assert(out, DeepEquals, schema.MapType{"a": "A"})
+	c.Assert(out, DeepEquals, schema.StringMapType{"a": "A"})
 
 	// First path entry shouldn't have dots in an error message.
 	out, err = sch.Coerce(map[string]bool{"a": true}, nil)
@@ -259,11 +287,11 @@ func (s *S) TestSchemaMap(c *C) {
 
 	out, err := sch.Coerce(map[string]int{"type": 1, "a": 2}, aPath)
 	c.Assert(err, IsNil)
-	c.Assert(out, DeepEquals, schema.MapType{"type": 1, "a": 2})
+	c.Assert(out, DeepEquals, schema.StringMapType{"type": 1, "a": 2})
 
 	out, err = sch.Coerce(map[string]int{"type": 3, "b": 4}, aPath)
 	c.Assert(err, IsNil)
-	c.Assert(out, DeepEquals, schema.MapType{"type": 3, "b": 4})
+	c.Assert(out, DeepEquals, schema.StringMapType{"type": 3, "b": 4})
 
 	out, err = sch.Coerce(map[string]int{}, aPath)
 	c.Assert(out, IsNil)

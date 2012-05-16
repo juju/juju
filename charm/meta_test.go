@@ -100,34 +100,34 @@ func (s *S) TestIfaceExpander(c *C) {
 	// Shorthand is properly rewritten
 	v, err := e.Coerce("http", path)
 	c.Assert(err, IsNil)
-	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": nil, "optional": false, "scope": charm.ScopeGlobal})
+	c.Assert(v, DeepEquals, schema.StringMapType{"interface": "http", "limit": nil, "optional": false, "scope": charm.ScopeGlobal})
 
 	// Defaults are properly applied
-	v, err = e.Coerce(schema.MapType{"interface": "http"}, path)
+	v, err = e.Coerce(schema.StringMapType{"interface": "http"}, path)
 	c.Assert(err, IsNil)
-	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": nil, "optional": false, "scope": charm.ScopeGlobal})
+	c.Assert(v, DeepEquals, schema.StringMapType{"interface": "http", "limit": nil, "optional": false, "scope": charm.ScopeGlobal})
 
-	v, err = e.Coerce(schema.MapType{"interface": "http", "limit": 2}, path)
+	v, err = e.Coerce(schema.StringMapType{"interface": "http", "limit": 2}, path)
 	c.Assert(err, IsNil)
-	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": int64(2), "optional": false, "scope": charm.ScopeGlobal})
+	c.Assert(v, DeepEquals, schema.StringMapType{"interface": "http", "limit": int64(2), "optional": false, "scope": charm.ScopeGlobal})
 
-	v, err = e.Coerce(schema.MapType{"interface": "http", "optional": true}, path)
+	v, err = e.Coerce(schema.StringMapType{"interface": "http", "optional": true}, path)
 	c.Assert(err, IsNil)
-	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": nil, "optional": true, "scope": charm.ScopeGlobal})
+	c.Assert(v, DeepEquals, schema.StringMapType{"interface": "http", "limit": nil, "optional": true, "scope": charm.ScopeGlobal})
 
 	// Invalid data raises an error.
 	v, err = e.Coerce(42, path)
 	c.Assert(err, ErrorMatches, "<path>: expected map, got 42")
 
-	v, err = e.Coerce(schema.MapType{"interface": "http", "optional": nil}, path)
+	v, err = e.Coerce(schema.StringMapType{"interface": "http", "optional": nil}, path)
 	c.Assert(err, ErrorMatches, "<path>.optional: expected bool, got nothing")
 
-	v, err = e.Coerce(schema.MapType{"interface": "http", "limit": "none, really"}, path)
+	v, err = e.Coerce(schema.StringMapType{"interface": "http", "limit": "none, really"}, path)
 	c.Assert(err, ErrorMatches, "<path>.limit: unsupported value")
 
 	// Can change default limit
 	e = charm.IfaceExpander(1)
-	v, err = e.Coerce(schema.MapType{"interface": "http"}, path)
+	v, err = e.Coerce(schema.StringMapType{"interface": "http"}, path)
 	c.Assert(err, IsNil)
-	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": int64(1), "optional": false, "scope": charm.ScopeGlobal})
+	c.Assert(v, DeepEquals, schema.StringMapType{"interface": "http", "limit": int64(1), "optional": false, "scope": charm.ScopeGlobal})
 }

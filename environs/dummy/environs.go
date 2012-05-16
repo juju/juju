@@ -135,7 +135,7 @@ func (e *environProvider) ConfigChecker() schema.Checker {
 func (e *environProvider) Open(name string, attributes interface{}) (environs.Environ, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	cfg := attributes.(schema.MapType)
+	cfg := attributes.(schema.StringMapType)
 	env := &environ{
 		name:      name,
 		zookeeper: cfg["zookeeper"].(bool),
