@@ -292,3 +292,87 @@ func (w *PortsWatcher) loop() {
 		}
 	}
 }
+
+// MachinesWatcher observes changes to children of the /machines key.	
+type MachinesWatcher struct {
+	st         *State
+	path       string
+	tomb       tomb.Tomb
+	changeChan chan MachineChange
+	watcher    *watcher.ChildrenWatcher
+}
+
+// newMachinesWatcher creates and starts a new machine watcher for	
+// the given path.	
+func newMachinesWatcher(st *State) *MachinesWatcher {
+	w := &MachinesWatcher{
+		st:         st,
+		path:       zkMachinesPath,
+		changeChan: make(chan MachineChange),
+		watcher:    watcher.NewChildrenWatcher(st.zk, zkMachinesPath),
+	}
+	go w.loop()
+	return w
+}
+
+// Changes returns a channel that will receive the actual	
+// watcher.ChildrenChanges. Note that multiple changes may 	
+// be observed as a single event in the channel.	
+func (w *MachinesWatcher) Changes() <-chan MachineChange {
+	return w.changeChan
+}
+
+// Stop stops the watch and returns any error encountered	
+// while watching. This method should always be called	
+// before discarding the watcher.	
+func (w *MachinesWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	if err := w.watcher.Stop(); err != nil {
+		w.tomb.Wait()
+		return err
+	}
+	return w.tomb.Wait()
+}
+
+// loop is the backend for watching the ports node.	
+func (w *MachinesWatcher) loop() {
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case change, ok := <-w.watcher.Changes():
+			if !ok {
+				return
+			}
+			select {
+			case <-w.watcher.Dying():
+				return
+			case <-w.tomb.Dying():
+				return
+			case w.changeChan <- w.convertChildrenToMachines(change):
+			}
+		}
+	}
+}
+
+// convertChildrenToMachines converts internal zookeeper textual machine keys
+// into *Machines.
+func (w *MachinesWatcher) convertChildrenToMachines(cc watcher.ChildrenChange) (mc MachineChange) {
+	for _, added := range cc.Added {
+		mc.Added = append(mc.Added, w.newMachine(added))
+	}
+	for _, deleted := range cc.Deleted {
+		mc.Deleted = append(mc.Deleted, w.newMachine(deleted))
+	}
+	return
+}
+
+// newMachine constructs a *Machine from the supplied key.
+func (w *MachinesWatcher) newMachine(key string) *Machine {
+	return &Machine{
+		st:  w.st,
+		key: key,
+	}
+}

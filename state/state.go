@@ -8,14 +8,13 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
-	"launchpad.net/juju/go/state/watcher"
 	"net/url"
 	"strings"
 )
 
 const (
 	zkEnvironmentPath = "/environment"
-	zkMachinesPath = "/machines"
+	zkMachinesPath    = "/machines"
 )
 
 // State represents the state of an environment
@@ -64,8 +63,8 @@ func (s *State) RemoveMachine(id int) error {
 }
 
 // WatchMachines watches for new Machines added or removed.
-func (s *State) WatchMachines() *watcher.ChildrenWatcher {
-	return watcher.NewChildrenWatcher(s.zk, zkMachinesPath)
+func (s *State) WatchMachines() *MachinesWatcher {
+	return newMachinesWatcher(s)
 }
 
 // WatchEnvironConfig returns a watcher for observing
