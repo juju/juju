@@ -91,7 +91,23 @@ func (t *LiveTests) TestFile(c *C) {
 	checkFileHasContents(c, store, name, contents)
 	checkPutFile(c, store, name, contents2) // check that we can overwrite the file
 	checkFileHasContents(c, store, name, contents2)
-	err := store.Remove(name)
+
+	// check that the listed contents include the
+	// expected name.
+	names, err := store.List("")
+	c.Assert(err, IsNil)
+	found := false
+	for _, lname := range names {
+		if lname == name {
+			found = true
+			break
+		}
+	}
+	if !found {
+		c.Errorf("file name %q not found in file list %q", name, names)
+	}
+
+	err = store.Remove(name)
 	c.Check(err, IsNil)
 	checkFileDoesNotExist(c, store, name)
 	// removing a file that does not exist should not be an error.

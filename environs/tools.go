@@ -165,11 +165,6 @@ func GetTools(store StorageReader, dir string) error {
 	return nil
 }
 
-// GetTools downloads the latest version of the
-// juju 
-// TODO
-// func GetTools(store StorageReader, dir string) error {
-
 // EmptyStorage holds a StorageReader object
 // that contains nothing.
 var EmptyStorage StorageReader = emptyStorage{}

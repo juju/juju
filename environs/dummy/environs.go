@@ -9,6 +9,8 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/schema"
 	"launchpad.net/juju/go/state"
+	"sort"
+	"strings"
 	"sync"
 )
 
@@ -263,7 +265,7 @@ func (e *environ) Instances(ids []string) (insts []environs.Instance, err error)
 // separate.
 type storage environ
 
-func (e *environ) Storage() environs.StorageReadWriter {
+func (e *environ) Storage() environs.Storage {
 	return (*storage)(e)
 }
 
@@ -315,8 +317,11 @@ func (s *storage) List(prefix string) ([]string, error) {
 	defer s.state.mu.Unlock()
 	var names []string
 	for name := range s.state.files {
-		names = append(names, name)
+		if strings.HasPrefix(name, prefix) {
+			names = append(names, name)
+		}
 	}
+	sort.Strings(names)
 	return names, nil
 }
 

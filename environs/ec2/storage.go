@@ -5,11 +5,10 @@ import (
 	"io"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
-	"path"
 	"sync"
 )
 
-// storage implements environs.StorageReadWriter on
+// storage implements environs.Storage on
 // an ec2.bucket.
 type storage struct {
 	checkBucket      sync.Once
@@ -74,16 +73,9 @@ func (s *storage) Remove(file string) error {
 	return err
 }
 
-func (s *storage) List(dir string) ([]string, error) {
-	dir = path.Clean(dir)
-	if dir == "/" {
-		dir = ""
-	} else {
-		dir += "/"
-	}
-
+func (s *storage) List(prefix string) ([]string, error) {
 	// TODO cope with more than 1000 objects in the bucket.
-	resp, err := s.b.List(dir, "", "", 0)
+	resp, err := s.b.List(prefix, "", "", 0)
 	if err != nil {
 		if s3ErrorStatusCode(err) == 404 {
 			return nil, &environs.NotFoundError{err}
@@ -97,7 +89,7 @@ func (s *storage) List(dir string) ([]string, error) {
 	return names, nil
 }
 
-func (e *environ) Storage() environs.StorageReadWriter {
+func (e *environ) Storage() environs.Storage {
 	return &e.store
 }
 

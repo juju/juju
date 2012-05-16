@@ -56,7 +56,8 @@ type StorageReader interface {
 	// after use.
 	Get(name string) (io.ReadCloser, error)
 
-	// List lists all files in the storage with the given prefix.
+	// List lists all file names in the storage with the given prefix,
+	// in alphabetical order.
 	List(prefix string) ([]string, error)
 
 	// TODO: URL returns a URL that can be used to access the given
@@ -77,9 +78,9 @@ type StorageWriter interface {
 	Remove(name string) error
 }
 
-// StorageReadWriter represents storage that can be both
+// Storage represents storage that can be both
 // read and written.
-type StorageReadWriter interface {
+type Storage interface {
 	StorageReader
 	StorageWriter
 }
@@ -125,7 +126,7 @@ type Environ interface {
 	Instances(ids []string) ([]Instance, error)
 
 	// Storage returns storage specific to the environment.
-	Storage() StorageReadWriter
+	Storage() Storage
 
 	// PublicStorage returns storage shared between environments.
 	PublicStorage() StorageReader

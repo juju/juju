@@ -73,19 +73,51 @@ func (t *Tests) TestBootstrap(c *C) {
 func (t *Tests) TestPersistence(c *C) {
 	store := t.Open(c).Storage()
 
-	name := "persistent-file"
-	checkFileDoesNotExist(c, store, name)
-	checkPutFile(c, store, name, contents)
+	names := []string{
+		"aa",
+		"zzz/aa",
+		"zzz/bb",
+	}
+	for _, name := range names {
+		checkFileDoesNotExist(c, store, name)
+		checkPutFile(c, store, name, []byte(name))
+	}
+	checkList(c, store, "", names)
+	checkList(c, store, "a", []string{"aa"})
+	checkList(c, store, "zzz/", []string{"zzz/aa", "zzz/bb"})
 
 	store2 := t.Open(c).Storage()
-	checkFileHasContents(c, store2, name, contents)
+	for _, name := range names {
+		checkFileHasContents(c, store2, name, []byte(name))
+	}
 
-	// remove the file...
-	err := store2.Remove(name)
+	// remove the first file and check that the others remain.
+	err := store2.Remove(names[0])
+	c.Check(err, IsNil)
+
+	// check that it's ok to remove a file twice.
+	err = store2.Remove(names[0])
 	c.Check(err, IsNil)
 
 	// ... and check it's been removed in the other environment
-	checkFileDoesNotExist(c, store, name)
+	checkFileDoesNotExist(c, store, names[0])
+
+	// ... and that the rest of the files are still around
+	checkList(c, store2, "", names[1:])
+
+	for _, name := range names[1:] {
+		err := store2.Remove(name)
+		c.Assert(err, IsNil)
+	}
+
+	// check they've all gone
+	checkList(c, store2, "", nil)
+}
+
+func checkList(c *C, store environs.StorageReader, prefix string, names []string) {
+	lnames, err := store.List(prefix)
+	c.Assert(err, IsNil)
+	c.Assert(lnames, DeepEquals, names)
 }
 
 func checkPutFile(c *C, store environs.StorageWriter, name string, contents []byte) {
