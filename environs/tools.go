@@ -16,7 +16,7 @@ import (
 
 // toolsPath gives the path for the current juju tools, as expected
 // by environs.Environ.PutFile, for example.
-var toolsPath = fmt.Sprintf("tools/%d/%v-%s-%s.tgz", version.Current.Major, version.Current, runtime.GOOS, runtime.GOARCH)
+var toolsPath = fmt.Sprintf("tools/%v-%s-%s.tgz", version.Current, runtime.GOOS, runtime.GOARCH)
 
 // tarHeader returns a tar file header given the file's stat
 // information.

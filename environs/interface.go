@@ -40,6 +40,8 @@ type Instance interface {
 var ErrNoInstances = errors.New("no instances found")
 var ErrPartialInstances = errors.New("only some instances were found")
 
+// NotFoundError is the concrete error type returned by
+// StorageReader.Get when a file is not found.
 type NotFoundError struct {
 	// error gives the underlying error.
 	error
