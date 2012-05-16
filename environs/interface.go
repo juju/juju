@@ -40,6 +40,50 @@ type Instance interface {
 var ErrNoInstances = errors.New("no instances found")
 var ErrPartialInstances = errors.New("only some instances were found")
 
+type NotFoundError struct {
+	// error gives the underlying error.
+	error
+}
+
+// StorageReader gives a way to read data stored within
+// an environment. When a method is called on a
+// non-existent file, the concrete type of the returned error
+// should be *NotFoundError.
+type StorageReader interface {
+	// Get opens the given storage file
+	// and returns a ReadCloser that can be used to read its
+	// contents. It is the caller's responsibility to close it
+	// after use.
+	Get(name string) (io.ReadCloser, error)
+
+	// List lists all files in the storage with the given prefix.
+	List(prefix string) ([]string, error)
+
+	// TODO: URL returns a URL that can be used to access the given
+	// storage file.
+	// URL(name string) (string, error)
+}
+
+// StorageWriter gives a way to change data stored
+// within an environment.
+type StorageWriter interface {
+	// Put reads from r and writes to the given storage file.
+	// The length must give the total length of the file.
+	Put(name string, r io.Reader, length int64) error
+
+	// Remove removes the given file from the environment's
+	// storage. It should not return an error if the file does
+	// not exist.
+	Remove(name string) error
+}
+
+// StorageReadWriter represents storage that can be both
+// read and written.
+type StorageReadWriter interface {
+	StorageReader
+	StorageWriter
+}
+
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
 // 
@@ -80,25 +124,11 @@ type Environ interface {
 	// will be returned.
 	Instances(ids []string) ([]Instance, error)
 
-	// PutFile reads from r and writes to the given file in the
-	// environment's storage. The length must give the total
-	// length of the file.
-	//
-	// If the name is prefixed with "tools/", it should be an
-	// archive of the juju tools in gzipped tar format; the full
-	// name should be of the form:
-	//     tools/juju-$VERSION-$GOOS-$GOARCH.tgz
-	PutFile(file string, r io.Reader, length int64) error
+	// Storage returns storage specific to the environment.
+	Storage() StorageReadWriter
 
-	// GetFile opens the given file in the environment's storage
-	// and returns a ReadCloser that can be used to read its
-	// contents. It is the caller's responsibility to close it
-	// after use.
-	GetFile(file string) (io.ReadCloser, error)
-
-	// RemoveFile removes the given file from the environment's storage.
-	// It is not an error to remove a file that does not exist.
-	RemoveFile(file string) error
+	// PublicStorage returns storage shared between environments.
+	PublicStorage() StorageReader
 
 	// Destroy shuts down all known machines and destroys the
 	// rest of the environment. A list of instances known to

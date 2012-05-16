@@ -2,12 +2,10 @@ package environs_test
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
 	_ "launchpad.net/juju/go/environs/dummy"
-	"launchpad.net/juju/go/version"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -34,19 +32,17 @@ func init() {
 
 var _ = Suite(&ToolsSuite{})
 
-func (ToolsSuite) TestUploadTools(c *C) {
+func (ToolsSuite) TestPutTools(c *C) {
 	env, err := envs.Open("")
 	c.Assert(err, IsNil)
 
-	err = environs.UploadTools(env)
-	c.Assert(err, IsNil)
-
-	r, err := env.GetFile(version.ToolsPath)
+	err = environs.PutTools(env.Storage())
 	c.Assert(err, IsNil)
 
 	// Unarchive the tool executables into a temp directory.
 	dir := c.MkDir()
-	unarchive(c, dir, r)
+	err = environs.GetTools(env.Storage(), dir)
+	c.Assert(err, IsNil)
 
 	// Verify that each tool executes and produces some
 	// characteristic output.
@@ -77,21 +73,6 @@ func (ToolsSuite) TestUploadBadBuild(c *C) {
 	env, err := envs.Open("")
 	c.Assert(err, IsNil)
 
-	err = environs.UploadTools(env)
+	err = environs.PutTools(env.Storage())
 	c.Assert(err, ErrorMatches, `build failed: exit status 1; can't load package:(.|\n)*`)
-}
-
-func unarchive(c *C, dir string, r io.ReadCloser) {
-	defer r.Close()
-
-	// unarchive using actual tar command so we're
-	// not just verifying the Go tar package against itself.
-	cmd := exec.Command("tar", "xz")
-	cmd.Dir = dir
-	cmd.Stdin = r
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		c.Logf("%s", out)
-		c.Fatalf("tar xz failed: %v", err)
-	}
 }

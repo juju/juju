@@ -8,13 +8,14 @@ import (
 	main "launchpad.net/juju/go/cmd/juju"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/dummy"
-	"launchpad.net/juju/go/version"
+	"launchpad.net/juju/go/testing"
 	"os"
 	"path/filepath"
 	"reflect"
 )
 
 type cmdSuite struct {
+	testing.LoggingSuite
 	home string
 }
 
@@ -38,6 +39,7 @@ environments:
 `
 
 func (s *cmdSuite) SetUpTest(c *C) {
+	s.LoggingSuite.SetUpTest(c)
 	// Arrange so that the "home" directory points
 	// to a temporary directory containing the config file.
 	s.home = os.Getenv("HOME")
@@ -53,6 +55,7 @@ func (s *cmdSuite) TearDownTest(c *C) {
 	os.Setenv("HOME", s.home)
 
 	dummy.Reset(nil, true)
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func newFlagSet() *gnuflag.FlagSet {
@@ -151,9 +154,9 @@ func (*cmdSuite) TestBootstrapCommand(c *C) {
 	c.Assert(err, IsNil)
 	env, err := envs.Open("peckham")
 	c.Assert(err, IsNil)
-	r, err := env.GetFile(version.ToolsPath)
+	dir := c.MkDir()
+	err = environs.GetTools(env.Storage(), dir)
 	c.Assert(err, IsNil)
-	r.Close()
 
 	// bootstrap with broken environment
 	opc, errc = runCommand(new(main.BootstrapCommand), "-e", "barking")

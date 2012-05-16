@@ -6,11 +6,17 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"launchpad.net/juju/go/log"
 	"launchpad.net/juju/go/version"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 )
+
+// toolsPath gives the path for the current juju tools, as expected
+// by environs.Environ.PutFile, for example.
+var toolsPath = fmt.Sprintf("tools/%d/%v-%s-%s.tgz", version.Current.Major, version.Current, runtime.GOOS, runtime.GOARCH)
 
 // tarHeader returns a tar file header given the file's stat
 // information.
@@ -108,10 +114,10 @@ func bundleTools(w io.Writer) error {
 	return archive(w, dir)
 }
 
-// UploadTools uploads the current version of the juju tools
-// executables to the given environment.
+// PutTools uploads the current version of the juju tools
+// executables to the given storage.
 // TODO find binaries from $PATH when go dev environment not available.
-func UploadTools(env Environ) error {
+func PutTools(store StorageWriter) error {
 	// We create the entire archive before asking the environment to
 	// start uploading so that we can be sure we have archived
 	// correctly.
@@ -133,5 +139,48 @@ func UploadTools(env Environ) error {
 	if err != nil {
 		return err
 	}
-	return env.PutFile(version.ToolsPath, f, fi.Size())
+	return store.Put(toolsPath, f, fi.Size())
+}
+
+// GetTools finds the latest compatible version of the juju tools
+// and downloads them into the given directory.
+func GetTools(store StorageReader, dir string) error {
+	// TODO search the store for the right tools.
+	r, err := store.Get(toolsPath)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	// unarchive using actual tar command so we're
+	// not just verifying the Go tar package against itself.
+	cmd := exec.Command("tar", "xz")
+	cmd.Dir = dir
+	cmd.Stdin = r
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("environs: tar extract failed: %s", out)
+		return fmt.Errorf("tar extract failed: %v", err)
+	}
+	return nil
+}
+
+// GetTools downloads the latest version of the
+// juju 
+// TODO
+// func GetTools(store StorageReader, dir string) error {
+
+// EmptyStorage holds a StorageReader object
+// that contains nothing.
+var EmptyStorage StorageReader = emptyStorage{}
+
+type emptyStorage struct {
+}
+
+func (s emptyStorage) Get(name string) (io.ReadCloser, error) {
+	return nil, &NotFoundError{fmt.Errorf("file %q not found in empty storage", name)}
+}
+
+func (s emptyStorage) List(prefix string) ([]string, error) {
+	return nil, nil
 }

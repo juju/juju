@@ -71,36 +71,38 @@ func (t *Tests) TestBootstrap(c *C) {
 }
 
 func (t *Tests) TestPersistence(c *C) {
-	e := t.Open(c)
-	name := "persistent-file"
-	checkFileDoesNotExist(c, e, name)
-	checkPutFile(c, e, name, contents)
+	store := t.Open(c).Storage()
 
-	e2 := t.Open(c)
-	checkFileHasContents(c, e2, name, contents)
+	name := "persistent-file"
+	checkFileDoesNotExist(c, store, name)
+	checkPutFile(c, store, name, contents)
+
+	store2 := t.Open(c).Storage()
+	checkFileHasContents(c, store2, name, contents)
 
 	// remove the file...
-	err := e2.RemoveFile(name)
+	err := store2.Remove(name)
 	c.Check(err, IsNil)
 
 	// ... and check it's been removed in the other environment
-	checkFileDoesNotExist(c, e, name)
+	checkFileDoesNotExist(c, store, name)
 }
 
-func checkPutFile(c *C, e environs.Environ, name string, contents []byte) {
-	err := e.PutFile(name, bytes.NewBuffer(contents), int64(len(contents)))
+func checkPutFile(c *C, store environs.StorageWriter, name string, contents []byte) {
+	err := store.Put(name, bytes.NewBuffer(contents), int64(len(contents)))
 	c.Assert(err, IsNil)
 }
 
-func checkFileDoesNotExist(c *C, e environs.Environ, name string) {
+func checkFileDoesNotExist(c *C, store environs.StorageReader, name string) {
 	// TODO eventual consistency
-	r, err := e.GetFile(name)
+	r, err := store.Get(name)
 	c.Check(r, IsNil)
 	c.Assert(err, NotNil)
+	c.Assert(err, FitsTypeOf, (*environs.NotFoundError)(nil))
 }
 
-func checkFileHasContents(c *C, e environs.Environ, name string, contents []byte) {
-	r, err := e.GetFile(name)
+func checkFileHasContents(c *C, store environs.StorageReader, name string, contents []byte) {
+	r, err := store.Get(name)
 	c.Assert(err, IsNil)
 	c.Check(r, NotNil)
 

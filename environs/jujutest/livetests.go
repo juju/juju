@@ -84,15 +84,17 @@ var contents2 = []byte("goodbye\n\n")
 
 func (t *LiveTests) TestFile(c *C) {
 	name := fmt.Sprint("testfile", time.Now().UnixNano())
-	checkFileDoesNotExist(c, t.Env, name)
-	checkPutFile(c, t.Env, name, contents)
-	checkFileHasContents(c, t.Env, name, contents)
-	checkPutFile(c, t.Env, name, contents2) // check that we can overwrite the file
-	checkFileHasContents(c, t.Env, name, contents2)
-	err := t.Env.RemoveFile(name)
+	store := t.Env.Storage()
+
+	checkFileDoesNotExist(c, store, name)
+	checkPutFile(c, store, name, contents)
+	checkFileHasContents(c, store, name, contents)
+	checkPutFile(c, store, name, contents2) // check that we can overwrite the file
+	checkFileHasContents(c, store, name, contents2)
+	err := store.Remove(name)
 	c.Check(err, IsNil)
-	checkFileDoesNotExist(c, t.Env, name)
+	checkFileDoesNotExist(c, store, name)
 	// removing a file that does not exist should not be an error.
-	err = t.Env.RemoveFile(name)
+	err = store.Remove(name)
 	c.Check(err, IsNil)
 }
