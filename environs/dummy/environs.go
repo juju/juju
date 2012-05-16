@@ -9,6 +9,8 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/schema"
 	"launchpad.net/juju/go/state"
+	"sort"
+	"strings"
 	"sync"
 )
 
@@ -172,7 +174,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		return errBroken
 	}
 	if uploadTools {
-		err := environs.UploadTools(e)
+		err := environs.PutTools(e.Storage())
 		if err != nil {
 			return err
 		}
@@ -258,43 +260,69 @@ func (e *environ) Instances(ids []string) (insts []environs.Instance, err error)
 	return
 }
 
-func (e *environ) PutFile(name string, r io.Reader, length int64) error {
-	if e.broken {
+// storage uses the same object as environ,
+// but we use a new type to keep the name spaces
+// separate.
+type storage environ
+
+func (e *environ) Storage() environs.Storage {
+	return (*storage)(e)
+}
+
+func (e *environ) PublicStorage() environs.StorageReader {
+	return environs.EmptyStorage
+}
+
+func (s *storage) Put(name string, r io.Reader, length int64) error {
+	if s.broken {
 		return errBroken
 	}
-	e.ops <- Operation{Kind: OpPutFile, Env: e.name}
+	s.ops <- Operation{Kind: OpPutFile, Env: s.name}
 	var buf bytes.Buffer
 	_, err := io.Copy(&buf, r)
 	if err != nil {
 		return err
 	}
-	e.state.mu.Lock()
-	e.state.files[name] = buf.Bytes()
-	e.state.mu.Unlock()
+	s.state.mu.Lock()
+	s.state.files[name] = buf.Bytes()
+	s.state.mu.Unlock()
 	return nil
 }
 
-func (e *environ) GetFile(name string) (io.ReadCloser, error) {
-	if e.broken {
+func (s *storage) Get(name string) (io.ReadCloser, error) {
+	if s.broken {
 		return nil, errBroken
 	}
-	e.state.mu.Lock()
-	defer e.state.mu.Unlock()
-	data, ok := e.state.files[name]
+	s.state.mu.Lock()
+	defer s.state.mu.Unlock()
+	data, ok := s.state.files[name]
 	if !ok {
-		return nil, fmt.Errorf("file %q not found", name)
+		return nil, &environs.NotFoundError{fmt.Errorf("file %q not found", name)}
 	}
 	return ioutil.NopCloser(bytes.NewBuffer(data)), nil
 }
 
-func (e *environ) RemoveFile(name string) error {
-	if e.broken {
+func (s *storage) Remove(name string) error {
+	if s.broken {
 		return errBroken
 	}
-	e.state.mu.Lock()
-	delete(e.state.files, name)
-	e.state.mu.Unlock()
+	s.state.mu.Lock()
+	delete(s.state.files, name)
+	s.state.mu.Unlock()
 	return nil
+}
+
+func (s *storage) List(prefix string) ([]string, error) {
+	s.state.mu.Lock()
+	defer s.state.mu.Unlock()
+	var names []string
+	for name := range s.state.files {
+		if strings.HasPrefix(name, prefix) {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	return names, nil
 }
 
 type instance struct {

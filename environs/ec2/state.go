@@ -4,14 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
-	"launchpad.net/goamz/s3"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju/go/log"
-	"launchpad.net/juju/go/version"
-	"regexp"
-	"sync"
+	"launchpad.net/juju/go/environs"
 )
 
 const stateFile = "provider-state"
@@ -25,11 +20,11 @@ func (e *environ) saveState(state *bootstrapState) error {
 	if err != nil {
 		return err
 	}
-	return e.PutFile(stateFile, bytes.NewBuffer(data), int64(len(data)))
+	return e.Storage().Put(stateFile, bytes.NewBuffer(data), int64(len(data)))
 }
 
 func (e *environ) loadState() (*bootstrapState, error) {
-	r, err := e.GetFile(stateFile)
+	r, err := e.Storage().Get(stateFile)
 	if err != nil {
 		return nil, err
 	}
@@ -46,11 +41,17 @@ func (e *environ) loadState() (*bootstrapState, error) {
 	return &state, nil
 }
 
+func maybeNotFound(err error) error {
+	if s3ErrorStatusCode(err) == 404 {
+		return &environs.NotFoundError{err}
+	}
+	return err
+}
+
 func (e *environ) deleteState() error {
-	e.bucketMutex.Lock()
-	defer e.bucketMutex.Unlock()
-	b := e.bucket()
-	resp, err := b.List("", "", "", 0)
+	s := e.Storage().(*storage)
+
+	names, err := s.List("")
 	if err != nil {
 		if s3ErrorStatusCode(err) == 404 {
 			return nil
@@ -67,7 +68,7 @@ func (e *environ) deleteState() error {
 	for _, obj := range resp.Contents {
 		name := obj.Key
 		go func() {
-			if err := e.RemoveFile(name); err != nil {
+			if err := s.Remove(name); err != nil {
 				errc <- err
 			}
 			wg.Done()
@@ -79,7 +80,7 @@ func (e *environ) deleteState() error {
 		return fmt.Errorf("cannot delete all provider state: %v", err)
 	default:
 	}
-	return b.DelBucket()
+	return s.b.DelBucket()
 }
 
 // makeBucket makes the environent's control bucket, the

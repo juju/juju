@@ -10,7 +10,37 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 )
+
+XXX moved temporarily from version package
+
+var CurrentOS = runtime.GOOS
+var CurrentArch = ubuntuArch(runtime.GOARCH)
+
+func ubuntuArch(arch string) string {
+	if arch == "386" {
+		arch = "i386"
+	}
+	return arch
+}
+
+// ToolsPathForVersion returns a path for the juju tools with the
+// given version, OS and architecture.
+func ToolsPathForVersion(v Version, os, arch string) string {
+	return fmt.Sprintf("tools/juju%v-%s-%s.tgz", v, os, arch)
+}
+
+// ToolsPath gives the path for the current juju tools, as expected
+// by environs.Environ.PutFile, for example.
+var ToolsPath = ToolsPathForVersion(Current, CurrentOS, CurrentArch)
+
+-------------------------------
+
+// toolsPath gives the path for the current juju tools, as expected
+// by environs.Environ.PutFile, for example.
+var toolsPath = fmt.Sprintf("tools/%v-%s-%s.tgz", version.Current, runtime.GOOS, runtime.GOARCH)
 
 // tarHeader returns a tar file header given the file's stat
 // information.
@@ -108,10 +138,10 @@ func bundleTools(w io.Writer) error {
 	return archive(w, dir)
 }
 
-// UploadTools uploads the current version of the juju tools
-// executables to the given environment.
+// PutTools uploads the current version of the juju tools
+// executables to the given storage.
 // TODO find binaries from $PATH when go dev environment not available.
-func UploadTools(env Environ) error {
+func PutTools(store StorageWriter) error {
 	// We create the entire archive before asking the environment to
 	// start uploading so that we can be sure we have archived
 	// correctly.
@@ -133,5 +163,68 @@ func UploadTools(env Environ) error {
 	if err != nil {
 		return err
 	}
-	return env.PutFile(version.ToolsPath, f, fi.Size())
+	return store.Put(toolsPath, f, fi.Size())
+}
+
+// GetTools finds the latest compatible version of the juju tools
+// and downloads them into the given directory.
+func GetTools(store StorageReader, dir string) error {
+	// TODO search the store for the right tools.
+	r, err := store.Get(toolsPath)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	r, err = gzip.NewReader(r)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	tr := tar.NewReader(r)
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			if err == io.EOF {
+				err = nil
+			}
+			return err
+		}
+		if strings.Contains(hdr.Name, "/\\") {
+			// TODO (perhaps) allow subdirectories.
+			return fmt.Errorf("bad name %q in tools archive", hdr.Name)
+		}
+
+		name := filepath.Join(dir, hdr.Name)
+		if err := writeFile(name, os.FileMode(hdr.Mode&0777), tr); err != nil {
+			return fmt.Errorf("tar extract %q failed: %v", name, err)
+		}
+	}
+	panic("not reached")
+}
+
+func writeFile(name string, mode os.FileMode, r io.Reader) error {
+	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = io.Copy(f, r)
+	return err
+}
+
+// EmptyStorage holds a StorageReader object
+// that contains nothing.
+var EmptyStorage StorageReader = emptyStorage{}
+
+type emptyStorage struct {
+}
+
+func (s emptyStorage) Get(name string) (io.ReadCloser, error) {
+	return nil, &NotFoundError{fmt.Errorf("file %q not found in empty storage", name)}
+}
+
+func (s emptyStorage) List(prefix string) ([]string, error) {
+	return nil, nil
 }

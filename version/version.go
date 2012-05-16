@@ -5,30 +5,10 @@ package version
 import (
 	"fmt"
 	"regexp"
-	"runtime"
 	"strconv"
 )
 
 var Current = MustParse("0.0.0")
-var CurrentOS = runtime.GOOS
-var CurrentArch = ubuntuArch(runtime.GOARCH)
-
-func ubuntuArch(arch string) string {
-	if arch == "386" {
-		arch = "i386"
-	}
-	return arch
-}
-
-// ToolsPath gives the path for the current juju tools, as expected
-// by environs.Environ.PutFile, for example.
-var ToolsPath = ToolsPathForVersion(Current, CurrentOS, CurrentArch)
-
-// ToolsPathForVersion returns a path for the juju tools with the
-// given version, OS and architecture.
-func ToolsPathForVersion(v Version, os, arch string) string {
-	return fmt.Sprintf("tools/juju%v-%s-%s.tgz", v, os, arch)
-}
 
 // Version represents a juju version. When bugs are
 // fixed the patch number is incremented; when new features are added
