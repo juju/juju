@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju/go/log"
 	"launchpad.net/juju/go/version"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 // toolsPath gives the path for the current juju tools, as expected
@@ -152,17 +152,42 @@ func GetTools(store StorageReader, dir string) error {
 	}
 	defer r.Close()
 
-	// unarchive using actual tar command so we're
-	// not just verifying the Go tar package against itself.
-	cmd := exec.Command("tar", "xz")
-	cmd.Dir = dir
-	cmd.Stdin = r
-	out, err := cmd.CombinedOutput()
+	r, err = gzip.NewReader(r)
 	if err != nil {
-		log.Printf("environs: tar extract failed: %s", out)
-		return fmt.Errorf("tar extract failed: %v", err)
+		return err
 	}
-	return nil
+	defer r.Close()
+
+	tr := tar.NewReader(r)
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			if err == io.EOF {
+				err = nil
+			}
+			return err
+		}
+		if strings.Contains(hdr.Name, "/\\") {
+			// TODO (perhaps) allow subdirectories.
+			return fmt.Errorf("bad name %q in tools archive", hdr.Name)
+		}
+
+		name := filepath.Join(dir, hdr.Name)
+		if err := writeFile(name, os.FileMode(hdr.Mode&0777), tr); err != nil {
+			return fmt.Errorf("tar extract %q failed: %v", name, err)
+		}
+	}
+	panic("not reached")
+}
+
+func writeFile(name string, mode os.FileMode, r io.Reader) error {
+	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = io.Copy(f, r)
+	return err
 }
 
 // EmptyStorage holds a StorageReader object
