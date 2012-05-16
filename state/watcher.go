@@ -298,8 +298,8 @@ type MachinesWatcher struct {
 	st         *State
 	path       string
 	tomb       tomb.Tomb
-	changeChan chan MachineChange
-	watcher    *watcher.ChildrenWatcher
+	changeChan chan MachinesChange
+	watcher *watcher.ChildrenWatcher
 }
 
 // newMachinesWatcher creates and starts a new machine watcher for	
@@ -308,7 +308,7 @@ func newMachinesWatcher(st *State) *MachinesWatcher {
 	w := &MachinesWatcher{
 		st:         st,
 		path:       zkMachinesPath,
-		changeChan: make(chan MachineChange),
+		changeChan: make(chan MachinesChange),
 		watcher:    watcher.NewChildrenWatcher(st.zk, zkMachinesPath),
 	}
 	go w.loop()
@@ -318,7 +318,7 @@ func newMachinesWatcher(st *State) *MachinesWatcher {
 // Changes returns a channel that will receive the actual	
 // watcher.ChildrenChanges. Note that multiple changes may 	
 // be observed as a single event in the channel.	
-func (w *MachinesWatcher) Changes() <-chan MachineChange {
+func (w *MachinesWatcher) Changes() <-chan MachinesChange {
 	return w.changeChan
 }
 
@@ -359,7 +359,7 @@ func (w *MachinesWatcher) loop() {
 
 // convertChildrenToMachines converts internal zookeeper textual machine keys
 // into *Machines.
-func (w *MachinesWatcher) convertChildrenToMachines(cc watcher.ChildrenChange) (mc MachineChange) {
+func (w *MachinesWatcher) convertChildrenToMachines(cc watcher.ChildrenChange) (mc MachinesChange) {
 	for _, added := range cc.Added {
 		mc.Added = append(mc.Added, w.newMachine(added))
 	}

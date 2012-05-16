@@ -212,7 +212,7 @@ func (s *StateSuite) TestUnitWatchPorts(c *C) {
 
 type machinesWatchTest struct {
 	test func(*state.State) error
-	want func(*state.State) state.MachineChange
+	want func(*state.State) state.MachinesChange
 }
 
 var machinesWatchTests = []machinesWatchTest{
@@ -221,8 +221,8 @@ var machinesWatchTests = []machinesWatchTest{
 			_, err := s.AddMachine()
 			return err
 		},
-		func(s *state.State) state.MachineChange {
-			return state.MachineChange{Added: []*state.Machine{state.NewMachine(s, "machine-0000000000")}}
+		func(s *state.State) state.MachinesChange {
+			return state.MachinesChange{Added: []*state.Machine{state.NewMachine(s, "machine-0000000000")}}
 		},
 	},
 	{
@@ -230,16 +230,16 @@ var machinesWatchTests = []machinesWatchTest{
 			_, err := s.AddMachine()
 			return err
 		},
-		func(s *state.State) state.MachineChange {
-			return state.MachineChange{Added: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
+		func(s *state.State) state.MachinesChange {
+			return state.MachinesChange{Added: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
 		},
 	},
 	{
 		func(s *state.State) error {
 			return s.RemoveMachine(1)
 		},
-		func(s *state.State) state.MachineChange {
-			return state.MachineChange{Deleted: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
+		func(s *state.State) state.MachinesChange {
+			return state.MachinesChange{Deleted: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
 		},
 	},
 }

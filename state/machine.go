@@ -84,6 +84,6 @@ func machineKey(machineId int) string {
 
 // MachineChange contains information about
 // machines that have been added or deleted.
-type MachineChange struct {
+type MachinesChange struct {
 	Added, Deleted []*Machine
 }
