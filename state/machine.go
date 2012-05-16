@@ -82,7 +82,7 @@ func machineKey(machineId int) string {
 	return fmt.Sprintf("machine-%010d", machineId)
 }
 
-// MachineChange contains information about
+// MachinesChange contains information about
 // machines that have been added or deleted.
 type MachinesChange struct {
 	Added, Deleted []*Machine

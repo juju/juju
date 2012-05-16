@@ -293,17 +293,18 @@ func (w *PortsWatcher) loop() {
 	}
 }
 
-// MachinesWatcher observes changes to children of the /machines key.	
+// MachinesWatcher notifies about machines being added or removed 
+// from the environment.
 type MachinesWatcher struct {
 	st         *State
 	path       string
 	tomb       tomb.Tomb
 	changeChan chan MachinesChange
-	watcher *watcher.ChildrenWatcher
+	watcher    *watcher.ChildrenWatcher
 }
 
-// newMachinesWatcher creates and starts a new machine watcher for	
-// the given path.	
+// newMachinesWatcher creates and starts a new machine watcher for
+// the given path.
 func newMachinesWatcher(st *State) *MachinesWatcher {
 	w := &MachinesWatcher{
 		st:         st,
@@ -315,16 +316,16 @@ func newMachinesWatcher(st *State) *MachinesWatcher {
 	return w
 }
 
-// Changes returns a channel that will receive the actual	
-// watcher.ChildrenChanges. Note that multiple changes may 	
-// be observed as a single event in the channel.	
+// Changes returns a channel that will receive the actual
+// watcher.ChildrenChanges. Note that multiple changes may
+// be observed as a single event in the channel.
 func (w *MachinesWatcher) Changes() <-chan MachinesChange {
 	return w.changeChan
 }
 
-// Stop stops the watch and returns any error encountered	
-// while watching. This method should always be called	
-// before discarding the watcher.	
+// Stop stops the watch and returns any error encountered
+// while watching. This method should always be called
+// before discarding the watcher.
 func (w *MachinesWatcher) Stop() error {
 	w.tomb.Kill(nil)
 	if err := w.watcher.Stop(); err != nil {
@@ -334,7 +335,7 @@ func (w *MachinesWatcher) Stop() error {
 	return w.tomb.Wait()
 }
 
-// loop is the backend for watching the ports node.	
+// loop is the backend for watching the ports node.
 func (w *MachinesWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
@@ -351,28 +352,26 @@ func (w *MachinesWatcher) loop() {
 				return
 			case <-w.tomb.Dying():
 				return
-			case w.changeChan <- w.convertChildrenToMachines(change):
+			case w.changeChan <- w.toMachines(change):
 			}
 		}
 	}
 }
 
-// convertChildrenToMachines converts internal zookeeper textual machine keys
+// toMachines converts internal zookeeper textual machine keys
 // into *Machines.
-func (w *MachinesWatcher) convertChildrenToMachines(cc watcher.ChildrenChange) (mc MachinesChange) {
+func (w *MachinesWatcher) toMachines(cc watcher.ChildrenChange) (mc MachinesChange) {
 	for _, added := range cc.Added {
-		mc.Added = append(mc.Added, w.newMachine(added))
+		// state.Machine cannot be used at this point to create the *Machine as 
+		// it relies on the topology to be in a consistent state. Because of a 
+		// race in state.AddMachines, the topology may not reflect this machines
+		// arrival when the watcher observes the change.
+		mc.Added = append(mc.Added, &Machine{w.st, added})
 	}
 	for _, deleted := range cc.Deleted {
-		mc.Deleted = append(mc.Deleted, w.newMachine(deleted))
+		// We cannot ask state.Machine to construct this *Machine as it has 
+		// just been removed. We have to cheat and construct it manually.
+		mc.Deleted = append(mc.Deleted, &Machine{w.st, deleted})
 	}
 	return
-}
-
-// newMachine constructs a *Machine from the supplied key.
-func (w *MachinesWatcher) newMachine(key string) *Machine {
-	return &Machine{
-		st:  w.st,
-		key: key,
-	}
 }
