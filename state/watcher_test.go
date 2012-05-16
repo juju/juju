@@ -2,6 +2,7 @@ package state_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/state"
 	"launchpad.net/juju/go/state/watcher"
 	"time"
@@ -248,6 +249,52 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 		case got, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
 			c.Assert(got, DeepEquals, test.want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", test.want)
+		}
+	}
+
+	select {
+	case got, _ := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	c.Assert(w.Stop(), IsNil)
+}
+
+type any map[string]interface{}
+
+var environmentWatchTests = []struct {
+	key   string
+	value interface{}
+	want  map[string]interface{}
+}{
+	{"provider", "dummy", any{"provider": "dummy"}},
+	{"secret", "shhh", any{"provider": "dummy", "secret": "shhh"}},
+	{"provider", "aws", any{"provider": "aws", "secret": "shhh"}},
+}
+
+func (s *StateSuite) TestWatchEnvironment(c *C) {
+	// create a blank /environment key manually as it is 
+	// not created by state.Init().
+	path, err := s.zkConn.Create("/environment", "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
+	c.Assert(err, IsNil)
+	c.Assert(path, Equals, "/environment")
+
+	// fetch the /environment key as a *ConfigNode
+	w := s.st.WatchEnvrionConfig()
+	config, ok := <-w.Changes()
+	c.Assert(ok, Equals, true)
+
+	for _, test := range environmentWatchTests {
+		config.Set(test.key, test.value)
+		_, err := config.Write()
+		c.Assert(err, IsNil)
+		select {
+		case got, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got.Map(), DeepEquals, test.want)
 		case <-time.After(200 * time.Millisecond):
 			c.Fatalf("didn't get change: %#v", test.want)
 		}
