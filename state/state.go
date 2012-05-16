@@ -14,6 +14,7 @@ import (
 )
 
 const (
+	zkEnvironmentPath = "/environment"
 	zkMachinesPath = "/machines"
 )
 
@@ -65,6 +66,12 @@ func (s *State) RemoveMachine(id int) error {
 // WatchMachines watches for new Machines added or removed.
 func (s *State) WatchMachines() *watcher.ChildrenWatcher {
 	return watcher.NewChildrenWatcher(s.zk, zkMachinesPath)
+}
+
+// WatchEnvironConfig returns a watcher for observing
+// changes to the environment configuration.
+func (s *State) WatchEnvrionConfig() *ConfigWatcher {
+	return newConfigWatcher(s, zkEnvironmentPath)
 }
 
 // Machine returns the machine with the given id.
