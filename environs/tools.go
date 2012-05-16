@@ -14,10 +14,8 @@ import (
 	"strings"
 )
 
-XXX moved temporarily from version package
-
-var CurrentOS = runtime.GOOS
-var CurrentArch = ubuntuArch(runtime.GOARCH)
+var currentOS = runtime.GOOS			// TODO use ubuntu series
+var currentArch = ubuntuArch(runtime.GOARCH)
 
 func ubuntuArch(arch string) string {
 	if arch == "386" {
@@ -26,21 +24,15 @@ func ubuntuArch(arch string) string {
 	return arch
 }
 
-// ToolsPathForVersion returns a path for the juju tools with the
+// toolsPathForVersion returns a path for the juju tools with the
 // given version, OS and architecture.
-func ToolsPathForVersion(v Version, os, arch string) string {
+func toolsPathForVersion(v Version, os, arch string) string {
 	return fmt.Sprintf("tools/juju%v-%s-%s.tgz", v, os, arch)
 }
 
 // ToolsPath gives the path for the current juju tools, as expected
 // by environs.Environ.PutFile, for example.
-var ToolsPath = ToolsPathForVersion(Current, CurrentOS, CurrentArch)
-
--------------------------------
-
-// toolsPath gives the path for the current juju tools, as expected
-// by environs.Environ.PutFile, for example.
-var toolsPath = fmt.Sprintf("tools/%v-%s-%s.tgz", version.Current, runtime.GOOS, runtime.GOARCH)
+var toolsPath = ToolsPathForVersion(version.Current, currentOS, currentArch)
 
 // tarHeader returns a tar file header given the file's stat
 // information.
@@ -166,11 +158,56 @@ func PutTools(store StorageWriter) error {
 	return store.Put(toolsPath, f, fi.Size())
 }
 
+// FindTools 
+func FindTools(env Environ) (path string, err error) {
+
+
+func findToolsPath(store StorageReader) (path string, err error) {
+	names := store.List(fmt.Sprintf("tools/juju%d.", version.Current.Major))
+	if len(names) == 0 {
+		return "", &NotFoundError{fmt.Errorf("no tools found")}
+	}
+	bestVersion := version.Version{Major: -1}
+	bestName := ""
+	for _, name := range names {
+		m := toolFilePat.FindStringSubmatch(name)
+		if m == nil {
+			log.Printf("unexpected tools file found %q", name)
+			continue
+		}
+		vers, err := version.Parse(m[1])
+		if err != nil {
+			log.Printf("failed to parse version %q: %v", name, err)
+			continue
+		}
+		if m[2] != currentOS {
+			continue
+		}
+		// TODO allow different architectures.
+		if m[3] != currentArch {
+			continue
+		}
+		if vers.Major != versionCurrentMajor {
+			continue
+		}
+		if bestVersion.Less(vers) {
+			bestVersion = vers
+			bestKey = k.Key
+		}
+	}
+	if bestVersion.Major < 0 {
+		return "", errToolsNotFound
+	}
+	return bucket.URL(bestKey), nil
+}
+
 // GetTools finds the latest compatible version of the juju tools
 // and downloads them into the given directory.
-func GetTools(store StorageReader, dir string) error {
-	// TODO search the store for the right tools.
-	r, err := store.Get(toolsPath)
+func GetTools(env Environ, dir string) error {
+}
+
+func getToolsFromStorage(store StorageReader, path string) error {
+	r, err := store.Get(path)
 	if err != nil {
 		return err
 	}
