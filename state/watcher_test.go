@@ -2,9 +2,16 @@ package state_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/state"
 	"time"
 )
+
+var serviceWatchConfigData = []map[string]interface{}{
+	{},
+	{"foo": "bar", "baz": "yadda"},
+	{"baz": "yadda"},
+}
 
 func (s *StateSuite) TestServiceWatchConfig(c *C) {
 	dummy := s.addDummyCharm(c)
@@ -20,19 +27,28 @@ func (s *StateSuite) TestServiceWatchConfig(c *C) {
 	// Two change events.
 	config.Set("foo", "bar")
 	config.Set("baz", "yadda")
-	_, err = config.Write()
+	changes, err := config.Write()
 	c.Assert(err, IsNil)
+	c.Assert(changes, DeepEquals, []state.ItemChange{{
+		Key:      "baz",
+		Type:     state.ItemAdded,
+		NewValue: "yadda",
+	}, {
+		Key:      "foo",
+		Type:     state.ItemAdded,
+		NewValue: "bar",
+	}})
 	time.Sleep(100 * time.Millisecond)
 	config.Delete("foo")
-	_, err = config.Write()
+	changes, err = config.Write()
 	c.Assert(err, IsNil)
+	c.Assert(changes, DeepEquals, []state.ItemChange{{
+		Key:      "foo",
+		Type:     state.ItemDeleted,
+		OldValue: "bar",
+	}})
 
-	var expectedChanges = []map[string]interface{}{
-		{},
-		{"foo": "bar", "baz": "yadda"},
-		{"baz": "yadda"},
-	}
-	for _, want := range expectedChanges {
+	for _, want := range serviceWatchConfigData {
 		select {
 		case got, ok := <-configWatcher.Changes():
 			c.Assert(ok, Equals, true)
@@ -82,6 +98,17 @@ func (s *StateSuite) TestServiceWatchConfigIllegalData(c *C) {
 	c.Assert(err, ErrorMatches, "YAML error: .*")
 }
 
+type unitWatchNeedsUpgradeTest struct {
+	test func(*state.Unit) error
+	want state.NeedsUpgrade
+}
+
+var unitWatchNeedsUpgradeTests = []unitWatchNeedsUpgradeTest{
+	{func(u *state.Unit) error { return u.SetNeedsUpgrade(false) }, state.NeedsUpgrade{true, false}},
+	{func(u *state.Unit) error { return u.ClearNeedsUpgrade() }, state.NeedsUpgrade{false, false}},
+	{func(u *state.Unit) error { return u.SetNeedsUpgrade(true) }, state.NeedsUpgrade{true, true}},
+}
+
 func (s *StateSuite) TestUnitWatchNeedsUpgrade(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
@@ -91,30 +118,15 @@ func (s *StateSuite) TestUnitWatchNeedsUpgrade(c *C) {
 	c.Assert(err, IsNil)
 	needsUpgradeWatcher := unit.WatchNeedsUpgrade()
 
-	go func() {
-		time.Sleep(50 * time.Millisecond)
-		err = unit.SetNeedsUpgrade(false)
+	for _, test := range unitWatchNeedsUpgradeTests {
+		err := test.test(unit)
 		c.Assert(err, IsNil)
-		time.Sleep(50 * time.Millisecond)
-		err = unit.ClearNeedsUpgrade()
-		c.Assert(err, IsNil)
-		time.Sleep(50 * time.Millisecond)
-		err = unit.SetNeedsUpgrade(true)
-		c.Assert(err, IsNil)
-	}()
-
-	var expectedChanges = []state.NeedsUpgrade{
-		{true, false},
-		{false, false},
-		{true, true},
-	}
-	for _, want := range expectedChanges {
 		select {
 		case got, ok := <-needsUpgradeWatcher.Changes():
 			c.Assert(ok, Equals, true)
-			c.Assert(got, DeepEquals, want)
+			c.Assert(got, DeepEquals, test.want)
 		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("didn't get change: %#v", want)
+			c.Fatalf("didn't get change: %#v", test.want)
 		}
 	}
 
@@ -128,6 +140,17 @@ func (s *StateSuite) TestUnitWatchNeedsUpgrade(c *C) {
 	c.Assert(err, IsNil)
 }
 
+type unitWatchResolvedTest struct {
+	test func(*state.Unit) error
+	want state.ResolvedMode
+}
+
+var unitWatchResolvedTests = []unitWatchResolvedTest{
+	{func(u *state.Unit) error { return u.SetResolved(state.ResolvedRetryHooks) }, state.ResolvedRetryHooks},
+	{func(u *state.Unit) error { return u.ClearResolved() }, state.ResolvedNone},
+	{func(u *state.Unit) error { return u.SetResolved(state.ResolvedNoHooks) }, state.ResolvedNoHooks},
+}
+
 func (s *StateSuite) TestUnitWatchResolved(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
@@ -137,30 +160,15 @@ func (s *StateSuite) TestUnitWatchResolved(c *C) {
 	c.Assert(err, IsNil)
 	resolvedWatcher := unit.WatchResolved()
 
-	go func() {
-		time.Sleep(50 * time.Millisecond)
-		err = unit.SetResolved(state.ResolvedRetryHooks)
+	for _, test := range unitWatchResolvedTests {
+		err := test.test(unit)
 		c.Assert(err, IsNil)
-		time.Sleep(50 * time.Millisecond)
-		err = unit.ClearResolved()
-		c.Assert(err, IsNil)
-		time.Sleep(50 * time.Millisecond)
-		err = unit.SetResolved(state.ResolvedNoHooks)
-		c.Assert(err, IsNil)
-	}()
-
-	var expectedChanges = []state.ResolvedMode{
-		state.ResolvedRetryHooks,
-		state.ResolvedNone,
-		state.ResolvedNoHooks,
-	}
-	for _, want := range expectedChanges {
 		select {
 		case got, ok := <-resolvedWatcher.Changes():
 			c.Assert(ok, Equals, true)
-			c.Assert(got, Equals, want)
+			c.Assert(got, Equals, test.want)
 		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("didn't get change: %#v", want)
+			c.Fatalf("didn't get change: %#v", test.want)
 		}
 	}
 
@@ -174,6 +182,17 @@ func (s *StateSuite) TestUnitWatchResolved(c *C) {
 	c.Assert(err, IsNil)
 }
 
+type unitWatchPortsTest struct {
+	test func(*state.Unit) error
+	want []state.Port
+}
+
+var unitWatchPortsTests = []unitWatchPortsTest{
+	{func(u *state.Unit) error { return u.OpenPort("tcp", 80) }, []state.Port{{"tcp", 80}}},
+	{func(u *state.Unit) error { return u.OpenPort("udp", 53) }, []state.Port{{"tcp", 80}, {"udp", 53}}},
+	{func(u *state.Unit) error { return u.ClosePort("tcp", 80) }, []state.Port{{"udp", 53}}},
+}
+
 func (s *StateSuite) TestUnitWatchPorts(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
@@ -183,30 +202,15 @@ func (s *StateSuite) TestUnitWatchPorts(c *C) {
 	c.Assert(err, IsNil)
 	portsWatcher := unit.WatchPorts()
 
-	go func() {
-		time.Sleep(50 * time.Millisecond)
-		err = unit.OpenPort("tcp", 80)
+	for _, test := range unitWatchPortsTests {
+		err := test.test(unit)
 		c.Assert(err, IsNil)
-		time.Sleep(50 * time.Millisecond)
-		err = unit.OpenPort("udp", 53)
-		c.Assert(err, IsNil)
-		time.Sleep(50 * time.Millisecond)
-		err = unit.ClosePort("tcp", 80)
-		c.Assert(err, IsNil)
-	}()
-
-	var expectedChanges = [][]state.Port{
-		[]state.Port{{"tcp", 80}},
-		[]state.Port{{"tcp", 80}, {"udp", 53}},
-		[]state.Port{{"udp", 53}},
-	}
-	for _, want := range expectedChanges {
 		select {
 		case got, ok := <-portsWatcher.Changes():
 			c.Assert(ok, Equals, true)
-			c.Assert(got, DeepEquals, want)
+			c.Assert(got, DeepEquals, test.want)
 		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("didn't get change: %#v", want)
+			c.Fatalf("didn't get change: %#v", test.want)
 		}
 	}
 
@@ -218,4 +222,109 @@ func (s *StateSuite) TestUnitWatchPorts(c *C) {
 
 	err = portsWatcher.Stop()
 	c.Assert(err, IsNil)
+}
+
+type machinesWatchTest struct {
+	test func(*state.State) error
+	want func(*state.State) state.MachinesChange
+}
+
+var machinesWatchTests = []machinesWatchTest{
+	{
+		func(s *state.State) error {
+			_, err := s.AddMachine()
+			return err
+		},
+		func(s *state.State) state.MachinesChange {
+			return state.MachinesChange{Added: []*state.Machine{state.NewMachine(s, "machine-0000000000")}}
+		},
+	},
+	{
+		func(s *state.State) error {
+			_, err := s.AddMachine()
+			return err
+		},
+		func(s *state.State) state.MachinesChange {
+			return state.MachinesChange{Added: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
+		},
+	},
+	{
+		func(s *state.State) error {
+			return s.RemoveMachine(1)
+		},
+		func(s *state.State) state.MachinesChange {
+			return state.MachinesChange{Deleted: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
+		},
+	},
+}
+
+func (s *StateSuite) TestWatchMachines(c *C) {
+	w := s.st.WatchMachines()
+
+	for _, test := range machinesWatchTests {
+		err := test.test(s.st)
+		c.Assert(err, IsNil)
+		want := test.want(s.st)
+		select {
+		case got, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got, DeepEquals, want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", want)
+		}
+	}
+
+	select {
+	case got, _ := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	c.Assert(w.Stop(), IsNil)
+}
+
+type any map[string]interface{}
+
+var environmentWatchTests = []struct {
+	key   string
+	value interface{}
+	want  map[string]interface{}
+}{
+	{"provider", "dummy", any{"provider": "dummy"}},
+	{"secret", "shhh", any{"provider": "dummy", "secret": "shhh"}},
+	{"provider", "aws", any{"provider": "aws", "secret": "shhh"}},
+}
+
+func (s *StateSuite) TestWatchEnvironment(c *C) {
+	// create a blank /environment key manually as it is 
+	// not created by state.Init().
+	path, err := s.zkConn.Create("/environment", "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
+	c.Assert(err, IsNil)
+	c.Assert(path, Equals, "/environment")
+
+	// fetch the /environment key as a *ConfigNode
+	w := s.st.WatchEnvrionConfig()
+	config, ok := <-w.Changes()
+	c.Assert(ok, Equals, true)
+
+	for _, test := range environmentWatchTests {
+		config.Set(test.key, test.value)
+		_, err := config.Write()
+		c.Assert(err, IsNil)
+		select {
+		case got, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got.Map(), DeepEquals, test.want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", test.want)
+		}
+	}
+
+	select {
+	case got, _ := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	c.Assert(w.Stop(), IsNil)
 }

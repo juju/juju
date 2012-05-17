@@ -5,48 +5,57 @@ package server
 
 import (
 	"fmt"
-	"launchpad.net/juju/go/log"
+	"launchpad.net/juju/go/cmd"
+	"launchpad.net/juju/go/state"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
-// Context is responsible for the state against which a jujuc-forwarded command
-// will execute; it implements the core of the various jujuc tools, and is
-// involved in constructing a suitable environment in which to execute a hook
-// (which is likely to call jujuc tools that need this specific Context).
-type Context struct {
+// ClientContext is responsible for the state against which a jujuc-forwarded
+// command will execute; it implements the core of the various jujuc tools, and
+// is involved in constructing a suitable environment in which to execute a hook
+// (which is likely to call jujuc tools that need this specific ClientContext).
+type ClientContext struct {
 	Id             string
+	State          *state.State
 	LocalUnitName  string
 	RemoteUnitName string
 	RelationName   string
 }
 
-// Log is the core of the `juju-log` hook command, and is always meaningful in
-// any Context.
-func (ctx *Context) Log(debug bool, msg string) {
-	s := []string{}
-	if ctx.LocalUnitName != "" {
-		s = append(s, ctx.LocalUnitName)
+// checkUnitState returns an error if ctx has nil State or LocalUnitName fields.
+func (ctx *ClientContext) check() error {
+	if ctx.State == nil {
+		return fmt.Errorf("context %s cannot access state", ctx.Id)
 	}
-	if ctx.RelationName != "" {
-		s = append(s, ctx.RelationName)
+	if ctx.LocalUnitName == "" {
+		return fmt.Errorf("context %s is not attached to a unit", ctx.Id)
 	}
-	if len(s) > 0 {
-		msg = fmt.Sprintf("%s: ", strings.Join(s, " ")) + msg
+	return nil
+}
+
+// newCommands maps Command names to initializers.
+var newCommands = map[string]func(*ClientContext) (cmd.Command, error){
+	"config-get": NewConfigGetCommand,
+	"juju-log":   NewJujuLogCommand,
+	"unit-get":   NewUnitGetCommand,
+}
+
+// NewCommand returns an instance of the named Command, initialized to execute
+// against this ClientContext.
+func (ctx *ClientContext) NewCommand(name string) (cmd.Command, error) {
+	f := newCommands[name]
+	if f == nil {
+		return nil, fmt.Errorf("unknown command: %s", name)
 	}
-	if debug {
-		log.Debugf(msg)
-	} else {
-		log.Printf(msg)
-	}
+	return f(ctx)
 }
 
 // hookVars returns an os.Environ-style list of strings necessary to run a hook
 // such that it can know what environment it's operating in, and can call back
 // into ctx.
-func (ctx *Context) hookVars(charmDir, socketPath string) []string {
+func (ctx *ClientContext) hookVars(charmDir, socketPath string) []string {
 	vars := []string{
 		"APT_LISTCHANGES_FRONTEND=none",
 		"DEBIAN_FRONTEND=noninteractive",
@@ -68,8 +77,8 @@ func (ctx *Context) hookVars(charmDir, socketPath string) []string {
 }
 
 // RunHook executes a hook in an environment which allows it to to call back
-// into ctx to execute hook tools.
-func (ctx *Context) RunHook(hookName, charmDir, socketPath string) error {
+// into ctx to execute jujuc tools.
+func (ctx *ClientContext) RunHook(hookName, charmDir, socketPath string) error {
 	ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
 	ps.Env = ctx.hookVars(charmDir, socketPath)
 	ps.Dir = charmDir

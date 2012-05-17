@@ -11,8 +11,8 @@ import (
 // storage implements environs.Storage on
 // an ec2.bucket.
 type storage struct {
-	checkBucket      sync.Once
-	checkBucketError error
+	bucketMutex sync.Mutex
+	madeBucket bool
 	bucket           *s3.Bucket
 }
 
@@ -21,12 +21,15 @@ type storage struct {
 // are stored. To avoid two round trips on every PUT operation,
 // we do this only once for each environ.
 func (s *storage) makeBucket() error {
-	s.checkBucket.Do(func() {
-		// try to make the bucket - PutBucket will succeed if the
-		// bucket already exists.
-		s.checkBucketError = s.bucket.PutBucket(s3.Private)
-	})
-	return s.checkBucketError
+	s.bucketMutex.Lock()
+	defer s.bucketMutex.Unlock()
+	// try to make the bucket - PutBucket will succeed if the
+	// bucket already exists.
+	err := s.bucket.PutBucket(s3.Private)
+	if err == nil {
+		s.madeBucket = true
+	}
+	return err
 }
 
 func (s *storage) Put(file string, r io.Reader, length int64) error {
