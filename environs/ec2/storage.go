@@ -12,8 +12,8 @@ import (
 // an ec2.bucket.
 type storage struct {
 	bucketMutex sync.Mutex
-	madeBucket bool
-	bucket           *s3.Bucket
+	madeBucket  bool
+	bucket      *s3.Bucket
 }
 
 // makeBucket makes the environent's control bucket, the
