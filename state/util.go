@@ -224,10 +224,8 @@ func (c *ConfigNode) Set(key string, value interface{}) {
 
 // Update sets multiple key/value pairs.
 func (c *ConfigNode) Update(kv map[string]interface{}) {
-	if kv != nil {
-		for key, value := range kv {
-			c.cache[key] = value
-		}
+	for key, value := range kv {
+		c.cache[key] = value
 	}
 }
 
