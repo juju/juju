@@ -27,12 +27,26 @@ func (s *StateSuite) TestServiceWatchConfig(c *C) {
 	// Two change events.
 	config.Set("foo", "bar")
 	config.Set("baz", "yadda")
-	_, err = config.Write()
+	changes, err := config.Write()
 	c.Assert(err, IsNil)
+	c.Assert(changes, DeepEquals, []state.ItemChange{{
+		Key:      "baz",
+		Type:     state.ItemAdded,
+		NewValue: "yadda",
+	}, {
+		Key:      "foo",
+		Type:     state.ItemAdded,
+		NewValue: "bar",
+	}})
 	time.Sleep(100 * time.Millisecond)
 	config.Delete("foo")
-	_, err = config.Write()
+	changes, err = config.Write()
 	c.Assert(err, IsNil)
+	c.Assert(changes, DeepEquals, []state.ItemChange{{
+		Key:      "foo",
+		Type:     state.ItemDeleted,
+		OldValue: "bar",
+	}})
 
 	for _, want := range serviceWatchConfigData {
 		select {
