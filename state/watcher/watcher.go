@@ -17,24 +17,22 @@ type ContentChange struct {
 // ContentWatcher observes a ZooKeeper node and delivers a
 // notification when a content change is detected.
 type ContentWatcher struct {
-	zk         *zookeeper.Conn
-	path       string
-	tomb       tomb.Tomb
-	changeChan chan ContentChange
-	content    ContentChange
+	zk           *zookeeper.Conn
+	path         string
+	tomb         tomb.Tomb
+	changeChan   chan ContentChange
+	initialValue bool
+	content      ContentChange
 }
 
 // NewContentWatcher creates a ContentWatcher observing
 // the ZooKeeper node at watchedPath.
 func NewContentWatcher(zk *zookeeper.Conn, watchedPath string) *ContentWatcher {
 	w := &ContentWatcher{
-		zk:         zk,
-		path:       watchedPath,
-		changeChan: make(chan ContentChange),
-		// Use an impossible content (non-existent with some data)
-		// to make sure that we always send the initial state
-		// as the first message on the channel.
-		content: ContentChange{Content: "blah"},
+		zk:           zk,
+		path:         watchedPath,
+		changeChan:   make(chan ContentChange),
+		initialValue: true,
 	}
 	go w.loop()
 	return w
@@ -122,9 +120,10 @@ func (w *ContentWatcher) update() (nextWatch <-chan zookeeper.Event, err error) 
 		Exists:  stat != nil,
 		Content: content,
 	}
-	if newContent == w.content {
+	if !w.initialValue && newContent == w.content {
 		return nextWatch, nil
 	}
+	w.initialValue = false
 	w.content = newContent
 	select {
 	case <-w.tomb.Dying():

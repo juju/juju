@@ -65,7 +65,7 @@ type ConfigNode struct {
 	zk   *zookeeper.Conn
 	path string
 	// pristineCache holds the values in the config node before
-	// any attributes have been set. It is reset on Read and Write
+	// any keys have been changed. It is reset on Read and Write
 	// operations.
 	pristineCache map[string]interface{}
 	// cache holds the current values in the config node.
@@ -97,16 +97,16 @@ func createConfigNode(zk *zookeeper.Conn, path string, values map[string]interfa
 // parseConfigNode creates a config node based on a pre-read content.
 func parseConfigNode(zk *zookeeper.Conn, path, content string) (*ConfigNode, error) {
 	c := newConfigNode(zk, path)
-	if err := c.setContent(content); err != nil {
+	if err := c.setPristineContent(content); err != nil {
 		return nil, err
 	}
 	c.cache = copyCache(c.pristineCache)
 	return c, nil
 }
 
-// setContent sets the currently known contents of the node.
+// setPristineContent sets the currently known contents of the node.
 // It does not affect the user-set contents.
-func (c *ConfigNode) setContent(content string) error {
+func (c *ConfigNode) setPristineContent(content string) error {
 	if err := goyaml.Unmarshal([]byte(content), &c.pristineCache); err != nil {
 		return err
 	}
@@ -130,7 +130,7 @@ func (c *ConfigNode) Read() error {
 			return err
 		}
 	}
-	if err := c.setContent(yaml); err != nil {
+	if err := c.setPristineContent(yaml); err != nil {
 		return err
 	}
 	c.cache = copyCache(c.pristineCache)
