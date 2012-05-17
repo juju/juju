@@ -158,9 +158,12 @@ func PutTools(store StorageWriter) error {
 	return store.Put(toolsPath, f, fi.Size())
 }
 
-// FindTools 
-func FindTools(env Environ) (path string, err error) {
-
+// FindTools tries to find a set of tools appropriate
+// for the current version and platform and returns
+// a URL that can be used to access them
+// in gzipped tar archive format.
+func FindTools(env Environ) (url string, err error) {
+}
 
 func findToolsPath(store StorageReader) (path string, err error) {
 	names := store.List(fmt.Sprintf("tools/juju%d.", version.Current.Major))
@@ -198,7 +201,7 @@ func findToolsPath(store StorageReader) (path string, err error) {
 	if bestVersion.Major < 0 {
 		return "", errToolsNotFound
 	}
-	return bucket.URL(bestKey), nil
+	return bestName, nil
 }
 
 // GetTools finds the latest compatible version of the juju tools
