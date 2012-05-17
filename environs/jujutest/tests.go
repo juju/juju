@@ -40,6 +40,7 @@ func (t *Tests) TestStartStop(c *C) {
 }
 
 func (t *Tests) TestBootstrap(c *C) {
+	// TODO tests for Bootstrap(true)
 	e := t.Open(c)
 	err := e.Bootstrap(false)
 	c.Assert(err, IsNil)
