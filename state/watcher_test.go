@@ -4,7 +4,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/state"
-	"launchpad.net/juju/go/state/watcher"
 	"time"
 )
 
@@ -213,7 +212,7 @@ func (s *StateSuite) TestUnitWatchPorts(c *C) {
 
 type machinesWatchTest struct {
 	test func(*state.State) error
-	want watcher.ChildrenChange
+	want func(*state.State) state.MachinesChange
 }
 
 var machinesWatchTests = []machinesWatchTest{
@@ -222,20 +221,26 @@ var machinesWatchTests = []machinesWatchTest{
 			_, err := s.AddMachine()
 			return err
 		},
-		watcher.ChildrenChange{Added: []string{"machine-0000000000"}},
+		func(s *state.State) state.MachinesChange {
+			return state.MachinesChange{Added: []*state.Machine{state.NewMachine(s, "machine-0000000000")}}
+		},
 	},
 	{
 		func(s *state.State) error {
 			_, err := s.AddMachine()
 			return err
 		},
-		watcher.ChildrenChange{Added: []string{"machine-0000000001"}},
+		func(s *state.State) state.MachinesChange {
+			return state.MachinesChange{Added: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
+		},
 	},
 	{
 		func(s *state.State) error {
 			return s.RemoveMachine(1)
 		},
-		watcher.ChildrenChange{Deleted: []string{"machine-0000000001"}},
+		func(s *state.State) state.MachinesChange {
+			return state.MachinesChange{Deleted: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
+		},
 	},
 }
 
@@ -245,12 +250,13 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 	for _, test := range machinesWatchTests {
 		err := test.test(s.st)
 		c.Assert(err, IsNil)
+		want := test.want(s.st)
 		select {
 		case got, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
-			c.Assert(got, DeepEquals, test.want)
+			c.Assert(got, DeepEquals, want)
 		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("didn't get change: %#v", test.want)
+			c.Fatalf("didn't get change: %#v", want)
 		}
 	}
 
