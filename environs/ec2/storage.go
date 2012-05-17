@@ -13,7 +13,7 @@ import (
 type storage struct {
 	checkBucket      sync.Once
 	checkBucketError error
-	bucket                *s3.Bucket
+	bucket           *s3.Bucket
 }
 
 // makeBucket makes the environent's control bucket, the

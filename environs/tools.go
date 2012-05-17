@@ -193,7 +193,7 @@ func writeFile(name string, mode os.FileMode, r io.Reader) error {
 // that contains nothing.
 var EmptyStorage StorageReader = emptyStorage{}
 
-type emptyStorage struct {}
+type emptyStorage struct{}
 
 func (s emptyStorage) Get(name string) (io.ReadCloser, error) {
 	return nil, &NotFoundError{fmt.Errorf("file %q not found in empty storage", name)}
