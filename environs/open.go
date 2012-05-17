@@ -37,7 +37,8 @@ func NewEnviron(kind string, config map[string]interface{}) (Environ, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error validating environment: %v", err)
 	}
-	// TODO(dfc) remove the requirement for an environment to know it's name, it's
-	// type should be sufficient.
+
+	// TODO(dfc) the name of the environment needs to be injected when it is 
+	// created from environments.yaml
 	return p.Open("default", cfg)
 }
