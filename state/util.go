@@ -262,7 +262,6 @@ func zkRemoveTree(zk *zookeeper.Conn, path string) error {
 }
 
 // copyCache copies the keys and values of one cache into a new one.
-// If in is nil, out will be an empty map.
 func copyCache(in map[string]interface{}) (out map[string]interface{}) {
 	out = make(map[string]interface{})
 	for key, value := range in {
