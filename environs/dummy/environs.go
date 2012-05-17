@@ -1,3 +1,19 @@
+// The dummy provider implements an environment provider for testing
+// purposes, registered with environs under the name "dummy".
+// 
+// The configuration YAML for the testing environment
+// must specify a "zookeeper" property with a boolean
+// value. If this is true, a zookeeper instance will be started
+// the first time StateInfo is called on a newly reset environment.
+// NOTE: ZooKeeper isn't actually being started yet.
+// 
+// The configuration data also accepts a "broken" property
+// of type boolean. If this is non-empty, any operation
+// after the environment has been opened will return
+// the error "broken environment", and will also log that.
+// 
+// The DNS name of instances is the same as the Id,
+// with ".dns" appended.
 package dummy
 
 import (
@@ -79,51 +95,43 @@ func init() {
 		}
 	}()
 	discardOperations = c
-	Reset(discardOperations, true)
+	providerInstance.ops = c
+	Listen(nil)
 }
 
-// Reset closes any previously registered operation channel,
-// cleans the environment state, and registers c to receive
-// notifications of operations performed on newly opened
-// dummy environments. All opened environments after a Reset
-// will share the same underlying state (instances, etc).
-// If clean is true, this will be empty; otherwise
-// it will remain the same as before.
-// 
-// The configuration YAML for the testing environment
-// must specify a "zookeeper" property with a boolean
-// value. If this is true, a zookeeper instance will be started
-// the first time StateInfo is called on a newly reset environment.
-// NOTE: ZooKeeper isn't actually being started yet.
-// 
-// The configuration data also accepts a "broken" property
-// of type boolean. If this is non-empty, any operation
-// after the environment has been opened will return
-// the error "broken environment", and will also log that.
-// 
-// The DNS name of instances is the same as the Id,
-// with ".dns" appended.
-func Reset(c chan<- Operation, clean bool) {
-	providerInstance.reset(c, clean)
-}
-
-func (e *environProvider) reset(c chan<- Operation, clean bool) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+// Listen cleans the environment state and registers c to receive
+// notifications of operations performed on subsequently opened dummy
+// environments.  All opened environments after a Listen will share the
+// same underlying state (instances, etc).  If c is non-nil, Close must
+// be called before calling Listen again; otherwise the environment is
+// cleaned without registering a channel.
+func Listen(c chan<- Operation) {
 	if c == nil {
 		c = discardOperations
 	}
-	if ops := e.ops; ops != discardOperations && ops != nil {
-		close(ops)
+	e := &providerInstance
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.ops != discardOperations {
+		panic("Listen called without Close")
 	}
 	e.ops = c
-
-	if clean {
-		e.state = &environState{
-			insts: make(map[string]*instance),
-			files: make(map[string][]byte),
-		}
+	e.state = &environState{
+		insts: make(map[string]*instance),
+		files: make(map[string][]byte),
 	}
+}
+
+// Close closes the channel currently registered with Listen.
+func Close() {
+	e := &providerInstance
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.ops == discardOperations {
+		panic("Close called without Listen")
+	}
+	close(e.ops)
+	e.ops = discardOperations
 }
 
 func (e *environProvider) ConfigChecker() schema.Checker {

@@ -13,7 +13,7 @@ import (
 type storage struct {
 	checkBucket      sync.Once
 	checkBucketError error
-	b                *s3.Bucket
+	bucket           *s3.Bucket
 }
 
 // makeBucket makes the environent's control bucket, the
@@ -24,7 +24,7 @@ func (s *storage) makeBucket() error {
 	s.checkBucket.Do(func() {
 		// try to make the bucket - PutBucket will succeed if the
 		// bucket already exists.
-		s.checkBucketError = s.b.PutBucket(s3.Private)
+		s.checkBucketError = s.bucket.PutBucket(s3.Private)
 	})
 	return s.checkBucketError
 }
@@ -33,7 +33,7 @@ func (s *storage) Put(file string, r io.Reader, length int64) error {
 	if err := s.makeBucket(); err != nil {
 		return fmt.Errorf("cannot make S3 control bucket: %v", err)
 	}
-	err := s.b.PutReader(file, r, length, "binary/octet-stream", s3.Private)
+	err := s.bucket.PutReader(file, r, length, "binary/octet-stream", s3.Private)
 	if err != nil {
 		return fmt.Errorf("cannot write file %q to control bucket: %v", file, err)
 	}
@@ -42,7 +42,7 @@ func (s *storage) Put(file string, r io.Reader, length int64) error {
 
 func (s *storage) Get(file string) (r io.ReadCloser, err error) {
 	for a := shortAttempt.start(); a.next(); {
-		r, err = s.b.GetReader(file)
+		r, err = s.bucket.GetReader(file)
 		if s3ErrorStatusCode(err) == 404 {
 			continue
 		}
@@ -64,7 +64,7 @@ func s3ErrorStatusCode(err error) int {
 }
 
 func (s *storage) Remove(file string) error {
-	err := s.b.Del(file)
+	err := s.bucket.Del(file)
 	// If we can't delete the object because the bucket doesn't
 	// exist, then we don't care.
 	if s3ErrorStatusCode(err) == 404 {
@@ -75,7 +75,7 @@ func (s *storage) Remove(file string) error {
 
 func (s *storage) List(prefix string) ([]string, error) {
 	// TODO cope with more than 1000 objects in the bucket.
-	resp, err := s.b.List(prefix, "", "", 0)
+	resp, err := s.bucket.List(prefix, "", "", 0)
 	if err != nil {
 		if s3ErrorStatusCode(err) == 404 {
 			return nil, &environs.NotFoundError{err}
@@ -90,7 +90,7 @@ func (s *storage) List(prefix string) ([]string, error) {
 }
 
 func (e *environ) Storage() environs.Storage {
-	return &e.store
+	return &e.storage
 }
 
 func (e *environ) PublicStorage() environs.StorageReader {

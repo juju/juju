@@ -38,11 +38,11 @@ type environProvider struct{}
 var _ environs.EnvironProvider = environProvider{}
 
 type environ struct {
-	name   string
-	config *providerConfig
-	ec2    *ec2.EC2
-	s3     *s3.S3
-	store  storage
+	name    string
+	config  *providerConfig
+	ec2     *ec2.EC2
+	s3      *s3.S3
+	storage storage
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -102,7 +102,7 @@ func (environProvider) Open(name string, config interface{}) (environs.Environ, 
 		ec2:    ec2.New(cfg.auth, Regions[cfg.region]),
 		s3:     s3.New(cfg.auth, Regions[cfg.region]),
 	}
-	e.store.b = e.s3.Bucket(cfg.bucket)
+	e.storage.bucket = e.s3.Bucket(cfg.bucket)
 	return e, nil
 }
 

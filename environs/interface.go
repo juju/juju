@@ -40,25 +40,21 @@ type Instance interface {
 var ErrNoInstances = errors.New("no instances found")
 var ErrPartialInstances = errors.New("only some instances were found")
 
-// NotFoundError is the concrete error type returned by
-// StorageReader.Get when a file is not found.
+// NotFoundError records an error when something has not been found.
 type NotFoundError struct {
-	// error gives the underlying error.
+	// error is the underlying error.
 	error
 }
 
-// StorageReader gives a way to read data stored within
-// an environment. When a method is called on a
-// non-existent file, the concrete type of the returned error
-// should be *NotFoundError.
+// A StorageReader can retrieve and list files from a storage provider.
 type StorageReader interface {
-	// Get opens the given storage file
-	// and returns a ReadCloser that can be used to read its
-	// contents. It is the caller's responsibility to close it
-	// after use.
+	// Get opens the given storage file and returns a ReadCloser
+	// that can be used to read its contents.  It is the caller's
+	// responsibility to close it after use.  If the name does not
+	// exist, it should return a *NotFoundError.
 	Get(name string) (io.ReadCloser, error)
 
-	// List lists all file names in the storage with the given prefix,
+	// List lists all names in the storage with the given prefix,
 	// in alphabetical order.
 	List(prefix string) ([]string, error)
 
@@ -67,8 +63,7 @@ type StorageReader interface {
 	// URL(name string) (string, error)
 }
 
-// StorageWriter gives a way to change data stored
-// within an environment.
+// A StorageWriter adds and removes files in a storage provider.
 type StorageWriter interface {
 	// Put reads from r and writes to the given storage file.
 	// The length must give the total length of the file.

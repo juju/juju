@@ -6,14 +6,18 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
 	_ "launchpad.net/juju/go/environs/dummy"
+	"launchpad.net/juju/go/version"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 )
 
 type ToolsSuite struct{}
 
 var envs *environs.Environs
+
+var toolsPath = fmt.Sprintf("tools/juju-%v-%s-%s.tgz", version.Current, runtime.GOOS, runtime.GOARCH)
 
 const toolsConf = `
 environments:
@@ -66,7 +70,7 @@ func (ToolsSuite) TestPutTools(c *C) {
 // itself.
 func getToolsWithTar(store environs.StorageReader, dir string) error {
 	// TODO search the store for the right tools.
-	r, err := store.Get(environs.ToolsPath)
+	r, err := store.Get(toolsPath)
 	if err != nil {
 		return err
 	}
@@ -104,4 +108,98 @@ func (ToolsSuite) TestUploadBadBuild(c *C) {
 
 	err = environs.PutTools(env.Storage())
 	c.Assert(err, ErrorMatches, `build failed: exit status 1; can't load package:(.|\n)*`)
+}
+
+type toolsSpec struct {
+	version string
+	os      string
+	arch    string
+}
+
+func toolsPath(vers, os, arch string) string {
+	v, err := version.Parse(vers)
+	if err != nil {
+		panic(err)
+	}
+	return version.ToolsPathForVersion(v, os, arch)
+}
+
+var findToolsTests = []struct {
+	major    int
+	contents []string
+	expect   string
+	err      string
+}{{
+	version.Current.Major,
+	[]string{version.ToolsPath},
+	version.ToolsPath,
+	"",
+}, {
+	1,
+	[]string{
+		toolsPath("0.0.9", version.CurrentOS, version.CurrentArch),
+	},
+	"",
+	"no compatible tools found",
+}, {
+	1,
+	[]string{
+		toolsPath("2.0.9", version.CurrentOS, version.CurrentArch),
+	},
+	"",
+	"no compatible tools found",
+}, {
+	1,
+	[]string{
+		toolsPath("1.0.9", version.CurrentOS, version.CurrentArch),
+		toolsPath("1.0.10", version.CurrentOS, version.CurrentArch),
+		toolsPath("1.0.11", version.CurrentOS, version.CurrentArch),
+	},
+	toolsPath("1.0.11", version.CurrentOS, version.CurrentArch),
+	"",
+}, {
+	1,
+	[]string{
+		toolsPath("1.9.11", version.CurrentOS, version.CurrentArch),
+		toolsPath("1.10.10", version.CurrentOS, version.CurrentArch),
+		toolsPath("1.11.9", version.CurrentOS, version.CurrentArch),
+	},
+	toolsPath("1.11.9", version.CurrentOS, version.CurrentArch),
+	"",
+}, {
+	1,
+	[]string{
+		toolsPath("1.9.9", "foo", version.CurrentArch),
+		toolsPath("1.9.9", version.CurrentOS, "foo"),
+		toolsPath("1.0.0", version.CurrentOS, version.CurrentArch),
+	},
+	toolsPath("1.0.0", version.CurrentOS, version.CurrentArch),
+	"",
+}}
+
+func (t *localServerSuite) TestFindTools(c *C) {
+	oldMajorVersion := *ec2.VersionCurrentMajor
+	defer func() {
+		*ec2.VersionCurrentMajor = oldMajorVersion
+	}()
+	for i, tt := range findToolsTests {
+		c.Logf("test %d", i)
+		*ec2.VersionCurrentMajor = tt.major
+		for _, name := range tt.contents {
+			err := t.env.PutFile(name, strings.NewReader(name), int64(len(name)))
+			c.Assert(err, IsNil)
+		}
+		url, err := ec2.FindTools(t.env)
+		if tt.err != "" {
+			c.Assert(err, ErrorMatches, tt.err)
+		} else {
+			c.Assert(err, IsNil)
+			resp, err := http.Get(url)
+			c.Assert(err, IsNil)
+			data, err := ioutil.ReadAll(resp.Body)
+			c.Assert(err, IsNil)
+			c.Assert(string(data), Equals, tt.expect, Commentf("url %s", url))
+		}
+		t.env.Destroy(nil)
+	}
 }
