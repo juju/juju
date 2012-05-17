@@ -12,7 +12,7 @@ import (
 // environ holds information about one environment.
 type environ struct {
 	config EnvironConfig
-	err    error       // an error if the config data could not be parsed.
+	err    error // an error if the config data could not be parsed.
 }
 
 // Environs holds information about each named environment
@@ -52,7 +52,7 @@ func RegisterProvider(name string, p EnvironProvider) {
 // Attributes for environments with known types are checked.
 func ReadEnvironsBytes(data []byte) (*Environs, error) {
 	var raw struct {
-		Default      string                 "default"
+		Default      string                            "default"
 		Environments map[string]map[string]interface{} "environments"
 	}
 	err := goyaml.Unmarshal(data, &raw)
@@ -86,7 +86,7 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 			// unknown provider type - skip entry but leave error message
 			// in case the environment is used later.
 			environs[name] = environ{
-				err:  fmt.Errorf("environment %q has an unknown provider type: %q", name, kind),
+				err: fmt.Errorf("environment %q has an unknown provider type: %q", name, kind),
 			}
 			continue
 		}

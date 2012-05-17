@@ -120,10 +120,10 @@ func (e *environProvider) reset(c chan<- Operation) {
 }
 
 type environConfig struct {
-	provider *environProvider
-	name string
+	provider  *environProvider
+	name      string
 	zookeeper bool
-	broken bool
+	broken    bool
 }
 
 var checker = schema.FieldMap(
@@ -131,7 +131,7 @@ var checker = schema.FieldMap(
 		"type":      schema.Const("dummy"),
 		"zookeeper": schema.Const(false), // TODO
 		"broken":    schema.Bool(),
-		"name": schema.String(),
+		"name":      schema.String(),
 	},
 	[]string{
 		"broken",
@@ -146,10 +146,10 @@ func (e *environProvider) Check(attrs map[string]interface{}) (environs.EnvironC
 	m := x.(schema.MapType)
 	broken, _ := m["broken"].(bool)
 	return &environConfig{
-		provider: e,
+		provider:  e,
 		zookeeper: m["zookeeper"].(bool),
-		broken: broken,
-		name: m["name"].(string),
+		broken:    broken,
+		name:      m["name"].(string),
 	}, nil
 }
 
@@ -159,7 +159,7 @@ func (cfg *environConfig) Open() (environs.Environ, error) {
 	env := &environ{
 		name:      cfg.name,
 		zookeeper: cfg.zookeeper,
-		broken: cfg.broken,
+		broken:    cfg.broken,
 		ops:       cfg.provider.ops,
 		state:     cfg.provider.state,
 	}

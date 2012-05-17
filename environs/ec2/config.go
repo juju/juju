@@ -3,14 +3,14 @@ package ec2
 import (
 	"fmt"
 	"launchpad.net/goamz/aws"
-	"launchpad.net/juju/go/schema"
 	"launchpad.net/juju/go/environs"
+	"launchpad.net/juju/go/schema"
 )
 
 // providerConfig is a placeholder for any config information
 // that we will have in a configuration file.
 type providerConfig struct {
-	name	string
+	name               string
 	region             string
 	auth               aws.Auth
 	bucket             string
@@ -36,7 +36,7 @@ var Regions = map[string]aws.Region{
 
 var configChecker = schema.FieldMap(
 	schema.Fields{
-		"name":		schema.String(),
+		"name":                 schema.String(),
 		"access-key":           schema.String(),
 		"secret-key":           schema.String(),
 		"region":               schema.String(),
