@@ -130,7 +130,8 @@ func checkFileDoesNotExist(c *C, store environs.StorageReader, name string) {
 	r, err := store.Get(name)
 	c.Check(r, IsNil)
 	c.Assert(err, NotNil)
-	c.Assert(err, FitsTypeOf, (*environs.NotFoundError)(nil))
+	var notFoundError *environs.NotFoundError
+	c.Assert(err, FitsTypeOf, notFoundError)
 }
 
 func checkFileHasContents(c *C, store environs.StorageReader, name string, contents []byte) {

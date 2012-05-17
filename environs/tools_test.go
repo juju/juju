@@ -4,16 +4,20 @@ import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju/go/version"
 	"launchpad.net/juju/go/environs"
 	_ "launchpad.net/juju/go/environs/dummy"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 )
 
 type ToolsSuite struct{}
 
 var envs *environs.Environs
+
+var toolsPath = fmt.Sprintf("tools/juju-%v-%s-%s.tgz", version.Current, runtime.GOOS, runtime.GOARCH)
 
 const toolsConf = `
 environments:
@@ -66,7 +70,7 @@ func (ToolsSuite) TestPutTools(c *C) {
 // itself.
 func getToolsWithTar(store environs.StorageReader, dir string) error {
 	// TODO search the store for the right tools.
-	r, err := store.Get(environs.ToolsPath)
+	r, err := store.Get(toolsPath)
 	if err != nil {
 		return err
 	}
