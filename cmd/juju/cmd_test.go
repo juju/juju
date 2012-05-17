@@ -54,7 +54,7 @@ func (s *cmdSuite) SetUpTest(c *C) {
 func (s *cmdSuite) TearDownTest(c *C) {
 	os.Setenv("HOME", s.home)
 
-	dummy.Reset(nil, true)
+	dummy.Listen(nil)
 	s.LoggingSuite.TearDownTest(c)
 }
 
@@ -117,10 +117,10 @@ func (*cmdSuite) TestEnvironmentInit(c *C) {
 func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc chan error) {
 	errc = make(chan error, 1)
 	opc = make(chan dummy.Operation)
-	dummy.Reset(opc, true)
+	dummy.Listen(opc)
 	go func() {
 		// signal that we're done with this ops channel.
-		defer dummy.Reset(nil, false)
+		defer dummy.Close()
 
 		err := com.Init(newFlagSet(), args)
 		if err != nil {
@@ -135,7 +135,7 @@ func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc
 }
 
 func (*cmdSuite) TestBootstrapCommand(c *C) {
-	defer dummy.Reset(nil, true)
+	defer dummy.Listen(nil)
 
 	// normal bootstrap
 	opc, errc := runCommand(new(main.BootstrapCommand))
