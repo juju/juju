@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"launchpad.net/goamz/aws"
 	"launchpad.net/juju/go/schema"
+	"launchpad.net/juju/go/environs"
 )
 
 // providerConfig is a placeholder for any config information
 // that we will have in a configuration file.
 type providerConfig struct {
+	name	string
 	region             string
 	auth               aws.Auth
 	bucket             string
@@ -32,63 +34,66 @@ var Regions = map[string]aws.Region{
 	"us-west-1":      aws.USWest,
 }
 
-func (environProvider) ConfigChecker() schema.Checker {
-	return combineCheckers(
-		schema.FieldMap(
-			schema.Fields{
-				"access-key":           schema.String(),
-				"secret-key":           schema.String(),
-				"region":               schema.String(),
-				"control-bucket":       schema.String(),
-				"authorized-keys":      schema.String(),
-				"authorized-keys-path": schema.String(),
-				"juju-origin":          schema.String(),
-			}, []string{
-				"access-key",
-				"secret-key",
-				"region",
-				"authorized-keys",
-				"authorized-keys-path",
-				"juju-origin",
-			},
-		),
-		checkerFunc(func(v interface{}, path []string) (newv interface{}, err error) {
-			m := v.(schema.MapType)
-			var c providerConfig
+var configChecker = schema.FieldMap(
+	schema.Fields{
+		"name":		schema.String(),
+		"access-key":           schema.String(),
+		"secret-key":           schema.String(),
+		"region":               schema.String(),
+		"control-bucket":       schema.String(),
+		"authorized-keys":      schema.String(),
+		"authorized-keys-path": schema.String(),
+		"juju-origin":          schema.String(),
+	}, []string{
+		"access-key",
+		"secret-key",
+		"region",
+		"authorized-keys",
+		"authorized-keys-path",
+		"juju-origin",
+	},
+)
 
-			c.bucket = m["control-bucket"].(string)
-			c.auth.AccessKey = maybeString(m["access-key"], "")
-			c.auth.SecretKey = maybeString(m["secret-key"], "")
-			if c.auth.AccessKey == "" || c.auth.SecretKey == "" {
-				if c.auth.AccessKey != "" {
-					return nil, fmt.Errorf("environment has access-key but no secret-key")
-				}
-				if c.auth.SecretKey != "" {
-					return nil, fmt.Errorf("environment has secret-key but no access-key")
-				}
-				c.auth, err = aws.EnvAuth()
-				if err != nil {
-					return
-				}
-			}
+func (p environProvider) Check(config map[string]interface{}) (cfg environs.EnvironConfig, err error) {
+	v, err := configChecker.Coerce(config, nil)
+	if err != nil {
+		return nil, err
+	}
+	m := v.(schema.MapType)
+	var c providerConfig
 
-			regionName := maybeString(m["region"], "us-east-1")
-			if _, ok := Regions[regionName]; !ok {
-				return nil, fmt.Errorf("invalid region name %q", regionName)
-			}
-			c.region = regionName
-			c.authorizedKeys = maybeString(m["authorized-keys"], "")
-			c.authorizedKeysPath = maybeString(m["authorized-keys-path"], "")
+	c.name = m["name"].(string)
+	c.bucket = m["control-bucket"].(string)
+	c.auth.AccessKey = maybeString(m["access-key"], "")
+	c.auth.SecretKey = maybeString(m["secret-key"], "")
+	if c.auth.AccessKey == "" || c.auth.SecretKey == "" {
+		if c.auth.AccessKey != "" {
+			return nil, fmt.Errorf("environment has access-key but no secret-key")
+		}
+		if c.auth.SecretKey != "" {
+			return nil, fmt.Errorf("environment has secret-key but no access-key")
+		}
+		c.auth, err = aws.EnvAuth()
+		if err != nil {
+			return
+		}
+	}
 
-			if origin, ok := m["juju-origin"].(string); ok {
-				c.origin, err = parseOrigin(origin)
-				if err != nil {
-					return
-				}
-			}
-			return &c, nil
-		}),
-	)
+	regionName := maybeString(m["region"], "us-east-1")
+	if _, ok := Regions[regionName]; !ok {
+		return nil, fmt.Errorf("invalid region name %q", regionName)
+	}
+	c.region = regionName
+	c.authorizedKeys = maybeString(m["authorized-keys"], "")
+	c.authorizedKeysPath = maybeString(m["authorized-keys-path"], "")
+
+	if origin, ok := m["juju-origin"].(string); ok {
+		c.origin, err = parseOrigin(origin)
+		if err != nil {
+			return
+		}
+	}
+	return &c, nil
 }
 
 func maybeString(x interface{}, dflt string) string {

@@ -18,27 +18,19 @@ func (envs *Environs) Open(name string) (Environ, error) {
 	if e.err != nil {
 		return nil, e.err
 	}
-	env, err := providers[e.kind].Open(name, e.config)
-	if err != nil {
-		return nil, fmt.Errorf("cannot initialize environment %q: %v", name, err)
-	}
-
-	return env, nil
+	return e.config.Open()
 }
 
 // NewEnviron creates a new Environ of the registered kind using the configuration
-// supplied.
-func NewEnviron(kind string, config map[string]interface{}) (Environ, error) {
+// attributes supplied, which should include the environment name.
+func NewEnviron(kind string, attrs map[string]interface{}) (Environ, error) {
 	p, ok := providers[kind]
 	if !ok {
 		return nil, fmt.Errorf("no registered provider for kind: %q", kind)
 	}
-	cfg, err := p.ConfigChecker().Coerce(config, nil)
+	cfg, err := p.Check(attrs)
 	if err != nil {
 		return nil, fmt.Errorf("error validating environment: %v", err)
 	}
-
-	// TODO(dfc) the name of the environment needs to be injected when it is 
-	// created from environments.yaml
-	return p.Open("default", cfg)
+	return cfg.Open()
 }

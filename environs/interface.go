@@ -3,21 +3,24 @@ package environs
 import (
 	"errors"
 	"io"
-	"launchpad.net/juju/go/schema"
 	"launchpad.net/juju/go/state"
 )
 
 // A EnvironProvider represents a computing and storage provider.
 type EnvironProvider interface {
-	// ConfigChecker is used to check sections of the environments.yaml
-	// file that specify this provider. The value passed to the Checker is
-	// that returned from the yaml parse, of type schema.MapType.
-	ConfigChecker() schema.Checker
+	// Check is used to check sections of the environments.yaml
+	// file that specify this provider. The value passed to Check is
+	// that returned from the yaml parse. The returned EnvironConfig
+	// can be used to instantiate the Environ.
+	// The name of the environment is held in config["name"].
+	Check(config map[string]interface{}) (EnvironConfig, error)
+}
 
-	// Open opens an environment with config, which must
-	// have been processed and validated by the schema
-	// checker returned by ConfigChecker.
-	Open(name string, config interface{}) (Environ, error)
+// EnvironConfig represents an environment's configuration
+// after passing through the initial Check.
+type EnvironConfig interface {
+	// Open opens the environment and returns it.
+	Open() (Environ, error)
 }
 
 var ErrNoDNSName = errors.New("DNS name not allocated")

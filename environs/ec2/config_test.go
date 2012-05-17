@@ -25,6 +25,7 @@ var baseConfig = "control-bucket: x\n"
 
 // the result of parsing baseConfig.
 var baseConfigResult = providerConfig{
+	name: "testenv",
 	region: "us-east-1",
 	bucket: "x",
 	auth:   testAuth,

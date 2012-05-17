@@ -119,30 +119,50 @@ func (e *environProvider) reset(c chan<- Operation) {
 	}
 }
 
-func (e *environProvider) ConfigChecker() schema.Checker {
-	return schema.FieldMap(
-		schema.Fields{
-			"type":      schema.Const("dummy"),
-			"zookeeper": schema.Const(false), // TODO
-			"broken":    schema.Bool(),
-		},
-		[]string{
-			"broken",
-		},
-	)
+type environConfig struct {
+	provider *environProvider
+	name string
+	zookeeper bool
+	broken bool
 }
 
-func (e *environProvider) Open(name string, attributes interface{}) (environs.Environ, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	cfg := attributes.(schema.MapType)
-	env := &environ{
-		name:      name,
-		zookeeper: cfg["zookeeper"].(bool),
-		ops:       e.ops,
-		state:     e.state,
+var checker = schema.FieldMap(
+	schema.Fields{
+		"type":      schema.Const("dummy"),
+		"zookeeper": schema.Const(false), // TODO
+		"broken":    schema.Bool(),
+		"name": schema.String(),
+	},
+	[]string{
+		"broken",
+	},
+)
+
+func (e *environProvider) Check(attrs map[string]interface{}) (environs.EnvironConfig, error) {
+	x, err := checker.Coerce(attrs, nil)
+	if err != nil {
+		return nil, err
 	}
-	env.broken, _ = cfg["broken"].(bool)
+	m := x.(schema.MapType)
+	broken, _ := m["broken"].(bool)
+	return &environConfig{
+		provider: e,
+		zookeeper: m["zookeeper"].(bool),
+		broken: broken,
+		name: m["name"].(string),
+	}, nil
+}
+
+func (cfg *environConfig) Open() (environs.Environ, error) {
+	cfg.provider.mu.Lock()
+	defer cfg.provider.mu.Unlock()
+	env := &environ{
+		name:      cfg.name,
+		zookeeper: cfg.zookeeper,
+		broken: cfg.broken,
+		ops:       cfg.provider.ops,
+		state:     cfg.provider.state,
+	}
 	return env, nil
 }
 
