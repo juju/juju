@@ -48,8 +48,7 @@ func maybeNotFound(err error) error {
 }
 
 func (e *environ) deleteState() error {
-	s := e.Storage().(*storage)
-	err := s.Remove(stateFile)
+	err := e.Storage().Remove(stateFile)
 	if err != nil {
 		return fmt.Errorf("cannot delete provider state: %v", err)
 	}
