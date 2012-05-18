@@ -56,6 +56,28 @@ func (s *ConfigGetSuite) TestOutputFormat(c *C) {
 	}
 }
 
+var configGetTestModeTests = []struct {
+	args []string
+	code int
+}{
+	{[]string{"monsters", "--test"}, 1},
+	{[]string{"spline-reticulation", "--test"}, 0},
+	{[]string{"missing", "--test"}, 1},
+	{[]string{"--test"}, 0},
+}
+
+func (s *ConfigGetSuite) TestTestMode(c *C) {
+	for _, t := range configGetTestModeTests {
+		com, err := s.ctx.NewCommand("config-get")
+		c.Assert(err, IsNil)
+		ctx := dummyContext(c)
+		code := cmd.Main(com, ctx, t.args)
+		c.Assert(code, Equals, t.code)
+		c.Assert(bufferString(ctx.Stderr), Equals, "")
+		c.Assert(bufferString(ctx.Stdout), Equals, "")
+	}
+}
+
 func (s *ConfigGetSuite) TestHelp(c *C) {
 	com, err := s.ctx.NewCommand("config-get")
 	c.Assert(err, IsNil)
@@ -71,6 +93,8 @@ options:
     specify output format (json|yaml)
 -o, --output (= "")
     specify an output file
+--test  (= false)
+    returns non-zero exit code if value is false/zero/empty
 
 If a key is given, only the value for that key will be printed.
 `)
@@ -96,16 +120,6 @@ func (s *ConfigGetSuite) TestUnknownArg(c *C) {
 	c.Assert(err, ErrorMatches, `unrecognized args: \["keys"\]`)
 }
 
-func (s *ConfigGetSuite) TestBadState(c *C) {
-	s.ctx.State = nil
-	com, err := s.ctx.NewCommand("config-get")
-	c.Assert(com, IsNil)
-	c.Assert(err, ErrorMatches, "context TestCtx cannot access state")
-}
-
-func (s *ConfigGetSuite) TestBadUnit(c *C) {
-	s.ctx.LocalUnitName = ""
-	com, err := s.ctx.NewCommand("config-get")
-	c.Assert(com, IsNil)
-	c.Assert(err, ErrorMatches, "context TestCtx is not attached to a unit")
+func (s *ConfigGetSuite) TestUnitCommand(c *C) {
+	s.AssertUnitCommand(c, "config-get")
 }
