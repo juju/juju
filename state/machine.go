@@ -13,10 +13,6 @@ import (
 	"time"
 )
 
-const (
-	zkMachinesPath = "/machines"
-)
-
 // Machine represents the state of a machine.
 type Machine struct {
 	st  *State
@@ -84,4 +80,10 @@ func machineId(machineKey string) (id int) {
 // machineKey returns the machine key corresponding to machineId.
 func machineKey(machineId int) string {
 	return fmt.Sprintf("machine-%010d", machineId)
+}
+
+// MachinesChange contains information about
+// machines that have been added or deleted.
+type MachinesChange struct {
+	Added, Deleted []*Machine
 }

@@ -45,6 +45,18 @@ func (s *UnitGetSuite) TestOutputFormat(c *C) {
 	}
 }
 
+func (s *UnitGetSuite) TestTestMode(c *C) {
+	for _, key := range []string{"public-address", "private-address"} {
+		com, err := s.ctx.NewCommand("unit-get")
+		c.Assert(err, IsNil)
+		ctx := dummyContext(c)
+		code := cmd.Main(com, ctx, []string{"--test", key})
+		c.Assert(code, Equals, 0)
+		c.Assert(bufferString(ctx.Stderr), Equals, "")
+		c.Assert(bufferString(ctx.Stdout), Equals, "")
+	}
+}
+
 func (s *UnitGetSuite) TestHelp(c *C) {
 	com, err := s.ctx.NewCommand("unit-get")
 	c.Assert(err, IsNil)
@@ -60,6 +72,8 @@ options:
     specify output format (json|yaml)
 -o, --output (= "")
     specify an output file
+--test  (= false)
+    returns non-zero exit code if value is false/zero/empty
 `)
 }
 
@@ -90,16 +104,6 @@ func (s *UnitGetSuite) TestUnknownArg(c *C) {
 	c.Assert(err, ErrorMatches, `unrecognized args: \["blah"\]`)
 }
 
-func (s *UnitGetSuite) TestBadState(c *C) {
-	s.ctx.State = nil
-	com, err := s.ctx.NewCommand("unit-get")
-	c.Assert(com, IsNil)
-	c.Assert(err, ErrorMatches, "context TestCtx cannot access state")
-}
-
-func (s *UnitGetSuite) TestBadUnit(c *C) {
-	s.ctx.LocalUnitName = ""
-	com, err := s.ctx.NewCommand("unit-get")
-	c.Assert(com, IsNil)
-	c.Assert(err, ErrorMatches, "context TestCtx is not attached to a unit")
+func (s *UnitGetSuite) TestUnitCommand(c *C) {
+	s.AssertUnitCommand(c, "unit-get")
 }
