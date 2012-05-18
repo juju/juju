@@ -199,6 +199,10 @@ func (s emptyStorage) Get(name string) (io.ReadCloser, error) {
 	return nil, &NotFoundError{fmt.Errorf("file %q not found in empty storage", name)}
 }
 
+func (s emptyStorage) URL(string) (string, error) {
+	return "", fmt.Errorf("empty storage has no URLs")
+}
+
 func (s emptyStorage) List(prefix string) ([]string, error) {
 	return nil, nil
 }
