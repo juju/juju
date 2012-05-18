@@ -134,7 +134,7 @@ func (s *StateSuite) TestCharmAttributes(c *C) {
 	bundleURL, err := url.Parse("http://bundle.url")
 	c.Assert(err, IsNil)
 	c.Assert(dummy.BundleURL(), DeepEquals, bundleURL)
-	c.Assert(dummy.Sha256(), Equals, "dummy-sha256")
+	c.Assert(dummy.BundleSha256(), Equals, "dummy-sha256")
 	meta := dummy.Meta()
 	c.Assert(meta.Name, Equals, "dummy")
 	config := dummy.Config()

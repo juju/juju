@@ -11,20 +11,20 @@ import (
 
 // charmData contains the data stored inside the ZooKeeper charm node.
 type charmData struct {
-	Meta      *charm.Meta
-	Config    *charm.Config
-	BundleURL string `yaml:"url"`
-	Sha256    string
+	Meta         *charm.Meta
+	Config       *charm.Config
+	BundleURL    string `yaml:"url"`
+	BundleSha256 string
 }
 
 // Charm represents the state of a charm in the environment.
 type Charm struct {
-	st        *State
-	url       *charm.URL
-	meta      *charm.Meta
-	config    *charm.Config
-	bundleURL *url.URL
-	sha256    string
+	st           *State
+	url          *charm.URL
+	meta         *charm.Meta
+	config       *charm.Config
+	bundleURL    *url.URL
+	bundleSha256 string
 }
 
 var _ charm.Charm = (*Charm)(nil)
@@ -35,12 +35,12 @@ func newCharm(st *State, curl *charm.URL, data *charmData) (*Charm, error) {
 		return nil, err
 	}
 	c := &Charm{
-		st:        st,
-		url:       curl,
-		meta:      data.Meta,
-		config:    data.Config,
-		bundleURL: burl,
-		sha256:    data.Sha256,
+		st:           st,
+		url:          curl,
+		meta:         data.Meta,
+		config:       data.Config,
+		bundleURL:    burl,
+		bundleSha256: data.BundleSha256,
 	}
 	return c, nil
 }
@@ -73,9 +73,9 @@ func (c *Charm) BundleURL() *url.URL {
 	return c.bundleURL
 }
 
-// Sha256 returns the SHA256 digest of the charm bundle bytes.
-func (c *Charm) Sha256() string {
-	return c.sha256
+// BundleSha256 returns the SHA256 digest of the charm bundle bytes.
+func (c *Charm) BundleSha256() string {
+	return c.bundleSha256
 }
 
 // Charm path returns the full qualified ZooKeeper path for a charm state
