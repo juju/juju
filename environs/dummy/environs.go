@@ -17,16 +17,13 @@
 package dummy
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/schema"
 	"launchpad.net/juju/go/state"
-	"sort"
-	"strings"
+	"net"
+	"net/http"
 	"sync"
 )
 
@@ -64,19 +61,42 @@ func (k OperationKind) String() string {
 // instance of this type (providerInstance)
 type environProvider struct {
 	mu    sync.Mutex
-	state *environState
-	ops   chan<- Operation
+	ops	chan<- Operation
+	// We have one state for each environment name
+	state map[string]*environState
 }
 
 // environState represents the state of an environment.
 // It can be shared between several environ values,
 // so that a given environment can be opened several times.
 type environState struct {
+	name      string
+	ops   chan<- Operation
 	mu           sync.Mutex
 	maxId        int // maximum instance id allocated so far.
 	insts        map[string]*instance
-	files        map[string][]byte
 	bootstrapped bool
+	storage *storage
+	publicStorage *storage
+	httpListener net.Listener
+	urlBase string
+}
+
+// environ represents a client's connection to a given environment's
+// state.
+type environ struct {
+	state     *environState
+	broken    bool
+	zookeeper bool
+}
+
+// storage holds the storage for an environState.
+// There are two instances for each environState
+// instance, one for public files and one for private.
+type storage struct {
+	path string		// path prefix in http space.
+	state *environState
+	files        map[string][]byte
 }
 
 var providerInstance environProvider
@@ -102,30 +122,60 @@ func init() {
 // operation listener.  All opened environments after Reset will share
 // the same underlying state.
 func Reset() {
-	e := &providerInstance
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.ops = discardOperations
-	e.state = &environState{
-		insts: make(map[string]*instance),
-		files: make(map[string][]byte),
+	p := &providerInstance
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, s := range p.state {
+		s.httpListener.Close()
 	}
+	providerInstance.ops = discardOperations
+	providerInstance.state = make(map[string]*environState)
+}
+
+// newState creates the state for a new environment with the
+// given name and starts an http server listening for
+// storage requests.
+func newState(name string, ops chan<- Operation) *environState {
+	s := &environState{
+		name: name,
+		ops: ops,
+		insts: make(map[string]*instance),
+	}
+	s.storage = newStorage(s, "/" + name + "/private")
+	s.publicStorage = newStorage(s, "/" + name + "/public")
+	s.listen()
+	return s
+}
+
+// listen starts a network listener listening for http
+// requests to retrieve files in the state's storage.
+func (s *environState) listen() {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		panic(fmt.Errorf("cannot start listener: %v", err))
+	}
+	s.urlBase = fmt.Sprintf("http://%s", l.Addr().String())
+	s.httpListener = l
+	mux := http.NewServeMux()
+	mux.Handle(s.storage.path+"/", http.StripPrefix(s.storage.path+"/", s.storage))
+	mux.Handle(s.publicStorage.path+"/", http.StripPrefix(s.publicStorage.path+"/", s.publicStorage))
+	go http.Serve(l, mux)
 }
 
 // Listen closes the previously registered listener (if any),
 // and if c is not nil registers it to receive notifications 
 // of follow up operations in the environment.
 func Listen(c chan<- Operation) {
-	e := &providerInstance
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	p := &providerInstance
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	if c == nil {
 		c = discardOperations
 	}
-	if e.ops != discardOperations {
-		close(e.ops)
+	if p.ops != discardOperations {
+		close(p.ops)
 	}
-	e.ops = c
+	p.ops = c
 }
 
 func (e *environProvider) ConfigChecker() schema.Checker {
@@ -141,26 +191,21 @@ func (e *environProvider) ConfigChecker() schema.Checker {
 	)
 }
 
-func (e *environProvider) Open(name string, attributes interface{}) (environs.Environ, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+func (p *environProvider) Open(name string, attributes interface{}) (environs.Environ, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	state := p.state[name]
+	if state == nil {
+		state = newState(name, p.ops)
+		p.state[name] = state
+	}
 	cfg := attributes.(schema.MapType)
 	env := &environ{
-		name:      name,
 		zookeeper: cfg["zookeeper"].(bool),
-		ops:       e.ops,
-		state:     e.state,
+		state:     state,
 	}
 	env.broken, _ = cfg["broken"].(bool)
 	return env, nil
-}
-
-type environ struct {
-	ops       chan<- Operation
-	name      string
-	state     *environState
-	broken    bool
-	zookeeper bool
 }
 
 var errBroken = errors.New("broken environment")
@@ -168,7 +213,7 @@ var errBroken = errors.New("broken environment")
 // EnvironName returns the name of the environment,
 // which must be opened from a dummy environment.
 func EnvironName(e environs.Environ) string {
-	return e.(*environ).name
+	return e.(*environ).state.name
 }
 
 func (e *environ) Bootstrap(uploadTools bool) error {
@@ -181,7 +226,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 			return err
 		}
 	}
-	e.ops <- Operation{Kind: OpBootstrap, Env: e.name}
+	e.state.ops <- Operation{Kind: OpBootstrap, Env: e.state.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if e.state.bootstrapped {
@@ -203,7 +248,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	if e.broken {
 		return errBroken
 	}
-	e.ops <- Operation{Kind: OpDestroy, Env: e.name}
+	e.state.ops <- Operation{Kind: OpDestroy, Env: e.state.name}
 	e.state.mu.Lock()
 	e.state.bootstrapped = false
 	e.state.mu.Unlock()
@@ -214,11 +259,11 @@ func (e *environ) StartInstance(machineId int, _ *state.Info) (environs.Instance
 	if e.broken {
 		return nil, errBroken
 	}
-	e.ops <- Operation{Kind: OpStartInstance, Env: e.name}
+	e.state.ops <- Operation{Kind: OpStartInstance, Env: e.state.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	i := &instance{
-		id: fmt.Sprintf("%s-%d", e.name, e.state.maxId),
+		id: fmt.Sprintf("%s-%d", e.state.name, e.state.maxId),
 	}
 	e.state.insts[i.id] = i
 	e.state.maxId++
@@ -229,7 +274,7 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 	if e.broken {
 		return errBroken
 	}
-	e.ops <- Operation{Kind: OpStopInstances, Env: e.name}
+	e.state.ops <- Operation{Kind: OpStopInstances, Env: e.state.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	for _, i := range is {
@@ -262,71 +307,6 @@ func (e *environ) Instances(ids []string) (insts []environs.Instance, err error)
 	return
 }
 
-// storage uses the same object as environ,
-// but we use a new type to keep the name spaces
-// separate.
-type storage environ
-
-func (e *environ) Storage() environs.Storage {
-	return (*storage)(e)
-}
-
-func (e *environ) PublicStorage() environs.StorageReader {
-	return environs.EmptyStorage
-}
-
-func (s *storage) Put(name string, r io.Reader, length int64) error {
-	if s.broken {
-		return errBroken
-	}
-	s.ops <- Operation{Kind: OpPutFile, Env: s.name}
-	var buf bytes.Buffer
-	_, err := io.Copy(&buf, r)
-	if err != nil {
-		return err
-	}
-	s.state.mu.Lock()
-	s.state.files[name] = buf.Bytes()
-	s.state.mu.Unlock()
-	return nil
-}
-
-func (s *storage) Get(name string) (io.ReadCloser, error) {
-	if s.broken {
-		return nil, errBroken
-	}
-	s.state.mu.Lock()
-	defer s.state.mu.Unlock()
-	data, ok := s.state.files[name]
-	if !ok {
-		return nil, &environs.NotFoundError{fmt.Errorf("file %q not found", name)}
-	}
-	return ioutil.NopCloser(bytes.NewBuffer(data)), nil
-}
-
-func (s *storage) Remove(name string) error {
-	if s.broken {
-		return errBroken
-	}
-	s.state.mu.Lock()
-	delete(s.state.files, name)
-	s.state.mu.Unlock()
-	return nil
-}
-
-func (s *storage) List(prefix string) ([]string, error) {
-	s.state.mu.Lock()
-	defer s.state.mu.Unlock()
-	var names []string
-	for name := range s.state.files {
-		if strings.HasPrefix(name, prefix) {
-			names = append(names, name)
-		}
-	}
-	sort.Strings(names)
-	return names, nil
-}
-
 type instance struct {
 	id string
 }
@@ -341,16 +321,4 @@ func (m *instance) DNSName() (string, error) {
 
 func (m *instance) WaitDNSName() (string, error) {
 	return m.DNSName()
-}
-
-// notifyCloser sends on the notify channel when
-// it's closed.
-type notifyCloser struct {
-	io.Reader
-	notify chan bool
-}
-
-func (r *notifyCloser) Close() error {
-	r.notify <- true
-	return nil
 }

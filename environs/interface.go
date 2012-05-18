@@ -61,9 +61,8 @@ type StorageReader interface {
 	// entries.
 	List(prefix string) ([]string, error)
 
-	// TODO: URL returns a URL that can be used to access the given
-	// storage file.
-	// URL(name string) (string, error)
+	// URL returns a URL that can be used to access the given storage file.
+	URL(name string) (string, error)
 }
 
 // A StorageWriter adds and removes files in a storage provider.
