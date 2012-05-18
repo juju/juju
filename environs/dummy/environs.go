@@ -1,3 +1,19 @@
+// The dummy provider implements an environment provider for testing
+// purposes, registered with environs under the name "dummy".
+// 
+// The configuration YAML for the testing environment
+// must specify a "zookeeper" property with a boolean
+// value. If this is true, a zookeeper instance will be started
+// the first time StateInfo is called on a newly reset environment.
+// NOTE: ZooKeeper isn't actually being started yet.
+// 
+// The configuration data also accepts a "broken" property
+// of type boolean. If this is non-empty, any operation
+// after the environment has been opened will return
+// the error "broken environment", and will also log that.
+// 
+// The DNS name of instances is the same as the Id,
+// with ".dns" appended.
 package dummy
 
 import (
@@ -9,6 +25,8 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/schema"
 	"launchpad.net/juju/go/state"
+	"sort"
+	"strings"
 	"sync"
 )
 
@@ -77,46 +95,37 @@ func init() {
 		}
 	}()
 	discardOperations = c
-	Reset(discardOperations)
+	Reset()
 }
 
-// Reset closes any previously registered operation channel,
-// cleans the environment state, and registers c to receive
-// notifications of operations performed on newly opened
-// dummy environments. All opened environments after a Reset
-// will share the same underlying state (instances, etc).
-// 
-// The configuration YAML for the testing environment
-// must specify a "zookeeper" property with a boolean
-// value. If this is true, a zookeeper instance will be started
-// the first time StateInfo is called on a newly reset environment.
-// NOTE: ZooKeeper isn't actually being started yet.
-// 
-// The configuration data also accepts a "broken" property
-// of type boolean. If this is non-empty, any operation
-// after the environment has been opened will return
-// the error "broken environment", and will also log that.
-// 
-// The DNS name of instances is the same as the Id,
-// with ".dns" appended.
-func Reset(c chan<- Operation) {
-	providerInstance.reset(c)
+// Reset resets the entire dummy environment and forgets any registered
+// operation listener.  All opened environments after Reset will share
+// the same underlying state.
+func Reset() {
+	e := &providerInstance
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.ops = discardOperations
+	e.state = &environState{
+		insts: make(map[string]*instance),
+		files: make(map[string][]byte),
+	}
 }
 
-func (e *environProvider) reset(c chan<- Operation) {
+// Listen closes the previously registered listener (if any),
+// and if c is not nil registers it to receive notifications 
+// of follow up operations in the environment.
+func Listen(c chan<- Operation) {
+	e := &providerInstance
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if c == nil {
 		c = discardOperations
 	}
-	if ops := e.ops; ops != discardOperations && ops != nil {
-		close(ops)
+	if e.ops != discardOperations {
+		close(e.ops)
 	}
 	e.ops = c
-	e.state = &environState{
-		insts: make(map[string]*instance),
-		files: make(map[string][]byte),
-	}
 }
 
 func (e *environProvider) ConfigChecker() schema.Checker {
@@ -162,9 +171,15 @@ func EnvironName(e environs.Environ) string {
 	return e.(*environ).name
 }
 
-func (e *environ) Bootstrap() error {
+func (e *environ) Bootstrap(uploadTools bool) error {
 	if e.broken {
 		return errBroken
+	}
+	if uploadTools {
+		err := environs.PutTools(e.Storage())
+		if err != nil {
+			return err
+		}
 	}
 	e.ops <- Operation{Kind: OpBootstrap, Env: e.name}
 	e.state.mu.Lock()
@@ -247,43 +262,69 @@ func (e *environ) Instances(ids []string) (insts []environs.Instance, err error)
 	return
 }
 
-func (e *environ) PutFile(name string, r io.Reader, length int64) error {
-	if e.broken {
+// storage uses the same object as environ,
+// but we use a new type to keep the name spaces
+// separate.
+type storage environ
+
+func (e *environ) Storage() environs.Storage {
+	return (*storage)(e)
+}
+
+func (e *environ) PublicStorage() environs.StorageReader {
+	return environs.EmptyStorage
+}
+
+func (s *storage) Put(name string, r io.Reader, length int64) error {
+	if s.broken {
 		return errBroken
 	}
-	e.ops <- Operation{Kind: OpPutFile, Env: e.name}
+	s.ops <- Operation{Kind: OpPutFile, Env: s.name}
 	var buf bytes.Buffer
 	_, err := io.Copy(&buf, r)
 	if err != nil {
 		return err
 	}
-	e.state.mu.Lock()
-	e.state.files[name] = buf.Bytes()
-	e.state.mu.Unlock()
+	s.state.mu.Lock()
+	s.state.files[name] = buf.Bytes()
+	s.state.mu.Unlock()
 	return nil
 }
 
-func (e *environ) GetFile(name string) (io.ReadCloser, error) {
-	if e.broken {
+func (s *storage) Get(name string) (io.ReadCloser, error) {
+	if s.broken {
 		return nil, errBroken
 	}
-	e.state.mu.Lock()
-	defer e.state.mu.Unlock()
-	data, ok := e.state.files[name]
+	s.state.mu.Lock()
+	defer s.state.mu.Unlock()
+	data, ok := s.state.files[name]
 	if !ok {
-		return nil, fmt.Errorf("file %q not found", name)
+		return nil, &environs.NotFoundError{fmt.Errorf("file %q not found", name)}
 	}
 	return ioutil.NopCloser(bytes.NewBuffer(data)), nil
 }
 
-func (e *environ) RemoveFile(name string) error {
-	if e.broken {
+func (s *storage) Remove(name string) error {
+	if s.broken {
 		return errBroken
 	}
-	e.state.mu.Lock()
-	delete(e.state.files, name)
-	e.state.mu.Unlock()
+	s.state.mu.Lock()
+	delete(s.state.files, name)
+	s.state.mu.Unlock()
 	return nil
+}
+
+func (s *storage) List(prefix string) ([]string, error) {
+	s.state.mu.Lock()
+	defer s.state.mu.Unlock()
+	var names []string
+	for name := range s.state.files {
+		if strings.HasPrefix(name, prefix) {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	return names, nil
 }
 
 type instance struct {

@@ -57,7 +57,7 @@ func (t *LiveTests) TestBootstrap(c *C) {
 
 	// Wait for a while to let eventual consistency catch up, hopefully.
 	time.Sleep(t.ConsistencyDelay)
-	err := t.Env.Bootstrap()
+	err := t.Env.Bootstrap(false)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	info, err := t.Env.StateInfo()
@@ -84,15 +84,33 @@ var contents2 = []byte("goodbye\n\n")
 
 func (t *LiveTests) TestFile(c *C) {
 	name := fmt.Sprint("testfile", time.Now().UnixNano())
-	checkFileDoesNotExist(c, t.Env, name)
-	checkPutFile(c, t.Env, name, contents)
-	checkFileHasContents(c, t.Env, name, contents)
-	checkPutFile(c, t.Env, name, contents2) // check that we can overwrite the file
-	checkFileHasContents(c, t.Env, name, contents2)
-	err := t.Env.RemoveFile(name)
+	store := t.Env.Storage()
+
+	checkFileDoesNotExist(c, store, name)
+	checkPutFile(c, store, name, contents)
+	checkFileHasContents(c, store, name, contents)
+	checkPutFile(c, store, name, contents2) // check that we can overwrite the file
+	checkFileHasContents(c, store, name, contents2)
+
+	// check that the listed contents include the
+	// expected name.
+	names, err := store.List("")
+	c.Assert(err, IsNil)
+	found := false
+	for _, lname := range names {
+		if lname == name {
+			found = true
+			break
+		}
+	}
+	if !found {
+		c.Errorf("file name %q not found in file list %q", name, names)
+	}
+
+	err = store.Remove(name)
 	c.Check(err, IsNil)
-	checkFileDoesNotExist(c, t.Env, name)
+	checkFileDoesNotExist(c, store, name)
 	// removing a file that does not exist should not be an error.
-	err = t.Env.RemoveFile(name)
+	err = store.Remove(name)
 	c.Check(err, IsNil)
 }

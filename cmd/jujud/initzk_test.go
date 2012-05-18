@@ -2,49 +2,49 @@ package main_test
 
 import (
 	. "launchpad.net/gocheck"
-	main "launchpad.net/juju/go/cmd/jujud"
-        "launchpad.net/juju/go/testing"
 	"launchpad.net/gozk/zookeeper"
-        stdtesting "testing"
+	main "launchpad.net/juju/go/cmd/jujud"
+	"launchpad.net/juju/go/testing"
+	stdtesting "testing"
 )
 
 var zkAddr string
 
 func TestPackage(t *stdtesting.T) {
-        srv := testing.StartZkServer()
-        defer srv.Destroy()
-        var err error
-        zkAddr, err = srv.Addr()
-        if err != nil {
-                t.Fatalf("could not get ZooKeeper server address")
+	srv := testing.StartZkServer()
+	defer srv.Destroy()
+	var err error
+	zkAddr, err = srv.Addr()
+	if err != nil {
+		t.Fatalf("could not get ZooKeeper server address")
 	}
-        TestingT(t)
+	TestingT(t)
 }
 
-type InitzkSuite struct{
-        zkConn *zookeeper.Conn
-        path   string
+type InitzkSuite struct {
+	zkConn *zookeeper.Conn
+	path   string
 }
 
 var _ = Suite(&InitzkSuite{})
 
 func (s *InitzkSuite) SetUpTest(c *C) {
-        zk, session, err := zookeeper.Dial(zkAddr, 15e9)
-        c.Assert(err, IsNil)
-        event := <-session
-        c.Assert(event.Ok(), Equals, true)
-        c.Assert(event.Type, Equals, zookeeper.EVENT_SESSION)
-        c.Assert(event.State, Equals, zookeeper.STATE_CONNECTED)
+	zk, session, err := zookeeper.Dial(zkAddr, 15e9)
+	c.Assert(err, IsNil)
+	event := <-session
+	c.Assert(event.Ok(), Equals, true)
+	c.Assert(event.Type, Equals, zookeeper.EVENT_SESSION)
+	c.Assert(event.State, Equals, zookeeper.STATE_CONNECTED)
 
-        s.zkConn = zk
-        s.path = "/watcher"
+	s.zkConn = zk
+	s.path = "/watcher"
 
-        c.Assert(err, IsNil)
+	c.Assert(err, IsNil)
 }
 
 func (s *InitzkSuite) TearDownTest(c *C) {
-        testing.ZkRemoveTree(s.zkConn, s.path)
-        s.zkConn.Close()
+	testing.ZkRemoveTree(s.zkConn, s.path)
+	s.zkConn.Close()
 }
 
 func initInitzkCommand(args []string) (*main.InitzkCommand, error) {

@@ -18,7 +18,7 @@ func (OpenSuite) TestNewDummyEnviron(c *C) {
 	}
 	env, err := environs.NewEnviron("dummy", config)
 	c.Assert(err, IsNil)
-	c.Assert(env.Bootstrap(), IsNil)
+	c.Assert(env.Bootstrap(false), IsNil)
 }
 
 func (OpenSuite) TestNewUnknownEnviron(c *C) {

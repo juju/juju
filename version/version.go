@@ -22,7 +22,7 @@ type Version struct {
 	Patch int
 }
 
-var versionPat = regexp.MustCompile(`^([0-9]{1,9})\.([0-9]{1,9})\.([0-9]{1,9})$`)
+var versionPat = regexp.MustCompile(`^(\d{1,9})\.(\d{1,9})\.(\d{1,9})$`)
 
 // MustParse parses a version and panics if it does
 // not parse correctly.
