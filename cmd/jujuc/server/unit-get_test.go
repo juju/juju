@@ -73,7 +73,7 @@ options:
 -o, --output (= "")
     specify an output file
 --test  (= false)
-    suppress output; communicate result truthiness in return code
+    returns non-zero exit code if value is false/zero/empty
 `)
 }
 
