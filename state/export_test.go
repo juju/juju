@@ -13,3 +13,11 @@ import (
 func ZkConn(st *State) *zookeeper.Conn {
 	return st.zk
 }
+
+// NewMachine constructs *Machine's for tests.
+func NewMachine(st *State, key string) *Machine {
+	return &Machine{
+		st:  st,
+		key: key,
+	}
+}

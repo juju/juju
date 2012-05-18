@@ -9,7 +9,7 @@ import (
 type ConfigGetCommand struct {
 	*ClientContext
 	Key string // The key to show. If empty, show all.
-	out resultWriter
+	out output
 }
 
 func NewConfigGetCommand(ctx *ClientContext) (cmd.Command, error) {
@@ -28,7 +28,7 @@ func (c *ConfigGetCommand) Info() *cmd.Info {
 }
 
 func (c *ConfigGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	c.out.addFlags(f, "yaml", defaultConverters)
+	c.out.addFlags(f, "yaml", defaultFormatters)
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
@@ -58,6 +58,9 @@ func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
 		value = conf.Map()
 	} else {
 		value, _ = conf.Get(c.Key)
+	}
+	if c.out.testMode {
+		return truthError(value)
 	}
 	return c.out.write(ctx, value)
 }
