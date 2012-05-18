@@ -80,7 +80,7 @@ func (v *formatterValue) format(value interface{}) ([]byte, error) {
 // output is responsible for interpreting output-related command line flags
 // and writing a value to a file or to stdout as directed. The testMode field,
 // controlled by the --test flag, is used to indicate that output should be
-// suppressed and instead communicated entirely in the process exit code.
+// suppressed and communicated entirely in the process exit code.
 type output struct {
 	formatter *formatterValue
 	outPath   string
@@ -93,7 +93,7 @@ func (c *output) addFlags(f *gnuflag.FlagSet, name string, formatters map[string
 	f.Var(c.formatter, "format", c.formatter.doc())
 	f.StringVar(&c.outPath, "o", "", "specify an output file")
 	f.StringVar(&c.outPath, "output", "", "")
-	f.BoolVar(&c.testMode, "test", false, "suppress output; communicate result truthiness in return code")
+	f.BoolVar(&c.testMode, "test", false, "returns non-zero exit code if value is false/zero/empty")
 }
 
 // write formats and outputs value as directed by the --format and --output
