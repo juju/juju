@@ -154,7 +154,7 @@ func (s *environState) listen() {
 	if err != nil {
 		panic(fmt.Errorf("cannot start listener: %v", err))
 	}
-	s.urlBase = fmt.Sprintf("http://%s", l.Addr().String())
+	s.urlBase = fmt.Sprintf("http://%v", l.Addr())
 	s.httpListener = l
 	mux := http.NewServeMux()
 	mux.Handle(s.storage.path+"/", http.StripPrefix(s.storage.path+"/", s.storage))
