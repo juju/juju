@@ -95,43 +95,37 @@ func init() {
 		}
 	}()
 	discardOperations = c
-	providerInstance.ops = c
-	Listen(nil)
+	Reset()
 }
 
-// Listen cleans the environment state and registers c to receive
-// notifications of operations performed on subsequently opened dummy
-// environments.  All opened environments after a Listen will share the
-// same underlying state (instances, etc).  If c is non-nil, Close must
-// be called before calling Listen again; otherwise the environment is
-// cleaned without registering a channel.
-func Listen(c chan<- Operation) {
-	if c == nil {
-		c = discardOperations
-	}
+// Reset resets the entire dummy environment and forgets any registered
+// operation listener.  All opened environments after Reset will share
+// the same underlying state.
+func Reset() {
 	e := &providerInstance
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if e.ops != discardOperations {
-		panic("Listen called without Close")
-	}
-	e.ops = c
+	e.ops = discardOperations
 	e.state = &environState{
 		insts: make(map[string]*instance),
 		files: make(map[string][]byte),
 	}
 }
 
-// Close closes the channel currently registered with Listen.
-func Close() {
+// Listen closes the previously registered listener (if any),
+// and if c is not nil registers it to receive notifications 
+// of follow up operations in the environment.
+func Listen(c chan<- Operation) {
 	e := &providerInstance
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if e.ops == discardOperations {
-		panic("Close called without Listen")
+	if c == nil {
+		c = discardOperations
 	}
-	close(e.ops)
-	e.ops = discardOperations
+	if e.ops != discardOperations {
+		close(e.ops)
+	}
+	e.ops = c
 }
 
 func (e *environProvider) ConfigChecker() schema.Checker {

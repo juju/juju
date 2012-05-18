@@ -65,7 +65,7 @@ func (e *environ) deleteState() error {
 	// of concurrent operations.
 	var wg sync.WaitGroup
 	wg.Add(len(names))
-	errc := make(chan error, len(resp.Contents))
+	errc := make(chan error, len(names))
 	for _, name := range names {
 		name := name
 		go func() {
@@ -81,68 +81,7 @@ func (e *environ) deleteState() error {
 		return fmt.Errorf("cannot delete all provider state: %v", err)
 	default:
 	}
-	return s.b.DelBucket()
-}
-
-// makeBucket makes the environent's control bucket, the
-// place where bootstrap information and deployed charms
-// are stored. To avoid two round trips on every PUT operation,
-// we do this only once for each environ.
-func (e *environ) makeBucket() error {
-	e.bucketMutex.Lock()
-	defer e.bucketMutex.Unlock()
-	// try to make the bucket - PutBucket will succeed if the
-	// bucket already exists.
-	err := e.bucket().PutBucket(s3.Private)
-	if err == nil {
-		e.madeBucket = true
-	}
-	return err
-}
-
-func (e *environ) PutFile(file string, r io.Reader, length int64) error {
-	if err := e.makeBucket(); err != nil {
-		return fmt.Errorf("cannot make S3 control bucket: %v", err)
-	}
-	err := e.bucket().PutReader(file, r, length, "binary/octet-stream", s3.Private)
-	if err != nil {
-		return fmt.Errorf("cannot write file %q to control bucket: %v", file, err)
-	}
-	return nil
-}
-
-func (e *environ) GetFile(file string) (r io.ReadCloser, err error) {
-	for a := shortAttempt.start(); a.next(); {
-		r, err = e.bucket().GetReader(file)
-		if s3ErrorStatusCode(err) == 404 {
-			continue
-		}
-		return
-	}
-	return
-}
-
-// s3ErrorStatusCode returns the HTTP status of the S3 request error,
-// if it is an error from an S3 operation, or 0 if it was not.
-func s3ErrorStatusCode(err error) int {
-	if err, _ := err.(*s3.Error); err != nil {
-		return err.StatusCode
-	}
-	return 0
-}
-
-func (e *environ) RemoveFile(file string) error {
-	err := e.bucket().Del(file)
-	// If we can't delete the object because the bucket doesn't
-	// exist, then we don't care.
-	if s3ErrorStatusCode(err) == 404 {
-		return nil
-	}
-	return err
-}
-
-func (e *environ) bucket() *s3.Bucket {
-	return e.s3.Bucket(e.config.bucket)
+	return s.bucket.DelBucket()
 }
 
 var toolFilePat = regexp.MustCompile(`^tools/juju([0-9]+\.[0-9]+\.[0-9]+)-([^-]+)-([^-]+)\.tgz$`)
