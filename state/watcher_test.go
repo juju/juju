@@ -331,10 +331,13 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 
 var exceptTests = []struct {
 	A, B, want []string
-} {
-	{ []string{"A", "B", "C"}, []string{"A", "D", "C"}, []string{"B"} },
-	{ []string{"A", "D", "C"}, []string{}, []string{"A", "D", "C"} },
-	{ []string{}, []string{"A", "D", "C"}, nil },
+}{
+	{[]string{"A", "B", "C"}, []string{"A", "D", "C"}, []string{"B"}},
+	{[]string{"A", "B", "C"}, []string{"C", "B", "A"}, nil},
+	{[]string{"A", "B", "C"}, []string{"B"}, []string{"A", "C"}},
+	{[]string{"B"}, []string{"A", "B", "C"}, nil},
+	{[]string{"A", "D", "C"}, []string{}, []string{"A", "D", "C"}},
+	{[]string{}, []string{"A", "D", "C"}, nil},
 }
 
 func (*StateSuite) TestExcept(c *C) {
@@ -342,4 +345,3 @@ func (*StateSuite) TestExcept(c *C) {
 		c.Assert(test.want, DeepEquals, state.Except(test.A, test.B))
 	}
 }
-

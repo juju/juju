@@ -4,6 +4,7 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju/go/state/watcher"
 	"launchpad.net/tomb"
+	"fmt"
 )
 
 // ConfigWatcher observes changes to any configuration node.
@@ -313,7 +314,7 @@ func newMachinesWatcher(st *State) *MachinesWatcher {
 		path:       zkMachinesPath,
 		changeChan: make(chan *MachinesChange),
 		watcher:    watcher.NewContentWatcher(st.zk, zkMachinesPath),
-		topology:	topology,
+		topology:   topology,
 	}
 	go w.loop()
 	return w
@@ -350,14 +351,23 @@ func (w *MachinesWatcher) loop() {
 			if !ok {
 				return
 			}
+			fmt.Printf("topology change detected: %v", change.Content)
 			topology, err := parseTopology(change.Content)
 			if err != nil {
+				fmt.Printf("parseTopology failed: %v", err)
 				w.tomb.Kill(err)
 				return
 			}
 			previous := w.topology.MachineKeys()
 			current := topology.MachineKeys()
+			fmt.Printf("previous: %v, current: %v", previous, current)
 			added, deleted := diff(previous, current)
+			if len(added) == 0 && len(deleted) == 0 {
+				// nothing changed in zkMachinePath
+				continue
+			}
+			// Why are we dealing with strings, not *Machines at this point ?
+			// Because *Machine does not define equality, yet.
 			mc := new(MachinesChange)
 			for _, m := range added {
 				mc.Added = append(mc.Added, &Machine{w.st, m})
@@ -384,10 +394,10 @@ func diff(previous, current []string) ([]string, []string) {
 
 // except returns all the elements that exist in A but not B.
 func except(A, B []string) (missing []string) {
-	next:
+next:
 	for _, a := range A {
-		for  _, b := range B {
-			if a == b  {
+		for _, b := range B {
+			if a == b {
 				continue next
 			}
 		}
