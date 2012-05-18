@@ -3,6 +3,7 @@ package jujutest
 import (
 	"bytes"
 	"io/ioutil"
+	"net/http"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
 )
@@ -142,5 +143,14 @@ func checkFileHasContents(c *C, store environs.StorageReader, name string, conte
 
 	data, err := ioutil.ReadAll(r)
 	c.Check(err, IsNil)
+	c.Check(data, DeepEquals, contents)
+
+	url, err := store.URL(name)
+	c.Assert(err, IsNil)
+
+	resp, err := http.Get(url)
+	c.Assert(err, IsNil)
+	data, err = ioutil.ReadAll(resp.Body)
+	c.Assert(err, IsNil)
 	c.Check(data, DeepEquals, contents)
 }
