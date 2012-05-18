@@ -12,7 +12,7 @@ import (
 // environ holds information about one environment.
 type environ struct {
 	kind   string      // the type of environment (e.g. ec2).
-	config interface{} // the configuration data for passing to NewEnviron.
+	config interface{} // the configuration data for passing to Open.
 	err    error       // an error if the config data could not be parsed.
 }
 

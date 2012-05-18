@@ -117,7 +117,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	}
 
 	if uploadTools {
-		err := environs.UploadTools(e)
+		err := environs.PutTools(e)
 		if err != nil {
 			return err
 		}

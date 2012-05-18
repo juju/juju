@@ -14,10 +14,10 @@ type EnvironProvider interface {
 	// that returned from the yaml parse, of type schema.MapType.
 	ConfigChecker() schema.Checker
 
-	// NewEnviron creates a new Environ with
-	// the given attributes returned by the ConfigChecker.
-	// The name is that given in environments.yaml.
-	Open(name string, attributes interface{}) (Environ, error)
+	// Open opens an environment with config, which must
+	// have been processed and validated by the schema
+	// checker returned by ConfigChecker.
+	Open(name string, config interface{}) (Environ, error)
 }
 
 var ErrNoDNSName = errors.New("DNS name not allocated")

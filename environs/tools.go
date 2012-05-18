@@ -6,16 +6,18 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"launchpad.net/juju/go/log"
 	"launchpad.net/juju/go/version"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 )
 
-var currentSeries = "precise"		// TODO find out actual version.
-var currentArch = ubuntuArch(runtime.GOARCH)	// TODO better
+var currentSeries = "precise"                // TODO find out actual version.
+var currentArch = ubuntuArch(runtime.GOARCH) // TODO better
 
 func ubuntuArch(arch string) string {
 	if arch == "386" {
@@ -24,10 +26,14 @@ func ubuntuArch(arch string) string {
 	return arch
 }
 
+var toolPrefix = "tools/juju-"
+
+var toolFilePat = regexp.MustCompile(`^`+toolPrefix+`(\d+\.\d+\.\d+)-([^-]+)-([^-]+)\.tgz$`)
+
 // toolsPathForVersion returns a path for the juju tools with the
 // given version, OS and architecture.
-func toolsPathForVersion(v Version, series, arch string) string {
-	return fmt.Sprintf("tools/juju-%v-%s-%s.tgz", v, series, arch)
+func toolsPathForVersion(v version.Version, series, arch string) string {
+	return fmt.Sprintf(toolPrefix+"%v-%s-%s.tgz", v, series, arch)
 }
 
 // ToolsPath gives the path for the current juju tools, as expected
@@ -142,11 +148,12 @@ func closeErrorCheck(errp *error, c io.Closer) {
 // version and platform and returns a URL that can be used to access
 // them in gzipped tar archive format.
 func FindTools(env Environ) (url string, err error) {
-	storage, path, err := findTools(env)
-	if err != nil {
-		return err
-	}
-	return storage.URL(path), nil
+//	storage, path, err := findTools(env)
+//	if err != nil {
+//		return "", err
+//	}
+//	return storage.URL(path), nil
+	return "", fmt.Errorf("url unimplemented")
 }
 
 // GetTools finds the latest compatible version of the juju tools
@@ -191,21 +198,25 @@ func GetTools(env Environ, dir string) error {
 
 // findToolsPath is an internal version of FindTools that returns the
 // found StorageReader and the path within that storage.
-find findTools(env Environ) (storage environs.StorageReader, path string, err error) {
-	var storage environs.StorageReader = env.Storage()
-	path, err := findToolsPath(storage)
-	if _, ok := err.(*environs.NotFoundError); ok {
+func findTools(env Environ) (storage StorageReader, path string, err error) {
+	storage = env.Storage()
+	path, err = findToolsPath(storage)
+	if _, ok := err.(*NotFoundError); ok {
 		storage = env.PublicStorage()
 		path, err = findToolsPath(storage)
 	}
 	if err != nil {
-		return err
+		return nil, "", err
 	}
+	return
 }
 
 // findToolsPath looks for the tools in the given storage.
 func findToolsPath(store StorageReader) (path string, err error) {
-	names := store.List(fmt.Sprintf("tools/juju%d.", version.Current.Major))
+	names, err := store.List(fmt.Sprintf("%s%d.", toolPrefix, version.Current.Major))
+	if err != nil {
+		return "", err
+	}
 	if len(names) == 0 {
 		return "", &NotFoundError{fmt.Errorf("no tools found")}
 	}
@@ -222,23 +233,23 @@ func findToolsPath(store StorageReader) (path string, err error) {
 			log.Printf("failed to parse version %q: %v", name, err)
 			continue
 		}
-		if m[2] != currentOS {
+		if m[2] != currentSeries {
 			continue
 		}
 		// TODO allow different architectures.
 		if m[3] != currentArch {
 			continue
 		}
-		if vers.Major != versionCurrentMajor {
+		if vers.Major != version.Current.Major {
 			continue
 		}
 		if bestVersion.Less(vers) {
 			bestVersion = vers
-			bestKey = k.Key
+			bestName = name
 		}
 	}
 	if bestVersion.Major < 0 {
-		return "", errToolsNotFound
+		return "", &NotFoundError{fmt.Errorf("no compatible tools found")}
 	}
 	return bestName, nil
 }

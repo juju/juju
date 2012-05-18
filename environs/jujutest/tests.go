@@ -39,8 +39,8 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(insts[1].Id(), Equals, id1)
 }
 
-TODO tests for Bootstrap(true)
 func (t *Tests) TestBootstrap(c *C) {
+	// TODO tests for Bootstrap(true)
 	e := t.Open(c)
 	err := e.Bootstrap(false)
 	c.Assert(err, IsNil)

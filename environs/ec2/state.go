@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju/go/environs"
+	"sync"
 )
 
 const stateFile = "provider-state"
@@ -63,10 +64,10 @@ func (e *environ) deleteState() error {
 	// we'll want to change this to limit the number
 	// of concurrent operations.
 	var wg sync.WaitGroup
-	wg.Add(len(resp.Contents))
+	wg.Add(len(names))
 	errc := make(chan error, len(resp.Contents))
-	for _, obj := range resp.Contents {
-		name := obj.Key
+	for _, name := range names {
+		name := name
 		go func() {
 			if err := s.Remove(name); err != nil {
 				errc <- err
