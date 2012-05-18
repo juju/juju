@@ -200,7 +200,7 @@ func (s emptyStorage) Get(name string) (io.ReadCloser, error) {
 }
 
 func (s emptyStorage) URL(string) (string, error) {
-	return "", fmt.Errorf("no urls here")
+	return "", fmt.Errorf("empty storage has no URLs")
 }
 
 func (s emptyStorage) List(prefix string) ([]string, error) {

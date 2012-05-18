@@ -47,7 +47,7 @@ func (s *storage) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *storage) URL(name string) (string, error) {
-	return s.state.urlBase + s.path + "/" + name, nil
+	return fmt.Sprintf("http://%v%s/%s", s.state.httpListener.Addr(), s.path, name), nil
 }
 
 func (s *storage) Put(name string, r io.Reader, length int64) error {
