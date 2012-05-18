@@ -1,4 +1,5 @@
 package dummy
+
 import (
 	"bytes"
 	"fmt"
@@ -22,10 +23,9 @@ func newStorage(state *environState, path string) *storage {
 	return &storage{
 		state: state,
 		files: make(map[string][]byte),
-		path: path,
+		path:  path,
 	}
 }
-
 
 func (s *storage) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "GET" {

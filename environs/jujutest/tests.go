@@ -3,9 +3,9 @@ package jujutest
 import (
 	"bytes"
 	"io/ioutil"
-	"net/http"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
+	"net/http"
 )
 
 func (t *Tests) TestStartStop(c *C) {

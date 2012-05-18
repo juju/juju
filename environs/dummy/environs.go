@@ -60,8 +60,8 @@ func (k OperationKind) String() string {
 // environProvider represents the dummy provider.  There is only ever one
 // instance of this type (providerInstance)
 type environProvider struct {
-	mu    sync.Mutex
-	ops	chan<- Operation
+	mu  sync.Mutex
+	ops chan<- Operation
 	// We have one state for each environment name
 	state map[string]*environState
 }
@@ -70,16 +70,16 @@ type environProvider struct {
 // It can be shared between several environ values,
 // so that a given environment can be opened several times.
 type environState struct {
-	name      string
-	ops   chan<- Operation
-	mu           sync.Mutex
-	maxId        int // maximum instance id allocated so far.
-	insts        map[string]*instance
-	bootstrapped bool
-	storage *storage
+	name          string
+	ops           chan<- Operation
+	mu            sync.Mutex
+	maxId         int // maximum instance id allocated so far.
+	insts         map[string]*instance
+	bootstrapped  bool
+	storage       *storage
 	publicStorage *storage
-	httpListener net.Listener
-	urlBase string
+	httpListener  net.Listener
+	urlBase       string
 }
 
 // environ represents a client's connection to a given environment's
@@ -94,9 +94,9 @@ type environ struct {
 // There are two instances for each environState
 // instance, one for public files and one for private.
 type storage struct {
-	path string		// path prefix in http space.
+	path  string // path prefix in http space.
 	state *environState
-	files        map[string][]byte
+	files map[string][]byte
 }
 
 var providerInstance environProvider
@@ -137,12 +137,12 @@ func Reset() {
 // storage requests.
 func newState(name string, ops chan<- Operation) *environState {
 	s := &environState{
-		name: name,
-		ops: ops,
+		name:  name,
+		ops:   ops,
 		insts: make(map[string]*instance),
 	}
-	s.storage = newStorage(s, "/" + name + "/private")
-	s.publicStorage = newStorage(s, "/" + name + "/public")
+	s.storage = newStorage(s, "/"+name+"/private")
+	s.publicStorage = newStorage(s, "/"+name+"/public")
 	s.listen()
 	return s
 }
