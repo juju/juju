@@ -54,8 +54,11 @@ type StorageReader interface {
 	// exist, it should return a *NotFoundError.
 	Get(name string) (io.ReadCloser, error)
 
-	// List lists all names in the storage with the given prefix,
-	// in alphabetical order.
+	// List lists all names in the storage with the given prefix, in
+	// alphabetical order.  The names in the storage are considered
+	// to be in a flat namespace, so the prefix may include slashes
+	// and the names returned are the full names for the matching
+	// entries.
 	List(prefix string) ([]string, error)
 
 	// TODO: URL returns a URL that can be used to access the given
