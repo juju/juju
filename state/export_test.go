@@ -21,3 +21,5 @@ func NewMachine(st *State, key string) *Machine {
 		key: key,
 	}
 }
+
+func Except(a, b []string) []string { return except(a, b) }

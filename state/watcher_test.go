@@ -328,3 +328,18 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 
 	c.Assert(w.Stop(), IsNil)
 }
+
+var exceptTests = []struct {
+	A, B, want []string
+} {
+	{ []string{"A", "B", "C"}, []string{"A", "D", "C"}, []string{"B"} },
+	{ []string{"A", "D", "C"}, []string{}, []string{"A", "D", "C"} },
+	{ []string{}, []string{"A", "D", "C"}, nil },
+}
+
+func (*StateSuite) TestExcept(c *C) {
+	for _, test := range exceptTests {
+		c.Assert(test.want, DeepEquals, state.Except(test.A, test.B))
+	}
+}
+
