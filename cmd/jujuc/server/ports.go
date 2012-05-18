@@ -15,14 +15,14 @@ const portFormat = "<port>[/<protocol>]"
 // portCommand implements the open-port and close-port commands.
 type portCommand struct {
 	*ClientContext
-	info     func() *cmd.Info
+	info     *cmd.Info
 	action   func(*state.Unit, string, int) error
 	Protocol string
 	Port     int
 }
 
 func (c *portCommand) Info() *cmd.Info {
-	return c.info()
+	return c.info
 }
 
 func badPort(value interface{}) error {
@@ -68,22 +68,24 @@ func (c *portCommand) Run(_ *cmd.Context) error {
 	return c.action(unit, c.Protocol, c.Port)
 }
 
+var openPortInfo = &cmd.Info{
+	"open-port", portFormat, "register a port to open",
+	"The port will only be open while the service is exposed.",
+}
+
 func NewOpenPortCommand(ctx *ClientContext) (cmd.Command, error) {
 	if err := ctx.check(); err != nil {
 		return nil, err
 	}
 	return &portCommand{
 		ClientContext: ctx,
-		info: func() *cmd.Info {
-			return &cmd.Info{
-				"open-port", portFormat, "register a port to open",
-				"The port will only be open while the service is exposed.",
-			}
-		},
-		action: func(unit *state.Unit, protocol string, port int) error {
-			return unit.OpenPort(protocol, port)
-		},
+		info:          openPortInfo,
+		action:        (*state.Unit).OpenPort,
 	}, nil
+}
+
+var closePortInfo = &cmd.Info{
+	"close-port", portFormat, "ensure a port is always closed", "",
 }
 
 func NewClosePortCommand(ctx *ClientContext) (cmd.Command, error) {
@@ -92,13 +94,7 @@ func NewClosePortCommand(ctx *ClientContext) (cmd.Command, error) {
 	}
 	return &portCommand{
 		ClientContext: ctx,
-		info: func() *cmd.Info {
-			return &cmd.Info{
-				"close-port", portFormat, "ensure a port is always closed", "",
-			}
-		},
-		action: func(unit *state.Unit, protocol string, port int) error {
-			return unit.ClosePort(protocol, port)
-		},
+		info:          closePortInfo,
+		action:        (*state.Unit).ClosePort,
 	}, nil
 }
