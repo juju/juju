@@ -17,7 +17,15 @@ type ToolsSuite struct{}
 
 var envs *environs.Environs
 
-var toolsPath = fmt.Sprintf("tools/juju-%v-%s-%s.tgz", version.Current, runtime.GOOS, runtime.GOARCH)
+var toolsPath = toolsPathForVersion(version.Current, 
+TODO
+fmt.Sprintf("tools/juju-%v-%s-%s.tgz", version.Current, runtime.GOOS, runtime.GOARCH)
+
+// toolsPathForVersion returns a path for the juju tools with the
+// given version, OS and architecture.
+func toolsPathForVersion(v version.Version, series, arch string) string {
+	return fmt.Sprintf(toolPrefix+"%v-%s-%s.tgz", v, series, arch)
+}
 
 const toolsConf = `
 environments:

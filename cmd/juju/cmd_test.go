@@ -156,7 +156,7 @@ func (*cmdSuite) TestBootstrapCommand(c *C) {
 	env, err := envs.Open("peckham")
 	c.Assert(err, IsNil)
 	dir := c.MkDir()
-	err = environs.GetTools(env.Storage(), dir)
+	err = environs.GetTools(env, dir)
 	c.Assert(err, IsNil)
 
 	// bootstrap with broken environment

@@ -2,7 +2,6 @@ package ec2_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
@@ -13,9 +12,6 @@ import (
 	"launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
 	"launchpad.net/juju/go/testing"
-	"launchpad.net/juju/go/version"
-	"net/http"
-	"strings"
 )
 
 var functionalConfig = []byte(`
