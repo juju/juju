@@ -293,32 +293,33 @@ func (w *PortsWatcher) loop() {
 	}
 }
 
-// MachinesWatcher observes changes to children of the /machines key.
+// MachinesWatcher notifies about machines being added or removed 
+// from the environment.
 type MachinesWatcher struct {
 	st         *State
 	path       string
 	tomb       tomb.Tomb
+	changeChan chan MachinesChange
 	watcher    *watcher.ChildrenWatcher
-	changeChan chan watcher.ChildrenChange
 }
 
 // newMachinesWatcher creates and starts a new machine watcher for
 // the given path.
-func newMachinesWatcher(st *State, path string) *MachinesWatcher {
+func newMachinesWatcher(st *State) *MachinesWatcher {
 	w := &MachinesWatcher{
 		st:         st,
-		path:       path,
-		changeChan: make(chan watcher.ChildrenChange),
-		watcher:    watcher.NewChildrenWatcher(st.zk, path),
+		path:       zkMachinesPath,
+		changeChan: make(chan MachinesChange),
+		watcher:    watcher.NewChildrenWatcher(st.zk, zkMachinesPath),
 	}
 	go w.loop()
 	return w
 }
 
 // Changes returns a channel that will receive the actual
-// watcher.ChildrenChanges. Note that multiple changes may 
+// watcher.ChildrenChanges. Note that multiple changes may
 // be observed as a single event in the channel.
-func (w *MachinesWatcher) Changes() <-chan watcher.ChildrenChange {
+func (w *MachinesWatcher) Changes() <-chan MachinesChange {
 	return w.changeChan
 }
 
@@ -351,8 +352,26 @@ func (w *MachinesWatcher) loop() {
 				return
 			case <-w.tomb.Dying():
 				return
-			case w.changeChan <- change:
+			case w.changeChan <- w.toMachines(change):
 			}
 		}
 	}
+}
+
+// toMachines converts internal zookeeper textual machine keys
+// into *Machines.
+func (w *MachinesWatcher) toMachines(cc watcher.ChildrenChange) (mc MachinesChange) {
+	for _, added := range cc.Added {
+		// state.Machine cannot be used at this point to create the *Machine as 
+		// it relies on the topology to be in a consistent state. Because of a 
+		// race in state.AddMachines, the topology may not reflect this machines
+		// arrival when the watcher observes the change.
+		mc.Added = append(mc.Added, &Machine{w.st, added})
+	}
+	for _, deleted := range cc.Deleted {
+		// We cannot ask state.Machine to construct this *Machine as it has 
+		// just been removed. We have to cheat and construct it manually.
+		mc.Deleted = append(mc.Deleted, &Machine{w.st, deleted})
+	}
+	return
 }

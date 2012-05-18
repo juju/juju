@@ -12,6 +12,11 @@ import (
 	"strings"
 )
 
+const (
+	zkEnvironmentPath = "/environment"
+	zkMachinesPath    = "/machines"
+)
+
 // State represents the state of an environment
 // managed by juju.
 type State struct {
@@ -59,7 +64,13 @@ func (s *State) RemoveMachine(id int) error {
 
 // WatchMachines watches for new Machines added or removed.
 func (s *State) WatchMachines() *MachinesWatcher {
-	return newMachinesWatcher(s, zkMachinesPath)
+	return newMachinesWatcher(s)
+}
+
+// WatchEnvironConfig returns a watcher for observing
+// changes to the environment configuration.
+func (s *State) WatchEnvrionConfig() *ConfigWatcher {
+	return newConfigWatcher(s, zkEnvironmentPath)
 }
 
 // Machine returns the machine with the given id.

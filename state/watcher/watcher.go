@@ -17,20 +17,22 @@ type ContentChange struct {
 // ContentWatcher observes a ZooKeeper node and delivers a
 // notification when a content change is detected.
 type ContentWatcher struct {
-	zk         *zookeeper.Conn
-	path       string
-	tomb       tomb.Tomb
-	changeChan chan ContentChange
-	content    ContentChange
+	zk           *zookeeper.Conn
+	path         string
+	tomb         tomb.Tomb
+	changeChan   chan ContentChange
+	initialValue bool
+	content      ContentChange
 }
 
 // NewContentWatcher creates a ContentWatcher observing
 // the ZooKeeper node at watchedPath.
 func NewContentWatcher(zk *zookeeper.Conn, watchedPath string) *ContentWatcher {
 	w := &ContentWatcher{
-		zk:         zk,
-		path:       watchedPath,
-		changeChan: make(chan ContentChange),
+		zk:           zk,
+		path:         watchedPath,
+		changeChan:   make(chan ContentChange),
+		initialValue: true,
 	}
 	go w.loop()
 	return w
@@ -114,19 +116,15 @@ func (w *ContentWatcher) update() (nextWatch <-chan zookeeper.Event, err error) 
 		// Any other error during GetW() or ExistsW().
 		return nil, fmt.Errorf("watcher: can't get content of node %q: %v", w.path, err)
 	}
-	if stat != nil {
-		if w.content.Exists && content == w.content.Content {
-			return nextWatch, nil
-		}
-		w.content.Exists = true
-		w.content.Content = content
-	} else {
-		if !w.content.Exists {
-			return nextWatch, nil
-		}
-		w.content.Exists = false
-		w.content.Content = ""
+	newContent := ContentChange{
+		Exists:  stat != nil,
+		Content: content,
 	}
+	if !w.initialValue && newContent == w.content {
+		return nextWatch, nil
+	}
+	w.initialValue = false
+	w.content = newContent
 	select {
 	case <-w.tomb.Dying():
 		return nil, tomb.ErrDying
