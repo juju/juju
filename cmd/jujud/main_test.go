@@ -10,8 +10,6 @@ import (
 	"testing"
 )
 
-func Test(t *testing.T) { TestingT(t) }
-
 type MainSuite struct{}
 
 var _ = Suite(&MainSuite{})
@@ -32,13 +30,13 @@ func checkMessage(c *C, msg string, cmd ...string) {
 	output, err := ps.CombinedOutput()
 	c.Assert(err, ErrorMatches, "exit status 2")
 	lines := strings.Split(string(output), "\n")
-	c.Assert(lines[0], Equals, msg)
+	c.Assert(lines[len(lines)-2], Equals, "error: "+msg)
 }
 
 func (s *MainSuite) TestParseErrors(c *C) {
 	// Check all the obvious parse errors
 	checkMessage(c, "no command specified")
-	checkMessage(c, "unrecognised command: cavitate", "cavitate")
+	checkMessage(c, "unrecognized command: jujud cavitate", "cavitate")
 	msgf := "flag provided but not defined: --cheese"
 	checkMessage(c, msgf, "--cheese", "cavitate")
 
@@ -49,7 +47,7 @@ func (s *MainSuite) TestParseErrors(c *C) {
 		checkMessage(c, msgz, cmd, "--zookeeper-servers", "localhost:2181,zk")
 	}
 
-	msga := "unrecognised args: [toastie]"
+	msga := `unrecognized args: ["toastie"]`
 	checkMessage(c, msga, "initzk",
 		"--zookeeper-servers", "zk:2181",
 		"--instance-id", "ii",
@@ -57,16 +55,13 @@ func (s *MainSuite) TestParseErrors(c *C) {
 		"toastie")
 	checkMessage(c, msga, "unit",
 		"--zookeeper-servers", "localhost:2181,zk:2181",
-		"--session-file", "sf",
 		"--unit-name", "un/0",
 		"toastie")
 	checkMessage(c, msga, "machine",
 		"--zookeeper-servers", "zk:2181",
-		"--session-file", "sf",
 		"--machine-id", "42",
 		"toastie")
 	checkMessage(c, msga, "provisioning",
 		"--zookeeper-servers", "127.0.0.1:2181",
-		"--session-file", "sf",
 		"toastie")
 }

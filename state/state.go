@@ -1,7 +1,3 @@
-// launchpad.net/juju/state
-//
-// Copyright (c) 2011-2012 Canonical Ltd.
-
 // The state package enables reading, observing, and changing
 // the state stored in ZooKeeper of a whole environment
 // managed by juju.
@@ -12,16 +8,20 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
-	"launchpad.net/juju/go/state/watcher"
-	"launchpad.net/tomb"
 	"net/url"
 	"strings"
+)
+
+const (
+	zkEnvironmentPath = "/environment"
+	zkMachinesPath    = "/machines"
 )
 
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	zk *zookeeper.Conn
+	zk  *zookeeper.Conn
+	fwd *sshForwarder
 }
 
 // AddMachine creates a new machine state.
@@ -62,6 +62,17 @@ func (s *State) RemoveMachine(id int) error {
 	return zkRemoveTree(s.zk, fmt.Sprintf("/machines/%s", key))
 }
 
+// WatchMachines watches for new Machines added or removed.
+func (s *State) WatchMachines() *MachinesWatcher {
+	return newMachinesWatcher(s)
+}
+
+// WatchEnvironConfig returns a watcher for observing
+// changes to the environment configuration.
+func (s *State) WatchEnvrionConfig() *ConfigWatcher {
+	return newConfigWatcher(s, zkEnvironmentPath)
+}
+
 // Machine returns the machine with the given id.
 func (s *State) Machine(id int) (*Machine, error) {
 	key := machineKey(id)
@@ -92,11 +103,12 @@ func (s *State) AllMachines() ([]*Machine, error) {
 // bundleUrl must be set to a URL where the bundle for ch
 // may be downloaded from.
 // On success the newly added charm state is returned.
-func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL) (*Charm, error) {
+func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (*Charm, error) {
 	data := &charmData{
-		Meta:      ch.Meta(),
-		Config:    ch.Config(),
-		BundleURL: bundleURL.String(),
+		Meta:         ch.Meta(),
+		Config:       ch.Config(),
+		BundleURL:    bundleURL.String(),
+		BundleSha256: bundleSha256,
 	}
 	yaml, err := goyaml.Marshal(data)
 	if err != nil {
@@ -236,76 +248,4 @@ func (s *State) Unit(name string) (*Unit, error) {
 		return nil, err
 	}
 	return service.Unit(name)
-}
-
-// ConfigWatcher observes changes to any configuration node.
-type ConfigWatcher struct {
-	st         *State
-	path       string
-	tomb       tomb.Tomb
-	watcher    *watcher.ContentWatcher
-	changeChan chan *ConfigNode
-}
-
-// newConfigWatcher creates and starts a new config watcher for
-// the given path.
-func newConfigWatcher(st *State, path string) *ConfigWatcher {
-	w := &ConfigWatcher{
-		st:         st,
-		path:       path,
-		changeChan: make(chan *ConfigNode),
-		watcher:    watcher.NewContentWatcher(st.zk, path),
-	}
-	go w.loop()
-	return w
-}
-
-// Changes returns a channel that will receive the new
-// *ConfigNode when a change is detected. Note that multiple
-// changes may be observed as a single event in the channel.
-func (w *ConfigWatcher) Changes() <-chan *ConfigNode {
-	return w.changeChan
-}
-
-// Stop stops the watch and returns any error encountered
-// while watching. This method should always be called
-// before discarding the watcher.
-func (w *ConfigWatcher) Stop() error {
-	w.tomb.Kill(nil)
-	if err := w.watcher.Stop(); err != nil {
-		w.tomb.Wait()
-		return err
-	}
-	return w.tomb.Wait()
-}
-
-// loop is the backend for watching the configuration node.
-func (w *ConfigWatcher) loop() {
-	defer w.tomb.Done()
-	defer close(w.changeChan)
-
-	for {
-		select {
-		case <-w.tomb.Dying():
-			return
-		case change, ok := <-w.watcher.Changes():
-			if !ok {
-				w.tomb.Kill(nil)
-				return
-			}
-			// A non-existent node is treated as an empty node.
-			configNode, err := parseConfigNode(w.st.zk, w.path, change.Content)
-			if err != nil {
-				w.tomb.Kill(err)
-				return
-			}
-			select {
-			case <-w.watcher.Dying():
-				return
-			case <-w.tomb.Dying():
-				return
-			case w.changeChan <- configNode:
-			}
-		}
-	}
 }

@@ -7,37 +7,24 @@ import (
 	"strings"
 )
 
-// SuperCommand is a Command that selects a subcommand when Parse is first
-// called, and takes on the properties of that subcommand before calling Parse
-// again on itself, passing in any remaining command line arguments. Info,
-// InitFlagSet, and ParsePositional all dispatch to the selected subcommand
-// when appropriate; this is especially important in the case of InitFlagSet,
-// because it gives the SuperCommand an opportunity to inject its own flag
-// handlers into the command's FlagSet (thereby allowing a natural `juju
-// bootstrap -v -e foo` usage style, as opposed to forcing `juju -v bootstrap
-// -e foo` (or complicating the code by causing (sub-)Commands to have some
-// concept of "parent" Commands).
+// SuperCommand is a Command that selects a subcommand and assumes its
+// properties; any command line arguments that were not used in selecting
+// the subcommand are passed down to it, and to Run a SuperCommand is to run
+// its selected subcommand.
 type SuperCommand struct {
 	Name    string
+	Purpose string
 	Doc     string
-	LogFile string
-	Verbose bool
-	Debug   bool
+	Log     *Log
 	subcmds map[string]Command
 	subcmd  Command
 }
 
-// NewSuperCommand returns an initialized SuperCommand.
-func NewSuperCommand(name string, doc string) *SuperCommand {
-	return &SuperCommand{
-		subcmds: make(map[string]Command),
-		Name:    name,
-		Doc:     doc,
-	}
-}
-
 // Register makes a subcommand available for use on the command line.
 func (c *SuperCommand) Register(subcmd Command) {
+	if c.subcmds == nil {
+		c.subcmds = make(map[string]Command)
+	}
 	name := subcmd.Info().Name
 	_, found := c.subcmds[name]
 	if found {
@@ -46,78 +33,75 @@ func (c *SuperCommand) Register(subcmd Command) {
 	c.subcmds[name] = subcmd
 }
 
-// DescribeCommands returns a short description of each registered subcommand.
-func (c *SuperCommand) DescribeCommands() string {
+// describeCommands returns a short description of each registered subcommand.
+func (c *SuperCommand) describeCommands() string {
 	cmds := make([]string, len(c.subcmds))
+	if len(cmds) == 0 {
+		return ""
+	}
 	i := 0
-	for name, _ := range c.subcmds {
+	longest := 0
+	for name := range c.subcmds {
+		if len(name) > longest {
+			longest = len(name)
+		}
 		cmds[i] = name
 		i++
 	}
 	sort.Strings(cmds)
 	for i, name := range cmds {
 		purpose := c.subcmds[name].Info().Purpose
-		cmds[i] = fmt.Sprintf("    %-12s %s\n", name, purpose)
+		cmds[i] = fmt.Sprintf("    %-*s - %s", longest, name, purpose)
 	}
-	return fmt.Sprintf("commands:\n%s", strings.Join(cmds, ""))
+	return fmt.Sprintf("commands:\n%s", strings.Join(cmds, "\n"))
 }
 
 // Info returns a description of the currently selected subcommand, or of the
 // SuperCommand itself if no subcommand has been specified.
 func (c *SuperCommand) Info() *Info {
-	var info *Info
 	if c.subcmd != nil {
-		info = c.subcmd.Info()
+		info := *c.subcmd.Info()
 		info.Name = fmt.Sprintf("%s %s", c.Name, info.Name)
-		return info
+		return &info
 	}
-	return &Info{
-		c.Name, "<command> [options] ...", "",
-		fmt.Sprintf("%s\n\n%s", strings.TrimSpace(c.Doc), c.DescribeCommands()),
-		false,
+	docParts := []string{}
+	if doc := strings.TrimSpace(c.Doc); doc != "" {
+		docParts = append(docParts, doc)
 	}
+	if cmds := c.describeCommands(); cmds != "" {
+		docParts = append(docParts, cmds)
+	}
+	return &Info{c.Name, "<command> ...", c.Purpose, strings.Join(docParts, "\n\n")}
 }
 
-// InitFlagSet prepares a FlagSet for use with the currently selected
-// subcommand, or with the SuperCommand itself if no subcommand has been
-// specified.
-func (c *SuperCommand) InitFlagSet(f *gnuflag.FlagSet) {
-	if c.subcmd != nil {
-		c.subcmd.InitFlagSet(f)
+// Init initializes the command for running.
+func (c *SuperCommand) Init(f *gnuflag.FlagSet, args []string) error {
+	if c.Log != nil {
+		c.Log.AddFlags(f)
 	}
-	// SuperCommand's flags are always added to subcommands. Note that the
-	// flag defaults come from the SuperCommand itself, so that ParsePositional
-	// can call Parse twice on the same SuperCommand without losing information.
-	f.StringVar(&c.LogFile, "log-file", c.LogFile, "path to write log to")
-	f.BoolVar(&c.Verbose, "v", c.Verbose, "if set, log additional messages")
-	f.BoolVar(&c.Verbose, "verbose", c.Verbose, "if set, log additional messages")
-	f.BoolVar(&c.Debug, "d", c.Debug, "if set, log debugging messages")
-	f.BoolVar(&c.Debug, "debug", c.Debug, "if set, log debugging messages")
-}
-
-// ParsePositional selects the subcommand specified by subargs and uses it to
-// Parse any remaining unconsumed command-line arguments.
-func (c *SuperCommand) ParsePositional(subargs []string) error {
-	if c.subcmd != nil {
-		return c.subcmd.ParsePositional(subargs)
+	if err := f.Parse(false, args); err != nil {
+		return err
 	}
+	subargs := f.Args()
 	if len(subargs) == 0 {
 		return fmt.Errorf("no command specified")
 	}
 	found := false
 	if c.subcmd, found = c.subcmds[subargs[0]]; !found {
-		return fmt.Errorf("unrecognised command: %s", subargs[0])
+		return fmt.Errorf("unrecognized command: %s %s", c.Info().Name, subargs[0])
 	}
-	return Parse(c, subargs[1:])
+	return c.subcmd.Init(f, subargs[1:])
 }
 
-// Run executes the subcommand that was selected when Parse was called.
+// Run executes the subcommand that was selected in Init.
 func (c *SuperCommand) Run(ctx *Context) error {
-	if err := ctx.InitLog(c.Verbose, c.Debug, c.LogFile); err != nil {
-		return err
+	if c.Log != nil {
+		if err := c.Log.Start(ctx); err != nil {
+			return err
+		}
 	}
 	if c.subcmd == nil {
-		panic("Run: missing subcommand; Parse failed or not called")
+		panic("Run: missing subcommand; Init failed or not called")
 	}
 	return c.subcmd.Run(ctx)
 }

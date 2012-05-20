@@ -5,46 +5,66 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/cmd"
 	"launchpad.net/juju/go/state"
+	"regexp"
+	"strings"
 )
 
-// agentConf implements most of the cmd.Command interface, except for Run(),
-// and is intended for embedding in types which implement juju agents, to
-// help the agent types implement cmd.Command with minimal boilerplate.
-type agentConf struct {
-	name        string
-	jujuDir     string // Defaults to "/var/lib/juju".
-	stateInfo   state.Info
-	sessionFile string
+// requiredError is useful when complaining about missing command-line options.
+func requiredError(name string) error {
+	return fmt.Errorf("--%s option must be set", name)
 }
 
-// Info returns a decription of the command.
-func (c *agentConf) Info() *cmd.Info {
-	return &cmd.Info{
-		c.name, "[options]",
-		fmt.Sprintf("run a juju %s agent", c.name),
-		"",
-		true,
+// stateInfoValue implements gnuflag.Value on a state.Info.
+type stateInfoValue state.Info
+
+var validAddr = regexp.MustCompile("^.+:[0-9]+$")
+
+// Set splits the comma-separated list of ZooKeeper addresses and stores
+// onto v's Addrs. Addresses must include port numbers.
+func (v *stateInfoValue) Set(value string) error {
+	addrs := strings.Split(value, ",")
+	for _, addr := range addrs {
+		if !validAddr.MatchString(addr) {
+			return fmt.Errorf("%q is not a valid zookeeper address", addr)
+		}
 	}
+	v.Addrs = addrs
+	return nil
 }
 
-// InitFlagSet prepares a FlagSet.
-func (c *agentConf) InitFlagSet(f *gnuflag.FlagSet) {
-	f.StringVar(&c.jujuDir, "juju-directory", "/var/lib/juju", "juju working directory")
-	stateInfoVar(f, &c.stateInfo, "zookeeper-servers", nil, "zookeeper servers to connect to")
-	f.StringVar(&c.sessionFile, "session-file", "", "session id storage path")
+// String returns the list of ZooKeeper addresses joined by commas.
+func (v *stateInfoValue) String() string {
+	if v.Addrs != nil {
+		return strings.Join(v.Addrs, ",")
+	}
+	return ""
 }
 
-// ParsePositional checks that there are no unwanted arguments, and that all
-// required flags have been set.
-func (c *agentConf) ParsePositional(args []string) error {
-	if c.jujuDir == "" {
+// stateInfoVar sets up a gnuflag flag analagously to FlagSet.*Var methods.
+func stateInfoVar(fs *gnuflag.FlagSet, target *state.Info, name string, value []string, usage string) {
+	target.Addrs = value
+	fs.Var((*stateInfoValue)(target), name, usage)
+}
+
+// AgentConf handles command-line flags shared by all agents.
+type AgentConf struct {
+	JujuDir   string // Defaults to "/var/lib/juju".
+	StateInfo state.Info
+}
+
+// addFlags injects common agent flags into f.
+func (c *AgentConf) addFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.JujuDir, "juju-directory", "/var/lib/juju", "juju working directory")
+	stateInfoVar(f, &c.StateInfo, "zookeeper-servers", nil, "zookeeper servers to connect to")
+}
+
+// checkArgs checks that required flags have been set and that args is empty.
+func (c *AgentConf) checkArgs(args []string) error {
+	if c.JujuDir == "" {
 		return requiredError("juju-directory")
 	}
-	if c.stateInfo.Addrs == nil {
+	if c.StateInfo.Addrs == nil {
 		return requiredError("zookeeper-servers")
-	}
-	if c.sessionFile == "" {
-		return requiredError("session-file")
 	}
 	return cmd.CheckEmpty(args)
 }

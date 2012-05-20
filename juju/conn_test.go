@@ -13,9 +13,9 @@ func Test(t *testing.T) { TestingT(t) }
 
 type ConnSuite struct{}
 
-var _ = Suite(&ConnSuite{})
+var _ = Suite(ConnSuite{})
 
-func (s *ConnSuite) TestNewConn(c *C) {
+func (ConnSuite) TestNewConn(c *C) {
 	home := c.MkDir()
 	defer os.Setenv("HOME", os.Getenv("HOME"))
 	os.Setenv("HOME", home)
@@ -33,7 +33,7 @@ default:
     erewhemos
 environments:
     erewhemos:
-        type: dummy
+        type: fruitloop
 `), 0644)
 	if err != nil {
 		c.Log("Could not create environments.yaml")
@@ -44,11 +44,11 @@ environments:
 	// globally-registered dummy provider, we'll expect to get a non-nil
 	// Conn back, and will have to figure out what needs to be tested on that.
 	conn, err = juju.NewConn("")
-	c.Assert(err, ErrorMatches, `environment "erewhemos" has an unknown provider type: "dummy"`)
+	c.Assert(err, ErrorMatches, `environment "erewhemos" has an unknown provider type: "fruitloop"`)
 	c.Assert(conn, IsNil)
 }
 
-func (s *ConnSuite) TestValidRegexps(c *C) {
+func (ConnSuite) TestValidRegexps(c *C) {
 	assertService := func(s string, expect bool) {
 		c.Assert(juju.ValidService.MatchString(s), Equals, expect)
 		c.Assert(juju.ValidUnit.MatchString(s+"/0"), Equals, expect)

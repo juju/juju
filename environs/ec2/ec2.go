@@ -7,7 +7,6 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/log"
 	"launchpad.net/juju/go/state"
-	"sync"
 	"time"
 )
 
@@ -39,12 +38,11 @@ type environProvider struct{}
 var _ environs.EnvironProvider = environProvider{}
 
 type environ struct {
-	name             string
-	config           *providerConfig
-	ec2              *ec2.EC2
-	s3               *s3.S3
-	checkBucket      sync.Once
-	checkBucketError error
+	name    string
+	config  *providerConfig
+	ec2     *ec2.EC2
+	s3      *s3.S3
+	storage storage
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -92,21 +90,23 @@ func (inst *instance) WaitDNSName() (string, error) {
 	return "", fmt.Errorf("timed out trying to get DNS address for %v", inst.Id())
 }
 
-func (environProvider) Open(name string, config interface{}) (e environs.Environ, err error) {
+func (environProvider) Open(name string, config interface{}) (environs.Environ, error) {
 	log.Printf("environs/ec2: opening environment %q", name)
 	cfg := config.(*providerConfig)
 	if Regions[cfg.region].EC2Endpoint == "" {
 		return nil, fmt.Errorf("no ec2 endpoint found for region %q, opening %q", cfg.region, name)
 	}
-	return &environ{
+	e := &environ{
 		name:   name,
 		config: cfg,
 		ec2:    ec2.New(cfg.auth, Regions[cfg.region]),
 		s3:     s3.New(cfg.auth, Regions[cfg.region]),
-	}, nil
+	}
+	e.storage.bucket = e.s3.Bucket(cfg.bucket)
+	return e, nil
 }
 
-func (e *environ) Bootstrap() error {
+func (e *environ) Bootstrap(uploadTools bool) error {
 	log.Printf("environs/ec2: bootstrapping environment %q", e.name)
 	_, err := e.loadState()
 	if err == nil {
@@ -164,7 +164,10 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	if len(addrs) == 0 {
 		return nil, fmt.Errorf("timed out waiting for zk address from %v", st.ZookeeperInstances)
 	}
-	return &state.Info{Addrs: addrs}, nil
+	return &state.Info{
+		Addrs:  addrs,
+		UseSSH: true,
+	}, nil
 }
 
 func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Instance, error) {
@@ -409,14 +412,6 @@ func (e *environ) groupName() string {
 func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	jujuGroup, err := e.ensureGroup(e.groupName(),
 		[]ec2.IPPerm{
-			// TODO delete this authorization when we can do
-			// the zookeeper ssh tunnelling.
-			{
-				Protocol:  "tcp",
-				FromPort:  zkPort,
-				ToPort:    zkPort,
-				SourceIPs: []string{"0.0.0.0/0"},
-			},
 			{
 				Protocol:  "tcp",
 				FromPort:  22,

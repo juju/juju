@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
 	"launchpad.net/juju/go/testing"
+	"strings"
 	"time"
 )
 
@@ -166,9 +167,8 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	// that the unneeded permission that we added earlier
 	// has been deleted).
 	perms := info[0].IPPerms
-	c.Assert(perms, HasLen, 2)
+	c.Assert(perms, HasLen, 1)
 	checkPortAllowed(c, perms, 22)
-	checkPortAllowed(c, perms, 2181)
 
 	// The old machine group should have been reused also.
 	c.Check(groups[2].Id, Equals, oldMachineGroup.Id)
@@ -194,6 +194,26 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 			c.Errorf("unknown instance found: %v", inst)
 		}
 	}
+}
+
+func (t *LiveTests) TestDestroy(c *C) {
+	s := t.Env.Storage()
+	err := s.Put("foo", strings.NewReader("foo"), 3)
+	c.Assert(err, IsNil)
+	err = s.Put("bar", strings.NewReader("bar"), 3)
+	c.Assert(err, IsNil)
+
+	// Check that bucket exists, so we can be sure
+	// we have checked correctly that it's been destroyed.
+	names, err := s.List("")
+	c.Assert(err, IsNil)
+	c.Assert(len(names) >= 2, Equals, true)
+
+	t.Destroy(c)
+
+	names, err = s.List("")
+	var notFoundError *environs.NotFoundError
+	c.Assert(err, FitsTypeOf, notFoundError)
 }
 
 func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {

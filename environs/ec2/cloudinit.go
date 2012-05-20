@@ -12,10 +12,10 @@ import (
 // Creation of cloudinit data from this struct is largely provider-independent,
 // but we'll keep it internal until we need to factor it out.
 type machineConfig struct {
-	// The new machine will run a provisioning agent.
+	// provisioner specifies whether the new machine will run a provisioning agent.
 	provisioner bool
 
-	// The new machine will run a zookeeper instance.
+	// zookeeper specifies whether the new machine will run a zookeeper instance.
 	zookeeper bool
 
 	// instanceIdAccessor holds bash code that evaluates to the current instance id.
