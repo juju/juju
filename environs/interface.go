@@ -10,7 +10,7 @@ import (
 type EnvironProvider interface {
 	// NewConfig returns a new EnvironConfig representing the
 	// environment with the given attributes.  Every provider must
-	// accept the "name" and "type" keys, giving the name of the
+	// accept the "name" and "type" keys, holding the name of the
 	// environment and the provider type respectively.
 	NewConfig(attrs map[string]interface{}) (EnvironConfig, error)
 }
