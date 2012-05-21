@@ -11,8 +11,14 @@ import (
 // The protocol version, which is stored in the /topology node under
 // the "version" key. The protocol version should *only* be updated
 // when we know that a version is in fact actually incompatible.
-
 const topologyVersion = 1
+
+var (
+	// errRelationDoesNotExist is returned if a relation between
+	// two client/server endpoints or for one peer endpoint does not
+	// exist. 
+	errRelationDoesNotExist = errors.New("relation does not exist")
+)
 
 // zkTopology is used to marshal and unmarshal the content
 // of the /topology node in ZooKeeper.
@@ -542,7 +548,7 @@ func (t *topology) RelationKey(ep1, ep2 RelationEndpoint) (string, error) {
 			return key, nil
 		}
 	}
-	return "", fmt.Errorf("relation between %q and %q does not exist", ep1.ServiceName, ep2.ServiceName)
+	return "", errRelationDoesNotExist
 }
 
 // PeerRelationKey returns the key of a peer relation with a matching
@@ -568,7 +574,7 @@ func (t *topology) PeerRelationKey(ep RelationEndpoint) (string, error) {
 			return key, nil
 		}
 	}
-	return "", fmt.Errorf("relation for %q does not exist", ep.ServiceName)
+	return "", errRelationDoesNotExist
 }
 
 // assertMachine checks if a machine exists.
