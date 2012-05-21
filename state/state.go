@@ -252,11 +252,11 @@ func (s *State) AddClientServerRelation(clientEp, serverEp RelationEndpoint) (*R
 		return nil, nil, err
 	}
 	relationKey, err := top.RelationKey(clientEp, serverEp)
-	if err != nil {
-		return nil, nil, err
-	}
 	if relationKey != "" {
 		return nil, nil, fmt.Errorf("client and server already have relation %q", relationKey)
+	}
+	if err != nil && err != errRelationDoesNotExist {
+		return nil, nil, err
 	}
 	scope := ScopeGlobal
 	if clientEp.RelationScope == ScopeContainer || serverEp.RelationScope == ScopeContainer {
@@ -332,11 +332,11 @@ func (s *State) AddPeerRelation(peerEp RelationEndpoint) (*Relation, *ServiceRel
 		return nil, nil, err
 	}
 	relationKey, err := top.PeerRelationKey(peerEp)
-	if err != nil {
-		return nil, nil, err
-	}
 	if relationKey != "" {
 		return nil, nil, fmt.Errorf("peer already has relation %q", relationKey)
+	}
+	if err != nil && err != errRelationDoesNotExist {
+		return nil, nil, err
 	}
 	scope := ScopeGlobal
 	if peerEp.RelationScope == ScopeContainer {
