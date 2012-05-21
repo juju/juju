@@ -15,6 +15,7 @@ import (
 const (
 	zkEnvironmentPath = "/environment"
 	zkMachinesPath    = "/machines"
+	zkTopologyPath    = "/topology"
 )
 
 // State represents the state of an environment

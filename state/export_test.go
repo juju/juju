@@ -5,7 +5,6 @@ package state
 
 import (
 	"launchpad.net/gozk/zookeeper"
-	"fmt"
 )
 
 // ZkConn returns the ZooKeeper connection used by a state.
@@ -21,11 +20,6 @@ func NewMachine(st *State, key string) *Machine {
 		st:  st,
 		key: key,
 	}
-}
-
-// pretty printing for Machine
-func (m *Machine) String() string {
-	return fmt.Sprintf("%v", m)
 }
 
 func Except(a, b []string) []string { return except(a, b) }

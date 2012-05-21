@@ -4,7 +4,6 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju/go/state/watcher"
 	"launchpad.net/tomb"
-	"fmt"
 )
 
 // ConfigWatcher observes changes to any configuration node.
@@ -311,9 +310,9 @@ func newMachinesWatcher(st *State) *MachinesWatcher {
 	topology, _ := parseTopology("")
 	w := &MachinesWatcher{
 		st:         st,
-		path:       zkMachinesPath,
+		path:       zkTopologyPath,
 		changeChan: make(chan *MachinesChange),
-		watcher:    watcher.NewContentWatcher(st.zk, zkMachinesPath),
+		watcher:    watcher.NewContentWatcher(st.zk, zkTopologyPath),
 		topology:   topology,
 	}
 	go w.loop()
@@ -351,17 +350,15 @@ func (w *MachinesWatcher) loop() {
 			if !ok {
 				return
 			}
-			fmt.Printf("topology change detected: %v", change.Content)
 			topology, err := parseTopology(change.Content)
 			if err != nil {
-				fmt.Printf("parseTopology failed: %v", err)
 				w.tomb.Kill(err)
 				return
 			}
 			previous := w.topology.MachineKeys()
 			current := topology.MachineKeys()
-			fmt.Printf("previous: %v, current: %v", previous, current)
 			added, deleted := diff(previous, current)
+			w.topology = topology
 			if len(added) == 0 && len(deleted) == 0 {
 				// nothing changed in zkMachinePath
 				continue
