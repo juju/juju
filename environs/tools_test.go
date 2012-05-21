@@ -33,8 +33,8 @@ func (t *ToolsSuite) TearDownTest(c *C) {
 }
 
 var envs *environs.Environs
-
-var currentToolsPath = toolsPath(version.Current.String(), environs.CurrentSeries, environs.CurrentArch)
+	
+var currentToolsPath = mkToolsPath(version.Current.String())
 
 func mkVersion(vers string) version.Version {
 	v, err := version.Parse(vers)
@@ -47,9 +47,9 @@ func mkVersion(vers string) version.Version {
 func toolsPathForVersion(v version.Version, series, arch string) string {
 	return fmt.Sprintf("tools/juju-%v-%s-%s.tgz", v, series, arch)
 }
-	
-func toolsPath(vers, os, arch string) string {
-	return toolsPathForVersion(mkVersion(vers), os, arch)
+
+func mkToolsPath(vers string) string {
+	return toolsPathForVersion(mkVersion(vers), environs.CurrentUbuntuRelease, environs.CurrentArch)
 }
 
 var _ = Suite(&ToolsSuite{})
@@ -129,12 +129,11 @@ type toolsSpec struct {
 }
 
 var findToolsTests = []struct {
-	version    version.Version
-	contents []string
-	publicContents []string
-	expect   string
-	expectPublic bool
-	err      string
+	version    version.Version		// version to assume is current for the test.
+	contents []string			// names in private storage.
+	publicContents []string		// names in public storage.
+	expect   string				// the name we expect to find (if no error).
+	err      string				// the error we expect to find (if not blank).
 }{{
 	// current version should be satisfied by current tools path.
 	version: version.Current,
@@ -144,70 +143,70 @@ var findToolsTests = []struct {
 	// major versions don't match.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		toolsPath("0.0.9", environs.CurrentSeries, environs.CurrentArch),
+		mkToolsPath("0.0.9"),
 	},
 	err: "no compatible tools found",
 }, {
 	// major versions don't match.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		toolsPath("2.0.9", environs.CurrentSeries, environs.CurrentArch),
+		mkToolsPath("2.0.9"),
 	},
 	err: "no compatible tools found",
 }, {
 	// fall back to public storage when nothing found in private.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		toolsPath("0.0.9", environs.CurrentSeries, environs.CurrentArch),
+		mkToolsPath("0.0.9"),
 	},
 	publicContents: []string{
-		toolsPath("1.0.0", environs.CurrentSeries, environs.CurrentArch),
+		mkToolsPath("1.0.0"),
 	},
-	expect: "public-" + toolsPath("1.0.0", environs.CurrentSeries, environs.CurrentArch),
+	expect: "public-" + mkToolsPath("1.0.0"),
 }, {
 	// always use private storage in preference to public storage.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		toolsPath("1.0.2", environs.CurrentSeries, environs.CurrentArch),
+		mkToolsPath("1.0.2"),
 	},
 	publicContents: []string{
-		toolsPath("1.0.9", environs.CurrentSeries, environs.CurrentArch),
+		mkToolsPath("1.0.9"),
 	},
-	expect: toolsPath("1.0.2", environs.CurrentSeries, environs.CurrentArch),
+	expect: mkToolsPath("1.0.2"),
 }, {
 	// we'll use an earlier version if the major version number matches.
 	version: mkVersion("1.99.99"),
 	contents: []string{
-		toolsPath("1.0.0", environs.CurrentSeries, environs.CurrentArch),
+		mkToolsPath("1.0.0"),
 	},
-	expect: toolsPath("1.0.0", environs.CurrentSeries, environs.CurrentArch),
+	expect: mkToolsPath("1.0.0"),
 }, {
 	// check that version comparing is numeric, not alphabetical.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		toolsPath("1.0.9", environs.CurrentSeries, environs.CurrentArch),
-		toolsPath("1.0.10", environs.CurrentSeries, environs.CurrentArch),
-		toolsPath("1.0.11", environs.CurrentSeries, environs.CurrentArch),
+		mkToolsPath("1.0.9"),
+		mkToolsPath("1.0.10"),
+		mkToolsPath("1.0.11"),
 	},
-	expect: toolsPath("1.0.11", environs.CurrentSeries, environs.CurrentArch),
+	expect: mkToolsPath("1.0.11"),
 }, {
 	// minor version wins over patch version.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		toolsPath("1.9.11", environs.CurrentSeries, environs.CurrentArch),
-		toolsPath("1.10.10", environs.CurrentSeries, environs.CurrentArch),
-		toolsPath("1.11.9", environs.CurrentSeries, environs.CurrentArch),
+		mkToolsPath("1.9.11"),
+		mkToolsPath("1.10.10"),
+		mkToolsPath("1.11.9"),
 	},
-	expect: toolsPath("1.11.9", environs.CurrentSeries, environs.CurrentArch),
+	expect: mkToolsPath("1.11.9"),
 }, {
 	// mismatching series or architecture is ignored.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		toolsPath("1.9.9", "foo", environs.CurrentArch),
-		toolsPath("1.9.9", environs.CurrentSeries, "foo"),
-		toolsPath("1.0.0", environs.CurrentSeries, environs.CurrentArch),
+		toolsPathForVersion(mkVersion("1.9.9"), "foo", environs.CurrentArch),
+		toolsPathForVersion(mkVersion("1.9.9"), environs.CurrentUbuntuRelease, "foo"),
+		mkToolsPath("1.0.0"),
 	},
-	expect: toolsPath("1.0.0", environs.CurrentSeries, environs.CurrentArch),
+	expect: mkToolsPath("1.0.0"),
 },
 }
 
