@@ -32,12 +32,6 @@ environments:
 	}, {`
 environments:
     only:
-`,
-		`environment .* does not have attributes`,
-		nil,
-	}, {`
-environments:
-    only:
         foo: bar
 `,
 		`environment .* has no type`,
