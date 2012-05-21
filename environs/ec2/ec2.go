@@ -90,14 +90,12 @@ func (inst *instance) WaitDNSName() (string, error) {
 	return "", fmt.Errorf("timed out trying to get DNS address for %v", inst.Id())
 }
 
-func (environProvider) Open(name string, config interface{}) (environs.Environ, error) {
-	log.Printf("environs/ec2: opening environment %q", name)
-	cfg := config.(*providerConfig)
+func (cfg *providerConfig) Open() (environs.Environ, error) {
+	log.Printf("environs/ec2: opening environment %q", cfg.name)
 	if Regions[cfg.region].EC2Endpoint == "" {
-		return nil, fmt.Errorf("no ec2 endpoint found for region %q, opening %q", cfg.region, name)
+		return nil, fmt.Errorf("no ec2 endpoint found for region %q, opening %q", cfg.region, cfg.name)
 	}
 	e := &environ{
-		name:   name,
 		config: cfg,
 		ec2:    ec2.New(cfg.auth, Regions[cfg.region]),
 		s3:     s3.New(cfg.auth, Regions[cfg.region]),

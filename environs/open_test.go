@@ -13,6 +13,7 @@ var _ = Suite(&OpenSuite{})
 func (OpenSuite) TestNewDummyEnviron(c *C) {
 	// matches *ConfigNode.Map()
 	config := map[string]interface{}{
+		"name":      "foo",
 		"type":      "dummy",
 		"zookeeper": false,
 	}

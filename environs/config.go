@@ -11,9 +11,8 @@ import (
 
 // environ holds information about one environment.
 type environ struct {
-	kind   string      // the type of environment (e.g. ec2).
-	config interface{} // the configuration data for passing to Open.
-	err    error       // an error if the config data could not be parsed.
+	config EnvironConfig
+	err    error // an error if the config data could not be parsed.
 }
 
 // Environs holds information about each named environment
@@ -53,10 +52,9 @@ func RegisterProvider(name string, p EnvironProvider) {
 // Attributes for environments with known types are checked.
 func ReadEnvironsBytes(data []byte) (*Environs, error) {
 	var raw struct {
-		Default      string                 "default"
-		Environments map[string]interface{} "environments"
+		Default      string
+		Environments map[string]map[string]interface{}
 	}
-	raw.Environments = make(map[string]interface{}) // TODO fix bug in goyaml - it should make this automatically.
 	err := goyaml.Unmarshal(data, &raw)
 	if err != nil {
 		return nil, err
@@ -77,11 +75,7 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 	}
 
 	environs := make(map[string]environ)
-	for name, x := range raw.Environments {
-		attrs, ok := x.(map[interface{}]interface{})
-		if !ok {
-			return nil, fmt.Errorf("environment %q does not have attributes", name)
-		}
+	for name, attrs := range raw.Environments {
 		kind, _ := attrs["type"].(string)
 		if kind == "" {
 			return nil, fmt.Errorf("environment %q has no type", name)
@@ -92,17 +86,18 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 			// unknown provider type - skip entry but leave error message
 			// in case the environment is used later.
 			environs[name] = environ{
-				kind: kind,
-				err:  fmt.Errorf("environment %q has an unknown provider type: %q", name, kind),
+				err: fmt.Errorf("environment %q has an unknown provider type: %q", name, kind),
 			}
 			continue
 		}
-		cfg, err := p.ConfigChecker().Coerce(attrs, nil)
+		// store the name of the this environment in the config itself
+		// so that providers can see it.
+		attrs["name"] = name
+		cfg, err := p.NewConfig(attrs)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing environment %q: %v", name, err)
 		}
 		environs[name] = environ{
-			kind:   kind,
 			config: cfg,
 		}
 	}
