@@ -109,17 +109,21 @@ func ParseURL(url string) (*URL, error) {
 	return u, nil
 }
 
-func (u *URL) String() string {
+func (u *URL) Path() string {
 	if u.User != "" {
 		if u.Revision >= 0 {
-			return fmt.Sprintf("%s:~%s/%s/%s-%d", u.Schema, u.User, u.Series, u.Name, u.Revision)
+			return fmt.Sprintf("~%s/%s/%s-%d", u.User, u.Series, u.Name, u.Revision)
 		}
-		return fmt.Sprintf("%s:~%s/%s/%s", u.Schema, u.User, u.Series, u.Name)
+		return fmt.Sprintf("~%s/%s/%s", u.User, u.Series, u.Name)
 	}
 	if u.Revision >= 0 {
-		return fmt.Sprintf("%s:%s/%s-%d", u.Schema, u.Series, u.Name, u.Revision)
+		return fmt.Sprintf("%s/%s-%d", u.Series, u.Name, u.Revision)
 	}
-	return fmt.Sprintf("%s:%s/%s", u.Schema, u.Series, u.Name)
+	return fmt.Sprintf("%s/%s", u.Series, u.Name)
+}
+
+func (u *URL) String() string {
+	return fmt.Sprintf("%s:%s", u.Schema, u.Path())
 }
 
 // GetBSON turns u into a bson.Getter so it can be saved directly
@@ -142,4 +146,26 @@ func (u *URL) SetBSON(raw bson.Raw) error {
 	}
 	*u = *url
 	return nil
+}
+
+// Quote translates an unsafe string into a safe quoted one. ASCII
+// letters, ASCII digits, dot and dash stay the same, other bytes
+// are translated to their hex representation surrounded by 
+// underscores.
+func Quote(unsafe string) string {
+	safe := make([]byte, 0, len(unsafe)*4)
+	for i := 0; i < len(unsafe); i++ {
+		b := unsafe[i]
+		switch {
+		case b >= 'a' && b <= 'z',
+			b >= 'A' && b <= 'Z',
+			b >= '0' && b <= '9',
+			b == '.',
+			b == '-':
+			safe = append(safe, b)
+		default:
+			safe = append(safe, fmt.Sprintf("_%02x_", b)...)
+		}
+	}
+	return string(safe)
 }
