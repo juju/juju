@@ -515,7 +515,7 @@ func (t *topology) ActiveServiceEndpoints(serviceKey string) ([]*endpointInfo, e
 }
 
 // RelationKey returns the key of a client/server relation with a matching
-// interface between two endpoints. If it doesn't exist "" is returned.
+// interface between two endpoints. If it doesn't exist an error is returned.
 func (t *topology) RelationKey(ep1, ep2 RelationEndpoint) (string, error) {
 	if t.topology.Relations == nil {
 		return "", nil
@@ -542,11 +542,11 @@ func (t *topology) RelationKey(ep1, ep2 RelationEndpoint) (string, error) {
 			return key, nil
 		}
 	}
-	return "", nil
+	return "", fmt.Errorf("relation between %q and %q does not exist", ep1.ServiceName, ep2.ServiceName)
 }
 
 // PeerRelationKey returns the key of a peer relation with a matching
-// interface for one endpoint. If it doesn't exist "" is returned.
+// interface for one endpoint. If it doesn't exist an error is returned.
 func (t *topology) PeerRelationKey(ep RelationEndpoint) (string, error) {
 	if t.topology.Relations == nil {
 		return "", nil
@@ -568,7 +568,7 @@ func (t *topology) PeerRelationKey(ep RelationEndpoint) (string, error) {
 			return key, nil
 		}
 	}
-	return "", nil
+	return "", fmt.Errorf("relation for %q does not exist", ep.ServiceName)
 }
 
 // assertMachine checks if a machine exists.

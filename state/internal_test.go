@@ -588,14 +588,12 @@ func (s *TopologySuite) TestRelationKeyClientServerEndpoints(c *C) {
 	c.Assert(key, Equals, "r-1")
 
 	// Endpoints without relation.
-	key, err = s.t.RelationKey(mysqlep3, blogep3)
-	c.Assert(err, IsNil)
-	c.Assert(key, Equals, "")
+	_, err = s.t.RelationKey(mysqlep3, blogep3)
+	c.Assert(err, ErrorMatches, `relation between "mysqldb" and "wordpress" does not exist`)
 
 	// Mix of endpoints of two relations.
-	key, err = s.t.RelationKey(mysqlep1, blogep2)
-	c.Assert(err, IsNil)
-	c.Assert(key, Equals, "")
+	_, err = s.t.RelationKey(mysqlep1, blogep2)
+	c.Assert(err, ErrorMatches, `relation between "mysqldb" and "wordpress" does not exist`)
 }
 
 func (s *TopologySuite) TestRelationKeyClientServerIllegalEndpoints(c *C) {
@@ -633,8 +631,7 @@ func (s *TopologySuite) TestRelationKeyPeerEndpoints(c *C) {
 
 	// Endpoint without relation.
 	key, err = s.t.PeerRelationKey(riakep3)
-	c.Assert(err, IsNil)
-	c.Assert(key, Equals, "")
+	c.Assert(err, ErrorMatches, `relation for "riak" does not exist`)
 }
 
 func (s *TopologySuite) TestRelationKeyPeerIllegalEndpoints(c *C) {
