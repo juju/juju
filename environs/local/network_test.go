@@ -10,23 +10,27 @@ var scriptText = `#!/bin/bash
 
 case "$1" in
 net-list)
-echo "Name                 State      Autostart"
-echo "-----------------------------------------"
-echo "default              active     yes"
+cat <<END
+Name                 State      Autostart
+-----------------------------------------
+default              active     yes
+END
 ;;
 
 net-dumpxml)
-echo "<network>"
-echo "<name>default</name>"
-echo "<uuid>7f5d45e4-2fa2-f713-0229-fb1fea419e3b</uuid>"
-echo "<forward mode='nat'/>"
-echo "<bridge name='virbr0' stp='on' delay='0' />"
-echo "<ip address='192.168.122.1' netmask='255.255.255.0'>"
-echo "<dhcp>"
-echo "<range start='192.168.122.2' end='192.168.122.254' />"
-echo "</dhcp>"
-echo "</ip>"
-echo "</network>"
+cat <<END
+<network>
+<name>default</name>
+<uuid>7f5d45e4-2fa2-f713-0229-fb1fea419e3b</uuid>
+<forward mode='nat'/>
+<bridge name='virbr0' stp='on' delay='0' />
+<ip address='192.168.122.1' netmask='255.255.255.0'>
+<dhcp>
+<range start='192.168.122.2' end='192.168.122.254' />
+</dhcp>
+</ip>
+</network>
+END
 ;;
 
 net-start)
@@ -42,20 +46,21 @@ esac
 exit 0
 `
 
-type networkSuite struct{}
+type networkSuite struct {
+	oldPath string
+}
 
 var _ = Suite(&networkSuite{})
-var oldPath string
 
 func (s *networkSuite) SetUpSuite(c *C) {
-	oldPath = os.Getenv("PATH")
+	s.oldPath = os.Getenv("PATH")
 	dir := c.MkDir()
-	os.Setenv("PATH", dir+":"+oldPath)
+	os.Setenv("PATH", dir+":"+s.oldPath)
 	writeScript(c, dir)
 }
 
 func (s *networkSuite) TearDownSuite(c *C) {
-	os.Setenv("PATH", oldPath)
+	os.Setenv("PATH", s.oldPath)
 }
 
 func (s *networkSuite) TestStartNetwork(c *C) {

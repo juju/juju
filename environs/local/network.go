@@ -29,7 +29,7 @@ type bridge struct {
 	Name string `xml:"name,attr"`
 }
 
-// newNetwork starts and returns a network
+// newNetwork returns a started network.
 func newNetwork(name string, subnet int) (*network, error) {
 	n := network{Name: name, Subnet: subnet}
 	err := n.start()
@@ -52,7 +52,7 @@ func (n *network) loadAttributes() error {
 	return xml.Unmarshal(output, &n)
 }
 
-// running returns true if the network name is in the
+// running returns true if network name is in the
 // list of networks and is active.
 func (n *network) running() (bool, error) {
 	networks, err := listNetworks()
@@ -62,7 +62,7 @@ func (n *network) running() (bool, error) {
 	return networks[n.Name], nil
 }
 
-// exists returns true if the network name is in the
+// exists returns true if network name is in the
 // list of networks.
 func (n *network) exists() (bool, error) {
 	networks, err := listNetworks()
@@ -85,8 +85,8 @@ var libVirtNetworkTemplate = template.Must(template.New("").Parse(`
 </network>
 `))
 
-// start ensure that a network is started.
-// If the nework does not exists, it is created.
+// start ensure that the network is started.
+// If network name does not exist, it is created.
 func (n *network) start() error {
 	exists, err := n.exists()
 	if err != nil {
