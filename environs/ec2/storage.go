@@ -54,6 +54,10 @@ func (s *storage) Get(file string) (r io.ReadCloser, err error) {
 	return r, maybeNotFound(err)
 }
 
+func (s *storage) URL(name string) (string, error) {
+	return s.bucket.URL(name), nil
+}
+
 // s3ErrorStatusCode returns the HTTP status of the S3 request error,
 // if it is an error from an S3 operation, or 0 if it was not.
 func s3ErrorStatusCode(err error) int {
