@@ -19,7 +19,8 @@ type ToolsSuite struct{
 }
 
 func (t *ToolsSuite) SetUpTest(c *C) {
-	env, err := environs.NewEnviron("dummy", map[string]interface{}{
+	env, err := environs.NewEnviron(map[string]interface{}{
+		"name": "test",
 		"type": "dummy",
 		"zookeeper": false,
 	})
@@ -130,31 +131,58 @@ type toolsSpec struct {
 var findToolsTests = []struct {
 	version    version.Version
 	contents []string
+	publicContents []string
 	expect   string
+	expectPublic bool
 	err      string
 }{{
+	// current version should be satisfied by current tools path.
 	version: version.Current,
 	contents: []string{currentToolsPath},
 	expect: currentToolsPath,
 }, {
+	// major versions don't match.
 	version: mkVersion("1.0.0"),
 	contents: []string{
 		toolsPath("0.0.9", environs.CurrentSeries, environs.CurrentArch),
 	},
 	err: "no compatible tools found",
-},{
+}, {
+	// major versions don't match.
 	version: mkVersion("1.0.0"),
 	contents: []string{
 		toolsPath("2.0.9", environs.CurrentSeries, environs.CurrentArch),
 	},
 	err: "no compatible tools found",
 }, {
+	// fall back to public storage when nothing found in private.
+	version: mkVersion("1.0.0"),
+	contents: []string{
+		toolsPath("0.0.9", environs.CurrentSeries, environs.CurrentArch),
+	},
+	publicContents: []string{
+		toolsPath("1.0.0", environs.CurrentSeries, environs.CurrentArch),
+	},
+	expect: "public-" + toolsPath("1.0.0", environs.CurrentSeries, environs.CurrentArch),
+}, {
+	// always use private storage in preference to public storage.
+	version: mkVersion("1.0.0"),
+	contents: []string{
+		toolsPath("1.0.2", environs.CurrentSeries, environs.CurrentArch),
+	},
+	publicContents: []string{
+		toolsPath("1.0.9", environs.CurrentSeries, environs.CurrentArch),
+	},
+	expect: toolsPath("1.0.2", environs.CurrentSeries, environs.CurrentArch),
+}, {
+	// we'll use an earlier version if the major version number matches.
 	version: mkVersion("1.99.99"),
 	contents: []string{
 		toolsPath("1.0.0", environs.CurrentSeries, environs.CurrentArch),
 	},
 	expect: toolsPath("1.0.0", environs.CurrentSeries, environs.CurrentArch),
 }, {
+	// check that version comparing is numeric, not alphabetical.
 	version: mkVersion("1.0.0"),
 	contents: []string{
 		toolsPath("1.0.9", environs.CurrentSeries, environs.CurrentArch),
@@ -163,6 +191,7 @@ var findToolsTests = []struct {
 	},
 	expect: toolsPath("1.0.11", environs.CurrentSeries, environs.CurrentArch),
 }, {
+	// minor version wins over patch version.
 	version: mkVersion("1.0.0"),
 	contents: []string{
 		toolsPath("1.9.11", environs.CurrentSeries, environs.CurrentArch),
@@ -171,6 +200,7 @@ var findToolsTests = []struct {
 	},
 	expect: toolsPath("1.11.9", environs.CurrentSeries, environs.CurrentArch),
 }, {
+	// mismatching series or architecture is ignored.
 	version: mkVersion("1.0.0"),
 	contents: []string{
 		toolsPath("1.9.9", "foo", environs.CurrentArch),
@@ -192,6 +222,13 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 		version.Current = tt.version
 		for _, name := range tt.contents {
 			err := t.env.Storage().Put(name, strings.NewReader(name), int64(len(name)))
+			c.Assert(err, IsNil)
+		}
+		// The contents of all files in the public storage is prefixed with "public-" so
+		// that we can easily tell if we've got the right thing.
+		for _, name := range tt.publicContents {
+			data := "public-" + name
+			err := t.env.PublicStorage().(environs.Storage).Put(name, strings.NewReader(data), int64(len(data)))
 			c.Assert(err, IsNil)
 		}
 		url, err := environs.FindTools(t.env)
