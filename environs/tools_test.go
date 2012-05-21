@@ -14,14 +14,14 @@ import (
 	"strings"
 )
 
-type ToolsSuite struct{
+type ToolsSuite struct {
 	env environs.Environ
 }
 
 func (t *ToolsSuite) SetUpTest(c *C) {
 	env, err := environs.NewEnviron(map[string]interface{}{
-		"name": "test",
-		"type": "dummy",
+		"name":      "test",
+		"type":      "dummy",
 		"zookeeper": false,
 	})
 	c.Assert(err, IsNil)
@@ -33,7 +33,7 @@ func (t *ToolsSuite) TearDownTest(c *C) {
 }
 
 var envs *environs.Environs
-	
+
 var currentToolsPath = mkToolsPath(version.Current.String())
 
 func mkVersion(vers string) version.Version {
@@ -129,16 +129,16 @@ type toolsSpec struct {
 }
 
 var findToolsTests = []struct {
-	version    version.Version		// version to assume is current for the test.
-	contents []string			// names in private storage.
-	publicContents []string		// names in public storage.
-	expect   string				// the name we expect to find (if no error).
-	err      string				// the error we expect to find (if not blank).
+	version        version.Version // version to assume is current for the test.
+	contents       []string        // names in private storage.
+	publicContents []string        // names in public storage.
+	expect         string          // the name we expect to find (if no error).
+	err            string          // the error we expect to find (if not blank).
 }{{
 	// current version should be satisfied by current tools path.
-	version: version.Current,
+	version:  version.Current,
 	contents: []string{currentToolsPath},
-	expect: currentToolsPath,
+	expect:   currentToolsPath,
 }, {
 	// major versions don't match.
 	version: mkVersion("1.0.0"),

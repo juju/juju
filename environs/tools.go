@@ -16,7 +16,7 @@ import (
 	"strings"
 )
 
-var CurrentUbuntuRelease = "precise"                // TODO find out actual version.
+var CurrentUbuntuRelease = "precise"         // TODO find out actual version.
 var CurrentArch = ubuntuArch(runtime.GOARCH) // TODO better than this
 
 func ubuntuArch(arch string) string {
@@ -28,7 +28,7 @@ func ubuntuArch(arch string) string {
 
 var toolPrefix = "tools/juju-"
 
-var toolFilePat = regexp.MustCompile(`^`+toolPrefix+`(\d+\.\d+\.\d+)-([^-]+)-([^-]+)\.tgz$`)
+var toolFilePat = regexp.MustCompile(`^` + toolPrefix + `(\d+\.\d+\.\d+)-([^-]+)-([^-]+)\.tgz$`)
 
 // toolsPathForVersion returns a path for the juju tools with the
 // given version, OS and architecture.
