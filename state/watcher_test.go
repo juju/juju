@@ -265,7 +265,6 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 		err := test.test(s.st)
 		c.Assert(err, IsNil)
 		want := test.want(s.st)
-		c.Logf("want %v", want)
 		select {
 		case got, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
