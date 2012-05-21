@@ -232,3 +232,157 @@ func (s *State) Unit(name string) (*Unit, error) {
 	}
 	return service.Unit(name)
 }
+
+// AddClientServerRelation adds a relation between a client and a server endpoint.
+// Their corresponding services will be assigned automatically.
+func (s *State) AddClientServerRelation(clientEp, serverEp RelationEndpoint) (*Relation, []*ServiceRelation, error) {
+	if clientEp.RelationRole != RoleClient {
+		return nil, nil, fmt.Errorf("interface %q of service %q has not the client role",
+			clientEp.Interface, clientEp.ServiceName)
+	}
+	if serverEp.RelationRole != RoleServer {
+		return nil, nil, fmt.Errorf("interface %q of service %q has not the server role",
+			serverEp.Interface, serverEp.ServiceName)
+	}
+	if clientEp.Interface != serverEp.Interface {
+		return nil, nil, fmt.Errorf("client and server endpoints have different interfaces")
+	}
+	top, err := readTopology(s.zk)
+	if err != nil {
+		return nil, nil, err
+	}
+	relationKey, err := top.RelationKey(clientEp, serverEp)
+	if err != nil {
+		return nil, nil, err
+	}
+	if relationKey != "" {
+		return nil, nil, fmt.Errorf("client and server already have relation %q", relationKey)
+	}
+	scope := ScopeGlobal
+	if clientEp.RelationScope == ScopeContainer || serverEp.RelationScope == ScopeContainer {
+		scope = ScopeContainer
+	}
+	path, err := s.zk.Create("/relations/relation-", "", zookeeper.SEQUENCE, zkPermAll)
+	if err != nil {
+		return nil, nil, err
+	}
+	relationKey = strings.Split(path, "/")[2]
+	// Create the settings container, for individual units settings.
+	// Creation is per container for container scoped relations and
+	// occurs elsewhere.
+	if scope == ScopeGlobal {
+		_, err = s.zk.Create(path+"/settings", "", 0, zkPermAll)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	serviceRelations := []*ServiceRelation{}
+	// createNode creates the ZooKeeper node for an endpoint. The full path is
+	// /relations/relationKey/optionalContainerKey/relationRole/...
+	// How far down the path we can create at this point depends on
+	// what scope the relation has.
+	createNode := func(ep RelationEndpoint) (string, error) {
+		serviceKey, err := top.ServiceKey(ep.ServiceName)
+		if err != nil {
+			return "", err
+		}
+		if scope == ScopeGlobal {
+			_, err = s.zk.Create(path+"/"+string(ep.RelationRole), "", 0, zkPermAll)
+			if err != nil {
+				return "", err
+			}
+		}
+		serviceRelations = append(serviceRelations, &ServiceRelation{
+			st:         s,
+			key:        relationKey,
+			serviceKey: serviceKey,
+			scope:      ep.RelationScope,
+			role:       ep.RelationRole,
+		})
+		return serviceKey, nil
+	}
+	clientKey, err := createNode(clientEp)
+	if err != nil {
+		return nil, nil, err
+	}
+	serverKey, err := createNode(serverEp)
+	if err != nil {
+		return nil, nil, err
+	}
+	addRelation := func(t *topology) error {
+		return t.AddClientServerRelation(relationKey, clientKey, serverKey,
+			serverEp.Interface, serverEp.RelationScope)
+	}
+	err = retryTopologyChange(s.zk, addRelation)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &Relation{s, relationKey}, serviceRelations, nil
+}
+
+// AddPeerRelation adds a relation with the peer endpoint.
+// Its corresponding service will be assigned automatically.
+func (s *State) AddPeerRelation(peerEp RelationEndpoint) (*Relation, *ServiceRelation, error) {
+	if peerEp.RelationRole != RolePeer {
+		return nil, nil, fmt.Errorf("interface %q of service %q has not the peer role",
+			peerEp.Interface, peerEp.ServiceName)
+	}
+	top, err := readTopology(s.zk)
+	if err != nil {
+		return nil, nil, err
+	}
+	relationKey, err := top.PeerRelationKey(peerEp)
+	if err != nil {
+		return nil, nil, err
+	}
+	if relationKey != "" {
+		return nil, nil, fmt.Errorf("peer already has relation %q", relationKey)
+	}
+	scope := ScopeGlobal
+	if peerEp.RelationScope == ScopeContainer {
+		scope = ScopeContainer
+	}
+	path, err := s.zk.Create("/relations/relation-", "", zookeeper.SEQUENCE, zkPermAll)
+	if err != nil {
+		return nil, nil, err
+	}
+	relationKey = strings.Split(path, "/")[2]
+	// Create the settings container, for individual units settings.
+	// Creation is per container for container scoped relations and
+	// occurs elsewhere.
+	if scope == ScopeGlobal {
+		_, err = s.zk.Create(path+"/settings", "", 0, zkPermAll)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	// Create the ZooKeeper node for the endpoint. The full path is
+	// /relations/relationKey/optionalContainerKey/relationRole/...
+	// How far down the path we can create at this point depends on
+	// what scope the relation has.
+	peerKey, err := top.ServiceKey(peerEp.ServiceName)
+	if err != nil {
+		return nil, nil, err
+	}
+	if scope == ScopeGlobal {
+		_, err = s.zk.Create(path+"/"+string(peerEp.RelationRole), "", 0, zkPermAll)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	serviceRelation := &ServiceRelation{
+		st:         s,
+		key:        relationKey,
+		serviceKey: peerKey,
+		scope:      peerEp.RelationScope,
+		role:       peerEp.RelationRole,
+	}
+	addRelation := func(t *topology) error {
+		return t.AddPeerRelation(relationKey, peerKey, peerEp.Interface, peerEp.RelationScope)
+	}
+	err = retryTopologyChange(s.zk, addRelation)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &Relation{s, relationKey}, serviceRelation, nil
+}

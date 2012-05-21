@@ -1,6 +1,3 @@
-// launchpad.net/juju/go/state
-//
-// Copyright (c) 2011-2012 Canonical Ltd.
 package state_test
 
 import (
@@ -966,4 +963,111 @@ func (s *StateSuite) TestUnitWaitAgentAlive(c *C) {
 	alive, err = unit.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
+}
+
+func (s *StateSuite) TestAddClientServerRelation(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("mysqldb", dummy)
+	s.st.AddService("wordpress", dummy)
+	mysqlep := state.RelationEndpoint{"mysqldb", "ifce", state.RoleServer, state.ScopeGlobal}
+	blogep := state.RelationEndpoint{"wordpress", "ifce", state.RoleClient, state.ScopeGlobal}
+	relation, serviceRelations, err := s.st.AddClientServerRelation(blogep, mysqlep)
+	c.Assert(err, IsNil)
+	c.Assert(relation.Key(), Equals, "relation-0000000000")
+	c.Assert(serviceRelations[0].Key(), Equals, relation.Key())
+	c.Assert(serviceRelations[0].ServiceKey(), Equals, "service-0000000001")
+	c.Assert(serviceRelations[0].Scope(), Equals, state.ScopeGlobal)
+	c.Assert(serviceRelations[0].Role(), Equals, state.RoleClient)
+	c.Assert(serviceRelations[1].Key(), Equals, relation.Key())
+	c.Assert(serviceRelations[1].ServiceKey(), Equals, "service-0000000000")
+	c.Assert(serviceRelations[1].Scope(), Equals, state.ScopeGlobal)
+	c.Assert(serviceRelations[1].Role(), Equals, state.RoleServer)
+}
+
+func (s *StateSuite) TestAddClientServerRelationMissingService(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("mysqldb", dummy)
+	mysqlep := state.RelationEndpoint{"mysqldb", "ifce", state.RoleServer, state.ScopeGlobal}
+	blogep := state.RelationEndpoint{"wordpress", "ifce", state.RoleClient, state.ScopeGlobal}
+	_, _, err := s.st.AddClientServerRelation(blogep, mysqlep)
+	c.Assert(err, ErrorMatches, `service with name "wordpress" not found`)
+}
+
+func (s *StateSuite) TestAddClientServerRelationIllegalClient(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("mysqldb", dummy)
+	s.st.AddService("wordpress", dummy)
+	mysqlep := state.RelationEndpoint{"mysqldb", "ifce", state.RoleServer, state.ScopeGlobal}
+	blogep := state.RelationEndpoint{"wordpress", "ifce", state.RoleServer, state.ScopeGlobal}
+	_, _, err := s.st.AddClientServerRelation(blogep, mysqlep)
+	c.Assert(err, ErrorMatches, `interface "ifce" of service "wordpress" has not the client role`)
+}
+
+func (s *StateSuite) TestAddClientServerRelationIllegalServer(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("mysqldb", dummy)
+	s.st.AddService("wordpress", dummy)
+	mysqlep := state.RelationEndpoint{"mysqldb", "ifce", state.RoleClient, state.ScopeGlobal}
+	blogep := state.RelationEndpoint{"wordpress", "ifce", state.RoleClient, state.ScopeGlobal}
+	_, _, err := s.st.AddClientServerRelation(blogep, mysqlep)
+	c.Assert(err, ErrorMatches, `interface "ifce" of service "mysqldb" has not the server role`)
+}
+
+func (s *StateSuite) TestAddClientServerRelationDifferentInterfaces(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("mysqldb", dummy)
+	s.st.AddService("wordpress", dummy)
+	mysqlep := state.RelationEndpoint{"mysqldb", "ifce-a", state.RoleServer, state.ScopeGlobal}
+	blogep := state.RelationEndpoint{"wordpress", "ifce-b", state.RoleClient, state.ScopeGlobal}
+	_, _, err := s.st.AddClientServerRelation(blogep, mysqlep)
+	c.Assert(err, ErrorMatches, `client and server endpoints have different interfaces`)
+}
+
+func (s *StateSuite) TestAddClientServerRelationTwice(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("mysqldb", dummy)
+	s.st.AddService("wordpress", dummy)
+	mysqlep := state.RelationEndpoint{"mysqldb", "ifce", state.RoleServer, state.ScopeGlobal}
+	blogep := state.RelationEndpoint{"wordpress", "ifce", state.RoleClient, state.ScopeGlobal}
+	_, _, err := s.st.AddClientServerRelation(blogep, mysqlep)
+	c.Assert(err, IsNil)
+	_, _, err = s.st.AddClientServerRelation(blogep, mysqlep)
+	c.Assert(err, ErrorMatches, `client and server already have relation "relation-0000000000"`)
+}
+
+func (s *StateSuite) TestAddPeerRelation(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("riak", dummy)
+	riakep := state.RelationEndpoint{"riak", "ifce", state.RolePeer, state.ScopeGlobal}
+	relation, serviceRelation, err := s.st.AddPeerRelation(riakep)
+	c.Assert(err, IsNil)
+	c.Assert(relation.Key(), Equals, "relation-0000000000")
+	c.Assert(serviceRelation.Key(), Equals, relation.Key())
+	c.Assert(serviceRelation.ServiceKey(), Equals, "service-0000000000")
+	c.Assert(serviceRelation.Scope(), Equals, state.ScopeGlobal)
+	c.Assert(serviceRelation.Role(), Equals, state.RolePeer)
+}
+
+func (s *StateSuite) TestAddPeerRelationMissingService(c *C) {
+	riakep := state.RelationEndpoint{"riak", "ifce", state.RolePeer, state.ScopeGlobal}
+	_, _, err := s.st.AddPeerRelation(riakep)
+	c.Assert(err, ErrorMatches, `service with name "riak" not found`)
+}
+
+func (s *StateSuite) TestAddPeerRelationIllegalPeer(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("riak", dummy)
+	riakep := state.RelationEndpoint{"riak", "ifce", state.RoleServer, state.ScopeGlobal}
+	_, _, err := s.st.AddPeerRelation(riakep)
+	c.Assert(err, ErrorMatches, `interface "ifce" of service "riak" has not the peer role`)
+}
+
+func (s *StateSuite) TestAddPeerRelationTwice(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("riak", dummy)
+	riakep := state.RelationEndpoint{"riak", "ifce", state.RolePeer, state.ScopeGlobal}
+	_, _, err := s.st.AddPeerRelation(riakep)
+	c.Assert(err, IsNil)
+	_, _, err = s.st.AddPeerRelation(riakep)
+	c.Assert(err, ErrorMatches, `peer already has relation "relation-0000000000"`)
 }

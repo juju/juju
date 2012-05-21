@@ -49,3 +49,43 @@ func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
 	}
 	panic("invalid endpoint role")
 }
+
+// Relation represents a connection between one or more services.
+type Relation struct {
+	st  *State
+	key string
+}
+
+// Key returns the internal key of a relation.
+func (r *Relation) Key() string {
+	return r.key
+}
+
+// ServiceRelation represents a relation between one or more services.
+type ServiceRelation struct {
+	st         *State
+	key        string
+	serviceKey string
+	scope      RelationScope
+	role       RelationRole
+}
+
+// Key returns the internal key of a relation.
+func (r *ServiceRelation) Key() string {
+	return r.key
+}
+
+// ServiceKey returns the service key of a relation.
+func (r *ServiceRelation) ServiceKey() string {
+	return r.serviceKey
+}
+
+// Scope returns the scope of a relation.
+func (r *ServiceRelation) Scope() RelationScope {
+	return r.scope
+}
+
+// Role returns the role of a relation.
+func (r *ServiceRelation) Role() RelationRole {
+	return r.role
+}
