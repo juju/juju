@@ -202,8 +202,8 @@ func (p *environProvider) NewConfig(attrs map[string]interface{}) (environs.Envi
 	}
 	m1 := m0.(schema.MapType)
 	cfg := &environConfig{
-		provider: p,
-		name: m1["name"].(string),
+		provider:  p,
+		name:      m1["name"].(string),
 		zookeeper: m1["zookeeper"].(bool),
 	}
 	cfg.broken, _ = m1["broken"].(bool)
