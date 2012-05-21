@@ -5,60 +5,66 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
-	_ "launchpad.net/juju/go/environs/dummy"
+	"launchpad.net/juju/go/environs/dummy"
 	"launchpad.net/juju/go/version"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
+	"strings"
 )
 
-type ToolsSuite struct{}
+type ToolsSuite struct{
+	env environs.Environ
+}
+
+func (t *ToolsSuite) SetUpTest(c *C) {
+	env, err := environs.NewEnviron("dummy", map[string]interface{}{
+		"type": "dummy",
+		"zookeeper": false,
+	})
+	c.Assert(err, IsNil)
+	t.env = env
+}
+
+func (t *ToolsSuite) TearDownTest(c *C) {
+	dummy.Reset()
+}
 
 var envs *environs.Environs
 
-var toolsPath = toolsPathForVersion(version.Current, 
-TODO
-fmt.Sprintf("tools/juju-%v-%s-%s.tgz", version.Current, runtime.GOOS, runtime.GOARCH)
+var currentToolsPath = toolsPath(version.Current.String(), environs.CurrentSeries, environs.CurrentArch)
 
-// toolsPathForVersion returns a path for the juju tools with the
-// given version, OS and architecture.
-func toolsPathForVersion(v version.Version, series, arch string) string {
-	return fmt.Sprintf(toolPrefix+"%v-%s-%s.tgz", v, series, arch)
-}
-
-const toolsConf = `
-environments:
-    foo:
-        type: dummy
-        zookeeper: false
-`
-
-func init() {
-	var err error
-	envs, err = environs.ReadEnvironsBytes([]byte(toolsConf))
+func mkVersion(vers string) version.Version {
+	v, err := version.Parse(vers)
 	if err != nil {
 		panic(err)
 	}
+	return v
+}
+
+func toolsPathForVersion(v version.Version, series, arch string) string {
+	return fmt.Sprintf("tools/juju-%v-%s-%s.tgz", v, series, arch)
+}
+	
+func toolsPath(vers, os, arch string) string {
+	return toolsPathForVersion(mkVersion(vers), os, arch)
 }
 
 var _ = Suite(&ToolsSuite{})
 
-func (ToolsSuite) TestPutTools(c *C) {
-	env, err := envs.Open("")
+func (t *ToolsSuite) TestPutTools(c *C) {
+	err := environs.PutTools(t.env.Storage())
 	c.Assert(err, IsNil)
 
-	err = environs.PutTools(env.Storage())
-	c.Assert(err, IsNil)
-
-	for i, getTools := range []func(environs.StorageReader, string) error{
+	for i, getTools := range []func(environs.Environ, string) error{
 		environs.GetTools,
 		getToolsWithTar,
 	} {
 		c.Logf("test %d", i)
 		// Unarchive the tool executables into a temp directory.
 		dir := c.MkDir()
-		err = getTools(env.Storage(), dir)
+		err = getTools(t.env, dir)
 		c.Assert(err, IsNil)
 
 		// Verify that each tool executes and produces some
@@ -76,9 +82,9 @@ func (ToolsSuite) TestPutTools(c *C) {
 // getToolsWithTar is the same as GetTools but uses tar
 // itself so we're not just testing the Go tar package against
 // itself.
-func getToolsWithTar(store environs.StorageReader, dir string) error {
+func getToolsWithTar(env environs.Environ, dir string) error {
 	// TODO search the store for the right tools.
-	r, err := store.Get(toolsPath)
+	r, err := env.Storage().Get(currentToolsPath)
 	if err != nil {
 		return err
 	}
@@ -99,7 +105,7 @@ func getToolsWithTar(store environs.StorageReader, dir string) error {
 // Test that the upload procedure fails correctly
 // when the build process fails (because of a bad Go source
 // file in this case).
-func (ToolsSuite) TestUploadBadBuild(c *C) {
+func (t *ToolsSuite) TestUploadBadBuild(c *C) {
 	gopath := c.MkDir()
 	pkgdir := filepath.Join(gopath, "src", "launchpad.net", "juju", "go", "cmd", "broken")
 	err := os.MkdirAll(pkgdir, 0777)
@@ -111,10 +117,7 @@ func (ToolsSuite) TestUploadBadBuild(c *C) {
 	defer os.Setenv("GOPATH", os.Getenv("GOPATH"))
 	os.Setenv("GOPATH", gopath)
 
-	env, err := envs.Open("")
-	c.Assert(err, IsNil)
-
-	err = environs.PutTools(env.Storage())
+	err = environs.PutTools(t.env.Storage())
 	c.Assert(err, ErrorMatches, `build failed: exit status 1; can't load package:(.|\n)*`)
 }
 
@@ -124,80 +127,74 @@ type toolsSpec struct {
 	arch    string
 }
 
-func toolsPath(vers, os, arch string) string {
-	v, err := version.Parse(vers)
-	if err != nil {
-		panic(err)
-	}
-	return version.ToolsPathForVersion(v, os, arch)
-}
-
 var findToolsTests = []struct {
-	major    int
+	version    version.Version
 	contents []string
 	expect   string
 	err      string
 }{{
-	version.Current.Major,
-	[]string{version.ToolsPath},
-	version.ToolsPath,
-	"",
+	version: version.Current,
+	contents: []string{currentToolsPath},
+	expect: currentToolsPath,
 }, {
-	1,
-	[]string{
-		toolsPath("0.0.9", version.CurrentOS, version.CurrentArch),
+	version: mkVersion("1.0.0"),
+	contents: []string{
+		toolsPath("0.0.9", environs.CurrentSeries, environs.CurrentArch),
 	},
-	"",
-	"no compatible tools found",
+	err: "no compatible tools found",
+},{
+	version: mkVersion("1.0.0"),
+	contents: []string{
+		toolsPath("2.0.9", environs.CurrentSeries, environs.CurrentArch),
+	},
+	err: "no compatible tools found",
 }, {
-	1,
-	[]string{
-		toolsPath("2.0.9", version.CurrentOS, version.CurrentArch),
+	version: mkVersion("1.99.99"),
+	contents: []string{
+		toolsPath("1.0.0", environs.CurrentSeries, environs.CurrentArch),
 	},
-	"",
-	"no compatible tools found",
+	expect: toolsPath("1.0.0", environs.CurrentSeries, environs.CurrentArch),
 }, {
-	1,
-	[]string{
-		toolsPath("1.0.9", version.CurrentOS, version.CurrentArch),
-		toolsPath("1.0.10", version.CurrentOS, version.CurrentArch),
-		toolsPath("1.0.11", version.CurrentOS, version.CurrentArch),
+	version: mkVersion("1.0.0"),
+	contents: []string{
+		toolsPath("1.0.9", environs.CurrentSeries, environs.CurrentArch),
+		toolsPath("1.0.10", environs.CurrentSeries, environs.CurrentArch),
+		toolsPath("1.0.11", environs.CurrentSeries, environs.CurrentArch),
 	},
-	toolsPath("1.0.11", version.CurrentOS, version.CurrentArch),
-	"",
+	expect: toolsPath("1.0.11", environs.CurrentSeries, environs.CurrentArch),
 }, {
-	1,
-	[]string{
-		toolsPath("1.9.11", version.CurrentOS, version.CurrentArch),
-		toolsPath("1.10.10", version.CurrentOS, version.CurrentArch),
-		toolsPath("1.11.9", version.CurrentOS, version.CurrentArch),
+	version: mkVersion("1.0.0"),
+	contents: []string{
+		toolsPath("1.9.11", environs.CurrentSeries, environs.CurrentArch),
+		toolsPath("1.10.10", environs.CurrentSeries, environs.CurrentArch),
+		toolsPath("1.11.9", environs.CurrentSeries, environs.CurrentArch),
 	},
-	toolsPath("1.11.9", version.CurrentOS, version.CurrentArch),
-	"",
+	expect: toolsPath("1.11.9", environs.CurrentSeries, environs.CurrentArch),
 }, {
-	1,
-	[]string{
-		toolsPath("1.9.9", "foo", version.CurrentArch),
-		toolsPath("1.9.9", version.CurrentOS, "foo"),
-		toolsPath("1.0.0", version.CurrentOS, version.CurrentArch),
+	version: mkVersion("1.0.0"),
+	contents: []string{
+		toolsPath("1.9.9", "foo", environs.CurrentArch),
+		toolsPath("1.9.9", environs.CurrentSeries, "foo"),
+		toolsPath("1.0.0", environs.CurrentSeries, environs.CurrentArch),
 	},
-	toolsPath("1.0.0", version.CurrentOS, version.CurrentArch),
-	"",
-}}
+	expect: toolsPath("1.0.0", environs.CurrentSeries, environs.CurrentArch),
+},
+}
 
-func (t *localServerSuite) TestFindTools(c *C) {
-	oldMajorVersion := *ec2.VersionCurrentMajor
+func (t *ToolsSuite) TestFindTools(c *C) {
+	originalVersion := version.Current
 	defer func() {
-		*ec2.VersionCurrentMajor = oldMajorVersion
+		version.Current = originalVersion
 	}()
+
 	for i, tt := range findToolsTests {
 		c.Logf("test %d", i)
-		*ec2.VersionCurrentMajor = tt.major
+		version.Current = tt.version
 		for _, name := range tt.contents {
-			err := t.env.PutFile(name, strings.NewReader(name), int64(len(name)))
+			err := t.env.Storage().Put(name, strings.NewReader(name), int64(len(name)))
 			c.Assert(err, IsNil)
 		}
-		url, err := ec2.FindTools(t.env)
+		url, err := environs.FindTools(t.env)
 		if tt.err != "" {
 			c.Assert(err, ErrorMatches, tt.err)
 		} else {

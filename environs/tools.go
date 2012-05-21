@@ -16,8 +16,8 @@ import (
 	"strings"
 )
 
-var currentSeries = "precise"                // TODO find out actual version.
-var currentArch = ubuntuArch(runtime.GOARCH) // TODO better
+var CurrentSeries = "precise"                // TODO find out actual version.
+var CurrentArch = ubuntuArch(runtime.GOARCH) // TODO better than this
 
 func ubuntuArch(arch string) string {
 	if arch == "386" {
@@ -38,7 +38,7 @@ func toolsPathForVersion(v version.Version, series, arch string) string {
 
 // ToolsPath gives the path for the current juju tools, as expected
 // by environs.Environ.PutFile, for example.
-var toolsPath = toolsPathForVersion(version.Current, currentSeries, currentArch)
+var toolsPath = toolsPathForVersion(version.Current, CurrentSeries, CurrentArch)
 
 // PutTools uploads the current version of the juju tools
 // executables to the given storage.
@@ -148,12 +148,11 @@ func closeErrorCheck(errp *error, c io.Closer) {
 // version and platform and returns a URL that can be used to access
 // them in gzipped tar archive format.
 func FindTools(env Environ) (url string, err error) {
-//	storage, path, err := findTools(env)
-//	if err != nil {
-//		return "", err
-//	}
-//	return storage.URL(path), nil
-	return "", fmt.Errorf("url unimplemented")
+	storage, path, err := findTools(env)
+	if err != nil {
+		return "", err
+	}
+	return storage.URL(path)
 }
 
 // GetTools finds the latest compatible version of the juju tools
@@ -218,7 +217,7 @@ func findToolsPath(store StorageReader) (path string, err error) {
 		return "", err
 	}
 	if len(names) == 0 {
-		return "", &NotFoundError{fmt.Errorf("no tools found")}
+		return "", &NotFoundError{fmt.Errorf("no compatible tools found")}
 	}
 	bestVersion := version.Version{Major: -1}
 	bestName := ""
@@ -233,11 +232,11 @@ func findToolsPath(store StorageReader) (path string, err error) {
 			log.Printf("failed to parse version %q: %v", name, err)
 			continue
 		}
-		if m[2] != currentSeries {
+		if m[2] != CurrentSeries {
 			continue
 		}
 		// TODO allow different architectures.
-		if m[3] != currentArch {
+		if m[3] != CurrentArch {
 			continue
 		}
 		if vers.Major != version.Current.Major {
