@@ -17,13 +17,13 @@ func (OpenSuite) TestNewDummyEnviron(c *C) {
 		"type":      "dummy",
 		"zookeeper": false,
 	}
-	env, err := environs.NewEnviron("dummy", config)
+	env, err := environs.NewEnviron(config)
 	c.Assert(err, IsNil)
 	c.Assert(env.Bootstrap(false), IsNil)
 }
 
 func (OpenSuite) TestNewUnknownEnviron(c *C) {
-	env, err := environs.NewEnviron("wondercloud", nil)
-	c.Assert(err, ErrorMatches, "no registered provider for kind:.*")
+	env, err := environs.NewEnviron(map[string]interface{}{"type": "wondercloud"})
+	c.Assert(err, ErrorMatches, "no registered provider for.*")
 	c.Assert(env, IsNil)
 }

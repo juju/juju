@@ -23,10 +23,14 @@ func (envs *Environs) Open(name string) (Environ, error) {
 
 // NewEnviron creates a new Environ of the registered kind using the configuration
 // attributes supplied, which should include the environment name.
-func NewEnviron(kind string, attrs map[string]interface{}) (Environ, error) {
+func NewEnviron(attrs map[string]interface{}) (Environ, error) {
+	kind, ok := attrs["type"].(string)
+	if !ok {
+		return nil, fmt.Errorf("no provider type given")
+	}
 	p, ok := providers[kind]
 	if !ok {
-		return nil, fmt.Errorf("no registered provider for kind: %q", kind)
+		return nil, fmt.Errorf("no registered provider for %q", kind)
 	}
 	cfg, err := p.NewConfig(attrs)
 	if err != nil {
