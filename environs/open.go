@@ -28,7 +28,7 @@ func NewEnviron(kind string, attrs map[string]interface{}) (Environ, error) {
 	if !ok {
 		return nil, fmt.Errorf("no registered provider for kind: %q", kind)
 	}
-	cfg, err := p.Check(attrs)
+	cfg, err := p.NewConfig(attrs)
 	if err != nil {
 		return nil, fmt.Errorf("error validating environment: %v", err)
 	}

@@ -10,7 +10,7 @@ import (
 
 var zkAddr string
 
-func Test(t *stdtesting.T) {
+func TestPackage(t *stdtesting.T) {
 	srv := testing.StartZkServer()
 	defer srv.Destroy()
 	var err error

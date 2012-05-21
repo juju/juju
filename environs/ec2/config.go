@@ -54,7 +54,7 @@ var configChecker = schema.FieldMap(
 	},
 )
 
-func (p environProvider) Check(config map[string]interface{}) (cfg environs.EnvironConfig, err error) {
+func (p environProvider) NewConfig(config map[string]interface{}) (cfg environs.EnvironConfig, err error) {
 	v, err := configChecker.Coerce(config, nil)
 	if err != nil {
 		return nil, err

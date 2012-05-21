@@ -50,6 +50,9 @@ func (c *TestCommand) Run(ctx *cmd.Context) error {
 	if c.Option == "error" {
 		return errors.New("BAM!")
 	}
+	if c.Option == "silent-error" {
+		return cmd.ErrSilent
+	}
 	fmt.Fprintln(ctx.Stdout, c.Option)
 	return nil
 }

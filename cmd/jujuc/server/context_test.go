@@ -19,8 +19,10 @@ var getCommandTests = []struct {
 	name string
 	err  string
 }{
-	{"juju-log", ""},
+	{"close-port", ""},
 	{"config-get", ""},
+	{"juju-log", ""},
+	{"open-port", ""},
 	{"unit-get", ""},
 	{"random", "unknown command: random"},
 }

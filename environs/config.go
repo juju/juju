@@ -52,8 +52,8 @@ func RegisterProvider(name string, p EnvironProvider) {
 // Attributes for environments with known types are checked.
 func ReadEnvironsBytes(data []byte) (*Environs, error) {
 	var raw struct {
-		Default      string                            "default"
-		Environments map[string]map[string]interface{} "environments"
+		Default      string
+		Environments map[string]map[string]interface{}
 	}
 	err := goyaml.Unmarshal(data, &raw)
 	if err != nil {
@@ -90,8 +90,10 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 			}
 			continue
 		}
+		// store the name of the this environment in the config itself
+		// so that providers can see it.
 		attrs["name"] = name
-		cfg, err := p.Check(attrs)
+		cfg, err := p.NewConfig(attrs)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing environment %q: %v", name, err)
 		}
