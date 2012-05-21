@@ -37,8 +37,10 @@ func (ctx *ClientContext) check() error {
 
 // newCommands maps Command names to initializers.
 var newCommands = map[string]func(*ClientContext) (cmd.Command, error){
+	"close-port": NewClosePortCommand,
 	"config-get": NewConfigGetCommand,
 	"juju-log":   NewJujuLogCommand,
+	"open-port":  NewOpenPortCommand,
 	"unit-get":   NewUnitGetCommand,
 }
 

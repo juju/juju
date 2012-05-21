@@ -109,6 +109,55 @@ func ParseURL(url string) (*URL, error) {
 	return u, nil
 }
 
+// InferURL returns a charm URL inferred from src. The provided
+// src may be a valid URL, in which case it is returned as-is,
+// or it may be an alias in one of the following formats:
+//
+//    name
+//    name-revision
+//    series/name
+//    series/name-revision
+//    schema:name
+//    schema:name-revision
+//    cs:~user/name
+//    cs:~user/name-revision
+//
+// The defaultSeries paramater is used to define the resulting URL
+// when src does not include that information; similarly, a missing
+// schema is assumed to be 'cs'.
+func InferURL(src, defaultSeries string) (*URL, error) {
+	if u, err := ParseURL(src); err == nil {
+		// src was a valid charm URL already
+		return u, nil
+	}
+	if strings.HasPrefix(src, "~") {
+		return nil, fmt.Errorf("cannot infer charm URL with user but no schema: %q", src)
+	}
+	orig := src
+	schema := "cs"
+	if i := strings.Index(src, ":"); i != -1 {
+		schema, src = src[:i], src[i+1:]
+	}
+	var full string
+	switch parts := strings.Split(src, "/"); len(parts) {
+	case 1:
+		full = fmt.Sprintf("%s:%s/%s", schema, defaultSeries, src)
+	case 2:
+		if strings.HasPrefix(parts[0], "~") {
+			full = fmt.Sprintf("%s:%s/%s/%s", schema, parts[0], defaultSeries, parts[1])
+		} else {
+			full = fmt.Sprintf("%s:%s", schema, src)
+		}
+	default:
+		full = fmt.Sprintf("%s:%s", schema, src)
+	}
+	u, err := ParseURL(full)
+	if err != nil && orig != full {
+		err = fmt.Errorf("%s (URL inferred from %q)", err, orig)
+	}
+	return u, err
+}
+
 func (u *URL) Path() string {
 	if u.User != "" {
 		if u.Revision >= 0 {

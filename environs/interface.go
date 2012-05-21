@@ -40,6 +40,50 @@ type Instance interface {
 var ErrNoInstances = errors.New("no instances found")
 var ErrPartialInstances = errors.New("only some instances were found")
 
+// NotFoundError records an error when something has not been found.
+type NotFoundError struct {
+	// error is the underlying error.
+	error
+}
+
+// A StorageReader can retrieve and list files from a storage provider.
+type StorageReader interface {
+	// Get opens the given storage file and returns a ReadCloser
+	// that can be used to read its contents.  It is the caller's
+	// responsibility to close it after use.  If the name does not
+	// exist, it should return a *NotFoundError.
+	Get(name string) (io.ReadCloser, error)
+
+	// List lists all names in the storage with the given prefix, in
+	// alphabetical order.  The names in the storage are considered
+	// to be in a flat namespace, so the prefix may include slashes
+	// and the names returned are the full names for the matching
+	// entries.
+	List(prefix string) ([]string, error)
+
+	// URL returns a URL that can be used to access the given storage file.
+	URL(name string) (string, error)
+}
+
+// A StorageWriter adds and removes files in a storage provider.
+type StorageWriter interface {
+	// Put reads from r and writes to the given storage file.
+	// The length must give the total length of the file.
+	Put(name string, r io.Reader, length int64) error
+
+	// Remove removes the given file from the environment's
+	// storage. It should not return an error if the file does
+	// not exist.
+	Remove(name string) error
+}
+
+// Storage represents storage that can be both
+// read and written.
+type Storage interface {
+	StorageReader
+	StorageWriter
+}
+
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
 // 
@@ -53,7 +97,10 @@ var ErrPartialInstances = errors.New("only some instances were found")
 type Environ interface {
 	// Bootstrap initializes the state for the environment,
 	// possibly starting one or more instances.
-	Bootstrap() error
+	// If uploadTools is true, the current version of
+	// the juju tools will be uploaded and used
+	// on the environment's instances.
+	Bootstrap(uploadTools bool) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
@@ -77,25 +124,11 @@ type Environ interface {
 	// will be returned.
 	Instances(ids []string) ([]Instance, error)
 
-	// PutFile reads from r and writes to the given file in the
-	// environment's storage. The length must give the total
-	// length of the file.
-	//
-	// If the name is prefixed with "tools/", it should be an
-	// archive of the juju tools in gzipped tar format; the full
-	// name should be of the form:
-	//     tools/juju-$VERSION-$GOOS-$GOARCH.tgz
-	PutFile(file string, r io.Reader, length int64) error
+	// Storage returns storage specific to the environment.
+	Storage() Storage
 
-	// GetFile opens the given file in the environment's storage
-	// and returns a ReadCloser that can be used to read its
-	// contents. It is the caller's responsibility to close it
-	// after use.
-	GetFile(file string) (io.ReadCloser, error)
-
-	// RemoveFile removes the given file from the environment's storage.
-	// It is not an error to remove a file that does not exist.
-	RemoveFile(file string) error
+	// PublicStorage returns storage shared between environments.
+	PublicStorage() StorageReader
 
 	// Destroy shuts down all known machines and destroys the
 	// rest of the environment. A list of instances known to

@@ -6,13 +6,16 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/cmd"
 	main "launchpad.net/juju/go/cmd/juju"
+	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/dummy"
+	"launchpad.net/juju/go/testing"
 	"os"
 	"path/filepath"
 	"reflect"
 )
 
 type cmdSuite struct {
+	testing.LoggingSuite
 	home string
 }
 
@@ -36,6 +39,7 @@ environments:
 `
 
 func (s *cmdSuite) SetUpTest(c *C) {
+	s.LoggingSuite.SetUpTest(c)
 	// Arrange so that the "home" directory points
 	// to a temporary directory containing the config file.
 	s.home = os.Getenv("HOME")
@@ -50,7 +54,8 @@ func (s *cmdSuite) SetUpTest(c *C) {
 func (s *cmdSuite) TearDownTest(c *C) {
 	os.Setenv("HOME", s.home)
 
-	dummy.Reset(nil)
+	dummy.Reset()
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func newFlagSet() *gnuflag.FlagSet {
@@ -112,10 +117,11 @@ func (*cmdSuite) TestEnvironmentInit(c *C) {
 func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc chan error) {
 	errc = make(chan error, 1)
 	opc = make(chan dummy.Operation)
-	dummy.Reset(opc)
+	dummy.Reset()
+	dummy.Listen(opc)
 	go func() {
 		// signal that we're done with this ops channel.
-		defer dummy.Reset(nil)
+		defer dummy.Listen(nil)
 
 		err := com.Init(newFlagSet(), args)
 		if err != nil {
@@ -134,6 +140,22 @@ func (*cmdSuite) TestBootstrapCommand(c *C) {
 	opc, errc := runCommand(new(main.BootstrapCommand))
 	c.Check(<-opc, Equals, op(dummy.OpBootstrap, "peckham"))
 	c.Check(<-errc, IsNil)
+
+	// bootstrap with tool uploading - checking that a file
+	// is uploaded should be sufficient, as the detailed semantics
+	// of UploadTools are tested in environs.
+	opc, errc = runCommand(new(main.BootstrapCommand), "--upload-tools")
+	c.Check(<-opc, Equals, op(dummy.OpPutFile, "peckham"))
+	c.Check(<-opc, Equals, op(dummy.OpBootstrap, "peckham"))
+	c.Check(<-errc, IsNil)
+
+	envs, err := environs.ReadEnvirons("")
+	c.Assert(err, IsNil)
+	env, err := envs.Open("peckham")
+	c.Assert(err, IsNil)
+	dir := c.MkDir()
+	err = environs.GetTools(env.Storage(), dir)
+	c.Assert(err, IsNil)
 
 	// bootstrap with broken environment
 	opc, errc = runCommand(new(main.BootstrapCommand), "-e", "barking")

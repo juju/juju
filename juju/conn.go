@@ -32,8 +32,8 @@ func NewConn(environName string) (*Conn, error) {
 
 // Bootstrap initializes the Conn's environment and makes it ready to deploy
 // services.
-func (c *Conn) Bootstrap() error {
-	return c.Environ.Bootstrap()
+func (c *Conn) Bootstrap(uploadTools bool) error {
+	return c.Environ.Bootstrap(uploadTools)
 }
 
 // Destroy destroys the Conn's environment and all its instances.
