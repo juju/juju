@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju/go/environs"
-	"sync"
 )
 
 const stateFile = "provider-state"

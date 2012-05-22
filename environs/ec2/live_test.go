@@ -81,8 +81,8 @@ func (t *LiveTests) TearDownSuite(c *C) {
 		// This can happen if SetUpSuite fails.
 		return
 	}
-	err := ec2.DeleteBucket(t.Env, ec2.EnvironPublicBucket(t.Env))
-	err2 := ec2.DeleteBucket(t.Env, ec2.EnvironBucket(t.Env))
+	err := ec2.DeleteStorage(t.Env.PublicStorage().(environs.Storage))
+	err2 := ec2.DeleteStorage(t.Env.Storage())
 	c.Assert(err, IsNil)
 	c.Assert(err2, IsNil)
 }
@@ -233,7 +233,7 @@ func (t *LiveTests) TestDestroy(c *C) {
 	t.Destroy(c)
 
 	for i := 0; i < 5; i++ {
-		_, err = s.List("", "", "", 0)
+		_, err = s.List("")
 		if err != nil {
 			break
 		}

@@ -16,7 +16,7 @@ type imageSuite struct{}
 var _ = Suite(imageSuite{})
 
 var testConstraint = &ec2.InstanceConstraint{
-	UbuntuRelease:     "precise",
+	Series:     "precise",
 	Arch:              "amd64",
 	PersistentStorage: true,
 	Region:            "us-east-1",

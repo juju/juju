@@ -2,6 +2,7 @@ package ec2
 
 import (
 	"launchpad.net/goamz/ec2"
+	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
 	"net/http"
 )
@@ -38,18 +39,16 @@ func DeleteStorage(s environs.Storage) error {
 	return s.(*storage).deleteAll()
 }
 
-func DeleteBucket(e environs.Environ, b *s3.Bucket) error {
-	return e.(*environ).deleteBucket(b)
-}
-
-func FindTools(e environs.Environ, spec *InstanceSpec) (string, error) {
-	return e.(*environ).findTools(spec)
-}
-
-=======
->>>>>>> MERGE-SOURCE
 func InstanceEC2(inst environs.Instance) *ec2.Instance {
 	return inst.(*instance).Instance
+}
+
+// BucketStorage returns a storage instance addressing
+// an arbitrary s3 bucket.
+func BucketStorage(b *s3.Bucket) environs.Storage {
+	return &storage{
+		bucket: b,
+	}
 }
 
 var origImagesHost = imagesHost

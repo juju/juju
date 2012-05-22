@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/log"
 	"launchpad.net/juju/go/state"
+	"launchpad.net/juju/go/version"
 	"time"
 )
 
@@ -43,6 +44,7 @@ type environ struct {
 	ec2     *ec2.EC2
 	s3      *s3.S3
 	storage storage
+	publicStorage *storage		// optional.
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -101,6 +103,9 @@ func (cfg *providerConfig) Open() (environs.Environ, error) {
 		s3:     s3.New(cfg.auth, Regions[cfg.region]),
 	}
 	e.storage.bucket = e.s3.Bucket(cfg.bucket)
+	if cfg.publicBucket != "" {
+		e.publicStorage = &storage{bucket: e.s3.Bucket(cfg.publicBucket)}
+	}
 	return e, nil
 }
 
@@ -208,11 +213,12 @@ func (e *environ) userData(machineId int, info *state.Info, master bool, toolsUR
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
 func (e *environ) startInstance(machineId int, info *state.Info, master bool) (environs.Instance, error) {
-	image, err := FindInstanceSpec(DefaultInstanceConstraint)
+	spec, err := FindInstanceSpec(DefaultInstanceConstraint)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image: %v", err)
 	}
-	toolsURL, err := e.findTools(image)
+	
+	toolsURL, err := environs.FindTools(e, version.Current, spec.Series, spec.Arch)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find tools: %v", err)
 	}
@@ -228,7 +234,7 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 
 	for a := shortAttempt.start(); a.next(); {
 		instances, err = e.ec2.RunInstances(&ec2.RunInstances{
-			ImageId:        image.ImageId,
+			ImageId:        spec.ImageId,
 			MinCount:       1,
 			MaxCount:       1,
 			UserData:       userData,

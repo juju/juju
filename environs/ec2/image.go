@@ -3,9 +3,9 @@ package ec2
 import (
 	"bufio"
 	"fmt"
-	"launchpad.net/juju/go/version"
 	"net/http"
 	"strings"
+	"launchpad.net/juju/go/environs"
 )
 
 // TODO implement constraints properly.
@@ -22,7 +22,7 @@ type InstanceConstraint struct {
 }
 
 var DefaultInstanceConstraint = &InstanceConstraint{
-	UbuntuRelease:    environs.CurrentSeries,
+	Series:    environs.CurrentSeries,
 	Arch:              environs.CurrentArch,
 	PersistentStorage: true,
 	Region:            "us-east-1",

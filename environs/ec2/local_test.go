@@ -2,6 +2,7 @@ package ec2_test
 
 import (
 	"fmt"
+	"io"
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
@@ -13,6 +14,8 @@ import (
 	"launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
 	"launchpad.net/juju/go/testing"
+	"strings"
+	"sync"
 )
 
 var functionalConfig = []byte(`
@@ -98,24 +101,43 @@ func (srv *localServer) startServer(c *C) {
 		S3Endpoint:  srv.s3srv.URL(),
 	}
 	s3 := amzs3.New(aws.Auth{}, ec2.Regions["test"])
-	putFakeTools(c, s3.Bucket("public-tools"))
+	putFakeTools(c, ec2.BucketStorage(s3.Bucket("public-tools")))
 	srv.addSpice(c)
 }
+
+type fakeTools struct {
+	path string
+}
+func (s *fakeTools) Put(name string, r io.Reader, length int64) error {
+	s.path = name
+	return nil
+}
+func (s *fakeTools) Remove(name string) error {
+	return nil
+}
+var (
+	tools fakeTools
+	toolsOnce sync.Once
+)
 
 // putFakeTools sets up a bucket containing something
 // that looks like a tools archive so test methods
 // that start an instance can succeed even though they
 // do not upload tools.
-func putFakeTools(c *C, b *amzs3.Bucket) {
-	if b == nil {
-		panic("fake tools into nil bucket")
-	}
-	err := b.PutBucket(amzs3.PublicRead)
-	if err != nil {
-		c.Fatalf("cannot put bucket %q: %v", b.Name, err)
-	}
-	name := version.ToolsPathForVersion(version.Current, version.CurrentOS, ec2.DefaultInstanceConstraint.Arch)
-	err = b.Put(name, []byte("tools archive, honest guv"), "binary/octet-stream", amzs3.PublicRead)
+func putFakeTools(c *C, s environs.StorageWriter) {
+	// Calculate the tools path once only so that we don't
+	// rebuild the tools on every test.
+	toolsOnce.Do(func() {
+		err := environs.PutTools(&tools)
+		if err != nil {
+			panic(fmt.Errorf("cannot put tools: %v", err))
+		}
+		if tools.path == "" {
+			panic("no tools written")
+		}
+	})
+	toolsContents := "tools archive, honest guv"
+	err := s.Put(tools.path, strings.NewReader(toolsContents), int64(len(toolsContents)))
 	if err != nil {
 		c.Fatal(err)
 	}

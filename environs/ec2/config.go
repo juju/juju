@@ -50,6 +50,7 @@ var configChecker = schema.FieldMap(
 		"region",
 		"authorized-keys",
 		"authorized-keys-path",
+		"public-bucket",
 	},
 )
 
