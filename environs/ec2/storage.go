@@ -36,7 +36,7 @@ func (s *storage) Put(file string, r io.Reader, length int64) error {
 	if err := s.makeBucket(); err != nil {
 		return fmt.Errorf("cannot make S3 control bucket: %v", err)
 	}
-	err := s.bucket.PutReader(file, r, length, "binary/octet-stream", s3.PublicRead)
+	err := s.bucket.PutReader(file, r, length, "binary/octet-stream", s3.Private)
 	if err != nil {
 		return fmt.Errorf("cannot write file %q to control bucket: %v", file, err)
 	}
