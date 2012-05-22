@@ -7,12 +7,13 @@ import (
 	"strings"
 )
 
+<<<<<<< TREE
 // TODO implement constraints properly.
 
 // InstanceConstraint specifies a range of possible instances
 // and the images that can run on them.
 type InstanceConstraint struct {
-	UbuntuRelease     string
+	Series     string // Ubuntu release name.
 	Arch              string
 	PersistentStorage bool
 	Region            string
@@ -21,7 +22,7 @@ type InstanceConstraint struct {
 }
 
 var DefaultInstanceConstraint = &InstanceConstraint{
-	UbuntuRelease:     "oneiric",
+	Series:     "oneiric",
 	Arch:              "i386",
 	PersistentStorage: true,
 	Region:            "us-east-1",
@@ -29,12 +30,12 @@ var DefaultInstanceConstraint = &InstanceConstraint{
 	Desktop:           false,
 }
 
-// InstanceSpec specifies a particular machine type and the OS that
-// will run on it.
+// InstanceSpec specifies a particular machine type and the Ubuntu
+// release that it will run.
 type InstanceSpec struct {
 	ImageId string
 	Arch    string // The architecture the image will run on.
-	OS      string // The OS the image will run on.
+	Series  string // The Ubuntu series the image will run on.
 }
 
 // imagesHost holds the address of the images http server.
@@ -47,7 +48,7 @@ var imagesHost = "http://uec-images.ubuntu.com"
 func FindInstanceSpec(spec *InstanceConstraint) (*InstanceSpec, error) {
 	hclient := new(http.Client)
 	uri := fmt.Sprintf(imagesHost+"/query/%s/%s/%s.current.txt",
-		spec.UbuntuRelease,
+		spec.Series,
 		either(spec.Desktop, "desktop", "server"), // variant.
 		either(spec.Daily, "daily", "released"),   // version.
 	)
@@ -78,7 +79,7 @@ func FindInstanceSpec(spec *InstanceConstraint) (*InstanceSpec, error) {
 			return &InstanceSpec{
 				ImageId: f[7],
 				Arch:    spec.Arch,
-				OS:      "linux",
+				Series:  spec.Series,
 			}, nil
 		}
 	}

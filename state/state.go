@@ -12,6 +12,12 @@ import (
 	"strings"
 )
 
+const (
+	zkEnvironmentPath = "/environment"
+	zkMachinesPath    = "/machines"
+	zkTopologyPath    = "/topology"
+)
+
 // State represents the state of an environment
 // managed by juju.
 type State struct {
@@ -59,7 +65,13 @@ func (s *State) RemoveMachine(id int) error {
 
 // WatchMachines watches for new Machines added or removed.
 func (s *State) WatchMachines() *MachinesWatcher {
-	return newMachinesWatcher(s, zkMachinesPath)
+	return newMachinesWatcher(s)
+}
+
+// WatchEnvironConfig returns a watcher for observing
+// changes to the environment configuration.
+func (s *State) WatchEnvrionConfig() *ConfigWatcher {
+	return newConfigWatcher(s, zkEnvironmentPath)
 }
 
 // Machine returns the machine with the given id.
@@ -92,11 +104,12 @@ func (s *State) AllMachines() ([]*Machine, error) {
 // bundleUrl must be set to a URL where the bundle for ch
 // may be downloaded from.
 // On success the newly added charm state is returned.
-func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL) (*Charm, error) {
+func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (*Charm, error) {
 	data := &charmData{
-		Meta:      ch.Meta(),
-		Config:    ch.Config(),
-		BundleURL: bundleURL.String(),
+		Meta:         ch.Meta(),
+		Config:       ch.Config(),
+		BundleURL:    bundleURL.String(),
+		BundleSha256: bundleSha256,
 	}
 	yaml, err := goyaml.Marshal(data)
 	if err != nil {

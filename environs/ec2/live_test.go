@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	amzec2 "launchpad.net/goamz/ec2"
-	"launchpad.net/goamz/s3"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/ec2"
@@ -198,23 +197,23 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 }
 
 func (t *LiveTests) TestDestroy(c *C) {
-	err := t.Env.PutFile("foo", strings.NewReader("foo"), 3)
+	s := t.Env.Storage()
+	err := s.Put("foo", strings.NewReader("foo"), 3)
 	c.Assert(err, IsNil)
-	err = t.Env.PutFile("bar", strings.NewReader("bar"), 3)
+	err = s.Put("bar", strings.NewReader("bar"), 3)
 	c.Assert(err, IsNil)
 
 	// Check that bucket exists, so we can be sure
 	// we have checked correctly that it's been destroyed.
-	b := ec2.EnvironBucket(t.Env)
-	resp, err := b.List("", "", "", 0)
+	names, err := s.List("")
 	c.Assert(err, IsNil)
-	c.Assert(len(resp.Contents) >= 2, Equals, true)
+	c.Assert(len(names) >= 2, Equals, true)
 
 	t.Destroy(c)
 
-	resp, err = b.List("", "", "", 0)
-	c.Assert(err, NotNil)
-	c.Assert(err.(*s3.Error).StatusCode, Equals, 404)
+	names, err = s.List("")
+	var notFoundError *environs.NotFoundError
+	c.Assert(err, FitsTypeOf, notFoundError)
 }
 
 func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {
