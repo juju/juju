@@ -75,7 +75,8 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	if t.bootstrapped {
 		return
 	}
-	err := t.Env.Bootstrap()
+	// TODO set this to true, causing Go tools to be used on the server side.
+	err := t.Env.Bootstrap(false)
 	c.Assert(err, IsNil)
 	t.bootstrapped = true
 }

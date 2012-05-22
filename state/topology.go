@@ -85,7 +85,7 @@ type topology struct {
 // readTopology connects ZooKeeper, retrieves the data as YAML,
 // parses it and returns it.
 func readTopology(zk *zookeeper.Conn) (*topology, error) {
-	yaml, _, err := zk.Get("/topology")
+	yaml, _, err := zk.Get(zkTopologyPath)
 	if err != nil {
 		if zookeeper.IsError(err, zookeeper.ZNONODE) {
 			// No topology node, so return empty topology.
@@ -400,6 +400,7 @@ func (t *topology) AddRelation(relationKey string, relation *zkRelation) error {
 			return fmt.Errorf("provider and consumer keys must not be the same")
 		}
 	}
+	relation.Key = relationKey
 	t.topology.Relations[relationKey] = relation
 	return nil
 }
@@ -525,5 +526,5 @@ func retryTopologyChange(zk *zookeeper.Conn, f func(t *topology) error) error {
 		}
 		return it.dump()
 	}
-	return zk.RetryChange("/topology", 0, zkPermAll, change)
+	return zk.RetryChange(zkTopologyPath, 0, zkPermAll, change)
 }

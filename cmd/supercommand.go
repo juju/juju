@@ -59,11 +59,10 @@ func (c *SuperCommand) describeCommands() string {
 // Info returns a description of the currently selected subcommand, or of the
 // SuperCommand itself if no subcommand has been specified.
 func (c *SuperCommand) Info() *Info {
-	var info *Info
 	if c.subcmd != nil {
-		info = c.subcmd.Info()
+		info := *c.subcmd.Info()
 		info.Name = fmt.Sprintf("%s %s", c.Name, info.Name)
-		return info
+		return &info
 	}
 	docParts := []string{}
 	if doc := strings.TrimSpace(c.Doc); doc != "" {

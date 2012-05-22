@@ -79,7 +79,8 @@ var (
 	//  49ms: watcher checks; sees node is "alive"
 	//  99ms: watcher finally times out
 	// 100ms: long enough
-	longEnough = period * 4
+	// + a little bit for scheduler glitches.
+	longEnough = period * 5
 )
 
 func assertChange(c *C, watch <-chan bool, expectAlive bool) {

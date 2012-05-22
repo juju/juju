@@ -1,6 +1,7 @@
 package charm_test
 
 import (
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/charm"
 )
@@ -42,6 +43,45 @@ func (s *S) TestParseURL(c *C) {
 			c.Check(t.url.String(), Equals, t.s)
 		}
 	}
+}
+
+var inferTests = []struct {
+	vague, exact string
+}{
+	{"foo", "cs:defseries/foo"},
+	{"foo-1", "cs:defseries/foo-1"},
+	{"n0-n0-n0", "cs:defseries/n0-n0-n0"},
+	{"cs:foo", "cs:defseries/foo"},
+	{"local:foo", "local:defseries/foo"},
+	{"series/foo", "cs:series/foo"},
+	{"cs:series/foo", "cs:series/foo"},
+	{"local:series/foo", "local:series/foo"},
+	{"cs:~user/foo", "cs:~user/defseries/foo"},
+	{"cs:~user/series/foo", "cs:~user/series/foo"},
+	{"local:~user/series/foo", "local:~user/series/foo"},
+	{"bs:foo", "bs:defseries/foo"},
+	{"cs:~1/foo", "cs:~1/defseries/foo"},
+	{"cs:foo-1-2", "cs:defseries/foo-1-2"},
+}
+
+func (s *S) TestInferURL(c *C) {
+	for _, t := range inferTests {
+		comment := Commentf("InferURL(%q, %q)", t.vague, "defseries")
+		inferred, ierr := charm.InferURL(t.vague, "defseries")
+		parsed, perr := charm.ParseURL(t.exact)
+		if parsed != nil {
+			c.Check(inferred, DeepEquals, parsed, comment)
+		} else {
+			expect := perr.Error()
+			if t.vague != t.exact {
+				expect = fmt.Sprintf("%s (URL inferred from %q)", expect, t.vague)
+			}
+			c.Check(ierr.Error(), Equals, expect, comment)
+		}
+	}
+	u, err := charm.InferURL("~blah", "defseries")
+	c.Assert(u, IsNil)
+	c.Assert(err, ErrorMatches, "cannot infer charm URL with user but no schema: .*")
 }
 
 func (s *S) TestMustParseURL(c *C) {
