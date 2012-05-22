@@ -311,8 +311,10 @@ func createGroup(c *C, ec2conn *amzec2.EC2, name, descr string) amzec2.SecurityG
 	c.Assert(err, IsNil)
 
 	gi := gresp.Groups[0]
-	_, err = ec2conn.RevokeSecurityGroup(gi.SecurityGroup, gi.IPPerms)
-	c.Assert(err, IsNil)
+	if len(gi.IPPerms) > 0 {
+		_, err = ec2conn.RevokeSecurityGroup(gi.SecurityGroup, gi.IPPerms)
+		c.Assert(err, IsNil)
+	}
 	return gi.SecurityGroup
 }
 
