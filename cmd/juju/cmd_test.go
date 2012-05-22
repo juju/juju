@@ -136,8 +136,6 @@ func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc
 }
 
 func (*cmdSuite) TestBootstrapCommand(c *C) {
-	defer dummy.Reset()
-
 	// normal bootstrap
 	opc, errc := runCommand(new(main.BootstrapCommand))
 	c.Check(<-opc, Equals, op(dummy.OpBootstrap, "peckham"))

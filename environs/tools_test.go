@@ -49,7 +49,7 @@ func toolsPathForVersion(v version.Version, series, arch string) string {
 }
 
 func mkToolsPath(vers string) string {
-	return toolsPathForVersion(mkVersion(vers), environs.CurrentUbuntuRelease, environs.CurrentArch)
+	return toolsPathForVersion(mkVersion(vers), environs.CurrentSeries, environs.CurrentArch)
 }
 
 var _ = Suite(&ToolsSuite{})
@@ -203,7 +203,7 @@ var findToolsTests = []struct {
 	version: mkVersion("1.0.0"),
 	contents: []string{
 		toolsPathForVersion(mkVersion("1.9.9"), "foo", environs.CurrentArch),
-		toolsPathForVersion(mkVersion("1.9.9"), environs.CurrentUbuntuRelease, "foo"),
+		toolsPathForVersion(mkVersion("1.9.9"), environs.CurrentSeries, "foo"),
 		mkToolsPath("1.0.0"),
 	},
 	expect: mkToolsPath("1.0.0"),

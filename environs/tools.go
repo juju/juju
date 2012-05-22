@@ -16,8 +16,9 @@ import (
 	"strings"
 )
 
-var CurrentUbuntuRelease = "precise"         // TODO find out actual version.
-var CurrentArch = ubuntuArch(runtime.GOARCH) // TODO better than this
+// TODO find out actual architecture and Ubuntu release.
+var CurrentSeries = "precise" // current Ubuntu release name.     
+var CurrentArch = ubuntuArch(runtime.GOARCH)
 
 func ubuntuArch(arch string) string {
 	if arch == "386" {
@@ -38,7 +39,7 @@ func toolsPathForVersion(v version.Version, series, arch string) string {
 
 // ToolsPath gives the path for the current juju tools, as expected
 // by environs.Environ.PutFile, for example.
-var toolsPath = toolsPathForVersion(version.Current, CurrentUbuntuRelease, CurrentArch)
+var toolsPath = toolsPathForVersion(version.Current, CurrentSeries, CurrentArch)
 
 // PutTools uploads the current version of the juju tools
 // executables to the given storage.
@@ -232,7 +233,7 @@ func findToolsPath(store StorageReader) (path string, err error) {
 			log.Printf("failed to parse version %q: %v", name, err)
 			continue
 		}
-		if m[2] != CurrentUbuntuRelease {
+		if m[2] != CurrentSeries {
 			continue
 		}
 		// TODO allow different architectures.

@@ -10,8 +10,8 @@ import (
 // ImageConstraint specifies a range of possible machine images.
 // TODO allow specification of softer constraints?
 type ImageConstraint struct {
-	UbuntuRelease     string
-	Architecture      string
+	Series            string // Ubuntu release name.
+	Arch              string
 	PersistentStorage bool
 	Region            string
 	Daily             bool
@@ -19,8 +19,8 @@ type ImageConstraint struct {
 }
 
 var DefaultImageConstraint = &ImageConstraint{
-	UbuntuRelease:     "oneiric",
-	Architecture:      "i386",
+	Series:            "oneiric",
+	Arch:              "i386",
 	PersistentStorage: true,
 	Region:            "us-east-1",
 	Daily:             false,
@@ -28,9 +28,9 @@ var DefaultImageConstraint = &ImageConstraint{
 }
 
 type ImageSpec struct {
-	ImageId       string
-	Architecture  string // The architecture the image will run on.
-	UbuntuRelease string // The Ubuntu series the image will run on.
+	ImageId string
+	Arch    string // The architecture the image will run on.
+	Series  string // The Ubuntu series the image will run on.
 }
 
 // imagesHost holds the address of the images http server.
@@ -38,15 +38,24 @@ type ImageSpec struct {
 // server when needed.
 var imagesHost = "http://uec-images.ubuntu.com"
 
-func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
-	// note: original get_image_id added three optional args:
-	// DefaultImageId		if found, returns that immediately
-	// Region				overrides spec.Region
-	// DefaultSeries		used if spec.UbuntuRelease is ""
+// Columns in the file returned from the images server.
+const (
+	colSeries = iota
+	colServer
+	colDaily
+	colDate
+	colEBS
+	colArch
+	colRegion
+	colImageId
+	// + more that we don't care about.
+	colMax
+)
 
+func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
 	hclient := new(http.Client)
 	uri := fmt.Sprintf(imagesHost+"/query/%s/%s/%s.current.txt",
-		spec.UbuntuRelease,
+		spec.Series,
 		either(spec.Desktop, "desktop", "server"), // variant.
 		either(spec.Daily, "daily", "released"),   // version.
 	)
@@ -67,17 +76,17 @@ func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
 			return nil, fmt.Errorf("cannot find matching image: %v", err)
 		}
 		f := strings.Split(string(line), "\t")
-		if len(f) < 8 {
+		if len(f) < colMax {
 			continue
 		}
-		if f[4] != ebsMatch {
+		if f[colEBS] != ebsMatch {
 			continue
 		}
-		if f[5] == spec.Architecture && f[6] == spec.Region {
+		if f[colArch] == spec.Arch && f[colRegion] == spec.Region {
 			return &ImageSpec{
-				ImageId:       f[7],
-				Architecture:  spec.Architecture,
-				UbuntuRelease: spec.UbuntuRelease,
+				ImageId: f[colImageId],
+				Arch:    spec.Arch,
+				Series:  spec.Series,
 			}, nil
 		}
 	}
