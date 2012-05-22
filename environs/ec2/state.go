@@ -2,16 +2,10 @@ package ec2
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
-	"launchpad.net/goamz/s3"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju/go/log"
-	"launchpad.net/juju/go/version"
-	"os"
-	"regexp"
+	"launchpad.net/juju/go/environs"
 	"sync"
 )
 
@@ -26,11 +20,11 @@ func (e *environ) saveState(state *bootstrapState) error {
 	if err != nil {
 		return err
 	}
-	return e.PutFile(stateFile, bytes.NewReader(data))
+	return e.Storage().Put(stateFile, bytes.NewBuffer(data), int64(len(data)))
 }
 
 func (e *environ) loadState() (*bootstrapState, error) {
-	r, err := e.GetFile(stateFile)
+	r, err := e.Storage().Get(stateFile)
 	if err != nil {
 		return nil, err
 	}
@@ -47,199 +41,9 @@ func (e *environ) loadState() (*bootstrapState, error) {
 	return &state, nil
 }
 
-func (e *environ) deleteBucket(b *s3.Bucket) error {
-	resp, err := b.List("", "", "", 0)
-	if err != nil {
-		if s3ErrorStatusCode(err) == 404 {
-			return nil
-		}
-		return err
-	}
-	// Remove all the objects in parallel so that we incur less round-trips.
-	// If we're in danger of having hundreds of objects,
-	// we'll want to change this to limit the number
-	// of concurrent operations.
-	var wg sync.WaitGroup
-	wg.Add(len(resp.Contents))
-	errc := make(chan error, len(resp.Contents))
-	for _, obj := range resp.Contents {
-		name := obj.Key
-		go func() {
-			if err := e.removeFile(b, name); err != nil {
-				errc <- err
-			}
-			wg.Done()
-		}()
-	}
-	wg.Wait()
-	select {
-	case err := <-errc:
-		return fmt.Errorf("cannot delete provider state: %v", err)
-	default:
-	}
-	return b.DelBucket()
-}
-
-func (e *environ) deleteState() error {
-	return e.deleteBucket(e.bucket())
-}
-
-func (e *environ) PutFile(file string, r io.ReadSeeker) error {
-	// Find out the length of the file by seeking to
-	// the end and back again.
-	curPos, err := r.Seek(0, os.SEEK_CUR)
-	if err != nil {
-		return err
-	}
-	length, err := r.Seek(0, os.SEEK_END)
-	if err != nil {
-		return err
-	}
-	if _, err := r.Seek(curPos, os.SEEK_SET); err != nil {
-		return err
-	}
-	// To avoid round-tripping on each PutFile, we attempt to put the
-	// file and only make the bucket if it fails due to the bucket's
-	// non-existence.
-	err = e.bucket().PutReader(file, r, length-curPos, "binary/octet-stream", s3.PublicRead)
-	if err == nil {
-		log.Printf("environs/ec2: put file %q (%d bytes)", file, length-curPos)
-		return nil
-	}
-	if s3err, _ := err.(*s3.Error); s3err == nil || s3err.Code != "NoSuchBucket" {
-		return err
-	}
-	// Make the bucket and repeat. PutBucket will succeed if the bucket
-	// already exists (for instance as a result of a concurrent PutFile)
-	if err := e.bucket().PutBucket(s3.Private); err != nil {
-		return err
-	}
-	log.Printf("environs/ec2: put bucket %q", file)
-	if _, err := r.Seek(curPos, os.SEEK_SET); err != nil {
-		return err
-	}
-
-	err = e.bucket().PutReader(file, r, length-curPos, "binary/octet-stream", s3.PublicRead)
-	if err == nil {
-		log.Printf("environs/ec2: put file %q (%d bytes)", file, length-curPos)
-	}
-	return err
-}
-
-func (e *environ) GetFile(file string) (r io.ReadCloser, err error) {
-	for a := shortAttempt.start(); a.next(); {
-		r, err = e.bucket().GetReader(file)
-		if s3ErrorStatusCode(err) == 404 {
-			continue
-		}
-		return
-	}
-	return
-}
-
-// s3ErrorStatusCode returns the HTTP status of the S3 request error,
-// if it is an error from an S3 operation, or 0 if it was not.
-func s3ErrorStatusCode(err error) int {
-	if err, _ := err.(*s3.Error); err != nil {
-		return err.StatusCode
-	}
-	return 0
-}
-
-// removeFile removes a file from the given bucket.
-func (e *environ) removeFile(b *s3.Bucket, path string) error {
-	err := b.Del(path)
-	// If we can't delete the object because the bucket doesn't
-	// exist, then we don't care.
+func maybeNotFound(err error) error {
 	if s3ErrorStatusCode(err) == 404 {
-		return nil
+		return &environs.NotFoundError{err}
 	}
 	return err
-}
-
-func (e *environ) RemoveFile(path string) error {
-	return e.removeFile(e.bucket(), path)
-}
-
-func (e *environ) bucket() *s3.Bucket {
-	return e.s3.Bucket(e.config.bucket)
-}
-
-func (e *environ) publicBucket() *s3.Bucket {
-	if e.config.publicBucket != "" {
-		return e.s3.Bucket(e.config.publicBucket)
-	}
-	return nil
-}
-
-var toolFilePat = regexp.MustCompile(`^tools/juju([0-9]+\.[0-9]+\.[0-9]+)-([^-]+)-([^-]+)\.tgz$`)
-
-var errToolsNotFound = errors.New("no compatible tools found")
-
-// findTools returns a URL from which the juju tools can
-// be downloaded appropriate to be run on an image with the
-// given specifications.
-func (e *environ) findTools(spec *InstanceSpec) (url string, err error) {
-	url, err = e.findToolsInBucket(spec, e.bucket())
-	if err == nil {
-		return
-	}
-	if b := e.publicBucket(); b != nil {
-		url, err = e.findToolsInBucket(spec, b)
-	}
-	return
-}
-
-// This is a variable so that we can alter it for testing purposes.
-var versionCurrentMajor = version.Current.Major
-
-func (e *environ) findToolsInBucket(spec *InstanceSpec, bucket *s3.Bucket) (url string, err error) {
-	var resp *s3.ListResp
-	log.Printf("looking for tools in bucket %q", bucket.Name)
-	for a := shortAttempt.start(); a.next(); {
-		resp, err = bucket.List("tools/", "/", "", 0)
-		if s3ErrorStatusCode(err) == 404 {
-			continue
-		}
-		break
-	}
-	if err != nil {
-		return "", fmt.Errorf("cannot list items in bucket: %v", err)
-	}
-
-	bestVersion := version.Version{Major: -1}
-	bestKey := ""
-	for _, k := range resp.Contents {
-		log.Printf("possible tool: %v", k.Key)
-		m := toolFilePat.FindStringSubmatch(k.Key)
-		if m == nil {
-			log.Printf("unexpected tools file found %q", k.Key)
-			continue
-		}
-		vers, err := version.Parse(m[1])
-		if err != nil {
-			log.Printf("failed to parse version %q: %v", k.Key, err)
-			continue
-		}
-		if m[2] != spec.OS {
-			log.Printf("wrong OS")
-			continue
-		}
-		if m[3] != spec.Arch {
-			log.Printf("wrong arch; expect %s; got %s", spec.Arch, m[3])
-			continue
-		}
-		if vers.Major != versionCurrentMajor {
-			log.Printf("wrong major version")
-			continue
-		}
-		if bestVersion.Less(vers) {
-			bestVersion = vers
-			bestKey = k.Key
-		}
-	}
-	if bestVersion.Major < 0 {
-		return "", errToolsNotFound
-	}
-	return bucket.URL(bestKey), nil
 }

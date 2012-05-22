@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
+	"net/http"
 )
 
 func (t *Tests) TestStartStop(c *C) {
@@ -40,6 +41,7 @@ func (t *Tests) TestStartStop(c *C) {
 }
 
 func (t *Tests) TestBootstrap(c *C) {
+	// TODO tests for Bootstrap(true)
 	e := t.Open(c)
 	err := e.Bootstrap(false)
 	c.Assert(err, IsNil)
@@ -71,40 +73,84 @@ func (t *Tests) TestBootstrap(c *C) {
 }
 
 func (t *Tests) TestPersistence(c *C) {
-	e := t.Open(c)
-	name := "persistent-file"
-	checkFileDoesNotExist(c, e, name)
-	checkPutFile(c, e, name, contents)
+	storage := t.Open(c).Storage()
 
-	e2 := t.Open(c)
-	checkFileHasContents(c, e2, name, contents)
+	names := []string{
+		"aa",
+		"zzz/aa",
+		"zzz/bb",
+	}
+	for _, name := range names {
+		checkFileDoesNotExist(c, storage, name)
+		checkPutFile(c, storage, name, []byte(name))
+	}
+	checkList(c, storage, "", names)
+	checkList(c, storage, "a", []string{"aa"})
+	checkList(c, storage, "zzz/", []string{"zzz/aa", "zzz/bb"})
 
-	// remove the file...
-	err := e2.RemoveFile(name)
+	storage2 := t.Open(c).Storage()
+	for _, name := range names {
+		checkFileHasContents(c, storage2, name, []byte(name))
+	}
+
+	// remove the first file and check that the others remain.
+	err := storage2.Remove(names[0])
+	c.Check(err, IsNil)
+
+	// check that it's ok to remove a file twice.
+	err = storage2.Remove(names[0])
 	c.Check(err, IsNil)
 
 	// ... and check it's been removed in the other environment
-	checkFileDoesNotExist(c, e, name)
+	checkFileDoesNotExist(c, storage, names[0])
+
+	// ... and that the rest of the files are still around
+	checkList(c, storage2, "", names[1:])
+
+	for _, name := range names[1:] {
+		err := storage2.Remove(name)
+		c.Assert(err, IsNil)
+	}
+
+	// check they've all gone
+	checkList(c, storage2, "", nil)
 }
 
-func checkPutFile(c *C, e environs.Environ, name string, contents []byte) {
-	err := e.PutFile(name, bytes.NewReader(contents))
+func checkList(c *C, storage environs.StorageReader, prefix string, names []string) {
+	lnames, err := storage.List(prefix)
+	c.Assert(err, IsNil)
+	c.Assert(lnames, DeepEquals, names)
+}
+
+func checkPutFile(c *C, storage environs.StorageWriter, name string, contents []byte) {
+	err := storage.Put(name, bytes.NewBuffer(contents), int64(len(contents)))
 	c.Assert(err, IsNil)
 }
 
-func checkFileDoesNotExist(c *C, e environs.Environ, name string) {
+func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string) {
 	// TODO eventual consistency
-	r, err := e.GetFile(name)
+	r, err := storage.Get(name)
 	c.Check(r, IsNil)
 	c.Assert(err, NotNil)
+	var notFoundError *environs.NotFoundError
+	c.Assert(err, FitsTypeOf, notFoundError)
 }
 
-func checkFileHasContents(c *C, e environs.Environ, name string, contents []byte) {
-	r, err := e.GetFile(name)
+func checkFileHasContents(c *C, storage environs.StorageReader, name string, contents []byte) {
+	r, err := storage.Get(name)
 	c.Assert(err, IsNil)
 	c.Check(r, NotNil)
 
 	data, err := ioutil.ReadAll(r)
 	c.Check(err, IsNil)
+	c.Check(data, DeepEquals, contents)
+
+	url, err := storage.URL(name)
+	c.Assert(err, IsNil)
+
+	resp, err := http.Get(url)
+	c.Assert(err, IsNil)
+	data, err = ioutil.ReadAll(resp.Body)
+	c.Assert(err, IsNil)
 	c.Check(data, DeepEquals, contents)
 }

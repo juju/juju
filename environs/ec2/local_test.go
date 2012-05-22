@@ -2,7 +2,6 @@ package ec2_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
@@ -14,9 +13,6 @@ import (
 	"launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
 	"launchpad.net/juju/go/testing"
-	"launchpad.net/juju/go/version"
-	"net/http"
-	"strings"
 )
 
 var functionalConfig = []byte(`
@@ -244,112 +240,4 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 
 	_, err = ec2.LoadState(t.env)
 	c.Assert(err, NotNil)
-}
-
-type toolsSpec struct {
-	version string
-	os      string
-	arch    string
-}
-
-func toolsPath(vers, os, arch string) string {
-	v, err := version.Parse(vers)
-	if err != nil {
-		panic(err)
-	}
-	return version.ToolsPathForVersion(v, os, arch)
-}
-
-var findToolsTests = []struct {
-	major    int
-	os       string
-	arch     string
-	contents []string
-	expect   string
-	err      string
-}{{
-	version.Current.Major,
-	version.CurrentOS,
-	version.CurrentArch,
-	[]string{version.ToolsPath},
-	version.ToolsPath,
-	"",
-}, {
-	1,
-	"linux",
-	"amd64",
-	[]string{
-		toolsPath("0.0.9", "linux", "amd64"),
-	},
-	"",
-	"no compatible tools found",
-}, {
-	1,
-	"linux",
-	"amd64",
-	[]string{
-		toolsPath("2.0.9", "linux", "amd64"),
-	},
-	"",
-	"no compatible tools found",
-}, {
-	1,
-	"linux",
-	"amd64",
-	[]string{
-		toolsPath("1.0.9", "linux", "amd64"),
-		toolsPath("1.0.10", "linux", "amd64"),
-		toolsPath("1.0.11", "linux", "amd64"),
-	},
-	toolsPath("1.0.11", "linux", "amd64"),
-	"",
-}, {
-	1,
-	"linux",
-	"amd64",
-	[]string{
-		toolsPath("1.9.11", "linux", "amd64"),
-		toolsPath("1.10.10", "linux", "amd64"),
-		toolsPath("1.11.9", "linux", "amd64"),
-	},
-	toolsPath("1.11.9", version.CurrentOS, version.CurrentArch),
-	"",
-}, {
-	1,
-	"freebsd",
-	"cell",
-	[]string{
-		toolsPath("1.9.9", "linux", "cell"),
-		toolsPath("1.9.9", "freebsd", "amd64"),
-		toolsPath("1.0.0", "freebsd", "cell"),
-	},
-	toolsPath("1.0.0", "freebsd", "cell"),
-	"",
-}}
-
-func (t *localServerSuite) TestFindTools(c *C) {
-	oldMajorVersion := *ec2.VersionCurrentMajor
-	defer func() {
-		*ec2.VersionCurrentMajor = oldMajorVersion
-	}()
-	for i, tt := range findToolsTests {
-		c.Logf("test %d", i)
-		*ec2.VersionCurrentMajor = tt.major
-		for _, name := range tt.contents {
-			err := t.env.PutFile(name, strings.NewReader(name))
-			c.Assert(err, IsNil)
-		}
-		url, err := ec2.FindTools(t.env, &ec2.InstanceSpec{OS: tt.os, Arch: tt.arch})
-		if tt.err != "" {
-			c.Assert(err, ErrorMatches, tt.err)
-		} else {
-			c.Assert(err, IsNil)
-			resp, err := http.Get(url)
-			c.Assert(err, IsNil)
-			data, err := ioutil.ReadAll(resp.Body)
-			c.Assert(err, IsNil)
-			c.Assert(string(data), Equals, tt.expect, Commentf("url %s", url))
-		}
-		t.env.Destroy(nil)
-	}
 }

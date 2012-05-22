@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	amzec2 "launchpad.net/goamz/ec2"
-	"launchpad.net/goamz/s3"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/ec2"
@@ -73,7 +72,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	// Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
-	putFakeTools(c, ec2.EnvironPublicBucket(e))
+	putFakeTools(c, e.PublicStorage().(environs.Storage))
 	t.LiveTests.SetUpSuite(c)
 }
 
@@ -219,30 +218,29 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 }
 
 func (t *LiveTests) TestDestroy(c *C) {
-	err := t.Env.PutFile("foo", strings.NewReader("foo"))
+	s := t.Env.Storage()
+	err := s.Put("foo", strings.NewReader("foo"), 3)
 	c.Assert(err, IsNil)
-	err = t.Env.PutFile("bar", strings.NewReader("bar"))
+	err = s.Put("bar", strings.NewReader("bar"), 3)
 	c.Assert(err, IsNil)
 
 	// Check that bucket exists, so we can be sure
 	// we have checked correctly that it's been destroyed.
-	b := ec2.EnvironBucket(t.Env)
-	resp, err := b.List("", "", "", 0)
+	names, err := s.List("")
 	c.Assert(err, IsNil)
-	c.Assert(len(resp.Contents) >= 2, Equals, true)
+	c.Assert(len(names) >= 2, Equals, true)
 
 	t.Destroy(c)
 
-	for i := 0; i < 10; i++ {
-		_, err = b.List("", "", "", 0)
+	for i := 0; i < 5; i++ {
+		_, err = s.List("", "", "", 0)
 		if err != nil {
 			break
 		}
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(1e9)
 	}
-
-	c.Assert(err, NotNil)
-	c.Assert(err.(*s3.Error).StatusCode, Equals, 404)
+	var notFoundError *environs.NotFoundError
+	c.Assert(err, FitsTypeOf, notFoundError)
 }
 
 func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {

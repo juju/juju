@@ -38,10 +38,11 @@ type environProvider struct{}
 var _ environs.EnvironProvider = environProvider{}
 
 type environ struct {
-	name   string
-	config *providerConfig
-	ec2    *ec2.EC2
-	s3     *s3.S3
+	name    string
+	config  *providerConfig
+	ec2     *ec2.EC2
+	s3      *s3.S3
+	storage storage
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -89,18 +90,18 @@ func (inst *instance) WaitDNSName() (string, error) {
 	return "", fmt.Errorf("timed out trying to get DNS address for %v", inst.Id())
 }
 
-func (environProvider) Open(name string, config interface{}) (e environs.Environ, err error) {
-	log.Printf("environs/ec2: opening environment %q", name)
-	cfg := config.(*providerConfig)
+func (cfg *providerConfig) Open() (environs.Environ, error) {
+	log.Printf("environs/ec2: opening environment %q", cfg.name)
 	if Regions[cfg.region].EC2Endpoint == "" {
-		return nil, fmt.Errorf("no ec2 endpoint found for region %q, opening %q", cfg.region, name)
+		return nil, fmt.Errorf("no ec2 endpoint found for region %q, opening %q", cfg.region, cfg.name)
 	}
-	return &environ{
-		name:   name,
+	e := &environ{
 		config: cfg,
 		ec2:    ec2.New(cfg.auth, Regions[cfg.region]),
 		s3:     s3.New(cfg.auth, Regions[cfg.region]),
-	}, nil
+	}
+	e.storage.bucket = e.s3.Bucket(cfg.bucket)
+	return e, nil
 }
 
 func (e *environ) Bootstrap(uploadTools bool) error {
@@ -109,11 +110,11 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
-	if err != nil && s3ErrorStatusCode(err) != 404 {
-		return err
+	if _, notFound := err.(*environs.NotFoundError); !notFound {
+		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 	if uploadTools {
-		err := environs.UploadTools(e)
+		err := environs.PutTools(e.Storage())
 		if err != nil {
 			return fmt.Errorf("cannot upload tools: %v", err)
 		}
@@ -364,7 +365,7 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 	if err != nil {
 		return err
 	}
-	err = e.deleteState()
+	err = e.storage.deleteAll()
 	if err != nil {
 		return err
 	}

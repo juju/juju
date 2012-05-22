@@ -2,6 +2,7 @@ package state_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/state"
 	"time"
 )
@@ -26,12 +27,26 @@ func (s *StateSuite) TestServiceWatchConfig(c *C) {
 	// Two change events.
 	config.Set("foo", "bar")
 	config.Set("baz", "yadda")
-	_, err = config.Write()
+	changes, err := config.Write()
 	c.Assert(err, IsNil)
+	c.Assert(changes, DeepEquals, []state.ItemChange{{
+		Key:      "baz",
+		Type:     state.ItemAdded,
+		NewValue: "yadda",
+	}, {
+		Key:      "foo",
+		Type:     state.ItemAdded,
+		NewValue: "bar",
+	}})
 	time.Sleep(100 * time.Millisecond)
 	config.Delete("foo")
-	_, err = config.Write()
+	changes, err = config.Write()
 	c.Assert(err, IsNil)
+	c.Assert(changes, DeepEquals, []state.ItemChange{{
+		Key:      "foo",
+		Type:     state.ItemDeleted,
+		OldValue: "bar",
+	}})
 
 	for _, want := range serviceWatchConfigData {
 		select {
@@ -207,4 +222,126 @@ func (s *StateSuite) TestUnitWatchPorts(c *C) {
 
 	err = portsWatcher.Stop()
 	c.Assert(err, IsNil)
+}
+
+type machinesWatchTest struct {
+	test func(*state.State) error
+	want func(*state.State) *state.MachinesChange
+}
+
+var machinesWatchTests = []machinesWatchTest{
+	{
+		func(s *state.State) error {
+			_, err := s.AddMachine()
+			return err
+		},
+		func(s *state.State) *state.MachinesChange {
+			return &state.MachinesChange{Added: []*state.Machine{state.NewMachine(s, "machine-0000000000")}}
+		},
+	},
+	{
+		func(s *state.State) error {
+			_, err := s.AddMachine()
+			return err
+		},
+		func(s *state.State) *state.MachinesChange {
+			return &state.MachinesChange{Added: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
+		},
+	},
+	{
+		func(s *state.State) error {
+			return s.RemoveMachine(1)
+		},
+		func(s *state.State) *state.MachinesChange {
+			return &state.MachinesChange{Deleted: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
+		},
+	},
+}
+
+func (s *StateSuite) TestWatchMachines(c *C) {
+	w := s.st.WatchMachines()
+
+	for _, test := range machinesWatchTests {
+		err := test.test(s.st)
+		c.Assert(err, IsNil)
+		want := test.want(s.st)
+		select {
+		case got, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got, DeepEquals, want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", want)
+		}
+	}
+
+	select {
+	case got, _ := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	c.Assert(w.Stop(), IsNil)
+}
+
+type any map[string]interface{}
+
+var environmentWatchTests = []struct {
+	key   string
+	value interface{}
+	want  map[string]interface{}
+}{
+	{"provider", "dummy", any{"provider": "dummy"}},
+	{"secret", "shhh", any{"provider": "dummy", "secret": "shhh"}},
+	{"provider", "aws", any{"provider": "aws", "secret": "shhh"}},
+}
+
+func (s *StateSuite) TestWatchEnvironment(c *C) {
+	// create a blank /environment key manually as it is 
+	// not created by state.Init().
+	path, err := s.zkConn.Create("/environment", "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
+	c.Assert(err, IsNil)
+	c.Assert(path, Equals, "/environment")
+
+	// fetch the /environment key as a *ConfigNode
+	w := s.st.WatchEnvrionConfig()
+	config, ok := <-w.Changes()
+	c.Assert(ok, Equals, true)
+
+	for _, test := range environmentWatchTests {
+		config.Set(test.key, test.value)
+		_, err := config.Write()
+		c.Assert(err, IsNil)
+		select {
+		case got, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got.Map(), DeepEquals, test.want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", test.want)
+		}
+	}
+
+	select {
+	case got, _ := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	c.Assert(w.Stop(), IsNil)
+}
+
+var diffTests = []struct {
+	A, B, want []string
+}{
+	{[]string{"A", "B", "C"}, []string{"A", "D", "C"}, []string{"B"}},
+	{[]string{"A", "B", "C"}, []string{"C", "B", "A"}, nil},
+	{[]string{"A", "B", "C"}, []string{"B"}, []string{"A", "C"}},
+	{[]string{"B"}, []string{"A", "B", "C"}, nil},
+	{[]string{"A", "D", "C"}, []string{}, []string{"A", "D", "C"}},
+	{[]string{}, []string{"A", "D", "C"}, nil},
+}
+
+func (*StateSuite) TestDiff(c *C) {
+	for _, test := range diffTests {
+		c.Assert(test.want, DeepEquals, state.Diff(test.A, test.B))
+	}
 }

@@ -2,7 +2,6 @@ package ec2
 
 import (
 	"launchpad.net/goamz/ec2"
-	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
 	"net/http"
 )
@@ -10,8 +9,6 @@ import (
 type BootstrapState struct {
 	ZookeeperInstances []string
 }
-
-var VersionCurrentMajor = &versionCurrentMajor
 
 func LoadState(e environs.Environ) (*BootstrapState, error) {
 	s, err := e.(*environ).loadState()
@@ -37,12 +34,8 @@ func EnvironEC2(e environs.Environ) *ec2.EC2 {
 	return e.(*environ).ec2
 }
 
-func EnvironBucket(e environs.Environ) *s3.Bucket {
-	return e.(*environ).bucket()
-}
-
-func EnvironPublicBucket(e environs.Environ) *s3.Bucket {
-	return e.(*environ).publicBucket()
+func DeleteStorage(s environs.Storage) error {
+	return s.(*storage).deleteAll()
 }
 
 func DeleteBucket(e environs.Environ, b *s3.Bucket) error {
@@ -53,6 +46,8 @@ func FindTools(e environs.Environ, spec *InstanceSpec) (string, error) {
 	return e.(*environ).findTools(spec)
 }
 
+=======
+>>>>>>> MERGE-SOURCE
 func InstanceEC2(inst environs.Instance) *ec2.Instance {
 	return inst.(*instance).Instance
 }
