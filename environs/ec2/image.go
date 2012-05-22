@@ -38,21 +38,12 @@ type ImageSpec struct {
 // server when needed.
 var imagesHost = "http://uec-images.ubuntu.com"
 
-// Columns in the file returned from the images server.
-const (
-	colSeries = iota
-	colServer
-	colDaily
-	colDate
-	colEBS
-	colArch
-	colRegion
-	colImageId
-	// + more that we don't care about.
-	colMax
-)
-
 func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
+	// note: original get_image_id added three optional args:
+	// DefaultImageId		if found, returns that immediately
+	// Region				overrides spec.Region
+	// DefaultSeries		used if spec.Series is ""
+
 	hclient := new(http.Client)
 	uri := fmt.Sprintf(imagesHost+"/query/%s/%s/%s.current.txt",
 		spec.Series,
@@ -76,15 +67,15 @@ func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
 			return nil, fmt.Errorf("cannot find matching image: %v", err)
 		}
 		f := strings.Split(string(line), "\t")
-		if len(f) < colMax {
+		if len(f) < 8 {
 			continue
 		}
-		if f[colEBS] != ebsMatch {
+		if f[4] != ebsMatch {
 			continue
 		}
-		if f[colArch] == spec.Arch && f[colRegion] == spec.Region {
+		if f[5] == spec.Arch && f[6] == spec.Region {
 			return &ImageSpec{
-				ImageId: f[colImageId],
+				ImageId: f[7],
 				Arch:    spec.Arch,
 				Series:  spec.Series,
 			}, nil

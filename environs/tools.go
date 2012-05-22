@@ -43,7 +43,8 @@ var toolsPath = toolsPathForVersion(version.Current, CurrentSeries, CurrentArch)
 
 // PutTools uploads the current version of the juju tools
 // executables to the given storage.
-// TODO find binaries from $PATH when go dev environment not available.
+// TODO find binaries from $PATH when not using a development
+// version of juju within a $GOPATH.
 func PutTools(storage StorageWriter) error {
 	// We create the entire archive before asking the environment to
 	// start uploading so that we can be sure we have archived
@@ -96,15 +97,15 @@ func archive(w io.Writer, dir string) (err error) {
 		if err != nil {
 			return err
 		}
-		if err := readFile(tarw, filepath.Join(dir, ent.Name())); err != nil {
+		if err := copyFile(tarw, filepath.Join(dir, ent.Name())); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// readFile writes the contents of the given file to w.
-func readFile(w io.Writer, file string) error {
+// copyFile writes the contents of the given file to w.
+func copyFile(w io.Writer, file string) error {
 	f, err := os.Open(file)
 	if err != nil {
 		return err
@@ -145,11 +146,17 @@ func closeErrorCheck(errp *error, c io.Closer) {
 	}
 }
 
-// FindTools tries to find a set of tools appropriate for the current
-// version and platform and returns a URL that can be used to access
-// them in gzipped tar archive format.
-func FindTools(env Environ) (url string, err error) {
-	storage, path, err := findTools(env)
+type toolsSpec struct {
+	vers   version.Version
+	series string
+	arch   string
+}
+
+// FindTools tries to find a set of tools appropriate for the given
+// version, Ubuntu series and architecture, and returns a URL that can
+// be used to access them in gzipped tar archive format.
+func FindTools(env Environ, vers version.Version, series, arch string) (url string, err error) {
+	storage, path, err := findTools(env, toolsSpec{vers, series, arch})
 	if err != nil {
 		return "", err
 	}
@@ -159,7 +166,7 @@ func FindTools(env Environ) (url string, err error) {
 // GetTools finds the latest compatible version of the juju tools
 // and downloads them into the given directory.
 func GetTools(env Environ, dir string) error {
-	storage, path, err := findTools(env)
+	storage, path, err := findTools(env, toolsSpec{version.Current, CurrentSeries, CurrentArch})
 	if err != nil {
 		return err
 	}
@@ -197,13 +204,13 @@ func GetTools(env Environ, dir string) error {
 }
 
 // findToolsPath is an internal version of FindTools that returns the
-// found StorageReader and the path within that storage.
-func findTools(env Environ) (storage StorageReader, path string, err error) {
+// storage in which the tools have been found, and the path within that storage.
+func findTools(env Environ, spec toolsSpec) (storage StorageReader, path string, err error) {
 	storage = env.Storage()
-	path, err = findToolsPath(storage)
+	path, err = findToolsPath(storage, spec)
 	if _, ok := err.(*NotFoundError); ok {
 		storage = env.PublicStorage()
-		path, err = findToolsPath(storage)
+		path, err = findToolsPath(storage, spec)
 	}
 	if err != nil {
 		return nil, "", err
@@ -212,8 +219,8 @@ func findTools(env Environ) (storage StorageReader, path string, err error) {
 }
 
 // findToolsPath looks for the tools in the given storage.
-func findToolsPath(store StorageReader) (path string, err error) {
-	names, err := store.List(fmt.Sprintf("%s%d.", toolPrefix, version.Current.Major))
+func findToolsPath(store StorageReader, spec toolsSpec) (path string, err error) {
+	names, err := store.List(fmt.Sprintf("%s%d.", toolPrefix, spec.vers.Major))
 	if err != nil {
 		return "", err
 	}
@@ -233,14 +240,14 @@ func findToolsPath(store StorageReader) (path string, err error) {
 			log.Printf("failed to parse version %q: %v", name, err)
 			continue
 		}
-		if m[2] != CurrentSeries {
+		if m[2] != spec.series {
 			continue
 		}
 		// TODO allow different architectures.
-		if m[3] != CurrentArch {
+		if m[3] != spec.arch {
 			continue
 		}
-		if vers.Major != version.Current.Major {
+		if vers.Major != spec.vers.Major {
 			continue
 		}
 		if bestVersion.Less(vers) {
@@ -285,8 +292,7 @@ func writeFile(name string, mode os.FileMode, r io.Reader) error {
 	return err
 }
 
-// EmptyStorage holds a StorageReader object
-// that contains nothing.
+// EmptyStorage holds a StorageReader object that contains nothing.
 var EmptyStorage StorageReader = emptyStorage{}
 
 type emptyStorage struct{}

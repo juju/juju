@@ -211,14 +211,8 @@ var findToolsTests = []struct {
 }
 
 func (t *ToolsSuite) TestFindTools(c *C) {
-	originalVersion := version.Current
-	defer func() {
-		version.Current = originalVersion
-	}()
-
 	for i, tt := range findToolsTests {
 		c.Logf("test %d", i)
-		version.Current = tt.version
 		for _, name := range tt.contents {
 			err := t.env.Storage().Put(name, strings.NewReader(name), int64(len(name)))
 			c.Assert(err, IsNil)
@@ -230,7 +224,7 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 			err := t.env.PublicStorage().(environs.Storage).Put(name, strings.NewReader(data), int64(len(data)))
 			c.Assert(err, IsNil)
 		}
-		url, err := environs.FindTools(t.env)
+		url, err := environs.FindTools(t.env, tt.version, environs.CurrentSeries, environs.CurrentArch)
 		if tt.err != "" {
 			c.Assert(err, ErrorMatches, tt.err)
 		} else {
