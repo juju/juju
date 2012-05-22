@@ -9,7 +9,7 @@ import (
 	"text/template"
 )
 
-// networks represents local virtual network.
+// networks represents a local virtual network.
 type network struct {
 	XMLName xml.Name `xml:"network"`
 	Name    string   `xml:"name"`
@@ -69,9 +69,12 @@ func (n *network) exists() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return networks[n.Name], nil
+	_, exists := networks[n.Name]
+	return exists, nil
 }
 
+// virsh replaces %d with an auto increment
+// number to make the bridge name unique
 var libVirtNetworkTemplate = template.Must(template.New("").Parse(`
 <network>
   <name>{{.Name}}</name>
@@ -85,7 +88,7 @@ var libVirtNetworkTemplate = template.Must(template.New("").Parse(`
 </network>
 `))
 
-// start ensure that the network is started.
+// start ensures that the network is started.
 // If network name does not exist, it is created.
 func (n *network) start() error {
 	exists, err := n.exists()
@@ -126,14 +129,20 @@ func listNetworks() (map[string]bool, error) {
 		return nil, err
 	}
 	// Remove the header.
-	lines := strings.Split(string(output), "\n")[2:]
 	networks := map[string]bool{}
+	lines := strings.Split(string(output), "\n")
+	if len(lines) < 3 {
+		return networks, nil
+	}
+	lines = lines[2:]
 	for _, line := range lines {
 		if line == "" {
 			continue
 		}
 		fields := strings.Fields(line)
-		networks[fields[0]] = fields[1] == "active"
+		if len(fields) > 2 {
+			networks[fields[0]] = fields[1] == "active"
+		}
 	}
 	return networks, nil
 }

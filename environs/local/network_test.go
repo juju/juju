@@ -14,6 +14,8 @@ cat <<END
 Name                 State      Autostart
 -----------------------------------------
 default              active     yes
+juju-test            active     yes
+foobar               inactive   no
 END
 ;;
 
@@ -96,6 +98,11 @@ func (s *networkSuite) TestRunning(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(running, Equals, true)
 
+	n = network{Name: "foobar"}
+	running, err = n.running()
+	c.Assert(err, IsNil)
+	c.Assert(running, Equals, false)
+
 	n = network{Name: "fakeName"}
 	running, err = n.running()
 	c.Assert(err, IsNil)
@@ -108,6 +115,11 @@ func (s *networkSuite) TestNetworkExists(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(exists, Equals, true)
 
+	n = network{Name: "foobar"}
+	exists, err = n.exists()
+	c.Assert(err, IsNil)
+	c.Assert(exists, Equals, true)
+
 	n = network{Name: "fakeName"}
 	exists, err = n.exists()
 	c.Assert(err, IsNil)
@@ -115,7 +127,11 @@ func (s *networkSuite) TestNetworkExists(c *C) {
 }
 
 func (s *networkSuite) TestListNetworks(c *C) {
-	expected := map[string]bool{"default": true}
+	expected := map[string]bool{
+		"juju-test": true,
+		"foobar":    false,
+		"default":   true,
+	}
 	networks, err := listNetworks()
 	c.Assert(err, IsNil)
 	c.Assert(networks, DeepEquals, expected)
