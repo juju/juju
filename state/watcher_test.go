@@ -226,7 +226,7 @@ func (s *StateSuite) TestUnitWatchPorts(c *C) {
 
 type machinesWatchTest struct {
 	test func(*state.State) error
-	want func(*state.State) state.MachinesChange
+	want func(*state.State) *state.MachinesChange
 }
 
 var machinesWatchTests = []machinesWatchTest{
@@ -235,8 +235,8 @@ var machinesWatchTests = []machinesWatchTest{
 			_, err := s.AddMachine()
 			return err
 		},
-		func(s *state.State) state.MachinesChange {
-			return state.MachinesChange{Added: []*state.Machine{state.NewMachine(s, "machine-0000000000")}}
+		func(s *state.State) *state.MachinesChange {
+			return &state.MachinesChange{Added: []*state.Machine{state.NewMachine(s, "machine-0000000000")}}
 		},
 	},
 	{
@@ -244,16 +244,16 @@ var machinesWatchTests = []machinesWatchTest{
 			_, err := s.AddMachine()
 			return err
 		},
-		func(s *state.State) state.MachinesChange {
-			return state.MachinesChange{Added: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
+		func(s *state.State) *state.MachinesChange {
+			return &state.MachinesChange{Added: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
 		},
 	},
 	{
 		func(s *state.State) error {
 			return s.RemoveMachine(1)
 		},
-		func(s *state.State) state.MachinesChange {
-			return state.MachinesChange{Deleted: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
+		func(s *state.State) *state.MachinesChange {
+			return &state.MachinesChange{Deleted: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
 		},
 	},
 }
@@ -327,4 +327,21 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 	}
 
 	c.Assert(w.Stop(), IsNil)
+}
+
+var diffTests = []struct {
+	A, B, want []string
+}{
+	{[]string{"A", "B", "C"}, []string{"A", "D", "C"}, []string{"B"}},
+	{[]string{"A", "B", "C"}, []string{"C", "B", "A"}, nil},
+	{[]string{"A", "B", "C"}, []string{"B"}, []string{"A", "C"}},
+	{[]string{"B"}, []string{"A", "B", "C"}, nil},
+	{[]string{"A", "D", "C"}, []string{}, []string{"A", "D", "C"}},
+	{[]string{}, []string{"A", "D", "C"}, nil},
+}
+
+func (*StateSuite) TestDiff(c *C) {
+	for _, test := range diffTests {
+		c.Assert(test.want, DeepEquals, state.Diff(test.A, test.B))
+	}
 }

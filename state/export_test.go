@@ -21,3 +21,5 @@ func NewMachine(st *State, key string) *Machine {
 		key: key,
 	}
 }
+
+func Diff(a, b []string) []string { return diff(a, b) }
