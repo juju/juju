@@ -22,4 +22,4 @@ func NewMachine(st *State, key string) *Machine {
 	}
 }
 
-func Except(a, b []string) []string { return except(a, b) }
+func Diff(a, b []string) []string { return diff(a, b) }

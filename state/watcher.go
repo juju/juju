@@ -294,14 +294,14 @@ func (w *PortsWatcher) loop() {
 }
 
 // MachinesWatcher notifies about machines being added or removed 
-// in the topology.
+// from the environment.
 type MachinesWatcher struct {
-	st         *State
-	path       string
-	tomb       tomb.Tomb
-	changeChan chan *MachinesChange
-	watcher    *watcher.ContentWatcher
-	topology   *topology
+	st               *State
+	path             string
+	tomb             tomb.Tomb
+	changeChan       chan *MachinesChange
+	watcher          *watcher.ContentWatcher
+	knownMachineKeys []string
 }
 
 // newMachinesWatcher creates and starts a new machine watcher.
@@ -309,11 +309,11 @@ func newMachinesWatcher(st *State) *MachinesWatcher {
 	// start with an empty topology
 	topology, _ := parseTopology("")
 	w := &MachinesWatcher{
-		st:         st,
-		path:       zkTopologyPath,
-		changeChan: make(chan *MachinesChange),
-		watcher:    watcher.NewContentWatcher(st.zk, zkTopologyPath),
-		topology:   topology,
+		st:               st,
+		path:             zkTopologyPath,
+		changeChan:       make(chan *MachinesChange),
+		watcher:          watcher.NewContentWatcher(st.zk, zkTopologyPath),
+		knownMachineKeys: topology.MachineKeys(),
 	}
 	go w.loop()
 	return w
@@ -355,10 +355,9 @@ func (w *MachinesWatcher) loop() {
 				w.tomb.Kill(err)
 				return
 			}
-			previous := w.topology.MachineKeys()
-			current := topology.MachineKeys()
-			added, deleted := diff(previous, current)
-			w.topology = topology
+			currentMachineKeys := topology.MachineKeys()
+			added, deleted := diff(currentMachineKeys, w.knownMachineKeys), diff(w.knownMachineKeys, currentMachineKeys)
+			w.knownMachineKeys = currentMachineKeys
 			if len(added) == 0 && len(deleted) == 0 {
 				// nothing changed in zkMachinePath
 				continue
@@ -383,14 +382,8 @@ func (w *MachinesWatcher) loop() {
 	}
 }
 
-// diff returns a tupple of entries that exist in the previous
-// slice but not in the current slice, and vice versa.
-func diff(previous, current []string) ([]string, []string) {
-	return except(current, previous), except(previous, current)
-}
-
-// except returns all the elements that exist in A but not B.
-func except(A, B []string) (missing []string) {
+// diff returns all the elements that exist in A but not B.
+func diff(A, B []string) (missing []string) {
 next:
 	for _, a := range A {
 		for _, b := range B {
