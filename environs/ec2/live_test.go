@@ -211,7 +211,12 @@ func (t *LiveTests) TestDestroy(c *C) {
 
 	t.Destroy(c)
 
-	names, err = s.List("")
+	for i := 0; i < 5; i++ {
+		names, err = s.List("")
+		if err != nil {
+			break
+		}
+	}
 	var notFoundError *environs.NotFoundError
 	c.Assert(err, FitsTypeOf, notFoundError)
 }
@@ -284,8 +289,10 @@ func createGroup(c *C, ec2conn *amzec2.EC2, name, descr string) amzec2.SecurityG
 	c.Assert(err, IsNil)
 
 	gi := gresp.Groups[0]
-	_, err = ec2conn.RevokeSecurityGroup(gi.SecurityGroup, gi.IPPerms)
-	c.Assert(err, IsNil)
+	if len(gi.IPPerms) > 0 {
+		_, err = ec2conn.RevokeSecurityGroup(gi.SecurityGroup, gi.IPPerms)
+		c.Assert(err, IsNil)
+	}
 	return gi.SecurityGroup
 }
 
