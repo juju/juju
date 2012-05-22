@@ -216,6 +216,7 @@ func (t *LiveTests) TestDestroy(c *C) {
 		if err != nil {
 			break
 		}
+		time.Sleep(1e9)
 	}
 	var notFoundError *environs.NotFoundError
 	c.Assert(err, FitsTypeOf, notFoundError)
