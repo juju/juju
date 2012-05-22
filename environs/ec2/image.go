@@ -7,13 +7,12 @@ import (
 	"strings"
 )
 
-<<<<<<< TREE
 // TODO implement constraints properly.
 
 // InstanceConstraint specifies a range of possible instances
 // and the images that can run on them.
 type InstanceConstraint struct {
-	Series     string // Ubuntu release name.
+	Series            string // Ubuntu release name.
 	Arch              string
 	PersistentStorage bool
 	Region            string
@@ -22,7 +21,7 @@ type InstanceConstraint struct {
 }
 
 var DefaultInstanceConstraint = &InstanceConstraint{
-	Series:     "oneiric",
+	Series:            "oneiric",
 	Arch:              "i386",
 	PersistentStorage: true,
 	Region:            "us-east-1",
