@@ -211,12 +211,12 @@ func (t *LiveTests) TestDestroy(c *C) {
 
 	t.Destroy(c)
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 30; i++ {
 		names, err = s.List("")
 		if err != nil {
 			break
 		}
-		time.Sleep(1e9)
+		time.Sleep(100 * time.Millisecond)
 	}
 	var notFoundError *environs.NotFoundError
 	c.Assert(err, FitsTypeOf, notFoundError)
@@ -256,11 +256,11 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	// for Instances to return an error, and it will not retry
 	// if it succeeds.
 	gone := false
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 30; i++ {
 		insts, err = t.Env.Instances([]string{inst0.Id(), inst2.Id()})
 		if err == environs.ErrPartialInstances {
 			// instances not gone yet.
-			time.Sleep(1e9)
+			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 		if err == environs.ErrNoInstances {
