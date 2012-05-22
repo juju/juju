@@ -51,10 +51,7 @@ func (s *storage) Get(file string) (r io.ReadCloser, err error) {
 		}
 		return
 	}
-	if s3ErrorStatusCode(err) == 404 {
-		err = &environs.NotFoundError{err}
-	}
-	return
+	return r, maybeNotFound(err)
 }
 
 func (s *storage) URL(name string) (string, error) {
@@ -84,10 +81,7 @@ func (s *storage) List(prefix string) ([]string, error) {
 	// TODO cope with more than 1000 objects in the bucket.
 	resp, err := s.bucket.List(prefix, "", "", 0)
 	if err != nil {
-		if s3ErrorStatusCode(err) == 404 {
-			return nil, &environs.NotFoundError{err}
-		}
-		return nil, err
+		return nil, maybeNotFound(err)
 	}
 	var names []string
 	for _, key := range resp.Contents {

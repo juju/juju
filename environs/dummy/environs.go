@@ -270,6 +270,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	e.state.ops <- Operation{Kind: OpDestroy, Env: e.state.name}
 	e.state.mu.Lock()
 	e.state.bootstrapped = false
+	e.state.storage.files = make(map[string][]byte)
 	e.state.mu.Unlock()
 	return nil
 }

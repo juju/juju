@@ -10,8 +10,8 @@ import (
 // ImageConstraint specifies a range of possible machine images.
 // TODO allow specification of softer constraints?
 type ImageConstraint struct {
-	UbuntuRelease     string
-	Architecture      string
+	Series            string // Ubuntu release name.
+	Arch              string
 	PersistentStorage bool
 	Region            string
 	Daily             bool
@@ -19,8 +19,8 @@ type ImageConstraint struct {
 }
 
 var DefaultImageConstraint = &ImageConstraint{
-	UbuntuRelease:     "oneiric",
-	Architecture:      "i386",
+	Series:            "oneiric",
+	Arch:              "i386",
 	PersistentStorage: true,
 	Region:            "us-east-1",
 	Daily:             false,
@@ -29,6 +29,8 @@ var DefaultImageConstraint = &ImageConstraint{
 
 type ImageSpec struct {
 	ImageId string
+	Arch    string // The architecture the image will run on.
+	Series  string // The Ubuntu series the image will run on.
 }
 
 // imagesHost holds the address of the images http server.
@@ -40,11 +42,11 @@ func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
 	// note: original get_image_id added three optional args:
 	// DefaultImageId		if found, returns that immediately
 	// Region				overrides spec.Region
-	// DefaultSeries		used if spec.UbuntuRelease is ""
+	// DefaultSeries		used if spec.Series is ""
 
 	hclient := new(http.Client)
 	uri := fmt.Sprintf(imagesHost+"/query/%s/%s/%s.current.txt",
-		spec.UbuntuRelease,
+		spec.Series,
 		either(spec.Desktop, "desktop", "server"), // variant.
 		either(spec.Daily, "daily", "released"),   // version.
 	)
@@ -57,6 +59,7 @@ func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
 	}
 	defer resp.Body.Close()
 	ebsMatch := either(spec.PersistentStorage, "ebs", "instance-store")
+
 	r := bufio.NewReader(resp.Body)
 	for {
 		line, _, err := r.ReadLine()
@@ -70,8 +73,12 @@ func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
 		if f[4] != ebsMatch {
 			continue
 		}
-		if f[5] == spec.Architecture && f[6] == spec.Region {
-			return &ImageSpec{f[7]}, nil
+		if f[5] == spec.Arch && f[6] == spec.Region {
+			return &ImageSpec{
+				ImageId: f[7],
+				Arch:    spec.Arch,
+				Series:  spec.Series,
+			}, nil
 		}
 	}
 	panic("not reached")
