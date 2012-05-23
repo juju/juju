@@ -67,11 +67,11 @@ func (r *zkRelation) check() error {
 			return fmt.Errorf("provider or consumer service missing")
 		}
 	case 2:
-		if r.Services[RoleProvider] == "" || r.Services[RoleConsumer] == "" {
+		if r.Services[RoleProvider] == "" || r.Services[RoleRequirer] == "" {
 			return fmt.Errorf("mixed peer with provider or consumer service")
 		}
 	default:
-		return fmt.Errorf("too much services defined")
+		return fmt.Errorf("too many services defined")
 	}
 	return nil
 }
@@ -395,7 +395,7 @@ func (t *topology) AddRelation(relationKey string, relation *zkRelation) error {
 	}
 	if relation.Services[RolePeer] == "" {
 		providerKey := relation.Services[RoleProvider]
-		consumerKey := relation.Services[RoleConsumer]
+		consumerKey := relation.Services[RoleRequirer]
 		if providerKey == consumerKey {
 			return fmt.Errorf("provider and consumer keys must not be the same")
 		}

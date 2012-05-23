@@ -480,19 +480,19 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 	err = s.t.AddRelation("r-1", &zkRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleConsumer: "s-c"},
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleRequirer: "s-c"},
 	})
 	c.Assert(err, IsNil)
 	relation, err = s.t.Relation("r-1")
 	c.Assert(err, IsNil)
 	c.Assert(relation, NotNil)
 	c.Assert(relation.Services[RoleProvider], Equals, "s-p")
-	c.Assert(relation.Services[RoleConsumer], Equals, "s-c")
+	c.Assert(relation.Services[RoleRequirer], Equals, "s-c")
 
 	err = s.t.AddRelation("r-2", &zkRelation{
 		Interface: "",
 		Scope:     ScopeGlobal,
-		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleConsumer: "s-c"},
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleRequirer: "s-c"},
 	})
 	c.Assert(err, ErrorMatches, `relation interface is empty`)
 
@@ -520,21 +520,21 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 	err = s.t.AddRelation("r-2", &zkRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleConsumer: "s-c", RolePeer: "s-c"},
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleRequirer: "s-c", RolePeer: "s-c"},
 	})
-	c.Assert(err, ErrorMatches, `too much services defined`)
+	c.Assert(err, ErrorMatches, `too many services defined`)
 
 	err = s.t.AddRelation("r-2", &zkRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleConsumer: "illegal"},
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleRequirer: "illegal"},
 	})
 	c.Assert(err, ErrorMatches, `service with key "illegal" not found`)
 
 	err = s.t.AddRelation("r-1", &zkRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleConsumer: "s-c"},
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleRequirer: "s-c"},
 	})
 	c.Assert(err, ErrorMatches, `relation key "r-1" already in use`)
 }
@@ -570,7 +570,7 @@ func (s *TopologySuite) TestRemoveRelation(c *C) {
 	err := s.t.AddRelation("r-1", &zkRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleConsumer: "s-c"},
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleRequirer: "s-c"},
 	})
 	c.Assert(err, IsNil)
 
@@ -578,7 +578,7 @@ func (s *TopologySuite) TestRemoveRelation(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(relation, NotNil)
 	c.Assert(relation.Services[RoleProvider], Equals, "s-p")
-	c.Assert(relation.Services[RoleConsumer], Equals, "s-c")
+	c.Assert(relation.Services[RoleRequirer], Equals, "s-c")
 
 	s.t.RemoveRelation("r-1")
 
