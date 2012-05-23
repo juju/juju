@@ -1,32 +1,33 @@
 package state
 
-import ()
+import (
+	"fmt"
+)
 
 // RelationRole defines the role of a relation endpoint.
 type RelationRole string
 
 const (
-	RoleNone   RelationRole = ""
-	RoleServer RelationRole = "server"
-	RoleClient RelationRole = "client"
-	RolePeer   RelationRole = "peer"
+	RoleProvider RelationRole = "provider"
+	RoleConsumer RelationRole = "consumer"
+	RolePeer     RelationRole = "peer"
 )
 
 // RelationScope describes the scope of a relation endpoint.
 type RelationScope string
 
 const (
-	ScopeNone      RelationScope = ""
 	ScopeGlobal    RelationScope = "global"
 	ScopeContainer RelationScope = "container"
 )
 
 // RelationEndpoint represents one endpoint of a relation.
 type RelationEndpoint struct {
-	ServiceName   string `yaml:"service-name"`
+	ServiceName   string
 	Interface     string
-	RelationRole  RelationRole  `yaml:"relation-role"`
-	RelationScope RelationScope `yaml:"relation-scope"`
+	RelationName  string
+	RelationRole  RelationRole
+	RelationScope RelationScope
 }
 
 // CanRelateTo tests whether the "other"`" endpoint can be used in a common 
@@ -40,12 +41,17 @@ func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
 		return false
 	}
 	switch e.RelationRole {
-	case RoleServer:
-		return other.RelationRole == RoleClient
-	case RoleClient:
-		return other.RelationRole == RoleServer
+	case RoleProvider:
+		return other.RelationRole == RoleConsumer
+	case RoleConsumer:
+		return other.RelationRole == RoleProvider
 	case RolePeer:
 		return other.RelationRole == RolePeer
 	}
-	panic("invalid endpoint role")
+	panic("endpoint role is undefined")
+}
+
+// String returns the string representation of the relation endpoint.
+func (e *RelationEndpoint) String() string {
+	return fmt.Sprintf("%s:%s:%s", e.RelationRole, e.RelationName, e.ServiceName)
 }

@@ -159,7 +159,7 @@ func (t *localServerSuite) TearDownTest(c *C) {
 }
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
-	err := t.env.Bootstrap()
+	err := t.env.Bootstrap(false)
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.

@@ -452,73 +452,91 @@ func (s *TopologySuite) TestUnitKeyFromNonExistingService(c *C) {
 	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
 }
 
-func (s *TopologySuite) TestHasRelation(c *C) {
-	// Check that tests for existing and non-existing
-	// relations work correctly.
-	found := s.t.HasRelation("r-1")
-	c.Assert(found, Equals, false)
+func (s *TopologySuite) TestRelation(c *C) {
+	// Check that the retrieving of relations works correctly.
+	relation, err := s.t.Relation("r-1")
+	c.Assert(relation, IsNil)
+	c.Assert(err, ErrorMatches, `relation "r-1" does not exist`)
 	s.t.AddService("s-p", "riak")
-	s.t.AddPeerRelation("r-1", "s-p", "ifce", ScopeGlobal)
-	found = s.t.HasRelation("r-1")
-	c.Assert(found, Equals, true)
+	s.t.AddRelation("r-1", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RolePeer: "s-p"},
+	})
+	relation, err = s.t.Relation("r-1")
+	c.Assert(err, IsNil)
+	c.Assert(relation, NotNil)
+	c.Assert(relation.Services[RolePeer], Equals, "s-p")
 }
 
-func (s *TopologySuite) TestAddClientServerRelation(c *C) {
-	// Check that adding a relation between client and server 
-	// works and can only be done once and with valid client
-	// and server.
-	found := s.t.HasRelation("r-1")
-	c.Assert(found, Equals, false)
-	err := s.t.AddClientServerRelation("r-1", "s-0", "s-0", "ifce", ScopeGlobal)
-	c.Assert(err, ErrorMatches, `client and server keys must not be the same`)
-	err = s.t.AddClientServerRelation("r-1", "s-c", "s-s", "ifce", ScopeGlobal)
-	c.Assert(err, ErrorMatches, `service with key "s-c" not found`)
+func (s *TopologySuite) TestAddRelation(c *C) {
+	// Check that adding a relation works and can only be done once and with 
+	// valid services.
+	relation, err := s.t.Relation("r-1")
+	c.Assert(relation, IsNil)
+	c.Assert(err, ErrorMatches, `relation "r-1" does not exist`)
+	s.t.AddService("s-p", "mysql")
 	s.t.AddService("s-c", "wordpress")
-	err = s.t.AddClientServerRelation("r-1", "s-c", "s-s", "ifce", ScopeGlobal)
-	c.Assert(err, ErrorMatches, `service with key "s-s" not found`)
-	s.t.AddService("s-s", "mysql")
-	err = s.t.AddClientServerRelation("r-1", "s-c", "s-s", "ifce", ScopeGlobal)
+	err = s.t.AddRelation("r-1", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleConsumer: "s-c"},
+	})
 	c.Assert(err, IsNil)
+	relation, err = s.t.Relation("r-1")
+	c.Assert(err, IsNil)
+	c.Assert(relation, NotNil)
+	c.Assert(relation.Services[RoleProvider], Equals, "s-p")
+	c.Assert(relation.Services[RoleConsumer], Equals, "s-c")
 
-	found = s.t.RelationHasService("r-1", "s-c")
-	c.Assert(found, Equals, true)
-	found = s.t.RelationHasService("r-1", "s-s")
-	c.Assert(found, Equals, true)
+	err = s.t.AddRelation("r-2", &zkRelation{
+		Interface: "",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleConsumer: "s-c"},
+	})
+	c.Assert(err, ErrorMatches, `relation interface is empty`)
 
-	err = s.t.AddClientServerRelation("r-1", "s-c", "s-s", "ifce", ScopeGlobal)
+	err = s.t.AddRelation("r-2", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{},
+	})
+	c.Assert(err, ErrorMatches, `no service defined`)
+
+	err = s.t.AddRelation("r-2", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RoleProvider: "s-p"},
+	})
+	c.Assert(err, ErrorMatches, `provider or consumer service missing`)
+
+	err = s.t.AddRelation("r-2", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RolePeer: "s-c"},
+	})
+	c.Assert(err, ErrorMatches, `mixed peer with provider or consumer service`)
+
+	err = s.t.AddRelation("r-2", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleConsumer: "s-c", RolePeer: "s-c"},
+	})
+	c.Assert(err, ErrorMatches, `too much services defined`)
+
+	err = s.t.AddRelation("r-2", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleConsumer: "illegal"},
+	})
+	c.Assert(err, ErrorMatches, `service with key "illegal" not found`)
+
+	err = s.t.AddRelation("r-1", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleConsumer: "s-c"},
+	})
 	c.Assert(err, ErrorMatches, `relation key "r-1" already in use`)
-}
-
-func (s *TopologySuite) TestAddPeerRelation(c *C) {
-	// Check that adding a relation with the peer 
-	// works and can only be done once and with valid peer.
-	found := s.t.HasRelation("r-1")
-	c.Assert(found, Equals, false)
-	err := s.t.AddPeerRelation("r-1", "s-p", "ifce", ScopeGlobal)
-	c.Assert(err, ErrorMatches, `service with key "s-p" not found`)
-	s.t.AddService("s-p", "riak")
-	err = s.t.AddPeerRelation("r-1", "s-p", "ifce", ScopeGlobal)
-	c.Assert(err, IsNil)
-
-	found = s.t.RelationHasService("r-1", "s-p")
-	c.Assert(found, Equals, true)
-
-	err = s.t.AddPeerRelation("r-1", "s-p", "ifce", ScopeGlobal)
-	c.Assert(err, ErrorMatches, `relation key "r-1" already in use`)
-}
-
-func (s *TopologySuite) TestRelationInterface(c *C) {
-	// Check that fetching the relation type works.
-	ifce, err := s.t.RelationInterface("r-1")
-	c.Assert(ifce, Equals, "")
-	c.Assert(err, ErrorMatches, `relation with key "r-1" not found`)
-
-	s.t.AddService("s-p", "riak")
-	s.t.AddPeerRelation("r-1", "s-p", "ifce", ScopeGlobal)
-
-	ifce, err = s.t.RelationInterface("r-1")
-	c.Assert(err, IsNil)
-	c.Assert(ifce, Equals, "ifce")
 }
 
 func (s *TopologySuite) TestRelationKeys(c *C) {
@@ -527,11 +545,19 @@ func (s *TopologySuite) TestRelationKeys(c *C) {
 	c.Assert(keys, DeepEquals, []string{})
 
 	s.t.AddService("s-p", "riak")
-	s.t.AddPeerRelation("r-1", "s-p", "ifce", ScopeGlobal)
+	s.t.AddRelation("r-1", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RolePeer: "s-p"},
+	})
 	keys = s.t.RelationKeys()
 	c.Assert(keys, DeepEquals, []string{"r-1"})
 
-	s.t.AddPeerRelation("r-2", "s-p", "ifce", ScopeGlobal)
+	s.t.AddRelation("r-2", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RolePeer: "s-p"},
+	})
 	keys = s.t.RelationKeys()
 	c.Assert(keys, DeepEquals, []string{"r-1", "r-2"})
 }
@@ -539,35 +565,49 @@ func (s *TopologySuite) TestRelationKeys(c *C) {
 func (s *TopologySuite) TestRemoveRelation(c *C) {
 	// Check that removing of a relation works.
 	s.t.AddService("s-c", "wordpress")
-	s.t.AddService("s-s", "mysql")
+	s.t.AddService("s-p", "mysql")
 
-	err := s.t.AddClientServerRelation("r-1", "s-c", "s-s", "ifce", ScopeGlobal)
+	err := s.t.AddRelation("r-1", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleConsumer: "s-c"},
+	})
 	c.Assert(err, IsNil)
 
-	found := s.t.HasRelation("r-1")
-	c.Assert(found, Equals, true)
+	relation, err := s.t.Relation("r-1")
+	c.Assert(err, IsNil)
+	c.Assert(relation, NotNil)
+	c.Assert(relation.Services[RoleProvider], Equals, "s-p")
+	c.Assert(relation.Services[RoleConsumer], Equals, "s-c")
+
 	s.t.RemoveRelation("r-1")
-	found = s.t.HasRelation("r-1")
-	c.Assert(found, Equals, false)
+
+	relation, err = s.t.Relation("r-1")
+	c.Assert(relation, IsNil)
+	c.Assert(err, ErrorMatches, `relation "r-1" does not exist`)
 }
 
 func (s *TopologySuite) TestRemoveServiceWithRelations(c *C) {
 	// Check that the removing of a service with
 	// associated relations leads to an error.
-	s.t.AddService("s-0", "riak")
-	s.t.AddPeerRelation("r-1", "s-0", "ifce", ScopeGlobal)
+	s.t.AddService("s-p", "riak")
+	s.t.AddRelation("r-1", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RolePeer: "s-p"},
+	})
 
-	err := s.t.RemoveService("s-0")
-	c.Assert(err, ErrorMatches, `cannot remove service "s-0" with active relations`)
+	err := s.t.RemoveService("s-p")
+	c.Assert(err, ErrorMatches, `cannot remove service "s-p" with active relations`)
 }
 
 func (s *TopologySuite) TestRelationKeyClientServerEndpoints(c *C) {
-	mysqlep1 := RelationEndpoint{"mysqldb", "ifce1", RoleServer, ScopeGlobal}
-	blogep1 := RelationEndpoint{"wordpress", "ifce1", RoleClient, ScopeGlobal}
-	mysqlep2 := RelationEndpoint{"mysqldb", "ifce2", RoleServer, ScopeGlobal}
-	blogep2 := RelationEndpoint{"wordpress", "ifce2", RoleClient, ScopeGlobal}
-	mysqlep3 := RelationEndpoint{"mysqldb", "ifce3", RoleServer, ScopeGlobal}
-	blogep3 := RelationEndpoint{"wordpress", "ifce3", RoleClient, ScopeGlobal}
+	mysqlep1 := RelationEndpoint{"mysqldb", "ifce1", RoleProvider, ScopeGlobal}
+	blogep1 := RelationEndpoint{"wordpress", "ifce1", RoleConsumer, ScopeGlobal}
+	mysqlep2 := RelationEndpoint{"mysqldb", "ifce2", RoleProvider, ScopeGlobal}
+	blogep2 := RelationEndpoint{"wordpress", "ifce2", RoleConsumer, ScopeGlobal}
+	mysqlep3 := RelationEndpoint{"mysqldb", "ifce3", RoleProvider, ScopeGlobal}
+	blogep3 := RelationEndpoint{"wordpress", "ifce3", RoleConsumer, ScopeGlobal}
 	s.t.AddService("s-c", "wordpress")
 	s.t.AddService("s-s", "mysqldb")
 	s.t.AddClientServerRelation("r-0", "s-c", "s-s", "ifce1", ScopeGlobal)
@@ -597,10 +637,10 @@ func (s *TopologySuite) TestRelationKeyClientServerEndpoints(c *C) {
 }
 
 func (s *TopologySuite) TestRelationKeyClientServerIllegalEndpoints(c *C) {
-	mysqlep1 := RelationEndpoint{"mysqldb", "ifce", RoleServer, ScopeGlobal}
-	blogep1 := RelationEndpoint{"wordpress", "ifce", RoleClient, ScopeGlobal}
-	mysqlep2 := RelationEndpoint{"illegal-mysqldb", "ifce", RoleServer, ScopeGlobal}
-	blogep2 := RelationEndpoint{"illegal-wordpress", "ifce", RoleClient, ScopeGlobal}
+	mysqlep1 := RelationEndpoint{"mysqldb", "ifce", RoleProvider, ScopeGlobal}
+	blogep1 := RelationEndpoint{"wordpress", "ifce", RoleConsumer, ScopeGlobal}
+	mysqlep2 := RelationEndpoint{"illegal-mysqldb", "ifce", RoleProvider, ScopeGlobal}
+	blogep2 := RelationEndpoint{"illegal-wordpress", "ifce", RoleConsumer, ScopeGlobal}
 	s.t.AddService("s-c", "wordpress")
 	s.t.AddService("s-s", "mysqldb")
 	s.t.AddClientServerRelation("r-0", "s-c", "s-s", "ifce", ScopeGlobal)

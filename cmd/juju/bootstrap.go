@@ -9,7 +9,8 @@ import (
 // BootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
 type BootstrapCommand struct {
-	EnvName string
+	EnvName     string
+	UploadTools bool
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
@@ -18,6 +19,7 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 
 func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	addEnvironFlags(&c.EnvName, f)
+	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
@@ -31,5 +33,5 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	return conn.Bootstrap()
+	return conn.Bootstrap(c.UploadTools)
 }
