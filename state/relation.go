@@ -9,7 +9,7 @@ type RelationRole string
 
 const (
 	RoleProvider RelationRole = "provider"
-	RoleConsumer RelationRole = "consumer"
+	RoleRequirer RelationRole = "requirer"
 	RolePeer     RelationRole = "peer"
 )
 
@@ -42,8 +42,8 @@ func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
 	}
 	switch e.RelationRole {
 	case RoleProvider:
-		return other.RelationRole == RoleConsumer
-	case RoleConsumer:
+		return other.RelationRole == RoleRequirer
+	case RoleRequirer:
 		return other.RelationRole == RoleProvider
 	case RolePeer:
 		return other.RelationRole == RolePeer
@@ -53,5 +53,5 @@ func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
 
 // String returns the string representation of the relation endpoint.
 func (e *RelationEndpoint) String() string {
-	return fmt.Sprintf("%s:%s:%s", e.RelationRole, e.RelationName, e.ServiceName)
+	return fmt.Sprintf("%s:%s:%s:%s", e.RelationRole, e.RelationName, e.ServiceName, e.Interface)
 }

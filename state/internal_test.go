@@ -476,23 +476,23 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 	c.Assert(relation, IsNil)
 	c.Assert(err, ErrorMatches, `relation "r-1" does not exist`)
 	s.t.AddService("s-p", "mysql")
-	s.t.AddService("s-c", "wordpress")
+	s.t.AddService("s-r", "wordpress")
 	err = s.t.AddRelation("r-1", &zkRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleConsumer: "s-c"},
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleRequirer: "s-r"},
 	})
 	c.Assert(err, IsNil)
 	relation, err = s.t.Relation("r-1")
 	c.Assert(err, IsNil)
 	c.Assert(relation, NotNil)
 	c.Assert(relation.Services[RoleProvider], Equals, "s-p")
-	c.Assert(relation.Services[RoleConsumer], Equals, "s-c")
+	c.Assert(relation.Services[RoleRequirer], Equals, "s-r")
 
 	err = s.t.AddRelation("r-2", &zkRelation{
 		Interface: "",
 		Scope:     ScopeGlobal,
-		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleConsumer: "s-c"},
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleRequirer: "s-r"},
 	})
 	c.Assert(err, ErrorMatches, `relation interface is empty`)
 
@@ -513,28 +513,28 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 	err = s.t.AddRelation("r-2", &zkRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services:  map[RelationRole]string{RoleProvider: "s-p", RolePeer: "s-c"},
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RolePeer: "s-r"},
 	})
 	c.Assert(err, ErrorMatches, `mixed peer with provider or consumer service`)
 
 	err = s.t.AddRelation("r-2", &zkRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleConsumer: "s-c", RolePeer: "s-c"},
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleRequirer: "s-r", RolePeer: "s-r"},
 	})
-	c.Assert(err, ErrorMatches, `too much services defined`)
+	c.Assert(err, ErrorMatches, `too many services defined`)
 
 	err = s.t.AddRelation("r-2", &zkRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleConsumer: "illegal"},
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleRequirer: "illegal"},
 	})
 	c.Assert(err, ErrorMatches, `service with key "illegal" not found`)
 
 	err = s.t.AddRelation("r-1", &zkRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleConsumer: "s-c"},
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleRequirer: "s-r"},
 	})
 	c.Assert(err, ErrorMatches, `relation key "r-1" already in use`)
 }
@@ -564,13 +564,13 @@ func (s *TopologySuite) TestRelationKeys(c *C) {
 
 func (s *TopologySuite) TestRemoveRelation(c *C) {
 	// Check that removing of a relation works.
-	s.t.AddService("s-c", "wordpress")
+	s.t.AddService("s-r", "wordpress")
 	s.t.AddService("s-p", "mysql")
 
 	err := s.t.AddRelation("r-1", &zkRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleConsumer: "s-c"},
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleRequirer: "s-r"},
 	})
 	c.Assert(err, IsNil)
 
@@ -578,7 +578,7 @@ func (s *TopologySuite) TestRemoveRelation(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(relation, NotNil)
 	c.Assert(relation.Services[RoleProvider], Equals, "s-p")
-	c.Assert(relation.Services[RoleConsumer], Equals, "s-c")
+	c.Assert(relation.Services[RoleRequirer], Equals, "s-r")
 
 	s.t.RemoveRelation("r-1")
 
@@ -601,17 +601,25 @@ func (s *TopologySuite) TestRemoveServiceWithRelations(c *C) {
 	c.Assert(err, ErrorMatches, `cannot remove service "s-p" with active relations`)
 }
 
-func (s *TopologySuite) TestRelationKeyClientServerEndpoints(c *C) {
-	mysqlep1 := RelationEndpoint{"mysqldb", "ifce1", RoleProvider, ScopeGlobal}
-	blogep1 := RelationEndpoint{"wordpress", "ifce1", RoleConsumer, ScopeGlobal}
-	mysqlep2 := RelationEndpoint{"mysqldb", "ifce2", RoleProvider, ScopeGlobal}
-	blogep2 := RelationEndpoint{"wordpress", "ifce2", RoleConsumer, ScopeGlobal}
-	mysqlep3 := RelationEndpoint{"mysqldb", "ifce3", RoleProvider, ScopeGlobal}
-	blogep3 := RelationEndpoint{"wordpress", "ifce3", RoleConsumer, ScopeGlobal}
-	s.t.AddService("s-c", "wordpress")
-	s.t.AddService("s-s", "mysqldb")
-	s.t.AddClientServerRelation("r-0", "s-c", "s-s", "ifce1", ScopeGlobal)
-	s.t.AddClientServerRelation("r-1", "s-c", "s-s", "ifce2", ScopeGlobal)
+func (s *TopologySuite) TestRelationKeyEndpoints(c *C) {
+	mysqlep1 := RelationEndpoint{"mysql", "ifce1", "blog1", RoleProvider, ScopeGlobal}
+	blogep1 := RelationEndpoint{"wordpress", "ifce1", "blog1", RoleRequirer, ScopeGlobal}
+	mysqlep2 := RelationEndpoint{"mysql", "ifce2", "blog2", RoleProvider, ScopeGlobal}
+	blogep2 := RelationEndpoint{"wordpress", "ifce2", "blog2", RoleRequirer, ScopeGlobal}
+	mysqlep3 := RelationEndpoint{"mysql", "ifce3", "blog3", RoleProvider, ScopeGlobal}
+	blogep3 := RelationEndpoint{"wordpress", "ifce3", "blog3", RoleRequirer, ScopeGlobal}
+	s.t.AddService("s-r", "wordpress")
+	s.t.AddService("s-p", "mysql")
+	s.t.AddRelation("r-0", &zkRelation{
+		Interface: "ifce1",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleRequirer: "s-r"},
+	})
+	s.t.AddRelation("r-1", &zkRelation{
+		Interface: "ifce2",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleRequirer: "s-r"},
+	})
 
 	// Valid relations.
 	key, err := s.t.RelationKey(mysqlep1, blogep1)
@@ -629,37 +637,54 @@ func (s *TopologySuite) TestRelationKeyClientServerEndpoints(c *C) {
 
 	// Endpoints without relation.
 	_, err = s.t.RelationKey(mysqlep3, blogep3)
-	c.Assert(err, Equals, errRelationDoesNotExist)
+	c.Assert(err, ErrorMatches, `state: no relation between "provider:blog3:mysql:ifce3" and "requirer:blog3:wordpress:ifce3"`)
 
 	// Mix of endpoints of two relations.
 	_, err = s.t.RelationKey(mysqlep1, blogep2)
-	c.Assert(err, Equals, errRelationDoesNotExist)
+	c.Assert(err, ErrorMatches, `state: no relation between "provider:blog1:mysql:ifce1" and "requirer:blog2:wordpress:ifce2"`)
 }
 
-func (s *TopologySuite) TestRelationKeyClientServerIllegalEndpoints(c *C) {
-	mysqlep1 := RelationEndpoint{"mysqldb", "ifce", RoleProvider, ScopeGlobal}
-	blogep1 := RelationEndpoint{"wordpress", "ifce", RoleConsumer, ScopeGlobal}
-	mysqlep2 := RelationEndpoint{"illegal-mysqldb", "ifce", RoleProvider, ScopeGlobal}
-	blogep2 := RelationEndpoint{"illegal-wordpress", "ifce", RoleConsumer, ScopeGlobal}
-	s.t.AddService("s-c", "wordpress")
-	s.t.AddService("s-s", "mysqldb")
-	s.t.AddClientServerRelation("r-0", "s-c", "s-s", "ifce", ScopeGlobal)
+func (s *TopologySuite) TestRelationKeyIllegalEndpoints(c *C) {
+	mysqlep1 := RelationEndpoint{"mysql", "ifce", "blog", RoleProvider, ScopeGlobal}
+	blogep1 := RelationEndpoint{"wordpress", "ifce", "blog", RoleRequirer, ScopeGlobal}
+	mysqlep2 := RelationEndpoint{"illegal-mysql", "ifce", "blog", RoleProvider, ScopeGlobal}
+	blogep2 := RelationEndpoint{"illegal-wordpress", "ifce", "blog", RoleRequirer, ScopeGlobal}
+	riakep3 := RelationEndpoint{"riak", "ifce", "ring", RolePeer, ScopeGlobal}
+	s.t.AddService("s-r", "wordpress")
+	s.t.AddService("s-p1", "mysql")
+	s.t.AddService("s-p2", "riak")
+	s.t.AddRelation("r-0", &zkRelation{
+		Interface: "ifce1",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RoleProvider: "s-p1", RoleRequirer: "s-r"},
+	})
 
 	key, err := s.t.RelationKey(mysqlep1, blogep2)
 	c.Assert(key, Equals, "")
 	c.Assert(err, ErrorMatches, `service with name "illegal-wordpress" not found`)
 	key, err = s.t.RelationKey(mysqlep2, blogep1)
 	c.Assert(key, Equals, "")
-	c.Assert(err, ErrorMatches, `service with name "illegal-mysqldb" not found`)
+	c.Assert(err, ErrorMatches, `service with name "illegal-mysql" not found`)
+	key, err = s.t.RelationKey(mysqlep1, riakep3)
+	c.Assert(key, Equals, "")
+	c.Assert(err, ErrorMatches, `state: no relation between "provider:blog:mysql:ifce" and "peer:ring:riak:ifce"`)
 }
 
-func (s *TopologySuite) TestRelationKeyPeerEndpoints(c *C) {
-	riakep1 := RelationEndpoint{"riak", "ifce1", RolePeer, ScopeGlobal}
-	riakep2 := RelationEndpoint{"riak", "ifce2", RolePeer, ScopeGlobal}
-	riakep3 := RelationEndpoint{"riak", "ifce3", RolePeer, ScopeGlobal}
+func (s *TopologySuite) TestPeerRelationKeyEndpoints(c *C) {
+	riakep1 := RelationEndpoint{"riak", "ifce1", "ring", RolePeer, ScopeGlobal}
+	riakep2 := RelationEndpoint{"riak", "ifce2", "ring", RolePeer, ScopeGlobal}
+	riakep3 := RelationEndpoint{"riak", "ifce3", "ring", RolePeer, ScopeGlobal}
 	s.t.AddService("s-p", "riak")
-	s.t.AddPeerRelation("r-0", "s-p", "ifce1", ScopeGlobal)
-	s.t.AddPeerRelation("r-1", "s-p", "ifce2", ScopeGlobal)
+	s.t.AddRelation("r-0", &zkRelation{
+		Interface: "ifce1",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RolePeer: "s-p"},
+	})
+	s.t.AddRelation("r-1", &zkRelation{
+		Interface: "ifce2",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RolePeer: "s-p"},
+	})
 
 	// Valid relations.
 	key, err := s.t.PeerRelationKey(riakep1)
@@ -671,13 +696,17 @@ func (s *TopologySuite) TestRelationKeyPeerEndpoints(c *C) {
 
 	// Endpoint without relation.
 	key, err = s.t.PeerRelationKey(riakep3)
-	c.Assert(err, Equals, errRelationDoesNotExist)
+	c.Assert(err, ErrorMatches, `state: no peer relation for "peer:ring:riak:ifce3"`)
 }
 
-func (s *TopologySuite) TestRelationKeyPeerIllegalEndpoints(c *C) {
-	riakep1 := RelationEndpoint{"illegal-riak", "ifce", RolePeer, ScopeGlobal}
+func (s *TopologySuite) TestPeerRelationKeyIllegalEndpoints(c *C) {
+	riakep1 := RelationEndpoint{"illegal-riak", "ifce", "ring", RolePeer, ScopeGlobal}
 	s.t.AddService("s-p", "riak")
-	s.t.AddPeerRelation("r-0", "s-p", "ifce", ScopeGlobal)
+	s.t.AddRelation("r-0", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RolePeer: "s-p"},
+	})
 
 	key, err := s.t.PeerRelationKey(riakep1)
 	c.Assert(key, Equals, "")

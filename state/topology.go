@@ -22,7 +22,7 @@ type NoRelationError struct {
 
 // Error returns the string representation of the error.
 func (e NoRelationError) Error() string {
-	if e.Endpoint2 != nil {
+	if e.Endpoint2 == nil {
 		return fmt.Sprintf("state: no peer relation for %q", e.Endpoint1)
 	}
 	return fmt.Sprintf("state: no relation between %q and %q", e.Endpoint1, e.Endpoint2)
@@ -81,11 +81,11 @@ func (r *zkRelation) check() error {
 			return fmt.Errorf("provider or consumer service missing")
 		}
 	case 2:
-		if r.Services[RoleProvider] == "" || r.Services[RoleConsumer] == "" {
+		if r.Services[RoleProvider] == "" || r.Services[RoleRequirer] == "" {
 			return fmt.Errorf("mixed peer with provider or consumer service")
 		}
 	default:
-		return fmt.Errorf("too much services defined")
+		return fmt.Errorf("too many services defined")
 	}
 	return nil
 }
@@ -409,8 +409,8 @@ func (t *topology) AddRelation(relationKey string, relation *zkRelation) error {
 	}
 	if relation.Services[RolePeer] == "" {
 		providerKey := relation.Services[RoleProvider]
-		consumerKey := relation.Services[RoleConsumer]
-		if providerKey == consumerKey {
+		requirerKey := relation.Services[RoleRequirer]
+		if providerKey == requirerKey {
 			return fmt.Errorf("provider and consumer keys must not be the same")
 		}
 	}
@@ -485,16 +485,16 @@ func (t *topology) RelationKey(ep1, ep2 RelationEndpoint) (string, error) {
 		return "", err
 	}
 	for key, relation := range t.topology.Relations {
-		consumerKey := relation.Services[RoleConsumer]
+		requirerKey := relation.Services[RoleRequirer]
 		providerKey := relation.Services[RoleProvider]
-		if consumerKey == "" || providerKey == "" {
+		if requirerKey == "" || providerKey == "" {
 			// It's a peer relation.
 			continue
 		}
 		if ep1.Interface != relation.Interface || ep2.Interface != relation.Interface {
 			continue
 		}
-		if (consumerKey == ep1Key && providerKey == ep2Key) || (consumerKey == ep2Key && providerKey == ep1Key) {
+		if (requirerKey == ep1Key && providerKey == ep2Key) || (requirerKey == ep2Key && providerKey == ep1Key) {
 			return key, nil
 		}
 	}
