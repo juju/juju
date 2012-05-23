@@ -2,10 +2,12 @@ package jujutest
 
 import (
 	"bytes"
+	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
 	"net/http"
+	"time"
 )
 
 func (t *Tests) TestStartStop(c *C) {
@@ -137,9 +139,19 @@ func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string) {
 }
 
 func checkFileHasContents(c *C, storage environs.StorageReader, name string, contents []byte) {
-	r, err := storage.Get(name)
+	var r io.ReadCloser
+	var err error
+
+	for i := 0; i < 5; i++ {
+		r, err = storage.Get(name)
+		if err == nil {
+			break
+		}
+		time.Sleep(1e9)
+	}
 	c.Assert(err, IsNil)
 	c.Check(r, NotNil)
+	defer r.Close()
 
 	data, err := ioutil.ReadAll(r)
 	c.Check(err, IsNil)
@@ -148,9 +160,20 @@ func checkFileHasContents(c *C, storage environs.StorageReader, name string, con
 	url, err := storage.URL(name)
 	c.Assert(err, IsNil)
 
-	resp, err := http.Get(url)
+	var resp *http.Response
+	for i := 0; i < 5; i++ {
+		resp, err = http.Get(url)
+		c.Assert(err, IsNil)
+		if resp.StatusCode != 404 {
+			break
+		}
+		c.Logf("get retrying after earlier get succeeded. *sigh*.")
+		time.Sleep(1e9)
+	}
 	c.Assert(err, IsNil)
 	data, err = ioutil.ReadAll(resp.Body)
 	c.Assert(err, IsNil)
+	defer resp.Body.Close()
+	c.Assert(resp.StatusCode, Equals, 200, Commentf("error response: %s", data))
 	c.Check(data, DeepEquals, contents)
 }
