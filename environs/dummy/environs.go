@@ -176,33 +176,54 @@ func Listen(c chan<- Operation) {
 	p.ops = c
 }
 
-func (e *environProvider) ConfigChecker() schema.Checker {
-	return schema.FieldMap(
-		schema.Fields{
-			"type":      schema.Const("dummy"),
-			"zookeeper": schema.Const(false), // TODO
-			"broken":    schema.Bool(),
-		},
-		[]string{
-			"broken",
-		},
-	)
+type environConfig struct {
+	provider  *environProvider
+	name      string
+	zookeeper bool
+	broken    bool
 }
 
-func (p *environProvider) Open(name string, attributes interface{}) (environs.Environ, error) {
+var checker = schema.FieldMap(
+	schema.Fields{
+		"type":      schema.Const("dummy"),
+		"zookeeper": schema.Const(false), // TODO
+		"broken":    schema.Bool(),
+		"name":      schema.String(),
+	},
+	[]string{
+		"broken",
+	},
+)
+
+func (p *environProvider) NewConfig(attrs map[string]interface{}) (environs.EnvironConfig, error) {
+	m0, err := checker.Coerce(attrs, nil)
+	if err != nil {
+		return nil, err
+	}
+	m1 := m0.(schema.MapType)
+	cfg := &environConfig{
+		provider:  p,
+		name:      m1["name"].(string),
+		zookeeper: m1["zookeeper"].(bool),
+	}
+	cfg.broken, _ = m1["broken"].(bool)
+	return cfg, nil
+}
+
+func (cfg *environConfig) Open() (environs.Environ, error) {
+	p := cfg.provider
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	state := p.state[name]
+	state := p.state[cfg.name]
 	if state == nil {
-		state = newState(name, p.ops)
-		p.state[name] = state
+		state = newState(cfg.name, p.ops)
+		p.state[cfg.name] = state
 	}
-	cfg := attributes.(schema.MapType)
 	env := &environ{
-		zookeeper: cfg["zookeeper"].(bool),
+		zookeeper: cfg.zookeeper,
+		broken:    cfg.broken,
 		state:     state,
 	}
-	env.broken, _ = cfg["broken"].(bool)
 	return env, nil
 }
 
@@ -249,6 +270,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	e.state.ops <- Operation{Kind: OpDestroy, Env: e.state.name}
 	e.state.mu.Lock()
 	e.state.bootstrapped = false
+	e.state.storage.files = make(map[string][]byte)
 	e.state.mu.Unlock()
 	return nil
 }

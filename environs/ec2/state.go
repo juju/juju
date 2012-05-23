@@ -26,7 +26,7 @@ func (e *environ) saveState(state *bootstrapState) error {
 func (e *environ) loadState() (*bootstrapState, error) {
 	r, err := e.Storage().Get(stateFile)
 	if err != nil {
-		return nil, fmt.Errorf("cannot read %q: %v", stateFile, err)
+		return nil, err
 	}
 	defer r.Close()
 	data, err := ioutil.ReadAll(r)
@@ -53,7 +53,7 @@ func (e *environ) deleteState() error {
 
 	names, err := s.List("")
 	if err != nil {
-		if s3ErrorStatusCode(err) == 404 {
+		if _, ok := err.(*environs.NotFoundError); ok {
 			return nil
 		}
 		return err
