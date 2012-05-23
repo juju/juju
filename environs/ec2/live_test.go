@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"io/ioutil"
 	amzec2 "launchpad.net/goamz/ec2"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
@@ -26,8 +27,9 @@ environments:
   sample-%s:
     type: ec2
     control-bucket: 'juju-test-%s'
+    public-bucket: 'juju-public-test-%s'
     juju-origin: distro
-`, uniqueName, uniqueName)
+`, uniqueName, uniqueName, uniqueName)
 
 // uniqueName is generated afresh for every test, so that
 // we are not polluted by previous test state.
@@ -272,6 +274,28 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	if !gone {
 		c.Errorf("after termination, instances remaining: %v", insts)
 	}
+}
+
+func (t *LiveTests) TestPublicStorage(c *C) {
+	s := t.Env.PublicStorage().(environs.Storage)
+	defer ec2.DeleteStorage(s)
+
+	contents := "test"
+	err := s.Put("test-object", strings.NewReader(contents), int64(len(contents)))
+	c.Assert(err, IsNil)
+
+	r, err := s.Get("test-object")
+	c.Assert(err, IsNil)
+	defer r.Close()
+
+	data, err := ioutil.ReadAll(r)
+	c.Assert(err, IsNil)
+	c.Assert(string(data), Equals, contents)
+
+	// check that the public storage isn't aliased to the private storage.
+	r, err = t.Env.Storage().Get("test-object")
+	var notFoundError *environs.NotFoundError
+	c.Assert(err, FitsTypeOf, notFoundError)
 }
 
 // createGroup creates a new EC2 group and returns it. If it already exists,

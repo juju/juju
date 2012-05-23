@@ -43,6 +43,7 @@ type environ struct {
 	ec2     *ec2.EC2
 	s3      *s3.S3
 	storage storage
+	publicStorage *storage		// optional.
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -101,6 +102,9 @@ func (cfg *providerConfig) Open() (environs.Environ, error) {
 		s3:     s3.New(cfg.auth, Regions[cfg.region]),
 	}
 	e.storage.bucket = e.s3.Bucket(cfg.bucket)
+	if cfg.publicBucket != "" {
+		e.publicStorage = &storage{bucket: e.s3.Bucket(cfg.publicBucket)}
+	}
 	return e, nil
 }
 
@@ -362,7 +366,7 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 	if err != nil {
 		return err
 	}
-	err = e.deleteState()
+	err = e.storage.deleteAll()
 	if err != nil {
 		return err
 	}

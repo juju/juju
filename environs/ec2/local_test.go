@@ -20,6 +20,7 @@ environments:
     type: ec2
     region: test
     control-bucket: test-bucket
+    public-bucket: public-test-bucket
     juju-origin: ppa
     access-key: x
     secret-key: x
