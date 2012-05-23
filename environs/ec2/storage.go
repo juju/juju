@@ -56,8 +56,8 @@ func (s *storage) Get(file string) (r io.ReadCloser, err error) {
 }
 
 func (s *storage) URL(name string) (string, error) {
-	// a year should be good enough.
-	return s.bucket.SignedURL(name, time.Now().Add(365*24*time.Hour)), nil
+	// 10 years should be good enough.
+	return s.bucket.SignedURL(name, time.Now().AddDate(1, 0, 0)), nil
 }
 
 // s3ErrorStatusCode returns the HTTP status of the S3 request error,
