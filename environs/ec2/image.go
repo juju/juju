@@ -3,6 +3,7 @@ package ec2
 import (
 	"bufio"
 	"fmt"
+	"launchpad.net/juju/go/environs"
 	"net/http"
 	"strings"
 )
@@ -19,8 +20,8 @@ type instanceConstraint struct {
 }
 
 var defaultInstanceConstraint = &instanceConstraint{
-	series:            "oneiric",
-	arch:              "i386",
+	series:            environs.CurrentSeries,
+	arch:              environs.CurrentArch,
 	persistentStorage: true,
 	region:            "us-east-1",
 	daily:             false,
@@ -49,6 +50,9 @@ const (
 	colArch
 	colRegion
 	colImageId
+	_
+	_
+	colVtype
 	colMax
 	// + more that we don't care about.
 )
@@ -80,6 +84,9 @@ func findInstanceSpec(spec *instanceConstraint) (*instanceSpec, error) {
 		}
 		f := strings.Split(string(line), "\t")
 		if len(f) < colMax {
+			continue
+		}
+		if f[colVtype] == "hvm" {
 			continue
 		}
 		if f[colEBS] != ebsMatch {
