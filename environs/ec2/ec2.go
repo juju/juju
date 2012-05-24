@@ -38,11 +38,12 @@ type environProvider struct{}
 var _ environs.EnvironProvider = environProvider{}
 
 type environ struct {
-	name    string
-	config  *providerConfig
-	ec2     *ec2.EC2
-	s3      *s3.S3
-	storage storage
+	name          string
+	config        *providerConfig
+	ec2           *ec2.EC2
+	s3            *s3.S3
+	storage       storage
+	publicStorage *storage // optional.
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -101,6 +102,9 @@ func (cfg *providerConfig) Open() (environs.Environ, error) {
 		s3:     s3.New(cfg.auth, Regions[cfg.region]),
 	}
 	e.storage.bucket = e.s3.Bucket(cfg.bucket)
+	if cfg.publicBucket != "" {
+		e.publicStorage = &storage{bucket: e.s3.Bucket(cfg.publicBucket)}
+	}
 	return e, nil
 }
 
@@ -209,9 +213,9 @@ func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
 func (e *environ) startInstance(machineId int, info *state.Info, master bool) (environs.Instance, error) {
-	image, err := FindImageSpec(DefaultImageConstraint)
+	spec, err := findInstanceSpec(defaultInstanceConstraint)
 	if err != nil {
-		return nil, fmt.Errorf("cannot find image: %v", err)
+		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
 	}
 	userData, err := e.userData(machineId, info, master)
 	if err != nil {
@@ -225,7 +229,7 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 
 	for a := shortAttempt.start(); a.next(); {
 		instances, err = e.ec2.RunInstances(&ec2.RunInstances{
-			ImageId:        image.ImageId,
+			ImageId:        spec.imageId,
 			MinCount:       1,
 			MaxCount:       1,
 			UserData:       userData,
@@ -362,7 +366,7 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 	if err != nil {
 		return err
 	}
-	err = e.deleteState()
+	err = e.storage.deleteAll()
 	if err != nil {
 		return err
 	}
