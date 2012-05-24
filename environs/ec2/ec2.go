@@ -220,7 +220,7 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 	
 	toolsURL, err := environs.FindTools(e, version.Current, spec.series, spec.arch)
 	if err != nil {
-		return nil, fmt.Errorf("cannot find tools: %v", err)
+		return nil, fmt.Errorf("cannot find tools for spec %#v: %v", spec, err)
 	}
 	userData, err := e.userData(machineId, info, master, toolsURL)
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"launchpad.net/juju/go/environs"
 )
 
 // instanceConstraint constrains the possible instances that may be
@@ -19,8 +20,8 @@ type instanceConstraint struct {
 }
 
 var defaultInstanceConstraint = &instanceConstraint{
-	series:            "oneiric",
-	arch:              "i386",
+	series:            environs.CurrentSeries,
+	arch:              environs.CurrentArch,
 	persistentStorage: true,
 	region:            "us-east-1",
 	daily:             false,
