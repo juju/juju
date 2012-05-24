@@ -38,8 +38,6 @@ func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
 		return other.RelationRole == RoleRequirer
 	case RoleRequirer:
 		return other.RelationRole == RoleProvider
-	case RolePeer:
-		return other.RelationRole == RolePeer
 	}
 	panic("endpoint role is undefined")
 }

@@ -43,7 +43,7 @@ type zkUnit struct {
 }
 
 // zkRelation represents the relation data within the 
-// /topology node in ZooKeeper.s
+// /topology node in ZooKeeper.
 type zkRelation struct {
 	Interface string
 	Scope     RelationScope
