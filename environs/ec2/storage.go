@@ -6,9 +6,9 @@ import (
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/log"
+	"local/runtime/debug"
 	"sync"
 	"time"
-	"local/runtime/debug"
 )
 
 // storage implements environs.Storage on

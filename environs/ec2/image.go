@@ -6,7 +6,6 @@ import (
 	"launchpad.net/juju/go/environs"
 	"net/http"
 	"strings"
-	"launchpad.net/juju/go/environs"
 )
 
 // instanceConstraint constrains the possible instances that may be

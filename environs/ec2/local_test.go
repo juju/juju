@@ -118,6 +118,7 @@ func (srv *localServer) startServer(c *C) {
 type fakeTools struct {
 	path string
 }
+
 func (s *fakeTools) Put(name string, r io.Reader, length int64) error {
 	s.path = name
 	return nil
@@ -125,8 +126,9 @@ func (s *fakeTools) Put(name string, r io.Reader, length int64) error {
 func (s *fakeTools) Remove(name string) error {
 	return nil
 }
+
 var (
-	tools fakeTools
+	tools     fakeTools
 	toolsOnce sync.Once
 )
 
