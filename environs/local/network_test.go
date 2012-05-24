@@ -44,8 +44,6 @@ echo "net-define"
 ;;
 
 esac
-
-exit 0
 `
 
 type networkSuite struct {
@@ -66,12 +64,12 @@ func (s *networkSuite) TearDownSuite(c *C) {
 }
 
 func (s *networkSuite) TestStartNetwork(c *C) {
-	//start a newtork that already exists
+	// start a network that already exists
 	n := network{Name: "default"}
 	err := n.start()
 	c.Assert(err, IsNil)
 
-	//start a new network
+	// start a new network
 	n = network{Name: "newnet"}
 	err = n.start()
 	c.Assert(err, IsNil)

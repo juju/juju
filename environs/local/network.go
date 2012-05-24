@@ -9,7 +9,7 @@ import (
 	"text/template"
 )
 
-// networks represents a local virtual network.
+// network represents a local virtual network.
 type network struct {
 	XMLName xml.Name `xml:"network"`
 	Name    string   `xml:"name"`
@@ -89,7 +89,7 @@ var libVirtNetworkTemplate = template.Must(template.New("").Parse(`
 `))
 
 // start ensures that the network is started.
-// If network name does not exist, it is created.
+// If the network name does not exist, it is created.
 func (n *network) start() error {
 	exists, err := n.exists()
 	if err != nil {
