@@ -92,11 +92,47 @@ func (s *storage) List(prefix string) ([]string, error) {
 	return names, nil
 }
 
+func (s *storage) deleteAll() error {
+	names, err := s.List("")
+	if err != nil {
+		if _, ok := err.(*environs.NotFoundError); ok {
+			return nil
+		}
+		return err
+	}
+	// Remove all the objects in parallel so that we incur less round-trips.
+	// If we're in danger of having hundreds of objects,
+	// we'll want to change this to limit the number
+	// of concurrent operations.
+	var wg sync.WaitGroup
+	wg.Add(len(names))
+	errc := make(chan error, len(names))
+	for _, name := range names {
+		name := name
+		go func() {
+			if err := s.Remove(name); err != nil {
+				errc <- err
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	select {
+	case err := <-errc:
+		return fmt.Errorf("cannot delete all provider state: %v", err)
+	default:
+	}
+
+	return s.bucket.DelBucket()
+}
+
 func (e *environ) Storage() environs.Storage {
 	return &e.storage
 }
 
 func (e *environ) PublicStorage() environs.StorageReader {
-	// TODO use public storage bucket
-	return environs.EmptyStorage
+	if e.publicStorage == nil {
+		return environs.EmptyStorage
+	}
+	return e.publicStorage
 }
