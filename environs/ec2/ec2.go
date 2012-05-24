@@ -38,12 +38,12 @@ type environProvider struct{}
 var _ environs.EnvironProvider = environProvider{}
 
 type environ struct {
-	name    string
-	config  *providerConfig
-	ec2     *ec2.EC2
-	s3      *s3.S3
-	storage storage
-	publicStorage *storage		// optional.
+	name          string
+	config        *providerConfig
+	ec2           *ec2.EC2
+	s3            *s3.S3
+	storage       storage
+	publicStorage *storage // optional.
 }
 
 var _ environs.Environ = (*environ)(nil)
