@@ -452,6 +452,185 @@ func (s *TopologySuite) TestUnitKeyFromNonExistingService(c *C) {
 	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
 }
 
+func (s *TopologySuite) TestRelation(c *C) {
+	// Check that the retrieving of relations works correctly.
+	relation, err := s.t.Relation("r-1")
+	c.Assert(relation, IsNil)
+	c.Assert(err, ErrorMatches, `relation "r-1" does not exist`)
+	s.t.AddService("s-p", "riak")
+	s.t.AddRelation("r-1", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RolePeer: "s-p"},
+	})
+	relation, err = s.t.Relation("r-1")
+	c.Assert(err, IsNil)
+	c.Assert(relation, NotNil)
+	c.Assert(relation.Services[RolePeer], Equals, "s-p")
+}
+
+func (s *TopologySuite) TestAddRelation(c *C) {
+	// Check that adding a relation works and can only be done once and with 
+	// valid services.
+	relation, err := s.t.Relation("r-1")
+	c.Assert(relation, IsNil)
+	c.Assert(err, ErrorMatches, `relation "r-1" does not exist`)
+	s.t.AddService("s-p", "mysql")
+	s.t.AddService("s-r", "wordpress")
+	err = s.t.AddRelation("r-1", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleRequirer: "s-r"},
+	})
+	c.Assert(err, IsNil)
+	relation, err = s.t.Relation("r-1")
+	c.Assert(err, IsNil)
+	c.Assert(relation, NotNil)
+	c.Assert(relation.Services[RoleProvider], Equals, "s-p")
+	c.Assert(relation.Services[RoleRequirer], Equals, "s-r")
+
+	err = s.t.AddRelation("r-2", &zkRelation{
+		Interface: "",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleRequirer: "s-r"},
+	})
+	c.Assert(err, ErrorMatches, `relation interface is empty`)
+
+	err = s.t.AddRelation("r-3", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{},
+	})
+	c.Assert(err, ErrorMatches, `relation has no services`)
+
+	err = s.t.AddRelation("r-4", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RoleProvider: "s-p"},
+	})
+	c.Assert(err, ErrorMatches, `relation has provider but no requirer`)
+
+	err = s.t.AddRelation("r-5", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RolePeer: "s-r"},
+	})
+	c.Assert(err, ErrorMatches, `relation has provider but no requirer`)
+
+	err = s.t.AddRelation("r-6", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleRequirer: "s-r", RolePeer: "s-r"},
+	})
+	c.Assert(err, ErrorMatches, `relation with mixed peer, provider, and requirer roles`)
+
+	err = s.t.AddRelation("r-7", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleRequirer: "illegal"},
+	})
+	c.Assert(err, ErrorMatches, `service with key "illegal" not found`)
+
+	err = s.t.AddRelation("r-1", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleRequirer: "s-r"},
+	})
+	c.Assert(err, ErrorMatches, `relation key "r-1" already in use`)
+}
+
+func (s *TopologySuite) TestRelationKeys(c *C) {
+	// Check that fetching the relation keys works.
+	keys := s.t.RelationKeys()
+	c.Assert(keys, DeepEquals, []string{})
+
+	s.t.AddService("s-p", "riak")
+	s.t.AddRelation("r-1", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RolePeer: "s-p"},
+	})
+	keys = s.t.RelationKeys()
+	c.Assert(keys, DeepEquals, []string{"r-1"})
+
+	s.t.AddRelation("r-2", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RolePeer: "s-p"},
+	})
+	keys = s.t.RelationKeys()
+	c.Assert(keys, DeepEquals, []string{"r-1", "r-2"})
+}
+
+func (s *TopologySuite) TestRelationsForService(c *C) {
+	// Check that fetching the relations for a service works.
+	s.t.AddService("s-p", "riak")
+	relations, err := s.t.RelationsForService("s-p")
+	c.Assert(err, IsNil)
+	c.Assert(relations, HasLen, 0)
+
+	s.t.AddRelation("r-0", &zkRelation{
+		Interface: "ifce0",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RolePeer: "s-p"},
+	})
+	s.t.AddRelation("r-1", &zkRelation{
+		Interface: "ifce1",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RolePeer: "s-p"},
+	})
+	relations, err = s.t.RelationsForService("s-p")
+	c.Assert(err, IsNil)
+	c.Assert(relations, HasLen, 2)
+	c.Assert(relations["r-0"].Interface, Equals, "ifce0")
+	c.Assert(relations["r-1"].Interface, Equals, "ifce1")
+
+	s.t.RemoveRelation("r-0")
+	relations, err = s.t.RelationsForService("s-p")
+	c.Assert(err, IsNil)
+	c.Assert(relations, HasLen, 1)
+	c.Assert(relations["r-1"].Interface, Equals, "ifce1")
+}
+
+func (s *TopologySuite) TestRemoveRelation(c *C) {
+	// Check that removing of a relation works.
+	s.t.AddService("s-c", "wordpress")
+	s.t.AddService("s-p", "mysql")
+
+	err := s.t.AddRelation("r-1", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RoleProvider: "s-p", RoleRequirer: "s-c"},
+	})
+	c.Assert(err, IsNil)
+
+	relation, err := s.t.Relation("r-1")
+	c.Assert(err, IsNil)
+	c.Assert(relation, NotNil)
+	c.Assert(relation.Services[RoleProvider], Equals, "s-p")
+	c.Assert(relation.Services[RoleRequirer], Equals, "s-c")
+
+	s.t.RemoveRelation("r-1")
+
+	relation, err = s.t.Relation("r-1")
+	c.Assert(relation, IsNil)
+	c.Assert(err, ErrorMatches, `relation "r-1" does not exist`)
+}
+
+func (s *TopologySuite) TestRemoveServiceWithRelations(c *C) {
+	// Check that the removing of a service with
+	// associated relations leads to an error.
+	s.t.AddService("s-p", "riak")
+	s.t.AddRelation("r-1", &zkRelation{
+		Interface: "ifce",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RolePeer: "s-p"},
+	})
+
+	err := s.t.RemoveService("s-p")
+	c.Assert(err, ErrorMatches, `cannot remove service "s-p" with active relations`)
+}
+
 type ConfigNodeSuite struct {
 	zkServer   *zookeeper.Server
 	zkTestRoot string
