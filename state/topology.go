@@ -11,7 +11,6 @@ import (
 // The protocol version, which is stored in the /topology node under
 // the "version" key. The protocol version should *only* be updated
 // when we know that a version is in fact actually incompatible.
-
 const topologyVersion = 1
 
 // zkTopology is used to marshal and unmarshal the content
@@ -44,34 +43,40 @@ type zkUnit struct {
 }
 
 // zkRelation represents the relation data within the 
-// /topology node in ZooKeeper. "Services" references to
-// the service keys of provider, consumer or peer.
+// /topology node in ZooKeeper.s
 type zkRelation struct {
-	Key       string "omitempty"
 	Interface string
 	Scope     RelationScope
 	Services  map[RelationRole]string
 }
 
-// check validates if interface isn't empty and the 
-// services are provider and consumer or peer.
+// check verifies that r is a proper relation.
 func (r *zkRelation) check() error {
 	if len(r.Interface) == 0 {
 		return fmt.Errorf("relation interface is empty")
 	}
-	switch len(r.Services) {
-	case 0:
-		return fmt.Errorf("no service defined")
-	case 1:
-		if r.Services[RolePeer] == "" {
-			return fmt.Errorf("provider or consumer service missing")
+	if len(r.Services) == 0 {
+		return fmt.Errorf("relation has no services")
+	}
+	counterpart := map[RelationRole]RelationRole{
+		RoleRequirer: RoleProvider,
+		RoleProvider: RoleRequirer,
+		RolePeer:     RolePeer,
+	}
+	for serviceRole, serviceKey := range r.Services {
+		if serviceKey == "" {
+			return fmt.Errorf("relation has %s service with empty key", serviceRole)
 		}
-	case 2:
-		if r.Services[RoleProvider] == "" || r.Services[RoleRequirer] == "" {
-			return fmt.Errorf("mixed peer with provider or consumer service")
+		counterRole, ok := counterpart[serviceRole]
+		if !ok {
+			return fmt.Errorf("relation has unknown service role: %q", serviceRole)
 		}
-	default:
-		return fmt.Errorf("too many services defined")
+		if _, ok := r.Services[counterRole]; !ok {
+			return fmt.Errorf("relation has %s but no %s", serviceRole, counterRole)
+		}
+	}
+	if len(r.Services) > 2 {
+		return fmt.Errorf("relation with mixed peer, provider, and requirer roles")
 	}
 	return nil
 }
@@ -365,12 +370,12 @@ func (t *topology) UnassignUnitFromMachine(serviceKey, unitKey string) error {
 	return nil
 }
 
-// Relation returns a relation with the given key or an error if it doesn't exist.
-func (t *topology) Relation(relationKey string) (*zkRelation, error) {
-	if t.topology.Relations == nil || t.topology.Relations[relationKey] == nil {
-		return nil, fmt.Errorf("relation %q does not exist", relationKey)
+// Relation returns the relation with key from the topology.
+func (t *topology) Relation(key string) (*zkRelation, error) {
+	if t.topology.Relations == nil || t.topology.Relations[key] == nil {
+		return nil, fmt.Errorf("relation %q does not exist", key)
 	}
-	return t.topology.Relations[relationKey], nil
+	return t.topology.Relations[key], nil
 }
 
 // AddRelation adds a new relation with the given key and relation data.
@@ -378,18 +383,16 @@ func (t *topology) AddRelation(relationKey string, relation *zkRelation) error {
 	if t.topology.Relations == nil {
 		t.topology.Relations = make(map[string]*zkRelation)
 	}
-	_, err := t.Relation(relationKey)
-	if err == nil {
-		// No error means relation with key already exists.
+	_, ok := t.topology.Relations[relationKey]
+	if ok {
 		return fmt.Errorf("relation key %q already in use", relationKey)
 	}
 	// Check if the relation definition and the service keys are valid.
-	err = relation.check()
-	if err != nil {
+	if err := relation.check(); err != nil {
 		return err
 	}
 	for _, serviceKey := range relation.Services {
-		if err = t.assertService(serviceKey); err != nil {
+		if err := t.assertService(serviceKey); err != nil {
 			return err
 		}
 	}
@@ -400,12 +403,11 @@ func (t *topology) AddRelation(relationKey string, relation *zkRelation) error {
 			return fmt.Errorf("provider and consumer keys must not be the same")
 		}
 	}
-	relation.Key = relationKey
 	t.topology.Relations[relationKey] = relation
 	return nil
 }
 
-// RelationKeys returns all relation keys.
+// RelationKeys returns the keys for all relations in the topology.
 func (t *topology) RelationKeys() []string {
 	keys := []string{}
 	for key, _ := range t.topology.Relations {
@@ -415,7 +417,7 @@ func (t *topology) RelationKeys() []string {
 	return keys
 }
 
-// RemoveRelation removes a relation.
+// RemoveRelation removes the relation with key from the topology.
 func (t *topology) RemoveRelation(key string) {
 	delete(t.topology.Relations, key)
 }
@@ -439,17 +441,18 @@ func (t *topology) RelationWithService(relationKey, serviceKey string) (*zkRelat
 	return nil, fmt.Errorf("service %q is not assigned to relation %q", serviceKey, relationKey)
 }
 
-// RelationsForService returns all relations for a
-// given service key.
-func (t *topology) RelationsForService(serviceKey string) ([]*zkRelation, error) {
+// RelationsForService returns all relations that the service
+// with serviceKey is part of.
+func (t *topology) RelationsForService(serviceKey string) (map[string]*zkRelation, error) {
 	if err := t.assertService(serviceKey); err != nil {
 		return nil, err
 	}
-	relations := []*zkRelation{}
-	for _, relation := range t.topology.Relations {
-		for _, key := range relation.Services {
-			if key == serviceKey {
-				relations = append(relations, relation)
+	relations := make(map[string]*zkRelation)
+	for relationKey, relation := range t.topology.Relations {
+		for _, roleServiceKey := range relation.Services {
+			if roleServiceKey == serviceKey {
+				relations[relationKey] = relation
+				break
 			}
 		}
 	}

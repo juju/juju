@@ -28,12 +28,7 @@ type RelationEndpoint struct {
 	RelationScope RelationScope
 }
 
-// CanRelateTo tests whether the "other"`" endpoint can be used in a common 
-// relation.
-// 
-// RelationEndpoints can be related if they share the same interface
-// and one is a 'server' while the other is a 'client'; or if both endpoints 
-// have a role of 'peers'.
+// CanRelateTo returns whether a relation may be established between e and other.
 func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
 	if e.Interface != other.Interface {
 		return false
