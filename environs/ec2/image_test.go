@@ -42,7 +42,6 @@ var imageTests = []struct {
 	imageId    string
 	err        string
 }{
-	{*defaultInstanceConstraint, "ami-a69943cf", ""},
 	{instanceConstraint{
 		series:            "natty",
 		arch:              "amd64",
