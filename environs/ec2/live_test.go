@@ -278,7 +278,7 @@ func (t *LiveTests) TestStopInstances(c *C) {
 
 func (t *LiveTests) TestPublicStorage(c *C) {
 	s := t.Env.PublicStorage().(environs.Storage)
-	defer ec2.DeleteStorage(s)
+	defer ec2.DeleteStorageContent(s)
 
 	contents := "test"
 	err := s.Put("test-object", strings.NewReader(contents), int64(len(contents)))
