@@ -14,25 +14,14 @@ type imageSuite struct{}
 
 var _ = Suite(imageSuite{})
 
-var testConstraint = &instanceConstraint{
-	series:            "oneiric",
-	arch:              "i386",
-	persistentStorage: true,
-	region:            "us-east-1",
-	daily:             false,
-	desktop:           false,
-}
-
 var oldDefaultConstraint = defaultInstanceConstraint
 
 func (imageSuite) SetUpSuite(c *C) {
 	UseTestImageData(true)
-	defaultInstanceConstraint = testConstraint
 }
 
 func (imageSuite) TearDownSuite(c *C) {
 	UseTestImageData(false)
-	defaultInstanceConstraint = oldDefaultConstraint
 }
 
 // N.B. the image IDs in this test will need updating
