@@ -213,9 +213,9 @@ func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
 func (e *environ) startInstance(machineId int, info *state.Info, master bool) (environs.Instance, error) {
-	image, err := FindInstanceSpec(DefaultInstanceConstraint)
+	spec, err := findInstanceSpec(defaultInstanceConstraint)
 	if err != nil {
-		return nil, fmt.Errorf("cannot find image: %v", err)
+		return nil, fmt.Errorf("cannot find instance: %v", err)
 	}
 	userData, err := e.userData(machineId, info, master)
 	if err != nil {
@@ -229,7 +229,7 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 
 	for a := shortAttempt.start(); a.next(); {
 		instances, err = e.ec2.RunInstances(&ec2.RunInstances{
-			ImageId:        image.ImageId,
+			ImageId:        spec.imageId,
 			MinCount:       1,
 			MaxCount:       1,
 			UserData:       userData,
