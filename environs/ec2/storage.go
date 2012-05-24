@@ -6,6 +6,7 @@ import (
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
 	"sync"
+	"time"
 )
 
 // storage implements environs.Storage on
@@ -55,7 +56,8 @@ func (s *storage) Get(file string) (r io.ReadCloser, err error) {
 }
 
 func (s *storage) URL(name string) (string, error) {
-	return s.bucket.URL(name), nil
+	// 10 years should be good enough.
+	return s.bucket.SignedURL(name, time.Now().AddDate(1, 0, 0)), nil
 }
 
 // s3ErrorStatusCode returns the HTTP status of the S3 request error,

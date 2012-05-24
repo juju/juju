@@ -1,10 +1,9 @@
-package ec2_test
+package ec2
 
 import (
 	"fmt"
 	"io"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/environs/ec2"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -15,81 +14,81 @@ type imageSuite struct{}
 
 var _ = Suite(imageSuite{})
 
-var testConstraint = &ec2.InstanceConstraint{
-	Series:     "precise",
-	Arch:              "amd64",
-	PersistentStorage: true,
-	Region:            "us-east-1",
-	Daily:             false,
-	Desktop:           false,
+var testConstraint = &instanceConstraint{
+	series:     "precise",
+	arch:              "amd64",
+	persistentStorage: true,
+	region:            "us-east-1",
+	daily:             false,
+	desktop:           false,
 }
 
-var oldDefaultConstraint = ec2.DefaultInstanceConstraint
+var oldDefaultConstraint = defaultInstanceConstraint
 
 func (imageSuite) SetUpSuite(c *C) {
-	ec2.UseTestImageData(true)
-	ec2.DefaultInstanceConstraint = testConstraint
+	UseTestImageData(true)
+	defaultInstanceConstraint = testConstraint
 }
 
 func (imageSuite) TearDownSuite(c *C) {
-	ec2.UseTestImageData(false)
-	ec2.DefaultInstanceConstraint = oldDefaultConstraint
+	UseTestImageData(false)
+	defaultInstanceConstraint = oldDefaultConstraint
 }
 
 // N.B. the image IDs in this test will need updating
 // if the image directory is regenerated.
 var imageTests = []struct {
-	constraint ec2.InstanceConstraint
+	constraint instanceConstraint
 	imageId    string
 	err        string
 }{
-	{*ec2.DefaultInstanceConstraint, "ami-a29943cb", ""},
-	{ec2.InstanceConstraint{
-		Series:            "natty",
-		Arch:              "amd64",
-		PersistentStorage: false,
-		Region:            "eu-west-1",
-		Daily:             true,
-		Desktop:           true,
-	}, "ami-856f55f1", ""},
-	{ec2.InstanceConstraint{
-		Series:            "natty",
-		Arch:              "i386",
-		PersistentStorage: true,
-		Region:            "ap-northeast-1",
-		Daily:             true,
-		Desktop:           true,
-	}, "ami-408f3f41", ""},
-	{ec2.InstanceConstraint{
-		Series:            "natty",
-		Arch:              "i386",
-		PersistentStorage: false,
-		Region:            "ap-northeast-1",
-		Daily:             true,
-		Desktop:           true,
-	}, "ami-e48e3ee5", ""},
-	{ec2.InstanceConstraint{
-		Series:            "natty",
-		Arch:              "amd64",
-		PersistentStorage: false,
-		Region:            "ap-northeast-1",
-		Daily:             true,
-		Desktop:           true,
-	}, "ami-108f3f11", ""},
-	{ec2.InstanceConstraint{
-		Series:            "zingy",
-		Arch:              "amd64",
-		PersistentStorage: false,
-		Region:            "eu-west-1",
-		Daily:             true,
-		Desktop:           true,
+	{*defaultInstanceConstraint, "ami-a7f539ce", ""},
+	{instanceConstraint{
+		series:            "natty",
+		arch:              "amd64",
+		persistentStorage: false,
+		region:            "eu-west-1",
+		daily:             true,
+		desktop:           true,
+	}, "ami-19fdc16d", ""},
+	{instanceConstraint{
+		series:            "natty",
+		arch:              "i386",
+		persistentStorage: true,
+		region:            "ap-northeast-1",
+		daily:             true,
+		desktop:           true,
+	}, "ami-cc9621cd", ""},
+	{instanceConstraint{
+		series:            "natty",
+		arch:              "i386",
+		persistentStorage: false,
+		region:            "ap-northeast-1",
+		daily:             true,
+		desktop:           true,
+	}, "ami-62962163", ""},
+	{instanceConstraint{
+		series:            "natty",
+		arch:              "amd64",
+		persistentStorage: false,
+		region:            "ap-northeast-1",
+		daily:             true,
+		desktop:           true,
+	}, "ami-a69621a7", ""},
+	{instanceConstraint{
+		series:            "zingy",
+		arch:              "amd64",
+		persistentStorage: false,
+		region:            "eu-west-1",
+		daily:             true,
+		desktop:           true,
 	}, "", "error getting instance types:.*"},
 }
 
 func (imageSuite) TestFindInstanceSpec(c *C) {
 	for i, t := range imageTests {
 		c.Logf("test %d", i)
-		id, err := ec2.FindInstanceSpec(&t.constraint)
+		id, err := findInstanceSpec(&t.constraint)
 		if t.err != "" {
 			c.Check(err, ErrorMatches, t.err)
 			c.Check(id, IsNil)
@@ -101,15 +100,15 @@ func (imageSuite) TestFindInstanceSpec(c *C) {
 		if !c.Check(id, NotNil) {
 			continue
 		}
-		c.Check(id.ImageId, Equals, t.imageId)
-		c.Check(id.Arch, Equals, t.constraint.Arch)
-		c.Check(id.Series, Equals, t.constraint.Series)
+		c.Check(id.imageId, Equals, t.imageId)
+		c.Check(id.arch, Equals, t.constraint.arch)
+		c.Check(id.series, Equals, t.constraint.series)
 	}
 }
 
 // regenerate all data inside the images directory.
 // N.B. this second-guesses the logic inside images.go
-func regenerateImages(t *testing.T) {
+func RegenerateImages(t *testing.T) {
 	if err := os.RemoveAll(imagesRoot); err != nil {
 		t.Errorf("cannot remove old images: %v", err)
 		return

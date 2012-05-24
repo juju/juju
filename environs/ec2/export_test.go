@@ -35,7 +35,7 @@ func EnvironEC2(e environs.Environ) *ec2.EC2 {
 	return e.(*environ).ec2
 }
 
-func DeleteStorage(s environs.Storage) error {
+func DeleteStorageContent(s environs.Storage) error {
 	return s.(*storage).deleteAll()
 }
 

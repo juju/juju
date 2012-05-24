@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"io/ioutil"
 	amzec2 "launchpad.net/goamz/ec2"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
@@ -81,10 +82,8 @@ func (t *LiveTests) TearDownSuite(c *C) {
 		// This can happen if SetUpSuite fails.
 		return
 	}
-	err := ec2.DeleteStorage(t.Env.PublicStorage().(environs.Storage))
-	err2 := ec2.DeleteStorage(t.Env.Storage())
+	err := ec2.DeleteStorageContent(t.Env.PublicStorage().(environs.Storage))
 	c.Assert(err, IsNil)
-	c.Assert(err2, IsNil)
 }
 
 func (t *LiveTests) SetUpTest(c *C) {
@@ -232,12 +231,12 @@ func (t *LiveTests) TestDestroy(c *C) {
 
 	t.Destroy(c)
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 30; i++ {
 		_, err = s.List("")
 		if err != nil {
 			break
 		}
-		time.Sleep(1e9)
+		time.Sleep(100 * time.Millisecond)
 	}
 	var notFoundError *environs.NotFoundError
 	c.Assert(err, FitsTypeOf, notFoundError)
@@ -277,11 +276,11 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	// for Instances to return an error, and it will not retry
 	// if it succeeds.
 	gone := false
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 30; i++ {
 		insts, err = t.Env.Instances([]string{inst0.Id(), inst2.Id()})
 		if err == environs.ErrPartialInstances {
 			// instances not gone yet.
-			time.Sleep(1e9)
+			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 		if err == environs.ErrNoInstances {
@@ -293,6 +292,28 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	if !gone {
 		c.Errorf("after termination, instances remaining: %v", insts)
 	}
+}
+
+func (t *LiveTests) TestPublicStorage(c *C) {
+	s := t.Env.PublicStorage().(environs.Storage)
+	defer ec2.DeleteStorageContent(s)
+
+	contents := "test"
+	err := s.Put("test-object", strings.NewReader(contents), int64(len(contents)))
+	c.Assert(err, IsNil)
+
+	r, err := s.Get("test-object")
+	c.Assert(err, IsNil)
+	defer r.Close()
+
+	data, err := ioutil.ReadAll(r)
+	c.Assert(err, IsNil)
+	c.Assert(string(data), Equals, contents)
+
+	// check that the public storage isn't aliased to the private storage.
+	r, err = t.Env.Storage().Get("test-object")
+	var notFoundError *environs.NotFoundError
+	c.Assert(err, FitsTypeOf, notFoundError)
 }
 
 // createGroup creates a new EC2 group and returns it. If it already exists,

@@ -213,12 +213,12 @@ func (e *environ) userData(machineId int, info *state.Info, master bool, toolsUR
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
 func (e *environ) startInstance(machineId int, info *state.Info, master bool) (environs.Instance, error) {
-	spec, err := FindInstanceSpec(DefaultInstanceConstraint)
+	spec, err := findInstanceSpec(defaultInstanceConstraint)
 	if err != nil {
-		return nil, fmt.Errorf("cannot find image: %v", err)
+		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
 	}
 	
-	toolsURL, err := environs.FindTools(e, version.Current, spec.Series, spec.Arch)
+	toolsURL, err := environs.FindTools(e, version.Current, spec.series, spec.arch)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find tools: %v", err)
 	}
@@ -234,7 +234,7 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 
 	for a := shortAttempt.start(); a.next(); {
 		instances, err = e.ec2.RunInstances(&ec2.RunInstances{
-			ImageId:        spec.ImageId,
+			ImageId:        spec.imageId,
 			MinCount:       1,
 			MaxCount:       1,
 			UserData:       userData,

@@ -5,37 +5,33 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"launchpad.net/juju/go/environs"
 )
 
-// TODO implement constraints properly.
-
-// InstanceConstraint specifies a range of possible instances
-// and the images that can run on them.
-type InstanceConstraint struct {
-	Series            string // Ubuntu release name.
-	Arch              string
-	PersistentStorage bool
-	Region            string
-	Daily             bool
-	Desktop           bool
+// instanceConstraint constrains the possible instances that may be
+// chosen by the ec2 provider.
+type instanceConstraint struct {
+	series            string // Ubuntu release name.
+	arch              string
+	persistentStorage bool
+	region            string
+	daily             bool
+	desktop           bool
 }
 
-var DefaultInstanceConstraint = &InstanceConstraint{
-	Series:    environs.CurrentSeries,
-	Arch:              environs.CurrentArch,
-	PersistentStorage: true,
-	Region:            "us-east-1",
-	Daily:             false,
-	Desktop:           false,
+var defaultInstanceConstraint = &instanceConstraint{
+	series:            "oneiric",
+	arch:              "i386",
+	persistentStorage: true,
+	region:            "us-east-1",
+	daily:             false,
+	desktop:           false,
 }
 
-// InstanceSpec specifies a particular machine type and the Ubuntu
-// release that it will run.
-type InstanceSpec struct {
-	ImageId string
-	Arch    string // The architecture the image will run on.
-	Series  string // The Ubuntu series the image will run on.
+// instanceSpec specifies a particular kind of instance.
+type instanceSpec struct {
+	imageId string
+	arch    string
+	series  string
 }
 
 // imagesHost holds the address of the images http server.
@@ -43,14 +39,28 @@ type InstanceSpec struct {
 // server when needed.
 var imagesHost = "http://uec-images.ubuntu.com"
 
-// FindInstanceSpec finds a suitable instance specification given
-// the specified constraints.
-func FindInstanceSpec(spec *InstanceConstraint) (*InstanceSpec, error) {
+// Columns in the file returned from the images server.
+const (
+	colSeries = iota
+	colServer
+	colDaily
+	colDate
+	colEBS
+	colArch
+	colRegion
+	colImageId
+	colMax
+	// + more that we don't care about.
+)
+
+// fndInstanceSpec finds a suitable instance specification given
+// the provided constraints.
+func findInstanceSpec(spec *instanceConstraint) (*instanceSpec, error) {
 	hclient := new(http.Client)
 	uri := fmt.Sprintf(imagesHost+"/query/%s/%s/%s.current.txt",
-		spec.Series,
-		either(spec.Desktop, "desktop", "server"), // variant.
-		either(spec.Daily, "daily", "released"),   // version.
+		spec.series,
+		either(spec.desktop, "desktop", "server"), // variant.
+		either(spec.daily, "daily", "released"),   // version.
 	)
 	resp, err := hclient.Get(uri)
 	if err == nil && resp.StatusCode != 200 {
@@ -60,7 +70,7 @@ func FindInstanceSpec(spec *InstanceConstraint) (*InstanceSpec, error) {
 		return nil, fmt.Errorf("error getting instance types: %v", err)
 	}
 	defer resp.Body.Close()
-	ebsMatch := either(spec.PersistentStorage, "ebs", "instance-store")
+	ebsMatch := either(spec.persistentStorage, "ebs", "instance-store")
 
 	r := bufio.NewReader(resp.Body)
 	for {
@@ -69,21 +79,17 @@ func FindInstanceSpec(spec *InstanceConstraint) (*InstanceSpec, error) {
 			return nil, fmt.Errorf("cannot find matching image: %v", err)
 		}
 		f := strings.Split(string(line), "\t")
-		if len(f) < 11 {
+		if len(f) < colMax {
 			continue
 		}
-		// TODO hvm heuristics (see python code)
-		if f[10] != "paravirtual" {
+		if f[colEBS] != ebsMatch {
 			continue
 		}
-		if f[4] != ebsMatch {
-			continue
-		}
-		if f[5] == spec.Arch && f[6] == spec.Region {
-			return &InstanceSpec{
-				ImageId: f[7],
-				Arch:    spec.Arch,
-				Series:  spec.Series,
+		if f[colArch] == spec.arch && f[colRegion] == spec.region {
+			return &instanceSpec{
+				imageId: f[colImageId],
+				arch:    spec.arch,
+				series:  spec.series,
 			}, nil
 		}
 	}
