@@ -29,7 +29,7 @@ var imageTests = []struct {
 	imageId    string
 	err        string
 }{
-	{*defaultInstanceConstraint, "ami-a7f539ce", ""},
+	{*defaultInstanceConstraint, "ami-4bad7422", ""},
 	{instanceConstraint{
 		series:            "natty",
 		arch:              "amd64",
@@ -37,7 +37,7 @@ var imageTests = []struct {
 		region:            "eu-west-1",
 		daily:             true,
 		desktop:           true,
-	}, "ami-19fdc16d", ""},
+	}, "ami-b1dde7c5", ""},
 	{instanceConstraint{
 		series:            "natty",
 		arch:              "i386",
@@ -45,7 +45,7 @@ var imageTests = []struct {
 		region:            "ap-northeast-1",
 		daily:             true,
 		desktop:           true,
-	}, "ami-cc9621cd", ""},
+	}, "ami-fc2a9afd", ""},
 	{instanceConstraint{
 		series:            "natty",
 		arch:              "i386",
@@ -53,7 +53,7 @@ var imageTests = []struct {
 		region:            "ap-northeast-1",
 		daily:             true,
 		desktop:           true,
-	}, "ami-62962163", ""},
+	}, "ami-6c2a9a6d", ""},
 	{instanceConstraint{
 		series:            "natty",
 		arch:              "amd64",
@@ -61,7 +61,7 @@ var imageTests = []struct {
 		region:            "ap-northeast-1",
 		daily:             true,
 		desktop:           true,
-	}, "ami-a69621a7", ""},
+	}, "ami-a02a9aa1", ""},
 	{instanceConstraint{
 		series:            "zingy",
 		arch:              "amd64",
@@ -102,7 +102,7 @@ func RegenerateImages(t *testing.T) {
 	}
 	for _, variant := range []string{"desktop", "server"} {
 		for _, version := range []string{"daily", "released"} {
-			for _, release := range []string{"natty", "oneiric"} {
+			for _, release := range []string{"natty", "oneiric", "precise", "quantal"} {
 				s := fmt.Sprintf("query/%s/%s/%s.current.txt", release, variant, version)
 				t.Logf("regenerating images from %q", s)
 				err := copylocal(s)
