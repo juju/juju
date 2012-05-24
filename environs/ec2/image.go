@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"launchpad.net/juju/go/log"
+	"launchpad.net/juju/go/environs"
 )
 
 // instanceConstraint constrains the possible instances that may be
@@ -19,8 +21,8 @@ type instanceConstraint struct {
 }
 
 var defaultInstanceConstraint = &instanceConstraint{
-	series:            "oneiric",
-	arch:              "i386",
+	series:            environs.CurrentSeries,
+	arch:              environs.CurrentArch,
 	persistentStorage: true,
 	region:            "us-east-1",
 	daily:             false,
@@ -49,6 +51,9 @@ const (
 	colArch
 	colRegion
 	colImageId
+	_
+	_
+	colVtype
 	colMax
 	// + more that we don't care about.
 )
@@ -82,10 +87,14 @@ func findInstanceSpec(spec *instanceConstraint) (*instanceSpec, error) {
 		if len(f) < colMax {
 			continue
 		}
+		if f[colVtype] == "hvm" {
+			continue
+		}
 		if f[colEBS] != ebsMatch {
 			continue
 		}
 		if f[colArch] == spec.arch && f[colRegion] == spec.region {
+			log.Printf("choosing image from fields %q", f)
 			return &instanceSpec{
 				imageId: f[colImageId],
 				arch:    spec.arch,
