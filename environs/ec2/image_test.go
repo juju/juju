@@ -15,8 +15,8 @@ type imageSuite struct{}
 var _ = Suite(imageSuite{})
 
 var testConstraint = &instanceConstraint{
-	series:     "precise",
-	arch:              "amd64",
+	series:            "oneiric",
+	arch:              "i386",
 	persistentStorage: true,
 	region:            "us-east-1",
 	daily:             false,
@@ -42,7 +42,7 @@ var imageTests = []struct {
 	imageId    string
 	err        string
 }{
-	{*defaultInstanceConstraint, "ami-a7f539ce", ""},
+	{*defaultInstanceConstraint, "ami-a69943cf", ""},
 	{instanceConstraint{
 		series:            "natty",
 		arch:              "amd64",
@@ -50,7 +50,7 @@ var imageTests = []struct {
 		region:            "eu-west-1",
 		daily:             true,
 		desktop:           true,
-	}, "ami-19fdc16d", ""},
+	}, "ami-b1dde7c5", ""},
 	{instanceConstraint{
 		series:            "natty",
 		arch:              "i386",
@@ -58,7 +58,7 @@ var imageTests = []struct {
 		region:            "ap-northeast-1",
 		daily:             true,
 		desktop:           true,
-	}, "ami-cc9621cd", ""},
+	}, "ami-fc2a9afd", ""},
 	{instanceConstraint{
 		series:            "natty",
 		arch:              "i386",
@@ -66,7 +66,7 @@ var imageTests = []struct {
 		region:            "ap-northeast-1",
 		daily:             true,
 		desktop:           true,
-	}, "ami-62962163", ""},
+	}, "ami-6c2a9a6d", ""},
 	{instanceConstraint{
 		series:            "natty",
 		arch:              "amd64",
@@ -74,7 +74,7 @@ var imageTests = []struct {
 		region:            "ap-northeast-1",
 		daily:             true,
 		desktop:           true,
-	}, "ami-a69621a7", ""},
+	}, "ami-a02a9aa1", ""},
 	{instanceConstraint{
 		series:            "zingy",
 		arch:              "amd64",

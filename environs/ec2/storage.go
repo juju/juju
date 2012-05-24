@@ -5,8 +5,10 @@ import (
 	"io"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
+	"launchpad.net/juju/go/log"
 	"sync"
 	"time"
+	"local/runtime/debug"
 )
 
 // storage implements environs.Storage on
@@ -94,6 +96,7 @@ func (s *storage) List(prefix string) ([]string, error) {
 
 func (s *storage) deleteAll() error {
 	names, err := s.List("")
+	log.Printf("deleteAll from %q, contents %q; callers %s", s.bucket.Name, names, debug.Callers(0, 20))
 	if err != nil {
 		if _, ok := err.(*environs.NotFoundError); ok {
 			return nil

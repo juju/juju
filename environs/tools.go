@@ -67,6 +67,7 @@ func PutTools(storage StorageWriter) error {
 	if err != nil {
 		return err
 	}
+	log.Printf("environs: putting tools %v", toolsPath)
 	return storage.Put(toolsPath, f, fi.Size())
 }
 
@@ -221,6 +222,7 @@ func findTools(env Environ, spec toolsSpec) (storage StorageReader, path string,
 // findToolsPath looks for the tools in the given storage.
 func findToolsPath(store StorageReader, spec toolsSpec) (path string, err error) {
 	names, err := store.List(fmt.Sprintf("%s%d.", toolPrefix, spec.vers.Major))
+	log.Printf("findTools searching for %v in %q", spec, names)
 	if err != nil {
 		return "", err
 	}

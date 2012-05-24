@@ -79,6 +79,16 @@ func (t *localLiveSuite) TearDownSuite(c *C) {
 	ec2.UseTestImageData(false)
 }
 
+func (t *localLiveSuite) SetUpTest(c *C) {
+	t.LoggingSuite.SetUpTest(c)
+	t.LiveTests.SetUpTest(c)
+}
+
+func (t *localLiveSuite) TearDownTest(c *C) {
+	t.LiveTests.TearDownTest(c)
+	t.LoggingSuite.TearDownTest(c)
+}
+
 // localServer represents a fake EC2 server running within
 // the test process itself.
 type localServer struct {
@@ -136,6 +146,7 @@ func putFakeTools(c *C, s environs.StorageWriter) {
 			panic("no tools written")
 		}
 	})
+	c.Logf("putting fake tools at %v", tools.path)
 	toolsContents := "tools archive, honest guv"
 	err := s.Put(tools.path, strings.NewReader(toolsContents), int64(len(toolsContents)))
 	if err != nil {
