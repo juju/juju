@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"launchpad.net/juju/go/log"
 	"launchpad.net/juju/go/environs"
 )
 
@@ -94,7 +93,6 @@ func findInstanceSpec(spec *instanceConstraint) (*instanceSpec, error) {
 			continue
 		}
 		if f[colArch] == spec.arch && f[colRegion] == spec.region {
-			log.Printf("choosing image from fields %q", f)
 			return &instanceSpec{
 				imageId: f[colImageId],
 				arch:    spec.arch,
