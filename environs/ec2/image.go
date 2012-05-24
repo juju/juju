@@ -41,20 +41,20 @@ var imagesHost = "http://uec-images.ubuntu.com"
 
 // Columns in the file returned from the images server.
 const (
-	colseries = iota
+	colSeries = iota
 	colServer
-	coldaily
+	colDaily
 	colDate
 	colEBS
-	colarch
-	colregion
+	colArch
+	colRegion
 	colImageId
 	colMax
 	// + more that we don't care about.
 )
 
 // fndInstanceSpec finds a suitable instance specification given
-// the specified constraints.
+// the provided constraints.
 func findInstanceSpec(spec *instanceConstraint) (*instanceSpec, error) {
 	hclient := new(http.Client)
 	uri := fmt.Sprintf(imagesHost+"/query/%s/%s/%s.current.txt",
@@ -85,7 +85,7 @@ func findInstanceSpec(spec *instanceConstraint) (*instanceSpec, error) {
 		if f[colEBS] != ebsMatch {
 			continue
 		}
-		if f[colarch] == spec.arch && f[colregion] == spec.region {
+		if f[colArch] == spec.arch && f[colRegion] == spec.region {
 			return &instanceSpec{
 				imageId: f[colImageId],
 				arch:    spec.arch,

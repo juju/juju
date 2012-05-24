@@ -211,7 +211,7 @@ func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte
 func (e *environ) startInstance(machineId int, info *state.Info, master bool) (environs.Instance, error) {
 	spec, err := findInstanceSpec(defaultInstanceConstraint)
 	if err != nil {
-		return nil, fmt.Errorf("cannot find instance: %v", err)
+		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
 	}
 	userData, err := e.userData(machineId, info, master)
 	if err != nil {
