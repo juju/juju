@@ -562,6 +562,36 @@ func (s *TopologySuite) TestRelationKeys(c *C) {
 	c.Assert(keys, DeepEquals, []string{"r-1", "r-2"})
 }
 
+func (s *TopologySuite) TestRelationsForService(c *C) {
+	// Check that fetching the relations for a service works.
+	s.t.AddService("s-p", "riak")
+	relations, err := s.t.RelationsForService("s-p")
+	c.Assert(err, IsNil)
+	c.Assert(relations, HasLen, 0)
+
+	s.t.AddRelation("r-0", &zkRelation{
+		Interface: "ifce0",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RolePeer: "s-p"},
+	})
+	s.t.AddRelation("r-1", &zkRelation{
+		Interface: "ifce1",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RolePeer: "s-p"},
+	})
+	relations, err = s.t.RelationsForService("s-p")
+	c.Assert(err, IsNil)
+	c.Assert(relations, HasLen, 2)
+	c.Assert(relations["r-0"].Interface, Equals, "ifce0")
+	c.Assert(relations["r-1"].Interface, Equals, "ifce1")
+
+	s.t.RemoveRelation("r-0")
+	relations, err = s.t.RelationsForService("s-p")
+	c.Assert(err, IsNil)
+	c.Assert(relations, HasLen, 1)
+	c.Assert(relations["r-1"].Interface, Equals, "ifce1")
+}
+
 func (s *TopologySuite) TestRemoveRelation(c *C) {
 	// Check that removing of a relation works.
 	s.t.AddService("s-c", "wordpress")

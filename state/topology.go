@@ -422,25 +422,6 @@ func (t *topology) RemoveRelation(key string) {
 	delete(t.topology.Relations, key)
 }
 
-// RelationWithService returns the relation data for a given
-// relation key if the service with the given key is assigned
-// to the relation.
-func (t *topology) RelationWithService(relationKey, serviceKey string) (*zkRelation, error) {
-	if err := t.assertService(serviceKey); err != nil {
-		return nil, err
-	}
-	if err := t.assertRelation(relationKey); err != nil {
-		return nil, err
-	}
-	relation := t.topology.Relations[relationKey]
-	for _, key := range relation.Services {
-		if key == serviceKey {
-			return relation, nil
-		}
-	}
-	return nil, fmt.Errorf("service %q is not assigned to relation %q", serviceKey, relationKey)
-}
-
 // RelationsForService returns all relations that the service
 // with serviceKey is part of.
 func (t *topology) RelationsForService(serviceKey string) (map[string]*zkRelation, error) {
