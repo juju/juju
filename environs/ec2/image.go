@@ -7,30 +7,31 @@ import (
 	"strings"
 )
 
-// ImageConstraint specifies a range of possible machine images.
-// TODO allow specification of softer constraints?
-type ImageConstraint struct {
-	Series            string // Ubuntu release name.
-	Arch              string
-	PersistentStorage bool
-	Region            string
-	Daily             bool
-	Desktop           bool
+// instanceConstraint constrains the possible instances that may be
+// chosen by the ec2 provider.
+type instanceConstraint struct {
+	series            string // Ubuntu release name.
+	arch              string
+	persistentStorage bool
+	region            string
+	daily             bool
+	desktop           bool
 }
 
-var DefaultImageConstraint = &ImageConstraint{
-	Series:            "oneiric",
-	Arch:              "i386",
-	PersistentStorage: true,
-	Region:            "us-east-1",
-	Daily:             false,
-	Desktop:           false,
+var defaultInstanceConstraint = &instanceConstraint{
+	series:            "oneiric",
+	arch:              "i386",
+	persistentStorage: true,
+	region:            "us-east-1",
+	daily:             false,
+	desktop:           false,
 }
 
-type ImageSpec struct {
-	ImageId string
-	Arch    string // The architecture the image will run on.
-	Series  string // The Ubuntu series the image will run on.
+// instanceSpec specifies a particular kind of instance.
+type instanceSpec struct {
+	imageId string
+	arch    string
+	series  string
 }
 
 // imagesHost holds the address of the images http server.
@@ -48,16 +49,18 @@ const (
 	colArch
 	colRegion
 	colImageId
-	// + more that we don't care about.
 	colMax
+	// + more that we don't care about.
 )
 
-func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
+// fndInstanceSpec finds a suitable instance specification given
+// the provided constraints.
+func findInstanceSpec(spec *instanceConstraint) (*instanceSpec, error) {
 	hclient := new(http.Client)
 	uri := fmt.Sprintf(imagesHost+"/query/%s/%s/%s.current.txt",
-		spec.Series,
-		either(spec.Desktop, "desktop", "server"), // variant.
-		either(spec.Daily, "daily", "released"),   // version.
+		spec.series,
+		either(spec.desktop, "desktop", "server"), // variant.
+		either(spec.daily, "daily", "released"),   // version.
 	)
 	resp, err := hclient.Get(uri)
 	if err == nil && resp.StatusCode != 200 {
@@ -67,7 +70,7 @@ func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
 		return nil, fmt.Errorf("error getting instance types: %v", err)
 	}
 	defer resp.Body.Close()
-	ebsMatch := either(spec.PersistentStorage, "ebs", "instance-store")
+	ebsMatch := either(spec.persistentStorage, "ebs", "instance-store")
 
 	r := bufio.NewReader(resp.Body)
 	for {
@@ -82,11 +85,11 @@ func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
 		if f[colEBS] != ebsMatch {
 			continue
 		}
-		if f[colArch] == spec.Arch && f[colRegion] == spec.Region {
-			return &ImageSpec{
-				ImageId: f[colImageId],
-				Arch:    spec.Arch,
-				Series:  spec.Series,
+		if f[colArch] == spec.arch && f[colRegion] == spec.region {
+			return &instanceSpec{
+				imageId: f[colImageId],
+				arch:    spec.arch,
+				series:  spec.series,
 			}, nil
 		}
 	}
