@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju/go/environs"
-	"sync"
 )
 
 const stateFile = "provider-state"
@@ -46,39 +45,4 @@ func maybeNotFound(err error) error {
 		return &environs.NotFoundError{err}
 	}
 	return err
-}
-
-func (e *environ) deleteState() error {
-	s := e.Storage().(*storage)
-
-	names, err := s.List("")
-	if err != nil {
-		if _, ok := err.(*environs.NotFoundError); ok {
-			return nil
-		}
-		return err
-	}
-	// Remove all the objects in parallel so that we incur less round-trips.
-	// If we're in danger of having hundreds of objects,
-	// we'll want to change this to limit the number
-	// of concurrent operations.
-	var wg sync.WaitGroup
-	wg.Add(len(names))
-	errc := make(chan error, len(names))
-	for _, name := range names {
-		name := name
-		go func() {
-			if err := s.Remove(name); err != nil {
-				errc <- err
-			}
-			wg.Done()
-		}()
-	}
-	wg.Wait()
-	select {
-	case err := <-errc:
-		return fmt.Errorf("cannot delete all provider state: %v", err)
-	default:
-	}
-	return s.bucket.DelBucket()
 }
