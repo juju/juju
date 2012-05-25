@@ -5,6 +5,7 @@ import (
 	"io"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
+	"launchpad.net/juju/go/log"
 	"sync"
 	"time"
 )
@@ -24,6 +25,10 @@ type storage struct {
 func (s *storage) makeBucket() error {
 	s.bucketMutex.Lock()
 	defer s.bucketMutex.Unlock()
+	log.Printf("makeBucket %p, made %v", s, s.madeBucket)
+	if s.madeBucket {
+		return nil
+	}
 	// try to make the bucket - PutBucket will succeed if the
 	// bucket already exists.
 	err := s.bucket.PutBucket(s3.Private)
@@ -123,6 +128,12 @@ func (s *storage) deleteAll() error {
 	default:
 	}
 
+	s.bucketMutex.Lock()
+	defer s.bucketMutex.Unlock()
+	// Even DelBucket fails, it won't harm if we try again - the operation
+	// might have succeeded even if we get an error.
+	log.Printf("deleteAll %p setting madeBucket to false", s)
+	s.madeBucket = false
 	return s.bucket.DelBucket()
 }
 
