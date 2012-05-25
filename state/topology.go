@@ -13,19 +13,20 @@ import (
 // when we know that a version is in fact actually incompatible.
 const topologyVersion = 1
 
-// NoRelationError is returned if a relation between two provider and
-// consumer endpoints of for one peer endpoint does not exist.
+// NoRelationError represents a relation not found for one or more endpoints.
 type NoRelationError struct {
-	Endpoint1 *RelationEndpoint
-	Endpoint2 *RelationEndpoint
+	Endpoints []RelationEndpoint
 }
 
 // Error returns the string representation of the error.
 func (e NoRelationError) Error() string {
-	if e.Endpoint2 == nil {
-		return fmt.Sprintf("state: no peer relation for %q", e.Endpoint1)
+	switch len(e.Endpoints) {
+	case 1:
+		return fmt.Sprintf("state: no peer relation for %q", e.Endpoints[0].Id())
+	case 2:
+		return fmt.Sprintf("state: no relation between %q and %q", e.Endpoints[0].Id(), e.Endpoints[1].Id())
 	}
-	return fmt.Sprintf("state: no relation between %q and %q", e.Endpoint1, e.Endpoint2)
+	panic("state: illegal relation error")
 }
 
 // zkTopology is used to marshal and unmarshal the content
@@ -58,7 +59,7 @@ type zkUnit struct {
 }
 
 // zkRelation represents the relation data within the 
-// /topology node in ZooKeeper.s
+// /topology node in ZooKeeper.
 type zkRelation struct {
 	Interface string
 	Scope     RelationScope
@@ -437,25 +438,6 @@ func (t *topology) RemoveRelation(key string) {
 	delete(t.topology.Relations, key)
 }
 
-// RelationWithService returns the relation data for a given
-// relation key if the service with the given key is assigned
-// to the relation.
-func (t *topology) RelationWithService(relationKey, serviceKey string) (*zkRelation, error) {
-	if err := t.assertService(serviceKey); err != nil {
-		return nil, err
-	}
-	if err := t.assertRelation(relationKey); err != nil {
-		return nil, err
-	}
-	relation := t.topology.Relations[relationKey]
-	for _, key := range relation.Services {
-		if key == serviceKey {
-			return relation, nil
-		}
-	}
-	return nil, fmt.Errorf("service %q is not assigned to relation %q", serviceKey, relationKey)
-}
-
 // RelationsForService returns all relations that the service
 // with serviceKey is part of.
 func (t *topology) RelationsForService(serviceKey string) (map[string]*zkRelation, error) {
@@ -474,61 +456,49 @@ func (t *topology) RelationsForService(serviceKey string) (map[string]*zkRelatio
 	return relations, nil
 }
 
-// RelationKey returns the key of a client/server relation with a matching
-// interface between two endpoints. If it doesn't exist an error is returned.
-func (t *topology) RelationKey(ep1, ep2 RelationEndpoint) (string, error) {
+// RelationKey returns the key for the relation established between the
+// provided endpoints. If no matching relation is found, error will be
+// of type *NoRelationError.
+func (t *topology) RelationKey(endpoints ...RelationEndpoint) (string, error) {
 	if t.topology.Relations == nil {
-		return "", nil
+		return "", &NoRelationError{endpoints}
 	}
-	ep1Key, err := t.ServiceKey(ep1.ServiceName)
-	if err != nil {
-		return "", err
+	switch len(endpoints) {
+	case 1:
+		// Just pass.
+	case 2:
+		if endpoints[0].Interface != endpoints[1].Interface {
+			return "", fmt.Errorf("state: differing interfaces %q and %q", endpoints[0].Interface, endpoints[1].Interface)
+		}
+	default:
+		return "", fmt.Errorf("state: illegal number of endpoints passed")
 	}
-	ep2Key, err := t.ServiceKey(ep2.ServiceName)
-	if err != nil {
-		return "", err
-	}
-	for key, relation := range t.topology.Relations {
-		requirerKey := relation.Services[RoleRequirer]
-		providerKey := relation.Services[RoleProvider]
-		if requirerKey == "" || providerKey == "" {
-			// It's a peer relation.
+	for relationKey, relation := range t.topology.Relations {
+		if relation.Interface != endpoints[0].Interface {
 			continue
 		}
-		if ep1.Interface != relation.Interface || ep2.Interface != relation.Interface {
-			continue
+		found := true
+		for _, endpoint := range endpoints {
+			serviceKey, ok := relation.Services[endpoint.RelationRole]
+			if !ok {
+				found = false
+				break
+			}
+			serviceName, err := t.ServiceName(serviceKey)
+			if err != nil {
+				return "", err
+			}
+			if serviceName != endpoint.RelationName {
+				found = false
+				break
+			}
 		}
-		if (requirerKey == ep1Key && providerKey == ep2Key) || (requirerKey == ep2Key && providerKey == ep1Key) {
-			return key, nil
-		}
-	}
-	return "", NoRelationError{&ep1, &ep2}
-}
-
-// PeerRelationKey returns the key of a peer relation with a matching
-// interface for one endpoint. If it doesn't exist an error is returned.
-func (t *topology) PeerRelationKey(ep RelationEndpoint) (string, error) {
-	if t.topology.Relations == nil {
-		return "", nil
-	}
-	epKey, err := t.ServiceKey(ep.ServiceName)
-	if err != nil {
-		return "", err
-	}
-	for key, relation := range t.topology.Relations {
-		peerKey := relation.Services[RolePeer]
-		if peerKey == "" {
-			// It's a client/server relation.
-			continue
-		}
-		if ep.Interface != relation.Interface {
-			continue
-		}
-		if peerKey == epKey {
-			return key, nil
+		if found {
+			// All endpoints tested positive.
+			return relationKey, nil
 		}
 	}
-	return "", NoRelationError{&ep, nil}
+	return "", &NoRelationError{endpoints}
 }
 
 // assertMachine checks if a machine exists.

@@ -1,6 +1,3 @@
-// launchpad.net/juju/go/state
-//
-// Copyright (c) 2011-2012 Canonical Ltd.
 package state
 
 import (
@@ -562,6 +559,36 @@ func (s *TopologySuite) TestRelationKeys(c *C) {
 	c.Assert(keys, DeepEquals, []string{"r-1", "r-2"})
 }
 
+func (s *TopologySuite) TestRelationsForService(c *C) {
+	// Check that fetching the relations for a service works.
+	s.t.AddService("s-p", "riak")
+	relations, err := s.t.RelationsForService("s-p")
+	c.Assert(err, IsNil)
+	c.Assert(relations, HasLen, 0)
+
+	s.t.AddRelation("r-0", &zkRelation{
+		Interface: "ifce0",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RolePeer: "s-p"},
+	})
+	s.t.AddRelation("r-1", &zkRelation{
+		Interface: "ifce1",
+		Scope:     ScopeGlobal,
+		Services:  map[RelationRole]string{RolePeer: "s-p"},
+	})
+	relations, err = s.t.RelationsForService("s-p")
+	c.Assert(err, IsNil)
+	c.Assert(relations, HasLen, 2)
+	c.Assert(relations["r-0"].Interface, Equals, "ifce0")
+	c.Assert(relations["r-1"].Interface, Equals, "ifce1")
+
+	s.t.RemoveRelation("r-0")
+	relations, err = s.t.RelationsForService("s-p")
+	c.Assert(err, IsNil)
+	c.Assert(relations, HasLen, 1)
+	c.Assert(relations["r-1"].Interface, Equals, "ifce1")
+}
+
 func (s *TopologySuite) TestRemoveRelation(c *C) {
 	// Check that removing of a relation works.
 	s.t.AddService("s-r", "wordpress")
@@ -602,12 +629,12 @@ func (s *TopologySuite) TestRemoveServiceWithRelations(c *C) {
 }
 
 func (s *TopologySuite) TestRelationKeyEndpoints(c *C) {
-	mysqlep1 := RelationEndpoint{"mysql", "ifce1", "blog1", RoleProvider, ScopeGlobal}
-	blogep1 := RelationEndpoint{"wordpress", "ifce1", "blog1", RoleRequirer, ScopeGlobal}
-	mysqlep2 := RelationEndpoint{"mysql", "ifce2", "blog2", RoleProvider, ScopeGlobal}
-	blogep2 := RelationEndpoint{"wordpress", "ifce2", "blog2", RoleRequirer, ScopeGlobal}
-	mysqlep3 := RelationEndpoint{"mysql", "ifce3", "blog3", RoleProvider, ScopeGlobal}
-	blogep3 := RelationEndpoint{"wordpress", "ifce3", "blog3", RoleRequirer, ScopeGlobal}
+	mysqlep1 := RelationEndpoint{"mysql", "ifce1", "mysql", RoleProvider, ScopeGlobal}
+	blogep1 := RelationEndpoint{"wordpress", "ifce1", "wordpress", RoleRequirer, ScopeGlobal}
+	mysqlep2 := RelationEndpoint{"mysql", "ifce2", "mysql", RoleProvider, ScopeGlobal}
+	blogep2 := RelationEndpoint{"wordpress", "ifce2", "wordpress", RoleRequirer, ScopeGlobal}
+	mysqlep3 := RelationEndpoint{"mysql", "ifce3", "mysql", RoleProvider, ScopeGlobal}
+	blogep3 := RelationEndpoint{"wordpress", "ifce3", "wordpress", RoleRequirer, ScopeGlobal}
 	s.t.AddService("s-r", "wordpress")
 	s.t.AddService("s-p", "mysql")
 	s.t.AddRelation("r-0", &zkRelation{
@@ -637,11 +664,17 @@ func (s *TopologySuite) TestRelationKeyEndpoints(c *C) {
 
 	// Endpoints without relation.
 	_, err = s.t.RelationKey(mysqlep3, blogep3)
-	c.Assert(err, ErrorMatches, `state: no relation between "provider:blog3:mysql:ifce3" and "requirer:blog3:wordpress:ifce3"`)
+	c.Assert(err, ErrorMatches, `state: no relation between "mysql:mysql" and "wordpress:wordpress"`)
 
 	// Mix of endpoints of two relations.
 	_, err = s.t.RelationKey(mysqlep1, blogep2)
-	c.Assert(err, ErrorMatches, `state: no relation between "provider:blog1:mysql:ifce1" and "requirer:blog2:wordpress:ifce2"`)
+	c.Assert(err, ErrorMatches, `state: differing interfaces "ifce1" and "ifce2"`)
+
+	// Illegal number of endpoints.
+	_, err = s.t.RelationKey()
+	c.Assert(err, ErrorMatches, `state: illegal number of endpoints passed`)
+	_, err = s.t.RelationKey(mysqlep1, mysqlep2, blogep1)
+	c.Assert(err, ErrorMatches, `state: illegal number of endpoints passed`)
 }
 
 func (s *TopologySuite) TestRelationKeyIllegalEndpoints(c *C) {
@@ -661,20 +694,20 @@ func (s *TopologySuite) TestRelationKeyIllegalEndpoints(c *C) {
 
 	key, err := s.t.RelationKey(mysqlep1, blogep2)
 	c.Assert(key, Equals, "")
-	c.Assert(err, ErrorMatches, `service with name "illegal-wordpress" not found`)
+	c.Assert(err, ErrorMatches, `state: no relation between "mysql:blog" and "illegal-wordpress:blog"`)
 	key, err = s.t.RelationKey(mysqlep2, blogep1)
 	c.Assert(key, Equals, "")
-	c.Assert(err, ErrorMatches, `service with name "illegal-mysql" not found`)
+	c.Assert(err, ErrorMatches, `state: no relation between "illegal-mysql:blog" and "wordpress:blog"`)
 	key, err = s.t.RelationKey(mysqlep1, riakep3)
 	c.Assert(key, Equals, "")
-	c.Assert(err, ErrorMatches, `state: no relation between "provider:blog:mysql:ifce" and "peer:ring:riak:ifce"`)
+	c.Assert(err, ErrorMatches, `state: no relation between "mysql:blog" and "riak:ring"`)
 }
 
 func (s *TopologySuite) TestPeerRelationKeyEndpoints(c *C) {
 	riakep1 := RelationEndpoint{"riak", "ifce1", "ring", RolePeer, ScopeGlobal}
 	riakep2 := RelationEndpoint{"riak", "ifce2", "ring", RolePeer, ScopeGlobal}
 	riakep3 := RelationEndpoint{"riak", "ifce3", "ring", RolePeer, ScopeGlobal}
-	s.t.AddService("s-p", "riak")
+	s.t.AddService("s-p", "ring")
 	s.t.AddRelation("r-0", &zkRelation{
 		Interface: "ifce1",
 		Scope:     ScopeGlobal,
@@ -687,16 +720,16 @@ func (s *TopologySuite) TestPeerRelationKeyEndpoints(c *C) {
 	})
 
 	// Valid relations.
-	key, err := s.t.PeerRelationKey(riakep1)
+	key, err := s.t.RelationKey(riakep1)
 	c.Assert(err, IsNil)
 	c.Assert(key, Equals, "r-0")
-	key, err = s.t.PeerRelationKey(riakep2)
+	key, err = s.t.RelationKey(riakep2)
 	c.Assert(err, IsNil)
 	c.Assert(key, Equals, "r-1")
 
 	// Endpoint without relation.
-	key, err = s.t.PeerRelationKey(riakep3)
-	c.Assert(err, ErrorMatches, `state: no peer relation for "peer:ring:riak:ifce3"`)
+	key, err = s.t.RelationKey(riakep3)
+	c.Assert(err, ErrorMatches, `state: no peer relation for "riak:ring"`)
 }
 
 func (s *TopologySuite) TestPeerRelationKeyIllegalEndpoints(c *C) {
@@ -708,9 +741,9 @@ func (s *TopologySuite) TestPeerRelationKeyIllegalEndpoints(c *C) {
 		Services:  map[RelationRole]string{RolePeer: "s-p"},
 	})
 
-	key, err := s.t.PeerRelationKey(riakep1)
+	key, err := s.t.RelationKey(riakep1)
 	c.Assert(key, Equals, "")
-	c.Assert(err, ErrorMatches, `service with name "illegal-riak" not found`)
+	c.Assert(err, ErrorMatches, `state: no peer relation for "illegal-riak:ring"`)
 }
 
 type ConfigNodeSuite struct {

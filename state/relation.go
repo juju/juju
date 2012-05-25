@@ -1,8 +1,6 @@
 package state
 
-import (
-	"fmt"
-)
+import ()
 
 // RelationRole defines the role of a relation endpoint.
 type RelationRole string
@@ -30,6 +28,11 @@ type RelationEndpoint struct {
 	RelationScope RelationScope
 }
 
+// Id returns the unique identifier of the relation endpoint.
+func (e *RelationEndpoint) Id() string {
+	return e.ServiceName + ":" + e.RelationName
+}
+
 // CanRelateTo returns whether a relation may be established between e and other.
 func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
 	if e.Interface != other.Interface {
@@ -40,13 +43,6 @@ func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
 		return other.RelationRole == RoleRequirer
 	case RoleRequirer:
 		return other.RelationRole == RoleProvider
-	case RolePeer:
-		return other.RelationRole == RolePeer
 	}
 	panic("endpoint role is undefined")
-}
-
-// String returns the string representation of the relation endpoint.
-func (e *RelationEndpoint) String() string {
-	return fmt.Sprintf("%s:%s:%s:%s", e.RelationRole, e.RelationName, e.ServiceName, e.Interface)
 }
