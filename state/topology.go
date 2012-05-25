@@ -22,9 +22,9 @@ type NoRelationError struct {
 func (e NoRelationError) Error() string {
 	switch len(e.Endpoints) {
 	case 1:
-		return fmt.Sprintf("state: no peer relation for %q", e.Endpoints[0].Id())
+		return fmt.Sprintf("state: no peer relation for %q", e.Endpoints[0])
 	case 2:
-		return fmt.Sprintf("state: no relation between %q and %q", e.Endpoints[0].Id(), e.Endpoints[1].Id())
+		return fmt.Sprintf("state: no relation between %q and %q", e.Endpoints[0], e.Endpoints[1])
 	}
 	panic("state: illegal relation error")
 }
