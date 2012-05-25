@@ -154,6 +154,9 @@ func (e *environ) Storage() environs.Storage {
 func (e *environ) PublicStorage() environs.StorageReader {
 	e.configMutex.Lock()
 	defer e.configMutex.Unlock()
+	if e.publicStorageUnlocked == nil {
+		return environs.EmptyStorage
+	}
 	return e.publicStorageUnlocked
 }
 

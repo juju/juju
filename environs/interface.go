@@ -108,8 +108,8 @@ type Environ interface {
 	StateInfo() (*state.Info, error)
 
 	// SetConfig updates the Environs configuration.
-	// Calls to SetConfig do no affect the configuration of
-	// values previously retured from Storage and PublicStorage.
+	// Calls to SetConfig do not affect the configuration of
+	// values previously obtained from Storage and PublicStorage.
 	SetConfig(config EnvironConfig)
 
 	// StartInstance asks for a new instance to be created,
@@ -131,11 +131,11 @@ type Environ interface {
 	Instances(ids []string) ([]Instance, error)
 
 	// Storage returns storage specific to the environment.
-	// The reference returned is not affected by calls to SetConfig.
+	// The reference returned is immutable with respect to SetConfig.
 	Storage() Storage
 
 	// PublicStorage returns storage shared between environments.
-	// The reference returned is not affected by calls to SetConfig.
+	// The reference returned is immutable with respect to SetConfig.
 	PublicStorage() StorageReader
 
 	// Destroy shuts down all known machines and destroys the
