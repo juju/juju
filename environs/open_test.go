@@ -24,6 +24,6 @@ func (OpenSuite) TestNewDummyEnviron(c *C) {
 
 func (OpenSuite) TestNewUnknownEnviron(c *C) {
 	env, err := environs.NewEnviron(map[string]interface{}{"type": "wondercloud"})
-	c.Assert(err, ErrorMatches, "no registered provider for.*")
+	c.Assert(err, ErrorMatches, "error validating environment: no registered provider for.*")
 	c.Assert(env, IsNil)
 }
