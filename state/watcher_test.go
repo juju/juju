@@ -104,6 +104,7 @@ type unitWatchNeedsUpgradeTest struct {
 }
 
 var unitWatchNeedsUpgradeTests = []unitWatchNeedsUpgradeTest{
+	{func(u *state.Unit) error { return nil }, state.NeedsUpgrade{false, false}},
 	{func(u *state.Unit) error { return u.SetNeedsUpgrade(false) }, state.NeedsUpgrade{true, false}},
 	{func(u *state.Unit) error { return u.ClearNeedsUpgrade() }, state.NeedsUpgrade{false, false}},
 	{func(u *state.Unit) error { return u.SetNeedsUpgrade(true) }, state.NeedsUpgrade{true, true}},
@@ -118,7 +119,8 @@ func (s *StateSuite) TestUnitWatchNeedsUpgrade(c *C) {
 	c.Assert(err, IsNil)
 	needsUpgradeWatcher := unit.WatchNeedsUpgrade()
 
-	for _, test := range unitWatchNeedsUpgradeTests {
+	for i, test := range unitWatchNeedsUpgradeTests {
+		c.Logf("test %d", i)
 		err := test.test(unit)
 		c.Assert(err, IsNil)
 		select {
@@ -146,6 +148,7 @@ type unitWatchResolvedTest struct {
 }
 
 var unitWatchResolvedTests = []unitWatchResolvedTest{
+	{func(u *state.Unit) error { return nil }, state.ResolvedNone},
 	{func(u *state.Unit) error { return u.SetResolved(state.ResolvedRetryHooks) }, state.ResolvedRetryHooks},
 	{func(u *state.Unit) error { return u.ClearResolved() }, state.ResolvedNone},
 	{func(u *state.Unit) error { return u.SetResolved(state.ResolvedNoHooks) }, state.ResolvedNoHooks},
@@ -160,7 +163,8 @@ func (s *StateSuite) TestUnitWatchResolved(c *C) {
 	c.Assert(err, IsNil)
 	resolvedWatcher := unit.WatchResolved()
 
-	for _, test := range unitWatchResolvedTests {
+	for i, test := range unitWatchResolvedTests {
+		c.Logf("test %d", i)
 		err := test.test(unit)
 		c.Assert(err, IsNil)
 		select {
@@ -188,6 +192,7 @@ type unitWatchPortsTest struct {
 }
 
 var unitWatchPortsTests = []unitWatchPortsTest{
+	{func(u *state.Unit) error { return nil }, nil},
 	{func(u *state.Unit) error { return u.OpenPort("tcp", 80) }, []state.Port{{"tcp", 80}}},
 	{func(u *state.Unit) error { return u.OpenPort("udp", 53) }, []state.Port{{"tcp", 80}, {"udp", 53}}},
 	{func(u *state.Unit) error { return u.ClosePort("tcp", 80) }, []state.Port{{"udp", 53}}},
@@ -202,7 +207,8 @@ func (s *StateSuite) TestUnitWatchPorts(c *C) {
 	c.Assert(err, IsNil)
 	portsWatcher := unit.WatchPorts()
 
-	for _, test := range unitWatchPortsTests {
+	for i, test := range unitWatchPortsTests {
+		c.Logf("test %d", i)
 		err := test.test(unit)
 		c.Assert(err, IsNil)
 		select {
@@ -261,7 +267,8 @@ var machinesWatchTests = []machinesWatchTest{
 func (s *StateSuite) TestWatchMachines(c *C) {
 	w := s.st.WatchMachines()
 
-	for _, test := range machinesWatchTests {
+	for i, test := range machinesWatchTests {
+		c.Logf("test %d", i)
 		err := test.test(s.st)
 		c.Assert(err, IsNil)
 		want := test.want(s.st)
@@ -307,7 +314,8 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 	config, ok := <-w.Changes()
 	c.Assert(ok, Equals, true)
 
-	for _, test := range environmentWatchTests {
+	for i, test := range environmentWatchTests {
+		c.Logf("test %d", i)
 		config.Set(test.key, test.value)
 		_, err := config.Write()
 		c.Assert(err, IsNil)
