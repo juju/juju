@@ -31,7 +31,7 @@ func AuthorizedKeys(path string) (string, error) {
 }
 
 func EnvironEC2(e environs.Environ) *ec2.EC2 {
-	return e.(*environ).ec2
+	return e.(*environ).ec2()
 }
 
 func DeleteStorageContent(s environs.Storage) error {

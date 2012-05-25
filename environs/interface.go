@@ -107,6 +107,11 @@ type Environ interface {
 	// by Bootstrap.
 	StateInfo() (*state.Info, error)
 
+	// SetConfig updates the Environs configuration.
+	// Calls to SetConfig do no affect the configuration of
+	// values previously retured from Storage and PublicStorage.
+	SetConfig(config EnvironConfig)
+
 	// StartInstance asks for a new instance to be created,
 	// associated with the provided machine identifier.
 	// The given info describes the juju state for the new
@@ -126,9 +131,11 @@ type Environ interface {
 	Instances(ids []string) ([]Instance, error)
 
 	// Storage returns storage specific to the environment.
+	// The reference returned is not affected by calls to SetConfig.
 	Storage() Storage
 
 	// PublicStorage returns storage shared between environments.
+	// The reference returned is not affected by calls to SetConfig.
 	PublicStorage() StorageReader
 
 	// Destroy shuts down all known machines and destroys the

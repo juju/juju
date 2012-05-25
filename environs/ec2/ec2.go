@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/log"
 	"launchpad.net/juju/go/state"
+	"sync"
 	"time"
 )
 
@@ -38,12 +39,15 @@ type environProvider struct{}
 var _ environs.EnvironProvider = environProvider{}
 
 type environ struct {
-	name          string
-	config        *providerConfig
-	ec2           *ec2.EC2
-	s3            *s3.S3
-	storage       storage
-	publicStorage *storage // optional.
+	name string
+
+	// configMutex protects the *Unlocked fields below.
+	configMutex           sync.Mutex
+	configUnlocked        *providerConfig
+	ec2Unlocked           *ec2.EC2
+	s3Unlocked            *s3.S3
+	storageUnlocked       *storage
+	publicStorageUnlocked *storage // optional.
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -96,16 +100,61 @@ func (cfg *providerConfig) Open() (environs.Environ, error) {
 	if Regions[cfg.region].EC2Endpoint == "" {
 		return nil, fmt.Errorf("no ec2 endpoint found for region %q, opening %q", cfg.region, cfg.name)
 	}
-	e := &environ{
-		config: cfg,
-		ec2:    ec2.New(cfg.auth, Regions[cfg.region]),
-		s3:     s3.New(cfg.auth, Regions[cfg.region]),
-	}
-	e.storage.bucket = e.s3.Bucket(cfg.bucket)
-	if cfg.publicBucket != "" {
-		e.publicStorage = &storage{bucket: e.s3.Bucket(cfg.publicBucket)}
-	}
+	e := new(environ)
+	e.SetConfig(cfg)
 	return e, nil
+}
+
+func (e *environ) SetConfig(cfg environs.EnvironConfig) {
+	config := cfg.(*providerConfig)
+	e.configMutex.Lock()
+	defer e.configMutex.Unlock()
+	e.configUnlocked = config
+	e.ec2Unlocked = ec2.New(config.auth, Regions[config.region])
+	e.s3Unlocked = s3.New(config.auth, Regions[config.region])
+
+	// create new storage instances, existing instances continue
+	// to reference their existing configuration.
+	e.storageUnlocked = &storage{
+		bucket: e.s3Unlocked.Bucket(config.bucket),
+	}
+	if config.publicBucket != "" {
+		e.publicStorageUnlocked = &storage{
+			bucket: e.s3Unlocked.Bucket(config.publicBucket),
+		}
+	} else {
+		e.publicStorageUnlocked = nil
+	}
+}
+
+func (e *environ) config() *providerConfig {
+	e.configMutex.Lock()
+	defer e.configMutex.Unlock()
+	return e.configUnlocked
+}
+
+func (e *environ) ec2() *ec2.EC2 {
+	e.configMutex.Lock()
+	defer e.configMutex.Unlock()
+	return e.ec2Unlocked
+}
+
+func (e *environ) s3() *s3.S3 {
+	e.configMutex.Lock()
+	defer e.configMutex.Unlock()
+	return e.s3Unlocked
+}
+
+func (e *environ) Storage() environs.Storage {
+	e.configMutex.Lock()
+	defer e.configMutex.Unlock()
+	return e.storageUnlocked
+}
+
+func (e *environ) PublicStorage() environs.StorageReader {
+	e.configMutex.Lock()
+	defer e.configMutex.Unlock()
+	return e.publicStorageUnlocked
 }
 
 func (e *environ) Bootstrap(uploadTools bool) error {
@@ -185,19 +234,20 @@ func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Insta
 }
 
 func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte, error) {
+	config := e.config()
 	cfg := &machineConfig{
 		provisioner:        master,
 		zookeeper:          master,
 		stateInfo:          info,
 		instanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		providerType:       "ec2",
-		origin:             e.config.origin,
+		origin:             config.origin,
 		machineId:          fmt.Sprint(machineId),
 	}
 
-	if e.config.authorizedKeys == "" {
+	if config.authorizedKeys == "" {
 		var err error
-		cfg.authorizedKeys, err = authorizedKeys(e.config.authorizedKeysPath)
+		cfg.authorizedKeys, err = authorizedKeys(config.authorizedKeysPath)
 		if err != nil {
 			return nil, fmt.Errorf("cannot get ssh authorized keys: %v", err)
 		}
@@ -228,7 +278,7 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 	var instances *ec2.RunInstancesResp
 
 	for a := shortAttempt.start(); a.next(); {
-		instances, err = e.ec2.RunInstances(&ec2.RunInstances{
+		instances, err = e.ec2().RunInstances(&ec2.RunInstances{
 			ImageId:        spec.imageId,
 			MinCount:       1,
 			MaxCount:       1,
@@ -277,7 +327,7 @@ func (e *environ) gatherInstances(ids []string, insts []environs.Instance) error
 	filter.Add("instance-state-name", "pending", "running")
 	filter.Add("group-name", e.groupName())
 	filter.Add("instance-id", need...)
-	resp, err := e.ec2.Instances(nil, filter)
+	resp, err := e.ec2().Instances(nil, filter)
 	if err != nil {
 		return err
 	}
@@ -340,7 +390,7 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
 	filter.Add("group-name", e.groupName())
-	resp, err := e.ec2.Instances(nil, filter)
+	resp, err := e.ec2().Instances(nil, filter)
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
 	}
@@ -366,7 +416,9 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 	if err != nil {
 		return err
 	}
-	err = e.storage.deleteAll()
+	// take an immutable reference to the current Storage
+	st := e.Storage().(*storage)
+	err = st.deleteAll()
 	if err != nil {
 		return err
 	}
@@ -378,8 +430,9 @@ func (e *environ) terminateInstances(ids []string) error {
 		return nil
 	}
 	var err error
+	ec2inst := e.ec2()
 	for a := shortAttempt.start(); a.next(); {
-		_, err = e.ec2.TerminateInstances(ids)
+		_, err = ec2inst.TerminateInstances(ids)
 		if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
 			return err
 		}
@@ -392,7 +445,7 @@ func (e *environ) terminateInstances(ids []string) error {
 	// terminated even if some exist, so try them one by one, ignoring
 	// NotFound errors.
 	for _, id := range ids {
-		_, err = e.ec2.TerminateInstances([]string{id})
+		_, err = ec2inst.TerminateInstances([]string{id})
 		if ec2ErrCode(err) == "InvalidInstanceID.NotFound" {
 			err = nil
 		}
@@ -446,7 +499,8 @@ var zeroGroup ec2.SecurityGroup
 // If a group with name does not exist, one will be created.
 // If it exists, its permissions are set to perms.
 func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
-	resp, err := e.ec2.CreateSecurityGroup(name, "juju group")
+	ec2inst := e.ec2()
+	resp, err := ec2inst.CreateSecurityGroup(name, "juju group")
 	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
 		return zeroGroup, err
 	}
@@ -456,7 +510,7 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 	if err == nil {
 		g = resp.SecurityGroup
 	} else {
-		resp, err := e.ec2.SecurityGroups(ec2.SecurityGroupNames(name), nil)
+		resp, err := ec2inst.SecurityGroups(ec2.SecurityGroupNames(name), nil)
 		if err != nil {
 			return zeroGroup, err
 		}
@@ -474,7 +528,7 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 		}
 	}
 	if len(revoke) > 0 {
-		_, err := e.ec2.RevokeSecurityGroup(g, revoke.ipPerms())
+		_, err := ec2inst.RevokeSecurityGroup(g, revoke.ipPerms())
 		if err != nil {
 			return zeroGroup, fmt.Errorf("cannot revoke security group: %v", err)
 		}
@@ -487,7 +541,7 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 		}
 	}
 	if len(add) > 0 {
-		_, err := e.ec2.AuthorizeSecurityGroup(g, add.ipPerms())
+		_, err := ec2inst.AuthorizeSecurityGroup(g, add.ipPerms())
 		if err != nil {
 			return zeroGroup, fmt.Errorf("cannot authorize securityGroup: %v", err)
 		}
