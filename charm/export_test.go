@@ -9,3 +9,7 @@ import (
 func IfaceExpander(limit interface{}) schema.Checker {
 	return ifaceExpander(limit)
 }
+
+func NewStore(url, path string) Repo {
+	return &store{url, path}
+}

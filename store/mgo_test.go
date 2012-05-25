@@ -74,6 +74,7 @@ func (s *MgoSuite) TearDownTest(c *C) {
 }
 
 func DropAll(mongourl string) (err error) {
+	time.Sleep(5e8)
 	session, err := mgo.Dial(mongourl)
 	if err != nil {
 		return err

@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -26,11 +25,11 @@ type InfoResponse struct {
 
 // Repo respresents a collection of charms.
 type Repo interface {
-	Find(curl *URL) (Charm, error)
+	Get(curl *URL) (Charm, error)
 	Latest(curl *URL) (int, error)
 }
 
-// store is a Repo that talks to the juju charm server defined in /store.
+// store is a Repo that talks to the juju charm server (in ../store).
 type store struct {
 	baseURL   string
 	cachePath string
@@ -59,7 +58,7 @@ func (s *store) info(curl *URL) (rev int, digest string, err error) {
 		return
 	}
 	infos := make(map[string]*InfoResponse)
-	if err = json.Unmarshal(body, infos); err != nil {
+	if err = json.Unmarshal(body, &infos); err != nil {
 		return
 	}
 	info, found := infos[key]
@@ -79,25 +78,15 @@ func (s *store) info(curl *URL) (rev int, digest string, err error) {
 	return info.Revision, info.Sha256, nil
 }
 
-// dowload writes the data for the charm referenced by curl to w. curl must
-// have a revision set.
-func (s *store) download(curl *URL, w io.Writer) error {
-	if curl.Revision == -1 {
-		// This is a programmer error: if you have a revisionless URL, you
-		// should get the current revision and SHA256 via info(), and download
-		// that specific revision, so you can actually check the digest.
-		panic(errors.New("Please don't download revisionless charm urls"))
-	}
-	resp, err := http.Get(s.baseURL + "/charm/" + url.QueryEscape(curl.Path()))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	_, err = io.Copy(w, resp.Body)
-	return err
+// Latest returns the latest revision of the charm referenced by curl, regardless
+// of the revision set on curl itself.
+func (s *store) Latest(curl *URL) (int, error) {
+	rev, _, err := s.info(curl.WithRevision(-1))
+	return rev, err
 }
 
-// verify returns an error unless a file exist at path with a SHA256 matching digest.
+// verify returns an error unless a file exists at path with a hex-encoded
+// SHA256 matching digest.
 func verify(path, digest string) error {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -111,8 +100,8 @@ func verify(path, digest string) error {
 	return nil
 }
 
-// Find returns the charm referenced by curl.
-func (s *store) Find(curl *URL) (Charm, error) {
+// Get returns the charm referenced by curl.
+func (s *store) Get(curl *URL) (Charm, error) {
 	if err := os.MkdirAll(s.cachePath, 0755); err != nil {
 		return nil, err
 	}
@@ -127,17 +116,23 @@ func (s *store) Find(curl *URL) (Charm, error) {
 	}
 	path := filepath.Join(s.cachePath, Quote(curl.String())+".charm")
 	if verify(path, digest) != nil {
+		resp, err := http.Get(s.baseURL + "/charm/" + url.QueryEscape(curl.Path()))
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
 		f, err := ioutil.TempFile("", "juju-charm-download")
 		if err != nil {
 			return nil, err
 		}
-		err = s.download(curl, f)
+		dlPath := f.Name()
+		_, err = io.Copy(f, resp.Body)
 		f.Close()
-		defer os.Remove(f.Name())
 		if err != nil {
+			os.Remove(dlPath)
 			return nil, err
 		}
-		if err := os.Rename(f.Name(), path); err != nil {
+		if err := os.Rename(dlPath, path); err != nil {
 			return nil, err
 		}
 	}
@@ -145,11 +140,4 @@ func (s *store) Find(curl *URL) (Charm, error) {
 		return nil, err
 	}
 	return ReadBundle(path)
-}
-
-// Latest returns the latest revision of the charm referenced by curl, regardless
-// of the revision set on curl itself.
-func (s *store) Latest(curl *URL) (int, error) {
-	rev, _, err := s.info(curl.WithRevision(-1))
-	return rev, err
 }
