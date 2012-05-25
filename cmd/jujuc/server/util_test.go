@@ -34,7 +34,7 @@ func addDummyCharm(c *C, st *state.State) *state.Charm {
 	curl := charm.MustParseURL(u)
 	burl, err := url.Parse("http://bundle.url")
 	c.Assert(err, IsNil)
-	dummy, err := st.AddCharm(ch, curl, burl)
+	dummy, err := st.AddCharm(ch, curl, burl, "dummy-sha256")
 	c.Assert(err, IsNil)
 	return dummy
 }
