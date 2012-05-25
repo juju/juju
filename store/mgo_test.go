@@ -37,6 +37,7 @@ func (s *MgoSuite) SetUpSuite(c *C) {
 	if err != nil {
 		panic(err)
 	}
+	//time.Sleep(20e9)
 }
 
 func (s *MgoSuite) TearDownSuite(c *C) {
@@ -74,7 +75,7 @@ func (s *MgoSuite) TearDownTest(c *C) {
 }
 
 func DropAll(mongourl string) (err error) {
-	session, err := mgo.Dial(mongourl)
+	session, err := mgo.DialWithTimeout(mongourl, 30*time.Second)
 	if err != nil {
 		return err
 	}
