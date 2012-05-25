@@ -13,6 +13,7 @@ import (
 // an ec2.bucket.
 type storage struct {
 	bucketMutex sync.Mutex
+	madeBucket  bool
 	bucket      *s3.Bucket
 }
 
@@ -25,7 +26,11 @@ func (s *storage) makeBucket() error {
 	defer s.bucketMutex.Unlock()
 	// try to make the bucket - PutBucket will succeed if the
 	// bucket already exists.
-	return s.bucket.PutBucket(s3.Private)
+	err := s.bucket.PutBucket(s3.Private)
+	if err == nil {
+		s.madeBucket = true
+	}
+	return err
 }
 
 func (s *storage) Put(file string, r io.Reader, length int64) error {
