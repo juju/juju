@@ -78,7 +78,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 }
 
 func (t *LiveTests) TearDownSuite(c *C) {
-	if t.Env != nil {
+	if t.Env == nil {
 		// This can happen if SetUpSuite fails.
 		return
 	}

@@ -6,7 +6,7 @@ import (
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
-	amzs3 "launchpad.net/goamz/s3"
+	"launchpad.net/goamz/s3"
 	"launchpad.net/goamz/s3/s3test"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
@@ -110,8 +110,8 @@ func (srv *localServer) startServer(c *C) {
 		EC2Endpoint: srv.ec2srv.URL(),
 		S3Endpoint:  srv.s3srv.URL(),
 	}
-	s3 := amzs3.New(aws.Auth{}, ec2.Regions["test"])
-	putFakeTools(c, ec2.BucketStorage(s3.Bucket("public-tools")))
+	s3inst := s3.New(aws.Auth{}, ec2.Regions["test"])
+	putFakeTools(c, ec2.BucketStorage(s3inst.Bucket("public-tools")))
 	srv.addSpice(c)
 }
 

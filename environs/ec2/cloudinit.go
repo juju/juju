@@ -30,8 +30,7 @@ type machineConfig struct {
 	// set), there must be at least one zookeeper address supplied.
 	stateInfo *state.Info
 
-	// toolsURL gives the URL to be used for downloading the juju tools
-	// executables.
+	// toolsURL is the URL to be used for downloading the juju tools.
 	toolsURL string
 
 	// machineId identifies the new machine. It must be non-negative.
@@ -102,8 +101,7 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 			"jujud initzk"+
 				" --instance-id "+cfg.instanceIdAccessor+
 				" --env-type "+shquote(cfg.providerType)+
-				" --zookeeper-servers localhost"+zkPortSuffix+
-				" --env-type ec2",
+				" --zookeeper-servers localhost"+zkPortSuffix,
 		)
 	}
 

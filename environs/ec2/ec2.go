@@ -217,10 +217,10 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
 	}
-	log.Printf("looking for tools for version %v; instance spec %#v", version.Current, spec)
+	log.Debugf("looking for tools for version %v; instance spec %#v", version.Current, spec)
 	toolsURL, err := environs.FindTools(e, version.Current, spec.series, spec.arch)
 	if err != nil {
-		return nil, fmt.Errorf("cannot find tools for spec %#v: %v", spec, err)
+		return nil, fmt.Errorf("ec2: cannot find juju tools that would work on the specified instance: %v", spec, err)
 	}
 	userData, err := e.userData(machineId, info, master, toolsURL)
 	if err != nil {

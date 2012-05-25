@@ -14,8 +14,6 @@ type imageSuite struct{}
 
 var _ = Suite(imageSuite{})
 
-var oldDefaultConstraint = defaultInstanceConstraint
-
 func (imageSuite) SetUpSuite(c *C) {
 	UseTestImageData(true)
 }
