@@ -9,7 +9,7 @@ import (
 // when embedded in a gocheck suite type.
 type LoggingSuite struct {
 	oldTarget log.Logger
-	oldDebug bool
+	oldDebug  bool
 }
 
 func (t *LoggingSuite) SetUpTest(c *gocheck.C) {

@@ -31,15 +31,16 @@ var toolPrefix = "tools/juju-"
 
 var toolFilePat = regexp.MustCompile(`^` + toolPrefix + `(\d+\.\d+\.\d+)-([^-]+)-([^-]+)\.tgz$`)
 
-// toolsPathForVersion returns a path for the juju tools with the
-// given version, OS and architecture.
-func toolsPathForVersion(v version.Version, series, arch string) string {
+// ToolsPathForVersion returns the path that PutTools will use to
+// store the juju tools with the given version, OS and architecture.
+// It intended for testing purposes only.
+func ToolsPathForVersion(v version.Version, series, arch string) string {
 	return fmt.Sprintf(toolPrefix+"%v-%s-%s.tgz", v, series, arch)
 }
 
 // ToolsPath gives the path for the current juju tools, as expected
 // by environs.Environ.PutFile, for example.
-var toolsPath = toolsPathForVersion(version.Current, CurrentSeries, CurrentArch)
+var toolsPath = ToolsPathForVersion(version.Current, CurrentSeries, CurrentArch)
 
 // PutTools uploads the current version of the juju tools
 // executables to the given storage.

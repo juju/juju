@@ -2,7 +2,6 @@ package ec2_test
 
 import (
 	"fmt"
-	"io"
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
@@ -14,8 +13,8 @@ import (
 	"launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
 	"launchpad.net/juju/go/testing"
+	"launchpad.net/juju/go/version"
 	"strings"
-	"sync"
 )
 
 var functionalConfig = []byte(`
@@ -115,42 +114,15 @@ func (srv *localServer) startServer(c *C) {
 	srv.addSpice(c)
 }
 
-type fakeTools struct {
-	path string
-}
-
-func (s *fakeTools) Put(name string, r io.Reader, length int64) error {
-	s.path = name
-	return nil
-}
-func (s *fakeTools) Remove(name string) error {
-	return nil
-}
-
-var (
-	tools     fakeTools
-	toolsOnce sync.Once
-)
-
 // putFakeTools sets up a bucket containing something
 // that looks like a tools archive so test methods
 // that start an instance can succeed even though they
 // do not upload tools.
 func putFakeTools(c *C, s environs.StorageWriter) {
-	// Calculate the tools path once only so that we don't
-	// rebuild the tools on every test.
-	toolsOnce.Do(func() {
-		err := environs.PutTools(&tools)
-		if err != nil {
-			panic(fmt.Errorf("cannot put tools: %v", err))
-		}
-		if tools.path == "" {
-			panic("no tools written")
-		}
-	})
-	c.Logf("putting fake tools at %v", tools.path)
+	path := environs.ToolsPathForVersion(version.Current, environs.CurrentSeries, environs.CurrentArch)
+	c.Logf("putting fake tools at %v", path)
 	toolsContents := "tools archive, honest guv"
-	err := s.Put(tools.path, strings.NewReader(toolsContents), int64(len(toolsContents)))
+	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
 	if err != nil {
 		c.Fatal(err)
 	}

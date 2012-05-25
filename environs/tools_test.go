@@ -44,12 +44,8 @@ func mkVersion(vers string) version.Version {
 	return v
 }
 
-func toolsPathForVersion(v version.Version, series, arch string) string {
-	return fmt.Sprintf("tools/juju-%v-%s-%s.tgz", v, series, arch)
-}
-
 func mkToolsPath(vers string) string {
-	return toolsPathForVersion(mkVersion(vers), environs.CurrentSeries, environs.CurrentArch)
+	return environs.ToolsPathForVersion(mkVersion(vers), environs.CurrentSeries, environs.CurrentArch)
 }
 
 var _ = Suite(&ToolsSuite{})
@@ -202,8 +198,8 @@ var findToolsTests = []struct {
 	// mismatching series or architecture is ignored.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		toolsPathForVersion(mkVersion("1.9.9"), "foo", environs.CurrentArch),
-		toolsPathForVersion(mkVersion("1.9.9"), environs.CurrentSeries, "foo"),
+		environs.ToolsPathForVersion(mkVersion("1.9.9"), "foo", environs.CurrentArch),
+		environs.ToolsPathForVersion(mkVersion("1.9.9"), environs.CurrentSeries, "foo"),
 		mkToolsPath("1.0.0"),
 	},
 	expect: mkToolsPath("1.0.0"),
