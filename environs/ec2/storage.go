@@ -5,7 +5,6 @@ import (
 	"io"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
-	"launchpad.net/juju/go/log"
 	"sync"
 	"time"
 )
