@@ -25,7 +25,6 @@ type storage struct {
 func (s *storage) makeBucket() error {
 	s.bucketMutex.Lock()
 	defer s.bucketMutex.Unlock()
-	log.Printf("makeBucket %p, made %v", s, s.madeBucket)
 	if s.madeBucket {
 		return nil
 	}
@@ -132,7 +131,6 @@ func (s *storage) deleteAll() error {
 	defer s.bucketMutex.Unlock()
 	// Even DelBucket fails, it won't harm if we try again - the operation
 	// might have succeeded even if we get an error.
-	log.Printf("deleteAll %p setting madeBucket to false", s)
 	s.madeBucket = false
 	return s.bucket.DelBucket()
 }
