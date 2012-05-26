@@ -131,13 +131,9 @@ type Environ interface {
 	Instances(ids []string) ([]Instance, error)
 
 	// Storage returns storage specific to the environment.
-	// The configuration of the Storage returned is unaffected by 
-	// subsiquent calls to SetConfig. 
 	Storage() Storage
 
 	// PublicStorage returns storage shared between environments.
-	// The configuration of the Storage returned is unaffected by 
-	// subsiquent calls to SetConfig. 
 	PublicStorage() StorageReader
 
 	// Destroy shuts down all known machines and destroys the
