@@ -27,3 +27,27 @@ func (OpenSuite) TestNewUnknownEnviron(c *C) {
 	c.Assert(err, ErrorMatches, "error validating environment: no registered provider for.*")
 	c.Assert(env, IsNil)
 }
+
+func (OpenSuite) TestValidNewConfig(c *C) {
+	cfg, err := environs.NewConfig(map[string]interface{}{
+		"name":      "test",
+		"type":      "dummy",
+		"zookeeper": false,
+	})
+	c.Assert(err, IsNil)
+	c.Assert(cfg, NotNil)
+
+	env, err := cfg.Open()
+	c.Assert(err, IsNil)
+	c.Assert(env, NotNil)
+}
+
+func (OpenSuite) TestInvalidNewConfig(c *C) {
+	cfg, err := environs.NewConfig(map[string]interface{}{
+		"name": "test",
+		"type": "dummy",
+		// zookeeper is missing
+	})
+	c.Assert(err, ErrorMatches, "zookeeper: expected false, got nothing")
+	c.Assert(cfg, IsNil)
+}
