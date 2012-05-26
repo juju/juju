@@ -419,7 +419,9 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 	if err != nil {
 		return err
 	}
-	// take an immutable reference to the current Storage
+	// to properly observe e.storageUnlocked we need to get it's value while
+	// holding e.configMutex. e.Storage() does this for us, then we convert
+	// back to the (*storage) to access the private deleteAll() method.
 	st := e.Storage().(*storage)
 	err = st.deleteAll()
 	if err != nil {
