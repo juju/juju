@@ -2,7 +2,6 @@ package store_test
 
 import (
 	"bytes"
-	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/mgo"
 	"os/exec"
@@ -46,12 +45,10 @@ func (s *MgoSuite) TearDownSuite(c *C) {
 }
 
 func (s *MgoSuite) SetUpTest(c *C) {
-	fmt.Printf("SETUP 1")
 	err := DropAll("localhost:50017")
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("SETUP 2")
 	mgo.SetLogger(c)
 	mgo.ResetStats()
 	s.Addr = "127.0.0.1:50017"
@@ -77,7 +74,7 @@ func (s *MgoSuite) TearDownTest(c *C) {
 }
 
 func DropAll(mongourl string) (err error) {
-	session, err := mgo.DialWithTimeout(mongourl, 10*time.Second)
+	session, err := mgo.DialWithTimeout(mongourl, 30*time.Second)
 	if err != nil {
 		return err
 	}
