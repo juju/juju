@@ -29,6 +29,7 @@ func (s *MgoSuite) SetUpSuite(c *C) {
 		"--nssize", "1",
 		"--noprealloc",
 		"--smallfiles",
+		"--nojournal",
 	}
 	s.server = exec.Command("mongod", args...)
 	s.server.Stdout = &s.output
@@ -74,7 +75,7 @@ func (s *MgoSuite) TearDownTest(c *C) {
 }
 
 func DropAll(mongourl string) (err error) {
-	session, err := mgo.DialWithTimeout(mongourl, 30*time.Second)
+	session, err := mgo.Dial(mongourl)
 	if err != nil {
 		return err
 	}
