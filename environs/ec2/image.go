@@ -3,32 +3,36 @@ package ec2
 import (
 	"bufio"
 	"fmt"
+	"launchpad.net/juju/go/environs"
 	"net/http"
 	"strings"
 )
 
-// ImageConstraint specifies a range of possible machine images.
-// TODO allow specification of softer constraints?
-type ImageConstraint struct {
-	UbuntuRelease     string
-	Architecture      string
-	PersistentStorage bool
-	Region            string
-	Daily             bool
-	Desktop           bool
+// instanceConstraint constrains the possible instances that may be
+// chosen by the ec2 provider.
+type instanceConstraint struct {
+	series            string // Ubuntu release name.
+	arch              string
+	persistentStorage bool
+	region            string
+	daily             bool
+	desktop           bool
 }
 
-var DefaultImageConstraint = &ImageConstraint{
-	UbuntuRelease:     "oneiric",
-	Architecture:      "i386",
-	PersistentStorage: true,
-	Region:            "us-east-1",
-	Daily:             false,
-	Desktop:           false,
+var defaultInstanceConstraint = &instanceConstraint{
+	series:            environs.CurrentSeries,
+	arch:              environs.CurrentArch,
+	persistentStorage: true,
+	region:            "us-east-1",
+	daily:             false,
+	desktop:           false,
 }
 
-type ImageSpec struct {
-	ImageId string
+// instanceSpec specifies a particular kind of instance.
+type instanceSpec struct {
+	imageId string
+	arch    string
+	series  string
 }
 
 // imagesHost holds the address of the images http server.
@@ -36,17 +40,31 @@ type ImageSpec struct {
 // server when needed.
 var imagesHost = "http://uec-images.ubuntu.com"
 
-func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
-	// note: original get_image_id added three optional args:
-	// DefaultImageId		if found, returns that immediately
-	// Region				overrides spec.Region
-	// DefaultSeries		used if spec.UbuntuRelease is ""
+// Columns in the file returned from the images server.
+const (
+	colSeries = iota
+	colServer
+	colDaily
+	colDate
+	colEBS
+	colArch
+	colRegion
+	colImageId
+	_
+	_
+	colVtype
+	colMax
+	// + more that we don't care about.
+)
 
+// fndInstanceSpec finds a suitable instance specification given
+// the provided constraints.
+func findInstanceSpec(spec *instanceConstraint) (*instanceSpec, error) {
 	hclient := new(http.Client)
 	uri := fmt.Sprintf(imagesHost+"/query/%s/%s/%s.current.txt",
-		spec.UbuntuRelease,
-		either(spec.Desktop, "desktop", "server"), // variant.
-		either(spec.Daily, "daily", "released"),   // version.
+		spec.series,
+		either(spec.desktop, "desktop", "server"), // variant.
+		either(spec.daily, "daily", "released"),   // version.
 	)
 	resp, err := hclient.Get(uri)
 	if err == nil && resp.StatusCode != 200 {
@@ -56,7 +74,8 @@ func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
 		return nil, fmt.Errorf("error getting instance types: %v", err)
 	}
 	defer resp.Body.Close()
-	ebsMatch := either(spec.PersistentStorage, "ebs", "instance-store")
+	ebsMatch := either(spec.persistentStorage, "ebs", "instance-store")
+
 	r := bufio.NewReader(resp.Body)
 	for {
 		line, _, err := r.ReadLine()
@@ -64,14 +83,21 @@ func FindImageSpec(spec *ImageConstraint) (*ImageSpec, error) {
 			return nil, fmt.Errorf("cannot find matching image: %v", err)
 		}
 		f := strings.Split(string(line), "\t")
-		if len(f) < 8 {
+		if len(f) < colMax {
 			continue
 		}
-		if f[4] != ebsMatch {
+		if f[colVtype] == "hvm" {
 			continue
 		}
-		if f[5] == spec.Architecture && f[6] == spec.Region {
-			return &ImageSpec{f[7]}, nil
+		if f[colEBS] != ebsMatch {
+			continue
+		}
+		if f[colArch] == spec.arch && f[colRegion] == spec.region {
+			return &instanceSpec{
+				imageId: f[colImageId],
+				arch:    spec.arch,
+				series:  spec.series,
+			}, nil
 		}
 	}
 	panic("not reached")

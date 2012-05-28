@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,6 +12,10 @@ import (
 	"path/filepath"
 	"strings"
 )
+
+// ErrSilent can be returned from Run to signal that Main should exit with
+// code 1 without producing error output.
+var ErrSilent = errors.New("cmd: error out silently")
 
 // Command is implemented by types that interpret command-line arguments.
 type Command interface {
@@ -103,8 +108,10 @@ func Main(c Command, ctx *Context, args []string) int {
 		return 2
 	}
 	if err := c.Run(ctx); err != nil {
-		log.Debugf("%s command failed: %s\n", c.Info().Name, err)
-		fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
+		if err != ErrSilent {
+			log.Debugf("%s command failed: %s\n", c.Info().Name, err)
+			fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
+		}
 		return 1
 	}
 	return 0

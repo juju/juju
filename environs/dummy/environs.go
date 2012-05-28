@@ -1,14 +1,29 @@
+// The dummy provider implements an environment provider for testing
+// purposes, registered with environs under the name "dummy".
+// 
+// The configuration YAML for the testing environment
+// must specify a "zookeeper" property with a boolean
+// value. If this is true, a zookeeper instance will be started
+// the first time StateInfo is called on a newly reset environment.
+// NOTE: ZooKeeper isn't actually being started yet.
+// 
+// The configuration data also accepts a "broken" property
+// of type boolean. If this is non-empty, any operation
+// after the environment has been opened will return
+// the error "broken environment", and will also log that.
+// 
+// The DNS name of instances is the same as the Id,
+// with ".dns" appended.
 package dummy
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/schema"
 	"launchpad.net/juju/go/state"
+	"net"
+	"net/http"
 	"sync"
 )
 
@@ -45,20 +60,42 @@ func (k OperationKind) String() string {
 // environProvider represents the dummy provider.  There is only ever one
 // instance of this type (providerInstance)
 type environProvider struct {
-	mu    sync.Mutex
-	state *environState
-	ops   chan<- Operation
+	mu  sync.Mutex
+	ops chan<- Operation
+	// We have one state for each environment name
+	state map[string]*environState
 }
 
 // environState represents the state of an environment.
 // It can be shared between several environ values,
 // so that a given environment can be opened several times.
 type environState struct {
-	mu           sync.Mutex
-	maxId        int // maximum instance id allocated so far.
-	insts        map[string]*instance
-	files        map[string][]byte
-	bootstrapped bool
+	name          string
+	ops           chan<- Operation
+	mu            sync.Mutex
+	maxId         int // maximum instance id allocated so far.
+	insts         map[string]*instance
+	bootstrapped  bool
+	storage       *storage
+	publicStorage *storage
+	httpListener  net.Listener
+}
+
+// environ represents a client's connection to a given environment's
+// state.
+type environ struct {
+	state     *environState
+	broken    bool
+	zookeeper bool
+}
+
+// storage holds the storage for an environState.
+// There are two instances for each environState
+// instance, one for public files and one for private.
+type storage struct {
+	path  string // path prefix in http space.
+	state *environState
+	files map[string][]byte
 }
 
 var providerInstance environProvider
@@ -77,81 +114,117 @@ func init() {
 		}
 	}()
 	discardOperations = c
-	Reset(discardOperations)
+	Reset()
 }
 
-// Reset closes any previously registered operation channel,
-// cleans the environment state, and registers c to receive
-// notifications of operations performed on newly opened
-// dummy environments. All opened environments after a Reset
-// will share the same underlying state (instances, etc).
-// 
-// The configuration YAML for the testing environment
-// must specify a "zookeeper" property with a boolean
-// value. If this is true, a zookeeper instance will be started
-// the first time StateInfo is called on a newly reset environment.
-// NOTE: ZooKeeper isn't actually being started yet.
-// 
-// The configuration data also accepts a "broken" property
-// of type boolean. If this is non-empty, any operation
-// after the environment has been opened will return
-// the error "broken environment", and will also log that.
-// 
-// The DNS name of instances is the same as the Id,
-// with ".dns" appended.
-func Reset(c chan<- Operation) {
-	providerInstance.reset(c)
+// Reset resets the entire dummy environment and forgets any registered
+// operation listener.  All opened environments after Reset will share
+// the same underlying state.
+func Reset() {
+	p := &providerInstance
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, s := range p.state {
+		s.httpListener.Close()
+	}
+	providerInstance.ops = discardOperations
+	providerInstance.state = make(map[string]*environState)
 }
 
-func (e *environProvider) reset(c chan<- Operation) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+// newState creates the state for a new environment with the
+// given name and starts an http server listening for
+// storage requests.
+func newState(name string, ops chan<- Operation) *environState {
+	s := &environState{
+		name:  name,
+		ops:   ops,
+		insts: make(map[string]*instance),
+	}
+	s.storage = newStorage(s, "/"+name+"/private")
+	s.publicStorage = newStorage(s, "/"+name+"/public")
+	s.listen()
+	return s
+}
+
+// listen starts a network listener listening for http
+// requests to retrieve files in the state's storage.
+func (s *environState) listen() {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		panic(fmt.Errorf("cannot start listener: %v", err))
+	}
+	s.httpListener = l
+	mux := http.NewServeMux()
+	mux.Handle(s.storage.path+"/", http.StripPrefix(s.storage.path+"/", s.storage))
+	mux.Handle(s.publicStorage.path+"/", http.StripPrefix(s.publicStorage.path+"/", s.publicStorage))
+	go http.Serve(l, mux)
+}
+
+// Listen closes the previously registered listener (if any),
+// and if c is not nil registers it to receive notifications 
+// of follow up operations in the environment.
+func Listen(c chan<- Operation) {
+	p := &providerInstance
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	if c == nil {
 		c = discardOperations
 	}
-	if ops := e.ops; ops != discardOperations && ops != nil {
-		close(ops)
+	if p.ops != discardOperations {
+		close(p.ops)
 	}
-	e.ops = c
-	e.state = &environState{
-		insts: make(map[string]*instance),
-		files: make(map[string][]byte),
-	}
+	p.ops = c
 }
 
-func (e *environProvider) ConfigChecker() schema.Checker {
-	return schema.FieldMap(
-		schema.Fields{
-			"type":      schema.Const("dummy"),
-			"zookeeper": schema.Const(false), // TODO
-			"broken":    schema.Bool(),
-		},
-		[]string{
-			"broken",
-		},
-	)
-}
-
-func (e *environProvider) Open(name string, attributes interface{}) (environs.Environ, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	cfg := attributes.(schema.MapType)
-	env := &environ{
-		name:      name,
-		zookeeper: cfg["zookeeper"].(bool),
-		ops:       e.ops,
-		state:     e.state,
-	}
-	env.broken, _ = cfg["broken"].(bool)
-	return env, nil
-}
-
-type environ struct {
-	ops       chan<- Operation
+type environConfig struct {
+	provider  *environProvider
 	name      string
-	state     *environState
-	broken    bool
 	zookeeper bool
+	broken    bool
+}
+
+var checker = schema.FieldMap(
+	schema.Fields{
+		"type":      schema.Const("dummy"),
+		"zookeeper": schema.Const(false), // TODO
+		"broken":    schema.Bool(),
+		"name":      schema.String(),
+	},
+	[]string{
+		"broken",
+	},
+)
+
+func (p *environProvider) NewConfig(attrs map[string]interface{}) (environs.EnvironConfig, error) {
+	m0, err := checker.Coerce(attrs, nil)
+	if err != nil {
+		return nil, err
+	}
+	m1 := m0.(schema.MapType)
+	cfg := &environConfig{
+		provider:  p,
+		name:      m1["name"].(string),
+		zookeeper: m1["zookeeper"].(bool),
+	}
+	cfg.broken, _ = m1["broken"].(bool)
+	return cfg, nil
+}
+
+func (cfg *environConfig) Open() (environs.Environ, error) {
+	p := cfg.provider
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	state := p.state[cfg.name]
+	if state == nil {
+		state = newState(cfg.name, p.ops)
+		p.state[cfg.name] = state
+	}
+	env := &environ{
+		zookeeper: cfg.zookeeper,
+		broken:    cfg.broken,
+		state:     state,
+	}
+	return env, nil
 }
 
 var errBroken = errors.New("broken environment")
@@ -159,14 +232,20 @@ var errBroken = errors.New("broken environment")
 // EnvironName returns the name of the environment,
 // which must be opened from a dummy environment.
 func EnvironName(e environs.Environ) string {
-	return e.(*environ).name
+	return e.(*environ).state.name
 }
 
-func (e *environ) Bootstrap() error {
+func (e *environ) Bootstrap(uploadTools bool) error {
 	if e.broken {
 		return errBroken
 	}
-	e.ops <- Operation{Kind: OpBootstrap, Env: e.name}
+	if uploadTools {
+		err := environs.PutTools(e.Storage())
+		if err != nil {
+			return err
+		}
+	}
+	e.state.ops <- Operation{Kind: OpBootstrap, Env: e.state.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if e.state.bootstrapped {
@@ -188,9 +267,10 @@ func (e *environ) Destroy([]environs.Instance) error {
 	if e.broken {
 		return errBroken
 	}
-	e.ops <- Operation{Kind: OpDestroy, Env: e.name}
+	e.state.ops <- Operation{Kind: OpDestroy, Env: e.state.name}
 	e.state.mu.Lock()
 	e.state.bootstrapped = false
+	e.state.storage.files = make(map[string][]byte)
 	e.state.mu.Unlock()
 	return nil
 }
@@ -199,11 +279,11 @@ func (e *environ) StartInstance(machineId int, _ *state.Info) (environs.Instance
 	if e.broken {
 		return nil, errBroken
 	}
-	e.ops <- Operation{Kind: OpStartInstance, Env: e.name}
+	e.state.ops <- Operation{Kind: OpStartInstance, Env: e.state.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	i := &instance{
-		id: fmt.Sprintf("%s-%d", e.name, e.state.maxId),
+		id: fmt.Sprintf("%s-%d", e.state.name, e.state.maxId),
 	}
 	e.state.insts[i.id] = i
 	e.state.maxId++
@@ -214,7 +294,7 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 	if e.broken {
 		return errBroken
 	}
-	e.ops <- Operation{Kind: OpStopInstances, Env: e.name}
+	e.state.ops <- Operation{Kind: OpStopInstances, Env: e.state.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	for _, i := range is {
@@ -247,45 +327,6 @@ func (e *environ) Instances(ids []string) (insts []environs.Instance, err error)
 	return
 }
 
-func (e *environ) PutFile(name string, r io.Reader, length int64) error {
-	if e.broken {
-		return errBroken
-	}
-	e.ops <- Operation{Kind: OpPutFile, Env: e.name}
-	var buf bytes.Buffer
-	_, err := io.Copy(&buf, r)
-	if err != nil {
-		return err
-	}
-	e.state.mu.Lock()
-	e.state.files[name] = buf.Bytes()
-	e.state.mu.Unlock()
-	return nil
-}
-
-func (e *environ) GetFile(name string) (io.ReadCloser, error) {
-	if e.broken {
-		return nil, errBroken
-	}
-	e.state.mu.Lock()
-	defer e.state.mu.Unlock()
-	data, ok := e.state.files[name]
-	if !ok {
-		return nil, fmt.Errorf("file %q not found", name)
-	}
-	return ioutil.NopCloser(bytes.NewBuffer(data)), nil
-}
-
-func (e *environ) RemoveFile(name string) error {
-	if e.broken {
-		return errBroken
-	}
-	e.state.mu.Lock()
-	delete(e.state.files, name)
-	e.state.mu.Unlock()
-	return nil
-}
-
 type instance struct {
 	id string
 }
@@ -300,16 +341,4 @@ func (m *instance) DNSName() (string, error) {
 
 func (m *instance) WaitDNSName() (string, error) {
 	return m.DNSName()
-}
-
-// notifyCloser sends on the notify channel when
-// it's closed.
-type notifyCloser struct {
-	io.Reader
-	notify chan bool
-}
-
-func (r *notifyCloser) Close() error {
-	r.notify <- true
-	return nil
 }

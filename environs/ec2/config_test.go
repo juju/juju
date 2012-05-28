@@ -25,6 +25,7 @@ var baseConfig = "control-bucket: x\n"
 
 // the result of parsing baseConfig.
 var baseConfigResult = providerConfig{
+	name:   "testenv",
 	region: "us-east-1",
 	bucket: "x",
 	auth:   testAuth,
@@ -86,6 +87,18 @@ var configTests = []configTest{
 		".*expected string, got 666",
 	},
 	{
+		"public-bucket: 666\n" + baseConfig,
+		nil,
+		".*expected string, got 666",
+	},
+	{
+		"public-bucket: foo\n" + baseConfig,
+		func(cfg *providerConfig) {
+			cfg.publicBucket = "foo"
+		},
+		"",
+	},
+	{
 		"access-key: jujuer\nsecret-key: open sesame\n" + baseConfig,
 		func(cfg *providerConfig) {
 			cfg.auth = aws.Auth{
@@ -118,32 +131,6 @@ var configTests = []configTest{
 		"secret-key: badness\n" + baseConfig,
 		nil,
 		".*environment has secret-key but no access-key",
-	},
-	{
-		"juju-origin: wrong\n" + baseConfig,
-		nil,
-		`.*unknown juju origin "wrong"`,
-	},
-	{
-		"juju-origin: distro\n" + baseConfig,
-		func(cfg *providerConfig) {
-			cfg.origin = jujuOrigin{originDistro, ""}
-		},
-		"",
-	},
-	{
-		"juju-origin: 'lp:~foo/bar'\n" + baseConfig,
-		func(cfg *providerConfig) {
-			cfg.origin = jujuOrigin{originBranch, "lp:~foo/bar"}
-		},
-		"",
-	},
-	{
-		"juju-origin: ppa\n" + baseConfig,
-		func(cfg *providerConfig) {
-			cfg.origin = jujuOrigin{originPPA, ""}
-		},
-		"",
 	},
 
 	// unknown fields are discarded
@@ -186,26 +173,24 @@ func (configSuite) TestConfig(c *C) {
 	os.Setenv("AWS_ACCESS_KEY_ID", testAuth.AccessKey)
 	os.Setenv("AWS_SECRET_ACCESS_KEY", testAuth.SecretKey)
 
-	for _, t := range configTests {
+	for i, t := range configTests {
+		c.Logf("test %d (environ %q)", i, t.env)
 		t.check(c)
 	}
 }
 
 func (t configTest) check(c *C) {
 	envs, err := environs.ReadEnvironsBytes(makeEnv(t.env))
-	if err != nil {
-		if t.err != "" {
-			c.Check(err, ErrorMatches, t.err, Commentf("environ %q", t.env))
-		} else {
-			c.Check(err, IsNil, Commentf("environ %q", t.env))
-		}
+	if t.err != "" {
+		c.Check(err, ErrorMatches, t.err)
 		return
 	}
+	c.Check(err, IsNil)
 	e, err := envs.Open("testenv")
 	c.Assert(err, IsNil)
 	c.Assert(e, NotNil)
-	c.Assert(e, FitsTypeOf, (*environ)(nil), Commentf("environ %q", t.env))
+	c.Assert(e, FitsTypeOf, (*environ)(nil))
 	tconfig := baseConfigResult
 	t.mutate(&tconfig)
-	c.Check(e.(*environ).config, DeepEquals, &tconfig, Commentf("environ %q", t.env))
+	c.Check(e.(*environ).config, DeepEquals, &tconfig)
 }

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/cmd"
 )
@@ -10,15 +9,12 @@ import (
 type ConfigGetCommand struct {
 	*ClientContext
 	Key string // The key to show. If empty, show all.
-	out resultWriter
+	out output
 }
 
 func NewConfigGetCommand(ctx *ClientContext) (cmd.Command, error) {
-	if ctx.State == nil {
-		return nil, fmt.Errorf("context %s cannot access state", ctx.Id)
-	}
-	if ctx.LocalUnitName == "" {
-		return nil, fmt.Errorf("context %s is not attached to a unit", ctx.Id)
+	if err := ctx.check(); err != nil {
+		return nil, err
 	}
 	return &ConfigGetCommand{ClientContext: ctx}, nil
 }
@@ -32,7 +28,7 @@ func (c *ConfigGetCommand) Info() *cmd.Info {
 }
 
 func (c *ConfigGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	c.out.addFlags(f, "smart", defaultConverters)
+	c.out.addFlags(f, "yaml", defaultFormatters)
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
@@ -62,6 +58,9 @@ func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
 		value = conf.Map()
 	} else {
 		value, _ = conf.Get(c.Key)
+	}
+	if c.out.testMode {
+		return truthError(value)
 	}
 	return c.out.write(ctx, value)
 }

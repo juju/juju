@@ -7,7 +7,7 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/log"
 	"launchpad.net/juju/go/state"
-	"sync"
+	"launchpad.net/juju/go/version"
 	"time"
 )
 
@@ -39,12 +39,12 @@ type environProvider struct{}
 var _ environs.EnvironProvider = environProvider{}
 
 type environ struct {
-	name             string
-	config           *providerConfig
-	ec2              *ec2.EC2
-	s3               *s3.S3
-	checkBucket      sync.Once
-	checkBucketError error
+	name          string
+	config        *providerConfig
+	ec2           *ec2.EC2
+	s3            *s3.S3
+	storage       storage
+	publicStorage *storage // optional.
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -92,28 +92,37 @@ func (inst *instance) WaitDNSName() (string, error) {
 	return "", fmt.Errorf("timed out trying to get DNS address for %v", inst.Id())
 }
 
-func (environProvider) Open(name string, config interface{}) (e environs.Environ, err error) {
-	log.Printf("environs/ec2: opening environment %q", name)
-	cfg := config.(*providerConfig)
+func (cfg *providerConfig) Open() (environs.Environ, error) {
+	log.Printf("environs/ec2: opening environment %q", cfg.name)
 	if Regions[cfg.region].EC2Endpoint == "" {
-		return nil, fmt.Errorf("no ec2 endpoint found for region %q, opening %q", cfg.region, name)
+		return nil, fmt.Errorf("no ec2 endpoint found for region %q, opening %q", cfg.region, cfg.name)
 	}
-	return &environ{
-		name:   name,
+	e := &environ{
 		config: cfg,
 		ec2:    ec2.New(cfg.auth, Regions[cfg.region]),
 		s3:     s3.New(cfg.auth, Regions[cfg.region]),
-	}, nil
+	}
+	e.storage.bucket = e.s3.Bucket(cfg.bucket)
+	if cfg.publicBucket != "" {
+		e.publicStorage = &storage{bucket: e.s3.Bucket(cfg.publicBucket)}
+	}
+	return e, nil
 }
 
-func (e *environ) Bootstrap() error {
+func (e *environ) Bootstrap(uploadTools bool) error {
 	log.Printf("environs/ec2: bootstrapping environment %q", e.name)
 	_, err := e.loadState()
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
-	if s3err, _ := err.(*s3.Error); s3err != nil && s3err.StatusCode != 404 {
-		return err
+	if _, notFound := err.(*environs.NotFoundError); !notFound {
+		return fmt.Errorf("cannot query old bootstrap state: %v", err)
+	}
+	if uploadTools {
+		err := environs.PutTools(e.Storage())
+		if err != nil {
+			return fmt.Errorf("cannot upload tools: %v", err)
+		}
 	}
 	inst, err := e.startInstance(0, nil, true)
 	if err != nil {
@@ -126,7 +135,7 @@ func (e *environ) Bootstrap() error {
 		// ignore error on StopInstance because the previous error is
 		// more important.
 		e.StopInstances([]environs.Instance{inst})
-		return err
+		return fmt.Errorf("cannot save state: %v", err)
 	}
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
@@ -175,15 +184,15 @@ func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Insta
 	return e.startInstance(machineId, info, false)
 }
 
-func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte, error) {
+func (e *environ) userData(machineId int, info *state.Info, master bool, toolsURL string) ([]byte, error) {
 	cfg := &machineConfig{
 		provisioner:        master,
 		zookeeper:          master,
 		stateInfo:          info,
 		instanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		providerType:       "ec2",
-		origin:             e.config.origin,
-		machineId:          fmt.Sprint(machineId),
+		toolsURL:           toolsURL,
+		machineId:          machineId,
 	}
 
 	if e.config.authorizedKeys == "" {
@@ -204,13 +213,18 @@ func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
 func (e *environ) startInstance(machineId int, info *state.Info, master bool) (environs.Instance, error) {
-	image, err := FindImageSpec(DefaultImageConstraint)
+	spec, err := findInstanceSpec(defaultInstanceConstraint)
 	if err != nil {
-		return nil, fmt.Errorf("cannot find image: %v", err)
+		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
 	}
-	userData, err := e.userData(machineId, info, master)
+	log.Debugf("looking for tools for version %v; instance spec %#v", version.Current, spec)
+	toolsURL, err := environs.FindTools(e, version.Current, spec.series, spec.arch)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ec2: cannot find juju tools that would work on the specified instance: %v", spec, err)
+	}
+	userData, err := e.userData(machineId, info, master, toolsURL)
+	if err != nil {
+		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	groups, err := e.setUpGroups(machineId)
 	if err != nil {
@@ -220,7 +234,7 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 
 	for a := shortAttempt.start(); a.next(); {
 		instances, err = e.ec2.RunInstances(&ec2.RunInstances{
-			ImageId:        image.ImageId,
+			ImageId:        spec.imageId,
 			MinCount:       1,
 			MaxCount:       1,
 			UserData:       userData,
@@ -357,7 +371,7 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 	if err != nil {
 		return err
 	}
-	err = e.deleteState()
+	err = e.storage.deleteAll()
 	if err != nil {
 		return err
 	}

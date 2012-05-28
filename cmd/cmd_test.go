@@ -64,6 +64,14 @@ func (s *CmdSuite) TestMainRunError(c *C) {
 	c.Assert(bufferString(ctx.Stderr), Equals, "error: BAM!\n")
 }
 
+func (s *CmdSuite) TestMainRunSilentError(c *C) {
+	ctx := dummyContext(c)
+	result := cmd.Main(&TestCommand{Name: "verb"}, ctx, []string{"--option", "silent-error"})
+	c.Assert(result, Equals, 1)
+	c.Assert(bufferString(ctx.Stdout), Equals, "")
+	c.Assert(bufferString(ctx.Stderr), Equals, "")
+}
+
 func (s *CmdSuite) TestMainSuccess(c *C) {
 	ctx := dummyContext(c)
 	result := cmd.Main(&TestCommand{Name: "verb"}, ctx, []string{"--option", "success!"})

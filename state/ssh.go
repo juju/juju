@@ -115,7 +115,7 @@ func (fwd *sshForwarder) run(proc *sshProc) {
 			// for a very short time and we don't recognise the
 			// error, we assume that something unknown is
 			// going wrong and quit.
-			if sshErr.unknown && time.Now().Sub(startTime) < 500*time.Millisecond {
+			if sshErr.unknown && time.Now().Sub(startTime) < 200*time.Millisecond {
 				if restartCount++; restartCount > 10 {
 					proc.stop()
 					log.Printf("state: too many ssh errors")

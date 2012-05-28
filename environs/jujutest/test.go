@@ -75,7 +75,7 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	if t.bootstrapped {
 		return
 	}
-	err := t.Env.Bootstrap()
+	err := t.Env.Bootstrap(true)
 	c.Assert(err, IsNil)
 	t.bootstrapped = true
 }

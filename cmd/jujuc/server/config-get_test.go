@@ -1,62 +1,21 @@
 package server_test
 
 import (
-	"bytes"
-	"fmt"
-	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/cmd"
-	"launchpad.net/juju/go/cmd/jujuc/server"
-	"launchpad.net/juju/go/state"
-	"launchpad.net/juju/go/testing"
-	"net/url"
 	"path/filepath"
 )
 
-func addDummyCharm(c *C, st *state.State) *state.Charm {
-	ch := testing.Charms.Dir("dummy")
-	u := fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision())
-	curl := charm.MustParseURL(u)
-	burl, err := url.Parse("http://bundle.url")
-	c.Assert(err, IsNil)
-	dummy, err := st.AddCharm(ch, curl, burl)
-	c.Assert(err, IsNil)
-	return dummy
-}
-
-func dummyContext(c *C) *cmd.Context {
-	return &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}}
-}
-
-func bufferString(w io.Writer) string {
-	return w.(*bytes.Buffer).String()
-}
-
 type ConfigGetSuite struct {
-	ctx *server.ClientContext
+	UnitFixture
 }
 
 var _ = Suite(&ConfigGetSuite{})
 
 func (s *ConfigGetSuite) SetUpTest(c *C) {
-	st, err := state.Initialize(&state.Info{
-		Addrs: []string{zkAddr},
-	})
-	c.Assert(err, IsNil)
-	s.ctx = &server.ClientContext{
-		Id:            "TestCtx",
-		State:         st,
-		LocalUnitName: "minecraft/0",
-	}
-	dummy := addDummyCharm(c, st)
-	service, err := st.AddService("minecraft", dummy)
-	c.Assert(err, IsNil)
-	_, err = service.AddUnit()
-	c.Assert(err, IsNil)
-	conf, err := service.Config()
+	s.UnitFixture.SetUpTest(c)
+	conf, err := s.service.Config()
 	c.Assert(err, IsNil)
 	conf.Update(map[string]interface{}{
 		"monsters":            false,
@@ -66,32 +25,22 @@ func (s *ConfigGetSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *ConfigGetSuite) TearDownTest(c *C) {
-	zk, session, err := zookeeper.Dial(zkAddr, 15e9)
-	c.Assert(err, IsNil)
-	event := <-session
-	c.Assert(event.Ok(), Equals, true)
-	c.Assert(event.Type, Equals, zookeeper.EVENT_SESSION)
-	c.Assert(event.State, Equals, zookeeper.STATE_CONNECTED)
-	testing.ZkRemoveTree(zk, "/")
-}
-
-var smartMapOutput = `map\[(spline-reticulation:45 monsters:false|monsters:false spline-reticulation:45)\]` + "\n"
+var configGetYamlMap = "(spline-reticulation: 45\nmonsters: false\n|monsters: false\nspline-reticulation: 45\n)\n"
 var configGetTests = []struct {
 	args []string
 	out  string
 }{
-	{[]string{"monsters"}, "false\n"},
-	{[]string{"--format", "smart", "monsters"}, "false\n"},
+	{[]string{"monsters"}, "false\n\n"},
+	{[]string{"--format", "yaml", "monsters"}, "false\n\n"},
 	{[]string{"--format", "json", "monsters"}, "false\n"},
-	{[]string{"spline-reticulation"}, "45\n"},
-	{[]string{"--format", "smart", "spline-reticulation"}, "45\n"},
+	{[]string{"spline-reticulation"}, "45\n\n"},
+	{[]string{"--format", "yaml", "spline-reticulation"}, "45\n\n"},
 	{[]string{"--format", "json", "spline-reticulation"}, "45\n"},
 	{[]string{"missing"}, ""},
-	{[]string{"--format", "smart", "missing"}, ""},
+	{[]string{"--format", "yaml", "missing"}, ""},
 	{[]string{"--format", "json", "missing"}, "null\n"},
-	{nil, smartMapOutput},
-	{[]string{"--format", "smart"}, smartMapOutput},
+	{nil, configGetYamlMap},
+	{[]string{"--format", "yaml"}, configGetYamlMap},
 	{[]string{"--format", "json"}, `{"monsters":false,"spline-reticulation":45}` + "\n"},
 }
 
@@ -107,6 +56,28 @@ func (s *ConfigGetSuite) TestOutputFormat(c *C) {
 	}
 }
 
+var configGetTestModeTests = []struct {
+	args []string
+	code int
+}{
+	{[]string{"monsters", "--test"}, 1},
+	{[]string{"spline-reticulation", "--test"}, 0},
+	{[]string{"missing", "--test"}, 1},
+	{[]string{"--test"}, 0},
+}
+
+func (s *ConfigGetSuite) TestTestMode(c *C) {
+	for _, t := range configGetTestModeTests {
+		com, err := s.ctx.NewCommand("config-get")
+		c.Assert(err, IsNil)
+		ctx := dummyContext(c)
+		code := cmd.Main(com, ctx, t.args)
+		c.Assert(code, Equals, t.code)
+		c.Assert(bufferString(ctx.Stderr), Equals, "")
+		c.Assert(bufferString(ctx.Stdout), Equals, "")
+	}
+}
+
 func (s *ConfigGetSuite) TestHelp(c *C) {
 	com, err := s.ctx.NewCommand("config-get")
 	c.Assert(err, IsNil)
@@ -118,10 +89,12 @@ func (s *ConfigGetSuite) TestHelp(c *C) {
 purpose: print service configuration
 
 options:
---format  (= smart)
-    specify output format (json|smart)
+--format  (= yaml)
+    specify output format (json|yaml)
 -o, --output (= "")
     specify an output file
+--test  (= false)
+    returns non-zero exit code if value is false/zero/empty
 
 If a key is given, only the value for that key will be printed.
 `)
@@ -137,7 +110,7 @@ func (s *ConfigGetSuite) TestOutputPath(c *C) {
 	c.Assert(bufferString(ctx.Stdout), Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, IsNil)
-	c.Assert(string(content), Equals, "false\n")
+	c.Assert(string(content), Equals, "false\n\n")
 }
 
 func (s *ConfigGetSuite) TestUnknownArg(c *C) {
@@ -147,16 +120,6 @@ func (s *ConfigGetSuite) TestUnknownArg(c *C) {
 	c.Assert(err, ErrorMatches, `unrecognized args: \["keys"\]`)
 }
 
-func (s *ConfigGetSuite) TestBadState(c *C) {
-	s.ctx.State = nil
-	com, err := s.ctx.NewCommand("config-get")
-	c.Assert(com, IsNil)
-	c.Assert(err, ErrorMatches, "context TestCtx cannot access state")
-}
-
-func (s *ConfigGetSuite) TestBadUnit(c *C) {
-	s.ctx.LocalUnitName = ""
-	com, err := s.ctx.NewCommand("config-get")
-	c.Assert(com, IsNil)
-	c.Assert(err, ErrorMatches, "context TestCtx is not attached to a unit")
+func (s *ConfigGetSuite) TestUnitCommand(c *C) {
+	s.AssertUnitCommand(c, "config-get")
 }

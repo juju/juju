@@ -6,25 +6,10 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/cmd/jujuc/server"
 	"launchpad.net/juju/go/state"
-	"launchpad.net/juju/go/testing"
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
 )
-
-var zkAddr string
-
-func TestPackage(t *stdtesting.T) {
-	srv := testing.StartZkServer()
-	defer srv.Destroy()
-	var err error
-	zkAddr, err = srv.Addr()
-	if err != nil {
-		t.Fatalf("could not get ZooKeeper server address")
-	}
-	TestingT(t)
-}
 
 type GetCommandSuite struct{}
 
@@ -34,8 +19,11 @@ var getCommandTests = []struct {
 	name string
 	err  string
 }{
-	{"juju-log", ""},
+	{"close-port", ""},
 	{"config-get", ""},
+	{"juju-log", ""},
+	{"open-port", ""},
+	{"unit-get", ""},
 	{"random", "unknown command: random"},
 }
 

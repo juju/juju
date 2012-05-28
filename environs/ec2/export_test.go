@@ -2,6 +2,7 @@ package ec2
 
 import (
 	"launchpad.net/goamz/ec2"
+	"launchpad.net/goamz/s3"
 	"launchpad.net/juju/go/environs"
 	"net/http"
 )
@@ -34,8 +35,20 @@ func EnvironEC2(e environs.Environ) *ec2.EC2 {
 	return e.(*environ).ec2
 }
 
+func DeleteStorageContent(s environs.Storage) error {
+	return s.(*storage).deleteAll()
+}
+
 func InstanceEC2(inst environs.Instance) *ec2.Instance {
 	return inst.(*instance).Instance
+}
+
+// BucketStorage returns a storage instance addressing
+// an arbitrary s3 bucket.
+func BucketStorage(b *s3.Bucket) environs.Storage {
+	return &storage{
+		bucket: b,
+	}
 }
 
 var origImagesHost = imagesHost

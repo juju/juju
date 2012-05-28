@@ -31,6 +31,8 @@ func newConfigWatcher(st *State, path string) *ConfigWatcher {
 // Changes returns a channel that will receive the new
 // *ConfigNode when a change is detected. Note that multiple
 // changes may be observed as a single event in the channel.
+// The first event on the channel holds the initial state
+// as returned by Service.Config.
 func (w *ConfigWatcher) Changes() <-chan *ConfigNode {
 	return w.changeChan
 }
@@ -102,6 +104,8 @@ func newNeedsUpgradeWatcher(st *State, path string) *NeedsUpgradeWatcher {
 // Changes returns a channel that will receive notifications
 // about upgrades for the unit. Note that multiple changes
 // may be observed as a single event in the channel.
+// The first event on the channel holds the initial
+// state as returned by Unit.NeedsUpgrade.
 func (w *NeedsUpgradeWatcher) Changes() <-chan NeedsUpgrade {
 	return w.changeChan
 }
@@ -177,6 +181,8 @@ func newResolvedWatcher(st *State, path string) *ResolvedWatcher {
 // Changes returns a channel that will receive the new
 // resolved mode when a change is detected. Note that multiple
 // changes may be observed as a single event in the channel.
+// The first event on the channel holds the initial
+// state as returned by Unit.Resolved.
 func (w *ResolvedWatcher) Changes() <-chan ResolvedMode {
 	return w.changeChan
 }
@@ -206,10 +212,14 @@ func (w *ResolvedWatcher) loop() {
 			if !ok {
 				return
 			}
-			mode, err := parseResolvedMode(change.Content)
-			if err != nil {
-				w.tomb.Kill(err)
-				return
+			mode := ResolvedNone
+			if change.Exists {
+				var err error
+				mode, err = parseResolvedMode(change.Content)
+				if err != nil {
+					w.tomb.Kill(err)
+					return
+				}
 			}
 			select {
 			case <-w.watcher.Dying():
@@ -248,6 +258,8 @@ func newPortsWatcher(st *State, path string) *PortsWatcher {
 // Changes returns a channel that will receive the actual
 // open ports when a change is detected. Note that multiple
 // changes may be observed as a single event in the channel.
+// The first event on the channel holds the initial
+// state as returned by Unit.OpenPorts.
 func (w *PortsWatcher) Changes() <-chan []Port {
 	return w.changeChan
 }
@@ -291,4 +303,109 @@ func (w *PortsWatcher) loop() {
 			}
 		}
 	}
+}
+
+// MachinesWatcher notifies about machines being added or removed 
+// from the environment.
+type MachinesWatcher struct {
+	st               *State
+	path             string
+	tomb             tomb.Tomb
+	changeChan       chan *MachinesChange
+	watcher          *watcher.ContentWatcher
+	knownMachineKeys []string
+}
+
+// newMachinesWatcher creates and starts a new machine watcher.
+func newMachinesWatcher(st *State) *MachinesWatcher {
+	// start with an empty topology
+	topology, _ := parseTopology("")
+	w := &MachinesWatcher{
+		st:               st,
+		path:             zkTopologyPath,
+		changeChan:       make(chan *MachinesChange),
+		watcher:          watcher.NewContentWatcher(st.zk, zkTopologyPath),
+		knownMachineKeys: topology.MachineKeys(),
+	}
+	go w.loop()
+	return w
+}
+
+// Changes returns a channel that will receive the actual
+// watcher.ChildrenChanges. Note that multiple changes may
+// be observed as a single event in the channel.
+// The Added field in the first event on the channel holds the initial
+// state as returned by State.AllMachines.
+func (w *MachinesWatcher) Changes() <-chan *MachinesChange {
+	return w.changeChan
+}
+
+// Stop stops the watch and returns any error encountered
+// while watching. This method should always be called
+// before discarding the watcher.
+func (w *MachinesWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	if err := w.watcher.Stop(); err != nil {
+		w.tomb.Wait()
+		return err
+	}
+	return w.tomb.Wait()
+}
+
+// loop is the backend for watching the ports node.
+func (w *MachinesWatcher) loop() {
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case change, ok := <-w.watcher.Changes():
+			if !ok {
+				return
+			}
+			topology, err := parseTopology(change.Content)
+			if err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			currentMachineKeys := topology.MachineKeys()
+			added, deleted := diff(currentMachineKeys, w.knownMachineKeys), diff(w.knownMachineKeys, currentMachineKeys)
+			w.knownMachineKeys = currentMachineKeys
+			if len(added) == 0 && len(deleted) == 0 {
+				// nothing changed in zkMachinePath
+				continue
+			}
+			// Why are we dealing with strings, not *Machines at this point ?
+			// Because *Machine does not define equality, yet.
+			mc := new(MachinesChange)
+			for _, m := range added {
+				mc.Added = append(mc.Added, &Machine{w.st, m})
+			}
+			for _, m := range deleted {
+				mc.Deleted = append(mc.Deleted, &Machine{w.st, m})
+			}
+			select {
+			case <-w.watcher.Dying():
+				return
+			case <-w.tomb.Dying():
+				return
+			case w.changeChan <- mc:
+			}
+		}
+	}
+}
+
+// diff returns all the elements that exist in A but not B.
+func diff(A, B []string) (missing []string) {
+next:
+	for _, a := range A {
+		for _, b := range B {
+			if a == b {
+				continue next
+			}
+		}
+		missing = append(missing, a)
+	}
+	return
 }

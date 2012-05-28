@@ -1,10 +1,9 @@
-package ec2_test
+package ec2
 
 import (
 	"fmt"
 	"io"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/environs/ec2"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,92 +15,93 @@ type imageSuite struct{}
 var _ = Suite(imageSuite{})
 
 func (imageSuite) SetUpSuite(c *C) {
-	ec2.UseTestImageData(true)
+	UseTestImageData(true)
 }
 
 func (imageSuite) TearDownSuite(c *C) {
-	ec2.UseTestImageData(false)
+	UseTestImageData(false)
 }
 
 // N.B. the image IDs in this test will need updating
 // if the image directory is regenerated.
 var imageTests = []struct {
-	constraint ec2.ImageConstraint
+	constraint instanceConstraint
 	imageId    string
 	err        string
 }{
-	{*ec2.DefaultImageConstraint, "ami-a7f539ce", ""},
-	{ec2.ImageConstraint{
-		UbuntuRelease:     "natty",
-		Architecture:      "amd64",
-		PersistentStorage: false,
-		Region:            "eu-west-1",
-		Daily:             true,
-		Desktop:           true,
-	}, "ami-19fdc16d", ""},
-	{ec2.ImageConstraint{
-		UbuntuRelease:     "natty",
-		Architecture:      "i386",
-		PersistentStorage: true,
-		Region:            "ap-northeast-1",
-		Daily:             true,
-		Desktop:           true,
-	}, "ami-cc9621cd", ""},
-	{ec2.ImageConstraint{
-		UbuntuRelease:     "natty",
-		Architecture:      "i386",
-		PersistentStorage: false,
-		Region:            "ap-northeast-1",
-		Daily:             true,
-		Desktop:           true,
-	}, "ami-62962163", ""},
-	{ec2.ImageConstraint{
-		UbuntuRelease:     "natty",
-		Architecture:      "amd64",
-		PersistentStorage: false,
-		Region:            "ap-northeast-1",
-		Daily:             true,
-		Desktop:           true,
-	}, "ami-a69621a7", ""},
-	{ec2.ImageConstraint{
-		UbuntuRelease:     "zingy",
-		Architecture:      "amd64",
-		PersistentStorage: false,
-		Region:            "eu-west-1",
-		Daily:             true,
-		Desktop:           true,
+	{instanceConstraint{
+		series:            "natty",
+		arch:              "amd64",
+		persistentStorage: false,
+		region:            "eu-west-1",
+		daily:             true,
+		desktop:           true,
+	}, "ami-b1dde7c5", ""},
+	{instanceConstraint{
+		series:            "natty",
+		arch:              "i386",
+		persistentStorage: true,
+		region:            "ap-northeast-1",
+		daily:             true,
+		desktop:           true,
+	}, "ami-fc2a9afd", ""},
+	{instanceConstraint{
+		series:            "natty",
+		arch:              "i386",
+		persistentStorage: false,
+		region:            "ap-northeast-1",
+		daily:             true,
+		desktop:           true,
+	}, "ami-6c2a9a6d", ""},
+	{instanceConstraint{
+		series:            "natty",
+		arch:              "amd64",
+		persistentStorage: false,
+		region:            "ap-northeast-1",
+		daily:             true,
+		desktop:           true,
+	}, "ami-a02a9aa1", ""},
+	{instanceConstraint{
+		series:            "zingy",
+		arch:              "amd64",
+		persistentStorage: false,
+		region:            "eu-west-1",
+		daily:             true,
+		desktop:           true,
 	}, "", "error getting instance types:.*"},
 }
 
-func (imageSuite) TestFindImageSpec(c *C) {
-
+func (imageSuite) TestFindInstanceSpec(c *C) {
 	for i, t := range imageTests {
-		id, err := ec2.FindImageSpec(&t.constraint)
+		c.Logf("test %d", i)
+		id, err := findInstanceSpec(&t.constraint)
 		if t.err != "" {
-			c.Check(err, ErrorMatches, t.err, Commentf("test %d", i))
-			c.Check(id, IsNil, Commentf("test %d", i))
+			c.Check(err, ErrorMatches, t.err)
+			c.Check(id, IsNil)
 			continue
 		}
-		if !c.Check(err, IsNil, Commentf("test %d", i)) {
+		if !c.Check(err, IsNil) {
 			continue
 		}
-		if !c.Check(id, NotNil, Commentf("test %d", i)) {
+		if !c.Check(id, NotNil) {
 			continue
 		}
-		c.Check(id.ImageId, Equals, t.imageId)
+		c.Check(id.imageId, Equals, t.imageId)
+		c.Check(id.arch, Equals, t.constraint.arch)
+		c.Check(id.series, Equals, t.constraint.series)
 	}
 }
 
 // regenerate all data inside the images directory.
 // N.B. this second-guesses the logic inside images.go
-func regenerateImages(t *testing.T) {
+func RegenerateImages(t *testing.T) {
 	if err := os.RemoveAll(imagesRoot); err != nil {
 		t.Errorf("cannot remove old images: %v", err)
 		return
 	}
 	for _, variant := range []string{"desktop", "server"} {
 		for _, version := range []string{"daily", "released"} {
-			for _, release := range []string{"natty", "oneiric"} {
+			for _, release := range []string{"natty", "oneiric", "precise", "quantal"} {
 				s := fmt.Sprintf("query/%s/%s/%s.current.txt", release, variant, version)
 				t.Logf("regenerating images from %q", s)
 				err := copylocal(s)

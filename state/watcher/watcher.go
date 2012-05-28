@@ -17,20 +17,22 @@ type ContentChange struct {
 // ContentWatcher observes a ZooKeeper node and delivers a
 // notification when a content change is detected.
 type ContentWatcher struct {
-	zk         *zookeeper.Conn
-	path       string
-	tomb       tomb.Tomb
-	changeChan chan ContentChange
-	content    ContentChange
+	zk           *zookeeper.Conn
+	path         string
+	tomb         tomb.Tomb
+	changeChan   chan ContentChange
+	initialValue bool
+	content      ContentChange
 }
 
 // NewContentWatcher creates a ContentWatcher observing
 // the ZooKeeper node at watchedPath.
 func NewContentWatcher(zk *zookeeper.Conn, watchedPath string) *ContentWatcher {
 	w := &ContentWatcher{
-		zk:         zk,
-		path:       watchedPath,
-		changeChan: make(chan ContentChange),
+		zk:           zk,
+		path:         watchedPath,
+		changeChan:   make(chan ContentChange),
+		initialValue: true,
 	}
 	go w.loop()
 	return w
@@ -39,6 +41,7 @@ func NewContentWatcher(zk *zookeeper.Conn, watchedPath string) *ContentWatcher {
 // Changes returns a channel that will receive the new node
 // content when a change is detected. Note that multiple
 // changes may be observed as a single event in the channel.
+// The first event on the channel holds the initial state.
 func (w *ContentWatcher) Changes() <-chan ContentChange {
 	return w.changeChan
 }
@@ -114,19 +117,15 @@ func (w *ContentWatcher) update() (nextWatch <-chan zookeeper.Event, err error) 
 		// Any other error during GetW() or ExistsW().
 		return nil, fmt.Errorf("watcher: can't get content of node %q: %v", w.path, err)
 	}
-	if stat != nil {
-		if w.content.Exists && content == w.content.Content {
-			return nextWatch, nil
-		}
-		w.content.Exists = true
-		w.content.Content = content
-	} else {
-		if !w.content.Exists {
-			return nextWatch, nil
-		}
-		w.content.Exists = false
-		w.content.Content = ""
+	newContent := ContentChange{
+		Exists:  stat != nil,
+		Content: content,
 	}
+	if !w.initialValue && newContent == w.content {
+		return nextWatch, nil
+	}
+	w.initialValue = false
+	w.content = newContent
 	select {
 	case <-w.tomb.Dying():
 		return nil, tomb.ErrDying
@@ -145,21 +144,23 @@ type ChildrenChange struct {
 // ChildrenWatcher observes a ZooKeeper node and delivers a
 // notification when child nodes are added or removed.
 type ChildrenWatcher struct {
-	zk         *zookeeper.Conn
-	path       string
-	tomb       tomb.Tomb
-	changeChan chan ChildrenChange
-	children   map[string]bool
+	zk           *zookeeper.Conn
+	path         string
+	tomb         tomb.Tomb
+	changeChan   chan ChildrenChange
+	initialValue bool
+	children     map[string]bool
 }
 
 // NewChildrenWatcher creates a ChildrenWatcher observing
 // the ZooKeeper node at watchedPath.
 func NewChildrenWatcher(zk *zookeeper.Conn, watchedPath string) *ChildrenWatcher {
 	w := &ChildrenWatcher{
-		zk:         zk,
-		path:       watchedPath,
-		changeChan: make(chan ChildrenChange),
-		children:   make(map[string]bool),
+		zk:           zk,
+		path:         watchedPath,
+		changeChan:   make(chan ChildrenChange),
+		children:     make(map[string]bool),
+		initialValue: true,
 	}
 	go w.loop()
 	return w
@@ -169,6 +170,9 @@ func NewChildrenWatcher(zk *zookeeper.Conn, watchedPath string) *ChildrenWatcher
 // performed to the set of children of the watched node.
 // Note that multiple changes may be observed as a single
 // event in the channel.
+// The first event on the channel represents the initial
+// state - the Added field will hold the children found
+// when NewChildrenWatcher was called.
 func (w *ChildrenWatcher) Changes() <-chan ChildrenChange {
 	return w.changeChan
 }
@@ -243,9 +247,10 @@ func (w *ChildrenWatcher) update(eventType int) (nextWatch <-chan zookeeper.Even
 			w.children[child] = true
 		}
 	}
-	if len(change.Deleted) == 0 && len(change.Added) == 0 {
+	if !w.initialValue && len(change.Deleted) == 0 && len(change.Added) == 0 {
 		return watch, nil
 	}
+	w.initialValue = false
 	select {
 	case <-w.tomb.Dying():
 		return nil, tomb.ErrDying
