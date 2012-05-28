@@ -107,6 +107,11 @@ type Environ interface {
 	// by Bootstrap.
 	StateInfo() (*state.Info, error)
 
+	// SetConfig updates the Environs configuration.
+	// Calls to SetConfig do not affect the configuration of
+	// values previously obtained from Storage and PublicStorage.
+	SetConfig(config EnvironConfig)
+
 	// StartInstance asks for a new instance to be created,
 	// associated with the provided machine identifier.
 	// The given info describes the juju state for the new
