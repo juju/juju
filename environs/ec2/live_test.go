@@ -28,7 +28,6 @@ environments:
     type: ec2
     control-bucket: 'juju-test-%s'
     public-bucket: 'juju-public-test-%s'
-    juju-origin: distro
 `, uniqueName, uniqueName, uniqueName)
 
 // uniqueName is generated afresh for every test, so that
@@ -66,6 +65,25 @@ func registerAmazonTests() {
 type LiveTests struct {
 	testing.LoggingSuite
 	jujutest.LiveTests
+}
+
+func (t *LiveTests) SetUpSuite(c *C) {
+	e, err := t.Environs.Open("")
+	c.Assert(err, IsNil)
+	// Put some fake tools in place so that tests that are simply
+	// starting instances without any need to check if those instances
+	// are running will find them in the public bucket.
+	putFakeTools(c, e.PublicStorage().(environs.Storage))
+	t.LiveTests.SetUpSuite(c)
+}
+
+func (t *LiveTests) TearDownSuite(c *C) {
+	if t.Env == nil {
+		// This can happen if SetUpSuite fails.
+		return
+	}
+	err := ec2.DeleteStorageContent(t.Env.PublicStorage().(environs.Storage))
+	c.Assert(err, IsNil)
 }
 
 func (t *LiveTests) SetUpTest(c *C) {
@@ -214,7 +232,7 @@ func (t *LiveTests) TestDestroy(c *C) {
 	t.Destroy(c)
 
 	for i := 0; i < 30; i++ {
-		names, err = s.List("")
+		_, err = s.List("")
 		if err != nil {
 			break
 		}
@@ -278,7 +296,6 @@ func (t *LiveTests) TestStopInstances(c *C) {
 
 func (t *LiveTests) TestPublicStorage(c *C) {
 	s := t.Env.PublicStorage().(environs.Storage)
-	defer ec2.DeleteStorageContent(s)
 
 	contents := "test"
 	err := s.Put("test-object", strings.NewReader(contents), int64(len(contents)))
