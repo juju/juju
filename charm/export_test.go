@@ -10,6 +10,6 @@ func IfaceExpander(limit interface{}) schema.Checker {
 	return ifaceExpander(limit)
 }
 
-func NewStore(url, path string) Repo {
+func NewStore(url, path string) Repository {
 	return &store{url, path}
 }

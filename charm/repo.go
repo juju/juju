@@ -23,26 +23,26 @@ type InfoResponse struct {
 	Warnings []string `json:"warnings,omitempty"`
 }
 
-// Repo respresents a collection of charms.
-type Repo interface {
+// Repository respresents a collection of charms.
+type Repository interface {
 	Get(curl *URL) (Charm, error)
 	Latest(curl *URL) (int, error)
 }
 
-// store is a Repo that talks to the juju charm server (in ../store).
+// store is a Repository that talks to the juju charm server (in ../store).
 type store struct {
 	baseURL   string
 	cachePath string
 }
 
 const (
-	STORE_URL  = "https://store.juju.ubuntu.com"
-	CACHE_PATH = "$HOME/.juju/cache"
+	storeURL  = "https://store.juju.ubuntu.com"
+	cachePath = "$HOME/.juju/cache"
 )
 
-// Store returns a Repo that provides access to the juju charm store.
-func Store() Repo {
-	return &store{STORE_URL, os.ExpandEnv(CACHE_PATH)}
+// Store returns a Repository that provides access to the juju charm store.
+func Store() Repository {
+	return &store{storeURL, os.ExpandEnv(cachePath)}
 }
 
 // info returns the revision and SHA256 digest of the charm referenced by curl.
@@ -63,11 +63,11 @@ func (s *store) info(curl *URL) (rev int, digest string, err error) {
 	}
 	info, found := infos[key]
 	if !found {
-		err = fmt.Errorf("missing info for charm: %q", key)
+		err = fmt.Errorf("charm: charm store returned response without charm %q", key)
 		return
 	}
 	for _, w := range info.Warnings {
-		log.Printf("WARNING: info for %q: %s", key, w)
+		log.Printf("WARNING: charm store reports for %q: %s", key, w)
 	}
 	if info.Errors != nil {
 		err = fmt.Errorf(
@@ -112,7 +112,7 @@ func (s *store) Get(curl *URL) (Charm, error) {
 	if curl.Revision == -1 {
 		curl = curl.WithRevision(rev)
 	} else if curl.Revision != rev {
-		return nil, fmt.Errorf("bad revision info for %q", curl.String())
+		return nil, fmt.Errorf("charm: store returned charm with wrong revision for %q", curl.String())
 	}
 	path := filepath.Join(s.cachePath, Quote(curl.String())+".charm")
 	if verify(path, digest) != nil {
@@ -121,13 +121,15 @@ func (s *store) Get(curl *URL) (Charm, error) {
 			return nil, err
 		}
 		defer resp.Body.Close()
-		f, err := ioutil.TempFile("", "juju-charm-download")
+		f, err := ioutil.TempFile(s.cachePath, "charm-download")
 		if err != nil {
 			return nil, err
 		}
 		dlPath := f.Name()
 		_, err = io.Copy(f, resp.Body)
-		f.Close()
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
 		if err != nil {
 			os.Remove(dlPath)
 			return nil, err
