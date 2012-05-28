@@ -41,8 +41,7 @@ func NewContentWatcher(zk *zookeeper.Conn, watchedPath string) *ContentWatcher {
 // Changes returns a channel that will receive the new node
 // content when a change is detected. Note that multiple
 // changes may be observed as a single event in the channel.
-// The first event on the channel will always be sent immediately
-// and represents the current state.
+// The first event on the channel holds the initial state.
 func (w *ContentWatcher) Changes() <-chan ContentChange {
 	return w.changeChan
 }
@@ -171,8 +170,9 @@ func NewChildrenWatcher(zk *zookeeper.Conn, watchedPath string) *ChildrenWatcher
 // performed to the set of children of the watched node.
 // Note that multiple changes may be observed as a single
 // event in the channel.
-// The first event on the channel will always be sent immediately
-// and represents the current state.
+// The first event on the channel represents the initial
+// state - the Added field will hold the children found
+// when NewChildrenWatcher was called.
 func (w *ChildrenWatcher) Changes() <-chan ChildrenChange {
 	return w.changeChan
 }
