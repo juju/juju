@@ -37,7 +37,6 @@ func (s *MgoSuite) SetUpSuite(c *C) {
 	if err != nil {
 		panic(err)
 	}
-	//time.Sleep(20e9)
 }
 
 func (s *MgoSuite) TearDownSuite(c *C) {
