@@ -73,14 +73,15 @@ func (s *Service) Remove() error {
 	return os.Remove(s.confPath())
 }
 
-var confT = `description "{{.Desc}}"
+var confT = template.Must(template.New("").Parse(`
+description "{{.Desc}}"
 author "Juju Team <juju@lists.ubuntu.com>"
 start on runlevel [2345]
 stop on runlevel [!2345]
 respawn
 {{range $k, $v := .Env}}{{printf "env %s=%q\n" $k $v}}{{end}}
 exec {{.Cmd}}{{if .Out}} >> {{.Out}} 2>&1{{end}}
-`
+`[1:]))
 
 // Conf is responsible for defining and installing upstart services.
 type Conf struct {
@@ -114,8 +115,7 @@ func (c *Conf) render() (string, error) {
 		return "", err
 	}
 	buf := &bytes.Buffer{}
-	t := template.Must(template.New("conf").Parse(confT))
-	if err := t.Execute(buf, c); err != nil {
+	if err := confT.Execute(buf, c); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
