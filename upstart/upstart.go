@@ -1,6 +1,7 @@
 package upstart
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -8,10 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
+	"text/template"
 )
 
 var startedRE = regexp.MustCompile("^.* start/running, process (\\d+)\n$")
@@ -26,55 +24,26 @@ func NewService(name string) *Service {
 	return &Service{Name: name, InitDir: "/etc/init"}
 }
 
-// path returns the path to the service's configuration file.
-func (s *Service) path() string {
+// confPath returns the path to the service's configuration file.
+func (s *Service) confPath() string {
 	return filepath.Join(s.InitDir, s.Name+".conf")
 }
 
-// pid returns the Service's current pid, or -1 if it cannot be determined.
-func (s *Service) pid() int {
-	cmd := exec.Command("status", s.Name)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return -1
-	}
-	match := startedRE.FindStringSubmatch(string(out))
-	if match == nil {
-		return -1
-	}
-	pid, err := strconv.Atoi(match[1])
-	if err != nil {
-		return -1
-	}
-	return pid
-}
-
-// Installed returns true if the Service appears to be installed.
+// Installed returns true if the the service configuration exists in the
+// init directory.
 func (s *Service) Installed() bool {
-	_, err := os.Stat(s.path())
+	_, err := os.Stat(s.confPath())
 	return err == nil
 }
 
 // Running returns true if the Service appears to be running.
 func (s *Service) Running() bool {
-	return s.pid() != -1
-}
-
-// Stable returns true if the Service appears to be running stably, by
-// checking that the reported pid does not change over the course of 5
-// checks over 0.4 seconds.
-func (s *Service) Stable() bool {
-	pid := s.pid()
-	if pid == -1 {
+	cmd := exec.Command("status", s.Name)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
 		return false
 	}
-	for i := 0; i < 4; i++ {
-		<-time.After(100 * time.Millisecond)
-		if s.pid() != pid {
-			return false
-		}
-	}
-	return true
+	return startedRE.FindSubmatch(out) != nil
 }
 
 // Start starts the service.
@@ -93,7 +62,7 @@ func (s *Service) Stop() error {
 	return exec.Command("stop", s.Name).Run()
 }
 
-// Remove removes the service.
+// Remove deletes the service configuration from the init directory.
 func (s *Service) Remove() error {
 	if !s.Installed() {
 		return nil
@@ -101,21 +70,17 @@ func (s *Service) Remove() error {
 	if err := s.Stop(); err != nil {
 		return err
 	}
-	return os.Remove(s.path())
+	return os.Remove(s.confPath())
 }
 
-const (
-	descT = `description "%s"
+var confT = `description "{{.Desc}}"
 author "Juju Team <juju@lists.ubuntu.com>"
-`
-	start = `start on runlevel [2345]
+start on runlevel [2345]
 stop on runlevel [!2345]
 respawn
+{{range $k, $v := .Env}}{{printf "env %s=%q\n" $k $v}}{{end}}
+exec {{.Cmd}}{{if .Out}} >> {{.Out}} 2>&1{{end}}
 `
-	envT  = "env %s=%q\n"
-	outT  = "/tmp/%s.output"
-	execT = "exec %s >> %s 2>&1\n"
-)
 
 // Conf is responsible for defining and installing upstart services.
 type Conf struct {
@@ -148,19 +113,12 @@ func (c *Conf) render() (string, error) {
 	if err := c.validate(); err != nil {
 		return "", err
 	}
-	parts := []string{fmt.Sprintf(descT, c.Desc), start}
-	envs := []string{}
-	for k, v := range c.Env {
-		envs = append(envs, fmt.Sprintf(envT, k, v))
+	buf := &bytes.Buffer{}
+	t := template.Must(template.New("conf").Parse(confT))
+	if err := t.Execute(buf, c); err != nil {
+		return "", err
 	}
-	sort.Strings(envs)
-	parts = append(parts, envs...)
-	out := c.Out
-	if out == "" {
-		out = fmt.Sprintf(outT, c.Name)
-	}
-	parts = append(parts, fmt.Sprintf(execT, c.Cmd, out))
-	return strings.Join(parts, ""), nil
+	return buf.String(), nil
 }
 
 // Install installs and starts the service.
@@ -171,10 +129,10 @@ func (c *Conf) Install() error {
 	}
 	if c.Installed() {
 		if err := c.Remove(); err != nil {
-			return err
+			return fmt.Errorf("could not remove installed service: %s", err)
 		}
 	}
-	if err := ioutil.WriteFile(c.path(), []byte(conf), 0644); err != nil {
+	if err := ioutil.WriteFile(c.confPath(), []byte(conf), 0644); err != nil {
 		return err
 	}
 	return c.Start()
@@ -187,7 +145,7 @@ func (c *Conf) InstallCommands() ([]string, error) {
 		return nil, err
 	}
 	return []string{
-		fmt.Sprintf("cat >> %s << EOF\n%sEOF\n", c.path(), conf),
+		fmt.Sprintf("cat >> %s << 'EOF'\n%sEOF\n", c.confPath(), conf),
 		"start " + c.Name,
 	}, nil
 }

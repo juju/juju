@@ -68,15 +68,6 @@ func (s *UpstartSuite) TestRunning(c *C) {
 	c.Assert(s.service.Running(), Equals, true)
 }
 
-func (s *UpstartSuite) TestStable(c *C) {
-	s.MakeTool(c, "status", `echo "some-service start/running, process $RANDOM"`)
-	c.Assert(s.service.Running(), Equals, true)
-	c.Assert(s.service.Stable(), Equals, false)
-	s.RunningStatus(c)
-	c.Assert(s.service.Running(), Equals, true)
-	c.Assert(s.service.Stable(), Equals, true)
-}
-
 func (s *UpstartSuite) TestStart(c *C) {
 	s.RunningStatus(c)
 	s.MakeTool(c, "start", "exit 99")
@@ -160,7 +151,7 @@ func (s *UpstartSuite) assertInstall(c *C, conf *upstart.Conf, expectEnd string)
 	cmds, err := conf.InstallCommands()
 	c.Assert(err, IsNil)
 	c.Assert(cmds, DeepEquals, []string{
-		"cat >> " + expectPath + " << EOF\n" + expectContent + "EOF\n",
+		"cat >> " + expectPath + " << 'EOF'\n" + expectContent + "EOF\n",
 		"start some-service",
 	})
 
@@ -177,13 +168,13 @@ func (s *UpstartSuite) assertInstall(c *C, conf *upstart.Conf, expectEnd string)
 
 func (s *UpstartSuite) TestInstallSimple(c *C) {
 	conf := s.dummyConf(c)
-	s.assertInstall(c, conf, "exec do something >> /tmp/some-service.output 2>&1\n")
+	s.assertInstall(c, conf, "\nexec do something\n")
 }
 
 func (s *UpstartSuite) TestInstallOutput(c *C) {
 	conf := s.dummyConf(c)
 	conf.Out = "/some/output/path"
-	s.assertInstall(c, conf, "exec do something >> /some/output/path 2>&1\n")
+	s.assertInstall(c, conf, "\nexec do something >> /some/output/path 2>&1\n")
 }
 
 func (s *UpstartSuite) TestInstallEnv(c *C) {
@@ -191,7 +182,8 @@ func (s *UpstartSuite) TestInstallEnv(c *C) {
 	conf.Env = map[string]string{"FOO": "bar baz", "QUX": "ping pong"}
 	s.assertInstall(c, conf, `env FOO="bar baz"
 env QUX="ping pong"
-exec do something >> /tmp/some-service.output 2>&1
+
+exec do something
 `)
 }
 
