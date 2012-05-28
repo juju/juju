@@ -21,9 +21,9 @@ func (envs *Environs) Open(name string) (Environ, error) {
 	return e.config.Open()
 }
 
-// NewEnviron creates a new Environ of the registered kind using the configuration
-// attributes supplied, which should include the environment name.
-func NewEnviron(attrs map[string]interface{}) (Environ, error) {
+// NewConfig validates and returns a provider specific EnvironConfig using the 
+// configuration attributes supplied, which should include the environment name.
+func NewConfig(attrs map[string]interface{}) (EnvironConfig, error) {
 	kind, ok := attrs["type"].(string)
 	if !ok {
 		return nil, fmt.Errorf("no provider type given")
@@ -32,7 +32,13 @@ func NewEnviron(attrs map[string]interface{}) (Environ, error) {
 	if !ok {
 		return nil, fmt.Errorf("no registered provider for %q", kind)
 	}
-	cfg, err := p.NewConfig(attrs)
+	return p.NewConfig(attrs)
+}
+
+// NewEnviron creates a new Environ of the registered type using the configuration
+// attributes supplied, which should include the environment name.
+func NewEnviron(attrs map[string]interface{}) (Environ, error) {
+	cfg, err := NewConfig(attrs)
 	if err != nil {
 		return nil, fmt.Errorf("error validating environment: %v", err)
 	}

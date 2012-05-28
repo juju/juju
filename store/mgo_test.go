@@ -29,6 +29,7 @@ func (s *MgoSuite) SetUpSuite(c *C) {
 		"--nssize", "1",
 		"--noprealloc",
 		"--smallfiles",
+		"--nojournal",
 	}
 	s.server = exec.Command("mongod", args...)
 	s.server.Stdout = &s.output

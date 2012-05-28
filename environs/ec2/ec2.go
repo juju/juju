@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/log"
 	"launchpad.net/juju/go/state"
+	"launchpad.net/juju/go/version"
 	"sync"
 	"time"
 )
@@ -169,7 +170,6 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	if _, notFound := err.(*environs.NotFoundError); !notFound {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
-
 	if uploadTools {
 		err := environs.PutTools(e.Storage())
 		if err != nil {
@@ -187,7 +187,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		// ignore error on StopInstance because the previous error is
 		// more important.
 		e.StopInstances([]environs.Instance{inst})
-		return err
+		return fmt.Errorf("cannot save state: %v", err)
 	}
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
@@ -236,7 +236,7 @@ func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Insta
 	return e.startInstance(machineId, info, false)
 }
 
-func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte, error) {
+func (e *environ) userData(machineId int, info *state.Info, master bool, toolsURL string) ([]byte, error) {
 	config := e.config()
 	cfg := &machineConfig{
 		provisioner:        master,
@@ -244,8 +244,8 @@ func (e *environ) userData(machineId int, info *state.Info, master bool) ([]byte
 		stateInfo:          info,
 		instanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		providerType:       "ec2",
-		origin:             config.origin,
-		machineId:          fmt.Sprint(machineId),
+		toolsURL:           toolsURL,
+		machineId:          machineId,
 	}
 
 	if config.authorizedKeys == "" {
@@ -270,9 +270,14 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
 	}
-	userData, err := e.userData(machineId, info, master)
+	log.Debugf("looking for tools for version %v; instance spec %#v", version.Current, spec)
+	toolsURL, err := environs.FindTools(e, version.Current, spec.series, spec.arch)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ec2: cannot find juju tools that would work on the specified instance: %v", spec, err)
+	}
+	userData, err := e.userData(machineId, info, master, toolsURL)
+	if err != nil {
+		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	groups, err := e.setUpGroups(machineId)
 	if err != nil {
