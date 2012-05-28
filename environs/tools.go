@@ -31,16 +31,11 @@ var toolPrefix = "tools/juju-"
 
 var toolFilePat = regexp.MustCompile(`^` + toolPrefix + `(\d+\.\d+\.\d+)-([^-]+)-([^-]+)\.tgz$`)
 
-// ToolsPathForVersion returns the path that PutTools will use to
-// store the juju tools with the given version, OS and architecture.
-// It intended for testing purposes only.
-func ToolsPathForVersion(v version.Version, series, arch string) string {
+// ToolsPath returns the path that is used to store and
+// retrieve the juju tools in a Storage.
+func ToolsPath(v version.Version, series, arch string) string {
 	return fmt.Sprintf(toolPrefix+"%v-%s-%s.tgz", v, series, arch)
 }
-
-// ToolsPath gives the path for the current juju tools, as expected
-// by environs.Environ.PutFile, for example.
-var toolsPath = ToolsPathForVersion(version.Current, CurrentSeries, CurrentArch)
 
 // PutTools uploads the current version of the juju tools
 // executables to the given storage.
@@ -68,8 +63,9 @@ func PutTools(storage StorageWriter) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("environs: putting tools %v", toolsPath)
-	return storage.Put(toolsPath, f, fi.Size())
+	p := ToolsPath(version.Current, CurrentSeries, CurrentArch)
+	log.Printf("environs: putting tools %v", p)
+	return storage.Put(p, f, fi.Size())
 }
 
 // archive writes the executable files found in the given

@@ -45,7 +45,7 @@ func mkVersion(vers string) version.Version {
 }
 
 func mkToolsPath(vers string) string {
-	return environs.ToolsPathForVersion(mkVersion(vers), environs.CurrentSeries, environs.CurrentArch)
+	return environs.ToolsPath(mkVersion(vers), environs.CurrentSeries, environs.CurrentArch)
 }
 
 var _ = Suite(&ToolsSuite{})
@@ -198,8 +198,8 @@ var findToolsTests = []struct {
 	// mismatching series or architecture is ignored.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		environs.ToolsPathForVersion(mkVersion("1.9.9"), "foo", environs.CurrentArch),
-		environs.ToolsPathForVersion(mkVersion("1.9.9"), environs.CurrentSeries, "foo"),
+		environs.ToolsPath(mkVersion("1.9.9"), "foo", environs.CurrentArch),
+		environs.ToolsPath(mkVersion("1.9.9"), environs.CurrentSeries, "foo"),
 		mkToolsPath("1.0.0"),
 	},
 	expect: mkToolsPath("1.0.0"),
