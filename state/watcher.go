@@ -31,6 +31,8 @@ func newConfigWatcher(st *State, path string) *ConfigWatcher {
 // Changes returns a channel that will receive the new
 // *ConfigNode when a change is detected. Note that multiple
 // changes may be observed as a single event in the channel.
+// The first event on the channel holds the initial state
+// as returned by Service.Config.
 func (w *ConfigWatcher) Changes() <-chan *ConfigNode {
 	return w.changeChan
 }
@@ -102,6 +104,8 @@ func newNeedsUpgradeWatcher(st *State, path string) *NeedsUpgradeWatcher {
 // Changes returns a channel that will receive notifications
 // about upgrades for the unit. Note that multiple changes
 // may be observed as a single event in the channel.
+// The first event on the channel holds the initial
+// state as returned by Unit.NeedsUpgrade.
 func (w *NeedsUpgradeWatcher) Changes() <-chan NeedsUpgrade {
 	return w.changeChan
 }
@@ -177,6 +181,8 @@ func newResolvedWatcher(st *State, path string) *ResolvedWatcher {
 // Changes returns a channel that will receive the new
 // resolved mode when a change is detected. Note that multiple
 // changes may be observed as a single event in the channel.
+// The first event on the channel holds the initial
+// state as returned by Unit.Resolved.
 func (w *ResolvedWatcher) Changes() <-chan ResolvedMode {
 	return w.changeChan
 }
@@ -206,10 +212,14 @@ func (w *ResolvedWatcher) loop() {
 			if !ok {
 				return
 			}
-			mode, err := parseResolvedMode(change.Content)
-			if err != nil {
-				w.tomb.Kill(err)
-				return
+			mode := ResolvedNone
+			if change.Exists {
+				var err error
+				mode, err = parseResolvedMode(change.Content)
+				if err != nil {
+					w.tomb.Kill(err)
+					return
+				}
 			}
 			select {
 			case <-w.watcher.Dying():
@@ -248,6 +258,8 @@ func newPortsWatcher(st *State, path string) *PortsWatcher {
 // Changes returns a channel that will receive the actual
 // open ports when a change is detected. Note that multiple
 // changes may be observed as a single event in the channel.
+// The first event on the channel holds the initial
+// state as returned by Unit.OpenPorts.
 func (w *PortsWatcher) Changes() <-chan []Port {
 	return w.changeChan
 }
@@ -322,6 +334,8 @@ func newMachinesWatcher(st *State) *MachinesWatcher {
 // Changes returns a channel that will receive the actual
 // watcher.ChildrenChanges. Note that multiple changes may
 // be observed as a single event in the channel.
+// The Added field in the first event on the channel holds the initial
+// state as returned by State.AllMachines.
 func (w *MachinesWatcher) Changes() <-chan *MachinesChange {
 	return w.changeChan
 }
