@@ -16,8 +16,6 @@ const (
 	zkEnvironmentPath = "/environment"
 	zkMachinesPath    = "/machines"
 	zkTopologyPath    = "/topology"
-
-	zkEmptyConfig = ""
 )
 
 // State represents the state of an environment
@@ -29,7 +27,7 @@ type State struct {
 
 // AddMachine creates a new machine state.
 func (s *State) AddMachine() (*Machine, error) {
-	path, err := s.zk.Create("/machines/machine-", zkEmptyConfig, zookeeper.SEQUENCE, zkPermAll)
+	path, err := s.zk.Create("/machines/machine-", "", zookeeper.SEQUENCE, zkPermAll)
 	if err != nil {
 		return nil, err
 	}
