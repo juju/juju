@@ -40,7 +40,7 @@ environments:
 environments:
     only:
         type: dummy
-`, `.*zookeeper: expected false, got nothing`,
+`, `.*zookeeper: expected bool, got nothing`,
 		nil,
 	}, {`
 environments:
@@ -58,15 +58,15 @@ environments:
 		},
 	},
 	// should this fail or not?
-	//	// one known environment, no defaults, bad attribute -> parse error
-	//	{`
+	//  // one known environment, no defaults, bad attribute -> parse error
+	//  {`
 	//environments:
 	//    only:
 	//        type: dummy
 	//        badattr: anything
 	//        zookeeper: false
 	//`, nil,
-	//	},
+	//  },
 	// one known environment, no defaults -> parse ok, instantiate ok
 	{`
 environments:
