@@ -26,7 +26,7 @@ func readSeries(releaseFile string) string {
 		return "unknownSeries"
 	}
 	for _, line := range strings.Split(string(data), "\n") {
-		p := "DISTRIB_CODENAME="
+		const p = "DISTRIB_CODENAME="
 		if strings.HasPrefix(line, p) {
 			return strings.TrimSpace(line[len(p):])
 		}
