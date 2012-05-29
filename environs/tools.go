@@ -16,7 +16,7 @@ import (
 	"strings"
 )
 
-var CurrentSeries = readSeries("/etc/lsb-release")   // current Ubuntu release name.   
+var CurrentSeries = readSeries("/etc/lsb-release") // current Ubuntu release name.   
 var CurrentArch = ubuntuArch(runtime.GOARCH)
 
 func readSeries(releaseFile string) string {

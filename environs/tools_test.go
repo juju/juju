@@ -247,10 +247,10 @@ DISTRIB_DESCRIPTION="Ubuntu 12.04 LTS"`,
 }, {
 	"DISTRIB_CODENAME= \tprecise\t",
 	"precise",
-},  {
+}, {
 	`DISTRIB_CODENAME="precise"`,
 	"precise",
-},   {
+}, {
 	"DISTRIB_CODENAME='precise'",
 	"precise",
 }, {
