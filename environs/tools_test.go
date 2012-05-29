@@ -245,7 +245,13 @@ DISTRIB_CODENAME=precise
 DISTRIB_DESCRIPTION="Ubuntu 12.04 LTS"`,
 	"precise",
 }, {
-	"DISTRIB_CODENAME=\tprecise\t",
+	"DISTRIB_CODENAME= \tprecise\t",
+	"precise",
+},  {
+	`DISTRIB_CODENAME="precise"`,
+	"precise",
+},   {
+	"DISTRIB_CODENAME='precise'",
 	"precise",
 }, {
 	`DISTRIB_ID=Ubuntu
@@ -255,7 +261,7 @@ DISTRIB_DESCRIPTION="Ubuntu 12.10"`,
 	"quantal",
 }, {
 	"",
-	"unknownSeries",
+	"unknown",
 },
 }
 
@@ -272,11 +278,13 @@ func (t *ToolsSuite) TestReadSeries(c *C) {
 
 func (t *ToolsSuite) TestCurrentSeries(c *C) {
 	s := environs.CurrentSeries
-	if s == "unknownSeries" {
+	if s == "unknown" {
 		s = "n/a"
 	}
 	out, err := exec.Command("lsb_release", "-c").CombinedOutput()
 	if err != nil {
+		// If the command fails (for instance if we're running on some other
+		// platform) then CurrentSeries should be unknown.
 		c.Assert(s, Equals, "n/a")
 	} else {
 		c.Assert(string(out), Equals, "Codename:\t"+s+"\n")

@@ -16,22 +16,21 @@ import (
 	"strings"
 )
 
-// TODO find out actual architecture and Ubuntu release.
-var CurrentSeries = readSeries("/etc/lsb-release") // current Ubuntu release name.     
+var CurrentSeries = readSeries("/etc/lsb-release")   // current Ubuntu release name.   
 var CurrentArch = ubuntuArch(runtime.GOARCH)
 
 func readSeries(releaseFile string) string {
 	data, err := ioutil.ReadFile(releaseFile)
 	if err != nil {
-		return "unknownSeries"
+		return "unknown"
 	}
 	for _, line := range strings.Split(string(data), "\n") {
 		const p = "DISTRIB_CODENAME="
 		if strings.HasPrefix(line, p) {
-			return strings.TrimSpace(line[len(p):])
+			return strings.Trim(line[len(p):], "\t '\"")
 		}
 	}
-	return "unknownSeries"
+	return "unknown"
 }
 
 func ubuntuArch(arch string) string {
