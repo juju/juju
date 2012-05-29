@@ -192,5 +192,5 @@ func (t configTest) check(c *C) {
 	c.Assert(e, FitsTypeOf, (*environ)(nil))
 	tconfig := baseConfigResult
 	t.mutate(&tconfig)
-	c.Check(e.(*environ).config, DeepEquals, &tconfig)
+	c.Check(e.(*environ).config(), DeepEquals, &tconfig)
 }

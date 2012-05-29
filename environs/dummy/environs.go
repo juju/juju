@@ -84,9 +84,11 @@ type environState struct {
 // environ represents a client's connection to a given environment's
 // state.
 type environ struct {
-	state     *environState
-	broken    bool
-	zookeeper bool
+	state *environState
+
+	// configMutex protects visibility of config.
+	configMutex sync.Mutex
+	config      *environConfig
 }
 
 // storage holds the storage for an environState.
@@ -220,10 +222,9 @@ func (cfg *environConfig) Open() (environs.Environ, error) {
 		p.state[cfg.name] = state
 	}
 	env := &environ{
-		zookeeper: cfg.zookeeper,
-		broken:    cfg.broken,
-		state:     state,
+		state: state,
 	}
+	env.SetConfig(cfg)
 	return env, nil
 }
 
@@ -236,7 +237,7 @@ func EnvironName(e environs.Environ) string {
 }
 
 func (e *environ) Bootstrap(uploadTools bool) error {
-	if e.broken {
+	if e.isBroken() {
 		return errBroken
 	}
 	if uploadTools {
@@ -256,15 +257,22 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 }
 
 func (e *environ) StateInfo() (*state.Info, error) {
-	if e.broken {
+	if e.isBroken() {
 		return nil, errBroken
 	}
 	// TODO start a zookeeper server
 	return &state.Info{Addrs: []string{"3.2.1.0:0"}}, nil
 }
 
+func (e *environ) SetConfig(cfg environs.EnvironConfig) {
+	config := cfg.(*environConfig)
+	e.configMutex.Lock()
+	defer e.configMutex.Unlock()
+	e.config = config
+}
+
 func (e *environ) Destroy([]environs.Instance) error {
-	if e.broken {
+	if e.isBroken() {
 		return errBroken
 	}
 	e.state.ops <- Operation{Kind: OpDestroy, Env: e.state.name}
@@ -276,7 +284,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 }
 
 func (e *environ) StartInstance(machineId int, _ *state.Info) (environs.Instance, error) {
-	if e.broken {
+	if e.isBroken() {
 		return nil, errBroken
 	}
 	e.state.ops <- Operation{Kind: OpStartInstance, Env: e.state.name}
@@ -291,7 +299,7 @@ func (e *environ) StartInstance(machineId int, _ *state.Info) (environs.Instance
 }
 
 func (e *environ) StopInstances(is []environs.Instance) error {
-	if e.broken {
+	if e.isBroken() {
 		return errBroken
 	}
 	e.state.ops <- Operation{Kind: OpStopInstances, Env: e.state.name}
@@ -304,7 +312,7 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 }
 
 func (e *environ) Instances(ids []string) (insts []environs.Instance, err error) {
-	if e.broken {
+	if e.isBroken() {
 		return nil, errBroken
 	}
 	if len(ids) == 0 {
@@ -325,6 +333,12 @@ func (e *environ) Instances(ids []string) (insts []environs.Instance, err error)
 		return nil, environs.ErrNoInstances
 	}
 	return
+}
+
+func (e *environ) isBroken() bool {
+	e.configMutex.Lock()
+	defer e.configMutex.Unlock()
+	return e.config.broken
 }
 
 type instance struct {
