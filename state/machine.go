@@ -55,7 +55,8 @@ func (m *Machine) InstanceId() (string, error) {
 	}
 	v, ok := config.Get(providerMachineId)
 	if !ok {
-		return "", fmt.Errorf("key not found")
+		// missing key is fine
+		return "", nil
 	}
 	if id, ok := v.(string); ok {
 		return id, nil

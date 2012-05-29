@@ -222,6 +222,16 @@ func (s *StateSuite) TestMachineInstanceIdCorrupt(c *C) {
 	c.Assert(id, Equals, "")
 }
 
+// test that if provider-machine-id key is missing, "" and nil are returned.
+func (s *StateSuite) TestMachineInstanceIdMissing(c *C) {
+	machine, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+
+	id, err := machine.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, "")
+}
+
 func (s *StateSuite) TestMachineSetInstanceId(c *C) {
 	machine, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
