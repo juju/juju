@@ -2,6 +2,7 @@ package juju
 
 import (
 	"launchpad.net/juju/go/environs"
+	"launchpad.net/juju/go/state"
 	"regexp"
 )
 
@@ -12,8 +13,8 @@ var (
 
 // Conn holds a connection to a juju.
 type Conn struct {
-	// TODO extend to hold a *state.State.
 	Environ environs.Environ
+	state   *state.State
 }
 
 // NewConn returns a Conn pointing at the environName environment, or the
@@ -27,7 +28,7 @@ func NewConn(environName string) (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Conn{environ}, nil
+	return &Conn{Environ: environ}, nil
 }
 
 // Bootstrap initializes the Conn's environment and makes it ready to deploy
@@ -39,4 +40,20 @@ func (c *Conn) Bootstrap(uploadTools bool) error {
 // Destroy destroys the Conn's environment and all its instances.
 func (c *Conn) Destroy() error {
 	return c.Environ.Destroy(nil)
+}
+
+// State returns the conn's State.
+func (c *Conn) State() (*state.State, error) {
+	if c.state == nil {
+		info, err := c.Environ.StateInfo()
+		if err != nil {
+			return nil, err
+		}
+		st, err := state.Open(info)
+		if err != nil {
+			return nil, err
+		}
+		c.state = st
+	}
+	return c.state, nil
 }
