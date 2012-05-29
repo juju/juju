@@ -102,7 +102,7 @@ func (s *StateSuite) TestAddCharm(c *C) {
 	// Check that adding charms works correctly.
 	bundleURL, err := url.Parse("http://bundle.url")
 	c.Assert(err, IsNil)
-	dummy, err := s.st.AddCharm(s.ch, s.curl, bundleURL)
+	dummy, err := s.st.AddCharm(s.ch, s.curl, bundleURL, "dummy-sha256")
 	c.Assert(err, IsNil)
 	c.Assert(dummy.URL().String(), Equals, s.curl.String())
 	children, _, err := s.zkConn.Children("/charms")
@@ -114,7 +114,7 @@ func (s *StateSuite) TestAddCharm(c *C) {
 func (s *StateSuite) addDummyCharm(c *C) *state.Charm {
 	bundleURL, err := url.Parse("http://bundle.url")
 	c.Assert(err, IsNil)
-	dummy, err := s.st.AddCharm(s.ch, s.curl, bundleURL)
+	dummy, err := s.st.AddCharm(s.ch, s.curl, bundleURL, "dummy-sha256")
 	c.Assert(err, IsNil)
 	return dummy
 }
@@ -131,6 +131,7 @@ func (s *StateSuite) TestCharmAttributes(c *C) {
 	bundleURL, err := url.Parse("http://bundle.url")
 	c.Assert(err, IsNil)
 	c.Assert(dummy.BundleURL(), DeepEquals, bundleURL)
+	c.Assert(dummy.BundleSha256(), Equals, "dummy-sha256")
 	meta := dummy.Meta()
 	c.Assert(meta.Name, Equals, "dummy")
 	config := dummy.Config()
