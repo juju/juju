@@ -51,15 +51,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
 
-type responseCharm struct {
-	// These are the fields effectively used by the client as of
-	// this writing.
-	Revision int      `json:"revision"` // Zero is valid. Can't omitempty.
-	Sha256   string   `json:"sha256,omitempty"`
-	Errors   []string `json:"errors,omitempty"`
-	Warnings []string `json:"warnings,omitempty"`
-}
-
 func statsEnabled(req *http.Request) bool {
 	// It's fine to parse the form more than once, and it avoids
 	// bugs from not parsing it.
@@ -80,9 +71,9 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.ParseForm()
-	response := map[string]*responseCharm{}
+	response := map[string]*charm.InfoResponse{}
 	for _, url := range r.Form["charms"] {
-		c := &responseCharm{}
+		c := &charm.InfoResponse{}
 		response[url] = c
 		curl, err := charm.ParseURL(url)
 		var info *CharmInfo

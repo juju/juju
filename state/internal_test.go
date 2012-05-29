@@ -968,22 +968,3 @@ func (s *ConfigNodeSuite) TestWriteTwice(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(nodeOne, DeepEquals, nodeTwo)
 }
-
-type QuoteSuite struct{}
-
-var _ = Suite(&QuoteSuite{})
-
-func (s *QuoteSuite) TestUnmodified(c *C) {
-	// Check that a string containig only valid
-	// chars stays unmodified.
-	in := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-"
-	out := Quote(in)
-	c.Assert(out, Equals, in)
-}
-
-func (s *QuoteSuite) TestQuote(c *C) {
-	// Check that invalid chars are translated correctly.
-	in := "hello_there/how'are~you-today.sir"
-	out := Quote(in)
-	c.Assert(out, Equals, "hello_5f_there_2f_how_27_are_7e_you-today.sir")
-}
