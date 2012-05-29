@@ -125,14 +125,3 @@ func (s *storage) deleteAll() error {
 
 	return s.bucket.DelBucket()
 }
-
-func (e *environ) Storage() environs.Storage {
-	return &e.storage
-}
-
-func (e *environ) PublicStorage() environs.StorageReader {
-	if e.publicStorage == nil {
-		return environs.EmptyStorage
-	}
-	return e.publicStorage
-}

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"launchpad.net/juju/go/cloudinit"
 	"launchpad.net/juju/go/state"
-	"os/exec"
+	"path"
 	"strings"
 )
 
@@ -30,12 +30,11 @@ type machineConfig struct {
 	// set), there must be at least one zookeeper address supplied.
 	stateInfo *state.Info
 
-	// origin states what version of juju should be run on the instance.
-	// If it is zero, a suitable default is chosen by examining the local environment.
-	origin jujuOrigin
+	// toolsURL is the URL to be used for downloading the juju tools.
+	toolsURL string
 
-	// machineId identifies the new machine. It must be non-empty.
-	machineId string
+	// machineId identifies the new machine. It must be non-negative.
+	machineId int
 
 	// authorizedKeys specifies the keys that are allowed to
 	// connect to the machine (see cloudinit.SSHAddAuthorizedKeys)
@@ -45,21 +44,6 @@ type machineConfig struct {
 	// commands cannot work.
 	authorizedKeys string
 }
-
-type originKind int
-
-// jujuOrigin represents the location of a juju distribution
-type jujuOrigin struct {
-	origin originKind
-	url    string
-}
-
-const (
-	_ originKind = iota
-	originBranch
-	originPPA
-	originDistro
-)
 
 type requiresError string
 
@@ -78,86 +62,66 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 		return nil, err
 	}
 	c := cloudinit.New()
-	origin := cfg.origin
-	if (origin == jujuOrigin{}) {
-		origin = defaultOrigin()
-	}
 
 	c.AddSSHAuthorizedKeys(cfg.authorizedKeys)
-	pkgs := []string{
-		"bzr",
-		"byobu",
-		"tmux",
-		"python-setuptools",
-		"python-twisted",
-		"python-argparse",
-		"python-txaws",
-		"python-zookeeper",
-	}
 	if cfg.zookeeper {
-		pkgs = append(pkgs, []string{
+		pkgs := []string{
 			"default-jre-headless",
 			"zookeeper",
 			"zookeeperd",
-		}...)
-	}
-	for _, pkg := range pkgs {
-		c.AddPackage(pkg)
-	}
-	if cfg.origin.origin != originDistro {
-		c.AddAptSource("ppa:juju/pkgs", "")
+			"libzookeeper-mt2",
+		}
+		for _, pkg := range pkgs {
+			c.AddPackage(pkg)
+		}
 	}
 
-	// install scripts
-	if cfg.origin.origin == originDistro || cfg.origin.origin == originPPA {
-		addScripts(c, "sudo apt-get -y install juju")
-	} else {
-		addScripts(c,
-			"sudo apt-get install -y python-txzookeeper",
-			"sudo mkdir -p /usr/lib/juju",
-			"cd /usr/lib/juju && sudo /usr/bin/bzr co "+shquote(cfg.origin.url)+" juju",
-			"cd /usr/lib/juju/juju && sudo python setup.py develop",
-		)
-	}
 	addScripts(c,
 		"sudo mkdir -p /var/lib/juju",
 		"sudo mkdir -p /var/log/juju")
 
+	// Make a directory for the tools to live in,
+	// then fetch the tools and unarchive them
+	// into it.
+	addScripts(c,
+		"bin="+shquote("/var/lib/juju/tools/"+versionDir(cfg.toolsURL)),
+		"mkdir -p $bin",
+		fmt.Sprintf("wget -O - %s | tar xz -C $bin", shquote(cfg.toolsURL)),
+		`export PATH="$bin:$PATH"`,
+	)
+
+	addScripts(c,
+		"JUJU_ZOOKEEPER="+shquote(cfg.zookeeperHostAddrs()),
+		fmt.Sprintf("JUJU_MACHINE_ID=%d", cfg.machineId),
+	)
+
 	// zookeeper scripts
 	if cfg.zookeeper {
 		addScripts(c,
-			"juju-admin initialize"+
-				" --instance-id="+shquote(cfg.instanceIdAccessor)+
-				" --admin-identity="+shquote(makeIdentity("admin", "sham"))+
-				" --provider-type="+shquote(cfg.providerType),
+			"jujud initzk"+
+				" --instance-id "+cfg.instanceIdAccessor+
+				" --env-type "+shquote(cfg.providerType)+
+				" --zookeeper-servers localhost"+zkPortSuffix,
 		)
 	}
 
-	zookeeperHosts := shquote(cfg.zookeeperHostAddrs())
-
-	// machine scripts
-	addScripts(c, fmt.Sprintf(
-		"JUJU_MACHINE_ID=%s JUJU_ZOOKEEPER=%s"+
-			" python -m juju.agents.machine -n"+
-			" --logfile=/var/log/juju/machine-agent.log"+
-			" --pidfile=/var/run/juju/machine-agent.pid",
-		shquote(cfg.machineId), zookeeperHosts))
-
-	// provision scripts
-	if cfg.provisioner {
-		addScripts(c,
-			"JUJU_ZOOKEEPER="+zookeeperHosts+
-				" python -m juju.agents.provision -n"+
-				" --logfile=/var/log/juju/provision-agent.log"+
-				" --pidfile=/var/run/juju/provision-agent.pid",
-		)
-	}
+	// TODO start machine agent
+	// TODO start provisioning agent if cfg.provisioner.
 
 	// general options
 	c.SetAptUpgrade(true)
 	c.SetAptUpdate(true)
 	c.SetOutput(cloudinit.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
 	return c, nil
+}
+
+// versionDir converts a tools URL into a name
+// to use as a directory for storing the tools executables in
+// by using the last element stripped of its extension.
+func versionDir(toolsURL string) string {
+	name := path.Base(toolsURL)
+	ext := path.Ext(name)
+	return name[:len(name)-len(ext)]
 }
 
 func (cfg *machineConfig) zookeeperHostAddrs() string {
@@ -179,11 +143,14 @@ func shquote(s string) string {
 }
 
 func verifyConfig(cfg *machineConfig) error {
-	if cfg.machineId == "" {
-		return requiresError("machine id")
+	if cfg.machineId < 0 {
+		return fmt.Errorf("invalid machine configuration: negative machine id")
 	}
 	if cfg.providerType == "" {
 		return requiresError("provider type")
+	}
+	if cfg.toolsURL == "" {
+		return requiresError("tools URL")
 	}
 	if cfg.zookeeper {
 		if cfg.instanceIdAccessor == "" {
@@ -195,108 +162,4 @@ func verifyConfig(cfg *machineConfig) error {
 		}
 	}
 	return nil
-}
-
-type lines []string
-
-// next finds the next non-blank line in lines and returns the number of
-// leading spaces and the line itself, stripped of leading spaces.
-func (l *lines) next() (int, string) {
-	for len(*l) > 0 {
-		s := (*l)[0]
-		*l = (*l)[1:]
-		t := strings.TrimLeft(s, " ")
-		if t != "" {
-			return len(s) - len(t), t
-		}
-	}
-	return 0, ""
-}
-
-// nextWithPrefix returns the next line from lines that has the given prefix,
-// with the prefix removed.  If there is no such line, it returns the empty
-// string and false.
-func (l *lines) nextWithPrefix(prefix string) (string, bool) {
-	for {
-		_, line := l.next()
-		if line == "" {
-			return "", false
-		}
-		if strings.HasPrefix(line, prefix) {
-			return line[len(prefix):], true
-		}
-	}
-	panic("not reached")
-}
-
-var fallbackOrigin = jujuOrigin{originDistro, ""}
-
-func parseOrigin(s string) (jujuOrigin, error) {
-	switch s {
-	case "distro":
-		return jujuOrigin{originDistro, ""}, nil
-	case "ppa":
-		return jujuOrigin{originPPA, ""}, nil
-	}
-	if !strings.HasPrefix(s, "lp:") {
-		return jujuOrigin{}, fmt.Errorf("unknown juju origin %q", s)
-	}
-	return jujuOrigin{originBranch, s}, nil
-}
-
-// defaultOrigin selects the best fit for running juju on cloudinit.
-// It is used only if the origin is not otherwise specified
-// in Config.origin.
-func defaultOrigin() jujuOrigin {
-	// TODO how can we (or should we?) determine if we're running from a branch?
-	data, err := exec.Command("apt-cache", "policy", "juju").Output()
-	if err != nil {
-		// TODO log the error?
-		return fallbackOrigin
-	}
-	return policyToOrigin(string(data))
-}
-
-func policyToOrigin(policy string) jujuOrigin {
-	out := lines(strings.Split(policy, "\n"))
-	_, line := out.next()
-	if line == "" {
-		return fallbackOrigin
-	}
-	if line == "N: Unable to locate package juju" {
-		return jujuOrigin{originBranch, "lp:juju"}
-	}
-
-	// Find installed version.
-	version, ok := out.nextWithPrefix("Installed:")
-	version = strings.TrimLeft(version, " ")
-	if !ok {
-		return fallbackOrigin
-	}
-	if version == "(none)" {
-		return jujuOrigin{originBranch, "lp:juju"}
-	}
-
-	_, ok = out.nextWithPrefix("Version table:")
-	if !ok {
-		return fallbackOrigin
-	}
-	// Find installed version within the table.
-	_, ok = out.nextWithPrefix("*** " + version + " ")
-	if !ok {
-		return fallbackOrigin
-	}
-
-	firstIndent, line := out.next()
-	for len(line) > 0 {
-		if strings.Contains(line, "http://ppa.launchpad.net/juju/pkgs/") {
-			return jujuOrigin{originPPA, ""}
-		}
-		var indent int
-		indent, line = out.next()
-		if indent != firstIndent {
-			break
-		}
-	}
-	return fallbackOrigin
 }

@@ -55,6 +55,7 @@ type contentWatcherTest struct {
 }
 
 var contentWatcherTests = []contentWatcherTest{
+	{func(c *C, s *WatcherSuite) {}, watcher.ContentChange{false, ""}, false},
 	{func(c *C, s *WatcherSuite) { s.createPath(c, "init") }, watcher.ContentChange{true, "init"}, false},
 	{func(c *C, s *WatcherSuite) { s.changeContent(c, "foo") }, watcher.ContentChange{true, "foo"}, false},
 	{func(c *C, s *WatcherSuite) { s.changeContent(c, "foo") }, watcher.ContentChange{}, true},
@@ -65,7 +66,8 @@ var contentWatcherTests = []contentWatcherTest{
 func (s *WatcherSuite) TestContentWatcher(c *C) {
 	contentWatcher := watcher.NewContentWatcher(s.zkConn, s.path)
 
-	for _, test := range contentWatcherTests {
+	for i, test := range contentWatcherTests {
+		c.Logf("test %d", i)
 		test.test(c, s)
 		select {
 		case got, ok := <-contentWatcher.Changes():
@@ -101,6 +103,7 @@ type childrenWatcherTest struct {
 }
 
 var childrenWatcherTests = []childrenWatcherTest{
+	{func(c *C, s *WatcherSuite) {}, watcher.ChildrenChange{}},
 	{func(c *C, s *WatcherSuite) { s.changeChildren(c, true, "foo") }, watcher.ChildrenChange{[]string{"foo"}, nil}},
 	{func(c *C, s *WatcherSuite) { s.changeChildren(c, true, "bar") }, watcher.ChildrenChange{[]string{"bar"}, nil}},
 	{func(c *C, s *WatcherSuite) { s.changeChildren(c, false, "foo") }, watcher.ChildrenChange{nil, []string{"foo"}}},
@@ -110,7 +113,8 @@ func (s *WatcherSuite) TestChildrenWatcher(c *C) {
 	s.createPath(c, "init")
 	childrenWatcher := watcher.NewChildrenWatcher(s.zkConn, s.path)
 
-	for _, test := range childrenWatcherTests {
+	for i, test := range childrenWatcherTests {
+		c.Logf("test %d", i)
 		test.test(c, s)
 		select {
 		case got, ok := <-childrenWatcher.Changes():
