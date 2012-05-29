@@ -12,7 +12,7 @@ import (
 	"text/template"
 )
 
-var startedRE = regexp.MustCompile("^.* start/running, process (\\d+)\n$")
+var startedRE = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
 
 // Service provides visibility into and control over an upstart service.
 type Service struct {
@@ -43,7 +43,7 @@ func (s *Service) Running() bool {
 	if err != nil {
 		return false
 	}
-	return startedRE.FindSubmatch(out) != nil
+	return startedRE.Match(out)
 }
 
 // Start starts the service.
@@ -73,13 +73,16 @@ func (s *Service) Remove() error {
 	return os.Remove(s.confPath())
 }
 
+// BUG: %q quoting does not necessarily match libnih quoting rules
+// (as used by upstart); this may become an issue in the future.
 var confT = template.Must(template.New("").Parse(`
 description "{{.Desc}}"
 author "Juju Team <juju@lists.ubuntu.com>"
 start on runlevel [2345]
 stop on runlevel [!2345]
 respawn
-{{range $k, $v := .Env}}{{printf "env %s=%q\n" $k $v}}{{end}}
+{{range $k, $v := .Env}}env {{$k}}={{$v|printf "%q"}}
+{{end}}
 exec {{.Cmd}}{{if .Out}} >> {{.Out}} 2>&1{{end}}
 `[1:]))
 
@@ -110,15 +113,15 @@ func (c *Conf) validate() error {
 }
 
 // render returns the upstart configuration for the service as a string.
-func (c *Conf) render() (string, error) {
+func (c *Conf) render() ([]byte, error) {
 	if err := c.validate(); err != nil {
-		return "", err
+		return nil, err
 	}
-	buf := &bytes.Buffer{}
-	if err := confT.Execute(buf, c); err != nil {
-		return "", err
+	var buf bytes.Buffer
+	if err := confT.Execute(&buf, c); err != nil {
+		return nil, err
 	}
-	return buf.String(), nil
+	return buf.Bytes(), nil
 }
 
 // Install installs and starts the service.
@@ -132,7 +135,7 @@ func (c *Conf) Install() error {
 			return fmt.Errorf("could not remove installed service: %s", err)
 		}
 	}
-	if err := ioutil.WriteFile(c.confPath(), []byte(conf), 0644); err != nil {
+	if err := ioutil.WriteFile(c.confPath(), conf, 0644); err != nil {
 		return err
 	}
 	return c.Start()
