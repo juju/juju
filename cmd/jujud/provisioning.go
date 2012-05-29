@@ -112,7 +112,7 @@ func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
 }
 
 func (a *ProvisioningAgent) addMachine(m *state.Machine) error {
-	id, err := findProviderId(m)
+	id, err := m.InstanceId()
 	if err != nil {
 		return err
 	}
@@ -130,13 +130,8 @@ func (a *ProvisioningAgent) addMachine(m *state.Machine) error {
 	}
 
 	// store the reference from the provider in ZK
-	config, err := m.Config()
-	if err != nil {
-		return err
-	}
-	config.Set(PROVIDER_MACHINE_ID, inst.Id())
-	if _, err := config.Write(); err != nil {
-		return err
+	if err := m.SetInstanceId(inst.Id()); err != nil {
+		return fmt.Errorf("unable to store provider id: %v", err)
 	}
 
 	// data is stashed in ZK, populate the caches
@@ -160,7 +155,7 @@ func (a *ProvisioningAgent) InstanceForMachine(m *state.Machine) (environs.Insta
 	if !ok {
 		// not cached locally, ask the provider.
 		var err error
-		id, err = findProviderId(m)
+		id, err = m.InstanceId()
 		if err != nil {
 			return nil, err
 		}
@@ -196,21 +191,6 @@ func (a *ProvisioningAgent) InstancesForMachines(machines ...*state.Machine) ([]
 		insts = append(insts, inst)
 	}
 	return insts, nil
-}
-
-func findProviderId(m *state.Machine) (string, error) {
-	config, err := m.Config()
-	if err != nil {
-		return "", err
-	}
-	id, ok := config.Get(PROVIDER_MACHINE_ID)
-	if !ok {
-		return "", fmt.Errorf("findProviderId: machine-%010d key not found: %q", m.Id(), PROVIDER_MACHINE_ID)
-	}
-	if _, ok := id.(string); !ok {
-		return "", fmt.Errorf("findProviderId: machine-%010d key %q, expected %T, received %T", m.Id(), PROVIDER_MACHINE_ID, "", id)
-	}
-	return id.(string), nil
 }
 
 func (a *ProvisioningAgent) findInstance(id string) (environs.Instance, error) {

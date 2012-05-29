@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+const providerMachineId = "provider-machine-id"
+
 // Machine represents the state of a machine.
 type Machine struct {
 	st  *State
@@ -45,10 +47,31 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 	return presence.StartPinger(m.st.zk, m.zkAgentPath(), agentPingerPeriod)
 }
 
-// Config returns a *ConfigNode that represents the configuration
-// of this machine.
-func (m *Machine) Config() (*ConfigNode, error) {
-	return readConfigNode(m.st.zk, m.zkPath())
+// InstanceId returns the provider-specific machine id for this machine.
+func (m *Machine) InstanceId() (string, error) {
+	config, err := readConfigNode(m.st.zk, m.zkPath())
+	if err != nil {
+		return "", err
+	}
+	v, ok := config.Get(providerMachineId)
+	if !ok {
+		return "", fmt.Errorf("key not found")
+	}
+	if id, ok := v.(string); ok {
+		return id, nil
+	}
+	return "", fmt.Errorf("invalid contents, expecting string, got %T", v)
+}
+
+// SetInstanceIf sets the provider-specific machine id for this machine.
+func (m *Machine) SetInstanceId(id string) error {
+	config, err := readConfigNode(m.st.zk, m.zkPath())
+	if err != nil {
+		return err
+	}
+	config.Set(providerMachineId, id)
+	_, err = config.Write()
+	return err
 }
 
 // zkKey returns the ZooKeeper key of the machine.
