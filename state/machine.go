@@ -64,7 +64,7 @@ func (m *Machine) InstanceId() (string, error) {
 	return "", fmt.Errorf("invalid contents, expecting string, got %T", v)
 }
 
-// SetInstanceIf sets the provider-specific machine id for this machine.
+// SetInstanceId sets the provider-specific machine id for this machine.
 func (m *Machine) SetInstanceId(id string) error {
 	config, err := readConfigNode(m.st.zk, m.zkPath())
 	if err != nil {
