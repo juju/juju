@@ -74,6 +74,12 @@ func (s *State) WatchEnvironConfig() *ConfigWatcher {
 	return newConfigWatcher(s, zkEnvironmentPath)
 }
 
+// Environment returns the current configuration of this
+// environment.
+func (s *State) Environment() (*ConfigNode, error) {
+	return readConfigNode(s.zk, zkEnvironmentPath)
+}
+
 // Machine returns the machine with the given id.
 func (s *State) Machine(id int) (*Machine, error) {
 	key := machineKey(id)
