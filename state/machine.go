@@ -45,6 +45,12 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 	return presence.StartPinger(m.st.zk, m.zkAgentPath(), agentPingerPeriod)
 }
 
+// Config returns a *ConfigNode that represents the configuration
+// of this machine.
+func (m *Machine) Config() (*ConfigNode, error) {
+	return readConfigNode(m.st.zk, m.zkPath())
+}
+
 // zkKey returns the ZooKeeper key of the machine.
 func (m *Machine) zkKey() string {
 	return m.key

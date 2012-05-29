@@ -194,6 +194,36 @@ func (s *StateSuite) TestRemoveMachine(c *C) {
 	c.Assert(err, ErrorMatches, "can't remove machine 0: machine not found")
 }
 
+func (s *StateSuite) TestMachineReadConfig(c *C) {
+	machine, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	config, err := state.ReadConfigNode(s.st, fmt.Sprintf("/machines/machine-%010d", machine.Id()))
+	c.Assert(err, IsNil)
+	config.Set("foo", "bar")
+	config.Set("flobble", "quux")
+	_, err = config.Write()
+	c.Assert(err, IsNil)
+
+	actual, err := machine.Config()
+	c.Assert(err, IsNil)
+	c.Assert(actual.Map(), DeepEquals, config.Map())
+}
+
+func (s *StateSuite) TestMachineWriteConfig(c *C) {
+	machine, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	config, err := machine.Config()
+	c.Assert(err, IsNil)
+	config.Set("foo", "bar")
+	config.Set("flobble", "quux")
+	_, err = config.Write()
+	c.Assert(err, IsNil)
+
+	actual, err := state.ReadConfigNode(s.st, fmt.Sprintf("/machines/machine-%010d", machine.Id()))
+	c.Assert(err, IsNil)
+	c.Assert(actual.Map(), DeepEquals, config.Map())
+}
+
 func (s *StateSuite) TestReadMachine(c *C) {
 	machine, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
