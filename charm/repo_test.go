@@ -201,3 +201,106 @@ func (s *StoreSuite) TestGetBadCache(c *C) {
 	s.assertCached(c, curl)
 	s.assertCached(c, revCurl)
 }
+
+type LocalRepoSuite struct {
+	testing.LoggingSuite
+	repo       *charm.LocalRepository
+	seriesPath string
+}
+
+var _ = Suite(&LocalRepoSuite{})
+
+func (s *LocalRepoSuite) SetUpTest(c *C) {
+	s.LoggingSuite.SetUpTest(c)
+	root := c.MkDir()
+	s.repo = &charm.LocalRepository{root}
+	s.seriesPath = filepath.Join(root, "series")
+	c.Assert(os.Mkdir(s.seriesPath, 0777), IsNil)
+}
+
+func (s *LocalRepoSuite) addBundle(name string) string {
+	return testing.Charms.BundlePath(s.seriesPath, name)
+}
+
+func (s *LocalRepoSuite) addDir(name string) string {
+	return testing.Charms.ClonedDirPath(s.seriesPath, name)
+}
+
+func (s *LocalRepoSuite) TestMissing(c *C) {
+	_, err := s.repo.Latest(charm.MustParseURL("local:series/zebra"))
+	c.Assert(err, ErrorMatches, `no charms found matching "local:series/zebra"`)
+	_, err = s.repo.Get(charm.MustParseURL("local:series/zebra"))
+	c.Assert(err, ErrorMatches, `no charms found matching "local:series/zebra"`)
+	_, err = s.repo.Latest(charm.MustParseURL("local:badseries/zebra"))
+	c.Assert(err, ErrorMatches, `no charms found matching "local:badseries/zebra"`)
+	_, err = s.repo.Get(charm.MustParseURL("local:badseries/zebra"))
+	c.Assert(err, ErrorMatches, `no charms found matching "local:badseries/zebra"`)
+}
+
+func (s *LocalRepoSuite) TestMultipleVersions(c *C) {
+	curl := charm.MustParseURL("local:series/sample")
+	s.addDir("old")
+	rev, err := s.repo.Latest(curl)
+	c.Assert(err, IsNil)
+	c.Assert(rev, Equals, 1)
+	ch, err := s.repo.Get(curl)
+	c.Assert(err, IsNil)
+	c.Assert(ch.Revision(), Equals, 1)
+
+	s.addDir("new")
+	rev, err = s.repo.Latest(curl)
+	c.Assert(err, IsNil)
+	c.Assert(rev, Equals, 2)
+	ch, err = s.repo.Get(curl)
+	c.Assert(err, IsNil)
+	c.Assert(ch.Revision(), Equals, 2)
+
+	revCurl := curl.WithRevision(1)
+	rev, err = s.repo.Latest(revCurl)
+	c.Assert(err, IsNil)
+	c.Assert(rev, Equals, 2)
+	ch, err = s.repo.Get(revCurl)
+	c.Assert(err, IsNil)
+	c.Assert(ch.Revision(), Equals, 1)
+
+	badRevCurl := curl.WithRevision(33)
+	rev, err = s.repo.Latest(badRevCurl)
+	c.Assert(err, IsNil)
+	c.Assert(rev, Equals, 2)
+	ch, err = s.repo.Get(badRevCurl)
+	c.Assert(err, ErrorMatches, `no charms found matching "local:series/sample-33"`)
+}
+
+func (s *LocalRepoSuite) TestBundle(c *C) {
+	curl := charm.MustParseURL("local:series/dummy")
+	s.addBundle("dummy")
+
+	rev, err := s.repo.Latest(curl)
+	c.Assert(err, IsNil)
+	c.Assert(rev, Equals, 1)
+	ch, err := s.repo.Get(curl)
+	c.Assert(err, IsNil)
+	c.Assert(ch.Revision(), Equals, 1)
+}
+
+func (s *LocalRepoSuite) TestLogsErrors(c *C) {
+	err := ioutil.WriteFile(filepath.Join(s.seriesPath, "blah.charm"), nil, 0666)
+	c.Assert(err, IsNil)
+	err = os.Mkdir(filepath.Join(s.seriesPath, "blah"), 0666)
+	c.Assert(err, IsNil)
+	samplePath := s.addDir("new")
+	gibberish := []byte("don't parse me by")
+	err = ioutil.WriteFile(filepath.Join(samplePath, "metadata.yaml"), gibberish, 0666)
+	c.Assert(err, IsNil)
+
+	curl := charm.MustParseURL("local:series/dummy")
+	s.addDir("dummy")
+	ch, err := s.repo.Get(curl)
+	c.Assert(err, IsNil)
+	c.Assert(ch.Revision(), Equals, 1)
+	c.Assert(c.GetTestLog(), Matches, `
+.* JUJU WARNING: failed to load charm at ".*/series/blah": .*
+.* JUJU WARNING: failed to load charm at ".*/series/blah.charm": .*
+.* JUJU WARNING: failed to load charm at ".*/series/new": .*
+`[1:])
+}

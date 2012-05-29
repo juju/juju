@@ -143,3 +143,74 @@ func (s *store) Get(curl *URL) (Charm, error) {
 	}
 	return ReadBundle(path)
 }
+
+// LocalRepository represents a local directory containing charms organised
+// by series.
+type LocalRepository struct {
+	Path string
+}
+
+// Latest returns the latest revision of the charm referenced by curl, regardless
+// of the revision set on curl itself.
+func (r *LocalRepository) Latest(curl *URL) (int, error) {
+	ch, err := r.Get(curl.WithRevision(-1))
+	if err != nil {
+		return 0, err
+	}
+	return ch.Revision(), nil
+}
+
+// charms returns all charms within the subdirectory named for series.
+func (r *LocalRepository) charms(series string) []Charm {
+	path := filepath.Join(r.Path, series)
+	infos, err := ioutil.ReadDir(path)
+	if err != nil {
+		return nil
+	}
+	var charms []Charm
+	for _, info := range infos {
+		chPath := filepath.Join(path, info.Name())
+		if info.IsDir() {
+			if ch, err := ReadDir(chPath); err != nil {
+				log.Printf("WARNING: failed to load charm at %q: %s", chPath, err)
+			} else {
+				charms = append(charms, ch)
+			}
+		} else {
+			if ch, err := ReadBundle(chPath); err != nil {
+				log.Printf("WARNING: failed to load charm at %q: %s", chPath, err)
+			} else {
+				charms = append(charms, ch)
+			}
+		}
+	}
+	return charms
+}
+
+// Get returns a charm matching curl, if one exists. If curl has a revision of
+// -1, it returns the latest charm that matches curl. If multiple candidates
+// satisfy the foregoing, the first one encountered will be returned.
+func (r *LocalRepository) Get(curl *URL) (Charm, error) {
+	if curl.Schema != "local" {
+		return nil, fmt.Errorf("bad schema: %q", curl.Schema)
+	}
+	var candidates []Charm
+	for _, ch := range r.charms(curl.Series) {
+		if ch.Meta().Name == curl.Name {
+			if ch.Revision() == curl.Revision {
+				return ch, nil
+			}
+			candidates = append(candidates, ch)
+		}
+	}
+	if candidates == nil || curl.Revision != -1 {
+		return nil, fmt.Errorf("no charms found matching %q", curl.String())
+	}
+	latest := candidates[0]
+	for _, ch := range candidates[1:] {
+		if ch.Revision() > latest.Revision() {
+			latest = ch
+		}
+	}
+	return latest, nil
+}
