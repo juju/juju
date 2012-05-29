@@ -47,7 +47,7 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 	return presence.StartPinger(m.st.zk, m.zkAgentPath(), agentPingerPeriod)
 }
 
-// InstanceId returns the provider-specific machine id for this machine.
+// InstanceId returns the provider specific machine id for this machine.
 func (m *Machine) InstanceId() (string, error) {
 	config, err := readConfigNode(m.st.zk, m.zkPath())
 	if err != nil {
@@ -55,7 +55,8 @@ func (m *Machine) InstanceId() (string, error) {
 	}
 	v, ok := config.Get(providerMachineId)
 	if !ok {
-		return "", fmt.Errorf("key not found")
+		// missing key is fine
+		return "", nil
 	}
 	if id, ok := v.(string); ok {
 		return id, nil
@@ -63,7 +64,7 @@ func (m *Machine) InstanceId() (string, error) {
 	return "", fmt.Errorf("invalid contents, expecting string, got %T", v)
 }
 
-// SetInstanceIf sets the provider-specific machine id for this machine.
+// SetInstanceId sets the provider specific machine id for this machine.
 func (m *Machine) SetInstanceId(id string) error {
 	config, err := readConfigNode(m.st.zk, m.zkPath())
 	if err != nil {
