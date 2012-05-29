@@ -234,3 +234,51 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 		t.env.Destroy(nil)
 	}
 }
+
+var readSeriesTests = []struct {
+	contents string
+	series   string
+}{{
+	`DISTRIB_ID=Ubuntu
+DISTRIB_RELEASE=12.04
+DISTRIB_CODENAME=precise
+DISTRIB_DESCRIPTION="Ubuntu 12.04 LTS"`,
+	"precise",
+}, {
+	"DISTRIB_CODENAME=\tprecise\t",
+	"precise",
+}, {
+	`DISTRIB_ID=Ubuntu
+DISTRIB_RELEASE=12.10
+DISTRIB_CODENAME=quantal
+DISTRIB_DESCRIPTION="Ubuntu 12.10"`,
+	"quantal",
+}, {
+	"",
+	"unknownSeries",
+},
+}
+
+func (t *ToolsSuite) TestReadSeries(c *C) {
+	d := c.MkDir()
+	f := filepath.Join(d, "foo")
+	for i, t := range readSeriesTests {
+		c.Logf("test %d", i)
+		err := ioutil.WriteFile(f, []byte(t.contents), 0666)
+		c.Assert(err, IsNil)
+		c.Assert(environs.ReadSeries(f), Equals, t.series)
+	}
+}
+
+func (t *ToolsSuite) TestCurrentSeries(c *C) {
+	s := environs.CurrentSeries
+	if s == "unknownSeries" {
+		s = "n/a"
+	}
+	out, err := exec.Command("lsb_release", "-c").CombinedOutput()
+	if err != nil {
+		c.Assert(s, Equals, "n/a")
+	} else {
+		c.Assert(string(out), Equals, "Codename:\t"+s+"\n")
+	}
+}
