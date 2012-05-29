@@ -6,6 +6,10 @@ import (
 	"launchpad.net/juju/go/charm"
 )
 
+type URLSuite struct{}
+
+var _ = Suite(&URLSuite{})
+
 var urlTests = []struct {
 	s, err string
 	url    *charm.URL
@@ -32,7 +36,7 @@ var urlTests = []struct {
 	{"local:name", "charm URL without series: .*", nil},
 }
 
-func (s *S) TestParseURL(c *C) {
+func (s *URLSuite) TestParseURL(c *C) {
 	for _, t := range urlTests {
 		url, err := charm.ParseURL(t.s)
 		comment := Commentf("ParseURL(%q)", t.s)
@@ -64,7 +68,7 @@ var inferTests = []struct {
 	{"cs:foo-1-2", "cs:defseries/foo-1-2"},
 }
 
-func (s *S) TestInferURL(c *C) {
+func (s *URLSuite) TestInferURL(c *C) {
 	for _, t := range inferTests {
 		comment := Commentf("InferURL(%q, %q)", t.vague, "defseries")
 		inferred, ierr := charm.InferURL(t.vague, "defseries")
@@ -84,14 +88,14 @@ func (s *S) TestInferURL(c *C) {
 	c.Assert(err, ErrorMatches, "cannot infer charm URL with user but no schema: .*")
 }
 
-func (s *S) TestMustParseURL(c *C) {
+func (s *URLSuite) TestMustParseURL(c *C) {
 	url := charm.MustParseURL("cs:series/name")
 	c.Assert(url, DeepEquals, &charm.URL{"cs", "", "series", "name", -1})
 	f := func() { charm.MustParseURL("local:name") }
 	c.Assert(f, PanicMatches, "charm URL without series: .*")
 }
 
-func (s *S) TestWithRevision(c *C) {
+func (s *URLSuite) TestWithRevision(c *C) {
 	url := charm.MustParseURL("cs:series/name")
 	other := url.WithRevision(1)
 	c.Assert(url, DeepEquals, &charm.URL{"cs", "", "series", "name", -1})

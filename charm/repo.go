@@ -160,31 +160,8 @@ func (r *LocalRepository) Latest(curl *URL) (int, error) {
 	return ch.Revision(), nil
 }
 
-// charms returns all charms within the subdirectory named for series.
-func (r *LocalRepository) charms(series string) []Charm {
-	path := filepath.Join(r.Path, series)
-	infos, err := ioutil.ReadDir(path)
-	if err != nil {
-		return nil
-	}
-	var charms []Charm
-	for _, info := range infos {
-		chPath := filepath.Join(path, info.Name())
-		if info.IsDir() {
-			if ch, err := ReadDir(chPath); err != nil {
-				log.Printf("WARNING: failed to load charm at %q: %s", chPath, err)
-			} else {
-				charms = append(charms, ch)
-			}
-		} else {
-			if ch, err := ReadBundle(chPath); err != nil {
-				log.Printf("WARNING: failed to load charm at %q: %s", chPath, err)
-			} else {
-				charms = append(charms, ch)
-			}
-		}
-	}
-	return charms
+func noCharms(curl *URL) (Charm, error) {
+	return nil, fmt.Errorf("no charms found matching %q", curl.String())
 }
 
 // Get returns a charm matching curl, if one exists. If curl has a revision of
@@ -194,23 +171,27 @@ func (r *LocalRepository) Get(curl *URL) (Charm, error) {
 	if curl.Schema != "local" {
 		return nil, fmt.Errorf("bad schema: %q", curl.Schema)
 	}
-	var candidates []Charm
-	for _, ch := range r.charms(curl.Series) {
-		if ch.Meta().Name == curl.Name {
+	path := filepath.Join(r.Path, curl.Series)
+	infos, err := ioutil.ReadDir(path)
+	if err != nil {
+		return noCharms(curl)
+	}
+	var latest Charm
+	for _, info := range infos {
+		chPath := filepath.Join(path, info.Name())
+		if ch, err := Read(chPath); err != nil {
+			log.Printf("WARNING: failed to load charm at %q: %s", chPath, err)
+		} else if ch.Meta().Name == curl.Name {
 			if ch.Revision() == curl.Revision {
 				return ch, nil
 			}
-			candidates = append(candidates, ch)
+			if latest == nil || ch.Revision() > latest.Revision() {
+				latest = ch
+			}
 		}
 	}
-	if candidates == nil || curl.Revision != -1 {
-		return nil, fmt.Errorf("no charms found matching %q", curl.String())
+	if curl.Revision == -1 && latest != nil {
+		return latest, nil
 	}
-	latest := candidates[0]
-	for _, ch := range candidates[1:] {
-		if ch.Revision() > latest.Revision() {
-			latest = ch
-		}
-	}
-	return latest, nil
+	return noCharms(curl)
 }
