@@ -14,9 +14,9 @@ type providerConfig struct {
 	region             string
 	auth               aws.Auth
 	bucket             string
+	publicBucket       string
 	authorizedKeys     string
 	authorizedKeysPath string
-	origin             jujuOrigin
 }
 
 type checker struct{}
@@ -41,16 +41,16 @@ var configChecker = schema.FieldMap(
 		"secret-key":           schema.String(),
 		"region":               schema.String(),
 		"control-bucket":       schema.String(),
+		"public-bucket":        schema.String(),
 		"authorized-keys":      schema.String(),
 		"authorized-keys-path": schema.String(),
-		"juju-origin":          schema.String(),
 	}, []string{
 		"access-key",
 		"secret-key",
 		"region",
 		"authorized-keys",
 		"authorized-keys-path",
-		"juju-origin",
+		"public-bucket",
 	},
 )
 
@@ -64,6 +64,7 @@ func (p environProvider) NewConfig(config map[string]interface{}) (cfg environs.
 
 	c.name = m["name"].(string)
 	c.bucket = m["control-bucket"].(string)
+	c.publicBucket = maybeString(m["public-bucket"], "")
 	c.auth.AccessKey = maybeString(m["access-key"], "")
 	c.auth.SecretKey = maybeString(m["secret-key"], "")
 	if c.auth.AccessKey == "" || c.auth.SecretKey == "" {
@@ -86,13 +87,6 @@ func (p environProvider) NewConfig(config map[string]interface{}) (cfg environs.
 	c.region = regionName
 	c.authorizedKeys = maybeString(m["authorized-keys"], "")
 	c.authorizedKeysPath = maybeString(m["authorized-keys-path"], "")
-
-	if origin, ok := m["juju-origin"].(string); ok {
-		c.origin, err = parseOrigin(origin)
-		if err != nil {
-			return
-		}
-	}
 	return &c, nil
 }
 

@@ -41,6 +41,7 @@ func NewContentWatcher(zk *zookeeper.Conn, watchedPath string) *ContentWatcher {
 // Changes returns a channel that will receive the new node
 // content when a change is detected. Note that multiple
 // changes may be observed as a single event in the channel.
+// The first event on the channel holds the initial state.
 func (w *ContentWatcher) Changes() <-chan ContentChange {
 	return w.changeChan
 }
@@ -143,21 +144,23 @@ type ChildrenChange struct {
 // ChildrenWatcher observes a ZooKeeper node and delivers a
 // notification when child nodes are added or removed.
 type ChildrenWatcher struct {
-	zk         *zookeeper.Conn
-	path       string
-	tomb       tomb.Tomb
-	changeChan chan ChildrenChange
-	children   map[string]bool
+	zk           *zookeeper.Conn
+	path         string
+	tomb         tomb.Tomb
+	changeChan   chan ChildrenChange
+	initialValue bool
+	children     map[string]bool
 }
 
 // NewChildrenWatcher creates a ChildrenWatcher observing
 // the ZooKeeper node at watchedPath.
 func NewChildrenWatcher(zk *zookeeper.Conn, watchedPath string) *ChildrenWatcher {
 	w := &ChildrenWatcher{
-		zk:         zk,
-		path:       watchedPath,
-		changeChan: make(chan ChildrenChange),
-		children:   make(map[string]bool),
+		zk:           zk,
+		path:         watchedPath,
+		changeChan:   make(chan ChildrenChange),
+		children:     make(map[string]bool),
+		initialValue: true,
 	}
 	go w.loop()
 	return w
@@ -167,6 +170,9 @@ func NewChildrenWatcher(zk *zookeeper.Conn, watchedPath string) *ChildrenWatcher
 // performed to the set of children of the watched node.
 // Note that multiple changes may be observed as a single
 // event in the channel.
+// The first event on the channel represents the initial
+// state - the Added field will hold the children found
+// when NewChildrenWatcher was called.
 func (w *ChildrenWatcher) Changes() <-chan ChildrenChange {
 	return w.changeChan
 }
@@ -241,9 +247,10 @@ func (w *ChildrenWatcher) update(eventType int) (nextWatch <-chan zookeeper.Even
 			w.children[child] = true
 		}
 	}
-	if len(change.Deleted) == 0 && len(change.Added) == 0 {
+	if !w.initialValue && len(change.Deleted) == 0 && len(change.Added) == 0 {
 		return watch, nil
 	}
+	w.initialValue = false
 	select {
 	case <-w.tomb.Dying():
 		return nil, tomb.ErrDying

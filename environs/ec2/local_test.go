@@ -5,6 +5,7 @@ import (
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
+	"launchpad.net/goamz/s3"
 	"launchpad.net/goamz/s3/s3test"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
@@ -12,6 +13,8 @@ import (
 	"launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
 	"launchpad.net/juju/go/testing"
+	"launchpad.net/juju/go/version"
+	"strings"
 )
 
 var functionalConfig = []byte(`
@@ -20,7 +23,7 @@ environments:
     type: ec2
     region: test
     control-bucket: test-bucket
-    juju-origin: ppa
+    public-bucket: public-tools
     access-key: x
     secret-key: x
 `)
@@ -75,6 +78,16 @@ func (t *localLiveSuite) TearDownSuite(c *C) {
 	ec2.UseTestImageData(false)
 }
 
+func (t *localLiveSuite) SetUpTest(c *C) {
+	t.LoggingSuite.SetUpTest(c)
+	t.LiveTests.SetUpTest(c)
+}
+
+func (t *localLiveSuite) TearDownTest(c *C) {
+	t.LiveTests.TearDownTest(c)
+	t.LoggingSuite.TearDownTest(c)
+}
+
 // localServer represents a fake EC2 server running within
 // the test process itself.
 type localServer struct {
@@ -96,7 +109,23 @@ func (srv *localServer) startServer(c *C) {
 		EC2Endpoint: srv.ec2srv.URL(),
 		S3Endpoint:  srv.s3srv.URL(),
 	}
+	s3inst := s3.New(aws.Auth{}, ec2.Regions["test"])
+	putFakeTools(c, ec2.BucketStorage(s3inst.Bucket("public-tools")))
 	srv.addSpice(c)
+}
+
+// putFakeTools sets up a bucket containing something
+// that looks like a tools archive so test methods
+// that start an instance can succeed even though they
+// do not upload tools.
+func putFakeTools(c *C, s environs.StorageWriter) {
+	path := environs.ToolsPath(version.Current, environs.CurrentSeries, environs.CurrentArch)
+	c.Logf("putting fake tools at %v", path)
+	toolsContents := "tools archive, honest guv"
+	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
+	if err != nil {
+		c.Fatal(err)
+	}
 }
 
 // addSpice adds some "spice" to the local server
@@ -159,7 +188,7 @@ func (t *localServerSuite) TearDownTest(c *C) {
 }
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
-	err := t.env.Bootstrap(false)
+	err := t.env.Bootstrap(true)
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
@@ -190,11 +219,11 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, IsNil)
 	ec2.CheckPackage(c, x, "zookeeper", true)
 	ec2.CheckPackage(c, x, "zookeeperd", true)
-	ec2.CheckScripts(c, x, "juju-admin initialize", true)
-	ec2.CheckScripts(c, x, "python -m juju.agents.provision", true)
-	ec2.CheckScripts(c, x, "python -m juju.agents.machine", true)
+	ec2.CheckScripts(c, x, "jujud initzk", true)
+	// TODO check for provisioning agent
+	// TODO check for machine agent
 	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='localhost%s'", ec2.ZkPortSuffix), true)
-	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID='0'"), true)
+	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID=0"), true)
 
 	// check that a new instance will be started without
 	// zookeeper, with a machine agent, and without a
@@ -208,11 +237,10 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	err = goyaml.Unmarshal(inst.UserData, &x)
 	c.Assert(err, IsNil)
 	ec2.CheckPackage(c, x, "zookeeperd", false)
-	ec2.CheckPackage(c, x, "python-zookeeper", true)
-	ec2.CheckScripts(c, x, "python -m juju.agents.machine", true)
-	ec2.CheckScripts(c, x, "python -m juju.agents.provision", false)
+	// TODO check for provisioning agent
+	// TODO check for machine agent
 	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='%s%s'", bootstrapDNS, ec2.ZkPortSuffix), true)
-	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID='1'"), true)
+	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID=1"), true)
 
 	err = t.env.Destroy(append(insts, inst1))
 	c.Assert(err, IsNil)

@@ -1,8 +1,6 @@
 package state
 
-import (
-	"fmt"
-)
+import ()
 
 // RelationRole defines the role of a relation endpoint.
 type RelationRole string
@@ -30,12 +28,7 @@ type RelationEndpoint struct {
 	RelationScope RelationScope
 }
 
-// CanRelateTo tests whether the "other"`" endpoint can be used in a common 
-// relation.
-// 
-// RelationEndpoints can be related if they share the same interface
-// and one is a 'server' while the other is a 'client'; or if both endpoints 
-// have a role of 'peers'.
+// CanRelateTo returns whether a relation may be established between e and other.
 func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
 	if e.Interface != other.Interface {
 		return false
@@ -45,15 +38,13 @@ func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
 		return other.RelationRole == RoleRequirer
 	case RoleRequirer:
 		return other.RelationRole == RoleProvider
-	case RolePeer:
-		return other.RelationRole == RolePeer
 	}
 	panic("endpoint role is undefined")
 }
 
-// String returns the string representation of the relation endpoint.
-func (e *RelationEndpoint) String() string {
-	return fmt.Sprintf("%s:%s:%s:%s", e.RelationRole, e.RelationName, e.ServiceName, e.Interface)
+// String returns the unique identifier of the relation endpoint.
+func (e RelationEndpoint) String() string {
+	return e.ServiceName + ":" + e.RelationName
 }
 
 // Relation represents a connection between one or more services.
@@ -69,6 +60,7 @@ type ServiceRelation struct {
 	serviceKey string
 	scope      RelationScope
 	role       RelationRole
+	name       string
 }
 
 // Scope returns the scope of a relation.
@@ -79,4 +71,9 @@ func (r *ServiceRelation) Scope() RelationScope {
 // Role returns the role of a relation.
 func (r *ServiceRelation) Role() RelationRole {
 	return r.role
+}
+
+// Name returns the name of a relation.
+func (r *ServiceRelation) Name() string {
+	return r.name
 }

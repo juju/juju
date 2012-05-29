@@ -31,15 +31,11 @@ var toolPrefix = "tools/juju-"
 
 var toolFilePat = regexp.MustCompile(`^` + toolPrefix + `(\d+\.\d+\.\d+)-([^-]+)-([^-]+)\.tgz$`)
 
-// toolsPathForVersion returns a path for the juju tools with the
-// given version, OS and architecture.
-func toolsPathForVersion(v version.Version, series, arch string) string {
+// ToolsPath returns the path that is used to store and
+// retrieve the juju tools in a Storage.
+func ToolsPath(v version.Version, series, arch string) string {
 	return fmt.Sprintf(toolPrefix+"%v-%s-%s.tgz", v, series, arch)
 }
-
-// ToolsPath gives the path for the current juju tools, as expected
-// by environs.Environ.PutFile, for example.
-var toolsPath = toolsPathForVersion(version.Current, CurrentSeries, CurrentArch)
 
 // PutTools uploads the current version of the juju tools
 // executables to the given storage.
@@ -67,7 +63,9 @@ func PutTools(storage StorageWriter) error {
 	if err != nil {
 		return err
 	}
-	return storage.Put(toolsPath, f, fi.Size())
+	p := ToolsPath(version.Current, CurrentSeries, CurrentArch)
+	log.Printf("environs: putting tools %v", p)
+	return storage.Put(p, f, fi.Size())
 }
 
 // archive writes the executable files found in the given
@@ -221,6 +219,7 @@ func findTools(env Environ, spec toolsSpec) (storage StorageReader, path string,
 // findToolsPath looks for the tools in the given storage.
 func findToolsPath(store StorageReader, spec toolsSpec) (path string, err error) {
 	names, err := store.List(fmt.Sprintf("%s%d.", toolPrefix, spec.vers.Major))
+	log.Printf("findTools searching for %v in %q", spec, names)
 	if err != nil {
 		return "", err
 	}
