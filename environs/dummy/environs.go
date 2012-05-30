@@ -29,25 +29,29 @@ import (
 	"sync"
 )
 
-// zkServer holds the shared zookeeper server which is used by all dummy
+// zkServers holds the zookeeper servers which are used by dummy
 // environs to store state.
-var zkServer *zookeeper.Server
+var zkServers = make(map[string]*zookeeper.Server)
 
 // SetZookeeper sets the zookeeper server that will be used to hold the
-// environ's state.State. If the environ's "zookeeper" config setting is
-// true and no zookeeper server has been set, the StateInfo method will
+// named environ's state.State. If the environ's "zookeeper" config setting
+// is true and no zookeeper server has been set, the StateInfo method will
 // panic (unless the "isBroken" config setting is also true).
-func SetZookeeper(srv *zookeeper.Server) {
-	zkServer = srv
+func SetZookeeper(name string, srv *zookeeper.Server) {
+	if orig := zkServers[name]; orig != nil && srv != nil {
+		panic(fmt.Errorf("environ %s already has a zookeeper", name))
+	}
+	zkServers[name] = srv
 }
 
 // stateInfo returns a *state.Info which allows clients to connect to the
-// shared dummy zookeeper, if it exists.
-func stateInfo() *state.Info {
-	if zkServer == nil {
-		panic(errors.New("SetZookeeper not called"))
+// zookeeper server for the named dummy environ, if it exists.
+func stateInfo(name string) *state.Info {
+	srv := zkServers[name]
+	if srv == nil {
+		panic(fmt.Errorf("SetZookeeper not called for %s", name))
 	}
-	addr, err := zkServer.Addr()
+	addr, err := srv.Addr()
 	if err != nil {
 		panic(err)
 	}
@@ -158,8 +162,10 @@ func Reset() {
 	}
 	providerInstance.ops = discardOperations
 	providerInstance.state = make(map[string]*environState)
-	if zkServer != nil {
-		testing.ResetZkServer(zkServer)
+	for _, srv := range zkServers {
+		if srv != nil {
+			testing.ResetZkServer(srv)
+		}
 	}
 }
 
@@ -283,7 +289,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
 	if e.config.zookeeper {
-		info := stateInfo()
+		info := stateInfo(e.state.name)
 		st, err := state.Initialize(info)
 		if err != nil {
 			panic(err)
@@ -302,7 +308,7 @@ func (e *environ) StateInfo() (*state.Info, error) {
 		return nil, errBroken
 	}
 	if e.config.zookeeper && e.state.bootstrapped {
-		return stateInfo(), nil
+		return stateInfo(e.state.name), nil
 	}
 	return nil, errors.New("no state info available for this environ")
 }
@@ -320,6 +326,9 @@ func (e *environ) Destroy([]environs.Instance) error {
 	}
 	e.state.ops <- Operation{Kind: OpDestroy, Env: e.state.name}
 	e.state.mu.Lock()
+	if srv := zkServers[e.state.name]; srv != nil {
+		testing.ResetZkServer(srv)
+	}
 	e.state.bootstrapped = false
 	e.state.storage.files = make(map[string][]byte)
 	e.state.mu.Unlock()
