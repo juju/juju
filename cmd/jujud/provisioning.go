@@ -20,6 +20,7 @@ const PROVIDER_MACHINE_ID = "provider-machine-id"
 type ProvisioningAgent struct {
 	Conf    AgentConf
 	environ environs.Environ // the provider this agent operates against.
+	State   *state.State
 
 	providerIdToInstance  map[string]environs.Instance
 	machineIdToProviderId map[int]string
@@ -48,13 +49,14 @@ func (a *ProvisioningAgent) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run runs a provisioning agent.
 func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
-	st, err := state.Open(&a.Conf.StateInfo)
+	var err error
+	a.State, err = state.Open(&a.Conf.StateInfo)
 	if err != nil {
 		return err
 	}
 
 	// step 1. wait for a valid environment
-	configWatcher := st.WatchEnvironConfig()
+	configWatcher := a.State.WatchEnvironConfig()
 	for {
 		log.Printf("provisioning: waiting for valid environment")
 		config, ok := <-configWatcher.Changes()
@@ -71,7 +73,7 @@ func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
 	log.Printf("provisioning: valid environment configured")
 
 	// step 2. listen for changes to the environment or the machine topology and action both.
-	machinesWatcher := st.WatchMachines()
+	machinesWatcher := a.State.WatchMachines()
 	for {
 		select {
 		case changes, ok := <-configWatcher.Changes():
