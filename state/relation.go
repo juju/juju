@@ -48,9 +48,20 @@ func (e RelationEndpoint) String() string {
 }
 
 // Relation represents a connection between one or more services.
-type Relation struct {
+type Relation interface {
+	relationKey() string
+}
+
+// relation is the implementation of the relation interface and
+// represents the entire connection.
+type relation struct {
 	st  *State
 	key string
+}
+
+// relationKey returns the key of the relation.
+func (r *relation) relationKey() string {
+	return r.key
 }
 
 // ServiceRelation represents a relation between one or more services.
@@ -76,4 +87,9 @@ func (r *ServiceRelation) Role() RelationRole {
 // Name returns the name of a relation.
 func (r *ServiceRelation) Name() string {
 	return r.name
+}
+
+// relationKey returns the key of the relation.
+func (r *ServiceRelation) relationKey() string {
+	return r.key
 }

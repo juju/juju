@@ -298,7 +298,7 @@ func (s *State) addServiceRelation(relationKey string, endpoint RelationEndpoint
 }
 
 // AddRelation creates a new relation state with the given endpoints.  
-func (s *State) AddRelation(endpoints ...RelationEndpoint) (*Relation, []*ServiceRelation, error) {
+func (s *State) AddRelation(endpoints ...RelationEndpoint) (Relation, []*ServiceRelation, error) {
 	switch len(endpoints) {
 	case 1:
 		if endpoints[0].RelationRole != RolePeer {
@@ -377,5 +377,28 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (*Relation, []*Servic
 	if err != nil {
 		return nil, nil, err
 	}
-	return &Relation{s, relationKey}, serviceRelations, nil
+	return &relation{s, relationKey}, serviceRelations, nil
+}
+
+// RemoveRelation removes the given relation or service relation.
+// The relation is removed from the topology. The container node is
+// not removed, as associated units will still be processing its
+// removal.
+func (s *State) RemoveRelation(rel Relation) error {
+	var relationKey string
+	switch r := rel.(type) {
+	case *relation, *ServiceRelation:
+		relationKey = r.relationKey()
+	default:
+		panic("invalid relation")
+	}
+	removeRelation := func(t *topology) error {
+		_, err := t.Relation(relationKey)
+		if err != nil {
+			return err
+		}
+		t.RemoveRelation(relationKey)
+		return nil
+	}
+	return retryTopologyChange(s.zk, removeRelation)
 }

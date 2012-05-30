@@ -1106,9 +1106,41 @@ func (s *StateSuite) TestAddPeerRelationIllegalEndpointNumber(c *C) {
 	s.st.AddService("riak", dummy)
 	mysqlep := state.RelationEndpoint{"mysqldb", "ifce", "cache", state.RoleProvider, state.ScopeGlobal}
 	blogep := state.RelationEndpoint{"wordpress", "ifce", "cache", state.RoleRequirer, state.ScopeGlobal}
-	riakep := state.RelationEndpoint{"riak", "blog", "cache", state.RoleProvider, state.ScopeGlobal}
+	riakep := state.RelationEndpoint{"riak", "blog", "cache", state.RolePeer, state.ScopeGlobal}
 	_, _, err := s.st.AddRelation()
 	c.Assert(err, ErrorMatches, `state: illegal number of endpoints provided`)
 	_, _, err = s.st.AddRelation(mysqlep, blogep, riakep)
 	c.Assert(err, ErrorMatches, `state: illegal number of endpoints provided`)
+}
+
+func (s *StateSuite) TestRemoveRelation(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("riak", dummy)
+	riakep := state.RelationEndpoint{"riak", "blog", "cache", state.RolePeer, state.ScopeGlobal}
+	relation, _, err := s.st.AddRelation(riakep)
+	c.Assert(err, IsNil)
+	c.Assert(relation, NotNil)
+	hasRelation, err := state.HasRelation(s.st, relation)
+	c.Assert(err, IsNil)
+	c.Assert(hasRelation, Equals, true)
+	err = s.st.RemoveRelation(relation)
+	hasRelation, err = state.HasRelation(s.st, relation)
+	c.Assert(hasRelation, Equals, false)
+	c.Assert(err, ErrorMatches, `relation "relation-0000000000" does not exist`)
+}
+
+func (s *StateSuite) TestRemoveRServiceelation(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("riak", dummy)
+	riakep := state.RelationEndpoint{"riak", "blog", "cache", state.RolePeer, state.ScopeGlobal}
+	_, serviceRelations, err := s.st.AddRelation(riakep)
+	c.Assert(err, IsNil)
+	c.Assert(serviceRelations, NotNil)
+	hasRelation, err := state.HasRelation(s.st, serviceRelations[0])
+	c.Assert(err, IsNil)
+	c.Assert(hasRelation, Equals, true)
+	err = s.st.RemoveRelation(serviceRelations[0])
+	hasRelation, err = state.HasRelation(s.st, serviceRelations[0])
+	c.Assert(hasRelation, Equals, false)
+	c.Assert(err, ErrorMatches, `relation "relation-0000000000" does not exist`)
 }
