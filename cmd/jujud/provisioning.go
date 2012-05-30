@@ -14,8 +14,6 @@ import (
 	_ "launchpad.net/juju/go/environs/ec2"
 )
 
-const PROVIDER_MACHINE_ID = "provider-machine-id"
-
 // ProvisioningAgent is a cmd.Command responsible for running a provisioning agent.
 type ProvisioningAgent struct {
 	Conf    AgentConf
@@ -131,12 +129,12 @@ func (a *ProvisioningAgent) addMachine(m *state.Machine) error {
 		return err
 	}
 
-	// store the reference from the provider in ZK
+	// assign the provider id to the macine
 	if err := m.SetInstanceId(inst.Id()); err != nil {
 		return fmt.Errorf("unable to store provider id: %v", err)
 	}
 
-	// data is stashed in ZK, populate the caches
+	// populate the local caches
 	a.machineIdToProviderId[m.Id()] = inst.Id()
 	a.providerIdToInstance[inst.Id()] = inst
 	return nil
