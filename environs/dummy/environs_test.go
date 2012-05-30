@@ -35,7 +35,7 @@ environments:
 func TestSuite(t *stdtesting.T) {
 	srv := testing.StartZkServer()
 	defer srv.Destroy()
-	dummy.SetZookeeper("only", srv)
-	defer dummy.SetZookeeper("only", nil)
+	dummy.SetZookeeper(srv)
+	defer dummy.SetZookeeper(nil)
 	TestingT(t)
 }

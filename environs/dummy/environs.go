@@ -29,29 +29,25 @@ import (
 	"sync"
 )
 
-// zkServers holds the zookeeper servers which are used by dummy
+// zkServer holds the shared zookeeper server which is used by all dummy
 // environs to store state.
-var zkServers = make(map[string]*zookeeper.Server)
+var zkServer *zookeeper.Server
 
 // SetZookeeper sets the zookeeper server that will be used to hold the
-// named environ's state.State. If the environ's "zookeeper" config setting
-// is true and no zookeeper server has been set, the StateInfo method will
+// environ's state.State. If the environ's "zookeeper" config setting is
+// true and no zookeeper server has been set, the StateInfo method will
 // panic (unless the "isBroken" config setting is also true).
-func SetZookeeper(name string, srv *zookeeper.Server) {
-	if orig := zkServers[name]; orig != nil && srv != nil {
-		panic(fmt.Errorf("environ %s already has a zookeeper", name))
-	}
-	zkServers[name] = srv
+func SetZookeeper(srv *zookeeper.Server) {
+	zkServer = srv
 }
 
 // stateInfo returns a *state.Info which allows clients to connect to the
-// zookeeper server for the named dummy environ, if it exists.
-func stateInfo(name string) *state.Info {
-	srv := zkServers[name]
-	if srv == nil {
-		panic(fmt.Errorf("SetZookeeper not called for %s", name))
+// shared dummy zookeeper, if it exists.
+func stateInfo() *state.Info {
+	if zkServer == nil {
+		panic(errors.New("SetZookeeper not called"))
 	}
-	addr, err := srv.Addr()
+	addr, err := zkServer.Addr()
 	if err != nil {
 		panic(err)
 	}
@@ -162,10 +158,8 @@ func Reset() {
 	}
 	providerInstance.ops = discardOperations
 	providerInstance.state = make(map[string]*environState)
-	for _, srv := range zkServers {
-		if srv != nil {
-			testing.ResetZkServer(srv)
-		}
+	if zkServer != nil {
+		testing.ResetZkServer(zkServer)
 	}
 }
 
@@ -254,6 +248,9 @@ func (cfg *environConfig) Open() (environs.Environ, error) {
 	defer p.mu.Unlock()
 	state := p.state[cfg.name]
 	if state == nil {
+		if cfg.zookeeper && len(p.state) != 0 {
+			panic(errors.New("cannot share a zookeeper between two dummy environs"))
+		}
 		state = newState(cfg.name, p.ops)
 		p.state[cfg.name] = state
 	}
@@ -289,7 +286,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
 	if e.config.zookeeper {
-		info := stateInfo(e.state.name)
+		info := stateInfo()
 		st, err := state.Initialize(info)
 		if err != nil {
 			panic(err)
@@ -308,7 +305,7 @@ func (e *environ) StateInfo() (*state.Info, error) {
 		return nil, errBroken
 	}
 	if e.config.zookeeper && e.state.bootstrapped {
-		return stateInfo(e.state.name), nil
+		return stateInfo(), nil
 	}
 	return nil, errors.New("no state info available for this environ")
 }
@@ -326,8 +323,8 @@ func (e *environ) Destroy([]environs.Instance) error {
 	}
 	e.state.ops <- Operation{Kind: OpDestroy, Env: e.state.name}
 	e.state.mu.Lock()
-	if srv := zkServers[e.state.name]; srv != nil {
-		testing.ResetZkServer(srv)
+	if zkServer != nil {
+		testing.ResetZkServer(zkServer)
 	}
 	e.state.bootstrapped = false
 	e.state.storage.files = make(map[string][]byte)
