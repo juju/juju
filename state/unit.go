@@ -187,7 +187,7 @@ func (u *Unit) AssignToMachine(machine *Machine) error {
 			// Everything is fine, it's already assigned.
 			return nil
 		}
-		return fmt.Errorf("unit %q already assigned to %d", u.Name(), machineId(machineKey))
+		return fmt.Errorf("unit %q already assigned to machine %d", u.Name(), machineId(machineKey))
 	}
 	return retryTopologyChange(u.st.zk, assignUnit)
 }
