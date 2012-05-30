@@ -77,7 +77,7 @@ func (m *Machine) SetInstanceId(id string) error {
 
 // String returns a unique description of this machine
 func (m *Machine) String() string {
-	return fmt.Sprintf("machine/%d", m.Id())
+	return fmt.Sprintf("machine %d", m.Id())
 }
 
 // zkKey returns the ZooKeeper key of the machine.
