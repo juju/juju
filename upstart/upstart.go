@@ -89,10 +89,14 @@ exec {{.Cmd}}{{if .Out}} >> {{.Out}} 2>&1{{end}}
 // Conf is responsible for defining and installing upstart services.
 type Conf struct {
 	Service
+	// Desc is the upstart job's "description".
 	Desc string
-	Env  map[string]string
-	Cmd  string
-	Out  string
+	// Env holds the environment variables that will be set when the job runs.
+	Env map[string]string
+	// Cmd is the command (with arguments) that will be run.
+	Cmd string
+	// Out, if set, will redirect output to that path.
+	Out string
 }
 
 // validate returns an error if the service is not adequately defined.
