@@ -15,6 +15,7 @@ var (
 type Conn struct {
 	Environ environs.Environ
 	state   *state.State
+	mu      sync.Mutex
 }
 
 // NewConn returns a Conn pointing at the environName environment, or the
@@ -44,6 +45,8 @@ func (c *Conn) Destroy() error {
 
 // State returns the conn's State.
 func (c *Conn) State() (*state.State, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.state == nil {
 		info, err := c.Environ.StateInfo()
 		if err != nil {
