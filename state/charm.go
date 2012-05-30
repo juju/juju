@@ -84,5 +84,5 @@ func charmPath(curl *charm.URL) (string, error) {
 	if curl.Revision < 0 {
 		return "", fmt.Errorf("charm URL revision is unset")
 	}
-	return fmt.Sprintf("/charms/%s", Quote(curl.String())), nil
+	return fmt.Sprintf("/charms/%s", charm.Quote(curl.String())), nil
 }
