@@ -101,3 +101,22 @@ func (s *S) TestWithRevision(c *C) {
 	c.Assert(other.WithRevision(1), Not(Equals), other)
 	c.Assert(other.WithRevision(1), DeepEquals, other)
 }
+
+type QuoteSuite struct{}
+
+var _ = Suite(&QuoteSuite{})
+
+func (s *QuoteSuite) TestUnmodified(c *C) {
+	// Check that a string containing only valid
+	// chars stays unmodified.
+	in := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-"
+	out := charm.Quote(in)
+	c.Assert(out, Equals, in)
+}
+
+func (s *QuoteSuite) TestQuote(c *C) {
+	// Check that invalid chars are translated correctly.
+	in := "hello_there/how'are~you-today.sir"
+	out := charm.Quote(in)
+	c.Assert(out, Equals, "hello_5f_there_2f_how_27_are_7e_you-today.sir")
+}

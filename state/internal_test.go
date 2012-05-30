@@ -463,7 +463,7 @@ func (s *TopologySuite) TestRelation(c *C) {
 	relation, err = s.t.Relation("r-1")
 	c.Assert(err, IsNil)
 	c.Assert(relation, NotNil)
-	c.Assert(relation.Services[RolePeer].ServiceKey, Equals, "s-p")
+	c.Assert(relation.Services[RolePeer].Service, Equals, "s-p")
 }
 
 func (s *TopologySuite) TestAddRelation(c *C) {
@@ -486,8 +486,8 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 	relation, err = s.t.Relation("r-1")
 	c.Assert(err, IsNil)
 	c.Assert(relation, NotNil)
-	c.Assert(relation.Services[RoleProvider].ServiceKey, Equals, "s-p")
-	c.Assert(relation.Services[RoleRequirer].ServiceKey, Equals, "s-r")
+	c.Assert(relation.Services[RoleProvider].Service, Equals, "s-p")
+	c.Assert(relation.Services[RoleRequirer].Service, Equals, "s-r")
 
 	err = s.t.AddRelation("r-2", &zkRelation{
 		Interface: "",
@@ -636,8 +636,8 @@ func (s *TopologySuite) TestRemoveRelation(c *C) {
 	relation, err := s.t.Relation("r-1")
 	c.Assert(err, IsNil)
 	c.Assert(relation, NotNil)
-	c.Assert(relation.Services[RoleProvider].ServiceKey, Equals, "s-p")
-	c.Assert(relation.Services[RoleRequirer].ServiceKey, Equals, "s-r")
+	c.Assert(relation.Services[RoleProvider].Service, Equals, "s-p")
+	c.Assert(relation.Services[RoleRequirer].Service, Equals, "s-r")
 
 	s.t.RemoveRelation("r-1")
 
@@ -712,9 +712,9 @@ func (s *TopologySuite) TestRelationKeyEndpoints(c *C) {
 
 	// Illegal number of endpoints.
 	_, err = s.t.RelationKey()
-	c.Assert(err, ErrorMatches, `state: illegal number of endpoints provided`)
+	c.Assert(err, ErrorMatches, `state: illegal number of relation endpoints provided`)
 	_, err = s.t.RelationKey(mysqlep1, mysqlep2, blogep1)
-	c.Assert(err, ErrorMatches, `state: illegal number of endpoints provided`)
+	c.Assert(err, ErrorMatches, `state: illegal number of relation endpoints provided`)
 }
 
 func (s *TopologySuite) TestRelationKeyIllegalEndpoints(c *C) {
@@ -1131,23 +1131,4 @@ func (s *ConfigNodeSuite) TestWriteTwice(c *C) {
 	err = nodeOne.Read()
 	c.Assert(err, IsNil)
 	c.Assert(nodeOne, DeepEquals, nodeTwo)
-}
-
-type QuoteSuite struct{}
-
-var _ = Suite(&QuoteSuite{})
-
-func (s *QuoteSuite) TestUnmodified(c *C) {
-	// Check that a string containig only valid
-	// chars stays unmodified.
-	in := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-"
-	out := Quote(in)
-	c.Assert(out, Equals, in)
-}
-
-func (s *QuoteSuite) TestQuote(c *C) {
-	// Check that invalid chars are translated correctly.
-	in := "hello_there/how'are~you-today.sir"
-	out := Quote(in)
-	c.Assert(out, Equals, "hello_5f_there_2f_how_27_are_7e_you-today.sir")
 }

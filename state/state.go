@@ -366,7 +366,7 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (*Relation, []*Servic
 				return fmt.Errorf("state: state for service %q has changed", serviceRelation.serviceKey)
 			}
 			service := &zkRelationService{
-				ServiceKey:   serviceRelation.serviceKey,
+				Service:      serviceRelation.serviceKey,
 				RelationName: serviceRelation.name,
 			}
 			relation.Services[serviceRelation.role] = service

@@ -26,7 +26,7 @@ func (e NoRelationError) Error() string {
 	case 2:
 		return fmt.Sprintf("state: no relation between %q and %q", e.Endpoints[0], e.Endpoints[1])
 	}
-	panic("state: illegal relation error")
+	panic("state: illegal relation")
 }
 
 // zkTopology is used to marshal and unmarshal the content
@@ -70,8 +70,8 @@ type zkRelation struct {
 // service of a relation within the /topology
 // node in ZooKeeper.
 type zkRelationService struct {
-	ServiceKey   string
-	RelationName string
+	Service      string
+	RelationName string "relation-name"
 }
 
 // check verifies that r is a proper relation.
@@ -88,7 +88,7 @@ func (r *zkRelation) check() error {
 		RolePeer:     RolePeer,
 	}
 	for serviceRole, service := range r.Services {
-		if service.ServiceKey == "" {
+		if service.Service == "" {
 			return fmt.Errorf("relation has %s service with empty service key", serviceRole)
 		}
 		if service.RelationName == "" {
@@ -419,15 +419,15 @@ func (t *topology) AddRelation(relationKey string, relation *zkRelation) error {
 		return err
 	}
 	for _, service := range relation.Services {
-		if err := t.assertService(service.ServiceKey); err != nil {
+		if err := t.assertService(service.Service); err != nil {
 			return err
 		}
 	}
 	if relation.Services[RolePeer] == nil {
-		providerKey := relation.Services[RoleProvider].ServiceKey
-		requirerKey := relation.Services[RoleRequirer].ServiceKey
+		providerKey := relation.Services[RoleProvider].Service
+		requirerKey := relation.Services[RoleRequirer].Service
 		if providerKey == requirerKey {
-			return fmt.Errorf("provider and consumer keys must not be the same")
+			return fmt.Errorf("provider and requirer keys must not be the same")
 		}
 	}
 	t.topology.Relations[relationKey] = relation
@@ -458,7 +458,7 @@ func (t *topology) RelationsForService(serviceKey string) (map[string]*zkRelatio
 	relations := make(map[string]*zkRelation)
 	for relationKey, relation := range t.topology.Relations {
 		for _, service := range relation.Services {
-			if service.ServiceKey == serviceKey {
+			if service.Service == serviceKey {
 				relations[relationKey] = relation
 				break
 			}
@@ -471,9 +471,6 @@ func (t *topology) RelationsForService(serviceKey string) (map[string]*zkRelatio
 // provided endpoints. If no matching relation is found, error will be
 // of type *NoRelationError.
 func (t *topology) RelationKey(endpoints ...RelationEndpoint) (string, error) {
-	if t.topology.Relations == nil {
-		return "", &NoRelationError{endpoints}
-	}
 	switch len(endpoints) {
 	case 1:
 		// Just pass.
@@ -482,7 +479,7 @@ func (t *topology) RelationKey(endpoints ...RelationEndpoint) (string, error) {
 			return "", &NoRelationError{endpoints}
 		}
 	default:
-		return "", fmt.Errorf("state: illegal number of endpoints provided")
+		return "", fmt.Errorf("state: illegal number of relation endpoints provided")
 	}
 	for relationKey, relation := range t.topology.Relations {
 		if relation.Interface != endpoints[0].Interface {
@@ -491,11 +488,7 @@ func (t *topology) RelationKey(endpoints ...RelationEndpoint) (string, error) {
 		found := true
 		for _, endpoint := range endpoints {
 			service, ok := relation.Services[endpoint.RelationRole]
-			if !ok {
-				found = false
-				break
-			}
-			if service.RelationName != endpoint.RelationName {
+			if !ok || service.RelationName != endpoint.RelationName {
 				found = false
 				break
 			}
