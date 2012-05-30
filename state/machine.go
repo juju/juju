@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+const providerMachineId = "provider-machine-id"
+
 // Machine represents the state of a machine.
 type Machine struct {
 	st  *State
@@ -43,6 +45,34 @@ func (m *Machine) WaitAgentAlive(timeout time.Duration) error {
 // started pinger.
 func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 	return presence.StartPinger(m.st.zk, m.zkAgentPath(), agentPingerPeriod)
+}
+
+// InstanceId returns the provider specific machine id for this machine.
+func (m *Machine) InstanceId() (string, error) {
+	config, err := readConfigNode(m.st.zk, m.zkPath())
+	if err != nil {
+		return "", err
+	}
+	v, ok := config.Get(providerMachineId)
+	if !ok {
+		// missing key is fine
+		return "", nil
+	}
+	if id, ok := v.(string); ok {
+		return id, nil
+	}
+	return "", fmt.Errorf("state: invalid internal machine key type: %T", v)
+}
+
+// SetInstanceId sets the provider specific machine id for this machine.
+func (m *Machine) SetInstanceId(id string) error {
+	config, err := readConfigNode(m.st.zk, m.zkPath())
+	if err != nil {
+		return err
+	}
+	config.Set(providerMachineId, id)
+	_, err = config.Write()
+	return err
 }
 
 // zkKey returns the ZooKeeper key of the machine.
