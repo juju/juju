@@ -194,6 +194,55 @@ func (s *StateSuite) TestRemoveMachine(c *C) {
 	c.Assert(err, ErrorMatches, "can't remove machine 0: machine not found")
 }
 
+func (s *StateSuite) TestMachineInstanceId(c *C) {
+	machine, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	config, err := state.ReadConfigNode(s.st, fmt.Sprintf("/machines/machine-%010d", machine.Id()))
+	c.Assert(err, IsNil)
+	config.Set("provider-machine-id", "spaceship/0")
+	_, err = config.Write()
+	c.Assert(err, IsNil)
+
+	id, err := machine.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, "spaceship/0")
+}
+
+func (s *StateSuite) TestMachineInstanceIdCorrupt(c *C) {
+	machine, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	config, err := state.ReadConfigNode(s.st, fmt.Sprintf("/machines/machine-%010d", machine.Id()))
+	c.Assert(err, IsNil)
+	config.Set("provider-machine-id", map[int]int{})
+	_, err = config.Write()
+	c.Assert(err, IsNil)
+
+	id, err := machine.InstanceId()
+	c.Assert(err, ErrorMatches, "state: invalid internal machine key type: .*")
+	c.Assert(id, Equals, "")
+}
+
+// test that if provider-machine-id key is missing, "" and nil are returned.
+func (s *StateSuite) TestMachineInstanceIdMissing(c *C) {
+	machine, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+
+	id, err := machine.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, "")
+}
+
+func (s *StateSuite) TestMachineSetInstanceId(c *C) {
+	machine, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	err = machine.SetInstanceId("umbrella/0")
+	c.Assert(err, IsNil)
+
+	actual, err := state.ReadConfigNode(s.st, fmt.Sprintf("/machines/machine-%010d", machine.Id()))
+	c.Assert(err, IsNil)
+	c.Assert(actual.Map(), DeepEquals, map[string]interface{}{"provider-machine-id": "umbrella/0"})
+}
+
 func (s *StateSuite) TestReadMachine(c *C) {
 	machine, err := s.st.AddMachine()
 	c.Assert(err, IsNil)

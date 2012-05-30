@@ -41,3 +41,8 @@ func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
 	}
 	panic("endpoint role is undefined")
 }
+
+// String returns the unique identifier of the relation endpoint.
+func (e RelationEndpoint) String() string {
+	return e.ServiceName + ":" + e.RelationName
+}
