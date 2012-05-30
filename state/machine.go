@@ -61,7 +61,7 @@ func (m *Machine) InstanceId() (string, error) {
 	if id, ok := v.(string); ok {
 		return id, nil
 	}
-	return "", fmt.Errorf("invalid contents, expecting string, got %T", v)
+	return "", fmt.Errorf("state: invalid internal machine key type: %T", v)
 }
 
 // SetInstanceId sets the provider specific machine id for this machine.

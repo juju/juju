@@ -218,7 +218,7 @@ func (s *StateSuite) TestMachineInstanceIdCorrupt(c *C) {
 	c.Assert(err, IsNil)
 
 	id, err := machine.InstanceId()
-	c.Assert(err, ErrorMatches, "invalid contents, expecting string, got .*")
+	c.Assert(err, ErrorMatches, "state: invalid internal machine key type: .*")
 	c.Assert(id, Equals, "")
 }
 
