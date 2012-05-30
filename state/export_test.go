@@ -22,4 +22,9 @@ func NewMachine(st *State, key string) *Machine {
 	}
 }
 
+// ReadConfigNode exports readConfigNode for testing.
+func ReadConfigNode(st *State, path string) (*ConfigNode, error) {
+	return readConfigNode(st.zk, path)
+}
+
 func Diff(a, b []string) []string { return diff(a, b) }
