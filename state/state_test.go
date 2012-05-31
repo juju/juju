@@ -1025,20 +1025,22 @@ func (s *StateSuite) TestAddRelation(c *C) {
 	relation, serviceRelations, err := s.st.AddRelation(blogep, mysqlep)
 	c.Assert(err, IsNil)
 	c.Assert(relation, NotNil)
-	c.Assert(serviceRelations[0].Scope(), Equals, state.ScopeGlobal)
-	c.Assert(serviceRelations[0].Role(), Equals, state.RoleRequirer)
-	c.Assert(serviceRelations[1].Scope(), Equals, state.ScopeGlobal)
-	c.Assert(serviceRelations[1].Role(), Equals, state.RoleProvider)
-	c.Assert(serviceRelations[0].Name(), Equals, serviceRelations[1].Name())
+	c.Assert(serviceRelations, HasLen, 2)
+	c.Assert(serviceRelations[0].RelationScope(), Equals, state.ScopeGlobal)
+	c.Assert(serviceRelations[0].RelationRole(), Equals, state.RoleRequirer)
+	c.Assert(serviceRelations[1].RelationScope(), Equals, state.ScopeGlobal)
+	c.Assert(serviceRelations[1].RelationRole(), Equals, state.RoleProvider)
+	c.Assert(serviceRelations[0].RelationName(), Equals, serviceRelations[1].RelationName())
 	// Peer.
 	s.st.AddService("riak", dummy)
 	riakep := state.RelationEndpoint{"riak", "ring", "cache", state.RolePeer, state.ScopeGlobal}
 	relation, serviceRelations, err = s.st.AddRelation(riakep)
 	c.Assert(err, IsNil)
 	c.Assert(relation, NotNil)
-	c.Assert(serviceRelations[0].Scope(), Equals, state.ScopeGlobal)
-	c.Assert(serviceRelations[0].Role(), Equals, state.RolePeer)
-	c.Assert(serviceRelations[0].Name(), Equals, "cache")
+	c.Assert(serviceRelations, HasLen, 1)
+	c.Assert(serviceRelations[0].RelationScope(), Equals, state.ScopeGlobal)
+	c.Assert(serviceRelations[0].RelationRole(), Equals, state.RolePeer)
+	c.Assert(serviceRelations[0].RelationName(), Equals, "cache")
 
 }
 
@@ -1056,7 +1058,7 @@ func (s *StateSuite) TestAddRelationMissingEndpoint(c *C) {
 	s.st.AddService("mysqldb", dummy)
 	mysqlep := state.RelationEndpoint{"mysqldb", "blog", "db", state.RoleProvider, state.ScopeGlobal}
 	_, _, err := s.st.AddRelation(mysqlep)
-	c.Assert(err, ErrorMatches, `state: counterpart for provider endpoint is missing`)
+	c.Assert(err, ErrorMatches, `state: can't add non-peer relation with a single service`)
 }
 
 func (s *StateSuite) TestAddClientServerDifferentRoles(c *C) {
@@ -1066,7 +1068,7 @@ func (s *StateSuite) TestAddClientServerDifferentRoles(c *C) {
 	mysqlep := state.RelationEndpoint{"mysqldb", "ifce", "db", state.RoleRequirer, state.ScopeGlobal}
 	riakep := state.RelationEndpoint{"riak", "ring", "cache", state.RolePeer, state.ScopeGlobal}
 	_, _, err := s.st.AddRelation(mysqlep, riakep)
-	c.Assert(err, ErrorMatches, `state: endpoints mysqldb:db and riak:cache are incompatible`)
+	c.Assert(err, ErrorMatches, `state: can't add relation between mysqldb:db and riak:cache`)
 }
 
 func (s *StateSuite) TestAddRelationDifferentInterfaces(c *C) {
@@ -1076,7 +1078,7 @@ func (s *StateSuite) TestAddRelationDifferentInterfaces(c *C) {
 	mysqlep := state.RelationEndpoint{"mysqldb", "ifce-a", "db", state.RoleProvider, state.ScopeGlobal}
 	blogep := state.RelationEndpoint{"wordpress", "ifce-b", "db", state.RoleRequirer, state.ScopeGlobal}
 	_, _, err := s.st.AddRelation(blogep, mysqlep)
-	c.Assert(err, ErrorMatches, `state: endpoints wordpress:db and mysqldb:db are incompatible`)
+	c.Assert(err, ErrorMatches, `state: can't add relation between wordpress:db and mysqldb:db`)
 }
 
 func (s *StateSuite) TestAddClientServerRelationTwice(c *C) {
@@ -1089,14 +1091,14 @@ func (s *StateSuite) TestAddClientServerRelationTwice(c *C) {
 	_, _, err := s.st.AddRelation(blogep, mysqlep)
 	c.Assert(err, IsNil)
 	_, _, err = s.st.AddRelation(blogep, mysqlep)
-	c.Assert(err, ErrorMatches, `state: relation has already been added`)
+	c.Assert(err, ErrorMatches, `state: relation already exists`)
 	// Peer.
 	s.st.AddService("riak", dummy)
 	riakep := state.RelationEndpoint{"riak", "ring", "cache", state.RolePeer, state.ScopeGlobal}
 	_, _, err = s.st.AddRelation(riakep)
 	c.Assert(err, IsNil)
 	_, _, err = s.st.AddRelation(riakep)
-	c.Assert(err, ErrorMatches, `state: relation has already been added`)
+	c.Assert(err, ErrorMatches, `state: relation already exists`)
 }
 
 func (s *StateSuite) TestAddPeerRelationIllegalEndpointNumber(c *C) {
@@ -1106,9 +1108,9 @@ func (s *StateSuite) TestAddPeerRelationIllegalEndpointNumber(c *C) {
 	s.st.AddService("riak", dummy)
 	mysqlep := state.RelationEndpoint{"mysqldb", "ifce", "cache", state.RoleProvider, state.ScopeGlobal}
 	blogep := state.RelationEndpoint{"wordpress", "ifce", "cache", state.RoleRequirer, state.ScopeGlobal}
-	riakep := state.RelationEndpoint{"riak", "blog", "cache", state.RoleProvider, state.ScopeGlobal}
+	riakep := state.RelationEndpoint{"riak", "blog", "cache", state.RolePeer, state.ScopeGlobal}
 	_, _, err := s.st.AddRelation()
-	c.Assert(err, ErrorMatches, `state: illegal number of endpoints provided`)
+	c.Assert(err, ErrorMatches, `state: can't add relations between 0 services`)
 	_, _, err = s.st.AddRelation(mysqlep, blogep, riakep)
-	c.Assert(err, ErrorMatches, `state: illegal number of endpoints provided`)
+	c.Assert(err, ErrorMatches, `state: can't add relations between 3 services`)
 }
