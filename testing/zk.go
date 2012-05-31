@@ -61,6 +61,7 @@ func ResetZkServer(srv *zookeeper.Server) {
 	if err != nil {
 		panic(err)
 	}
+	defer zk.Close()
 	event := <-session
 	assert(event.Ok() == true)
 	assert(event.Type == zookeeper.EVENT_SESSION)
