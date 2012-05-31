@@ -144,8 +144,9 @@ func (s *store) Get(curl *URL) (Charm, error) {
 	return ReadBundle(path)
 }
 
-// LocalRepository represents a local directory containing charms organised
-// by series.
+// LocalRepository represents a local directory containing subdirectories
+// named after an Ubuntu series, each of which contains charms targeted for
+// that series.
 type LocalRepository struct {
 	Path string
 }
@@ -160,21 +161,48 @@ func (r *LocalRepository) Latest(curl *URL) (int, error) {
 	return ch.Revision(), nil
 }
 
+func repoNotFound(path string) error {
+	return fmt.Errorf("no repository found at %q", path)
+}
+
+func charmNotFound(curl *URL) error {
+	return fmt.Errorf("no charms found matching %q", curl)
+}
+
+func mightBeCharm(info os.FileInfo) bool {
+	if info.IsDir() {
+		return !strings.HasPrefix(info.Name(), ".")
+	}
+	return strings.HasSuffix(info.Name(), ".charm")
+}
+
 // Get returns a charm matching curl, if one exists. If curl has a revision of
 // -1, it returns the latest charm that matches curl. If multiple candidates
 // satisfy the foregoing, the first one encountered will be returned.
 func (r *LocalRepository) Get(curl *URL) (Charm, error) {
-	noCharms := fmt.Errorf("no charms found matching %q", curl.String())
 	if curl.Schema != "local" {
-		return nil, fmt.Errorf("bad schema: %q", curl.Schema)
+		return nil, fmt.Errorf("charm: local repository got URL with non-local schema: %q", curl)
+	}
+	info, err := os.Stat(r.Path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = repoNotFound(r.Path)
+		}
+		return nil, err
+	}
+	if !info.IsDir() {
+		return nil, repoNotFound(r.Path)
 	}
 	path := filepath.Join(r.Path, curl.Series)
 	infos, err := ioutil.ReadDir(path)
 	if err != nil {
-		return nil, noCharms
+		return nil, charmNotFound(curl)
 	}
 	var latest Charm
 	for _, info := range infos {
+		if !mightBeCharm(info) {
+			continue
+		}
 		chPath := filepath.Join(path, info.Name())
 		if ch, err := Read(chPath); err != nil {
 			log.Printf("WARNING: failed to load charm at %q: %s", chPath, err)
@@ -190,5 +218,5 @@ func (r *LocalRepository) Get(curl *URL) (Charm, error) {
 	if curl.Revision == -1 && latest != nil {
 		return latest, nil
 	}
-	return nil, noCharms
+	return nil, charmNotFound(curl)
 }

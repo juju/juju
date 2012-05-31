@@ -226,7 +226,7 @@ func (s *LocalRepoSuite) addDir(name string) string {
 	return testing.Charms.ClonedDirPath(s.seriesPath, name)
 }
 
-func (s *LocalRepoSuite) TestMissing(c *C) {
+func (s *LocalRepoSuite) TestMissingCharm(c *C) {
 	_, err := s.repo.Latest(charm.MustParseURL("local:series/zebra"))
 	c.Assert(err, ErrorMatches, `no charms found matching "local:series/zebra"`)
 	_, err = s.repo.Get(charm.MustParseURL("local:series/zebra"))
@@ -235,6 +235,19 @@ func (s *LocalRepoSuite) TestMissing(c *C) {
 	c.Assert(err, ErrorMatches, `no charms found matching "local:badseries/zebra"`)
 	_, err = s.repo.Get(charm.MustParseURL("local:badseries/zebra"))
 	c.Assert(err, ErrorMatches, `no charms found matching "local:badseries/zebra"`)
+}
+
+func (s *LocalRepoSuite) TestMissingRepo(c *C) {
+	c.Assert(os.RemoveAll(s.repo.Path), IsNil)
+	_, err := s.repo.Latest(charm.MustParseURL("local:series/zebra"))
+	c.Assert(err, ErrorMatches, `no repository found at ".*"`)
+	_, err = s.repo.Get(charm.MustParseURL("local:series/zebra"))
+	c.Assert(err, ErrorMatches, `no repository found at ".*"`)
+	c.Assert(ioutil.WriteFile(s.repo.Path, nil, 0666), IsNil)
+	_, err = s.repo.Latest(charm.MustParseURL("local:series/zebra"))
+	c.Assert(err, ErrorMatches, `no repository found at ".*"`)
+	_, err = s.repo.Get(charm.MustParseURL("local:series/zebra"))
+	c.Assert(err, ErrorMatches, `no repository found at ".*"`)
 }
 
 func (s *LocalRepoSuite) TestMultipleVersions(c *C) {
@@ -303,4 +316,24 @@ func (s *LocalRepoSuite) TestLogsErrors(c *C) {
 .* JUJU WARNING: failed to load charm at ".*/series/blah.charm": .*
 .* JUJU WARNING: failed to load charm at ".*/series/new": .*
 `[1:])
+}
+
+func renameSibling(c *C, path, name string) {
+	c.Assert(os.Rename(path, filepath.Join(filepath.Dir(path), name)), IsNil)
+}
+
+func (s *LocalRepoSuite) TestIgnoresUnpromisingNames(c *C) {
+	err := ioutil.WriteFile(filepath.Join(s.seriesPath, "blah.notacharm"), nil, 0666)
+	c.Assert(err, IsNil)
+	err = os.Mkdir(filepath.Join(s.seriesPath, ".blah"), 0666)
+	c.Assert(err, IsNil)
+	renameSibling(c, s.addDir("dummy"), ".dummy")
+	renameSibling(c, s.addBundle("dummy"), "dummy.notacharm")
+	curl := charm.MustParseURL("local:series/dummy")
+
+	_, err = s.repo.Get(curl)
+	c.Assert(err, ErrorMatches, `no charms found matching "local:series/dummy"`)
+	_, err = s.repo.Latest(curl)
+	c.Assert(err, ErrorMatches, `no charms found matching "local:series/dummy"`)
+	c.Assert(c.GetTestLog(), Equals, "")
 }
