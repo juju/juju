@@ -74,7 +74,9 @@ func (e *environment) changes() <-chan *state.ConfigNode {
 }
 
 func (e *environment) invalidate() {
-	log.Printf("provisioner: environment watcher exited: %v", e.watcher.Stop())
+	if e.watcher != nil {
+		log.Printf("provisioner: environment watcher exited: %v", e.watcher.Stop())
+	}
 	e.watcher = nil
 }
 
@@ -91,7 +93,9 @@ func (m *machines) changes() <-chan *state.MachinesChange {
 }
 
 func (m *machines) invalidate() {
-	log.Printf("provisioner: machines watcher exited: %v", m.watcher.Stop())
+	if m.watcher != nil {
+		log.Printf("provisioner: machines watcher exited: %v", m.watcher.Stop())
+	}
 	m.watcher = nil
 }
 
