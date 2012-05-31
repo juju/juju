@@ -48,6 +48,6 @@ func (OpenSuite) TestInvalidNewConfig(c *C) {
 		"type": "dummy",
 		// zookeeper is missing
 	})
-	c.Assert(err, ErrorMatches, "zookeeper: expected false, got nothing")
+	c.Assert(err, ErrorMatches, "zookeeper: expected bool, got nothing")
 	c.Assert(cfg, IsNil)
 }

@@ -1,10 +1,9 @@
-package main_test
+package main
 
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/cmd"
-	main "launchpad.net/juju/go/cmd/jujud"
 	"launchpad.net/juju/go/environs/dummy"
 	"launchpad.net/juju/go/state"
 	"launchpad.net/juju/go/testing"
@@ -50,26 +49,26 @@ func (s *ProvisioningSuite) TearDownTest(c *C) {
 }
 
 func (s *ProvisioningSuite) TestParseSuccess(c *C) {
-	create := func() (cmd.Command, *main.AgentConf) {
-		a := &main.ProvisioningAgent{}
+	create := func() (cmd.Command, *AgentConf) {
+		a := &ProvisioningAgent{}
 		return a, &a.Conf
 	}
 	CheckAgentCommand(c, create, []string{})
 }
 
 func (s *ProvisioningSuite) TestParseUnknown(c *C) {
-	a := &main.ProvisioningAgent{}
+	a := &ProvisioningAgent{}
 	err := ParseAgentCommand(a, []string{"nincompoops"})
 	c.Assert(err, ErrorMatches, `unrecognized args: \["nincompoops"\]`)
 }
 
-func initProvisioningAgent() (*main.ProvisioningAgent, error) {
+func initProvisioningAgent() (*ProvisioningAgent, error) {
 	args := []string{"--zookeeper-servers", zkAddr}
-	c := &main.ProvisioningAgent{}
+	c := &ProvisioningAgent{}
 	return c, initCmd(c, args)
 }
 
 func (s *ProvisioningSuite) TestProvisionerStartStop(c *C) {
-	p := main.NewProvisioner(s.st)
+	p := NewProvisioner(s.st)
 	c.Assert(p.Stop(), IsNil)
 }

@@ -45,6 +45,30 @@ func StartZkServer() *zookeeper.Server {
 	return srv
 }
 
+func assert(b bool) {
+	if !b {
+		panic("unexpected state")
+	}
+}
+
+// ResetZkServer connects to srv and removes all content.
+func ResetZkServer(srv *zookeeper.Server) {
+	addr, err := srv.Addr()
+	if err != nil {
+		panic(err)
+	}
+	zk, session, err := zookeeper.Dial(addr, 15e9)
+	if err != nil {
+		panic(err)
+	}
+	defer zk.Close()
+	event := <-session
+	assert(event.Ok() == true)
+	assert(event.Type == zookeeper.EVENT_SESSION)
+	assert(event.State == zookeeper.STATE_CONNECTED)
+	ZkRemoveTree(zk, "/")
+}
+
 // ZkRemoveTree recursively removes a zookeeper node
 // and all its children; it panics if it encounters an error.
 // It does not delete "/zookeeper" or the root node itself and it does not
