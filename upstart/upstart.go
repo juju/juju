@@ -29,7 +29,7 @@ func (s *Service) confPath() string {
 	return filepath.Join(s.InitDir, s.Name+".conf")
 }
 
-// Installed returns true if the the service configuration exists in the
+// Installed returns whether the service configuration exists in the
 // init directory.
 func (s *Service) Installed() bool {
 	_, err := os.Stat(s.confPath())
@@ -86,12 +86,13 @@ respawn
 exec {{.Cmd}}{{if .Out}} >> {{.Out}} 2>&1{{end}}
 `[1:]))
 
-// Conf is responsible for defining and installing upstart services.
+// Conf is responsible for defining and installing upstart services. Its fields
+// represent elements of an upstart service configuration file.
 type Conf struct {
 	Service
-	// Desc is the upstart job's "description".
+	// Desc is the upstart service's description.
 	Desc string
-	// Env holds the environment variables that will be set when the job runs.
+	// Env holds the environment variables that will be set when the command runs.
 	Env map[string]string
 	// Cmd is the command (with arguments) that will be run.
 	Cmd string
@@ -136,7 +137,7 @@ func (c *Conf) Install() error {
 	}
 	if c.Installed() {
 		if err := c.Remove(); err != nil {
-			return fmt.Errorf("could not remove installed service: %s", err)
+			return fmt.Errorf("upstart: could not remove installed service: %s", err)
 		}
 	}
 	if err := ioutil.WriteFile(c.confPath(), conf, 0644); err != nil {
