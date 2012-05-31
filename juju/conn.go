@@ -4,6 +4,7 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/state"
 	"regexp"
+	"sync"
 )
 
 var (

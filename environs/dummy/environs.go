@@ -45,7 +45,7 @@ func SetZookeeper(srv *zookeeper.Server) {
 // shared dummy zookeeper, if it exists.
 func stateInfo() *state.Info {
 	if zkServer == nil {
-		panic(errors.New("SetZookeeper not called"))
+		panic("SetZookeeper not called")
 	}
 	addr, err := zkServer.Addr()
 	if err != nil {
@@ -249,7 +249,7 @@ func (cfg *environConfig) Open() (environs.Environ, error) {
 	state := p.state[cfg.name]
 	if state == nil {
 		if cfg.zookeeper && len(p.state) != 0 {
-			panic(errors.New("cannot share a zookeeper between two dummy environs"))
+			panic("cannot share a zookeeper between two dummy environs")
 		}
 		state = newState(cfg.name, p.ops)
 		p.state[cfg.name] = state
