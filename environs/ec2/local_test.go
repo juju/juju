@@ -188,6 +188,9 @@ func (t *localServerSuite) TearDownTest(c *C) {
 }
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
+	policy := t.env.PlacementPolicy()
+	c.Assert(policy, Equals, state.PlaceUnassigned)
+
 	err := t.env.Bootstrap(true)
 	c.Assert(err, IsNil)
 
