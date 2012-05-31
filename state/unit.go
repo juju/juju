@@ -22,6 +22,14 @@ const (
 	ResolvedNoHooks    ResolvedMode = 1001
 )
 
+// PlacementPolicy controls what machine a unit will be assigned to.
+type PlacementPolicy string
+
+const (
+	PlaceLocal      PlacementPolicy = "local"
+	PlaceUnassigned PlacementPolicy = "unassigned"
+)
+
 // NeedsUpgrade describes if a unit needs an
 // upgrade and if this is forced.
 type NeedsUpgrade struct {
@@ -192,6 +200,8 @@ func (u *Unit) AssignToMachine(machine *Machine) error {
 	return retryTopologyChange(u.st.zk, assignUnit)
 }
 
+var noUnusedMachines = errors.New("no unused machine found")
+
 // AssignToUnusedMachine assigns u to a machine without other units.
 // If there are no unused machines besides machine 0, an error is returned.
 func (u *Unit) AssignToUnusedMachine() (*Machine, error) {
@@ -214,7 +224,7 @@ func (u *Unit) AssignToUnusedMachine() (*Machine, error) {
 			machineKey = ""
 		}
 		if machineKey == "" {
-			return errors.New("no unused machine found")
+			return noUnusedMachines
 		}
 		if err := t.AssignUnitToMachine(u.serviceKey, u.key, machineKey); err != nil {
 			return err
@@ -225,6 +235,29 @@ func (u *Unit) AssignToUnusedMachine() (*Machine, error) {
 		return nil, err
 	}
 	return &Machine{u.st, machineKey}, nil
+}
+
+// Place assigns u to a machine according to policy.
+func (u *Unit) Place(policy PlacementPolicy) (err error) {
+	var m *Machine
+	switch policy {
+	case PlaceLocal:
+		if m, err = u.st.Machine(0); err != nil {
+			return
+		}
+	case PlaceUnassigned:
+		switch _, err = u.AssignToUnusedMachine(); err {
+		case noUnusedMachines:
+		default:
+			return
+		}
+		if m, err = u.st.AddMachine(); err != nil {
+			return
+		}
+	default:
+		panic(fmt.Errorf("unknown unit placement policy: %q", policy))
+	}
+	return u.AssignToMachine(m)
 }
 
 // UnassignFromMachine removes the assignment between this unit and

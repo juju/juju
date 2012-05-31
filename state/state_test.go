@@ -58,6 +58,12 @@ func (s *StateSuite) TearDownTest(c *C) {
 	s.zkConn.Close()
 }
 
+func (s *StateSuite) assertMachineCount(c *C, expect int) {
+	ms, err := s.st.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(len(ms), Equals, expect)
+}
+
 func (s *StateSuite) TestInitialize(c *C) {
 	info := &state.Info{
 		Addrs: []string{state.TestingZkAddr},
@@ -263,21 +269,13 @@ func (s *StateSuite) TestReadNonExistentMachine(c *C) {
 }
 
 func (s *StateSuite) TestAllMachines(c *C) {
-	machines, err := s.st.AllMachines()
+	s.assertMachineCount(c, 0)
+	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
-	c.Assert(len(machines), Equals, 0)
-
+	s.assertMachineCount(c, 1)
 	_, err = s.st.AddMachine()
 	c.Assert(err, IsNil)
-	machines, err = s.st.AllMachines()
-	c.Assert(err, IsNil)
-	c.Assert(len(machines), Equals, 1)
-
-	_, err = s.st.AddMachine()
-	c.Assert(err, IsNil)
-	machines, err = s.st.AllMachines()
-	c.Assert(err, IsNil)
-	c.Assert(len(machines), Equals, 2)
+	s.assertMachineCount(c, 2)
 }
 
 func (s *StateSuite) TestMachineSetAgentAlive(c *C) {
@@ -686,7 +684,7 @@ func (s *StateSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 }
 
 func (s *StateSuite) TestAssignUnitToUnusedMachine(c *C) {
-	// Create root machine that shouldn't be useds.
+	// Create root machine that shouldn't be used.
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 	// Check that a unit can be assigned to an unused machine.
@@ -713,7 +711,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachine(c *C) {
 }
 
 func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingService(c *C) {
-	// Create root machine that shouldn't be useds.
+	// Create root machine that shouldn't be used.
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 	// Check for a 'state changed' error if a service is manipulated
@@ -742,7 +740,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingService(c *C) {
 }
 
 func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingUnit(c *C) {
-	// Create root machine that shouldn't be useds.
+	// Create root machine that shouldn't be used.
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 	// Check for a 'state changed' error if a unit is manipulated
@@ -807,6 +805,52 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 
 	_, err = wordpressUnit.AssignToUnusedMachine()
 	c.Assert(err, ErrorMatches, "no unused machine found")
+}
+
+func (s *StateSuite) TestPlaceUnit(c *C) {
+	_, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	dummy := s.addDummyCharm(c)
+	serv, err := s.st.AddService("minecraft", dummy)
+	c.Assert(err, IsNil)
+	unit0, err := serv.AddUnit()
+	c.Assert(err, IsNil)
+
+	// Check nonsensical policy
+	fail := func() { unit0.Place(state.PlacementPolicy("random")) }
+	c.Assert(fail, PanicMatches, `unknown unit placement policy: "random"`)
+	_, err = unit0.AssignedMachineId()
+	c.Assert(err, NotNil)
+	s.assertMachineCount(c, 1)
+
+	// Check local placement
+	err = unit0.Place(state.PlaceLocal)
+	c.Assert(err, IsNil)
+	mid, err := unit0.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(mid, Equals, 0)
+	s.assertMachineCount(c, 1)
+
+	// Check unassigned placement with no unused machines
+	unit1, err := serv.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit1.Place(state.PlaceUnassigned)
+	c.Assert(err, IsNil)
+	mid, err = unit1.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(mid, Equals, 1)
+	s.assertMachineCount(c, 2)
+
+	// Check unassigned placement on an unused machine
+	_, err = s.st.AddMachine()
+	unit2, err := serv.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit2.Place(state.PlaceUnassigned)
+	c.Assert(err, IsNil)
+	mid, err = unit2.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(mid, Equals, 2)
+	s.assertMachineCount(c, 3)
 }
 
 func (s *StateSuite) TestGetSetClearUnitUpgrade(c *C) {
