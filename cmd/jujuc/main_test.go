@@ -1,4 +1,4 @@
-package main_test
+package main
 
 import (
 	"errors"
@@ -7,7 +7,6 @@ import (
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/cmd"
-	main "launchpad.net/juju/go/cmd/jujuc"
 	"launchpad.net/juju/go/cmd/jujuc/server"
 	"os"
 	"os/exec"
@@ -23,7 +22,7 @@ var flagRunMain = flag.Bool("run-main", false, "Run the application's main funct
 // tool itself.
 func TestRunMain(t *testing.T) {
 	if *flagRunMain {
-		code, err := main.Main(flag.Args())
+		code, err := Main(flag.Args())
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		}
@@ -120,7 +119,7 @@ var argsTests = []struct {
 	code   int
 	output string
 }{
-	{[]string{"jujuc", "whatever"}, 2, main.Help + "error: jujuc should not be called directly\n"},
+	{[]string{"jujuc", "whatever"}, 2, Help + "error: jujuc should not be called directly\n"},
 	{[]string{"remote"}, 0, "success!\n"},
 	{[]string{"/path/to/remote"}, 0, "success!\n"},
 	{[]string{"unknown"}, 1, "error: bad request: bad command: unknown\n"},

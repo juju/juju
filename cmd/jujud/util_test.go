@@ -1,13 +1,12 @@
-package main_test
+package main
 
 import (
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/cmd"
-	main "launchpad.net/juju/go/cmd/jujud"
 )
 
-type acCreator func() (cmd.Command, *main.AgentConf)
+type acCreator func() (cmd.Command, *AgentConf)
 
 func initCmd(c cmd.Command, args []string) error {
 	return c.Init(gnuflag.NewFlagSet("", gnuflag.ContinueOnError), args)

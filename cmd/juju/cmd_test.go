@@ -1,11 +1,10 @@
-package main_test
+package main
 
 import (
 	"io/ioutil"
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/cmd"
-	main "launchpad.net/juju/go/cmd/juju"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/dummy"
 	"launchpad.net/juju/go/testing"
@@ -87,8 +86,8 @@ func assertConnName(c *C, com cmd.Command, name string) {
 // All members of EnvironmentInitTests are tested for the -environment and -e
 // flags, and that extra arguments will cause parsing to fail.
 var EnvironmentInitTests = []func() cmd.Command{
-	func() cmd.Command { return new(main.BootstrapCommand) },
-	func() cmd.Command { return new(main.DestroyCommand) },
+	func() cmd.Command { return new(BootstrapCommand) },
+	func() cmd.Command { return new(DestroyCommand) },
 }
 
 // TestEnvironmentInit tests that all commands which accept
@@ -137,14 +136,14 @@ func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc
 
 func (*cmdSuite) TestBootstrapCommand(c *C) {
 	// normal bootstrap
-	opc, errc := runCommand(new(main.BootstrapCommand))
+	opc, errc := runCommand(new(BootstrapCommand))
 	c.Check(<-opc, Equals, op(dummy.OpBootstrap, "peckham"))
 	c.Check(<-errc, IsNil)
 
 	// bootstrap with tool uploading - checking that a file
 	// is uploaded should be sufficient, as the detailed semantics
 	// of UploadTools are tested in environs.
-	opc, errc = runCommand(new(main.BootstrapCommand), "--upload-tools")
+	opc, errc = runCommand(new(BootstrapCommand), "--upload-tools")
 	c.Check(<-opc, Equals, op(dummy.OpPutFile, "peckham"))
 	c.Check(<-opc, Equals, op(dummy.OpBootstrap, "peckham"))
 	c.Check(<-errc, IsNil)
@@ -158,19 +157,19 @@ func (*cmdSuite) TestBootstrapCommand(c *C) {
 	c.Assert(err, IsNil)
 
 	// bootstrap with broken environment
-	opc, errc = runCommand(new(main.BootstrapCommand), "-e", "barking")
+	opc, errc = runCommand(new(BootstrapCommand), "-e", "barking")
 	c.Check((<-opc).Kind, Equals, dummy.OpNone)
 	c.Check(<-errc, ErrorMatches, `broken environment`)
 }
 
 func (*cmdSuite) TestDestroyCommand(c *C) {
 	// normal destroy
-	opc, errc := runCommand(new(main.DestroyCommand))
+	opc, errc := runCommand(new(DestroyCommand))
 	c.Check(<-opc, Equals, op(dummy.OpDestroy, "peckham"))
 	c.Check(<-errc, IsNil)
 
 	// destroy with broken environment
-	opc, errc = runCommand(new(main.DestroyCommand), "-e", "barking")
+	opc, errc = runCommand(new(DestroyCommand), "-e", "barking")
 	c.Check((<-opc).Kind, Equals, dummy.OpNone)
 	c.Check(<-errc, ErrorMatches, `broken environment`)
 }
