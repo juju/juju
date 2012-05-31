@@ -160,21 +160,18 @@ func (r *LocalRepository) Latest(curl *URL) (int, error) {
 	return ch.Revision(), nil
 }
 
-func noCharms(curl *URL) (Charm, error) {
-	return nil, fmt.Errorf("no charms found matching %q", curl.String())
-}
-
 // Get returns a charm matching curl, if one exists. If curl has a revision of
 // -1, it returns the latest charm that matches curl. If multiple candidates
 // satisfy the foregoing, the first one encountered will be returned.
 func (r *LocalRepository) Get(curl *URL) (Charm, error) {
+	noCharms := fmt.Errorf("no charms found matching %q", curl.String())
 	if curl.Schema != "local" {
 		return nil, fmt.Errorf("bad schema: %q", curl.Schema)
 	}
 	path := filepath.Join(r.Path, curl.Series)
 	infos, err := ioutil.ReadDir(path)
 	if err != nil {
-		return noCharms(curl)
+		return nil, noCharms
 	}
 	var latest Charm
 	for _, info := range infos {
@@ -193,5 +190,5 @@ func (r *LocalRepository) Get(curl *URL) (Charm, error) {
 	if curl.Revision == -1 && latest != nil {
 		return latest, nil
 	}
-	return noCharms(curl)
+	return nil, noCharms
 }
