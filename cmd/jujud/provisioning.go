@@ -1,13 +1,12 @@
 package main
 
 import (
-	"fmt"
-
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/cmd"
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/log"
 	"launchpad.net/juju/go/state"
+	"launchpad.net/tomb"
 
 	// register providers
 	_ "launchpad.net/juju/go/environs/dummy"
@@ -16,9 +15,7 @@ import (
 
 // ProvisioningAgent is a cmd.Command responsible for running a provisioning agent.
 type ProvisioningAgent struct {
-	Conf    AgentConf
-	environ environs.Environ // the provider this agent operates against.
-	State   *state.State
+	Conf AgentConf
 
 	providerIdToInstance  map[string]environs.Instance
 	machineIdToProviderId map[int]string
@@ -47,159 +44,122 @@ func (a *ProvisioningAgent) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run runs a provisioning agent.
 func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
-	var err error
-	a.State, err = state.Open(&a.Conf.StateInfo)
+	st, err := state.Open(&a.Conf.StateInfo)
 	if err != nil {
 		return err
 	}
+	p := NewProvisioner(st)
+	return p.tomb.Wait()
+}
 
-	// step 1. wait for a valid environment
-	configWatcher := a.State.WatchEnvironConfig()
-	for {
-		log.Printf("provisioning: waiting for valid environment")
-		config, ok := <-configWatcher.Changes()
-		if !ok {
-			return fmt.Errorf("environment watcher has shutdown: %v", configWatcher.Stop())
-		}
-		var err error
-		a.environ, err = environs.NewEnviron(config.Map())
-		if err == nil {
-			break
-		}
-		log.Printf("provisioning: unable to create environment from supplied configuration: %v", err)
+type Provisioner struct {
+	st      *state.State
+	environ environs.Environ // the provider this agent operates against.
+	tomb    tomb.Tomb
+
+	environment
+	machines
+}
+
+type environment struct {
+	st      *state.State
+	watcher *state.ConfigWatcher
+}
+
+func (e *environment) changes() <-chan *state.ConfigNode {
+	if e.watcher == nil {
+		e.watcher = e.st.WatchEnvironConfig()
 	}
-	log.Printf("provisioning: valid environment configured")
+	return e.watcher.Changes()
+}
 
-	// step 2. listen for changes to the environment or the machine topology and action both.
-	machinesWatcher := a.State.WatchMachines()
+func (e *environment) invalidate() {
+	log.Printf("provisioner: environment watcher exited: %v", e.watcher.Stop())
+	e.watcher = nil
+}
+
+type machines struct {
+	st      *state.State
+	watcher *state.MachinesWatcher
+}
+
+func (m *machines) changes() <-chan *state.MachinesChange {
+	if m.watcher == nil {
+		m.watcher = m.st.WatchMachines()
+	}
+	return m.watcher.Changes()
+}
+
+func (m *machines) invalidate() {
+	log.Printf("provisioner: machines watcher exited: %v", m.watcher.Stop())
+	m.watcher = nil
+}
+
+func NewProvisioner(st *state.State) *Provisioner {
+	p := &Provisioner{
+		st:          st,
+		environment: environment{st: st},
+		machines:    machines{st: st},
+	}
+	go p.loop()
+	return p
+}
+
+func (p *Provisioner) loop() {
+	defer p.tomb.Done()
 	for {
 		select {
-		case changes, ok := <-configWatcher.Changes():
+		case <-p.tomb.Dying():
+			return
+		case config, ok := <-p.environment.changes():
 			if !ok {
-				return fmt.Errorf("environment watcher has shutdown: %v", configWatcher.Stop())
+				p.environment.invalidate()
+				continue
 			}
-			config, err := environs.NewConfig(changes.Map())
+			var err error
+			p.environ, err = environs.NewEnviron(config.Map())
+			if err != nil {
+				log.Printf("provisioner: unable to create environment from supplied configuration: %v", err)
+				continue
+			}
+			log.Printf("provisioning: valid environment configured")
+			p.innerLoop()
+		}
+	}
+}
+
+func (p *Provisioner) innerLoop() {
+	for {
+		select {
+		case <-p.tomb.Dying():
+			return
+		case change, ok := <-p.environment.changes():
+			if !ok {
+				p.environment.invalidate()
+				continue
+			}
+			config, err := environs.NewConfig(change.Map())
 			if err != nil {
 				log.Printf("provisioning: new configuration received, but was not valid: %v", err)
 				continue
 			}
-			a.environ.SetConfig(config)
+			p.environ.SetConfig(config)
 			log.Printf("provisioning: new configuartion applied")
-		case changes, ok := <-machinesWatcher.Changes():
+		case machines, ok := <-p.machines.changes():
 			if !ok {
-				return fmt.Errorf("machines watcher has shutdown: %v", configWatcher.Stop())
+				p.machines.invalidate()
+				continue
 			}
-			for _, added := range changes.Added {
-				if err := a.addMachine(added); err != nil {
-					// TODO(dfc) implement retry logic
-					return err
-				}
-				log.Printf("provisioning: machine %d added", added.Id())
-			}
-			for _, deleted := range changes.Deleted {
-				if err := a.deleteMachine(deleted); err != nil {
-					// TODO(dfc) implement retry logic
-					return err
-				}
-				log.Printf("provisioning: machine %d deleted", deleted.Id())
-			}
+			p.processMachines(machines)
 		}
 	}
-	if err = configWatcher.Stop(); err == nil {
-		err = machinesWatcher.Stop()
-	}
-	return err
 }
 
-func (a *ProvisioningAgent) addMachine(m *state.Machine) error {
-	id, err := m.InstanceId()
-	if err != nil {
-		return err
-	}
-	if id != "" {
-		return fmt.Errorf("machine-%010d already reports a provider id %q, skipping", m.Id(), id)
-	}
-
-	// TODO(dfc) the state.Info passed to environ.StartInstance remains contentious
-	// however as the PA only knows one state.Info, and that info is used by MAs and 
-	// UAs to locate the ZK for this environment, it is logical to use the same 
-	// state.Info as the PA. 
-	inst, err := a.environ.StartInstance(m.Id(), &a.Conf.StateInfo)
-	if err != nil {
-		return err
-	}
-
-	// assign the provider id to the macine
-	if err := m.SetInstanceId(inst.Id()); err != nil {
-		return fmt.Errorf("unable to store provider id: %v", err)
-	}
-
-	// populate the local caches
-	a.machineIdToProviderId[m.Id()] = inst.Id()
-	a.providerIdToInstance[inst.Id()] = inst
-	return nil
+func (p *Provisioner) Stop() error {
+	p.tomb.Kill(nil)
+	p.environment.invalidate()
+	p.machines.invalidate()
+	return p.tomb.Wait()
 }
 
-func (a *ProvisioningAgent) deleteMachine(m *state.Machine) error {
-	insts, err := a.InstancesForMachines(m)
-	if err != nil {
-		return fmt.Errorf("machine-%010d has no refrence to a provider id, skipping", m.Id())
-	}
-	return a.environ.StopInstances(insts)
-}
-
-// InstanceForMachine returns the environs.Instance that represents this machines' running
-// instance.
-func (a *ProvisioningAgent) InstanceForMachine(m *state.Machine) (environs.Instance, error) {
-	id, ok := a.machineIdToProviderId[m.Id()]
-	if !ok {
-		// not cached locally, ask the provider.
-		var err error
-		id, err = m.InstanceId()
-		if err != nil {
-			return nil, err
-		}
-		if id == "" {
-			// nobody knows about this machine, give up.
-			return nil, fmt.Errorf("instance not found")
-		}
-		a.machineIdToProviderId[m.Id()] = id
-	}
-	inst, ok := a.providerIdToInstance[id]
-	if !ok {
-		// not cached locally, ask the provider
-		var err error
-		inst, err = a.findInstance(id)
-		if err != nil {
-			// the provider doesn't know about this instance, give up.
-			return nil, err
-		}
-		return nil, nil
-	}
-	return inst, nil
-}
-
-// InstancesForMachines returns a list of environs.Instance that represent the list of machines running
-// in the provider.
-func (a *ProvisioningAgent) InstancesForMachines(machines ...*state.Machine) ([]environs.Instance, error) {
-	var insts []environs.Instance
-	for _, m := range machines {
-		inst, err := a.InstanceForMachine(m)
-		if err != nil {
-			return nil, err
-		}
-		insts = append(insts, inst)
-	}
-	return insts, nil
-}
-
-func (a *ProvisioningAgent) findInstance(id string) (environs.Instance, error) {
-	insts, err := a.environ.Instances([]string{id})
-	if err != nil {
-		return nil, err
-	}
-	if len(insts) < 1 {
-		return nil, fmt.Errorf("instance not found")
-	}
-	return insts[0], nil
-}
+func (p *Provisioner) processMachines(changes *state.MachinesChange) {}
