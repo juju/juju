@@ -72,3 +72,16 @@ func (s *ProvisioningSuite) TestProvisionerStartStop(c *C) {
 	p := NewProvisioner(s.st)
 	c.Assert(p.Stop(), IsNil)
 }
+
+func (s *ProvisioningSuite) TestProvisionerEnvironmentChange(c *C) {
+	p := NewProvisioner(s.st)
+	// twiddle with the environment
+        env, err := s.st.Environment()
+        c.Assert(err, IsNil)
+        env.Set("name", "testing2")
+        _, err = env.Write()
+        c.Assert(err, IsNil)
+        env.Set("name", "testing3")
+        _, err = env.Write()
+	c.Assert(p.Stop(), IsNil)
+}

@@ -47,64 +47,50 @@ type Provisioner struct {
 	environ environs.Environ
 	tomb    tomb.Tomb
 
-	environment
-	machines
+	environWatcher  *state.ConfigWatcher
+	machinesWatcher *state.MachinesWatcher
 }
 
-// environment ensures that the watcher for the environ
-// configuration is valid.
-type environment struct {
-	st      *state.State
-	watcher *state.ConfigWatcher
+// environChanges returns a channel that will receive the new *ConfigNode 
+// when a change is detected. 
+func (p *Provisioner) environChanges() <-chan *state.ConfigNode {
+	if p.environWatcher == nil {
+		p.environWatcher = p.st.WatchEnvironConfig()
+	}
+	return p.environWatcher.Changes()
+}
+
+// stopEnvironWatcher stops and invalidates the current environWatcher.
+func (p *Provisioner) stopEnvironWatcher() (err error) {
+	if p.environWatcher != nil {
+		err = p.environWatcher.Stop()
+	}
+	p.environWatcher = nil
+	return
 }
 
 // changes returns a channel that will receive the new *ConfigNode when a
 // change is detected. 
-func (e *environment) changes() <-chan *state.ConfigNode {
-	if e.watcher == nil {
-		e.watcher = e.st.WatchEnvironConfig()
+func (p *Provisioner) machinesChanges() <-chan *state.MachinesChange {
+	if p.machinesWatcher == nil {
+		p.machinesWatcher = p.st.WatchMachines()
 	}
-	return e.watcher.Changes()
+	return p.machinesWatcher.Changes()
 }
 
-// invalidate stops the current watcher.
-func (e *environment) invalidate() {
-	if e.watcher != nil {
-		log.Printf("provisioner: environment watcher exited: %v", e.watcher.Stop())
+// stopMachinesWatcher stops and invalidates the current machinesWatcher..
+func (p *Provisioner) stopMachinesWatcher() (err error) {
+	if p.machinesWatcher != nil {
+		err = p.machinesWatcher.Stop()
 	}
-	e.watcher = nil
-}
-
-// machines ensures that the watcher for machines changes
-// is valid.
-type machines struct {
-	st      *state.State
-	watcher *state.MachinesWatcher
-}
-
-// changes returns a channel that will receive the new *ConfigNode when a
-// change is detected. 
-func (m *machines) changes() <-chan *state.MachinesChange {
-	if m.watcher == nil {
-		m.watcher = m.st.WatchMachines()
-	}
-	return m.watcher.Changes()
-}
-
-// invalidate stops the current watcher.
-func (m *machines) invalidate() {
-	if m.watcher != nil {
-		log.Printf("provisioner: machines watcher exited: %v", m.watcher.Stop())
-	}
-	m.watcher = nil
+	p.machinesWatcher = nil
+	return
 }
 
 // NewProvisioner returns a Provisioner.
 func NewProvisioner(st *state.State) *Provisioner {
 	p := &Provisioner{
-		st:          st,
-		environment: environment{st: st},
-		machines:    machines{st: st},
+		st: st,
 	}
 	go p.loop()
 	return p
@@ -112,13 +98,15 @@ func NewProvisioner(st *state.State) *Provisioner {
 
 func (p *Provisioner) loop() {
 	defer p.tomb.Done()
+	// TODO(dfc) we need a method like state.IsValid() here to exit cleanly if
+	// there is a connection problem.
 	for {
 		select {
 		case <-p.tomb.Dying():
 			return
-		case config, ok := <-p.environment.changes():
+		case config, ok := <-p.environChanges():
 			if !ok {
-				p.environment.invalidate()
+				p.stopEnvironWatcher()
 				continue
 			}
 			var err error
@@ -127,32 +115,34 @@ func (p *Provisioner) loop() {
 				log.Printf("provisioner: unable to create environment from supplied configuration: %v", err)
 				continue
 			}
-			log.Printf("provisioning: valid environment configured")
+			log.Printf("provisioner: valid environment configured")
 			p.innerLoop()
 		}
 	}
 }
 
 func (p *Provisioner) innerLoop() {
+	// TODO(dfc) we need a method like state.IsValid() here to exit cleanly if
+	// there is a connection problem.
 	for {
 		select {
 		case <-p.tomb.Dying():
 			return
-		case change, ok := <-p.environment.changes():
+		case change, ok := <-p.environChanges():
 			if !ok {
-				p.environment.invalidate()
+				p.stopEnvironWatcher()
 				continue
 			}
 			config, err := environs.NewConfig(change.Map())
 			if err != nil {
-				log.Printf("provisioning: new configuration received, but was not valid: %v", err)
+				log.Printf("provisioner: new configuration received, but was not valid: %v", err)
 				continue
 			}
 			p.environ.SetConfig(config)
-			log.Printf("provisioning: new configuartion applied")
-		case machines, ok := <-p.machines.changes():
+			log.Printf("provisioner: new environment configuartion applied")
+		case machines, ok := <-p.machinesChanges():
 			if !ok {
-				p.machines.invalidate()
+				p.stopMachinesWatcher()
 				continue
 			}
 			p.processMachines(machines)
@@ -164,9 +154,15 @@ func (p *Provisioner) innerLoop() {
 // provisioning.
 func (p *Provisioner) Stop() error {
 	p.tomb.Kill(nil)
-	p.environment.invalidate()
-	p.machines.invalidate()
-	return p.tomb.Wait()
+	err1 := p.stopEnvironWatcher()
+	err2 := p.stopMachinesWatcher()
+	err3 := p.tomb.Wait()
+	for _, err := range []error{err3, err2, err1} {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (p *Provisioner) processMachines(changes *state.MachinesChange) {}
