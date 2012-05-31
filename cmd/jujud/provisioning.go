@@ -44,18 +44,22 @@ func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
 
 type Provisioner struct {
 	st      *state.State
-	environ environs.Environ // the provider this agent operates against.
+	environ environs.Environ
 	tomb    tomb.Tomb
 
 	environment
 	machines
 }
 
+// environment ensures that the watcher for the environ
+// configuration is valid.
 type environment struct {
 	st      *state.State
 	watcher *state.ConfigWatcher
 }
 
+// changes returns a channel that will receive the new *ConfigNode when a
+// change is detected. 
 func (e *environment) changes() <-chan *state.ConfigNode {
 	if e.watcher == nil {
 		e.watcher = e.st.WatchEnvironConfig()
@@ -63,6 +67,7 @@ func (e *environment) changes() <-chan *state.ConfigNode {
 	return e.watcher.Changes()
 }
 
+// invalidate stops the current watcher.
 func (e *environment) invalidate() {
 	if e.watcher != nil {
 		log.Printf("provisioner: environment watcher exited: %v", e.watcher.Stop())
@@ -70,11 +75,15 @@ func (e *environment) invalidate() {
 	e.watcher = nil
 }
 
+// machines ensures that the watcher for machines changes
+// is valid.
 type machines struct {
 	st      *state.State
 	watcher *state.MachinesWatcher
 }
 
+// changes returns a channel that will receive the new *ConfigNode when a
+// change is detected. 
 func (m *machines) changes() <-chan *state.MachinesChange {
 	if m.watcher == nil {
 		m.watcher = m.st.WatchMachines()
@@ -82,6 +91,7 @@ func (m *machines) changes() <-chan *state.MachinesChange {
 	return m.watcher.Changes()
 }
 
+// invalidate stops the current watcher.
 func (m *machines) invalidate() {
 	if m.watcher != nil {
 		log.Printf("provisioner: machines watcher exited: %v", m.watcher.Stop())
@@ -89,6 +99,7 @@ func (m *machines) invalidate() {
 	m.watcher = nil
 }
 
+// NewProvisioner returns a Provisioner.
 func NewProvisioner(st *state.State) *Provisioner {
 	p := &Provisioner{
 		st:          st,
@@ -149,6 +160,8 @@ func (p *Provisioner) innerLoop() {
 	}
 }
 
+// Stop stops the Provisioner and returns any error encountered while
+// provisioning.
 func (p *Provisioner) Stop() error {
 	p.tomb.Kill(nil)
 	p.environment.invalidate()
