@@ -29,53 +29,53 @@ func (e NoRelationError) Error() string {
 	panic("state: illegal relation")
 }
 
-// topTopology is used to marshal and unmarshal the content
+// topoTopology is used to marshal and unmarshal the content
 // of the /topology node in ZooKeeper.
-type topTopology struct {
+type topoTopology struct {
 	Version      int
-	Machines     map[string]*topMachine
-	Services     map[string]*topService
+	Machines     map[string]*topoMachine
+	Services     map[string]*topoService
 	UnitSequence map[string]int "unit-sequence"
-	Relations    map[string]*topRelation
+	Relations    map[string]*topoRelation
 }
 
-// topMachine represents the machine data within the /topology
+// topoMachine represents the machine data within the /topology
 // node in ZooKeeper.
-type topMachine struct {
+type topoMachine struct {
 }
 
-// topService represents the service data within the /topology
+// topoService represents the service data within the /topology
 // node in ZooKeeper.
-type topService struct {
+type topoService struct {
 	Name  string
-	Units map[string]*topUnit
+	Units map[string]*topoUnit
 }
 
-// topUnit represents the unit data within the /topology
+// topoUnit represents the unit data within the /topology
 // node in ZooKeeper.
-type topUnit struct {
+type topoUnit struct {
 	Sequence int
 	Machine  string
 }
 
-// topRelation represents the relation data within the 
+// topoRelation represents the relation data within the 
 // /topology node in ZooKeeper.
-type topRelation struct {
+type topoRelation struct {
 	Interface string
 	Scope     RelationScope
-	Services  map[RelationRole]*topRelationService
+	Services  map[RelationRole]*topoRelationService
 }
 
-// topRelationService represents the data of one
+// topoRelationService represents the data of one
 // service of a relation within the /topology
 // node in ZooKeeper.
-type topRelationService struct {
+type topoRelationService struct {
 	Service      string
 	RelationName string "relation-name"
 }
 
 // check verifies that r is a proper relation.
-func (r *topRelation) check() error {
+func (r *topoRelation) check() error {
 	if len(r.Interface) == 0 {
 		return fmt.Errorf("relation interface is empty")
 	}
@@ -111,7 +111,7 @@ func (r *topRelation) check() error {
 // topology is an internal helper that handles the content
 // of the /topology node in ZooKeeper.
 type topology struct {
-	topology *topTopology
+	topology *topoTopology
 }
 
 // readTopology connects ZooKeeper, retrieves the data as YAML,
@@ -145,11 +145,11 @@ func (t *topology) Version() int {
 // AddMachine adds a new machine to the topology.
 func (t *topology) AddMachine(key string) error {
 	if t.topology.Machines == nil {
-		t.topology.Machines = make(map[string]*topMachine)
+		t.topology.Machines = make(map[string]*topoMachine)
 	} else if t.HasMachine(key) {
 		return fmt.Errorf("attempted to add duplicated machine %q", key)
 	}
-	t.topology.Machines[key] = &topMachine{}
+	t.topology.Machines[key] = &topoMachine{}
 	return nil
 }
 
@@ -201,7 +201,7 @@ func (t *topology) MachineHasUnits(key string) (bool, error) {
 // AddService adds a new service to the topology.
 func (t *topology) AddService(key, name string) error {
 	if t.topology.Services == nil {
-		t.topology.Services = make(map[string]*topService)
+		t.topology.Services = make(map[string]*topoService)
 	}
 	if t.HasService(key) {
 		return fmt.Errorf("attempted to add duplicated service %q", key)
@@ -209,9 +209,9 @@ func (t *topology) AddService(key, name string) error {
 	if _, err := t.ServiceKey(name); err == nil {
 		return fmt.Errorf("service name %q already in use", name)
 	}
-	t.topology.Services[key] = &topService{
+	t.topology.Services[key] = &topoService{
 		Name:  name,
-		Units: make(map[string]*topUnit),
+		Units: make(map[string]*topoUnit),
 	}
 	if t.topology.UnitSequence == nil {
 		t.topology.UnitSequence = make(map[string]int)
@@ -294,7 +294,7 @@ func (t *topology) AddUnit(serviceKey, unitKey string) (int, error) {
 	// Add unit and increase sequence number.
 	svc := t.topology.Services[serviceKey]
 	sequenceNo := t.topology.UnitSequence[svc.Name]
-	svc.Units[unitKey] = &topUnit{Sequence: sequenceNo}
+	svc.Units[unitKey] = &topoUnit{Sequence: sequenceNo}
 	t.topology.UnitSequence[svc.Name] += 1
 	return sequenceNo, nil
 }
@@ -398,7 +398,7 @@ func (t *topology) UnassignUnitFromMachine(serviceKey, unitKey string) error {
 }
 
 // Relation returns the relation with key from the topology.
-func (t *topology) Relation(key string) (*topRelation, error) {
+func (t *topology) Relation(key string) (*topoRelation, error) {
 	if t.topology.Relations == nil || t.topology.Relations[key] == nil {
 		return nil, fmt.Errorf("relation %q does not exist", key)
 	}
@@ -406,9 +406,9 @@ func (t *topology) Relation(key string) (*topRelation, error) {
 }
 
 // AddRelation adds a new relation with the given key and relation data.
-func (t *topology) AddRelation(relationKey string, relation *topRelation) error {
+func (t *topology) AddRelation(relationKey string, relation *topoRelation) error {
 	if t.topology.Relations == nil {
-		t.topology.Relations = make(map[string]*topRelation)
+		t.topology.Relations = make(map[string]*topoRelation)
 	}
 	_, ok := t.topology.Relations[relationKey]
 	if ok {
@@ -451,11 +451,11 @@ func (t *topology) RemoveRelation(key string) {
 
 // RelationsForService returns all relations that the service
 // with serviceKey is part of.
-func (t *topology) RelationsForService(serviceKey string) (map[string]*topRelation, error) {
+func (t *topology) RelationsForService(serviceKey string) (map[string]*topoRelation, error) {
 	if err := t.assertService(serviceKey); err != nil {
 		return nil, err
 	}
-	relations := make(map[string]*topRelation)
+	relations := make(map[string]*topoRelation)
 	for relationKey, relation := range t.topology.Relations {
 		for _, service := range relation.Services {
 			if service.Service == serviceKey {
@@ -539,7 +539,7 @@ func (t *topology) assertRelation(relationKey string) error {
 
 // parseTopology returns the topology represented by yaml.
 func parseTopology(yaml string) (*topology, error) {
-	t := &topology{topology: &topTopology{Version: topologyVersion}}
+	t := &topology{topology: &topoTopology{Version: topologyVersion}}
 	if err := goyaml.Unmarshal([]byte(yaml), t.topology); err != nil {
 		return nil, err
 	}
@@ -559,7 +559,7 @@ func parseTopology(yaml string) (*topology, error) {
 func retryTopologyChange(zk *zookeeper.Conn, f func(t *topology) error) error {
 	change := func(yaml string, stat *zookeeper.Stat) (string, error) {
 		var err error
-		it := &topology{topology: &topTopology{Version: 1}}
+		it := &topology{topology: &topoTopology{Version: 1}}
 		if yaml != "" {
 			if it, err = parseTopology(yaml); err != nil {
 				return "", err
