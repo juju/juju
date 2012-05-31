@@ -20,7 +20,7 @@ func Main(args []string) {
 	jujud.Register(&InitzkCommand{})
 	jujud.Register(&UnitAgent{})
 	jujud.Register(&MachineAgent{})
-	jujud.Register(NewProvisioningAgent())
+	jujud.Register(&ProvisioningAgent{})
 	os.Exit(cmd.Main(jujud, cmd.DefaultContext(), args[1:]))
 }
 

@@ -65,7 +65,7 @@ func (s *ProvisioningSuite) TestParseUnknown(c *C) {
 
 func initProvisioningAgent() (*main.ProvisioningAgent, error) {
 	args := []string{"--zookeeper-servers", zkAddr}
-	c := main.NewProvisioningAgent()
+	c := &main.ProvisioningAgent{}
 	return c, initCmd(c, args)
 }
 

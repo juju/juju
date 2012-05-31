@@ -16,16 +16,6 @@ import (
 // ProvisioningAgent is a cmd.Command responsible for running a provisioning agent.
 type ProvisioningAgent struct {
 	Conf AgentConf
-
-	providerIdToInstance  map[string]environs.Instance
-	machineIdToProviderId map[int]string
-}
-
-func NewProvisioningAgent() *ProvisioningAgent {
-	return &ProvisioningAgent{
-		providerIdToInstance:  make(map[string]environs.Instance),
-		machineIdToProviderId: make(map[int]string),
-	}
 }
 
 // Info returns usage information for the command.
