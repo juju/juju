@@ -32,10 +32,10 @@ func (e NoRelationError) Error() string {
 // topoTopology is used to marshal and unmarshal the content
 // of the /topology node in ZooKeeper.
 type topoTopology struct {
-	Version   int
-	Machines  map[string]*topoMachine
-	Services  map[string]*topoService
-	Relations map[string]*topoRelation
+	Version      int
+	Machines     map[string]*topoMachine
+	Services     map[string]*topoService
+	Relations    map[string]*topoRelation
 }
 
 // topoMachine represents the machine data within the /topology
@@ -53,7 +53,7 @@ type topoService struct {
 // topoUnit represents the unit data within the /topology
 // node in ZooKeeper.
 type topoUnit struct {
-	Machine string
+	Machine  string
 }
 
 // topoRelation represents the relation data within the 
@@ -265,7 +265,7 @@ func (t *topology) ServiceName(key string) (string, error) {
 
 // HasUnit returns true if a unit with given service and unit keys exists.
 func (t *topology) HasUnit(unitKey string) bool {
-	_, _, err := t.unit(unitKey)
+	_, _, err := t.serviceAndUnit(unitKey)
 	return err == nil
 }
 
@@ -289,7 +289,7 @@ func (t *topology) AddUnit(unitKey string) error {
 
 // RemoveUnit removes a unit from a service.
 func (t *topology) RemoveUnit(unitKey string) error {
-	svc, _, err := t.unit(unitKey)
+	svc, _, err := t.serviceAndUnit(unitKey)
 	if err != nil {
 		return err
 	}
@@ -305,7 +305,7 @@ func (t *topology) UnitKeys(serviceKey string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	var keys []string
+	keys := []string{}
 	for key, _ := range svc.Units {
 		keys = append(keys, key)
 	}
@@ -315,7 +315,7 @@ func (t *topology) UnitKeys(serviceKey string) ([]string, error) {
 
 // UnitName returns the name of the unit with the given key.
 func (t *topology) UnitName(unitKey string) (string, error) {
-	svc, _, err := t.unit(unitKey)
+	svc, _, err := t.serviceAndUnit(unitKey)
 	if err != nil {
 		return "", err
 	}
@@ -328,7 +328,7 @@ var unitNotAssigned = errors.New("unit not assigned to machine")
 // UnitMachineKey returns the key of an assigned machine of the unit. If no machine
 // is assigned the error unitNotAssigned will be returned.
 func (t *topology) UnitMachineKey(unitKey string) (string, error) {
-	_, unit, err := t.unit(unitKey)
+	_, unit, err := t.serviceAndUnit(unitKey)
 	if err != nil {
 		return "", err
 	}
@@ -341,7 +341,7 @@ func (t *topology) UnitMachineKey(unitKey string) (string, error) {
 // AssignUnitToMachine assigns a unit to a machine. It is an error to reassign a 
 // unit that is already assigned
 func (t *topology) AssignUnitToMachine(unitKey string, machineKey string) error {
-	_, unit, err := t.unit(unitKey)
+	_, unit, err := t.serviceAndUnit(unitKey)
 	if err != nil {
 		return err
 	}
@@ -358,7 +358,7 @@ func (t *topology) AssignUnitToMachine(unitKey string, machineKey string) error 
 
 // UnassignUnitFromMachine unassigns the unit from its current machine.
 func (t *topology) UnassignUnitFromMachine(unitKey string) error {
-	_, unit, err := t.unit(unitKey)
+	_, unit, err := t.serviceAndUnit(unitKey)
 	if err != nil {
 		return err
 	}
@@ -489,8 +489,8 @@ func (t *topology) service(serviceKey string) (*topoService, error) {
 	return nil, fmt.Errorf("service with key %q not found", serviceKey)
 }
 
-// unit returns the service and unit for the given key.
-func (t *topology) unit(unitKey string) (*topoService, *topoUnit, error) {
+// serviceAndUnit returns the service and unit for the given unit key.
+func (t *topology) serviceAndUnit(unitKey string) (*topoService, *topoUnit, error) {
 	serviceKey, err := serviceKeyForUnitKey(unitKey)
 	if err != nil {
 		return nil, nil, err

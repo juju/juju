@@ -140,7 +140,7 @@ func (s *Service) Unit(name string) (*Unit, error) {
 
 	// Check that unit exists.
 	key := mkUnitKey(s.key, serviceId)
-	if _, _, err := topology.unit(key); err != nil {
+	if _, _, err := topology.serviceAndUnit(key); err != nil {
 		return nil, err
 	}
 	return &Unit{
