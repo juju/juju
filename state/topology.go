@@ -400,7 +400,7 @@ func (t *topology) UnassignUnitFromMachine(serviceKey, unitKey string) error {
 // Relation returns the relation with key from the topology.
 func (t *topology) Relation(key string) (*topoRelation, error) {
 	if t.topology.Relations == nil || t.topology.Relations[key] == nil {
-		return nil, fmt.Errorf("relation %q does not exist", key)
+		return nil, fmt.Errorf("relation does not exist")
 	}
 	return t.topology.Relations[key], nil
 }
@@ -445,8 +445,12 @@ func (t *topology) RelationKeys() []string {
 }
 
 // RemoveRelation removes the relation with key from the topology.
-func (t *topology) RemoveRelation(key string) {
+func (t *topology) RemoveRelation(key string) error {
+	if err := t.assertRelation(key); err != nil {
+		return err
+	}
 	delete(t.topology.Relations, key)
+	return nil
 }
 
 // RelationsForService returns all relations that the service

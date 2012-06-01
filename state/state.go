@@ -377,10 +377,9 @@ func (s *State) RemoveRelation(relation *Relation) error {
 	removeRelation := func(t *topology) error {
 		_, err := t.Relation(relation.key)
 		if err != nil {
-			return err
+			return fmt.Errorf("can't remove relation: %v", err)
 		}
-		t.RemoveRelation(relation.key)
-		return nil
+		return t.RemoveRelation(relation.key)
 	}
 	return retryTopologyChange(s.zk, removeRelation)
 }

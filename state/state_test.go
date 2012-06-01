@@ -1128,7 +1128,9 @@ func (s *StateSuite) TestRemoveRelation(c *C) {
 	err = s.st.RemoveRelation(relation)
 	hasRelation, err = state.HasRelation(s.st, relation)
 	c.Assert(hasRelation, Equals, false)
-	c.Assert(err, ErrorMatches, `relation "relation-0000000000" does not exist`)
+	c.Assert(err, ErrorMatches, `relation does not exist`)
+	err = s.st.RemoveRelation(relation)
+	c.Assert(err, ErrorMatches, `can't remove relation: relation does not exist`)
 }
 
 func (s *StateSuite) TestRemoveRServiceRelation(c *C) {
@@ -1144,5 +1146,5 @@ func (s *StateSuite) TestRemoveRServiceRelation(c *C) {
 	err = s.st.RemoveRelation(serviceRelations[0].Relation())
 	hasRelation, err = state.HasRelation(s.st, serviceRelations[0].Relation())
 	c.Assert(hasRelation, Equals, false)
-	c.Assert(err, ErrorMatches, `relation "relation-0000000000" does not exist`)
+	c.Assert(err, ErrorMatches, `relation does not exist`)
 }
