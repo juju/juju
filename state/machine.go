@@ -90,7 +90,7 @@ func keyToId(key string) (id int) {
 	if key == "" {
 		panic("keyToId: empty key")
 	}
-	i := strings.Index(key, "-")
+	i := strings.LastIndex(key, "-")
 	var id64 int64
 	var err error
 	if i >= 0 {

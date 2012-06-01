@@ -7,6 +7,7 @@ import (
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/state/presence"
+	"local/runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -54,15 +55,10 @@ type openPortsNode struct {
 	Open []Port
 }
 
-type unitKey struct {
-	service string
-	unit    string
-}
-
 // Unit represents the state of a service unit.
 type Unit struct {
 	st          *State
-	key         unitKey
+	key         string
 	serviceName string
 }
 
@@ -73,7 +69,28 @@ func (u *Unit) ServiceName() string {
 
 // Name returns the unit name.
 func (u *Unit) Name() string {
-	return fmt.Sprintf("%s/%d", u.serviceName, keyToId(u.key.unit))
+	return fmt.Sprintf("%s/%d", u.serviceName, keyToId(u.key))
+}
+
+// mkUnitKey returns a unit key made up from the service key
+// and the unit id within the service.
+func mkUnitKey(serviceKey string, unitId int) string {
+	if !strings.HasPrefix(serviceKey, "service-") {
+		panic(fmt.Errorf("invalid service key %q", serviceKey))
+	}
+	return fmt.Sprintf("unit-%s-%010d", serviceKey[len("service-"):], unitId)
+}
+
+func serviceKeyForUnitKey(unitKey string) (string, error) {
+	if !strings.HasPrefix(unitKey, "unit-") {
+		return "", fmt.Errorf("invalid unit key %q (1) %s", unitKey, debug.Callers(0, 10))
+	}
+	k := unitKey[len("unit-"):]
+	i := strings.Index(k, "-")
+	if i <= 0 {
+		return "", fmt.Errorf("invalid unit key %q (2) %s", unitKey, debug.Callers(0, 10))
+	}
+	return "service-" + k[0:i], nil
 }
 
 // PublicAddress returns the public address of the unit.
@@ -469,7 +486,11 @@ func (u *Unit) SetAgentAlive() (*presence.Pinger, error) {
 
 // zkPath returns the ZooKeeper base path for the unit.
 func (u *Unit) zkPath() string {
-	return fmt.Sprintf("/services/%s/units/%s", u.key.service, u.key.unit)
+	skey, err := serviceKeyForUnitKey(u.key)
+	if err != nil {
+		panic(err)
+	}
+	return fmt.Sprintf("/services/%s/units/%s", skey, u.key)
 }
 
 // zkPortsPath returns the ZooKeeper path for the open ports.

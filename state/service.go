@@ -11,6 +11,7 @@ import (
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
 	pathPkg "path"
+	"strings"
 )
 
 // Service represents the state of a service.
@@ -77,21 +78,25 @@ func (s *Service) AddUnit() (*Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	path, err := s.st.zk.Create(s.zkPath()+"/units/unit-", string(unitYaml), zookeeper.SEQUENCE, zkPermAll)
+	// Make a unit key and strip off the last number
+	// so that we can use it as a template in Create.
+	kprefix := mkUnitKey(s.key, 0)
+	kprefix = kprefix[:strings.LastIndex(kprefix, "-")+1]
+	path, err := s.st.zk.Create(s.zkPath()+"/units/"+kprefix, string(unitYaml), zookeeper.SEQUENCE, zkPermAll)
 	if err != nil {
 		return nil, err
 	}
-	ukey := unitKey{service: s.key, unit: pathPkg.Base(path)}
+	key := pathPkg.Base(path)
 	addUnit := func(t *topology) error {
-		if !t.HasService(ukey.service) {
+		if !t.HasService(s.key) {
 			return stateChanged
 		}
-		return t.AddUnit(ukey)
+		return t.AddUnit(key)
 	}
 	if err := retryTopologyChange(s.st.zk, addUnit); err != nil {
 		return nil, err
 	}
-	return &Unit{s.st, ukey, s.name}, nil
+	return &Unit{s.st, key, s.name}, nil
 }
 
 // RemoveUnit() removes a unit.
@@ -132,10 +137,10 @@ func (s *Service) Unit(name string) (*Unit, error) {
 	if !topology.HasService(s.key) {
 		return nil, stateChanged
 	}
-	key := unitKey{service: s.key, unit: fmt.Sprintf("unit-%010d", serviceId)}
 
 	// Check that unit exists.
-	if err := topology.assertUnit(key); err != nil {
+	key := mkUnitKey(s.key, serviceId)
+	if _, _, err := topology.unit(key); err != nil {
 		return nil, err
 	}
 	return &Unit{

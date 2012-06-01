@@ -4,7 +4,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
-	"sort"
 )
 
 type TopologySuite struct {
@@ -71,9 +70,10 @@ func (s *TopologySuite) TestRemoveMachine(c *C) {
 	c.Assert(err, IsNil)
 	// Add non-assigned unit. This tests that the logic of
 	// checking for assigned units works correctly too.
-	err = s.t.AddService("s-0", "wordpress")
+	err = s.t.AddService("service-0", "wordpress")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
+	err = s.t.AddUnit("unit-0-0")
+
 	c.Assert(err, IsNil)
 
 	err = s.t.RemoveMachine("m-0")
@@ -95,13 +95,13 @@ func (s *TopologySuite) TestRemoveMachineWithAssignedUnits(c *C) {
 	// Check that a machine can't be removed when it has assigned units.
 	err := s.t.AddMachine("m-0")
 	c.Assert(err, IsNil)
-	err = s.t.AddService("s-0", "wordpress")
+	err = s.t.AddService("service-0", "wordpress")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
+	err = s.t.AddUnit("unit-0-0")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit(unitKey{"s-0", "u-1"})
+	err = s.t.AddUnit("unit-0-1")
 	c.Assert(err, IsNil)
-	err = s.t.AssignUnitToMachine(unitKey{"s-0", "u-1"}, "m-0")
+	err = s.t.AssignUnitToMachine("unit-0-1", "m-0")
 	c.Assert(err, IsNil)
 	err = s.t.RemoveMachine("m-0")
 	c.Assert(err, ErrorMatches, `can't remove machine "m-0" while units ared assigned`)
@@ -114,13 +114,13 @@ func (s *TopologySuite) TestMachineHasUnits(c *C) {
 	c.Assert(err, IsNil)
 	err = s.t.AddMachine("m-1")
 	c.Assert(err, IsNil)
-	err = s.t.AddService("s-0", "wordpress")
+	err = s.t.AddService("service-0", "wordpress")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
+	err = s.t.AddUnit("unit-0-0")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit(unitKey{"s-0", "u-1"})
+	err = s.t.AddUnit("unit-0-1")
 	c.Assert(err, IsNil)
-	err = s.t.AssignUnitToMachine(unitKey{"s-0", "u-1"}, "m-0")
+	err = s.t.AssignUnitToMachine("unit-0-1", "m-0")
 	c.Assert(err, IsNil)
 	ok, err := s.t.MachineHasUnits("m-0")
 	c.Assert(err, IsNil)
@@ -158,34 +158,34 @@ func (s *TopologySuite) TestMachineKeys(c *C) {
 
 func (s *TopologySuite) TestAddService(c *C) {
 	// Check that adding services works correctly.
-	c.Assert(s.t.HasService("s-0"), Equals, false)
-	err := s.t.AddService("s-0", "wordpress")
+	c.Assert(s.t.HasService("service-0"), Equals, false)
+	err := s.t.AddService("service-0", "wordpress")
 	c.Assert(err, IsNil)
-	err = s.t.AddService("s-1", "mysql")
+	err = s.t.AddService("service-1", "mysql")
 	c.Assert(err, IsNil)
-	c.Assert(s.t.HasService("s-0"), Equals, true)
-	c.Assert(s.t.HasService("s-1"), Equals, true)
+	c.Assert(s.t.HasService("service-0"), Equals, true)
+	c.Assert(s.t.HasService("service-1"), Equals, true)
 }
 
 func (s *TopologySuite) TestAddDuplicatedService(c *C) {
 	// Check that adding a duplicated service by key or name fails.
-	err := s.t.AddService("s-0", "wordpress")
+	err := s.t.AddService("service-0", "wordpress")
 	c.Assert(err, IsNil)
-	err = s.t.AddService("s-0", "mysql")
-	c.Assert(err, ErrorMatches, `attempted to add duplicated service "s-0"`)
-	err = s.t.AddService("s-1", "wordpress")
+	err = s.t.AddService("service-0", "mysql")
+	c.Assert(err, ErrorMatches, `attempted to add duplicated service "service-0"`)
+	err = s.t.AddService("service-1", "wordpress")
 	c.Assert(err, ErrorMatches, `service name "wordpress" already in use`)
 }
 
 func (s *TopologySuite) TestHasService(c *C) {
 	// Check that the test for a service works correctly.
-	found := s.t.HasService("s-0")
+	found := s.t.HasService("service-0")
 	c.Assert(found, Equals, false)
-	err := s.t.AddService("s-0", "wordpress")
+	err := s.t.AddService("service-0", "wordpress")
 	c.Assert(err, IsNil)
-	found = s.t.HasService("s-0")
+	found = s.t.HasService("service-0")
 	c.Assert(found, Equals, true)
-	found = s.t.HasService("s-1")
+	found = s.t.HasService("service-1")
 	c.Assert(found, Equals, false)
 }
 
@@ -193,193 +193,175 @@ func (s *TopologySuite) TestServiceKey(c *C) {
 	// Check that the key retrieval for a service name works correctly.
 	key, err := s.t.ServiceKey("wordpress")
 	c.Assert(err, ErrorMatches, `service with name "wordpress" not found`)
-	err = s.t.AddService("s-0", "wordpress")
+	err = s.t.AddService("service-0", "wordpress")
 	c.Assert(err, IsNil)
 	key, err = s.t.ServiceKey("wordpress")
 	c.Assert(err, IsNil)
-	c.Assert(key, Equals, "s-0")
+	c.Assert(key, Equals, "service-0")
 }
 
 func (s *TopologySuite) TestServiceKeys(c *C) {
 	// Check that the retrieval of all services keys works correctly.
 	keys := s.t.ServiceKeys()
 	c.Assert(keys, DeepEquals, []string{})
-	err := s.t.AddService("s-0", "wordpress")
+	err := s.t.AddService("service-0", "wordpress")
 	c.Assert(err, IsNil)
-	err = s.t.AddService("s-1", "mysql")
+	err = s.t.AddService("service-1", "mysql")
 	c.Assert(err, IsNil)
 	keys = s.t.ServiceKeys()
-	c.Assert(keys, DeepEquals, []string{"s-0", "s-1"})
+	c.Assert(keys, DeepEquals, []string{"service-0", "service-1"})
 }
 
 func (s *TopologySuite) TestServiceName(c *C) {
 	// Check that the name retrieval for a service name works correctly.
-	name, err := s.t.ServiceName("s-0")
-	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
-	err = s.t.AddService("s-0", "wordpress")
+	name, err := s.t.ServiceName("service-0")
+	c.Assert(err, ErrorMatches, `service with key "service-0" not found`)
+	err = s.t.AddService("service-0", "wordpress")
 	c.Assert(err, IsNil)
-	name, err = s.t.ServiceName("s-0")
+	name, err = s.t.ServiceName("service-0")
 	c.Assert(err, IsNil)
 	c.Assert(name, Equals, "wordpress")
 }
 
 func (s *TopologySuite) TestRemoveService(c *C) {
 	// Check that the removing of a service works correctly.
-	err := s.t.AddService("s-0", "wordpress")
+	err := s.t.AddService("service-0", "wordpress")
 	c.Assert(err, IsNil)
-	err = s.t.AddService("s-1", "mysql")
+	err = s.t.AddService("service-1", "mysql")
 	c.Assert(err, IsNil)
-	err = s.t.RemoveService("s-0")
+	err = s.t.RemoveService("service-0")
 	c.Assert(err, IsNil)
-	c.Assert(s.t.HasService("s-0"), Equals, false)
-	c.Assert(s.t.HasService("s-1"), Equals, true)
+	c.Assert(s.t.HasService("service-0"), Equals, false)
+	c.Assert(s.t.HasService("service-1"), Equals, true)
 }
 
 func (s *TopologySuite) TestRemoveNonExistentService(c *C) {
 	// Check that the removing of a non-existent service fails.
-	err := s.t.RemoveService("s-99")
-	c.Assert(err, ErrorMatches, `service with key "s-99" not found`)
+	err := s.t.RemoveService("service-99")
+	c.Assert(err, ErrorMatches, `service with key "service-99" not found`)
 }
 
 func (s *TopologySuite) TestAddUnit(c *C) {
 	// Check that the adding of a unit works correctly.
-	err := s.t.AddService("s-0", "wordpress")
+	err := s.t.AddService("service-0", "wordpress")
 	c.Assert(err, IsNil)
-	err = s.t.AddService("s-1", "mysql")
+	err = s.t.AddService("service-1", "mysql")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit(unitKey{"s-0", "u-05"})
+	err = s.t.AddUnit("unit-0-05")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit(unitKey{"s-0", "u-12"})
+	err = s.t.AddUnit("unit-0-12")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit(unitKey{"s-1", "u-07"})
+	err = s.t.AddUnit("unit-1-07")
 	c.Assert(err, IsNil)
-	keys, err := s.t.UnitKeys("s-0")
-	sort.Sort(unitKeySlice(keys))
+	keys, err := s.t.UnitKeys("service-0")
 	c.Assert(err, IsNil)
-	c.Assert(keys, DeepEquals, []unitKey{{"s-0", "u-05"}, {"s-0", "u-12"}})
-	keys, err = s.t.UnitKeys("s-1")
+	c.Assert(keys, DeepEquals, []string{"unit-0-05", "unit-0-12"})
+	keys, err = s.t.UnitKeys("service-1")
 	c.Assert(err, IsNil)
-	c.Assert(keys, DeepEquals, []unitKey{{"s-1", "u-07"}})
-}
-
-type unitKeySlice []unitKey
-
-func (s unitKeySlice) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
-}
-func (s unitKeySlice) Less(i, j int) bool {
-	if s[i].service == s[j].service {
-		return s[i].unit < s[j].unit
-	}
-	return s[i].service < s[j].service
-}
-func (s unitKeySlice) Len() int {
-	return len(s)
+	c.Assert(keys, DeepEquals, []string{"unit-1-07"})
 }
 
 func (s *TopologySuite) TestGlobalUniqueUnitNames(c *C) {
 	// Check that even if the underlying service is destroyed
 	// and a new one with the same name is created we'll never
 	// get a duplicate unit name.
-	err := s.t.AddService("s-0", "wordpress")
+	err := s.t.AddService("service-0", "wordpress")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
+	err = s.t.AddUnit("unit-0-0")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit(unitKey{"s-0", "u-1"})
+	err = s.t.AddUnit("unit-0-1")
 	c.Assert(err, IsNil)
-	err = s.t.RemoveService("s-0")
+	err = s.t.RemoveService("service-0")
 	c.Assert(err, IsNil)
-	err = s.t.AddService("s-0", "wordpress")
+	err = s.t.AddService("service-0", "wordpress")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit(unitKey{"s-0", "u-1"})
+	err = s.t.AddUnit("unit-0-1")
 	c.Assert(err, IsNil)
-	name, err := s.t.UnitName(unitKey{"s-0", "u-1"})
+	name, err := s.t.UnitName("unit-0-1")
 	c.Assert(err, IsNil)
 	c.Assert(name, Equals, "wordpress/1")
 }
 
 func (s *TopologySuite) TestAddDuplicatedUnit(c *C) {
 	// Check that it's not possible to add a unit twice.
-	err := s.t.AddService("s-0", "wordpress")
+	err := s.t.AddService("service-0", "wordpress")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
+	err = s.t.AddUnit("unit-0-0")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
-	c.Assert(err, ErrorMatches, `unit "u-0" already in use in service "s-0"`)
+	err = s.t.AddUnit("unit-0-0")
+	c.Assert(err, ErrorMatches, `unit "unit-0-0" already in use`)
 }
 
 func (s *TopologySuite) TestAddUnitToNonExistingService(c *C) {
 	// Check that the adding of a unit to a non-existing services
 	// fails correctly.
-	err := s.t.AddUnit(unitKey{"s-0", "u-0"})
-	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
+	err := s.t.AddUnit("unit-0-0")
+	c.Assert(err, ErrorMatches, `service with key "service-0" not found`)
 }
 
 func (s *TopologySuite) TestUnitKeys(c *C) {
 	// Check if registered units from a service are returned correctly.
-	err := s.t.AddService("s-0", "wordpress")
+	err := s.t.AddService("service-0", "wordpress")
 	c.Assert(err, IsNil)
-	err = s.t.AddService("s-1", "mysql")
+	err = s.t.AddService("service-1", "mysql")
 	c.Assert(err, IsNil)
-	units, err := s.t.UnitKeys("s-0")
+	units, err := s.t.UnitKeys("service-0")
 	c.Assert(err, IsNil)
-	c.Assert(units, DeepEquals, []unitKey{})
-	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
+	c.Assert(units, HasLen, 0)
+	err = s.t.AddUnit("unit-0-0")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit(unitKey{"s-0", "u-1"})
+	err = s.t.AddUnit("unit-0-1")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit(unitKey{"s-1", "u-2"})
+	err = s.t.AddUnit("unit-1-2")
 	c.Assert(err, IsNil)
-	units, err = s.t.UnitKeys("s-0")
+	units, err = s.t.UnitKeys("service-0")
 	c.Assert(err, IsNil)
-	sort.Sort(unitKeySlice(units))
-	c.Assert(units, DeepEquals, []unitKey{{"s-0", "u-0"}, {"s-0", "u-1"}})
-	units, err = s.t.UnitKeys("s-1")
+	c.Assert(units, DeepEquals, []string{"unit-0-0", "unit-0-1"})
+	units, err = s.t.UnitKeys("service-1")
 	c.Assert(err, IsNil)
-	sort.Sort(unitKeySlice(units))
-	c.Assert(units, DeepEquals, []unitKey{{"s-1", "u-2"}})
+	c.Assert(units, DeepEquals, []string{"unit-1-2"})
 }
 
 func (s *TopologySuite) TestUnitKeysWithNonExistingService(c *C) {
 	// Check if the retrieving of unit keys from a non-existing
 	// service fails correctly.
-	_, err := s.t.UnitKeys("s-0")
-	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
+	_, err := s.t.UnitKeys("service-0")
+	c.Assert(err, ErrorMatches, `service with key "service-0" not found`)
 }
 
 func (s *TopologySuite) TestHasUnit(c *C) {
 	// Check that the test for a unit in a service works correctly.
-	err := s.t.AddService("s-0", "wordpress")
+	err := s.t.AddService("service-0", "wordpress")
 	c.Assert(err, IsNil)
-	found := s.t.HasUnit(unitKey{"s-0", "u-0"})
+	found := s.t.HasUnit("unit-0-0")
 	c.Assert(found, Equals, false)
-	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
+	err = s.t.AddUnit("unit-0-0")
 	c.Assert(err, IsNil)
-	found = s.t.HasUnit(unitKey{"s-0", "u-0"})
+	found = s.t.HasUnit("unit-0-0")
 	c.Assert(found, Equals, true)
-	found = s.t.HasUnit(unitKey{"s-0", "u-1"})
+	found = s.t.HasUnit("unit-0-1")
 	c.Assert(found, Equals, false)
 }
 
 func (s *TopologySuite) TestUnitName(c *C) {
 	// Check that the human readable names are returned correctly.
-	err := s.t.AddService("s-0", "wordpress")
+	err := s.t.AddService("service-0", "wordpress")
 	c.Assert(err, IsNil)
-	err = s.t.AddService("s-1", "mysql")
+	err = s.t.AddService("service-1", "mysql")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
+	err = s.t.AddUnit("unit-0-0")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit(unitKey{"s-0", "u-1"})
+	err = s.t.AddUnit("unit-0-1")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit(unitKey{"s-1", "u-2"})
+	err = s.t.AddUnit("unit-1-2")
 	c.Assert(err, IsNil)
-	name, err := s.t.UnitName(unitKey{"s-0", "u-0"})
+	name, err := s.t.UnitName("unit-0-0")
 	c.Assert(err, IsNil)
 	c.Assert(name, Equals, "wordpress/0")
-	name, err = s.t.UnitName(unitKey{"s-0", "u-1"})
+	name, err = s.t.UnitName("unit-0-1")
 	c.Assert(err, IsNil)
 	c.Assert(name, Equals, "wordpress/1")
-	name, err = s.t.UnitName(unitKey{"s-1", "u-2"})
+	name, err = s.t.UnitName("unit-1-2")
 	c.Assert(err, IsNil)
 	c.Assert(name, Equals, "mysql/2")
 }
@@ -387,42 +369,42 @@ func (s *TopologySuite) TestUnitName(c *C) {
 func (s *TopologySuite) TestUnitNameWithNonExistingServiceOrUnit(c *C) {
 	// Check if the retrieval of unit names fails if the service
 	// or the unit doesn't exist.
-	_, err := s.t.UnitName(unitKey{"s-0", "u-1"})
-	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
-	err = s.t.AddService("s-0", "wordpress")
+	_, err := s.t.UnitName("unit-0-1")
+	c.Assert(err, ErrorMatches, `service with key "service-0" not found`)
+	err = s.t.AddService("service-0", "wordpress")
 	c.Assert(err, IsNil)
-	_, err = s.t.UnitName(unitKey{"s-0", "u-1"})
-	c.Assert(err, ErrorMatches, `unit with key "u-1" not found`)
-	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
+	_, err = s.t.UnitName("unit-0-1")
+	c.Assert(err, ErrorMatches, `unit with key "unit-0-1" not found`)
+	err = s.t.AddUnit("unit-0-0")
 	c.Assert(err, IsNil)
-	_, err = s.t.UnitName(unitKey{"s-0", "u-1"})
-	c.Assert(err, ErrorMatches, `unit with key "u-1" not found`)
+	_, err = s.t.UnitName("unit-0-1")
+	c.Assert(err, ErrorMatches, `unit with key "unit-0-1" not found`)
 }
 
 func (s *TopologySuite) TestRemoveUnit(c *C) {
 	// Check that the removing of a unit works correctly.
-	err := s.t.AddService("s-0", "wordpress")
+	err := s.t.AddService("service-0", "wordpress")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
+	err = s.t.AddUnit("unit-0-0")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit(unitKey{"s-0", "u-1"})
+	err = s.t.AddUnit("unit-0-1")
 	c.Assert(err, IsNil)
-	err = s.t.RemoveUnit(unitKey{"s-0", "u-0"})
+	err = s.t.RemoveUnit("unit-0-0")
 	c.Assert(err, IsNil)
-	found := s.t.HasUnit(unitKey{"s-0", "u-0"})
+	found := s.t.HasUnit("unit-0-0")
 	c.Assert(found, Equals, false)
-	found = s.t.HasUnit(unitKey{"s-0", "u-1"})
+	found = s.t.HasUnit("unit-0-1")
 	c.Assert(found, Equals, true)
 }
 
 func (s *TopologySuite) TestRemoveNonExistingUnit(c *C) {
 	// Check that the removing of non-existing units fails.
-	err := s.t.RemoveUnit(unitKey{"s-0", "u-0"})
-	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
-	err = s.t.AddService("s-0", "wordpress")
+	err := s.t.RemoveUnit("unit-0-0")
+	c.Assert(err, ErrorMatches, `service with key "service-0" not found`)
+	err = s.t.AddService("service-0", "wordpress")
 	c.Assert(err, IsNil)
-	err = s.t.RemoveUnit(unitKey{"s-0", "u-0"})
-	c.Assert(err, ErrorMatches, `unit with key "u-0" not found`)
+	err = s.t.RemoveUnit("unit-0-0")
+	c.Assert(err, ErrorMatches, `unit with key "unit-0-0" not found`)
 }
 
 func (s *TopologySuite) TestRelation(c *C) {
@@ -430,16 +412,16 @@ func (s *TopologySuite) TestRelation(c *C) {
 	relation, err := s.t.Relation("r-1")
 	c.Assert(relation, IsNil)
 	c.Assert(err, ErrorMatches, `relation "r-1" does not exist`)
-	s.t.AddService("s-p", "riak")
+	s.t.AddService("service-p", "riak")
 	s.t.AddRelation("r-1", &topoRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services:  map[RelationRole]*topoRelationService{RolePeer: &topoRelationService{"s-p", "cache"}},
+		Services:  map[RelationRole]*topoRelationService{RolePeer: &topoRelationService{"service-p", "cache"}},
 	})
 	relation, err = s.t.Relation("r-1")
 	c.Assert(err, IsNil)
 	c.Assert(relation, NotNil)
-	c.Assert(relation.Services[RolePeer].Service, Equals, "s-p")
+	c.Assert(relation.Services[RolePeer].Service, Equals, "service-p")
 }
 
 func (s *TopologySuite) TestAddRelation(c *C) {
@@ -448,29 +430,29 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 	relation, err := s.t.Relation("r-1")
 	c.Assert(relation, IsNil)
 	c.Assert(err, ErrorMatches, `relation "r-1" does not exist`)
-	s.t.AddService("s-p", "mysql")
-	s.t.AddService("s-r", "wordpress")
+	s.t.AddService("service-p", "mysql")
+	s.t.AddService("service-r", "wordpress")
 	err = s.t.AddRelation("r-1", &topoRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
 		Services: map[RelationRole]*topoRelationService{
-			RoleProvider: &topoRelationService{"s-p", "db"},
-			RoleRequirer: &topoRelationService{"s-r", "db"},
+			RoleProvider: &topoRelationService{"service-p", "db"},
+			RoleRequirer: &topoRelationService{"service-r", "db"},
 		},
 	})
 	c.Assert(err, IsNil)
 	relation, err = s.t.Relation("r-1")
 	c.Assert(err, IsNil)
 	c.Assert(relation, NotNil)
-	c.Assert(relation.Services[RoleProvider].Service, Equals, "s-p")
-	c.Assert(relation.Services[RoleRequirer].Service, Equals, "s-r")
+	c.Assert(relation.Services[RoleProvider].Service, Equals, "service-p")
+	c.Assert(relation.Services[RoleRequirer].Service, Equals, "service-r")
 
 	err = s.t.AddRelation("r-2", &topoRelation{
 		Interface: "",
 		Scope:     ScopeGlobal,
 		Services: map[RelationRole]*topoRelationService{
-			RoleProvider: &topoRelationService{"s-p", "db"},
-			RoleRequirer: &topoRelationService{"s-r", "db"},
+			RoleProvider: &topoRelationService{"service-p", "db"},
+			RoleRequirer: &topoRelationService{"service-r", "db"},
 		},
 	})
 	c.Assert(err, ErrorMatches, `relation interface is empty`)
@@ -486,7 +468,7 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
 		Services: map[RelationRole]*topoRelationService{
-			RoleProvider: &topoRelationService{"s-p", "db"},
+			RoleProvider: &topoRelationService{"service-p", "db"},
 		},
 	})
 	c.Assert(err, ErrorMatches, `relation has provider but no requirer`)
@@ -495,8 +477,8 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
 		Services: map[RelationRole]*topoRelationService{
-			RoleProvider: &topoRelationService{"s-p", "db"},
-			RolePeer:     &topoRelationService{"s-r", "db"},
+			RoleProvider: &topoRelationService{"service-p", "db"},
+			RolePeer:     &topoRelationService{"service-r", "db"},
 		},
 	})
 	c.Assert(err, ErrorMatches, `relation has provider but no requirer`)
@@ -505,9 +487,9 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
 		Services: map[RelationRole]*topoRelationService{
-			RoleProvider: &topoRelationService{"s-p", "db"},
-			RoleRequirer: &topoRelationService{"s-r", "db"},
-			RolePeer:     &topoRelationService{"s-r", "db"},
+			RoleProvider: &topoRelationService{"service-p", "db"},
+			RoleRequirer: &topoRelationService{"service-r", "db"},
+			RolePeer:     &topoRelationService{"service-r", "db"},
 		},
 	})
 	c.Assert(err, ErrorMatches, `relation with mixed peer, provider, and requirer roles`)
@@ -516,7 +498,7 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
 		Services: map[RelationRole]*topoRelationService{
-			RoleProvider: &topoRelationService{"s-p", "db"},
+			RoleProvider: &topoRelationService{"service-p", "db"},
 			RoleRequirer: &topoRelationService{"illegal", "db"},
 		},
 	})
@@ -526,8 +508,8 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
 		Services: map[RelationRole]*topoRelationService{
-			RoleProvider: &topoRelationService{"s-p", "db"},
-			RoleRequirer: &topoRelationService{"s-r", "db"},
+			RoleProvider: &topoRelationService{"service-p", "db"},
+			RoleRequirer: &topoRelationService{"service-r", "db"},
 		},
 	})
 	c.Assert(err, ErrorMatches, `relation key "r-1" already in use`)
@@ -538,12 +520,12 @@ func (s *TopologySuite) TestRelationKeys(c *C) {
 	keys := s.t.RelationKeys()
 	c.Assert(keys, DeepEquals, []string{})
 
-	s.t.AddService("s-p", "riak")
+	s.t.AddService("service-p", "riak")
 	s.t.AddRelation("r-1", &topoRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
 		Services: map[RelationRole]*topoRelationService{
-			RolePeer: &topoRelationService{"s-p", "cache"},
+			RolePeer: &topoRelationService{"service-p", "cache"},
 		},
 	})
 	keys = s.t.RelationKeys()
@@ -553,7 +535,7 @@ func (s *TopologySuite) TestRelationKeys(c *C) {
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
 		Services: map[RelationRole]*topoRelationService{
-			RolePeer: &topoRelationService{"s-p", "cache"},
+			RolePeer: &topoRelationService{"service-p", "cache"},
 		},
 	})
 	keys = s.t.RelationKeys()
@@ -562,8 +544,8 @@ func (s *TopologySuite) TestRelationKeys(c *C) {
 
 func (s *TopologySuite) TestRelationsForService(c *C) {
 	// Check that fetching the relations for a service works.
-	s.t.AddService("s-p", "riak")
-	relations, err := s.t.RelationsForService("s-p")
+	s.t.AddService("service-p", "riak")
+	relations, err := s.t.RelationsForService("service-p")
 	c.Assert(err, IsNil)
 	c.Assert(relations, HasLen, 0)
 
@@ -571,24 +553,24 @@ func (s *TopologySuite) TestRelationsForService(c *C) {
 		Interface: "ifce0",
 		Scope:     ScopeGlobal,
 		Services: map[RelationRole]*topoRelationService{
-			RolePeer: &topoRelationService{"s-p", "cache"},
+			RolePeer: &topoRelationService{"service-p", "cache"},
 		},
 	})
 	s.t.AddRelation("r-1", &topoRelation{
 		Interface: "ifce1",
 		Scope:     ScopeGlobal,
 		Services: map[RelationRole]*topoRelationService{
-			RolePeer: &topoRelationService{"s-p", "cache"},
+			RolePeer: &topoRelationService{"service-p", "cache"},
 		},
 	})
-	relations, err = s.t.RelationsForService("s-p")
+	relations, err = s.t.RelationsForService("service-p")
 	c.Assert(err, IsNil)
 	c.Assert(relations, HasLen, 2)
 	c.Assert(relations["r-0"].Interface, Equals, "ifce0")
 	c.Assert(relations["r-1"].Interface, Equals, "ifce1")
 
 	s.t.RemoveRelation("r-0")
-	relations, err = s.t.RelationsForService("s-p")
+	relations, err = s.t.RelationsForService("service-p")
 	c.Assert(err, IsNil)
 	c.Assert(relations, HasLen, 1)
 	c.Assert(relations["r-1"].Interface, Equals, "ifce1")
@@ -596,15 +578,15 @@ func (s *TopologySuite) TestRelationsForService(c *C) {
 
 func (s *TopologySuite) TestRemoveRelation(c *C) {
 	// Check that removing of a relation works.
-	s.t.AddService("s-r", "wordpress")
-	s.t.AddService("s-p", "mysql")
+	s.t.AddService("service-r", "wordpress")
+	s.t.AddService("service-p", "mysql")
 
 	err := s.t.AddRelation("r-1", &topoRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
 		Services: map[RelationRole]*topoRelationService{
-			RoleProvider: &topoRelationService{"s-p", "db"},
-			RoleRequirer: &topoRelationService{"s-r", "db"},
+			RoleProvider: &topoRelationService{"service-p", "db"},
+			RoleRequirer: &topoRelationService{"service-r", "db"},
 		},
 	})
 	c.Assert(err, IsNil)
@@ -612,8 +594,8 @@ func (s *TopologySuite) TestRemoveRelation(c *C) {
 	relation, err := s.t.Relation("r-1")
 	c.Assert(err, IsNil)
 	c.Assert(relation, NotNil)
-	c.Assert(relation.Services[RoleProvider].Service, Equals, "s-p")
-	c.Assert(relation.Services[RoleRequirer].Service, Equals, "s-r")
+	c.Assert(relation.Services[RoleProvider].Service, Equals, "service-p")
+	c.Assert(relation.Services[RoleRequirer].Service, Equals, "service-r")
 
 	s.t.RemoveRelation("r-1")
 
@@ -625,17 +607,17 @@ func (s *TopologySuite) TestRemoveRelation(c *C) {
 func (s *TopologySuite) TestRemoveServiceWithRelations(c *C) {
 	// Check that the removing of a service with
 	// associated relations leads to an error.
-	s.t.AddService("s-p", "riak")
+	s.t.AddService("service-p", "riak")
 	s.t.AddRelation("r-1", &topoRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
 		Services: map[RelationRole]*topoRelationService{
-			RolePeer: &topoRelationService{"s-p", "cache"},
+			RolePeer: &topoRelationService{"service-p", "cache"},
 		},
 	})
 
-	err := s.t.RemoveService("s-p")
-	c.Assert(err, ErrorMatches, `cannot remove service "s-p" with active relations`)
+	err := s.t.RemoveService("service-p")
+	c.Assert(err, ErrorMatches, `cannot remove service "service-p" with active relations`)
 }
 
 func (s *TopologySuite) TestRelationKeyEndpoints(c *C) {
@@ -645,22 +627,22 @@ func (s *TopologySuite) TestRelationKeyEndpoints(c *C) {
 	blogep2 := RelationEndpoint{"wordpress", "ifce2", "db", RoleRequirer, ScopeGlobal}
 	mysqlep3 := RelationEndpoint{"mysql", "ifce3", "db", RoleProvider, ScopeGlobal}
 	blogep3 := RelationEndpoint{"wordpress", "ifce3", "db", RoleRequirer, ScopeGlobal}
-	s.t.AddService("s-r", "wordpress")
-	s.t.AddService("s-p", "mysql")
+	s.t.AddService("service-r", "wordpress")
+	s.t.AddService("service-p", "mysql")
 	s.t.AddRelation("r-0", &topoRelation{
 		Interface: "ifce1",
 		Scope:     ScopeGlobal,
 		Services: map[RelationRole]*topoRelationService{
-			RoleProvider: &topoRelationService{"s-p", "db"},
-			RoleRequirer: &topoRelationService{"s-r", "db"},
+			RoleProvider: &topoRelationService{"service-p", "db"},
+			RoleRequirer: &topoRelationService{"service-r", "db"},
 		},
 	})
 	s.t.AddRelation("r-1", &topoRelation{
 		Interface: "ifce2",
 		Scope:     ScopeGlobal,
 		Services: map[RelationRole]*topoRelationService{
-			RoleProvider: &topoRelationService{"s-p", "db"},
-			RoleRequirer: &topoRelationService{"s-r", "db"},
+			RoleProvider: &topoRelationService{"service-p", "db"},
+			RoleRequirer: &topoRelationService{"service-r", "db"},
 		},
 	})
 
@@ -699,15 +681,15 @@ func (s *TopologySuite) TestRelationKeyIllegalEndpoints(c *C) {
 	mysqlep2 := RelationEndpoint{"illegal-mysql", "ifce", "db", RoleProvider, ScopeGlobal}
 	blogep2 := RelationEndpoint{"illegal-wordpress", "ifce", "db", RoleRequirer, ScopeGlobal}
 	riakep3 := RelationEndpoint{"riak", "ifce", "ring", RolePeer, ScopeGlobal}
-	s.t.AddService("s-r", "wordpress")
-	s.t.AddService("s-p1", "mysql")
-	s.t.AddService("s-p2", "riak")
+	s.t.AddService("service-r", "wordpress")
+	s.t.AddService("service-p1", "mysql")
+	s.t.AddService("service-p2", "riak")
 	s.t.AddRelation("r-0", &topoRelation{
 		Interface: "ifce1",
 		Scope:     ScopeGlobal,
 		Services: map[RelationRole]*topoRelationService{
-			RoleProvider: &topoRelationService{"s-p", "db"},
-			RoleRequirer: &topoRelationService{"s-r", "db"},
+			RoleProvider: &topoRelationService{"service-p", "db"},
+			RoleRequirer: &topoRelationService{"service-r", "db"},
 		},
 	})
 
@@ -726,19 +708,19 @@ func (s *TopologySuite) TestPeerRelationKeyEndpoints(c *C) {
 	riakep1 := RelationEndpoint{"riak", "ifce1", "ring", RolePeer, ScopeGlobal}
 	riakep2 := RelationEndpoint{"riak", "ifce2", "ring", RolePeer, ScopeGlobal}
 	riakep3 := RelationEndpoint{"riak", "ifce3", "ring", RolePeer, ScopeGlobal}
-	s.t.AddService("s-p", "ring")
+	s.t.AddService("service-p", "ring")
 	s.t.AddRelation("r-0", &topoRelation{
 		Interface: "ifce1",
 		Scope:     ScopeGlobal,
 		Services: map[RelationRole]*topoRelationService{
-			RolePeer: &topoRelationService{"s-p", "ring"},
+			RolePeer: &topoRelationService{"service-p", "ring"},
 		},
 	})
 	s.t.AddRelation("r-1", &topoRelation{
 		Interface: "ifce2",
 		Scope:     ScopeGlobal,
 		Services: map[RelationRole]*topoRelationService{
-			RolePeer: &topoRelationService{"s-p", "ring"},
+			RolePeer: &topoRelationService{"service-p", "ring"},
 		},
 	})
 
@@ -757,12 +739,12 @@ func (s *TopologySuite) TestPeerRelationKeyEndpoints(c *C) {
 
 func (s *TopologySuite) TestPeerRelationKeyIllegalEndpoints(c *C) {
 	riakep1 := RelationEndpoint{"riak", "ifce", "illegal-ring", RolePeer, ScopeGlobal}
-	s.t.AddService("s-p", "riak")
+	s.t.AddService("service-p", "riak")
 	s.t.AddRelation("r-0", &topoRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
 		Services: map[RelationRole]*topoRelationService{
-			RolePeer: &topoRelationService{"s-p", "ring"},
+			RolePeer: &topoRelationService{"service-p", "ring"},
 		},
 	})
 
