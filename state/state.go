@@ -260,7 +260,7 @@ func (s *State) addRelationNode(scope RelationScope) (string, error) {
 	relationKey := strings.Split(path, "/")[2]
 	// Create the settings node only if the scope is global.
 	// In case of container scoped relations the creation per
-	// container occurs in ServiceRelation.AddUnit().
+	// container occurs in ServiceRelation.AddUnit.
 	if scope == ScopeGlobal {
 		_, err = s.zk.Create(path+"/settings", "", 0, zkPermAll)
 		if err != nil {
@@ -272,18 +272,10 @@ func (s *State) addRelationNode(scope RelationScope) (string, error) {
 
 // addRelationEndpointNode creates the endpoint role node below its relation node 
 // for the given relation endpoint.
-func (s *State) addRelationEndpointNode(relationKey string, endpoint RelationEndpoint, scope RelationScope) error {
-	// Create the role node only if the scope is global.
-	// In case of container scoped relations the creation 
-	// per container occurs in ServiceRelation.AddUnit().
-	if scope == ScopeGlobal {
-		path := fmt.Sprintf("/relations/%s/%s", relationKey, string(endpoint.RelationRole))
-		_, err := s.zk.Create(path, "", 0, zkPermAll)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+func (s *State) addRelationEndpointNode(relationKey string, endpoint RelationEndpoint) error {
+	path := fmt.Sprintf("/relations/%s/%s", relationKey, string(endpoint.RelationRole))
+	_, err := s.zk.Create(path, "", 0, zkPermAll)
+	return err
 }
 
 // AddRelation creates a new relation with the given endpoints.  
@@ -291,14 +283,14 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (*Relation, []*Servic
 	switch len(endpoints) {
 	case 1:
 		if endpoints[0].RelationRole != RolePeer {
-			return nil, nil, fmt.Errorf("state: can't add non-peer relation with a single service")
+			return nil, nil, fmt.Errorf("can't add non-peer relation with a single service")
 		}
 	case 2:
 		if !endpoints[0].CanRelateTo(&endpoints[1]) {
-			return nil, nil, fmt.Errorf("state: can't add relation between %s and %s", endpoints[0], endpoints[1])
+			return nil, nil, fmt.Errorf("can't add relation between %s and %s", endpoints[0], endpoints[1])
 		}
 	default:
-		return nil, nil, fmt.Errorf("state: can't add relations between %d services", len(endpoints))
+		return nil, nil, fmt.Errorf("can't add relations between %d services", len(endpoints))
 	}
 	t, err := readTopology(s.zk)
 	if err != nil {
@@ -312,7 +304,7 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (*Relation, []*Servic
 		}
 	}
 	if relationKey != "" {
-		return nil, nil, fmt.Errorf("state: relation already exists")
+		return nil, nil, fmt.Errorf("relation already exists")
 	}
 	scope := ScopeGlobal
 	for _, endpoint := range endpoints {
@@ -333,9 +325,13 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (*Relation, []*Servic
 		if err != nil {
 			return nil, nil, err
 		}
-		err = s.addRelationEndpointNode(relationKey, endpoint, scope)
-		if err != nil {
-			return nil, nil, err
+		// The relation endpoint node is only created if the scope is 
+		// global. In case of container scoped relations the creation 
+		// per container occurs in ServiceRelation.AddUnit.
+		if scope == ScopeGlobal {
+			if err = s.addRelationEndpointNode(relationKey, endpoint); err != nil {
+				return nil, nil, err
+			}
 		}
 		serviceRelations = append(serviceRelations, &ServiceRelation{
 			st:            s,
@@ -348,16 +344,16 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (*Relation, []*Servic
 	}
 	// Add relation to topology.
 	addRelation := func(t *topology) error {
-		relation := &zkRelation{
+		relation := &topoRelation{
 			Interface: endpoints[0].Interface,
 			Scope:     scope,
-			Services:  map[RelationRole]*zkRelationService{},
+			Services:  map[RelationRole]*topoRelationService{},
 		}
 		for _, serviceRelation := range serviceRelations {
 			if !t.HasService(serviceRelation.serviceKey) {
-				return fmt.Errorf("state: state for service %q has changed", serviceRelation.serviceKey)
+				return fmt.Errorf("state for service %q has changed", serviceRelation.serviceKey)
 			}
-			service := &zkRelationService{
+			service := &topoRelationService{
 				Service:      serviceRelation.serviceKey,
 				RelationName: serviceRelation.RelationName(),
 			}
