@@ -47,49 +47,40 @@ func (e RelationEndpoint) String() string {
 	return e.ServiceName + ":" + e.RelationName
 }
 
-// Relation represents a connection between one or more services.
-type Relation interface {
-	relationKey() string
-}
-
-// relation is the implementation of the relation interface and
-// represents the entire connection.
-type relation struct {
+// Relation represents a link between services, or within a
+// service (in the case of peer relations).
+type Relation struct {
 	st  *State
 	key string
 }
 
-// relationKey returns the key of the relation.
-func (r *relation) relationKey() string {
-	return r.key
-}
-
-// ServiceRelation represents a relation between one or more services.
+// ServiceRelation represents an established relation from
+// the viewpoint of a participant service.
 type ServiceRelation struct {
-	st         *State
-	key        string
-	serviceKey string
-	scope      RelationScope
-	role       RelationRole
-	name       string
+	st            *State
+	relationKey   string
+	serviceKey    string
+	relationScope RelationScope
+	relationRole  RelationRole
+	relationName  string
 }
 
-// Scope returns the scope of a relation.
-func (r *ServiceRelation) Scope() RelationScope {
-	return r.scope
+// RelationScope returns the scope of the relation.
+func (r *ServiceRelation) RelationScope() RelationScope {
+	return r.relationScope
 }
 
-// Role returns the role of a relation.
-func (r *ServiceRelation) Role() RelationRole {
-	return r.role
+// RelationRole returns the service role within the relation. 
+func (r *ServiceRelation) RelationRole() RelationRole {
+	return r.relationRole
 }
 
-// Name returns the name of a relation.
-func (r *ServiceRelation) Name() string {
-	return r.name
+// RelationName returns the name this relation has within the service.
+func (r *ServiceRelation) RelationName() string {
+	return r.relationName
 }
 
-// relationKey returns the key of the relation.
-func (r *ServiceRelation) relationKey() string {
-	return r.key
+// Relation returns the relation for this service relation.
+func (r *ServiceRelation) Relation() *Relation {
+	return &Relation{r.st, r.relationKey}
 }
