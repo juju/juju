@@ -44,9 +44,8 @@ func (c *Conn) Destroy() error {
 	return c.Environ.Destroy(nil)
 }
 
-// State returns the conn's State. Multiple calls will return the same
-// instance, which should not be closed by clients; instead, when the
-// Conn itself is no longer required, the Conn itself should be closed.
+// State returns the environment state associated with c. Closing the
+// obtained state will have undefined consequences; Close c instead.
 func (c *Conn) State() (*state.State, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -64,7 +63,8 @@ func (c *Conn) State() (*state.State, error) {
 	return c.state, nil
 }
 
-// Close closes the conn's shared State.
+// Close terminates the connection to the environment and releases
+// any associated resources.
 func (c *Conn) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
