@@ -30,6 +30,34 @@ func (s *CharmSuite) TestRead(c *C) {
 	c.Assert(ch.Meta().Name, Equals, "dummy")
 }
 
+var resolveTests = []struct {
+	name   string
+	path   string
+	series string
+	curl   string
+}{
+	{"wordpress", "anything", "precise", "cs:precise/wordpress"},
+	{"oneiric/wordpress", "anything", "anything", "cs:oneiric/wordpress"},
+	{"cs:oneiric/wordpress", "anything", "anything", "cs:oneiric/wordpress"},
+	{"local:wordpress", "/some/path", "precise", "local:precise/wordpress"},
+	{"local:oneiric/wordpress", "/some/path", "anything", "local:oneiric/wordpress"},
+}
+
+func (s *CharmSuite) TestResolve(c *C) {
+	for _, t := range resolveTests {
+		repo, curl, err := charm.Resolve(t.name, t.path, t.series)
+		c.Assert(err, IsNil)
+		expectCurl := charm.MustParseURL(t.curl)
+		c.Assert(curl, DeepEquals, expectCurl)
+		if localRepo, ok := repo.(*charm.LocalRepository); ok {
+			c.Assert(localRepo.Path, Equals, t.path)
+			c.Assert(curl.Schema, Equals, "local")
+		} else {
+			c.Assert(curl.Schema, Equals, "cs")
+		}
+	}
+}
+
 func checkDummy(c *C, f charm.Charm, path string) {
 	c.Assert(f.Revision(), Equals, 1)
 	c.Assert(f.Meta().Name, Equals, "dummy")

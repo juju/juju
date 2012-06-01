@@ -1,6 +1,9 @@
 package charm
 
-import "os"
+import (
+	"fmt"
+	"os"
+)
 
 // The Charm interface is implemented by any type that
 // may be handled as a charm.
@@ -21,4 +24,23 @@ func Read(path string) (Charm, error) {
 		return ReadDir(path)
 	}
 	return ReadBundle(path)
+}
+
+// Resolve takes a (potentially vaguely-specified) charm name, the path to the
+// local charm repository, and the environment's default Ubuntu series, and
+// assembles them into a charm URL and a repository which is likely to contain
+// a charm matching that URL.
+func Resolve(name, repoPath, defaultSeries string) (repo Repository, curl *URL, err error) {
+	if curl, err = InferURL(name, defaultSeries); err != nil {
+		return
+	}
+	switch curl.Schema {
+	case "cs":
+		repo = Store()
+	case "local":
+		repo = &LocalRepository{repoPath}
+	default:
+		panic(fmt.Errorf("unknown schema for charm URL %q", curl))
+	}
+	return
 }
