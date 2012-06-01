@@ -63,7 +63,9 @@ func (p *Provisioner) environChanges() <-chan *state.ConfigNode {
 // stopEnvironWatcher stops and invalidates the current environWatcher.
 func (p *Provisioner) stopEnvironWatcher() (err error) {
 	if p.environWatcher != nil {
-		err = p.environWatcher.Stop()
+		if err = p.environWatcher.Stop(); err != nil {
+			log.Printf("provisioning: environWatcher reported error on Stop: %v", err)
+		}
 	}
 	p.environWatcher = nil
 	return
@@ -81,7 +83,9 @@ func (p *Provisioner) machinesChanges() <-chan *state.MachinesChange {
 // stopMachinesWatcher stops and invalidates the current machinesWatcher..
 func (p *Provisioner) stopMachinesWatcher() (err error) {
 	if p.machinesWatcher != nil {
-		err = p.machinesWatcher.Stop()
+		if err = p.machinesWatcher.Stop(); err != nil {
+			log.Printf("provisioning: machinesWatcehr reported error on Stop: %v", err)
+		}
 	}
 	p.machinesWatcher = nil
 	return
