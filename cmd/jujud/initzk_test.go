@@ -1,9 +1,8 @@
-package main_test
+package main
 
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
-	main "launchpad.net/juju/go/cmd/jujud"
 	"launchpad.net/juju/go/testing"
 	stdtesting "testing"
 )
@@ -47,8 +46,8 @@ func (s *InitzkSuite) TearDownTest(c *C) {
 	s.zkConn.Close()
 }
 
-func initInitzkCommand(args []string) (*main.InitzkCommand, error) {
-	c := &main.InitzkCommand{}
+func initInitzkCommand(args []string) (*InitzkCommand, error) {
+	c := &InitzkCommand{}
 	return c, initCmd(c, args)
 }
 
