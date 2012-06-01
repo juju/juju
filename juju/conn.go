@@ -61,3 +61,15 @@ func (c *Conn) State() (*state.State, error) {
 	}
 	return c.state, nil
 }
+
+// Close closes the conn's shared State.
+func (c *Conn) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	state := c.state
+	c.state = nil
+	if state != nil {
+		return state.Close()
+	}
+	return nil
+}
