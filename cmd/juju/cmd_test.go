@@ -85,9 +85,12 @@ func assertConnName(c *C, com cmd.Command, name string) {
 
 // All members of EnvironmentInitTests are tested for the -environment and -e
 // flags, and that extra arguments will cause parsing to fail.
-var EnvironmentInitTests = []func() cmd.Command{
-	func() cmd.Command { return new(BootstrapCommand) },
-	func() cmd.Command { return new(DestroyCommand) },
+var EnvironmentInitTests = []func() (cmd.Command, []string){
+	func() (cmd.Command, []string) { return new(BootstrapCommand), nil },
+	func() (cmd.Command, []string) { return new(DestroyCommand), nil },
+	func() (cmd.Command, []string) {
+		return new(DeployCommand), []string{"charm-name", "service-name"}
+	},
 }
 
 // TestEnvironmentInit tests that all commands which accept
@@ -96,20 +99,20 @@ var EnvironmentInitTests = []func() cmd.Command{
 func (*cmdSuite) TestEnvironmentInit(c *C) {
 	for i, cmdFunc := range EnvironmentInitTests {
 		c.Logf("test %d", i)
-		com := cmdFunc()
-		testInit(c, com, nil, "")
+		com, args := cmdFunc()
+		testInit(c, com, args, "")
 		assertConnName(c, com, "")
 
-		com = cmdFunc()
-		testInit(c, com, []string{"-e", "walthamstow"}, "")
+		com, args = cmdFunc()
+		testInit(c, com, append(args, "-e", "walthamstow"), "")
 		assertConnName(c, com, "walthamstow")
 
-		com = cmdFunc()
-		testInit(c, com, []string{"--environment", "walthamstow"}, "")
+		com, args = cmdFunc()
+		testInit(c, com, append(args, "--environment", "walthamstow"), "")
 		assertConnName(c, com, "walthamstow")
 
-		com = cmdFunc()
-		testInit(c, com, []string{"hotdog"}, "unrecognized args.*")
+		com, args = cmdFunc()
+		testInit(c, com, append(args, "hotdog"), "unrecognized args.*")
 	}
 }
 
@@ -132,6 +135,13 @@ func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc
 		errc <- err
 	}()
 	return
+}
+
+func op(kind dummy.OperationKind, name string) dummy.Operation {
+	return dummy.Operation{
+		Env:  name,
+		Kind: kind,
+	}
 }
 
 func (*cmdSuite) TestBootstrapCommand(c *C) {
@@ -174,9 +184,65 @@ func (*cmdSuite) TestDestroyCommand(c *C) {
 	c.Check(<-errc, ErrorMatches, `broken environment`)
 }
 
-func op(kind dummy.OperationKind, name string) dummy.Operation {
-	return dummy.Operation{
-		Env:  name,
-		Kind: kind,
+func initDeployCommand(args ...string) (*DeployCommand, error) {
+	com := &DeployCommand{}
+	return com, com.Init(newFlagSet(), args)
+}
+
+func (*cmdSuite) TestDeployCommandInit(c *C) {
+	os.Setenv("JUJU_REPOSITORY", "/path/to/repo")
+
+	// missing args
+	_, err := initDeployCommand()
+	c.Assert(err, ErrorMatches, "no charm specified")
+
+	// minimal
+	com, err := initDeployCommand("charm-name")
+	c.Assert(err, IsNil)
+	c.Assert(com, DeepEquals, &DeployCommand{
+		CharmName: "charm-name", NumUnits: 1, RepoPath: "/path/to/repo",
+	})
+
+	// with service name
+	com, err = initDeployCommand("charm-name", "service-name")
+	c.Assert(err, IsNil)
+	c.Assert(com, DeepEquals, &DeployCommand{
+		CharmName: "charm-name", ServiceName: "service-name", NumUnits: 1, RepoPath: "/path/to/repo",
+	})
+
+	// config
+	com, err = initDeployCommand("--config", "/path/to/config.yaml", "charm-name")
+	c.Assert(err, IsNil)
+	c.Assert(com, DeepEquals, &DeployCommand{
+		CharmName: "charm-name", NumUnits: 1, RepoPath: "/path/to/repo", ConfPath: "/path/to/config.yaml",
+	})
+
+	// repository
+	com, err = initDeployCommand("--repository", "/path/to/another-repo", "charm-name")
+	c.Assert(err, IsNil)
+	c.Assert(com, DeepEquals, &DeployCommand{
+		CharmName: "charm-name", NumUnits: 1, RepoPath: "/path/to/another-repo",
+	})
+
+	// upgrade
+	for _, flag := range []string{"--upgrade", "-u"} {
+		com, err = initDeployCommand("charm-name", flag)
+		c.Assert(err, IsNil)
+		c.Assert(com, DeepEquals, &DeployCommand{
+			CharmName: "charm-name", NumUnits: 1, RepoPath: "/path/to/repo", Upgrade: true,
+		})
 	}
+
+	// num-units
+	for _, flag := range []string{"--num-units", "-n"} {
+		com, err = initDeployCommand("charm-name", flag, "32")
+		c.Assert(err, IsNil)
+		c.Assert(com, DeepEquals, &DeployCommand{
+			CharmName: "charm-name", NumUnits: 32, RepoPath: "/path/to/repo",
+		})
+	}
+	_, err = initDeployCommand("charm-name", "--num-units", "0")
+	c.Assert(err, ErrorMatches, "must deploy at least one unit")
+
+	// environment tested elsewhere
 }
