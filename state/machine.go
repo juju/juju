@@ -23,7 +23,7 @@ type Machine struct {
 
 // Id returns the machine id.
 func (m *Machine) Id() int {
-	return machineId(m.key)
+	return keyToId(m.key)
 }
 
 // AgentAlive returns whether the respective remote agent is alive.
@@ -75,14 +75,9 @@ func (m *Machine) SetInstanceId(id string) error {
 	return err
 }
 
-// zkKey returns the ZooKeeper key of the machine.
-func (m *Machine) zkKey() string {
-	return m.key
-}
-
 // zkPath returns the ZooKeeper base path for the machine.
 func (m *Machine) zkPath() string {
-	return path.Join(zkMachinesPath, m.zkKey())
+	return path.Join(zkMachinesPath, m.key)
 }
 
 // zkAgentPath returns the ZooKeeper path for the machine agent.
@@ -90,19 +85,19 @@ func (m *Machine) zkAgentPath() string {
 	return path.Join(m.zkPath(), "agent")
 }
 
-// machineId returns the machine id corresponding to machineKey.
-func machineId(machineKey string) (id int) {
-	if machineKey == "" {
-		panic("machineId: empty machine key")
+// keyId returns the id corresponding to the given machine or unit id.
+func keyToId(key string) (id int) {
+	if key == "" {
+		panic("keyToId: empty key")
 	}
-	i := strings.Index(machineKey, "-")
+	i := strings.Index(key, "-")
 	var id64 int64
 	var err error
 	if i >= 0 {
-		id64, err = strconv.ParseInt(machineKey[i+1:], 10, 32)
+		id64, err = strconv.ParseInt(key[i+1:], 10, 32)
 	}
 	if i < 0 || err != nil {
-		panic("machineId: invalid machine key: " + machineKey)
+		panic("keyToId: invalid key: " + key)
 	}
 	return int(id64)
 }

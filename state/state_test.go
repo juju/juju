@@ -494,11 +494,6 @@ func (s *StateSuite) TestReadUnit(c *C) {
 	unit, err = wordpress.Unit("mysql/0")
 	c.Assert(err, ErrorMatches, `can't find unit "mysql/0" on service "wordpress"`)
 
-	// Check that retrieving unit names works.
-	unitNames, err := wordpress.UnitNames()
-	c.Assert(err, IsNil)
-	c.Assert(unitNames, DeepEquals, []string{"wordpress/0", "wordpress/1"})
-
 	// Check that retrieving all units works.
 	units, err := wordpress.AllUnits()
 	c.Assert(err, IsNil)
@@ -534,9 +529,11 @@ func (s *StateSuite) TestRemoveUnit(c *C) {
 	c.Assert(err, IsNil)
 	err = wordpress.RemoveUnit(unit)
 	c.Assert(err, IsNil)
-	unitNames, err := wordpress.UnitNames()
+
+	units, err := wordpress.AllUnits()
 	c.Assert(err, IsNil)
-	c.Assert(unitNames, DeepEquals, []string{"wordpress/1"})
+	c.Assert(units, HasLen, 1)
+	c.Assert(units[0].Name(), Equals, "wordpress/1")
 
 	// Check that removing a non-existent unit fails nicely.
 	err = wordpress.RemoveUnit(unit)

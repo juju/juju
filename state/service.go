@@ -10,7 +10,7 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
-	"strings"
+	pathPkg "path"
 )
 
 // Service represents the state of a service.
@@ -77,26 +77,21 @@ func (s *Service) AddUnit() (*Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	path, err := s.st.zk.Create("/units/unit-", string(unitYaml), zookeeper.SEQUENCE, zkPermAll)
+	path, err := s.st.zk.Create(s.zkPath()+"/units/unit-", string(unitYaml), zookeeper.SEQUENCE, zkPermAll)
 	if err != nil {
 		return nil, err
 	}
-	key := strings.Split(path, "/")[2]
-	sequenceNo := -1
+	ukey := unitKey{service: s.key, unit: pathPkg.Base(path)}
 	addUnit := func(t *topology) error {
-		if !t.HasService(s.key) {
+		if !t.HasService(ukey.service) {
 			return stateChanged
 		}
-		sequenceNo, err = t.AddUnit(s.key, key)
-		if err != nil {
-			return err
-		}
-		return nil
+		return t.AddUnit(ukey)
 	}
 	if err := retryTopologyChange(s.st.zk, addUnit); err != nil {
 		return nil, err
 	}
-	return &Unit{s.st, key, s.key, s.name, sequenceNo}, nil
+	return &Unit{s.st, ukey, s.name}, nil
 }
 
 // RemoveUnit() removes a unit.
@@ -106,10 +101,10 @@ func (s *Service) RemoveUnit(unit *Unit) error {
 		return err
 	}
 	removeUnit := func(t *topology) error {
-		if !t.HasService(s.key) || !t.HasUnit(s.key, unit.key) {
+		if !t.HasUnit(unit.key) {
 			return stateChanged
 		}
-		if err := t.RemoveUnit(s.key, unit.key); err != nil {
+		if err := t.RemoveUnit(unit.key); err != nil {
 			return err
 		}
 		return nil
@@ -117,12 +112,12 @@ func (s *Service) RemoveUnit(unit *Unit) error {
 	if err := retryTopologyChange(s.st.zk, removeUnit); err != nil {
 		return err
 	}
-	return zkRemoveTree(s.st.zk, fmt.Sprintf("/units/%s", unit.key))
+	return zkRemoveTree(s.st.zk, unit.zkPath())
 }
 
 // Unit returns the service's unit with name.
 func (s *Service) Unit(name string) (*Unit, error) {
-	serviceName, sequenceNo, err := parseUnitName(name)
+	serviceName, serviceId, err := parseUnitName(name)
 	if err != nil {
 		return nil, err
 	}
@@ -137,12 +132,17 @@ func (s *Service) Unit(name string) (*Unit, error) {
 	if !topology.HasService(s.key) {
 		return nil, stateChanged
 	}
-	// Read unit key and create unit.
-	key, err := topology.UnitKeyFromSequence(s.key, sequenceNo)
-	if err != nil {
+	key := unitKey{service: s.key, unit: fmt.Sprintf("unit-%010d", serviceId)}
+
+	// Check that unit exists.
+	if err := topology.assertUnit(key); err != nil {
 		return nil, err
 	}
-	return &Unit{s.st, key, s.key, s.name, sequenceNo}, nil
+	return &Unit{
+		st:          s.st,
+		key:         key,
+		serviceName: s.name,
+	}, nil
 }
 
 // AllUnits returns all units of the service.
@@ -161,42 +161,13 @@ func (s *Service) AllUnits() ([]*Unit, error) {
 	// Assemble units.
 	units := []*Unit{}
 	for _, key := range keys {
-		unitName, err := topology.UnitName(s.key, key)
-		if err != nil {
-			return nil, err
-		}
-		serviceName, sequenceNo, err := parseUnitName(unitName)
-		if err != nil {
-			return nil, err
-		}
-		units = append(units, &Unit{s.st, key, s.key, serviceName, sequenceNo})
+		units = append(units, &Unit{
+			st:          s.st,
+			key:         key,
+			serviceName: s.name,
+		})
 	}
 	return units, nil
-}
-
-// UnitNames returns the names of all units of s.
-func (s *Service) UnitNames() ([]string, error) {
-	topology, err := readTopology(s.st.zk)
-	if err != nil {
-		return nil, err
-	}
-	if !topology.HasService(s.key) {
-		return nil, stateChanged
-	}
-	keys, err := topology.UnitKeys(s.key)
-	if err != nil {
-		return nil, err
-	}
-	// Assemble unit names.
-	unitNames := []string{}
-	for _, key := range keys {
-		unitName, err := topology.UnitName(s.key, key)
-		if err != nil {
-			return nil, err
-		}
-		unitNames = append(unitNames, unitName)
-	}
-	return unitNames, nil
 }
 
 // IsExposed returns whether this service is exposed.
@@ -242,11 +213,6 @@ func (s *Service) WatchConfig() *ConfigWatcher {
 	return newConfigWatcher(s.st, s.zkConfigPath())
 }
 
-// zkKey returns ZooKeeper key of the service.
-func (s *Service) zkKey() string {
-	return s.key
-}
-
 // zkPath returns the ZooKeeper base path for the service.
 func (s *Service) zkPath() string {
 	return fmt.Sprintf("/services/%s", s.key)
@@ -254,11 +220,11 @@ func (s *Service) zkPath() string {
 
 // zkConfigPath returns the ZooKeeper path for the service configuration.
 func (s *Service) zkConfigPath() string {
-	return fmt.Sprintf("/services/%s/config", s.key)
+	return s.zkPath() + "/config"
 }
 
 // zkExposedPath, if exists in ZooKeeper, indicates, that a
 // service is exposed.
 func (s *Service) zkExposedPath() string {
-	return fmt.Sprintf("/services/%s/exposed", s.key)
+	return s.zkPath() + "/exposed"
 }

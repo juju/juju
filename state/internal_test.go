@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
+	"sort"
 )
 
 type TopologySuite struct {
@@ -72,7 +73,7 @@ func (s *TopologySuite) TestRemoveMachine(c *C) {
 	// checking for assigned units works correctly too.
 	err = s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
-	_, err = s.t.AddUnit("s-0", "u-0")
+	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
 	c.Assert(err, IsNil)
 
 	err = s.t.RemoveMachine("m-0")
@@ -96,11 +97,11 @@ func (s *TopologySuite) TestRemoveMachineWithAssignedUnits(c *C) {
 	c.Assert(err, IsNil)
 	err = s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
-	_, err = s.t.AddUnit("s-0", "u-0")
+	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
 	c.Assert(err, IsNil)
-	_, err = s.t.AddUnit("s-0", "u-1")
+	err = s.t.AddUnit(unitKey{"s-0", "u-1"})
 	c.Assert(err, IsNil)
-	err = s.t.AssignUnitToMachine("s-0", "u-1", "m-0")
+	err = s.t.AssignUnitToMachine(unitKey{"s-0", "u-1"}, "m-0")
 	c.Assert(err, IsNil)
 	err = s.t.RemoveMachine("m-0")
 	c.Assert(err, ErrorMatches, `can't remove machine "m-0" while units ared assigned`)
@@ -115,11 +116,11 @@ func (s *TopologySuite) TestMachineHasUnits(c *C) {
 	c.Assert(err, IsNil)
 	err = s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
-	_, err = s.t.AddUnit("s-0", "u-0")
+	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
 	c.Assert(err, IsNil)
-	_, err = s.t.AddUnit("s-0", "u-1")
+	err = s.t.AddUnit(unitKey{"s-0", "u-1"})
 	c.Assert(err, IsNil)
-	err = s.t.AssignUnitToMachine("s-0", "u-1", "m-0")
+	err = s.t.AssignUnitToMachine(unitKey{"s-0", "u-1"}, "m-0")
 	c.Assert(err, IsNil)
 	ok, err := s.t.MachineHasUnits("m-0")
 	c.Assert(err, IsNil)
@@ -246,21 +247,34 @@ func (s *TopologySuite) TestAddUnit(c *C) {
 	c.Assert(err, IsNil)
 	err = s.t.AddService("s-1", "mysql")
 	c.Assert(err, IsNil)
-	seq, err := s.t.AddUnit("s-0", "u-05")
+	err = s.t.AddUnit(unitKey{"s-0", "u-05"})
 	c.Assert(err, IsNil)
-	c.Assert(seq, Equals, 0)
-	seq, err = s.t.AddUnit("s-0", "u-12")
+	err = s.t.AddUnit(unitKey{"s-0", "u-12"})
 	c.Assert(err, IsNil)
-	c.Assert(seq, Equals, 1)
-	seq, err = s.t.AddUnit("s-1", "u-07")
+	err = s.t.AddUnit(unitKey{"s-1", "u-07"})
 	c.Assert(err, IsNil)
-	c.Assert(seq, Equals, 0)
 	keys, err := s.t.UnitKeys("s-0")
+	sort.Sort(unitKeySlice(keys))
 	c.Assert(err, IsNil)
-	c.Assert(keys, DeepEquals, []string{"u-05", "u-12"})
+	c.Assert(keys, DeepEquals, []unitKey{{"s-0", "u-05"}, {"s-0", "u-12"}})
 	keys, err = s.t.UnitKeys("s-1")
 	c.Assert(err, IsNil)
-	c.Assert(keys, DeepEquals, []string{"u-07"})
+	c.Assert(keys, DeepEquals, []unitKey{{"s-1", "u-07"}})
+}
+
+type unitKeySlice []unitKey
+
+func (s unitKeySlice) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s unitKeySlice) Less(i, j int) bool {
+	if s[i].service == s[j].service {
+		return s[i].unit < s[j].unit
+	}
+	return s[i].service < s[j].service
+}
+func (s unitKeySlice) Len() int {
+	return len(s)
 }
 
 func (s *TopologySuite) TestGlobalUniqueUnitNames(c *C) {
@@ -269,52 +283,36 @@ func (s *TopologySuite) TestGlobalUniqueUnitNames(c *C) {
 	// get a duplicate unit name.
 	err := s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
-	seq, err := s.t.AddUnit("s-0", "u-0")
+	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
 	c.Assert(err, IsNil)
-	c.Assert(seq, Equals, 0)
-	seq, err = s.t.AddUnit("s-0", "u-1")
+	err = s.t.AddUnit(unitKey{"s-0", "u-1"})
 	c.Assert(err, IsNil)
-	c.Assert(seq, Equals, 1)
 	err = s.t.RemoveService("s-0")
 	c.Assert(err, IsNil)
 	err = s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
-	seq, err = s.t.AddUnit("s-0", "u-1")
+	err = s.t.AddUnit(unitKey{"s-0", "u-1"})
 	c.Assert(err, IsNil)
-	c.Assert(seq, Equals, 2)
-	name, err := s.t.UnitName("s-0", "u-1")
+	name, err := s.t.UnitName(unitKey{"s-0", "u-1"})
 	c.Assert(err, IsNil)
-	c.Assert(name, Equals, "wordpress/2")
+	c.Assert(name, Equals, "wordpress/1")
 }
 
 func (s *TopologySuite) TestAddDuplicatedUnit(c *C) {
 	// Check that it's not possible to add a unit twice.
 	err := s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
-	_, err = s.t.AddUnit("s-0", "u-0")
+	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
 	c.Assert(err, IsNil)
-	_, err = s.t.AddUnit("s-0", "u-0")
+	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
 	c.Assert(err, ErrorMatches, `unit "u-0" already in use in service "s-0"`)
 }
 
 func (s *TopologySuite) TestAddUnitToNonExistingService(c *C) {
 	// Check that the adding of a unit to a non-existing services
 	// fails correctly.
-	_, err := s.t.AddUnit("s-0", "u-0")
+	err := s.t.AddUnit(unitKey{"s-0", "u-0"})
 	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
-}
-
-func (s *TopologySuite) TestAddUnitToDifferentService(c *C) {
-	// Check that the adding of the same unit to two different
-	// services fails correctly.
-	err := s.t.AddService("s-0", "wordpress")
-	c.Assert(err, IsNil)
-	err = s.t.AddService("s-1", "mysql")
-	c.Assert(err, IsNil)
-	_, err = s.t.AddUnit("s-0", "u-0")
-	c.Assert(err, IsNil)
-	_, err = s.t.AddUnit("s-1", "u-0")
-	c.Assert(err, ErrorMatches, `unit "u-0" already in use in service "s-0"`)
 }
 
 func (s *TopologySuite) TestUnitKeys(c *C) {
@@ -325,19 +323,21 @@ func (s *TopologySuite) TestUnitKeys(c *C) {
 	c.Assert(err, IsNil)
 	units, err := s.t.UnitKeys("s-0")
 	c.Assert(err, IsNil)
-	c.Assert(units, DeepEquals, []string{})
-	_, err = s.t.AddUnit("s-0", "u-0")
+	c.Assert(units, DeepEquals, []unitKey{})
+	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
 	c.Assert(err, IsNil)
-	_, err = s.t.AddUnit("s-0", "u-1")
+	err = s.t.AddUnit(unitKey{"s-0", "u-1"})
 	c.Assert(err, IsNil)
-	_, err = s.t.AddUnit("s-1", "u-2")
+	err = s.t.AddUnit(unitKey{"s-1", "u-2"})
 	c.Assert(err, IsNil)
 	units, err = s.t.UnitKeys("s-0")
 	c.Assert(err, IsNil)
-	c.Assert(units, DeepEquals, []string{"u-0", "u-1"})
+	sort.Sort(unitKeySlice(units))
+	c.Assert(units, DeepEquals, []unitKey{{"s-0", "u-0"}, {"s-0", "u-1"}})
 	units, err = s.t.UnitKeys("s-1")
 	c.Assert(err, IsNil)
-	c.Assert(units, DeepEquals, []string{"u-2"})
+	sort.Sort(unitKeySlice(units))
+	c.Assert(units, DeepEquals, []unitKey{{"s-1", "u-2"}})
 }
 
 func (s *TopologySuite) TestUnitKeysWithNonExistingService(c *C) {
@@ -351,13 +351,13 @@ func (s *TopologySuite) TestHasUnit(c *C) {
 	// Check that the test for a unit in a service works correctly.
 	err := s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
-	found := s.t.HasUnit("s-0", "u-0")
+	found := s.t.HasUnit(unitKey{"s-0", "u-0"})
 	c.Assert(found, Equals, false)
-	_, err = s.t.AddUnit("s-0", "u-0")
+	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
 	c.Assert(err, IsNil)
-	found = s.t.HasUnit("s-0", "u-0")
+	found = s.t.HasUnit(unitKey{"s-0", "u-0"})
 	c.Assert(found, Equals, true)
-	found = s.t.HasUnit("s-0", "u-1")
+	found = s.t.HasUnit(unitKey{"s-0", "u-1"})
 	c.Assert(found, Equals, false)
 }
 
@@ -367,35 +367,35 @@ func (s *TopologySuite) TestUnitName(c *C) {
 	c.Assert(err, IsNil)
 	err = s.t.AddService("s-1", "mysql")
 	c.Assert(err, IsNil)
-	_, err = s.t.AddUnit("s-0", "u-0")
+	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
 	c.Assert(err, IsNil)
-	_, err = s.t.AddUnit("s-0", "u-1")
+	err = s.t.AddUnit(unitKey{"s-0", "u-1"})
 	c.Assert(err, IsNil)
-	_, err = s.t.AddUnit("s-1", "u-2")
+	err = s.t.AddUnit(unitKey{"s-1", "u-2"})
 	c.Assert(err, IsNil)
-	name, err := s.t.UnitName("s-0", "u-0")
+	name, err := s.t.UnitName(unitKey{"s-0", "u-0"})
 	c.Assert(err, IsNil)
 	c.Assert(name, Equals, "wordpress/0")
-	name, err = s.t.UnitName("s-0", "u-1")
+	name, err = s.t.UnitName(unitKey{"s-0", "u-1"})
 	c.Assert(err, IsNil)
 	c.Assert(name, Equals, "wordpress/1")
-	name, err = s.t.UnitName("s-1", "u-2")
+	name, err = s.t.UnitName(unitKey{"s-1", "u-2"})
 	c.Assert(err, IsNil)
-	c.Assert(name, Equals, "mysql/0")
+	c.Assert(name, Equals, "mysql/2")
 }
 
 func (s *TopologySuite) TestUnitNameWithNonExistingServiceOrUnit(c *C) {
 	// Check if the retrieval of unit names fails if the service
 	// or the unit doesn't exist.
-	_, err := s.t.UnitName("s-0", "u-1")
+	_, err := s.t.UnitName(unitKey{"s-0", "u-1"})
 	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
 	err = s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
-	_, err = s.t.UnitName("s-0", "u-1")
+	_, err = s.t.UnitName(unitKey{"s-0", "u-1"})
 	c.Assert(err, ErrorMatches, `unit with key "u-1" not found`)
-	_, err = s.t.AddUnit("s-0", "u-0")
+	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
 	c.Assert(err, IsNil)
-	_, err = s.t.UnitName("s-0", "u-1")
+	_, err = s.t.UnitName(unitKey{"s-0", "u-1"})
 	c.Assert(err, ErrorMatches, `unit with key "u-1" not found`)
 }
 
@@ -403,50 +403,26 @@ func (s *TopologySuite) TestRemoveUnit(c *C) {
 	// Check that the removing of a unit works correctly.
 	err := s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
-	_, err = s.t.AddUnit("s-0", "u-0")
+	err = s.t.AddUnit(unitKey{"s-0", "u-0"})
 	c.Assert(err, IsNil)
-	_, err = s.t.AddUnit("s-0", "u-1")
+	err = s.t.AddUnit(unitKey{"s-0", "u-1"})
 	c.Assert(err, IsNil)
-	err = s.t.RemoveUnit("s-0", "u-0")
+	err = s.t.RemoveUnit(unitKey{"s-0", "u-0"})
 	c.Assert(err, IsNil)
-	found := s.t.HasUnit("s-0", "u-0")
+	found := s.t.HasUnit(unitKey{"s-0", "u-0"})
 	c.Assert(found, Equals, false)
-	found = s.t.HasUnit("s-0", "u-1")
+	found = s.t.HasUnit(unitKey{"s-0", "u-1"})
 	c.Assert(found, Equals, true)
 }
 
 func (s *TopologySuite) TestRemoveNonExistingUnit(c *C) {
 	// Check that the removing of non-existing units fails.
-	err := s.t.RemoveUnit("s-0", "u-0")
+	err := s.t.RemoveUnit(unitKey{"s-0", "u-0"})
 	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
 	err = s.t.AddService("s-0", "wordpress")
 	c.Assert(err, IsNil)
-	err = s.t.RemoveUnit("s-0", "u-0")
+	err = s.t.RemoveUnit(unitKey{"s-0", "u-0"})
 	c.Assert(err, ErrorMatches, `unit with key "u-0" not found`)
-}
-
-func (s *TopologySuite) TestUnitKeyFromSequence(c *C) {
-	// Check that the retrieving of a unit key by service key
-	// and sequence number works correctly.
-	err := s.t.AddService("s-0", "wordpress")
-	c.Assert(err, IsNil)
-	_, err = s.t.AddUnit("s-0", "u-0")
-	c.Assert(err, IsNil)
-	_, err = s.t.AddUnit("s-0", "u-1")
-	c.Assert(err, IsNil)
-	key, err := s.t.UnitKeyFromSequence("s-0", 0)
-	c.Assert(err, IsNil)
-	c.Assert(key, Equals, "u-0")
-	key, err = s.t.UnitKeyFromSequence("s-0", 1)
-	c.Assert(err, IsNil)
-	c.Assert(key, Equals, "u-1")
-	key, err = s.t.UnitKeyFromSequence("s-0", 2)
-	c.Assert(err, ErrorMatches, `unit with sequence number 2 not found`)
-}
-
-func (s *TopologySuite) TestUnitKeyFromNonExistingService(c *C) {
-	_, err := s.t.UnitKeyFromSequence("s-0", 0)
-	c.Assert(err, ErrorMatches, `service with key "s-0" not found`)
 }
 
 func (s *TopologySuite) TestRelation(c *C) {

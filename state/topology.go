@@ -32,11 +32,10 @@ func (e NoRelationError) Error() string {
 // topoTopology is used to marshal and unmarshal the content
 // of the /topology node in ZooKeeper.
 type topoTopology struct {
-	Version      int
-	Machines     map[string]*topoMachine
-	Services     map[string]*topoService
-	UnitSequence map[string]int "unit-sequence"
-	Relations    map[string]*topoRelation
+	Version   int
+	Machines  map[string]*topoMachine
+	Services  map[string]*topoService
+	Relations map[string]*topoRelation
 }
 
 // topoMachine represents the machine data within the /topology
@@ -54,8 +53,7 @@ type topoService struct {
 // topoUnit represents the unit data within the /topology
 // node in ZooKeeper.
 type topoUnit struct {
-	Sequence int
-	Machine  string
+	Machine string
 }
 
 // topoRelation represents the relation data within the 
@@ -213,12 +211,6 @@ func (t *topology) AddService(key, name string) error {
 		Name:  name,
 		Units: make(map[string]*topoUnit),
 	}
-	if t.topology.UnitSequence == nil {
-		t.topology.UnitSequence = make(map[string]int)
-	}
-	if _, ok := t.topology.UnitSequence[name]; !ok {
-		t.topology.UnitSequence[name] = 0
-	}
 	return nil
 }
 
@@ -272,80 +264,53 @@ func (t *topology) ServiceName(key string) (string, error) {
 }
 
 // HasUnit returns true if a unit with given service and unit keys exists.
-func (t *topology) HasUnit(serviceKey, unitKey string) bool {
-	if t.HasService(serviceKey) {
-		return t.topology.Services[serviceKey].Units[unitKey] != nil
-	}
-	return false
+func (t *topology) HasUnit(key unitKey) bool {
+	return t.assertUnit(key) == nil
 }
 
 // AddUnit adds a new unit and returns the sequence number. This
 // sequence number will be increased monotonically for each service.
-func (t *topology) AddUnit(serviceKey, unitKey string) (int, error) {
-	if err := t.assertService(serviceKey); err != nil {
-		return -1, err
-	}
-	// Check if unit key is unused.
-	for key, svc := range t.topology.Services {
-		if _, ok := svc.Units[unitKey]; ok {
-			return -1, fmt.Errorf("unit %q already in use in service %q", unitKey, key)
-		}
-	}
-	// Add unit and increase sequence number.
-	svc := t.topology.Services[serviceKey]
-	sequenceNo := t.topology.UnitSequence[svc.Name]
-	svc.Units[unitKey] = &topoUnit{Sequence: sequenceNo}
-	t.topology.UnitSequence[svc.Name] += 1
-	return sequenceNo, nil
-}
-
-// RemoveUnit removes a unit from a service.
-func (t *topology) RemoveUnit(serviceKey, unitKey string) error {
-	if err := t.assertUnit(serviceKey, unitKey); err != nil {
+func (t *topology) AddUnit(key unitKey) error {
+	if err := t.assertService(key.service); err != nil {
 		return err
 	}
-	delete(t.topology.Services[serviceKey].Units, unitKey)
+	svc := t.topology.Services[key.service]
+	if _, ok := svc.Units[key.unit]; ok {
+		return fmt.Errorf("unit %q already in use in service %q", key.unit, key.service)
+	}
+	svc.Units[key.unit] = &topoUnit{}
 	return nil
 }
 
+// RemoveUnit removes a unit from a service.
+func (t *topology) RemoveUnit(key unitKey) error {
+	if err := t.assertUnit(key); err != nil {
+		return err
+	}
+	delete(t.topology.Services[key.service].Units, key.unit)
+	return nil
+}
+
+func (t *topology) UnitName(key unitKey) (string, error) {
+	if err := t.assertUnit(key); err != nil {
+		return "", err
+	}
+	svc := t.topology.Services[key.service]
+	return fmt.Sprintf("%s/%d", svc.Name, keyToId(key.unit)), nil
+}
+
 // UnitKeys returns the unit keys for all units of
-// the service with the given service key in alphabetical order.
-func (t *topology) UnitKeys(serviceKey string) ([]string, error) {
+// the service with the given service key.
+func (t *topology) UnitKeys(serviceKey string) ([]unitKey, error) {
 	if err := t.assertService(serviceKey); err != nil {
 		return nil, err
 	}
-	keys := []string{}
+	keys := []unitKey{}
 	svc := t.topology.Services[serviceKey]
 	for key, _ := range svc.Units {
-		keys = append(keys, key)
+		keys = append(keys, unitKey{service: serviceKey, unit: key})
 	}
-	sort.Strings(keys)
 	return keys, nil
-}
-
-// UnitName returns the name of a unit by its service key and its own key.
-func (t *topology) UnitName(serviceKey, unitKey string) (string, error) {
-	if err := t.assertUnit(serviceKey, unitKey); err != nil {
-		return "", err
-	}
-	svc := t.topology.Services[serviceKey]
-	unit := svc.Units[unitKey]
-	return fmt.Sprintf("%s/%d", svc.Name, unit.Sequence), nil
-}
-
-// UnitKeyFromSequence returns the key of a unit based on its service key
-// and its sequence number.
-func (t *topology) UnitKeyFromSequence(serviceKey string, sequenceNo int) (string, error) {
-	if err := t.assertService(serviceKey); err != nil {
-		return "", err
-	}
-	svc := t.topology.Services[serviceKey]
-	for key, unit := range svc.Units {
-		if unit.Sequence == sequenceNo {
-			return key, nil
-		}
-	}
-	return "", fmt.Errorf("unit with sequence number %d not found", sequenceNo)
 }
 
 // unitNotAssigned indicates that a unit is not assigned to a machine.
@@ -353,11 +318,11 @@ var unitNotAssigned = errors.New("unit not assigned to machine")
 
 // UnitMachineKey returns the key of an assigned machine of the unit. If no machine
 // is assigned the error unitNotAssigned will be returned.
-func (t *topology) UnitMachineKey(serviceKey, unitKey string) (string, error) {
-	if err := t.assertUnit(serviceKey, unitKey); err != nil {
+func (t *topology) UnitMachineKey(key unitKey) (string, error) {
+	if err := t.assertUnit(key); err != nil {
 		return "", err
 	}
-	unit := t.topology.Services[serviceKey].Units[unitKey]
+	unit := t.topology.Services[key.service].Units[key.unit]
 	if unit.Machine == "" {
 		return "", unitNotAssigned
 	}
@@ -366,8 +331,8 @@ func (t *topology) UnitMachineKey(serviceKey, unitKey string) (string, error) {
 
 // AssignUnitToMachine assigns a unit to a machine. It is an error to reassign a 
 // unit that is already assigned
-func (t *topology) AssignUnitToMachine(serviceKey, unitKey, machineKey string) error {
-	err := t.assertUnit(serviceKey, unitKey)
+func (t *topology) AssignUnitToMachine(key unitKey, machineKey string) error {
+	err := t.assertUnit(key)
 	if err != nil {
 		return err
 	}
@@ -375,23 +340,23 @@ func (t *topology) AssignUnitToMachine(serviceKey, unitKey, machineKey string) e
 	if err != nil {
 		return err
 	}
-	unit := t.topology.Services[serviceKey].Units[unitKey]
+	unit := t.topology.Services[key.service].Units[key.unit]
 	if unit.Machine != "" {
 		return fmt.Errorf("unit %q in service %q already assigned to machine %q",
-			unitKey, serviceKey, unit.Machine)
+			key.unit, key.service, unit.Machine)
 	}
 	unit.Machine = machineKey
 	return nil
 }
 
 // UnassignUnitFromMachine unassigns the unit from its current machine.
-func (t *topology) UnassignUnitFromMachine(serviceKey, unitKey string) error {
-	if err := t.assertUnit(serviceKey, unitKey); err != nil {
+func (t *topology) UnassignUnitFromMachine(key unitKey) error {
+	if err := t.assertUnit(key); err != nil {
 		return err
 	}
-	unit := t.topology.Services[serviceKey].Units[unitKey]
+	unit := t.topology.Services[key.service].Units[key.unit]
 	if unit.Machine == "" {
-		return fmt.Errorf("unit %q in service %q not assigned to a machine", unitKey, serviceKey)
+		return fmt.Errorf("unit %q in service %q not assigned to a machine", key.unit, key.service)
 	}
 	unit.Machine = ""
 	return nil
@@ -518,13 +483,13 @@ func (t *topology) assertService(serviceKey string) error {
 }
 
 // assertUnit checks if a service with a unit exists.
-func (t *topology) assertUnit(serviceKey, unitKey string) error {
-	if err := t.assertService(serviceKey); err != nil {
+func (t *topology) assertUnit(key unitKey) error {
+	if err := t.assertService(key.service); err != nil {
 		return err
 	}
-	svc := t.topology.Services[serviceKey]
-	if _, ok := svc.Units[unitKey]; !ok {
-		return fmt.Errorf("unit with key %q not found", unitKey)
+	svc := t.topology.Services[key.service]
+	if _, ok := svc.Units[key.unit]; !ok {
+		return fmt.Errorf("unit with key %q not found", key.unit)
 	}
 	return nil
 }
