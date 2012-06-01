@@ -146,7 +146,11 @@ func (s *store) Get(curl *URL) (Charm, error) {
 
 // LocalRepository represents a local directory containing subdirectories
 // named after an Ubuntu series, each of which contains charms targeted for
-// that series.
+// that series. For example:
+//
+//   /path/to/repository/oneiric/mongodb/
+//   /path/to/repository/precise/mongodb.charm
+//   /path/to/repository/precise/wordpress/
 type LocalRepository struct {
 	Path string
 }
@@ -181,7 +185,7 @@ func mightBeCharm(info os.FileInfo) bool {
 // satisfy the foregoing, the first one encountered will be returned.
 func (r *LocalRepository) Get(curl *URL) (Charm, error) {
 	if curl.Schema != "local" {
-		return nil, fmt.Errorf("charm: local repository got URL with non-local schema: %q", curl)
+		return nil, fmt.Errorf("local repository got URL with non-local schema: %q", curl)
 	}
 	info, err := os.Stat(r.Path)
 	if err != nil {
