@@ -1,6 +1,7 @@
 package charm
 
 import (
+	"errors"
 	"fmt"
 	"os"
 )
@@ -26,19 +27,21 @@ func Read(path string) (Charm, error) {
 	return ReadBundle(path)
 }
 
-// Resolve takes a (potentially vaguely-specified) charm name, the path to the
-// local charm repository, and the environment's default Ubuntu series, and
-// assembles them into a charm URL and a repository which is likely to contain
-// a charm matching that URL.
-func Resolve(name, repoPath, defaultSeries string) (repo Repository, curl *URL, err error) {
-	if curl, err = InferURL(name, defaultSeries); err != nil {
+// InferRepository returns a charm repository and URL inferred from the provided
+// parameters. charmAlias may hold an exact charm URL, or an alias in a
+// format supported by InferURL.
+func InferRepository(charmAlias, defaultSeries, localRepoPath string) (repo Repository, curl *URL, err error) {
+	if curl, err = InferURL(charmAlias, defaultSeries); err != nil {
 		return
 	}
 	switch curl.Schema {
 	case "cs":
 		repo = Store()
 	case "local":
-		repo = &LocalRepository{repoPath}
+		if localRepoPath == "" {
+			return nil, nil, errors.New("path to local repository not specified")
+		}
+		repo = &LocalRepository{localRepoPath}
 	default:
 		panic(fmt.Errorf("unknown schema for charm URL %q", curl))
 	}

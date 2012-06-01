@@ -30,22 +30,22 @@ func (s *CharmSuite) TestRead(c *C) {
 	c.Assert(ch.Meta().Name, Equals, "dummy")
 }
 
-var resolveTests = []struct {
+var inferRepoTests = []struct {
 	name   string
-	path   string
 	series string
+	path   string
 	curl   string
 }{
-	{"wordpress", "anything", "precise", "cs:precise/wordpress"},
+	{"wordpress", "precise", "anything", "cs:precise/wordpress"},
 	{"oneiric/wordpress", "anything", "anything", "cs:oneiric/wordpress"},
 	{"cs:oneiric/wordpress", "anything", "anything", "cs:oneiric/wordpress"},
-	{"local:wordpress", "/some/path", "precise", "local:precise/wordpress"},
-	{"local:oneiric/wordpress", "/some/path", "anything", "local:oneiric/wordpress"},
+	{"local:wordpress", "precise", "/some/path", "local:precise/wordpress"},
+	{"local:oneiric/wordpress", "anything", "/some/path", "local:oneiric/wordpress"},
 }
 
-func (s *CharmSuite) TestResolve(c *C) {
-	for _, t := range resolveTests {
-		repo, curl, err := charm.Resolve(t.name, t.path, t.series)
+func (s *CharmSuite) TestInferRepository(c *C) {
+	for _, t := range inferRepoTests {
+		repo, curl, err := charm.InferRepository(t.name, t.series, t.path)
 		c.Assert(err, IsNil)
 		expectCurl := charm.MustParseURL(t.curl)
 		c.Assert(curl, DeepEquals, expectCurl)
@@ -56,6 +56,8 @@ func (s *CharmSuite) TestResolve(c *C) {
 			c.Assert(curl.Schema, Equals, "cs")
 		}
 	}
+	_, _, err := charm.InferRepository("local:whatever", "series", "")
+	c.Assert(err, ErrorMatches, "path to local repository not specified")
 }
 
 func checkDummy(c *C, f charm.Charm, path string) {
