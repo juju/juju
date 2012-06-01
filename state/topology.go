@@ -291,14 +291,6 @@ func (t *topology) RemoveUnit(key unitKey) error {
 	return nil
 }
 
-func (t *topology) UnitName(key unitKey) (string, error) {
-	if err := t.assertUnit(key); err != nil {
-		return "", err
-	}
-	svc := t.topology.Services[key.service]
-	return fmt.Sprintf("%s/%d", svc.Name, keyToId(key.unit)), nil
-}
-
 // UnitKeys returns the unit keys for all units of
 // the service with the given service key.
 func (t *topology) UnitKeys(serviceKey string) ([]unitKey, error) {
@@ -311,6 +303,15 @@ func (t *topology) UnitKeys(serviceKey string) ([]unitKey, error) {
 		keys = append(keys, unitKey{service: serviceKey, unit: key})
 	}
 	return keys, nil
+}
+
+// UnitName returns the name of the unit with the given key.
+func (t *topology) UnitName(key unitKey) (string, error) {
+	if err := t.assertUnit(key); err != nil {
+		return "", err
+	}
+	svc := t.topology.Services[key.service]
+	return fmt.Sprintf("%s/%d", svc.Name, keyToId(key.unit)), nil
 }
 
 // unitNotAssigned indicates that a unit is not assigned to a machine.
