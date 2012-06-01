@@ -7,18 +7,28 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju/go/charm"
-	"testing"
+	"launchpad.net/juju/go/testing"
+	stdtesting "testing"
 )
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	TestingT(t)
 }
 
-type S struct{}
+type CharmSuite struct{}
 
-var _ = Suite(&S{})
+var _ = Suite(&CharmSuite{})
 
-func (s *S) SetUpSuite(c *C) {}
+func (s *CharmSuite) TestRead(c *C) {
+	bPath := testing.Charms.BundlePath(c.MkDir(), "dummy")
+	ch, err := charm.Read(bPath)
+	c.Assert(err, IsNil)
+	c.Assert(ch.Meta().Name, Equals, "dummy")
+	dPath := testing.Charms.DirPath("dummy")
+	ch, err = charm.Read(dPath)
+	c.Assert(err, IsNil)
+	c.Assert(ch.Meta().Name, Equals, "dummy")
+}
 
 func checkDummy(c *C, f charm.Charm, path string) {
 	c.Assert(f.Revision(), Equals, 1)

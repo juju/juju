@@ -4,9 +4,10 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju/go/environs"
-	_ "launchpad.net/juju/go/environs/dummy"
+	"launchpad.net/juju/go/environs/dummy"
 	"launchpad.net/juju/go/environs/jujutest"
-	"testing"
+	"launchpad.net/juju/go/testing"
+	stdtesting "testing"
 )
 
 func init() {
@@ -14,15 +15,16 @@ func init() {
 environments:
     only:
         type: dummy
-        zookeeper: false
+        zookeeper: true
 `
 	envs, err := environs.ReadEnvironsBytes([]byte(config))
 	if err != nil {
 		panic(fmt.Errorf("cannot parse testing config: %v", err))
 	}
 	Suite(&jujutest.LiveTests{
-		Environs: envs,
-		Name:     "only",
+		Environs:     envs,
+		Name:         "only",
+		CanOpenState: true,
 	})
 	Suite(&jujutest.Tests{
 		Environs: envs,
@@ -30,6 +32,10 @@ environments:
 	})
 }
 
-func TestSuite(t *testing.T) {
+func TestSuite(t *stdtesting.T) {
+	srv := testing.StartZkServer()
+	defer srv.Destroy()
+	dummy.SetZookeeper(srv)
+	defer dummy.SetZookeeper(nil)
 	TestingT(t)
 }
