@@ -1017,3 +1017,14 @@ func (s *StateSuite) TestUnitWaitAgentAlive(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 }
+
+func (s *StateSuite) TestEnvironment(c *C) {
+	path, err := s.zkConn.Create("/environment", "type: dummy\nname: foo\n", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
+	c.Assert(err, IsNil)
+	c.Assert(path, Equals, "/environment")
+
+	env, err := s.st.Environment()
+	env.Read()
+	c.Assert(err, IsNil)
+	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"type": "dummy", "name": "foo"})
+}

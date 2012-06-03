@@ -53,6 +53,7 @@ environments:
 	// they behave as expected.
 	conn, err = juju.NewConn("")
 	c.Assert(err, IsNil)
+	defer conn.Close()
 	st, err := conn.State()
 	c.Assert(st, IsNil)
 	c.Assert(err, ErrorMatches, "no state info available for this environ")
@@ -61,9 +62,13 @@ environments:
 	st, err = conn.State()
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
-	defer st.Close()
 	err = conn.Destroy()
 	c.Assert(err, IsNil)
+
+	// Close the conn (thereby closing its state) a couple of times to
+	// verify that multiple closes are safe.
+	c.Assert(conn.Close(), IsNil)
+	c.Assert(conn.Close(), IsNil)
 }
 
 func (ConnSuite) TestValidRegexps(c *C) {
