@@ -3,13 +3,21 @@ package juju_test
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju/go/environs/dummy"
 	"launchpad.net/juju/go/juju"
+	"launchpad.net/juju/go/testing"
 	"os"
 	"path/filepath"
-	"testing"
+	stdtesting "testing"
 )
 
-func Test(t *testing.T) { TestingT(t) }
+func Test(t *stdtesting.T) {
+	srv := testing.StartZkServer()
+	defer srv.Destroy()
+	dummy.SetZookeeper(srv)
+	defer dummy.SetZookeeper(nil)
+	TestingT(t)
+}
 
 type ConnSuite struct{}
 
@@ -33,19 +41,34 @@ default:
     erewhemos
 environments:
     erewhemos:
-        type: fruitloop
+        type: dummy
+        zookeeper: true
 `), 0644)
 	if err != nil {
 		c.Log("Could not create environments.yaml")
 		c.Fail()
 	}
 
-	// Tests current behaviour, not intended behaviour: once we have a
-	// globally-registered dummy provider, we'll expect to get a non-nil
-	// Conn back, and will have to figure out what needs to be tested on that.
+	// Just run through a few operations on the dummy provider and verify that
+	// they behave as expected.
 	conn, err = juju.NewConn("")
-	c.Assert(err, ErrorMatches, `environment "erewhemos" has an unknown provider type: "fruitloop"`)
-	c.Assert(conn, IsNil)
+	c.Assert(err, IsNil)
+	defer conn.Close()
+	st, err := conn.State()
+	c.Assert(st, IsNil)
+	c.Assert(err, ErrorMatches, "no state info available for this environ")
+	err = conn.Bootstrap(false)
+	c.Assert(err, IsNil)
+	st, err = conn.State()
+	c.Assert(err, IsNil)
+	c.Assert(st, NotNil)
+	err = conn.Destroy()
+	c.Assert(err, IsNil)
+
+	// Close the conn (thereby closing its state) a couple of times to
+	// verify that multiple closes are safe.
+	c.Assert(conn.Close(), IsNil)
+	c.Assert(conn.Close(), IsNil)
 }
 
 func (ConnSuite) TestValidRegexps(c *C) {

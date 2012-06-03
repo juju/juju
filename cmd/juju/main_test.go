@@ -1,11 +1,10 @@
-package main_test
+package main
 
 import (
 	"flag"
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	main "launchpad.net/juju/go/cmd/juju"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,7 +25,7 @@ var flagRunMain = flag.Bool("run-main", false, "Run the application's main funct
 // tool itself.
 func TestRunMain(t *testing.T) {
 	if *flagRunMain {
-		main.Main(flag.Args())
+		Main(flag.Args())
 	}
 }
 
