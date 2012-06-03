@@ -10,8 +10,9 @@ import (
 )
 
 type ProvisioningSuite struct {
-	zkConn *zookeeper.Conn
-	st     *state.State
+	zkConn   *zookeeper.Conn
+	st       *state.State
+	zkClosed bool
 }
 
 var _ = Suite(&ProvisioningSuite{})
@@ -28,6 +29,7 @@ func (s *ProvisioningSuite) SetUpTest(c *C) {
 	info := &state.Info{
 		Addrs: []string{zkAddr},
 	}
+	testing.ZkRemoveTree(s.zkConn, "/")
 	s.st, err = state.Initialize(info)
 	c.Assert(err, IsNil)
 
@@ -44,8 +46,9 @@ func (s *ProvisioningSuite) SetUpTest(c *C) {
 }
 
 func (s *ProvisioningSuite) TearDownTest(c *C) {
-	testing.ZkRemoveTree(s.zkConn, "/")
-	s.zkConn.Close()
+	if !s.zkClosed {
+		s.zkConn.Close()
+	}
 }
 
 func (s *ProvisioningSuite) TestParseSuccess(c *C) {
@@ -76,12 +79,22 @@ func (s *ProvisioningSuite) TestProvisionerStartStop(c *C) {
 func (s *ProvisioningSuite) TestProvisionerEnvironmentChange(c *C) {
 	p := NewProvisioner(s.st)
 	// twiddle with the environment
-        env, err := s.st.Environment()
-        c.Assert(err, IsNil)
-        env.Set("name", "testing2")
-        _, err = env.Write()
-        c.Assert(err, IsNil)
-        env.Set("name", "testing3")
-        _, err = env.Write()
+	env, err := s.st.Environment()
+	c.Assert(err, IsNil)
+	env.Set("name", "testing2")
+	_, err = env.Write()
+	c.Assert(err, IsNil)
+	env.Set("name", "testing3")
+	_, err = env.Write()
+	c.Assert(p.Stop(), IsNil)
+}
+
+func (s *ProvisioningSuite) TestProvisionerStopOnStateClose(c *C) {
+	p := NewProvisioner(s.st)
+	s.zkConn.Close()
+	s.zkClosed = true
+	// currently p.Wait() does not exit when the zkConn is closed
+	// as the watchers never report an error.
+	// c.Assert(p.Wait(), IsNil)
 	c.Assert(p.Stop(), IsNil)
 }

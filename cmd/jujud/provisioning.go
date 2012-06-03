@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/cmd"
 	"launchpad.net/juju/go/environs"
@@ -39,7 +41,7 @@ func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
 		return err
 	}
 	p := NewProvisioner(st)
-	return p.tomb.Wait()
+	return p.Wait()
 }
 
 type Provisioner struct {
@@ -120,22 +122,24 @@ func (p *Provisioner) loop() {
 				continue
 			}
 			log.Printf("provisioner: valid environment configured")
-			p.innerLoop()
+			if err := p.innerLoop(); err != nil {
+				p.tomb.Kill(err)
+			}
 		}
 	}
 }
 
-func (p *Provisioner) innerLoop() {
+func (p *Provisioner) innerLoop() error {
 	// TODO(dfc) we need a method like state.IsValid() here to exit cleanly if
 	// there is a connection problem.
 	for {
 		select {
 		case <-p.tomb.Dying():
-			return
+			return nil
 		case change, ok := <-p.environChanges():
 			if !ok {
 				p.stopEnvironWatcher()
-				continue
+				return fmt.Errorf("environWatcher closed")
 			}
 			config, err := environs.NewConfig(change.Map())
 			if err != nil {
@@ -147,11 +151,17 @@ func (p *Provisioner) innerLoop() {
 		case machines, ok := <-p.machinesChanges():
 			if !ok {
 				p.stopMachinesWatcher()
-				continue
+				return fmt.Errorf("machinesWatcher closed")
 			}
 			p.processMachines(machines)
 		}
 	}
+	return nil
+}
+
+// Wait waits for the Provisioner to exit.
+func (p *Provisioner) Wait() error {
+	return p.tomb.Wait()
 }
 
 // Stop stops the Provisioner and returns any error encountered while
