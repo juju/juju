@@ -1114,3 +1114,14 @@ func (s *StateSuite) TestAddPeerRelationIllegalEndpointNumber(c *C) {
 	_, _, err = s.st.AddRelation(mysqlep, blogep, riakep)
 	c.Assert(err, ErrorMatches, `can't add relations between 3 services`)
 }
+
+func (s *StateSuite) TestEnvironment(c *C) {
+	path, err := s.zkConn.Create("/environment", "type: dummy\nname: foo\n", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
+	c.Assert(err, IsNil)
+	c.Assert(path, Equals, "/environment")
+
+	env, err := s.st.Environment()
+	env.Read()
+	c.Assert(err, IsNil)
+	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"type": "dummy", "name": "foo"})
+}
