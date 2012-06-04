@@ -54,8 +54,9 @@ type topoService struct {
 // topoUnit represents the unit data within the /topology
 // node in ZooKeeper.
 type topoUnit struct {
-	Sequence int
-	Machine  string
+	Sequence  int
+	Machine   string
+	Principal string
 }
 
 // topoRelation represents the relation data within the 
@@ -281,7 +282,7 @@ func (t *topology) HasUnit(serviceKey, unitKey string) bool {
 
 // AddUnit adds a new unit and returns the sequence number. This
 // sequence number will be increased monotonically for each service.
-func (t *topology) AddUnit(serviceKey, unitKey string) (int, error) {
+func (t *topology) AddUnit(serviceKey, unitKey, principalKey string) (int, error) {
 	if err := t.assertService(serviceKey); err != nil {
 		return -1, err
 	}
@@ -294,7 +295,7 @@ func (t *topology) AddUnit(serviceKey, unitKey string) (int, error) {
 	// Add unit and increase sequence number.
 	svc := t.topology.Services[serviceKey]
 	sequenceNo := t.topology.UnitSequence[svc.Name]
-	svc.Units[unitKey] = &topoUnit{Sequence: sequenceNo}
+	svc.Units[unitKey] = &topoUnit{Sequence: sequenceNo, Principal: principalKey}
 	t.topology.UnitSequence[svc.Name] += 1
 	return sequenceNo, nil
 }
@@ -348,6 +349,24 @@ func (t *topology) UnitKeyFromSequence(serviceKey string, sequenceNo int) (strin
 	return "", fmt.Errorf("unit with sequence number %d not found", sequenceNo)
 }
 
+// unitNotSubordinate indicates that a unit is principal rather than subordinate.
+var unitNotSubordinate = errors.New("unit not subordinate")
+
+// UnitPrincipalKey returns the unit key of the principal unit alongside which
+// the specified subordinate unit is deployed. If the specified unit is not
+// subordinate, unitNotSubordinate will be returned.
+func (t *topology) UnitPrincipalKey(serviceKey, unitKey string) (string, error) {
+	if err := t.assertUnit(serviceKey, unitKey); err != nil {
+		return "", err
+	}
+	svc := t.topology.Services[serviceKey]
+	unit := svc.Units[unitKey]
+	if unit.Principal == "" {
+		return "", unitNotSubordinate
+	}
+	return unit.Principal, nil
+}
+
 // unitNotAssigned indicates that a unit is not assigned to a machine.
 var unitNotAssigned = errors.New("unit not assigned to machine")
 
@@ -365,7 +384,8 @@ func (t *topology) UnitMachineKey(serviceKey, unitKey string) (string, error) {
 }
 
 // AssignUnitToMachine assigns a unit to a machine. It is an error to reassign a 
-// unit that is already assigned
+// unit that is already assigned, and it is an error to assign a unit of a
+// subordinate service directly to a machine.
 func (t *topology) AssignUnitToMachine(serviceKey, unitKey, machineKey string) error {
 	err := t.assertUnit(serviceKey, unitKey)
 	if err != nil {
@@ -376,6 +396,9 @@ func (t *topology) AssignUnitToMachine(serviceKey, unitKey, machineKey string) e
 		return err
 	}
 	unit := t.topology.Services[serviceKey].Units[unitKey]
+	if unit.Principal != "" {
+		return errors.New("cannot assign subordinate units directly to machines")
+	}
 	if unit.Machine != "" {
 		return fmt.Errorf("unit %q in service %q already assigned to machine %q",
 			unitKey, serviceKey, unit.Machine)

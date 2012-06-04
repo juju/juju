@@ -65,8 +65,15 @@ func (s *Service) Charm() (*Charm, error) {
 	return s.st.Charm(url)
 }
 
-// AddUnit() adds a new unit.
-func (s *Service) AddUnit() (*Unit, error) {
+// AddUnit() adds a new unit. If s is not a subordinate service, principal
+// must be nil; otherwise it must be the unit alongside which the new unit
+// of s is to be deployed.
+func (s *Service) AddUnit(principal *Unit) (*Unit, error) {
+	// If subordinate, get key of principal unit to store in topology.
+	principalKey, err := s.validatePrincipal(principal)
+	if err != nil {
+		return nil, err
+	}
 	// Get charm id and create ZooKeeper node.
 	url, err := s.CharmURL()
 	if err != nil {
@@ -87,7 +94,7 @@ func (s *Service) AddUnit() (*Unit, error) {
 		if !t.HasService(s.key) {
 			return stateChanged
 		}
-		sequenceNo, err = t.AddUnit(s.key, key)
+		sequenceNo, err = t.AddUnit(s.key, key, principalKey)
 		if err != nil {
 			return err
 		}
@@ -97,6 +104,35 @@ func (s *Service) AddUnit() (*Unit, error) {
 		return nil, err
 	}
 	return &Unit{s.st, key, s.key, s.name, sequenceNo}, nil
+}
+
+// validatePrincipal checks that principal is valid, or nil, depending on
+// whether s is a subordinate service (and thus requires a principal). It
+// returns the key of the principal unit that should be stored in the
+// topology to record a unit's location, which will be "" if s is itself
+// a principal service.
+func (s *Service) validatePrincipal(principal *Unit) (string, error) {
+	ch, err := s.Charm()
+	if err != nil {
+		return "", err
+	}
+	principalKey := ""
+	if ch.Meta().Subordinate {
+		if principal == nil {
+			return "", errors.New("subordinate units cannot be added without a principal unit")
+		}
+		ok, err := principal.IsPrincipal()
+		if err != nil {
+			return "", err
+		}
+		if !ok {
+			return "", errors.New("cannot add subordinate unit to another subordinate unit")
+		}
+		principalKey = principal.zkKey()
+	} else if principal != nil {
+		return "", errors.New("cannot add principal unit to another principal unit")
+	}
+	return principalKey, nil
 }
 
 // RemoveUnit() removes a unit.
