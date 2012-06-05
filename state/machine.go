@@ -35,7 +35,7 @@ func (m *Machine) AgentAlive() (bool, error) {
 func (m *Machine) WaitAgentAlive(timeout time.Duration) error {
 	err := presence.WaitAlive(m.st.zk, m.zkAgentPath(), timeout)
 	if err != nil {
-		return fmt.Errorf("state: waiting for agent of %s: %v", m, err)
+		return fmt.Errorf("state: waiting for agent of machine %s: %v", m, err)
 	}
 	return nil
 }
@@ -77,7 +77,7 @@ func (m *Machine) SetInstanceId(id string) error {
 
 // String returns a unique description of this machine
 func (m *Machine) String() string {
-	return fmt.Sprintf("machine %d", m.Id())
+	return strconv.Itoa(m.Id())
 }
 
 // zkKey returns the ZooKeeper key of the machine.
