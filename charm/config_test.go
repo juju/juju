@@ -50,7 +50,11 @@ func repoConfig(name string) io.Reader {
 	return bytes.NewBuffer(data)
 }
 
-func (s *S) TestReadConfig(c *C) {
+type ConfigSuite struct{}
+
+var _ = Suite(&ConfigSuite{})
+
+func (s *ConfigSuite) TestReadConfig(c *C) {
 	config, err := charm.ReadConfig(repoConfig("dummy"))
 	c.Assert(err, IsNil)
 	c.Assert(config.Options["title"], DeepEquals,
@@ -62,12 +66,12 @@ func (s *S) TestReadConfig(c *C) {
 	)
 }
 
-func (s *S) TestConfigError(c *C) {
+func (s *ConfigSuite) TestConfigError(c *C) {
 	_, err := charm.ReadConfig(bytes.NewBuffer([]byte(`options: {t: {type: foo}}`)))
 	c.Assert(err, ErrorMatches, `config: options.t.type: unsupported value`)
 }
 
-func (s *S) TestDefaultType(c *C) {
+func (s *ConfigSuite) TestDefaultType(c *C) {
 	assertDefault := func(type_ string, value string, expected interface{}) {
 		config := fmt.Sprintf(`options: {t: {type: %s, default: %s}}`, type_, value)
 		result, err := charm.ReadConfig(bytes.NewBuffer([]byte(config)))
@@ -93,7 +97,7 @@ func (s *S) TestDefaultType(c *C) {
 	assertTypeError("int", "33.2")
 }
 
-func (s *S) TestParseSample(c *C) {
+func (s *ConfigSuite) TestParseSample(c *C) {
 	config, err := charm.ReadConfig(bytes.NewBuffer([]byte(sampleConfig)))
 	c.Assert(err, IsNil)
 
@@ -132,7 +136,7 @@ func (s *S) TestParseSample(c *C) {
 	)
 }
 
-func (s *S) TestValidate(c *C) {
+func (s *ConfigSuite) TestValidate(c *C) {
 	config, err := charm.ReadConfig(bytes.NewBuffer([]byte(sampleConfig)))
 	c.Assert(err, IsNil)
 
