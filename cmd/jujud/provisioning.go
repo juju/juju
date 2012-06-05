@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju/go/cmd"
 	"launchpad.net/juju/go/environs"
@@ -36,6 +34,7 @@ func (a *ProvisioningAgent) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run runs a provisioning agent.
 func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
+	// TODO(dfc) place the logic in a loop with a suitable delay
 	st, err := state.Open(&a.Conf.StateInfo)
 	if err != nil {
 		return err
@@ -53,46 +52,6 @@ type Provisioner struct {
 	machinesWatcher *state.MachinesWatcher
 }
 
-// environChanges returns a channel that will receive the new *ConfigNode 
-// when a change is detected. 
-func (p *Provisioner) environChanges() <-chan *state.ConfigNode {
-	if p.environWatcher == nil {
-		p.environWatcher = p.st.WatchEnvironConfig()
-	}
-	return p.environWatcher.Changes()
-}
-
-// stopEnvironWatcher stops and invalidates the current environWatcher.
-func (p *Provisioner) stopEnvironWatcher() (err error) {
-	if p.environWatcher != nil {
-		if err = p.environWatcher.Stop(); err != nil {
-			log.Printf("provisioning: environWatcher reported error on Stop: %v", err)
-		}
-	}
-	p.environWatcher = nil
-	return
-}
-
-// changes returns a channel that will receive the new *ConfigNode when a
-// change is detected. 
-func (p *Provisioner) machinesChanges() <-chan *state.MachinesChange {
-	if p.machinesWatcher == nil {
-		p.machinesWatcher = p.st.WatchMachines()
-	}
-	return p.machinesWatcher.Changes()
-}
-
-// stopMachinesWatcher stops and invalidates the current machinesWatcher..
-func (p *Provisioner) stopMachinesWatcher() (err error) {
-	if p.machinesWatcher != nil {
-		if err = p.machinesWatcher.Stop(); err != nil {
-			log.Printf("provisioning: machinesWatcehr reported error on Stop: %v", err)
-		}
-	}
-	p.machinesWatcher = nil
-	return
-}
-
 // NewProvisioner returns a Provisioner.
 func NewProvisioner(st *state.State) *Provisioner {
 	p := &Provisioner{
@@ -104,59 +63,68 @@ func NewProvisioner(st *state.State) *Provisioner {
 
 func (p *Provisioner) loop() {
 	defer p.tomb.Done()
-	// TODO(dfc) we need a method like state.IsValid() here to exit cleanly if
+
+	p.environWatcher = p.st.WatchEnvironConfig()
+	// TODO(dfc) we need a method like state.IsConnected() here to exit cleanly if
 	// there is a connection problem.
 	for {
 		select {
 		case <-p.tomb.Dying():
 			return
-		case config, ok := <-p.environChanges():
+		case config, ok := <-p.environWatcher.Changes():
 			if !ok {
-				p.stopEnvironWatcher()
-				continue
+				err := p.environWatcher.Stop()
+				if err != nil {
+					p.tomb.Kill(err)
+				}
+				return
 			}
 			var err error
 			p.environ, err = environs.NewEnviron(config.Map())
 			if err != nil {
-				log.Printf("provisioner: unable to create environment from supplied configuration: %v", err)
+				log.Printf("provisioner loaded invalid environment configuration: %v", err)
 				continue
 			}
-			log.Printf("provisioner: valid environment configured")
-			if err := p.innerLoop(); err != nil {
-				p.tomb.Kill(err)
-			}
+			log.Printf("provisioner loaded new environment configuration")
+			p.innerLoop()
 		}
 	}
 }
 
-func (p *Provisioner) innerLoop() error {
-	// TODO(dfc) we need a method like state.IsValid() here to exit cleanly if
+func (p *Provisioner) innerLoop() {
+	p.machinesWatcher = p.st.WatchMachines()
+	// TODO(dfc) we need a method like state.IsConnected() here to exit cleanly if
 	// there is a connection problem.
 	for {
 		select {
 		case <-p.tomb.Dying():
-			return nil
-		case change, ok := <-p.environChanges():
+			return
+		case change, ok := <-p.environWatcher.Changes():
 			if !ok {
-				p.stopEnvironWatcher()
-				return fmt.Errorf("environWatcher closed")
+				err := p.environWatcher.Stop()
+				if err != nil {
+					p.tomb.Kill(err)
+				}
+				return
 			}
 			config, err := environs.NewConfig(change.Map())
 			if err != nil {
-				log.Printf("provisioner: new configuration received, but was not valid: %v", err)
+				log.Printf("provisioner loaded invalid environment configuration: %v", err)
 				continue
 			}
 			p.environ.SetConfig(config)
-			log.Printf("provisioner: new environment configuartion applied")
-		case machines, ok := <-p.machinesChanges():
+			log.Printf("provisioner loaded new environment configuration")
+		case machines, ok := <-p.machinesWatcher.Changes():
 			if !ok {
-				p.stopMachinesWatcher()
-				return fmt.Errorf("machinesWatcher closed")
+				err := p.machinesWatcher.Stop()
+				if err != nil {
+					p.tomb.Kill(err)
+				}
+				return
 			}
 			p.processMachines(machines)
 		}
 	}
-	return nil
 }
 
 // Wait waits for the Provisioner to exit.
@@ -168,15 +136,7 @@ func (p *Provisioner) Wait() error {
 // provisioning.
 func (p *Provisioner) Stop() error {
 	p.tomb.Kill(nil)
-	err1 := p.stopEnvironWatcher()
-	err2 := p.stopMachinesWatcher()
-	err3 := p.tomb.Wait()
-	for _, err := range []error{err3, err2, err1} {
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return p.tomb.Wait()
 }
 
 func (p *Provisioner) processMachines(changes *state.MachinesChange) {}

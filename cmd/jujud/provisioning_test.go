@@ -10,9 +10,8 @@ import (
 )
 
 type ProvisioningSuite struct {
-	zkConn   *zookeeper.Conn
-	st       *state.State
-	zkClosed bool
+	zkConn *zookeeper.Conn
+	st     *state.State
 }
 
 var _ = Suite(&ProvisioningSuite{})
@@ -34,21 +33,10 @@ func (s *ProvisioningSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 
 	dummy.Reset()
-
-	// seed /environment to point to dummy
-	env, err := s.st.Environment()
-	c.Assert(err, IsNil)
-	env.Set("type", "dummy")
-	env.Set("zookeeper", false)
-	env.Set("name", "testing")
-	_, err = env.Write()
-	c.Assert(err, IsNil)
 }
 
 func (s *ProvisioningSuite) TearDownTest(c *C) {
-	if !s.zkClosed {
-		s.zkConn.Close()
-	}
+	s.zkConn.Close()
 }
 
 func (s *ProvisioningSuite) TestParseSuccess(c *C) {
@@ -78,8 +66,18 @@ func (s *ProvisioningSuite) TestProvisionerStartStop(c *C) {
 
 func (s *ProvisioningSuite) TestProvisionerEnvironmentChange(c *C) {
 	p := NewProvisioner(s.st)
-	// twiddle with the environment
+
+	// seed /environment to point to dummy
 	env, err := s.st.Environment()
+	c.Assert(err, IsNil)
+	env.Set("type", "dummy")
+	env.Set("zookeeper", false)
+	env.Set("name", "testing")
+	_, err = env.Write()
+	c.Assert(err, IsNil)
+
+	// twiddle with the environment
+	env, err = s.st.Environment()
 	c.Assert(err, IsNil)
 	env.Set("name", "testing2")
 	_, err = env.Write()
@@ -91,10 +89,19 @@ func (s *ProvisioningSuite) TestProvisionerEnvironmentChange(c *C) {
 
 func (s *ProvisioningSuite) TestProvisionerStopOnStateClose(c *C) {
 	p := NewProvisioner(s.st)
-	s.zkConn.Close()
-	s.zkClosed = true
-	// currently p.Wait() does not exit when the zkConn is closed
-	// as the watchers never report an error.
-	// c.Assert(p.Wait(), IsNil)
-	c.Assert(p.Stop(), IsNil)
+
+	// seed /environment to point to dummy
+	env, err := s.st.Environment()
+	c.Assert(err, IsNil)
+	env.Set("type", "dummy")
+	env.Set("zookeeper", false)
+	env.Set("name", "testing")
+	_, err = env.Write()
+	c.Assert(err, IsNil)
+
+	s.st.Close()
+
+	c.Assert(p.Wait(), ErrorMatches, "watcher.*")
+	c.Assert(p.Stop(), ErrorMatches, "watcher.*")
+
 }
