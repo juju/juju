@@ -3,7 +3,7 @@ package cloudinit_test
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/cloudinit"
+	"launchpad.net/juju-core/juju/cloudinit"
 	"testing"
 )
 

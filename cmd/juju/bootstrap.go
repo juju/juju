@@ -2,8 +2,8 @@ package main
 
 import (
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju/go/cmd"
-	"launchpad.net/juju/go/juju"
+	"launchpad.net/juju-core/juju/cmd"
+	"launchpad.net/juju-core/juju/juju"
 )
 
 // BootstrapCommand is responsible for launching the first machine in a juju

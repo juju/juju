@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"launchpad.net/juju/go/cmd/jujuc/server"
+	"launchpad.net/juju-core/juju/cmd/jujuc/server"
 	"net/rpc"
 	"os"
 	"path/filepath"

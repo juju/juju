@@ -5,8 +5,8 @@ package server
 
 import (
 	"fmt"
-	"launchpad.net/juju/go/cmd"
-	"launchpad.net/juju/go/state"
+	"launchpad.net/juju-core/juju/cmd"
+	"launchpad.net/juju-core/juju/state"
 	"os"
 	"os/exec"
 	"path/filepath"

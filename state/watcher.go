@@ -2,7 +2,7 @@ package state
 
 import (
 	"launchpad.net/goyaml"
-	"launchpad.net/juju/go/state/watcher"
+	"launchpad.net/juju-core/juju/state/watcher"
 	"launchpad.net/tomb"
 )
 

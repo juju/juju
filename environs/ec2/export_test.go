@@ -3,7 +3,7 @@ package ec2
 import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
-	"launchpad.net/juju/go/environs"
+	"launchpad.net/juju-core/juju/environs"
 	"net/http"
 )
 

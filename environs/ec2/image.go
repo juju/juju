@@ -3,7 +3,7 @@ package ec2
 import (
 	"bufio"
 	"fmt"
-	"launchpad.net/juju/go/environs"
+	"launchpad.net/juju-core/juju/environs"
 	"net/http"
 	"strings"
 )

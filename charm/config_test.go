@@ -6,8 +6,8 @@ import (
 	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/charm"
-	"launchpad.net/juju/go/testing"
+	"launchpad.net/juju-core/juju/charm"
+	"launchpad.net/juju-core/juju/testing"
 	"os"
 	"path/filepath"
 )

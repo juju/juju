@@ -2,8 +2,8 @@ package cmd_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/cmd"
-	"launchpad.net/juju/go/log"
+	"launchpad.net/juju-core/juju/cmd"
+	"launchpad.net/juju-core/juju/log"
 )
 
 func initDefenestrate(args []string) (*cmd.SuperCommand, *TestCommand, error) {

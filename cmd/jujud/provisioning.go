@@ -2,15 +2,15 @@ package main
 
 import (
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju/go/cmd"
-	"launchpad.net/juju/go/environs"
-	"launchpad.net/juju/go/log"
-	"launchpad.net/juju/go/state"
+	"launchpad.net/juju-core/juju/cmd"
+	"launchpad.net/juju-core/juju/environs"
+	"launchpad.net/juju-core/juju/log"
+	"launchpad.net/juju-core/juju/state"
 	"launchpad.net/tomb"
 
 	// register providers
-	_ "launchpad.net/juju/go/environs/dummy"
-	_ "launchpad.net/juju/go/environs/ec2"
+	_ "launchpad.net/juju-core/juju/environs/dummy"
+	_ "launchpad.net/juju-core/juju/environs/ec2"
 )
 
 // ProvisioningAgent is a cmd.Command responsible for running a provisioning agent.

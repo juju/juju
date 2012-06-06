@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju/go/cmd"
-	"launchpad.net/juju/go/state"
+	"launchpad.net/juju-core/juju/cmd"
+	"launchpad.net/juju-core/juju/state"
 	"regexp"
 	"strings"
 )

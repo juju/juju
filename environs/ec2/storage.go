@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"launchpad.net/goamz/s3"
-	"launchpad.net/juju/go/environs"
+	"launchpad.net/juju-core/juju/environs"
 	"sync"
 	"time"
 )

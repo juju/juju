@@ -3,10 +3,10 @@ package main
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju/go/cmd"
-	"launchpad.net/juju/go/environs/dummy"
-	"launchpad.net/juju/go/state"
-	"launchpad.net/juju/go/testing"
+	"launchpad.net/juju-core/juju/cmd"
+	"launchpad.net/juju-core/juju/environs/dummy"
+	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/juju-core/juju/testing"
 )
 
 type ProvisioningSuite struct {

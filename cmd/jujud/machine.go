@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju/go/cmd"
+	"launchpad.net/juju-core/juju/cmd"
 )
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.

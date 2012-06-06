@@ -2,14 +2,14 @@ package testing
 
 import (
 	"go/build"
-	"launchpad.net/juju/go/charm"
+	"launchpad.net/juju-core/juju/charm"
 	"os"
 	"os/exec"
 	"path/filepath"
 )
 
 func init() {
-	p, err := build.Import("launchpad.net/juju/go/testing", "", build.FindOnly)
+	p, err := build.Import("launchpad.net/juju-core/juju/testing", "", build.FindOnly)
 	check(err)
 	Charms = &Repo{Path: filepath.Join(p.Dir, "repo")}
 }

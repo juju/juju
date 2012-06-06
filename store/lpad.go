@@ -2,8 +2,8 @@ package store
 
 import (
 	"fmt"
-	"launchpad.net/juju/go/charm"
-	"launchpad.net/juju/go/log"
+	"launchpad.net/juju-core/juju/charm"
+	"launchpad.net/juju-core/juju/log"
 	"launchpad.net/lpad"
 	"strings"
 	"time"

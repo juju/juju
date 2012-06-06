@@ -6,7 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju/go/schema"
+	"launchpad.net/juju-core/juju/schema"
 )
 
 const (

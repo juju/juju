@@ -3,7 +3,7 @@ package ec2_test
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/environs/ec2"
+	"launchpad.net/juju-core/juju/environs/ec2"
 	"os"
 	"path/filepath"
 	"sort"

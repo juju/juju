@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/environs"
-	"launchpad.net/juju/go/environs/dummy"
-	"launchpad.net/juju/go/version"
+	"launchpad.net/juju-core/juju/environs"
+	"launchpad.net/juju-core/juju/environs/dummy"
+	"launchpad.net/juju-core/juju/version"
 	"net/http"
 	"os"
 	"os/exec"
@@ -104,7 +104,7 @@ func getToolsWithTar(env environs.Environ, dir string) error {
 // file in this case).
 func (t *ToolsSuite) TestUploadBadBuild(c *C) {
 	gopath := c.MkDir()
-	pkgdir := filepath.Join(gopath, "src", "launchpad.net", "juju", "go", "cmd", "broken")
+	pkgdir := filepath.Join(gopath, "src", "launchpad.net", "juju-core", "juju", "cmd", "broken")
 	err := os.MkdirAll(pkgdir, 0777)
 	c.Assert(err, IsNil)
 

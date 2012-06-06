@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju/go/cmd"
-	"launchpad.net/juju/go/state"
+	"launchpad.net/juju-core/juju/cmd"
+	"launchpad.net/juju-core/juju/state"
 )
 
 // UnitGetCommand implements the unit-get command.

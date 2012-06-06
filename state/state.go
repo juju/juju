@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju/go/charm"
+	"launchpad.net/juju-core/juju/charm"
 	"net/url"
 	"strings"
 )

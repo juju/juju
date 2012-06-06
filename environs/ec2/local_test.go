@@ -9,12 +9,12 @@ import (
 	"launchpad.net/goamz/s3/s3test"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju/go/environs"
-	"launchpad.net/juju/go/environs/ec2"
-	"launchpad.net/juju/go/environs/jujutest"
-	"launchpad.net/juju/go/state"
-	"launchpad.net/juju/go/testing"
-	"launchpad.net/juju/go/version"
+	"launchpad.net/juju-core/juju/environs"
+	"launchpad.net/juju-core/juju/environs/ec2"
+	"launchpad.net/juju-core/juju/environs/jujutest"
+	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/juju/version"
 	"strings"
 )
 

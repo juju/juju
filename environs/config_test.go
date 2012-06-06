@@ -3,8 +3,8 @@ package environs_test
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/environs"
-	_ "launchpad.net/juju/go/environs/dummy"
+	"launchpad.net/juju-core/juju/environs"
+	_ "launchpad.net/juju-core/juju/environs/dummy"
 	"os"
 	"path/filepath"
 )

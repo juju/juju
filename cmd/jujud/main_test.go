@@ -3,7 +3,7 @@ package main_test
 import (
 	"flag"
 	. "launchpad.net/gocheck"
-	main "launchpad.net/juju/go/cmd/jujud"
+	main "launchpad.net/juju-core/juju/cmd/jujud"
 	"os"
 	"os/exec"
 	"strings"

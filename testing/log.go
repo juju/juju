@@ -2,7 +2,7 @@ package testing
 
 import (
 	"launchpad.net/gocheck"
-	"launchpad.net/juju/go/log"
+	"launchpad.net/juju-core/juju/log"
 )
 
 // LoggingSuite redirects the juju logger to the test logger

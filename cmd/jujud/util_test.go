@@ -3,7 +3,7 @@ package main
 import (
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/cmd"
+	"launchpad.net/juju-core/juju/cmd"
 )
 
 type acCreator func() (cmd.Command, *AgentConf)
