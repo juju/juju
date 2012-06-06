@@ -70,8 +70,8 @@ type topoRelation struct {
 // service of a relation within the /topology
 // node in ZooKeeper.
 type topoRelationService struct {
-	RelationRole RelationRole
-	RelationName string "relation-name"
+	RelationRole RelationRole "relation-role"
+	RelationName string       "relation-name"
 }
 
 // check verifies that r is a proper relation.
@@ -488,7 +488,7 @@ func (t *topology) RelationKey(endpoints ...RelationEndpoint) (string, error) {
 	for _, endpoint := range endpoints {
 		serviceKey, err := t.ServiceKey(endpoint.ServiceName)
 		if err != nil {
-			return "", err
+			return "", &NoRelationError{endpoints}
 		}
 		serviceKeys[endpoint] = serviceKey
 	}
