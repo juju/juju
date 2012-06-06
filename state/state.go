@@ -74,8 +74,8 @@ func (s *State) WatchEnvironConfig() *ConfigWatcher {
 	return newConfigWatcher(s, zkEnvironmentPath)
 }
 
-// Environment returns the current configuration of the environment.
-func (s *State) Environment() (*ConfigNode, error) {
+// EnvironConfig returns the current configuration of the environment.
+func (s *State) EnvironConfig() (*ConfigNode, error) {
 	return readConfigNode(s.zk, zkEnvironmentPath)
 }
 
@@ -371,4 +371,18 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (*Relation, []*Servic
 		return nil, nil, err
 	}
 	return &Relation{s, relationKey}, serviceRelations, nil
+}
+
+// RemoveRelation removes the relation.
+func (s *State) RemoveRelation(relation *Relation) error {
+	removeRelation := func(t *topology) error {
+		_, err := t.Relation(relation.key)
+		if err != nil {
+			return fmt.Errorf("can't remove relation: %v", err)
+		}
+		return t.RemoveRelation(relation.key)
+	}
+	// TODO: Improve high-level errors, no passing of low-level 
+	// errors directly to the caller.
+	return retryTopologyChange(s.zk, removeRelation)
 }

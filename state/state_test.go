@@ -451,13 +451,49 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 
-	// Check that adding units works.
+	// Check that principal units can be added on their own.
 	unitZero, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	c.Assert(unitZero.Name(), Equals, "wordpress/0")
+	principal, err := unitZero.IsPrincipal()
+	c.Assert(err, IsNil)
+	c.Assert(principal, Equals, true)
 	unitOne, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	c.Assert(unitOne.Name(), Equals, "wordpress/1")
+	principal, err = unitOne.IsPrincipal()
+	c.Assert(err, IsNil)
+	c.Assert(principal, Equals, true)
+
+	// Check that principal units cannot be added to principal units.
+	_, err = wordpress.AddUnitSubordinateTo(unitZero)
+	c.Assert(err, ErrorMatches, "cannot make a principal unit subordinate to another unit")
+
+	// Add a subordinate service.
+	bundle := testing.Charms.Bundle(c.MkDir(), "logging")
+	curl := charm.MustParseURL("cs:series/logging-99")
+	bundleURL, err := url.Parse("http://subordinate.url")
+	c.Assert(err, IsNil)
+	subCh, err := s.st.AddCharm(bundle, curl, bundleURL, "dummy-sha256")
+	c.Assert(err, IsNil)
+	logging, err := s.st.AddService("logging", subCh)
+	c.Assert(err, IsNil)
+
+	// Check that subordinate units can be added to principal units.
+	subZero, err := logging.AddUnitSubordinateTo(unitZero)
+	c.Assert(err, IsNil)
+	c.Assert(subZero.Name(), Equals, "logging/0")
+	principal, err = subZero.IsPrincipal()
+	c.Assert(err, IsNil)
+	c.Assert(principal, Equals, false)
+
+	// Check that subordinate units must be added to other units.
+	_, err = logging.AddUnit()
+	c.Assert(err, ErrorMatches, `cannot directly add units to subordinate service "logging"`)
+
+	// Check that subordinate units cannnot be added to subordinate units.
+	_, err = logging.AddUnitSubordinateTo(subZero)
+	c.Assert(err, ErrorMatches, "a subordinate unit must be added to a principal unit")
 }
 
 func (s *StateSuite) TestReadUnit(c *C) {
@@ -848,6 +884,20 @@ func (s *StateSuite) TestAssignUnit(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(mid, Equals, 2)
 	s.assertMachineCount(c, 3)
+
+	// Check cannot assign subordinates to machines
+	bundle := testing.Charms.Bundle(c.MkDir(), "logging")
+	curl := charm.MustParseURL("cs:series/logging-99")
+	bundleURL, err := url.Parse("http://subordinate.url")
+	c.Assert(err, IsNil)
+	subCh, err := s.st.AddCharm(bundle, curl, bundleURL, "dummy-sha256")
+	c.Assert(err, IsNil)
+	logging, err := s.st.AddService("logging", subCh)
+	c.Assert(err, IsNil)
+	unit3, err := logging.AddUnitSubordinateTo(unit2)
+	c.Assert(err, IsNil)
+	err = state.AssignUnit(s.st, unit3, state.AssignUnused)
+	c.Assert(err, ErrorMatches, `subordinate unit "logging/0" cannot be assigned directly to a machine`)
 }
 
 func (s *StateSuite) TestGetSetClearUnitUpgrade(c *C) {
@@ -1085,7 +1135,24 @@ func (s *StateSuite) TestAddRelation(c *C) {
 	c.Assert(serviceRelations[0].RelationScope(), Equals, state.ScopeGlobal)
 	c.Assert(serviceRelations[0].RelationRole(), Equals, state.RolePeer)
 	c.Assert(serviceRelations[0].RelationName(), Equals, "cache")
+}
 
+func (s *StateSuite) TestServiceRelationRelation(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("riak", dummy)
+	riakep := state.RelationEndpoint{"riak", "ring", "cache", state.RolePeer, state.ScopeGlobal}
+	relation, serviceRelations, err := s.st.AddRelation(riakep)
+	c.Assert(err, IsNil)
+	c.Assert(relation, NotNil)
+	c.Assert(serviceRelations, HasLen, 1)
+	ok, err := state.HasRelation(s.st, serviceRelations[0].Relation())
+	c.Assert(err, IsNil)
+	c.Assert(ok, Equals, true)
+	// Negative test.
+	err = s.st.RemoveRelation(relation)
+	c.Assert(err, IsNil)
+	_, err = state.HasRelation(s.st, serviceRelations[0].Relation())
+	c.Assert(err, ErrorMatches, `relation "relation-0000000000" does not exist`)
 }
 
 func (s *StateSuite) TestAddRelationMissingService(c *C) {
@@ -1159,13 +1226,31 @@ func (s *StateSuite) TestAddPeerRelationIllegalEndpointNumber(c *C) {
 	c.Assert(err, ErrorMatches, `can't add relations between 3 services`)
 }
 
-func (s *StateSuite) TestEnvironment(c *C) {
+func (s *StateSuite) TestEnvironConfig(c *C) {
 	path, err := s.zkConn.Create("/environment", "type: dummy\nname: foo\n", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
 	c.Assert(err, IsNil)
 	c.Assert(path, Equals, "/environment")
 
-	env, err := s.st.Environment()
+	env, err := s.st.EnvironConfig()
 	env.Read()
 	c.Assert(err, IsNil)
 	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"type": "dummy", "name": "foo"})
+}
+
+func (s *StateSuite) TestRemoveRelation(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("riak", dummy)
+	riakep := state.RelationEndpoint{"riak", "blog", "cache", state.RolePeer, state.ScopeGlobal}
+	relation, _, err := s.st.AddRelation(riakep)
+	c.Assert(err, IsNil)
+	c.Assert(relation, NotNil)
+	hasRelation, err := state.HasRelation(s.st, relation)
+	c.Assert(err, IsNil)
+	c.Assert(hasRelation, Equals, true)
+	err = s.st.RemoveRelation(relation)
+	hasRelation, err = state.HasRelation(s.st, relation)
+	c.Assert(hasRelation, Equals, false)
+	c.Assert(err, ErrorMatches, `relation "relation-0000000000" does not exist`)
+	err = s.st.RemoveRelation(relation)
+	c.Assert(err, ErrorMatches, `can't remove relation: relation "relation-0000000000" does not exist`)
 }
