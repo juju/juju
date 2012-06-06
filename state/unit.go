@@ -22,12 +22,15 @@ const (
 	ResolvedNoHooks    ResolvedMode = 1001
 )
 
-// PlacementPolicy controls what machine a unit will be assigned to.
-type PlacementPolicy string
+// AssignmentPolicy controls what machine a unit will be assigned to.
+type AssignmentPolicy string
 
 const (
-	PlaceLocal      PlacementPolicy = "local"
-	PlaceUnassigned PlacementPolicy = "unassigned"
+	// AssignLocal indicates that all service units should be assigned to machine 0.
+	AssignLocal AssignmentPolicy = "local"
+	// AssignUnused indicates that every service unit should be assigned to a
+	// dedicated machine, and that new machines should be launched if required.
+	AssignUnused AssignmentPolicy = "unused"
 )
 
 // NeedsUpgrade describes if a unit needs an
@@ -235,29 +238,6 @@ func (u *Unit) AssignToUnusedMachine() (*Machine, error) {
 		return nil, err
 	}
 	return &Machine{u.st, machineKey}, nil
-}
-
-// Place assigns u to a machine according to policy.
-func (u *Unit) Place(policy PlacementPolicy) (err error) {
-	var m *Machine
-	switch policy {
-	case PlaceLocal:
-		if m, err = u.st.Machine(0); err != nil {
-			return
-		}
-	case PlaceUnassigned:
-		switch _, err = u.AssignToUnusedMachine(); err {
-		case noUnusedMachines:
-		default:
-			return
-		}
-		if m, err = u.st.AddMachine(); err != nil {
-			return
-		}
-	default:
-		panic(fmt.Errorf("unknown unit placement policy: %q", policy))
-	}
-	return u.AssignToMachine(m)
 }
 
 // UnassignFromMachine removes the assignment between this unit and

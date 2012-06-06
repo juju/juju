@@ -20,6 +20,29 @@ var (
 	zkPermAll = zookeeper.WorldACL(zookeeper.PERM_ALL)
 )
 
+// AssignUnit places the unit on a machine. Depending on the policy, and the
+// state of the environment, this may lead to new instances being launched
+// within the environment.
+func AssignUnit(st *State, u *Unit, policy AssignmentPolicy) (err error) {
+	var m *Machine
+	switch policy {
+	case AssignLocal:
+		if m, err = u.st.Machine(0); err != nil {
+			return
+		}
+	case AssignUnused:
+		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
+			return
+		}
+		if m, err = u.st.AddMachine(); err != nil {
+			return
+		}
+	default:
+		panic(fmt.Errorf("unknown unit assignment policy: %q", policy))
+	}
+	return u.AssignToMachine(m)
+}
+
 const (
 	ItemAdded = iota + 1
 	ItemModified

@@ -804,7 +804,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 	c.Assert(err, ErrorMatches, "no unused machine found")
 }
 
-func (s *StateSuite) TestPlaceUnit(c *C) {
+func (s *StateSuite) TestAssignUnit(c *C) {
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 	dummy := s.addDummyCharm(c)
@@ -814,14 +814,14 @@ func (s *StateSuite) TestPlaceUnit(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check nonsensical policy
-	fail := func() { unit0.Place(state.PlacementPolicy("random")) }
-	c.Assert(fail, PanicMatches, `unknown unit placement policy: "random"`)
+	fail := func() { state.AssignUnit(s.st, unit0, state.AssignmentPolicy("random")) }
+	c.Assert(fail, PanicMatches, `unknown unit assignment policy: "random"`)
 	_, err = unit0.AssignedMachineId()
 	c.Assert(err, NotNil)
 	s.assertMachineCount(c, 1)
 
 	// Check local placement
-	err = unit0.Place(state.PlaceLocal)
+	err = state.AssignUnit(s.st, unit0, state.AssignLocal)
 	c.Assert(err, IsNil)
 	mid, err := unit0.AssignedMachineId()
 	c.Assert(err, IsNil)
@@ -831,7 +831,7 @@ func (s *StateSuite) TestPlaceUnit(c *C) {
 	// Check unassigned placement with no unused machines
 	unit1, err := serv.AddUnit()
 	c.Assert(err, IsNil)
-	err = unit1.Place(state.PlaceUnassigned)
+	err = state.AssignUnit(s.st, unit1, state.AssignUnused)
 	c.Assert(err, IsNil)
 	mid, err = unit1.AssignedMachineId()
 	c.Assert(err, IsNil)
@@ -842,7 +842,7 @@ func (s *StateSuite) TestPlaceUnit(c *C) {
 	_, err = s.st.AddMachine()
 	unit2, err := serv.AddUnit()
 	c.Assert(err, IsNil)
-	err = unit2.Place(state.PlaceUnassigned)
+	err = state.AssignUnit(s.st, unit2, state.AssignUnused)
 	c.Assert(err, IsNil)
 	mid, err = unit2.AssignedMachineId()
 	c.Assert(err, IsNil)
