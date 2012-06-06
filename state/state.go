@@ -74,8 +74,8 @@ func (s *State) WatchEnvironConfig() *ConfigWatcher {
 	return newConfigWatcher(s, zkEnvironmentPath)
 }
 
-// Environment returns the current configuration of the environment.
-func (s *State) Environment() (*ConfigNode, error) {
+// EnvironConfig returns the current configuration of the environment.
+func (s *State) EnvironConfig() (*ConfigNode, error) {
 	return readConfigNode(s.zk, zkEnvironmentPath)
 }
 

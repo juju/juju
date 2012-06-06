@@ -67,8 +67,8 @@ func (s *ProvisioningSuite) TestProvisionerStartStop(c *C) {
 func (s *ProvisioningSuite) TestProvisionerEnvironmentChange(c *C) {
 	p := NewProvisioner(s.st)
 
-	// seed /environment to point to dummy
-	env, err := s.st.Environment()
+	// Change environment configuration to point to dummy.
+	env, err := s.st.EnvironConfig()
 	c.Assert(err, IsNil)
 	env.Set("type", "dummy")
 	env.Set("zookeeper", false)
@@ -76,8 +76,8 @@ func (s *ProvisioningSuite) TestProvisionerEnvironmentChange(c *C) {
 	_, err = env.Write()
 	c.Assert(err, IsNil)
 
-	// twiddle with the environment
-	env, err = s.st.Environment()
+	// Twiddle with the environment configuration.
+	env, err = s.st.EnvironConfig()
 	c.Assert(err, IsNil)
 	env.Set("name", "testing2")
 	_, err = env.Write()
@@ -90,8 +90,8 @@ func (s *ProvisioningSuite) TestProvisionerEnvironmentChange(c *C) {
 func (s *ProvisioningSuite) TestProvisionerStopOnStateClose(c *C) {
 	p := NewProvisioner(s.st)
 
-	// seed /environment to point to dummy
-	env, err := s.st.Environment()
+	// Change environment configuration to point to dummy.
+	env, err := s.st.EnvironConfig()
 	c.Assert(err, IsNil)
 	env.Set("type", "dummy")
 	env.Set("zookeeper", false)
