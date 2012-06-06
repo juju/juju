@@ -453,7 +453,7 @@ func (s *TopologySuite) TestRelation(c *C) {
 	// Check that the retrieving of relations works correctly.
 	relation, err := s.t.Relation("r-1")
 	c.Assert(relation, IsNil)
-	c.Assert(err, ErrorMatches, `relation does not exist`)
+	c.Assert(err, ErrorMatches, `relation "r-1" does not exist`)
 	s.t.AddService("s-p", "riak")
 	s.t.AddRelation("r-1", &topoRelation{
 		Interface: "ifce",
@@ -471,7 +471,7 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 	// valid services.
 	relation, err := s.t.Relation("r-1")
 	c.Assert(relation, IsNil)
-	c.Assert(err, ErrorMatches, `relation does not exist`)
+	c.Assert(err, ErrorMatches, `relation "r-1" does not exist`)
 	s.t.AddService("s-p", "mysql")
 	s.t.AddService("s-r", "wordpress")
 	err = s.t.AddRelation("r-1", &topoRelation{
@@ -643,7 +643,7 @@ func (s *TopologySuite) TestRemoveRelation(c *C) {
 
 	relation, err = s.t.Relation("r-1")
 	c.Assert(relation, IsNil)
-	c.Assert(err, ErrorMatches, `relation does not exist`)
+	c.Assert(err, ErrorMatches, `relation "r-1" does not exist`)
 }
 
 func (s *TopologySuite) TestRemoveServiceWithRelations(c *C) {
