@@ -1085,7 +1085,24 @@ func (s *StateSuite) TestAddRelation(c *C) {
 	c.Assert(serviceRelations[0].RelationScope(), Equals, state.ScopeGlobal)
 	c.Assert(serviceRelations[0].RelationRole(), Equals, state.RolePeer)
 	c.Assert(serviceRelations[0].RelationName(), Equals, "cache")
+}
 
+func (s *StateSuite) TestServiceRelationRelation(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("riak", dummy)
+	riakep := state.RelationEndpoint{"riak", "ring", "cache", state.RolePeer, state.ScopeGlobal}
+	relation, serviceRelations, err := s.st.AddRelation(riakep)
+	c.Assert(err, IsNil)
+	c.Assert(relation, NotNil)
+	c.Assert(serviceRelations, HasLen, 1)
+	ok, err := state.HasRelation(s.st, serviceRelations[0].Relation())
+	c.Assert(err, IsNil)
+	c.Assert(ok, Equals, true)
+	// Negative test.
+	err = s.st.RemoveRelation(relation)
+	c.Assert(err, IsNil)
+	_, err = state.HasRelation(s.st, serviceRelations[0].Relation())
+	c.Assert(err, ErrorMatches, `relation "relation-0000000000" does not exist`)
 }
 
 func (s *StateSuite) TestAddRelationMissingService(c *C) {
@@ -1168,4 +1185,22 @@ func (s *StateSuite) TestEnvironment(c *C) {
 	env.Read()
 	c.Assert(err, IsNil)
 	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"type": "dummy", "name": "foo"})
+}
+
+func (s *StateSuite) TestRemoveRelation(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("riak", dummy)
+	riakep := state.RelationEndpoint{"riak", "blog", "cache", state.RolePeer, state.ScopeGlobal}
+	relation, _, err := s.st.AddRelation(riakep)
+	c.Assert(err, IsNil)
+	c.Assert(relation, NotNil)
+	hasRelation, err := state.HasRelation(s.st, relation)
+	c.Assert(err, IsNil)
+	c.Assert(hasRelation, Equals, true)
+	err = s.st.RemoveRelation(relation)
+	hasRelation, err = state.HasRelation(s.st, relation)
+	c.Assert(hasRelation, Equals, false)
+	c.Assert(err, ErrorMatches, `relation "relation-0000000000" does not exist`)
+	err = s.st.RemoveRelation(relation)
+	c.Assert(err, ErrorMatches, `can't remove relation: relation "relation-0000000000" does not exist`)
 }

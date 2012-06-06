@@ -372,3 +372,17 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (*Relation, []*Servic
 	}
 	return &Relation{s, relationKey}, serviceRelations, nil
 }
+
+// RemoveRelation removes the relation.
+func (s *State) RemoveRelation(relation *Relation) error {
+	removeRelation := func(t *topology) error {
+		_, err := t.Relation(relation.key)
+		if err != nil {
+			return fmt.Errorf("can't remove relation: %v", err)
+		}
+		return t.RemoveRelation(relation.key)
+	}
+	// TODO: Improve high-level errors, no passing of low-level 
+	// errors directly to the caller.
+	return retryTopologyChange(s.zk, removeRelation)
+}

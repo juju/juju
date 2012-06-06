@@ -445,8 +445,12 @@ func (t *topology) RelationKeys() []string {
 }
 
 // RemoveRelation removes the relation with key from the topology.
-func (t *topology) RemoveRelation(key string) {
+func (t *topology) RemoveRelation(key string) error {
+	if err := t.assertRelation(key); err != nil {
+		return err
+	}
 	delete(t.topology.Relations, key)
+	return nil
 }
 
 // RelationsForService returns all relations that the service

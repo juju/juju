@@ -79,3 +79,8 @@ func (r *ServiceRelation) RelationRole() RelationRole {
 func (r *ServiceRelation) RelationName() string {
 	return r.relationName
 }
+
+// Relation returns the relation for this service relation.
+func (r *ServiceRelation) Relation() *Relation {
+	return &Relation{r.st, r.relationKey}
+}
