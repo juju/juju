@@ -26,7 +26,7 @@ For cs:precise/mysql
   mysql
   precise/mysql
 
-For cs:~user/series/mysql
+For cs:~user/precise/mysql
   cs:~user/mysql
 
 For local:precise/mysql
