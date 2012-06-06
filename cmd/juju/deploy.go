@@ -17,9 +17,30 @@ type DeployCommand struct {
 	RepoPath    string // defaults to JUJU_REPOSITORY
 }
 
+const deployDoc = `
+<charm name> can be a charm URL, or an unambiguously condensed form of it;
+assuming a current default series of "precise", the following forms will be
+accepted.
+
+For cs:precise/mysql
+  mysql
+  precise/mysql
+
+For cs:~user/series/mysql
+  cs:~user/mysql
+
+For local:precise/mysql
+  local:mysql
+
+In all cases, a versioned charm URL will be expanded as expected (for example,
+mysql-33 becomes cs:precise/mysql-33).
+
+<service name>, if omitted, will be derived from <charm name>.
+`
+
 func (c *DeployCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"deploy", "<charm-name> [<service-name>]", "deploy a new service", "",
+		"deploy", "<charm name> [<service name>]", "deploy a new service", deployDoc,
 	}
 }
 

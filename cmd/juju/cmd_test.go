@@ -184,63 +184,70 @@ func (*cmdSuite) TestDestroyCommand(c *C) {
 	c.Check(<-errc, ErrorMatches, `broken environment`)
 }
 
+var deployTests = []struct {
+	args []string
+	com  *DeployCommand
+}{
+	{
+		[]string{"charm-name"},
+		&DeployCommand{},
+	}, {
+		[]string{"charm-name", "service-name"},
+		&DeployCommand{ServiceName: "service-name"},
+	}, {
+		[]string{"--config", "/path/to/config.yaml", "charm-name"},
+		&DeployCommand{ConfPath: "/path/to/config.yaml"},
+	}, {
+		[]string{"--repository", "/path/to/another-repo", "charm-name"},
+		&DeployCommand{RepoPath: "/path/to/another-repo"},
+	}, {
+		[]string{"--upgrade", "charm-name"},
+		&DeployCommand{Upgrade: true},
+	}, {
+		[]string{"-u", "charm-name"},
+		&DeployCommand{Upgrade: true},
+	}, {
+		[]string{"--num-units", "33", "charm-name"},
+		&DeployCommand{NumUnits: 33},
+	}, {
+		[]string{"-n", "104", "charm-name"},
+		&DeployCommand{NumUnits: 104},
+	},
+}
+
+func initExpectations(com *DeployCommand) {
+	if com.CharmName == "" {
+		com.CharmName = "charm-name"
+	}
+	if com.NumUnits == 0 {
+		com.NumUnits = 1
+	}
+	if com.RepoPath == "" {
+		com.RepoPath = "/path/to/repo"
+	}
+}
+
 func initDeployCommand(args ...string) (*DeployCommand, error) {
 	com := &DeployCommand{}
 	return com, com.Init(newFlagSet(), args)
 }
 
 func (*cmdSuite) TestDeployCommandInit(c *C) {
+	defer os.Setenv("JUJU_REPOSITORY", os.Getenv("JUJU_REPOSITORY"))
 	os.Setenv("JUJU_REPOSITORY", "/path/to/repo")
+
+	for _, t := range deployTests {
+		initExpectations(t.com)
+		com, err := initDeployCommand(t.args...)
+		c.Assert(err, IsNil)
+		c.Assert(com, DeepEquals, t.com)
+	}
 
 	// missing args
 	_, err := initDeployCommand()
 	c.Assert(err, ErrorMatches, "no charm specified")
 
-	// minimal
-	com, err := initDeployCommand("charm-name")
-	c.Assert(err, IsNil)
-	c.Assert(com, DeepEquals, &DeployCommand{
-		CharmName: "charm-name", NumUnits: 1, RepoPath: "/path/to/repo",
-	})
-
-	// with service name
-	com, err = initDeployCommand("charm-name", "service-name")
-	c.Assert(err, IsNil)
-	c.Assert(com, DeepEquals, &DeployCommand{
-		CharmName: "charm-name", ServiceName: "service-name", NumUnits: 1, RepoPath: "/path/to/repo",
-	})
-
-	// config
-	com, err = initDeployCommand("--config", "/path/to/config.yaml", "charm-name")
-	c.Assert(err, IsNil)
-	c.Assert(com, DeepEquals, &DeployCommand{
-		CharmName: "charm-name", NumUnits: 1, RepoPath: "/path/to/repo", ConfPath: "/path/to/config.yaml",
-	})
-
-	// repository
-	com, err = initDeployCommand("--repository", "/path/to/another-repo", "charm-name")
-	c.Assert(err, IsNil)
-	c.Assert(com, DeepEquals, &DeployCommand{
-		CharmName: "charm-name", NumUnits: 1, RepoPath: "/path/to/another-repo",
-	})
-
-	// upgrade
-	for _, flag := range []string{"--upgrade", "-u"} {
-		com, err = initDeployCommand("charm-name", flag)
-		c.Assert(err, IsNil)
-		c.Assert(com, DeepEquals, &DeployCommand{
-			CharmName: "charm-name", NumUnits: 1, RepoPath: "/path/to/repo", Upgrade: true,
-		})
-	}
-
-	// num-units
-	for _, flag := range []string{"--num-units", "-n"} {
-		com, err = initDeployCommand("charm-name", flag, "32")
-		c.Assert(err, IsNil)
-		c.Assert(com, DeepEquals, &DeployCommand{
-			CharmName: "charm-name", NumUnits: 32, RepoPath: "/path/to/repo",
-		})
-	}
+	// bad unit count
 	_, err = initDeployCommand("charm-name", "--num-units", "0")
 	c.Assert(err, ErrorMatches, "must deploy at least one unit")
 
