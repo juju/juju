@@ -310,8 +310,8 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	return nil, errors.New("no state info available for this environ")
 }
 
-func (e *environ) PlacementPolicy() state.PlacementPolicy {
-	return state.PlaceUnassigned
+func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
+	return state.AssignUnused
 }
 
 func (e *environ) SetConfig(cfg environs.EnvironConfig) {

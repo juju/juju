@@ -144,6 +144,6 @@ type Environ interface {
 	// can wait until they are.
 	Destroy(insts []Instance) error
 
-	// PlacementPolicy returns the environment's unit placement policy.
-	PlacementPolicy() state.PlacementPolicy
+	// AssignmentPolicy returns the environment's unit assignment policy.
+	AssignmentPolicy() state.AssignmentPolicy
 }

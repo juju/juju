@@ -231,10 +231,10 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	}, nil
 }
 
-// PlacementPolicy for EC2 is to deploy units only on machines without other
-// units already assigned.
-func (e *environ) PlacementPolicy() state.PlacementPolicy {
-	return state.PlaceUnassigned
+// AssignmentPolicy for EC2 is to deploy units only on machines without other
+// units already assigned, and to launch new machines as required.
+func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
+	return state.AssignUnused
 }
 
 func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Instance, error) {

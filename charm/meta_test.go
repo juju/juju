@@ -26,7 +26,11 @@ func repoMeta(name string) io.Reader {
 	return bytes.NewBuffer(data)
 }
 
-func (s *S) TestReadMeta(c *C) {
+type MetaSuite struct{}
+
+var _ = Suite(&MetaSuite{})
+
+func (s *MetaSuite) TestReadMeta(c *C) {
 	meta, err := charm.ReadMeta(repoMeta("dummy"))
 	c.Assert(err, IsNil)
 	c.Assert(meta.Name, Equals, "dummy")
@@ -37,13 +41,13 @@ func (s *S) TestReadMeta(c *C) {
 	c.Assert(meta.Subordinate, Equals, false)
 }
 
-func (s *S) TestSubordinate(c *C) {
+func (s *MetaSuite) TestSubordinate(c *C) {
 	meta, err := charm.ReadMeta(repoMeta("logging"))
 	c.Assert(err, IsNil)
 	c.Assert(meta.Subordinate, Equals, true)
 }
 
-func (s *S) TestSubordinateWithoutContainerRelation(c *C) {
+func (s *MetaSuite) TestSubordinateWithoutContainerRelation(c *C) {
 	r := repoMeta("dummy")
 	hackYaml := ReadYaml(r)
 	hackYaml["subordinate"] = true
@@ -51,7 +55,7 @@ func (s *S) TestSubordinateWithoutContainerRelation(c *C) {
 	c.Assert(err, ErrorMatches, "subordinate charm \"dummy\" lacks requires relation with container scope")
 }
 
-func (s *S) TestScopeConstraint(c *C) {
+func (s *MetaSuite) TestScopeConstraint(c *C) {
 	meta, err := charm.ReadMeta(repoMeta("logging"))
 	c.Assert(err, IsNil)
 	c.Assert(meta.Provides["logging-client"].Scope, Equals, charm.ScopeGlobal)
@@ -59,7 +63,7 @@ func (s *S) TestScopeConstraint(c *C) {
 	c.Assert(meta.Subordinate, Equals, true)
 }
 
-func (s *S) TestParseMetaRelations(c *C) {
+func (s *MetaSuite) TestParseMetaRelations(c *C) {
 	meta, err := charm.ReadMeta(repoMeta("mysql"))
 	c.Assert(err, IsNil)
 	c.Assert(meta.Provides["server"], Equals, charm.Relation{Interface: "mysql", Scope: charm.ScopeGlobal})
@@ -92,7 +96,7 @@ func (s *S) TestParseMetaRelations(c *C) {
 // This test ensures test coverage on each of these branches, along
 // with ensuring the conversion object properly raises SchemaError
 // exceptions on invalid data.
-func (s *S) TestIfaceExpander(c *C) {
+func (s *MetaSuite) TestIfaceExpander(c *C) {
 	e := charm.IfaceExpander(nil)
 
 	path := []string{"<pa", "th>"}
