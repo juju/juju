@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju/go/environs"
 	"launchpad.net/juju/go/environs/ec2"
 	"launchpad.net/juju/go/environs/jujutest"
+	"launchpad.net/juju/go/state"
 	"launchpad.net/juju/go/testing"
 	"launchpad.net/juju/go/version"
 	"strings"
@@ -188,6 +189,9 @@ func (t *localServerSuite) TearDownTest(c *C) {
 }
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
+	policy := t.env.AssignmentPolicy()
+	c.Assert(policy, Equals, state.AssignUnused)
+
 	err := t.env.Bootstrap(true)
 	c.Assert(err, IsNil)
 

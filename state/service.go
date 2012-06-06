@@ -65,15 +65,9 @@ func (s *Service) Charm() (*Charm, error) {
 	return s.st.Charm(url)
 }
 
-// AddUnit() adds a new unit. If s is not a subordinate service, principal
-// must be nil; otherwise it must be the unit alongside which the new unit
-// of s is to be deployed.
-func (s *Service) AddUnit(principal *Unit) (*Unit, error) {
-	// If subordinate, get key of principal unit to store in topology.
-	principalKey, err := s.validatePrincipal(principal)
-	if err != nil {
-		return nil, err
-	}
+// addUnit adds a new unit to the service. If s is a subordinate service,
+// principalKey must be the unit key of some principal unit.
+func (s *Service) addUnit(principalKey string) (*Unit, error) {
 	// Get charm id and create ZooKeeper node.
 	url, err := s.CharmURL()
 	if err != nil {
@@ -106,33 +100,39 @@ func (s *Service) AddUnit(principal *Unit) (*Unit, error) {
 	return &Unit{s.st, key, s.key, s.name, sequenceNo}, nil
 }
 
-// validatePrincipal checks that principal is valid, or nil, depending on
-// whether s is a subordinate service (and thus requires a principal). It
-// returns the key of the principal unit that should be stored in the
-// topology to record a unit's location, which will be "" if s is itself
-// a principal service.
-func (s *Service) validatePrincipal(principal *Unit) (string, error) {
+// AddUnit adds a new principal unit to the service.
+func (s *Service) AddUnit() (*Unit, error) {
 	ch, err := s.Charm()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	principalKey := ""
 	if ch.Meta().Subordinate {
-		if principal == nil {
-			return "", errors.New("subordinate units cannot be added without a principal unit")
-		}
-		ok, err := principal.IsPrincipal()
-		if err != nil {
-			return "", err
-		}
-		if !ok {
-			return "", errors.New("cannot add subordinate unit to another subordinate unit")
-		}
-		principalKey = principal.zkKey()
-	} else if principal != nil {
-		return "", errors.New("cannot add principal unit to another principal unit")
+		return nil, fmt.Errorf("cannot directly add units to subordinate service %q", s.name)
 	}
-	return principalKey, nil
+	return s.addUnit("")
+}
+
+// AddUnitSubordinateTo adds a new subordinate unit to the service,
+// subordinate to principal.
+func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
+	ch, err := s.Charm()
+	if err != nil {
+		return nil, err
+	}
+	if !ch.Meta().Subordinate {
+		panic("cannot make a principal unit subordinate to another unit")
+	}
+	if principal == nil {
+		panic("a subordinate unit must be added to a principal unit")
+	}
+	ok, err := principal.IsPrincipal()
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		panic("a subordinate unit must be added to a principal unit")
+	}
+	return s.addUnit(principal.zkKey())
 }
 
 // RemoveUnit() removes a unit.

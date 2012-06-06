@@ -231,6 +231,12 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	}, nil
 }
 
+// AssignmentPolicy for EC2 is to deploy units only on machines without other
+// units already assigned, and to launch new machines as required.
+func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
+	return state.AssignUnused
+}
+
 func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Instance, error) {
 	log.Printf("environs/ec2: starting machine %d in %q", machineId, e.name)
 	return e.startInstance(machineId, info, false)

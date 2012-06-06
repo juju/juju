@@ -350,7 +350,7 @@ func (t *topology) UnitKeyFromSequence(serviceKey string, sequenceNo int) (strin
 }
 
 // unitNotSubordinate indicates that a unit is principal rather than subordinate.
-var unitNotSubordinate = errors.New("unit not subordinate")
+var unitNotSubordinate = errors.New("service unit is a principal rather than a subordinate")
 
 // UnitPrincipalKey returns the unit key of the principal unit alongside which
 // the specified subordinate unit is deployed. If the specified unit is not

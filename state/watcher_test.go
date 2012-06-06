@@ -115,7 +115,7 @@ func (s *StateSuite) TestUnitWatchNeedsUpgrade(c *C) {
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	c.Assert(wordpress.Name(), Equals, "wordpress")
-	unit, err := wordpress.AddUnit(nil)
+	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	needsUpgradeWatcher := unit.WatchNeedsUpgrade()
 
@@ -159,7 +159,7 @@ func (s *StateSuite) TestUnitWatchResolved(c *C) {
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	c.Assert(wordpress.Name(), Equals, "wordpress")
-	unit, err := wordpress.AddUnit(nil)
+	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	resolvedWatcher := unit.WatchResolved()
 
@@ -203,7 +203,7 @@ func (s *StateSuite) TestUnitWatchPorts(c *C) {
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	c.Assert(wordpress.Name(), Equals, "wordpress")
-	unit, err := wordpress.AddUnit(nil)
+	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	portsWatcher := unit.WatchPorts()
 

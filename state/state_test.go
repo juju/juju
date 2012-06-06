@@ -55,6 +55,12 @@ func (s *StateSuite) TearDownTest(c *C) {
 	s.zkConn.Close()
 }
 
+func (s *StateSuite) assertMachineCount(c *C, expect int) {
+	ms, err := s.st.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(len(ms), Equals, expect)
+}
+
 func (s *StateSuite) TestInitialize(c *C) {
 	info := &state.Info{
 		Addrs: []string{state.TestingZkAddr},
@@ -260,21 +266,13 @@ func (s *StateSuite) TestReadNonExistentMachine(c *C) {
 }
 
 func (s *StateSuite) TestAllMachines(c *C) {
-	machines, err := s.st.AllMachines()
+	s.assertMachineCount(c, 0)
+	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
-	c.Assert(len(machines), Equals, 0)
-
+	s.assertMachineCount(c, 1)
 	_, err = s.st.AddMachine()
 	c.Assert(err, IsNil)
-	machines, err = s.st.AllMachines()
-	c.Assert(err, IsNil)
-	c.Assert(len(machines), Equals, 1)
-
-	_, err = s.st.AddMachine()
-	c.Assert(err, IsNil)
-	machines, err = s.st.AllMachines()
-	c.Assert(err, IsNil)
-	c.Assert(len(machines), Equals, 2)
+	s.assertMachineCount(c, 2)
 }
 
 func (s *StateSuite) TestMachineSetAgentAlive(c *C) {
@@ -454,13 +452,13 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check that principal units can be added on their own.
-	unitZero, err := wordpress.AddUnit(nil)
+	unitZero, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	c.Assert(unitZero.Name(), Equals, "wordpress/0")
 	principal, err := unitZero.IsPrincipal()
 	c.Assert(err, IsNil)
 	c.Assert(principal, Equals, true)
-	unitOne, err := wordpress.AddUnit(nil)
+	unitOne, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	c.Assert(unitOne.Name(), Equals, "wordpress/1")
 	principal, err = unitOne.IsPrincipal()
@@ -468,8 +466,8 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	c.Assert(principal, Equals, true)
 
 	// Check that principal units cannot be added to principal units.
-	_, err = wordpress.AddUnit(unitZero)
-	c.Assert(err, ErrorMatches, "cannot add principal unit to another principal unit")
+	bad := func() { wordpress.AddUnitSubordinateTo(unitZero) }
+	c.Assert(bad, PanicMatches, "cannot make a principal unit subordinate to another unit")
 
 	// Add a subordinate service.
 	bundle := testing.Charms.Bundle(c.MkDir(), "logging")
@@ -482,7 +480,7 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check that subordinate units can be added to principal units.
-	subZero, err := logging.AddUnit(unitZero)
+	subZero, err := logging.AddUnitSubordinateTo(unitZero)
 	c.Assert(err, IsNil)
 	c.Assert(subZero.Name(), Equals, "logging/0")
 	principal, err = subZero.IsPrincipal()
@@ -490,25 +488,29 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	c.Assert(principal, Equals, false)
 
 	// Check that subordinate units must be added to other units.
-	_, err = logging.AddUnit(nil)
-	c.Assert(err, ErrorMatches, "subordinate units cannot be added without a principal unit")
+	_, err = logging.AddUnit()
+	c.Assert(err, ErrorMatches, `cannot directly add units to subordinate service "logging"`)
 
 	// Check that subordinate units cannnot be added to subordinate units.
-	_, err = logging.AddUnit(subZero)
-	c.Assert(err, ErrorMatches, "cannot add subordinate unit to another subordinate unit")
+	bad = func() { logging.AddUnitSubordinateTo(subZero) }
+	c.Assert(bad, PanicMatches, "a subordinate unit must be added to a principal unit")
+
+	// Check that subordinate units cannnot be added without any principal
+	bad = func() { logging.AddUnitSubordinateTo(nil) }
+	c.Assert(bad, PanicMatches, "a subordinate unit must be added to a principal unit")
 }
 
 func (s *StateSuite) TestReadUnit(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
-	_, err = wordpress.AddUnit(nil)
+	_, err = wordpress.AddUnit()
 	c.Assert(err, IsNil)
-	_, err = wordpress.AddUnit(nil)
+	_, err = wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	mysql, err := s.st.AddService("mysql", dummy)
 	c.Assert(err, IsNil)
-	_, err = mysql.AddUnit(nil)
+	_, err = mysql.AddUnit()
 	c.Assert(err, IsNil)
 
 	// Check that retrieving a unit works correctly.
@@ -557,9 +559,9 @@ func (s *StateSuite) TestRemoveUnit(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
-	_, err = wordpress.AddUnit(nil)
+	_, err = wordpress.AddUnit()
 	c.Assert(err, IsNil)
-	_, err = wordpress.AddUnit(nil)
+	_, err = wordpress.AddUnit()
 	c.Assert(err, IsNil)
 
 	// Check that removing a unit works.
@@ -580,7 +582,7 @@ func (s *StateSuite) TestGetSetPublicAddress(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
-	unit, err := wordpress.AddUnit(nil)
+	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 
 	// Check that retrieving and setting of a public address works.
@@ -597,7 +599,7 @@ func (s *StateSuite) TestGetSetPrivateAddress(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
-	unit, err := wordpress.AddUnit(nil)
+	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 
 	// Check that retrieving and setting of a private address works.
@@ -614,7 +616,7 @@ func (s *StateSuite) TestUnitCharm(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
-	unit, err := wordpress.AddUnit(nil)
+	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 
 	// Check that getting and setting the unit charm URL works correctly.
@@ -641,7 +643,7 @@ func (s *StateSuite) TestUnassignUnitFromMachineWithoutBeingAssigned(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
-	unit, err := wordpress.AddUnit(nil)
+	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 
 	err = unit.UnassignFromMachine()
@@ -664,7 +666,7 @@ func (s *StateSuite) TestAssignUnitToMachineAgainFails(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
-	unit, err := wordpress.AddUnit(nil)
+	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	machineOne, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
@@ -692,7 +694,7 @@ func (s *StateSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
-	unit, err := wordpress.AddUnit(nil)
+	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 
 	// Remove the unit for the tests.
@@ -719,14 +721,14 @@ func (s *StateSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 }
 
 func (s *StateSuite) TestAssignUnitToUnusedMachine(c *C) {
-	// Create root machine that shouldn't be useds.
+	// Create root machine that shouldn't be used.
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 	// Check that a unit can be assigned to an unused machine.
 	dummy := s.addDummyCharm(c)
 	mysqlService, err := s.st.AddService("mysql", dummy)
 	c.Assert(err, IsNil)
-	mysqlUnit, err := mysqlService.AddUnit(nil)
+	mysqlUnit, err := mysqlService.AddUnit()
 	c.Assert(err, IsNil)
 	mysqlMachine, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
@@ -737,7 +739,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachine(c *C) {
 
 	wordpressService, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
-	wordpressUnit, err := wordpressService.AddUnit(nil)
+	wordpressUnit, err := wordpressService.AddUnit()
 	c.Assert(err, IsNil)
 	wordpressMachine, err := wordpressUnit.AssignToUnusedMachine()
 	c.Assert(err, IsNil)
@@ -746,7 +748,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachine(c *C) {
 }
 
 func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingService(c *C) {
-	// Create root machine that shouldn't be useds.
+	// Create root machine that shouldn't be used.
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 	// Check for a 'state changed' error if a service is manipulated
@@ -754,7 +756,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingService(c *C) {
 	dummy := s.addDummyCharm(c)
 	mysqlService, err := s.st.AddService("mysql", dummy)
 	c.Assert(err, IsNil)
-	mysqlUnit, err := mysqlService.AddUnit(nil)
+	mysqlUnit, err := mysqlService.AddUnit()
 	c.Assert(err, IsNil)
 	mysqlMachine, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
@@ -765,7 +767,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingService(c *C) {
 
 	wordpressService, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
-	wordpressUnit, err := wordpressService.AddUnit(nil)
+	wordpressUnit, err := wordpressService.AddUnit()
 	c.Assert(err, IsNil)
 	err = s.st.RemoveService(wordpressService)
 	c.Assert(err, IsNil)
@@ -775,7 +777,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingService(c *C) {
 }
 
 func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingUnit(c *C) {
-	// Create root machine that shouldn't be useds.
+	// Create root machine that shouldn't be used.
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 	// Check for a 'state changed' error if a unit is manipulated
@@ -783,7 +785,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingUnit(c *C) {
 	dummy := s.addDummyCharm(c)
 	mysqlService, err := s.st.AddService("mysql", dummy)
 	c.Assert(err, IsNil)
-	mysqlUnit, err := mysqlService.AddUnit(nil)
+	mysqlUnit, err := mysqlService.AddUnit()
 	c.Assert(err, IsNil)
 	mysqlMachine, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
@@ -794,7 +796,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingUnit(c *C) {
 
 	wordpressService, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
-	wordpressUnit, err := wordpressService.AddUnit(nil)
+	wordpressUnit, err := wordpressService.AddUnit()
 	c.Assert(err, IsNil)
 	err = wordpressService.RemoveUnit(wordpressUnit)
 	c.Assert(err, IsNil)
@@ -811,7 +813,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineOnlyZero(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpressService, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
-	wordpressUnit, err := wordpressService.AddUnit(nil)
+	wordpressUnit, err := wordpressService.AddUnit()
 	c.Assert(err, IsNil)
 
 	_, err = wordpressUnit.AssignToUnusedMachine()
@@ -826,7 +828,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 	dummy := s.addDummyCharm(c)
 	mysqlService, err := s.st.AddService("mysql", dummy)
 	c.Assert(err, IsNil)
-	mysqlUnit, err := mysqlService.AddUnit(nil)
+	mysqlUnit, err := mysqlService.AddUnit()
 	c.Assert(err, IsNil)
 	mysqlMachine, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
@@ -835,11 +837,71 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 
 	wordpressService, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
-	wordpressUnit, err := wordpressService.AddUnit(nil)
+	wordpressUnit, err := wordpressService.AddUnit()
 	c.Assert(err, IsNil)
 
 	_, err = wordpressUnit.AssignToUnusedMachine()
 	c.Assert(err, ErrorMatches, "no unused machine found")
+}
+
+func (s *StateSuite) TestAssignUnit(c *C) {
+	_, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	dummy := s.addDummyCharm(c)
+	serv, err := s.st.AddService("minecraft", dummy)
+	c.Assert(err, IsNil)
+	unit0, err := serv.AddUnit()
+	c.Assert(err, IsNil)
+
+	// Check nonsensical policy
+	fail := func() { state.AssignUnit(s.st, unit0, state.AssignmentPolicy("random")) }
+	c.Assert(fail, PanicMatches, `unknown unit assignment policy: "random"`)
+	_, err = unit0.AssignedMachineId()
+	c.Assert(err, NotNil)
+	s.assertMachineCount(c, 1)
+
+	// Check local placement
+	err = state.AssignUnit(s.st, unit0, state.AssignLocal)
+	c.Assert(err, IsNil)
+	mid, err := unit0.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(mid, Equals, 0)
+	s.assertMachineCount(c, 1)
+
+	// Check unassigned placement with no unused machines
+	unit1, err := serv.AddUnit()
+	c.Assert(err, IsNil)
+	err = state.AssignUnit(s.st, unit1, state.AssignUnused)
+	c.Assert(err, IsNil)
+	mid, err = unit1.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(mid, Equals, 1)
+	s.assertMachineCount(c, 2)
+
+	// Check unassigned placement on an unused machine
+	_, err = s.st.AddMachine()
+	unit2, err := serv.AddUnit()
+	c.Assert(err, IsNil)
+	err = state.AssignUnit(s.st, unit2, state.AssignUnused)
+	c.Assert(err, IsNil)
+	mid, err = unit2.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(mid, Equals, 2)
+	s.assertMachineCount(c, 3)
+
+	// Check cannot assign subordinates to machines
+	bundle := testing.Charms.Bundle(c.MkDir(), "logging")
+	curl := charm.MustParseURL("cs:series/logging-99")
+	bundleURL, err := url.Parse("http://subordinate.url")
+	c.Assert(err, IsNil)
+	subCh, err := s.st.AddCharm(bundle, curl, bundleURL, "dummy-sha256")
+	c.Assert(err, IsNil)
+	logging, err := s.st.AddService("logging", subCh)
+	c.Assert(err, IsNil)
+	unit3, err := logging.AddUnitSubordinateTo(unit2)
+	c.Assert(err, IsNil)
+	err = state.AssignUnit(s.st, unit3, state.AssignUnused)
+	c.Assert(err, ErrorMatches, `subordinate unit "logging/0" cannot be assigned directly to a machine`)
 }
 
 func (s *StateSuite) TestGetSetClearUnitUpgrade(c *C) {
@@ -847,7 +909,7 @@ func (s *StateSuite) TestGetSetClearUnitUpgrade(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
-	unit, err := wordpress.AddUnit(nil)
+	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 
 	// Defaults to false and false.
@@ -907,7 +969,7 @@ func (s *StateSuite) TestGetSetClearResolved(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
-	unit, err := wordpress.AddUnit(nil)
+	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 
 	setting, err := unit.Resolved()
@@ -939,7 +1001,7 @@ func (s *StateSuite) TestGetOpenPorts(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
-	unit, err := wordpress.AddUnit(nil)
+	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 
 	// Verify no open ports before activity.
@@ -1001,7 +1063,7 @@ func (s *StateSuite) TestUnitSetAgentAlive(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
-	unit, err := wordpress.AddUnit(nil)
+	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 
 	alive, err := unit.AgentAlive()
@@ -1023,7 +1085,7 @@ func (s *StateSuite) TestUnitWaitAgentAlive(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
-	unit, err := wordpress.AddUnit(nil)
+	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 
 	alive, err := unit.AgentAlive()

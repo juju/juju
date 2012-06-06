@@ -66,7 +66,7 @@ func (f *UnitFixture) SetUpTest(c *C) {
 	dummy := addDummyCharm(c, st)
 	f.service, err = st.AddService("minecraft", dummy)
 	c.Assert(err, IsNil)
-	f.unit, err = f.service.AddUnit(nil)
+	f.unit, err = f.service.AddUnit()
 	c.Assert(err, IsNil)
 }
 
