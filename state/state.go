@@ -352,17 +352,17 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (*Relation, []*Servic
 		relation := &topoRelation{
 			Interface: endpoints[0].Interface,
 			Scope:     scope,
-			Services:  map[RelationRole]*topoRelationService{},
+			Services:  map[string]*topoRelationService{},
 		}
 		for _, serviceRelation := range serviceRelations {
 			if !t.HasService(serviceRelation.serviceKey) {
 				return fmt.Errorf("state for service %q has changed", serviceRelation.serviceKey)
 			}
 			service := &topoRelationService{
-				Service:      serviceRelation.serviceKey,
+				RelationRole: serviceRelation.RelationRole(),
 				RelationName: serviceRelation.RelationName(),
 			}
-			relation.Services[serviceRelation.RelationRole()] = service
+			relation.Services[serviceRelation.serviceKey] = service
 		}
 		return t.AddRelation(relationKey, relation)
 	}
