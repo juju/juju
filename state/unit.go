@@ -167,10 +167,29 @@ func (u *Unit) SetCharmURL(url *charm.URL) error {
 	return nil
 }
 
+// IsPrincipal returns whether the unit is deployed in its own container,
+// and can therefore have subordinate services deployed alongside it.
+func (u *Unit) IsPrincipal() (bool, error) {
+	topology, err := readTopology(u.st.zk)
+	if err != nil {
+		return false, err
+	}
+	_, err = topology.UnitPrincipalKey(u.serviceKey, u.key)
+	if err == unitNotSubordinate {
+		return true, nil
+	}
+	return false, err
+}
+
 // AssignUnit places the unit on a machine. Depending on the policy, and the
 // state of the environment, this may lead to new instances being launched
 // within the environment.
 func AssignUnit(st *State, u *Unit, policy AssignmentPolicy) (err error) {
+	if valid, err := u.IsPrincipal(); err != nil {
+		return err
+	} else if !valid {
+		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u.Name())
+	}
 	var m *Machine
 	switch policy {
 	case AssignLocal:

@@ -65,8 +65,9 @@ func (s *Service) Charm() (*Charm, error) {
 	return s.st.Charm(url)
 }
 
-// AddUnit() adds a new unit.
-func (s *Service) AddUnit() (*Unit, error) {
+// addUnit adds a new unit to the service. If s is a subordinate service,
+// principalKey must be the unit key of some principal unit.
+func (s *Service) addUnit(principalKey string) (*Unit, error) {
 	// Get charm id and create ZooKeeper node.
 	url, err := s.CharmURL()
 	if err != nil {
@@ -87,7 +88,7 @@ func (s *Service) AddUnit() (*Unit, error) {
 		if !t.HasService(s.key) {
 			return stateChanged
 		}
-		sequenceNo, err = t.AddUnit(s.key, key)
+		sequenceNo, err = t.AddUnit(s.key, key, principalKey)
 		if err != nil {
 			return err
 		}
@@ -97,6 +98,38 @@ func (s *Service) AddUnit() (*Unit, error) {
 		return nil, err
 	}
 	return &Unit{s.st, key, s.key, s.name, sequenceNo}, nil
+}
+
+// AddUnit adds a new principal unit to the service.
+func (s *Service) AddUnit() (*Unit, error) {
+	ch, err := s.Charm()
+	if err != nil {
+		return nil, err
+	}
+	if ch.Meta().Subordinate {
+		return nil, fmt.Errorf("cannot directly add units to subordinate service %q", s.name)
+	}
+	return s.addUnit("")
+}
+
+// AddUnitSubordinateTo adds a new subordinate unit to the service,
+// subordinate to principal.
+func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
+	ch, err := s.Charm()
+	if err != nil {
+		return nil, err
+	}
+	if !ch.Meta().Subordinate {
+		return nil, errors.New("cannot make a principal unit subordinate to another unit")
+	}
+	ok, err := principal.IsPrincipal()
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, errors.New("a subordinate unit must be added to a principal unit")
+	}
+	return s.addUnit(principal.zkKey())
 }
 
 // RemoveUnit() removes a unit.
