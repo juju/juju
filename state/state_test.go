@@ -466,8 +466,8 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	c.Assert(principal, Equals, true)
 
 	// Check that principal units cannot be added to principal units.
-	bad := func() { wordpress.AddUnitSubordinateTo(unitZero) }
-	c.Assert(bad, PanicMatches, "cannot make a principal unit subordinate to another unit")
+	_, err = wordpress.AddUnitSubordinateTo(unitZero)
+	c.Assert(err, ErrorMatches, "cannot make a principal unit subordinate to another unit")
 
 	// Add a subordinate service.
 	bundle := testing.Charms.Bundle(c.MkDir(), "logging")
@@ -492,12 +492,8 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	c.Assert(err, ErrorMatches, `cannot directly add units to subordinate service "logging"`)
 
 	// Check that subordinate units cannnot be added to subordinate units.
-	bad = func() { logging.AddUnitSubordinateTo(subZero) }
-	c.Assert(bad, PanicMatches, "a subordinate unit must be added to a principal unit")
-
-	// Check that subordinate units cannnot be added without any principal
-	bad = func() { logging.AddUnitSubordinateTo(nil) }
-	c.Assert(bad, PanicMatches, "a subordinate unit must be added to a principal unit")
+	_, err = logging.AddUnitSubordinateTo(subZero)
+	c.Assert(err, ErrorMatches, "a subordinate unit must be added to a principal unit")
 }
 
 func (s *StateSuite) TestReadUnit(c *C) {
