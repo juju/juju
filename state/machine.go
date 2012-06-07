@@ -23,7 +23,7 @@ type Machine struct {
 
 // Id returns the machine id.
 func (m *Machine) Id() int {
-	return keyToId(m.key)
+	return keySeq(m.key)
 }
 
 // AgentAlive returns whether the respective remote agent is alive.
@@ -85,10 +85,11 @@ func (m *Machine) zkAgentPath() string {
 	return path.Join(m.zkPath(), "agent")
 }
 
-// keyId returns the id corresponding to the given machine or unit id.
-func keyToId(key string) (id int) {
+// keySeq returns the sequence number part of
+// the the given machine or unit key.
+func keySeq(key string) (id int) {
 	if key == "" {
-		panic("keyToId: empty key")
+		panic("keySeq: empty key")
 	}
 	i := strings.LastIndex(key, "-")
 	var id64 int64
@@ -97,7 +98,7 @@ func keyToId(key string) (id int) {
 		id64, err = strconv.ParseInt(key[i+1:], 10, 32)
 	}
 	if i < 0 || err != nil {
-		panic("keyToId: invalid key: " + key)
+		panic("keySeq: invalid key: " + key)
 	}
 	return int(id64)
 }

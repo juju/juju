@@ -32,10 +32,10 @@ func (e NoRelationError) Error() string {
 // topoTopology is used to marshal and unmarshal the content
 // of the /topology node in ZooKeeper.
 type topoTopology struct {
-	Version      int
-	Machines     map[string]*topoMachine
-	Services     map[string]*topoService
-	Relations    map[string]*topoRelation
+	Version   int
+	Machines  map[string]*topoMachine
+	Services  map[string]*topoService
+	Relations map[string]*topoRelation
 }
 
 // topoMachine represents the machine data within the /topology
@@ -53,7 +53,7 @@ type topoService struct {
 // topoUnit represents the unit data within the /topology
 // node in ZooKeeper.
 type topoUnit struct {
-	Machine  string
+	Machine string
 }
 
 // topoRelation represents the relation data within the 
@@ -269,8 +269,7 @@ func (t *topology) HasUnit(unitKey string) bool {
 	return err == nil
 }
 
-// AddUnit adds a new unit and returns the sequence number. This
-// sequence number will be increased monotonically for each service.
+// AddUnit adds a new unit to the topology.
 func (t *topology) AddUnit(unitKey string) error {
 	serviceKey, err := serviceKeyForUnitKey(unitKey)
 	if err != nil {
@@ -319,7 +318,7 @@ func (t *topology) UnitName(unitKey string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%s/%d", svc.Name, keyToId(unitKey)), nil
+	return fmt.Sprintf("%s/%d", svc.Name, keySeq(unitKey)), nil
 }
 
 // unitNotAssigned indicates that a unit is not assigned to a machine.

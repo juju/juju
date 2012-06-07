@@ -7,7 +7,6 @@ import (
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju/go/charm"
 	"launchpad.net/juju/go/state/presence"
-	"local/runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -69,12 +68,12 @@ func (u *Unit) ServiceName() string {
 
 // Name returns the unit name.
 func (u *Unit) Name() string {
-	return fmt.Sprintf("%s/%d", u.serviceName, keyToId(u.key))
+	return fmt.Sprintf("%s/%d", u.serviceName, keySeq(u.key))
 }
 
-// mkUnitKey returns a unit key made up from the service key
+// makeUnitKey returns a unit key made up from the service key
 // and the unit id within the service.
-func mkUnitKey(serviceKey string, unitId int) string {
+func makeUnitKey(serviceKey string, unitId int) string {
 	if !strings.HasPrefix(serviceKey, "service-") {
 		panic(fmt.Errorf("invalid service key %q", serviceKey))
 	}
@@ -83,12 +82,12 @@ func mkUnitKey(serviceKey string, unitId int) string {
 
 func serviceKeyForUnitKey(unitKey string) (string, error) {
 	if !strings.HasPrefix(unitKey, "unit-") {
-		return "", fmt.Errorf("invalid unit key %q (1) %s", unitKey, debug.Callers(0, 10))
+		return "", fmt.Errorf("invalid unit key %q", unitKey)
 	}
 	k := unitKey[len("unit-"):]
 	i := strings.Index(k, "-")
 	if i <= 0 {
-		return "", fmt.Errorf("invalid unit key %q (2) %s", unitKey, debug.Callers(0, 10))
+		return "", fmt.Errorf("invalid unit key %q", unitKey)
 	}
 	return "service-" + k[0:i], nil
 }
@@ -189,7 +188,7 @@ func (u *Unit) AssignedMachineId() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return keyToId(machineKey), nil
+	return keySeq(machineKey), nil
 }
 
 // AssignToMachine assigns this unit to a given machine.
@@ -207,7 +206,7 @@ func (u *Unit) AssignToMachine(machine *Machine) error {
 			// Everything is fine, it's already assigned.
 			return nil
 		}
-		return fmt.Errorf("unit %q already assigned to machine %d", u.Name(), keyToId(machineKey))
+		return fmt.Errorf("unit %q already assigned to machine %d", u.Name(), keySeq(machineKey))
 	}
 	return retryTopologyChange(u.st.zk, assignUnit)
 }
@@ -221,7 +220,7 @@ func (u *Unit) AssignToUnusedMachine() (*Machine, error) {
 			return stateChanged
 		}
 		for _, machineKey = range t.MachineKeys() {
-			if keyToId(machineKey) != 0 {
+			if keySeq(machineKey) != 0 {
 				hasUnits, err := t.MachineHasUnits(machineKey)
 				if err != nil {
 					return err
@@ -515,16 +514,16 @@ func (u *Unit) zkResolvedPath() string {
 
 // parseUnitName parses a unit name like "wordpress/0" into
 // its service name and sequence number parts.
-func parseUnitName(name string) (serviceName string, serviceId int, err error) {
+func parseUnitName(name string) (serviceName string, serviceSeq int, err error) {
 	parts := strings.Split(name, "/")
 	if len(parts) != 2 {
 		return "", 0, fmt.Errorf("%q is not a valid unit name", name)
 	}
-	id, err := strconv.ParseInt(parts[1], 10, 0)
+	seq, err := strconv.ParseInt(parts[1], 10, 0)
 	if err != nil {
 		return "", 0, err
 	}
-	return parts[0], int(id), nil
+	return parts[0], int(seq), nil
 }
 
 // parseResolvedMode returns the resolved mode serialized
