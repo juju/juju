@@ -3,7 +3,7 @@ package server_test
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/cmd"
+	"launchpad.net/juju-core/juju/cmd"
 	"path/filepath"
 )
 

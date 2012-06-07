@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju/go/charm"
-	"launchpad.net/juju/go/state/presence"
+	"launchpad.net/juju-core/juju/charm"
+	"launchpad.net/juju-core/juju/state/presence"
 	"strconv"
 	"strings"
 	"time"
@@ -20,6 +20,17 @@ const (
 	ResolvedNone       ResolvedMode = 0
 	ResolvedRetryHooks ResolvedMode = 1000
 	ResolvedNoHooks    ResolvedMode = 1001
+)
+
+// AssignmentPolicy controls what machine a unit will be assigned to.
+type AssignmentPolicy string
+
+const (
+	// AssignLocal indicates that all service units should be assigned to machine 0.
+	AssignLocal AssignmentPolicy = "local"
+	// AssignUnused indicates that every service unit should be assigned to a
+	// dedicated machine, and that new machines should be launched if required.
+	AssignUnused AssignmentPolicy = "unused"
 )
 
 // NeedsUpgrade describes if a unit needs an
@@ -175,6 +186,48 @@ func (u *Unit) SetCharmURL(url *charm.URL) error {
 	return nil
 }
 
+// IsPrincipal returns whether the unit is deployed in its own container,
+// and can therefore have subordinate services deployed alongside it.
+func (u *Unit) IsPrincipal() (bool, error) {
+	topology, err := readTopology(u.st.zk)
+	if err != nil {
+		return false, err
+	}
+	_, err = topology.UnitPrincipalKey(u.key)
+	if err == unitNotSubordinate {
+		return true, nil
+	}
+	return false, err
+}
+
+// AssignUnit places the unit on a machine. Depending on the policy, and the
+// state of the environment, this may lead to new instances being launched
+// within the environment.
+func AssignUnit(st *State, u *Unit, policy AssignmentPolicy) (err error) {
+	if valid, err := u.IsPrincipal(); err != nil {
+		return err
+	} else if !valid {
+		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u.Name())
+	}
+	var m *Machine
+	switch policy {
+	case AssignLocal:
+		if m, err = u.st.Machine(0); err != nil {
+			return
+		}
+	case AssignUnused:
+		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
+			return
+		}
+		if m, err = u.st.AddMachine(); err != nil {
+			return
+		}
+	default:
+		panic(fmt.Errorf("unknown unit assignment policy: %q", policy))
+	}
+	return u.AssignToMachine(m)
+}
+
 // AssignedMachineId returns the id of the assigned machine.
 func (u *Unit) AssignedMachineId() (int, error) {
 	topology, err := readTopology(u.st.zk)
@@ -211,6 +264,8 @@ func (u *Unit) AssignToMachine(machine *Machine) error {
 	return retryTopologyChange(u.st.zk, assignUnit)
 }
 
+var noUnusedMachines = errors.New("no unused machine found")
+
 // AssignToUnusedMachine assigns u to a machine without other units.
 // If there are no unused machines besides machine 0, an error is returned.
 func (u *Unit) AssignToUnusedMachine() (*Machine, error) {
@@ -233,7 +288,7 @@ func (u *Unit) AssignToUnusedMachine() (*Machine, error) {
 			machineKey = ""
 		}
 		if machineKey == "" {
-			return errors.New("no unused machine found")
+			return noUnusedMachines
 		}
 		if err := t.AssignUnitToMachine(u.key, machineKey); err != nil {
 			return err

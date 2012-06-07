@@ -3,7 +3,7 @@ package cmd
 import (
 	"io"
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju/go/log"
+	"launchpad.net/juju-core/juju/log"
 	stdlog "log"
 	"os"
 )

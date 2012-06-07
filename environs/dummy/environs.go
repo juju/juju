@@ -20,10 +20,10 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju/go/environs"
-	"launchpad.net/juju/go/schema"
-	"launchpad.net/juju/go/state"
-	"launchpad.net/juju/go/testing"
+	"launchpad.net/juju-core/juju/environs"
+	"launchpad.net/juju-core/juju/schema"
+	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/juju-core/juju/testing"
 	"net"
 	"net/http"
 	"sync"
@@ -308,6 +308,10 @@ func (e *environ) StateInfo() (*state.Info, error) {
 		return stateInfo(), nil
 	}
 	return nil, errors.New("no state info available for this environ")
+}
+
+func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
+	return state.AssignUnused
 }
 
 func (e *environ) SetConfig(cfg environs.EnvironConfig) {

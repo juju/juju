@@ -2,8 +2,8 @@ package server_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/cmd"
-	"launchpad.net/juju/go/state"
+	"launchpad.net/juju-core/juju/cmd"
+	"launchpad.net/juju-core/juju/state"
 )
 
 type PortsSuite struct {

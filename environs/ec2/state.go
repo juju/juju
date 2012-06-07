@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju/go/environs"
+	"launchpad.net/juju-core/juju/environs"
 )
 
 const stateFile = "provider-state"

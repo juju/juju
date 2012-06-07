@@ -3,7 +3,7 @@ package main
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju/go/testing"
+	"launchpad.net/juju-core/juju/testing"
 	stdtesting "testing"
 )
 

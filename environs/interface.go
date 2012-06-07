@@ -3,7 +3,7 @@ package environs
 import (
 	"errors"
 	"io"
-	"launchpad.net/juju/go/state"
+	"launchpad.net/juju-core/juju/state"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -143,4 +143,7 @@ type Environ interface {
 	// yet be visible in the environment, so this method
 	// can wait until they are.
 	Destroy(insts []Instance) error
+
+	// AssignmentPolicy returns the environment's unit assignment policy.
+	AssignmentPolicy() state.AssignmentPolicy
 }

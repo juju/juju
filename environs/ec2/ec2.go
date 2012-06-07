@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
-	"launchpad.net/juju/go/environs"
-	"launchpad.net/juju/go/log"
-	"launchpad.net/juju/go/state"
-	"launchpad.net/juju/go/version"
+	"launchpad.net/juju-core/juju/environs"
+	"launchpad.net/juju-core/juju/log"
+	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/juju-core/juju/version"
 	"sync"
 	"time"
 )
@@ -229,6 +229,12 @@ func (e *environ) StateInfo() (*state.Info, error) {
 		Addrs:  addrs,
 		UseSSH: true,
 	}, nil
+}
+
+// AssignmentPolicy for EC2 is to deploy units only on machines without other
+// units already assigned, and to launch new machines as required.
+func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
+	return state.AssignUnused
 }
 
 func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Instance, error) {

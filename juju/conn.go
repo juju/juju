@@ -1,8 +1,8 @@
 package juju
 
 import (
-	"launchpad.net/juju/go/environs"
-	"launchpad.net/juju/go/state"
+	"launchpad.net/juju-core/juju/environs"
+	"launchpad.net/juju-core/juju/state"
 	"regexp"
 	"sync"
 )
@@ -44,7 +44,8 @@ func (c *Conn) Destroy() error {
 	return c.Environ.Destroy(nil)
 }
 
-// State returns the conn's State.
+// State returns the environment state associated with c. Closing the
+// obtained state will have undefined consequences; Close c instead.
 func (c *Conn) State() (*state.State, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -60,4 +61,17 @@ func (c *Conn) State() (*state.State, error) {
 		c.state = st
 	}
 	return c.state, nil
+}
+
+// Close terminates the connection to the environment and releases
+// any associated resources.
+func (c *Conn) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	state := c.state
+	c.state = nil
+	if state != nil {
+		return state.Close()
+	}
+	return nil
 }

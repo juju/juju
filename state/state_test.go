@@ -1,15 +1,12 @@
-// launchpad.net/juju/go/state
-//
-// Copyright (c) 2011-2012 Canonical Ltd.
 package state_test
 
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju/go/charm"
-	"launchpad.net/juju/go/state"
-	"launchpad.net/juju/go/testing"
+	"launchpad.net/juju-core/juju/charm"
+	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/juju-core/juju/testing"
 	"net/url"
 	"sort"
 	stdtesting "testing"
@@ -56,6 +53,12 @@ func (s *StateSuite) SetUpTest(c *C) {
 func (s *StateSuite) TearDownTest(c *C) {
 	testing.ZkRemoveTree(s.zkConn, "/")
 	s.zkConn.Close()
+}
+
+func (s *StateSuite) assertMachineCount(c *C, expect int) {
+	ms, err := s.st.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(len(ms), Equals, expect)
 }
 
 func (s *StateSuite) TestInitialize(c *C) {
@@ -263,21 +266,13 @@ func (s *StateSuite) TestReadNonExistentMachine(c *C) {
 }
 
 func (s *StateSuite) TestAllMachines(c *C) {
-	machines, err := s.st.AllMachines()
+	s.assertMachineCount(c, 0)
+	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
-	c.Assert(len(machines), Equals, 0)
-
+	s.assertMachineCount(c, 1)
 	_, err = s.st.AddMachine()
 	c.Assert(err, IsNil)
-	machines, err = s.st.AllMachines()
-	c.Assert(err, IsNil)
-	c.Assert(len(machines), Equals, 1)
-
-	_, err = s.st.AddMachine()
-	c.Assert(err, IsNil)
-	machines, err = s.st.AllMachines()
-	c.Assert(err, IsNil)
-	c.Assert(len(machines), Equals, 2)
+	s.assertMachineCount(c, 2)
 }
 
 func (s *StateSuite) TestMachineSetAgentAlive(c *C) {
@@ -456,13 +451,49 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 
-	// Check that adding units works.
+	// Check that principal units can be added on their own.
 	unitZero, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	c.Assert(unitZero.Name(), Equals, "wordpress/0")
+	principal, err := unitZero.IsPrincipal()
+	c.Assert(err, IsNil)
+	c.Assert(principal, Equals, true)
 	unitOne, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	c.Assert(unitOne.Name(), Equals, "wordpress/1")
+	principal, err = unitOne.IsPrincipal()
+	c.Assert(err, IsNil)
+	c.Assert(principal, Equals, true)
+
+	// Check that principal units cannot be added to principal units.
+	_, err = wordpress.AddUnitSubordinateTo(unitZero)
+	c.Assert(err, ErrorMatches, "cannot make a principal unit subordinate to another unit")
+
+	// Add a subordinate service.
+	bundle := testing.Charms.Bundle(c.MkDir(), "logging")
+	curl := charm.MustParseURL("cs:series/logging-99")
+	bundleURL, err := url.Parse("http://subordinate.url")
+	c.Assert(err, IsNil)
+	subCh, err := s.st.AddCharm(bundle, curl, bundleURL, "dummy-sha256")
+	c.Assert(err, IsNil)
+	logging, err := s.st.AddService("logging", subCh)
+	c.Assert(err, IsNil)
+
+	// Check that subordinate units can be added to principal units.
+	subZero, err := logging.AddUnitSubordinateTo(unitZero)
+	c.Assert(err, IsNil)
+	c.Assert(subZero.Name(), Equals, "logging/0")
+	principal, err = subZero.IsPrincipal()
+	c.Assert(err, IsNil)
+	c.Assert(principal, Equals, false)
+
+	// Check that subordinate units must be added to other units.
+	_, err = logging.AddUnit()
+	c.Assert(err, ErrorMatches, `cannot directly add units to subordinate service "logging"`)
+
+	// Check that subordinate units cannnot be added to subordinate units.
+	_, err = logging.AddUnitSubordinateTo(subZero)
+	c.Assert(err, ErrorMatches, "a subordinate unit must be added to a principal unit")
 }
 
 func (s *StateSuite) TestReadUnit(c *C) {
@@ -683,7 +714,7 @@ func (s *StateSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 }
 
 func (s *StateSuite) TestAssignUnitToUnusedMachine(c *C) {
-	// Create root machine that shouldn't be useds.
+	// Create root machine that shouldn't be used.
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 	// Check that a unit can be assigned to an unused machine.
@@ -710,7 +741,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachine(c *C) {
 }
 
 func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingService(c *C) {
-	// Create root machine that shouldn't be useds.
+	// Create root machine that shouldn't be used.
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 	// Check for a 'state changed' error if a service is manipulated
@@ -739,7 +770,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingService(c *C) {
 }
 
 func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingUnit(c *C) {
-	// Create root machine that shouldn't be useds.
+	// Create root machine that shouldn't be used.
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 	// Check for a 'state changed' error if a unit is manipulated
@@ -804,6 +835,66 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 
 	_, err = wordpressUnit.AssignToUnusedMachine()
 	c.Assert(err, ErrorMatches, "no unused machine found")
+}
+
+func (s *StateSuite) TestAssignUnit(c *C) {
+	_, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	dummy := s.addDummyCharm(c)
+	serv, err := s.st.AddService("minecraft", dummy)
+	c.Assert(err, IsNil)
+	unit0, err := serv.AddUnit()
+	c.Assert(err, IsNil)
+
+	// Check nonsensical policy
+	fail := func() { state.AssignUnit(s.st, unit0, state.AssignmentPolicy("random")) }
+	c.Assert(fail, PanicMatches, `unknown unit assignment policy: "random"`)
+	_, err = unit0.AssignedMachineId()
+	c.Assert(err, NotNil)
+	s.assertMachineCount(c, 1)
+
+	// Check local placement
+	err = state.AssignUnit(s.st, unit0, state.AssignLocal)
+	c.Assert(err, IsNil)
+	mid, err := unit0.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(mid, Equals, 0)
+	s.assertMachineCount(c, 1)
+
+	// Check unassigned placement with no unused machines
+	unit1, err := serv.AddUnit()
+	c.Assert(err, IsNil)
+	err = state.AssignUnit(s.st, unit1, state.AssignUnused)
+	c.Assert(err, IsNil)
+	mid, err = unit1.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(mid, Equals, 1)
+	s.assertMachineCount(c, 2)
+
+	// Check unassigned placement on an unused machine
+	_, err = s.st.AddMachine()
+	unit2, err := serv.AddUnit()
+	c.Assert(err, IsNil)
+	err = state.AssignUnit(s.st, unit2, state.AssignUnused)
+	c.Assert(err, IsNil)
+	mid, err = unit2.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(mid, Equals, 2)
+	s.assertMachineCount(c, 3)
+
+	// Check cannot assign subordinates to machines
+	bundle := testing.Charms.Bundle(c.MkDir(), "logging")
+	curl := charm.MustParseURL("cs:series/logging-99")
+	bundleURL, err := url.Parse("http://subordinate.url")
+	c.Assert(err, IsNil)
+	subCh, err := s.st.AddCharm(bundle, curl, bundleURL, "dummy-sha256")
+	c.Assert(err, IsNil)
+	logging, err := s.st.AddService("logging", subCh)
+	c.Assert(err, IsNil)
+	unit3, err := logging.AddUnitSubordinateTo(unit2)
+	c.Assert(err, IsNil)
+	err = state.AssignUnit(s.st, unit3, state.AssignUnused)
+	c.Assert(err, ErrorMatches, `subordinate unit "logging/0" cannot be assigned directly to a machine`)
 }
 
 func (s *StateSuite) TestGetSetClearUnitUpgrade(c *C) {
@@ -1013,4 +1104,150 @@ func (s *StateSuite) TestUnitWaitAgentAlive(c *C) {
 	alive, err = unit.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
+}
+
+func (s *StateSuite) TestAddRelation(c *C) {
+	dummy := s.addDummyCharm(c)
+	// Provider and requirer.
+	s.st.AddService("mysqldb", dummy)
+	s.st.AddService("wordpress", dummy)
+	mysqlep := state.RelationEndpoint{"mysqldb", "blog", "db", state.RoleProvider, state.ScopeGlobal}
+	blogep := state.RelationEndpoint{"wordpress", "blog", "db", state.RoleRequirer, state.ScopeGlobal}
+	relation, serviceRelations, err := s.st.AddRelation(blogep, mysqlep)
+	c.Assert(err, IsNil)
+	c.Assert(relation, NotNil)
+	c.Assert(serviceRelations, HasLen, 2)
+	c.Assert(serviceRelations[0].RelationScope(), Equals, state.ScopeGlobal)
+	c.Assert(serviceRelations[0].RelationRole(), Equals, state.RoleRequirer)
+	c.Assert(serviceRelations[1].RelationScope(), Equals, state.ScopeGlobal)
+	c.Assert(serviceRelations[1].RelationRole(), Equals, state.RoleProvider)
+	c.Assert(serviceRelations[0].RelationName(), Equals, serviceRelations[1].RelationName())
+	// Peer.
+	s.st.AddService("riak", dummy)
+	riakep := state.RelationEndpoint{"riak", "ring", "cache", state.RolePeer, state.ScopeGlobal}
+	relation, serviceRelations, err = s.st.AddRelation(riakep)
+	c.Assert(err, IsNil)
+	c.Assert(relation, NotNil)
+	c.Assert(serviceRelations, HasLen, 1)
+	c.Assert(serviceRelations[0].RelationScope(), Equals, state.ScopeGlobal)
+	c.Assert(serviceRelations[0].RelationRole(), Equals, state.RolePeer)
+	c.Assert(serviceRelations[0].RelationName(), Equals, "cache")
+}
+
+func (s *StateSuite) TestServiceRelationRelation(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("riak", dummy)
+	riakep := state.RelationEndpoint{"riak", "ring", "cache", state.RolePeer, state.ScopeGlobal}
+	relation, serviceRelations, err := s.st.AddRelation(riakep)
+	c.Assert(err, IsNil)
+	c.Assert(relation, NotNil)
+	c.Assert(serviceRelations, HasLen, 1)
+	ok, err := state.HasRelation(s.st, serviceRelations[0].Relation())
+	c.Assert(err, IsNil)
+	c.Assert(ok, Equals, true)
+	// Negative test.
+	err = s.st.RemoveRelation(relation)
+	c.Assert(err, IsNil)
+	_, err = state.HasRelation(s.st, serviceRelations[0].Relation())
+	c.Assert(err, ErrorMatches, `relation "relation-0000000000" does not exist`)
+}
+
+func (s *StateSuite) TestAddRelationMissingService(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("mysqldb", dummy)
+	mysqlep := state.RelationEndpoint{"mysqldb", "blog", "db", state.RoleProvider, state.ScopeGlobal}
+	blogep := state.RelationEndpoint{"wordpress", "blog", "db", state.RoleRequirer, state.ScopeGlobal}
+	_, _, err := s.st.AddRelation(blogep, mysqlep)
+	c.Assert(err, ErrorMatches, `service with name "wordpress" not found`)
+}
+
+func (s *StateSuite) TestAddRelationMissingEndpoint(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("mysqldb", dummy)
+	mysqlep := state.RelationEndpoint{"mysqldb", "blog", "db", state.RoleProvider, state.ScopeGlobal}
+	_, _, err := s.st.AddRelation(mysqlep)
+	c.Assert(err, ErrorMatches, `can't add non-peer relation with a single service`)
+}
+
+func (s *StateSuite) TestAddClientServerDifferentRoles(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("mysqldb", dummy)
+	s.st.AddService("riak", dummy)
+	mysqlep := state.RelationEndpoint{"mysqldb", "ifce", "db", state.RoleRequirer, state.ScopeGlobal}
+	riakep := state.RelationEndpoint{"riak", "ring", "cache", state.RolePeer, state.ScopeGlobal}
+	_, _, err := s.st.AddRelation(mysqlep, riakep)
+	c.Assert(err, ErrorMatches, `can't add relation between mysqldb:db and riak:cache`)
+}
+
+func (s *StateSuite) TestAddRelationDifferentInterfaces(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("mysqldb", dummy)
+	s.st.AddService("wordpress", dummy)
+	mysqlep := state.RelationEndpoint{"mysqldb", "ifce-a", "db", state.RoleProvider, state.ScopeGlobal}
+	blogep := state.RelationEndpoint{"wordpress", "ifce-b", "db", state.RoleRequirer, state.ScopeGlobal}
+	_, _, err := s.st.AddRelation(blogep, mysqlep)
+	c.Assert(err, ErrorMatches, `can't add relation between wordpress:db and mysqldb:db`)
+}
+
+func (s *StateSuite) TestAddClientServerRelationTwice(c *C) {
+	dummy := s.addDummyCharm(c)
+	// Provider and requirer.
+	s.st.AddService("mysqldb", dummy)
+	s.st.AddService("wordpress", dummy)
+	mysqlep := state.RelationEndpoint{"mysqldb", "blog", "db", state.RoleProvider, state.ScopeGlobal}
+	blogep := state.RelationEndpoint{"wordpress", "blog", "db", state.RoleRequirer, state.ScopeGlobal}
+	_, _, err := s.st.AddRelation(blogep, mysqlep)
+	c.Assert(err, IsNil)
+	_, _, err = s.st.AddRelation(blogep, mysqlep)
+	c.Assert(err, ErrorMatches, `relation already exists`)
+	// Peer.
+	s.st.AddService("riak", dummy)
+	riakep := state.RelationEndpoint{"riak", "ring", "cache", state.RolePeer, state.ScopeGlobal}
+	_, _, err = s.st.AddRelation(riakep)
+	c.Assert(err, IsNil)
+	_, _, err = s.st.AddRelation(riakep)
+	c.Assert(err, ErrorMatches, `relation already exists`)
+}
+
+func (s *StateSuite) TestAddPeerRelationIllegalEndpointNumber(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("mysqldb", dummy)
+	s.st.AddService("wordpress", dummy)
+	s.st.AddService("riak", dummy)
+	mysqlep := state.RelationEndpoint{"mysqldb", "ifce", "cache", state.RoleProvider, state.ScopeGlobal}
+	blogep := state.RelationEndpoint{"wordpress", "ifce", "cache", state.RoleRequirer, state.ScopeGlobal}
+	riakep := state.RelationEndpoint{"riak", "blog", "cache", state.RolePeer, state.ScopeGlobal}
+	_, _, err := s.st.AddRelation()
+	c.Assert(err, ErrorMatches, `can't add relations between 0 services`)
+	_, _, err = s.st.AddRelation(mysqlep, blogep, riakep)
+	c.Assert(err, ErrorMatches, `can't add relations between 3 services`)
+}
+
+func (s *StateSuite) TestEnvironConfig(c *C) {
+	path, err := s.zkConn.Create("/environment", "type: dummy\nname: foo\n", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
+	c.Assert(err, IsNil)
+	c.Assert(path, Equals, "/environment")
+
+	env, err := s.st.EnvironConfig()
+	env.Read()
+	c.Assert(err, IsNil)
+	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"type": "dummy", "name": "foo"})
+}
+
+func (s *StateSuite) TestRemoveRelation(c *C) {
+	dummy := s.addDummyCharm(c)
+	s.st.AddService("riak", dummy)
+	riakep := state.RelationEndpoint{"riak", "blog", "cache", state.RolePeer, state.ScopeGlobal}
+	relation, _, err := s.st.AddRelation(riakep)
+	c.Assert(err, IsNil)
+	c.Assert(relation, NotNil)
+	hasRelation, err := state.HasRelation(s.st, relation)
+	c.Assert(err, IsNil)
+	c.Assert(hasRelation, Equals, true)
+	err = s.st.RemoveRelation(relation)
+	hasRelation, err = state.HasRelation(s.st, relation)
+	c.Assert(hasRelation, Equals, false)
+	c.Assert(err, ErrorMatches, `relation "relation-0000000000" does not exist`)
+	err = s.st.RemoveRelation(relation)
+	c.Assert(err, ErrorMatches, `can't remove relation: relation "relation-0000000000" does not exist`)
 }

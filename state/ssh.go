@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju/go/log"
+	"launchpad.net/juju-core/juju/log"
 	"launchpad.net/tomb"
 	"net"
 	"os/exec"

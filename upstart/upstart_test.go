@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/upstart"
+	"launchpad.net/juju-core/juju/upstart"
 	"os"
 	"path/filepath"
 	"testing"

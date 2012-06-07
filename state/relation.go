@@ -46,3 +46,41 @@ func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
 func (e RelationEndpoint) String() string {
 	return e.ServiceName + ":" + e.RelationName
 }
+
+// Relation represents a link between services, or within a
+// service (in the case of peer relations).
+type Relation struct {
+	st  *State
+	key string
+}
+
+// ServiceRelation represents an established relation from
+// the viewpoint of a participant service.
+type ServiceRelation struct {
+	st            *State
+	relationKey   string
+	serviceKey    string
+	relationScope RelationScope
+	relationRole  RelationRole
+	relationName  string
+}
+
+// RelationScope returns the scope of the relation.
+func (r *ServiceRelation) RelationScope() RelationScope {
+	return r.relationScope
+}
+
+// RelationRole returns the service role within the relation. 
+func (r *ServiceRelation) RelationRole() RelationRole {
+	return r.relationRole
+}
+
+// RelationName returns the name this relation has within the service.
+func (r *ServiceRelation) RelationName() string {
+	return r.relationName
+}
+
+// Relation returns the relation for this service relation.
+func (r *ServiceRelation) Relation() *Relation {
+	return &Relation{r.st, r.relationKey}
+}

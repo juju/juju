@@ -3,8 +3,8 @@ package server
 import (
 	"errors"
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju/go/cmd"
-	"launchpad.net/juju/go/log"
+	"launchpad.net/juju-core/juju/cmd"
+	"launchpad.net/juju-core/juju/log"
 	"strings"
 )
 

@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju/go/testing"
+	"launchpad.net/juju-core/juju/testing"
 	"net"
 	"os"
 	"os/exec"

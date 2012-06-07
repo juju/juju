@@ -6,7 +6,7 @@ package state
 
 import (
 	"fmt"
-	"launchpad.net/juju/go/state/presence"
+	"launchpad.net/juju-core/juju/state/presence"
 	"path"
 	"strconv"
 	"strings"
@@ -35,7 +35,7 @@ func (m *Machine) AgentAlive() (bool, error) {
 func (m *Machine) WaitAgentAlive(timeout time.Duration) error {
 	err := presence.WaitAlive(m.st.zk, m.zkAgentPath(), timeout)
 	if err != nil {
-		return fmt.Errorf("state: waiting for agent of machine %d: %v", m.Id(), err)
+		return fmt.Errorf("state: waiting for agent of machine %s: %v", m, err)
 	}
 	return nil
 }
@@ -73,6 +73,11 @@ func (m *Machine) SetInstanceId(id string) error {
 	config.Set(providerMachineId, id)
 	_, err = config.Write()
 	return err
+}
+
+// String returns a unique description of this machine
+func (m *Machine) String() string {
+	return strconv.Itoa(m.Id())
 }
 
 // zkPath returns the ZooKeeper base path for the machine.

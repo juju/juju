@@ -6,7 +6,7 @@ import (
 	"io"
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju/go/cmd"
+	"launchpad.net/juju-core/juju/cmd"
 	"os"
 	"reflect"
 	"sort"

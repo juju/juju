@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/juju/go/charm"
+	"launchpad.net/juju-core/juju/charm"
 	"os"
 	"os/exec"
 	"path/filepath"
