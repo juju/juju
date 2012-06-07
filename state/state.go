@@ -170,6 +170,11 @@ func (s *State) AddService(name string, ch *Charm) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Create a parent node for the service units
+	_, err = s.zk.Create(service.zkPath()+"/units", "", 0, zkPermAll)
+	if err != nil {
+		return nil, err
+	}
 	addService := func(t *topology) error {
 		if _, err := t.ServiceKey(name); err == nil {
 			// No error, so service name already in use.
