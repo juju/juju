@@ -103,6 +103,18 @@ func serviceKeyForUnitKey(unitKey string) (string, error) {
 	return "service-" + k[0:i], nil
 }
 
+func (st *State) unitFromKey(t *topology, unitKey string) (*Unit, error) {
+	tsvc, _, err := t.serviceAndUnit(unitKey)
+	if err != nil {
+		return nil, err
+	}
+	return &Unit{
+		st: st,
+		key: unitKey,
+		serviceName: tsvc.Name,
+	}, nil
+}
+
 // PublicAddress returns the public address of the unit.
 func (u *Unit) PublicAddress() (string, error) {
 	cn, err := readConfigNode(u.st.zk, u.zkPath())
