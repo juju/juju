@@ -83,12 +83,12 @@ func (u *Unit) Name() string {
 }
 
 // makeUnitKey returns a unit key made up from the service key
-// and the unit id within the service.
-func makeUnitKey(serviceKey string, unitId int) string {
+// and the unit sequence number within the service.
+func makeUnitKey(serviceKey string, unitSeq int) string {
 	if !strings.HasPrefix(serviceKey, "service-") {
 		panic(fmt.Errorf("invalid service key %q", serviceKey))
 	}
-	return fmt.Sprintf("unit-%s-%010d", serviceKey[len("service-"):], unitId)
+	return fmt.Sprintf("unit-%s-%010d", serviceKey[len("service-"):], unitSeq)
 }
 
 func serviceKeyForUnitKey(unitKey string) (string, error) {
