@@ -109,8 +109,8 @@ func (st *State) unitFromKey(t *topology, unitKey string) (*Unit, error) {
 		return nil, err
 	}
 	return &Unit{
-		st: st,
-		key: unitKey,
+		st:          st,
+		key:         unitKey,
 		serviceName: tsvc.Name,
 	}, nil
 }
