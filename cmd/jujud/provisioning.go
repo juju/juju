@@ -66,6 +66,7 @@ func NewProvisioner(info *state.Info) (*Provisioner, error) {
 
 func (p *Provisioner) loop() {
 	defer p.tomb.Done()
+	defer p.st.Close()
 
 	p.environWatcher = p.st.WatchEnvironConfig()
 	// TODO(dfc) we need a method like state.IsConnected() here to exit cleanly if
