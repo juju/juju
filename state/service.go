@@ -208,6 +208,26 @@ func (s *Service) AllUnits() ([]*Unit, error) {
 	return units, nil
 }
 
+// Relations returns a ServiceRelation for every relation the service is in.
+func (s *Service) Relations() ([]*ServiceRelation, error) {
+	t, err := readTopology(s.st.zk)
+	if err != nil {
+		return nil, err
+	}
+	relations, err := t.RelationsForService(s.key)
+	if err != nil {
+		return nil, err
+	}
+	serviceRelations := []*ServiceRelation{}
+	for key, relation := range relations {
+		rs := relation.Services[s.key]
+		serviceRelations = append(serviceRelations, &ServiceRelation{
+			s.st, key, s.key, relation.Scope, rs.RelationRole, rs.RelationName,
+		})
+	}
+	return serviceRelations, nil
+}
+
 // IsExposed returns whether this service is exposed.
 // The explicitly open ports (with open-port) for exposed
 // services may be accessed from machines outside of the

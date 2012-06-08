@@ -57,7 +57,7 @@ type topoUnit struct {
 	Principal string
 }
 
-// topoRelation represents the relation data within the 
+// topoRelation represents the relation data within the
 // /topology node in ZooKeeper.
 type topoRelation struct {
 	Interface string
