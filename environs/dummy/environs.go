@@ -368,11 +368,15 @@ func (e *environ) Instances(ids []string) (insts []environs.Instance, err error)
 	if e.isBroken() {
 		return nil, errBroken
 	}
-	if len(ids) == 0 {
-		return nil, nil
-	}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
+	if len(ids) == 0 {
+		// return all known instances 	
+		for _, v := range e.state.insts {
+			insts = append(insts, v)
+		}
+		return 
+	}
 	notFound := 0
 	for _, id := range ids {
 		inst := e.state.insts[id]

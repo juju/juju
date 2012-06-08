@@ -369,9 +369,29 @@ func (e *environ) gatherInstances(ids []string, insts []environs.Instance) error
 	return nil
 }
 
+// fetchInstances queries ec2 for a the best available list of 
+// instances. This list may be incomplete due to the eventual 
+// consistency model of the ec2 dashboard.
+func (e *environ) fetchInstances() ([]environs.Instance, error) {
+	filter := ec2.NewFilter()
+        filter.Add("instance-state-name", "pending", "running")
+        filter.Add("group-name", e.groupName())
+        resp, err := e.ec2().Instances(nil, filter)
+        if err != nil {   
+                return nil, err
+        }	
+	insts := make([]environs.Instance, 0, 8)
+	for _, r := range resp.Reservations {
+		for i := range r.Instances {	
+			insts = append(insts, &instance{e, &r.Instances[i]})
+		}
+	}
+	return insts, nil
+}
+
 func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
 	if len(ids) == 0 {
-		return nil, nil
+		return e.fetchInstances()
 	}
 	insts := make([]environs.Instance, len(ids))
 	// Make a series of requests to cope with eventual consistency.

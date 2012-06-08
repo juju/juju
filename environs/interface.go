@@ -128,6 +128,8 @@ type Environ interface {
 	// some but not all the instances were found, the returned slice
 	// will have some nil slots, and an ErrPartialInstances error
 	// will be returned.
+	// If an empty sized list of ids is passed, all the currently 
+	// known Instances will be returned.
 	Instances(ids []string) ([]Instance, error)
 
 	// Storage returns storage specific to the environment.
