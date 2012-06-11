@@ -400,21 +400,6 @@ func (t *topology) UnassignUnitFromMachine(unitKey string) error {
 	return nil
 }
 
-// UnitsForMachine returns the keys of any units that
-// have been assigned to the machine, in alphabetical order.
-func (t *topology) UnitsForMachine(machineKey string) []string {
-	var keys []string
-	for _, svc := range t.topology.Services {
-		for key, u := range svc.Units {
-			if u.Machine == machineKey {
-				keys = append(keys, key)
-			}
-		}
-	}
-	sort.Strings(keys)
-	return keys
-}
-
 // Relation returns the relation with key from the topology.
 func (t *topology) Relation(key string) (*topoRelation, error) {
 	if t.topology.Relations == nil || t.topology.Relations[key] == nil {
