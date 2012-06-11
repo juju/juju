@@ -4,15 +4,13 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju-core/juju/state/presence"
+	"time"
 )
 
 type TopologySuite struct {
-	zkServer   *zookeeper.Server
-	zkTestRoot string
-	zkTestPort int
-	zkAddr     string
-	zkConn     *zookeeper.Conn
-	t          *topology
+	zkConn *zookeeper.Conn
+	t      *topology
 }
 
 var _ = Suite(&TopologySuite{})
@@ -515,8 +513,8 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
 		Services: map[string]*topoRelationService{
-			"service-p":     &topoRelationService{RoleProvider, "db"},
-			"illegal": &topoRelationService{RoleRequirer, "db"},
+			"service-p": &topoRelationService{RoleProvider, "db"},
+			"illegal":   &topoRelationService{RoleRequirer, "db"},
 		},
 	})
 	c.Assert(err, ErrorMatches, `service with key "illegal" not found`)
@@ -771,12 +769,8 @@ func (s *TopologySuite) TestPeerRelationKeyIllegalEndpoints(c *C) {
 }
 
 type ConfigNodeSuite struct {
-	zkServer   *zookeeper.Server
-	zkTestRoot string
-	zkTestPort int
-	zkAddr     string
-	zkConn     *zookeeper.Conn
-	path       string
+	zkConn *zookeeper.Conn
+	path   string
 }
 
 var _ = Suite(&ConfigNodeSuite{})
@@ -1106,4 +1100,122 @@ func (s *ConfigNodeSuite) TestWriteTwice(c *C) {
 	err = nodeOne.Read()
 	c.Assert(err, IsNil)
 	c.Assert(nodeOne, DeepEquals, nodeTwo)
+}
+
+type UnitRelationWatcherSuite struct {
+	zkConn *zookeeper.Conn
+}
+
+var _ = Suite(&UnitRelationWatcherSuite{})
+
+func (s *UnitRelationWatcherSuite) SetUpSuite(c *C) {
+	st, err := Initialize(&Info{
+		Addrs: []string{TestingZkAddr},
+	})
+	c.Assert(err, IsNil)
+	s.zkConn = ZkConn(st)
+}
+
+func (s *UnitRelationWatcherSuite) TearDownSuite(c *C) {
+	err := zkRemoveTree(s.zkConn, "/")
+	c.Assert(err, IsNil)
+	s.zkConn.Close()
+}
+
+var (
+	shortTimeout = 2 * agentPingerPeriod
+	longTimeout  = 4 * agentPingerPeriod
+)
+
+func (s *UnitRelationWatcherSuite) TestUnitRelationWatcher(c *C) {
+	waitFor := func(w *unitRelationWatcher, timeout time.Duration, expectChange *unitRelationChange) {
+		select {
+		case <-time.After(timeout):
+			if expectChange != nil {
+				c.Fatalf("expected change, got none")
+			}
+		case change, ok := <-w.Changes():
+			if expectChange != nil {
+				c.Assert(ok, Equals, true)
+				c.Assert(change, DeepEquals, *expectChange)
+			} else if ok {
+				c.Fatalf("unexpected presence change")
+			}
+		}
+	}
+
+	// Start watcher; check initial event.
+	w := newUnitRelationWatcher(s.zkConn, "/collection", "u-123", RolePeer)
+	waitFor(w, shortTimeout, &unitRelationChange{false, ""})
+
+	// Create all relevant paths apart from presence node; check that
+	// no events occur (settings watch should not be active, because
+	// presence has not yet been detected).
+	_, err := s.zkConn.Create("/collection", "", 0, zkPermAll)
+	c.Assert(err, IsNil)
+	_, err = s.zkConn.Create("/collection/peer", "", 0, zkPermAll)
+	c.Assert(err, IsNil)
+	_, err = s.zkConn.Create("/collection/settings", "", 0, zkPermAll)
+	c.Assert(err, IsNil)
+	_, err = s.zkConn.Create("/collection/settings/u-123", "whatever", 0, zkPermAll)
+	c.Assert(err, IsNil)
+	writeSettings := func(content string) {
+		_, err = s.zkConn.Set("/collection/settings/u-123", content, -1)
+		c.Assert(err, IsNil)
+	}
+	writeSettings("something")
+	waitFor(w, shortTimeout, nil)
+
+	// Start a pinger on the presence node; check event.
+	startPinger := func() *presence.Pinger {
+		pinger, err := presence.StartPinger(s.zkConn, "/collection/peer/u-123", agentPingerPeriod)
+		c.Assert(err, IsNil)
+		return pinger
+	}
+	pinger := startPinger()
+	waitFor(w, shortTimeout, &unitRelationChange{true, "something"})
+
+	// Write identical settings; check event.
+	writeSettings("something")
+	waitFor(w, shortTimeout, nil)
+
+	// Write new settings; check event.
+	writeSettings("different")
+	waitFor(w, shortTimeout, &unitRelationChange{true, "different"})
+
+	// Stop updating the presence node; but also slip in a subsequent settings
+	// change, which will still be detected before the absence is detected.
+	pinger.Stop()
+	writeSettings("alternative")
+	c.Assert(err, IsNil)
+	waitFor(w, shortTimeout, &unitRelationChange{true, "alternative"})
+	waitFor(w, longTimeout, &unitRelationChange{false, ""})
+
+	// Change settings again; check no event.
+	writeSettings("sneaky")
+	waitFor(w, shortTimeout, nil)
+
+	// Start a new pinger; check that presence and settings changes are sent.
+	pinger = startPinger()
+	c.Assert(err, IsNil)
+	waitFor(w, shortTimeout, &unitRelationChange{true, "sneaky"})
+
+	// Stop the watcher; perturb the nodes; check no further events.
+	err = w.Stop()
+	c.Assert(err, IsNil)
+	writeSettings("bizarre")
+	waitFor(w, shortTimeout, nil)
+	pinger.Kill()
+	waitFor(w, shortTimeout, nil)
+
+	// Start a new pinger; start a new watcher; check event.
+	pinger = startPinger()
+	w = newUnitRelationWatcher(s.zkConn, "/collection", "u-123", RolePeer)
+	waitFor(w, shortTimeout, &unitRelationChange{true, "bizarre"})
+	err = w.Stop()
+	c.Assert(err, IsNil)
+	pinger.Kill()
+
+	// Final check that no spurious changes have been sent.
+	waitFor(w, shortTimeout, nil)
 }

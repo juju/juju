@@ -1,7 +1,10 @@
 package state
 
 import (
+	"fmt"
 	"launchpad.net/goyaml"
+	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju-core/juju/state/presence"
 	"launchpad.net/juju-core/juju/state/watcher"
 	"launchpad.net/tomb"
 )
@@ -408,4 +411,159 @@ next:
 		missing = append(missing, a)
 	}
 	return
+}
+
+// unitRelationChange describes the state of a unit relation.
+type unitRelationChange struct {
+	Present  bool
+	Settings string
+}
+
+// unitRelationWatcher produces notifications regarding changes to a
+// particular unit relation.
+type unitRelationWatcher struct {
+	zk              *zookeeper.Conn
+	tomb            tomb.Tomb
+	presencePath    string
+	settingsPath    string
+	settingsWatcher *watcher.ContentWatcher
+	changes         chan unitRelationChange
+	started         bool
+}
+
+func newUnitRelationWatcher(zk *zookeeper.Conn, basePath, key string, role RelationRole) *unitRelationWatcher {
+	w := &unitRelationWatcher{
+		zk:           zk,
+		presencePath: basePath + "/" + string(role) + "/" + key,
+		settingsPath: basePath + "/settings/" + key,
+		changes:      make(chan unitRelationChange),
+	}
+	go w.loop()
+	return w
+}
+
+// Changes returns a channel that will receive notifications
+// about changes in a unit relation. Note that multiple changes
+// may be observed as a single event in the channel.
+// The first event on the channel holds the presence and, if
+// applicable, the current version of the unit relation's settings.
+func (w *unitRelationWatcher) Changes() <-chan unitRelationChange {
+	return w.changes
+}
+
+// Stop stops all watches and returns any error encountered
+// while watching. This method should always be called
+// before discarding the watcher.
+func (w *unitRelationWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	if w.settingsWatcher != nil {
+		if err := w.settingsWatcher.Stop(); err != nil {
+			w.tomb.Wait()
+			return err
+		}
+	}
+	return w.tomb.Wait()
+}
+
+// loop is the backend that watches a presence node and (sometimes) a settings node.
+func (w *unitRelationWatcher) loop() {
+	defer w.tomb.Done()
+	defer close(w.changes)
+	aliveW, err := w.updatePresence(false)
+	if err != nil {
+		w.tomb.Kill(err)
+		return
+	}
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case alive, ok := <-aliveW:
+			if !ok {
+				return
+			}
+			aliveW, err = w.updatePresence(alive)
+		case change, ok := <-w.settingsChanges():
+			if !ok {
+				return
+			}
+			err = w.updateSettings(change)
+		}
+		if err != nil {
+			w.tomb.Kill(err)
+			return
+		}
+	}
+}
+
+// settingsChanges returns a channel on which to receive settings node
+// content changes, or nil if the settings node is not being watched.
+func (w *unitRelationWatcher) settingsChanges() <-chan watcher.ContentChange {
+	if w.settingsWatcher == nil {
+		return nil
+	}
+	return w.settingsWatcher.Changes()
+}
+
+// updatePresence may send an event indicating that the unit relation has
+// departed; or that it is present, and has a particular settings version.
+func (w *unitRelationWatcher) updatePresence(alive bool) (aliveW <-chan bool, err error) {
+	latestAlive, aliveW, err := presence.AliveW(w.zk, w.presencePath)
+	if err != nil {
+		return
+	}
+	if w.started && alive != latestAlive {
+		// Presence has changed an odd number of times since the watch
+		// last fired, and is therefore in the same state we last saw.
+		return
+	}
+	if latestAlive {
+		// Start settings content watcher; process initial event.
+		w.settingsWatcher = watcher.NewContentWatcher(w.zk, w.settingsPath)
+		select {
+		case <-w.tomb.Dying():
+			return nil, tomb.ErrDying
+		case change, ok := <-w.settingsWatcher.Changes():
+			if !ok {
+				return nil, tomb.ErrDying
+			}
+			if err := w.updateSettings(change); err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		// The presence node is absent; send a notification.
+		if w.started {
+			sw := w.settingsWatcher
+			w.settingsWatcher = nil
+			if err := sw.Stop(); err != nil {
+				return nil, err
+			}
+		}
+		select {
+		case <-w.tomb.Dying():
+			return nil, tomb.ErrDying
+		case w.changes <- unitRelationChange{}:
+		}
+	}
+	w.started = true
+	return
+}
+
+// updateSettings sends a change event indicating that the unit relation is
+// present, and that its settings node exists and has the given version.
+func (w *unitRelationWatcher) updateSettings(change watcher.ContentChange) error {
+	if !change.Exists {
+		// By activating its presence node, a unit relation is guaranteeing that
+		// its settings node exists and contains valid data; if it's somehow not
+		// done this then we are dealing with an unknown quantity and can't
+		// sanely continue.
+		return fmt.Errorf("unit relation settings not present")
+	}
+	select {
+	case <-w.tomb.Dying():
+		return tomb.ErrDying
+	case w.changes <- unitRelationChange{true, change.Content}:
+	}
+	return nil
 }
