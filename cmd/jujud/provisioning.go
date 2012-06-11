@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/juju/cmd"
 	"launchpad.net/juju-core/juju/environs"
@@ -32,14 +34,31 @@ func (a *ProvisioningAgent) Init(f *gnuflag.FlagSet, args []string) error {
 	return a.Conf.checkArgs(f.Args())
 }
 
+// lengthyAttempt defines a strategy to retry 
+// every 10 seconds indefinitely.
+var lengthyAttempt = environs.AttemptStrategy{
+	Total: 365 * 24 * time.Hour,
+	Delay: 10 * time.Second,
+}
+
 // Run runs a provisioning agent.
 func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
-	// TODO(dfc) place the logic in a loop with a suitable delay
-	p, err := NewProvisioner(&a.Conf.StateInfo)
-	if err != nil {
-		return err
+	var err error
+	for attempt := lengthyAttempt.Start(); attempt.Next(); {
+		p, err := NewProvisioner(&a.Conf.StateInfo)
+		if err != nil {
+			log.Printf("provisioner could not connect to zookeeper: %v", err)
+			continue
+		}
+		err = p.Wait()
+		if err == nil {
+			// impossible at this point
+			log.Printf("provisioner exiting")
+			break
+		}
+		log.Printf("provisioner reported error, retrying: %v", err)
 	}
-	return p.Wait()
+	return err
 }
 
 type Provisioner struct {
