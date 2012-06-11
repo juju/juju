@@ -45,7 +45,7 @@ func (s *storage) Put(file string, r io.Reader, length int64) error {
 }
 
 func (s *storage) Get(file string) (r io.ReadCloser, err error) {
-	for a := shortAttempt.start(); a.next(); {
+	for a := shortAttempt.Start(); a.Next(); {
 		r, err = s.bucket.GetReader(file)
 		if s3ErrorStatusCode(err) == 404 {
 			continue
