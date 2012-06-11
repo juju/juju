@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// AttemptStrategy represents a strategy for waiting for a request
+// AttemptStrategy represents a strategy for waiting for an action
 // to complete successfully.  
 type AttemptStrategy struct {
 	Total time.Duration // total duration of attempt.
