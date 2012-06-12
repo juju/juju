@@ -1102,13 +1102,13 @@ func (s *ConfigNodeSuite) TestWriteTwice(c *C) {
 	c.Assert(nodeOne, DeepEquals, nodeTwo)
 }
 
-type UnitRelationWatcherSuite struct {
+type RelationUnitWatcherSuite struct {
 	zkConn *zookeeper.Conn
 }
 
-var _ = Suite(&UnitRelationWatcherSuite{})
+var _ = Suite(&RelationUnitWatcherSuite{})
 
-func (s *UnitRelationWatcherSuite) SetUpSuite(c *C) {
+func (s *RelationUnitWatcherSuite) SetUpSuite(c *C) {
 	st, err := Initialize(&Info{
 		Addrs: []string{TestingZkAddr},
 	})
@@ -1116,7 +1116,7 @@ func (s *UnitRelationWatcherSuite) SetUpSuite(c *C) {
 	s.zkConn = ZkConn(st)
 }
 
-func (s *UnitRelationWatcherSuite) TearDownSuite(c *C) {
+func (s *RelationUnitWatcherSuite) TearDownSuite(c *C) {
 	err := zkRemoveTree(s.zkConn, "/")
 	c.Assert(err, IsNil)
 	s.zkConn.Close()
@@ -1127,8 +1127,8 @@ var (
 	longTimeout  = 4 * agentPingerPeriod
 )
 
-func (s *UnitRelationWatcherSuite) TestUnitRelationWatcher(c *C) {
-	waitFor := func(w *unitRelationWatcher, timeout time.Duration, expectChange *unitRelationChange) {
+func (s *RelationUnitWatcherSuite) TestRelationUnitWatcher(c *C) {
+	waitFor := func(w *relationUnitWatcher, timeout time.Duration, expectChange *relationUnitChange) {
 		select {
 		case <-time.After(timeout):
 			if expectChange != nil {
@@ -1145,8 +1145,8 @@ func (s *UnitRelationWatcherSuite) TestUnitRelationWatcher(c *C) {
 	}
 
 	// Start watcher; check initial event.
-	w := newUnitRelationWatcher(s.zkConn, "/collection", "u-123", RolePeer)
-	waitFor(w, shortTimeout, &unitRelationChange{false, ""})
+	w := newRelationUnitWatcher(s.zkConn, "/collection", "u-123", RolePeer)
+	waitFor(w, shortTimeout, &relationUnitChange{false, ""})
 
 	// Create all relevant paths apart from presence node; check that
 	// no events occur (settings watch should not be active, because
@@ -1173,7 +1173,7 @@ func (s *UnitRelationWatcherSuite) TestUnitRelationWatcher(c *C) {
 		return pinger
 	}
 	pinger := startPinger()
-	waitFor(w, shortTimeout, &unitRelationChange{true, "something"})
+	waitFor(w, shortTimeout, &relationUnitChange{true, "something"})
 
 	// Write identical settings; check event.
 	writeSettings("something")
@@ -1181,15 +1181,15 @@ func (s *UnitRelationWatcherSuite) TestUnitRelationWatcher(c *C) {
 
 	// Write new settings; check event.
 	writeSettings("different")
-	waitFor(w, shortTimeout, &unitRelationChange{true, "different"})
+	waitFor(w, shortTimeout, &relationUnitChange{true, "different"})
 
 	// Stop updating the presence node; but also slip in a subsequent settings
 	// change, which will still be detected before the absence is detected.
 	pinger.Stop()
 	writeSettings("alternative")
 	c.Assert(err, IsNil)
-	waitFor(w, shortTimeout, &unitRelationChange{true, "alternative"})
-	waitFor(w, longTimeout, &unitRelationChange{false, ""})
+	waitFor(w, shortTimeout, &relationUnitChange{true, "alternative"})
+	waitFor(w, longTimeout, &relationUnitChange{false, ""})
 
 	// Change settings again; check no event.
 	writeSettings("sneaky")
@@ -1198,7 +1198,7 @@ func (s *UnitRelationWatcherSuite) TestUnitRelationWatcher(c *C) {
 	// Start a new pinger; check that presence and settings changes are sent.
 	pinger = startPinger()
 	c.Assert(err, IsNil)
-	waitFor(w, shortTimeout, &unitRelationChange{true, "sneaky"})
+	waitFor(w, shortTimeout, &relationUnitChange{true, "sneaky"})
 
 	// Stop the watcher; perturb the nodes; check no further events.
 	err = w.Stop()
@@ -1210,8 +1210,8 @@ func (s *UnitRelationWatcherSuite) TestUnitRelationWatcher(c *C) {
 
 	// Start a new pinger; start a new watcher; check event.
 	pinger = startPinger()
-	w = newUnitRelationWatcher(s.zkConn, "/collection", "u-123", RolePeer)
-	waitFor(w, shortTimeout, &unitRelationChange{true, "bizarre"})
+	w = newRelationUnitWatcher(s.zkConn, "/collection", "u-123", RolePeer)
+	waitFor(w, shortTimeout, &relationUnitChange{true, "bizarre"})
 	err = w.Stop()
 	c.Assert(err, IsNil)
 	pinger.Kill()
