@@ -60,6 +60,7 @@ func (w *ConfigWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
+				w.tomb.Killf("content change channel closed unexpectedly")
 				return
 			}
 			// A non-existent node is treated as an empty node.
@@ -69,8 +70,6 @@ func (w *ConfigWatcher) loop() {
 				return
 			}
 			select {
-			case <-w.watcher.Dying():
-				return
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- configNode:
@@ -88,7 +87,7 @@ type NeedsUpgradeWatcher struct {
 	changeChan chan NeedsUpgrade
 }
 
-// newNeedsUpgradeWatcher creates and starts a new resolved flag node 
+// newNeedsUpgradeWatcher creates and starts a new resolved flag node
 // watcher for the given path.
 func newNeedsUpgradeWatcher(st *State, path string) *NeedsUpgradeWatcher {
 	w := &NeedsUpgradeWatcher{
@@ -133,6 +132,7 @@ func (w *NeedsUpgradeWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
+				w.tomb.Killf("content change channel closed unexpectedly")
 				return
 			}
 			var needsUpgrade NeedsUpgrade
@@ -146,8 +146,6 @@ func (w *NeedsUpgradeWatcher) loop() {
 				needsUpgrade.Force = setting.Force
 			}
 			select {
-			case <-w.watcher.Dying():
-				return
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- needsUpgrade:
@@ -210,6 +208,7 @@ func (w *ResolvedWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
+				w.tomb.Killf("content change channel closed unexpectedly")
 				return
 			}
 			mode := ResolvedNone
@@ -222,8 +221,6 @@ func (w *ResolvedWatcher) loop() {
 				}
 			}
 			select {
-			case <-w.watcher.Dying():
-				return
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- mode:
@@ -242,7 +239,7 @@ type PortsWatcher struct {
 	changeChan chan []Port
 }
 
-// newPortsWatcher creates and starts a new ports node 
+// newPortsWatcher creates and starts a new ports node
 // watcher for the given path.
 func newPortsWatcher(st *State, path string) *PortsWatcher {
 	w := &PortsWatcher{
@@ -287,6 +284,7 @@ func (w *PortsWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
+				w.tomb.Killf("content change channel closed unexpectedly")
 				return
 			}
 			var ports openPortsNode
@@ -295,8 +293,6 @@ func (w *PortsWatcher) loop() {
 				return
 			}
 			select {
-			case <-w.watcher.Dying():
-				return
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- ports.Open:
@@ -305,7 +301,7 @@ func (w *PortsWatcher) loop() {
 	}
 }
 
-// MachinesWatcher notifies about machines being added or removed 
+// MachinesWatcher notifies about machines being added or removed
 // from the environment.
 type MachinesWatcher struct {
 	st               *State
@@ -362,6 +358,7 @@ func (w *MachinesWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
+				w.tomb.Killf("content change channel closed unexpectedly")
 				return
 			}
 			topology, err := parseTopology(change.Content)
@@ -373,7 +370,7 @@ func (w *MachinesWatcher) loop() {
 			added, deleted := diff(currentMachineKeys, w.knownMachineKeys), diff(w.knownMachineKeys, currentMachineKeys)
 			w.knownMachineKeys = currentMachineKeys
 			if len(added) == 0 && len(deleted) == 0 {
-				// nothing changed in zkMachinePath
+				// The change was not relevant to this watcher.
 				continue
 			}
 			// Why are we dealing with strings, not *Machines at this point ?
@@ -386,8 +383,6 @@ func (w *MachinesWatcher) loop() {
 				mc.Deleted = append(mc.Deleted, &Machine{w.st, m})
 			}
 			select {
-			case <-w.watcher.Dying():
-				return
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- mc:
