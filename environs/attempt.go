@@ -16,12 +16,15 @@ type attempt struct {
 	end time.Time
 }
 
+// Start begins a new sequence of attempts with the given strategy.
 func (a AttemptStrategy) Start() *attempt {
 	return &attempt{
 		AttemptStrategy: a,
 	}
 }
 
+// Next waits until it is time to perform the next attempt or returns
+// false if not attempts remain.
 func (a *attempt) Next() bool {
 	now := time.Now()
 	// we always make at least one attempt.
