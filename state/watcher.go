@@ -389,6 +389,111 @@ func (w *MachinesWatcher) loop() {
 	}
 }
 
+type MachineUnitsWatcher struct {
+	st               *State
+	m *Machine
+	path             string
+	tomb             tomb.Tomb
+	changeChan       chan *MachinesChange
+	watcher          *watcher.ContentWatcher
+}
+
+type MachineUnitsChange struct {
+	Added, Deleted []*Unit
+}
+
+// newMachinesWatcher creates and starts a new machine watcher.
+func (m *Machine) newMachineUnitsWatcher(st *State) *MachineUnitsWatcher {
+	w := &MachineUnitsWatcher{
+		st:               st,
+		path:             zkTopologyPath,
+		changeChan:       make(chan *MachineUnitsChange),
+		watcher:          watcher.NewContentWatcher(st.zk, zkTopologyPath),
+	}
+	go w.loop()
+	return w
+}
+
+// Changes returns a channel that will receive changes when
+// units are assigned or removed from a machine.
+// The Added field in the first event on the channel holds the initial
+// state as returned by State.AllMachines.
+func (w *MachineUnitsWatcher) Changes() <-chan *MachineUnitsChange {
+	return w.changeChan
+}
+
+// Stop stops the watch and returns any error encountered
+// while watching. This method should always be called
+// before discarding the watcher.
+func (w *MachineUnitsWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	if err := w.watcher.Stop(); err != nil {
+		w.tomb.Wait()
+		return err
+	}
+	return w.tomb.Wait()
+}
+
+// loop is the backend for watching the ports node.
+func (w *MachineUnitsWatcher) loop() {
+	knownUnits := make(map[string]*Unit)
+	// knownUnits keeps track of the current units because
+	// when a unit is deleted, we can't create a *Unit from
+	// a key alone.
+	var knownUnitKeys []string
+
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case change, ok := <-w.watcher.Changes():
+			if !ok {
+				return
+			}
+			topology, err := parseTopology(change.Content)
+			if err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			currentUnitKeys := topology.UnitsForMachine(w.m.key)
+			added, deleted := diff(currentUnitKeys, w.knownMachineKeys), diff(w.knownMachineKeys, currentUnitKeys)
+			knownUnitKeys = currentUnitKeys
+			if len(added) == 0 && len(deleted) == 0 {
+				// nothing changed
+				continue
+			}
+			uc := new(MachineUnitsChange)
+			for _, ukey := range deleted {
+				unit := knownUnits[ukey]
+				if unit == nil {
+					panic("unknown unit deleted: %v", ukey)
+				}
+				delete(knownUnits, ukey)
+				uc.Deleted = append(uc.Deleted, unit)
+			}
+			for _, ukey := range added {
+				unit, err := w.st.unitFromKey(topology, ukey)
+				if err != nil {
+					// If UnitsForMachine is returning keys that don't
+					// exist, then something is badly wrong.
+					panic(err)
+				}
+				knownUnits[ukey] = unit
+				uc.Added = append(uc.Added, unit)
+			}
+			select {
+			case <-w.watcher.Dying():
+				return
+			case <-w.tomb.Dying():
+				return
+			case w.changeChan <- uc:
+			}
+		}
+	}
+}
+
 // diff returns all the elements that exist in A but not B.
 func diff(A, B []string) (missing []string) {
 next:
