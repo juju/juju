@@ -150,7 +150,7 @@ func (p *Provisioner) Stop() error {
 }
 
 func (p *Provisioner) processMachines(changes *state.MachinesChange) error {
-	// step 1. filter machines with provider ids and without
+	// step 1. find machines without instance ids (tf. not running)
 	var notrunning []*state.Machine
 	for _, m := range changes.Added {
 		id, err := m.InstanceId()
@@ -209,9 +209,9 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 		return err
 	}
 
-	// assign the provider id to the macine
+	// assign the instance id to the machine
 	if err := m.SetInstanceId(inst.Id()); err != nil {
-		return fmt.Errorf("unable to store provider id for machine %v: %v", m, err)
+		return fmt.Errorf("unable to store instance id for machine %v: %v", m, err)
 	}
 
 	// populate the local caches
@@ -240,13 +240,13 @@ func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, e
 	inst, ok := p.providerIdToInstance[id]
 	if !ok {
 		// not cached locally, ask the provider
-		var err error
-		inst, err = p.findInstance(id)
+		insts, err := p.environ.Instances([]string{id})
 		if err != nil {
 			// the provider doesn't know about this instance, give up.
 			return nil, err
 		}
-		return nil, nil
+		inst = insts[0]
+		p.providerIdToInstance[id] = inst
 	}
 	return inst, nil
 }
@@ -263,12 +263,4 @@ func (p *Provisioner) instancesForMachines(machines []*state.Machine) ([]environ
 		insts = append(insts, inst)
 	}
 	return insts, nil
-}
-
-func (p *Provisioner) findInstance(id string) (environs.Instance, error) {
-	insts, err := p.environ.Instances([]string{id})
-	if err != nil {
-		return nil, err
-	}
-	return insts[0], nil
 }
