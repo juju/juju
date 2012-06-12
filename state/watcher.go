@@ -59,7 +59,6 @@ func (w *ConfigWatcher) Stop() error {
 	return w.tomb.Wait()
 }
 
-// loop is the backend for watching the configuration node.
 func (w *ConfigWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
@@ -125,7 +124,6 @@ func (w *NeedsUpgradeWatcher) Stop() error {
 	return w.tomb.Wait()
 }
 
-// loop is the backend for watching the resolved flag node.
 func (w *NeedsUpgradeWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
@@ -195,7 +193,6 @@ func (w *ResolvedWatcher) Stop() error {
 	return w.tomb.Wait()
 }
 
-// loop is the backend for watching the resolved flag node.
 func (w *ResolvedWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
@@ -265,7 +262,6 @@ func (w *PortsWatcher) Stop() error {
 	return w.tomb.Wait()
 }
 
-// loop is the backend for watching the ports node.
 func (w *PortsWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
@@ -309,12 +305,13 @@ type MachinesChange struct {
 	Added, Deleted []*Machine
 }
 
-// newMachinesWatcher creates and starts a new machine watcher.
+// newMachinesWatcher creates and starts a new watcher for changes to
+// the set of machines known to the topology.
 func newMachinesWatcher(st *State) *MachinesWatcher {
 	w := &MachinesWatcher{
-		st:               st,
-		changeChan:       make(chan *MachinesChange),
-		watcher:          watcher.NewContentWatcher(st.zk, zkTopologyPath),
+		st:         st,
+		changeChan: make(chan *MachinesChange),
+		watcher:    watcher.NewContentWatcher(st.zk, zkTopologyPath),
 	}
 	go w.loop()
 	return w
@@ -335,7 +332,6 @@ func (w *MachinesWatcher) Stop() error {
 	return w.tomb.Wait()
 }
 
-// loop is the backend for watching the topology.
 func (w *MachinesWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
