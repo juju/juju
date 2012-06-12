@@ -84,6 +84,10 @@ func (m *Machine) Units() ([]*Unit, error) {
 	return units, nil
 }
 
+func (m *Machine) WatchUnits() *MachineUnitsWatcher {
+	return newMachineUnitsWatcher(m)
+}
+
 // SetInstanceId sets the provider specific machine id for this machine.
 func (m *Machine) SetInstanceId(id string) error {
 	config, err := readConfigNode(m.st.zk, m.zkPath())

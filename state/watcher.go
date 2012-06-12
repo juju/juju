@@ -392,9 +392,8 @@ func (w *MachinesWatcher) loop() {
 type MachineUnitsWatcher struct {
 	st               *State
 	m *Machine
-	path             string
 	tomb             tomb.Tomb
-	changeChan       chan *MachinesChange
+	changeChan       chan *MachineUnitsChange
 	watcher          *watcher.ContentWatcher
 }
 
@@ -403,10 +402,9 @@ type MachineUnitsChange struct {
 }
 
 // newMachinesWatcher creates and starts a new machine watcher.
-func (m *Machine) newMachineUnitsWatcher(st *State) *MachineUnitsWatcher {
+func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 	w := &MachineUnitsWatcher{
-		st:               st,
-		path:             zkTopologyPath,
+		st:               m.st,
 		changeChan:       make(chan *MachineUnitsChange),
 		watcher:          watcher.NewContentWatcher(st.zk, zkTopologyPath),
 	}
@@ -458,7 +456,7 @@ func (w *MachineUnitsWatcher) loop() {
 				return
 			}
 			currentUnitKeys := topology.UnitsForMachine(w.m.key)
-			added, deleted := diff(currentUnitKeys, w.knownMachineKeys), diff(w.knownMachineKeys, currentUnitKeys)
+			added, deleted := diff(currentUnitKeys, knownUnitKeys), diff(knownUnitKeys, currentUnitKeys)
 			knownUnitKeys = currentUnitKeys
 			if len(added) == 0 && len(deleted) == 0 {
 				// nothing changed
@@ -468,7 +466,7 @@ func (w *MachineUnitsWatcher) loop() {
 			for _, ukey := range deleted {
 				unit := knownUnits[ukey]
 				if unit == nil {
-					panic("unknown unit deleted: %v", ukey)
+					panic("unknown unit deleted: " + ukey)
 				}
 				delete(knownUnits, ukey)
 				uc.Deleted = append(uc.Deleted, unit)
