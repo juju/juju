@@ -91,7 +91,6 @@ func (w *ConfigWatcher) loop() {
 // NeedsUpgradeWatcher observes changes to a unit's upgrade flag.
 type NeedsUpgradeWatcher struct {
 	st         *State
-	path       string
 	tomb       tomb.Tomb
 	watcher    *watcher.ContentWatcher
 	changeChan chan NeedsUpgrade
@@ -102,7 +101,6 @@ type NeedsUpgradeWatcher struct {
 func newNeedsUpgradeWatcher(st *State, path string) *NeedsUpgradeWatcher {
 	w := &NeedsUpgradeWatcher{
 		st:         st,
-		path:       path,
 		changeChan: make(chan NeedsUpgrade),
 		watcher:    watcher.NewContentWatcher(st.zk, path),
 	}
@@ -164,7 +162,6 @@ func (w *NeedsUpgradeWatcher) loop() {
 // mode. See SetResolved for details.
 type ResolvedWatcher struct {
 	st         *State
-	path       string
 	tomb       tomb.Tomb
 	watcher    *watcher.ContentWatcher
 	changeChan chan ResolvedMode
@@ -174,7 +171,6 @@ type ResolvedWatcher struct {
 func newResolvedWatcher(st *State, path string) *ResolvedWatcher {
 	w := &ResolvedWatcher{
 		st:         st,
-		path:       path,
 		changeChan: make(chan ResolvedMode),
 		watcher:    watcher.NewContentWatcher(st.zk, path),
 	}
@@ -235,7 +231,6 @@ func (w *ResolvedWatcher) loop() {
 // See OpenPort for details.
 type PortsWatcher struct {
 	st         *State
-	path       string
 	tomb       tomb.Tomb
 	watcher    *watcher.ContentWatcher
 	changeChan chan []Port
@@ -246,7 +241,6 @@ type PortsWatcher struct {
 func newPortsWatcher(st *State, path string) *PortsWatcher {
 	w := &PortsWatcher{
 		st:         st,
-		path:       path,
 		changeChan: make(chan []Port),
 		watcher:    watcher.NewContentWatcher(st.zk, path),
 	}
@@ -303,33 +297,32 @@ func (w *PortsWatcher) loop() {
 // from the environment.
 type MachinesWatcher struct {
 	st               *State
-	path             string
 	tomb             tomb.Tomb
 	changeChan       chan *MachinesChange
 	watcher          *watcher.ContentWatcher
 	knownMachineKeys []string
 }
 
+// MachinesChange contains information about
+// machines that have been added or deleted.
+type MachinesChange struct {
+	Added, Deleted []*Machine
+}
+
 // newMachinesWatcher creates and starts a new machine watcher.
 func newMachinesWatcher(st *State) *MachinesWatcher {
-	// start with an empty topology
-	topology, _ := parseTopology("")
 	w := &MachinesWatcher{
 		st:               st,
-		path:             zkTopologyPath,
 		changeChan:       make(chan *MachinesChange),
 		watcher:          watcher.NewContentWatcher(st.zk, zkTopologyPath),
-		knownMachineKeys: topology.MachineKeys(),
 	}
 	go w.loop()
 	return w
 }
 
-// Changes returns a channel that will receive the actual
-// watcher.ChildrenChanges. Note that multiple changes may
-// be observed as a single event in the channel.
-// The Added field in the first event on the channel holds the initial
-// state as returned by State.AllMachines.
+// Changes returns a channel that will receive changes when machines are
+// added or deleted.  The Added field in the first event on the channel
+// holds the initial state as returned by State.AllMachines.
 func (w *MachinesWatcher) Changes() <-chan *MachinesChange {
 	return w.changeChan
 }
