@@ -42,18 +42,18 @@ func (w *ConfigWatcher) Changes() <-chan *ConfigNode {
 // before discarding the watcher.
 func (w *ConfigWatcher) Stop() error {
 	w.tomb.Kill(nil)
-	if err := w.watcher.Stop(); err != nil {
-		w.tomb.Wait()
-		return err
-	}
 	return w.tomb.Wait()
 }
 
 // loop is the backend for watching the configuration node.
 func (w *ConfigWatcher) loop() {
-	defer w.tomb.Done()
-	defer close(w.changeChan)
-
+	defer func() {
+		if err := w.watcher.Stop(); err != nil {
+			w.tomb.Kill(err)
+		}
+		close(w.changeChan)
+		w.tomb.Done()
+	}()
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -114,18 +114,18 @@ func (w *NeedsUpgradeWatcher) Changes() <-chan NeedsUpgrade {
 // before discarding the watcher.
 func (w *NeedsUpgradeWatcher) Stop() error {
 	w.tomb.Kill(nil)
-	if err := w.watcher.Stop(); err != nil {
-		w.tomb.Wait()
-		return err
-	}
 	return w.tomb.Wait()
 }
 
 // loop is the backend for watching the resolved flag node.
 func (w *NeedsUpgradeWatcher) loop() {
-	defer w.tomb.Done()
-	defer close(w.changeChan)
-
+	defer func() {
+		if err := w.watcher.Stop(); err != nil {
+			w.tomb.Kill(err)
+		}
+		close(w.changeChan)
+		w.tomb.Done()
+	}()
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -190,18 +190,18 @@ func (w *ResolvedWatcher) Changes() <-chan ResolvedMode {
 // before discarding the watcher.
 func (w *ResolvedWatcher) Stop() error {
 	w.tomb.Kill(nil)
-	if err := w.watcher.Stop(); err != nil {
-		w.tomb.Wait()
-		return err
-	}
 	return w.tomb.Wait()
 }
 
 // loop is the backend for watching the resolved flag node.
 func (w *ResolvedWatcher) loop() {
-	defer w.tomb.Done()
-	defer close(w.changeChan)
-
+	defer func() {
+		if err := w.watcher.Stop(); err != nil {
+			w.tomb.Kill(err)
+		}
+		close(w.changeChan)
+		w.tomb.Done()
+	}()
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -266,18 +266,18 @@ func (w *PortsWatcher) Changes() <-chan []Port {
 // before discarding the watcher.
 func (w *PortsWatcher) Stop() error {
 	w.tomb.Kill(nil)
-	if err := w.watcher.Stop(); err != nil {
-		w.tomb.Wait()
-		return err
-	}
 	return w.tomb.Wait()
 }
 
 // loop is the backend for watching the ports node.
 func (w *PortsWatcher) loop() {
-	defer w.tomb.Done()
-	defer close(w.changeChan)
-
+	defer func() {
+		if err := w.watcher.Stop(); err != nil {
+			w.tomb.Kill(err)
+		}
+		close(w.changeChan)
+		w.tomb.Done()
+	}()
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -341,17 +341,18 @@ func (w *MachinesWatcher) Changes() <-chan *MachinesChange {
 // before discarding the watcher.
 func (w *MachinesWatcher) Stop() error {
 	w.tomb.Kill(nil)
-	if err := w.watcher.Stop(); err != nil {
-		w.tomb.Wait()
-		return err
-	}
 	return w.tomb.Wait()
 }
 
-// loop is the backend for watching the ports node.
+// loop is the backend for watching the topology.
 func (w *MachinesWatcher) loop() {
-	defer w.tomb.Done()
-	defer close(w.changeChan)
+	defer func() {
+		if err := w.watcher.Stop(); err != nil {
+			w.tomb.Kill(err)
+		}
+		close(w.changeChan)
+		w.tomb.Done()
+	}()
 	for {
 		select {
 		case <-w.tomb.Dying():
