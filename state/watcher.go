@@ -318,9 +318,9 @@ type MachinesChange struct {
 // newMachinesWatcher creates and starts a new machine watcher.
 func newMachinesWatcher(st *State) *MachinesWatcher {
 	w := &MachinesWatcher{
-		st:               st,
-		changeChan:       make(chan *MachinesChange),
-		watcher:          watcher.NewContentWatcher(st.zk, zkTopologyPath),
+		st:         st,
+		changeChan: make(chan *MachinesChange),
+		watcher:    watcher.NewContentWatcher(st.zk, zkTopologyPath),
 	}
 	go w.loop()
 	return w
