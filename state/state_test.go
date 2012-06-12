@@ -533,6 +533,12 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	_, err = wordpress.AddUnitSubordinateTo(unitZero)
 	c.Assert(err, ErrorMatches, "cannot make a principal unit subordinate to another unit")
 
+	// Assign the principal unit to a machine.
+	m, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	err = unitZero.AssignToMachine(m)
+	c.Assert(err, IsNil)
+
 	// Add a subordinate service.
 	bundle := testing.Charms.Bundle(c.MkDir(), "logging")
 	curl := charm.MustParseURL("cs:series/logging-99")
@@ -543,13 +549,18 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	logging, err := s.st.AddService("logging", subCh)
 	c.Assert(err, IsNil)
 
-	// Check that subordinate units can be added to principal units.
+	// Check that subordinate units can be added to principal units
 	subZero, err := logging.AddUnitSubordinateTo(unitZero)
 	c.Assert(err, IsNil)
 	c.Assert(subZero.Name(), Equals, "logging/0")
 	principal, err = subZero.IsPrincipal()
 	c.Assert(err, IsNil)
 	c.Assert(principal, Equals, false)
+
+	// Check the subordinate unit has been assigned its principal's machine.
+	id, err := subZero.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, m.Id())
 
 	// Check that subordinate units must be added to other units.
 	_, err = logging.AddUnit()

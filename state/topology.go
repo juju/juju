@@ -293,7 +293,20 @@ func (t *topology) AddUnit(unitKey, principalKey string) error {
 	if _, ok := svc.Units[unitKey]; ok {
 		return fmt.Errorf("unit %q already in use", unitKey)
 	}
-	svc.Units[unitKey] = &topoUnit{Principal: principalKey}
+	// If there's a principal unit, the new unit gets the same
+	// machine as the principal.
+	var machineKey string
+	if principalKey != "" {
+		_, principal, err := t.serviceAndUnit(principalKey)
+		if err != nil {
+			return fmt.Errorf("principal unit: %v", err)
+		}
+		machineKey = principal.Machine
+	}
+	svc.Units[unitKey] = &topoUnit{
+		Principal: principalKey,
+		Machine: machineKey,
+	}
 	return nil
 }
 
@@ -352,8 +365,8 @@ func (t *topology) UnitPrincipalKey(unitKey string) (string, error) {
 // unitNotAssigned indicates that a unit is not assigned to a machine.
 var unitNotAssigned = errors.New("unit not assigned to machine")
 
-// UnitMachineKey returns the key of an assigned machine of the unit. If no machine
-// is assigned the error unitNotAssigned will be returned.
+// UnitMachineKey returns the key of an assigned machine of the unit.
+// If no machine is assigned, the error unitNotAssigned will be returned.
 func (t *topology) UnitMachineKey(unitKey string) (string, error) {
 	_, unit, err := t.serviceAndUnit(unitKey)
 	if err != nil {
@@ -365,9 +378,10 @@ func (t *topology) UnitMachineKey(unitKey string) (string, error) {
 	return unit.Machine, nil
 }
 
-// AssignUnitToMachine assigns a unit to a machine. It is an error to reassign a 
-// unit that is already assigned, and it is an error to assign a unit of a
-// subordinate service directly to a machine.
+// AssignUnitToMachine assigns a unit and its subordinates to a machine.
+// It is an error to reassign a unit that is already assigned, and it is
+// an error to assign a unit of a subordinate service directly to a
+// machine.
 func (t *topology) AssignUnitToMachine(unitKey, machineKey string) error {
 	_, unit, err := t.serviceAndUnit(unitKey)
 	if err != nil {
@@ -384,10 +398,19 @@ func (t *topology) AssignUnitToMachine(unitKey, machineKey string) error {
 		return fmt.Errorf("unit %q already assigned to machine %q", unitKey, unit.Machine)
 	}
 	unit.Machine = machineKey
+	// Assign the same machine to any subordinate units.
+	for _, svc := range t.topology.Services {
+		for _, u := range svc.Units {
+			if u.Principal == unitKey {
+				u.Machine = machineKey
+			}
+		}
+	}
 	return nil
 }
 
-// UnassignUnitFromMachine unassigns the unit from its current machine.
+// UnassignUnitFromMachine unassigns the unit and its subordinates
+// from their current machine.
 func (t *topology) UnassignUnitFromMachine(unitKey string) error {
 	_, unit, err := t.serviceAndUnit(unitKey)
 	if err != nil {
@@ -397,6 +420,14 @@ func (t *topology) UnassignUnitFromMachine(unitKey string) error {
 		return fmt.Errorf("unit %q not assigned to a machine", unitKey)
 	}
 	unit.Machine = ""
+	// Unassign any subordinate units.
+	for _, svc := range t.topology.Services {
+		for _, u := range svc.Units {
+			if u.Principal == unitKey {
+				u.Machine = ""
+			}
+		}
+	}
 	return nil
 }
 
