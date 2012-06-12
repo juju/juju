@@ -354,10 +354,15 @@ func (s *StateSuite) TestRemoveService(c *C) {
 	service, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 
+	// Remove of existing service.
 	err = s.st.RemoveService(service)
 	c.Assert(err, IsNil)
-	service, err = s.st.Service("wordpress")
+	_, err = s.st.Service("wordpress")
 	c.Assert(err, ErrorMatches, `service with name "wordpress" not found`)
+
+	// Remove of non-existing service.
+	err = s.st.RemoveService(service)
+	c.Assert(err, ErrorMatches, `can't remove service "wordpress": environment state has changed`)
 }
 
 func (s *StateSuite) TestReadNonExistentService(c *C) {
@@ -543,7 +548,7 @@ func (s *StateSuite) TestReadUnitWithChangingState(c *C) {
 	err = s.st.RemoveService(wordpress)
 	c.Assert(err, IsNil)
 	_, err = s.st.Unit("wordpress/0")
-	c.Assert(err, ErrorMatches, `service with name "wordpress" not found`)
+	c.Assert(err, ErrorMatches, `can't get unit "wordpress/0": service with name "wordpress" not found`)
 }
 
 func (s *StateSuite) TestRemoveUnit(c *C) {
