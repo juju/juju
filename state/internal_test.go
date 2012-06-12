@@ -515,8 +515,8 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
 		Services: map[string]*topoRelationService{
-			"service-p":     &topoRelationService{RoleProvider, "db"},
-			"illegal": &topoRelationService{RoleRequirer, "db"},
+			"service-p": &topoRelationService{RoleProvider, "db"},
+			"illegal":   &topoRelationService{RoleRequirer, "db"},
 		},
 	})
 	c.Assert(err, ErrorMatches, `service with key "illegal" not found`)
