@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 
 	"launchpad.net/gnuflag"
@@ -15,8 +14,6 @@ import (
 	_ "launchpad.net/juju-core/juju/environs/dummy"
 	_ "launchpad.net/juju-core/juju/environs/ec2"
 )
-
-var errInstanceNotFound = errors.New("instance not found")
 
 // ProvisioningAgent is a cmd.Command responsible for running a provisioning agent.
 type ProvisioningAgent struct {
@@ -78,15 +75,8 @@ func NewProvisioner(info *state.Info) (*Provisioner, error) {
 
 func (p *Provisioner) loop() {
 	defer p.tomb.Done()
-	defer func() {
-		err := p.st.Close()
-		if err != nil {
-			p.tomb.Kill(err)
-		}
-	}()
+	defer p.st.Close()
 	p.environWatcher = p.st.WatchEnvironConfig()
-	// TODO(dfc) we need a method like state.IsConnected() here to exit cleanly if
-	// there is a connection problem.
 	for {
 		select {
 		case <-p.tomb.Dying():
@@ -113,9 +103,6 @@ func (p *Provisioner) loop() {
 
 func (p *Provisioner) innerLoop() {
 	p.machinesWatcher = p.st.WatchMachines()
-
-	// TODO(dfc) we need a method like state.IsConnected() here to exit cleanly if
-	// there is a connection problem.
 	for {
 		select {
 		case <-p.tomb.Dying():
@@ -189,6 +176,9 @@ func (p *Provisioner) processMachines(changes *state.MachinesChange) error {
 		return err
 	}
 
+	// TODO(dfc) obtain a list of running instances from the Environ and compare that
+	// with the known instances stored in the machine.InstanceId() config.
+
 	// although calling StopInstance with an empty slice should produce no change in the 
 	// provider, environs like dummy do not consider this a noop.
 	if len(stopping) > 0 {
@@ -243,7 +233,7 @@ func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, e
 		}
 		if id == "" {
 			// nobody knows about this machine, give up.
-			return nil, errInstanceNotFound
+			return nil, fmt.Errorf("machine %s not found", m)
 		}
 		p.machineIdToProviderId[m.Id()] = id
 	}
@@ -279,9 +269,6 @@ func (p *Provisioner) findInstance(id string) (environs.Instance, error) {
 	insts, err := p.environ.Instances([]string{id})
 	if err != nil {
 		return nil, err
-	}
-	if len(insts) < 1 {
-		return nil, errInstanceNotFound
 	}
 	return insts[0], nil
 }
