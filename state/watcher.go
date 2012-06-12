@@ -391,7 +391,7 @@ func (w *MachinesWatcher) loop() {
 
 type MachineUnitsWatcher struct {
 	st               *State
-	m *Machine
+	machine *Machine
 	tomb             tomb.Tomb
 	changeChan       chan *MachineUnitsChange
 	watcher          *watcher.ContentWatcher
@@ -405,8 +405,9 @@ type MachineUnitsChange struct {
 func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 	w := &MachineUnitsWatcher{
 		st:               m.st,
+		machine: m,
 		changeChan:       make(chan *MachineUnitsChange),
-		watcher:          watcher.NewContentWatcher(st.zk, zkTopologyPath),
+		watcher:          watcher.NewContentWatcher(m.st.zk, zkTopologyPath),
 	}
 	go w.loop()
 	return w
@@ -434,10 +435,10 @@ func (w *MachineUnitsWatcher) Stop() error {
 
 // loop is the backend for watching the ports node.
 func (w *MachineUnitsWatcher) loop() {
-	knownUnits := make(map[string]*Unit)
 	// knownUnits keeps track of the current units because
 	// when a unit is deleted, we can't create a *Unit from
 	// a key alone.
+	knownUnits := make(map[string]*Unit)
 	var knownUnitKeys []string
 
 	defer w.tomb.Done()
@@ -455,7 +456,7 @@ func (w *MachineUnitsWatcher) loop() {
 				w.tomb.Kill(err)
 				return
 			}
-			currentUnitKeys := topology.UnitsForMachine(w.m.key)
+			currentUnitKeys := topology.UnitsForMachine(w.machine.key)
 			added, deleted := diff(currentUnitKeys, knownUnitKeys), diff(knownUnitKeys, currentUnitKeys)
 			knownUnitKeys = currentUnitKeys
 			if len(added) == 0 && len(deleted) == 0 {

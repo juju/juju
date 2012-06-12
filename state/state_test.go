@@ -534,12 +534,7 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	c.Assert(err, ErrorMatches, "cannot make a principal unit subordinate to another unit")
 
 	// Add a subordinate service.
-	bundle := testing.Charms.Bundle(c.MkDir(), "logging")
-	curl := charm.MustParseURL("cs:series/logging-99")
-	bundleURL, err := url.Parse("http://subordinate.url")
-	c.Assert(err, IsNil)
-	subCh, err := s.st.AddCharm(bundle, curl, bundleURL, "dummy-sha256")
-	c.Assert(err, IsNil)
+	subCh := addLoggingCharm(c, s.st)
 	logging, err := s.st.AddService("logging", subCh)
 	c.Assert(err, IsNil)
 
@@ -947,18 +942,25 @@ func (s *StateSuite) TestAssignUnit(c *C) {
 	s.assertMachineCount(c, 3)
 
 	// Check cannot assign subordinates to machines
-	bundle := testing.Charms.Bundle(c.MkDir(), "logging")
-	curl := charm.MustParseURL("cs:series/logging-99")
-	bundleURL, err := url.Parse("http://subordinate.url")
-	c.Assert(err, IsNil)
-	subCh, err := s.st.AddCharm(bundle, curl, bundleURL, "dummy-sha256")
-	c.Assert(err, IsNil)
+	subCh := addLoggingCharm(c, s.st)
 	logging, err := s.st.AddService("logging", subCh)
 	c.Assert(err, IsNil)
 	unit3, err := logging.AddUnitSubordinateTo(unit2)
 	c.Assert(err, IsNil)
 	err = state.AssignUnit(s.st, unit3, state.AssignUnused)
 	c.Assert(err, ErrorMatches, `subordinate unit "logging/0" cannot be assigned directly to a machine`)
+}
+
+// addLoggingCharm adds a "logging" (subordinate) charm
+// to the state.
+func addLoggingCharm(c *C, st *state.State) *state.Charm {
+	bundle := testing.Charms.Bundle(c.MkDir(), "logging")
+	curl := charm.MustParseURL("cs:series/logging-99")
+	bundleURL, err := url.Parse("http://subordinate.url")
+	c.Assert(err, IsNil)
+	ch, err := st.AddCharm(bundle, curl, bundleURL, "dummy-sha256")
+	c.Assert(err, IsNil)
+	return ch
 }
 
 func (s *StateSuite) TestGetSetClearUnitUpgrade(c *C) {
