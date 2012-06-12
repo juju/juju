@@ -35,6 +35,10 @@ func EnvironEC2(e environs.Environ) *ec2.EC2 {
 	return e.(*environ).ec2()
 }
 
+func EnvironS3(e environs.Environ) *s3.S3 {
+	return e.(*environ).s3()
+}
+
 func DeleteStorageContent(s environs.Storage) error {
 	return s.(*storage).deleteAll()
 }

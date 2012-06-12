@@ -325,6 +325,70 @@ func (s *StateSuite) TestMachineWaitAgentAlive(c *C) {
 	c.Assert(alive, Equals, false)
 }
 
+func (s *StateSuite) TestMachineUnits(c *C) {
+	// Check that Machine.Units works correctly.
+
+	// Make three machines, three services and three units for each service;
+	// variously assign units to machines and check that Machine.Units
+	// tells us the right thing.
+
+	m0, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	m1, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	m2, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+
+	dummy := s.addDummyCharm(c)
+	s0, err := s.st.AddService("s0", dummy)
+	c.Assert(err, IsNil)
+	s1, err := s.st.AddService("s1", dummy)
+	c.Assert(err, IsNil)
+	s2, err := s.st.AddService("s2", dummy)
+	c.Assert(err, IsNil)
+
+	units := make([][]*state.Unit, 3)
+	for i, svc := range []*state.Service{s0, s1, s2} {
+		units[i] = make([]*state.Unit, 3)
+		for j := range units[i] {
+			units[i][j], err = svc.AddUnit()
+			c.Assert(err, IsNil)
+		}
+	}
+
+	assignments := []struct {
+		machine *state.Machine
+		units   []*state.Unit
+	}{
+		{m0, []*state.Unit{units[0][0]}},
+		{m1, []*state.Unit{units[0][1], units[1][0], units[1][1], units[2][0]}},
+		{m2, []*state.Unit{units[0][2]}},
+	}
+
+	for _, a := range assignments {
+		for _, u := range a.units {
+			err := u.AssignToMachine(a.machine)
+			c.Assert(err, IsNil)
+		}
+	}
+
+	for i, a := range assignments {
+		c.Logf("test %d", i)
+		got, err := a.machine.Units()
+		c.Assert(err, IsNil)
+		c.Assert(sortedUnitNames(got), DeepEquals, sortedUnitNames(a.units))
+	}
+}
+
+func sortedUnitNames(units []*state.Unit) []string {
+	names := make([]string, len(units))
+	for i, u := range units {
+		names[i] = u.Name()
+	}
+	sort.Strings(names)
+	return names
+}
+
 func (s *StateSuite) TestAddService(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
