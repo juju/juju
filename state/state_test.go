@@ -917,6 +917,47 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 	c.Assert(err, ErrorMatches, "no unused machine found")
 }
 
+func (s *StateSuite) TestAssignSubsidiariesToMachine(c *C) {
+	// Create machine 0, that shouldn't be used.
+	_, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	// Check that assigning a principal unit assigns its subsidiaries too.
+	dummy := s.addDummyCharm(c)
+	logging := addLoggingCharm(c, s.st)
+	mysqlService, err := s.st.AddService("mysql", dummy)
+	c.Assert(err, IsNil)
+	logService1, err := s.st.AddService("logging1", logging)
+	c.Assert(err, IsNil)
+	logService2, err := s.st.AddService("logging2", logging)
+	c.Assert(err, IsNil)
+	mysqlUnit, err := mysqlService.AddUnit()
+	c.Assert(err, IsNil)
+	log1Unit, err := logService1.AddUnitSubordinateTo(mysqlUnit)
+	c.Assert(err, IsNil)
+	log2Unit, err := logService2.AddUnitSubordinateTo(mysqlUnit)
+	c.Assert(err, IsNil)
+
+	mysqlMachine, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	err = mysqlUnit.AssignToMachine(mysqlMachine)
+	c.Assert(err, IsNil)
+
+	id, err := log1Unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Check(id, Equals, mysqlMachine.Id())
+	id, err = log2Unit.AssignedMachineId()
+	c.Check(id, Equals, mysqlMachine.Id())
+
+	// Check that unassigning the principal unassigns the
+	// subsidiaries too.
+	err = mysqlUnit.UnassignFromMachine()
+	c.Assert(err, IsNil)
+	_, err = log1Unit.AssignedMachineId()
+	c.Assert(err, ErrorMatches, "unit not assigned to machine")
+	_, err = log2Unit.AssignedMachineId()
+	c.Assert(err, ErrorMatches, "unit not assigned to machine")
+}
+
 func (s *StateSuite) TestAssignUnit(c *C) {
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
