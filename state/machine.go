@@ -132,9 +132,3 @@ func keySeq(key string) (id int) {
 func machineKey(machineId int) string {
 	return fmt.Sprintf("machine-%010d", machineId)
 }
-
-// MachinesChange contains information about
-// machines that have been added or deleted.
-type MachinesChange struct {
-	Added, Deleted []*Machine
-}
