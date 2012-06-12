@@ -24,6 +24,9 @@ type storage struct {
 func (s *storage) makeBucket() error {
 	s.bucketMutex.Lock()
 	defer s.bucketMutex.Unlock()
+	if s.madeBucket {
+		return nil
+	}
 	// try to make the bucket - PutBucket will succeed if the
 	// bucket already exists.
 	err := s.bucket.PutBucket(s3.Private)
@@ -123,5 +126,10 @@ func (s *storage) deleteAll() error {
 	default:
 	}
 
+	s.bucketMutex.Lock()
+	defer s.bucketMutex.Unlock()
+	// Even DelBucket fails, it won't harm if we try again - the operation
+	// might have succeeded even if we get an error.
+	s.madeBucket = false
 	return s.bucket.DelBucket()
 }

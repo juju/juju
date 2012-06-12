@@ -67,10 +67,13 @@ func (t *Tests) TestBootstrap(c *C) {
 	err = e2.Destroy(nil)
 	c.Assert(err, IsNil)
 
-	err = e.Bootstrap(false)
+	// Open again because Destroy invalidates old environments.
+	e3 := t.Open(c)
+
+	err = e3.Bootstrap(false)
 	c.Assert(err, IsNil)
 
-	err = e.Bootstrap(false)
+	err = e3.Bootstrap(false)
 	c.Assert(err, NotNil)
 }
 

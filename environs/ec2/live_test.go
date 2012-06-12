@@ -315,6 +315,30 @@ func (t *LiveTests) TestPublicStorage(c *C) {
 	c.Assert(err, FitsTypeOf, notFoundError)
 }
 
+func (t *LiveTests) TestPutBucketOnlyOnce(c *C) {
+	s3inst := ec2.EnvironS3(t.Env)
+	b := s3inst.Bucket("test-once-" + uniqueName)
+	s := ec2.BucketStorage(b)
+
+	// Check that we don't do a PutBucket every time by
+	// getting it to create the bucket, destroying the bucket behind
+	// the scenes, and trying to put another object,
+	// which should fail because it doesn't try to do
+	// the PutBucket again.
+
+	err := s.Put("test-object", strings.NewReader("test"), 4)
+	c.Assert(err, IsNil)
+
+	err = s.Remove("test-object")
+	c.Assert(err, IsNil)
+
+	err = b.DelBucket()
+	c.Assert(err, IsNil)
+
+	err = s.Put("test-object", strings.NewReader("test"), 4)
+	c.Assert(err, ErrorMatches, ".*The specified bucket does not exist")
+}
+
 // createGroup creates a new EC2 group and returns it. If it already exists,
 // it revokes all its permissions and returns the existing group.
 func createGroup(c *C, ec2conn *amzec2.EC2, name, descr string) amzec2.SecurityGroup {
