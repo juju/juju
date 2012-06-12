@@ -340,14 +340,17 @@ func (s *StateSuite) TestMachineUnits(c *C) {
 	c.Assert(err, IsNil)
 
 	dummy := s.addDummyCharm(c)
+	logging := addLoggingCharm(c, s.st)
 	s0, err := s.st.AddService("s0", dummy)
 	c.Assert(err, IsNil)
 	s1, err := s.st.AddService("s1", dummy)
 	c.Assert(err, IsNil)
 	s2, err := s.st.AddService("s2", dummy)
 	c.Assert(err, IsNil)
+	s3, err := s.st.AddService("s3", logging)
+	c.Assert(err, IsNil)
 
-	units := make([][]*state.Unit, 3)
+	units := make([][]*state.Unit, 4)
 	for i, svc := range []*state.Service{s0, s1, s2} {
 		units[i] = make([]*state.Unit, 3)
 		for j := range units[i] {
@@ -355,14 +358,20 @@ func (s *StateSuite) TestMachineUnits(c *C) {
 			c.Assert(err, IsNil)
 		}
 	}
+	// Add the logging units subordinate to the s2 units.
+	units[3] = make([]*state.Unit, 3)
+	for i := range units[3] {
+		units[3][i], err = s3.AddUnitSubordinateTo(units[2][i])
+	}
 
 	assignments := []struct {
-		machine *state.Machine
-		units   []*state.Unit
+		machine      *state.Machine
+		units        []*state.Unit
+		subsidiaries []*state.Unit
 	}{
-		{m0, []*state.Unit{units[0][0]}},
-		{m1, []*state.Unit{units[0][1], units[1][0], units[1][1], units[2][0]}},
-		{m2, []*state.Unit{units[0][2]}},
+		{m0, []*state.Unit{units[0][0]}, nil},
+		{m1, []*state.Unit{units[0][1], units[1][0], units[1][1], units[2][0]}, []*state.Unit{units[3][0]}},
+		{m2, []*state.Unit{units[2][2]}, []*state.Unit{units[3][2]}},
 	}
 
 	for _, a := range assignments {
@@ -376,7 +385,8 @@ func (s *StateSuite) TestMachineUnits(c *C) {
 		c.Logf("test %d", i)
 		got, err := a.machine.Units()
 		c.Assert(err, IsNil)
-		c.Assert(sortedUnitNames(got), DeepEquals, sortedUnitNames(a.units))
+		expect := sortedUnitNames(append(a.units, a.subsidiaries...))
+		c.Assert(sortedUnitNames(got), DeepEquals, expect)
 	}
 }
 
@@ -540,12 +550,7 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	c.Assert(err, IsNil)
 
 	// Add a subordinate service.
-	bundle := testing.Charms.Bundle(c.MkDir(), "logging")
-	curl := charm.MustParseURL("cs:series/logging-99")
-	bundleURL, err := url.Parse("http://subordinate.url")
-	c.Assert(err, IsNil)
-	subCh, err := s.st.AddCharm(bundle, curl, bundleURL, "dummy-sha256")
-	c.Assert(err, IsNil)
+	subCh := addLoggingCharm(c, s.st)
 	logging, err := s.st.AddService("logging", subCh)
 	c.Assert(err, IsNil)
 
@@ -958,18 +963,25 @@ func (s *StateSuite) TestAssignUnit(c *C) {
 	s.assertMachineCount(c, 3)
 
 	// Check cannot assign subordinates to machines
-	bundle := testing.Charms.Bundle(c.MkDir(), "logging")
-	curl := charm.MustParseURL("cs:series/logging-99")
-	bundleURL, err := url.Parse("http://subordinate.url")
-	c.Assert(err, IsNil)
-	subCh, err := s.st.AddCharm(bundle, curl, bundleURL, "dummy-sha256")
-	c.Assert(err, IsNil)
+	subCh := addLoggingCharm(c, s.st)
 	logging, err := s.st.AddService("logging", subCh)
 	c.Assert(err, IsNil)
 	unit3, err := logging.AddUnitSubordinateTo(unit2)
 	c.Assert(err, IsNil)
 	err = state.AssignUnit(s.st, unit3, state.AssignUnused)
 	c.Assert(err, ErrorMatches, `subordinate unit "logging/0" cannot be assigned directly to a machine`)
+}
+
+// addLoggingCharm adds a "logging" (subordinate) charm
+// to the state.
+func addLoggingCharm(c *C, st *state.State) *state.Charm {
+	bundle := testing.Charms.Bundle(c.MkDir(), "logging")
+	curl := charm.MustParseURL("cs:series/logging-99")
+	bundleURL, err := url.Parse("http://subordinate.url")
+	c.Assert(err, IsNil)
+	ch, err := st.AddCharm(bundle, curl, bundleURL, "dummy-sha256")
+	c.Assert(err, IsNil)
+	return ch
 }
 
 func (s *StateSuite) TestGetSetClearUnitUpgrade(c *C) {

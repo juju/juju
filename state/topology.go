@@ -305,7 +305,7 @@ func (t *topology) AddUnit(unitKey, principalKey string) error {
 	}
 	svc.Units[unitKey] = &topoUnit{
 		Principal: principalKey,
-		Machine: machineKey,
+		Machine:   machineKey,
 	}
 	return nil
 }
