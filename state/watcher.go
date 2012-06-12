@@ -6,6 +6,20 @@ import (
 	"launchpad.net/tomb"
 )
 
+// watcherStopper allows us to call Stop on a watcher without
+// caring which watcher type it actually is.
+type watcherStopper interface {
+	Stop() error
+}
+
+// stopWatcher stops a watcher and propagates
+// the error to the given tomb if nessary.
+func stopWatcher(w watcherStopper, t *tomb.Tomb) {
+	if err := w.Stop(); err != nil {
+		t.Kill(err)
+	}
+}
+
 // ConfigWatcher observes changes to any configuration node.
 type ConfigWatcher struct {
 	st         *State
@@ -47,13 +61,9 @@ func (w *ConfigWatcher) Stop() error {
 
 // loop is the backend for watching the configuration node.
 func (w *ConfigWatcher) loop() {
-	defer func() {
-		if err := w.watcher.Stop(); err != nil {
-			w.tomb.Kill(err)
-		}
-		close(w.changeChan)
-		w.tomb.Done()
-	}()
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+	defer stopWatcher(w.watcher, &w.tomb)
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -119,13 +129,9 @@ func (w *NeedsUpgradeWatcher) Stop() error {
 
 // loop is the backend for watching the resolved flag node.
 func (w *NeedsUpgradeWatcher) loop() {
-	defer func() {
-		if err := w.watcher.Stop(); err != nil {
-			w.tomb.Kill(err)
-		}
-		close(w.changeChan)
-		w.tomb.Done()
-	}()
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+	defer stopWatcher(w.watcher, &w.tomb)
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -195,13 +201,9 @@ func (w *ResolvedWatcher) Stop() error {
 
 // loop is the backend for watching the resolved flag node.
 func (w *ResolvedWatcher) loop() {
-	defer func() {
-		if err := w.watcher.Stop(); err != nil {
-			w.tomb.Kill(err)
-		}
-		close(w.changeChan)
-		w.tomb.Done()
-	}()
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+	defer stopWatcher(w.watcher, &w.tomb)
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -271,13 +273,9 @@ func (w *PortsWatcher) Stop() error {
 
 // loop is the backend for watching the ports node.
 func (w *PortsWatcher) loop() {
-	defer func() {
-		if err := w.watcher.Stop(); err != nil {
-			w.tomb.Kill(err)
-		}
-		close(w.changeChan)
-		w.tomb.Done()
-	}()
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+	defer stopWatcher(w.watcher, &w.tomb)
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -346,13 +344,9 @@ func (w *MachinesWatcher) Stop() error {
 
 // loop is the backend for watching the topology.
 func (w *MachinesWatcher) loop() {
-	defer func() {
-		if err := w.watcher.Stop(); err != nil {
-			w.tomb.Kill(err)
-		}
-		close(w.changeChan)
-		w.tomb.Done()
-	}()
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+	defer stopWatcher(w.watcher, &w.tomb)
 	for {
 		select {
 		case <-w.tomb.Dying():
