@@ -27,7 +27,7 @@ type State struct {
 
 // AddMachine creates a new machine state.
 func (s *State) AddMachine() (m *Machine, err error) {
-	defer errorContext(&err, "can't add a new machine: %v")
+	defer errorContextf(&err, "can't add a new machine")
 	path, err := s.zk.Create("/machines/machine-", "", zookeeper.SEQUENCE, zkPermAll)
 	if err != nil {
 		return nil, err
@@ -44,7 +44,7 @@ func (s *State) AddMachine() (m *Machine, err error) {
 
 // RemoveMachine removes the machine with the given id.
 func (s *State) RemoveMachine(id int) (err error) {
-	defer errorContext(&err, "can't remove machine %d: %v", id)
+	defer errorContextf(&err, "can't remove machine %d", id)
 	key := machineKey(id)
 	removeMachine := func(t *topology) error {
 		if !t.HasMachine(key) {
@@ -112,7 +112,7 @@ func (s *State) AllMachines() ([]*Machine, error) {
 // may be downloaded from.
 // On success the newly added charm state is returned.
 func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (stch *Charm, err error) {
-	defer errorContext(&err, "can't add charm %q: %v", curl)
+	defer errorContextf(&err, "can't add charm %q", curl)
 	data := &charmData{
 		Meta:         ch.Meta(),
 		Config:       ch.Config(),
@@ -136,7 +136,7 @@ func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bu
 
 // Charm returns a charm by the given id.
 func (s *State) Charm(curl *charm.URL) (stch *Charm, err error) {
-	defer errorContext(&err, "can't get charm %q: %v", curl)
+	defer errorContextf(&err, "can't get charm %q", curl)
 	path, err := charmPath(curl)
 	if err != nil {
 		return
@@ -158,7 +158,7 @@ func (s *State) Charm(curl *charm.URL) (stch *Charm, err error) {
 // AddService creates a new service state with the given unique name
 // and the charm state.
 func (s *State) AddService(name string, ch *Charm) (service *Service, err error) {
-	defer errorContext(&err, "can't add service %q: %v", name)
+	defer errorContextf(&err, "can't add service %q", name)
 	details := map[string]interface{}{"charm": ch.URL().String()}
 	yaml, err := goyaml.Marshal(details)
 	if err != nil {
@@ -197,7 +197,7 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 // also remove all its units and break any of its existing
 // relations.
 func (s *State) RemoveService(svc *Service) (err error) {
-	defer errorContext(&err, "can't remove service %q: %v", svc.Name())
+	defer errorContextf(&err, "can't remove service %q", svc.Name())
 	// TODO Remove relations first, to prevent spurious hook execution.
 
 	// Remove the units.
@@ -226,7 +226,7 @@ func (s *State) RemoveService(svc *Service) (err error) {
 
 // Service returns a service state by name.
 func (s *State) Service(name string) (service *Service, err error) {
-	defer errorContext(&err, "can't get service %q: %v", name)
+	defer errorContextf(&err, "can't get service %q", name)
 	topology, err := readTopology(s.zk)
 	if err != nil {
 		return nil, err
@@ -240,7 +240,7 @@ func (s *State) Service(name string) (service *Service, err error) {
 
 // AllServices returns all deployed services in the environment.
 func (s *State) AllServices() (services []*Service, err error) {
-	defer errorContext(&err, "can't get all services: %v")
+	defer errorContextf(&err, "can't get all services")
 	topology, err := readTopology(s.zk)
 	if err != nil {
 		return
@@ -258,7 +258,7 @@ func (s *State) AllServices() (services []*Service, err error) {
 
 // Unit returns a unit by name.
 func (s *State) Unit(name string) (unit *Unit, err error) {
-	defer errorContext(&err, "can't get unit %q: %v", name)
+	defer errorContextf(&err, "can't get unit %q", name)
 	serviceName, _, err := parseUnitName(name)
 	if err != nil {
 		return
@@ -311,7 +311,7 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (rel *Relation, svcre
 	default:
 		return nil, nil, fmt.Errorf("can't add relations between %d services", len(endpoints))
 	}
-	defer errorContext(&err, "can't add relation: %v")
+	defer errorContextf(&err, "can't add relation")
 	t, err := readTopology(s.zk)
 	if err != nil {
 		return

@@ -238,7 +238,7 @@ func (c *ConfigNode) Delete(key string) {
 // children.  It does not delete "/zookeeper" or the root node itself
 // and it does not consider deleting a nonexistent node to be an error.
 func zkRemoveTree(zk *zookeeper.Conn, path string) (err error) {
-	defer errorContext(&err, "can't clean up data: %v")
+	defer errorContextf(&err, "can't clean up data")
 	// If we try to delete the zookeeper node (for example when
 	// calling ZkRemoveTree(zk, "/")) we silently ignore it.
 	if path == "/zookeeper" {
@@ -291,8 +291,8 @@ func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 // errorContextf prefixes any error stored in err with text formatted
 // according to the format specifier.  If err does not contain an error,
 // errorContextf does nothing.
-func errorContext(err *error, format string, args ...interface{}) {
+func errorContextf(err *error, format string, args ...interface{}) {
 	if *err != nil {
-		*err = fmt.Errorf(format, append(args, *err)...)
+		*err = errors.New(fmt.Sprintf(format, args...) + ": " + (*err).Error())
 	}
 }
