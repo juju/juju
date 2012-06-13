@@ -130,7 +130,8 @@ type Environ interface {
 	// will be returned.
 	Instances(ids []string) ([]Instance, error)
 
-	// AllInstances returns all Instances currently known to the Environ.
+	// AllInstances returns all instances currently known to the 
+	// environment.
 	AllInstances() ([]Instance, error)
 
 	// Storage returns storage specific to the environment.

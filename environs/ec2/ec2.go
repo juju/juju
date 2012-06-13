@@ -387,6 +387,9 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 }
 
 func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
 	insts := make([]environs.Instance, len(ids))
 	// Make a series of requests to cope with eventual consistency.
 	// Each request will attempt to add more instances to the requested
