@@ -121,21 +121,17 @@ func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bu
 	}
 	yaml, err := goyaml.Marshal(data)
 	if err != nil {
-		return
+		return nil, err
 	}
 	path, err := charmPath(curl)
 	if err != nil {
-		return
+		return nil, err
 	}
 	_, err = s.zk.Create(path, string(yaml), 0, zkPermAll)
 	if err != nil {
-		return
+		return nil, err
 	}
-	stch, err = newCharm(s, curl, data)
-	if err != nil {
-		return
-	}
-	return stch, nil
+	return newCharm(s, curl, data)
 }
 
 // Charm returns a charm by the given id.
@@ -147,20 +143,16 @@ func (s *State) Charm(curl *charm.URL) (stch *Charm, err error) {
 	}
 	yaml, _, err := s.zk.Get(path)
 	if zookeeper.IsError(err, zookeeper.ZNONODE) {
-		return
+		return nil, err
 	}
 	if err != nil {
-		return
+		return nil, err
 	}
 	data := &charmData{}
 	if err = goyaml.Unmarshal([]byte(yaml), data); err != nil {
-		return
+		return nil, err
 	}
-	stch, err = newCharm(s, curl, data)
-	if err != nil {
-		return
-	}
-	return stch, nil
+	return newCharm(s, curl, data)
 }
 
 // AddService creates a new service state with the given unique name
@@ -170,23 +162,23 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 	details := map[string]interface{}{"charm": ch.URL().String()}
 	yaml, err := goyaml.Marshal(details)
 	if err != nil {
-		return
+		return nil, err
 	}
 	path, err := s.zk.Create("/services/service-", string(yaml), zookeeper.SEQUENCE, zkPermAll)
 	if err != nil {
-		return
+		return nil, err
 	}
 	key := strings.Split(path, "/")[2]
 	service = &Service{s, key, name}
 	// Create an empty configuration node.
 	_, err = createConfigNode(s.zk, service.zkConfigPath(), map[string]interface{}{})
 	if err != nil {
-		return
+		return nil, err
 	}
 	// Create a parent node for the service units
 	_, err = s.zk.Create(service.zkPath()+"/units", "", 0, zkPermAll)
 	if err != nil {
-		return
+		return nil, err
 	}
 	addService := func(t *topology) error {
 		if _, err := t.ServiceKey(name); err == nil {
@@ -196,7 +188,7 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 		return t.AddService(key, name)
 	}
 	if err = retryTopologyChange(s.zk, addService); err != nil {
-		return
+		return nil, err
 	}
 	return service, nil
 }
@@ -215,7 +207,7 @@ func (s *State) RemoveService(svc *Service) (err error) {
 	}
 	for _, unit := range units {
 		if err = svc.RemoveUnit(unit); err != nil {
-			return fmt.Errorf("can't remove unit %q: %v", unit.Name(), err)
+			return err
 		}
 	}
 	// Remove the service from the topology.
@@ -229,17 +221,15 @@ func (s *State) RemoveService(svc *Service) (err error) {
 	if err = retryTopologyChange(s.zk, removeService); err != nil {
 		return
 	}
-	if err = zkRemoveTree(s.zk, svc.zkPath()); err != nil {
-		return
-	}
-	return nil
+	return zkRemoveTree(s.zk, svc.zkPath())
 }
 
 // Service returns a service state by name.
-func (s *State) Service(name string) (*Service, error) {
+func (s *State) Service(name string) (service *Service, err error) {
+	defer errorContext(&err, "can't get service %q: %v", name)
 	topology, err := readTopology(s.zk)
 	if err != nil {
-		return nil, fmt.Errorf("can't get service %q: %v", name, err)
+		return nil, err
 	}
 	key, err := topology.ServiceKey(name)
 	if err != nil {
@@ -257,10 +247,9 @@ func (s *State) AllServices() (services []*Service, err error) {
 	}
 	services = []*Service{}
 	for _, key := range topology.ServiceKeys() {
-		var name string
-		name, err = topology.ServiceName(key)
+		name, err := topology.ServiceName(key)
 		if err != nil {
-			return
+			return nil, err
 		}
 		services = append(services, &Service{s, key, name})
 	}
@@ -304,10 +293,8 @@ func (s *State) addRelationNode(scope RelationScope) (string, error) {
 // for the given relation endpoint.
 func (s *State) addRelationEndpointNode(relationKey string, endpoint RelationEndpoint) error {
 	path := fmt.Sprintf("/relations/%s/%s", relationKey, string(endpoint.RelationRole))
-	if _, err := s.zk.Create(path, "", 0, zkPermAll); err != nil {
-		return err
-	}
-	return nil
+	_, err := s.zk.Create(path, "", 0, zkPermAll)
+	return err
 }
 
 // AddRelation creates a new relation with the given endpoints.  

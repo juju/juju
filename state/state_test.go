@@ -358,7 +358,7 @@ func (s *StateSuite) TestRemoveService(c *C) {
 	err = s.st.RemoveService(service)
 	c.Assert(err, IsNil)
 	_, err = s.st.Service("wordpress")
-	c.Assert(err, ErrorMatches, `service with name "wordpress" not found`)
+	c.Assert(err, ErrorMatches, `can't get service "wordpress": service with name "wordpress" not found`)
 
 	// Remove of non-existing service.
 	err = s.st.RemoveService(service)
@@ -367,7 +367,7 @@ func (s *StateSuite) TestRemoveService(c *C) {
 
 func (s *StateSuite) TestReadNonExistentService(c *C) {
 	_, err := s.st.Service("pressword")
-	c.Assert(err, ErrorMatches, `service with name "pressword" not found`)
+	c.Assert(err, ErrorMatches, `can't get service "pressword": service with name "pressword" not found`)
 }
 
 func (s *StateSuite) TestAllServices(c *C) {
@@ -548,7 +548,7 @@ func (s *StateSuite) TestReadUnitWithChangingState(c *C) {
 	err = s.st.RemoveService(wordpress)
 	c.Assert(err, IsNil)
 	_, err = s.st.Unit("wordpress/0")
-	c.Assert(err, ErrorMatches, `can't get unit "wordpress/0": service with name "wordpress" not found`)
+	c.Assert(err, ErrorMatches, `can't get unit "wordpress/0": can't get service "wordpress": service with name "wordpress" not found`)
 }
 
 func (s *StateSuite) TestRemoveUnit(c *C) {
