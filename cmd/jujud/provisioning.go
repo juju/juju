@@ -35,11 +35,10 @@ func (a *ProvisioningAgent) Init(f *gnuflag.FlagSet, args []string) error {
 // Run runs a provisioning agent.
 func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
 	// TODO(dfc) place the logic in a loop with a suitable delay
-	st, err := state.Open(&a.Conf.StateInfo)
+	p, err := NewProvisioner(&a.Conf.StateInfo)
 	if err != nil {
 		return err
 	}
-	p := NewProvisioner(st)
 	return p.Wait()
 }
 
@@ -53,16 +52,21 @@ type Provisioner struct {
 }
 
 // NewProvisioner returns a Provisioner.
-func NewProvisioner(st *state.State) *Provisioner {
+func NewProvisioner(info *state.Info) (*Provisioner, error) {
+	st, err := state.Open(info)
+	if err != nil {
+		return nil, err
+	}
 	p := &Provisioner{
 		st: st,
 	}
 	go p.loop()
-	return p
+	return p, nil
 }
 
 func (p *Provisioner) loop() {
 	defer p.tomb.Done()
+	defer p.st.Close()
 
 	p.environWatcher = p.st.WatchEnvironConfig()
 	// TODO(dfc) we need a method like state.IsConnected() here to exit cleanly if

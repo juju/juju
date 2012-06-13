@@ -21,14 +21,14 @@ var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
 // state transition (for instance an instance taking a while to release
 // a security group after termination).  The former failure mode is
 // dealt with by shortAttempt, the latter by longAttempt.
-var shortAttempt = attemptStrategy{
-	total: 5 * time.Second,
-	delay: 200 * time.Millisecond,
+var shortAttempt = environs.AttemptStrategy{
+	Total: 5 * time.Second,
+	Delay: 200 * time.Millisecond,
 }
 
-var longAttempt = attemptStrategy{
-	total: 3 * time.Minute,
-	delay: 1 * time.Second,
+var longAttempt = environs.AttemptStrategy{
+	Total: 3 * time.Minute,
+	Delay: 1 * time.Second,
 }
 
 func init() {
@@ -87,7 +87,7 @@ func (inst *instance) DNSName() (string, error) {
 }
 
 func (inst *instance) WaitDNSName() (string, error) {
-	for a := longAttempt.start(); a.next(); {
+	for a := longAttempt.Start(); a.Next(); {
 		name, err := inst.DNSName()
 		if err == nil || err != environs.ErrNoDNSName {
 			return name, err
@@ -207,7 +207,7 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	// Wait for the DNS names of any of the instances
 	// to become available.
 	log.Printf("environs/ec2: waiting for zookeeper DNS name(s) of instances %v", st.ZookeeperInstances)
-	for a := longAttempt.start(); len(addrs) == 0 && a.next(); {
+	for a := longAttempt.Start(); len(addrs) == 0 && a.Next(); {
 		insts, err := e.Instances(st.ZookeeperInstances)
 		if err != nil && err != environs.ErrPartialInstances {
 			return nil, err
@@ -291,7 +291,7 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 	}
 	var instances *ec2.RunInstancesResp
 
-	for a := shortAttempt.start(); a.next(); {
+	for a := shortAttempt.Start(); a.Next(); {
 		instances, err = e.ec2().RunInstances(&ec2.RunInstances{
 			ImageId:        spec.imageId,
 			MinCount:       1,
@@ -398,7 +398,7 @@ func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
 	// Each request will attempt to add more instances to the requested
 	// set.
 	var err error
-	for a := shortAttempt.start(); a.next(); {
+	for a := shortAttempt.Start(); a.Next(); {
 		err = e.gatherInstances(ids, insts)
 		if err == nil || err != environs.ErrPartialInstances {
 			break
@@ -467,7 +467,7 @@ func (e *environ) terminateInstances(ids []string) error {
 	}
 	var err error
 	ec2inst := e.ec2()
-	for a := shortAttempt.start(); a.next(); {
+	for a := shortAttempt.Start(); a.Next(); {
 		_, err = ec2inst.TerminateInstances(ids)
 		if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
 			return err
