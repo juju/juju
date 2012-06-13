@@ -8,7 +8,6 @@ import (
 	"launchpad.net/juju-core/juju/environs"
 	"net/http"
 	"time"
-
 )
 
 func (t *Tests) TestStartStop(c *C) {
@@ -48,8 +47,8 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(insts[1].Id(), Equals, id1)
 
 	insts, err = e.AllInstances()
-        c.Assert(err, IsNil)
-        c.Assert(insts[0].Id(), Equals, id1)
+	c.Assert(err, IsNil)
+	c.Assert(insts[0].Id(), Equals, id1)
 }
 
 func (t *Tests) TestBootstrap(c *C) {
