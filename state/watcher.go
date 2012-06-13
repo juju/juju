@@ -376,11 +376,11 @@ func (w *MachinesWatcher) loop() {
 }
 
 type MachineUnitsWatcher struct {
-	st               *State
-	machine *Machine
-	tomb             tomb.Tomb
-	changeChan       chan *MachineUnitsChange
-	watcher          *watcher.ContentWatcher
+	st         *State
+	machine    *Machine
+	tomb       tomb.Tomb
+	changeChan chan *MachineUnitsChange
+	watcher    *watcher.ContentWatcher
 }
 
 type MachineUnitsChange struct {
@@ -390,10 +390,10 @@ type MachineUnitsChange struct {
 // newMachinesWatcher creates and starts a new machine watcher.
 func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 	w := &MachineUnitsWatcher{
-		st:               m.st,
-		machine: m,
-		changeChan:       make(chan *MachineUnitsChange),
-		watcher:          watcher.NewContentWatcher(m.st.zk, zkTopologyPath),
+		st:         m.st,
+		machine:    m,
+		changeChan: make(chan *MachineUnitsChange),
+		watcher:    watcher.NewContentWatcher(m.st.zk, zkTopologyPath),
 	}
 	go w.loop()
 	return w

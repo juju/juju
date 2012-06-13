@@ -293,7 +293,7 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 var watchMachineUnitsTests = []struct {
 	test func(m *state.Machine, units []*state.Unit) error
 	want func(units []*state.Unit) *state.MachineUnitsChange
-} {
+}{
 	{
 		func(m *state.Machine, units []*state.Unit) error {
 			return units[0].AssignToMachine(m)
