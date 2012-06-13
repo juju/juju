@@ -11,28 +11,31 @@ type AttemptStrategy struct {
 	Delay time.Duration // interval between each try in the burst.
 }
 
-type attempt struct {
-	AttemptStrategy
-	end time.Time
+type Attempt struct {
+	strategy AttemptStrategy
+	end      time.Time
 }
 
-func (a AttemptStrategy) Start() *attempt {
-	return &attempt{
-		AttemptStrategy: a,
+// Start begins a new sequence of attempts for the given strategy.
+func (a AttemptStrategy) Start() *Attempt {
+	return &Attempt{
+		strategy: a,
 	}
 }
 
-func (a *attempt) Next() bool {
+// Next waits until it is time to perform the next attempt or returns
+// false if it is time to stop trying.
+func (a *Attempt) Next() bool {
 	now := time.Now()
 	// we always make at least one attempt.
 	if a.end.IsZero() {
-		a.end = now.Add(a.Total)
+		a.end = now.Add(a.strategy.Total)
 		return true
 	}
 
-	if !now.Add(a.Delay).Before(a.end) {
+	if !now.Add(a.strategy.Delay).Before(a.end) {
 		return false
 	}
-	time.Sleep(a.Delay)
+	time.Sleep(a.strategy.Delay)
 	return true
 }
