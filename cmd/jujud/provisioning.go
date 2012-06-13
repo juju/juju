@@ -53,8 +53,8 @@ type Provisioner struct {
 	environWatcher  *state.ConfigWatcher
 	machinesWatcher *state.MachinesWatcher
 
-	providerIdToInstance  map[string]environs.Instance
-	machineIdToProviderId map[int]string
+	// TODO(dfc) machineId should be a uint
+	machineIdToInstance map[int]environs.Instance
 }
 
 // NewProvisioner returns a Provisioner.
@@ -64,10 +64,9 @@ func NewProvisioner(info *state.Info) (*Provisioner, error) {
 		return nil, err
 	}
 	p := &Provisioner{
-		st:                    st,
-		info:                  info,
-		providerIdToInstance:  make(map[string]environs.Instance),
-		machineIdToProviderId: make(map[int]string),
+		st:                  st,
+		info:                info,
+		machineIdToInstance: make(map[int]environs.Instance),
 	}
 	go p.loop()
 	return p, nil
@@ -151,17 +150,9 @@ func (p *Provisioner) Stop() error {
 
 func (p *Provisioner) processMachines(changes *state.MachinesChange) error {
 	// step 1. find machines without instance ids (tf. not running)
-	var notrunning []*state.Machine
-	for _, m := range changes.Added {
-		id, err := m.InstanceId()
-		if err != nil {
-			return err
-		}
-		if id == "" {
-			notrunning = append(notrunning, m)
-		} else {
-			log.Printf("machine %s already running as instance %q", m, id)
-		}
+	notrunning, err := p.findNotRunning(changes.Added)
+	if err != nil {
+		return err
 	}
 
 	// step 2. start all the notrunning machines
@@ -185,6 +176,23 @@ func (p *Provisioner) processMachines(changes *state.MachinesChange) error {
 		return p.environ.StopInstances(stopping)
 	}
 	return nil
+}
+
+// findNotRunning filters machines without an InstanceId set, these are defined as not running.
+func (p *Provisioner) findNotRunning(machines []*state.Machine) ([]*state.Machine, error) {
+	var notrunning []*state.Machine
+	for _, m := range machines {
+		id, err := m.InstanceId()
+		if err != nil {
+			return nil, err
+		}
+		if id == "" {
+			notrunning = append(notrunning, m)
+		} else {
+			log.Printf("machine %s already running as instance %q", m, id)
+		}
+	}
+	return notrunning, nil
 }
 
 func (p *Provisioner) startMachines(machines []*state.Machine) ([]*state.Machine, error) {
@@ -215,19 +223,17 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	}
 
 	// populate the local caches
-	p.machineIdToProviderId[m.Id()] = inst.Id()
-	p.providerIdToInstance[inst.Id()] = inst
+	p.machineIdToInstance[m.Id()] = inst
 	return nil
 }
 
 // instanceForMachine returns the environs.Instance that represents this machines' running
 // instance.
 func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, error) {
-	id, ok := p.machineIdToProviderId[m.Id()]
+	inst, ok := p.machineIdToInstance[m.Id()]
 	if !ok {
 		// not cached locally, ask the environ.
-		var err error
-		id, err = m.InstanceId()
+		id, err := m.InstanceId()
 		if err != nil {
 			return nil, err
 		}
@@ -235,18 +241,12 @@ func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, e
 			// nobody knows about this machine, give up.
 			return nil, fmt.Errorf("machine %s not found", m)
 		}
-		p.machineIdToProviderId[m.Id()] = id
-	}
-	inst, ok := p.providerIdToInstance[id]
-	if !ok {
-		// not cached locally, ask the provider
 		insts, err := p.environ.Instances([]string{id})
 		if err != nil {
 			// the provider doesn't know about this instance, give up.
 			return nil, err
 		}
 		inst = insts[0]
-		p.providerIdToInstance[id] = inst
 	}
 	return inst, nil
 }
