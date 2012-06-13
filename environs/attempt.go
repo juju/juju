@@ -16,7 +16,7 @@ type Attempt struct {
 	end      time.Time
 }
 
-// Start begins a new sequence of attempts with the given strategy.
+// Start begins a new sequence of attempts for the given strategy.
 func (a AttemptStrategy) Start() *Attempt {
 	return &Attempt{
 		strategy: a,
