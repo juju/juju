@@ -43,22 +43,16 @@ var lengthyAttempt = environs.AttemptStrategy{
 
 // Run runs a provisioning agent.
 func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
-	var err error
 	for attempt := lengthyAttempt.Start(); attempt.Next(); {
 		p, err := NewProvisioner(&a.Conf.StateInfo)
-		if err != nil {
-			log.Printf("provisioner could not connect to zookeeper: %v", err)
-			continue
-		}
-		err = p.Wait()
 		if err == nil {
-			// impossible at this point
-			log.Printf("provisioner exiting")
-			break
+			err = p.Wait()
 		}
-		log.Printf("provisioner reported error, retrying: %v", err)
+		// err will always be non nil at this point as p.Wait will 
+		// not return until the tomb is closed by an error.
+		log.Printf("restarting provisioner after error: %v", err)
 	}
-	return err
+	panic("unreachable")
 }
 
 type Provisioner struct {
