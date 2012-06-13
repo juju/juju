@@ -288,8 +288,9 @@ func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 	return keys
 }
 
-// errorContext enriches the passed error with the format string and
-// its arguments. The error itself is the last argument.
+// errorContextf prefixes any error stored in err with text formatted
+// according to the format specifier.  If err does not contain an error,
+// errorContextf does nothing.
 func errorContext(err *error, format string, args ...interface{}) {
 	if *err != nil {
 		*err = fmt.Errorf(format, append(args, *err)...)

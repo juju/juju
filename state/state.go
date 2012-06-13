@@ -28,9 +28,9 @@ type State struct {
 // AddMachine creates a new machine state.
 func (s *State) AddMachine() (m *Machine, err error) {
 	defer errorContext(&err, "can't add a new machine: %v")
-	var path string
-	if path, err = s.zk.Create("/machines/machine-", "", zookeeper.SEQUENCE, zkPermAll); err != nil {
-		return
+	path, err := s.zk.Create("/machines/machine-", "", zookeeper.SEQUENCE, zkPermAll)
+	if err != nil {
+		return nil, err
 	}
 	key := strings.Split(path, "/")[2]
 	addMachine := func(t *topology) error {
@@ -143,7 +143,7 @@ func (s *State) Charm(curl *charm.URL) (stch *Charm, err error) {
 	}
 	yaml, _, err := s.zk.Get(path)
 	if zookeeper.IsError(err, zookeeper.ZNONODE) {
-		return nil, err
+		return nil, fmt.Errorf("charm not found")
 	}
 	if err != nil {
 		return nil, err
@@ -299,19 +299,19 @@ func (s *State) addRelationEndpointNode(relationKey string, endpoint RelationEnd
 
 // AddRelation creates a new relation with the given endpoints.  
 func (s *State) AddRelation(endpoints ...RelationEndpoint) (rel *Relation, svcrels []*ServiceRelation, err error) {
-	defer errorContext(&err, "can't add relation: %v")
 	switch len(endpoints) {
 	case 1:
 		if endpoints[0].RelationRole != RolePeer {
-			return nil, nil, fmt.Errorf("non-peer relation with a single service")
+			return nil, nil, fmt.Errorf("can't add non-peer relation with a single service")
 		}
 	case 2:
 		if !endpoints[0].CanRelateTo(&endpoints[1]) {
-			return nil, nil, fmt.Errorf("relation between %s and %s is invalid", endpoints[0], endpoints[1])
+			return nil, nil, fmt.Errorf("can't add relation between %s and %s", endpoints[0], endpoints[1])
 		}
 	default:
-		return nil, nil, fmt.Errorf("relations between %d services are invalid", len(endpoints))
+		return nil, nil, fmt.Errorf("can't add relations between %d services", len(endpoints))
 	}
+	defer errorContext(&err, "can't add relation: %v")
 	t, err := readTopology(s.zk)
 	if err != nil {
 		return
