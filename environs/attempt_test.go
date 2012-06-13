@@ -1,17 +1,18 @@
-package environs
+package environs_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/juju/environs"
 	"time"
 )
 
-type internalSuite struct{}
+type attemptSuite struct{}
 
-var _ = Suite(internalSuite{})
+var _ = Suite(attemptSuite{})
 
-func (internalSuite) TestAttemptTiming(c *C) {
+func (attemptSuite) TestAttemptTiming(c *C) {
 	const delta = 0.01e9
-	testAttempt := AttemptStrategy{
+	testAttempt := environs.AttemptStrategy{
 		Total: 0.25e9,
 		Delay: 0.1e9,
 	}
