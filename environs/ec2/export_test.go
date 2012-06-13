@@ -35,6 +35,10 @@ func EnvironEC2(e environs.Environ) *ec2.EC2 {
 	return e.(*environ).ec2()
 }
 
+func EnvironS3(e environs.Environ) *s3.S3 {
+	return e.(*environ).s3()
+}
+
 func DeleteStorageContent(s environs.Storage) error {
 	return s.(*storage).deleteAll()
 }
@@ -74,9 +78,9 @@ var originalLongAttempt = longAttempt
 // and this reduces the test time from 30s to 3s.
 func ShortTimeouts(short bool) {
 	if short {
-		shortAttempt = attemptStrategy{
-			total: 0.25e9,
-			delay: 0.01e9,
+		shortAttempt = environs.AttemptStrategy{
+			Total: 0.25e9,
+			Delay: 0.01e9,
 		}
 		longAttempt = shortAttempt
 	} else {

@@ -1,24 +1,25 @@
-package ec2
+package environs_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/juju/environs"
 	"time"
 )
 
-type internalSuite struct{}
+type attemptSuite struct{}
 
-var _ = Suite(internalSuite{})
+var _ = Suite(attemptSuite{})
 
-func (internalSuite) TestAttemptTiming(c *C) {
+func (attemptSuite) TestAttemptTiming(c *C) {
 	const delta = 0.01e9
-	testAttempt := attemptStrategy{
-		total: 0.25e9,
-		delay: 0.1e9,
+	testAttempt := environs.AttemptStrategy{
+		Total: 0.25e9,
+		Delay: 0.1e9,
 	}
 	want := []time.Duration{0, 0.1e9, 0.2e9, 0.2e9}
 	got := make([]time.Duration, 0, len(want)) // avoid allocation when testing timing
 	t0 := time.Now()
-	for a := testAttempt.start(); a.next(); {
+	for a := testAttempt.Start(); a.Next(); {
 		got = append(got, time.Now().Sub(t0))
 	}
 	got = append(got, time.Now().Sub(t0))

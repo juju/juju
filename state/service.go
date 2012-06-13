@@ -97,7 +97,12 @@ func (s *Service) addUnit(principalKey string) (*Unit, error) {
 	if err := retryTopologyChange(s.st.zk, addUnit); err != nil {
 		return nil, err
 	}
-	return &Unit{s.st, key, s.name}, nil
+	return &Unit{
+		st:          s.st,
+		key:         key,
+		serviceName: s.name,
+		isPrincipal: principalKey == "",
+	}, nil
 }
 
 // AddUnit adds a new principal unit to the service.
@@ -173,13 +178,15 @@ func (s *Service) Unit(name string) (*Unit, error) {
 
 	// Check that unit exists.
 	key := makeUnitKey(s.key, serviceId)
-	if _, _, err := topology.serviceAndUnit(key); err != nil {
+	_, tunit, err := topology.serviceAndUnit(key)
+	if err != nil {
 		return nil, err
 	}
 	return &Unit{
 		st:          s.st,
 		key:         key,
 		serviceName: s.name,
+		isPrincipal: tunit.isPrincipal(),
 	}, nil
 }
 
@@ -199,10 +206,15 @@ func (s *Service) AllUnits() ([]*Unit, error) {
 	// Assemble units.
 	units := []*Unit{}
 	for _, key := range keys {
+		_, tunit, err := topology.serviceAndUnit(key)
+		if err != nil {
+			panic(err)
+		}
 		units = append(units, &Unit{
 			st:          s.st,
 			key:         key,
 			serviceName: s.name,
+			isPrincipal: tunit.isPrincipal(),
 		})
 	}
 	return units, nil
