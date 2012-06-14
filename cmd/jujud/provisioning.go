@@ -161,20 +161,18 @@ func (p *Provisioner) processMachines(changes *state.MachinesChange) error {
 		return err
 	}
 
-	// step 3. find instances which are running but have no machine 
-	// associated with them.
-	unknown, err := p.findUnknownInstances(append(running, started...))
+	running = append(running, notrunning...)
 
-	// step 3. stop all unknown machines and the machines that were removed
-	// from the state
+	// step 3. lookup all the machines that were removed from the state.
 	stopping, err := p.instancesForMachines(changes.Deleted)
 	if err != nil {
 		return err
 	}
 
-	// TODO(dfc) obtain a list of running instances from the Environ and compare that
-	// with the known instances stored in the machine.InstanceId() config.
-
+	// step 4. find instances which are running but have no machine 
+	// associated with them.
+	unknown, err := p.findUnknownInstances(running)
+	fmt.Println(unknown)
 	// although calling StopInstance with an empty slice should produce no change in the 
 	// provider, environs like dummy do not consider this a noop.
 	if len(stopping) > 0 {
@@ -183,7 +181,27 @@ func (p *Provisioner) processMachines(changes *state.MachinesChange) error {
 	return nil
 }
 
-// findUnknownInsatnces 
+// findUnknownInstances finds instances which are not associated with supplied list of machines.
+func (p *Provisioner) findUnknownInstances(machines []*state.Machine) ([]environs.Instance, error) {
+	all, err := p.environ.AllInstances()
+	if err != nil {
+		return nil, err
+	}
+	instances := make(map[string]environs.Instance)
+	for _, i := range all {
+		instances[i.Id()] = i
+	}
+	for _, m := range machines {
+		id, err := m.InstanceId()
+		if err != nil { return nil, err }
+		if _, ok := instances[id]; ok { delete(instances, id) }
+	}
+	var unknown []environs.Instance
+	for _, i := range instances {
+		unknown = append(unknown, i)
+	}
+	return unknown, nil
+}
 
 // findNotRunning finds machines without an InstanceId set, these are defined as not running.
 func (p *Provisioner) findNotRunning(machines []*state.Machine) ([]*state.Machine, []*state.Machine, error) {
