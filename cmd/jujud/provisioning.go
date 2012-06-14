@@ -53,7 +53,6 @@ type Provisioner struct {
 	environWatcher  *state.ConfigWatcher
 	machinesWatcher *state.MachinesWatcher
 
-	// TODO(dfc) machineId should be a uint
 	machineIdToInstance map[int]environs.Instance
 }
 
@@ -251,8 +250,6 @@ func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, e
 	return inst, nil
 }
 
-// instancesForMachines returns a list of environs.Instance that represent the list of machines running
-// in the provider.
 func (p *Provisioner) instancesForMachines(machines []*state.Machine) ([]environs.Instance, error) {
 	var insts []environs.Instance
 	for _, m := range machines {
