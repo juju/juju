@@ -71,14 +71,14 @@ func (s *PresenceSuite) TearDownTest(c *C) {
 
 var (
 	path   = "/presence"
-	period = 25 * time.Millisecond
+	period = 50 * time.Millisecond
 
-	// When hoping to detect a node status change, given a period of 25ms and
+	// When hoping to detect a node status change, given a period of 50ms and
 	// therefore a timeout of 50ms, the worst-case timeline is:
 	//   0ms: Pinger fires for the last time
-	//  49ms: watcher checks; sees node is "alive"
-	//  99ms: watcher finally times out
-	// 100ms: long enough
+	//  99ms: watcher checks; sees node is "alive"
+	// 199ms: watcher finally times out
+	// 200ms: long enough
 	// + a little bit for scheduler glitches.
 	longEnough = period * 5
 )
@@ -139,9 +139,23 @@ func (s *PresenceSuite) TestNewPinger(c *C) {
 	c.Assert(alive, Equals, true)
 	assertNoChange(c, watch)
 
+	// Check Dying.
+	select {
+	case <-p.Dying():
+		c.Fatalf("supposedly-alive pinger reported death")
+	default:
+	}
+
 	// Clean up.
 	err = p.Kill()
 	c.Assert(err, IsNil)
+
+	// Check Dying.
+	select {
+	case <-p.Dying():
+	default:
+		c.Fatalf("supposedly-dead pinger reported life")
+	}
 }
 
 func (s *PresenceSuite) TestKillPinger(c *C) {

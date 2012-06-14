@@ -7,12 +7,8 @@ import (
 )
 
 type TopologySuite struct {
-	zkServer   *zookeeper.Server
-	zkTestRoot string
-	zkTestPort int
-	zkAddr     string
-	zkConn     *zookeeper.Conn
-	t          *topology
+	zkConn *zookeeper.Conn
+	t      *topology
 }
 
 var _ = Suite(&TopologySuite{})
@@ -771,12 +767,8 @@ func (s *TopologySuite) TestPeerRelationKeyIllegalEndpoints(c *C) {
 }
 
 type ConfigNodeSuite struct {
-	zkServer   *zookeeper.Server
-	zkTestRoot string
-	zkTestPort int
-	zkAddr     string
-	zkConn     *zookeeper.Conn
-	path       string
+	zkConn *zookeeper.Conn
+	path   string
 }
 
 var _ = Suite(&ConfigNodeSuite{})
