@@ -3,6 +3,7 @@ package state
 import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/juju/state/watcher"
+	"launchpad.net/juju-core/juju/log"
 	"launchpad.net/tomb"
 )
 
@@ -464,9 +465,7 @@ func (w *MachineUnitsWatcher) loop() {
 			for _, ukey := range added {
 				unit, err := w.st.unitFromKey(topology, ukey)
 				if err != nil {
-					// If UnitsForMachine is returning keys that don't
-					// exist, then something is probably badly wrong, but
-					// ignore the unit rather than panicing.
+					log.Printf("inconsistent topology: %v", err)
 					continue
 				}
 				knownUnits[ukey] = unit
