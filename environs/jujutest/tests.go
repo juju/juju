@@ -33,6 +33,11 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(insts[0].Id(), Equals, id0)
 	c.Assert(insts[1].Id(), Equals, id1)
 
+	// order of results is not specified
+	insts, err = e.AllInstances()
+	c.Assert(err, IsNil)
+	c.Assert(insts, HasLen, 2)
+
 	err = e.StopInstances([]environs.Instance{inst0})
 	c.Assert(err, IsNil)
 
@@ -40,6 +45,10 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(err, Equals, environs.ErrPartialInstances)
 	c.Assert(insts[0], IsNil)
 	c.Assert(insts[1].Id(), Equals, id1)
+
+	insts, err = e.AllInstances()
+	c.Assert(err, IsNil)
+	c.Assert(insts[0].Id(), Equals, id1)
 }
 
 func (t *Tests) TestBootstrap(c *C) {
