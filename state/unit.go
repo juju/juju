@@ -49,7 +49,7 @@ type needsUpgradeNode struct {
 // agentPingerPeriod defines the period of pinging the
 // ZooKeeper to signal that a unit agent is alive. It's
 // also used by machine.
-const (
+var (
 	agentPingerPeriod = 1 * time.Second
 )
 
@@ -70,6 +70,7 @@ type Unit struct {
 	st          *State
 	key         string
 	serviceName string
+	isPrincipal bool
 }
 
 // ServiceName returns the service name.
@@ -101,6 +102,19 @@ func serviceKeyForUnitKey(unitKey string) (string, error) {
 		return "", fmt.Errorf("invalid unit key %q", unitKey)
 	}
 	return "service-" + k[0:i], nil
+}
+
+func (st *State) unitFromKey(t *topology, unitKey string) (*Unit, error) {
+	tsvc, tunit, err := t.serviceAndUnit(unitKey)
+	if err != nil {
+		return nil, err
+	}
+	return &Unit{
+		st:          st,
+		key:         unitKey,
+		serviceName: tsvc.Name,
+		isPrincipal: tunit.isPrincipal(),
+	}, nil
 }
 
 // PublicAddress returns the public address of the unit.

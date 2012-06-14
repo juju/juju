@@ -99,14 +99,17 @@ func (s *WatcherSuite) TestContentWatcher(c *C) {
 
 type childrenWatcherTest struct {
 	test func(*C, *WatcherSuite)
-	want watcher.ChildrenChange
+	want *watcher.ChildrenChange
 }
 
 var childrenWatcherTests = []childrenWatcherTest{
-	{func(c *C, s *WatcherSuite) {}, watcher.ChildrenChange{}},
-	{func(c *C, s *WatcherSuite) { s.changeChildren(c, true, "foo") }, watcher.ChildrenChange{[]string{"foo"}, nil}},
-	{func(c *C, s *WatcherSuite) { s.changeChildren(c, true, "bar") }, watcher.ChildrenChange{[]string{"bar"}, nil}},
-	{func(c *C, s *WatcherSuite) { s.changeChildren(c, false, "foo") }, watcher.ChildrenChange{nil, []string{"foo"}}},
+	{func(c *C, s *WatcherSuite) {}, &watcher.ChildrenChange{}},
+	{func(c *C, s *WatcherSuite) { s.changeChildren(c, true, "foo") }, &watcher.ChildrenChange{[]string{"foo"}, nil}},
+	{func(c *C, s *WatcherSuite) { s.changeChildren(c, true, "bar") }, &watcher.ChildrenChange{[]string{"bar"}, nil}},
+	{func(c *C, s *WatcherSuite) { s.changeChildren(c, false, "foo") }, &watcher.ChildrenChange{nil, []string{"foo"}}},
+	{func(c *C, s *WatcherSuite) { s.removePath(c) }, &watcher.ChildrenChange{nil, []string{"bar"}}},
+	{func(c *C, s *WatcherSuite) { s.createPath(c, "") }, nil},
+	{func(c *C, s *WatcherSuite) { s.changeChildren(c, true, "bar") }, &watcher.ChildrenChange{[]string{"bar"}, nil}},
 }
 
 func (s *WatcherSuite) TestChildrenWatcher(c *C) {
@@ -118,10 +121,16 @@ func (s *WatcherSuite) TestChildrenWatcher(c *C) {
 		test.test(c, s)
 		select {
 		case got, ok := <-childrenWatcher.Changes():
-			c.Assert(ok, Equals, true)
-			c.Assert(got, DeepEquals, test.want)
+			if test.want != nil {
+				c.Assert(ok, Equals, true)
+				c.Assert(got, DeepEquals, *test.want)
+			} else if ok {
+				c.Fatalf("got unwanted change: %#v", got)
+			}
 		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("didn't get change: %#v", test.want)
+			if test.want != nil {
+				c.Fatalf("didn't get change: %#v", test.want)
+			}
 		}
 	}
 

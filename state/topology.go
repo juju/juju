@@ -13,22 +13,6 @@ import (
 // when we know that a version is in fact actually incompatible.
 const topologyVersion = 1
 
-// NoRelationError represents a relation not found for one or more endpoints.
-type NoRelationError struct {
-	Endpoints []RelationEndpoint
-}
-
-// Error returns the string representation of the error.
-func (e NoRelationError) Error() string {
-	switch len(e.Endpoints) {
-	case 1:
-		return fmt.Sprintf("state: no peer relation for %q", e.Endpoints[0])
-	case 2:
-		return fmt.Sprintf("state: no relation between %q and %q", e.Endpoints[0], e.Endpoints[1])
-	}
-	panic("state: illegal relation")
-}
-
 // topoTopology is used to marshal and unmarshal the content
 // of the /topology node in ZooKeeper.
 type topoTopology struct {
@@ -71,6 +55,10 @@ type topoRelation struct {
 type topoRelationService struct {
 	RelationRole RelationRole "relation-role"
 	RelationName string       "relation-name"
+}
+
+func (u *topoUnit) isPrincipal() bool {
+	return u.Principal == ""
 }
 
 // check verifies that r is a proper relation.
@@ -293,7 +281,9 @@ func (t *topology) AddUnit(unitKey, principalKey string) error {
 	if _, ok := svc.Units[unitKey]; ok {
 		return fmt.Errorf("unit %q already in use", unitKey)
 	}
-	svc.Units[unitKey] = &topoUnit{Principal: principalKey}
+	svc.Units[unitKey] = &topoUnit{
+		Principal: principalKey,
+	}
 	return nil
 }
 
@@ -343,7 +333,7 @@ func (t *topology) UnitPrincipalKey(unitKey string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if unit.Principal == "" {
+	if unit.isPrincipal() {
 		return "", unitNotSubordinate
 	}
 	return unit.Principal, nil
@@ -352,12 +342,19 @@ func (t *topology) UnitPrincipalKey(unitKey string) (string, error) {
 // unitNotAssigned indicates that a unit is not assigned to a machine.
 var unitNotAssigned = errors.New("unit not assigned to machine")
 
-// UnitMachineKey returns the key of an assigned machine of the unit. If no machine
-// is assigned the error unitNotAssigned will be returned.
+// UnitMachineKey returns the key of an assigned machine of the unit.
+// If no machine is assigned, the error unitNotAssigned will be returned.
 func (t *topology) UnitMachineKey(unitKey string) (string, error) {
 	_, unit, err := t.serviceAndUnit(unitKey)
 	if err != nil {
 		return "", err
+	}
+	// Find the machine key from the unit's principal if it has one.
+	if !unit.isPrincipal() {
+		_, unit, err = t.serviceAndUnit(unit.Principal)
+		if err != nil {
+			return "", fmt.Errorf("cannot find principal unit: %v", err)
+		}
 	}
 	if unit.Machine == "" {
 		return "", unitNotAssigned
@@ -365,9 +362,10 @@ func (t *topology) UnitMachineKey(unitKey string) (string, error) {
 	return unit.Machine, nil
 }
 
-// AssignUnitToMachine assigns a unit to a machine. It is an error to reassign a 
-// unit that is already assigned, and it is an error to assign a unit of a
-// subordinate service directly to a machine.
+// AssignUnitToMachine assigns a unit and its subordinates to a machine.
+// It is an error to reassign a unit that is already assigned, and it is
+// an error to assign a unit of a subordinate service directly to a
+// machine.
 func (t *topology) AssignUnitToMachine(unitKey, machineKey string) error {
 	_, unit, err := t.serviceAndUnit(unitKey)
 	if err != nil {
@@ -377,7 +375,7 @@ func (t *topology) AssignUnitToMachine(unitKey, machineKey string) error {
 	if err != nil {
 		return err
 	}
-	if unit.Principal != "" {
+	if !unit.isPrincipal() {
 		return errors.New("cannot assign subordinate units directly to machines")
 	}
 	if unit.Machine != "" {
@@ -387,7 +385,8 @@ func (t *topology) AssignUnitToMachine(unitKey, machineKey string) error {
 	return nil
 }
 
-// UnassignUnitFromMachine unassigns the unit from its current machine.
+// UnassignUnitFromMachine unassigns the unit and its subordinates
+// from their current machine.
 func (t *topology) UnassignUnitFromMachine(unitKey string) error {
 	_, unit, err := t.serviceAndUnit(unitKey)
 	if err != nil {
@@ -398,6 +397,31 @@ func (t *topology) UnassignUnitFromMachine(unitKey string) error {
 	}
 	unit.Machine = ""
 	return nil
+}
+
+// UnitsForMachine returns the keys of any units that
+// have been assigned to the machine, in alphabetical order.
+func (t *topology) UnitsForMachine(machineKey string) []string {
+	var keys []string
+	principals := make(map[string]bool)
+	for _, svc := range t.topology.Services {
+		for key, u := range svc.Units {
+			if u.isPrincipal() && u.Machine == machineKey {
+				keys = append(keys, key)
+				principals[key] = true
+			}
+		}
+	}
+	// Add all subordinate units
+	for _, svc := range t.topology.Services {
+		for key, u := range svc.Units {
+			if !u.isPrincipal() && principals[u.Principal] {
+				keys = append(keys, key)
+			}
+		}
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // Relation returns the relation with key from the topology.
@@ -467,16 +491,19 @@ func (t *topology) RelationsForService(key string) (map[string]*topoRelation, er
 	return relations, nil
 }
 
+// noRelationFound indicates that an attempt to look up a relation failed.
+var noRelationFound = errors.New("relation doesn't exist")
+
 // RelationKey returns the key for the relation established between the
-// provided endpoints. If no matching relation is found, error will be
-// of type *NoRelationError.
+// provided endpoints. If no matching relation is found, noRelationFound
+// will be return.
 func (t *topology) RelationKey(endpoints ...RelationEndpoint) (string, error) {
 	switch len(endpoints) {
 	case 1:
 		// Just pass.
 	case 2:
 		if endpoints[0].Interface != endpoints[1].Interface {
-			return "", &NoRelationError{endpoints}
+			return "", noRelationFound
 		}
 	default:
 		return "", fmt.Errorf("illegal number of relation endpoints provided")
@@ -485,7 +512,7 @@ func (t *topology) RelationKey(endpoints ...RelationEndpoint) (string, error) {
 	for _, endpoint := range endpoints {
 		serviceKey, err := t.ServiceKey(endpoint.ServiceName)
 		if err != nil {
-			return "", &NoRelationError{endpoints}
+			return "", noRelationFound
 		}
 		serviceKeys[endpoint] = serviceKey
 	}
@@ -506,7 +533,7 @@ func (t *topology) RelationKey(endpoints ...RelationEndpoint) (string, error) {
 			return relationKey, nil
 		}
 	}
-	return "", &NoRelationError{endpoints}
+	return "", noRelationFound
 }
 
 // machine returns the machine with the given key.

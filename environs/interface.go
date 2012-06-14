@@ -142,6 +142,9 @@ type Environ interface {
 	// This is because recently started machines might not
 	// yet be visible in the environment, so this method
 	// can wait until they are.
+	//
+	// When Destroy has been called, any Environ referring to the
+	// same remote environment may become invalid
 	Destroy(insts []Instance) error
 
 	// AssignmentPolicy returns the environment's unit assignment policy.

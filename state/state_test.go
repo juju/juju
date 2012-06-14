@@ -153,7 +153,7 @@ func (s *StateSuite) TestCharmAttributes(c *C) {
 func (s *StateSuite) TestNonExistentCharmPriorToInitialization(c *C) {
 	// Check that getting a charm before any other charm has been added fails nicely.
 	_, err := s.st.Charm(s.curl)
-	c.Assert(err, ErrorMatches, `charm not found: "local:series/dummy-1"`)
+	c.Assert(err, ErrorMatches, `can't get charm "local:series/dummy-1": .*`)
 }
 
 func (s *StateSuite) TestGetNonExistentCharm(c *C) {
@@ -162,7 +162,7 @@ func (s *StateSuite) TestGetNonExistentCharm(c *C) {
 
 	curl := charm.MustParseURL("local:anotherseries/dummy-1")
 	_, err := s.st.Charm(curl)
-	c.Assert(err, ErrorMatches, `charm not found: "local:anotherseries/dummy-1"`)
+	c.Assert(err, ErrorMatches, `can't get charm "local:anotherseries/dummy-1": .*`)
 }
 
 func (s *StateSuite) TestAddMachine(c *C) {
@@ -325,6 +325,80 @@ func (s *StateSuite) TestMachineWaitAgentAlive(c *C) {
 	c.Assert(alive, Equals, false)
 }
 
+func (s *StateSuite) TestMachineUnits(c *C) {
+	// Check that Machine.Units works correctly.
+
+	// Make three machines, three services and three units for each service;
+	// variously assign units to machines and check that Machine.Units
+	// tells us the right thing.
+
+	m0, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	m1, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	m2, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+
+	dummy := s.addDummyCharm(c)
+	logging := addLoggingCharm(c, s.st)
+	s0, err := s.st.AddService("s0", dummy)
+	c.Assert(err, IsNil)
+	s1, err := s.st.AddService("s1", dummy)
+	c.Assert(err, IsNil)
+	s2, err := s.st.AddService("s2", dummy)
+	c.Assert(err, IsNil)
+	s3, err := s.st.AddService("s3", logging)
+	c.Assert(err, IsNil)
+
+	units := make([][]*state.Unit, 4)
+	for i, svc := range []*state.Service{s0, s1, s2} {
+		units[i] = make([]*state.Unit, 3)
+		for j := range units[i] {
+			units[i][j], err = svc.AddUnit()
+			c.Assert(err, IsNil)
+		}
+	}
+	// Add the logging units subordinate to the s2 units.
+	units[3] = make([]*state.Unit, 3)
+	for i := range units[3] {
+		units[3][i], err = s3.AddUnitSubordinateTo(units[2][i])
+	}
+
+	assignments := []struct {
+		machine      *state.Machine
+		units        []*state.Unit
+		subordinates []*state.Unit
+	}{
+		{m0, []*state.Unit{units[0][0]}, nil},
+		{m1, []*state.Unit{units[0][1], units[1][0], units[1][1], units[2][0]}, []*state.Unit{units[3][0]}},
+		{m2, []*state.Unit{units[2][2]}, []*state.Unit{units[3][2]}},
+	}
+
+	for _, a := range assignments {
+		for _, u := range a.units {
+			err := u.AssignToMachine(a.machine)
+			c.Assert(err, IsNil)
+		}
+	}
+
+	for i, a := range assignments {
+		c.Logf("test %d", i)
+		got, err := a.machine.Units()
+		c.Assert(err, IsNil)
+		expect := sortedUnitNames(append(a.units, a.subordinates...))
+		c.Assert(sortedUnitNames(got), DeepEquals, expect)
+	}
+}
+
+func sortedUnitNames(units []*state.Unit) []string {
+	names := make([]string, len(units))
+	for i, u := range units {
+		names[i] = u.Name()
+	}
+	sort.Strings(names)
+	return names
+}
+
 func (s *StateSuite) TestAddService(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
@@ -354,15 +428,20 @@ func (s *StateSuite) TestRemoveService(c *C) {
 	service, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 
+	// Remove of existing service.
 	err = s.st.RemoveService(service)
 	c.Assert(err, IsNil)
-	service, err = s.st.Service("wordpress")
-	c.Assert(err, ErrorMatches, `service with name "wordpress" not found`)
+	_, err = s.st.Service("wordpress")
+	c.Assert(err, ErrorMatches, `can't get service "wordpress": service with name "wordpress" not found`)
+
+	// Remove of non-existing service.
+	err = s.st.RemoveService(service)
+	c.Assert(err, ErrorMatches, `can't remove service "wordpress": environment state has changed`)
 }
 
 func (s *StateSuite) TestReadNonExistentService(c *C) {
 	_, err := s.st.Service("pressword")
-	c.Assert(err, ErrorMatches, `service with name "pressword" not found`)
+	c.Assert(err, ErrorMatches, `can't get service "pressword": service with name "pressword" not found`)
 }
 
 func (s *StateSuite) TestAllServices(c *C) {
@@ -469,23 +548,29 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	_, err = wordpress.AddUnitSubordinateTo(unitZero)
 	c.Assert(err, ErrorMatches, "cannot make a principal unit subordinate to another unit")
 
+	// Assign the principal unit to a machine.
+	m, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	err = unitZero.AssignToMachine(m)
+	c.Assert(err, IsNil)
+
 	// Add a subordinate service.
-	bundle := testing.Charms.Bundle(c.MkDir(), "logging")
-	curl := charm.MustParseURL("cs:series/logging-99")
-	bundleURL, err := url.Parse("http://subordinate.url")
-	c.Assert(err, IsNil)
-	subCh, err := s.st.AddCharm(bundle, curl, bundleURL, "dummy-sha256")
-	c.Assert(err, IsNil)
+	subCh := addLoggingCharm(c, s.st)
 	logging, err := s.st.AddService("logging", subCh)
 	c.Assert(err, IsNil)
 
-	// Check that subordinate units can be added to principal units.
+	// Check that subordinate units can be added to principal units
 	subZero, err := logging.AddUnitSubordinateTo(unitZero)
 	c.Assert(err, IsNil)
 	c.Assert(subZero.Name(), Equals, "logging/0")
 	principal, err = subZero.IsPrincipal()
 	c.Assert(err, IsNil)
 	c.Assert(principal, Equals, false)
+
+	// Check the subordinate unit has been assigned its principal's machine.
+	id, err := subZero.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, m.Id())
 
 	// Check that subordinate units must be added to other units.
 	_, err = logging.AddUnit()
@@ -543,7 +628,7 @@ func (s *StateSuite) TestReadUnitWithChangingState(c *C) {
 	err = s.st.RemoveService(wordpress)
 	c.Assert(err, IsNil)
 	_, err = s.st.Unit("wordpress/0")
-	c.Assert(err, ErrorMatches, `service with name "wordpress" not found`)
+	c.Assert(err, ErrorMatches, `can't get unit "wordpress/0": can't get service "wordpress": service with name "wordpress" not found`)
 }
 
 func (s *StateSuite) TestRemoveUnit(c *C) {
@@ -837,6 +922,47 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 	c.Assert(err, ErrorMatches, "no unused machine found")
 }
 
+func (s *StateSuite) TestAssignSubsidiariesToMachine(c *C) {
+	// Create machine 0, that shouldn't be used.
+	_, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	// Check that assigning a principal unit assigns its subordinates too.
+	dummy := s.addDummyCharm(c)
+	logging := addLoggingCharm(c, s.st)
+	mysqlService, err := s.st.AddService("mysql", dummy)
+	c.Assert(err, IsNil)
+	logService1, err := s.st.AddService("logging1", logging)
+	c.Assert(err, IsNil)
+	logService2, err := s.st.AddService("logging2", logging)
+	c.Assert(err, IsNil)
+	mysqlUnit, err := mysqlService.AddUnit()
+	c.Assert(err, IsNil)
+	log1Unit, err := logService1.AddUnitSubordinateTo(mysqlUnit)
+	c.Assert(err, IsNil)
+	log2Unit, err := logService2.AddUnitSubordinateTo(mysqlUnit)
+	c.Assert(err, IsNil)
+
+	mysqlMachine, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	err = mysqlUnit.AssignToMachine(mysqlMachine)
+	c.Assert(err, IsNil)
+
+	id, err := log1Unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Check(id, Equals, mysqlMachine.Id())
+	id, err = log2Unit.AssignedMachineId()
+	c.Check(id, Equals, mysqlMachine.Id())
+
+	// Check that unassigning the principal unassigns the
+	// subordinates too.
+	err = mysqlUnit.UnassignFromMachine()
+	c.Assert(err, IsNil)
+	_, err = log1Unit.AssignedMachineId()
+	c.Assert(err, ErrorMatches, "unit not assigned to machine")
+	_, err = log2Unit.AssignedMachineId()
+	c.Assert(err, ErrorMatches, "unit not assigned to machine")
+}
+
 func (s *StateSuite) TestAssignUnit(c *C) {
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
@@ -883,18 +1009,25 @@ func (s *StateSuite) TestAssignUnit(c *C) {
 	s.assertMachineCount(c, 3)
 
 	// Check cannot assign subordinates to machines
-	bundle := testing.Charms.Bundle(c.MkDir(), "logging")
-	curl := charm.MustParseURL("cs:series/logging-99")
-	bundleURL, err := url.Parse("http://subordinate.url")
-	c.Assert(err, IsNil)
-	subCh, err := s.st.AddCharm(bundle, curl, bundleURL, "dummy-sha256")
-	c.Assert(err, IsNil)
+	subCh := addLoggingCharm(c, s.st)
 	logging, err := s.st.AddService("logging", subCh)
 	c.Assert(err, IsNil)
 	unit3, err := logging.AddUnitSubordinateTo(unit2)
 	c.Assert(err, IsNil)
 	err = state.AssignUnit(s.st, unit3, state.AssignUnused)
 	c.Assert(err, ErrorMatches, `subordinate unit "logging/0" cannot be assigned directly to a machine`)
+}
+
+// addLoggingCharm adds a "logging" (subordinate) charm
+// to the state.
+func addLoggingCharm(c *C, st *state.State) *state.Charm {
+	bundle := testing.Charms.Bundle(c.MkDir(), "logging")
+	curl := charm.MustParseURL("cs:series/logging-99")
+	bundleURL, err := url.Parse("http://subordinate.url")
+	c.Assert(err, IsNil)
+	ch, err := st.AddCharm(bundle, curl, bundleURL, "dummy-sha256")
+	c.Assert(err, IsNil)
+	return ch
 }
 
 func (s *StateSuite) TestGetSetClearUnitUpgrade(c *C) {
@@ -1121,7 +1254,7 @@ func (s *StateSuite) TestAddRelationErrors(c *C) {
 	// Check we can't add a relation until both services exist.
 	proep := state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, state.ScopeGlobal}
 	err = s.st.AddRelation(proep, reqep)
-	c.Assert(err, ErrorMatches, `service with name "pro" not found`)
+	c.Assert(err, ErrorMatches, `can't add relation <pro:foo, req:bar>: service with name "pro" not found`)
 	assertNoRelations(c, req)
 	pro, err := s.st.AddService("pro", dummy)
 	c.Assert(err, IsNil)
@@ -1129,31 +1262,31 @@ func (s *StateSuite) TestAddRelationErrors(c *C) {
 	// Check that interfaces have to match.
 	proep2 := state.RelationEndpoint{"pro", "other", "foo", state.RoleProvider, state.ScopeGlobal}
 	err = s.st.AddRelation(proep2, reqep)
-	c.Assert(err, ErrorMatches, `can't add relation between pro:foo and req:bar`)
+	c.Assert(err, ErrorMatches, `can't add relation <pro:foo, req:bar>: endpoints do not relate`)
 	assertNoRelations(c, pro)
 	assertNoRelations(c, req)
 
 	// Check a variety of surprising endpoint combinations.
 	err = s.st.AddRelation(reqep)
-	c.Assert(err, ErrorMatches, `can't add non-peer relation with a single service`)
+	c.Assert(err, ErrorMatches, `can't add relation <req:bar>: single endpoint must be a peer relation`)
 	assertNoRelations(c, req)
 
 	peer, err := s.st.AddService("peer", dummy)
 	c.Assert(err, IsNil)
 	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, state.ScopeGlobal}
 	err = s.st.AddRelation(peerep, reqep)
-	c.Assert(err, ErrorMatches, `can't add relation between peer:baz and req:bar`)
+	c.Assert(err, ErrorMatches, `can't add relation <peer:baz, req:bar>: endpoints do not relate`)
 	assertNoRelations(c, peer)
 	assertNoRelations(c, req)
 
 	err = s.st.AddRelation(peerep, peerep)
-	c.Assert(err, ErrorMatches, `can't add relation between peer:baz and peer:baz`)
+	c.Assert(err, ErrorMatches, `can't add relation <peer:baz, peer:baz>: endpoints do not relate`)
 	assertNoRelations(c, peer)
 
 	err = s.st.AddRelation()
-	c.Assert(err, ErrorMatches, `can't add relations between 0 services`)
+	c.Assert(err, ErrorMatches, `can't add relation <>: can't relate 0 endpoints`)
 	err = s.st.AddRelation(proep, reqep, peerep)
-	c.Assert(err, ErrorMatches, `can't add relations between 3 services`)
+	c.Assert(err, ErrorMatches, `can't add relation <pro:foo, req:bar, peer:baz>: can't relate 3 endpoints`)
 }
 
 func assertOneRelation(c *C, srv *state.Service, name string, role state.RelationRole, scope state.RelationScope) {
@@ -1181,7 +1314,7 @@ func (s *StateSuite) TestProviderRequirerRelation(c *C) {
 	err = s.st.AddRelation(proep, reqep)
 	c.Assert(err, IsNil)
 	err = s.st.AddRelation(proep, reqep)
-	c.Assert(err, ErrorMatches, "relation already exists")
+	c.Assert(err, ErrorMatches, "can't add relation <pro:foo, req:bar>: relation already exists")
 	assertOneRelation(c, pro, "foo", state.RoleProvider, state.ScopeGlobal)
 	assertOneRelation(c, req, "bar", state.RoleRequirer, state.ScopeGlobal)
 
@@ -1191,7 +1324,7 @@ func (s *StateSuite) TestProviderRequirerRelation(c *C) {
 	assertNoRelations(c, pro)
 	assertNoRelations(c, req)
 	err = s.st.RemoveRelation(proep, reqep)
-	c.Assert(err, ErrorMatches, `state: no relation between "pro:foo" and "req:bar"`)
+	c.Assert(err, ErrorMatches, `can't remove relation <pro:foo, req:bar>: relation doesn't exist`)
 
 	// Check that we can add it again if we want to; but this time,
 	// give one of the endpoints container scope and check that both
@@ -1214,7 +1347,7 @@ func (s *StateSuite) TestPeerRelation(c *C) {
 	err = s.st.AddRelation(peerep)
 	c.Assert(err, IsNil)
 	err = s.st.AddRelation(peerep)
-	c.Assert(err, ErrorMatches, "relation already exists")
+	c.Assert(err, ErrorMatches, "can't add relation <peer:baz>: relation already exists")
 	assertOneRelation(c, peer, "baz", state.RolePeer, state.ScopeGlobal)
 
 	// Remove the relation, and check it can't be removed again.
@@ -1222,7 +1355,7 @@ func (s *StateSuite) TestPeerRelation(c *C) {
 	c.Assert(err, IsNil)
 	assertNoRelations(c, peer)
 	err = s.st.RemoveRelation(peerep)
-	c.Assert(err, ErrorMatches, `state: no peer relation for "peer:baz"`)
+	c.Assert(err, ErrorMatches, `can't remove relation <peer:baz>: relation doesn't exist`)
 }
 
 func (s *StateSuite) TestEnvironConfig(c *C) {

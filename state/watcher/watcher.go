@@ -21,7 +21,7 @@ type ContentWatcher struct {
 	path         string
 	tomb         tomb.Tomb
 	changeChan   chan ContentChange
-	initialValue bool
+	emittedValue bool
 	content      ContentChange
 }
 
@@ -29,10 +29,9 @@ type ContentWatcher struct {
 // the ZooKeeper node at watchedPath.
 func NewContentWatcher(zk *zookeeper.Conn, watchedPath string) *ContentWatcher {
 	w := &ContentWatcher{
-		zk:           zk,
-		path:         watchedPath,
-		changeChan:   make(chan ContentChange),
-		initialValue: true,
+		zk:         zk,
+		path:       watchedPath,
+		changeChan: make(chan ContentChange),
 	}
 	go w.loop()
 	return w
@@ -121,15 +120,15 @@ func (w *ContentWatcher) update() (nextWatch <-chan zookeeper.Event, err error) 
 		Exists:  stat != nil,
 		Content: content,
 	}
-	if !w.initialValue && newContent == w.content {
+	if w.emittedValue && newContent == w.content {
 		return nextWatch, nil
 	}
-	w.initialValue = false
 	w.content = newContent
 	select {
 	case <-w.tomb.Dying():
 		return nil, tomb.ErrDying
 	case w.changeChan <- w.content:
+		w.emittedValue = true
 	}
 	return nextWatch, nil
 }
@@ -148,7 +147,7 @@ type ChildrenWatcher struct {
 	path         string
 	tomb         tomb.Tomb
 	changeChan   chan ChildrenChange
-	initialValue bool
+	emittedValue bool
 	children     map[string]bool
 }
 
@@ -156,11 +155,10 @@ type ChildrenWatcher struct {
 // the ZooKeeper node at watchedPath.
 func NewChildrenWatcher(zk *zookeeper.Conn, watchedPath string) *ChildrenWatcher {
 	w := &ChildrenWatcher{
-		zk:           zk,
-		path:         watchedPath,
-		changeChan:   make(chan ChildrenChange),
-		children:     make(map[string]bool),
-		initialValue: true,
+		zk:         zk,
+		path:       watchedPath,
+		changeChan: make(chan ChildrenChange),
+		children:   make(map[string]bool),
 	}
 	go w.loop()
 	return w
@@ -223,12 +221,24 @@ func (w *ChildrenWatcher) loop() {
 // update retrieves the node children and emits the added or deleted children to 
 // the change channel if it has changed. It returns the next watch.
 func (w *ChildrenWatcher) update(eventType int) (nextWatch <-chan zookeeper.Event, err error) {
-	if eventType == zookeeper.EVENT_DELETED {
-		return nil, fmt.Errorf("watcher: node %q has been deleted", w.path)
-	}
-	retrievedChildren, _, watch, err := w.zk.ChildrenW(w.path)
-	if err != nil {
-		return nil, fmt.Errorf("watcher: can't get children of node %q: %v", w.path, err)
+	retrievedChildren := []string{}
+	for {
+		retrievedChildren, _, nextWatch, err = w.zk.ChildrenW(w.path)
+		if zookeeper.IsError(err, zookeeper.ZNONODE) {
+			var stat *zookeeper.Stat
+			if stat, nextWatch, err = w.zk.ExistsW(w.path); err != nil {
+				return
+			} else if stat != nil {
+				// The node suddenly turns out to exist; try to get
+				// a child watch again.
+				continue
+			}
+			break
+		}
+		if err != nil {
+			return
+		}
+		break
 	}
 	children := make(map[string]bool)
 	for _, child := range retrievedChildren {
@@ -247,14 +257,14 @@ func (w *ChildrenWatcher) update(eventType int) (nextWatch <-chan zookeeper.Even
 			w.children[child] = true
 		}
 	}
-	if !w.initialValue && len(change.Deleted) == 0 && len(change.Added) == 0 {
-		return watch, nil
+	if w.emittedValue && len(change.Deleted) == 0 && len(change.Added) == 0 {
+		return
 	}
-	w.initialValue = false
 	select {
 	case <-w.tomb.Dying():
 		return nil, tomb.ErrDying
 	case w.changeChan <- change:
+		w.emittedValue = true
 	}
-	return watch, nil
+	return
 }
