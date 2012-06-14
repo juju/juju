@@ -9,6 +9,20 @@ import (
 	"launchpad.net/tomb"
 )
 
+// watcherStopper allows us to call Stop on a watcher without
+// caring which watcher type it actually is.
+type watcherStopper interface {
+	Stop() error
+}
+
+// stopWatcher stops a watcher and propagates
+// the error to the given tomb if nessary.
+func stopWatcher(w watcherStopper, t *tomb.Tomb) {
+	if err := w.Stop(); err != nil {
+		t.Kill(err)
+	}
+}
+
 // ConfigWatcher observes changes to any configuration node.
 type ConfigWatcher struct {
 	st         *State
@@ -45,24 +59,20 @@ func (w *ConfigWatcher) Changes() <-chan *ConfigNode {
 // before discarding the watcher.
 func (w *ConfigWatcher) Stop() error {
 	w.tomb.Kill(nil)
-	if err := w.watcher.Stop(); err != nil {
-		w.tomb.Wait()
-		return err
-	}
 	return w.tomb.Wait()
 }
 
-// loop is the backend for watching the configuration node.
 func (w *ConfigWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
-
+	defer stopWatcher(w.watcher, &w.tomb)
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
+				w.tomb.Killf("content change channel closed unexpectedly")
 				return
 			}
 			// A non-existent node is treated as an empty node.
@@ -72,8 +82,6 @@ func (w *ConfigWatcher) loop() {
 				return
 			}
 			select {
-			case <-w.watcher.Dying():
-				return
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- configNode:
@@ -85,18 +93,16 @@ func (w *ConfigWatcher) loop() {
 // NeedsUpgradeWatcher observes changes to a unit's upgrade flag.
 type NeedsUpgradeWatcher struct {
 	st         *State
-	path       string
 	tomb       tomb.Tomb
 	watcher    *watcher.ContentWatcher
 	changeChan chan NeedsUpgrade
 }
 
-// newNeedsUpgradeWatcher creates and starts a new resolved flag node 
+// newNeedsUpgradeWatcher creates and starts a new resolved flag node
 // watcher for the given path.
 func newNeedsUpgradeWatcher(st *State, path string) *NeedsUpgradeWatcher {
 	w := &NeedsUpgradeWatcher{
 		st:         st,
-		path:       path,
 		changeChan: make(chan NeedsUpgrade),
 		watcher:    watcher.NewContentWatcher(st.zk, path),
 	}
@@ -118,24 +124,20 @@ func (w *NeedsUpgradeWatcher) Changes() <-chan NeedsUpgrade {
 // before discarding the watcher.
 func (w *NeedsUpgradeWatcher) Stop() error {
 	w.tomb.Kill(nil)
-	if err := w.watcher.Stop(); err != nil {
-		w.tomb.Wait()
-		return err
-	}
 	return w.tomb.Wait()
 }
 
-// loop is the backend for watching the resolved flag node.
 func (w *NeedsUpgradeWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
-
+	defer stopWatcher(w.watcher, &w.tomb)
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
+				w.tomb.Killf("content change channel closed unexpectedly")
 				return
 			}
 			var needsUpgrade NeedsUpgrade
@@ -149,8 +151,6 @@ func (w *NeedsUpgradeWatcher) loop() {
 				needsUpgrade.Force = setting.Force
 			}
 			select {
-			case <-w.watcher.Dying():
-				return
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- needsUpgrade:
@@ -163,7 +163,6 @@ func (w *NeedsUpgradeWatcher) loop() {
 // mode. See SetResolved for details.
 type ResolvedWatcher struct {
 	st         *State
-	path       string
 	tomb       tomb.Tomb
 	watcher    *watcher.ContentWatcher
 	changeChan chan ResolvedMode
@@ -173,7 +172,6 @@ type ResolvedWatcher struct {
 func newResolvedWatcher(st *State, path string) *ResolvedWatcher {
 	w := &ResolvedWatcher{
 		st:         st,
-		path:       path,
 		changeChan: make(chan ResolvedMode),
 		watcher:    watcher.NewContentWatcher(st.zk, path),
 	}
@@ -195,24 +193,20 @@ func (w *ResolvedWatcher) Changes() <-chan ResolvedMode {
 // before discarding the watcher.
 func (w *ResolvedWatcher) Stop() error {
 	w.tomb.Kill(nil)
-	if err := w.watcher.Stop(); err != nil {
-		w.tomb.Wait()
-		return err
-	}
 	return w.tomb.Wait()
 }
 
-// loop is the backend for watching the resolved flag node.
 func (w *ResolvedWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
-
+	defer stopWatcher(w.watcher, &w.tomb)
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
+				w.tomb.Killf("content change channel closed unexpectedly")
 				return
 			}
 			mode := ResolvedNone
@@ -225,8 +219,6 @@ func (w *ResolvedWatcher) loop() {
 				}
 			}
 			select {
-			case <-w.watcher.Dying():
-				return
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- mode:
@@ -239,18 +231,16 @@ func (w *ResolvedWatcher) loop() {
 // See OpenPort for details.
 type PortsWatcher struct {
 	st         *State
-	path       string
 	tomb       tomb.Tomb
 	watcher    *watcher.ContentWatcher
 	changeChan chan []Port
 }
 
-// newPortsWatcher creates and starts a new ports node 
+// newPortsWatcher creates and starts a new ports node
 // watcher for the given path.
 func newPortsWatcher(st *State, path string) *PortsWatcher {
 	w := &PortsWatcher{
 		st:         st,
-		path:       path,
 		changeChan: make(chan []Port),
 		watcher:    watcher.NewContentWatcher(st.zk, path),
 	}
@@ -272,24 +262,20 @@ func (w *PortsWatcher) Changes() <-chan []Port {
 // before discarding the watcher.
 func (w *PortsWatcher) Stop() error {
 	w.tomb.Kill(nil)
-	if err := w.watcher.Stop(); err != nil {
-		w.tomb.Wait()
-		return err
-	}
 	return w.tomb.Wait()
 }
 
-// loop is the backend for watching the ports node.
 func (w *PortsWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
-
+	defer stopWatcher(w.watcher, &w.tomb)
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
+				w.tomb.Killf("content change channel closed unexpectedly")
 				return
 			}
 			var ports openPortsNode
@@ -298,8 +284,6 @@ func (w *PortsWatcher) loop() {
 				return
 			}
 			select {
-			case <-w.watcher.Dying():
-				return
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- ports.Open:
@@ -312,33 +296,33 @@ func (w *PortsWatcher) loop() {
 // from the environment.
 type MachinesWatcher struct {
 	st               *State
-	path             string
 	tomb             tomb.Tomb
 	changeChan       chan *MachinesChange
 	watcher          *watcher.ContentWatcher
 	knownMachineKeys []string
 }
 
-// newMachinesWatcher creates and starts a new machine watcher.
+// MachinesChange contains information about
+// machines that have been added or deleted.
+type MachinesChange struct {
+	Added, Deleted []*Machine
+}
+
+// newMachinesWatcher creates and starts a new watcher for changes to
+// the set of machines known to the topology.
 func newMachinesWatcher(st *State) *MachinesWatcher {
-	// start with an empty topology
-	topology, _ := parseTopology("")
 	w := &MachinesWatcher{
-		st:               st,
-		path:             zkTopologyPath,
-		changeChan:       make(chan *MachinesChange),
-		watcher:          watcher.NewContentWatcher(st.zk, zkTopologyPath),
-		knownMachineKeys: topology.MachineKeys(),
+		st:         st,
+		changeChan: make(chan *MachinesChange),
+		watcher:    watcher.NewContentWatcher(st.zk, zkTopologyPath),
 	}
 	go w.loop()
 	return w
 }
 
-// Changes returns a channel that will receive the actual
-// watcher.ChildrenChanges. Note that multiple changes may
-// be observed as a single event in the channel.
-// The Added field in the first event on the channel holds the initial
-// state as returned by State.AllMachines.
+// Changes returns a channel that will receive changes when machines are
+// added or deleted.  The Added field in the first event on the channel
+// holds the initial state as returned by State.AllMachines.
 func (w *MachinesWatcher) Changes() <-chan *MachinesChange {
 	return w.changeChan
 }
@@ -348,23 +332,20 @@ func (w *MachinesWatcher) Changes() <-chan *MachinesChange {
 // before discarding the watcher.
 func (w *MachinesWatcher) Stop() error {
 	w.tomb.Kill(nil)
-	if err := w.watcher.Stop(); err != nil {
-		w.tomb.Wait()
-		return err
-	}
 	return w.tomb.Wait()
 }
 
-// loop is the backend for watching the ports node.
 func (w *MachinesWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
+	defer stopWatcher(w.watcher, &w.tomb)
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
+				w.tomb.Killf("content change channel closed unexpectedly")
 				return
 			}
 			topology, err := parseTopology(change.Content)
@@ -376,7 +357,7 @@ func (w *MachinesWatcher) loop() {
 			added, deleted := diff(currentMachineKeys, w.knownMachineKeys), diff(w.knownMachineKeys, currentMachineKeys)
 			w.knownMachineKeys = currentMachineKeys
 			if len(added) == 0 && len(deleted) == 0 {
-				// nothing changed in zkMachinePath
+				// The change was not relevant to this watcher.
 				continue
 			}
 			// Why are we dealing with strings, not *Machines at this point ?
@@ -389,8 +370,6 @@ func (w *MachinesWatcher) loop() {
 				mc.Deleted = append(mc.Deleted, &Machine{w.st, m})
 			}
 			select {
-			case <-w.watcher.Dying():
-				return
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- mc:

@@ -26,7 +26,8 @@ type State struct {
 }
 
 // AddMachine creates a new machine state.
-func (s *State) AddMachine() (*Machine, error) {
+func (s *State) AddMachine() (m *Machine, err error) {
+	defer errorContextf(&err, "can't add a new machine")
 	path, err := s.zk.Create("/machines/machine-", "", zookeeper.SEQUENCE, zkPermAll)
 	if err != nil {
 		return nil, err
@@ -36,13 +37,14 @@ func (s *State) AddMachine() (*Machine, error) {
 		return t.AddMachine(key)
 	}
 	if err = retryTopologyChange(s.zk, addMachine); err != nil {
-		return nil, err
+		return
 	}
 	return &Machine{s, key}, nil
 }
 
 // RemoveMachine removes the machine with the given id.
-func (s *State) RemoveMachine(id int) error {
+func (s *State) RemoveMachine(id int) (err error) {
+	defer errorContextf(&err, "can't remove machine %d", id)
 	key := machineKey(id)
 	removeMachine := func(t *topology) error {
 		if !t.HasMachine(key) {
@@ -57,8 +59,8 @@ func (s *State) RemoveMachine(id int) error {
 		}
 		return t.RemoveMachine(key)
 	}
-	if err := retryTopologyChange(s.zk, removeMachine); err != nil {
-		return fmt.Errorf("can't remove machine %d: %v", id, err)
+	if err = retryTopologyChange(s.zk, removeMachine); err != nil {
+		return
 	}
 	return zkRemoveTree(s.zk, fmt.Sprintf("/machines/%s", key))
 }
@@ -84,7 +86,7 @@ func (s *State) Machine(id int) (*Machine, error) {
 	key := machineKey(id)
 	topology, err := readTopology(s.zk)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("can't get machine %d: %v", id, err)
 	}
 	if !topology.HasMachine(key) {
 		return nil, fmt.Errorf("machine %d not found", id)
@@ -96,7 +98,7 @@ func (s *State) Machine(id int) (*Machine, error) {
 func (s *State) AllMachines() ([]*Machine, error) {
 	topology, err := readTopology(s.zk)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("can't get all machines: %v", err)
 	}
 	machines := []*Machine{}
 	for _, key := range topology.MachineKeys() {
@@ -109,7 +111,8 @@ func (s *State) AllMachines() ([]*Machine, error) {
 // bundleUrl must be set to a URL where the bundle for ch
 // may be downloaded from.
 // On success the newly added charm state is returned.
-func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (*Charm, error) {
+func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (stch *Charm, err error) {
+	defer errorContextf(&err, "can't add charm %q", curl)
 	data := &charmData{
 		Meta:         ch.Meta(),
 		Config:       ch.Config(),
@@ -132,20 +135,21 @@ func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bu
 }
 
 // Charm returns a charm by the given id.
-func (s *State) Charm(curl *charm.URL) (*Charm, error) {
+func (s *State) Charm(curl *charm.URL) (stch *Charm, err error) {
+	defer errorContextf(&err, "can't get charm %q", curl)
 	path, err := charmPath(curl)
 	if err != nil {
-		return nil, err
+		return
 	}
 	yaml, _, err := s.zk.Get(path)
 	if zookeeper.IsError(err, zookeeper.ZNONODE) {
-		return nil, fmt.Errorf("charm not found: %q", curl)
+		return nil, fmt.Errorf("charm not found")
 	}
 	if err != nil {
 		return nil, err
 	}
 	data := &charmData{}
-	if err := goyaml.Unmarshal([]byte(yaml), data); err != nil {
+	if err = goyaml.Unmarshal([]byte(yaml), data); err != nil {
 		return nil, err
 	}
 	return newCharm(s, curl, data)
@@ -153,7 +157,8 @@ func (s *State) Charm(curl *charm.URL) (*Charm, error) {
 
 // AddService creates a new service state with the given unique name
 // and the charm state.
-func (s *State) AddService(name string, ch *Charm) (*Service, error) {
+func (s *State) AddService(name string, ch *Charm) (service *Service, err error) {
+	defer errorContextf(&err, "can't add service %q", name)
 	details := map[string]interface{}{"charm": ch.URL().String()}
 	yaml, err := goyaml.Marshal(details)
 	if err != nil {
@@ -164,7 +169,7 @@ func (s *State) AddService(name string, ch *Charm) (*Service, error) {
 		return nil, err
 	}
 	key := strings.Split(path, "/")[2]
-	service := &Service{s, key, name}
+	service = &Service{s, key, name}
 	// Create an empty configuration node.
 	_, err = createConfigNode(s.zk, service.zkConfigPath(), map[string]interface{}{})
 	if err != nil {
@@ -178,7 +183,7 @@ func (s *State) AddService(name string, ch *Charm) (*Service, error) {
 	addService := func(t *topology) error {
 		if _, err := t.ServiceKey(name); err == nil {
 			// No error, so service name already in use.
-			return fmt.Errorf("service name %q is already in use", name)
+			return fmt.Errorf("service name is already in use")
 		}
 		return t.AddService(key, name)
 	}
@@ -191,13 +196,14 @@ func (s *State) AddService(name string, ch *Charm) (*Service, error) {
 // RemoveService removes a service from the state. It will
 // also remove all its units and break any of its existing
 // relations.
-func (s *State) RemoveService(svc *Service) error {
+func (s *State) RemoveService(svc *Service) (err error) {
+	defer errorContextf(&err, "can't remove service %q", svc.Name())
 	// TODO Remove relations first, to prevent spurious hook execution.
 
 	// Remove the units.
 	units, err := svc.AllUnits()
 	if err != nil {
-		return err
+		return
 	}
 	for _, unit := range units {
 		if err = svc.RemoveUnit(unit); err != nil {
@@ -213,13 +219,14 @@ func (s *State) RemoveService(svc *Service) error {
 		return nil
 	}
 	if err = retryTopologyChange(s.zk, removeService); err != nil {
-		return err
+		return
 	}
 	return zkRemoveTree(s.zk, svc.zkPath())
 }
 
 // Service returns a service state by name.
-func (s *State) Service(name string) (*Service, error) {
+func (s *State) Service(name string) (service *Service, err error) {
+	defer errorContextf(&err, "can't get service %q", name)
 	topology, err := readTopology(s.zk)
 	if err != nil {
 		return nil, err
@@ -232,12 +239,13 @@ func (s *State) Service(name string) (*Service, error) {
 }
 
 // AllServices returns all deployed services in the environment.
-func (s *State) AllServices() ([]*Service, error) {
+func (s *State) AllServices() (services []*Service, err error) {
+	defer errorContextf(&err, "can't get all services")
 	topology, err := readTopology(s.zk)
 	if err != nil {
-		return nil, err
+		return
 	}
-	services := []*Service{}
+	services = []*Service{}
 	for _, key := range topology.ServiceKeys() {
 		name, err := topology.ServiceName(key)
 		if err != nil {
@@ -249,14 +257,15 @@ func (s *State) AllServices() ([]*Service, error) {
 }
 
 // Unit returns a unit by name.
-func (s *State) Unit(name string) (*Unit, error) {
+func (s *State) Unit(name string) (unit *Unit, err error) {
+	defer errorContextf(&err, "can't get unit %q", name)
 	serviceName, _, err := parseUnitName(name)
 	if err != nil {
-		return nil, err
+		return
 	}
 	service, err := s.Service(serviceName)
 	if err != nil {
-		return nil, err
+		return
 	}
 	return service.Unit(name)
 }
@@ -289,7 +298,7 @@ func (s *State) addRelationEndpointNode(relationKey string, endpoint RelationEnd
 }
 
 // AddRelation creates a new relation with the given endpoints.  
-func (s *State) AddRelation(endpoints ...RelationEndpoint) (*Relation, []*ServiceRelation, error) {
+func (s *State) AddRelation(endpoints ...RelationEndpoint) (rel *Relation, svcrels []*ServiceRelation, err error) {
 	switch len(endpoints) {
 	case 1:
 		if endpoints[0].RelationRole != RolePeer {
@@ -302,15 +311,16 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (*Relation, []*Servic
 	default:
 		return nil, nil, fmt.Errorf("can't add relations between %d services", len(endpoints))
 	}
+	defer errorContextf(&err, "can't add relation")
 	t, err := readTopology(s.zk)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 	// Check if the relation already exists.
 	relationKey, err := t.RelationKey(endpoints...)
 	if err != nil {
 		if _, ok := err.(*NoRelationError); !ok {
-			return nil, nil, err
+			return
 		}
 	}
 	if relationKey != "" {
@@ -373,7 +383,7 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (*Relation, []*Servic
 	}
 	err = retryTopologyChange(s.zk, addRelation)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 	return &Relation{s, relationKey}, serviceRelations, nil
 }
@@ -381,13 +391,13 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (*Relation, []*Servic
 // RemoveRelation removes the relation.
 func (s *State) RemoveRelation(relation *Relation) error {
 	removeRelation := func(t *topology) error {
-		_, err := t.Relation(relation.key)
-		if err != nil {
-			return fmt.Errorf("can't remove relation: %v", err)
+		if _, err := t.Relation(relation.key); err != nil {
+			return err
 		}
 		return t.RemoveRelation(relation.key)
 	}
-	// TODO: Improve high-level errors, no passing of low-level 
-	// errors directly to the caller.
-	return retryTopologyChange(s.zk, removeRelation)
+	if err := retryTopologyChange(s.zk, removeRelation); err != nil {
+		return fmt.Errorf("can't remove relation: %v", err)
+	}
+	return nil
 }
