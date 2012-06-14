@@ -161,8 +161,7 @@ func (p *Provisioner) processMachines(changes *state.MachinesChange) error {
 		return err
 	}
 
-	// step 3. stop all unknown machines and the machines that were removed
-	// from the state
+	// step 3. stop all machines that were removed from the state.
 	stopping, err := p.instancesForMachines(changes.Deleted)
 	if err != nil {
 		return err
