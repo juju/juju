@@ -178,7 +178,7 @@ func (p *Provisioner) processMachines(changes *state.MachinesChange) error {
 	return nil
 }
 
-// findNotRunning fins machines without an InstanceId set, these are defined as not running.
+// findNotRunning finds machines without an InstanceId set, these are defined as not running.
 func (p *Provisioner) findNotRunning(machines []*state.Machine) ([]*state.Machine, error) {
 	var notrunning []*state.Machine
 	for _, m := range machines {
