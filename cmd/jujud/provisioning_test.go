@@ -192,8 +192,7 @@ func (s *ProvisioningSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment
 	select {
 	case <-op:
 		c.Errorf("provisioner started an instance")
-	case <-time.After(1 * time.Second):
-
+	case <-time.After(200 * time.Millisecond):
 	}
 }
 
@@ -216,8 +215,7 @@ func (s *ProvisioningSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {
 	select {
 	case <-op:
 		c.Errorf("provisioner started an instance")
-	case <-time.After(1 * time.Second):
-
+	case <-time.After(200 * time.Millisecond):
 	}
 
 	err = s.fixEnvironment()
@@ -281,7 +279,7 @@ func (s *ProvisioningSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterR
 	select {
 	case o := <-op:
 		c.Errorf("provisioner started an instance: %v", o)
-	case <-time.After(1 * time.Second):
+	case <-time.After(200 * time.Millisecond):
 	}
 	c.Assert(p.Stop(), IsNil)
 }
