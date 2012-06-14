@@ -465,12 +465,6 @@ func (w *relationUnitWatcher) Changes() <-chan relationUnitChange {
 // before discarding the watcher.
 func (w *relationUnitWatcher) Stop() error {
 	w.tomb.Kill(nil)
-	if w.settingsWatcher != nil {
-		if err := w.settingsWatcher.Stop(); err != nil {
-			w.tomb.Wait()
-			return err
-		}
-	}
 	return w.tomb.Wait()
 }
 
@@ -481,8 +475,15 @@ func (w *relationUnitWatcher) Stop() error {
 // departure, stops watching the unit's settings, and waits for a new
 // presence event.
 func (w *relationUnitWatcher) loop() {
-	defer w.tomb.Done()
-	defer close(w.changes)
+	defer func() {
+		if w.settingsWatcher != nil {
+			if err := w.settingsWatcher.Stop(); err != nil {
+				w.tomb.Kill(err)
+			}
+		}
+		close(w.changes)
+		w.tomb.Done()
+	}()
 	aliveW, err := w.updatePresence(false)
 	if err != nil {
 		w.tomb.Kill(err)
@@ -512,8 +513,10 @@ func (w *relationUnitWatcher) loop() {
 	}
 }
 
-// updatePresence may send an event indicating that the unit relation has
-// departed; or that it is present, and has a particular settings version.
+// updatePresence may send a notification indicating that the unit has departed
+// the relation; or it may start a watch on the settings node, and use its
+// initial event to send a notification that the unit is participating and
+// has the settings indicated by the settings watcher.
 func (w *relationUnitWatcher) updatePresence(alive bool) (aliveW <-chan bool, err error) {
 	latestAlive, aliveW, err := presence.AliveW(w.zk, w.presencePath)
 	if err != nil {
