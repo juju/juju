@@ -392,14 +392,14 @@ next:
 	return
 }
 
-// relationUnitChange represents the state of unit participation in
+// relationUnitChange represents the state of a unit's participation in
 // a relation.
 type relationUnitChange struct {
 	Present  bool
 	Settings string
 }
 
-// relationUnitWatcher produces notifications regarding partiipation
+// relationUnitWatcher produces notifications regarding participation
 // of a unit in a particular relation.
 type relationUnitWatcher struct {
 	zk              *zookeeper.Conn
@@ -411,13 +411,12 @@ type relationUnitWatcher struct {
 	started         bool
 }
 
-// newRelationUnitWatcher starts and returns a relationUnitWatcher. basePath
-// must be the ZooKeeper path to the relation group node (for a globally scoped
-// relation, the group node is the relation node; for a container-scoped relation,
-// the group node is a child of the relation node, named for the unit key of the
-// primary unit in a particular container). key and role together specify which
-// unit is to be watched; key must specify a unit of a service whose RelationRole
-// matches role.
+// newRelationUnitWatcher returns a watcher to monitor a unit in a relation.
+// basePath typically points to one of the following paths depending on
+// the relation scope:
+//
+// Global scope: /relation/<relation key>/
+// Container scope: /relation/<relation key>/<principal unit key>/
 func newRelationUnitWatcher(zk *zookeeper.Conn, basePath, key string, role RelationRole) *relationUnitWatcher {
 	w := &relationUnitWatcher{
 		zk:           zk,
