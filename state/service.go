@@ -208,7 +208,7 @@ func (s *Service) AllUnits() ([]*Unit, error) {
 	for _, key := range keys {
 		_, tunit, err := topology.serviceAndUnit(key)
 		if err != nil {
-			panic(err)
+			return nil, fmt.Errorf("inconsistent topology: %v", err)
 		}
 		units = append(units, &Unit{
 			st:          s.st,

@@ -367,7 +367,7 @@ func (s *StateSuite) TestMachineUnits(c *C) {
 	assignments := []struct {
 		machine      *state.Machine
 		units        []*state.Unit
-		subsidiaries []*state.Unit
+		subordinates []*state.Unit
 	}{
 		{m0, []*state.Unit{units[0][0]}, nil},
 		{m1, []*state.Unit{units[0][1], units[1][0], units[1][1], units[2][0]}, []*state.Unit{units[3][0]}},
@@ -385,7 +385,7 @@ func (s *StateSuite) TestMachineUnits(c *C) {
 		c.Logf("test %d", i)
 		got, err := a.machine.Units()
 		c.Assert(err, IsNil)
-		expect := sortedUnitNames(append(a.units, a.subsidiaries...))
+		expect := sortedUnitNames(append(a.units, a.subordinates...))
 		c.Assert(sortedUnitNames(got), DeepEquals, expect)
 	}
 }
@@ -926,7 +926,7 @@ func (s *StateSuite) TestAssignSubsidiariesToMachine(c *C) {
 	// Create machine 0, that shouldn't be used.
 	_, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
-	// Check that assigning a principal unit assigns its subsidiaries too.
+	// Check that assigning a principal unit assigns its subordinates too.
 	dummy := s.addDummyCharm(c)
 	logging := addLoggingCharm(c, s.st)
 	mysqlService, err := s.st.AddService("mysql", dummy)
@@ -954,7 +954,7 @@ func (s *StateSuite) TestAssignSubsidiariesToMachine(c *C) {
 	c.Check(id, Equals, mysqlMachine.Id())
 
 	// Check that unassigning the principal unassigns the
-	// subsidiaries too.
+	// subordinates too.
 	err = mysqlUnit.UnassignFromMachine()
 	c.Assert(err, IsNil)
 	_, err = log1Unit.AssignedMachineId()
