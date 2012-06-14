@@ -70,6 +70,7 @@ type Unit struct {
 	st          *State
 	key         string
 	serviceName string
+	isPrincipal bool
 }
 
 // ServiceName returns the service name.
@@ -104,7 +105,7 @@ func serviceKeyForUnitKey(unitKey string) (string, error) {
 }
 
 func (st *State) unitFromKey(t *topology, unitKey string) (*Unit, error) {
-	tsvc, _, err := t.serviceAndUnit(unitKey)
+	tsvc, tunit, err := t.serviceAndUnit(unitKey)
 	if err != nil {
 		return nil, err
 	}
@@ -112,6 +113,7 @@ func (st *State) unitFromKey(t *topology, unitKey string) (*Unit, error) {
 		st:          st,
 		key:         unitKey,
 		serviceName: tsvc.Name,
+		isPrincipal: tunit.isPrincipal(),
 	}, nil
 }
 
