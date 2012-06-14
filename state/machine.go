@@ -64,6 +64,24 @@ func (m *Machine) InstanceId() (string, error) {
 	return "", fmt.Errorf("state: invalid internal machine key type: %T", v)
 }
 
+// Units returns all the units that have been assigned
+// to the machine.
+func (m *Machine) Units() ([]*Unit, error) {
+	topology, err := readTopology(m.st.zk)
+	if err != nil {
+		return nil, err
+	}
+	keys := topology.UnitsForMachine(m.key)
+	units := make([]*Unit, len(keys))
+	for i, key := range keys {
+		units[i], err = m.st.unitFromKey(topology, key)
+		if err != nil {
+			return nil, fmt.Errorf("inconsistent topology: %v", err)
+		}
+	}
+	return units, nil
+}
+
 // SetInstanceId sets the provider specific machine id for this machine.
 func (m *Machine) SetInstanceId(id string) error {
 	config, err := readConfigNode(m.st.zk, m.zkPath())
@@ -111,10 +129,4 @@ func keySeq(key string) (id int) {
 // machineKey returns the machine key corresponding to machineId.
 func machineKey(machineId int) string {
 	return fmt.Sprintf("machine-%010d", machineId)
-}
-
-// MachinesChange contains information about
-// machines that have been added or deleted.
-type MachinesChange struct {
-	Added, Deleted []*Machine
 }
