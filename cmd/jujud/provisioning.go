@@ -151,7 +151,7 @@ func (p *Provisioner) Stop() error {
 func (p *Provisioner) processMachines(changes *state.MachinesChange) error {
 	// step 1. find which of the added machines have not
 	// yet been allocated a running instance.
-	notrunning, err := p.findNotRunning(changes.Added)
+	running, notrunning, err := p.findNotRunning(changes.Added)
 	if err != nil {
 		return err
 	}
@@ -160,6 +160,10 @@ func (p *Provisioner) processMachines(changes *state.MachinesChange) error {
 	if _, err := p.startMachines(notrunning); err != nil {
 		return err
 	}
+
+	// step 3. find instances which are running but have no machine 
+	// associated with them.
+	unknown, err := p.findUnknownInstances(append(running, started...))
 
 	// step 3. stop all unknown machines and the machines that were removed
 	// from the state
@@ -174,26 +178,29 @@ func (p *Provisioner) processMachines(changes *state.MachinesChange) error {
 	// although calling StopInstance with an empty slice should produce no change in the 
 	// provider, environs like dummy do not consider this a noop.
 	if len(stopping) > 0 {
-		return p.environ.StopInstances(stopping)
+		return p.environ.StopInstances(append(stopping, unknown...))
 	}
 	return nil
 }
 
-// findNotRunning fins machines without an InstanceId set, these are defined as not running.
-func (p *Provisioner) findNotRunning(machines []*state.Machine) ([]*state.Machine, error) {
-	var notrunning []*state.Machine
+// findUnknownInsatnces 
+
+// findNotRunning finds machines without an InstanceId set, these are defined as not running.
+func (p *Provisioner) findNotRunning(machines []*state.Machine) ([]*state.Machine, []*state.Machine, error) {
+	var running, notrunning []*state.Machine
 	for _, m := range machines {
 		id, err := m.InstanceId()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if id == "" {
 			notrunning = append(notrunning, m)
 		} else {
+			running = append(running, m)
 			log.Printf("machine %s already running as instance %q", m, id)
 		}
 	}
-	return notrunning, nil
+	return running, notrunning, nil
 }
 
 func (p *Provisioner) startMachines(machines []*state.Machine) ([]*state.Machine, error) {
