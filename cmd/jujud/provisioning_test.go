@@ -148,8 +148,8 @@ func (s *ProvisioningSuite) TestProvisionerStopOnStateClose(c *C) {
 	p.st.Close()
 
 	// must use Check to avoid leaking PA
-	c.Check(p.Wait(), ErrorMatches, "watcher.*")
-	c.Assert(p.Stop(), ErrorMatches, "watcher.*")
+	c.Check(p.Wait(), ErrorMatches, "content change channel closed unexpectedly")
+	c.Assert(p.Stop(), ErrorMatches, "content change channel closed unexpectedly")
 }
 
 // Start and stop one machine, watch the PA.

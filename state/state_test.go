@@ -153,7 +153,7 @@ func (s *StateSuite) TestCharmAttributes(c *C) {
 func (s *StateSuite) TestNonExistentCharmPriorToInitialization(c *C) {
 	// Check that getting a charm before any other charm has been added fails nicely.
 	_, err := s.st.Charm(s.curl)
-	c.Assert(err, ErrorMatches, `charm not found: "local:series/dummy-1"`)
+	c.Assert(err, ErrorMatches, `can't get charm "local:series/dummy-1": .*`)
 }
 
 func (s *StateSuite) TestGetNonExistentCharm(c *C) {
@@ -162,7 +162,7 @@ func (s *StateSuite) TestGetNonExistentCharm(c *C) {
 
 	curl := charm.MustParseURL("local:anotherseries/dummy-1")
 	_, err := s.st.Charm(curl)
-	c.Assert(err, ErrorMatches, `charm not found: "local:anotherseries/dummy-1"`)
+	c.Assert(err, ErrorMatches, `can't get charm "local:anotherseries/dummy-1": .*`)
 }
 
 func (s *StateSuite) TestAddMachine(c *C) {
@@ -418,15 +418,20 @@ func (s *StateSuite) TestRemoveService(c *C) {
 	service, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 
+	// Remove of existing service.
 	err = s.st.RemoveService(service)
 	c.Assert(err, IsNil)
-	service, err = s.st.Service("wordpress")
-	c.Assert(err, ErrorMatches, `service with name "wordpress" not found`)
+	_, err = s.st.Service("wordpress")
+	c.Assert(err, ErrorMatches, `can't get service "wordpress": service with name "wordpress" not found`)
+
+	// Remove of non-existing service.
+	err = s.st.RemoveService(service)
+	c.Assert(err, ErrorMatches, `can't remove service "wordpress": environment state has changed`)
 }
 
 func (s *StateSuite) TestReadNonExistentService(c *C) {
 	_, err := s.st.Service("pressword")
-	c.Assert(err, ErrorMatches, `service with name "pressword" not found`)
+	c.Assert(err, ErrorMatches, `can't get service "pressword": service with name "pressword" not found`)
 }
 
 func (s *StateSuite) TestAllServices(c *C) {
@@ -607,7 +612,7 @@ func (s *StateSuite) TestReadUnitWithChangingState(c *C) {
 	err = s.st.RemoveService(wordpress)
 	c.Assert(err, IsNil)
 	_, err = s.st.Unit("wordpress/0")
-	c.Assert(err, ErrorMatches, `service with name "wordpress" not found`)
+	c.Assert(err, ErrorMatches, `can't get unit "wordpress/0": can't get service "wordpress": service with name "wordpress" not found`)
 }
 
 func (s *StateSuite) TestRemoveUnit(c *C) {
@@ -1222,7 +1227,7 @@ func (s *StateSuite) TestAddRelationMissingService(c *C) {
 	mysqlep := state.RelationEndpoint{"mysqldb", "blog", "db", state.RoleProvider, state.ScopeGlobal}
 	blogep := state.RelationEndpoint{"wordpress", "blog", "db", state.RoleRequirer, state.ScopeGlobal}
 	_, _, err := s.st.AddRelation(blogep, mysqlep)
-	c.Assert(err, ErrorMatches, `service with name "wordpress" not found`)
+	c.Assert(err, ErrorMatches, `can't add relation: service with name "wordpress" not found`)
 }
 
 func (s *StateSuite) TestAddRelationMissingEndpoint(c *C) {
@@ -1263,14 +1268,14 @@ func (s *StateSuite) TestAddClientServerRelationTwice(c *C) {
 	_, _, err := s.st.AddRelation(blogep, mysqlep)
 	c.Assert(err, IsNil)
 	_, _, err = s.st.AddRelation(blogep, mysqlep)
-	c.Assert(err, ErrorMatches, `relation already exists`)
+	c.Assert(err, ErrorMatches, `can't add relation: relation already exists`)
 	// Peer.
 	s.st.AddService("riak", dummy)
 	riakep := state.RelationEndpoint{"riak", "ring", "cache", state.RolePeer, state.ScopeGlobal}
 	_, _, err = s.st.AddRelation(riakep)
 	c.Assert(err, IsNil)
 	_, _, err = s.st.AddRelation(riakep)
-	c.Assert(err, ErrorMatches, `relation already exists`)
+	c.Assert(err, ErrorMatches, `can't add relation: relation already exists`)
 }
 
 func (s *StateSuite) TestAddPeerRelationIllegalEndpointNumber(c *C) {
