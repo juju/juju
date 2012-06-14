@@ -149,13 +149,14 @@ func (p *Provisioner) Stop() error {
 }
 
 func (p *Provisioner) processMachines(changes *state.MachinesChange) error {
-	// step 1. find machines without instance ids (tf. not running)
+	// step 1. find which of the added machines have not
+	// yet been allocated a running instance.
 	notrunning, err := p.findNotRunning(changes.Added)
 	if err != nil {
 		return err
 	}
 
-	// step 2. start all the notrunning machines
+	// step 2. start an instance for any machines we found.
 	if _, err := p.startMachines(notrunning); err != nil {
 		return err
 	}
@@ -178,7 +179,7 @@ func (p *Provisioner) processMachines(changes *state.MachinesChange) error {
 	return nil
 }
 
-// findNotRunning filters machines without an InstanceId set, these are defined as not running.
+// findNotRunning fins machines without an InstanceId set, these are defined as not running.
 func (p *Provisioner) findNotRunning(machines []*state.Machine) ([]*state.Machine, error) {
 	var notrunning []*state.Machine
 	for _, m := range machines {
