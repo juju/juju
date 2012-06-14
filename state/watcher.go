@@ -400,7 +400,7 @@ func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 }
 
 // Changes returns a channel that will receive changes when
-// units are assigned or removed from a machine.
+// units are assigned or unassigned from a machine.
 // The Added field in the first event on the channel holds the initial
 // state as returned by State.AllMachines.
 func (w *MachineUnitsWatcher) Changes() <-chan *MachineUnitsChange {
@@ -421,20 +421,23 @@ func (w *MachineUnitsWatcher) Stop() error {
 
 // loop is the backend for watching the ports node.
 func (w *MachineUnitsWatcher) loop() {
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+	defer stopWatcher(w.watcher, &w.tomb)
+
 	// knownUnits keeps track of the current units because
 	// when a unit is deleted, we can't create a *Unit from
 	// a key alone.
 	knownUnits := make(map[string]*Unit)
 	var knownUnitKeys []string
 
-	defer w.tomb.Done()
-	defer close(w.changeChan)
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
+				w.tomb.Killf("content change channel closed unexpectedly")
 				return
 			}
 			topology, err := parseTopology(change.Content)
@@ -446,7 +449,7 @@ func (w *MachineUnitsWatcher) loop() {
 			added, deleted := diff(currentUnitKeys, knownUnitKeys), diff(knownUnitKeys, currentUnitKeys)
 			knownUnitKeys = currentUnitKeys
 			if len(added) == 0 && len(deleted) == 0 {
-				// nothing changed
+				// The change was not relevant to this watcher.
 				continue
 			}
 			uc := new(MachineUnitsChange)
@@ -462,15 +465,14 @@ func (w *MachineUnitsWatcher) loop() {
 				unit, err := w.st.unitFromKey(topology, ukey)
 				if err != nil {
 					// If UnitsForMachine is returning keys that don't
-					// exist, then something is badly wrong.
-					panic(err)
+					// exist, then something is probably badly wrong, but
+					// ignore the unit rather than panicing.
+					continue
 				}
 				knownUnits[ukey] = unit
 				uc.Added = append(uc.Added, unit)
 			}
 			select {
-			case <-w.watcher.Dying():
-				return
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- uc:
