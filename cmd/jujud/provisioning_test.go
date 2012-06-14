@@ -286,6 +286,36 @@ func (s *ProvisioningSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterR
 	c.Assert(p.Stop(), IsNil)
 }
 
+func (s *ProvisioningSuite) TestProvisioningStopsUnknownInstances(c *C) {
+        p, err := NewProvisioner(s.zkInfo)
+        c.Check(err, IsNil)
+        // we are not using defer s.stopProvisioner(c, p) because we need to control when 
+        // the PA is restarted in this test. tf. Methods like Fatalf and Assert should not be used.
+        op := make(chan dummy.Operation, 1)
+        dummy.Listen(op)
+
+        // create a machine
+        m, err := s.st.AddMachine()
+        c.Check(err, IsNil)
+
+        s.checkStartInstance(c, op)
+
+        // stop the PA
+        c.Check(p.Stop(), IsNil)
+
+	// remove the machine
+        err = s.st.RemoveMachine(m.Id())
+        c.Check(err, IsNil)
+
+	// start a new provisioner
+	p, err = NewProvisioner(s.zkInfo)
+        c.Check(err, IsNil)
+
+	s.checkStopInstance(c, op)
+
+        c.Assert(p.Stop(), IsNil)
+}
+
 func (s *ProvisioningSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublished(c *C) {
 	p, err := NewProvisioner(s.zkInfo)
 	c.Assert(err, IsNil)
