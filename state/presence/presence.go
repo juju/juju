@@ -9,6 +9,7 @@ package presence
 import (
 	"fmt"
 	zk "launchpad.net/gozk/zookeeper"
+	"launchpad.net/tomb"
 	"time"
 )
 
@@ -38,41 +39,10 @@ func (n *changeNode) change() (mtime time.Time, err error) {
 
 // Pinger periodically updates a node in zookeeper while it is running.
 type Pinger struct {
-	conn     *zk.Conn
-	target   changeNode
-	period   time.Duration
-	stopping chan bool
-}
-
-// run calls change on p.target every p.period nanoseconds until p is stopped.
-func (p *Pinger) run() {
-	for {
-		select {
-		case <-p.stopping:
-			return
-		case <-time.After(p.period):
-			_, err := p.target.change()
-			if err != nil {
-				<-p.stopping
-				return
-			}
-		}
-	}
-}
-
-// Stop stops updating the node; AliveW watches will not notice any change
-// until they time out. A final write to the node is triggered to ensure
-// watchers time out as late as possible.
-func (p *Pinger) Stop() {
-	p.stopping <- true
-	p.target.change()
-}
-
-// Kill stops updating and deletes the node, causing any AliveW watches
-// to observe its departure (almost) immediately.
-func (p *Pinger) Kill() {
-	p.stopping <- true
-	p.conn.Delete(p.target.path, -1)
+	conn   *zk.Conn
+	target changeNode
+	period time.Duration
+	tomb   tomb.Tomb
 }
 
 // StartPinger returns a new Pinger that refreshes the content of path periodically.
@@ -82,9 +52,53 @@ func StartPinger(conn *zk.Conn, path string, period time.Duration) (*Pinger, err
 	if err != nil {
 		return nil, err
 	}
-	p := &Pinger{conn, target, period, make(chan bool)}
-	go p.run()
+	p := &Pinger{conn: conn, target: target, period: period}
+	go p.loop()
 	return p, nil
+}
+
+// loop calls change on p.target every p.period nanoseconds until p is stopped.
+func (p *Pinger) loop() {
+	defer p.tomb.Done()
+	for {
+		select {
+		case <-p.tomb.Dying():
+			return
+		case <-time.After(p.period):
+			if _, err := p.target.change(); err != nil {
+				p.tomb.Kill(err)
+				return
+			}
+		}
+	}
+}
+
+// Dying returns a channel that will be closed when the Pinger is no longer
+// operating.
+func (p *Pinger) Dying() <-chan struct{} {
+	return p.tomb.Dying()
+}
+
+// Stop stops updating the node; AliveW watches will not notice any change
+// until they time out. A final write to the node is triggered to ensure
+// watchers time out as late as possible.
+func (p *Pinger) Stop() error {
+	p.tomb.Kill(nil)
+	if err := p.tomb.Wait(); err != nil {
+		return err
+	}
+	_, err := p.target.change()
+	return err
+}
+
+// Kill stops updating and deletes the node, causing any AliveW watches
+// to observe its departure (almost) immediately.
+func (p *Pinger) Kill() error {
+	p.tomb.Kill(nil)
+	if err := p.tomb.Wait(); err != nil {
+		return err
+	}
+	return p.conn.Delete(p.target.path, -1)
 }
 
 // node represents the state of a presence node from a watcher's perspective.
@@ -242,7 +256,7 @@ func AliveW(conn *zk.Conn, path string) (bool, <-chan bool, error) {
 	return alive, watch, nil
 }
 
-// WaitAlive blocks until the node at the given path 
+// WaitAlive blocks until the node at the given path
 // has been recently pinged or a timeout occurs.
 func WaitAlive(conn *zk.Conn, path string, timeout time.Duration) error {
 	alive, watch, err := AliveW(conn, path)
