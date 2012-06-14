@@ -53,7 +53,6 @@ func (s *ProvisioningSuite) TearDownTest(c *C) {
 }
 
 func (s *ProvisioningSuite) invalidateEnvironment() error {
-	// make the environment unpalitable to the config checker
 	env, err := s.st.EnvironConfig()
 	if err != nil {
 		return err
@@ -175,7 +174,8 @@ func (s *ProvisioningSuite) TestSimple(c *C) {
 }
 
 func (s *ProvisioningSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(c *C) {
-	c.Assert(s.invalidateEnvironment(), IsNil)
+	err := s.invalidateEnvironment()
+	c.Assert(err, IsNil)
 
 	p, err := NewProvisioner(s.zkInfo)
 	c.Assert(err, IsNil)
@@ -198,7 +198,8 @@ func (s *ProvisioningSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment
 }
 
 func (s *ProvisioningSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {
-	c.Assert(s.invalidateEnvironment(), IsNil)
+	err := s.invalidateEnvironment()
+	c.Assert(err, IsNil)
 
 	p, err := NewProvisioner(s.zkInfo)
 	c.Assert(err, IsNil)
@@ -219,7 +220,8 @@ func (s *ProvisioningSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {
 
 	}
 
-	c.Assert(s.fixEnvironment(), IsNil)
+	err = s.fixEnvironment()
+	c.Assert(err, IsNil)
 
 	s.checkStartInstance(c, op)
 }
@@ -238,7 +240,8 @@ func (s *ProvisioningSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubl
 
 	s.checkStartInstance(c, op)
 
-	c.Assert(s.invalidateEnvironment(), IsNil)
+	err = s.invalidateEnvironment()
+	c.Assert(err, IsNil)
 
 	// create a second machine
 	_, err = s.st.AddMachine()
@@ -297,7 +300,8 @@ func (s *ProvisioningSuite) TestProvisioningRecoversAfterInvalidEnvironmentPubli
 
 	s.checkStartInstance(c, op)
 
-	c.Assert(s.invalidateEnvironment(), IsNil)
+	err = s.invalidateEnvironment()
+	c.Assert(err, IsNil)
 
 	// create a second machine
 	_, err = s.st.AddMachine()
@@ -306,7 +310,8 @@ func (s *ProvisioningSuite) TestProvisioningRecoversAfterInvalidEnvironmentPubli
 	// the PA should create it using the old environment
 	s.checkStartInstance(c, op)
 
-	c.Assert(s.fixEnvironment(), IsNil)
+	err = s.fixEnvironment()
+	c.Assert(err, IsNil)
 
 	// create a third machine
 	_, err = s.st.AddMachine()
