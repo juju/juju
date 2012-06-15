@@ -49,7 +49,7 @@ type needsUpgradeNode struct {
 // agentPingerPeriod defines the period of pinging the
 // ZooKeeper to signal that a unit agent is alive. It's
 // also used by machine.
-const (
+var (
 	agentPingerPeriod = 1 * time.Second
 )
 
@@ -81,6 +81,11 @@ func (u *Unit) ServiceName() string {
 // Name returns the unit name.
 func (u *Unit) Name() string {
 	return fmt.Sprintf("%s/%d", u.serviceName, keySeq(u.key))
+}
+
+// String returns the unit as string.
+func (u *Unit) String() string {
+	return u.Name()
 }
 
 // makeUnitKey returns a unit key made up from the service key
@@ -121,7 +126,7 @@ func (st *State) unitFromKey(t *topology, unitKey string) (*Unit, error) {
 func (u *Unit) PublicAddress() (string, error) {
 	cn, err := readConfigNode(u.st.zk, u.zkPath())
 	if err != nil {
-		return "", fmt.Errorf("can't get public address: %v", err)
+		return "", fmt.Errorf("can't get public address of unit %q", u)
 	}
 	if address, ok := cn.Get("public-address"); ok {
 		return address.(string), nil
@@ -131,24 +136,21 @@ func (u *Unit) PublicAddress() (string, error) {
 
 // SetPublicAddress sets the public address of the unit.
 func (u *Unit) SetPublicAddress(address string) (err error) {
-	defer errorContextf(&err, "can't set public address %q", address)
+	defer errorContextf(&err, "can't set public address of unit %q to %q", u, address)
 	cn, err := readConfigNode(u.st.zk, u.zkPath())
 	if err != nil {
 		return err
 	}
 	cn.Set("public-address", address)
 	_, err = cn.Write()
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // PrivateAddress returns the private address of the unit.
 func (u *Unit) PrivateAddress() (string, error) {
 	cn, err := readConfigNode(u.st.zk, u.zkPath())
 	if err != nil {
-		return "", fmt.Errorf("can't get private address: %v", err)
+		return "", fmt.Errorf("can't get private address of unit %q", u)
 	}
 	if address, ok := cn.Get("private-address"); ok {
 		return address.(string), nil
@@ -158,23 +160,20 @@ func (u *Unit) PrivateAddress() (string, error) {
 
 // SetPrivateAddress sets the private address of the unit.
 func (u *Unit) SetPrivateAddress(address string) (err error) {
-	defer errorContextf(&err, "can't set private address %q", address)
+	defer errorContextf(&err, "can't set private address of unit %q", u)
 	cn, err := readConfigNode(u.st.zk, u.zkPath())
 	if err != nil {
 		return err
 	}
 	cn.Set("private-address", address)
 	_, err = cn.Write()
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // CharmURL returns the charm URL this unit is supposed
 // to use.
 func (u *Unit) CharmURL() (url *charm.URL, err error) {
-	defer errorContextf(&err, "can't get charm URL")
+	defer errorContextf(&err, "can't get charm URL of unit %q", u)
 	cn, err := readConfigNode(u.st.zk, u.zkPath())
 	if err != nil {
 		return nil, err
@@ -191,23 +190,20 @@ func (u *Unit) CharmURL() (url *charm.URL, err error) {
 
 // SetCharmURL changes the charm URL for the unit.
 func (u *Unit) SetCharmURL(url *charm.URL) (err error) {
-	defer errorContextf(&err, "can't set charm URL %q", url)
+	defer errorContextf(&err, "can't set charm URL of unit %q to %q", u, url)
 	cn, err := readConfigNode(u.st.zk, u.zkPath())
 	if err != nil {
 		return err
 	}
 	cn.Set("charm", url.String())
 	_, err = cn.Write()
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // IsPrincipal returns whether the unit is deployed in its own container,
 // and can therefore have subordinate services deployed alongside it.
 func (u *Unit) IsPrincipal() (isPrincipal bool, err error) {
-	defer errorContextf(&err, "can't test if unit is principal")
+	defer errorContextf(&err, "can't test if unit %q is principal", u)
 	topology, err := readTopology(u.st.zk)
 	if err != nil {
 		return false, err
@@ -217,35 +213,6 @@ func (u *Unit) IsPrincipal() (isPrincipal bool, err error) {
 		return true, nil
 	}
 	return false, err
-}
-
-// AssignUnit places the unit on a machine. Depending on the policy, and the
-// state of the environment, this may lead to new instances being launched
-// within the environment.
-func AssignUnit(st *State, u *Unit, policy AssignmentPolicy) (err error) {
-	if valid, err := u.IsPrincipal(); err != nil {
-		return err
-	} else if !valid {
-		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u.Name())
-	}
-	defer errorContextf(&err, "can't assign unit %q", u.Name())
-	var m *Machine
-	switch policy {
-	case AssignLocal:
-		if m, err = u.st.Machine(0); err != nil {
-			return err
-		}
-	case AssignUnused:
-		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
-			return err
-		}
-		if m, err = u.st.AddMachine(); err != nil {
-			return err
-		}
-	default:
-		panic(fmt.Errorf("unknown unit assignment policy: %q", policy))
-	}
-	return u.AssignToMachine(m)
 }
 
 // AssignedMachineId returns the id of the assigned machine.
@@ -286,7 +253,7 @@ func (u *Unit) AssignToMachine(machine *Machine) (err error) {
 	return retryTopologyChange(u.st.zk, assignUnit)
 }
 
-var noUnusedMachines = errors.New("no unused machine found")
+var noUnusedMachines = errors.New("all machines in use")
 
 // AssignToUnusedMachine assigns u to a machine without other units.
 // If there are no unused machines besides machine 0, an error is returned.
@@ -409,7 +376,7 @@ func (u *Unit) WatchNeedsUpgrade() *NeedsUpgradeWatcher {
 
 // Resolved returns the resolved mode for the unit.
 func (u *Unit) Resolved() (mode ResolvedMode, err error) {
-	defer errorContextf(&err, "can't get the resolved mode for unit %q", u.Name())
+	defer errorContextf(&err, "can't get resolved mode for unit %q", u.Name())
 	yaml, _, err := u.st.zk.Get(u.zkResolvedPath())
 	if zookeeper.IsError(err, zookeeper.ZNONODE) {
 		// Default value.
@@ -436,7 +403,7 @@ func (u *Unit) Resolved() (mode ResolvedMode, err error) {
 // reexecute previous failed hooks or to continue as if they had 
 // succeeded before.
 func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
-	defer errorContextf(&err, "can't set the resolved mode for unit %q", u.Name())
+	defer errorContextf(&err, "can't set resolved mode for unit %q", u.Name())
 	if err := validResolvedMode(mode, false); err != nil {
 		return err
 	}

@@ -270,6 +270,35 @@ func (s *State) Unit(name string) (unit *Unit, err error) {
 	return service.Unit(name)
 }
 
+// AssignUnit places the unit on a machine. Depending on the policy, and the
+// state of the environment, this may lead to new instances being launched
+// within the environment.
+func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
+	if valid, err := u.IsPrincipal(); err != nil {
+		return err
+	} else if !valid {
+		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
+	}
+	defer errorContextf(&err, "can't assign unit %q to machine", u)
+	var m *Machine
+	switch policy {
+	case AssignLocal:
+		if m, err = s.Machine(0); err != nil {
+			return err
+		}
+	case AssignUnused:
+		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
+			return err
+		}
+		if m, err = s.AddMachine(); err != nil {
+			return err
+		}
+	default:
+		panic(fmt.Errorf("unknown unit assignment policy: %q", policy))
+	}
+	return u.AssignToMachine(m)
+}
+
 // addRelationNode creates the relation node.
 func (s *State) addRelationNode(scope RelationScope) (string, error) {
 	path, err := s.zk.Create("/relations/relation-", "", zookeeper.SEQUENCE, zkPermAll)
