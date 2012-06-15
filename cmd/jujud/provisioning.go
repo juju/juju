@@ -15,6 +15,8 @@ import (
 	_ "launchpad.net/juju-core/juju/environs/ec2"
 )
 
+var retryDuration = 10 * time.Second 
+
 // ProvisioningAgent is a cmd.Command responsible for running a provisioning agent.
 type ProvisioningAgent struct {
 	Conf AgentConf
@@ -34,23 +36,15 @@ func (a *ProvisioningAgent) Init(f *gnuflag.FlagSet, args []string) error {
 	return a.Conf.checkArgs(f.Args())
 }
 
-// lengthyAttempt defines a strategy to retry 
-// every 10 seconds indefinitely.
-var lengthyAttempt = environs.AttemptStrategy{
-	Total: 365 * 24 * time.Hour,
-	Delay: 10 * time.Second,
-}
-
 // Run runs a provisioning agent.
 func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
-	for attempt := lengthyAttempt.Start(); attempt.Next(); {
+	for {
 		p, err := NewProvisioner(&a.Conf.StateInfo)
 		if err == nil {
 			err = p.Wait()
 		}
-		// err will always be non nil at this point as p.Wait will 
-		// not return until the tomb is closed by an error.
 		log.Printf("restarting provisioner after error: %v", err)
+		time.Sleep(retryDuration)
 	}
 	panic("unreachable")
 }
