@@ -28,6 +28,8 @@ func (t *LiveTests) TestStartStop(c *C) {
 
 	insts, err = t.Env.AllInstances()
 	c.Assert(err, IsNil)
+	// differs from the check above because AllInstances returns
+	// a set (without duplicates) containing only one instance.
 	c.Assert(insts, HasLen, 1)
 	c.Assert(insts[0].Id(), Equals, id0)
 
