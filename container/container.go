@@ -1,10 +1,11 @@
 package container
+
 import (
+	"fmt"
 	"launchpad.net/juju-core/juju/state"
-	"strings"
 	"launchpad.net/juju-core/juju/upstart"
 	"os/exec"
-	"fmt"
+	"strings"
 )
 
 // Container contains running juju service units.
@@ -42,10 +43,10 @@ func (s *simple) Deploy() error {
 	if err != nil {
 		return fmt.Errorf("cannot find executable: %v", err)
 	}
-	conf := &upstart.Conf {
+	conf := &upstart.Conf{
 		Service: *s.service(),
-		Desc: "juju unit agent for " + s.unit.Name(),
-		Cmd: exe+" unit --unit-name " + s.unit.Name(),
+		Desc:    "juju unit agent for " + s.unit.Name(),
+		Cmd:     exe + " unit --unit-name " + s.unit.Name(),
 		// TODO: Out
 	}
 	return conf.Install()

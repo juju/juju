@@ -1,22 +1,23 @@
 package container_test
+
 import (
+	"fmt"
+	"io/ioutil"
 	. "launchpad.net/gocheck"
-	stdtesting "testing"
-	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/juju/charm"
 	"launchpad.net/juju-core/juju/container"
-	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/juju-core/juju/testing"
 	"net/url"
-	"fmt"
-	"strings"
-	"path/filepath"
-	"time"
-	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strings"
+	stdtesting "testing"
+	"time"
 )
 
-type suite struct{
+type suite struct {
 	state *state.State
 }
 
