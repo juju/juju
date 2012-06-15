@@ -270,6 +270,34 @@ func (s *State) Unit(name string) (unit *Unit, err error) {
 	return service.Unit(name)
 }
 
+// AssignUnit places the unit on a machine. Depending on the policy, and the
+// state of the environment, this may lead to new instances being launched
+// within the environment.
+func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
+	if valid, err := u.IsPrincipal(); err != nil {
+		return err
+	} else if !valid {
+		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u.Name())
+	}
+	var m *Machine
+	switch policy {
+	case AssignLocal:
+		if m, err = u.st.Machine(0); err != nil {
+			return
+		}
+	case AssignUnused:
+		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
+			return
+		}
+		if m, err = u.st.AddMachine(); err != nil {
+			return
+		}
+	default:
+		panic(fmt.Errorf("unknown unit assignment policy: %q", policy))
+	}
+	return u.AssignToMachine(m)
+}
+
 // addRelationNode creates the node for the relation represented by the
 // given endpoints, and returns the node name to be used as a relation key.
 // The provided endpoints are validated before the relation node is created.

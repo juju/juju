@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju-core/juju/log"
 	"launchpad.net/juju-core/juju/state/presence"
 	"launchpad.net/juju-core/juju/state/watcher"
-	"launchpad.net/juju-core/juju/log"
 	"launchpad.net/tomb"
 )
 

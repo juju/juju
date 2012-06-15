@@ -388,6 +388,19 @@ func (e *environ) Instances(ids []string) (insts []environs.Instance, err error)
 	return
 }
 
+func (e *environ) AllInstances() ([]environs.Instance, error) {
+	if e.isBroken() {
+		return nil, errBroken
+	}
+	var insts []environs.Instance
+	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
+	for _, v := range e.state.insts {
+		insts = append(insts, v)
+	}
+	return insts, nil
+}
+
 func (e *environ) isBroken() bool {
 	e.configMutex.Lock()
 	defer e.configMutex.Unlock()

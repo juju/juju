@@ -973,14 +973,14 @@ func (s *StateSuite) TestAssignUnit(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check nonsensical policy
-	fail := func() { state.AssignUnit(s.st, unit0, state.AssignmentPolicy("random")) }
+	fail := func() { s.st.AssignUnit(unit0, state.AssignmentPolicy("random")) }
 	c.Assert(fail, PanicMatches, `unknown unit assignment policy: "random"`)
 	_, err = unit0.AssignedMachineId()
 	c.Assert(err, NotNil)
 	s.assertMachineCount(c, 1)
 
 	// Check local placement
-	err = state.AssignUnit(s.st, unit0, state.AssignLocal)
+	err = s.st.AssignUnit(unit0, state.AssignLocal)
 	c.Assert(err, IsNil)
 	mid, err := unit0.AssignedMachineId()
 	c.Assert(err, IsNil)
@@ -990,7 +990,7 @@ func (s *StateSuite) TestAssignUnit(c *C) {
 	// Check unassigned placement with no unused machines
 	unit1, err := serv.AddUnit()
 	c.Assert(err, IsNil)
-	err = state.AssignUnit(s.st, unit1, state.AssignUnused)
+	err = s.st.AssignUnit(unit1, state.AssignUnused)
 	c.Assert(err, IsNil)
 	mid, err = unit1.AssignedMachineId()
 	c.Assert(err, IsNil)
@@ -1001,7 +1001,7 @@ func (s *StateSuite) TestAssignUnit(c *C) {
 	_, err = s.st.AddMachine()
 	unit2, err := serv.AddUnit()
 	c.Assert(err, IsNil)
-	err = state.AssignUnit(s.st, unit2, state.AssignUnused)
+	err = s.st.AssignUnit(unit2, state.AssignUnused)
 	c.Assert(err, IsNil)
 	mid, err = unit2.AssignedMachineId()
 	c.Assert(err, IsNil)
@@ -1014,7 +1014,7 @@ func (s *StateSuite) TestAssignUnit(c *C) {
 	c.Assert(err, IsNil)
 	unit3, err := logging.AddUnitSubordinateTo(unit2)
 	c.Assert(err, IsNil)
-	err = state.AssignUnit(s.st, unit3, state.AssignUnused)
+	err = s.st.AssignUnit(unit3, state.AssignUnused)
 	c.Assert(err, ErrorMatches, `subordinate unit "logging/0" cannot be assigned directly to a machine`)
 }
 
