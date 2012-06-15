@@ -270,9 +270,10 @@ func (s *State) Unit(name string) (unit *Unit, err error) {
 	return service.Unit(name)
 }
 
-// addRelationNode validates the proposed relation, and returns the relation key
-// for the newly created node.
-func (s *State) addRelationNode(endpoints ...RelationEndpoint) (string, error) {
+// addRelationNode creates the node for the relation represented by the
+// given endpoints, and returns the node name to be used as a relation key.
+// The provided endpoints are validated before the relation node is created.
+func (s *State) addRelationNode(endpoints ...RelationEndpoint) (relationKey string, err error) {
 	switch len(endpoints) {
 	case 1:
 		if endpoints[0].RelationRole != RolePeer {
@@ -287,7 +288,7 @@ func (s *State) addRelationNode(endpoints ...RelationEndpoint) (string, error) {
 	}
 	t, err := readTopology(s.zk)
 	if err != nil {
-		return "", err
+		return
 	}
 	// Check if the relation already exists.
 	_, err = t.RelationKey(endpoints...)
@@ -295,15 +296,15 @@ func (s *State) addRelationNode(endpoints ...RelationEndpoint) (string, error) {
 		return "", fmt.Errorf("relation already exists")
 	}
 	if err != noRelationFound {
-		return "", err
+		return
 	}
 	// Add the node.
 	path, err := s.zk.Create("/relations/relation-", "", zookeeper.SEQUENCE, zkPermAll)
 	if err != nil {
-		return "", err
+		return
 	}
-	key := strings.Split(path, "/")[2]
-	return key, nil
+	relationKey = strings.Split(path, "/")[2]
+	return
 }
 
 // describeRelation returns a string describing the relation defined by
@@ -313,12 +314,12 @@ func describeRelation(endpoints []RelationEndpoint) string {
 	for _, ep := range endpoints {
 		names = append(names, ep.String())
 	}
-	return fmt.Sprintf("<%s>", strings.Join(names, ", "))
+	return strings.Join(names, " ")
 }
 
 // AddRelation creates a new relation with the given endpoints.
 func (s *State) AddRelation(endpoints ...RelationEndpoint) (err error) {
-	defer errorContextf(&err, "can't add relation %s", describeRelation(endpoints))
+	defer errorContextf(&err, "can't add relation %q", describeRelation(endpoints))
 	key, err := s.addRelationNode(endpoints...)
 	if err != nil {
 		return err
@@ -346,14 +347,17 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (err error) {
 	})
 }
 
-// RemoveRelation removes any extant relation between the given endpoints.
-func (s *State) RemoveRelation(endpoints ...RelationEndpoint) (err error) {
-	defer errorContextf(&err, "can't remove relation %s", describeRelation(endpoints))
-	return retryTopologyChange(s.zk, func(t *topology) error {
+// RemoveRelation removes the relation between the given endpoints.
+func (s *State) RemoveRelation(endpoints ...RelationEndpoint) error {
+	err := retryTopologyChange(s.zk, func(t *topology) error {
 		key, err := t.RelationKey(endpoints...)
 		if err != nil {
 			return err
 		}
 		return t.RemoveRelation(key)
 	})
+	if err != nil {
+		return fmt.Errorf("can't remove relation %q: %s", describeRelation(endpoints), err)
+	}
+	return nil
 }
