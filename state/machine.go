@@ -76,12 +76,14 @@ func (m *Machine) Units() ([]*Unit, error) {
 	for i, key := range keys {
 		units[i], err = m.st.unitFromKey(topology, key)
 		if err != nil {
-			// If UnitsForMachine is returning keys that don't
-			// exist, then something is badly wrong.
-			panic(err)
+			return nil, fmt.Errorf("inconsistent topology: %v", err)
 		}
 	}
 	return units, nil
+}
+
+func (m *Machine) WatchUnits() *MachineUnitsWatcher {
+	return newMachineUnitsWatcher(m)
 }
 
 // SetInstanceId sets the provider specific machine id for this machine.

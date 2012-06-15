@@ -73,6 +73,10 @@ type topoRelationService struct {
 	RelationName string       "relation-name"
 }
 
+func (u *topoUnit) isPrincipal() bool {
+	return u.Principal == ""
+}
+
 // check verifies that r is a proper relation.
 func (r *topoRelation) check() error {
 	if len(r.Interface) == 0 {
@@ -293,7 +297,9 @@ func (t *topology) AddUnit(unitKey, principalKey string) error {
 	if _, ok := svc.Units[unitKey]; ok {
 		return fmt.Errorf("unit %q already in use", unitKey)
 	}
-	svc.Units[unitKey] = &topoUnit{Principal: principalKey}
+	svc.Units[unitKey] = &topoUnit{
+		Principal: principalKey,
+	}
 	return nil
 }
 
@@ -343,7 +349,7 @@ func (t *topology) UnitPrincipalKey(unitKey string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if unit.Principal == "" {
+	if unit.isPrincipal() {
 		return "", unitNotSubordinate
 	}
 	return unit.Principal, nil
@@ -352,12 +358,19 @@ func (t *topology) UnitPrincipalKey(unitKey string) (string, error) {
 // unitNotAssigned indicates that a unit is not assigned to a machine.
 var unitNotAssigned = errors.New("unit not assigned to machine")
 
-// UnitMachineKey returns the key of an assigned machine of the unit. If no machine
-// is assigned the error unitNotAssigned will be returned.
+// UnitMachineKey returns the key of an assigned machine of the unit.
+// If no machine is assigned, the error unitNotAssigned will be returned.
 func (t *topology) UnitMachineKey(unitKey string) (string, error) {
 	_, unit, err := t.serviceAndUnit(unitKey)
 	if err != nil {
 		return "", err
+	}
+	// Find the machine key from the unit's principal if it has one.
+	if !unit.isPrincipal() {
+		_, unit, err = t.serviceAndUnit(unit.Principal)
+		if err != nil {
+			return "", fmt.Errorf("cannot find principal unit: %v", err)
+		}
 	}
 	if unit.Machine == "" {
 		return "", unitNotAssigned
@@ -365,9 +378,10 @@ func (t *topology) UnitMachineKey(unitKey string) (string, error) {
 	return unit.Machine, nil
 }
 
-// AssignUnitToMachine assigns a unit to a machine. It is an error to reassign a 
-// unit that is already assigned, and it is an error to assign a unit of a
-// subordinate service directly to a machine.
+// AssignUnitToMachine assigns a unit and its subordinates to a machine.
+// It is an error to reassign a unit that is already assigned, and it is
+// an error to assign a unit of a subordinate service directly to a
+// machine.
 func (t *topology) AssignUnitToMachine(unitKey, machineKey string) error {
 	_, unit, err := t.serviceAndUnit(unitKey)
 	if err != nil {
@@ -377,7 +391,7 @@ func (t *topology) AssignUnitToMachine(unitKey, machineKey string) error {
 	if err != nil {
 		return err
 	}
-	if unit.Principal != "" {
+	if !unit.isPrincipal() {
 		return errors.New("cannot assign subordinate units directly to machines")
 	}
 	if unit.Machine != "" {
@@ -387,7 +401,8 @@ func (t *topology) AssignUnitToMachine(unitKey, machineKey string) error {
 	return nil
 }
 
-// UnassignUnitFromMachine unassigns the unit from its current machine.
+// UnassignUnitFromMachine unassigns the unit and its subordinates
+// from their current machine.
 func (t *topology) UnassignUnitFromMachine(unitKey string) error {
 	_, unit, err := t.serviceAndUnit(unitKey)
 	if err != nil {
@@ -404,9 +419,19 @@ func (t *topology) UnassignUnitFromMachine(unitKey string) error {
 // have been assigned to the machine, in alphabetical order.
 func (t *topology) UnitsForMachine(machineKey string) []string {
 	var keys []string
+	principals := make(map[string]bool)
 	for _, svc := range t.topology.Services {
 		for key, u := range svc.Units {
-			if u.Machine == machineKey {
+			if u.isPrincipal() && u.Machine == machineKey {
+				keys = append(keys, key)
+				principals[key] = true
+			}
+		}
+	}
+	// Add all subordinate units
+	for _, svc := range t.topology.Services {
+		for key, u := range svc.Units {
+			if !u.isPrincipal() && principals[u.Principal] {
 				keys = append(keys, key)
 			}
 		}
