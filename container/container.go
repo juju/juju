@@ -1,8 +1,15 @@
 package container
+import (
+	"launchpad.net/juju-core/juju/state"
+	"strings"
+	"launchpad.net/juju-core/juju/upstart"
+	"os/exec"
+	"fmt"
+)
 
 // Container contains running juju service units.
 type Container interface {
-	Deploy(unit *state.Unit) error
+	Deploy() error
 	Destroy() error
 }
 
@@ -11,23 +18,40 @@ type Container interface {
 //	name string
 //}
 //
-//func LXC(name string) Container {
+//func LXC(args...) Container {
 //}
 
 type simple struct {
-	name string
+	unit *state.Unit
 }
 
-func Simple(name string) Container {
-	return &simple{name}
+func Simple(unit *state.Unit) Container {
+	return &simple{unit}
 }
 
-func (s *simple) Deploy(u *unit.Unit) error {
-	up := &upstart.Config{
-		Service: upstart.Service {
-			Name:
-		},
-		Desc: "juju unit agent for " + u.Name(),
-		
+func deslash(s string) string {
+	return strings.Replace(s, "/", "-", -1)
+}
+
+func (s *simple) service() *upstart.Service {
+	return upstart.NewService(deslash(s.unit.Name()))
+}
+
+func (s *simple) Deploy() error {
+	exe, err := exec.LookPath("jujud")
+	if err != nil {
+		return fmt.Errorf("cannot find executable: %v", err)
 	}
+	conf := &upstart.Conf {
+		Service: *s.service(),
+		Desc: "juju unit agent for " + s.unit.Name(),
+		Cmd: exe+" unit --unit-name " + s.unit.Name(),
+		// TODO: Out
+	}
+	return conf.Install()
+}
+
+func (s *simple) Destroy() error {
+	// TODO what, if any, directory do we need to delete?
+	return s.service().Remove()
 }
