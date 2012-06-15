@@ -16,7 +16,7 @@ var _ = Suite(&RelationUnitWatcherSuite{})
 
 func (s *RelationUnitWatcherSuite) SetUpSuite(c *C) {
 	s.agentPingerPeriod = agentPingerPeriod
-	agentPingerPeriod = 25 * time.Millisecond
+	agentPingerPeriod = testPingerPeriod
 	st, err := Initialize(&Info{
 		Addrs: []string{TestingZkAddr},
 	})
@@ -32,8 +32,9 @@ func (s *RelationUnitWatcherSuite) TearDownSuite(c *C) {
 }
 
 var (
-	shortTimeout = 50 * time.Millisecond
-	longTimeout  = 125 * time.Millisecond
+	testPingerPeriod = 50 * time.Millisecond
+	shortTimeout     = 2 * testPingerPeriod
+	longTimeout      = 5 * testPingerPeriod
 )
 
 func (s *RelationUnitWatcherSuite) TestRelationUnitWatcher(c *C) {
@@ -94,7 +95,8 @@ func (s *RelationUnitWatcherSuite) TestRelationUnitWatcher(c *C) {
 
 	// Stop updating the presence node; but also slip in a subsequent settings
 	// change, which will still be detected before the absence is detected.
-	pinger.Stop()
+	err = pinger.Stop()
+	c.Assert(err, IsNil)
 	writeSettings("alternative")
 	c.Assert(err, IsNil)
 	waitFor(w, shortTimeout, &relationUnitChange{true, "alternative"})
@@ -114,7 +116,8 @@ func (s *RelationUnitWatcherSuite) TestRelationUnitWatcher(c *C) {
 	c.Assert(err, IsNil)
 	writeSettings("bizarre")
 	waitFor(w, shortTimeout, nil)
-	pinger.Kill()
+	err = pinger.Kill()
+	c.Assert(err, IsNil)
 	waitFor(w, shortTimeout, nil)
 
 	// Start a new pinger; start a new watcher; check event.
@@ -123,7 +126,8 @@ func (s *RelationUnitWatcherSuite) TestRelationUnitWatcher(c *C) {
 	waitFor(w, shortTimeout, &relationUnitChange{true, "bizarre"})
 	err = w.Stop()
 	c.Assert(err, IsNil)
-	pinger.Kill()
+	err = pinger.Kill()
+	c.Assert(err, IsNil)
 
 	// Final check that no spurious changes have been sent.
 	waitFor(w, shortTimeout, nil)

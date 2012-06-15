@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju-core/juju/log"
 	"launchpad.net/juju-core/juju/state/presence"
 	"launchpad.net/juju-core/juju/state/watcher"
 	"launchpad.net/tomb"
@@ -373,6 +374,110 @@ func (w *MachinesWatcher) loop() {
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- mc:
+			}
+		}
+	}
+}
+
+type MachineUnitsWatcher struct {
+	st         *State
+	machine    *Machine
+	tomb       tomb.Tomb
+	changeChan chan *MachineUnitsChange
+	watcher    *watcher.ContentWatcher
+}
+
+type MachineUnitsChange struct {
+	Added, Deleted []*Unit
+}
+
+// newMachinesWatcher creates and starts a new machine watcher.
+func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
+	w := &MachineUnitsWatcher{
+		st:         m.st,
+		machine:    m,
+		changeChan: make(chan *MachineUnitsChange),
+		watcher:    watcher.NewContentWatcher(m.st.zk, zkTopologyPath),
+	}
+	go w.loop()
+	return w
+}
+
+// Changes returns a channel that will receive changes when
+// units are assigned or unassigned from a machine.
+// The Added field in the first event on the channel holds the initial
+// state as returned by State.AllMachines.
+func (w *MachineUnitsWatcher) Changes() <-chan *MachineUnitsChange {
+	return w.changeChan
+}
+
+// Stop stops the watch and returns any error encountered
+// while watching. This method should always be called
+// before discarding the watcher.
+func (w *MachineUnitsWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	if err := w.watcher.Stop(); err != nil {
+		w.tomb.Wait()
+		return err
+	}
+	return w.tomb.Wait()
+}
+
+// loop is the backend for watching the ports node.
+func (w *MachineUnitsWatcher) loop() {
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+	defer stopWatcher(w.watcher, &w.tomb)
+
+	// knownUnits keeps track of the current units because
+	// when a unit is deleted, we can't create a *Unit from
+	// a key alone.
+	knownUnits := make(map[string]*Unit)
+	var knownUnitKeys []string
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case change, ok := <-w.watcher.Changes():
+			if !ok {
+				w.tomb.Killf("content change channel closed unexpectedly")
+				return
+			}
+			topology, err := parseTopology(change.Content)
+			if err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			currentUnitKeys := topology.UnitsForMachine(w.machine.key)
+			added, deleted := diff(currentUnitKeys, knownUnitKeys), diff(knownUnitKeys, currentUnitKeys)
+			knownUnitKeys = currentUnitKeys
+			if len(added) == 0 && len(deleted) == 0 {
+				// The change was not relevant to this watcher.
+				continue
+			}
+			uc := new(MachineUnitsChange)
+			for _, ukey := range deleted {
+				unit := knownUnits[ukey]
+				if unit == nil {
+					panic("unknown unit deleted: " + ukey)
+				}
+				delete(knownUnits, ukey)
+				uc.Deleted = append(uc.Deleted, unit)
+			}
+			for _, ukey := range added {
+				unit, err := w.st.unitFromKey(topology, ukey)
+				if err != nil {
+					log.Printf("inconsistent topology: %v", err)
+					continue
+				}
+				knownUnits[ukey] = unit
+				uc.Added = append(uc.Added, unit)
+			}
+			select {
+			case <-w.tomb.Dying():
+				return
+			case w.changeChan <- uc:
 			}
 		}
 	}
