@@ -49,7 +49,7 @@ type needsUpgradeNode struct {
 // agentPingerPeriod defines the period of pinging the
 // ZooKeeper to signal that a unit agent is alive. It's
 // also used by machine.
-const (
+var (
 	agentPingerPeriod = 1 * time.Second
 )
 
