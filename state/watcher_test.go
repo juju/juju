@@ -290,6 +290,97 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 	c.Assert(w.Stop(), IsNil)
 }
 
+var watchMachineUnitsTests = []struct {
+	test func(m *state.Machine, units []*state.Unit) error
+	want func(units []*state.Unit) *state.MachineUnitsChange
+}{
+	{
+		func(m *state.Machine, units []*state.Unit) error {
+			return units[0].AssignToMachine(m)
+		},
+		func(units []*state.Unit) *state.MachineUnitsChange {
+			return &state.MachineUnitsChange{Added: []*state.Unit{units[0], units[1]}}
+		},
+	},
+	{
+		func(m *state.Machine, units []*state.Unit) error {
+			return units[2].AssignToMachine(m)
+		},
+		func(units []*state.Unit) *state.MachineUnitsChange {
+			return &state.MachineUnitsChange{Added: []*state.Unit{units[2]}}
+		},
+	},
+	{
+		func(m *state.Machine, units []*state.Unit) error {
+			return units[0].UnassignFromMachine()
+		},
+		func(units []*state.Unit) *state.MachineUnitsChange {
+			return &state.MachineUnitsChange{Deleted: []*state.Unit{units[0], units[1]}}
+		},
+	},
+	{
+		func(m *state.Machine, units []*state.Unit) error {
+			return units[2].UnassignFromMachine()
+		},
+		func(units []*state.Unit) *state.MachineUnitsChange {
+			return &state.MachineUnitsChange{Deleted: []*state.Unit{units[2]}}
+		},
+	},
+}
+
+func (s *StateSuite) TestWatchMachineUnits(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+
+	subCh := addLoggingCharm(c, s.st)
+	logging, err := s.st.AddService("logging", subCh)
+	c.Assert(err, IsNil)
+
+	units := make([]*state.Unit, 3)
+	units[0], err = wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	units[1], err = logging.AddUnitSubordinateTo(units[0])
+	c.Assert(err, IsNil)
+	units[2], err = wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	m, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+
+	w := m.WatchUnits()
+
+	for i, test := range watchMachineUnitsTests {
+		c.Logf("test %d", i)
+		err := test.test(m, units)
+		c.Assert(err, IsNil)
+		want := test.want(units)
+		select {
+		case got, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(unitNames(got.Added), DeepEquals, unitNames(want.Added))
+			c.Assert(unitNames(got.Deleted), DeepEquals, unitNames(want.Deleted))
+		case <-time.After(500 * time.Millisecond):
+			c.Fatalf("didn't get change: %v", want)
+		}
+	}
+
+	select {
+	case got, _ := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	c.Assert(w.Stop(), IsNil)
+}
+
+func unitNames(units []*state.Unit) (s []string) {
+	for _, u := range units {
+		s = append(s, u.Name())
+	}
+	return
+}
+
 type any map[string]interface{}
 
 var environmentWatchTests = []struct {

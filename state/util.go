@@ -237,11 +237,12 @@ func (c *ConfigNode) Delete(key string) {
 // zkRemoveTree recursively removes a zookeeper node and all its
 // children.  It does not delete "/zookeeper" or the root node itself
 // and it does not consider deleting a nonexistent node to be an error.
-func zkRemoveTree(zk *zookeeper.Conn, path string) error {
+func zkRemoveTree(zk *zookeeper.Conn, path string) (err error) {
+	defer errorContextf(&err, "can't clean up data")
 	// If we try to delete the zookeeper node (for example when
 	// calling ZkRemoveTree(zk, "/")) we silently ignore it.
 	if path == "/zookeeper" {
-		return nil
+		return
 	}
 	// First recursively delete the children.
 	children, _, err := zk.Children(path)
@@ -249,11 +250,11 @@ func zkRemoveTree(zk *zookeeper.Conn, path string) error {
 		if zookeeper.IsError(err, zookeeper.ZNONODE) {
 			return nil
 		}
-		return err
+		return
 	}
 	for _, child := range children {
-		if err := zkRemoveTree(zk, pathpkg.Join(path, child)); err != nil {
-			return err
+		if err = zkRemoveTree(zk, pathpkg.Join(path, child)); err != nil {
+			return
 		}
 	}
 	// Now delete the path itself unless it's the root node.
@@ -285,4 +286,13 @@ func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 		}
 	}
 	return keys
+}
+
+// errorContextf prefixes any error stored in err with text formatted
+// according to the format specifier.  If err does not contain an error,
+// errorContextf does nothing.
+func errorContextf(err *error, format string, args ...interface{}) {
+	if *err != nil {
+		*err = errors.New(fmt.Sprintf(format, args...) + ": " + (*err).Error())
+	}
 }

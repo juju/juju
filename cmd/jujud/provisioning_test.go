@@ -98,7 +98,7 @@ func (s *ProvisioningSuite) TestProvisionerStopOnStateClose(c *C) {
 
 	p.st.Close()
 
-	c.Assert(p.Wait(), ErrorMatches, "watcher.*")
-	c.Assert(p.Stop(), ErrorMatches, "watcher.*")
+	c.Assert(p.Wait(), ErrorMatches, "content change channel closed unexpectedly")
+	c.Assert(p.Stop(), ErrorMatches, "content change channel closed unexpectedly")
 
 }
