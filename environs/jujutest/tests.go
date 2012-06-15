@@ -37,6 +37,7 @@ func (t *Tests) TestStartStop(c *C) {
 	insts, err = e.AllInstances()
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 2)
+	c.Assert(insts[0].Id(), Not(Equals), insts[1].Id())
 
 	err = e.StopInstances([]environs.Instance{inst0})
 	c.Assert(err, IsNil)
