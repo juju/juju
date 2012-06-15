@@ -436,7 +436,7 @@ func (s *StateSuite) TestRemoveService(c *C) {
 
 	// Remove of non-existing service.
 	err = s.st.RemoveService(service)
-	c.Assert(err, ErrorMatches, `can't remove service "wordpress": environment state has changed`)
+	c.Assert(err, ErrorMatches, `can't remove service "wordpress": can't get all units from service "wordpress": environment state has changed`)
 }
 
 func (s *StateSuite) TestReadNonExistentService(c *C) {
@@ -602,13 +602,13 @@ func (s *StateSuite) TestReadUnit(c *C) {
 	// Check that retrieving a non-existent or an invalidly
 	// named unit fail nicely.
 	unit, err = wordpress.Unit("wordpress")
-	c.Assert(err, ErrorMatches, `"wordpress" is not a valid unit name`)
+	c.Assert(err, ErrorMatches, `can't get unit "wordpress" from service "wordpress": "wordpress" is not a valid unit name`)
 	unit, err = wordpress.Unit("wordpress/0/0")
-	c.Assert(err, ErrorMatches, `"wordpress/0/0" is not a valid unit name`)
+	c.Assert(err, ErrorMatches, `can't get unit "wordpress/0/0" from service "wordpress": "wordpress/0/0" is not a valid unit name`)
 	unit, err = wordpress.Unit("pressword/0")
-	c.Assert(err, ErrorMatches, `can't find unit "pressword/0" on service "wordpress"`)
+	c.Assert(err, ErrorMatches, `can't get unit "pressword/0" from service "wordpress": unit not found`)
 	unit, err = wordpress.Unit("mysql/0")
-	c.Assert(err, ErrorMatches, `can't find unit "mysql/0" on service "wordpress"`)
+	c.Assert(err, ErrorMatches, `can't get unit "mysql/0" from service "wordpress": unit not found`)
 
 	// Check that retrieving all units works.
 	units, err := wordpress.AllUnits()
@@ -653,7 +653,7 @@ func (s *StateSuite) TestRemoveUnit(c *C) {
 
 	// Check that removing a non-existent unit fails nicely.
 	err = wordpress.RemoveUnit(unit)
-	c.Assert(err, ErrorMatches, "environment state has changed")
+	c.Assert(err, ErrorMatches, `can't remove unit from service "wordpress": environment state has changed`)
 }
 
 func (s *StateSuite) TestGetSetPublicAddress(c *C) {

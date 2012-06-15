@@ -28,6 +28,7 @@ func (s *Service) Name() string {
 // CharmURL returns the charm URL this service is supposed
 // to use.
 func (s *Service) CharmURL() (url *charm.URL, err error) {
+	defer errorContextf(&err, "can't get the charm URL of service %q", s.Name())
 	cn, err := readConfigNode(s.st.zk, s.zkPath())
 	if err != nil {
 		return nil, err
@@ -43,7 +44,8 @@ func (s *Service) CharmURL() (url *charm.URL, err error) {
 }
 
 // SetCharmURL changes the charm URL for the service.
-func (s *Service) SetCharmURL(url *charm.URL) error {
+func (s *Service) SetCharmURL(url *charm.URL) (err error) {
+	defer errorContextf(&err, "can't set the charm URL of service %q", s.Name())
 	cn, err := readConfigNode(s.st.zk, s.zkPath())
 	if err != nil {
 		return err
@@ -67,7 +69,8 @@ func (s *Service) Charm() (*Charm, error) {
 
 // addUnit adds a new unit to the service. If s is a subordinate service,
 // principalKey must be the unit key of some principal unit.
-func (s *Service) addUnit(principalKey string) (*Unit, error) {
+func (s *Service) addUnit(principalKey string) (unit *Unit, err error) {
+	defer errorContextf(&err, "can't add unit to service %q", s.Name())
 	// Get charm id and create ZooKeeper node.
 	url, err := s.CharmURL()
 	if err != nil {
@@ -112,7 +115,7 @@ func (s *Service) AddUnit() (*Unit, error) {
 		return nil, err
 	}
 	if ch.Meta().Subordinate {
-		return nil, fmt.Errorf("cannot directly add units to subordinate service %q", s.name)
+		return nil, fmt.Errorf("cannot directly add units to subordinate service %q", s.Name())
 	}
 	return s.addUnit("")
 }
@@ -138,7 +141,8 @@ func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
 }
 
 // RemoveUnit() removes a unit.
-func (s *Service) RemoveUnit(unit *Unit) error {
+func (s *Service) RemoveUnit(unit *Unit) (err error) {
+	defer errorContextf(&err, "can't remove unit from service %q", s.Name())
 	// First unassign from machine if currently assigned.
 	if err := unit.UnassignFromMachine(); err != nil {
 		return err
@@ -159,14 +163,15 @@ func (s *Service) RemoveUnit(unit *Unit) error {
 }
 
 // Unit returns the service's unit with name.
-func (s *Service) Unit(name string) (*Unit, error) {
+func (s *Service) Unit(name string) (unit *Unit, err error) {
+	defer errorContextf(&err, "can't get unit %q from service %q", name, s.Name())
 	serviceName, serviceId, err := parseUnitName(name)
 	if err != nil {
 		return nil, err
 	}
 	// Check for matching service name.
 	if serviceName != s.name {
-		return nil, fmt.Errorf("can't find unit %q on service %q", name, s.name)
+		return nil, fmt.Errorf("unit not found")
 	}
 	topology, err := readTopology(s.st.zk)
 	if err != nil {
@@ -191,7 +196,8 @@ func (s *Service) Unit(name string) (*Unit, error) {
 }
 
 // AllUnits returns all units of the service.
-func (s *Service) AllUnits() ([]*Unit, error) {
+func (s *Service) AllUnits() (units []*Unit, err error) {
+	defer errorContextf(&err, "can't get all units from service %q", s.Name())
 	topology, err := readTopology(s.st.zk)
 	if err != nil {
 		return nil, err
@@ -204,7 +210,7 @@ func (s *Service) AllUnits() ([]*Unit, error) {
 		return nil, err
 	}
 	// Assemble units.
-	units := []*Unit{}
+	units = []*Unit{}
 	for _, key := range keys {
 		_, tunit, err := topology.serviceAndUnit(key)
 		if err != nil {
@@ -227,7 +233,7 @@ func (s *Service) AllUnits() ([]*Unit, error) {
 func (s *Service) IsExposed() (bool, error) {
 	stat, err := s.st.zk.Exists(s.zkExposedPath())
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("can't check if service %q is exposed: %v", s.Name(), err)
 	}
 	return stat != nil, nil
 }
@@ -237,7 +243,7 @@ func (s *Service) IsExposed() (bool, error) {
 func (s *Service) SetExposed() error {
 	_, err := s.st.zk.Create(s.zkExposedPath(), "", 0, zkPermAll)
 	if err != nil && !zookeeper.IsError(err, zookeeper.ZNODEEXISTS) {
-		return err
+		return fmt.Errorf("can't mark service %q as exposed: %v", s.Name(), err)
 	}
 	return nil
 }
@@ -247,14 +253,18 @@ func (s *Service) SetExposed() error {
 func (s *Service) ClearExposed() error {
 	err := s.st.zk.Delete(s.zkExposedPath(), -1)
 	if err != nil && !zookeeper.IsError(err, zookeeper.ZNONODE) {
-		return err
+		return fmt.Errorf("can't mark service %q as exposed: %v", s.Name(), err)
 	}
 	return nil
 }
 
 // Config returns the configuration node for the service.
-func (s *Service) Config() (*ConfigNode, error) {
-	return readConfigNode(s.st.zk, s.zkConfigPath())
+func (s *Service) Config() (config *ConfigNode, err error) {
+	config, err = readConfigNode(s.st.zk, s.zkConfigPath())
+	if err != nil {
+		return nil, fmt.Errorf("can't get configuration of service %q: %v", s.Name(), err)
+	}
+	return config, nil
 }
 
 // WatchConfig creates a watcher for the configuration node
