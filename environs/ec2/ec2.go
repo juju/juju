@@ -369,23 +369,6 @@ func (e *environ) gatherInstances(ids []string, insts []environs.Instance) error
 	return nil
 }
 
-func (e *environ) AllInstances() ([]environs.Instance, error) {
-	filter := ec2.NewFilter()
-	filter.Add("instance-state-name", "pending", "running")
-	filter.Add("group-name", e.groupName())
-	resp, err := e.ec2().Instances(nil, filter)
-	if err != nil {
-		return nil, err
-	}
-	insts := make([]environs.Instance, 0, 8)
-	for _, r := range resp.Reservations {
-		for i := range r.Instances {
-			insts = append(insts, &instance{e, &r.Instances[i]})
-		}
-	}
-	return insts, nil
-}
-
 func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
@@ -411,6 +394,24 @@ func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
 	}
 	if err != nil {
 		return nil, err
+	}
+	return insts, nil
+}
+
+func (e *environ) AllInstances() ([]environs.Instance, error) {
+	filter := ec2.NewFilter()
+	filter.Add("instance-state-name", "pending", "running")
+	filter.Add("group-name", e.groupName())
+	resp, err := e.ec2().Instances(nil, filter)
+	if err != nil {
+		return nil, err
+	}
+	var insts []environs.Instance
+	for _, r := range resp.Reservations {
+		for i := range r.Instances {
+			inst := r.Instances[i]
+			insts = append(insts, &instance{e, &inst})
+		}
 	}
 	return insts, nil
 }
