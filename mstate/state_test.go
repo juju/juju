@@ -14,8 +14,8 @@ var _ = Suite(&StateSuite{})
 
 type StateSuite struct {
 	MgoSuite
-	st *state.State
-	session *mgo.Session
+	st       *state.State
+	session  *mgo.Session
 	machines *mgo.Collection
 }
 
@@ -93,7 +93,7 @@ func (s *StateSuite) TestMachineInstanceId(c *C) {
 	c.Assert(err, IsNil)
 	err = s.machines.Update(bson.D{{"_id", bson.ObjectIdHex(machine.Id())}}, bson.D{{"instanceid", "spaceship/0"}})
 	c.Assert(err, IsNil)
-	
+
 	iid, err := machine.InstanceId()
 	c.Assert(err, IsNil)
 	c.Assert(iid, Equals, "spaceship/0")
