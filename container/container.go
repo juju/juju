@@ -56,5 +56,3 @@ func (s *simple) Destroy() error {
 	// TODO what, if any, directory do we need to delete?
 	return s.service().Remove()
 }
-
-
