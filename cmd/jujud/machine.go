@@ -101,7 +101,7 @@ func (m *Machiner) Wait() error {
 	return m.tomb.Wait()
 }
 
-func (m *Machiner) Stop() {
+func (m *Machiner) Stop() error {
 	m.tomb.Kill(nil)
 	return m.tomb.Wait()
 }
