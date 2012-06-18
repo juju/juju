@@ -52,6 +52,9 @@ func (s *ProvisioningSuite) TearDownTest(c *C) {
 	s.zkConn.Close()
 }
 
+// invalidateEnvironment alters the environment configuration
+// so the ConfigNode returned from the watcher will not pass
+// validation.
 func (s *ProvisioningSuite) invalidateEnvironment() error {
 	env, err := s.st.EnvironConfig()
 	if err != nil {
@@ -62,6 +65,7 @@ func (s *ProvisioningSuite) invalidateEnvironment() error {
 	return err
 }
 
+// fixEnvironment undoes the work of invalidateEnvironment.
 func (s *ProvisioningSuite) fixEnvironment() error {
 	env, err := s.st.EnvironConfig()
 	if err != nil {
@@ -76,27 +80,52 @@ func (s *ProvisioningSuite) stopProvisioner(c *C, p *Provisioner) {
 	c.Assert(p.Stop(), IsNil)
 }
 
-// checkStartInstance checks that a machine has been started.
+// checkStartInstance checks that an instace has been started.
 func (s *ProvisioningSuite) checkStartInstance(c *C, op <-chan dummy.Operation) {
-	// use the non fatal variants to avoid leaking 
-	// provisioners.	
+	// use the non fatal variants to avoid leaking provisioners.	
 	select {
 	case o := <-op:
-		c.Check(o.Kind, Equals, dummy.OpStartInstance)
+		switch o.Kind {
+		case dummy.OpStartInstance:
+			return
+		default:
+			// ignore
+		}
 	case <-time.After(3 * time.Second):
-		c.Errorf("ProvisioningAgent did not action AddMachine after 3 second")
+		c.Errorf("provisioner did not start an instance")
 	}
 }
 
-// checkStopInstance checks that a machine has been stopped.
+// checkNotStartInstance checks that an instance was not started
+func (s *ProvisioningSuite) checkNotStartInstance(c *C, op <-chan dummy.Operation) {
+	for {
+		select {
+		case o := <-op:
+			switch o.Kind {
+			case dummy.OpStartInstance:
+				c.Errorf("instance started: %v", o)
+			default:
+				// ignore	
+			}
+		case <-time.After(200 * time.Millisecond):
+			return
+		}
+	}
+}
+
+// checkStopInstance checks that an instance has been stopped.
 func (s *ProvisioningSuite) checkStopInstance(c *C, op <-chan dummy.Operation) {
-	// use the non fatal variants to avoid leaking 
-	// provisioners.	
+	// use the non fatal variants to avoid leaking provisioners.	
 	select {
 	case o := <-op:
-		c.Check(o.Kind, Equals, dummy.OpStopInstances)
+		switch o.Kind {
+		case dummy.OpStopInstances:
+			return
+		default:
+			//ignore 
+		}
 	case <-time.After(3 * time.Second):
-		c.Errorf("ProvisioningAgent did not action RmoveMachine after 3 second")
+		c.Errorf("provisioner did not stop an instance")
 	}
 }
 
@@ -189,12 +218,7 @@ func (s *ProvisioningSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment
 	c.Assert(err, IsNil)
 
 	// the PA should not create it
-	select {
-	case <-op:
-		c.Errorf("provisioner started an instance")
-	case <-time.After(1 * time.Second):
-
-	}
+	s.checkNotStartInstance(c, op)
 }
 
 func (s *ProvisioningSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {
@@ -213,12 +237,7 @@ func (s *ProvisioningSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {
 	c.Assert(err, IsNil)
 
 	// the PA should not create it
-	select {
-	case <-op:
-		c.Errorf("provisioner started an instance")
-	case <-time.After(1 * time.Second):
-
-	}
+	s.checkNotStartInstance(c, op)
 
 	err = s.fixEnvironment()
 	c.Assert(err, IsNil)
@@ -278,11 +297,8 @@ func (s *ProvisioningSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterR
 	c.Check(machines[0].Id(), Equals, 0)
 
 	// the PA should not create it a second time
-	select {
-	case o := <-op:
-		c.Errorf("provisioner started an instance: %v", o)
-	case <-time.After(1 * time.Second):
-	}
+	s.checkNotStartInstance(c, op)
+
 	c.Assert(p.Stop(), IsNil)
 }
 
