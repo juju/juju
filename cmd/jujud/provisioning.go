@@ -162,7 +162,7 @@ func (p *Provisioner) processMachines(changes *state.MachinesChange) error {
 	}
 
 	// step 2. start an instance for any machines we found.
-	if _, err := p.startMachines(notstarted); err != nil {
+	if err := p.startMachines(notstarted); err != nil {
 		return err
 	}
 
@@ -176,15 +176,16 @@ func (p *Provisioner) processMachines(changes *state.MachinesChange) error {
 	// associated with them.
 	unknown, err := p.findUnknownInstances()
 
+	stopping = append(stopping, unknown...)
 	// although calling StopInstance with an empty slice should produce no change in the 
 	// provider, environs like dummy do not consider this a noop.
 	if len(stopping) > 0 {
-		return p.environ.StopInstances(append(stopping, unknown...))
+		return p.environ.StopInstances(stopping)
 	}
 	return nil
 }
 
-// findUnknownInstances finds instances which are not associated with supplied list of machines.
+// findUnknownInstances finds instances which are not associated with a machine.
 func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 	all, err := p.environ.AllInstances()
 	if err != nil {
@@ -195,16 +196,21 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 		instances[i.Id()] = i
 	}
 	machines, err := p.st.AllMachines()
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	for _, m := range machines {
 		id, err := m.InstanceId()
-		if err != nil { return nil, err }
-		if _, ok := instances[id]; ok { delete(instances, id) }
+		if err != nil {
+			return nil, err
+		}
+		delete(instances, id)
 	}
 	var unknown []environs.Instance
 	for _, i := range instances {
 		unknown = append(unknown, i)
 	}
+	fmt.Println("unknown", unknown)
 	return unknown, nil
 }
 
@@ -225,15 +231,13 @@ func (p *Provisioner) findNotStarted(machines []*state.Machine) ([]*state.Machin
 	return notstarted, nil
 }
 
-func (p *Provisioner) startMachines(machines []*state.Machine) ([]*state.Machine, error) {
-	var started []*state.Machine
+func (p *Provisioner) startMachines(machines []*state.Machine) error {
 	for _, m := range machines {
 		if err := p.startMachine(m); err != nil {
-			return nil, err
+			return err
 		}
-		started = append(started, m)
 	}
-	return started, nil
+	return nil
 }
 
 func (p *Provisioner) startMachine(m *state.Machine) error {
@@ -260,7 +264,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 }
 
 func (p *Provisioner) stopInstances(instances []environs.Instance) error {
-	// although calling StopInstance with an empty slice should produce no change in the 
+	// Although calling StopInstance with an empty slice should produce no change in the 
 	// provider, environs like dummy do not consider this a noop.
 	if len(instances) == 0 {
 		return nil
