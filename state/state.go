@@ -277,20 +277,21 @@ func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	if valid, err := u.IsPrincipal(); err != nil {
 		return err
 	} else if !valid {
-		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u.Name())
+		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
+	defer errorContextf(&err, "can't assign unit %q to machine", u)
 	var m *Machine
 	switch policy {
 	case AssignLocal:
 		if m, err = s.Machine(0); err != nil {
-			return
+			return err
 		}
 	case AssignUnused:
 		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
-			return
+			return err
 		}
 		if m, err = s.AddMachine(); err != nil {
-			return
+			return err
 		}
 	default:
 		panic(fmt.Errorf("unknown unit assignment policy: %q", policy))
@@ -298,134 +299,94 @@ func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	return u.AssignToMachine(m)
 }
 
-// addRelationNode creates the relation node.
-func (s *State) addRelationNode(scope RelationScope) (string, error) {
-	path, err := s.zk.Create("/relations/relation-", "", zookeeper.SEQUENCE, zkPermAll)
-	if err != nil {
-		return "", err
-	}
-	relationKey := strings.Split(path, "/")[2]
-	// Create the settings node only if the scope is global.
-	// In case of container scoped relations the creation per
-	// container occurs in ServiceRelation.AddUnit.
-	if scope == ScopeGlobal {
-		_, err = s.zk.Create(path+"/settings", "", 0, zkPermAll)
-		if err != nil {
-			return "", err
-		}
-	}
-	return relationKey, nil
-}
-
-// addRelationEndpointNode creates the endpoint role node below its relation node 
-// for the given relation endpoint.
-func (s *State) addRelationEndpointNode(relationKey string, endpoint RelationEndpoint) error {
-	path := fmt.Sprintf("/relations/%s/%s", relationKey, string(endpoint.RelationRole))
-	_, err := s.zk.Create(path, "", 0, zkPermAll)
-	return err
-}
-
-// AddRelation creates a new relation with the given endpoints.  
-func (s *State) AddRelation(endpoints ...RelationEndpoint) (rel *Relation, svcrels []*ServiceRelation, err error) {
+// addRelationNode creates the node for the relation represented by the
+// given endpoints, and returns the node name to be used as a relation key.
+// The provided endpoints are validated before the relation node is created.
+func (s *State) addRelationNode(endpoints ...RelationEndpoint) (relationKey string, err error) {
 	switch len(endpoints) {
 	case 1:
 		if endpoints[0].RelationRole != RolePeer {
-			return nil, nil, fmt.Errorf("can't add non-peer relation with a single service")
+			return "", fmt.Errorf("single endpoint must be a peer relation")
 		}
 	case 2:
 		if !endpoints[0].CanRelateTo(&endpoints[1]) {
-			return nil, nil, fmt.Errorf("can't add relation between %s and %s", endpoints[0], endpoints[1])
+			return "", fmt.Errorf("endpoints do not relate")
 		}
 	default:
-		return nil, nil, fmt.Errorf("can't add relations between %d services", len(endpoints))
+		return "", fmt.Errorf("can't relate %d endpoints", len(endpoints))
 	}
-	defer errorContextf(&err, "can't add relation")
 	t, err := readTopology(s.zk)
 	if err != nil {
 		return
 	}
 	// Check if the relation already exists.
-	relationKey, err := t.RelationKey(endpoints...)
-	if err != nil {
-		if _, ok := err.(*NoRelationError); !ok {
-			return
-		}
+	_, err = t.RelationKey(endpoints...)
+	if err == nil {
+		return "", fmt.Errorf("relation already exists")
 	}
-	if relationKey != "" {
-		return nil, nil, fmt.Errorf("relation already exists")
+	if err != noRelationFound {
+		return
 	}
-	scope := ScopeGlobal
-	for _, endpoint := range endpoints {
-		if endpoint.RelationScope == ScopeContainer {
-			scope = ScopeContainer
-			break
-		}
-	}
-	// Add a new relation node depending on the scope. Afterwards
-	// create a node and a service relation per endpoint.
-	relationKey, err = s.addRelationNode(scope)
-	if err != nil {
-		return nil, nil, err
-	}
-	serviceRelations := []*ServiceRelation{}
-	for _, endpoint := range endpoints {
-		serviceKey, err := t.ServiceKey(endpoint.ServiceName)
-		if err != nil {
-			return nil, nil, err
-		}
-		// The relation endpoint node is only created if the scope is 
-		// global. In case of container scoped relations the creation 
-		// per container occurs in ServiceRelation.AddUnit.
-		if scope == ScopeGlobal {
-			if err = s.addRelationEndpointNode(relationKey, endpoint); err != nil {
-				return nil, nil, err
-			}
-		}
-		serviceRelations = append(serviceRelations, &ServiceRelation{
-			st:            s,
-			relationKey:   relationKey,
-			serviceKey:    serviceKey,
-			relationScope: endpoint.RelationScope,
-			relationRole:  endpoint.RelationRole,
-			relationName:  endpoint.RelationName,
-		})
-	}
-	// Add relation to topology.
-	addRelation := func(t *topology) error {
-		relation := &topoRelation{
-			Interface: endpoints[0].Interface,
-			Scope:     scope,
-			Services:  map[string]*topoRelationService{},
-		}
-		for _, serviceRelation := range serviceRelations {
-			if !t.HasService(serviceRelation.serviceKey) {
-				return fmt.Errorf("state for service %q has changed", serviceRelation.serviceKey)
-			}
-			service := &topoRelationService{
-				RelationRole: serviceRelation.RelationRole(),
-				RelationName: serviceRelation.RelationName(),
-			}
-			relation.Services[serviceRelation.serviceKey] = service
-		}
-		return t.AddRelation(relationKey, relation)
-	}
-	err = retryTopologyChange(s.zk, addRelation)
+	// Add the node.
+	path, err := s.zk.Create("/relations/relation-", "", zookeeper.SEQUENCE, zkPermAll)
 	if err != nil {
 		return
 	}
-	return &Relation{s, relationKey}, serviceRelations, nil
+	relationKey = strings.Split(path, "/")[2]
+	return
 }
 
-// RemoveRelation removes the relation.
-func (s *State) RemoveRelation(relation *Relation) error {
-	removeRelation := func(t *topology) error {
-		if _, err := t.Relation(relation.key); err != nil {
+// describeRelation returns a string describing the relation defined by
+// endpoints, for use in error messages.
+func describeRelation(endpoints []RelationEndpoint) string {
+	names := []string{}
+	for _, ep := range endpoints {
+		names = append(names, ep.String())
+	}
+	return strings.Join(names, " ")
+}
+
+// AddRelation creates a new relation with the given endpoints.
+func (s *State) AddRelation(endpoints ...RelationEndpoint) (err error) {
+	defer errorContextf(&err, "can't add relation %q", describeRelation(endpoints))
+	key, err := s.addRelationNode(endpoints...)
+	if err != nil {
+		return err
+	}
+	return retryTopologyChange(s.zk, func(t *topology) error {
+		relation := &topoRelation{
+			Interface: endpoints[0].Interface,
+			Scope:     ScopeGlobal,
+			Services:  map[string]*topoRelationService{},
+		}
+		for _, endpoint := range endpoints {
+			if endpoint.RelationScope == ScopeContainer {
+				relation.Scope = ScopeContainer
+			}
+			serviceKey, err := t.ServiceKey(endpoint.ServiceName)
+			if err != nil {
+				return err
+			}
+			relation.Services[serviceKey] = &topoRelationService{
+				RelationRole: endpoint.RelationRole,
+				RelationName: endpoint.RelationName,
+			}
+		}
+		return t.AddRelation(key, relation)
+	})
+}
+
+// RemoveRelation removes the relation between the given endpoints.
+func (s *State) RemoveRelation(endpoints ...RelationEndpoint) error {
+	err := retryTopologyChange(s.zk, func(t *topology) error {
+		key, err := t.RelationKey(endpoints...)
+		if err != nil {
 			return err
 		}
-		return t.RemoveRelation(relation.key)
-	}
-	if err := retryTopologyChange(s.zk, removeRelation); err != nil {
-		return fmt.Errorf("can't remove relation: %v", err)
+		return t.RemoveRelation(key)
+	})
+	if err != nil {
+		return fmt.Errorf("can't remove relation %q: %s", describeRelation(endpoints), err)
 	}
 	return nil
 }
