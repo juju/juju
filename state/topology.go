@@ -69,11 +69,6 @@ func (r *topoRelation) check() error {
 	if len(r.Services) == 0 {
 		return fmt.Errorf("relation has no services")
 	}
-	counterpart := map[RelationRole]RelationRole{
-		RoleRequirer: RoleProvider,
-		RoleProvider: RoleRequirer,
-		RolePeer:     RolePeer,
-	}
 	for serviceKey, service := range r.Services {
 		if serviceKey == "" {
 			return fmt.Errorf("relation has service with empty key")
@@ -81,10 +76,7 @@ func (r *topoRelation) check() error {
 		if service.RelationName == "" {
 			return fmt.Errorf("relation has %s service with empty relation name", service.RelationRole)
 		}
-		counterRole, ok := counterpart[service.RelationRole]
-		if !ok {
-			return fmt.Errorf("relation has unknown service role: %q", service.RelationRole)
-		}
+		counterRole := service.RelationRole.CounterpartRole()
 		if !r.hasServiceWithRole(counterRole) {
 			return fmt.Errorf("relation has %s but no %s", service.RelationRole, counterRole)
 		}
