@@ -171,7 +171,7 @@ func (s *ProvisioningSuite) checkMachineIdNotSet(c *C, m *state.Machine) {
 			return
 		}
 	}
-	c.Errorf("provisioner did not set machine.InstanceId")
+	c.Errorf("provisioner did not clear machine.InstanceId")
 }
 
 func (s *ProvisioningSuite) TestParseSuccess(c *C) {
