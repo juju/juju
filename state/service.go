@@ -221,7 +221,8 @@ func (s *Service) AllUnits() ([]*Unit, error) {
 }
 
 // Relations returns a ServiceRelation for every relation the service is in.
-func (s *Service) Relations() (serviceRelation []*ServiceRelation, err error) {
+func (s *Service) Relations() ([]*ServiceRelation, error) {
+	var err error
 	defer errorContextf(&err, "can't get relations for service %q", s.name)
 	t, err := readTopology(s.st.zk)
 	if err != nil {
