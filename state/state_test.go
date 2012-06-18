@@ -434,7 +434,7 @@ func (s *StateSuite) TestRemoveService(c *C) {
 	_, err = s.st.Service("wordpress")
 	c.Assert(err, ErrorMatches, `can't get service "wordpress": service with name "wordpress" not found`)
 
-	// Remove of non-existing service.
+	// Remove of an illegal service, it has already been removed.
 	err = s.st.RemoveService(service)
 	c.Assert(err, ErrorMatches, `can't remove service "wordpress": can't get all units from service "wordpress": environment state has changed`)
 }
@@ -546,7 +546,7 @@ func (s *StateSuite) TestAddUnit(c *C) {
 
 	// Check that principal units cannot be added to principal units.
 	_, err = wordpress.AddUnitSubordinateTo(unitZero)
-	c.Assert(err, ErrorMatches, "cannot make a principal unit subordinate to another unit")
+	c.Assert(err, ErrorMatches, `can't add unit of principal service "wordpress" as a subordinate of "wordpress/0"`)
 
 	// Assign the principal unit to a machine.
 	m, err := s.st.AddMachine()
@@ -653,7 +653,7 @@ func (s *StateSuite) TestRemoveUnit(c *C) {
 
 	// Check that removing a non-existent unit fails nicely.
 	err = wordpress.RemoveUnit(unit)
-	c.Assert(err, ErrorMatches, `can't remove unit from service "wordpress": environment state has changed`)
+	c.Assert(err, ErrorMatches, `can't unassign unit "wordpress/0" from machine: environment state has changed`)
 }
 
 func (s *StateSuite) TestGetSetPublicAddress(c *C) {
@@ -734,7 +734,7 @@ func (s *StateSuite) TestUnassignUnitFromMachineWithoutBeingAssigned(c *C) {
 	c.Assert(err, IsNil)
 	unit = units[0]
 	_, err = unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `unit not assigned to machine`)
+	c.Assert(err, ErrorMatches, `can't get machine id of unit "wordpress/0": unit not assigned to machine`)
 }
 
 func (s *StateSuite) TestAssignUnitToMachineAgainFails(c *C) {
@@ -760,7 +760,7 @@ func (s *StateSuite) TestAssignUnitToMachineAgainFails(c *C) {
 
 	// Assigning the unit to a different machine should fail.
 	err = unit.AssignToMachine(machineTwo)
-	c.Assert(err, ErrorMatches, `unit "wordpress/0" already assigned to machine 0`)
+	c.Assert(err, ErrorMatches, `can't assign unit "wordpress/0" to machine 1: unit already assigned to machine 0`)
 
 	machineId, err := unit.AssignedMachineId()
 	c.Assert(err, IsNil)
@@ -785,17 +785,17 @@ func (s *StateSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 	c.Assert(err, IsNil)
 
 	err = unit.UnassignFromMachine()
-	c.Assert(err, ErrorMatches, "environment state has changed")
+	c.Assert(err, ErrorMatches, `can't unassign unit "wordpress/0" from machine: environment state has changed`)
 	_, err = unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, "environment state has changed")
+	c.Assert(err, ErrorMatches, `can't get machine id of unit "wordpress/0": environment state has changed`)
 
 	err = s.st.RemoveService(wordpress)
 	c.Assert(err, IsNil)
 
 	err = unit.UnassignFromMachine()
-	c.Assert(err, ErrorMatches, "environment state has changed")
+	c.Assert(err, ErrorMatches, `can't unassign unit "wordpress/0" from machine: environment state has changed`)
 	_, err = unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, "environment state has changed")
+	c.Assert(err, ErrorMatches, `can't get machine id of unit "wordpress/0": environment state has changed`)
 }
 
 func (s *StateSuite) TestAssignUnitToUnusedMachine(c *C) {
@@ -851,7 +851,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingService(c *C) {
 	c.Assert(err, IsNil)
 
 	_, err = wordpressUnit.AssignToUnusedMachine()
-	c.Assert(err, ErrorMatches, "environment state has changed")
+	c.Assert(err, ErrorMatches, `can't assign unit "wordpress/0" to unused machine: environment state has changed`)
 }
 
 func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingUnit(c *C) {
@@ -880,7 +880,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingUnit(c *C) {
 	c.Assert(err, IsNil)
 
 	_, err = wordpressUnit.AssignToUnusedMachine()
-	c.Assert(err, ErrorMatches, "environment state has changed")
+	c.Assert(err, ErrorMatches, `can't assign unit "wordpress/0" to unused machine: environment state has changed`)
 }
 
 func (s *StateSuite) TestAssignUnitToUnusedMachineOnlyZero(c *C) {
@@ -895,7 +895,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineOnlyZero(c *C) {
 	c.Assert(err, IsNil)
 
 	_, err = wordpressUnit.AssignToUnusedMachine()
-	c.Assert(err, ErrorMatches, "no unused machine found")
+	c.Assert(err, ErrorMatches, `all machines in use`)
 }
 
 func (s *StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
@@ -919,7 +919,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 	c.Assert(err, IsNil)
 
 	_, err = wordpressUnit.AssignToUnusedMachine()
-	c.Assert(err, ErrorMatches, "no unused machine found")
+	c.Assert(err, ErrorMatches, `all machines in use`)
 }
 
 func (s *StateSuite) TestAssignSubsidiariesToMachine(c *C) {
@@ -958,9 +958,9 @@ func (s *StateSuite) TestAssignSubsidiariesToMachine(c *C) {
 	err = mysqlUnit.UnassignFromMachine()
 	c.Assert(err, IsNil)
 	_, err = log1Unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, "unit not assigned to machine")
+	c.Assert(err, ErrorMatches, `can't get machine id of unit "logging1/0": unit not assigned to machine`)
 	_, err = log2Unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, "unit not assigned to machine")
+	c.Assert(err, ErrorMatches, `can't get machine id of unit "logging2/0": unit not assigned to machine`)
 }
 
 func (s *StateSuite) TestAssignUnit(c *C) {
@@ -1087,7 +1087,7 @@ func (s *StateSuite) TestGetSetClearUnitUpgrade(c *C) {
 
 	// Can't be set multipe with different force flag.
 	err = unit.SetNeedsUpgrade(false)
-	c.Assert(err, ErrorMatches, `upgrade already enabled for unit "wordpress/0"`)
+	c.Assert(err, ErrorMatches, `can't inform unit "wordpress/0" about upgrade: upgrade already enabled`)
 }
 
 func (s *StateSuite) TestGetSetClearResolved(c *C) {
@@ -1105,7 +1105,7 @@ func (s *StateSuite) TestGetSetClearResolved(c *C) {
 	err = unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, IsNil)
 	err = unit.SetResolved(state.ResolvedNoHooks)
-	c.Assert(err, ErrorMatches, `unit "wordpress/0" resolved flag already set`)
+	c.Assert(err, ErrorMatches, `can't set resolved mode for unit "wordpress/0": flag already set`)
 	retry, err := unit.Resolved()
 	c.Assert(err, IsNil)
 	c.Assert(retry, Equals, state.ResolvedNoHooks)
@@ -1119,7 +1119,7 @@ func (s *StateSuite) TestGetSetClearResolved(c *C) {
 	c.Assert(err, IsNil)
 
 	err = unit.SetResolved(state.ResolvedMode(999))
-	c.Assert(err, ErrorMatches, `invalid error resolution mode: 999`)
+	c.Assert(err, ErrorMatches, `can't set resolved mode for unit "wordpress/0": invalid error resolution mode: 999`)
 }
 
 func (s *StateSuite) TestGetOpenPorts(c *C) {
@@ -1219,7 +1219,7 @@ func (s *StateSuite) TestUnitWaitAgentAlive(c *C) {
 	c.Assert(alive, Equals, false)
 
 	err = unit.WaitAgentAlive(timeout)
-	c.Assert(err, ErrorMatches, `state: waiting for agent of unit "wordpress/0": presence: still not alive after timeout`)
+	c.Assert(err, ErrorMatches, `waiting for agent of unit "wordpress/0": presence: still not alive after timeout`)
 
 	pinger, err := unit.SetAgentAlive()
 	c.Assert(err, IsNil)
@@ -1239,121 +1239,123 @@ func (s *StateSuite) TestUnitWaitAgentAlive(c *C) {
 	c.Assert(alive, Equals, false)
 }
 
-func (s *StateSuite) TestAddRelation(c *C) {
-	dummy := s.addDummyCharm(c)
-	// Provider and requirer.
-	s.st.AddService("mysqldb", dummy)
-	s.st.AddService("wordpress", dummy)
-	mysqlep := state.RelationEndpoint{"mysqldb", "blog", "db", state.RoleProvider, state.ScopeGlobal}
-	blogep := state.RelationEndpoint{"wordpress", "blog", "db", state.RoleRequirer, state.ScopeGlobal}
-	relation, serviceRelations, err := s.st.AddRelation(blogep, mysqlep)
+func assertNoRelations(c *C, srv *state.Service) {
+	rels, err := srv.Relations()
 	c.Assert(err, IsNil)
-	c.Assert(relation, NotNil)
-	c.Assert(serviceRelations, HasLen, 2)
-	c.Assert(serviceRelations[0].RelationScope(), Equals, state.ScopeGlobal)
-	c.Assert(serviceRelations[0].RelationRole(), Equals, state.RoleRequirer)
-	c.Assert(serviceRelations[1].RelationScope(), Equals, state.ScopeGlobal)
-	c.Assert(serviceRelations[1].RelationRole(), Equals, state.RoleProvider)
-	c.Assert(serviceRelations[0].RelationName(), Equals, serviceRelations[1].RelationName())
-	// Peer.
-	s.st.AddService("riak", dummy)
-	riakep := state.RelationEndpoint{"riak", "ring", "cache", state.RolePeer, state.ScopeGlobal}
-	relation, serviceRelations, err = s.st.AddRelation(riakep)
-	c.Assert(err, IsNil)
-	c.Assert(relation, NotNil)
-	c.Assert(serviceRelations, HasLen, 1)
-	c.Assert(serviceRelations[0].RelationScope(), Equals, state.ScopeGlobal)
-	c.Assert(serviceRelations[0].RelationRole(), Equals, state.RolePeer)
-	c.Assert(serviceRelations[0].RelationName(), Equals, "cache")
+	c.Assert(rels, HasLen, 0)
 }
 
-func (s *StateSuite) TestServiceRelationRelation(c *C) {
+func (s *StateSuite) TestAddRelationErrors(c *C) {
 	dummy := s.addDummyCharm(c)
-	s.st.AddService("riak", dummy)
-	riakep := state.RelationEndpoint{"riak", "ring", "cache", state.RolePeer, state.ScopeGlobal}
-	relation, serviceRelations, err := s.st.AddRelation(riakep)
+	req, err := s.st.AddService("req", dummy)
 	c.Assert(err, IsNil)
-	c.Assert(relation, NotNil)
-	c.Assert(serviceRelations, HasLen, 1)
-	ok, err := state.HasRelation(s.st, serviceRelations[0].Relation())
+	reqep := state.RelationEndpoint{"req", "ifce", "bar", state.RoleRequirer, state.ScopeGlobal}
+
+	// Check we can't add a relation until both services exist.
+	proep := state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, state.ScopeGlobal}
+	err = s.st.AddRelation(proep, reqep)
+	c.Assert(err, ErrorMatches, `can't add relation "pro:foo req:bar": service with name "pro" not found`)
+	assertNoRelations(c, req)
+	pro, err := s.st.AddService("pro", dummy)
 	c.Assert(err, IsNil)
-	c.Assert(ok, Equals, true)
-	// Negative test.
-	err = s.st.RemoveRelation(relation)
+
+	// Check that interfaces have to match.
+	proep2 := state.RelationEndpoint{"pro", "other", "foo", state.RoleProvider, state.ScopeGlobal}
+	err = s.st.AddRelation(proep2, reqep)
+	c.Assert(err, ErrorMatches, `can't add relation "pro:foo req:bar": endpoints do not relate`)
+	assertNoRelations(c, pro)
+	assertNoRelations(c, req)
+
+	// Check a variety of surprising endpoint combinations.
+	err = s.st.AddRelation(reqep)
+	c.Assert(err, ErrorMatches, `can't add relation "req:bar": single endpoint must be a peer relation`)
+	assertNoRelations(c, req)
+
+	peer, err := s.st.AddService("peer", dummy)
 	c.Assert(err, IsNil)
-	_, err = state.HasRelation(s.st, serviceRelations[0].Relation())
-	c.Assert(err, ErrorMatches, `relation "relation-0000000000" does not exist`)
+	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, state.ScopeGlobal}
+	err = s.st.AddRelation(peerep, reqep)
+	c.Assert(err, ErrorMatches, `can't add relation "peer:baz req:bar": endpoints do not relate`)
+	assertNoRelations(c, peer)
+	assertNoRelations(c, req)
+
+	err = s.st.AddRelation(peerep, peerep)
+	c.Assert(err, ErrorMatches, `can't add relation "peer:baz peer:baz": endpoints do not relate`)
+	assertNoRelations(c, peer)
+
+	err = s.st.AddRelation()
+	c.Assert(err, ErrorMatches, `can't add relation "": can't relate 0 endpoints`)
+	err = s.st.AddRelation(proep, reqep, peerep)
+	c.Assert(err, ErrorMatches, `can't add relation "pro:foo req:bar peer:baz": can't relate 3 endpoints`)
 }
 
-func (s *StateSuite) TestAddRelationMissingService(c *C) {
-	dummy := s.addDummyCharm(c)
-	s.st.AddService("mysqldb", dummy)
-	mysqlep := state.RelationEndpoint{"mysqldb", "blog", "db", state.RoleProvider, state.ScopeGlobal}
-	blogep := state.RelationEndpoint{"wordpress", "blog", "db", state.RoleRequirer, state.ScopeGlobal}
-	_, _, err := s.st.AddRelation(blogep, mysqlep)
-	c.Assert(err, ErrorMatches, `can't add relation: service with name "wordpress" not found`)
-}
-
-func (s *StateSuite) TestAddRelationMissingEndpoint(c *C) {
-	dummy := s.addDummyCharm(c)
-	s.st.AddService("mysqldb", dummy)
-	mysqlep := state.RelationEndpoint{"mysqldb", "blog", "db", state.RoleProvider, state.ScopeGlobal}
-	_, _, err := s.st.AddRelation(mysqlep)
-	c.Assert(err, ErrorMatches, `can't add non-peer relation with a single service`)
-}
-
-func (s *StateSuite) TestAddClientServerDifferentRoles(c *C) {
-	dummy := s.addDummyCharm(c)
-	s.st.AddService("mysqldb", dummy)
-	s.st.AddService("riak", dummy)
-	mysqlep := state.RelationEndpoint{"mysqldb", "ifce", "db", state.RoleRequirer, state.ScopeGlobal}
-	riakep := state.RelationEndpoint{"riak", "ring", "cache", state.RolePeer, state.ScopeGlobal}
-	_, _, err := s.st.AddRelation(mysqlep, riakep)
-	c.Assert(err, ErrorMatches, `can't add relation between mysqldb:db and riak:cache`)
-}
-
-func (s *StateSuite) TestAddRelationDifferentInterfaces(c *C) {
-	dummy := s.addDummyCharm(c)
-	s.st.AddService("mysqldb", dummy)
-	s.st.AddService("wordpress", dummy)
-	mysqlep := state.RelationEndpoint{"mysqldb", "ifce-a", "db", state.RoleProvider, state.ScopeGlobal}
-	blogep := state.RelationEndpoint{"wordpress", "ifce-b", "db", state.RoleRequirer, state.ScopeGlobal}
-	_, _, err := s.st.AddRelation(blogep, mysqlep)
-	c.Assert(err, ErrorMatches, `can't add relation between wordpress:db and mysqldb:db`)
-}
-
-func (s *StateSuite) TestAddClientServerRelationTwice(c *C) {
-	dummy := s.addDummyCharm(c)
-	// Provider and requirer.
-	s.st.AddService("mysqldb", dummy)
-	s.st.AddService("wordpress", dummy)
-	mysqlep := state.RelationEndpoint{"mysqldb", "blog", "db", state.RoleProvider, state.ScopeGlobal}
-	blogep := state.RelationEndpoint{"wordpress", "blog", "db", state.RoleRequirer, state.ScopeGlobal}
-	_, _, err := s.st.AddRelation(blogep, mysqlep)
+func assertOneRelation(c *C, srv *state.Service, name string, role state.RelationRole, scope state.RelationScope) {
+	rels, err := srv.Relations()
 	c.Assert(err, IsNil)
-	_, _, err = s.st.AddRelation(blogep, mysqlep)
-	c.Assert(err, ErrorMatches, `can't add relation: relation already exists`)
-	// Peer.
-	s.st.AddService("riak", dummy)
-	riakep := state.RelationEndpoint{"riak", "ring", "cache", state.RolePeer, state.ScopeGlobal}
-	_, _, err = s.st.AddRelation(riakep)
-	c.Assert(err, IsNil)
-	_, _, err = s.st.AddRelation(riakep)
-	c.Assert(err, ErrorMatches, `can't add relation: relation already exists`)
+	c.Assert(rels, HasLen, 1)
+	rel := rels[0]
+	c.Assert(rel.RelationName(), Equals, name)
+	c.Assert(rel.RelationRole(), Equals, role)
+	c.Assert(rel.RelationScope(), Equals, scope)
 }
 
-func (s *StateSuite) TestAddPeerRelationIllegalEndpointNumber(c *C) {
+func (s *StateSuite) TestProviderRequirerRelation(c *C) {
 	dummy := s.addDummyCharm(c)
-	s.st.AddService("mysqldb", dummy)
-	s.st.AddService("wordpress", dummy)
-	s.st.AddService("riak", dummy)
-	mysqlep := state.RelationEndpoint{"mysqldb", "ifce", "cache", state.RoleProvider, state.ScopeGlobal}
-	blogep := state.RelationEndpoint{"wordpress", "ifce", "cache", state.RoleRequirer, state.ScopeGlobal}
-	riakep := state.RelationEndpoint{"riak", "blog", "cache", state.RolePeer, state.ScopeGlobal}
-	_, _, err := s.st.AddRelation()
-	c.Assert(err, ErrorMatches, `can't add relations between 0 services`)
-	_, _, err = s.st.AddRelation(mysqlep, blogep, riakep)
-	c.Assert(err, ErrorMatches, `can't add relations between 3 services`)
+	req, err := s.st.AddService("req", dummy)
+	c.Assert(err, IsNil)
+	pro, err := s.st.AddService("pro", dummy)
+	c.Assert(err, IsNil)
+	assertNoRelations(c, req)
+	assertNoRelations(c, pro)
+
+	// Add a relation, and check we can only do so once.
+	proep := state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, state.ScopeGlobal}
+	reqep := state.RelationEndpoint{"req", "ifce", "bar", state.RoleRequirer, state.ScopeGlobal}
+	err = s.st.AddRelation(proep, reqep)
+	c.Assert(err, IsNil)
+	err = s.st.AddRelation(proep, reqep)
+	c.Assert(err, ErrorMatches, `can't add relation "pro:foo req:bar": relation already exists`)
+	assertOneRelation(c, pro, "foo", state.RoleProvider, state.ScopeGlobal)
+	assertOneRelation(c, req, "bar", state.RoleRequirer, state.ScopeGlobal)
+
+	// Remove the relation, and check it can't be removed again.
+	err = s.st.RemoveRelation(proep, reqep)
+	c.Assert(err, IsNil)
+	assertNoRelations(c, pro)
+	assertNoRelations(c, req)
+	err = s.st.RemoveRelation(proep, reqep)
+	c.Assert(err, ErrorMatches, `can't remove relation "pro:foo req:bar": relation doesn't exist`)
+
+	// Check that we can add it again if we want to; but this time,
+	// give one of the endpoints container scope and check that both
+	// resulting service relations get that scope.
+	reqep.RelationScope = state.ScopeContainer
+	err = s.st.AddRelation(proep, reqep)
+	c.Assert(err, IsNil)
+	assertOneRelation(c, pro, "foo", state.RoleProvider, state.ScopeContainer)
+	assertOneRelation(c, req, "bar", state.RoleRequirer, state.ScopeContainer)
+}
+
+func (s *StateSuite) TestPeerRelation(c *C) {
+	dummy := s.addDummyCharm(c)
+	peer, err := s.st.AddService("peer", dummy)
+	c.Assert(err, IsNil)
+	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, state.ScopeGlobal}
+	assertNoRelations(c, peer)
+
+	// Add a relation, and check we can only do so once.
+	err = s.st.AddRelation(peerep)
+	c.Assert(err, IsNil)
+	err = s.st.AddRelation(peerep)
+	c.Assert(err, ErrorMatches, `can't add relation "peer:baz": relation already exists`)
+	assertOneRelation(c, peer, "baz", state.RolePeer, state.ScopeGlobal)
+
+	// Remove the relation, and check it can't be removed again.
+	err = s.st.RemoveRelation(peerep)
+	c.Assert(err, IsNil)
+	assertNoRelations(c, peer)
+	err = s.st.RemoveRelation(peerep)
+	c.Assert(err, ErrorMatches, `can't remove relation "peer:baz": relation doesn't exist`)
 }
 
 func (s *StateSuite) TestEnvironConfig(c *C) {
@@ -1365,22 +1367,4 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 	env.Read()
 	c.Assert(err, IsNil)
 	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"type": "dummy", "name": "foo"})
-}
-
-func (s *StateSuite) TestRemoveRelation(c *C) {
-	dummy := s.addDummyCharm(c)
-	s.st.AddService("riak", dummy)
-	riakep := state.RelationEndpoint{"riak", "blog", "cache", state.RolePeer, state.ScopeGlobal}
-	relation, _, err := s.st.AddRelation(riakep)
-	c.Assert(err, IsNil)
-	c.Assert(relation, NotNil)
-	hasRelation, err := state.HasRelation(s.st, relation)
-	c.Assert(err, IsNil)
-	c.Assert(hasRelation, Equals, true)
-	err = s.st.RemoveRelation(relation)
-	hasRelation, err = state.HasRelation(s.st, relation)
-	c.Assert(hasRelation, Equals, false)
-	c.Assert(err, ErrorMatches, `relation "relation-0000000000" does not exist`)
-	err = s.st.RemoveRelation(relation)
-	c.Assert(err, ErrorMatches, `can't remove relation: relation "relation-0000000000" does not exist`)
 }

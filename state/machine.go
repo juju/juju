@@ -1,7 +1,3 @@
-// launchpad.net/juju/state
-//
-// Copyright (c) 2011-2012 Canonical Ltd.
-
 package state
 
 import (

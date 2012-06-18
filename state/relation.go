@@ -38,6 +38,8 @@ func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
 		return other.RelationRole == RoleRequirer
 	case RoleRequirer:
 		return other.RelationRole == RoleProvider
+	case RolePeer:
+		return false
 	}
 	panic("endpoint role is undefined")
 }
@@ -45,13 +47,6 @@ func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
 // String returns the unique identifier of the relation endpoint.
 func (e RelationEndpoint) String() string {
 	return e.ServiceName + ":" + e.RelationName
-}
-
-// Relation represents a link between services, or within a
-// service (in the case of peer relations).
-type Relation struct {
-	st  *State
-	key string
 }
 
 // ServiceRelation represents an established relation from
@@ -70,7 +65,7 @@ func (r *ServiceRelation) RelationScope() RelationScope {
 	return r.relationScope
 }
 
-// RelationRole returns the service role within the relation. 
+// RelationRole returns the service role within the relation.
 func (r *ServiceRelation) RelationRole() RelationRole {
 	return r.relationRole
 }
@@ -78,9 +73,4 @@ func (r *ServiceRelation) RelationRole() RelationRole {
 // RelationName returns the name this relation has within the service.
 func (r *ServiceRelation) RelationName() string {
 	return r.relationName
-}
-
-// Relation returns the relation for this service relation.
-func (r *ServiceRelation) Relation() *Relation {
-	return &Relation{r.st, r.relationKey}
 }

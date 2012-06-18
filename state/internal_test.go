@@ -675,11 +675,11 @@ func (s *TopologySuite) TestRelationKeyEndpoints(c *C) {
 
 	// Endpoints without relation.
 	_, err = s.t.RelationKey(mysqlep3, blogep3)
-	c.Assert(err, ErrorMatches, `state: no relation between "mysql:db" and "wordpress:db"`)
+	c.Assert(err, Equals, noRelationFound)
 
 	// Mix of endpoints of two relations.
 	_, err = s.t.RelationKey(mysqlep1, blogep2)
-	c.Assert(err, ErrorMatches, `state: no relation between "mysql:db" and "wordpress:db"`)
+	c.Assert(err, Equals, noRelationFound)
 
 	// Illegal number of endpoints.
 	_, err = s.t.RelationKey()
@@ -708,13 +708,13 @@ func (s *TopologySuite) TestRelationKeyIllegalEndpoints(c *C) {
 
 	key, err := s.t.RelationKey(mysqlep1, blogep2)
 	c.Assert(key, Equals, "")
-	c.Assert(err, ErrorMatches, `state: no relation between "mysql:db" and "illegal-wordpress:db"`)
+	c.Assert(err, Equals, noRelationFound)
 	key, err = s.t.RelationKey(mysqlep2, blogep1)
 	c.Assert(key, Equals, "")
-	c.Assert(err, ErrorMatches, `state: no relation between "illegal-mysql:db" and "wordpress:db"`)
+	c.Assert(err, Equals, noRelationFound)
 	key, err = s.t.RelationKey(mysqlep1, riakep3)
 	c.Assert(key, Equals, "")
-	c.Assert(err, ErrorMatches, `state: no relation between "mysql:db" and "riak:ring"`)
+	c.Assert(err, Equals, noRelationFound)
 }
 
 func (s *TopologySuite) TestPeerRelationKeyEndpoints(c *C) {
@@ -747,7 +747,7 @@ func (s *TopologySuite) TestPeerRelationKeyEndpoints(c *C) {
 
 	// Endpoint without relation.
 	key, err = s.t.RelationKey(riakep3)
-	c.Assert(err, ErrorMatches, `state: no peer relation for "riak:ring"`)
+	c.Assert(err, Equals, noRelationFound)
 }
 
 func (s *TopologySuite) TestPeerRelationKeyIllegalEndpoints(c *C) {
@@ -763,7 +763,7 @@ func (s *TopologySuite) TestPeerRelationKeyIllegalEndpoints(c *C) {
 
 	key, err := s.t.RelationKey(riakep1)
 	c.Assert(key, Equals, "")
-	c.Assert(err, ErrorMatches, `state: no peer relation for "riak:illegal-ring"`)
+	c.Assert(err, Equals, noRelationFound)
 }
 
 type ConfigNodeSuite struct {
