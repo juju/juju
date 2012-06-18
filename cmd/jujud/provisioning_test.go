@@ -6,6 +6,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/juju/cmd"
+	"launchpad.net/juju-core/juju/environs"
 	"launchpad.net/juju-core/juju/environs/dummy"
 	"launchpad.net/juju-core/juju/state"
 	"launchpad.net/juju-core/juju/testing"
@@ -18,6 +19,11 @@ type ProvisioningSuite struct {
 }
 
 var _ = Suite(&ProvisioningSuite{})
+
+var veryShortAttempt = environs.AttemptStrategy{
+	Total: 1 * time.Second,
+	Delay: 80 * time.Millisecond,
+}
 
 func (s *ProvisioningSuite) SetUpTest(c *C) {
 	zk, session, err := zookeeper.Dial(zkAddr, 15e9)
@@ -83,16 +89,19 @@ func (s *ProvisioningSuite) stopProvisioner(c *C, p *Provisioner) {
 // checkStartInstance checks that an instace has been started.
 func (s *ProvisioningSuite) checkStartInstance(c *C, op <-chan dummy.Operation) {
 	// use the non fatal variants to avoid leaking provisioners.	
-	select {
-	case o := <-op:
-		switch o.Kind {
-		case dummy.OpStartInstance:
+	for {
+		select {
+		case o := <-op:
+			switch o.Kind {
+			case dummy.OpStartInstance:
+				return
+			default:
+				// ignore
+			}
+		case <-time.After(2 * time.Second):
+			c.Errorf("provisioner did not start an instance")
 			return
-		default:
-			// ignore
 		}
-	case <-time.After(3 * time.Second):
-		c.Errorf("provisioner did not start an instance")
 	}
 }
 
@@ -104,6 +113,7 @@ func (s *ProvisioningSuite) checkNotStartInstance(c *C, op <-chan dummy.Operatio
 			switch o.Kind {
 			case dummy.OpStartInstance:
 				c.Errorf("instance started: %v", o)
+				return
 			default:
 				// ignore	
 			}
@@ -116,17 +126,52 @@ func (s *ProvisioningSuite) checkNotStartInstance(c *C, op <-chan dummy.Operatio
 // checkStopInstance checks that an instance has been stopped.
 func (s *ProvisioningSuite) checkStopInstance(c *C, op <-chan dummy.Operation) {
 	// use the non fatal variants to avoid leaking provisioners.	
-	select {
-	case o := <-op:
-		switch o.Kind {
-		case dummy.OpStopInstances:
+	for {
+		select {
+		case o := <-op:
+			switch o.Kind {
+			case dummy.OpStopInstances:
+				return
+			default:
+				//ignore 
+			}
+		case <-time.After(3 * time.Second):
+			c.Errorf("provisioner did not stop an instance")
 			return
-		default:
-			//ignore 
 		}
-	case <-time.After(3 * time.Second):
-		c.Errorf("provisioner did not stop an instance")
 	}
+}
+
+// checkMachineIdSet checks that the machine in the state now has an instance id.
+func (s *ProvisioningSuite) checkMachineIdSet(c *C, m *state.Machine) {
+	// TODO(dfc) add machine.WatchConfig() to avoid having to poll.
+	for a := veryShortAttempt.Start(); a.Next(); {
+		id, err := m.InstanceId()
+		if err != nil {
+			c.Errorf("checkMachineIdSet: %v", err)
+			return
+		}
+		if id != "" {
+			return
+		}
+	}
+	c.Errorf("provisioner did not set machine.InstanceId")
+}
+
+// checkMachineIdNotSet checks that the machine in the state is unset.
+func (s *ProvisioningSuite) checkMachineIdNotSet(c *C, m *state.Machine) {
+	// TODO(dfc) add machine.WatchConfig() to avoid having to poll.
+	for a := veryShortAttempt.Start(); a.Next(); {
+		id, err := m.InstanceId()
+		if err != nil {
+			c.Errorf("checkMachineIdNotSet: %v", err)
+			return
+		}
+		if id == "" {
+			return
+		}
+	}
+	c.Errorf("provisioner did not set machine.InstanceId")
 }
 
 func (s *ProvisioningSuite) TestParseSuccess(c *C) {
@@ -194,12 +239,14 @@ func (s *ProvisioningSuite) TestSimple(c *C) {
 	c.Assert(err, IsNil)
 
 	s.checkStartInstance(c, op)
+	s.checkMachineIdSet(c, m)
 
 	// now remove it
 	c.Assert(s.st.RemoveMachine(m.Id()), IsNil)
 
 	// watch the PA remove it
 	s.checkStopInstance(c, op)
+	s.checkMachineIdNotSet(c, m)
 }
 
 func (s *ProvisioningSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(c *C) {
@@ -233,7 +280,7 @@ func (s *ProvisioningSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {
 	dummy.Listen(op)
 
 	// try to create a machine
-	_, err = s.st.AddMachine()
+	m, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 
 	// the PA should not create it
@@ -243,6 +290,7 @@ func (s *ProvisioningSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {
 	c.Assert(err, IsNil)
 
 	s.checkStartInstance(c, op)
+	s.checkMachineIdSet(c, m)
 }
 
 func (s *ProvisioningSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPublished(c *C) {
@@ -254,20 +302,22 @@ func (s *ProvisioningSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubl
 	dummy.Listen(op)
 
 	// place a new machine into the state
-	_, err = s.st.AddMachine()
+	m, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 
 	s.checkStartInstance(c, op)
+	s.checkMachineIdSet(c, m)
 
 	err = s.invalidateEnvironment()
 	c.Assert(err, IsNil)
 
 	// create a second machine
-	_, err = s.st.AddMachine()
+	m, err = s.st.AddMachine()
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the old environment
 	s.checkStartInstance(c, op)
+	s.checkMachineIdSet(c, m)
 }
 
 func (s *ProvisioningSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRestart(c *C) {
@@ -279,10 +329,11 @@ func (s *ProvisioningSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterR
 	dummy.Listen(op)
 
 	// create a machine
-	_, err = s.st.AddMachine()
+	m, err := s.st.AddMachine()
 	c.Check(err, IsNil)
 
 	s.checkStartInstance(c, op)
+	s.checkMachineIdSet(c, m)
 
 	// restart the PA
 	c.Check(p.Stop(), IsNil)
@@ -311,28 +362,31 @@ func (s *ProvisioningSuite) TestProvisioningRecoversAfterInvalidEnvironmentPubli
 	dummy.Listen(op)
 
 	// place a new machine into the state
-	_, err = s.st.AddMachine()
+	m, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 
 	s.checkStartInstance(c, op)
+	s.checkMachineIdSet(c, m)
 
 	err = s.invalidateEnvironment()
 	c.Assert(err, IsNil)
 
 	// create a second machine
-	_, err = s.st.AddMachine()
+	m, err = s.st.AddMachine()
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the old environment
 	s.checkStartInstance(c, op)
+	s.checkMachineIdSet(c, m)
 
 	err = s.fixEnvironment()
 	c.Assert(err, IsNil)
 
 	// create a third machine
-	_, err = s.st.AddMachine()
+	m, err = s.st.AddMachine()
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the new environment
 	s.checkStartInstance(c, op)
+	s.checkMachineIdSet(c, m)
 }

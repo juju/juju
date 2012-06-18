@@ -55,7 +55,7 @@ type Provisioner struct {
 
 	// machine.Id => environs.Instance
 	instances map[int]environs.Instance
-	// instance.Id() => *state.Machine
+	// instance.Id => *state.Machine
 	machines map[string]*state.Machine
 }
 
