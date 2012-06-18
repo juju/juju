@@ -73,17 +73,19 @@ func (s *UpstartSuite) TestStart(c *C) {
 	s.MakeTool(c, "start", "exit 99")
 	c.Assert(s.service.Start(), IsNil)
 	s.StoppedStatus(c)
-	c.Assert(s.service.Start(), ErrorMatches, "exit status 99")
+	c.Assert(s.service.Start(), ErrorMatches, ".*exit status 99.*")
 	s.MakeTool(c, "start", "exit 0")
 	c.Assert(s.service.Start(), IsNil)
 }
+
+
 
 func (s *UpstartSuite) TestStop(c *C) {
 	s.StoppedStatus(c)
 	s.MakeTool(c, "stop", "exit 99")
 	c.Assert(s.service.Stop(), IsNil)
 	s.RunningStatus(c)
-	c.Assert(s.service.Stop(), ErrorMatches, "exit status 99")
+	c.Assert(s.service.Stop(), ErrorMatches, ".*exit status 99.*")
 	s.MakeTool(c, "stop", "exit 0")
 	c.Assert(s.service.Stop(), IsNil)
 }
@@ -104,7 +106,7 @@ func (s *UpstartSuite) TestRemoveStopped(c *C) {
 func (s *UpstartSuite) TestRemoveRunning(c *C) {
 	s.RunningStatus(c)
 	s.MakeTool(c, "stop", "exit 99")
-	c.Assert(s.service.Remove(), ErrorMatches, "exit status 99")
+	c.Assert(s.service.Remove(), ErrorMatches, ".*exit status 99.*")
 	_, err := os.Stat(filepath.Join(s.service.InitDir, "some-service.conf"))
 	c.Assert(err, IsNil)
 	s.MakeTool(c, "stop", "exit 0")
@@ -157,7 +159,7 @@ func (s *UpstartSuite) assertInstall(c *C, conf *upstart.Conf, expectEnd string)
 
 	s.MakeTool(c, "start", "exit 99")
 	err = conf.Install()
-	c.Assert(err, ErrorMatches, "exit status 99")
+	c.Assert(err, ErrorMatches, ".*exit status 99.*")
 	s.MakeTool(c, "start", "exit 0")
 	err = conf.Install()
 	c.Assert(err, IsNil)

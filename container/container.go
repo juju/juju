@@ -22,6 +22,10 @@ type Container interface {
 //func LXC(args...) Container {
 //}
 
+// upstart uses /etc/init by default. Allow the tests
+// to choose a different directory.
+var initDir = ""
+
 type simple struct {
 	unit *state.Unit
 }
@@ -35,7 +39,9 @@ func deslash(s string) string {
 }
 
 func (s *simple) service() *upstart.Service {
-	return upstart.NewService(deslash(s.unit.Name()))
+	svc := upstart.NewService("juju-agent-" + deslash(s.unit.Name()))
+	svc.InitDir = initDir
+	return svc
 }
 
 func (s *simple) Deploy() error {

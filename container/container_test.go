@@ -12,9 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	stdtesting "testing"
-	"time"
 )
 
 type suite struct {
@@ -41,12 +39,6 @@ func (s *suite) SetUpSuite(c *C) {
 
 }
 
-var script = `#!/bin/bash
-echo > $DIR/start
-sleep 1
-echo > $DIR/end
-`
-
 func (s *suite) TestDeploy(c *C) {
 	// create a unit to deploy
 	dummyCharm := testing.Charms.Dir("dummy")
@@ -61,27 +53,21 @@ func (s *suite) TestDeploy(c *C) {
 	unit, err := service.AddUnit()
 	c.Assert(err, IsNil)
 
-	// mock jujud
-	dir := c.MkDir()
-	path := os.Getenv("PATH")
-	defer os.Setenv("PATH", path)
-	os.Setenv("PATH", dir+":"+path)
-	data := []byte(strings.Replace(script, "$DIR", dir, -1))
-	err = ioutil.WriteFile(filepath.Join(dir, "jujud"), data, 0777)
-	c.Assert(err, IsNil)
+	*container.InitDir = c.MkDir()
+
+	upstartScript := filepath.Join(*container.InitDir, "juju-agent-dummy-0.conf")
 
 	cont := container.Simple(unit)
 	err = cont.Deploy()
-	c.Assert(err, IsNil)
+	c.Assert(err, ErrorMatches, `(.|\n)+Unknown job(.|\n)+`)
 
-	time.Sleep(500 * time.Millisecond)
-	_, err = os.Stat(filepath.Join(dir, "start"))
-	c.Assert(err, IsNil, Commentf("jujud has not run"))
+	data, err := ioutil.ReadFile(upstartScript)
+	c.Assert(err, IsNil)
+	c.Assert(string(data), Matches, `(.|\n)+unit --unit-name(.|\n)+`)
 
 	err = cont.Destroy()
 	c.Assert(err, IsNil)
 
-	time.Sleep(1 * time.Second)
-	_, err = os.Stat(filepath.Join(dir, "end"))
+	_, err = os.Stat(upstartScript)
 	c.Assert(err, NotNil)
 }
