@@ -108,7 +108,7 @@ func (s *ProvisioningSuite) checkNotStartInstance(c *C, op <-chan dummy.Operatio
 				// ignore	
 			}
 		case <-time.After(200 * time.Millisecond):
-			break
+			return
 		}
 	}
 }
