@@ -132,6 +132,8 @@ func (p *Provisioner) innerLoop() {
 				}
 				return
 			}
+			// TODO(dfc) fire process machines periodically to shut down unknown
+			// instances.
 			if err := p.processMachines(machines); err != nil {
 				p.tomb.Kill(err)
 			}
