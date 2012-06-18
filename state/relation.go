@@ -1,6 +1,8 @@
 package state
 
-import ()
+import (
+	"fmt"
+)
 
 // RelationRole defines the role of a relation endpoint.
 type RelationRole string
@@ -10,6 +12,20 @@ const (
 	RoleRequirer RelationRole = "requirer"
 	RolePeer     RelationRole = "peer"
 )
+
+// CounterpartRole returns the RelationRole that this RelationRole can
+// relate to.
+func (r RelationRole) CounterpartRole() RelationRole {
+	switch r {
+	case RoleProvider:
+		return RoleRequirer
+	case RoleRequirer:
+		return RoleProvider
+	case RolePeer:
+		return RolePeer
+	}
+	panic(fmt.Errorf("unknown RelationRole: %q", r))
+}
 
 // RelationScope describes the scope of a relation endpoint.
 type RelationScope string
@@ -33,15 +49,11 @@ func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
 	if e.Interface != other.Interface {
 		return false
 	}
-	switch e.RelationRole {
-	case RoleProvider:
-		return other.RelationRole == RoleRequirer
-	case RoleRequirer:
-		return other.RelationRole == RoleProvider
-	case RolePeer:
+	if e.RelationRole == RolePeer {
+		// Peer relations do not currently work with multiple endpoints.
 		return false
 	}
-	panic("endpoint role is undefined")
+	return e.RelationRole.CounterpartRole() == other.RelationRole
 }
 
 // String returns the unique identifier of the relation endpoint.
