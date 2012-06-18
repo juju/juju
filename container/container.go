@@ -30,6 +30,10 @@ type simple struct {
 	unit *state.Unit
 }
 
+// Installer is used to install simple containers.
+// It is set to the upstart installer by default.
+var SimpleInstaller = (*upstart.Conf).Install
+
 func Simple(unit *state.Unit) Container {
 	return &simple{unit}
 }
@@ -55,7 +59,7 @@ func (s *simple) Deploy() error {
 		Cmd:     exe + " unit --unit-name " + s.unit.Name(),
 		// TODO: Out
 	}
-	return conf.Install()
+	return SimpleInstaller(conf)
 }
 
 func (s *simple) Destroy() error {
