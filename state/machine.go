@@ -31,7 +31,7 @@ func (m *Machine) AgentAlive() (bool, error) {
 func (m *Machine) WaitAgentAlive(timeout time.Duration) error {
 	err := presence.WaitAlive(m.st.zk, m.zkAgentPath(), timeout)
 	if err != nil {
-		return fmt.Errorf("state: waiting for agent of machine %s: %v", m, err)
+		return fmt.Errorf("waiting for agent of machine %s: %v", m, err)
 	}
 	return nil
 }
@@ -47,28 +47,29 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 func (m *Machine) InstanceId() (string, error) {
 	config, err := readConfigNode(m.st.zk, m.zkPath())
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("can't get instance id of machine %s: %v", m, err)
 	}
 	v, ok := config.Get(providerMachineId)
 	if !ok {
-		// missing key is fine
+		// TODO Return NoInstanceIdError (also when it exists as "")!
 		return "", nil
 	}
 	if id, ok := v.(string); ok {
 		return id, nil
 	}
-	return "", fmt.Errorf("state: invalid internal machine key type: %T", v)
+	return "", fmt.Errorf("invalid internal machine id type %T for machine %s", v, m)
 }
 
 // Units returns all the units that have been assigned
 // to the machine.
-func (m *Machine) Units() ([]*Unit, error) {
+func (m *Machine) Units() (units []*Unit, err error) {
+	defer errorContextf(&err, "can't get all assigned units of machine %s", m)
 	topology, err := readTopology(m.st.zk)
 	if err != nil {
 		return nil, err
 	}
 	keys := topology.UnitsForMachine(m.key)
-	units := make([]*Unit, len(keys))
+	units = make([]*Unit, len(keys))
 	for i, key := range keys {
 		units[i], err = m.st.unitFromKey(topology, key)
 		if err != nil {
@@ -83,7 +84,8 @@ func (m *Machine) WatchUnits() *MachineUnitsWatcher {
 }
 
 // SetInstanceId sets the provider specific machine id for this machine.
-func (m *Machine) SetInstanceId(id string) error {
+func (m *Machine) SetInstanceId(id string) (err error) {
+	defer errorContextf(&err, "can't set instance id of machine %s to %q", m, id)
 	config, err := readConfigNode(m.st.zk, m.zkPath())
 	if err != nil {
 		return err
