@@ -14,9 +14,9 @@ const (
 	RolePeer     RelationRole = "peer"
 )
 
-// CounterpartRole returns the RelationRole that this RelationRole can
+// counterpartRole returns the RelationRole that this RelationRole can
 // relate to.
-func (r RelationRole) CounterpartRole() RelationRole {
+func (r RelationRole) counterpartRole() RelationRole {
 	switch r {
 	case RoleProvider:
 		return RoleRequirer
@@ -54,7 +54,7 @@ func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
 		// Peer relations do not currently work with multiple endpoints.
 		return false
 	}
-	return e.RelationRole.CounterpartRole() == other.RelationRole
+	return e.RelationRole.counterpartRole() == other.RelationRole
 }
 
 // String returns the unique identifier of the relation endpoint.
@@ -94,22 +94,23 @@ func (r *Relation) Endpoint(serviceName string) (RelationEndpoint, error) {
 	return RelationEndpoint{}, fmt.Errorf("service %q is not a member of %q", serviceName, r)
 }
 
-// RelatedEndpoint returns the endpoint of the relation to which units of the
-// named service relate. In the case of a peer relation, this will have the same
-// result as calling Endpoint with the same serviceName. If the service is not
-// part of the relation, an error will be returned.
-func (r *Relation) RelatedEndpoint(serviceName string) (RelationEndpoint, error) {
-	valid := false
-	index := 0
-	for i, poss := range r.endpoints {
-		if poss.ServiceName == serviceName {
-			valid = true
-		} else {
-			index = i
+// RelatedEndpoints returns the endpoints of the relation to which units of the
+// named service will relate. If the service is not part of the relation, an
+// error will be returned.
+func (r *Relation) RelatedEndpoints(serviceName string) ([]RelationEndpoint, error) {
+	local, err := r.Endpoint(serviceName)
+	if err != nil {
+		return nil, err
+	}
+	role := local.RelationRole.counterpartRole()
+	var eps []RelationEndpoint
+	for _, ep := range r.endpoints {
+		if ep.RelationRole == role {
+			eps = append(eps, ep)
 		}
 	}
-	if !valid {
-		return RelationEndpoint{}, fmt.Errorf("service %q is not a member of %q", serviceName, r)
+	if eps == nil {
+		return nil, fmt.Errorf("no endpoints of %q relate to service %q", r, serviceName)
 	}
-	return r.endpoints[index], nil
+	return eps, nil
 }

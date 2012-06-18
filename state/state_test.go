@@ -1302,9 +1302,9 @@ func assertOneRelation(c *C, srv *state.Service, endpoints ...state.RelationEndp
 	if len(endpoints) == 2 {
 		expectEp = endpoints[1]
 	}
-	ep, err = rel.RelatedEndpoint(name)
+	eps, err := rel.RelatedEndpoints(name)
 	c.Assert(err, IsNil)
-	c.Assert(ep, DeepEquals, expectEp)
+	c.Assert(eps, DeepEquals, []state.RelationEndpoint{expectEp})
 }
 
 func (s *StateSuite) TestProviderRequirerRelation(c *C) {
