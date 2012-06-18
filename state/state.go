@@ -336,19 +336,9 @@ func (s *State) addRelationNode(endpoints ...RelationEndpoint) (relationKey stri
 	return
 }
 
-// describeRelation returns a string describing the relation defined by
-// endpoints, for use in error messages.
-func describeRelation(endpoints []RelationEndpoint) string {
-	names := []string{}
-	for _, ep := range endpoints {
-		names = append(names, ep.String())
-	}
-	return strings.Join(names, " ")
-}
-
 // AddRelation creates a new relation with the given endpoints.
 func (s *State) AddRelation(endpoints ...RelationEndpoint) (err error) {
-	defer errorContextf(&err, "can't add relation %q", describeRelation(endpoints))
+	defer errorContextf(&err, "can't add relation %q", describeEndpoints(endpoints))
 	key, err := s.addRelationNode(endpoints...)
 	if err != nil {
 		return err
@@ -386,7 +376,7 @@ func (s *State) RemoveRelation(endpoints ...RelationEndpoint) error {
 		return t.RemoveRelation(key)
 	})
 	if err != nil {
-		return fmt.Errorf("can't remove relation %q: %s", describeRelation(endpoints), err)
+		return fmt.Errorf("can't remove relation %q: %s", describeEndpoints(endpoints), err)
 	}
 	return nil
 }

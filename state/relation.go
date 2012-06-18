@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"strings"
 )
 
 // RelationRole defines the role of a relation endpoint.
@@ -61,28 +62,54 @@ func (e RelationEndpoint) String() string {
 	return e.ServiceName + ":" + e.RelationName
 }
 
-// ServiceRelation represents an established relation from
-// the viewpoint of a participant service.
-type ServiceRelation struct {
-	st            *State
-	relationKey   string
-	serviceKey    string
-	relationScope RelationScope
-	relationRole  RelationRole
-	relationName  string
+// describeEndpoints returns a string describing the relation defined by
+// endpoints, for use in various contexts (including error messages).
+func describeEndpoints(endpoints []RelationEndpoint) string {
+	names := []string{}
+	for _, ep := range endpoints {
+		names = append(names, ep.String())
+	}
+	return strings.Join(names, " ")
 }
 
-// RelationScope returns the scope of the relation.
-func (r *ServiceRelation) RelationScope() RelationScope {
-	return r.relationScope
+// Relation represents a relation between one or two service endpoints.
+type Relation struct {
+	st        *State
+	key       string
+	endpoints []RelationEndpoint
 }
 
-// RelationRole returns the service role within the relation.
-func (r *ServiceRelation) RelationRole() RelationRole {
-	return r.relationRole
+func (r *Relation) String() string {
+	return fmt.Sprintf("relation %q", describeEndpoints(r.endpoints))
 }
 
-// RelationName returns the name this relation has within the service.
-func (r *ServiceRelation) RelationName() string {
-	return r.relationName
+// Endpoint returns the endpoint of the relation attached to the named service.
+// If the service is not part of the relation, an error will be returned.
+func (r *Relation) Endpoint(serviceName string) (RelationEndpoint, error) {
+	for _, ep := range r.endpoints {
+		if ep.ServiceName == serviceName {
+			return ep, nil
+		}
+	}
+	return RelationEndpoint{}, fmt.Errorf("service %q is not a member of %q", serviceName, r)
+}
+
+// RelatedEndpoint returns the endpoint of the relation to which units of the
+// named service relate. In the case of a peer relation, this will have the same
+// result as calling Endpoint with the same serviceName. If the service is not
+// part of the relation, an error will be returned.
+func (r *Relation) RelatedEndpoint(serviceName string) (RelationEndpoint, error) {
+	valid := false
+	index := 0
+	for i, poss := range r.endpoints {
+		if poss.ServiceName == serviceName {
+			valid = true
+		} else {
+			index = i
+		}
+	}
+	if !valid {
+		return RelationEndpoint{}, fmt.Errorf("service %q is not a member of %q", serviceName, r)
+	}
+	return r.endpoints[index], nil
 }
