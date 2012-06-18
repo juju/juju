@@ -24,17 +24,4 @@ func ReadConfigNode(st *State, path string) (*ConfigNode, error) {
 	return readConfigNode(st.zk, path)
 }
 
-// HasRelation tests if the topology contains a relation.
-func HasRelation(st *State, relation *Relation) (bool, error) {
-	t, err := readTopology(st.zk)
-	if err != nil {
-		return false, err
-	}
-	_, err = t.Relation(relation.key)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
 func Diff(a, b []string) []string { return diff(a, b) }
