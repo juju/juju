@@ -221,7 +221,7 @@ func (s *StateSuite) TestMachineInstanceIdCorrupt(c *C) {
 	c.Assert(err, IsNil)
 
 	id, err := machine.InstanceId()
-	c.Assert(err, ErrorMatches, "state: invalid internal machine key type: .*")
+	c.Assert(err.Error(), Equals, "invalid internal machine id type map[interface {}]interface {} for machine 0")
 	c.Assert(id, Equals, "")
 }
 
@@ -305,7 +305,7 @@ func (s *StateSuite) TestMachineWaitAgentAlive(c *C) {
 	c.Assert(alive, Equals, false)
 
 	err = machine0.WaitAgentAlive(timeout)
-	c.Assert(err, ErrorMatches, `state: waiting for agent of machine 0: presence: still not alive after timeout`)
+	c.Assert(err, ErrorMatches, `waiting for agent of machine 0: presence: still not alive after timeout`)
 
 	pinger, err := machine0.SetAgentAlive()
 	c.Assert(err, IsNil)
