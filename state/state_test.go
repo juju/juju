@@ -653,7 +653,7 @@ func (s *StateSuite) TestRemoveUnit(c *C) {
 
 	// Check that removing a non-existent unit fails nicely.
 	err = wordpress.RemoveUnit(unit)
-	c.Assert(err, ErrorMatches, "environment state has changed")
+	c.Assert(err, ErrorMatches, `can't unassign unit "wordpress/0" from machine: environment state has changed`)
 }
 
 func (s *StateSuite) TestGetSetPublicAddress(c *C) {
@@ -734,7 +734,7 @@ func (s *StateSuite) TestUnassignUnitFromMachineWithoutBeingAssigned(c *C) {
 	c.Assert(err, IsNil)
 	unit = units[0]
 	_, err = unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `unit not assigned to machine`)
+	c.Assert(err, ErrorMatches, `can't get machine id of unit "wordpress/0": unit not assigned to machine`)
 }
 
 func (s *StateSuite) TestAssignUnitToMachineAgainFails(c *C) {
@@ -760,7 +760,7 @@ func (s *StateSuite) TestAssignUnitToMachineAgainFails(c *C) {
 
 	// Assigning the unit to a different machine should fail.
 	err = unit.AssignToMachine(machineTwo)
-	c.Assert(err, ErrorMatches, `unit "wordpress/0" already assigned to machine 0`)
+	c.Assert(err, ErrorMatches, `can't assign unit "wordpress/0" to machine 1: unit already assigned to machine 0`)
 
 	machineId, err := unit.AssignedMachineId()
 	c.Assert(err, IsNil)
@@ -785,17 +785,17 @@ func (s *StateSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 	c.Assert(err, IsNil)
 
 	err = unit.UnassignFromMachine()
-	c.Assert(err, ErrorMatches, "environment state has changed")
+	c.Assert(err, ErrorMatches, `can't unassign unit "wordpress/0" from machine: environment state has changed`)
 	_, err = unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, "environment state has changed")
+	c.Assert(err, ErrorMatches, `can't get machine id of unit "wordpress/0": environment state has changed`)
 
 	err = s.st.RemoveService(wordpress)
 	c.Assert(err, IsNil)
 
 	err = unit.UnassignFromMachine()
-	c.Assert(err, ErrorMatches, "environment state has changed")
+	c.Assert(err, ErrorMatches, `can't unassign unit "wordpress/0" from machine: environment state has changed`)
 	_, err = unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, "environment state has changed")
+	c.Assert(err, ErrorMatches, `can't get machine id of unit "wordpress/0": environment state has changed`)
 }
 
 func (s *StateSuite) TestAssignUnitToUnusedMachine(c *C) {
@@ -851,7 +851,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingService(c *C) {
 	c.Assert(err, IsNil)
 
 	_, err = wordpressUnit.AssignToUnusedMachine()
-	c.Assert(err, ErrorMatches, "environment state has changed")
+	c.Assert(err, ErrorMatches, `can't assign unit "wordpress/0" to unused machine: environment state has changed`)
 }
 
 func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingUnit(c *C) {
@@ -880,7 +880,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineWithChangingUnit(c *C) {
 	c.Assert(err, IsNil)
 
 	_, err = wordpressUnit.AssignToUnusedMachine()
-	c.Assert(err, ErrorMatches, "environment state has changed")
+	c.Assert(err, ErrorMatches, `can't assign unit "wordpress/0" to unused machine: environment state has changed`)
 }
 
 func (s *StateSuite) TestAssignUnitToUnusedMachineOnlyZero(c *C) {
@@ -895,7 +895,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineOnlyZero(c *C) {
 	c.Assert(err, IsNil)
 
 	_, err = wordpressUnit.AssignToUnusedMachine()
-	c.Assert(err, ErrorMatches, "no unused machine found")
+	c.Assert(err, ErrorMatches, `all machines in use`)
 }
 
 func (s *StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
@@ -919,7 +919,7 @@ func (s *StateSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 	c.Assert(err, IsNil)
 
 	_, err = wordpressUnit.AssignToUnusedMachine()
-	c.Assert(err, ErrorMatches, "no unused machine found")
+	c.Assert(err, ErrorMatches, `all machines in use`)
 }
 
 func (s *StateSuite) TestAssignSubsidiariesToMachine(c *C) {
@@ -958,9 +958,9 @@ func (s *StateSuite) TestAssignSubsidiariesToMachine(c *C) {
 	err = mysqlUnit.UnassignFromMachine()
 	c.Assert(err, IsNil)
 	_, err = log1Unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, "unit not assigned to machine")
+	c.Assert(err, ErrorMatches, `can't get machine id of unit "logging1/0": unit not assigned to machine`)
 	_, err = log2Unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, "unit not assigned to machine")
+	c.Assert(err, ErrorMatches, `can't get machine id of unit "logging2/0": unit not assigned to machine`)
 }
 
 func (s *StateSuite) TestAssignUnit(c *C) {
@@ -1087,7 +1087,7 @@ func (s *StateSuite) TestGetSetClearUnitUpgrade(c *C) {
 
 	// Can't be set multipe with different force flag.
 	err = unit.SetNeedsUpgrade(false)
-	c.Assert(err, ErrorMatches, `upgrade already enabled for unit "wordpress/0"`)
+	c.Assert(err, ErrorMatches, `can't inform unit "wordpress/0" about upgrade: upgrade already enabled`)
 }
 
 func (s *StateSuite) TestGetSetClearResolved(c *C) {
@@ -1105,7 +1105,7 @@ func (s *StateSuite) TestGetSetClearResolved(c *C) {
 	err = unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, IsNil)
 	err = unit.SetResolved(state.ResolvedNoHooks)
-	c.Assert(err, ErrorMatches, `unit "wordpress/0" resolved flag already set`)
+	c.Assert(err, ErrorMatches, `can't set resolved mode for unit "wordpress/0": flag already set`)
 	retry, err := unit.Resolved()
 	c.Assert(err, IsNil)
 	c.Assert(retry, Equals, state.ResolvedNoHooks)
@@ -1119,7 +1119,7 @@ func (s *StateSuite) TestGetSetClearResolved(c *C) {
 	c.Assert(err, IsNil)
 
 	err = unit.SetResolved(state.ResolvedMode(999))
-	c.Assert(err, ErrorMatches, `invalid error resolution mode: 999`)
+	c.Assert(err, ErrorMatches, `can't set resolved mode for unit "wordpress/0": invalid error resolution mode: 999`)
 }
 
 func (s *StateSuite) TestGetOpenPorts(c *C) {
@@ -1219,7 +1219,7 @@ func (s *StateSuite) TestUnitWaitAgentAlive(c *C) {
 	c.Assert(alive, Equals, false)
 
 	err = unit.WaitAgentAlive(timeout)
-	c.Assert(err, ErrorMatches, `state: waiting for agent of unit "wordpress/0": presence: still not alive after timeout`)
+	c.Assert(err, ErrorMatches, `waiting for agent of unit "wordpress/0": presence: still not alive after timeout`)
 
 	pinger, err := unit.SetAgentAlive()
 	c.Assert(err, IsNil)

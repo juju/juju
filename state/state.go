@@ -277,20 +277,21 @@ func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	if valid, err := u.IsPrincipal(); err != nil {
 		return err
 	} else if !valid {
-		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u.Name())
+		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
+	defer errorContextf(&err, "can't assign unit %q to machine", u)
 	var m *Machine
 	switch policy {
 	case AssignLocal:
-		if m, err = u.st.Machine(0); err != nil {
-			return
+		if m, err = s.Machine(0); err != nil {
+			return err
 		}
 	case AssignUnused:
 		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
-			return
+			return err
 		}
-		if m, err = u.st.AddMachine(); err != nil {
-			return
+		if m, err = s.AddMachine(); err != nil {
+			return err
 		}
 	default:
 		panic(fmt.Errorf("unknown unit assignment policy: %q", policy))
