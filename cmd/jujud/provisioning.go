@@ -105,6 +105,11 @@ func (p *Provisioner) loop() {
 
 func (p *Provisioner) innerLoop() {
 	p.machinesWatcher = p.st.WatchMachines()
+
+	if err := p.processMachines(nil, nil); err != nil {
+		p.tomb.Kill(err)
+	}
+
 	for {
 		select {
 		case <-p.tomb.Dying():
@@ -134,7 +139,7 @@ func (p *Provisioner) innerLoop() {
 			}
 			// TODO(dfc) fire process machines periodically to shut down unknown
 			// instances.
-			if err := p.processMachines(machines); err != nil {
+			if err := p.processMachines(machines.Added, machines.Deleted); err != nil {
 				p.tomb.Kill(err)
 			}
 		}
@@ -153,10 +158,10 @@ func (p *Provisioner) Stop() error {
 	return p.tomb.Wait()
 }
 
-func (p *Provisioner) processMachines(changes *state.MachinesChange) error {
+func (p *Provisioner) processMachines(added, removed []*state.Machine) error {
 	// step 1. find which of the added machines have not
 	// yet been allocated a started instance.
-	notstarted, err := p.findNotStarted(changes.Added)
+	notstarted, err := p.findNotStarted(added)
 	if err != nil {
 		return err
 	}
@@ -167,7 +172,7 @@ func (p *Provisioner) processMachines(changes *state.MachinesChange) error {
 	}
 
 	// step 3. stop all machines that were removed from the state.
-	stopping, err := p.instancesForMachines(changes.Deleted)
+	stopping, err := p.instancesForMachines(removed)
 	if err != nil {
 		return err
 	}
@@ -204,13 +209,15 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 		if err != nil {
 			return nil, err
 		}
+		if id == "" {
+			continue
+		}
 		delete(instances, id)
 	}
 	var unknown []environs.Instance
 	for _, i := range instances {
 		unknown = append(unknown, i)
 	}
-	fmt.Println("unknown", unknown)
 	return unknown, nil
 }
 

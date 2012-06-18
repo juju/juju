@@ -316,12 +316,55 @@ func (s *ProvisioningSuite) TestProvisioningStopsUnknownInstances(c *C) {
 
 	s.checkStartInstance(c, op)
 
+	// create a second machine
+	_, err = s.st.AddMachine()
+	c.Check(err, IsNil)
+
+	s.checkStartInstance(c, op)
+
 	// stop the PA
 	c.Check(p.Stop(), IsNil)
 
 	// remove the machine
 	err = s.st.RemoveMachine(m.Id())
 	c.Check(err, IsNil)
+
+	// start a new provisioner
+	p, err = NewProvisioner(s.zkInfo)
+	c.Check(err, IsNil)
+
+	s.checkStopInstance(c, op)
+
+	c.Assert(p.Stop(), IsNil)
+}
+
+// This check is different from the one above as it catches the edge case
+// where the final machine has been removed from the state which the PA was 
+// down. 
+func (s *ProvisioningSuite) TestProvisioningStopsOnlyUnknownInstances(c *C) {
+	p, err := NewProvisioner(s.zkInfo)
+	c.Check(err, IsNil)
+	// we are not using defer s.stopProvisioner(c, p) because we need to control when 
+	// the PA is restarted in this test. Methods like Fatalf and Assert should not be used.
+	op := make(chan dummy.Operation, 1)
+	dummy.Listen(op)
+
+	// create a machine
+	m, err := s.st.AddMachine()
+	c.Check(err, IsNil)
+
+	s.checkStartInstance(c, op)
+
+	// stop the PA
+	c.Check(p.Stop(), IsNil)
+
+	// remove the machine
+	err = s.st.RemoveMachine(m.Id())
+	c.Check(err, IsNil)
+
+	machines, err := s.st.AllMachines()
+	c.Check(err, IsNil)
+	c.Check(len(machines), Equals, 0) // it's really gone	
 
 	// start a new provisioner
 	p, err = NewProvisioner(s.zkInfo)
