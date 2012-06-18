@@ -61,24 +61,22 @@ func (s *RelationUnitWatcherSuite) TestRelationUnitWatcher(c *C) {
 	// Create all relevant paths apart from presence node; check that
 	// no events occur (settings watch should not be active, because
 	// presence has not yet been detected).
-	_, err := s.zkConn.Create("/collection", "", 0, zkPermAll)
+	us := unitScope{s.zkConn, "/collection"}
+	err := us.PrepareJoin(RolePeer)
 	c.Assert(err, IsNil)
-	_, err = s.zkConn.Create("/collection/peer", "", 0, zkPermAll)
-	c.Assert(err, IsNil)
-	_, err = s.zkConn.Create("/collection/settings", "", 0, zkPermAll)
-	c.Assert(err, IsNil)
-	_, err = s.zkConn.Create("/collection/settings/u-123", "whatever", 0, zkPermAll)
-	c.Assert(err, IsNil)
+	settingsPath := us.SettingsPath("u-123")
+	_, err = s.zkConn.Create(settingsPath, "whatever", 0, zkPermAll)
 	writeSettings := func(content string) {
-		_, err = s.zkConn.Set("/collection/settings/u-123", content, -1)
+		_, err = s.zkConn.Set(settingsPath, content, -1)
 		c.Assert(err, IsNil)
 	}
 	writeSettings("something")
 	waitFor(w, shortTimeout, nil)
 
 	// Start a pinger on the presence node; check event.
+	presencePath := us.PresencePath(RolePeer, "u-123")
 	startPinger := func() *presence.Pinger {
-		pinger, err := presence.StartPinger(s.zkConn, "/collection/peer/u-123", agentPingerPeriod)
+		pinger, err := presence.StartPinger(s.zkConn, presencePath, agentPingerPeriod)
 		c.Assert(err, IsNil)
 		return pinger
 	}
@@ -131,4 +129,42 @@ func (s *RelationUnitWatcherSuite) TestRelationUnitWatcher(c *C) {
 
 	// Final check that no spurious changes have been sent.
 	waitFor(w, shortTimeout, nil)
+}
+
+type UnitScopeSuite struct {
+	zkConn *zookeeper.Conn
+}
+
+var _ = Suite(&UnitScopeSuite{})
+
+func (s *UnitScopeSuite) SetUpSuite(c *C) {
+	st, err := Initialize(&Info{
+		Addrs: []string{TestingZkAddr},
+	})
+	c.Assert(err, IsNil)
+	s.zkConn = ZkConn(st)
+}
+
+func (s *UnitScopeSuite) TearDownSuite(c *C) {
+	err := zkRemoveTree(s.zkConn, "/")
+	c.Assert(err, IsNil)
+	s.zkConn.Close()
+}
+
+func (s *UnitScopeSuite) TestPaths(c *C) {
+	us := &unitScope{path: "/path/to/scope"}
+	c.Assert(us.SettingsPath("u-551"), Equals, "/path/to/scope/settings/u-551")
+	c.Assert(us.PresencePath(RolePeer, "u-551"), Equals, "/path/to/scope/peer/u-551")
+}
+
+func (s *UnitScopeSuite) TestPrepareJoin(c *C) {
+	us := &unitScope{s.zkConn, "/scope"}
+	err := us.PrepareJoin(RoleRequirer)
+	c.Assert(err, IsNil)
+	stat, err := s.zkConn.Exists("/scope/requirer")
+	c.Assert(err, IsNil)
+	c.Assert(stat, NotNil)
+	stat, err = s.zkConn.Exists("/scope/settings")
+	c.Assert(err, IsNil)
+	c.Assert(stat, NotNil)
 }
