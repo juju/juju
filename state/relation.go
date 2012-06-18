@@ -93,6 +93,10 @@ func (r *ServiceRelation) RelationName() string {
 // relation, the unitScope holds every unit of every service in the relation;
 // for a container-scoped relation, the unitScope holds every unit of the
 // relation that is located within a particular container.
+// Thus, unitScope paths will take one of the following forms:
+//
+//   /relations/<relation-id>
+//   /relations/<relation-id>/<container-id>
 type unitScope struct {
 	zk   *zookeeper.Conn
 	path string
