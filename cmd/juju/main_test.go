@@ -5,15 +5,23 @@ import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/juju/environs/dummy"
+	"launchpad.net/juju-core/juju/testing"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
-	"testing"
+	stdtesting "testing"
 )
 
-func Test(t *testing.T) { TestingT(t) }
+func TestPackage(t *stdtesting.T) {
+	srv := testing.StartZkServer()
+	defer srv.Destroy()
+	dummy.SetZookeeper(srv)
+	defer dummy.SetZookeeper(nil)
+	TestingT(t)
+}
 
 type MainSuite struct{}
 
@@ -23,7 +31,7 @@ var flagRunMain = flag.Bool("run-main", false, "Run the application's main funct
 
 // Reentrancy point for testing (something as close as possible to) the juju
 // tool itself.
-func TestRunMain(t *testing.T) {
+func TestRunMain(t *stdtesting.T) {
 	if *flagRunMain {
 		Main(flag.Args())
 	}

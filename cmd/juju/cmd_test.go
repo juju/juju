@@ -13,9 +13,30 @@ import (
 	"reflect"
 )
 
+type envFixture struct {
+	home string
+}
+
+func (f *envFixture) SetUp(c *C, config string) {
+	// Arrange so that the "home" directory points
+	// to a temporary directory containing the config file.
+	f.home = os.Getenv("HOME")
+	dir := c.MkDir()
+	os.Setenv("HOME", dir)
+	err := os.Mkdir(filepath.Join(dir, ".juju"), 0777)
+	c.Assert(err, IsNil)
+	err = ioutil.WriteFile(filepath.Join(dir, ".juju", "environments.yaml"), []byte(config), 0666)
+	c.Assert(err, IsNil)
+}
+
+func (f *envFixture) TearDown(c *C) {
+	os.Setenv("HOME", f.home)
+	dummy.Reset()
+}
+
 type cmdSuite struct {
 	testing.LoggingSuite
-	home string
+	envFixture
 }
 
 var _ = Suite(&cmdSuite{})
@@ -39,21 +60,11 @@ environments:
 
 func (s *cmdSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
-	// Arrange so that the "home" directory points
-	// to a temporary directory containing the config file.
-	s.home = os.Getenv("HOME")
-	dir := c.MkDir()
-	os.Setenv("HOME", dir)
-	err := os.Mkdir(filepath.Join(dir, ".juju"), 0777)
-	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(filepath.Join(dir, ".juju", "environments.yaml"), []byte(config), 0666)
-	c.Assert(err, IsNil)
+	s.envFixture.SetUp(c, config)
 }
 
 func (s *cmdSuite) TearDownTest(c *C) {
-	os.Setenv("HOME", s.home)
-
-	dummy.Reset()
+	s.envFixture.TearDown(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
