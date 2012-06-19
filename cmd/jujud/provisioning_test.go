@@ -135,43 +135,40 @@ func (s *ProvisioningSuite) checkStopInstance(c *C, op <-chan dummy.Operation) {
 			default:
 				//ignore 
 			}
-		case <-time.After(3 * time.Second):
+		case <-time.After(2 * time.Second):
 			c.Errorf("provisioner did not stop an instance")
 			return
 		}
 	}
 }
 
-// checkMachineIdSet checks that the machine in the state now has an instance id.
+// checkMachineIdSet checks that the machine now has an instance id.
 func (s *ProvisioningSuite) checkMachineIdSet(c *C, m *state.Machine) {
-	// TODO(dfc) add machine.WatchConfig() to avoid having to poll.
-	for a := veryShortAttempt.Start(); a.Next(); {
-		id, err := m.InstanceId()
-		if err != nil {
-			c.Errorf("checkMachineIdSet: %v", err)
-			return
-		}
-		if id != "" {
-			return
-		}
+	if s.checkMachineId(c, m, false) {
+		c.Errorf("provisioner did not set machine.InstanceId")
 	}
-	c.Errorf("provisioner did not set machine.InstanceId")
 }
 
-// checkMachineIdNotSet checks that the machine in the state is unset.
+// checkMachineIdNotSet checks that the machine id is unset.
 func (s *ProvisioningSuite) checkMachineIdNotSet(c *C, m *state.Machine) {
+	if s.checkMachineId(c, m, true) {
+		c.Errorf("provisioner did not clear machine.InstanceId")
+	}
+}
+
+func (s *ProvisioningSuite) checkMachineId(c *C, m *state.Machine, isEmpty bool) bool {
 	// TODO(dfc) add machine.WatchConfig() to avoid having to poll.
 	for a := veryShortAttempt.Start(); a.Next(); {
 		id, err := m.InstanceId()
 		if err != nil {
-			c.Errorf("checkMachineIdNotSet: %v", err)
-			return
+			c.Check(err, IsNil)
+			return false
 		}
-		if id == "" {
-			return
+		if (isEmpty && id == "") && (!isEmpty && id != "") {
+			return true
 		}
 	}
-	c.Errorf("provisioner did not clear machine.InstanceId")
+	return false
 }
 
 func (s *ProvisioningSuite) TestParseSuccess(c *C) {
