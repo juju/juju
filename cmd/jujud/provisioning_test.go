@@ -389,8 +389,8 @@ func (s *ProvisioningSuite) TestProvisioningStopsUnknownInstances(c *C) {
 }
 
 // This check is different from the one above as it catches the edge case
-// where the final machine has been removed from the state which the PA was 
-// down. 
+// where the final machine has been removed from the state while the PA was 
+// not running. 
 func (s *ProvisioningSuite) TestProvisioningStopsOnlyUnknownInstances(c *C) {
 	p, err := NewProvisioner(s.zkInfo)
 	c.Check(err, IsNil)
@@ -424,6 +424,45 @@ func (s *ProvisioningSuite) TestProvisioningStopsOnlyUnknownInstances(c *C) {
 	s.checkStopInstance(c, op)
 
 	c.Assert(p.Stop(), IsNil)
+}
+
+// check that the provisioner will remove unknown instances without
+// needing to be triggered by a change in the state.
+func (s *ProvisioningSuite) TestProvisioningCleansEnvironmentOnStartup(c *C) {
+	cfg, err := s.st.EnvironConfig()
+	c.Assert(err, IsNil)
+	env, err := environs.NewEnviron(cfg.Map())
+	c.Assert(err, IsNil)
+
+	// start some instances directly, without registering them via the state
+	_, err = env.StartInstance(0, s.zkInfo)
+	c.Assert(err, IsNil)
+
+	_, err = env.StartInstance(1, s.zkInfo)
+	c.Assert(err, IsNil)
+
+	_, err = env.StartInstance(2, s.zkInfo)
+	c.Check(err, IsNil)
+
+	insts, err := env.AllInstances()
+	c.Assert(err, IsNil)
+
+	c.Assert(len(insts), Equals, 3)
+
+	op := make(chan dummy.Operation, 1)
+	dummy.Listen(op)
+
+	p, err := NewProvisioner(s.zkInfo)
+	defer s.stopProvisioner(c, p)
+
+	for count := len(insts); count > 0; {
+		c.Logf("count %d", count)
+		s.checkStopInstance(c, op)
+
+		insts, err := env.AllInstances()
+		c.Assert(err, IsNil)
+		count = len(insts)
+	}
 }
 
 func (s *ProvisioningSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublished(c *C) {

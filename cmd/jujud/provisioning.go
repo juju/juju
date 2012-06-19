@@ -194,6 +194,7 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 	for _, i := range all {
 		instances[i.Id()] = i
 	}
+	// TODO(dfc) this is very inefficient, p.machines cache may help.
 	machines, err := p.st.AllMachines()
 	if err != nil {
 		return nil, err
