@@ -13,22 +13,6 @@ import (
 // when we know that a version is in fact actually incompatible.
 const topologyVersion = 1
 
-// NoRelationError represents a relation not found for one or more endpoints.
-type NoRelationError struct {
-	Endpoints []RelationEndpoint
-}
-
-// Error returns the string representation of the error.
-func (e NoRelationError) Error() string {
-	switch len(e.Endpoints) {
-	case 1:
-		return fmt.Sprintf("state: no peer relation for %q", e.Endpoints[0])
-	case 2:
-		return fmt.Sprintf("state: no relation between %q and %q", e.Endpoints[0], e.Endpoints[1])
-	}
-	panic("state: illegal relation")
-}
-
 // topoTopology is used to marshal and unmarshal the content
 // of the /topology node in ZooKeeper.
 type topoTopology struct {
@@ -57,7 +41,7 @@ type topoUnit struct {
 	Principal string
 }
 
-// topoRelation represents the relation data within the 
+// topoRelation represents the relation data within the
 // /topology node in ZooKeeper.
 type topoRelation struct {
 	Interface string
@@ -85,11 +69,6 @@ func (r *topoRelation) check() error {
 	if len(r.Services) == 0 {
 		return fmt.Errorf("relation has no services")
 	}
-	counterpart := map[RelationRole]RelationRole{
-		RoleRequirer: RoleProvider,
-		RoleProvider: RoleRequirer,
-		RolePeer:     RolePeer,
-	}
 	for serviceKey, service := range r.Services {
 		if serviceKey == "" {
 			return fmt.Errorf("relation has service with empty key")
@@ -97,10 +76,7 @@ func (r *topoRelation) check() error {
 		if service.RelationName == "" {
 			return fmt.Errorf("relation has %s service with empty relation name", service.RelationRole)
 		}
-		counterRole, ok := counterpart[service.RelationRole]
-		if !ok {
-			return fmt.Errorf("relation has unknown service role: %q", service.RelationRole)
-		}
+		counterRole := service.RelationRole.CounterpartRole()
 		if !r.hasServiceWithRole(counterRole) {
 			return fmt.Errorf("relation has %s but no %s", service.RelationRole, counterRole)
 		}
@@ -507,16 +483,19 @@ func (t *topology) RelationsForService(key string) (map[string]*topoRelation, er
 	return relations, nil
 }
 
+// noRelationFound indicates that an attempt to look up a relation failed.
+var noRelationFound = errors.New("relation doesn't exist")
+
 // RelationKey returns the key for the relation established between the
-// provided endpoints. If no matching relation is found, error will be
-// of type *NoRelationError.
+// provided endpoints. If no matching relation is found, noRelationFound
+// will be return.
 func (t *topology) RelationKey(endpoints ...RelationEndpoint) (string, error) {
 	switch len(endpoints) {
 	case 1:
 		// Just pass.
 	case 2:
 		if endpoints[0].Interface != endpoints[1].Interface {
-			return "", &NoRelationError{endpoints}
+			return "", noRelationFound
 		}
 	default:
 		return "", fmt.Errorf("illegal number of relation endpoints provided")
@@ -525,7 +504,7 @@ func (t *topology) RelationKey(endpoints ...RelationEndpoint) (string, error) {
 	for _, endpoint := range endpoints {
 		serviceKey, err := t.ServiceKey(endpoint.ServiceName)
 		if err != nil {
-			return "", &NoRelationError{endpoints}
+			return "", noRelationFound
 		}
 		serviceKeys[endpoint] = serviceKey
 	}
@@ -546,7 +525,7 @@ func (t *topology) RelationKey(endpoints ...RelationEndpoint) (string, error) {
 			return relationKey, nil
 		}
 	}
-	return "", &NoRelationError{endpoints}
+	return "", noRelationFound
 }
 
 // machine returns the machine with the given key.
