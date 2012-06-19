@@ -98,6 +98,12 @@ func (p *Provisioner) loop() {
 				continue
 			}
 			log.Printf("provisioner loaded new environment configuration")
+
+			// call processMachines to stop any unknown instances before watching machines.
+			if err := p.processMachines(nil, nil); err != nil {
+				p.tomb.Kill(err)
+			}
+
 			p.innerLoop()
 		}
 	}
@@ -105,11 +111,6 @@ func (p *Provisioner) loop() {
 
 func (p *Provisioner) innerLoop() {
 	p.machinesWatcher = p.st.WatchMachines()
-
-	if err := p.processMachines(nil, nil); err != nil {
-		p.tomb.Kill(err)
-	}
-
 	for {
 		select {
 		case <-p.tomb.Dying():
