@@ -123,7 +123,7 @@ func CheckPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
 	case match && !found:
 		c.Errorf("package %q not found in %v", pkg, pkgs)
 	case !match && found:
-		c.Errorf("%q found but not expected in ", pkg, pkgs)
+		c.Errorf("%q found but not expected in %v", pkg, pkgs)
 	}
 }
 
