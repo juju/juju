@@ -16,9 +16,8 @@ type Container interface {
 	Destroy(*state.Unit) error
 }
 
-// Simple is an instance of Container that
-// knows how deploy units within the current
-// machine.
+// Simple is an instance of Container that knows how deploy units within
+// the current machine.
 var Simple = simpleContainer{}
 
 // TODO:
@@ -71,7 +70,6 @@ func (simpleContainer) Deploy(unit *state.Unit) error {
 }
 
 func (simpleContainer) Destroy(unit *state.Unit) error {
-	// TODO what, if any, directory do we need to delete?
 	svc := service(unit)
 	if err := svc.Remove(); err != nil {
 		return err
