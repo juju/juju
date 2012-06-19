@@ -55,7 +55,7 @@ type Provisioner struct {
 
 	// machine.Id => environs.Instance
 	instances map[int]environs.Instance
-	// instance.Id() => *state.Machine
+	// instance.Id => *state.Machine
 	machines map[string]*state.Machine
 }
 
@@ -181,13 +181,7 @@ func (p *Provisioner) processMachines(added, removed []*state.Machine) error {
 	// associated with them.
 	unknown, err := p.findUnknownInstances()
 
-	stopping = append(stopping, unknown...)
-	// although calling StopInstance with an empty slice should produce no change in the 
-	// provider, environs like dummy do not consider this a noop.
-	if len(stopping) > 0 {
-		return p.environ.StopInstances(stopping)
-	}
-	return nil
+	return p.stopInstances(append(stopping, unknown...))
 }
 
 // findUnknownInstances finds instances which are not associated with a machine.
