@@ -221,7 +221,7 @@ func (s *StateSuite) TestMachineInstanceIdCorrupt(c *C) {
 	c.Assert(err, IsNil)
 
 	id, err := machine.InstanceId()
-	c.Assert(err, ErrorMatches, "state: invalid internal machine key type: .*")
+	c.Assert(err.Error(), Equals, "invalid internal machine id type map[interface {}]interface {} for machine 0")
 	c.Assert(id, Equals, "")
 }
 
@@ -305,7 +305,7 @@ func (s *StateSuite) TestMachineWaitAgentAlive(c *C) {
 	c.Assert(alive, Equals, false)
 
 	err = machine0.WaitAgentAlive(timeout)
-	c.Assert(err, ErrorMatches, `state: waiting for agent of machine 0: presence: still not alive after timeout`)
+	c.Assert(err, ErrorMatches, `waiting for agent of machine 0: presence: still not alive after timeout`)
 
 	pinger, err := machine0.SetAgentAlive()
 	c.Assert(err, IsNil)
@@ -534,14 +534,12 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	unitZero, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	c.Assert(unitZero.Name(), Equals, "wordpress/0")
-	principal, err := unitZero.IsPrincipal()
-	c.Assert(err, IsNil)
+	principal := unitZero.IsPrincipal()
 	c.Assert(principal, Equals, true)
 	unitOne, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	c.Assert(unitOne.Name(), Equals, "wordpress/1")
-	principal, err = unitOne.IsPrincipal()
-	c.Assert(err, IsNil)
+	principal = unitOne.IsPrincipal()
 	c.Assert(principal, Equals, true)
 
 	// Check that principal units cannot be added to principal units.
@@ -563,8 +561,7 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	subZero, err := logging.AddUnitSubordinateTo(unitZero)
 	c.Assert(err, IsNil)
 	c.Assert(subZero.Name(), Equals, "logging/0")
-	principal, err = subZero.IsPrincipal()
-	c.Assert(err, IsNil)
+	principal = subZero.IsPrincipal()
 	c.Assert(principal, Equals, false)
 
 	// Check the subordinate unit has been assigned its principal's machine.
