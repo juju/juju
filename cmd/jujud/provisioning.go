@@ -11,7 +11,6 @@ import (
 	"launchpad.net/tomb"
 
 	// register providers
-	_ "launchpad.net/juju-core/juju/environs/dummy"
 	_ "launchpad.net/juju-core/juju/environs/ec2"
 )
 
