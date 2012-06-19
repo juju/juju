@@ -10,6 +10,10 @@ import (
 	"launchpad.net/juju-core/juju/state"
 )
 
+// simpleContainer allows tests to hook into the container
+// deployment logic.
+var simpleContainer = container.Simple
+
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
 	Conf      AgentConf
@@ -88,14 +92,14 @@ func (m *Machiner) loop() {
 			}
 			for _, u := range change.Deleted {
 				if u.IsPrincipal() {
-					if err := container.Simple(u).Destroy(); err != nil {
+					if err := simpleContainer.Destroy(u); err != nil {
 						log.Printf("cannot destroy unit %s: %v", u.Name(), err)
 					}
 				}
 			}
 			for _, u := range change.Added {
 				if u.IsPrincipal() {
-					if err := container.Simple(u).Deploy(); err != nil {
+					if err := simpleContainer.Deploy(u); err != nil {
 						log.Printf("cannot deploy unit %s: %v", u.Name(), err)
 					}
 				}
