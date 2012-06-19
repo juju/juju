@@ -279,7 +279,7 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 	log.Debugf("looking for tools for version %v; instance spec %#v", version.Current, spec)
 	toolsURL, err := environs.FindTools(e, version.Current, spec.series, spec.arch)
 	if err != nil {
-		return nil, fmt.Errorf("ec2: cannot find juju tools that would work on the specified instance: %v", err)
+		return nil, fmt.Errorf("cannot find juju tools that would work on the specified instance: %v", err)
 	}
 	userData, err := e.userData(machineId, info, master, toolsURL)
 	if err != nil {
