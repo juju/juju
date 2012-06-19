@@ -98,12 +98,17 @@ func (p *Provisioner) loop() {
 				continue
 			}
 			log.Printf("provisioner loaded new environment configuration")
+
 			p.innerLoop()
 		}
 	}
 }
 
 func (p *Provisioner) innerLoop() {
+	// call processMachines to stop any unknown instances before watching machines.
+	if err := p.processMachines(nil, nil); err != nil {
+		p.tomb.Kill(err)
+	}
 	p.machinesWatcher = p.st.WatchMachines()
 	for {
 		select {
@@ -132,7 +137,9 @@ func (p *Provisioner) innerLoop() {
 				}
 				return
 			}
-			if err := p.processMachines(machines); err != nil {
+			// TODO(dfc) fire process machines periodically to shut down unknown
+			// instances.
+			if err := p.processMachines(machines.Added, machines.Deleted); err != nil {
 				p.tomb.Kill(err)
 			}
 		}
@@ -151,29 +158,63 @@ func (p *Provisioner) Stop() error {
 	return p.tomb.Wait()
 }
 
-func (p *Provisioner) processMachines(changes *state.MachinesChange) error {
+func (p *Provisioner) processMachines(added, removed []*state.Machine) error {
 	// step 1. find which of the added machines have not
 	// yet been allocated a started instance.
-	notstarted, err := p.findNotStarted(changes.Added)
+	notstarted, err := p.findNotStarted(added)
 	if err != nil {
 		return err
 	}
 
 	// step 2. start an instance for any machines we found.
-	if _, err := p.startMachines(notstarted); err != nil {
+	if err := p.startMachines(notstarted); err != nil {
 		return err
 	}
 
 	// step 3. stop all machines that were removed from the state.
-	stopping, err := p.instancesForMachines(changes.Deleted)
+	stopping, err := p.instancesForMachines(removed)
 	if err != nil {
 		return err
 	}
 
-	// TODO(dfc) obtain a list of started instances from the Environ and compare that
-	// with the known instances stored in the machine.InstanceId() config.
+	// step 4. find instances which are running but have no machine 
+	// associated with them.
+	unknown, err := p.findUnknownInstances()
 
-	return p.stopInstances(stopping)
+	return p.stopInstances(append(stopping, unknown...))
+}
+
+// findUnknownInstances finds instances which are not associated with a machine.
+func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
+	all, err := p.environ.AllInstances()
+	if err != nil {
+		return nil, err
+	}
+	instances := make(map[string]environs.Instance)
+	for _, i := range all {
+		instances[i.Id()] = i
+	}
+	// TODO(dfc) this is very inefficient, p.machines cache may help.
+	machines, err := p.st.AllMachines()
+	if err != nil {
+		return nil, err
+	}
+	for _, m := range machines {
+		id, err := m.InstanceId()
+		if err != nil {
+			return nil, err
+		}
+		if id == "" {
+			// TODO(dfc) InstanceId should return an error if the id isn't set.
+			continue
+		}
+		delete(instances, id)
+	}
+	var unknown []environs.Instance
+	for _, i := range instances {
+		unknown = append(unknown, i)
+	}
+	return unknown, nil
 }
 
 // findNotStarted finds machines without an InstanceId set, these are defined as not started.
@@ -185,6 +226,7 @@ func (p *Provisioner) findNotStarted(machines []*state.Machine) ([]*state.Machin
 			return nil, err
 		}
 		if id == "" {
+			// TODO(dfc) InstanceId should return an error if the id isn't set.
 			notstarted = append(notstarted, m)
 		} else {
 			log.Printf("machine %s already started as instance %q", m, id)
@@ -193,15 +235,13 @@ func (p *Provisioner) findNotStarted(machines []*state.Machine) ([]*state.Machin
 	return notstarted, nil
 }
 
-func (p *Provisioner) startMachines(machines []*state.Machine) ([]*state.Machine, error) {
-	var started []*state.Machine
+func (p *Provisioner) startMachines(machines []*state.Machine) error {
 	for _, m := range machines {
 		if err := p.startMachine(m); err != nil {
-			return nil, err
+			return err
 		}
-		started = append(started, m)
 	}
-	return started, nil
+	return nil
 }
 
 func (p *Provisioner) startMachine(m *state.Machine) error {
@@ -228,7 +268,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 }
 
 func (p *Provisioner) stopInstances(instances []environs.Instance) error {
-	// although calling StopInstance with an empty slice should produce no change in the 
+	// Although calling StopInstance with an empty slice should produce no change in the 
 	// provider, environs like dummy do not consider this a noop.
 	if len(instances) == 0 {
 		return nil
@@ -272,6 +312,8 @@ func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, e
 	return inst, nil
 }
 
+// instancesForMachines returns a list of environs.Instance that represent the list of machines running
+// in the provider.
 func (p *Provisioner) instancesForMachines(machines []*state.Machine) ([]environs.Instance, error) {
 	var insts []environs.Instance
 	for _, m := range machines {
