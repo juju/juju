@@ -46,6 +46,10 @@ func service(unit *state.Unit) *upstart.Service {
 	return svc
 }
 
+func dirName(unit *state.Unit) string {
+	return filepath.Join(jujuDir, "units", deslash(unit.Name()))
+}
+
 func (simpleContainer) Deploy(unit *state.Unit) error {
 	exe, err := exec.LookPath("jujud")
 	if err != nil {
@@ -57,8 +61,8 @@ func (simpleContainer) Deploy(unit *state.Unit) error {
 		Cmd:     exe + " unit --unit-name " + unit.Name(),
 		// TODO: Out
 	}
-	dir := filepath.Join(jujuDir, conf.Name)
-	if err := os.Mkdir(dir, 0777); err != nil {
+	dir := dirName(unit)
+	if err := os.MkdirAll(dir, 0777); err != nil {
 		return err
 	}
 	err = conf.Install()
@@ -74,6 +78,5 @@ func (simpleContainer) Destroy(unit *state.Unit) error {
 	if err := svc.Remove(); err != nil {
 		return err
 	}
-	dir := filepath.Join(jujuDir, svc.Name)
-	return os.RemoveAll(dir)
+	return os.RemoveAll(dirName(unit))
 }

@@ -61,7 +61,7 @@ func (s *suite) TestDeploy(c *C) {
 	unitName := "juju-agent-dummy-0"
 	upstartScript := filepath.Join(*container.InitDir, unitName+".conf")
 
-	unitDir := filepath.Join(*container.JujuDir, unitName)
+	unitDir := filepath.Join(*container.JujuDir, "units", "dummy-0")
 
 	cont := container.Simple
 	err = cont.Deploy(unit)
