@@ -78,7 +78,14 @@ func (m *Machiner) loop() {
 		select {
 		case <-m.tomb.Dying():
 			return
-		case change := <-watcher.Changes():
+		case change, ok := <-watcher.Changes():
+			if !ok {
+				err := watcher.Stop()
+				if err != nil {
+					m.tomb.Kill(err)
+				}
+				return
+			}
 			for _, u := range change.Deleted {
 				if u.IsPrincipal() {
 					if err := container.Simple(u).Destroy(); err != nil {
