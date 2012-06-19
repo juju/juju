@@ -301,6 +301,7 @@ type MachinesWatcher struct {
 	changeChan       chan *MachinesChange
 	watcher          *watcher.ContentWatcher
 	knownMachineKeys []string
+	emittedValue     bool
 }
 
 // MachinesChange contains information about
@@ -357,7 +358,7 @@ func (w *MachinesWatcher) loop() {
 			currentMachineKeys := topology.MachineKeys()
 			added, deleted := diff(currentMachineKeys, w.knownMachineKeys), diff(w.knownMachineKeys, currentMachineKeys)
 			w.knownMachineKeys = currentMachineKeys
-			if len(added) == 0 && len(deleted) == 0 {
+			if w.emittedValue && len(added) == 0 && len(deleted) == 0 {
 				// The change was not relevant to this watcher.
 				continue
 			}
@@ -374,17 +375,19 @@ func (w *MachinesWatcher) loop() {
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- mc:
+				w.emittedValue = true
 			}
 		}
 	}
 }
 
 type MachineUnitsWatcher struct {
-	st         *State
-	machine    *Machine
-	tomb       tomb.Tomb
-	changeChan chan *MachineUnitsChange
-	watcher    *watcher.ContentWatcher
+	st           *State
+	machine      *Machine
+	tomb         tomb.Tomb
+	changeChan   chan *MachineUnitsChange
+	watcher      *watcher.ContentWatcher
+	emittedValue bool
 }
 
 type MachineUnitsChange struct {
@@ -448,7 +451,7 @@ func (w *MachineUnitsWatcher) loop() {
 			currentUnitKeys := topology.UnitsForMachine(w.machine.key)
 			added, deleted := diff(currentUnitKeys, knownUnitKeys), diff(knownUnitKeys, currentUnitKeys)
 			knownUnitKeys = currentUnitKeys
-			if len(added) == 0 && len(deleted) == 0 {
+			if w.emittedValue && len(added) == 0 && len(deleted) == 0 {
 				// The change was not relevant to this watcher.
 				continue
 			}
@@ -474,6 +477,7 @@ func (w *MachineUnitsWatcher) loop() {
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- uc:
+				w.emittedValue = true
 			}
 		}
 	}
@@ -509,7 +513,7 @@ type relationUnitWatcher struct {
 	settingsPath    string
 	settingsWatcher *watcher.ContentWatcher
 	changes         chan relationUnitChange
-	started         bool
+	emittedValue    bool
 }
 
 // newRelationUnitWatcher returns a watcher to monitor a unit in a relation.
@@ -601,7 +605,7 @@ func (w *relationUnitWatcher) updatePresence(alive bool) (aliveW <-chan bool, er
 	if err != nil {
 		return
 	}
-	if w.started && alive != latestAlive {
+	if w.emittedValue && alive != latestAlive {
 		// Presence has changed an odd number of times since the watch
 		// last fired, and is therefore in the same state we last saw.
 		return
@@ -627,7 +631,7 @@ func (w *relationUnitWatcher) updatePresence(alive bool) (aliveW <-chan bool, er
 		// The presence node is not alive; stop watching settings,
 		// and send immediate notification that the unit is no
 		// longer participating in the relation.
-		if w.started {
+		if w.emittedValue {
 			sw := w.settingsWatcher
 			w.settingsWatcher = nil
 			if err := sw.Stop(); err != nil {
@@ -640,7 +644,7 @@ func (w *relationUnitWatcher) updatePresence(alive bool) (aliveW <-chan bool, er
 		case w.changes <- relationUnitChange{}:
 		}
 	}
-	w.started = true
+	w.emittedValue = true
 	return
 }
 

@@ -237,6 +237,14 @@ type machinesWatchTest struct {
 
 var machinesWatchTests = []machinesWatchTest{
 	{
+		func(_ *state.State) error {
+			return nil
+		},
+		func(_ *state.State) *state.MachinesChange {
+			return &state.MachinesChange{}
+		},
+	},
+	{
 		func(s *state.State) error {
 			_, err := s.AddMachine()
 			return err
@@ -294,6 +302,14 @@ var watchMachineUnitsTests = []struct {
 	test func(m *state.Machine, units []*state.Unit) error
 	want func(units []*state.Unit) *state.MachineUnitsChange
 }{
+	{
+		func(_ *state.Machine, _ []*state.Unit) error {
+			return nil
+		},
+		func(_ []*state.Unit) *state.MachineUnitsChange {
+			return &state.MachineUnitsChange{}
+		},
+	},
 	{
 		func(m *state.Machine, units []*state.Unit) error {
 			return units[0].AssignToMachine(m)
