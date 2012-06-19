@@ -15,8 +15,10 @@ type MgoSuite struct {
 	server  *exec.Cmd
 }
 
-const mgoport = "27017" // 50017
-const mgoaddr = "localhost:" + mgoport
+const (
+	mgoport = "50017"
+	mgoaddr = "localhost:" + mgoport
+)
 
 func (s *MgoSuite) SetUpSuite(c *C) {
 	mgo.SetStats(true)
