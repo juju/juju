@@ -416,10 +416,6 @@ func (w *MachineUnitsWatcher) Changes() <-chan *MachineUnitsChange {
 // before discarding the watcher.
 func (w *MachineUnitsWatcher) Stop() error {
 	w.tomb.Kill(nil)
-	if err := w.watcher.Stop(); err != nil {
-		w.tomb.Wait()
-		return err
-	}
 	return w.tomb.Wait()
 }
 
