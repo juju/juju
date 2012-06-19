@@ -99,17 +99,16 @@ func (p *Provisioner) loop() {
 			}
 			log.Printf("provisioner loaded new environment configuration")
 
-			// call processMachines to stop any unknown instances before watching machines.
-			if err := p.processMachines(nil, nil); err != nil {
-				p.tomb.Kill(err)
-			}
-
 			p.innerLoop()
 		}
 	}
 }
 
 func (p *Provisioner) innerLoop() {
+	// call processMachines to stop any unknown instances before watching machines.
+	if err := p.processMachines(nil, nil); err != nil {
+		p.tomb.Kill(err)
+	}
 	p.machinesWatcher = p.st.WatchMachines()
 	for {
 		select {
@@ -206,6 +205,7 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 			return nil, err
 		}
 		if id == "" {
+			// TODO(dfc) InstanceId should return an error if the id isn't set.
 			continue
 		}
 		delete(instances, id)
@@ -226,6 +226,7 @@ func (p *Provisioner) findNotStarted(machines []*state.Machine) ([]*state.Machin
 			return nil, err
 		}
 		if id == "" {
+			// TODO(dfc) InstanceId should return an error if the id isn't set.
 			notstarted = append(notstarted, m)
 		} else {
 			log.Printf("machine %s already started as instance %q", m, id)
