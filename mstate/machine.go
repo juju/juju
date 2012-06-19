@@ -31,7 +31,6 @@ func (m *Machine) InstanceId() (iid string, err error) {
 }
 
 // SetInstanceId sets the provider specific machine id for this machine.
-func (m *Machine) SetInstanceId(id string) (err error) {
-	err = m.st.machines.Update(bson.D{{"_id", m.id}}, bson.D{{"instanceid", id}})
-	return
+func (m *Machine) SetInstanceId(id string) error {
+	return m.st.machines.Update(bson.D{{"_id", m.id}}, bson.D{{"instanceid", id}})
 }
