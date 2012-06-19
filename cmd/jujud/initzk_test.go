@@ -6,7 +6,7 @@ import (
 
 type InitzkSuite struct {
 	zkFixture
-	path   string
+	path string
 }
 
 var _ = Suite(&InitzkSuite{})
