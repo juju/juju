@@ -4,15 +4,22 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/juju/state"
 	"launchpad.net/juju-core/juju/upstart"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
 // Container contains running juju service units.
 type Container interface {
-	Deploy() error
-	Destroy() error
+	Deploy(*state.Unit) error
+	Destroy(*state.Unit) error
 }
+
+// Simple is an instance of Container that
+// knows how deploy units within the current
+// machine.
+var Simple = simpleContainer{}
 
 // TODO:
 //type lxc struct {
@@ -22,44 +29,53 @@ type Container interface {
 //func LXC(args...) Container {
 //}
 
-// upstart uses /etc/init by default. Allow the tests
+// upstart uses the system init directory by default. Allow the tests
 // to choose a different directory.
 var initDir = ""
 
-type simple struct {
-	unit *state.Unit
-}
+var jujuDir = "/var/lib/juju"
 
-func Simple(unit *state.Unit) Container {
-	return &simple{unit}
-}
+type simpleContainer struct{}
 
 func deslash(s string) string {
 	return strings.Replace(s, "/", "-", -1)
 }
 
-func (s *simple) service() *upstart.Service {
-	svc := upstart.NewService("juju-agent-" + deslash(s.unit.Name()))
+func service(unit *state.Unit) *upstart.Service {
+	svc := upstart.NewService("juju-agent-" + deslash(unit.Name()))
 	svc.InitDir = initDir
 	return svc
 }
 
-func (s *simple) Deploy() error {
+func (simpleContainer) Deploy(unit *state.Unit) error {
 	exe, err := exec.LookPath("jujud")
 	if err != nil {
 		return fmt.Errorf("cannot find executable: %v", err)
 	}
 	conf := &upstart.Conf{
-		Service: *s.service(),
-		Desc:    "juju unit agent for " + s.unit.Name(),
-		Cmd:     exe + " unit --unit-name " + s.unit.Name(),
+		Service: *service(unit),
+		Desc:    "juju unit agent for " + unit.Name(),
+		Cmd:     exe + " unit --unit-name " + unit.Name(),
 		// TODO: Out
 	}
-	return conf.Install()
+	dir := filepath.Join(jujuDir, conf.Name)
+	if err := os.Mkdir(dir, 0777); err != nil {
+		return err
+	}
+	err = conf.Install()
+	if err != nil {
+		os.Remove(dir)
+		return err
+	}
+	return nil
 }
 
-func (s *simple) Destroy() error {
+func (simpleContainer) Destroy(unit *state.Unit) error {
 	// TODO what, if any, directory do we need to delete?
-	return s.service().Remove()
+	svc := service(unit)
+	if err := svc.Remove(); err != nil {
+		return err
+	}
+	dir := filepath.Join(jujuDir, svc.Name)
+	return os.RemoveAll(dir)
 }
-
