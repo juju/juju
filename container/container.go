@@ -31,7 +31,7 @@ type simple struct {
 }
 
 // Installer is used to install simple containers.
-// It is set to the upstart installer by default.
+// The upstart installer is used by default.
 var SimpleInstaller = (*upstart.Conf).Install
 
 func Simple(unit *state.Unit) Container {
