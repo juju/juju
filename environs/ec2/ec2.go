@@ -398,6 +398,24 @@ func (e *environ) Instances(ids []string) ([]environs.Instance, error) {
 	return insts, nil
 }
 
+func (e *environ) AllInstances() ([]environs.Instance, error) {
+	filter := ec2.NewFilter()
+	filter.Add("instance-state-name", "pending", "running")
+	filter.Add("group-name", e.groupName())
+	resp, err := e.ec2().Instances(nil, filter)
+	if err != nil {
+		return nil, err
+	}
+	var insts []environs.Instance
+	for _, r := range resp.Reservations {
+		for i := range r.Instances {
+			inst := r.Instances[i]
+			insts = append(insts, &instance{e, &inst})
+		}
+	}
+	return insts, nil
+}
+
 func (e *environ) Destroy(insts []environs.Instance) error {
 	log.Printf("environs/ec2: destroying environment %q", e.name)
 	// Try to find all the instances in the environ's group.
