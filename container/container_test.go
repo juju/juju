@@ -36,7 +36,6 @@ func (s *suite) SetUpSuite(c *C) {
 		Addrs: []string{addr},
 	})
 	c.Assert(err, IsNil)
-
 }
 
 func (s *suite) TestDeploy(c *C) {
@@ -53,20 +52,37 @@ func (s *suite) TestDeploy(c *C) {
 	unit, err := service.AddUnit()
 	c.Assert(err, IsNil)
 
-	*container.InitDir = c.MkDir()
+	oldInitDir, oldJujuDir := *container.InitDir, *container.JujuDir
+	defer func() {
+		*container.InitDir, *container.JujuDir = oldInitDir, oldJujuDir
+	}()
+	*container.InitDir, *container.JujuDir = c.MkDir(), c.MkDir()
 
-	upstartScript := filepath.Join(*container.InitDir, "juju-agent-dummy-0.conf")
+	unitName := "juju-agent-dummy-0"
+	upstartScript := filepath.Join(*container.InitDir, unitName+".conf")
 
-	cont := container.Simple(unit)
-	err = cont.Deploy()
+	unitDir := filepath.Join(*container.JujuDir, "units", "dummy-0")
+
+	cont := container.Simple
+	err = cont.Deploy(unit)
 	c.Assert(err, ErrorMatches, `(.|\n)+Unknown job(.|\n)+`)
 
 	data, err := ioutil.ReadFile(upstartScript)
 	c.Assert(err, IsNil)
 	c.Assert(string(data), Matches, `(.|\n)+unit --unit-name(.|\n)+`)
 
-	err = cont.Destroy()
+	// We can't check that the unit directory is created, because
+	// it is removed when the call to Deploy fails, but
+	// we can check that it is removed.
+
+	err = os.MkdirAll(filepath.Join(unitDir, "foo"), 0777)
 	c.Assert(err, IsNil)
+
+	err = cont.Destroy(unit)
+	c.Assert(err, IsNil)
+
+	_, err = os.Stat(unitDir)
+	c.Assert(err, NotNil)
 
 	_, err = os.Stat(upstartScript)
 	c.Assert(err, NotNil)
