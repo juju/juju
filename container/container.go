@@ -62,7 +62,7 @@ func (simpleContainer) Deploy(unit *state.Unit) error {
 		// TODO: Out
 	}
 	dir := dirName(unit)
-	if err := os.MkdirAll(dir, 0777); err != nil {
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
 	err = conf.Install()
