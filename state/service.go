@@ -230,9 +230,9 @@ func (s *Service) Relations() (relations []*Relation, err error) {
 		return nil, err
 	}
 	for key, tr := range trs {
-		r := &Relation{s.st, key, make([]RelationEndpoint, len(tr.Services))}
+		r := &Relation{s.st, key, make([]RelationEndpoint, len(tr.Endpoints))}
 		i := 0
-		for skey, tep := range tr.Services {
+		for skey, tep := range tr.Endpoints {
 			sname := s.name
 			if skey != s.key {
 				if sname, err = t.ServiceName(skey); err != nil {
@@ -240,7 +240,7 @@ func (s *Service) Relations() (relations []*Relation, err error) {
 				}
 			}
 			r.endpoints[i] = RelationEndpoint{
-				sname, tr.Interface, tep.RelationName, tep.RelationRole, tr.Scope,
+				sname, tr.Interface, tep.Name, tep.Role, tr.Scope,
 			}
 			i++
 		}
