@@ -127,11 +127,7 @@ func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
 	if !ch.Meta().Subordinate {
 		return nil, errors.New("cannot make a principal unit subordinate to another unit")
 	}
-	ok, err := principal.IsPrincipal()
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
+	if !principal.IsPrincipal() {
 		return nil, errors.New("a subordinate unit must be added to a principal unit")
 	}
 	return s.addUnit(principal.key)

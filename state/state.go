@@ -274,9 +274,7 @@ func (s *State) Unit(name string) (unit *Unit, err error) {
 // state of the environment, this may lead to new instances being launched
 // within the environment.
 func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
-	if valid, err := u.IsPrincipal(); err != nil {
-		return err
-	} else if !valid {
+	if !u.IsPrincipal() {
 		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
 	defer errorContextf(&err, "can't assign unit %q to machine", u)
