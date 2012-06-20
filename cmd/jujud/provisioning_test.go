@@ -11,7 +11,7 @@ import (
 )
 
 type ProvisioningSuite struct {
-	zkFixture
+	zkSuite
 	st *state.State
 }
 
@@ -23,7 +23,7 @@ var veryShortAttempt = environs.AttemptStrategy{
 }
 
 func (s *ProvisioningSuite) SetUpTest(c *C) {
-	s.zkFixture.setup(c)
+	s.zkSuite.SetUpTest(c)
 	var err error
 	s.st, err = state.Initialize(s.zkInfo)
 	c.Assert(err, IsNil)
@@ -40,7 +40,7 @@ func (s *ProvisioningSuite) SetUpTest(c *C) {
 }
 
 func (s *ProvisioningSuite) TearDownTest(c *C) {
-	s.zkFixture.tearDown()
+	s.zkSuite.TearDownTest()
 }
 
 // invalidateEnvironment alters the environment configuration
