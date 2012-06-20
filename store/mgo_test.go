@@ -70,7 +70,7 @@ func (s *MgoSuite) TearDownTest(c *C) {
 			c.Fatal("Test left sockets in a dirty state")
 		}
 		c.Logf("Waiting for sockets to die: %d in use, %d alive", stats.SocketsInUse, stats.SocketsAlive)
-		time.Sleep(5e8)
+		time.Sleep(500 * time.Millisecond)
 	}
 }
 
