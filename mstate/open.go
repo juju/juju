@@ -6,14 +6,12 @@ import (
 )
 
 func Dial(servers string) (st *State, err error) {
-	log.Printf("state: opening state; MongoDB servers: %q", servers)
+	log.Printf("state: opening state with servers: %q", servers)
 	session, err := mgo.Dial(servers)
 	if err != nil {
 		return
 	}
 	db := session.DB("juju")
-	db.Session = session.Clone()
-	session.Close()
 	st = &State{
 		db:       db,
 		machines: db.C("machines"),

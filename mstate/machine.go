@@ -20,14 +20,13 @@ func (m *Machine) Id() string {
 }
 
 // InstanceId returns the provider specific machine id for this machine.
-func (m *Machine) InstanceId() (iid string, err error) {
+func (m *Machine) InstanceId() (string, error) {
 	mdoc := &machineDoc{}
-	err = m.st.machines.Find(bson.D{{"_id", m.id}}).One(mdoc)
+	err := m.st.machines.Find(bson.D{{"_id", m.id}}).One(mdoc)
 	if err != nil {
-		return
+		return "", err
 	}
-	iid = mdoc.InstanceId
-	return
+	return mdoc.InstanceId, nil
 }
 
 // SetInstanceId sets the provider specific machine id for this machine.
