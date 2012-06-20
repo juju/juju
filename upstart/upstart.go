@@ -51,7 +51,19 @@ func (s *Service) Start() error {
 	if s.Running() {
 		return nil
 	}
-	return exec.Command("start", s.Name).Run()
+	return runCommand("start", s.Name)
+}
+
+func runCommand(args ...string) error {
+	out, err := exec.Command(args[0], args...).CombinedOutput()
+	if err == nil {
+		return nil
+	}
+	out = bytes.TrimSpace(out)
+	if len(out) > 0 {
+		return fmt.Errorf("exec %q: %v (%s)", args, err, out)
+	}
+	return fmt.Errorf("exec %q: %v", args, err)
 }
 
 // Stop stops the service.
@@ -59,7 +71,7 @@ func (s *Service) Stop() error {
 	if !s.Running() {
 		return nil
 	}
-	return exec.Command("stop", s.Name).Run()
+	return runCommand("stop", s.Name)
 }
 
 // Remove deletes the service configuration from the init directory.
@@ -140,6 +152,7 @@ func (c *Conf) Install() error {
 			return fmt.Errorf("upstart: could not remove installed service: %s", err)
 		}
 	}
+	
 	if err := ioutil.WriteFile(c.confPath(), conf, 0644); err != nil {
 		return err
 	}
