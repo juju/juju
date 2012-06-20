@@ -159,12 +159,12 @@ func (s *ProvisioningSuite) checkMachineIdNotSet(c *C, m *state.Machine) {
 func (s *ProvisioningSuite) checkMachineId(c *C, m *state.Machine, isEmpty bool) bool {
 	// TODO(dfc) add machine.WatchConfig() to avoid having to poll.
 	for a := veryShortAttempt.Start(); a.Next(); {
-		id, err := m.InstanceId()
-		if err != nil && err != state.NoInstanceIdError {
+		_, set, err := m.InstanceId()
+		if err != nil {
 			c.Check(err, IsNil)
 			return false
 		}
-		if (isEmpty && id == "") && (!isEmpty && id != "") {
+		if (isEmpty && !set) && (!isEmpty && set) {
 			return true
 		}
 	}

@@ -206,8 +206,9 @@ func (s *StateSuite) TestMachineInstanceId(c *C) {
 	_, err = config.Write()
 	c.Assert(err, IsNil)
 
-	id, err := machine.InstanceId()
+	id, set, err := machine.InstanceId()
 	c.Assert(err, IsNil)
+	c.Assert(set, Equals, true)
 	c.Assert(id, Equals, "spaceship/0")
 }
 
@@ -220,8 +221,9 @@ func (s *StateSuite) TestMachineInstanceIdCorrupt(c *C) {
 	_, err = config.Write()
 	c.Assert(err, IsNil)
 
-	id, err := machine.InstanceId()
+	id, set, err := machine.InstanceId()
 	c.Assert(err.Error(), Equals, "invalid internal machine id type map[interface {}]interface {} for machine 0")
+	c.Assert(set, Equals, false)
 	c.Assert(id, Equals, "")
 }
 
@@ -229,8 +231,9 @@ func (s *StateSuite) TestMachineInstanceIdMissing(c *C) {
 	machine, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 
-	id, err := machine.InstanceId()
-	c.Assert(err, Equals, state.NoInstanceIdError)
+	id, set, err := machine.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(set, Equals, false)
 	c.Assert(id, Equals, "")
 }
 
@@ -243,8 +246,9 @@ func (s *StateSuite) TestMachineInstanceIdBlank(c *C) {
 	_, err = config.Write()
 	c.Assert(err, IsNil)
 
-	id, err := machine.InstanceId()
-	c.Assert(err, Equals, state.NoInstanceIdError)
+	id, set, err := machine.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(set, Equals, false)
 	c.Assert(id, Equals, "")
 }
 

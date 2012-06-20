@@ -199,10 +199,8 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 		return nil, err
 	}
 	for _, m := range machines {
-		id, err := m.InstanceId()
-		if err == state.NoInstanceIdError {
-			continue
-		} else if err != nil {
+		id, _, err := m.InstanceId()
+		if err != nil {
 			return nil, err
 		}
 		delete(instances, id)
@@ -218,13 +216,15 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 func (p *Provisioner) findNotStarted(machines []*state.Machine) ([]*state.Machine, error) {
 	var notstarted []*state.Machine
 	for _, m := range machines {
-		id, err := m.InstanceId()
-		if err == state.NoInstanceIdError {
-			notstarted = append(notstarted, m)
-		} else if err != nil {
+		id, set, err := m.InstanceId()
+		if err != nil {
 			return nil, err
 		}
-		log.Printf("machine %s already started as instance %q", m, id)
+		if set {
+			log.Printf("machine %s already started as instance %q", m, id)
+		} else {
+			notstarted = append(notstarted, m)
+		}
 	}
 	return notstarted, nil
 }
@@ -286,12 +286,11 @@ func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, e
 	inst, ok := p.instances[m.Id()]
 	if !ok {
 		// not cached locally, ask the environ.
-		id, err := m.InstanceId()
+		id, set, err := m.InstanceId()
 		if err != nil {
 			return nil, err
 		}
-		if id == "" {
-			// TODO(dfc) InstanceId should return an error if the id isn't set.
+		if !set {
 			return nil, fmt.Errorf("machine %s not found", m)
 		}
 		// TODO(dfc) this should be batched, or the cache preloaded at startup to

@@ -48,22 +48,22 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 // InstanceId returns the provider specific machine id for this machine.
 // If the id is not set, or it's value is "" and error of type NoInstanceIdError
 // will be returned.
-func (m *Machine) InstanceId() (string, error) {
+func (m *Machine) InstanceId() (string, bool, error) {
 	config, err := readConfigNode(m.st.zk, m.zkPath())
 	if err != nil {
-		return "", fmt.Errorf("can't get instance id of machine %s: %v", m, err)
+		return "", false, fmt.Errorf("can't get instance id of machine %s: %v", m, err)
 	}
 	v, ok := config.Get(providerMachineId)
 	if !ok {
-		return "", NoInstanceIdError
+		return "", false, nil
 	}
 	if id, ok := v.(string); ok {
 		if id == "" {
-			return "", NoInstanceIdError
+			return "", false, nil
 		}
-		return id, nil
+		return id, true, nil
 	}
-	return "", fmt.Errorf("invalid internal machine id type %T for machine %s", v, m)
+	return "", false, fmt.Errorf("invalid internal machine id type %T for machine %s", v, m)
 }
 
 // Units returns all the units that have been assigned
