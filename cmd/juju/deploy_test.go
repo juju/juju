@@ -118,15 +118,7 @@ func (s *DeploySuite) assertUnitMachines(c *C, units []*state.Unit) {
 	c.Assert(unitNames, DeepEquals, expectUnitNames)
 }
 
-func (s *DeploySuite) TestLocalCharmBundle(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "dummy")
-	err := runDeploy(c, "local:dummy", "some-service-name")
-	c.Assert(err, IsNil)
-	curl := charm.MustParseURL("local:precise/dummy-1")
-	s.assertService(c, "some-service-name", curl, 1, 0)
-}
-
-func (s *DeploySuite) TestLocalCharmDir(c *C) {
+func (s *DeploySuite) TestCharmDir(c *C) {
 	testing.Charms.ClonedDirPath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy")
 	c.Assert(err, IsNil)
@@ -134,19 +126,7 @@ func (s *DeploySuite) TestLocalCharmDir(c *C) {
 	s.assertService(c, "dummy", curl, 1, 0)
 }
 
-func (s *DeploySuite) TestCannotUpgradeLocalCharmBundle(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "dummy")
-	err := runDeploy(c, "local:dummy", "-u")
-	c.Assert(err, ErrorMatches, `cannot upgrade charm bundle "local:precise/dummy-1"`)
-	// Verify state not touched...
-	curl := charm.MustParseURL("local:precise/dummy-1")
-	_, err = s.st.Charm(curl)
-	c.Assert(err, NotNil)
-	_, err = s.st.Service("dummy")
-	c.Assert(err, NotNil)
-}
-
-func (s *DeploySuite) TestUpgradeLocalCharmDir(c *C) {
+func (s *DeploySuite) TestUpgradeCharmDir(c *C) {
 	dirPath := testing.Charms.ClonedDirPath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
 	c.Assert(err, IsNil)
@@ -158,12 +138,24 @@ func (s *DeploySuite) TestUpgradeLocalCharmDir(c *C) {
 	c.Assert(ch.Revision(), Equals, 2)
 }
 
-func (s *DeploySuite) TestCharmStore(c *C) {
-	c.Fatalf("not tested")
+func (s *DeploySuite) TestCharmBundle(c *C) {
+	testing.Charms.BundlePath(s.seriesPath, "dummy")
+	err := runDeploy(c, "local:dummy", "some-service-name")
+	c.Assert(err, IsNil)
+	curl := charm.MustParseURL("local:precise/dummy-1")
+	s.assertService(c, "some-service-name", curl, 1, 0)
 }
 
-func (s *DeploySuite) TestCannotUpgradeCharmStore(c *C) {
-	c.Fatalf("not tested")
+func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
+	testing.Charms.BundlePath(s.seriesPath, "dummy")
+	err := runDeploy(c, "local:dummy", "-u")
+	c.Assert(err, ErrorMatches, `cannot upgrade charm bundle "local:precise/dummy-1"`)
+	// Verify state not touched...
+	curl := charm.MustParseURL("local:precise/dummy-1")
+	_, err = s.st.Charm(curl)
+	c.Assert(err, NotNil)
+	_, err = s.st.Service("dummy")
+	c.Assert(err, NotNil)
 }
 
 func (s *DeploySuite) TestAddsPeerRelations(c *C) {
