@@ -390,6 +390,20 @@ func (s *StateSuite) TestWatchMachineUnits(c *C) {
 	c.Assert(w.Stop(), IsNil)
 }
 
+func (s *StateSuite) TestServiceRelationsWatcher(c *C) {
+	dummy := s.addDummyCharm(c)
+	pro, err := s.st.AddService("pro", dummy)
+	c.Assert(err, IsNil)
+	req1, err := s.st.AddService("req1", dummy)
+	c.Assert(err, IsNil)
+	req2, err := s.st.AddService("req2", dummy)
+	c.Assert(err, IsNil)
+
+	w := pro.WatchRelations()
+
+	c.Fatalf("write me")
+}
+
 func unitNames(units []*state.Unit) (s []string) {
 	for _, u := range units {
 		s = append(s, u.Name())

@@ -517,8 +517,7 @@ next:
 	return
 }
 
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-
+// ServiceRelationsWatcher notifies of changes to a service's relations.
 type ServiceRelationsWatcher struct {
 	st         *State
 	service    *Service
@@ -528,18 +527,21 @@ type ServiceRelationsWatcher struct {
 	known      map[string]*Relation
 }
 
+// ServiceRelationsChange holds a map of new relations for a service, keyed
+// on the service's user-facing id for the relation, and a slice of the ids
+// of relations that the service is no longer part of.
 type ServiceRelationsChange struct {
 	Added   map[string]*Relation
 	Deleted []string
 }
 
-// newServiceRelationsWatcher creates and starts a new machine watcher.
+// newServiceRelationsWatcher creates and starts a new service relations watcher.
 func newServiceRelationsWatcher(s *Service) *ServiceRelationsWatcher {
 	w := &ServiceRelationsWatcher{
 		st:         s.st,
 		service:    s,
 		changeChan: make(chan ServiceRelationsChange),
-		watcher:    watcher.NewContentWatcher(m.st.zk, zkTopologyPath),
+		watcher:    watcher.NewContentWatcher(s.st.zk, zkTopologyPath),
 		known:      map[string]*Relation{},
 	}
 	go w.loop()
@@ -549,7 +551,7 @@ func newServiceRelationsWatcher(s *Service) *ServiceRelationsWatcher {
 // Changes returns a channel that will receive changes when
 // the service enters and leaves relations.
 // The Added field in the first event on the channel holds the initial
-// state as returned by service.Relations.
+// state, corresponding to that returned by service.Relations.
 func (w *ServiceRelationsWatcher) Changes() <-chan ServiceRelationsChange {
 	return w.changeChan
 }
@@ -562,7 +564,6 @@ func (w *ServiceRelationsWatcher) Stop() error {
 	return w.tomb.Wait()
 }
 
-// loop is the backend for watching the ports node.
 func (w *ServiceRelationsWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
@@ -574,7 +575,7 @@ func (w *ServiceRelationsWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
-				w.tomb.Killf("content change channel closed unexpectedly")
+				w.tomb.Kill(mustErr(w.watcher))
 				return
 			}
 			t, err := parseTopology(change.Content)
@@ -582,16 +583,32 @@ func (w *ServiceRelationsWatcher) loop() {
 				w.tomb.Kill(err)
 				return
 			}
-			currentRels, err := s.relationsFromTopology(t)
+			current, err := w.service.relationsFromTopology(t)
 			if err != nil {
 				w.tomb.Kill(err)
 				return
 			}
-			ch, err := w.getChange(knownRels, currentRels)
-			if err != nil {
-				w.tomb.Kill(err)
-				return
+			newKnown := map[string]*Relation{}
+			for _, rel := range current {
+				id, err := rel.Id(w.service.Name())
+				if err != nil {
+					w.tomb.Kill(err)
+					return
+				}
+				newKnown[id] = rel
 			}
+			ch := ServiceRelationsChange{map[string]*Relation{}, []string{}}
+			for id, rel := range newKnown {
+				if w.known[id] == nil {
+					ch.Added[id] = rel
+				}
+			}
+			for id := range w.known {
+				if newKnown[id] == nil {
+					ch.Deleted = append(ch.Deleted, id)
+				}
+			}
+			w.known = newKnown
 			if emittedValue && len(ch.Added) == 0 && len(ch.Deleted) == 0 {
 				continue
 			}
@@ -605,37 +622,6 @@ func (w *ServiceRelationsWatcher) loop() {
 	}
 }
 
-func (w *ServiceRelationsWatcher) getChange(current []*Relation) (*ServiceRelationsChange, error) {
-	ch := ServiceRelationChange{map[string]*Relation{}, []string{}}
-	newKnown := map[string]*Relation{}
-	for _, rel := range current {
-		id, err := rel.Id(w.service.Name())
-		if err != nil {
-			return nil, err
-		}
-		newKnown[id] = rel
-	}
-	for id, rel := range newKnown {
-		if w.knownRels[id] == nil {
-			ch.Added[id] = rel
-		}
-	}
-	for id, rel := range w.knownRels {
-		if newKnown[id] == nil {
-			ch.Deleted = append(ch.Deleted, id)
-		}
-	}
-	w.known = newKnown
-	return &ch, nil
-}
-
-// relationUnitChange represents the state of a unit's participation in
-// a relation.
-type relationUnitChange struct {
-	Present  bool
-	Settings string
-}
-
 // relationUnitWatcher produces notifications regarding participation
 // of a unit in a particular relation.
 type relationUnitWatcher struct {
@@ -646,6 +632,13 @@ type relationUnitWatcher struct {
 	settingsWatcher *watcher.ContentWatcher
 	changes         chan relationUnitChange
 	emittedValue    bool
+}
+
+// relationUnitChange represents the state of a unit's participation in
+// a relation.
+type relationUnitChange struct {
+	Present  bool
+	Settings string
 }
 
 // newRelationUnitWatcher returns a watcher to monitor a unit in a relation.
