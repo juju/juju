@@ -394,7 +394,7 @@ type MachineUnitsChange struct {
 	Added, Deleted []*Unit
 }
 
-// newMachinesWatcher creates and starts a new machine watcher.
+// newMachineUnitsWatcher creates and starts a new machine units watcher.
 func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 	w := &MachineUnitsWatcher{
 		st:         m.st,
@@ -409,7 +409,7 @@ func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 // Changes returns a channel that will receive changes when
 // units are assigned or unassigned from a machine.
 // The Added field in the first event on the channel holds the initial
-// state as returned by State.AllMachines.
+// state as returned by machine.Units.
 func (w *MachineUnitsWatcher) Changes() <-chan *MachineUnitsChange {
 	return w.changeChan
 }
@@ -422,7 +422,6 @@ func (w *MachineUnitsWatcher) Stop() error {
 	return w.tomb.Wait()
 }
 
-// loop is the backend for watching the ports node.
 func (w *MachineUnitsWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
@@ -481,6 +480,57 @@ func (w *MachineUnitsWatcher) loop() {
 			}
 		}
 	}
+}
+
+// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+type ServiceRelationsWatcher struct {
+	st           *State
+	service      *Service
+	tomb         tomb.Tomb
+	changeChan   chan *ServiceRelationsChange
+	watcher      *watcher.ContentWatcher
+	emittedValue bool
+}
+
+type ServiceRelationsChange struct {
+	Added, Deleted []*Relation
+}
+
+// newServiceRelationsWatcher creates and starts a new machine watcher.
+func newServiceRelationsWatcher(m *Machine) *ServiceRelationsWatcher {
+	w := &ServiceRelationsWatcher{
+		st:         m.st,
+		machine:    m,
+		changeChan: make(chan *ServiceRelationsChange),
+		watcher:    watcher.NewContentWatcher(m.st.zk, zkTopologyPath),
+	}
+	go w.loop()
+	return w
+}
+
+// Changes returns a channel that will receive changes when
+// the service enters and leaves relations.
+// The Added field in the first event on the channel holds the initial
+// state as returned by service.Relations.
+func (w *ServiceRelationsWatcher) Changes() <-chan *ServiceRelationsChange {
+	return w.changeChan
+}
+
+// Stop stops the watch and returns any error encountered
+// while watching. This method should always be called
+// before discarding the watcher.
+func (w *ServiceRelationsWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
+}
+
+// loop is the backend for watching the ports node.
+func (w *ServiceRelationsWatcher) loop() {
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+	defer stopWatcher(w.watcher, &w.tomb)
+	// for { ... }
 }
 
 // diff returns all the elements that exist in A but not B.
