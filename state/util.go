@@ -106,9 +106,9 @@ func parseConfigNode(zk *zookeeper.Conn, path, content string) (*ConfigNode, err
 
 // setPristineContent sets the currently known contents of the node.
 // It does not affect the user-set contents.
-func (c *ConfigNode) setPristineContent(content string) error {
-	if err := goyaml.Unmarshal([]byte(content), &c.pristineCache); err != nil {
-		return err
+func (c *ConfigNode) setPristineContent(content string) (err error) {
+	if err = goyaml.Unmarshal([]byte(content), &c.pristineCache); err != nil {
+		return fmt.Errorf("invalid configuration format: %v", err)
 	}
 	return nil
 }
@@ -123,7 +123,8 @@ func readConfigNode(zk *zookeeper.Conn, path string) (*ConfigNode, error) {
 }
 
 // Read (re)reads the node data into c.
-func (c *ConfigNode) Read() error {
+func (c *ConfigNode) Read() (err error) {
+	defer errorContextf(&err, "can't read configuration node at %s", c.path)
 	yaml, _, err := c.zk.Get(c.path)
 	if err != nil {
 		if !zookeeper.IsError(err, zookeeper.ZNONODE) {
@@ -141,10 +142,11 @@ func (c *ConfigNode) Read() error {
 // Changes are written as a delta applied on top of the
 // latest version of the node, to prevent overwriting
 // unrelated changes made to the node since it was last read.
-func (c *ConfigNode) Write() ([]ItemChange, error) {
+func (c *ConfigNode) Write() (changes []ItemChange, err error) {
+	defer errorContextf(&err, "can't write configuration node at %s", c.path)
 	// changes is used by applyChanges to return the changes to
 	// this scope.
-	changes := []ItemChange{}
+	changes = []ItemChange{}
 	// nil is a possible value for a key, so we use missing as
 	// a marker to simplify the algorithm below.
 	missing := new(bool)
@@ -289,7 +291,7 @@ func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 }
 
 // errorContextf prefixes any error stored in err with text formatted
-// according to the format specifier.  If err does not contain an error,
+// according to the format specifier. If err does not contain an error,
 // errorContextf does nothing.
 func errorContextf(err *error, format string, args ...interface{}) {
 	if *err != nil {
