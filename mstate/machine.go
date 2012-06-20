@@ -1,6 +1,10 @@
 package mstate
 
-import "launchpad.net/mgo/bson"
+import (
+	"fmt"
+	"launchpad.net/mgo/bson"
+	"strconv"
+)
 
 // Machine represents the state of a machine.
 type Machine struct {
@@ -24,12 +28,21 @@ func (m *Machine) InstanceId() (string, error) {
 	mdoc := &machineDoc{}
 	err := m.st.machines.Find(bson.D{{"_id", m.id}}).One(mdoc)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("can't get instance id of machine %s: %v", m, err)
 	}
 	return mdoc.InstanceId, nil
 }
 
 // SetInstanceId sets the provider specific machine id for this machine.
 func (m *Machine) SetInstanceId(id string) error {
-	return m.st.machines.Update(bson.D{{"_id", m.id}}, bson.D{{"instanceid", id}})
+	err := m.st.machines.Update(bson.D{{"_id", m.id}}, bson.D{{"instanceid", id}})
+	if err != nil {
+		return fmt.Errorf("can't set instance id of machine %s: %v", m, err)
+	}
+	return nil
+}
+
+// String returns a unique description of this machine
+func (m *Machine) String() string {
+	return strconv.Itoa(m.Id())
 }

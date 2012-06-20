@@ -4,6 +4,7 @@
 package mstate
 
 import (
+	"fmt"
 	"launchpad.net/mgo"
 	"launchpad.net/mgo/bson"
 )
@@ -16,7 +17,8 @@ type State struct {
 }
 
 // AddMachine creates a new machine state.
-func (s *State) AddMachine() (*Machine, error) {
+func (s *State) AddMachine() (m *Machine, err error) {
+	defer errorContextf(&err, "can't add a new machine")
 	id, err := s.sequence("machine")
 	if err != nil {
 		return nil, err
@@ -30,7 +32,11 @@ func (s *State) AddMachine() (*Machine, error) {
 
 // RemoveMachine removes the machine with the given id.
 func (s *State) RemoveMachine(id int) error {
-	return s.machines.Remove(bson.D{{"_id", id}})
+	err := s.machines.Remove(bson.D{{"_id", id}})
+	if err != nil {
+		return fmt.Errorf("can't remove machine %d", id)
+	}
+	return nil
 }
 
 // AllMachines returns all machines in the environment.
@@ -51,7 +57,7 @@ func (s *State) Machine(id int) (*Machine, error) {
 	mdoc := &machineDoc{}
 	err := s.machines.Find(bson.D{{"_id", id}}).One(mdoc)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("machine %d not found", id)
 	}
 	return &Machine{st: s, id: mdoc.Id}, nil
 }

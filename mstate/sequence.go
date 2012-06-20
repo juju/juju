@@ -1,6 +1,7 @@
 package mstate
 
 import (
+	"fmt"
 	"launchpad.net/mgo"
 	"launchpad.net/mgo/bson"
 )
@@ -15,5 +16,8 @@ func (s *State) sequence(name string) (int, error) {
 	inc := mgo.Change{Update: bson.M{"$inc": bson.M{"counter": 1}}, Upsert: true}
 	result := &sequenceDoc{}
 	err := query.Modify(inc, result)
+	if err != nil {
+		return -1, fmt.Errorf("can't increment %s sequence number: %v", name, err)
+	}
 	return result.Counter, err
 }
