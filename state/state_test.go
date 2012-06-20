@@ -534,14 +534,12 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	unitZero, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	c.Assert(unitZero.Name(), Equals, "wordpress/0")
-	principal, err := unitZero.IsPrincipal()
-	c.Assert(err, IsNil)
+	principal := unitZero.IsPrincipal()
 	c.Assert(principal, Equals, true)
 	unitOne, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	c.Assert(unitOne.Name(), Equals, "wordpress/1")
-	principal, err = unitOne.IsPrincipal()
-	c.Assert(err, IsNil)
+	principal = unitOne.IsPrincipal()
 	c.Assert(principal, Equals, true)
 
 	// Check that principal units cannot be added to principal units.
@@ -563,8 +561,7 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	subZero, err := logging.AddUnitSubordinateTo(unitZero)
 	c.Assert(err, IsNil)
 	c.Assert(subZero.Name(), Equals, "logging/0")
-	principal, err = subZero.IsPrincipal()
-	c.Assert(err, IsNil)
+	principal = subZero.IsPrincipal()
 	c.Assert(principal, Equals, false)
 
 	// Check the subordinate unit has been assigned its principal's machine.
