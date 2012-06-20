@@ -24,21 +24,21 @@ func stopWatcher(w watcherStopper, t *tomb.Tomb) {
 	}
 }
 
-// watcherErr allows us to check the error that stopped a watcher
+// watcherErr allows us to check the error that killed a watcher
 // without caring which watcher type it actually is.
 type watcherErr interface {
 	Err() error
 }
 
 // mustErr panics if the watcher does not report an error that has caused
-// it to shut down in response. This is intended to ensure that closed
-// subwatcher change channels indicate an actual error that has caused
-// the subwatcher to shut down unexpectedly; if it hasn't shut down, or
-// if it has shut down "cleanly", there's a logic error somewhere.
+// it to die in response. This is intended to ensure that closed subwatcher
+// change channels indicate an actual error that has caused the subwatcher
+// to die unexpectedly; if it hasn't died, or if it was killed with a nil
+// error (which indicates a clean stop), there's a logic error somewhere.
 func mustErr(w watcherErr) error {
 	err := w.Err()
 	if err == nil {
-		panic("subwatcher was shut down")
+		panic("subwatcher was stopped cleanly")
 	} else if err == tomb.ErrStillAlive {
 		panic("subwatcher closed change channel")
 	}
