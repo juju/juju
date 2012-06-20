@@ -127,18 +127,15 @@ func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
 	if !ch.Meta().Subordinate {
 		return nil, fmt.Errorf("can't add unit of principal service %q as a subordinate of %q", s, principal)
 	}
-	ok, err := principal.IsPrincipal()
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		return nil, fmt.Errorf("a subordinate unit must be added to a principal unit")
+	if !principal.IsPrincipal() {
+		return nil, errors.New("a subordinate unit must be added to a principal unit")
 	}
 	return s.addUnit(principal.key)
 }
 
 // RemoveUnit() removes a unit.
 func (s *Service) RemoveUnit(unit *Unit) error {
+	// First unassign from machine if currently assigned.
 	if err := unit.UnassignFromMachine(); err != nil {
 		return err
 	}

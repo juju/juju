@@ -24,6 +24,27 @@ func stopWatcher(w watcherStopper, t *tomb.Tomb) {
 	}
 }
 
+// watcherErr allows us to check the error that killed a watcher
+// without caring which watcher type it actually is.
+type watcherErr interface {
+	Err() error
+}
+
+// mustErr panics if the watcher does not report an error that has caused
+// it to die in response. This is intended to ensure that closed subwatcher
+// change channels indicate an actual error that has caused the subwatcher
+// to die unexpectedly; if it hasn't died, or if it was killed with a nil
+// error (which indicates a clean stop), there's a logic error somewhere.
+func mustErr(w watcherErr) error {
+	err := w.Err()
+	if err == nil {
+		panic("subwatcher was stopped cleanly")
+	} else if err == tomb.ErrStillAlive {
+		panic("subwatcher closed change channel")
+	}
+	return err
+}
+
 // ConfigWatcher observes changes to any configuration node.
 type ConfigWatcher struct {
 	st         *State
@@ -73,7 +94,7 @@ func (w *ConfigWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
-				w.tomb.Killf("content change channel closed unexpectedly")
+				w.tomb.Kill(mustErr(w.watcher))
 				return
 			}
 			// A non-existent node is treated as an empty node.
@@ -138,7 +159,7 @@ func (w *NeedsUpgradeWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
-				w.tomb.Killf("content change channel closed unexpectedly")
+				w.tomb.Kill(mustErr(w.watcher))
 				return
 			}
 			var needsUpgrade NeedsUpgrade
@@ -207,7 +228,7 @@ func (w *ResolvedWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
-				w.tomb.Killf("content change channel closed unexpectedly")
+				w.tomb.Kill(mustErr(w.watcher))
 				return
 			}
 			mode := ResolvedNone
@@ -276,7 +297,7 @@ func (w *PortsWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
-				w.tomb.Killf("content change channel closed unexpectedly")
+				w.tomb.Kill(mustErr(w.watcher))
 				return
 			}
 			var ports openPortsNode
@@ -340,13 +361,14 @@ func (w *MachinesWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
 	defer stopWatcher(w.watcher, &w.tomb)
+	emittedValue := false
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
-				w.tomb.Killf("content change channel closed unexpectedly")
+				w.tomb.Kill(mustErr(w.watcher))
 				return
 			}
 			topology, err := parseTopology(change.Content)
@@ -357,7 +379,7 @@ func (w *MachinesWatcher) loop() {
 			currentMachineKeys := topology.MachineKeys()
 			added, deleted := diff(currentMachineKeys, w.knownMachineKeys), diff(w.knownMachineKeys, currentMachineKeys)
 			w.knownMachineKeys = currentMachineKeys
-			if len(added) == 0 && len(deleted) == 0 {
+			if emittedValue && len(added) == 0 && len(deleted) == 0 {
 				// The change was not relevant to this watcher.
 				continue
 			}
@@ -374,6 +396,7 @@ func (w *MachinesWatcher) loop() {
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- mc:
+				emittedValue = true
 			}
 		}
 	}
@@ -416,10 +439,6 @@ func (w *MachineUnitsWatcher) Changes() <-chan *MachineUnitsChange {
 // before discarding the watcher.
 func (w *MachineUnitsWatcher) Stop() error {
 	w.tomb.Kill(nil)
-	if err := w.watcher.Stop(); err != nil {
-		w.tomb.Wait()
-		return err
-	}
 	return w.tomb.Wait()
 }
 
@@ -434,6 +453,7 @@ func (w *MachineUnitsWatcher) loop() {
 	// a key alone.
 	knownUnits := make(map[string]*Unit)
 	var knownUnitKeys []string
+	emittedValue := false
 
 	for {
 		select {
@@ -441,7 +461,7 @@ func (w *MachineUnitsWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
-				w.tomb.Killf("content change channel closed unexpectedly")
+				w.tomb.Kill(mustErr(w.watcher))
 				return
 			}
 			topology, err := parseTopology(change.Content)
@@ -452,7 +472,7 @@ func (w *MachineUnitsWatcher) loop() {
 			currentUnitKeys := topology.UnitsForMachine(w.machine.key)
 			added, deleted := diff(currentUnitKeys, knownUnitKeys), diff(knownUnitKeys, currentUnitKeys)
 			knownUnitKeys = currentUnitKeys
-			if len(added) == 0 && len(deleted) == 0 {
+			if emittedValue && len(added) == 0 && len(deleted) == 0 {
 				// The change was not relevant to this watcher.
 				continue
 			}
@@ -478,6 +498,7 @@ func (w *MachineUnitsWatcher) loop() {
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- uc:
+				emittedValue = true
 			}
 		}
 	}
@@ -513,7 +534,7 @@ type relationUnitWatcher struct {
 	settingsPath    string
 	settingsWatcher *watcher.ContentWatcher
 	changes         chan relationUnitChange
-	started         bool
+	emittedValue    bool
 }
 
 // newRelationUnitWatcher returns a watcher to monitor a unit in a relation.
@@ -586,7 +607,7 @@ func (w *relationUnitWatcher) loop() {
 			if ok {
 				err = w.updateSettings(change)
 			} else {
-				err = fmt.Errorf("settings watch closed unexpectedly")
+				err = mustErr(w.settingsWatcher)
 			}
 		}
 		if err != nil {
@@ -605,7 +626,7 @@ func (w *relationUnitWatcher) updatePresence(alive bool) (aliveW <-chan bool, er
 	if err != nil {
 		return
 	}
-	if w.started && alive != latestAlive {
+	if w.emittedValue && alive != latestAlive {
 		// Presence has changed an odd number of times since the watch
 		// last fired, and is therefore in the same state we last saw.
 		return
@@ -631,7 +652,7 @@ func (w *relationUnitWatcher) updatePresence(alive bool) (aliveW <-chan bool, er
 		// The presence node is not alive; stop watching settings,
 		// and send immediate notification that the unit is no
 		// longer participating in the relation.
-		if w.started {
+		if w.emittedValue {
 			sw := w.settingsWatcher
 			w.settingsWatcher = nil
 			if err := sw.Stop(); err != nil {
@@ -644,7 +665,7 @@ func (w *relationUnitWatcher) updatePresence(alive bool) (aliveW <-chan bool, er
 		case w.changes <- relationUnitChange{}:
 		}
 	}
-	w.started = true
+	w.emittedValue = true
 	return
 }
 

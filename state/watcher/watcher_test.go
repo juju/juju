@@ -5,6 +5,7 @@ import (
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/juju/state/watcher"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/tomb"
 	stdtesting "testing"
 	"time"
 )
@@ -86,8 +87,10 @@ func (s *WatcherSuite) TestContentWatcher(c *C) {
 	case <-time.After(100 * time.Millisecond):
 	}
 
+	c.Assert(contentWatcher.Err(), Equals, tomb.ErrStillAlive)
 	err := contentWatcher.Stop()
 	c.Assert(err, IsNil)
+	c.Assert(contentWatcher.Err(), IsNil)
 
 	select {
 	case _, ok := <-contentWatcher.Changes():
@@ -140,8 +143,10 @@ func (s *WatcherSuite) TestChildrenWatcher(c *C) {
 	case <-time.After(100 * time.Millisecond):
 	}
 
+	c.Assert(childrenWatcher.Err(), Equals, tomb.ErrStillAlive)
 	err := childrenWatcher.Stop()
 	c.Assert(err, IsNil)
+	c.Assert(childrenWatcher.Err(), IsNil)
 
 	select {
 	case _, ok := <-childrenWatcher.Changes():
