@@ -434,9 +434,9 @@ func (s *StateSuite) TestRemoveService(c *C) {
 	_, err = s.st.Service("wordpress")
 	c.Assert(err, ErrorMatches, `can't get service "wordpress": service with name "wordpress" not found`)
 
-	// Remove of non-existing service.
+	// Remove of an illegal service, it has already been removed.
 	err = s.st.RemoveService(service)
-	c.Assert(err, ErrorMatches, `can't remove service "wordpress": environment state has changed`)
+	c.Assert(err, ErrorMatches, `can't remove service "wordpress": can't get all units from service "wordpress": environment state has changed`)
 }
 
 func (s *StateSuite) TestReadNonExistentService(c *C) {
@@ -544,7 +544,7 @@ func (s *StateSuite) TestAddUnit(c *C) {
 
 	// Check that principal units cannot be added to principal units.
 	_, err = wordpress.AddUnitSubordinateTo(unitZero)
-	c.Assert(err, ErrorMatches, "cannot make a principal unit subordinate to another unit")
+	c.Assert(err, ErrorMatches, `can't add unit of principal service "wordpress" as a subordinate of "wordpress/0"`)
 
 	// Assign the principal unit to a machine.
 	m, err := s.st.AddMachine()
@@ -599,13 +599,13 @@ func (s *StateSuite) TestReadUnit(c *C) {
 	// Check that retrieving a non-existent or an invalidly
 	// named unit fail nicely.
 	unit, err = wordpress.Unit("wordpress")
-	c.Assert(err, ErrorMatches, `"wordpress" is not a valid unit name`)
+	c.Assert(err, ErrorMatches, `can't get unit "wordpress" from service "wordpress": "wordpress" is not a valid unit name`)
 	unit, err = wordpress.Unit("wordpress/0/0")
-	c.Assert(err, ErrorMatches, `"wordpress/0/0" is not a valid unit name`)
+	c.Assert(err, ErrorMatches, `can't get unit "wordpress/0/0" from service "wordpress": "wordpress/0/0" is not a valid unit name`)
 	unit, err = wordpress.Unit("pressword/0")
-	c.Assert(err, ErrorMatches, `can't find unit "pressword/0" on service "wordpress"`)
+	c.Assert(err, ErrorMatches, `can't get unit "pressword/0" from service "wordpress": unit not found`)
 	unit, err = wordpress.Unit("mysql/0")
-	c.Assert(err, ErrorMatches, `can't find unit "mysql/0" on service "wordpress"`)
+	c.Assert(err, ErrorMatches, `can't get unit "mysql/0" from service "wordpress": unit not found`)
 
 	// Check that retrieving all units works.
 	units, err := wordpress.AllUnits()
