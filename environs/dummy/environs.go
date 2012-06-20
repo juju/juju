@@ -54,10 +54,19 @@ func stateInfo() *state.Info {
 	return &state.Info{Addrs: []string{addr}}
 }
 
-type Operation struct {
-	Kind OperationKind
-	Env  string
+type Operation interface {
+	Kind() OperationKind
+	Env() string
 }
+
+type operation struct {
+	kind OperationKind
+	env  string
+}
+
+func (o operation) Kind() OperationKind { return o.kind }
+
+func (o operation) Env() string { return o.env }
 
 // Operation represents an action on the dummy provider.
 type OperationKind int
@@ -279,7 +288,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 			return err
 		}
 	}
-	e.state.ops <- Operation{Kind: OpBootstrap, Env: e.state.name}
+	e.state.ops <- operation{kind: OpBootstrap, env: e.state.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if e.state.bootstrapped {
@@ -325,7 +334,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	if e.isBroken() {
 		return errBroken
 	}
-	e.state.ops <- Operation{Kind: OpDestroy, Env: e.state.name}
+	e.state.ops <- operation{kind: OpDestroy, env: e.state.name}
 	e.state.mu.Lock()
 	if zkServer != nil {
 		testing.ResetZkServer(zkServer)
@@ -340,7 +349,7 @@ func (e *environ) StartInstance(machineId int, _ *state.Info) (environs.Instance
 	if e.isBroken() {
 		return nil, errBroken
 	}
-	e.state.ops <- Operation{Kind: OpStartInstance, Env: e.state.name}
+	e.state.ops <- operation{kind: OpStartInstance, env: e.state.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	i := &instance{
@@ -355,7 +364,7 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 	if e.isBroken() {
 		return errBroken
 	}
-	e.state.ops <- Operation{Kind: OpStopInstances, Env: e.state.name}
+	e.state.ops <- operation{kind: OpStopInstances, env: e.state.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	for _, i := range is {
