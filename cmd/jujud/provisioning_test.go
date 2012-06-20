@@ -73,7 +73,7 @@ func (s *ProvisioningSuite) stopProvisioner(c *C, p *Provisioner) {
 
 // checkStartInstance checks that an instace has been started.
 func (s *ProvisioningSuite) checkStartInstance(c *C, op <-chan dummy.Operation) {
-	// use the non fatal variants to avoid leaking provisioners.	
+	// use the non fatal variants to avoid leaking provisioners.    
 	for {
 		select {
 		case o := <-op:
@@ -100,7 +100,7 @@ func (s *ProvisioningSuite) checkNotStartInstance(c *C, op <-chan dummy.Operatio
 				c.Errorf("instance started: %v", o)
 				return
 			default:
-				// ignore	
+				// ignore   
 			}
 		case <-time.After(200 * time.Millisecond):
 			return
@@ -110,7 +110,7 @@ func (s *ProvisioningSuite) checkNotStartInstance(c *C, op <-chan dummy.Operatio
 
 // checkStopInstance checks that an instance has been stopped.
 func (s *ProvisioningSuite) checkStopInstance(c *C, op <-chan dummy.Operation) {
-	// use the non fatal variants to avoid leaking provisioners.	
+	// use the non fatal variants to avoid leaking provisioners.    
 	for {
 		select {
 		case o := <-op:
@@ -203,8 +203,8 @@ func (s *ProvisioningSuite) TestProvisionerStopOnStateClose(c *C) {
 	p.st.Close()
 
 	// must use Check to avoid leaking PA
-	c.Check(p.Wait(), ErrorMatches, "content change channel closed unexpectedly")
-	c.Assert(p.Stop(), ErrorMatches, "content change channel closed unexpectedly")
+	c.Check(p.Wait(), ErrorMatches, ".* zookeeper is closing")
+	c.Assert(p.Stop(), ErrorMatches, ".* zookeeper is closing")
 }
 
 // Start and stop one machine, watch the PA.
@@ -400,7 +400,7 @@ func (s *ProvisioningSuite) TestProvisioningStopsOnlyUnknownInstances(c *C) {
 
 	machines, err := s.st.AllMachines()
 	c.Check(err, IsNil)
-	c.Check(len(machines), Equals, 0) // it's really gone	
+	c.Check(len(machines), Equals, 0) // it's really gone   
 
 	// start a new provisioner
 	p, err = NewProvisioner(s.zkInfo)

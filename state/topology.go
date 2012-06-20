@@ -76,7 +76,7 @@ func (r *topoRelation) check() error {
 		if service.RelationName == "" {
 			return fmt.Errorf("relation has %s service with empty relation name", service.RelationRole)
 		}
-		counterRole := service.RelationRole.CounterpartRole()
+		counterRole := service.RelationRole.counterpartRole()
 		if !r.hasServiceWithRole(counterRole) {
 			return fmt.Errorf("relation has %s but no %s", service.RelationRole, counterRole)
 		}
