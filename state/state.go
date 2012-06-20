@@ -203,7 +203,7 @@ func (s *State) RemoveService(svc *Service) (err error) {
 	// Remove the units.
 	units, err := svc.AllUnits()
 	if err != nil {
-		return
+		return err
 	}
 	for _, unit := range units {
 		if err = svc.RemoveUnit(unit); err != nil {
@@ -219,7 +219,7 @@ func (s *State) RemoveService(svc *Service) (err error) {
 		return nil
 	}
 	if err = retryTopologyChange(s.zk, removeService); err != nil {
-		return
+		return err
 	}
 	return zkRemoveTree(s.zk, svc.zkPath())
 }
@@ -274,9 +274,7 @@ func (s *State) Unit(name string) (unit *Unit, err error) {
 // state of the environment, this may lead to new instances being launched
 // within the environment.
 func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
-	if valid, err := u.IsPrincipal(); err != nil {
-		return err
-	} else if !valid {
+	if !u.IsPrincipal() {
 		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
 	defer errorContextf(&err, "can't assign unit %q to machine", u)
@@ -336,19 +334,9 @@ func (s *State) addRelationNode(endpoints ...RelationEndpoint) (relationKey stri
 	return
 }
 
-// describeRelation returns a string describing the relation defined by
-// endpoints, for use in error messages.
-func describeRelation(endpoints []RelationEndpoint) string {
-	names := []string{}
-	for _, ep := range endpoints {
-		names = append(names, ep.String())
-	}
-	return strings.Join(names, " ")
-}
-
 // AddRelation creates a new relation with the given endpoints.
 func (s *State) AddRelation(endpoints ...RelationEndpoint) (err error) {
-	defer errorContextf(&err, "can't add relation %q", describeRelation(endpoints))
+	defer errorContextf(&err, "can't add relation %q", describeEndpoints(endpoints))
 	key, err := s.addRelationNode(endpoints...)
 	if err != nil {
 		return err
@@ -386,7 +374,7 @@ func (s *State) RemoveRelation(endpoints ...RelationEndpoint) error {
 		return t.RemoveRelation(key)
 	})
 	if err != nil {
-		return fmt.Errorf("can't remove relation %q: %s", describeRelation(endpoints), err)
+		return fmt.Errorf("can't remove relation %q: %s", describeEndpoints(endpoints), err)
 	}
 	return nil
 }

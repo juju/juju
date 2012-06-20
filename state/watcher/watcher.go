@@ -51,6 +51,12 @@ func (w *ContentWatcher) Dying() <-chan struct{} {
 	return w.tomb.Dying()
 }
 
+// Err returns the error that stopped the watcher, or
+// tomb.ErrStillAlive if the watcher is still running.
+func (w *ContentWatcher) Err() error {
+	return w.tomb.Err()
+}
+
 // Stop stops the watch and returns any error encountered
 // while watching. This method should always be called before
 // discarding the watcher.
@@ -179,6 +185,12 @@ func (w *ChildrenWatcher) Changes() <-chan ChildrenChange {
 // watcher has stopped or is about to stop.
 func (w *ChildrenWatcher) Dying() <-chan struct{} {
 	return w.tomb.Dying()
+}
+
+// Err returns the error that stopped the watcher, or
+// tomb.ErrStillAlive if the watcher is still running.
+func (w *ChildrenWatcher) Err() error {
+	return w.tomb.Err()
 }
 
 // Stop stops the watch and returns any error encountered
