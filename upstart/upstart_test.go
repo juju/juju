@@ -78,8 +78,6 @@ func (s *UpstartSuite) TestStart(c *C) {
 	c.Assert(s.service.Start(), IsNil)
 }
 
-
-
 func (s *UpstartSuite) TestStop(c *C) {
 	s.StoppedStatus(c)
 	s.MakeTool(c, "stop", "exit 99")

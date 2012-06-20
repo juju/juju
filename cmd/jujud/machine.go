@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/juju/cmd"
-	"launchpad.net/juju-core/juju/log"
-	"launchpad.net/tomb"
 	"launchpad.net/juju-core/juju/container"
+	"launchpad.net/juju-core/juju/log"
 	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/tomb"
 )
 
 // simpleContainer allows tests to hook into the container
@@ -38,7 +38,6 @@ func (a *MachineAgent) Init(f *gnuflag.FlagSet, args []string) error {
 	return a.Conf.checkArgs(f.Args())
 }
 
-
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// TODO reconnect when the agent fails.
@@ -66,8 +65,8 @@ func NewMachiner(info *state.Info, machineId int) (*Machiner, error) {
 }
 
 type Machiner struct {
-	tomb tomb.Tomb
-	st *state.State
+	tomb    tomb.Tomb
+	st      *state.State
 	machine *state.Machine
 }
 
