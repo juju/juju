@@ -54,22 +54,22 @@ func stateInfo() *state.Info {
 	return &state.Info{Addrs: []string{addr}}
 }
 
+// Operation represents an action on the dummy provider.
 type Operation interface {
 	Kind() OperationKind
 	Env() string
 }
 
 type operation struct {
-	kind OperationKind
-	env  string
+	OperationKind
+	env string
 }
-
-func (o operation) Kind() OperationKind { return o.kind }
 
 func (o operation) Env() string { return o.env }
 
-// Operation represents an action on the dummy provider.
 type OperationKind int
+
+func (k OperationKind) Kind() OperationKind { return k }
 
 const (
 	OpNone OperationKind = iota
@@ -288,7 +288,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 			return err
 		}
 	}
-	e.state.ops <- operation{kind: OpBootstrap, env: e.state.name}
+	e.state.ops <- operation{OpBootstrap, e.state.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if e.state.bootstrapped {
@@ -334,7 +334,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	if e.isBroken() {
 		return errBroken
 	}
-	e.state.ops <- operation{kind: OpDestroy, env: e.state.name}
+	e.state.ops <- operation{OpDestroy, e.state.name}
 	e.state.mu.Lock()
 	if zkServer != nil {
 		testing.ResetZkServer(zkServer)
@@ -345,31 +345,43 @@ func (e *environ) Destroy([]environs.Instance) error {
 	return nil
 }
 
+// StartOperation represents a StartInstance operation on the dummy provider.
+type StartOperation struct {
+	operation
+	Instance environs.Instance
+}
+
 func (e *environ) StartInstance(machineId int, _ *state.Info) (environs.Instance, error) {
 	if e.isBroken() {
 		return nil, errBroken
 	}
-	e.state.ops <- operation{kind: OpStartInstance, env: e.state.name}
 	e.state.mu.Lock()
-	defer e.state.mu.Unlock()
 	i := &instance{
 		id: fmt.Sprintf("%s-%d", e.state.name, e.state.maxId),
 	}
 	e.state.insts[i.id] = i
 	e.state.maxId++
+	e.state.mu.Unlock()
+	e.state.ops <- StartOperation{operation{OpStartInstance, e.state.name}, i}
 	return i, nil
+}
+
+// StopOperation represents a StopInstances operation on the dummy provider.
+type StopOperation struct {
+	operation
+	Instances []environs.Instance
 }
 
 func (e *environ) StopInstances(is []environs.Instance) error {
 	if e.isBroken() {
 		return errBroken
 	}
-	e.state.ops <- operation{kind: OpStopInstances, env: e.state.name}
 	e.state.mu.Lock()
-	defer e.state.mu.Unlock()
 	for _, i := range is {
 		delete(e.state.insts, i.(*instance).id)
 	}
+	e.state.mu.Unlock()
+	e.state.ops <- StopOperation{operation{OpStopInstances, e.state.name}, is}
 	return nil
 }
 
