@@ -225,13 +225,26 @@ func (s *StateSuite) TestMachineInstanceIdCorrupt(c *C) {
 	c.Assert(id, Equals, "")
 }
 
-// test that if provider-machine-id key is missing, "" and nil are returned.
 func (s *StateSuite) TestMachineInstanceIdMissing(c *C) {
 	machine, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 
 	id, err := machine.InstanceId()
+	c.Assert(err, Equals, state.NoInstanceIdError)
+	c.Assert(id, Equals, "")
+}
+
+func (s *StateSuite) TestMachineInstanceIdBlank(c *C) {
+	machine, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
+	config, err := state.ReadConfigNode(s.st, fmt.Sprintf("/machines/machine-%010d", machine.Id()))
+	c.Assert(err, IsNil)
+	config.Set("provider-machine-id", "")
+	_, err = config.Write()
+	c.Assert(err, IsNil)
+
+	id, err := machine.InstanceId()
+	c.Assert(err, Equals, state.NoInstanceIdError)
 	c.Assert(id, Equals, "")
 }
 
@@ -534,14 +547,12 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	unitZero, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	c.Assert(unitZero.Name(), Equals, "wordpress/0")
-	principal, err := unitZero.IsPrincipal()
-	c.Assert(err, IsNil)
+	principal := unitZero.IsPrincipal()
 	c.Assert(principal, Equals, true)
 	unitOne, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	c.Assert(unitOne.Name(), Equals, "wordpress/1")
-	principal, err = unitOne.IsPrincipal()
-	c.Assert(err, IsNil)
+	principal = unitOne.IsPrincipal()
 	c.Assert(principal, Equals, true)
 
 	// Check that principal units cannot be added to principal units.
@@ -563,8 +574,7 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	subZero, err := logging.AddUnitSubordinateTo(unitZero)
 	c.Assert(err, IsNil)
 	c.Assert(subZero.Name(), Equals, "logging/0")
-	principal, err = subZero.IsPrincipal()
-	c.Assert(err, IsNil)
+	principal = subZero.IsPrincipal()
 	c.Assert(principal, Equals, false)
 
 	// Check the subordinate unit has been assigned its principal's machine.
