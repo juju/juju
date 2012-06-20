@@ -4,18 +4,15 @@ import (
 	"time"
 
 	. "launchpad.net/gocheck"
-	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/juju/cmd"
 	"launchpad.net/juju-core/juju/environs"
 	"launchpad.net/juju-core/juju/environs/dummy"
 	"launchpad.net/juju-core/juju/state"
-	"launchpad.net/juju-core/juju/testing"
 )
 
 type ProvisioningSuite struct {
-	zkConn *zookeeper.Conn
-	zkInfo *state.Info
-	st     *state.State
+	zkSuite
+	st *state.State
 }
 
 var _ = Suite(&ProvisioningSuite{})
@@ -26,23 +23,12 @@ var veryShortAttempt = environs.AttemptStrategy{
 }
 
 func (s *ProvisioningSuite) SetUpTest(c *C) {
-	zk, session, err := zookeeper.Dial(zkAddr, 15e9)
-	c.Assert(err, IsNil)
-	event := <-session
-	c.Assert(event.Ok(), Equals, true)
-	c.Assert(event.Type, Equals, zookeeper.EVENT_SESSION)
-	c.Assert(event.State, Equals, zookeeper.STATE_CONNECTED)
-
-	s.zkConn = zk
-	s.zkInfo = &state.Info{
-		Addrs: []string{zkAddr},
-	}
-
+	s.zkSuite.SetUpTest(c)
+	var err error
 	s.st, err = state.Initialize(s.zkInfo)
 	c.Assert(err, IsNil)
 
 	dummy.Reset()
-
 	// seed /environment to point to dummy
 	env, err := s.st.EnvironConfig()
 	c.Assert(err, IsNil)
@@ -54,8 +40,7 @@ func (s *ProvisioningSuite) SetUpTest(c *C) {
 }
 
 func (s *ProvisioningSuite) TearDownTest(c *C) {
-	testing.ZkRemoveTree(s.zkConn, "/")
-	s.zkConn.Close()
+	s.zkSuite.TearDownTest()
 }
 
 // invalidateEnvironment alters the environment configuration
