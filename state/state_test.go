@@ -1286,7 +1286,7 @@ func (s *StateSuite) TestAddRelationErrors(c *C) {
 	c.Assert(err, ErrorMatches, `can't add relation "pro:foo req:bar peer:baz": can't relate 3 endpoints`)
 }
 
-func assertOneRelation(c *C, srv *state.Service, endpoints ...state.RelationEndpoint) {
+func assertOneRelation(c *C, srv *state.Service, relIdNum int, endpoints ...state.RelationEndpoint) {
 	rels, err := srv.Relations()
 	c.Assert(err, IsNil)
 	c.Assert(rels, HasLen, 1)
@@ -1296,6 +1296,9 @@ func assertOneRelation(c *C, srv *state.Service, endpoints ...state.RelationEndp
 	ep, err := rel.Endpoint(name)
 	c.Assert(err, IsNil)
 	c.Assert(ep, DeepEquals, expectEp)
+	relId, err := rel.Id(name)
+	c.Assert(err, IsNil)
+	c.Assert(relId, Equals, fmt.Sprintf("%s-%d", expectEp.RelationName, relIdNum))
 	if len(endpoints) == 2 {
 		expectEp = endpoints[1]
 	}
@@ -1320,8 +1323,8 @@ func (s *StateSuite) TestProviderRequirerRelation(c *C) {
 	c.Assert(err, IsNil)
 	err = s.st.AddRelation(proep, reqep)
 	c.Assert(err, ErrorMatches, `can't add relation "pro:foo req:bar": relation already exists`)
-	assertOneRelation(c, pro, proep, reqep)
-	assertOneRelation(c, req, reqep, proep)
+	assertOneRelation(c, pro, 0, proep, reqep)
+	assertOneRelation(c, req, 0, reqep, proep)
 
 	// Remove the relation, and check it can't be removed again.
 	err = s.st.RemoveRelation(proep, reqep)
@@ -1340,8 +1343,8 @@ func (s *StateSuite) TestProviderRequirerRelation(c *C) {
 	// After adding relation, make proep container-scoped as well, for
 	// simplicity of testing.
 	proep.RelationScope = state.ScopeContainer
-	assertOneRelation(c, pro, proep, reqep)
-	assertOneRelation(c, req, reqep, proep)
+	assertOneRelation(c, pro, 1, proep, reqep)
+	assertOneRelation(c, req, 1, reqep, proep)
 }
 
 func (s *StateSuite) TestPeerRelation(c *C) {
@@ -1356,7 +1359,7 @@ func (s *StateSuite) TestPeerRelation(c *C) {
 	c.Assert(err, IsNil)
 	err = s.st.AddRelation(peerep)
 	c.Assert(err, ErrorMatches, `can't add relation "peer:baz": relation already exists`)
-	assertOneRelation(c, peer, peerep)
+	assertOneRelation(c, peer, 0, peerep)
 
 	// Remove the relation, and check it can't be removed again.
 	err = s.st.RemoveRelation(peerep)
