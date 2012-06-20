@@ -216,14 +216,7 @@ func (s *Service) AllUnits() ([]*Unit, error) {
 	return units, nil
 }
 
-// Relations returns a Relation for every relation the service is in.
-func (s *Service) Relations() ([]*Relation, error) {
-	var err error
-	defer errorContextf(&err, "can't get relations for service %q", s.name)
-	t, err := readTopology(s.st.zk)
-	if err != nil {
-		return nil, err
-	}
+func (s *Service) relationsFromTopology(t *topology) ([]*Relation, error) {
 	trs, err := t.RelationsForService(s.key)
 	if err != nil {
 		return nil, err
@@ -247,6 +240,17 @@ func (s *Service) Relations() ([]*Relation, error) {
 		relations = append(relations, r)
 	}
 	return relations, nil
+}
+
+// Relations returns a Relation for every relation the service is in.
+func (s *Service) Relations() ([]*Relation, error) {
+	var err error
+	defer errorContextf(&err, "can't get relations for service %q", s.name)
+	t, err := readTopology(s.st.zk)
+	if err != nil {
+		return nil, err
+	}
+	return s.relationsFromTopology(t)
 }
 
 // IsExposed returns whether this service is exposed.

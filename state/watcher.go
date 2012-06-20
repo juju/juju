@@ -482,28 +482,44 @@ func (w *MachineUnitsWatcher) loop() {
 	}
 }
 
+// diff returns all the elements that exist in A but not B.
+func diff(A, B []string) (missing []string) {
+next:
+	for _, a := range A {
+		for _, b := range B {
+			if a == b {
+				continue next
+			}
+		}
+		missing = append(missing, a)
+	}
+	return
+}
+
 // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 type ServiceRelationsWatcher struct {
-	st           *State
-	service      *Service
-	tomb         tomb.Tomb
-	changeChan   chan *ServiceRelationsChange
-	watcher      *watcher.ContentWatcher
-	emittedValue bool
+	st         *State
+	service    *Service
+	tomb       tomb.Tomb
+	changeChan chan ServiceRelationsChange
+	watcher    *watcher.ContentWatcher
+	known      map[string]*Relation
 }
 
 type ServiceRelationsChange struct {
-	Added, Deleted []*Relation
+	Added   map[string]*Relation
+	Deleted []string
 }
 
 // newServiceRelationsWatcher creates and starts a new machine watcher.
-func newServiceRelationsWatcher(m *Machine) *ServiceRelationsWatcher {
+func newServiceRelationsWatcher(s *Service) *ServiceRelationsWatcher {
 	w := &ServiceRelationsWatcher{
-		st:         m.st,
-		machine:    m,
-		changeChan: make(chan *ServiceRelationsChange),
+		st:         s.st,
+		service:    s,
+		changeChan: make(chan ServiceRelationsChange),
 		watcher:    watcher.NewContentWatcher(m.st.zk, zkTopologyPath),
+		known:      map[string]*Relation{},
 	}
 	go w.loop()
 	return w
@@ -513,7 +529,7 @@ func newServiceRelationsWatcher(m *Machine) *ServiceRelationsWatcher {
 // the service enters and leaves relations.
 // The Added field in the first event on the channel holds the initial
 // state as returned by service.Relations.
-func (w *ServiceRelationsWatcher) Changes() <-chan *ServiceRelationsChange {
+func (w *ServiceRelationsWatcher) Changes() <-chan ServiceRelationsChange {
 	return w.changeChan
 }
 
@@ -530,21 +546,66 @@ func (w *ServiceRelationsWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
 	defer stopWatcher(w.watcher, &w.tomb)
-	// for { ... }
-}
-
-// diff returns all the elements that exist in A but not B.
-func diff(A, B []string) (missing []string) {
-next:
-	for _, a := range A {
-		for _, b := range B {
-			if a == b {
-				continue next
+	emittedValue := false
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case change, ok := <-w.watcher.Changes():
+			if !ok {
+				w.tomb.Killf("content change channel closed unexpectedly")
+				return
+			}
+			t, err := parseTopology(change.Content)
+			if err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			currentRels, err := s.relationsFromTopology(t)
+			if err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			ch, err := w.getChange(knownRels, currentRels)
+			if err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			if emittedValue && len(ch.Added) == 0 && len(ch.Deleted) == 0 {
+				continue
+			}
+			select {
+			case <-w.tomb.Dying():
+				return
+			case w.changeChan <- ch:
+				emittedValue = true
 			}
 		}
-		missing = append(missing, a)
 	}
-	return
+}
+
+func (w *ServiceRelationsWatcher) getChange(current []*Relation) (*ServiceRelationsChange, error) {
+	ch := ServiceRelationChange{map[string]*Relation{}, []string{}}
+	newKnown := map[string]*Relation{}
+	for _, rel := range current {
+		id, err := rel.Id(w.service.Name())
+		if err != nil {
+			return nil, err
+		}
+		newKnown[id] = rel
+	}
+	for id, rel := range newKnown {
+		if w.knownRels[id] == nil {
+			ch.Added[id] = rel
+		}
+	}
+	for id, rel := range w.knownRels {
+		if newKnown[id] == nil {
+			ch.Deleted = append(ch.Deleted, id)
+		}
+	}
+	w.known = newKnown
+	return &ch, nil
 }
 
 // relationUnitChange represents the state of a unit's participation in
