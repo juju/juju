@@ -5,18 +5,18 @@ import "launchpad.net/mgo/bson"
 // Machine represents the state of a machine.
 type Machine struct {
 	st *State
-	id bson.ObjectId
+	id int
 }
 
 // machineDoc represents the internal state of a machine in MongoDB.
 type machineDoc struct {
-	Id         bson.ObjectId `bson:"_id"`
+	Id         int `bson:"_id"`
 	InstanceId string
 }
 
 // Id returns the machine id.
-func (m *Machine) Id() string {
-	return m.id.Hex()
+func (m *Machine) Id() int {
+	return m.id
 }
 
 // InstanceId returns the provider specific machine id for this machine.

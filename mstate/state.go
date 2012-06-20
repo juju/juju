@@ -17,8 +17,11 @@ type State struct {
 
 // AddMachine creates a new machine state.
 func (s *State) AddMachine() (*Machine, error) {
-	id := bson.NewObjectId()
-	err := s.machines.Insert(bson.D{{"_id", id}})
+	id, err := s.sequence("machine")
+	if err != nil {
+		return nil, err
+	}
+	err = s.machines.Insert(bson.D{{"_id", id}})
 	if err != nil {
 		return nil, err
 	}
@@ -26,8 +29,8 @@ func (s *State) AddMachine() (*Machine, error) {
 }
 
 // RemoveMachine removes the machine with the given id.
-func (s *State) RemoveMachine(id string) error {
-	return s.machines.Remove(bson.D{{"_id", bson.ObjectIdHex(id)}})
+func (s *State) RemoveMachine(id int) error {
+	return s.machines.Remove(bson.D{{"_id", id}})
 }
 
 // AllMachines returns all machines in the environment.
@@ -44,9 +47,9 @@ func (s *State) AllMachines() (machines []*Machine, err error) {
 }
 
 // Machine returns the machine with the given id.
-func (s *State) Machine(id string) (*Machine, error) {
+func (s *State) Machine(id int) (*Machine, error) {
 	mdoc := &machineDoc{}
-	err := s.machines.Find(bson.D{{"_id", bson.ObjectIdHex(id)}}).One(mdoc)
+	err := s.machines.Find(bson.D{{"_id", id}}).One(mdoc)
 	if err != nil {
 		return nil, err
 	}
