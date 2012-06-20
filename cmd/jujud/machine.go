@@ -49,6 +49,8 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	return m.Wait()
 }
 
+// NewMachiner starts a machine agent running.
+// The Machiner dies when it encounters an error.
 func NewMachiner(info *state.Info, machineId int) (*Machiner, error) {
 	m := new(Machiner)
 	var err error
@@ -64,6 +66,7 @@ func NewMachiner(info *state.Info, machineId int) (*Machiner, error) {
 	return m, nil
 }
 
+// Machiner represents a running machine agent.
 type Machiner struct {
 	tomb    tomb.Tomb
 	st      *state.State
@@ -112,10 +115,12 @@ func (m *Machiner) loop() {
 	}
 }
 
+// Wait waits until the Machiner has died, and returns the error encountered.
 func (m *Machiner) Wait() error {
 	return m.tomb.Wait()
 }
 
+// Stop terminates the Machiner and returns any error that it encountered.
 func (m *Machiner) Stop() error {
 	m.tomb.Kill(nil)
 	return m.tomb.Wait()
