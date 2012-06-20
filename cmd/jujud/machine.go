@@ -93,6 +93,7 @@ func (m *Machiner) loop() {
 			for _, u := range change.Deleted {
 				if u.IsPrincipal() {
 					if err := simpleContainer.Destroy(u); err != nil {
+						// TODO what should we do in this case?
 						log.Printf("cannot destroy unit %s: %v", u.Name(), err)
 					}
 				}
@@ -100,6 +101,7 @@ func (m *Machiner) loop() {
 			for _, u := range change.Added {
 				if u.IsPrincipal() {
 					if err := simpleContainer.Deploy(u); err != nil {
+						// TODO what should we do in this case?
 						log.Printf("cannot deploy unit %s: %v", u.Name(), err)
 					}
 				}
