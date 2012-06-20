@@ -138,7 +138,7 @@ func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
 }
 
 // RemoveUnit() removes a unit.
-func (s *Service) RemoveUnit(unit *Unit) (err error) {
+func (s *Service) RemoveUnit(unit *Unit) error {
 	if err := unit.UnassignFromMachine(); err != nil {
 		return err
 	}
@@ -222,8 +222,7 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 }
 
 // Relations returns a ServiceRelation for every relation the service is in.
-func (s *Service) Relations() ([]*ServiceRelation, error) {
-	var err error
+func (s *Service) Relations() (serviceRelations []*ServiceRelation, err error) {
 	defer errorContextf(&err, "can't get relations for service %q", s)
 	t, err := readTopology(s.st.zk)
 	if err != nil {
@@ -233,7 +232,7 @@ func (s *Service) Relations() ([]*ServiceRelation, error) {
 	if err != nil {
 		return nil, err
 	}
-	serviceRelations := []*ServiceRelation{}
+	serviceRelations = []*ServiceRelation{}
 	for key, relation := range relations {
 		rs := relation.Services[s.key]
 		serviceRelations = append(serviceRelations, &ServiceRelation{
@@ -260,7 +259,7 @@ func (s *Service) IsExposed() (bool, error) {
 func (s *Service) SetExposed() error {
 	_, err := s.st.zk.Create(s.zkExposedPath(), "", 0, zkPermAll)
 	if err != nil && !zookeeper.IsError(err, zookeeper.ZNODEEXISTS) {
-		return fmt.Errorf("can't mark service %q as exposed: %v", s, err)
+		return fmt.Errorf("can't set exposed flag for service %q: %v", s, err)
 	}
 	return nil
 }
@@ -270,7 +269,7 @@ func (s *Service) SetExposed() error {
 func (s *Service) ClearExposed() error {
 	err := s.st.zk.Delete(s.zkExposedPath(), -1)
 	if err != nil && !zookeeper.IsError(err, zookeeper.ZNONODE) {
-		return fmt.Errorf("can't unmark previous exposed service %q: %v", s, err)
+		return fmt.Errorf("can't clear exposed flag for service %q: %v", s, err)
 	}
 	return nil
 }
@@ -290,7 +289,7 @@ func (s *Service) WatchConfig() *ConfigWatcher {
 	return newConfigWatcher(s.st, s.zkConfigPath())
 }
 
-// String returns the service as string.
+// String returns the service name.
 func (s *Service) String() string {
 	return s.Name()
 }
