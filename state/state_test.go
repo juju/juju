@@ -1286,14 +1286,23 @@ func (s *StateSuite) TestAddRelationErrors(c *C) {
 	c.Assert(err, ErrorMatches, `can't add relation "pro:foo req:bar peer:baz": can't relate 3 endpoints`)
 }
 
-func assertOneRelation(c *C, srv *state.Service, name string, role state.RelationRole, scope state.RelationScope) {
+func assertOneRelation(c *C, srv *state.Service, relId int, endpoints ...state.RelationEndpoint) {
 	rels, err := srv.Relations()
 	c.Assert(err, IsNil)
 	c.Assert(rels, HasLen, 1)
 	rel := rels[0]
-	c.Assert(rel.RelationName(), Equals, name)
-	c.Assert(rel.RelationRole(), Equals, role)
-	c.Assert(rel.RelationScope(), Equals, scope)
+	c.Assert(rel.Id(), Equals, relId)
+	name := srv.Name()
+	expectEp := endpoints[0]
+	ep, err := rel.Endpoint(name)
+	c.Assert(err, IsNil)
+	c.Assert(ep, DeepEquals, expectEp)
+	if len(endpoints) == 2 {
+		expectEp = endpoints[1]
+	}
+	eps, err := rel.RelatedEndpoints(name)
+	c.Assert(err, IsNil)
+	c.Assert(eps, DeepEquals, []state.RelationEndpoint{expectEp})
 }
 
 func (s *StateSuite) TestProviderRequirerRelation(c *C) {
@@ -1312,8 +1321,8 @@ func (s *StateSuite) TestProviderRequirerRelation(c *C) {
 	c.Assert(err, IsNil)
 	err = s.st.AddRelation(proep, reqep)
 	c.Assert(err, ErrorMatches, `can't add relation "pro:foo req:bar": relation already exists`)
-	assertOneRelation(c, pro, "foo", state.RoleProvider, state.ScopeGlobal)
-	assertOneRelation(c, req, "bar", state.RoleRequirer, state.ScopeGlobal)
+	assertOneRelation(c, pro, 0, proep, reqep)
+	assertOneRelation(c, req, 0, reqep, proep)
 
 	// Remove the relation, and check it can't be removed again.
 	err = s.st.RemoveRelation(proep, reqep)
@@ -1329,8 +1338,11 @@ func (s *StateSuite) TestProviderRequirerRelation(c *C) {
 	reqep.RelationScope = state.ScopeContainer
 	err = s.st.AddRelation(proep, reqep)
 	c.Assert(err, IsNil)
-	assertOneRelation(c, pro, "foo", state.RoleProvider, state.ScopeContainer)
-	assertOneRelation(c, req, "bar", state.RoleRequirer, state.ScopeContainer)
+	// After adding relation, make proep container-scoped as well, for
+	// simplicity of testing.
+	proep.RelationScope = state.ScopeContainer
+	assertOneRelation(c, pro, 1, proep, reqep)
+	assertOneRelation(c, req, 1, reqep, proep)
 }
 
 func (s *StateSuite) TestPeerRelation(c *C) {
@@ -1345,7 +1357,7 @@ func (s *StateSuite) TestPeerRelation(c *C) {
 	c.Assert(err, IsNil)
 	err = s.st.AddRelation(peerep)
 	c.Assert(err, ErrorMatches, `can't add relation "peer:baz": relation already exists`)
-	assertOneRelation(c, peer, "baz", state.RolePeer, state.ScopeGlobal)
+	assertOneRelation(c, peer, 0, peerep)
 
 	// Remove the relation, and check it can't be removed again.
 	err = s.st.RemoveRelation(peerep)

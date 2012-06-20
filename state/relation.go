@@ -3,6 +3,8 @@ package state
 import (
 	"fmt"
 	"launchpad.net/gozk/zookeeper"
+	"strconv"
+	"strings"
 )
 
 // RelationRole defines the role of a relation endpoint.
@@ -14,9 +16,13 @@ const (
 	RolePeer     RelationRole = "peer"
 )
 
-// CounterpartRole returns the RelationRole that this RelationRole can
-// relate to.
-func (r RelationRole) CounterpartRole() RelationRole {
+// counterpartRole returns the RelationRole that this RelationRole
+// can relate to.
+// This should remain an internal method because the relation
+// model does not guarantee that for every role there will
+// necessarily exist a single counterpart role that is sensible
+// for basing algorithms upon.
+func (r RelationRole) counterpartRole() RelationRole {
 	switch r {
 	case RoleProvider:
 		return RoleRequirer
@@ -54,7 +60,7 @@ func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
 		// Peer relations do not currently work with multiple endpoints.
 		return false
 	}
-	return e.RelationRole.CounterpartRole() == other.RelationRole
+	return e.RelationRole.counterpartRole() == other.RelationRole
 }
 
 // String returns the unique identifier of the relation endpoint.
@@ -62,30 +68,70 @@ func (e RelationEndpoint) String() string {
 	return e.ServiceName + ":" + e.RelationName
 }
 
-// ServiceRelation represents an established relation from
-// the viewpoint of a participant service.
-type ServiceRelation struct {
-	st            *State
-	relationKey   string
-	serviceKey    string
-	relationScope RelationScope
-	relationRole  RelationRole
-	relationName  string
+// describeEndpoints returns a string describing the relation defined by
+// endpoints, for use in various contexts (including error messages).
+func describeEndpoints(endpoints []RelationEndpoint) string {
+	names := []string{}
+	for _, ep := range endpoints {
+		names = append(names, ep.String())
+	}
+	return strings.Join(names, " ")
 }
 
-// RelationScope returns the scope of the relation.
-func (r *ServiceRelation) RelationScope() RelationScope {
-	return r.relationScope
+// Relation represents a relation between one or two service endpoints.
+type Relation struct {
+	st        *State
+	key       string
+	endpoints []RelationEndpoint
 }
 
-// RelationRole returns the service role within the relation.
-func (r *ServiceRelation) RelationRole() RelationRole {
-	return r.relationRole
+func (r *Relation) String() string {
+	return fmt.Sprintf("relation %q", describeEndpoints(r.endpoints))
 }
 
-// RelationName returns the name this relation has within the service.
-func (r *ServiceRelation) RelationName() string {
-	return r.relationName
+// Id returns the integer part of the internal relation key. This is
+// exposed because the unit agent needs to expose a value derived from
+// this (as JUJU_RELATION_ID) to allow relation hooks to differentiate
+// between relations with different services.
+func (r *Relation) Id() int {
+	keyParts := strings.Split(r.key, "-")
+	id, err := strconv.Atoi(keyParts[1])
+	if err != nil {
+		panic(fmt.Errorf("relation key %q in unknown format", r.key))
+	}
+	return id
+}
+
+// Endpoint returns the endpoint of the relation for the named service.
+// If the service is not part of the relation, an error will be returned.
+func (r *Relation) Endpoint(serviceName string) (RelationEndpoint, error) {
+	for _, ep := range r.endpoints {
+		if ep.ServiceName == serviceName {
+			return ep, nil
+		}
+	}
+	return RelationEndpoint{}, fmt.Errorf("service %q is not a member of %q", serviceName, r)
+}
+
+// RelatedEndpoints returns the endpoints of the relation r with which
+// units of the named service will establish relations. If the service
+// is not part of the relation r, an error will be returned.
+func (r *Relation) RelatedEndpoints(serviceName string) ([]RelationEndpoint, error) {
+	local, err := r.Endpoint(serviceName)
+	if err != nil {
+		return nil, err
+	}
+	role := local.RelationRole.counterpartRole()
+	var eps []RelationEndpoint
+	for _, ep := range r.endpoints {
+		if ep.RelationRole == role {
+			eps = append(eps, ep)
+		}
+	}
+	if eps == nil {
+		return nil, fmt.Errorf("no endpoints of %q relate to service %q", r, serviceName)
+	}
+	return eps, nil
 }
 
 // unitScopePath represents a common zookeeper path used by the set of units

@@ -218,25 +218,35 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 	return units, nil
 }
 
-// Relations returns a ServiceRelation for every relation the service is in.
-func (s *Service) Relations() (serviceRelations []*ServiceRelation, err error) {
+// Relations returns a Relation for every relation the service is in.
+func (s *Service) Relations() (relations []*Relation, err error) {
 	defer errorContextf(&err, "can't get relations for service %q", s)
 	t, err := readTopology(s.st.zk)
 	if err != nil {
 		return nil, err
 	}
-	relations, err := t.RelationsForService(s.key)
+	trs, err := t.RelationsForService(s.key)
 	if err != nil {
 		return nil, err
 	}
-	serviceRelations = []*ServiceRelation{}
-	for key, relation := range relations {
-		rs := relation.Services[s.key]
-		serviceRelations = append(serviceRelations, &ServiceRelation{
-			s.st, key, s.key, relation.Scope, rs.RelationRole, rs.RelationName,
-		})
+	for key, tr := range trs {
+		r := &Relation{s.st, key, make([]RelationEndpoint, len(tr.Services))}
+		i := 0
+		for skey, tep := range tr.Services {
+			sname := s.name
+			if skey != s.key {
+				if sname, err = t.ServiceName(skey); err != nil {
+					return nil, err
+				}
+			}
+			r.endpoints[i] = RelationEndpoint{
+				sname, tr.Interface, tep.RelationName, tep.RelationRole, tr.Scope,
+			}
+			i++
+		}
+		relations = append(relations, r)
 	}
-	return serviceRelations, nil
+	return relations, nil
 }
 
 // IsExposed returns whether this service is exposed.
