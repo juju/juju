@@ -56,20 +56,13 @@ func (s *StateSuite) TestAllMachines(c *C) {
 }
 
 func (s *StateSuite) TestAddMachine(c *C) {
-	m0, err := s.st.AddMachine()
-	c.Assert(err, IsNil)
-
-	m, err := s.st.AllMachines()
-	c.Assert(err, IsNil)
-	c.Assert(m, HasLen, 1)
-	c.Assert(m[0].Id(), Equals, m0.Id())
-
 	numInserts := 42
 	for i := 0; i < numInserts; i++ {
-		_, err := s.st.AddMachine()
+		m, err := s.st.AddMachine()
 		c.Assert(err, IsNil)
+		c.Assert(m.Id(), Equals, i)
 	}
-	s.assertMachineCount(c, 1+numInserts)
+	s.assertMachineCount(c, numInserts)
 }
 
 func (s *StateSuite) TestRemoveMachine(c *C) {
