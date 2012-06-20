@@ -3,6 +3,7 @@ package state
 import (
 	"fmt"
 	"launchpad.net/gozk/zookeeper"
+	"strconv"
 	"strings"
 )
 
@@ -82,6 +83,21 @@ type Relation struct {
 
 func (r *Relation) String() string {
 	return fmt.Sprintf("relation %q", describeEndpoints(r.endpoints))
+}
+
+// Id returns the key exposed to the user as JUJU_RELATION_ID when
+// running a relation hook on a unit of the supplied service.
+func (r *Relation) Id(serviceName string) (string, error) {
+	ep, err := r.Endpoint(serviceName)
+	if err != nil {
+		return "", err
+	}
+	keyParts := strings.Split(r.key, "-")
+	id, err := strconv.Atoi(keyParts[1])
+	if err != nil {
+		panic(fmt.Errorf("relation key %q in unknown format", r.key))
+	}
+	return fmt.Sprintf("%s-%d", ep.RelationName, id), nil
 }
 
 // Endpoint returns the endpoint of the relation attached to the named service.
