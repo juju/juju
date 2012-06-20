@@ -16,8 +16,12 @@ const (
 	RolePeer     RelationRole = "peer"
 )
 
-// counterpartRole returns the RelationRole that this RelationRole can
-// relate to.
+// counterpartRole returns the RelationRole that this RelationRole
+// can relate to.
+// This should remain an internal method because the relation
+// model does not guarantee that for every role there will
+// necessarily exist a single counterpart role that is sensible
+// for basing algorithms upon.
 func (r RelationRole) counterpartRole() RelationRole {
 	switch r {
 	case RoleProvider:
@@ -85,22 +89,20 @@ func (r *Relation) String() string {
 	return fmt.Sprintf("relation %q", describeEndpoints(r.endpoints))
 }
 
-// Id returns the key exposed to the user as JUJU_RELATION_ID when
-// running a relation hook on a unit of the supplied service.
-func (r *Relation) Id(serviceName string) (string, error) {
-	ep, err := r.Endpoint(serviceName)
-	if err != nil {
-		return "", err
-	}
+// Id returns the integer part of the internal relation key. This is
+// exposed because the unit agent needs to expose a value derived from
+// this (as JUJU_RELATION_ID) to allow relation hooks to differentiate
+// between relations with different services.
+func (r *Relation) Id() int {
 	keyParts := strings.Split(r.key, "-")
 	id, err := strconv.Atoi(keyParts[1])
 	if err != nil {
 		panic(fmt.Errorf("relation key %q in unknown format", r.key))
 	}
-	return fmt.Sprintf("%s-%d", ep.RelationName, id), nil
+	return id
 }
 
-// Endpoint returns the endpoint of the relation attached to the named service.
+// Endpoint returns the endpoint of the relation for the named service.
 // If the service is not part of the relation, an error will be returned.
 func (r *Relation) Endpoint(serviceName string) (RelationEndpoint, error) {
 	for _, ep := range r.endpoints {
@@ -111,9 +113,9 @@ func (r *Relation) Endpoint(serviceName string) (RelationEndpoint, error) {
 	return RelationEndpoint{}, fmt.Errorf("service %q is not a member of %q", serviceName, r)
 }
 
-// RelatedEndpoints returns the endpoints of the relation to which units of the
-// named service will relate. If the service is not part of the relation, an
-// error will be returned.
+// RelatedEndpoints returns the endpoints of the relation r with which
+// units of the named service will establish relations. If the service
+// is not part of the relation r, an error will be returned.
 func (r *Relation) RelatedEndpoints(serviceName string) ([]RelationEndpoint, error) {
 	local, err := r.Endpoint(serviceName)
 	if err != nil {
