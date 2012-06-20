@@ -21,12 +21,12 @@ func TestPackage(t *stdtesting.T) {
 	TestingT(t)
 }
 
-type zkFixture struct {
+type zkSuite struct {
 	zkConn *zookeeper.Conn
 	zkInfo *state.Info
 }
 
-func (f *zkFixture) setup(c *C) {
+func (f *zkSuite) SetUpTest(c *C) {
 	zk, session, err := zookeeper.Dial(zkAddr, 15e9)
 	c.Assert(err, IsNil)
 	event := <-session
@@ -40,7 +40,7 @@ func (f *zkFixture) setup(c *C) {
 	}
 }
 
-func (f *zkFixture) tearDown() {
+func (f *zkSuite) TearDownTest() {
 	testing.ZkRemoveTree(f.zkConn, "/")
 	f.zkConn.Close()
 }

@@ -5,19 +5,19 @@ import (
 )
 
 type InitzkSuite struct {
-	zkFixture
+	zkSuite
 	path string
 }
 
 var _ = Suite(&InitzkSuite{})
 
 func (s *InitzkSuite) SetUpTest(c *C) {
-	s.zkFixture.setup(c)
+	s.zkSuite.SetUpTest(c)
 	s.path = "/watcher"
 }
 
 func (s *InitzkSuite) TearDownTest(c *C) {
-	s.zkFixture.tearDown()
+	s.zkSuite.TearDownTest()
 }
 
 func initInitzkCommand(args []string) (*InitzkCommand, error) {
