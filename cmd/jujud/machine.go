@@ -75,6 +75,8 @@ func (m *Machiner) loop() {
 	defer m.st.Close()
 
 	watcher := m.machine.WatchUnits()
+	defer watcher.Stop()
+
 	// TODO read initial units, check if they're running
 	// and restart them if not.
 	for {
@@ -84,9 +86,10 @@ func (m *Machiner) loop() {
 		case change, ok := <-watcher.Changes():
 			if !ok {
 				err := watcher.Stop()
-				if err != nil {
-					m.tomb.Kill(err)
+				if err == nil {
+					panic("watcher closed channel with no error")
 				}
+				m.tomb.Kill(err)
 				return
 			}
 			for _, u := range change.Deleted {
