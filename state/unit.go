@@ -202,17 +202,8 @@ func (u *Unit) SetCharmURL(url *charm.URL) (err error) {
 
 // IsPrincipal returns whether the unit is deployed in its own container,
 // and can therefore have subordinate services deployed alongside it.
-func (u *Unit) IsPrincipal() (isPrincipal bool, err error) {
-	defer errorContextf(&err, "can't test if unit %q is principal", u)
-	topology, err := readTopology(u.st.zk)
-	if err != nil {
-		return false, err
-	}
-	_, err = topology.UnitPrincipalKey(u.key)
-	if err == unitNotSubordinate {
-		return true, nil
-	}
-	return false, err
+func (u *Unit) IsPrincipal() bool {
+	return u.isPrincipal
 }
 
 // AssignedMachineId returns the id of the assigned machine.
