@@ -129,31 +129,35 @@ func (s *ProvisioningSuite) checkStopInstance(c *C, op <-chan dummy.Operation) {
 
 // checkMachineIdSet checks that the machine now has an instance id.
 func (s *ProvisioningSuite) checkMachineIdSet(c *C, m *state.Machine) {
-	if s.checkMachineId(c, m, false) {
-		c.Errorf("provisioner did not set machine.InstanceId")
+	// TODO(dfc) add machine.WatchConfig() to avoid having to poll.
+	for a := veryShortAttempt.Start(); a.Next(); {
+		id, err := m.InstanceId()
+		if _, ok := err.(state.NoInstanceIdError); !ok {
+			c.Check(err, IsNil)
+		}
+
+		if len(id) > 0 {
+			return
+		}
 	}
+	c.Errorf("provisioner did not set an instance id")
 }
 
 // checkMachineIdNotSet checks that the machine id is unset.
 func (s *ProvisioningSuite) checkMachineIdNotSet(c *C, m *state.Machine) {
-	if s.checkMachineId(c, m, true) {
-		c.Errorf("provisioner did not clear machine.InstanceId")
-	}
-}
-
-func (s *ProvisioningSuite) checkMachineId(c *C, m *state.Machine, isEmpty bool) bool {
 	// TODO(dfc) add machine.WatchConfig() to avoid having to poll.
 	for a := veryShortAttempt.Start(); a.Next(); {
-		_, set, err := m.InstanceId()
-		if err != nil {
+		_, err := m.InstanceId()
+		_, ok := err.(state.NoInstanceIdError)
+		if !ok {
 			c.Check(err, IsNil)
-			return false
 		}
-		if (isEmpty && !set) && (!isEmpty && set) {
-			return true
+
+		if ok {
+			return
 		}
 	}
-	return false
+	c.Errorf("provisioner did not clear an instance id")
 }
 
 func (s *ProvisioningSuite) TestParseSuccess(c *C) {

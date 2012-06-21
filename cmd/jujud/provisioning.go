@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/juju/cmd"
 	"launchpad.net/juju-core/juju/environs"
@@ -202,9 +200,11 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 		return nil, err
 	}
 	for _, m := range machines {
-		id, _, err := m.InstanceId()
+		id, err := m.InstanceId()
 		if err != nil {
-			return nil, err
+			if _, ok := err.(state.NoInstanceIdError); !ok {
+				return nil, err
+			}
 		}
 		delete(instances, id)
 	}
@@ -219,14 +219,14 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 func (p *Provisioner) findNotStarted(machines []*state.Machine) ([]*state.Machine, error) {
 	var notstarted []*state.Machine
 	for _, m := range machines {
-		id, set, err := m.InstanceId()
+		id, err := m.InstanceId()
 		if err != nil {
-			return nil, err
-		}
-		if set {
-			log.Printf("machine %s already started as instance %q", m, id)
-		} else {
+			if _, ok := err.(state.NoInstanceIdError); !ok {
+				return nil, err
+			}
 			notstarted = append(notstarted, m)
+		} else {
+			log.Printf("machine %s already started as instance %q", m, id)
 		}
 	}
 	return notstarted, nil
@@ -289,12 +289,9 @@ func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, e
 	inst, ok := p.instances[m.Id()]
 	if !ok {
 		// not cached locally, ask the environ.
-		id, set, err := m.InstanceId()
+		id, err := m.InstanceId()
 		if err != nil {
 			return nil, err
-		}
-		if !set {
-			return nil, fmt.Errorf("machine %s not found", m)
 		}
 		// TODO(dfc) this should be batched, or the cache preloaded at startup to
 		// avoid N calls to the envirion.

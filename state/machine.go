@@ -11,7 +11,11 @@ import (
 
 const providerMachineId = "provider-machine-id"
 
-var NoInstanceIdError = fmt.Errorf("no instance id set")
+type NoInstanceIdError int
+
+func (e NoInstanceIdError) Error() string {
+	return fmt.Sprintf("instance id for machine %d is not set", e)
+}
 
 // Machine represents the state of a machine.
 type Machine struct {
@@ -48,22 +52,22 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 // InstanceId returns the provider specific machine id for this machine.
 // If the id is not set, or it's value is "" and error of type NoInstanceIdError
 // will be returned.
-func (m *Machine) InstanceId() (string, bool, error) {
+func (m *Machine) InstanceId() (string, error) {
 	config, err := readConfigNode(m.st.zk, m.zkPath())
 	if err != nil {
-		return "", false, fmt.Errorf("can't get instance id of machine %s: %v", m, err)
+		return "", fmt.Errorf("can't get instance id of machine %s: %v", m, err)
 	}
 	v, ok := config.Get(providerMachineId)
 	if !ok {
-		return "", false, nil
+		return "", NoInstanceIdError(m.Id())
 	}
 	if id, ok := v.(string); ok {
 		if id == "" {
-			return "", false, nil
+			return "", NoInstanceIdError(m.Id())
 		}
-		return id, true, nil
+		return id, nil
 	}
-	return "", false, fmt.Errorf("invalid internal machine id type %T for machine %s", v, m)
+	return "", fmt.Errorf("invalid internal machine id type %T for machine %s", v, m)
 }
 
 // Units returns all the units that have been assigned
