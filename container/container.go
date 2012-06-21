@@ -18,7 +18,7 @@ type Container interface {
 
 // Simple is an instance of Container that knows how deploy units within
 // the current machine.
-var Simple = simpleContainer{}
+var Simple Container = simpleContainer{}
 
 // TODO:
 //type lxc struct {
