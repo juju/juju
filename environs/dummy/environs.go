@@ -61,7 +61,7 @@ type Operation interface {
 }
 
 type operation struct {
-	OperationKind
+	kind OperationKind
 	env string
 }
 
@@ -69,7 +69,7 @@ func (o operation) Env() string { return o.env }
 
 type OperationKind int
 
-func (k OperationKind) Kind() OperationKind { return k }
+func (o operation) Kind() OperationKind { return o.kind }
 
 const (
 	OpNone OperationKind = iota
