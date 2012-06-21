@@ -40,7 +40,7 @@ func (a *MachineAgent) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
-	// TODO reconnect when the agent fails.
+	// TODO reconnect when the machiner fails.
 	m, err := NewMachiner(&a.Conf.StateInfo, a.MachineId)
 	if err != nil {
 		return err
@@ -51,9 +51,8 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 
 // NewMachiner starts a machine agent running.
 // The Machiner dies when it encounters an error.
-func NewMachiner(info *state.Info, machineId int) (*Machiner, error) {
-	m := new(Machiner)
-	var err error
+func NewMachiner(info *state.Info, machineId int) (m *Machiner, err error) {
+	m = new(Machiner)
 	m.st, err = state.Open(info)
 	if err != nil {
 		return nil, err
@@ -81,7 +80,8 @@ func (m *Machiner) loop() {
 	defer watcher.Stop()
 
 	// TODO read initial units, check if they're running
-	// and restart them if not.
+	// and restart them if not. Also track units so
+	// that we don't deploy units that are already running.
 	for {
 		select {
 		case <-m.tomb.Dying():
@@ -98,7 +98,6 @@ func (m *Machiner) loop() {
 			for _, u := range change.Deleted {
 				if u.IsPrincipal() {
 					if err := simpleContainer.Destroy(u); err != nil {
-						// TODO what should we do in this case?
 						log.Printf("cannot destroy unit %s: %v", u.Name(), err)
 					}
 				}
@@ -106,7 +105,7 @@ func (m *Machiner) loop() {
 			for _, u := range change.Added {
 				if u.IsPrincipal() {
 					if err := simpleContainer.Deploy(u); err != nil {
-						// TODO what should we do in this case?
+						// TODO put unit into a queue to retry the deploy.
 						log.Printf("cannot deploy unit %s: %v", u.Name(), err)
 					}
 				}
