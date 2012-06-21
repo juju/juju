@@ -179,6 +179,9 @@ func (p *Provisioner) processMachines(added, removed []*state.Machine) error {
 	// step 4. find instances which are running but have no machine 
 	// associated with them.
 	unknown, err := p.findUnknownInstances()
+	if err != nil {
+		return err
+	}
 
 	return p.stopInstances(append(stopping, unknown...))
 }

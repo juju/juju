@@ -2,6 +2,9 @@ package state
 
 import (
 	"fmt"
+	"launchpad.net/gozk/zookeeper"
+	"strconv"
+	"strings"
 )
 
 // RelationRole defines the role of a relation endpoint.
@@ -13,9 +16,13 @@ const (
 	RolePeer     RelationRole = "peer"
 )
 
-// CounterpartRole returns the RelationRole that this RelationRole can
-// relate to.
-func (r RelationRole) CounterpartRole() RelationRole {
+// counterpartRole returns the RelationRole that this RelationRole
+// can relate to.
+// This should remain an internal method because the relation
+// model does not guarantee that for every role there will
+// necessarily exist a single counterpart role that is sensible
+// for basing algorithms upon.
+func (r RelationRole) counterpartRole() RelationRole {
 	switch r {
 	case RoleProvider:
 		return RoleRequirer
@@ -53,7 +60,7 @@ func (e *RelationEndpoint) CanRelateTo(other *RelationEndpoint) bool {
 		// Peer relations do not currently work with multiple endpoints.
 		return false
 	}
-	return e.RelationRole.CounterpartRole() == other.RelationRole
+	return e.RelationRole.counterpartRole() == other.RelationRole
 }
 
 // String returns the unique identifier of the relation endpoint.
@@ -61,28 +68,120 @@ func (e RelationEndpoint) String() string {
 	return e.ServiceName + ":" + e.RelationName
 }
 
-// ServiceRelation represents an established relation from
-// the viewpoint of a participant service.
-type ServiceRelation struct {
-	st            *State
-	relationKey   string
-	serviceKey    string
-	relationScope RelationScope
-	relationRole  RelationRole
-	relationName  string
+// describeEndpoints returns a string describing the relation defined by
+// endpoints, for use in various contexts (including error messages).
+func describeEndpoints(endpoints []RelationEndpoint) string {
+	names := []string{}
+	for _, ep := range endpoints {
+		names = append(names, ep.String())
+	}
+	return strings.Join(names, " ")
 }
 
-// RelationScope returns the scope of the relation.
-func (r *ServiceRelation) RelationScope() RelationScope {
-	return r.relationScope
+// Relation represents a relation between one or two service endpoints.
+type Relation struct {
+	st        *State
+	key       string
+	endpoints []RelationEndpoint
 }
 
-// RelationRole returns the service role within the relation.
-func (r *ServiceRelation) RelationRole() RelationRole {
-	return r.relationRole
+func (r *Relation) String() string {
+	return fmt.Sprintf("relation %q", describeEndpoints(r.endpoints))
 }
 
-// RelationName returns the name this relation has within the service.
-func (r *ServiceRelation) RelationName() string {
-	return r.relationName
+// Id returns the integer part of the internal relation key. This is
+// exposed because the unit agent needs to expose a value derived from
+// this (as JUJU_RELATION_ID) to allow relation hooks to differentiate
+// between relations with different services.
+func (r *Relation) Id() int {
+	keyParts := strings.Split(r.key, "-")
+	id, err := strconv.Atoi(keyParts[1])
+	if err != nil {
+		panic(fmt.Errorf("relation key %q in unknown format", r.key))
+	}
+	return id
+}
+
+// Endpoint returns the endpoint of the relation for the named service.
+// If the service is not part of the relation, an error will be returned.
+func (r *Relation) Endpoint(serviceName string) (RelationEndpoint, error) {
+	for _, ep := range r.endpoints {
+		if ep.ServiceName == serviceName {
+			return ep, nil
+		}
+	}
+	return RelationEndpoint{}, fmt.Errorf("service %q is not a member of %q", serviceName, r)
+}
+
+// RelatedEndpoints returns the endpoints of the relation r with which
+// units of the named service will establish relations. If the service
+// is not part of the relation r, an error will be returned.
+func (r *Relation) RelatedEndpoints(serviceName string) ([]RelationEndpoint, error) {
+	local, err := r.Endpoint(serviceName)
+	if err != nil {
+		return nil, err
+	}
+	role := local.RelationRole.counterpartRole()
+	var eps []RelationEndpoint
+	for _, ep := range r.endpoints {
+		if ep.RelationRole == role {
+			eps = append(eps, ep)
+		}
+	}
+	if eps == nil {
+		return nil, fmt.Errorf("no endpoints of %q relate to service %q", r, serviceName)
+	}
+	return eps, nil
+}
+
+// unitScopePath represents a common zookeeper path used by the set of units
+// that can (transitively) affect one another within the context of a
+// particular relation. For a globally-scoped relation, every unit is part of
+// the same scope; but for a container-scoped relation, each unit is is a
+// scope shared only with the units that share a container.
+// Thus, unitScopePaths will take one of the following forms:
+//
+//   /relations/<relation-id>
+//   /relations/<relation-id>/<container-id>
+type unitScopePath string
+
+// settingsPath returns the path to the relation unit settings node for the
+// unit identified by unitKey, or to the relation scope settings node if
+// unitKey is empty.
+func (s unitScopePath) settingsPath(unitKey string) string {
+	return s.subpath("settings", unitKey)
+}
+
+// presencePath returns the path to the relation unit presence node for a
+// unit (identified by unitKey) of a service acting as role; or to the relation
+// scope role node if unitKey is empty.
+func (s unitScopePath) presencePath(role RelationRole, unitKey string) string {
+	return s.subpath(string(role), unitKey)
+}
+
+// prepareJoin ensures that ZooKeeper nodes exist such that a unit of a
+// service with the supplied role will be able to join the relation.
+func (s unitScopePath) prepareJoin(zk *zookeeper.Conn, role RelationRole) error {
+	paths := []string{string(s), s.settingsPath(""), s.presencePath(role, "")}
+	for _, path := range paths {
+		if _, err := zk.Create(path, "", 0, zkPermAll); err != nil {
+			if zookeeper.IsError(err, zookeeper.ZNODEEXISTS) {
+				continue
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+// subpath returns an absolute ZooKeeper path to the node whose path relative
+// to the scope node is composed of parts. Empty parts will be stripped.
+func (s unitScopePath) subpath(parts ...string) string {
+	path := string(s)
+	for _, part := range parts {
+		if part != "" {
+			path = path + "/" + part
+		}
+	}
+	return path
 }
