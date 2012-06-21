@@ -3,8 +3,8 @@ package store
 import (
 	"encoding/json"
 	"io"
-	"launchpad.net/juju-core/juju/charm"
-	"launchpad.net/juju-core/juju/log"
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/log"
 	"net/http"
 	"strconv"
 	"strings"

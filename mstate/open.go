@@ -1,7 +1,7 @@
 package mstate
 
 import (
-	"launchpad.net/juju-core/juju/log"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/mgo"
 )
 

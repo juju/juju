@@ -6,7 +6,7 @@ package server
 import (
 	"bytes"
 	"fmt"
-	"launchpad.net/juju-core/juju/cmd"
+	"launchpad.net/juju-core/cmd"
 	"net"
 	"net/rpc"
 	"os"

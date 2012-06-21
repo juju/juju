@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/juju/log"
-	"launchpad.net/juju-core/juju/version"
+	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/version"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -281,7 +281,7 @@ func bundleTools(w io.Writer) error {
 		return err
 	}
 	defer os.RemoveAll(dir)
-	cmd := exec.Command("go", "install", "launchpad.net/juju-core/juju/cmd/...")
+	cmd := exec.Command("go", "install", "launchpad.net/juju-core/cmd/...")
 	cmd.Env = []string{
 		"GOPATH=" + os.Getenv("GOPATH"),
 		"GOBIN=" + dir,

@@ -3,7 +3,7 @@ package ec2
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/juju-core/state"
 	"regexp"
 	"strings"
 )

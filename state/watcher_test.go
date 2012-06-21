@@ -3,7 +3,7 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/juju-core/state"
 	"time"
 )
 
