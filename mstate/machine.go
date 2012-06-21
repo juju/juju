@@ -35,14 +35,15 @@ func (m *Machine) InstanceId() (string, error) {
 
 // SetInstanceId sets the provider specific machine id for this machine.
 func (m *Machine) SetInstanceId(id string) error {
-	err := m.st.machines.Update(bson.D{{"_id", m.id}}, bson.D{{"instanceid", id}})
+	change := bson.M{"$set": bson.D{{"instanceid", id}}}
+	err := m.st.machines.Update(bson.D{{"_id", m.id}}, change)
 	if err != nil {
 		return fmt.Errorf("can't set instance id of machine %s: %v", m, err)
 	}
 	return nil
 }
 
-// String returns a unique description of this machine
+// String returns a unique description of this machine.
 func (m *Machine) String() string {
 	return strconv.Itoa(m.Id())
 }

@@ -6,7 +6,7 @@ import (
 )
 
 func Dial(servers string) (st *State, err error) {
-	log.Printf("state: opening state with servers: %q", servers)
+	log.Printf("opening state with servers: %q", servers)
 	session, err := mgo.Dial(servers)
 	if err != nil {
 		return
