@@ -53,9 +53,11 @@ func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
 	panic("unreachable")
 }
 
+
 type Provisioner struct {
 	st      *state.State
-	info    *state.Info
+	origInfo    *state.Info
+	info	*state.Info
 	environ environs.Environ
 	tomb    tomb.Tomb
 
@@ -76,7 +78,7 @@ func NewProvisioner(info *state.Info) (*Provisioner, error) {
 	}
 	p := &Provisioner{
 		st:        st,
-		info:      info,
+		origInfo:      info,
 		instances: make(map[int]environs.Instance),
 		machines:  make(map[string]*state.Machine),
 	}
@@ -108,6 +110,15 @@ func (p *Provisioner) loop() {
 			}
 			log.Printf("provisioner loaded new environment configuration")
 
+			// Get another stateInfo from the environment
+			// because on the bootstrap machine the info passed
+			// into the agent may not use the correct address.
+			p.info, err = p.environ.StateInfo()
+			if err != nil {
+				p.tomb.Kill(err)
+				return
+			}
+
 			p.innerLoop()
 		}
 	}
@@ -117,6 +128,7 @@ func (p *Provisioner) innerLoop() {
 	// call processMachines to stop any unknown instances before watching machines.
 	if err := p.processMachines(nil, nil); err != nil {
 		p.tomb.Kill(err)
+		return
 	}
 	p.machinesWatcher = p.st.WatchMachines()
 	for {
