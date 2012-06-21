@@ -61,7 +61,7 @@ type Operation interface {
 }
 
 type operation struct {
-	kind OperationKind
+	OperationKind // embedded for .String()
 	env string
 }
 
@@ -69,7 +69,7 @@ func (o operation) Env() string { return o.env }
 
 type OperationKind int
 
-func (o operation) Kind() OperationKind { return o.kind }
+func (o operation) Kind() OperationKind { return o.OperationKind }
 
 const (
 	OpNone OperationKind = iota
@@ -345,8 +345,8 @@ func (e *environ) Destroy([]environs.Instance) error {
 	return nil
 }
 
-// StartOperation represents a StartInstance operation on the dummy provider.
-type StartOperation struct {
+// StartInstanceOp represents a StartInstance operation on the dummy provider.
+type StartInstanceOp struct {
 	operation
 	Instance environs.Instance
 }
@@ -362,12 +362,12 @@ func (e *environ) StartInstance(machineId int, _ *state.Info) (environs.Instance
 	e.state.insts[i.id] = i
 	e.state.maxId++
 	e.state.mu.Unlock()
-	e.state.ops <- StartOperation{operation{OpStartInstance, e.state.name}, i}
+	e.state.ops <- StartInstanceOp{operation{OpStartInstance, e.state.name}, i}
 	return i, nil
 }
 
-// StopOperation represents a StopInstances operation on the dummy provider.
-type StopOperation struct {
+// StopInstancesOp represents a StopInstances operation on the dummy provider.
+type StopInstancesOp struct {
 	operation
 	Instances []environs.Instance
 }
@@ -381,7 +381,7 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 		delete(e.state.insts, i.(*instance).id)
 	}
 	e.state.mu.Unlock()
-	e.state.ops <- StopOperation{operation{OpStopInstances, e.state.name}, is}
+	e.state.ops <- StopInstancesOp{operation{OpStopInstances, e.state.name}, is}
 	return nil
 }
 
