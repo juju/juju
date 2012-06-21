@@ -24,11 +24,11 @@ var (
 // sshDial dials the ZooKeeper instance at addr through
 // an SSH proxy.
 func sshDial(addr, keyFile string) (fwd *sshForwarder, con *zookeeper.Conn, err error) {
-	defer errorContextf(&err, "can't dial ZooKeeper via SSH at address %s", addr)
 	fwd, err = newSSHForwarder(addr, keyFile)
 	if err != nil {
 		return nil, nil, err
 	}
+	defer errorContextf(&err, "can't dial ZooKeeper via SSH at address %s", addr)
 	zk, session, err := zookeeper.Dial(fwd.localAddr, zkTimeout)
 	if err != nil {
 		fwd.stop()

@@ -1,7 +1,3 @@
-// launchpad.net/juju/state
-//
-// Copyright (c) 2011-2012 Canonical Ltd.
-
 package state
 
 import (
@@ -108,7 +104,7 @@ func parseConfigNode(zk *zookeeper.Conn, path, content string) (*ConfigNode, err
 // It does not affect the user-set contents.
 func (c *ConfigNode) setPristineContent(content string) (err error) {
 	if err = goyaml.Unmarshal([]byte(content), &c.pristineCache); err != nil {
-		return fmt.Errorf("invalid configuration format: %v", err)
+		return fmt.Errorf("unmarshall error: %v", err)
 	}
 	return nil
 }
@@ -124,7 +120,7 @@ func readConfigNode(zk *zookeeper.Conn, path string) (*ConfigNode, error) {
 
 // Read (re)reads the node data into c.
 func (c *ConfigNode) Read() (err error) {
-	defer errorContextf(&err, "can't read configuration node at %s", c.path)
+	defer errorContextf(&err, "can't read configuration node %q", c.path)
 	yaml, _, err := c.zk.Get(c.path)
 	if err != nil {
 		if !zookeeper.IsError(err, zookeeper.ZNONODE) {
@@ -143,7 +139,7 @@ func (c *ConfigNode) Read() (err error) {
 // latest version of the node, to prevent overwriting
 // unrelated changes made to the node since it was last read.
 func (c *ConfigNode) Write() (changes []ItemChange, err error) {
-	defer errorContextf(&err, "can't write configuration node at %s", c.path)
+	defer errorContextf(&err, "can't write configuration node %q", c.path)
 	// changes is used by applyChanges to return the changes to
 	// this scope.
 	changes = []ItemChange{}

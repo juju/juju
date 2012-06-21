@@ -95,7 +95,7 @@ func (s *StateSuite) TestServiceWatchConfigIllegalData(c *C) {
 	}
 
 	err = configWatcher.Stop()
-	c.Assert(err, ErrorMatches, "invalid configuration format: YAML error: .*")
+	c.Assert(err, ErrorMatches, "unmarshall error: YAML error: .*")
 }
 
 type unitWatchNeedsUpgradeTest struct {
