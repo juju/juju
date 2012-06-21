@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	stdtesting "testing"
 )
 
@@ -43,8 +44,8 @@ func (s *suite) TestDeploy(c *C) {
 	binDir := c.MkDir()
 	exe := filepath.Join(binDir, "jujud")
 	defer os.Setenv("PATH", os.Getenv("PATH"))
-	os.Setenv("PATH", binDir)
-	err := ioutil.WriteFile(exe, nil, 0777)
+	os.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+	err := ioutil.WriteFile(exe, []byte("#!/bin/sh\n"), 0777)
 	c.Assert(err, IsNil)
 
 	// create a unit to deploy
@@ -77,7 +78,7 @@ func (s *suite) TestDeploy(c *C) {
 
 	data, err := ioutil.ReadFile(upstartScript)
 	c.Assert(err, IsNil)
-	c.Assert(string(data), Matches, `(.|\n)+`+regexp.QuotaMeta(exe)+` unit --unit-name(.|\n)+`)
+	c.Assert(string(data), Matches, `(.|\n)+`+regexp.QuoteMeta(exe)+` unit --unit-name(.|\n)+`)
 
 	// We can't check that the unit directory is created, because
 	// it is removed when the call to Deploy fails, but
