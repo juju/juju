@@ -41,12 +41,11 @@ func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
 	for {
 		p, err := NewProvisioner(&a.Conf.StateInfo)
 		if err == nil {
-			err = p.Wait()
-		}
-		// TODO If the provisioner is stopped, we should really exit
-		// here, even if an error comes out.	
-		if err == nil {
-			return nil
+			if err = p.Wait(); err == nil {
+				// if Wait returns nil then we consider that a signal
+				// that the process should exit the retry logic.	
+				return nil
+			}
 		}
 		log.Printf("restarting provisioner after error: %v", err)
 		time.Sleep(retryDuration)
