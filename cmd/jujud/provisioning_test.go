@@ -4,18 +4,15 @@ import (
 	"time"
 
 	. "launchpad.net/gocheck"
-	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/juju/cmd"
 	"launchpad.net/juju-core/juju/environs"
 	"launchpad.net/juju-core/juju/environs/dummy"
 	"launchpad.net/juju-core/juju/state"
-	"launchpad.net/juju-core/juju/testing"
 )
 
 type ProvisioningSuite struct {
-	zkConn *zookeeper.Conn
-	zkInfo *state.Info
-	st     *state.State
+	zkSuite
+	st *state.State
 }
 
 var _ = Suite(&ProvisioningSuite{})
@@ -26,23 +23,12 @@ var veryShortAttempt = environs.AttemptStrategy{
 }
 
 func (s *ProvisioningSuite) SetUpTest(c *C) {
-	zk, session, err := zookeeper.Dial(zkAddr, 15e9)
-	c.Assert(err, IsNil)
-	event := <-session
-	c.Assert(event.Ok(), Equals, true)
-	c.Assert(event.Type, Equals, zookeeper.EVENT_SESSION)
-	c.Assert(event.State, Equals, zookeeper.STATE_CONNECTED)
-
-	s.zkConn = zk
-	s.zkInfo = &state.Info{
-		Addrs: []string{zkAddr},
-	}
-
+	s.zkSuite.SetUpTest(c)
+	var err error
 	s.st, err = state.Initialize(s.zkInfo)
 	c.Assert(err, IsNil)
 
 	dummy.Reset()
-
 	// seed /environment to point to dummy
 	env, err := s.st.EnvironConfig()
 	c.Assert(err, IsNil)
@@ -54,8 +40,7 @@ func (s *ProvisioningSuite) SetUpTest(c *C) {
 }
 
 func (s *ProvisioningSuite) TearDownTest(c *C) {
-	testing.ZkRemoveTree(s.zkConn, "/")
-	s.zkConn.Close()
+	s.zkSuite.TearDownTest()
 }
 
 // invalidateEnvironment alters the environment configuration
@@ -88,7 +73,7 @@ func (s *ProvisioningSuite) stopProvisioner(c *C, p *Provisioner) {
 
 // checkStartInstance checks that an instace has been started.
 func (s *ProvisioningSuite) checkStartInstance(c *C, op <-chan dummy.Operation) {
-	// use the non fatal variants to avoid leaking provisioners.	
+	// use the non fatal variants to avoid leaking provisioners.    
 	for {
 		select {
 		case o := <-op:
@@ -115,7 +100,7 @@ func (s *ProvisioningSuite) checkNotStartInstance(c *C, op <-chan dummy.Operatio
 				c.Errorf("instance started: %v", o)
 				return
 			default:
-				// ignore	
+				// ignore   
 			}
 		case <-time.After(200 * time.Millisecond):
 			return
@@ -125,7 +110,7 @@ func (s *ProvisioningSuite) checkNotStartInstance(c *C, op <-chan dummy.Operatio
 
 // checkStopInstance checks that an instance has been stopped.
 func (s *ProvisioningSuite) checkStopInstance(c *C, op <-chan dummy.Operation) {
-	// use the non fatal variants to avoid leaking provisioners.	
+	// use the non fatal variants to avoid leaking provisioners.    
 	for {
 		select {
 		case o := <-op:
@@ -218,8 +203,8 @@ func (s *ProvisioningSuite) TestProvisionerStopOnStateClose(c *C) {
 	p.st.Close()
 
 	// must use Check to avoid leaking PA
-	c.Check(p.Wait(), ErrorMatches, "content change channel closed unexpectedly")
-	c.Assert(p.Stop(), ErrorMatches, "content change channel closed unexpectedly")
+	c.Check(p.Wait(), ErrorMatches, ".* zookeeper is closing")
+	c.Assert(p.Stop(), ErrorMatches, ".* zookeeper is closing")
 }
 
 // Start and stop one machine, watch the PA.
@@ -415,7 +400,7 @@ func (s *ProvisioningSuite) TestProvisioningStopsOnlyUnknownInstances(c *C) {
 
 	machines, err := s.st.AllMachines()
 	c.Check(err, IsNil)
-	c.Check(len(machines), Equals, 0) // it's really gone	
+	c.Check(len(machines), Equals, 0) // it's really gone   
 
 	// start a new provisioner
 	p, err = NewProvisioner(s.zkInfo)
