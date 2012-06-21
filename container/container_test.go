@@ -44,7 +44,7 @@ func (s *suite) TestDeploy(c *C) {
 	binDir := c.MkDir()
 	exe := filepath.Join(binDir, "jujud")
 	defer os.Setenv("PATH", os.Getenv("PATH"))
-	os.Setenv("PATH", binDir + ":" + os.Getenv("PATH"))
+	os.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
 	err := ioutil.WriteFile(exe, []byte("#!/bin/sh\n"), 0777)
 	c.Assert(err, IsNil)
 
