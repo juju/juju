@@ -39,6 +39,14 @@ func (s *suite) SetUpSuite(c *C) {
 }
 
 func (s *suite) TestDeploy(c *C) {
+	// make sure there's a jujud "executable" in the path.
+	binDir := c.MkDir()
+	exe := filepath.Join(binDir, "jujud")
+	defer os.Setenv("PATH", os.Getenv("PATH"))
+	os.Setenv("PATH", binDir)
+	err := ioutil.WriteFile(exe, nil, 0777)
+	c.Assert(err, IsNil)
+
 	// create a unit to deploy
 	dummyCharm := testing.Charms.Dir("dummy")
 	u := fmt.Sprintf("local:series/%s-%d", dummyCharm.Meta().Name, dummyCharm.Revision())
@@ -69,7 +77,7 @@ func (s *suite) TestDeploy(c *C) {
 
 	data, err := ioutil.ReadFile(upstartScript)
 	c.Assert(err, IsNil)
-	c.Assert(string(data), Matches, `(.|\n)+unit --unit-name(.|\n)+`)
+	c.Assert(string(data), Matches, `(.|\n)+`+regexp.QuotaMeta(exe)+` unit --unit-name(.|\n)+`)
 
 	// We can't check that the unit directory is created, because
 	// it is removed when the call to Deploy fails, but
