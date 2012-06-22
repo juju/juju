@@ -75,6 +75,9 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	if t.CanOpenState {
 		st, err := state.Open(info)
 		c.Assert(err, IsNil)
+		if t.HasProvisioner {
+			t.testProvisioning(c, st)
+		}
 		st.Close()
 	}
 
@@ -83,6 +86,45 @@ func (t *LiveTests) TestBootstrap(c *C) {
 
 	// check that we can bootstrap after destroy
 	t.BootstrapOnce(c)
+}
+
+func (t *LiveTests) testProvisioning(c *C, st *state.State) {
+	// place a new machine into the state
+	m, err := st.AddMachine()
+	c.Assert(err, IsNil)
+
+	t.checkStartInstance(c, m)
+
+	// now remove it
+	c.Assert(st.RemoveMachine(m.Id()), IsNil)
+
+	// TODO
+	// watch the PA remove it
+	//s.checkStopInstance(c, instId)
+	//s.checkMachineId(c, m, nil)
+}
+
+var agentReaction = environs.AttemptStrategy{
+	Total: 1 * time.Minute,
+	Delay: 1 * time.Second,
+}
+
+func (t *LiveTests) checkStartInstance(c *C, m *state.Machine) (instId string) {
+	// Wait for machine to get instance id.
+	for a := agentReaction.Start(); a.Next(); {
+		var err error
+		instId, err = m.InstanceId()
+		c.Assert(err, IsNil)
+		if instId != "" {
+			break
+		}
+	}
+	if instId == "" {
+		c.Fatalf("provisioner never failed to allocate machine after %v", agentReaction.Total)
+	}
+	_, err := t.Env.Instances([]string{instId})
+	c.Assert(err, IsNil)
+	return
 }
 
 // TODO check that binary data works ok?
