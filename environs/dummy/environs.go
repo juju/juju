@@ -58,13 +58,13 @@ func stateInfo() *state.Info {
 // Operation represents an action on the dummy provider.
 type Operation interface{}
 
-type genericOperation struct {
+type GenericOperation struct {
 	Env string
 }
 
-type OpBootstrap genericOperation
+type OpBootstrap GenericOperation
 
-type OpDestroy genericOperation
+type OpDestroy GenericOperation
 
 type OpStartInstance struct {
 	Env       string
@@ -78,7 +78,7 @@ type OpStopInstances struct {
 	Instances []environs.Instance
 }
 
-type OpPutFile genericOperation
+type OpPutFile GenericOperation
 
 // environProvider represents the dummy provider.  There is only ever one
 // instance of this type (providerInstance)
@@ -278,7 +278,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 			return err
 		}
 	}
-	e.state.ops <- OpBootstrap{e.state.name}
+	e.state.ops <- OpBootstrap{Env: e.state.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if e.state.bootstrapped {
@@ -338,7 +338,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	if e.isBroken() {
 		return errBroken
 	}
-	e.state.ops <- OpDestroy{e.state.name}
+	e.state.ops <- OpDestroy{Env: e.state.name}
 	e.state.mu.Lock()
 	if zkServer != nil {
 		testing.ResetZkServer(zkServer)
@@ -360,7 +360,12 @@ func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Insta
 	e.state.insts[i.id] = i
 	e.state.maxId++
 	e.state.mu.Unlock()
-	e.state.ops <- OpStartInstance{e.state.name, machineId, i, info}
+	e.state.ops <- OpStartInstance{
+		Env: e.state.name,
+		MachineId: machineId,
+		Instance: i,
+		Info: info,
+	}
 	return i, nil
 }
 
@@ -373,7 +378,10 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 		delete(e.state.insts, i.(*instance).id)
 	}
 	e.state.mu.Unlock()
-	e.state.ops <- OpStopInstances{e.state.name, is}
+	e.state.ops <- OpStopInstances{
+		Env: e.state.name,
+		Instances: is,
+	}
 	return nil
 }
 
