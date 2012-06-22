@@ -54,11 +54,10 @@ func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
 }
 
 type Provisioner struct {
-	st       *state.State
-	origInfo *state.Info
-	info     *state.Info
-	environ  environs.Environ
-	tomb     tomb.Tomb
+	st      *state.State
+	info    *state.Info
+	environ environs.Environ
+	tomb    tomb.Tomb
 
 	environWatcher  *state.ConfigWatcher
 	machinesWatcher *state.MachinesWatcher
@@ -77,7 +76,7 @@ func NewProvisioner(info *state.Info) (*Provisioner, error) {
 	}
 	p := &Provisioner{
 		st:        st,
-		origInfo:  info,
+		info:      info,
 		instances: make(map[int]environs.Instance),
 		machines:  make(map[string]*state.Machine),
 	}
@@ -112,12 +111,12 @@ func (p *Provisioner) loop() {
 			// Get another stateInfo from the environment
 			// because on the bootstrap machine the info passed
 			// into the agent may not use the correct address.
-			p.info, err = p.environ.StateInfo()
+			info, err := p.environ.StateInfo()
 			if err != nil {
 				p.tomb.Kill(err)
 				return
 			}
-
+			p.info = info
 			p.innerLoop()
 		}
 	}
