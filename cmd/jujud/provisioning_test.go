@@ -28,11 +28,10 @@ var veryShortAttempt = environs.AttemptStrategy{
 
 func (s *ProvisioningSuite) SetUpTest(c *C) {
 	s.logging.SetUpTest(c)
-	dummy.Reset()
 
 	// Create the operations channel with more than enough space
 	// for those tests that don't listen on it.
-	op := make(chan dummy.Operation, 20)
+	op := make(chan dummy.Operation, 500)
 	dummy.Listen(op)
 	s.op = op
 
@@ -56,6 +55,7 @@ func (s *ProvisioningSuite) SetUpTest(c *C) {
 }
 
 func (s *ProvisioningSuite) TearDownTest(c *C) {
+	dummy.Reset()
 	s.zkSuite.TearDownTest()
 	s.logging.TearDownTest(c)
 }
@@ -104,7 +104,6 @@ func (s *ProvisioningSuite) checkStartInstance(c *C, m *state.Machine) {
 				return
 			default:
 				c.Logf("ignoring unexpected operation %#v", o)
-				// ignore
 			}
 		case <-time.After(2 * time.Second):
 			c.Errorf("provisioner did not start an instance")
