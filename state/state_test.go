@@ -230,7 +230,7 @@ func (s *StateSuite) TestMachineInstanceIdMissing(c *C) {
 	c.Assert(err, IsNil)
 
 	id, err := machine.InstanceId()
-	c.Assert(err, FitsTypeOf, state.NoInstanceIdError(0))
+	c.Assert(err, FitsTypeOf, state.NoInstanceIdError{})
 	c.Assert(id, Equals, "")
 }
 
@@ -244,7 +244,7 @@ func (s *StateSuite) TestMachineInstanceIdBlank(c *C) {
 	c.Assert(err, IsNil)
 
 	id, err := machine.InstanceId()
-	c.Assert(err, FitsTypeOf, state.NoInstanceIdError(0))
+	c.Assert(err, FitsTypeOf, state.NoInstanceIdError{})
 	c.Assert(id, Equals, "")
 }
 

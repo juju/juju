@@ -11,10 +11,12 @@ import (
 
 const providerMachineId = "provider-machine-id"
 
-type NoInstanceIdError int
+type NoInstanceIdError struct {
+	machineId int
+}
 
 func (e NoInstanceIdError) Error() string {
-	return fmt.Sprintf("instance id for machine %d is not set", e)
+	return fmt.Sprintf("instance id for machine %d is not set", e.machineId)
 }
 
 // Machine represents the state of a machine.
@@ -59,11 +61,11 @@ func (m *Machine) InstanceId() (string, error) {
 	}
 	v, ok := config.Get(providerMachineId)
 	if !ok {
-		return "", NoInstanceIdError(m.Id())
+		return "", NoInstanceIdError{m.Id()}
 	}
 	if id, ok := v.(string); ok {
 		if id == "" {
-			return "", NoInstanceIdError(m.Id())
+			return "", NoInstanceIdError{m.Id()}
 		}
 		return id, nil
 	}
