@@ -57,21 +57,25 @@ func stateInfo() *state.Info {
 // Operation represents an action on the dummy provider.
 type Operation interface{}
 
-type GenericOperation struct {
+type genericOperation struct {
 	Env string
 }
 
-type OpBootstrap GenericOperation
-type OpDestroy GenericOperation
+type OpBootstrap genericOperation
+
+type OpDestroy genericOperation
+
 type OpStartInstance struct {
 	Env      string
 	Instance environs.Instance
 }
+
 type OpStopInstances struct {
 	Env       string
 	Instances []environs.Instance
 }
-type OpPutFile GenericOperation
+
+type OpPutFile genericOperation
 
 // environProvider represents the dummy provider.  There is only ever one
 // instance of this type (providerInstance)
