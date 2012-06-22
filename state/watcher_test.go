@@ -3,7 +3,7 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/juju-core/state"
 	"time"
 )
 
@@ -95,7 +95,7 @@ func (s *StateSuite) TestServiceWatchConfigIllegalData(c *C) {
 	}
 
 	err = configWatcher.Stop()
-	c.Assert(err, ErrorMatches, "YAML error: .*")
+	c.Assert(err, ErrorMatches, "unmarshall error: YAML error: .*")
 }
 
 type unitWatchNeedsUpgradeTest struct {

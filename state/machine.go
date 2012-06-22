@@ -2,7 +2,7 @@ package state
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/juju/state/presence"
+	"launchpad.net/juju-core/state/presence"
 	"path"
 	"strconv"
 	"strings"

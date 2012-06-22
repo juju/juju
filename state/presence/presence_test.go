@@ -4,7 +4,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/juju/state/presence"
+	"launchpad.net/juju-core/state/presence"
 	"testing"
 	"time"
 )

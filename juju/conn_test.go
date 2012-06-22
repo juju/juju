@@ -3,9 +3,9 @@ package juju_test
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/environs/dummy"
-	"launchpad.net/juju-core/juju/juju"
-	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
 	stdtesting "testing"

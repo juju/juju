@@ -2,7 +2,7 @@ package environs_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/environs"
+	"launchpad.net/juju-core/environs"
 	"time"
 )
 

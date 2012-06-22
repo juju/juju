@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/juju/charm"
+	"launchpad.net/juju-core/charm"
 	pathPkg "path"
 )
 

@@ -2,7 +2,7 @@ package schema_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/schema"
+	"launchpad.net/juju-core/schema"
 	"testing"
 )
 

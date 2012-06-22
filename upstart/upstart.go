@@ -152,7 +152,7 @@ func (c *Conf) Install() error {
 			return fmt.Errorf("upstart: could not remove installed service: %s", err)
 		}
 	}
-	
+
 	if err := ioutil.WriteFile(c.confPath(), conf, 0644); err != nil {
 		return err
 	}

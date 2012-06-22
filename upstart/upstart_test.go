@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/upstart"
+	"launchpad.net/juju-core/upstart"
 	"os"
 	"path/filepath"
 	"testing"
@@ -77,8 +77,6 @@ func (s *UpstartSuite) TestStart(c *C) {
 	s.MakeTool(c, "start", "exit 0")
 	c.Assert(s.service.Start(), IsNil)
 }
-
-
 
 func (s *UpstartSuite) TestStop(c *C) {
 	s.StoppedStatus(c)

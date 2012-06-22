@@ -1,16 +1,20 @@
 package main
 
 import (
+	"time"
+
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/juju/cmd"
-	"launchpad.net/juju-core/juju/environs"
-	"launchpad.net/juju-core/juju/log"
-	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/tomb"
 
 	// register providers
-	_ "launchpad.net/juju-core/juju/environs/ec2"
+	_ "launchpad.net/juju-core/environs/ec2"
 )
+
+var retryDuration = 10 * time.Second
 
 // ProvisioningAgent is a cmd.Command responsible for running a provisioning agent.
 type ProvisioningAgent struct {
@@ -33,12 +37,19 @@ func (a *ProvisioningAgent) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run runs a provisioning agent.
 func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
-	// TODO(dfc) place the logic in a loop with a suitable delay
-	p, err := NewProvisioner(&a.Conf.StateInfo)
-	if err != nil {
-		return err
+	for {
+		p, err := NewProvisioner(&a.Conf.StateInfo)
+		if err == nil {
+			if err = p.Wait(); err == nil {
+				// if Wait returns nil then we consider that a signal
+				// that the process should exit the retry logic.	
+				return nil
+			}
+		}
+		log.Printf("restarting provisioner after error: %v", err)
+		time.Sleep(retryDuration)
 	}
-	return p.Wait()
+	panic("unreachable")
 }
 
 type Provisioner struct {

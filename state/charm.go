@@ -5,7 +5,7 @@ package state
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/juju/charm"
+	"launchpad.net/juju-core/charm"
 	"net/url"
 )
 

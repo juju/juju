@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/juju/cmd"
-	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/state"
 	"strconv"
 	"strings"
 )
