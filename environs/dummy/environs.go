@@ -361,10 +361,10 @@ func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Insta
 	e.state.maxId++
 	e.state.mu.Unlock()
 	e.state.ops <- OpStartInstance{
-		Env: e.state.name,
+		Env:       e.state.name,
 		MachineId: machineId,
-		Instance: i,
-		Info: info,
+		Instance:  i,
+		Info:      info,
 	}
 	return i, nil
 }
@@ -379,7 +379,7 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 	}
 	e.state.mu.Unlock()
 	e.state.ops <- OpStopInstances{
-		Env: e.state.name,
+		Env:       e.state.name,
 		Instances: is,
 	}
 	return nil
