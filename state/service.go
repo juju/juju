@@ -283,8 +283,8 @@ func (s *Service) ClearExposed() error {
 
 // WatchExposed creates a watcher for the exposed flog
 // of the service.
-func (s *Service) WatchExposed() *ExposedWatcher {
-	return newExposedWatcher(s.st, s.zkExposedPath())
+func (s *Service) WatchExposed() *FlagWatcher {
+	return newFlagWatcher(s.st, s.zkExposedPath())
 }
 
 // Config returns the configuration node for the service.

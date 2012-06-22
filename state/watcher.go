@@ -112,8 +112,9 @@ func (w *ConfigWatcher) loop() {
 	}
 }
 
-// ExposedWatcher observes the setting of the exposed flag.
-type ExposedWatcher struct {
+// FlagWatcher observes the setting of a flag indicated
+// by the existence of a node.
+type FlagWatcher struct {
 	st         *State
 	path       string
 	tomb       tomb.Tomb
@@ -121,10 +122,10 @@ type ExposedWatcher struct {
 	changeChan chan bool
 }
 
-// newExposedWatcher creates and starts a new exposed watcher for
+// newFlagWatcher creates and starts a new flag watcher for
 // the given path.
-func newExposedWatcher(st *State, path string) *ExposedWatcher {
-	w := &ExposedWatcher{
+func newFlagWatcher(st *State, path string) *FlagWatcher {
+	w := &FlagWatcher{
 		st:         st,
 		path:       path,
 		changeChan: make(chan bool),
@@ -134,24 +135,23 @@ func newExposedWatcher(st *State, path string) *ExposedWatcher {
 	return w
 }
 
-// Changes returns a channel that will receive true when the
-// exposed flag is set and false if it is cleared. Note that multiple
+// Changes returns a channel that will receive true when a
+// flag is set and false if it is cleared. Note that multiple
 // changes may be observed as a single event in the channel.
-// The first event on the channel holds the initial state
-// as returned by Service.IsExposed.
-func (w *ExposedWatcher) Changes() <-chan bool {
+// The first event on the channel holds the initial state.
+func (w *FlagWatcher) Changes() <-chan bool {
 	return w.changeChan
 }
 
 // Stop stops the watch and returns any error encountered
 // while watching. This method should always be called
 // before discarding the watcher.
-func (w *ExposedWatcher) Stop() error {
+func (w *FlagWatcher) Stop() error {
 	w.tomb.Kill(nil)
 	return w.tomb.Wait()
 }
 
-func (w *ExposedWatcher) loop() {
+func (w *FlagWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
 	defer stopWatcher(w.watcher, &w.tomb)
