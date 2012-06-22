@@ -54,10 +54,10 @@ func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
 }
 
 type Provisioner struct {
-	st       *state.State
-	info     *state.Info
-	environ  environs.Environ
-	tomb     tomb.Tomb
+	st      *state.State
+	info    *state.Info
+	environ environs.Environ
+	tomb    tomb.Tomb
 
 	environWatcher  *state.ConfigWatcher
 	machinesWatcher *state.MachinesWatcher
@@ -76,7 +76,7 @@ func NewProvisioner(info *state.Info) (*Provisioner, error) {
 	}
 	p := &Provisioner{
 		st:        st,
-		info:  info,
+		info:      info,
 		instances: make(map[int]environs.Instance),
 		machines:  make(map[string]*state.Machine),
 	}
