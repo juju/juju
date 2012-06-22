@@ -2,7 +2,7 @@ package main
 
 import (
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/juju/cmd"
+	"launchpad.net/juju-core/cmd"
 	"os"
 )
 
@@ -10,7 +10,7 @@ import (
 // here, it will register itself with environs, and hence
 // be available to the juju command.
 import (
-	_ "launchpad.net/juju-core/juju/environs/ec2"
+	_ "launchpad.net/juju-core/environs/ec2"
 )
 
 var jujuDoc = `

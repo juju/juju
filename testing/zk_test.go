@@ -4,7 +4,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	zk "launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/testing"
 	stdtesting "testing"
 )
 

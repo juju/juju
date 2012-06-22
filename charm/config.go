@@ -6,7 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/juju/schema"
+	"launchpad.net/juju-core/schema"
 	"reflect"
 	"strconv"
 )

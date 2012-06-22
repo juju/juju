@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/juju/cmd"
-	"launchpad.net/juju-core/juju/juju"
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/juju"
 )
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.

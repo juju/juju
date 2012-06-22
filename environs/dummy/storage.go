@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/juju/environs"
+	"launchpad.net/juju-core/environs"
 	"net/http"
 	"sort"
 	"strings"

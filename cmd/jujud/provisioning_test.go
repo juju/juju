@@ -4,10 +4,10 @@ import (
 	"time"
 
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/cmd"
-	"launchpad.net/juju-core/juju/environs"
-	"launchpad.net/juju-core/juju/environs/dummy"
-	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/state"
 )
 
 type ProvisioningSuite struct {

@@ -7,7 +7,7 @@ import (
 	"io"
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/cmd"
+	"launchpad.net/juju-core/cmd"
 )
 
 func dummyFlagSet() *gnuflag.FlagSet {

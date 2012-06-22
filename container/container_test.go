@@ -5,13 +5,14 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/juju/charm"
-	"launchpad.net/juju-core/juju/container"
-	"launchpad.net/juju-core/juju/state"
-	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/container"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	stdtesting "testing"
 )
 
@@ -39,6 +40,14 @@ func (s *suite) SetUpSuite(c *C) {
 }
 
 func (s *suite) TestDeploy(c *C) {
+	// make sure there's a jujud "executable" in the path.
+	binDir := c.MkDir()
+	exe := filepath.Join(binDir, "jujud")
+	defer os.Setenv("PATH", os.Getenv("PATH"))
+	os.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+	err := ioutil.WriteFile(exe, []byte("#!/bin/sh\n"), 0777)
+	c.Assert(err, IsNil)
+
 	// create a unit to deploy
 	dummyCharm := testing.Charms.Dir("dummy")
 	u := fmt.Sprintf("local:series/%s-%d", dummyCharm.Meta().Name, dummyCharm.Revision())
@@ -69,7 +78,7 @@ func (s *suite) TestDeploy(c *C) {
 
 	data, err := ioutil.ReadFile(upstartScript)
 	c.Assert(err, IsNil)
-	c.Assert(string(data), Matches, `(.|\n)+unit --unit-name(.|\n)+`)
+	c.Assert(string(data), Matches, `(.|\n)+`+regexp.QuoteMeta(exe)+` unit --unit-name(.|\n)+`)
 
 	// We can't check that the unit directory is created, because
 	// it is removed when the call to Deploy fails, but

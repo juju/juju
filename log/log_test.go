@@ -3,7 +3,7 @@ package log_test
 import (
 	"bytes"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/log"
+	"launchpad.net/juju-core/log"
 	stdlog "log"
 	"testing"
 )

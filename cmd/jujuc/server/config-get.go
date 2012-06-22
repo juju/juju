@@ -2,7 +2,7 @@ package server
 
 import (
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/juju/cmd"
+	"launchpad.net/juju-core/cmd"
 )
 
 // ConfigGetCommand implements the config-get command.

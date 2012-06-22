@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/cmd"
-	"launchpad.net/juju-core/juju/cmd/jujuc/server"
-	"launchpad.net/juju-core/juju/log"
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/jujuc/server"
+	"launchpad.net/juju-core/log"
 	stdlog "log"
 )
 

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/juju/log"
+	"launchpad.net/juju-core/log"
 	"net/http"
 	"net/url"
 	"os"
