@@ -84,6 +84,8 @@ func (s *ProvisioningSuite) stopProvisioner(c *C, p *Provisioner) {
 
 // checkStartInstance checks that an instace has been started.
 func (s *ProvisioningSuite) checkStartInstance(c *C) {
+	// TODO check that instance is started with the correct StateInfo.
+
 	// use the non fatal variants to avoid leaking provisioners.    
 	for {
 		select {
