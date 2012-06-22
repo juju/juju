@@ -1,7 +1,6 @@
 package testing
 
 import (
-	"local/runtime/debug"
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/gozk/zookeeper"
@@ -75,7 +74,7 @@ func ResetZkServer(srv *zookeeper.Server) {
 	assert(event.Type == zookeeper.EVENT_SESSION)
 	assert(event.State == zookeeper.STATE_CONNECTED)
 	ZkRemoveTree(zk, "/")
-	log.Printf("testing: reset zk server at %v (callers: %s)", addr, debug.Callers(0, 20))
+	log.Printf("testing: reset zk server at %v", addr)
 }
 
 // ZkRemoveTree recursively removes a zookeeper node

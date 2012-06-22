@@ -4,11 +4,11 @@ import (
 	"time"
 
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
 )
 
 type ProvisioningSuite struct {
@@ -27,7 +27,7 @@ var veryShortAttempt = environs.AttemptStrategy{
 
 func (s *ProvisioningSuite) SetUpTest(c *C) {
 	s.logging.SetUpTest(c)
-	dummy.Reset()	
+	dummy.Reset()
 
 	// Create the operations channel with more than enough space
 	// for those tests that don't listen on it.
@@ -36,9 +36,9 @@ func (s *ProvisioningSuite) SetUpTest(c *C) {
 	s.op = op
 
 	env, err := environs.NewEnviron(map[string]interface{}{
-		"type": "dummy",
+		"type":      "dummy",
 		"zookeeper": true,
-		"name": "testing",
+		"name":      "testing",
 	})
 	c.Assert(err, IsNil)
 	err = env.Bootstrap(false)

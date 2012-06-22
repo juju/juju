@@ -53,13 +53,12 @@ func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
 	panic("unreachable")
 }
 
-
 type Provisioner struct {
-	st      *state.State
-	origInfo    *state.Info
-	info	*state.Info
-	environ environs.Environ
-	tomb    tomb.Tomb
+	st       *state.State
+	origInfo *state.Info
+	info     *state.Info
+	environ  environs.Environ
+	tomb     tomb.Tomb
 
 	environWatcher  *state.ConfigWatcher
 	machinesWatcher *state.MachinesWatcher
@@ -78,7 +77,7 @@ func NewProvisioner(info *state.Info) (*Provisioner, error) {
 	}
 	p := &Provisioner{
 		st:        st,
-		origInfo:      info,
+		origInfo:  info,
 		instances: make(map[int]environs.Instance),
 		machines:  make(map[string]*state.Machine),
 	}
