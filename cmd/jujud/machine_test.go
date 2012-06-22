@@ -12,6 +12,7 @@ import (
 )
 
 type MachineSuite struct {
+	logging testing.LoggingSuite
 	zkSuite
 	st *state.State
 }
@@ -19,6 +20,7 @@ type MachineSuite struct {
 var _ = Suite(&MachineSuite{})
 
 func (s *MachineSuite) SetUpTest(c *C) {
+	s.logging.SetUpTest(c)
 	s.zkSuite.SetUpTest(c)
 	var err error
 	s.st, err = state.Initialize(s.zkInfo)
@@ -27,6 +29,7 @@ func (s *MachineSuite) SetUpTest(c *C) {
 
 func (s *MachineSuite) TearDownTest(c *C) {
 	s.zkSuite.TearDownTest()
+	s.logging.TearDownTest(c)
 }
 
 func (s *MachineSuite) TestParseSuccess(c *C) {

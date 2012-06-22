@@ -22,6 +22,7 @@ import (
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/schema"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"net"
@@ -127,6 +128,13 @@ type storage struct {
 	files map[string][]byte
 }
 
+type environConfig struct {
+	provider  *environProvider
+	name      string
+	zookeeper bool
+	broken    bool
+}
+
 var providerInstance environProvider
 
 // discardOperations discards all Operations written to it.
@@ -150,6 +158,7 @@ func init() {
 // operation listener.  All opened environments after Reset will share
 // the same underlying state.
 func Reset() {
+	log.Printf("dummy: reset environment")
 	p := &providerInstance
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -195,6 +204,8 @@ func (s *environState) listen() {
 // Listen closes the previously registered listener (if any),
 // and if c is not nil registers it to receive notifications 
 // of follow up operations in the environment.
+// Environments opened before Listen is called will
+// not be affected.
 func Listen(c chan<- Operation) {
 	p := &providerInstance
 	p.mu.Lock()
@@ -206,13 +217,6 @@ func Listen(c chan<- Operation) {
 		close(p.ops)
 	}
 	p.ops = c
-}
-
-type environConfig struct {
-	provider  *environProvider
-	name      string
-	zookeeper bool
-	broken    bool
 }
 
 var checker = schema.FieldMap(
@@ -291,6 +295,17 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		if err != nil {
 			panic(err)
 		}
+		cfg, err := st.EnvironConfig()
+		if err != nil {
+			panic(err)
+		}
+		cfg.Set("type", "dummy")
+		cfg.Set("zookeeper", true)
+		cfg.Set("name", e.config.name)
+		_, err = cfg.Write()
+		if err != nil {
+			panic(err)
+		}
 		err = st.Close()
 		if err != nil {
 			panic(err)
@@ -304,10 +319,13 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	if e.isBroken() {
 		return nil, errBroken
 	}
-	if e.config.zookeeper && e.state.bootstrapped {
-		return stateInfo(), nil
+	if !e.state.bootstrapped {
+		return nil, errors.New("dummy environment not bootstrapped")
 	}
-	return nil, errors.New("no state info available for this environ")
+	if !e.config.zookeeper {
+		return nil, errors.New("dummy environment has no zookeeper configured")
+	}
+	return stateInfo(), nil
 }
 
 func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
