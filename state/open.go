@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/juju/log"
+	"launchpad.net/juju-core/log"
 	"strings"
 	"time"
 )

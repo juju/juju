@@ -3,8 +3,8 @@ package store_test
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/charm"
-	"launchpad.net/juju-core/juju/store"
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/store"
 	"launchpad.net/lpad"
 )
 

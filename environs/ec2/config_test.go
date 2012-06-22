@@ -3,7 +3,7 @@ package ec2
 import (
 	"launchpad.net/goamz/aws"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/environs"
+	"launchpad.net/juju-core/environs"
 	"os"
 	"strings"
 )

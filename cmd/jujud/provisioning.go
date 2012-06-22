@@ -5,14 +5,14 @@ import (
 	"time"
 
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/juju/cmd"
-	"launchpad.net/juju-core/juju/environs"
-	"launchpad.net/juju-core/juju/log"
-	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/tomb"
 
 	// register providers
-	_ "launchpad.net/juju-core/juju/environs/ec2"
+	_ "launchpad.net/juju-core/environs/ec2"
 )
 
 var retryDuration = 10 * time.Second

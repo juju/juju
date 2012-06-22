@@ -2,11 +2,11 @@ package main
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/charm"
-	"launchpad.net/juju-core/juju/cmd"
-	"launchpad.net/juju-core/juju/container"
-	"launchpad.net/juju-core/juju/state"
-	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/container"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
 	"net/url"
 	"time"
 )

@@ -3,10 +3,10 @@ package main
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/juju/cmd"
-	"launchpad.net/juju-core/juju/container"
-	"launchpad.net/juju-core/juju/log"
-	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/container"
+	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/tomb"
 )
 

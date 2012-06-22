@@ -2,7 +2,7 @@ package mstate_test
 
 import (
 	. "launchpad.net/gocheck"
-	state "launchpad.net/juju-core/juju/mstate"
+	state "launchpad.net/juju-core/mstate"
 	"launchpad.net/mgo"
 	"launchpad.net/mgo/bson"
 	"testing"
