@@ -52,7 +52,7 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 }
 
 // InstanceId returns the provider specific machine id for this machine.
-// If the id is not set, or it's value is "" and error of type NoInstanceIdError
+// If the id is not set, or its value is "" and error of type NoInstanceIdError
 // will be returned.
 func (m *Machine) InstanceId() (string, error) {
 	config, err := readConfigNode(m.st.zk, m.zkPath())
