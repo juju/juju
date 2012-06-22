@@ -112,6 +112,72 @@ func (w *ConfigWatcher) loop() {
 	}
 }
 
+// ExposedWatcher observes the setting of the exposed flag.
+type ExposedWatcher struct {
+	st         *State
+	path       string
+	tomb       tomb.Tomb
+	watcher    *watcher.ContentWatcher
+	changeChan chan bool
+}
+
+// newExposedWatcher creates and starts a new exposed watcher for
+// the given path.
+func newExposedWatcher(st *State, path string) *ExposedWatcher {
+	w := &ExposedWatcher{
+		st:         st,
+		path:       path,
+		changeChan: make(chan bool),
+		watcher:    watcher.NewContentWatcher(st.zk, path),
+	}
+	go w.loop()
+	return w
+}
+
+// Changes returns a channel that will receive true when the
+// exposed flag is set and false if it is cleared. Note that multiple
+// changes may be observed as a single event in the channel.
+// The first event on the channel holds the initial state
+// as returned by Service.IsExposed.
+func (w *ExposedWatcher) Changes() <-chan bool {
+	return w.changeChan
+}
+
+// Stop stops the watch and returns any error encountered
+// while watching. This method should always be called
+// before discarding the watcher.
+func (w *ExposedWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
+}
+
+func (w *ExposedWatcher) loop() {
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+	defer stopWatcher(w.watcher, &w.tomb)
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case change, ok := <-w.watcher.Changes():
+			if !ok {
+				w.tomb.Kill(mustErr(w.watcher))
+				return
+			}
+			// An existent node means the flag is set.
+			isExposed := false
+			if change.Exists {
+				isExposed = true
+			}
+			select {
+			case <-w.tomb.Dying():
+				return
+			case w.changeChan <- isExposed:
+			}
+		}
+	}
+}
+
 // NeedsUpgradeWatcher observes changes to a unit's upgrade flag.
 type NeedsUpgradeWatcher struct {
 	st         *State

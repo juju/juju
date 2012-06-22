@@ -281,6 +281,12 @@ func (s *Service) ClearExposed() error {
 	return nil
 }
 
+// WatchExposed creates a watcher for the exposed flog
+// of the service.
+func (s *Service) WatchExposed() *ExposedWatcher {
+	return newExposedWatcher(s.st, s.zkExposedPath())
+}
+
 // Config returns the configuration node for the service.
 func (s *Service) Config() (config *ConfigNode, err error) {
 	config, err = readConfigNode(s.st.zk, s.zkConfigPath())
