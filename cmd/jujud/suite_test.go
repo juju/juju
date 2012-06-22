@@ -3,6 +3,7 @@ package main
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	stdtesting "testing"
@@ -12,6 +13,7 @@ var zkAddr string
 
 func TestPackage(t *stdtesting.T) {
 	srv := testing.StartZkServer()
+	dummy.SetZookeeper(srv)
 	defer srv.Destroy()
 	var err error
 	zkAddr, err = srv.Addr()

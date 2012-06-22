@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
@@ -57,17 +58,19 @@ func stateInfo() *state.Info {
 // Operation represents an action on the dummy provider.
 type Operation interface{}
 
-type genericOperation struct {
+type GenericOperation struct {
 	Env string
 }
 
-type OpBootstrap genericOperation
+type OpBootstrap GenericOperation
 
-type OpDestroy genericOperation
+type OpDestroy GenericOperation
 
 type OpStartInstance struct {
-	Env      string
-	Instance environs.Instance
+	Env       string
+	MachineId int
+	Instance  environs.Instance
+	Info      *state.Info
 }
 
 type OpStopInstances struct {
@@ -75,7 +78,7 @@ type OpStopInstances struct {
 	Instances []environs.Instance
 }
 
-type OpPutFile genericOperation
+type OpPutFile GenericOperation
 
 // environProvider represents the dummy provider.  There is only ever one
 // instance of this type (providerInstance)
@@ -120,6 +123,13 @@ type storage struct {
 	files map[string][]byte
 }
 
+type environConfig struct {
+	provider  *environProvider
+	name      string
+	zookeeper bool
+	broken    bool
+}
+
 var providerInstance environProvider
 
 // discardOperations discards all Operations written to it.
@@ -143,6 +153,7 @@ func init() {
 // operation listener.  All opened environments after Reset will share
 // the same underlying state.
 func Reset() {
+	log.Printf("dummy: reset environment")
 	p := &providerInstance
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -188,6 +199,8 @@ func (s *environState) listen() {
 // Listen closes the previously registered listener (if any),
 // and if c is not nil registers it to receive notifications 
 // of follow up operations in the environment.
+// Environments opened before Listen is called will
+// not be affected.
 func Listen(c chan<- Operation) {
 	p := &providerInstance
 	p.mu.Lock()
@@ -199,13 +212,6 @@ func Listen(c chan<- Operation) {
 		close(p.ops)
 	}
 	p.ops = c
-}
-
-type environConfig struct {
-	provider  *environProvider
-	name      string
-	zookeeper bool
-	broken    bool
 }
 
 var checker = schema.FieldMap(
@@ -272,7 +278,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 			return err
 		}
 	}
-	e.state.ops <- OpBootstrap{e.state.name}
+	e.state.ops <- OpBootstrap{Env: e.state.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if e.state.bootstrapped {
@@ -281,6 +287,17 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	if e.config.zookeeper {
 		info := stateInfo()
 		st, err := state.Initialize(info)
+		if err != nil {
+			panic(err)
+		}
+		cfg, err := st.EnvironConfig()
+		if err != nil {
+			panic(err)
+		}
+		cfg.Set("type", "dummy")
+		cfg.Set("zookeeper", true)
+		cfg.Set("name", e.config.name)
+		_, err = cfg.Write()
 		if err != nil {
 			panic(err)
 		}
@@ -297,10 +314,13 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	if e.isBroken() {
 		return nil, errBroken
 	}
-	if e.config.zookeeper && e.state.bootstrapped {
-		return stateInfo(), nil
+	if !e.config.zookeeper {
+		return nil, errors.New("dummy environment has no zookeeper configured")
 	}
-	return nil, errors.New("no state info available for this environ")
+	if !e.state.bootstrapped {
+		return nil, errors.New("dummy environment not bootstrapped")
+	}
+	return stateInfo(), nil
 }
 
 func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
@@ -318,7 +338,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	if e.isBroken() {
 		return errBroken
 	}
-	e.state.ops <- OpDestroy{e.state.name}
+	e.state.ops <- OpDestroy{Env: e.state.name}
 	e.state.mu.Lock()
 	if zkServer != nil {
 		testing.ResetZkServer(zkServer)
@@ -329,7 +349,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId int, _ *state.Info) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Instance, error) {
 	if e.isBroken() {
 		return nil, errBroken
 	}
@@ -340,7 +360,12 @@ func (e *environ) StartInstance(machineId int, _ *state.Info) (environs.Instance
 	e.state.insts[i.id] = i
 	e.state.maxId++
 	e.state.mu.Unlock()
-	e.state.ops <- OpStartInstance{e.state.name, i}
+	e.state.ops <- OpStartInstance{
+		Env:       e.state.name,
+		MachineId: machineId,
+		Instance:  i,
+		Info:      info,
+	}
 	return i, nil
 }
 
@@ -353,7 +378,10 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 		delete(e.state.insts, i.(*instance).id)
 	}
 	e.state.mu.Unlock()
-	e.state.ops <- OpStopInstances{e.state.name, is}
+	e.state.ops <- OpStopInstances{
+		Env:       e.state.name,
+		Instances: is,
+	}
 	return nil
 }
 

@@ -56,7 +56,7 @@ environments:
 	defer conn.Close()
 	st, err := conn.State()
 	c.Assert(st, IsNil)
-	c.Assert(err, ErrorMatches, "no state info available for this environ")
+	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
 	err = conn.Bootstrap(false)
 	c.Assert(err, IsNil)
 	st, err = conn.State()
