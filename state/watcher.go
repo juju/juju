@@ -112,8 +112,7 @@ func (w *ConfigWatcher) loop() {
 	}
 }
 
-// FlagWatcher observes the setting of a flag indicated
-// by the existence of a node.
+// FlagWatcher observes whether a given flag is on or off.
 type FlagWatcher struct {
 	st         *State
 	path       string
@@ -164,15 +163,10 @@ func (w *FlagWatcher) loop() {
 				w.tomb.Kill(mustErr(w.watcher))
 				return
 			}
-			// An existent node means the flag is set.
-			isExposed := false
-			if change.Exists {
-				isExposed = true
-			}
 			select {
 			case <-w.tomb.Dying():
 				return
-			case w.changeChan <- isExposed:
+			case w.changeChan <- change.Exists:
 			}
 		}
 	}
