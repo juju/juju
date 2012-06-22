@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	"strings"
 )
 
 type ProvisioningSuite struct {
@@ -47,6 +48,11 @@ func (s *ProvisioningSuite) SetUpTest(c *C) {
 	s.zkSuite.SetUpTest(c)
 	s.st, err = state.Open(s.zkInfo)
 	c.Assert(err, IsNil)
+
+	// Make sure that zkInfo holds exactly the info we're passing to
+	// NewProvisioner,
+	s.zkInfo, err = env.StateInfo()
+	c.Assert(err, IsNil)
 }
 
 func (s *ProvisioningSuite) TearDownTest(c *C) {
@@ -82,19 +88,22 @@ func (s *ProvisioningSuite) stopProvisioner(c *C, p *Provisioner) {
 	c.Assert(p.Stop(), IsNil)
 }
 
-// checkStartInstance checks that an instace has been started.
-func (s *ProvisioningSuite) checkStartInstance(c *C) {
-	// TODO check that instance is started with the correct StateInfo.
-
-	// use the non fatal variants to avoid leaking provisioners.    
+// checkStartInstance checks that an instance has been started
+// with a machine id the same as m's, and that the machine's
+// instance id has been set appropriately.
+func (s *ProvisioningSuite) checkStartInstance(c *C, m *state.Machine) {
 	for {
 		select {
 		case o := <-s.op:
-			switch o.Kind {
+			switch o := o.(type) {
 			case dummy.OpStartInstance:
+				c.Assert(o.Info, DeepEquals, s.zkInfo)
+				c.Assert(o.MachineId, Equals, m.Id())
+				c.Assert(o.Instance, NotNil)
+				s.checkMachineId(c, m, o.Instance)
 				return
 			default:
-				c.Logf("ignoring unexpected operation %v", o)
+				c.Logf("ignoring unexpected operation %#v", o)
 				// ignore
 			}
 		case <-time.After(2 * time.Second):
@@ -109,7 +118,7 @@ func (s *ProvisioningSuite) checkNotStartInstance(c *C) {
 	for {
 		select {
 		case o := <-s.op:
-			switch o.Kind {
+			switch o.(type) {
 			case dummy.OpStartInstance:
 				c.Errorf("instance started: %v", o)
 				return
@@ -128,7 +137,7 @@ func (s *ProvisioningSuite) checkStopInstance(c *C) {
 	for {
 		select {
 		case o := <-s.op:
-			switch o.Kind {
+			switch o.(type) {
 			case dummy.OpStopInstances:
 				return
 			default:
@@ -141,33 +150,25 @@ func (s *ProvisioningSuite) checkStopInstance(c *C) {
 	}
 }
 
-// checkMachineIdSet checks that the machine now has an instance id.
-func (s *ProvisioningSuite) checkMachineIdSet(c *C, m *state.Machine) {
-	if s.checkMachineId(c, m, false) {
-		c.Errorf("provisioner did not set machine.InstanceId")
-	}
-}
-
-// checkMachineIdNotSet checks that the machine id is unset.
-func (s *ProvisioningSuite) checkMachineIdNotSet(c *C, m *state.Machine) {
-	if s.checkMachineId(c, m, true) {
-		c.Errorf("provisioner did not clear machine.InstanceId")
-	}
-}
-
-func (s *ProvisioningSuite) checkMachineId(c *C, m *state.Machine, isEmpty bool) bool {
+// checkMachineIdSet checks that the machine has an instance id
+// that matches that of the given instance. If the instance is nil,
+// It checks that the instance id is unset.
+func (s *ProvisioningSuite) checkMachineId(c *C, m *state.Machine, inst environs.Instance) {
 	// TODO(dfc) add machine.WatchConfig() to avoid having to poll.
+	instId := ""
+	if inst != nil {
+		instId = inst.Id()
+	}
 	for a := veryShortAttempt.Start(); a.Next(); {
 		id, err := m.InstanceId()
-		if err != nil {
-			c.Check(err, IsNil)
-			return false
-		}
-		if (isEmpty && id == "") && (!isEmpty && id != "") {
-			return true
+		c.Assert(err, IsNil)
+		if id == instId {
+			return
 		}
 	}
-	return false
+	id, err := m.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, instId)
 }
 
 func (s *ProvisioningSuite) TestParseSuccess(c *C) {
@@ -194,6 +195,29 @@ func (s *ProvisioningSuite) TestProvisionerStartStop(c *C) {
 	p, err := NewProvisioner(s.zkInfo)
 	c.Assert(err, IsNil)
 	c.Assert(p.Stop(), IsNil)
+}
+
+func (s *ProvisioningSuite) TestProvisionerDifferentStateInfo(c *C) {
+	info := *s.zkInfo
+
+	// Use an equivalent but textually different address and check
+	// that the info when new instances are started is that returned
+	// from the environment, not the one passed in originally.
+	info.Addrs = append([]string{}, info.Addrs...)
+	if !strings.HasPrefix(info.Addrs[0], "127.0.0.1") {
+		c.Fatalf("local address %q not as expected", info.Addrs)
+	}
+	info.Addrs[0] = "localhost" + info.Addrs[0][len("127.0.0.1"):]
+
+	p, err := NewProvisioner(&info)
+	c.Assert(err, IsNil)
+	defer s.stopProvisioner(c, p)
+
+	// place a new machine into the state
+	m, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+
+	s.checkStartInstance(c, m)
 }
 
 func (s *ProvisioningSuite) TestProvisionerEnvironmentChange(c *C) {
@@ -231,15 +255,14 @@ func (s *ProvisioningSuite) TestSimple(c *C) {
 	m, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 
-	s.checkStartInstance(c)
-	s.checkMachineIdSet(c, m)
+	s.checkStartInstance(c, m)
 
 	// now remove it
 	c.Assert(s.st.RemoveMachine(m.Id()), IsNil)
 
 	// watch the PA remove it
 	s.checkStopInstance(c)
-	s.checkMachineIdNotSet(c, m)
+	s.checkMachineId(c, m, nil)
 }
 
 func (s *ProvisioningSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(c *C) {
@@ -276,8 +299,7 @@ func (s *ProvisioningSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {
 	err = s.fixEnvironment()
 	c.Assert(err, IsNil)
 
-	s.checkStartInstance(c)
-	s.checkMachineIdSet(c, m)
+	s.checkStartInstance(c, m)
 }
 
 func (s *ProvisioningSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPublished(c *C) {
@@ -289,8 +311,7 @@ func (s *ProvisioningSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubl
 	m, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 
-	s.checkStartInstance(c)
-	s.checkMachineIdSet(c, m)
+	s.checkStartInstance(c, m)
 
 	err = s.invalidateEnvironment()
 	c.Assert(err, IsNil)
@@ -300,8 +321,7 @@ func (s *ProvisioningSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubl
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the old environment
-	s.checkStartInstance(c)
-	s.checkMachineIdSet(c, m)
+	s.checkStartInstance(c, m)
 }
 
 func (s *ProvisioningSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRestart(c *C) {
@@ -314,8 +334,7 @@ func (s *ProvisioningSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterR
 	m, err := s.st.AddMachine()
 	c.Check(err, IsNil)
 
-	s.checkStartInstance(c)
-	s.checkMachineIdSet(c, m)
+	s.checkStartInstance(c, m)
 
 	// restart the PA
 	c.Check(p.Stop(), IsNil)
@@ -345,15 +364,13 @@ func (s *ProvisioningSuite) TestProvisioningStopsUnknownInstances(c *C) {
 	m, err := s.st.AddMachine()
 	c.Check(err, IsNil)
 
-	s.checkStartInstance(c)
-	s.checkMachineIdSet(c, m)
+	s.checkStartInstance(c, m)
 
 	// create a second machine
 	m, err = s.st.AddMachine()
 	c.Check(err, IsNil)
 
-	s.checkStartInstance(c)
-	s.checkMachineIdSet(c, m)
+	s.checkStartInstance(c, m)
 
 	// stop the PA
 	c.Check(p.Stop(), IsNil)
@@ -384,8 +401,7 @@ func (s *ProvisioningSuite) TestProvisioningStopsOnlyUnknownInstances(c *C) {
 	m, err := s.st.AddMachine()
 	c.Check(err, IsNil)
 
-	s.checkStartInstance(c)
-	s.checkMachineIdSet(c, m)
+	s.checkStartInstance(c, m)
 
 	// stop the PA
 	c.Check(p.Stop(), IsNil)
@@ -416,8 +432,7 @@ func (s *ProvisioningSuite) TestProvisioningRecoversAfterInvalidEnvironmentPubli
 	m, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 
-	s.checkStartInstance(c)
-	s.checkMachineIdSet(c, m)
+	s.checkStartInstance(c, m)
 
 	err = s.invalidateEnvironment()
 	c.Assert(err, IsNil)
@@ -427,8 +442,7 @@ func (s *ProvisioningSuite) TestProvisioningRecoversAfterInvalidEnvironmentPubli
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the old environment
-	s.checkStartInstance(c)
-	s.checkMachineIdSet(c, m)
+	s.checkStartInstance(c, m)
 
 	err = s.fixEnvironment()
 	c.Assert(err, IsNil)
@@ -438,6 +452,5 @@ func (s *ProvisioningSuite) TestProvisioningRecoversAfterInvalidEnvironmentPubli
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the new environment
-	s.checkStartInstance(c)
-	s.checkMachineIdSet(c, m)
+	s.checkStartInstance(c, m)
 }
