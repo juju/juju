@@ -77,7 +77,7 @@ func (s *ProvisioningSuite) checkStartInstance(c *C, op <-chan dummy.Operation) 
 	for {
 		select {
 		case o := <-op:
-			switch o.Kind() {
+			switch o.(type) {
 			case dummy.OpStartInstance:
 				return
 			default:
@@ -95,7 +95,7 @@ func (s *ProvisioningSuite) checkNotStartInstance(c *C, op <-chan dummy.Operatio
 	for {
 		select {
 		case o := <-op:
-			switch o.Kind() {
+			switch o.(type) {
 			case dummy.OpStartInstance:
 				c.Errorf("instance started: %v", o)
 				return
@@ -114,7 +114,7 @@ func (s *ProvisioningSuite) checkStopInstance(c *C, op <-chan dummy.Operation) {
 	for {
 		select {
 		case o := <-op:
-			switch o.Kind() {
+			switch o.(type) {
 			case dummy.OpStopInstances:
 				return
 			default:

@@ -137,23 +137,18 @@ func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc
 	return
 }
 
-func checkOp(c *C, op dummy.Operation, kind dummy.OperationKind, env string) {
-	c.Check(op.Kind(), Equals, kind)
-	c.Check(op.Env(), Equals, env)
-}
-
 func (*cmdSuite) TestBootstrapCommand(c *C) {
 	// normal bootstrap
 	opc, errc := runCommand(new(BootstrapCommand))
-	checkOp(c, <-opc, dummy.OpBootstrap, "peckham")
+	c.Check((<-opc).(dummy.OpBootstrap).Env, Equals, "peckham")
 	c.Check(<-errc, IsNil)
 
 	// bootstrap with tool uploading - checking that a file
 	// is uploaded should be sufficient, as the detailed semantics
 	// of UploadTools are tested in environs.
 	opc, errc = runCommand(new(BootstrapCommand), "--upload-tools")
-	checkOp(c, <-opc, dummy.OpPutFile, "peckham")
-	checkOp(c, <-opc, dummy.OpBootstrap, "peckham")
+	c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham")
+	c.Check((<-opc).(dummy.OpBootstrap).Env, Equals, "peckham")
 	c.Check(<-errc, IsNil)
 
 	envs, err := environs.ReadEnvirons("")
@@ -173,7 +168,7 @@ func (*cmdSuite) TestBootstrapCommand(c *C) {
 func (*cmdSuite) TestDestroyCommand(c *C) {
 	// normal destroy
 	opc, errc := runCommand(new(DestroyCommand))
-	checkOp(c, <-opc, dummy.OpDestroy, "peckham")
+	c.Check((<-opc).(dummy.OpDestroy).Env, Equals, "peckham")
 	c.Check(<-errc, IsNil)
 
 	// destroy with broken environment

@@ -55,43 +55,23 @@ func stateInfo() *state.Info {
 }
 
 // Operation represents an action on the dummy provider.
-type Operation interface {
-	Kind() OperationKind
-	Env() string
+type Operation interface{}
+
+type GenericOperation struct {
+	Env string
 }
 
-type operation struct {
-	OperationKind // embedded for .String()
-	env string
+type OpBootstrap GenericOperation
+type OpDestroy GenericOperation
+type OpStartInstance struct {
+	Env      string
+	Instance environs.Instance
 }
-
-func (o operation) Env() string { return o.env }
-
-type OperationKind int
-
-func (o operation) Kind() OperationKind { return o.OperationKind }
-
-const (
-	OpNone OperationKind = iota
-	OpBootstrap
-	OpDestroy
-	OpStartInstance
-	OpStopInstances
-	OpPutFile
-)
-
-var kindNames = []string{
-	OpNone:          "OpNone",
-	OpBootstrap:     "OpBootstrap",
-	OpDestroy:       "OpDestroy",
-	OpStartInstance: "OpStartInstance",
-	OpStopInstances: "OpStopInstances",
-	OpPutFile:       "OpPutFile",
+type OpStopInstances struct {
+	Env       string
+	Instances []environs.Instance
 }
-
-func (k OperationKind) String() string {
-	return kindNames[k]
-}
+type OpPutFile GenericOperation
 
 // environProvider represents the dummy provider.  There is only ever one
 // instance of this type (providerInstance)
@@ -288,7 +268,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 			return err
 		}
 	}
-	e.state.ops <- operation{OpBootstrap, e.state.name}
+	e.state.ops <- OpBootstrap{e.state.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if e.state.bootstrapped {
@@ -334,7 +314,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	if e.isBroken() {
 		return errBroken
 	}
-	e.state.ops <- operation{OpDestroy, e.state.name}
+	e.state.ops <- OpDestroy{e.state.name}
 	e.state.mu.Lock()
 	if zkServer != nil {
 		testing.ResetZkServer(zkServer)
@@ -343,12 +323,6 @@ func (e *environ) Destroy([]environs.Instance) error {
 	e.state.storage.files = make(map[string][]byte)
 	e.state.mu.Unlock()
 	return nil
-}
-
-// StartInstanceOp represents a StartInstance operation on the dummy provider.
-type StartInstanceOp struct {
-	operation
-	Instance environs.Instance
 }
 
 func (e *environ) StartInstance(machineId int, _ *state.Info) (environs.Instance, error) {
@@ -362,14 +336,8 @@ func (e *environ) StartInstance(machineId int, _ *state.Info) (environs.Instance
 	e.state.insts[i.id] = i
 	e.state.maxId++
 	e.state.mu.Unlock()
-	e.state.ops <- StartInstanceOp{operation{OpStartInstance, e.state.name}, i}
+	e.state.ops <- OpStartInstance{e.state.name, i}
 	return i, nil
-}
-
-// StopInstancesOp represents a StopInstances operation on the dummy provider.
-type StopInstancesOp struct {
-	operation
-	Instances []environs.Instance
 }
 
 func (e *environ) StopInstances(is []environs.Instance) error {
@@ -381,7 +349,7 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 		delete(e.state.insts, i.(*instance).id)
 	}
 	e.state.mu.Unlock()
-	e.state.ops <- StopInstancesOp{operation{OpStopInstances, e.state.name}, is}
+	e.state.ops <- OpStopInstances{e.state.name, is}
 	return nil
 }
 
