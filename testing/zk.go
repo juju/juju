@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju-core/log"
 	"net"
 	"os"
 	pathpkg "path"
@@ -42,6 +43,12 @@ func StartZkServer() *zookeeper.Server {
 		srv.Destroy()
 		panic(fmt.Errorf("cannot start ZooKeeper server: %v", err))
 	}
+	addr, err := srv.Addr()
+	if err != nil {
+		srv.Destroy()
+		panic(fmt.Errorf("cannot get address of ZooKeeper server: %v", err))
+	}
+	log.Printf("testing: started zk server on %v", addr)
 	return srv
 }
 
@@ -67,6 +74,7 @@ func ResetZkServer(srv *zookeeper.Server) {
 	assert(event.Type == zookeeper.EVENT_SESSION)
 	assert(event.State == zookeeper.STATE_CONNECTED)
 	ZkRemoveTree(zk, "/")
+	log.Printf("testing: reset zk server at %v", addr)
 }
 
 // ZkRemoveTree recursively removes a zookeeper node
