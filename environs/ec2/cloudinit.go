@@ -2,6 +2,7 @@ package ec2
 
 import (
 	"fmt"
+	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/state"
 	"path"
@@ -44,6 +45,7 @@ type machineConfig struct {
 	// commands cannot work.
 	authorizedKeys string
 }
+
 
 type requiresError string
 
@@ -105,8 +107,15 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 		)
 	}
 
-	// TODO start machine agent
-	// TODO start provisioning agent if cfg.provisioner.
+	if cfg.machine {
+		add
+	}
+
+	if cfg.provisioner {
+		svc := upstart.NewService("juju-provision-agent")
+		addScripts("jujud provisioning"+
+			" --zookeeper-servers ")
+	}
 
 	// general options
 	c.SetAptUpgrade(true)
