@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/juju/charm"
+	"launchpad.net/juju-core/charm"
 	pathPkg "path"
 )
 
@@ -279,6 +279,12 @@ func (s *Service) ClearExposed() error {
 		return fmt.Errorf("can't clear exposed flag for service %q: %v", s, err)
 	}
 	return nil
+}
+
+// WatchExposed creates a watcher for the exposed flog
+// of the service.
+func (s *Service) WatchExposed() *FlagWatcher {
+	return newFlagWatcher(s.st, s.zkExposedPath())
 }
 
 // Config returns the configuration node for the service.

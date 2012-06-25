@@ -2,7 +2,7 @@ package cmd_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/cmd"
+	"launchpad.net/juju-core/cmd"
 	"path/filepath"
 	"testing"
 )

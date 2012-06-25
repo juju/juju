@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/juju/cmd"
+	"launchpad.net/juju-core/cmd"
 	"os"
 )
 

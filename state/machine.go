@@ -2,7 +2,7 @@ package state
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/juju/state/presence"
+	"launchpad.net/juju-core/state/presence"
 	"path"
 	"strconv"
 	"strings"
@@ -10,6 +10,14 @@ import (
 )
 
 const providerMachineId = "provider-machine-id"
+
+type NoInstanceIdError struct {
+	machineId int
+}
+
+func (e *NoInstanceIdError) Error() string {
+	return fmt.Sprintf("instance id for machine %d is not set", e.machineId)
+}
 
 // Machine represents the state of a machine.
 type Machine struct {
@@ -44,6 +52,8 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 }
 
 // InstanceId returns the provider specific machine id for this machine.
+// If the id is not set, or its value is "" and error of type NoInstanceIdError
+// will be returned.
 func (m *Machine) InstanceId() (string, error) {
 	config, err := readConfigNode(m.st.zk, m.zkPath())
 	if err != nil {
@@ -51,10 +61,12 @@ func (m *Machine) InstanceId() (string, error) {
 	}
 	v, ok := config.Get(providerMachineId)
 	if !ok {
-		// TODO Return NoInstanceIdError (also when it exists as "")!
-		return "", nil
+		return "", &NoInstanceIdError{m.Id()}
 	}
 	if id, ok := v.(string); ok {
+		if id == "" {
+			return "", &NoInstanceIdError{m.Id()}
+		}
 		return id, nil
 	}
 	return "", fmt.Errorf("invalid internal machine id type %T for machine %s", v, m)

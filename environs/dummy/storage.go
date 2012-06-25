@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/juju/environs"
+	"launchpad.net/juju-core/environs"
 	"net/http"
 	"sort"
 	"strings"
@@ -53,7 +53,7 @@ func (s *storage) URL(name string) (string, error) {
 func (s *storage) Put(name string, r io.Reader, length int64) error {
 	// We only log Put requests on private storage.
 	if strings.HasSuffix(s.path, "/private") {
-		s.state.ops <- Operation{Kind: OpPutFile, Env: s.state.name}
+		s.state.ops <- OpPutFile{s.state.name}
 	}
 	var buf bytes.Buffer
 	_, err := io.Copy(&buf, r)

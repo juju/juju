@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/juju/log"
-	"launchpad.net/juju-core/juju/state/presence"
-	"launchpad.net/juju-core/juju/state/watcher"
+	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 )
 
@@ -107,6 +107,66 @@ func (w *ConfigWatcher) loop() {
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- configNode:
+			}
+		}
+	}
+}
+
+// FlagWatcher observes whether a given flag is on or off.
+type FlagWatcher struct {
+	st         *State
+	path       string
+	tomb       tomb.Tomb
+	watcher    *watcher.ContentWatcher
+	changeChan chan bool
+}
+
+// newFlagWatcher creates and starts a new flag watcher for
+// the given path.
+func newFlagWatcher(st *State, path string) *FlagWatcher {
+	w := &FlagWatcher{
+		st:         st,
+		path:       path,
+		changeChan: make(chan bool),
+		watcher:    watcher.NewContentWatcher(st.zk, path),
+	}
+	go w.loop()
+	return w
+}
+
+// Changes returns a channel that will receive true when a
+// flag is set and false if it is cleared. Note that multiple
+// changes may be observed as a single event in the channel.
+// The first event on the channel holds the initial state.
+func (w *FlagWatcher) Changes() <-chan bool {
+	return w.changeChan
+}
+
+// Stop stops the watch and returns any error encountered
+// while watching. This method should always be called
+// before discarding the watcher.
+func (w *FlagWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
+}
+
+func (w *FlagWatcher) loop() {
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+	defer stopWatcher(w.watcher, &w.tomb)
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case change, ok := <-w.watcher.Changes():
+			if !ok {
+				w.tomb.Kill(mustErr(w.watcher))
+				return
+			}
+			select {
+			case <-w.tomb.Dying():
+				return
+			case w.changeChan <- change.Exists:
 			}
 		}
 	}

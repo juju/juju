@@ -1,18 +1,17 @@
 package main
 
 import (
-	"fmt"
 	"time"
 
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/juju/cmd"
-	"launchpad.net/juju-core/juju/environs"
-	"launchpad.net/juju-core/juju/log"
-	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/tomb"
 
 	// register providers
-	_ "launchpad.net/juju-core/juju/environs/ec2"
+	_ "launchpad.net/juju-core/environs/ec2"
 )
 
 var retryDuration = 10 * time.Second
@@ -108,6 +107,15 @@ func (p *Provisioner) loop() {
 			}
 			log.Printf("provisioner loaded new environment configuration")
 
+			// Get another stateInfo from the environment
+			// because on the bootstrap machine the info passed
+			// into the agent may not use the correct address.
+			info, err := p.environ.StateInfo()
+			if err != nil {
+				p.tomb.Kill(err)
+				return
+			}
+			p.info = info
 			p.innerLoop()
 		}
 	}
@@ -117,6 +125,7 @@ func (p *Provisioner) innerLoop() {
 	// call processMachines to stop any unknown instances before watching machines.
 	if err := p.processMachines(nil, nil); err != nil {
 		p.tomb.Kill(err)
+		return
 	}
 	p.machinesWatcher = p.st.WatchMachines()
 	for {
@@ -214,11 +223,9 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 	for _, m := range machines {
 		id, err := m.InstanceId()
 		if err != nil {
-			return nil, err
-		}
-		if id == "" {
-			// TODO(dfc) InstanceId should return an error if the id isn't set.
-			continue
+			if _, ok := err.(*state.NoInstanceIdError); !ok {
+				return nil, err
+			}
 		}
 		delete(instances, id)
 	}
@@ -235,10 +242,9 @@ func (p *Provisioner) findNotStarted(machines []*state.Machine) ([]*state.Machin
 	for _, m := range machines {
 		id, err := m.InstanceId()
 		if err != nil {
-			return nil, err
-		}
-		if id == "" {
-			// TODO(dfc) InstanceId should return an error if the id isn't set.
+			if _, ok := err.(*state.NoInstanceIdError); !ok {
+				return nil, err
+			}
 			notstarted = append(notstarted, m)
 		} else {
 			log.Printf("machine %s already started as instance %q", m, id)
@@ -307,10 +313,6 @@ func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, e
 		id, err := m.InstanceId()
 		if err != nil {
 			return nil, err
-		}
-		if id == "" {
-			// TODO(dfc) InstanceId should return an error if the id isn't set.
-			return nil, fmt.Errorf("machine %s not found", m)
 		}
 		// TODO(dfc) this should be batched, or the cache preloaded at startup to
 		// avoid N calls to the envirion.

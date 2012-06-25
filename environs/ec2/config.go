@@ -3,8 +3,8 @@ package ec2
 import (
 	"fmt"
 	"launchpad.net/goamz/aws"
-	"launchpad.net/juju-core/juju/environs"
-	"launchpad.net/juju-core/juju/schema"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/schema"
 )
 
 // providerConfig is a placeholder for any config information

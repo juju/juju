@@ -3,8 +3,8 @@ package watcher_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/juju/state/watcher"
-	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/tomb"
 	stdtesting "testing"
 	"time"

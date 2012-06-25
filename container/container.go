@@ -2,8 +2,8 @@ package container
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/juju/state"
-	"launchpad.net/juju-core/juju/upstart"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/upstart"
 	"os"
 	"os/exec"
 	"path/filepath"

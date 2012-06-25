@@ -1,4 +1,4 @@
-package store_test
+package mstate_test
 
 import (
 	"bytes"
@@ -8,9 +8,6 @@ import (
 	"time"
 )
 
-// ----------------------------------------------------------------------------
-// The mgo test suite
-
 type MgoSuite struct {
 	Addr    string
 	Session *mgo.Session
@@ -18,22 +15,24 @@ type MgoSuite struct {
 	server  *exec.Cmd
 }
 
+const (
+	mgoport = "50017"
+	mgoaddr = "localhost:" + mgoport
+)
+
 func (s *MgoSuite) SetUpSuite(c *C) {
-	mgo.SetDebug(true)
 	mgo.SetStats(true)
 	dbdir := c.MkDir()
 	args := []string{
 		"--dbpath", dbdir,
 		"--bind_ip", "127.0.0.1",
-		"--port", "50017",
+		"--port", mgoport,
 		"--nssize", "1",
 		"--noprealloc",
 		"--smallfiles",
 		"--nojournal",
 	}
 	s.server = exec.Command("mongod", args...)
-	s.server.Stdout = &s.output
-	s.server.Stderr = &s.output
 	err := s.server.Start()
 	if err != nil {
 		panic(err)
@@ -46,13 +45,12 @@ func (s *MgoSuite) TearDownSuite(c *C) {
 }
 
 func (s *MgoSuite) SetUpTest(c *C) {
-	err := DropAll("localhost:50017")
+	err := DropAll(mgoaddr)
 	if err != nil {
 		panic(err)
 	}
-	mgo.SetLogger(c)
 	mgo.ResetStats()
-	s.Addr = "127.0.0.1:50017"
+	s.Addr = mgoaddr
 	s.Session, err = mgo.Dial(s.Addr)
 	if err != nil {
 		panic(err)

@@ -2,9 +2,11 @@ package main
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/testing"
 )
 
 type InitzkSuite struct {
+	logging testing.LoggingSuite
 	zkSuite
 	path string
 }
@@ -12,12 +14,14 @@ type InitzkSuite struct {
 var _ = Suite(&InitzkSuite{})
 
 func (s *InitzkSuite) SetUpTest(c *C) {
+	s.logging.SetUpTest(c)
 	s.zkSuite.SetUpTest(c)
 	s.path = "/watcher"
 }
 
 func (s *InitzkSuite) TearDownTest(c *C) {
 	s.zkSuite.TearDownTest()
+	s.logging.TearDownTest(c)
 }
 
 func initInitzkCommand(args []string) (*InitzkCommand, error) {

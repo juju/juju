@@ -2,8 +2,8 @@ package ec2
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/juju/cloudinit"
-	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/state"
 	"path"
 	"strings"
 )
