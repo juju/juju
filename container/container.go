@@ -2,8 +2,8 @@ package container
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/juju/state"
-	"launchpad.net/juju-core/juju/upstart"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/upstart"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,7 +18,7 @@ type Container interface {
 
 // Simple is an instance of Container that knows how deploy units within
 // the current machine.
-var Simple = simpleContainer{}
+var Simple Container = simpleContainer{}
 
 // TODO:
 //type lxc struct {

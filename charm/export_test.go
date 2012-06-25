@@ -1,7 +1,7 @@
 package charm
 
 import (
-	"launchpad.net/juju-core/juju/schema"
+	"launchpad.net/juju-core/schema"
 )
 
 // Export meaningful bits for tests only.

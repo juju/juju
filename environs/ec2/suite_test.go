@@ -3,7 +3,7 @@ package ec2_test
 import (
 	"flag"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/environs/ec2"
+	"launchpad.net/juju-core/environs/ec2"
 	"testing"
 )
 
