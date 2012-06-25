@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"time"
 
 	"launchpad.net/gnuflag"
@@ -224,11 +223,9 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 	for _, m := range machines {
 		id, err := m.InstanceId()
 		if err != nil {
-			return nil, err
-		}
-		if id == "" {
-			// TODO(dfc) InstanceId should return an error if the id isn't set.
-			continue
+			if _, ok := err.(*state.NoInstanceIdError); !ok {
+				return nil, err
+			}
 		}
 		delete(instances, id)
 	}
@@ -245,10 +242,9 @@ func (p *Provisioner) findNotStarted(machines []*state.Machine) ([]*state.Machin
 	for _, m := range machines {
 		id, err := m.InstanceId()
 		if err != nil {
-			return nil, err
-		}
-		if id == "" {
-			// TODO(dfc) InstanceId should return an error if the id isn't set.
+			if _, ok := err.(*state.NoInstanceIdError); !ok {
+				return nil, err
+			}
 			notstarted = append(notstarted, m)
 		} else {
 			log.Printf("machine %s already started as instance %q", m, id)
@@ -317,10 +313,6 @@ func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, e
 		id, err := m.InstanceId()
 		if err != nil {
 			return nil, err
-		}
-		if id == "" {
-			// TODO(dfc) InstanceId should return an error if the id isn't set.
-			return nil, fmt.Errorf("machine %s not found", m)
 		}
 		// TODO(dfc) this should be batched, or the cache preloaded at startup to
 		// avoid N calls to the envirion.
