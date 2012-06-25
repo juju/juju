@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/juju/log"
-	"launchpad.net/juju-core/juju/state/presence"
-	"launchpad.net/juju-core/juju/state/watcher"
+	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 )
 
@@ -22,6 +22,27 @@ func stopWatcher(w watcherStopper, t *tomb.Tomb) {
 	if err := w.Stop(); err != nil {
 		t.Kill(err)
 	}
+}
+
+// watcherErr allows us to check the error that killed a watcher
+// without caring which watcher type it actually is.
+type watcherErr interface {
+	Err() error
+}
+
+// mustErr panics if the watcher does not report an error that has caused
+// it to die in response. This is intended to ensure that closed subwatcher
+// change channels indicate an actual error that has caused the subwatcher
+// to die unexpectedly; if it hasn't died, or if it was killed with a nil
+// error (which indicates a clean stop), there's a logic error somewhere.
+func mustErr(w watcherErr) error {
+	err := w.Err()
+	if err == nil {
+		panic("subwatcher was stopped cleanly")
+	} else if err == tomb.ErrStillAlive {
+		panic("subwatcher closed change channel")
+	}
+	return err
 }
 
 // ConfigWatcher observes changes to any configuration node.
@@ -73,7 +94,7 @@ func (w *ConfigWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
-				w.tomb.Killf("content change channel closed unexpectedly")
+				w.tomb.Kill(mustErr(w.watcher))
 				return
 			}
 			// A non-existent node is treated as an empty node.
@@ -86,6 +107,66 @@ func (w *ConfigWatcher) loop() {
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- configNode:
+			}
+		}
+	}
+}
+
+// FlagWatcher observes whether a given flag is on or off.
+type FlagWatcher struct {
+	st         *State
+	path       string
+	tomb       tomb.Tomb
+	watcher    *watcher.ContentWatcher
+	changeChan chan bool
+}
+
+// newFlagWatcher creates and starts a new flag watcher for
+// the given path.
+func newFlagWatcher(st *State, path string) *FlagWatcher {
+	w := &FlagWatcher{
+		st:         st,
+		path:       path,
+		changeChan: make(chan bool),
+		watcher:    watcher.NewContentWatcher(st.zk, path),
+	}
+	go w.loop()
+	return w
+}
+
+// Changes returns a channel that will receive true when a
+// flag is set and false if it is cleared. Note that multiple
+// changes may be observed as a single event in the channel.
+// The first event on the channel holds the initial state.
+func (w *FlagWatcher) Changes() <-chan bool {
+	return w.changeChan
+}
+
+// Stop stops the watch and returns any error encountered
+// while watching. This method should always be called
+// before discarding the watcher.
+func (w *FlagWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
+}
+
+func (w *FlagWatcher) loop() {
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+	defer stopWatcher(w.watcher, &w.tomb)
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case change, ok := <-w.watcher.Changes():
+			if !ok {
+				w.tomb.Kill(mustErr(w.watcher))
+				return
+			}
+			select {
+			case <-w.tomb.Dying():
+				return
+			case w.changeChan <- change.Exists:
 			}
 		}
 	}
@@ -138,7 +219,7 @@ func (w *NeedsUpgradeWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
-				w.tomb.Killf("content change channel closed unexpectedly")
+				w.tomb.Kill(mustErr(w.watcher))
 				return
 			}
 			var needsUpgrade NeedsUpgrade
@@ -207,7 +288,7 @@ func (w *ResolvedWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
-				w.tomb.Killf("content change channel closed unexpectedly")
+				w.tomb.Kill(mustErr(w.watcher))
 				return
 			}
 			mode := ResolvedNone
@@ -276,7 +357,7 @@ func (w *PortsWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
-				w.tomb.Killf("content change channel closed unexpectedly")
+				w.tomb.Kill(mustErr(w.watcher))
 				return
 			}
 			var ports openPortsNode
@@ -301,7 +382,6 @@ type MachinesWatcher struct {
 	changeChan       chan *MachinesChange
 	watcher          *watcher.ContentWatcher
 	knownMachineKeys []string
-	emittedValue     bool
 }
 
 // MachinesChange contains information about
@@ -341,13 +421,14 @@ func (w *MachinesWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
 	defer stopWatcher(w.watcher, &w.tomb)
+	emittedValue := false
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
-				w.tomb.Killf("content change channel closed unexpectedly")
+				w.tomb.Kill(mustErr(w.watcher))
 				return
 			}
 			topology, err := parseTopology(change.Content)
@@ -358,7 +439,7 @@ func (w *MachinesWatcher) loop() {
 			currentMachineKeys := topology.MachineKeys()
 			added, deleted := diff(currentMachineKeys, w.knownMachineKeys), diff(w.knownMachineKeys, currentMachineKeys)
 			w.knownMachineKeys = currentMachineKeys
-			if w.emittedValue && len(added) == 0 && len(deleted) == 0 {
+			if emittedValue && len(added) == 0 && len(deleted) == 0 {
 				// The change was not relevant to this watcher.
 				continue
 			}
@@ -375,19 +456,18 @@ func (w *MachinesWatcher) loop() {
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- mc:
-				w.emittedValue = true
+				emittedValue = true
 			}
 		}
 	}
 }
 
 type MachineUnitsWatcher struct {
-	st           *State
-	machine      *Machine
-	tomb         tomb.Tomb
-	changeChan   chan *MachineUnitsChange
-	watcher      *watcher.ContentWatcher
-	emittedValue bool
+	st         *State
+	machine    *Machine
+	tomb       tomb.Tomb
+	changeChan chan *MachineUnitsChange
+	watcher    *watcher.ContentWatcher
 }
 
 type MachineUnitsChange struct {
@@ -433,6 +513,7 @@ func (w *MachineUnitsWatcher) loop() {
 	// a key alone.
 	knownUnits := make(map[string]*Unit)
 	var knownUnitKeys []string
+	emittedValue := false
 
 	for {
 		select {
@@ -440,7 +521,7 @@ func (w *MachineUnitsWatcher) loop() {
 			return
 		case change, ok := <-w.watcher.Changes():
 			if !ok {
-				w.tomb.Killf("content change channel closed unexpectedly")
+				w.tomb.Kill(mustErr(w.watcher))
 				return
 			}
 			topology, err := parseTopology(change.Content)
@@ -451,7 +532,7 @@ func (w *MachineUnitsWatcher) loop() {
 			currentUnitKeys := topology.UnitsForMachine(w.machine.key)
 			added, deleted := diff(currentUnitKeys, knownUnitKeys), diff(knownUnitKeys, currentUnitKeys)
 			knownUnitKeys = currentUnitKeys
-			if w.emittedValue && len(added) == 0 && len(deleted) == 0 {
+			if emittedValue && len(added) == 0 && len(deleted) == 0 {
 				// The change was not relevant to this watcher.
 				continue
 			}
@@ -477,7 +558,7 @@ func (w *MachineUnitsWatcher) loop() {
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- uc:
-				w.emittedValue = true
+				emittedValue = true
 			}
 		}
 	}
@@ -586,7 +667,7 @@ func (w *relationUnitWatcher) loop() {
 			if ok {
 				err = w.updateSettings(change)
 			} else {
-				err = fmt.Errorf("settings watch closed unexpectedly")
+				err = mustErr(w.settingsWatcher)
 			}
 		}
 		if err != nil {

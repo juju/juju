@@ -4,9 +4,9 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/juju/charm"
-	"launchpad.net/juju-core/juju/state"
-	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
 	"net/url"
 	"sort"
 	stdtesting "testing"
@@ -225,13 +225,26 @@ func (s *StateSuite) TestMachineInstanceIdCorrupt(c *C) {
 	c.Assert(id, Equals, "")
 }
 
-// test that if provider-machine-id key is missing, "" and nil are returned.
 func (s *StateSuite) TestMachineInstanceIdMissing(c *C) {
 	machine, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 
 	id, err := machine.InstanceId()
+	c.Assert(err, FitsTypeOf, &state.NoInstanceIdError{})
+	c.Assert(id, Equals, "")
+}
+
+func (s *StateSuite) TestMachineInstanceIdBlank(c *C) {
+	machine, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
+	config, err := state.ReadConfigNode(s.st, fmt.Sprintf("/machines/machine-%010d", machine.Id()))
+	c.Assert(err, IsNil)
+	config.Set("provider-machine-id", "")
+	_, err = config.Write()
+	c.Assert(err, IsNil)
+
+	id, err := machine.InstanceId()
+	c.Assert(err, FitsTypeOf, &state.NoInstanceIdError{})
 	c.Assert(id, Equals, "")
 }
 
@@ -434,9 +447,9 @@ func (s *StateSuite) TestRemoveService(c *C) {
 	_, err = s.st.Service("wordpress")
 	c.Assert(err, ErrorMatches, `can't get service "wordpress": service with name "wordpress" not found`)
 
-	// Remove of non-existing service.
+	// Remove of an illegal service, it has already been removed.
 	err = s.st.RemoveService(service)
-	c.Assert(err, ErrorMatches, `can't remove service "wordpress": environment state has changed`)
+	c.Assert(err, ErrorMatches, `can't remove service "wordpress": can't get all units from service "wordpress": environment state has changed`)
 }
 
 func (s *StateSuite) TestReadNonExistentService(c *C) {
@@ -544,7 +557,7 @@ func (s *StateSuite) TestAddUnit(c *C) {
 
 	// Check that principal units cannot be added to principal units.
 	_, err = wordpress.AddUnitSubordinateTo(unitZero)
-	c.Assert(err, ErrorMatches, "cannot make a principal unit subordinate to another unit")
+	c.Assert(err, ErrorMatches, `can't add unit of principal service "wordpress" as a subordinate of "wordpress/0"`)
 
 	// Assign the principal unit to a machine.
 	m, err := s.st.AddMachine()
@@ -599,13 +612,13 @@ func (s *StateSuite) TestReadUnit(c *C) {
 	// Check that retrieving a non-existent or an invalidly
 	// named unit fail nicely.
 	unit, err = wordpress.Unit("wordpress")
-	c.Assert(err, ErrorMatches, `"wordpress" is not a valid unit name`)
+	c.Assert(err, ErrorMatches, `can't get unit "wordpress" from service "wordpress": "wordpress" is not a valid unit name`)
 	unit, err = wordpress.Unit("wordpress/0/0")
-	c.Assert(err, ErrorMatches, `"wordpress/0/0" is not a valid unit name`)
+	c.Assert(err, ErrorMatches, `can't get unit "wordpress/0/0" from service "wordpress": "wordpress/0/0" is not a valid unit name`)
 	unit, err = wordpress.Unit("pressword/0")
-	c.Assert(err, ErrorMatches, `can't find unit "pressword/0" on service "wordpress"`)
+	c.Assert(err, ErrorMatches, `can't get unit "pressword/0" from service "wordpress": unit not found`)
 	unit, err = wordpress.Unit("mysql/0")
-	c.Assert(err, ErrorMatches, `can't find unit "mysql/0" on service "wordpress"`)
+	c.Assert(err, ErrorMatches, `can't get unit "mysql/0" from service "wordpress": unit not found`)
 
 	// Check that retrieving all units works.
 	units, err := wordpress.AllUnits()
@@ -1286,14 +1299,23 @@ func (s *StateSuite) TestAddRelationErrors(c *C) {
 	c.Assert(err, ErrorMatches, `can't add relation "pro:foo req:bar peer:baz": can't relate 3 endpoints`)
 }
 
-func assertOneRelation(c *C, srv *state.Service, name string, role state.RelationRole, scope state.RelationScope) {
+func assertOneRelation(c *C, srv *state.Service, relId int, endpoints ...state.RelationEndpoint) {
 	rels, err := srv.Relations()
 	c.Assert(err, IsNil)
 	c.Assert(rels, HasLen, 1)
 	rel := rels[0]
-	c.Assert(rel.RelationName(), Equals, name)
-	c.Assert(rel.RelationRole(), Equals, role)
-	c.Assert(rel.RelationScope(), Equals, scope)
+	c.Assert(rel.Id(), Equals, relId)
+	name := srv.Name()
+	expectEp := endpoints[0]
+	ep, err := rel.Endpoint(name)
+	c.Assert(err, IsNil)
+	c.Assert(ep, DeepEquals, expectEp)
+	if len(endpoints) == 2 {
+		expectEp = endpoints[1]
+	}
+	eps, err := rel.RelatedEndpoints(name)
+	c.Assert(err, IsNil)
+	c.Assert(eps, DeepEquals, []state.RelationEndpoint{expectEp})
 }
 
 func (s *StateSuite) TestProviderRequirerRelation(c *C) {
@@ -1312,8 +1334,8 @@ func (s *StateSuite) TestProviderRequirerRelation(c *C) {
 	c.Assert(err, IsNil)
 	err = s.st.AddRelation(proep, reqep)
 	c.Assert(err, ErrorMatches, `can't add relation "pro:foo req:bar": relation already exists`)
-	assertOneRelation(c, pro, "foo", state.RoleProvider, state.ScopeGlobal)
-	assertOneRelation(c, req, "bar", state.RoleRequirer, state.ScopeGlobal)
+	assertOneRelation(c, pro, 0, proep, reqep)
+	assertOneRelation(c, req, 0, reqep, proep)
 
 	// Remove the relation, and check it can't be removed again.
 	err = s.st.RemoveRelation(proep, reqep)
@@ -1329,8 +1351,11 @@ func (s *StateSuite) TestProviderRequirerRelation(c *C) {
 	reqep.RelationScope = state.ScopeContainer
 	err = s.st.AddRelation(proep, reqep)
 	c.Assert(err, IsNil)
-	assertOneRelation(c, pro, "foo", state.RoleProvider, state.ScopeContainer)
-	assertOneRelation(c, req, "bar", state.RoleRequirer, state.ScopeContainer)
+	// After adding relation, make proep container-scoped as well, for
+	// simplicity of testing.
+	proep.RelationScope = state.ScopeContainer
+	assertOneRelation(c, pro, 1, proep, reqep)
+	assertOneRelation(c, req, 1, reqep, proep)
 }
 
 func (s *StateSuite) TestPeerRelation(c *C) {
@@ -1345,7 +1370,7 @@ func (s *StateSuite) TestPeerRelation(c *C) {
 	c.Assert(err, IsNil)
 	err = s.st.AddRelation(peerep)
 	c.Assert(err, ErrorMatches, `can't add relation "peer:baz": relation already exists`)
-	assertOneRelation(c, peer, "baz", state.RolePeer, state.ScopeGlobal)
+	assertOneRelation(c, peer, 0, peerep)
 
 	// Remove the relation, and check it can't be removed again.
 	err = s.st.RemoveRelation(peerep)

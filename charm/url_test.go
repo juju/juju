@@ -3,7 +3,7 @@ package charm_test
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/charm"
+	"launchpad.net/juju-core/charm"
 )
 
 type URLSuite struct{}

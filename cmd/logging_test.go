@@ -4,8 +4,8 @@ import (
 	"io/ioutil"
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/cmd"
-	"launchpad.net/juju-core/juju/log"
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/log"
 	"path/filepath"
 )
 

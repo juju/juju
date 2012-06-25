@@ -1,7 +1,7 @@
 package main
 
 import (
-	"launchpad.net/juju-core/juju/cmd"
+	"launchpad.net/juju-core/cmd"
 	"os"
 )
 

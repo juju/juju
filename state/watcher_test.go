@@ -3,7 +3,7 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/juju-core/state"
 	"time"
 )
 
@@ -68,6 +68,50 @@ func (s *StateSuite) TestServiceWatchConfig(c *C) {
 	c.Assert(err, IsNil)
 }
 
+var serviceExposedTests = []struct {
+	test func(s *state.Service) error
+	want bool
+}{
+	{func(s *state.Service) error { return nil }, false},
+	{func(s *state.Service) error { return s.SetExposed() }, true},
+	{func(s *state.Service) error { return s.ClearExposed() }, false},
+	{func(s *state.Service) error { return s.SetExposed() }, true},
+}
+
+func (s *StateSuite) TestServiceExposedConfig(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	c.Assert(wordpress.Name(), Equals, "wordpress")
+
+	exposed, err := wordpress.IsExposed()
+	c.Assert(err, IsNil)
+	c.Assert(exposed, Equals, false)
+	exposedWatcher := wordpress.WatchExposed()
+
+	for i, test := range serviceExposedTests {
+		c.Logf("test %d", i)
+		err := test.test(wordpress)
+		c.Assert(err, IsNil)
+		select {
+		case got, ok := <-exposedWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got, Equals, test.want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", test.want)
+		}
+	}
+
+	select {
+	case got, _ := <-exposedWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	err = exposedWatcher.Stop()
+	c.Assert(err, IsNil)
+}
+
 func (s *StateSuite) TestServiceWatchConfigIllegalData(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
@@ -95,7 +139,7 @@ func (s *StateSuite) TestServiceWatchConfigIllegalData(c *C) {
 	}
 
 	err = configWatcher.Stop()
-	c.Assert(err, ErrorMatches, "YAML error: .*")
+	c.Assert(err, ErrorMatches, "unmarshall error: YAML error: .*")
 }
 
 type unitWatchNeedsUpgradeTest struct {

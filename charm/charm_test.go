@@ -6,8 +6,8 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/juju/charm"
-	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/testing"
 	stdtesting "testing"
 )
 

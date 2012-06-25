@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/juju/log"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/tomb"
 	"net"
 	"os/exec"
@@ -23,11 +23,12 @@ var (
 
 // sshDial dials the ZooKeeper instance at addr through
 // an SSH proxy.
-func sshDial(addr, keyFile string) (*sshForwarder, *zookeeper.Conn, error) {
-	fwd, err := newSSHForwarder(addr, keyFile)
+func sshDial(addr, keyFile string) (fwd *sshForwarder, con *zookeeper.Conn, err error) {
+	fwd, err = newSSHForwarder(addr, keyFile)
 	if err != nil {
 		return nil, nil, err
 	}
+	defer errorContextf(&err, "can't dial ZooKeeper via SSH at address %s", addr)
 	zk, session, err := zookeeper.Dial(fwd.localAddr, zkTimeout)
 	if err != nil {
 		fwd.stop()
@@ -58,7 +59,8 @@ type sshForwarder struct {
 // remote TCP address. The localAddr field holds the
 // name of the local proxy address. If keyFile is non-empty,
 // it should name a file containing a private identity key.
-func newSSHForwarder(remoteAddr, keyFile string) (*sshForwarder, error) {
+func newSSHForwarder(remoteAddr, keyFile string) (fwd *sshForwarder, err error) {
+	defer errorContextf(&err, "can't start SSH proxy for address %s", remoteAddr)
 	remoteHost, remotePort, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
 		return nil, err
@@ -67,7 +69,7 @@ func newSSHForwarder(remoteAddr, keyFile string) (*sshForwarder, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot choose local port: %v", err)
 	}
-	fwd := &sshForwarder{
+	fwd = &sshForwarder{
 		localAddr:  fmt.Sprintf("localhost:%d", localPort),
 		remoteHost: remoteHost,
 		remotePort: remotePort,
@@ -163,6 +165,7 @@ func (fwd *sshForwarder) run(proc *sshProc) {
 // start starts an ssh client to forward connections
 // from a local port to the remote port.
 func (fwd *sshForwarder) start() (p *sshProc, err error) {
+	defer errorContextf(&err, "can't start SSH client")
 	args := []string{
 		"-T",
 		"-N",

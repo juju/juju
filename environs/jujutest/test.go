@@ -2,8 +2,8 @@ package jujutest
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/environs"
-	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/state"
 	"time"
 )
 
