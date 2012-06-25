@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
+	"launchpad.net/juju-core/charm"
+	"net/url"
 )
 
 // State represents the state of an environment
@@ -14,6 +16,7 @@ import (
 type State struct {
 	db       *mgo.Database
 	machines *mgo.Collection
+	charms   *mgo.Collection
 }
 
 // AddMachine creates a new machine state.
@@ -60,4 +63,23 @@ func (s *State) Machine(id int) (*Machine, error) {
 		return nil, fmt.Errorf("can't get machine %d: %v", id, err)
 	}
 	return &Machine{st: s, id: mdoc.Id}, nil
+}
+
+// AddCharm adds the ch charm with curl to the state.  bundleUrl must be
+// set to a URL where the bundle for ch may be downloaded from.
+// On success the newly added charm state is returned.
+func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (stch *Charm, err error) {
+	defer errorContextf(&err, "can't add charm %q", curl)
+	cdoc := &charmDoc{
+		Url:          curl,
+		Meta:         ch.Meta(),
+		Config:       ch.Config(),
+		BundleURL:    bundleURL.String(),
+		BundleSha256: bundleSha256,
+	}
+	err = s.charms.Insert(cdoc)
+	if err != nil {
+		return nil, err
+	}
+	return newCharm(s, cdoc)
 }
