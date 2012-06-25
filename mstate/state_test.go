@@ -222,6 +222,18 @@ func (s *StateSuite) TestReadNonExistentService(c *C) {
 	c.Assert(err, ErrorMatches, `can't get service "pressword": .*`)
 }
 
+func (s *StateSuite) TestRemoveService(c *C) {
+	dummy := s.addDummyCharm(c)
+	service, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+
+	// Remove of existing service.
+	err = s.st.RemoveService(service)
+	c.Assert(err, IsNil)
+	_, err = s.st.Service("wordpress")
+	c.Assert(err, ErrorMatches, `can't get service "wordpress": .*`)
+}
+
 func (s *StateSuite) TestAllServices(c *C) {
 	services, err := s.st.AllServices()
 	c.Assert(err, IsNil)
