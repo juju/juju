@@ -522,6 +522,7 @@ next:
 // a relation.
 type relationUnitChange struct {
 	Present  bool
+	Version  int
 	Settings string
 }
 
