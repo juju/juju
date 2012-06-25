@@ -752,7 +752,7 @@ func (w *relationUnitWatcher) updateSettings(change watcher.ContentChange) error
 	select {
 	case <-w.tomb.Dying():
 		return tomb.ErrDying
-	case w.changes <- relationUnitChange{true, change.Content}:
+	case w.changes <- relationUnitChange{true, change.Version, change.Content}:
 	}
 	return nil
 }
