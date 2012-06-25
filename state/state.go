@@ -203,7 +203,7 @@ func (s *State) RemoveService(svc *Service) (err error) {
 	// Remove the units.
 	units, err := svc.AllUnits()
 	if err != nil {
-		return
+		return err
 	}
 	for _, unit := range units {
 		if err = svc.RemoveUnit(unit); err != nil {
@@ -219,7 +219,7 @@ func (s *State) RemoveService(svc *Service) (err error) {
 		return nil
 	}
 	if err = retryTopologyChange(s.zk, removeService); err != nil {
-		return
+		return err
 	}
 	return zkRemoveTree(s.zk, svc.zkPath())
 }
