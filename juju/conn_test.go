@@ -3,9 +3,9 @@ package juju_test
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/environs/dummy"
-	"launchpad.net/juju-core/juju/juju"
-	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
 	stdtesting "testing"
@@ -56,7 +56,7 @@ environments:
 	defer conn.Close()
 	st, err := conn.State()
 	c.Assert(st, IsNil)
-	c.Assert(err, ErrorMatches, "no state info available for this environ")
+	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
 	err = conn.Bootstrap(false)
 	c.Assert(err, IsNil)
 	st, err = conn.State()

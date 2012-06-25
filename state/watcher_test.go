@@ -3,7 +3,7 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/juju/state"
+	"launchpad.net/juju-core/state"
 	"time"
 )
 
@@ -68,6 +68,50 @@ func (s *StateSuite) TestServiceWatchConfig(c *C) {
 	c.Assert(err, IsNil)
 }
 
+var serviceExposedTests = []struct {
+	test func(s *state.Service) error
+	want bool
+}{
+	{func(s *state.Service) error { return nil }, false},
+	{func(s *state.Service) error { return s.SetExposed() }, true},
+	{func(s *state.Service) error { return s.ClearExposed() }, false},
+	{func(s *state.Service) error { return s.SetExposed() }, true},
+}
+
+func (s *StateSuite) TestServiceExposedConfig(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	c.Assert(wordpress.Name(), Equals, "wordpress")
+
+	exposed, err := wordpress.IsExposed()
+	c.Assert(err, IsNil)
+	c.Assert(exposed, Equals, false)
+	exposedWatcher := wordpress.WatchExposed()
+
+	for i, test := range serviceExposedTests {
+		c.Logf("test %d", i)
+		err := test.test(wordpress)
+		c.Assert(err, IsNil)
+		select {
+		case got, ok := <-exposedWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got, Equals, test.want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", test.want)
+		}
+	}
+
+	select {
+	case got, _ := <-exposedWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	err = exposedWatcher.Stop()
+	c.Assert(err, IsNil)
+}
+
 func (s *StateSuite) TestServiceWatchConfigIllegalData(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
@@ -95,7 +139,7 @@ func (s *StateSuite) TestServiceWatchConfigIllegalData(c *C) {
 	}
 
 	err = configWatcher.Stop()
-	c.Assert(err, ErrorMatches, "YAML error: .*")
+	c.Assert(err, ErrorMatches, "unmarshall error: YAML error: .*")
 }
 
 type unitWatchNeedsUpgradeTest struct {
@@ -394,14 +438,86 @@ func (s *StateSuite) TestServiceRelationsWatcher(c *C) {
 	dummy := s.addDummyCharm(c)
 	pro, err := s.st.AddService("pro", dummy)
 	c.Assert(err, IsNil)
-	req1, err := s.st.AddService("req1", dummy)
-	c.Assert(err, IsNil)
-	req2, err := s.st.AddService("req2", dummy)
-	c.Assert(err, IsNil)
-
 	w := pro.WatchRelations()
 
-	c.Fatalf("write me")
+	// Check initial event, and lack of followup.
+	assertChange := func(adds, deletes []int) {
+		select {
+		case change := <-w.Changes():
+			c.Assert(change.Deleted, HasLen, len(deletes))
+			for i, expect := range deletes {
+				c.Assert(change.Deleted[i], Equals, expect)
+			}
+			c.Assert(change.Added, HasLen, len(adds))
+			for _, add := range adds {
+				c.Assert(change.Added[add].Id(), Equals, add)
+			}
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("expected change, got nothing")
+		}
+	}
+	assertChange(nil, nil)
+	assertNoChange := func() {
+		select {
+		case change := <-w.Changes():
+			c.Fatalf("expected nothing, got %#v", change)
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
+	assertNoChange()
+
+	// Add a couple of services, check no changes.
+	_, err = s.st.AddService("req1", dummy)
+	c.Assert(err, IsNil)
+	_, err = s.st.AddService("req2", dummy)
+	c.Assert(err, IsNil)
+	assertNoChange()
+
+	// Add a relation involving pro; check change.
+	proep := state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, state.ScopeGlobal}
+	req1ep := state.RelationEndpoint{"req1", "ifce", "bar", state.RoleRequirer, state.ScopeGlobal}
+	err = s.st.AddRelation(proep, req1ep)
+	c.Assert(err, IsNil)
+	assertChange([]int{0}, nil)
+	assertNoChange()
+
+	// Add another relation involving pro; check change.
+	req2ep := state.RelationEndpoint{"req2", "ifce", "baz", state.RoleRequirer, state.ScopeGlobal}
+	err = s.st.AddRelation(proep, req2ep)
+	c.Assert(err, IsNil)
+	assertChange([]int{1}, nil)
+	assertNoChange()
+
+	// Remove one of the relations; check change.
+	err = s.st.RemoveRelation(proep, req1ep)
+	c.Assert(err, IsNil)
+	assertChange(nil, []int{0})
+	assertNoChange()
+
+	// Stop watcher; check change chan is closed.
+	err = w.Stop()
+	c.Assert(err, IsNil)
+	assertClosed := func() {
+		select {
+		case _, ok := <-w.Changes():
+			c.Assert(ok, Equals, false)
+		default:
+			c.Fatalf("Changes not closed")
+		}
+	}
+	assertClosed()
+
+	// Add a new relation; start a new watcher; check initial event.
+	err = s.st.AddRelation(proep, req1ep)
+	c.Assert(err, IsNil)
+	w = pro.WatchRelations()
+	assertChange([]int{1, 2}, nil)
+	assertNoChange()
+
+	// Stop new watcher; check change chan is closed.
+	err = w.Stop()
+	c.Assert(err, IsNil)
+	assertClosed()
 }
 
 func unitNames(units []*state.Unit) (s []string) {

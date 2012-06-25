@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/juju/charm"
+	"launchpad.net/juju-core/charm"
 	pathPkg "path"
 )
 
@@ -225,6 +225,7 @@ func (s *Service) relationsFromTopology(t *topology) ([]*Relation, error) {
 	if err != nil {
 		return nil, err
 	}
+	relations := []*Relation{}
 	for key, tr := range trs {
 		r := &Relation{s.st, key, make([]RelationEndpoint, len(tr.Services))}
 		i := 0
@@ -242,18 +243,23 @@ func (s *Service) relationsFromTopology(t *topology) ([]*Relation, error) {
 		}
 		relations = append(relations, r)
 	}
-	return relations, nil
+	return relations, err
 }
 
 // Relations returns a Relation for every relation the service is in.
-func (s *Service) Relations() ([]*Relation, error) {
-	var err error
+func (s *Service) Relations() (relations []*Relation, err error) {
 	defer errorContextf(&err, "can't get relations for service %q", s.name)
 	t, err := readTopology(s.st.zk)
 	if err != nil {
 		return nil, err
 	}
 	return s.relationsFromTopology(t)
+}
+
+// WatchRelations returns a watcher which notifies of changes to the
+// set of relations in which this service is participating.
+func (s *Service) WatchRelations() *ServiceRelationsWatcher {
+	return newServiceRelationsWatcher(s)
 }
 
 // IsExposed returns whether this service is exposed.
@@ -286,6 +292,12 @@ func (s *Service) ClearExposed() error {
 		return fmt.Errorf("can't clear exposed flag for service %q: %v", s, err)
 	}
 	return nil
+}
+
+// WatchExposed creates a watcher for the exposed flog
+// of the service.
+func (s *Service) WatchExposed() *FlagWatcher {
+	return newFlagWatcher(s.st, s.zkExposedPath())
 }
 
 // Config returns the configuration node for the service.

@@ -3,10 +3,10 @@ package dummy_test
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/environs"
-	"launchpad.net/juju-core/juju/environs/dummy"
-	"launchpad.net/juju-core/juju/environs/jujutest"
-	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/testing"
 	stdtesting "testing"
 )
 
