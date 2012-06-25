@@ -132,7 +132,7 @@ func (s *ProvisioningSuite) checkMachineIdSet(c *C, m *state.Machine) {
 	// TODO(dfc) add machine.WatchConfig() to avoid having to poll.
 	for a := veryShortAttempt.Start(); a.Next(); {
 		id, err := m.InstanceId()
-		if _, ok := err.(state.NoInstanceIdError); !ok {
+		if _, ok := err.(*state.NoInstanceIdError); !ok {
 			c.Check(err, IsNil)
 		}
 
@@ -148,14 +148,10 @@ func (s *ProvisioningSuite) checkMachineIdNotSet(c *C, m *state.Machine) {
 	// TODO(dfc) add machine.WatchConfig() to avoid having to poll.
 	for a := veryShortAttempt.Start(); a.Next(); {
 		_, err := m.InstanceId()
-		_, ok := err.(state.NoInstanceIdError)
-		if !ok {
-			c.Check(err, IsNil)
-		}
-
-		if ok {
+		if _, ok := err.(*state.NoInstanceIdError); ok {
 			return
 		}
+		c.Check(err, IsNil)
 	}
 	c.Errorf("provisioner did not clear an instance id")
 }
