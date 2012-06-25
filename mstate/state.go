@@ -5,8 +5,8 @@ package mstate
 
 import (
 	"fmt"
-	"launchpad.net/mgo"
-	"launchpad.net/mgo/bson"
+	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 )
 
 // State represents the state of an environment
@@ -56,9 +56,6 @@ func (s *State) AllMachines() (machines []*Machine, err error) {
 func (s *State) Machine(id int) (*Machine, error) {
 	mdoc := &machineDoc{}
 	err := s.machines.Find(bson.D{{"_id", id}}).One(mdoc)
-	if err == mgo.NotFound {
-		return nil, fmt.Errorf("machine %d not found", id)
-	}
 	if err != nil {
 		return nil, fmt.Errorf("can't get machine %d: %v", id, err)
 	}

@@ -2,8 +2,8 @@ package mstate
 
 import (
 	"fmt"
-	"launchpad.net/mgo"
-	"launchpad.net/mgo/bson"
+	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 )
 
 type sequenceDoc struct {
@@ -18,7 +18,7 @@ func (s *State) sequence(name string) (int, error) {
 		Upsert: true,
 	}
 	result := &sequenceDoc{}
-	err := query.Modify(inc, result)
+	_, err := query.Apply(inc, result)
 	if err != nil {
 		return -1, fmt.Errorf("can't increment %q sequence number: %v", name, err)
 	}

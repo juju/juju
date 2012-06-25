@@ -9,7 +9,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/store"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/mgo/bson"
+	"labix.org/v2/mgo/bson"
 	"strconv"
 	stdtesting "testing"
 	"time"
@@ -528,7 +528,7 @@ func (s *StoreSuite) TestCountersTokenCaching(c *C) {
 
 	// Now go behind the scenes and corrupt all the tokens.
 	tokens := s.Session.DB("juju").C("stat.tokens")
-	err = tokens.UpdateAll(nil, bson.M{"$set": bson.M{"t": "corrupted"}})
+	_, err = tokens.UpdateAll(nil, bson.M{"$set": bson.M{"t": "corrupted"}})
 	c.Assert(err, IsNil)
 
 	// We can consult the counters for the cached entries still.

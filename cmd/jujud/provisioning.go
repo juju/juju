@@ -107,6 +107,15 @@ func (p *Provisioner) loop() {
 			}
 			log.Printf("provisioner loaded new environment configuration")
 
+			// Get another stateInfo from the environment
+			// because on the bootstrap machine the info passed
+			// into the agent may not use the correct address.
+			info, err := p.environ.StateInfo()
+			if err != nil {
+				p.tomb.Kill(err)
+				return
+			}
+			p.info = info
 			p.innerLoop()
 		}
 	}
@@ -116,6 +125,7 @@ func (p *Provisioner) innerLoop() {
 	// call processMachines to stop any unknown instances before watching machines.
 	if err := p.processMachines(nil, nil); err != nil {
 		p.tomb.Kill(err)
+		return
 	}
 	p.machinesWatcher = p.st.WatchMachines()
 	for {
