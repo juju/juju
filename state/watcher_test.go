@@ -445,12 +445,12 @@ func (s *StateSuite) TestServiceRelationsWatcher(c *C) {
 		select {
 		case change := <-w.Changes():
 			c.Assert(change.Deleted, HasLen, len(deletes))
-			for i, expect := range deletes {
-				c.Assert(change.Deleted[i], Equals, expect)
+			for i, delete := range deletes {
+				c.Assert(change.Deleted[i].Id(), Equals, delete)
 			}
 			c.Assert(change.Added, HasLen, len(adds))
-			for _, add := range adds {
-				c.Assert(change.Added[add].Id(), Equals, add)
+			for i, add := range adds {
+				c.Assert(change.Added[i].Id(), Equals, add)
 			}
 		case <-time.After(200 * time.Millisecond):
 			c.Fatalf("expected change, got nothing")

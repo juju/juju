@@ -582,17 +582,12 @@ type ServiceRelationsWatcher struct {
 	st         *State
 	service    *Service
 	tomb       tomb.Tomb
-	changeChan chan ServiceRelationsChange
+	changeChan chan RelationsChange
 	watcher    *watcher.ContentWatcher
-	known      map[int]*Relation
 }
 
-// ServiceRelationsChange holds a map of new relations for a service, keyed
-// on the service's user-facing id for the relation, and a slice of the ids
-// of relations that the service is no longer part of.
-type ServiceRelationsChange struct {
-	Added   map[int]*Relation
-	Deleted []int
+type RelationsChange struct {
+	Added, Deleted []*Relation
 }
 
 // newServiceRelationsWatcher creates and starts a new service relations watcher.
@@ -600,9 +595,8 @@ func newServiceRelationsWatcher(s *Service) *ServiceRelationsWatcher {
 	w := &ServiceRelationsWatcher{
 		st:         s.st,
 		service:    s,
-		changeChan: make(chan ServiceRelationsChange),
+		changeChan: make(chan RelationsChange),
 		watcher:    watcher.NewContentWatcher(s.st.zk, zkTopologyPath),
-		known:      map[int]*Relation{},
 	}
 	go w.loop()
 	return w
@@ -612,7 +606,7 @@ func newServiceRelationsWatcher(s *Service) *ServiceRelationsWatcher {
 // the service enters and leaves relations.
 // The Added field in the first event on the channel holds the initial
 // state, corresponding to that returned by service.Relations.
-func (w *ServiceRelationsWatcher) Changes() <-chan ServiceRelationsChange {
+func (w *ServiceRelationsWatcher) Changes() <-chan RelationsChange {
 	return w.changeChan
 }
 
@@ -628,6 +622,7 @@ func (w *ServiceRelationsWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
 	defer stopWatcher(w.watcher, &w.tomb)
+	current := map[string]*Relation{}
 	emittedValue := false
 	for {
 		select {
@@ -643,27 +638,26 @@ func (w *ServiceRelationsWatcher) loop() {
 				w.tomb.Kill(err)
 				return
 			}
-			current, err := w.service.relationsFromTopology(t)
+			relations, err := w.service.relationsFromTopology(t)
 			if err != nil {
 				w.tomb.Kill(err)
 				return
 			}
-			newKnown := map[int]*Relation{}
-			for _, rel := range current {
-				newKnown[rel.Id()] = rel
+			latest := map[string]*Relation{}
+			for _, rel := range relations {
+				latest[rel.key] = rel
 			}
-			ch := ServiceRelationsChange{map[int]*Relation{}, []int{}}
-			for id, rel := range newKnown {
-				if w.known[id] == nil {
-					ch.Added[id] = rel
+			ch := RelationsChange{}
+			for key, rel := range latest {
+				if current[key] == nil {
+					ch.Added = append(ch.Added, rel)
 				}
 			}
-			for id := range w.known {
-				if newKnown[id] == nil {
-					ch.Deleted = append(ch.Deleted, id)
+			for key, rel := range current {
+				if latest[key] == nil {
+					ch.Deleted = append(ch.Deleted, rel)
 				}
 			}
-			w.known = newKnown
 			if emittedValue && len(ch.Added) == 0 && len(ch.Deleted) == 0 {
 				continue
 			}
@@ -672,6 +666,7 @@ func (w *ServiceRelationsWatcher) loop() {
 				return
 			case w.changeChan <- ch:
 				emittedValue = true
+				current = latest
 			}
 		}
 	}

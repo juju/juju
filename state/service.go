@@ -219,7 +219,7 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 }
 
 // relationsFromTopology returns a Relation for every relation the service
-// is in, according to the passed-in topology.
+// is in, according to the supplied topology.
 func (s *Service) relationsFromTopology(t *topology) ([]*Relation, error) {
 	trs, err := t.RelationsForService(s.key)
 	if err != nil {
@@ -243,7 +243,7 @@ func (s *Service) relationsFromTopology(t *topology) ([]*Relation, error) {
 		}
 		relations = append(relations, r)
 	}
-	return relations, err
+	return relations, nil
 }
 
 // Relations returns a Relation for every relation the service is in.
