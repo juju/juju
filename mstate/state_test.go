@@ -100,6 +100,21 @@ func (s *StateSuite) TestCharmAttributes(c *C) {
 	)
 }
 
+func (s *StateSuite) TestNonExistentCharmPriorToInitialization(c *C) {
+	// Check that getting a charm before any other charm has been added fails nicely.
+	_, err := s.st.Charm(s.curl)
+	c.Assert(err, ErrorMatches, `can't get charm "local:series/dummy-1": .*`)
+}
+
+func (s *StateSuite) TestGetNonExistentCharm(c *C) {
+	// Check that getting a non-existent charm fails nicely.
+	s.addDummyCharm(c)
+
+	curl := charm.MustParseURL("local:anotherseries/dummy-1")
+	_, err := s.st.Charm(curl)
+	c.Assert(err, ErrorMatches, `can't get charm "local:anotherseries/dummy-1": .*`)
+}
+
 func (s *StateSuite) assertMachineCount(c *C, expect int) {
 	ms, err := s.st.AllMachines()
 	c.Assert(err, IsNil)
