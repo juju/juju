@@ -579,7 +579,8 @@ next:
 }
 
 // relationUnitChange represents the state of a unit's participation in
-// a relation.
+// a relation. If Present is true, Version and Settings will be the version
+// and content of the relevant relation unit settings.
 type relationUnitChange struct {
 	Present  bool
 	Version  int

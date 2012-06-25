@@ -83,13 +83,16 @@ func (s *RelationUnitWatcherSuite) TestRelationUnitWatcher(c *C) {
 	pinger := startPinger()
 	waitFor(w, shortTimeout, &relationUnitChange{true, 1, "something"})
 
-	// Write identical settings; check event.
+	// Write identical settings; check event. Note that in normal operation
+	// we would consider this behaviour to be evidence of a bug; juju code
+	// should not write to a node unless the write represents an actual
+	// change in state.
 	writeSettings("something")
-	waitFor(w, shortTimeout, nil)
+	waitFor(w, shortTimeout, &relationUnitChange{true, 2, "something"})
 
 	// Write new settings; check event.
 	writeSettings("different")
-	waitFor(w, shortTimeout, &relationUnitChange{true, 2, "different"})
+	waitFor(w, shortTimeout, &relationUnitChange{true, 3, "different"})
 
 	// Stop updating the presence node; but also slip in a subsequent settings
 	// change, which will still be detected before the absence is detected.
@@ -97,7 +100,7 @@ func (s *RelationUnitWatcherSuite) TestRelationUnitWatcher(c *C) {
 	c.Assert(err, IsNil)
 	writeSettings("alternative")
 	c.Assert(err, IsNil)
-	waitFor(w, shortTimeout, &relationUnitChange{true, 3, "alternative"})
+	waitFor(w, shortTimeout, &relationUnitChange{true, 4, "alternative"})
 	waitFor(w, longTimeout, &relationUnitChange{})
 
 	// Change settings again; check no event.
@@ -107,7 +110,7 @@ func (s *RelationUnitWatcherSuite) TestRelationUnitWatcher(c *C) {
 	// Start a new pinger; check that presence and settings changes are sent.
 	pinger = startPinger()
 	c.Assert(err, IsNil)
-	waitFor(w, shortTimeout, &relationUnitChange{true, 4, "sneaky"})
+	waitFor(w, shortTimeout, &relationUnitChange{true, 5, "sneaky"})
 
 	// Stop the watcher; perturb the nodes; check no further events.
 	err = w.Stop()
@@ -121,7 +124,7 @@ func (s *RelationUnitWatcherSuite) TestRelationUnitWatcher(c *C) {
 	// Start a new pinger; start a new watcher; check event.
 	pinger = startPinger()
 	w = newRelationUnitWatcher(s.zkConn, "/collection", "u-123", RolePeer)
-	waitFor(w, shortTimeout, &relationUnitChange{true, 5, "bizarre"})
+	waitFor(w, shortTimeout, &relationUnitChange{true, 6, "bizarre"})
 	err = w.Stop()
 	c.Assert(err, IsNil)
 	err = pinger.Kill()
