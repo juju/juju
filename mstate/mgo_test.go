@@ -3,7 +3,7 @@ package mstate_test
 import (
 	"bytes"
 	. "launchpad.net/gocheck"
-	"launchpad.net/mgo"
+	"labix.org/v2/mgo"
 	"os/exec"
 	"time"
 )

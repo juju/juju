@@ -2,7 +2,7 @@ package mstate
 
 import (
 	"launchpad.net/juju-core/log"
-	"launchpad.net/mgo"
+	"labix.org/v2/mgo"
 )
 
 func Dial(servers string) (st *State, err error) {

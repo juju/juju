@@ -12,8 +12,8 @@ import (
 	"io"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/mgo"
-	"launchpad.net/mgo/bson"
+	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"sort"
 	"strconv"
 	"sync"
@@ -49,7 +49,7 @@ type Store struct {
 
 // Open creates a new session with the store. It connects to the MongoDB
 // server at the given address (as expected by the Mongo function in the
-// launchpad.net/mgo package).
+// labix.org/v2/mgo package).
 func Open(mongoAddr string) (store *Store, err error) {
 	log.Printf("Store opened. Connecting to: %s", mongoAddr)
 	store = &Store{}

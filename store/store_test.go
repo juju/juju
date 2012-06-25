@@ -9,7 +9,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/store"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/mgo/bson"
+	"labix.org/v2/mgo/bson"
 	"strconv"
 	stdtesting "testing"
 	"time"
