@@ -12,8 +12,8 @@ import (
 	"io"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/mgo"
-	"launchpad.net/mgo/bson"
+	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"sort"
 	"strconv"
 	"sync"
@@ -49,7 +49,7 @@ type Store struct {
 
 // Open creates a new session with the store. It connects to the MongoDB
 // server at the given address (as expected by the Mongo function in the
-// launchpad.net/mgo package).
+// labix.org/v2/mgo package).
 func Open(mongoAddr string) (store *Store, err error) {
 	log.Printf("Store opened. Connecting to: %s", mongoAddr)
 	store = &Store{}
@@ -123,7 +123,7 @@ func (s *Store) statsKey(session *storeSession, key []string, write bool) (strin
 				Token string "t"
 			}
 			err = tokens.Find(bson.D{{"t", key[i]}}).One(&t)
-			if err == mgo.NotFound {
+			if err == mgo.ErrNotFound {
 				if !write {
 					return "", ErrNotFound
 				}
@@ -233,7 +233,7 @@ func (s *Store) SumCounter(key []string, prefix bool) (count int64, err error) {
 	}
 	var result []struct{ Value int64 }
 	counters := session.StatCounters()
-	_, err = counters.Find(bson.D{{"k", bson.D{{"$regex", regex}}}}).MapReduce(job, &result)
+	_, err = counters.Find(bson.D{{"k", bson.D{{"$regex", regex}}}}).MapReduce(&job, &result)
 	if len(result) > 0 {
 		return result[0].Value, err
 	}
@@ -305,8 +305,8 @@ func (s *Store) CharmPublisher(urls []*charm.URL, digest string) (p *CharmPublis
 	doc := charmDoc{}
 	for i := range urls {
 		urlStr := urls[i].String()
-		err = charms.Find(bson.D{{"urls", urlStr}}).Sort(bson.D{{"revision", -1}}).One(&doc)
-		if err == mgo.NotFound {
+		err = charms.Find(bson.D{{"urls", urlStr}}).Sort("-revision").One(&doc)
+		if err == mgo.ErrNotFound {
 			log.Printf("Charm %s not yet in the store.", urls[i])
 			newKey = true
 			continue
@@ -476,7 +476,7 @@ func (s *Store) CharmInfo(url *charm.URL) (info *CharmInfo, err error) {
 	} else {
 		qdoc = bson.D{{"urls", url}, {"revision", rev}}
 	}
-	err = charms.Find(qdoc).Sort(bson.D{{"revision", -1}}).One(&cdoc)
+	err = charms.Find(qdoc).Sort("-revision").One(&cdoc)
 	if err != nil {
 		log.Printf("Failed to find charm %s: %v", url, err)
 		return nil, ErrNotFound
@@ -738,9 +738,9 @@ func (s *Store) CharmEvent(url *charm.URL, digest string) (*CharmEvent, error) {
 	events := session.Events()
 	event := &CharmEvent{Digest: digest}
 	query := events.Find(bson.D{{"urls", url}, {"digest", digest}})
-	query.Sort(bson.D{{"time", -1}})
+	query.Sort("-time")
 	err := query.One(&event)
-	if err == mgo.NotFound {
+	if err == mgo.ErrNotFound {
 		return nil, ErrNotFound
 	}
 	if err != nil {
