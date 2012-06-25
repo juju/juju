@@ -69,7 +69,6 @@ func (s *State) Machine(id int) (*Machine, error) {
 // set to a URL where the bundle for ch may be downloaded from.
 // On success the newly added charm state is returned.
 func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (stch *Charm, err error) {
-	defer errorContextf(&err, "can't add charm %q", curl)
 	cdoc := &charmDoc{
 		Url:          curl,
 		Meta:         ch.Meta(),
@@ -79,15 +78,13 @@ func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bu
 	}
 	err = s.charms.Insert(cdoc)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("can't add charm %q: %v", curl, err)
 	}
 	return newCharm(s, cdoc)
 }
 
 // Charm returns a charm by the given id.
 func (s *State) Charm(curl *charm.URL) (stch *Charm, err error) {
-	defer errorContextf(&err, "can't get charm %q", curl)
-
 	cdoc := &charmDoc{}
 	err = s.charms.Find(bson.D{{"_id", curl}}).One(cdoc)
 	if err != nil {
