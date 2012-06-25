@@ -66,6 +66,40 @@ func (s *StateSuite) TestAddCharm(c *C) {
 	c.Assert(mdoc.Url, DeepEquals, s.curl)
 }
 
+// addDummyCharm adds the 'dummy' charm state to st.
+func (s *StateSuite) addDummyCharm(c *C) *state.Charm {
+	bundleURL, err := url.Parse("http://bundle.url")
+	c.Assert(err, IsNil)
+	dummy, err := s.st.AddCharm(s.ch, s.curl, bundleURL, "dummy-sha256")
+	c.Assert(err, IsNil)
+	return dummy
+}
+
+func (s *StateSuite) TestCharmAttributes(c *C) {
+	// Check that the basic (invariant) fields of the charm
+	// are correctly in place.
+	s.addDummyCharm(c)
+
+	dummy, err := s.st.Charm(s.curl)
+	c.Assert(err, IsNil)
+	c.Assert(dummy.URL().String(), Equals, s.curl.String())
+	c.Assert(dummy.Revision(), Equals, 1)
+	bundleURL, err := url.Parse("http://bundle.url")
+	c.Assert(err, IsNil)
+	c.Assert(dummy.BundleURL(), DeepEquals, bundleURL)
+	c.Assert(dummy.BundleSha256(), Equals, "dummy-sha256")
+	meta := dummy.Meta()
+	c.Assert(meta.Name, Equals, "dummy")
+	config := dummy.Config()
+	c.Assert(config.Options["title"], Equals,
+		charm.Option{
+			Default:     "My Title",
+			Description: "A descriptive title used for the service.",
+			Type:        "string",
+		},
+	)
+}
+
 func (s *StateSuite) assertMachineCount(c *C, expect int) {
 	ms, err := s.st.AllMachines()
 	c.Assert(err, IsNil)

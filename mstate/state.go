@@ -83,3 +83,16 @@ func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bu
 	}
 	return newCharm(s, cdoc)
 }
+
+// Charm returns a charm by the given id.
+func (s *State) Charm(curl *charm.URL) (stch *Charm, err error) {
+	defer errorContextf(&err, "can't get charm %q", curl)
+
+	cdoc := &charmDoc{}
+	err = s.charms.Find(bson.D{{"_id", curl}}).One(cdoc)
+	if err != nil {
+		return nil, fmt.Errorf("can't get charm %q: %v", curl, err)
+	}
+
+	return newCharm(s, cdoc)
+}
