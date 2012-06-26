@@ -46,10 +46,10 @@ func mustErr(w watcherErr) error {
 }
 
 // ServiceUnitsChange contains information about
-// units that have been added to or deleted from
+// units that have been added to or removed from
 // services.
 type ServiceUnitsChange struct {
-	Added, Deleted []*Unit
+	Added, Removed []*Unit
 }
 
 // ServiceUnitsWatcher observes changes to the units of
@@ -76,7 +76,7 @@ func newServiceUnitsWatcher(service *Service) *ServiceUnitsWatcher {
 }
 
 // Changes returns a channel that will receive changes when units
-// are assigned to or unassigned from the service. The Added field in 
+// are added to or removed from the service. The Added field in 
 // the first event on the channel holds the initial state as returned 
 // by Service.AllUnits().
 func (w *ServiceUnitsWatcher) Changes() <-chan *ServiceUnitsChange {
@@ -133,20 +133,17 @@ func (w *ServiceUnitsWatcher) loop() {
 				return
 			}
 			added := missing(currentUnitKeys, knownUnitKeys)
-			deleted := missing(knownUnitKeys, currentUnitKeys)
+			removed := missing(knownUnitKeys, currentUnitKeys)
 			knownUnitKeys = currentUnitKeys
-			if emitted && len(added) == 0 && len(deleted) == 0 {
+			if emitted && len(added) == 0 && len(removed) == 0 {
 				// Nothing to emit.
 				continue
 			}
 			serviceUnitsChange := &ServiceUnitsChange{}
-			for _, unitKey := range deleted {
+			for _, unitKey := range removed {
 				unit := knownUnits[unitKey]
-				if unit == nil {
-					w.tomb.Killf("unknown unit %q deleted", unitKey)
-				}
 				delete(knownUnits, unitKey)
-				serviceUnitsChange.Deleted = append(serviceUnitsChange.Deleted, unit)
+				serviceUnitsChange.Removed = append(serviceUnitsChange.Removed, unit)
 			}
 			for _, unitKey := range added {
 				unit, err := w.st.unitFromKey(topology, unitKey)

@@ -59,7 +59,7 @@ func (s *StateSuite) TestServiceWatchConfig(c *C) {
 	}
 
 	select {
-	case got, _ := <-configWatcher.Changes():
+	case got := <-configWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
@@ -103,7 +103,7 @@ func (s *StateSuite) TestServiceWatchExposed(c *C) {
 	}
 
 	select {
-	case got, _ := <-exposedWatcher.Changes():
+	case got := <-exposedWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
@@ -177,7 +177,7 @@ func (s *StateSuite) TestServiceWatchUnits(c *C) {
 	}
 
 	select {
-	case got, _ := <-unitsWatcher.Changes():
+	case got := <-unitsWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
@@ -251,7 +251,7 @@ func (s *StateSuite) TestUnitWatchNeedsUpgrade(c *C) {
 	}
 
 	select {
-	case got, _ := <-needsUpgradeWatcher.Changes():
+	case got := <-needsUpgradeWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
@@ -295,7 +295,7 @@ func (s *StateSuite) TestUnitWatchResolved(c *C) {
 	}
 
 	select {
-	case got, _ := <-resolvedWatcher.Changes():
+	case got := <-resolvedWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
@@ -339,7 +339,7 @@ func (s *StateSuite) TestUnitWatchPorts(c *C) {
 	}
 
 	select {
-	case got, _ := <-portsWatcher.Changes():
+	case got := <-portsWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
@@ -408,7 +408,7 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 	}
 
 	select {
-	case got, _ := <-w.Changes():
+	case got := <-w.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
@@ -500,7 +500,7 @@ func (s *StateSuite) TestWatchMachineUnits(c *C) {
 	}
 
 	select {
-	case got, _ := <-w.Changes():
+	case got := <-w.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
@@ -554,7 +554,7 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 	}
 
 	select {
-	case got, _ := <-w.Changes():
+	case got := <-w.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
