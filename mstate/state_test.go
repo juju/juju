@@ -155,7 +155,9 @@ func (s *StateSuite) TestRemoveMachine(c *C) {
 	ms, err := s.st.AllMachines()
 	c.Assert(ms[0].Id(), Equals, m1.Id())
 
-	// TODO: Removing a non-existing machine has to fail.
+	// Removing a non-existing machine has to fail.
+	err = s.st.RemoveMachine(m0.Id())
+	c.Assert(err, ErrorMatches, "can't remove machine 0")
 }
 
 func (s *StateSuite) TestMachineInstanceId(c *C) {
