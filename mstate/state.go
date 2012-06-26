@@ -98,7 +98,7 @@ func (s *State) Charm(curl *charm.URL) (*Charm, error) {
 // AddService creates a new service state with the given unique name
 // and the charm state.
 func (s *State) AddService(name string, ch *Charm) (service *Service, err error) {
-	sdoc := &serviceDoc{Name: name, CharmUrl: ch.URL()}
+	sdoc := &serviceDoc{Name: name, CharmURL: ch.URL()}
 	err = s.services.Insert(sdoc)
 	if err != nil {
 		return nil, fmt.Errorf("can't add service %q:", name, err)

@@ -15,7 +15,7 @@ type Service struct {
 // serviceDoc represents the internal state of a service in MongoDB.
 type serviceDoc struct {
 	Name     string `bson:"_id"`
-	CharmUrl *charm.URL
+	CharmURL *charm.URL
 }
 
 // Name returns the service name.
@@ -30,7 +30,7 @@ func (s *Service) CharmURL() (url *charm.URL, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("can't get the charm URL of service %q: %v", s, err)
 	}
-	return sdoc.CharmUrl, nil
+	return sdoc.CharmURL, nil
 }
 
 // SetCharmURL changes the charm URL for the service.
