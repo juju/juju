@@ -46,15 +46,16 @@ type topoUnit struct {
 type topoRelation struct {
 	Interface string
 	Scope     RelationScope
-	Endpoints map[string]*topoEndpoint
+	Endpoints []topoEndpoint
 }
 
 // topoEndpoint represents the data of one
 // endpoint of a relation within the /topology
 // node in ZooKeeper.
 type topoEndpoint struct {
-	Role RelationRole
-	Name string
+	Service      string
+	RelationRole RelationRole "relation-role"
+	RelationName string       "relation-name"
 }
 
 func (u *topoUnit) isPrincipal() bool {
@@ -69,16 +70,16 @@ func (r *topoRelation) check() error {
 	if len(r.Endpoints) == 0 {
 		return fmt.Errorf("relation has no services")
 	}
-	for serviceKey, endpoint := range r.Endpoints {
-		if serviceKey == "" {
+	for _, endpoint := range r.Endpoints {
+		if endpoint.Service == "" {
 			return fmt.Errorf("relation has service with empty key")
 		}
-		if endpoint.Name == "" {
-			return fmt.Errorf("relation has %s endpoint with empty relation name", endpoint.Role)
+		if endpoint.RelationName == "" {
+			return fmt.Errorf("relation has %s endpoint with empty relation name", endpoint.RelationRole)
 		}
-		counterRole := endpoint.Role.counterpartRole()
+		counterRole := endpoint.RelationRole.counterpartRole()
 		if !r.hasEndpointWithRole(counterRole) {
-			return fmt.Errorf("relation has %s but no %s", endpoint.Role, counterRole)
+			return fmt.Errorf("relation has %s but no %s", endpoint.RelationRole, counterRole)
 		}
 	}
 	if len(r.Endpoints) > 2 {
@@ -90,7 +91,7 @@ func (r *topoRelation) check() error {
 // hasEndpointWithRole checks if the relation has a service with the given role.
 func (r *topoRelation) hasEndpointWithRole(role RelationRole) bool {
 	for _, endpoint := range r.Endpoints {
-		if endpoint.Role == role {
+		if endpoint.RelationRole == role {
 			return true
 		}
 	}
@@ -437,8 +438,8 @@ func (t *topology) AddRelation(relationKey string, relation *topoRelation) error
 	if err := relation.check(); err != nil {
 		return err
 	}
-	for serviceKey := range relation.Endpoints {
-		if _, err := t.service(serviceKey); err != nil {
+	for _, endpoint := range relation.Endpoints {
+		if _, err := t.service(endpoint.Service); err != nil {
 			return err
 		}
 	}
@@ -473,8 +474,8 @@ func (t *topology) RelationsForService(key string) (map[string]*topoRelation, er
 	}
 	relations := make(map[string]*topoRelation)
 	for relationKey, relation := range t.topology.Relations {
-		for serviceKey := range relation.Endpoints {
-			if serviceKey == key {
+		for _, endpoint := range relation.Endpoints {
+			if endpoint.Service == key {
 				relations[relationKey] = relation
 				break
 			}
@@ -500,22 +501,25 @@ func (t *topology) RelationKey(endpoints ...RelationEndpoint) (string, error) {
 	default:
 		return "", fmt.Errorf("illegal number of relation endpoints provided")
 	}
-	serviceKeys := make(map[RelationEndpoint]string)
+	keyedEndpoints := map[string]RelationEndpoint{}
 	for _, endpoint := range endpoints {
 		serviceKey, err := t.ServiceKey(endpoint.ServiceName)
 		if err != nil {
 			return "", noRelationFound
 		}
-		serviceKeys[endpoint] = serviceKey
+		keyedEndpoints[serviceKey] = endpoint
 	}
 	for relationKey, relation := range t.topology.Relations {
 		if relation.Interface != endpoints[0].Interface {
 			continue
 		}
+		if len(relation.Endpoints) != len(endpoints) {
+			continue
+		}
 		found := true
-		for _, endpoint := range endpoints {
-			tep, ok := relation.Endpoints[serviceKeys[endpoint]]
-			if !ok || tep.Name != endpoint.RelationName {
+		for _, tendpoint := range relation.Endpoints {
+			endpoint, ok := keyedEndpoints[tendpoint.Service]
+			if !ok || tendpoint.RelationName != endpoint.RelationName {
 				found = false
 				break
 			}

@@ -232,15 +232,15 @@ func (s *Service) Relations() (relations []*Relation, err error) {
 	for key, tr := range trs {
 		r := &Relation{s.st, key, make([]RelationEndpoint, len(tr.Endpoints))}
 		i := 0
-		for skey, tep := range tr.Endpoints {
+		for _, tep := range tr.Endpoints {
 			sname := s.name
-			if skey != s.key {
-				if sname, err = t.ServiceName(skey); err != nil {
+			if tep.Service != s.key {
+				if sname, err = t.ServiceName(tep.Service); err != nil {
 					return nil, err
 				}
 			}
 			r.endpoints[i] = RelationEndpoint{
-				sname, tr.Interface, tep.Name, tep.Role, tr.Scope,
+				sname, tr.Interface, tep.RelationName, tep.RelationRole, tr.Scope,
 			}
 			i++
 		}
