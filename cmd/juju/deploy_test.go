@@ -63,7 +63,7 @@ func runDeploy(c *C, args ...string) error {
 	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}})
 }
 
-func (s *DeploySuite) assertService(c *C, name string, expectCurl *charm.URL, unitCount, relCount int) []*state.ServiceRelation {
+func (s *DeploySuite) assertService(c *C, name string, expectCurl *charm.URL, unitCount, relCount int) []*state.Relation {
 	srv, err := s.st.Service(name)
 	c.Assert(err, IsNil)
 	curl, err := srv.CharmURL()
@@ -149,13 +149,13 @@ func (s *DeploySuite) TestCharmBundle(c *C) {
 func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
 	testing.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
-	c.Assert(err, ErrorMatches, `cannot upgrade charm bundle "local:precise/dummy-1"`)
+	c.Assert(err, ErrorMatches, `can't upgrade: charm "local:precise/dummy-1" is not a directory`)
 	// Verify state not touched...
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	_, err = s.st.Charm(curl)
-	c.Assert(err, ErrorMatches, "")
+	c.Assert(err, ErrorMatches, `can't get charm "local:precise/dummy-1": charm not found`)
 	_, err = s.st.Service("dummy")
-	c.Assert(err, ErrorMatches, "")
+	c.Assert(err, ErrorMatches, `can't get service "dummy": service with name "dummy" not found`)
 }
 
 func (s *DeploySuite) TestAddsPeerRelations(c *C) {
@@ -165,9 +165,11 @@ func (s *DeploySuite) TestAddsPeerRelations(c *C) {
 	curl := charm.MustParseURL("local:precise/riak-7")
 	rels := s.assertService(c, "riak", curl, 1, 1)
 	rel := rels[0]
-	c.Assert(rel.RelationName(), Equals, "ring")
-	c.Assert(rel.RelationRole(), Equals, state.RolePeer)
-	c.Assert(rel.RelationScope(), Equals, state.ScopeGlobal)
+	ep, err := rel.Endpoint("riak")
+	c.Assert(err, IsNil)
+	c.Assert(ep.RelationName, Equals, "ring")
+	c.Assert(ep.RelationRole, Equals, state.RolePeer)
+	c.Assert(ep.RelationScope, Equals, state.ScopeGlobal)
 }
 
 func (s *DeploySuite) TestNumUnits(c *C) {
