@@ -18,6 +18,7 @@ type State struct {
 	charms   *mgo.Collection
 	machines *mgo.Collection
 	services *mgo.Collection
+	units    *mgo.Collection
 }
 
 // AddMachine creates a new machine state.
