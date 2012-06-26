@@ -19,8 +19,9 @@ var _ = Suite(&StateSuite{})
 type StateSuite struct {
 	MgoSuite
 	session  *mgo.Session
-	machines *mgo.Collection
 	charms   *mgo.Collection
+	machines *mgo.Collection
+	services *mgo.Collection
 	st       *state.State
 	ch       charm.Charm
 	curl     *charm.URL
@@ -36,8 +37,9 @@ func (s *StateSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	s.st = st
 
-	s.machines = session.DB("juju").C("machines")
 	s.charms = session.DB("juju").C("charms")
+	s.machines = session.DB("juju").C("machines")
+	s.services = session.DB("juju").C("services")
 
 	s.ch = testing.Charms.Dir("dummy")
 	url := fmt.Sprintf("local:series/%s-%d", s.ch.Meta().Name, s.ch.Revision())
@@ -155,7 +157,9 @@ func (s *StateSuite) TestRemoveMachine(c *C) {
 	ms, err := s.st.AllMachines()
 	c.Assert(ms[0].Id(), Equals, m1.Id())
 
-	// TODO: Removing a non-existing machine has to fail.
+	// Removing a non-existing machine has to fail.
+	err = s.st.RemoveMachine(m0.Id())
+	c.Assert(err, ErrorMatches, "can't remove machine 0")
 }
 
 func (s *StateSuite) TestMachineInstanceId(c *C) {
@@ -187,4 +191,87 @@ func (s *StateSuite) TestReadMachine(c *C) {
 	machine, err = s.st.Machine(expectedId)
 	c.Assert(err, IsNil)
 	c.Assert(machine.Id(), Equals, expectedId)
+}
+
+func (s *StateSuite) TestAddService(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	c.Assert(wordpress.Name(), Equals, "wordpress")
+	mysql, err := s.st.AddService("mysql", dummy)
+	c.Assert(err, IsNil)
+	c.Assert(mysql.Name(), Equals, "mysql")
+
+	// Check that retrieving the new created services works correctly.
+	wordpress, err = s.st.Service("wordpress")
+	c.Assert(err, IsNil)
+	c.Assert(wordpress.Name(), Equals, "wordpress")
+	url, err := wordpress.CharmURL()
+	c.Assert(err, IsNil)
+	c.Assert(url.String(), Equals, s.curl.String())
+	mysql, err = s.st.Service("mysql")
+	c.Assert(err, IsNil)
+	c.Assert(mysql.Name(), Equals, "mysql")
+	url, err = mysql.CharmURL()
+	c.Assert(err, IsNil)
+	c.Assert(url.String(), Equals, s.curl.String())
+}
+
+func (s *StateSuite) TestReadNonExistentService(c *C) {
+	_, err := s.st.Service("pressword")
+	c.Assert(err, ErrorMatches, `can't get service "pressword": .*`)
+}
+
+func (s *StateSuite) TestRemoveService(c *C) {
+	dummy := s.addDummyCharm(c)
+	service, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+
+	// Remove of existing service.
+	err = s.st.RemoveService(service)
+	c.Assert(err, IsNil)
+	_, err = s.st.Service("wordpress")
+	c.Assert(err, ErrorMatches, `can't get service "wordpress": .*`)
+}
+
+func (s *StateSuite) TestAllServices(c *C) {
+	services, err := s.st.AllServices()
+	c.Assert(err, IsNil)
+	c.Assert(len(services), Equals, 0)
+
+	// Check that after adding services the result is ok.
+	dummy := s.addDummyCharm(c)
+	_, err = s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	services, err = s.st.AllServices()
+	c.Assert(err, IsNil)
+	c.Assert(len(services), Equals, 1)
+
+	_, err = s.st.AddService("mysql", dummy)
+	c.Assert(err, IsNil)
+	services, err = s.st.AllServices()
+	c.Assert(err, IsNil)
+	c.Assert(len(services), Equals, 2)
+
+	// Check the returned service, order is defined by sorted keys.
+	c.Assert(services[0].Name(), Equals, "wordpress")
+	c.Assert(services[1].Name(), Equals, "mysql")
+}
+
+func (s *StateSuite) TestServiceCharm(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+
+	// Check that getting and setting the service charm URL works correctly.
+	testcurl, err := wordpress.CharmURL()
+	c.Assert(err, IsNil)
+	c.Assert(testcurl.String(), Equals, s.curl.String())
+	testcurl, err = charm.ParseURL("local:myseries/mydummy-1")
+	c.Assert(err, IsNil)
+	err = wordpress.SetCharmURL(testcurl)
+	c.Assert(err, IsNil)
+	testcurl, err = wordpress.CharmURL()
+	c.Assert(err, IsNil)
+	c.Assert(testcurl.String(), Equals, "local:myseries/mydummy-1")
 }
