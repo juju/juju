@@ -59,11 +59,11 @@ func (s *StateSuite) TestAddCharm(c *C) {
 	c.Assert(dummy.URL().String(), Equals, s.curl.String())
 
 	mdoc := &struct {
-		Url *charm.URL `bson:"_id"`
+		URL *charm.URL `bson:"_id"`
 	}{}
 	err = s.charms.Find(bson.D{{"_id", s.curl}}).One(mdoc)
 	c.Assert(err, IsNil)
-	c.Assert(mdoc.Url, DeepEquals, s.curl)
+	c.Assert(mdoc.URL, DeepEquals, s.curl)
 }
 
 // addDummyCharm adds the 'dummy' charm state to st.
