@@ -154,6 +154,10 @@ func (w *FlagWatcher) loop() {
 	defer w.tomb.Done()
 	defer close(w.changeChan)
 	defer stopWatcher(w.watcher, &w.tomb)
+
+	emitted := false
+	exists := false
+
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -163,10 +167,16 @@ func (w *FlagWatcher) loop() {
 				w.tomb.Kill(mustErr(w.watcher))
 				return
 			}
+			if emitted && change.Exists == exists {
+				// Nothing to do.
+				continue
+			}
 			select {
 			case <-w.tomb.Dying():
 				return
 			case w.changeChan <- change.Exists:
+				emitted = true
+				exists = change.Exists
 			}
 		}
 	}
