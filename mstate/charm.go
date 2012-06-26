@@ -1,13 +1,14 @@
 package mstate
 
 import (
+	"fmt"
 	"launchpad.net/juju-core/charm"
 	"net/url"
 )
 
 // charmDoc represents the internal state of a charm in MongoDB.
 type charmDoc struct {
-	Url          *charm.URL `bson:"_id"`
+	URL          *charm.URL `bson:"_id"`
 	Meta         *charm.Meta
 	Config       *charm.Config
 	BundleURL    string
@@ -27,11 +28,11 @@ type Charm struct {
 func newCharm(st *State, cdoc *charmDoc) (*Charm, error) {
 	burl, err := url.Parse(cdoc.BundleURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("can't parse charm bundle URL: %q", cdoc.BundleURL)
 	}
 	c := &Charm{
 		st:           st,
-		url:          cdoc.Url,
+		url:          cdoc.URL,
 		meta:         cdoc.Meta,
 		config:       cdoc.Config,
 		bundleURL:    burl,
