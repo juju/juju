@@ -78,7 +78,7 @@ var serviceExposedTests = []struct {
 	{func(s *state.Service) error { return s.SetExposed() }, true},
 }
 
-func (s *StateSuite) TestServiceExposedConfig(c *C) {
+func (s *StateSuite) TestServiceWatchExposed(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
@@ -106,6 +106,40 @@ func (s *StateSuite) TestServiceExposedConfig(c *C) {
 	case got, _ := <-exposedWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
+	}
+
+	err = exposedWatcher.Stop()
+	c.Assert(err, IsNil)
+}
+
+func (s *StateSuite) TestServiceWatchExposedContent(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	c.Assert(wordpress.Name(), Equals, "wordpress")
+
+	exposed, err := wordpress.IsExposed()
+	c.Assert(err, IsNil)
+	c.Assert(exposed, Equals, false)
+	exposedWatcher := wordpress.WatchExposed()
+
+	wordpress.SetExposed()
+	select {
+	case got, ok := <-exposedWatcher.Changes():
+		c.Assert(ok, Equals, true)
+		c.Assert(got, Equals, true)
+	case <-time.After(200 * time.Millisecond):
+		c.Fatalf("didn't get change: %#v", true)
+	}
+
+	// Re-set exposed with some data.
+	_, err = s.zkConn.Set("/services/service-0000000000/exposed", "some: data", -1)
+	c.Assert(err, IsNil)
+
+	select {
+	case got := <-exposedWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(200 * time.Millisecond):
 	}
 
 	err = exposedWatcher.Stop()
