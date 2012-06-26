@@ -45,6 +45,128 @@ func mustErr(w watcherErr) error {
 	return err
 }
 
+// ServiceUnitsChange contains information about
+// units that have been added to or deleted from
+// services.
+type ServiceUnitsChange struct {
+	Added, Deleted []*Unit
+}
+
+// ServiceUnitsWatcher observes changes to the units of
+// a service.
+type ServiceUnitsWatcher struct {
+	st         *State
+	service    *Service
+	tomb       tomb.Tomb
+	watcher    *watcher.ContentWatcher
+	changeChan chan *ServiceUnitsChange
+}
+
+// newServiceUnitsWatcher creates and starts a new watcher
+// for service unit changes.
+func newServiceUnitsWatcher(service *Service) *ServiceUnitsWatcher {
+	w := &ServiceUnitsWatcher{
+		st:         service.st,
+		service:    service,
+		changeChan: make(chan *ServiceUnitsChange),
+		watcher:    watcher.NewContentWatcher(service.st.zk, zkTopologyPath),
+	}
+	go w.loop()
+	return w
+}
+
+// Changes returns a channel that will receive changes when units
+// are assigned to or unassigned from the service. The Added field in 
+// the first event on the channel holds the initial state as returned 
+// by Service.AllUnits().
+func (w *ServiceUnitsWatcher) Changes() <-chan *ServiceUnitsChange {
+	return w.changeChan
+}
+
+// Stop stops the watch and returns any error encountered
+// while watching. This method should always be called
+// before discarding the watcher.
+func (w *ServiceUnitsWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
+}
+
+func (w *ServiceUnitsWatcher) loop() {
+	defer w.tomb.Done()
+	defer close(w.changeChan)
+	defer stopWatcher(w.watcher, &w.tomb)
+
+	knownUnits := make(map[string]*Unit)
+	knownUnitKeys := []string{}
+	emitted := false
+	missing := func(superset, subset []string) (result []string) {
+		resultmap := make(map[string]bool)
+		for _, key := range superset {
+			resultmap[key] = true
+		}
+		for _, key := range subset {
+			delete(resultmap, key)
+		}
+		for key, _ := range resultmap {
+			result = append(result, key)
+		}
+		return
+	}
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case change, ok := <-w.watcher.Changes():
+			if !ok {
+				w.tomb.Kill(mustErr(w.watcher))
+				return
+			}
+			topology, err := parseTopology(change.Content)
+			if err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			currentUnitKeys, err := topology.UnitKeys(w.service.key)
+			if err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			added := missing(currentUnitKeys, knownUnitKeys)
+			deleted := missing(knownUnitKeys, currentUnitKeys)
+			knownUnitKeys = currentUnitKeys
+			if emitted && len(added) == 0 && len(deleted) == 0 {
+				// Nothing to emit.
+				continue
+			}
+			serviceUnitsChange := &ServiceUnitsChange{}
+			for _, unitKey := range deleted {
+				unit := knownUnits[unitKey]
+				if unit == nil {
+					w.tomb.Killf("unknown unit %q deleted", unitKey)
+				}
+				delete(knownUnits, unitKey)
+				serviceUnitsChange.Deleted = append(serviceUnitsChange.Deleted, unit)
+			}
+			for _, unitKey := range added {
+				unit, err := w.st.unitFromKey(topology, unitKey)
+				if err != nil {
+					w.tomb.Killf("can't read unit %q: %v", unitKey, err)
+					return
+				}
+				knownUnits[unitKey] = unit
+				serviceUnitsChange.Added = append(serviceUnitsChange.Added, unit)
+			}
+			select {
+			case <-w.tomb.Dying():
+				return
+			case w.changeChan <- serviceUnitsChange:
+				emitted = true
+			}
+		}
+	}
+}
+
 // ConfigWatcher observes changes to any configuration node.
 type ConfigWatcher struct {
 	st         *State

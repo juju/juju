@@ -78,7 +78,7 @@ var serviceExposedTests = []struct {
 	{func(s *state.Service) error { return s.SetExposed() }, true},
 }
 
-func (s *StateSuite) TestServiceExposedConfig(c *C) {
+func (s *StateSuite) TestServiceWatchExposed(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
@@ -109,6 +109,80 @@ func (s *StateSuite) TestServiceExposedConfig(c *C) {
 	}
 
 	err = exposedWatcher.Stop()
+	c.Assert(err, IsNil)
+}
+
+var serviceUnitTests = []struct {
+	test func(s *state.Service, us []*state.Unit) error
+	want func(us []*state.Unit) *state.ServiceUnitsChange
+}{
+	{
+		func(s *state.Service, us []*state.Unit) error {
+			return nil
+		},
+		func(us []*state.Unit) *state.ServiceUnitsChange {
+			return &state.ServiceUnitsChange{}
+		},
+	},
+	{
+		func(s *state.Service, us []*state.Unit) (err error) {
+			us[0], err = s.AddUnit()
+			return
+		},
+		func(us []*state.Unit) *state.ServiceUnitsChange {
+			return &state.ServiceUnitsChange{[]*state.Unit{us[0]}, nil}
+		},
+	},
+	{
+		func(s *state.Service, us []*state.Unit) (err error) {
+			us[1], err = s.AddUnit()
+			return
+		},
+		func(us []*state.Unit) *state.ServiceUnitsChange {
+			return &state.ServiceUnitsChange{[]*state.Unit{us[1]}, nil}
+		},
+	},
+	{
+		func(s *state.Service, us []*state.Unit) (err error) {
+			err = s.RemoveUnit(us[0])
+			return
+		},
+		func(us []*state.Unit) *state.ServiceUnitsChange {
+			return &state.ServiceUnitsChange{nil, []*state.Unit{us[0]}}
+		},
+	},
+}
+
+func (s *StateSuite) TestServiceWatchUnits(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	c.Assert(wordpress.Name(), Equals, "wordpress")
+
+	unitsWatcher := wordpress.WatchUnits()
+	units := make([]*state.Unit, 2)
+
+	for i, test := range serviceUnitTests {
+		c.Logf("test %d", i)
+		err := test.test(wordpress, units)
+		c.Assert(err, IsNil)
+		want := test.want(units)
+		select {
+		case got, ok := <-unitsWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got, DeepEquals, want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", test.want)
+		}
+	}
+
+	select {
+	case got, _ := <-unitsWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	err = unitsWatcher.Stop()
 	c.Assert(err, IsNil)
 }
 

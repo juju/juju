@@ -1,7 +1,3 @@
-// launchpad.net/juju/state
-//
-// Copyright (c) 2011-2012 Canonical Ltd.
-
 package state
 
 import (
@@ -216,6 +212,12 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 		})
 	}
 	return units, nil
+}
+
+// WatchUnits creates a watcher for the assigned units
+// of the service.
+func (s *Service) WatchUnits() *ServiceUnitsWatcher {
+	return newServiceUnitsWatcher(s)
 }
 
 // Relations returns a Relation for every relation the service is in.
