@@ -15,8 +15,9 @@ import (
 // managed by juju.
 type State struct {
 	db       *mgo.Database
-	machines *mgo.Collection
 	charms   *mgo.Collection
+	machines *mgo.Collection
+	services *mgo.Collection
 }
 
 // AddMachine creates a new machine state.
@@ -92,4 +93,49 @@ func (s *State) Charm(curl *charm.URL) (*Charm, error) {
 	}
 
 	return newCharm(s, cdoc)
+}
+
+// AddService creates a new service state with the given unique name
+// and the charm state.
+func (s *State) AddService(name string, ch *Charm) (service *Service, err error) {
+	sdoc := &serviceDoc{Name: name, CharmURL: ch.URL()}
+	err = s.services.Insert(sdoc)
+	if err != nil {
+		return nil, fmt.Errorf("can't add service %q:", name, err)
+	}
+	return &Service{st: s, name: name}, nil
+}
+
+// RemoveService removes a service from the state. It will also remove all
+// its units and break any of its existing relations.
+func (s *State) RemoveService(svc *Service) (err error) {
+	err = s.services.Remove(bson.D{{"_id", svc.name}})
+	if err != nil {
+		return fmt.Errorf("can't remove service %s: %v", svc, err)
+	}
+	// TODO Remove units and break relations.
+	return
+}
+
+// Service returns a service state by name.
+func (s *State) Service(name string) (service *Service, err error) {
+	sdoc := &serviceDoc{}
+	err = s.services.Find(bson.D{{"_id", name}}).One(sdoc)
+	if err != nil {
+		return nil, fmt.Errorf("can't get service %q: %v", name, err)
+	}
+	return &Service{st: s, name: name}, nil
+}
+
+// AllServices returns all deployed services in the environment.
+func (s *State) AllServices() (services []*Service, err error) {
+	sdocs := []serviceDoc{}
+	err = s.services.Find(nil).All(&sdocs)
+	if err != nil {
+		return nil, fmt.Errorf("can't get all services")
+	}
+	for _, v := range sdocs {
+		services = append(services, &Service{st: s, name: v.Name})
+	}
+	return services, nil
 }

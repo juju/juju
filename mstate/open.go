@@ -14,8 +14,9 @@ func Dial(servers string) (st *State, err error) {
 	db := session.DB("juju")
 	st = &State{
 		db:       db,
-		machines: db.C("machines"),
 		charms:   db.C("charms"),
+		machines: db.C("machines"),
+		services: db.C("services"),
 	}
 	return
 }
