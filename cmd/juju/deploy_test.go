@@ -6,11 +6,11 @@ import (
 	"encoding/hex"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/charm"
-	"launchpad.net/juju-core/juju/cmd"
-	"launchpad.net/juju-core/juju/juju"
-	"launchpad.net/juju-core/juju/state"
-	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -25,7 +25,7 @@ environments:
 `
 
 type DeploySuite struct {
-	envFixture
+	envSuite
 	seriesPath string
 	repoPath   string
 	conn       *juju.Conn
@@ -35,7 +35,7 @@ type DeploySuite struct {
 var _ = Suite(&DeploySuite{})
 
 func (s *DeploySuite) SetUpTest(c *C) {
-	s.envFixture.SetUp(c, zkConfig)
+	s.envSuite.SetUpTest(c, zkConfig)
 	repoPath := c.MkDir()
 	s.repoPath = os.Getenv("JUJU_REPOSITORY")
 	os.Setenv("JUJU_REPOSITORY", repoPath)
@@ -51,7 +51,7 @@ func (s *DeploySuite) SetUpTest(c *C) {
 }
 
 func (s *DeploySuite) TearDownTest(c *C) {
-	s.envFixture.TearDown(c)
+	s.envSuite.TearDownTest(c)
 	os.Setenv("JUJU_REPOSITORY", s.repoPath)
 	s.conn.Close()
 }
@@ -153,9 +153,9 @@ func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
 	// Verify state not touched...
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	_, err = s.st.Charm(curl)
-	c.Assert(err, NotNil)
+	c.Assert(err, ErrorMatches, "")
 	_, err = s.st.Service("dummy")
-	c.Assert(err, NotNil)
+	c.Assert(err, ErrorMatches, "")
 }
 
 func (s *DeploySuite) TestAddsPeerRelations(c *C) {

@@ -13,11 +13,11 @@ import (
 	"reflect"
 )
 
-type envFixture struct {
+type envSuite struct {
 	home string
 }
 
-func (f *envFixture) SetUp(c *C, config string) {
+func (f *envSuite) SetUpTest(c *C, config string) {
 	// Arrange so that the "home" directory points
 	// to a temporary directory containing the config file.
 	f.home = os.Getenv("HOME")
@@ -29,14 +29,14 @@ func (f *envFixture) SetUp(c *C, config string) {
 	c.Assert(err, IsNil)
 }
 
-func (f *envFixture) TearDown(c *C) {
+func (f *envSuite) TearDownTest(c *C) {
 	os.Setenv("HOME", f.home)
 	dummy.Reset()
 }
 
 type cmdSuite struct {
 	testing.LoggingSuite
-	envFixture
+	envSuite
 }
 
 var _ = Suite(&cmdSuite{})
@@ -60,11 +60,11 @@ environments:
 
 func (s *cmdSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.envFixture.SetUp(c, config)
+	s.envSuite.SetUpTest(c, config)
 }
 
 func (s *cmdSuite) TearDownTest(c *C) {
-	s.envFixture.TearDown(c)
+	s.envSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 

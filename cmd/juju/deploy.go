@@ -17,13 +17,13 @@ import (
 )
 
 type DeployCommand struct {
-	EnvName     string
-	CharmName   string
-	ServiceName string
-	ConfPath    string
-	NumUnits    int // defaults to 1
-	Upgrade     bool
-	RepoPath    string // defaults to JUJU_REPOSITORY
+	EnvName      string
+	CharmName    string
+	ServiceName  string
+	ConfPath     string
+	NumUnits     int // defaults to 1
+	BumpRevision bool
+	RepoPath     string // defaults to JUJU_REPOSITORY
 }
 
 const deployDoc = `
@@ -55,10 +55,10 @@ func (c *DeployCommand) Info() *cmd.Info {
 
 func (c *DeployCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	addEnvironFlags(&c.EnvName, f)
-	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy; ignored for subordinate charms")
+	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
-	f.BoolVar(&c.Upgrade, "u", false, "increment local charm revision")
-	f.BoolVar(&c.Upgrade, "upgrade", false, "")
+	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision")
+	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.StringVar(&c.ConfPath, "config", "", "path to yaml-formatted service config")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv("JUJU_REPOSITORY"), "local charm repository")
 	// TODO --constraints
@@ -83,9 +83,9 @@ func (c *DeployCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return nil
 }
 
-// getCharm returns the charm and charm URL specified on the command line;
-// if --upgrade is specified, and the charm is capable of being upgraded,
-// the returned values correspond to the newly upgraded charm.
+// getCharm returns the charm and charm URL specified on the command line.
+// If --upgrade is specified, the charm must be a local directory , and will
+// have its version bumped before being returned.
 func (c *DeployCommand) getCharm(defaultSeries string) (charm.Charm, *charm.URL, error) {
 	repo, curl, err := charm.InferRepository(c.CharmName, defaultSeries, c.RepoPath)
 	if err != nil {
@@ -102,21 +102,21 @@ func (c *DeployCommand) getCharm(defaultSeries string) (charm.Charm, *charm.URL,
 	if err != nil {
 		return nil, nil, err
 	}
-	if c.Upgrade {
-		if chd, ok := ch.(*charm.Dir); ok {
-			if err = chd.SetDiskRevision(chd.Revision() + 1); err != nil {
-				return nil, nil, err
-			}
-			curl = curl.WithRevision(chd.Revision())
-		} else {
-			return nil, nil, fmt.Errorf("cannot upgrade charm bundle %q", curl)
+	if c.BumpRevision {
+		chd, ok := ch.(*charm.Dir)
+		if !ok {
+			return nil, nil, fmt.Errorf("can't upgrade: charm %q is not a directory", curl)
 		}
+		if err = chd.SetDiskRevision(chd.Revision() + 1); err != nil {
+			return nil, nil, err
+		}
+		curl = curl.WithRevision(chd.Revision())
 	}
 	return ch, curl, nil
 }
 
 // putCharm uploads the charm specified on the command line to provider storage,
-// and adds a state.Charm to zookeeper state.
+// and adds a state.Charm to the state.
 func (c *DeployCommand) putCharm(conn *juju.Conn) (*state.Charm, error) {
 	// TODO get default series from environ
 	ch, curl, err := c.getCharm("precise")
