@@ -85,7 +85,7 @@ func (p *Provisioner) loop() {
 	defer p.tomb.Done()
 	defer p.st.Close()
 	environWatcher := p.st.WatchEnvironConfig()
-	defer watcher.Stop(environWatcher)
+	defer watcher.Stop(environWatcher, &p.tomb)
 
 	// Get a new StateInfo from the environment: the one used to
 	// launch the agent may refer to localhost, which will be
@@ -121,8 +121,8 @@ func (p *Provisioner) loop() {
 
 	// Start responding to changes in machines, and to any further updates
 	// to the environment config.
-	machinesWatcher = p.st.WatchMachines()
-	defer watcher.Stop(machinesWatcher)
+	machinesWatcher := p.st.WatchMachines()
+	defer watcher.Stop(machinesWatcher, &p.tomb)
 	for {
 		select {
 		case <-p.tomb.Dying():
