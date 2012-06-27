@@ -110,6 +110,7 @@ func (e *environ) SetConfig(cfg environs.EnvironConfig) {
 	config := cfg.(*providerConfig)
 	e.configMutex.Lock()
 	defer e.configMutex.Unlock()
+	e.name = config.name
 	e.configUnlocked = config
 	e.ec2Unlocked = ec2.New(config.auth, Regions[config.region])
 	e.s3Unlocked = s3.New(config.auth, Regions[config.region])
