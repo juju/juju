@@ -84,7 +84,7 @@ func (c *DeployCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 // getCharm returns the charm and charm URL specified on the command line.
-// If --upgrade is specified, the charm must be a local directory , and will
+// If --upgrade is specified, the charm must be a local directory, and will
 // have its version bumped before being returned.
 func (c *DeployCommand) getCharm(defaultSeries string) (charm.Charm, *charm.URL, error) {
 	repo, curl, err := charm.InferRepository(c.CharmName, defaultSeries, c.RepoPath)
