@@ -6,6 +6,36 @@ import (
 	"launchpad.net/tomb"
 )
 
+// Watcher allows us to define Stop and MustErr without consideration
+// for the precise type of the supplied watcher.
+type Watcher interface {
+	Stop() error
+	Err() error
+}
+
+// Stop is used to terminate a watcher and propagate errors to the supplied
+// tomb.
+func Stop(w Watcher, t *tomb.tomb) {
+	if err := w.Stop(); err != nil {
+		t.Kill(err)
+	}
+}
+
+// MustErr is used to verify abnormal termination of a watcher in the event
+// that its output channel is closed, so that error conditions can be
+// consistently propagated to clients. Calling this function when the watcher
+// is still running, or when it has been stopped cleanly, indicates a logical
+// error and will therefore panic.
+func MustErr(w Watcher) error {
+	err := w.Err()
+	if err == nil {
+		panic("watcher was stopped cleanly")
+	} else if err == tomb.ErrStillAlive {
+		panic("watcher is still running")
+	}
+	return err
+}
+
 // ContentChange holds information on the existence
 // and contents of a node. Content will be empty when the
 // node does not exist.
