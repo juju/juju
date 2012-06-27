@@ -354,9 +354,10 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (err error) {
 			if err != nil {
 				return err
 			}
-			relation.Endpoints = append(relation.Endpoints, topoEndpoint{
+			tendpoint := topoEndpoint{
 				serviceKey, endpoint.RelationRole, endpoint.RelationName,
-			})
+			}
+			relation.Endpoints = append(relation.Endpoints, tendpoint)
 		}
 		return t.AddRelation(key, relation)
 	})

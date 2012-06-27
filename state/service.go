@@ -281,7 +281,7 @@ func (s *Service) ClearExposed() error {
 	return nil
 }
 
-// WatchExposed creates a watcher for the exposed flog
+// WatchExposed creates a watcher for the exposed flag
 // of the service.
 func (s *Service) WatchExposed() *FlagWatcher {
 	return newFlagWatcher(s.st, s.zkExposedPath())

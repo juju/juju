@@ -501,13 +501,13 @@ func (t *topology) RelationKey(endpoints ...RelationEndpoint) (string, error) {
 	default:
 		return "", fmt.Errorf("illegal number of relation endpoints provided")
 	}
-	keyedEndpoints := map[string]RelationEndpoint{}
+	serviceEndpoint := map[string]RelationEndpoint{}
 	for _, endpoint := range endpoints {
 		serviceKey, err := t.ServiceKey(endpoint.ServiceName)
 		if err != nil {
 			return "", noRelationFound
 		}
-		keyedEndpoints[serviceKey] = endpoint
+		serviceEndpoint[serviceKey] = endpoint
 	}
 	for relationKey, relation := range t.topology.Relations {
 		if relation.Interface != endpoints[0].Interface {
@@ -518,7 +518,7 @@ func (t *topology) RelationKey(endpoints ...RelationEndpoint) (string, error) {
 		}
 		found := true
 		for _, tendpoint := range relation.Endpoints {
-			endpoint, ok := keyedEndpoints[tendpoint.Service]
+			endpoint, ok := serviceEndpoint[tendpoint.Service]
 			if !ok || tendpoint.RelationName != endpoint.RelationName {
 				found = false
 				break
