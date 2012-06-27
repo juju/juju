@@ -60,7 +60,7 @@ func (s *Service) String() string {
 }
 
 // addUnit adds a new unit to the service. If s is a subordinate service,
-// principalNanem must be the unit key of some principal unit.
+// principalNane must be the unit name of some principal unit.
 func (s *Service) addUnit(principalName string) (unit *Unit, err error) {
 	defer errorContextf(&err, "can't add unit to service %q", s)
 	id, err := s.st.sequence(s.Name())
@@ -71,18 +71,13 @@ func (s *Service) addUnit(principalName string) (unit *Unit, err error) {
 	udoc := unitDoc{
 		Name:        name,
 		ServiceName: s.name,
-		IsPrincipal: principalName == "",
+		Principal:   principalName,
 	}
 	err = s.st.units.Insert(udoc)
 	if err != nil {
 		return nil, err
 	}
-	return &Unit{
-		st:          s.st,
-		name:        name,
-		serviceName: s.name,
-		isPrincipal: principalName == "",
-	}, nil
+	return newUnit(s.st, &udoc), nil
 }
 
 // AddUnit adds a new principal unit to the service.
@@ -113,7 +108,7 @@ func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
 	return s.addUnit(principal.name)
 }
 
-// RemoveUnit() removes a unit.
+// RemovesUnit removes the given unit from s.
 func (s *Service) RemoveUnit(unit *Unit) error {
 	sel := bson.D{
 		{"_id", unit.name},
@@ -138,29 +133,18 @@ func (s *Service) Unit(name string) (*Unit, error) {
 	if err != nil {
 		return nil, fmt.Errorf("can't get unit %q from service %q: %v", name, s.name, err)
 	}
-	return &Unit{
-		st:          s.st,
-		name:        name,
-		serviceName: s.name,
-		isPrincipal: udoc.IsPrincipal,
-	}, nil
+	return newUnit(s.st, udoc), nil
 }
 
 // AllUnits returns all units of the service.
 func (s *Service) AllUnits() (units []*Unit, err error) {
-	udocs := []unitDoc{}
-	err = s.st.units.Find(bson.D{{"servicename", s.name}}).All(&udocs)
+	docs := []unitDoc{}
+	err = s.st.units.Find(bson.D{{"servicename", s.name}}).All(&docs)
 	if err != nil {
 		return nil, fmt.Errorf("can't get all units from service %q: %v", err)
 	}
-	for _, v := range udocs {
-		unit := &Unit{
-			st:          s.st,
-			name:        v.Name,
-			serviceName: s.name,
-			isPrincipal: v.IsPrincipal,
-		}
-		units = append(units, unit)
+	for i := range docs {
+		units = append(units, newUnit(s.st, &docs[i]))
 	}
 	return units, nil
 }
