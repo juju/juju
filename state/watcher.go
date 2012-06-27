@@ -7,6 +7,8 @@ import (
 	"launchpad.net/tomb"
 )
 
+// contentWatcher holds behaviour common to all ContentWatcher clients in
+// the state package.
 type contentWatcher struct {
 	st      *State
 	tomb    tomb.Tomb
@@ -14,11 +16,15 @@ type contentWatcher struct {
 	updated bool
 }
 
+// contentHandler must be implemented by watchers that intend to make use
+// of contentWatcher.
 type contentHandler interface {
 	update(watcher.ContentChange) error
 	done()
 }
 
+// loop handles the common tasks of receiving changes from a watcher.ContentWatcher,
+// and dispatching them to the contentHandler's update method.
 func (w *contentWatcher) loop(handler contentHandler) {
 	defer w.tomb.Done()
 	defer handler.done()
@@ -31,6 +37,7 @@ func (w *contentWatcher) loop(handler contentHandler) {
 		case ch, ok := <-cw.Changes():
 			if !ok {
 				w.tomb.Kill(watcher.MustErr(cw))
+				return
 			}
 			if err := handler.update(ch); err != nil {
 				w.tomb.Kill(err)
@@ -41,11 +48,14 @@ func (w *contentWatcher) loop(handler contentHandler) {
 	}
 }
 
+// Stop stops the watcher and returns any errors encountered while watching.
 func (w *contentWatcher) Stop() error {
 	w.tomb.Kill(nil)
 	return w.tomb.Wait()
 }
 
+// Err returns any error encountered while stopping the watcher, or
+// tome.ErrStillAlive if the watcher is still running.
 func (w *contentWatcher) Err() error {
 	return w.tomb.Err()
 }
@@ -326,7 +336,7 @@ func (w *MachinesWatcher) Changes() <-chan *MachinesChange {
 	return w.changeChan
 }
 
-func (w *MachinesWatcher) update(change ContentChange) error {
+func (w *MachinesWatcher) update(change watcher.ContentChange) error {
 	topology, err := parseTopology(change.Content)
 	if err != nil {
 		return err
@@ -347,7 +357,7 @@ func (w *MachinesWatcher) update(change ContentChange) error {
 	}
 	select {
 	case <-w.tomb.Dying():
-		return
+		return tomb.ErrDying
 	case w.changeChan <- mc:
 	}
 	return nil
@@ -359,8 +369,10 @@ func (w *MachinesWatcher) done() {
 
 type MachineUnitsWatcher struct {
 	contentWatcher
-	machine    *Machine
-	changeChan chan *MachineUnitsChange
+	machine       *Machine
+	changeChan    chan *MachineUnitsChange
+	knownUnitKeys []string
+	knownUnits    map[string]*Unit
 }
 
 type MachineUnitsChange struct {
@@ -376,6 +388,7 @@ func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 		},
 		machine:    m,
 		changeChan: make(chan *MachineUnitsChange),
+		knownUnits: make(map[string]*Unit),
 	}
 	go w.loop(w)
 	return w
@@ -390,32 +403,24 @@ func (w *MachineUnitsWatcher) Changes() <-chan *MachineUnitsChange {
 }
 
 func (w *MachineUnitsWatcher) update(change watcher.ContentChange) error {
-	// knownUnits keeps track of the current units because
-	// when a unit is deleted, we can't create a *Unit from
-	// a key alone.
-	// TODO BROKEN BROKEN
-	knownUnits := make(map[string]*Unit)
-	var knownUnitKeys []string
-
 	topology, err := parseTopology(change.Content)
 	if err != nil {
-		w.tomb.Kill(err)
-		return
+		return err
 	}
 	currentUnitKeys := topology.UnitsForMachine(w.machine.key)
-	added, deleted := diff(currentUnitKeys, knownUnitKeys), diff(knownUnitKeys, currentUnitKeys)
-	knownUnitKeys = currentUnitKeys
+	added := diff(currentUnitKeys, w.knownUnitKeys)
+	deleted := diff(w.knownUnitKeys, currentUnitKeys)
+	w.knownUnitKeys = currentUnitKeys
 	if w.updated && len(added) == 0 && len(deleted) == 0 {
-		// The change was not relevant to this watcher.
-		continue
+		return nil
 	}
 	uc := new(MachineUnitsChange)
 	for _, ukey := range deleted {
-		unit := knownUnits[ukey]
+		unit := w.knownUnits[ukey]
 		if unit == nil {
 			panic("unknown unit deleted: " + ukey)
 		}
-		delete(knownUnits, ukey)
+		delete(w.knownUnits, ukey)
 		uc.Deleted = append(uc.Deleted, unit)
 	}
 	for _, ukey := range added {
@@ -424,14 +429,19 @@ func (w *MachineUnitsWatcher) update(change watcher.ContentChange) error {
 			log.Printf("inconsistent topology: %v", err)
 			continue
 		}
-		knownUnits[ukey] = unit
+		w.knownUnits[ukey] = unit
 		uc.Added = append(uc.Added, unit)
 	}
 	select {
 	case <-w.tomb.Dying():
-		return
+		return tomb.ErrDying
 	case w.changeChan <- uc:
 	}
+	return nil
+}
+
+func (w *MachineUnitsWatcher) done() {
+	close(w.changeChan)
 }
 
 // diff returns all the elements that exist in A but not B.
