@@ -110,6 +110,7 @@ func (e *environ) SetConfig(cfg environs.EnvironConfig) {
 	config := cfg.(*providerConfig)
 	e.configMutex.Lock()
 	defer e.configMutex.Unlock()
+	// TODO(dfc) bug #1018207, renaming an environment once it is in use should be forbidden
 	e.name = config.name
 	e.configUnlocked = config
 	e.ec2Unlocked = ec2.New(config.auth, Regions[config.region])
