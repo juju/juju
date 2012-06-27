@@ -2,10 +2,10 @@ package ec2
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/upstart"
 	"path"
 	"strings"
 )
@@ -47,7 +47,6 @@ type machineConfig struct {
 	authorizedKeys string
 }
 
-
 type requiresError string
 
 func (e requiresError) Error() string {
@@ -83,13 +82,14 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 		"sudo mkdir -p /var/lib/juju",
 		"sudo mkdir -p /var/log/juju")
 
+	jujutools := "/var/lib/juju/tools/" + versionDir(cfg.toolsURL)
+
 	// Make a directory for the tools to live in, then fetch the
 	// tools and unarchive them into it.
 	addScripts(c,
-		"bin="+shquote("/var/lib/juju/tools/"+versionDir(cfg.toolsURL)),
+		"bin="+shquote(jujutools),
 		"mkdir -p $bin",
 		fmt.Sprintf("wget -O - %s | tar xz -C $bin", shquote(cfg.toolsURL)),
-		`export PATH="$bin:$PATH"`,
 	)
 
 	addScripts(c,
@@ -105,7 +105,7 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 	// zookeeper scripts
 	if cfg.zookeeper {
 		addScripts(c,
-			"jujud initzk"+
+			jujutools+"/jujud initzk"+
 				" --instance-id "+cfg.instanceIdAccessor+
 				" --env-type "+shquote(cfg.providerType)+
 				" --zookeeper-servers localhost"+zkPortSuffix+
@@ -121,10 +121,10 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 		// we don't have to second-guess upstart's quoting rules.
 		conf := &upstart.Conf{
 			Service: *svc,
-			Desc: "juju provisioning agent",
-			Cmd: "jujud provisioning"+
-				" --zookeeper-servers "+ fmt.Sprintf("%q", cfg.zookeeperHostAddrs()) +
-				" --log-file /var/log/juju/provision-agent.log"+
+			Desc:    "juju provisioning agent",
+			Cmd: jujutools + "/jujud provisioning" +
+				" --zookeeper-servers " + fmt.Sprintf("%q", cfg.zookeeperHostAddrs()) +
+				" --log-file /var/log/juju/provision-agent.log" +
 				debugFlag,
 			// TODO Out?
 		}
