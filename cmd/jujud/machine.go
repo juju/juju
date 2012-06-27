@@ -53,20 +53,17 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 // NewMachiner starts a machine agent running.
 // The Machiner dies when it encounters an error.
 func NewMachiner(info *state.Info, machineId int) (m *Machiner, err error) {
-	st, err := state.Open(info)
+	m = new(Machiner)
+	m.st, err = state.Open(info)
 	if err != nil {
-		return
+		return nil, err
 	}
-	machine, err := m.st.Machine(machineId)
+	m.machine, err = m.st.Machine(machineId)
 	if err != nil {
-		return
-	}
-	m = &Machiner{
-		st:      st,
-		machine: machine,
+		return nil, err
 	}
 	go m.loop()
-	return
+	return m, nil
 }
 
 // Machiner represents a running machine agent.
