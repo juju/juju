@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 )
 
@@ -52,17 +53,20 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 // NewMachiner starts a machine agent running.
 // The Machiner dies when it encounters an error.
 func NewMachiner(info *state.Info, machineId int) (m *Machiner, err error) {
-	m = new(Machiner)
-	m.st, err = state.Open(info)
+	st, err := state.Open(info)
 	if err != nil {
-		return nil, err
+		return
 	}
-	m.machine, err = m.st.Machine(machineId)
+	machine, err := m.st.Machine(machineId)
 	if err != nil {
-		return nil, err
+		return
+	}
+	m = &Machiner{
+		st:      st,
+		machine: machine,
 	}
 	go m.loop()
-	return m, nil
+	return
 }
 
 // Machiner represents a running machine agent.
@@ -75,9 +79,8 @@ type Machiner struct {
 func (m *Machiner) loop() {
 	defer m.tomb.Done()
 	defer m.st.Close()
-
-	watcher := m.machine.WatchUnits()
-	defer watcher.Stop()
+	w := m.machine.WatchUnits()
+	defer watcher.Stop(w)
 
 	// TODO read initial units, check if they're running
 	// and restart them if not. Also track units so
@@ -86,13 +89,9 @@ func (m *Machiner) loop() {
 		select {
 		case <-m.tomb.Dying():
 			return
-		case change, ok := <-watcher.Changes():
+		case change, ok := <-w.Changes():
 			if !ok {
-				err := watcher.Stop()
-				if err == nil {
-					panic("watcher closed channel with no error")
-				}
-				m.tomb.Kill(err)
+				m.tomb.Kill(watcher.MustErr(w))
 				return
 			}
 			for _, u := range change.Deleted {

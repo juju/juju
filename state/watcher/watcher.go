@@ -15,7 +15,7 @@ type Watcher interface {
 
 // Stop is used to terminate a watcher and propagate errors to the supplied
 // tomb.
-func Stop(w Watcher, t *tomb.tomb) {
+func Stop(w Watcher, t *tomb.Tomb) {
 	if err := w.Stop(); err != nil {
 		t.Kill(err)
 	}
