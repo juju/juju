@@ -90,6 +90,7 @@ func (p *Provisioner) loop() {
 	// Get a new StateInfo from the environment: the one used to
 	// launch the agent may refer to localhost, which will be
 	// unhelpful when attempting to run an agent on a new machine.
+refreshState:
 	for {
 		select {
 		case <-p.tomb.Dying():
@@ -110,6 +111,7 @@ func (p *Provisioner) loop() {
 				p.tomb.Kill(err)
 				return
 			}
+			break refreshState
 		}
 	}
 
@@ -148,6 +150,7 @@ func (p *Provisioner) loop() {
 			// instances.
 			if err := p.processMachines(machines.Added, machines.Deleted); err != nil {
 				p.tomb.Kill(err)
+				return
 			}
 		}
 	}
