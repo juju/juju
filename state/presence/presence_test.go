@@ -362,3 +362,77 @@ func (s *PresenceSuite) TestDisconnectWaitAlive(c *C) {
 	err := presence.WaitAlive(altConn, path, longEnough)
 	c.Assert(err, ErrorMatches, "presence: channel closed while waiting")
 }
+
+func (s *PresenceSuite) TestChildrenWatcher(c *C) {
+	w := presence.NewChildrenWatcher(s.zkConn, "/nodes")
+
+	// Check initial event.
+	assertChange := func(added, deleted []string) {
+		select {
+		case ch, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(ch.Added, DeepEquals, added)
+			c.Assert(ch.Deleted, DeepEquals, deleted)
+		case <-time.After(longEnough):
+			c.Fatalf("expected change, got none")
+		}
+	}
+	assertChange(nil, nil)
+	assertNoChange := func() {
+		select {
+		case ch := <-w.Changes():
+			c.Fatalf("got unexpected change: %#v", ch)
+		case <-time.After(longEnough):
+		}
+	}
+	assertNoChange()
+
+	// Create the node we're watching, check no change.
+	_, err := s.zkConn.Create("/nodes", "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
+	c.Assert(err, IsNil)
+	assertNoChange()
+
+	// Add a pinger, check it's noticed.
+	p1, err := presence.StartPinger(s.zkConn, "/nodes/p1", period)
+	c.Assert(err, IsNil)
+	assertChange([]string{"p1"}, nil)
+	assertNoChange()
+
+	// Add another pinger, check it's noticed.
+	p2, err := presence.StartPinger(s.zkConn, "/nodes/p2", period)
+	c.Assert(err, IsNil)
+	assertChange([]string{"p2"}, nil)
+
+	// Stop watcher, check closed.
+	err = w.Stop()
+	c.Assert(err, IsNil)
+	assertClosed := func() {
+		select {
+		case _, ok := <-w.Changes():
+			c.Assert(ok, Equals, false)
+		case <-time.After(longEnough):
+			c.Fatalf("changes channel not closed")
+		}
+	}
+	assertClosed()
+
+	// Stop a pinger, wait long enough for it to be considered dead.
+	err = p1.Stop()
+	c.Assert(err, IsNil)
+	<-time.After(longEnough)
+
+	// Start a new watcher, check initial event.
+	w = presence.NewChildrenWatcher(s.zkConn, "/nodes")
+	assertChange([]string{"p2"}, nil)
+	assertNoChange()
+
+	// Kill the remaining pinger, check it's noticed.
+	err = p2.Kill()
+	assertChange(nil, []string{"p2"})
+	assertNoChange()
+
+	// Stop the watcher, check closed again.
+	err = w.Stop()
+	c.Assert(err, IsNil)
+	assertClosed()
+}

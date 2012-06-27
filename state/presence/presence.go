@@ -9,6 +9,7 @@ package presence
 import (
 	"fmt"
 	zk "launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 	"time"
 )
@@ -278,4 +279,157 @@ func WaitAlive(conn *zk.Conn, path string, timeout time.Duration) error {
 		return fmt.Errorf("presence: still not alive after timeout")
 	}
 	return nil
+}
+
+// ChildrenWatcher mimics state/watcher's ChildrenWatcher, but treats nodes that
+// do not have active Pingers as nonexistent.
+type ChildrenWatcher struct {
+	conn    *zk.Conn
+	tomb    tomb.Tomb
+	path    string
+	updates chan aliveChange
+	changes chan watcher.ChildrenChange
+}
+
+// aliveChange is used internally by ChildrenWatcher to communicate node
+// status changes from childLoop goroutines to the loop goroutine.
+type aliveChange struct {
+	key   string
+	alive bool
+}
+
+// NewChildrenWatcher returns a ChildrenWatcher that notifies of the
+// presence and absence of Pingers in the direct child nodes of path.
+func NewChildrenWatcher(conn *zk.Conn, path string) *ChildrenWatcher {
+	w := &ChildrenWatcher{
+		conn:    conn,
+		path:    path,
+		updates: make(chan aliveChange),
+		changes: make(chan watcher.ChildrenChange),
+	}
+	go w.loop()
+	return w
+}
+
+// Changes returns a channel on which presence changes can be received.
+// The first event returns the current set of children on which Pingers
+// are active.
+func (w *ChildrenWatcher) Changes() <-chan watcher.ChildrenChange {
+	return w.changes
+}
+
+// Stop terminates the watcher and returns any error encountered while watching.
+func (w *ChildrenWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
+}
+
+// Err returns the error that stopped the watcher, or
+// tomb.ErrStillAlive if the watcher is still running.
+func (w *ChildrenWatcher) Err() error {
+	return w.tomb.Err()
+}
+
+func (w *ChildrenWatcher) loop() {
+	// Note that we never close w.updates: child loops may still be attempting
+	// to send events while we're shutting down. They'll terminate in good time,
+	// when they notice w.tomb.Dying(), so the fact that we're no longer reading
+	// from w.updates won't block anything for long.
+	defer w.tomb.Done()
+	defer close(w.changes)
+	cw := watcher.NewChildrenWatcher(w.conn, w.path)
+	defer watcher.Stop(cw, &w.tomb)
+	emittedValue := false
+	for {
+		var change watcher.ChildrenChange
+		select {
+		case <-w.tomb.Dying():
+			return
+		case ch, ok := <-cw.Changes():
+			var err error
+			if !ok {
+				err = watcher.MustErr(cw)
+			} else {
+				change, err = w.startWatches(ch)
+			}
+			if err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			if emittedValue && len(change.Added) == 0 {
+				continue
+			}
+		case ch, ok := <-w.updates:
+			if !ok {
+				panic("updates channel closed unexpectedly")
+			}
+			if ch.alive {
+				change = watcher.ChildrenChange{Added: []string{ch.key}}
+			} else {
+				change = watcher.ChildrenChange{Deleted: []string{ch.key}}
+			}
+		}
+		select {
+		case <-w.tomb.Dying():
+			return
+		case w.changes <- change:
+			emittedValue = true
+		}
+	}
+}
+
+// startWatches starts new presence watches on newly-added candidates. It
+// returns a ChildrenChange representing only those changes that correspond
+// to the presence of a Pinger on a candidate node. Deleted nodes are ignored;
+// childLoop will terminate on node deletion.
+func (w *ChildrenWatcher) startWatches(ch watcher.ChildrenChange) (watcher.ChildrenChange, error) {
+	change := watcher.ChildrenChange{}
+	for _, key := range ch.Added {
+		path := w.path + "/" + key
+		alive, aliveW, err := AliveW(w.conn, path)
+		if err != nil {
+			return watcher.ChildrenChange{}, err
+		}
+		if alive {
+			change.Added = append(change.Added, key)
+		}
+		go w.childLoop(key, path, aliveW)
+	}
+	return change, nil
+}
+
+// childLoop sends aliveChange events to w.updates, in response to presence
+// changes received from watch, until either w is stopped or the presence node
+// is deleted. When the node still exists -- ie when the corresponding Pinger
+// has been Stopped (or has just failed) rather than being Killed -- we
+// maintain the watch, because w.watcher will not notify us of a new Pinger
+// starting on an existing node.
+func (w *ChildrenWatcher) childLoop(key, path string, watch <-chan bool) {
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return
+		case alive, ok := <-watch:
+			if !ok {
+				w.tomb.Killf("presence watch on %q failed", path)
+				return
+			}
+			select {
+			case <-w.tomb.Dying():
+				return
+			case w.updates <- aliveChange{key, alive}:
+			}
+			if alive {
+				continue
+			}
+			stat, err := w.conn.Exists(path)
+			if err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			if stat == nil {
+				return
+			}
+		}
+	}
 }
