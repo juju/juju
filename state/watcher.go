@@ -392,9 +392,10 @@ type MachinesWatcher struct {
 }
 
 // MachinesChange contains information about
-// machines that have been added or deleted.
+// machines that have been added or removed.
 type MachinesChange struct {
-	Added, Deleted []*Machine
+	Added   []*Machine
+	Removed []*Machine
 }
 
 // newMachinesWatcher creates and starts a new watcher for changes to
@@ -457,7 +458,7 @@ func (w *MachinesWatcher) loop() {
 				mc.Added = append(mc.Added, &Machine{w.st, m})
 			}
 			for _, m := range deleted {
-				mc.Deleted = append(mc.Deleted, &Machine{w.st, m})
+				mc.Removed = append(mc.Removed, &Machine{w.st, m})
 			}
 			select {
 			case <-w.tomb.Dying():
@@ -478,7 +479,8 @@ type MachineUnitsWatcher struct {
 }
 
 type MachineUnitsChange struct {
-	Added, Deleted []*Unit
+	Added   []*Unit
+	Removed []*Unit
 }
 
 // newMachinesWatcher creates and starts a new machine watcher.
@@ -547,10 +549,10 @@ func (w *MachineUnitsWatcher) loop() {
 			for _, ukey := range deleted {
 				unit := knownUnits[ukey]
 				if unit == nil {
-					panic("unknown unit deleted: " + ukey)
+					panic("unknown unit removed: " + ukey)
 				}
 				delete(knownUnits, ukey)
-				uc.Deleted = append(uc.Deleted, unit)
+				uc.Removed = append(uc.Removed, unit)
 			}
 			for _, ukey := range added {
 				unit, err := w.st.unitFromKey(topology, ukey)

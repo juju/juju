@@ -352,7 +352,7 @@ var machinesWatchTests = []machinesWatchTest{
 			return s.RemoveMachine(1)
 		},
 		func(s *state.State) *state.MachinesChange {
-			return &state.MachinesChange{Deleted: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
+			return &state.MachinesChange{Removed: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
 		},
 	},
 }
@@ -417,7 +417,7 @@ var watchMachineUnitsTests = []struct {
 			return units[0].UnassignFromMachine()
 		},
 		func(units []*state.Unit) *state.MachineUnitsChange {
-			return &state.MachineUnitsChange{Deleted: []*state.Unit{units[0], units[1]}}
+			return &state.MachineUnitsChange{Removed: []*state.Unit{units[0], units[1]}}
 		},
 	},
 	{
@@ -425,7 +425,7 @@ var watchMachineUnitsTests = []struct {
 			return units[2].UnassignFromMachine()
 		},
 		func(units []*state.Unit) *state.MachineUnitsChange {
-			return &state.MachineUnitsChange{Deleted: []*state.Unit{units[2]}}
+			return &state.MachineUnitsChange{Removed: []*state.Unit{units[2]}}
 		},
 	},
 }
@@ -464,7 +464,7 @@ func (s *StateSuite) TestWatchMachineUnits(c *C) {
 		case got, ok := <-unitsWatcher.Changes():
 			c.Assert(ok, Equals, true)
 			c.Assert(unitNames(got.Added), DeepEquals, unitNames(want.Added))
-			c.Assert(unitNames(got.Deleted), DeepEquals, unitNames(want.Deleted))
+			c.Assert(unitNames(got.Removed), DeepEquals, unitNames(want.Removed))
 		case <-time.After(500 * time.Millisecond):
 			c.Fatalf("didn't get change: %v", want)
 		}

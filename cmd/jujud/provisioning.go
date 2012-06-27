@@ -157,7 +157,7 @@ func (p *Provisioner) innerLoop() {
 			}
 			// TODO(dfc) fire process machines periodically to shut down unknown
 			// instances.
-			if err := p.processMachines(machines.Added, machines.Deleted); err != nil {
+			if err := p.processMachines(machines.Added, machines.Removed); err != nil {
 				p.tomb.Kill(err)
 			}
 		}
