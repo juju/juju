@@ -345,7 +345,6 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (err error) {
 		relation := &topoRelation{
 			Interface: endpoints[0].Interface,
 			Scope:     ScopeGlobal,
-			Services:  map[string]*topoRelationService{},
 		}
 		for _, endpoint := range endpoints {
 			if endpoint.RelationScope == ScopeContainer {
@@ -355,10 +354,10 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (err error) {
 			if err != nil {
 				return err
 			}
-			relation.Services[serviceKey] = &topoRelationService{
-				RelationRole: endpoint.RelationRole,
-				RelationName: endpoint.RelationName,
+			tendpoint := topoEndpoint{
+				serviceKey, endpoint.RelationRole, endpoint.RelationName,
 			}
+			relation.Endpoints = append(relation.Endpoints, tendpoint)
 		}
 		return t.AddRelation(key, relation)
 	})
