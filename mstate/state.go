@@ -34,7 +34,7 @@ func (s *State) AddMachine() (m *Machine, err error) {
 	return &Machine{st: s, id: id}, nil
 }
 
-// RemoveMachine removes the machine with the given id.
+// RemoveMachine removes the machine with the the given id.
 func (s *State) RemoveMachine(id int) error {
 	err := s.machines.Remove(bson.D{{"_id", id}})
 	if err != nil {
@@ -84,7 +84,7 @@ func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bu
 	return newCharm(s, cdoc)
 }
 
-// Charm returns the charm with given URL.
+// Charm returns the charm with the given URL.
 func (s *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
 	err := s.charms.Find(bson.D{{"_id", curl}}).One(cdoc)
