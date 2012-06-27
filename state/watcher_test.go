@@ -113,44 +113,13 @@ func (s *StateSuite) TestServiceWatchExposed(c *C) {
 }
 
 var serviceUnitTests = []struct {
-	test func(s *state.Service, us []*state.Unit) error
-	want func(us []*state.Unit) *state.ServiceUnitsChange
+	testOp string
+	idx    int
 }{
-	{
-		func(s *state.Service, us []*state.Unit) error {
-			return nil
-		},
-		func(us []*state.Unit) *state.ServiceUnitsChange {
-			return &state.ServiceUnitsChange{}
-		},
-	},
-	{
-		func(s *state.Service, us []*state.Unit) (err error) {
-			us[0], err = s.AddUnit()
-			return
-		},
-		func(us []*state.Unit) *state.ServiceUnitsChange {
-			return &state.ServiceUnitsChange{[]*state.Unit{us[0]}, nil}
-		},
-	},
-	{
-		func(s *state.Service, us []*state.Unit) (err error) {
-			us[1], err = s.AddUnit()
-			return
-		},
-		func(us []*state.Unit) *state.ServiceUnitsChange {
-			return &state.ServiceUnitsChange{[]*state.Unit{us[1]}, nil}
-		},
-	},
-	{
-		func(s *state.Service, us []*state.Unit) (err error) {
-			err = s.RemoveUnit(us[0])
-			return
-		},
-		func(us []*state.Unit) *state.ServiceUnitsChange {
-			return &state.ServiceUnitsChange{nil, []*state.Unit{us[0]}}
-		},
-	},
+	{"none", 0},
+	{"add", 0},
+	{"add", 1},
+	{"remove", 0},
 }
 
 func (s *StateSuite) TestServiceWatchUnits(c *C) {
@@ -164,15 +133,25 @@ func (s *StateSuite) TestServiceWatchUnits(c *C) {
 
 	for i, test := range serviceUnitTests {
 		c.Logf("test %d", i)
-		err := test.test(wordpress, units)
-		c.Assert(err, IsNil)
-		want := test.want(units)
+		var want *state.ServiceUnitsChange
+		switch test.testOp {
+		case "none":
+			want = &state.ServiceUnitsChange{}
+		case "add":
+			units[test.idx], err = wordpress.AddUnit()
+			c.Assert(err, IsNil)
+			want = &state.ServiceUnitsChange{[]*state.Unit{units[test.idx]}, nil}
+		case "remove":
+			err = wordpress.RemoveUnit(units[test.idx])
+			c.Assert(err, IsNil)
+			want = &state.ServiceUnitsChange{nil, []*state.Unit{units[test.idx]}}
+		}
 		select {
 		case got, ok := <-unitsWatcher.Changes():
 			c.Assert(ok, Equals, true)
 			c.Assert(got, DeepEquals, want)
 		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("didn't get change: %#v", test.want)
+			c.Fatalf("didn't get change: %#v", want)
 		}
 	}
 

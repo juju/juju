@@ -52,8 +52,8 @@ type ServiceUnitsChange struct {
 	Added, Removed []*Unit
 }
 
-// ServiceUnitsWatcher observes changes to the units of
-// a service.
+// ServiceUnitsWatcher observes the adding and removing
+// of units to and from a service.
 type ServiceUnitsWatcher struct {
 	st         *State
 	service    *Service
@@ -78,7 +78,7 @@ func newServiceUnitsWatcher(service *Service) *ServiceUnitsWatcher {
 // Changes returns a channel that will receive changes when units
 // are added to or removed from the service. The Added field in 
 // the first event on the channel holds the initial state as returned 
-// by Service.AllUnits().
+// by Service.AllUnits.
 func (w *ServiceUnitsWatcher) Changes() <-chan *ServiceUnitsChange {
 	return w.changeChan
 }
@@ -148,8 +148,8 @@ func (w *ServiceUnitsWatcher) loop() {
 			for _, unitKey := range added {
 				unit, err := w.st.unitFromKey(topology, unitKey)
 				if err != nil {
-					w.tomb.Killf("can't read unit %q: %v", unitKey, err)
-					return
+					log.Printf("can't read unit %q: %v", unitKey, err)
+					continue
 				}
 				knownUnits[unitKey] = unit
 				serviceUnitsChange.Added = append(serviceUnitsChange.Added, unit)
