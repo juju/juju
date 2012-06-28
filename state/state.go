@@ -134,7 +134,7 @@ func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bu
 	return newCharm(s, curl, data)
 }
 
-// Charm returns a charm by the given id.
+// Charm returns the charm with the given URL.
 func (s *State) Charm(curl *charm.URL) (stch *Charm, err error) {
 	defer errorContextf(&err, "can't get charm %q", curl)
 	path, err := charmPath(curl)
@@ -224,7 +224,7 @@ func (s *State) RemoveService(svc *Service) (err error) {
 	return zkRemoveTree(s.zk, svc.zkPath())
 }
 
-// Service returns a service state by name.
+// Service returns the service with the given name.
 func (s *State) Service(name string) (service *Service, err error) {
 	defer errorContextf(&err, "can't get service %q", name)
 	topology, err := readTopology(s.zk)
@@ -345,7 +345,6 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (err error) {
 		relation := &topoRelation{
 			Interface: endpoints[0].Interface,
 			Scope:     ScopeGlobal,
-			Services:  map[string]*topoRelationService{},
 		}
 		for _, endpoint := range endpoints {
 			if endpoint.RelationScope == ScopeContainer {
@@ -355,10 +354,10 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (err error) {
 			if err != nil {
 				return err
 			}
-			relation.Services[serviceKey] = &topoRelationService{
-				RelationRole: endpoint.RelationRole,
-				RelationName: endpoint.RelationName,
+			tendpoint := topoEndpoint{
+				serviceKey, endpoint.RelationRole, endpoint.RelationName,
 			}
+			relation.Endpoints = append(relation.Endpoints, tendpoint)
 		}
 		return t.AddRelation(key, relation)
 	})

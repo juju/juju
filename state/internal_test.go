@@ -426,15 +426,15 @@ func (s *TopologySuite) TestRelation(c *C) {
 	c.Assert(relation, IsNil)
 	c.Assert(err, ErrorMatches, `relation "relation-1" does not exist`)
 	s.t.AddService("service-p", "riak")
-	s.t.AddRelation("relation-1", &topoRelation{
+	r := &topoRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services:  map[string]*topoRelationService{"service-p": &topoRelationService{RolePeer, "cache"}},
-	})
+		Endpoints: []topoEndpoint{topoEndpoint{"service-p", RolePeer, "cache"}},
+	}
+	s.t.AddRelation("relation-1", r)
 	relation, err = s.t.Relation("relation-1")
 	c.Assert(err, IsNil)
-	c.Assert(relation, NotNil)
-	c.Assert(relation.Services["service-p"].RelationRole, Equals, RolePeer)
+	c.Assert(relation, DeepEquals, r)
 }
 
 func (s *TopologySuite) TestAddRelation(c *C) {
@@ -445,27 +445,26 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 	c.Assert(err, ErrorMatches, `relation "relation-1" does not exist`)
 	s.t.AddService("service-p", "mysql")
 	s.t.AddService("service-r", "wordpress")
-	err = s.t.AddRelation("relation-1", &topoRelation{
+	r := &topoRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services: map[string]*topoRelationService{
-			"service-p": &topoRelationService{RoleProvider, "db"},
-			"service-r": &topoRelationService{RoleRequirer, "db"},
+		Endpoints: []topoEndpoint{
+			topoEndpoint{"service-p", RoleProvider, "db"},
+			topoEndpoint{"service-r", RoleRequirer, "db"},
 		},
-	})
+	}
+	err = s.t.AddRelation("relation-1", r)
 	c.Assert(err, IsNil)
 	relation, err = s.t.Relation("relation-1")
 	c.Assert(err, IsNil)
-	c.Assert(relation, NotNil)
-	c.Assert(relation.Services["service-p"].RelationRole, Equals, RoleProvider)
-	c.Assert(relation.Services["service-r"].RelationRole, Equals, RoleRequirer)
+	c.Assert(relation, DeepEquals, r)
 
 	err = s.t.AddRelation("relation-2", &topoRelation{
 		Interface: "",
 		Scope:     ScopeGlobal,
-		Services: map[string]*topoRelationService{
-			"service-p": &topoRelationService{RoleProvider, "db"},
-			"service-r": &topoRelationService{RoleRequirer, "db"},
+		Endpoints: []topoEndpoint{
+			topoEndpoint{"service-p", RoleProvider, "db"},
+			topoEndpoint{"service-r", RoleRequirer, "db"},
 		},
 	})
 	c.Assert(err, ErrorMatches, `relation interface is empty`)
@@ -473,15 +472,15 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 	err = s.t.AddRelation("relation-3", &topoRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services:  map[string]*topoRelationService{},
+		Endpoints: []topoEndpoint{},
 	})
 	c.Assert(err, ErrorMatches, `relation has no services`)
 
 	err = s.t.AddRelation("relation-4", &topoRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services: map[string]*topoRelationService{
-			"service-p": &topoRelationService{RoleProvider, "db"},
+		Endpoints: []topoEndpoint{
+			topoEndpoint{"service-p", RoleProvider, "db"},
 		},
 	})
 	c.Assert(err, ErrorMatches, `relation has provider but no requirer`)
@@ -489,9 +488,9 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 	err = s.t.AddRelation("relation-5", &topoRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services: map[string]*topoRelationService{
-			"service-p": &topoRelationService{RoleProvider, "db"},
-			"service-r": &topoRelationService{RolePeer, "db"},
+		Endpoints: []topoEndpoint{
+			topoEndpoint{"service-p", RoleProvider, "db"},
+			topoEndpoint{"service-r", RolePeer, "db"},
 		},
 	})
 	c.Assert(err, ErrorMatches, `relation has provider but no requirer`)
@@ -499,10 +498,10 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 	err = s.t.AddRelation("relation-6", &topoRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services: map[string]*topoRelationService{
-			"service-p": &topoRelationService{RoleProvider, "db"},
-			"service-r": &topoRelationService{RoleRequirer, "db"},
-			"service-e": &topoRelationService{RolePeer, "db"},
+		Endpoints: []topoEndpoint{
+			topoEndpoint{"service-p", RoleProvider, "db"},
+			topoEndpoint{"service-r", RoleRequirer, "db"},
+			topoEndpoint{"service-e", RolePeer, "db"},
 		},
 	})
 	c.Assert(err, ErrorMatches, `relation with mixed peer, provider, and requirer roles`)
@@ -510,9 +509,9 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 	err = s.t.AddRelation("relation-7", &topoRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services: map[string]*topoRelationService{
-			"service-p": &topoRelationService{RoleProvider, "db"},
-			"illegal":   &topoRelationService{RoleRequirer, "db"},
+		Endpoints: []topoEndpoint{
+			topoEndpoint{"service-p", RoleProvider, "db"},
+			topoEndpoint{"illegal", RoleRequirer, "db"},
 		},
 	})
 	c.Assert(err, ErrorMatches, `service with key "illegal" not found`)
@@ -520,9 +519,9 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 	err = s.t.AddRelation("relation-1", &topoRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services: map[string]*topoRelationService{
-			"service-p": &topoRelationService{RoleProvider, "db"},
-			"service-r": &topoRelationService{RoleRequirer, "db"},
+		Endpoints: []topoEndpoint{
+			topoEndpoint{"service-p", RoleProvider, "db"},
+			topoEndpoint{"service-r", RoleRequirer, "db"},
 		},
 	})
 	c.Assert(err, ErrorMatches, `relation key "relation-1" already in use`)
@@ -537,8 +536,8 @@ func (s *TopologySuite) TestRelationKeys(c *C) {
 	s.t.AddRelation("relation-1", &topoRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services: map[string]*topoRelationService{
-			"service-p": &topoRelationService{RolePeer, "cache"},
+		Endpoints: []topoEndpoint{
+			topoEndpoint{"service-p", RolePeer, "cache"},
 		},
 	})
 	keys = s.t.RelationKeys()
@@ -547,8 +546,8 @@ func (s *TopologySuite) TestRelationKeys(c *C) {
 	s.t.AddRelation("relation-2", &topoRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services: map[string]*topoRelationService{
-			"service-p": &topoRelationService{RolePeer, "cache"},
+		Endpoints: []topoEndpoint{
+			topoEndpoint{"service-p", RolePeer, "cache"},
 		},
 	})
 	keys = s.t.RelationKeys()
@@ -565,15 +564,15 @@ func (s *TopologySuite) TestRelationsForService(c *C) {
 	s.t.AddRelation("relation-0", &topoRelation{
 		Interface: "ifce0",
 		Scope:     ScopeGlobal,
-		Services: map[string]*topoRelationService{
-			"service-p": &topoRelationService{RolePeer, "cache"},
+		Endpoints: []topoEndpoint{
+			topoEndpoint{"service-p", RolePeer, "cache"},
 		},
 	})
 	s.t.AddRelation("relation-1", &topoRelation{
 		Interface: "ifce1",
 		Scope:     ScopeGlobal,
-		Services: map[string]*topoRelationService{
-			"service-p": &topoRelationService{RolePeer, "cache"},
+		Endpoints: []topoEndpoint{
+			topoEndpoint{"service-p", RolePeer, "cache"},
 		},
 	})
 	relations, err = s.t.RelationsForService("service-p")
@@ -597,22 +596,15 @@ func (s *TopologySuite) TestRemoveRelation(c *C) {
 	err := s.t.AddRelation("relation-1", &topoRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services: map[string]*topoRelationService{
-			"service-p": &topoRelationService{RoleProvider, "db"},
-			"service-r": &topoRelationService{RoleRequirer, "db"},
+		Endpoints: []topoEndpoint{
+			topoEndpoint{"service-p", RoleProvider, "db"},
+			topoEndpoint{"service-r", RoleRequirer, "db"},
 		},
 	})
 	c.Assert(err, IsNil)
-
-	relation, err := s.t.Relation("relation-1")
+	err = s.t.RemoveRelation("relation-1")
 	c.Assert(err, IsNil)
-	c.Assert(relation, NotNil)
-	c.Assert(relation.Services["service-p"].RelationRole, Equals, RoleProvider)
-	c.Assert(relation.Services["service-r"].RelationRole, Equals, RoleRequirer)
-
-	s.t.RemoveRelation("relation-1")
-
-	relation, err = s.t.Relation("relation-1")
+	relation, err := s.t.Relation("relation-1")
 	c.Assert(relation, IsNil)
 	c.Assert(err, ErrorMatches, `relation "relation-1" does not exist`)
 }
@@ -624,8 +616,8 @@ func (s *TopologySuite) TestRemoveServiceWithRelations(c *C) {
 	s.t.AddRelation("relation-1", &topoRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services: map[string]*topoRelationService{
-			"service-p": &topoRelationService{RolePeer, "cache"},
+		Endpoints: []topoEndpoint{
+			topoEndpoint{"service-p", RolePeer, "cache"},
 		},
 	})
 
@@ -645,17 +637,17 @@ func (s *TopologySuite) TestRelationKeyEndpoints(c *C) {
 	s.t.AddRelation("relation-0", &topoRelation{
 		Interface: "ifce1",
 		Scope:     ScopeGlobal,
-		Services: map[string]*topoRelationService{
-			"service-p": &topoRelationService{RoleProvider, "db"},
-			"service-r": &topoRelationService{RoleRequirer, "db"},
+		Endpoints: []topoEndpoint{
+			topoEndpoint{"service-p", RoleProvider, "db"},
+			topoEndpoint{"service-r", RoleRequirer, "db"},
 		},
 	})
 	s.t.AddRelation("relation-1", &topoRelation{
 		Interface: "ifce2",
 		Scope:     ScopeGlobal,
-		Services: map[string]*topoRelationService{
-			"service-p": &topoRelationService{RoleProvider, "db"},
-			"service-r": &topoRelationService{RoleRequirer, "db"},
+		Endpoints: []topoEndpoint{
+			topoEndpoint{"service-p", RoleProvider, "db"},
+			topoEndpoint{"service-r", RoleRequirer, "db"},
 		},
 	})
 
@@ -700,9 +692,9 @@ func (s *TopologySuite) TestRelationKeyIllegalEndpoints(c *C) {
 	s.t.AddRelation("relation-0", &topoRelation{
 		Interface: "ifce1",
 		Scope:     ScopeGlobal,
-		Services: map[string]*topoRelationService{
-			"service-p": &topoRelationService{RoleProvider, "db"},
-			"service-r": &topoRelationService{RoleRequirer, "db"},
+		Endpoints: []topoEndpoint{
+			topoEndpoint{"service-p", RoleProvider, "db"},
+			topoEndpoint{"service-r", RoleRequirer, "db"},
 		},
 	})
 
@@ -725,15 +717,15 @@ func (s *TopologySuite) TestPeerRelationKeyEndpoints(c *C) {
 	s.t.AddRelation("relation-0", &topoRelation{
 		Interface: "ifce1",
 		Scope:     ScopeGlobal,
-		Services: map[string]*topoRelationService{
-			"service-p": &topoRelationService{RolePeer, "ring"},
+		Endpoints: []topoEndpoint{
+			topoEndpoint{"service-p", RolePeer, "ring"},
 		},
 	})
 	s.t.AddRelation("relation-1", &topoRelation{
 		Interface: "ifce2",
 		Scope:     ScopeGlobal,
-		Services: map[string]*topoRelationService{
-			"service-p": &topoRelationService{RolePeer, "ring"},
+		Endpoints: []topoEndpoint{
+			topoEndpoint{"service-p", RolePeer, "ring"},
 		},
 	})
 
@@ -756,8 +748,8 @@ func (s *TopologySuite) TestPeerRelationKeyIllegalEndpoints(c *C) {
 	s.t.AddRelation("relation-0", &topoRelation{
 		Interface: "ifce",
 		Scope:     ScopeGlobal,
-		Services: map[string]*topoRelationService{
-			"service-p": &topoRelationService{RolePeer, "ring"},
+		Endpoints: []topoEndpoint{
+			topoEndpoint{"service-p", RolePeer, "ring"},
 		},
 	})
 
