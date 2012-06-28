@@ -18,6 +18,7 @@ import (
 	"strings"
 )
 
+// region must be a valid AWS region
 var functionalConfig = []byte(`
 environments:
   sample:
@@ -147,7 +148,7 @@ func (srv *localServer) stopServer(c *C) {
 	srv.s3srv.Quit()
 	// Clear out the region because the server address is
 	// no longer valid.
-	ec2.Regions["test"] = aws.Region{}
+	delete(ec2.Regions,"test")
 }
 
 // localServerSuite contains tests that run against a fake EC2 server
