@@ -33,21 +33,6 @@ func (m *Machine) InstanceId() (string, error) {
 	return mdoc.InstanceId, nil
 }
 
-// Units returns all the units that have been assigned to the machine.
-func (m *Machine) Units() (units []*Unit, err error) {
-	defer errorContextf(&err, "can't get all assigned units of machine %s", m)
-	docs := []unitDoc{}
-	err = m.st.units.Find(bson.D{{"machineid", m.id}}).All(&docs)
-	for _, doc := range docs {
-		svc, err := m.st.Service(doc.ServiceName)
-		if err != nil {
-			return nil, err
-		}
-		units = append(units, newUnit(svc, &doc))
-	}
-	return units, nil
-}
-
 // SetInstanceId sets the provider specific machine id for this machine.
 func (m *Machine) SetInstanceId(id string) error {
 	change := bson.D{{"$set", bson.D{{"instanceid", id}}}}

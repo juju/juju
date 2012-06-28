@@ -140,12 +140,3 @@ func (s *State) AllServices() (services []*Service, err error) {
 	}
 	return services, nil
 }
-
-func (s *State) unitDoc(name string) (*unitDoc, error) {
-	udoc := &unitDoc{}
-	err := s.units.Find(bson.D{{"_id", name}}).One(udoc)
-	if err != nil {
-		return nil, err
-	}
-	return udoc, nil
-}

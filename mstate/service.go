@@ -60,7 +60,7 @@ func (s *Service) String() string {
 }
 
 // addUnit adds a new unit to the service. If s is a subordinate service,
-// principalName must be the unit name of some principal unit.
+// principalNane must be the unit name of some principal unit.
 func (s *Service) addUnit(principalName string) (unit *Unit, err error) {
 	defer errorContextf(&err, "can't add unit to service %q", s)
 	id, err := s.st.sequence(s.Name())
@@ -73,18 +73,11 @@ func (s *Service) addUnit(principalName string) (unit *Unit, err error) {
 		ServiceName: s.name,
 		Principal:   principalName,
 	}
-	if principalName != "" {
-		pdoc, err := s.st.unitDoc(principalName)
-		if err != nil {
-			return nil, err
-		}
-		udoc.MachineId = pdoc.MachineId
-	}
 	err = s.st.units.Insert(udoc)
 	if err != nil {
 		return nil, err
 	}
-	return newUnit(s, &udoc), nil
+	return newUnit(s.st, &udoc), nil
 }
 
 // AddUnit adds a new principal unit to the service.
@@ -130,16 +123,17 @@ func (s *Service) RemoveUnit(unit *Unit) error {
 }
 
 // Unit returns the service's unit with name.
-func (s *Service) Unit(name string) (u *Unit, err error) {
-	defer errorContextf(&err, "can't get unit %q from service %q", name, s)
-	udoc, err := s.st.unitDoc(name)
+func (s *Service) Unit(name string) (*Unit, error) {
+	udoc := &unitDoc{}
+	sel := bson.D{
+		{"_id", name},
+		{"servicename", s.name},
+	}
+	err := s.st.units.Find(sel).One(udoc)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("can't get unit %q from service %q: %v", name, s.name, err)
 	}
-	if udoc.ServiceName != s.name {
-		return nil, errors.New("service name does not match service")
-	}
-	return newUnit(s, udoc), nil
+	return newUnit(s.st, udoc), nil
 }
 
 // AllUnits returns all units of the service.
@@ -150,7 +144,7 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 		return nil, fmt.Errorf("can't get all units from service %q: %v", err)
 	}
 	for i := range docs {
-		units = append(units, newUnit(s, &docs[i]))
+		units = append(units, newUnit(s.st, &docs[i]))
 	}
 	return units, nil
 }
