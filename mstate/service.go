@@ -69,7 +69,7 @@ func (s *Service) newUnitName() (string, error) {
 	return name, nil
 }
 
-// addUnit adds the named unit part of unitSet.
+// addUnit adds the named unit, which is part of unitSet.
 func (s *Service) addUnit(name string, unitSet string) (unit *Unit, err error) {
 	defer errorContextf(&err, "can't add unit to service %q", s)
 	udoc := unitDoc{
@@ -81,7 +81,7 @@ func (s *Service) addUnit(name string, unitSet string) (unit *Unit, err error) {
 	if err != nil {
 		return nil, err
 	}
-	return newUnit(s.st, &udoc), nil
+	return newUnit(s, &udoc), nil
 }
 
 // AddUnit adds a new principal unit to the service.
@@ -149,7 +149,7 @@ func (s *Service) Unit(name string) (*Unit, error) {
 	if err != nil {
 		return nil, fmt.Errorf("can't get unit %q from service %q: %v", name, s.name, err)
 	}
-	return newUnit(s.st, udoc), nil
+	return newUnit(s, udoc), nil
 }
 
 // AllUnits returns all units of the service.
@@ -160,7 +160,7 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 		return nil, fmt.Errorf("can't get all units from service %q: %v", err)
 	}
 	for i := range docs {
-		units = append(units, newUnit(s.st, &docs[i]))
+		units = append(units, newUnit(s, &docs[i]))
 	}
 	return units, nil
 }

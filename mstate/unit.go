@@ -25,15 +25,15 @@ type unitSet struct {
 
 // Unit represents the state of a service unit.
 type Unit struct {
-	st *State
+	svc *Service
 	*unitDoc
 	*unitSet
 }
 
-func newUnit(st *State, udoc *unitDoc) *Unit {
+func newUnit(svc *Service, udoc *unitDoc) *Unit {
 	uset := &unitSet{Principal: udoc.UnitSet}
 	return &Unit{
-		st:      st,
+		svc:     svc,
 		unitDoc: udoc,
 		unitSet: uset,
 	}
