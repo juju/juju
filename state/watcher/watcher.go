@@ -7,8 +7,8 @@ import (
 )
 
 // ContentChange holds information on the existence
-// and contents of a node. Version and Content are only
-// valid when Exists is true.
+// and contents of a node. Version and Content will be
+// zeroed when exists is false.
 type ContentChange struct {
 	Exists  bool
 	Version int
