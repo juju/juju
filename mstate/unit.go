@@ -30,6 +30,7 @@ func (u *unitDoc) uSet() string {
 // its subsidiaries.
 type unitSet struct {
 	Principal string `bson:"_id"`
+	MachineId int
 }
 
 // Unit represents the state of a service unit.
@@ -61,19 +62,18 @@ func (u *Unit) IsPrincipal() bool {
 
 // AssignedMachineId returns the id of the assigned machine.
 func (u *Unit) AssignedMachineId() (id int, err error) {
-	mdoc := &machineDoc{}
-	sel := bson.D{{"unitset", u.uSet()}}
-	err = u.st.machines.Find(sel).One(mdoc)
+	us := &unitSet{}
+	err = u.st.unitSets.Find(bson.D{{"_id", u.uSet()}}).One(us)
 	if err != nil {
 		return 0, fmt.Errorf("can't get machine id of unit %q: %v", u, err)
 	}
-	return mdoc.Id, nil
+	return us.MachineId, nil
 }
 
 // AssignToMachine assigns this unit to a given machine.
 func (u *Unit) AssignToMachine(m *Machine) (err error) {
-	change := bson.D{{"$set", bson.D{{"unitset", u.uSet()}}}}
-	err = u.st.machines.Update(bson.D{{"_id", m.id}}, change)
+	change := bson.D{{"$set", bson.D{{"machineid", m.Id()}}}}
+	err = u.st.unitSets.Update(bson.D{{"_id", u.uSet()}}, change)
 	if err != nil {
 		return fmt.Errorf("can't assign unit %q to machine %s: %v", u, m, err)
 	}

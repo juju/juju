@@ -19,6 +19,7 @@ type State struct {
 	machines *mgo.Collection
 	services *mgo.Collection
 	units    *mgo.Collection
+	unitSets *mgo.Collection
 }
 
 // AddMachine creates a new machine state.

@@ -16,7 +16,6 @@ type Machine struct {
 type machineDoc struct {
 	Id         int `bson:"_id"`
 	InstanceId string
-	UnitSet    string
 }
 
 // Id returns the machine id.
@@ -36,19 +35,21 @@ func (m *Machine) InstanceId() (string, error) {
 
 // Units returns all the units that have been assigned to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
-	mdoc := &machineDoc{}
-	err = m.st.machines.Find(bson.D{{"_id", m.id}}).One(mdoc)
+	defer errorContextf(&err, "can't get units assigned to machine %s", m)
+	usets := []unitSet{}
+	err = m.st.unitSets.Find(bson.D{{"machineid", m.id}}).All(&usets)
 	if err != nil {
-		return nil, fmt.Errorf("can't get instance id of machine %s: %v", m, err)
+		return nil, err
 	}
-	sel := bson.D{{"unitset", mdoc.UnitSet}}
-	udocs := []unitDoc{}
-	err = m.st.units.Find(sel).All(&udocs)
-	if err != nil {
-		return nil, fmt.Errorf("can't get units assigned to machine %s: %v", m, err)
-	}
-	for _, udoc := range udocs {
-		units = append(units, newUnit(m.st, &udoc))
+	for _, uset := range usets {
+		docs := []unitDoc{}
+		err = m.st.units.Find(bson.D{{"unitset", uset.Principal}}).All(&docs)
+		if err != nil {
+			return nil, err
+		}
+		for _, doc := range docs {
+			units = append(units, newUnit(m.st, &doc))
+		}
 	}
 	return units, nil
 }
