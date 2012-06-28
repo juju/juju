@@ -60,7 +60,7 @@ func (s *Service) String() string {
 }
 
 // addUnit adds a new unit to the service. If s is a subordinate service,
-// principalNane must be the unit name of some principal unit.
+// principalName must be the unit name of some principal unit.
 func (s *Service) addUnit(principalName string) (unit *Unit, err error) {
 	defer errorContextf(&err, "can't add unit to service %q", s)
 	id, err := s.st.sequence(s.Name())
