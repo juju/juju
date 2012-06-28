@@ -18,7 +18,8 @@ import (
 	"strings"
 )
 
-// region must be a valid AWS region
+// you need to make sure the region you use here
+// has entries in the images/query txt files.
 var functionalConfig = []byte(`
 environments:
   sample:
