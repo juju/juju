@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 )
 
@@ -75,9 +76,8 @@ type Machiner struct {
 func (m *Machiner) loop() {
 	defer m.tomb.Done()
 	defer m.st.Close()
-
-	watcher := m.machine.WatchUnits()
-	defer watcher.Stop()
+	w := m.machine.WatchUnits()
+	defer watcher.Stop(w, &m.tomb)
 
 	// TODO read initial units, check if they're running
 	// and restart them if not. Also track units so
@@ -86,13 +86,9 @@ func (m *Machiner) loop() {
 		select {
 		case <-m.tomb.Dying():
 			return
-		case change, ok := <-watcher.Changes():
+		case change, ok := <-w.Changes():
 			if !ok {
-				err := watcher.Stop()
-				if err == nil {
-					panic("watcher closed channel with no error")
-				}
-				m.tomb.Kill(err)
+				m.tomb.Kill(watcher.MustErr(w))
 				return
 			}
 			for _, u := range change.Removed {
