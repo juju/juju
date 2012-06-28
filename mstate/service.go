@@ -81,7 +81,7 @@ func (s *Service) addUnit(name string, unitSet string) (unit *Unit, err error) {
 	if err != nil {
 		return nil, err
 	}
-	return newUnit(s, &udoc), nil
+	return newUnit(s.st, &udoc), nil
 }
 
 // AddUnit adds a new principal unit to the service.
@@ -138,8 +138,7 @@ func (s *Service) RemoveUnit(unit *Unit) error {
 	return nil
 }
 
-// Unit returns the service's unit with name.
-func (s *Service) Unit(name string) (*Unit, error) {
+func (s *Service) unitDoc(name string) (*unitDoc, error) {
 	udoc := &unitDoc{}
 	sel := bson.D{
 		{"_id", name},
@@ -147,9 +146,18 @@ func (s *Service) Unit(name string) (*Unit, error) {
 	}
 	err := s.st.units.Find(sel).One(udoc)
 	if err != nil {
+		return nil, err
+	}
+	return udoc, nil
+}
+
+// Unit returns the service's unit with name.
+func (s *Service) Unit(name string) (*Unit, error) {
+	udoc, err := s.unitDoc(name)
+	if err != nil {
 		return nil, fmt.Errorf("can't get unit %q from service %q: %v", name, s.name, err)
 	}
-	return newUnit(s, udoc), nil
+	return newUnit(s.st, udoc), nil
 }
 
 // AllUnits returns all units of the service.
@@ -160,7 +168,7 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 		return nil, fmt.Errorf("can't get all units from service %q: %v", err)
 	}
 	for i := range docs {
-		units = append(units, newUnit(s, &docs[i]))
+		units = append(units, newUnit(s.st, &docs[i]))
 	}
 	return units, nil
 }

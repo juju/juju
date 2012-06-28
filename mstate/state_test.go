@@ -280,6 +280,37 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	// Check that principal units cannot be added to principal units.
 	_, err = wordpress.AddUnitSubordinateTo(unitZero)
 	c.Assert(err, ErrorMatches, `can't add unit of principal service "wordpress" as a subordinate of "wordpress/0"`)
+
+	// Assign the principal unit to a machine.
+	m, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	err = unitZero.AssignToMachine(m)
+	c.Assert(err, IsNil)
+
+	// Add a subordinate service.
+	subCh := addLoggingCharm(c, s.st)
+	logging, err := s.st.AddService("logging", subCh)
+	c.Assert(err, IsNil)
+
+	// Check that subordinate units can be added to principal units
+	subZero, err := logging.AddUnitSubordinateTo(unitZero)
+	c.Assert(err, IsNil)
+	c.Assert(subZero.Name(), Equals, "logging/0")
+	principal = subZero.IsPrincipal()
+	c.Assert(principal, Equals, false)
+
+	// Check the subordinate unit has been assigned its principal's machine.
+	id, err := subZero.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, m.Id())
+
+	// Check that subordinate units must be added to other units.
+	_, err = logging.AddUnit()
+	c.Assert(err, ErrorMatches, `cannot directly add units to subordinate service "logging"`)
+
+	// Check that subordinate units cannnot be added to subordinate units.
+	_, err = logging.AddUnitSubordinateTo(subZero)
+	c.Assert(err, ErrorMatches, "a subordinate unit must be added to a principal unit")
 }
 
 // TODO port subordinate unit logic from state_test.TestAddUnit().
@@ -363,4 +394,16 @@ func (s *StateSuite) TestRemoveUnit(c *C) {
 	err = wordpress.RemoveUnit(unit)
 	// TODO use error string from state_test.TestRemoveUnit()
 	c.Assert(err, ErrorMatches, `can't remove unit "wordpress/0": .*`)
+}
+
+// addLoggingCharm adds a "logging" (subordinate) charm
+// to the state.
+func addLoggingCharm(c *C, st *state.State) *state.Charm {
+	bundle := testing.Charms.Bundle(c.MkDir(), "logging")
+	curl := charm.MustParseURL("cs:series/logging-99")
+	bundleURL, err := url.Parse("http://subordinate.url")
+	c.Assert(err, IsNil)
+	ch, err := st.AddCharm(bundle, curl, bundleURL, "dummy-sha256")
+	c.Assert(err, IsNil)
+	return ch
 }
