@@ -193,4 +193,5 @@ func (t configTest) check(c *C) {
 	tconfig := baseConfigResult
 	t.mutate(&tconfig)
 	c.Check(e.(*environ).config(), DeepEquals, &tconfig)
+	c.Check(e.(*environ).name, Equals, tconfig.name)
 }

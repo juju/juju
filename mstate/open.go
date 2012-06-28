@@ -1,8 +1,8 @@
 package mstate
 
 import (
-	"launchpad.net/juju-core/log"
 	"labix.org/v2/mgo"
+	"launchpad.net/juju-core/log"
 )
 
 func Dial(servers string) (st *State, err error) {
@@ -14,7 +14,10 @@ func Dial(servers string) (st *State, err error) {
 	db := session.DB("juju")
 	st = &State{
 		db:       db,
+		charms:   db.C("charms"),
 		machines: db.C("machines"),
+		services: db.C("services"),
+		units:    db.C("units"),
 	}
 	return
 }

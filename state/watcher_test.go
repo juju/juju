@@ -22,7 +22,11 @@ func (s *StateSuite) TestServiceWatchConfig(c *C) {
 	config, err := wordpress.Config()
 	c.Assert(err, IsNil)
 	c.Assert(config.Keys(), HasLen, 0)
+
 	configWatcher := wordpress.WatchConfig()
+	defer func() {
+		c.Assert(configWatcher.Stop(), IsNil)
+	}()
 
 	// Two change events.
 	config.Set("foo", "bar")
@@ -59,57 +63,10 @@ func (s *StateSuite) TestServiceWatchConfig(c *C) {
 	}
 
 	select {
-	case got, _ := <-configWatcher.Changes():
+	case got := <-configWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
-
-	err = configWatcher.Stop()
-	c.Assert(err, IsNil)
-}
-
-var serviceExposedTests = []struct {
-	test func(s *state.Service) error
-	want bool
-}{
-	{func(s *state.Service) error { return nil }, false},
-	{func(s *state.Service) error { return s.SetExposed() }, true},
-	{func(s *state.Service) error { return s.ClearExposed() }, false},
-	{func(s *state.Service) error { return s.SetExposed() }, true},
-}
-
-func (s *StateSuite) TestServiceExposedConfig(c *C) {
-	dummy := s.addDummyCharm(c)
-	wordpress, err := s.st.AddService("wordpress", dummy)
-	c.Assert(err, IsNil)
-	c.Assert(wordpress.Name(), Equals, "wordpress")
-
-	exposed, err := wordpress.IsExposed()
-	c.Assert(err, IsNil)
-	c.Assert(exposed, Equals, false)
-	exposedWatcher := wordpress.WatchExposed()
-
-	for i, test := range serviceExposedTests {
-		c.Logf("test %d", i)
-		err := test.test(wordpress)
-		c.Assert(err, IsNil)
-		select {
-		case got, ok := <-exposedWatcher.Changes():
-			c.Assert(ok, Equals, true)
-			c.Assert(got, Equals, test.want)
-		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("didn't get change: %#v", test.want)
-		}
-	}
-
-	select {
-	case got, _ := <-exposedWatcher.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
-	case <-time.After(100 * time.Millisecond):
-	}
-
-	err = exposedWatcher.Stop()
-	c.Assert(err, IsNil)
 }
 
 func (s *StateSuite) TestServiceWatchConfigIllegalData(c *C) {
@@ -117,7 +74,11 @@ func (s *StateSuite) TestServiceWatchConfigIllegalData(c *C) {
 	wordpress, err := s.st.AddService("wordpress", dummy)
 	c.Assert(err, IsNil)
 	c.Assert(wordpress.Name(), Equals, "wordpress")
+
 	configWatcher := wordpress.WatchConfig()
+	defer func() {
+		c.Assert(configWatcher.Stop(), ErrorMatches, "unmarshall error: YAML error: .*")
+	}()
 
 	// Receive empty change after service adding.
 	select {
@@ -137,9 +98,140 @@ func (s *StateSuite) TestServiceWatchConfigIllegalData(c *C) {
 		c.Assert(ok, Equals, false)
 	case <-time.After(100 * time.Millisecond):
 	}
+}
 
-	err = configWatcher.Stop()
-	c.Assert(err, ErrorMatches, "unmarshall error: YAML error: .*")
+var serviceExposedTests = []struct {
+	test func(s *state.Service) error
+	want bool
+}{
+	{func(s *state.Service) error { return nil }, false},
+	{func(s *state.Service) error { return s.SetExposed() }, true},
+	{func(s *state.Service) error { return s.ClearExposed() }, false},
+	{func(s *state.Service) error { return s.SetExposed() }, true},
+}
+
+func (s *StateSuite) TestServiceWatchExposed(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	c.Assert(wordpress.Name(), Equals, "wordpress")
+
+	exposed, err := wordpress.IsExposed()
+	c.Assert(err, IsNil)
+	c.Assert(exposed, Equals, false)
+
+	exposedWatcher := wordpress.WatchExposed()
+	defer func() {
+		c.Assert(exposedWatcher.Stop(), IsNil)
+	}()
+
+	for i, test := range serviceExposedTests {
+		c.Logf("test %d", i)
+		err := test.test(wordpress)
+		c.Assert(err, IsNil)
+		select {
+		case got, ok := <-exposedWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got, Equals, test.want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", test.want)
+		}
+	}
+
+	select {
+	case got := <-exposedWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func (s *StateSuite) TestServiceWatchExposedContent(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	c.Assert(wordpress.Name(), Equals, "wordpress")
+
+	exposed, err := wordpress.IsExposed()
+	c.Assert(err, IsNil)
+	c.Assert(exposed, Equals, false)
+
+	exposedWatcher := wordpress.WatchExposed()
+	defer func() {
+		c.Assert(exposedWatcher.Stop(), IsNil)
+	}()
+
+	wordpress.SetExposed()
+	select {
+	case got, ok := <-exposedWatcher.Changes():
+		c.Assert(ok, Equals, true)
+		c.Assert(got, Equals, true)
+	case <-time.After(200 * time.Millisecond):
+		c.Fatalf("didn't get change: %#v", true)
+	}
+
+	// Re-set exposed with some data.
+	_, err = s.zkConn.Set("/services/service-0000000000/exposed", "some: data", -1)
+	c.Assert(err, IsNil)
+
+	select {
+	case got := <-exposedWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(200 * time.Millisecond):
+	}
+}
+
+var serviceUnitTests = []struct {
+	testOp string
+	idx    int
+}{
+	{"none", 0},
+	{"add", 0},
+	{"add", 1},
+	{"remove", 0},
+}
+
+func (s *StateSuite) TestServiceWatchUnits(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	c.Assert(wordpress.Name(), Equals, "wordpress")
+
+	unitsWatcher := wordpress.WatchUnits()
+	defer func() {
+		c.Assert(unitsWatcher.Stop(), IsNil)
+	}()
+	units := make([]*state.Unit, 2)
+
+	for i, test := range serviceUnitTests {
+		c.Logf("test %d", i)
+		var want *state.ServiceUnitsChange
+		switch test.testOp {
+		case "none":
+			want = &state.ServiceUnitsChange{}
+		case "add":
+			units[test.idx], err = wordpress.AddUnit()
+			c.Assert(err, IsNil)
+			want = &state.ServiceUnitsChange{[]*state.Unit{units[test.idx]}, nil}
+		case "remove":
+			err = wordpress.RemoveUnit(units[test.idx])
+			c.Assert(err, IsNil)
+			want = &state.ServiceUnitsChange{nil, []*state.Unit{units[test.idx]}}
+			units[test.idx] = nil
+		}
+		select {
+		case got, ok := <-unitsWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got, DeepEquals, want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", want)
+		}
+	}
+
+	select {
+	case got := <-unitsWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
 }
 
 type unitWatchNeedsUpgradeTest struct {
@@ -161,7 +253,11 @@ func (s *StateSuite) TestUnitWatchNeedsUpgrade(c *C) {
 	c.Assert(wordpress.Name(), Equals, "wordpress")
 	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
+
 	needsUpgradeWatcher := unit.WatchNeedsUpgrade()
+	defer func() {
+		c.Assert(needsUpgradeWatcher.Stop(), IsNil)
+	}()
 
 	for i, test := range unitWatchNeedsUpgradeTests {
 		c.Logf("test %d", i)
@@ -177,13 +273,10 @@ func (s *StateSuite) TestUnitWatchNeedsUpgrade(c *C) {
 	}
 
 	select {
-	case got, _ := <-needsUpgradeWatcher.Changes():
+	case got := <-needsUpgradeWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
-
-	err = needsUpgradeWatcher.Stop()
-	c.Assert(err, IsNil)
 }
 
 type unitWatchResolvedTest struct {
@@ -205,7 +298,11 @@ func (s *StateSuite) TestUnitWatchResolved(c *C) {
 	c.Assert(wordpress.Name(), Equals, "wordpress")
 	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
+
 	resolvedWatcher := unit.WatchResolved()
+	defer func() {
+		c.Assert(resolvedWatcher.Stop(), IsNil)
+	}()
 
 	for i, test := range unitWatchResolvedTests {
 		c.Logf("test %d", i)
@@ -221,13 +318,10 @@ func (s *StateSuite) TestUnitWatchResolved(c *C) {
 	}
 
 	select {
-	case got, _ := <-resolvedWatcher.Changes():
+	case got := <-resolvedWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
-
-	err = resolvedWatcher.Stop()
-	c.Assert(err, IsNil)
 }
 
 type unitWatchPortsTest struct {
@@ -249,7 +343,11 @@ func (s *StateSuite) TestUnitWatchPorts(c *C) {
 	c.Assert(wordpress.Name(), Equals, "wordpress")
 	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
+
 	portsWatcher := unit.WatchPorts()
+	defer func() {
+		c.Assert(portsWatcher.Stop(), IsNil)
+	}()
 
 	for i, test := range unitWatchPortsTests {
 		c.Logf("test %d", i)
@@ -265,13 +363,10 @@ func (s *StateSuite) TestUnitWatchPorts(c *C) {
 	}
 
 	select {
-	case got, _ := <-portsWatcher.Changes():
+	case got := <-portsWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
-
-	err = portsWatcher.Stop()
-	c.Assert(err, IsNil)
 }
 
 type machinesWatchTest struct {
@@ -317,7 +412,10 @@ var machinesWatchTests = []machinesWatchTest{
 }
 
 func (s *StateSuite) TestWatchMachines(c *C) {
-	w := s.st.WatchMachines()
+	machineWatcher := s.st.WatchMachines()
+	defer func() {
+		c.Assert(machineWatcher.Stop(), IsNil)
+	}()
 
 	for i, test := range machinesWatchTests {
 		c.Logf("test %d", i)
@@ -325,7 +423,7 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 		c.Assert(err, IsNil)
 		want := test.want(s.st)
 		select {
-		case got, ok := <-w.Changes():
+		case got, ok := <-machineWatcher.Changes():
 			c.Assert(ok, Equals, true)
 			c.Assert(got, DeepEquals, want)
 		case <-time.After(200 * time.Millisecond):
@@ -334,12 +432,10 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 	}
 
 	select {
-	case got, _ := <-w.Changes():
+	case got := <-machineWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
-
-	c.Assert(w.Stop(), IsNil)
 }
 
 var watchMachineUnitsTests = []struct {
@@ -408,7 +504,10 @@ func (s *StateSuite) TestWatchMachineUnits(c *C) {
 	m, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
 
-	w := m.WatchUnits()
+	unitsWatcher := m.WatchUnits()
+	defer func() {
+		c.Assert(unitsWatcher.Stop(), IsNil)
+	}()
 
 	for i, test := range watchMachineUnitsTests {
 		c.Logf("test %d", i)
@@ -416,7 +515,7 @@ func (s *StateSuite) TestWatchMachineUnits(c *C) {
 		c.Assert(err, IsNil)
 		want := test.want(units)
 		select {
-		case got, ok := <-w.Changes():
+		case got, ok := <-unitsWatcher.Changes():
 			c.Assert(ok, Equals, true)
 			c.Assert(unitNames(got.Added), DeepEquals, unitNames(want.Added))
 			c.Assert(unitNames(got.Deleted), DeepEquals, unitNames(want.Deleted))
@@ -426,12 +525,10 @@ func (s *StateSuite) TestWatchMachineUnits(c *C) {
 	}
 
 	select {
-	case got, _ := <-w.Changes():
+	case got := <-unitsWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
-
-	c.Assert(w.Stop(), IsNil)
 }
 
 func (s *StateSuite) TestServiceRelationsWatcher(c *C) {
@@ -441,12 +538,12 @@ func (s *StateSuite) TestServiceRelationsWatcher(c *C) {
 	w := pro.WatchRelations()
 
 	// Check initial event, and lack of followup.
-	assertChange := func(adds, deletes []int) {
+	assertChange := func(adds, removes []int) {
 		select {
 		case change := <-w.Changes():
-			c.Assert(change.Deleted, HasLen, len(deletes))
-			for i, delete := range deletes {
-				c.Assert(change.Deleted[i].Id(), Equals, delete)
+			c.Assert(change.Removed, HasLen, len(removes))
+			for i, delete := range removes {
+				c.Assert(change.Removed[i].Id(), Equals, delete)
 			}
 			c.Assert(change.Added, HasLen, len(adds))
 			for i, add := range adds {
@@ -547,8 +644,12 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 	c.Assert(path, Equals, "/environment")
 
 	// fetch the /environment key as a *ConfigNode
-	w := s.st.WatchEnvironConfig()
-	config, ok := <-w.Changes()
+	environConfigWatcher := s.st.WatchEnvironConfig()
+	defer func() {
+		c.Assert(environConfigWatcher.Stop(), IsNil)
+	}()
+
+	config, ok := <-environConfigWatcher.Changes()
 	c.Assert(ok, Equals, true)
 
 	for i, test := range environmentWatchTests {
@@ -557,7 +658,7 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 		_, err := config.Write()
 		c.Assert(err, IsNil)
 		select {
-		case got, ok := <-w.Changes():
+		case got, ok := <-environConfigWatcher.Changes():
 			c.Assert(ok, Equals, true)
 			c.Assert(got.Map(), DeepEquals, test.want)
 		case <-time.After(200 * time.Millisecond):
@@ -566,12 +667,10 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 	}
 
 	select {
-	case got, _ := <-w.Changes():
+	case got := <-environConfigWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
-
-	c.Assert(w.Stop(), IsNil)
 }
 
 var diffTests = []struct {

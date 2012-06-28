@@ -1,7 +1,3 @@
-// launchpad.net/juju/state
-//
-// Copyright (c) 2011-2012 Canonical Ltd.
-
 package state
 
 import (
@@ -218,6 +214,12 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 	return units, nil
 }
 
+// WatchUnits creates a watcher for the assigned units
+// of the service.
+func (s *Service) WatchUnits() *ServiceUnitsWatcher {
+	return newServiceUnitsWatcher(s)
+}
+
 // relationsFromTopology returns a Relation for every relation the service
 // is in, according to the supplied topology.
 func (s *Service) relationsFromTopology(t *topology) ([]*Relation, error) {
@@ -227,12 +229,12 @@ func (s *Service) relationsFromTopology(t *topology) ([]*Relation, error) {
 	}
 	relations := []*Relation{}
 	for key, tr := range trs {
-		r := &Relation{s.st, key, make([]RelationEndpoint, len(tr.Services))}
+		r := &Relation{s.st, key, make([]RelationEndpoint, len(tr.Endpoints))}
 		i := 0
-		for skey, tep := range tr.Services {
+		for _, tep := range tr.Endpoints {
 			sname := s.name
-			if skey != s.key {
-				if sname, err = t.ServiceName(skey); err != nil {
+			if tep.Service != s.key {
+				if sname, err = t.ServiceName(tep.Service); err != nil {
 					return nil, err
 				}
 			}
@@ -294,7 +296,7 @@ func (s *Service) ClearExposed() error {
 	return nil
 }
 
-// WatchExposed creates a watcher for the exposed flog
+// WatchExposed creates a watcher for the exposed flag
 // of the service.
 func (s *Service) WatchExposed() *FlagWatcher {
 	return newFlagWatcher(s.st, s.zkExposedPath())
