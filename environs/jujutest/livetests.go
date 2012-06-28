@@ -75,6 +75,10 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	if t.CanOpenState {
 		st, err := state.Open(info)
 		c.Assert(err, IsNil)
+		env, err := st.EnvironConfig()
+		c.Assert(err, IsNil)
+		err = t.seedSecrets(env)	
+		c.Assert(err, IsNil)
 		if t.HasProvisioner {
 			t.testProvisioning(c, st)
 		}
@@ -88,6 +92,12 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	t.BootstrapOnce(c)
 }
 
+// seed secrets pushes into the state
+func (t *LiveTests) seedSecrets(env *state.ConfigNode) error {
+	// TODO(dfc) need some way to publish correct ec2 secrets
+	return nil
+}
+
 func (t *LiveTests) testProvisioning(c *C, st *state.State) {
 	// place a new machine into the state
 	m, err := st.AddMachine()
@@ -98,18 +108,38 @@ func (t *LiveTests) testProvisioning(c *C, st *state.State) {
 	// now remove it
 	c.Assert(st.RemoveMachine(m.Id()), IsNil)
 
-	// TODO
 	// watch the PA remove it
-	//s.checkStopInstance(c, instId)
-	//s.checkMachineId(c, m, nil)
+	t.checkStopInstance(c, m)
+	checkMachineId(c, m, nil)
 }
 
 var agentReaction = environs.AttemptStrategy{
-	Total: 1 * time.Minute,
+	Total: 30 * time.Second,
 	Delay: 1 * time.Second,
 }
 
 func (t *LiveTests) checkStartInstance(c *C, m *state.Machine) (instId string) {
+	// Wait for machine to get instance id.
+	for a := agentReaction.Start(); a.Next(); {
+		var err error
+		instId, err = m.InstanceId()
+		if _, ok := err.(*state.NoInstanceIdError); ok {
+			continue
+		}
+		c.Assert(err, IsNil)
+		if instId != "" {
+			break
+		}
+	}
+	if instId == "" {
+		c.Fatalf("provisioner failed to start machine after %v", agentReaction.Total)
+	}
+	_, err := t.Env.Instances([]string{instId})
+	c.Assert(err, IsNil)
+	return
+}
+
+func (t *LiveTests) checkStopInstance(c *C, m *state.Machine) (instId string) {
 	// Wait for machine to get instance id.
 	for a := agentReaction.Start(); a.Next(); {
 		var err error
@@ -120,11 +150,38 @@ func (t *LiveTests) checkStartInstance(c *C, m *state.Machine) (instId string) {
 		}
 	}
 	if instId == "" {
-		c.Fatalf("provisioner never failed to allocate machine after %v", agentReaction.Total)
+		c.Fatalf("provisioner failed to stop machine after %v", agentReaction.Total)
 	}
 	_, err := t.Env.Instances([]string{instId})
 	c.Assert(err, IsNil)
 	return
+}
+
+// checkMachineIdSet checks that the machine has an instance id
+// that matches that of the given instance. If the instance is nil,
+// It checks that the instance id is unset.
+func checkMachineId(c *C, m *state.Machine, inst environs.Instance) {
+        // TODO(dfc) add machine.WatchConfig() to avoid having to poll.
+        instId := ""
+        if inst != nil {
+                instId = inst.Id()
+        }
+        for a := agentReaction.Start(); a.Next(); {
+                _, err := m.InstanceId()
+                _, notset := err.(*state.NoInstanceIdError)
+                if notset {
+                        if inst == nil {
+                                return
+                        } else {
+                                continue
+                        }
+                }
+                c.Assert(err, IsNil)
+                break
+        }
+        id, err := m.InstanceId()
+        c.Assert(err, IsNil)
+        c.Assert(id, Equals, instId)
 }
 
 // TODO check that binary data works ok?

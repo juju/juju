@@ -124,9 +124,7 @@ func putFakeTools(c *C, s environs.StorageWriter) {
 	c.Logf("putting fake tools at %v", path)
 	toolsContents := "tools archive, honest guv"
 	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
-	if err != nil {
-		c.Fatal(err)
-	}
+	c.Assert(err, IsNil)
 }
 
 // addSpice adds some "spice" to the local server
