@@ -6,27 +6,23 @@ import (
 	"launchpad.net/tomb"
 )
 
-// Watcher allows us to define Stop and MustErr without consideration
-// for the precise type of the supplied watcher.
-type Watcher interface {
+// ErrStopper is implemented by all watchers.
+type ErrStopper interface {
 	Stop() error
 	Err() error
 }
 
-// Stop is used to terminate a watcher and propagate errors to the supplied
-// tomb.
-func Stop(w Watcher, t *tomb.Tomb) {
+// Stop stops the watcher. If an error is returned by the
+// watcher, t is killed with the error.
+func Stop(w ErrStopper, t *tomb.Tomb) {
 	if err := w.Stop(); err != nil {
 		t.Kill(err)
 	}
 }
 
-// MustErr is used to verify abnormal termination of a watcher in the event
-// that its output channel is closed, so that error conditions can be
-// consistently propagated to clients. Calling this function when the watcher
-// is still running, or when it has been stopped cleanly, indicates a logical
-// error and will therefore panic.
-func MustErr(w Watcher) error {
+// MustErr returns the error with which w died.
+// Calling it will panic if w is still running or was stopped cleanly.
+func MustErr(w ErrStopper) error {
 	err := w.Err()
 	if err == nil {
 		panic("watcher was stopped cleanly")
@@ -37,10 +33,11 @@ func MustErr(w Watcher) error {
 }
 
 // ContentChange holds information on the existence
-// and contents of a node. Content will be empty when the
-// node does not exist.
+// and contents of a node. Version and Content will be
+// zeroed when exists is false.
 type ContentChange struct {
 	Exists  bool
+	Version int
 	Content string
 }
 
@@ -152,9 +149,11 @@ func (w *ContentWatcher) update() (nextWatch <-chan zookeeper.Event, err error) 
 		// Any other error during GetW() or ExistsW().
 		return nil, fmt.Errorf("watcher: can't get content of node %q: %v", w.path, err)
 	}
-	newContent := ContentChange{
-		Exists:  stat != nil,
-		Content: content,
+	newContent := ContentChange{}
+	if stat != nil {
+		newContent.Exists = true
+		newContent.Version = stat.Version()
+		newContent.Content = content
 	}
 	if w.emittedValue && newContent == w.content {
 		return nextWatch, nil

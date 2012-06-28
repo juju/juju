@@ -16,6 +16,10 @@ type contentWatcher struct {
 	updated bool
 }
 
+func newContentWatcher(st *State, path string) contentWatcher {
+	return contentWatcher{st: st, path: path}
+}
+
 // contentHandler must be implemented by watchers that intend to make use
 // of contentWatcher.
 type contentHandler interface {
@@ -70,11 +74,8 @@ type ConfigWatcher struct {
 // the given path.
 func newConfigWatcher(st *State, path string) *ConfigWatcher {
 	w := &ConfigWatcher{
-		contentWatcher: contentWatcher{
-			st:   st,
-			path: path,
-		},
-		changeChan: make(chan *ConfigNode),
+		contentWatcher: newContentWatcher(st, path),
+		changeChan:     make(chan *ConfigNode),
 	}
 	go w.loop(w)
 	return w
@@ -118,11 +119,8 @@ type FlagWatcher struct {
 // the given path.
 func newFlagWatcher(st *State, path string) *FlagWatcher {
 	w := &FlagWatcher{
-		contentWatcher: contentWatcher{
-			st:   st,
-			path: path,
-		},
-		changeChan: make(chan bool),
+		contentWatcher: newContentWatcher(st, path),
+		changeChan:     make(chan bool),
 	}
 	go w.loop(w)
 	return w
@@ -163,11 +161,8 @@ type NeedsUpgradeWatcher struct {
 // watcher for the given path.
 func newNeedsUpgradeWatcher(st *State, path string) *NeedsUpgradeWatcher {
 	w := &NeedsUpgradeWatcher{
-		contentWatcher: contentWatcher{
-			st:   st,
-			path: path,
-		},
-		changeChan: make(chan NeedsUpgrade),
+		contentWatcher: newContentWatcher(st, path),
+		changeChan:     make(chan NeedsUpgrade),
 	}
 	go w.loop(w)
 	return w
@@ -214,11 +209,8 @@ type ResolvedWatcher struct {
 // newResolvedWatcher returns a new ResolvedWatcher watching path.
 func newResolvedWatcher(st *State, path string) *ResolvedWatcher {
 	w := &ResolvedWatcher{
-		contentWatcher: contentWatcher{
-			st:   st,
-			path: path,
-		},
-		changeChan: make(chan ResolvedMode),
+		contentWatcher: newContentWatcher(st, path),
+		changeChan:     make(chan ResolvedMode),
 	}
 	go w.loop(w)
 	return w
@@ -265,11 +257,8 @@ type PortsWatcher struct {
 // watcher for the given path.
 func newPortsWatcher(st *State, path string) *PortsWatcher {
 	w := &PortsWatcher{
-		contentWatcher: contentWatcher{
-			st:   st,
-			path: path,
-		},
-		changeChan: make(chan []Port),
+		contentWatcher: newContentWatcher(st, path),
+		changeChan:     make(chan []Port),
 	}
 	go w.loop(w)
 	return w
@@ -319,11 +308,8 @@ type MachinesChange struct {
 // the set of machines known to the topology.
 func newMachinesWatcher(st *State) *MachinesWatcher {
 	w := &MachinesWatcher{
-		contentWatcher: contentWatcher{
-			st:   st,
-			path: zkTopologyPath,
-		},
-		changeChan: make(chan *MachinesChange),
+		contentWatcher: newContentWatcher(st, zkTopologyPath),
+		changeChan:     make(chan *MachinesChange),
 	}
 	go w.loop(w)
 	return w
@@ -382,13 +368,10 @@ type MachineUnitsChange struct {
 // newMachinesWatcher creates and starts a new machine watcher.
 func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 	w := &MachineUnitsWatcher{
-		contentWatcher: contentWatcher{
-			st:   m.st,
-			path: zkTopologyPath,
-		},
-		machine:    m,
-		changeChan: make(chan *MachineUnitsChange),
-		knownUnits: make(map[string]*Unit),
+		contentWatcher: newContentWatcher(m.st, zkTopologyPath),
+		machine:        m,
+		changeChan:     make(chan *MachineUnitsChange),
+		knownUnits:     make(map[string]*Unit),
 	}
 	go w.loop(w)
 	return w

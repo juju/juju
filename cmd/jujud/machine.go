@@ -77,7 +77,7 @@ func (m *Machiner) loop() {
 	defer m.tomb.Done()
 	defer m.st.Close()
 	w := m.machine.WatchUnits()
-	defer watcher.Stop(w)
+	defer watcher.Stop(w, &m.tomb)
 
 	// TODO read initial units, check if they're running
 	// and restart them if not. Also track units so
