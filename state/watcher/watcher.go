@@ -7,10 +7,11 @@ import (
 )
 
 // ContentChange holds information on the existence
-// and contents of a node. Content will be empty when the
-// node does not exist.
+// and contents of a node. Version and Content will be
+// zeroed when exists is false.
 type ContentChange struct {
 	Exists  bool
+	Version int
 	Content string
 }
 
@@ -122,9 +123,11 @@ func (w *ContentWatcher) update() (nextWatch <-chan zookeeper.Event, err error) 
 		// Any other error during GetW() or ExistsW().
 		return nil, fmt.Errorf("watcher: can't get content of node %q: %v", w.path, err)
 	}
-	newContent := ContentChange{
-		Exists:  stat != nil,
-		Content: content,
+	newContent := ContentChange{}
+	if stat != nil {
+		newContent.Exists = true
+		newContent.Version = stat.Version()
+		newContent.Content = content
 	}
 	if w.emittedValue && newContent == w.content {
 		return nextWatch, nil
