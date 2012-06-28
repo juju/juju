@@ -17,6 +17,7 @@ func Dial(servers string) (st *State, err error) {
 		charms:   db.C("charms"),
 		machines: db.C("machines"),
 		services: db.C("services"),
+		units:    db.C("units"),
 	}
 	return
 }

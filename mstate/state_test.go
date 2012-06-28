@@ -22,6 +22,7 @@ type StateSuite struct {
 	charms   *mgo.Collection
 	machines *mgo.Collection
 	services *mgo.Collection
+	units    *mgo.Collection
 	st       *state.State
 	ch       charm.Charm
 	curl     *charm.URL
@@ -40,6 +41,7 @@ func (s *StateSuite) SetUpTest(c *C) {
 	s.charms = session.DB("juju").C("charms")
 	s.machines = session.DB("juju").C("machines")
 	s.services = session.DB("juju").C("services")
+	s.units = session.DB("juju").C("units")
 
 	s.ch = testing.Charms.Dir("dummy")
 	url := fmt.Sprintf("local:series/%s-%d", s.ch.Meta().Name, s.ch.Revision())
@@ -258,6 +260,67 @@ func (s *StateSuite) TestAllServices(c *C) {
 	c.Assert(services[1].Name(), Equals, "mysql")
 }
 
+func (s *StateSuite) TestAddUnit(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+
+	// Check that principal units can be added on their own.
+	unitZero, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	c.Assert(unitZero.Name(), Equals, "wordpress/0")
+	principal := unitZero.IsPrincipal()
+	c.Assert(principal, Equals, true)
+	unitOne, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	c.Assert(unitOne.Name(), Equals, "wordpress/1")
+	principal = unitOne.IsPrincipal()
+	c.Assert(principal, Equals, true)
+
+	// Check that principal units cannot be added to principal units.
+	_, err = wordpress.AddUnitSubordinateTo(unitZero)
+	c.Assert(err, ErrorMatches, `can't add unit of principal service "wordpress" as a subordinate of "wordpress/0"`)
+}
+
+// TODO port subordinate unit logic from state_test.TestAddUnit().
+
+func (s *StateSuite) TestReadUnit(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	_, err = wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	_, err = wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	mysql, err := s.st.AddService("mysql", dummy)
+	c.Assert(err, IsNil)
+	_, err = mysql.AddUnit()
+	c.Assert(err, IsNil)
+
+	// Check that retrieving a unit works correctly.
+	unit, err := wordpress.Unit("wordpress/0")
+	c.Assert(err, IsNil)
+	c.Assert(unit.Name(), Equals, "wordpress/0")
+
+	// Check that retrieving a non-existent or an invalidly
+	// named unit fail nicely.
+	unit, err = wordpress.Unit("wordpress")
+	c.Assert(err, ErrorMatches, `can't get unit "wordpress" from service "wordpress": .*`)
+	unit, err = wordpress.Unit("wordpress/0/0")
+	c.Assert(err, ErrorMatches, `can't get unit "wordpress/0/0" from service "wordpress": .*`)
+	unit, err = wordpress.Unit("pressword/0")
+	c.Assert(err, ErrorMatches, `can't get unit "pressword/0" from service "wordpress": .*`)
+	unit, err = wordpress.Unit("mysql/0")
+	c.Assert(err, ErrorMatches, `can't get unit "mysql/0" from service "wordpress": .*`)
+
+	// Check that retrieving all units works.
+	units, err := wordpress.AllUnits()
+	c.Assert(err, IsNil)
+	c.Assert(len(units), Equals, 2)
+	c.Assert(units[0].Name(), Equals, "wordpress/0")
+	c.Assert(units[1].Name(), Equals, "wordpress/1")
+}
+
 func (s *StateSuite) TestServiceCharm(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
@@ -274,4 +337,30 @@ func (s *StateSuite) TestServiceCharm(c *C) {
 	testcurl, err = wordpress.CharmURL()
 	c.Assert(err, IsNil)
 	c.Assert(testcurl.String(), Equals, "local:myseries/mydummy-1")
+}
+
+func (s *StateSuite) TestRemoveUnit(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	_, err = wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	_, err = wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	// Check that removing a unit works.
+	unit, err := wordpress.Unit("wordpress/0")
+	c.Assert(err, IsNil)
+	err = wordpress.RemoveUnit(unit)
+	c.Assert(err, IsNil)
+
+	units, err := wordpress.AllUnits()
+	c.Assert(err, IsNil)
+	c.Assert(units, HasLen, 1)
+	c.Assert(units[0].Name(), Equals, "wordpress/1")
+
+	// Check that removing a non-existent unit fails nicely.
+	err = wordpress.RemoveUnit(unit)
+	// TODO use error string from state_test.TestRemoveUnit()
+	c.Assert(err, ErrorMatches, `can't remove unit "wordpress/0": .*`)
 }
