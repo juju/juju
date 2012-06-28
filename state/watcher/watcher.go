@@ -6,6 +6,32 @@ import (
 	"launchpad.net/tomb"
 )
 
+// ErrStopper is implemented by all watchers.
+type ErrStopper interface {
+	Stop() error
+	Err() error
+}
+
+// Stop stops the watcher. If an error is returned by the
+// watcher, t is killed with the error.
+func Stop(w ErrStopper, t *tomb.Tomb) {
+	if err := w.Stop(); err != nil {
+		t.Kill(err)
+	}
+}
+
+// MustErr returns the error with which w died.
+// Calling it will panic if w is still running or was stopped cleanly.
+func MustErr(w ErrStopper) error {
+	err := w.Err()
+	if err == nil {
+		panic("watcher was stopped cleanly")
+	} else if err == tomb.ErrStillAlive {
+		panic("watcher is still running")
+	}
+	return err
+}
+
 // ContentChange holds information on the existence
 // and contents of a node. Version and Content will be
 // zeroed when exists is false.

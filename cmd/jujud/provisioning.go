@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 
 	// register providers
@@ -42,7 +43,7 @@ func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
 		if err == nil {
 			if err = p.Wait(); err == nil {
 				// if Wait returns nil then we consider that a signal
-				// that the process should exit the retry logic.	
+				// that the process should exit the retry logic.
 				return nil
 			}
 		}
@@ -57,9 +58,6 @@ type Provisioner struct {
 	info    *state.Info
 	environ environs.Environ
 	tomb    tomb.Tomb
-
-	environWatcher  *state.ConfigWatcher
-	machinesWatcher *state.MachinesWatcher
 
 	// machine.Id => environs.Instance
 	instances map[int]environs.Instance
@@ -86,17 +84,20 @@ func NewProvisioner(info *state.Info) (*Provisioner, error) {
 func (p *Provisioner) loop() {
 	defer p.tomb.Done()
 	defer p.st.Close()
-	p.environWatcher = p.st.WatchEnvironConfig()
+	environWatcher := p.st.WatchEnvironConfig()
+	defer watcher.Stop(environWatcher, &p.tomb)
+
+	// Get a new StateInfo from the environment: the one used to
+	// launch the agent may refer to localhost, which will be
+	// unhelpful when attempting to run an agent on a new machine.
+refreshState:
 	for {
 		select {
 		case <-p.tomb.Dying():
 			return
-		case config, ok := <-p.environWatcher.Changes():
+		case config, ok := <-environWatcher.Changes():
 			if !ok {
-				err := p.environWatcher.Stop()
-				if err != nil {
-					p.tomb.Kill(err)
-				}
+				p.tomb.Kill(watcher.MustErr(environWatcher))
 				return
 			}
 			var err error
@@ -106,38 +107,31 @@ func (p *Provisioner) loop() {
 				continue
 			}
 			log.Printf("provisioner loaded new environment configuration")
-
-			// Get another stateInfo from the environment
-			// because on the bootstrap machine the info passed
-			// into the agent may not use the correct address.
-			info, err := p.environ.StateInfo()
-			if err != nil {
+			if p.info, err = p.environ.StateInfo(); err != nil {
 				p.tomb.Kill(err)
 				return
 			}
-			p.info = info
-			p.innerLoop()
+			break refreshState
 		}
 	}
-}
 
-func (p *Provisioner) innerLoop() {
-	// call processMachines to stop any unknown instances before watching machines.
+	// Call processMachines to stop any unknown instances before watching machines.
 	if err := p.processMachines(nil, nil); err != nil {
 		p.tomb.Kill(err)
 		return
 	}
-	p.machinesWatcher = p.st.WatchMachines()
+
+	// Start responding to changes in machines, and to any further updates
+	// to the environment config.
+	machinesWatcher := p.st.WatchMachines()
+	defer watcher.Stop(machinesWatcher, &p.tomb)
 	for {
 		select {
 		case <-p.tomb.Dying():
 			return
-		case change, ok := <-p.environWatcher.Changes():
+		case change, ok := <-environWatcher.Changes():
 			if !ok {
-				err := p.environWatcher.Stop()
-				if err != nil {
-					p.tomb.Kill(err)
-				}
+				p.tomb.Kill(watcher.MustErr(environWatcher))
 				return
 			}
 			config, err := environs.NewConfig(change.Map())
@@ -147,18 +141,16 @@ func (p *Provisioner) innerLoop() {
 			}
 			p.environ.SetConfig(config)
 			log.Printf("provisioner loaded new environment configuration")
-		case machines, ok := <-p.machinesWatcher.Changes():
+		case machines, ok := <-machinesWatcher.Changes():
 			if !ok {
-				err := p.machinesWatcher.Stop()
-				if err != nil {
-					p.tomb.Kill(err)
-				}
+				p.tomb.Kill(watcher.MustErr(machinesWatcher))
 				return
 			}
 			// TODO(dfc) fire process machines periodically to shut down unknown
 			// instances.
 			if err := p.processMachines(machines.Added, machines.Deleted); err != nil {
 				p.tomb.Kill(err)
+				return
 			}
 		}
 	}
