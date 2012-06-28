@@ -19,8 +19,10 @@ var _ = Suite(&StateSuite{})
 type StateSuite struct {
 	MgoSuite
 	session  *mgo.Session
-	machines *mgo.Collection
 	charms   *mgo.Collection
+	machines *mgo.Collection
+	services *mgo.Collection
+	units    *mgo.Collection
 	st       *state.State
 	ch       charm.Charm
 	curl     *charm.URL
@@ -36,8 +38,10 @@ func (s *StateSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	s.st = st
 
-	s.machines = session.DB("juju").C("machines")
 	s.charms = session.DB("juju").C("charms")
+	s.machines = session.DB("juju").C("machines")
+	s.services = session.DB("juju").C("services")
+	s.units = session.DB("juju").C("units")
 
 	s.ch = testing.Charms.Dir("dummy")
 	url := fmt.Sprintf("local:series/%s-%d", s.ch.Meta().Name, s.ch.Revision())
@@ -155,7 +159,9 @@ func (s *StateSuite) TestRemoveMachine(c *C) {
 	ms, err := s.st.AllMachines()
 	c.Assert(ms[0].Id(), Equals, m1.Id())
 
-	// TODO: Removing a non-existing machine has to fail.
+	// Removing a non-existing machine has to fail.
+	err = s.st.RemoveMachine(m0.Id())
+	c.Assert(err, ErrorMatches, "can't remove machine 0")
 }
 
 func (s *StateSuite) TestMachineInstanceId(c *C) {
@@ -187,4 +193,174 @@ func (s *StateSuite) TestReadMachine(c *C) {
 	machine, err = s.st.Machine(expectedId)
 	c.Assert(err, IsNil)
 	c.Assert(machine.Id(), Equals, expectedId)
+}
+
+func (s *StateSuite) TestAddService(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	c.Assert(wordpress.Name(), Equals, "wordpress")
+	mysql, err := s.st.AddService("mysql", dummy)
+	c.Assert(err, IsNil)
+	c.Assert(mysql.Name(), Equals, "mysql")
+
+	// Check that retrieving the new created services works correctly.
+	wordpress, err = s.st.Service("wordpress")
+	c.Assert(err, IsNil)
+	c.Assert(wordpress.Name(), Equals, "wordpress")
+	url, err := wordpress.CharmURL()
+	c.Assert(err, IsNil)
+	c.Assert(url.String(), Equals, s.curl.String())
+	mysql, err = s.st.Service("mysql")
+	c.Assert(err, IsNil)
+	c.Assert(mysql.Name(), Equals, "mysql")
+	url, err = mysql.CharmURL()
+	c.Assert(err, IsNil)
+	c.Assert(url.String(), Equals, s.curl.String())
+}
+
+func (s *StateSuite) TestReadNonExistentService(c *C) {
+	_, err := s.st.Service("pressword")
+	c.Assert(err, ErrorMatches, `can't get service "pressword": .*`)
+}
+
+func (s *StateSuite) TestRemoveService(c *C) {
+	dummy := s.addDummyCharm(c)
+	service, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+
+	// Remove of existing service.
+	err = s.st.RemoveService(service)
+	c.Assert(err, IsNil)
+	_, err = s.st.Service("wordpress")
+	c.Assert(err, ErrorMatches, `can't get service "wordpress": .*`)
+}
+
+func (s *StateSuite) TestAllServices(c *C) {
+	services, err := s.st.AllServices()
+	c.Assert(err, IsNil)
+	c.Assert(len(services), Equals, 0)
+
+	// Check that after adding services the result is ok.
+	dummy := s.addDummyCharm(c)
+	_, err = s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	services, err = s.st.AllServices()
+	c.Assert(err, IsNil)
+	c.Assert(len(services), Equals, 1)
+
+	_, err = s.st.AddService("mysql", dummy)
+	c.Assert(err, IsNil)
+	services, err = s.st.AllServices()
+	c.Assert(err, IsNil)
+	c.Assert(len(services), Equals, 2)
+
+	// Check the returned service, order is defined by sorted keys.
+	c.Assert(services[0].Name(), Equals, "wordpress")
+	c.Assert(services[1].Name(), Equals, "mysql")
+}
+
+func (s *StateSuite) TestAddUnit(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+
+	// Check that principal units can be added on their own.
+	unitZero, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	c.Assert(unitZero.Name(), Equals, "wordpress/0")
+	principal := unitZero.IsPrincipal()
+	c.Assert(principal, Equals, true)
+	unitOne, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	c.Assert(unitOne.Name(), Equals, "wordpress/1")
+	principal = unitOne.IsPrincipal()
+	c.Assert(principal, Equals, true)
+
+	// Check that principal units cannot be added to principal units.
+	_, err = wordpress.AddUnitSubordinateTo(unitZero)
+	c.Assert(err, ErrorMatches, `can't add unit of principal service "wordpress" as a subordinate of "wordpress/0"`)
+}
+
+// TODO port subordinate unit logic from state_test.TestAddUnit().
+
+func (s *StateSuite) TestReadUnit(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	_, err = wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	_, err = wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	mysql, err := s.st.AddService("mysql", dummy)
+	c.Assert(err, IsNil)
+	_, err = mysql.AddUnit()
+	c.Assert(err, IsNil)
+
+	// Check that retrieving a unit works correctly.
+	unit, err := wordpress.Unit("wordpress/0")
+	c.Assert(err, IsNil)
+	c.Assert(unit.Name(), Equals, "wordpress/0")
+
+	// Check that retrieving a non-existent or an invalidly
+	// named unit fail nicely.
+	unit, err = wordpress.Unit("wordpress")
+	c.Assert(err, ErrorMatches, `can't get unit "wordpress" from service "wordpress": .*`)
+	unit, err = wordpress.Unit("wordpress/0/0")
+	c.Assert(err, ErrorMatches, `can't get unit "wordpress/0/0" from service "wordpress": .*`)
+	unit, err = wordpress.Unit("pressword/0")
+	c.Assert(err, ErrorMatches, `can't get unit "pressword/0" from service "wordpress": .*`)
+	unit, err = wordpress.Unit("mysql/0")
+	c.Assert(err, ErrorMatches, `can't get unit "mysql/0" from service "wordpress": .*`)
+
+	// Check that retrieving all units works.
+	units, err := wordpress.AllUnits()
+	c.Assert(err, IsNil)
+	c.Assert(len(units), Equals, 2)
+	c.Assert(units[0].Name(), Equals, "wordpress/0")
+	c.Assert(units[1].Name(), Equals, "wordpress/1")
+}
+
+func (s *StateSuite) TestServiceCharm(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+
+	// Check that getting and setting the service charm URL works correctly.
+	testcurl, err := wordpress.CharmURL()
+	c.Assert(err, IsNil)
+	c.Assert(testcurl.String(), Equals, s.curl.String())
+	testcurl, err = charm.ParseURL("local:myseries/mydummy-1")
+	c.Assert(err, IsNil)
+	err = wordpress.SetCharmURL(testcurl)
+	c.Assert(err, IsNil)
+	testcurl, err = wordpress.CharmURL()
+	c.Assert(err, IsNil)
+	c.Assert(testcurl.String(), Equals, "local:myseries/mydummy-1")
+}
+
+func (s *StateSuite) TestRemoveUnit(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	_, err = wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	_, err = wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	// Check that removing a unit works.
+	unit, err := wordpress.Unit("wordpress/0")
+	c.Assert(err, IsNil)
+	err = wordpress.RemoveUnit(unit)
+	c.Assert(err, IsNil)
+
+	units, err := wordpress.AllUnits()
+	c.Assert(err, IsNil)
+	c.Assert(units, HasLen, 1)
+	c.Assert(units[0].Name(), Equals, "wordpress/1")
+
+	// Check that removing a non-existent unit fails nicely.
+	err = wordpress.RemoveUnit(unit)
+	// TODO use error string from state_test.TestRemoveUnit()
+	c.Assert(err, ErrorMatches, `can't remove unit "wordpress/0": .*`)
 }
