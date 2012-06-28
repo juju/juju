@@ -51,18 +51,17 @@ func (s *WatcherSuite) TearDownTest(c *C) {
 }
 
 type contentWatcherTest struct {
-	test    func(*C, *WatcherSuite)
-	want    watcher.ContentChange
-	timeout bool
+	test func(*C, *WatcherSuite)
+	want watcher.ContentChange
 }
 
 var contentWatcherTests = []contentWatcherTest{
-	{func(c *C, s *WatcherSuite) {}, watcher.ContentChange{false, ""}, false},
-	{func(c *C, s *WatcherSuite) { s.createPath(c, "init") }, watcher.ContentChange{true, "init"}, false},
-	{func(c *C, s *WatcherSuite) { s.changeContent(c, "foo") }, watcher.ContentChange{true, "foo"}, false},
-	{func(c *C, s *WatcherSuite) { s.changeContent(c, "foo") }, watcher.ContentChange{}, true},
-	{func(c *C, s *WatcherSuite) { s.removePath(c) }, watcher.ContentChange{false, ""}, false},
-	{func(c *C, s *WatcherSuite) { s.createPath(c, "done") }, watcher.ContentChange{true, "done"}, false},
+	{func(c *C, s *WatcherSuite) {}, watcher.ContentChange{}},
+	{func(c *C, s *WatcherSuite) { s.createPath(c, "init") }, watcher.ContentChange{true, 0, "init"}},
+	{func(c *C, s *WatcherSuite) { s.changeContent(c, "foo") }, watcher.ContentChange{true, 1, "foo"}},
+	{func(c *C, s *WatcherSuite) { s.changeContent(c, "foo") }, watcher.ContentChange{true, 2, "foo"}},
+	{func(c *C, s *WatcherSuite) { s.removePath(c) }, watcher.ContentChange{}},
+	{func(c *C, s *WatcherSuite) { s.createPath(c, "done") }, watcher.ContentChange{true, 0, "done"}},
 }
 
 func (s *WatcherSuite) TestContentWatcher(c *C) {
@@ -76,9 +75,7 @@ func (s *WatcherSuite) TestContentWatcher(c *C) {
 			c.Assert(ok, Equals, true)
 			c.Assert(got, Equals, test.want)
 		case <-time.After(200 * time.Millisecond):
-			if !test.timeout {
-				c.Fatalf("didn't get change: %#v", test.want)
-			}
+			c.Fatalf("didn't get change: %#v", test.want)
 		}
 	}
 
