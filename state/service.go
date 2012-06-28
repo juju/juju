@@ -232,12 +232,12 @@ func (s *Service) Relations() (relations []*Relation, err error) {
 		return nil, err
 	}
 	for key, tr := range trs {
-		r := &Relation{s.st, key, make([]RelationEndpoint, len(tr.Services))}
+		r := &Relation{s.st, key, make([]RelationEndpoint, len(tr.Endpoints))}
 		i := 0
-		for skey, tep := range tr.Services {
+		for _, tep := range tr.Endpoints {
 			sname := s.name
-			if skey != s.key {
-				if sname, err = t.ServiceName(skey); err != nil {
+			if tep.Service != s.key {
+				if sname, err = t.ServiceName(tep.Service); err != nil {
 					return nil, err
 				}
 			}
@@ -283,7 +283,7 @@ func (s *Service) ClearExposed() error {
 	return nil
 }
 
-// WatchExposed creates a watcher for the exposed flog
+// WatchExposed creates a watcher for the exposed flag
 // of the service.
 func (s *Service) WatchExposed() *FlagWatcher {
 	return newFlagWatcher(s.st, s.zkExposedPath())
