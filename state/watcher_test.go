@@ -63,7 +63,7 @@ func (s *StateSuite) TestServiceWatchConfig(c *C) {
 	}
 
 	select {
-	case got, _ := <-configWatcher.Changes():
+	case got := <-configWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
@@ -139,7 +139,7 @@ func (s *StateSuite) TestServiceWatchExposed(c *C) {
 	}
 
 	select {
-	case got, _ := <-exposedWatcher.Changes():
+	case got := <-exposedWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
@@ -177,6 +177,60 @@ func (s *StateSuite) TestServiceWatchExposedContent(c *C) {
 	case got := <-exposedWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(200 * time.Millisecond):
+	}
+}
+
+var serviceUnitTests = []struct {
+	testOp string
+	idx    int
+}{
+	{"none", 0},
+	{"add", 0},
+	{"add", 1},
+	{"remove", 0},
+}
+
+func (s *StateSuite) TestServiceWatchUnits(c *C) {
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	c.Assert(wordpress.Name(), Equals, "wordpress")
+
+	unitsWatcher := wordpress.WatchUnits()
+	defer func() {
+		c.Assert(unitsWatcher.Stop(), IsNil)
+	}()
+	units := make([]*state.Unit, 2)
+
+	for i, test := range serviceUnitTests {
+		c.Logf("test %d", i)
+		var want *state.ServiceUnitsChange
+		switch test.testOp {
+		case "none":
+			want = &state.ServiceUnitsChange{}
+		case "add":
+			units[test.idx], err = wordpress.AddUnit()
+			c.Assert(err, IsNil)
+			want = &state.ServiceUnitsChange{[]*state.Unit{units[test.idx]}, nil}
+		case "remove":
+			err = wordpress.RemoveUnit(units[test.idx])
+			c.Assert(err, IsNil)
+			want = &state.ServiceUnitsChange{nil, []*state.Unit{units[test.idx]}}
+			units[test.idx] = nil
+		}
+		select {
+		case got, ok := <-unitsWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got, DeepEquals, want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", want)
+		}
+	}
+
+	select {
+	case got := <-unitsWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
 	}
 }
 
@@ -219,7 +273,7 @@ func (s *StateSuite) TestUnitWatchNeedsUpgrade(c *C) {
 	}
 
 	select {
-	case got, _ := <-needsUpgradeWatcher.Changes():
+	case got := <-needsUpgradeWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
@@ -264,7 +318,7 @@ func (s *StateSuite) TestUnitWatchResolved(c *C) {
 	}
 
 	select {
-	case got, _ := <-resolvedWatcher.Changes():
+	case got := <-resolvedWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
@@ -309,7 +363,7 @@ func (s *StateSuite) TestUnitWatchPorts(c *C) {
 	}
 
 	select {
-	case got, _ := <-portsWatcher.Changes():
+	case got := <-portsWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
@@ -378,7 +432,7 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 	}
 
 	select {
-	case got, _ := <-machineWatcher.Changes():
+	case got := <-machineWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
@@ -471,7 +525,7 @@ func (s *StateSuite) TestWatchMachineUnits(c *C) {
 	}
 
 	select {
-	case got, _ := <-unitsWatcher.Changes():
+	case got := <-unitsWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
@@ -527,7 +581,7 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 	}
 
 	select {
-	case got, _ := <-environConfigWatcher.Changes():
+	case got := <-environConfigWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
