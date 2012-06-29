@@ -20,6 +20,10 @@ func TestPackage(t *stdtesting.T) {
 
 // ConnSuite is a testing.StateSuite with direct access to the
 // State's underlying zookeeper.Conn.
+// TODO: Separate test methods that use zkConn into a single ZooKeeper-
+// specific suite, and use plain StateSuites elsewhere, so we can maybe
+// eventually have a single set of tests that work against both state and
+// mstate.
 type ConnSuite struct {
 	testing.StateSuite
 	zkConn *zookeeper.Conn
@@ -31,43 +35,14 @@ func (s *ConnSuite) SetUpTest(c *C) {
 }
 
 type StateSuite struct {
-	zkConn *zookeeper.Conn
-	st     *state.State
-	ch     charm.Charm
-	curl   *charm.URL
+	ConnSuite
 }
 
 var _ = Suite(&StateSuite{})
 
-func (s *StateSuite) SetUpTest(c *C) {
-	var err error
-	s.st, err = state.Initialize(&state.Info{
-		Addrs: []string{coretesting.ZkAddr},
-	})
-	c.Assert(err, IsNil)
-	s.zkConn = state.ZkConn(s.st)
-	s.ch = coretesting.Charms.Dir("dummy")
-	url := fmt.Sprintf("local:series/%s-%d", s.ch.Meta().Name, s.ch.Revision())
-	s.curl = charm.MustParseURL(url)
-}
-
-func (s *StateSuite) TearDownTest(c *C) {
-	coretesting.ZkRemoveTree(s.zkConn, "/")
-	s.zkConn.Close()
-}
-
-func (s *StateSuite) assertMachineCount(c *C, expect int) {
-	ms, err := s.st.AllMachines()
-	c.Assert(err, IsNil)
-	c.Assert(len(ms), Equals, expect)
-}
-
 func (s *StateSuite) TestInitialize(c *C) {
-	info := &state.Info{
-		Addrs: []string{coretesting.ZkAddr},
-	}
 	// Check that initialization of an already-initialized state succeeds.
-	st, err := state.Initialize(info)
+	st, err := state.Initialize(s.StateInfo(c))
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	st.Close()
@@ -77,7 +52,7 @@ func (s *StateSuite) TestInitialize(c *C) {
 
 	errc := make(chan error)
 	go func() {
-		st, err := state.Open(info)
+		st, err := state.Open(s.StateInfo(c))
 		errc <- err
 		if st != nil {
 			st.Close()
@@ -92,7 +67,7 @@ func (s *StateSuite) TestInitialize(c *C) {
 	default:
 	}
 
-	st, err = state.Initialize(info)
+	st, err = state.Initialize(s.StateInfo(c))
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	defer st.Close()
@@ -105,86 +80,176 @@ func (s *StateSuite) TestInitialize(c *C) {
 	}
 }
 
-func (s *StateSuite) TestAddCharm(c *C) {
-	// Check that adding charms works correctly.
-	bundleURL, err := url.Parse("http://bundle.url")
-	c.Assert(err, IsNil)
-	dummy, err := s.st.AddCharm(s.ch, s.curl, bundleURL, "dummy-sha256")
-	c.Assert(err, IsNil)
-	c.Assert(dummy.URL().String(), Equals, s.curl.String())
-	children, _, err := s.zkConn.Children("/charms")
-	c.Assert(err, IsNil)
-	c.Assert(children, DeepEquals, []string{"local_3a_series_2f_dummy-1"})
-}
-
-// addDummyCharm adds the 'dummy' charm state to st.
-func (s *StateSuite) addDummyCharm(c *C) *state.Charm {
-	bundleURL, err := url.Parse("http://bundle.url")
-	c.Assert(err, IsNil)
-	dummy, err := s.st.AddCharm(s.ch, s.curl, bundleURL, "dummy-sha256")
-	c.Assert(err, IsNil)
-	return dummy
-}
-
-func (s *StateSuite) TestCharmAttributes(c *C) {
-	// Check that the basic (invariant) fields of the charm
-	// are correctly in place.
-	s.addDummyCharm(c)
-
-	dummy, err := s.st.Charm(s.curl)
-	c.Assert(err, IsNil)
-	c.Assert(dummy.URL().String(), Equals, s.curl.String())
-	c.Assert(dummy.Revision(), Equals, 1)
-	bundleURL, err := url.Parse("http://bundle.url")
-	c.Assert(err, IsNil)
-	c.Assert(dummy.BundleURL(), DeepEquals, bundleURL)
-	c.Assert(dummy.BundleSha256(), Equals, "dummy-sha256")
-	meta := dummy.Meta()
-	c.Assert(meta.Name, Equals, "dummy")
-	config := dummy.Config()
-	c.Assert(config.Options["title"], Equals,
-		charm.Option{
-			Default:     "My Title",
-			Description: "A descriptive title used for the service.",
-			Type:        "string",
-		},
-	)
-}
-
-func (s *StateSuite) TestNonExistentCharmPriorToInitialization(c *C) {
-	// Check that getting a charm before any other charm has been added fails nicely.
-	_, err := s.st.Charm(s.curl)
-	c.Assert(err, ErrorMatches, `can't get charm "local:series/dummy-1": .*`)
-}
-
-func (s *StateSuite) TestGetNonExistentCharm(c *C) {
-	// Check that getting a non-existent charm fails nicely.
-	s.addDummyCharm(c)
-
-	curl := charm.MustParseURL("local:anotherseries/dummy-1")
-	_, err := s.st.Charm(curl)
-	c.Assert(err, ErrorMatches, `can't get charm "local:anotherseries/dummy-1": .*`)
-}
-
-// addLoggingCharm adds a "logging" (subordinate) charm
-// to the state.
-func addLoggingCharm(c *C, st *state.State) *state.Charm {
-	bundle := coretesting.Charms.Bundle(c.MkDir(), "logging")
-	curl := charm.MustParseURL("cs:series/logging-99")
-	bundleURL, err := url.Parse("http://subordinate.url")
-	c.Assert(err, IsNil)
-	ch, err := st.AddCharm(bundle, curl, bundleURL, "dummy-sha256")
-	c.Assert(err, IsNil)
-	return ch
-}
-
 func (s *StateSuite) TestEnvironConfig(c *C) {
 	path, err := s.zkConn.Create("/environment", "type: dummy\nname: foo\n", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
 	c.Assert(err, IsNil)
 	c.Assert(path, Equals, "/environment")
 
-	env, err := s.st.EnvironConfig()
+	env, err := s.St.EnvironConfig()
 	env.Read()
 	c.Assert(err, IsNil)
 	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"type": "dummy", "name": "foo"})
+}
+
+type any map[string]interface{}
+
+var environmentWatchTests = []struct {
+	key   string
+	value interface{}
+	want  map[string]interface{}
+}{
+	{"provider", "dummy", any{"provider": "dummy"}},
+	{"secret", "shhh", any{"provider": "dummy", "secret": "shhh"}},
+	{"provider", "aws", any{"provider": "aws", "secret": "shhh"}},
+}
+
+func (s *StateSuite) TestWatchEnvironment(c *C) {
+	// create a blank /environment key manually as it is
+	// not created by state.Initialize().
+	path, err := s.zkConn.Create("/environment", "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
+	c.Assert(err, IsNil)
+	c.Assert(path, Equals, "/environment")
+
+	// fetch the /environment key as a *ConfigNode
+	environConfigWatcher := s.St.WatchEnvironConfig()
+	defer func() {
+		c.Assert(environConfigWatcher.Stop(), IsNil)
+	}()
+
+	config, ok := <-environConfigWatcher.Changes()
+	c.Assert(ok, Equals, true)
+
+	for i, test := range environmentWatchTests {
+		c.Logf("test %d", i)
+		config.Set(test.key, test.value)
+		_, err := config.Write()
+		c.Assert(err, IsNil)
+		select {
+		case got, ok := <-environConfigWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got.Map(), DeepEquals, test.want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", test.want)
+		}
+	}
+
+	select {
+	case got := <-environConfigWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func (s *StateSuite) TestAddCharm(c *C) {
+	// Check that adding charms from scratch works correctly.
+	ch := coretesting.Charms.Dir("dummy")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
+	)
+	bundleURL, err := url.Parse("http://bundles.example.com/dummy-1")
+	c.Assert(err, IsNil)
+	dummy, err := s.St.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	c.Assert(err, IsNil)
+	c.Assert(dummy.URL().String(), Equals, curl.String())
+	children, _, err := s.zkConn.Children("/charms")
+	c.Assert(err, IsNil)
+	c.Assert(children, DeepEquals, []string{"local_3a_series_2f_dummy-1"})
+}
+
+func (s *StateSuite) TestMissingCharms(c *C) {
+	// Check that getting a nonexistent charm fails.
+	curl := charm.MustParseURL("local:series/random-99")
+	_, err := s.St.Charm(curl)
+	c.Assert(err, ErrorMatches, `can't get charm "local:series/random-99": .*`)
+
+	// Add a separate charm, test missing charm still missing.
+	s.AddTestingCharm(c, "dummy")
+	_, err = s.St.Charm(curl)
+	c.Assert(err, ErrorMatches, `can't get charm "local:series/random-99": .*`)
+}
+
+type machinesWatchTest struct {
+	test func(*state.State) error
+	want func(*state.State) *state.MachinesChange
+}
+
+var machinesWatchTests = []machinesWatchTest{
+	{
+		func(_ *state.State) error {
+			return nil
+		},
+		func(_ *state.State) *state.MachinesChange {
+			return &state.MachinesChange{}
+		},
+	},
+	{
+		func(s *state.State) error {
+			_, err := s.AddMachine()
+			return err
+		},
+		func(s *state.State) *state.MachinesChange {
+			return &state.MachinesChange{Added: []*state.Machine{state.NewMachine(s, "machine-0000000000")}}
+		},
+	},
+	{
+		func(s *state.State) error {
+			_, err := s.AddMachine()
+			return err
+		},
+		func(s *state.State) *state.MachinesChange {
+			return &state.MachinesChange{Added: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
+		},
+	},
+	{
+		func(s *state.State) error {
+			return s.RemoveMachine(1)
+		},
+		func(s *state.State) *state.MachinesChange {
+			return &state.MachinesChange{Deleted: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
+		},
+	},
+}
+
+func (s *StateSuite) TestWatchMachines(c *C) {
+	machineWatcher := s.St.WatchMachines()
+	defer func() {
+		c.Assert(machineWatcher.Stop(), IsNil)
+	}()
+
+	for i, test := range machinesWatchTests {
+		c.Logf("test %d", i)
+		err := test.test(s.St)
+		c.Assert(err, IsNil)
+		want := test.want(s.St)
+		select {
+		case got, ok := <-machineWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got, DeepEquals, want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", want)
+		}
+	}
+
+	select {
+	case got := <-machineWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+var diffTests = []struct {
+	A, B, want []string
+}{
+	{[]string{"A", "B", "C"}, []string{"A", "D", "C"}, []string{"B"}},
+	{[]string{"A", "B", "C"}, []string{"C", "B", "A"}, nil},
+	{[]string{"A", "B", "C"}, []string{"B"}, []string{"A", "C"}},
+	{[]string{"B"}, []string{"A", "B", "C"}, nil},
+	{[]string{"A", "D", "C"}, []string{}, []string{"A", "D", "C"}},
+	{[]string{}, []string{"A", "D", "C"}, nil},
+}
+
+func (*StateSuite) TestDiff(c *C) {
+	for _, test := range diffTests {
+		c.Assert(test.want, DeepEquals, state.Diff(test.A, test.B))
+	}
 }

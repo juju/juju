@@ -36,7 +36,7 @@ func (s *StateSuite) StateInfo(c *C) *state.Info {
 	return &state.Info{Addrs: []string{testing.ZkAddr}}
 }
 
-func (s *StateSuite) Charm(c *C, name string) *state.Charm {
+func (s *StateSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	ch := testing.Charms.Dir(name)
 	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
 	curl := charm.MustParseURL("local:series/" + ident)

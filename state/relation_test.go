@@ -14,7 +14,7 @@ var _ = Suite(&RelationSuite{})
 
 func (s *RelationSuite) SetUpTest(c *C) {
 	s.ConnSuite.SetUpTest(c)
-	s.charm = s.Charm(c, "dummy")
+	s.charm = s.AddTestingCharm(c, "dummy")
 }
 
 func (s *RelationSuite) TestAddRelationErrors(c *C) {

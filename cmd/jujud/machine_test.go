@@ -68,8 +68,8 @@ func (s *MachineSuite) TestMachinerDeployDestroy(c *C) {
 		simpleContainer = container.Simple
 	}()
 
-	dummyCharm := s.Charm(c, "dummy")
-	loggingCharm := s.Charm(c, "logging")
+	dummyCharm := s.AddTestingCharm(c, "dummy")
+	loggingCharm := s.AddTestingCharm(c, "logging")
 
 	d0, err := s.St.AddService("d0", dummyCharm)
 	c.Assert(err, IsNil)

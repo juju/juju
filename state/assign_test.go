@@ -16,7 +16,7 @@ var _ = Suite(&AssignSuite{})
 
 func (s *AssignSuite) SetUpTest(c *C) {
 	s.ConnSuite.SetUpTest(c)
-	s.charm = s.Charm(c, "dummy")
+	s.charm = s.AddTestingCharm(c, "dummy")
 	var err error
 	s.service, err = s.St.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
@@ -149,7 +149,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 
 func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
 	// Check that assigning a principal unit assigns its subordinates too.
-	subCharm := s.Charm(c, "logging")
+	subCharm := s.AddTestingCharm(c, "logging")
 	logService1, err := s.St.AddService("logging1", subCharm)
 	c.Assert(err, IsNil)
 	logService2, err := s.St.AddService("logging2", subCharm)
@@ -218,7 +218,7 @@ func (s *AssignSuite) TestAssignUnit(c *C) {
 	s.AssertMachineCount(c, 3)
 
 	// Check cannot assign subordinates to machines
-	subCharm := s.Charm(c, "logging")
+	subCharm := s.AddTestingCharm(c, "logging")
 	logging, err := s.St.AddService("logging", subCharm)
 	c.Assert(err, IsNil)
 	unit3, err := logging.AddUnitSubordinateTo(unit2)

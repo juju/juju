@@ -201,8 +201,8 @@ func (s *MachineSuite) TestMachineUnits(c *C) {
 	m3, err := s.St.AddMachine()
 	c.Assert(err, IsNil)
 
-	dummy := s.Charm(c, "dummy")
-	logging := s.Charm(c, "logging")
+	dummy := s.AddTestingCharm(c, "dummy")
+	logging := s.AddTestingCharm(c, "logging")
 	s0, err := s.St.AddService("s0", dummy)
 	c.Assert(err, IsNil)
 	s1, err := s.St.AddService("s1", dummy)
@@ -259,4 +259,112 @@ func sortedUnitNames(units []*state.Unit) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+type MachineWatcherSuite struct {
+	ConnSuite
+	machine *state.Machine
+}
+
+var _ = Suite(&MachineWatcherSuite{})
+
+func (s *MachineWatcherSuite) SetUpTest(c *C) {
+	s.ConnSuite.SetUpTest(c)
+	var err error
+	s.machine, err = s.St.AddMachine()
+	c.Assert(err, IsNil)
+}
+
+var watchMachineUnitsTests = []struct {
+	test func(m *state.Machine, units []*state.Unit) error
+	want func(units []*state.Unit) *state.MachineUnitsChange
+}{
+	{
+		func(_ *state.Machine, _ []*state.Unit) error {
+			return nil
+		},
+		func(_ []*state.Unit) *state.MachineUnitsChange {
+			return &state.MachineUnitsChange{}
+		},
+	},
+	{
+		func(m *state.Machine, units []*state.Unit) error {
+			return units[0].AssignToMachine(m)
+		},
+		func(units []*state.Unit) *state.MachineUnitsChange {
+			return &state.MachineUnitsChange{Added: []*state.Unit{units[0], units[1]}}
+		},
+	},
+	{
+		func(m *state.Machine, units []*state.Unit) error {
+			return units[2].AssignToMachine(m)
+		},
+		func(units []*state.Unit) *state.MachineUnitsChange {
+			return &state.MachineUnitsChange{Added: []*state.Unit{units[2]}}
+		},
+	},
+	{
+		func(m *state.Machine, units []*state.Unit) error {
+			return units[0].UnassignFromMachine()
+		},
+		func(units []*state.Unit) *state.MachineUnitsChange {
+			return &state.MachineUnitsChange{Deleted: []*state.Unit{units[0], units[1]}}
+		},
+	},
+	{
+		func(m *state.Machine, units []*state.Unit) error {
+			return units[2].UnassignFromMachine()
+		},
+		func(units []*state.Unit) *state.MachineUnitsChange {
+			return &state.MachineUnitsChange{Deleted: []*state.Unit{units[2]}}
+		},
+	},
+}
+
+func (s *MachineWatcherSuite) TestWatchMachineUnits(c *C) {
+	wordpress, err := s.St.AddService("wordpress", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, IsNil)
+	logging, err := s.St.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
+
+	units := make([]*state.Unit, 3)
+	units[0], err = wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	units[1], err = logging.AddUnitSubordinateTo(units[0])
+	c.Assert(err, IsNil)
+	units[2], err = wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	unitsWatcher := s.machine.WatchUnits()
+	defer func() {
+		c.Assert(unitsWatcher.Stop(), IsNil)
+	}()
+
+	for i, test := range watchMachineUnitsTests {
+		c.Logf("test %d", i)
+		err := test.test(s.machine, units)
+		c.Assert(err, IsNil)
+		want := test.want(units)
+		select {
+		case got, ok := <-unitsWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(unitNames(got.Added), DeepEquals, unitNames(want.Added))
+			c.Assert(unitNames(got.Deleted), DeepEquals, unitNames(want.Deleted))
+		case <-time.After(500 * time.Millisecond):
+			c.Fatalf("didn't get change: %v", want)
+		}
+	}
+
+	select {
+	case got := <-unitsWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func unitNames(units []*state.Unit) (s []string) {
+	for _, u := range units {
+		s = append(s, u.Name())
+	}
+	return
 }

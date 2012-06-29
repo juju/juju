@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
+	"time"
 )
 
 type ServiceSuite struct {
@@ -15,7 +16,7 @@ var _ = Suite(&ServiceSuite{})
 
 func (s *ServiceSuite) SetUpTest(c *C) {
 	s.ConnSuite.SetUpTest(c)
-	s.charm = s.Charm(c, "dummy")
+	s.charm = s.AddTestingCharm(c, "dummy")
 }
 
 func (s *ServiceSuite) TestAddService(c *C) {
@@ -168,7 +169,7 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 	c.Assert(err, IsNil)
 
 	// Add a subordinate service.
-	subCharm := s.Charm(c, "logging")
+	subCharm := s.AddTestingCharm(c, "logging")
 	logging, err := s.St.AddService("logging", subCharm)
 	c.Assert(err, IsNil)
 
@@ -263,4 +264,214 @@ func (s *ServiceSuite) TestReadUnitWithChangingState(c *C) {
 	c.Assert(err, IsNil)
 	_, err = s.St.Unit("wordpress/0")
 	c.Assert(err, ErrorMatches, `can't get unit "wordpress/0": can't get service "wordpress": service with name "wordpress" not found`)
+}
+
+type ServiceWatcherSuite struct {
+	ConnSuite
+	service *state.Service
+}
+
+var _ = Suite(&ServiceWatcherSuite{})
+
+func (s *ServiceWatcherSuite) SetUpTest(c *C) {
+	s.ConnSuite.SetUpTest(c)
+	charm := s.AddTestingCharm(c, "dummy")
+	var err error
+	s.service, err = s.St.AddService("wordpress", charm)
+	c.Assert(err, IsNil)
+}
+
+var serviceWatchConfigData = []map[string]interface{}{
+	{},
+	{"foo": "bar", "baz": "yadda"},
+	{"baz": "yadda"},
+}
+
+func (s *ServiceWatcherSuite) TestServiceWatchConfig(c *C) {
+	config, err := s.service.Config()
+	c.Assert(err, IsNil)
+	c.Assert(config.Keys(), HasLen, 0)
+
+	configWatcher := s.service.WatchConfig()
+	defer func() {
+		c.Assert(configWatcher.Stop(), IsNil)
+	}()
+
+	// Two change events.
+	config.Set("foo", "bar")
+	config.Set("baz", "yadda")
+	changes, err := config.Write()
+	c.Assert(err, IsNil)
+	c.Assert(changes, DeepEquals, []state.ItemChange{{
+		Key:      "baz",
+		Type:     state.ItemAdded,
+		NewValue: "yadda",
+	}, {
+		Key:      "foo",
+		Type:     state.ItemAdded,
+		NewValue: "bar",
+	}})
+	time.Sleep(100 * time.Millisecond)
+	config.Delete("foo")
+	changes, err = config.Write()
+	c.Assert(err, IsNil)
+	c.Assert(changes, DeepEquals, []state.ItemChange{{
+		Key:      "foo",
+		Type:     state.ItemDeleted,
+		OldValue: "bar",
+	}})
+
+	for _, want := range serviceWatchConfigData {
+		select {
+		case got, ok := <-configWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got.Map(), DeepEquals, want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", want)
+		}
+	}
+
+	select {
+	case got := <-configWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func (s *ServiceWatcherSuite) TestServiceWatchConfigIllegalData(c *C) {
+	configWatcher := s.service.WatchConfig()
+	defer func() {
+		c.Assert(configWatcher.Stop(), ErrorMatches, "unmarshall error: YAML error: .*")
+	}()
+
+	// Receive empty change after service adding.
+	select {
+	case got, ok := <-configWatcher.Changes():
+		c.Assert(ok, Equals, true)
+		c.Assert(got.Map(), DeepEquals, map[string]interface{}{})
+	case <-time.After(100 * time.Millisecond):
+		c.Fatalf("unexpected timeout")
+	}
+
+	// Set config to illegal data.
+	_, err := s.zkConn.Set("/services/service-0000000000/config", "---", -1)
+	c.Assert(err, IsNil)
+
+	select {
+	case _, ok := <-configWatcher.Changes():
+		c.Assert(ok, Equals, false)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+var serviceExposedTests = []struct {
+	test func(s *state.Service) error
+	want bool
+}{
+	{func(s *state.Service) error { return nil }, false},
+	{func(s *state.Service) error { return s.SetExposed() }, true},
+	{func(s *state.Service) error { return s.ClearExposed() }, false},
+	{func(s *state.Service) error { return s.SetExposed() }, true},
+}
+
+func (s *ServiceWatcherSuite) TestServiceWatchExposed(c *C) {
+	exposedWatcher := s.service.WatchExposed()
+	defer func() {
+		c.Assert(exposedWatcher.Stop(), IsNil)
+	}()
+
+	for i, test := range serviceExposedTests {
+		c.Logf("test %d", i)
+		err := test.test(s.service)
+		c.Assert(err, IsNil)
+		select {
+		case got, ok := <-exposedWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got, Equals, test.want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", test.want)
+		}
+	}
+
+	select {
+	case got := <-exposedWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func (s *ServiceWatcherSuite) TestServiceWatchExposedContent(c *C) {
+	exposedWatcher := s.service.WatchExposed()
+	defer func() {
+		c.Assert(exposedWatcher.Stop(), IsNil)
+	}()
+
+	s.service.SetExposed()
+	select {
+	case got, ok := <-exposedWatcher.Changes():
+		c.Assert(ok, Equals, true)
+		c.Assert(got, Equals, true)
+	case <-time.After(200 * time.Millisecond):
+		c.Fatalf("didn't get change: %#v", true)
+	}
+
+	// Re-set exposed with some data.
+	_, err := s.zkConn.Set("/services/service-0000000000/exposed", "some: data", -1)
+	c.Assert(err, IsNil)
+
+	select {
+	case got := <-exposedWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(200 * time.Millisecond):
+	}
+}
+
+var serviceUnitTests = []struct {
+	testOp string
+	idx    int
+}{
+	{"none", 0},
+	{"add", 0},
+	{"add", 1},
+	{"remove", 0},
+}
+
+func (s *ServiceWatcherSuite) TestServiceWatchUnits(c *C) {
+	unitsWatcher := s.service.WatchUnits()
+	defer func() {
+		c.Assert(unitsWatcher.Stop(), IsNil)
+	}()
+	units := make([]*state.Unit, 2)
+
+	for i, test := range serviceUnitTests {
+		c.Logf("test %d", i)
+		var want *state.ServiceUnitsChange
+		switch test.testOp {
+		case "none":
+			want = &state.ServiceUnitsChange{}
+		case "add":
+			var err error
+			units[test.idx], err = s.service.AddUnit()
+			c.Assert(err, IsNil)
+			want = &state.ServiceUnitsChange{[]*state.Unit{units[test.idx]}, nil}
+		case "remove":
+			err := s.service.RemoveUnit(units[test.idx])
+			c.Assert(err, IsNil)
+			want = &state.ServiceUnitsChange{nil, []*state.Unit{units[test.idx]}}
+			units[test.idx] = nil
+		}
+		select {
+		case got, ok := <-unitsWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got, DeepEquals, want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", want)
+		}
+	}
+
+	select {
+	case got := <-unitsWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
 }

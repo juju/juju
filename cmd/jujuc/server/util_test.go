@@ -39,7 +39,7 @@ func (s *UnitSuite) SetUpTest(c *C) {
 		LocalUnitName: "minecraft/0",
 	}
 	var err error
-	s.service, err = s.St.AddService("minecraft", s.Charm(c, "dummy"))
+	s.service, err = s.St.AddService("minecraft", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
 	s.unit, err = s.service.AddUnit()
 	c.Assert(err, IsNil)
