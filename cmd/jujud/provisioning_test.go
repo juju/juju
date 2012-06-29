@@ -1,8 +1,6 @@
 package main
 
 import (
-	"time"
-
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -10,6 +8,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"strings"
+	"time"
 )
 
 type ProvisioningSuite struct {
@@ -44,7 +43,6 @@ func (s *ProvisioningSuite) SetUpTest(c *C) {
 	err = env.Bootstrap(false)
 	c.Assert(err, IsNil)
 
-	s.zkSuite.SetUpTest(c)
 	s.st, err = state.Open(s.zkInfo)
 	c.Assert(err, IsNil)
 
@@ -56,7 +54,7 @@ func (s *ProvisioningSuite) SetUpTest(c *C) {
 
 func (s *ProvisioningSuite) TearDownTest(c *C) {
 	dummy.Reset()
-	s.zkSuite.TearDownTest()
+	s.zkSuite.TearDownTest(c)
 	s.logging.TearDownTest(c)
 }
 
@@ -191,7 +189,7 @@ func (s *ProvisioningSuite) TestParseUnknown(c *C) {
 }
 
 func initProvisioningAgent() (*ProvisioningAgent, error) {
-	args := []string{"--zookeeper-servers", zkAddr}
+	args := []string{"--zookeeper-servers", testing.ZkAddr}
 	c := &ProvisioningAgent{}
 	return c, initCmd(c, args)
 }

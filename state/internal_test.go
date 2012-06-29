@@ -3,40 +3,19 @@ package state
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
-	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju-core/testing"
 )
 
 type TopologySuite struct {
-	zkConn *zookeeper.Conn
-	t      *topology
+	testing.ZkConnSuite
+	t *topology
 }
 
 var _ = Suite(&TopologySuite{})
-var TestingZkAddr string
-
-func (s *TopologySuite) SetUpSuite(c *C) {
-	st, err := Initialize(&Info{
-		Addrs: []string{TestingZkAddr},
-	})
-	c.Assert(err, IsNil)
-	s.zkConn = ZkConn(st)
-}
-
-func (s *TopologySuite) TearDownSuite(c *C) {
-	err := zkRemoveTree(s.zkConn, "/")
-	c.Assert(err, IsNil)
-	s.zkConn.Close()
-}
 
 func (s *TopologySuite) SetUpTest(c *C) {
 	var err error
-	s.t, err = readTopology(s.zkConn)
-	c.Assert(err, IsNil)
-}
-
-func (s *TopologySuite) TearDownTest(c *C) {
-	// Clear out the topology node.
-	err := zkRemoveTree(s.zkConn, "/topology")
+	s.t, err = readTopology(s.ZkConn)
 	c.Assert(err, IsNil)
 }
 
@@ -759,65 +738,49 @@ func (s *TopologySuite) TestPeerRelationKeyIllegalEndpoints(c *C) {
 }
 
 type ConfigNodeSuite struct {
-	zkConn *zookeeper.Conn
-	path   string
+	testing.ZkConnSuite
+	path string
 }
 
 var _ = Suite(&ConfigNodeSuite{})
 
 func (s *ConfigNodeSuite) SetUpSuite(c *C) {
-	st, err := Initialize(&Info{
-		Addrs: []string{TestingZkAddr},
-	})
-	c.Assert(err, IsNil)
-	s.zkConn = ZkConn(st)
+	s.ZkConnSuite.SetUpSuite(c)
 	s.path = "/config"
-}
-
-func (s *ConfigNodeSuite) TearDownSuite(c *C) {
-	err := zkRemoveTree(s.zkConn, "/")
-	c.Assert(err, IsNil)
-	s.zkConn.Close()
-}
-
-func (s *ConfigNodeSuite) TearDownTest(c *C) {
-	// Delete the config node path.
-	err := zkRemoveTree(s.zkConn, s.path)
-	c.Assert(err, IsNil)
 }
 
 func (s *ConfigNodeSuite) TestCreateEmptyConfigNode(c *C) {
 	// Check that creating an empty node works correctly.
-	node, err := createConfigNode(s.zkConn, s.path, nil)
+	node, err := createConfigNode(s.ZkConn, s.path, nil)
 	c.Assert(err, IsNil)
 	c.Assert(node.Keys(), DeepEquals, []string{})
 }
 
 func (s *ConfigNodeSuite) TestReadWithoutWrite(c *C) {
 	// Check reading without writing.
-	node, err := readConfigNode(s.zkConn, s.path)
+	node, err := readConfigNode(s.ZkConn, s.path)
 	c.Assert(err, IsNil)
 	c.Assert(node, Not(IsNil))
 }
 
 func (s *ConfigNodeSuite) TestSetWithoutWrite(c *C) {
 	// Check that config values can be set.
-	_, err := s.zkConn.Create(s.path, "", 0, zkPermAll)
+	_, err := s.ZkConn.Create(s.path, "", 0, zkPermAll)
 	c.Assert(err, IsNil)
-	node, err := readConfigNode(s.zkConn, s.path)
+	node, err := readConfigNode(s.ZkConn, s.path)
 	c.Assert(err, IsNil)
 	options := map[string]interface{}{"alpha": "beta", "one": 1}
 	node.Update(options)
 	c.Assert(node.Map(), DeepEquals, options)
 	// Node data has to be empty.
-	yaml, _, err := s.zkConn.Get("/config")
+	yaml, _, err := s.ZkConn.Get("/config")
 	c.Assert(err, IsNil)
 	c.Assert(yaml, Equals, "")
 }
 
 func (s *ConfigNodeSuite) TestSetWithWrite(c *C) {
 	// Check that write updates the local and the ZooKeeper state.
-	node, err := readConfigNode(s.zkConn, s.path)
+	node, err := readConfigNode(s.ZkConn, s.path)
 	c.Assert(err, IsNil)
 	options := map[string]interface{}{"alpha": "beta", "one": 1}
 	node.Update(options)
@@ -830,7 +793,7 @@ func (s *ConfigNodeSuite) TestSetWithWrite(c *C) {
 	// Check local state.
 	c.Assert(node.Map(), DeepEquals, options)
 	// Check ZooKeeper state.
-	yaml, _, err := s.zkConn.Get(s.path)
+	yaml, _, err := s.ZkConn.Get(s.path)
 	c.Assert(err, IsNil)
 	zkData := make(map[string]interface{})
 	err = goyaml.Unmarshal([]byte(yaml), zkData)
@@ -839,9 +802,9 @@ func (s *ConfigNodeSuite) TestSetWithWrite(c *C) {
 
 func (s *ConfigNodeSuite) TestConflictOnSet(c *C) {
 	// Check version conflict errors.
-	nodeOne, err := readConfigNode(s.zkConn, s.path)
+	nodeOne, err := readConfigNode(s.ZkConn, s.path)
 	c.Assert(err, IsNil)
-	nodeTwo, err := readConfigNode(s.zkConn, s.path)
+	nodeTwo, err := readConfigNode(s.ZkConn, s.path)
 	c.Assert(err, IsNil)
 
 	optionsOld := map[string]interface{}{"alpha": "beta", "one": 1}
@@ -898,7 +861,7 @@ func (s *ConfigNodeSuite) TestConflictOnSet(c *C) {
 
 func (s *ConfigNodeSuite) TestSetItem(c *C) {
 	// Check that Set works as expected.
-	node, err := readConfigNode(s.zkConn, s.path)
+	node, err := readConfigNode(s.ZkConn, s.path)
 	c.Assert(err, IsNil)
 	options := map[string]interface{}{"alpha": "beta", "one": 1}
 	node.Set("alpha", "beta")
@@ -912,7 +875,7 @@ func (s *ConfigNodeSuite) TestSetItem(c *C) {
 	// Check local state.
 	c.Assert(node.Map(), DeepEquals, options)
 	// Check ZooKeeper state.
-	yaml, _, err := s.zkConn.Get(s.path)
+	yaml, _, err := s.ZkConn.Get(s.path)
 	c.Assert(err, IsNil)
 	zkData := make(map[string]interface{})
 	err = goyaml.Unmarshal([]byte(yaml), zkData)
@@ -921,7 +884,7 @@ func (s *ConfigNodeSuite) TestSetItem(c *C) {
 
 func (s *ConfigNodeSuite) TestMultipleReads(c *C) {
 	// Check that reads without writes always resets the data.
-	nodeOne, err := readConfigNode(s.zkConn, s.path)
+	nodeOne, err := readConfigNode(s.ZkConn, s.path)
 	c.Assert(err, IsNil)
 	nodeOne.Update(map[string]interface{}{"alpha": "beta", "foo": "bar"})
 	value, ok := nodeOne.Get("alpha")
@@ -954,7 +917,7 @@ func (s *ConfigNodeSuite) TestMultipleReads(c *C) {
 	c.Assert(value, Equals, "bar")
 
 	// Now get another state instance and change ZooKeeper state.
-	nodeTwo, err := readConfigNode(s.zkConn, s.path)
+	nodeTwo, err := readConfigNode(s.ZkConn, s.path)
 	c.Assert(err, IsNil)
 	nodeTwo.Update(map[string]interface{}{"foo": "different"})
 	changes, err = nodeTwo.Write()
@@ -976,7 +939,7 @@ func (s *ConfigNodeSuite) TestMultipleReads(c *C) {
 
 func (s *ConfigNodeSuite) TestDeleteEmptiesState(c *C) {
 	// Check that delete creates an empty state.
-	node, err := readConfigNode(s.zkConn, s.path)
+	node, err := readConfigNode(s.ZkConn, s.path)
 	c.Assert(err, IsNil)
 	node.Set("a", "foo")
 	changes, err := node.Write()
@@ -995,7 +958,7 @@ func (s *ConfigNodeSuite) TestDeleteEmptiesState(c *C) {
 
 func (s *ConfigNodeSuite) TestReadResync(c *C) {
 	// Check that read pulls the data into the node.
-	nodeOne, err := readConfigNode(s.zkConn, s.path)
+	nodeOne, err := readConfigNode(s.ZkConn, s.path)
 	c.Assert(err, IsNil)
 	nodeOne.Set("a", "foo")
 	changes, err := nodeOne.Write()
@@ -1003,7 +966,7 @@ func (s *ConfigNodeSuite) TestReadResync(c *C) {
 	c.Assert(changes, DeepEquals, []ItemChange{
 		{ItemAdded, "a", nil, "foo"},
 	})
-	nodeTwo, err := readConfigNode(s.zkConn, s.path)
+	nodeTwo, err := readConfigNode(s.ZkConn, s.path)
 	c.Assert(err, IsNil)
 	nodeTwo.Delete("a")
 	changes, err = nodeTwo.Write()
@@ -1027,7 +990,7 @@ func (s *ConfigNodeSuite) TestReadResync(c *C) {
 
 func (s *ConfigNodeSuite) TestMultipleWrites(c *C) {
 	// Check that multiple writes only do the right changes.
-	node, err := readConfigNode(s.zkConn, s.path)
+	node, err := readConfigNode(s.ZkConn, s.path)
 	c.Assert(err, IsNil)
 	node.Update(map[string]interface{}{"foo": "bar", "this": "that"})
 	changes, err := node.Write()
@@ -1063,7 +1026,7 @@ func (s *ConfigNodeSuite) TestMultipleWrites(c *C) {
 
 func (s *ConfigNodeSuite) TestWriteTwice(c *C) {
 	// Check the correct writing into a node by two config nodes.
-	nodeOne, err := readConfigNode(s.zkConn, s.path)
+	nodeOne, err := readConfigNode(s.ZkConn, s.path)
 	c.Assert(err, IsNil)
 	nodeOne.Set("a", "foo")
 	changes, err := nodeOne.Write()
@@ -1072,7 +1035,7 @@ func (s *ConfigNodeSuite) TestWriteTwice(c *C) {
 		{ItemAdded, "a", nil, "foo"},
 	})
 
-	nodeTwo, err := readConfigNode(s.zkConn, s.path)
+	nodeTwo, err := readConfigNode(s.ZkConn, s.path)
 	c.Assert(err, IsNil)
 	nodeTwo.Set("a", "bar")
 	changes, err = nodeTwo.Write()

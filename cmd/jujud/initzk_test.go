@@ -15,12 +15,11 @@ var _ = Suite(&InitzkSuite{})
 
 func (s *InitzkSuite) SetUpTest(c *C) {
 	s.logging.SetUpTest(c)
-	s.zkSuite.SetUpTest(c)
 	s.path = "/watcher"
 }
 
 func (s *InitzkSuite) TearDownTest(c *C) {
-	s.zkSuite.TearDownTest()
+	s.zkSuite.TearDownTest(c)
 	s.logging.TearDownTest(c)
 }
 

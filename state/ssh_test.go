@@ -17,6 +17,7 @@ import (
 )
 
 type sshSuite struct {
+	testing.ZkSuite
 	testing.LoggingSuite
 }
 
@@ -67,17 +68,17 @@ echo -n x >> {{.Dir}}/runcount
 case $(cat {{.Dir}}/runcount)
 in{{range $i, $out := .Runs}}
 {{xs $i}})
-	{{if .Output}}
-	echo '{{.Output}}' >&2
-	{{end}}
+    {{if .Output}}
+    echo '{{.Output}}' >&2
+    {{end}}
 
-	exit {{.Status}}
-	;;
+    exit {{.Status}}
+    ;;
 {{end}}
 *)
-	echo ssh run too many times >&2
-	exit 5
-	;;
+    echo ssh run too many times >&2
+    exit 5
+    ;;
 esac
 `
 
@@ -250,19 +251,19 @@ func (*sshSuite) TestSSHConnect(c *C) {
 	}
 
 	// TODO check log file for the following:
-	//	error starting ssh (sshd not up)
-	//	error connecting to remote side
-	//	attempting to connect again
+	//  error starting ssh (sshd not up)
+	//  error connecting to remote side
+	//  attempting to connect again
 }
 
 func testingZkPort() int {
-	_, serverPort, err := net.SplitHostPort(TestingZkAddr)
+	_, serverPort, err := net.SplitHostPort(testing.ZkAddr)
 	if err != nil {
-		panic("bad local zk address: " + TestingZkAddr)
+		panic("bad local zk address: " + testing.ZkAddr)
 	}
 	port, err := strconv.Atoi(serverPort)
 	if err != nil {
-		panic("bad local zk port: " + TestingZkAddr)
+		panic("bad local zk port: " + testing.ZkAddr)
 	}
 	return port
 }
@@ -279,7 +280,7 @@ func (*sshSuite) TestSSHDial(c *C) {
 	p := t.sshDaemon(sshdPort, serverPort)
 	defer p.Kill()
 
-	fwd, zk, err := sshDial(TestingZkAddr, t.file("id_rsa"))
+	fwd, zk, err := sshDial(testing.ZkAddr, t.file("id_rsa"))
 	c.Assert(err, IsNil)
 	defer func() {
 		err := fwd.stop()

@@ -21,14 +21,13 @@ var _ = Suite(&MachineSuite{})
 
 func (s *MachineSuite) SetUpTest(c *C) {
 	s.logging.SetUpTest(c)
-	s.zkSuite.SetUpTest(c)
 	var err error
 	s.st, err = state.Initialize(s.zkInfo)
 	c.Assert(err, IsNil)
 }
 
 func (s *MachineSuite) TearDownTest(c *C) {
-	s.zkSuite.TearDownTest()
+	s.zkSuite.TearDownTest(c)
 	s.logging.TearDownTest(c)
 }
 

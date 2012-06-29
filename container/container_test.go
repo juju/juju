@@ -8,7 +8,8 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/state/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -17,26 +18,13 @@ import (
 )
 
 type suite struct {
-	state *state.State
+	testing.StateSuite
 }
-
-var zkServer *zookeeper.Server
 
 var _ = Suite(&suite{})
 
-func Test(t *stdtesting.T) {
-	zkServer = testing.StartZkServer()
-	defer zkServer.Destroy()
-	TestingT(t)
-}
-
-func (s *suite) SetUpSuite(c *C) {
-	addr, err := zkServer.Addr()
-	c.Assert(err, IsNil)
-	s.state, err = state.Initialize(&state.Info{
-		Addrs: []string{addr},
-	})
-	c.Assert(err, IsNil)
+func TestPackage(t *stdtesting.T) {
+	coretesting.ZkTestPackage(t)
 }
 
 func (s *suite) TestDeploy(c *C) {
@@ -49,14 +37,8 @@ func (s *suite) TestDeploy(c *C) {
 	c.Assert(err, IsNil)
 
 	// create a unit to deploy
-	dummyCharm := testing.Charms.Dir("dummy")
-	u := fmt.Sprintf("local:series/%s-%d", dummyCharm.Meta().Name, dummyCharm.Revision())
-	curl := charm.MustParseURL(u)
-	bundleURL, err := url.Parse("http://bundle.url")
-	c.Assert(err, IsNil)
-	dummy, err := s.state.AddCharm(dummyCharm, curl, bundleURL, "dummy-sha256")
-	c.Assert(err, IsNil)
-	service, err := s.state.AddService("dummy", dummy)
+	dummy := s.Charm(c, "dummy")
+	service, err := s.St.AddService("dummy", dummy)
 	c.Assert(err, IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, IsNil)
