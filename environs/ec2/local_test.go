@@ -147,7 +147,7 @@ func (srv *localServer) stopServer(c *C) {
 	srv.s3srv.Quit()
 	// Clear out the region because the server address is
 	// no longer valid.
-	delete(ec2.Regions,"test")
+	delete(ec2.Regions, "test")
 }
 
 // localServerSuite contains tests that run against a fake EC2 server

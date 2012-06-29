@@ -3,7 +3,6 @@ package ec2
 import (
 	"bufio"
 	"fmt"
-	"launchpad.net/juju-core/environs"
 	"net/http"
 	"strings"
 )
@@ -17,15 +16,6 @@ type instanceConstraint struct {
 	region            string
 	daily             bool
 	desktop           bool
-}
-
-var defaultInstanceConstraint = &instanceConstraint{
-	series:            environs.CurrentSeries,
-	arch:              environs.CurrentArch,
-	persistentStorage: true,
-	region:            "us-east-1",
-	daily:             false,
-	desktop:           false,
 }
 
 // instanceSpec specifies a particular kind of instance.
