@@ -10,179 +10,108 @@ import (
 
 type MachineSuite struct {
 	ConnSuite
+	machine *state.Machine
 }
 
 var _ = Suite(&MachineSuite{})
 
-func (s *MachineSuite) TestAddMachine(c *C) {
-	machine0, err := s.St.AddMachine()
+func (s *MachineSuite) SetUpTest(c *C) {
+	s.ConnSuite.SetUpTest(c)
+	var err error
+	s.machine, err = s.St.AddMachine()
 	c.Assert(err, IsNil)
-	c.Assert(machine0.Id(), Equals, 0)
-	machine1, err := s.St.AddMachine()
-	c.Assert(err, IsNil)
-	c.Assert(machine1.Id(), Equals, 1)
-
-	children, _, err := s.zkConn.Children("/machines")
-	c.Assert(err, IsNil)
-	sort.Strings(children)
-	c.Assert(children, DeepEquals, []string{"machine-0000000000", "machine-0000000001"})
 }
 
-func (s *MachineSuite) TestRemoveMachine(c *C) {
-	machine, err := s.St.AddMachine()
+func (s *MachineSuite) Config(c *C) *state.ConfigNode {
+	config, err := state.ReadConfigNode(s.St, fmt.Sprintf("/machines/machine-%010d", s.machine.Id()))
 	c.Assert(err, IsNil)
-	_, err = s.St.AddMachine()
-	c.Assert(err, IsNil)
-	err = s.St.RemoveMachine(machine.Id())
-	c.Assert(err, IsNil)
-
-	children, _, err := s.zkConn.Children("/machines")
-	c.Assert(err, IsNil)
-	sort.Strings(children)
-	c.Assert(children, DeepEquals, []string{"machine-0000000001"})
-
-	// Removing a non-existing machine has to fail.
-	err = s.St.RemoveMachine(machine.Id())
-	c.Assert(err, ErrorMatches, "can't remove machine 0: machine not found")
+	return config
 }
 
 func (s *MachineSuite) TestMachineInstanceId(c *C) {
-	machine, err := s.St.AddMachine()
-	c.Assert(err, IsNil)
-	config, err := state.ReadConfigNode(s.St, fmt.Sprintf("/machines/machine-%010d", machine.Id()))
-	c.Assert(err, IsNil)
+	config := s.Config(c)
 	config.Set("provider-machine-id", "spaceship/0")
-	_, err = config.Write()
+	_, err := config.Write()
 	c.Assert(err, IsNil)
 
-	id, err := machine.InstanceId()
+	id, err := s.machine.InstanceId()
 	c.Assert(err, IsNil)
 	c.Assert(id, Equals, "spaceship/0")
 }
 
 func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
-	machine, err := s.St.AddMachine()
-	c.Assert(err, IsNil)
-	config, err := state.ReadConfigNode(s.St, fmt.Sprintf("/machines/machine-%010d", machine.Id()))
-	c.Assert(err, IsNil)
+	config := s.Config(c)
 	config.Set("provider-machine-id", map[int]int{})
-	_, err = config.Write()
+	_, err := config.Write()
 	c.Assert(err, IsNil)
 
-	id, err := machine.InstanceId()
+	id, err := s.machine.InstanceId()
 	c.Assert(err.Error(), Equals, "invalid internal machine id type map[interface {}]interface {} for machine 0")
 	c.Assert(id, Equals, "")
 }
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {
-	machine, err := s.St.AddMachine()
-	c.Assert(err, IsNil)
-
-	id, err := machine.InstanceId()
+	id, err := s.machine.InstanceId()
 	c.Assert(err, FitsTypeOf, &state.NoInstanceIdError{})
 	c.Assert(id, Equals, "")
 }
 
 func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
-	machine, err := s.St.AddMachine()
-	c.Assert(err, IsNil)
-	config, err := state.ReadConfigNode(s.St, fmt.Sprintf("/machines/machine-%010d", machine.Id()))
-	c.Assert(err, IsNil)
+	config := s.Config(c)
 	config.Set("provider-machine-id", "")
-	_, err = config.Write()
+	_, err := config.Write()
 	c.Assert(err, IsNil)
 
-	id, err := machine.InstanceId()
+	id, err := s.machine.InstanceId()
 	c.Assert(err, FitsTypeOf, &state.NoInstanceIdError{})
 	c.Assert(id, Equals, "")
 }
 
 func (s *MachineSuite) TestMachineSetInstanceId(c *C) {
-	machine, err := s.St.AddMachine()
+	err := s.machine.SetInstanceId("umbrella/0")
 	c.Assert(err, IsNil)
-	err = machine.SetInstanceId("umbrella/0")
-	c.Assert(err, IsNil)
-
-	actual, err := state.ReadConfigNode(s.St, fmt.Sprintf("/machines/machine-%010d", machine.Id()))
-	c.Assert(err, IsNil)
-	c.Assert(actual.Map(), DeepEquals, map[string]interface{}{"provider-machine-id": "umbrella/0"})
-}
-
-func (s *MachineSuite) TestReadMachine(c *C) {
-	machine, err := s.St.AddMachine()
-	c.Assert(err, IsNil)
-	expectedId := machine.Id()
-	machine, err = s.St.Machine(expectedId)
-	c.Assert(err, IsNil)
-	c.Assert(machine.Id(), Equals, expectedId)
-}
-
-func (s *MachineSuite) TestReadNonExistentMachine(c *C) {
-	_, err := s.St.Machine(0)
-	c.Assert(err, ErrorMatches, "machine 0 not found")
-
-	_, err = s.St.AddMachine()
-	c.Assert(err, IsNil)
-	_, err = s.St.Machine(1)
-	c.Assert(err, ErrorMatches, "machine 1 not found")
-}
-
-func (s *MachineSuite) TestAllMachines(c *C) {
-	s.AssertMachineCount(c, 0)
-	_, err := s.St.AddMachine()
-	c.Assert(err, IsNil)
-	s.AssertMachineCount(c, 1)
-	_, err = s.St.AddMachine()
-	c.Assert(err, IsNil)
-	s.AssertMachineCount(c, 2)
+	config := s.Config(c)
+	c.Assert(config.Map(), DeepEquals, map[string]interface{}{"provider-machine-id": "umbrella/0"})
 }
 
 func (s *MachineSuite) TestMachineSetAgentAlive(c *C) {
-	machine0, err := s.St.AddMachine()
-	c.Assert(err, IsNil)
-	c.Assert(machine0.Id(), Equals, 0)
-
-	alive, err := machine0.AgentAlive()
+	alive, err := s.machine.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 
-	pinger, err := machine0.SetAgentAlive()
+	pinger, err := s.machine.SetAgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(pinger, Not(IsNil))
 	defer pinger.Kill()
 
-	alive, err = machine0.AgentAlive()
+	alive, err = s.machine.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
 }
 
 func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
 	timeout := 5 * time.Second
-	machine0, err := s.St.AddMachine()
-	c.Assert(err, IsNil)
-	c.Assert(machine0.Id(), Equals, 0)
-
-	alive, err := machine0.AgentAlive()
+	alive, err := s.machine.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 
-	err = machine0.WaitAgentAlive(timeout)
+	err = s.machine.WaitAgentAlive(timeout)
 	c.Assert(err, ErrorMatches, `waiting for agent of machine 0: presence: still not alive after timeout`)
 
-	pinger, err := machine0.SetAgentAlive()
+	pinger, err := s.machine.SetAgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(pinger, Not(IsNil))
 
-	err = machine0.WaitAgentAlive(timeout)
+	err = s.machine.WaitAgentAlive(timeout)
 	c.Assert(err, IsNil)
 
-	alive, err = machine0.AgentAlive()
+	alive, err = s.machine.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
 
 	pinger.Kill()
 
-	alive, err = machine0.AgentAlive()
+	alive, err = s.machine.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 }
@@ -194,8 +123,7 @@ func (s *MachineSuite) TestMachineUnits(c *C) {
 	// variously assign units to machines and check that Machine.Units
 	// tells us the right thing.
 
-	m1, err := s.St.AddMachine()
-	c.Assert(err, IsNil)
+	m1 := s.machine
 	m2, err := s.St.AddMachine()
 	c.Assert(err, IsNil)
 	m3, err := s.St.AddMachine()
@@ -261,20 +189,6 @@ func sortedUnitNames(units []*state.Unit) []string {
 	return names
 }
 
-type MachineWatcherSuite struct {
-	ConnSuite
-	machine *state.Machine
-}
-
-var _ = Suite(&MachineWatcherSuite{})
-
-func (s *MachineWatcherSuite) SetUpTest(c *C) {
-	s.ConnSuite.SetUpTest(c)
-	var err error
-	s.machine, err = s.St.AddMachine()
-	c.Assert(err, IsNil)
-}
-
 var watchMachineUnitsTests = []struct {
 	test func(m *state.Machine, units []*state.Unit) error
 	want func(units []*state.Unit) *state.MachineUnitsChange
@@ -321,7 +235,7 @@ var watchMachineUnitsTests = []struct {
 	},
 }
 
-func (s *MachineWatcherSuite) TestWatchMachineUnits(c *C) {
+func (s *MachineSuite) TestWatchMachineUnits(c *C) {
 	wordpress, err := s.St.AddService("wordpress", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
 	logging, err := s.St.AddService("logging", s.AddTestingCharm(c, "logging"))

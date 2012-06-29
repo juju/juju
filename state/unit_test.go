@@ -49,7 +49,7 @@ func (s *UnitSuite) TestUnitCharm(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(testcurl.String(), Equals, s.charm.URL().String())
 
-	// TODO surely we shouldn't be able to (1) set a charm that isn't in state
+	// TODO BUG surely we shouldn't be able to (1) set a charm that isn't in state
 	// or (2) change a unit to run a charm that bears no apparent relation to
 	// it service?
 	testcurl, err = charm.ParseURL("local:myseries/mydummy-1")
@@ -237,22 +237,6 @@ func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
 	c.Assert(alive, Equals, false)
 }
 
-type UnitWatcherSuite struct {
-	ConnSuite
-	unit *state.Unit
-}
-
-var _ = Suite(&UnitWatcherSuite{})
-
-func (s *UnitWatcherSuite) SetUpTest(c *C) {
-	s.ConnSuite.SetUpTest(c)
-	charm := s.AddTestingCharm(c, "dummy")
-	service, err := s.St.AddService("wordpress", charm)
-	c.Assert(err, IsNil)
-	s.unit, err = service.AddUnit()
-	c.Assert(err, IsNil)
-}
-
 type unitWatchNeedsUpgradeTest struct {
 	test func(*state.Unit) error
 	want state.NeedsUpgrade
@@ -265,7 +249,7 @@ var unitWatchNeedsUpgradeTests = []unitWatchNeedsUpgradeTest{
 	{func(u *state.Unit) error { return u.SetNeedsUpgrade(true) }, state.NeedsUpgrade{true, true}},
 }
 
-func (s *UnitWatcherSuite) TestUnitWatchNeedsUpgrade(c *C) {
+func (s *UnitSuite) TestUnitWatchNeedsUpgrade(c *C) {
 	needsUpgradeWatcher := s.unit.WatchNeedsUpgrade()
 	defer func() {
 		c.Assert(needsUpgradeWatcher.Stop(), IsNil)
@@ -303,7 +287,7 @@ var unitWatchResolvedTests = []unitWatchResolvedTest{
 	{func(u *state.Unit) error { return u.SetResolved(state.ResolvedNoHooks) }, state.ResolvedNoHooks},
 }
 
-func (s *UnitWatcherSuite) TestUnitWatchResolved(c *C) {
+func (s *UnitSuite) TestUnitWatchResolved(c *C) {
 	resolvedWatcher := s.unit.WatchResolved()
 	defer func() {
 		c.Assert(resolvedWatcher.Stop(), IsNil)
@@ -341,7 +325,7 @@ var unitWatchPortsTests = []unitWatchPortsTest{
 	{func(u *state.Unit) error { return u.ClosePort("tcp", 80) }, []state.Port{{"udp", 53}}},
 }
 
-func (s *UnitWatcherSuite) TestUnitWatchPorts(c *C) {
+func (s *UnitSuite) TestUnitWatchPorts(c *C) {
 	portsWatcher := s.unit.WatchPorts()
 	defer func() {
 		c.Assert(portsWatcher.Stop(), IsNil)

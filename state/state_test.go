@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"net/url"
+	"sort"
 	stdtesting "testing"
 	"time"
 )
@@ -168,6 +169,67 @@ func (s *StateSuite) TestMissingCharms(c *C) {
 	c.Assert(err, ErrorMatches, `can't get charm "local:series/random-99": .*`)
 }
 
+func (s *StateSuite) TestAddMachine(c *C) {
+	machine0, err := s.St.AddMachine()
+	c.Assert(err, IsNil)
+	c.Assert(machine0.Id(), Equals, 0)
+	machine1, err := s.St.AddMachine()
+	c.Assert(err, IsNil)
+	c.Assert(machine1.Id(), Equals, 1)
+
+	children, _, err := s.zkConn.Children("/machines")
+	c.Assert(err, IsNil)
+	sort.Strings(children)
+	c.Assert(children, DeepEquals, []string{"machine-0000000000", "machine-0000000001"})
+}
+
+func (s *StateSuite) TestRemoveMachine(c *C) {
+	machine, err := s.St.AddMachine()
+	c.Assert(err, IsNil)
+	_, err = s.St.AddMachine()
+	c.Assert(err, IsNil)
+	err = s.St.RemoveMachine(machine.Id())
+	c.Assert(err, IsNil)
+
+	children, _, err := s.zkConn.Children("/machines")
+	c.Assert(err, IsNil)
+	sort.Strings(children)
+	c.Assert(children, DeepEquals, []string{"machine-0000000001"})
+
+	// Removing a non-existing machine has to fail.
+	err = s.St.RemoveMachine(machine.Id())
+	c.Assert(err, ErrorMatches, "can't remove machine 0: machine not found")
+}
+
+func (s *StateSuite) TestReadMachine(c *C) {
+	machine, err := s.St.AddMachine()
+	c.Assert(err, IsNil)
+	expectedId := machine.Id()
+	machine, err = s.St.Machine(expectedId)
+	c.Assert(err, IsNil)
+	c.Assert(machine.Id(), Equals, expectedId)
+}
+
+func (s *StateSuite) TestReadNonExistentMachine(c *C) {
+	_, err := s.St.Machine(0)
+	c.Assert(err, ErrorMatches, "machine 0 not found")
+
+	_, err = s.St.AddMachine()
+	c.Assert(err, IsNil)
+	_, err = s.St.Machine(1)
+	c.Assert(err, ErrorMatches, "machine 1 not found")
+}
+
+func (s *StateSuite) TestAllMachines(c *C) {
+	s.AssertMachineCount(c, 0)
+	_, err := s.St.AddMachine()
+	c.Assert(err, IsNil)
+	s.AssertMachineCount(c, 1)
+	_, err = s.St.AddMachine()
+	c.Assert(err, IsNil)
+	s.AssertMachineCount(c, 2)
+}
+
 type machinesWatchTest struct {
 	test func(*state.State) error
 	want func(*state.State) *state.MachinesChange
@@ -235,6 +297,75 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
+}
+
+func (s *StateSuite) TestAddService(c *C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	wordpress, err := s.St.AddService("wordpress", charm)
+	c.Assert(err, IsNil)
+	c.Assert(wordpress.Name(), Equals, "wordpress")
+	mysql, err := s.St.AddService("mysql", charm)
+	c.Assert(err, IsNil)
+	c.Assert(mysql.Name(), Equals, "mysql")
+
+	// Check that retrieving the new created services works correctly.
+	wordpress, err = s.St.Service("wordpress")
+	c.Assert(err, IsNil)
+	c.Assert(wordpress.Name(), Equals, "wordpress")
+	url, err := wordpress.CharmURL()
+	c.Assert(err, IsNil)
+	c.Assert(url.String(), Equals, charm.URL().String())
+	mysql, err = s.St.Service("mysql")
+	c.Assert(err, IsNil)
+	c.Assert(mysql.Name(), Equals, "mysql")
+	url, err = mysql.CharmURL()
+	c.Assert(err, IsNil)
+	c.Assert(url.String(), Equals, charm.URL().String())
+}
+
+func (s *StateSuite) TestRemoveService(c *C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	service, err := s.St.AddService("wordpress", charm)
+	c.Assert(err, IsNil)
+
+	// Remove of existing service.
+	err = s.St.RemoveService(service)
+	c.Assert(err, IsNil)
+	_, err = s.St.Service("wordpress")
+	c.Assert(err, ErrorMatches, `can't get service "wordpress": service with name "wordpress" not found`)
+
+	// Remove of an illegal service, it has already been removed.
+	err = s.St.RemoveService(service)
+	c.Assert(err, ErrorMatches, `can't remove service "wordpress": can't get all units from service "wordpress": environment state has changed`)
+}
+
+func (s *StateSuite) TestReadNonExistentService(c *C) {
+	_, err := s.St.Service("pressword")
+	c.Assert(err, ErrorMatches, `can't get service "pressword": service with name "pressword" not found`)
+}
+
+func (s *StateSuite) TestAllServices(c *C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	services, err := s.St.AllServices()
+	c.Assert(err, IsNil)
+	c.Assert(len(services), Equals, 0)
+
+	// Check that after adding services the result is ok.
+	_, err = s.St.AddService("wordpress", charm)
+	c.Assert(err, IsNil)
+	services, err = s.St.AllServices()
+	c.Assert(err, IsNil)
+	c.Assert(len(services), Equals, 1)
+
+	_, err = s.St.AddService("mysql", charm)
+	c.Assert(err, IsNil)
+	services, err = s.St.AllServices()
+	c.Assert(err, IsNil)
+	c.Assert(len(services), Equals, 2)
+
+	// Check the returned service, order is defined by sorted keys.
+	c.Assert(services[0].Name(), Equals, "wordpress")
+	c.Assert(services[1].Name(), Equals, "mysql")
 }
 
 var diffTests = []struct {
