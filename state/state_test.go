@@ -92,16 +92,16 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"type": "dummy", "name": "foo"})
 }
 
-type any map[string]interface{}
+type environConfig map[string]interface{}
 
 var environmentWatchTests = []struct {
 	key   string
 	value interface{}
 	want  map[string]interface{}
 }{
-	{"provider", "dummy", any{"provider": "dummy"}},
-	{"secret", "shhh", any{"provider": "dummy", "secret": "shhh"}},
-	{"provider", "aws", any{"provider": "aws", "secret": "shhh"}},
+	{"provider", "dummy", environConfig{"provider": "dummy"}},
+	{"secret", "shhh", environConfig{"provider": "dummy", "secret": "shhh"}},
+	{"provider", "aws", environConfig{"provider": "aws", "secret": "shhh"}},
 }
 
 func (s *StateSuite) TestWatchEnvironment(c *C) {

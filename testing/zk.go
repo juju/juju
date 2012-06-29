@@ -38,7 +38,7 @@ func StartZkServer() *zookeeper.Server {
 	if err != nil {
 		panic(fmt.Errorf("cannot create temporary directory: %v", err))
 	}
-	srv, err := zookeeper.CreateServer(findTCPPort(), dir, "")
+	srv, err := zookeeper.CreateServer(FindTCPPort(), dir, "")
 	if err != nil {
 		os.RemoveAll(dir)
 		panic(fmt.Errorf("cannot create ZooKeeper server: %v", err))
@@ -143,12 +143,12 @@ func ZkRemoveTree(zk *zookeeper.Conn, path string) {
 	}
 }
 
-// findTCPPort finds an unused TCP port and returns it.
+// FindTCPPort finds an unused TCP port and returns it.
 // Use of this function has an inherent race condition - another
 // process may claim the port before we try to use it.
 // We hope that the probability is small enough during
 // testing to be negligible.
-func findTCPPort() int {
+func FindTCPPort() int {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		panic(err)
