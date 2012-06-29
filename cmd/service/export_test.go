@@ -2,7 +2,7 @@ package service
 
 import "launchpad.net/juju-core/state"
 
-// exported so we can manuall close the Provisioniers underlying
+// exported so we can manually close the Provisioners underlying
 // state connection.
 func (p *Provisioner) CloseState() error {
 	return p.st.Close()
