@@ -1,16 +1,11 @@
 package container_test
 
 import (
-	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/container"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"

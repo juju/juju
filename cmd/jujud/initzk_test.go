@@ -6,21 +6,19 @@ import (
 )
 
 type InitzkSuite struct {
-	logging testing.LoggingSuite
-	zkSuite
+	testing.LoggingSuite
 	path string
 }
 
 var _ = Suite(&InitzkSuite{})
 
 func (s *InitzkSuite) SetUpTest(c *C) {
-	s.logging.SetUpTest(c)
+	s.LoggingSuite.SetUpTest(c)
 	s.path = "/watcher"
 }
 
 func (s *InitzkSuite) TearDownTest(c *C) {
-	s.zkSuite.TearDownTest(c)
-	s.logging.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func initInitzkCommand(args []string) (*InitzkCommand, error) {

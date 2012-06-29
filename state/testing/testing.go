@@ -17,7 +17,7 @@ type StateSuite struct {
 
 func (s *StateSuite) SetUpTest(c *C) {
 	var err error
-	s.St, err = state.Initialize(&state.Info{Addrs: []string{testing.ZkAddr}})
+	s.St, err = state.Initialize(s.StateInfo(c))
 	c.Assert(err, IsNil)
 }
 
@@ -30,6 +30,10 @@ func (s *StateSuite) AssertMachineCount(c *C, expect int) {
 	ms, err := s.St.AllMachines()
 	c.Assert(err, IsNil)
 	c.Assert(len(ms), Equals, expect)
+}
+
+func (s *StateSuite) StateInfo(c *C) *state.Info {
+	return &state.Info{Addrs: []string{testing.ZkAddr}}
 }
 
 func (s *StateSuite) Charm(c *C, name string) *state.Charm {
