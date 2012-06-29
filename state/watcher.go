@@ -507,17 +507,3 @@ func (w *MachineUnitsWatcher) update(change watcher.ContentChange) error {
 func (w *MachineUnitsWatcher) done() {
 	close(w.changeChan)
 }
-
-// diff returns all the elements that exist in A but not B.
-func diff(A, B []string) (missing []string) {
-next:
-	for _, a := range A {
-		for _, b := range B {
-			if a == b {
-				continue next
-			}
-		}
-		missing = append(missing, a)
-	}
-	return
-}
