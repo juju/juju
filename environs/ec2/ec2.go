@@ -275,11 +275,11 @@ func (e *environ) userData(machineId int, info *state.Info, master bool, toolsUR
 // instance will be started.
 func (e *environ) startInstance(machineId int, info *state.Info, master bool) (environs.Instance, error) {
 	spec, err := findInstanceSpec(&instanceConstraint{
-                series:            environs.CurrentSeries,
-                arch:              environs.CurrentArch,
-                persistentStorage: true,
-                region:            e.config().region,
-        })
+		series:            environs.CurrentSeries,
+		arch:              environs.CurrentArch,
+		persistentStorage: true,
+		region:            e.config().region,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
 	}
