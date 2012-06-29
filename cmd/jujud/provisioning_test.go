@@ -48,7 +48,7 @@ func (s *ProvisioningSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 
 	// Make sure that zkInfo holds exactly the info we're passing to
-	// Newservice.Provisioner,
+	// service.NewProvisioner,
 	s.zkInfo, err = env.StateInfo()
 	c.Assert(err, IsNil)
 }
