@@ -91,7 +91,7 @@ func (m *Machiner) loop() {
 				m.tomb.Kill(watcher.MustErr(w))
 				return
 			}
-			for _, u := range change.Deleted {
+			for _, u := range change.Removed {
 				if u.IsPrincipal() {
 					if err := simpleContainer.Destroy(u); err != nil {
 						log.Printf("cannot destroy unit %s: %v", u.Name(), err)

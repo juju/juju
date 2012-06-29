@@ -267,7 +267,7 @@ var machinesWatchTests = []machinesWatchTest{
 			return s.RemoveMachine(1)
 		},
 		func(s *state.State) *state.MachinesChange {
-			return &state.MachinesChange{Deleted: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
+			return &state.MachinesChange{Removed: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
 		},
 	},
 }
