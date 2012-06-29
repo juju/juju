@@ -68,17 +68,17 @@ echo -n x >> {{.Dir}}/runcount
 case $(cat {{.Dir}}/runcount)
 in{{range $i, $out := .Runs}}
 {{xs $i}})
-    {{if .Output}}
-    echo '{{.Output}}' >&2
-    {{end}}
+	{{if .Output}}
+	echo '{{.Output}}' >&2
+	{{end}}
 
-    exit {{.Status}}
-    ;;
+	exit {{.Status}}
+	;;
 {{end}}
 *)
-    echo ssh run too many times >&2
-    exit 5
-    ;;
+	echo ssh run too many times >&2
+	exit 5
+	;;
 esac
 `
 
