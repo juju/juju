@@ -376,13 +376,15 @@ func (w *PortsWatcher) done() {
 type MachinesWatcher struct {
 	contentWatcher
 	changeChan       chan *MachinesChange
+	watcher          *watcher.ContentWatcher
 	knownMachineKeys []string
 }
 
 // MachinesChange contains information about
 // machines that have been added or deleted.
 type MachinesChange struct {
-	Added, Deleted []*Machine
+	Added   []*Machine
+	Removed []*Machine
 }
 
 // newMachinesWatcher creates and starts a new watcher for changes to
@@ -410,17 +412,17 @@ func (w *MachinesWatcher) update(change watcher.ContentChange) error {
 	}
 	currentMachineKeys := topology.MachineKeys()
 	added := diff(currentMachineKeys, w.knownMachineKeys)
-	deleted := diff(w.knownMachineKeys, currentMachineKeys)
+	removed := diff(w.knownMachineKeys, currentMachineKeys)
 	w.knownMachineKeys = currentMachineKeys
-	if w.updated && len(added) == 0 && len(deleted) == 0 {
+	if w.updated && len(added) == 0 && len(removed) == 0 {
 		return nil
 	}
 	mc := &MachinesChange{}
 	for _, m := range added {
 		mc.Added = append(mc.Added, &Machine{w.st, m})
 	}
-	for _, m := range deleted {
-		mc.Deleted = append(mc.Deleted, &Machine{w.st, m})
+	for _, m := range removed {
+		mc.Removed = append(mc.Removed, &Machine{w.st, m})
 	}
 	select {
 	case <-w.tomb.Dying():
@@ -443,7 +445,8 @@ type MachineUnitsWatcher struct {
 }
 
 type MachineUnitsChange struct {
-	Added, Deleted []*Unit
+	Added   []*Unit
+	Removed []*Unit
 }
 
 // newMachinesWatcher creates and starts a new machine watcher.
@@ -473,19 +476,19 @@ func (w *MachineUnitsWatcher) update(change watcher.ContentChange) error {
 	}
 	currentUnitKeys := topology.UnitsForMachine(w.machine.key)
 	added := diff(currentUnitKeys, w.knownUnitKeys)
-	deleted := diff(w.knownUnitKeys, currentUnitKeys)
+	removed := diff(w.knownUnitKeys, currentUnitKeys)
 	w.knownUnitKeys = currentUnitKeys
-	if w.updated && len(added) == 0 && len(deleted) == 0 {
+	if w.updated && len(added) == 0 && len(removed) == 0 {
 		return nil
 	}
 	uc := new(MachineUnitsChange)
-	for _, ukey := range deleted {
+	for _, ukey := range removed {
 		unit := w.knownUnits[ukey]
 		if unit == nil {
-			panic("unknown unit deleted: " + ukey)
+			panic("unknown unit removed: " + ukey)
 		}
 		delete(w.knownUnits, ukey)
-		uc.Deleted = append(uc.Deleted, unit)
+		uc.Removed = append(uc.Removed, unit)
 	}
 	for _, ukey := range added {
 		unit, err := w.st.unitFromKey(topology, ukey)
