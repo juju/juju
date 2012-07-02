@@ -36,16 +36,16 @@ type unitSet struct {
 // Unit represents the state of a service unit.
 type Unit struct {
 	st *State
-	*unitDoc
-	*unitSet
+	unitDoc
+	unitSet
 }
 
 func newUnit(s *State, udoc *unitDoc) *Unit {
 	uset := &unitSet{Principal: udoc.UnitSet}
 	return &Unit{
 		st:      s,
-		unitDoc: udoc,
-		unitSet: uset,
+		unitDoc: *udoc,
+		unitSet: *uset,
 	}
 }
 

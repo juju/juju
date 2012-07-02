@@ -252,20 +252,6 @@ func (s *StateSuite) TestMachineUnits(c *C) {
 		}
 	}
 
-	mdocs := []struct {
-		Id         int `bson:"_id"`
-		InstanceId string
-		UnitSet    string
-	}{}
-	udocs := []struct {
-		Name    string `bson:"_id"`
-		Service string
-		UnitSet string
-	}{}
-	s.session.DB("juju").C("units").Find(nil).All(&udocs)
-	s.session.DB("juju").C("machines").Find(nil).All(&mdocs)
-	c.Logf("\n\n%+v\n\n%+v\n\n", udocs, mdocs)
-
 	for i, a := range assignments {
 		c.Logf("test %d", i)
 		got, err := a.machine.Units()

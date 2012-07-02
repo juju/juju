@@ -70,16 +70,15 @@ func (s *Service) newUnitName() (string, error) {
 }
 
 // addUnit adds the named unit, which is part of unitSet.
-func (s *Service) addUnit(name string, unitSet string) (unit *Unit, err error) {
-	defer errorContextf(&err, "can't add unit to service %q", s)
+func (s *Service) addUnit(name string, unitSet string) (*Unit, error) {
 	udoc := unitDoc{
 		Name:    name,
 		Service: s.name,
 		UnitSet: unitSet,
 	}
-	err = s.st.units.Insert(udoc)
+	err := s.st.units.Insert(udoc)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("can't add unit to service %q", s)
 	}
 	return newUnit(s.st, &udoc), nil
 }
