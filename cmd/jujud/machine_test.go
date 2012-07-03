@@ -53,7 +53,7 @@ func (s *MachineSuite) TestParseUnknown(c *C) {
 }
 
 func (s *MachineSuite) TestMachinerStartStop(c *C) {
-	m, err := s.St.AddMachine()
+	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 
 	p, err := NewMachiner(s.StateInfo(c), m.Id())
@@ -71,11 +71,11 @@ func (s *MachineSuite) TestMachinerDeployDestroy(c *C) {
 	dummyCharm := s.AddTestingCharm(c, "dummy")
 	loggingCharm := s.AddTestingCharm(c, "logging")
 
-	d0, err := s.St.AddService("d0", dummyCharm)
+	d0, err := s.State.AddService("d0", dummyCharm)
 	c.Assert(err, IsNil)
-	d1, err := s.St.AddService("d1", dummyCharm)
+	d1, err := s.State.AddService("d1", dummyCharm)
 	c.Assert(err, IsNil)
-	sub0, err := s.St.AddService("sub0", loggingCharm)
+	sub0, err := s.State.AddService("sub0", loggingCharm)
 	c.Assert(err, IsNil)
 
 	// Add one unit to start with.
@@ -87,10 +87,10 @@ func (s *MachineSuite) TestMachinerDeployDestroy(c *C) {
 	ud1, err := d1.AddUnit()
 	c.Assert(err, IsNil)
 
-	m0, err := s.St.AddMachine()
+	m0, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 
-	m1, err := s.St.AddMachine()
+	m1, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 
 	err = ud0.AssignToMachine(m0)

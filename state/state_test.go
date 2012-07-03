@@ -32,7 +32,7 @@ type ConnSuite struct {
 
 func (s *ConnSuite) SetUpTest(c *C) {
 	s.StateSuite.SetUpTest(c)
-	s.zkConn = state.ZkConn(s.St)
+	s.zkConn = state.ZkConn(s.State)
 }
 
 type StateSuite struct {
@@ -86,7 +86,7 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(path, Equals, "/environment")
 
-	env, err := s.St.EnvironConfig()
+	env, err := s.State.EnvironConfig()
 	env.Read()
 	c.Assert(err, IsNil)
 	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"type": "dummy", "name": "foo"})
@@ -112,7 +112,7 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 	c.Assert(path, Equals, "/environment")
 
 	// fetch the /environment key as a *ConfigNode
-	environConfigWatcher := s.St.WatchEnvironConfig()
+	environConfigWatcher := s.State.WatchEnvironConfig()
 	defer func() {
 		c.Assert(environConfigWatcher.Stop(), IsNil)
 	}()
@@ -149,7 +149,7 @@ func (s *StateSuite) TestAddCharm(c *C) {
 	)
 	bundleURL, err := url.Parse("http://bundles.example.com/dummy-1")
 	c.Assert(err, IsNil)
-	dummy, err := s.St.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	dummy, err := s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
 	c.Assert(err, IsNil)
 	c.Assert(dummy.URL().String(), Equals, curl.String())
 	children, _, err := s.zkConn.Children("/charms")
@@ -160,20 +160,20 @@ func (s *StateSuite) TestAddCharm(c *C) {
 func (s *StateSuite) TestMissingCharms(c *C) {
 	// Check that getting a nonexistent charm fails.
 	curl := charm.MustParseURL("local:series/random-99")
-	_, err := s.St.Charm(curl)
+	_, err := s.State.Charm(curl)
 	c.Assert(err, ErrorMatches, `can't get charm "local:series/random-99": .*`)
 
 	// Add a separate charm, test missing charm still missing.
 	s.AddTestingCharm(c, "dummy")
-	_, err = s.St.Charm(curl)
+	_, err = s.State.Charm(curl)
 	c.Assert(err, ErrorMatches, `can't get charm "local:series/random-99": .*`)
 }
 
 func (s *StateSuite) TestAddMachine(c *C) {
-	machine0, err := s.St.AddMachine()
+	machine0, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 	c.Assert(machine0.Id(), Equals, 0)
-	machine1, err := s.St.AddMachine()
+	machine1, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 	c.Assert(machine1.Id(), Equals, 1)
 
@@ -184,11 +184,11 @@ func (s *StateSuite) TestAddMachine(c *C) {
 }
 
 func (s *StateSuite) TestRemoveMachine(c *C) {
-	machine, err := s.St.AddMachine()
+	machine, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
-	_, err = s.St.AddMachine()
+	_, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
-	err = s.St.RemoveMachine(machine.Id())
+	err = s.State.RemoveMachine(machine.Id())
 	c.Assert(err, IsNil)
 
 	children, _, err := s.zkConn.Children("/machines")
@@ -197,35 +197,35 @@ func (s *StateSuite) TestRemoveMachine(c *C) {
 	c.Assert(children, DeepEquals, []string{"machine-0000000001"})
 
 	// Removing a non-existing machine has to fail.
-	err = s.St.RemoveMachine(machine.Id())
+	err = s.State.RemoveMachine(machine.Id())
 	c.Assert(err, ErrorMatches, "can't remove machine 0: machine not found")
 }
 
 func (s *StateSuite) TestReadMachine(c *C) {
-	machine, err := s.St.AddMachine()
+	machine, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 	expectedId := machine.Id()
-	machine, err = s.St.Machine(expectedId)
+	machine, err = s.State.Machine(expectedId)
 	c.Assert(err, IsNil)
 	c.Assert(machine.Id(), Equals, expectedId)
 }
 
 func (s *StateSuite) TestReadNonExistentMachine(c *C) {
-	_, err := s.St.Machine(0)
+	_, err := s.State.Machine(0)
 	c.Assert(err, ErrorMatches, "machine 0 not found")
 
-	_, err = s.St.AddMachine()
+	_, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
-	_, err = s.St.Machine(1)
+	_, err = s.State.Machine(1)
 	c.Assert(err, ErrorMatches, "machine 1 not found")
 }
 
 func (s *StateSuite) TestAllMachines(c *C) {
 	s.AssertMachineCount(c, 0)
-	_, err := s.St.AddMachine()
+	_, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 	s.AssertMachineCount(c, 1)
-	_, err = s.St.AddMachine()
+	_, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
 	s.AssertMachineCount(c, 2)
 }
@@ -273,16 +273,16 @@ var machinesWatchTests = []machinesWatchTest{
 }
 
 func (s *StateSuite) TestWatchMachines(c *C) {
-	machineWatcher := s.St.WatchMachines()
+	machineWatcher := s.State.WatchMachines()
 	defer func() {
 		c.Assert(machineWatcher.Stop(), IsNil)
 	}()
 
 	for i, test := range machinesWatchTests {
 		c.Logf("test %d", i)
-		err := test.test(s.St)
+		err := test.test(s.State)
 		c.Assert(err, IsNil)
-		want := test.want(s.St)
+		want := test.want(s.State)
 		select {
 		case got, ok := <-machineWatcher.Changes():
 			c.Assert(ok, Equals, true)
@@ -301,21 +301,21 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 
 func (s *StateSuite) TestAddService(c *C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	wordpress, err := s.St.AddService("wordpress", charm)
+	wordpress, err := s.State.AddService("wordpress", charm)
 	c.Assert(err, IsNil)
 	c.Assert(wordpress.Name(), Equals, "wordpress")
-	mysql, err := s.St.AddService("mysql", charm)
+	mysql, err := s.State.AddService("mysql", charm)
 	c.Assert(err, IsNil)
 	c.Assert(mysql.Name(), Equals, "mysql")
 
 	// Check that retrieving the new created services works correctly.
-	wordpress, err = s.St.Service("wordpress")
+	wordpress, err = s.State.Service("wordpress")
 	c.Assert(err, IsNil)
 	c.Assert(wordpress.Name(), Equals, "wordpress")
 	url, err := wordpress.CharmURL()
 	c.Assert(err, IsNil)
 	c.Assert(url.String(), Equals, charm.URL().String())
-	mysql, err = s.St.Service("mysql")
+	mysql, err = s.State.Service("mysql")
 	c.Assert(err, IsNil)
 	c.Assert(mysql.Name(), Equals, "mysql")
 	url, err = mysql.CharmURL()
@@ -325,41 +325,41 @@ func (s *StateSuite) TestAddService(c *C) {
 
 func (s *StateSuite) TestRemoveService(c *C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	service, err := s.St.AddService("wordpress", charm)
+	service, err := s.State.AddService("wordpress", charm)
 	c.Assert(err, IsNil)
 
 	// Remove of existing service.
-	err = s.St.RemoveService(service)
+	err = s.State.RemoveService(service)
 	c.Assert(err, IsNil)
-	_, err = s.St.Service("wordpress")
+	_, err = s.State.Service("wordpress")
 	c.Assert(err, ErrorMatches, `can't get service "wordpress": service with name "wordpress" not found`)
 
 	// Remove of an illegal service, it has already been removed.
-	err = s.St.RemoveService(service)
+	err = s.State.RemoveService(service)
 	c.Assert(err, ErrorMatches, `can't remove service "wordpress": can't get all units from service "wordpress": environment state has changed`)
 }
 
 func (s *StateSuite) TestReadNonExistentService(c *C) {
-	_, err := s.St.Service("pressword")
+	_, err := s.State.Service("pressword")
 	c.Assert(err, ErrorMatches, `can't get service "pressword": service with name "pressword" not found`)
 }
 
 func (s *StateSuite) TestAllServices(c *C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	services, err := s.St.AllServices()
+	services, err := s.State.AllServices()
 	c.Assert(err, IsNil)
 	c.Assert(len(services), Equals, 0)
 
 	// Check that after adding services the result is ok.
-	_, err = s.St.AddService("wordpress", charm)
+	_, err = s.State.AddService("wordpress", charm)
 	c.Assert(err, IsNil)
-	services, err = s.St.AllServices()
+	services, err = s.State.AllServices()
 	c.Assert(err, IsNil)
 	c.Assert(len(services), Equals, 1)
 
-	_, err = s.St.AddService("mysql", charm)
+	_, err = s.State.AddService("mysql", charm)
 	c.Assert(err, IsNil)
-	services, err = s.St.AllServices()
+	services, err = s.State.AllServices()
 	c.Assert(err, IsNil)
 	c.Assert(len(services), Equals, 2)
 

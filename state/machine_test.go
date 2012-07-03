@@ -18,12 +18,12 @@ var _ = Suite(&MachineSuite{})
 func (s *MachineSuite) SetUpTest(c *C) {
 	s.ConnSuite.SetUpTest(c)
 	var err error
-	s.machine, err = s.St.AddMachine()
+	s.machine, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
 }
 
 func (s *MachineSuite) Config(c *C) *state.ConfigNode {
-	config, err := state.ReadConfigNode(s.St, fmt.Sprintf("/machines/machine-%010d", s.machine.Id()))
+	config, err := state.ReadConfigNode(s.State, fmt.Sprintf("/machines/machine-%010d", s.machine.Id()))
 	c.Assert(err, IsNil)
 	return config
 }
@@ -124,20 +124,20 @@ func (s *MachineSuite) TestMachineUnits(c *C) {
 	// tells us the right thing.
 
 	m1 := s.machine
-	m2, err := s.St.AddMachine()
+	m2, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
-	m3, err := s.St.AddMachine()
+	m3, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 
 	dummy := s.AddTestingCharm(c, "dummy")
 	logging := s.AddTestingCharm(c, "logging")
-	s0, err := s.St.AddService("s0", dummy)
+	s0, err := s.State.AddService("s0", dummy)
 	c.Assert(err, IsNil)
-	s1, err := s.St.AddService("s1", dummy)
+	s1, err := s.State.AddService("s1", dummy)
 	c.Assert(err, IsNil)
-	s2, err := s.St.AddService("s2", dummy)
+	s2, err := s.State.AddService("s2", dummy)
 	c.Assert(err, IsNil)
-	s3, err := s.St.AddService("s3", logging)
+	s3, err := s.State.AddService("s3", logging)
 	c.Assert(err, IsNil)
 
 	units := make([][]*state.Unit, 4)
@@ -236,9 +236,9 @@ var watchMachineUnitsTests = []struct {
 }
 
 func (s *MachineSuite) TestWatchMachineUnits(c *C) {
-	wordpress, err := s.St.AddService("wordpress", s.AddTestingCharm(c, "dummy"))
+	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
-	logging, err := s.St.AddService("logging", s.AddTestingCharm(c, "logging"))
+	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
 	c.Assert(err, IsNil)
 
 	units := make([]*state.Unit, 3)

@@ -19,7 +19,7 @@ func (s *ServiceSuite) SetUpTest(c *C) {
 	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "dummy")
 	var err error
-	s.service, err = s.St.AddService("wordpress", s.charm)
+	s.service, err = s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 }
 
@@ -29,8 +29,7 @@ func (s *ServiceSuite) TestServiceCharm(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(testcurl.String(), Equals, s.charm.URL().String())
 
-	// TODO BUG shouldn't it be an error to set a charm URL that doesn't correspond
-	// to a known charm??
+	// TODO BUG https://bugs.launchpad.net/juju-core/+bug/1020318
 	testcurl = charm.MustParseURL("local:myseries/mydummy-1")
 	err = s.service.SetCharmURL(testcurl)
 	c.Assert(err, IsNil)
@@ -66,13 +65,6 @@ func (s *ServiceSuite) TestServiceExposed(c *C) {
 	c.Assert(err, IsNil)
 	err = s.service.ClearExposed()
 	c.Assert(err, IsNil)
-
-	// Check that setting and clearing the exposed flag on removed services also doesn't fail.
-	// TODO BUG this doesn't appear to be sane.
-	err = s.St.RemoveService(s.service)
-	c.Assert(err, IsNil)
-	err = s.service.ClearExposed()
-	c.Assert(err, IsNil)
 }
 
 func (s *ServiceSuite) TestAddUnit(c *C) {
@@ -93,14 +85,14 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 	c.Assert(err, ErrorMatches, `can't add unit of principal service "wordpress" as a subordinate of "wordpress/0"`)
 
 	// Assign the principal unit to a machine.
-	m, err := s.St.AddMachine()
+	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 	err = unitZero.AssignToMachine(m)
 	c.Assert(err, IsNil)
 
 	// Add a subordinate service.
 	subCharm := s.AddTestingCharm(c, "logging")
-	logging, err := s.St.AddService("logging", subCharm)
+	logging, err := s.State.AddService("logging", subCharm)
 	c.Assert(err, IsNil)
 
 	// Check that subordinate units can be added to principal units
@@ -144,7 +136,7 @@ func (s *ServiceSuite) TestReadUnit(c *C) {
 	c.Assert(err, ErrorMatches, `can't get unit "pressword/0" from service "wordpress": unit not found`)
 
 	// Add another service to check units are not misattributed.
-	mysql, err := s.St.AddService("mysql", s.charm)
+	mysql, err := s.State.AddService("mysql", s.charm)
 	c.Assert(err, IsNil)
 	_, err = mysql.AddUnit()
 	c.Assert(err, IsNil)
@@ -178,7 +170,7 @@ func (s *ServiceSuite) TestRemoveUnit(c *C) {
 	c.Assert(units[0].Name(), Equals, "wordpress/1")
 
 	// Check that removing a non-existent unit fails nicely.
-	// TODO BUG is this sane?
+	// TODO improve error message.
 	err = s.service.RemoveUnit(unit)
 	c.Assert(err, ErrorMatches, `can't unassign unit "wordpress/0" from machine: environment state has changed`)
 }
@@ -186,9 +178,10 @@ func (s *ServiceSuite) TestRemoveUnit(c *C) {
 func (s *ServiceSuite) TestReadUnitWithChangingState(c *C) {
 	// Check that reading a unit after removing the service
 	// fails nicely.
-	err := s.St.RemoveService(s.service)
+	err := s.State.RemoveService(s.service)
 	c.Assert(err, IsNil)
-	_, err = s.St.Unit("wordpress/0")
+	_, err = s.State.Unit("wordpress/0")
+	// TODO BUG https://bugs.launchpad.net/juju-core/+bug/1020322
 	c.Assert(err, ErrorMatches, `can't get unit "wordpress/0": can't get service "wordpress": service with name "wordpress" not found`)
 }
 

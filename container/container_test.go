@@ -33,7 +33,7 @@ func (s *suite) TestDeploy(c *C) {
 
 	// create a unit to deploy
 	dummy := s.AddTestingCharm(c, "dummy")
-	service, err := s.St.AddService("dummy", dummy)
+	service, err := s.State.AddService("dummy", dummy)
 	c.Assert(err, IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, IsNil)

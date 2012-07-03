@@ -67,7 +67,7 @@ func (s *ProvisionerSuite) TearDownTest(c *C) {
 // so the ConfigNode returned from the watcher will not pass
 // validation.
 func (s *ProvisionerSuite) invalidateEnvironment() error {
-	env, err := s.St.EnvironConfig()
+	env, err := s.State.EnvironConfig()
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func (s *ProvisionerSuite) invalidateEnvironment() error {
 
 // fixEnvironment undoes the work of invalidateEnvironment.
 func (s *ProvisionerSuite) fixEnvironment() error {
-	env, err := s.St.EnvironConfig()
+	env, err := s.State.EnvironConfig()
 	if err != nil {
 		return err
 	}
@@ -202,7 +202,7 @@ func (s *ProvisionerSuite) TestProvisionerDifferentStateInfo(c *C) {
 	defer s.stopProvisioner(c, p)
 
 	// place a new machine into the state
-	m, err := s.St.AddMachine()
+	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 
 	s.checkStartInstance(c, m)
@@ -213,7 +213,7 @@ func (s *ProvisionerSuite) TestProvisionerEnvironmentChange(c *C) {
 	c.Assert(err, IsNil)
 	defer s.stopProvisioner(c, p)
 	// Twiddle with the environment configuration.
-	env, err := s.St.EnvironConfig()
+	env, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
 	env.Set("name", "testing2")
 	_, err = env.Write()
@@ -240,13 +240,13 @@ func (s *ProvisionerSuite) TestSimple(c *C) {
 	defer s.stopProvisioner(c, p)
 
 	// place a new machine into the state
-	m, err := s.St.AddMachine()
+	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 
 	s.checkStartInstance(c, m)
 
 	// now remove it
-	c.Assert(s.St.RemoveMachine(m.Id()), IsNil)
+	c.Assert(s.State.RemoveMachine(m.Id()), IsNil)
 
 	// watch the PA remove it
 	s.checkStopInstance(c)
@@ -262,7 +262,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(
 	defer s.stopProvisioner(c, p)
 
 	// try to create a machine
-	_, err = s.St.AddMachine()
+	_, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
 
 	// the PA should not create it
@@ -278,7 +278,7 @@ func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {
 	defer s.stopProvisioner(c, p)
 
 	// try to create a machine
-	m, err := s.St.AddMachine()
+	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 
 	// the PA should not create it
@@ -296,7 +296,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubli
 	defer s.stopProvisioner(c, p)
 
 	// place a new machine into the state
-	m, err := s.St.AddMachine()
+	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 
 	s.checkStartInstance(c, m)
@@ -305,7 +305,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubli
 	c.Assert(err, IsNil)
 
 	// create a second machine
-	m, err = s.St.AddMachine()
+	m, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the old environment
@@ -319,7 +319,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRe
 	// the PA is restarted in this test. tf. Methods like Fatalf and Assert should not be used.
 
 	// create a machine
-	m, err := s.St.AddMachine()
+	m, err := s.State.AddMachine()
 	c.Check(err, IsNil)
 
 	s.checkStartInstance(c, m)
@@ -349,13 +349,13 @@ func (s *ProvisionerSuite) TestProvisioningStopsUnknownInstances(c *C) {
 	// the PA is restarted in this test. Methods like Fatalf and Assert should not be used.
 
 	// create a machine
-	m, err := s.St.AddMachine()
+	m, err := s.State.AddMachine()
 	c.Check(err, IsNil)
 
 	s.checkStartInstance(c, m)
 
 	// create a second machine
-	m, err = s.St.AddMachine()
+	m, err = s.State.AddMachine()
 	c.Check(err, IsNil)
 
 	s.checkStartInstance(c, m)
@@ -364,7 +364,7 @@ func (s *ProvisionerSuite) TestProvisioningStopsUnknownInstances(c *C) {
 	c.Check(p.Stop(), IsNil)
 
 	// remove the machine
-	err = s.St.RemoveMachine(m.Id())
+	err = s.State.RemoveMachine(m.Id())
 	c.Check(err, IsNil)
 
 	// start a new provisioner
@@ -386,7 +386,7 @@ func (s *ProvisionerSuite) TestProvisioningStopsOnlyUnknownInstances(c *C) {
 	// the PA is restarted in this test. Methods like Fatalf and Assert should not be used.
 
 	// create a machine
-	m, err := s.St.AddMachine()
+	m, err := s.State.AddMachine()
 	c.Check(err, IsNil)
 
 	s.checkStartInstance(c, m)
@@ -395,10 +395,10 @@ func (s *ProvisionerSuite) TestProvisioningStopsOnlyUnknownInstances(c *C) {
 	c.Check(p.Stop(), IsNil)
 
 	// remove the machine
-	err = s.St.RemoveMachine(m.Id())
+	err = s.State.RemoveMachine(m.Id())
 	c.Check(err, IsNil)
 
-	machines, err := s.St.AllMachines()
+	machines, err := s.State.AllMachines()
 	c.Check(err, IsNil)
 	c.Check(len(machines), Equals, 0) // it's really gone   
 
@@ -417,7 +417,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	defer s.stopProvisioner(c, p)
 
 	// place a new machine into the state
-	m, err := s.St.AddMachine()
+	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 
 	s.checkStartInstance(c, m)
@@ -426,7 +426,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	c.Assert(err, IsNil)
 
 	// create a second machine
-	m, err = s.St.AddMachine()
+	m, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the old environment
@@ -436,7 +436,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	c.Assert(err, IsNil)
 
 	// create a third machine
-	m, err = s.St.AddMachine()
+	m, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the new environment

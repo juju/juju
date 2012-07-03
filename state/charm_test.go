@@ -20,7 +20,7 @@ func (s *CharmSuite) SetUpTest(c *C) {
 }
 
 func (s *CharmSuite) TestCharm(c *C) {
-	dummy, err := s.St.Charm(s.curl)
+	dummy, err := s.State.Charm(s.curl)
 	c.Assert(err, IsNil)
 	c.Assert(dummy.URL().String(), Equals, s.curl.String())
 	c.Assert(dummy.Revision(), Equals, 1)

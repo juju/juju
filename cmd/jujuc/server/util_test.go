@@ -35,18 +35,18 @@ func (s *UnitSuite) SetUpTest(c *C) {
 	s.StateSuite.SetUpTest(c)
 	s.ctx = &server.ClientContext{
 		Id:            "TestCtx",
-		State:         s.St,
+		State:         s.State,
 		LocalUnitName: "minecraft/0",
 	}
 	var err error
-	s.service, err = s.St.AddService("minecraft", s.AddTestingCharm(c, "dummy"))
+	s.service, err = s.State.AddService("minecraft", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
 	s.unit, err = s.service.AddUnit()
 	c.Assert(err, IsNil)
 }
 
 func (s *UnitSuite) AssertUnitCommand(c *C, name string) {
-	ctx := &server.ClientContext{Id: "TestCtx", State: s.St}
+	ctx := &server.ClientContext{Id: "TestCtx", State: s.State}
 	com, err := ctx.NewCommand(name)
 	c.Assert(com, IsNil)
 	c.Assert(err, ErrorMatches, "context TestCtx is not attached to a unit")

@@ -12,22 +12,22 @@ import (
 // StateSuite provides a pre-initialized state for each test method.
 type StateSuite struct {
 	testing.ZkSuite
-	St *state.State
+	State *state.State
 }
 
 func (s *StateSuite) SetUpTest(c *C) {
 	var err error
-	s.St, err = state.Initialize(s.StateInfo(c))
+	s.State, err = state.Initialize(s.StateInfo(c))
 	c.Assert(err, IsNil)
 }
 
 func (s *StateSuite) TearDownTest(c *C) {
 	s.ZkSuite.TearDownTest(c)
-	c.Assert(s.St.Close(), IsNil)
+	c.Assert(s.State.Close(), IsNil)
 }
 
 func (s *StateSuite) AssertMachineCount(c *C, expect int) {
-	ms, err := s.St.AllMachines()
+	ms, err := s.State.AllMachines()
 	c.Assert(err, IsNil)
 	c.Assert(len(ms), Equals, expect)
 }
@@ -42,7 +42,7 @@ func (s *StateSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	curl := charm.MustParseURL("local:series/" + ident)
 	bundleURL, err := url.Parse("http://bundles.example.com/" + ident)
 	c.Assert(err, IsNil)
-	sch, err := s.St.AddCharm(ch, curl, bundleURL, ident+"-sha256")
+	sch, err := s.State.AddCharm(ch, curl, bundleURL, ident+"-sha256")
 	c.Assert(err, IsNil)
 	return sch
 }

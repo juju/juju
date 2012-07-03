@@ -251,9 +251,9 @@ func (*sshSuite) TestSSHConnect(c *C) {
 	}
 
 	// TODO check log file for the following:
-	//  error starting ssh (sshd not up)
-	//  error connecting to remote side
-	//  attempting to connect again
+	// error starting ssh (sshd not up)
+	// error connecting to remote side
+	// attempting to connect again
 }
 
 func testingZkPort() int {
