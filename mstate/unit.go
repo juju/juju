@@ -60,7 +60,8 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 		return *u.unitDoc.MachineId, nil
 	}
 	pudoc := unitDoc{}
-	err = u.st.units.Find(bson.D{{"_id", u.unitDoc.Principal}}).One(&pudoc)
+	sel := bson.D{{"_id", u.unitDoc.Principal}, {"lifecycle", life.Alive}}
+	err = u.st.units.Find(sel).One(&pudoc)
 	if err != nil {
 		return 0, err
 	}

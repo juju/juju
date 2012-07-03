@@ -28,7 +28,11 @@ func (m *Machine) Id() int {
 // InstanceId returns the provider specific machine id for this machine.
 func (m *Machine) InstanceId() (string, error) {
 	mdoc := &machineDoc{}
-	err := m.st.machines.Find(bson.D{{"_id", m.id}}).One(mdoc)
+	sel := bson.D{
+		{"_id", m.id},
+		{"lifecycle", life.Alive},
+	}
+	err := m.st.machines.Find(sel).One(mdoc)
 	if err != nil {
 		return "", fmt.Errorf("can't get instance id of machine %s: %v", m, err)
 	}
@@ -45,7 +49,8 @@ func (m *Machine) Units() (units []*Unit, err error) {
 	}
 	for _, pudoc := range pudocs {
 		docs := []unitDoc{}
-		err = m.st.units.Find(bson.D{{"principal", pudoc.Name}}).All(&docs)
+		sel := bson.D{{"principal", pudoc.Name}, {"lifecycle", life.Alive}}
+		err = m.st.units.Find(sel).All(&docs)
 		if err != nil {
 			return nil, err
 		}

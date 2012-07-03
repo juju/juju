@@ -52,7 +52,8 @@ func (s *State) RemoveMachine(id int) error {
 // AllMachines returns all machines in the environment.
 func (s *State) AllMachines() (machines []*Machine, err error) {
 	mdocs := []machineDoc{}
-	err = s.machines.Find(nil).Select(bson.D{{"_id", 1}}).All(&mdocs)
+	sel := bson.D{{"lifecycle", life.Alive}}
+	err = s.machines.Find(sel).Select(bson.D{{"_id", 1}}).All(&mdocs)
 	if err != nil {
 		return nil, fmt.Errorf("can't get all machines: %v", err)
 	}
@@ -65,7 +66,8 @@ func (s *State) AllMachines() (machines []*Machine, err error) {
 // Machine returns the machine with the given id.
 func (s *State) Machine(id int) (*Machine, error) {
 	mdoc := &machineDoc{}
-	err := s.machines.Find(bson.D{{"_id", id}}).One(mdoc)
+	sel := bson.D{{"_id", id}, {"lifecycle", life.Alive}}
+	err := s.machines.Find(sel).One(mdoc)
 	if err != nil {
 		return nil, fmt.Errorf("can't get machine %d: %v", id, err)
 	}
@@ -130,7 +132,8 @@ func (s *State) RemoveService(svc *Service) (err error) {
 // Service returns a service state by name.
 func (s *State) Service(name string) (service *Service, err error) {
 	sdoc := &serviceDoc{}
-	err = s.services.Find(bson.D{{"_id", name}}).One(sdoc)
+	sel := bson.D{{"_id", name}, {"lifecycle", life.Alive}}
+	err = s.services.Find(sel).One(sdoc)
 	if err != nil {
 		return nil, fmt.Errorf("can't get service %q: %v", name, err)
 	}
@@ -140,7 +143,7 @@ func (s *State) Service(name string) (service *Service, err error) {
 // AllServices returns all deployed services in the environment.
 func (s *State) AllServices() (services []*Service, err error) {
 	sdocs := []serviceDoc{}
-	err = s.services.Find(nil).All(&sdocs)
+	err = s.services.Find(bson.D{{"lifecycle", life.Alive}}).All(&sdocs)
 	if err != nil {
 		return nil, fmt.Errorf("can't get all services")
 	}
