@@ -3,6 +3,7 @@ package mstate
 import (
 	"fmt"
 	"labix.org/v2/mgo/bson"
+	"launchpad.net/juju-core/mstate/life"
 	"strconv"
 )
 
@@ -16,6 +17,7 @@ type Machine struct {
 type machineDoc struct {
 	Id         int `bson:"_id"`
 	InstanceId string
+	LifeCycle  life.Cycle
 }
 
 // Id returns the machine id.

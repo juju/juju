@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/mstate/life"
 	"strconv"
 )
 
@@ -16,8 +17,9 @@ type Service struct {
 
 // serviceDoc represents the internal state of a service in MongoDB.
 type serviceDoc struct {
-	Name     string `bson:"_id"`
-	CharmURL *charm.URL
+	Name      string `bson:"_id"`
+	CharmURL  *charm.URL
+	LifeCycle life.Cycle
 }
 
 // Name returns the service name.

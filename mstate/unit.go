@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"labix.org/v2/mgo/bson"
+	"launchpad.net/juju-core/mstate/life"
 )
 
 // unitDoc represents the internal state of a unit in MongoDB.
@@ -12,6 +13,7 @@ type unitDoc struct {
 	Service   string
 	Principal string
 	MachineId *int
+	LifeCycle life.Cycle
 }
 
 // ServiceName returns the service name.
