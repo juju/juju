@@ -41,9 +41,10 @@ func (n *changeNode) change() (mtime time.Time, err error) {
 // Pinger periodically updates a node in zookeeper while it is running.
 type Pinger struct {
 	conn      *zk.Conn
+	tomb      tomb.Tomb
 	target    changeNode
 	period    time.Duration
-	tomb      tomb.Tomb
+	lastPing  time.Time
 	stayAlive chan struct{}
 }
 
@@ -58,6 +59,7 @@ func StartPinger(conn *zk.Conn, path string, period time.Duration) (*Pinger, err
 		conn:      conn,
 		target:    target,
 		period:    period,
+		lastPing:  time.Now(),
 		stayAlive: make(chan struct{}),
 	}
 	go p.loop()
@@ -67,25 +69,36 @@ func StartPinger(conn *zk.Conn, path string, period time.Duration) (*Pinger, err
 // loop calls change on p.target every p.period nanoseconds until p is stopped.
 func (p *Pinger) loop() {
 	defer p.finish()
-	var wait time.Duration
-	var then time.Time
+	tick := p.getTick()
 	for {
 		select {
 		case <-p.tomb.Dying():
-			log.Debugf("presence: %s pinger died after %s wait", p.target.path, time.Now().Sub(then))
+			log.Debugf("presence: %s pinger died after %s wait", p.target.path, time.Now().Sub(p.lastPing))
 			return
-		case now := <-time.After(wait):
+		case now := <-tick:
+			log.Debugf("presence: %s pinger awakened after %s wait", p.target.path, time.Now().Sub(p.lastPing))
+			p.lastPing = now
 			mtime, err := p.target.change()
 			if err != nil {
 				p.tomb.Kill(err)
 				return
 			}
-			next := then.Add(p.period)
-			wait = next.Sub(now)
-			log.Debugf("presence: pinged %s at %s; waiting %s", p.target.path, mtime, wait)
-			then = now
+			log.Debugf("presence: wrote to %s at (zk) %s", p.target.path, mtime)
+			tick = p.getTick()
 		}
 	}
+}
+
+// getTick returns a channel that will receive an event when the pinger is next
+// due to fire.
+func (p *Pinger) getTick() <-chan time.Time {
+	next := p.lastPing.Add(p.period)
+	wait := next.Sub(time.Now())
+	if wait <= 0 {
+		wait = 0
+	}
+	log.Debugf("presence: anticipating ping of %s in %s", p.target.path, wait)
+	return time.After(wait)
 }
 
 // finish marks the Pinger as finally dead; it may also trigger a final write
@@ -149,6 +162,13 @@ func (n *node) setState(content string, stat *zk.Stat, firstTime bool) error {
 	if err != nil {
 		return fmt.Errorf("%s presence node has bad data: %q", n.path, content)
 	}
+	// Worst observed combination of GC pauses and scheduler weirdness led to
+	// a gap between "500ms" pings of >1000ms; timeout should comfortably beat
+	// that. This is largely an artifact of the notably short periods used in
+	// tests; actual distributed Pingers should use longer periods in order to
+	// compensate for network flakiness... and to allow a comfortable buffer
+	// for Pinger re-establishment by a replacement process when (eg when
+	// upgrading agent binaries).
 	n.timeout = period * 3
 	if firstTime {
 		clock := changeNode{n.conn, "/clock", ""}
