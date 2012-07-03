@@ -5,6 +5,7 @@ import (
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/service/provisioner"
 	"launchpad.net/juju-core/log"
 
 	// register providers
@@ -35,7 +36,7 @@ func (a *ProvisioningAgent) Init(f *gnuflag.FlagSet, args []string) error {
 // Run runs a provisioning agent.
 func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
 	for {
-		p, err := NewProvisioner(&a.Conf.StateInfo)
+		p, err := provisioner.NewProvisioner(&a.Conf.StateInfo)
 		if err == nil {
 			if err = p.Wait(); err == nil {
 				// if Wait returns nil then we consider that a signal
