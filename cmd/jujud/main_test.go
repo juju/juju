@@ -1,14 +1,18 @@
-package main_test
+package main
 
 import (
 	"flag"
 	. "launchpad.net/gocheck"
-	main "launchpad.net/juju-core/cmd/jujud"
+	"launchpad.net/juju-core/testing"
 	"os"
 	"os/exec"
 	"strings"
-	"testing"
+	stdtesting "testing"
 )
+
+func TestPackage(t *stdtesting.T) {
+	testing.ZkTestPackage(t)
+}
 
 type MainSuite struct{}
 
@@ -18,9 +22,9 @@ var flagRunMain = flag.Bool("run-main", false, "Run the application's main funct
 
 // Reentrancy point for testing (something as close as possible to) the jujud
 // tool itself.
-func TestRunMain(t *testing.T) {
+func TestRunMain(t *stdtesting.T) {
 	if *flagRunMain {
-		main.Main(flag.Args())
+		Main(flag.Args())
 	}
 }
 
