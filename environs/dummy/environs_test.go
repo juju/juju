@@ -4,7 +4,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/dummy"
+	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/testing"
 	stdtesting "testing"
@@ -34,9 +34,5 @@ environments:
 }
 
 func TestSuite(t *stdtesting.T) {
-	srv := testing.StartZkServer()
-	defer srv.Destroy()
-	dummy.SetZookeeper(srv)
-	defer dummy.SetZookeeper(nil)
-	TestingT(t)
+	testing.ZkTestPackage(t)
 }
