@@ -3,7 +3,7 @@ package juju_test
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/dummy"
+	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/testing"
 	"os"
@@ -12,11 +12,7 @@ import (
 )
 
 func Test(t *stdtesting.T) {
-	srv := testing.StartZkServer()
-	defer srv.Destroy()
-	dummy.SetZookeeper(srv)
-	defer dummy.SetZookeeper(nil)
-	TestingT(t)
+	testing.ZkTestPackage(t)
 }
 
 type ConnSuite struct{}

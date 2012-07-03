@@ -26,6 +26,7 @@ https://juju.ubuntu.com/
 func Main(args []string) {
 	juju := &cmd.SuperCommand{Name: "juju", Doc: jujuDoc, Log: &cmd.Log{}}
 	juju.Register(&BootstrapCommand{})
+	juju.Register(&DeployCommand{})
 	juju.Register(&DestroyCommand{})
 	os.Exit(cmd.Main(juju, cmd.DefaultContext(), args[1:]))
 }

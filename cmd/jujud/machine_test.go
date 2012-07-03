@@ -2,34 +2,29 @@ package main
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing"
-	"net/url"
+	"launchpad.net/juju-core/state/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"time"
 )
 
 type MachineSuite struct {
-	logging testing.LoggingSuite
-	zkSuite
-	st *state.State
+	coretesting.LoggingSuite
+	testing.StateSuite
 }
 
 var _ = Suite(&MachineSuite{})
 
 func (s *MachineSuite) SetUpTest(c *C) {
-	s.logging.SetUpTest(c)
-	s.zkSuite.SetUpTest(c)
-	var err error
-	s.st, err = state.Initialize(s.zkInfo)
-	c.Assert(err, IsNil)
+	s.LoggingSuite.SetUpTest(c)
+	s.StateSuite.SetUpTest(c)
 }
 
 func (s *MachineSuite) TearDownTest(c *C) {
-	s.zkSuite.TearDownTest()
-	s.logging.TearDownTest(c)
+	s.StateSuite.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *MachineSuite) TestParseSuccess(c *C) {
@@ -58,10 +53,10 @@ func (s *MachineSuite) TestParseUnknown(c *C) {
 }
 
 func (s *MachineSuite) TestMachinerStartStop(c *C) {
-	m, err := s.st.AddMachine()
+	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 
-	p, err := NewMachiner(s.zkInfo, m.Id())
+	p, err := NewMachiner(s.StateInfo(c), m.Id())
 	c.Assert(err, IsNil)
 	c.Assert(p.Stop(), IsNil)
 }
@@ -73,14 +68,14 @@ func (s *MachineSuite) TestMachinerDeployDestroy(c *C) {
 		simpleContainer = container.Simple
 	}()
 
-	dummyCharm := addCharm(c, s.st, "dummy")
-	loggingCharm := addCharm(c, s.st, "logging")
+	dummyCharm := s.AddTestingCharm(c, "dummy")
+	loggingCharm := s.AddTestingCharm(c, "logging")
 
-	d0, err := s.st.AddService("d0", dummyCharm)
+	d0, err := s.State.AddService("d0", dummyCharm)
 	c.Assert(err, IsNil)
-	d1, err := s.st.AddService("d1", dummyCharm)
+	d1, err := s.State.AddService("d1", dummyCharm)
 	c.Assert(err, IsNil)
-	sub0, err := s.st.AddService("sub0", loggingCharm)
+	sub0, err := s.State.AddService("sub0", loggingCharm)
 	c.Assert(err, IsNil)
 
 	// Add one unit to start with.
@@ -92,16 +87,16 @@ func (s *MachineSuite) TestMachinerDeployDestroy(c *C) {
 	ud1, err := d1.AddUnit()
 	c.Assert(err, IsNil)
 
-	m0, err := s.st.AddMachine()
+	m0, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 
-	m1, err := s.st.AddMachine()
+	m1, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 
 	err = ud0.AssignToMachine(m0)
 	c.Assert(err, IsNil)
 
-	machiner, err := NewMachiner(s.zkInfo, m0.Id())
+	machiner, err := NewMachiner(s.StateInfo(c), m0.Id())
 	c.Assert(err, IsNil)
 
 	tests := []struct {
@@ -183,16 +178,4 @@ func (d *dummyContainer) checkAction(c *C, action string) {
 			c.Fatalf("expected action %v got nothing", action)
 		}
 	}
-}
-
-// addCharm adds a charm to the state. The name names
-// a charm from the testing package.
-func addCharm(c *C, st *state.State, name string) *state.Charm {
-	bundle := testing.Charms.Bundle(c.MkDir(), name)
-	curl := charm.MustParseURL("cs:series/" + name + "-99")
-	bundleURL, err := url.Parse("http://" + name + ".url")
-	c.Assert(err, IsNil)
-	ch, err := st.AddCharm(bundle, curl, bundleURL, "dummy-sha256")
-	c.Assert(err, IsNil)
-	return ch
 }
