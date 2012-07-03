@@ -14,23 +14,21 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type PresenceSuite struct {
+	testing.LoggingSuite
 	testing.ZkConnSuite
 }
 
 var _ = Suite(&PresenceSuite{})
 
-var (
-	path   = "/presence"
-	period = 50 * time.Millisecond
+func (s *PresenceSuite) TearDownTest(c *C) {
+	s.ZkConnSuite.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
+}
 
-	// When hoping to detect a node status change, given a period of 50ms and
-	// therefore a timeout of 50ms, the worst-case timeline is:
-	//   0ms: Pinger fires for the last time
-	//  99ms: watcher checks; sees node is "alive"
-	// 199ms: watcher finally times out
-	// 200ms: long enough
-	// + a little bit for scheduler glitches.
-	longEnough = period * 5
+var (
+	path       = "/presence"
+	period     = 500 * time.Millisecond
+	longEnough = period * 6
 )
 
 func assertChange(c *C, watch <-chan bool, expectAlive bool) {
@@ -61,6 +59,14 @@ func assertNoChange(c *C, watch <-chan bool) {
 	}
 }
 
+func kill(c *C, p *presence.Pinger) {
+	select {
+	case <-p.Dying():
+	default:
+		c.Assert(p.Kill(), IsNil)
+	}
+}
+
 func (s *PresenceSuite) TestNewPinger(c *C) {
 	// Check not considered Alive before it exists.
 	alive, err := presence.Alive(s.ZkConn, path)
@@ -76,6 +82,7 @@ func (s *PresenceSuite) TestNewPinger(c *C) {
 	// Start a Pinger, and check the watch fires.
 	p, err := presence.StartPinger(s.ZkConn, path, period)
 	c.Assert(err, IsNil)
+	defer kill(c, p)
 	assertChange(c, watch, true)
 
 	// Check that Alive agrees.
@@ -112,6 +119,7 @@ func (s *PresenceSuite) TestKillPinger(c *C) {
 	// Start a Pinger and a watch, and check sanity.
 	p, err := presence.StartPinger(s.ZkConn, path, period)
 	c.Assert(err, IsNil)
+	defer kill(c, p)
 	alive, watch, err := presence.AliveW(s.ZkConn, path)
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
@@ -135,6 +143,7 @@ func (s *PresenceSuite) TestStopPinger(c *C) {
 	// Start a Pinger and a watch, and check sanity.
 	p, err := presence.StartPinger(s.ZkConn, path, period)
 	c.Assert(err, IsNil)
+	defer kill(c, p)
 	alive, watch, err := presence.AliveW(s.ZkConn, path)
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
@@ -175,11 +184,8 @@ func (s *PresenceSuite) TestWatchDeadnessChange(c *C) {
 	// Start a new Pinger and check the watch does fire.
 	p, err = presence.StartPinger(s.ZkConn, path, period)
 	c.Assert(err, IsNil)
+	defer kill(c, p)
 	assertChange(c, watch, true)
-
-	// Clean up.
-	err = p.Kill()
-	c.Assert(err, IsNil)
 }
 
 func (s *PresenceSuite) TestBadData(c *C) {
@@ -236,6 +242,7 @@ func (s *PresenceSuite) TestDisconnectAliveWatch(c *C) {
 	// Start a Pinger on the main connection
 	p, err := presence.StartPinger(s.ZkConn, path, period)
 	c.Assert(err, IsNil)
+	defer kill(c, p)
 
 	// Start watching on an alternate connection.
 	altConn := testing.ZkConnect()
@@ -246,10 +253,6 @@ func (s *PresenceSuite) TestDisconnectAliveWatch(c *C) {
 	// Kill the watch's connection and check it's alerted.
 	altConn.Close()
 	assertClose(c, watch)
-
-	// Clean up.
-	err = p.Kill()
-	c.Assert(err, IsNil)
 }
 
 func (s *PresenceSuite) TestDisconnectPinger(c *C) {
@@ -257,6 +260,7 @@ func (s *PresenceSuite) TestDisconnectPinger(c *C) {
 	altConn := testing.ZkConnect()
 	p, err := presence.StartPinger(altConn, path, period)
 	c.Assert(err, IsNil)
+	defer kill(c, p)
 
 	// Watch on the "main" connection.
 	alive, watch, err := presence.AliveW(s.ZkConn, path)
@@ -270,7 +274,7 @@ func (s *PresenceSuite) TestDisconnectPinger(c *C) {
 	// Check the pinger already knows it broke.
 	<-p.Dying()
 
-	// Stop the pinger anyway; check we get an error.
+	// Stop the pinger anyway; check we still get an error.
 	err = p.Stop()
 	c.Assert(err, NotNil)
 }

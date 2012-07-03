@@ -87,17 +87,17 @@ func (s *ZkConnSuite) TearDownSuite(c *C) {
 	c.Assert(s.ZkConn.Close(), IsNil)
 }
 
-// ZkConnect return a new connection to the shared Zookeeper Server.
+// ZkConnect returns a new connection to the shared Zookeeper server.
 func ZkConnect() *zookeeper.Conn {
-	zk, session, err := zookeeper.Dial(ZkAddr, 15e9)
+	conn, session, err := zookeeper.Dial(ZkAddr, 15e9)
 	if err != nil {
 		panic(err)
 	}
 	event := <-session
-	assert(event.Ok() == true)
-	assert(event.Type == zookeeper.EVENT_SESSION)
-	assert(event.State == zookeeper.STATE_CONNECTED)
-	return zk
+	assertf(event.Ok(), "initial event not OK")
+	assertf(event.Type == zookeeper.EVENT_SESSION, "bad initial event type %#v", event.Type)
+	assertf(event.State == zookeeper.STATE_CONNECTED, "bad initial event state %#v", event.State)
+	return conn
 }
 
 // ZkReset deletes all content from the shared ZooKeeper server.
@@ -157,8 +157,8 @@ func FindTCPPort() int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
-func assert(b bool) {
+func assertf(b bool, msg string, args ...interface{}) {
 	if !b {
-		panic("unexpected state")
+		panic(fmt.Errorf(msg, args...))
 	}
 }

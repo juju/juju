@@ -9,6 +9,7 @@ package presence
 import (
 	"fmt"
 	zk "launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/tomb"
 	"time"
 )
@@ -39,10 +40,11 @@ func (n *changeNode) change() (mtime time.Time, err error) {
 
 // Pinger periodically updates a node in zookeeper while it is running.
 type Pinger struct {
-	conn   *zk.Conn
-	target changeNode
-	period time.Duration
-	tomb   tomb.Tomb
+	conn      *zk.Conn
+	target    changeNode
+	period    time.Duration
+	tomb      tomb.Tomb
+	stayAlive chan struct{}
 }
 
 // StartPinger returns a new Pinger that refreshes the content of path periodically.
@@ -52,25 +54,54 @@ func StartPinger(conn *zk.Conn, path string, period time.Duration) (*Pinger, err
 	if err != nil {
 		return nil, err
 	}
-	p := &Pinger{conn: conn, target: target, period: period}
+	p := &Pinger{
+		conn:      conn,
+		target:    target,
+		period:    period,
+		stayAlive: make(chan struct{}),
+	}
 	go p.loop()
 	return p, nil
 }
 
 // loop calls change on p.target every p.period nanoseconds until p is stopped.
 func (p *Pinger) loop() {
-	defer p.tomb.Done()
+	defer p.finish()
+	var wait time.Duration
+	var then time.Time
 	for {
 		select {
 		case <-p.tomb.Dying():
+			log.Debugf("presence: %s pinger died after %s wait", p.target.path, time.Now().Sub(then))
 			return
-		case <-time.After(p.period):
-			if _, err := p.target.change(); err != nil {
+		case now := <-time.After(wait):
+			mtime, err := p.target.change()
+			if err != nil {
 				p.tomb.Kill(err)
 				return
 			}
+			next := then.Add(p.period)
+			wait = next.Sub(now)
+			log.Debugf("presence: pinged %s at %s; waiting %s", p.target.path, mtime, wait)
+			then = now
 		}
 	}
+}
+
+// finish marks the Pinger as finally dead; it may also trigger a final write
+// to the target node, if the Pinger has been cleanly shut down via the Stop
+// method.
+func (p *Pinger) finish() {
+	if p.tomb.Err() == nil {
+		select {
+		case <-p.stayAlive:
+			if _, err := p.target.change(); err != nil {
+				p.tomb.Kill(err)
+			}
+		default:
+		}
+	}
+	p.tomb.Done()
 }
 
 // Dying returns a channel that will be closed when the Pinger is no longer
@@ -80,25 +111,25 @@ func (p *Pinger) Dying() <-chan struct{} {
 }
 
 // Stop stops updating the node; AliveW watches will not notice any change
-// until they time out. A final write to the node is triggered to ensure
-// watchers time out as late as possible.
+// until they time out. If the pinger is shut down without errors, a final
+// write to the target node will occur, to ensure that remote watchers take
+// as long as possible to detect the Pinger's absence.
 func (p *Pinger) Stop() error {
+	close(p.stayAlive)
 	p.tomb.Kill(nil)
-	if err := p.tomb.Wait(); err != nil {
-		return err
-	}
-	_, err := p.target.change()
-	return err
+	return p.tomb.Wait()
 }
 
 // Kill stops updating and deletes the node, causing any AliveW watches
 // to observe its departure (almost) immediately.
-func (p *Pinger) Kill() error {
+func (p *Pinger) Kill() (err error) {
 	p.tomb.Kill(nil)
-	if err := p.tomb.Wait(); err != nil {
-		return err
+	if err = p.tomb.Wait(); err == nil {
+		if err = p.conn.Delete(p.target.path, -1); zk.IsError(err, zk.ZNONODE) {
+			return nil
+		}
 	}
-	return p.conn.Delete(p.target.path, -1)
+	return
 }
 
 // node represents the state of a presence node from a watcher's perspective.
@@ -118,15 +149,24 @@ func (n *node) setState(content string, stat *zk.Stat, firstTime bool) error {
 	if err != nil {
 		return fmt.Errorf("%s presence node has bad data: %q", n.path, content)
 	}
-	n.timeout = period * 2
+	n.timeout = period * 3
 	if firstTime {
 		clock := changeNode{n.conn, "/clock", ""}
 		now, err := clock.change()
 		if err != nil {
 			return err
 		}
-		delay := now.Sub(stat.MTime())
+		mtime := stat.MTime()
+		delay := now.Sub(mtime)
 		n.alive = delay < n.timeout
+		log.Debugf(`
+presence: initial diagnosis of %s
+  now (zk)          %s
+  last write (zk)   %s
+  apparent delay    %s
+  timeout           %s
+  alive             %t
+`[1:], n.path, now, mtime, delay, n.timeout, n.alive)
 	} else {
 		// If this method is not being run for the first time, we know that
 		// the node has just changed, so we know that it's alive and there's
@@ -179,7 +219,10 @@ func (n *node) waitDead(zkWatch <-chan zk.Event, watch chan bool) {
 	for n.alive {
 		select {
 		case <-time.After(n.timeout):
-			n.alive = false
+			if err := n.update(); err != nil {
+				close(watch)
+				return
+			}
 		case event := <-zkWatch:
 			if !event.Ok() {
 				close(watch)
