@@ -1,4 +1,4 @@
-package main
+package provisioner
 
 import (
 	"launchpad.net/juju-core/environs"

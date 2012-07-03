@@ -1,10 +1,11 @@
-package main
+package provisioner_test
 
 import (
 	"time"
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/service/provisioner"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
@@ -83,7 +84,7 @@ func (s *ProvisionerSuite) fixEnvironment() error {
 	return err
 }
 
-func (s *ProvisionerSuite) stopProvisioner(c *C, p *Provisioner) {
+func (s *ProvisionerSuite) stopProvisioner(c *C, p *provisioner.Provisioner) {
 	c.Assert(p.Stop(), IsNil)
 }
 
@@ -176,7 +177,7 @@ func (s *ProvisionerSuite) checkMachineId(c *C, m *state.Machine, inst environs.
 }
 
 func (s *ProvisionerSuite) TestProvisionerStartStop(c *C) {
-	p, err := NewProvisioner(s.zkInfo)
+	p, err := provisioner.NewProvisioner(s.zkInfo)
 	c.Assert(err, IsNil)
 	c.Assert(p.Stop(), IsNil)
 }
@@ -193,7 +194,7 @@ func (s *ProvisionerSuite) TestProvisionerDifferentStateInfo(c *C) {
 	}
 	info.Addrs[0] = "localhost" + info.Addrs[0][len("127.0.0.1"):]
 
-	p, err := NewProvisioner(&info)
+	p, err := provisioner.NewProvisioner(&info)
 	c.Assert(err, IsNil)
 	defer s.stopProvisioner(c, p)
 
@@ -205,7 +206,7 @@ func (s *ProvisionerSuite) TestProvisionerDifferentStateInfo(c *C) {
 }
 
 func (s *ProvisionerSuite) TestProvisionerEnvironmentChange(c *C) {
-	p, err := NewProvisioner(s.zkInfo)
+	p, err := provisioner.NewProvisioner(s.zkInfo)
 	c.Assert(err, IsNil)
 	defer s.stopProvisioner(c, p)
 	// Twiddle with the environment configuration.
@@ -219,10 +220,10 @@ func (s *ProvisionerSuite) TestProvisionerEnvironmentChange(c *C) {
 }
 
 func (s *ProvisionerSuite) TestProvisionerStopOnStateClose(c *C) {
-	p, err := NewProvisioner(s.zkInfo)
+	p, err := provisioner.NewProvisioner(s.zkInfo)
 	c.Assert(err, IsNil)
 
-	p.st.Close()
+	p.CloseState()
 
 	// must use Check to avoid leaking PA
 	c.Check(p.Wait(), ErrorMatches, ".* zookeeper is closing")
@@ -231,7 +232,7 @@ func (s *ProvisionerSuite) TestProvisionerStopOnStateClose(c *C) {
 
 // Start and stop one machine, watch the PA.
 func (s *ProvisionerSuite) TestSimple(c *C) {
-	p, err := NewProvisioner(s.zkInfo)
+	p, err := provisioner.NewProvisioner(s.zkInfo)
 	c.Assert(err, IsNil)
 	defer s.stopProvisioner(c, p)
 
@@ -253,7 +254,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(
 	err := s.invalidateEnvironment()
 	c.Assert(err, IsNil)
 
-	p, err := NewProvisioner(s.zkInfo)
+	p, err := provisioner.NewProvisioner(s.zkInfo)
 	c.Assert(err, IsNil)
 	defer s.stopProvisioner(c, p)
 
@@ -269,7 +270,7 @@ func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {
 	err := s.invalidateEnvironment()
 	c.Assert(err, IsNil)
 
-	p, err := NewProvisioner(s.zkInfo)
+	p, err := provisioner.NewProvisioner(s.zkInfo)
 	c.Assert(err, IsNil)
 	defer s.stopProvisioner(c, p)
 
@@ -287,7 +288,7 @@ func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPublished(c *C) {
-	p, err := NewProvisioner(s.zkInfo)
+	p, err := provisioner.NewProvisioner(s.zkInfo)
 	c.Assert(err, IsNil)
 	defer s.stopProvisioner(c, p)
 
@@ -309,7 +310,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubli
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRestart(c *C) {
-	p, err := NewProvisioner(s.zkInfo)
+	p, err := provisioner.NewProvisioner(s.zkInfo)
 	c.Check(err, IsNil)
 	// we are not using defer s.stopProvisioner(c, p) because we need to control when 
 	// the PA is restarted in this test. tf. Methods like Fatalf and Assert should not be used.
@@ -323,11 +324,11 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRe
 	// restart the PA
 	c.Check(p.Stop(), IsNil)
 
-	p, err = NewProvisioner(s.zkInfo)
+	p, err = provisioner.NewProvisioner(s.zkInfo)
 	c.Check(err, IsNil)
 
 	// check that there is only one machine known
-	machines, err := p.st.AllMachines()
+	machines, err := p.AllMachines()
 	c.Check(err, IsNil)
 	c.Check(len(machines), Equals, 1)
 	c.Check(machines[0].Id(), Equals, 0)
@@ -339,7 +340,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRe
 }
 
 func (s *ProvisionerSuite) TestProvisioningStopsUnknownInstances(c *C) {
-	p, err := NewProvisioner(s.zkInfo)
+	p, err := provisioner.NewProvisioner(s.zkInfo)
 	c.Check(err, IsNil)
 	// we are not using defer s.stopProvisioner(c, p) because we need to control when 
 	// the PA is restarted in this test. Methods like Fatalf and Assert should not be used.
@@ -364,7 +365,7 @@ func (s *ProvisionerSuite) TestProvisioningStopsUnknownInstances(c *C) {
 	c.Check(err, IsNil)
 
 	// start a new provisioner
-	p, err = NewProvisioner(s.zkInfo)
+	p, err = provisioner.NewProvisioner(s.zkInfo)
 	c.Check(err, IsNil)
 
 	s.checkStopInstance(c)
@@ -376,7 +377,7 @@ func (s *ProvisionerSuite) TestProvisioningStopsUnknownInstances(c *C) {
 // where the final machine has been removed from the state while the PA was 
 // not running. 
 func (s *ProvisionerSuite) TestProvisioningStopsOnlyUnknownInstances(c *C) {
-	p, err := NewProvisioner(s.zkInfo)
+	p, err := provisioner.NewProvisioner(s.zkInfo)
 	c.Check(err, IsNil)
 	// we are not using defer s.stopProvisioner(c, p) because we need to control when 
 	// the PA is restarted in this test. Methods like Fatalf and Assert should not be used.
@@ -399,7 +400,7 @@ func (s *ProvisionerSuite) TestProvisioningStopsOnlyUnknownInstances(c *C) {
 	c.Check(len(machines), Equals, 0) // it's really gone   
 
 	// start a new provisioner
-	p, err = NewProvisioner(s.zkInfo)
+	p, err = provisioner.NewProvisioner(s.zkInfo)
 	c.Check(err, IsNil)
 
 	s.checkStopInstance(c)
@@ -408,7 +409,7 @@ func (s *ProvisionerSuite) TestProvisioningStopsOnlyUnknownInstances(c *C) {
 }
 
 func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublished(c *C) {
-	p, err := NewProvisioner(s.zkInfo)
+	p, err := provisioner.NewProvisioner(s.zkInfo)
 	c.Assert(err, IsNil)
 	defer s.stopProvisioner(c, p)
 
