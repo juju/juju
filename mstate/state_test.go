@@ -484,3 +484,61 @@ func addLoggingCharm(c *C, st *state.State) *state.Charm {
 	c.Assert(err, IsNil)
 	return ch
 }
+
+func (s *StateSuite) TestUnassignUnitFromMachineWithoutBeingAssigned(c *C) {
+	// When unassigning a machine from a unit, it is possible that
+	// the machine has not been previously assigned, or that it
+	// was assigned but the state changed beneath us.  In either
+	// case, the end state is the intended state, so we simply
+	// move forward without any errors here, to avoid having to
+	// handle the extra complexity of dealing with the concurrency
+	// problems.
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	unit, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	err = unit.UnassignFromMachine()
+	c.Assert(err, IsNil)
+
+	// Check that the unit has no machine assigned.
+	wordpress, err = s.st.Service("wordpress")
+	c.Assert(err, IsNil)
+	units, err := wordpress.AllUnits()
+	c.Assert(err, IsNil)
+	unit = units[0]
+	_, err = unit.AssignedMachineId()
+	c.Assert(err, ErrorMatches, `can't get machine id of unit "wordpress/0": unit not assigned to machine`)
+}
+
+func (s *StateSuite) TestAssignUnitToMachineAgainFails(c *C) {
+	// Check that assigning an already assigned unit to
+	// a machine fails if it isn't precisely the same
+	// machine. 
+	dummy := s.addDummyCharm(c)
+	wordpress, err := s.st.AddService("wordpress", dummy)
+	c.Assert(err, IsNil)
+	unit, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	machineOne, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	machineTwo, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+
+	err = unit.AssignToMachine(machineOne)
+	c.Assert(err, IsNil)
+
+	// Assigning the unit to the same machine should return no error.
+	err = unit.AssignToMachine(machineOne)
+	c.Assert(err, IsNil)
+
+	// Assigning the unit to a different machine should fail.
+	err = unit.AssignToMachine(machineTwo)
+	c.Assert(err, ErrorMatches, `can't assign unit "wordpress/0" to machine 1: .*`)
+	// TODO use error string from state_test.TestAssignUnitToMachineAgainFails
+
+	machineId, err := unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(machineId, Equals, 0)
+}

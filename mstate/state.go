@@ -123,14 +123,19 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 // RemoveService removes a service from the state. It will also remove all
 // its units and break any of its existing relations.
 func (s *State) RemoveService(svc *Service) (err error) {
+	defer errorContextf(&err, "can't remove service %s", svc)
+
 	sel := bson.D{{"_id", svc.name}, {"lifecycle", life.Alive}}
 	change := bson.D{{"$set", bson.D{{"lifecycle", life.Dying}}}}
 	err = s.services.Update(sel, change)
 	if err != nil {
-		return fmt.Errorf("can't remove service %s: %v", svc, err)
+		return err
 	}
-	// TODO Remove units and break relations.
-	return
+
+	sel = bson.D{{"service", svc.name}}
+	change = bson.D{{"$set", bson.D{{"lifecycle", life.Dying}, {"machineid", nil}}}}
+	_, err = s.units.UpdateAll(sel, change)
+	return err
 }
 
 // Service returns a service state by name.

@@ -123,19 +123,18 @@ func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
 	return s.addUnit(name, principal.Name())
 }
 
-// RemovesUnit removes the given unit from s.
-func (s *Service) RemoveUnit(unit *Unit) error {
+// RemoveUnit removes the given unit from s.
+func (s *Service) RemoveUnit(unit *Unit) (err error) {
 	sel := bson.D{
 		{"_id", unit.Name()},
 		{"service", s.name},
 		{"lifecycle", life.Alive},
 	}
-	change := bson.D{{"$set", bson.D{{"lifecycle", life.Dying}}}}
-	err := s.st.units.Update(sel, change)
+	change := bson.D{{"$set", bson.D{{"lifecycle", life.Dying}, {"machineid", nil}}}}
+	err = s.st.units.Update(sel, change)
 	if err != nil {
 		return fmt.Errorf("can't remove unit %q: %v", unit, err)
 	}
-	// TODO unassign from machine if currently assigned.
 	return nil
 }
 

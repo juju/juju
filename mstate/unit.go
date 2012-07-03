@@ -74,10 +74,29 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 // AssignToMachine assigns this unit to a given machine.
 func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	change := bson.D{{"$set", bson.D{{"machineid", m.Id()}}}}
-	sel := bson.D{{"_id", u.unitDoc.Principal}, {"machineid", nil}}
+	sel := bson.D{
+		{"_id", u.unitDoc.Principal},
+		{"$or", []bson.D{
+			bson.D{{"machineid", nil}},
+			bson.D{{"machineid", m.Id()}},
+		}},
+	}
 	err = u.st.units.Update(sel, change)
 	if err != nil {
 		return fmt.Errorf("can't assign unit %q to machine %s: %v", u, m, err)
+	}
+	u.unitDoc.MachineId = &m.id
+	return nil
+}
+
+// UnassignFromMachine removes the assignment between this unit and the
+// machine it's assigned to.
+func (u *Unit) UnassignFromMachine() (err error) {
+	change := bson.D{{"$set", bson.D{{"machineid", nil}}}}
+	sel := bson.D{{"_id", u.unitDoc.Principal}}
+	err = u.st.units.Update(sel, change)
+	if err != nil {
+		return fmt.Errorf("can't unassign unit %q from machine: %v", u, err)
 	}
 	return nil
 }
