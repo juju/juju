@@ -42,7 +42,9 @@ func (s *State) AddMachine() (m *Machine, err error) {
 
 // RemoveMachine removes the machine with the the given id.
 func (s *State) RemoveMachine(id int) error {
-	err := s.machines.Remove(bson.D{{"_id", id}})
+	sel := bson.D{{"_id", id}, {"lifecycle", life.Alive}}
+	change := bson.D{{"$set", bson.D{{"lifecycle", life.Dying}}}}
+	err := s.machines.Update(sel, change)
 	if err != nil {
 		return fmt.Errorf("can't remove machine %d", id)
 	}
@@ -121,7 +123,9 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 // RemoveService removes a service from the state. It will also remove all
 // its units and break any of its existing relations.
 func (s *State) RemoveService(svc *Service) (err error) {
-	err = s.services.Remove(bson.D{{"_id", svc.name}})
+	sel := bson.D{{"_id", svc.name}, {"lifecycle", life.Alive}}
+	change := bson.D{{"$set", bson.D{{"lifecycle", life.Dying}}}}
+	err = s.services.Update(sel, change)
 	if err != nil {
 		return fmt.Errorf("can't remove service %s: %v", svc, err)
 	}

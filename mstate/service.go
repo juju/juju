@@ -128,8 +128,10 @@ func (s *Service) RemoveUnit(unit *Unit) error {
 	sel := bson.D{
 		{"_id", unit.Name()},
 		{"service", s.name},
+		{"lifecycle", life.Alive},
 	}
-	err := s.st.units.Remove(sel)
+	change := bson.D{{"$set", bson.D{{"lifecycle", life.Dying}}}}
+	err := s.st.units.Update(sel, change)
 	if err != nil {
 		return fmt.Errorf("can't remove unit %q: %v", unit, err)
 	}
