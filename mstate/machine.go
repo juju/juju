@@ -36,14 +36,14 @@ func (m *Machine) InstanceId() (string, error) {
 // Units returns all the units that have been assigned to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
 	defer errorContextf(&err, "can't get units assigned to machine %s", m)
-	usets := []unitSet{}
-	err = m.st.unitSets.Find(bson.D{{"machineid", m.id}}).All(&usets)
+	pudocs := []unitDoc{}
+	err = m.st.units.Find(bson.D{{"machineid", m.id}}).All(&pudocs)
 	if err != nil {
 		return nil, err
 	}
-	for _, uset := range usets {
+	for _, pudoc := range pudocs {
 		docs := []unitDoc{}
-		err = m.st.units.Find(bson.D{{"unitset", uset.Principal}}).All(&docs)
+		err = m.st.units.Find(bson.D{{"principal", pudoc.Name}}).All(&docs)
 		if err != nil {
 			return nil, err
 		}

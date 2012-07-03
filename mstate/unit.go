@@ -1,15 +1,17 @@
 package mstate
 
 import (
+	"errors"
 	"fmt"
 	"labix.org/v2/mgo/bson"
 )
 
 // unitDoc represents the internal state of a unit in MongoDB.
 type unitDoc struct {
-	Name    string `bson:"_id"`
-	Service string
-	UnitSet string
+	Name      string `bson:"_id"`
+	Service   string
+	Principal string
+	MachineId *int
 }
 
 // ServiceName returns the service name.
@@ -22,30 +24,16 @@ func (u *unitDoc) String() string {
 	return u.Name
 }
 
-func (u *unitDoc) uSet() string {
-	return u.UnitSet
-}
-
-// unitSet represents the internal MongoDB state of a principal unit and
-// its subsidiaries.
-type unitSet struct {
-	Principal string `bson:"_id"`
-	MachineId int
-}
-
 // Unit represents the state of a service unit.
 type Unit struct {
 	st *State
 	unitDoc
-	unitSet
 }
 
 func newUnit(s *State, udoc *unitDoc) *Unit {
-	uset := &unitSet{Principal: udoc.UnitSet}
 	return &Unit{
 		st:      s,
 		unitDoc: *udoc,
-		unitSet: *uset,
 	}
 }
 
@@ -57,23 +45,34 @@ func (u *Unit) Name() string {
 // IsPrincipal returns whether the unit is deployed in its own container,
 // and can therefore have subordinate services deployed alongside it.
 func (u *Unit) IsPrincipal() bool {
-	return u.unitDoc.Name == u.unitSet.Principal
+	return u.unitDoc.Name == u.unitDoc.Principal
 }
 
 // AssignedMachineId returns the id of the assigned machine.
 func (u *Unit) AssignedMachineId() (id int, err error) {
-	us := &unitSet{}
-	err = u.st.unitSets.Find(bson.D{{"_id", u.uSet()}}).One(us)
-	if err != nil {
-		return 0, fmt.Errorf("can't get machine id of unit %q: %v", u, err)
+	defer errorContextf(&err, "can't get machine id of unit %q", u)
+	if u.IsPrincipal() {
+		if u.unitDoc.MachineId == nil {
+			return 0, errors.New("unit not assigned to machine")
+		}
+		return *u.unitDoc.MachineId, nil
 	}
-	return us.MachineId, nil
+	pudoc := unitDoc{}
+	err = u.st.units.Find(bson.D{{"_id", u.unitDoc.Principal}}).One(&pudoc)
+	if err != nil {
+		return 0, err
+	}
+	if pudoc.MachineId == nil {
+		return 0, errors.New("unit not assigned to machine")
+	}
+	return *pudoc.MachineId, nil
 }
 
 // AssignToMachine assigns this unit to a given machine.
 func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	change := bson.D{{"$set", bson.D{{"machineid", m.Id()}}}}
-	err = u.st.unitSets.Update(bson.D{{"_id", u.uSet()}}, change)
+	sel := bson.D{{"_id", u.unitDoc.Principal}, {"machineid", nil}}
+	err = u.st.units.Update(sel, change)
 	if err != nil {
 		return fmt.Errorf("can't assign unit %q to machine %s: %v", u, m, err)
 	}

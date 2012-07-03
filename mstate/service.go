@@ -70,11 +70,11 @@ func (s *Service) newUnitName() (string, error) {
 }
 
 // addUnit adds the named unit, which is part of unitSet.
-func (s *Service) addUnit(name string, unitSet string) (*Unit, error) {
+func (s *Service) addUnit(name string, principal string) (*Unit, error) {
 	udoc := unitDoc{
-		Name:    name,
-		Service: s.name,
-		UnitSet: unitSet,
+		Name:      name,
+		Service:   s.name,
+		Principal: principal,
 	}
 	err := s.st.units.Insert(udoc)
 	if err != nil {
@@ -93,10 +93,6 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 		return nil, fmt.Errorf("cannot directly add units to subordinate service %q", s)
 	}
 	name, err := s.newUnitName()
-	if err != nil {
-		return nil, fmt.Errorf("can't add unit to service %q: %v", err)
-	}
-	err = s.st.unitSets.Insert(bson.D{{"_id", name}})
 	if err != nil {
 		return nil, fmt.Errorf("can't add unit to service %q: %v", err)
 	}
