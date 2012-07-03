@@ -77,6 +77,7 @@ func (s *Service) addUnit(name string, principal string) (*Unit, error) {
 		Name:      name,
 		Service:   s.name,
 		Principal: principal,
+		LifeCycle: life.Alive,
 	}
 	err := s.st.units.Insert(udoc)
 	if err != nil {

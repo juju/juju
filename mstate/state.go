@@ -8,6 +8,7 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/mstate/life"
 	"net/url"
 )
 
@@ -28,7 +29,11 @@ func (s *State) AddMachine() (m *Machine, err error) {
 	if err != nil {
 		return nil, err
 	}
-	err = s.machines.Insert(bson.D{{"_id", id}})
+	mdoc := machineDoc{
+		Id:        id,
+		LifeCycle: life.Alive,
+	}
+	err = s.machines.Insert(mdoc)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +104,11 @@ func (s *State) Charm(curl *charm.URL) (*Charm, error) {
 // AddService creates a new service state with the given unique name
 // and the charm state.
 func (s *State) AddService(name string, ch *Charm) (service *Service, err error) {
-	sdoc := &serviceDoc{Name: name, CharmURL: ch.URL()}
+	sdoc := &serviceDoc{
+		Name:      name,
+		CharmURL:  ch.URL(),
+		LifeCycle: life.Alive,
+	}
 	err = s.services.Insert(sdoc)
 	if err != nil {
 		return nil, fmt.Errorf("can't add service %q:", name, err)
