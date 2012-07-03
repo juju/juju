@@ -15,6 +15,7 @@ type configSuite struct{}
 var _ = Suite(configSuite{})
 
 var configTestRegion = aws.Region{
+	Name:        "configtest",
 	EC2Endpoint: "testregion.nowhere:1234",
 }
 
@@ -155,8 +156,8 @@ func makeEnv(s string) []byte {
 }
 
 func (configSuite) TestConfig(c *C) {
-	Regions["configtest"] = configTestRegion
-	defer delete(Regions, "configtest")
+	aws.Regions["configtest"] = configTestRegion
+	defer delete(aws.Regions, "configtest")
 
 	defer os.Setenv("AWS_ACCESS_KEY_ID", os.Getenv("AWS_ACCESS_KEY_ID"))
 	defer os.Setenv("AWS_SECRET_ACCESS_KEY", os.Getenv("AWS_SECRET_ACCESS_KEY"))
