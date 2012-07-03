@@ -106,7 +106,7 @@ func (srv *localServer) startServer(c *C) {
 	if err != nil {
 		c.Fatalf("cannot start ec2 test server: %v", err)
 	}
-	srv.s3srv, err = s3test.NewServer()
+	srv.s3srv, err = s3test.NewServer(true)
 	if err != nil {
 		c.Fatalf("cannot start s3 test server: %v", err)
 	}
