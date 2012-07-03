@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
+	"sort"
 	"time"
 )
 
@@ -19,7 +20,7 @@ func (s *ServiceSuite) SetUpTest(c *C) {
 	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "dummy")
 	var err error
-	s.service, err = s.State.AddService("wordpress", s.charm)
+	s.service, err = s.State.AddService("mysql", s.charm)
 	c.Assert(err, IsNil)
 }
 
@@ -71,18 +72,18 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 	// Check that principal units can be added on their own.
 	unitZero, err := s.service.AddUnit()
 	c.Assert(err, IsNil)
-	c.Assert(unitZero.Name(), Equals, "wordpress/0")
+	c.Assert(unitZero.Name(), Equals, "mysql/0")
 	principal := unitZero.IsPrincipal()
 	c.Assert(principal, Equals, true)
 	unitOne, err := s.service.AddUnit()
 	c.Assert(err, IsNil)
-	c.Assert(unitOne.Name(), Equals, "wordpress/1")
+	c.Assert(unitOne.Name(), Equals, "mysql/1")
 	principal = unitOne.IsPrincipal()
 	c.Assert(principal, Equals, true)
 
 	// Check that principal units cannot be added to principal units.
 	_, err = s.service.AddUnitSubordinateTo(unitZero)
-	c.Assert(err, ErrorMatches, `can't add unit of principal service "wordpress" as a subordinate of "wordpress/0"`)
+	c.Assert(err, ErrorMatches, `can't add unit of principal service "mysql" as a subordinate of "mysql/0"`)
 
 	// Assign the principal unit to a machine.
 	m, err := s.State.AddMachine()
@@ -122,34 +123,34 @@ func (s *ServiceSuite) TestReadUnit(c *C) {
 	_, err = s.service.AddUnit()
 	c.Assert(err, IsNil)
 	// Check that retrieving a unit works correctly.
-	unit, err := s.service.Unit("wordpress/0")
+	unit, err := s.service.Unit("mysql/0")
 	c.Assert(err, IsNil)
-	c.Assert(unit.Name(), Equals, "wordpress/0")
+	c.Assert(unit.Name(), Equals, "mysql/0")
 
 	// Check that retrieving a non-existent or an invalidly
 	// named unit fail nicely.
-	unit, err = s.service.Unit("wordpress")
-	c.Assert(err, ErrorMatches, `can't get unit "wordpress" from service "wordpress": "wordpress" is not a valid unit name`)
-	unit, err = s.service.Unit("wordpress/0/0")
-	c.Assert(err, ErrorMatches, `can't get unit "wordpress/0/0" from service "wordpress": "wordpress/0/0" is not a valid unit name`)
+	unit, err = s.service.Unit("mysql")
+	c.Assert(err, ErrorMatches, `can't get unit "mysql" from service "mysql": "mysql" is not a valid unit name`)
+	unit, err = s.service.Unit("mysql/0/0")
+	c.Assert(err, ErrorMatches, `can't get unit "mysql/0/0" from service "mysql": "mysql/0/0" is not a valid unit name`)
 	unit, err = s.service.Unit("pressword/0")
-	c.Assert(err, ErrorMatches, `can't get unit "pressword/0" from service "wordpress": unit not found`)
+	c.Assert(err, ErrorMatches, `can't get unit "pressword/0" from service "mysql": unit not found`)
 
 	// Add another service to check units are not misattributed.
-	mysql, err := s.State.AddService("mysql", s.charm)
+	mysql, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 	_, err = mysql.AddUnit()
 	c.Assert(err, IsNil)
 
-	unit, err = s.service.Unit("mysql/0")
-	c.Assert(err, ErrorMatches, `can't get unit "mysql/0" from service "wordpress": unit not found`)
+	unit, err = s.service.Unit("wordpress/0")
+	c.Assert(err, ErrorMatches, `can't get unit "wordpress/0" from service "mysql": unit not found`)
 
 	// Check that retrieving all units works.
 	units, err := s.service.AllUnits()
 	c.Assert(err, IsNil)
 	c.Assert(len(units), Equals, 2)
-	c.Assert(units[0].Name(), Equals, "wordpress/0")
-	c.Assert(units[1].Name(), Equals, "wordpress/1")
+	c.Assert(units[0].Name(), Equals, "mysql/0")
+	c.Assert(units[1].Name(), Equals, "mysql/1")
 }
 
 func (s *ServiceSuite) TestRemoveUnit(c *C) {
@@ -159,7 +160,7 @@ func (s *ServiceSuite) TestRemoveUnit(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check that removing a unit works.
-	unit, err := s.service.Unit("wordpress/0")
+	unit, err := s.service.Unit("mysql/0")
 	c.Assert(err, IsNil)
 	err = s.service.RemoveUnit(unit)
 	c.Assert(err, IsNil)
@@ -167,12 +168,12 @@ func (s *ServiceSuite) TestRemoveUnit(c *C) {
 	units, err := s.service.AllUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 1)
-	c.Assert(units[0].Name(), Equals, "wordpress/1")
+	c.Assert(units[0].Name(), Equals, "mysql/1")
 
 	// Check that removing a non-existent unit fails nicely.
 	// TODO improve error message.
 	err = s.service.RemoveUnit(unit)
-	c.Assert(err, ErrorMatches, `can't unassign unit "wordpress/0" from machine: environment state has changed`)
+	c.Assert(err, ErrorMatches, `can't unassign unit "mysql/0" from machine: environment state has changed`)
 }
 
 func (s *ServiceSuite) TestReadUnitWithChangingState(c *C) {
@@ -180,9 +181,9 @@ func (s *ServiceSuite) TestReadUnitWithChangingState(c *C) {
 	// fails nicely.
 	err := s.State.RemoveService(s.service)
 	c.Assert(err, IsNil)
-	_, err = s.State.Unit("wordpress/0")
+	_, err = s.State.Unit("mysql/0")
 	// TODO BUG https://bugs.launchpad.net/juju-core/+bug/1020322
-	c.Assert(err, ErrorMatches, `can't get unit "wordpress/0": can't get service "wordpress": service with name "wordpress" not found`)
+	c.Assert(err, ErrorMatches, `can't get unit "mysql/0": can't get service "mysql": service with name "mysql" not found`)
 }
 
 var serviceWatchConfigData = []map[string]interface{}{
@@ -378,4 +379,94 @@ func (s *ServiceSuite) TestWatchUnits(c *C) {
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
+}
+
+func assertRelationIds(c *C, rels []*state.Relation, ids []int) {
+	c.Assert(rels, HasLen, len(ids))
+	relids := []int{}
+	for _, rel := range rels {
+		relids = append(relids, rel.Id())
+	}
+	sort.Ints(ids)
+	sort.Ints(relids)
+	for i, id := range ids {
+		c.Assert(relids[i], Equals, id)
+	}
+}
+
+func (s *ServiceSuite) TestWatchRelations(c *C) {
+	w := s.service.WatchRelations()
+
+	// Check initial event, and lack of followup.
+	assertChange := func(adds, removes []int) {
+		select {
+		case change := <-w.Changes():
+			assertRelationIds(c, change.Added, adds)
+			assertRelationIds(c, change.Removed, removes)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("expected change, got nothing")
+		}
+	}
+	assertChange(nil, nil)
+	assertNoChange := func() {
+		select {
+		case change := <-w.Changes():
+			c.Fatalf("expected nothing, got %#v", change)
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
+	assertNoChange()
+
+	// Add a couple of services, check no changes.
+	_, err := s.State.AddService("wp1", s.charm)
+	c.Assert(err, IsNil)
+	_, err = s.State.AddService("wp2", s.charm)
+	c.Assert(err, IsNil)
+	assertNoChange()
+
+	// Add a relation; check change.
+	mysqlep := state.RelationEndpoint{"mysql", "ifce", "foo", state.RoleProvider, state.ScopeGlobal}
+	wp1ep := state.RelationEndpoint{"wp1", "ifce", "bar", state.RoleRequirer, state.ScopeGlobal}
+	err = s.State.AddRelation(mysqlep, wp1ep)
+	c.Assert(err, IsNil)
+	assertChange([]int{0}, nil)
+	assertNoChange()
+
+	// Add another relation; check change.
+	wp2ep := state.RelationEndpoint{"wp2", "ifce", "baz", state.RoleRequirer, state.ScopeGlobal}
+	err = s.State.AddRelation(mysqlep, wp2ep)
+	c.Assert(err, IsNil)
+	assertChange([]int{1}, nil)
+	assertNoChange()
+
+	// Remove one of the relations; check change.
+	err = s.State.RemoveRelation(mysqlep, wp1ep)
+	c.Assert(err, IsNil)
+	assertChange(nil, []int{0})
+	assertNoChange()
+
+	// Stop watcher; check change chan is closed.
+	err = w.Stop()
+	c.Assert(err, IsNil)
+	assertClosed := func() {
+		select {
+		case _, ok := <-w.Changes():
+			c.Assert(ok, Equals, false)
+		default:
+			c.Fatalf("Changes not closed")
+		}
+	}
+	assertClosed()
+
+	// Add a new relation; start a new watcher; check initial event.
+	err = s.State.AddRelation(mysqlep, wp1ep)
+	c.Assert(err, IsNil)
+	w = s.service.WatchRelations()
+	assertChange([]int{1, 2}, nil)
+	assertNoChange()
+
+	// Stop new watcher; check change chan is closed.
+	err = w.Stop()
+	c.Assert(err, IsNil)
+	assertClosed()
 }
