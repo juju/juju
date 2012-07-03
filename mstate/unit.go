@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"labix.org/v2/mgo/bson"
-	"launchpad.net/juju-core/mstate/life"
 )
 
 // unitDoc represents the internal state of a unit in MongoDB.
@@ -13,7 +12,7 @@ type unitDoc struct {
 	Service   string
 	Principal string
 	MachineId *int
-	LifeCycle life.Cycle
+	Life      Life
 }
 
 // ServiceName returns the service name.
@@ -60,7 +59,7 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 		return *u.unitDoc.MachineId, nil
 	}
 	pudoc := unitDoc{}
-	sel := bson.D{{"_id", u.unitDoc.Principal}, {"lifecycle", life.Alive}}
+	sel := bson.D{{"_id", u.unitDoc.Principal}, {"life", Alive}}
 	err = u.st.units.Find(sel).One(&pudoc)
 	if err != nil {
 		return 0, err

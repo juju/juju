@@ -3,7 +3,6 @@ package mstate
 import (
 	"fmt"
 	"labix.org/v2/mgo/bson"
-	"launchpad.net/juju-core/mstate/life"
 	"strconv"
 )
 
@@ -17,7 +16,7 @@ type Machine struct {
 type machineDoc struct {
 	Id         int `bson:"_id"`
 	InstanceId string
-	LifeCycle  life.Cycle
+	Life       Life
 }
 
 // Id returns the machine id.
@@ -30,7 +29,7 @@ func (m *Machine) InstanceId() (string, error) {
 	mdoc := &machineDoc{}
 	sel := bson.D{
 		{"_id", m.id},
-		{"lifecycle", life.Alive},
+		{"life", Alive},
 	}
 	err := m.st.machines.Find(sel).One(mdoc)
 	if err != nil {
@@ -49,7 +48,7 @@ func (m *Machine) Units() (units []*Unit, err error) {
 	}
 	for _, pudoc := range pudocs {
 		docs := []unitDoc{}
-		sel := bson.D{{"principal", pudoc.Name}, {"lifecycle", life.Alive}}
+		sel := bson.D{{"principal", pudoc.Name}, {"life", Alive}}
 		err = m.st.units.Find(sel).All(&docs)
 		if err != nil {
 			return nil, err

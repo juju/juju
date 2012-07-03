@@ -7,7 +7,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	state "launchpad.net/juju-core/mstate"
-	"launchpad.net/juju-core/mstate/life"
 	"launchpad.net/juju-core/testing"
 	"net/url"
 	"sort"
@@ -130,7 +129,7 @@ func (s *StateSuite) assertMachineCount(c *C, expect int) {
 func (s *StateSuite) TestAllMachines(c *C) {
 	numInserts := 42
 	for i := 0; i < numInserts; i++ {
-		err := s.machines.Insert(bson.D{{"_id", i}, {"lifecycle", life.Alive}})
+		err := s.machines.Insert(bson.D{{"_id", i}, {"life", state.Alive}})
 		c.Assert(err, IsNil)
 	}
 	s.assertMachineCount(c, numInserts)

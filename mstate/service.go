@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/mstate/life"
 	"strconv"
 )
 
@@ -17,9 +16,9 @@ type Service struct {
 
 // serviceDoc represents the internal state of a service in MongoDB.
 type serviceDoc struct {
-	Name      string `bson:"_id"`
-	CharmURL  *charm.URL
-	LifeCycle life.Cycle
+	Name     string `bson:"_id"`
+	CharmURL *charm.URL
+	Life     Life
 }
 
 // Name returns the service name.
@@ -30,7 +29,7 @@ func (s *Service) Name() string {
 // CharmURL returns the charm URL this service is supposed to use.
 func (s *Service) CharmURL() (url *charm.URL, err error) {
 	sdoc := &serviceDoc{}
-	sel := bson.D{{"_id", s.name}, {"lifecycle", life.Alive}}
+	sel := bson.D{{"_id", s.name}, {"life", Alive}}
 	err = s.st.services.Find(sel).One(sdoc)
 	if err != nil {
 		return nil, fmt.Errorf("can't get the charm URL of service %q: %v", s, err)
@@ -78,7 +77,7 @@ func (s *Service) addUnit(name string, principal string) (*Unit, error) {
 		Name:      name,
 		Service:   s.name,
 		Principal: principal,
-		LifeCycle: life.Alive,
+		Life:      Alive,
 	}
 	err := s.st.units.Insert(udoc)
 	if err != nil {
@@ -128,9 +127,9 @@ func (s *Service) RemoveUnit(unit *Unit) error {
 	sel := bson.D{
 		{"_id", unit.Name()},
 		{"service", s.name},
-		{"lifecycle", life.Alive},
+		{"life", Alive},
 	}
-	change := bson.D{{"$set", bson.D{{"lifecycle", life.Dying}}}}
+	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
 	err := s.st.units.Update(sel, change)
 	if err != nil {
 		return fmt.Errorf("can't remove unit %q: %v", unit, err)
@@ -144,7 +143,7 @@ func (s *Service) unitDoc(name string) (*unitDoc, error) {
 	sel := bson.D{
 		{"_id", name},
 		{"service", s.name},
-		{"lifecycle", life.Alive},
+		{"life", Alive},
 	}
 	err := s.st.units.Find(sel).One(udoc)
 	if err != nil {
@@ -165,7 +164,7 @@ func (s *Service) Unit(name string) (*Unit, error) {
 // AllUnits returns all units of the service.
 func (s *Service) AllUnits() (units []*Unit, err error) {
 	docs := []unitDoc{}
-	sel := bson.D{{"service", s.name}, {"lifecycle", life.Alive}}
+	sel := bson.D{{"service", s.name}, {"life", Alive}}
 	err = s.st.units.Find(sel).All(&docs)
 	if err != nil {
 		return nil, fmt.Errorf("can't get all units from service %q: %v", err)
