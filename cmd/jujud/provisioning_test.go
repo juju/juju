@@ -1,11 +1,8 @@
 package main
 
 import (
-	"time"
-
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -14,11 +11,6 @@ type ProvisioningSuite struct {
 }
 
 var _ = Suite(&ProvisioningSuite{})
-
-var veryShortAttempt = environs.AttemptStrategy{
-	Total: 1 * time.Second,
-	Delay: 80 * time.Millisecond,
-}
 
 func (s *ProvisioningSuite) SetUpTest(c *C) {
 	s.logging.SetUpTest(c)
