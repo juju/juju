@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/service/machiner"
 )
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
@@ -33,7 +34,7 @@ func (a *MachineAgent) Init(f *gnuflag.FlagSet, args []string) error {
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// TODO reconnect when the machiner fails.
-	m, err := NewMachiner(&a.Conf.StateInfo, a.MachineId)
+	m, err := machiner.NewMachiner(&a.Conf.StateInfo, a.MachineId)
 	if err != nil {
 		return err
 	}
