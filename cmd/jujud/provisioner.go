@@ -6,9 +6,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
-
-	// register providers
-	_ "launchpad.net/juju-core/environs/ec2"
 )
 
 type Provisioner struct {
