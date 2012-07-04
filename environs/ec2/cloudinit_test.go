@@ -54,7 +54,7 @@ func (t *cloudinitTest) check(c *C) {
 		t.checkPackage(c, "zookeeperd")
 		t.checkScripts(c, "jujud initzk")
 		t.checkScripts(c, regexp.QuoteMeta(t.cfg.instanceIdAccessor))
-		t.checkScripts(c, "JUJU_ZOOKEEPER='localhost"+zkPortSuffix+"'")
+		t.checkScripts(c, "JUJU_ZOOKEEPER='localhost"+zkPortSuffix()+"'")
 	} else {
 		t.checkScripts(c, "JUJU_ZOOKEEPER='"+strings.Join(t.cfg.stateInfo.Addrs, ",")+"'")
 	}

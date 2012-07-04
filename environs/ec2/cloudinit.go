@@ -108,7 +108,7 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 			jujutools+"/jujud initzk"+
 				" --instance-id "+cfg.instanceIdAccessor+
 				" --env-type "+shquote(cfg.providerType)+
-				" --zookeeper-servers localhost"+zkPortSuffix+
+				" --zookeeper-servers localhost"+zkPortSuffix()+
 				debugFlag,
 		)
 	}
@@ -154,7 +154,7 @@ func versionDir(toolsURL string) string {
 func (cfg *machineConfig) zookeeperHostAddrs() string {
 	var hosts []string
 	if cfg.zookeeper {
-		hosts = append(hosts, "localhost"+zkPortSuffix)
+		hosts = append(hosts, "localhost"+zkPortSuffix())
 	}
 	if cfg.stateInfo != nil {
 		hosts = append(hosts, cfg.stateInfo.Addrs...)
