@@ -10,6 +10,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/service/provisioner"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/state"
@@ -54,7 +55,7 @@ func registerLocalTests() {
 					Environs: envs,
 					Name:     name,
                                 	CanOpenState:     true,
-                                	HasProvisioner:   false, // TODO(dfc) see jujutest/seedSecrets
+                                	HasProvisioner:   true, // TODO(dfc) see jujutest/seedSecrets
 				},
 			},
 		})
@@ -69,6 +70,7 @@ type localLiveSuite struct {
 	LiveTests
 	srv localServer
 	env environs.Environ
+	p *provisioner.Provisioner
 }
 
 func (t *localLiveSuite) SetUpSuite(c *C) {
@@ -91,11 +93,14 @@ func (t *localLiveSuite) SetUpTest(c *C) {
 	t.LoggingSuite.SetUpTest(c)
 	t.StateSuite.SetUpTest(c)
 	ec2.ZkPort = coretesting.ZkPort
-
 	t.LiveTests.SetUpTest(c)
+	var err error
+	t.p, err = provisioner.NewProvisioner(t.StateInfo(c))
+	c.Assert(err, IsNil)
 }
 
 func (t *localLiveSuite) TearDownTest(c *C) {
+	c.Check(t.p.Stop(), IsNil)
 	t.LiveTests.TearDownTest(c)
 	t.StateSuite.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)

@@ -92,10 +92,18 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	t.BootstrapOnce(c)
 }
 
-// seed secrets pushes into the state
+// seed secrets pushes secrets into the state
 func (t *LiveTests) seedSecrets(env *state.ConfigNode) error {
-	// TODO(dfc) need some way to publish correct ec2 secrets
-	return nil
+	// this disgusting hack only works for ec2 without real credentials
+	env.Set("type", "ec2")
+	env.Set("name", "sample")
+	env.Set("region", "test")
+	env.Set("control-bucket", "test-bucket")
+	env.Set("public-bucket", "public-tools")
+	env.Set("access-key", "x")
+	env.Set("secret-key", "x")
+	_, err := env.Write()
+	return err
 }
 
 func (t *LiveTests) testProvisioning(c *C, st *state.State) {
@@ -139,22 +147,15 @@ func (t *LiveTests) checkStartInstance(c *C, m *state.Machine) (instId string) {
 	return
 }
 
-func (t *LiveTests) checkStopInstance(c *C, m *state.Machine) (instId string) {
+func (t *LiveTests) checkStopInstance(c *C, m *state.Machine) {
 	// Wait for machine to get instance id.
 	for a := agentReaction.Start(); a.Next(); {
-		var err error
-		instId, err = m.InstanceId()
-		c.Assert(err, IsNil)
-		if instId != "" {
-			break
+		if instId, err := m.InstanceId() ; instId == "" {
+			c.Assert(err, FitsTypeOf, &state.NoInstanceIdError{})
+			return
 		}
 	}
-	if instId == "" {
-		c.Fatalf("provisioner failed to stop machine after %v", agentReaction.Total)
-	}
-	_, err := t.Env.Instances([]string{instId})
-	c.Assert(err, IsNil)
-	return
+	c.Fatalf("provisioner failed to stop machine after %v", agentReaction.Total)
 }
 
 // checkMachineIdSet checks that the machine has an instance id
