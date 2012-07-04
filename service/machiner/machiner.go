@@ -1,4 +1,4 @@
-package main
+package machiner
 
 import (
 	"launchpad.net/juju-core/container"

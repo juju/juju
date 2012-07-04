@@ -1,13 +1,19 @@
-package main
+package machiner_test
 
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/container"
+	"launchpad.net/juju-core/service/machiner"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	stdtesting "testing"
 	"time"
 )
+
+func TestPackage(t *stdtesting.T) {
+	coretesting.ZkTestPackage(t)
+}
 
 type MachinerSuite struct {
 	coretesting.LoggingSuite
@@ -30,7 +36,7 @@ func (s *MachinerSuite) TestMachinerStartStop(c *C) {
 	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 
-	p, err := NewMachiner(s.StateInfo(c), m.Id())
+	p, err := machiner.NewMachiner(s.StateInfo(c), m.Id())
 	c.Assert(err, IsNil)
 	c.Assert(p.Stop(), IsNil)
 }
@@ -71,7 +77,7 @@ func (s *MachinerSuite) TestMachinerDeployDestroy(c *C) {
 	err = ud0.AssignToMachine(m0)
 	c.Assert(err, IsNil)
 
-	machiner, err := NewMachiner(s.StateInfo(c), m0.Id())
+	machiner, err := machiner.NewMachiner(s.StateInfo(c), m0.Id())
 	c.Assert(err, IsNil)
 
 	tests := []struct {
