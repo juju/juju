@@ -96,8 +96,8 @@ func newServiceUnitsWatcher(service *Service) *ServiceUnitsWatcher {
 }
 
 // Changes returns a channel that will receive changes when units
-// are added to or removed from the service. The Added field in 
-// the first event on the channel holds the initial state as returned 
+// are added to or removed from the service. The Added field in
+// the first event on the channel holds the initial state as returned
 // by Service.AllUnits.
 func (w *ServiceUnitsWatcher) Changes() <-chan *ServiceUnitsChange {
 	return w.changeChan
@@ -449,7 +449,7 @@ type MachineUnitsChange struct {
 	Removed []*Unit
 }
 
-// newMachinesWatcher creates and starts a new machine watcher.
+// newMachineUnitsWatcher creates and starts a new machine units watcher.
 func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 	w := &MachineUnitsWatcher{
 		contentWatcher: newContentWatcher(m.st, zkTopologyPath),
@@ -464,7 +464,7 @@ func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 // Changes returns a channel that will receive changes when
 // units are assigned or unassigned from a machine.
 // The Added field in the first event on the channel holds the initial
-// state as returned by State.AllMachines.
+// state as returned by machine.Units.
 func (w *MachineUnitsWatcher) Changes() <-chan *MachineUnitsChange {
 	return w.changeChan
 }
@@ -511,16 +511,74 @@ func (w *MachineUnitsWatcher) done() {
 	close(w.changeChan)
 }
 
-// diff returns all the elements that exist in A but not B.
-func diff(A, B []string) (missing []string) {
-next:
-	for _, a := range A {
-		for _, b := range B {
-			if a == b {
-				continue next
-			}
-		}
-		missing = append(missing, a)
+// ServiceRelationsWatcher notifies of changes to a service's relations.
+type ServiceRelationsWatcher struct {
+	contentWatcher
+	changeChan chan RelationsChange
+	service    *Service
+	current    map[string]*Relation
+}
+
+type RelationsChange struct {
+	Added, Removed []*Relation
+}
+
+// newServiceRelationsWatcher creates and starts a new service relations watcher.
+func newServiceRelationsWatcher(s *Service) *ServiceRelationsWatcher {
+	w := &ServiceRelationsWatcher{
+		contentWatcher: newContentWatcher(s.st, zkTopologyPath),
+		changeChan:     make(chan RelationsChange),
+		service:        s,
+		current:        make(map[string]*Relation),
 	}
-	return
+	go w.loop(w)
+	return w
+}
+
+// Changes returns a channel that will receive changes when
+// the service enters and leaves relations.
+// The Added field in the first event on the channel holds the initial
+// state, corresponding to that returned by service.Relations.
+func (w *ServiceRelationsWatcher) Changes() <-chan RelationsChange {
+	return w.changeChan
+}
+
+func (w *ServiceRelationsWatcher) update(change watcher.ContentChange) error {
+	t, err := parseTopology(change.Content)
+	if err != nil {
+		return err
+	}
+	relations, err := w.service.relationsFromTopology(t)
+	if err != nil {
+		return err
+	}
+	latest := map[string]*Relation{}
+	for _, rel := range relations {
+		latest[rel.key] = rel
+	}
+	ch := RelationsChange{}
+	for key, rel := range latest {
+		if w.current[key] == nil {
+			ch.Added = append(ch.Added, rel)
+		}
+	}
+	for key, rel := range w.current {
+		if latest[key] == nil {
+			ch.Removed = append(ch.Removed, rel)
+		}
+	}
+	if w.updated && len(ch.Added) == 0 && len(ch.Removed) == 0 {
+		return nil
+	}
+	select {
+	case <-w.tomb.Dying():
+		return tomb.ErrDying
+	case w.changeChan <- ch:
+		w.current = latest
+	}
+	return nil
+}
+
+func (w *ServiceRelationsWatcher) done() {
+	close(w.changeChan)
 }

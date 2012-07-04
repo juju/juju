@@ -19,7 +19,6 @@ package dummy
 import (
 	"errors"
 	"fmt"
-	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/schema"
@@ -30,29 +29,13 @@ import (
 	"sync"
 )
 
-// zkServer holds the shared zookeeper server which is used by all dummy
-// environs to store state.
-var zkServer *zookeeper.Server
-
-// SetZookeeper sets the zookeeper server that will be used to hold the
-// environ's state.State. If the environ's "zookeeper" config setting is
-// true and no zookeeper server has been set, the StateInfo method will
-// panic (unless the "isBroken" config setting is also true).
-func SetZookeeper(srv *zookeeper.Server) {
-	zkServer = srv
-}
-
 // stateInfo returns a *state.Info which allows clients to connect to the
 // shared dummy zookeeper, if it exists.
 func stateInfo() *state.Info {
-	if zkServer == nil {
-		panic("SetZookeeper not called")
+	if testing.ZkAddr == "" {
+		panic("dummy environ zookeeper tests must be run with ZkTestPackage")
 	}
-	addr, err := zkServer.Addr()
-	if err != nil {
-		panic(err)
-	}
-	return &state.Info{Addrs: []string{addr}}
+	return &state.Info{Addrs: []string{testing.ZkAddr}}
 }
 
 // Operation represents an action on the dummy provider.
@@ -162,8 +145,8 @@ func Reset() {
 	}
 	providerInstance.ops = discardOperations
 	providerInstance.state = make(map[string]*environState)
-	if zkServer != nil {
-		testing.ResetZkServer(zkServer)
+	if testing.ZkAddr != "" {
+		testing.ZkReset()
 	}
 }
 
@@ -340,8 +323,8 @@ func (e *environ) Destroy([]environs.Instance) error {
 	}
 	e.state.ops <- OpDestroy{Env: e.state.name}
 	e.state.mu.Lock()
-	if zkServer != nil {
-		testing.ResetZkServer(zkServer)
+	if testing.ZkAddr != "" {
+		testing.ZkReset()
 	}
 	e.state.bootstrapped = false
 	e.state.storage.files = make(map[string][]byte)
