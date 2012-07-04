@@ -7,7 +7,7 @@ import (
 )
 
 type PortsSuite struct {
-	UnitFixture
+	UnitSuite
 }
 
 var _ = Suite(&PortsSuite{})
