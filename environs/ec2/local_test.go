@@ -13,7 +13,8 @@ import (
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing"
+        "launchpad.net/juju-core/state/testing"
+        coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"strings"
 )
@@ -61,7 +62,8 @@ func registerLocalTests() {
 // localLiveSuite runs tests from LiveTests using a fake
 // EC2 server that runs within the test process itself.
 type localLiveSuite struct {
-	testing.LoggingSuite
+	coretesting.LoggingSuite
+	testing.StateSuite
 	LiveTests
 	srv localServer
 	env environs.Environ
@@ -85,11 +87,13 @@ func (t *localLiveSuite) TearDownSuite(c *C) {
 
 func (t *localLiveSuite) SetUpTest(c *C) {
 	t.LoggingSuite.SetUpTest(c)
+	t.StateSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
 }
 
 func (t *localLiveSuite) TearDownTest(c *C) {
 	t.LiveTests.TearDownTest(c)
+	t.StateSuite.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
 }
 
@@ -160,7 +164,8 @@ func (srv *localServer) stopServer(c *C) {
 // accessed by using the "test" region, which is changed to point to the
 // network address of the local server.
 type localServerSuite struct {
-	testing.LoggingSuite
+	coretesting.LoggingSuite
+	testing.StateSuite
 	jujutest.Tests
 	srv localServer
 	env environs.Environ
@@ -180,6 +185,7 @@ func (t *localServerSuite) TearDownSuite(c *C) {
 
 func (t *localServerSuite) SetUpTest(c *C) {
 	t.LoggingSuite.SetUpTest(c)
+	t.StateSuite.SetUpTest(c)
 	t.srv.startServer(c)
 	t.Tests.SetUpTest(c)
 	t.env = t.Tests.Env
@@ -188,6 +194,7 @@ func (t *localServerSuite) SetUpTest(c *C) {
 func (t *localServerSuite) TearDownTest(c *C) {
 	t.Tests.TearDownTest(c)
 	t.srv.stopServer(c)
+	t.StateSuite.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
 }
 
