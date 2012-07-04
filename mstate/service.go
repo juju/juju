@@ -3,6 +3,7 @@ package mstate
 import (
 	"errors"
 	"fmt"
+	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/juju-core/charm"
 	"strconv"
@@ -19,6 +20,7 @@ type serviceDoc struct {
 	Name     string `bson:"_id"`
 	CharmURL *charm.URL
 	Life     Life
+	UnitSeq  int
 }
 
 // Name returns the service name.
@@ -63,11 +65,17 @@ func (s *Service) String() string {
 
 // newUnitName returns the next unit name.
 func (s *Service) newUnitName() (string, error) {
-	id, err := s.st.sequence(s.Name())
+	sel := bson.D{{"_id", s.name}, {"life", Alive}}
+	change := mgo.Change{
+		Update: bson.D{{"$inc", bson.D{{"unitseq", 1}}}},
+		Upsert: true,
+	}
+	result := serviceDoc{}
+	_, err := s.st.services.Find(sel).Apply(change, &result)
 	if err != nil {
 		return "", err
 	}
-	name := s.name + "/" + strconv.Itoa(id)
+	name := s.name + "/" + strconv.Itoa(result.UnitSeq)
 	return name, nil
 }
 
