@@ -2,41 +2,18 @@ package server_test
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	. "launchpad.net/gocheck"
-	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/jujuc/server"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing"
-	"net/url"
+	"launchpad.net/juju-core/state/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	stdtesting "testing"
 )
 
-var zkAddr string
-
 func TestPackage(t *stdtesting.T) {
-	srv := testing.StartZkServer()
-	defer srv.Destroy()
-	var err error
-	zkAddr, err = srv.Addr()
-	if err != nil {
-		t.Fatalf("could not get ZooKeeper server address")
-	}
-	TestingT(t)
-}
-
-func addDummyCharm(c *C, st *state.State) *state.Charm {
-	ch := testing.Charms.Dir("dummy")
-	u := fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision())
-	curl := charm.MustParseURL(u)
-	burl, err := url.Parse("http://bundle.url")
-	c.Assert(err, IsNil)
-	dummy, err := st.AddCharm(ch, curl, burl, "dummy-sha256")
-	c.Assert(err, IsNil)
-	return dummy
+	coretesting.ZkTestPackage(t)
 }
 
 func dummyContext(c *C) *cmd.Context {
@@ -47,46 +24,34 @@ func bufferString(w io.Writer) string {
 	return w.(*bytes.Buffer).String()
 }
 
-type UnitFixture struct {
+type UnitSuite struct {
+	testing.StateSuite
 	ctx     *server.ClientContext
 	service *state.Service
 	unit    *state.Unit
 }
 
-func (f *UnitFixture) SetUpTest(c *C) {
-	st, err := state.Initialize(&state.Info{
-		Addrs: []string{zkAddr},
-	})
-	c.Assert(err, IsNil)
-	f.ctx = &server.ClientContext{
+func (s *UnitSuite) SetUpTest(c *C) {
+	s.StateSuite.SetUpTest(c)
+	s.ctx = &server.ClientContext{
 		Id:            "TestCtx",
-		State:         st,
+		State:         s.State,
 		LocalUnitName: "minecraft/0",
 	}
-	dummy := addDummyCharm(c, st)
-	f.service, err = st.AddService("minecraft", dummy)
+	var err error
+	s.service, err = s.State.AddService("minecraft", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
-	f.unit, err = f.service.AddUnit()
+	s.unit, err = s.service.AddUnit()
 	c.Assert(err, IsNil)
 }
 
-func (f *UnitFixture) TearDownTest(c *C) {
-	zk, session, err := zookeeper.Dial(zkAddr, 15e9)
-	c.Assert(err, IsNil)
-	event := <-session
-	c.Assert(event.Ok(), Equals, true)
-	c.Assert(event.Type, Equals, zookeeper.EVENT_SESSION)
-	c.Assert(event.State, Equals, zookeeper.STATE_CONNECTED)
-	testing.ZkRemoveTree(zk, "/")
-}
-
-func (f *UnitFixture) AssertUnitCommand(c *C, name string) {
-	ctx := &server.ClientContext{Id: "TestCtx", State: f.ctx.State}
+func (s *UnitSuite) AssertUnitCommand(c *C, name string) {
+	ctx := &server.ClientContext{Id: "TestCtx", State: s.State}
 	com, err := ctx.NewCommand(name)
 	c.Assert(com, IsNil)
 	c.Assert(err, ErrorMatches, "context TestCtx is not attached to a unit")
 
-	ctx = &server.ClientContext{Id: "TestCtx", LocalUnitName: f.ctx.LocalUnitName}
+	ctx = &server.ClientContext{Id: "TestCtx", LocalUnitName: s.ctx.LocalUnitName}
 	com, err = ctx.NewCommand(name)
 	c.Assert(com, IsNil)
 	c.Assert(err, ErrorMatches, "context TestCtx cannot access state")
