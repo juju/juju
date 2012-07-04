@@ -8,8 +8,15 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/mstate/life"
 	"net/url"
+)
+
+type Life int
+
+const (
+	Alive Life = 1 + iota
+	Dying
+	Dead
 )
 
 // State represents the state of an environment
@@ -30,8 +37,8 @@ func (s *State) AddMachine() (m *Machine, err error) {
 		return nil, err
 	}
 	mdoc := machineDoc{
-		Id:        id,
-		LifeCycle: life.Alive,
+		Id:   id,
+		Life: Alive,
 	}
 	err = s.machines.Insert(mdoc)
 	if err != nil {
@@ -42,8 +49,8 @@ func (s *State) AddMachine() (m *Machine, err error) {
 
 // RemoveMachine removes the machine with the the given id.
 func (s *State) RemoveMachine(id int) error {
-	sel := bson.D{{"_id", id}, {"lifecycle", life.Alive}}
-	change := bson.D{{"$set", bson.D{{"lifecycle", life.Dying}}}}
+	sel := bson.D{{"_id", id}, {"life", Alive}}
+	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
 	err := s.machines.Update(sel, change)
 	if err != nil {
 		return fmt.Errorf("can't remove machine %d", id)
@@ -54,7 +61,7 @@ func (s *State) RemoveMachine(id int) error {
 // AllMachines returns all machines in the environment.
 func (s *State) AllMachines() (machines []*Machine, err error) {
 	mdocs := []machineDoc{}
-	sel := bson.D{{"lifecycle", life.Alive}}
+	sel := bson.D{{"life", Alive}}
 	err = s.machines.Find(sel).Select(bson.D{{"_id", 1}}).All(&mdocs)
 	if err != nil {
 		return nil, fmt.Errorf("can't get all machines: %v", err)
@@ -68,7 +75,7 @@ func (s *State) AllMachines() (machines []*Machine, err error) {
 // Machine returns the machine with the given id.
 func (s *State) Machine(id int) (*Machine, error) {
 	mdoc := &machineDoc{}
-	sel := bson.D{{"_id", id}, {"lifecycle", life.Alive}}
+	sel := bson.D{{"_id", id}, {"life", Alive}}
 	err := s.machines.Find(sel).One(mdoc)
 	if err != nil {
 		return nil, fmt.Errorf("can't get machine %d: %v", id, err)
@@ -109,9 +116,9 @@ func (s *State) Charm(curl *charm.URL) (*Charm, error) {
 // and the charm state.
 func (s *State) AddService(name string, ch *Charm) (service *Service, err error) {
 	sdoc := &serviceDoc{
-		Name:      name,
-		CharmURL:  ch.URL(),
-		LifeCycle: life.Alive,
+		Name:     name,
+		CharmURL: ch.URL(),
+		Life:     Alive,
 	}
 	err = s.services.Insert(sdoc)
 	if err != nil {
@@ -125,15 +132,15 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 func (s *State) RemoveService(svc *Service) (err error) {
 	defer errorContextf(&err, "can't remove service %s", svc)
 
-	sel := bson.D{{"_id", svc.name}, {"lifecycle", life.Alive}}
-	change := bson.D{{"$set", bson.D{{"lifecycle", life.Dying}}}}
+	sel := bson.D{{"_id", svc.name}, {"life", Alive}}
+	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
 	err = s.services.Update(sel, change)
 	if err != nil {
 		return err
 	}
 
 	sel = bson.D{{"service", svc.name}}
-	change = bson.D{{"$set", bson.D{{"lifecycle", life.Dying}, {"machineid", nil}}}}
+	change = bson.D{{"$set", bson.D{{"life", Dying}, {"machineid", nil}}}}
 	_, err = s.units.UpdateAll(sel, change)
 	return err
 }
@@ -141,7 +148,7 @@ func (s *State) RemoveService(svc *Service) (err error) {
 // Service returns a service state by name.
 func (s *State) Service(name string) (service *Service, err error) {
 	sdoc := &serviceDoc{}
-	sel := bson.D{{"_id", name}, {"lifecycle", life.Alive}}
+	sel := bson.D{{"_id", name}, {"life", Alive}}
 	err = s.services.Find(sel).One(sdoc)
 	if err != nil {
 		return nil, fmt.Errorf("can't get service %q: %v", name, err)
@@ -152,7 +159,7 @@ func (s *State) Service(name string) (service *Service, err error) {
 // AllServices returns all deployed services in the environment.
 func (s *State) AllServices() (services []*Service, err error) {
 	sdocs := []serviceDoc{}
-	err = s.services.Find(bson.D{{"lifecycle", life.Alive}}).All(&sdocs)
+	err = s.services.Find(bson.D{{"life", Alive}}).All(&sdocs)
 	if err != nil {
 		return nil, fmt.Errorf("can't get all services")
 	}
