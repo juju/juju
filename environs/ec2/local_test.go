@@ -10,12 +10,12 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/service/provisioner"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/service/provisioner"
 	"launchpad.net/juju-core/state"
-        "launchpad.net/juju-core/state/testing"
-        coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/state/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"strings"
 )
@@ -52,10 +52,10 @@ func registerLocalTests() {
 		Suite(&localLiveSuite{
 			LiveTests: LiveTests{
 				LiveTests: jujutest.LiveTests{
-					Environs: envs,
-					Name:     name,
-                                	CanOpenState:     true,
-                                	HasProvisioner:   true, // TODO(dfc) see jujutest/seedSecrets
+					Environs:       envs,
+					Name:           name,
+					CanOpenState:   true,
+					HasProvisioner: true, // TODO(dfc) see jujutest/seedSecrets
 				},
 			},
 		})
@@ -70,7 +70,7 @@ type localLiveSuite struct {
 	LiveTests
 	srv localServer
 	env environs.Environ
-	p *provisioner.Provisioner
+	p   *provisioner.Provisioner
 }
 
 func (t *localLiveSuite) SetUpSuite(c *C) {

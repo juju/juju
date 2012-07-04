@@ -77,7 +77,7 @@ func (t *LiveTests) TestBootstrap(c *C) {
 		c.Assert(err, IsNil)
 		env, err := st.EnvironConfig()
 		c.Assert(err, IsNil)
-		err = t.seedSecrets(env)	
+		err = t.seedSecrets(env)
 		c.Assert(err, IsNil)
 		if t.HasProvisioner {
 			t.testProvisioning(c, st)
@@ -150,7 +150,7 @@ func (t *LiveTests) checkStartInstance(c *C, m *state.Machine) (instId string) {
 func (t *LiveTests) checkStopInstance(c *C, m *state.Machine) {
 	// Wait for machine to get instance id.
 	for a := agentReaction.Start(); a.Next(); {
-		if instId, err := m.InstanceId() ; instId == "" {
+		if instId, err := m.InstanceId(); instId == "" {
 			c.Assert(err, FitsTypeOf, &state.NoInstanceIdError{})
 			return
 		}
@@ -162,27 +162,27 @@ func (t *LiveTests) checkStopInstance(c *C, m *state.Machine) {
 // that matches that of the given instance. If the instance is nil,
 // It checks that the instance id is unset.
 func checkMachineId(c *C, m *state.Machine, inst environs.Instance) {
-        // TODO(dfc) add machine.WatchConfig() to avoid having to poll.
-        instId := ""
-        if inst != nil {
-                instId = inst.Id()
-        }
-        for a := agentReaction.Start(); a.Next(); {
-                _, err := m.InstanceId()
-                _, notset := err.(*state.NoInstanceIdError)
-                if notset {
-                        if inst == nil {
-                                return
-                        } else {
-                                continue
-                        }
-                }
-                c.Assert(err, IsNil)
-                break
-        }
-        id, err := m.InstanceId()
-        c.Assert(err, IsNil)
-        c.Assert(id, Equals, instId)
+	// TODO(dfc) add machine.WatchConfig() to avoid having to poll.
+	instId := ""
+	if inst != nil {
+		instId = inst.Id()
+	}
+	for a := agentReaction.Start(); a.Next(); {
+		_, err := m.InstanceId()
+		_, notset := err.(*state.NoInstanceIdError)
+		if notset {
+			if inst == nil {
+				return
+			} else {
+				continue
+			}
+		}
+		c.Assert(err, IsNil)
+		break
+	}
+	id, err := m.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, instId)
 }
 
 // TODO check that binary data works ok?

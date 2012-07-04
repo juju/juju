@@ -9,15 +9,14 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
+	"strings"
 	"sync"
 	"time"
-	"strings"
 )
 
 var ZkPort = 2181
 
 func zkPortSuffix() string { return fmt.Sprintf(":%d", ZkPort) }
-
 
 // A request may fail to due "eventual consistency" semantics, which
 // should resolve fairly quickly.  A request may also fail due to a slow
@@ -232,7 +231,10 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	}
 	usessh := true
 	for _, addr := range addrs {
-		if strings.Contains(addr, fmt.Sprintf("localhost:%d", ZkPort)) { usessh = false; break }
+		if strings.Contains(addr, fmt.Sprintf("localhost:%d", ZkPort)) {
+			usessh = false
+			break
+		}
 	}
 	return &state.Info{
 		Addrs:  addrs,
