@@ -14,7 +14,7 @@ import (
 // Use local suite since this file lives in the ec2 package
 // for testing internals.
 type configSuite struct {
-	home, accessKey, secretKey string
+	savedHome, savedAccessKey, savedSecretKey string
 }
 
 var _ = Suite(configSuite{})
@@ -132,6 +132,11 @@ var configTests = []configTest{
 		"",
 	},
 	{
+		"authorized-keys-path: \n" + baseConfig,
+		nil,
+		"",
+	},
+	{
 		"authorized-keys: authkeys\n" + baseConfig,
 		func(cfg *providerConfig) {
 			cfg.authorizedKeys = "authkeys"
@@ -171,9 +176,9 @@ func makeEnv(s string) []byte {
 }
 
 func (s *configSuite) SetUpTest(c *C) {
-	s.home = os.Getenv("HOME")
-	s.accessKey = os.Getenv("AWS_ACCESS_KEY_ID")
-	s.secretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
+	s.savedHome = os.Getenv("HOME")
+	s.savedAccessKey = os.Getenv("AWS_ACCESS_KEY_ID")
+	s.savedSecretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
 
 	home := c.MkDir()
 	sshDir := filepath.Join(home, ".ssh")
@@ -189,9 +194,9 @@ func (s *configSuite) SetUpTest(c *C) {
 }
 
 func (s *configSuite) TearDownTest(c *C) {
-	os.Setenv("HOME", s.home)
-	os.Setenv("AWS_ACCESS_KEY_ID", s.accessKey)
-	os.Setenv("AWS_SECRET_ACCESS_KEY", s.secretKey)
+	os.Setenv("HOME", s.savedHome)
+	os.Setenv("AWS_ACCESS_KEY_ID", s.savedAccessKey)
+	os.Setenv("AWS_SECRET_ACCESS_KEY", s.savedSecretKey)
 	delete(Regions, "configtest")
 }
 
