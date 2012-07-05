@@ -93,7 +93,6 @@ func (t *localLiveSuite) TearDownSuite(c *C) {
 func (t *localLiveSuite) SetUpTest(c *C) {
 	t.LoggingSuite.SetUpTest(c)
 	t.StateSuite.SetUpTest(c)
-	//ec2.ZkPort = coretesting.ZkPort
 	t.LiveTests.SetUpTest(c)
 	var err error
 	t.p, err = provisioner.NewProvisioner(t.StateInfo(c))
@@ -246,7 +245,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	ec2.CheckScripts(c, x, "jujud initzk", true)
 	// TODO check for provisioning agent
 	// TODO check for machine agent
-	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='localhost%s'", ec2.ZkPortSuffix()), true)
+	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='localhost%s'", ec2.ZkPortSuffix), true)
 	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID=0"), true)
 
 	// check that a new instance will be started without
@@ -263,7 +262,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	ec2.CheckPackage(c, x, "zookeeperd", false)
 	// TODO check for provisioning agent
 	// TODO check for machine agent
-	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='%s%s'", bootstrapDNS, ec2.ZkPortSuffix()), true)
+	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='%s%s'", bootstrapDNS, ec2.ZkPortSuffix), true)
 	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID=1"), true)
 
 	err = t.env.Destroy(append(insts, inst1))
