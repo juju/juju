@@ -75,19 +75,19 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 	}
 
 	environs := make(map[string]environ)
-	badEnv := func(name string, err error) {
-		environs[name] = environ{err: err}
-	}
-
 	for name, attrs := range raw.Environments {
 		kind, _ := attrs["type"].(string)
 		if kind == "" {
-			badEnv(name, fmt.Errorf("environment %q has no type", name))
+			environs[name] = environ{
+				err: fmt.Errorf("environment %q has no type", name),
+			}
 			continue
 		}
 		p := providers[kind]
 		if p == nil {
-			badEnv(name, fmt.Errorf("environment %q has an unknown provider type %q", name, kind))
+			environs[name] = environ{
+				err: fmt.Errorf("environment %q has an unknown provider type %q", name, kind),
+			}
 			continue
 		}
 		// store the name of the this environment in the config itself
@@ -95,7 +95,9 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 		attrs["name"] = name
 		cfg, err := p.NewConfig(attrs)
 		if err != nil {
-			badEnv(name, fmt.Errorf("error parsing environment %q: %v", name, err))
+			environs[name] = environ{
+				err: fmt.Errorf("error parsing environment %q: %v", name, err),
+			}
 			continue
 		}
 		environs[name] = environ{config: cfg}
