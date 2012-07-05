@@ -27,9 +27,10 @@ var Regions = map[string]aws.Region{
 	"us-west-1":      aws.USWest,
 }
 
-var configChecker = schema.FieldMap(
+var configChecker = schema.StrictFieldMap(
 	schema.Fields{
 		"name":                 schema.String(),
+		"type":                 schema.Const("ec2"),
 		"access-key":           schema.String(),
 		"secret-key":           schema.String(),
 		"region":               schema.String(),
