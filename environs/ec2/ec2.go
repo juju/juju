@@ -2,6 +2,7 @@ package ec2
 
 import (
 	"fmt"
+	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/environs"
@@ -98,7 +99,7 @@ func (inst *instance) WaitDNSName() (string, error) {
 
 func (cfg *providerConfig) Open() (environs.Environ, error) {
 	log.Printf("environs/ec2: opening environment %q", cfg.name)
-	if Regions[cfg.region].EC2Endpoint == "" {
+	if aws.Regions[cfg.region].EC2Endpoint == "" {
 		return nil, fmt.Errorf("no ec2 endpoint found for region %q, opening %q", cfg.region, cfg.name)
 	}
 	e := new(environ)
@@ -113,8 +114,8 @@ func (e *environ) SetConfig(cfg environs.EnvironConfig) {
 	// TODO(dfc) bug #1018207, renaming an environment once it is in use should be forbidden
 	e.name = config.name
 	e.configUnlocked = config
-	e.ec2Unlocked = ec2.New(config.auth, Regions[config.region])
-	e.s3Unlocked = s3.New(config.auth, Regions[config.region])
+	e.ec2Unlocked = ec2.New(config.auth, aws.Regions[config.region])
+	e.s3Unlocked = s3.New(config.auth, aws.Regions[config.region])
 
 	// create new storage instances, existing instances continue
 	// to reference their existing configuration.
