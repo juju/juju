@@ -22,23 +22,12 @@ func ZkTestPackage(t *stdtesting.T) {
 	if err != nil {
 		t.Fatalf("could not get ZooKeeper server address: %v", err)
 	}
-	a, err := net.ResolveTCPAddr("tcp", ZkAddr)
-	if err != nil {
-		// realy quite impossible
-		t.Fatalf("could not convert resolve ZkAddr: %v", err)
-	}
-	ZkPort = a.Port
 	TestingT(t)
 }
 
-var (
-	// ZkAddr holds the address of the shared Zookeeper server set up by
-	// ZkTestPackage.
-	ZkAddr string
-
-	// ZKPort holds the port portion of ZkAddr above
-	ZkPort int
-)
+// ZkAddr holds the address of the shared Zookeeper server set up by
+// ZkTestPackage.
+var ZkAddr string
 
 // StartZkServer starts a ZooKeeper server in a temporary directory.
 // It panics if it encounters an error.

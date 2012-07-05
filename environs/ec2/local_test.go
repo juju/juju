@@ -93,7 +93,7 @@ func (t *localLiveSuite) TearDownSuite(c *C) {
 func (t *localLiveSuite) SetUpTest(c *C) {
 	t.LoggingSuite.SetUpTest(c)
 	t.StateSuite.SetUpTest(c)
-	ec2.ZkPort = coretesting.ZkPort
+	//ec2.ZkPort = coretesting.ZkPort
 	t.LiveTests.SetUpTest(c)
 	var err error
 	t.p, err = provisioner.NewProvisioner(t.StateInfo(c))
