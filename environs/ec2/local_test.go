@@ -55,7 +55,8 @@ func registerLocalTests() {
 					Environs:       envs,
 					Name:           name,
 					CanOpenState:   true,
-					HasProvisioner: true, // TODO(dfc) see jujutest/seedSecrets
+					HasProvisioner: true,
+					UseLocalhost:   true,
 				},
 			},
 		})
