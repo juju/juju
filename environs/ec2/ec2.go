@@ -148,6 +148,10 @@ func (e *environ) s3() *s3.S3 {
 	return e.s3Unlocked
 }
 
+func (e *environ) Name() string {
+	return e.config().name
+}
+
 func (e *environ) Storage() environs.Storage {
 	e.configMutex.Lock()
 	defer e.configMutex.Unlock()
@@ -245,7 +249,6 @@ func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Insta
 }
 
 func (e *environ) userData(machineId int, info *state.Info, master bool, toolsURL string) ([]byte, error) {
-	config := e.config()
 	cfg := &machineConfig{
 		provisioner:        master,
 		zookeeper:          master,
@@ -254,14 +257,7 @@ func (e *environ) userData(machineId int, info *state.Info, master bool, toolsUR
 		providerType:       "ec2",
 		toolsURL:           toolsURL,
 		machineId:          machineId,
-	}
-
-	if config.authorizedKeys == "" {
-		var err error
-		cfg.authorizedKeys, err = authorizedKeys(config.authorizedKeysPath)
-		if err != nil {
-			return nil, fmt.Errorf("cannot get ssh authorized keys: %v", err)
-		}
+		authorizedKeys:     e.config().authorizedKeys,
 	}
 	cloudcfg, err := newCloudInit(cfg)
 	if err != nil {

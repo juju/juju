@@ -10,19 +10,12 @@ import (
 // providerConfig is a placeholder for any config information
 // that we will have in a configuration file.
 type providerConfig struct {
-	name               string
-	region             string
-	auth               aws.Auth
-	bucket             string
-	publicBucket       string
-	authorizedKeys     string
-	authorizedKeysPath string
-}
-
-type checker struct{}
-
-func (checker) Coerce(v interface{}, path []string) (interface{}, error) {
-	return &providerConfig{}, nil
+	name           string
+	region         string
+	auth           aws.Auth
+	bucket         string
+	publicBucket   string
+	authorizedKeys string
 }
 
 // TODO move these known strings into goamz/aws
@@ -86,7 +79,15 @@ func (p environProvider) NewConfig(config map[string]interface{}) (cfg environs.
 	}
 	c.region = regionName
 	c.authorizedKeys = maybeString(m["authorized-keys"], "")
-	c.authorizedKeysPath = maybeString(m["authorized-keys-path"], "")
+	authorizedKeysPath := maybeString(m["authorized-keys-path"], "")
+	if c.authorizedKeys == "" {
+		c.authorizedKeys, err = authorizedKeys(authorizedKeysPath)
+		if err != nil {
+			return nil, err
+		}
+	} else if authorizedKeysPath != "" {
+		return nil, fmt.Errorf("environment has both authorized-keys and authorized-keys-path")
+	}
 	return &c, nil
 }
 
