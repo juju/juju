@@ -114,6 +114,7 @@ func (srv *localServer) startServer(c *C) {
 		Name:        "test",
 		EC2Endpoint: srv.ec2srv.URL(),
 		S3Endpoint:  srv.s3srv.URL(),
+		S3LocationConstraint: true,
 	}
 	s3inst := s3.New(aws.Auth{}, aws.Regions["test"])
 	putFakeTools(c, ec2.BucketStorage(s3inst.Bucket("public-tools")))
