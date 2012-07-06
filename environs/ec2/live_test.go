@@ -55,7 +55,7 @@ func registerAmazonTests() {
 				Name:             name,
 				ConsistencyDelay: 5 * time.Second,
 				CanOpenState:     true,
-				HasProvisioner:   false, // TODO(dfc) see jujutest/seedSecrets
+				HasProvisioner:   false, // TODO(dfc) waiting on juju/conn.Depoy
 			},
 		})
 	}

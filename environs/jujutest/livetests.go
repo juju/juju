@@ -82,14 +82,13 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	if t.CanOpenState {
 		st, err := state.Open(info)
 		c.Assert(err, IsNil)
-		env, err := st.EnvironConfig()
-		c.Assert(err, IsNil)
-		err = t.seedSecrets(env)
-		c.Assert(err, IsNil)
+		// TODO(dfc) need juju/conn.Deploy to push the secrets
+		// into the state.
 		if t.HasProvisioner {
 			t.testProvisioning(c, st)
 		}
-		st.Close()
+		err = st.Close()
+		c.Assert(err, IsNil)
 	}
 
 	c.Logf("destroy env")
@@ -97,20 +96,6 @@ func (t *LiveTests) TestBootstrap(c *C) {
 
 	// check that we can bootstrap after destroy
 	t.BootstrapOnce(c)
-}
-
-// seed secrets pushes secrets into the state
-func (t *LiveTests) seedSecrets(env *state.ConfigNode) error {
-	// this disgusting hack only works for ec2 without real credentials
-	env.Set("type", "ec2")
-	env.Set("name", "sample")
-	env.Set("region", "test")
-	env.Set("control-bucket", "test-bucket")
-	env.Set("public-bucket", "public-tools")
-	env.Set("access-key", "x")
-	env.Set("secret-key", "x")
-	_, err := env.Write()
-	return err
 }
 
 func (t *LiveTests) testProvisioning(c *C, st *state.State) {

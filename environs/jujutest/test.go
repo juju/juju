@@ -67,9 +67,6 @@ type LiveTests struct {
 	HasProvisioner bool
 
 	bootstrapped bool
-
-	// UseLocahost says to ignore the env supplied StateInfo
-	UseLocalhost bool
 }
 
 func (t *LiveTests) SetUpSuite(c *C) {

@@ -25,7 +25,7 @@ environments:
 		Environs:       envs,
 		Name:           "only",
 		CanOpenState:   true,
-		HasProvisioner: false, // need export Provisioner as a package
+		HasProvisioner: false,
 	})
 	Suite(&jujutest.Tests{
 		Environs: envs,

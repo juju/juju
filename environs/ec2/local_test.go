@@ -55,8 +55,7 @@ func registerLocalTests() {
 					Environs:       envs,
 					Name:           name,
 					CanOpenState:   true,
-					HasProvisioner: true,
-					UseLocalhost:   true,
+					HasProvisioner: false,
 				},
 			},
 		})
@@ -71,7 +70,6 @@ type localLiveSuite struct {
 	LiveTests
 	srv localServer
 	env environs.Environ
-	p   *provisioner.Provisioner
 }
 
 func (t *localLiveSuite) SetUpSuite(c *C) {
@@ -94,13 +92,9 @@ func (t *localLiveSuite) SetUpTest(c *C) {
 	t.LoggingSuite.SetUpTest(c)
 	t.StateSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
-	var err error
-	t.p, err = provisioner.NewProvisioner(t.StateInfo(c))
-	c.Assert(err, IsNil)
 }
 
 func (t *localLiveSuite) TearDownTest(c *C) {
-	c.Check(t.p.Stop(), IsNil)
 	t.LiveTests.TearDownTest(c)
 	t.StateSuite.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
@@ -124,9 +118,9 @@ func (srv *localServer) startServer(c *C) {
 		c.Fatalf("cannot start s3 test server: %v", err)
 	}
 	aws.Regions["test"] = aws.Region{
-		Name:        "test",
-		EC2Endpoint: srv.ec2srv.URL(),
-		S3Endpoint:  srv.s3srv.URL(),
+		Name:                 "test",
+		EC2Endpoint:          srv.ec2srv.URL(),
+		S3Endpoint:           srv.s3srv.URL(),
 		S3LocationConstraint: true,
 	}
 	s3inst := s3.New(aws.Auth{}, aws.Regions["test"])
