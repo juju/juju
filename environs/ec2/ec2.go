@@ -274,7 +274,6 @@ func (e *environ) startInstance(machineId int, info *state.Info, master bool) (e
 	spec, err := findInstanceSpec(&instanceConstraint{
 		series:            environs.CurrentSeries,
 		arch:              environs.CurrentArch,
-		persistentStorage: true,
 		region:            e.config().region,
 	})
 	if err != nil {
