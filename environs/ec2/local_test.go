@@ -12,7 +12,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
-	"launchpad.net/juju-core/service/provisioner"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
@@ -54,7 +53,7 @@ func registerLocalTests() {
 				LiveTests: jujutest.LiveTests{
 					Environs:       envs,
 					Name:           name,
-					CanOpenState:   true,
+					CanOpenState:   false, // ec2test mock server returns an invalid dns address
 					HasProvisioner: false,
 				},
 			},

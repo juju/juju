@@ -5,7 +5,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing"
 	"time"
 )
 
@@ -72,12 +71,6 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(info, NotNil)
 	c.Check(info.Addrs, Not(HasLen), 0)
-
-	if t.UseLocalhost {
-		info = &state.Info{
-			Addrs: []string{testing.ZkAddr},
-		}
-	}
 
 	if t.CanOpenState {
 		st, err := state.Open(info)
