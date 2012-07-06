@@ -1,16 +1,21 @@
 package ec2
 
 import (
+	"fmt"
+	"io/ioutil"
 	"launchpad.net/goamz/aws"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
 // Use local suite since this file lives in the ec2 package
 // for testing internals.
-type configSuite struct{}
+type configSuite struct {
+	savedHome, savedAccessKey, savedSecretKey string
+}
 
 var _ = Suite(configSuite{})
 
@@ -26,10 +31,11 @@ var baseConfig = "control-bucket: x\n"
 
 // the result of parsing baseConfig.
 var baseConfigResult = providerConfig{
-	name:   "testenv",
-	region: "us-east-1",
-	bucket: "x",
-	auth:   testAuth,
+	name:           "testenv",
+	region:         "us-east-1",
+	bucket:         "x",
+	auth:           testAuth,
+	authorizedKeys: "sshkey\n",
 }
 
 // configTest specifies a config parsing test, checking that env when
@@ -40,6 +46,23 @@ type configTest struct {
 	env    string
 	mutate func(*providerConfig)
 	err    string
+}
+
+func (t configTest) check(c *C) {
+	envs, err := environs.ReadEnvironsBytes(makeEnv(t.env))
+	if t.err != "" {
+		c.Check(err, ErrorMatches, t.err)
+		return
+	}
+	c.Check(err, IsNil)
+	e, err := envs.Open("testenv")
+	c.Assert(err, IsNil)
+	c.Assert(e, NotNil)
+	c.Assert(e, FitsTypeOf, (*environ)(nil))
+	tconfig := baseConfigResult
+	t.mutate(&tconfig)
+	c.Check(e.(*environ).config(), DeepEquals, &tconfig)
+	c.Check(e.(*environ).name, Equals, tconfig.name)
 }
 
 var configTests = []configTest{
@@ -110,16 +133,14 @@ var configTests = []configTest{
 		"",
 	},
 	{
-		"authorized-keys: authkeys\n" + baseConfig,
-		func(cfg *providerConfig) {
-			cfg.authorizedKeys = "authkeys"
-		},
+		"authorized-keys-path: \n" + baseConfig,
+		nil,
 		"",
 	},
 	{
-		"authorized-keys-path: 'some path'\n" + baseConfig,
+		"authorized-keys: authkeys\n" + baseConfig,
 		func(cfg *providerConfig) {
-			cfg.authorizedKeysPath = "some path"
+			cfg.authorizedKeys = "authkeys"
 		},
 		"",
 	},
@@ -155,44 +176,58 @@ func makeEnv(s string) []byte {
 	return []byte("environments:\n  testenv:\n    type: ec2\n" + indent(s, "    "))
 }
 
-func (configSuite) TestConfig(c *C) {
-	aws.Regions["configtest"] = configTestRegion
-	defer delete(aws.Regions, "configtest")
+func (s *configSuite) SetUpTest(c *C) {
+	s.savedHome = os.Getenv("HOME")
+	s.savedAccessKey = os.Getenv("AWS_ACCESS_KEY_ID")
+	s.savedSecretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
 
-	defer os.Setenv("AWS_ACCESS_KEY_ID", os.Getenv("AWS_ACCESS_KEY_ID"))
-	defer os.Setenv("AWS_SECRET_ACCESS_KEY", os.Getenv("AWS_SECRET_ACCESS_KEY"))
+	home := c.MkDir()
+	sshDir := filepath.Join(home, ".ssh")
+	err := os.Mkdir(sshDir, 0777)
+	c.Assert(err, IsNil)
+	err = ioutil.WriteFile(filepath.Join(sshDir, "id_rsa.pub"), []byte("sshkey\n"), 0666)
+	c.Assert(err, IsNil)
 
-	os.Setenv("AWS_ACCESS_KEY_ID", "")
-	os.Setenv("AWS_SECRET_ACCESS_KEY", "")
-
-	// first try with no auth environment vars set
-	test := configTests[0]
-	test.err = ".*not found in environment"
-	test.check(c)
-
-	// then set testAuthults
+	os.Setenv("HOME", home)
 	os.Setenv("AWS_ACCESS_KEY_ID", testAuth.AccessKey)
 	os.Setenv("AWS_SECRET_ACCESS_KEY", testAuth.SecretKey)
+	aws.Regions["configtest"] = configTestRegion
+}
 
+func (s *configSuite) TearDownTest(c *C) {
+	os.Setenv("HOME", s.savedHome)
+	os.Setenv("AWS_ACCESS_KEY_ID", s.savedAccessKey)
+	os.Setenv("AWS_SECRET_ACCESS_KEY", s.savedSecretKey)
+	delete(aws.Regions, "configtest")
+}
+
+func (s *configSuite) TestConfig(c *C) {
 	for i, t := range configTests {
 		c.Logf("test %d (environ %q)", i, t.env)
 		t.check(c)
 	}
 }
 
-func (t configTest) check(c *C) {
-	envs, err := environs.ReadEnvironsBytes(makeEnv(t.env))
-	if t.err != "" {
-		c.Check(err, ErrorMatches, t.err)
-		return
-	}
-	c.Check(err, IsNil)
-	e, err := envs.Open("testenv")
+func (s *configSuite) TestMissingAuth(c *C) {
+	os.Setenv("AWS_ACCESS_KEY_ID", "")
+	os.Setenv("AWS_SECRET_ACCESS_KEY", "")
+	test := configTests[0]
+	test.err = ".*not found in environment"
+	test.check(c)
+}
+
+func (s *configSuite) TestAuthorizedKeysPath(c *C) {
+	dir := c.MkDir()
+	path := filepath.Join(dir, "something")
+	err := ioutil.WriteFile(path, []byte("another-sshkey\n"), 0666)
 	c.Assert(err, IsNil)
-	c.Assert(e, NotNil)
-	c.Assert(e, FitsTypeOf, (*environ)(nil))
-	tconfig := baseConfigResult
-	t.mutate(&tconfig)
-	c.Check(e.(*environ).config(), DeepEquals, &tconfig)
-	c.Check(e.(*environ).name, Equals, tconfig.name)
+	confLine := fmt.Sprintf("authorized-keys-path: %s\n", path)
+	test := configTest{
+		confLine + baseConfig,
+		func(cfg *providerConfig) {
+			cfg.authorizedKeys = "another-sshkey\n"
+		},
+		"",
+	}
+	test.check(c)
 }

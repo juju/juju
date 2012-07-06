@@ -119,7 +119,7 @@ func (srv *localServer) startServer(c *C) {
 	if err != nil {
 		c.Fatalf("cannot start ec2 test server: %v", err)
 	}
-	srv.s3srv, err = s3test.NewServer(true)
+	srv.s3srv, err = s3test.NewServer()
 	if err != nil {
 		c.Fatalf("cannot start s3 test server: %v", err)
 	}
@@ -127,6 +127,7 @@ func (srv *localServer) startServer(c *C) {
 		Name:        "test",
 		EC2Endpoint: srv.ec2srv.URL(),
 		S3Endpoint:  srv.s3srv.URL(),
+		S3LocationConstraint: true,
 	}
 	s3inst := s3.New(aws.Auth{}, aws.Regions["test"])
 	putFakeTools(c, ec2.BucketStorage(s3inst.Bucket("public-tools")))
