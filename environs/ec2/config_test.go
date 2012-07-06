@@ -20,6 +20,7 @@ type configSuite struct {
 var _ = Suite(configSuite{})
 
 var configTestRegion = aws.Region{
+	Name:        "configtest",
 	EC2Endpoint: "testregion.nowhere:1234",
 }
 
@@ -190,14 +191,14 @@ func (s *configSuite) SetUpTest(c *C) {
 	os.Setenv("HOME", home)
 	os.Setenv("AWS_ACCESS_KEY_ID", testAuth.AccessKey)
 	os.Setenv("AWS_SECRET_ACCESS_KEY", testAuth.SecretKey)
-	Regions["configtest"] = configTestRegion
+	aws.Regions["configtest"] = configTestRegion
 }
 
 func (s *configSuite) TearDownTest(c *C) {
 	os.Setenv("HOME", s.savedHome)
 	os.Setenv("AWS_ACCESS_KEY_ID", s.savedAccessKey)
 	os.Setenv("AWS_SECRET_ACCESS_KEY", s.savedSecretKey)
-	delete(Regions, "configtest")
+	delete(aws.Regions, "configtest")
 }
 
 func (s *configSuite) TestConfig(c *C) {

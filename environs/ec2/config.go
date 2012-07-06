@@ -18,15 +18,6 @@ type providerConfig struct {
 	authorizedKeys string
 }
 
-// TODO move these known strings into goamz/aws
-var Regions = map[string]aws.Region{
-	"ap-northeast-1": aws.APNortheast,
-	"ap-southeast-1": aws.APSoutheast,
-	"eu-west-1":      aws.EUWest,
-	"us-east-1":      aws.USEast,
-	"us-west-1":      aws.USWest,
-}
-
 var configChecker = schema.StrictFieldMap(
 	schema.Fields{
 		"name":                 schema.String(),
@@ -75,7 +66,7 @@ func (p environProvider) NewConfig(config map[string]interface{}) (cfg environs.
 	}
 
 	regionName := maybeString(m["region"], "us-east-1")
-	if _, ok := Regions[regionName]; !ok {
+	if _, ok := aws.Regions[regionName]; !ok {
 		return nil, fmt.Errorf("invalid region name %q", regionName)
 	}
 	c.region = regionName

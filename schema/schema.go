@@ -283,8 +283,8 @@ func FieldMap(fields Fields, optional Optional) Checker {
 	return fieldMapC{fields, optional, false}
 }
 
-// StrictFieldMap acts as FieldMap, but returns an error if encounters
-// an unknown key.
+// StrictFieldMap returns a Checker that acts as the one returned by FieldMap,
+// but the Checker returns an error if it encounters an unknown key.
 func StrictFieldMap(fields Fields, optional Optional) Checker {
 	return fieldMapC{fields, optional, true}
 }
