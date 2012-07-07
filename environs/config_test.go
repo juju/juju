@@ -57,6 +57,13 @@ environments:
     only:
         type: dummy
 `, "only", `.*zookeeper: expected bool, got nothing`,
+	}, {`
+environments:
+    only:
+        type: dummy
+        zookeeper: false
+        unknown-value: causes-an-error
+`, "only", `.*unknown-value: expected nothing, got "causes-an-error"`,
 	},
 }
 
@@ -80,7 +87,6 @@ environments:
     only:
         type: dummy
         zookeeper: false
-        unknown-setting: ignored
 `, func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, IsNil)
