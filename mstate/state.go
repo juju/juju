@@ -140,7 +140,7 @@ func (s *State) RemoveService(svc *Service) (err error) {
 	}
 
 	sel = bson.D{{"service", svc.name}}
-	change = bson.D{{"$set", bson.D{{"life", Dying}, {"machineid", nil}}}}
+	change = bson.D{{"$set", bson.D{{"life", Dying}}}}
 	_, err = s.units.UpdateAll(sel, change)
 	return err
 }
