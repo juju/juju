@@ -66,10 +66,7 @@ func (s *Service) String() string {
 // newUnitName returns the next unit name.
 func (s *Service) newUnitName() (string, error) {
 	sel := bson.D{{"_id", s.name}, {"life", Alive}}
-	change := mgo.Change{
-		Update: bson.D{{"$inc", bson.D{{"unitseq", 1}}}},
-		Upsert: true,
-	}
+	change := mgo.Change{Update: bson.D{{"$inc", bson.D{{"unitseq", 1}}}}}
 	result := serviceDoc{}
 	_, err := s.st.services.Find(sel).Apply(change, &result)
 	if err != nil {
