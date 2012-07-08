@@ -197,7 +197,7 @@ func Listen(c chan<- Operation) {
 	p.ops = c
 }
 
-var checker = schema.FieldMap(
+var checker = schema.StrictFieldMap(
 	schema.Fields{
 		"type":      schema.Const("dummy"),
 		"zookeeper": schema.Bool(),
@@ -245,10 +245,8 @@ func (cfg *environConfig) Open() (environs.Environ, error) {
 
 var errBroken = errors.New("broken environment")
 
-// EnvironName returns the name of the environment,
-// which must be opened from a dummy environment.
-func EnvironName(e environs.Environ) string {
-	return e.(*environ).state.name
+func (e *environ) Name() string {
+	return e.state.name
 }
 
 func (e *environ) Bootstrap(uploadTools bool) error {

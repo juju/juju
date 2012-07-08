@@ -10,33 +10,18 @@ import (
 // providerConfig is a placeholder for any config information
 // that we will have in a configuration file.
 type providerConfig struct {
-	name               string
-	region             string
-	auth               aws.Auth
-	bucket             string
-	publicBucket       string
-	authorizedKeys     string
-	authorizedKeysPath string
+	name           string
+	region         string
+	auth           aws.Auth
+	bucket         string
+	publicBucket   string
+	authorizedKeys string
 }
 
-type checker struct{}
-
-func (checker) Coerce(v interface{}, path []string) (interface{}, error) {
-	return &providerConfig{}, nil
-}
-
-// TODO move these known strings into goamz/aws
-var Regions = map[string]aws.Region{
-	"ap-northeast-1": aws.APNortheast,
-	"ap-southeast-1": aws.APSoutheast,
-	"eu-west-1":      aws.EUWest,
-	"us-east-1":      aws.USEast,
-	"us-west-1":      aws.USWest,
-}
-
-var configChecker = schema.FieldMap(
+var configChecker = schema.StrictFieldMap(
 	schema.Fields{
 		"name":                 schema.String(),
+		"type":                 schema.Const("ec2"),
 		"access-key":           schema.String(),
 		"secret-key":           schema.String(),
 		"region":               schema.String(),
@@ -81,12 +66,20 @@ func (p environProvider) NewConfig(config map[string]interface{}) (cfg environs.
 	}
 
 	regionName := maybeString(m["region"], "us-east-1")
-	if _, ok := Regions[regionName]; !ok {
+	if _, ok := aws.Regions[regionName]; !ok {
 		return nil, fmt.Errorf("invalid region name %q", regionName)
 	}
 	c.region = regionName
 	c.authorizedKeys = maybeString(m["authorized-keys"], "")
-	c.authorizedKeysPath = maybeString(m["authorized-keys-path"], "")
+	authorizedKeysPath := maybeString(m["authorized-keys-path"], "")
+	if c.authorizedKeys == "" {
+		c.authorizedKeys, err = authorizedKeys(authorizedKeysPath)
+		if err != nil {
+			return nil, err
+		}
+	} else if authorizedKeysPath != "" {
+		return nil, fmt.Errorf("environment has both authorized-keys and authorized-keys-path")
+	}
 	return &c, nil
 }
 

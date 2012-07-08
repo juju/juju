@@ -21,9 +21,10 @@ type Unit struct {
 	doc unitDoc
 }
 
-func newUnit(s *State, udoc *unitDoc) *Unit {
+
+func newUnit(st *State, udoc *unitDoc) *Unit {
 	return &Unit{
-		st:  s,
+		st:  st,
 		doc: *udoc,
 	}
 }

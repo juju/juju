@@ -32,7 +32,9 @@ environments:
 `)
 
 func registerLocalTests() {
-	ec2.Regions["test"] = aws.Region{}
+	aws.Regions["test"] = aws.Region{
+		Name: "test",
+	}
 	envs, err := environs.ReadEnvironsBytes(functionalConfig)
 	if err != nil {
 		panic(fmt.Errorf("cannot parse functional tests config data: %v", err))
@@ -108,11 +110,13 @@ func (srv *localServer) startServer(c *C) {
 	if err != nil {
 		c.Fatalf("cannot start s3 test server: %v", err)
 	}
-	ec2.Regions["test"] = aws.Region{
+	aws.Regions["test"] = aws.Region{
+		Name:        "test",
 		EC2Endpoint: srv.ec2srv.URL(),
 		S3Endpoint:  srv.s3srv.URL(),
+		S3LocationConstraint: true,
 	}
-	s3inst := s3.New(aws.Auth{}, ec2.Regions["test"])
+	s3inst := s3.New(aws.Auth{}, aws.Regions["test"])
 	putFakeTools(c, ec2.BucketStorage(s3inst.Bucket("public-tools")))
 	srv.addSpice(c)
 }
@@ -149,7 +153,7 @@ func (srv *localServer) stopServer(c *C) {
 	srv.s3srv.Quit()
 	// Clear out the region because the server address is
 	// no longer valid.
-	delete(ec2.Regions, "test")
+	delete(aws.Regions, "test")
 }
 
 // localServerSuite contains tests that run against a fake EC2 server

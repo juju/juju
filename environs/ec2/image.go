@@ -28,7 +28,7 @@ type instanceSpec struct {
 // imagesHost holds the address of the images http server.
 // It is a variable so that tests can change it to refer to a local
 // server when needed.
-var imagesHost = "http://uec-images.ubuntu.com"
+var imagesHost = "http://cloud-images.ubuntu.com"
 
 // Columns in the file returned from the images server.
 const (
