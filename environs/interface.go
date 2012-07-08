@@ -96,6 +96,10 @@ type Storage interface {
 // consistent with a previous operation.
 // 
 type Environ interface {
+
+	// Name returns the Environ's name.
+	Name() string
+
 	// Bootstrap initializes the state for the environment,
 	// possibly starting one or more instances.
 	// If uploadTools is true, the current version of
