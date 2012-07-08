@@ -9,78 +9,105 @@ import (
 	"path/filepath"
 )
 
-type configTest struct {
-	env   string
-	check func(c *C, es *environs.Environs)
-}
-
-var configTests = []struct {
-	env   string
-	err   string
-	check func(c *C, es *environs.Environs)
+var invalidConfigTests = []struct {
+	env string
+	err string
 }{
-	{"'",
-		"YAML error:.*",
-		nil,
-	}, {`
+	{"'", "YAML error:.*"},
+	{`
 default: unknown
 environments:
     only:
         type: unknown
 `, `default environment .* does not exist`,
-		nil,
+	},
+}
+
+func (suite) TestInvalidConfig(c *C) {
+	for i, t := range invalidConfigTests {
+		c.Logf("running test %v", i)
+		_, err := environs.ReadEnvironsBytes([]byte(t.env))
+		c.Check(err, ErrorMatches, t.err)
+	}
+}
+
+var invalidEnvTests = []struct {
+	env  string
+	name string
+	err  string
+}{
+	{`
+environments:
+    only:
+        foo: bar
+`, "", `environment "only" has no type`,
 	}, {`
 environments:
     only:
         foo: bar
-`,
-		`environment .* has no type`,
-		nil,
+`, "only", `environment "only" has no type`,
+	}, {`
+environments:
+    only:
+        foo: bar
+        type: crazy
+`, "only", `environment "only" has an unknown provider type "crazy"`,
 	}, {`
 environments:
     only:
         type: dummy
-`, `.*zookeeper: expected bool, got nothing`,
-		nil,
+`, "only", `.*zookeeper: expected bool, got nothing`,
 	}, {`
 environments:
     only:
-        type: unknown
-        other: anything
+        type: dummy
         zookeeper: false
-`,
-		"",
-		func(c *C, es *environs.Environs) {
-			e, err := es.Open("")
-			c.Assert(e, IsNil)
-			c.Assert(err, NotNil)
-			c.Assert(err.Error(), Equals, `environment "only" has an unknown provider type: "unknown"`)
-		},
+        unknown-value: causes-an-error
+`, "only", `.*unknown-value: expected nothing, got "causes-an-error"`,
 	},
-	// should this fail or not?
-	//  // one known environment, no defaults, bad attribute -> parse error
-	//  {`
-	//environments:
-	//    only:
-	//        type: dummy
-	//        badattr: anything
-	//        zookeeper: false
-	//`, nil,
-	//  },
-	// one known environment, no defaults -> parse ok, instantiate ok
+}
+
+func (suite) TestInvalidEnv(c *C) {
+	for i, t := range invalidEnvTests {
+		c.Logf("running test %v", i)
+		es, err := environs.ReadEnvironsBytes([]byte(t.env))
+		c.Check(err, IsNil)
+		e, err := es.Open(t.name)
+		c.Check(err, ErrorMatches, t.err)
+		c.Check(e, IsNil)
+	}
+}
+
+var configTests = []struct {
+	env   string
+	check func(c *C, es *environs.Environs)
+}{
 	{`
 environments:
     only:
         type: dummy
         zookeeper: false
-`, "", func(c *C, es *environs.Environs) {
+`, func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, IsNil)
-		checkEnvironName(c, e, "only")
-	},
-	},
-	// several environments, no defaults -> parse ok, instantiate maybe error
-	{`
+		c.Assert(e.Name(), Equals, "only")
+	}}, {`
+default:
+    invalid
+environments:
+    valid:
+        type: dummy
+        zookeeper: false
+    invalid:
+        type: crazy
+`, func(c *C, es *environs.Environs) {
+		e, err := es.Open("")
+		c.Assert(err, ErrorMatches, `environment "invalid" has an unknown provider type "crazy"`)
+		c.Assert(e, IsNil)
+		e, err = es.Open("valid")
+		c.Assert(err, IsNil)
+		c.Assert(e.Name(), Equals, "valid")
+	}}, {`
 environments:
     one:
         type: dummy
@@ -88,54 +115,19 @@ environments:
     two:
         type: dummy
         zookeeper: false
-`, "", func(c *C, es *environs.Environs) {
+`, func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
-		c.Assert(err, NotNil)
-		e, err = es.Open("one")
-		c.Assert(err, IsNil)
-		checkEnvironName(c, e, "one")
-	},
-	},
-	// several environments, default -> parse ok, instantiate ok
-	{`
-default:
-    two
-environments:
-   one:
-        type: dummy
-        zookeeper: false
-   two:
-        type: dummy
-        zookeeper: false
-`, "", func(c *C, es *environs.Environs) {
-		e, err := es.Open("")
-		c.Assert(err, IsNil)
-		checkEnvironName(c, e, "two")
-	},
-	},
-}
-
-// checkEnvironName checks that a new instance started
-// by the given Environ has an id starting with name,
-// which implies that it is the expected environment.
-func checkEnvironName(c *C, e environs.Environ, name string) {
-	i0, err := e.StartInstance(0, nil)
-	c.Assert(err, IsNil)
-	c.Assert(i0, NotNil)
-	c.Assert(i0.Id(), Matches, name+".*")
+		c.Assert(err, ErrorMatches, `no default environment found`)
+		c.Assert(e, IsNil)
+	}},
 }
 
 func (suite) TestConfig(c *C) {
 	for i, t := range configTests {
 		c.Logf("running test %v", i)
 		es, err := environs.ReadEnvironsBytes([]byte(t.env))
-		if t.err != "" {
-			c.Check(err, ErrorMatches, t.err)
-		} else {
-			c.Assert(es, NotNil)
-			c.Assert(err, IsNil)
-			t.check(c, es)
-		}
+		c.Assert(err, IsNil)
+		t.check(c, es)
 	}
 }
 
@@ -159,7 +151,7 @@ environments:
 	c.Assert(err, IsNil)
 	e, err := es.Open("")
 	c.Assert(err, IsNil)
-	checkEnvironName(c, e, "only")
+	c.Assert(e.Name(), Equals, "only")
 
 	// test reading from the default environments.yaml file.
 	h := os.Getenv("HOME")
@@ -169,7 +161,7 @@ environments:
 	c.Assert(err, IsNil)
 	e, err = es.Open("")
 	c.Assert(err, IsNil)
-	checkEnvironName(c, e, "only")
+	c.Assert(e.Name(), Equals, "only")
 
 	// reset $HOME just in case something else relies on it.
 	os.Setenv("HOME", h)

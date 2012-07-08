@@ -2,7 +2,7 @@ package environs
 
 import "fmt"
 
-// Open creates a new Environ using the environment configuration with the 
+// Open creates a new Environ using the environment configuration with the
 // given name. If name is empty, the default environment will be used.
 func (envs *Environs) Open(name string) (Environ, error) {
 	if name == "" {
@@ -21,7 +21,7 @@ func (envs *Environs) Open(name string) (Environ, error) {
 	return e.config.Open()
 }
 
-// NewConfig validates and returns a provider specific EnvironConfig using the 
+// NewConfig validates and returns a provider specific EnvironConfig using the
 // configuration attributes supplied, which should include the environment name.
 func NewConfig(attrs map[string]interface{}) (EnvironConfig, error) {
 	kind, ok := attrs["type"].(string)
