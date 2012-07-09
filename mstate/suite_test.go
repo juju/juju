@@ -1,10 +1,14 @@
 package mstate_test
 
 import (
+	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	state "launchpad.net/juju-core/mstate"
+	"launchpad.net/juju-core/testing"
+	"net/url"
 	"sort"
 )
 
@@ -63,4 +67,15 @@ func (s *UtilSuite) SetUpTest(c *C) {
 func (s *UtilSuite) TearDownTest(c *C) {
 	s.State.Close()
 	s.ConnSuite.TearDownTest(c)
+}
+
+func (s *UtilSuite) AddTestingCharm(c *C, name string) *state.Charm {
+	ch := testing.Charms.Dir(name)
+	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
+	curl := charm.MustParseURL("local:series/" + ident)
+	bundleURL, err := url.Parse("http://bundles.example.com/" + ident)
+	c.Assert(err, IsNil)
+	sch, err := s.State.AddCharm(ch, curl, bundleURL, ident+"-sha256")
+	c.Assert(err, IsNil)
+	return sch
 }
