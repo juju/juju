@@ -2,10 +2,8 @@ package mstate_test
 
 import (
 	. "launchpad.net/gocheck"
-//	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/charm"
 	state "launchpad.net/juju-core/mstate"
-//	"sort"
-//	"time"
 )
 
 type ServiceSuite struct {
@@ -22,6 +20,21 @@ func (s *ServiceSuite) SetUpTest(c *C) {
 	var err error
 	s.service, err = s.State.AddService("mysql", s.charm)
 	c.Assert(err, IsNil)
+}
+
+func (s *ServiceSuite) TestServiceCharm(c *C) {
+	// Check that getting and setting the service charm URL works correctly.
+	testcurl, err := s.service.CharmURL()
+	c.Assert(err, IsNil)
+	c.Assert(testcurl.String(), Equals, s.charm.URL().String())
+
+	// TODO BUG https://bugs.launchpad.net/juju-core/+bug/1020318
+	testcurl = charm.MustParseURL("local:myseries/mydummy-1")
+	err = s.service.SetCharmURL(testcurl)
+	c.Assert(err, IsNil)
+	testcurl, err = s.service.CharmURL()
+	c.Assert(err, IsNil)
+	c.Assert(testcurl.String(), Equals, "local:myseries/mydummy-1")
 }
 
 func (s *ServiceSuite) TestAddUnit(c *C) {

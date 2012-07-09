@@ -2,8 +2,9 @@ package mstate_test
 
 import (
 	. "launchpad.net/gocheck"
-//	"launchpad.net/juju-core/charm"
+	//	"launchpad.net/juju-core/charm"
 	state "launchpad.net/juju-core/mstate"
+
 //	"time"
 )
 
@@ -23,4 +24,3 @@ func (s *UnitSuite) SetUpTest(c *C) {
 	s.unit, err = svc.AddUnit()
 	c.Assert(err, IsNil)
 }
-
