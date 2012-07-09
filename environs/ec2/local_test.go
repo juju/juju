@@ -111,9 +111,9 @@ func (srv *localServer) startServer(c *C) {
 		c.Fatalf("cannot start s3 test server: %v", err)
 	}
 	aws.Regions["test"] = aws.Region{
-		Name:        "test",
-		EC2Endpoint: srv.ec2srv.URL(),
-		S3Endpoint:  srv.s3srv.URL(),
+		Name:                 "test",
+		EC2Endpoint:          srv.ec2srv.URL(),
+		S3Endpoint:           srv.s3srv.URL(),
 		S3LocationConstraint: true,
 	}
 	s3inst := s3.New(aws.Auth{}, aws.Regions["test"])
