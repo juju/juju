@@ -68,9 +68,9 @@ func (s *StateSuite) TestRemoveMachine(c *C) {
 	c.Assert(machines, DeepEquals, []string{"machine-0000000001"})
 
 	// Removing a non-existing machine has to fail.
+	// BUG: use error strings from state.
 	err = s.State.RemoveMachine(machine.Id())
 	c.Assert(err, ErrorMatches, "can't remove machine 0: .*")
-	// BUG: use error strings from state.
 }
 
 func (s *StateSuite) TestReadMachine(c *C) {
@@ -131,15 +131,15 @@ func (s *StateSuite) TestRemoveService(c *C) {
 	c.Assert(err, ErrorMatches, `can't get service "wordpress": .*`)
 
 	// Remove of an illegal service, it has already been removed.
+	// BUG: use error strings from state.
 	err = s.State.RemoveService(service)
 	c.Assert(err, ErrorMatches, `can't remove service "wordpress": .*`)
-	// BUG: use error strings from state.
 }
 
 func (s *StateSuite) TestReadNonExistentService(c *C) {
+	// BUG: use error strings from state.
 	_, err := s.State.Service("pressword")
 	c.Assert(err, ErrorMatches, `can't get service "pressword": .*`)
-	// BUG: use error strings from state.
 }
 
 func (s *StateSuite) TestAllServices(c *C) {

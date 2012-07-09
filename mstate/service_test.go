@@ -111,6 +111,7 @@ func (s *ServiceSuite) TestReadUnit(c *C) {
 	_, err = mysql.AddUnit()
 	c.Assert(err, IsNil)
 
+	// BUG: use error strings from state.
 	unit, err = s.service.Unit("wordpress/0")
 	c.Assert(err, ErrorMatches, `can't get unit "wordpress/0" from service "mysql": .*`)
 
@@ -120,7 +121,6 @@ func (s *ServiceSuite) TestReadUnit(c *C) {
 	c.Assert(len(units), Equals, 2)
 	c.Assert(units[0].Name(), Equals, "mysql/0")
 	c.Assert(units[1].Name(), Equals, "mysql/1")
-	// BUG: use error strings from state.
 }
 
 func (s *ServiceSuite) TestRemoveUnit(c *C) {
@@ -142,7 +142,7 @@ func (s *ServiceSuite) TestRemoveUnit(c *C) {
 
 	// Check that removing a non-existent unit fails nicely.
 	// TODO improve error message.
+	// BUG: use error strings from state
 	err = s.service.RemoveUnit(unit)
 	c.Assert(err, ErrorMatches, `can't remove unit "mysql/0": .*`)
-	// BUG: use error strings from state.
 }
