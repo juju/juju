@@ -21,10 +21,6 @@ func (s *MachineSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *MachineSuite) TearDownTest(c *C) {
-	s.UtilSuite.TearDownTest(c)
-}
-
 func (s *MachineSuite) TestMachineInstanceId(c *C) {
 	machine, err := s.State.AddMachine()
 	c.Assert(err, IsNil)

@@ -19,10 +19,6 @@ func (s *CharmSuite) SetUpTest(c *C) {
 	s.curl = added.URL()
 }
 
-func (s *CharmSuite) TearDownTest(c *C) {
-	s.UtilSuite.TearDownTest(c)
-}
-
 func (s *CharmSuite) TestCharm(c *C) {
 	dummy, err := s.State.Charm(s.curl)
 	c.Assert(err, IsNil)
