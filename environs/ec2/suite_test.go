@@ -13,6 +13,7 @@ var amazon = flag.Bool("amazon", false, "Also run some tests on live Amazon serv
 
 func TestEC2(t *stdtesting.T) {
 	log.Debug = true
+	defer func() { log.Debug = false }()
 	if *regenerate {
 		ec2.RegenerateImages(t)
 	}
@@ -20,5 +21,5 @@ func TestEC2(t *stdtesting.T) {
 		registerAmazonTests()
 	}
 	registerLocalTests()
-	coretesting.ZkTestPackage(t)
+	TestingT(t)
 }

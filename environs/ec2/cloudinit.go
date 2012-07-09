@@ -116,8 +116,8 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 	// TODO start machine agent
 
 	if cfg.provisioner {
-		svc := upstart.NewService("juju-provision-agent")
-		// TODO change upstart.Conf.Cmd to []string so that
+		svc := upstart.NewService("jujud-provisioning")
+		// TODO(rogerpeppe) change upstart.Conf.Cmd to []string so that
 		// we don't have to second-guess upstart's quoting rules.
 		conf := &upstart.Conf{
 			Service: *svc,
@@ -126,7 +126,6 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 				" --zookeeper-servers " + fmt.Sprintf("%q", cfg.zookeeperHostAddrs()) +
 				" --log-file /var/log/juju/provision-agent.log" +
 				debugFlag,
-			// TODO Out?
 		}
 		cmds, err := conf.InstallCommands()
 		if err != nil {

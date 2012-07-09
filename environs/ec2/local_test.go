@@ -51,10 +51,8 @@ func registerLocalTests() {
 		Suite(&localLiveSuite{
 			LiveTests: LiveTests{
 				LiveTests: jujutest.LiveTests{
-					Environs:       envs,
-					Name:           name,
-					CanOpenState:   false, // ec2test mock server returns an invalid dns address
-					HasProvisioner: false,
+					Environs: envs,
+					Name:     name,
 				},
 			},
 		})

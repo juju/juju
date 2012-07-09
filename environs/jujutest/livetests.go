@@ -78,7 +78,18 @@ func (t *LiveTests) TestBootstrap(c *C) {
 		// TODO(dfc) need juju/conn.Deploy to push the secrets
 		// into the state.
 		if t.HasProvisioner {
-			t.testProvisioning(c, st)
+			// place a new machine into the state
+			m, err := st.AddMachine()
+			c.Assert(err, IsNil)
+
+			t.checkStartInstance(c, m)
+
+			// now remove it
+			c.Assert(st.RemoveMachine(m.Id()), IsNil)
+
+			// watch the PA remove it
+			t.checkStopInstance(c, m)
+			checkInstanceId(c, m, nil)
 		}
 		err = st.Close()
 		c.Assert(err, IsNil)
@@ -91,41 +102,26 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	t.BootstrapOnce(c)
 }
 
-func (t *LiveTests) testProvisioning(c *C, st *state.State) {
-	// place a new machine into the state
-	m, err := st.AddMachine()
-	c.Assert(err, IsNil)
-
-	t.checkStartInstance(c, m)
-
-	// now remove it
-	c.Assert(st.RemoveMachine(m.Id()), IsNil)
-
-	// watch the PA remove it
-	t.checkStopInstance(c, m)
-	checkMachineId(c, m, nil)
-}
-
-var agentReaction = environs.AttemptStrategy{
+var waitAgent = environs.AttemptStrategy{
 	Total: 30 * time.Second,
 	Delay: 1 * time.Second,
 }
 
 func (t *LiveTests) checkStartInstance(c *C, m *state.Machine) (instId string) {
-	// Wait for machine to get instance id.
-	for a := agentReaction.Start(); a.Next(); {
+	// Wait for machine to get an instance id.
+	for a := waitAgent.Start(); a.Next(); {
 		var err error
 		instId, err = m.InstanceId()
 		if _, ok := err.(*state.NoInstanceIdError); ok {
 			continue
 		}
 		c.Assert(err, IsNil)
-		if instId != "" {
+		if err == nil {
 			break
 		}
 	}
 	if instId == "" {
-		c.Fatalf("provisioner failed to start machine after %v", agentReaction.Total)
+		c.Fatalf("provisioner failed to start machine after %v", waitAgent.Total)
 	}
 	_, err := t.Env.Instances([]string{instId})
 	c.Assert(err, IsNil)
@@ -133,26 +129,26 @@ func (t *LiveTests) checkStartInstance(c *C, m *state.Machine) (instId string) {
 }
 
 func (t *LiveTests) checkStopInstance(c *C, m *state.Machine) {
-	// Wait for machine to get instance id.
-	for a := agentReaction.Start(); a.Next(); {
+	// Wait for machine id to be cleared.
+	for a := waitAgent.Start(); a.Next(); {
 		if instId, err := m.InstanceId(); instId == "" {
 			c.Assert(err, FitsTypeOf, &state.NoInstanceIdError{})
 			return
 		}
 	}
-	c.Fatalf("provisioner failed to stop machine after %v", agentReaction.Total)
+	c.Fatalf("provisioner failed to stop machine after %v", waitAgent.Total)
 }
 
-// checkMachineIdSet checks that the machine has an instance id
+// checkInstanceIdSet checks that the machine has an instance id
 // that matches that of the given instance. If the instance is nil,
 // It checks that the instance id is unset.
-func checkMachineId(c *C, m *state.Machine, inst environs.Instance) {
+func checkInstanceId(c *C, m *state.Machine, inst environs.Instance) {
 	// TODO(dfc) add machine.WatchConfig() to avoid having to poll.
 	instId := ""
 	if inst != nil {
 		instId = inst.Id()
 	}
-	for a := agentReaction.Start(); a.Next(); {
+	for a := waitAgent.Start(); a.Next(); {
 		_, err := m.InstanceId()
 		_, notset := err.(*state.NoInstanceIdError)
 		if notset {
