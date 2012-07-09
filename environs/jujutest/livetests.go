@@ -70,7 +70,7 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	info, err := t.Env.StateInfo()
 	c.Assert(err, IsNil)
 	c.Assert(info, NotNil)
-	c.Check(info.Addrs, Not(HasLen), 0)
+	c.Assert(info.Addrs, Not(HasLen), 0)
 
 	if t.CanOpenState {
 		st, err := state.Open(info)
@@ -82,14 +82,14 @@ func (t *LiveTests) TestBootstrap(c *C) {
 			m, err := st.AddMachine()
 			c.Assert(err, IsNil)
 
-			t.checkStartInstance(c, m)
+			t.assertStartInstance(c, m)
 
 			// now remove it
 			c.Assert(st.RemoveMachine(m.Id()), IsNil)
 
 			// watch the PA remove it
-			t.checkStopInstance(c, m)
-			checkInstanceId(c, m, nil)
+			t.assertStopInstance(c, m)
+			assertInstanceId(c, m, nil)
 		}
 		err = st.Close()
 		c.Assert(err, IsNil)
@@ -107,28 +107,24 @@ var waitAgent = environs.AttemptStrategy{
 	Delay: 1 * time.Second,
 }
 
-func (t *LiveTests) checkStartInstance(c *C, m *state.Machine) (instId string) {
+func (t *LiveTests) assertStartInstance(c *C, m *state.Machine) {
 	// Wait for machine to get an instance id.
 	for a := waitAgent.Start(); a.Next(); {
-		var err error
-		instId, err = m.InstanceId()
+		instId, err := m.InstanceId()
 		if _, ok := err.(*state.NoInstanceIdError); ok {
 			continue
 		}
-		c.Assert(err, IsNil)
 		if err == nil {
-			break
+			_, err := t.Env.Instances([]string{instId})
+			c.Assert(err, IsNil)
+			return
 		}
+		c.Assert(err, IsNil)
 	}
-	if instId == "" {
-		c.Fatalf("provisioner failed to start machine after %v", waitAgent.Total)
-	}
-	_, err := t.Env.Instances([]string{instId})
-	c.Assert(err, IsNil)
-	return
+	c.Fatalf("provisioner failed to start machine after %v", waitAgent.Total)
 }
 
-func (t *LiveTests) checkStopInstance(c *C, m *state.Machine) {
+func (t *LiveTests) assertStopInstance(c *C, m *state.Machine) {
 	// Wait for machine id to be cleared.
 	for a := waitAgent.Start(); a.Next(); {
 		if instId, err := m.InstanceId(); instId == "" {
@@ -139,10 +135,10 @@ func (t *LiveTests) checkStopInstance(c *C, m *state.Machine) {
 	c.Fatalf("provisioner failed to stop machine after %v", waitAgent.Total)
 }
 
-// checkInstanceIdSet checks that the machine has an instance id
+// assertInstanceId asserts that the machine has an instance id
 // that matches that of the given instance. If the instance is nil,
-// It checks that the instance id is unset.
-func checkInstanceId(c *C, m *state.Machine, inst environs.Instance) {
+// It asserts that the instance id is unset.
+func assertInstanceId(c *C, m *state.Machine, inst environs.Instance) {
 	// TODO(dfc) add machine.WatchConfig() to avoid having to poll.
 	instId := ""
 	if inst != nil {

@@ -87,13 +87,11 @@ func (t *localLiveSuite) TearDownSuite(c *C) {
 
 func (t *localLiveSuite) SetUpTest(c *C) {
 	t.LoggingSuite.SetUpTest(c)
-	t.StateSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
 }
 
 func (t *localLiveSuite) TearDownTest(c *C) {
 	t.LiveTests.TearDownTest(c)
-	t.StateSuite.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
 }
 
@@ -186,7 +184,6 @@ func (t *localServerSuite) TearDownSuite(c *C) {
 
 func (t *localServerSuite) SetUpTest(c *C) {
 	t.LoggingSuite.SetUpTest(c)
-	t.StateSuite.SetUpTest(c)
 	t.srv.startServer(c)
 	t.Tests.SetUpTest(c)
 	t.env = t.Tests.Env
@@ -195,7 +192,6 @@ func (t *localServerSuite) SetUpTest(c *C) {
 func (t *localServerSuite) TearDownTest(c *C) {
 	t.Tests.TearDownTest(c)
 	t.srv.stopServer(c)
-	t.StateSuite.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
 }
 
