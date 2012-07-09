@@ -69,15 +69,7 @@ func (m *Machine) SetInstanceId(id string) error {
 	return nil
 }
 
-func machineNameFromId(id int) string {
-	return fmt.Sprintf("machine-%010d", id)
-}
-
 // String returns a unique description of this machine.
 func (m *Machine) String() string {
-	return machineNameFromId(m.id)
-}
-
-func (m *machineDoc) String() string {
-	return machineNameFromId(m.Id)
+	return fmt.Sprintf("machine-%010d", m.id)
 }
