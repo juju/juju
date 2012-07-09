@@ -162,7 +162,7 @@ func (s *StateSuite) TestRemoveMachine(c *C) {
 
 	// Removing a non-existing machine has to fail.
 	err = s.st.RemoveMachine(m0.Id())
-	c.Assert(err, ErrorMatches, "can't remove machine 0")
+	c.Assert(err, ErrorMatches, "can't remove machine 0: .*")
 }
 
 func (s *StateSuite) TestMachineInstanceId(c *C) {

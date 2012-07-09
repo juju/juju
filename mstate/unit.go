@@ -21,7 +21,6 @@ type Unit struct {
 	doc unitDoc
 }
 
-
 func newUnit(st *State, udoc *unitDoc) *Unit {
 	return &Unit{
 		st:  st,
@@ -83,7 +82,7 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	}
 	err = u.st.units.Update(sel, change)
 	if err != nil {
-		return fmt.Errorf("can't assign unit %q to machine %s: %v", u, m, err)
+		return fmt.Errorf("can't assign unit %q to machine %v: %v", u, m.Id(), err)
 	}
 	u.doc.MachineId = &m.id
 	return nil

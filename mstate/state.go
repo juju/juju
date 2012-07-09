@@ -53,7 +53,7 @@ func (s *State) RemoveMachine(id int) error {
 	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
 	err := s.machines.Update(sel, change)
 	if err != nil {
-		return fmt.Errorf("can't remove machine %d", id)
+		return fmt.Errorf("can't remove machine %d: %v", id, err)
 	}
 	return nil
 }

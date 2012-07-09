@@ -3,7 +3,6 @@ package mstate
 import (
 	"fmt"
 	"labix.org/v2/mgo/bson"
-	"strconv"
 )
 
 // Machine represents the state of a machine.
@@ -72,5 +71,5 @@ func (m *Machine) SetInstanceId(id string) error {
 
 // String returns a unique description of this machine.
 func (m *Machine) String() string {
-	return strconv.Itoa(m.Id())
+	return fmt.Sprintf("machine-%010d", m.id)
 }
