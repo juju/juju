@@ -15,34 +15,47 @@ import (
 
 func Test(t *stdtesting.T) { TestingT(t) }
 
-var _ = Suite(&StateSuite{})
-
-type StateSuite struct {
+// ConnSuite facilitates access to the underlying MongoDB. It is embedded
+// in other suites, like StateSuite.
+type ConnSuite struct {
 	MgoSuite
 	session  *mgo.Session
 	charms   *mgo.Collection
 	machines *mgo.Collection
 	services *mgo.Collection
 	units    *mgo.Collection
+}
+
+func (cs *ConnSuite) SetUpTest(c *C) {
+	cs.MgoSuite.SetUpTest(c)
+	session, err := mgo.Dial(mgoaddr)
+	c.Assert(err, IsNil)
+	cs.session = session
+	cs.charms = session.DB("juju").C("charms")
+	cs.machines = session.DB("juju").C("machines")
+	cs.services = session.DB("juju").C("services")
+	cs.units = session.DB("juju").C("units")
+}
+
+func (cs *ConnSuite) TearDownTest(c *C) {
+	cs.session.Close()
+	cs.MgoSuite.TearDownTest(c)
+}
+
+type StateSuite struct {
+	ConnSuite
 	st       *state.State
 	ch       charm.Charm
 	curl     *charm.URL
 }
 
-func (s *StateSuite) SetUpTest(c *C) {
-	s.MgoSuite.SetUpTest(c)
-	session, err := mgo.Dial(mgoaddr)
-	c.Assert(err, IsNil)
-	s.session = session
+var _ = Suite(&StateSuite{})
 
+func (s *StateSuite) SetUpTest(c *C) {
+	s.ConnSuite.SetUpTest(c)
 	st, err := state.Dial(mgoaddr)
 	c.Assert(err, IsNil)
 	s.st = st
-
-	s.charms = session.DB("juju").C("charms")
-	s.machines = session.DB("juju").C("machines")
-	s.services = session.DB("juju").C("services")
-	s.units = session.DB("juju").C("units")
 
 	s.ch = testing.Charms.Dir("dummy")
 	url := fmt.Sprintf("local:series/%s-%d", s.ch.Meta().Name, s.ch.Revision())
@@ -51,8 +64,7 @@ func (s *StateSuite) SetUpTest(c *C) {
 
 func (s *StateSuite) TearDownTest(c *C) {
 	s.st.Close()
-	s.session.Close()
-	s.MgoSuite.TearDownTest(c)
+	s.ConnSuite.TearDownTest(c)
 }
 
 func (s *StateSuite) TestAddCharm(c *C) {
