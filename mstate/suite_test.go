@@ -12,8 +12,8 @@ import (
 	"sort"
 )
 
-// ConnSuite facilitates access to the underlying MongoDB. It is embedded
-// in other suites, like StateSuite.
+// ConnSuite facilitates access to the underlying MongoDB.
+// It is embedded in UtilSuite.
 type ConnSuite struct {
 	MgoSuite
 	session  *mgo.Session
@@ -51,6 +51,8 @@ func (s *ConnSuite) AllMachines(c *C) []string {
 	return names
 }
 
+// UtilSuite provides the infrastructure for all other 
+// test suites (StateSuite, CharmSuite, MachineSuite, etc).
 type UtilSuite struct {
 	MgoSuite
 	ConnSuite
