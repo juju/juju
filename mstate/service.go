@@ -183,6 +183,7 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 func (s *Service) Relations() (relations []*Relation, err error) {
 	defer errorContextf(&err, "can't get relations for service %q", s.name)
 	sel := bson.D{
+		{"life", Alive},
 		{"$or", []bson.D{
 			bson.D{{"_id.p0.service", s.name}},
 			bson.D{{"_id.p1.service", s.name}},

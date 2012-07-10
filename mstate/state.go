@@ -196,6 +196,7 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (err error) {
 		return err
 	}
 	doc := relationDoc{
+		Life:      Alive,
 		Id:        id,
 		Endpoints: *newRelationEndpoints(endpoints...),
 	}

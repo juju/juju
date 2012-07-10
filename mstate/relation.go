@@ -80,8 +80,8 @@ func describeEndpoints(endpoints []RelationEndpoint) string {
 // of a relation in order to use them as an index in MongoDB.
 type endpointPair struct {
 	Cardinality int
-	P0 RelationEndpoint
-	P1 RelationEndpoint `bson:",omitempty"`
+	P0          RelationEndpoint
+	P1          RelationEndpoint `bson:",omitempty"`
 }
 
 // newEndpointPair returns a *endpointPair from endpoints.
@@ -111,6 +111,7 @@ func (p endpointPair) RelationEndpointSlice() []RelationEndpoint {
 
 // relationDoc is the internal representation of a Relation in MongoDB.
 type relationDoc struct {
+	Life      Life
 	Id        int
 	Endpoints endpointPair `bson:"_id"`
 }
@@ -123,9 +124,9 @@ type Relation struct {
 }
 
 func newRelation(st *State, rdoc *relationDoc) *Relation {
-	return &Relation {
-		st: st,
-		id: rdoc.Id,
+	return &Relation{
+		st:        st,
+		id:        rdoc.Id,
 		endpoints: rdoc.Endpoints.RelationEndpointSlice(),
 	}
 }
