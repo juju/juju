@@ -64,15 +64,14 @@ func (w *contentWatcher) Err() error {
 	return w.tomb.Err()
 }
 
-// ServicesChange contains information about
-// services that have been added to or removed.
+// ServicesChange holds services that were added or removed
+// from the environment.
 type ServicesChange struct {
 	Added   []*Service
 	Removed []*Service
 }
 
-// ServicesWatcher observes the addition and removal
-// of services.
+// ServicesWatcher observes the addition and removal of services.
 type ServicesWatcher struct {
 	contentWatcher
 	knownServices    map[string]*Service
@@ -80,8 +79,7 @@ type ServicesWatcher struct {
 	changeChan       chan *ServicesChange
 }
 
-// newServicesWatcher creates and starts a new watcher
-// for service changes.
+// newServicesWatcher returns a new ServicesWatcher.
 func newServicesWatcher(st *State) *ServicesWatcher {
 	w := &ServicesWatcher{
 		contentWatcher: newContentWatcher(st, zkTopologyPath),
@@ -92,10 +90,10 @@ func newServicesWatcher(st *State) *ServicesWatcher {
 	return w
 }
 
-// Changes returns a channel that will receive changes when services
+// Changes returns a channel that will receive a notification when services
 // are added to or removed from the state. The Added field in
-// the first event on the channel holds the initial state as returned
-// by Service.AllServices.
+// the first event on the channel holds the initial state as would be 
+// returned by Service.AllServices.
 func (w *ServicesWatcher) Changes() <-chan *ServicesChange {
 	return w.changeChan
 }
