@@ -12,8 +12,6 @@ var regenerate = flag.Bool("regenerate-images", false, "regenerate all data in i
 var amazon = flag.Bool("amazon", false, "Also run some tests on live Amazon servers")
 
 func TestEC2(t *testing.T) {
-	log.Debug = true
-	defer func() { log.Debug = false }()
 	if *regenerate {
 		ec2.RegenerateImages(t)
 	}

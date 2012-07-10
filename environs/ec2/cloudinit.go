@@ -123,7 +123,7 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 			Service: *svc,
 			Desc:    "juju provisioning agent",
 			Cmd: jujutools + "/jujud provisioning" +
-				" --zookeeper-servers " + fmt.Sprintf("%q", cfg.zookeeperHostAddrs()) +
+				" --zookeeper-servers " + fmt.Sprintf("'%s'", cfg.zookeeperHostAddrs()) +
 				" --log-file /var/log/juju/provision-agent.log" +
 				debugFlag,
 		}
