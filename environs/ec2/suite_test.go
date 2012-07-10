@@ -4,7 +4,6 @@ import (
 	"flag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/ec2"
-	"launchpad.net/juju-core/log"
 	"testing"
 )
 
