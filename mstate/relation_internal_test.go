@@ -12,7 +12,7 @@ var _ = Suite(&RelationSuite{})
 // multi-endpoint peer relations, which are currently not constructable
 // by normal means.
 func (s *RelationSuite) TestRelatedEndpoints(c *C) {
-	r := &Relation{nil, "", []RelationEndpoint{
+	r := &Relation{nil, 0, []RelationEndpoint{
 		RelationEndpoint{"jeff", "ifce", "group", RolePeer, ScopeGlobal},
 		RelationEndpoint{"mike", "ifce", "group", RolePeer, ScopeGlobal},
 		RelationEndpoint{"bill", "ifce", "group", RolePeer, ScopeGlobal},

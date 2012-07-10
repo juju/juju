@@ -22,11 +22,12 @@ const (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	db       *mgo.Database
-	charms   *mgo.Collection
-	machines *mgo.Collection
-	services *mgo.Collection
-	units    *mgo.Collection
+	db        *mgo.Database
+	charms    *mgo.Collection
+	machines  *mgo.Collection
+	relations *mgo.Collection
+	services  *mgo.Collection
+	units     *mgo.Collection
 }
 
 // AddMachine creates a new machine state.
@@ -167,4 +168,40 @@ func (s *State) AllServices() (services []*Service, err error) {
 		services = append(services, &Service{st: s, name: v.Name})
 	}
 	return services, nil
+}
+
+// AddRelation creates a new relation with the given endpoints.
+func (s *State) AddRelation(endpoints ...RelationEndpoint) (err error) {
+	defer errorContextf(&err, "can't add relation %q", describeEndpoints(endpoints))
+	if 0 == len(endpoints) || len(endpoints) > 2 {
+		return fmt.Errorf("can't relate %d endpoints", len(endpoints))
+	}
+	if len(endpoints) == 1 && endpoints[0].RelationRole != RolePeer {
+		return fmt.Errorf("single endpoint must be a peer relation")
+	}
+	if len(endpoints) == 2 && !endpoints[0].CanRelateTo(&endpoints[1]) {
+		return fmt.Errorf("endpoints do not relate")
+	}
+
+	for _, v := range endpoints {
+		// BUG: race.
+		_, err = s.Service(v.ServiceName)
+		if err != nil {
+			return err
+		}
+	}
+
+	id, err := s.sequence("relation")
+	if err != nil {
+		return err
+	}
+	doc := relationDoc{
+		Id:        id,
+		Endpoints: *newRelationEndpoints(endpoints...),
+	}
+	err = s.relations.Insert(doc)
+	if err != nil {
+		return err
+	}
+	return nil
 }

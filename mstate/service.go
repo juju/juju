@@ -178,3 +178,23 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 	}
 	return units, nil
 }
+
+// Relations returns a Relation for every relation the service is in.
+func (s *Service) Relations() (relations []*Relation, err error) {
+	defer errorContextf(&err, "can't get relations for service %q", s.name)
+	sel := bson.D{
+		{"$or", []bson.D{
+			bson.D{{"_id.p0.service", s.name}},
+			bson.D{{"_id.p1.service", s.name}},
+		}},
+	}
+	docs := []relationDoc{}
+	err = s.st.relations.Find(sel).All(&docs)
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range docs {
+		relations = append(relations, newRelation(s.st, &v))
+	}
+	return relations, nil
+}

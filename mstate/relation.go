@@ -2,7 +2,6 @@ package mstate
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 )
 
@@ -77,28 +76,70 @@ func describeEndpoints(endpoints []RelationEndpoint) string {
 	return strings.Join(names, " ")
 }
 
+// endpointPair is a type encompassing the one or two endpoints
+// of a relation in order to use them as an index in MongoDB.
+type endpointPair struct {
+	Cardinality int
+	P0 RelationEndpoint
+	P1 RelationEndpoint `bson:",omitempty"`
+}
+
+// newEndpointPair returns a *endpointPair from endpoints.
+// Endpoints order does not matter.
+func newRelationEndpoints(endpoints ...RelationEndpoint) *endpointPair {
+	if 0 == len(endpoints) || len(endpoints) > 2 {
+		panic("must have only one or two endpoints")
+	}
+	if len(endpoints) == 1 {
+		return &endpointPair{P0: endpoints[0], Cardinality: 1}
+	}
+	if fmt.Sprintf("%v", endpoints[0]) < fmt.Sprintf("%v", endpoints[1]) {
+		return &endpointPair{P0: endpoints[0], P1: endpoints[1], Cardinality: 2}
+	}
+	return &endpointPair{P0: endpoints[1], P1: endpoints[0], Cardinality: 2}
+}
+
+func (p endpointPair) RelationEndpointSlice() []RelationEndpoint {
+	if 0 == p.Cardinality || p.Cardinality > 2 {
+		panic("must have only one or two endpoints")
+	}
+	if p.Cardinality == 1 {
+		return []RelationEndpoint{p.P0}
+	}
+	return []RelationEndpoint{p.P0, p.P1}
+}
+
+// relationDoc is the internal representation of a Relation in MongoDB.
+type relationDoc struct {
+	Id        int
+	Endpoints endpointPair `bson:"_id"`
+}
+
 // Relation represents a relation between one or two service endpoints.
 type Relation struct {
 	st        *State
-	key       string
+	id        int
 	endpoints []RelationEndpoint
+}
+
+func newRelation(st *State, rdoc *relationDoc) *Relation {
+	return &Relation {
+		st: st,
+		id: rdoc.Id,
+		endpoints: rdoc.Endpoints.RelationEndpointSlice(),
+	}
 }
 
 func (r *Relation) String() string {
 	return fmt.Sprintf("relation %q", describeEndpoints(r.endpoints))
 }
 
-// Id returns the integer part of the internal relation key. This is
-// exposed because the unit agent needs to expose a value derived from
-// this (as JUJU_RELATION_ID) to allow relation hooks to differentiate
+// Id returns the integer internal relation key. This is exposed
+// because the unit agent needs to expose a value derived from this
+// (as JUJU_RELATION_ID) to allow relation hooks to differentiate
 // between relations with different services.
 func (r *Relation) Id() int {
-	keyParts := strings.Split(r.key, "-")
-	id, err := strconv.Atoi(keyParts[1])
-	if err != nil {
-		panic(fmt.Errorf("relation key %q in unknown format", r.key))
-	}
-	return id
+	return r.id
 }
 
 // Endpoint returns the endpoint of the relation for the named service.
