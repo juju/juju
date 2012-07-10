@@ -99,7 +99,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("can't add unit to service %q: %v", err)
 	}
-	return s.addUnit(name, name)
+	return s.addUnit(name, "")
 }
 
 // AddUnitSubordinateTo adds a new subordinate unit to the service,

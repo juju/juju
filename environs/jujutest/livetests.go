@@ -70,12 +70,13 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	info, err := t.Env.StateInfo()
 	c.Assert(err, IsNil)
 	c.Assert(info, NotNil)
-	c.Check(info.Addrs, Not(HasLen), 0)
+	c.Assert(info.Addrs, Not(HasLen), 0)
 
 	if t.CanOpenState {
 		st, err := state.Open(info)
 		c.Assert(err, IsNil)
-		st.Close()
+		err = st.Close()
+		c.Assert(err, IsNil)
 	}
 
 	c.Logf("destroy env")
@@ -83,6 +84,95 @@ func (t *LiveTests) TestBootstrap(c *C) {
 
 	// check that we can bootstrap after destroy
 	t.BootstrapOnce(c)
+}
+
+func (t *LiveTests) TestBootstrapProvisioner(c *C) {
+	if !t.CanOpenState || !t.HasProvisioner {
+		c.Skip(fmt.Sprintf("skipping provisioner test, CanOpenState: %v, HasProvisioner: %v", t.CanOpenState, t.HasProvisioner))
+	}
+	t.BootstrapOnce(c)
+
+	info, err := t.Env.StateInfo()
+	c.Assert(err, IsNil)
+
+	st, err := state.Open(info)
+	c.Assert(err, IsNil)
+
+	// TODO(dfc) need juju/conn.Deploy to push the secrets
+	// into the state.
+
+	// place a new machine into the state
+	m, err := st.AddMachine()
+	c.Assert(err, IsNil)
+
+	t.assertStartInstance(c, m)
+
+	// now remove it
+	c.Assert(st.RemoveMachine(m.Id()), IsNil)
+
+	// watch the PA remove it
+	t.assertStopInstance(c, m)
+	assertInstanceId(c, m, nil)
+
+	err = st.Close()
+	c.Assert(err, IsNil)
+}
+
+var waitAgent = environs.AttemptStrategy{
+	Total: 30 * time.Second,
+	Delay: 1 * time.Second,
+}
+
+func (t *LiveTests) assertStartInstance(c *C, m *state.Machine) {
+	// Wait for machine to get an instance id.
+	for a := waitAgent.Start(); a.Next(); {
+		instId, err := m.InstanceId()
+		if _, ok := err.(*state.NoInstanceIdError); ok {
+			continue
+		}
+		c.Assert(err, IsNil)
+		_, err = t.Env.Instances([]string{instId})
+		c.Assert(err, IsNil)
+		return
+	}
+	c.Fatalf("provisioner failed to start machine after %v", waitAgent.Total)
+}
+
+func (t *LiveTests) assertStopInstance(c *C, m *state.Machine) {
+	// Wait for machine id to be cleared.
+	for a := waitAgent.Start(); a.Next(); {
+		if instId, err := m.InstanceId(); instId == "" {
+			c.Assert(err, FitsTypeOf, &state.NoInstanceIdError{})
+			return
+		}
+	}
+	c.Fatalf("provisioner failed to stop machine after %v", waitAgent.Total)
+}
+
+// assertInstanceId asserts that the machine has an instance id
+// that matches that of the given instance. If the instance is nil,
+// It asserts that the instance id is unset.
+func assertInstanceId(c *C, m *state.Machine, inst environs.Instance) {
+	// TODO(dfc) add machine.WatchConfig() to avoid having to poll.
+	var instId, id string
+	var err error
+	if inst != nil {
+		instId = inst.Id()
+	}
+	for a := waitAgent.Start(); a.Next(); {
+		id, err = m.InstanceId()
+		_, notset := err.(*state.NoInstanceIdError)
+		if notset {
+			if inst == nil {
+				return
+			}
+			continue
+		}
+		c.Assert(err, IsNil)
+		break
+	}
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, instId)
 }
 
 // TODO check that binary data works ok?

@@ -22,9 +22,10 @@ environments:
 		panic(fmt.Errorf("cannot parse testing config: %v", err))
 	}
 	Suite(&jujutest.LiveTests{
-		Environs:     envs,
-		Name:         "only",
-		CanOpenState: true,
+		Environs:       envs,
+		Name:           "only",
+		CanOpenState:   true,
+		HasProvisioner: false,
 	})
 	Suite(&jujutest.Tests{
 		Environs: envs,

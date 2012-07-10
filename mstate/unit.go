@@ -46,7 +46,7 @@ func (u *Unit) Name() string {
 // IsPrincipal returns whether the unit is deployed in its own container,
 // and can therefore have subordinate services deployed alongside it.
 func (u *Unit) IsPrincipal() bool {
-	return u.doc.Name == u.doc.Principal
+	return u.doc.Principal == ""
 }
 
 // AssignedMachineId returns the id of the assigned machine.
@@ -73,7 +73,7 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 // AssignToMachine assigns this unit to a given machine.
 func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	change := bson.D{{"$set", bson.D{{"machineid", m.Id()}}}}
-	sel := bson.D{{"_id", u.doc.Principal}, {"machineid", nil}}
+	sel := bson.D{{"_id", u.doc.Name}, {"machineid", nil}}
 	err = u.st.units.Update(sel, change)
 	if err != nil {
 		return fmt.Errorf("can't assign unit %q to machine %s: %v", u, m, err)
