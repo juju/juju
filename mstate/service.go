@@ -185,8 +185,8 @@ func (s *Service) Relations() (relations []*Relation, err error) {
 	sel := bson.D{
 		{"life", Alive},
 		{"$or", []bson.D{
-			bson.D{{"_id.p0.service", s.name}},
-			bson.D{{"_id.p1.service", s.name}},
+			bson.D{{"_id.p0.servicename", s.name}},
+			bson.D{{"_id.p1.servicename", s.name}},
 		}},
 	}
 	docs := []relationDoc{}

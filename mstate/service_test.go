@@ -142,7 +142,7 @@ func (s *ServiceSuite) TestRemoveUnit(c *C) {
 
 	// Check that removing a non-existent unit fails nicely.
 	// TODO improve error message.
-	// BUG: use error strings from state
+	// BUG: use error strings from state.
 	err = s.service.RemoveUnit(unit)
 	c.Assert(err, ErrorMatches, `can't remove unit "mysql/0": .*`)
 }

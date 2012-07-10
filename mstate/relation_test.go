@@ -60,10 +60,72 @@ func (s *RelationSuite) TestAddRelationErrors(c *C) {
 	c.Assert(err, ErrorMatches, `can't add relation "pro:foo req:bar peer:baz": can't relate 3 endpoints`)
 }
 
+func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
+	req, err := s.State.AddService("req", s.charm)
+	c.Assert(err, IsNil)
+	pro, err := s.State.AddService("pro", s.charm)
+	c.Assert(err, IsNil)
+	assertNoRelations(c, req)
+	assertNoRelations(c, pro)
+
+	// Add a relation, and check we can only do so once.
+	proep := state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, state.ScopeGlobal}
+	reqep := state.RelationEndpoint{"req", "ifce", "bar", state.RoleRequirer, state.ScopeGlobal}
+	err = s.State.AddRelation(proep, reqep)
+	c.Assert(err, IsNil)
+	err = s.State.AddRelation(proep, reqep)
+	// BUG: use error strings from state.
+	c.Assert(err, ErrorMatches, `can't add relation "pro:foo req:bar": .*`)
+	assertOneRelation(c, pro, 0, proep, reqep)
+	assertOneRelation(c, req, 0, reqep, proep)
+
+	// Remove the relation, and check it can't be removed again.
+	err = s.State.RemoveRelation(proep, reqep)
+	c.Assert(err, IsNil)
+	assertNoRelations(c, pro)
+	assertNoRelations(c, req)
+	err = s.State.RemoveRelation(proep, reqep)
+	// BUG: use error strings from state.
+	c.Assert(err, ErrorMatches, `can't remove relation "pro:foo req:bar": .*`)
+
+	// Check that we can add it again if we want to; but this time,
+	// give one of the endpoints container scope and check that both
+	// resulting service relations get that scope.
+	reqep.RelationScope = state.ScopeContainer
+	err = s.State.AddRelation(proep, reqep)
+	c.Assert(err, IsNil)
+	// BUG: are we okay with increasing relation id here?
+	assertOneRelation(c, pro, 2, proep, reqep)
+	assertOneRelation(c, req, 2, reqep, proep)
+}
+
 func assertNoRelations(c *C, srv *state.Service) {
 	rels, err := srv.Relations()
 	c.Assert(err, IsNil)
 	c.Assert(rels, HasLen, 0)
+}
+
+func (s *RelationSuite) TestPeerRelation(c *C) {
+	peer, err := s.State.AddService("peer", s.charm)
+	c.Assert(err, IsNil)
+	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, state.ScopeGlobal}
+	assertNoRelations(c, peer)
+
+	// Add a relation, and check we can only do so once.
+	err = s.State.AddRelation(peerep)
+	c.Assert(err, IsNil)
+	err = s.State.AddRelation(peerep)
+	// BUG: use error strings from state.
+	c.Assert(err, ErrorMatches, `can't add relation "peer:baz": .*`)
+	assertOneRelation(c, peer, 0, peerep)
+
+	// Remove the relation, and check it can't be removed again.
+	err = s.State.RemoveRelation(peerep)
+	c.Assert(err, IsNil)
+	assertNoRelations(c, peer)
+	err = s.State.RemoveRelation(peerep)
+	// BUG: use error strings from state.
+	c.Assert(err, ErrorMatches, `can't remove relation "peer:baz": .*`)
 }
 
 func assertOneRelation(c *C, srv *state.Service, relId int, endpoints ...state.RelationEndpoint) {

@@ -86,7 +86,7 @@ type endpointPair struct {
 
 // newEndpointPair returns a *endpointPair from endpoints.
 // Endpoints order does not matter.
-func newRelationEndpoints(endpoints ...RelationEndpoint) *endpointPair {
+func newEndpointPair(endpoints ...RelationEndpoint) *endpointPair {
 	if 0 == len(endpoints) || len(endpoints) > 2 {
 		panic("must have only one or two endpoints")
 	}

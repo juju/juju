@@ -198,9 +198,24 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (err error) {
 	doc := relationDoc{
 		Life:      Alive,
 		Id:        id,
-		Endpoints: *newRelationEndpoints(endpoints...),
+		Endpoints: *newEndpointPair(endpoints...),
 	}
 	err = s.relations.Insert(doc)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// RemoveRelation removes the relation between the given endpoints.
+func (s *State) RemoveRelation(endpoints ...RelationEndpoint) (err error) {
+	defer errorContextf(&err, "can't remove relation %q", describeEndpoints(endpoints))
+	sel := bson.D{
+		{"life", Alive},
+		{"_id", *newEndpointPair(endpoints...)},
+	}
+	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
+	err = s.relations.Update(sel, change)
 	if err != nil {
 		return err
 	}
