@@ -9,6 +9,7 @@ import (
 	state "launchpad.net/juju-core/mstate"
 	"launchpad.net/juju-core/testing"
 	"net/url"
+	"sort"
 	stdtesting "testing"
 )
 
@@ -195,6 +196,80 @@ func (s *StateSuite) TestReadMachine(c *C) {
 	c.Assert(machine.Id(), Equals, expectedId)
 }
 
+func (s *StateSuite) TestMachineUnits(c *C) {
+	// Check that Machine.Units works correctly.
+
+	// Make three machines, three services and three units for each service;
+	// variously assign units to machines and check that Machine.Units
+	// tells us the right thing.
+
+	m0, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	m1, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	m2, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+
+	dummy := s.addDummyCharm(c)
+	logging := addLoggingCharm(c, s.st)
+	s0, err := s.st.AddService("s0", dummy)
+	c.Assert(err, IsNil)
+	s1, err := s.st.AddService("s1", dummy)
+	c.Assert(err, IsNil)
+	s2, err := s.st.AddService("s2", dummy)
+	c.Assert(err, IsNil)
+	s3, err := s.st.AddService("s3", logging)
+	c.Assert(err, IsNil)
+
+	units := make([][]*state.Unit, 4)
+	for i, svc := range []*state.Service{s0, s1, s2} {
+		units[i] = make([]*state.Unit, 3)
+		for j := range units[i] {
+			units[i][j], err = svc.AddUnit()
+			c.Assert(err, IsNil)
+		}
+	}
+	// Add the logging units subordinate to the s2 units.
+	units[3] = make([]*state.Unit, 3)
+	for i := range units[3] {
+		units[3][i], err = s3.AddUnitSubordinateTo(units[2][i])
+	}
+
+	assignments := []struct {
+		machine      *state.Machine
+		units        []*state.Unit
+		subordinates []*state.Unit
+	}{
+		{m0, []*state.Unit{units[0][0]}, nil},
+		{m1, []*state.Unit{units[0][1], units[1][0], units[1][1], units[2][0]}, []*state.Unit{units[3][0]}},
+		{m2, []*state.Unit{units[2][2]}, []*state.Unit{units[3][2]}},
+	}
+
+	for _, a := range assignments {
+		for _, u := range a.units {
+			err := u.AssignToMachine(a.machine)
+			c.Assert(err, IsNil)
+		}
+	}
+
+	for i, a := range assignments {
+		c.Logf("test %d", i)
+		got, err := a.machine.Units()
+		c.Assert(err, IsNil)
+		expect := sortedUnitNames(append(a.units, a.subordinates...))
+		c.Assert(sortedUnitNames(got), DeepEquals, expect)
+	}
+}
+
+func sortedUnitNames(units []*state.Unit) []string {
+	names := make([]string, len(units))
+	for i, u := range units {
+		names[i] = u.Name()
+	}
+	sort.Strings(names)
+	return names
+}
+
 func (s *StateSuite) TestAddService(c *C) {
 	dummy := s.addDummyCharm(c)
 	wordpress, err := s.st.AddService("wordpress", dummy)
@@ -280,9 +355,38 @@ func (s *StateSuite) TestAddUnit(c *C) {
 	// Check that principal units cannot be added to principal units.
 	_, err = wordpress.AddUnitSubordinateTo(unitZero)
 	c.Assert(err, ErrorMatches, `can't add unit of principal service "wordpress" as a subordinate of "wordpress/0"`)
-}
 
-// TODO port subordinate unit logic from state_test.TestAddUnit().
+	// Assign the principal unit to a machine.
+	m, err := s.st.AddMachine()
+	c.Assert(err, IsNil)
+	err = unitZero.AssignToMachine(m)
+	c.Assert(err, IsNil)
+
+	// Add a subordinate service.
+	subCh := addLoggingCharm(c, s.st)
+	logging, err := s.st.AddService("logging", subCh)
+	c.Assert(err, IsNil)
+
+	// Check that subordinate units can be added to principal units
+	subZero, err := logging.AddUnitSubordinateTo(unitZero)
+	c.Assert(err, IsNil)
+	c.Assert(subZero.Name(), Equals, "logging/0")
+	principal = subZero.IsPrincipal()
+	c.Assert(principal, Equals, false)
+
+	// Check the subordinate unit has been assigned its principal's machine.
+	id, err := subZero.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, m.Id())
+
+	// Check that subordinate units must be added to other units.
+	_, err = logging.AddUnit()
+	c.Assert(err, ErrorMatches, `cannot directly add units to subordinate service "logging"`)
+
+	// Check that subordinate units cannnot be added to subordinate units.
+	_, err = logging.AddUnitSubordinateTo(subZero)
+	c.Assert(err, ErrorMatches, "a subordinate unit must be added to a principal unit")
+}
 
 func (s *StateSuite) TestReadUnit(c *C) {
 	dummy := s.addDummyCharm(c)
@@ -363,4 +467,16 @@ func (s *StateSuite) TestRemoveUnit(c *C) {
 	err = wordpress.RemoveUnit(unit)
 	// TODO use error string from state_test.TestRemoveUnit()
 	c.Assert(err, ErrorMatches, `can't remove unit "wordpress/0": .*`)
+}
+
+// addLoggingCharm adds a "logging" (subordinate) charm
+// to the state.
+func addLoggingCharm(c *C, st *state.State) *state.Charm {
+	bundle := testing.Charms.Bundle(c.MkDir(), "logging")
+	curl := charm.MustParseURL("cs:series/logging-99")
+	bundleURL, err := url.Parse("http://subordinate.url")
+	c.Assert(err, IsNil)
+	ch, err := st.AddCharm(bundle, curl, bundleURL, "dummy-sha256")
+	c.Assert(err, IsNil)
+	return ch
 }

@@ -59,23 +59,26 @@ func (s *Service) String() string {
 	return s.Name()
 }
 
-// addUnit adds a new unit to the service. If s is a subordinate service,
-// principalName must be the unit name of some principal unit.
-func (s *Service) addUnit(principalName string) (unit *Unit, err error) {
-	defer errorContextf(&err, "can't add unit to service %q", s)
+// newUnitName returns the next unit name.
+func (s *Service) newUnitName() (string, error) {
 	id, err := s.st.sequence(s.Name())
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	name := s.name + "/" + strconv.Itoa(id)
+	return name, nil
+}
+
+// addUnit adds the named unit, which is part of unitSet.
+func (s *Service) addUnit(name string, principal string) (*Unit, error) {
 	udoc := unitDoc{
-		Name:        name,
-		ServiceName: s.name,
-		Principal:   principalName,
+		Name:      name,
+		Service:   s.name,
+		Principal: principal,
 	}
-	err = s.st.units.Insert(udoc)
+	err := s.st.units.Insert(udoc)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("can't add unit to service %q", s)
 	}
 	return newUnit(s.st, &udoc), nil
 }
@@ -89,7 +92,11 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 	if ch.Meta().Subordinate {
 		return nil, fmt.Errorf("cannot directly add units to subordinate service %q", s)
 	}
-	return s.addUnit("")
+	name, err := s.newUnitName()
+	if err != nil {
+		return nil, fmt.Errorf("can't add unit to service %q: %v", err)
+	}
+	return s.addUnit(name, "")
 }
 
 // AddUnitSubordinateTo adds a new subordinate unit to the service,
@@ -105,14 +112,18 @@ func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
 	if !principal.IsPrincipal() {
 		return nil, errors.New("a subordinate unit must be added to a principal unit")
 	}
-	return s.addUnit(principal.name)
+	name, err := s.newUnitName()
+	if err != nil {
+		return nil, fmt.Errorf("can't add unit to service %q: %v", err)
+	}
+	return s.addUnit(name, principal.Name())
 }
 
 // RemovesUnit removes the given unit from s.
 func (s *Service) RemoveUnit(unit *Unit) error {
 	sel := bson.D{
-		{"_id", unit.name},
-		{"servicename", s.name},
+		{"_id", unit.Name()},
+		{"service", s.name},
 	}
 	err := s.st.units.Remove(sel)
 	if err != nil {
@@ -122,14 +133,22 @@ func (s *Service) RemoveUnit(unit *Unit) error {
 	return nil
 }
 
-// Unit returns the service's unit with name.
-func (s *Service) Unit(name string) (*Unit, error) {
+func (s *Service) unitDoc(name string) (*unitDoc, error) {
 	udoc := &unitDoc{}
 	sel := bson.D{
 		{"_id", name},
-		{"servicename", s.name},
+		{"service", s.name},
 	}
 	err := s.st.units.Find(sel).One(udoc)
+	if err != nil {
+		return nil, err
+	}
+	return udoc, nil
+}
+
+// Unit returns the service's unit with name.
+func (s *Service) Unit(name string) (*Unit, error) {
+	udoc, err := s.unitDoc(name)
 	if err != nil {
 		return nil, fmt.Errorf("can't get unit %q from service %q: %v", name, s.name, err)
 	}
@@ -139,7 +158,7 @@ func (s *Service) Unit(name string) (*Unit, error) {
 // AllUnits returns all units of the service.
 func (s *Service) AllUnits() (units []*Unit, err error) {
 	docs := []unitDoc{}
-	err = s.st.units.Find(bson.D{{"servicename", s.name}}).All(&docs)
+	err = s.st.units.Find(bson.D{{"service", s.name}}).All(&docs)
 	if err != nil {
 		return nil, fmt.Errorf("can't get all units from service %q: %v", err)
 	}
