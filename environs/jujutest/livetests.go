@@ -133,12 +133,10 @@ func (t *LiveTests) assertStartInstance(c *C, m *state.Machine) {
 		if _, ok := err.(*state.NoInstanceIdError); ok {
 			continue
 		}
-		if err == nil {
-			_, err := t.Env.Instances([]string{instId})
-			c.Assert(err, IsNil)
-			return
-		}
 		c.Assert(err, IsNil)
+		_, err = t.Env.Instances([]string{instId})
+		c.Assert(err, IsNil)
+		return
 	}
 	c.Fatalf("provisioner failed to start machine after %v", waitAgent.Total)
 }
@@ -159,24 +157,23 @@ func (t *LiveTests) assertStopInstance(c *C, m *state.Machine) {
 // It asserts that the instance id is unset.
 func assertInstanceId(c *C, m *state.Machine, inst environs.Instance) {
 	// TODO(dfc) add machine.WatchConfig() to avoid having to poll.
-	instId := ""
+	var instId, id string
+	var err error
 	if inst != nil {
 		instId = inst.Id()
 	}
 	for a := waitAgent.Start(); a.Next(); {
-		_, err := m.InstanceId()
+		id, err = m.InstanceId()
 		_, notset := err.(*state.NoInstanceIdError)
 		if notset {
 			if inst == nil {
 				return
-			} else {
-				continue
 			}
+			continue
 		}
 		c.Assert(err, IsNil)
 		break
 	}
-	id, err := m.InstanceId()
 	c.Assert(err, IsNil)
 	c.Assert(id, Equals, instId)
 }

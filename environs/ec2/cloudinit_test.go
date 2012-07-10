@@ -61,7 +61,7 @@ func (t *cloudinitTest) check(c *C) {
 	t.checkScripts(c, "JUJU_MACHINE_ID=[0-9]+")
 
 	if t.cfg.provisioner {
-		t.checkScripts(c, `jujud provisioning --zookeeper-servers 'localhost:2181'`)
+		t.checkScripts(c, "jujud provisioning --zookeeper-servers 'localhost"+zkPortSuffix+"'")
 	}
 
 	// TODO check machine agent script.
