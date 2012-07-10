@@ -12,6 +12,7 @@ type unitDoc struct {
 	Service   string
 	Principal string
 	MachineId *int
+	Life      Life
 }
 
 // Unit represents the state of a service unit.
@@ -58,7 +59,8 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 		return *u.doc.MachineId, nil
 	}
 	pudoc := unitDoc{}
-	err = u.st.units.FindId(u.doc.Principal).One(&pudoc)
+	sel := bson.D{{"_id", u.doc.Principal}, {"life", Alive}}
+	err = u.st.units.Find(sel).One(&pudoc)
 	if err != nil {
 		return 0, err
 	}

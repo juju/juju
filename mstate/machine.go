@@ -16,6 +16,7 @@ type Machine struct {
 type machineDoc struct {
 	Id         int `bson:"_id"`
 	InstanceId string
+	Life       Life
 }
 
 // Id returns the machine id.
@@ -26,7 +27,11 @@ func (m *Machine) Id() int {
 // InstanceId returns the provider specific machine id for this machine.
 func (m *Machine) InstanceId() (string, error) {
 	mdoc := &machineDoc{}
-	err := m.st.machines.Find(bson.D{{"_id", m.id}}).One(mdoc)
+	sel := bson.D{
+		{"_id", m.id},
+		{"life", Alive},
+	}
+	err := m.st.machines.Find(sel).One(mdoc)
 	if err != nil {
 		return "", fmt.Errorf("can't get instance id of machine %s: %v", m, err)
 	}
@@ -44,7 +49,8 @@ func (m *Machine) Units() (units []*Unit, err error) {
 	for _, pudoc := range pudocs {
 		units = append(units, newUnit(m.st, &pudoc))
 		docs := []unitDoc{}
-		err = m.st.units.Find(bson.D{{"principal", pudoc.Name}}).All(&docs)
+		sel := bson.D{{"principal", pudoc.Name}, {"life", Alive}}
+		err = m.st.units.Find(sel).All(&docs)
 		if err != nil {
 			return nil, err
 		}

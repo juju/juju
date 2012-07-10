@@ -129,7 +129,7 @@ func (s *StateSuite) assertMachineCount(c *C, expect int) {
 func (s *StateSuite) TestAllMachines(c *C) {
 	numInserts := 42
 	for i := 0; i < numInserts; i++ {
-		err := s.machines.Insert(bson.D{{"_id", i}})
+		err := s.machines.Insert(bson.D{{"_id", i}, {"life", state.Alive}})
 		c.Assert(err, IsNil)
 	}
 	s.assertMachineCount(c, numInserts)
@@ -168,7 +168,10 @@ func (s *StateSuite) TestRemoveMachine(c *C) {
 func (s *StateSuite) TestMachineInstanceId(c *C) {
 	machine, err := s.st.AddMachine()
 	c.Assert(err, IsNil)
-	err = s.machines.Update(bson.D{{"_id", machine.Id()}}, bson.D{{"instanceid", "spaceship/0"}})
+	err = s.machines.Update(
+		bson.D{{"_id", machine.Id()}},
+		bson.D{{"$set", bson.D{{"instanceid", "spaceship/0"}}}},
+	)
 	c.Assert(err, IsNil)
 
 	iid, err := machine.InstanceId()
