@@ -92,19 +92,12 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	}
 	t.BootstrapOnce(c)
 
-	// Wait for a while to let eventual consistency catch up, hopefully.
-	time.Sleep(t.ConsistencyDelay)
-	err := t.Env.Bootstrap(false)
-	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
-
 	info, err := t.Env.StateInfo()
 	c.Assert(err, IsNil)
-	c.Assert(info, NotNil)
-	c.Assert(info.Addrs, Not(HasLen), 0)
 
 	// ensure the environment is destroyed after the test so we don't
 	// leave a broken one for the next test.
-	defer t.Destroy(c)
+	// defer t.Destroy(c)
 
 	st, err := state.Open(info)
 	c.Assert(err, IsNil)
