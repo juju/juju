@@ -2,10 +2,7 @@ package mstate_test
 
 import (
 	. "launchpad.net/gocheck"
-	//	"launchpad.net/juju-core/charm"
 	state "launchpad.net/juju-core/mstate"
-
-//	"time"
 )
 
 type UnitSuite struct {

@@ -53,7 +53,7 @@ func (s *StateSuite) TestAddMachine(c *C) {
 	c.Assert(machine1.Id(), Equals, 1)
 
 	machines := s.AllMachines(c)
-	c.Assert(machines, DeepEquals, []string{"machine-0000000000", "machine-0000000001"})
+	c.Assert(machines, DeepEquals, []int{0, 1})
 }
 
 func (s *StateSuite) TestRemoveMachine(c *C) {
@@ -65,7 +65,7 @@ func (s *StateSuite) TestRemoveMachine(c *C) {
 	c.Assert(err, IsNil)
 
 	machines := s.AllMachines(c)
-	c.Assert(machines, DeepEquals, []string{"machine-0000000001"})
+	c.Assert(machines, DeepEquals, []int{1})
 
 	// Removing a non-existing machine has to fail.
 	// BUG: use error strings from state.
