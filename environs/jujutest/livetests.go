@@ -95,12 +95,9 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	info, err := t.Env.StateInfo()
 	c.Assert(err, IsNil)
 
-	// ensure the environment is destroyed after the test so we don't
-	// leave a broken one for the next test.
-	// defer t.Destroy(c)
-
 	st, err := state.Open(info)
 	c.Assert(err, IsNil)
+
 	// TODO(dfc) need juju/conn.Deploy to push the secrets
 	// into the state.
 
