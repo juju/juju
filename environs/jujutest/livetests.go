@@ -75,22 +75,6 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	if t.CanOpenState {
 		st, err := state.Open(info)
 		c.Assert(err, IsNil)
-		// TODO(dfc) need juju/conn.Deploy to push the secrets
-		// into the state.
-		if t.HasProvisioner {
-			// place a new machine into the state
-			m, err := st.AddMachine()
-			c.Assert(err, IsNil)
-
-			t.assertStartInstance(c, m)
-
-			// now remove it
-			c.Assert(st.RemoveMachine(m.Id()), IsNil)
-
-			// watch the PA remove it
-			t.assertStopInstance(c, m)
-			assertInstanceId(c, m, nil)
-		}
 		err = st.Close()
 		c.Assert(err, IsNil)
 	}
@@ -100,6 +84,48 @@ func (t *LiveTests) TestBootstrap(c *C) {
 
 	// check that we can bootstrap after destroy
 	t.BootstrapOnce(c)
+}
+
+func (t *LiveTests) TestBootstrapProvisioner(c *C) {
+	if !t.CanOpenState || !t.HasProvisioner {
+		c.Skip(fmt.Sprintf("skipping provisioner test, CanOpenState: %v, HasProvisioner: %v", t.CanOpenState, t.HasProvisioner))
+	}
+	t.BootstrapOnce(c)
+
+	// Wait for a while to let eventual consistency catch up, hopefully.
+	time.Sleep(t.ConsistencyDelay)
+	err := t.Env.Bootstrap(false)
+	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
+
+	info, err := t.Env.StateInfo()
+	c.Assert(err, IsNil)
+	c.Assert(info, NotNil)
+	c.Assert(info.Addrs, Not(HasLen), 0)
+
+	// ensure the environment is destroyed after the test so we don't
+	// leave a broken one for the next test.
+	defer t.Destroy(c)
+
+	st, err := state.Open(info)
+	c.Assert(err, IsNil)
+	// TODO(dfc) need juju/conn.Deploy to push the secrets
+	// into the state.
+
+	// place a new machine into the state
+	m, err := st.AddMachine()
+	c.Assert(err, IsNil)
+
+	t.assertStartInstance(c, m)
+
+	// now remove it
+	c.Assert(st.RemoveMachine(m.Id()), IsNil)
+
+	// watch the PA remove it
+	t.assertStopInstance(c, m)
+	assertInstanceId(c, m, nil)
+
+	err = st.Close()
+	c.Assert(err, IsNil)
 }
 
 var waitAgent = environs.AttemptStrategy{
