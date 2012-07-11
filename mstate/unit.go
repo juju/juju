@@ -21,7 +21,6 @@ type Unit struct {
 	doc unitDoc
 }
 
-
 func newUnit(st *State, udoc *unitDoc) *Unit {
 	return &Unit{
 		st:  st,

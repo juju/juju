@@ -73,5 +73,5 @@ func (m *Machine) SetInstanceId(id string) error {
 
 // String returns a unique description of this machine.
 func (m *Machine) String() string {
-	return strconv.Itoa(m.Id())
+	return strconv.Itoa(m.id)
 }
