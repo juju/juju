@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/service/machiner"
+	"launchpad.net/juju-core/worker/machiner"
 )
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
