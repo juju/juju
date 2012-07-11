@@ -39,16 +39,16 @@ func (cs *ConnSuite) TearDownTest(c *C) {
 	cs.MgoSuite.TearDownTest(c)
 }
 
-func (s *ConnSuite) AllMachines(c *C) []string {
+func (s *ConnSuite) AllMachines(c *C) []int {
 	docs := []state.MachineDoc{}
 	err := s.machines.Find(bson.D{{"life", state.Alive}}).All(&docs)
 	c.Assert(err, IsNil)
-	names := []string{}
+	ids := []int{}
 	for _, v := range docs {
-		names = append(names, v.String())
+		ids = append(ids, v.Id)
 	}
-	sort.Strings(names)
-	return names
+	sort.Ints(ids)
+	return ids
 }
 
 // UtilSuite provides the infrastructure for all other 

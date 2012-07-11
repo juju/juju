@@ -3,6 +3,7 @@ package mstate
 import (
 	"fmt"
 	"labix.org/v2/mgo/bson"
+	"strconv"
 )
 
 // Machine represents the state of a machine.
@@ -46,6 +47,7 @@ func (m *Machine) Units() (units []*Unit, err error) {
 		return nil, err
 	}
 	for _, pudoc := range pudocs {
+		units = append(units, newUnit(m.st, &pudoc))
 		docs := []unitDoc{}
 		sel := bson.D{{"principal", pudoc.Name}, {"life", Alive}}
 		err = m.st.units.Find(sel).All(&docs)
@@ -71,5 +73,5 @@ func (m *Machine) SetInstanceId(id string) error {
 
 // String returns a unique description of this machine.
 func (m *Machine) String() string {
-	return fmt.Sprintf("machine-%010d", m.id)
+	return strconv.Itoa(m.id)
 }
