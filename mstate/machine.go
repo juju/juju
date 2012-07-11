@@ -47,6 +47,7 @@ func (m *Machine) Units() (units []*Unit, err error) {
 		return nil, err
 	}
 	for _, pudoc := range pudocs {
+		units = append(units, newUnit(m.st, &pudoc))
 		docs := []unitDoc{}
 		sel := bson.D{{"principal", pudoc.Name}, {"life", Alive}}
 		err = m.st.units.Find(sel).All(&docs)
