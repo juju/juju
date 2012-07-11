@@ -191,9 +191,9 @@ var charmSchema = schema.FieldMap(
 		"name":        schema.String(),
 		"summary":     schema.String(),
 		"description": schema.String(),
-		"peers":       schema.Map(schema.String(), ifaceExpander(1)),
+		"peers":       schema.Map(schema.String(), ifaceExpander(int64(1))),
 		"provides":    schema.Map(schema.String(), ifaceExpander(nil)),
-		"requires":    schema.Map(schema.String(), ifaceExpander(1)),
+		"requires":    schema.Map(schema.String(), ifaceExpander(int64(1))),
 		"revision":    schema.Int(), // Obsolete
 		"subordinate": schema.Bool(),
 	},
