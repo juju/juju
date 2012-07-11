@@ -368,6 +368,60 @@ func (s *StateSuite) TestAllServices(c *C) {
 	c.Assert(services[1].Name(), Equals, "mysql")
 }
 
+var serviceWatchTests = []struct {
+	testOp string
+	name   string
+	idx    int
+}{
+	{"none", "", 0},
+	{"add", "wordpress", 0},
+	{"add", "mysql", 1},
+	{"remove", "wordpress", 0},
+}
+
+func (s *StateSuite) TestWatchServices(c *C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	servicesWatcher := s.State.WatchServices()
+	defer func() {
+		c.Assert(servicesWatcher.Stop(), IsNil)
+	}()
+	services := make([]*state.Service, 2)
+
+	for i, test := range serviceWatchTests {
+		c.Logf("test %d", i)
+		var want *state.ServicesChange
+		switch test.testOp {
+		case "none":
+			want = &state.ServicesChange{}
+		case "add":
+			var err error
+			services[test.idx], err = s.State.AddService(test.name, charm)
+			c.Assert(err, IsNil)
+			want = &state.ServicesChange{[]*state.Service{services[test.idx]}, nil}
+		case "remove":
+			service, err := s.State.Service(test.name)
+			c.Assert(err, IsNil)
+			err = s.State.RemoveService(service)
+			c.Assert(err, IsNil)
+			want = &state.ServicesChange{nil, []*state.Service{services[test.idx]}}
+			services[test.idx] = nil
+		}
+		select {
+		case got, ok := <-servicesWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got, DeepEquals, want)
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("didn't get change: %#v", want)
+		}
+	}
+
+	select {
+	case got := <-servicesWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
 var diffTests = []struct {
 	A, B, want []string
 }{

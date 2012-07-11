@@ -13,7 +13,8 @@ import (
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/state/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"strings"
 )
@@ -61,7 +62,8 @@ func registerLocalTests() {
 // localLiveSuite runs tests from LiveTests using a fake
 // EC2 server that runs within the test process itself.
 type localLiveSuite struct {
-	testing.LoggingSuite
+	coretesting.LoggingSuite
+	testing.StateSuite
 	LiveTests
 	srv localServer
 	env environs.Environ
@@ -111,9 +113,9 @@ func (srv *localServer) startServer(c *C) {
 		c.Fatalf("cannot start s3 test server: %v", err)
 	}
 	aws.Regions["test"] = aws.Region{
-		Name:        "test",
-		EC2Endpoint: srv.ec2srv.URL(),
-		S3Endpoint:  srv.s3srv.URL(),
+		Name:                 "test",
+		EC2Endpoint:          srv.ec2srv.URL(),
+		S3Endpoint:           srv.s3srv.URL(),
 		S3LocationConstraint: true,
 	}
 	s3inst := s3.New(aws.Auth{}, aws.Regions["test"])
@@ -130,9 +132,7 @@ func putFakeTools(c *C, s environs.StorageWriter) {
 	c.Logf("putting fake tools at %v", path)
 	toolsContents := "tools archive, honest guv"
 	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
-	if err != nil {
-		c.Fatal(err)
-	}
+	c.Assert(err, IsNil)
 }
 
 // addSpice adds some "spice" to the local server
@@ -163,7 +163,8 @@ func (srv *localServer) stopServer(c *C) {
 // accessed by using the "test" region, which is changed to point to the
 // network address of the local server.
 type localServerSuite struct {
-	testing.LoggingSuite
+	coretesting.LoggingSuite
+	testing.StateSuite
 	jujutest.Tests
 	srv localServer
 	env environs.Environ
