@@ -77,6 +77,12 @@ func (s *MetaSuite) TestParseMetaRelations(c *C) {
 	c.Assert(meta.Peers["ring"], Equals, charm.Relation{Interface: "riak", Limit: 1, Scope: charm.ScopeGlobal})
 	c.Assert(meta.Requires, IsNil)
 
+	meta, err = charm.ReadMeta(repoMeta("terracotta"))
+	c.Assert(err, IsNil)
+	c.Assert(meta.Provides["dso"], Equals, charm.Relation{Interface: "terracotta", Optional: true, Scope: charm.ScopeGlobal})
+	c.Assert(meta.Peers["server-array"], Equals, charm.Relation{Interface: "terracotta-server", Limit: 1, Scope: charm.ScopeGlobal})
+	c.Assert(meta.Requires, IsNil)
+
 	meta, err = charm.ReadMeta(repoMeta("wordpress"))
 	c.Assert(err, IsNil)
 	c.Assert(meta.Provides["url"], Equals, charm.Relation{Interface: "http", Scope: charm.ScopeGlobal})
