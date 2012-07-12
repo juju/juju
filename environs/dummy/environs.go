@@ -343,7 +343,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	}
 	e.state.bootstrapped = false
 	e.state.storage.files = make(map[string][]byte)
-	
+
 	return nil
 }
 
