@@ -36,6 +36,18 @@ type Instance interface {
 	// WaitDNSName returns the DNS name for the instance,
 	// waiting until it is allocated if necessary.
 	WaitDNSName() (string, error)
+
+	// OpenPorts opens the given ports on the instance, which
+	// should have been started with the given machine id.
+	OpenPorts(machineId int, ports []state.Port) error
+
+	// ClosePorts closes the given ports on the instance, which
+	// should have been started with the given machine id.
+	ClosePorts(machineId int, ports []state.Port) error
+
+	// Ports returns the set of ports open on the instance, which
+	// should have been started with the given machine id.
+	Ports(machineId int) ([]state.Port, error)
 }
 
 var ErrNoInstances = errors.New("no instances found")
@@ -116,26 +128,15 @@ type Environ interface {
 	SetConfig(config EnvironConfig)
 
 	// StartInstance asks for a new instance to be created,
-	// associated with the provided machine identifier.
-	// The given info describes the juju state for the new
-	// instance to connect to.
+	// associated with the provided machine identifier.  The given
+	// info describes the juju state for the new instance to connect
+	// to.  Using the same machine id as another running instance
+	// can lead to undefined results.
 	// TODO add arguments to specify type of new machine.
 	StartInstance(machineId int, info *state.Info) (Instance, error)
 
 	// StopInstances shuts down the given instances.
 	StopInstances([]Instance) error
-
-	// OpenPorts opens the given ports on any instance with the
-	// the given machine id.
-	OpenPorts(machineId int, ports []state.Port) error
-
-	// ClosePorts closes the given ports on any instance with the
-	// the given machine id.
-	ClosePorts(machineId int, ports []state.Port) error
-
-	// Ports returns the set of open ports on any instance with the
-	// given machine id.
-	Ports(machineId int) ([]state.Port, error)
 
 	// Instances returns a slice of instances corresponding to the
 	// given instance ids.  If no instances were found, but there

@@ -97,6 +97,18 @@ func (inst *instance) WaitDNSName() (string, error) {
 	return "", fmt.Errorf("timed out trying to get DNS address for %v", inst.Id())
 }
 
+func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
+	return fmt.Errorf("ec2 OpenPorts not implemented")
+}
+
+func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
+	return fmt.Errorf("ec2 ClosePorts not implemented")
+}
+
+func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
+	return nil, fmt.Errorf("ec2 Ports not implemented")
+}
+
 func (cfg *providerConfig) Open() (environs.Environ, error) {
 	log.Printf("environs/ec2: opening environment %q", cfg.name)
 	if aws.Regions[cfg.region].EC2Endpoint == "" {
@@ -247,18 +259,6 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Instance, error) {
 	log.Printf("environs/ec2: starting machine %d in %q", machineId, e.name)
 	return e.startInstance(machineId, info, false)
-}
-
-func (e *environ) OpenPorts(machineId int, ports []state.Port) error {
-	return fmt.Errorf("ec2 OpenPorts not implemented")
-}
-
-func (e *environ) ClosePorts(machineId int, ports []state.Port) error {
-	return fmt.Errorf("ec2 ClosePorts not implemented")
-}
-
-func (e *environ) Ports(machineId int) (ports []state.Port, err error) {
-	return nil, fmt.Errorf("ec2 Ports not implemented")
 }
 
 func (e *environ) userData(machineId int, info *state.Info, master bool, toolsURL string) ([]byte, error) {

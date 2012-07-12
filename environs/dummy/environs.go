@@ -62,13 +62,17 @@ type OpStopInstances struct {
 }
 
 type OpOpenPorts struct {
-	Env   string
-	Ports []state.Port
+	Env        string
+	MachineId  int
+	InstanceId string
+	Ports      []state.Port
 }
 
 type OpClosePorts struct {
-	Env   string
-	Ports []state.Port
+	Env        string
+	MachineId  int
+	InstanceId string
+	Ports      []state.Port
 }
 
 type OpPutFile GenericOperation
@@ -303,44 +307,6 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	return nil
 }
 
-func (e *environ) OpenPorts(machineId int, ports []state.Port) error {
-	e.state.ops <- OpOpenPorts{Env: e.state.name, Ports: ports}
-	e.state.mu.Lock()
-	defer e.state.mu.Unlock()
-	mports := e.state.ports[machineId]
-	if mports == nil {
-		mports = make(map[state.Port]bool)
-		e.state.ports[machineId] = mports
-	}
-	for _, p := range ports {
-		mports[p] = true
-	}
-	return nil
-}
-
-func (e *environ) ClosePorts(machineId int, ports []state.Port) error {
-	e.state.ops <- OpClosePorts{Env: e.state.name, Ports: ports}
-	e.state.mu.Lock()
-	defer e.state.mu.Unlock()
-	mports := e.state.ports[machineId]
-	if mports == nil {
-		return nil
-	}
-	for _, p := range ports {
-		delete(mports, p)
-	}
-	return nil
-}
-
-func (e *environ) Ports(machineId int) (ports []state.Port, err error) {
-	e.state.mu.Lock()
-	defer e.state.mu.Unlock()
-	for p := range e.state.ports[machineId] {
-		ports = append(ports, p)
-	}
-	return
-}
-
 func (e *environ) StateInfo() (*state.Info, error) {
 	if e.isBroken() {
 		return nil, errBroken
@@ -386,7 +352,10 @@ func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Insta
 	}
 	e.state.mu.Lock()
 	i := &instance{
-		id: fmt.Sprintf("%s-%d", e.state.name, e.state.maxId),
+		state:     e.state,
+		id:        fmt.Sprintf("%s-%d", e.state.name, e.state.maxId),
+		ports:     make(map[state.Port]bool),
+		machineId: machineId,
 	}
 	e.state.insts[i.id] = i
 	e.state.maxId++
@@ -460,17 +429,68 @@ func (e *environ) isBroken() bool {
 }
 
 type instance struct {
-	id string
+	state     *environState
+	ports     map[state.Port]bool
+	id        string
+	machineId int
 }
 
-func (m *instance) Id() string {
-	return m.id
+func (inst *instance) Id() string {
+	return inst.id
 }
 
-func (m *instance) DNSName() (string, error) {
-	return m.id + ".dns", nil
+func (inst *instance) DNSName() (string, error) {
+	return inst.id + ".dns", nil
 }
 
-func (m *instance) WaitDNSName() (string, error) {
-	return m.DNSName()
+func (inst *instance) WaitDNSName() (string, error) {
+	return inst.DNSName()
+}
+
+func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
+	if inst.machineId != machineId {
+		panic(fmt.Errorf("OpenPorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
+	}
+	inst.state.ops <- OpOpenPorts{
+		Env:        inst.state.name,
+		MachineId:  machineId,
+		InstanceId: inst.Id(),
+		Ports:      ports,
+	}
+	inst.state.mu.Lock()
+	defer inst.state.mu.Unlock()
+	for _, p := range ports {
+		inst.ports[p] = true
+	}
+	return nil
+}
+
+func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
+	if inst.machineId != machineId {
+		panic(fmt.Errorf("ClosePorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
+	}
+	inst.state.ops <- OpClosePorts{
+		Env:        inst.state.name,
+		MachineId:  machineId,
+		InstanceId: inst.Id(),
+		Ports:      ports,
+	}
+	inst.state.mu.Lock()
+	defer inst.state.mu.Unlock()
+	for _, p := range ports {
+		delete(inst.ports, p)
+	}
+	return nil
+}
+
+func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
+	if inst.machineId != machineId {
+		panic(fmt.Errorf("Ports with mismatched machine id, expected %d got %d", inst.machineId, machineId))
+	}
+	inst.state.mu.Lock()
+	defer inst.state.mu.Unlock()
+	for p := range inst.ports {
+		ports = append(ports, p)
+	}
+	return
 }
