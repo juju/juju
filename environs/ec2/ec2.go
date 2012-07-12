@@ -249,6 +249,18 @@ func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Insta
 	return e.startInstance(machineId, info, false)
 }
 
+func (e *environ) OpenPorts(machineId int, ports []state.Port) error {
+	return fmt.Errorf("ec2 OpenPorts not implemented")
+}
+
+func (e *environ) ClosePorts(machineId int, ports []state.Port) error {
+	return fmt.Errorf("ec2 ClosePorts not implemented")
+}
+
+func (e *environ) Ports(machineId int) (ports []state.Port, err error) {
+	return nil, fmt.Errorf("ec2 Ports not implemented")
+}
+
 func (e *environ) userData(machineId int, info *state.Info, master bool, toolsURL string) ([]byte, error) {
 	cfg := &machineConfig{
 		provisioner:        master,

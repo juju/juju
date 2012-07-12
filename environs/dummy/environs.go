@@ -61,6 +61,16 @@ type OpStopInstances struct {
 	Instances []environs.Instance
 }
 
+type OpOpenPorts struct {
+	Env   string
+	Ports []state.Port
+}
+
+type OpClosePorts struct {
+	Env   string
+	Ports []state.Port
+}
+
 type OpPutFile GenericOperation
 
 // environProvider represents the dummy provider.  There is only ever one
@@ -81,6 +91,7 @@ type environState struct {
 	mu            sync.Mutex
 	maxId         int // maximum instance id allocated so far.
 	insts         map[string]*instance
+	ports         map[int]map[state.Port]bool
 	bootstrapped  bool
 	storage       *storage
 	publicStorage *storage
@@ -158,6 +169,7 @@ func newState(name string, ops chan<- Operation) *environState {
 		name:  name,
 		ops:   ops,
 		insts: make(map[string]*instance),
+		ports: make(map[int]map[state.Port]bool),
 	}
 	s.storage = newStorage(s, "/"+name+"/private")
 	s.publicStorage = newStorage(s, "/"+name+"/public")
@@ -289,6 +301,44 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	}
 	e.state.bootstrapped = true
 	return nil
+}
+
+func (e *environ) OpenPorts(machineId int, ports []state.Port) error {
+	e.state.ops <- OpOpenPorts{Env: e.state.name, Ports: ports}
+	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
+	mports := e.state.ports[machineId]
+	if mports == nil {
+		mports = make(map[state.Port]bool)
+		e.state.ports[machineId] = mports
+	}
+	for _, p := range ports {
+		mports[p] = true
+	}
+	return nil
+}
+
+func (e *environ) ClosePorts(machineId int, ports []state.Port) error {
+	e.state.ops <- OpClosePorts{Env: e.state.name, Ports: ports}
+	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
+	mports := e.state.ports[machineId]
+	if mports == nil {
+		return nil
+	}
+	for _, p := range ports {
+		delete(mports, p)
+	}
+	return nil
+}
+
+func (e *environ) Ports(machineId int) (ports []state.Port, err error) {
+	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
+	for p := range e.state.ports[machineId] {
+		ports = append(ports, p)
+	}
+	return
 }
 
 func (e *environ) StateInfo() (*state.Info, error) {

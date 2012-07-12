@@ -96,7 +96,6 @@ type Storage interface {
 // consistent with a previous operation.
 // 
 type Environ interface {
-
 	// Name returns the Environ's name.
 	Name() string
 
@@ -125,6 +124,18 @@ type Environ interface {
 
 	// StopInstances shuts down the given instances.
 	StopInstances([]Instance) error
+
+	// OpenPorts opens the given ports on any instance with the
+	// the given machine id.
+	OpenPorts(machineId int, ports []state.Port) error
+
+	// ClosePorts closes the given ports on any instance with the
+	// the given machine id.
+	ClosePorts(machineId int, ports []state.Port) error
+
+	// Ports returns the set of open ports on any instance with the
+	// given machine id.
+	Ports(machineId int) ([]state.Port, error)
 
 	// Instances returns a slice of instances corresponding to the
 	// given instance ids.  If no instances were found, but there
