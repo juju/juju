@@ -82,6 +82,8 @@ func (t *LiveTests) TestPorts(c *C) {
 	inst, err := t.Env.StartInstance(1, InvalidStateInfo)
 	c.Assert(err, IsNil)
 	c.Assert(inst, NotNil)
+	defer t.Env.StopInstances([]environs.Instance{inst})
+
 	ports, err := t.Env.Ports(1)
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
@@ -92,6 +94,7 @@ func (t *LiveTests) TestPorts(c *C) {
 	ports, err = t.Env.Ports(2)
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
+	defer t.Env.StopInstances([]environs.Instance{inst})
 
 	// Open some ports and check they're there.
 	err = t.Env.OpenPorts(1, []state.Port{{"tcp", 45}, {"udp", 67}})
