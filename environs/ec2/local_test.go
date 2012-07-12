@@ -95,6 +95,10 @@ func (t *localLiveSuite) TearDownTest(c *C) {
 	t.LoggingSuite.TearDownTest(c)
 }
 
+func (t *localLiveSuite) TestPorts(c *C) {
+	c.Skip("ports not yet implemented")
+}
+
 // localServer represents a fake EC2 server running within
 // the test process itself.
 type localServer struct {
@@ -193,6 +197,10 @@ func (t *localServerSuite) TearDownTest(c *C) {
 	t.Tests.TearDownTest(c)
 	t.srv.stopServer(c)
 	t.LoggingSuite.TearDownTest(c)
+}
+
+func (t *localServerSuite) TestPorts(c *C) {
+	c.Skip("ports not yet implemented")
 }
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
