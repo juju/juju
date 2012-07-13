@@ -7,8 +7,8 @@ import (
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/firewaller"
-	stdtesting "testing"
 	"sort"
+	stdtesting "testing"
 	"time"
 )
 
