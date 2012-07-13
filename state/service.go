@@ -1,7 +1,3 @@
-// launchpad.net/juju/state
-//
-// Copyright (c) 2011-2012 Canonical Ltd.
-
 package state
 
 import (
@@ -218,17 +214,20 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 	return units, nil
 }
 
-// Relations returns a Relation for every relation the service is in.
-func (s *Service) Relations() (relations []*Relation, err error) {
-	defer errorContextf(&err, "can't get relations for service %q", s)
-	t, err := readTopology(s.st.zk)
-	if err != nil {
-		return nil, err
-	}
+// WatchUnits creates a watcher for the assigned units
+// of the service.
+func (s *Service) WatchUnits() *ServiceUnitsWatcher {
+	return newServiceUnitsWatcher(s)
+}
+
+// relationsFromTopology returns a Relation for every relation the service
+// is in, according to the supplied topology.
+func (s *Service) relationsFromTopology(t *topology) ([]*Relation, error) {
 	trs, err := t.RelationsForService(s.key)
 	if err != nil {
 		return nil, err
 	}
+	relations := []*Relation{}
 	for key, tr := range trs {
 		r := &Relation{s.st, key, make([]RelationEndpoint, len(tr.Endpoints))}
 		i := 0
@@ -247,6 +246,22 @@ func (s *Service) Relations() (relations []*Relation, err error) {
 		relations = append(relations, r)
 	}
 	return relations, nil
+}
+
+// Relations returns a Relation for every relation the service is in.
+func (s *Service) Relations() (relations []*Relation, err error) {
+	defer errorContextf(&err, "can't get relations for service %q", s.name)
+	t, err := readTopology(s.st.zk)
+	if err != nil {
+		return nil, err
+	}
+	return s.relationsFromTopology(t)
+}
+
+// WatchRelations returns a watcher which notifies of changes to the
+// set of relations in which this service is participating.
+func (s *Service) WatchRelations() *ServiceRelationsWatcher {
+	return newServiceRelationsWatcher(s)
 }
 
 // IsExposed returns whether this service is exposed.

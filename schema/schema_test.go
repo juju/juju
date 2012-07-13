@@ -208,13 +208,7 @@ func (s *S) TestMap(c *C) {
 	c.Assert(err, ErrorMatches, `a: expected int, got true`)
 }
 
-func (s *S) TestFieldMap(c *C) {
-	fields := schema.Fields{
-		"a": schema.Const("A"),
-		"b": schema.Const("B"),
-	}
-	sch := schema.FieldMap(fields, schema.Optional{"b"})
-
+func assertFieldMap(c *C, sch schema.Checker) {
 	out, err := sch.Coerce(map[string]interface{}{"a": "A", "b": "B"}, aPath)
 	c.Assert(err, IsNil)
 	c.Assert(out, DeepEquals, schema.MapType{"a": "A", "b": "B"})
@@ -244,6 +238,32 @@ func (s *S) TestFieldMap(c *C) {
 	out, err = sch.Coerce(map[string]bool{"a": true}, nil)
 	c.Assert(out, IsNil)
 	c.Assert(err, ErrorMatches, `a: expected "A", got true`)
+}
+
+func (s *S) TestFieldMap(c *C) {
+	fields := schema.Fields{
+		"a": schema.Const("A"),
+		"b": schema.Const("B"),
+	}
+	sch := schema.FieldMap(fields, schema.Optional{"b"})
+	assertFieldMap(c, sch)
+
+	out, err := sch.Coerce(map[string]interface{}{"a": "A", "b": "B", "c": "C"}, aPath)
+	c.Assert(err, IsNil)
+	c.Assert(out, DeepEquals, schema.MapType{"a": "A", "b": "B"})
+}
+
+func (s *S) TestStrictFieldMap(c *C) {
+	fields := schema.Fields{
+		"a": schema.Const("A"),
+		"b": schema.Const("B"),
+	}
+	sch := schema.StrictFieldMap(fields, schema.Optional{"b"})
+	assertFieldMap(c, sch)
+
+	out, err := sch.Coerce(map[string]interface{}{"a": "A", "b": "B", "c": "C"}, aPath)
+	c.Assert(out, IsNil)
+	c.Assert(err, ErrorMatches, `<path>.c: expected nothing, got "C"`)
 }
 
 func (s *S) TestSchemaMap(c *C) {

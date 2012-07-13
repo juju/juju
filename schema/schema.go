@@ -280,12 +280,19 @@ type Optional []string
 //
 // The coerced output value has type schema.MapType.
 func FieldMap(fields Fields, optional Optional) Checker {
-	return fieldMapC{fields, optional}
+	return fieldMapC{fields, optional, false}
+}
+
+// StrictFieldMap returns a Checker that acts as the one returned by FieldMap,
+// but the Checker returns an error if it encounters an unknown key.
+func StrictFieldMap(fields Fields, optional Optional) Checker {
+	return fieldMapC{fields, optional, true}
 }
 
 type fieldMapC struct {
 	fields   Fields
 	optional []string
+	strict   bool
 }
 
 func (c fieldMapC) isOptional(key string) bool {
@@ -304,6 +311,17 @@ func (c fieldMapC) Coerce(v interface{}, path []string) (interface{}, error) {
 	}
 
 	vpath := append(path, ".", "?")
+
+	if c.strict {
+		for _, k := range rv.MapKeys() {
+			ks := k.String()
+			if _, found := c.fields[ks]; !found {
+				vpath[len(vpath)-1] = ks
+				value := rv.MapIndex(k)
+				return nil, error_{"nothing", value.Interface(), vpath}
+			}
+		}
+	}
 
 	l := rv.Len()
 	out := make(MapType, l)

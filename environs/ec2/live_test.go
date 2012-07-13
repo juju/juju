@@ -55,6 +55,7 @@ func registerAmazonTests() {
 				Name:             name,
 				ConsistencyDelay: 5 * time.Second,
 				CanOpenState:     true,
+				HasProvisioner:   false, // TODO(dfc) waiting on juju/conn.Deploy
 			},
 		})
 	}
@@ -89,6 +90,10 @@ func (t *LiveTests) TearDownSuite(c *C) {
 func (t *LiveTests) SetUpTest(c *C) {
 	t.LoggingSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
+}
+
+func (t *LiveTests) TestPorts(c *C) {
+	c.Skip("ports not yet implemented")
 }
 
 func (t *LiveTests) TearDownTest(c *C) {

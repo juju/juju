@@ -8,13 +8,13 @@ import (
 )
 
 type UnitGetSuite struct {
-	UnitFixture
+	UnitSuite
 }
 
 var _ = Suite(&UnitGetSuite{})
 
 func (s *UnitGetSuite) SetUpTest(c *C) {
-	s.UnitFixture.SetUpTest(c)
+	s.UnitSuite.SetUpTest(c)
 	err := s.unit.SetPublicAddress("gimli.minecraft.example.com")
 	c.Assert(err, IsNil)
 	err = s.unit.SetPrivateAddress("192.168.0.99")

@@ -2,6 +2,7 @@ package ec2
 
 import (
 	"fmt"
+	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/environs"
@@ -96,9 +97,21 @@ func (inst *instance) WaitDNSName() (string, error) {
 	return "", fmt.Errorf("timed out trying to get DNS address for %v", inst.Id())
 }
 
+func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
+	return fmt.Errorf("ec2 OpenPorts not implemented")
+}
+
+func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
+	return fmt.Errorf("ec2 ClosePorts not implemented")
+}
+
+func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
+	return nil, fmt.Errorf("ec2 Ports not implemented")
+}
+
 func (cfg *providerConfig) Open() (environs.Environ, error) {
 	log.Printf("environs/ec2: opening environment %q", cfg.name)
-	if Regions[cfg.region].EC2Endpoint == "" {
+	if aws.Regions[cfg.region].EC2Endpoint == "" {
 		return nil, fmt.Errorf("no ec2 endpoint found for region %q, opening %q", cfg.region, cfg.name)
 	}
 	e := new(environ)
@@ -113,8 +126,8 @@ func (e *environ) SetConfig(cfg environs.EnvironConfig) {
 	// TODO(dfc) bug #1018207, renaming an environment once it is in use should be forbidden
 	e.name = config.name
 	e.configUnlocked = config
-	e.ec2Unlocked = ec2.New(config.auth, Regions[config.region])
-	e.s3Unlocked = s3.New(config.auth, Regions[config.region])
+	e.ec2Unlocked = ec2.New(config.auth, aws.Regions[config.region])
+	e.s3Unlocked = s3.New(config.auth, aws.Regions[config.region])
 
 	// create new storage instances, existing instances continue
 	// to reference their existing configuration.
@@ -146,6 +159,10 @@ func (e *environ) s3() *s3.S3 {
 	e.configMutex.Lock()
 	defer e.configMutex.Unlock()
 	return e.s3Unlocked
+}
+
+func (e *environ) Name() string {
+	return e.config().name
 }
 
 func (e *environ) Storage() environs.Storage {
@@ -245,7 +262,6 @@ func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Insta
 }
 
 func (e *environ) userData(machineId int, info *state.Info, master bool, toolsURL string) ([]byte, error) {
-	config := e.config()
 	cfg := &machineConfig{
 		provisioner:        master,
 		zookeeper:          master,
@@ -254,14 +270,7 @@ func (e *environ) userData(machineId int, info *state.Info, master bool, toolsUR
 		providerType:       "ec2",
 		toolsURL:           toolsURL,
 		machineId:          machineId,
-	}
-
-	if config.authorizedKeys == "" {
-		var err error
-		cfg.authorizedKeys, err = authorizedKeys(config.authorizedKeysPath)
-		if err != nil {
-			return nil, fmt.Errorf("cannot get ssh authorized keys: %v", err)
-		}
+		authorizedKeys:     e.config().authorizedKeys,
 	}
 	cloudcfg, err := newCloudInit(cfg)
 	if err != nil {
@@ -274,7 +283,11 @@ func (e *environ) userData(machineId int, info *state.Info, master bool, toolsUR
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
 func (e *environ) startInstance(machineId int, info *state.Info, master bool) (environs.Instance, error) {
-	spec, err := findInstanceSpec(defaultInstanceConstraint)
+	spec, err := findInstanceSpec(&instanceConstraint{
+		series: environs.CurrentSeries,
+		arch:   environs.CurrentArch,
+		region: e.config().region,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
 	}

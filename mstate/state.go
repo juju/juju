@@ -11,6 +11,14 @@ import (
 	"net/url"
 )
 
+type Life int
+
+const (
+	Alive Life = 1 + iota
+	Dying
+	Dead
+)
+
 // State represents the state of an environment
 // managed by juju.
 type State struct {
@@ -18,6 +26,7 @@ type State struct {
 	charms   *mgo.Collection
 	machines *mgo.Collection
 	services *mgo.Collection
+	units    *mgo.Collection
 }
 
 // AddMachine creates a new machine state.
@@ -27,7 +36,11 @@ func (s *State) AddMachine() (m *Machine, err error) {
 	if err != nil {
 		return nil, err
 	}
-	err = s.machines.Insert(bson.D{{"_id", id}})
+	mdoc := machineDoc{
+		Id:   id,
+		Life: Alive,
+	}
+	err = s.machines.Insert(mdoc)
 	if err != nil {
 		return nil, err
 	}
@@ -36,9 +49,11 @@ func (s *State) AddMachine() (m *Machine, err error) {
 
 // RemoveMachine removes the machine with the the given id.
 func (s *State) RemoveMachine(id int) error {
-	err := s.machines.Remove(bson.D{{"_id", id}})
+	sel := bson.D{{"_id", id}, {"life", Alive}}
+	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
+	err := s.machines.Update(sel, change)
 	if err != nil {
-		return fmt.Errorf("can't remove machine %d", id)
+		return fmt.Errorf("can't remove machine %d: %v", id, err)
 	}
 	return nil
 }
@@ -46,7 +61,8 @@ func (s *State) RemoveMachine(id int) error {
 // AllMachines returns all machines in the environment.
 func (s *State) AllMachines() (machines []*Machine, err error) {
 	mdocs := []machineDoc{}
-	err = s.machines.Find(nil).Select(bson.D{{"_id", 1}}).All(&mdocs)
+	sel := bson.D{{"life", Alive}}
+	err = s.machines.Find(sel).Select(bson.D{{"_id", 1}}).All(&mdocs)
 	if err != nil {
 		return nil, fmt.Errorf("can't get all machines: %v", err)
 	}
@@ -59,7 +75,8 @@ func (s *State) AllMachines() (machines []*Machine, err error) {
 // Machine returns the machine with the given id.
 func (s *State) Machine(id int) (*Machine, error) {
 	mdoc := &machineDoc{}
-	err := s.machines.Find(bson.D{{"_id", id}}).One(mdoc)
+	sel := bson.D{{"_id", id}, {"life", Alive}}
+	err := s.machines.Find(sel).One(mdoc)
 	if err != nil {
 		return nil, fmt.Errorf("can't get machine %d: %v", id, err)
 	}
@@ -98,7 +115,11 @@ func (s *State) Charm(curl *charm.URL) (*Charm, error) {
 // AddService creates a new service state with the given unique name
 // and the charm state.
 func (s *State) AddService(name string, ch *Charm) (service *Service, err error) {
-	sdoc := &serviceDoc{Name: name, CharmURL: ch.URL()}
+	sdoc := &serviceDoc{
+		Name:     name,
+		CharmURL: ch.URL(),
+		Life:     Alive,
+	}
 	err = s.services.Insert(sdoc)
 	if err != nil {
 		return nil, fmt.Errorf("can't add service %q:", name, err)
@@ -109,18 +130,26 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 // RemoveService removes a service from the state. It will also remove all
 // its units and break any of its existing relations.
 func (s *State) RemoveService(svc *Service) (err error) {
-	err = s.services.Remove(bson.D{{"_id", svc.name}})
+	defer errorContextf(&err, "can't remove service %q", svc)
+
+	sel := bson.D{{"_id", svc.name}, {"life", Alive}}
+	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
+	err = s.services.Update(sel, change)
 	if err != nil {
-		return fmt.Errorf("can't remove service %s: %v", svc, err)
+		return err
 	}
-	// TODO Remove units and break relations.
-	return
+
+	sel = bson.D{{"service", svc.name}}
+	change = bson.D{{"$set", bson.D{{"life", Dying}}}}
+	_, err = s.units.UpdateAll(sel, change)
+	return err
 }
 
 // Service returns a service state by name.
 func (s *State) Service(name string) (service *Service, err error) {
 	sdoc := &serviceDoc{}
-	err = s.services.Find(bson.D{{"_id", name}}).One(sdoc)
+	sel := bson.D{{"_id", name}, {"life", Alive}}
+	err = s.services.Find(sel).One(sdoc)
 	if err != nil {
 		return nil, fmt.Errorf("can't get service %q: %v", name, err)
 	}
@@ -130,7 +159,7 @@ func (s *State) Service(name string) (service *Service, err error) {
 // AllServices returns all deployed services in the environment.
 func (s *State) AllServices() (services []*Service, err error) {
 	sdocs := []serviceDoc{}
-	err = s.services.Find(nil).All(&sdocs)
+	err = s.services.Find(bson.D{{"life", Alive}}).All(&sdocs)
 	if err != nil {
 		return nil, fmt.Errorf("can't get all services")
 	}

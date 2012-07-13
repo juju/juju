@@ -61,6 +61,11 @@ type LiveTests struct {
 	// CanOpenState should be true if the testing environment allows
 	// the state to be opened after bootstrapping.
 	CanOpenState bool
+
+	// HasProvisioner should be true if the environment has
+	// a provisioning agent.
+	HasProvisioner bool
+
 	bootstrapped bool
 }
 

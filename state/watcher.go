@@ -64,6 +64,165 @@ func (w *contentWatcher) Err() error {
 	return w.tomb.Err()
 }
 
+// ServicesChange holds services that were added or removed
+// from the environment.
+type ServicesChange struct {
+	Added   []*Service
+	Removed []*Service
+}
+
+// ServicesWatcher observes the addition and removal of services.
+type ServicesWatcher struct {
+	contentWatcher
+	knownServices    map[string]*Service
+	knownServiceKeys []string
+	changeChan       chan *ServicesChange
+}
+
+// newServicesWatcher returns a new ServicesWatcher.
+func newServicesWatcher(st *State) *ServicesWatcher {
+	w := &ServicesWatcher{
+		contentWatcher: newContentWatcher(st, zkTopologyPath),
+		knownServices:  make(map[string]*Service),
+		changeChan:     make(chan *ServicesChange),
+	}
+	go w.loop(w)
+	return w
+}
+
+// Changes returns a channel that will receive a notification when services
+// are added to or removed from the state. The Added field in
+// the first event on the channel holds the initial state as would be 
+// returned by Service.AllServices.
+func (w *ServicesWatcher) Changes() <-chan *ServicesChange {
+	return w.changeChan
+}
+
+func (w *ServicesWatcher) update(change watcher.ContentChange) error {
+	topology, err := parseTopology(change.Content)
+	if err != nil {
+		return err
+	}
+	currentServiceKeys := topology.ServiceKeys()
+	added := diff(currentServiceKeys, w.knownServiceKeys)
+	removed := diff(w.knownServiceKeys, currentServiceKeys)
+	w.knownServiceKeys = currentServiceKeys
+	if w.updated && len(added) == 0 && len(removed) == 0 {
+		return nil
+	}
+	servicesChange := &ServicesChange{}
+	for _, serviceKey := range removed {
+		service := w.knownServices[serviceKey]
+		delete(w.knownServices, serviceKey)
+		servicesChange.Removed = append(servicesChange.Removed, service)
+	}
+	for _, serviceKey := range added {
+		serviceName, err := topology.ServiceName(serviceKey)
+		if err != nil {
+			log.Printf("can't read service %q: %v", serviceKey, err)
+			continue
+		}
+		service, err := w.st.Service(serviceName)
+		if err != nil {
+			log.Printf("can't read service %q: %v", serviceName, err)
+			continue
+		}
+		w.knownServices[serviceKey] = service
+		servicesChange.Added = append(servicesChange.Added, service)
+	}
+	select {
+	case <-w.tomb.Dying():
+		return tomb.ErrDying
+	case w.changeChan <- servicesChange:
+	}
+	return nil
+}
+
+func (w *ServicesWatcher) done() {
+	close(w.changeChan)
+}
+
+// ServiceUnitsChange contains information about
+// units that have been added to or removed from
+// services.
+type ServiceUnitsChange struct {
+	Added   []*Unit
+	Removed []*Unit
+}
+
+// ServiceUnitsWatcher observes the addition and removal
+// of units to and from a service.
+type ServiceUnitsWatcher struct {
+	contentWatcher
+	serviceKey    string
+	knownUnits    map[string]*Unit
+	knownUnitKeys []string
+	changeChan    chan *ServiceUnitsChange
+}
+
+// newServiceUnitsWatcher creates and starts a new watcher
+// for service unit changes.
+func newServiceUnitsWatcher(service *Service) *ServiceUnitsWatcher {
+	w := &ServiceUnitsWatcher{
+		contentWatcher: newContentWatcher(service.st, zkTopologyPath),
+		serviceKey:     service.key,
+		knownUnits:     make(map[string]*Unit),
+		changeChan:     make(chan *ServiceUnitsChange),
+	}
+	go w.loop(w)
+	return w
+}
+
+// Changes returns a channel that will receive changes when units
+// are added to or removed from the service. The Added field in
+// the first event on the channel holds the initial state as returned
+// by Service.AllUnits.
+func (w *ServiceUnitsWatcher) Changes() <-chan *ServiceUnitsChange {
+	return w.changeChan
+}
+
+func (w *ServiceUnitsWatcher) update(change watcher.ContentChange) error {
+	topology, err := parseTopology(change.Content)
+	if err != nil {
+		return err
+	}
+	currentUnitKeys, err := topology.UnitKeys(w.serviceKey)
+	if err != nil {
+		return err
+	}
+	added := diff(currentUnitKeys, w.knownUnitKeys)
+	removed := diff(w.knownUnitKeys, currentUnitKeys)
+	w.knownUnitKeys = currentUnitKeys
+	if w.updated && len(added) == 0 && len(removed) == 0 {
+		return nil
+	}
+	serviceUnitsChange := &ServiceUnitsChange{}
+	for _, unitKey := range removed {
+		unit := w.knownUnits[unitKey]
+		delete(w.knownUnits, unitKey)
+		serviceUnitsChange.Removed = append(serviceUnitsChange.Removed, unit)
+	}
+	for _, unitKey := range added {
+		unit, err := w.st.unitFromKey(topology, unitKey)
+		if err != nil {
+			log.Printf("can't read unit %q: %v", unitKey, err)
+			continue
+		}
+		w.knownUnits[unitKey] = unit
+		serviceUnitsChange.Added = append(serviceUnitsChange.Added, unit)
+	}
+	select {
+	case <-w.tomb.Dying():
+		return tomb.ErrDying
+	case w.changeChan <- serviceUnitsChange:
+	}
+	return nil
+}
+
+func (w *ServiceUnitsWatcher) done() {
+	close(w.changeChan)
+}
+
 // ConfigWatcher observes changes to any configuration node.
 type ConfigWatcher struct {
 	contentWatcher
@@ -295,13 +454,15 @@ func (w *PortsWatcher) done() {
 type MachinesWatcher struct {
 	contentWatcher
 	changeChan       chan *MachinesChange
+	watcher          *watcher.ContentWatcher
 	knownMachineKeys []string
 }
 
 // MachinesChange contains information about
 // machines that have been added or deleted.
 type MachinesChange struct {
-	Added, Deleted []*Machine
+	Added   []*Machine
+	Removed []*Machine
 }
 
 // newMachinesWatcher creates and starts a new watcher for changes to
@@ -329,17 +490,17 @@ func (w *MachinesWatcher) update(change watcher.ContentChange) error {
 	}
 	currentMachineKeys := topology.MachineKeys()
 	added := diff(currentMachineKeys, w.knownMachineKeys)
-	deleted := diff(w.knownMachineKeys, currentMachineKeys)
+	removed := diff(w.knownMachineKeys, currentMachineKeys)
 	w.knownMachineKeys = currentMachineKeys
-	if w.updated && len(added) == 0 && len(deleted) == 0 {
+	if w.updated && len(added) == 0 && len(removed) == 0 {
 		return nil
 	}
 	mc := &MachinesChange{}
 	for _, m := range added {
 		mc.Added = append(mc.Added, &Machine{w.st, m})
 	}
-	for _, m := range deleted {
-		mc.Deleted = append(mc.Deleted, &Machine{w.st, m})
+	for _, m := range removed {
+		mc.Removed = append(mc.Removed, &Machine{w.st, m})
 	}
 	select {
 	case <-w.tomb.Dying():
@@ -362,10 +523,11 @@ type MachineUnitsWatcher struct {
 }
 
 type MachineUnitsChange struct {
-	Added, Deleted []*Unit
+	Added   []*Unit
+	Removed []*Unit
 }
 
-// newMachinesWatcher creates and starts a new machine watcher.
+// newMachineUnitsWatcher creates and starts a new machine units watcher.
 func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 	w := &MachineUnitsWatcher{
 		contentWatcher: newContentWatcher(m.st, zkTopologyPath),
@@ -380,7 +542,7 @@ func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 // Changes returns a channel that will receive changes when
 // units are assigned or unassigned from a machine.
 // The Added field in the first event on the channel holds the initial
-// state as returned by State.AllMachines.
+// state as returned by machine.Units.
 func (w *MachineUnitsWatcher) Changes() <-chan *MachineUnitsChange {
 	return w.changeChan
 }
@@ -392,19 +554,19 @@ func (w *MachineUnitsWatcher) update(change watcher.ContentChange) error {
 	}
 	currentUnitKeys := topology.UnitsForMachine(w.machine.key)
 	added := diff(currentUnitKeys, w.knownUnitKeys)
-	deleted := diff(w.knownUnitKeys, currentUnitKeys)
+	removed := diff(w.knownUnitKeys, currentUnitKeys)
 	w.knownUnitKeys = currentUnitKeys
-	if w.updated && len(added) == 0 && len(deleted) == 0 {
+	if w.updated && len(added) == 0 && len(removed) == 0 {
 		return nil
 	}
 	uc := new(MachineUnitsChange)
-	for _, ukey := range deleted {
+	for _, ukey := range removed {
 		unit := w.knownUnits[ukey]
 		if unit == nil {
-			panic("unknown unit deleted: " + ukey)
+			panic("unknown unit removed: " + ukey)
 		}
 		delete(w.knownUnits, ukey)
-		uc.Deleted = append(uc.Deleted, unit)
+		uc.Removed = append(uc.Removed, unit)
 	}
 	for _, ukey := range added {
 		unit, err := w.st.unitFromKey(topology, ukey)
@@ -427,16 +589,74 @@ func (w *MachineUnitsWatcher) done() {
 	close(w.changeChan)
 }
 
-// diff returns all the elements that exist in A but not B.
-func diff(A, B []string) (missing []string) {
-next:
-	for _, a := range A {
-		for _, b := range B {
-			if a == b {
-				continue next
-			}
-		}
-		missing = append(missing, a)
+// ServiceRelationsWatcher notifies of changes to a service's relations.
+type ServiceRelationsWatcher struct {
+	contentWatcher
+	changeChan chan RelationsChange
+	service    *Service
+	current    map[string]*Relation
+}
+
+type RelationsChange struct {
+	Added, Removed []*Relation
+}
+
+// newServiceRelationsWatcher creates and starts a new service relations watcher.
+func newServiceRelationsWatcher(s *Service) *ServiceRelationsWatcher {
+	w := &ServiceRelationsWatcher{
+		contentWatcher: newContentWatcher(s.st, zkTopologyPath),
+		changeChan:     make(chan RelationsChange),
+		service:        s,
+		current:        make(map[string]*Relation),
 	}
-	return
+	go w.loop(w)
+	return w
+}
+
+// Changes returns a channel that will receive changes when
+// the service enters and leaves relations.
+// The Added field in the first event on the channel holds the initial
+// state, corresponding to that returned by service.Relations.
+func (w *ServiceRelationsWatcher) Changes() <-chan RelationsChange {
+	return w.changeChan
+}
+
+func (w *ServiceRelationsWatcher) update(change watcher.ContentChange) error {
+	t, err := parseTopology(change.Content)
+	if err != nil {
+		return err
+	}
+	relations, err := w.service.relationsFromTopology(t)
+	if err != nil {
+		return err
+	}
+	latest := map[string]*Relation{}
+	for _, rel := range relations {
+		latest[rel.key] = rel
+	}
+	ch := RelationsChange{}
+	for key, rel := range latest {
+		if w.current[key] == nil {
+			ch.Added = append(ch.Added, rel)
+		}
+	}
+	for key, rel := range w.current {
+		if latest[key] == nil {
+			ch.Removed = append(ch.Removed, rel)
+		}
+	}
+	if w.updated && len(ch.Added) == 0 && len(ch.Removed) == 0 {
+		return nil
+	}
+	select {
+	case <-w.tomb.Dying():
+		return tomb.ErrDying
+	case w.changeChan <- ch:
+		w.current = latest
+	}
+	return nil
+}
+
+func (w *ServiceRelationsWatcher) done() {
+	close(w.changeChan)
 }

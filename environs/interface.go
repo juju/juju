@@ -36,6 +36,18 @@ type Instance interface {
 	// WaitDNSName returns the DNS name for the instance,
 	// waiting until it is allocated if necessary.
 	WaitDNSName() (string, error)
+
+	// OpenPorts opens the given ports on the instance, which
+	// should have been started with the given machine id.
+	OpenPorts(machineId int, ports []state.Port) error
+
+	// ClosePorts closes the given ports on the instance, which
+	// should have been started with the given machine id.
+	ClosePorts(machineId int, ports []state.Port) error
+
+	// Ports returns the set of ports open on the instance, which
+	// should have been started with the given machine id.
+	Ports(machineId int) ([]state.Port, error)
 }
 
 var ErrNoInstances = errors.New("no instances found")
@@ -96,6 +108,9 @@ type Storage interface {
 // consistent with a previous operation.
 // 
 type Environ interface {
+	// Name returns the Environ's name.
+	Name() string
+
 	// Bootstrap initializes the state for the environment,
 	// possibly starting one or more instances.
 	// If uploadTools is true, the current version of
@@ -113,9 +128,10 @@ type Environ interface {
 	SetConfig(config EnvironConfig)
 
 	// StartInstance asks for a new instance to be created,
-	// associated with the provided machine identifier.
-	// The given info describes the juju state for the new
-	// instance to connect to.
+	// associated with the provided machine identifier.  The given
+	// info describes the juju state for the new instance to connect
+	// to.  Using the same machine id as another running instance
+	// can lead to undefined results.
 	// TODO add arguments to specify type of new machine.
 	StartInstance(machineId int, info *state.Info) (Instance, error)
 
