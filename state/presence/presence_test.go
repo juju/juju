@@ -367,12 +367,12 @@ func (s *PresenceSuite) TestChildrenWatcher(c *C) {
 	w := presence.NewChildrenWatcher(s.zkConn, "/nodes")
 
 	// Check initial event.
-	assertChange := func(added, deleted []string) {
+	assertChange := func(added, removed []string) {
 		select {
 		case ch, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
 			c.Assert(ch.Added, DeepEquals, added)
-			c.Assert(ch.Deleted, DeepEquals, deleted)
+			c.Assert(ch.Removed, DeepEquals, removed)
 		case <-time.After(longEnough):
 			c.Fatalf("expected change, got none")
 		}

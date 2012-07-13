@@ -287,6 +287,8 @@ type ChildrenWatcher struct {
 	conn    *zk.Conn
 	tomb    tomb.Tomb
 	path    string
+	alive   map[string]struct{}
+	stops   map[string]chan struct{}
 	updates chan aliveChange
 	changes chan watcher.ChildrenChange
 }
@@ -304,6 +306,8 @@ func NewChildrenWatcher(conn *zk.Conn, path string) *ChildrenWatcher {
 	w := &ChildrenWatcher{
 		conn:    conn,
 		path:    path,
+		alive:   make(map[string]struct{}),
+		stops:   make(map[string]chan struct{}),
 		updates: make(chan aliveChange),
 		changes: make(chan watcher.ChildrenChange),
 	}
@@ -331,12 +335,7 @@ func (w *ChildrenWatcher) Err() error {
 }
 
 func (w *ChildrenWatcher) loop() {
-	// Note that we never close w.updates: child loops may still be attempting
-	// to send events while we're shutting down. They'll terminate in good time,
-	// when they notice w.tomb.Dying(), so the fact that we're no longer reading
-	// from w.updates won't block anything for long.
-	defer w.tomb.Done()
-	defer close(w.changes)
+	defer w.finish()
 	cw := watcher.NewChildrenWatcher(w.conn, w.path)
 	defer watcher.Stop(cw, &w.tomb)
 	emittedValue := false
@@ -350,23 +349,30 @@ func (w *ChildrenWatcher) loop() {
 			if !ok {
 				err = watcher.MustErr(cw)
 			} else {
-				change, err = w.startWatches(ch)
+				change, err = w.changeWatches(ch)
 			}
 			if err != nil {
 				w.tomb.Kill(err)
 				return
 			}
-			if emittedValue && len(change.Added) == 0 {
+			if emittedValue && len(change.Added) == 0 && len(change.Removed) == 0 {
 				continue
 			}
 		case ch, ok := <-w.updates:
 			if !ok {
-				panic("updates channel closed unexpectedly")
+				panic("updates channel closed")
 			}
 			if ch.alive {
+				w.alive[ch.key] = struct{}{}
 				change = watcher.ChildrenChange{Added: []string{ch.key}}
+			} else if _, alive := w.alive[ch.key]; alive {
+				delete(w.alive, ch.key)
+				change = watcher.ChildrenChange{Removed: []string{ch.key}}
 			} else {
-				change = watcher.ChildrenChange{Deleted: []string{ch.key}}
+				// The node is already known to be dead, as a result of a
+				// child removal detected by cw, and no further action need
+				// be taken.
+				continue
 			}
 		}
 		select {
@@ -378,12 +384,30 @@ func (w *ChildrenWatcher) loop() {
 	}
 }
 
-// startWatches starts new presence watches on newly-added candidates. It
-// returns a ChildrenChange representing only those changes that correspond
-// to the presence of a Pinger on a candidate node. Deleted nodes are ignored;
-// childLoop will terminate on node deletion.
-func (w *ChildrenWatcher) startWatches(ch watcher.ChildrenChange) (watcher.ChildrenChange, error) {
+func (w *ChildrenWatcher) finish() {
+	for _, stop := range w.stops {
+		close(stop)
+	}
+	close(w.changes)
+	w.tomb.Done()
+}
+
+// changeWatches starts new presence watches on newly-added candidates, and
+// stops them on deleted ones. It returns a ChildrenChange representing only
+// those changes that correspond to the presence or hitherto-undetected
+// absence of a Pinger on a candidate node.
+func (w *ChildrenWatcher) changeWatches(ch watcher.ChildrenChange) (watcher.ChildrenChange, error) {
 	change := watcher.ChildrenChange{}
+	for _, key := range ch.Removed {
+		stop := w.stops[key]
+		delete(w.stops, key)
+		close(stop)
+		// The node may already be known to be dead.
+		if _, alive := w.alive[key]; alive {
+			delete(w.alive, key)
+			change.Removed = append(change.Removed, key)
+		}
+	}
 	for _, key := range ch.Added {
 		path := w.path + "/" + key
 		alive, aliveW, err := AliveW(w.conn, path)
@@ -391,44 +415,43 @@ func (w *ChildrenWatcher) startWatches(ch watcher.ChildrenChange) (watcher.Child
 			return watcher.ChildrenChange{}, err
 		}
 		if alive {
+			w.alive[key] = struct{}{}
 			change.Added = append(change.Added, key)
 		}
-		go w.childLoop(key, path, aliveW)
+		stop := make(chan struct{})
+		w.stops[key] = stop
+		go w.childLoop(key, path, aliveW, stop)
 	}
 	return change, nil
 }
 
 // childLoop sends aliveChange events to w.updates, in response to presence
-// changes received from watch, until either w is stopped or the presence node
-// is deleted. When the node still exists -- ie when the corresponding Pinger
-// has been Stopped (or has just failed) rather than being Killed -- we
-// maintain the watch, because w.watcher will not notify us of a new Pinger
-// starting on an existing node.
-func (w *ChildrenWatcher) childLoop(key, path string, watch <-chan bool) {
+// changes received from watch, until its stop chan is closed.
+func (w *ChildrenWatcher) childLoop(key, path string, watch <-chan bool, stop <-chan struct{}) {
 	for {
 		select {
-		case <-w.tomb.Dying():
+		case <-stop:
 			return
 		case alive, ok := <-watch:
 			if !ok {
 				w.tomb.Killf("presence watch on %q failed", path)
 				return
 			}
-			select {
-			case <-w.tomb.Dying():
-				return
-			case w.updates <- aliveChange{key, alive}:
-			}
-			if alive {
-				continue
-			}
-			stat, err := w.conn.Exists(path)
+			var aliveNow bool
+			var err error
+			aliveNow, watch, err = AliveW(w.conn, path)
 			if err != nil {
 				w.tomb.Kill(err)
 				return
 			}
-			if stat == nil {
+			if aliveNow != alive {
+				// state changed an odd number of times since the watch fired.
+				continue
+			}
+			select {
+			case <-stop:
 				return
+			case w.updates <- aliveChange{key, aliveNow}:
 			}
 		}
 	}
