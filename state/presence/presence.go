@@ -468,7 +468,7 @@ func (w *ChildrenWatcher) changeWatches(ch watcher.ChildrenChange) (watcher.Chil
 		stop := w.stops[key]
 		delete(w.stops, key)
 		close(stop)
-		// The node may already be known to be dead.
+		// The node might not already be known to be dead.
 		if _, alive := w.alive[key]; alive {
 			delete(w.alive, key)
 			change.Removed = append(change.Removed, key)
@@ -480,19 +480,20 @@ func (w *ChildrenWatcher) changeWatches(ch watcher.ChildrenChange) (watcher.Chil
 		if err != nil {
 			return watcher.ChildrenChange{}, err
 		}
+		stop := make(chan struct{})
+		w.stops[key] = stop
+		go w.childLoop(key, path, aliveW, stop)
 		if alive {
 			w.alive[key] = struct{}{}
 			change.Added = append(change.Added, key)
 		}
-		stop := make(chan struct{})
-		w.stops[key] = stop
-		go w.childLoop(key, path, aliveW, stop)
 	}
 	return change, nil
 }
 
 // childLoop sends aliveChange events to w.updates, in response to presence
-// changes received from watch, until its stop chan is closed.
+// changes received from watch (which is refreshed internally as required),
+// until its stop chan is closed.
 func (w *ChildrenWatcher) childLoop(key, path string, watch <-chan bool, stop <-chan struct{}) {
 	for {
 		select {
@@ -503,8 +504,8 @@ func (w *ChildrenWatcher) childLoop(key, path string, watch <-chan bool, stop <-
 				w.tomb.Killf("presence watch on %q failed", path)
 				return
 			}
-			var aliveNow bool
 			var err error
+			var aliveNow bool
 			aliveNow, watch, err = AliveW(w.conn, path)
 			if err != nil {
 				w.tomb.Kill(err)
