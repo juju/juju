@@ -123,8 +123,15 @@ func (t *LiveTests) TestPorts(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(sortedPorts(ports), DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}})
 
-	// Check that we can close a port and that there's no crosstalk.
-	err = inst2.ClosePorts(2, []state.Port{{"tcp", 45}})
+	// Check that opening the same port again and another port is ok.
+	err = inst2.OpenPorts(2, []state.Port{{"tcp", 45}, {"tcp", 99}})
+	c.Assert(err, IsNil)
+	ports, err = inst2.Ports(2)
+	c.Assert(err, IsNil)
+	c.Assert(sortedPorts(ports), DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
+
+	// Check that we can close ports and that there's no crosstalk.
+	err = inst2.ClosePorts(2, []state.Port{{"tcp", 45}, {"tcp", 99}})
 	c.Assert(err, IsNil)
 	ports, err = inst2.Ports(2)
 	c.Assert(err, IsNil)

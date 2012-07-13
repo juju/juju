@@ -517,8 +517,24 @@ func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 	}
 	g := ec2.SecurityGroup{Name: inst.e.machineGroupName(machineId)}
 	_, err := inst.e.ec2().AuthorizeSecurityGroup(g, ipPerms)
-	if err != nil && ec2ErrCode(err) != "InvalidPermission.Duplicate" {
-		return err
+	if err != nil && ec2ErrCode(err) == "InvalidPermission.Duplicate" {
+		if len(ports) == 1 {
+			return nil
+		}
+		// If there's more than one port and we get a duplicate error,
+		// then we go through authorizing each port individually,
+		// otherwise the ports that were *not* duplicates will have
+		// been ignored
+		for i := range ipPerms {
+			_, err := inst.e.ec2().AuthorizeSecurityGroup(g, ipPerms[i:i+1])
+			if err != nil && ec2ErrCode(err) != "InvalidPermission.Duplicate" {
+				return fmt.Errorf("cannot open port %v: %v", ipPerms[i], err)
+			}
+		}
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("cannot open ports: %v", err)
 	}
 	return nil
 }
