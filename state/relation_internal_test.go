@@ -118,7 +118,7 @@ func (s *RelationUnitsWatcherSuite) TestWatcher(c *C) {
 		case ch, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
 			c.Assert(ch, DeepEquals, expect)
-		case <-time.After(200 * time.Millisecond):
+		case <-time.After(500 * time.Millisecond):
 			c.Fatalf("expected %#v, got nothing", expect)
 		}
 	}
