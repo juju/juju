@@ -17,6 +17,9 @@ type machineConfig struct {
 	// provisioner specifies whether the new machine will run a provisioning agent.
 	provisioner bool
 
+	// machiner specifies whether the new machine will run a machine agent.
+	machiner bool
+
 	// zookeeper specifies whether the new machine will run a zookeeper instance.
 	zookeeper bool
 
@@ -133,6 +136,27 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 		}
 		addScripts(c, cmds...)
 	}
+
+	if cfg.machiner {
+		svc := upstart.NewService("jujud-machine-agent")
+		// TODO(rogerpeppe) change upstart.Conf.Cmd to []string so that
+		// we don't have to second-guess upstart's quoting rules.
+		conf := &upstart.Conf{
+			Service: *svc,
+			Desc:    "juju machine agent",
+			Cmd: jujutools + "/jujud machine" +
+				" --zookeeper-servers " + fmt.Sprintf("'%s'", cfg.zookeeperHostAddrs()) +
+				" --log-file /var/log/juju/machine-agent.log" +
+				debugFlag,
+		}
+		cmds, err := conf.InstallCommands()
+		if err != nil {
+			return nil, fmt.Errorf("cannot make cloudinit machine agent upstart script: %v", err)
+		}
+		addScripts(c, cmds...)
+	}
+
+	// general options
 
 	// general options
 	c.SetAptUpgrade(true)
