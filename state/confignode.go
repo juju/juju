@@ -171,6 +171,9 @@ func (c *ConfigNode) Write() (changes []ItemChange, err error) {
 			}
 			changes = append(changes, change)
 		}
+		if len(changes) == 0 {
+			return yaml, nil
+		}
 		currentYaml, err := goyaml.Marshal(current)
 		if err != nil {
 			return "", err
