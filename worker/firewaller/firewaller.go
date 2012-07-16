@@ -16,7 +16,10 @@ type Firewaller struct {
 	environWatcher      *state.ConfigWatcher
 	machinesWatcher     *state.MachinesWatcher
 	machines            map[int]*machine
+	units               map[string]*unit
+	services            map[string]*service
 	machineUnitsChanges chan *machineUnitsChange
+	unitPortsChanges    chan *unitPortsChange
 }
 
 // NewFirewaller returns a new Firewaller.
@@ -30,7 +33,10 @@ func NewFirewaller(info *state.Info) (*Firewaller, error) {
 		info:                info,
 		machinesWatcher:     st.WatchMachines(),
 		machines:            make(map[int]*machine),
+		units:               make(map[string]*unit),
+		services:            make(map[string]*service),
 		machineUnitsChanges: make(chan *machineUnitsChange),
+		unitPortsChanges:    make(chan *unitPortsChange),
 	}
 	go fw.loop()
 	return fw, nil
@@ -71,8 +77,8 @@ func (fw *Firewaller) loop() {
 			for _, removedMachine := range change.Removed {
 				m, ok := fw.machines[removedMachine.Id()]
 				if !ok {
-					// TODO(mue) Error handling in
-					// case of not managed machine?
+					// TODO(mue) Panic in case of
+					// not yet managed machine?
 				}
 				m.watcher.Stop()
 				delete(fw.machines, removedMachine.Id())
@@ -83,11 +89,40 @@ func (fw *Firewaller) loop() {
 					watcher: addedMachine.WatchUnits(),
 					ports:   make(map[state.Port]*unit),
 				}
+				go m.loop(fw)
 				fw.machines[addedMachine.Id()] = m
 				log.Debugf("Added machine %v", m.id)
 			}
-		case <-fw.machineUnitsChanges:
-			// TODO(mue) fill with life.
+		case change, ok := <-fw.machineUnitsChanges:
+			if !ok {
+				fw.tomb.Killf("aggregation of machine units changes failed")
+				return
+			}
+			if change.stateChange != nil {
+				for _, removedUnit := range change.stateChange.Removed {
+					u, ok := fw.units[removedUnit.Name()]
+					if !ok {
+						// TODO(mue) Panic in case of
+						// a not yet managed unit?
+					}
+					u.watcher.Stop()
+					delete(fw.units, removedUnit.Name())
+				}
+				for _, addedUnit := range change.stateChange.Added {
+					u := &unit{
+						name:    addedUnit.Name(),
+						watcher: addedUnit.WatchPorts(),
+						ports:   make([]state.Port, 0),
+					}
+					fw.units[addedUnit.Name()] = u
+					go u.loop(fw)
+					if fw.services[addedUnit.ServiceName()] == nil {
+						// TODO(mue) Add service watcher.
+					}
+				}
+			}
+		case <-fw.unitPortsChanges:
+			// TODO(mue) Handle changes of ports.
 		}
 	}
 }
@@ -103,6 +138,7 @@ func (fw *Firewaller) Stop() error {
 	return fw.tomb.Wait()
 }
 
+// machine keeps track of the unit changes of a machine.
 type machine struct {
 	id      int
 	watcher *state.MachineUnitsWatcher
@@ -110,8 +146,8 @@ type machine struct {
 }
 
 type machineUnitsChange struct {
-	machine *machine
-	change  *state.MachineUnitsChange
+	machine     *machine
+	stateChange *state.MachineUnitsChange
 }
 
 func (m *machine) loop(fw *Firewaller) {
@@ -120,9 +156,9 @@ func (m *machine) loop(fw *Firewaller) {
 		select {
 		case <-fw.tomb.Dying():
 			return
-		case change, ok := <-m.watcher.Changes():
+		case stateChange, ok := <-m.watcher.Changes():
 			select {
-			case fw.machineUnitsChanges <- &machineUnitsChange{m, change}:
+			case fw.machineUnitsChanges <- &machineUnitsChange{m, stateChange}:
 			case <-fw.tomb.Dying():
 				return
 			}
@@ -133,12 +169,40 @@ func (m *machine) loop(fw *Firewaller) {
 	}
 }
 
-type service struct {
-	exposed bool
+// unit keeps track of the port changes of a unit.
+type unit struct {
+	svc     *service
+	name    string
+	watcher *state.PortsWatcher
+	ports   []state.Port
 }
 
-type unit struct {
-	svc   *service
-	id    string
-	ports []state.Port
+type unitPortsChange struct {
+	unit        *unit
+	stateChange []state.Port
+}
+
+func (u *unit) loop(fw *Firewaller) {
+	defer u.watcher.Stop()
+	for {
+		select {
+		case <-fw.tomb.Dying():
+			return
+		case stateChange, ok := <-u.watcher.Changes():
+			select {
+			case fw.unitPortsChanges <- &unitPortsChange{u, stateChange}:
+			case <-fw.tomb.Dying():
+				return
+			}
+			if !ok {
+				return
+			}
+		}
+	}
+}
+
+// service keeps track of the changes of a service.
+type service struct {
+	name    string
+	exposed bool
 }

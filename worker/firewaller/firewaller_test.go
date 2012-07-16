@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/firewaller"
@@ -19,7 +20,8 @@ func TestPackage(t *stdtesting.T) {
 type FirewallerSuite struct {
 	coretesting.LoggingSuite
 	testing.StateSuite
-	op <-chan dummy.Operation
+	op    <-chan dummy.Operation
+	charm *state.Charm
 }
 
 // invalidateEnvironment alters the environment configuration
@@ -111,6 +113,46 @@ func (s *FirewallerSuite) TestAddRemoveMachine(c *C) {
 	sort.Ints(addedMachines)
 	sort.Ints(allMachines)
 	c.Assert(addedMachines, DeepEquals, allMachines)
+
+	c.Assert(fw.Stop(), IsNil)
+}
+
+func (s *FirewallerSuite) TestAssignUnassignUnit(c *C) {
+	fw, err := firewaller.NewFirewaller(s.StateInfo(c))
+	c.Assert(err, IsNil)
+
+	m1, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	m2, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	s.charm = s.AddTestingCharm(c, "dummy")
+	s1, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	u1, err := s1.AddUnit()
+	c.Assert(err, IsNil)
+	err = u1.AssignToMachine(m1)
+	c.Assert(err, IsNil)
+	u2, err := s1.AddUnit()
+	c.Assert(err, IsNil)
+	err = u2.AssignToMachine(m2)
+	c.Assert(err, IsNil)
+	time.Sleep(100 * time.Millisecond)
+
+	addedUnits := []string{u1.Name(), u2.Name()}
+	allUnits := fw.AllUnits()
+	sort.Strings(addedUnits)
+	sort.Strings(allUnits)
+	c.Assert(addedUnits, DeepEquals, allUnits)
+
+	err = u1.UnassignFromMachine()
+	c.Assert(err, IsNil)
+	time.Sleep(100 * time.Millisecond)
+
+	addedUnits = []string{u2.Name()}
+	allUnits = fw.AllUnits()
+	sort.Strings(addedUnits)
+	sort.Strings(allUnits)
+	c.Assert(addedUnits, DeepEquals, allUnits)
 
 	c.Assert(fw.Stop(), IsNil)
 }
