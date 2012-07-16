@@ -506,15 +506,7 @@ func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 		return nil
 	}
 	// Give permissions for anyone to access the given ports.
-	ipPerms := make([]ec2.IPPerm, len(ports))
-	for i, p := range ports {
-		ipPerms[i] = ec2.IPPerm{
-			Protocol:  p.Protocol,
-			FromPort:  p.Number,
-			ToPort:    p.Number,
-			SourceIPs: []string{"0.0.0.0/0"},
-		}
-	}
+	ipPerms := portsToIPPerms(ports)
 	g := ec2.SecurityGroup{Name: inst.e.machineGroupName(machineId)}
 	_, err := inst.e.ec2().AuthorizeSecurityGroup(g, ipPerms)
 	if err != nil && ec2ErrCode(err) == "InvalidPermission.Duplicate" {
@@ -544,6 +536,17 @@ func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 		return nil
 	}
 	// Revoke permissions for anyone to access the given ports.
+	// Note that ec2 allows the revocation of permissions that aren't
+	// granted, so this is naturally idempotent.
+	g := ec2.SecurityGroup{Name: inst.e.machineGroupName(machineId)}
+	_, err := inst.e.ec2().RevokeSecurityGroup(g, portsToIPPerms(ports))
+	if err != nil {
+		return fmt.Errorf("cannot close ports: %v", err)
+	}
+	return nil
+}
+
+func portsToIPPerms(ports []state.Port) []ec2.IPPerm {
 	ipPerms := make([]ec2.IPPerm, len(ports))
 	for i, p := range ports {
 		ipPerms[i] = ec2.IPPerm{
@@ -553,12 +556,7 @@ func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 			SourceIPs: []string{"0.0.0.0/0"},
 		}
 	}
-	g := ec2.SecurityGroup{Name: inst.e.machineGroupName(machineId)}
-	_, err := inst.e.ec2().RevokeSecurityGroup(g, ipPerms)
-	if err != nil {
-		return fmt.Errorf("cannot open ports: %v", err)
-	}
-	return nil
+	return ipPerms
 }
 
 func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
@@ -571,7 +569,7 @@ func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 		return nil, fmt.Errorf("expected one security group, got %d", len(resp.Groups))
 	}
 	for _, p := range resp.Groups[0].IPPerms {
-		if len(p.SourceIPs) != 1 || p.SourceIPs[0] != "0.0.0.0/0" {
+		if len(p.SourceIPs) != 1 {
 			log.Printf("environs/ec2: unexpected IP permission found: %v", p)
 			continue
 		}
