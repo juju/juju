@@ -39,6 +39,21 @@ func (c *InitzkCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run initializes zookeeper state for an environment.
 func (c *InitzkCommand) Run(_ *cmd.Context) error {
-	_, err := state.Initialize(&c.StateInfo)
-	return err
+	st, err := state.Initialize(&c.StateInfo)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+
+	// manually insert machine 0 into the state
+	m, err := st.AddMachine()
+	if err != nil {
+		return err
+	}
+
+	// set the instance id of machine/0 
+	if err := m.SetInstanceId(c.InstanceId); err != nil {
+		return err
+	}
+	return nil
 }
