@@ -109,18 +109,21 @@ func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 	return nil, fmt.Errorf("ec2 Ports not implemented")
 }
 
-func (cfg *providerConfig) Open() (environs.Environ, error) {
+func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	log.Printf("environs/ec2: opening environment %q", cfg.name)
-	if aws.Regions[cfg.region].EC2Endpoint == "" {
-		return nil, fmt.Errorf("no ec2 endpoint found for region %q, opening %q", cfg.region, cfg.name)
-	}
 	e := new(environ)
 	e.SetConfig(cfg)
 	return e, nil
 }
 
-func (e *environ) SetConfig(cfg environs.EnvironConfig) {
-	config := cfg.(*providerConfig)
+func (e *environ) SetConfig(cfg *config.Config) error {
+	config, err := e.newConfig(cfg)
+	if err != nil {
+		return err
+	}
+	if aws.Regions[config.region].EC2Endpoint == "" {
+		return fmt.Errorf("no ec2 endpoint found for region %q, opening %q", cfg.region, cfg.name)
+	}
 	e.configMutex.Lock()
 	defer e.configMutex.Unlock()
 	// TODO(dfc) bug #1018207, renaming an environment once it is in use should be forbidden
@@ -141,6 +144,7 @@ func (e *environ) SetConfig(cfg environs.EnvironConfig) {
 	} else {
 		e.publicStorageUnlocked = nil
 	}
+	return nil
 }
 
 func (e *environ) config() *providerConfig {

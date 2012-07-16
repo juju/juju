@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/config"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/version"
@@ -45,7 +46,7 @@ func mkVersion(vers string) version.Version {
 }
 
 func mkToolsPath(vers string) string {
-	return environs.ToolsPath(mkVersion(vers), environs.CurrentSeries, environs.CurrentArch)
+	return environs.ToolsPath(mkVersion(vers), config.CurrentSeries, config.CurrentArch)
 }
 
 var _ = Suite(&ToolsSuite{})
@@ -199,8 +200,8 @@ var findToolsTests = []struct {
 	// mismatching series or architecture is ignored.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		environs.ToolsPath(mkVersion("1.9.9"), "foo", environs.CurrentArch),
-		environs.ToolsPath(mkVersion("1.9.9"), environs.CurrentSeries, "foo"),
+		environs.ToolsPath(mkVersion("1.9.9"), "foo", config.CurrentArch),
+		environs.ToolsPath(mkVersion("1.9.9"), config.CurrentSeries, "foo"),
 		mkToolsPath("1.0.0"),
 	},
 	expect: mkToolsPath("1.0.0"),
@@ -221,7 +222,7 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 			err := t.env.PublicStorage().(environs.Storage).Put(name, strings.NewReader(data), int64(len(data)))
 			c.Assert(err, IsNil)
 		}
-		url, err := environs.FindTools(t.env, tt.version, environs.CurrentSeries, environs.CurrentArch)
+		url, err := environs.FindTools(t.env, tt.version, config.CurrentSeries, config.CurrentArch)
 		if tt.err != "" {
 			c.Assert(err, ErrorMatches, tt.err)
 		} else {
@@ -233,61 +234,5 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 			c.Assert(string(data), Equals, tt.expect, Commentf("url %s", url))
 		}
 		t.env.Destroy(nil)
-	}
-}
-
-var readSeriesTests = []struct {
-	contents string
-	series   string
-}{{
-	`DISTRIB_ID=Ubuntu
-DISTRIB_RELEASE=12.04
-DISTRIB_CODENAME=precise
-DISTRIB_DESCRIPTION="Ubuntu 12.04 LTS"`,
-	"precise",
-}, {
-	"DISTRIB_CODENAME= \tprecise\t",
-	"precise",
-}, {
-	`DISTRIB_CODENAME="precise"`,
-	"precise",
-}, {
-	"DISTRIB_CODENAME='precise'",
-	"precise",
-}, {
-	`DISTRIB_ID=Ubuntu
-DISTRIB_RELEASE=12.10
-DISTRIB_CODENAME=quantal
-DISTRIB_DESCRIPTION="Ubuntu 12.10"`,
-	"quantal",
-}, {
-	"",
-	"unknown",
-},
-}
-
-func (t *ToolsSuite) TestReadSeries(c *C) {
-	d := c.MkDir()
-	f := filepath.Join(d, "foo")
-	for i, t := range readSeriesTests {
-		c.Logf("test %d", i)
-		err := ioutil.WriteFile(f, []byte(t.contents), 0666)
-		c.Assert(err, IsNil)
-		c.Assert(environs.ReadSeries(f), Equals, t.series)
-	}
-}
-
-func (t *ToolsSuite) TestCurrentSeries(c *C) {
-	s := environs.CurrentSeries
-	if s == "unknown" {
-		s = "n/a"
-	}
-	out, err := exec.Command("lsb_release", "-c").CombinedOutput()
-	if err != nil {
-		// If the command fails (for instance if we're running on some other
-		// platform) then CurrentSeries should be unknown.
-		c.Assert(s, Equals, "n/a")
-	} else {
-		c.Assert(string(out), Equals, "Codename:\t"+s+"\n")
 	}
 }

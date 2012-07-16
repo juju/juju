@@ -4,21 +4,15 @@ import (
 	"errors"
 	"io"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/environs/config"
 )
 
 // A EnvironProvider represents a computing and storage provider.
 type EnvironProvider interface {
-	// NewConfig returns a new EnvironConfig representing the
-	// environment with the given attributes.  Every provider must
-	// accept the "name" and "type" keys, holding the name of the
-	// environment and the provider type respectively.
-	NewConfig(attrs map[string]interface{}) (EnvironConfig, error)
-}
-
-// EnvironConfig represents an environment's configuration.
-type EnvironConfig interface {
 	// Open opens the environment and returns it.
-	Open() (Environ, error)
+	Open(config *config.Config) (Environ, error)
+
+	// TODO: add Validate
 }
 
 var ErrNoDNSName = errors.New("DNS name not allocated")
@@ -125,7 +119,7 @@ type Environ interface {
 	// SetConfig updates the Environs configuration.
 	// Calls to SetConfig do not affect the configuration of
 	// values previously obtained from Storage and PublicStorage.
-	SetConfig(config EnvironConfig)
+	SetConfig(config *config.Config) error
 
 	// StartInstance asks for a new instance to be created,
 	// associated with the provided machine identifier.  The given

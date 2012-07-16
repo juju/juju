@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/version"
 	"os"
@@ -15,30 +16,6 @@ import (
 	"runtime"
 	"strings"
 )
-
-var CurrentSeries = readSeries("/etc/lsb-release") // current Ubuntu release name.   
-var CurrentArch = ubuntuArch(runtime.GOARCH)
-
-func readSeries(releaseFile string) string {
-	data, err := ioutil.ReadFile(releaseFile)
-	if err != nil {
-		return "unknown"
-	}
-	for _, line := range strings.Split(string(data), "\n") {
-		const p = "DISTRIB_CODENAME="
-		if strings.HasPrefix(line, p) {
-			return strings.Trim(line[len(p):], "\t '\"")
-		}
-	}
-	return "unknown"
-}
-
-func ubuntuArch(arch string) string {
-	if arch == "386" {
-		arch = "i386"
-	}
-	return arch
-}
 
 var toolPrefix = "tools/juju-"
 
@@ -76,7 +53,7 @@ func PutTools(storage StorageWriter) error {
 	if err != nil {
 		return err
 	}
-	p := ToolsPath(version.Current, CurrentSeries, CurrentArch)
+	p := ToolsPath(version.Current, config.CurrentSeries, config.CurrentArch)
 	log.Printf("environs: putting tools %v", p)
 	return storage.Put(p, f, fi.Size())
 }
@@ -177,7 +154,7 @@ func FindTools(env Environ, vers version.Version, series, arch string) (url stri
 // GetTools finds the latest compatible version of the juju tools
 // and downloads them into the given directory.
 func GetTools(env Environ, dir string) error {
-	storage, path, err := findTools(env, toolsSpec{version.Current, CurrentSeries, CurrentArch})
+	storage, path, err := findTools(env, toolsSpec{version.Current, config.CurrentSeries, config.CurrentArch})
 	if err != nil {
 		return err
 	}

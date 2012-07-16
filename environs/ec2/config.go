@@ -39,8 +39,9 @@ var configChecker = schema.StrictFieldMap(
 	},
 )
 
-func (p environProvider) NewConfig(config map[string]interface{}) (cfg environs.EnvironConfig, err error) {
-	v, err := configChecker.Coerce(config, nil)
+func (e *environ) newConfig(config *config.Config) (*providerConfig, err error) {
+	// TODO Change this so it relies on config.TypeMap() instead.
+	v, err := configChecker.Coerce(config.Map(), nil)
 	if err != nil {
 		return nil, err
 	}
