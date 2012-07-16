@@ -69,8 +69,10 @@ func (t *cloudinitTest) check(c *C) {
 	if t.cfg.machiner {
 		if t.cfg.zookeeper {
 			t.checkScripts(c, "jujud machine --zookeeper-servers 'localhost"+zkPortSuffix+"'")
+			t.checkScripts(c, "--machine-id [0-9]+")
 		} else {
 			t.checkScripts(c, "jujud machine --zookeeper-servers '"+strings.Join(t.cfg.stateInfo.Addrs, ",")+"'")
+			t.checkScripts(c, "--machine-id [0-9]+")
 		}
 	}
 }
