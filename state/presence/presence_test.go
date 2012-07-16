@@ -387,18 +387,21 @@ func (s *PresenceSuite) TestChildrenWatcher(c *C) {
 	assertChange(nil, []string{"p2"})
 	assertNoChange()
 
-	// Start a new pinger on p1 (the node that already exists, but is
-	// abandoned) and check its presence is noted...
-	p1, err = presence.StartPinger(s.ZkConn, "/nodes/p1", period)
-	c.Assert(err, IsNil)
-	defer kill(c, p1)
-	assertChange([]string{"p1"}, nil)
-	assertNoChange()
+	// A few times, initially starting with p1 abandoned and subsequently
+	// with it deleted:
+	for i := 0; i < 3; i++ {
+		// Start a new pinger on p1 and check its presence is noted...
+		p1, err = presence.StartPinger(s.ZkConn, "/nodes/p1", period)
+		c.Assert(err, IsNil)
+		defer kill(c, p1)
+		assertChange([]string{"p1"}, nil)
+		assertNoChange()
 
-	// ...and so is its absence.
-	err = p1.Kill()
-	assertChange(nil, []string{"p1"})
-	assertNoChange()
+		// ...and so is its absence.
+		err = p1.Kill()
+		assertChange(nil, []string{"p1"})
+		assertNoChange()
+	}
 
 	// Stop the watcher, check closed again.
 	err = w.Stop()
