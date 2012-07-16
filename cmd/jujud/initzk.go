@@ -45,7 +45,7 @@ func (c *InitzkCommand) Run(_ *cmd.Context) error {
 	}
 	defer st.Close()
 
-	// manually insert machine 0 into the state
+	// manually insert machine/0 into the state
 	m, err := st.AddMachine()
 	if err != nil {
 		return err
