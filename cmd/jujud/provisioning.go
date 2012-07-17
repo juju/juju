@@ -6,7 +6,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/service/provisioner"
+	"launchpad.net/juju-core/worker/provisioner"
 
 	// register providers
 	_ "launchpad.net/juju-core/environs/ec2"

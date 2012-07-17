@@ -61,6 +61,20 @@ type OpStopInstances struct {
 	Instances []environs.Instance
 }
 
+type OpOpenPorts struct {
+	Env        string
+	MachineId  int
+	InstanceId string
+	Ports      []state.Port
+}
+
+type OpClosePorts struct {
+	Env        string
+	MachineId  int
+	InstanceId string
+	Ports      []state.Port
+}
+
 type OpPutFile GenericOperation
 
 // environProvider represents the dummy provider.  There is only ever one
@@ -81,6 +95,7 @@ type environState struct {
 	mu            sync.Mutex
 	maxId         int // maximum instance id allocated so far.
 	insts         map[string]*instance
+	ports         map[int]map[state.Port]bool
 	bootstrapped  bool
 	storage       *storage
 	publicStorage *storage
@@ -158,6 +173,7 @@ func newState(name string, ops chan<- Operation) *environState {
 		name:  name,
 		ops:   ops,
 		insts: make(map[string]*instance),
+		ports: make(map[int]map[state.Port]bool),
 	}
 	s.storage = newStorage(s, "/"+name+"/private")
 	s.publicStorage = newStorage(s, "/"+name+"/public")
@@ -259,9 +275,9 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 			return err
 		}
 	}
-	e.state.ops <- OpBootstrap{Env: e.state.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
+	e.state.ops <- OpBootstrap{Env: e.state.name}
 	if e.state.bootstrapped {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
@@ -319,14 +335,15 @@ func (e *environ) Destroy([]environs.Instance) error {
 	if e.isBroken() {
 		return errBroken
 	}
-	e.state.ops <- OpDestroy{Env: e.state.name}
 	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
+	e.state.ops <- OpDestroy{Env: e.state.name}
 	if testing.ZkAddr != "" {
 		testing.ZkReset()
 	}
 	e.state.bootstrapped = false
 	e.state.storage.files = make(map[string][]byte)
-	e.state.mu.Unlock()
+
 	return nil
 }
 
@@ -335,12 +352,15 @@ func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Insta
 		return nil, errBroken
 	}
 	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
 	i := &instance{
-		id: fmt.Sprintf("%s-%d", e.state.name, e.state.maxId),
+		state:     e.state,
+		id:        fmt.Sprintf("%s-%d", e.state.name, e.state.maxId),
+		ports:     make(map[state.Port]bool),
+		machineId: machineId,
 	}
 	e.state.insts[i.id] = i
 	e.state.maxId++
-	e.state.mu.Unlock()
 	e.state.ops <- OpStartInstance{
 		Env:       e.state.name,
 		MachineId: machineId,
@@ -355,10 +375,10 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 		return errBroken
 	}
 	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
 	for _, i := range is {
 		delete(e.state.insts, i.(*instance).id)
 	}
-	e.state.mu.Unlock()
 	e.state.ops <- OpStopInstances{
 		Env:       e.state.name,
 		Instances: is,
@@ -410,17 +430,68 @@ func (e *environ) isBroken() bool {
 }
 
 type instance struct {
-	id string
+	state     *environState
+	ports     map[state.Port]bool
+	id        string
+	machineId int
 }
 
-func (m *instance) Id() string {
-	return m.id
+func (inst *instance) Id() string {
+	return inst.id
 }
 
-func (m *instance) DNSName() (string, error) {
-	return m.id + ".dns", nil
+func (inst *instance) DNSName() (string, error) {
+	return inst.id + ".dns", nil
 }
 
-func (m *instance) WaitDNSName() (string, error) {
-	return m.DNSName()
+func (inst *instance) WaitDNSName() (string, error) {
+	return inst.DNSName()
+}
+
+func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
+	if inst.machineId != machineId {
+		panic(fmt.Errorf("OpenPorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
+	}
+	inst.state.mu.Lock()
+	defer inst.state.mu.Unlock()
+	inst.state.ops <- OpOpenPorts{
+		Env:        inst.state.name,
+		MachineId:  machineId,
+		InstanceId: inst.Id(),
+		Ports:      ports,
+	}
+	for _, p := range ports {
+		inst.ports[p] = true
+	}
+	return nil
+}
+
+func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
+	if inst.machineId != machineId {
+		panic(fmt.Errorf("ClosePorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
+	}
+	inst.state.mu.Lock()
+	defer inst.state.mu.Unlock()
+	inst.state.ops <- OpClosePorts{
+		Env:        inst.state.name,
+		MachineId:  machineId,
+		InstanceId: inst.Id(),
+		Ports:      ports,
+	}
+	for _, p := range ports {
+		delete(inst.ports, p)
+	}
+	return nil
+}
+
+func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
+	if inst.machineId != machineId {
+		panic(fmt.Errorf("Ports with mismatched machine id, expected %d got %d", inst.machineId, machineId))
+	}
+	inst.state.mu.Lock()
+	defer inst.state.mu.Unlock()
+	for p := range inst.ports {
+		ports = append(ports, p)
+	}
+	return
 }
