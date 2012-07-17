@@ -92,10 +92,6 @@ func (t *LiveTests) SetUpTest(c *C) {
 	t.LiveTests.SetUpTest(c)
 }
 
-func (t *LiveTests) TestPorts(c *C) {
-	c.Skip("ports not yet implemented")
-}
-
 func (t *LiveTests) TearDownTest(c *C) {
 	t.LiveTests.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
