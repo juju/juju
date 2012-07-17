@@ -293,6 +293,28 @@ func (s *ConfigNodeSuite) TestMultipleWrites(c *C) {
 	c.Assert(changes, DeepEquals, []ItemChange{})
 }
 
+func (s *ConfigNodeSuite) TestMultipleWritesAreStable(c *C) {
+	node, err := readConfigNode(s.ZkConn, s.path)
+	c.Assert(err, IsNil)
+	node.Update(map[string]interface{}{"foo": "bar", "this": "that"})
+	_, err = node.Write()
+	c.Assert(err, IsNil)
+
+	stat, err := s.ZkConn.Exists(s.path)
+	version := stat.Version()
+	for i := 0; i < 100; i++ {
+		node.Set("value", i)
+		node.Set("foo", "bar")
+		node.Delete("value")
+		node.Set("this", "that")
+		_, err := node.Write()
+		c.Assert(err, IsNil)
+	}
+	stat, err = s.ZkConn.Exists(s.path)
+	newVersion := stat.Version()
+	c.Assert(version, Equals, newVersion)
+}
+
 func (s *ConfigNodeSuite) TestWriteTwice(c *C) {
 	// Check the correct writing into a node by two config nodes.
 	nodeOne, err := readConfigNode(s.ZkConn, s.path)
