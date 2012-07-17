@@ -6,14 +6,14 @@ import (
 )
 
 type RelationSuite struct {
-	UtilSuite
+	ConnSuite
 	charm *state.Charm
 }
 
 var _ = Suite(&RelationSuite{})
 
 func (s *RelationSuite) SetUpTest(c *C) {
-	s.UtilSuite.SetUpTest(c)
+	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "dummy")
 }
 

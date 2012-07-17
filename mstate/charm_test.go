@@ -7,14 +7,14 @@ import (
 )
 
 type CharmSuite struct {
-	UtilSuite
+	ConnSuite
 	curl *charm.URL
 }
 
 var _ = Suite(&CharmSuite{})
 
 func (s *CharmSuite) SetUpTest(c *C) {
-	s.UtilSuite.SetUpTest(c)
+	s.ConnSuite.SetUpTest(c)
 	added := s.AddTestingCharm(c, "dummy")
 	s.curl = added.URL()
 }

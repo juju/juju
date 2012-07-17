@@ -14,7 +14,7 @@ import (
 func Test(t *stdtesting.T) { TestingT(t) }
 
 type StateSuite struct {
-	UtilSuite
+	ConnSuite
 }
 
 var _ = Suite(&StateSuite{})
