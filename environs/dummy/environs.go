@@ -224,7 +224,7 @@ var checker = schema.StrictFieldMap(
 )
 
 func newConfig(cfg *config.Config) (*environConfig, error) {
-	m0, err := checker.Coerce(cfg.TypeMap(), nil)
+	m0, err := checker.Coerce(cfg.UnknownAttrs(), nil)
 	if err != nil {
 		return nil, err
 	}

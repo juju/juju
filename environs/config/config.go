@@ -78,9 +78,11 @@ func (c *Config) AuthorizedKeys() string {
 	return c.m["authorized-keys"].(string)
 }
 
-// TypeMap returns a copy of the raw configuration attributes that are
-// specific to the environment type.
-func (c *Config) TypeMap() map[string]interface{} {
+// UnknownAttrs returns a copy of the raw configuration attributes
+// that are supposedly specific to the environment type. They could
+// also be wrong attributes, though. Only the specific environment
+// implementation can tell.
+func (c *Config) UnknownAttrs() map[string]interface{} {
 	t := make(map[string]interface{})
 	for k, v := range c.t {
 		t[k] = v
@@ -88,9 +90,9 @@ func (c *Config) TypeMap() map[string]interface{} {
 	return t
 }
 
-// Map returns a copy of the raw configuration attributes.
-func (c *Config) Map() map[string]interface{} {
-	m := c.TypeMap()
+// AllAttrs returns a copy of the raw configuration attributes.
+func (c *Config) AllAttrs() map[string]interface{} {
+	m := c.UnknownAttrs()
 	for k, v := range c.m {
 		m[k] = v
 	}

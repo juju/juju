@@ -34,7 +34,7 @@ var configChecker = schema.StrictFieldMap(
 )
 
 func newConfig(config *config.Config) (*providerConfig, error) {
-	v, err := configChecker.Coerce(config.TypeMap(), nil)
+	v, err := configChecker.Coerce(config.UnknownAttrs(), nil)
 	if err != nil {
 		return nil, err
 	}

@@ -144,7 +144,7 @@ func (*ConfigSuite) TestConfig(c *C) {
 			if path != "" {
 				c.Fatalf("authorized-keys-path refers to unknown test file: %s", path)
 			}
-			c.Assert(cfg.Map()["authorized-keys-path"], Equals, nil)
+			c.Assert(cfg.AllAttrs()["authorized-keys-path"], Equals, nil)
 		} else if keys, _ := test.attrs["authorized-keys"].(string); keys != "" {
 			c.Assert(cfg.AuthorizedKeys(), Equals, keys)
 		} else {
