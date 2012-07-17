@@ -27,7 +27,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	for k, v := range m.(schema.MapType) {
 		c.m[k.(string)] = v
 	}
-	if _, ok := c.m["default-series"]; !ok {
+	if s, _ := c.m["default-series"].(string); s == "" {
 		c.m["default-series"] = CurrentSeries
 	}
 
@@ -43,7 +43,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	}
 
 	// Check if there are any required fields that are empty.
-	for _, attr := range []string{"name", "type", "authorized-keys"} {
+	for _, attr := range []string{"name", "type", "default-series", "authorized-keys"} {
 		if s, _ := c.m[attr].(string); s == "" {
 			return nil, fmt.Errorf("empty %s in environment configuration", attr)
 		}

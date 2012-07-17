@@ -44,6 +44,14 @@ var configTests = []struct {
 		},
 		"",
 	}, {
+		// Implicit series with empty value.
+		attrs{
+			"type":           "my-type",
+			"name":           "my-name",
+			"default-series": "",
+		},
+		"",
+	}, {
 		// Explicit authorized-keys.
 		attrs{
 			"type":            "my-type",
@@ -119,7 +127,7 @@ func (*ConfigSuite) TestConfig(c *C) {
 		c.Assert(cfg.Type(), Equals, typ)
 		c.Assert(cfg.Name(), Equals, name)
 
-		if series, ok := test.attrs["default-series"].(string); ok {
+		if series, _ := test.attrs["default-series"].(string); series != "" {
 			c.Assert(cfg.DefaultSeries(), Equals, series)
 		} else {
 			c.Assert(cfg.DefaultSeries(), Equals, config.CurrentSeries)
