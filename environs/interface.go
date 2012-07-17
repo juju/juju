@@ -12,7 +12,12 @@ type EnvironProvider interface {
 	// Open opens the environment and returns it.
 	Open(config *config.Config) (Environ, error)
 
-	// TODO: add Validate
+	// Validate ensures that config is a valid configuration for this
+	// provider, applying changes to it if necessary, and returns the
+	// validated configuration.
+	// If old is not nil, it holds the previous environment configuration
+	// for consideration when validating changes.
+	// TODO: Validate(config, old *config.Config) (valid *config.Config, err error)
 }
 
 var ErrNoDNSName = errors.New("DNS name not allocated")
