@@ -45,13 +45,22 @@ func (c *InitzkCommand) Run(_ *cmd.Context) error {
 	}
 	defer st.Close()
 
-	// manually insert machine/0 into the state
+	// The following is potentually racey, so deserves a comment. 
+	// During cloud init, we install the zookeeper debs, then run 	
+	// jujud initzk. Only then do we setup the upstart jobs for
+	// the Provisioning Agent and Machine Agent so they will not
+	// observe this sleight of hand of hand.
+
+	// TODO state.Initialize/environ.Bootstrap should do the 	
+	// following for us.
+
+	// Manually insert machine/0 into the state
 	m, err := st.AddMachine()
 	if err != nil {
 		return err
 	}
 
-	// set the instance id of machine/0 
+	// Set the instance id of machine/0 
 	if err := m.SetInstanceId(c.InstanceId); err != nil {
 		return err
 	}
