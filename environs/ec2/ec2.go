@@ -264,7 +264,6 @@ func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Insta
 func (e *environ) userData(machineId int, info *state.Info, master bool, toolsURL string) ([]byte, error) {
 	cfg := &machineConfig{
 		provisioner:        master,
-		machiner:           true,
 		zookeeper:          master,
 		stateInfo:          info,
 		instanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",

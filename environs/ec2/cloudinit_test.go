@@ -22,7 +22,6 @@ var cloudinitTests = []machineConfig{
 		machineId:          0,
 		providerType:       "ec2",
 		provisioner:        true,
-		machiner:           true,
 		authorizedKeys:     "sshkey1",
 		toolsURL:           "http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
 		zookeeper:          true,
@@ -31,7 +30,6 @@ var cloudinitTests = []machineConfig{
 		machineId:      99,
 		providerType:   "ec2",
 		provisioner:    false,
-		machiner:       true,
 		authorizedKeys: "sshkey1",
 		zookeeper:      false,
 		toolsURL:       "http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
@@ -66,14 +64,12 @@ func (t *cloudinitTest) check(c *C) {
 		t.checkScripts(c, "jujud provisioning --zookeeper-servers 'localhost"+zkPortSuffix+"'")
 	}
 
-	if t.cfg.machiner {
-		if t.cfg.zookeeper {
-			t.checkScripts(c, "jujud machine --zookeeper-servers 'localhost"+zkPortSuffix+"'")
-			t.checkScripts(c, "--machine-id [0-9]+")
-		} else {
-			t.checkScripts(c, "jujud machine --zookeeper-servers '"+strings.Join(t.cfg.stateInfo.Addrs, ",")+"'")
-			t.checkScripts(c, "--machine-id [0-9]+")
-		}
+	if t.cfg.zookeeper {
+		t.checkScripts(c, "jujud machine --zookeeper-servers 'localhost"+zkPortSuffix+"'")
+		t.checkScripts(c, "--machine-id [0-9]+")
+	} else {
+		t.checkScripts(c, "jujud machine --zookeeper-servers '"+strings.Join(t.cfg.stateInfo.Addrs, ",")+"'")
+		t.checkScripts(c, "--machine-id [0-9]+")
 	}
 }
 
