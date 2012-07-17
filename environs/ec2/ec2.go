@@ -6,6 +6,7 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
@@ -110,19 +111,19 @@ func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 }
 
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	log.Printf("environs/ec2: opening environment %q", cfg.name)
+	log.Printf("environs/ec2: opening environment %q", cfg.Name())
 	e := new(environ)
 	e.SetConfig(cfg)
 	return e, nil
 }
 
 func (e *environ) SetConfig(cfg *config.Config) error {
-	config, err := e.newConfig(cfg)
+	config, err := newConfig(cfg)
 	if err != nil {
 		return err
 	}
 	if aws.Regions[config.region].EC2Endpoint == "" {
-		return fmt.Errorf("no ec2 endpoint found for region %q, opening %q", cfg.region, cfg.name)
+		return fmt.Errorf("no ec2 endpoint found for region %q, opening %q", config.region, config.name)
 	}
 	e.configMutex.Lock()
 	defer e.configMutex.Unlock()
@@ -274,7 +275,7 @@ func (e *environ) userData(machineId int, info *state.Info, master bool, toolsUR
 		providerType:       "ec2",
 		toolsURL:           toolsURL,
 		machineId:          machineId,
-		authorizedKeys:     e.config().authorizedKeys,
+		authorizedKeys:     e.config().AuthorizedKeys(),
 	}
 	cloudcfg, err := newCloudInit(cfg)
 	if err != nil {
@@ -288,8 +289,8 @@ func (e *environ) userData(machineId int, info *state.Info, master bool, toolsUR
 // instance will be started.
 func (e *environ) startInstance(machineId int, info *state.Info, master bool) (environs.Instance, error) {
 	spec, err := findInstanceSpec(&instanceConstraint{
-		series: environs.CurrentSeries,
-		arch:   environs.CurrentArch,
+		series: config.CurrentSeries,
+		arch:   config.CurrentArch,
 		region: e.config().region,
 	})
 	if err != nil {

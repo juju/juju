@@ -1,25 +1,13 @@
-package ec2
+package config
 
 import (
-	"crypto/sha1"
-	"encoding/base64"
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 )
-
-// makeIdentity transforms the name of a principle and
-// a password into an identity of the form principle_name:hash that can be
-// used for an access control list entry.
-// This is only used for backward compatibility reasons and
-// will disappear eventually.
-func makeIdentity(name, password string) string {
-	h := sha1.New()
-	h.Write([]byte(name + ":" + password))
-	return name + ":" + base64.StdEncoding.EncodeToString(h.Sum(nil))
-}
 
 func expandTilde(f string) string {
 	// TODO expansion of other user's home directories.
@@ -40,7 +28,7 @@ func expandTilde(f string) string {
 func authorizedKeys(path string) (string, error) {
 	var files []string
 	if path == "" {
-		files = []string{"id_dsa.pub", "id_rsa.pub", "identity.pub"}
+		files = []string{"id_dsa.pub", "id_rsa.pub", "identity.pub", "authorized_keys"}
 	} else {
 		files = []string{path}
 	}
@@ -58,16 +46,12 @@ func authorizedKeys(path string) (string, error) {
 			}
 			continue
 		}
-		keyData = append(keyData, data...)
-		// ensure that a file without a final newline
-		// is properly separated from any others.
-		if len(data) > 0 && data[len(data)-1] != '\n' {
-			keyData = append(keyData, '\n')
-		}
+		keyData = append(keyData, bytes.Trim(data, "\n")...)
+		keyData = append(keyData, '\n')
 	}
 	if len(keyData) == 0 {
 		if firstError == nil {
-			firstError = fmt.Errorf("no keys found")
+			firstError = fmt.Errorf("no public ssh keys found")
 		}
 		return "", firstError
 	}

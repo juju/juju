@@ -39,6 +39,7 @@ environments:
     erewhemos:
         type: dummy
         zookeeper: true
+        authorized-keys: i-am-a-key
 `), 0644)
 	if err != nil {
 		c.Log("Could not create environments.yaml")

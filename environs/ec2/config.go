@@ -3,52 +3,43 @@ package ec2
 import (
 	"fmt"
 	"launchpad.net/goamz/aws"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
 )
 
 // providerConfig is a placeholder for any config information
 // that we will have in a configuration file.
 type providerConfig struct {
+	*config.Config
 	name           string
 	region         string
 	auth           aws.Auth
 	bucket         string
 	publicBucket   string
-	authorizedKeys string
 }
 
 var configChecker = schema.StrictFieldMap(
 	schema.Fields{
-		"name":                 schema.String(),
-		"type":                 schema.Const("ec2"),
 		"access-key":           schema.String(),
 		"secret-key":           schema.String(),
 		"region":               schema.String(),
 		"control-bucket":       schema.String(),
 		"public-bucket":        schema.String(),
-		"authorized-keys":      schema.String(),
-		"authorized-keys-path": schema.String(),
 	}, []string{
 		"access-key",
 		"secret-key",
 		"region",
-		"authorized-keys",
-		"authorized-keys-path",
 		"public-bucket",
 	},
 )
 
-func (e *environ) newConfig(config *config.Config) (*providerConfig, err error) {
-	// TODO Change this so it relies on config.TypeMap() instead.
-	v, err := configChecker.Coerce(config.Map(), nil)
+func newConfig(config *config.Config) (*providerConfig, error) {
+	v, err := configChecker.Coerce(config.TypeMap(), nil)
 	if err != nil {
 		return nil, err
 	}
 	m := v.(schema.MapType)
-	var c providerConfig
-
-	c.name = m["name"].(string)
+	c := &providerConfig{Config: config}
 	c.bucket = m["control-bucket"].(string)
 	c.publicBucket = maybeString(m["public-bucket"], "")
 	c.auth.AccessKey = maybeString(m["access-key"], "")
@@ -62,7 +53,7 @@ func (e *environ) newConfig(config *config.Config) (*providerConfig, err error) 
 		}
 		c.auth, err = aws.EnvAuth()
 		if err != nil {
-			return
+			return nil, err
 		}
 	}
 
@@ -71,17 +62,7 @@ func (e *environ) newConfig(config *config.Config) (*providerConfig, err error) 
 		return nil, fmt.Errorf("invalid region name %q", regionName)
 	}
 	c.region = regionName
-	c.authorizedKeys = maybeString(m["authorized-keys"], "")
-	authorizedKeysPath := maybeString(m["authorized-keys-path"], "")
-	if c.authorizedKeys == "" {
-		c.authorizedKeys, err = authorizedKeys(authorizedKeysPath)
-		if err != nil {
-			return nil, err
-		}
-	} else if authorizedKeysPath != "" {
-		return nil, fmt.Errorf("environment has both authorized-keys and authorized-keys-path")
-	}
-	return &c, nil
+	return c, nil
 }
 
 func maybeString(x interface{}, dflt string) string {

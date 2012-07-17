@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/config"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/version"
 	"net/http"
@@ -20,10 +20,11 @@ type ToolsSuite struct {
 }
 
 func (t *ToolsSuite) SetUpTest(c *C) {
-	env, err := environs.NewEnviron(map[string]interface{}{
-		"name":      "test",
-		"type":      "dummy",
-		"zookeeper": false,
+	env, err := environs.NewFromAttrs(map[string]interface{}{
+		"name":            "test",
+		"type":            "dummy",
+		"zookeeper":       false,
+		"authorized-keys": "i-am-a-key",
 	})
 	c.Assert(err, IsNil)
 	t.env = env

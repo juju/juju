@@ -1,7 +1,6 @@
 package ec2
 
 import (
-	"fmt"
 	"io/ioutil"
 	"launchpad.net/goamz/aws"
 	. "launchpad.net/gocheck"
@@ -29,137 +28,107 @@ var testAuth = aws.Auth{"gopher", "long teeth"}
 // the mandatory fields in config.
 var baseConfig = "control-bucket: x\n"
 
-// the result of parsing baseConfig.
-var baseConfigResult = providerConfig{
-	name:           "testenv",
-	region:         "us-east-1",
-	bucket:         "x",
-	auth:           testAuth,
-	authorizedKeys: "sshkey\n",
-}
-
 // configTest specifies a config parsing test, checking that env when
 // parsed as the ec2 section of a config file matches baseConfigResult
 // when mutated by the mutate function, or that the parse matches the
 // given error.
 type configTest struct {
-	env    string
-	mutate func(*providerConfig)
-	err    string
+	yaml      string
+	region    string
+	bucket    string
+	pbucket   string
+	accessKey string
+	secretKey string
+	err       string
 }
 
 func (t configTest) check(c *C) {
-	envs, err := environs.ReadEnvironsBytes(makeEnv(t.env))
+	envs, err := environs.ReadEnvironsBytes(makeEnv(t.yaml))
 	if t.err != "" {
 		c.Check(err, ErrorMatches, t.err)
 		return
 	}
 	c.Check(err, IsNil)
+
 	e, err := envs.Open("testenv")
 	c.Assert(err, IsNil)
 	c.Assert(e, NotNil)
 	c.Assert(e, FitsTypeOf, (*environ)(nil))
-	tconfig := baseConfigResult
-	t.mutate(&tconfig)
-	c.Check(e.(*environ).config(), DeepEquals, &tconfig)
-	c.Check(e.(*environ).name, Equals, tconfig.name)
+
+	config := e.(*environ).config()
+	c.Assert(config.Name(), Equals, "testenv")
+	c.Assert(config.bucket, Equals, "x")
+	if t.region != "" {
+		c.Assert(config.region, Equals, t.region)
+	}
+	if t.pbucket != "" {
+		c.Assert(config.publicBucket, Equals, t.pbucket)
+	}
+	if t.accessKey != "" {
+		auth := aws.Auth{t.accessKey, t.secretKey}
+		c.Assert(config.auth, Equals, auth)
+	} else {
+		c.Assert(config.auth, DeepEquals, testAuth)
+	}
 }
 
 var configTests = []configTest{
 	{
-		baseConfig,
-		func(cfg *providerConfig) {},
-		"",
+		yaml: baseConfig,
 	},
 	{
-		"region: eu-west-1\n" + baseConfig,
-		func(cfg *providerConfig) {
-			cfg.region = "eu-west-1"
-		},
-		"",
+		yaml:   "region: eu-west-1\n" + baseConfig,
+		region: "eu-west-1",
 	},
 	{
-		"region: unknown\n" + baseConfig,
-		nil,
-		".*invalid region name.*",
+		yaml: "region: unknown\n" + baseConfig,
+		err:  ".*invalid region name.*",
 	},
 	{
-		"region: configtest\n" + baseConfig,
-		func(cfg *providerConfig) {
-			cfg.region = "configtest"
-		},
-		"",
+		yaml:   "region: configtest\n" + baseConfig,
+		region: "configtest",
 	},
 	{
-		"region: 666\n" + baseConfig,
-		nil,
-		".*expected string, got 666",
+		yaml: "region: 666\n" + baseConfig,
+		err:  ".*expected string, got 666",
 	},
 	{
-		"access-key: 666\n" + baseConfig,
-		nil,
-		".*expected string, got 666",
+		yaml: "access-key: 666\n" + baseConfig,
+		err:  ".*expected string, got 666",
 	},
 	{
-		"secret-key: 666\n" + baseConfig,
-		nil,
-		".*expected string, got 666",
+		yaml: "secret-key: 666\n" + baseConfig,
+		err:  ".*expected string, got 666",
 	},
 	{
-		"control-bucket: 666\n",
-		nil,
-		".*expected string, got 666",
+		yaml: "control-bucket: 666\n",
+		err:  ".*expected string, got 666",
 	},
 	{
-		"public-bucket: 666\n" + baseConfig,
-		nil,
-		".*expected string, got 666",
+		yaml: "public-bucket: 666\n" + baseConfig,
+		err:  ".*expected string, got 666",
 	},
 	{
-		"public-bucket: foo\n" + baseConfig,
-		func(cfg *providerConfig) {
-			cfg.publicBucket = "foo"
-		},
-		"",
+		yaml:    "public-bucket: foo\n" + baseConfig,
+		pbucket: "foo",
 	},
 	{
-		"access-key: jujuer\nsecret-key: open sesame\n" + baseConfig,
-		func(cfg *providerConfig) {
-			cfg.auth = aws.Auth{
-				AccessKey: "jujuer",
-				SecretKey: "open sesame",
-			}
-		},
-		"",
+		yaml:      "access-key: jujuer\nsecret-key: open sesame\n" + baseConfig,
+		accessKey: "jujuer",
+		secretKey: "open sesame",
 	},
 	{
-		"authorized-keys-path: \n" + baseConfig,
-		nil,
-		"",
+		yaml: "access-key: jujuer\n" + baseConfig,
+		err:  ".*environment has access-key but no secret-key",
 	},
 	{
-		"authorized-keys: authkeys\n" + baseConfig,
-		func(cfg *providerConfig) {
-			cfg.authorizedKeys = "authkeys"
-		},
-		"",
-	},
-	{
-		"access-key: jujuer\n" + baseConfig,
-		nil,
-		".*environment has access-key but no secret-key",
-	},
-	{
-		"secret-key: badness\n" + baseConfig,
-		nil,
-		".*environment has secret-key but no access-key",
+		yaml: "secret-key: badness\n" + baseConfig,
+		err:  ".*environment has secret-key but no access-key",
 	},
 
 	// unknown fields are discarded
 	{
-		"unknown-something: 666\n" + baseConfig,
-		func(cfg *providerConfig) {},
-		"",
+		yaml: "unknown-something: 666\n" + baseConfig,
 	},
 }
 
@@ -203,7 +172,7 @@ func (s *configSuite) TearDownTest(c *C) {
 
 func (s *configSuite) TestConfig(c *C) {
 	for i, t := range configTests {
-		c.Logf("test %d (environ %q)", i, t.env)
+		c.Logf("test %d", i)
 		t.check(c)
 	}
 }
@@ -213,21 +182,5 @@ func (s *configSuite) TestMissingAuth(c *C) {
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "")
 	test := configTests[0]
 	test.err = ".*not found in environment"
-	test.check(c)
-}
-
-func (s *configSuite) TestAuthorizedKeysPath(c *C) {
-	dir := c.MkDir()
-	path := filepath.Join(dir, "something")
-	err := ioutil.WriteFile(path, []byte("another-sshkey\n"), 0666)
-	c.Assert(err, IsNil)
-	confLine := fmt.Sprintf("authorized-keys-path: %s\n", path)
-	test := configTest{
-		confLine + baseConfig,
-		func(cfg *providerConfig) {
-			cfg.authorizedKeys = "another-sshkey\n"
-		},
-		"",
-	}
 	test.check(c)
 }

@@ -1,11 +1,13 @@
 package environs
 
-import "fmt"
+import (
+	"fmt"
+	"launchpad.net/juju-core/environs/config"
+)
 
-// Get returns the configuration for the respective environment.
-// The configuration is validated for the respective provider
-// before being returned.
-func (e *Environs) Get(name string) (*Config, error) {
+// Open creates a new Environ using the environment configuration with the
+// given name. If name is empty, the default environment will be used.
+func (envs *Environs) Open(name string) (Environ, error) {
 	if name == "" {
 		name = envs.Default
 		if name == "" {
@@ -19,7 +21,7 @@ func (e *Environs) Get(name string) (*Config, error) {
 	if e.err != nil {
 		return nil, e.err
 	}
-	return e.config
+	return New(e.config)
 }
 
 // New returns a new environment based on the provided configuration.
@@ -28,8 +30,18 @@ func (e *Environs) Get(name string) (*Config, error) {
 func New(config *config.Config) (Environ, error) {
 	p, ok := providers[config.Type()]
 	if !ok {
-		return nil, fmt.Errorf("no registered provider for %q", kind)
+		return nil, fmt.Errorf("no registered provider for %q", config.Type())
 	}
-	// TODO Validate config here.
 	return p.Open(config)
+}
+
+// New returns a new environment based on the provided configuration
+// attributes. The configuration is validated for the respective provider
+// before the environment is instantiated.
+func NewFromAttrs(attrs map[string]interface{}) (Environ, error) {
+	cfg, err := config.New(attrs)
+	if err != nil {
+		return nil, err
+	}
+	return New(cfg)
 }
