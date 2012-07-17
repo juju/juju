@@ -580,6 +580,7 @@ func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 			})
 		}
 	}
+	state.SortPorts(ports)
 	return ports, nil
 }
 
