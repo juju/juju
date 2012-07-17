@@ -22,7 +22,7 @@ func (s *MgoSuite) SetUpSuite(c *C) {
 	dbdir := c.MkDir()
 	args := []string{
 		"--dbpath", dbdir,
-		"--bind_ip", "127.0.0.1",
+		"--bind_ip", "localhost",
 		"--port", mgoport,
 		"--nssize", "1",
 		"--noprealloc",
