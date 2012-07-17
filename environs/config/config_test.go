@@ -98,7 +98,7 @@ func (*ConfigSuite) TestConfig(c *C) {
 		{"id_rsa.pub", "rsa\n"},
 		{"identity.pub", "identity"},
 		{"authorized_keys", "auth0\n# first\nauth1\n\n"},
-		{"authorized_keys2", "auth2\n"},
+		{"authorized_keys2", "auth2\nauth3\n"},
 	}
 	for _, kf := range kfiles {
 		err = ioutil.WriteFile(filepath.Join(sshdir, kf.name), []byte(kf.data), 0666)
@@ -141,7 +141,7 @@ func (*ConfigSuite) TestConfig(c *C) {
 			c.Assert(cfg.AuthorizedKeys(), Equals, keys)
 		} else {
 			// Content of all the files that are read by default.
-			want := "dsa\nrsa\nidentity\nauth0\n# first\nauth1\n"
+			want := "dsa\nrsa\nidentity\n"
 			c.Assert(cfg.AuthorizedKeys(), Equals, want)
 		}
 	}
