@@ -723,20 +723,20 @@ func (w *relationUnitsWatcher) loop() {
 	defer watcher.Stop(roleWatcher, &w.tomb)
 	emittedValue := false
 	for {
-		var err error
 		var change RelationUnitsChange
 		select {
 		case <-w.tomb.Dying():
 			return
 		case ch, ok := <-roleWatcher.Changes():
 			if !ok {
-				err = watcher.MustErr(roleWatcher)
-			} else {
-				change, err = w.updateWatches(ch)
+				w.tomb.Kill(watcher.MustErr(roleWatcher))
+				return
 			}
-			if err != nil {
+			if pchange, err := w.updateWatches(ch); err != nil {
 				w.tomb.Kill(err)
 				return
+			} else {
+				change = *pchange
 			}
 			if emittedValue && len(change.Changed) == 0 && len(change.Departed) == 0 {
 				continue
@@ -797,7 +797,8 @@ func (w *relationUnitsWatcher) Changes() <-chan RelationUnitsChange {
 // updateWatches starts or stops watches on the settings of the relation
 // units declared present or absent by ch, and returns a RelationUnitsChange
 // event expressing those changes.
-func (w *relationUnitsWatcher) updateWatches(ch watcher.ChildrenChange) (change RelationUnitsChange, err error) {
+func (w *relationUnitsWatcher) updateWatches(ch watcher.ChildrenChange) (*RelationUnitsChange, error) {
+	change := &RelationUnitsChange{}
 	for _, key := range ch.Removed {
 		if key == w.ignore {
 			continue
@@ -810,7 +811,7 @@ func (w *relationUnitsWatcher) updateWatches(ch watcher.ChildrenChange) (change 
 		delete(w.unitTombs, key)
 		t.Kill(nil)
 		if err := t.Wait(); err != nil {
-			return RelationUnitsChange{}, err
+			return nil, err
 		}
 		name := w.names[key]
 		delete(w.names, key)
@@ -822,15 +823,15 @@ func (w *relationUnitsWatcher) updateWatches(ch watcher.ChildrenChange) (change 
 			continue
 		}
 		if topo == nil {
-			// Create topology lazily; no sense reading it N times for
-			// N added presence nodes where N != 1.
+			// Read topology no more than once.
+			var err error
 			if topo, err = readTopology(w.st.zk); err != nil {
-				return RelationUnitsChange{}, err
+				return nil, err
 			}
 		}
 		name, err := topo.UnitName(key)
 		if err != nil {
-			return RelationUnitsChange{}, err
+			return nil, err
 		}
 		// Start watching unit settings, and consume initial event to get
 		// initial settings for the event we're preparing; subsequent
@@ -840,14 +841,14 @@ func (w *relationUnitsWatcher) updateWatches(ch watcher.ChildrenChange) (change 
 		uw := watcher.NewContentWatcher(w.st.zk, w.scope.settingsPath(key))
 		select {
 		case <-w.tomb.Dying():
-			return RelationUnitsChange{}, tomb.ErrDying
+			return nil, tomb.ErrDying
 		case cch, ok := <-uw.Changes():
 			if !ok {
-				return RelationUnitsChange{}, watcher.MustErr(uw)
+				return nil, watcher.MustErr(uw)
 			}
 			us := UnitSettings{Version: cch.Version}
 			if err = goyaml.Unmarshal([]byte(cch.Content), &us.Settings); err != nil {
-				return RelationUnitsChange{}, err
+				return nil, err
 			}
 			if change.Changed == nil {
 				change.Changed = map[string]UnitSettings{}
