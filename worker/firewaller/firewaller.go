@@ -89,8 +89,8 @@ type machineUnitsChange struct {
 
 // machineTracker keeps track of the unit changes of a machine.
 type machineTracker struct {
-	firewaller *Firewaller
 	tomb       tomb.Tomb
+	firewaller *Firewaller
 	id         int
 	watcher    *state.MachineUnitsWatcher
 	ports      map[state.Port]*unitTracker
