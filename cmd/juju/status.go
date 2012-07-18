@@ -11,22 +11,11 @@ type StatusCommand struct {
 	Out	cmd.Output
 }
 
-var statusDoc = `
-This command will report on the runtime state of various system
-entities.
-
-$ juju status
-
-will return data on entire default deployment.
-
-$ juju status -e DEPLOYMENT2
-
-will return data on the DEPLOYMENT2 envionment.
-`
+var statusDoc = "This command will report on the runtime state of various system entities."
 
 func (c *StatusCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"status", "", "Output status information about a deployment.", statusDoc,
+		"status", "", "Output status information about an environment.", statusDoc,
 	}
 }
 
