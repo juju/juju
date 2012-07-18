@@ -49,13 +49,16 @@ environments:
     peckham:
         type: dummy
         zookeeper: false
+        authorized-keys: i-am-a-key
     walthamstow:
         type: dummy
         zookeeper: false
+        authorized-keys: i-am-a-key
     barking:
         type: dummy
         broken: true
         zookeeper: false
+        authorized-keys: i-am-a-key
 `
 
 func (s *cmdSuite) SetUpTest(c *C) {

@@ -1,6 +1,7 @@
 package environs
 
 import (
+	"launchpad.net/juju-core/environs/config"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -11,7 +12,7 @@ import (
 
 // environ holds information about one environment.
 type environ struct {
-	config EnvironConfig
+	config *config.Config
 	err    error // an error if the config data could not be parsed.
 }
 
@@ -93,7 +94,7 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 		// store the name of the this environment in the config itself
 		// so that providers can see it.
 		attrs["name"] = name
-		cfg, err := p.NewConfig(attrs)
+		cfg, err := config.New(attrs)
 		if err != nil {
 			environs[name] = environ{
 				err: fmt.Errorf("error parsing environment %q: %v", name, err),

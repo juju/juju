@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/state"
@@ -122,8 +123,7 @@ type storage struct {
 }
 
 type environConfig struct {
-	provider  *environProvider
-	name      string
+	*config.Config
 	zookeeper bool
 	broken    bool
 }
@@ -215,47 +215,48 @@ func Listen(c chan<- Operation) {
 
 var checker = schema.StrictFieldMap(
 	schema.Fields{
-		"type":      schema.Const("dummy"),
 		"zookeeper": schema.Bool(),
 		"broken":    schema.Bool(),
-		"name":      schema.String(),
 	},
 	[]string{
 		"broken",
 	},
 )
 
-func (p *environProvider) NewConfig(attrs map[string]interface{}) (environs.EnvironConfig, error) {
-	m0, err := checker.Coerce(attrs, nil)
+func newConfig(cfg *config.Config) (*environConfig, error) {
+	m0, err := checker.Coerce(cfg.UnknownAttrs(), nil)
 	if err != nil {
 		return nil, err
 	}
 	m1 := m0.(schema.MapType)
-	cfg := &environConfig{
-		provider:  p,
-		name:      m1["name"].(string),
+	ecfg := &environConfig{
+		Config:    cfg,
 		zookeeper: m1["zookeeper"].(bool),
 	}
-	cfg.broken, _ = m1["broken"].(bool)
-	return cfg, nil
+	ecfg.broken, _ = m1["broken"].(bool)
+	return ecfg, nil
 }
 
-func (cfg *environConfig) Open() (environs.Environ, error) {
-	p := cfg.provider
+func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	state := p.state[cfg.name]
+	name := cfg.Name()
+	ecfg, err := newConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	state := p.state[name]
 	if state == nil {
-		if cfg.zookeeper && len(p.state) != 0 {
+		if ecfg.zookeeper && len(p.state) != 0 {
 			panic("cannot share a zookeeper between two dummy environs")
 		}
-		state = newState(cfg.name, p.ops)
-		p.state[cfg.name] = state
+		state = newState(name, p.ops)
+		p.state[name] = state
 	}
 	env := &environ{
-		state: state,
+		state:  state,
+		config: ecfg,
 	}
-	env.SetConfig(cfg)
 	return env, nil
 }
 
@@ -293,7 +294,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		}
 		cfg.Set("type", "dummy")
 		cfg.Set("zookeeper", true)
-		cfg.Set("name", e.config.name)
+		cfg.Set("name", e.config.Name())
 		_, err = cfg.Write()
 		if err != nil {
 			panic(err)
@@ -324,11 +325,15 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignUnused
 }
 
-func (e *environ) SetConfig(cfg environs.EnvironConfig) {
-	config := cfg.(*environConfig)
+func (e *environ) SetConfig(cfg *config.Config) error {
+	config, err := newConfig(cfg)
+	if err != nil {
+		return err
+	}
 	e.configMutex.Lock()
 	defer e.configMutex.Unlock()
 	e.config = config
+	return nil
 }
 
 func (e *environ) Destroy([]environs.Instance) error {
@@ -493,5 +498,6 @@ func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 	for p := range inst.ports {
 		ports = append(ports, p)
 	}
+	state.SortPorts(ports)
 	return
 }
