@@ -24,6 +24,7 @@ func (c *OutputCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *OutputCommand) Run(ctx *cmd.Context) error {
+	// use a struct to control field ordering.
 	v := struct {
 		Juju   int
 		Puppet bool
