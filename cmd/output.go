@@ -22,7 +22,8 @@ func formatYaml(value interface{}) ([]byte, error) {
 	return goyaml.Marshal(value)
 }
 
-// DefaultFormatters are used by many juju Commands.
+// DefaultFormatters holds the formatters that can be 
+// specified with the --format flag.
 var DefaultFormatters = map[string]Formatter{
 	"yaml": formatYaml,
 	"json": json.Marshal,
@@ -77,6 +78,7 @@ func (v *formatterValue) format(value interface{}) ([]byte, error) {
 
 // Output is responsible for interpreting output-related command line flags
 // and writing a value to a file or to stdout as directed. 
+// The zero value is ready to use.
 type Output struct {
 	formatter *formatterValue
 	outPath   string
@@ -90,8 +92,8 @@ func (c *Output) AddFlags(f *gnuflag.FlagSet, name string, formatters map[string
 	f.StringVar(&c.outPath, "output", "", "")
 }
 
-// Write formats and outputs value as directed by the --format and --output
-// command line flags.
+// Write formats and outputs the value as directed by the --format and 
+// --output command line flags.
 func (c *Output) Write(ctx *Context, value interface{}) (err error) {
 	var target io.Writer
 	if c.outPath == "" {
@@ -106,11 +108,8 @@ func (c *Output) Write(ctx *Context, value interface{}) (err error) {
 	if err != nil {
 		return
 	}
-	if bytes != nil {
-		_, err = target.Write(bytes)
-		if err == nil {
-			_, err = target.Write([]byte{'\n'})
-		}
+	if len(bytes) > 0 {
+		_, err = target.Write(append(bytes, '\n'))
 	}
 	return
 }

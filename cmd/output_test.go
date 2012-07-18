@@ -53,20 +53,10 @@ var outputTests = []struct {
 	"{\"Juju\":1,\"Puppet\":false}\n",
 	"",
 }, {
-	[]string{"--format", "xml"},
+	[]string{"--format", "cuneiform"},
 	2,
 	"",
-	"usage: output [options] <something>\n" +
-		"purpose: I like to output\n" +
-		"\n" +
-		"options:\n" +
-		"--format  (= yaml)\n" +
-		"    specify output format (json|yaml)\n" +
-		"-o, --output (= \"\")\n" +
-		"    specify an output file\n" +
-		"\n" +
-		"output\n" +
-		"error: invalid value \"xml\" for flag --format: unknown format: xml\n",
+	`usage(.|\n)*invalid value \"cuneiform\"(.|\n)*`,
 }}
 
 func (s *CmdSuite) TestOutputFormat(c *C) {
@@ -76,6 +66,6 @@ func (s *CmdSuite) TestOutputFormat(c *C) {
 		result := cmd.Main(&OutputCommand{}, ctx, t.options)
 		c.Assert(result, Equals, t.result)
 		c.Assert(bufferString(ctx.Stdout), Equals, t.stdout)
-		c.Assert(bufferString(ctx.Stderr), Equals, t.stderr)
+		c.Assert(bufferString(ctx.Stderr), Matches, t.stderr)
 	}
 }
