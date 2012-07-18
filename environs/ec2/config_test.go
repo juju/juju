@@ -12,11 +12,11 @@ import (
 
 // Use local suite since this file lives in the ec2 package
 // for testing internals.
-type configSuite struct {
+type ConfigSuite struct {
 	savedHome, savedAccessKey, savedSecretKey string
 }
 
-var _ = Suite(configSuite{})
+var _ = Suite(&ConfigSuite{})
 
 var configTestRegion = aws.Region{
 	Name:        "configtest",
@@ -44,13 +44,13 @@ type configTest struct {
 
 func (t configTest) check(c *C) {
 	envs, err := environs.ReadEnvironsBytes(makeEnv(t.yaml))
+	c.Check(err, IsNil)
+
+	e, err := envs.Open("testenv")
 	if t.err != "" {
 		c.Check(err, ErrorMatches, t.err)
 		return
 	}
-	c.Check(err, IsNil)
-
-	e, err := envs.Open("testenv")
 	c.Assert(err, IsNil)
 	c.Assert(e, NotNil)
 	c.Assert(e, FitsTypeOf, (*environ)(nil))
@@ -125,11 +125,6 @@ var configTests = []configTest{
 		yaml: "secret-key: badness\n" + baseConfig,
 		err:  ".*environment has secret-key but no access-key",
 	},
-
-	// unknown fields are discarded
-	{
-		yaml: "unknown-something: 666\n" + baseConfig,
-	},
 }
 
 func indent(s string, with string) string {
@@ -145,7 +140,7 @@ func makeEnv(s string) []byte {
 	return []byte("environments:\n  testenv:\n    type: ec2\n" + indent(s, "    "))
 }
 
-func (s *configSuite) SetUpTest(c *C) {
+func (s *ConfigSuite) SetUpTest(c *C) {
 	s.savedHome = os.Getenv("HOME")
 	s.savedAccessKey = os.Getenv("AWS_ACCESS_KEY_ID")
 	s.savedSecretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
@@ -163,21 +158,21 @@ func (s *configSuite) SetUpTest(c *C) {
 	aws.Regions["configtest"] = configTestRegion
 }
 
-func (s *configSuite) TearDownTest(c *C) {
+func (s *ConfigSuite) TearDownTest(c *C) {
 	os.Setenv("HOME", s.savedHome)
 	os.Setenv("AWS_ACCESS_KEY_ID", s.savedAccessKey)
 	os.Setenv("AWS_SECRET_ACCESS_KEY", s.savedSecretKey)
 	delete(aws.Regions, "configtest")
 }
 
-func (s *configSuite) TestConfig(c *C) {
+func (s *ConfigSuite) TestConfig(c *C) {
 	for i, t := range configTests {
-		c.Logf("test %d", i)
+		c.Logf("test %d: %q", i, t.yaml)
 		t.check(c)
 	}
 }
 
-func (s *configSuite) TestMissingAuth(c *C) {
+func (s *ConfigSuite) TestMissingAuth(c *C) {
 	os.Setenv("AWS_ACCESS_KEY_ID", "")
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "")
 	test := configTests[0]

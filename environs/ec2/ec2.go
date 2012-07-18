@@ -113,7 +113,10 @@ func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	log.Printf("environs/ec2: opening environment %q", cfg.Name())
 	e := new(environ)
-	e.SetConfig(cfg)
+	err := e.SetConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
 	return e, nil
 }
 
@@ -123,7 +126,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 		return err
 	}
 	if aws.Regions[config.region].EC2Endpoint == "" {
-		return fmt.Errorf("no ec2 endpoint found for region %q, opening %q", config.region, config.name)
+		return fmt.Errorf("environment %q references unknown EC2 region %q", config.name, config.region)
 	}
 	e.configMutex.Lock()
 	defer e.configMutex.Unlock()
