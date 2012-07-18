@@ -78,15 +78,14 @@ func (v *formatterValue) format(value interface{}) ([]byte, error) {
 
 // Output is responsible for interpreting output-related command line flags
 // and writing a value to a file or to stdout as directed. 
-// The zero value is ready to use.
 type Output struct {
 	formatter *formatterValue
 	outPath   string
 }
 
 // AddFlags injects the --format and --output command line flags into f.
-func (c *Output) AddFlags(f *gnuflag.FlagSet, name string, formatters map[string]Formatter) {
-	c.formatter = newFormatterValue(name, formatters)
+func (c *Output) AddFlags(f *gnuflag.FlagSet, defaultFormatter string, formatters map[string]Formatter) {
+	c.formatter = newFormatterValue(defaultFormatter, formatters)
 	f.Var(c.formatter, "format", c.formatter.doc())
 	f.StringVar(&c.outPath, "o", "", "specify an output file")
 	f.StringVar(&c.outPath, "output", "", "")
@@ -109,7 +108,10 @@ func (c *Output) Write(ctx *Context, value interface{}) (err error) {
 		return
 	}
 	if len(bytes) > 0 {
-		_, err = target.Write(append(bytes, '\n'))
+		_, err = target.Write(bytes)
+		if err == nil {
+			_, err = target.Write([]byte{'\n'})
+		}
 	}
 	return
 }
