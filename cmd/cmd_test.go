@@ -80,15 +80,6 @@ func (s *CmdSuite) TestMainSuccess(c *C) {
 	c.Assert(bufferString(ctx.Stderr), Equals, "")
 }
 
-func (s *CmdSuite) TestMainFormatSuccess(c *C) {
-	ctx := dummyContext(c)
-	result := cmd.Main(&TestCommand{Name: "format"}, ctx, []string{"--format", "yaml"})
-	c.Assert(result, Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), Equals, "success!\n")
-	c.Assert(bufferString(ctx.Stderr), Equals, "")
-}
-
-
 func (s *CmdSuite) TestMainHelp(c *C) {
 	for _, arg := range []string{"-h", "--help"} {
 		ctx := dummyContext(c)

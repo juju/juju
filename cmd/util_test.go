@@ -27,7 +27,6 @@ type TestCommand struct {
 	Name    string
 	Option  string
 	Minimal bool
-	Out	cmd.Output
 }
 
 func (c *TestCommand) Info() *cmd.Info {
@@ -38,7 +37,6 @@ func (c *TestCommand) Info() *cmd.Info {
 }
 
 func (c *TestCommand) Init(f *gnuflag.FlagSet, args []string) error {
-        c.Out.AddFlags(f, "yaml", cmd.DefaultFormatters)
 	if !c.Minimal {
 		f.StringVar(&c.Option, "option", "", "option-doc")
 	}
