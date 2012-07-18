@@ -12,7 +12,7 @@ import (
 type UnitGetCommand struct {
 	*ClientContext
 	Key string
-	out output
+	out cmd.Output
 }
 
 func NewUnitGetCommand(ctx *ClientContext) (cmd.Command, error) {
@@ -29,7 +29,8 @@ func (c *UnitGetCommand) Info() *cmd.Info {
 }
 
 func (c *UnitGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	c.out.addFlags(f, "yaml", defaultFormatters)
+	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
+	f.BoolVar(&c.testMode, "test", false, "returns non-zero exit code if value is false/zero/empty")
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
@@ -59,8 +60,8 @@ func (c *UnitGetCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return
 	}
-	if c.out.testMode {
+	if c.testMode {
 		return truthError(value)
 	}
-	return c.out.write(ctx, value)
+	return c.out.Write(ctx, value)
 }
