@@ -28,7 +28,7 @@ func Read(path string) (Charm, error) {
 }
 
 // InferRepository returns a charm repository inferred from
-// the provided URL.
+// the provided URL. Local URLs will use the provided path.
 func InferRepository(curl *URL, localRepoPath string) (repo Repository, err error) {
 	switch curl.Schema {
 	case "cs":

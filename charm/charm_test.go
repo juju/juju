@@ -2,7 +2,6 @@ package charm_test
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
@@ -50,7 +49,7 @@ func (s *CharmSuite) TestInferRepository(c *C) {
 		case *charm.LocalRepository:
 			c.Assert(repo.Path, Equals, t.path)
 		default:
-			c.Assert(fmt.Sprintf("%T", repo), Equals, "*charm.store")
+			c.Assert(repo, FitsTypeOf, charm.Store())
 		}
 	}
 	curl, err := charm.InferURL("local:whatever", "precise")
