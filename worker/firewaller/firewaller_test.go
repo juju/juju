@@ -20,32 +20,9 @@ func TestPackage(t *stdtesting.T) {
 type FirewallerSuite struct {
 	coretesting.LoggingSuite
 	testing.StateSuite
-	op    <-chan dummy.Operation
-	charm *state.Charm
-}
-
-// invalidateEnvironment alters the environment configuration
-// so the ConfigNode returned from the watcher will not pass
-// validation.
-func (s *FirewallerSuite) invalidateEnvironment() error {
-	env, err := s.State.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	env.Set("name", 1)
-	_, err = env.Write()
-	return err
-}
-
-// fixEnvironment undoes the work of invalidateEnvironment.
-func (s *FirewallerSuite) fixEnvironment() error {
-	env, err := s.State.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	env.Set("name", "testing")
-	_, err = env.Write()
-	return err
+	environ environs.Environ
+	op      <-chan dummy.Operation
+	charm   *state.Charm
 }
 
 var _ = Suite(&FirewallerSuite{})
@@ -57,17 +34,18 @@ func (s *FirewallerSuite) SetUpTest(c *C) {
 	dummy.Listen(op)
 	s.op = op
 
-	env, err := environs.NewEnviron(map[string]interface{}{
+	var err error
+	s.environ, err = environs.NewEnviron(map[string]interface{}{
 		"type":      "dummy",
 		"zookeeper": true,
 		"name":      "testing",
 	})
 	c.Assert(err, IsNil)
-	err = env.Bootstrap(false)
+	err = s.environ.Bootstrap(false)
 	c.Assert(err, IsNil)
 
 	// Sanity check
-	info, err := env.StateInfo()
+	info, err := s.environ.StateInfo()
 	c.Assert(err, IsNil)
 	c.Assert(info, DeepEquals, s.StateInfo(c))
 
@@ -81,13 +59,13 @@ func (s *FirewallerSuite) TearDownTest(c *C) {
 }
 
 func (s *FirewallerSuite) TestStartStop(c *C) {
-	fw, err := firewaller.NewFirewaller(s.StateInfo(c))
+	fw, err := firewaller.NewFirewaller(s.environ)
 	c.Assert(err, IsNil)
 	c.Assert(fw.Stop(), IsNil)
 }
 
 func (s *FirewallerSuite) TestAddRemoveMachine(c *C) {
-	fw, err := firewaller.NewFirewaller(s.StateInfo(c))
+	fw, err := firewaller.NewFirewaller(s.environ)
 	c.Assert(err, IsNil)
 
 	m1, err := s.State.AddMachine()
@@ -118,7 +96,7 @@ func (s *FirewallerSuite) TestAddRemoveMachine(c *C) {
 }
 
 func (s *FirewallerSuite) TestAssignUnassignUnit(c *C) {
-	fw, err := firewaller.NewFirewaller(s.StateInfo(c))
+	fw, err := firewaller.NewFirewaller(s.environ)
 	c.Assert(err, IsNil)
 
 	m1, err := s.State.AddMachine()
@@ -142,7 +120,7 @@ func (s *FirewallerSuite) TestAssignUnassignUnit(c *C) {
 	allUnits := fw.AllUnits()
 	sort.Strings(addedUnits)
 	sort.Strings(allUnits)
-	c.Assert(addedUnits, DeepEquals, allUnits)
+	c.Assert(allUnits, DeepEquals, addedUnits)
 
 	err = u1.UnassignFromMachine()
 	c.Assert(err, IsNil)
@@ -152,23 +130,13 @@ func (s *FirewallerSuite) TestAssignUnassignUnit(c *C) {
 	allUnits = fw.AllUnits()
 	sort.Strings(addedUnits)
 	sort.Strings(allUnits)
-	c.Assert(addedUnits, DeepEquals, allUnits)
+	c.Assert(allUnits, DeepEquals, addedUnits)
 
 	c.Assert(fw.Stop(), IsNil)
 }
 
-func (s *FirewallerSuite) TestEnvironmentChange(c *C) {
-	fw, err := firewaller.NewFirewaller(s.StateInfo(c))
-	c.Assert(err, IsNil)
-	defer c.Assert(fw.Stop(), IsNil)
-	err = s.invalidateEnvironment()
-	c.Assert(err, IsNil)
-	err = s.fixEnvironment()
-	c.Assert(err, IsNil)
-}
-
 func (s *FirewallerSuite) TestFirewallerStopOnStateClose(c *C) {
-	fw, err := firewaller.NewFirewaller(s.StateInfo(c))
+	fw, err := firewaller.NewFirewaller(s.environ)
 	c.Assert(err, IsNil)
 	fw.CloseState()
 	c.Check(fw.Wait(), ErrorMatches, ".* zookeeper is closing")
