@@ -129,21 +129,15 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 
 func addAgentScript(c *cloudinit.Config, cfg *machineConfig, name, args string) error {
 	svc := upstart.NewService(fmt.Sprintf("jujud-%s", name))
-	// TODO(rogerpeppe) change upstart.Conf.Cmd to []string so that
-	// we don't have to second-guess upstart's quoting rules.
+	format := "%s/jujud %s --zookeeper-servers '%s' --log-file /var/log/juju/%s-agent.log %s"
 	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    fmt.Sprintf("juju %s agent", name),
-		Cmd: fmt.Sprintf("%s/jujud %s --zookeeper-servers '%s' --log-file /var/log/juju/%s-agent.log %s",
-			cfg.jujuTools(),
-			name,
-			cfg.zookeeperHostAddrs(),
-			name,
-			args),
+		Cmd:     fmt.Sprintf(format, cfg.jujuTools(), name, cfg.zookeeperHostAddrs(), name, args),
 	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {
-		return fmt.Errorf("cannot make cloudinit %s agent upstart script: %v", name, err)
+		return fmt.Errorf("cannot make cloud-init %s agent upstart script: %v", name, err)
 	}
 	addScripts(c, cmds...)
 	return nil
