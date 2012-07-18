@@ -494,7 +494,7 @@ func (w *ChildrenWatcher) changeWatches(ch watcher.ChildrenChange) (watcher.Chil
 // childLoop sends aliveChange events to w.updates, in response to presence
 // changes received from watch (which is refreshed internally as required),
 // until its stop chan is closed.
-func (w *ChildrenWatcher) childLoop(key, path string, watch <-chan bool, stop <-chan struct{}) {
+func (w *ChildrenWatcher) childLoop(key, path string, watch <-chan bool, stop <-chan bool) {
 	for {
 		select {
 		case <-stop:
@@ -507,7 +507,7 @@ func (w *ChildrenWatcher) childLoop(key, path string, watch <-chan bool, stop <-
 			// We definitely need to watch again; do so early, so we can verify
 			// that the state has changed an odd number of times since we last
 			// notified, and thereby only send notifications on real changes.
-			aliveNow, newWatch, err = AliveW(w.conn, path)
+			aliveNow, newWatch, err := AliveW(w.conn, path)
 			if err != nil {
 				w.tomb.Kill(err)
 				return
