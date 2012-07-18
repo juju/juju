@@ -350,8 +350,8 @@ type ChildrenWatcher struct {
 	conn    *zk.Conn
 	tomb    tomb.Tomb
 	path    string
-	alive   map[string]struct{}
-	stops   map[string]chan struct{}
+	alive   map[string]bool
+	stops   map[string]chan bool
 	updates chan aliveChange
 	changes chan watcher.ChildrenChange
 }
@@ -369,8 +369,8 @@ func NewChildrenWatcher(conn *zk.Conn, path string) *ChildrenWatcher {
 	w := &ChildrenWatcher{
 		conn:    conn,
 		path:    path,
-		alive:   make(map[string]struct{}),
-		stops:   make(map[string]chan struct{}),
+		alive:   make(map[string]bool),
+		stops:   make(map[string]chan bool),
 		updates: make(chan aliveChange),
 		changes: make(chan watcher.ChildrenChange),
 	}
@@ -426,9 +426,9 @@ func (w *ChildrenWatcher) loop() {
 				panic("updates channel closed")
 			}
 			if ch.alive {
-				w.alive[ch.key] = struct{}{}
+				w.alive[ch.key] = true
 				change = watcher.ChildrenChange{Added: []string{ch.key}}
-			} else if _, alive := w.alive[ch.key]; alive {
+			} else if w.alive[ch.key] {
 				delete(w.alive, ch.key)
 				change = watcher.ChildrenChange{Removed: []string{ch.key}}
 			} else {
@@ -447,13 +447,13 @@ func (w *ChildrenWatcher) loop() {
 	}
 }
 
-// finish tidies up any active watches on the child nodes, closes the
-// changes channel, and marks the watcher as finished.
+// finish tidies up any active watches on the child nodes, closes
+// channels, and marks the watcher as finished.
 func (w *ChildrenWatcher) finish() {
-	// Don't close updates.
 	for _, stop := range w.stops {
-		close(stop)
+		stop <- true
 	}
+	close(w.updates)
 	close(w.changes)
 	w.tomb.Done()
 }
@@ -467,9 +467,9 @@ func (w *ChildrenWatcher) changeWatches(ch watcher.ChildrenChange) (watcher.Chil
 	for _, key := range ch.Removed {
 		stop := w.stops[key]
 		delete(w.stops, key)
-		close(stop)
+		stop <- true
 		// The node might not already be known to be dead.
-		if _, alive := w.alive[key]; alive {
+		if w.alive[key] {
 			delete(w.alive, key)
 			change.Removed = append(change.Removed, key)
 		}
@@ -480,11 +480,11 @@ func (w *ChildrenWatcher) changeWatches(ch watcher.ChildrenChange) (watcher.Chil
 		if err != nil {
 			return watcher.ChildrenChange{}, err
 		}
-		stop := make(chan struct{})
+		stop := make(chan bool)
 		w.stops[key] = stop
 		go w.childLoop(key, path, aliveW, stop)
 		if alive {
-			w.alive[key] = struct{}{}
+			w.alive[key] = true
 			change.Added = append(change.Added, key)
 		}
 	}
@@ -504,15 +504,20 @@ func (w *ChildrenWatcher) childLoop(key, path string, watch <-chan bool, stop <-
 				w.tomb.Killf("presence watch on %q failed", path)
 				return
 			}
-			var err error
-			var aliveNow bool
-			aliveNow, watch, err = AliveW(w.conn, path)
+			// We definitely need to watch again; do so early, so we can verify
+			// that the state has changed an odd number of times since we last
+			// notified, and thereby only send notifications on real changes.
+			aliveNow, newWatch, err = AliveW(w.conn, path)
 			if err != nil {
 				w.tomb.Kill(err)
 				return
 			}
+			watch = newWatch
 			if aliveNow != alive {
-				// state changed an odd number of times since the watch fired.
+				// State changed an odd number of times since the watch fired;
+				// thus, it changed an even number of times since we last
+				// notified; thus, there is no externally observable change,
+				// and we should remain silent and just wait for the watch.
 				continue
 			}
 			select {
