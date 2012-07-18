@@ -8,8 +8,9 @@ import (
 // ConfigGetCommand implements the config-get command.
 type ConfigGetCommand struct {
 	*ClientContext
-	Key string // The key to show. If empty, show all.
-	out cmd.Output
+	Key      string // The key to show. If empty, show all.
+	out      cmd.Output
+	testMode bool
 }
 
 func NewConfigGetCommand(ctx *ClientContext) (cmd.Command, error) {

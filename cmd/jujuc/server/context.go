@@ -22,7 +22,6 @@ type ClientContext struct {
 	LocalUnitName  string
 	RemoteUnitName string
 	RelationName   string
-	testMode       bool
 }
 
 // checkUnitState returns an error if ctx has nil State or LocalUnitName fields.

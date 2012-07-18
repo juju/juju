@@ -11,8 +11,8 @@ import (
 	"strings"
 )
 
-// formatter converts an arbitrary object into a []byte.
-type formatter func(value interface{}) ([]byte, error)
+// Formatter converts an arbitrary object into a []byte.
+type Formatter func(value interface{}) ([]byte, error)
 
 // formatYaml marshals value to a yaml-formatted []byte, unless value is nil.
 func formatYaml(value interface{}) ([]byte, error) {
@@ -23,7 +23,7 @@ func formatYaml(value interface{}) ([]byte, error) {
 }
 
 // DefaultFormatters are used by many juju Commands.
-var DefaultFormatters = map[string]formatter{
+var DefaultFormatters = map[string]Formatter{
 	"yaml": formatYaml,
 	"json": json.Marshal,
 }
@@ -31,12 +31,12 @@ var DefaultFormatters = map[string]formatter{
 // formatterValue implements gnuflag.Value for the --format flag.
 type formatterValue struct {
 	name       string
-	formatters map[string]formatter
+	formatters map[string]Formatter
 }
 
-// newFormatterValue returns a new formatterValue. The initial formatter name
+// newFormatterValue returns a new formatterValue. The initial Formatter name
 // must be present in formatters.
-func newFormatterValue(initial string, formatters map[string]formatter) *formatterValue {
+func newFormatterValue(initial string, formatters map[string]Formatter) *formatterValue {
 	v := &formatterValue{formatters: formatters}
 	if err := v.Set(initial); err != nil {
 		panic(err)
@@ -76,23 +76,21 @@ func (v *formatterValue) format(value interface{}) ([]byte, error) {
 }
 
 // Output is responsible for interpreting output-related command line flags
-// and writing a value to a file or to stdout as directed. The TestMode field,
-// controlled by the --test flag, is used to indicate that output should be
-// suppressed and communicated entirely in the process exit code.
+// and writing a value to a file or to stdout as directed. 
 type Output struct {
 	formatter *formatterValue
 	outPath   string
 }
 
 // AddFlags injects appropriate command line flags into f.
-func (c *Output) AddFlags(f *gnuflag.FlagSet, name string, formatters map[string]formatter) {
+func (c *Output) AddFlags(f *gnuflag.FlagSet, name string, formatters map[string]Formatter) {
 	c.formatter = newFormatterValue(name, formatters)
 	f.Var(c.formatter, "format", c.formatter.doc())
 	f.StringVar(&c.outPath, "o", "", "specify an output file")
 	f.StringVar(&c.outPath, "output", "", "")
 }
 
-// write formats and outputs value as directed by the --format and --output
+// Write formats and outputs value as directed by the --format and --output
 // command line flags.
 func (c *Output) Write(ctx *Context, value interface{}) (err error) {
 	var target io.Writer

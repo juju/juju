@@ -11,8 +11,9 @@ import (
 // UnitGetCommand implements the unit-get command.
 type UnitGetCommand struct {
 	*ClientContext
-	Key string
-	out cmd.Output
+	Key      string
+	out      cmd.Output
+	testMode bool
 }
 
 func NewUnitGetCommand(ctx *ClientContext) (cmd.Command, error) {
