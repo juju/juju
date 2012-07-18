@@ -40,10 +40,11 @@ func (s *ProvisionerSuite) SetUpTest(c *C) {
 	dummy.Listen(op)
 	s.op = op
 
-	env, err := environs.NewEnviron(map[string]interface{}{
-		"type":      "dummy",
-		"zookeeper": true,
-		"name":      "testing",
+	env, err := environs.NewFromAttrs(map[string]interface{}{
+		"name":            "testing",
+		"type":            "dummy",
+		"zookeeper":       true,
+		"authorized-keys": "i-am-a-key",
 	})
 	c.Assert(err, IsNil)
 	err = env.Bootstrap(false)

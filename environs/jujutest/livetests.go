@@ -5,7 +5,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
-	"sort"
 	"time"
 )
 
@@ -60,24 +59,6 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Assert(insts, HasLen, 0)
 }
 
-type portSlice []state.Port
-
-func (p portSlice) Len() int      { return len(p) }
-func (p portSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
-func (p portSlice) Less(i, j int) bool {
-	p1 := p[i]
-	p2 := p[j]
-	if p1.Protocol != p2.Protocol {
-		return p1.Protocol < p2.Protocol
-	}
-	return p1.Number < p2.Number
-}
-
-func sortedPorts(ports []state.Port) []state.Port {
-	sort.Sort(portSlice(ports))
-	return ports
-}
-
 func (t *LiveTests) TestPorts(c *C) {
 	inst1, err := t.Env.StartInstance(1, InvalidStateInfo)
 	c.Assert(err, IsNil)
@@ -97,41 +78,48 @@ func (t *LiveTests) TestPorts(c *C) {
 	defer t.Env.StopInstances([]environs.Instance{inst2})
 
 	// Open some ports and check they're there.
-	err = inst1.OpenPorts(1, []state.Port{{"tcp", 45}, {"udp", 67}})
+	err = inst1.OpenPorts(1, []state.Port{{"udp", 67}, {"tcp", 45}})
 	c.Assert(err, IsNil)
 	ports, err = inst1.Ports(1)
 	c.Assert(err, IsNil)
-	c.Assert(sortedPorts(ports), DeepEquals, []state.Port{{"tcp", 45}, {"udp", 67}})
+	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"udp", 67}})
 	ports, err = inst2.Ports(2)
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
 	// Check there's no crosstalk to another machine
-	err = inst2.OpenPorts(2, []state.Port{{"tcp", 45}, {"tcp", 89}})
+	err = inst2.OpenPorts(2, []state.Port{{"tcp", 89}, {"tcp", 45}})
 	c.Assert(err, IsNil)
 	ports, err = inst2.Ports(2)
 	c.Assert(err, IsNil)
-	c.Assert(sortedPorts(ports), DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}})
+	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}})
 	ports, err = inst1.Ports(1)
 	c.Assert(err, IsNil)
-	c.Assert(sortedPorts(ports), DeepEquals, []state.Port{{"tcp", 45}, {"udp", 67}})
+	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"udp", 67}})
 
 	// Check that opening the same port again is ok.
 	err = inst2.OpenPorts(2, []state.Port{{"tcp", 45}})
 	c.Assert(err, IsNil)
 	ports, err = inst2.Ports(2)
 	c.Assert(err, IsNil)
-	c.Assert(sortedPorts(ports), DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}})
+	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}})
 
-	// Check that we can close a port and that there's no crosstalk.
-	err = inst2.ClosePorts(2, []state.Port{{"tcp", 45}})
+	// Check that opening the same port again and another port is ok.
+	err = inst2.OpenPorts(2, []state.Port{{"tcp", 45}, {"tcp", 99}})
 	c.Assert(err, IsNil)
 	ports, err = inst2.Ports(2)
 	c.Assert(err, IsNil)
-	c.Assert(sortedPorts(ports), DeepEquals, []state.Port{{"tcp", 89}})
+	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
+
+	// Check that we can close ports and that there's no crosstalk.
+	err = inst2.ClosePorts(2, []state.Port{{"tcp", 45}, {"tcp", 99}})
+	c.Assert(err, IsNil)
+	ports, err = inst2.Ports(2)
+	c.Assert(err, IsNil)
+	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 89}})
 	ports, err = inst1.Ports(1)
 	c.Assert(err, IsNil)
-	c.Assert(sortedPorts(ports), DeepEquals, []state.Port{{"tcp", 45}, {"udp", 67}})
+	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"udp", 67}})
 
 	// Check that we can close multiple ports.
 	err = inst1.ClosePorts(1, []state.Port{{"tcp", 45}, {"udp", 67}})
@@ -143,7 +131,7 @@ func (t *LiveTests) TestPorts(c *C) {
 	err = inst2.ClosePorts(2, []state.Port{{"tcp", 111}, {"udp", 222}})
 	c.Assert(err, IsNil)
 	ports, err = inst2.Ports(2)
-	c.Assert(sortedPorts(ports), DeepEquals, []state.Port{{"tcp", 89}})
+	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 89}})
 }
 
 func (t *LiveTests) TestBootstrap(c *C) {
