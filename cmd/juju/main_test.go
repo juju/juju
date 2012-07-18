@@ -89,6 +89,7 @@ environments:
         type: dummy
         zookeeper: false
         broken: true
+        authorized-keys: i-am-a-key
 `
 
 // Induce failure to load environments and hence break Run.

@@ -1,4 +1,4 @@
-package server
+package cmd
 
 import (
 	"encoding/json"
@@ -6,15 +6,13 @@ import (
 	"io"
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/cmd"
 	"os"
-	"reflect"
 	"sort"
 	"strings"
 )
 
-// formatter converts an arbitrary object into a []byte.
-type formatter func(value interface{}) ([]byte, error)
+// Formatter converts an arbitrary object into a []byte.
+type Formatter func(value interface{}) ([]byte, error)
 
 // formatYaml marshals value to a yaml-formatted []byte, unless value is nil.
 func formatYaml(value interface{}) ([]byte, error) {
@@ -24,8 +22,8 @@ func formatYaml(value interface{}) ([]byte, error) {
 	return goyaml.Marshal(value)
 }
 
-// defaultFormatters are used by many jujuc Commands.
-var defaultFormatters = map[string]formatter{
+// DefaultFormatters are used by many juju Commands.
+var DefaultFormatters = map[string]Formatter{
 	"yaml": formatYaml,
 	"json": json.Marshal,
 }
@@ -33,12 +31,12 @@ var defaultFormatters = map[string]formatter{
 // formatterValue implements gnuflag.Value for the --format flag.
 type formatterValue struct {
 	name       string
-	formatters map[string]formatter
+	formatters map[string]Formatter
 }
 
-// newFormatterValue returns a new formatterValue. The initial formatter name
+// newFormatterValue returns a new formatterValue. The initial Formatter name
 // must be present in formatters.
-func newFormatterValue(initial string, formatters map[string]formatter) *formatterValue {
+func newFormatterValue(initial string, formatters map[string]Formatter) *formatterValue {
 	v := &formatterValue{formatters: formatters}
 	if err := v.Set(initial); err != nil {
 		panic(err)
@@ -77,28 +75,24 @@ func (v *formatterValue) format(value interface{}) ([]byte, error) {
 	return v.formatters[v.name](value)
 }
 
-// output is responsible for interpreting output-related command line flags
-// and writing a value to a file or to stdout as directed. The testMode field,
-// controlled by the --test flag, is used to indicate that output should be
-// suppressed and communicated entirely in the process exit code.
-type output struct {
+// Output is responsible for interpreting output-related command line flags
+// and writing a value to a file or to stdout as directed. 
+type Output struct {
 	formatter *formatterValue
 	outPath   string
-	testMode  bool
 }
 
-// addFlags injects appropriate command line flags into f.
-func (c *output) addFlags(f *gnuflag.FlagSet, name string, formatters map[string]formatter) {
+// AddFlags injects appropriate command line flags into f.
+func (c *Output) AddFlags(f *gnuflag.FlagSet, name string, formatters map[string]Formatter) {
 	c.formatter = newFormatterValue(name, formatters)
 	f.Var(c.formatter, "format", c.formatter.doc())
 	f.StringVar(&c.outPath, "o", "", "specify an output file")
 	f.StringVar(&c.outPath, "output", "", "")
-	f.BoolVar(&c.testMode, "test", false, "returns non-zero exit code if value is false/zero/empty")
 }
 
-// write formats and outputs value as directed by the --format and --output
+// Write formats and outputs value as directed by the --format and --output
 // command line flags.
-func (c *output) write(ctx *cmd.Context, value interface{}) (err error) {
+func (c *Output) Write(ctx *Context, value interface{}) (err error) {
 	var target io.Writer
 	if c.outPath == "" {
 		target = ctx.Stdout
@@ -119,31 +113,4 @@ func (c *output) write(ctx *cmd.Context, value interface{}) (err error) {
 		}
 	}
 	return
-}
-
-// truthError returns cmd.ErrSilent if value is nil, false, or 0, or an empty
-// array, map, slice, or string.
-func truthError(value interface{}) error {
-	b := true
-	v := reflect.ValueOf(value)
-	switch v.Kind() {
-	case reflect.Invalid:
-		b = false
-	case reflect.Bool:
-		b = v.Bool()
-	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
-		b = v.Len() != 0
-	case reflect.Float32, reflect.Float64:
-		b = v.Float() != 0
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		b = v.Int() != 0
-	case reflect.Uint, reflect.Uintptr, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		b = v.Uint() != 0
-	case reflect.Interface, reflect.Ptr:
-		b = !v.IsNil()
-	}
-	if b {
-		return nil
-	}
-	return cmd.ErrSilent
 }

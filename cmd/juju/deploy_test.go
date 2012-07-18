@@ -22,6 +22,7 @@ environments:
     palermo:
         type: dummy
         zookeeper: true
+        authorized-keys: i-am-a-key
 `
 
 type DeploySuite struct {
