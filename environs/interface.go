@@ -46,6 +46,7 @@ type Instance interface {
 
 	// Ports returns the set of ports open on the instance, which
 	// should have been started with the given machine id.
+	// The ports are returned as sorted by state.SortPorts.
 	Ports(machineId int) ([]state.Port, error)
 }
 

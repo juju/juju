@@ -498,5 +498,6 @@ func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 	for p := range inst.ports {
 		ports = append(ports, p)
 	}
+	state.SortPorts(ports)
 	return
 }

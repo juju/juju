@@ -82,12 +82,10 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 		"sudo mkdir -p /var/lib/juju",
 		"sudo mkdir -p /var/log/juju")
 
-	jujutools := "/var/lib/juju/tools/" + versionDir(cfg.toolsURL)
-
 	// Make a directory for the tools to live in, then fetch the
 	// tools and unarchive them into it.
 	addScripts(c,
-		"bin="+shquote(jujutools),
+		"bin="+shquote(cfg.jujuTools()),
 		"mkdir -p $bin",
 		fmt.Sprintf("wget -O - %s | tar xz -C $bin", shquote(cfg.toolsURL)),
 	)
@@ -105,7 +103,7 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 	// zookeeper scripts
 	if cfg.zookeeper {
 		addScripts(c,
-			jujutools+"/jujud initzk"+
+			cfg.jujuTools()+"/jujud initzk"+
 				" --instance-id "+cfg.instanceIdAccessor+
 				" --env-type "+shquote(cfg.providerType)+
 				" --zookeeper-servers localhost"+zkPortSuffix+
@@ -113,25 +111,13 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 		)
 	}
 
-	// TODO start machine agent
-
+	if err := addAgentScript(c, cfg, "machine", fmt.Sprintf("--machine-id %d "+debugFlag, cfg.machineId)); err != nil {
+		return nil, err
+	}
 	if cfg.provisioner {
-		svc := upstart.NewService("jujud-provisioning")
-		// TODO(rogerpeppe) change upstart.Conf.Cmd to []string so that
-		// we don't have to second-guess upstart's quoting rules.
-		conf := &upstart.Conf{
-			Service: *svc,
-			Desc:    "juju provisioning agent",
-			Cmd: jujutools + "/jujud provisioning" +
-				" --zookeeper-servers " + fmt.Sprintf("'%s'", cfg.zookeeperHostAddrs()) +
-				" --log-file /var/log/juju/provision-agent.log" +
-				debugFlag,
+		if err := addAgentScript(c, cfg, "provisioning", debugFlag); err != nil {
+			return nil, err
 		}
-		cmds, err := conf.InstallCommands()
-		if err != nil {
-			return nil, fmt.Errorf("cannot make cloudinit provisioning agent upstart script: %v", err)
-		}
-		addScripts(c, cmds...)
 	}
 
 	// general options
@@ -141,6 +127,22 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 	return c, nil
 }
 
+func addAgentScript(c *cloudinit.Config, cfg *machineConfig, name, args string) error {
+	svc := upstart.NewService(fmt.Sprintf("jujud-%s", name))
+	format := "%s/jujud %s --zookeeper-servers '%s' --log-file /var/log/juju/%s-agent.log %s"
+	conf := &upstart.Conf{
+		Service: *svc,
+		Desc:    fmt.Sprintf("juju %s agent", name),
+		Cmd:     fmt.Sprintf(format, cfg.jujuTools(), name, cfg.zookeeperHostAddrs(), name, args),
+	}
+	cmds, err := conf.InstallCommands()
+	if err != nil {
+		return fmt.Errorf("cannot make cloud-init %s agent upstart script: %v", name, err)
+	}
+	addScripts(c, cmds...)
+	return nil
+}
+
 // versionDir converts a tools URL into a name
 // to use as a directory for storing the tools executables in
 // by using the last element stripped of its extension.
@@ -148,6 +150,10 @@ func versionDir(toolsURL string) string {
 	name := path.Base(toolsURL)
 	ext := path.Ext(name)
 	return name[:len(name)-len(ext)]
+}
+
+func (cfg *machineConfig) jujuTools() string {
+	return "/var/lib/juju/tools/" + versionDir(cfg.toolsURL)
 }
 
 func (cfg *machineConfig) zookeeperHostAddrs() string {
