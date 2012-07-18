@@ -8,12 +8,13 @@ import (
 	"launchpad.net/tomb"
 )
 
-// Firewaller manages the opening and closing of ports.
+// Firewaller watches the state for ports open or closed
+// and reflects those changes onto the backing environment.
 type Firewaller struct {
 	st       *state.State
 	environ  environs.Environ
 	tomb     tomb.Tomb
-	machines map[int]*machine
+	machines map[int]*machineTracker
 }
 
 // NewFirewaller returns a new Firewaller.
@@ -29,7 +30,7 @@ func NewFirewaller(environ environs.Environ) (*Firewaller, error) {
 	fw := &Firewaller{
 		st:       st,
 		environ:  environ,
-		machines: make(map[int]*machine),
+		machines: make(map[int]*machineTracker),
 	}
 	go fw.loop()
 	return fw, nil
@@ -38,34 +39,31 @@ func NewFirewaller(environ environs.Environ) (*Firewaller, error) {
 func (fw *Firewaller) loop() {
 	defer fw.finish()
 	// Set up channels and watchers.
-	machinesWatcher := fw.st.WatchMachines()
-	defer watcher.Stop(machinesWatcher, &fw.tomb)
 	machineUnitsChanges := make(chan *machineUnitsChange)
 	defer close(machineUnitsChanges)
+	machinesWatcher := fw.st.WatchMachines()
+	defer watcher.Stop(machinesWatcher, &fw.tomb)
 	for {
 		select {
 		case <-fw.tomb.Dying():
 			return
 		case change, ok := <-machinesWatcher.Changes():
 			if !ok {
-				err := machinesWatcher.Stop()
-				if err != nil {
-					fw.tomb.Kill(watcher.MustErr(machinesWatcher))
-				}
 				return
 			}
 			for _, removedMachine := range change.Removed {
 				m, ok := fw.machines[removedMachine.Id()]
 				if !ok {
-					panic("trying to remove unmanaged machine")
+					panic("trying to remove machine that wasn't added")
 				}
 				if err := m.stop(); err != nil {
-					panic("can't stop machine tracker")
+					log.Printf("can't stop machine tracker: %v", err)
+					continue
 				}
 				delete(fw.machines, removedMachine.Id())
 			}
 			for _, addedMachine := range change.Added {
-				m := newMachine(addedMachine, fw, machineUnitsChanges)
+				m := newMachineTracker(addedMachine, fw, machineUnitsChanges)
 				fw.machines[addedMachine.Id()] = m
 				log.Debugf("Added machine %v", m.id)
 			}
@@ -97,69 +95,74 @@ func (fw *Firewaller) Stop() error {
 
 // machineUnitsChange contains the changed units for one specific machine. 
 type machineUnitsChange struct {
-	machine *machine
+	machine *machineTracker
 	change  *state.MachineUnitsChange
 }
 
-// machine keeps track of the unit changes of a machine.
-type machine struct {
+// machineTracker keeps track of the unit changes of a machine.
+type machineTracker struct {
 	firewaller *Firewaller
-	changes    chan *machineUnitsChange
+	changes    chan<- *machineUnitsChange
 	tomb       tomb.Tomb
 	id         int
 	watcher    *state.MachineUnitsWatcher
-	ports      map[state.Port]*unit
+	ports      map[state.Port]*unitTracker
 }
 
-// newMachine creates a new machine to be watched for units changes.
-func newMachine(mst *state.Machine, fw *Firewaller, changes chan *machineUnitsChange) *machine {
-	m := &machine{
+// newMachineTracker creates a new machine tracker keeping track of
+// unit changes of the passed machine.
+func newMachineTracker(mst *state.Machine, fw *Firewaller, changes chan<- *machineUnitsChange) *machineTracker {
+	mt := &machineTracker{
 		firewaller: fw,
 		changes:    changes,
 		id:         mst.Id(),
 		watcher:    mst.WatchUnits(),
-		ports:      make(map[state.Port]*unit),
+		ports:      make(map[state.Port]*unitTracker),
 	}
-	go m.loop()
-	return m
+	go mt.loop()
+	return mt
 }
 
 // loop is the backend watching for machine units changes.
-func (m *machine) loop() {
-	defer m.tomb.Done()
-	defer m.watcher.Stop()
+func (mt *machineTracker) loop() {
+	defer mt.tomb.Done()
+	defer mt.watcher.Stop()
 	for {
 		select {
-		case <-m.firewaller.tomb.Dying():
+		case <-mt.firewaller.tomb.Dying():
 			return
-		case <-m.tomb.Dying():
+		case <-mt.tomb.Dying():
 			return
-		case change, ok := <-m.watcher.Changes():
+		case change, ok := <-mt.watcher.Changes():
+			// Send change or nil.
 			select {
-			case m.changes <- &machineUnitsChange{m, change}:
-			case <-m.firewaller.tomb.Dying():
+			case mt.changes <- &machineUnitsChange{mt, change}:
+			case <-mt.firewaller.tomb.Dying():
+				return
+			case <-mt.tomb.Dying():
 				return
 			}
+			// Had been an error, so end the loop.
 			if !ok {
-				m.firewaller.tomb.Kill(watcher.MustErr(m.watcher))
+				mt.firewaller.tomb.Kill(watcher.MustErr(mt.watcher))
 				return
 			}
 		}
 	}
 }
 
-// stop lets the machine tracker stop working.
-func (m *machine) stop() error {
-	m.tomb.Kill(nil)
-	return m.tomb.Wait()
+// stop stops the machine tracker.
+func (mt *machineTracker) stop() error {
+	mt.tomb.Kill(nil)
+	return mt.tomb.Wait()
 }
 
-type service struct {
+type serviceTracker struct {
 	exposed bool
 }
 
-type unit struct {
-	svc   *service
-	id    string
-	ports []state.Port
+type unitTracker struct {
+	service *serviceTracker
+	id      string
+	ports   []state.Port
 }
