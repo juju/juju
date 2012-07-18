@@ -84,7 +84,7 @@ type Output struct {
 	outPath   string
 }
 
-// AddFlags injects appropriate command line flags into f.
+// AddFlags injects the --format and --output command line flags into f.
 func (c *Output) AddFlags(f *gnuflag.FlagSet, name string, formatters map[string]Formatter) {
 	c.formatter = newFormatterValue(name, formatters)
 	f.Var(c.formatter, "format", c.formatter.doc())
