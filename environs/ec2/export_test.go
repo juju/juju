@@ -27,10 +27,6 @@ func MachineGroupName(e environs.Environ, machineId int) string {
 	return e.(*environ).machineGroupName(machineId)
 }
 
-func AuthorizedKeys(path string) (string, error) {
-	return authorizedKeys(path)
-}
-
 func EnvironEC2(e environs.Environ) *ec2.EC2 {
 	return e.(*environ).ec2()
 }
