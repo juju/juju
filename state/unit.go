@@ -114,15 +114,11 @@ func (st *State) unitFromKey(t *topology, unitKey string) (*Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	principalKey := tunit.Principal
-	if principalKey == "" {
-		principalKey = unitKey
-	}
 	return &Unit{
 		st:           st,
 		key:          unitKey,
 		serviceName:  tsvc.Name,
-		principalKey: principalKey,
+		principalKey: tunit.Principal,
 	}, nil
 }
 
@@ -207,7 +203,7 @@ func (u *Unit) SetCharmURL(url *charm.URL) (err error) {
 // IsPrincipal returns whether the unit is deployed in its own container,
 // and can therefore have subordinate services deployed alongside it.
 func (u *Unit) IsPrincipal() bool {
-	return u.key == u.principalKey
+	return u.principalKey == ""
 }
 
 // AssignedMachineId returns the id of the assigned machine.
