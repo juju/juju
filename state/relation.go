@@ -3,6 +3,7 @@ package state
 import (
 	"fmt"
 	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju-core/state/presence"
 	"strconv"
 	"strings"
 )
@@ -132,6 +133,66 @@ func (r *Relation) RelatedEndpoints(serviceName string) ([]RelationEndpoint, err
 		return nil, fmt.Errorf("no endpoints of %q relate to service %q", r, serviceName)
 	}
 	return eps, nil
+}
+
+// Join joins the supplied unit to the relation, such that other units watching
+// the relation will observe its presence and changes to its settings within
+// the relation.
+func (r *Relation) Join(u *Unit) (*presence.Pinger, error) {
+	role, scope, err := r.unitInfo(u)
+	if err != nil {
+		return nil, err
+	}
+	if err = scope.prepareJoin(r.st.zk, role); err != nil {
+		return nil, err
+	}
+	// Private address should be set at agent startup.
+	address, err := u.PrivateAddress()
+	if err != nil {
+		return nil, err
+	}
+	settings, err := readConfigNode(u.st.zk, scope.settingsPath(u.key))
+	if err != nil {
+		return nil, err
+	}
+	settings.Set("private-address", address)
+	if _, err := settings.Write(); err != nil {
+		return nil, err
+	}
+	presencePath := scope.presencePath(role, u.key)
+	return presence.StartPinger(u.st.zk, presencePath, agentPingerPeriod)
+}
+
+// Watch returns a RelationUnitsWatcher which notifies of changes to the
+// relation that are of interest to the supplied unit.
+func (r *Relation) Watch(u *Unit) (*RelationUnitsWatcher, error) {
+	role, scope, err := r.unitInfo(u)
+	if err != nil {
+		return nil, err
+	}
+	return newRelationUnitsWatcher(scope, role.counterpartRole(), u), nil
+}
+
+// Settings returns a ConfigNode which allows access to the supplied unit's
+// settings within this relation.
+func (r *Relation) Settings(u *Unit) (*ConfigNode, error) {
+	_, scope, err := r.unitInfo(u)
+	if err != nil {
+		return nil, err
+	}
+	return readConfigNode(u.st.zk, scope.settingsPath(u.key))
+}
+
+func (r *Relation) unitInfo(u *Unit) (role RelationRole, usp unitScopePath, err error) {
+	ep, err := r.Endpoint(u.serviceName)
+	if err != nil {
+		return
+	}
+	parts := []string{"/relations", r.key}
+	if ep.RelationScope == ScopeContainer {
+		parts = append(parts, u.principalKey)
+	}
+	return ep.RelationRole, unitScopePath(strings.Join(parts, "/")), nil
 }
 
 // unitScopePath represents a common zookeeper path used by the set of units
