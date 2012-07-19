@@ -8,7 +8,7 @@ import (
 
 type StatusCommand struct {
 	EnvName string
-	Out	cmd.Output
+	Out     cmd.Output
 }
 
 var statusDoc = "This command will report on the runtime state of various system entities."

@@ -25,8 +25,8 @@ func (OpenSuite) TestNewDummyEnviron(c *C) {
 
 func (OpenSuite) TestNewUnknownEnviron(c *C) {
 	env, err := environs.NewFromAttrs(map[string]interface{}{
-		"name": "foo",
-		"type": "wondercloud",
+		"name":            "foo",
+		"type":            "wondercloud",
 		"authorized-keys": "i-am-a-key",
 	})
 	c.Assert(err, ErrorMatches, "no registered provider for.*")
