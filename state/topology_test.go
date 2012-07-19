@@ -263,14 +263,10 @@ func (s *TopologySuite) TestAddUnitSubordinate(c *C) {
 	c.Assert(err, IsNil)
 	err = s.t.AddUnit("unit-0-05", "")
 	c.Assert(err, IsNil)
-	_, err = s.t.UnitPrincipalKey("unit-0-05")
-	c.Assert(err, Equals, unitNotSubordinate)
-	err = s.t.AddUnit("unit-0-12", "")
+	err = s.t.AddUnit("unit-1-01", "unit-0-05")
 	c.Assert(err, IsNil)
-	err = s.t.AddUnit("unit-1-07", "unit-0-05")
-	principal, err := s.t.UnitPrincipalKey("unit-1-07")
-	c.Assert(err, IsNil)
-	c.Assert(principal, Equals, "unit-0-05")
+	err = s.t.AddUnit("unit-1-02", "unit-1-01")
+	c.Assert(err, ErrorMatches, `can't add unit "unit-1-02" subordinate to subordinate unit "unit-1-01"`)
 }
 
 func (s *TopologySuite) TestAddDuplicatedUnit(c *C) {
