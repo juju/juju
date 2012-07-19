@@ -4,6 +4,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	//"launchpad.net/juju-core/state"
 )
 
 type StatusCommand struct {
@@ -28,11 +29,13 @@ func (c *StatusCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return cmd.CheckEmpty(f.Args())
 }
 
-func (c *StatusCommand) Run(_ *cmd.Context) error {
+func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConn(c.EnvName)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
-	return nil
+
+	result := make(map[string]interface{})
+	return c.Out.Write(ctx, result)
 }
