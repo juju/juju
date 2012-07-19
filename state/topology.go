@@ -274,6 +274,15 @@ func (t *topology) AddUnit(unitKey, principalKey string) error {
 	if _, ok := svc.Units[unitKey]; ok {
 		return fmt.Errorf("unit %q already in use", unitKey)
 	}
+	if principalKey != "" {
+		_, pUnit, err := t.serviceAndUnit(principalKey)
+		if err != nil {
+			return err
+		}
+		if !pUnit.isPrincipal() {
+			return fmt.Errorf("can't add unit %q subordinate to subordinate unit %q", unitKey, principalKey)
+		}
+	}
 	svc.Units[unitKey] = &topoUnit{
 		Principal: principalKey,
 	}
@@ -313,23 +322,6 @@ func (t *topology) UnitName(unitKey string) (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%s/%d", svc.Name, keySeq(unitKey)), nil
-}
-
-// unitNotSubordinate indicates that a unit is principal rather than subordinate.
-var unitNotSubordinate = errors.New("service unit is a principal rather than a subordinate")
-
-// UnitPrincipalKey returns the unit key of the principal unit alongside which
-// the specified subordinate unit is deployed. If the specified unit is not
-// subordinate, unitNotSubordinate will be returned.
-func (t *topology) UnitPrincipalKey(unitKey string) (string, error) {
-	_, unit, err := t.serviceAndUnit(unitKey)
-	if err != nil {
-		return "", err
-	}
-	if unit.isPrincipal() {
-		return "", unitNotSubordinate
-	}
-	return unit.Principal, nil
 }
 
 // unitNotAssigned indicates that a unit is not assigned to a machine.
