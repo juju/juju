@@ -9,7 +9,8 @@ import (
 
 type StatusCommand struct {
 	EnvName string
-	Out     cmd.Output
+	conn    *juju.Conn
+	out     cmd.Output
 }
 
 var statusDoc = "This command will report on the runtime state of various system entities."
@@ -22,7 +23,7 @@ func (c *StatusCommand) Info() *cmd.Info {
 
 func (c *StatusCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	addEnvironFlags(&c.EnvName, f)
-	c.Out.AddFlags(f, "yaml", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
@@ -30,15 +31,43 @@ func (c *StatusCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
-	conn, err := juju.NewConn(c.EnvName)
+	var err error
+	c.conn, err = juju.NewConn(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer c.conn.Close()
 
-	result := make(map[string]interface{})
+	result := struct {
+		Machines map[int]interface{}
+		Services map[string]interface{}
+	}{}
 
-	// TODO(dfc) process machines, process services, basically everything
+	result.Machines, err = c.processMachines()
+	if err != nil {
+		return err
+	}
 
-	return c.Out.Write(ctx, result)
+	result.Services, err = c.processServices()
+	if err != nil {
+		return err
+	}
+
+	return c.out.Write(ctx, result)
+}
+
+func (c *StatusCommand) processMachines() (map[int]interface{}, error) {
+	machines := make(map[int]interface{})
+
+	// TODO(dfc) process machines
+
+	return machines, nil
+}
+
+func (c *StatusCommand) processServices() (map[string]interface{}, error) {
+	services := make(map[string]interface{})
+
+	// TODO(dfc) process services
+
+	return services, nil
 }
