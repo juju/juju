@@ -139,6 +139,7 @@ var commandNames = []string{
 	"bootstrap",
 	"deploy",
 	"destroy-environment",
+	"status",
 }
 
 func (s *MainSuite) TestHelp(c *C) {

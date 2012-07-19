@@ -129,11 +129,14 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 
 func addAgentScript(c *cloudinit.Config, cfg *machineConfig, name, args string) error {
 	svc := upstart.NewService(fmt.Sprintf("jujud-%s", name))
-	format := "%s/jujud %s --zookeeper-servers '%s' --log-file /var/log/juju/%s-agent.log %s"
+	cmd := fmt.Sprintf(
+		"%s/jujud %s --zookeeper-servers '%s' --log-file /var/log/juju/%s-agent.log %s",
+		cfg.jujuTools(), name, cfg.zookeeperHostAddrs(), name, args,
+	)
 	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    fmt.Sprintf("juju %s agent", name),
-		Cmd:     fmt.Sprintf(format, cfg.jujuTools(), name, cfg.zookeeperHostAddrs(), name, args),
+		Cmd:     cmd,
 	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {
