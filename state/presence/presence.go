@@ -453,7 +453,7 @@ func (w *ChildrenWatcher) finish() {
 	for _, stop := range w.stops {
 		stop <- true
 	}
-	close(w.updates)
+	// No need to close w.updates.
 	close(w.changes)
 	w.tomb.Done()
 }
@@ -514,10 +514,6 @@ func (w *ChildrenWatcher) childLoop(key, path string, watch <-chan bool, stop <-
 			}
 			watch = newWatch
 			if aliveNow != alive {
-				// State changed an odd number of times since the watch fired;
-				// thus, it changed an even number of times since we last
-				// notified; thus, there is no externally observable change,
-				// and we should remain silent and just wait for the watch.
 				continue
 			}
 			select {
