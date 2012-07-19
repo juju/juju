@@ -1,7 +1,6 @@
 package relationer
 
 import (
-	"fmt"
 	"launchpad.net/juju-core/state"
 	"sort"
 )
@@ -173,19 +172,4 @@ func (q *HookQueue) nextChangeIndex() int {
 		}
 	}
 	return -1
-}
-
-func remove(old []string, target string) (new []string) {
-	ok := false
-	for _, v := range old {
-		if v == target {
-			ok = true
-			continue
-		}
-		new = append(new, v)
-	}
-	if !ok {
-		panic(fmt.Errorf("%q not present in %#v", target, old))
-	}
-	return new
 }
