@@ -48,12 +48,12 @@ func (fw *Firewaller) loop() {
 				if err := m.stop(); err != nil {
 					log.Printf("machine tracker %d returned error when stopping: %v", removedMachine.Id(), err)
 				}
-				log.Debugf("firewaller: remove-machine %v", removedMachine.Id())
+				log.Debugf("firewaller: stopped tracking machine %d", removedMachine.Id())
 			}
 			for _, addedMachine := range change.Added {
 				m := newMachineTracker(addedMachine, fw)
 				fw.machines[addedMachine.Id()] = m
-				log.Debugf("firewaller: add-machine %v", m.id)
+				log.Debugf("firewaller: started tracking machine %d", m.id)
 			}
 		case <-fw.machineUnitsChanges:
 			// TODO(mue) fill with life.
@@ -115,16 +115,12 @@ func (mt *machineTracker) loop() {
 	defer mt.watcher.Stop()
 	for {
 		select {
-		case <-mt.firewaller.tomb.Dying():
-			return
 		case <-mt.tomb.Dying():
 			return
 		case change, ok := <-mt.watcher.Changes():
 			// Send change or nil.
 			select {
 			case mt.firewaller.machineUnitsChanges <- &machineUnitsChange{mt, change}:
-			case <-mt.firewaller.tomb.Dying():
-				return
 			case <-mt.tomb.Dying():
 				return
 			}

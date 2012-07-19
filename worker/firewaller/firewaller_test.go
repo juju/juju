@@ -116,16 +116,16 @@ func (s *FirewallerSuite) TestAddRemoveMachine(c *C) {
 	c.Assert(err, IsNil)
 
 	assertEvents(c, []string{
-		fmt.Sprint("add-machine ", m1.Id()),
-		fmt.Sprint("add-machine ", m2.Id()),
-		fmt.Sprint("add-machine ", m3.Id()),
+		fmt.Sprint("started tracking machine ", m1.Id()),
+		fmt.Sprint("started tracking machine ", m2.Id()),
+		fmt.Sprint("started tracking machine ", m3.Id()),
 	})
 
 	err = s.State.RemoveMachine(m2.Id())
 	c.Assert(err, IsNil)
 
 	assertEvents(c, []string{
-		fmt.Sprint("remove-machine ", m2.Id()),
+		fmt.Sprint("stopped tracking machine ", m2.Id()),
 	})
 
 	c.Assert(fw.Stop(), IsNil)

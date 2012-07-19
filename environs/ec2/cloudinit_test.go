@@ -64,7 +64,11 @@ func (t *cloudinitTest) check(c *C) {
 		t.checkScripts(c, "jujud provisioning --zookeeper-servers 'localhost"+zkPortSuffix+"'")
 	}
 
-	// TODO check machine agent script.
+	if t.cfg.zookeeper {
+		t.checkScripts(c, "jujud machine --zookeeper-servers 'localhost"+zkPortSuffix+"' .* --machine-id [0-9]+")
+	} else {
+		t.checkScripts(c, "jujud machine --zookeeper-servers '"+strings.Join(t.cfg.stateInfo.Addrs, ",")+"' .* --machine-id [0-9]+")
+	}
 }
 
 func (t *cloudinitTest) checkScripts(c *C, pattern string) {

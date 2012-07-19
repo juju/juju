@@ -2,11 +2,13 @@ package main
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/state/testing"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 type InitzkSuite struct {
-	testing.LoggingSuite
+	coretesting.LoggingSuite
+	testing.StateSuite
 	path string
 }
 
@@ -15,9 +17,11 @@ var _ = Suite(&InitzkSuite{})
 func (s *InitzkSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.path = "/watcher"
+	s.StateSuite.SetUpTest(c)
 }
 
 func (s *InitzkSuite) TearDownTest(c *C) {
+	s.StateSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
@@ -50,4 +54,22 @@ func (s *InitzkSuite) TestParse(c *C) {
 	args = append(args, "haha disregard that")
 	_, err = initInitzkCommand(args)
 	c.Assert(err, ErrorMatches, `unrecognized args: \["haha disregard that"\]`)
+}
+
+func (s *InitzkSuite) TestSetMachineId(c *C) {
+	args := []string{"--zookeeper-servers"}
+	args = append(args, s.StateInfo(c).Addrs...)
+	args = append(args, "--instance-id", "over9000", "--env-type", "dummy")
+	cmd, err := initInitzkCommand(args)
+	c.Assert(err, IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, IsNil)
+
+	machines, err := s.State.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(len(machines), Equals, 1)
+
+	instid, err := machines[0].InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(instid, Equals, "over9000")
 }

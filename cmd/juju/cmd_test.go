@@ -49,13 +49,16 @@ environments:
     peckham:
         type: dummy
         zookeeper: false
+        authorized-keys: i-am-a-key
     walthamstow:
         type: dummy
         zookeeper: false
+        authorized-keys: i-am-a-key
     barking:
         type: dummy
         broken: true
         zookeeper: false
+        authorized-keys: i-am-a-key
 `
 
 func (s *cmdSuite) SetUpTest(c *C) {
@@ -102,6 +105,7 @@ var EnvironmentInitTests = []func() (cmd.Command, []string){
 	func() (cmd.Command, []string) {
 		return new(DeployCommand), []string{"charm-name", "service-name"}
 	},
+	func() (cmd.Command, []string) { return new(StatusCommand), nil },
 }
 
 // TestEnvironmentInit tests that all commands which accept
