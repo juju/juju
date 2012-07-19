@@ -309,9 +309,6 @@ func (s *Service) String() string {
 
 // newUnit creates a *Unit.
 func (s *Service) newUnit(key, principalKey string) *Unit {
-	if principalKey == "" {
-		principalKey = key
-	}
 	return &Unit{
 		st:           s.st,
 		key:          key,
