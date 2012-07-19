@@ -10,6 +10,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/state"
@@ -95,10 +96,6 @@ func (t *localLiveSuite) TearDownTest(c *C) {
 	t.LoggingSuite.TearDownTest(c)
 }
 
-func (t *localLiveSuite) TestPorts(c *C) {
-	c.Skip("ports not yet implemented")
-}
-
 // localServer represents a fake EC2 server running within
 // the test process itself.
 type localServer struct {
@@ -132,7 +129,7 @@ func (srv *localServer) startServer(c *C) {
 // that start an instance can succeed even though they
 // do not upload tools.
 func putFakeTools(c *C, s environs.StorageWriter) {
-	path := environs.ToolsPath(version.Current, environs.CurrentSeries, environs.CurrentArch)
+	path := environs.ToolsPath(version.Current, config.CurrentSeries, config.CurrentArch)
 	c.Logf("putting fake tools at %v", path)
 	toolsContents := "tools archive, honest guv"
 	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
@@ -197,10 +194,6 @@ func (t *localServerSuite) TearDownTest(c *C) {
 	t.Tests.TearDownTest(c)
 	t.srv.stopServer(c)
 	t.LoggingSuite.TearDownTest(c)
-}
-
-func (t *localServerSuite) TestPorts(c *C) {
-	c.Skip("ports not yet implemented")
 }
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
