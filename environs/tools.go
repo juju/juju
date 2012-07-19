@@ -250,7 +250,7 @@ func findToolsPath(store StorageReader, spec toolsSpec) (path string, err error)
 }
 
 func setenv(env []string, val string) []string {
-	prefix := val[0:strings.Index(val, "=") + 1]
+	prefix := val[0 : strings.Index(val, "=")+1]
 	for i, eval := range env {
 		if strings.HasPrefix(eval, prefix) {
 			env[i] = val
@@ -269,7 +269,7 @@ func bundleTools(w io.Writer) error {
 	}
 	defer os.RemoveAll(dir)
 	cmd := exec.Command("go", "install", "launchpad.net/juju-core/cmd/...")
-	cmd.Env = setenv(os.Environ(), "GOBIN=" + dir)
+	cmd.Env = setenv(os.Environ(), "GOBIN="+dir)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("build failed: %v; %s", err, out)

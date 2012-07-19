@@ -1,11 +1,11 @@
 package environs
 
 import (
-	"launchpad.net/juju-core/environs/config"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/environs/config"
 	"os"
 	"path/filepath"
 )

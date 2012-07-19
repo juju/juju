@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 )
 
-type CurrentSuite struct {}
+type CurrentSuite struct{}
 
 var _ = Suite(&CurrentSuite{})
 

@@ -29,4 +29,3 @@ func ubuntuArch(arch string) string {
 	}
 	return arch
 }
-
