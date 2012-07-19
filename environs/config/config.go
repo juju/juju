@@ -5,7 +5,6 @@ import (
 	"launchpad.net/juju-core/schema"
 )
 
-
 // Config holds an immutable environment configuration.
 type Config struct {
 	m, t map[string]interface{}
@@ -115,4 +114,3 @@ var checker = schema.FieldMap(
 		"authorized-keys-path",
 	},
 )
-
