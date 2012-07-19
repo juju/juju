@@ -155,10 +155,6 @@ func (c ifaceExpC) Coerce(v interface{}, path []string) (newv interface{}, err e
 		return
 	}
 
-	// Optional values are context-sensitive and/or have
-	// defaults, which is different than what FieldMap can
-	// readily support. So just do it here first, then
-	// coerce to the real schema.
 	v, err = mapC.Coerce(v, path)
 	if err != nil {
 		return
@@ -166,12 +162,6 @@ func (c ifaceExpC) Coerce(v interface{}, path []string) (newv interface{}, err e
 	m := v.(map[string]interface{})
 	if _, ok := m["limit"]; !ok {
 		m["limit"] = c.limit
-	}
-	if _, ok := m["optional"]; !ok {
-		m["optional"] = false
-	}
-	if _, ok := m["scope"]; !ok {
-		m["scope"] = ScopeGlobal
 	}
 	return ifaceSchema.Coerce(m, path)
 }
@@ -183,7 +173,10 @@ var ifaceSchema = schema.FieldMap(
 		"scope":     schema.OneOf(schema.Const(ScopeGlobal), schema.Const(ScopeContainer)),
 		"optional":  schema.Bool(),
 	},
-	schema.Optional{"scope"},
+	schema.Defaults{
+		"scope":    ScopeGlobal,
+		"optional": false,
+	},
 )
 
 var charmSchema = schema.FieldMap(
@@ -197,5 +190,11 @@ var charmSchema = schema.FieldMap(
 		"revision":    schema.Int(), // Obsolete
 		"subordinate": schema.Bool(),
 	},
-	schema.Optional{"provides", "requires", "peers", "revision", "subordinate"},
+	schema.Defaults{
+		"provides":    schema.Omit,
+		"requires":    schema.Omit,
+		"peers":       schema.Omit,
+		"revision":    schema.Omit,
+		"subordinate": schema.Omit,
+	},
 )

@@ -25,11 +25,12 @@ var configChecker = schema.StrictFieldMap(
 		"region":         schema.String(),
 		"control-bucket": schema.String(),
 		"public-bucket":  schema.String(),
-	}, []string{
-		"access-key",
-		"secret-key",
-		"region",
-		"public-bucket",
+	},
+	schema.Defaults{
+		"access-key":    "",
+		"secret-key":    "",
+		"region":        "us-east-1",
+		"public-bucket": "",
 	},
 )
 
@@ -41,9 +42,9 @@ func newConfig(config *config.Config) (*providerConfig, error) {
 	m := v.(map[string]interface{})
 	c := &providerConfig{Config: config}
 	c.bucket = m["control-bucket"].(string)
-	c.publicBucket = maybeString(m["public-bucket"], "")
-	c.auth.AccessKey = maybeString(m["access-key"], "")
-	c.auth.SecretKey = maybeString(m["secret-key"], "")
+	c.publicBucket = m["public-bucket"].(string)
+	c.auth.AccessKey = m["access-key"].(string)
+	c.auth.SecretKey = m["secret-key"].(string)
 	if c.auth.AccessKey == "" || c.auth.SecretKey == "" {
 		if c.auth.AccessKey != "" {
 			return nil, fmt.Errorf("environment has access-key but no secret-key")
@@ -57,17 +58,9 @@ func newConfig(config *config.Config) (*providerConfig, error) {
 		}
 	}
 
-	regionName := maybeString(m["region"], "us-east-1")
-	if _, ok := aws.Regions[regionName]; !ok {
-		return nil, fmt.Errorf("invalid region name %q", regionName)
+	c.region = m["region"].(string)
+	if _, ok := aws.Regions[c.region]; !ok {
+		return nil, fmt.Errorf("invalid region name %q", c.region)
 	}
-	c.region = regionName
 	return c, nil
-}
-
-func maybeString(x interface{}, dflt string) string {
-	if x == nil {
-		return dflt
-	}
-	return x.(string)
 }

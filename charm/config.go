@@ -130,7 +130,10 @@ var optionSchema = schema.FieldMap(
 		"default":     schema.OneOf(schema.String(), schema.Int(), schema.Float(), schema.Bool()),
 		"description": schema.String(),
 	},
-	schema.Optional{"default", "description"},
+	schema.Defaults{
+		"default": schema.Omit,
+		"description": schema.Omit,
+	},
 )
 
 var configSchema = schema.FieldMap(
