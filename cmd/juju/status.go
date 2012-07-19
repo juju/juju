@@ -37,5 +37,8 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	defer conn.Close()
 
 	result := make(map[string]interface{})
+
+	// TODO(dfc) process machines, process services, basically everything
+
 	return c.Out.Write(ctx, result)
 }
