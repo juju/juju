@@ -249,6 +249,17 @@ func findToolsPath(store StorageReader, spec toolsSpec) (path string, err error)
 	return bestName, nil
 }
 
+func setenv(env []string, val string) []string {
+	prefix := val[0:strings.Index(val, "=") + 1]
+	for i, eval := range env {
+		if strings.HasPrefix(eval, prefix) {
+			env[i] = val
+			return env
+		}
+	}
+	return append(env, val)
+}
+
 // bundleTools bundles all the current juju tools in gzipped tar
 // format to the given writer.
 func bundleTools(w io.Writer) error {
@@ -258,11 +269,7 @@ func bundleTools(w io.Writer) error {
 	}
 	defer os.RemoveAll(dir)
 	cmd := exec.Command("go", "install", "launchpad.net/juju-core/cmd/...")
-	cmd.Env = []string{
-		"GOPATH=" + os.Getenv("GOPATH"),
-		"GOBIN=" + dir,
-		"PATH=" + os.Getenv("PATH"),
-	}
+	cmd.Env = setenv(os.Environ(), "GOBIN=" + dir)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("build failed: %v; %s", err, out)
