@@ -51,7 +51,7 @@ var statusTests = []struct {
 		// machine/0 bootstrapped.
 		"empty state",
 		func(st *state.State) error { return nil },
-		"{}\n\n",
+		"machines: {}\nservices: {}\n\n",
 	},
 }
 
