@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cmd"
@@ -45,41 +46,45 @@ func (s *StatusSuite) TearDownTest(c *C) {
 var statusTests = []struct {
 	title   string
 	prepare func(*state.State, *C)
-	yaml    string
+	output  map[string]string
 }{
 	{
 		// unlikely, as you can't run juju status in real life without 
 		// machine/0 bootstrapped.
 		"empty state",
 		func(*state.State, *C) {},
-		"machines: {}\nservices: {}\n\n",
-	},
-	{
-		"bootstrapped",
-		func(st *state.State, c *C) {
-			_, err := st.AddMachine()
-			c.Assert(err, IsNil)
+		map[string]string{
+			"yaml": "machines: {}\nservices: {}\n\n",
+			"json": `{"machines":{},"services":{}}`,
 		},
-		"machines: {}\nservices: {}\n\n",
 	},
 }
 
-func (s *StatusSuite) TestYamlStatus(c *C) {
+func (s *StatusSuite) testStatus(format string, unmarshal func([]byte, interface{}) error, c *C) {
 	for _, t := range statusTests {
-		c.Logf("testing yaml: %s", t.title)
+		c.Logf("testing %s: %s", format, t.title)
 		t.prepare(s.st, c)
 		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}}
-		code := cmd.Main(&StatusCommand{}, ctx, []string{"--format", "yaml"})
+		code := cmd.Main(&StatusCommand{}, ctx, []string{"--format", format})
 		c.Check(code, Equals, 0)
 		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), Equals, "")
+
 		expected := make(map[string]interface{})
-		err := goyaml.Unmarshal([]byte(t.yaml), &expected)
+		err := unmarshal([]byte(t.output[format]), &expected)
 		c.Assert(err, IsNil)
+
 		actual := make(map[string]interface{})
-		err = goyaml.Unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &actual)
+		err = unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &actual)
 		c.Assert(err, IsNil)
+
 		c.Assert(actual, DeepEquals, expected)
 	}
 }
 
-// TODO(dfc) test json output
+func (s *StatusSuite) TestYamlStatus(c *C) {
+	s.testStatus("yaml", goyaml.Unmarshal, c)
+}
+
+func (s *StatusSuite) TestJsonStatus(c *C) {
+	s.testStatus("json", json.Unmarshal, c)
+}

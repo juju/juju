@@ -36,9 +36,12 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	defer conn.Close()
 
 	result := struct {
-		Machines map[int]interface{}    `yaml:"machines",json:"machines"`
-		Services map[string]interface{} `yaml:"services",json:"services"`
-	}{}
+		Machines map[string]interface{} `yaml:"machines" json:"machines"`
+		Services map[string]interface{} `yaml:"services" json:"services"`
+	}{
+		make(map[string]interface{}),
+		make(map[string]interface{}),
+	}
 
 	// TODO(dfc) process machines, services, and units
 
