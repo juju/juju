@@ -228,7 +228,7 @@ func newConfig(cfg *config.Config) (*environConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	m1 := m0.(schema.MapType)
+	m1 := m0.(map[string]interface{})
 	ecfg := &environConfig{
 		Config:    cfg,
 		zookeeper: m1["zookeeper"].(bool),

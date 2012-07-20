@@ -20,11 +20,8 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		return nil, err
 	}
 	c := &Config{
-		m: make(map[string]interface{}),
+		m: m.(map[string]interface{}),
 		t: make(map[string]interface{}),
-	}
-	for k, v := range m.(schema.MapType) {
-		c.m[k.(string)] = v
 	}
 	if s, _ := c.m["default-series"].(string); s == "" {
 		c.m["default-series"] = CurrentSeries
