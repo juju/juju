@@ -289,9 +289,7 @@ func (s *RelationUnitSuite) TestPeerRelation(c *C) {
 	// Check no spurious events showed up on the second unit's watch, and check
 	// it closes cleanly.
 	assertNoChange(c, w1)
-	err = w1.Stop()
-	c.Assert(err, IsNil)
-	assertClosed(c, w1)
+	stop(c, w1)
 
 	// ---------- One unit again, briefly  ----------
 
@@ -313,7 +311,323 @@ func (s *RelationUnitSuite) TestPeerRelation(c *C) {
 	assertNoChange(c, w2)
 
 	// OK, we're done here. Cleanup, and error detection during same,
-	// will be handled by the deferred depart() calls. Phew.
+	// will be handled by the deferred kill/stop calls. Phew.
+}
+
+func (s *RelationUnitSuite) TestGlobalProReqRelationUnit(c *C) {
+	// Create a pair of services and a relation between them.
+	pro, err := s.State.AddService("pro", s.charm)
+	c.Assert(err, IsNil)
+	req, err := s.State.AddService("req", s.charm)
+	c.Assert(err, IsNil)
+	err = s.State.AddRelation(
+		state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, state.ScopeGlobal},
+		state.RelationEndpoint{"req", "ifce", "foo", state.RoleRequirer, state.ScopeGlobal},
+	)
+	c.Assert(err, IsNil)
+
+	// Add some units to the services and set their private addresses.
+	prounits := []*state.Unit{}
+	for i := 0; i < 2; i++ {
+		unit, err := pro.AddUnit()
+		c.Assert(err, IsNil)
+		err = unit.SetPrivateAddress(fmt.Sprintf("pro%d.example.com", i))
+		c.Assert(err, IsNil)
+		prounits = append(prounits, unit)
+	}
+	requnits := []*state.Unit{}
+	for i := 0; i < 2; i++ {
+		unit, err := req.AddUnit()
+		c.Assert(err, IsNil)
+		err = unit.SetPrivateAddress(fmt.Sprintf("req%d.example.com", i))
+		c.Assert(err, IsNil)
+		requnits = append(requnits, unit)
+	}
+
+	// Get the relation.
+	rels, err := pro.Relations()
+	c.Assert(err, IsNil)
+	c.Assert(rels, HasLen, 1)
+	rel := rels[0]
+
+	// ---------- Single role active ----------
+
+	// Watch the relation from the perspective of the first provider unit and
+	// check initial event.
+	prow0, err := rel.Watch(prounits[0])
+	c.Assert(err, IsNil)
+	defer stop(c, prow0)
+	assertChange(c, prow0, state.RelationUnitsChange{})
+	assertNoChange(c, prow0)
+
+	// Join the unit to the relation, change its settings, and check that
+	// nothing apparently happens.
+	prop0, err := rel.Join(prounits[0])
+	c.Assert(err, IsNil)
+	defer kill(c, prop0)
+	prosettings0 := changeSettings(c, rel, prounits[0])
+	assertNoChange(c, prow0)
+
+	// Join the second provider unit, start its watch, and check what it thinks the
+	// state of the relation is.
+	prop1, err := rel.Join(prounits[1])
+	c.Assert(err, IsNil)
+	defer kill(c, prop1)
+	prow1, err := rel.Watch(prounits[1])
+	assertChange(c, prow1, state.RelationUnitsChange{})
+	assertNoChange(c, prow1)
+
+	// Change the unit's settings, and check that neither provider unit
+	// observes any change.
+	prosettings1 := changeSettings(c, rel, prounits[1])
+	assertNoChange(c, prow1)
+	assertNoChange(c, prow0)
+
+	// ---------- Two roles active ----------
+
+	// Start watches from both requirer units' perspectives, and check that
+	// they see the provider units.
+	reqw0, err := rel.Watch(requnits[0])
+	c.Assert(err, IsNil)
+	defer stop(c, reqw0)
+	expect := state.RelationUnitsChange{Changed: map[string]state.UnitSettings{
+		"pro/0": state.UnitSettings{1, prosettings0.Map()},
+		"pro/1": state.UnitSettings{1, prosettings1.Map()},
+	}}
+	assertChange(c, reqw0, expect)
+	assertNoChange(c, reqw0)
+
+	reqw1, err := rel.Watch(requnits[1])
+	c.Assert(err, IsNil)
+	defer stop(c, reqw1)
+	assertChange(c, reqw1, expect)
+	assertNoChange(c, reqw1)
+
+	// Join the first requirer unit, and check the provider units see it.
+	reqp0, err := rel.Join(requnits[0])
+	c.Assert(err, IsNil)
+	defer kill(c, reqp0)
+	reqsettings0, err := rel.Settings(requnits[0])
+	c.Assert(err, IsNil)
+	expect = state.RelationUnitsChange{Changed: map[string]state.UnitSettings{
+		"req/0": state.UnitSettings{0, reqsettings0.Map()},
+	}}
+	assertChange(c, prow0, expect)
+	assertNoChange(c, prow0)
+	assertChange(c, prow1, expect)
+	assertNoChange(c, prow1)
+
+	// Join the second requirer, and check the provider units see the change.
+	reqp1, err := rel.Join(requnits[1])
+	c.Assert(err, IsNil)
+	defer kill(c, reqp1)
+	reqsettings1, err := rel.Settings(requnits[1])
+	c.Assert(err, IsNil)
+	expect = state.RelationUnitsChange{Changed: map[string]state.UnitSettings{
+		"req/1": state.UnitSettings{0, reqsettings1.Map()},
+	}}
+	assertChange(c, prow0, expect)
+	assertNoChange(c, prow0)
+	assertChange(c, prow1, expect)
+	assertNoChange(c, prow1)
+
+	// Verify that neither requirer has observed any change to the relation.
+	assertNoChange(c, reqw0)
+	assertNoChange(c, reqw1)
+
+	// Change settings for the first requirer, check providers see it...
+	reqsettings0 = changeSettings(c, rel, requnits[0])
+	expect = state.RelationUnitsChange{Changed: map[string]state.UnitSettings{
+		"req/0": state.UnitSettings{1, reqsettings0.Map()},
+	}}
+	assertChange(c, prow0, expect)
+	assertNoChange(c, prow0)
+	assertChange(c, prow1, expect)
+	assertNoChange(c, prow1)
+
+	// ...and requirers don't.
+	assertNoChange(c, reqw0)
+	assertNoChange(c, reqw1)
+
+	// Depart the second requirer and check the providers see it...
+	err = reqp1.Kill()
+	c.Assert(err, IsNil)
+	expect = state.RelationUnitsChange{Departed: []string{"req/1"}}
+	assertChange(c, prow0, expect)
+	assertNoChange(c, prow0)
+	assertChange(c, prow1, expect)
+	assertNoChange(c, prow1)
+
+	// ...and the requirers don't.
+	assertNoChange(c, reqw0)
+	assertNoChange(c, reqw1)
+
+	// ...and I think we're done. No need to further test Pinger response,
+	// which is already handled in TestPeerRelation, because the important
+	// differences between Join and Watch for different relations/units are
+	// in what changes they cause or respond to, and I think we have enough
+	// information to determine that the correct connections are in place.
+	// Cleanup handled by defers as before.
+}
+
+func (s *RelationUnitSuite) TestContainerProReqRelationUnit(c *C) {
+	// Create a pair of services and a relation between them.
+	pro, err := s.State.AddService("pro", s.charm)
+	c.Assert(err, IsNil)
+	req, err := s.State.AddService("req", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, IsNil)
+	err = s.State.AddRelation(
+		state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, state.ScopeGlobal},
+		state.RelationEndpoint{"req", "ifce", "foo", state.RoleRequirer, state.ScopeContainer},
+	)
+	c.Assert(err, IsNil)
+
+	// Add some units to the services and set their private addresses.
+	prounits := []*state.Unit{}
+	for i := 0; i < 2; i++ {
+		unit, err := pro.AddUnit()
+		c.Assert(err, IsNil)
+		err = unit.SetPrivateAddress(fmt.Sprintf("pro%d.example.com", i))
+		c.Assert(err, IsNil)
+		prounits = append(prounits, unit)
+	}
+	requnits := []*state.Unit{}
+	for i, prounit := range prounits {
+		unit, err := req.AddUnitSubordinateTo(prounit)
+		c.Assert(err, IsNil)
+		err = unit.SetPrivateAddress(fmt.Sprintf("req%d.example.com", i))
+		c.Assert(err, IsNil)
+		requnits = append(requnits, unit)
+	}
+
+	// Get the relation.
+	rels, err := pro.Relations()
+	c.Assert(err, IsNil)
+	c.Assert(rels, HasLen, 1)
+	rel := rels[0]
+
+	// ---------- Single role active ----------
+
+	// Start watching the relation from the perspective of the first unit, and
+	// check the initial event.
+	prow0, err := rel.Watch(prounits[0])
+	c.Assert(err, IsNil)
+	defer stop(c, prow0)
+	assertChange(c, prow0, state.RelationUnitsChange{})
+	assertNoChange(c, prow0)
+
+	// Join the unit to the relation, change its settings, and check that
+	// nothing apparently happens.
+	prop0, err := rel.Join(prounits[0])
+	c.Assert(err, IsNil)
+	defer kill(c, prop0)
+	prosettings0 := changeSettings(c, rel, prounits[0])
+	assertNoChange(c, prow0)
+
+	// Watch the relation from the perspective of the second provider, and
+	// check initial event.
+	prow1, err := rel.Watch(prounits[1])
+	c.Assert(err, IsNil)
+	defer stop(c, prow1)
+	assertChange(c, prow1, state.RelationUnitsChange{})
+	assertNoChange(c, prow1)
+
+	// Join the second provider unit to the relation, and check that neither
+	// watching unit observes any change.
+	prop1, err := rel.Join(prounits[1])
+	c.Assert(err, IsNil)
+	defer kill(c, prop1)
+	assertNoChange(c, prow1)
+	assertNoChange(c, prow0)
+
+	// Change the unit's settings, and check that nothing apparently happens.
+	prosettings1 := changeSettings(c, rel, prounits[1])
+	assertNoChange(c, prow1)
+	assertNoChange(c, prow0)
+
+	// ---------- Two roles active ----------
+
+	// Start a watch from the first requirer unit's perspective, and check it
+	// only sees the first provider (with which it shares a container).
+	reqw0, err := rel.Watch(requnits[0])
+	c.Assert(err, IsNil)
+	defer stop(c, reqw0)
+	expect := state.RelationUnitsChange{Changed: map[string]state.UnitSettings{
+		"pro/0": state.UnitSettings{1, prosettings0.Map()},
+	}}
+	assertChange(c, reqw0, expect)
+	assertNoChange(c, reqw0)
+
+	// Join the first requirer unit, and check that only the first provider
+	// observes the change.
+	reqp0, err := rel.Join(requnits[0])
+	c.Assert(err, IsNil)
+	defer kill(c, reqp0)
+	reqsettings0, err := rel.Settings(requnits[0])
+	c.Assert(err, IsNil)
+	expect = state.RelationUnitsChange{Changed: map[string]state.UnitSettings{
+		"req/0": state.UnitSettings{0, reqsettings0.Map()},
+	}}
+	assertChange(c, prow0, expect)
+	assertNoChange(c, prow0)
+	assertNoChange(c, prow1)
+	assertNoChange(c, reqw0)
+
+	// Watch from the second requirer's perspective, and check it only sees the
+	// second provider.
+	reqw1, err := rel.Watch(requnits[1])
+	c.Assert(err, IsNil)
+	defer stop(c, reqw1)
+	expect = state.RelationUnitsChange{Changed: map[string]state.UnitSettings{
+		"pro/1": state.UnitSettings{1, prosettings1.Map()},
+	}}
+	assertChange(c, reqw1, expect)
+	assertNoChange(c, reqw1)
+
+	// Join the second requirer, and check that the first provider observes it...
+	reqp1, err := rel.Join(requnits[1])
+	c.Assert(err, IsNil)
+	defer kill(c, reqp1)
+	reqsettings1, err := rel.Settings(requnits[1])
+	c.Assert(err, IsNil)
+	expect = state.RelationUnitsChange{Changed: map[string]state.UnitSettings{
+		"req/1": state.UnitSettings{0, reqsettings1.Map()},
+	}}
+	assertChange(c, prow1, expect)
+	assertNoChange(c, prow1)
+
+	// ...and that nothing else sees anything.
+	assertNoChange(c, prow0)
+	assertNoChange(c, reqw0)
+	assertNoChange(c, reqw1)
+
+	// Change the second provider's settings and check that the second
+	// requirer notices...
+	prosettings1 = changeSettings(c, rel, prounits[1])
+	expect = state.RelationUnitsChange{Changed: map[string]state.UnitSettings{
+		"pro/1": state.UnitSettings{2, prosettings1.Map()},
+	}}
+	assertChange(c, reqw1, expect)
+	assertNoChange(c, reqw1)
+
+	// ...but that nothing else does.
+	assertNoChange(c, prow0)
+	assertNoChange(c, prow1)
+	assertNoChange(c, prow0)
+
+	// Finally, depart the first provider, and check that only the first
+	// requirer observes any change.
+	err = prop0.Kill()
+	c.Assert(err, IsNil)
+	expect = state.RelationUnitsChange{Departed: []string{"pro/0"}}
+	assertChange(c, reqw0, expect)
+	assertNoChange(c, reqw0)
+	assertNoChange(c, reqw1)
+	assertNoChange(c, prow0)
+	assertNoChange(c, prow1)
+
+	// Again, I think we're done, and can be comfortable that the appropriate
+	// connections are in place.
 }
 
 func kill(c *C, p *presence.Pinger) {
@@ -329,6 +643,11 @@ func stop(c *C, w *state.RelationUnitsWatcher) {
 	case <-w.Dying():
 	default:
 		c.Assert(w.Stop(), IsNil)
+	}
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, Equals, false)
+	default:
 	}
 }
 
@@ -346,7 +665,9 @@ func changeSettings(c *C, r *state.Relation, u *state.Unit) *state.ConfigNode {
 func assertChange(c *C, w *state.RelationUnitsWatcher, expect state.RelationUnitsChange) {
 	select {
 	case ch, ok := <-w.Changes():
-		c.Assert(ok, Equals, true)
+		if !ok {
+			c.Fatalf("channel closed: watcher error %#v", w.Err())
+		}
 		c.Assert(ch, DeepEquals, expect)
 	case <-time.After(1000 * time.Millisecond):
 		c.Fatalf("expected %#v, got nothing", expect)
@@ -358,13 +679,5 @@ func assertNoChange(c *C, w *state.RelationUnitsWatcher) {
 	case ch := <-w.Changes():
 		c.Fatalf("got %#v, expected nothing", ch)
 	case <-time.After(200 * time.Millisecond):
-	}
-}
-
-func assertClosed(c *C, w *state.RelationUnitsWatcher) {
-	select {
-	case _, ok := <-w.Changes():
-		c.Assert(ok, Equals, false)
-	default:
 	}
 }

@@ -190,7 +190,11 @@ func (r *Relation) unitInfo(u *Unit) (role RelationRole, usp unitScopePath, err 
 	}
 	parts := []string{"/relations", r.key}
 	if ep.RelationScope == ScopeContainer {
-		parts = append(parts, u.principalKey)
+		container := u.principalKey
+		if container == "" {
+			container = u.key
+		}
+		parts = append(parts, container)
 	}
 	return ep.RelationRole, unitScopePath(strings.Join(parts, "/")), nil
 }
