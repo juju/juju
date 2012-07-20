@@ -38,7 +38,7 @@ func newConfig(config *config.Config) (*providerConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	m := v.(schema.MapType)
+	m := v.(map[string]interface{})
 	c := &providerConfig{Config: config}
 	c.bucket = m["control-bucket"].(string)
 	c.publicBucket = maybeString(m["public-bucket"], "")
