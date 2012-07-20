@@ -218,8 +218,8 @@ var checker = schema.StrictFieldMap(
 		"zookeeper": schema.Bool(),
 		"broken":    schema.Bool(),
 	},
-	[]string{
-		"broken",
+	schema.Defaults{
+		"broken": false,
 	},
 )
 
@@ -233,7 +233,7 @@ func newConfig(cfg *config.Config) (*environConfig, error) {
 		Config:    cfg,
 		zookeeper: m1["zookeeper"].(bool),
 	}
-	ecfg.broken, _ = m1["broken"].(bool)
+	ecfg.broken = m1["broken"].(bool)
 	return ecfg, nil
 }
 

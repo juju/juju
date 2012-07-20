@@ -240,7 +240,7 @@ func assertFieldMap(c *C, sch schema.Checker) {
 	out, err := sch.Coerce(map[string]interface{}{"a": "A", "b": "B"}, aPath)
 
 	c.Assert(err, IsNil)
-	c.Assert(out, DeepEquals, map[string]interface{}{"a": "A", "b": "B"})
+	c.Assert(out, DeepEquals, map[string]interface{}{"a": "A", "b": "B", "c": "C"})
 
 	out, err = sch.Coerce(42, aPath)
 	c.Assert(out, IsNil)
@@ -261,7 +261,7 @@ func assertFieldMap(c *C, sch schema.Checker) {
 	// b is optional
 	out, err = sch.Coerce(map[string]interface{}{"a": "A"}, aPath)
 	c.Assert(err, IsNil)
-	c.Assert(out, DeepEquals, map[string]interface{}{"a": "A"})
+	c.Assert(out, DeepEquals, map[string]interface{}{"a": "A", "c": "C"})
 
 	// First path entry shouldn't have dots in an error message.
 	out, err = sch.Coerce(map[string]bool{"a": true}, nil)
@@ -273,26 +273,48 @@ func (s *S) TestFieldMap(c *C) {
 	fields := schema.Fields{
 		"a": schema.Const("A"),
 		"b": schema.Const("B"),
+		"c": schema.Const("C"),
 	}
-	sch := schema.FieldMap(fields, schema.Optional{"b"})
+	defaults := schema.Defaults{
+		"b": schema.Omit,
+		"c": "C",
+	}
+	sch := schema.FieldMap(fields, defaults)
 	assertFieldMap(c, sch)
 
-	out, err := sch.Coerce(map[string]interface{}{"a": "A", "b": "B", "c": "C"}, aPath)
+	out, err := sch.Coerce(map[string]interface{}{"a": "A", "b": "B", "d": "D"}, aPath)
 	c.Assert(err, IsNil)
-	c.Assert(out, DeepEquals, map[string]interface{}{"a": "A", "b": "B"})
+	c.Assert(out, DeepEquals, map[string]interface{}{"a": "A", "b": "B", "c": "C"})
+}
+
+func (s *S) TestFieldMapDefaultInvalid(c *C) {
+	fields := schema.Fields{
+		"a": schema.Const("A"),
+	}
+	defaults := schema.Defaults{
+		"a": "B",
+	}
+	sch := schema.FieldMap(fields, defaults)
+	_, err := sch.Coerce(map[string]interface{}{}, aPath)
+	c.Assert(err, ErrorMatches, `<path>.a: expected "A", got "B"`)
 }
 
 func (s *S) TestStrictFieldMap(c *C) {
 	fields := schema.Fields{
 		"a": schema.Const("A"),
 		"b": schema.Const("B"),
+		"c": schema.Const("C"),
 	}
-	sch := schema.StrictFieldMap(fields, schema.Optional{"b"})
+	defaults := schema.Defaults{
+		"b": schema.Omit,
+		"c": "C",
+	}
+	sch := schema.StrictFieldMap(fields, defaults)
 	assertFieldMap(c, sch)
 
-	out, err := sch.Coerce(map[string]interface{}{"a": "A", "b": "B", "c": "C"}, aPath)
+	out, err := sch.Coerce(map[string]interface{}{"a": "A", "b": "B", "d": "D"}, aPath)
 	c.Assert(out, IsNil)
-	c.Assert(err, ErrorMatches, `<path>.c: expected nothing, got "C"`)
+	c.Assert(err, ErrorMatches, `<path>.d: expected nothing, got "D"`)
 }
 
 func (s *S) TestSchemaMap(c *C) {
