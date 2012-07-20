@@ -159,6 +159,11 @@ var configTests = []configTest{
 		err: `can't change control-bucket from "x" to "new-x"`,
 	}, {
 		config: attrs{
+			"public-bucket": 666,
+		},
+		err: ".*expected string, got 666",
+	}, {
+		config: attrs{
 			"public-bucket": "foo",
 		},
 		pbucket: "foo",
