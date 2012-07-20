@@ -11,20 +11,20 @@ import (
 // that we will have in a configuration file.
 type providerConfig struct {
 	*config.Config
-	name           string
-	region         string
-	auth           aws.Auth
-	bucket         string
-	publicBucket   string
+	name         string
+	region       string
+	auth         aws.Auth
+	bucket       string
+	publicBucket string
 }
 
 var configChecker = schema.StrictFieldMap(
 	schema.Fields{
-		"access-key":           schema.String(),
-		"secret-key":           schema.String(),
-		"region":               schema.String(),
-		"control-bucket":       schema.String(),
-		"public-bucket":        schema.String(),
+		"access-key":     schema.String(),
+		"secret-key":     schema.String(),
+		"region":         schema.String(),
+		"control-bucket": schema.String(),
+		"public-bucket":  schema.String(),
 	}, []string{
 		"access-key",
 		"secret-key",
@@ -38,7 +38,7 @@ func newConfig(config *config.Config) (*providerConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	m := v.(schema.MapType)
+	m := v.(map[string]interface{})
 	c := &providerConfig{Config: config}
 	c.bucket = m["control-bucket"].(string)
 	c.publicBucket = maybeString(m["public-bucket"], "")

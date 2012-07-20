@@ -10,6 +10,7 @@ import (
 	"fmt"
 	zk "launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 	"time"
 )
@@ -341,4 +342,185 @@ func WaitAlive(conn *zk.Conn, path string, timeout time.Duration) error {
 		return fmt.Errorf("presence: still not alive after timeout")
 	}
 	return nil
+}
+
+// ChildrenWatcher mimics state/watcher's ChildrenWatcher, but treats nodes that
+// do not have active Pingers as nonexistent.
+type ChildrenWatcher struct {
+	conn    *zk.Conn
+	tomb    tomb.Tomb
+	path    string
+	alive   map[string]bool
+	stops   map[string]chan bool
+	updates chan aliveChange
+	changes chan watcher.ChildrenChange
+}
+
+// aliveChange is used internally by ChildrenWatcher to communicate node
+// status changes from childLoop goroutines to the main loop goroutine.
+type aliveChange struct {
+	key   string
+	alive bool
+}
+
+// NewChildrenWatcher returns a ChildrenWatcher that notifies of the
+// presence and absence of Pingers in the direct child nodes of path.
+func NewChildrenWatcher(conn *zk.Conn, path string) *ChildrenWatcher {
+	w := &ChildrenWatcher{
+		conn:    conn,
+		path:    path,
+		alive:   make(map[string]bool),
+		stops:   make(map[string]chan bool),
+		updates: make(chan aliveChange),
+		changes: make(chan watcher.ChildrenChange),
+	}
+	go w.loop()
+	return w
+}
+
+// Changes returns a channel on which presence changes can be received.
+// The first event returns the current set of children on which Pingers
+// are active.
+func (w *ChildrenWatcher) Changes() <-chan watcher.ChildrenChange {
+	return w.changes
+}
+
+// Stop terminates the watcher and returns any error encountered while watching.
+func (w *ChildrenWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
+}
+
+// Err returns the error that stopped the watcher, or
+// tomb.ErrStillAlive if the watcher is still running.
+func (w *ChildrenWatcher) Err() error {
+	return w.tomb.Err()
+}
+
+func (w *ChildrenWatcher) loop() {
+	defer w.finish()
+	cw := watcher.NewChildrenWatcher(w.conn, w.path)
+	defer watcher.Stop(cw, &w.tomb)
+	emittedValue := false
+	for {
+		var change watcher.ChildrenChange
+		select {
+		case <-w.tomb.Dying():
+			return
+		case ch, ok := <-cw.Changes():
+			var err error
+			if !ok {
+				err = watcher.MustErr(cw)
+			} else {
+				change, err = w.changeWatches(ch)
+			}
+			if err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			if emittedValue && len(change.Added) == 0 && len(change.Removed) == 0 {
+				continue
+			}
+		case ch, ok := <-w.updates:
+			if !ok {
+				panic("updates channel closed")
+			}
+			if ch.alive {
+				w.alive[ch.key] = true
+				change = watcher.ChildrenChange{Added: []string{ch.key}}
+			} else if w.alive[ch.key] {
+				delete(w.alive, ch.key)
+				change = watcher.ChildrenChange{Removed: []string{ch.key}}
+			} else {
+				// The node is already known to be dead, as a result of a
+				// child removal detected by cw, and no further action need
+				// be taken.
+				continue
+			}
+		}
+		select {
+		case <-w.tomb.Dying():
+			return
+		case w.changes <- change:
+			emittedValue = true
+		}
+	}
+}
+
+// finish tidies up any active watches on the child nodes, closes
+// channels, and marks the watcher as finished.
+func (w *ChildrenWatcher) finish() {
+	for _, stop := range w.stops {
+		stop <- true
+	}
+	// No need to close w.updates.
+	close(w.changes)
+	w.tomb.Done()
+}
+
+// changeWatches starts new presence watches on newly-added candidates, and
+// stops them on deleted ones. It returns a ChildrenChange representing only
+// those changes that correspond to the presence or hitherto-undetected
+// absence of a Pinger on a candidate node.
+func (w *ChildrenWatcher) changeWatches(ch watcher.ChildrenChange) (watcher.ChildrenChange, error) {
+	change := watcher.ChildrenChange{}
+	for _, key := range ch.Removed {
+		stop := w.stops[key]
+		delete(w.stops, key)
+		stop <- true
+		// The node might not already be known to be dead.
+		if w.alive[key] {
+			delete(w.alive, key)
+			change.Removed = append(change.Removed, key)
+		}
+	}
+	for _, key := range ch.Added {
+		path := w.path + "/" + key
+		alive, aliveW, err := AliveW(w.conn, path)
+		if err != nil {
+			return watcher.ChildrenChange{}, err
+		}
+		stop := make(chan bool)
+		w.stops[key] = stop
+		go w.childLoop(key, path, aliveW, stop)
+		if alive {
+			w.alive[key] = true
+			change.Added = append(change.Added, key)
+		}
+	}
+	return change, nil
+}
+
+// childLoop sends aliveChange events to w.updates, in response to presence
+// changes received from watch (which is refreshed internally as required),
+// until its stop chan is closed.
+func (w *ChildrenWatcher) childLoop(key, path string, watch <-chan bool, stop <-chan bool) {
+	for {
+		select {
+		case <-stop:
+			return
+		case alive, ok := <-watch:
+			if !ok {
+				w.tomb.Killf("presence watch on %q failed", path)
+				return
+			}
+			// We definitely need to watch again; do so early, so we can verify
+			// that the state has changed an odd number of times since we last
+			// notified, and thereby only send notifications on real changes.
+			aliveNow, newWatch, err := AliveW(w.conn, path)
+			if err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			watch = newWatch
+			if aliveNow != alive {
+				continue
+			}
+			select {
+			case <-stop:
+				return
+			case w.updates <- aliveChange{key, aliveNow}:
+			}
+		}
+	}
 }
