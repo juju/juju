@@ -28,6 +28,11 @@ func (c *StatusCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return cmd.CheckEmpty(f.Args())
 }
 
+type result struct {
+	Machines map[string]interface{} `yaml:"machines" json:"machines"`
+	Services map[string]interface{} `yaml:"services" json:"services"`
+}
+
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConn(c.EnvName)
 	if err != nil {
@@ -35,15 +40,12 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	}
 	defer conn.Close()
 
-	result := struct {
-		Machines map[string]interface{} `yaml:"machines" json:"machines"`
-		Services map[string]interface{} `yaml:"services" json:"services"`
-	}{
+	r := result{
 		make(map[string]interface{}),
 		make(map[string]interface{}),
 	}
 
 	// TODO(dfc) process machines, services, and units
 
-	return c.out.Write(ctx, result)
+	return c.out.Write(ctx, r)
 }
