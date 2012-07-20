@@ -9,9 +9,9 @@ import (
 // assuming we have access to the relation itself and the unit executing
 // the hook.
 type HookInfo struct {
-	Kind    string
-	Unit    string
-	Members map[string]map[string]interface{}
+	HookName   string
+	RemoteUnit string
+	Members    map[string]map[string]interface{}
 }
 
 // unitInfo holds information about a unit that is, or has been, or will
@@ -113,23 +113,19 @@ func (q *HookQueue) Next() (HookInfo, bool) {
 			// The queue is empty.
 			return HookInfo{}, false
 		}
-
-		// Clone the unit info and update the queue.
+		// Clone the unit info and update our state.
 		info := *q.head
+		q.inflight = &info
 		if info.hook == "joined" {
 			q.members[info.unit] = struct{}{}
 			q.head.hook = "changed"
 		} else {
 			q.remove(info.unit)
+			if info.hook == "departed" {
+				delete(q.info, info.unit)
+				delete(q.members, info.unit)
+			}
 		}
-
-		// If we're departing, we can forget all about this unit.
-		if info.hook == "departed" {
-			delete(q.info, info.unit)
-			delete(q.members, info.unit)
-		}
-
-		q.inflight = &info
 	} else if q.inflight.hook == "changed" {
 		// It may be the case that the settings for an inflight changed
 		// hook have changed since we last tried to run it. If that is
@@ -145,7 +141,11 @@ func (q *HookQueue) Next() (HookInfo, bool) {
 	}
 
 	// Return a HookInfo created from the inflight unitInfo.
-	result := HookInfo{q.inflight.hook, q.inflight.unit, make(map[string]map[string]interface{})}
+	result := HookInfo{
+		HookName:   q.inflight.hook,
+		RemoteUnit: q.inflight.unit,
+		Members:    make(map[string]map[string]interface{}),
+	}
 	for m := range q.members {
 		result.Members[m] = q.info[m].settings
 	}
