@@ -135,23 +135,51 @@ func (r *Relation) RelatedEndpoints(serviceName string) ([]RelationEndpoint, err
 	return eps, nil
 }
 
-// Join joins the supplied unit to the relation, such that other units watching
-// the relation will observe its presence and changes to its settings within
-// the relation.
-func (r *Relation) Join(u *Unit) (*presence.Pinger, error) {
-	role, scope, err := r.unitInfo(u)
+// Unit returns a RelationUnit for the supplied unit.
+func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
+	ep, err := r.Endpoint(u.serviceName)
 	if err != nil {
 		return nil, err
 	}
-	if err = scope.prepareJoin(r.st.zk, role); err != nil {
+	path := []string{"/relations", r.key}
+	if ep.RelationScope == ScopeContainer {
+		container := u.principalKey
+		if container == "" {
+			container = u.key
+		}
+		path = append(path, container)
+	}
+	return &RelationUnit{
+		st:       r.st,
+		relation: r,
+		unit:     u,
+		role:     ep.RelationRole,
+		scope:    unitScopePath(strings.Join(path, "/")),
+	}, nil
+}
+
+// RelationUnit holds information about a single unit in a relation, and
+// allows clients to conveniently access unit-specific functionality.
+type RelationUnit struct {
+	st       *State
+	relation *Relation
+	unit     *Unit
+	role     RelationRole
+	scope    unitScopePath
+}
+
+// Join joins the unit to the relation, such that other units watching the
+// relation will observe its presence and changes to its settings.
+func (ru *RelationUnit) Join() (*presence.Pinger, error) {
+	if err := ru.scope.prepareJoin(ru.st.zk, ru.role); err != nil {
 		return nil, err
 	}
 	// Private address should be set at agent startup.
-	address, err := u.PrivateAddress()
+	address, err := ru.unit.PrivateAddress()
 	if err != nil {
 		return nil, err
 	}
-	settings, err := readConfigNode(u.st.zk, scope.settingsPath(u.key))
+	settings, err := readConfigNode(ru.st.zk, ru.scope.settingsPath(ru.unit.key))
 	if err != nil {
 		return nil, err
 	}
@@ -159,44 +187,20 @@ func (r *Relation) Join(u *Unit) (*presence.Pinger, error) {
 	if _, err := settings.Write(); err != nil {
 		return nil, err
 	}
-	presencePath := scope.presencePath(role, u.key)
-	return presence.StartPinger(u.st.zk, presencePath, agentPingerPeriod)
+	presencePath := ru.scope.presencePath(ru.role, ru.unit.key)
+	return presence.StartPinger(ru.st.zk, presencePath, agentPingerPeriod)
 }
 
-// Watch returns a RelationUnitsWatcher which notifies of changes to the
-// relation that are of interest to the supplied unit.
-func (r *Relation) Watch(u *Unit) (*RelationUnitsWatcher, error) {
-	role, scope, err := r.unitInfo(u)
-	if err != nil {
-		return nil, err
-	}
-	return newRelationUnitsWatcher(scope, role.counterpartRole(), u), nil
+// Watch returns a RelationUnitsWatcher which notifies of relevant changes to
+// other units in the relation.
+func (ru *RelationUnit) Watch() *RelationUnitsWatcher {
+	return newRelationUnitsWatcher(ru.scope, ru.role.counterpartRole(), ru.unit)
 }
 
-// Settings returns a ConfigNode which allows access to the supplied unit's
-// settings within this relation.
-func (r *Relation) Settings(u *Unit) (*ConfigNode, error) {
-	_, scope, err := r.unitInfo(u)
-	if err != nil {
-		return nil, err
-	}
-	return readConfigNode(u.st.zk, scope.settingsPath(u.key))
-}
-
-func (r *Relation) unitInfo(u *Unit) (role RelationRole, usp unitScopePath, err error) {
-	ep, err := r.Endpoint(u.serviceName)
-	if err != nil {
-		return
-	}
-	parts := []string{"/relations", r.key}
-	if ep.RelationScope == ScopeContainer {
-		container := u.principalKey
-		if container == "" {
-			container = u.key
-		}
-		parts = append(parts, container)
-	}
-	return ep.RelationRole, unitScopePath(strings.Join(parts, "/")), nil
+// Settings returns a ConfigNode which allows access to the unit's settings
+// within the relation.
+func (ru *RelationUnit) Settings() (*ConfigNode, error) {
+	return readConfigNode(ru.st.zk, ru.scope.settingsPath(ru.unit.key))
 }
 
 // unitScopePath represents a common zookeeper path used by the set of units
