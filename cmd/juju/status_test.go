@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	. "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
@@ -42,28 +43,43 @@ func (s *StatusSuite) TearDownTest(c *C) {
 }
 
 var statusTests = []struct {
-	title    string
-	f        func(*state.State) error
-	expected string
+	title   string
+	prepare func(*state.State, *C)
+	yaml    string
 }{
 	{
 		// unlikely, as you can't run juju status in real life without 
 		// machine/0 bootstrapped.
 		"empty state",
-		func(st *state.State) error { return nil },
+		func(*state.State, *C) {},
+		"machines: {}\nservices: {}\n\n",
+	},
+	{
+		"bootstrapped",
+		func(st *state.State, c *C) {
+			_, err := st.AddMachine()
+			c.Assert(err, IsNil)
+		},
 		"machines: {}\nservices: {}\n\n",
 	},
 }
 
-func (s *StatusSuite) TestStatus(c *C) {
+func (s *StatusSuite) TestYamlStatus(c *C) {
 	for _, t := range statusTests {
-		c.Logf(t.title)
-		err := t.f(s.st)
-		c.Assert(err, IsNil)
+		c.Logf("testing yaml: %s", t.title)
+		t.prepare(s.st, c)
 		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}}
-		code := cmd.Main(&StatusCommand{}, ctx, nil)
-		c.Assert(code, Equals, 0)
+		code := cmd.Main(&StatusCommand{}, ctx, []string{"--format", "yaml"})
+		c.Check(code, Equals, 0)
 		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), Equals, "")
-		c.Assert(ctx.Stdout.(*bytes.Buffer).String(), Equals, t.expected)
+		expected := make(map[string]interface{})
+		err := goyaml.Unmarshal([]byte(t.yaml), &expected)
+		c.Assert(err, IsNil)
+		actual := make(map[string]interface{})
+		err = goyaml.Unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &actual)
+		c.Assert(err, IsNil)
+		c.Assert(actual, DeepEquals, expected)
 	}
 }
+
+// TODO(dfc) test json output

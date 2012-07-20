@@ -4,12 +4,10 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-	//"launchpad.net/juju-core/state"
 )
 
 type StatusCommand struct {
 	EnvName string
-	conn    *juju.Conn
 	out     cmd.Output
 }
 
@@ -31,43 +29,18 @@ func (c *StatusCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
-	var err error
-	c.conn, err = juju.NewConn(c.EnvName)
+	conn, err := juju.NewConn(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer c.conn.Close()
+	defer conn.Close()
 
 	result := struct {
-		Machines map[int]interface{}
-		Services map[string]interface{}
+		Machines map[int]interface{}    `yaml:"machines",json:"machines"`
+		Services map[string]interface{} `yaml:"services",json:"services"`
 	}{}
 
-	result.Machines, err = c.processMachines()
-	if err != nil {
-		return err
-	}
-
-	result.Services, err = c.processServices()
-	if err != nil {
-		return err
-	}
+	// TODO(dfc) process machines, services, and units
 
 	return c.out.Write(ctx, result)
-}
-
-func (c *StatusCommand) processMachines() (map[int]interface{}, error) {
-	machines := make(map[int]interface{})
-
-	// TODO(dfc) process machines
-
-	return machines, nil
-}
-
-func (c *StatusCommand) processServices() (map[string]interface{}, error) {
-	services := make(map[string]interface{})
-
-	// TODO(dfc) process services
-
-	return services, nil
 }
