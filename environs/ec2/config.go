@@ -7,14 +7,6 @@ import (
 	"launchpad.net/juju-core/schema"
 )
 
-var configFields = schema.Fields{
-	"access-key":     schema.String(),
-	"secret-key":     schema.String(),
-	"region":         schema.String(),
-	"control-bucket": schema.String(),
-	"public-bucket":  schema.String(),
-}
-
 var configChecker = schema.StrictFieldMap(
 	schema.Fields{
 		"access-key":     schema.String(),
