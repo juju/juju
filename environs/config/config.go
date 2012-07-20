@@ -36,8 +36,8 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		delete(c.m, "authorized-keys-path")
 	}
+	delete(c.m, "authorized-keys-path")
 
 	// Check if there are any required fields that are empty.
 	for _, attr := range []string{"name", "type", "default-series", "authorized-keys"} {
