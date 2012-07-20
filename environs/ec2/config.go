@@ -7,17 +7,6 @@ import (
 	"launchpad.net/juju-core/schema"
 )
 
-// providerConfig is a placeholder for any config information
-// that we will have in a configuration file.
-type providerConfig struct {
-	*config.Config
-	name         string
-	region       string
-	auth         aws.Auth
-	bucket       string
-	publicBucket string
-}
-
 var configChecker = schema.StrictFieldMap(
 	schema.Fields{
 		"access-key":     schema.String(),
@@ -34,33 +23,65 @@ var configChecker = schema.StrictFieldMap(
 	},
 )
 
-func newConfig(config *config.Config) (*providerConfig, error) {
-	v, err := configChecker.Coerce(config.UnknownAttrs(), nil)
+type environConfig struct {
+	*config.Config
+	attrs map[string]interface{}
+}
+
+func (c *environConfig) region() string {
+	return c.attrs["region"].(string)
+}
+
+func (c *environConfig) controlBucket() string {
+	return c.attrs["control-bucket"].(string)
+}
+
+func (c *environConfig) publicBucket() string {
+	return c.attrs["public-bucket"].(string)
+}
+
+func (c *environConfig) accessKey() string {
+	return c.attrs["access-key"].(string)
+}
+
+func (c *environConfig) secretKey() string {
+	return c.attrs["secret-key"].(string)
+}
+
+func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
+	valid, err := p.Validate(cfg, nil)
 	if err != nil {
 		return nil, err
 	}
-	m := v.(map[string]interface{})
-	c := &providerConfig{Config: config}
-	c.bucket = m["control-bucket"].(string)
-	c.publicBucket = m["public-bucket"].(string)
-	c.auth.AccessKey = m["access-key"].(string)
-	c.auth.SecretKey = m["secret-key"].(string)
-	if c.auth.AccessKey == "" || c.auth.SecretKey == "" {
-		if c.auth.AccessKey != "" {
-			return nil, fmt.Errorf("environment has access-key but no secret-key")
+	return &environConfig{valid, valid.UnknownAttrs()}, nil
+}
+
+func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+	v, err := configChecker.Coerce(cfg.UnknownAttrs(), nil)
+	if err != nil {
+		return nil, err
+	}
+	ecfg := &environConfig{cfg, v.(map[string]interface{})}
+	if ecfg.accessKey() == "" || ecfg.secretKey() == "" {
+		auth, err := aws.EnvAuth()
+		if err != nil || ecfg.accessKey() != "" || ecfg.secretKey() != "" {
+			return nil, fmt.Errorf("environment has no access-key or secret-key")
 		}
-		if c.auth.SecretKey != "" {
-			return nil, fmt.Errorf("environment has secret-key but no access-key")
-		}
-		c.auth, err = aws.EnvAuth()
-		if err != nil {
-			return nil, err
-		}
+		ecfg.attrs["access-key"] = auth.AccessKey
+		ecfg.attrs["secret-key"] = auth.SecretKey
+	}
+	if _, ok := aws.Regions[ecfg.region()]; !ok {
+		return nil, fmt.Errorf("invalid region name %q", ecfg.region())
 	}
 
-	c.region = m["region"].(string)
-	if _, ok := aws.Regions[c.region]; !ok {
-		return nil, fmt.Errorf("invalid region name %q", c.region)
+	if old != nil {
+		attrs := old.UnknownAttrs()
+		if region, _ := attrs["region"].(string); ecfg.region() != region {
+			return nil, fmt.Errorf("can't change region from %q to %q", region, ecfg.region())
+		}
+		if bucket, _ := attrs["control-bucket"].(string); ecfg.controlBucket() != bucket {
+			return nil, fmt.Errorf("can't change control-bucket from %q to %q", bucket, ecfg.controlBucket())
+		}
 	}
-	return c, nil
+	return cfg.Apply(ecfg.attrs)
 }

@@ -96,6 +96,15 @@ func (c *Config) AllAttrs() map[string]interface{} {
 	return m
 }
 
+// Apply returns a new configuration that has the attributes of c plus attrs.
+func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
+	m := c.AllAttrs()
+	for k, v := range attrs {
+		m[k] = v
+	}
+	return New(m)
+}
+
 var fields = schema.Fields{
 	"type":                 schema.String(),
 	"name":                 schema.String(),
