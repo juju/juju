@@ -3,6 +3,7 @@ package firewaller_test
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -53,7 +54,7 @@ func tearDownLogHook() {
 // assertEvents asserts that the expected events are received from
 // the firewaller, in no particular order.
 func assertEvents(c *C, expect []string) {
-	var got []string
+	got := []string{}
 	for _ = range expect {
 		select {
 		case e := <-logHook.event:
@@ -76,8 +77,9 @@ func assertEvents(c *C, expect []string) {
 type FirewallerSuite struct {
 	coretesting.LoggingSuite
 	testing.StateSuite
-	op    <-chan dummy.Operation
-	charm *state.Charm
+	environ environs.Environ
+	op      <-chan dummy.Operation
+	charm   *state.Charm
 }
 
 var _ = Suite(&FirewallerSuite{})
@@ -89,6 +91,23 @@ func (s *FirewallerSuite) SetUpTest(c *C) {
 	dummy.Listen(op)
 	s.op = op
 
+	var err error
+	config := map[string]interface{}{
+		"name":            "testing",
+		"type":            "dummy",
+		"zookeeper":       true,
+		"authorized-keys": "i-am-a-key",
+	}
+	s.environ, err = environs.NewFromAttrs(config)
+	c.Assert(err, IsNil)
+	err = s.environ.Bootstrap(false)
+	c.Assert(err, IsNil)
+
+	// Sanity check
+	info, err := s.environ.StateInfo()
+	c.Assert(err, IsNil)
+	c.Assert(info, DeepEquals, s.StateInfo(c))
+
 	s.StateSuite.SetUpTest(c)
 }
 
@@ -98,13 +117,13 @@ func (s *FirewallerSuite) TearDownTest(c *C) {
 }
 
 func (s *FirewallerSuite) TestStartStop(c *C) {
-	fw, err := firewaller.NewFirewaller(s.State)
+	fw, err := firewaller.NewFirewaller(s.environ, s.State)
 	c.Assert(err, IsNil)
 	c.Assert(fw.Stop(), IsNil)
 }
 
 func (s *FirewallerSuite) TestAddRemoveMachine(c *C) {
-	fw, err := firewaller.NewFirewaller(s.State)
+	fw, err := firewaller.NewFirewaller(s.environ, s.State)
 	c.Assert(err, IsNil)
 
 	setUpLogHook()
@@ -134,7 +153,7 @@ func (s *FirewallerSuite) TestAddRemoveMachine(c *C) {
 }
 
 func (s *FirewallerSuite) TestAssignUnassignUnit(c *C) {
-	fw, err := firewaller.NewFirewaller(s.State)
+	fw, err := firewaller.NewFirewaller(s.environ, s.State)
 	c.Assert(err, IsNil)
 
 	setUpLogHook()
@@ -173,8 +192,68 @@ func (s *FirewallerSuite) TestAssignUnassignUnit(c *C) {
 	c.Assert(fw.Stop(), IsNil)
 }
 
+func (s *FirewallerSuite) TestOpenClosePorts(c *C) {
+	fw, err := firewaller.NewFirewaller(s.environ, s.State)
+	c.Assert(err, IsNil)
+
+	setUpLogHook()
+	defer tearDownLogHook()
+
+	// Scenario 1: Service has *not* been exposed.
+	m1, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	s.charm = s.AddTestingCharm(c, "dummy")
+	s1, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	u1, err := s1.AddUnit()
+	c.Assert(err, IsNil)
+	err = u1.AssignToMachine(m1)
+	c.Assert(err, IsNil)
+	err = u1.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+
+	assertEvents(c, []string{
+		fmt.Sprint("started tracking machine ", m1.Id()),
+		fmt.Sprint("started tracking unit ", u1.Name()),
+	})
+
+	err = u1.ClosePort("tcp", 80)
+	c.Assert(err, IsNil)
+
+	assertEvents(c, []string{})
+
+	// Scenario 2: Service has been exposed.
+	m2, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	s2, err := s.State.AddService("mysql", s.charm)
+	c.Assert(err, IsNil)
+	err = s2.SetExposed()
+	c.Assert(err, IsNil)
+	u2, err := s2.AddUnit()
+	c.Assert(err, IsNil)
+	err = u2.AssignToMachine(m2)
+	c.Assert(err, IsNil)
+	err = u2.OpenPort("tcp", 3306)
+	c.Assert(err, IsNil)
+
+	assertEvents(c, []string{
+		fmt.Sprint("started tracking machine ", m2.Id()),
+		fmt.Sprint("started tracking unit ", u2.Name()),
+		fmt.Sprintf("opened port {tcp 3306} on machine %d", m2.Id()),
+	})
+
+	err = u2.ClosePort("tcp", 3306)
+	c.Assert(err, IsNil)
+
+	assertEvents(c, []string{
+		fmt.Sprintf("closed port {tcp 3306} on machine %d", m2.Id()),
+	})
+
+	c.Assert(fw.Stop(), IsNil)
+}
+
 func (s *FirewallerSuite) TestFirewallerStopOnStateClose(c *C) {
-	fw, err := firewaller.NewFirewaller(s.State)
+	fw, err := firewaller.NewFirewaller(s.environ, s.State)
 	c.Assert(err, IsNil)
 	fw.CloseState()
 	c.Check(fw.Wait(), ErrorMatches, ".* zookeeper is closing")

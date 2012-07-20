@@ -1,6 +1,8 @@
 package firewaller
 
 import (
+	"fmt"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -10,6 +12,7 @@ import (
 // Firewaller watches the state for ports opened or closed
 // and reflects those changes onto the backing environment.
 type Firewaller struct {
+	environ             environs.Environ
 	st                  *state.State
 	tomb                tomb.Tomb
 	machinesWatcher     *state.MachinesWatcher
@@ -21,8 +24,9 @@ type Firewaller struct {
 }
 
 // NewFirewaller returns a new Firewaller.
-func NewFirewaller(st *state.State) (*Firewaller, error) {
+func NewFirewaller(environ environs.Environ, st *state.State) (*Firewaller, error) {
 	fw := &Firewaller{
+		environ:             environ,
 		st:                  st,
 		machinesWatcher:     st.WatchMachines(),
 		machines:            make(map[int]*machineTracker),
@@ -82,17 +86,80 @@ func (fw *Firewaller) loop() {
 				log.Debugf("firewaller: stopped tracking unit %s", removedUnit.Name())
 			}
 			for _, addedUnit := range change.change.Added {
-				ut := newUnitTracker(addedUnit, fw)
+				ut := newUnitTracker(addedUnit, change.machine.id, fw)
 				fw.units[addedUnit.Name()] = ut
 				if fw.services[addedUnit.ServiceName()] == nil {
-					// TODO(mue) Add service watcher.
+					service, err := fw.st.Service(addedUnit.ServiceName())
+					if err != nil {
+						// TODO(mue) Check if panic is too hard.
+						panic(fmt.Sprintf("service state %q can't be retrieved: %v", addedUnit.ServiceName(), err))
+					}
+					st := newServiceTracker(service, fw)
+					ut.service = st
+					fw.services[addedUnit.ServiceName()] = st
 				}
 				log.Debugf("firewaller: started tracking unit %s", ut.name)
 			}
-		case <-fw.unitPortsChanges:
-			// TODO(mue) Handle changes of ports.
+		case change := <-fw.unitPortsChanges:
+			mt, ok := fw.machines[change.unitTracker.machineId]
+			if !ok {
+				panic("machine for unit ports change isn't tracked")
+			}
+			for _, port := range change.change {
+				if mt.ports[port] == nil && change.unitTracker.service.exposed {
+					mt.ports[port] = change.unitTracker
+					if err := fw.openPortOnAllInstances(mt.id, port); err != nil {
+						log.Printf("can't open port %v on machine %d: %v", port, mt.id, err)
+					}
+					log.Debugf("firewaller: opened port %v on machine %d", port, mt.id)
+				}
+			}
+			for _, port := range change.unitTracker.ports {
+				if mt.ports[port] == change.unitTracker {
+					delete(mt.ports, port)
+					if change.unitTracker.service.exposed {
+						if err := fw.closePortOnAllInstances(mt.id, port); err != nil {
+							log.Printf("can't close port %v on machine %d: %v", port, mt.id, err)
+						}
+						log.Debugf("firewaller: closed port %v on machine %d", port, mt.id)
+					}
+				}
+			}
+			change.unitTracker.ports = change.change
 		}
 	}
+}
+
+// openPortOnAllInstances opens the passed port on all instances in the environment.
+func (fw *Firewaller) openPortOnAllInstances(machineId int, port state.Port) error {
+	instances, err := fw.environ.AllInstances()
+	if err != nil {
+		return err
+	}
+	for _, instance := range instances {
+		err = instance.OpenPorts(machineId, []state.Port{port})
+		if err != nil {
+			// TODO(mue) Add a retry logic later.
+			return err
+		}
+	}
+	return nil
+}
+
+// closePortOnAllInstances closes the passed port on all instances in the environment. 
+func (fw *Firewaller) closePortOnAllInstances(machineId int, port state.Port) error {
+	instances, err := fw.environ.AllInstances()
+	if err != nil {
+		return err
+	}
+	for _, instance := range instances {
+		err = instance.ClosePorts(machineId, []state.Port{port})
+		if err != nil {
+			// TODO(mue) Add a retry logic later.
+			return err
+		}
+	}
+	return nil
 }
 
 // finishes cleans up when the firewaller is stopping.
@@ -178,14 +245,15 @@ func (mt *machineTracker) stop() error {
 
 // unitPortsChange contains the changed ports for one specific unit. 
 type unitPortsChange struct {
-	unit   *unitTracker
-	change []state.Port
+	unitTracker *unitTracker
+	change      []state.Port
 }
 
 // unitTracker keeps track of the port changes of a unit.
 type unitTracker struct {
 	tomb       tomb.Tomb
 	firewaller *Firewaller
+	machineId  int
 	name       string
 	watcher    *state.PortsWatcher
 	service    *serviceTracker
@@ -194,9 +262,10 @@ type unitTracker struct {
 
 // newUnitTracker creates a new machine tracker keeping track of
 // unit changes of the passed machine.
-func newUnitTracker(ust *state.Unit, fw *Firewaller) *unitTracker {
+func newUnitTracker(ust *state.Unit, machineId int, fw *Firewaller) *unitTracker {
 	ut := &unitTracker{
 		firewaller: fw,
+		machineId:  machineId,
 		name:       ust.Name(),
 		watcher:    ust.WatchPorts(),
 		ports:      make([]state.Port, 0),
@@ -205,6 +274,7 @@ func newUnitTracker(ust *state.Unit, fw *Firewaller) *unitTracker {
 	return ut
 }
 
+// loop is the backend watching for unit ports changes.
 func (ut *unitTracker) loop() {
 	defer ut.tomb.Done()
 	defer ut.watcher.Stop()
@@ -236,6 +306,24 @@ func (ut *unitTracker) stop() error {
 
 // serviceTracker  keeps track of the changes of a service.
 type serviceTracker struct {
-	name    string
-	exposed bool
+	tomb       tomb.Tomb
+	firewaller *Firewaller
+	name       string
+	exposed    bool
+}
+
+// newUnitTracker creates a new service tracker keeping track of
+// exposed flag changes of the passed service.
+func newServiceTracker(sst *state.Service, fw *Firewaller) *serviceTracker {
+	st := &serviceTracker{
+		firewaller: fw,
+		name:       sst.Name(),
+	}
+	isExposed, err := sst.IsExposed()
+	if err != nil {
+		panic(fmt.Sprintf("can't retrieve exposed state of service %q: %v", sst.Name(), err))
+	}
+	st.exposed = isExposed
+	// TODO(mue) Start backend loop.
+	return st
 }
