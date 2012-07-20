@@ -75,9 +75,12 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	}
 
 	if old != nil {
-		region, _ := old.UnknownAttrs()["region"].(string)
-		if ecfg.region() != region {
-			return nil, fmt.Errorf("can't change environment region from %q to %q", region, ecfg.region())
+		attrs := old.UnknownAttrs()
+		if region, _ := attrs["region"].(string); ecfg.region() != region {
+			return nil, fmt.Errorf("can't change region from %q to %q", region, ecfg.region())
+		}
+		if bucket, _ := attrs["control-bucket"].(string); ecfg.controlBucket() != bucket {
+			return nil, fmt.Errorf("can't change control-bucket from %q to %q", bucket, ecfg.controlBucket())
 		}
 	}
 	return cfg.Apply(ecfg.attrs)
