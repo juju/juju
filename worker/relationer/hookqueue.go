@@ -14,44 +14,45 @@ type HookInfo struct {
 	Members map[string]map[string]interface{}
 }
 
+// unitInfo holds information about a unit that is, or has been, or will
+// be, a member of the relation; and the next hook that will run and its
+// position in the queue if appropriate.
+type unitInfo struct {
+	unit     string
+	version  int
+	settings map[string]interface{}
+	hook     string
+	prev     *unitInfo
+	next     *unitInfo
+}
+
 // HookQueue accepts state.RelationUnitsChange events and converts them
 // into HookInfos.
 type HookQueue struct {
+	// info holds the unitInfo for every unit known to be present in
+	// the relation at any time from the "present" to the furthest
+	// known "future".
+	info map[string]*unitInfo
+
+	// head and tail are the ends of the queue.
+	head *unitInfo
+	tail *unitInfo
 
 	// members holds the names of the relation units known to the last
 	// HookInfo emitted from the queue; from the point of view of the
 	// unit agent, it is the "present" membership of the relation.
 	members map[string]struct{}
 
-	// settings holds the latest settings and version for every relation
-	// unit known to the queue. This includes those for relation units
-	// from the "future": ie those which are in the queue, but have not
-	// yet been involved in any hook execution.
-	settings map[string]state.UnitSettings
-
-	// changes is an ordered list of hooks we expect to execute in the
-	// future. Not every change is meaningful: when a newer event
-	// renders an earlier one obsolete, we clear out the obsolete change's
-	// hook and henceforth ignore it (rather than compacting the list).
-	// changes must not contain more than one valid entry per unit.
-	changes []change
-
-	// inflight holds the most recent HookInfo returned from Next(), until
-	// Done is called, at which point it will be cleared.
-	inflight *HookInfo
-}
-
-// change is used internally by HookQueue.
-type change struct {
-	hook string
-	unit string
+	// inflight holds enough information to reconstruct the last HookInfo
+	// returned from Next, until Done is called.
+	inflight *unitInfo
 }
 
 // NewHookQueue returns an empty HookQueue.
 func NewHookQueue() *HookQueue {
 	return &HookQueue{
-		members:  map[string]struct{}{},
-		settings: map[string]state.UnitSettings{},
+		members: map[string]struct{}{},
+		info:    map[string]*unitInfo{},
 	}
 }
 
@@ -66,36 +67,37 @@ func (q *HookQueue) Add(ruc state.RelationUnitsChange) {
 
 	for _, unit := range changedUnits {
 		settings := ruc.Changed[unit]
-		if oldSettings, found := q.settings[unit]; !found {
-			// If not currently known, queue a join.
-			q.changes = append(q.changes, change{"joined", unit})
-		} else if idx := q.changeIndex(unit); idx == -1 {
+		if info, found := q.info[unit]; !found {
+			// If not known, add to info and queue a join.
+			q.info[unit] = &unitInfo{unit: unit}
+			q.append(unit, "joined")
+		} else if info.hook == "" {
 			// If known, and not already in queue, queue a change.
-			q.changes = append(q.changes, change{"changed", unit})
-		} else if ch := q.changes[idx]; ch.hook == "departed" {
+			q.append(unit, "changed")
+		} else if info.hook == "departed" {
 			// If known, and queued for depart, clear out the old entry...
-			q.changes[idx].hook = ""
-			if settings.Version != oldSettings.Version {
+			q.remove(unit)
+			if settings.Version != info.version {
 				// ...and queue a change if justified.
-				q.changes = append(q.changes, change{"changed", unit})
+				q.append(unit, "changed")
 			}
 		} // Otherwise, it's already queued for either join or change; ignore.
 
 		// Always update the stored settings.
-		q.settings[unit] = settings
+		q.info[unit].version = settings.Version
+		q.info[unit].settings = settings.Settings
 	}
 
 	for _, unit := range ruc.Departed {
-		if idx := q.changeIndex(unit); idx == -1 {
+		if hook := q.info[unit].hook; hook == "" {
 			// If not present in queue, queue for depart.
-			q.changes = append(q.changes, change{"departed", unit})
+			q.append(unit, "departed")
 		} else {
 			// Otherwise, clear out the old entry...
-			hook := q.changes[idx].hook
-			q.changes[idx].hook = ""
+			q.remove(unit)
 			if hook == "changed" {
 				// ...and schedule a deletion if justified.
-				q.changes = append(q.changes, change{"departed", unit})
+				q.append(unit, "departed")
 			}
 		}
 	}
@@ -106,39 +108,47 @@ func (q *HookQueue) Add(ruc state.RelationUnitsChange) {
 // If the HookInfo is valid, subsequent calls to Next will return the same
 // HookInfo, until Done is called.
 func (q *HookQueue) Next() (HookInfo, bool) {
-	if q.inflight != nil {
-		// We're retrying a hook that previously failed to execute.
-		return *q.inflight, true
+	if q.inflight == nil {
+		if q.head == nil {
+			// The queue is empty.
+			return HookInfo{}, false
+		}
+
+		// Clone the unit info and update the queue.
+		info := *q.head
+		if info.hook == "joined" {
+			q.members[info.unit] = struct{}{}
+			q.head.hook = "changed"
+		} else {
+			q.remove(info.unit)
+		}
+
+		// If we're departing, we can forget all about this unit.
+		if info.hook == "departed" {
+			delete(q.info, info.unit)
+			delete(q.members, info.unit)
+		}
+
+		q.inflight = &info
+	} else if q.inflight.hook == "changed" {
+		// It may be the case that the settings for an inflight changed
+		// hook have changed since we last tried to run it. If that is
+		// so, *and* that unit has a queued changed hook, that queued hook
+		// is now redundant and can be dropped from the queue. (If the
+		// settings have changed, we will certainly have a queued hook
+		// for that unit; but the unit might subsequently have departed,
+		// so it's not necessarily a changed hook.)
+		latest := q.info[q.inflight.unit]
+		if q.inflight.version != latest.version && latest.hook == "changed" {
+			q.remove(latest.unit)
+		}
 	}
 
-	idx := q.nextChangeIndex()
-	if idx == -1 {
-		// The queue is empty.
-		return HookInfo{}, false
-	}
-
-	// Update queue state.
-	ch := q.changes[idx]
-	prefix := []change{}
-	if ch.hook == "joined" {
-		// Insert a changed event at the head of the queue.
-		q.members[ch.unit] = struct{}{}
-		prefix = append(prefix, change{"changed", ch.unit})
-	} else if ch.hook == "departed" {
-		// Because we only have one queued event per unit, we can
-		// forget all about this unit for now.
-		delete(q.members, ch.unit)
-		delete(q.settings, ch.unit)
-	}
-	q.changes = append(prefix, q.changes[idx+1:]...)
-
-	// Create the HookInfo, using the *latest* relation unit settings,
-	// and place it in inflight for potential reuse if the hook fails.
-	result := HookInfo{ch.hook, ch.unit, make(map[string]map[string]interface{})}
+	// Return a HookInfo created from the inflight unitInfo.
+	result := HookInfo{q.inflight.hook, q.inflight.unit, make(map[string]map[string]interface{})}
 	for m := range q.members {
-		result.Members[m] = q.settings[m].Settings
+		result.Members[m] = q.info[m].settings
 	}
-	q.inflight = &result
 	return result, true
 }
 
@@ -152,24 +162,57 @@ func (q *HookQueue) Done() {
 	q.inflight = nil
 }
 
-// changeIndex returns the index of the queued change for the supplied unit
-// name, or -1 if no changes are queued for that unit.
-func (q *HookQueue) changeIndex(unit string) int {
-	for idx, ch := range q.changes {
-		if ch.hook != "" && ch.unit == unit {
-			return idx
-		}
+// append places the named unit info at the tail of the queue. It will
+// panic if the unit is not known.
+func (q *HookQueue) append(unit, hook string) {
+	// First make sure it's out of the queue.
+	q.remove(unit)
+
+	// Set the unit's next action.
+	info := q.info[unit]
+	info.hook = hook
+
+	// If the queue is empty, place it at the start.
+	if q.head == nil {
+		q.head = info
 	}
-	return -1
+
+	// Place it at the end.
+	info.prev = q.tail
+	if q.tail != nil {
+		q.tail.next = info
+	}
+	q.tail = info
 }
 
-// nextChangeIndex returns the index of the first valid change in the queue,
-// or -1 if the queue is empty.
-func (q *HookQueue) nextChangeIndex() int {
-	for idx, ch := range q.changes {
-		if ch.hook != "" {
-			return idx
-		}
+// remove removes the named unit from the queue, but does not remove
+// its information. It will panic if the unit is not known.
+func (q *HookQueue) remove(unit string) {
+	if q.head == nil {
+		// The queue is empty, nothing to do.
+		return
 	}
-	return -1
+
+	// Get the unit info and clear its next action.
+	info := q.info[unit]
+	info.hook = ""
+
+	// If the info is at either end (or both ends) of the queue,
+	// update the appropriate end(s) directly.
+	if q.head == info {
+		q.head = info.next
+	}
+	if q.tail == info {
+		q.tail = info.prev
+	}
+
+	// Remove the unit from the list.
+	if info.prev != nil {
+		info.prev.next = info.next
+	}
+	if info.next != nil {
+		info.next.prev = info.prev
+	}
+	info.prev = nil
+	info.next = nil
 }

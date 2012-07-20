@@ -98,7 +98,7 @@ var hookQueueTests = []struct {
 			RUC(msi{"u0": 12}, nil),
 			RUC(msi{"u0": 37}, nil),
 		}, []relationer.HookInfo{
-			HI("joined", "u0", msi{"u0": 0}),
+			HI("joined", "u0", msi{"u0": 37}),
 			HI("changed", "u0", msi{"u0": 37}),
 		},
 	},
@@ -111,7 +111,6 @@ var hookQueueTests = []struct {
 			RUC(msi{"u0": 12}, nil),
 			RUC(msi{"u0": 37}, nil),
 		}, []relationer.HookInfo{
-			HI("changed", "u0", msi{"u0": 0}),
 			HI("changed", "u0", msi{"u0": 37}),
 		},
 	},
@@ -155,7 +154,7 @@ var hookQueueTests = []struct {
 			RUC(msi{"u0": 12}, nil),
 			RUC(nil, []string{"u0"}),
 		}, []relationer.HookInfo{
-			HI("joined", "u0", msi{"u0": 0}),
+			HI("joined", "u0", msi{"u0": 12}),
 			HI("departed", "u0", nil),
 		},
 	},
@@ -180,7 +179,7 @@ var hookQueueTests = []struct {
 			RUC(msi{"u0": 12}, nil),
 			RUC(nil, []string{"u0"}),
 		}, []relationer.HookInfo{
-			HI("changed", "u0", msi{"u0": 0}),
+			HI("changed", "u0", msi{"u0": 12}),
 			HI("departed", "u0", nil),
 		},
 	},
@@ -231,18 +230,22 @@ var hookQueueTests = []struct {
 			RUC(msi{"u1": 1, "u2": 1, "u3": 1, "u5": 0}, []string{"u0", "u4"}),
 			RUC(msi{"u3": 2}, nil),
 		}, []relationer.HookInfo{
-			// Finish off the rest of the inited state, ignoring u4.
-			HI("changed", "u2", msi{"u0": 0, "u1": 0, "u2": 0}),
+			// - Finish off the rest of the inited state, ignoring u4, but using
+			// the latest known settings.
+			HI("changed", "u2", msi{"u0": 1, "u1": 1, "u2": 1}),
 			HI("joined", "u3", msi{"u0": 1, "u1": 1, "u2": 1, "u3": 2}),
 			HI("changed", "u3", msi{"u0": 1, "u1": 1, "u2": 1, "u3": 2}),
-			// Ignore the first RUC, u0 is going away soon enough.
-			// Handle the changes in the second RUC, still ignoring u4.
+			// - Ignore the first RUC, u0 is going away soon enough.
+			// - Handle the changes in the second RUC, still ignoring u4.
+			// We do run a new changed hook for u1, because the latest settings
+			// are newer than those used in its original changed event.
 			HI("changed", "u1", msi{"u0": 1, "u1": 1, "u2": 1, "u3": 2}),
-			HI("changed", "u2", msi{"u0": 1, "u1": 1, "u2": 1, "u3": 2}),
+			// No new change for u2, because it used its latest settings in the
+			// retry of its initial inflight changed event.
 			HI("joined", "u5", msi{"u0": 1, "u1": 1, "u2": 1, "u3": 2, "u5": 0}),
 			HI("changed", "u5", msi{"u0": 1, "u1": 1, "u2": 1, "u3": 2, "u5": 0}),
 			HI("departed", "u0", msi{"u1": 1, "u2": 1, "u3": 2, "u5": 0}),
-			// Ignore the third RUC, because the original joined/changed on r3
+			// - Ignore the third RUC, because the original joined/changed on u3
 			// was executed after we got the latest settings version.
 		},
 	},
