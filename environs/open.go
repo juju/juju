@@ -25,8 +25,7 @@ func (envs *Environs) Open(name string) (Environ, error) {
 }
 
 // NewFromAttrs returns a new environment based on the provided configuration
-// attributes. The configuration is validated for the respective provider
-// before the environment is instantiated.
+// attributes.
 func NewFromAttrs(attrs map[string]interface{}) (Environ, error) {
 	cfg, err := config.New(attrs)
 	if err != nil {
@@ -36,13 +35,10 @@ func NewFromAttrs(attrs map[string]interface{}) (Environ, error) {
 }
 
 // New returns a new environment based on the provided configuration.
-// The configuration is validated for the respective provider before
-// the environment is instantiated.
 func New(config *config.Config) (Environ, error) {
 	p, ok := providers[config.Type()]
 	if !ok {
 		return nil, fmt.Errorf("no registered provider for %q", config.Type())
 	}
-	// TODO: config, err := p.Validate(config, nil)
 	return p.Open(config)
 }
