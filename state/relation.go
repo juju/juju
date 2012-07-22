@@ -87,7 +87,7 @@ type Relation struct {
 }
 
 func (r *Relation) String() string {
-	return fmt.Sprintf("relation %q", describeEndpoints(r.endpoints))
+	return describeEndpoints(r.endpoints)
 }
 
 // Id returns the integer part of the internal relation key. This is
