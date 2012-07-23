@@ -662,11 +662,11 @@ func (w *ServiceRelationsWatcher) done() {
 	close(w.changeChan)
 }
 
-// relationUnitsWatcher watches the presence and settings of units
+// RelationUnitsWatcher watches the presence and settings of units
 // playing a particular role in a particular scope of a relation,
 // on behalf of another relation unit (which can potentially be in
 // that scope/role, and will if so be exluded from reported events).
-type relationUnitsWatcher struct {
+type RelationUnitsWatcher struct {
 	st        *State
 	tomb      tomb.Tomb
 	role      RelationRole
@@ -692,18 +692,18 @@ type UnitSettings struct {
 	Settings map[string]interface{}
 }
 
-// unitSettingsChange is used internally by relationUnitsWatcher to communicate
+// unitSettingsChange is used internally by RelationUnitsWatcher to communicate
 // information about a particular unit's settings within a relation.
 type unitSettingsChange struct {
 	name     string
 	settings UnitSettings
 }
 
-// newRelationUnitsWatcher returns a relationUnitsWatcher which notifies of
+// newRelationUnitsWatcher returns a RelationUnitsWatcher which notifies of
 // all presence and settings changes to units playing role within scope,
 // excluding the given unit.
-func newRelationUnitsWatcher(scope unitScopePath, role RelationRole, u *Unit) *relationUnitsWatcher {
-	w := &relationUnitsWatcher{
+func newRelationUnitsWatcher(scope unitScopePath, role RelationRole, u *Unit) *RelationUnitsWatcher {
+	w := &RelationUnitsWatcher{
 		st:        u.st,
 		role:      role,
 		scope:     scope,
@@ -717,7 +717,7 @@ func newRelationUnitsWatcher(scope unitScopePath, role RelationRole, u *Unit) *r
 	return w
 }
 
-func (w *relationUnitsWatcher) loop() {
+func (w *RelationUnitsWatcher) loop() {
 	defer w.finish()
 	roleWatcher := presence.NewChildrenWatcher(w.st.zk, w.scope.presencePath(w.role, ""))
 	defer watcher.Stop(roleWatcher, &w.tomb)
@@ -758,7 +758,7 @@ func (w *relationUnitsWatcher) loop() {
 	}
 }
 
-func (w *relationUnitsWatcher) finish() {
+func (w *RelationUnitsWatcher) finish() {
 	for _, t := range w.unitTombs {
 		t.Kill(nil)
 		w.tomb.Kill(t.Wait())
@@ -769,20 +769,20 @@ func (w *relationUnitsWatcher) finish() {
 }
 
 // Stop stops the watcher and returns any errors encountered while watching.
-func (w *relationUnitsWatcher) Stop() error {
+func (w *RelationUnitsWatcher) Stop() error {
 	w.tomb.Kill(nil)
 	return w.tomb.Wait()
 }
 
 // Dying returns a channel that is closed when the
 // watcher has stopped or is about to stop.
-func (w *relationUnitsWatcher) Dying() <-chan struct{} {
+func (w *RelationUnitsWatcher) Dying() <-chan struct{} {
 	return w.tomb.Dying()
 }
 
 // Err returns any error encountered while stopping the watcher, or
 // tome.ErrStillAlive if the watcher is still running.
-func (w *relationUnitsWatcher) Err() error {
+func (w *RelationUnitsWatcher) Err() error {
 	return w.tomb.Err()
 }
 
@@ -790,14 +790,14 @@ func (w *relationUnitsWatcher) Err() error {
 // the relation when detected.
 // The first event on the channel holds the initial state of the
 // relation in its Changed field.
-func (w *relationUnitsWatcher) Changes() <-chan RelationUnitsChange {
+func (w *RelationUnitsWatcher) Changes() <-chan RelationUnitsChange {
 	return w.changes
 }
 
 // updateWatches starts or stops watches on the settings of the relation
 // units declared present or absent by ch, and returns a RelationUnitsChange
 // event expressing those changes.
-func (w *relationUnitsWatcher) updateWatches(ch watcher.ChildrenChange) (*RelationUnitsChange, error) {
+func (w *RelationUnitsWatcher) updateWatches(ch watcher.ChildrenChange) (*RelationUnitsChange, error) {
 	change := &RelationUnitsChange{}
 	for _, key := range ch.Removed {
 		if key == w.ignore {
@@ -864,7 +864,7 @@ func (w *relationUnitsWatcher) updateWatches(ch watcher.ChildrenChange) (*Relati
 
 // unitLoop sends a unitSettingsChange event on w.updates for each ContentChange
 // event received from uw.
-func (w *relationUnitsWatcher) unitLoop(name string, uw *watcher.ContentWatcher, t *tomb.Tomb) {
+func (w *RelationUnitsWatcher) unitLoop(name string, uw *watcher.ContentWatcher, t *tomb.Tomb) {
 	defer t.Done()
 	defer uw.Stop()
 	for {
