@@ -61,12 +61,9 @@ func (fw *Firewaller) loop() {
 				fw.machines[addedMachine.Id()] = mt
 				log.Debugf("firewaller: started tracking machine %d", mt.id)
 			}
-		case change, ok := <-fw.machineUnitsChanges:
-			if !ok {
-				panic("aggregation of machine units changes failed")
-			}
+		case change := <-fw.machineUnitsChanges:
 			if change.change == nil {
-				log.Printf("tracker of machine %d terminated prematurely", change.machine.id)
+				log.Printf("tracker of machine %d terminated prematurely: %v", change.machine.id, change.machine.stop())
 				delete(fw.machines, change.machine.id)
 				continue
 			}
@@ -133,8 +130,8 @@ type machineTracker struct {
 	ports      map[state.Port]*unitTracker
 }
 
-// newMachineTracker creates a new machine tracker keeping track of
-// unit changes of the passed machine.
+// newMachineTracker tracks unit changes to the given machine and sends them 
+// to the central firewaller loop.
 func newMachineTracker(mst *state.Machine, fw *Firewaller) *machineTracker {
 	mt := &machineTracker{
 		firewaller: fw,
