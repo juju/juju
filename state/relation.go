@@ -170,8 +170,9 @@ type RelationUnit struct {
 
 // Join joins the unit to the relation, such that other units watching the
 // relation will observe its presence and changes to its settings.
-func (ru *RelationUnit) Join() (*presence.Pinger, error) {
-	if err := ru.scope.prepareJoin(ru.st.zk, ru.role); err != nil {
+func (ru *RelationUnit) Join() (p *presence.Pinger, err error) {
+	errorContextf(&err, "can't join unit %q to relation %q", ru.unit, ru.relation)
+	if err = ru.scope.prepareJoin(ru.st.zk, ru.role); err != nil {
 		return nil, err
 	}
 	// Private address should be set at agent startup.
@@ -184,15 +185,15 @@ func (ru *RelationUnit) Join() (*presence.Pinger, error) {
 		return nil, err
 	}
 	settings.Set("private-address", address)
-	if _, err := settings.Write(); err != nil {
+	if _, err = settings.Write(); err != nil {
 		return nil, err
 	}
 	presencePath := ru.scope.presencePath(ru.role, ru.unit.key)
 	return presence.StartPinger(ru.st.zk, presencePath, agentPingerPeriod)
 }
 
-// Watch returns a RelationUnitsWatcher which notifies of relevant changes to
-// other units in the relation.
+// Watch returns a watcher that notifies when any other unit in
+// the relation joins, departs, or has its settings changed.
 func (ru *RelationUnit) Watch() *RelationUnitsWatcher {
 	return newRelationUnitsWatcher(ru.scope, ru.role.counterpartRole(), ru.unit)
 }
