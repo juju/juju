@@ -205,8 +205,16 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 // relations.
 func (s *State) RemoveService(svc *Service) (err error) {
 	defer errorContextf(&err, "can't remove service %q", svc.Name())
-	// TODO Remove relations first, to prevent spurious hook execution.
-
+	// Remove relations first, to minimize unwanted hook executions.
+	rels, err := svc.Relations()
+	if err != nil {
+		return err
+	}
+	for _, rel := range rels {
+		if err := s.RemoveRelation(rel); err != nil {
+			return err
+		}
+	}
 	// Remove the units.
 	units, err := svc.AllUnits()
 	if err != nil {
@@ -222,8 +230,7 @@ func (s *State) RemoveService(svc *Service) (err error) {
 		if !t.HasService(svc.key) {
 			return stateChanged
 		}
-		t.RemoveService(svc.key)
-		return nil
+		return t.RemoveService(svc.key)
 	}
 	if err = retryTopologyChange(s.zk, removeService); err != nil {
 		return err
@@ -342,13 +349,13 @@ func (s *State) addRelationNode(endpoints ...RelationEndpoint) (relationKey stri
 }
 
 // AddRelation creates a new relation with the given endpoints.
-func (s *State) AddRelation(endpoints ...RelationEndpoint) (err error) {
+func (s *State) AddRelation(endpoints ...RelationEndpoint) (rel *Relation, err error) {
 	defer errorContextf(&err, "can't add relation %q", describeEndpoints(endpoints))
 	key, err := s.addRelationNode(endpoints...)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return retryTopologyChange(s.zk, func(t *topology) error {
+	err = retryTopologyChange(s.zk, func(t *topology) error {
 		relation := &topoRelation{
 			Interface: endpoints[0].Interface,
 			Scope:     ScopeGlobal,
@@ -368,19 +375,50 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (err error) {
 		}
 		return t.AddRelation(key, relation)
 	})
+	if err != nil {
+		return nil, err
+	}
+	return s.Relation(endpoints...)
 }
 
-// RemoveRelation removes the relation between the given endpoints.
-func (s *State) RemoveRelation(endpoints ...RelationEndpoint) error {
-	err := retryTopologyChange(s.zk, func(t *topology) error {
-		key, err := t.RelationKey(endpoints...)
+// Relation returns the existing relation with the given endpoints.
+func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error) {
+	defer errorContextf(&err, "can't get relation %q", describeEndpoints(endpoints))
+	t, err := readTopology(s.zk)
+	if err != nil {
+		return nil, err
+	}
+	key, err := t.RelationKey(endpoints...)
+	if err != nil {
+		return nil, err
+	}
+	tr, err := t.Relation(key)
+	if err != nil {
+		return nil, err
+	}
+	r = &Relation{s, key, nil}
+	for _, tep := range tr.Endpoints {
+		sname, err := t.ServiceName(tep.Service)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		return t.RemoveRelation(key)
+		r.endpoints = append(r.endpoints, RelationEndpoint{
+			sname, tr.Interface, tep.RelationName, tep.RelationRole, tr.Scope,
+		})
+	}
+	return r, nil
+}
+
+// RemoveRelation removes the supplied relation.
+func (s *State) RemoveRelation(r *Relation) error {
+	err := retryTopologyChange(s.zk, func(t *topology) error {
+		if !t.HasRelation(r.key) {
+			return fmt.Errorf("not found")
+		}
+		return t.RemoveRelation(r.key)
 	})
 	if err != nil {
-		return fmt.Errorf("can't remove relation %q: %s", describeEndpoints(endpoints), err)
+		return fmt.Errorf("can't remove relation %q: %s", r, err)
 	}
 	return nil
 }
