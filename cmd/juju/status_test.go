@@ -8,12 +8,15 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/testing"
+	"launchpad.net/juju-core/environs/dummy"
 	"os"
 	"path/filepath"
 )
 
 type StatusSuite struct {
 	envSuite
+	testing.StateSuite
 	repoPath, seriesPath string
 	conn                 *juju.Conn
 	st                   *state.State
@@ -31,36 +34,44 @@ func (s *StatusSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	s.conn, err = juju.NewConn("")
 	c.Assert(err, IsNil)
-	err = s.conn.Environ.Bootstrap(false)
+	err = s.conn.Bootstrap(false)
 	c.Assert(err, IsNil)
 	s.st, err = s.conn.State()
 	c.Assert(err, IsNil)
+
+        // Sanity check
+        info, err := s.conn.Environ.StateInfo()
+        c.Assert(err, IsNil)
+        c.Assert(info, DeepEquals, s.StateInfo(c))
+        s.StateSuite.SetUpTest(c)
 }
 
 func (s *StatusSuite) TearDownTest(c *C) {
+	s.conn.Close()
+        dummy.Reset()
+        s.StateSuite.TearDownTest(c)
 	s.envSuite.TearDownTest(c)
 	os.Setenv("JUJU_REPOSITORY", s.repoPath)
-	s.conn.Close()
 }
 
 var statusTests = []struct {
 	title   string
-	prepare func(*state.State, *C)
+	prepare func(*state.State, *juju.Conn, *C)
 	output  map[string]string
 }{
 	{
 		// unlikely, as you can't run juju status in real life without 
 		// machine/0 bootstrapped.
 		"empty state",
-		func(*state.State, *C) {},
+		func(*state.State, *juju.Conn, *C) {},
 		map[string]string{
 			"yaml": "machines: {}\nservices: {}\n\n",
 			"json": `{"machines":{},"services":{}}`,
 		},
 	},
 	{
-		"bootstrap",
-		func(st *state.State, c *C) {
+		"bootstrap/pending",
+		func(st *state.State, _ *juju.Conn, c *C) {
 			m, err := st.AddMachine()
 			c.Assert(err, IsNil)
 			c.Assert(m.Id(), Equals, 0)
@@ -74,12 +85,30 @@ services: {}`,
 			"json": `{"machines":{"0": {"instance-id":"pending"}},"services":{}}`,
 		},
 	},
+	{
+		"bootstrap/running",
+		func(st *state.State, conn *juju.Conn, c *C) {
+			m, err := st.Machine(0)
+			c.Assert(err, IsNil)
+			inst, err := conn.Environ.StartInstance(m.Id(), nil)
+			c.Assert(err, IsNil)
+			err = m.SetInstanceId(inst.Id())
+			c.Assert(err, IsNil)
+		},
+		map[string]string{
+			"yaml": 
+`machines: 
+  "0": {instance-id: pending}
+services: {}`,
+			"json": `{"machines":{"0": {"instance-id":"pending"}},"services":{}}`,
+		},
+	},
 }
 
 func (s *StatusSuite) testStatus(format string, unmarshal func([]byte, interface{}) error, c *C) {
 	for _, t := range statusTests {
 		c.Logf("testing %s: %s", format, t.title)
-		t.prepare(s.st, c)
+		t.prepare(s.st, s.conn, c)
 		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}}
 		code := cmd.Main(&StatusCommand{}, ctx, []string{"--format", format})
 		c.Check(code, Equals, 0)
