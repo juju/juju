@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strconv"
 
 	"launchpad.net/gnuflag"
@@ -106,18 +107,37 @@ func fetchAllMachines(st *state.State) (map[int]*state.Machine, error) {
 // nb. due to a limitation encoding/json, the key of the map is a string, not an int.
 func processMachines(machines map[int]*state.Machine, instances map[string]environs.Instance) (map[string]interface{}, error) {
 	r := make(map[string]interface{})
-	var err error
 	for _, m := range machines {
-		r[strconv.Itoa(m.Id())], err = processMachine(m, instances)
+		machineid := strconv.Itoa(m.Id())
+	        instid, err := m.InstanceId()
+       	 	if err, ok := err.(*state.NoInstanceIdError); ok {
+                	r[machineid] = map[string]interface{} {
+				"instance-id": "pending",
+			}
+		} else if err != nil {
+                	return nil, err
+        	} else {
+	
+		instance, ok := instances[instid]
+		if !ok { 
+			return nil, fmt.Errorf("instance %s for machine %s not found", instid, machineid)
+		}
+		
+		m, err := processMachine(m, instance)
 		if err != nil {
 			return nil, err
+		}
+		r[machineid] = m
 		}
 	}
 	return r, nil
 }
 
-func processMachine(machine *state.Machine, instances map[string]environs.Instance) (map[string]interface{}, error) {
+func processMachine(machine *state.Machine, instance environs.Instance) (map[string]interface{}, error) {
 	r := make(map[string]interface{})
+	dnsname, err := instance.DNSName()
+	if err != nil { return nil, err }
+	r["dns-name"] = dnsname
 
 	return r, nil
 }

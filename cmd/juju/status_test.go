@@ -66,8 +66,12 @@ var statusTests = []struct {
 			c.Assert(m.Id(), Equals, 0)
 		},
 		map[string]string{
-			"yaml": "machines: {}\nservices: {}\n\n",
-			"json": `{"machines":{},"services":{}}`,
+			// note: the key of the machines map is a string
+			"yaml": 
+`machines: 
+  "0": {instance-id: pending}
+services: {}`,
+			"json": `{"machines":{"0": {"instance-id":"pending"}},"services":{}}`,
 		},
 	},
 }
