@@ -8,7 +8,7 @@ import (
 
 type StatusCommand struct {
 	EnvName string
-	Out     cmd.Output
+	out     cmd.Output
 }
 
 var statusDoc = "This command will report on the runtime state of various system entities."
@@ -21,18 +21,31 @@ func (c *StatusCommand) Info() *cmd.Info {
 
 func (c *StatusCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	addEnvironFlags(&c.EnvName, f)
-	c.Out.AddFlags(f, "yaml", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
 	return cmd.CheckEmpty(f.Args())
 }
 
-func (c *StatusCommand) Run(_ *cmd.Context) error {
+type result struct {
+	Machines map[string]interface{} `yaml:"machines" json:"machines"`
+	Services map[string]interface{} `yaml:"services" json:"services"`
+}
+
+func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConn(c.EnvName)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
-	return nil
+
+	r := result{
+		make(map[string]interface{}),
+		make(map[string]interface{}),
+	}
+
+	// TODO(dfc) process machines, services, and units
+
+	return c.out.Write(ctx, r)
 }
