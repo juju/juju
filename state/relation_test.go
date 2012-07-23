@@ -160,6 +160,26 @@ func (s *RelationUnitSuite) SetUpTest(c *C) {
 	s.charm = s.AddTestingCharm(c, "dummy")
 }
 
+func (s *RelationUnitSuite) TestRelationUnitJoinError(c *C) {
+	peer, err := s.State.AddService("peer", s.charm)
+	c.Assert(err, IsNil)
+	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, state.ScopeGlobal}
+	err = s.State.AddRelation(peerep)
+	c.Assert(err, IsNil)
+	rels, err := peer.Relations()
+	c.Assert(err, IsNil)
+	c.Assert(rels, HasLen, 1)
+	rel := rels[0]
+	u, err := peer.AddUnit()
+	c.Assert(err, IsNil)
+	ru, err := rel.Unit(u)
+	c.Assert(err, IsNil)
+	err = peer.RemoveUnit(u)
+	c.Assert(err, IsNil)
+	_, err = ru.Join()
+	c.Assert(err, ErrorMatches, `can't join unit "peer/0" to relation "peer:baz": unit has no private address`)
+}
+
 func (s *RelationUnitSuite) TestPeerRelationUnit(c *C) {
 	// Create a service and get a peer relation.
 	peer, err := s.State.AddService("peer", s.charm)
