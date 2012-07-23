@@ -109,25 +109,25 @@ func processMachines(machines map[int]*state.Machine, instances map[string]envir
 	r := make(map[string]interface{})
 	for _, m := range machines {
 		machineid := strconv.Itoa(m.Id())
-	        instid, err := m.InstanceId()
-       	 	if err, ok := err.(*state.NoInstanceIdError); ok {
-                	r[machineid] = map[string]interface{} {
+		instid, err := m.InstanceId()
+		if err, ok := err.(*state.NoInstanceIdError); ok {
+			r[machineid] = map[string]interface{}{
 				"instance-id": "pending",
 			}
 		} else if err != nil {
-                	return nil, err
-        	} else {
-	
-		instance, ok := instances[instid]
-		if !ok { 
-			return nil, fmt.Errorf("instance %s for machine %s not found", instid, machineid)
-		}
-		
-		m, err := processMachine(m, instance)
-		if err != nil {
 			return nil, err
-		}
-		r[machineid] = m
+		} else {
+			instance, ok := instances[instid]
+			if !ok {
+				// Double plus ungood. There is an instance id recorded for this machine in the state,
+				// yet the environ cannot find that id. 
+				return nil, fmt.Errorf("instance %s for machine %s not found", instid, machineid)
+			}
+			m, err := processMachine(m, instance)
+			if err != nil {
+				return nil, err
+			}
+			r[machineid] = m
 		}
 	}
 	return r, nil
@@ -136,8 +136,12 @@ func processMachines(machines map[int]*state.Machine, instances map[string]envir
 func processMachine(machine *state.Machine, instance environs.Instance) (map[string]interface{}, error) {
 	r := make(map[string]interface{})
 	dnsname, err := instance.DNSName()
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	r["dns-name"] = dnsname
+	r["instance-id"] = instance.Id()
 
+	// TODO(dfc) unit-status
 	return r, nil
 }
