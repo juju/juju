@@ -12,28 +12,30 @@ import (
 // Firewaller watches the state for ports opened or closed
 // and reflects those changes onto the backing environment.
 type Firewaller struct {
-	environ             environs.Environ
-	st                  *state.State
-	tomb                tomb.Tomb
-	machinesWatcher     *state.MachinesWatcher
-	machines            map[int]*machineTracker
-	machineUnitsChanges chan *machineUnitsChange
-	units               map[string]*unitTracker
-	unitPortsChanges    chan *unitPortsChange
-	services            map[string]*serviceTracker
+	environ               environs.Environ
+	st                    *state.State
+	tomb                  tomb.Tomb
+	machinesWatcher       *state.MachinesWatcher
+	machines              map[int]*machineTracker
+	machineUnitsChanges   chan *machineUnitsChange
+	units                 map[string]*unitTracker
+	unitPortsChanges      chan *unitPortsChange
+	services              map[string]*serviceTracker
+	serviceExposedChanges chan *serviceExposedChange
 }
 
 // NewFirewaller returns a new Firewaller.
 func NewFirewaller(environ environs.Environ, st *state.State) (*Firewaller, error) {
 	fw := &Firewaller{
-		environ:             environ,
-		st:                  st,
-		machinesWatcher:     st.WatchMachines(),
-		machines:            make(map[int]*machineTracker),
-		machineUnitsChanges: make(chan *machineUnitsChange),
-		units:               make(map[string]*unitTracker),
-		unitPortsChanges:    make(chan *unitPortsChange),
-		services:            make(map[string]*serviceTracker),
+		environ:               environ,
+		st:                    st,
+		machinesWatcher:       st.WatchMachines(),
+		machines:              make(map[int]*machineTracker),
+		machineUnitsChanges:   make(chan *machineUnitsChange),
+		units:                 make(map[string]*unitTracker),
+		unitPortsChanges:      make(chan *unitPortsChange),
+		services:              make(map[string]*serviceTracker),
+		serviceExposedChanges: make(chan *serviceExposedChange),
 	}
 	go fw.loop()
 	return fw, nil
@@ -107,16 +109,15 @@ func (fw *Firewaller) loop() {
 			}
 			for _, port := range change.change {
 				if mt.ports[port] == nil && change.unitTracker.service.exposed {
-					mt.ports[port] = change.unitTracker
 					if err := fw.openPortOnAllInstances(mt.id, port); err != nil {
 						log.Printf("can't open port %v on machine %d: %v", port, mt.id, err)
 					}
 					log.Debugf("firewaller: opened port %v on machine %d", port, mt.id)
 				}
+				mt.ports[port] = change.unitTracker
 			}
 			for _, port := range change.unitTracker.ports {
 				if mt.ports[port] == change.unitTracker {
-					delete(mt.ports, port)
 					if change.unitTracker.service.exposed {
 						if err := fw.closePortOnAllInstances(mt.id, port); err != nil {
 							log.Printf("can't close port %v on machine %d: %v", port, mt.id, err)
@@ -124,8 +125,41 @@ func (fw *Firewaller) loop() {
 						log.Debugf("firewaller: closed port %v on machine %d", port, mt.id)
 					}
 				}
+				delete(mt.ports, port)
 			}
 			change.unitTracker.ports = change.change
+		case change := <-fw.serviceExposedChanges:
+			if change.terminated == true {
+				log.Printf("tracker of service %q terminated prematurely", change.st.name)
+				delete(fw.services, change.st.name)
+				continue
+			}
+			if change.st.exposed == change.exposed {
+				break
+			}
+			change.st.exposed = change.exposed
+			for _, mt := range fw.machines {
+				for _, ut := range mt.ports {
+					switch {
+					case ut.service != change.st:
+						continue
+					case ut.service.exposed:
+						for _, port := range ut.ports {
+							if err := fw.openPortOnAllInstances(mt.id, port); err != nil {
+								log.Printf("can't open port %v on machine %d: %v", port, mt.id, err)
+							}
+							log.Debugf("firewaller: opened port %v on machine %d", port, mt.id)
+						}
+					default:
+						for _, port := range ut.ports {
+							if err := fw.closePortOnAllInstances(mt.id, port); err != nil {
+								log.Printf("can't close port %v on machine %d: %v", port, mt.id, err)
+							}
+							log.Debugf("firewaller: closed port %v on machine %d", port, mt.id)
+						}
+					}
+				}
+			}
 		}
 	}
 }
@@ -304,11 +338,19 @@ func (ut *unitTracker) stop() error {
 	return ut.tomb.Wait()
 }
 
-// serviceTracker  keeps track of the changes of a service.
+// serviceExposedChange contains the changed exposed flag for one specific service. 
+type serviceExposedChange struct {
+	st         *serviceTracker
+	exposed    bool
+	terminated bool
+}
+
+// serviceTracker keeps track of the changes of a service.
 type serviceTracker struct {
 	tomb       tomb.Tomb
 	firewaller *Firewaller
 	name       string
+	watcher    *state.FlagWatcher
 	exposed    bool
 }
 
@@ -318,12 +360,43 @@ func newServiceTracker(sst *state.Service, fw *Firewaller) *serviceTracker {
 	st := &serviceTracker{
 		firewaller: fw,
 		name:       sst.Name(),
+		watcher:    sst.WatchExposed(),
 	}
 	isExposed, err := sst.IsExposed()
 	if err != nil {
 		panic(fmt.Sprintf("can't retrieve exposed state of service %q: %v", sst.Name(), err))
 	}
 	st.exposed = isExposed
-	// TODO(mue) Start backend loop.
+	go st.loop()
 	return st
+}
+
+// loop is the backend watching for service exposed flag changes.
+func (st *serviceTracker) loop() {
+	defer st.tomb.Done()
+	defer st.watcher.Stop()
+	for {
+		select {
+		case <-st.tomb.Dying():
+			return
+		case change, ok := <-st.watcher.Changes():
+			// Send change together with flag for premature termination.
+			select {
+			case st.firewaller.serviceExposedChanges <- &serviceExposedChange{st, change, !ok}:
+			case <-st.tomb.Dying():
+				return
+			}
+			// The watcher terminated prematurely, so end the loop.
+			if !ok {
+				st.firewaller.tomb.Kill(watcher.MustErr(st.watcher))
+				return
+			}
+		}
+	}
+}
+
+// stop stops the service tracker.
+func (st *serviceTracker) stop() error {
+	st.tomb.Kill(nil)
+	return st.tomb.Wait()
 }

@@ -252,6 +252,47 @@ func (s *FirewallerSuite) TestOpenClosePorts(c *C) {
 	c.Assert(fw.Stop(), IsNil)
 }
 
+func (s *FirewallerSuite) TestSetClearExposedService(c *C) {
+	fw, err := firewaller.NewFirewaller(s.environ, s.State)
+	c.Assert(err, IsNil)
+
+	setUpLogHook()
+	defer tearDownLogHook()
+
+	m1, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	s.charm = s.AddTestingCharm(c, "dummy")
+	s1, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	u1, err := s1.AddUnit()
+	c.Assert(err, IsNil)
+	err = u1.AssignToMachine(m1)
+	c.Assert(err, IsNil)
+	err = u1.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+
+	assertEvents(c, []string{
+		fmt.Sprint("started tracking machine ", m1.Id()),
+		fmt.Sprint("started tracking unit ", u1.Name()),
+	})
+
+	err = s1.SetExposed()
+	c.Assert(err, IsNil)
+
+	assertEvents(c, []string{
+		fmt.Sprintf("opened port {tcp 80} on machine %d", m1.Id()),
+	})
+
+	err = s1.ClearExposed()
+	c.Assert(err, IsNil)
+
+	assertEvents(c, []string{
+		fmt.Sprintf("closed port {tcp 80} on machine %d", m1.Id()),
+	})
+
+	c.Assert(fw.Stop(), IsNil)
+}
+
 func (s *FirewallerSuite) TestFirewallerStopOnStateClose(c *C) {
 	fw, err := firewaller.NewFirewaller(s.environ, s.State)
 	c.Assert(err, IsNil)
