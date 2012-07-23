@@ -42,21 +42,26 @@ func (conn *Conn) NewService(sch *state.Charm, svcName string) (*state.Service, 
 	return svc, nil
 }
 
-// StartUnit starts a machine running a new unit of the given service.
-func (conn *Conn) StartUnit(svc *state.Service) (*state.Unit, error) {
+// StartUnit starts a machine running n units of the given service.
+func (conn *Conn) StartUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 	st, err := conn.State()
 	if err != nil {
 		return nil, err
 	}
-	policy := conn.Environ.AssignmentPolicy()
-	unit, err := svc.AddUnit()
-	if err != nil {
-		return nil, fmt.Errorf("cannot add unit to service %q: %v", svc.Name(), err)
+	units := make([]*state.Unit, n)
+	// TODO what do we do if we fail half-way through this process?
+	for i := 0; i < n; i++ {
+		policy := conn.Environ.AssignmentPolicy()
+		unit, err := svc.AddUnit()
+		if err != nil {
+			return nil, fmt.Errorf("cannot add unit %d/%d to service %q: %v", i+1, n, svc.Name(), err)
+		}
+		if err := st.AssignUnit(unit, policy); err != nil {
+			return nil, fmt.Errorf("cannot assign machine to unit %s of service %q: %v", unit.Name(), svc.Name(), err)
+		}
+		units[i] = unit
 	}
-	if err := st.AssignUnit(unit, policy); err != nil {
-		return nil, fmt.Errorf("cannot assign machine to unit %s of service %q: %v", unit.Name(), svc.Name(), err)
-	}
-	return unit, nil
+	return units, nil
 }
 
 // PutCharm uploads the given charm to provider storage,

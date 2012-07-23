@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
@@ -104,11 +103,6 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if ch.Meta().Subordinate {
 		return nil
 	}
-	for i := 0; i < c.NumUnits; i++ {
-		_, err := conn.StartUnit(svc)
-		if err != nil {
-			return fmt.Errorf("cannot add unit %d/%d: %v", i+1, c.NumUnits, err)
-		}
-	}
-	return nil
+	_, err = conn.StartUnits(svc, c.NumUnits)
+	return err
 }
