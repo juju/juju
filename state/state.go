@@ -413,7 +413,7 @@ func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error)
 func (s *State) RemoveRelation(r *Relation) error {
 	err := retryTopologyChange(s.zk, func(t *topology) error {
 		if !t.HasRelation(r.key) {
-			return stateChanged
+			return fmt.Errorf("not found")
 		}
 		return t.RemoveRelation(r.key)
 	})

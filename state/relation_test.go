@@ -90,7 +90,7 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	assertNoRelations(c, pro)
 	assertNoRelations(c, req)
 	err = s.State.RemoveRelation(rel)
-	c.Assert(err, ErrorMatches, `can't remove relation "pro:foo req:bar": environment state has changed`)
+	c.Assert(err, ErrorMatches, `can't remove relation "pro:foo req:bar": not found`)
 
 	// Check that we can add it again if we want to; but this time,
 	// give one of the endpoints container scope and check that both
@@ -123,7 +123,7 @@ func (s *RelationSuite) TestPeerRelation(c *C) {
 	c.Assert(err, IsNil)
 	assertNoRelations(c, peer)
 	err = s.State.RemoveRelation(rel)
-	c.Assert(err, ErrorMatches, `can't remove relation "peer:baz": environment state has changed`)
+	c.Assert(err, ErrorMatches, `can't remove relation "peer:baz": not found`)
 }
 
 func (s *RelationSuite) TestRemoveServiceRemovesRelations(c *C) {
@@ -139,7 +139,7 @@ func (s *RelationSuite) TestRemoveServiceRemovesRelations(c *C) {
 	_, err = s.State.Relation(peerep)
 	c.Assert(err, ErrorMatches, `can't get relation "peer:baz": relation doesn't exist`)
 	err = s.State.RemoveRelation(rel)
-	c.Assert(err, ErrorMatches, `can't remove relation "peer:baz": environment state has changed`)
+	c.Assert(err, ErrorMatches, `can't remove relation "peer:baz": not found`)
 }
 
 func assertNoRelations(c *C, srv *state.Service) {
