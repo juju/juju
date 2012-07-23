@@ -18,7 +18,7 @@ func Test(t *stdtesting.T) {
 type ConnSuite struct{}
 
 var _ = Suite(ConnSuite{})
-	
+
 func (ConnSuite) TestNewConn(c *C) {
 	home := c.MkDir()
 	defer os.Setenv("HOME", os.Getenv("HOME"))
@@ -69,10 +69,10 @@ environments:
 }
 
 func (ConnSuite) TestNewConnFromAttrs(c *C) {
-	attrs := map[string]interface{} {
-		"name": "erewhemos",
-		"type": "dummy",
-		"zookeeper": true,
+	attrs := map[string]interface{}{
+		"name":            "erewhemos",
+		"type":            "dummy",
+		"zookeeper":       true,
 		"authorized-keys": "i-am-a-key",
 	}
 	conn, err := juju.NewConnFromAttrs(attrs)
