@@ -67,7 +67,8 @@ var statusTests = []struct {
 		},
 		map[string]string{
 			// note: the key of the machines map is a string
-			"yaml": `machines: 
+			"yaml": 
+`machines: 
   "0": {instance-id: pending}
 services: {}`,
 			"json": `{"machines":{"0": {"instance-id":"pending"}},"services":{}}`,
