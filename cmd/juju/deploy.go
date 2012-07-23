@@ -205,7 +205,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			state.RolePeer,
 			state.RelationScope(rel.Scope),
 		}
-		if err := st.AddRelation(ep); err != nil {
+		if _, err := st.AddRelation(ep); err != nil {
 			return err
 		}
 	}
