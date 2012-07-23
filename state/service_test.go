@@ -427,7 +427,7 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	// Add a relation; check change.
 	mysqlep := state.RelationEndpoint{"mysql", "ifce", "foo", state.RoleProvider, state.ScopeGlobal}
 	wp1ep := state.RelationEndpoint{"wp1", "ifce", "bar", state.RoleRequirer, state.ScopeGlobal}
-	rel1, err := s.State.AddRelation(mysqlep, wp1ep)
+	rel, err := s.State.AddRelation(mysqlep, wp1ep)
 	c.Assert(err, IsNil)
 	assertChange([]int{0}, nil)
 	assertNoChange()
@@ -440,7 +440,7 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	assertNoChange()
 
 	// Remove one of the relations; check change.
-	err = s.State.RemoveRelation(rel1)
+	err = s.State.RemoveRelation(rel)
 	c.Assert(err, IsNil)
 	assertChange(nil, []int{0})
 	assertNoChange()
@@ -459,7 +459,7 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	assertClosed()
 
 	// Add a new relation; start a new watcher; check initial event.
-	rel1, err = s.State.AddRelation(mysqlep, wp1ep)
+	rel, err = s.State.AddRelation(mysqlep, wp1ep)
 	c.Assert(err, IsNil)
 	w = s.service.WatchRelations()
 	assertChange([]int{1, 2}, nil)

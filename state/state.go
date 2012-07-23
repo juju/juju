@@ -382,7 +382,8 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (rel *Relation, err e
 }
 
 // Relation returns the existing relation with the given endpoints.
-func (s *State) Relation(endpoints ...RelationEndpoint) (*Relation, error) {
+func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error) {
+	defer errorContextf(&err, "can't get relation %q", describeEndpoints(endpoints))
 	t, err := readTopology(s.zk)
 	if err != nil {
 		return nil, err
@@ -395,7 +396,7 @@ func (s *State) Relation(endpoints ...RelationEndpoint) (*Relation, error) {
 	if err != nil {
 		return nil, err
 	}
-	r := &Relation{s, key, nil}
+	r = &Relation{s, key, nil}
 	for _, tep := range tr.Endpoints {
 		sname, err := t.ServiceName(tep.Service)
 		if err != nil {
@@ -411,6 +412,9 @@ func (s *State) Relation(endpoints ...RelationEndpoint) (*Relation, error) {
 // RemoveRelation removes the supplied relation.
 func (s *State) RemoveRelation(r *Relation) error {
 	err := retryTopologyChange(s.zk, func(t *topology) error {
+		if !t.HasRelation(r.key) {
+			return stateChanged
+		}
 		return t.RemoveRelation(r.key)
 	})
 	if err != nil {

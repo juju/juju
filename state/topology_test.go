@@ -99,7 +99,7 @@ func (s *TopologySuite) TestRemoveMachineWithAssignedUnits(c *C) {
 	err = s.t.AssignUnitToMachine("unit-0-1", "machine-0")
 	c.Assert(err, IsNil)
 	err = s.t.RemoveMachine("machine-0")
-	c.Assert(err, ErrorMatches, `can't remove machine "machine-0" while units ared assigned`)
+	c.Assert(err, ErrorMatches, `can't remove machine "machine-0" while units are assigned`)
 }
 
 func (s *TopologySuite) TestMachineHasUnits(c *C) {
@@ -399,6 +399,7 @@ func (s *TopologySuite) TestRelation(c *C) {
 	relation, err := s.t.Relation("relation-1")
 	c.Assert(relation, IsNil)
 	c.Assert(err, ErrorMatches, `relation "relation-1" does not exist`)
+	c.Assert(s.t.HasRelation("relation-1"), Equals, false)
 	s.t.AddService("service-p", "riak")
 	r := &topoRelation{
 		Interface: "ifce",
@@ -406,6 +407,7 @@ func (s *TopologySuite) TestRelation(c *C) {
 		Endpoints: []topoEndpoint{topoEndpoint{"service-p", RolePeer, "cache"}},
 	}
 	s.t.AddRelation("relation-1", r)
+	c.Assert(s.t.HasRelation("relation-1"), Equals, true)
 	relation, err = s.t.Relation("relation-1")
 	c.Assert(err, IsNil)
 	c.Assert(relation, DeepEquals, r)

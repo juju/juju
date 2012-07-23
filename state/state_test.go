@@ -336,7 +336,7 @@ func (s *StateSuite) TestRemoveService(c *C) {
 
 	// Remove of an illegal service, it has already been removed.
 	err = s.State.RemoveService(service)
-	c.Assert(err, ErrorMatches, `can't remove service "wordpress": can't get relations for service "wordpress": service with key "service-0000000000" not found`)
+	c.Assert(err, ErrorMatches, `can't remove service "wordpress": can't get relations for service "wordpress": environment state has changed`)
 }
 
 func (s *StateSuite) TestReadNonExistentService(c *C) {

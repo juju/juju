@@ -208,6 +208,9 @@ func (s *Service) WatchUnits() *ServiceUnitsWatcher {
 // relationsFromTopology returns a Relation for every relation the service
 // is in, according to the supplied topology.
 func (s *Service) relationsFromTopology(t *topology) ([]*Relation, error) {
+	if !t.HasService(s.key) {
+		return nil, stateChanged
+	}
 	trs, err := t.RelationsForService(s.key)
 	if err != nil {
 		return nil, err

@@ -20,7 +20,7 @@ func (s *RelationSuite) SetUpTest(c *C) {
 	s.charm = s.AddTestingCharm(c, "dummy")
 }
 
-func (s *RelationSuite) TestAddRelationErrors(c *C) {
+func (s *RelationSuite) TestRelationErrors(c *C) {
 	req, err := s.State.AddService("req", s.charm)
 	c.Assert(err, IsNil)
 	reqep := state.RelationEndpoint{"req", "ifce", "bar", state.RoleRequirer, state.ScopeGlobal}
@@ -61,6 +61,9 @@ func (s *RelationSuite) TestAddRelationErrors(c *C) {
 	c.Assert(err, ErrorMatches, `can't add relation "": can't relate 0 endpoints`)
 	_, err = s.State.AddRelation(proep, reqep, peerep)
 	c.Assert(err, ErrorMatches, `can't add relation "pro:foo req:bar peer:baz": can't relate 3 endpoints`)
+
+	_, err = s.State.Relation(peerep)
+	c.Assert(err, ErrorMatches, `can't get relation "peer:baz": relation doesn't exist`)
 }
 
 func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
@@ -87,7 +90,7 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	assertNoRelations(c, pro)
 	assertNoRelations(c, req)
 	err = s.State.RemoveRelation(rel)
-	c.Assert(err, ErrorMatches, `can't remove relation "pro:foo req:bar": relation with key "relation-0000000000" not found`)
+	c.Assert(err, ErrorMatches, `can't remove relation "pro:foo req:bar": environment state has changed`)
 
 	// Check that we can add it again if we want to; but this time,
 	// give one of the endpoints container scope and check that both
@@ -120,7 +123,7 @@ func (s *RelationSuite) TestPeerRelation(c *C) {
 	c.Assert(err, IsNil)
 	assertNoRelations(c, peer)
 	err = s.State.RemoveRelation(rel)
-	c.Assert(err, ErrorMatches, `can't remove relation "peer:baz": relation with key \"relation-0000000000\" not found`)
+	c.Assert(err, ErrorMatches, `can't remove relation "peer:baz": environment state has changed`)
 }
 
 func (s *RelationSuite) TestRemoveServiceRemovesRelations(c *C) {
@@ -134,9 +137,9 @@ func (s *RelationSuite) TestRemoveServiceRemovesRelations(c *C) {
 	_, err = s.State.Service("peer")
 	c.Assert(err, ErrorMatches, `can't get service "peer": service with name "peer" not found`)
 	_, err = s.State.Relation(peerep)
-	c.Assert(err, ErrorMatches, "relation doesn't exist")
+	c.Assert(err, ErrorMatches, `can't get relation "peer:baz": relation doesn't exist`)
 	err = s.State.RemoveRelation(rel)
-	c.Assert(err, ErrorMatches, `can't remove relation "peer:baz": relation with key \"relation-0000000000\" not found`)
+	c.Assert(err, ErrorMatches, `can't remove relation "peer:baz": environment state has changed`)
 }
 
 func assertNoRelations(c *C, srv *state.Service) {
@@ -180,12 +183,8 @@ func (s *RelationUnitSuite) TestRelationUnitJoinError(c *C) {
 	peer, err := s.State.AddService("peer", s.charm)
 	c.Assert(err, IsNil)
 	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, state.ScopeGlobal}
-	err = s.State.AddRelation(peerep)
+	rel, err := s.State.AddRelation(peerep)
 	c.Assert(err, IsNil)
-	rels, err := peer.Relations()
-	c.Assert(err, IsNil)
-	c.Assert(rels, HasLen, 1)
-	rel := rels[0]
 	u, err := peer.AddUnit()
 	c.Assert(err, IsNil)
 	ru, err := rel.Unit(u)

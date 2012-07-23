@@ -150,7 +150,7 @@ func (t *topology) RemoveMachine(key string) error {
 		return err
 	}
 	if ok {
-		return fmt.Errorf("can't remove machine %q while units ared assigned", key)
+		return fmt.Errorf("can't remove machine %q while units are assigned", key)
 	}
 	// Machine exists and has no units, so remove it.
 	delete(t.topology.Machines, key)
@@ -456,6 +456,12 @@ func (t *topology) RemoveRelation(key string) error {
 	}
 	delete(t.topology.Relations, key)
 	return nil
+}
+
+// HasRelation returns true if a relation exists with the supplied key.
+func (t *topology) HasRelation(key string) bool {
+	_, ok := t.topology.Relations[key]
+	return ok
 }
 
 // RelationsForService returns all relations that the service
