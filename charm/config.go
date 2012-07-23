@@ -47,9 +47,9 @@ func ReadConfig(r io.Reader) (config *Config, err error) {
 		return nil, errors.New("config: " + err.Error())
 	}
 	config = NewConfig()
-	m := v.(schema.MapType)
-	for name, infov := range m["options"].(schema.MapType) {
-		opt := infov.(schema.MapType)
+	m := v.(map[string]interface{})
+	for name, infov := range m["options"].(map[string]interface{}) {
+		opt := infov.(map[string]interface{})
 		optTitle, _ := opt["title"].(string)
 		optType, _ := opt["type"].(string)
 		optDescr, _ := opt["description"].(string)
@@ -60,7 +60,7 @@ func ReadConfig(r io.Reader) (config *Config, err error) {
 				return nil, fmt.Errorf(msg, name, optDefault, optType)
 			}
 		}
-		config.Options[name.(string)] = Option{
+		config.Options[name] = Option{
 			Title:       optTitle,
 			Type:        optType,
 			Description: optDescr,
@@ -130,12 +130,15 @@ var optionSchema = schema.FieldMap(
 		"default":     schema.OneOf(schema.String(), schema.Int(), schema.Float(), schema.Bool()),
 		"description": schema.String(),
 	},
-	schema.Optional{"default", "description"},
+	schema.Defaults{
+		"default": schema.Omit,
+		"description": schema.Omit,
+	},
 )
 
 var configSchema = schema.FieldMap(
 	schema.Fields{
-		"options": schema.Map(schema.String(), optionSchema),
+		"options": schema.StringMap(optionSchema),
 	},
 	nil,
 )

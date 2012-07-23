@@ -28,6 +28,7 @@ func Main(args []string) {
 	juju.Register(&BootstrapCommand{})
 	juju.Register(&DeployCommand{})
 	juju.Register(&DestroyCommand{})
+	juju.Register(&StatusCommand{})
 	os.Exit(cmd.Main(juju, cmd.DefaultContext(), args[1:]))
 }
 

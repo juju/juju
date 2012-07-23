@@ -1,5 +1,5 @@
 package environs
 
-func ReadSeries(f string) string {
-	return readSeries(f)
+func Setenv(env []string, val string) []string {
+	return setenv(env, val)
 }

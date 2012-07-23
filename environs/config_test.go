@@ -142,6 +142,7 @@ environments:
     only:
         type: dummy
         zookeeper: false
+        authorized-keys: i-am-a-key
 `
 	err = ioutil.WriteFile(path, []byte(env), 0666)
 	c.Assert(err, IsNil)
