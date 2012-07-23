@@ -23,20 +23,21 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		m: m.(map[string]interface{}),
 		t: make(map[string]interface{}),
 	}
-	if s, _ := c.m["default-series"].(string); s == "" {
+
+	if c.m["default-series"].(string) == "" {
 		c.m["default-series"] = CurrentSeries
 	}
 
 	// Load authorized-keys-path onto authorized-keys, if necessary.
-	path, _ := c.m["authorized-keys-path"].(string)
-	keys, _ := c.m["authorized-keys"].(string)
+	path := c.m["authorized-keys-path"].(string)
+	keys := c.m["authorized-keys"].(string)
 	if path != "" || keys == "" {
 		c.m["authorized-keys"], err = authorizedKeys(path)
 		if err != nil {
 			return nil, err
 		}
-		delete(c.m, "authorized-keys-path")
 	}
+	delete(c.m, "authorized-keys-path")
 
 	// Check if there are any required fields that are empty.
 	for _, attr := range []string{"name", "type", "default-series", "authorized-keys"} {
@@ -95,6 +96,15 @@ func (c *Config) AllAttrs() map[string]interface{} {
 	return m
 }
 
+// Apply returns a new configuration that has the attributes of c plus attrs.
+func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
+	m := c.AllAttrs()
+	for k, v := range attrs {
+		m[k] = v
+	}
+	return New(m)
+}
+
 var fields = schema.Fields{
 	"type":                 schema.String(),
 	"name":                 schema.String(),
@@ -103,11 +113,10 @@ var fields = schema.Fields{
 	"authorized-keys-path": schema.String(),
 }
 
-var checker = schema.FieldMap(
-	fields,
-	[]string{
-		"default-series",
-		"authorized-keys",
-		"authorized-keys-path",
-	},
-)
+var defaults = schema.Defaults{
+	"default-series": CurrentSeries,
+	"authorized-keys": "",
+	"authorized-keys-path": "",
+}
+
+var checker = schema.FieldMap(fields, defaults)

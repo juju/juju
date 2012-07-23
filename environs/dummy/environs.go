@@ -87,6 +87,8 @@ type environProvider struct {
 	state map[string]*environState
 }
 
+var providerInstance environProvider
+
 // environState represents the state of an environment.
 // It can be shared between several environ values,
 // so that a given environment can be opened several times.
@@ -106,11 +108,9 @@ type environState struct {
 // environ represents a client's connection to a given environment's
 // state.
 type environ struct {
-	state *environState
-
-	// configMutex protects visibility of config.
-	configMutex sync.Mutex
-	config      *environConfig
+	state        *environState
+	ecfgMutex    sync.Mutex
+	ecfgUnlocked *environConfig
 }
 
 // storage holds the storage for an environState.
@@ -121,14 +121,6 @@ type storage struct {
 	state *environState
 	files map[string][]byte
 }
-
-type environConfig struct {
-	*config.Config
-	zookeeper bool
-	broken    bool
-}
-
-var providerInstance environProvider
 
 // discardOperations discards all Operations written to it.
 var discardOperations chan<- Operation
@@ -218,56 +210,78 @@ var checker = schema.StrictFieldMap(
 		"zookeeper": schema.Bool(),
 		"broken":    schema.Bool(),
 	},
-	[]string{
-		"broken",
+	schema.Defaults{
+		"broken": false,
 	},
 )
 
-func newConfig(cfg *config.Config) (*environConfig, error) {
-	m0, err := checker.Coerce(cfg.UnknownAttrs(), nil)
+type environConfig struct {
+	*config.Config
+	attrs map[string]interface{}
+}
+
+func (c *environConfig) zookeeper() bool {
+	return c.attrs["zookeeper"].(bool)
+}
+
+func (c *environConfig) broken() bool {
+	return c.attrs["broken"].(bool)
+}
+
+func (p *environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
+	valid, err := p.Validate(cfg, nil)
 	if err != nil {
 		return nil, err
 	}
-	m1 := m0.(map[string]interface{})
-	ecfg := &environConfig{
-		Config:    cfg,
-		zookeeper: m1["zookeeper"].(bool),
+	return &environConfig{valid, valid.UnknownAttrs()}, nil
+}
+
+func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+	v, err := checker.Coerce(cfg.UnknownAttrs(), nil)
+	if err != nil {
+		return nil, err
 	}
-	ecfg.broken, _ = m1["broken"].(bool)
-	return ecfg, nil
+	return cfg.Apply(v.(map[string]interface{}))
 }
 
 func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	name := cfg.Name()
-	ecfg, err := newConfig(cfg)
+	ecfg, err := p.newConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
 	state := p.state[name]
 	if state == nil {
-		if ecfg.zookeeper && len(p.state) != 0 {
+		if ecfg.zookeeper() && len(p.state) != 0 {
 			panic("cannot share a zookeeper between two dummy environs")
 		}
 		state = newState(name, p.ops)
 		p.state[name] = state
 	}
 	env := &environ{
-		state:  state,
-		config: ecfg,
+		state:        state,
+		ecfgUnlocked: ecfg,
 	}
 	return env, nil
 }
 
 var errBroken = errors.New("broken environment")
 
+func (e *environ) ecfg() *environConfig {
+	e.ecfgMutex.Lock()
+	ecfg := e.ecfgUnlocked
+	e.ecfgMutex.Unlock()
+	return ecfg
+}
+
 func (e *environ) Name() string {
 	return e.state.name
 }
 
 func (e *environ) Bootstrap(uploadTools bool) error {
-	if e.isBroken() {
+	if e.ecfg().broken() {
 		return errBroken
 	}
 	if uploadTools {
@@ -282,7 +296,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	if e.state.bootstrapped {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
-	if e.config.zookeeper {
+	if e.ecfg().zookeeper() {
 		info := stateInfo()
 		st, err := state.Initialize(info)
 		if err != nil {
@@ -294,7 +308,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		}
 		cfg.Set("type", "dummy")
 		cfg.Set("zookeeper", true)
-		cfg.Set("name", e.config.Name())
+		cfg.Set("name", e.ecfg().Name())
 		_, err = cfg.Write()
 		if err != nil {
 			panic(err)
@@ -309,10 +323,10 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 }
 
 func (e *environ) StateInfo() (*state.Info, error) {
-	if e.isBroken() {
+	if e.ecfg().broken() {
 		return nil, errBroken
 	}
-	if !e.config.zookeeper {
+	if !e.ecfg().zookeeper() {
 		return nil, errors.New("dummy environment has no zookeeper configured")
 	}
 	if !e.state.bootstrapped {
@@ -326,18 +340,18 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 }
 
 func (e *environ) SetConfig(cfg *config.Config) error {
-	config, err := newConfig(cfg)
+	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		return err
 	}
-	e.configMutex.Lock()
-	defer e.configMutex.Unlock()
-	e.config = config
+	e.ecfgMutex.Lock()
+	e.ecfgUnlocked = ecfg
+	e.ecfgMutex.Unlock()
 	return nil
 }
 
 func (e *environ) Destroy([]environs.Instance) error {
-	if e.isBroken() {
+	if e.ecfg().broken() {
 		return errBroken
 	}
 	e.state.mu.Lock()
@@ -353,7 +367,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 }
 
 func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Instance, error) {
-	if e.isBroken() {
+	if e.ecfg().broken() {
 		return nil, errBroken
 	}
 	e.state.mu.Lock()
@@ -376,7 +390,7 @@ func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Insta
 }
 
 func (e *environ) StopInstances(is []environs.Instance) error {
-	if e.isBroken() {
+	if e.ecfg().broken() {
 		return errBroken
 	}
 	e.state.mu.Lock()
@@ -392,7 +406,7 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 }
 
 func (e *environ) Instances(ids []string) (insts []environs.Instance, err error) {
-	if e.isBroken() {
+	if e.ecfg().broken() {
 		return nil, errBroken
 	}
 	if len(ids) == 0 {
@@ -416,7 +430,7 @@ func (e *environ) Instances(ids []string) (insts []environs.Instance, err error)
 }
 
 func (e *environ) AllInstances() ([]environs.Instance, error) {
-	if e.isBroken() {
+	if e.ecfg().broken() {
 		return nil, errBroken
 	}
 	var insts []environs.Instance
@@ -426,12 +440,6 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 		insts = append(insts, v)
 	}
 	return insts, nil
-}
-
-func (e *environ) isBroken() bool {
-	e.configMutex.Lock()
-	defer e.configMutex.Unlock()
-	return e.config.broken
 }
 
 type instance struct {
