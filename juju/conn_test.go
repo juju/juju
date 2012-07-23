@@ -15,7 +15,9 @@ func Test(t *stdtesting.T) {
 	testing.ZkTestPackage(t)
 }
 
-type ConnSuite struct{}
+type ConnSuite struct{
+	testing.ZkSuite
+}
 
 var _ = Suite(ConnSuite{})
 
@@ -68,7 +70,7 @@ environments:
 	c.Assert(conn.Close(), IsNil)
 }
 
-func (ConnSuite) TestNewConnFromAttrs(c *C) {
+func newConn(c *C) *juju.Conn {
 	attrs := map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
@@ -77,10 +79,28 @@ func (ConnSuite) TestNewConnFromAttrs(c *C) {
 	}
 	conn, err := juju.NewConnFromAttrs(attrs)
 	c.Assert(err, IsNil)
+	return conn
+}
+
+func (ConnSuite) TestNewConnFromAttrs(c *C) {
+	conn := newConn(c)
 	defer conn.Close()
 	st, err := conn.State()
 	c.Assert(st, IsNil)
 	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
+}
+
+func (ConnSuite) TestPutCharmBasic(c *C) {
+	conn := newConn(c)
+	defer conn.Close()
+	err := conn.Bootstrap(false)
+	c.Assert(err, IsNil)
+	repoPath := c.MkDir()
+	curl := testing.Charms.ClonedURL(repoPath, "riak")
+	sch, err := conn.PutCharm(curl, repoPath, false)
+	c.Assert(err, IsNil)
+	meta := sch.Meta()
+	c.Assert(meta.Summary, Equals, "K/V storage engine")
 }
 
 func (ConnSuite) TestValidRegexps(c *C) {
