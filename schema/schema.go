@@ -305,8 +305,14 @@ func (c stringMapC) Coerce(v interface{}, path []string) (interface{}, error) {
 	return out, nil
 }
 
+// Omit is a marker for FieldMap and StructFieldMap defaults parameter.
+// If a field is not present in the map and defaults to Omit, the missing
+// field will be ommitted from the coerced map as well.
+var Omit omit
+type omit struct{}
+
 type Fields map[string]Checker
-type Optional []string
+type Defaults map[string]interface{}
 
 // FieldMap returns a Checker that accepts a map value with defined
 // string keys. Every key has an independent checker associated,
@@ -314,30 +320,25 @@ type Optional []string
 // individually. If a field fails to be processed, processing stops
 // and returns with the underlying error.
 //
+// Fields in defaults will be set to the provided value if not present
+// in the coerced map. If the default value is schema.Omit, the field
+// missing field will be ommitted from the coerced map as well.
+//
 // The coerced output value has type map[string]interface{}.
-func FieldMap(fields Fields, optional Optional) Checker {
-	return fieldMapC{fields, optional, false}
+func FieldMap(fields Fields, defaults Defaults) Checker {
+	return fieldMapC{fields, defaults, false}
 }
 
 // StrictFieldMap returns a Checker that acts as the one returned by FieldMap,
 // but the Checker returns an error if it encounters an unknown key.
-func StrictFieldMap(fields Fields, optional Optional) Checker {
-	return fieldMapC{fields, optional, true}
+func StrictFieldMap(fields Fields, defaults Defaults) Checker {
+	return fieldMapC{fields, defaults, true}
 }
 
 type fieldMapC struct {
 	fields   Fields
-	optional []string
+	defaults Defaults
 	strict   bool
-}
-
-func (c fieldMapC) isOptional(key string) bool {
-	for _, k := range c.optional {
-		if k == key {
-			return true
-		}
-	}
-	return false
 }
 
 func (c fieldMapC) Coerce(v interface{}, path []string) (interface{}, error) {
@@ -362,19 +363,39 @@ func (c fieldMapC) Coerce(v interface{}, path []string) (interface{}, error) {
 	l := rv.Len()
 	out := make(map[string]interface{}, l)
 	for k, checker := range c.fields {
-		vpath[len(vpath)-1] = k
 		var value interface{}
 		valuev := rv.MapIndex(reflect.ValueOf(k))
 		if valuev.IsValid() {
 			value = valuev.Interface()
-		} else if c.isOptional(k) {
-			continue
+		} else if dflt, ok := c.defaults[k]; ok {
+			if dflt == Omit {
+				continue
+			}
+			value = dflt
 		}
+		vpath[len(vpath)-1] = k
 		newv, err := checker.Coerce(value, vpath)
 		if err != nil {
 			return nil, err
 		}
 		out[k] = newv
+	}
+	for k, v := range c.defaults {
+		if v == Omit {
+			continue
+		}
+		if _, ok := out[k]; !ok {
+			checker, ok := c.fields[k]
+			if !ok {
+				return nil, fmt.Errorf("got default value for unknown field %q", k)
+			}
+			vpath[len(vpath)-1] = k
+			newv, err := checker.Coerce(v, vpath)
+			if err != nil {
+				return nil, err
+			}
+			out[k] = newv
+		}
 	}
 	return out, nil
 }
