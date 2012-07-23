@@ -63,15 +63,15 @@ func (fw *Firewaller) loop() {
 			for _, addedMachine := range change.Added {
 				mt := newMachineTracker(addedMachine, fw)
 				fw.machines[addedMachine.Id()] = mt
-				log.Debugf("firewaller: started tracking machine %d", mt.id)
+				log.Debugf("firewaller: started tracking machine %d", addedMachine.Id())
 			}
 		case change, ok := <-fw.machineUnitsChanges:
 			if !ok {
 				panic("aggregation of machine units changes failed")
 			}
 			if change.change == nil {
-				log.Printf("tracker of machine %d terminated prematurely", change.machine.id)
-				delete(fw.machines, change.machine.id)
+				log.Printf("tracker of machine %d terminated prematurely", change.machineTracker.machine.Id())
+				delete(fw.machines, change.machineTracker.machine.Id())
 				continue
 			}
 			for _, removedUnit := range change.change.Removed {
@@ -86,7 +86,7 @@ func (fw *Firewaller) loop() {
 				log.Debugf("firewaller: stopped tracking unit %s", removedUnit.Name())
 			}
 			for _, addedUnit := range change.change.Added {
-				ut := newUnitTracker(addedUnit, change.machine.id, fw)
+				ut := newUnitTracker(addedUnit, change.machineTracker.machine.Id(), fw)
 				fw.units[addedUnit.Name()] = ut
 				if fw.services[addedUnit.ServiceName()] == nil {
 					service, err := fw.st.Service(addedUnit.ServiceName())
@@ -108,20 +108,20 @@ func (fw *Firewaller) loop() {
 			for _, port := range change.change {
 				if mt.ports[port] == nil && change.unitTracker.service.exposed {
 					mt.ports[port] = change.unitTracker
-					if err := fw.openPortOnAllInstances(mt.id, port); err != nil {
-						log.Printf("can't open port %v on machine %d: %v", port, mt.id, err)
+					if err := fw.openPort(mt, port); err != nil {
+						log.Printf("can't open port %v on machine %d: %v", port, mt.machine.Id(), err)
 					}
-					log.Debugf("firewaller: opened port %v on machine %d", port, mt.id)
+					log.Debugf("firewaller: opened port %v on machine %d", port, mt.machine.Id())
 				}
 			}
 			for _, port := range change.unitTracker.ports {
 				if mt.ports[port] == change.unitTracker {
 					delete(mt.ports, port)
 					if change.unitTracker.service.exposed {
-						if err := fw.closePortOnAllInstances(mt.id, port); err != nil {
-							log.Printf("can't close port %v on machine %d: %v", port, mt.id, err)
+						if err := fw.closePort(mt, port); err != nil {
+							log.Printf("can't close port %v on machine %d: %v", port, mt.machine.Id(), err)
 						}
-						log.Debugf("firewaller: closed port %v on machine %d", port, mt.id)
+						log.Debugf("firewaller: closed port %v on machine %d", port, mt.machine.Id())
 					}
 				}
 			}
@@ -130,34 +130,38 @@ func (fw *Firewaller) loop() {
 	}
 }
 
-// openPortOnAllInstances opens the passed port on all instances in the environment.
-func (fw *Firewaller) openPortOnAllInstances(machineId int, port state.Port) error {
-	instances, err := fw.environ.AllInstances()
+// openPort opens the passed port on the instances for the passed machine.
+func (fw *Firewaller) openPort(mt *machineTracker, port state.Port) error {
+	instanceId, err := mt.machine.InstanceId()
 	if err != nil {
 		return err
 	}
-	for _, instance := range instances {
-		err = instance.OpenPorts(machineId, []state.Port{port})
-		if err != nil {
-			// TODO(mue) Add a retry logic later.
-			return err
-		}
+	instances, err := fw.environ.Instances([]string{instanceId})
+	if err != nil {
+		return err
+	}
+	err = instances[0].OpenPorts(mt.machine.Id(), []state.Port{port})
+	if err != nil {
+		// TODO(mue) Add a retry logic later.
+		return err
 	}
 	return nil
 }
 
-// closePortOnAllInstances closes the passed port on all instances in the environment. 
-func (fw *Firewaller) closePortOnAllInstances(machineId int, port state.Port) error {
-	instances, err := fw.environ.AllInstances()
+// openPort closes the passed port on the instances for the passed machine.
+func (fw *Firewaller) closePort(mt *machineTracker, port state.Port) error {
+	instanceId, err := mt.machine.InstanceId()
 	if err != nil {
 		return err
 	}
-	for _, instance := range instances {
-		err = instance.ClosePorts(machineId, []state.Port{port})
-		if err != nil {
-			// TODO(mue) Add a retry logic later.
-			return err
-		}
+	instances, err := fw.environ.Instances([]string{instanceId})
+	if err != nil {
+		return err
+	}
+	err = instances[0].ClosePorts(mt.machine.Id(), []state.Port{port})
+	if err != nil {
+		// TODO(mue) Add a retry logic later.
+		return err
 	}
 	return nil
 }
@@ -187,15 +191,15 @@ func (fw *Firewaller) Stop() error {
 
 // machineUnitsChange contains the changed units for one specific machine. 
 type machineUnitsChange struct {
-	machine *machineTracker
-	change  *state.MachineUnitsChange
+	machineTracker *machineTracker
+	change         *state.MachineUnitsChange
 }
 
 // machineTracker keeps track of the unit changes of a machine.
 type machineTracker struct {
 	tomb       tomb.Tomb
 	firewaller *Firewaller
-	id         int
+	machine    *state.Machine
 	watcher    *state.MachineUnitsWatcher
 	ports      map[state.Port]*unitTracker
 }
@@ -205,7 +209,7 @@ type machineTracker struct {
 func newMachineTracker(mst *state.Machine, fw *Firewaller) *machineTracker {
 	mt := &machineTracker{
 		firewaller: fw,
-		id:         mst.Id(),
+		machine:    mst,
 		watcher:    mst.WatchUnits(),
 		ports:      make(map[state.Port]*unitTracker),
 	}
