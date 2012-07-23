@@ -131,7 +131,7 @@ type machineTracker struct {
 }
 
 // newMachineTracker tracks unit changes to the given machine and sends them 
-// to the central firewaller loop.
+// to the central firewaller loop. 
 func newMachineTracker(mst *state.Machine, fw *Firewaller) *machineTracker {
 	mt := &machineTracker{
 		firewaller: fw,
