@@ -58,6 +58,18 @@ var statusTests = []struct {
 			"json": `{"machines":{},"services":{}}`,
 		},
 	},
+	{
+		"bootstrap",
+		func(st *state.State, c *C) {
+			m, err := st.AddMachine()
+			c.Assert(err, IsNil)
+			c.Assert(m.Id(), Equals, 0)
+		},
+		map[string]string{
+			"yaml": "machines: {}\nservices: {}\n\n",
+			"json": `{"machines":{},"services":{}}`,
+		},
+	},
 }
 
 func (s *StatusSuite) testStatus(format string, unmarshal func([]byte, interface{}) error, c *C) {
