@@ -58,12 +58,11 @@ var statusTests = []struct {
 		func(*state.State, *juju.Conn, *C) {},
 		map[string]interface{}{
 			"machines": make(map[int]interface{}),
-			"services": make(map[string]interface{}),
+			"machines": make(map[string]interface{}),
 		},
 	},
 	{
-		// simulate juju bootstrap by adding machine/0 to the state.
-		"bootstrap/pending",
+		"simulate juju bootstrap by adding machine/0 to the state",
 		func(st *state.State, _ *juju.Conn, c *C) {
 			m, err := st.AddMachine()
 			c.Assert(err, IsNil)
@@ -76,12 +75,11 @@ var statusTests = []struct {
 					"instance-id": "pending",
 				},
 			},
-			"services": make(map[int]interface{}),
+			"services": make(map[string]interface{}),
 		},
 	},
 	{
-		// simulate the PA starting an instance in response to the state change.
-		"bootstrap/running",
+		"simulate the PA starting an instance in response to the state change",
 		func(st *state.State, conn *juju.Conn, c *C) {
 			m, err := st.Machine(0)
 			c.Assert(err, IsNil)
