@@ -15,7 +15,7 @@ type DeployCommand struct {
 	ServiceName  string
 	ConfPath     string
 	NumUnits     int // defaults to 1
-	UpgradeCharm bool
+	BumpRevision bool
 	RepoPath     string // defaults to JUJU_REPOSITORY
 }
 
@@ -50,8 +50,8 @@ func (c *DeployCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	addEnvironFlags(&c.EnvName, f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
-	f.BoolVar(&c.UpgradeCharm, "u", false, "increment local charm directory revision")
-	f.BoolVar(&c.UpgradeCharm, "upgrade", false, "")
+	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision")
+	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.StringVar(&c.ConfPath, "config", "", "path to yaml-formatted service config")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv("JUJU_REPOSITORY"), "local charm repository")
 	// TODO --constraints
@@ -88,13 +88,13 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	ch, err := conn.PutCharm(curl, c.RepoPath, c.UpgradeCharm)
+	ch, err := conn.PutCharm(curl, c.RepoPath, c.BumpRevision)
 	if err != nil {
 		return err
 	}
 	if c.ConfPath != "" {
 		// TODO many dependencies :(
-		panic("state.Service.SetConfig not implemented (format 2...)")
+		return errors.New("state.Service.SetConfig not implemented (format 2...)")
 	}
 	svc, err := conn.NewService(ch, c.ServiceName)
 	if err != nil {

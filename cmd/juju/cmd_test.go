@@ -210,10 +210,10 @@ var deployTests = []struct {
 		&DeployCommand{RepoPath: "/path/to/another-repo"},
 	}, {
 		[]string{"--upgrade", "charm-name"},
-		&DeployCommand{UpgradeCharm: true},
+		&DeployCommand{BumpRevision: true},
 	}, {
 		[]string{"-u", "charm-name"},
-		&DeployCommand{UpgradeCharm: true},
+		&DeployCommand{BumpRevision: true},
 	}, {
 		[]string{"--num-units", "33", "charm-name"},
 		&DeployCommand{NumUnits: 33},

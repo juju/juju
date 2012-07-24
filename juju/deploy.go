@@ -42,14 +42,13 @@ func (conn *Conn) NewService(sch *state.Charm, svcName string) (*state.Service, 
 	return svc, nil
 }
 
-// PutCharm uploads the given charm to provider storage,
-// and adds a state.Charm to the state. The charm is not uploaded
-// if a charm with the same URL already exists in the state,
-// unless upgrade is true. If upgrade is true and the charm URL
-// refers to a local directory, the revision number will be incremented
-// before pushing. Local charms will be interpreted relative to the repoPath
-// directory.
-func (conn *Conn) PutCharm(curl *charm.URL, repoPath string, upgrade bool) (*state.Charm, error) {
+// PutCharm uploads the given charm to provider storage, and adds a
+// state.Charm to the state.  The charm is not uploaded if a charm with
+// the same URL already exists in the state.
+// If bumpRevision is true, the charm must be a local directory,
+// and the revision number will be incremented before pushing.
+// Local charms will be interpreted relative to the repoPath directory.
+func (conn *Conn) PutCharm(curl *charm.URL, repoPath string, bumpRevision bool) (*state.Charm, error) {
 	repo, err := charm.InferRepository(curl, repoPath)
 	if err != nil {
 		return nil, fmt.Errorf("cannot infer charm repository: %v", err)
@@ -65,13 +64,13 @@ func (conn *Conn) PutCharm(curl *charm.URL, repoPath string, upgrade bool) (*sta
 	if err != nil {
 		return nil, fmt.Errorf("cannot get charm: %v", err)
 	}
-	if upgrade {
+	if bumpRevision {
 		chd, ok := ch.(*charm.Dir)
 		if !ok {
-			return nil, fmt.Errorf("cannot upgrade charm %q: not a directory", curl)
+			return nil, fmt.Errorf("cannot increment version of charm %q: not a directory", curl)
 		}
 		if err = chd.SetDiskRevision(chd.Revision() + 1); err != nil {
-			return nil, fmt.Errorf("cannot upgrade charm %q: %v", curl, err)
+			return nil, fmt.Errorf("cannot increment version of charm %q: %v", curl, err)
 		}
 		curl = curl.WithRevision(chd.Revision())
 	}
