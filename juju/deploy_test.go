@@ -18,6 +18,7 @@ type DeploySuite struct {
 	testing.ZkSuite
 	conn  *juju.Conn
 	state *state.State
+	repo *charm.LocalRepository
 }
 
 func (s *DeploySuite) SetUpTest(c *C) {
@@ -35,6 +36,7 @@ func (s *DeploySuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	s.conn = conn
 	s.state = st
+	s.repo = &charm.LocalRepository{Path: c.MkDir()}
 }
 
 func (s *DeploySuite) TearDownTest(c *C) {
@@ -48,10 +50,9 @@ func (s *DeploySuite) TearDownTest(c *C) {
 }
 
 func (s *DeploySuite) TestPutCharmBasic(c *C) {
-	repoPath := c.MkDir()
-	curl := testing.Charms.ClonedURL(repoPath, "riak")
+	curl := testing.Charms.ClonedURL(s.repo.Path, "riak")
 	curl.Revision = -1 // make sure we trigger the repo.Latest logic.
-	sch, err := s.conn.PutCharm(curl, repoPath, false)
+	sch, err := s.conn.PutCharm(curl, s.repo.Path, false)
 	c.Assert(err, IsNil)
 	c.Assert(sch.Meta().Summary, Equals, "K/V storage engine")
 
@@ -62,8 +63,7 @@ func (s *DeploySuite) TestPutCharmBasic(c *C) {
 
 func (s *DeploySuite) TestPutBundledCharm(c *C) {
 	// Bundle the riak charm into a charm repo directory.
-	repoPath := c.MkDir()
-	dir := filepath.Join(repoPath, "series")
+	dir := filepath.Join(s.repo.Path, "series")
 	err := os.Mkdir(dir, 0777)
 	c.Assert(err, IsNil)
 	w, err := os.Create(filepath.Join(dir, "riak.charm"))
@@ -73,10 +73,6 @@ func (s *DeploySuite) TestPutBundledCharm(c *C) {
 	err = charmDir.BundleTo(w)
 	c.Assert(err, IsNil)
 
-	filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
-		c.Logf("%s %v", path, info.IsDir())
-		return nil
-	})
 	// Invent a URL that points to the bundled charm, and
 	// test putting that.
 	curl := &charm.URL{
@@ -85,7 +81,7 @@ func (s *DeploySuite) TestPutBundledCharm(c *C) {
 		Name:     "riak",
 		Revision: -1,
 	}
-	sch, err := s.conn.PutCharm(curl, repoPath, false)
+	sch, err := s.conn.PutCharm(curl, s.repo.Path, false)
 	c.Assert(err, IsNil)
 	c.Assert(sch.Meta().Summary, Equals, "K/V storage engine")
 
@@ -134,4 +130,34 @@ func (s *DeploySuite) TestPutCharmBumpRevision(c *C) {
 	c.Assert(sch.BundleSha256(), Not(Equals), sha256)
 }
 
-//func (ConnSuite) TestNewService(c *C) {
+func (s *DeploySuite) TestNewService(c *C) {
+	curl := testing.Charms.ClonedURL(s.repo.Path, "riak")
+	sch, err := s.conn.PutCharm(curl, s.repo.Path, false)
+	c.Assert(err, IsNil)
+
+	svc, err := s.conn.NewService(sch, "testriak")
+	c.Assert(err, IsNil)
+
+	// Check that the peer relation has been made.
+	relations, err := svc.Relations()
+	c.Assert(relations, HasLen, 1)
+	ep, err := relations[0].Endpoint("testriak")
+	c.Assert(err, IsNil)
+	c.Assert(ep, Equals, state.RelationEndpoint{
+		ServiceName: "testriak",
+		Interface: "riak",
+		RelationName: "ring",
+		RelationRole: state.RolePeer,
+		RelationScope: state.ScopeGlobal,
+	})
+}
+
+func (s *DeploySuite) TestNewServiceDefaultName(c *C) {
+	curl := testing.Charms.ClonedURL(s.repo.Path, "riak")
+	sch, err := s.conn.PutCharm(curl, s.repo.Path, false)
+	c.Assert(err, IsNil)
+
+	svc, err := s.conn.NewService(sch, "")
+	c.Assert(err, IsNil)
+	c.Assert(svc.Name(), Equals, "riak")
+}
