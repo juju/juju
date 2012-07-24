@@ -55,7 +55,10 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	var result = make(map[string]interface{})
+	result := map[string]interface{}{
+		"machines": nil, // filled out below
+		"services": make(map[string]interface{}),
+	}
 
 	result["machines"], err = processMachines(machines, instances)
 	if err != nil {
@@ -63,7 +66,6 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// TODO(dfc) process services and units
-	result["services"] = make(map[string]interface{})
 
 	if c.out.Name() == "json" {
 		return c.out.Write(ctx, jsonify(result))
@@ -151,8 +153,8 @@ func processMachine(machine *state.Machine, instance environs.Instance) (map[str
 	return r, nil
 }
 
-// jsonify converts the result struct into a structure which is compatibile with
-// encoding/json.
+// jsonify converts the keys of the machines map into their string
+// equivalents for compatibility with encoding/json.
 func jsonify(r map[string]interface{}) map[string]map[string]interface{} {
 	m := map[string]map[string]interface{}{
 		"services": r["services"].(map[string]interface{}),
