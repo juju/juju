@@ -2,14 +2,14 @@ package juju
 
 import (
 	"bytes"
-	"io"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
-	"crypto/sha256"
-	"os"
-	"encoding/hex"
 	"net/url"
+	"os"
 )
 
 // NewService creates a new service with the given name to run the given
@@ -20,7 +20,7 @@ func (conn *Conn) NewService(sch *state.Charm, svcName string) (*state.Service, 
 		return nil, err
 	}
 	if svcName == "" {
-		svcName = sch.URL().Name	// TODO sch.Meta().Name ?
+		svcName = sch.URL().Name // TODO sch.Meta().Name ?
 	}
 	svc, err := st.AddService(svcName, sch)
 	if err != nil {

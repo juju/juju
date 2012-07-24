@@ -3,10 +3,10 @@ package juju_test
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
@@ -16,7 +16,7 @@ var _ = Suite(&DeploySuite{})
 
 type DeploySuite struct {
 	testing.ZkSuite
-	conn *juju.Conn
+	conn  *juju.Conn
 	state *state.State
 }
 
@@ -50,7 +50,7 @@ func (s *DeploySuite) TearDownTest(c *C) {
 func (s *DeploySuite) TestPutCharmBasic(c *C) {
 	repoPath := c.MkDir()
 	curl := testing.Charms.ClonedURL(repoPath, "riak")
-	curl.Revision = -1			// make sure we trigger the repo.Latest logic.
+	curl.Revision = -1 // make sure we trigger the repo.Latest logic.
 	sch, err := s.conn.PutCharm(curl, repoPath, false)
 	c.Assert(err, IsNil)
 	c.Assert(sch.Meta().Summary, Equals, "K/V storage engine")
@@ -80,9 +80,9 @@ func (s *DeploySuite) TestPutBundledCharm(c *C) {
 	// Invent a URL that points to the bundled charm, and
 	// test putting that.
 	curl := &charm.URL{
-		Schema: "local",
-		Series: "series",
-		Name: "riak",
+		Schema:   "local",
+		Series:   "series",
+		Name:     "riak",
 		Revision: -1,
 	}
 	sch, err := s.conn.PutCharm(curl, repoPath, false)
@@ -94,7 +94,6 @@ func (s *DeploySuite) TestPutBundledCharm(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(sch.Meta().Summary, Equals, "K/V storage engine")
 }
-
 
 func (s *DeploySuite) TestPutCharmBumpRevision(c *C) {
 	repo := &charm.LocalRepository{c.MkDir()}
@@ -136,4 +135,3 @@ func (s *DeploySuite) TestPutCharmBumpRevision(c *C) {
 }
 
 //func (ConnSuite) TestNewService(c *C) {
-	

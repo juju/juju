@@ -15,7 +15,7 @@ func Test(t *stdtesting.T) {
 	testing.ZkTestPackage(t)
 }
 
-type ConnSuite struct{
+type ConnSuite struct {
 	testing.ZkSuite
 }
 

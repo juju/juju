@@ -309,6 +309,7 @@ func (c stringMapC) Coerce(v interface{}, path []string) (interface{}, error) {
 // If a field is not present in the map and defaults to Omit, the missing
 // field will be ommitted from the coerced map as well.
 var Omit omit
+
 type omit struct{}
 
 type Fields map[string]Checker

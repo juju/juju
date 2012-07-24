@@ -71,9 +71,9 @@ func (r *Repo) ClonedURL(dst, name string) *charm.URL {
 	}
 	clone(dst, r.DirPath(name))
 	return &charm.URL{
-		Schema: "local",
-		Series: "series",
-		Name: name,
+		Schema:   "local",
+		Series:   "series",
+		Name:     name,
 		Revision: -1,
 	}
 }
