@@ -56,7 +56,9 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	}
 
 	services, err := fetchAllServices(state)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	result := make(map[string]interface{})
 
@@ -66,7 +68,9 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	}
 
 	result["services"], err = processServices(services, machines)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	if c.out.Name() == "json" {
 		return c.out.Write(ctx, jsonify(result))
@@ -111,13 +115,12 @@ func fetchAllServices(st *state.State) (map[string]*state.Service, error) {
 		return nil, err
 	}
 	for _, s := range services {
-		v[m.Id()] = s
+		v[s.Name()] = s
 	}
 	return v, nil
 }
 
 // processMachines gathers information about machines.
-// nb. due to the limitations of encoding/json, the key of the map is a string, not an int.
 func processMachines(machines map[int]*state.Machine, instances map[string]environs.Instance) (map[int]interface{}, error) {
 	r := make(map[int]interface{})
 	for _, m := range machines {
@@ -169,34 +172,17 @@ func processMachine(machine *state.Machine, instance environs.Instance) (map[str
 }
 
 // processServices gathers information about services.
-func processMachines(machines map[int]*state.Machine, instances map[string]environs.Instance) (map[int]interface{}, error) {
-	r := make(map[int]interface{})
-	for _, m := range machines {
-		instid, err := m.InstanceId()
-		if err, ok := err.(*state.NoInstanceIdError); ok {
-			r[m.Id()] = map[string]interface{}{
-				"instance-id": "pending",
-			}
-		} else if err != nil {
-			return nil, err
-		} else {
-			instance, ok := instances[instid]
-			if !ok {
-				// Double plus ungood. There is an instance id recorded for this machine in the state,
-				// yet the environ cannot find that id. 
-				return nil, fmt.Errorf("instance %s for machine %d not found", instid, m.Id())
-			}
-			machine, err := processMachine(m, instance)
-			if err != nil {
-				return nil, err
-			}
-			r[m.Id()] = machine
-		}
+func processServices(services map[string]*state.Service, machines map[int]*state.Machine) (map[string]interface{}, error) {
+	r := make(map[string]interface{})
+	for _, s := range services {
+		r[s.Name()], _ = processService(s, machines)
 	}
 	return r, nil
 }
 
-func processMachine(machine *state.Machine, instance environs.Instance) (map[string]interface{}, error) {
+func processService(service *state.Service, machines map[int]*state.Machine) (map[string]interface{}, error) {
+	return make(map[string]interface{}), nil
+}
 
 // jsonify converts the keys of the machines map into their string
 // equivalents for compatibility with encoding/json.

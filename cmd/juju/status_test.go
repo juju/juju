@@ -69,7 +69,6 @@ var statusTests = []struct {
 			c.Assert(m.Id(), Equals, 0)
 		},
 		map[string]interface{}{
-			// note: the key of the machines map is a string
 			"machines": map[int]interface{}{
 				0: map[string]interface{}{
 					"instance-id": "pending",
@@ -89,7 +88,24 @@ var statusTests = []struct {
 			c.Assert(err, IsNil)
 		},
 		map[string]interface{}{
-			// note: the key of the machines map is a string
+			"machines": map[int]interface{}{
+				0: map[string]interface{}{
+					"dns-name":    "palermo-0.dns",
+					"instance-id": "palermo-0",
+				},
+			},
+			"services": make(map[string]interface{}),
+		},
+	},
+	{
+		"simulate the PA starting an instance in response to the state change",
+		func(st *state.State, conn *juju.Conn, c *C) {
+        		bundleURL, err := url.Parse("http://bundles.example.com/dummy-1")
+        		c.Assert(err, IsNil)
+        		dummy, err := st.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+        		c.Assert(err, IsNil)
+		},
+		map[string]interface{}{
 			"machines": map[int]interface{}{
 				0: map[string]interface{}{
 					"dns-name":    "palermo-0.dns",
