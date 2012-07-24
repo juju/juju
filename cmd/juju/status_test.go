@@ -6,17 +6,15 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/testing"
-	"launchpad.net/juju-core/environs/dummy"
 	"os"
 	"path/filepath"
 )
 
 type StatusSuite struct {
 	envSuite
-	testing.StateSuite
 	repoPath, seriesPath string
 	conn                 *juju.Conn
 	st                   *state.State
@@ -38,18 +36,12 @@ func (s *StatusSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	s.st, err = s.conn.State()
 	c.Assert(err, IsNil)
-
-        // Sanity check
-        info, err := s.conn.Environ.StateInfo()
-        c.Assert(err, IsNil)
-        c.Assert(info, DeepEquals, s.StateInfo(c))
-        s.StateSuite.SetUpTest(c)
 }
 
 func (s *StatusSuite) TearDownTest(c *C) {
 	s.conn.Close()
-        dummy.Reset()
-        s.StateSuite.TearDownTest(c)
+	dummy.Reset()
+	//	s.StateSuite.TearDownTest(c)
 	s.envSuite.TearDownTest(c)
 	os.Setenv("JUJU_REPOSITORY", s.repoPath)
 }
@@ -70,6 +62,7 @@ var statusTests = []struct {
 		},
 	},
 	{
+		// simulate juju bootstrap by adding machine/0 to the state.
 		"bootstrap/pending",
 		func(st *state.State, _ *juju.Conn, c *C) {
 			m, err := st.AddMachine()
@@ -78,14 +71,14 @@ var statusTests = []struct {
 		},
 		map[string]string{
 			// note: the key of the machines map is a string
-			"yaml": 
-`machines: 
+			"yaml": `machines: 
   "0": {instance-id: pending}
 services: {}`,
 			"json": `{"machines":{"0": {"instance-id":"pending"}},"services":{}}`,
 		},
 	},
 	{
+		// simulate the PA starting an instance in response to the state change.
 		"bootstrap/running",
 		func(st *state.State, conn *juju.Conn, c *C) {
 			m, err := st.Machine(0)
@@ -96,11 +89,10 @@ services: {}`,
 			c.Assert(err, IsNil)
 		},
 		map[string]string{
-			"yaml": 
-`machines: 
-  "0": {instance-id: pending}
+			"yaml": `machines: 
+  "0": {dns-name: palermo-0.dns, instance-id: palermo-0}
 services: {}`,
-			"json": `{"machines":{"0": {"instance-id":"pending"}},"services":{}}`,
+			"json": `{"machines":{"0": {"dns-name":"palermo-0.dns", "instance-id":"palermo-0"}},"services":{}}`,
 		},
 	},
 }

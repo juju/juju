@@ -142,6 +142,16 @@ func processMachine(machine *state.Machine, instance environs.Instance) (map[str
 	r["dns-name"] = dnsname
 	r["instance-id"] = instance.Id()
 
+	alive, err := machine.AgentAlive()
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO(dfc) revisit this once unit-status is done
+	if alive {
+		r["agent-state"] = "running"
+	}
+
 	// TODO(dfc) unit-status
 	return r, nil
 }
