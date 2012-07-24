@@ -42,28 +42,6 @@ func (conn *Conn) NewService(sch *state.Charm, svcName string) (*state.Service, 
 	return svc, nil
 }
 
-// StartUnit starts a machine running n units of the given service.
-func (conn *Conn) StartUnits(svc *state.Service, n int) ([]*state.Unit, error) {
-	st, err := conn.State()
-	if err != nil {
-		return nil, err
-	}
-	units := make([]*state.Unit, n)
-	// TODO what do we do if we fail half-way through this process?
-	for i := 0; i < n; i++ {
-		policy := conn.Environ.AssignmentPolicy()
-		unit, err := svc.AddUnit()
-		if err != nil {
-			return nil, fmt.Errorf("cannot add unit %d/%d to service %q: %v", i+1, n, svc.Name(), err)
-		}
-		if err := st.AssignUnit(unit, policy); err != nil {
-			return nil, fmt.Errorf("cannot assign machine to unit %s of service %q: %v", unit.Name(), svc.Name(), err)
-		}
-		units[i] = unit
-	}
-	return units, nil
-}
-
 // PutCharm uploads the given charm to provider storage,
 // and adds a state.Charm to the state. The charm is not uploaded
 // if a charm with the same URL already exists in the state,
@@ -143,4 +121,27 @@ func (conn *Conn) PutCharm(curl *charm.URL, repoPath string, upgrade bool) (*sta
 		return nil, fmt.Errorf("cannot add charm: %v", err)
 	}
 	return sch, nil
+}
+
+// StartUnits starts n units of the given service and allocates machines
+// to them as necessary.
+func (conn *Conn) StartUnits(svc *state.Service, n int) ([]*state.Unit, error) {
+	st, err := conn.State()
+	if err != nil {
+		return nil, err
+	}
+	units := make([]*state.Unit, n)
+	// TODO what do we do if we fail half-way through this process?
+	for i := 0; i < n; i++ {
+		policy := conn.Environ.AssignmentPolicy()
+		unit, err := svc.AddUnit()
+		if err != nil {
+			return nil, fmt.Errorf("cannot add unit %d/%d to service %q: %v", i+1, n, svc.Name(), err)
+		}
+		if err := st.AssignUnit(unit, policy); err != nil {
+			return nil, fmt.Errorf("cannot assign machine to unit %s of service %q: %v", unit.Name(), svc.Name(), err)
+		}
+		units[i] = unit
+	}
+	return units, nil
 }

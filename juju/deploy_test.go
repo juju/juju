@@ -161,3 +161,20 @@ func (s *DeploySuite) TestNewServiceDefaultName(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(svc.Name(), Equals, "riak")
 }
+
+func (s *DeploySuite) TestAddUnits(c *C) {
+	curl := testing.Charms.ClonedURL(s.repo.Path, "riak")
+	sch, err := s.conn.PutCharm(curl, s.repo.Path, false)
+	c.Assert(err, IsNil)
+	svc, err := s.conn.NewService(sch, "testriak")
+	c.Assert(err, IsNil)
+	units, err := s.conn.StartUnits(svc, 2)
+	c.Assert(err, IsNil)
+	c.Assert(units, HasLen, 2)
+
+	id0, err := units[0].AssignedMachineId()
+	c.Assert(err, IsNil)
+	id1, err := units[1].AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(id0, Not(Equals), id1)
+}
