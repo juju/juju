@@ -113,7 +113,7 @@ var statusTests = []struct {
         		c.Assert(err, IsNil)
         		dummy, err := st.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
         		c.Assert(err, IsNil)
-			_, err = st.AddService("dummy", dummy)
+			_, err = st.AddService("dummy-service", dummy)
         		c.Assert(err, IsNil)
 		},
 		map[string]interface{}{
@@ -124,7 +124,9 @@ var statusTests = []struct {
 				},
 			},
 			"services": map[string]interface{} {
-				"dummy": make(map[string]interface{}),
+				"dummy-service": map[string]interface{} {
+					"charm": "dummy",
+				},
 			},
 		},
 	},

@@ -184,7 +184,7 @@ func processService(service *state.Service, machines map[int]*state.Machine) (ma
 	r :=  make(map[string]interface{})
 	ch, err := service.Charm()
 	if err != nil { return nil, err }
-	r["charm"] = ch.Name()
+	r["charm"] = ch.Meta().Name
 	return r, nil
 }
 
