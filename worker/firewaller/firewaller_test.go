@@ -118,16 +118,16 @@ func (s *FirewallerSuite) TestAddRemoveMachine(c *C) {
 	c.Assert(err, IsNil)
 
 	assertEvents(c, []string{
-		fmt.Sprint("started tracking machine ", m1.Id()),
-		fmt.Sprint("started tracking machine ", m2.Id()),
-		fmt.Sprint("started tracking machine ", m3.Id()),
+		fmt.Sprint("started watching machine ", m1.Id()),
+		fmt.Sprint("started watching machine ", m2.Id()),
+		fmt.Sprint("started watching machine ", m3.Id()),
 	})
 
 	err = s.State.RemoveMachine(m2.Id())
 	c.Assert(err, IsNil)
 
 	assertEvents(c, []string{
-		fmt.Sprint("stopped tracking machine ", m2.Id()),
+		fmt.Sprint("stopped watching machine ", m2.Id()),
 	})
 
 	c.Assert(fw.Stop(), IsNil)
@@ -157,17 +157,17 @@ func (s *FirewallerSuite) TestAssignUnassignUnit(c *C) {
 	c.Assert(err, IsNil)
 
 	assertEvents(c, []string{
-		fmt.Sprint("started tracking machine ", m1.Id()),
-		fmt.Sprint("started tracking machine ", m2.Id()),
-		fmt.Sprint("started tracking unit ", u1.Name()),
-		fmt.Sprint("started tracking unit ", u2.Name()),
+		fmt.Sprint("started watching machine ", m1.Id()),
+		fmt.Sprint("started watching machine ", m2.Id()),
+		fmt.Sprint("started watching unit ", u1.Name()),
+		fmt.Sprint("started watching unit ", u2.Name()),
 	})
 
 	err = u1.UnassignFromMachine()
 	c.Assert(err, IsNil)
 
 	assertEvents(c, []string{
-		fmt.Sprint("stopped tracking unit ", u1.Name()),
+		fmt.Sprint("stopped watching unit ", u1.Name()),
 	})
 
 	c.Assert(fw.Stop(), IsNil)
