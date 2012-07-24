@@ -36,7 +36,32 @@ var urls = []*charm.URL{
 	charm.MustParseURL("cs:oneiric/dummy"),
 }
 
+type fakePlugin struct {
+	oldEnv string
+}
+
+func (p *fakePlugin) install(dir string, content string) {
+	if p.oldEnv == "" {
+		p.oldEnv = os.Getenv("BZR_PLUGINS_AT")
+	}
+	err := ioutil.WriteFile(filepath.Join(dir, "__init__.py"), []byte(content), 0644)
+	if err != nil {
+		panic(err)
+	}
+	os.Setenv("BZR_PLUGINS_AT", "fakePlugin@" + dir)
+}
+
+func (p *fakePlugin) uninstall() {
+	os.Setenv("BZR_PLUGINS_AT", p.oldEnv)
+}
+
 func (s *StoreSuite) TestPublish(c *C) {
+	// Ensure that the streams are parsed separately by inserting
+	// garbage on stderr. The wanted information is still there.
+	plugin := fakePlugin{}
+	plugin.install(c.MkDir(), `import sys; sys.stderr.write("STDERR STUFF FROM TEST\n")`)
+	defer plugin.uninstall()
+
 	branch := s.dummyBranch(c, "")
 
 	err := store.PublishBazaarBranch(s.store, urls, branch.path(), "wrong-rev")
@@ -101,7 +126,22 @@ func (s *StoreSuite) TestPublish(c *C) {
 	}
 }
 
-func (s *StoreSuite) TestPublishError(c *C) {
+func (s *StoreSuite) TestPublishErrorFromBzr(c *C) {
+	// In TestPublish we ensure that the streams are parsed
+	// separately by inserting garbage on stderr. Now make
+	// sure that stderr isn't simply trashed, as we want to
+	// know about what a real error tells us.
+	plugin := fakePlugin{}
+	plugin.install(c.MkDir(), `import sys; sys.stderr.write("STDERR STUFF FROM TEST\n"); sys.exit(1)`)
+	defer plugin.uninstall()
+
+	branch := s.dummyBranch(c, "")
+
+	err := store.PublishBazaarBranch(s.store, urls, branch.path(), "wrong-rev")
+	c.Assert(err, ErrorMatches, "(?s).*STDERR STUFF.*")
+}
+
+func (s *StoreSuite) TestPublishErrorInCharm(c *C) {
 	branch := s.dummyBranch(c, "")
 
 	// Corrupt the charm.
@@ -132,7 +172,7 @@ func (dir bzrDir) path(args ...string) string {
 func (dir bzrDir) run(args ...string) []byte {
 	cmd := exec.Command("bzr", args...)
 	cmd.Dir = string(dir)
-	output, err := cmd.CombinedOutput()
+	output, err := cmd.Output()
 	if err != nil {
 		panic(fmt.Sprintf("command failed: bzr %s\n%s", strings.Join(args, " "), output))
 	}
