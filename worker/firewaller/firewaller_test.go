@@ -32,6 +32,7 @@ var logHook *hookLogger
 const prefix = "JUJU:DEBUG firewaller: "
 
 func (h *hookLogger) Output(calldepth int, s string) error {
+	fmt.Printf("=> %s\n", s)
 	err := h.oldTarget.Output(calldepth, s)
 	if strings.HasPrefix(s, prefix) {
 		h.event <- s[len(prefix):]
@@ -202,6 +203,8 @@ func (s *FirewallerSuite) TestOpenClosePorts(c *C) {
 	// Scenario 1: Service has *not* been exposed.
 	m1, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
+	err = m1.SetInstanceId("machine/0")
+	c.Assert(err, IsNil)
 	s.charm = s.AddTestingCharm(c, "dummy")
 	s1, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
@@ -224,6 +227,8 @@ func (s *FirewallerSuite) TestOpenClosePorts(c *C) {
 
 	// Scenario 2: Service has been exposed.
 	m2, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	err = m2.SetInstanceId("machine/1")
 	c.Assert(err, IsNil)
 	s2, err := s.State.AddService("mysql", s.charm)
 	c.Assert(err, IsNil)
