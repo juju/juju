@@ -282,16 +282,15 @@ func (s *HookQueueSuite) TestHookQueue(c *C) {
 		}
 		for i, expect := range t.gets {
 			c.Logf("  change %d", i)
-			c.Assert(q.Ready(), Equals, true)
+			c.Assert(q.Pending(), Equals, true)
 			c.Assert(q.Next(), DeepEquals, expect)
-			c.Assert(q.Ready(), Equals, true)
+			c.Assert(q.Pending(), Equals, true)
 			c.Assert(q.Next(), DeepEquals, expect)
 			q.Done()
 		}
-		if q.Ready() {
+		if q.Pending() {
 			c.Fatalf("unexpected %#v", q.Next())
 		}
-		c.Assert(q.Ready(), Equals, false)
 		c.Assert(func() { q.Next() }, PanicMatches, "queue is empty")
 	}
 }

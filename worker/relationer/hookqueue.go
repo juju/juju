@@ -99,8 +99,8 @@ func (q *HookQueue) Add(ruc state.RelationUnitsChange) {
 	}
 }
 
-// Ready returns true if there is a hook ready to run.
-func (q *HookQueue) Ready() bool {
+// Pending returns true if there is a hook ready to run.
+func (q *HookQueue) Pending() bool {
 	return q.head != nil || q.inflight != nil
 }
 
