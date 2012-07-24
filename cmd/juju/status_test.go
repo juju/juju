@@ -3,18 +3,18 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"fmt"
 	"net/url"
+	"os"
+	"path/filepath"
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/charm"
 	coretesting "launchpad.net/juju-core/testing"
 )
 
@@ -105,16 +105,20 @@ var statusTests = []struct {
 	{
 		"simulate the PA starting an instance in response to the state change",
 		func(st *state.State, conn *juju.Conn, c *C) {
-        		ch := coretesting.Charms.Dir("dummy")
-        		curl := charm.MustParseURL(
-                		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
-        		)
-        		bundleURL, err := url.Parse("http://bundles.example.com/dummy-1")
-        		c.Assert(err, IsNil)
-        		dummy, err := st.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
-        		c.Assert(err, IsNil)
+			ch := coretesting.Charms.Dir("dummy")
+			curl := charm.MustParseURL(
+				fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
+			)
+			bundleURL, err := url.Parse("http://bundles.example.com/dummy-1")
+			c.Assert(err, IsNil)
+			dummy, err := st.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+			c.Assert(err, IsNil)
 			_, err = st.AddService("dummy-service", dummy)
-        		c.Assert(err, IsNil)
+			c.Assert(err, IsNil)
+			s, err := st.AddService("exposed-service", dummy)
+			c.Assert(err, IsNil)
+			err = s.SetExposed()
+			c.Assert(err, IsNil)
 		},
 		map[string]interface{}{
 			"machines": map[int]interface{}{
@@ -123,9 +127,13 @@ var statusTests = []struct {
 					"instance-id": "palermo-0",
 				},
 			},
-			"services": map[string]interface{} {
-				"dummy-service": map[string]interface{} {
+			"services": map[string]interface{}{
+				"dummy-service": map[string]interface{}{
 					"charm": "dummy",
+				},
+				"exposed-service": map[string]interface{}{
+					"charm":   "dummy",
+					"exposed": true,
 				},
 			},
 		},
