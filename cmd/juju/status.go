@@ -181,7 +181,11 @@ func processServices(services map[string]*state.Service, machines map[int]*state
 }
 
 func processService(service *state.Service, machines map[int]*state.Machine) (map[string]interface{}, error) {
-	return make(map[string]interface{}), nil
+	r :=  make(map[string]interface{})
+	ch, err := service.Charm()
+	if err != nil { return nil, err }
+	r["charm"] = ch.Name()
+	return r, nil
 }
 
 // jsonify converts the keys of the machines map into their string

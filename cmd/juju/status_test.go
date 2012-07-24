@@ -3,14 +3,19 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"fmt"
+	"net/url"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
-	"os"
-	"path/filepath"
+	"launchpad.net/juju-core/charm"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 type StatusSuite struct {
@@ -100,9 +105,15 @@ var statusTests = []struct {
 	{
 		"simulate the PA starting an instance in response to the state change",
 		func(st *state.State, conn *juju.Conn, c *C) {
+        		ch := coretesting.Charms.Dir("dummy")
+        		curl := charm.MustParseURL(
+                		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
+        		)
         		bundleURL, err := url.Parse("http://bundles.example.com/dummy-1")
         		c.Assert(err, IsNil)
         		dummy, err := st.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+        		c.Assert(err, IsNil)
+			_, err = st.AddService("dummy", dummy)
         		c.Assert(err, IsNil)
 		},
 		map[string]interface{}{
@@ -112,7 +123,9 @@ var statusTests = []struct {
 					"instance-id": "palermo-0",
 				},
 			},
-			"services": make(map[string]interface{}),
+			"services": map[string]interface{} {
+				"dummy": make(map[string]interface{}),
+			},
 		},
 	},
 }
