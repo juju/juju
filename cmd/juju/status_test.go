@@ -49,16 +49,16 @@ func (s *StatusSuite) TearDownTest(c *C) {
 var statusTests = []struct {
 	title   string
 	prepare func(*state.State, *juju.Conn, *C)
-	output  map[string]string
+	output  map[string]interface{}
 }{
 	{
 		// unlikely, as you can't run juju status in real life without 
 		// machine/0 bootstrapped.
 		"empty state",
 		func(*state.State, *juju.Conn, *C) {},
-		map[string]string{
-			"yaml": "machines: {}\nservices: {}\n\n",
-			"json": `{"machines":{},"services":{}}`,
+		map[string]interface{}{
+			"machines": make(map[string]interface{}),
+			"services": make(map[string]interface{}),
 		},
 	},
 	{
@@ -69,12 +69,14 @@ var statusTests = []struct {
 			c.Assert(err, IsNil)
 			c.Assert(m.Id(), Equals, 0)
 		},
-		map[string]string{
+		map[string]interface{}{
 			// note: the key of the machines map is a string
-			"yaml": `machines: 
-  "0": {instance-id: pending}
-services: {}`,
-			"json": `{"machines":{"0": {"instance-id":"pending"}},"services":{}}`,
+			"machines": map[string]interface{}{
+				"0": map[string]interface{}{
+					"instance-id": "pending",
+				},
+			},
+			"services": make(map[string]interface{}),
 		},
 	},
 	{
@@ -88,16 +90,20 @@ services: {}`,
 			err = m.SetInstanceId(inst.Id())
 			c.Assert(err, IsNil)
 		},
-		map[string]string{
-			"yaml": `machines: 
-  "0": {dns-name: palermo-0.dns, instance-id: palermo-0}
-services: {}`,
-			"json": `{"machines":{"0": {"dns-name":"palermo-0.dns", "instance-id":"palermo-0"}},"services":{}}`,
+		map[string]interface{}{
+			// note: the key of the machines map is a string
+			"machines": map[string]interface{}{
+				"0": map[string]interface{}{
+					"dns-name":    "palermo-0.dns",
+					"instance-id": "palermo-0",
+				},
+			},
+			"services": make(map[string]interface{}),
 		},
 	},
 }
 
-func (s *StatusSuite) testStatus(format string, unmarshal func([]byte, interface{}) error, c *C) {
+func (s *StatusSuite) testStatus(format string, marshal func(v interface{}) ([]byte, error), unmarshal func(data []byte, v interface{}) error, c *C) {
 	for _, t := range statusTests {
 		c.Logf("testing %s: %s", format, t.title)
 		t.prepare(s.st, s.conn, c)
@@ -106,8 +112,10 @@ func (s *StatusSuite) testStatus(format string, unmarshal func([]byte, interface
 		c.Check(code, Equals, 0)
 		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), Equals, "")
 
+		buf, err := marshal(t.output)
+		c.Assert(err, IsNil)
 		expected := make(map[string]interface{})
-		err := unmarshal([]byte(t.output[format]), &expected)
+		err = unmarshal(buf, &expected)
 		c.Assert(err, IsNil)
 
 		actual := make(map[string]interface{})
@@ -119,9 +127,9 @@ func (s *StatusSuite) testStatus(format string, unmarshal func([]byte, interface
 }
 
 func (s *StatusSuite) TestYamlStatus(c *C) {
-	s.testStatus("yaml", goyaml.Unmarshal, c)
+	s.testStatus("yaml", goyaml.Marshal, goyaml.Unmarshal, c)
 }
 
 func (s *StatusSuite) TestJsonStatus(c *C) {
-	s.testStatus("json", json.Unmarshal, c)
+	s.testStatus("json", json.Marshal, json.Unmarshal, c)
 }
