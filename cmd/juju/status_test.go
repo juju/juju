@@ -62,8 +62,7 @@ var statusTests = []struct {
 		},
 	},
 	{
-		// simulate juju bootstrap by adding machine/0 to the state.
-		"bootstrap/pending",
+		"simulate juju bootstrap by adding machine/0 to the state",
 		func(st *state.State, _ *juju.Conn, c *C) {
 			m, err := st.AddMachine()
 			c.Assert(err, IsNil)
@@ -80,8 +79,7 @@ var statusTests = []struct {
 		},
 	},
 	{
-		// simulate the PA starting an instance in response to the state change.
-		"bootstrap/running",
+		"simulate the PA starting an instance in response to the state change",
 		func(st *state.State, conn *juju.Conn, c *C) {
 			m, err := st.Machine(0)
 			c.Assert(err, IsNil)
