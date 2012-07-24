@@ -74,18 +74,18 @@ func (conn *Conn) StartUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 func (conn *Conn) PutCharm(curl *charm.URL, repoPath string, upgrade bool) (*state.Charm, error) {
 	repo, err := charm.InferRepository(curl, repoPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot infer charm repository: %v", err)
 	}
 	if curl.Revision == -1 {
 		rev, err := repo.Latest(curl)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("cannot get latest charm revision: %v", err)
 		}
 		curl = curl.WithRevision(rev)
 	}
 	ch, err := repo.Get(curl)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot get charm: %v", err)
 	}
 	if upgrade {
 		chd, ok := ch.(*charm.Dir)
@@ -108,12 +108,12 @@ func (conn *Conn) PutCharm(curl *charm.URL, repoPath string, upgrade bool) (*sta
 	switch ch := ch.(type) {
 	case *charm.Dir:
 		if err := ch.BundleTo(&buf); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("cannot bundle charm: %v", err)
 		}
 	case *charm.Bundle:
 		f, err := os.Open(ch.Path)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("cannot open charm bundle path: %v", err)
 		}
 		defer f.Close()
 		if _, err := io.Copy(&buf, f); err != nil {
@@ -132,11 +132,15 @@ func (conn *Conn) PutCharm(curl *charm.URL, repoPath string, upgrade bool) (*sta
 	}
 	ustr, err := storage.URL(name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot get storage URL for charm: %v", err)
 	}
 	u, err := url.Parse(ustr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot parse storage URL: %v", err)
 	}
-	return st.AddCharm(ch, curl, u, digest)
+	sch, err := st.AddCharm(ch, curl, u, digest)
+	if err != nil {
+		return nil, fmt.Errorf("cannot add charm: %v", err)
+	}
+	return sch, nil
 }
