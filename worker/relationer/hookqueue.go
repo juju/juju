@@ -1,7 +1,6 @@
 package relationer
 
 import (
-	"fmt"
 	"launchpad.net/juju-core/state"
 	"sort"
 )
@@ -9,10 +8,10 @@ import (
 // HookInfo holds details about a relation hook that will be required
 // for executing it.
 type HookInfo struct {
-	HookName   string
+	HookKind   string
 	RemoteUnit string
-	// Members contains a map[string]interface for every remote unit,
-	// keyed on unit name.
+	// Members contains a map[string]interface{} for every remote unit,
+	// holding its relation settings, keyed on unit name.
 	Members map[string]map[string]interface{}
 }
 
@@ -29,17 +28,23 @@ type HookQueue struct {
 
 // unitInfo holds unit information for management by HookQueue.
 type unitInfo struct {
-	unit     string
+	// unit holds the name of the unit.
+	unit string
+	// version and settings hold the most recent settings known
+	// to the HookQueue.
 	version  int
 	settings map[string]interface{}
-	present  bool
+	// present holds the current idea of whether the unit is a
+	// member in the relation, at the point in the history of
+	// the relation corresponding to the most recent call to
+	// Next.
+	present bool
 	// hook holds the current idea of the next hook that should
-	// be run for the unit, and should be empty if the unit is
-	// not queued.
+	// be run for the unit, and is empty if and only if the unit
+	// is not queued.
 	hook string
 	// prev and next define the position in the queue of the
-	// unit's next hook, and should be nil if the unit is not
-	// queued.
+	// unit's next hook.
 	prev, next *unitInfo
 }
 
@@ -97,8 +102,10 @@ func (q *HookQueue) Ready() bool {
 	return q.head != nil || q.inflight != nil
 }
 
-// Next returns a HookInfo describing the next hook to run. If no hook
-// is ready to run, Next will panic.
+// Next returns a HookInfo describing the next hook to run. Subsequent
+// calls to Next will return the same HookInfo, differing only in the
+// settings of Members (if they have been updated), until Done is called.
+// Next will panic if it cannot return a value.
 func (q *HookQueue) Next() HookInfo {
 	if q.inflight == nil {
 		if q.head == nil {
@@ -109,16 +116,17 @@ func (q *HookQueue) Next() HookInfo {
 		}
 		info := *q.head
 		q.inflight = &info
-		q.inflight.settings = nil
 		q.remove(info.unit)
 		if info.hook == "departed" {
 			delete(q.info, info.unit)
 		}
 	} else if q.inflight.hook != "departed" {
-		q.inflight.version = q.info[q.inflight.unit].version
+		latest := q.info[q.inflight.unit]
+		q.inflight.version = latest.version
+		q.inflight.settings = latest.settings
 	}
 	hi := HookInfo{
-		HookName:   q.inflight.hook,
+		HookKind:   q.inflight.hook,
 		RemoteUnit: q.inflight.unit,
 		Members:    make(map[string]map[string]interface{}),
 	}
@@ -130,9 +138,13 @@ func (q *HookQueue) Next() HookInfo {
 	return hi
 }
 
+// Done signals that the hook returned most recently from Next has
+// been fully handled, and should be completely forgotten. It will
+// panic if Next has not been called, or has not been called since
+// the previous call to Done.
 func (q *HookQueue) Done() {
 	if prev := q.inflight; prev == nil {
-		panic("no previously returned hook")
+		panic("no inflight hook")
 	} else if prev.hook == "joined" {
 		prev.hook = "changed"
 	} else {
@@ -140,6 +152,7 @@ func (q *HookQueue) Done() {
 		if prev.hook != "changed" {
 			return
 		}
+		// If we have a redundant hook queued, we can remove it.
 		if queued := q.info[prev.unit]; queued.hook == "changed" {
 			if queued.version == prev.version {
 				q.remove(prev.unit)
@@ -151,24 +164,21 @@ func (q *HookQueue) Done() {
 // queue places the named unit at the tail of the queue. It will
 // panic if the unit is not in q.info.
 func (q *HookQueue) queue(unit, hook string) {
-	// First make sure it's out of the queue.
-	q.remove(unit)
-
-	// Set the unit's next action.
+	// If the unit is not in the queue, place it at the tail.
 	info := q.info[unit]
+	if info.hook == "" {
+		info.prev = q.tail
+		if q.tail != nil {
+			q.tail.next = info
+		}
+		q.tail = info
+
+		// If the queue is empty, the tail is also the head.
+		if q.head == nil {
+			q.head = info
+		}
+	}
 	info.hook = hook
-
-	// Place it at the tail.
-	info.prev = q.tail
-	if q.tail != nil {
-		q.tail.next = info
-	}
-	q.tail = info
-
-	// If the queue is empty, the tail is also the head.
-	if q.head == nil {
-		q.head = info
-	}
 }
 
 // remove removes the named unit from the queue. It is fine to
@@ -183,7 +193,7 @@ func (q *HookQueue) remove(unit string) {
 	// Get the unit info and clear its next action.
 	info := q.info[unit]
 	if info.hook == "" {
-		// The unit is not in the queue.
+		// The unit is not in the queue, nothing to do.
 		return
 	}
 	info.hook = ""

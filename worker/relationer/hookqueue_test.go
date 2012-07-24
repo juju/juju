@@ -214,6 +214,21 @@ var hookQueueTests = []struct {
 			HI("changed", "u0", msi{"u0": 0}),
 		},
 	},
+	// Departed while changed already queued (the departed should occur at
+	// the time the original changed was expected to occur).
+	{
+		func(q *relationer.HookQueue) int {
+			q.Add(RUC(msi{"u0": 0, "u1": 0}, nil))
+			return 4
+		}, []state.RelationUnitsChange{
+			RUC(msi{"u0": 1}, nil),
+			RUC(msi{"u1": 1}, nil),
+			RUC(nil, []string{"u0"}),
+		}, false, []relationer.HookInfo{
+			HI("departed", "u0", msi{"u1": 1}),
+			HI("changed", "u1", msi{"u1": 1}),
+		},
+	},
 	// Exercise everything I can think of at the same time.
 	{
 		func(q *relationer.HookQueue) int {
@@ -229,16 +244,18 @@ var hookQueueTests = []struct {
 			HI("changed", "u2", msi{"u0": 1, "u1": 1, "u2": 1}),
 			HI("joined", "u3", msi{"u0": 1, "u1": 1, "u2": 1, "u3": 2}),
 			HI("changed", "u3", msi{"u0": 1, "u1": 1, "u2": 1, "u3": 2}),
-			// - Ignore the first RUC, u0 is going away soon enough.
-			// - Handle the changes in the second RUC, still ignoring u4.
+			// - u0 was queued for change by the first RUC, but this change is
+			// no longer relevant; it's departed in the second RUC, so we run
+			// that hook instead.
+			HI("departed", "u0", msi{"u1": 1, "u2": 1, "u3": 2}),
+			// - Handle the remaining changes in the second RUC, still ignoring u4.
 			// We do run a new changed hook for u1, because the latest settings
 			// are newer than those used in its original changed event.
-			HI("changed", "u1", msi{"u0": 1, "u1": 1, "u2": 1, "u3": 2}),
+			HI("changed", "u1", msi{"u1": 1, "u2": 1, "u3": 2}),
 			// No new change for u2, because it used its latest settings in the
 			// retry of its initial inflight changed event.
-			HI("joined", "u5", msi{"u0": 1, "u1": 1, "u2": 1, "u3": 2, "u5": 0}),
-			HI("changed", "u5", msi{"u0": 1, "u1": 1, "u2": 1, "u3": 2, "u5": 0}),
-			HI("departed", "u0", msi{"u1": 1, "u2": 1, "u3": 2, "u5": 0}),
+			HI("joined", "u5", msi{"u1": 1, "u2": 1, "u3": 2, "u5": 0}),
+			HI("changed", "u5", msi{"u1": 1, "u2": 1, "u3": 2, "u5": 0}),
 			// - Ignore the third RUC, because the original joined/changed on u3
 			// was executed after we got the latest settings version.
 		},
@@ -249,7 +266,7 @@ func (s *HookQueueSuite) TestHookQueue(c *C) {
 	for i, t := range hookQueueTests {
 		c.Logf("test %d", i)
 		q := relationer.NewHookQueue()
-		c.Assert(func() { q.Done() }, PanicMatches, "no previously returned hook")
+		c.Assert(func() { q.Done() }, PanicMatches, "no inflight hook")
 		if t.init != nil {
 			steps := t.init(q)
 			for i := 0; i < steps; i++ {
