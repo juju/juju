@@ -46,14 +46,14 @@ func settings(name string, version int) map[string]interface{} {
 }
 
 var hookQueueTests = []struct {
-	// init returns the number of times to call Next on the initial
+	// init returns the number of times to call Head on the initial
 	// queue state before adding the RelationUnitsChange events.
 	init func(q *relationer.HookQueue) int
 	// adds are all added to the queue in order after calling init
 	// and advancing the queue.
 	adds []state.RelationUnitsChange
 	// prev, if true, will cause the first hook in gets to test the
-	// result of calling Prev rather than Next.
+	// result of calling Prev rather than Head.
 	prev bool
 	// gets should be the complete list of expected HookInfos.
 	gets []relationer.HookInfo
@@ -200,10 +200,10 @@ var hookQueueTests = []struct {
 	{
 		func(q *relationer.HookQueue) int {
 			q.Add(RUC(msi{"u0": 0}, nil))
-			q.Next()
-			q.Done()
-			q.Next()
-			q.Done()
+			q.Head()
+			q.Pop()
+			q.Head()
+			q.Pop()
 			q.Add(RUC(nil, []string{"u0"}))
 			return 1
 		}, []state.RelationUnitsChange{
@@ -266,14 +266,14 @@ func (s *HookQueueSuite) TestHookQueue(c *C) {
 	for i, t := range hookQueueTests {
 		c.Logf("test %d", i)
 		q := relationer.NewHookQueue()
-		c.Assert(func() { q.Done() }, PanicMatches, "no inflight hook")
+		c.Assert(func() { q.Pop() }, PanicMatches, "no inflight hook")
 		if t.init != nil {
 			steps := t.init(q)
 			for i := 0; i < steps; i++ {
-				c.Logf("%#v", q.Next())
+				c.Logf("%#v", q.Head())
 				if i != steps-1 || !t.prev {
 					c.Logf("done")
-					q.Done()
+					q.Pop()
 				}
 			}
 		}
@@ -283,14 +283,14 @@ func (s *HookQueueSuite) TestHookQueue(c *C) {
 		for i, expect := range t.gets {
 			c.Logf("  change %d", i)
 			c.Assert(q.Pending(), Equals, true)
-			c.Assert(q.Next(), DeepEquals, expect)
+			c.Assert(q.Head(), DeepEquals, expect)
 			c.Assert(q.Pending(), Equals, true)
-			c.Assert(q.Next(), DeepEquals, expect)
-			q.Done()
+			c.Assert(q.Head(), DeepEquals, expect)
+			q.Pop()
 		}
 		if q.Pending() {
-			c.Fatalf("unexpected %#v", q.Next())
+			c.Fatalf("unexpected %#v", q.Head())
 		}
-		c.Assert(func() { q.Next() }, PanicMatches, "queue is empty")
+		c.Assert(func() { q.Head() }, PanicMatches, "queue is empty")
 	}
 }

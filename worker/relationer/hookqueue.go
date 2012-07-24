@@ -5,8 +5,7 @@ import (
 	"sort"
 )
 
-// HookInfo holds details about a relation hook that will be required
-// for executing it.
+// HookInfo holds details required to execute a relation hook.
 type HookInfo struct {
 	HookKind   string
 	RemoteUnit string
@@ -22,7 +21,9 @@ type HookQueue struct {
 	head, tail *unitInfo
 	// inflight is a clone of the most recent value returned from Peek.
 	inflight *unitInfo
-	// info holds information about every unit known to the queue.
+	// info holds information about all units that were added to the
+	// queue and haven't had a "departed" event popped. This means the
+	// unit may be in info and not currently in the queue itself.
 	info map[string]*unitInfo
 }
 
@@ -37,7 +38,7 @@ type unitInfo struct {
 	// present holds the current idea of whether the unit is a
 	// member in the relation, at the point in the history of
 	// the relation corresponding to the most recent call to
-	// Next.
+	// Head.
 	present bool
 	// hook holds the current idea of the next hook that should
 	// be run for the unit, and is empty if and only if the unit
@@ -53,9 +54,9 @@ func NewHookQueue() *HookQueue {
 	return &HookQueue{info: map[string]*unitInfo{}}
 }
 
-// Add updates the queue such that the stream of HookInfos returned from
-// next will reflect the state of the relation according to the supplied
-// RelationUnitsChange.
+// Add updates the queue such that the stream of HookInfo values returned
+// from Head and Pop will reflect the state of the relation according to
+// the supplied RelationUnitsChange.
 func (q *HookQueue) Add(ruc state.RelationUnitsChange) {
 	// Enforce consistent addition order, mainly for testing purposes.
 	changedUnits := []string{}
@@ -89,9 +90,7 @@ func (q *HookQueue) Add(ruc state.RelationUnitsChange) {
 	}
 
 	for _, unit := range ruc.Departed {
-		if hook := q.info[unit].hook; hook == "" {
-			q.add(unit, "departed")
-		} else if hook == "changed" {
+		if hook := q.info[unit].hook; hook == "" || hook == "changed" {
 			q.add(unit, "departed")
 		} else {
 			q.remove(unit)
@@ -104,11 +103,11 @@ func (q *HookQueue) Pending() bool {
 	return q.head != nil || q.inflight != nil
 }
 
-// Next returns a HookInfo describing the next hook to run. Subsequent
-// calls to Next will return the same HookInfo, differing only in the
-// settings of Members (if they have been updated), until Done is called.
-// Next will panic if it cannot return a value.
-func (q *HookQueue) Next() HookInfo {
+// Head returns a HookInfo describing the next hook to run. Subsequent
+// calls to Head will return the same HookInfo, differing only in the
+// settings of Members (if they have been updated), until Pop is called.
+// Head will panic if it cannot return a value.
+func (q *HookQueue) Head() HookInfo {
 	if q.inflight == nil {
 		if q.head == nil {
 			panic("queue is empty")
@@ -140,11 +139,10 @@ func (q *HookQueue) Next() HookInfo {
 	return hi
 }
 
-// Done signals that the hook returned most recently from Next has
+// Pop signals that the hook returned most recently from Head has
 // been fully handled, and should be completely forgotten. It will
-// panic if Next has not been called, or has not been called since
-// the previous call to Done.
-func (q *HookQueue) Done() {
+// panic if Head has not been called since the previous call to Pop.
+func (q *HookQueue) Pop() {
 	if prev := q.inflight; prev == nil {
 		panic("no inflight hook")
 	} else if prev.hook == "joined" {
