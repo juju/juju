@@ -69,7 +69,6 @@ var statusTests = []struct {
 			c.Assert(m.Id(), Equals, 0)
 		},
 		map[string]interface{}{
-			// note: the key of the machines map is a string
 			"machines": map[int]interface{}{
 				0: map[string]interface{}{
 					"instance-id": "pending",
@@ -89,7 +88,6 @@ var statusTests = []struct {
 			c.Assert(err, IsNil)
 		},
 		map[string]interface{}{
-			// note: the key of the machines map is a string
 			"machines": map[int]interface{}{
 				0: map[string]interface{}{
 					"dns-name":    "palermo-0.dns",
