@@ -119,10 +119,9 @@ var hookQueueTests = []struct {
 			RUC(nil, []string{"u0"}),
 		}, false, nil,
 	},
-	// Departed event while joined is inflight.
-	// Note that this is the only case where a joined is *not* immediately
-	// followed by a changed: this matches the python implementation, which
-	// has tests verifying this behaviour.
+	// Departed event while joined is inflight. Not that the python version
+	// does *not* always run the "changed" hook in this situation, which we
+	// have decided is a Bad Thing, so we have fixed it.
 	{
 		func(q *relationer.HookQueue) int {
 			q.Add(RUC(msi{"u0": 0}, nil))
@@ -131,11 +130,12 @@ var hookQueueTests = []struct {
 			RUC(nil, []string{"u0"}),
 		}, true, []relationer.HookInfo{
 			HI("joined", "u0", msi{"u0": 0}),
+			HI("changed", "u0", msi{"u0": 0}),
 			HI("departed", "u0", nil),
 		},
 	},
 	// Departed event while joined is inflight, and additional change is queued.
-	// (The queued change should also be elided.)
+	// (Only a single changed should run, with latest settings.)
 	{
 		func(q *relationer.HookQueue) int {
 			q.Add(RUC(msi{"u0": 0}, nil))
@@ -145,6 +145,7 @@ var hookQueueTests = []struct {
 			RUC(nil, []string{"u0"}),
 		}, true, []relationer.HookInfo{
 			HI("joined", "u0", msi{"u0": 12}),
+			HI("changed", "u0", msi{"u0": 12}),
 			HI("departed", "u0", nil),
 		},
 	},
@@ -200,7 +201,9 @@ var hookQueueTests = []struct {
 		func(q *relationer.HookQueue) int {
 			q.Add(RUC(msi{"u0": 0}, nil))
 			q.Next()
+			q.Done()
 			q.Next()
+			q.Done()
 			q.Add(RUC(nil, []string{"u0"}))
 			return 1
 		}, []state.RelationUnitsChange{
@@ -246,11 +249,15 @@ func (s *HookQueueSuite) TestHookQueue(c *C) {
 	for i, t := range hookQueueTests {
 		c.Logf("test %d", i)
 		q := relationer.NewHookQueue()
-		c.Assert(func() { q.Prev() }, PanicMatches, "no previously returned hook")
+		c.Assert(func() { q.Done() }, PanicMatches, "no previously returned hook")
 		if t.init != nil {
 			steps := t.init(q)
 			for i := 0; i < steps; i++ {
-				q.Next()
+				c.Logf("%#v", q.Next())
+				if i != steps-1 || !t.prev {
+					c.Logf("done")
+					q.Done()
+				}
 			}
 		}
 		for _, ruc := range t.adds {
@@ -258,11 +265,14 @@ func (s *HookQueueSuite) TestHookQueue(c *C) {
 		}
 		for i, expect := range t.gets {
 			c.Logf("  change %d", i)
-			if i != 0 || !t.prev {
-				c.Assert(q.Ready(), Equals, true)
-				c.Assert(q.Next(), DeepEquals, expect)
-			}
-			c.Assert(q.Prev(), DeepEquals, expect)
+			c.Assert(q.Ready(), Equals, true)
+			c.Assert(q.Next(), DeepEquals, expect)
+			c.Assert(q.Ready(), Equals, true)
+			c.Assert(q.Next(), DeepEquals, expect)
+			q.Done()
+		}
+		if q.Ready() {
+			c.Fatalf("unexpected %#v", q.Next())
 		}
 		c.Assert(q.Ready(), Equals, false)
 		c.Assert(func() { q.Next() }, PanicMatches, "queue is empty")
