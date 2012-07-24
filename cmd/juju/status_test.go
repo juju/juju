@@ -58,7 +58,7 @@ var statusTests = []struct {
 		func(*state.State, *juju.Conn, *C) {},
 		map[string]interface{}{
 			"machines": make(map[int]interface{}),
-			"machines": make(map[string]interface{}),
+			"services": make(map[string]interface{}),
 		},
 	},
 	{
@@ -110,7 +110,13 @@ func (s *StatusSuite) testStatus(format string, marshal func(v interface{}) ([]b
 		c.Check(code, Equals, 0)
 		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), Equals, "")
 
-		buf, err := marshal(t.output)
+		var buf []byte
+		var err error
+		if format == "json" {
+			buf, err = marshal(Jsonify(t.output))
+		} else {
+			buf, err = marshal(t.output)
+		}
 		c.Assert(err, IsNil)
 		expected := make(map[string]interface{})
 		err = unmarshal(buf, &expected)

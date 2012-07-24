@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
@@ -32,12 +33,6 @@ func (c *StatusCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return cmd.CheckEmpty(f.Args())
 }
 
-type result struct {
-	Machines map[int]interface{} `yaml:"machines" json:"-"`
-	MachinesJSON map[string]interface{} `yaml:"-" json:"machines"`
-	Services map[string]interface{} `yaml:"services" json:"services"`
-}
-
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConn(c.EnvName)
 	if err != nil {
@@ -60,20 +55,20 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	r := result{
-		make(map[int]interface{}),
-		make(map[string]interface{}),
-	}
+	var result = make(map[string]interface{})
 
-	r.Machines, err = processMachines(machines, instances)
+	result["machines"], err = processMachines(machines, instances)
 	if err != nil {
 		return err
 	}
 
 	// TODO(dfc) process services and units
+	result["services"] = make(map[string]interface{})
 
-	if c.out.(
-	return c.out.Write(ctx, r)
+	if c.out.Name() == "json" {
+		return c.out.Write(ctx, jsonify(result))
+	}
+	return c.out.Write(ctx, result)
 }
 
 // fetchAllInstances returns a map[string]environs.Instance representing
@@ -154,4 +149,17 @@ func processMachine(machine *state.Machine, instance environs.Instance) (map[str
 
 	// TODO(dfc) unit-status
 	return r, nil
+}
+
+// jsonify converts the result struct into a structure which is compatibile with
+// encoding/json.
+func jsonify(r map[string]interface{}) map[string]map[string]interface{} {
+	m := map[string]map[string]interface{}{
+		"services": r["services"].(map[string]interface{}),
+		"machines": make(map[string]interface{}),
+	}
+	for k, v := range r["machines"].(map[int]interface{}) {
+		m["machines"][strconv.Itoa(k)] = v
+	}
+	return m
 }
