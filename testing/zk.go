@@ -61,13 +61,15 @@ func StartZkServer() *zookeeper.Server {
 // at the end of every test.
 type ZkSuite struct{}
 
-func (s *ZkSuite) SetUpSuite(c *C) {
+func (s ZkSuite) SetUpSuite(c *C) {
+	c.Logf("zksuite setupsuite")
 	if ZkAddr == "" {
 		panic("ZkSuite tests must be run with ZkTestPackage")
 	}
 }
 
-func (s *ZkSuite) TearDownTest(c *C) {
+func (s ZkSuite) TearDownTest(c *C) {
+	c.Logf("zksuite teardowntest")
 	ZkReset()
 }
 
