@@ -125,12 +125,18 @@ NewTip:
 func bzrRevisionId(branchDir string) (string, error) {
 	cmd := exec.Command("bzr", "revision-info")
 	cmd.Dir = branchDir
-	output, err := cmd.CombinedOutput()
+	stderr := &bytes.Buffer{}
+	cmd.Stderr = stderr
+	output, err := cmd.Output()
 	if err != nil {
+		output = append(output, '\n')
+		output = append(output, stderr.Bytes()...)
 		return "", outputErr(output, err)
 	}
 	pair := bytes.Fields(output)
 	if len(pair) != 2 {
+		output = append(output, '\n')
+		output = append(output, stderr.Bytes()...)
 		return "", fmt.Errorf(`invalid output from "bzr revision-info": %s`, output)
 	}
 	return string(pair[1]), nil
