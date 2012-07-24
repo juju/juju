@@ -41,9 +41,7 @@ type fakePlugin struct {
 }
 
 func (p *fakePlugin) install(dir string, content string) {
-	if p.oldEnv == "" {
-		p.oldEnv = os.Getenv("BZR_PLUGINS_AT")
-	}
+	p.oldEnv = os.Getenv("BZR_PLUGINS_AT")
 	err := ioutil.WriteFile(filepath.Join(dir, "__init__.py"), []byte(content), 0644)
 	if err != nil {
 		panic(err)
