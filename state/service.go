@@ -97,9 +97,6 @@ func (s *Service) addUnit(principalKey string) (unit *Unit, err error) {
 }
 
 // AddUnit adds a new principal unit to the service.
-// TODO cache (some of?) the charm metadata in the
-// service - it seems silly that we download the charm
-// each time we add a unit.
 func (s *Service) AddUnit() (*Unit, error) {
 	ch, err := s.Charm()
 	if err != nil {
