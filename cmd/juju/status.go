@@ -102,7 +102,6 @@ func fetchAllMachines(st *state.State) (map[int]*state.Machine, error) {
 }
 
 // processMachines gathers information about machines.
-// nb. due to the limitations of encoding/json, the key of the map is a string, not an int.
 func processMachines(machines map[int]*state.Machine, instances map[string]environs.Instance) (map[int]interface{}, error) {
 	r := make(map[int]interface{})
 	for _, m := range machines {
