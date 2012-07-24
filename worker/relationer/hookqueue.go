@@ -53,7 +53,9 @@ func NewHookQueue() *HookQueue {
 	return &HookQueue{info: map[string]*unitInfo{}}
 }
 
-// TODO better doc
+// Add updates the queue such that the stream of HookInfos returned from
+// next will reflect the state of the relation according to the supplied
+// RelationUnitsChange.
 func (q *HookQueue) Add(ruc state.RelationUnitsChange) {
 	// Enforce consistent addition order, mainly for testing purposes.
 	changedUnits := []string{}
@@ -69,15 +71,15 @@ func (q *HookQueue) Add(ruc state.RelationUnitsChange) {
 			// If not known, add to info and queue a join.
 			info = &unitInfo{unit: unit}
 			q.info[unit] = info
-			q.queue(unit, "joined")
+			q.add(unit, "joined")
 		} else if info.hook == "" {
 			// If known, and not already in queue, queue a change.
-			q.queue(unit, "changed")
+			q.add(unit, "changed")
 		} else if info.hook == "departed" {
 			if settings.Version == info.version {
 				q.remove(unit)
 			} else {
-				q.queue(unit, "changed")
+				q.add(unit, "changed")
 			}
 		} // Otherwise, it's already queued for either join or change; ignore.
 
@@ -88,9 +90,9 @@ func (q *HookQueue) Add(ruc state.RelationUnitsChange) {
 
 	for _, unit := range ruc.Departed {
 		if hook := q.info[unit].hook; hook == "" {
-			q.queue(unit, "departed")
+			q.add(unit, "departed")
 		} else if hook == "changed" {
-			q.queue(unit, "departed")
+			q.add(unit, "departed")
 		} else {
 			q.remove(unit)
 		}
@@ -161,9 +163,10 @@ func (q *HookQueue) Done() {
 	}
 }
 
-// queue places the named unit at the tail of the queue. It will
-// panic if the unit is not in q.info.
-func (q *HookQueue) queue(unit, hook string) {
+// add sets the next hook to be run for the named unit, and places it
+// at the tail of the queue if it is not already queued. It will panic
+// if the unit is not in q.info.
+func (q *HookQueue) add(unit, hook string) {
 	// If the unit is not in the queue, place it at the tail.
 	info := q.info[unit]
 	if info.hook == "" {
