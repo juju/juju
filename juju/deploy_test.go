@@ -18,7 +18,7 @@ type DeploySuite struct {
 	testing.ZkSuite
 	conn  *juju.Conn
 	state *state.State
-	repo *charm.LocalRepository
+	repo  *charm.LocalRepository
 }
 
 func (s *DeploySuite) SetUpTest(c *C) {
@@ -144,10 +144,10 @@ func (s *DeploySuite) TestNewService(c *C) {
 	ep, err := relations[0].Endpoint("testriak")
 	c.Assert(err, IsNil)
 	c.Assert(ep, Equals, state.RelationEndpoint{
-		ServiceName: "testriak",
-		Interface: "riak",
-		RelationName: "ring",
-		RelationRole: state.RolePeer,
+		ServiceName:   "testriak",
+		Interface:     "riak",
+		RelationName:  "ring",
+		RelationRole:  state.RolePeer,
 		RelationScope: state.ScopeGlobal,
 	})
 }
