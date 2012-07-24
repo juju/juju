@@ -107,7 +107,7 @@ func (dir *Dir) SetDiskRevision(revision int) error {
 }
 
 // BundleTo creates a charm file from the charm expanded in dir.
-// It is conventional to give charm bundle files a ".charm" suffix.
+// By convention a charm bundle should have a ".charm" suffix.
 func (dir *Dir) BundleTo(w io.Writer) (err error) {
 	zipw := zip.NewWriter(w)
 	defer zipw.Close()

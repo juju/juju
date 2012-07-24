@@ -58,10 +58,9 @@ environments:
 	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
 	err = conn.Bootstrap(false)
 	c.Assert(err, IsNil)
-	defer conn.Destroy()
 	st, err = conn.State()
-	c.Assert(err, IsNil)
-	c.Assert(st, NotNil)
+	c.Check(err, IsNil)
+	c.Check(st, NotNil)
 	err = conn.Destroy()
 	c.Assert(err, IsNil)
 
