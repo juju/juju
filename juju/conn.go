@@ -69,8 +69,33 @@ func (c *Conn) State() (*state.State, error) {
 			return nil, err
 		}
 		c.state = st
+		if err := c.updateSecrets(); err != nil {
+			return nil, err
+		}
+ 	}
+ 	return c.state, nil
+ }
+ 
+// updateSecrets updates the sensitive parts of the environment 
+// from the local configuration.
+func (c *Conn) updateSecrets() error {
+	environs, err := environs.ReadEnvirons("")
+	if err != nil {
+		return err
 	}
-	return c.state, nil
+	config, err := environs.Config(c.Environ.Name())
+	if err != nil {
+		return err
+	}
+	env, err := c.state.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	env.Update(config.AllAttrs())
+	if _, err := env.Write(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Close terminates the connection to the environment and releases
