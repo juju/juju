@@ -15,11 +15,13 @@ func Test(t *stdtesting.T) {
 	testing.ZkTestPackage(t)
 }
 
-type ConnSuite struct{}
+type ConnSuite struct {
+	testing.ZkSuite
+}
 
-var _ = Suite(ConnSuite{})
+var _ = Suite(&ConnSuite{})
 
-func (ConnSuite) TestNewConn(c *C) {
+func (*ConnSuite) TestNewConn(c *C) {
 	home := c.MkDir()
 	defer os.Setenv("HOME", os.Getenv("HOME"))
 	os.Setenv("HOME", home)
@@ -57,8 +59,8 @@ environments:
 	err = conn.Bootstrap(false)
 	c.Assert(err, IsNil)
 	st, err = conn.State()
-	c.Assert(err, IsNil)
-	c.Assert(st, NotNil)
+	c.Check(err, IsNil)
+	c.Check(st, NotNil)
 	err = conn.Destroy()
 	c.Assert(err, IsNil)
 
@@ -68,7 +70,7 @@ environments:
 	c.Assert(conn.Close(), IsNil)
 }
 
-func (ConnSuite) TestNewConnFromAttrs(c *C) {
+func (*ConnSuite) TestNewConnFromAttrs(c *C) {
 	attrs := map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
@@ -83,7 +85,7 @@ func (ConnSuite) TestNewConnFromAttrs(c *C) {
 	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
 }
 
-func (ConnSuite) TestValidRegexps(c *C) {
+func (*ConnSuite) TestValidRegexps(c *C) {
 	assertService := func(s string, expect bool) {
 		c.Assert(juju.ValidService.MatchString(s), Equals, expect)
 		c.Assert(juju.ValidUnit.MatchString(s+"/0"), Equals, expect)

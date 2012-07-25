@@ -118,7 +118,7 @@ func (t *ToolsSuite) TestUploadBadBuild(c *C) {
 	os.Setenv("GOPATH", gopath)
 
 	err = environs.PutTools(t.env.Storage())
-	c.Assert(err, ErrorMatches, `build failed: exit status 1; cannot load package:(.|\n)*`)
+	c.Assert(err, ErrorMatches, `build failed: exit status 1; can't load package:(.|\n)*`)
 }
 
 type toolsSpec struct {

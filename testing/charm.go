@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"fmt"
 	"go/build"
 	"launchpad.net/juju-core/charm"
 	"os"
@@ -58,6 +59,23 @@ func (r *Repo) ClonedDir(dst, name string) *charm.Dir {
 	ch, err := charm.ReadDir(r.ClonedDirPath(dst, name))
 	check(err)
 	return ch
+}
+
+// ClonedURL makes a copy of the charm directory named name
+// into the destination directory (creating it if necessary),
+// and returns a URL for it.
+func (r *Repo) ClonedURL(dst, name string) *charm.URL {
+	dst = filepath.Join(dst, "series")
+	if err := os.MkdirAll(dst, 0777); err != nil {
+		panic(fmt.Errorf("cannot make destination directory: %v", err))
+	}
+	clone(dst, r.DirPath(name))
+	return &charm.URL{
+		Schema:   "local",
+		Series:   "series",
+		Name:     name,
+		Revision: -1,
+	}
 }
 
 // BundlePath returns the path to a new charm bundle file created from the charm
