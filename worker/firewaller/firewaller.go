@@ -14,9 +14,9 @@ type Firewaller struct {
 	tomb            tomb.Tomb
 	machinesWatcher *state.MachinesWatcher
 	machineds       map[int]*machineData
-	unitsChange     chan *machineUnitsChange
+	unitsChange     chan *unitsChange
 	unitds          map[string]*unitData
-	portsChange     chan *unitPortsChange
+	portsChange     chan *portsChange
 	serviceds       map[string]*serviceData
 }
 
@@ -26,9 +26,9 @@ func NewFirewaller(st *state.State) (*Firewaller, error) {
 		st:              st,
 		machinesWatcher: st.WatchMachines(),
 		machineds:       make(map[int]*machineData),
-		unitsChange:     make(chan *machineUnitsChange),
+		unitsChange:     make(chan *unitsChange),
 		unitds:          make(map[string]*unitData),
-		portsChange:     make(chan *unitPortsChange),
+		portsChange:     make(chan *portsChange),
 		serviceds:       make(map[string]*serviceData),
 	}
 	go fw.loop()
@@ -111,8 +111,8 @@ func (fw *Firewaller) Stop() error {
 	return fw.tomb.Wait()
 }
 
-// machineUnitsChange contains the changed units for one specific machine. 
-type machineUnitsChange struct {
+// unitsChange contains the changed units for one specific machine. 
+type unitsChange struct {
 	machined *machineData
 	*state.MachineUnitsChange
 }
@@ -151,7 +151,7 @@ func (md *machineData) watchLoop() {
 				return
 			}
 			select {
-			case md.firewaller.unitsChange <- &machineUnitsChange{md, change}:
+			case md.firewaller.unitsChange <- &unitsChange{md, change}:
 			case <-md.tomb.Dying():
 				return
 			}
@@ -165,8 +165,8 @@ func (md *machineData) stopWatch() error {
 	return md.tomb.Wait()
 }
 
-// unitPortsChange contains the changed ports for one specific unit. 
-type unitPortsChange struct {
+// portsChange contains the changed ports for one specific unit. 
+type portsChange struct {
 	unitd *unitData
 	ports []state.Port
 }
@@ -207,7 +207,7 @@ func (ud *unitData) watchLoop() {
 				return
 			}
 			select {
-			case ud.firewaller.portsChange <- &unitPortsChange{ud, change}:
+			case ud.firewaller.portsChange <- &portsChange{ud, change}:
 			case <-ud.tomb.Dying():
 				return
 			}
