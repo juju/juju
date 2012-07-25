@@ -122,6 +122,9 @@ type Environ interface {
 	// by Bootstrap.
 	StateInfo() (*state.Info, error)
 
+	// Config returns the current configuration of this Environ.
+	Config() *config.Config
+
 	// SetConfig updates the Environs configuration.
 	// Calls to SetConfig do not affect the configuration of
 	// values previously obtained from Storage and PublicStorage.

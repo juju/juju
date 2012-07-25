@@ -108,6 +108,12 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
+func (e *environ) Config() *config.Config {
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+	return e.ecfgUnlocked.Config
+}
+
 func (e *environ) SetConfig(cfg *config.Config) error {
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
