@@ -184,10 +184,7 @@ func (s *Service) Relations() (relations []*Relation, err error) {
 	defer errorContextf(&err, "can't get relations for service %q", s.name)
 	sel := bson.D{
 		{"life", Alive},
-		{"$or", []bson.D{
-			bson.D{{"_id.p0.servicename", s.name}},
-			bson.D{{"_id.p1.servicename", s.name}},
-		}},
+		{"endpoints.servicename", s.name},
 	}
 	docs := []relationDoc{}
 	err = s.st.relations.Find(sel).All(&docs)

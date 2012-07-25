@@ -191,16 +191,21 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (err error) {
 		}
 	}
 
-	id, err := s.sequence("relation")
+	key, err := s.sequence("relation")
 	if err != nil {
 		return err
 	}
-	doc := relationDoc{
-		Life:      Alive,
-		Id:        id,
-		Endpoints: *newEndpointPair(endpoints...),
+	sel := bson.D{
+		{"_id", describeEndpoints(endpoints)},
+		{"life", Dying},
 	}
-	err = s.relations.Insert(doc)
+	change := bson.D{{"$set", bson.D{
+		{"endpoints", endpoints},
+		{"key", key},
+		{"life", Alive},
+	}}}
+	// TODO use Insert instead of Upsert after implementing full lifecycle.
+	_, err = s.relations.Upsert(sel, change)
 	if err != nil {
 		return err
 	}
@@ -211,8 +216,8 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (err error) {
 func (s *State) RemoveRelation(endpoints ...RelationEndpoint) (err error) {
 	defer errorContextf(&err, "can't remove relation %q", describeEndpoints(endpoints))
 	sel := bson.D{
+		{"_id", describeEndpoints(endpoints)},
 		{"life", Alive},
-		{"_id", *newEndpointPair(endpoints...)},
 	}
 	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
 	err = s.relations.Update(sel, change)
