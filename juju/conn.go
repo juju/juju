@@ -33,6 +33,16 @@ func NewConn(environName string) (*Conn, error) {
 	return &Conn{Environ: environ}, nil
 }
 
+// NewConnFromAttrs returns a Conn pointing at the environment
+// created with the given attributes, as created with environs.NewFromAttrs.
+func NewConnFromAttrs(attrs map[string]interface{}) (*Conn, error) {
+	environ, err := environs.NewFromAttrs(attrs)
+	if err != nil {
+		return nil, err
+	}
+	return &Conn{Environ: environ}, nil
+}
+
 // Bootstrap initializes the Conn's environment and makes it ready to deploy
 // services.
 func (c *Conn) Bootstrap(uploadTools bool) error {

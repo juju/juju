@@ -67,10 +67,10 @@ type openPortsNode struct {
 
 // Unit represents the state of a service unit.
 type Unit struct {
-	st          *State
-	key         string
-	serviceName string
-	isPrincipal bool
+	st           *State
+	key          string
+	serviceName  string
+	principalKey string
 }
 
 // ServiceName returns the service name.
@@ -115,10 +115,10 @@ func (st *State) unitFromKey(t *topology, unitKey string) (*Unit, error) {
 		return nil, err
 	}
 	return &Unit{
-		st:          st,
-		key:         unitKey,
-		serviceName: tsvc.Name,
-		isPrincipal: tunit.isPrincipal(),
+		st:           st,
+		key:          unitKey,
+		serviceName:  tsvc.Name,
+		principalKey: tunit.Principal,
 	}, nil
 }
 
@@ -203,7 +203,7 @@ func (u *Unit) SetCharmURL(url *charm.URL) (err error) {
 // IsPrincipal returns whether the unit is deployed in its own container,
 // and can therefore have subordinate services deployed alongside it.
 func (u *Unit) IsPrincipal() bool {
-	return u.isPrincipal
+	return u.principalKey == ""
 }
 
 // AssignedMachineId returns the id of the assigned machine.

@@ -93,12 +93,7 @@ func (s *Service) addUnit(principalKey string) (unit *Unit, err error) {
 	if err := retryTopologyChange(s.st.zk, addUnit); err != nil {
 		return nil, err
 	}
-	return &Unit{
-		st:          s.st,
-		key:         key,
-		serviceName: s.name,
-		isPrincipal: principalKey == "",
-	}, nil
+	return s.newUnit(key, principalKey), nil
 }
 
 // AddUnit adds a new principal unit to the service.
@@ -175,12 +170,7 @@ func (s *Service) Unit(name string) (unit *Unit, err error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Unit{
-		st:          s.st,
-		key:         key,
-		serviceName: s.name,
-		isPrincipal: tunit.isPrincipal(),
-	}, nil
+	return s.newUnit(key, tunit.Principal), nil
 }
 
 // AllUnits returns all units of the service.
@@ -204,12 +194,7 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("inconsistent topology: %v", err)
 		}
-		units = append(units, &Unit{
-			st:          s.st,
-			key:         key,
-			serviceName: s.name,
-			isPrincipal: tunit.isPrincipal(),
-		})
+		units = append(units, s.newUnit(key, tunit.Principal))
 	}
 	return units, nil
 }
@@ -223,6 +208,9 @@ func (s *Service) WatchUnits() *ServiceUnitsWatcher {
 // relationsFromTopology returns a Relation for every relation the service
 // is in, according to the supplied topology.
 func (s *Service) relationsFromTopology(t *topology) ([]*Relation, error) {
+	if !t.HasService(s.key) {
+		return nil, stateChanged
+	}
 	trs, err := t.RelationsForService(s.key)
 	if err != nil {
 		return nil, err
@@ -320,6 +308,16 @@ func (s *Service) WatchConfig() *ConfigWatcher {
 // String returns the service name.
 func (s *Service) String() string {
 	return s.Name()
+}
+
+// newUnit creates a *Unit.
+func (s *Service) newUnit(key, principalKey string) *Unit {
+	return &Unit{
+		st:           s.st,
+		key:          key,
+		serviceName:  s.name,
+		principalKey: principalKey,
+	}
 }
 
 // zkPath returns the ZooKeeper base path for the service.
