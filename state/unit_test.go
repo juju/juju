@@ -111,7 +111,7 @@ func (s *UnitSuite) TestGetSetClearUnitUpgrade(c *C) {
 
 	// Can't be set multipe with different force flag.
 	err = s.unit.SetNeedsUpgrade(false)
-	c.Assert(err, ErrorMatches, `can't inform unit "wordpress/0" about upgrade: upgrade already enabled`)
+	c.Assert(err, ErrorMatches, `cannot inform unit "wordpress/0" about upgrade: upgrade already enabled`)
 }
 
 func (s *UnitSuite) TestGetSetClearResolved(c *C) {
@@ -122,7 +122,7 @@ func (s *UnitSuite) TestGetSetClearResolved(c *C) {
 	err = s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, IsNil)
 	err = s.unit.SetResolved(state.ResolvedNoHooks)
-	c.Assert(err, ErrorMatches, `can't set resolved mode for unit "wordpress/0": flag already set`)
+	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": flag already set`)
 	retry, err := s.unit.Resolved()
 	c.Assert(err, IsNil)
 	c.Assert(retry, Equals, state.ResolvedNoHooks)
@@ -136,7 +136,7 @@ func (s *UnitSuite) TestGetSetClearResolved(c *C) {
 	c.Assert(err, IsNil)
 
 	err = s.unit.SetResolved(state.ResolvedMode(999))
-	c.Assert(err, ErrorMatches, `can't set resolved mode for unit "wordpress/0": invalid error resolution mode: 999`)
+	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": invalid error resolution mode: 999`)
 }
 
 func (s *UnitSuite) TestGetOpenPorts(c *C) {
@@ -264,7 +264,7 @@ func (s *UnitSuite) TestUnitWatchNeedsUpgrade(c *C) {
 			c.Assert(ok, Equals, true)
 			c.Assert(got, DeepEquals, test.want)
 		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("didn't get change: %#v", test.want)
+			c.Fatalf("did not get change: %#v", test.want)
 		}
 	}
 
@@ -302,7 +302,7 @@ func (s *UnitSuite) TestUnitWatchResolved(c *C) {
 			c.Assert(ok, Equals, true)
 			c.Assert(got, Equals, test.want)
 		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("didn't get change: %#v", test.want)
+			c.Fatalf("did not get change: %#v", test.want)
 		}
 	}
 
@@ -340,7 +340,7 @@ func (s *UnitSuite) TestUnitWatchPorts(c *C) {
 			c.Assert(ok, Equals, true)
 			c.Assert(got, DeepEquals, test.want)
 		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("didn't get change: %#v", test.want)
+			c.Fatalf("did not get change: %#v", test.want)
 		}
 	}
 

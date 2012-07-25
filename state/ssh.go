@@ -28,7 +28,7 @@ func sshDial(addr, keyFile string) (fwd *sshForwarder, con *zookeeper.Conn, err 
 	if err != nil {
 		return nil, nil, err
 	}
-	defer errorContextf(&err, "can't dial ZooKeeper via SSH at address %s", addr)
+	defer errorContextf(&err, "cannot dial ZooKeeper via SSH at address %s", addr)
 	zk, session, err := zookeeper.Dial(fwd.localAddr, zkTimeout)
 	if err != nil {
 		fwd.stop()
@@ -60,7 +60,7 @@ type sshForwarder struct {
 // name of the local proxy address. If keyFile is non-empty,
 // it should name a file containing a private identity key.
 func newSSHForwarder(remoteAddr, keyFile string) (fwd *sshForwarder, err error) {
-	defer errorContextf(&err, "can't start SSH proxy for address %s", remoteAddr)
+	defer errorContextf(&err, "cannot start SSH proxy for address %s", remoteAddr)
 	remoteHost, remotePort, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
 		return nil, err
@@ -165,7 +165,7 @@ func (fwd *sshForwarder) run(proc *sshProc) {
 // start starts an ssh client to forward connections
 // from a local port to the remote port.
 func (fwd *sshForwarder) start() (p *sshProc, err error) {
-	defer errorContextf(&err, "can't start SSH client")
+	defer errorContextf(&err, "cannot start SSH client")
 	args := []string{
 		"-T",
 		"-N",

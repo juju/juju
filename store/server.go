@@ -101,7 +101,7 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 		_, err = w.Write(data)
 	}
 	if err != nil {
-		log.Printf("can't write content: %v", err)
+		log.Printf("cannot write content: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -123,7 +123,7 @@ func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		log.Printf("can't open charm %q: %v", curl, err)
+		log.Printf("cannot open charm %q: %v", curl, err)
 		return
 	}
 	if statsEnabled(r) {
@@ -168,7 +168,7 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	sum, err := s.store.SumCounter(key, prefix)
 	if err != nil {
-		log.Printf("can't sum counter: %v", err)
+		log.Printf("cannot sum counter: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -177,7 +177,7 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	_, err = w.Write(data)
 	if err != nil {
-		log.Printf("can't write content: %v", err)
+		log.Printf("cannot write content: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }

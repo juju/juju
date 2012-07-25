@@ -52,7 +52,7 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 
 	// Check that principal units cannot be added to principal units.
 	_, err = s.service.AddUnitSubordinateTo(unitZero)
-	c.Assert(err, ErrorMatches, `can't add unit of principal service "mysql" as a subordinate of "mysql/0"`)
+	c.Assert(err, ErrorMatches, `cannot add unit of principal service "mysql" as a subordinate of "mysql/0"`)
 
 	// Assign the principal unit to a machine.
 	m, err := s.State.AddMachine()
@@ -99,11 +99,11 @@ func (s *ServiceSuite) TestReadUnit(c *C) {
 	// Check that retrieving a non-existent or an invalidly
 	// named unit fail nicely.
 	unit, err = s.service.Unit("mysql")
-	c.Assert(err, ErrorMatches, `can't get unit "mysql" from service "mysql":.*`)
+	c.Assert(err, ErrorMatches, `cannot get unit "mysql" from service "mysql":.*`)
 	unit, err = s.service.Unit("mysql/0/0")
-	c.Assert(err, ErrorMatches, `can't get unit "mysql/0/0" from service "mysql": .*`)
+	c.Assert(err, ErrorMatches, `cannot get unit "mysql/0/0" from service "mysql": .*`)
 	unit, err = s.service.Unit("pressword/0")
-	c.Assert(err, ErrorMatches, `can't get unit "pressword/0" from service "mysql": .*`)
+	c.Assert(err, ErrorMatches, `cannot get unit "pressword/0" from service "mysql": .*`)
 
 	// Add another service to check units are not misattributed.
 	mysql, err := s.State.AddService("wordpress", s.charm)
@@ -113,7 +113,7 @@ func (s *ServiceSuite) TestReadUnit(c *C) {
 
 	// BUG: use error strings from state.
 	unit, err = s.service.Unit("wordpress/0")
-	c.Assert(err, ErrorMatches, `can't get unit "wordpress/0" from service "mysql": .*`)
+	c.Assert(err, ErrorMatches, `cannot get unit "wordpress/0" from service "mysql": .*`)
 
 	// Check that retrieving all units works.
 	units, err := s.service.AllUnits()
@@ -144,5 +144,5 @@ func (s *ServiceSuite) TestRemoveUnit(c *C) {
 	// TODO improve error message.
 	// BUG: use error strings from state
 	err = s.service.RemoveUnit(unit)
-	c.Assert(err, ErrorMatches, `can't remove unit "mysql/0": .*`)
+	c.Assert(err, ErrorMatches, `cannot remove unit "mysql/0": .*`)
 }

@@ -57,7 +57,7 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 func (m *Machine) InstanceId() (string, error) {
 	config, err := readConfigNode(m.st.zk, m.zkPath())
 	if err != nil {
-		return "", fmt.Errorf("can't get instance id of machine %s: %v", m, err)
+		return "", fmt.Errorf("cannot get instance id of machine %s: %v", m, err)
 	}
 	v, ok := config.Get(providerMachineId)
 	if !ok {
@@ -75,7 +75,7 @@ func (m *Machine) InstanceId() (string, error) {
 // Units returns all the units that have been assigned
 // to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
-	defer errorContextf(&err, "can't get all assigned units of machine %s", m)
+	defer errorContextf(&err, "cannot get all assigned units of machine %s", m)
 	topology, err := readTopology(m.st.zk)
 	if err != nil {
 		return nil, err
@@ -97,7 +97,7 @@ func (m *Machine) WatchUnits() *MachineUnitsWatcher {
 
 // SetInstanceId sets the provider specific machine id for this machine.
 func (m *Machine) SetInstanceId(id string) (err error) {
-	defer errorContextf(&err, "can't set instance id of machine %s to %q", m, id)
+	defer errorContextf(&err, "cannot set instance id of machine %s to %q", m, id)
 	config, err := readConfigNode(m.st.zk, m.zkPath())
 	if err != nil {
 		return err

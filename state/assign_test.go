@@ -40,7 +40,7 @@ func (s *AssignSuite) TestUnassignUnitFromMachineWithoutBeingAssigned(c *C) {
 
 	// Check that the unit has no machine assigned.
 	_, err = s.unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `can't get machine id of unit "wordpress/0": unit not assigned to machine`)
+	c.Assert(err, ErrorMatches, `cannot get machine id of unit "wordpress/0": unit not assigned to machine`)
 }
 
 func (s *AssignSuite) TestAssignUnitToMachineAgainFails(c *C) {
@@ -61,7 +61,7 @@ func (s *AssignSuite) TestAssignUnitToMachineAgainFails(c *C) {
 
 	// Assigning the unit to a different machine should fail.
 	err = s.unit.AssignToMachine(machineTwo)
-	c.Assert(err, ErrorMatches, `can't assign unit "wordpress/0" to machine 2: unit already assigned to machine 1`)
+	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to machine 2: unit already assigned to machine 1`)
 
 	machineId, err := s.unit.AssignedMachineId()
 	c.Assert(err, IsNil)
@@ -75,17 +75,17 @@ func (s *AssignSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 	c.Assert(err, IsNil)
 
 	err = s.unit.UnassignFromMachine()
-	c.Assert(err, ErrorMatches, `can't unassign unit "wordpress/0" from machine: environment state has changed`)
+	c.Assert(err, ErrorMatches, `cannot unassign unit "wordpress/0" from machine: environment state has changed`)
 	_, err = s.unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `can't get machine id of unit "wordpress/0": environment state has changed`)
+	c.Assert(err, ErrorMatches, `cannot get machine id of unit "wordpress/0": environment state has changed`)
 
 	err = s.State.RemoveService(s.service)
 	c.Assert(err, IsNil)
 
 	err = s.unit.UnassignFromMachine()
-	c.Assert(err, ErrorMatches, `can't unassign unit "wordpress/0" from machine: environment state has changed`)
+	c.Assert(err, ErrorMatches, `cannot unassign unit "wordpress/0" from machine: environment state has changed`)
 	_, err = s.unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `can't get machine id of unit "wordpress/0": environment state has changed`)
+	c.Assert(err, ErrorMatches, `cannot get machine id of unit "wordpress/0": environment state has changed`)
 }
 
 func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
@@ -114,7 +114,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachineWithChangingService(c *C) {
 	c.Assert(err, IsNil)
 
 	_, err = s.unit.AssignToUnusedMachine()
-	c.Assert(err, ErrorMatches, `can't assign unit "wordpress/0" to unused machine: environment state has changed`)
+	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to unused machine: environment state has changed`)
 }
 
 func (s *AssignSuite) TestAssignUnitToUnusedMachineWithChangingUnit(c *C) {
@@ -124,7 +124,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachineWithChangingUnit(c *C) {
 	c.Assert(err, IsNil)
 
 	_, err = s.unit.AssignToUnusedMachine()
-	c.Assert(err, ErrorMatches, `can't assign unit "wordpress/0" to unused machine: environment state has changed`)
+	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to unused machine: environment state has changed`)
 }
 
 func (s *AssignSuite) TestAssignUnitToUnusedMachineOnlyZero(c *C) {
@@ -175,9 +175,9 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
 	err = s.unit.UnassignFromMachine()
 	c.Assert(err, IsNil)
 	_, err = log1Unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `can't get machine id of unit "logging1/0": unit not assigned to machine`)
+	c.Assert(err, ErrorMatches, `cannot get machine id of unit "logging1/0": unit not assigned to machine`)
 	_, err = log2Unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `can't get machine id of unit "logging2/0": unit not assigned to machine`)
+	c.Assert(err, ErrorMatches, `cannot get machine id of unit "logging2/0": unit not assigned to machine`)
 }
 
 func (s *AssignSuite) TestAssignUnit(c *C) {
