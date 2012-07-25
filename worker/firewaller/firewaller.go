@@ -64,13 +64,15 @@ func (fw *Firewaller) loop() {
 				log.Debugf("firewaller: started watching machine %d", machine.Id())
 			}
 		case change := <-fw.unitsChange:
+			unitds := []*unitData{}
 			for _, unit := range change.Removed {
 				unitd, ok := fw.unitds[unit.Name()]
 				if !ok {
 					panic("trying to remove unit that was not added")
 				}
 				delete(fw.unitds, unit.Name())
-				// TODO(mue) Close ports.
+				delete(unitd.machined.unitds, unit.Name())
+				unitds = append(unitds, unitd)
 				if err := unitd.stopWatch(); err != nil {
 					log.Printf("unit watcher %q returned error when stopping: %v", unit.Name(), err)
 				}
@@ -79,6 +81,15 @@ func (fw *Firewaller) loop() {
 			for _, unit := range change.Added {
 				unitd := newUnitData(unit, fw)
 				fw.unitds[unit.Name()] = unitd
+				machineId, err := unit.AssignedMachineId()
+				if err != nil {
+					fw.tomb.Killf("machin id of unit state %q cannot be retrieved: %v", unit, err)
+				}
+				if fw.machineds[machineId] == nil {
+					panic("machine of added unit is not watched")
+				}
+				unitd.machined = fw.machineds[machineId]
+				unitd.machined.unitds[unit.Name()] = unitd
 				if fw.serviceds[unit.ServiceName()] == nil {
 					service, err := fw.st.Service(unit.ServiceName())
 					if err != nil {
@@ -87,32 +98,57 @@ func (fw *Firewaller) loop() {
 					}
 					fw.serviceds[unit.ServiceName()] = newServiceData(service, fw)
 				}
+				unitd.serviced = fw.serviceds[unit.ServiceName()]
+				unitds = append(unitds, unitd)
 				log.Debugf("firewaller: started watching unit %s", unit.Name())
 			}
-		case change := <-fw.portsChange:
-			machineId, err := change.unitd.unit.AssignedMachineId()
-			if err != nil {
-				fw.tomb.Killf("cannot retrieve assigned machine id of unit %q: %v", change.unitd.unit, err)
+			if err := fw.openClosePorts(unitds); err != nil {
+				fw.tomb.Killf("ports cannot be opened or closed: %v", err)
 				return
 			}
-			machined, ok := fw.machineds[machineId]
-			if !ok {
-				panic("machine for unit ports change is not watched")
-			}
-			if err = fw.openClosePorts(machined); err != nil {
-				fw.tomb.Killf("cannot open and close ports on machine %d: %v", machineId, err)
+		case change := <-fw.portsChange:
+			change.unitd.ports = change.ports
+			if err := fw.openClosePorts([]*unitData{change.unitd}); err != nil {
+				fw.tomb.Killf("ports cannot be opened or closed: %v", err)
 				return
 			}
 		}
 	}
 }
 
-// openClosePorts checks for needed opening and closing of ports and performs it. 
-func (fw *Firewaller) openClosePorts(machined *machineData) (err error) {
-	toOpen, toClose, err := machined.checkPorts()
-	if err != nil {
-		return err
+// openClosePorts opens and closes ports for the passed unit data.
+func (fw *Firewaller) openClosePorts(unitds []*unitData) error {
+	machineds := map[int]*machineData{}
+	for _, unitd := range unitds {
+		if unitd.serviced.exposed {
+			machineds[unitd.machined.machine.Id()] = unitd.machined
+		}
 	}
+	for _, machined := range machineds {
+		if err := fw.openClosePortsMachine(machined); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// openClosePortsMachine opens and closes ports for the passed machine.
+func (fw *Firewaller) openClosePortsMachine(machined *machineData) error {
+	// Gather ports to open and close.
+	ports := map[state.Port]bool{}
+	for _, unitd := range machined.unitds {
+		for _, port := range unitd.ports {
+			ports[port] = true
+		}
+	}
+	want := []state.Port{}
+	for port := range ports {
+		want = append(want, port)
+	}
+	toOpen := diff(want, machined.ports)
+	toClose := diff(machined.ports, want)
+	machined.ports = want
+	// Open and close the ports.
 	instanceId, err := machined.machine.InstanceId()
 	if err != nil {
 		return err
@@ -176,6 +212,7 @@ type machineData struct {
 	firewaller *Firewaller
 	machine    *state.Machine
 	watcher    *state.MachineUnitsWatcher
+	unitds     map[string]*unitData
 	ports      []state.Port
 }
 
@@ -185,41 +222,11 @@ func newMachineData(machine *state.Machine, fw *Firewaller) *machineData {
 		firewaller: fw,
 		machine:    machine,
 		watcher:    machine.WatchUnits(),
-		ports:      []state.Port{},
+		unitds:     make(map[string]*unitData),
+		ports:      make([]state.Port, 0),
 	}
 	go md.watchLoop()
 	return md
-}
-
-// checkPorts retrieves the ports that have to be open and compares it
-// to the current open ports.
-func (md *machineData) checkPorts() (toOpen []state.Port, toClose []state.Port, err error) {
-	want := []state.Port{}
-	units, err := md.machine.Units()
-	if err != nil {
-		return nil, nil, err
-	}
-	for _, unit := range units {
-		service, err := md.firewaller.st.Service(unit.ServiceName())
-		if err != nil {
-			return nil, nil, err
-		}
-		isExposed, err := service.IsExposed()
-		if err != nil {
-			return nil, nil, err
-		}
-		if isExposed {
-			ports, err := unit.OpenPorts()
-			if err != nil {
-				return nil, nil, err
-			}
-			want = append(want, ports...)
-		}
-	}
-	toOpen = diff(want, md.ports)
-	toClose = diff(md.ports, want)
-	md.ports = want
-	return
 }
 
 // watchLoop is the backend watching for machine units changes.
@@ -253,6 +260,7 @@ func (md *machineData) stopWatch() error {
 // portsChange contains the changed ports for one specific unit. 
 type portsChange struct {
 	unitd *unitData
+	ports []state.Port
 }
 
 // unitData watches the port changes of a unit and passes them
@@ -262,7 +270,9 @@ type unitData struct {
 	firewaller *Firewaller
 	unit       *state.Unit
 	watcher    *state.PortsWatcher
-	service    *serviceData
+	serviced   *serviceData
+	machined   *machineData
+	ports      []state.Port
 }
 
 // newMachineData starts the watching of the passed unit. 
@@ -271,6 +281,7 @@ func newUnitData(unit *state.Unit, fw *Firewaller) *unitData {
 		firewaller: fw,
 		unit:       unit,
 		watcher:    unit.WatchPorts(),
+		ports:      make([]state.Port, 0),
 	}
 	go ud.watchLoop()
 	return ud
@@ -284,13 +295,13 @@ func (ud *unitData) watchLoop() {
 		select {
 		case <-ud.tomb.Dying():
 			return
-		case _, ok := <-ud.watcher.Changes():
+		case change, ok := <-ud.watcher.Changes():
 			if !ok {
 				ud.firewaller.tomb.Kill(watcher.MustErr(ud.watcher))
 				return
 			}
 			select {
-			case ud.firewaller.portsChange <- &portsChange{ud}:
+			case ud.firewaller.portsChange <- &portsChange{ud, change}:
 			case <-ud.tomb.Dying():
 				return
 			}
@@ -310,6 +321,8 @@ type serviceData struct {
 	tomb       tomb.Tomb
 	firewaller *Firewaller
 	service    *state.Service
+	exposed    bool
+	unitds     map[string]*unitData
 }
 
 // newServiceData starts the watching of the passed service. 
@@ -317,6 +330,13 @@ func newServiceData(service *state.Service, fw *Firewaller) *serviceData {
 	sd := &serviceData{
 		firewaller: fw,
 		service:    service,
+		unitds:     make(map[string]*unitData),
+	}
+	var err error
+	sd.exposed, err = service.IsExposed()
+	if err != nil {
+		sd.firewaller.tomb.Killf("cannot retrieve initial exposed flag of service %q: %v", service, err)
+		return sd
 	}
 	// TODO(mue) Start backend watch loop.
 	return sd
