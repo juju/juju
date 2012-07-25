@@ -103,7 +103,7 @@ var statusTests = []struct {
 		},
 	},
 	{
-		"simulate the PA starting an instance in response to the state change",
+		"add two services and expose one",
 		func(st *state.State, conn *juju.Conn, c *C) {
 			ch := coretesting.Charms.Dir("dummy")
 			curl := charm.MustParseURL(
@@ -129,7 +129,8 @@ var statusTests = []struct {
 			},
 			"services": map[string]interface{}{
 				"dummy-service": map[string]interface{}{
-					"charm": "dummy",
+					"charm":   "dummy",
+					"exposed": false,
 				},
 				"exposed-service": map[string]interface{}{
 					"charm":   "dummy",
