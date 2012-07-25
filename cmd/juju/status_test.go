@@ -57,7 +57,7 @@ var statusTests = []struct {
 		"empty state",
 		func(*state.State, *juju.Conn, *C) {},
 		map[string]interface{}{
-			"machines": make(map[string]interface{}),
+			"machines": make(map[int]interface{}),
 			"services": make(map[string]interface{}),
 		},
 	},
@@ -69,9 +69,8 @@ var statusTests = []struct {
 			c.Assert(m.Id(), Equals, 0)
 		},
 		map[string]interface{}{
-			// note: the key of the machines map is a string
-			"machines": map[string]interface{}{
-				"0": map[string]interface{}{
+			"machines": map[int]interface{}{
+				0: map[string]interface{}{
 					"instance-id": "pending",
 				},
 			},
@@ -89,9 +88,8 @@ var statusTests = []struct {
 			c.Assert(err, IsNil)
 		},
 		map[string]interface{}{
-			// note: the key of the machines map is a string
-			"machines": map[string]interface{}{
-				"0": map[string]interface{}{
+			"machines": map[int]interface{}{
+				0: map[string]interface{}{
 					"dns-name":    "palermo-0.dns",
 					"instance-id": "palermo-0",
 				},
@@ -110,7 +108,13 @@ func (s *StatusSuite) testStatus(format string, marshal func(v interface{}) ([]b
 		c.Check(code, Equals, 0)
 		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), Equals, "")
 
-		buf, err := marshal(t.output)
+		var buf []byte
+		var err error
+		if format == "json" {
+			buf, err = marshal(Jsonify(t.output))
+		} else {
+			buf, err = marshal(t.output)
+		}
 		c.Assert(err, IsNil)
 		expected := make(map[string]interface{})
 		err = unmarshal(buf, &expected)

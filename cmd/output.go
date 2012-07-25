@@ -115,3 +115,7 @@ func (c *Output) Write(ctx *Context, value interface{}) (err error) {
 	}
 	return
 }
+
+func (c *Output) Name() string {
+	return c.formatter.name
+}
