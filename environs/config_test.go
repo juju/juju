@@ -56,14 +56,12 @@ environments:
 environments:
     only:
         type: dummy
-        secret: pork
 `, "only", `.*zookeeper: expected bool, got nothing`,
 	}, {`
 environments:
     only:
         type: dummy
         zookeeper: false
-        secret: pork
         unknown-value: causes-an-error
 `, "only", `.*unknown-value: expected nothing, got "causes-an-error"`,
 	},
@@ -89,7 +87,6 @@ environments:
     only:
         type: dummy
         zookeeper: false
-        secret: pork
 `, func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, IsNil)
@@ -101,7 +98,6 @@ environments:
     valid:
         type: dummy
         zookeeper: false
-        secret: pork
     invalid:
         type: crazy
 `, func(c *C, es *environs.Environs) {
@@ -116,11 +112,9 @@ environments:
     one:
         type: dummy
         zookeeper: false
-        secret: port
     two:
         type: dummy
         zookeeper: false
-        secret: bacon
 `, func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, ErrorMatches, `no default environment found`)
@@ -148,7 +142,6 @@ environments:
     only:
         type: dummy
         zookeeper: false
-        secret: pork
         authorized-keys: i-am-a-key
 `
 	err = ioutil.WriteFile(path, []byte(env), 0666)

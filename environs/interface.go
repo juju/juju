@@ -172,5 +172,5 @@ type Environ interface {
 
 	// SecretAttrs filters the supplied configuation returning only values
 	// which are considered sensitive.
-	SecretAttrs(*config.Config) map[string]interface{}
+	SecretAttrs(cfg *config.Config) map[string]interface{}
 }
