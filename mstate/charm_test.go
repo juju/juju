@@ -45,5 +45,5 @@ func (s *CharmSuite) TestGetNonExistentCharm(c *C) {
 
 	curl := charm.MustParseURL("local:anotherseries/dummy-1")
 	_, err := s.State.Charm(curl)
-	c.Assert(err, ErrorMatches, `can't get charm "local:anotherseries/dummy-1": .*`)
+	c.Assert(err, ErrorMatches, `cannot get charm "local:anotherseries/dummy-1": .*`)
 }

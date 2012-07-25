@@ -114,8 +114,8 @@ var fields = schema.Fields{
 }
 
 var defaults = schema.Defaults{
-	"default-series": CurrentSeries,
-	"authorized-keys": "",
+	"default-series":       CurrentSeries,
+	"authorized-keys":      "",
 	"authorized-keys-path": "",
 }
 

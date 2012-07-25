@@ -33,11 +33,6 @@ func (c *StatusCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return cmd.CheckEmpty(f.Args())
 }
 
-type result struct {
-	Machines map[string]interface{} `yaml:"machines" json:"machines"`
-	Services map[string]interface{} `yaml:"services" json:"services"`
-}
-
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConn(c.EnvName)
 	if err != nil {
@@ -60,19 +55,27 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	r := result{
-		make(map[string]interface{}),
-		make(map[string]interface{}),
-	}
-
-	r.Machines, err = processMachines(machines, instances)
+	services, err := fetchAllServices(state)
 	if err != nil {
 		return err
 	}
 
-	// TODO(dfc) process services and units
+	result := make(map[string]interface{})
 
-	return c.out.Write(ctx, r)
+	result["machines"], err = processMachines(machines, instances)
+	if err != nil {
+		return err
+	}
+
+	result["services"], err = processServices(services)
+	if err != nil {
+		return err
+	}
+
+	if c.out.Name() == "json" {
+		return c.out.Write(ctx, jsonify(result))
+	}
+	return c.out.Write(ctx, result)
 }
 
 // fetchAllInstances returns a map[string]environs.Instance representing
@@ -90,7 +93,7 @@ func fetchAllInstances(env environs.Environ) (map[string]environs.Instance, erro
 }
 
 // fetchAllMachines returns a map[int]*state.Machine representing
-// a mapping of machine ids to their respective machine.
+// a mapping of machine ids to machines.
 func fetchAllMachines(st *state.State) (map[int]*state.Machine, error) {
 	v := make(map[int]*state.Machine)
 	machines, err := st.AllMachines()
@@ -103,15 +106,27 @@ func fetchAllMachines(st *state.State) (map[int]*state.Machine, error) {
 	return v, nil
 }
 
+// fetchAllServices returns a map representing a mapping of service 
+// names to services.
+func fetchAllServices(st *state.State) (map[string]*state.Service, error) {
+	v := make(map[string]*state.Service)
+	services, err := st.AllServices()
+	if err != nil {
+		return nil, err
+	}
+	for _, s := range services {
+		v[s.Name()] = s
+	}
+	return v, nil
+}
+
 // processMachines gathers information about machines.
-// nb. due to the limitations of encoding/json, the key of the map is a string, not an int.
-func processMachines(machines map[int]*state.Machine, instances map[string]environs.Instance) (map[string]interface{}, error) {
-	r := make(map[string]interface{})
+func processMachines(machines map[int]*state.Machine, instances map[string]environs.Instance) (map[int]interface{}, error) {
+	r := make(map[int]interface{})
 	for _, m := range machines {
-		machineid := strconv.Itoa(m.Id())
 		instid, err := m.InstanceId()
 		if err, ok := err.(*state.NoInstanceIdError); ok {
-			r[machineid] = map[string]interface{}{
+			r[m.Id()] = map[string]interface{}{
 				"instance-id": "pending",
 			}
 		} else if err != nil {
@@ -121,13 +136,13 @@ func processMachines(machines map[int]*state.Machine, instances map[string]envir
 			if !ok {
 				// Double plus ungood. There is an instance id recorded for this machine in the state,
 				// yet the environ cannot find that id. 
-				return nil, fmt.Errorf("instance %s for machine %s not found", instid, machineid)
+				return nil, fmt.Errorf("instance %s for machine %d not found", instid, m.Id())
 			}
-			m, err := processMachine(m, instance)
+			machine, err := processMachine(m, instance)
 			if err != nil {
 				return nil, err
 			}
-			r[machineid] = m
+			r[m.Id()] = machine
 		}
 	}
 	return r, nil
@@ -154,4 +169,45 @@ func processMachine(machine *state.Machine, instance environs.Instance) (map[str
 
 	// TODO(dfc) unit-status
 	return r, nil
+}
+
+// processServices gathers information about services.
+func processServices(services map[string]*state.Service) (map[string]interface{}, error) {
+	r := make(map[string]interface{})
+	for _, s := range services {
+		var err error
+		r[s.Name()], err = processService(s)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return r, nil
+}
+
+func processService(service *state.Service) (map[string]interface{}, error) {
+	r := make(map[string]interface{})
+	ch, err := service.Charm()
+	if err != nil {
+		return nil, err
+	}
+	r["charm"] = ch.Meta().Name
+	r["exposed"], err = service.IsExposed()
+	if err != nil {
+		return nil, err
+	}
+	// TODO(dfc) process units and relations
+	return r, nil
+}
+
+// jsonify converts the keys of the machines map into their string
+// equivalents for compatibility with encoding/json.
+func jsonify(r map[string]interface{}) map[string]map[string]interface{} {
+	m := map[string]map[string]interface{}{
+		"services": r["services"].(map[string]interface{}),
+		"machines": make(map[string]interface{}),
+	}
+	for k, v := range r["machines"].(map[int]interface{}) {
+		m["machines"][strconv.Itoa(k)] = v
+	}
+	return m
 }

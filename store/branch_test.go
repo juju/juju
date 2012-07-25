@@ -54,13 +54,13 @@ func (p *fakePlugin) uninstall() {
 }
 
 func (s *StoreSuite) TestPublish(c *C) {
+	branch := s.dummyBranch(c, "")
+
 	// Ensure that the streams are parsed separately by inserting
 	// garbage on stderr. The wanted information is still there.
 	plugin := fakePlugin{}
 	plugin.install(c.MkDir(), `import sys; sys.stderr.write("STDERR STUFF FROM TEST\n")`)
 	defer plugin.uninstall()
-
-	branch := s.dummyBranch(c, "")
 
 	err := store.PublishBazaarBranch(s.store, urls, branch.path(), "wrong-rev")
 	c.Assert(err, IsNil)
@@ -125,6 +125,8 @@ func (s *StoreSuite) TestPublish(c *C) {
 }
 
 func (s *StoreSuite) TestPublishErrorFromBzr(c *C) {
+	branch := s.dummyBranch(c, "")
+
 	// In TestPublish we ensure that the streams are parsed
 	// separately by inserting garbage on stderr. Now make
 	// sure that stderr isn't simply trashed, as we want to
@@ -132,8 +134,6 @@ func (s *StoreSuite) TestPublishErrorFromBzr(c *C) {
 	plugin := fakePlugin{}
 	plugin.install(c.MkDir(), `import sys; sys.stderr.write("STDERR STUFF FROM TEST\n"); sys.exit(1)`)
 	defer plugin.uninstall()
-
-	branch := s.dummyBranch(c, "")
 
 	err := store.PublishBazaarBranch(s.store, urls, branch.path(), "wrong-rev")
 	c.Assert(err, ErrorMatches, "(?s).*STDERR STUFF.*")

@@ -34,7 +34,7 @@ func (s *Service) CharmURL() (url *charm.URL, err error) {
 	sel := bson.D{{"_id", s.name}, {"life", Alive}}
 	err = s.st.services.Find(sel).One(sdoc)
 	if err != nil {
-		return nil, fmt.Errorf("can't get the charm URL of service %q: %v", s, err)
+		return nil, fmt.Errorf("cannot get the charm URL of service %q: %v", s, err)
 	}
 	return sdoc.CharmURL, nil
 }
@@ -44,7 +44,7 @@ func (s *Service) SetCharmURL(url *charm.URL) (err error) {
 	change := bson.D{{"$set", bson.D{{"charmurl", url}}}}
 	err = s.st.services.Update(bson.D{{"_id", s.name}}, change)
 	if err != nil {
-		return fmt.Errorf("can't set the charm URL of service %q: %v", s, err)
+		return fmt.Errorf("cannot set the charm URL of service %q: %v", s, err)
 	}
 	return nil
 }
@@ -86,7 +86,7 @@ func (s *Service) addUnit(name string, principal string) (*Unit, error) {
 	}
 	err := s.st.units.Insert(udoc)
 	if err != nil {
-		return nil, fmt.Errorf("can't add unit to service %q", s)
+		return nil, fmt.Errorf("cannot add unit to service %q", s)
 	}
 	return newUnit(s.st, &udoc), nil
 }
@@ -95,14 +95,14 @@ func (s *Service) addUnit(name string, principal string) (*Unit, error) {
 func (s *Service) AddUnit() (unit *Unit, err error) {
 	ch, err := s.Charm()
 	if err != nil {
-		return nil, fmt.Errorf("can't add unit to service %q: %v", err)
+		return nil, fmt.Errorf("cannot add unit to service %q: %v", err)
 	}
 	if ch.Meta().Subordinate {
 		return nil, fmt.Errorf("cannot directly add units to subordinate service %q", s)
 	}
 	name, err := s.newUnitName()
 	if err != nil {
-		return nil, fmt.Errorf("can't add unit to service %q: %v", err)
+		return nil, fmt.Errorf("cannot add unit to service %q: %v", err)
 	}
 	return s.addUnit(name, "")
 }
@@ -112,17 +112,17 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
 	ch, err := s.Charm()
 	if err != nil {
-		return nil, fmt.Errorf("can't add unit to service %q: %v", err)
+		return nil, fmt.Errorf("cannot add unit to service %q: %v", err)
 	}
 	if !ch.Meta().Subordinate {
-		return nil, fmt.Errorf("can't add unit of principal service %q as a subordinate of %q", s, principal)
+		return nil, fmt.Errorf("cannot add unit of principal service %q as a subordinate of %q", s, principal)
 	}
 	if !principal.IsPrincipal() {
 		return nil, errors.New("a subordinate unit must be added to a principal unit")
 	}
 	name, err := s.newUnitName()
 	if err != nil {
-		return nil, fmt.Errorf("can't add unit to service %q: %v", err)
+		return nil, fmt.Errorf("cannot add unit to service %q: %v", err)
 	}
 	return s.addUnit(name, principal.Name())
 }
@@ -137,7 +137,7 @@ func (s *Service) RemoveUnit(unit *Unit) error {
 	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
 	err := s.st.units.Update(sel, change)
 	if err != nil {
-		return fmt.Errorf("can't remove unit %q: %v", unit, err)
+		return fmt.Errorf("cannot remove unit %q: %v", unit, err)
 	}
 	return nil
 }
@@ -160,7 +160,7 @@ func (s *Service) unitDoc(name string) (*unitDoc, error) {
 func (s *Service) Unit(name string) (*Unit, error) {
 	udoc, err := s.unitDoc(name)
 	if err != nil {
-		return nil, fmt.Errorf("can't get unit %q from service %q: %v", name, s.name, err)
+		return nil, fmt.Errorf("cannot get unit %q from service %q: %v", name, s.name, err)
 	}
 	return newUnit(s.st, udoc), nil
 }
@@ -171,7 +171,7 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 	sel := bson.D{{"service", s.name}, {"life", Alive}}
 	err = s.st.units.Find(sel).All(&docs)
 	if err != nil {
-		return nil, fmt.Errorf("can't get all units from service %q: %v", err)
+		return nil, fmt.Errorf("cannot get all units from service %q: %v", err)
 	}
 	for i := range docs {
 		units = append(units, newUnit(s.st, &docs[i]))
@@ -184,10 +184,7 @@ func (s *Service) Relations() (relations []*Relation, err error) {
 	defer errorContextf(&err, "can't get relations for service %q", s.name)
 	sel := bson.D{
 		{"life", Alive},
-		{"$or", []bson.D{
-			bson.D{{"_id.p0.servicename", s.name}},
-			bson.D{{"_id.p1.servicename", s.name}},
-		}},
+		{"endpoints.servicename", s.name},
 	}
 	docs := []relationDoc{}
 	err = s.st.relations.Find(sel).All(&docs)

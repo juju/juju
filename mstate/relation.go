@@ -2,6 +2,7 @@ package mstate
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -73,66 +74,33 @@ func describeEndpoints(endpoints []RelationEndpoint) string {
 	for _, ep := range endpoints {
 		names = append(names, ep.String())
 	}
+	sort.Strings(names)
 	return strings.Join(names, " ")
-}
-
-// endpointPair is a type encompassing the one or two endpoints
-// of a relation in order to use them as an index in MongoDB.
-type endpointPair struct {
-	Cardinality int
-	P0          RelationEndpoint
-	P1          RelationEndpoint `bson:",omitempty"`
-}
-
-// newEndpointPair returns a *endpointPair from endpoints.
-// Endpoints order does not matter.
-func newEndpointPair(endpoints ...RelationEndpoint) *endpointPair {
-	if 0 == len(endpoints) || len(endpoints) > 2 {
-		panic("must have only one or two endpoints")
-	}
-	if len(endpoints) == 1 {
-		return &endpointPair{P0: endpoints[0], Cardinality: 1}
-	}
-	if fmt.Sprintf("%v", endpoints[0]) < fmt.Sprintf("%v", endpoints[1]) {
-		return &endpointPair{P0: endpoints[0], P1: endpoints[1], Cardinality: 2}
-	}
-	return &endpointPair{P0: endpoints[1], P1: endpoints[0], Cardinality: 2}
-}
-
-func (p endpointPair) RelationEndpointSlice() []RelationEndpoint {
-	if 0 == p.Cardinality || p.Cardinality > 2 {
-		panic("must have only one or two endpoints")
-	}
-	if p.Cardinality == 1 {
-		return []RelationEndpoint{p.P0}
-	}
-	return []RelationEndpoint{p.P0, p.P1}
 }
 
 // relationDoc is the internal representation of a Relation in MongoDB.
 type relationDoc struct {
+	Name      string `bson:"_id"`
+	Endpoints []RelationEndpoint
+	Key       int
 	Life      Life
-	Id        int
-	Endpoints endpointPair `bson:"_id"`
 }
 
 // Relation represents a relation between one or two service endpoints.
 type Relation struct {
-	st        *State
-	id        int
-	endpoints []RelationEndpoint
+	st  *State
+	doc relationDoc
 }
 
-func newRelation(st *State, rdoc *relationDoc) *Relation {
+func newRelation(st *State, doc *relationDoc) *Relation {
 	return &Relation{
-		st:        st,
-		id:        rdoc.Id,
-		endpoints: rdoc.Endpoints.RelationEndpointSlice(),
+		st:  st,
+		doc: *doc,
 	}
 }
 
 func (r *Relation) String() string {
-	return fmt.Sprintf("relation %q", describeEndpoints(r.endpoints))
+	return fmt.Sprintf("relation %q", describeEndpoints(r.doc.Endpoints))
 }
 
 // Id returns the integer internal relation key. This is exposed
@@ -140,13 +108,13 @@ func (r *Relation) String() string {
 // (as JUJU_RELATION_ID) to allow relation hooks to differentiate
 // between relations with different services.
 func (r *Relation) Id() int {
-	return r.id
+	return r.doc.Key
 }
 
 // Endpoint returns the endpoint of the relation for the named service.
 // If the service is not part of the relation, an error will be returned.
 func (r *Relation) Endpoint(serviceName string) (RelationEndpoint, error) {
-	for _, ep := range r.endpoints {
+	for _, ep := range r.doc.Endpoints {
 		if ep.ServiceName == serviceName {
 			return ep, nil
 		}
@@ -164,7 +132,7 @@ func (r *Relation) RelatedEndpoints(serviceName string) ([]RelationEndpoint, err
 	}
 	role := local.RelationRole.counterpartRole()
 	var eps []RelationEndpoint
-	for _, ep := range r.endpoints {
+	for _, ep := range r.doc.Endpoints {
 		if ep.RelationRole == role {
 			eps = append(eps, ep)
 		}

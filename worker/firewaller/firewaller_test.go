@@ -5,6 +5,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/firewaller"
@@ -58,7 +59,7 @@ func assertEvents(c *C, expect []string) {
 		case e := <-logHook.event:
 			got = append(got, e)
 		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("expected %q; timed out after %q", expect, got)
+			c.Fatalf("expected %q; timed out, got %q", expect, got)
 		}
 	}
 	select {
@@ -75,7 +76,8 @@ func assertEvents(c *C, expect []string) {
 type FirewallerSuite struct {
 	coretesting.LoggingSuite
 	testing.StateSuite
-	op <-chan dummy.Operation
+	op    <-chan dummy.Operation
+	charm *state.Charm
 }
 
 var _ = Suite(&FirewallerSuite{})
@@ -116,16 +118,56 @@ func (s *FirewallerSuite) TestAddRemoveMachine(c *C) {
 	c.Assert(err, IsNil)
 
 	assertEvents(c, []string{
-		fmt.Sprint("started tracking machine ", m1.Id()),
-		fmt.Sprint("started tracking machine ", m2.Id()),
-		fmt.Sprint("started tracking machine ", m3.Id()),
+		fmt.Sprint("started watching machine ", m1.Id()),
+		fmt.Sprint("started watching machine ", m2.Id()),
+		fmt.Sprint("started watching machine ", m3.Id()),
 	})
 
 	err = s.State.RemoveMachine(m2.Id())
 	c.Assert(err, IsNil)
 
 	assertEvents(c, []string{
-		fmt.Sprint("stopped tracking machine ", m2.Id()),
+		fmt.Sprint("stopped watching machine ", m2.Id()),
+	})
+
+	c.Assert(fw.Stop(), IsNil)
+}
+
+func (s *FirewallerSuite) TestAssignUnassignUnit(c *C) {
+	fw, err := firewaller.NewFirewaller(s.State)
+	c.Assert(err, IsNil)
+
+	setUpLogHook()
+	defer tearDownLogHook()
+
+	m1, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	m2, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	s.charm = s.AddTestingCharm(c, "dummy")
+	s1, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	u1, err := s1.AddUnit()
+	c.Assert(err, IsNil)
+	err = u1.AssignToMachine(m1)
+	c.Assert(err, IsNil)
+	u2, err := s1.AddUnit()
+	c.Assert(err, IsNil)
+	err = u2.AssignToMachine(m2)
+	c.Assert(err, IsNil)
+
+	assertEvents(c, []string{
+		fmt.Sprint("started watching machine ", m1.Id()),
+		fmt.Sprint("started watching machine ", m2.Id()),
+		fmt.Sprint("started watching unit ", u1.Name()),
+		fmt.Sprint("started watching unit ", u2.Name()),
+	})
+
+	err = u1.UnassignFromMachine()
+	c.Assert(err, IsNil)
+
+	assertEvents(c, []string{
+		fmt.Sprint("stopped watching unit ", u1.Name()),
 	})
 
 	c.Assert(fw.Stop(), IsNil)

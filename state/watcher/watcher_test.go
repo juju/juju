@@ -52,7 +52,7 @@ func (s *WatcherSuite) TestContentWatcher(c *C) {
 			c.Assert(ok, Equals, true)
 			c.Assert(got, Equals, test.want)
 		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("didn't get change: %#v", test.want)
+			c.Fatalf("did not get change: %#v", test.want)
 		}
 	}
 
@@ -107,7 +107,7 @@ func (s *WatcherSuite) TestChildrenWatcher(c *C) {
 			}
 		case <-time.After(200 * time.Millisecond):
 			if test.want != nil {
-				c.Fatalf("didn't get change: %#v", test.want)
+				c.Fatalf("did not get change: %#v", test.want)
 			}
 		}
 	}
