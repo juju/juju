@@ -11,13 +11,13 @@ import (
 
 func Test(t *stdtesting.T) { testing.ZkTestPackage(t) }
 
-type FilterSuite struct{}
+type HookQueueSuite struct{}
 
-var _ = Suite(&FilterSuite{})
+var _ = Suite(&HookQueueSuite{})
 
 type msi map[string]int
 
-var filterTests = [][]Step{
+var hookQueueTests = [][]checker{
 	{
 	// No steps; just implicitly check it's empty.
 	}, {
@@ -114,39 +114,31 @@ var filterTests = [][]Step{
 	},
 }
 
-func (s *FilterSuite) TestFilter(c *C) {
-	for i, t := range filterTests {
+func (s *HookQueueSuite) TestHookQueue(c *C) {
+	for i, t := range hookQueueTests {
 		c.Logf("test %d", i)
 		in := make(chan state.RelationUnitsChange)
 		out := make(chan relationer.HookInfo)
-		relationer.StartFilter(out, in)
+		relationer.HookQueue(out, in)
 		for i, step := range t {
 			c.Logf("  step %d", i)
-			step.Do(c, in, out)
+			step.check(c, in, out)
 		}
-		select {
-		case unexpected := <-out:
-			c.Fatalf("got %#v", unexpected)
-		case <-time.After(200 * time.Millisecond):
-		}
+		expect{}.check(c, in, out)
 	}
 }
 
-func (s *FilterSuite) TestFilterStopsImmediately(c *C) {
+func (s *HookQueueSuite) TestHookQueueStopsImmediately(c *C) {
 	in := make(chan state.RelationUnitsChange)
 	out := make(chan relationer.HookInfo)
-	relationer.StartFilter(out, in)
-	send{msi{"u0": 0}, nil}.Do(c, in, out)
+	relationer.HookQueue(out, in)
+	send{msi{"u0": 0}, nil}.check(c, in, out)
 	close(in)
-	select {
-	case unexpected := <-out:
-		c.Fatalf("got %#v", unexpected)
-	case <-time.After(200 * time.Millisecond):
-	}
+	expect{}.check(c, in, out)
 }
 
-type Step interface {
-	Do(c *C, in chan state.RelationUnitsChange, out chan relationer.HookInfo)
+type checker interface {
+	check(c *C, in chan state.RelationUnitsChange, out chan relationer.HookInfo)
 }
 
 type send struct {
@@ -154,7 +146,7 @@ type send struct {
 	departed []string
 }
 
-func (d send) Do(c *C, in chan state.RelationUnitsChange, out chan relationer.HookInfo) {
+func (d send) check(c *C, in chan state.RelationUnitsChange, out chan relationer.HookInfo) {
 	ruc := state.RelationUnitsChange{Changed: map[string]state.UnitSettings{}}
 	for name, version := range d.changed {
 		ruc.Changed[name] = state.UnitSettings{
@@ -172,7 +164,7 @@ type advance struct {
 	count int
 }
 
-func (d advance) Do(c *C, in chan state.RelationUnitsChange, out chan relationer.HookInfo) {
+func (d advance) check(c *C, in chan state.RelationUnitsChange, out chan relationer.HookInfo) {
 	for i := 0; i < d.count; i++ {
 		select {
 		case <-out:
@@ -187,7 +179,15 @@ type expect struct {
 	members    msi
 }
 
-func (d expect) Do(c *C, in chan state.RelationUnitsChange, out chan relationer.HookInfo) {
+func (d expect) check(c *C, in chan state.RelationUnitsChange, out chan relationer.HookInfo) {
+	if d.hook == "" {
+		select {
+		case unexpected := <-out:
+			c.Fatalf("got %#v", unexpected)
+		case <-time.After(200 * time.Millisecond):
+		}
+		return
+	}
 	expect := relationer.HookInfo{d.hook, d.unit, map[string]map[string]interface{}{}}
 	for name, version := range d.members {
 		expect.Members[name] = settings(name, version)

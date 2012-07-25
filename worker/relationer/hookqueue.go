@@ -14,12 +14,10 @@ type HookInfo struct {
 	Members map[string]map[string]interface{}
 }
 
-// StartFilter starts a goroutine which sends HookInfo values on the out
-// channel. These values will reflect the latest known state of a relation,
-// as described by the stream of RelationUnitsChange events received on the
-// in channel. The groroutine will terminate as soon as the in channel is
-// closed.
-func StartFilter(out chan<- HookInfo, in <-chan state.RelationUnitsChange) {
+// HookQueue starts a goroutine which receives state.RelationUnitsChange
+// events and sends corresponding HookInfo values. When the input channel
+// is closed, it will terminate immediately.
+func HookQueue(out chan<- HookInfo, in <-chan state.RelationUnitsChange) {
 	q := &hookQueue{
 		in:   in,
 		out:  out,
@@ -28,8 +26,9 @@ func StartFilter(out chan<- HookInfo, in <-chan state.RelationUnitsChange) {
 	go q.loop()
 }
 
-// hookQueue accepts state.RelationUnitsChange events and converts them
-// into HookInfo values.
+// hookQueue aggregates RelationUnitsChanged events and ensures that
+// the HookInfo values it sends always reflect the latest known state
+// of the relation.
 type hookQueue struct {
 	in  <-chan state.RelationUnitsChange
 	out chan<- HookInfo
