@@ -127,6 +127,7 @@ func (s *FirewallerSuite) TestStartStop(c *C) {
 func (s *FirewallerSuite) TestAddRemoveMachine(c *C) {
 	fw, err := firewaller.NewFirewaller(s.environ, s.State)
 	c.Assert(err, IsNil)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
 	setUpLogHook()
 	defer tearDownLogHook()
@@ -150,13 +151,12 @@ func (s *FirewallerSuite) TestAddRemoveMachine(c *C) {
 	assertEvents(c, []string{
 		fmt.Sprint("stopped watching machine ", m2.Id()),
 	})
-
-	c.Assert(fw.Stop(), IsNil)
 }
 
 func (s *FirewallerSuite) TestAssignUnassignUnit(c *C) {
 	fw, err := firewaller.NewFirewaller(s.environ, s.State)
 	c.Assert(err, IsNil)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
 	setUpLogHook()
 	defer tearDownLogHook()
@@ -189,13 +189,12 @@ func (s *FirewallerSuite) TestAssignUnassignUnit(c *C) {
 	assertEvents(c, []string{
 		fmt.Sprint("stopped watching unit ", u1.Name()),
 	})
-
-	c.Assert(fw.Stop(), IsNil)
 }
 
 func (s *FirewallerSuite) TestOpenClosePorts(c *C) {
 	fw, err := firewaller.NewFirewaller(s.environ, s.State)
 	c.Assert(err, IsNil)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
 	setUpLogHook()
 	defer tearDownLogHook()
@@ -231,11 +230,8 @@ func (s *FirewallerSuite) TestOpenClosePorts(c *C) {
 	c.Assert(err, IsNil)
 	err = m2.SetInstanceId("testing-1")
 	c.Assert(err, IsNil)
-	i, err := s.environ.StartInstance(m2.Id(), s.StateInfo(c))
+	_, err = s.environ.StartInstance(m2.Id(), s.StateInfo(c))
 	c.Assert(err, IsNil)
-
-	log.Debugf("INST: %+v", i)
-
 	s2, err := s.State.AddService("mysql", s.charm)
 	c.Assert(err, IsNil)
 	err = s2.SetExposed()
@@ -259,8 +255,6 @@ func (s *FirewallerSuite) TestOpenClosePorts(c *C) {
 	assertEvents(c, []string{
 		fmt.Sprintf("closed port {tcp 3306} on machine %d", m2.Id()),
 	})
-
-	c.Assert(fw.Stop(), IsNil)
 }
 
 func (s *FirewallerSuite) TestFirewallerStopOnStateClose(c *C) {
