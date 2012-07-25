@@ -96,13 +96,13 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		// TODO many dependencies :(
 		return errors.New("state.Service.SetConfig not implemented (format 2...)")
 	}
-	svc, err := conn.NewService(ch, c.ServiceName)
+	svc, err := conn.AddService(c.ServiceName, ch)
 	if err != nil {
 		return err
 	}
 	if ch.Meta().Subordinate {
 		return nil
 	}
-	_, err = conn.StartUnits(svc, c.NumUnits)
+	_, err = conn.AddUnits(svc, c.NumUnits)
 	return err
 }
