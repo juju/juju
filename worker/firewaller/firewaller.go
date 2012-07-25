@@ -367,7 +367,7 @@ func newServiceData(service *state.Service, fw *Firewaller) *serviceData {
 	return sd
 }
 
-// loop is the backend watching for service exposed flag changes.
+// watchLoop is the backend watching for service exposed flag changes.
 func (sd *serviceData) watchLoop() {
 	defer sd.tomb.Done()
 	defer sd.watcher.Stop()
