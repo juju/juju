@@ -109,7 +109,7 @@ func (c *DeployCommand) getCharm(defaultSeries string) (charm.Charm, *charm.URL,
 	if c.BumpRevision {
 		chd, ok := ch.(*charm.Dir)
 		if !ok {
-			return nil, nil, fmt.Errorf("can't upgrade: charm %q is not a directory", curl)
+			return nil, nil, fmt.Errorf("cannot upgrade: charm %q is not a directory", curl)
 		}
 		if err = chd.SetDiskRevision(chd.Revision() + 1); err != nil {
 			return nil, nil, err

@@ -486,12 +486,12 @@ func (w *ServicesWatcher) update(change watcher.ContentChange) error {
 	for _, serviceKey := range added {
 		serviceName, err := topology.ServiceName(serviceKey)
 		if err != nil {
-			log.Printf("can't read service %q: %v", serviceKey, err)
+			log.Printf("cannot read service %q: %v", serviceKey, err)
 			continue
 		}
 		service, err := w.st.Service(serviceName)
 		if err != nil {
-			log.Printf("can't read service %q: %v", serviceName, err)
+			log.Printf("cannot read service %q: %v", serviceName, err)
 			continue
 		}
 		w.knownServices[serviceKey] = service
@@ -572,7 +572,7 @@ func (w *ServiceUnitsWatcher) update(change watcher.ContentChange) error {
 	for _, unitKey := range added {
 		unit, err := w.st.unitFromKey(topology, unitKey)
 		if err != nil {
-			log.Printf("can't read unit %q: %v", unitKey, err)
+			log.Printf("cannot read unit %q: %v", unitKey, err)
 			continue
 		}
 		w.knownUnits[unitKey] = unit

@@ -171,7 +171,7 @@ type RelationUnit struct {
 // Join joins the unit to the relation, such that other units watching the
 // relation will observe its presence and changes to its settings.
 func (ru *RelationUnit) Join() (p *presence.Pinger, err error) {
-	defer errorContextf(&err, "can't join unit %q to relation %q", ru.unit, ru.relation)
+	defer errorContextf(&err, "cannot join unit %q to relation %q", ru.unit, ru.relation)
 	if err = ru.scope.prepareJoin(ru.st.zk, ru.role); err != nil {
 		return
 	}
