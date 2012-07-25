@@ -100,6 +100,12 @@ func (t configTest) check(c *C) {
 	if t.accessKey != "" {
 		c.Assert(ecfg.accessKey(), Equals, t.accessKey)
 		c.Assert(ecfg.secretKey(), Equals, t.secretKey)
+		expected := map[string]interface{}{
+			"access-key": t.accessKey,
+			"secret-key": t.secretKey,
+		}
+		actual := e.SecretAttrs(ecfg.Config)
+		c.Assert(expected, DeepEquals, actual)
 	} else {
 		c.Assert(ecfg.accessKey(), DeepEquals, testAuth.AccessKey)
 		c.Assert(ecfg.secretKey(), DeepEquals, testAuth.SecretKey)

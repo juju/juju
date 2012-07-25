@@ -443,14 +443,14 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 	return insts, nil
 }
 
-var secretAttrs = []string {"secret1", "secret2"}
+var secretAttrs = []string{"secret1", "secret2"}
 
 func (*environ) SecretAttrs(cfg *config.Config) map[string]interface{} {
 	c := cfg.AllAttrs()
 	m := make(map[string]interface{})
 	for _, k := range secretAttrs {
 		if s, ok := c[k]; ok {
-			m[k]=s
+			m[k] = s
 		}
 	}
 	return m

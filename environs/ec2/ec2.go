@@ -513,19 +513,18 @@ func (e *environ) groupName() string {
 	return "juju-" + e.name
 }
 
-var secretAttrs = []string {"access-key", "secret-key"}
+var secretAttrs = []string{"access-key", "secret-key"}
 
 func (*environ) SecretAttrs(cfg *config.Config) map[string]interface{} {
-       c := cfg.AllAttrs()
-       m := make(map[string]interface{})
-       for _, k := range secretAttrs {
-               if s, ok := c[k]; ok {
-                       m[k]=s
-               }
-       }
-       return m
+	c := cfg.AllAttrs()
+	m := make(map[string]interface{})
+	for _, k := range secretAttrs {
+		if s, ok := c[k]; ok {
+			m[k] = s
+		}
+	}
+	return m
 }
-
 
 func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 	if len(ports) == 0 {

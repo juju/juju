@@ -24,7 +24,7 @@ func (t *ToolsSuite) SetUpTest(c *C) {
 		"name":            "test",
 		"type":            "dummy",
 		"zookeeper":       false,
-		"secret":	   "pork",
+		"secret":          "pork",
 		"authorized-keys": "i-am-a-key",
 	})
 	c.Assert(err, IsNil)
