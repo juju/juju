@@ -9,6 +9,7 @@ import (
 type HookInfo struct {
 	HookKind   string
 	RemoteUnit string
+	Version    int
 	// Members contains a map[string]interface{} for every remote unit,
 	// holding its relation settings, keyed on unit name.
 	Members map[string]map[string]interface{}
@@ -183,6 +184,7 @@ func (q *hookQueue) setNext() {
 		unit = q.head.unit
 		hook = q.head.hook
 	}
+	version := q.info[unit].version
 	members := make(map[string]map[string]interface{})
 	for unit, info := range q.info {
 		if info.present {
@@ -194,7 +196,7 @@ func (q *hookQueue) setNext() {
 	} else if hook == "departed" {
 		delete(members, unit)
 	}
-	q.next = HookInfo{hook, unit, members}
+	q.next = HookInfo{hook, unit, version, members}
 }
 
 // add sets the next hook to be run for the named unit, and places it
