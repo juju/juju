@@ -26,16 +26,27 @@ type HookInfo struct {
 	Members map[string]map[string]interface{}
 }
 
+// QueueState is used to recreate a HookQueue based on known relation state.
+type QueueState struct {
+	// Members holds a map of unit name to settings version.
+	Members map[string]int
+	// Joined, if not empty, indicates that the last successful hook
+	// run for this relation was the "joined" of the named unit, and
+	// that the hook queue is therefore required to send a suitable
+	// "changed" hook before it does anything else.
+	Joined string
+}
+
 // NewHookQueue returns a new HookQueue, which sends HookInfo values on
 // out corresponding to the state.RelationUnitsChange events it receives
 // from the supplied RelationWatcher.
-func NewHookQueue(out chan<- HookInfo, w RelationUnitsWatcher) *HookQueue {
+func NewHookQueue(initial *QueueState, out chan<- HookInfo, w RelationUnitsWatcher) *HookQueue {
 	q := &HookQueue{
 		w:    w,
 		out:  out,
 		info: map[string]*unitInfo{},
 	}
-	go q.loop()
+	go q.loop(initial)
 	return q
 }
 
@@ -87,9 +98,39 @@ type unitInfo struct {
 	prev, next *unitInfo
 }
 
-func (q *HookQueue) loop() {
+func (q *HookQueue) loop(initial *QueueState) {
 	defer q.tomb.Done()
 	defer watcher.Stop(q.w, &q.tomb)
+
+	// Consume initial event, and reconcile with initial state, by inserting
+	// a new RelationUnitsChange before the initial event, which schedules
+	// every missing unit for immediate departure before anything else happens
+	// (apart from a single potential required post-joined changed event).
+	if initial != nil {
+		ch1, ok := <-q.w.Changes()
+		if !ok {
+			q.tomb.Kill(watcher.MustErr(q.w))
+			return
+		}
+		if len(ch1.Departed) != 0 {
+			panic("HookQueue must be started with a fresh RelationUnitsWatcher")
+		}
+		q.joined = initial.Joined
+		ch0 := state.RelationUnitsChange{}
+		for unit, version := range initial.Members {
+			q.info[unit] = &unitInfo{
+				unit:    unit,
+				version: version,
+				present: true,
+			}
+			if _, found := ch1.Changed[unit]; !found {
+				ch0.Departed = append(ch0.Departed, unit)
+			}
+		}
+		q.update(ch0)
+		q.update(ch1)
+	}
+
 	var out chan<- HookInfo
 	for {
 		if q.head == nil && q.joined == "" {
