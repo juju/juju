@@ -169,4 +169,8 @@ type Environ interface {
 
 	// AssignmentPolicy returns the environment's unit assignment policy.
 	AssignmentPolicy() state.AssignmentPolicy
+
+	// SecretAttrs filters the supplied configuation returning only values
+	// which are considered sensitive.
+	SecretAttrs(*config.Config) map[string]interface{}
 }

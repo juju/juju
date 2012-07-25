@@ -209,6 +209,7 @@ var checker = schema.StrictFieldMap(
 	schema.Fields{
 		"zookeeper": schema.Bool(),
 		"broken":    schema.Bool(),
+		"secret":    schema.String(),
 	},
 	schema.Defaults{
 		"broken": false,
@@ -440,6 +441,19 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 		insts = append(insts, v)
 	}
 	return insts, nil
+}
+
+var secretAttrs = []string {"secret1", "secret2"}
+
+func (*environ) SecretAttrs(cfg *config.Config) map[string]interface{} {
+	c := cfg.AllAttrs()
+	m := make(map[string]interface{})
+	for _, k := range secretAttrs {
+		if s, ok := c[k]; ok {
+			m[k]=s
+		}
+	}
+	return m
 }
 
 type instance struct {
