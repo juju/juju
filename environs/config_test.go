@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	_ "launchpad.net/juju-core/environs/dummy"
 	"os"
 	"path/filepath"
@@ -166,4 +167,18 @@ environments:
 
 	// reset $HOME just in case something else relies on it.
 	os.Setenv("HOME", h)
+}
+
+func (suite) TestConfigRoundTrip(c *C) {
+	cfg, err := config.New(map[string]interface{}{
+		"name":      "bladaam",
+		"type":      "dummy",
+		"zookeeper": false,
+	})
+	c.Assert(err, IsNil)
+	cfg, err = environs.Providers()[cfg.Type()].Validate(cfg, nil)
+	c.Assert(err, IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, IsNil)
+	c.Assert(cfg.AllAttrs(), DeepEquals, env.Config().AllAttrs())
 }
