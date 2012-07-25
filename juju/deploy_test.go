@@ -91,7 +91,7 @@ func (s *DeploySuite) TestPutBundledCharm(c *C) {
 	c.Assert(sch.Meta().Summary, Equals, "K/V storage engine")
 }
 
-func (s *DeploySuite) TestPutCharmBumpRevision(c *C) {
+func (s *DeploySuite) TestPutCharmUpload(c *C) {
 	repo := &charm.LocalRepository{c.MkDir()}
 	curl := testing.Charms.ClonedURL(repo.Path, "riak")
 
@@ -103,6 +103,7 @@ func (s *DeploySuite) TestPutCharmBumpRevision(c *C) {
 	sch, err = s.state.Charm(sch.URL())
 	c.Assert(err, IsNil)
 	sha256 := sch.BundleSha256()
+	rev := sch.Revision()
 
 	// Change the charm on disk.
 	ch, err := repo.Get(curl)
@@ -118,24 +119,25 @@ func (s *DeploySuite) TestPutCharmBumpRevision(c *C) {
 	sch, err = s.state.Charm(sch.URL())
 	c.Assert(err, IsNil)
 	c.Assert(sch.BundleSha256(), Equals, sha256)
+	c.Assert(sch.Revision(), Equals, rev)
 
 	// Put charm again, with bumpRevision this time, and check that
 	// it has changed.
-
 	sch, err = s.conn.PutCharm(curl, repo.Path, true)
 	c.Assert(err, IsNil)
 
 	sch, err = s.state.Charm(sch.URL())
 	c.Assert(err, IsNil)
 	c.Assert(sch.BundleSha256(), Not(Equals), sha256)
+	c.Assert(sch.Revision(), Equals, rev+1)
 }
 
-func (s *DeploySuite) TestNewService(c *C) {
+func (s *DeploySuite) TestAddService(c *C) {
 	curl := testing.Charms.ClonedURL(s.repo.Path, "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo.Path, false)
 	c.Assert(err, IsNil)
 
-	svc, err := s.conn.NewService(sch, "testriak")
+	svc, err := s.conn.AddService("testriak", sch)
 	c.Assert(err, IsNil)
 
 	// Check that the peer relation has been made.
@@ -152,12 +154,12 @@ func (s *DeploySuite) TestNewService(c *C) {
 	})
 }
 
-func (s *DeploySuite) TestNewServiceDefaultName(c *C) {
+func (s *DeploySuite) TestAddServiceDefaultName(c *C) {
 	curl := testing.Charms.ClonedURL(s.repo.Path, "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo.Path, false)
 	c.Assert(err, IsNil)
 
-	svc, err := s.conn.NewService(sch, "")
+	svc, err := s.conn.AddService("", sch)
 	c.Assert(err, IsNil)
 	c.Assert(svc.Name(), Equals, "riak")
 }
@@ -166,9 +168,9 @@ func (s *DeploySuite) TestAddUnits(c *C) {
 	curl := testing.Charms.ClonedURL(s.repo.Path, "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo.Path, false)
 	c.Assert(err, IsNil)
-	svc, err := s.conn.NewService(sch, "testriak")
+	svc, err := s.conn.AddService("testriak", sch)
 	c.Assert(err, IsNil)
-	units, err := s.conn.StartUnits(svc, 2)
+	units, err := s.conn.AddUnits(svc, 2)
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 2)
 

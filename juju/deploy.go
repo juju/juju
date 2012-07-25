@@ -14,29 +14,29 @@ import (
 
 // NewService creates a new service with the given name to run the given
 // charm.  If svcName is empty, the charm name will be used.
-func (conn *Conn) NewService(sch *state.Charm, svcName string) (*state.Service, error) {
+func (conn *Conn) AddService(name string, ch *state.Charm) (*state.Service, error) {
 	st, err := conn.State()
 	if err != nil {
 		return nil, err
 	}
-	if svcName == "" {
-		svcName = sch.URL().Name // TODO sch.Meta().Name ?
+	if name == "" {
+		name = ch.URL().Name // TODO sch.Meta().Name ?
 	}
-	svc, err := st.AddService(svcName, sch)
+	svc, err := st.AddService(name, ch)
 	if err != nil {
 		return nil, err
 	}
-	meta := sch.Meta()
-	for name, rel := range meta.Peers {
+	meta := ch.Meta()
+	for rname, rel := range meta.Peers {
 		ep := state.RelationEndpoint{
-			svcName,
-			rel.Interface,
 			name,
+			rel.Interface,
+			rname,
 			state.RolePeer,
 			state.RelationScope(rel.Scope),
 		}
 		if err := st.AddRelation(ep); err != nil {
-			return nil, fmt.Errorf("cannot add peer relation %q to service %q: %v", name, svcName, err)
+			return nil, fmt.Errorf("cannot add peer relation %q to service %q: %v", rname, name, err)
 		}
 	}
 	return svc, nil
@@ -122,9 +122,9 @@ func (conn *Conn) PutCharm(curl *charm.URL, repoPath string, bumpRevision bool) 
 	return sch, nil
 }
 
-// StartUnits starts n units of the given service and allocates machines
+// AddUnits starts n units of the given service and allocates machines
 // to them as necessary.
-func (conn *Conn) StartUnits(svc *state.Service, n int) ([]*state.Unit, error) {
+func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 	st, err := conn.State()
 	if err != nil {
 		return nil, err
