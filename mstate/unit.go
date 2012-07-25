@@ -51,7 +51,7 @@ func (u *Unit) IsPrincipal() bool {
 
 // AssignedMachineId returns the id of the assigned machine.
 func (u *Unit) AssignedMachineId() (id int, err error) {
-	defer errorContextf(&err, "can't get machine id of unit %q", u)
+	defer errorContextf(&err, "cannot get machine id of unit %q", u)
 	if u.IsPrincipal() {
 		if u.doc.MachineId == nil {
 			return 0, errors.New("unit not assigned to machine")
@@ -82,7 +82,7 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	}
 	err = u.st.units.Update(sel, change)
 	if err != nil {
-		return fmt.Errorf("can't assign unit %q to machine %s: %v", u, m, err)
+		return fmt.Errorf("cannot assign unit %q to machine %s: %v", u, m, err)
 	}
 	u.doc.MachineId = &m.id
 	return nil
@@ -95,7 +95,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 	sel := bson.D{{"_id", u.doc.Name}}
 	err = u.st.units.Update(sel, change)
 	if err != nil {
-		return fmt.Errorf("can't unassign unit %q from machine: %v", u, err)
+		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, err)
 	}
 	return nil
 }

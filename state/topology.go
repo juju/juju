@@ -150,7 +150,7 @@ func (t *topology) RemoveMachine(key string) error {
 		return err
 	}
 	if ok {
-		return fmt.Errorf("can't remove machine %q while units are assigned", key)
+		return fmt.Errorf("cannot remove machine %q while units are assigned", key)
 	}
 	// Machine exists and has no units, so remove it.
 	delete(t.topology.Machines, key)
@@ -280,7 +280,7 @@ func (t *topology) AddUnit(unitKey, principalKey string) error {
 			return err
 		}
 		if !pUnit.isPrincipal() {
-			return fmt.Errorf("can't add unit %q subordinate to subordinate unit %q", unitKey, principalKey)
+			return fmt.Errorf("cannot add unit %q subordinate to subordinate unit %q", unitKey, principalKey)
 		}
 	}
 	svc.Units[unitKey] = &topoUnit{
@@ -483,7 +483,7 @@ func (t *topology) RelationsForService(key string) (map[string]*topoRelation, er
 }
 
 // noRelationFound indicates that an attempt to look up a relation failed.
-var noRelationFound = errors.New("relation doesn't exist")
+var noRelationFound = errors.New("relation does not exist")
 
 // RelationKey returns the key for the relation established between the
 // provided endpoints. If no matching relation is found, noRelationFound

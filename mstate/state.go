@@ -31,7 +31,7 @@ type State struct {
 
 // AddMachine creates a new machine state.
 func (s *State) AddMachine() (m *Machine, err error) {
-	defer errorContextf(&err, "can't add a new machine")
+	defer errorContextf(&err, "cannot add a new machine")
 	id, err := s.sequence("machine")
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (s *State) RemoveMachine(id int) error {
 	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
 	err := s.machines.Update(sel, change)
 	if err != nil {
-		return fmt.Errorf("can't remove machine %d: %v", id, err)
+		return fmt.Errorf("cannot remove machine %d: %v", id, err)
 	}
 	return nil
 }
@@ -64,7 +64,7 @@ func (s *State) AllMachines() (machines []*Machine, err error) {
 	sel := bson.D{{"life", Alive}}
 	err = s.machines.Find(sel).Select(bson.D{{"_id", 1}}).All(&mdocs)
 	if err != nil {
-		return nil, fmt.Errorf("can't get all machines: %v", err)
+		return nil, fmt.Errorf("cannot get all machines: %v", err)
 	}
 	for _, v := range mdocs {
 		machines = append(machines, &Machine{st: s, id: v.Id})
@@ -78,7 +78,7 @@ func (s *State) Machine(id int) (*Machine, error) {
 	sel := bson.D{{"_id", id}, {"life", Alive}}
 	err := s.machines.Find(sel).One(mdoc)
 	if err != nil {
-		return nil, fmt.Errorf("can't get machine %d: %v", id, err)
+		return nil, fmt.Errorf("cannot get machine %d: %v", id, err)
 	}
 	return &Machine{st: s, id: mdoc.Id}, nil
 }
@@ -96,7 +96,7 @@ func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bu
 	}
 	err = s.charms.Insert(cdoc)
 	if err != nil {
-		return nil, fmt.Errorf("can't add charm %q: %v", curl, err)
+		return nil, fmt.Errorf("cannot add charm %q: %v", curl, err)
 	}
 	return newCharm(s, cdoc)
 }
@@ -106,7 +106,7 @@ func (s *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
 	err := s.charms.Find(bson.D{{"_id", curl}}).One(cdoc)
 	if err != nil {
-		return nil, fmt.Errorf("can't get charm %q: %v", curl, err)
+		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
 	}
 
 	return newCharm(s, cdoc)
@@ -122,7 +122,7 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 	}
 	err = s.services.Insert(sdoc)
 	if err != nil {
-		return nil, fmt.Errorf("can't add service %q:", name, err)
+		return nil, fmt.Errorf("cannot add service %q:", name, err)
 	}
 	return &Service{st: s, name: name}, nil
 }
@@ -130,7 +130,7 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 // RemoveService removes a service from the state. It will also remove all
 // its units and break any of its existing relations.
 func (s *State) RemoveService(svc *Service) (err error) {
-	defer errorContextf(&err, "can't remove service %q", svc)
+	defer errorContextf(&err, "cannot remove service %q", svc)
 
 	sel := bson.D{{"_id", svc.name}, {"life", Alive}}
 	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
@@ -151,7 +151,7 @@ func (s *State) Service(name string) (service *Service, err error) {
 	sel := bson.D{{"_id", name}, {"life", Alive}}
 	err = s.services.Find(sel).One(sdoc)
 	if err != nil {
-		return nil, fmt.Errorf("can't get service %q: %v", name, err)
+		return nil, fmt.Errorf("cannot get service %q: %v", name, err)
 	}
 	return &Service{st: s, name: name}, nil
 }
@@ -161,7 +161,7 @@ func (s *State) AllServices() (services []*Service, err error) {
 	sdocs := []serviceDoc{}
 	err = s.services.Find(bson.D{{"life", Alive}}).All(&sdocs)
 	if err != nil {
-		return nil, fmt.Errorf("can't get all services")
+		return nil, fmt.Errorf("cannot get all services")
 	}
 	for _, v := range sdocs {
 		services = append(services, &Service{st: s, name: v.Name})

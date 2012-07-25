@@ -40,7 +40,7 @@ func (s *AssignSuite) TestUnassignUnitFromMachineWithoutBeingAssigned(c *C) {
 
 	// Check that the unit has no machine assigned.
 	_, err = s.unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `can't get machine id of unit "wordpress/0": unit not assigned to machine`)
+	c.Assert(err, ErrorMatches, `cannot get machine id of unit "wordpress/0": unit not assigned to machine`)
 }
 
 func (s *AssignSuite) TestAssignUnitToMachineAgainFails(c *C) {
@@ -62,7 +62,7 @@ func (s *AssignSuite) TestAssignUnitToMachineAgainFails(c *C) {
 	// Assigning the unit to a different machine should fail.
 	// BUG: use error strings from state.
 	err = s.unit.AssignToMachine(machineTwo)
-	c.Assert(err, ErrorMatches, `can't assign unit "wordpress/0" to machine 2: .*`)
+	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to machine 2: .*`)
 
 	machineId, err := s.unit.AssignedMachineId()
 	c.Assert(err, IsNil)

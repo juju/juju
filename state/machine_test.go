@@ -265,7 +265,7 @@ func (s *MachineSuite) TestWatchMachineUnits(c *C) {
 			c.Assert(unitNames(got.Added), DeepEquals, unitNames(want.Added))
 			c.Assert(unitNames(got.Removed), DeepEquals, unitNames(want.Removed))
 		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("didn't get change: %v", want)
+			c.Fatalf("did not get change: %v", want)
 		}
 	}
 
