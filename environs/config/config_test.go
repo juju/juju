@@ -154,3 +154,27 @@ func (*ConfigSuite) TestConfig(c *C) {
 		}
 	}
 }
+
+func (*ConfigSuite) TestConfigAttrs(c *C) {
+	attrs := map[string]interface{}{
+		"type":            "my-type",
+		"name":            "my-name",
+		"authorized-keys": "my-keys",
+		"default-series":  config.CurrentSeries,
+		"unknown":         "my-unknown",
+	}
+	cfg, err := config.New(attrs)
+	c.Assert(err, IsNil)
+
+	c.Assert(cfg.AllAttrs(), DeepEquals, attrs)
+	c.Assert(cfg.UnknownAttrs(), DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
+
+	newcfg, err := cfg.Apply(map[string]interface{}{
+		"name": "new-name",
+		"new-unknown": "my-new-unknown",
+	})
+
+	attrs["name"] = "new-name"
+	attrs["new-unknown"] = "my-new-unknown"
+	c.Assert(newcfg.AllAttrs(), DeepEquals, attrs)
+}

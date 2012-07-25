@@ -163,7 +163,15 @@ func (s *FirewallerSuite) TestAssignUnassignUnit(c *C) {
 
 	m1, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
+	err = m1.SetInstanceId("testing-0")
+	c.Assert(err, IsNil)
+	_, err = s.environ.StartInstance(m1.Id(), s.StateInfo(c))
+	c.Assert(err, IsNil)
 	m2, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	_, err = s.environ.StartInstance(m2.Id(), s.StateInfo(c))
+	c.Assert(err, IsNil)
+	err = m2.SetInstanceId("testing-1")
 	c.Assert(err, IsNil)
 	s1, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
@@ -246,14 +254,14 @@ func (s *FirewallerSuite) TestOpenClosePorts(c *C) {
 	assertEvents(c, []string{
 		fmt.Sprint("started watching machine ", m2.Id()),
 		fmt.Sprint("started watching unit ", u2.Name()),
-		fmt.Sprintf("opened port {tcp 3306} on machine %d", m2.Id()),
+		fmt.Sprintf("opened ports [{tcp 3306}] on machine %d", m2.Id()),
 	})
 
 	err = u2.ClosePort("tcp", 3306)
 	c.Assert(err, IsNil)
 
 	assertEvents(c, []string{
-		fmt.Sprintf("closed port {tcp 3306} on machine %d", m2.Id()),
+		fmt.Sprintf("closed ports [{tcp 3306}] on machine %d", m2.Id()),
 	})
 }
 

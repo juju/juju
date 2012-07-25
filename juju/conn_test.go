@@ -68,6 +68,21 @@ environments:
 	c.Assert(conn.Close(), IsNil)
 }
 
+func (ConnSuite) TestNewConnFromAttrs(c *C) {
+	attrs := map[string]interface{}{
+		"name":            "erewhemos",
+		"type":            "dummy",
+		"zookeeper":       true,
+		"authorized-keys": "i-am-a-key",
+	}
+	conn, err := juju.NewConnFromAttrs(attrs)
+	c.Assert(err, IsNil)
+	defer conn.Close()
+	st, err := conn.State()
+	c.Assert(st, IsNil)
+	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
+}
+
 func (ConnSuite) TestValidRegexps(c *C) {
 	assertService := func(s string, expect bool) {
 		c.Assert(juju.ValidService.MatchString(s), Equals, expect)
