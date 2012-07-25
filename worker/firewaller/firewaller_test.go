@@ -109,6 +109,8 @@ func (s *FirewallerSuite) SetUpTest(c *C) {
 	c.Assert(info, DeepEquals, s.StateInfo(c))
 
 	s.StateSuite.SetUpTest(c)
+
+	s.charm = s.AddTestingCharm(c, "dummy")
 }
 
 func (s *FirewallerSuite) TearDownTest(c *C) {
@@ -125,6 +127,7 @@ func (s *FirewallerSuite) TestStartStop(c *C) {
 func (s *FirewallerSuite) TestAddRemoveMachine(c *C) {
 	fw, err := firewaller.NewFirewaller(s.environ, s.State)
 	c.Assert(err, IsNil)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
 	setUpLogHook()
 	defer tearDownLogHook()
@@ -137,33 +140,39 @@ func (s *FirewallerSuite) TestAddRemoveMachine(c *C) {
 	c.Assert(err, IsNil)
 
 	assertEvents(c, []string{
-		fmt.Sprint("started tracking machine ", m1.Id()),
-		fmt.Sprint("started tracking machine ", m2.Id()),
-		fmt.Sprint("started tracking machine ", m3.Id()),
+		fmt.Sprint("started watching machine ", m1.Id()),
+		fmt.Sprint("started watching machine ", m2.Id()),
+		fmt.Sprint("started watching machine ", m3.Id()),
 	})
 
 	err = s.State.RemoveMachine(m2.Id())
 	c.Assert(err, IsNil)
 
 	assertEvents(c, []string{
-		fmt.Sprint("stopped tracking machine ", m2.Id()),
+		fmt.Sprint("stopped watching machine ", m2.Id()),
 	})
-
-	c.Assert(fw.Stop(), IsNil)
 }
 
 func (s *FirewallerSuite) TestAssignUnassignUnit(c *C) {
 	fw, err := firewaller.NewFirewaller(s.environ, s.State)
 	c.Assert(err, IsNil)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
 	setUpLogHook()
 	defer tearDownLogHook()
 
 	m1, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
+	err = m1.SetInstanceId("testing-0")
+	c.Assert(err, IsNil)
+	_, err = s.environ.StartInstance(m1.Id(), s.StateInfo(c))
+	c.Assert(err, IsNil)
 	m2, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
-	s.charm = s.AddTestingCharm(c, "dummy")
+	_, err = s.environ.StartInstance(m2.Id(), s.StateInfo(c))
+	c.Assert(err, IsNil)
+	err = m2.SetInstanceId("testing-1")
+	c.Assert(err, IsNil)
 	s1, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 	u1, err := s1.AddUnit()
@@ -176,25 +185,24 @@ func (s *FirewallerSuite) TestAssignUnassignUnit(c *C) {
 	c.Assert(err, IsNil)
 
 	assertEvents(c, []string{
-		fmt.Sprint("started tracking machine ", m1.Id()),
-		fmt.Sprint("started tracking machine ", m2.Id()),
-		fmt.Sprint("started tracking unit ", u1.Name()),
-		fmt.Sprint("started tracking unit ", u2.Name()),
+		fmt.Sprint("started watching machine ", m1.Id()),
+		fmt.Sprint("started watching machine ", m2.Id()),
+		fmt.Sprint("started watching unit ", u1.Name()),
+		fmt.Sprint("started watching unit ", u2.Name()),
 	})
 
 	err = u1.UnassignFromMachine()
 	c.Assert(err, IsNil)
 
 	assertEvents(c, []string{
-		fmt.Sprint("stopped tracking unit ", u1.Name()),
+		fmt.Sprint("stopped watching unit ", u1.Name()),
 	})
-
-	c.Assert(fw.Stop(), IsNil)
 }
 
 func (s *FirewallerSuite) TestOpenClosePorts(c *C) {
 	fw, err := firewaller.NewFirewaller(s.environ, s.State)
 	c.Assert(err, IsNil)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
 	setUpLogHook()
 	defer tearDownLogHook()
@@ -202,7 +210,10 @@ func (s *FirewallerSuite) TestOpenClosePorts(c *C) {
 	// Scenario 1: Service has *not* been exposed.
 	m1, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
-	s.charm = s.AddTestingCharm(c, "dummy")
+	err = m1.SetInstanceId("testing-0")
+	c.Assert(err, IsNil)
+	_, err = s.environ.StartInstance(m1.Id(), s.StateInfo(c))
+	c.Assert(err, IsNil)
 	s1, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 	u1, err := s1.AddUnit()
@@ -213,8 +224,8 @@ func (s *FirewallerSuite) TestOpenClosePorts(c *C) {
 	c.Assert(err, IsNil)
 
 	assertEvents(c, []string{
-		fmt.Sprint("started tracking machine ", m1.Id()),
-		fmt.Sprint("started tracking unit ", u1.Name()),
+		fmt.Sprint("started watching machine ", m1.Id()),
+		fmt.Sprint("started watching unit ", u1.Name()),
 	})
 
 	err = u1.ClosePort("tcp", 80)
@@ -224,6 +235,10 @@ func (s *FirewallerSuite) TestOpenClosePorts(c *C) {
 
 	// Scenario 2: Service has been exposed.
 	m2, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	err = m2.SetInstanceId("testing-1")
+	c.Assert(err, IsNil)
+	_, err = s.environ.StartInstance(m2.Id(), s.StateInfo(c))
 	c.Assert(err, IsNil)
 	s2, err := s.State.AddService("mysql", s.charm)
 	c.Assert(err, IsNil)
@@ -237,19 +252,17 @@ func (s *FirewallerSuite) TestOpenClosePorts(c *C) {
 	c.Assert(err, IsNil)
 
 	assertEvents(c, []string{
-		fmt.Sprint("started tracking machine ", m2.Id()),
-		fmt.Sprint("started tracking unit ", u2.Name()),
-		fmt.Sprintf("opened port {tcp 3306} on machine %d", m2.Id()),
+		fmt.Sprint("started watching machine ", m2.Id()),
+		fmt.Sprint("started watching unit ", u2.Name()),
+		fmt.Sprintf("opened ports [{tcp 3306}] on machine %d", m2.Id()),
 	})
 
 	err = u2.ClosePort("tcp", 3306)
 	c.Assert(err, IsNil)
 
 	assertEvents(c, []string{
-		fmt.Sprintf("closed port {tcp 3306} on machine %d", m2.Id()),
+		fmt.Sprintf("closed ports [{tcp 3306}] on machine %d", m2.Id()),
 	})
-
-	c.Assert(fw.Stop(), IsNil)
 }
 
 func (s *FirewallerSuite) TestSetClearExposedService(c *C) {
@@ -261,7 +274,10 @@ func (s *FirewallerSuite) TestSetClearExposedService(c *C) {
 
 	m1, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
-	s.charm = s.AddTestingCharm(c, "dummy")
+	err = m1.SetInstanceId("testing-0")
+	c.Assert(err, IsNil)
+	_, err = s.environ.StartInstance(m1.Id(), s.StateInfo(c))
+	c.Assert(err, IsNil)
 	s1, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 	u1, err := s1.AddUnit()
@@ -270,24 +286,26 @@ func (s *FirewallerSuite) TestSetClearExposedService(c *C) {
 	c.Assert(err, IsNil)
 	err = u1.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
+	err = u1.OpenPort("tcp", 443)
+	c.Assert(err, IsNil)
 
 	assertEvents(c, []string{
-		fmt.Sprint("started tracking machine ", m1.Id()),
-		fmt.Sprint("started tracking unit ", u1.Name()),
+		fmt.Sprint("started watching machine ", m1.Id()),
+		fmt.Sprint("started watching unit ", u1.Name()),
 	})
 
 	err = s1.SetExposed()
 	c.Assert(err, IsNil)
 
 	assertEvents(c, []string{
-		fmt.Sprintf("opened port {tcp 80} on machine %d", m1.Id()),
+		fmt.Sprintf("opened ports [{tcp 80} {tcp 443}] on machine %d", m1.Id()),
 	})
 
 	err = s1.ClearExposed()
 	c.Assert(err, IsNil)
 
 	assertEvents(c, []string{
-		fmt.Sprintf("closed port {tcp 80} on machine %d", m1.Id()),
+		fmt.Sprintf("closed ports [{tcp 80} {tcp 443}] on machine %d", m1.Id()),
 	})
 
 	c.Assert(fw.Stop(), IsNil)

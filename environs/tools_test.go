@@ -237,3 +237,24 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 		t.env.Destroy(nil)
 	}
 }
+
+var setenvTests = []struct {
+	set    string
+	expect []string
+}{
+	{"foo=1", []string{"foo=1", "arble="}},
+	{"foo=", []string{"foo=", "arble="}},
+	{"arble=23", []string{"foo=bar", "arble=23"}},
+	{"zaphod=42", []string{"foo=bar", "arble=", "zaphod=42"}},
+}
+
+func (*ToolsSuite) TestSetenv(c *C) {
+	env0 := []string{"foo=bar", "arble="}
+	for i, t := range setenvTests {
+		c.Logf("test %d", i)
+		env := make([]string, len(env0))
+		copy(env, env0)
+		env = environs.Setenv(env, t.set)
+		c.Check(env, DeepEquals, t.expect)
+	}
+}

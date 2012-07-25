@@ -8,12 +8,6 @@ import (
 	"strings"
 )
 
-// All map types used in the schema package are of type MapType.
-type MapType map[interface{}]interface{}
-
-// All the slice types generated in the schema package are of type ListType.
-type ListType []interface{}
-
 // The Coerce method of the Checker interface is called recursively when
 // v is being validated.  If err is nil, newv is used as the new value
 // at the recursion point.  If err is non-nil, v is taken as invalid and
@@ -197,7 +191,7 @@ func (c sregexpC) Coerce(v interface{}, path []string) (interface{}, error) {
 // provided slice value fails to be processed, processing will stop
 // and return with the obtained error.
 //
-// The coerced output value has type schema.ListType.
+// The coerced output value has type []interface{}.
 func List(elem Checker) Checker {
 	return listC{elem}
 }
@@ -215,7 +209,7 @@ func (c listC) Coerce(v interface{}, path []string) (interface{}, error) {
 	path = append(path, "[", "?", "]")
 
 	l := rv.Len()
-	out := make(ListType, 0, l)
+	out := make([]interface{}, 0, l)
 	for i := 0; i != l; i++ {
 		path[len(path)-2] = strconv.Itoa(i)
 		elem, err := c.elem.Coerce(rv.Index(i).Interface(), path)
@@ -232,7 +226,7 @@ func (c listC) Coerce(v interface{}, path []string) (interface{}, error) {
 // value fails to be coerced, processing stops and returns with the
 // underlying error.
 //
-// The coerced output value has type schema.MapType.
+// The coerced output value has type map[interface{}]interface{}.
 func Map(key Checker, value Checker) Checker {
 	return mapC{key, value}
 }
@@ -251,7 +245,7 @@ func (c mapC) Coerce(v interface{}, path []string) (interface{}, error) {
 	vpath := append(path, ".", "?")
 
 	l := rv.Len()
-	out := make(MapType, l)
+	out := make(map[interface{}]interface{}, l)
 	keys := rv.MapKeys()
 	for i := 0; i != l; i++ {
 		k := keys[i]
@@ -269,8 +263,56 @@ func (c mapC) Coerce(v interface{}, path []string) (interface{}, error) {
 	return out, nil
 }
 
+// StringMap returns a Checker that accepts a map value. Every key in
+// the map must be a string, and every value in the map are processed
+// with the provided checker. If any value fails to be coerced,
+// processing stops and returns with the underlying error.
+//
+// The coerced output value has type map[string]interface{}.
+func StringMap(value Checker) Checker {
+	return stringMapC{value}
+}
+
+type stringMapC struct {
+	value Checker
+}
+
+func (c stringMapC) Coerce(v interface{}, path []string) (interface{}, error) {
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Map {
+		return nil, error_{"map", v, path}
+	}
+
+	vpath := append(path, ".", "?")
+	key := String()
+
+	l := rv.Len()
+	out := make(map[string]interface{}, l)
+	keys := rv.MapKeys()
+	for i := 0; i != l; i++ {
+		k := keys[i]
+		newk, err := key.Coerce(k.Interface(), path)
+		if err != nil {
+			return nil, err
+		}
+		vpath[len(vpath)-1] = fmt.Sprint(k.Interface())
+		newv, err := c.value.Coerce(rv.MapIndex(k).Interface(), vpath)
+		if err != nil {
+			return nil, err
+		}
+		out[newk.(string)] = newv
+	}
+	return out, nil
+}
+
+// Omit is a marker for FieldMap and StructFieldMap defaults parameter.
+// If a field is not present in the map and defaults to Omit, the missing
+// field will be ommitted from the coerced map as well.
+var Omit omit
+type omit struct{}
+
 type Fields map[string]Checker
-type Optional []string
+type Defaults map[string]interface{}
 
 // FieldMap returns a Checker that accepts a map value with defined
 // string keys. Every key has an independent checker associated,
@@ -278,30 +320,25 @@ type Optional []string
 // individually. If a field fails to be processed, processing stops
 // and returns with the underlying error.
 //
-// The coerced output value has type schema.MapType.
-func FieldMap(fields Fields, optional Optional) Checker {
-	return fieldMapC{fields, optional, false}
+// Fields in defaults will be set to the provided value if not present
+// in the coerced map. If the default value is schema.Omit, the field
+// missing field will be ommitted from the coerced map as well.
+//
+// The coerced output value has type map[string]interface{}.
+func FieldMap(fields Fields, defaults Defaults) Checker {
+	return fieldMapC{fields, defaults, false}
 }
 
 // StrictFieldMap returns a Checker that acts as the one returned by FieldMap,
 // but the Checker returns an error if it encounters an unknown key.
-func StrictFieldMap(fields Fields, optional Optional) Checker {
-	return fieldMapC{fields, optional, true}
+func StrictFieldMap(fields Fields, defaults Defaults) Checker {
+	return fieldMapC{fields, defaults, true}
 }
 
 type fieldMapC struct {
 	fields   Fields
-	optional []string
+	defaults Defaults
 	strict   bool
-}
-
-func (c fieldMapC) isOptional(key string) bool {
-	for _, k := range c.optional {
-		if k == key {
-			return true
-		}
-	}
-	return false
 }
 
 func (c fieldMapC) Coerce(v interface{}, path []string) (interface{}, error) {
@@ -324,21 +361,41 @@ func (c fieldMapC) Coerce(v interface{}, path []string) (interface{}, error) {
 	}
 
 	l := rv.Len()
-	out := make(MapType, l)
+	out := make(map[string]interface{}, l)
 	for k, checker := range c.fields {
-		vpath[len(vpath)-1] = k
 		var value interface{}
 		valuev := rv.MapIndex(reflect.ValueOf(k))
 		if valuev.IsValid() {
 			value = valuev.Interface()
-		} else if c.isOptional(k) {
-			continue
+		} else if dflt, ok := c.defaults[k]; ok {
+			if dflt == Omit {
+				continue
+			}
+			value = dflt
 		}
+		vpath[len(vpath)-1] = k
 		newv, err := checker.Coerce(value, vpath)
 		if err != nil {
 			return nil, err
 		}
 		out[k] = newv
+	}
+	for k, v := range c.defaults {
+		if v == Omit {
+			continue
+		}
+		if _, ok := out[k]; !ok {
+			checker, ok := c.fields[k]
+			if !ok {
+				return nil, fmt.Errorf("got default value for unknown field %q", k)
+			}
+			vpath[len(vpath)-1] = k
+			newv, err := checker.Coerce(v, vpath)
+			if err != nil {
+				return nil, err
+			}
+			out[k] = newv
+		}
 	}
 	return out, nil
 }
@@ -349,7 +406,7 @@ func (c fieldMapC) Coerce(v interface{}, path []string) (interface{}, error) {
 // field processes the map correctly. If no checker processes
 // the selector value correctly, an error is returned.
 //
-// The coerced output value has type schema.MapType.
+// The coerced output value has type map[string]interface{}.
 func FieldMapSet(selector string, maps []Checker) Checker {
 	fmaps := make([]fieldMapC, len(maps))
 	for i, m := range maps {
