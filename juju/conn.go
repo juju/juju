@@ -79,19 +79,12 @@ func (c *Conn) State() (*state.State, error) {
 // updateSecrets updates the sensitive parts of the environment 
 // from the local configuration.
 func (c *Conn) updateSecrets() error {
-	environs, err := environs.ReadEnvirons("")
-	if err != nil {
-		return err
-	}
-	config, err := environs.Config(c.Environ.Name())
-	if err != nil {
-		return err
-	}
+	cfg := c.Environ.Config()
 	env, err := c.state.EnvironConfig()
 	if err != nil {
 		return err
 	}
-	env.Update(config.AllAttrs())
+	env.Update(cfg.AllAttrs())
 	if _, err := env.Write(); err != nil {
 		return err
 	}
