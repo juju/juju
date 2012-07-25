@@ -1,10 +1,10 @@
-package relationer_test
+package uniter_test
 
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/worker/relationer"
+	"launchpad.net/juju-core/worker/uniter"
 	stdtesting "testing"
 	"time"
 )
@@ -118,8 +118,8 @@ func (s *HookQueueSuite) TestHookQueue(c *C) {
 	for i, t := range hookQueueTests {
 		c.Logf("test %d", i)
 		in := make(chan state.RelationUnitsChange)
-		out := make(chan relationer.HookInfo)
-		relationer.HookQueue(out, in)
+		out := make(chan uniter.HookInfo)
+		uniter.HookQueue(out, in)
 		for i, step := range t {
 			c.Logf("  step %d", i)
 			step.check(c, in, out)
@@ -130,15 +130,15 @@ func (s *HookQueueSuite) TestHookQueue(c *C) {
 
 func (s *HookQueueSuite) TestHookQueueStopsImmediately(c *C) {
 	in := make(chan state.RelationUnitsChange)
-	out := make(chan relationer.HookInfo)
-	relationer.HookQueue(out, in)
+	out := make(chan uniter.HookInfo)
+	uniter.HookQueue(out, in)
 	send{msi{"u0": 0}, nil}.check(c, in, out)
 	close(in)
 	expect{}.check(c, in, out)
 }
 
 type checker interface {
-	check(c *C, in chan state.RelationUnitsChange, out chan relationer.HookInfo)
+	check(c *C, in chan state.RelationUnitsChange, out chan uniter.HookInfo)
 }
 
 type send struct {
@@ -146,7 +146,7 @@ type send struct {
 	departed []string
 }
 
-func (d send) check(c *C, in chan state.RelationUnitsChange, out chan relationer.HookInfo) {
+func (d send) check(c *C, in chan state.RelationUnitsChange, out chan uniter.HookInfo) {
 	ruc := state.RelationUnitsChange{Changed: map[string]state.UnitSettings{}}
 	for name, version := range d.changed {
 		ruc.Changed[name] = state.UnitSettings{
@@ -164,7 +164,7 @@ type advance struct {
 	count int
 }
 
-func (d advance) check(c *C, in chan state.RelationUnitsChange, out chan relationer.HookInfo) {
+func (d advance) check(c *C, in chan state.RelationUnitsChange, out chan uniter.HookInfo) {
 	for i := 0; i < d.count; i++ {
 		select {
 		case <-out:
@@ -179,7 +179,7 @@ type expect struct {
 	members    msi
 }
 
-func (d expect) check(c *C, in chan state.RelationUnitsChange, out chan relationer.HookInfo) {
+func (d expect) check(c *C, in chan state.RelationUnitsChange, out chan uniter.HookInfo) {
 	if d.hook == "" {
 		select {
 		case unexpected := <-out:
@@ -188,7 +188,7 @@ func (d expect) check(c *C, in chan state.RelationUnitsChange, out chan relation
 		}
 		return
 	}
-	expect := relationer.HookInfo{d.hook, d.unit, map[string]map[string]interface{}{}}
+	expect := uniter.HookInfo{d.hook, d.unit, map[string]map[string]interface{}{}}
 	for name, version := range d.members {
 		expect.Members[name] = settings(name, version)
 	}

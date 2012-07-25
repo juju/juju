@@ -1,4 +1,4 @@
-package relationer
+package uniter
 
 import (
 	"launchpad.net/juju-core/state"
