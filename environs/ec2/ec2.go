@@ -6,6 +6,7 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
@@ -38,14 +39,14 @@ func init() {
 
 type environProvider struct{}
 
-var _ environs.EnvironProvider = environProvider{}
+var providerInstance environProvider
 
 type environ struct {
 	name string
 
-	// configMutex protects the *Unlocked fields below.
-	configMutex           sync.Mutex
-	configUnlocked        *providerConfig
+	// ecfgMutex protects the *Unlocked fields below.
+	ecfgMutex             sync.Mutex
+	ecfgUnlocked          *environConfig
 	ec2Unlocked           *ec2.EC2
 	s3Unlocked            *s3.S3
 	storageUnlocked       *storage
@@ -97,83 +98,81 @@ func (inst *instance) WaitDNSName() (string, error) {
 	return "", fmt.Errorf("timed out trying to get DNS address for %v", inst.Id())
 }
 
-func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
-	return fmt.Errorf("ec2 OpenPorts not implemented")
-}
-
-func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
-	return fmt.Errorf("ec2 ClosePorts not implemented")
-}
-
-func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
-	return nil, fmt.Errorf("ec2 Ports not implemented")
-}
-
-func (cfg *providerConfig) Open() (environs.Environ, error) {
-	log.Printf("environs/ec2: opening environment %q", cfg.name)
-	if aws.Regions[cfg.region].EC2Endpoint == "" {
-		return nil, fmt.Errorf("no ec2 endpoint found for region %q, opening %q", cfg.region, cfg.name)
-	}
+func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
+	log.Printf("environs/ec2: opening environment %q", cfg.Name())
 	e := new(environ)
-	e.SetConfig(cfg)
+	err := e.SetConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
 	return e, nil
 }
 
-func (e *environ) SetConfig(cfg environs.EnvironConfig) {
-	config := cfg.(*providerConfig)
-	e.configMutex.Lock()
-	defer e.configMutex.Unlock()
-	// TODO(dfc) bug #1018207, renaming an environment once it is in use should be forbidden
-	e.name = config.name
-	e.configUnlocked = config
-	e.ec2Unlocked = ec2.New(config.auth, aws.Regions[config.region])
-	e.s3Unlocked = s3.New(config.auth, aws.Regions[config.region])
+func (e *environ) SetConfig(cfg *config.Config) error {
+	ecfg, err := providerInstance.newConfig(cfg)
+	if err != nil {
+		return err
+	}
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+	e.name = ecfg.Name()
+	e.ecfgUnlocked = ecfg
+
+	auth := aws.Auth{ecfg.accessKey(), ecfg.secretKey()}
+	region := aws.Regions[ecfg.region()]
+	e.ec2Unlocked = ec2.New(auth, region)
+	e.s3Unlocked = s3.New(auth, region)
 
 	// create new storage instances, existing instances continue
 	// to reference their existing configuration.
 	e.storageUnlocked = &storage{
-		bucket: e.s3Unlocked.Bucket(config.bucket),
+		bucket: e.s3Unlocked.Bucket(ecfg.controlBucket()),
 	}
-	if config.publicBucket != "" {
+	if ecfg.publicBucket() != "" {
 		e.publicStorageUnlocked = &storage{
-			bucket: e.s3Unlocked.Bucket(config.publicBucket),
+			bucket: e.s3Unlocked.Bucket(ecfg.publicBucket()),
 		}
 	} else {
 		e.publicStorageUnlocked = nil
 	}
+	return nil
 }
 
-func (e *environ) config() *providerConfig {
-	e.configMutex.Lock()
-	defer e.configMutex.Unlock()
-	return e.configUnlocked
+func (e *environ) ecfg() *environConfig {
+	e.ecfgMutex.Lock()
+	ecfg := e.ecfgUnlocked
+	e.ecfgMutex.Unlock()
+	return ecfg
 }
 
 func (e *environ) ec2() *ec2.EC2 {
-	e.configMutex.Lock()
-	defer e.configMutex.Unlock()
-	return e.ec2Unlocked
+	e.ecfgMutex.Lock()
+	ec2 := e.ec2Unlocked
+	e.ecfgMutex.Unlock()
+	return ec2
 }
 
 func (e *environ) s3() *s3.S3 {
-	e.configMutex.Lock()
-	defer e.configMutex.Unlock()
-	return e.s3Unlocked
+	e.ecfgMutex.Lock()
+	s3 := e.s3Unlocked
+	e.ecfgMutex.Unlock()
+	return s3
 }
 
 func (e *environ) Name() string {
-	return e.config().name
+	return e.name
 }
 
 func (e *environ) Storage() environs.Storage {
-	e.configMutex.Lock()
-	defer e.configMutex.Unlock()
-	return e.storageUnlocked
+	e.ecfgMutex.Lock()
+	storage := e.storageUnlocked
+	e.ecfgMutex.Unlock()
+	return storage
 }
 
 func (e *environ) PublicStorage() environs.StorageReader {
-	e.configMutex.Lock()
-	defer e.configMutex.Unlock()
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
 	if e.publicStorageUnlocked == nil {
 		return environs.EmptyStorage
 	}
@@ -270,7 +269,7 @@ func (e *environ) userData(machineId int, info *state.Info, master bool, toolsUR
 		providerType:       "ec2",
 		toolsURL:           toolsURL,
 		machineId:          machineId,
-		authorizedKeys:     e.config().authorizedKeys,
+		authorizedKeys:     e.ecfg().AuthorizedKeys(),
 	}
 	cloudcfg, err := newCloudInit(cfg)
 	if err != nil {
@@ -284,9 +283,9 @@ func (e *environ) userData(machineId int, info *state.Info, master bool, toolsUR
 // instance will be started.
 func (e *environ) startInstance(machineId int, info *state.Info, master bool) (environs.Instance, error) {
 	spec, err := findInstanceSpec(&instanceConstraint{
-		series: environs.CurrentSeries,
-		arch:   environs.CurrentArch,
-		region: e.config().region,
+		series: config.CurrentSeries,
+		arch:   config.CurrentArch,
+		region: e.ecfg().region(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
@@ -463,8 +462,9 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 	if err != nil {
 		return err
 	}
-	// to properly observe e.storageUnlocked we need to get it's value while
-	// holding e.configMutex. e.Storage() does this for us, then we convert
+
+	// To properly observe e.storageUnlocked we need to get its value while
+	// holding e.ecfgMutex. e.Storage() does this for us, then we convert
 	// back to the (*storage) to access the private deleteAll() method.
 	st := e.Storage().(*storage)
 	err = st.deleteAll()
@@ -489,10 +489,10 @@ func (e *environ) terminateInstances(ids []string) error {
 	if len(ids) == 1 {
 		return err
 	}
-	var firstErr error
 	// If we get a NotFound error, it means that no instances have been
 	// terminated even if some exist, so try them one by one, ignoring
 	// NotFound errors.
+	var firstErr error
 	for _, id := range ids {
 		_, err = ec2inst.TerminateInstances([]string{id})
 		if ec2ErrCode(err) == "InvalidInstanceID.NotFound" {
@@ -511,6 +511,89 @@ func (e *environ) machineGroupName(machineId int) string {
 
 func (e *environ) groupName() string {
 	return "juju-" + e.name
+}
+
+func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
+	if len(ports) == 0 {
+		return nil
+	}
+	// Give permissions for anyone to access the given ports.
+	ipPerms := portsToIPPerms(ports)
+	g := ec2.SecurityGroup{Name: inst.e.machineGroupName(machineId)}
+	_, err := inst.e.ec2().AuthorizeSecurityGroup(g, ipPerms)
+	if err != nil && ec2ErrCode(err) == "InvalidPermission.Duplicate" {
+		if len(ports) == 1 {
+			return nil
+		}
+		// If there's more than one port and we get a duplicate error,
+		// then we go through authorizing each port individually,
+		// otherwise the ports that were *not* duplicates will have
+		// been ignored
+		for i := range ipPerms {
+			_, err := inst.e.ec2().AuthorizeSecurityGroup(g, ipPerms[i:i+1])
+			if err != nil && ec2ErrCode(err) != "InvalidPermission.Duplicate" {
+				return fmt.Errorf("cannot open port %v: %v", ipPerms[i], err)
+			}
+		}
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("cannot open ports: %v", err)
+	}
+	return nil
+}
+
+func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
+	if len(ports) == 0 {
+		return nil
+	}
+	// Revoke permissions for anyone to access the given ports.
+	// Note that ec2 allows the revocation of permissions that aren't
+	// granted, so this is naturally idempotent.
+	g := ec2.SecurityGroup{Name: inst.e.machineGroupName(machineId)}
+	_, err := inst.e.ec2().RevokeSecurityGroup(g, portsToIPPerms(ports))
+	if err != nil {
+		return fmt.Errorf("cannot close ports: %v", err)
+	}
+	return nil
+}
+
+func portsToIPPerms(ports []state.Port) []ec2.IPPerm {
+	ipPerms := make([]ec2.IPPerm, len(ports))
+	for i, p := range ports {
+		ipPerms[i] = ec2.IPPerm{
+			Protocol:  p.Protocol,
+			FromPort:  p.Number,
+			ToPort:    p.Number,
+			SourceIPs: []string{"0.0.0.0/0"},
+		}
+	}
+	return ipPerms
+}
+
+func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
+	g := ec2.SecurityGroup{Name: inst.e.machineGroupName(machineId)}
+	resp, err := inst.e.ec2().SecurityGroups([]ec2.SecurityGroup{g}, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(resp.Groups) != 1 {
+		return nil, fmt.Errorf("expected one security group, got %d", len(resp.Groups))
+	}
+	for _, p := range resp.Groups[0].IPPerms {
+		if len(p.SourceIPs) != 1 {
+			log.Printf("environs/ec2: unexpected IP permission found: %v", p)
+			continue
+		}
+		for i := p.FromPort; i <= p.ToPort; i++ {
+			ports = append(ports, state.Port{
+				Protocol: p.Protocol,
+				Number:   i,
+			})
+		}
+	}
+	state.SortPorts(ports)
+	return ports, nil
 }
 
 // setUpGroups creates the security groups for the new machine, and

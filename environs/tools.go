@@ -6,39 +6,15 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/version"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 )
-
-var CurrentSeries = readSeries("/etc/lsb-release") // current Ubuntu release name.   
-var CurrentArch = ubuntuArch(runtime.GOARCH)
-
-func readSeries(releaseFile string) string {
-	data, err := ioutil.ReadFile(releaseFile)
-	if err != nil {
-		return "unknown"
-	}
-	for _, line := range strings.Split(string(data), "\n") {
-		const p = "DISTRIB_CODENAME="
-		if strings.HasPrefix(line, p) {
-			return strings.Trim(line[len(p):], "\t '\"")
-		}
-	}
-	return "unknown"
-}
-
-func ubuntuArch(arch string) string {
-	if arch == "386" {
-		arch = "i386"
-	}
-	return arch
-}
 
 var toolPrefix = "tools/juju-"
 
@@ -76,7 +52,7 @@ func PutTools(storage StorageWriter) error {
 	if err != nil {
 		return err
 	}
-	p := ToolsPath(version.Current, CurrentSeries, CurrentArch)
+	p := ToolsPath(version.Current, config.CurrentSeries, config.CurrentArch)
 	log.Printf("environs: putting tools %v", p)
 	return storage.Put(p, f, fi.Size())
 }
@@ -177,7 +153,7 @@ func FindTools(env Environ, vers version.Version, series, arch string) (url stri
 // GetTools finds the latest compatible version of the juju tools
 // and downloads them into the given directory.
 func GetTools(env Environ, dir string) error {
-	storage, path, err := findTools(env, toolsSpec{version.Current, CurrentSeries, CurrentArch})
+	storage, path, err := findTools(env, toolsSpec{version.Current, config.CurrentSeries, config.CurrentArch})
 	if err != nil {
 		return err
 	}
@@ -273,6 +249,17 @@ func findToolsPath(store StorageReader, spec toolsSpec) (path string, err error)
 	return bestName, nil
 }
 
+func setenv(env []string, val string) []string {
+	prefix := val[0 : strings.Index(val, "=")+1]
+	for i, eval := range env {
+		if strings.HasPrefix(eval, prefix) {
+			env[i] = val
+			return env
+		}
+	}
+	return append(env, val)
+}
+
 // bundleTools bundles all the current juju tools in gzipped tar
 // format to the given writer.
 func bundleTools(w io.Writer) error {
@@ -282,11 +269,7 @@ func bundleTools(w io.Writer) error {
 	}
 	defer os.RemoveAll(dir)
 	cmd := exec.Command("go", "install", "launchpad.net/juju-core/cmd/...")
-	cmd.Env = []string{
-		"GOPATH=" + os.Getenv("GOPATH"),
-		"GOBIN=" + dir,
-		"PATH=" + os.Getenv("PATH"),
-	}
+	cmd.Env = setenv(os.Environ(), "GOBIN="+dir)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("build failed: %v; %s", err, out)

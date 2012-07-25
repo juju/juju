@@ -25,7 +25,7 @@ func (s *RelationSuite) TestAddRelationErrors(c *C) {
 	// Check we can't add a relation until both services exist.
 	proep := state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, state.ScopeGlobal}
 	err = s.State.AddRelation(proep, reqep)
-	c.Assert(err, ErrorMatches, `can't add relation "pro:foo req:bar": can't get service "pro": not found`)
+	c.Assert(err, ErrorMatches, `can't add relation "pro:foo req:bar": cannot get service "pro": not found`)
 	assertNoRelations(c, req)
 	pro, err := s.State.AddService("pro", s.charm)
 	c.Assert(err, IsNil)

@@ -2,6 +2,7 @@ package provisioner
 
 import (
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -56,7 +57,8 @@ refreshState:
 				return
 			}
 			var err error
-			p.environ, err = environs.NewEnviron(config.Map())
+			// TODO Change state so it hands off *config.Config.
+			p.environ, err = environs.NewFromAttrs(config.Map())
 			if err != nil {
 				log.Printf("provisioner loaded invalid environment configuration: %v", err)
 				continue
@@ -89,7 +91,8 @@ refreshState:
 				p.tomb.Kill(watcher.MustErr(environWatcher))
 				return
 			}
-			config, err := environs.NewConfig(change.Map())
+			// TODO Change state so it hands off *config.Config.
+			config, err := config.New(change.Map())
 			if err != nil {
 				log.Printf("provisioner loaded invalid environment configuration: %v", err)
 				continue
@@ -216,7 +219,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	// state.Info as the PA. 
 	inst, err := p.environ.StartInstance(m.Id(), p.info)
 	if err != nil {
-		log.Printf("provisioner can't start machine %s: %v", m, err)
+		log.Printf("provisioner cannot start machine %s: %v", m, err)
 		return err
 	}
 

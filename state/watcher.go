@@ -3,6 +3,7 @@ package state
 import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 )
@@ -485,12 +486,12 @@ func (w *ServicesWatcher) update(change watcher.ContentChange) error {
 	for _, serviceKey := range added {
 		serviceName, err := topology.ServiceName(serviceKey)
 		if err != nil {
-			log.Printf("can't read service %q: %v", serviceKey, err)
+			log.Printf("cannot read service %q: %v", serviceKey, err)
 			continue
 		}
 		service, err := w.st.Service(serviceName)
 		if err != nil {
-			log.Printf("can't read service %q: %v", serviceName, err)
+			log.Printf("cannot read service %q: %v", serviceName, err)
 			continue
 		}
 		w.knownServices[serviceKey] = service
@@ -571,7 +572,7 @@ func (w *ServiceUnitsWatcher) update(change watcher.ContentChange) error {
 	for _, unitKey := range added {
 		unit, err := w.st.unitFromKey(topology, unitKey)
 		if err != nil {
-			log.Printf("can't read unit %q: %v", unitKey, err)
+			log.Printf("cannot read unit %q: %v", unitKey, err)
 			continue
 		}
 		w.knownUnits[unitKey] = unit
@@ -659,4 +660,232 @@ func (w *ServiceRelationsWatcher) update(change watcher.ContentChange) error {
 
 func (w *ServiceRelationsWatcher) done() {
 	close(w.changeChan)
+}
+
+// RelationUnitsWatcher watches the presence and settings of units
+// playing a particular role in a particular scope of a relation,
+// on behalf of another relation unit (which can potentially be in
+// that scope/role, and will if so be exluded from reported events).
+type RelationUnitsWatcher struct {
+	st        *State
+	tomb      tomb.Tomb
+	role      RelationRole
+	scope     unitScopePath
+	ignore    string
+	updates   chan unitSettingsChange
+	unitTombs map[string]*tomb.Tomb
+	names     map[string]string
+	changes   chan RelationUnitsChange
+}
+
+// RelationUnitsChange holds settings information for newly-added and -changed
+// units, and the names of those newly departed from the relation.
+type RelationUnitsChange struct {
+	Changed  map[string]UnitSettings
+	Departed []string
+}
+
+// UnitSettings holds information about a service unit's settings within a
+// relation.
+type UnitSettings struct {
+	Version  int
+	Settings map[string]interface{}
+}
+
+// unitSettingsChange is used internally by RelationUnitsWatcher to communicate
+// information about a particular unit's settings within a relation.
+type unitSettingsChange struct {
+	name     string
+	settings UnitSettings
+}
+
+// newRelationUnitsWatcher returns a RelationUnitsWatcher which notifies of
+// all presence and settings changes to units playing role within scope,
+// excluding the given unit.
+func newRelationUnitsWatcher(scope unitScopePath, role RelationRole, u *Unit) *RelationUnitsWatcher {
+	w := &RelationUnitsWatcher{
+		st:        u.st,
+		role:      role,
+		scope:     scope,
+		ignore:    u.key,
+		names:     make(map[string]string),
+		unitTombs: make(map[string]*tomb.Tomb),
+		updates:   make(chan unitSettingsChange),
+		changes:   make(chan RelationUnitsChange),
+	}
+	go w.loop()
+	return w
+}
+
+func (w *RelationUnitsWatcher) loop() {
+	defer w.finish()
+	roleWatcher := presence.NewChildrenWatcher(w.st.zk, w.scope.presencePath(w.role, ""))
+	defer watcher.Stop(roleWatcher, &w.tomb)
+	emittedValue := false
+	for {
+		var change RelationUnitsChange
+		select {
+		case <-w.tomb.Dying():
+			return
+		case ch, ok := <-roleWatcher.Changes():
+			if !ok {
+				w.tomb.Kill(watcher.MustErr(roleWatcher))
+				return
+			}
+			if pchange, err := w.updateWatches(ch); err != nil {
+				w.tomb.Kill(err)
+				return
+			} else {
+				change = *pchange
+			}
+			if emittedValue && len(change.Changed) == 0 && len(change.Departed) == 0 {
+				continue
+			}
+		case ch, ok := <-w.updates:
+			if !ok {
+				panic("updates channel closed")
+			}
+			change = RelationUnitsChange{
+				Changed: map[string]UnitSettings{ch.name: ch.settings},
+			}
+		}
+		select {
+		case <-w.tomb.Dying():
+			return
+		case w.changes <- change:
+			emittedValue = true
+		}
+	}
+}
+
+func (w *RelationUnitsWatcher) finish() {
+	for _, t := range w.unitTombs {
+		t.Kill(nil)
+		w.tomb.Kill(t.Wait())
+	}
+	close(w.updates)
+	close(w.changes)
+	w.tomb.Done()
+}
+
+// Stop stops the watcher and returns any errors encountered while watching.
+func (w *RelationUnitsWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
+}
+
+// Dying returns a channel that is closed when the
+// watcher has stopped or is about to stop.
+func (w *RelationUnitsWatcher) Dying() <-chan struct{} {
+	return w.tomb.Dying()
+}
+
+// Err returns any error encountered while stopping the watcher, or
+// tome.ErrStillAlive if the watcher is still running.
+func (w *RelationUnitsWatcher) Err() error {
+	return w.tomb.Err()
+}
+
+// Changes returns a channel that will receive the changes to
+// the relation when detected.
+// The first event on the channel holds the initial state of the
+// relation in its Changed field.
+func (w *RelationUnitsWatcher) Changes() <-chan RelationUnitsChange {
+	return w.changes
+}
+
+// updateWatches starts or stops watches on the settings of the relation
+// units declared present or absent by ch, and returns a RelationUnitsChange
+// event expressing those changes.
+func (w *RelationUnitsWatcher) updateWatches(ch watcher.ChildrenChange) (*RelationUnitsChange, error) {
+	change := &RelationUnitsChange{}
+	for _, key := range ch.Removed {
+		if key == w.ignore {
+			continue
+		}
+		// When we stop a unit settings watcher, we have to wait for its tomb,
+		// lest its latest change (potentially waiting to be sent on the updates
+		// channel) be received and sent on as a RelationUnitsChange event *after*
+		// we notify of its departure in the event we are currently preparing.
+		t := w.unitTombs[key]
+		delete(w.unitTombs, key)
+		t.Kill(nil)
+		if err := t.Wait(); err != nil {
+			return nil, err
+		}
+		name := w.names[key]
+		delete(w.names, key)
+		change.Departed = append(change.Departed, name)
+	}
+	var topo *topology
+	for _, key := range ch.Added {
+		if key == w.ignore {
+			continue
+		}
+		if topo == nil {
+			// Read topology no more than once.
+			var err error
+			if topo, err = readTopology(w.st.zk); err != nil {
+				return nil, err
+			}
+		}
+		name, err := topo.UnitName(key)
+		if err != nil {
+			return nil, err
+		}
+		// Start watching unit settings, and consume initial event to get
+		// initial settings for the event we're preparing; subsequent
+		// changes will be received on the unitLoop goroutine and sent to
+		// this one via w.updates.
+		w.names[key] = name
+		uw := watcher.NewContentWatcher(w.st.zk, w.scope.settingsPath(key))
+		select {
+		case <-w.tomb.Dying():
+			return nil, tomb.ErrDying
+		case cch, ok := <-uw.Changes():
+			if !ok {
+				return nil, watcher.MustErr(uw)
+			}
+			us := UnitSettings{Version: cch.Version}
+			if err = goyaml.Unmarshal([]byte(cch.Content), &us.Settings); err != nil {
+				return nil, err
+			}
+			if change.Changed == nil {
+				change.Changed = map[string]UnitSettings{}
+			}
+			change.Changed[name] = us
+			t := &tomb.Tomb{}
+			w.unitTombs[key] = t
+			go w.unitLoop(name, uw, t)
+		}
+	}
+	return change, nil
+}
+
+// unitLoop sends a unitSettingsChange event on w.updates for each ContentChange
+// event received from uw.
+func (w *RelationUnitsWatcher) unitLoop(name string, uw *watcher.ContentWatcher, t *tomb.Tomb) {
+	defer t.Done()
+	defer uw.Stop()
+	for {
+		select {
+		case <-t.Dying():
+			return
+		case ch, ok := <-uw.Changes():
+			if !ok {
+				w.tomb.Kill(watcher.MustErr(uw))
+				return
+			}
+			us := UnitSettings{Version: ch.Version}
+			if err := goyaml.Unmarshal([]byte(ch.Content), &us.Settings); err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			select {
+			case <-t.Dying():
+				return
+			case w.updates <- unitSettingsChange{name, us}:
+			}
+		}
+	}
 }

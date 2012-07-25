@@ -130,7 +130,7 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 			c.Assert(ok, Equals, true)
 			c.Assert(got.Map(), DeepEquals, test.want)
 		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("didn't get change: %#v", test.want)
+			c.Fatalf("did not get change: %#v", test.want)
 		}
 	}
 
@@ -161,12 +161,12 @@ func (s *StateSuite) TestMissingCharms(c *C) {
 	// Check that getting a nonexistent charm fails.
 	curl := charm.MustParseURL("local:series/random-99")
 	_, err := s.State.Charm(curl)
-	c.Assert(err, ErrorMatches, `can't get charm "local:series/random-99": .*`)
+	c.Assert(err, ErrorMatches, `cannot get charm "local:series/random-99": .*`)
 
 	// Add a separate charm, test missing charm still missing.
 	s.AddTestingCharm(c, "dummy")
 	_, err = s.State.Charm(curl)
-	c.Assert(err, ErrorMatches, `can't get charm "local:series/random-99": .*`)
+	c.Assert(err, ErrorMatches, `cannot get charm "local:series/random-99": .*`)
 }
 
 func (s *StateSuite) TestAddMachine(c *C) {
@@ -198,7 +198,7 @@ func (s *StateSuite) TestRemoveMachine(c *C) {
 
 	// Removing a non-existing machine has to fail.
 	err = s.State.RemoveMachine(machine.Id())
-	c.Assert(err, ErrorMatches, "can't remove machine 0: machine not found")
+	c.Assert(err, ErrorMatches, "cannot remove machine 0: machine not found")
 }
 
 func (s *StateSuite) TestReadMachine(c *C) {
@@ -288,7 +288,7 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 			c.Assert(ok, Equals, true)
 			c.Assert(got, DeepEquals, want)
 		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("didn't get change: %#v", want)
+			c.Fatalf("did not get change: %#v", want)
 		}
 	}
 
@@ -332,16 +332,16 @@ func (s *StateSuite) TestRemoveService(c *C) {
 	err = s.State.RemoveService(service)
 	c.Assert(err, IsNil)
 	_, err = s.State.Service("wordpress")
-	c.Assert(err, ErrorMatches, `can't get service "wordpress": service with name "wordpress" not found`)
+	c.Assert(err, ErrorMatches, `cannot get service "wordpress": service with name "wordpress" not found`)
 
 	// Remove of an illegal service, it has already been removed.
 	err = s.State.RemoveService(service)
-	c.Assert(err, ErrorMatches, `can't remove service "wordpress": can't get all units from service "wordpress": environment state has changed`)
+	c.Assert(err, ErrorMatches, `cannot remove service "wordpress": cannot get relations for service "wordpress": environment state has changed`)
 }
 
 func (s *StateSuite) TestReadNonExistentService(c *C) {
 	_, err := s.State.Service("pressword")
-	c.Assert(err, ErrorMatches, `can't get service "pressword": service with name "pressword" not found`)
+	c.Assert(err, ErrorMatches, `cannot get service "pressword": service with name "pressword" not found`)
 }
 
 func (s *StateSuite) TestAllServices(c *C) {
@@ -411,7 +411,7 @@ func (s *StateSuite) TestWatchServices(c *C) {
 			c.Assert(ok, Equals, true)
 			c.Assert(got, DeepEquals, want)
 		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("didn't get change: %#v", want)
+			c.Fatalf("did not get change: %#v", want)
 		}
 	}
 
@@ -436,5 +436,23 @@ var diffTests = []struct {
 func (*StateSuite) TestDiff(c *C) {
 	for _, test := range diffTests {
 		c.Assert(test.want, DeepEquals, state.Diff(test.A, test.B))
+	}
+}
+
+var sortPortsTests = []struct {
+	have, want []state.Port
+}{
+	{nil, []state.Port{}},
+	{[]state.Port{{"b", 1}, {"a", 99}, {"a", 1}}, []state.Port{{"a", 1}, {"a", 99}, {"b", 1}}},
+}
+
+func (*StateSuite) TestSortPorts(c *C) {
+	for _, t := range sortPortsTests {
+		p := make([]state.Port, len(t.have))
+		copy(p, t.have)
+		state.SortPorts(p)
+		c.Check(p, DeepEquals, t.want)
+		state.SortPorts(p)
+		c.Check(p, DeepEquals, t.want)
 	}
 }

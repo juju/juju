@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"launchpad.net/gozk/zookeeper"
 	pathpkg "path"
+	"sort"
 )
 
 var (
@@ -18,7 +19,7 @@ var (
 // children.  It does not delete "/zookeeper" or the root node itself
 // and it does not consider deleting a nonexistent node to be an error.
 func zkRemoveTree(zk *zookeeper.Conn, path string) (err error) {
-	defer errorContextf(&err, "can't clean up data")
+	defer errorContextf(&err, "cannot clean up data")
 	// If we try to delete the zookeeper node (for example when
 	// calling ZkRemoveTree(zk, "/")) we silently ignore it.
 	if path == "/zookeeper" {
@@ -69,4 +70,23 @@ next:
 		missing = append(missing, a)
 	}
 	return
+}
+
+type portSlice []Port
+
+func (p portSlice) Len() int      { return len(p) }
+func (p portSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
+func (p portSlice) Less(i, j int) bool {
+	p1 := p[i]
+	p2 := p[j]
+	if p1.Protocol != p2.Protocol {
+		return p1.Protocol < p2.Protocol
+	}
+	return p1.Number < p2.Number
+}
+
+// SortPorts sorts the given ports, first by protocol,
+// then by number.
+func SortPorts(ports []Port) {
+	sort.Sort(portSlice(ports))
 }
