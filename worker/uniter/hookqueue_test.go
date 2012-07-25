@@ -117,15 +117,39 @@ var hookQueueTests = [][]checker{
 func (s *HookQueueSuite) TestHookQueue(c *C) {
 	for i, t := range hookQueueTests {
 		c.Logf("test %d", i)
-		in := make(chan state.RelationUnitsChange)
 		out := make(chan uniter.HookInfo)
-		uniter.HookQueue(out, in)
+		in := make(chan state.RelationUnitsChange)
+		ruw := &RUW{in, false}
+		q := uniter.NewHookQueue(out, ruw)
 		for i, step := range t {
 			c.Logf("  step %d", i)
 			step.check(c, in, out)
 		}
 		expect{}.check(c, in, out)
+		q.Stop()
+		c.Assert(ruw.stopped, Equals, true)
 	}
+}
+
+// RUW exists entirely to send RelationUnitsChanged events to a tested
+// HookQueue in a synchronous and predictable fashion.
+type RUW struct {
+	in      chan state.RelationUnitsChange
+	stopped bool
+}
+
+func (w *RUW) Changes() <-chan state.RelationUnitsChange {
+	return w.in
+}
+
+func (w *RUW) Stop() error {
+	close(w.in)
+	w.stopped = true
+	return nil
+}
+
+func (w *RUW) Err() error {
+	return nil
 }
 
 type checker interface {

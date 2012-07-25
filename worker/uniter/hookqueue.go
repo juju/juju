@@ -2,8 +2,19 @@ package uniter
 
 import (
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/tomb"
 	"sort"
 )
+
+// RelationUnitsWatcher is used to enable deterministic testing, by
+// supplying a reliable stream of RelationUnitsChange events; usually,
+// it will be a *state.RelationUnitsWatcher.
+type RelationUnitsWatcher interface {
+	Err() error
+	Stop() error
+	Changes() <-chan state.RelationUnitsChange
+}
 
 // HookInfo holds details required to execute a relation hook.
 type HookInfo struct {
@@ -15,24 +26,25 @@ type HookInfo struct {
 	Members map[string]map[string]interface{}
 }
 
-// HookQueue starts a goroutine which receives state.RelationUnitsChange
-// events and sends corresponding HookInfo values. When the input channel
-// is closed, it will terminate immediately.
-func HookQueue(out chan<- HookInfo, in <-chan state.RelationUnitsChange) {
-	q := &hookQueue{
-		in:   in,
+// NewHookQueue returns a new HookQueue, which sends HookInfo values on
+// out corresponding to the state.RelationUnitsChange events it receives
+// from the supplied RelationWatcher.
+func NewHookQueue(out chan<- HookInfo, w RelationUnitsWatcher) *HookQueue {
+	q := &HookQueue{
+		w:    w,
 		out:  out,
 		info: map[string]*unitInfo{},
 	}
 	go q.loop()
+	return q
 }
 
-// hookQueue aggregates RelationUnitsChanged events and ensures that
-// the HookInfo values it sends always reflect the latest known state
-// of the relation.
-type hookQueue struct {
-	in  <-chan state.RelationUnitsChange
-	out chan<- HookInfo
+// HookQueue converts state.RelationUnitsChange events to HookInfo values
+// and sends them on to a client.
+type HookQueue struct {
+	tomb tomb.Tomb
+	w    RelationUnitsWatcher
+	out  chan<- HookInfo
 
 	// info holds information about all units that were added to the
 	// queue and haven't had a "departed" event popped. This means the
@@ -53,12 +65,12 @@ type hookQueue struct {
 	next HookInfo
 }
 
-// unitInfo holds unit information for management by hookQueue.
+// unitInfo holds unit information for management by HookQueue.
 type unitInfo struct {
 	// unit holds the name of the unit.
 	unit string
 	// version and settings hold the most recent settings known
-	// to the hookQueue.
+	// to the HookQueue.
 	version  int
 	settings map[string]interface{}
 	// present is true if the unit was a member of the relation
@@ -75,7 +87,9 @@ type unitInfo struct {
 	prev, next *unitInfo
 }
 
-func (q *hookQueue) loop() {
+func (q *HookQueue) loop() {
+	defer q.tomb.Done()
+	defer watcher.Stop(q.w, &q.tomb)
 	var out chan<- HookInfo
 	for {
 		if q.head == nil && q.joined == "" {
@@ -85,8 +99,11 @@ func (q *hookQueue) loop() {
 			out = q.out
 		}
 		select {
-		case ch, ok := <-q.in:
+		case <-q.tomb.Dying():
+			return
+		case ch, ok := <-q.w.Changes():
 			if !ok {
+				q.tomb.Kill(watcher.MustErr(q.w))
 				return
 			}
 			q.update(ch)
@@ -96,9 +113,16 @@ func (q *hookQueue) loop() {
 	}
 }
 
+// Stop stops the HookQueue and returns any errors encountered during operation
+// or while shutting down.
+func (q *HookQueue) Stop() error {
+	q.tomb.Kill(nil)
+	return q.tomb.Wait()
+}
+
 // update modifies the queue such that the HookInfo values it sends will
 // reflect the supplied change.
-func (q *hookQueue) update(ruc state.RelationUnitsChange) {
+func (q *HookQueue) update(ruc state.RelationUnitsChange) {
 	// Enforce consistent addition order, mainly for testing purposes.
 	changedUnits := []string{}
 	for unit, _ := range ruc.Changed {
@@ -146,7 +170,7 @@ func (q *hookQueue) update(ruc state.RelationUnitsChange) {
 }
 
 // pop advances the queue. It will panic if the queue is already empty.
-func (q *hookQueue) pop() {
+func (q *HookQueue) pop() {
 	if q.joined != "" {
 		if q.info[q.joined].hook == "changed" {
 			// We just ran this very hook; no sense keeping it queued.
@@ -170,7 +194,7 @@ func (q *hookQueue) pop() {
 }
 
 // setNext sets q.next such that it reflects the current state of the queue.
-func (q *hookQueue) setNext() {
+func (q *HookQueue) setNext() {
 	var unit, hook string
 	if q.joined != "" {
 		unit = q.joined
@@ -202,7 +226,7 @@ func (q *hookQueue) setNext() {
 // add sets the next hook to be run for the named unit, and places it
 // at the tail of the queue if it is not already queued. It will panic
 // if the unit is not in q.info.
-func (q *hookQueue) add(unit, hook string) {
+func (q *HookQueue) add(unit, hook string) {
 	// If the unit is not in the queue, place it at the tail.
 	info := q.info[unit]
 	if info.hook == "" {
@@ -223,7 +247,7 @@ func (q *hookQueue) add(unit, hook string) {
 // remove removes the named unit from the queue. It is fine to
 // remove a unit that is not in the queue, but it will panic if
 // the unit is not in q.info.
-func (q *hookQueue) remove(unit string) {
+func (q *HookQueue) remove(unit string) {
 	if q.head == nil {
 		// The queue is empty, nothing to do.
 		return
