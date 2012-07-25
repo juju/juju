@@ -55,17 +55,22 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	result := map[string]interface{}{
-		"machines": nil, // filled out below
-		"services": make(map[string]interface{}),
+	services, err := fetchAllServices(state)
+	if err != nil {
+		return err
 	}
+
+	result := make(map[string]interface{})
 
 	result["machines"], err = processMachines(machines, instances)
 	if err != nil {
 		return err
 	}
 
-	// TODO(dfc) process services and units
+	result["services"], err = processServices(services)
+	if err != nil {
+		return err
+	}
 
 	if c.out.Name() == "json" {
 		return c.out.Write(ctx, jsonify(result))
@@ -88,7 +93,7 @@ func fetchAllInstances(env environs.Environ) (map[string]environs.Instance, erro
 }
 
 // fetchAllMachines returns a map[int]*state.Machine representing
-// a mapping of machine ids to their respective machine.
+// a mapping of machine ids to machines.
 func fetchAllMachines(st *state.State) (map[int]*state.Machine, error) {
 	v := make(map[int]*state.Machine)
 	machines, err := st.AllMachines()
@@ -97,6 +102,20 @@ func fetchAllMachines(st *state.State) (map[int]*state.Machine, error) {
 	}
 	for _, m := range machines {
 		v[m.Id()] = m
+	}
+	return v, nil
+}
+
+// fetchAllServices returns a map representing a mapping of service 
+// names to services.
+func fetchAllServices(st *state.State) (map[string]*state.Service, error) {
+	v := make(map[string]*state.Service)
+	services, err := st.AllServices()
+	if err != nil {
+		return nil, err
+	}
+	for _, s := range services {
+		v[s.Name()] = s
 	}
 	return v, nil
 }
@@ -149,6 +168,34 @@ func processMachine(machine *state.Machine, instance environs.Instance) (map[str
 	}
 
 	// TODO(dfc) unit-status
+	return r, nil
+}
+
+// processServices gathers information about services.
+func processServices(services map[string]*state.Service) (map[string]interface{}, error) {
+	r := make(map[string]interface{})
+	for _, s := range services {
+		var err error
+		r[s.Name()], err = processService(s)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return r, nil
+}
+
+func processService(service *state.Service) (map[string]interface{}, error) {
+	r := make(map[string]interface{})
+	ch, err := service.Charm()
+	if err != nil {
+		return nil, err
+	}
+	r["charm"] = ch.Meta().Name
+	r["exposed"], err = service.IsExposed()
+	if err != nil {
+		return nil, err
+	}
+	// TODO(dfc) process units and relations
 	return r, nil
 }
 
