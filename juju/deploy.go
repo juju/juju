@@ -12,7 +12,7 @@ import (
 	"os"
 )
 
-// NewService creates a new service with the given name to run the given
+// AddService creates a new service with the given name to run the given
 // charm.  If svcName is empty, the charm name will be used.
 func (conn *Conn) AddService(name string, ch *state.Charm) (*state.Service, error) {
 	st, err := conn.State()
