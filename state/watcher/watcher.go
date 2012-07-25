@@ -147,7 +147,7 @@ func (w *ContentWatcher) update() (nextWatch <-chan zookeeper.Event, err error) 
 			}
 		}
 		// Any other error during GetW() or ExistsW().
-		return nil, fmt.Errorf("watcher: can't get content of node %q: %v", w.path, err)
+		return nil, fmt.Errorf("watcher: cannot get content of node %q: %v", w.path, err)
 	}
 	newContent := ContentChange{}
 	if stat != nil {

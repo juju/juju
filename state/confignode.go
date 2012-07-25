@@ -111,7 +111,7 @@ func readConfigNode(zk *zookeeper.Conn, path string) (*ConfigNode, error) {
 
 // Read (re)reads the node data into c.
 func (c *ConfigNode) Read() (err error) {
-	defer errorContextf(&err, "can't read configuration node %q", c.path)
+	defer errorContextf(&err, "cannot read configuration node %q", c.path)
 	yaml, _, err := c.zk.Get(c.path)
 	if err != nil {
 		if !zookeeper.IsError(err, zookeeper.ZNONODE) {
@@ -130,7 +130,7 @@ func (c *ConfigNode) Read() (err error) {
 // latest version of the node, to prevent overwriting
 // unrelated changes made to the node since it was last read.
 func (c *ConfigNode) Write() (changes []ItemChange, err error) {
-	defer errorContextf(&err, "can't write configuration node %q", c.path)
+	defer errorContextf(&err, "cannot write configuration node %q", c.path)
 	// changes is used by applyChanges to return the changes to
 	// this scope.
 	changes = []ItemChange{}

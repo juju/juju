@@ -131,7 +131,7 @@ var configTests = []configTest{
 		change: attrs{
 			"region": "us-east-1",
 		},
-		err: `can't change region from "configtest" to "us-east-1"`,
+		err: `cannot change region from "configtest" to "us-east-1"`,
 	}, {
 		config: attrs{
 			"region": 666,
@@ -156,7 +156,7 @@ var configTests = []configTest{
 		change: attrs{
 			"control-bucket": "new-x",
 		},
-		err: `can't change control-bucket from "x" to "new-x"`,
+		err: `cannot change control-bucket from "x" to "new-x"`,
 	}, {
 		config: attrs{
 			"public-bucket": 666,

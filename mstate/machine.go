@@ -33,14 +33,14 @@ func (m *Machine) InstanceId() (string, error) {
 	}
 	err := m.st.machines.Find(sel).One(mdoc)
 	if err != nil {
-		return "", fmt.Errorf("can't get instance id of machine %s: %v", m, err)
+		return "", fmt.Errorf("cannot get instance id of machine %s: %v", m, err)
 	}
 	return mdoc.InstanceId, nil
 }
 
 // Units returns all the units that have been assigned to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
-	defer errorContextf(&err, "can't get units assigned to machine %s", m)
+	defer errorContextf(&err, "cannot get units assigned to machine %s", m)
 	pudocs := []unitDoc{}
 	err = m.st.units.Find(bson.D{{"machineid", m.id}}).All(&pudocs)
 	if err != nil {
@@ -66,7 +66,7 @@ func (m *Machine) SetInstanceId(id string) error {
 	change := bson.D{{"$set", bson.D{{"instanceid", id}}}}
 	err := m.st.machines.Update(bson.D{{"_id", m.id}}, change)
 	if err != nil {
-		return fmt.Errorf("can't set instance id of machine %s: %v", m, err)
+		return fmt.Errorf("cannot set instance id of machine %s: %v", m, err)
 	}
 	return nil
 }

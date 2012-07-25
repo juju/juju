@@ -154,9 +154,9 @@ func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
 	// Verify state not touched...
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	_, err = s.st.Charm(curl)
-	c.Assert(err, ErrorMatches, `can't get charm "local:precise/dummy-1": charm not found`)
+	c.Assert(err, ErrorMatches, `cannot get charm "local:precise/dummy-1": charm not found`)
 	_, err = s.st.Service("dummy")
-	c.Assert(err, ErrorMatches, `can't get service "dummy": service with name "dummy" not found`)
+	c.Assert(err, ErrorMatches, `cannot get service "dummy": service with name "dummy" not found`)
 }
 
 func (s *DeploySuite) TestAddsPeerRelations(c *C) {
