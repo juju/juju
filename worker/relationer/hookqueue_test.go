@@ -6,291 +6,203 @@ import (
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/relationer"
 	stdtesting "testing"
+	"time"
 )
 
 func Test(t *stdtesting.T) { testing.ZkTestPackage(t) }
 
-type HookQueueSuite struct{}
+type FilterSuite struct{}
 
-var _ = Suite(&HookQueueSuite{})
+var _ = Suite(&FilterSuite{})
 
 type msi map[string]int
 
-func RUC(changed msi, departed []string) state.RelationUnitsChange {
+var filterTests = [][]Step{
+	{
+	// No steps; just implicitly check it's empty.
+	}, {
+		// Joined and changed are both run when unit is first detected.
+		send{msi{"u0": 0}, nil},
+		expect{"joined", "u0", msi{"u0": 0}},
+		expect{"changed", "u0", msi{"u0": 0}},
+	}, {
+		// Automatic changed is run with latest settings.
+		send{msi{"u0": 0}, nil},
+		expect{"joined", "u0", msi{"u0": 0}},
+		send{msi{"u0": 7}, nil},
+		expect{"changed", "u0", msi{"u0": 7}},
+	}, {
+		// Joined is also run with latest settings.
+		send{msi{"u0": 0}, nil},
+		send{msi{"u0": 7}, nil},
+		expect{"joined", "u0", msi{"u0": 7}},
+		expect{"changed", "u0", msi{"u0": 7}},
+	}, {
+		// Nothing happens if a unit departs before its joined is run.
+		send{msi{"u0": 0}, nil},
+		send{msi{"u0": 7}, nil},
+		send{nil, []string{"u0"}},
+	}, {
+		// A changed is run after a joined, even if a departed is known.
+		send{msi{"u0": 0}, nil},
+		expect{"joined", "u0", msi{"u0": 0}},
+		send{nil, []string{"u0"}},
+		expect{"changed", "u0", msi{"u0": 0}},
+		expect{"departed", "u0", nil},
+	}, {
+		// A departed replaces a changed.
+		send{msi{"u0": 0}, nil},
+		advance{2},
+		send{msi{"u0": 7}, nil},
+		send{nil, []string{"u0"}},
+		expect{"departed", "u0", nil},
+	}, {
+		// Changed events are ignored if the version has not changed.
+		send{msi{"u0": 0}, nil},
+		advance{2},
+		send{msi{"u0": 0}, nil},
+	}, {
+		// Multiple changed events are compacted into one.
+		send{msi{"u0": 0}, nil},
+		advance{2},
+		send{msi{"u0": 3}, nil},
+		send{msi{"u0": 7}, nil},
+		send{msi{"u0": 79}, nil},
+		expect{"changed", "u0", msi{"u0": 79}},
+	}, {
+		// Multiple changed events are elided.
+		send{msi{"u0": 0}, nil},
+		advance{2},
+		send{msi{"u0": 3}, nil},
+		send{msi{"u0": 7}, nil},
+		send{msi{"u0": 79}, nil},
+		expect{"changed", "u0", msi{"u0": 79}},
+	}, {
+		// Latest hooks are run in the original unit order.
+		send{msi{"u0": 0, "u1": 1}, nil},
+		advance{4},
+		send{msi{"u0": 3}, nil},
+		send{msi{"u1": 7}, nil},
+		send{nil, []string{"u0"}},
+		expect{"departed", "u0", msi{"u1": 7}},
+		expect{"changed", "u1", msi{"u1": 7}},
+	}, {
+		// Test everything we can think of at the same time.
+		send{msi{"u0": 0, "u1": 0, "u2": 0, "u3": 0, "u4": 0}, nil},
+		advance{6},
+		// u0, u1, u2 are now up to date; u3, u4 are untouched.
+		send{msi{"u0": 1}, nil},
+		send{msi{"u1": 1, "u2": 1, "u3": 1, "u5": 0}, []string{"u0", "u4"}},
+		send{msi{"u3": 2}, nil},
+		// - Finish off the rest of the initial state, ignoring u4, but using
+		// the latest known settings.
+		expect{"joined", "u3", msi{"u0": 1, "u1": 1, "u2": 1, "u3": 2}},
+		expect{"changed", "u3", msi{"u0": 1, "u1": 1, "u2": 1, "u3": 2}},
+		// - u0 was queued for change by the first RUC, but this change is
+		// no longer relevant; it's departed in the second RUC, so we run
+		// that hook instead.
+		expect{"departed", "u0", msi{"u1": 1, "u2": 1, "u3": 2}},
+		// - Handle the remaining changes in the second RUC, still ignoring u4.
+		// We do run new changed hooks for u1 and u2, because the latest settings
+		// are newer than those used in their original changed events.
+		expect{"changed", "u1", msi{"u1": 1, "u2": 1, "u3": 2}},
+		expect{"changed", "u2", msi{"u1": 1, "u2": 1, "u3": 2}},
+		expect{"joined", "u5", msi{"u1": 1, "u2": 1, "u3": 2, "u5": 0}},
+		expect{"changed", "u5", msi{"u1": 1, "u2": 1, "u3": 2, "u5": 0}},
+		// - Ignore the third RUC, because the original joined/changed on u3
+		// was executed after we got the latest settings version.
+	},
+}
+
+func (s *FilterSuite) TestFilter(c *C) {
+	for i, t := range filterTests {
+		c.Logf("test %d", i)
+		in := make(chan state.RelationUnitsChange)
+		out := make(chan relationer.HookInfo)
+		relationer.StartFilter(out, in)
+		for i, step := range t {
+			c.Logf("  step %d", i)
+			step.Do(c, in, out)
+		}
+		select {
+		case unexpected := <-out:
+			c.Fatalf("got %#v", unexpected)
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
+}
+
+func (s *FilterSuite) TestFilterStopsImmediately(c *C) {
+	in := make(chan state.RelationUnitsChange)
+	out := make(chan relationer.HookInfo)
+	relationer.StartFilter(out, in)
+	send{msi{"u0": 0}, nil}.Do(c, in, out)
+	close(in)
+	select {
+	case unexpected := <-out:
+		c.Fatalf("got %#v", unexpected)
+	case <-time.After(200 * time.Millisecond):
+	}
+}
+
+type Step interface {
+	Do(c *C, in chan state.RelationUnitsChange, out chan relationer.HookInfo)
+}
+
+type send struct {
+	changed  msi
+	departed []string
+}
+
+func (d send) Do(c *C, in chan state.RelationUnitsChange, out chan relationer.HookInfo) {
 	ruc := state.RelationUnitsChange{Changed: map[string]state.UnitSettings{}}
-	for name, version := range changed {
+	for name, version := range d.changed {
 		ruc.Changed[name] = state.UnitSettings{
 			Version:  version,
 			Settings: settings(name, version),
 		}
 	}
-	for _, name := range departed {
+	for _, name := range d.departed {
 		ruc.Departed = append(ruc.Departed, name)
 	}
-	return ruc
+	in <- ruc
 }
 
-func HI(name, unit string, members msi) relationer.HookInfo {
-	hi := relationer.HookInfo{name, unit, map[string]map[string]interface{}{}}
-	for name, version := range members {
-		hi.Members[name] = settings(name, version)
+type advance struct {
+	count int
+}
+
+func (d advance) Do(c *C, in chan state.RelationUnitsChange, out chan relationer.HookInfo) {
+	for i := 0; i < d.count; i++ {
+		select {
+		case <-out:
+		case <-time.After(200 * time.Millisecond):
+			c.Fatalf("timed out waiting for event %d", i)
+		}
 	}
-	return hi
+}
+
+type expect struct {
+	hook, unit string
+	members    msi
+}
+
+func (d expect) Do(c *C, in chan state.RelationUnitsChange, out chan relationer.HookInfo) {
+	expect := relationer.HookInfo{d.hook, d.unit, map[string]map[string]interface{}{}}
+	for name, version := range d.members {
+		expect.Members[name] = settings(name, version)
+	}
+	select {
+	case actual := <-out:
+		c.Assert(actual, DeepEquals, expect)
+	case <-time.After(200 * time.Millisecond):
+		c.Fatalf("timed out waiting for %#v", expect)
+	}
 }
 
 func settings(name string, version int) map[string]interface{} {
 	return map[string]interface{}{
 		"unit-name":        name,
 		"settings-version": version,
-	}
-}
-
-var hookQueueTests = []struct {
-	// init returns the number of times to call Head on the initial
-	// queue state before adding the RelationUnitsChange events.
-	init func(q *relationer.HookQueue) int
-	// adds are all added to the queue in order after calling init
-	// and advancing the queue.
-	adds []state.RelationUnitsChange
-	// prev, if true, will cause the first hook in gets to test the
-	// result of calling Prev rather than Head.
-	prev bool
-	// gets should be the complete list of expected HookInfos.
-	gets []relationer.HookInfo
-}{
-	// Empty queue.
-	{nil, nil, false, nil},
-	// Single changed event.
-	{
-		nil, []state.RelationUnitsChange{
-			RUC(msi{"u0": 0}, nil),
-		}, false, []relationer.HookInfo{
-			HI("joined", "u0", msi{"u0": 0}),
-			HI("changed", "u0", msi{"u0": 0}),
-		},
-	},
-	// Pair of changed events for the same unit.
-	{
-		nil, []state.RelationUnitsChange{
-			RUC(msi{"u0": 0}, nil),
-			RUC(msi{"u0": 7}, nil),
-		}, false, []relationer.HookInfo{
-			HI("joined", "u0", msi{"u0": 7}),
-			HI("changed", "u0", msi{"u0": 7}),
-		},
-	},
-	// Changed events for a unit while its join is inflight.
-	{
-		func(q *relationer.HookQueue) int {
-			q.Add(RUC(msi{"u0": 0}, nil))
-			return 1
-		}, []state.RelationUnitsChange{
-			RUC(msi{"u0": 12}, nil),
-			RUC(msi{"u0": 37}, nil),
-		}, true, []relationer.HookInfo{
-			HI("joined", "u0", msi{"u0": 37}),
-			HI("changed", "u0", msi{"u0": 37}),
-		},
-	},
-	// Changed events for a unit while its changed is inflight.
-	{
-		func(q *relationer.HookQueue) int {
-			q.Add(RUC(msi{"u0": 0}, nil))
-			return 2
-		}, []state.RelationUnitsChange{
-			RUC(msi{"u0": 12}, nil),
-			RUC(msi{"u0": 37}, nil),
-		}, true, []relationer.HookInfo{
-			HI("changed", "u0", msi{"u0": 37}),
-		},
-	},
-	// Single changed event followed by a departed.
-	{
-		nil, []state.RelationUnitsChange{
-			RUC(msi{"u0": 0}, nil),
-			RUC(nil, []string{"u0"}),
-		}, false, nil,
-	},
-	// Multiple changed events followed by a departed.
-	{
-		nil, []state.RelationUnitsChange{
-			RUC(msi{"u0": 0}, nil),
-			RUC(msi{"u0": 23}, nil),
-			RUC(nil, []string{"u0"}),
-		}, false, nil,
-	},
-	// Departed event while joined is inflight. Not that the python version
-	// does *not* always run the "changed" hook in this situation, which we
-	// have decided is a Bad Thing, so we have fixed it.
-	{
-		func(q *relationer.HookQueue) int {
-			q.Add(RUC(msi{"u0": 0}, nil))
-			return 1
-		}, []state.RelationUnitsChange{
-			RUC(nil, []string{"u0"}),
-		}, true, []relationer.HookInfo{
-			HI("joined", "u0", msi{"u0": 0}),
-			HI("changed", "u0", msi{"u0": 0}),
-			HI("departed", "u0", nil),
-		},
-	},
-	// Departed event while joined is inflight, and additional change is queued.
-	// (Only a single changed should run, with latest settings.)
-	{
-		func(q *relationer.HookQueue) int {
-			q.Add(RUC(msi{"u0": 0}, nil))
-			return 1
-		}, []state.RelationUnitsChange{
-			RUC(msi{"u0": 12}, nil),
-			RUC(nil, []string{"u0"}),
-		}, true, []relationer.HookInfo{
-			HI("joined", "u0", msi{"u0": 12}),
-			HI("changed", "u0", msi{"u0": 12}),
-			HI("departed", "u0", nil),
-		},
-	},
-	// Departed event while changed is inflight.
-	{
-		func(q *relationer.HookQueue) int {
-			q.Add(RUC(msi{"u0": 0}, nil))
-			return 2
-		}, []state.RelationUnitsChange{
-			RUC(nil, []string{"u0"}),
-		}, true, []relationer.HookInfo{
-			HI("changed", "u0", msi{"u0": 0}),
-			HI("departed", "u0", nil),
-		},
-	},
-	// Departed event while changed is inflight, and additional change is queued.
-	{
-		func(q *relationer.HookQueue) int {
-			q.Add(RUC(msi{"u0": 0}, nil))
-			return 2
-		}, []state.RelationUnitsChange{
-			RUC(msi{"u0": 12}, nil),
-			RUC(nil, []string{"u0"}),
-		}, true, []relationer.HookInfo{
-			HI("changed", "u0", msi{"u0": 12}),
-			HI("departed", "u0", nil),
-		},
-	},
-	// Departed followed by changed with newer version.
-	{
-		func(q *relationer.HookQueue) int {
-			q.Add(RUC(msi{"u0": 0}, nil))
-			return 2
-		}, []state.RelationUnitsChange{
-			RUC(nil, []string{"u0"}),
-			RUC(msi{"u0": 12}, nil),
-		}, false, []relationer.HookInfo{
-			HI("changed", "u0", msi{"u0": 12}),
-		},
-	},
-	// Departed followed by changed with same version.
-	{
-		func(q *relationer.HookQueue) int {
-			q.Add(RUC(msi{"u0": 12}, nil))
-			return 2
-		}, []state.RelationUnitsChange{
-			RUC(nil, []string{"u0"}),
-			RUC(msi{"u0": 12}, nil),
-		}, false, nil,
-	},
-	// Changed while departed inflight.
-	{
-		func(q *relationer.HookQueue) int {
-			q.Add(RUC(msi{"u0": 0}, nil))
-			q.Head()
-			q.Pop()
-			q.Head()
-			q.Pop()
-			q.Add(RUC(nil, []string{"u0"}))
-			return 1
-		}, []state.RelationUnitsChange{
-			RUC(msi{"u0": 0}, nil),
-		}, true, []relationer.HookInfo{
-			HI("departed", "u0", nil),
-			HI("joined", "u0", msi{"u0": 0}),
-			HI("changed", "u0", msi{"u0": 0}),
-		},
-	},
-	// Departed while changed already queued (the departed should occur at
-	// the time the original changed was expected to occur).
-	{
-		func(q *relationer.HookQueue) int {
-			q.Add(RUC(msi{"u0": 0, "u1": 0}, nil))
-			return 4
-		}, []state.RelationUnitsChange{
-			RUC(msi{"u0": 1}, nil),
-			RUC(msi{"u1": 1}, nil),
-			RUC(nil, []string{"u0"}),
-		}, false, []relationer.HookInfo{
-			HI("departed", "u0", msi{"u1": 1}),
-			HI("changed", "u1", msi{"u1": 1}),
-		},
-	},
-	// Exercise everything I can think of at the same time.
-	{
-		func(q *relationer.HookQueue) int {
-			q.Add(RUC(msi{"u0": 0, "u1": 0, "u2": 0, "u3": 0, "u4": 0}, nil))
-			return 6 // u0, u1 up to date; u2 changed inflight; u3, u4 untouched.
-		}, []state.RelationUnitsChange{
-			RUC(msi{"u0": 1}, nil),
-			RUC(msi{"u1": 1, "u2": 1, "u3": 1, "u5": 0}, []string{"u0", "u4"}),
-			RUC(msi{"u3": 2}, nil),
-		}, true, []relationer.HookInfo{
-			// - Finish off the rest of the inited state, ignoring u4, but using
-			// the latest known settings.
-			HI("changed", "u2", msi{"u0": 1, "u1": 1, "u2": 1}),
-			HI("joined", "u3", msi{"u0": 1, "u1": 1, "u2": 1, "u3": 2}),
-			HI("changed", "u3", msi{"u0": 1, "u1": 1, "u2": 1, "u3": 2}),
-			// - u0 was queued for change by the first RUC, but this change is
-			// no longer relevant; it's departed in the second RUC, so we run
-			// that hook instead.
-			HI("departed", "u0", msi{"u1": 1, "u2": 1, "u3": 2}),
-			// - Handle the remaining changes in the second RUC, still ignoring u4.
-			// We do run a new changed hook for u1, because the latest settings
-			// are newer than those used in its original changed event.
-			HI("changed", "u1", msi{"u1": 1, "u2": 1, "u3": 2}),
-			// No new change for u2, because it used its latest settings in the
-			// retry of its initial inflight changed event.
-			HI("joined", "u5", msi{"u1": 1, "u2": 1, "u3": 2, "u5": 0}),
-			HI("changed", "u5", msi{"u1": 1, "u2": 1, "u3": 2, "u5": 0}),
-			// - Ignore the third RUC, because the original joined/changed on u3
-			// was executed after we got the latest settings version.
-		},
-	},
-}
-
-func (s *HookQueueSuite) TestHookQueue(c *C) {
-	for i, t := range hookQueueTests {
-		c.Logf("test %d", i)
-		q := relationer.NewHookQueue()
-		c.Assert(func() { q.Pop() }, PanicMatches, "no inflight hook")
-		if t.init != nil {
-			steps := t.init(q)
-			for i := 0; i < steps; i++ {
-				c.Logf("%#v", q.Head())
-				if i != steps-1 || !t.prev {
-					c.Logf("done")
-					q.Pop()
-				}
-			}
-		}
-		for _, ruc := range t.adds {
-			q.Add(ruc)
-		}
-		for i, expect := range t.gets {
-			c.Logf("  change %d", i)
-			c.Assert(q.Pending(), Equals, true)
-			c.Assert(q.Head(), DeepEquals, expect)
-			c.Assert(q.Pending(), Equals, true)
-			c.Assert(q.Head(), DeepEquals, expect)
-			q.Pop()
-		}
-		if q.Pending() {
-			c.Fatalf("unexpected %#v", q.Head())
-		}
-		c.Assert(func() { q.Head() }, PanicMatches, "queue is empty")
 	}
 }
