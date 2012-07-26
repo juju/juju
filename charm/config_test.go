@@ -68,7 +68,7 @@ func (s *ConfigSuite) TestReadConfig(c *C) {
 
 func (s *ConfigSuite) TestConfigError(c *C) {
 	_, err := charm.ReadConfig(bytes.NewBuffer([]byte(`options: {t: {type: foo}}`)))
-	c.Assert(err, ErrorMatches, `config: options.t.type: unsupported value`)
+	c.Assert(err, ErrorMatches, `config: options.t.type: unexpected value.*`)
 }
 
 func (s *ConfigSuite) TestDefaultType(c *C) {

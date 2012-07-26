@@ -16,6 +16,7 @@ environments:
     only:
         type: dummy
         zookeeper: true
+        secret: pork
 `
 	envs, err := environs.ReadEnvironsBytes([]byte(config))
 	if err != nil {
