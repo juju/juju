@@ -35,10 +35,11 @@ func (a *ProvisioningAgent) Init(f *gnuflag.FlagSet, args []string) error {
 	return a.Conf.checkArgs(f.Args())
 }
 
-// Run runs a provisioning agent with restarting after an error.
+// Run run a provisioning agent with a provisioner and a firewaller.
+// If either fails, both will be shutdown and restarted.
 func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
 	for {
-		if err := a.run(); err != nil {
+		if err := a.runOnce(); err != nil {
 			time.Sleep(retryDuration)
 			log.Printf("restarting provisioner and firewaller after error: %v", err)
 		}
@@ -46,8 +47,8 @@ func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
 	panic("unreachable")
 }
 
-// run runs a provisioning agent once.
-func (a *ProvisioningAgent) run() (err error) {
+// runOnce runs a provisioner and firewaller once.
+func (a *ProvisioningAgent) runOnce() (err error) {
 	st, err := state.Open(&a.Conf.StateInfo)
 	if err != nil {
 		return err
