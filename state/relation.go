@@ -153,8 +153,7 @@ func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
 		st:       r.st,
 		relation: r,
 		unit:     u,
-		name:     ep.RelationName,
-		role:     ep.RelationRole,
+		endpoint: ep,
 		scope:    unitScopePath(strings.Join(path, "/")),
 	}, nil
 }
@@ -165,31 +164,25 @@ type RelationUnit struct {
 	st       *State
 	relation *Relation
 	unit     *Unit
-	name     string
-	role     RelationRole
+	endpoint RelationEndpoint
 	scope    unitScopePath
 }
 
-// Name returns the relation's name according to the unit. This does
-// not uniquely identify the relation, because a unit can participate
-// in multiple relations with the same name. This value is exposed to
-// hooks as the JUJU_RELATION environment variable.
-func (ru *RelationUnit) Name() string {
-	return ru.name
+// Relation returns the relation associated with the unit.
+func (ru *RelationUnit) Relation() *Relation {
+	return ru.relation
 }
 
-// Id returns the relation's id according to the unit. This value is
-// exposed to hooks as the JUJU_RELATION_ID environment variable, and
-// is sufficient to uniquely identify the relation.
-func (ru *RelationUnit) Id() string {
-	return fmt.Sprintf("%s:%d", ru.name, ru.relation.Id())
+// Endpoint returns the relation endpoint associated with the unit.
+func (ru *RelationUnit) Endpoint() RelationEndpoint {
+	return ru.endpoint
 }
 
 // Join joins the unit to the relation, such that other units watching the
 // relation will observe its presence and changes to its settings.
 func (ru *RelationUnit) Join() (p *presence.Pinger, err error) {
 	defer errorContextf(&err, "cannot join unit %q to relation %q", ru.unit, ru.relation)
-	if err = ru.scope.prepareJoin(ru.st.zk, ru.role); err != nil {
+	if err = ru.scope.prepareJoin(ru.st.zk, ru.endpoint.RelationRole); err != nil {
 		return
 	}
 	// Private address should be set at agent startup.
@@ -205,14 +198,15 @@ func (ru *RelationUnit) Join() (p *presence.Pinger, err error) {
 	if _, err = settings.Write(); err != nil {
 		return
 	}
-	presencePath := ru.scope.presencePath(ru.role, ru.unit.key)
+	presencePath := ru.scope.presencePath(ru.endpoint.RelationRole, ru.unit.key)
 	return presence.StartPinger(ru.st.zk, presencePath, agentPingerPeriod)
 }
 
 // Watch returns a watcher that notifies when any other unit in
 // the relation joins, departs, or has its settings changed.
 func (ru *RelationUnit) Watch() *RelationUnitsWatcher {
-	return newRelationUnitsWatcher(ru.scope, ru.role.counterpartRole(), ru.unit)
+	role := ru.endpoint.RelationRole.counterpartRole()
+	return newRelationUnitsWatcher(ru.scope, role, ru.unit)
 }
 
 // Settings returns a ConfigNode which allows access to the unit's settings
@@ -253,16 +247,16 @@ func (ru *RelationUnit) ReadSettings(uname string) (settings map[string]interfac
 	}
 	ukey := makeUnitKey(skey, useq)
 	path := ru.scope.settingsPath(ukey)
+	if stat, err := ru.st.zk.Exists(path); err != nil {
+		return nil, err
+	} else if stat == nil {
+		return nil, fmt.Errorf("unit settings do not exist")
+	}
 	node, err := readConfigNode(ru.st.zk, path)
 	if err != nil {
 		return nil, err
 	}
-	if address, found := node.Get("private-address"); found {
-		if addr, _ := address.(string); addr != "" {
-			return node.Map(), nil
-		}
-	}
-	return nil, fmt.Errorf("unit settings are not valid")
+	return node.Map(), nil
 }
 
 // unitScopePath represents a common zookeeper path used by the set of units

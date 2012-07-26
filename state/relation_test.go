@@ -219,7 +219,7 @@ func (s *RelationUnitSuite) TestRelationUnitReadSettings(c *C) {
 	_, err = ru0.ReadSettings("peer/pressure")
 	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/pressure" in relation "peer:baz": "peer/pressure" is not a valid unit name`)
 	_, err = ru0.ReadSettings("peer/1")
-	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/1" in relation "peer:baz": unit settings are not valid`)
+	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/1" in relation "peer:baz": unit settings do not exist`)
 
 	// Put some valid settings in ru1, and check they are now accessible to
 	// both RelationUnits.
@@ -228,12 +228,23 @@ func (s *RelationUnitSuite) TestRelationUnitReadSettings(c *C) {
 	p, err := ru1.Join()
 	c.Assert(err, IsNil)
 	kill(c, p)
-	settings, err := ru0.ReadSettings("peer/1")
+	assertSettings := func(ru *state.RelationUnit, expect map[string]interface{}) {
+		settings, err := ru0.ReadSettings("peer/1")
+		c.Assert(err, IsNil)
+		c.Assert(settings, DeepEquals, expect)
+	}
+	assertSettings(ru0, map[string]interface{}{"private-address": "blah.example.com"})
+	assertSettings(ru1, map[string]interface{}{"private-address": "blah.example.com"})
+
+	// Delete the settings content, but not the node, and check that they
+	// are still accessible without error.
+	node, err := ru1.Settings()
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, map[string]interface{}{"private-address": "blah.example.com"})
-	settings, err = ru1.ReadSettings("peer/1")
+	node.Delete("private-address")
+	_, err = node.Write()
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, map[string]interface{}{"private-address": "blah.example.com"})
+	assertSettings(ru0, map[string]interface{}{})
+	assertSettings(ru1, map[string]interface{}{})
 
 	// Trash the relation and check we can't get anything any more.
 	err = s.State.RemoveRelation(rel)
@@ -263,7 +274,7 @@ func (s *RelationUnitSuite) TestPeerRelationUnit(c *C) {
 		c.Assert(err, IsNil)
 		ru, err := rel.Unit(unit)
 		c.Assert(err, IsNil)
-		c.Assert(ru.Id(), Equals, fmt.Sprintf("baz:0"))
+		c.Assert(ru.Endpoint(), Equals, peerep)
 		return ru
 	}
 	ru0 := addUnit(0)
@@ -400,27 +411,26 @@ func (s *RelationUnitSuite) TestGlobalProReqRelationUnit(c *C) {
 	c.Assert(err, IsNil)
 	req, err := s.State.AddService("req", s.charm)
 	c.Assert(err, IsNil)
-	rel, err := s.State.AddRelation(
-		state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, state.ScopeGlobal},
-		state.RelationEndpoint{"req", "ifce", "bar", state.RoleRequirer, state.ScopeGlobal},
-	)
+	proep := state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, state.ScopeGlobal}
+	reqep := state.RelationEndpoint{"req", "ifce", "bar", state.RoleRequirer, state.ScopeGlobal}
+	rel, err := s.State.AddRelation(proep, reqep)
 	c.Assert(err, IsNil)
 
 	// Add some units to the services and set their private addresses.
-	addUnit := func(srv *state.Service, sub, id string) *state.RelationUnit {
+	addUnit := func(srv *state.Service, sub string, ep state.RelationEndpoint) *state.RelationUnit {
 		unit, err := srv.AddUnit()
 		c.Assert(err, IsNil)
 		err = unit.SetPrivateAddress(fmt.Sprintf("%s.example.com", sub))
 		c.Assert(err, IsNil)
 		ru, err := rel.Unit(unit)
 		c.Assert(err, IsNil)
-		c.Assert(ru.Id(), Equals, id)
+		c.Assert(ru.Endpoint(), Equals, ep)
 		return ru
 	}
-	proru0 := addUnit(pro, "pro0", "foo:0")
-	proru1 := addUnit(pro, "pro1", "foo:0")
-	reqru0 := addUnit(req, "req0", "bar:0")
-	reqru1 := addUnit(req, "req1", "bar:0")
+	proru0 := addUnit(pro, "pro0", proep)
+	proru1 := addUnit(pro, "pro1", proep)
+	reqru0 := addUnit(req, "req0", reqep)
+	reqru1 := addUnit(req, "req1", reqep)
 
 	// ---------- Single role active ----------
 
@@ -544,11 +554,13 @@ func (s *RelationUnitSuite) TestContainerProReqRelationUnit(c *C) {
 	c.Assert(err, IsNil)
 	req, err := s.State.AddService("req", s.AddTestingCharm(c, "logging"))
 	c.Assert(err, IsNil)
-	rel, err := s.State.AddRelation(
-		state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, state.ScopeGlobal},
-		state.RelationEndpoint{"req", "ifce", "bar", state.RoleRequirer, state.ScopeContainer},
-	)
+	proep := state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, state.ScopeGlobal}
+	reqep := state.RelationEndpoint{"req", "ifce", "bar", state.RoleRequirer, state.ScopeContainer}
+	rel, err := s.State.AddRelation(proep, reqep)
 	c.Assert(err, IsNil)
+
+	// Change proep to match the endpoint that will actually be used by the relation.
+	proep.RelationScope = state.ScopeContainer
 
 	// Add some units to the services and set their private addresses.
 	addUnits := func(i int) (*state.RelationUnit, *state.RelationUnit) {
@@ -558,14 +570,14 @@ func (s *RelationUnitSuite) TestContainerProReqRelationUnit(c *C) {
 		c.Assert(err, IsNil)
 		proru, err := rel.Unit(prou)
 		c.Assert(err, IsNil)
-		c.Assert(proru.Id(), Equals, "foo:0")
+		c.Assert(proru.Endpoint(), Equals, proep)
 		requ, err := req.AddUnitSubordinateTo(prou)
 		c.Assert(err, IsNil)
 		err = requ.SetPrivateAddress(fmt.Sprintf("req%d.example.com", i))
 		c.Assert(err, IsNil)
 		reqru, err := rel.Unit(requ)
 		c.Assert(err, IsNil)
-		c.Assert(reqru.Id(), Equals, "bar:0")
+		c.Assert(reqru.Endpoint(), Equals, reqep)
 		return proru, reqru
 	}
 	proru0, reqru0 := addUnits(0)
