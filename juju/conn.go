@@ -91,11 +91,7 @@ func (c *Conn) updateSecrets() error {
 	// in the state with the local secrets. To fix this properly
 	// we need to ensure that the config, minus secrets, is always
 	// pushed on bootstrap, then we can fill in the secrets here.
-	secrets, err := c.Environ.Provider().SecretAttrs(cfg)
-	if err != nil {
-		return err
-	}
-	env.Update(secrets)
+	env.Update(cfg.AllAttrs())
 	n, err := env.Write()
 	if err != nil {
 		return err
