@@ -104,7 +104,9 @@ func (t configTest) check(c *C) {
 			"access-key": t.accessKey,
 			"secret-key": t.secretKey,
 		}
-		actual := e.SecretAttrs(ecfg.Config)
+		c.Assert(err, IsNil)
+		actual, err := e.Provider().SecretAttrs(ecfg.Config)
+		c.Assert(err, IsNil)
 		c.Assert(expected, DeepEquals, actual)
 	} else {
 		c.Assert(ecfg.accessKey(), DeepEquals, testAuth.AccessKey)

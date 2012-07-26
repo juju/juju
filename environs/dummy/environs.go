@@ -231,6 +231,10 @@ func (c *environConfig) broken() string {
 	return c.attrs["broken"].(string)
 }
 
+func (c *environConfig) secret() string {
+	return c.attrs["secret"].(string)
+}
+
 func (p *environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 	valid, err := p.Validate(cfg, nil)
 	if err != nil {
@@ -271,6 +275,17 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return nil, err
 	}
 	return env, nil
+}
+
+func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
+	m := make(map[string]interface{})
+	ecfg, err := providerInstance.newConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	m["secret"] = ecfg.secret()
+	return m, nil
+
 }
 
 var errBroken = errors.New("broken environment")
@@ -464,10 +479,8 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 	return insts, nil
 }
 
-func (*environ) SecretAttrs(cfg *config.Config) map[string]interface{} {
-	return map[string]interface{}{
-		"secret": "pork",
-	}
+func (*environ) Provider() environs.EnvironProvider {
+	return &providerInstance
 }
 
 type instance struct {

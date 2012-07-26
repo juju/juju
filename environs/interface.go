@@ -18,6 +18,10 @@ type EnvironProvider interface {
 	// If old is not nil, it holds the previous environment configuration
 	// for consideration when validating changes.
 	Validate(cfg, old *config.Config) (valid *config.Config, err error)
+
+	// SecretAttrs filters the supplied configuation returning only values
+	// which are considered sensitive.
+	SecretAttrs(cfg *config.Config) (map[string]interface{}, error)
 }
 
 var ErrNoDNSName = errors.New("DNS name not allocated")
@@ -173,11 +177,6 @@ type Environ interface {
 	// AssignmentPolicy returns the environment's unit assignment policy.
 	AssignmentPolicy() state.AssignmentPolicy
 
-	// TODO(dfc) SecretAttrs should probably be defined on the EnvironProvider
-	// however there is currently no way, given an environs.Environ to discover
-	// its EnvironProvider.
-
-	// SecretAttrs filters the supplied configuation returning only values
-	// which are considered sensitive.
-	SecretAttrs(cfg *config.Config) map[string]interface{}
+	// Provider returns the EnvironProvider that created this Environ.
+	Provider() EnvironProvider
 }
