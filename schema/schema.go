@@ -32,7 +32,7 @@ func (e error_) Error() string {
 		path = strings.Join(e.path, "")
 	}
 	if e.want == "" {
-		return fmt.Sprintf("%s: unsupported value", path)
+		return fmt.Sprintf("%s: unexpected value %#v", path, e.got)
 	}
 	if e.got == nil {
 		return fmt.Sprintf("%s: expected %s, got nothing", path, e.want)
@@ -88,7 +88,7 @@ func (c oneOfC) Coerce(v interface{}, path []string) (interface{}, error) {
 			return newv, nil
 		}
 	}
-	return nil, error_{path: path}
+	return nil, error_{"", v, path}
 }
 
 // Bool returns a Checker that accepts boolean values only.

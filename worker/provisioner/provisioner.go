@@ -108,6 +108,11 @@ refreshState:
 	}
 }
 
+// Dying returns a channel that signals a Provisioners exit.
+func (p *Provisioner) Dying() <-chan struct{} {
+	return p.tomb.Dying()
+}
+
 // Wait waits for the Provisioner to exit.
 func (p *Provisioner) Wait() error {
 	return p.tomb.Wait()

@@ -3,6 +3,7 @@ package state_test
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/presence"
 	"time"
@@ -23,10 +24,10 @@ func (s *RelationSuite) SetUpTest(c *C) {
 func (s *RelationSuite) TestRelationErrors(c *C) {
 	req, err := s.State.AddService("req", s.charm)
 	c.Assert(err, IsNil)
-	reqep := state.RelationEndpoint{"req", "ifce", "bar", state.RoleRequirer, state.ScopeGlobal}
+	reqep := state.RelationEndpoint{"req", "ifce", "bar", state.RoleRequirer, charm.ScopeGlobal}
 
 	// Check we can't add a relation until both services exist.
-	proep := state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, state.ScopeGlobal}
+	proep := state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, charm.ScopeGlobal}
 	_, err = s.State.AddRelation(proep, reqep)
 	c.Assert(err, ErrorMatches, `cannot add relation "pro:foo req:bar": service with name "pro" not found`)
 	assertNoRelations(c, req)
@@ -34,7 +35,7 @@ func (s *RelationSuite) TestRelationErrors(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check that interfaces have to match.
-	proep2 := state.RelationEndpoint{"pro", "other", "foo", state.RoleProvider, state.ScopeGlobal}
+	proep2 := state.RelationEndpoint{"pro", "other", "foo", state.RoleProvider, charm.ScopeGlobal}
 	_, err = s.State.AddRelation(proep2, reqep)
 	c.Assert(err, ErrorMatches, `cannot add relation "pro:foo req:bar": endpoints do not relate`)
 	assertNoRelations(c, pro)
@@ -47,7 +48,7 @@ func (s *RelationSuite) TestRelationErrors(c *C) {
 
 	peer, err := s.State.AddService("peer", s.charm)
 	c.Assert(err, IsNil)
-	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, state.ScopeGlobal}
+	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
 	_, err = s.State.AddRelation(peerep, reqep)
 	c.Assert(err, ErrorMatches, `cannot add relation "peer:baz req:bar": endpoints do not relate`)
 	assertNoRelations(c, peer)
@@ -75,8 +76,8 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	assertNoRelations(c, pro)
 
 	// Add a relation, and check we can only do so once.
-	proep := state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, state.ScopeGlobal}
-	reqep := state.RelationEndpoint{"req", "ifce", "bar", state.RoleRequirer, state.ScopeGlobal}
+	proep := state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, charm.ScopeGlobal}
+	reqep := state.RelationEndpoint{"req", "ifce", "bar", state.RoleRequirer, charm.ScopeGlobal}
 	rel, err := s.State.AddRelation(proep, reqep)
 	c.Assert(err, IsNil)
 	_, err = s.State.AddRelation(proep, reqep)
@@ -95,12 +96,12 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	// Check that we can add it again if we want to; but this time,
 	// give one of the endpoints container scope and check that both
 	// resulting service relations get that scope.
-	reqep.RelationScope = state.ScopeContainer
+	reqep.RelationScope = charm.ScopeContainer
 	_, err = s.State.AddRelation(proep, reqep)
 	c.Assert(err, IsNil)
 	// After adding relation, make proep container-scoped as well, for
 	// simplicity of testing.
-	proep.RelationScope = state.ScopeContainer
+	proep.RelationScope = charm.ScopeContainer
 	assertOneRelation(c, pro, 1, proep, reqep)
 	assertOneRelation(c, req, 1, reqep, proep)
 }
@@ -108,7 +109,7 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 func (s *RelationSuite) TestPeerRelation(c *C) {
 	peer, err := s.State.AddService("peer", s.charm)
 	c.Assert(err, IsNil)
-	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, state.ScopeGlobal}
+	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
 	assertNoRelations(c, peer)
 
 	// Add a relation, and check we can only do so once.
@@ -129,7 +130,7 @@ func (s *RelationSuite) TestPeerRelation(c *C) {
 func (s *RelationSuite) TestRemoveServiceRemovesRelations(c *C) {
 	peer, err := s.State.AddService("peer", s.charm)
 	c.Assert(err, IsNil)
-	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, state.ScopeGlobal}
+	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
 	rel, err := s.State.AddRelation(peerep)
 	c.Assert(err, IsNil)
 	err = s.State.RemoveService(peer)
@@ -182,7 +183,7 @@ func (s *RelationUnitSuite) SetUpTest(c *C) {
 func (s *RelationUnitSuite) TestRelationUnitJoinError(c *C) {
 	peer, err := s.State.AddService("peer", s.charm)
 	c.Assert(err, IsNil)
-	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, state.ScopeGlobal}
+	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
 	rel, err := s.State.AddRelation(peerep)
 	c.Assert(err, IsNil)
 	u, err := peer.AddUnit()
@@ -199,7 +200,7 @@ func (s *RelationUnitSuite) TestRelationUnitReadSettings(c *C) {
 	// Create a peer service with a relation and two units.
 	peer, err := s.State.AddService("peer", s.charm)
 	c.Assert(err, IsNil)
-	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, state.ScopeGlobal}
+	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
 	rel, err := s.State.AddRelation(peerep)
 	c.Assert(err, IsNil)
 	u0, err := peer.AddUnit()
@@ -257,7 +258,7 @@ func (s *RelationUnitSuite) TestPeerRelationUnit(c *C) {
 	// Create a service and get a peer relation.
 	peer, err := s.State.AddService("peer", s.charm)
 	c.Assert(err, IsNil)
-	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, state.ScopeGlobal}
+	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
 	rel, err := s.State.AddRelation(peerep)
 	c.Assert(err, IsNil)
 
@@ -411,8 +412,8 @@ func (s *RelationUnitSuite) TestGlobalProReqRelationUnit(c *C) {
 	c.Assert(err, IsNil)
 	req, err := s.State.AddService("req", s.charm)
 	c.Assert(err, IsNil)
-	proep := state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, state.ScopeGlobal}
-	reqep := state.RelationEndpoint{"req", "ifce", "bar", state.RoleRequirer, state.ScopeGlobal}
+	proep := state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, charm.ScopeGlobal}
+	reqep := state.RelationEndpoint{"req", "ifce", "bar", state.RoleRequirer, charm.ScopeGlobal}
 	rel, err := s.State.AddRelation(proep, reqep)
 	c.Assert(err, IsNil)
 
@@ -554,13 +555,13 @@ func (s *RelationUnitSuite) TestContainerProReqRelationUnit(c *C) {
 	c.Assert(err, IsNil)
 	req, err := s.State.AddService("req", s.AddTestingCharm(c, "logging"))
 	c.Assert(err, IsNil)
-	proep := state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, state.ScopeGlobal}
-	reqep := state.RelationEndpoint{"req", "ifce", "bar", state.RoleRequirer, state.ScopeContainer}
+	proep := state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, charm.ScopeGlobal}
+	reqep := state.RelationEndpoint{"req", "ifce", "bar", state.RoleRequirer, charm.ScopeContainer}
 	rel, err := s.State.AddRelation(proep, reqep)
 	c.Assert(err, IsNil)
 
 	// Change proep to match the endpoint that will actually be used by the relation.
-	proep.RelationScope = state.ScopeContainer
+	proep.RelationScope = charm.ScopeContainer
 
 	// Add some units to the services and set their private addresses.
 	addUnits := func(i int) (*state.RelationUnit, *state.RelationUnit) {
