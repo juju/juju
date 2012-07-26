@@ -184,12 +184,8 @@ func (ru *RelationUnit) Join() (p *presence.Pinger, err error) {
 	if err != nil {
 		return
 	}
-	settings, err := readConfigNode(ru.st.zk, ru.scope.settingsPath(ru.unit.key))
+	err = setConfigString(ru.st.zk, ru.scope.settingsPath(ru.unit.key), "private-address", address, "private address of relation unit")
 	if err != nil {
-		return
-	}
-	settings.Set("private-address", address)
-	if _, err = settings.Write(); err != nil {
 		return
 	}
 	presencePath := ru.scope.presencePath(ru.endpoint.RelationRole, ru.unit.key)
