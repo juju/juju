@@ -109,6 +109,43 @@ func readConfigNode(zk *zookeeper.Conn, path string) (*ConfigNode, error) {
 	return c, nil
 }
 
+type attrNotFoundError struct {
+	what string
+}
+func (e *attrNotFoundError) Error() string {
+	return fmt.Sprintf("%s not found", e.what)
+}
+
+func getConfigString(zk *zookeeper.Conn, path, what string, attr string) (string, error) {
+	cn, err := readConfigNode(zk, path)
+	if err != nil {
+		return "", fmt.Errorf("cannot get %s: %v", err)
+	}
+	val, ok := cn.Get(attr)
+	if !ok {
+		return "", &attrNotFoundError{what}
+	}
+	sval, ok := val.(string)
+	if !ok {
+		return "", fmt.Errorf("invalid type for value %#v of %s: %T", sval, what, sval)
+	}
+	return sval, nil
+}
+
+func setConfigString(zk *zookeeper.Conn, path, what, attr, val string) error {
+	config, err := readConfigNode(zk, path)
+	if err != nil {
+		return err
+	}
+	config.Set(attr, val)
+	_, err = config.Write()
+	if err != nil {
+		return fmt.Errorf("cannot set %s to %q: %v", what, err, val)
+	}
+	return nil
+}
+
+
 // Read (re)reads the node data into c.
 func (c *ConfigNode) Read() (err error) {
 	defer errorContextf(&err, "cannot read configuration node %q", c.path)
