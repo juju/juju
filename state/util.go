@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju-core/version"
 	pathpkg "path"
 	"sort"
 )
@@ -89,4 +90,42 @@ func (p portSlice) Less(i, j int) bool {
 // then by number.
 func SortPorts(ports []Port) {
 	sort.Sort(portSlice(ports))
+}
+
+type agentVersion struct {
+	zk *zookeeper.Conn
+	path string
+	agent string
+}
+
+func (av *agentVersion) agentVersion(prefix string) (version.Version, error) {
+	sv, err := getConfigString(av.zk, av.path, fmt.Sprintf("%s agent %sversion", av.agent), prefix+"version")
+	if err != nil {
+		return version.Version{}, err
+	}
+	v, err := version.Parse(sv)
+	if err != nil {
+		return version.Version{}, fmt.Errorf("cannot parse %s agent %sversion: %v", av.agent, prefix, err)
+	}
+	return v, nil
+}
+
+func (av *agentVersion) setAgentVersion(prefix string, v version.Version) error {
+	return setConfigString(av.zk, av.path, fmt.Sprintf("%s agent %sversion", av.agent, prefix), prefix+"version", v.String())
+}
+
+func (av *agentVersion) AgentVersion() (version.Version, error) {
+	return av.agentVersion("")
+}
+
+func (av *agentVersion) SetAgentVersion(v version.Version) error {
+	return av.setAgentVersion("", v)
+}
+	
+func (av *agentVersion) ProposedAgentVersion() (version.Version, error) {
+	return av.agentVersion("proposed-")
+}
+
+func (av *agentVersion) ProposeAgentVersion(v version.Version) error {
+	return av.setAgentVersion("proposed-", v)
 }
