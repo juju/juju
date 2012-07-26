@@ -2,10 +2,12 @@ package juju
 
 import (
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"regexp"
 	"sync"
+	"fmt"
 )
 
 var (
@@ -71,31 +73,42 @@ func (c *Conn) State() (*state.State, error) {
 		}
 		c.state = st
 		if err := c.updateSecrets(); err != nil {
+			c.state = nil
 			return nil, err
 		}
 	}
 	return c.state, nil
 }
 
-// updateSecrets updates the sensitive parts of the environment 
-// from the local configuration.
+// updateSecrets pushes the sensitive parts of the environment 
+// from the local configuration if missing.
 func (c *Conn) updateSecrets() error {
 	cfg := c.Environ.Config()
 	secrets, err := c.Environ.Provider().SecretAttrs(cfg)
 	if err != nil {
 		return err
 	}
-	env, err := c.state.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	env.Update(secrets)
+    	env, err := c.state.EnvironConfig()
+        if err != nil {
+                return err
+        }
+	fmt.Println(env.Map())
+        envcfg, err := config.New(env.Map())
+        if err != nil {
+                return err
+        }
+        unknowns := envcfg.UnknownAttrs()
+        for k,v := range secrets {
+                if _, ok := unknowns[k]; !ok {
+                        env.Set(k, v)
+                }
+        }
 	n, err := env.Write()
 	if err != nil {
 		return err
 	}
 	if len(n) > 0 {
-		log.Debugf("Updating %d secret(s) in environment %q", len(n), c.Environ.Name())
+		log.Debugf("Updated %d secret(s) in environment %q", len(n), c.Environ.Name())
 	}
 	return nil
 }
