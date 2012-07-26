@@ -119,13 +119,13 @@ func (s *FirewallerSuite) TearDownTest(c *C) {
 }
 
 func (s *FirewallerSuite) TestStartStop(c *C) {
-	fw, err := firewaller.NewFirewaller(s.environ, s.State)
+	fw, err := firewaller.NewFirewaller(s.State)
 	c.Assert(err, IsNil)
 	c.Assert(fw.Stop(), IsNil)
 }
 
 func (s *FirewallerSuite) TestAddRemoveMachine(c *C) {
-	fw, err := firewaller.NewFirewaller(s.environ, s.State)
+	fw, err := firewaller.NewFirewaller(s.State)
 	c.Assert(err, IsNil)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
@@ -154,7 +154,7 @@ func (s *FirewallerSuite) TestAddRemoveMachine(c *C) {
 }
 
 func (s *FirewallerSuite) TestAssignUnassignUnit(c *C) {
-	fw, err := firewaller.NewFirewaller(s.environ, s.State)
+	fw, err := firewaller.NewFirewaller(s.State)
 	c.Assert(err, IsNil)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
@@ -200,7 +200,7 @@ func (s *FirewallerSuite) TestAssignUnassignUnit(c *C) {
 }
 
 func (s *FirewallerSuite) TestOpenClosePorts(c *C) {
-	fw, err := firewaller.NewFirewaller(s.environ, s.State)
+	fw, err := firewaller.NewFirewaller(s.State)
 	c.Assert(err, IsNil)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
@@ -266,7 +266,7 @@ func (s *FirewallerSuite) TestOpenClosePorts(c *C) {
 }
 
 func (s *FirewallerSuite) TestFirewallerStopOnStateClose(c *C) {
-	fw, err := firewaller.NewFirewaller(s.environ, s.State)
+	fw, err := firewaller.NewFirewaller(s.State)
 	c.Assert(err, IsNil)
 	fw.CloseState()
 	c.Check(fw.Wait(), ErrorMatches, ".* zookeeper is closing")
