@@ -303,12 +303,7 @@ func (s *Service) String() string {
 
 // newUnit creates a *Unit.
 func (s *Service) newUnit(key, principalKey string) *Unit {
-	return &Unit{
-		st:           s.st,
-		key:          key,
-		serviceName:  s.name,
-		principalKey: principalKey,
-	}
+	return newUnit(s.st, s.name, key, principalKey)
 }
 
 // zkPath returns the ZooKeeper base path for the service.
