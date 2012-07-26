@@ -5,6 +5,12 @@ import (
 	"launchpad.net/juju-core/log"
 )
 
+var indexes = []mgo.Index{
+	{Key: []string{"key"}, Unique: true},
+	{Key: []string{"endpoints.relationname"}},
+	{Key: []string{"endpoints.servicename"}},
+}
+
 func Dial(servers string) (*State, error) {
 	log.Printf("opening state with servers: %q", servers)
 	session, err := mgo.Dial(servers)
@@ -20,13 +26,11 @@ func Dial(servers string) (*State, error) {
 		services:  db.C("services"),
 		units:     db.C("units"),
 	}
-	err = st.relations.EnsureIndexKey("endpoints.relationname")
-	if err != nil {
-		return nil, err
-	}
-	err = st.relations.EnsureIndexKey("endpoints.servicename")
-	if err != nil {
-		return nil, err
+	for _, index := range indexes {
+		err = st.relations.EnsureIndex(index)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return st, nil
 }

@@ -67,9 +67,9 @@ func (e RelationEndpoint) String() string {
 	return e.ServiceName + ":" + e.RelationName
 }
 
-// describeEndpoints returns a string describing the relation defined by
+// relationKey returns a string describing the relation defined by
 // endpoints, for use in various contexts (including error messages).
-func describeEndpoints(endpoints []RelationEndpoint) string {
+func relationKey(endpoints []RelationEndpoint) string {
 	names := []string{}
 	for _, ep := range endpoints {
 		names = append(names, ep.String())
@@ -80,9 +80,9 @@ func describeEndpoints(endpoints []RelationEndpoint) string {
 
 // relationDoc is the internal representation of a Relation in MongoDB.
 type relationDoc struct {
-	Name      string `bson:"_id"`
+	Id        int `bson:"_id"`
+	Key       string
 	Endpoints []RelationEndpoint
-	Key       int
 	Life      Life
 }
 
@@ -100,7 +100,7 @@ func newRelation(st *State, doc *relationDoc) *Relation {
 }
 
 func (r *Relation) String() string {
-	return describeEndpoints(r.doc.Endpoints)
+	return relationKey(r.doc.Endpoints)
 }
 
 // Id returns the integer internal relation key. This is exposed
@@ -108,7 +108,7 @@ func (r *Relation) String() string {
 // (as JUJU_RELATION_ID) to allow relation hooks to differentiate
 // between relations with different services.
 func (r *Relation) Id() int {
-	return r.doc.Key
+	return r.doc.Id
 }
 
 // Endpoint returns the endpoint of the relation for the named service.

@@ -172,7 +172,7 @@ func (s *State) AllServices() (services []*Service, err error) {
 
 // AddRelation creates a new relation with the given endpoints.
 func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err error) {
-	defer errorContextf(&err, "cannot add relation %q", describeEndpoints(endpoints))
+	defer errorContextf(&err, "cannot add relation %q", relationKey(endpoints))
 	switch len(endpoints) {
 	case 1:
 		if endpoints[0].RelationRole != RolePeer {
@@ -204,17 +204,17 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 			endpoints[i].RelationScope = scope
 		}
 	}
-	key, err := s.sequence("relation")
+	id, err := s.sequence("relation")
 	if err != nil {
 		return nil, err
 	}
 	sel := bson.D{
-		{"_id", describeEndpoints(endpoints)},
+		{"_id", relationKey(endpoints)},
 		{"life", Dying},
 	}
 	change := bson.D{{"$set", bson.D{
 		{"endpoints", endpoints},
-		{"key", key},
+		{"id1", id},
 		{"life", Alive},
 	}}}
 	// TODO use Insert instead of Upsert after implementing full lifecycle.
@@ -223,9 +223,9 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 		return nil, err
 	}
 	doc := relationDoc{
-		Name:      describeEndpoints(endpoints),
+		Key:       relationKey(endpoints),
 		Endpoints: endpoints,
-		Key:       key,
+		Id:        id,
 		Life:      Alive,
 	}
 	return newRelation(s, &doc), nil
@@ -233,10 +233,10 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 
 // Relation returns the existing relation with the given endpoints.
 func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error) {
-	defer errorContextf(&err, "cannot get relation %q", describeEndpoints(endpoints))
+	defer errorContextf(&err, "cannot get relation %q", relationKey(endpoints))
 
 	doc := relationDoc{}
-	err = s.relations.FindId(describeEndpoints(endpoints)).One(&doc)
+	err = s.relations.FindId(relationKey(endpoints)).One(&doc)
 	if err != nil {
 		return nil, err
 	}
@@ -245,10 +245,10 @@ func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error)
 
 // RemoveRelation removes the supplied relation.
 func (s *State) RemoveRelation(r *Relation) (err error) {
-	defer errorContextf(&err, "cannot remove relation %q", r.doc.Name)
+	defer errorContextf(&err, "cannot remove relation %q", r.doc.Key)
 
 	sel := bson.D{
-		{"_id", r.doc.Name},
+		{"_id", r.doc.Key},
 		{"life", Alive},
 	}
 	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
