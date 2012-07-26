@@ -145,7 +145,7 @@ func (u *Unit) SetPrivateAddress(address string) (err error) {
 // CharmURL returns the charm URL this unit is supposed
 // to use.
 func (u *Unit) CharmURL() (url *charm.URL, err error) {
-	surl, err := getConfigString(u.st.zk, u.zkPath(), "unit URL of service " + u.String(), "charm")
+	surl, err := getConfigString(u.st.zk, u.zkPath(), "unit URL of service "+u.String(), "charm")
 	if _, ok := err.(*attrNotFoundError); ok {
 		return nil, errors.New("unit has no charm URL")
 	}
@@ -154,7 +154,7 @@ func (u *Unit) CharmURL() (url *charm.URL, err error) {
 
 // SetCharmURL changes the charm URL for the unit.
 func (u *Unit) SetCharmURL(url *charm.URL) (err error) {
-	return setConfigString(u.st.zk, u.zkPath(), "charm URL of unit " + u.String(), "charm", url.String())
+	return setConfigString(u.st.zk, u.zkPath(), "charm URL of unit "+u.String(), "charm", url.String())
 }
 
 // IsPrincipal returns whether the unit is deployed in its own container,
