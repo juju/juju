@@ -100,21 +100,22 @@ type agentVersion struct {
 }
 
 func (av *agentVersion) agentVersion(attr string) (version.Version, error) {
-	what := av.agent + " agent " + strings.Replace(attr, "-", " ", -1)
-	sv, err := getConfigString(av.zk, av.path, what, attr)
+	text := strings.Replace(attr, "-", " ", -1)		// e.g. "proposed version"
+	sv, err := getConfigString(av.zk, av.path, attr,
+		"%s agent %s", av.agent, text)
 	if err != nil {
 		return version.Version{}, err
 	}
 	v, err := version.Parse(sv)
 	if err != nil {
-		return version.Version{}, fmt.Errorf("cannot parse %s: %v", what, err)
+		return version.Version{}, fmt.Errorf("cannot parse %s agent %s: %v", av.agent, text, err)
 	}
 	return v, nil
 }
 
 func (av *agentVersion) setAgentVersion(attr string, v version.Version) error {
-	what := av.agent + " agent " + strings.Replace(attr, "-", " ", -1)
-	return setConfigString(av.zk, av.path, what, attr, v.String())
+	return setConfigString(av.zk, av.path, attr, v.String(),
+		"%s agent %s", av.agent, strings.Replace(attr, "-", " ", -1))
 }
 
 // AgentVersion returns the current version of the agent.
