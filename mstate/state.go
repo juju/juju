@@ -173,14 +173,17 @@ func (s *State) AllServices() (services []*Service, err error) {
 // AddRelation creates a new relation with the given endpoints.
 func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err error) {
 	defer errorContextf(&err, "cannot add relation %q", describeEndpoints(endpoints))
-	if 0 == len(endpoints) || len(endpoints) > 2 {
+	switch len(endpoints) {
+	case 1:
+		if endpoints[0].RelationRole != RolePeer {
+			return nil, fmt.Errorf("single endpoint must be a peer relation")
+		}
+	case 2:
+		if !endpoints[0].CanRelateTo(&endpoints[1]) {
+			return nil, fmt.Errorf("endpoints do not relate")
+		}
+	default:
 		return nil, fmt.Errorf("cannot relate %d endpoints", len(endpoints))
-	}
-	if len(endpoints) == 1 && endpoints[0].RelationRole != RolePeer {
-		return nil, fmt.Errorf("single endpoint must be a peer relation")
-	}
-	if len(endpoints) == 2 && !endpoints[0].CanRelateTo(&endpoints[1]) {
-		return nil, fmt.Errorf("endpoints do not relate")
 	}
 
 	var scope RelationScope
@@ -190,7 +193,7 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 		}
 		// BUG potential race in the time between getting the service
 		// to validate the endpoint and actually writting the relation
-		// into MongoDB.
+		// into MongoDB; the service might have dissapeared.
 		_, err = s.Service(v.ServiceName)
 		if err != nil {
 			return nil, err
