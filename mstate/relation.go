@@ -100,7 +100,7 @@ func newRelation(st *State, doc *relationDoc) *Relation {
 }
 
 func (r *Relation) String() string {
-	return fmt.Sprintf("relation %q", describeEndpoints(r.doc.Endpoints))
+	return describeEndpoints(r.doc.Endpoints)
 }
 
 // Id returns the integer internal relation key. This is exposed

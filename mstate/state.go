@@ -188,7 +188,9 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 		if v.RelationScope == ScopeContainer {
 			scope = ScopeContainer
 		}
-		// BUG: race.
+		// BUG potential race in the time between getting the service
+		// to validate the endpoint and actually writting the relation
+		// into MongoDB.
 		_, err = s.Service(v.ServiceName)
 		if err != nil {
 			return nil, err
@@ -227,7 +229,7 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 }
 
 // Relation returns the existing relation with the given endpoints.
-func (s *State) Relation(endpoints ...RelationEndpoint) (_ *Relation, err error) {
+func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error) {
 	defer errorContextf(&err, "cannot get relation %q", describeEndpoints(endpoints))
 
 	doc := relationDoc{}
