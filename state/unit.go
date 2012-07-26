@@ -112,14 +112,14 @@ func serviceKeyForUnitKey(unitKey string) (string, error) {
 
 func newUnit(st *State, serviceName string, key, principalKey string) *Unit {
 	u := &Unit{
-		st:           s.st,
-		serviceName:  s.name,
+		st:           st,
+		serviceName:  serviceName,
 		key:          key,
 		principalKey: principalKey,
 	}
-	u.agentVersion.agentVersion = agentVersion{
-		zk: st.zk.
-		path: u.zkPath,
+	u.agentVersion = agentVersion{
+		zk: st.zk,
+		path: u.zkPath(),
 		agent: "unit",
 	}
 	return u
@@ -130,7 +130,7 @@ func (st *State) unitFromKey(t *topology, unitKey string) (*Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newUnit(st, serviceName, key, principalKey), nil
+	return newUnit(st, tsvc.Name, unitKey, tunit.Principal), nil
 }
 
 // PublicAddress returns the public address of the unit.
