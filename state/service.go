@@ -24,31 +24,22 @@ func (s *Service) Name() string {
 // CharmURL returns the charm URL this service is supposed
 // to use.
 func (s *Service) CharmURL() (url *charm.URL, err error) {
-	defer errorContextf(&err, "cannot get the charm URL of service %q", s)
-	cn, err := readConfigNode(s.st.zk, s.zkPath())
+	surl, err := getConfigString(s.st.zk, s.zkPath(), "charm",
+		"charm URL of service %q", s)
 	if err != nil {
 		return nil, err
 	}
-	if id, ok := cn.Get("charm"); ok {
-		url, err = charm.ParseURL(id.(string))
-		if err != nil {
-			return nil, err
-		}
-		return url, nil
+	url, err = charm.ParseURL(surl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse charm URL of service %q: %v", s, err)
 	}
-	return nil, errors.New("service has no charm URL")
+	return url, err
 }
 
 // SetCharmURL changes the charm URL for the service.
 func (s *Service) SetCharmURL(url *charm.URL) (err error) {
-	defer errorContextf(&err, "cannot set the charm URL of service %q", s)
-	cn, err := readConfigNode(s.st.zk, s.zkPath())
-	if err != nil {
-		return err
-	}
-	cn.Set("charm", url.String())
-	_, err = cn.Write()
-	return err
+	return setConfigString(s.st.zk, s.zkPath(), "charm", url.String(),
+		"charm URL of service %v", s)
 }
 
 // Charm returns the service's charm.
