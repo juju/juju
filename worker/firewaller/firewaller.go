@@ -100,6 +100,11 @@ func (fw *Firewaller) finish() {
 	fw.tomb.Done()
 }
 
+// Dying returns a channel that signals a Firewaller exit.
+func (fw *Firewaller) Dying() <-chan struct{} {
+	return fw.tomb.Dying()
+}
+
 // Wait waits for the Firewaller to exit.
 func (fw *Firewaller) Wait() error {
 	return fw.tomb.Wait()

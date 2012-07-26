@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker/firewaller"
 	"launchpad.net/juju-core/worker/provisioner"
 
 	// register providers
@@ -34,27 +35,53 @@ func (a *ProvisioningAgent) Init(f *gnuflag.FlagSet, args []string) error {
 	return a.Conf.checkArgs(f.Args())
 }
 
-// Run runs a provisioning agent.
+// Run runs a provisioning agent with restarting after an error.
 func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
 	for {
-		st, err := state.Open(&a.Conf.StateInfo)
-		if err != nil {
-			return err
+		if err := a.run(); err != nil {
+			time.Sleep(retryDuration)
+			log.Printf("restarting provisioner and firewaller after error: %v", err)
 		}
-		p, err := provisioner.NewProvisioner(st)
-		if err == nil {
-			if err = p.Wait(); err == nil {
-				// if Wait returns nil then we consider that a signal
-				// that the process should exit the retry logic.
-				return nil
-			}
-		}
-		err = st.Close()
-		if err != nil {
-			return err
-		}
-		log.Printf("restarting provisioner after error: %v", err)
-		time.Sleep(retryDuration)
 	}
 	panic("unreachable")
+}
+
+// run runs a provisioning agent once.
+func (a *ProvisioningAgent) run() (err error) {
+	st, err := state.Open(&a.Conf.StateInfo)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if e := st.Close(); err != nil {
+			err = e
+		}
+	}()
+
+	p, err := provisioner.NewProvisioner(st)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if e := p.Stop(); err != nil {
+			err = e
+		}
+	}()
+
+	fw, err := firewaller.NewFirewaller(st)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if e := fw.Stop(); err != nil {
+			err = e
+		}
+	}()
+
+	select {
+	case <-p.Dying():
+	case <-fw.Dying():
+	}
+
+	return
 }
