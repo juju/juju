@@ -7,7 +7,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"regexp"
 	"sync"
-	"fmt"
 )
 
 var (
@@ -92,7 +91,6 @@ func (c *Conn) updateSecrets() error {
         if err != nil {
                 return err
         }
-	fmt.Println(env.Map())
         envcfg, err := config.New(env.Map())
         if err != nil {
                 return err
