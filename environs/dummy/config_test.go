@@ -16,6 +16,7 @@ func (*ConfigSuite) TestSecretAttrs(c *C) {
 		"name":      "only", // must match the name in environs_test.go
 		"type":      "dummy",
 		"zookeeper": true,
+		"authorized-keys": "i-am-a-key",
 	})
 	c.Assert(err, IsNil)
 	env, err := environs.New(cfg)
@@ -23,6 +24,7 @@ func (*ConfigSuite) TestSecretAttrs(c *C) {
 	expected := map[string]interface{}{
 		"secret": "pork",
 	}
-	actual := env.SecretAttrs(cfg)
+	actual, err := env.Provider().SecretAttrs(cfg)
+	c.Assert(err, IsNil)
 	c.Assert(expected, DeepEquals, actual)
 }

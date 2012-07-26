@@ -108,10 +108,19 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
+func (environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
+	m := make(map[string]interface{})
+	ecfg, err := providerInstance.newConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	m["access-key"] = ecfg.accessKey()
+	m["secret-key"] = ecfg.secretKey()
+	return m, nil
+}
+
 func (e *environ) Config() *config.Config {
-	e.ecfgMutex.Lock()
-	defer e.ecfgMutex.Unlock()
-	return e.ecfgUnlocked.Config
+	return e.ecfg().Config
 }
 
 func (e *environ) SetConfig(cfg *config.Config) error {
@@ -480,6 +489,10 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 	return nil
 }
 
+func (*environ) Provider() environs.EnvironProvider {
+	return &providerInstance
+}
+
 func (e *environ) terminateInstances(ids []string) error {
 	if len(ids) == 0 {
 		return nil
@@ -517,17 +530,6 @@ func (e *environ) machineGroupName(machineId int) string {
 
 func (e *environ) groupName() string {
 	return "juju-" + e.name
-}
-
-func (*environ) SecretAttrs(cfg *config.Config) map[string]interface{} {
-	m := make(map[string]interface{})
-	ecfg, err := providerInstance.newConfig(cfg)
-	if err != nil {
-		panic(err)
-	}
-	m["access-key"] = ecfg.accessKey()
-	m["secret-key"] = ecfg.secretKey()
-	return m
 }
 
 func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {

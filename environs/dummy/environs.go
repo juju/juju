@@ -231,6 +231,10 @@ func (c *environConfig) broken() string {
 	return c.attrs["broken"].(string)
 }
 
+func (c *environConfig) secret() string {
+	return c.attrs["secret"].(string)
+}
+
 func (p *environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 	valid, err := p.Validate(cfg, nil)
 	if err != nil {
@@ -271,6 +275,17 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return nil, err
 	}
 	return env, nil
+}
+
+func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
+	m := make(map[string]interface{})
+	ecfg, err := providerInstance.newConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	m["secret"] = ecfg.secret()
+	return m, nil
+
 }
 
 var errBroken = errors.New("broken environment")
@@ -324,6 +339,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		cfg.Set("type", "dummy")
 		cfg.Set("zookeeper", true)
 		cfg.Set("name", e.ecfg().Name())
+		cfg.Set("authorized-keys", e.ecfg().AuthorizedKeys())
 		_, err = cfg.Write()
 		if err != nil {
 			panic(err)
@@ -355,9 +371,7 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 }
 
 func (e *environ) Config() *config.Config {
-	e.ecfgMutex.Lock()
-	defer e.ecfgMutex.Unlock()
-	return e.ecfgUnlocked.Config
+	return e.ecfg().Config
 }
 
 func (e *environ) SetConfig(cfg *config.Config) error {
@@ -466,10 +480,8 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 	return insts, nil
 }
 
-func (*environ) SecretAttrs(cfg *config.Config) map[string]interface{} {
-	return map[string]interface{}{
-		"secret": "pork",
-	}
+func (*environ) Provider() environs.EnvironProvider {
+	return &providerInstance
 }
 
 type instance struct {

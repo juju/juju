@@ -176,7 +176,9 @@ func (suite) TestConfigRoundTrip(c *C) {
 		"zookeeper": false,
 	})
 	c.Assert(err, IsNil)
-	cfg, err = environs.Providers()[cfg.Type()].Validate(cfg, nil)
+	provider, err := environs.Provider(cfg.Type())
+	c.Assert(err, IsNil)
+	cfg, err = provider.Validate(cfg, nil)
 	c.Assert(err, IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, IsNil)
