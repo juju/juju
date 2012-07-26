@@ -36,11 +36,11 @@ func (a *ProvisioningAgent) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run runs a provisioning agent.
 func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
-	st, err := state.Open(&a.Conf.StateInfo)
-	if err != nil {
-		return err
-	}
 	for {
+		st, err := state.Open(&a.Conf.StateInfo)
+		if err != nil {
+			return err
+		}
 		p, err := provisioner.NewProvisioner(st)
 		if err == nil {
 			if err = p.Wait(); err == nil {
