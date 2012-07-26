@@ -431,6 +431,63 @@ func (w *MachineUnitsWatcher) done() {
 	close(w.changeChan)
 }
 
+type MachineWatcher struct {
+	contentWatcher
+
+// MachineInfo holds information about the settings of a machine.
+type MachineInfo struct {
+	// AgentVersion holds the current version of the machine agent,
+	// as returned by Machine.AgentVersion. It is zero if the
+	// version has not been set.
+	AgentVersion version.Version
+
+	// ProposedAgentVersion holds the proposed version of the machine agent,
+	// as returned by Machine.ProposedAgentVersion. It is zero if the
+	// proposed version has not been set.
+	ProposedAgentVersion version.Version
+}
+
+// MachineWatcher observes changes to the settings of a machine.
+type Ma struct {
+	contentWatcher
+	changeChan chan *MachineInfo
+}
+
+// newConfigWatcher creates and starts a new config watcher for
+// the given path.
+func newConfigWatcher(st *State, path string) *ConfigWatcher {
+	w := &ConfigWatcher{
+		contentWatcher: newContentWatcher(st, path),
+		changeChan:     make(chan *ConfigNode),
+	}
+	go w.loop(w)
+	return w
+}
+
+// Changes returns a channel that will receive the new
+// *ConfigNode when a change is detected. Note that multiple
+// changes may be observed as a single event in the channel.
+// The first event on the channel holds the initial state
+// as returned by Service.Config.
+func (w *ConfigWatcher) Changes() <-chan *ConfigNode {
+	return w.changeChan
+}
+
+func (w *ConfigWatcher) update(change watcher.ContentChange) error {
+	// A non-existent node is treated as an empty node.
+	configNode, err := parseConfigNode(w.st.zk, w.path, change.Content)
+	if err != nil {
+		return err
+	}
+	select {
+	case <-w.tomb.Dying():
+		return tomb.ErrDying
+	case w.changeChan <- configNode:
+	}
+	return nil
+}
+	
+
 // ServicesWatcher observes the addition and removal of services.
 type ServicesWatcher struct {
 	contentWatcher
