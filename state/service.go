@@ -24,16 +24,22 @@ func (s *Service) Name() string {
 // CharmURL returns the charm URL this service is supposed
 // to use.
 func (s *Service) CharmURL() (url *charm.URL, err error) {
-	surl, err := getConfigString(s.st.zk, s.zkPath(), "charm URL of service "+s.String(), "charm")
-	if _, ok := err.(*attrNotFoundError); ok {
-		return nil, errors.New("service has no charm URL")
+	surl, err := getConfigString(s.st.zk, s.zkPath(), "charm",
+		"charm URL of service %v", s)
+	if err != nil {
+		return nil, err
 	}
-	return charm.ParseURL(surl)
+	url, err = charm.ParseURL(surl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse URL of service %q: %v", err)
+	}
+	return url, err
 }
 
 // SetCharmURL changes the charm URL for the service.
 func (s *Service) SetCharmURL(url *charm.URL) (err error) {
-	return setConfigString(s.st.zk, s.zkPath(), "charm URL of service "+s.String(), "charm", url.String())
+	return setConfigString(s.st.zk, s.zkPath(), "charm", url.String(),
+		"charm URL of service %v", s)
 }
 
 // Charm returns the service's charm.

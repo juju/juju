@@ -124,37 +124,47 @@ func (st *State) unitFromKey(t *topology, unitKey string) (*Unit, error) {
 
 // PublicAddress returns the public address of the unit.
 func (u *Unit) PublicAddress() (string, error) {
-	return getConfigString(u.st.zk, u.zkPath(), fmt.Sprintf("public address of unit %q", u), "public-address")
+	return getConfigString(u.st.zk, u.zkPath(), "public-address",
+		"public address of unit %q", u)
 }
 
 // SetPublicAddress sets the public address of the unit.
 func (u *Unit) SetPublicAddress(address string) (err error) {
-	return setConfigString(u.st.zk, u.zkPath(), fmt.Sprintf("public address of unit %q", u), "public-address", address)
+	return setConfigString(u.st.zk, u.zkPath(), "public-address", address,
+		"public address of unit %q", u)
 }
 
 // PrivateAddress returns the private address of the unit.
 func (u *Unit) PrivateAddress() (string, error) {
-	return getConfigString(u.st.zk, u.zkPath(), fmt.Sprintf("private address of unit %q", u), "private-address")
+	return getConfigString(u.st.zk, u.zkPath(), "private-address",
+		"private address of unit %q", u)
 }
 
 // SetPrivateAddress sets the private address of the unit.
 func (u *Unit) SetPrivateAddress(address string) (err error) {
-	return setConfigString(u.st.zk, u.zkPath(), fmt.Sprintf("private address of unit %q", u), "private-address", address)
+	return setConfigString(u.st.zk, u.zkPath(), "private-address", address,
+		"private address of unit %q", u)
 }
 
 // CharmURL returns the charm URL this unit is supposed
 // to use.
 func (u *Unit) CharmURL() (url *charm.URL, err error) {
-	surl, err := getConfigString(u.st.zk, u.zkPath(), "unit URL of service "+u.String(), "charm")
-	if _, ok := err.(*attrNotFoundError); ok {
-		return nil, errors.New("unit has no charm URL")
+	surl, err := getConfigString(u.st.zk, u.zkPath(), "charm",
+		"unit URL of unit %q", u)
+	if err != nil {
+		return nil, err
 	}
-	return charm.ParseURL(surl)
+	url, err = charm.ParseURL(surl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse URL of service %q: %v", err)
+	}
+	return url, err
 }
 
 // SetCharmURL changes the charm URL for the unit.
 func (u *Unit) SetCharmURL(url *charm.URL) (err error) {
-	return setConfigString(u.st.zk, u.zkPath(), "charm URL of unit "+u.String(), "charm", url.String())
+	return setConfigString(u.st.zk, u.zkPath(), "charm", url.String(),
+		"charm URL of unit %v", u)
 }
 
 // IsPrincipal returns whether the unit is deployed in its own container,

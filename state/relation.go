@@ -182,7 +182,7 @@ func (ru *RelationUnit) Join() (p *presence.Pinger, err error) {
 	}
 	err = setConfigString(ru.st.zk, ru.scope.settingsPath(ru.unit.key), "private address of relation unit", "private-address", address)
 	if err != nil {
-		return nil, err
+		return
 	}
 	presencePath := ru.scope.presencePath(ru.role, ru.unit.key)
 	return presence.StartPinger(ru.st.zk, presencePath, agentPingerPeriod)
