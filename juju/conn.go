@@ -2,6 +2,7 @@ package juju
 
 import (
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"regexp"
 	"sync"
@@ -72,10 +73,10 @@ func (c *Conn) State() (*state.State, error) {
 		if err := c.updateSecrets(); err != nil {
 			return nil, err
 		}
- 	}
- 	return c.state, nil
- }
- 
+	}
+	return c.state, nil
+}
+
 // updateSecrets updates the sensitive parts of the environment 
 // from the local configuration.
 func (c *Conn) updateSecrets() error {
@@ -84,9 +85,14 @@ func (c *Conn) updateSecrets() error {
 	if err != nil {
 		return err
 	}
-	env.Update(cfg.AllAttrs())
-	if _, err := env.Write(); err != nil {
+	secrets := c.Environ.SecretAttrs(cfg)
+	env.Update(secrets)
+	n, err := env.Write()
+	if err != nil {
 		return err
+	}
+	if len(n) > 0 {
+		log.Debugf("Updating %d secret(s) in environment %q", len(n), c.Environ.Name())
 	}
 	return nil
 }
