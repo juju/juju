@@ -19,6 +19,7 @@ type RelationUnitsWatcher interface {
 // HookInfo holds details required to execute a relation hook.
 type HookInfo struct {
 	HookKind   string
+	RelationId int
 	RemoteUnit string
 	Version    int
 	// Members contains a map[string]interface{} for every remote unit,
@@ -28,6 +29,7 @@ type HookInfo struct {
 
 // QueueState is used to recreate a HookQueue based on known relation state.
 type QueueState struct {
+	RelationId int
 	// Members holds a map of unit name to settings version.
 	Members map[string]int
 	// Joined, if not empty, indicates that the last successful hook
@@ -40,11 +42,12 @@ type QueueState struct {
 // NewHookQueue returns a new HookQueue, which sends HookInfo values on
 // out corresponding to the state.RelationUnitsChange events it receives
 // from the supplied RelationWatcher.
-func NewHookQueue(initial *QueueState, out chan<- HookInfo, w RelationUnitsWatcher) *HookQueue {
+func NewHookQueue(initial QueueState, out chan<- HookInfo, w RelationUnitsWatcher) *HookQueue {
 	q := &HookQueue{
-		w:    w,
-		out:  out,
-		info: map[string]*unitInfo{},
+		w:          w,
+		out:        out,
+		relationId: initial.RelationId,
+		info:       map[string]*unitInfo{},
 	}
 	go q.loop(initial)
 	return q
@@ -53,9 +56,10 @@ func NewHookQueue(initial *QueueState, out chan<- HookInfo, w RelationUnitsWatch
 // HookQueue converts state.RelationUnitsChange events to HookInfo values
 // and sends them on to a client.
 type HookQueue struct {
-	tomb tomb.Tomb
-	w    RelationUnitsWatcher
-	out  chan<- HookInfo
+	tomb       tomb.Tomb
+	w          RelationUnitsWatcher
+	out        chan<- HookInfo
+	relationId int
 
 	// info holds information about all units that were added to the
 	// queue and haven't had a "departed" event popped. This means the
@@ -98,7 +102,7 @@ type unitInfo struct {
 	prev, next *unitInfo
 }
 
-func (q *HookQueue) loop(initial *QueueState) {
+func (q *HookQueue) loop(initial QueueState) {
 	defer q.tomb.Done()
 	defer watcher.Stop(q.w, &q.tomb)
 
@@ -106,30 +110,28 @@ func (q *HookQueue) loop(initial *QueueState) {
 	// a new RelationUnitsChange before the initial event, which schedules
 	// every missing unit for immediate departure before anything else happens
 	// (apart from a single potential required post-joined changed event).
-	if initial != nil {
-		ch1, ok := <-q.w.Changes()
-		if !ok {
-			q.tomb.Kill(watcher.MustErr(q.w))
-			return
-		}
-		if len(ch1.Departed) != 0 {
-			panic("HookQueue must be started with a fresh RelationUnitsWatcher")
-		}
-		q.joined = initial.Joined
-		ch0 := state.RelationUnitsChange{}
-		for unit, version := range initial.Members {
-			q.info[unit] = &unitInfo{
-				unit:    unit,
-				version: version,
-				present: true,
-			}
-			if _, found := ch1.Changed[unit]; !found {
-				ch0.Departed = append(ch0.Departed, unit)
-			}
-		}
-		q.update(ch0)
-		q.update(ch1)
+	ch1, ok := <-q.w.Changes()
+	if !ok {
+		q.tomb.Kill(watcher.MustErr(q.w))
+		return
 	}
+	if len(ch1.Departed) != 0 {
+		panic("HookQueue must be started with a fresh RelationUnitsWatcher")
+	}
+	q.joined = initial.Joined
+	ch0 := state.RelationUnitsChange{}
+	for unit, version := range initial.Members {
+		q.info[unit] = &unitInfo{
+			unit:    unit,
+			version: version,
+			present: true,
+		}
+		if _, found := ch1.Changed[unit]; !found {
+			ch0.Departed = append(ch0.Departed, unit)
+		}
+	}
+	q.update(ch0)
+	q.update(ch1)
 
 	var out chan<- HookInfo
 	for {
@@ -261,7 +263,7 @@ func (q *HookQueue) setNext() {
 	} else if hook == "departed" {
 		delete(members, unit)
 	}
-	q.next = HookInfo{hook, unit, version, members}
+	q.next = HookInfo{hook, q.relationId, unit, version, members}
 }
 
 // add sets the next hook to be run for the named unit, and places it

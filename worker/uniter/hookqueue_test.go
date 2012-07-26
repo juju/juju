@@ -18,21 +18,22 @@ var _ = Suite(&HookQueueSuite{})
 type msi map[string]int
 
 type hookQueueTest struct {
-	initial *uniter.QueueState
+	initial uniter.QueueState
 	steps   []checker
 }
 
 func nilTest(steps ...checker) hookQueueTest {
-	return hookQueueTest{nil, steps}
+	return hookQueueTest{uniter.QueueState{21345, nil, ""}, steps}
 }
 
 func initialTest(members msi, joined string, steps ...checker) hookQueueTest {
-	return hookQueueTest{&uniter.QueueState{members, joined}, steps}
+	return hookQueueTest{uniter.QueueState{21345, members, joined}, steps}
 }
 
 var hookQueueTests = []hookQueueTest{
 	nilTest(
-	// No steps; just implicitly check it's empty.
+		// Empty initial change causes no hooks.
+		send{nil, nil},
 	), nilTest(
 		// Joined and changed are both run when unit is first detected.
 		send{msi{"u0": 0}, nil},
@@ -124,13 +125,6 @@ var hookQueueTests = []hookQueueTest{
 		expect{"changed", "u5", 0, msi{"u1": 1, "u2": 1, "u3": 2, "u5": 0}},
 		// - Ignore the third RUC, because the original joined/changed on u3
 		// was executed after we got the latest settings version.
-	), initialTest(
-		// Really simple check that empty initial state works the same as
-		// nil initial state.
-		msi{}, "",
-		send{msi{"u0": 0}, nil},
-		expect{"joined", "u0", 0, msi{"u0": 0}},
-		expect{"changed", "u0", 0, msi{"u0": 0}},
 	), initialTest(
 		// Check that matching settings versions cause no changes.
 		msi{"u0": 0}, "",
@@ -262,6 +256,7 @@ func (d expect) check(c *C, in chan state.RelationUnitsChange, out chan uniter.H
 	}
 	expect := uniter.HookInfo{
 		HookKind:   d.hook,
+		RelationId: 21345,
 		RemoteUnit: d.unit,
 		Version:    d.version,
 		Members:    map[string]map[string]interface{}{},
