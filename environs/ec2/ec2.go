@@ -108,6 +108,21 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
+func (environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
+	m := make(map[string]interface{})
+	ecfg, err := providerInstance.newConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	m["access-key"] = ecfg.accessKey()
+	m["secret-key"] = ecfg.secretKey()
+	return m, nil
+}
+
+func (e *environ) Config() *config.Config {
+	return e.ecfg().Config
+}
+
 func (e *environ) SetConfig(cfg *config.Config) error {
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
@@ -472,6 +487,10 @@ func (e *environ) Destroy(insts []environs.Instance) error {
 		return err
 	}
 	return nil
+}
+
+func (*environ) Provider() environs.EnvironProvider {
+	return &providerInstance
 }
 
 func (e *environ) terminateInstances(ids []string) error {
