@@ -112,6 +112,7 @@ func readConfigNode(zk *zookeeper.Conn, path string) (*ConfigNode, error) {
 type attrNotFoundError struct {
 	what string
 }
+
 func (e *attrNotFoundError) Error() string {
 	return fmt.Sprintf("%s not found", e.what)
 }
@@ -144,7 +145,6 @@ func setConfigString(zk *zookeeper.Conn, path, what, attr, val string) error {
 	}
 	return nil
 }
-
 
 // Read (re)reads the node data into c.
 func (c *ConfigNode) Read() (err error) {
