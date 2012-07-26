@@ -100,7 +100,7 @@ type agentVersion struct {
 }
 
 func (av *agentVersion) agentVersion(attr string) (version.Version, error) {
-	text := strings.Replace(attr, "-", " ", -1)		// e.g. "proposed version"
+	text := strings.Replace(attr, "-", " ", -1) // e.g. "proposed version"
 	sv, err := getConfigString(av.zk, av.path, attr,
 		"%s agent %s", av.agent, text)
 	if err != nil {
