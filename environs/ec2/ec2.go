@@ -109,9 +109,7 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 }
 
 func (e *environ) Config() *config.Config {
-	e.ecfgMutex.Lock()
-	defer e.ecfgMutex.Unlock()
-	return e.ecfgUnlocked.Config
+	return e.ecfg().Config
 }
 
 func (e *environ) SetConfig(cfg *config.Config) error {
