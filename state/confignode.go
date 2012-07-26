@@ -128,7 +128,7 @@ func getConfigString(zk *zookeeper.Conn, path, what string, attr string) (string
 	}
 	sval, ok := val.(string)
 	if !ok {
-		return "", fmt.Errorf("invalid type for value %#v of %s: %T", sval, what, sval)
+		return "", fmt.Errorf("invalid type for value %#v of %s: %T", val, what, val)
 	}
 	return sval, nil
 }
