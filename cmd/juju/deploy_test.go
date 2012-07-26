@@ -150,13 +150,13 @@ func (s *DeploySuite) TestCharmBundle(c *C) {
 func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
 	testing.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
-	c.Assert(err, ErrorMatches, `can't upgrade: charm "local:precise/dummy-1" is not a directory`)
+	c.Assert(err, ErrorMatches, `cannot increment version of charm "local:precise/dummy-1": not a directory`)
 	// Verify state not touched...
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	_, err = s.st.Charm(curl)
-	c.Assert(err, ErrorMatches, `can't get charm "local:precise/dummy-1": charm not found`)
+	c.Assert(err, ErrorMatches, `cannot get charm "local:precise/dummy-1": charm not found`)
 	_, err = s.st.Service("dummy")
-	c.Assert(err, ErrorMatches, `can't get service "dummy": service with name "dummy" not found`)
+	c.Assert(err, ErrorMatches, `cannot get service "dummy": service with name "dummy" not found`)
 }
 
 func (s *DeploySuite) TestAddsPeerRelations(c *C) {

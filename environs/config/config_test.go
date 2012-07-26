@@ -170,7 +170,7 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 	c.Assert(cfg.UnknownAttrs(), DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
 
 	newcfg, err := cfg.Apply(map[string]interface{}{
-		"name": "new-name",
+		"name":        "new-name",
 		"new-unknown": "my-new-unknown",
 	})
 

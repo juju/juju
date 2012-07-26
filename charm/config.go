@@ -131,7 +131,7 @@ var optionSchema = schema.FieldMap(
 		"description": schema.String(),
 	},
 	schema.Defaults{
-		"default": schema.Omit,
+		"default":     schema.Omit,
 		"description": schema.Omit,
 	},
 )

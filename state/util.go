@@ -19,7 +19,7 @@ var (
 // children.  It does not delete "/zookeeper" or the root node itself
 // and it does not consider deleting a nonexistent node to be an error.
 func zkRemoveTree(zk *zookeeper.Conn, path string) (err error) {
-	defer errorContextf(&err, "can't clean up data")
+	defer errorContextf(&err, "cannot clean up data")
 	// If we try to delete the zookeeper node (for example when
 	// calling ZkRemoveTree(zk, "/")) we silently ignore it.
 	if path == "/zookeeper" {

@@ -3,14 +3,19 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"net/url"
+	"os"
+	"path/filepath"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
-	"os"
-	"path/filepath"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 type StatusSuite struct {
@@ -57,7 +62,7 @@ var statusTests = []struct {
 		"empty state",
 		func(*state.State, *juju.Conn, *C) {},
 		map[string]interface{}{
-			"machines": make(map[string]interface{}),
+			"machines": make(map[int]interface{}),
 			"services": make(map[string]interface{}),
 		},
 	},
@@ -69,9 +74,8 @@ var statusTests = []struct {
 			c.Assert(m.Id(), Equals, 0)
 		},
 		map[string]interface{}{
-			// note: the key of the machines map is a string
-			"machines": map[string]interface{}{
-				"0": map[string]interface{}{
+			"machines": map[int]interface{}{
+				0: map[string]interface{}{
 					"instance-id": "pending",
 				},
 			},
@@ -89,14 +93,50 @@ var statusTests = []struct {
 			c.Assert(err, IsNil)
 		},
 		map[string]interface{}{
-			// note: the key of the machines map is a string
-			"machines": map[string]interface{}{
-				"0": map[string]interface{}{
+			"machines": map[int]interface{}{
+				0: map[string]interface{}{
 					"dns-name":    "palermo-0.dns",
 					"instance-id": "palermo-0",
 				},
 			},
 			"services": make(map[string]interface{}),
+		},
+	},
+	{
+		"add two services and expose one",
+		func(st *state.State, conn *juju.Conn, c *C) {
+			ch := coretesting.Charms.Dir("dummy")
+			curl := charm.MustParseURL(
+				fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
+			)
+			bundleURL, err := url.Parse("http://bundles.example.com/dummy-1")
+			c.Assert(err, IsNil)
+			dummy, err := st.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+			c.Assert(err, IsNil)
+			_, err = st.AddService("dummy-service", dummy)
+			c.Assert(err, IsNil)
+			s, err := st.AddService("exposed-service", dummy)
+			c.Assert(err, IsNil)
+			err = s.SetExposed()
+			c.Assert(err, IsNil)
+		},
+		map[string]interface{}{
+			"machines": map[int]interface{}{
+				0: map[string]interface{}{
+					"dns-name":    "palermo-0.dns",
+					"instance-id": "palermo-0",
+				},
+			},
+			"services": map[string]interface{}{
+				"dummy-service": map[string]interface{}{
+					"charm":   "dummy",
+					"exposed": false,
+				},
+				"exposed-service": map[string]interface{}{
+					"charm":   "dummy",
+					"exposed": true,
+				},
+			},
 		},
 	},
 }
@@ -110,7 +150,13 @@ func (s *StatusSuite) testStatus(format string, marshal func(v interface{}) ([]b
 		c.Check(code, Equals, 0)
 		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), Equals, "")
 
-		buf, err := marshal(t.output)
+		var buf []byte
+		var err error
+		if format == "json" {
+			buf, err = marshal(Jsonify(t.output))
+		} else {
+			buf, err = marshal(t.output)
+		}
 		c.Assert(err, IsNil)
 		expected := make(map[string]interface{})
 		err = unmarshal(buf, &expected)
