@@ -1,8 +1,8 @@
 package juju
 
 import (
+	"fmt"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"regexp"
@@ -73,40 +73,35 @@ func (c *Conn) State() (*state.State, error) {
 		c.state = st
 		if err := c.updateSecrets(); err != nil {
 			c.state = nil
-			return nil, err
+			return nil, fmt.Errorf("unable to push secrets: %v", err)
 		}
 	}
 	return c.state, nil
 }
 
-// updateSecrets pushes the sensitive parts of the environment 
-// from the local configuration if missing.
+// updateSecrets updates the sensitive parts of the environment 
+// from the local configuration.
 func (c *Conn) updateSecrets() error {
 	cfg := c.Environ.Config()
+	env, err := c.state.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	// This is wrong. This will _always_ overwrite the secrets
+	// in the state with the local secrets. To fix this properly
+	// we need to ensure that the config, minus secrets, is always
+	// pushed on bootstrap, then we can fill in the secrets here.
 	secrets, err := c.Environ.Provider().SecretAttrs(cfg)
 	if err != nil {
 		return err
 	}
-    	env, err := c.state.EnvironConfig()
-        if err != nil {
-                return err
-        }
-        envcfg, err := config.New(env.Map())
-        if err != nil {
-                return err
-        }
-        unknowns := envcfg.UnknownAttrs()
-        for k,v := range secrets {
-                if _, ok := unknowns[k]; !ok {
-                        env.Set(k, v)
-                }
-        }
+	env.Update(secrets)
 	n, err := env.Write()
 	if err != nil {
 		return err
 	}
 	if len(n) > 0 {
-		log.Debugf("Updated %d secret(s) in environment %q", len(n), c.Environ.Name())
+		log.Debugf("Updating %d secret(s) in environment %q", len(n), c.Environ.Name())
 	}
 	return nil
 }
