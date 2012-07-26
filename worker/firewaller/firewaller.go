@@ -199,6 +199,9 @@ func (fw *Firewaller) finish() {
 	for _, unitd := range fw.unitds {
 		fw.tomb.Kill(unitd.stopWatch())
 	}
+	for _, serviced := range fw.serviceds {
+		fw.tomb.Kill(serviced.stopWatch())
+	}
 	for _, machined := range fw.machineds {
 		fw.tomb.Kill(machined.stopWatch())
 	}
@@ -390,7 +393,7 @@ func (sd *serviceData) watchLoop() {
 }
 
 // stopWatch stops the service watching.
-func (sd *serviceData) stop() error {
+func (sd *serviceData) stopWatch() error {
 	sd.tomb.Kill(nil)
 	return sd.tomb.Wait()
 }
