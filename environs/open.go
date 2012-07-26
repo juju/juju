@@ -42,11 +42,3 @@ func New(config *config.Config) (Environ, error) {
 	}
 	return p.Open(config)
 }
-
-func Provider(typ string) (EnvironProvider, error) {
-	p, ok := providers[typ]
-	if !ok {
-		return nil, fmt.Errorf("no registered provider for %q", typ)
-	}
-	return p, nil
-}
