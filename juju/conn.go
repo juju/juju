@@ -81,11 +81,11 @@ func (c *Conn) State() (*state.State, error) {
 // from the local configuration.
 func (c *Conn) updateSecrets() error {
 	cfg := c.Environ.Config()
-	env, err := c.state.EnvironConfig()
+	secrets, err := c.Environ.Provider().SecretAttrs(cfg)
 	if err != nil {
 		return err
 	}
-	secrets, err := c.Environ.Provider().SecretAttrs(cfg)
+	env, err := c.state.EnvironConfig()
 	if err != nil {
 		return err
 	}

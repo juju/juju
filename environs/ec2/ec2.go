@@ -532,17 +532,6 @@ func (e *environ) groupName() string {
 	return "juju-" + e.name
 }
 
-func (*environ) SecretAttrs(cfg *config.Config) map[string]interface{} {
-	m := make(map[string]interface{})
-	ecfg, err := providerInstance.newConfig(cfg)
-	if err != nil {
-		panic(err)
-	}
-	m["access-key"] = ecfg.accessKey()
-	m["secret-key"] = ecfg.secretKey()
-	return m
-}
-
 func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 	if len(ports) == 0 {
 		return nil

@@ -116,7 +116,7 @@ func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	err = conn.Bootstrap(false)
 	c.Assert(err, IsNil)
 	// fetch a state connection via the conn, which will 
-	// update the secrets.
+	// push the secrets.
 	_, err = conn.State()
 	c.Assert(err, IsNil)
 	err = env.Read()
