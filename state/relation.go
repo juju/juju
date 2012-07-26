@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/charm"
 	"strconv"
 	"strings"
 )
@@ -35,21 +36,13 @@ func (r RelationRole) counterpartRole() RelationRole {
 	panic(fmt.Errorf("unknown RelationRole: %q", r))
 }
 
-// RelationScope describes the scope of a relation endpoint.
-type RelationScope string
-
-const (
-	ScopeGlobal    RelationScope = "global"
-	ScopeContainer RelationScope = "container"
-)
-
 // RelationEndpoint represents one endpoint of a relation.
 type RelationEndpoint struct {
 	ServiceName   string
 	Interface     string
 	RelationName  string
 	RelationRole  RelationRole
-	RelationScope RelationScope
+	RelationScope charm.RelationScope
 }
 
 // CanRelateTo returns whether a relation may be established between e and other.
@@ -142,7 +135,7 @@ func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
 		return nil, err
 	}
 	path := []string{"/relations", r.key}
-	if ep.RelationScope == ScopeContainer {
+	if ep.RelationScope == charm.ScopeContainer {
 		container := u.principalKey
 		if container == "" {
 			container = u.key
