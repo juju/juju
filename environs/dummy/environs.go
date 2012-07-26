@@ -210,9 +210,11 @@ var checker = schema.StrictFieldMap(
 	schema.Fields{
 		"zookeeper": schema.Bool(),
 		"broken":    schema.String(),
+		"secret":    schema.String(),
 	},
 	schema.Defaults{
 		"broken": "",
+		"secret": "pork",
 	},
 )
 
@@ -227,6 +229,10 @@ func (c *environConfig) zookeeper() bool {
 
 func (c *environConfig) broken() string {
 	return c.attrs["broken"].(string)
+}
+
+func (c *environConfig) secret() string {
+	return c.attrs["secret"].(string)
 }
 
 func (p *environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
@@ -269,6 +275,17 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return nil, err
 	}
 	return env, nil
+}
+
+func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
+	m := make(map[string]interface{})
+	ecfg, err := providerInstance.newConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	m["secret"] = ecfg.secret()
+	return m, nil
+
 }
 
 var errBroken = errors.New("broken environment")
@@ -460,6 +477,10 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 		insts = append(insts, v)
 	}
 	return insts, nil
+}
+
+func (*environ) Provider() environs.EnvironProvider {
+	return &providerInstance
 }
 
 type instance struct {
