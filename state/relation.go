@@ -111,7 +111,7 @@ func (r *Relation) Endpoint(serviceName string) (RelationEndpoint, error) {
 			return ep, nil
 		}
 	}
-	return RelationEndpoint{}, fmt.Errorf("service %q is not a member of %q", serviceName, r)
+	return RelationEndpoint{}, fmt.Errorf("service %q is not a member of relation %q", serviceName, r)
 }
 
 // RelatedEndpoints returns the endpoints of the relation r with which
@@ -130,7 +130,7 @@ func (r *Relation) RelatedEndpoints(serviceName string) ([]RelationEndpoint, err
 		}
 	}
 	if eps == nil {
-		return nil, fmt.Errorf("no endpoints of %q relate to service %q", r, serviceName)
+		return nil, fmt.Errorf("no endpoints of relation %q relate to service %q", r, serviceName)
 	}
 	return eps, nil
 }
@@ -153,6 +153,7 @@ func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
 		st:       r.st,
 		relation: r,
 		unit:     u,
+		name:     ep.RelationName,
 		role:     ep.RelationRole,
 		scope:    unitScopePath(strings.Join(path, "/")),
 	}, nil
@@ -164,8 +165,22 @@ type RelationUnit struct {
 	st       *State
 	relation *Relation
 	unit     *Unit
+	name     string
 	role     RelationRole
 	scope    unitScopePath
+}
+
+// Name returns the value we expose to hooks as JUJU_RELATION in the
+// context of this particular relation unit.
+func (ru *RelationUnit) Name() string {
+	return ru.name
+}
+
+// Id returns the value we expose to hooks as JUJU_RELATION_ID in the
+// context of this particular relation unit. This allows them to
+// differentiate between multiple relations with the same name.
+func (ru *RelationUnit) Id() string {
+	return fmt.Sprintf("%s:%d", ru.name, ru.relation.Id())
 }
 
 // Join joins the unit to the relation, such that other units watching the
@@ -202,6 +217,57 @@ func (ru *RelationUnit) Watch() *RelationUnitsWatcher {
 // within the relation.
 func (ru *RelationUnit) Settings() (*ConfigNode, error) {
 	return readConfigNode(ru.st.zk, ru.scope.settingsPath(ru.unit.key))
+}
+
+// RemoteSettings returns a map[string]interface{} holding the settings of
+// the remote unit with the supplied name. An error will be returned if the
+// relation no longer exists, or if the unit's service is not part of the
+// relation, or the settings are empty; mere non-existence of the unit is
+// not grounds for an error, because we guarantee that relation unit settings
+// will persist for the lifetime of the relation.
+func (ru *RelationUnit) RemoteSettings(unit string) (settings map[string]interface{}, err error) {
+	defer errorContextf(&err, "cannot get remote settings for unit %q in relation %q", unit, ru.relation)
+	topo, err := readTopology(ru.st.zk)
+	if err != nil {
+		return nil, err
+	}
+	if !topo.HasRelation(ru.relation.key) {
+		// TODO this will be a problem until we have lifecycle management. IE,
+		// we expect to occasionally call this method during hook execution;
+		// until we can defer relation death until all interested parties have
+		// lost interest, we're in danger of the relation disappearing on us.
+		return nil, fmt.Errorf("relation broken; settings no longer accessible")
+	}
+	if unit == ru.unit.Name() {
+		return nil, fmt.Errorf("unit is not remote")
+	}
+	parts := strings.Split(unit, "/")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid unit name")
+	}
+	sname := parts[0]
+	if _, err = ru.relation.Endpoint(sname); err != nil {
+		return nil, err
+	}
+	skey, err := topo.ServiceKey(sname)
+	if err != nil {
+		return nil, err
+	}
+	useq, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return nil, fmt.Errorf("invalid unit name")
+	}
+	ukey := makeUnitKey(skey, useq)
+	path := ru.scope.settingsPath(ukey)
+	node, err := readConfigNode(ru.st.zk, path)
+	if err != nil {
+		return nil, err
+	}
+	settings = node.Map()
+	if len(settings) == 0 {
+		return nil, fmt.Errorf("unit settings do not exist")
+	}
+	return settings, nil
 }
 
 // unitScopePath represents a common zookeeper path used by the set of units
