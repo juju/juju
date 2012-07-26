@@ -122,6 +122,9 @@ type Environ interface {
 	// by Bootstrap.
 	StateInfo() (*state.Info, error)
 
+	// Config returns the current configuration of this Environ.
+	Config() *config.Config
+
 	// SetConfig updates the Environs configuration.
 	// Calls to SetConfig do not affect the configuration of
 	// values previously obtained from Storage and PublicStorage.
@@ -170,9 +173,9 @@ type Environ interface {
 	// AssignmentPolicy returns the environment's unit assignment policy.
 	AssignmentPolicy() state.AssignmentPolicy
 
-        // TODO(dfc) SecretAttrs should probably be defined on the EnvironProvider
-        // however there is currently no way, given an environs.Environ to discover
-        // its EnvironProvider.
+	// TODO(dfc) SecretAttrs should probably be defined on the EnvironProvider
+	// however there is currently no way, given an environs.Environ to discover
+	// its EnvironProvider.
 
 	// SecretAttrs filters the supplied configuation returning only values
 	// which are considered sensitive.

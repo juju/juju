@@ -208,12 +208,12 @@ func Listen(c chan<- Operation) {
 
 var checker = schema.StrictFieldMap(
 	schema.Fields{
-		"zookeeper":   schema.Bool(),
-		"broken":      schema.String(),
+		"zookeeper": schema.Bool(),
+		"broken":    schema.String(),
 		"secret":    schema.String(),
 	},
 	schema.Defaults{
-		"broken":      "",
+		"broken": "",
 		"secret": "pork",
 	},
 )
@@ -352,6 +352,10 @@ func (e *environ) StateInfo() (*state.Info, error) {
 
 func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignUnused
+}
+
+func (e *environ) Config() *config.Config {
+	return e.ecfg().Config
 }
 
 func (e *environ) SetConfig(cfg *config.Config) error {
