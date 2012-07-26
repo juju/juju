@@ -101,7 +101,8 @@ func (*ConnSuite) TestNewConnFromAttrs(c *C) {
 func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	env, err := cs.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	secret, ok := env.Get("secret")
+	// verify we have no secret in the environ config
+	_, ok := env.Get("secret")
 	c.Assert(ok, Equals, false)
 	attrs := map[string]interface{}{
 		"name":            "erewhemos",
@@ -120,7 +121,8 @@ func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	c.Assert(err, IsNil)
 	err = env.Read()
 	c.Assert(err, IsNil)
-	secret, ok = env.Get("secret")
+	// check that the secret has been populated
+	secret, ok := env.Get("secret")
 	c.Assert(ok, Equals, true)
 	c.Assert(secret, Equals, "pork")
 }
