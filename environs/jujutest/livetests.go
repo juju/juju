@@ -151,13 +151,6 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	if t.CanOpenState {
 		st, err := state.Open(info)
 		c.Assert(err, IsNil)
-
-		// check the config that was bootstrapped is valid
-		env, err := st.EnvironConfig()
-		c.Assert(err, IsNil)
-		_, err = config.New(env.Map())
-		c.Assert(err, IsNil)
-
 		err = st.Close()
 		c.Assert(err, IsNil)
 	}

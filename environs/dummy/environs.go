@@ -339,7 +339,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		cfg.Set("type", "dummy")
 		cfg.Set("zookeeper", true)
 		cfg.Set("name", e.ecfg().Name())
-		cfg.Set("authorized-keys", e.ecfg().AuthorizedL())
+		cfg.Set("authorized-keys", e.ecfg().AuthorizedKeys())
 		_, err = cfg.Write()
 		if err != nil {
 			panic(err)
