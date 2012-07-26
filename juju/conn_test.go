@@ -3,23 +3,36 @@ package juju_test
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	_ "launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/state/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
 	stdtesting "testing"
 )
 
 func Test(t *stdtesting.T) {
-	testing.ZkTestPackage(t)
+	coretesting.ZkTestPackage(t)
 }
 
 type ConnSuite struct {
-	testing.ZkSuite
+	coretesting.LoggingSuite
+	testing.StateSuite
 }
 
 var _ = Suite(&ConnSuite{})
+
+func (cs *ConnSuite) SetUpTest(c *C) {
+	cs.LoggingSuite.SetUpTest(c)
+	cs.StateSuite.SetUpTest(c)
+}
+
+func (cs *ConnSuite) TearDownTest(c *C) {
+	dummy.Reset()
+	cs.StateSuite.TearDownTest(c)
+	cs.LoggingSuite.TearDownTest(c)
+}
 
 func (*ConnSuite) TestNewConn(c *C) {
 	home := c.MkDir()
@@ -83,6 +96,35 @@ func (*ConnSuite) TestNewConnFromAttrs(c *C) {
 	st, err := conn.State()
 	c.Assert(st, IsNil)
 	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
+}
+
+func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
+	env, err := cs.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	// verify we have no secret in the environ config
+	_, ok := env.Get("secret")
+	c.Assert(ok, Equals, false)
+	attrs := map[string]interface{}{
+		"name":            "erewhemos",
+		"type":            "dummy",
+		"zookeeper":       true,
+		"authorized-keys": "i-am-a-key",
+	}
+	conn, err := juju.NewConnFromAttrs(attrs)
+	c.Assert(err, IsNil)
+	defer conn.Close()
+	err = conn.Bootstrap(false)
+	c.Assert(err, IsNil)
+	// fetch a state connection via the conn, which will 
+	// push the secrets.
+	_, err = conn.State()
+	c.Assert(err, IsNil)
+	err = env.Read()
+	c.Assert(err, IsNil)
+	// check that the secret has been populated
+	secret, ok := env.Get("secret")
+	c.Assert(ok, Equals, true)
+	c.Assert(secret, Equals, "pork")
 }
 
 func (*ConnSuite) TestValidRegexps(c *C) {
