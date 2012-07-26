@@ -219,7 +219,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	// state.Info as the PA. 
 	inst, err := p.environ.StartInstance(m.Id(), p.info)
 	if err != nil {
-		log.Printf("provisioner can't start machine %s: %v", m, err)
+		log.Printf("provisioner cannot start machine %s: %v", m, err)
 		return err
 	}
 

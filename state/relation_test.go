@@ -28,7 +28,7 @@ func (s *RelationSuite) TestRelationErrors(c *C) {
 	// Check we can't add a relation until both services exist.
 	proep := state.RelationEndpoint{"pro", "ifce", "foo", state.RoleProvider, state.ScopeGlobal}
 	_, err = s.State.AddRelation(proep, reqep)
-	c.Assert(err, ErrorMatches, `can't add relation "pro:foo req:bar": service with name "pro" not found`)
+	c.Assert(err, ErrorMatches, `cannot add relation "pro:foo req:bar": service with name "pro" not found`)
 	assertNoRelations(c, req)
 	pro, err := s.State.AddService("pro", s.charm)
 	c.Assert(err, IsNil)
@@ -36,34 +36,34 @@ func (s *RelationSuite) TestRelationErrors(c *C) {
 	// Check that interfaces have to match.
 	proep2 := state.RelationEndpoint{"pro", "other", "foo", state.RoleProvider, state.ScopeGlobal}
 	_, err = s.State.AddRelation(proep2, reqep)
-	c.Assert(err, ErrorMatches, `can't add relation "pro:foo req:bar": endpoints do not relate`)
+	c.Assert(err, ErrorMatches, `cannot add relation "pro:foo req:bar": endpoints do not relate`)
 	assertNoRelations(c, pro)
 	assertNoRelations(c, req)
 
 	// Check a variety of surprising endpoint combinations.
 	_, err = s.State.AddRelation(reqep)
-	c.Assert(err, ErrorMatches, `can't add relation "req:bar": single endpoint must be a peer relation`)
+	c.Assert(err, ErrorMatches, `cannot add relation "req:bar": single endpoint must be a peer relation`)
 	assertNoRelations(c, req)
 
 	peer, err := s.State.AddService("peer", s.charm)
 	c.Assert(err, IsNil)
 	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, state.ScopeGlobal}
 	_, err = s.State.AddRelation(peerep, reqep)
-	c.Assert(err, ErrorMatches, `can't add relation "peer:baz req:bar": endpoints do not relate`)
+	c.Assert(err, ErrorMatches, `cannot add relation "peer:baz req:bar": endpoints do not relate`)
 	assertNoRelations(c, peer)
 	assertNoRelations(c, req)
 
 	_, err = s.State.AddRelation(peerep, peerep)
-	c.Assert(err, ErrorMatches, `can't add relation "peer:baz peer:baz": endpoints do not relate`)
+	c.Assert(err, ErrorMatches, `cannot add relation "peer:baz peer:baz": endpoints do not relate`)
 	assertNoRelations(c, peer)
 
 	_, err = s.State.AddRelation()
-	c.Assert(err, ErrorMatches, `can't add relation "": can't relate 0 endpoints`)
+	c.Assert(err, ErrorMatches, `cannot add relation "": cannot relate 0 endpoints`)
 	_, err = s.State.AddRelation(proep, reqep, peerep)
-	c.Assert(err, ErrorMatches, `can't add relation "pro:foo req:bar peer:baz": can't relate 3 endpoints`)
+	c.Assert(err, ErrorMatches, `cannot add relation "pro:foo req:bar peer:baz": cannot relate 3 endpoints`)
 
 	_, err = s.State.Relation(peerep)
-	c.Assert(err, ErrorMatches, `can't get relation "peer:baz": relation doesn't exist`)
+	c.Assert(err, ErrorMatches, `cannot get relation "peer:baz": relation does not exist`)
 }
 
 func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
@@ -80,7 +80,7 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	rel, err := s.State.AddRelation(proep, reqep)
 	c.Assert(err, IsNil)
 	_, err = s.State.AddRelation(proep, reqep)
-	c.Assert(err, ErrorMatches, `can't add relation "pro:foo req:bar": relation already exists`)
+	c.Assert(err, ErrorMatches, `cannot add relation "pro:foo req:bar": relation already exists`)
 	assertOneRelation(c, pro, 0, proep, reqep)
 	assertOneRelation(c, req, 0, reqep, proep)
 
@@ -90,7 +90,7 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	assertNoRelations(c, pro)
 	assertNoRelations(c, req)
 	err = s.State.RemoveRelation(rel)
-	c.Assert(err, ErrorMatches, `can't remove relation "pro:foo req:bar": not found`)
+	c.Assert(err, ErrorMatches, `cannot remove relation "pro:foo req:bar": not found`)
 
 	// Check that we can add it again if we want to; but this time,
 	// give one of the endpoints container scope and check that both
@@ -115,7 +115,7 @@ func (s *RelationSuite) TestPeerRelation(c *C) {
 	rel, err := s.State.AddRelation(peerep)
 	c.Assert(err, IsNil)
 	_, err = s.State.AddRelation(peerep)
-	c.Assert(err, ErrorMatches, `can't add relation "peer:baz": relation already exists`)
+	c.Assert(err, ErrorMatches, `cannot add relation "peer:baz": relation already exists`)
 	assertOneRelation(c, peer, 0, peerep)
 
 	// Remove the relation, and check it can't be removed again.
@@ -123,7 +123,7 @@ func (s *RelationSuite) TestPeerRelation(c *C) {
 	c.Assert(err, IsNil)
 	assertNoRelations(c, peer)
 	err = s.State.RemoveRelation(rel)
-	c.Assert(err, ErrorMatches, `can't remove relation "peer:baz": not found`)
+	c.Assert(err, ErrorMatches, `cannot remove relation "peer:baz": not found`)
 }
 
 func (s *RelationSuite) TestRemoveServiceRemovesRelations(c *C) {
@@ -135,11 +135,11 @@ func (s *RelationSuite) TestRemoveServiceRemovesRelations(c *C) {
 	err = s.State.RemoveService(peer)
 	c.Assert(err, IsNil)
 	_, err = s.State.Service("peer")
-	c.Assert(err, ErrorMatches, `can't get service "peer": service with name "peer" not found`)
+	c.Assert(err, ErrorMatches, `cannot get service "peer": service with name "peer" not found`)
 	_, err = s.State.Relation(peerep)
-	c.Assert(err, ErrorMatches, `can't get relation "peer:baz": relation doesn't exist`)
+	c.Assert(err, ErrorMatches, `cannot get relation "peer:baz": relation does not exist`)
 	err = s.State.RemoveRelation(rel)
-	c.Assert(err, ErrorMatches, `can't remove relation "peer:baz": not found`)
+	c.Assert(err, ErrorMatches, `cannot remove relation "peer:baz": not found`)
 }
 
 func assertNoRelations(c *C, srv *state.Service) {
@@ -192,7 +192,7 @@ func (s *RelationUnitSuite) TestRelationUnitJoinError(c *C) {
 	err = peer.RemoveUnit(u)
 	c.Assert(err, IsNil)
 	_, err = ru.Join()
-	c.Assert(err, ErrorMatches, `can't join unit "peer/0" to relation "peer:baz": unit has no private address`)
+	c.Assert(err, ErrorMatches, `cannot join unit "peer/0" to relation "peer:baz": unit has no private address`)
 }
 
 func (s *RelationUnitSuite) TestPeerRelationUnit(c *C) {
