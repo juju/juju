@@ -3,8 +3,8 @@ package state_test
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/presence"
 	"time"
 )

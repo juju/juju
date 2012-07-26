@@ -3,8 +3,8 @@ package state
 import (
 	"fmt"
 	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/state/presence"
 	"strconv"
 	"strings"
 )
