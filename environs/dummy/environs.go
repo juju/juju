@@ -209,11 +209,11 @@ func Listen(c chan<- Operation) {
 var checker = schema.StrictFieldMap(
 	schema.Fields{
 		"zookeeper": schema.Bool(),
-		"broken":      schema.String(),
+		"broken":    schema.String(),
 		"secret":    schema.String(),
 	},
 	schema.Defaults{
-		"broken":      "",
+		"broken": "",
 		"secret": "pork",
 	},
 )

@@ -13,9 +13,9 @@ type ConfigSuite struct{}
 
 func (*ConfigSuite) TestSecretAttrs(c *C) {
 	cfg, err := config.New(map[string]interface{}{
-		"name":      "only", // must match the name in environs_test.go
-		"type":      "dummy",
-		"zookeeper": true,
+		"name":            "only", // must match the name in environs_test.go
+		"type":            "dummy",
+		"zookeeper":       true,
 		"authorized-keys": "i-am-a-key",
 	})
 	c.Assert(err, IsNil)
