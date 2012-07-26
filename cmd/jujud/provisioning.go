@@ -49,6 +49,10 @@ func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
 				return nil
 			}
 		}
+		err = st.Close()
+		if err != nil {
+			return err
+		}
 		log.Printf("restarting provisioner after error: %v", err)
 		time.Sleep(retryDuration)
 	}
