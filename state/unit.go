@@ -150,13 +150,13 @@ func (u *Unit) SetPrivateAddress(address string) (err error) {
 // to use.
 func (u *Unit) CharmURL() (url *charm.URL, err error) {
 	surl, err := getConfigString(u.st.zk, u.zkPath(), "charm",
-		"unit URL of unit %q", u)
+		"charm URL of unit %q", u)
 	if err != nil {
 		return nil, err
 	}
 	url, err = charm.ParseURL(surl)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse URL of service %q: %v", err)
+		return nil, fmt.Errorf("failed to parse charm URL of unit %q: %v", err)
 	}
 	return url, err
 }

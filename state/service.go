@@ -31,7 +31,7 @@ func (s *Service) CharmURL() (url *charm.URL, err error) {
 	}
 	url, err = charm.ParseURL(surl)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse URL of service %q: %v", err)
+		return nil, fmt.Errorf("failed to parse charm URL of service %q: %v", err)
 	}
 	return url, err
 }
