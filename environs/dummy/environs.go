@@ -27,6 +27,7 @@ import (
 	"launchpad.net/juju-core/testing"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 )
 
@@ -208,11 +209,11 @@ func Listen(c chan<- Operation) {
 var checker = schema.StrictFieldMap(
 	schema.Fields{
 		"zookeeper": schema.Bool(),
-		"broken":    schema.Bool(),
+		"broken":    schema.String(),
 		"secret":    schema.String(),
 	},
 	schema.Defaults{
-		"broken": false,
+		"broken": "",
 		"secret": "pork",
 	},
 )
@@ -226,8 +227,12 @@ func (c *environConfig) zookeeper() bool {
 	return c.attrs["zookeeper"].(bool)
 }
 
-func (c *environConfig) broken() bool {
-	return c.attrs["broken"].(bool)
+func (c *environConfig) broken() string {
+	return c.attrs["broken"].(string)
+}
+
+func (c *environConfig) secret() string {
+	return c.attrs["secret"].(string)
 }
 
 func (p *environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
@@ -266,7 +271,21 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		state:        state,
 		ecfgUnlocked: ecfg,
 	}
+	if err := env.checkBroken("Open"); err != nil {
+		return nil, err
+	}
 	return env, nil
+}
+
+func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
+	m := make(map[string]interface{})
+	ecfg, err := providerInstance.newConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	m["secret"] = ecfg.secret()
+	return m, nil
+
 }
 
 var errBroken = errors.New("broken environment")
@@ -278,13 +297,22 @@ func (e *environ) ecfg() *environConfig {
 	return ecfg
 }
 
+func (e *environ) checkBroken(method string) error {
+	for _, m := range strings.Fields(e.ecfg().broken()) {
+		if m == method {
+			return fmt.Errorf("dummy.%s is broken", method)
+		}
+	}
+	return nil
+}
+
 func (e *environ) Name() string {
 	return e.state.name
 }
 
 func (e *environ) Bootstrap(uploadTools bool) error {
-	if e.ecfg().broken() {
-		return errBroken
+	if err := e.checkBroken("Bootstrap"); err != nil {
+		return err
 	}
 	if uploadTools {
 		err := environs.PutTools(e.Storage())
@@ -325,8 +353,8 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 }
 
 func (e *environ) StateInfo() (*state.Info, error) {
-	if e.ecfg().broken() {
-		return nil, errBroken
+	if err := e.checkBroken("StateInfo"); err != nil {
+		return nil, err
 	}
 	if !e.ecfg().zookeeper() {
 		return nil, errors.New("dummy environment has no zookeeper configured")
@@ -342,12 +370,13 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 }
 
 func (e *environ) Config() *config.Config {
-	e.ecfgMutex.Lock()
-	defer e.ecfgMutex.Unlock()
-	return e.ecfgUnlocked.Config
+	return e.ecfg().Config
 }
 
 func (e *environ) SetConfig(cfg *config.Config) error {
+	if err := e.checkBroken("SetConfig"); err != nil {
+		return err
+	}
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		return err
@@ -359,8 +388,8 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 }
 
 func (e *environ) Destroy([]environs.Instance) error {
-	if e.ecfg().broken() {
-		return errBroken
+	if err := e.checkBroken("Destroy"); err != nil {
+		return err
 	}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
@@ -375,8 +404,8 @@ func (e *environ) Destroy([]environs.Instance) error {
 }
 
 func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Instance, error) {
-	if e.ecfg().broken() {
-		return nil, errBroken
+	if err := e.checkBroken("StartInstance"); err != nil {
+		return nil, err
 	}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
@@ -398,8 +427,8 @@ func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Insta
 }
 
 func (e *environ) StopInstances(is []environs.Instance) error {
-	if e.ecfg().broken() {
-		return errBroken
+	if err := e.checkBroken("StopInstance"); err != nil {
+		return err
 	}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
@@ -414,8 +443,8 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 }
 
 func (e *environ) Instances(ids []string) (insts []environs.Instance, err error) {
-	if e.ecfg().broken() {
-		return nil, errBroken
+	if err := e.checkBroken("Instances"); err != nil {
+		return nil, err
 	}
 	if len(ids) == 0 {
 		return nil, nil
@@ -438,8 +467,8 @@ func (e *environ) Instances(ids []string) (insts []environs.Instance, err error)
 }
 
 func (e *environ) AllInstances() ([]environs.Instance, error) {
-	if e.ecfg().broken() {
-		return nil, errBroken
+	if err := e.checkBroken("AllInstances"); err != nil {
+		return nil, err
 	}
 	var insts []environs.Instance
 	e.state.mu.Lock()
@@ -450,10 +479,8 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 	return insts, nil
 }
 
-func (*environ) SecretAttrs(cfg *config.Config) map[string]interface{} {
-	return map[string]interface{}{
-		"secret": "pork",
-	}
+func (*environ) Provider() environs.EnvironProvider {
+	return &providerInstance
 }
 
 type instance struct {

@@ -85,7 +85,10 @@ func (c *Conn) updateSecrets() error {
 	if err != nil {
 		return err
 	}
-	secrets := c.Environ.SecretAttrs(cfg)
+	secrets, err := c.Environ.Provider().SecretAttrs(cfg)
+	if err != nil {
+		return err
+	}
 	env.Update(secrets)
 	n, err := env.Write()
 	if err != nil {

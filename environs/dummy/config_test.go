@@ -23,6 +23,7 @@ func (*ConfigSuite) TestSecretAttrs(c *C) {
 	expected := map[string]interface{}{
 		"secret": "pork",
 	}
-	actual := env.SecretAttrs(cfg)
+	actual, err := env.Provider().SecretAttrs(cfg)
+	c.Assert(err, IsNil)
 	c.Assert(expected, DeepEquals, actual)
 }

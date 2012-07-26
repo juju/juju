@@ -47,6 +47,15 @@ func RegisterProvider(name string, p EnvironProvider) {
 	providers[name] = p
 }
 
+// Provider returns the previously registered provider with the given type.
+func Provider(typ string) (EnvironProvider, error) {
+	p, ok := providers[typ]
+	if !ok {
+		return nil, fmt.Errorf("no registered provider for %q", typ)
+	}
+	return p, nil
+}
+
 // ReadEnvironsBytes parses the contents of an environments.yaml file
 // and returns its representation. An environment with an unknown type
 // will only generate an error when New is called for that environment.
