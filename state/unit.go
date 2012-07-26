@@ -124,80 +124,37 @@ func (st *State) unitFromKey(t *topology, unitKey string) (*Unit, error) {
 
 // PublicAddress returns the public address of the unit.
 func (u *Unit) PublicAddress() (string, error) {
-	cn, err := readConfigNode(u.st.zk, u.zkPath())
-	if err != nil {
-		return "", fmt.Errorf("cannot get public address of unit %q: %v", u, err)
-	}
-	if address, ok := cn.Get("public-address"); ok {
-		return address.(string), nil
-	}
-	return "", errors.New("unit has no public address")
+	return getConfigString(u.st.zk, u.zkPath(), fmt.Sprintf("public address of unit %q", u), "public-address")
 }
 
 // SetPublicAddress sets the public address of the unit.
 func (u *Unit) SetPublicAddress(address string) (err error) {
-	defer errorContextf(&err, "cannot set public address of unit %q to %q", u, address)
-	cn, err := readConfigNode(u.st.zk, u.zkPath())
-	if err != nil {
-		return err
-	}
-	cn.Set("public-address", address)
-	_, err = cn.Write()
-	return err
+	return setConfigString(u.st.zk, u.zkPath(), fmt.Sprintf("public address of unit %q", u), "public-address", address)
 }
 
 // PrivateAddress returns the private address of the unit.
 func (u *Unit) PrivateAddress() (string, error) {
-	cn, err := readConfigNode(u.st.zk, u.zkPath())
-	if err != nil {
-		return "", fmt.Errorf("cannot get private address of unit %q: %v", u, err)
-	}
-	if address, ok := cn.Get("private-address"); ok {
-		return address.(string), nil
-	}
-	return "", errors.New("unit has no private address")
+	return getConfigString(u.st.zk, u.zkPath(), fmt.Sprintf("private address of unit %q", u), "private-address")
 }
 
 // SetPrivateAddress sets the private address of the unit.
 func (u *Unit) SetPrivateAddress(address string) (err error) {
-	defer errorContextf(&err, "cannot set private address of unit %q", u)
-	cn, err := readConfigNode(u.st.zk, u.zkPath())
-	if err != nil {
-		return err
-	}
-	cn.Set("private-address", address)
-	_, err = cn.Write()
-	return err
+	return setConfigString(u.st.zk, u.zkPath(), fmt.Sprintf("private address of unit %q", u), "private-address", address)
 }
 
 // CharmURL returns the charm URL this unit is supposed
 // to use.
 func (u *Unit) CharmURL() (url *charm.URL, err error) {
-	defer errorContextf(&err, "cannot get charm URL of unit %q", u)
-	cn, err := readConfigNode(u.st.zk, u.zkPath())
-	if err != nil {
-		return nil, err
+	surl, err := getConfigString(u.st.zk, u.zkPath(), "unit URL of service " + u.String(), "charm")
+	if _, ok := err.(*attrNotFoundError); ok {
+		return nil, errors.New("unit has no charm URL")
 	}
-	if id, ok := cn.Get("charm"); ok {
-		url, err = charm.ParseURL(id.(string))
-		if err != nil {
-			return nil, err
-		}
-		return url, nil
-	}
-	return nil, errors.New("unit has no charm URL")
+	return charm.ParseURL(surl)
 }
 
 // SetCharmURL changes the charm URL for the unit.
 func (u *Unit) SetCharmURL(url *charm.URL) (err error) {
-	defer errorContextf(&err, "cannot set charm URL of unit %q to %q", u, url)
-	cn, err := readConfigNode(u.st.zk, u.zkPath())
-	if err != nil {
-		return err
-	}
-	cn.Set("charm", url.String())
-	_, err = cn.Write()
-	return err
+	return setConfigString(u.st.zk, u.zkPath(), "charm URL of unit " + u.String(), "charm", url.String())
 }
 
 // IsPrincipal returns whether the unit is deployed in its own container,

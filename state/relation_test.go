@@ -192,7 +192,7 @@ func (s *RelationUnitSuite) TestRelationUnitJoinError(c *C) {
 	err = peer.RemoveUnit(u)
 	c.Assert(err, IsNil)
 	_, err = ru.Join()
-	c.Assert(err, ErrorMatches, `cannot join unit "peer/0" to relation "peer:baz": unit has no private address`)
+	c.Assert(err, ErrorMatches, `cannot join unit "peer/0" to relation "peer:baz": private address of unit "peer/0" not found`)
 }
 
 func (s *RelationUnitSuite) TestPeerRelationUnit(c *C) {
