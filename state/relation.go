@@ -170,15 +170,17 @@ type RelationUnit struct {
 	scope    unitScopePath
 }
 
-// Name returns the value we expose to hooks as JUJU_RELATION in the
-// context of this particular relation unit.
+// Name returns the relation's name according to the unit. This does
+// not uniquely identify the relation, because a unit can participate
+// in multiple relations with the same name. This value is exposed to
+// hooks as the JUJU_RELATION environment variable.
 func (ru *RelationUnit) Name() string {
 	return ru.name
 }
 
-// Id returns the value we expose to hooks as JUJU_RELATION_ID in the
-// context of this particular relation unit. This allows them to
-// differentiate between multiple relations with the same name.
+// Id returns the relation's id according to the unit. This value is
+// exposed to hooks as the JUJU_RELATION_ID environment variable, and
+// is sufficient to uniquely identify the relation.
 func (ru *RelationUnit) Id() string {
 	return fmt.Sprintf("%s:%d", ru.name, ru.relation.Id())
 }
@@ -219,14 +221,14 @@ func (ru *RelationUnit) Settings() (*ConfigNode, error) {
 	return readConfigNode(ru.st.zk, ru.scope.settingsPath(ru.unit.key))
 }
 
-// RemoteSettings returns a map[string]interface{} holding the settings of
-// the remote unit with the supplied name. An error will be returned if the
-// relation no longer exists, or if the unit's service is not part of the
-// relation, or the settings are empty; mere non-existence of the unit is
-// not grounds for an error, because we guarantee that relation unit settings
-// will persist for the lifetime of the relation.
-func (ru *RelationUnit) RemoteSettings(unit string) (settings map[string]interface{}, err error) {
-	defer errorContextf(&err, "cannot get remote settings for unit %q in relation %q", unit, ru.relation)
+// ReadSettings returns a map holding the settings of the unit with the
+// supplied name. An error will be returned if the relation no longer
+// exists, or if the unit's service is not part of the relation, or the
+// settings are invalid; but mere non-existence of the unit is not grounds
+// for an error, because the unit settings are guaranteed to persist for
+// the lifetime of the relation.
+func (ru *RelationUnit) ReadSettings(uname string) (settings map[string]interface{}, err error) {
+	defer errorContextf(&err, "cannot read settings for unit %q in relation %q", uname, ru.relation)
 	topo, err := readTopology(ru.st.zk)
 	if err != nil {
 		return nil, err
@@ -238,14 +240,10 @@ func (ru *RelationUnit) RemoteSettings(unit string) (settings map[string]interfa
 		// lost interest, we're in danger of the relation disappearing on us.
 		return nil, fmt.Errorf("relation broken; settings no longer accessible")
 	}
-	if unit == ru.unit.Name() {
-		return nil, fmt.Errorf("unit is not remote")
+	sname, useq, err := parseUnitName(uname)
+	if err != nil {
+		return nil, err
 	}
-	parts := strings.Split(unit, "/")
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid unit name")
-	}
-	sname := parts[0]
 	if _, err = ru.relation.Endpoint(sname); err != nil {
 		return nil, err
 	}
@@ -253,21 +251,18 @@ func (ru *RelationUnit) RemoteSettings(unit string) (settings map[string]interfa
 	if err != nil {
 		return nil, err
 	}
-	useq, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return nil, fmt.Errorf("invalid unit name")
-	}
 	ukey := makeUnitKey(skey, useq)
 	path := ru.scope.settingsPath(ukey)
 	node, err := readConfigNode(ru.st.zk, path)
 	if err != nil {
 		return nil, err
 	}
-	settings = node.Map()
-	if len(settings) == 0 {
-		return nil, fmt.Errorf("unit settings do not exist")
+	if address, found := node.Get("private-address"); found {
+		if addr, _ := address.(string); addr != "" {
+			return node.Map(), nil
+		}
 	}
-	return settings, nil
+	return nil, fmt.Errorf("unit settings are not valid")
 }
 
 // unitScopePath represents a common zookeeper path used by the set of units

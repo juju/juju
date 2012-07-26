@@ -567,9 +567,9 @@ func parseUnitName(name string) (serviceName string, serviceSeq int, err error) 
 	if len(parts) != 2 {
 		return "", 0, fmt.Errorf("%q is not a valid unit name", name)
 	}
-	seq, err := strconv.ParseInt(parts[1], 10, 0)
+	seq, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return "", 0, err
+		return "", 0, fmt.Errorf("%q is not a valid unit name", name)
 	}
 	return parts[0], int(seq), nil
 }

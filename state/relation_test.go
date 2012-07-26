@@ -195,7 +195,7 @@ func (s *RelationUnitSuite) TestRelationUnitJoinError(c *C) {
 	c.Assert(err, ErrorMatches, `cannot join unit "peer/0" to relation "peer:baz": unit has no private address`)
 }
 
-func (s *RelationUnitSuite) TestRelationUnitRemoteSettings(c *C) {
+func (s *RelationUnitSuite) TestRelationUnitReadSettings(c *C) {
 	// Create a peer service with a relation and two units.
 	peer, err := s.State.AddService("peer", s.charm)
 	c.Assert(err, IsNil)
@@ -212,32 +212,34 @@ func (s *RelationUnitSuite) TestRelationUnitRemoteSettings(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check various errors.
-	_, err = ru0.RemoteSettings("nonsense")
-	c.Assert(err, ErrorMatches, `cannot get remote settings for unit "nonsense" in relation "peer:baz": invalid unit name`)
-	_, err = ru0.RemoteSettings("unknown/0")
-	c.Assert(err, ErrorMatches, `cannot get remote settings for unit "unknown/0" in relation "peer:baz": service "unknown" is not a member of relation "peer:baz"`)
-	_, err = ru0.RemoteSettings("peer/pressure")
-	c.Assert(err, ErrorMatches, `cannot get remote settings for unit "peer/pressure" in relation "peer:baz": invalid unit name`)
-	_, err = ru0.RemoteSettings("peer/0")
-	c.Assert(err, ErrorMatches, `cannot get remote settings for unit "peer/0" in relation "peer:baz": unit is not remote`)
-	_, err = ru0.RemoteSettings("peer/1")
-	c.Assert(err, ErrorMatches, `cannot get remote settings for unit "peer/1" in relation "peer:baz": unit settings do not exist`)
+	_, err = ru0.ReadSettings("nonsense")
+	c.Assert(err, ErrorMatches, `cannot read settings for unit "nonsense" in relation "peer:baz": "nonsense" is not a valid unit name`)
+	_, err = ru0.ReadSettings("unknown/0")
+	c.Assert(err, ErrorMatches, `cannot read settings for unit "unknown/0" in relation "peer:baz": service "unknown" is not a member of relation "peer:baz"`)
+	_, err = ru0.ReadSettings("peer/pressure")
+	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/pressure" in relation "peer:baz": "peer/pressure" is not a valid unit name`)
+	_, err = ru0.ReadSettings("peer/1")
+	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/1" in relation "peer:baz": unit settings are not valid`)
 
-	// Put some valid settings in ru1, and check they are now accessible.
+	// Put some valid settings in ru1, and check they are now accessible to
+	// both RelationUnits.
 	err = u1.SetPrivateAddress("blah.example.com")
 	c.Assert(err, IsNil)
 	p, err := ru1.Join()
 	c.Assert(err, IsNil)
 	kill(c, p)
-	settings, err := ru0.RemoteSettings("peer/1")
+	settings, err := ru0.ReadSettings("peer/1")
+	c.Assert(err, IsNil)
+	c.Assert(settings, DeepEquals, map[string]interface{}{"private-address": "blah.example.com"})
+	settings, err = ru1.ReadSettings("peer/1")
 	c.Assert(err, IsNil)
 	c.Assert(settings, DeepEquals, map[string]interface{}{"private-address": "blah.example.com"})
 
 	// Trash the relation and check we can't get anything any more.
 	err = s.State.RemoveRelation(rel)
 	c.Assert(err, IsNil)
-	_, err = ru0.RemoteSettings("peer/1")
-	c.Assert(err, ErrorMatches, `cannot get remote settings for unit "peer/1" in relation "peer:baz": relation broken; settings no longer accessible`)
+	_, err = ru0.ReadSettings("peer/1")
+	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/1" in relation "peer:baz": relation broken; settings no longer accessible`)
 }
 
 func (s *RelationUnitSuite) TestPeerRelationUnit(c *C) {
