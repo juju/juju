@@ -190,6 +190,10 @@ var configTests = []configTest{
 			"secret-key": "badness",
 		},
 		err: ".*environment has no access-key or secret-key",
+	}, {
+		config: attrs{
+			"admin-secret": "Futumpsh",
+		},
 	},
 }
 
