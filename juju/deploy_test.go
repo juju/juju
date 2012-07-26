@@ -150,7 +150,7 @@ func (s *DeploySuite) TestAddService(c *C) {
 		Interface:     "riak",
 		RelationName:  "ring",
 		RelationRole:  state.RolePeer,
-		RelationScope: state.ScopeGlobal,
+		RelationScope: charm.ScopeGlobal,
 	})
 }
 

@@ -18,6 +18,10 @@ type EnvironProvider interface {
 	// If old is not nil, it holds the previous environment configuration
 	// for consideration when validating changes.
 	Validate(cfg, old *config.Config) (valid *config.Config, err error)
+
+	// SecretAttrs filters the supplied configuation returning only values
+	// which are considered sensitive.
+	SecretAttrs(cfg *config.Config) (map[string]interface{}, error)
 }
 
 var ErrNoDNSName = errors.New("DNS name not allocated")
@@ -122,6 +126,9 @@ type Environ interface {
 	// by Bootstrap.
 	StateInfo() (*state.Info, error)
 
+	// Config returns the current configuration of this Environ.
+	Config() *config.Config
+
 	// SetConfig updates the Environs configuration.
 	// Calls to SetConfig do not affect the configuration of
 	// values previously obtained from Storage and PublicStorage.
@@ -169,4 +176,7 @@ type Environ interface {
 
 	// AssignmentPolicy returns the environment's unit assignment policy.
 	AssignmentPolicy() state.AssignmentPolicy
+
+	// Provider returns the EnvironProvider that created this Environ.
+	Provider() EnvironProvider
 }
