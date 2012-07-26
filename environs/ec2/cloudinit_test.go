@@ -58,6 +58,7 @@ func (t *cloudinitTest) check(c *C) {
 	} else {
 		t.checkScripts(c, "JUJU_ZOOKEEPER='"+strings.Join(t.cfg.stateInfo.Addrs, ",")+"'")
 	}
+	t.checkPackage(c, "libzookeeper-mt2")
 	t.checkScripts(c, "JUJU_MACHINE_ID=[0-9]+")
 
 	if t.cfg.provisioner {
