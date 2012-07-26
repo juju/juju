@@ -6,6 +6,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/provisioner"
 
 	// register providers
@@ -36,13 +37,21 @@ func (a *ProvisioningAgent) Init(f *gnuflag.FlagSet, args []string) error {
 // Run runs a provisioning agent.
 func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
 	for {
-		p, err := provisioner.NewProvisioner(&a.Conf.StateInfo)
+		st, err := state.Open(&a.Conf.StateInfo)
+		if err != nil {
+			return err
+		}
+		p, err := provisioner.NewProvisioner(st)
 		if err == nil {
 			if err = p.Wait(); err == nil {
 				// if Wait returns nil then we consider that a signal
 				// that the process should exit the retry logic.
 				return nil
 			}
+		}
+		err = st.Close()
+		if err != nil {
+			return err
 		}
 		log.Printf("restarting provisioner after error: %v", err)
 		time.Sleep(retryDuration)
