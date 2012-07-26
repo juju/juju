@@ -248,7 +248,7 @@ func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
 		}
 		return nil, fmt.Errorf("cannot assign unit %q to unused machine: %v", u, err)
 	}
-	return &Machine{u.st, machineKey}, nil
+	return newMachine(u.st, machineKey), nil
 }
 
 // UnassignFromMachine removes the assignment between this unit and

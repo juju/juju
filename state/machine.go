@@ -23,6 +23,20 @@ func (e *NoInstanceIdError) Error() string {
 type Machine struct {
 	st  *State
 	key string
+	agentVersion
+}
+
+func newMachine(st *State, key string) *Machine {
+	m := &Machine{
+		st:  st,
+		key: key,
+	}
+	m.agentVersion = agentVersion{
+		zk:    st.zk,
+		agent: "machine",
+		path:  m.zkPath(),
+	}
+	return m
 }
 
 // Id returns the machine id.
