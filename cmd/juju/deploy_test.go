@@ -170,7 +170,7 @@ func (s *DeploySuite) TestAddsPeerRelations(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ep.RelationName, Equals, "ring")
 	c.Assert(ep.RelationRole, Equals, state.RolePeer)
-	c.Assert(ep.RelationScope, Equals, state.ScopeGlobal)
+	c.Assert(ep.RelationScope, Equals, charm.ScopeGlobal)
 }
 
 func (s *DeploySuite) TestNumUnits(c *C) {

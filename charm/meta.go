@@ -9,9 +9,16 @@ import (
 	"launchpad.net/juju-core/schema"
 )
 
+// RelationScope describes the scope of a relation endpoint.
+type RelationScope string
+
+// Note that schema doesn't support custom string types,
+// so when we use these values in a schema.Checker,
+// we must store them as strings, not RelationScopes.
+
 const (
-	ScopeGlobal    = "global"
-	ScopeContainer = "container"
+	ScopeGlobal    RelationScope = "global"
+	ScopeContainer RelationScope = "container"
 )
 
 // Relation represents a single relation defined in the charm
@@ -20,7 +27,7 @@ type Relation struct {
 	Interface string
 	Optional  bool
 	Limit     int
-	Scope     string
+	Scope     RelationScope
 }
 
 // Meta represents all the known content that may be defined
@@ -98,7 +105,7 @@ func parseRelations(relations interface{}) map[string]Relation {
 		relation.Interface = relMap["interface"].(string)
 		relation.Optional = relMap["optional"].(bool)
 		if scope := relMap["scope"]; scope != nil {
-			relation.Scope = scope.(string)
+			relation.Scope = RelationScope(scope.(string))
 		}
 		if relMap["limit"] != nil {
 			// Schema defaults to int64, but we know
@@ -150,7 +157,7 @@ func (c ifaceExpC) Coerce(v interface{}, path []string) (newv interface{}, err e
 			"interface": s,
 			"limit":     c.limit,
 			"optional":  false,
-			"scope":     ScopeGlobal,
+			"scope":     string(ScopeGlobal),
 		}
 		return
 	}
@@ -170,11 +177,11 @@ var ifaceSchema = schema.FieldMap(
 	schema.Fields{
 		"interface": schema.String(),
 		"limit":     schema.OneOf(schema.Const(nil), schema.Int()),
-		"scope":     schema.OneOf(schema.Const(ScopeGlobal), schema.Const(ScopeContainer)),
+		"scope":     schema.OneOf(schema.Const(string(ScopeGlobal)), schema.Const(string(ScopeContainer))),
 		"optional":  schema.Bool(),
 	},
 	schema.Defaults{
-		"scope":    ScopeGlobal,
+		"scope":    string(ScopeGlobal),
 		"optional": false,
 	},
 )

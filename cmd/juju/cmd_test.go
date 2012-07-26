@@ -41,7 +41,6 @@ type cmdSuite struct {
 
 var _ = Suite(&cmdSuite{})
 
-// N.B. Barking is broken.
 var config = `
 default:
     peckham
@@ -54,9 +53,9 @@ environments:
         type: dummy
         zookeeper: false
         authorized-keys: i-am-a-key
-    barking:
+    brokenenv:
         type: dummy
-        broken: true
+        broken: Bootstrap Destroy
         zookeeper: false
         authorized-keys: i-am-a-key
 `
@@ -175,9 +174,9 @@ func (*cmdSuite) TestBootstrapCommand(c *C) {
 	c.Assert(err, IsNil)
 
 	// bootstrap with broken environment
-	opc, errc = runCommand(new(BootstrapCommand), "-e", "barking")
+	opc, errc = runCommand(new(BootstrapCommand), "-e", "brokenenv")
 	c.Check(<-opc, IsNil)
-	c.Check(<-errc, ErrorMatches, `broken environment`)
+	c.Check(<-errc, ErrorMatches, "dummy.Bootstrap is broken")
 }
 
 func (*cmdSuite) TestDestroyCommand(c *C) {
@@ -187,9 +186,9 @@ func (*cmdSuite) TestDestroyCommand(c *C) {
 	c.Check(<-errc, IsNil)
 
 	// destroy with broken environment
-	opc, errc = runCommand(new(DestroyCommand), "-e", "barking")
+	opc, errc = runCommand(new(DestroyCommand), "-e", "brokenenv")
 	c.Check(<-opc, IsNil)
-	c.Check(<-errc, ErrorMatches, `broken environment`)
+	c.Check(<-errc, ErrorMatches, "dummy.Destroy is broken")
 }
 
 var deployTests = []struct {

@@ -46,7 +46,7 @@ func (p *fakePlugin) install(dir string, content string) {
 	if err != nil {
 		panic(err)
 	}
-	os.Setenv("BZR_PLUGINS_AT", "fakePlugin@" + dir)
+	os.Setenv("BZR_PLUGINS_AT", "fakePlugin@"+dir)
 }
 
 func (p *fakePlugin) uninstall() {
