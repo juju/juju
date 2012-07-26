@@ -2,6 +2,7 @@ package firewaller
 
 import (
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -11,9 +12,10 @@ import (
 // Firewaller watches the state for ports opened or closed
 // and reflects those changes onto the backing environment.
 type Firewaller struct {
-	environ         environs.Environ
-	st              *state.State
 	tomb            tomb.Tomb
+	st              *state.State
+	environ         environs.Environ
+	environWatcher  *state.ConfigWatcher
 	machinesWatcher *state.MachinesWatcher
 	machineds       map[int]*machineData
 	unitsChange     chan *unitsChange
@@ -24,10 +26,10 @@ type Firewaller struct {
 }
 
 // NewFirewaller returns a new Firewaller.
-func NewFirewaller(environ environs.Environ, st *state.State) (*Firewaller, error) {
+func NewFirewaller(st *state.State) (*Firewaller, error) {
 	fw := &Firewaller{
-		environ:         environ,
 		st:              st,
+		environWatcher:  st.WatchEnvironConfig(),
 		machinesWatcher: st.WatchMachines(),
 		machineds:       make(map[int]*machineData),
 		unitsChange:     make(chan *unitsChange),
@@ -42,10 +44,45 @@ func NewFirewaller(environ environs.Environ, st *state.State) (*Firewaller, erro
 
 func (fw *Firewaller) loop() {
 	defer fw.finish()
+
+	// Get a new StateInfo from the environment: the one used to
+	// launch the agent may refer to localhost, which will be
+	// unhelpful when attempting to run an agent on a new machine.
+refreshState:
 	for {
 		select {
 		case <-fw.tomb.Dying():
 			return
+		case config, ok := <-fw.environWatcher.Changes():
+			if !ok {
+				return
+			}
+			var err error
+			fw.environ, err = environs.NewFromAttrs(config.Map())
+			if err != nil {
+				log.Printf("firewaller loaded invalid environment configuration: %v", err)
+				continue
+			}
+			log.Printf("firewaller loaded new environment configuration")
+			break refreshState
+		}
+	}
+
+	for {
+		select {
+		case <-fw.tomb.Dying():
+			return
+		case change, ok := <-fw.environWatcher.Changes():
+			if !ok {
+				return
+			}
+			config, err := config.New(change.Map())
+			if err != nil {
+				log.Printf("firewaller loaded invalid environment configuration: %v", err)
+				continue
+			}
+			fw.environ.SetConfig(config)
+			log.Printf("firewaller loaded new environment configuration")
 		case change, ok := <-fw.machinesWatcher.Changes():
 			if !ok {
 				return
@@ -195,6 +232,7 @@ func (fw *Firewaller) openClosePortsMachine(machined *machineData) error {
 
 // finishes cleans up when the firewaller is stopping.
 func (fw *Firewaller) finish() {
+	watcher.Stop(fw.environWatcher, &fw.tomb)
 	watcher.Stop(fw.machinesWatcher, &fw.tomb)
 	for _, unitd := range fw.unitds {
 		fw.tomb.Kill(unitd.stopWatch())
