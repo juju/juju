@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"launchpad.net/juju-core/charm"
 )
 
 // RelationRole defines the role of a relation endpoint.
@@ -33,21 +34,13 @@ func (r RelationRole) counterpartRole() RelationRole {
 	panic(fmt.Errorf("unknown RelationRole: %q", r))
 }
 
-// RelationScope describes the scope of a relation endpoint.
-type RelationScope string
-
-const (
-	ScopeGlobal    RelationScope = "global"
-	ScopeContainer RelationScope = "container"
-)
-
 // RelationEndpoint represents one endpoint of a relation.
 type RelationEndpoint struct {
 	ServiceName   string
 	Interface     string
 	RelationName  string
 	RelationRole  RelationRole
-	RelationScope RelationScope
+	RelationScope charm.RelationScope
 }
 
 // CanRelateTo returns whether a relation may be established between e and other.
@@ -100,7 +93,7 @@ func newRelation(st *State, doc *relationDoc) *Relation {
 }
 
 func (r *Relation) String() string {
-	return relationKey(r.doc.Endpoints)
+	return r.doc.Key()
 }
 
 // Id returns the integer internal relation key. This is exposed
