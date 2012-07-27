@@ -46,7 +46,7 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
 	c.Assert(err, IsNil)
 
 	id, err := s.machine.InstanceId()
-	c.Assert(err.Error(), Equals, `invalid type for value map[interface {}]interface {}{} of instance id of machine 0: map[interface {}]interface {}`)
+	c.Assert(err.Error(), Equals, `invalid type of value map[interface {}]interface {}{} of instance id of machine 0: map[interface {}]interface {}`)
 	c.Assert(id, Equals, "")
 }
 

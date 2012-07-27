@@ -106,6 +106,10 @@ func (m *Machine) WatchUnits() *MachineUnitsWatcher {
 	return newMachineUnitsWatcher(m)
 }
 
+func (m *Machine) Watcher() *MachineInfoWatcher {
+	return newMachineInfoWatcher(m)
+}
+
 // String returns a unique description of this machine
 func (m *Machine) String() string {
 	return strconv.Itoa(m.Id())
