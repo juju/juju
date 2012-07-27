@@ -27,20 +27,6 @@ type HookInfo struct {
 	Members map[string]map[string]interface{}
 }
 
-// RelationState allows us to start a HookQueue that will send only
-// hooks corresponding to deltas between the known relation state
-// and that communicated by its underlying watcher.
-type RelationState struct {
-	RelationId string
-	// Members holds a map of unit name to settings version.
-	Members map[string]int
-	// Joined, if not empty, indicates that the last successful hook
-	// run for this relation was the "joined" of the named unit, and
-	// that the hook queue is therefore required to send a suitable
-	// "changed" hook before it does anything else.
-	Joined string
-}
-
 // HookQueue converts state.RelationUnitsChange events to HookInfo values
 // and sends them on to a client.
 type HookQueue struct {
