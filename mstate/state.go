@@ -193,7 +193,7 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 		}
 		// BUG potential race in the time between getting the service
 		// to validate the endpoint and actually writting the relation
-		// into MongoDB; the service might have dissapeared.
+		// into MongoDB; the service might have disappeared.
 		_, err = s.Service(v.ServiceName)
 		if err != nil {
 			return nil, err
@@ -208,25 +208,15 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 	if err != nil {
 		return nil, err
 	}
-	sel := bson.D{
-		{"_id", relationKey(endpoints)},
-		{"life", Dying},
-	}
-	change := bson.D{{"$set", bson.D{
-		{"endpoints", endpoints},
-		{"id1", id},
-		{"life", Alive},
-	}}}
-	// TODO use Insert instead of Upsert after implementing full lifecycle.
-	_, err = s.relations.Upsert(sel, change)
-	if err != nil {
-		return nil, err
-	}
 	doc := relationDoc{
+		Id:        id,
 		Key:       relationKey(endpoints),
 		Endpoints: endpoints,
-		Id:        id,
 		Life:      Alive,
+	}
+	err = s.relations.Insert(doc)
+	if err != nil {
+		return nil, err
 	}
 	return newRelation(s, &doc), nil
 }
@@ -236,7 +226,7 @@ func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error)
 	defer errorContextf(&err, "cannot get relation %q", relationKey(endpoints))
 
 	doc := relationDoc{}
-	err = s.relations.FindId(relationKey(endpoints)).One(&doc)
+	err = s.relations.Find(bson.D{{"key", relationKey(endpoints)}}).One(&doc)
 	if err != nil {
 		return nil, err
 	}
@@ -247,12 +237,9 @@ func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error)
 func (s *State) RemoveRelation(r *Relation) (err error) {
 	defer errorContextf(&err, "cannot remove relation %q", r.doc.Key)
 
-	sel := bson.D{
-		{"_id", r.doc.Key},
-		{"life", Alive},
-	}
-	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
-	err = s.relations.Update(sel, change)
+	// TODO panic if life is not dead after implementing lifecycle.
+	sel := bson.D{{"_id", r.doc.Id}}
+	err = s.relations.Remove(sel)
 	if err != nil {
 		return err
 	}
