@@ -98,7 +98,7 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	// After adding relation, make proep container-scoped as well, for
 	// simplicity of testing.
 	proep.RelationScope = state.ScopeContainer
-	assertOneRelation(c, req, 2, reqep, proep) // BUG is incrementing id ok?
+	assertOneRelation(c, req, 2, reqep, proep)
 	assertOneRelation(c, pro, 2, proep, reqep)
 }
 

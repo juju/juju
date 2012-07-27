@@ -172,15 +172,18 @@ func (s *State) AllServices() (services []*Service, err error) {
 
 // AddRelation creates a new relation with the given endpoints.
 func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err error) {
-	defer errorContextf(&err, "cannot add relation %q", describeEndpoints(endpoints))
-	if 0 == len(endpoints) || len(endpoints) > 2 {
+	defer errorContextf(&err, "cannot add relation %q", relationKey(endpoints))
+	switch len(endpoints) {
+	case 1:
+		if endpoints[0].RelationRole != RolePeer {
+			return nil, fmt.Errorf("single endpoint must be a peer relation")
+		}
+	case 2:
+		if !endpoints[0].CanRelateTo(&endpoints[1]) {
+			return nil, fmt.Errorf("endpoints do not relate")
+		}
+	default:
 		return nil, fmt.Errorf("cannot relate %d endpoints", len(endpoints))
-	}
-	if len(endpoints) == 1 && endpoints[0].RelationRole != RolePeer {
-		return nil, fmt.Errorf("single endpoint must be a peer relation")
-	}
-	if len(endpoints) == 2 && !endpoints[0].CanRelateTo(&endpoints[1]) {
-		return nil, fmt.Errorf("endpoints do not relate")
 	}
 
 	var scope RelationScope
@@ -188,7 +191,9 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 		if v.RelationScope == ScopeContainer {
 			scope = ScopeContainer
 		}
-		// BUG: race.
+		// BUG potential race in the time between getting the service
+		// to validate the endpoint and actually writting the relation
+		// into MongoDB; the service might have disappeared.
 		_, err = s.Service(v.ServiceName)
 		if err != nil {
 			return nil, err
@@ -199,39 +204,29 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 			endpoints[i].RelationScope = scope
 		}
 	}
-	key, err := s.sequence("relation")
-	if err != nil {
-		return nil, err
-	}
-	sel := bson.D{
-		{"_id", describeEndpoints(endpoints)},
-		{"life", Dying},
-	}
-	change := bson.D{{"$set", bson.D{
-		{"endpoints", endpoints},
-		{"key", key},
-		{"life", Alive},
-	}}}
-	// TODO use Insert instead of Upsert after implementing full lifecycle.
-	_, err = s.relations.Upsert(sel, change)
+	id, err := s.sequence("relation")
 	if err != nil {
 		return nil, err
 	}
 	doc := relationDoc{
-		Name:      describeEndpoints(endpoints),
+		Id:        id,
+		Key:       relationKey(endpoints),
 		Endpoints: endpoints,
-		Key:       key,
 		Life:      Alive,
+	}
+	err = s.relations.Insert(doc)
+	if err != nil {
+		return nil, err
 	}
 	return newRelation(s, &doc), nil
 }
 
 // Relation returns the existing relation with the given endpoints.
-func (s *State) Relation(endpoints ...RelationEndpoint) (_ *Relation, err error) {
-	defer errorContextf(&err, "cannot get relation %q", describeEndpoints(endpoints))
+func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error) {
+	defer errorContextf(&err, "cannot get relation %q", relationKey(endpoints))
 
 	doc := relationDoc{}
-	err = s.relations.FindId(describeEndpoints(endpoints)).One(&doc)
+	err = s.relations.Find(bson.D{{"key", relationKey(endpoints)}}).One(&doc)
 	if err != nil {
 		return nil, err
 	}
@@ -240,14 +235,11 @@ func (s *State) Relation(endpoints ...RelationEndpoint) (_ *Relation, err error)
 
 // RemoveRelation removes the supplied relation.
 func (s *State) RemoveRelation(r *Relation) (err error) {
-	defer errorContextf(&err, "cannot remove relation %q", r.doc.Name)
+	defer errorContextf(&err, "cannot remove relation %q", r.doc.Key)
 
-	sel := bson.D{
-		{"_id", r.doc.Name},
-		{"life", Alive},
-	}
-	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
-	err = s.relations.Update(sel, change)
+	// TODO panic if life is not dead after implementing lifecycle.
+	sel := bson.D{{"_id", r.doc.Id}}
+	err = s.relations.Remove(sel)
 	if err != nil {
 		return err
 	}
