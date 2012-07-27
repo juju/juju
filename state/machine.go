@@ -106,7 +106,7 @@ func (m *Machine) WatchUnits() *MachineUnitsWatcher {
 	return newMachineUnitsWatcher(m)
 }
 
-func (m *Machine) Watcher() *MachineInfoWatcher {
+func (m *Machine) WatchInfo() *MachineInfoWatcher {
 	return newMachineInfoWatcher(m)
 }
 

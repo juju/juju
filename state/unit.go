@@ -118,8 +118,8 @@ func newUnit(st *State, serviceName string, key, principalKey string) *Unit {
 		principalKey: principalKey,
 	}
 	u.agentVersion = agentVersion{
-		zk: st.zk,
-		path: u.zkPath(),
+		zk:    st.zk,
+		path:  u.zkPath(),
 		agent: "unit",
 	}
 	return u

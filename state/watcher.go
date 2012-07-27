@@ -5,8 +5,8 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
-	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/tomb"
 )
 
@@ -449,7 +449,7 @@ type MachineInfo struct {
 // MachineInfoWatcher observes changes to the settings of a machine.
 type MachineInfoWatcher struct {
 	contentWatcher
-	m *Machine
+	m          *Machine
 	changeChan chan *MachineInfo
 }
 
@@ -457,7 +457,7 @@ type MachineInfoWatcher struct {
 // about the machine.
 func newMachineInfoWatcher(m *Machine) *MachineInfoWatcher {
 	w := &MachineInfoWatcher{
-		m: m,
+		m:              m,
 		contentWatcher: newContentWatcher(m.st, m.zkPath()),
 		changeChan:     make(chan *MachineInfo),
 	}
@@ -519,7 +519,7 @@ func (w *MachineInfoWatcher) update(change watcher.ContentChange) error {
 
 func (w *MachineInfoWatcher) done() {
 	close(w.changeChan)
-}	
+}
 
 // ServicesWatcher observes the addition and removal of services.
 type ServicesWatcher struct {

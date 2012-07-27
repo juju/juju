@@ -4,6 +4,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/version"
 	"sort"
 	"time"
 )
@@ -281,4 +282,74 @@ func unitNames(units []*state.Unit) (s []string) {
 		s = append(s, u.Name())
 	}
 	return
+}
+
+var watchMachineInfoTests = []struct {
+	test func(m *state.Machine) error
+	want *state.MachineInfo
+}{
+	{
+		func(*state.Machine) error {
+			return nil
+		},
+		&state.MachineInfo{},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.ProposeAgentVersion(version.Version{0, 0, 1})
+		},
+		&state.MachineInfo{
+			ProposedAgentVersion: version.Version{0, 0, 1},
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.ProposeAgentVersion(version.Version{0, 0, 2})
+		},
+		&state.MachineInfo{
+			ProposedAgentVersion: version.Version{0, 0, 2},
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.SetAgentVersion(version.Version{1, 0, 0})
+		},
+		&state.MachineInfo{
+			ProposedAgentVersion: version.Version{0, 0, 2},
+			AgentVersion:         version.Version{1, 0, 0},
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.SetAgentVersion(version.Version{1, 0, 1})
+		},
+		&state.MachineInfo{
+			ProposedAgentVersion: version.Version{0, 0, 2},
+			AgentVersion:         version.Version{1, 0, 1},
+		},
+	},
+}
+
+func (s *MachineSuite) TestWatchMachineInfo(c *C) {
+	w := s.machine.WatchInfo()
+	defer func() {
+		c.Assert(w.Stop(), IsNil)
+	}()
+	for i, test := range watchMachineInfoTests {
+		c.Logf("test %d", i)
+		err := test.test(s.machine)
+		c.Assert(err, IsNil)
+		select {
+		case got, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(got, DeepEquals, test.want)
+		case <-time.After(500 * time.Millisecond):
+			c.Fatalf("did not get change: %v", test.want)
+		}
+	}
+	select {
+	case got := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
 }
