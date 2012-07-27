@@ -66,12 +66,12 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 	c := cloudinit.New()
 
 	c.AddSSHAuthorizedKeys(cfg.authorizedKeys)
+	c.AddPackage("libzookeeper-mt2")
 	if cfg.zookeeper {
 		pkgs := []string{
 			"default-jre-headless",
 			"zookeeper",
 			"zookeeperd",
-			"libzookeeper-mt2",
 		}
 		for _, pkg := range pkgs {
 			c.AddPackage(pkg)

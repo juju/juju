@@ -4,6 +4,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"time"
 )
@@ -167,14 +168,12 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	}
 	t.BootstrapOnce(c)
 
-	info, err := t.Env.StateInfo()
+	// TODO(dfc) constructing a juju.Conn by hand is a code smell.
+	conn, err := juju.NewConnFromAttrs(t.Env.Config().AllAttrs())
 	c.Assert(err, IsNil)
 
-	st, err := state.Open(info)
+	st, err := conn.State()
 	c.Assert(err, IsNil)
-
-	// TODO(dfc) need juju/conn.Deploy to push the secrets
-	// into the state.
 
 	// place a new machine into the state
 	m, err := st.AddMachine()
