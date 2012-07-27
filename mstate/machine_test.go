@@ -8,14 +8,14 @@ import (
 )
 
 type MachineSuite struct {
-	UtilSuite
+	ConnSuite
 	machine *state.Machine
 }
 
 var _ = Suite(&MachineSuite{})
 
 func (s *MachineSuite) SetUpTest(c *C) {
-	s.UtilSuite.SetUpTest(c)
+	s.ConnSuite.SetUpTest(c)
 	var err error
 	s.machine, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
