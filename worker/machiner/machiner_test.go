@@ -146,6 +146,10 @@ func (d *dummyContainer) Destroy(u *state.Unit) error {
 	return nil
 }
 
+func (d *dummyContainer) ToolsDir(u *state.Unit) string {
+	return "/dummy/tools"
+}
+
 func (d *dummyContainer) checkAction(c *C, action string) {
 	timeout := 500 * time.Millisecond
 	if action == "" {
