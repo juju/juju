@@ -2,8 +2,8 @@ package state
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/testing"
 )
 
 type TopologySuite struct {
