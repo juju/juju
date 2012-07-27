@@ -12,8 +12,8 @@ import (
 	"sort"
 )
 
-// ConnSuite facilitates access to the underlying MongoDB.
-// It is embedded in UtilSuite.
+// ConnSuite provides the infrastructure for all other 
+// test suites (StateSuite, CharmSuite, MachineSuite, etc).
 type ConnSuite struct {
 	MgoSuite
 	session  *mgo.Session
@@ -21,6 +21,7 @@ type ConnSuite struct {
 	machines *mgo.Collection
 	services *mgo.Collection
 	units    *mgo.Collection
+	State    *state.State
 }
 
 func (cs *ConnSuite) SetUpTest(c *C) {
@@ -32,9 +33,12 @@ func (cs *ConnSuite) SetUpTest(c *C) {
 	cs.machines = session.DB("juju").C("machines")
 	cs.services = session.DB("juju").C("services")
 	cs.units = session.DB("juju").C("units")
+	cs.State, err = state.Dial(mgoaddr)
+	c.Assert(err, IsNil)
 }
 
 func (cs *ConnSuite) TearDownTest(c *C) {
+	cs.State.Close()
 	cs.session.Close()
 	cs.MgoSuite.TearDownTest(c)
 }
@@ -51,27 +55,7 @@ func (s *ConnSuite) AllMachines(c *C) []int {
 	return ids
 }
 
-// UtilSuite provides the infrastructure for all other 
-// test suites (StateSuite, CharmSuite, MachineSuite, etc).
-type UtilSuite struct {
-	MgoSuite
-	ConnSuite
-	State *state.State
-}
-
-func (s *UtilSuite) SetUpTest(c *C) {
-	s.ConnSuite.SetUpTest(c)
-	st, err := state.Dial(mgoaddr)
-	c.Assert(err, IsNil)
-	s.State = st
-}
-
-func (s *UtilSuite) TearDownTest(c *C) {
-	s.State.Close()
-	s.ConnSuite.TearDownTest(c)
-}
-
-func (s *UtilSuite) AddTestingCharm(c *C, name string) *state.Charm {
+func (s *ConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	ch := testing.Charms.Dir(name)
 	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
 	curl := charm.MustParseURL("local:series/" + ident)

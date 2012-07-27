@@ -12,12 +12,14 @@ import (
 
 // Container contains running juju service units.
 type Container interface {
-	// Deploy deploys a unit running in a container.
-	Deploy(*state.Unit) error
-	// Destroy destroys a unit in the container.
-	Destroy(*state.Unit) error
+	// Deploy deploys the unit into a new container.
+	Deploy(unit *state.Unit) error
+
+	// Destroy destroys the unit's container.
+	Destroy(unit *state.Unit) error
+
 	// ToolsDir returns the directory that the tools binaries
-	// are stored in for the given unit, relative to the base root directory.
+	// are stored in for the given unit.
 	ToolsDir(*state.Unit) string
 }
 
