@@ -18,34 +18,46 @@ type RelationUnitsWatcher interface {
 
 // HookInfo holds details required to execute a relation hook.
 type HookInfo struct {
-	HookKind   string
+	// RelationId identifies the relation associated with the hook queue.
+	RelationId int
+
+	// HookKind is one of "joined", "changed", or "departed".
+	HookKind string
+
+	// RemoteUnit is the unit name associated with HookKind.
 	RemoteUnit string
-	Version    int
-	// Members contains a map[string]interface{} for every remote unit,
-	// holding its relation settings, keyed on unit name.
+
+	// ChangeVersion identifies the most recent unit settings change
+	// associated with RemoteUnit.
+	ChangeVersion int
+
+	// Members is a map from remote unit name to its settings.
+	// It contains all members known in the relation up to the
+	// moment in which the HookInfo was delivered.
 	Members map[string]map[string]interface{}
 }
 
-// NewHookQueue returns a new HookQueue that aggregates the values obtained
-// from the w watcher and sends into out the details about hooks that must
-// be executed in the unit. If any values have previously been received from
-// w's Changes channel, the HookQueue's behaviour is undefined.
-func NewHookQueue(out chan<- HookInfo, w RelationUnitsWatcher) *HookQueue {
-	q := &HookQueue{
-		w:    w,
-		out:  out,
-		info: map[string]*unitInfo{},
-	}
-	go q.loop()
-	return q
+// RelationState is a snapshot of the state of a relation.
+type RelationState struct {
+	// RelationId identifies the relation.
+	RelationId int
+
+	// Members is a map from unit name to the last change version
+	// for which a HookInfo was delivered on the output channel.
+	Members map[string]int
+
+	// ChangedPending indicates that a "changed" hook for the given unit
+	// name must be the first HookInfo to be sent to the output channel.
+	ChangedPending string
 }
 
 // HookQueue aggregates values obtained from a relation settings watcher
 // and sends out details about hooks that must be executed in the unit.
 type HookQueue struct {
-	tomb tomb.Tomb
-	w    RelationUnitsWatcher
-	out  chan<- HookInfo
+	tomb       tomb.Tomb
+	w          RelationUnitsWatcher
+	out        chan<- HookInfo
+	relationId int
 
 	// info holds information about all units that were added to the
 	// queue and haven't had a "departed" event popped. This means the
@@ -86,9 +98,52 @@ type unitInfo struct {
 	prev, next *unitInfo
 }
 
-func (q *HookQueue) loop() {
+// NewHookQueue returns a new HookQueue that aggregates the values obtained
+// from the w watcher and sends into out the details about hooks that must
+// be executed in the unit. If any values have previously been received from
+// w's Changes channel, the HookQueue's behaviour is undefined.
+func NewHookQueue(initial RelationState, out chan<- HookInfo, w RelationUnitsWatcher) *HookQueue {
+	q := &HookQueue{
+		w:          w,
+		out:        out,
+		relationId: initial.RelationId,
+		info:       map[string]*unitInfo{},
+	}
+	go q.loop(initial)
+	return q
+}
+
+func (q *HookQueue) loop(initial RelationState) {
 	defer q.tomb.Done()
 	defer watcher.Stop(q.w, &q.tomb)
+
+	// Consume initial event, and reconcile with initial state, by inserting
+	// a new RelationUnitsChange before the initial event, which schedules
+	// every missing unit for immediate departure before anything else happens
+	// (apart from a single potential required post-joined changed event).
+	ch1, ok := <-q.w.Changes()
+	if !ok {
+		q.tomb.Kill(watcher.MustErr(q.w))
+		return
+	}
+	if len(ch1.Departed) != 0 {
+		panic("HookQueue must be started with a fresh RelationUnitsWatcher")
+	}
+	q.changedPending = initial.ChangedPending
+	ch0 := state.RelationUnitsChange{}
+	for unit, version := range initial.Members {
+		q.info[unit] = &unitInfo{
+			unit:    unit,
+			version: version,
+			joined:  true,
+		}
+		if _, found := ch1.Changed[unit]; !found {
+			ch0.Departed = append(ch0.Departed, unit)
+		}
+	}
+	q.update(ch0)
+	q.update(ch1)
+
 	var next HookInfo
 	var out chan<- HookInfo
 	for {
@@ -210,7 +265,7 @@ func (q *HookQueue) next() HookInfo {
 	} else if hook == "departed" {
 		delete(members, unit)
 	}
-	return HookInfo{hook, unit, version, members}
+	return HookInfo{q.relationId, hook, unit, version, members}
 }
 
 // queue sets the next hook to be run for the named unit, and places it

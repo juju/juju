@@ -17,51 +17,65 @@ var _ = Suite(&HookQueueSuite{})
 
 type msi map[string]int
 
-var hookQueueTests = [][]checker{
-	{
-	// No steps; just implicitly check it's empty.
-	}, {
+type hookQueueTest struct {
+	initial uniter.RelationState
+	steps   []checker
+}
+
+func fullTest(steps ...checker) hookQueueTest {
+	return hookQueueTest{uniter.RelationState{21345, nil, ""}, steps}
+}
+
+func reconcileTest(members msi, joined string, steps ...checker) hookQueueTest {
+	return hookQueueTest{uniter.RelationState{21345, members, joined}, steps}
+}
+
+var hookQueueTests = []hookQueueTest{
+	fullTest(
+		// Empty initial change causes no hooks.
+		send{nil, nil},
+	), fullTest(
 		// Joined and changed are both run when unit is first detected.
 		send{msi{"u0": 0}, nil},
 		expect{"joined", "u0", 0, msi{"u0": 0}},
 		expect{"changed", "u0", 0, msi{"u0": 0}},
-	}, {
+	), fullTest(
 		// Automatic changed is run with latest settings.
 		send{msi{"u0": 0}, nil},
 		expect{"joined", "u0", 0, msi{"u0": 0}},
 		send{msi{"u0": 7}, nil},
 		expect{"changed", "u0", 7, msi{"u0": 7}},
-	}, {
+	), fullTest(
 		// Joined is also run with latest settings.
 		send{msi{"u0": 0}, nil},
 		send{msi{"u0": 7}, nil},
 		expect{"joined", "u0", 7, msi{"u0": 7}},
 		expect{"changed", "u0", 7, msi{"u0": 7}},
-	}, {
+	), fullTest(
 		// Nothing happens if a unit departs before its joined is run.
 		send{msi{"u0": 0}, nil},
 		send{msi{"u0": 7}, nil},
 		send{nil, []string{"u0"}},
-	}, {
+	), fullTest(
 		// A changed is run after a joined, even if a departed is known.
 		send{msi{"u0": 0}, nil},
 		expect{"joined", "u0", 0, msi{"u0": 0}},
 		send{nil, []string{"u0"}},
 		expect{"changed", "u0", 0, msi{"u0": 0}},
 		expect{"departed", "u0", 0, nil},
-	}, {
+	), fullTest(
 		// A departed replaces a changed.
 		send{msi{"u0": 0}, nil},
 		advance{2},
 		send{msi{"u0": 7}, nil},
 		send{nil, []string{"u0"}},
 		expect{"departed", "u0", 7, nil},
-	}, {
+	), fullTest(
 		// Changed events are ignored if the version has not changed.
 		send{msi{"u0": 0}, nil},
 		advance{2},
 		send{msi{"u0": 0}, nil},
-	}, {
+	), fullTest(
 		// Multiple changed events are compacted into one.
 		send{msi{"u0": 0}, nil},
 		advance{2},
@@ -69,7 +83,7 @@ var hookQueueTests = [][]checker{
 		send{msi{"u0": 7}, nil},
 		send{msi{"u0": 79}, nil},
 		expect{"changed", "u0", 79, msi{"u0": 79}},
-	}, {
+	), fullTest(
 		// Multiple changed events are elided.
 		send{msi{"u0": 0}, nil},
 		advance{2},
@@ -77,7 +91,7 @@ var hookQueueTests = [][]checker{
 		send{msi{"u0": 7}, nil},
 		send{msi{"u0": 79}, nil},
 		expect{"changed", "u0", 79, msi{"u0": 79}},
-	}, {
+	), fullTest(
 		// Latest hooks are run in the original unit order.
 		send{msi{"u0": 0, "u1": 1}, nil},
 		advance{4},
@@ -86,7 +100,7 @@ var hookQueueTests = [][]checker{
 		send{nil, []string{"u0"}},
 		expect{"departed", "u0", 3, msi{"u1": 7}},
 		expect{"changed", "u1", 7, msi{"u1": 7}},
-	}, {
+	), fullTest(
 		// Test everything we can think of at the same time.
 		send{msi{"u0": 0, "u1": 0, "u2": 0, "u3": 0, "u4": 0}, nil},
 		advance{6},
@@ -111,7 +125,43 @@ var hookQueueTests = [][]checker{
 		expect{"changed", "u5", 0, msi{"u1": 1, "u2": 1, "u3": 2, "u5": 0}},
 		// - Ignore the third RUC, because the original joined/changed on u3
 		// was executed after we got the latest settings version.
-	},
+	), reconcileTest(
+		// Check that matching settings versions cause no changes.
+		msi{"u0": 0}, "",
+		send{msi{"u0": 0}, nil},
+	), reconcileTest(
+		// Check that new settings versions cause appropriate changes.
+		msi{"u0": 0}, "",
+		send{msi{"u0": 1}, nil},
+		expect{"changed", "u0", 1, msi{"u0": 1}},
+	), reconcileTest(
+		// Check that a just-joined unit gets its changed hook run first.
+		msi{"u0": 0}, "u0",
+		send{msi{"u0": 0}, nil},
+		expect{"changed", "u0", 0, msi{"u0": 0}},
+	), reconcileTest(
+		// Check that missing units are queued for depart as early as possible.
+		msi{"u0": 0}, "",
+		send{msi{"u1": 0}, nil},
+		expect{"departed", "u0", 0, nil},
+		expect{"joined", "u1", 0, msi{"u1": 0}},
+		expect{"changed", "u1", 0, msi{"u1": 0}},
+	), reconcileTest(
+		// Double-check that a just-joined unit gets its changed hook run first,
+		// even when it's due to depart.
+		msi{"u0": 0}, "u0",
+		send{nil, nil},
+		expect{"changed", "u0", 0, msi{"u0": -1}},
+		expect{"departed", "u0", 0, nil},
+	), reconcileTest(
+		// Check that missing units don't slip in front of required changed hooks.
+		msi{"u0": 0}, "u0",
+		send{msi{"u1": 0}, nil},
+		expect{"changed", "u0", 0, msi{"u0": -1}},
+		expect{"departed", "u0", 0, nil},
+		expect{"joined", "u1", 0, msi{"u1": 0}},
+		expect{"changed", "u1", 0, msi{"u1": 0}},
+	),
 }
 
 func (s *HookQueueSuite) TestHookQueue(c *C) {
@@ -120,8 +170,8 @@ func (s *HookQueueSuite) TestHookQueue(c *C) {
 		out := make(chan uniter.HookInfo)
 		in := make(chan state.RelationUnitsChange)
 		ruw := &RUW{in, false}
-		q := uniter.NewHookQueue(out, ruw)
-		for i, step := range t {
+		q := uniter.NewHookQueue(t.initial, out, ruw)
+		for i, step := range t.steps {
 			c.Logf("  step %d", i)
 			step.check(c, in, out)
 		}
@@ -205,10 +255,11 @@ func (d expect) check(c *C, in chan state.RelationUnitsChange, out chan uniter.H
 		return
 	}
 	expect := uniter.HookInfo{
-		HookKind:   d.hook,
-		RemoteUnit: d.unit,
-		Version:    d.version,
-		Members:    map[string]map[string]interface{}{},
+		RelationId:    21345,
+		HookKind:      d.hook,
+		RemoteUnit:    d.unit,
+		ChangeVersion: d.version,
+		Members:       map[string]map[string]interface{}{},
 	}
 	for name, version := range d.members {
 		expect.Members[name] = settings(name, version)
@@ -222,6 +273,12 @@ func (d expect) check(c *C, in chan state.RelationUnitsChange, out chan uniter.H
 }
 
 func settings(name string, version int) map[string]interface{} {
+	if version == -1 {
+		// Accommodate required events for units no longer present in the
+		// relation, whose settings will not be available through the stream
+		// of RelationUnitsChanged events.
+		return nil
+	}
 	return map[string]interface{}{
 		"unit-name":        name,
 		"settings-version": version,
