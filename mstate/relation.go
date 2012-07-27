@@ -2,9 +2,9 @@ package mstate
 
 import (
 	"fmt"
+	"launchpad.net/juju-core/charm"
 	"sort"
 	"strings"
-	"launchpad.net/juju-core/charm"
 )
 
 // RelationRole defines the role of a relation endpoint.
@@ -93,7 +93,7 @@ func newRelation(st *State, doc *relationDoc) *Relation {
 }
 
 func (r *Relation) String() string {
-	return r.doc.Key()
+	return r.doc.Key
 }
 
 // Id returns the integer internal relation key. This is exposed
