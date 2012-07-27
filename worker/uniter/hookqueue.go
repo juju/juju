@@ -19,7 +19,7 @@ type RelationUnitsWatcher interface {
 // HookInfo holds details required to execute a relation hook.
 type HookInfo struct {
 	HookKind   string
-	RelationId int
+	RelationId string
 	RemoteUnit string
 	Version    int
 	// Members contains a map[string]interface{} for every remote unit,
@@ -27,9 +27,11 @@ type HookInfo struct {
 	Members map[string]map[string]interface{}
 }
 
-// QueueState is used to recreate a HookQueue based on known relation state.
-type QueueState struct {
-	RelationId int
+// RelationState allows us to start a HookQueue that will send only
+// hooks corresponding to deltas between the known relation state
+// and that communicated by its underlying watcher.
+type RelationState struct {
+	RelationId string
 	// Members holds a map of unit name to settings version.
 	Members map[string]int
 	// Joined, if not empty, indicates that the last successful hook
@@ -39,27 +41,13 @@ type QueueState struct {
 	Joined string
 }
 
-// NewHookQueue returns a new HookQueue, which sends HookInfo values on
-// out corresponding to the state.RelationUnitsChange events it receives
-// from the supplied RelationWatcher.
-func NewHookQueue(initial QueueState, out chan<- HookInfo, w RelationUnitsWatcher) *HookQueue {
-	q := &HookQueue{
-		w:          w,
-		out:        out,
-		relationId: initial.RelationId,
-		info:       map[string]*unitInfo{},
-	}
-	go q.loop(initial)
-	return q
-}
-
 // HookQueue converts state.RelationUnitsChange events to HookInfo values
 // and sends them on to a client.
 type HookQueue struct {
 	tomb       tomb.Tomb
 	w          RelationUnitsWatcher
 	out        chan<- HookInfo
-	relationId int
+	relationId string
 
 	// info holds information about all units that were added to the
 	// queue and haven't had a "departed" event popped. This means the
@@ -102,7 +90,21 @@ type unitInfo struct {
 	prev, next *unitInfo
 }
 
-func (q *HookQueue) loop(initial QueueState) {
+// NewHookQueue returns a new HookQueue, which sends HookInfo values on
+// out corresponding to the state.RelationUnitsChange events it receives
+// from the supplied RelationWatcher.
+func NewHookQueue(initial RelationState, out chan<- HookInfo, w RelationUnitsWatcher) *HookQueue {
+	q := &HookQueue{
+		w:          w,
+		out:        out,
+		relationId: initial.RelationId,
+		info:       map[string]*unitInfo{},
+	}
+	go q.loop(initial)
+	return q
+}
+
+func (q *HookQueue) loop(initial RelationState) {
 	defer q.tomb.Done()
 	defer watcher.Stop(q.w, &q.tomb)
 

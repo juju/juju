@@ -18,16 +18,16 @@ var _ = Suite(&HookQueueSuite{})
 type msi map[string]int
 
 type hookQueueTest struct {
-	initial uniter.QueueState
+	initial uniter.RelationState
 	steps   []checker
 }
 
 func nilTest(steps ...checker) hookQueueTest {
-	return hookQueueTest{uniter.QueueState{21345, nil, ""}, steps}
+	return hookQueueTest{uniter.RelationState{"somerelation:21345", nil, ""}, steps}
 }
 
 func initialTest(members msi, joined string, steps ...checker) hookQueueTest {
-	return hookQueueTest{uniter.QueueState{21345, members, joined}, steps}
+	return hookQueueTest{uniter.RelationState{"somerelation:21345", members, joined}, steps}
 }
 
 var hookQueueTests = []hookQueueTest{
@@ -256,7 +256,7 @@ func (d expect) check(c *C, in chan state.RelationUnitsChange, out chan uniter.H
 	}
 	expect := uniter.HookInfo{
 		HookKind:   d.hook,
-		RelationId: 21345,
+		RelationId: "somerelation:21345",
 		RemoteUnit: d.unit,
 		Version:    d.version,
 		Members:    map[string]map[string]interface{}{},
