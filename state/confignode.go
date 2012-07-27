@@ -109,11 +109,12 @@ func readConfigNode(zk *zookeeper.Conn, path string) (*ConfigNode, error) {
 	return c, nil
 }
 
-type attrNotFoundError struct {
+// NotFoundError represents the error that something is not found.
+type NotFoundError struct {
 	what string
 }
 
-func (e *attrNotFoundError) Error() string {
+func (e *NotFoundError) Error() string {
 	return fmt.Sprintf("%s not found", e.what)
 }
 
@@ -127,7 +128,7 @@ func getConfigString(zk *zookeeper.Conn, path, attr string, whatFmt string, what
 	}
 	val, ok := cn.Get(attr)
 	if !ok {
-		return "", &attrNotFoundError{fmt.Sprintf(whatFmt, whatArgs...)}
+		return "", &NotFoundError{fmt.Sprintf(whatFmt, whatArgs...)}
 	}
 	sval, ok := val.(string)
 	if !ok {

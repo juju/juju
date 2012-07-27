@@ -284,65 +284,80 @@ func unitNames(units []*state.Unit) (s []string) {
 	return
 }
 
-var watchMachineInfoTests = []struct {
+type machineInfo struct {
+	version         version.Version
+	proposedVersion version.Version
+}
+
+var watchMachineTests = []struct {
 	test func(m *state.Machine) error
-	want *state.MachineInfo
+	want machineInfo
 }{
 	{
 		func(*state.Machine) error {
 			return nil
 		},
-		&state.MachineInfo{},
+		machineInfo{},
 	},
 	{
 		func(m *state.Machine) error {
 			return m.ProposeAgentVersion(version.Version{0, 0, 1})
 		},
-		&state.MachineInfo{
-			ProposedAgentVersion: version.Version{0, 0, 1},
+		machineInfo{
+			proposedVersion: version.Version{0, 0, 1},
 		},
 	},
 	{
 		func(m *state.Machine) error {
 			return m.ProposeAgentVersion(version.Version{0, 0, 2})
 		},
-		&state.MachineInfo{
-			ProposedAgentVersion: version.Version{0, 0, 2},
+		machineInfo{
+			proposedVersion: version.Version{0, 0, 2},
 		},
 	},
 	{
 		func(m *state.Machine) error {
 			return m.SetAgentVersion(version.Version{1, 0, 0})
 		},
-		&state.MachineInfo{
-			ProposedAgentVersion: version.Version{0, 0, 2},
-			AgentVersion:         version.Version{1, 0, 0},
+		machineInfo{
+			proposedVersion: version.Version{0, 0, 2},
+			version:         version.Version{1, 0, 0},
 		},
 	},
 	{
 		func(m *state.Machine) error {
 			return m.SetAgentVersion(version.Version{1, 0, 1})
 		},
-		&state.MachineInfo{
-			ProposedAgentVersion: version.Version{0, 0, 2},
-			AgentVersion:         version.Version{1, 0, 1},
+		machineInfo{
+			proposedVersion: version.Version{0, 0, 2},
+			version:         version.Version{1, 0, 1},
 		},
 	},
 }
 
-func (s *MachineSuite) TestWatchMachineInfo(c *C) {
-	w := s.machine.WatchInfo()
+func (s *MachineSuite) TestWatchMachine(c *C) {
+	w := s.machine.Watch()
 	defer func() {
 		c.Assert(w.Stop(), IsNil)
 	}()
-	for i, test := range watchMachineInfoTests {
+	for i, test := range watchMachineTests {
 		c.Logf("test %d", i)
 		err := test.test(s.machine)
 		c.Assert(err, IsNil)
 		select {
-		case got, ok := <-w.Changes():
+		case m, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
-			c.Assert(got, DeepEquals, test.want)
+			c.Assert(m.Id(), Equals, s.machine.Id())
+			var info machineInfo
+			info.version, err = m.AgentVersion()
+			if _, ok := err.(*state.NotFoundError); !ok {
+				c.Assert(err, IsNil)
+			}
+			info.proposedVersion, err = m.ProposedAgentVersion()
+			if _, ok := err.(*state.NotFoundError); !ok {
+				c.Assert(err, IsNil)
+			}
+			c.Assert(info, Equals, test.want)
 		case <-time.After(500 * time.Millisecond):
 			c.Fatalf("did not get change: %v", test.want)
 		}

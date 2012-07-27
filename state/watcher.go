@@ -433,44 +433,33 @@ func (w *MachineUnitsWatcher) done() {
 	close(w.changeChan)
 }
 
-// MachineInfo holds information about the settings of a machine.
-type MachineInfo struct {
-	// AgentVersion holds the current version of the machine agent,
-	// as returned by Machine.AgentVersion. It is zero if the
-	// version has not been set.
-	AgentVersion version.Version
-
-	// ProposedAgentVersion holds the proposed version of the machine agent,
-	// as returned by Machine.ProposedAgentVersion. It is zero if the
-	// proposed version has not been set.
-	ProposedAgentVersion version.Version
-}
-
-// MachineInfoWatcher observes changes to the settings of a machine.
-type MachineInfoWatcher struct {
+// MachineWatcher observes changes to the settings of a machine.
+// Currently, alterations to AgentVersion and ProposedAgentVersion
+// will trigger a message on the Changes channel.
+type MachineWatcher struct {
 	contentWatcher
 	m          *Machine
-	changeChan chan *MachineInfo
+	changeChan chan *Machine
 }
 
-// newMachineInfoWatcher creates and starts a watcher to watch information
+// newMachineWatcher creates and starts a watcher to watch information
 // about the machine.
-func newMachineInfoWatcher(m *Machine) *MachineInfoWatcher {
-	w := &MachineInfoWatcher{
+func newMachineWatcher(m *Machine) *MachineWatcher {
+	w := &MachineWatcher{
 		m:              m,
 		contentWatcher: newContentWatcher(m.st, m.zkPath()),
-		changeChan:     make(chan *MachineInfo),
+		changeChan:     make(chan *Machine),
 	}
 	go w.loop(w)
 	return w
 }
 
 // Changes returns a channel that will receive the new
-// *MachineInfo when a change is detected. Note that multiple
+// *Machine when a change is detected. Note that multiple
 // changes may be observed as a single event in the channel.
 // The first event on the channel holds the initial state
 // as returned by Machine.Info.
-func (w *MachineInfoWatcher) Changes() <-chan *MachineInfo {
+func (w *MachineWatcher) Changes() <-chan *Machine {
 	return w.changeChan
 }
 
@@ -493,31 +482,16 @@ func versionFromConfig(c *ConfigNode, attr string) (version.Version, error) {
 	return v, nil
 }
 
-func (w *MachineInfoWatcher) update(change watcher.ContentChange) error {
-	// A non-existent node is treated as an empty node.
-	configNode, err := parseConfigNode(w.st.zk, w.path, change.Content)
-	if err != nil {
-		return err
-	}
-	var info MachineInfo
-	info.AgentVersion, err = versionFromConfig(configNode, "version")
-	if err != nil {
-		return err
-	}
-
-	info.ProposedAgentVersion, err = versionFromConfig(configNode, "proposed-version")
-	if err != nil {
-		return err
-	}
+func (w *MachineWatcher) update(change watcher.ContentChange) error {
 	select {
 	case <-w.tomb.Dying():
 		return tomb.ErrDying
-	case w.changeChan <- &info:
+	case w.changeChan <- w.m:
 	}
 	return nil
 }
 
-func (w *MachineInfoWatcher) done() {
+func (w *MachineWatcher) done() {
 	close(w.changeChan)
 }
 
