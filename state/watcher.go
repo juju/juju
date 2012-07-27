@@ -1,12 +1,10 @@
 package state
 
 import (
-	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/version"
 	"launchpad.net/tomb"
 )
 
@@ -461,25 +459,6 @@ func newMachineWatcher(m *Machine) *MachineWatcher {
 // as returned by Machine.Info.
 func (w *MachineWatcher) Changes() <-chan *Machine {
 	return w.changeChan
-}
-
-// versionFromConfig gets a version number from the given attribute
-// of the ConfigNode. It returns an error only if the attribute exists
-// and is malformed.
-func versionFromConfig(c *ConfigNode, attr string) (version.Version, error) {
-	val, ok := c.Get(attr)
-	if !ok {
-		return version.Version{}, nil
-	}
-	s, ok := val.(string)
-	if !ok {
-		return version.Version{}, fmt.Errorf("invalid version type of value %#v: %T", val, val)
-	}
-	v, err := version.Parse(s)
-	if err != nil {
-		return version.Version{}, fmt.Errorf("cannot parse version %q: %v", s, err)
-	}
-	return v, nil
 }
 
 func (w *MachineWatcher) update(change watcher.ContentChange) error {
