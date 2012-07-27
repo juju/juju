@@ -73,3 +73,7 @@ func (s *suite) TestDeploy(c *C) {
 	_, err = os.Stat(upstartScript)
 	c.Assert(err, NotNil)
 }
+
+func (s *suite) TestSimpleToolsDir(c *C) {
+	c.Assert(container.Simple.ToolsDir(nil), Equals, "/var/lib/juju/tools")
+}
