@@ -18,36 +18,46 @@ type RelationUnitsWatcher interface {
 
 // HookInfo holds details required to execute a relation hook.
 type HookInfo struct {
-	HookKind   string
-	RelationId string
+	// RelationId identifies the relation associated with the hook queue.
+	RelationId int
+
+	// HookKind is one of "joined", "changed", or "departed".
+	HookKind string
+
+	// RemoteUnit is the unit name associated with HookKind.
 	RemoteUnit string
-	Version    int
-	// Members contains a map[string]interface{} for every remote unit,
-	// holding its relation settings, keyed on unit name.
+
+	// ChangeVersion identifies the most recent unit settings change
+	// associated with RemoteUnit.
+	ChangeVersion int
+
+	// Members is a map from remote unit name to its settings.
+	// It contains all members known in the relation up to the
+	// moment in which the HookInfo was delivered.
 	Members map[string]map[string]interface{}
 }
 
-// RelationState allows us to start a HookQueue that will send only
-// hooks corresponding to deltas between the known relation state
-// and that communicated by its underlying watcher.
+// RelationState is a snapshot of the state of a relation.
 type RelationState struct {
-	RelationId string
-	// Members holds a map of unit name to settings version.
+	// RelationId identifies the relation.
+	RelationId int
+
+	// Members is a map from unit name to the last change version
+	// for which a HookInfo was delivered on the output channel.
 	Members map[string]int
-	// Joined, if not empty, indicates that the last successful hook
-	// run for this relation was the "joined" of the named unit, and
-	// that the hook queue is therefore required to send a suitable
-	// "changed" hook before it does anything else.
-	Joined string
+
+	// ChangedPending indicates that a "changed" hook for the given unit
+	// name must be the first HookInfo to be sent to the output channel.
+	ChangedPending string
 }
 
-// HookQueue converts state.RelationUnitsChange events to HookInfo values
-// and sends them on to a client.
+// HookQueue aggregates values obtained from a relation settings watcher
+// and sends out details about hooks that must be executed in the unit.
 type HookQueue struct {
 	tomb       tomb.Tomb
 	w          RelationUnitsWatcher
 	out        chan<- HookInfo
-	relationId string
+	relationId int
 
 	// info holds information about all units that were added to the
 	// queue and haven't had a "departed" event popped. This means the
@@ -57,42 +67,41 @@ type HookQueue struct {
 	// head and tail are the ends of the queue.
 	head, tail *unitInfo
 
-	// joined, if not empty, indicates that the most recent popped event
-	// was a "joined" for the named unit (and therefore that next must
-	// point to a "changed" for that same unit). If joined is not empty,
-	// the queue is considered non-empty, even if head is nil.
-	joined string
-
-	// next holds a HookInfo corresponding to the head of the queue.
-	// It is only valid if the queue is not empty.
-	next HookInfo
+	// changedPending, if not empty, indicates that the most recently
+	// popped event was a "joined" for the named unit, and therefore
+	// that the next event must be to a "changed" for that same unit.
+	// If changedPending is not empty, the queue is considered non-
+	// empty, even if head is nil.
+	changedPending string
 }
 
 // unitInfo holds unit information for management by HookQueue.
 type unitInfo struct {
 	// unit holds the name of the unit.
 	unit string
+
 	// version and settings hold the most recent settings known
 	// to the HookQueue.
 	version  int
 	settings map[string]interface{}
-	// present is true if the unit was a member of the relation
-	// after the most recent event was popped. In practice, it
-	// is false until a "joined" is popped for this unit and
-	// true for the remaining lifetime of the unitInfo.
-	present bool
+
+	// joined is set to true when a "joined" is popped for this unit.
+	joined bool
+
 	// hook holds the current idea of the next hook that should
 	// be run for the unit, and is empty if and only if the unit
 	// is not queued.
 	hook string
+
 	// prev and next define the position in the queue of the
 	// unit's next hook.
 	prev, next *unitInfo
 }
 
-// NewHookQueue returns a new HookQueue, which sends HookInfo values on
-// out corresponding to the state.RelationUnitsChange events it receives
-// from the supplied RelationWatcher.
+// NewHookQueue returns a new HookQueue that aggregates the values obtained
+// from the w watcher and sends into out the details about hooks that must
+// be executed in the unit. If any values have previously been received from
+// w's Changes channel, the HookQueue's behaviour is undefined.
 func NewHookQueue(initial RelationState, out chan<- HookInfo, w RelationUnitsWatcher) *HookQueue {
 	q := &HookQueue{
 		w:          w,
@@ -120,13 +129,13 @@ func (q *HookQueue) loop(initial RelationState) {
 	if len(ch1.Departed) != 0 {
 		panic("HookQueue must be started with a fresh RelationUnitsWatcher")
 	}
-	q.joined = initial.Joined
+	q.changedPending = initial.ChangedPending
 	ch0 := state.RelationUnitsChange{}
 	for unit, version := range initial.Members {
 		q.info[unit] = &unitInfo{
 			unit:    unit,
 			version: version,
-			present: true,
+			joined:  true,
 		}
 		if _, found := ch1.Changed[unit]; !found {
 			ch0.Departed = append(ch0.Departed, unit)
@@ -135,13 +144,14 @@ func (q *HookQueue) loop(initial RelationState) {
 	q.update(ch0)
 	q.update(ch1)
 
+	var next HookInfo
 	var out chan<- HookInfo
 	for {
-		if q.head == nil && q.joined == "" {
-			// The queue is empty; q.next is invalid; ensure we don't send it.
+		if q.empty() {
 			out = nil
 		} else {
 			out = q.out
+			next = q.next()
 		}
 		select {
 		case <-q.tomb.Dying():
@@ -152,7 +162,7 @@ func (q *HookQueue) loop(initial RelationState) {
 				return
 			}
 			q.update(ch)
-		case out <- q.next:
+		case out <- next:
 			q.pop()
 		}
 	}
@@ -163,6 +173,11 @@ func (q *HookQueue) loop(initial RelationState) {
 func (q *HookQueue) Stop() error {
 	q.tomb.Kill(nil)
 	return q.tomb.Wait()
+}
+
+// empty returns true if the queue is empty.
+func (q *HookQueue) empty() bool {
+	return q.head == nil && q.changedPending == ""
 }
 
 // update modifies the queue such that the HookInfo values it sends will
@@ -179,84 +194,69 @@ func (q *HookQueue) update(ruc state.RelationUnitsChange) {
 		settings := ruc.Changed[unit]
 		info, found := q.info[unit]
 		if !found {
-			// If not known, add to info and queue a join.
 			info = &unitInfo{unit: unit}
 			q.info[unit] = info
-			q.add(unit, "joined")
-		} else if info.hook == "" {
-			// If known, and not already in queue, and the settings
-			// version really has changed, queue a change.
+			q.queue(unit, "joined")
+		} else if info.hook != "joined" {
 			if settings.Version != info.version {
-				q.add(unit, "changed")
-			}
-		} else if info.hook == "departed" {
-			// If settings have changed, queue a change; otherwise
-			// just elide the depart.
-			if settings.Version == info.version {
-				q.remove(unit)
+				q.queue(unit, "changed")
 			} else {
-				q.add(unit, "changed")
+				q.unqueue(unit)
 			}
-		} // Otherwise, it's already queued for either join or change; ignore.
-
-		// Always update the stored settings.
+		}
 		info.version = settings.Version
 		info.settings = settings.Settings
 	}
 
 	for _, unit := range ruc.Departed {
 		if hook := q.info[unit].hook; hook == "joined" {
-			q.remove(unit)
+			q.unqueue(unit)
 		} else {
-			q.add(unit, "departed")
+			q.queue(unit, "departed")
 		}
 	}
-	q.setNext()
 }
 
 // pop advances the queue. It will panic if the queue is already empty.
 func (q *HookQueue) pop() {
-	if q.joined != "" {
-		if q.info[q.joined].hook == "changed" {
+	if q.empty() {
+		panic("queue is empty")
+	}
+	if q.changedPending != "" {
+		if q.info[q.changedPending].hook == "changed" {
 			// We just ran this very hook; no sense keeping it queued.
-			q.remove(q.joined)
+			q.unqueue(q.changedPending)
 		}
-		q.joined = ""
+		q.changedPending = ""
 	} else {
-		if q.head == nil {
-			panic("queue is empty")
-		}
 		old := *q.head
-		q.remove(q.head.unit)
+		q.unqueue(q.head.unit)
 		if old.hook == "joined" {
-			q.joined = old.unit
-			q.info[old.unit].present = true
+			q.changedPending = old.unit
+			q.info[old.unit].joined = true
 		} else if old.hook == "departed" {
 			delete(q.info, old.unit)
 		}
 	}
-	q.setNext()
 }
 
-// setNext sets q.next such that it reflects the current state of the queue.
-func (q *HookQueue) setNext() {
+// next returns the next HookInfo value to send.
+func (q *HookQueue) next() HookInfo {
+	if q.empty() {
+		panic("queue is empty")
+	}
 	var unit, hook string
-	if q.joined != "" {
-		unit = q.joined
+	if q.changedPending != "" {
+		unit = q.changedPending
 		hook = "changed"
 	} else {
-		if q.head == nil {
-			// The queue is empty; just leave the stale HookInfo around,
-			// because we won't send it anyway.
-			return
-		}
 		unit = q.head.unit
 		hook = q.head.hook
 	}
 	version := q.info[unit].version
 	members := make(map[string]map[string]interface{})
 	for unit, info := range q.info {
-		if info.present {
+		if info.joined {
 			members[unit] = info.settings
 		}
 	}
@@ -265,13 +265,13 @@ func (q *HookQueue) setNext() {
 	} else if hook == "departed" {
 		delete(members, unit)
 	}
-	q.next = HookInfo{hook, q.relationId, unit, version, members}
+	return HookInfo{q.relationId, hook, unit, version, members}
 }
 
-// add sets the next hook to be run for the named unit, and places it
+// queue sets the next hook to be run for the named unit, and places it
 // at the tail of the queue if it is not already queued. It will panic
 // if the unit is not in q.info.
-func (q *HookQueue) add(unit, hook string) {
+func (q *HookQueue) queue(unit, hook string) {
 	// If the unit is not in the queue, place it at the tail.
 	info := q.info[unit]
 	if info.hook == "" {
@@ -289,10 +289,10 @@ func (q *HookQueue) add(unit, hook string) {
 	info.hook = hook
 }
 
-// remove removes the named unit from the queue. It is fine to
-// remove a unit that is not in the queue, but it will panic if
+// unqueue removes the named unit from the queue. It is fine to
+// unqueue a unit that is not in the queue, but it will panic if
 // the unit is not in q.info.
-func (q *HookQueue) remove(unit string) {
+func (q *HookQueue) unqueue(unit string) {
 	if q.head == nil {
 		// The queue is empty, nothing to do.
 		return

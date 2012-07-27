@@ -1,7 +1,6 @@
 package mstate_test
 
 import (
-	"bytes"
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"os/exec"
@@ -9,9 +8,7 @@ import (
 )
 
 type MgoSuite struct {
-	Addr    string
-	Session *mgo.Session
-	output  bytes.Buffer
+	session *mgo.Session
 	server  *exec.Cmd
 }
 
@@ -25,7 +22,7 @@ func (s *MgoSuite) SetUpSuite(c *C) {
 	dbdir := c.MkDir()
 	args := []string{
 		"--dbpath", dbdir,
-		"--bind_ip", "127.0.0.1",
+		"--bind_ip", "localhost",
 		"--port", mgoport,
 		"--nssize", "1",
 		"--noprealloc",
@@ -50,15 +47,14 @@ func (s *MgoSuite) SetUpTest(c *C) {
 		panic(err)
 	}
 	mgo.ResetStats()
-	s.Addr = mgoaddr
-	s.Session, err = mgo.Dial(s.Addr)
+	s.session, err = mgo.Dial(mgoaddr)
 	if err != nil {
 		panic(err)
 	}
 }
 
 func (s *MgoSuite) TearDownTest(c *C) {
-	s.Session.Close()
+	s.session.Close()
 	for i := 0; ; i++ {
 		stats := mgo.GetStats()
 		if stats.SocketsInUse == 0 && stats.SocketsAlive == 0 {
