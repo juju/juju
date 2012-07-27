@@ -12,10 +12,7 @@ func ZkConn(st *State) *zookeeper.Conn {
 
 // NewMachine constructs *Machine's for tests.
 func NewMachine(st *State, key string) *Machine {
-	return &Machine{
-		st:  st,
-		key: key,
-	}
+	return newMachine(st, key)
 }
 
 // ReadConfigNode exports readConfigNode for testing.

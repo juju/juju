@@ -26,7 +26,7 @@ func (s *UnitSuite) SetUpTest(c *C) {
 
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
 	address, err := s.unit.PublicAddress()
-	c.Assert(err, ErrorMatches, "unit has no public address")
+	c.Assert(err, ErrorMatches, `public address of unit "wordpress/0" not found`)
 	err = s.unit.SetPublicAddress("example.foobar.com")
 	c.Assert(err, IsNil)
 	address, err = s.unit.PublicAddress()
@@ -36,7 +36,7 @@ func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
 
 func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
 	address, err := s.unit.PrivateAddress()
-	c.Assert(err, ErrorMatches, "unit has no private address")
+	c.Assert(err, ErrorMatches, `private address of unit "wordpress/0" not found`)
 	err = s.unit.SetPrivateAddress("example.local")
 	c.Assert(err, IsNil)
 	address, err = s.unit.PrivateAddress()

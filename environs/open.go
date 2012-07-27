@@ -36,9 +36,9 @@ func NewFromAttrs(attrs map[string]interface{}) (Environ, error) {
 
 // New returns a new environment based on the provided configuration.
 func New(config *config.Config) (Environ, error) {
-	p, ok := providers[config.Type()]
-	if !ok {
-		return nil, fmt.Errorf("no registered provider for %q", config.Type())
+	p, err := Provider(config.Type())
+	if err != nil {
+		return nil, err
 	}
 	return p.Open(config)
 }

@@ -186,10 +186,10 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 		return nil, fmt.Errorf("cannot relate %d endpoints", len(endpoints))
 	}
 
-	var scope RelationScope
+	var scope charm.RelationScope
 	for _, v := range endpoints {
-		if v.RelationScope == ScopeContainer {
-			scope = ScopeContainer
+		if v.RelationScope == charm.ScopeContainer {
+			scope = charm.ScopeContainer
 		}
 		// BUG potential race in the time between getting the service
 		// to validate the endpoint and actually writting the relation
@@ -199,7 +199,7 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 			return nil, err
 		}
 	}
-	if scope == ScopeContainer {
+	if scope == charm.ScopeContainer {
 		for i := range endpoints {
 			endpoints[i].RelationScope = scope
 		}

@@ -339,10 +339,10 @@ func (w *MachinesWatcher) update(change watcher.ContentChange) error {
 	}
 	mc := &MachinesChange{}
 	for _, m := range added {
-		mc.Added = append(mc.Added, &Machine{w.st, m})
+		mc.Added = append(mc.Added, newMachine(w.st, m))
 	}
 	for _, m := range removed {
-		mc.Removed = append(mc.Removed, &Machine{w.st, m})
+		mc.Removed = append(mc.Removed, newMachine(w.st, m))
 	}
 	select {
 	case <-w.tomb.Dying():

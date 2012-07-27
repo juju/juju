@@ -2,6 +2,7 @@ package mstate
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 )
 
 type RelationSuite struct{}
@@ -13,15 +14,15 @@ var _ = Suite(&RelationSuite{})
 // by normal means.
 func (s *RelationSuite) TestRelatedEndpoints(c *C) {
 	r := &Relation{nil, relationDoc{Endpoints: []RelationEndpoint{
-		RelationEndpoint{"jeff", "ifce", "group", RolePeer, ScopeGlobal},
-		RelationEndpoint{"mike", "ifce", "group", RolePeer, ScopeGlobal},
-		RelationEndpoint{"bill", "ifce", "group", RolePeer, ScopeGlobal},
+		RelationEndpoint{"jeff", "ifce", "group", RolePeer, charm.ScopeGlobal},
+		RelationEndpoint{"mike", "ifce", "group", RolePeer, charm.ScopeGlobal},
+		RelationEndpoint{"bill", "ifce", "group", RolePeer, charm.ScopeGlobal},
 	}}}
 	eps, err := r.RelatedEndpoints("mike")
 	c.Assert(err, IsNil)
 	c.Assert(eps, DeepEquals, []RelationEndpoint{
-		RelationEndpoint{"jeff", "ifce", "group", RolePeer, ScopeGlobal},
-		RelationEndpoint{"mike", "ifce", "group", RolePeer, ScopeGlobal},
-		RelationEndpoint{"bill", "ifce", "group", RolePeer, ScopeGlobal},
+		RelationEndpoint{"jeff", "ifce", "group", RolePeer, charm.ScopeGlobal},
+		RelationEndpoint{"mike", "ifce", "group", RolePeer, charm.ScopeGlobal},
+		RelationEndpoint{"bill", "ifce", "group", RolePeer, charm.ScopeGlobal},
 	})
 }

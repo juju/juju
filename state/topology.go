@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju-core/charm"
 	"sort"
 )
 
@@ -45,7 +46,7 @@ type topoUnit struct {
 // /topology node in ZooKeeper.
 type topoRelation struct {
 	Interface string
-	Scope     RelationScope
+	Scope     charm.RelationScope
 	Endpoints []topoEndpoint
 }
 
