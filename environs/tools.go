@@ -13,12 +13,59 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"net/http"
 	"strings"
 )
 
 var toolPrefix = "tools/juju-"
 
 var toolFilePat = regexp.MustCompile(`^` + toolPrefix + `(\d+\.\d+\.\d+)-([^-]+)-([^-]+)\.tgz$`)
+
+// Tools describes a given version of the juju tools and where
+// to find them.
+type Tools struct {
+	Version version.Version
+	Arch string
+	Series string
+	URL string
+}
+
+// ListTools returns all the tools found in the given storage
+// that have the given major version.
+func ListTools(store StorageReader, majorVersion int) ([]Tools, error) {
+	dir := fmt.Sprintf("%s%d.", toolPrefix, majorVersion)
+	names, err := store.List(dir)
+	if err != nil {
+		return nil, err
+	}
+	var tools []Tools
+	for _, name := range names {
+		m := toolFilePat.FindStringSubmatch(name)
+		if m == nil {
+			log.Printf("unexpected tools file found %q", name)
+			continue
+		}
+		var t Tools
+		t.Version, err = version.Parse(m[1])
+		if err != nil {
+			log.Printf("failed to parse version %q: %v", name, err)
+			continue
+		}
+		if t.Version.Major != majorVersion {
+			log.Printf("tool %q found in wrong directory %q", name, dir)
+			continue
+		}
+		t.Series = m[2]
+		t.Arch = m[3]
+		t.URL, err = store.URL(name)
+		if err != nil {
+			log.Printf("cannot get URL for %q: %v", name, err)
+			continue
+		}
+		tools = append(tools, t)
+	}
+	return tools, nil
+}
 
 // ToolsPath returns the path that is used to store and
 // retrieve the juju tools in a Storage.
@@ -57,10 +104,9 @@ func PutTools(storage StorageWriter) error {
 	return storage.Put(p, f, fi.Size())
 }
 
-// archive writes the executable files found in the given
-// directory in gzipped tar format to w.
-// An error is returned if an entry inside dir is not
-// a regular executable file.
+// archive writes the executable files found in the given directory in
+// gzipped tar format to w.  An error is returned if an entry inside dir
+// is not a regular executable file.
 func archive(w io.Writer, dir string) (err error) {
 	entries, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -139,31 +185,37 @@ type toolsSpec struct {
 	arch   string
 }
 
-// FindTools tries to find a set of tools appropriate for the given
-// version, Ubuntu series and architecture, and returns a URL that can
-// be used to access them in gzipped tar archive format.
-func FindTools(env Environ, vers version.Version, series, arch string) (url string, err error) {
-	storage, path, err := findTools(env, toolsSpec{vers, series, arch})
-	if err != nil {
-		return "", err
+// BestTools the most recent tools compatible with the
+// given version, series and architecture. It returns *NotFoundError
+// if no tools were found.
+func BestTools(toolsList []Tools, version version.Version, series, arch string) (*Tools, error) {
+	var bestTools *Tools
+	for _, t := range toolsList {
+		t := t
+		if t.Version.Major != version.Major ||
+			t.Series != series ||
+			t.Arch != arch {
+			continue
+		}
+		if bestTools == nil || bestTools.Version.Less(t.Version) {
+			bestTools = &t
+		}
 	}
-	return storage.URL(path)
+	if bestTools == nil {
+		return nil, &NotFoundError{fmt.Errorf("no compatible tools found")}
+	}
+	return bestTools, nil
 }
 
-// GetTools finds the latest compatible version of the juju tools
-// and downloads them into the given directory.
-func GetTools(env Environ, dir string) error {
-	storage, path, err := findTools(env, toolsSpec{version.Current, config.CurrentSeries, config.CurrentArch})
+// GetTools fetches tools from the given URL and downloads them into the given directory.
+func GetTools(url, dir string) error {
+	resp, err := http.Get(url)
 	if err != nil {
 		return err
 	}
-	r, err := storage.Get(path)
-	if err != nil {
-		return err
-	}
-	defer r.Close()
+	defer resp.Body.Close()
 
-	r, err = gzip.NewReader(r)
+	r, err := gzip.NewReader(resp.Body)
 	if err != nil {
 		return err
 	}
@@ -191,7 +243,7 @@ func GetTools(env Environ, dir string) error {
 }
 
 // findToolsPath is an internal version of FindTools that returns the
-// storage in which the tools have been found, and the path within that storage.
+// storage where the tools were found, and the path within that storage.
 func findTools(env Environ, spec toolsSpec) (storage StorageReader, path string, err error) {
 	storage = env.Storage()
 	path, err = findToolsPath(storage, spec)
