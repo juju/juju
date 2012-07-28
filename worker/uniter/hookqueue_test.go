@@ -23,11 +23,11 @@ type hookQueueTest struct {
 }
 
 func fullTest(steps ...checker) hookQueueTest {
-	return hookQueueTest{uniter.RelationState{21345, nil, ""}, steps}
+	return hookQueueTest{uniter.RelationState{"", 21345, nil, ""}, steps}
 }
 
 func reconcileTest(members msi, joined string, steps ...checker) hookQueueTest {
-	return hookQueueTest{uniter.RelationState{21345, members, joined}, steps}
+	return hookQueueTest{uniter.RelationState{"", 21345, members, joined}, steps}
 }
 
 var hookQueueTests = []hookQueueTest{

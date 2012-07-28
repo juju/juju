@@ -32,9 +32,9 @@ type diskUnit struct {
 	ChangedPending bool
 }
 
-func NewRelationState(dirpath string, relationId int) (RelationState, error) {
+func NewRelationState(dirpath string, relationId int) (*RelationState, error) {
 	path := filepath.Join(dirpath, fmt.Sprintf("%d", relationId))
-	rs := RelationState{path, relationId, map[string]int{}, ""}
+	rs := &RelationState{path, relationId, map[string]int{}, ""}
 	walker := func(path string, fi os.FileInfo) error {
 		if fi.IsDir() {
 			return fmt.Errorf("relation directory must be flat")
@@ -55,7 +55,7 @@ func NewRelationState(dirpath string, relationId int) (RelationState, error) {
 		if err := goyaml.Unmarshal(b, unit); err != nil {
 			return err
 		}
-		rs[unitName] = unit.Version
+		rs.Members[unitName] = unit.Version
 		if unit.ChangedPending {
 			if rs.ChangedPending != "" {
 				return fmt.Errorf("bad relation state: multiple pending changed units")
@@ -70,8 +70,8 @@ func NewRelationState(dirpath string, relationId int) (RelationState, error) {
 	return rs, nil
 }
 
-func LoadRelationStates(dirpath string) (map[string]RelationState, error) {
-	states := map[string]RelationState{}
+func LoadRelationStates(dirpath string) (map[int]*RelationState, error) {
+	states := map[int]*RelationState{}
 	walker := func(path string, fi os.FileInfo) error {
 		if !fi.IsDir() {
 			return fmt.Errorf("relations directory must only contain directories")
@@ -84,7 +84,7 @@ func LoadRelationStates(dirpath string) (map[string]RelationState, error) {
 		if err != nil {
 			return err
 		}
-		states[id] = state
+		states[relationId] = state
 		return filepath.SkipDir
 	}
 	if err := createWalk(dirpath, walker); err != nil {
@@ -94,9 +94,9 @@ func LoadRelationStates(dirpath string) (map[string]RelationState, error) {
 }
 
 func (rs *RelationState) Commit(hi HookInfo) error {
-	name := strings.Replace(hi.RemoteUnit, "/", "-")
+	name := strings.Replace(hi.RemoteUnit, "/", "-", -1)
 	path := filepath.Join(rs.Path, name)
-	unit := diskUnit{Version: HookInfo.ChangeVersion}
+	unit := diskUnit{Version: hi.ChangeVersion}
 	if hi.HookKind == "joined" {
 		unit.ChangedPending = true
 	}
@@ -104,7 +104,7 @@ func (rs *RelationState) Commit(hi HookInfo) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, unit)
+	return ioutil.WriteFile(path, b, 0777)
 }
 
 func createWalk(dirpath string, f func(path string, fi os.FileInfo) error) error {
@@ -119,7 +119,7 @@ func createWalk(dirpath string, f func(path string, fi os.FileInfo) error) error
 		if err != nil {
 			return err
 		}
-		return f(path, fi, err)
+		return f(path, fi)
 	}
 	return filepath.Walk(dirpath, walker)
 }
@@ -130,7 +130,7 @@ func unitName(fileName string) (string, error) {
 		return "", fmt.Errorf("invalid relation unit file name")
 	}
 	svcName := fileName[:i]
-	unitId := filename[i+1:]
+	unitId := fileName[i+1:]
 	if _, err := strconv.Atoi(unitId); err != nil {
 		return "", fmt.Errorf("invalid relation unit file name")
 	}
