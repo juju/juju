@@ -12,8 +12,10 @@ import (
 )
 
 // RelationState is a filesystem-backed snapshot of the state of a relation.
+// Concurrent modifications to the underlying state directory in any way will
+// cause undefined behaviour.
 type RelationState struct {
-	// Path identifies the relation directory, in which unit state is persisted.
+	// Path identifies the directory holding persistent state.
 	Path string
 
 	// RelationId identifies the relation.
@@ -35,11 +37,9 @@ var checker = schema.StrictFieldMap(
 )
 
 // NewRelationState loads a RelationState from the subdirectory of dirpath named
-// for the supplied RelationId. It must not contain any subdirectories; and, apart
-// from filenames ending in ~, the directory must *only* contain valid relation
-// unit files as written by Commit. Subsequent modification of the directory
-// contents, by any entity other than the returned RelationState instance, will
-// cause undefined behaviour.
+// for the supplied RelationId. The directory must not contain anything other than
+// valid relation unit files as written by Commit(). If the directory does not
+// exist, it will be created.
 func NewRelationState(dirpath string, relationId int) (*RelationState, error) {
 	path := filepath.Join(dirpath, fmt.Sprintf("%d", relationId))
 	rs := &RelationState{path, relationId, map[string]int{}, ""}
@@ -87,7 +87,7 @@ func NewRelationState(dirpath string, relationId int) (*RelationState, error) {
 // AllRelationStates loads and returns every RelationState persisted directly
 // inside the directory at the supplied path. It is an error for the directory
 // to contain anything other than valid persisted RelationStates, identified by
-// relation id.
+// relation id. If the directory does not exist, it will be created.
 func AllRelationStates(dirpath string) (map[int]*RelationState, error) {
 	states := map[int]*RelationState{}
 	walker := func(path string, fi os.FileInfo) error {
@@ -111,49 +111,51 @@ func AllRelationStates(dirpath string) (map[int]*RelationState, error) {
 	return states, nil
 }
 
-// MustValidate will panic if the supplied HookInfo does not represent a
-// sane change in the RelationState. This situation indicates that the
-// received stream of HookInfo values, or the RelationState itself,
-// contains corrupt data, and that attempting to continue process
-// execution beyond this point will inevitably do more harm than good.
-func (rs *RelationState) MustValidate(hi HookInfo) {
+// Validate returns an error if hi does not represent a valid change to the
+// RelationState.
+func (rs *RelationState) Validate(hi HookInfo) error {
 	id := hi.RelationId
 	if id != rs.RelationId {
-		panic(fmt.Errorf("cannot store state for relation %d inside relation %d", id, rs.RelationId))
+		return fmt.Errorf("cannot store state for relation %d inside relation %d", id, rs.RelationId)
 	}
 	unit, hook, pending := hi.RemoteUnit, hi.HookKind, rs.ChangedPending
 	if pending != "" {
 		if unit != pending || hook != "changed" {
-			panic(fmt.Errorf(`expected a "changed" for %q; got a %q for %q`, pending, hook, unit))
+			return fmt.Errorf(`expected a "changed" for %q; got a %q for %q`, pending, hook, unit)
 		}
 	}
 	if _, joined := rs.Members[unit]; joined && hook == "joined" {
-		panic(fmt.Errorf(`invalid "joined": %q has already joined relation %d`, unit, id))
+		return fmt.Errorf(`invalid "joined": %q has already joined relation %d`, unit, id)
 	} else if !joined && hook != "joined" {
-		panic(fmt.Errorf("invalid %q: %q has not joined relation %d", hook, unit, id))
+		return fmt.Errorf("invalid %q: %q has not joined relation %d", hook, unit, id)
 	}
+	return nil
 }
 
 // Commit ensures the validity of; stores; and atomically writes to disk,
 // the effect on the RelationState of the successful completion of the
-// hook defined by the supplied HookInfo.
+// hook defined by the supplied HookInfo. The state is written both to
+// disk and in memory such that the representations always match, and
+// are both written if and only if Commit returns nil.
 func (rs *RelationState) Commit(hi HookInfo) error {
-	rs.MustValidate(hi)
-	if hi.HookKind == "joined" {
-		rs.ChangedPending = hi.RemoteUnit
-	} else if rs.ChangedPending != "" {
-		rs.ChangedPending = ""
+	if err := rs.Validate(hi); err != nil {
+		return err
 	}
 	name := strings.Replace(hi.RemoteUnit, "/", "-", -1)
 	path := filepath.Join(rs.Path, name)
 	if hi.HookKind == "departed" {
-		delete(rs.Members, hi.RemoteUnit)
-		return os.Remove(path)
+		err := os.Remove(path)
+		if err == nil {
+			delete(rs.Members, hi.RemoteUnit)
+		}
+		return err
 	}
-	rs.Members[hi.RemoteUnit] = hi.ChangeVersion
-	unit := map[string]interface{}{"change-version": hi.ChangeVersion}
-	if rs.ChangedPending != "" {
-		unit["changed-pending"] = true
+	unit := struct {
+		ChangeVersion  int  `yaml:"change-version"`
+		ChangedPending bool `yaml:"changed-pending,omitempty"`
+	}{
+		hi.ChangeVersion,
+		hi.HookKind == "joined",
 	}
 	data, err := goyaml.Marshal(unit)
 	if err != nil {
@@ -162,7 +164,16 @@ func (rs *RelationState) Commit(hi HookInfo) error {
 	if err = ioutil.WriteFile(path+"~", data, 0600); err != nil {
 		return err
 	}
-	return os.Rename(path+"~", path)
+	err = os.Rename(path+"~", path)
+	if err == nil {
+		rs.Members[hi.RemoteUnit] = hi.ChangeVersion
+		if hi.HookKind == "joined" {
+			rs.ChangedPending = hi.RemoteUnit
+		} else {
+			rs.ChangedPending = ""
+		}
+	}
+	return err
 }
 
 // createWalk walks the supplied directory tree, and calls the supplied function
