@@ -7,7 +7,7 @@ import (
 )
 
 type ServiceSuite struct {
-	UtilSuite
+	ConnSuite
 	charm   *state.Charm
 	service *state.Service
 }
@@ -15,7 +15,7 @@ type ServiceSuite struct {
 var _ = Suite(&ServiceSuite{})
 
 func (s *ServiceSuite) SetUpTest(c *C) {
-	s.UtilSuite.SetUpTest(c)
+	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "dummy")
 	var err error
 	s.service, err = s.State.AddService("mysql", s.charm)
@@ -142,7 +142,7 @@ func (s *ServiceSuite) TestRemoveUnit(c *C) {
 
 	// Check that removing a non-existent unit fails nicely.
 	// TODO improve error message.
-	// BUG: use error strings from state
+	// BUG: use error strings from state.
 	err = s.service.RemoveUnit(unit)
 	c.Assert(err, ErrorMatches, `cannot remove unit "mysql/0": .*`)
 }
