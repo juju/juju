@@ -1,12 +1,20 @@
 package uniter
 
 import (
+	"fmt"
+	"io/ioutil"
+	"launchpad.net/goyaml"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 )
 
 // RelationState is a snapshot of the state of a relation.
 type RelationState struct {
+	// Path identifies the directory in which unit state is persisted.
+	Path string
+
 	// RelationId identifies the relation.
 	RelationId int
 
@@ -20,8 +28,46 @@ type RelationState struct {
 }
 
 type diskUnit struct {
-	Version       int
-	ChangePending bool
+	Version        int
+	ChangedPending bool
+}
+
+func NewRelationState(dirpath string, relationId int) (RelationState, error) {
+	path := filepath.Join(dirpath, fmt.Sprintf("%d", relationId))
+	rs := RelationState{path, relationId, map[string]int{}, ""}
+	walker := func(path string, fi os.FileInfo) error {
+		if fi.IsDir() {
+			return fmt.Errorf("relation directory must be flat")
+		}
+		name := fi.Name()
+		if strings.HasSuffix(name, "~") {
+			return nil
+		}
+		unitName, err := unitName(name)
+		if err != nil {
+			return err
+		}
+		b, err := ioutil.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		var unit *diskUnit
+		if err := goyaml.Unmarshal(b, unit); err != nil {
+			return err
+		}
+		rs[unitName] = unit.Version
+		if unit.ChangedPending {
+			if rs.ChangedPending != "" {
+				return fmt.Errorf("bad relation state: multiple pending changed units")
+			}
+			rs.ChangedPending = unitName
+		}
+		return nil
+	}
+	if err := createWalk(path, walker); err != nil {
+		return nil, err
+	}
+	return rs, nil
 }
 
 func LoadRelationStates(dirpath string) (map[string]RelationState, error) {
@@ -47,31 +93,18 @@ func LoadRelationStates(dirpath string) (map[string]RelationState, error) {
 	return states, nil
 }
 
-func NewRelationState(dirpath string, relationId int) (RelationState, error) {
-	rs := RelationState{relationId, map[string]int{}, ""}
-	walker := func(path string, fi os.FileInfo) error {
-		if fi.IsDir() {
-			return fmt.Errorf("relation directory must be flat")
-		}
-		name := fi.Name()
-		if strings.HasSuffix(name, "~") {
-			return nil
-		}
-		b, err := ioutil.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		var unit *diskUnit
-		if err := goyaml.Unmarshal(b, unit); err != nil {
-			return err
-		}
-
+func (rs *RelationState) Commit(hi HookInfo) error {
+	name := strings.Replace(hi.RemoteUnit, "/", "-")
+	path := filepath.Join(rs.Path, name)
+	unit := diskUnit{Version: HookInfo.ChangeVersion}
+	if hi.HookKind == "joined" {
+		unit.ChangedPending = true
 	}
-	path := filepath.Join(dirpath, fmt.Sprintf("%d", relationId))
-	if err := createWalk(path, walker); err != nil {
-		return nil, err
+	b, err := goyaml.Marshal(unit)
+	if err != nil {
+		return err
 	}
-	return rs, nil
+	return ioutil.WriteFile(path, unit)
 }
 
 func createWalk(dirpath string, f func(path string, fi os.FileInfo) error) error {
@@ -89,4 +122,17 @@ func createWalk(dirpath string, f func(path string, fi os.FileInfo) error) error
 		return f(path, fi, err)
 	}
 	return filepath.Walk(dirpath, walker)
+}
+
+func unitName(fileName string) (string, error) {
+	i := strings.LastIndex(fileName, "-")
+	if i == -1 {
+		return "", fmt.Errorf("invalid relation unit file name")
+	}
+	svcName := fileName[:i]
+	unitId := filename[i+1:]
+	if _, err := strconv.Atoi(unitId); err != nil {
+		return "", fmt.Errorf("invalid relation unit file name")
+	}
+	return svcName + "/" + unitId, nil
 }
