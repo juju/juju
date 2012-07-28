@@ -28,8 +28,8 @@ type RelationState struct {
 }
 
 type diskUnit struct {
-	Version        int
-	ChangedPending bool
+	ChangeVersion  int  `yaml:"version"`
+	ChangedPending bool `yaml:"changed-pending,omitempty"`
 }
 
 func NewRelationState(dirpath string, relationId int) (*RelationState, error) {
@@ -55,7 +55,7 @@ func NewRelationState(dirpath string, relationId int) (*RelationState, error) {
 		if err := goyaml.Unmarshal(b, unit); err != nil {
 			return err
 		}
-		rs.Members[unitName] = unit.Version
+		rs.Members[unitName] = unit.ChangeVersion
 		if unit.ChangedPending {
 			if rs.ChangedPending != "" {
 				return fmt.Errorf("bad relation state: multiple pending changed units")
@@ -96,7 +96,7 @@ func LoadRelationStates(dirpath string) (map[int]*RelationState, error) {
 func (rs *RelationState) Commit(hi HookInfo) error {
 	name := strings.Replace(hi.RemoteUnit, "/", "-", -1)
 	path := filepath.Join(rs.Path, name)
-	unit := diskUnit{Version: hi.ChangeVersion}
+	unit := diskUnit{ChangeVersion: hi.ChangeVersion}
 	if hi.HookKind == "joined" {
 		unit.ChangedPending = true
 	}
