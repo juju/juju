@@ -94,6 +94,9 @@ func LoadRelationStates(dirpath string) (map[int]*RelationState, error) {
 }
 
 func (rs *RelationState) Commit(hi HookInfo) error {
+	if hi.RelationId != rs.RelationId {
+		panic("tried to persist hook state to inappropriate relation!")
+	}
 	name := strings.Replace(hi.RemoteUnit, "/", "-", -1)
 	path := filepath.Join(rs.Path, name)
 	unit := diskUnit{ChangeVersion: hi.ChangeVersion}
