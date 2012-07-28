@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/schema"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -27,45 +28,51 @@ type RelationState struct {
 	ChangedPending string
 }
 
-type diskUnit struct {
-	ChangeVersion  int  `yaml:"version"`
-	ChangedPending bool `yaml:"changed-pending,omitempty"`
-}
+var checker = schema.StrictFieldMap(
+	schema.Fields{"change-version": schema.Int(), "changed-pending": schema.Bool()},
+	schema.Defaults{"changed-pending": false},
+)
 
 func NewRelationState(dirpath string, relationId int) (*RelationState, error) {
 	path := filepath.Join(dirpath, fmt.Sprintf("%d", relationId))
 	rs := &RelationState{path, relationId, map[string]int{}, ""}
 	walker := func(path string, fi os.FileInfo) error {
 		if fi.IsDir() {
-			return fmt.Errorf("relation directory must be flat")
+			return fmt.Errorf("directory must be flat")
 		}
 		name := fi.Name()
 		if strings.HasSuffix(name, "~") {
 			return nil
 		}
-		unitName, err := unitName(name)
+		unitname, err := unitname(name)
 		if err != nil {
 			return err
 		}
-		b, err := ioutil.ReadFile(path)
+		data, err := ioutil.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		var unit diskUnit
-		if err := goyaml.Unmarshal(b, &unit); err != nil {
+		m := map[string]interface{}{}
+		if err := goyaml.Unmarshal(data, m); err != nil {
 			return err
-		}
-		rs.Members[unitName] = unit.ChangeVersion
-		if unit.ChangedPending {
-			if rs.ChangedPending != "" {
-				return fmt.Errorf("bad relation state: multiple pending changed units")
+		} else {
+			m1, err := checker.Coerce(m, nil)
+			if err != nil {
+				return fmt.Errorf("invalid unit file %q: %v", name, err)
 			}
-			rs.ChangedPending = unitName
+			m = m1.(map[string]interface{})
+		}
+		rs.Members[unitname] = int(m["change-version"].(int64))
+		if m["changed-pending"].(bool) {
+			if rs.ChangedPending != "" {
+				return fmt.Errorf("%q and %q both have pending changed hooks", rs.ChangedPending, unitname)
+			}
+			rs.ChangedPending = unitname
 		}
 		return nil
 	}
 	if err := createWalk(path, walker); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot load relation state from %s: %v", path, err)
 	}
 	return rs, nil
 }
@@ -74,11 +81,11 @@ func LoadRelationStates(dirpath string) (map[int]*RelationState, error) {
 	states := map[int]*RelationState{}
 	walker := func(path string, fi os.FileInfo) error {
 		if !fi.IsDir() {
-			return fmt.Errorf("relations directory must only contain directories")
+			return fmt.Errorf("relation %q is not a directory")
 		}
 		relationId, err := strconv.Atoi(fi.Name())
 		if err != nil {
-			return fmt.Errorf("relation directory name must be a relation id")
+			return fmt.Errorf("%q is not a valid relation id", fi.Name())
 		}
 		state, err := NewRelationState(dirpath, relationId)
 		if err != nil {
@@ -99,15 +106,15 @@ func (rs *RelationState) Commit(hi HookInfo) error {
 	}
 	name := strings.Replace(hi.RemoteUnit, "/", "-", -1)
 	path := filepath.Join(rs.Path, name)
-	unit := diskUnit{ChangeVersion: hi.ChangeVersion}
+	unit := map[string]interface{}{"change-version": hi.ChangeVersion}
 	if hi.HookKind == "joined" {
-		unit.ChangedPending = true
+		unit["changed-pending"] = true
 	}
-	b, err := goyaml.Marshal(unit)
+	data, err := goyaml.Marshal(unit)
 	if err != nil {
 		return err
 	}
-	if err = ioutil.WriteFile(path+"~", b, 0777); err != nil {
+	if err = ioutil.WriteFile(path+"~", data, 0777); err != nil {
 		return err
 	}
 	return os.Rename(path+"~", path)
@@ -130,15 +137,15 @@ func createWalk(dirpath string, f func(path string, fi os.FileInfo) error) error
 	return filepath.Walk(dirpath, walker)
 }
 
-func unitName(fileName string) (string, error) {
+func unitname(fileName string) (string, error) {
 	i := strings.LastIndex(fileName, "-")
 	if i == -1 {
-		return "", fmt.Errorf("invalid relation unit file name %q", fileName)
+		return "", fmt.Errorf("invalid unit filename %q", fileName)
 	}
 	svcName := fileName[:i]
 	unitId := fileName[i+1:]
 	if _, err := strconv.Atoi(unitId); err != nil {
-		return "", fmt.Errorf("invalid relation unit file name %q", fileName)
+		return "", fmt.Errorf("invalid unit filename %q", fileName)
 	}
 	return svcName + "/" + unitId, nil
 }
