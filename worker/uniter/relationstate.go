@@ -51,8 +51,8 @@ func NewRelationState(dirpath string, relationId int) (*RelationState, error) {
 		if err != nil {
 			return err
 		}
-		var unit *diskUnit
-		if err := goyaml.Unmarshal(b, unit); err != nil {
+		var unit diskUnit
+		if err := goyaml.Unmarshal(b, &unit); err != nil {
 			return err
 		}
 		rs.Members[unitName] = unit.ChangeVersion
@@ -104,19 +104,22 @@ func (rs *RelationState) Commit(hi HookInfo) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, b, 0777)
+	if err = ioutil.WriteFile(path+"~", b, 0777); err != nil {
+		return err
+	}
+	return os.Rename(path+"~", path)
 }
 
 func createWalk(dirpath string, f func(path string, fi os.FileInfo) error) error {
 	walker := func(path string, fi os.FileInfo, err error) error {
 		if path == dirpath {
 			if os.IsNotExist(err) {
-				err = os.Mkdir(dirpath, 0777)
+				return os.Mkdir(dirpath, 0777)
 			} else if !fi.IsDir() {
-				err = fmt.Errorf("%s must be a directory", dirpath)
+				return fmt.Errorf("%s must be a directory", dirpath)
 			}
-		}
-		if err != nil {
+			return nil
+		} else if err != nil {
 			return err
 		}
 		return f(path, fi)
@@ -127,12 +130,12 @@ func createWalk(dirpath string, f func(path string, fi os.FileInfo) error) error
 func unitName(fileName string) (string, error) {
 	i := strings.LastIndex(fileName, "-")
 	if i == -1 {
-		return "", fmt.Errorf("invalid relation unit file name")
+		return "", fmt.Errorf("invalid relation unit file name %q", fileName)
 	}
 	svcName := fileName[:i]
 	unitId := fileName[i+1:]
 	if _, err := strconv.Atoi(unitId); err != nil {
-		return "", fmt.Errorf("invalid relation unit file name")
+		return "", fmt.Errorf("invalid relation unit file name %q", fileName)
 	}
 	return svcName + "/" + unitId, nil
 }
