@@ -143,3 +143,11 @@ func (s *RunHookSuite) TestGoodHookWithVars(c *C) {
 		"JUJU_RELATION":     "rel",
 	})
 }
+
+type RelationContextSuite struct{}
+
+var _ = Suite(&RelationContextSuite{})
+
+func (s *RelationContextSuite) TestFatal(c *C) {
+	c.Fatalf("need tests")
+}
