@@ -11,9 +11,9 @@ import (
 	"strings"
 )
 
-// RelationState is a filesystem-backed snapshot of the state of a relation.
-// Concurrent modifications to the underlying state directory in any way will
-// cause undefined behaviour.
+// RelationState is a filesystem-backed representation of the state of a
+// relation. Concurrent modifications to the underlying state directory
+// may cause RelationState instances to exhibit undefined behaviour.
 type RelationState struct {
 	// Path identifies the directory holding persistent state.
 	Path string
@@ -91,12 +91,12 @@ func NewRelationState(dirpath string, relationId int) (*RelationState, error) {
 func AllRelationStates(dirpath string) (map[int]*RelationState, error) {
 	states := map[int]*RelationState{}
 	walker := func(path string, fi os.FileInfo) error {
-		if !fi.IsDir() {
-			return fmt.Errorf("relation %q is not a directory")
-		}
 		relationId, err := strconv.Atoi(fi.Name())
 		if err != nil {
 			return fmt.Errorf("%q is not a valid relation id", fi.Name())
+		}
+		if !fi.IsDir() {
+			return fmt.Errorf("relation %d is not a directory", relationId)
 		}
 		state, err := NewRelationState(dirpath, relationId)
 		if err != nil {
@@ -106,7 +106,7 @@ func AllRelationStates(dirpath string) (map[int]*RelationState, error) {
 		return filepath.SkipDir
 	}
 	if err := createWalk(dirpath, walker); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot load relations state from %s: %v", dirpath, err)
 	}
 	return states, nil
 }
@@ -135,7 +135,7 @@ func (rs *RelationState) Validate(hi HookInfo) error {
 // Commit ensures the validity of; stores; and atomically writes to disk,
 // the effect on the RelationState of the successful completion of the
 // hook defined by the supplied HookInfo. The state is written both to
-// disk and in memory such that the representations always match, and
+// disk and to memory such that the representations always match, and
 // are both written if and only if Commit returns nil.
 func (rs *RelationState) Commit(hi HookInfo) error {
 	if err := rs.Validate(hi); err != nil {
