@@ -179,7 +179,7 @@ func (s *RelationContextSuite) SetUpTest(c *C) {
 }
 
 func (s *RelationContextSuite) TestUpdateMembers(c *C) {
-	ctx := server.NewRelationContext(s.State, s.ru, nil)
+	ctx := server.NewRelationContext(s.ru, nil)
 	c.Assert(ctx.Units(), HasLen, 0)
 
 	// Check the units and settings after a simple update.
@@ -221,7 +221,7 @@ func (s *RelationContextSuite) TestMemberCaching(c *C) {
 	node.Set("ping", "pong")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
-	ctx := server.NewRelationContext(s.State, s.ru, map[string]int{"u/1": 0})
+	ctx := server.NewRelationContext(s.ru, map[string]int{"u/1": 0})
 
 	// Check that uncached settings are read from state.
 	settings, err := ctx.ReadSettings("u/1")
@@ -262,7 +262,7 @@ func (s *RelationContextSuite) TestNonMemberCaching(c *C) {
 	node.Set("ping", "pong")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
-	ctx := server.NewRelationContext(s.State, s.ru, nil)
+	ctx := server.NewRelationContext(s.ru, nil)
 
 	// Check that settings are read from state.
 	settings, err := ctx.ReadSettings("u/1")
@@ -287,7 +287,7 @@ func (s *RelationContextSuite) TestNonMemberCaching(c *C) {
 }
 
 func (s *RelationContextSuite) TestSettings(c *C) {
-	ctx := server.NewRelationContext(s.State, s.ru, nil)
+	ctx := server.NewRelationContext(s.ru, nil)
 
 	// Change Settings, then flush without writing.
 	node, err := ctx.Settings()

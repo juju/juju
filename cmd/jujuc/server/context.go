@@ -101,7 +101,6 @@ type settingsMap map[string]map[string]interface{}
 
 // RelationContext exposes relation membership and unit settings information.
 type RelationContext struct {
-	st *state.State
 	ru *state.RelationUnit
 
 	// members contains settings for known relation members. Nil values
@@ -120,11 +119,10 @@ type RelationContext struct {
 	cache settingsMap
 }
 
-// NewRelationContext returns a RelationContext that provides access to
-// information about the supplied relation unit. Initial membership is
-// determined by the keys in members.
-func NewRelationContext(st *state.State, ru *state.RelationUnit, members map[string]int) *RelationContext {
-	ctx := &RelationContext{st: st, ru: ru}
+// NewRelationContext creates a new context for the given relation unit.
+// The unit-name keys of members supplies the initial membership.
+func NewRelationContext(ru *state.RelationUnit, members map[string]int) *RelationContext {
+	ctx := &RelationContext{ru: ru}
 	m := settingsMap{}
 	for unit := range members {
 		m[unit] = nil
@@ -151,11 +149,6 @@ func (ctx *RelationContext) Flush(write bool) error {
 // Update completely replaces the context's membership data.
 func (ctx *RelationContext) Update(members settingsMap) {
 	ctx.members = members
-	ctx.units = nil
-	for unit := range ctx.members {
-		ctx.units = append(ctx.units, unit)
-	}
-	sort.Strings(ctx.units)
 }
 
 // Settings returns a ConfigNode that gives read and write access to the
@@ -171,9 +164,14 @@ func (ctx *RelationContext) Settings() (*state.ConfigNode, error) {
 	return ctx.settings, nil
 }
 
-// Units returns the names of the units that are present in the relation.
+// Units returns the names of the units that are present in the relation, in
+// alphabetical order.
 func (ctx *RelationContext) Units() (units []string) {
-	return ctx.units
+	for unit := range ctx.members {
+		units = append(units, unit)
+	}
+	sort.Strings(units)
+	return units
 }
 
 // ReadSettings returns the settings of a unit that is now, or was once,
