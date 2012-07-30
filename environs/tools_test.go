@@ -47,7 +47,7 @@ func mkVersion(vers string) version.Version {
 }
 
 func mkToolsPath(vers string) string {
-	return environs.ToolsetPath(version.BinaryVersion{
+	return environs.ToolsPath(version.BinaryVersion{
 		Version: mkVersion(vers),
 		Series:  config.CurrentSeries,
 		Arch:    config.CurrentArch,
@@ -57,19 +57,19 @@ func mkToolsPath(vers string) string {
 var _ = Suite(&ToolsSuite{})
 
 func (t *ToolsSuite) TestPutTools(c *C) {
-	toolset, err := environs.PutToolset(t.env.Storage())
+	tools, err := environs.PutTools(t.env.Storage())
 	c.Assert(err, IsNil)
-	c.Assert(toolset.BinaryVersion, Equals, version.Current)
-	c.Assert(toolset.URL, Not(Equals), "")
+	c.Assert(tools.BinaryVersion, Equals, version.Current)
+	c.Assert(tools.URL, Not(Equals), "")
 
 	for i, getTools := range []func(url, dir string) error{
-		environs.GetToolset,
+		environs.GetTools,
 		getToolsWithTar,
 	} {
 		c.Logf("test %d", i)
 		// Unarchive the tool executables into a temp directory.
 		dir := c.MkDir()
-		err = getTools(toolset.URL, dir)
+		err = getTools(tools.URL, dir)
 		c.Assert(err, IsNil)
 
 		// Verify that each tool executes and produces some
@@ -122,8 +122,8 @@ func (t *ToolsSuite) TestUploadBadBuild(c *C) {
 	defer os.Setenv("GOPATH", os.Getenv("GOPATH"))
 	os.Setenv("GOPATH", gopath)
 
-	toolset, err := environs.PutToolset(t.env.Storage())
-	c.Assert(toolset, IsNil)
+	tools, err := environs.PutTools(t.env.Storage())
+	c.Assert(tools, IsNil)
 	c.Assert(err, ErrorMatches, `build failed: exit status 1; can't load package:(.|\n)*`)
 }
 
@@ -207,12 +207,12 @@ var findToolsTests = []struct {
 	// mismatching series or architecture is ignored.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		environs.ToolsetPath(version.BinaryVersion{
+		environs.ToolsPath(version.BinaryVersion{
 			Version: mkVersion("1.9.9"),
 			Series:  "foo",
 			Arch:    config.CurrentArch,
 		}),
-		environs.ToolsetPath(version.BinaryVersion{
+		environs.ToolsPath(version.BinaryVersion{
 			Version: mkVersion("1.9.9"),
 			Series:  config.CurrentSeries,
 			Arch:    "foo",
@@ -242,16 +242,16 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 			Series:  config.CurrentSeries,
 			Arch:    config.CurrentArch,
 		}
-		toolset, err := environs.FindToolset(t.env, vers)
+		tools, err := environs.FindTools(t.env, vers)
 		if tt.err != "" {
 			c.Assert(err, ErrorMatches, tt.err)
 		} else {
 			c.Assert(err, IsNil)
-			resp, err := http.Get(toolset.URL)
+			resp, err := http.Get(tools.URL)
 			c.Assert(err, IsNil)
 			data, err := ioutil.ReadAll(resp.Body)
 			c.Assert(err, IsNil)
-			c.Assert(string(data), Equals, tt.expect, Commentf("url %s", toolset.URL))
+			c.Assert(string(data), Equals, tt.expect, Commentf("url %s", tools.URL))
 		}
 		t.env.Destroy(nil)
 	}

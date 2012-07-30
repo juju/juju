@@ -20,28 +20,28 @@ var toolPrefix = "tools/juju-"
 
 var toolFilePat = regexp.MustCompile(`^` + toolPrefix + `(\d+\.\d+\.\d+)-([^-]+)-([^-]+)\.tgz$`)
 
-// Toolset describes a particular set of juju tools and where to find them.
-type Toolset struct {
+// Tools describes a particular set of juju tools and where to find them.
+type Tools struct {
 	version.BinaryVersion
 	URL string
 }
 
-// ListToolsets returns all the toolsets found in the given storage
+// ListTools returns all the tools found in the given storage
 // that have the given major version.
-func ListToolsets(store StorageReader, majorVersion int) ([]*Toolset, error) {
+func ListTools(store StorageReader, majorVersion int) ([]*Tools, error) {
 	dir := fmt.Sprintf("%s%d.", toolPrefix, majorVersion)
 	names, err := store.List(dir)
 	if err != nil {
 		return nil, err
 	}
-	var tools []*Toolset
+	var toolsList []*Tools
 	for _, name := range names {
 		m := toolFilePat.FindStringSubmatch(name)
 		if m == nil {
 			log.Printf("unexpected tools file found %q", name)
 			continue
 		}
-		var t Toolset
+		var t Tools
 		t.Version, err = version.Parse(m[1])
 		if err != nil {
 			log.Printf("failed to parse version %q: %v", name, err)
@@ -58,17 +58,17 @@ func ListToolsets(store StorageReader, majorVersion int) ([]*Toolset, error) {
 			log.Printf("cannot get URL for %q: %v", name, err)
 			continue
 		}
-		tools = append(tools, &t)
+		toolsList = append(toolsList, &t)
 	}
-	return tools, nil
+	return toolsList, nil
 }
 
-// PutToolset uploads the current version of the juju tools
-// executables to the given storage and returns a Toolset
-// describing them.
+// PutTools uploads the current version of the juju tools
+// executables to the given storage and returns a Tools
+// instance describing them.
 // TODO find binaries from $PATH when not using a development
 // version of juju within a $GOPATH.
-func PutToolset(storage Storage) (*Toolset, error) {
+func PutTools(storage Storage) (*Tools, error) {
 	// We create the entire archive before asking the environment to
 	// start uploading so that we can be sure we have archived
 	// correctly.
@@ -78,7 +78,7 @@ func PutToolset(storage Storage) (*Toolset, error) {
 	}
 	defer f.Close()
 	defer os.Remove(f.Name())
-	err = bundleToolset(f)
+	err = bundleTools(f)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func PutToolset(storage Storage) (*Toolset, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot stat newly made tools archive: %v", err)
 	}
-	p := ToolsetPath(version.Current)
+	p := ToolsPath(version.Current)
 	log.Printf("environs: putting tools %v", p)
 	err = storage.Put(p, f, fi.Size())
 	if err != nil {
@@ -100,7 +100,7 @@ func PutToolset(storage Storage) (*Toolset, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Toolset{version.Current, url}, nil
+	return &Tools{version.Current, url}, nil
 }
 
 // archive writes the executable files found in the given directory in
@@ -178,11 +178,11 @@ func closeErrorCheck(errp *error, c io.Closer) {
 	}
 }
 
-// BestToolset the most recent toolset compatible with the
+// BestTools the most recent tools compatible with the
 // given specification. It returns nil if nothing appropriate
 // was found.
-func BestToolset(toolsList []*Toolset, vers version.BinaryVersion) *Toolset {
-	var bestTools *Toolset
+func BestTools(toolsList []*Tools, vers version.BinaryVersion) *Tools {
+	var bestTools *Tools
 	for _, t := range toolsList {
 		t := t
 		if t.Version.Major != vers.Version.Major ||
@@ -197,9 +197,9 @@ func BestToolset(toolsList []*Toolset, vers version.BinaryVersion) *Toolset {
 	return bestTools
 }
 
-// GetToolset downloads a toolset from the given URL
+// GetTools downloads a set of tools from the given URL
 // into the given directory.
-func GetToolset(url, dir string) error {
+func GetTools(url, dir string) error {
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
@@ -233,39 +233,39 @@ func GetToolset(url, dir string) error {
 	panic("not reached")
 }
 
-// ToolsetPath returns path that is used to store and
+// ToolsPath returns path that is used to store and
 // retrieve the given version of the juju tools in a Storage.
-func ToolsetPath(vers version.BinaryVersion) string {
+func ToolsPath(vers version.BinaryVersion) string {
 	return fmt.Sprintf(toolPrefix+"%v-%s-%s.tgz",
 		vers.Version,
 		vers.Series,
 		vers.Arch)
 }
 
-// FindToolset tries to find a set of tools compatible
+// FindTools tries to find a set of tools compatible
 // with the given version from the given environment.
 // If no tools are found and there's no other error, a NotFoundError
 // is returned.
-func FindToolset(env Environ, vers version.BinaryVersion) (*Toolset, error) {
+func FindTools(env Environ, vers version.BinaryVersion) (*Tools, error) {
 	// If there's anything compatible in the environ's Storage,
 	// it gets precedence over anything in its PublicStorage.
-	toolsets, err := ListToolsets(env.Storage(), vers.Major)
+	toolsList, err := ListTools(env.Storage(), vers.Major)
 	if err != nil {
 		return nil, err
 	}
-	toolset := BestToolset(toolsets, vers)
-	if toolset != nil {
-		return toolset, nil
+	tools := BestTools(toolsList, vers)
+	if tools != nil {
+		return tools, nil
 	}
-	toolsets, err = ListToolsets(env.PublicStorage(), vers.Major)
+	toolsList, err = ListTools(env.PublicStorage(), vers.Major)
 	if err != nil {
 		return nil, err
 	}
-	toolset = BestToolset(toolsets, vers)
-	if toolset == nil {
+	tools = BestTools(toolsList, vers)
+	if tools == nil {
 		return nil, &NotFoundError{fmt.Errorf("no compatible tools found")}
 	}
-	return toolset, nil
+	return tools, nil
 }
 
 func setenv(env []string, val string) []string {
@@ -279,9 +279,9 @@ func setenv(env []string, val string) []string {
 	return append(env, val)
 }
 
-// bundleToolset bundles all the current juju tools in gzipped tar
+// bundleTools bundles all the current juju tools in gzipped tar
 // format to the given writer.
-func bundleToolset(w io.Writer) error {
+func bundleTools(w io.Writer) error {
 	dir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
 		return err

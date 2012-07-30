@@ -203,14 +203,14 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	if _, notFound := err.(*environs.NotFoundError); !notFound {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
-	var toolset *environs.Toolset
+	var tools *environs.Tools
 	if uploadTools {
-		toolset, err = environs.PutToolset(e.Storage())
+		tools, err = environs.PutTools(e.Storage())
 		if err != nil {
 			return fmt.Errorf("cannot upload tools: %v", err)
 		}
 	}
-	inst, err := e.startInstance(0, nil, toolset, true)
+	inst, err := e.startInstance(0, nil, tools, true)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -271,18 +271,18 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignUnused
 }
 
-func (e *environ) StartInstance(machineId int, info *state.Info, toolset *environs.Toolset) (environs.Instance, error) {
-	return e.startInstance(machineId, info, toolset, false)
+func (e *environ) StartInstance(machineId int, info *state.Info, tools *environs.Tools) (environs.Instance, error) {
+	return e.startInstance(machineId, info, tools, false)
 }
 
-func (e *environ) userData(machineId int, info *state.Info, toolset *environs.Toolset, master bool) ([]byte, error) {
+func (e *environ) userData(machineId int, info *state.Info, tools *environs.Tools, master bool) ([]byte, error) {
 	cfg := &machineConfig{
 		provisioner:        master,
 		zookeeper:          master,
 		stateInfo:          info,
 		instanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		providerType:       "ec2",
-		toolsURL:           toolset.URL,
+		toolsURL:           tools.URL,
 		machineId:          machineId,
 		authorizedKeys:     e.ecfg().AuthorizedKeys(),
 	}
@@ -296,25 +296,25 @@ func (e *environ) userData(machineId int, info *state.Info, toolset *environs.To
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
-func (e *environ) startInstance(machineId int, info *state.Info, toolset *environs.Toolset, master bool) (environs.Instance, error) {
-	if toolset == nil {
+func (e *environ) startInstance(machineId int, info *state.Info, tools *environs.Tools, master bool) (environs.Instance, error) {
+	if tools == nil {
 		var err error
-		toolset, err = environs.FindToolset(e, version.Current)
+		tools, err = environs.FindTools(e, version.Current)
 		if err != nil {
 			return nil, err
 		}
 	}
-	log.Printf("environs/ec2: starting machine %d in %q running tools from %q", machineId, e.name, toolset.URL)
+	log.Printf("environs/ec2: starting machine %d in %q running tools from %q", machineId, e.name, tools.URL)
 	spec, err := findInstanceSpec(&instanceConstraint{
-		series: toolset.Series,
-		arch:   toolset.Arch,
+		series: tools.Series,
+		arch:   tools.Arch,
 		region: e.ecfg().region(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
 	}
 	// TODO quick sanity check that we can access the tools URL?
-	userData, err := e.userData(machineId, info, toolset, master)
+	userData, err := e.userData(machineId, info, tools, master)
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}

@@ -315,7 +315,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		return err
 	}
 	if uploadTools {
-		_, err := environs.PutToolset(e.Storage())
+		_, err := environs.PutTools(e.Storage())
 		if err != nil {
 			return err
 		}
@@ -404,7 +404,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId int, info *state.Info, _ *environs.Toolset) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId int, info *state.Info, _ *environs.Tools) (environs.Instance, error) {
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, err
 	}

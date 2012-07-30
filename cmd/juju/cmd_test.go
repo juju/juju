@@ -172,9 +172,9 @@ func (*cmdSuite) TestBootstrapCommand(c *C) {
 	c.Assert(err, IsNil)
 	dir := c.MkDir()
 
-	toolset, err := environs.FindToolset(env, version.Current)
+	tools, err := environs.FindTools(env, version.Current)
 	c.Assert(err, IsNil)
-	err = environs.GetToolset(toolset.URL, dir)
+	err = environs.GetTools(tools.URL, dir)
 	c.Assert(err, IsNil)
 
 	// bootstrap with broken environment
