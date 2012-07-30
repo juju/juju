@@ -1,10 +1,10 @@
 package uniter
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/schema"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -15,25 +15,29 @@ import (
 // inside the directory at the supplied path. It is an error for the directory
 // to contain anything other than valid persisted RelationStates, identified by
 // relation id. If the directory does not exist, it will be created.
-func AllRelationStates(dirpath string) (map[int]*RelationState, error) {
-	states := map[int]*RelationState{}
-	walker := func(path string, fi os.FileInfo) error {
+func AllRelationStates(dirpath string) (states map[int]*RelationState, err error) {
+	defer errorContextf(&err, "cannot load relations state from %s: %v", dirpath, err)
+	if err = ensureDir(dirpath); err != nil {
+		return nil, err
+	}
+	fis, err := ioutil.ReadDir(dirpath)
+	if err != nil {
+		return nil, err
+	}
+	states = map[int]*RelationState{}
+	for _, fi := range fis {
 		relationId, err := strconv.Atoi(fi.Name())
 		if err != nil {
-			return fmt.Errorf("%q is not a valid relation id", fi.Name())
+			return nil, fmt.Errorf("%q is not a valid relation id", fi.Name())
 		}
 		if !fi.IsDir() {
-			return fmt.Errorf("relation %d is not a directory", relationId)
+			return nil, fmt.Errorf("relation %d is not a directory", relationId)
 		}
 		state, err := NewRelationState(dirpath, relationId)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		states[relationId] = state
-		return filepath.SkipDir
-	}
-	if err := createWalk(dirpath, walker); err != nil {
-		return nil, fmt.Errorf("cannot load relations state from %s: %v", dirpath, err)
 	}
 	return states, nil
 }
@@ -57,57 +61,58 @@ type RelationState struct {
 	ChangedPending string
 }
 
-// checker validates the format of relation unit state files.
-var checker = schema.StrictFieldMap(
-	schema.Fields{"change-version": schema.Int(), "changed-pending": schema.Bool()},
-	schema.Defaults{"changed-pending": false},
-)
+// diskInfo defines the relation unit data serialization.
+type diskInfo struct {
+	ChangeVersion  *int `yaml:"change-version"`
+	ChangedPending bool `yaml:"changed-pending,omitempty"`
+}
 
 // NewRelationState loads a RelationState from the subdirectory of dirpath named
 // for the supplied RelationId. The directory must not contain anything other than
 // valid relation unit files, as written by Commit(), and files with names ending
 // with "~", which will be ignored. If the directory does not exist, it will be
 // created.
-func NewRelationState(dirpath string, relationId int) (*RelationState, error) {
+func NewRelationState(dirpath string, relationId int) (rs *RelationState, err error) {
 	path := filepath.Join(dirpath, fmt.Sprintf("%d", relationId))
-	rs := &RelationState{path, relationId, map[string]int{}, ""}
-	walker := func(path string, fi os.FileInfo) error {
+	defer errorContextf(&err, "cannot load relation state from %s: %v", path, err)
+	if err = ensureDir(path); err != nil {
+		return nil, err
+	}
+	fis, err := ioutil.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+	rs = &RelationState{path, relationId, map[string]int{}, ""}
+	for _, fi := range fis {
 		if fi.IsDir() {
-			return fmt.Errorf("directory must be flat")
+			return nil, fmt.Errorf("directory must be flat")
 		}
 		name := fi.Name()
 		if strings.HasSuffix(name, "~") {
-			return nil
+			continue
 		}
-		unitname, err := unitname(name)
+		unitname, err := unitName(name)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		data, err := ioutil.ReadFile(path)
+		data, err := ioutil.ReadFile(filepath.Join(path, name))
 		if err != nil {
-			return err
+			return nil, err
 		}
-		m := map[string]interface{}{}
-		if err := goyaml.Unmarshal(data, m); err != nil {
-			return err
-		} else {
-			m1, err := checker.Coerce(m, nil)
-			if err != nil {
-				return fmt.Errorf("invalid unit file %q: %v", name, err)
-			}
-			m = m1.(map[string]interface{})
+		var info diskInfo
+		if err := goyaml.Unmarshal(data, &info); err != nil {
+			return nil, err
 		}
-		rs.Members[unitname] = int(m["change-version"].(int64))
-		if m["changed-pending"].(bool) {
+		if info.ChangeVersion == nil {
+			return nil, fmt.Errorf("invalid unit file %q", name)
+		}
+		rs.Members[unitname] = *info.ChangeVersion
+		if info.ChangedPending {
 			if rs.ChangedPending != "" {
-				return fmt.Errorf("%q and %q both have pending changed hooks", rs.ChangedPending, unitname)
+				return nil, fmt.Errorf("%q and %q both have pending changed hooks", rs.ChangedPending, unitname)
 			}
 			rs.ChangedPending = unitname
 		}
-		return nil
-	}
-	if err := createWalk(path, walker); err != nil {
-		return nil, fmt.Errorf("cannot load relation state from %s: %v", path, err)
 	}
 	return rs, nil
 }
@@ -116,11 +121,7 @@ func NewRelationState(dirpath string, relationId int) (*RelationState, error) {
 // RelationState. It should be called before running any relation hook, to
 // ensure that the system's guarantees about hook execution order hold true.
 func (rs *RelationState) Validate(hi HookInfo) (err error) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("invalid %q for %q: %v", hi.HookKind, hi.RemoteUnit, err)
-		}
-	}()
+	defer errorContextf(&err, "inappropriate %q for %q", hi.HookKind, hi.RemoteUnit)
 	if hi.RelationId != rs.RelationId {
 		return fmt.Errorf("expected relation %d, got relation %d", rs.RelationId, hi.RelationId)
 	}
@@ -146,37 +147,31 @@ func (rs *RelationState) Commit(hi HookInfo) (err error) {
 	if err = rs.Validate(hi); err != nil {
 		return err
 	}
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("cannot commit %q for %q: %v", hi.HookKind, hi.RemoteUnit, err)
-		}
-	}()
+	defer errorContextf(&err, "failed to commit %q for %q: %v", hi.HookKind, hi.RemoteUnit)
 	name := strings.Replace(hi.RemoteUnit, "/", "-", -1)
 	path := filepath.Join(rs.Path, name)
 	if hi.HookKind == "departed" {
 		if err = os.Remove(path); err != nil {
 			return err
 		}
+		// If atomic delete succeeded, update own fields.
 		delete(rs.Members, hi.RemoteUnit)
 		return nil
 	}
-	unit := struct {
-		ChangeVersion  int  `yaml:"change-version"`
-		ChangedPending bool `yaml:"changed-pending,omitempty"`
-	}{
-		hi.ChangeVersion,
-		hi.HookKind == "joined",
-	}
-	data, err := goyaml.Marshal(unit)
+	info := diskInfo{&hi.ChangeVersion, hi.HookKind == "joined"}
+	data, err := goyaml.Marshal(info)
 	if err != nil {
 		return err
 	}
+	// Create the entry for the relation and atomically
+	// rename it to replace the old one.
 	if err = ioutil.WriteFile(path+"~", data, 0777); err != nil {
 		return err
 	}
 	if err = os.Rename(path+"~", path); err != nil {
 		return err
 	}
+	// If write was successful, update own fields.
 	rs.Members[hi.RemoteUnit] = hi.ChangeVersion
 	if hi.HookKind == "joined" {
 		rs.ChangedPending = hi.RemoteUnit
@@ -186,29 +181,29 @@ func (rs *RelationState) Commit(hi HookInfo) (err error) {
 	return nil
 }
 
-// createWalk walks the supplied directory tree, creating it if it does not
-// exist, and calls the supplied function for its children, in the manner of
-// os.Walk. If the path points to anything other than a directory, or if the
-// directory is missing and cannot be created, an error is returned.
-func createWalk(dirpath string, f func(path string, fi os.FileInfo) error) error {
-	walker := func(path string, fi os.FileInfo, err error) error {
-		if path == dirpath {
-			if os.IsNotExist(err) {
-				return os.Mkdir(dirpath, 0777)
-			} else if !fi.IsDir() {
-				return fmt.Errorf("%s must be a directory", dirpath)
-			}
-			return nil
-		} else if err != nil {
-			return err
-		}
-		return f(path, fi)
+// ensureDir returns if an error if a directory does not exist, and cannot
+// be created, at path.
+func ensureDir(path string) error {
+	fi, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return os.Mkdir(path, 0777)
+	} else if !fi.IsDir() {
+		return fmt.Errorf("%s must be a directory", path)
 	}
-	return filepath.Walk(dirpath, walker)
+	return nil
 }
 
-// unitname converts a relation unit filename to a unit name.
-func unitname(filename string) (string, error) {
+// errorContextf prefixes any error stored in err with text formatted
+// according to the format specifier. If err does not contain an error,
+// errorContextf does nothing.
+func errorContextf(err *error, format string, args ...interface{}) {
+	if *err != nil {
+		*err = errors.New(fmt.Sprintf(format, args...) + ": " + (*err).Error())
+	}
+}
+
+// unitName converts a relation unit filename to a unit name.
+func unitName(filename string) (string, error) {
 	i := strings.LastIndex(filename, "-")
 	if i == -1 {
 		return "", fmt.Errorf("invalid unit filename %q", filename)

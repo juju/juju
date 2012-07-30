@@ -68,7 +68,7 @@ var badRelations = []struct {
 		`invalid unit filename "1"`,
 	}, {
 		map[string]string{"foo-1": "nonsense"},
-		`invalid unit file "foo-1": change-version: expected int, got nothing`,
+		`invalid unit file "foo-1"`,
 	}, {
 		map[string]string{
 			"foo-1": "change-version: 123\nchanged-pending: true\n",
@@ -199,7 +199,7 @@ func (s *RelationStateSuite) TestCommit(c *C) {
 			c.Logf("  hook %d", i)
 			if i == len(t.hooks)-1 && t.err != "" {
 				err = rs.Validate(hi)
-				expect := fmt.Sprintf(`invalid %q for %q: %s`, hi.HookKind, hi.RemoteUnit, t.err)
+				expect := fmt.Sprintf(`inappropriate %q for %q: %s`, hi.HookKind, hi.RemoteUnit, t.err)
 				c.Assert(err, ErrorMatches, expect)
 				err = rs.Commit(hi)
 				c.Assert(err, ErrorMatches, expect)
