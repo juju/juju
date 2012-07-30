@@ -53,7 +53,7 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {
 	id, err := s.machine.InstanceId()
-	c.Assert(err, FitsTypeOf, &state.NoInstanceIdError{})
+	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
 	c.Assert(id, Equals, "")
 }
 
@@ -64,7 +64,7 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
 	c.Assert(err, IsNil)
 
 	id, err := s.machine.InstanceId()
-	c.Assert(err, FitsTypeOf, &state.NoInstanceIdError{})
+	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
 	c.Assert(id, Equals, "")
 }
 
@@ -287,6 +287,7 @@ func unitNames(units []*state.Unit) (s []string) {
 type machineInfo struct {
 	version         version.Version
 	proposedVersion version.Version
+	instanceId      string
 }
 
 var watchMachineTests = []struct {
@@ -313,6 +314,24 @@ var watchMachineTests = []struct {
 		},
 		machineInfo{
 			proposedVersion: version.Version{0, 0, 2},
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.SetInstanceId("m-foo")
+		},
+		machineInfo{
+			proposedVersion: version.Version{0, 0, 2},
+			instanceId:      "m-foo",
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.SetInstanceId("")
+		},
+		machineInfo{
+			proposedVersion: version.Version{0, 0, 2},
+			instanceId:      "",
 		},
 	},
 	{
@@ -354,6 +373,10 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 				c.Assert(err, IsNil)
 			}
 			info.proposedVersion, err = m.ProposedAgentVersion()
+			if _, ok := err.(*state.NotFoundError); !ok {
+				c.Assert(err, IsNil)
+			}
+			info.instanceId, err = m.InstanceId()
 			if _, ok := err.(*state.NotFoundError); !ok {
 				c.Assert(err, IsNil)
 			}

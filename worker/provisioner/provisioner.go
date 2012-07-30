@@ -173,7 +173,7 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 	for _, m := range machines {
 		id, err := m.InstanceId()
 		if err != nil {
-			if _, ok := err.(*state.NoInstanceIdError); !ok {
+			if _, ok := err.(*state.NotFoundError); !ok {
 				return nil, err
 			}
 		}
@@ -192,7 +192,7 @@ func (p *Provisioner) findNotStarted(machines []*state.Machine) ([]*state.Machin
 	for _, m := range machines {
 		id, err := m.InstanceId()
 		if err != nil {
-			if _, ok := err.(*state.NoInstanceIdError); !ok {
+			if _, ok := err.(*state.NotFoundError); !ok {
 				return nil, err
 			}
 			notstarted = append(notstarted, m)
