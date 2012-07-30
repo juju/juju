@@ -14,7 +14,7 @@ import (
 )
 
 type GetCommandSuite struct {
-	UnitContextSuite
+	HookContextSuite
 }
 
 var _ = Suite(&GetCommandSuite{})
@@ -32,7 +32,7 @@ var getCommandTests = []struct {
 }
 
 func (s *GetCommandSuite) TestGetCommand(c *C) {
-	ctx := s.GetUnitContext(c, 0, "")
+	ctx := s.GetHookContext(c, 0, "")
 	for _, t := range getCommandTests {
 		com, err := ctx.NewCommand(t.name)
 		if t.err == "" {
@@ -48,7 +48,7 @@ func (s *GetCommandSuite) TestGetCommand(c *C) {
 }
 
 type RunHookSuite struct {
-	UnitContextSuite
+	HookContextSuite
 }
 
 var _ = Suite(&RunHookSuite{})
@@ -135,7 +135,7 @@ var runHookTests = []struct {
 func (s *RunHookSuite) TestRunHook(c *C) {
 	for i, t := range runHookTests {
 		c.Logf("test %d", i)
-		ctx := s.GetUnitContext(c, t.relid, t.remote)
+		ctx := s.GetHookContext(c, t.relid, t.remote)
 		var charmDir, outPath string
 		if t.perms == 0 {
 			charmDir = c.MkDir()
@@ -156,7 +156,7 @@ func (s *RunHookSuite) TestRunHook(c *C) {
 
 func (s *RunHookSuite) TestRunHookRelationFlushing(c *C) {
 	// Create a charm with a breaking hook.
-	ctx := s.GetUnitContext(c, -1, "")
+	ctx := s.GetHookContext(c, -1, "")
 	charmDir, _ := makeCharm(c, "something-happened", 0700, 123)
 
 	// Mess with multiple relation settings.
@@ -254,7 +254,7 @@ func (s *RelationContextSuite) SetUpTest(c *C) {
 }
 
 func (s *RelationContextSuite) TestUpdateMembers(c *C) {
-	ctx := server.NewRelationContext(s.State, s.ru, nil)
+	ctx := server.NewRelationContext(s.ru, nil)
 	c.Assert(ctx.Units(), HasLen, 0)
 
 	// Check the units and settings after a simple update.
@@ -296,7 +296,7 @@ func (s *RelationContextSuite) TestMemberCaching(c *C) {
 	node.Set("ping", "pong")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
-	ctx := server.NewRelationContext(s.State, s.ru, map[string]int{"u/1": 0})
+	ctx := server.NewRelationContext(s.ru, map[string]int{"u/1": 0})
 
 	// Check that uncached settings are read from state.
 	settings, err := ctx.ReadSettings("u/1")
@@ -337,7 +337,7 @@ func (s *RelationContextSuite) TestNonMemberCaching(c *C) {
 	node.Set("ping", "pong")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
-	ctx := server.NewRelationContext(s.State, s.ru, nil)
+	ctx := server.NewRelationContext(s.ru, nil)
 
 	// Check that settings are read from state.
 	settings, err := ctx.ReadSettings("u/1")
@@ -362,7 +362,7 @@ func (s *RelationContextSuite) TestNonMemberCaching(c *C) {
 }
 
 func (s *RelationContextSuite) TestSettings(c *C) {
-	ctx := server.NewRelationContext(s.State, s.ru, nil)
+	ctx := server.NewRelationContext(s.ru, nil)
 
 	// Change Settings, then flush without writing.
 	node, err := ctx.Settings()

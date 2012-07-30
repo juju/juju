@@ -12,7 +12,7 @@ import (
 )
 
 type JujuLogSuite struct {
-	UnitContextSuite
+	HookContextSuite
 }
 
 var _ = Suite(&JujuLogSuite{})
@@ -41,7 +41,7 @@ var commonLogTests = []struct {
 	{true, true, "JUJU:DEBUG"},
 }
 
-func assertLogs(c *C, ctx *server.UnitContext, badge string) {
+func assertLogs(c *C, ctx *server.HookContext, badge string) {
 	msg1 := "the chickens"
 	msg2 := "are 110% AWESOME"
 	com, err := ctx.NewCommand("juju-log")
@@ -69,14 +69,14 @@ func assertLogs(c *C, ctx *server.UnitContext, badge string) {
 }
 
 func (s *JujuLogSuite) TestBadges(c *C) {
-	uctx := s.GetUnitContext(c, -1, "")
-	assertLogs(c, uctx, "u/0")
-	uctx = s.GetUnitContext(c, 1, "u/1")
-	assertLogs(c, uctx, "u/0 peer1:1")
+	hctx := s.GetHookContext(c, -1, "")
+	assertLogs(c, hctx, "u/0")
+	hctx = s.GetHookContext(c, 1, "u/1")
+	assertLogs(c, hctx, "u/0 peer1:1")
 }
 
 func (s *JujuLogSuite) TestRequiresMessage(c *C) {
-	ctx := &server.UnitContext{}
+	ctx := &server.HookContext{}
 	com, err := ctx.NewCommand("juju-log")
 	c.Assert(err, IsNil)
 	err = com.Init(dummyFlagSet(), nil)

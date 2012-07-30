@@ -8,13 +8,13 @@ import (
 )
 
 type ConfigGetSuite struct {
-	UnitContextSuite
+	HookContextSuite
 }
 
 var _ = Suite(&ConfigGetSuite{})
 
 func (s *ConfigGetSuite) SetUpTest(c *C) {
-	s.UnitContextSuite.SetUpTest(c)
+	s.HookContextSuite.SetUpTest(c)
 	conf, err := s.service.Config()
 	c.Assert(err, IsNil)
 	conf.Update(map[string]interface{}{
@@ -46,8 +46,8 @@ var configGetTests = []struct {
 
 func (s *ConfigGetSuite) TestOutputFormat(c *C) {
 	for _, t := range configGetTests {
-		uctx := s.GetUnitContext(c, -1, "")
-		com, err := uctx.NewCommand("config-get")
+		hctx := s.GetHookContext(c, -1, "")
+		com, err := hctx.NewCommand("config-get")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, t.args)
@@ -69,8 +69,8 @@ var configGetTestModeTests = []struct {
 
 func (s *ConfigGetSuite) TestTestMode(c *C) {
 	for _, t := range configGetTestModeTests {
-		uctx := s.GetUnitContext(c, -1, "")
-		com, err := uctx.NewCommand("config-get")
+		hctx := s.GetHookContext(c, -1, "")
+		com, err := hctx.NewCommand("config-get")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, t.args)
@@ -81,8 +81,8 @@ func (s *ConfigGetSuite) TestTestMode(c *C) {
 }
 
 func (s *ConfigGetSuite) TestHelp(c *C) {
-	uctx := s.GetUnitContext(c, -1, "")
-	com, err := uctx.NewCommand("config-get")
+	hctx := s.GetHookContext(c, -1, "")
+	com, err := hctx.NewCommand("config-get")
 	c.Assert(err, IsNil)
 	ctx := dummyContext(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
@@ -104,8 +104,8 @@ If a key is given, only the value for that key will be printed.
 }
 
 func (s *ConfigGetSuite) TestOutputPath(c *C) {
-	uctx := s.GetUnitContext(c, -1, "")
-	com, err := uctx.NewCommand("config-get")
+	hctx := s.GetHookContext(c, -1, "")
+	com, err := hctx.NewCommand("config-get")
 	c.Assert(err, IsNil)
 	ctx := dummyContext(c)
 	code := cmd.Main(com, ctx, []string{"--output", "some-file", "monsters"})
@@ -118,8 +118,8 @@ func (s *ConfigGetSuite) TestOutputPath(c *C) {
 }
 
 func (s *ConfigGetSuite) TestUnknownArg(c *C) {
-	uctx := s.GetUnitContext(c, -1, "")
-	com, err := uctx.NewCommand("config-get")
+	hctx := s.GetHookContext(c, -1, "")
+	com, err := hctx.NewCommand("config-get")
 	c.Assert(err, IsNil)
 	err = com.Init(dummyFlagSet(), []string{"multiple", "keys"})
 	c.Assert(err, ErrorMatches, `unrecognized args: \["keys"\]`)

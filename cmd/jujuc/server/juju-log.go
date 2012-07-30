@@ -10,13 +10,13 @@ import (
 
 // JujuLogCommand implements the juju-log command.
 type JujuLogCommand struct {
-	*UnitContext
+	*HookContext
 	Message string
 	Debug   bool
 }
 
-func NewJujuLogCommand(ctx *UnitContext) (cmd.Command, error) {
-	return &JujuLogCommand{UnitContext: ctx}, nil
+func NewJujuLogCommand(ctx *HookContext) (cmd.Command, error) {
+	return &JujuLogCommand{HookContext: ctx}, nil
 }
 
 func (c *JujuLogCommand) Info() *cmd.Info {

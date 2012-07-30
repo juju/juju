@@ -25,7 +25,7 @@ func bufferString(w io.Writer) string {
 	return w.(*bytes.Buffer).String()
 }
 
-type UnitContextSuite struct {
+type HookContextSuite struct {
 	testing.StateSuite
 	ch       *state.Charm
 	service  *state.Service
@@ -34,7 +34,7 @@ type UnitContextSuite struct {
 	relctxs  map[int]*server.RelationContext
 }
 
-func (s *UnitContextSuite) SetUpTest(c *C) {
+func (s *HookContextSuite) SetUpTest(c *C) {
 	s.StateSuite.SetUpTest(c)
 	s.ch = s.AddTestingCharm(c, "dummy")
 	var err error
@@ -50,7 +50,7 @@ func (s *UnitContextSuite) SetUpTest(c *C) {
 	s.AddRelationContext(c, "peer1")
 }
 
-func (s *UnitContextSuite) AddRelationContext(c *C, name string) {
+func (s *HookContextSuite) AddRelationContext(c *C, name string) {
 	ep := state.RelationEndpoint{
 		s.service.Name(), "ifce", name, state.RolePeer, charm.ScopeGlobal,
 	}
@@ -63,16 +63,16 @@ func (s *UnitContextSuite) AddRelationContext(c *C, name string) {
 	c.Assert(err, IsNil)
 	err = p.Kill()
 	c.Assert(err, IsNil)
-	s.relctxs[rel.Id()] = server.NewRelationContext(s.State, ru, nil)
+	s.relctxs[rel.Id()] = server.NewRelationContext(ru, nil)
 }
 
-func (s *UnitContextSuite) GetUnitContext(c *C, relid int, remote string) *server.UnitContext {
+func (s *HookContextSuite) GetHookContext(c *C, relid int, remote string) *server.HookContext {
 	if relid != -1 {
 		_, found := s.relctxs[relid]
 		c.Assert(found, Equals, true)
 	}
-	return &server.UnitContext{
-		State:          s.State,
+	return &server.HookContext{
+		Service:        s.service,
 		Unit:           s.unit,
 		Id:             "TestCtx",
 		RelationId:     relid,

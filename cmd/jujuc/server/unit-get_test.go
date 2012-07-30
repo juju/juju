@@ -8,13 +8,13 @@ import (
 )
 
 type UnitGetSuite struct {
-	UnitContextSuite
+	HookContextSuite
 }
 
 var _ = Suite(&UnitGetSuite{})
 
 func (s *UnitGetSuite) SetUpTest(c *C) {
-	s.UnitContextSuite.SetUpTest(c)
+	s.HookContextSuite.SetUpTest(c)
 	err := s.unit.SetPublicAddress("gimli.minecraft.example.com")
 	c.Assert(err, IsNil)
 	err = s.unit.SetPrivateAddress("192.168.0.99")
@@ -35,8 +35,8 @@ var unitGetTests = []struct {
 
 func (s *UnitGetSuite) TestOutputFormat(c *C) {
 	for _, t := range unitGetTests {
-		uctx := s.GetUnitContext(c, -1, "")
-		com, err := uctx.NewCommand("unit-get")
+		hctx := s.GetHookContext(c, -1, "")
+		com, err := hctx.NewCommand("unit-get")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, t.args)
@@ -48,8 +48,8 @@ func (s *UnitGetSuite) TestOutputFormat(c *C) {
 
 func (s *UnitGetSuite) TestTestMode(c *C) {
 	for _, key := range []string{"public-address", "private-address"} {
-		uctx := s.GetUnitContext(c, -1, "")
-		com, err := uctx.NewCommand("unit-get")
+		hctx := s.GetHookContext(c, -1, "")
+		com, err := hctx.NewCommand("unit-get")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, []string{"--test", key})
@@ -60,8 +60,8 @@ func (s *UnitGetSuite) TestTestMode(c *C) {
 }
 
 func (s *UnitGetSuite) TestHelp(c *C) {
-	uctx := s.GetUnitContext(c, -1, "")
-	com, err := uctx.NewCommand("unit-get")
+	hctx := s.GetHookContext(c, -1, "")
+	com, err := hctx.NewCommand("unit-get")
 	c.Assert(err, IsNil)
 	ctx := dummyContext(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
@@ -81,8 +81,8 @@ options:
 }
 
 func (s *UnitGetSuite) TestOutputPath(c *C) {
-	uctx := s.GetUnitContext(c, -1, "")
-	com, err := uctx.NewCommand("unit-get")
+	hctx := s.GetHookContext(c, -1, "")
+	com, err := hctx.NewCommand("unit-get")
 	c.Assert(err, IsNil)
 	ctx := dummyContext(c)
 	code := cmd.Main(com, ctx, []string{"--output", "some-file", "private-address"})
@@ -95,16 +95,16 @@ func (s *UnitGetSuite) TestOutputPath(c *C) {
 }
 
 func (s *UnitGetSuite) TestUnknownSetting(c *C) {
-	uctx := s.GetUnitContext(c, -1, "")
-	com, err := uctx.NewCommand("unit-get")
+	hctx := s.GetHookContext(c, -1, "")
+	com, err := hctx.NewCommand("unit-get")
 	c.Assert(err, IsNil)
 	err = com.Init(dummyFlagSet(), []string{"protected-address"})
 	c.Assert(err, ErrorMatches, `unknown setting "protected-address"`)
 }
 
 func (s *UnitGetSuite) TestUnknownArg(c *C) {
-	uctx := s.GetUnitContext(c, -1, "")
-	com, err := uctx.NewCommand("unit-get")
+	hctx := s.GetHookContext(c, -1, "")
+	com, err := hctx.NewCommand("unit-get")
 	c.Assert(err, IsNil)
 	err = com.Init(dummyFlagSet(), []string{"private-address", "blah"})
 	c.Assert(err, ErrorMatches, `unrecognized args: \["blah"\]`)

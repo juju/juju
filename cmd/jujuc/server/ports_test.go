@@ -7,7 +7,7 @@ import (
 )
 
 type PortsSuite struct {
-	UnitContextSuite
+	HookContextSuite
 }
 
 var _ = Suite(&PortsSuite{})
@@ -25,8 +25,8 @@ var portsTests = []struct {
 
 func (s *PortsSuite) TestOpenClose(c *C) {
 	for _, t := range portsTests {
-		uctx := s.GetUnitContext(c, -1, "")
-		com, err := uctx.NewCommand(t.cmd[0])
+		hctx := s.GetHookContext(c, -1, "")
+		com, err := hctx.NewCommand(t.cmd[0])
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, t.cmd[1:])
@@ -55,8 +55,8 @@ var badPortsTests = []struct {
 func (s *PortsSuite) TestBadArgs(c *C) {
 	for _, name := range []string{"open-port", "close-port"} {
 		for _, t := range badPortsTests {
-			uctx := s.GetUnitContext(c, -1, "")
-			com, err := uctx.NewCommand(name)
+			hctx := s.GetHookContext(c, -1, "")
+			com, err := hctx.NewCommand(name)
 			c.Assert(err, IsNil)
 			err = com.Init(dummyFlagSet(), t.args)
 			c.Assert(err, ErrorMatches, t.err)
@@ -65,8 +65,8 @@ func (s *PortsSuite) TestBadArgs(c *C) {
 }
 
 func (s *PortsSuite) TestHelp(c *C) {
-	uctx := s.GetUnitContext(c, -1, "")
-	open, err := uctx.NewCommand("open-port")
+	hctx := s.GetHookContext(c, -1, "")
+	open, err := hctx.NewCommand("open-port")
 	c.Assert(err, IsNil)
 	c.Assert(string(open.Info().Help(dummyFlagSet())), Equals, `
 usage: open-port <port>[/<protocol>]
@@ -75,7 +75,7 @@ purpose: register a port to open
 The port will only be open while the service is exposed.
 `[1:])
 
-	close, err := uctx.NewCommand("close-port")
+	close, err := hctx.NewCommand("close-port")
 	c.Assert(err, IsNil)
 	c.Assert(string(close.Info().Help(dummyFlagSet())), Equals, `
 usage: close-port <port>[/<protocol>]
