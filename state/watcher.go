@@ -432,8 +432,6 @@ func (w *MachineUnitsWatcher) done() {
 }
 
 // MachineWatcher observes changes to the settings of a machine.
-// Currently, alterations to AgentVersion, ProposedAgentVersion
-// and InstanceId will trigger a message on the Changes channel.
 type MachineWatcher struct {
 	contentWatcher
 	m          *Machine
