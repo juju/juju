@@ -64,8 +64,7 @@ func (m *Machine) SetInstanceId(id string) (err error) {
 }
 
 // InstanceId returns the provider specific machine id for this machine.
-// If the id is not set, or its value is "" an error of type NotFoundError
-// will be returned.
+// If the id is not set, it returns a *NotFoundError.
 func (m *Machine) InstanceId() (string, error) {
 	instanceId, err := getConfigString(m.st.zk, m.zkPath(), providerMachineId,
 		"instance id of machine %v", m.String())
