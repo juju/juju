@@ -6,6 +6,7 @@ package server
 import (
 	"fmt"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"os"
 	"os/exec"
@@ -89,15 +90,24 @@ func (ctx *UnitContext) RunHook(hookName, charmDir, socketPath string) error {
 	ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
 	ps.Env = ctx.hookVars(charmDir, socketPath)
 	ps.Dir = charmDir
-	if err := ps.Run(); err != nil {
-		if ee, ok := err.(*exec.Error); ok {
-			if os.IsNotExist(ee.Err) {
-				return nil
+	err := ps.Run()
+	if ee, ok := err.(*exec.Error); ok && err != nil {
+		if os.IsNotExist(ee.Err) {
+			// Nothing happened at all: no need to flush, just return.
+			return nil
+		}
+	}
+	write := err == nil
+	for id, rctx := range ctx.Relations {
+		if e := rctx.Flush(write); e != nil {
+			if err == nil {
+				err = e
+			} else {
+				log.Printf("cannot flush context for relation %d: %v", id, e)
 			}
 		}
-		return err
 	}
-	return nil
+	return err
 }
 
 // relationIdentifiers returns the relation name and identifier exposed to

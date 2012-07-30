@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/state"
 	"strconv"
 	"strings"
 )
@@ -14,9 +13,9 @@ const portFormat = "<port>[/<protocol>]"
 
 // portCommand implements the open-port and close-port commands.
 type portCommand struct {
-	*ClientContext
+	*UnitContext
 	info     *cmd.Info
-	action   func(*state.Unit, string, int) error
+	action   func(*portCommand) error
 	Protocol string
 	Port     int
 }
@@ -61,11 +60,7 @@ func (c *portCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *portCommand) Run(_ *cmd.Context) error {
-	unit, err := c.State.Unit(c.LocalUnitName)
-	if err != nil {
-		return err
-	}
-	return c.action(unit, c.Protocol, c.Port)
+	return c.action(c)
 }
 
 var openPortInfo = &cmd.Info{
@@ -73,14 +68,13 @@ var openPortInfo = &cmd.Info{
 	"The port will only be open while the service is exposed.",
 }
 
-func NewOpenPortCommand(ctx *ClientContext) (cmd.Command, error) {
-	if err := ctx.check(); err != nil {
-		return nil, err
-	}
+func NewOpenPortCommand(ctx *UnitContext) (cmd.Command, error) {
 	return &portCommand{
-		ClientContext: ctx,
-		info:          openPortInfo,
-		action:        (*state.Unit).OpenPort,
+		UnitContext: ctx,
+		info:        openPortInfo,
+		action: func(c *portCommand) error {
+			return c.Unit.OpenPort(c.Protocol, c.Port)
+		},
 	}, nil
 }
 
@@ -88,13 +82,12 @@ var closePortInfo = &cmd.Info{
 	"close-port", portFormat, "ensure a port is always closed", "",
 }
 
-func NewClosePortCommand(ctx *ClientContext) (cmd.Command, error) {
-	if err := ctx.check(); err != nil {
-		return nil, err
-	}
+func NewClosePortCommand(ctx *UnitContext) (cmd.Command, error) {
 	return &portCommand{
-		ClientContext: ctx,
-		info:          closePortInfo,
-		action:        (*state.Unit).ClosePort,
+		UnitContext: ctx,
+		info:        closePortInfo,
+		action: func(c *portCommand) error {
+			return c.Unit.ClosePort(c.Protocol, c.Port)
+		},
 	}, nil
 }
