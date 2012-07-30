@@ -25,13 +25,13 @@ func (s *Service) Name() string {
 // to use.
 func (s *Service) CharmURL() (url *charm.URL, err error) {
 	surl, err := getConfigString(s.st.zk, s.zkPath(), "charm",
-		"charm URL of service %v", s)
+		"charm URL of service %q", s)
 	if err != nil {
 		return nil, err
 	}
 	url, err = charm.ParseURL(surl)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse charm URL of service %q: %v", err)
+		return nil, fmt.Errorf("failed to parse charm URL of service %q: %v", s, err)
 	}
 	return url, err
 }

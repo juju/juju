@@ -100,6 +100,14 @@ func (t configTest) check(c *C) {
 	if t.accessKey != "" {
 		c.Assert(ecfg.accessKey(), Equals, t.accessKey)
 		c.Assert(ecfg.secretKey(), Equals, t.secretKey)
+		expected := map[string]interface{}{
+			"access-key": t.accessKey,
+			"secret-key": t.secretKey,
+		}
+		c.Assert(err, IsNil)
+		actual, err := e.Provider().SecretAttrs(ecfg.Config)
+		c.Assert(err, IsNil)
+		c.Assert(expected, DeepEquals, actual)
 	} else {
 		c.Assert(ecfg.accessKey(), DeepEquals, testAuth.AccessKey)
 		c.Assert(ecfg.secretKey(), DeepEquals, testAuth.SecretKey)
@@ -184,6 +192,10 @@ var configTests = []configTest{
 			"secret-key": "badness",
 		},
 		err: ".*environment has no access-key or secret-key",
+	}, {
+		config: attrs{
+			"admin-secret": "Futumpsh",
+		},
 	},
 }
 

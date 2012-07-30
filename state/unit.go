@@ -167,7 +167,7 @@ func (u *Unit) CharmURL() (url *charm.URL, err error) {
 	}
 	url, err = charm.ParseURL(surl)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse charm URL of unit %q: %v", err)
+		return nil, fmt.Errorf("failed to parse charm URL of unit %q: %v", u, err)
 	}
 	return url, err
 }
@@ -175,7 +175,7 @@ func (u *Unit) CharmURL() (url *charm.URL, err error) {
 // SetCharmURL changes the charm URL for the unit.
 func (u *Unit) SetCharmURL(url *charm.URL) (err error) {
 	return setConfigString(u.st.zk, u.zkPath(), "charm", url.String(),
-		"charm URL of unit %v", u)
+		"charm URL of unit %q", u)
 }
 
 // IsPrincipal returns whether the unit is deployed in its own container,
@@ -545,9 +545,9 @@ func parseUnitName(name string) (serviceName string, serviceSeq int, err error) 
 	if len(parts) != 2 {
 		return "", 0, fmt.Errorf("%q is not a valid unit name", name)
 	}
-	seq, err := strconv.ParseInt(parts[1], 10, 0)
+	seq, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return "", 0, err
+		return "", 0, fmt.Errorf("%q is not a valid unit name", name)
 	}
 	return parts[0], int(seq), nil
 }

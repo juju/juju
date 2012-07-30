@@ -22,14 +22,9 @@ type Provisioner struct {
 }
 
 // NewProvisioner returns a Provisioner.
-func NewProvisioner(info *state.Info) (*Provisioner, error) {
-	st, err := state.Open(info)
-	if err != nil {
-		return nil, err
-	}
+func NewProvisioner(st *state.State) (*Provisioner, error) {
 	p := &Provisioner{
 		st:        st,
-		info:      info,
 		instances: make(map[int]environs.Instance),
 		machines:  make(map[string]*state.Machine),
 	}
@@ -39,7 +34,6 @@ func NewProvisioner(info *state.Info) (*Provisioner, error) {
 
 func (p *Provisioner) loop() {
 	defer p.tomb.Done()
-	defer p.st.Close()
 	environWatcher := p.st.WatchEnvironConfig()
 	defer watcher.Stop(environWatcher, &p.tomb)
 
@@ -112,6 +106,11 @@ refreshState:
 			}
 		}
 	}
+}
+
+// Dying returns a channel that signals a Provisioners exit.
+func (p *Provisioner) Dying() <-chan struct{} {
+	return p.tomb.Dying()
 }
 
 // Wait waits for the Provisioner to exit.

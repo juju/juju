@@ -12,8 +12,15 @@ import (
 
 // Container contains running juju service units.
 type Container interface {
-	Deploy(*state.Unit) error
-	Destroy(*state.Unit) error
+	// Deploy deploys the unit into a new container.
+	Deploy(unit *state.Unit) error
+
+	// Destroy destroys the unit's container.
+	Destroy(unit *state.Unit) error
+
+	// ToolsDir returns the directory that the tools binaries
+	// are stored in for the given unit.
+	ToolsDir(*state.Unit) string
 }
 
 // Simple is an instance of Container that knows how deploy units within
@@ -79,4 +86,8 @@ func (simpleContainer) Destroy(unit *state.Unit) error {
 		return err
 	}
 	return os.RemoveAll(dirName(unit))
+}
+
+func (simpleContainer) ToolsDir(*state.Unit) string {
+	return "/var/lib/juju/tools"
 }

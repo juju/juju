@@ -60,7 +60,7 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 // SetInstanceId sets the provider specific machine id for this machine.
 func (m *Machine) SetInstanceId(id string) (err error) {
 	return setConfigString(m.st.zk, m.zkPath(), providerMachineId, id,
-		"instance id of machine %v", m.String())
+		"instance id of machine %v", m)
 }
 
 // InstanceId returns the provider specific machine id for this machine.

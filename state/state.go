@@ -358,11 +358,11 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (rel *Relation, err e
 	err = retryTopologyChange(s.zk, func(t *topology) error {
 		relation := &topoRelation{
 			Interface: endpoints[0].Interface,
-			Scope:     ScopeGlobal,
+			Scope:     charm.ScopeGlobal,
 		}
 		for _, endpoint := range endpoints {
-			if endpoint.RelationScope == ScopeContainer {
-				relation.Scope = ScopeContainer
+			if endpoint.RelationScope == charm.ScopeContainer {
+				relation.Scope = charm.ScopeContainer
 			}
 			serviceKey, err := t.ServiceKey(endpoint.ServiceName)
 			if err != nil {
