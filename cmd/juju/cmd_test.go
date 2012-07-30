@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -170,7 +171,10 @@ func (*cmdSuite) TestBootstrapCommand(c *C) {
 	env, err := envs.Open("peckham")
 	c.Assert(err, IsNil)
 	dir := c.MkDir()
-	err = environs.GetTools(env, dir)
+
+	toolset, err := environs.FindToolset(env, version.Current)
+	c.Assert(err, IsNil)
+	err = environs.GetToolset(toolset.URL, dir)
 	c.Assert(err, IsNil)
 
 	// bootstrap with broken environment

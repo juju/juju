@@ -4,11 +4,19 @@ package version
 
 import (
 	"fmt"
+	"io/ioutil"
 	"regexp"
+	"runtime"
 	"strconv"
+	"strings"
 )
 
-var Current = MustParse("0.0.0")
+// Current gives the current version of the system.
+var Current = BinaryVersion{
+	Version: MustParse("0.0.1"),
+	Series:  readSeries("/etc/lsb-release"), // current Ubuntu release name.  
+	Arch: ubuntuArch(runtime.GOARCH),
+}
 
 // Version represents a juju version. When bugs are
 // fixed the patch number is incremented; when new features are added
@@ -20,6 +28,13 @@ type Version struct {
 	Major int
 	Minor int
 	Patch int
+}
+
+// BinaryVersion specifies a binary version of juju.
+type BinaryVersion struct {
+	Version
+	Series string
+	Arch   string
 }
 
 var versionPat = regexp.MustCompile(`^(\d{1,9})\.(\d{1,9})\.(\d{1,9})$`)
@@ -86,4 +101,25 @@ func isOdd(x int) bool {
 // or patch version is considered to be a development version.
 func (v Version) IsDev() bool {
 	return isOdd(v.Major) || isOdd(v.Minor) || isOdd(v.Patch)
+}
+
+func readSeries(releaseFile string) string {
+	data, err := ioutil.ReadFile(releaseFile)
+	if err != nil {
+		return "unknown"
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		const p = "DISTRIB_CODENAME="
+		if strings.HasPrefix(line, p) {
+			return strings.Trim(line[len(p):], "\t '\"")
+		}
+	}
+	return "unknown"
+}
+
+func ubuntuArch(arch string) string {
+	if arch == "386" {
+		arch = "i386"
+	}
+	return arch
 }

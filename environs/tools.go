@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/version"
 	"os"
@@ -21,31 +20,28 @@ var toolPrefix = "tools/juju-"
 
 var toolFilePat = regexp.MustCompile(`^` + toolPrefix + `(\d+\.\d+\.\d+)-([^-]+)-([^-]+)\.tgz$`)
 
-// Tools describes a given version of the juju tools and where
-// to find them.
-type Tools struct {
-	Version version.Version
-	Arch string
-	Series string
+// Toolset describes a particular set of juju tools and where to find them.
+type Toolset struct {
+	version.BinaryVersion
 	URL string
 }
 
-// ListTools returns all the tools found in the given storage
+// ListToolsets returns all the toolsets found in the given storage
 // that have the given major version.
-func ListTools(store StorageReader, majorVersion int) ([]Tools, error) {
+func ListToolsets(store StorageReader, majorVersion int) ([]*Toolset, error) {
 	dir := fmt.Sprintf("%s%d.", toolPrefix, majorVersion)
 	names, err := store.List(dir)
 	if err != nil {
 		return nil, err
 	}
-	var tools []Tools
+	var tools []*Toolset
 	for _, name := range names {
 		m := toolFilePat.FindStringSubmatch(name)
 		if m == nil {
 			log.Printf("unexpected tools file found %q", name)
 			continue
 		}
-		var t Tools
+		var t Toolset
 		t.Version, err = version.Parse(m[1])
 		if err != nil {
 			log.Printf("failed to parse version %q: %v", name, err)
@@ -62,46 +58,49 @@ func ListTools(store StorageReader, majorVersion int) ([]Tools, error) {
 			log.Printf("cannot get URL for %q: %v", name, err)
 			continue
 		}
-		tools = append(tools, t)
+		tools = append(tools, &t)
 	}
 	return tools, nil
 }
 
-// ToolsPath returns the path that is used to store and
-// retrieve the juju tools in a Storage.
-func ToolsPath(v version.Version, series, arch string) string {
-	return fmt.Sprintf(toolPrefix+"%v-%s-%s.tgz", v, series, arch)
-}
-
-// PutTools uploads the current version of the juju tools
-// executables to the given storage.
+// PutToolset uploads the current version of the juju tools
+// executables to the given storage and returns a Toolset
+// describing them.
 // TODO find binaries from $PATH when not using a development
 // version of juju within a $GOPATH.
-func PutTools(storage StorageWriter) error {
+func PutToolset(storage Storage) (*Toolset, error) {
 	// We create the entire archive before asking the environment to
 	// start uploading so that we can be sure we have archived
 	// correctly.
 	f, err := ioutil.TempFile("", "juju-tgz")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer f.Close()
 	defer os.Remove(f.Name())
-	err = bundleTools(f)
+	err = bundleToolset(f)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	_, err = f.Seek(0, 0)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("cannot seek to start of tools archive: %v", err)
 	}
 	fi, err := f.Stat()
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("cannot stat newly made tools archive: %v", err)
 	}
-	p := ToolsPath(version.Current, config.CurrentSeries, config.CurrentArch)
+	p := ToolsetPath(version.Current)
 	log.Printf("environs: putting tools %v", p)
-	return storage.Put(p, f, fi.Size())
+	err = storage.Put(p, f, fi.Size())
+	if err != nil {
+		return nil, err
+	}
+	url, err := storage.URL(p)
+	if err != nil {
+		return nil, err
+	}
+	return &Toolset{version.Current, url}, nil
 }
 
 // archive writes the executable files found in the given directory in
@@ -179,36 +178,28 @@ func closeErrorCheck(errp *error, c io.Closer) {
 	}
 }
 
-type toolsSpec struct {
-	vers   version.Version
-	series string
-	arch   string
-}
-
-// BestTools the most recent tools compatible with the
-// given version, series and architecture. It returns *NotFoundError
-// if no tools were found.
-func BestTools(toolsList []Tools, version version.Version, series, arch string) (*Tools, error) {
-	var bestTools *Tools
+// BestToolset the most recent toolset compatible with the
+// given specification. It returns nil if nothing appropriate
+// was found.
+func BestToolset(toolsList []*Toolset, vers version.BinaryVersion) *Toolset {
+	var bestTools *Toolset
 	for _, t := range toolsList {
 		t := t
-		if t.Version.Major != version.Major ||
-			t.Series != series ||
-			t.Arch != arch {
+		if t.Version.Major != vers.Version.Major ||
+			t.Series != vers.Series ||
+			t.Arch != vers.Arch {
 			continue
 		}
 		if bestTools == nil || bestTools.Version.Less(t.Version) {
-			bestTools = &t
+			bestTools = t
 		}
 	}
-	if bestTools == nil {
-		return nil, &NotFoundError{fmt.Errorf("no compatible tools found")}
-	}
-	return bestTools, nil
+	return bestTools
 }
 
-// GetTools fetches tools from the given URL and downloads them into the given directory.
-func GetTools(url, dir string) error {
+// GetToolset downloads a toolset from the given URL
+// into the given directory.
+func GetToolset(url, dir string) error {
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
@@ -242,63 +233,39 @@ func GetTools(url, dir string) error {
 	panic("not reached")
 }
 
-// findToolsPath is an internal version of FindTools that returns the
-// storage where the tools were found, and the path within that storage.
-func findTools(env Environ, spec toolsSpec) (storage StorageReader, path string, err error) {
-	storage = env.Storage()
-	path, err = findToolsPath(storage, spec)
-	if _, ok := err.(*NotFoundError); ok {
-		storage = env.PublicStorage()
-		path, err = findToolsPath(storage, spec)
-	}
-	if err != nil {
-		return nil, "", err
-	}
-	return
+// ToolsetPath returns path that is used to store and
+// retrieve the given version of the juju tools in a Storage.
+func ToolsetPath(vers version.BinaryVersion) string {
+	return fmt.Sprintf(toolPrefix+"%v-%s-%s.tgz",
+		vers.Version,
+		vers.Series,
+		vers.Arch)
 }
 
-// findToolsPath looks for the tools in the given storage.
-func findToolsPath(store StorageReader, spec toolsSpec) (path string, err error) {
-	names, err := store.List(fmt.Sprintf("%s%d.", toolPrefix, spec.vers.Major))
-	log.Printf("findTools searching for %v in %q", spec, names)
+// FindToolset tries to find a set of tools compatible
+// with the given version from the given environment.
+// If no tools are found and there's no other error, a NotFoundError
+// is returned.
+func FindToolset(env Environ, vers version.BinaryVersion) (*Toolset, error) {
+	// If there's anything compatible in the environ's Storage,
+	// it gets precedence over anything in its PublicStorage.
+	toolsets, err := ListToolsets(env.Storage(), vers.Major)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	if len(names) == 0 {
-		return "", &NotFoundError{fmt.Errorf("no compatible tools found")}
+	toolset := BestToolset(toolsets, vers)
+	if toolset != nil {
+		return toolset, nil
 	}
-	bestVersion := version.Version{Major: -1}
-	bestName := ""
-	for _, name := range names {
-		m := toolFilePat.FindStringSubmatch(name)
-		if m == nil {
-			log.Printf("unexpected tools file found %q", name)
-			continue
-		}
-		vers, err := version.Parse(m[1])
-		if err != nil {
-			log.Printf("failed to parse version %q: %v", name, err)
-			continue
-		}
-		if m[2] != spec.series {
-			continue
-		}
-		// TODO allow different architectures.
-		if m[3] != spec.arch {
-			continue
-		}
-		if vers.Major != spec.vers.Major {
-			continue
-		}
-		if bestVersion.Less(vers) {
-			bestVersion = vers
-			bestName = name
-		}
+	toolsets, err = ListToolsets(env.PublicStorage(), vers.Major)
+	if err != nil {
+		return nil, err
 	}
-	if bestVersion.Major < 0 {
-		return "", &NotFoundError{fmt.Errorf("no compatible tools found")}
+	toolset = BestToolset(toolsets, vers)
+	if toolset == nil {
+		return nil, &NotFoundError{fmt.Errorf("no compatible tools found")}
 	}
-	return bestName, nil
+	return toolset, nil
 }
 
 func setenv(env []string, val string) []string {
@@ -312,9 +279,9 @@ func setenv(env []string, val string) []string {
 	return append(env, val)
 }
 
-// bundleTools bundles all the current juju tools in gzipped tar
+// bundleToolset bundles all the current juju tools in gzipped tar
 // format to the given writer.
-func bundleTools(w io.Writer) error {
+func bundleToolset(w io.Writer) error {
 	dir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
 		return err

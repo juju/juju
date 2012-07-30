@@ -47,23 +47,29 @@ func mkVersion(vers string) version.Version {
 }
 
 func mkToolsPath(vers string) string {
-	return environs.ToolsPath(mkVersion(vers), config.CurrentSeries, config.CurrentArch)
+	return environs.ToolsetPath(version.BinaryVersion{
+		Version: mkVersion(vers),
+		Series: config.CurrentSeries,
+		Arch: config.CurrentArch,
+	})
 }
 
 var _ = Suite(&ToolsSuite{})
 
 func (t *ToolsSuite) TestPutTools(c *C) {
-	err := environs.PutTools(t.env.Storage())
+	toolset, err := environs.PutToolset(t.env.Storage())
 	c.Assert(err, IsNil)
+	c.Assert(toolset.BinaryVersion, Equals, version.Current)
+	c.Assert(toolset.URL, Not(Equals), "")
 
-	for i, getTools := range []func(environs.Environ, string) error{
-		environs.GetTools,
+	for i, getTools := range []func(url, dir string) error {
+		environs.GetToolset,
 		getToolsWithTar,
 	} {
 		c.Logf("test %d", i)
 		// Unarchive the tool executables into a temp directory.
 		dir := c.MkDir()
-		err = getTools(t.env, dir)
+		err = getTools(toolset.URL, dir)
 		c.Assert(err, IsNil)
 
 		// Verify that each tool executes and produces some
@@ -81,19 +87,18 @@ func (t *ToolsSuite) TestPutTools(c *C) {
 // getToolsWithTar is the same as GetTools but uses tar
 // itself so we're not just testing the Go tar package against
 // itself.
-func getToolsWithTar(env environs.Environ, dir string) error {
-	// TODO search the store for the right tools.
-	r, err := env.Storage().Get(currentToolsPath)
+func getToolsWithTar(url, dir string) error {
+	resp, err := http.Get(url)
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer resp.Body.Close()
 
 	// unarchive using actual tar command so we're
 	// not just verifying the Go tar package against itself.
 	cmd := exec.Command("tar", "xz")
 	cmd.Dir = dir
-	cmd.Stdin = r
+	cmd.Stdin = resp.Body
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("tar extract failed: %s", out)
@@ -117,7 +122,8 @@ func (t *ToolsSuite) TestUploadBadBuild(c *C) {
 	defer os.Setenv("GOPATH", os.Getenv("GOPATH"))
 	os.Setenv("GOPATH", gopath)
 
-	err = environs.PutTools(t.env.Storage())
+	toolset, err := environs.PutToolset(t.env.Storage())
+	c.Assert(toolset, IsNil)
 	c.Assert(err, ErrorMatches, `build failed: exit status 1; can't load package:(.|\n)*`)
 }
 
@@ -135,7 +141,7 @@ var findToolsTests = []struct {
 	err            string          // the error we expect to find (if not blank).
 }{{
 	// current version should be satisfied by current tools path.
-	version:  version.Current,
+	version:  version.Current.Version,
 	contents: []string{currentToolsPath},
 	expect:   currentToolsPath,
 }, {
@@ -201,8 +207,16 @@ var findToolsTests = []struct {
 	// mismatching series or architecture is ignored.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		environs.ToolsPath(mkVersion("1.9.9"), "foo", config.CurrentArch),
-		environs.ToolsPath(mkVersion("1.9.9"), config.CurrentSeries, "foo"),
+		environs.ToolsetPath(version.BinaryVersion{
+			Version: mkVersion("1.9.9"),
+			Series: "foo",
+			Arch: config.CurrentArch,
+		}),
+		environs.ToolsetPath(version.BinaryVersion{
+			Version: mkVersion("1.9.9"),
+			Series: config.CurrentSeries,
+			Arch: "foo",
+		}),
 		mkToolsPath("1.0.0"),
 	},
 	expect: mkToolsPath("1.0.0"),
@@ -223,16 +237,21 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 			err := t.env.PublicStorage().(environs.Storage).Put(name, strings.NewReader(data), int64(len(data)))
 			c.Assert(err, IsNil)
 		}
-		url, err := environs.FindTools(t.env, tt.version, config.CurrentSeries, config.CurrentArch)
+		vers := version.BinaryVersion{
+			Version: tt.version,
+			Series: config.CurrentSeries,
+			Arch: config.CurrentArch,
+		}
+		toolset, err := environs.FindToolset(t.env, vers)
 		if tt.err != "" {
 			c.Assert(err, ErrorMatches, tt.err)
 		} else {
 			c.Assert(err, IsNil)
-			resp, err := http.Get(url)
+			resp, err := http.Get(toolset.URL)
 			c.Assert(err, IsNil)
 			data, err := ioutil.ReadAll(resp.Body)
 			c.Assert(err, IsNil)
-			c.Assert(string(data), Equals, tt.expect, Commentf("url %s", url))
+			c.Assert(string(data), Equals, tt.expect, Commentf("url %s", toolset.URL))
 		}
 		t.env.Destroy(nil)
 	}

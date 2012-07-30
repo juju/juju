@@ -16,7 +16,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(insts, HasLen, 0)
 
-	inst, err := t.Env.StartInstance(0, InvalidStateInfo)
+	inst, err := t.Env.StartInstance(0, InvalidStateInfo, nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst, NotNil)
 	id0 := inst.Id()
@@ -61,7 +61,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 }
 
 func (t *LiveTests) TestPorts(c *C) {
-	inst1, err := t.Env.StartInstance(1, InvalidStateInfo)
+	inst1, err := t.Env.StartInstance(1, InvalidStateInfo, nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst1, NotNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
@@ -70,7 +70,7 @@ func (t *LiveTests) TestPorts(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	inst2, err := t.Env.StartInstance(2, InvalidStateInfo)
+	inst2, err := t.Env.StartInstance(2, InvalidStateInfo, nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst2, NotNil)
 	ports, err = inst2.Ports(2)

@@ -7,9 +7,9 @@ import (
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/version"
 	"sync"
 	"time"
 )
@@ -172,7 +172,7 @@ func (e *environ) s3() *s3.S3 {
 	s3 := e.s3Unlocked
 	e.ecfgMutex.Unlock()
 	return s3
-}
+} 
 
 func (e *environ) Name() string {
 	return e.name
@@ -203,13 +203,14 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	if _, notFound := err.(*environs.NotFoundError); !notFound {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
+	var toolset *environs.Toolset
 	if uploadTools {
-		err := environs.PutTools(e.Storage())
+		toolset, err = environs.PutToolset(e.Storage())
 		if err != nil {
 			return fmt.Errorf("cannot upload tools: %v", err)
 		}
 	}
-	inst, err := e.startInstance(0, nil, true)
+	inst, err := e.startInstance(0, nil, toolset, true)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -270,19 +271,18 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignUnused
 }
 
-func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Instance, error) {
-	log.Printf("environs/ec2: starting machine %d in %q", machineId, e.name)
-	return e.startInstance(machineId, info, false)
+func (e *environ) StartInstance(machineId int, info *state.Info, toolset *environs.Toolset) (environs.Instance, error) {
+	return e.startInstance(machineId, info, toolset, false)
 }
 
-func (e *environ) userData(machineId int, info *state.Info, master bool, toolsURL string) ([]byte, error) {
+func (e *environ) userData(machineId int, info *state.Info, toolset *environs.Toolset, master bool) ([]byte, error) {
 	cfg := &machineConfig{
 		provisioner:        master,
 		zookeeper:          master,
 		stateInfo:          info,
 		instanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		providerType:       "ec2",
-		toolsURL:           toolsURL,
+		toolsURL:           toolset.URL,
 		machineId:          machineId,
 		authorizedKeys:     e.ecfg().AuthorizedKeys(),
 	}
@@ -296,21 +296,25 @@ func (e *environ) userData(machineId int, info *state.Info, master bool, toolsUR
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
-func (e *environ) startInstance(machineId int, info *state.Info, master bool) (environs.Instance, error) {
+func (e *environ) startInstance(machineId int, info *state.Info, toolset *environs.Toolset, master bool) (environs.Instance, error) {
+	if toolset == nil {
+		var err error
+		toolset, err = environs.FindToolset(e, version.Current)
+		if err != nil {
+			return nil, err
+		}
+	}
+	log.Printf("environs/ec2: starting machine %d in %q running tools from %q", machineId, e.name, toolset.URL)
 	spec, err := findInstanceSpec(&instanceConstraint{
-		series: config.CurrentSeries,
-		arch:   config.CurrentArch,
+		series: toolset.Series,
+		arch:   toolset.Arch,
 		region: e.ecfg().region(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
 	}
-	log.Debugf("looking for tools for version %v; instance spec %#v", version.Current, spec)
-	toolsURL, err := environs.FindTools(e, version.Current, spec.series, spec.arch)
-	if err != nil {
-		return nil, fmt.Errorf("cannot find juju tools that would work on the specified instance: %v", err)
-	}
-	userData, err := e.userData(machineId, info, master, toolsURL)
+	// TODO quick sanity check that we can access the tools URL?
+	userData, err := e.userData(machineId, info, toolset, master)
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
