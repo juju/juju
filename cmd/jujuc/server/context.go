@@ -5,6 +5,7 @@ package server
 
 import (
 	"fmt"
+	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -12,6 +13,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
+	"strings"
 )
 
 // HookContext is responsible for the state against which a jujuc-forwarded
@@ -220,4 +223,31 @@ func (ctx *RelationContext) ReadSettings(unit string) (settings map[string]inter
 		ctx.cache[unit] = settings
 	}
 	return settings, nil
+}
+
+func (ctx *HookContext) parseRelationId(f *gnuflag.FlagSet, args []string) (int, error) {
+	_, defaultId := ctx.relationIdentifiers()
+	relationId := ""
+	f.StringVar(&relationId, "r", defaultId, "relation id")
+	if err := f.Parse(true, args); err != nil {
+		return 0, err
+	}
+	if relationId == "" {
+		if ctx.RelationId == -1 {
+			return 0, fmt.Errorf("no relation specified")
+		}
+		return ctx.RelationId, nil
+	}
+	trim := relationId
+	if idx := strings.LastIndex(trim, ":"); idx != -1 {
+		trim = trim[idx+1:]
+	}
+	id, err := strconv.Atoi(trim)
+	if err != nil {
+		return 0, fmt.Errorf("invalid relation id %q", relationId)
+	}
+	if _, found := ctx.Relations[id]; !found {
+		return 0, fmt.Errorf("unknown relation id %q", relationId)
+	}
+	return id, nil
 }
