@@ -13,31 +13,35 @@ import (
 	"sort"
 )
 
-// ClientContext is responsible for the state against which a jujuc-forwarded
-// command will execute; it implements the core of the various jujuc tools, and
-// is involved in constructing a suitable environment in which to execute a hook
-// (which is likely to call jujuc tools that need this specific ClientContext).
-type ClientContext struct {
-	Id             string
-	State          *state.State
-	LocalUnitName  string
-	RemoteUnitName string
-	RelationName   string
-}
+// UnitContext is responsible for the state against which a jujuc-forwarded
+// command will execute within a unit agent; it implements the core of the
+// various jujuc tools, and is involved in constructing a suitable shell
+// environment in which to execute a hook (which is likely to call jujuc
+// tools that need this specific UnitContext).
+type UnitContext struct {
+	State *state.State
+	Unit  *state.Unit
 
-// checkUnitState returns an error if ctx has nil State or LocalUnitName fields.
-func (ctx *ClientContext) check() error {
-	if ctx.State == nil {
-		return fmt.Errorf("context %s cannot access state", ctx.Id)
-	}
-	if ctx.LocalUnitName == "" {
-		return fmt.Errorf("context %s is not attached to a unit", ctx.Id)
-	}
-	return nil
+	// Id identifies the context.
+	Id string
+
+	// RelationId identifies the relation for which a relation hook is
+	// executing. If it is -1, the context is not running a relation hook;
+	// otherwise, its value must be a valid key into the Relations map.
+	RelationId int
+
+	// RemoteUnitName identifies the changing unit of the executing relation
+	// hook. It will be empty if the context is not running a relation hook,
+	// or if it is running a relation-broken hook.
+	RemoteUnitName string
+
+	// Relations must always contain a *RelationContext for every relation the
+	// unit is a member of, keyed on relation id.
+	Relations map[int]*RelationContext
 }
 
 // newCommands maps Command names to initializers.
-var newCommands = map[string]func(*ClientContext) (cmd.Command, error){
+var newCommands = map[string]func(*UnitContext) (cmd.Command, error){
 	"close-port": NewClosePortCommand,
 	"config-get": NewConfigGetCommand,
 	"juju-log":   NewJujuLogCommand,
@@ -46,8 +50,8 @@ var newCommands = map[string]func(*ClientContext) (cmd.Command, error){
 }
 
 // NewCommand returns an instance of the named Command, initialized to execute
-// against this ClientContext.
-func (ctx *ClientContext) NewCommand(name string) (cmd.Command, error) {
+// against this UnitContext.
+func (ctx *UnitContext) NewCommand(name string) (cmd.Command, error) {
 	f := newCommands[name]
 	if f == nil {
 		return nil, fmt.Errorf("unknown command: %s", name)
@@ -58,7 +62,7 @@ func (ctx *ClientContext) NewCommand(name string) (cmd.Command, error) {
 // hookVars returns an os.Environ-style list of strings necessary to run a hook
 // such that it can know what environment it's operating in, and can call back
 // into ctx.
-func (ctx *ClientContext) hookVars(charmDir, socketPath string) []string {
+func (ctx *UnitContext) hookVars(charmDir, socketPath string) []string {
 	vars := []string{
 		"APT_LISTCHANGES_FRONTEND=none",
 		"DEBIAN_FRONTEND=noninteractive",
@@ -66,22 +70,22 @@ func (ctx *ClientContext) hookVars(charmDir, socketPath string) []string {
 		"CHARM_DIR=" + charmDir,
 		"JUJU_CONTEXT_ID=" + ctx.Id,
 		"JUJU_AGENT_SOCKET=" + socketPath,
+		"JUJU_UNIT_NAME=" + ctx.Unit.Name(),
 	}
-	if ctx.LocalUnitName != "" {
-		vars = append(vars, "JUJU_UNIT_NAME="+ctx.LocalUnitName)
-	}
-	if ctx.RemoteUnitName != "" {
-		vars = append(vars, "JUJU_REMOTE_UNIT="+ctx.RemoteUnitName)
-	}
-	if ctx.RelationName != "" {
-		vars = append(vars, "JUJU_RELATION="+ctx.RelationName)
+	if ctx.RelationId != -1 {
+		name, id := ctx.relationIdentifiers()
+		vars = append(vars, "JUJU_RELATION="+name)
+		vars = append(vars, "JUJU_RELATION_ID="+id)
+		if ctx.RemoteUnitName != "" {
+			vars = append(vars, "JUJU_REMOTE_UNIT="+ctx.RemoteUnitName)
+		}
 	}
 	return vars
 }
 
 // RunHook executes a hook in an environment which allows it to to call back
 // into ctx to execute jujuc tools.
-func (ctx *ClientContext) RunHook(hookName, charmDir, socketPath string) error {
+func (ctx *UnitContext) RunHook(hookName, charmDir, socketPath string) error {
 	ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
 	ps.Env = ctx.hookVars(charmDir, socketPath)
 	ps.Dir = charmDir
@@ -94,6 +98,16 @@ func (ctx *ClientContext) RunHook(hookName, charmDir, socketPath string) error {
 		return err
 	}
 	return nil
+}
+
+// relationIdentifiers returns the relation name and identifier exposed to
+// hooks as JUJU_RELATION and JUJU_RELATION_ID respectively. It will panic
+// if RelationId is not a key in the Relations map.
+func (ctx *UnitContext) relationIdentifiers() (string, string) {
+	ru := ctx.Relations[ctx.RelationId].ru
+	name := ru.Endpoint().RelationName
+	id := fmt.Sprintf("%s:%d", name, ctx.RelationId)
+	return name, id
 }
 
 // settingsMap is a map from unit name to relation settings.
