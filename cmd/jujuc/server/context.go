@@ -177,13 +177,15 @@ func (ctx *RelationContext) Units() (units []string) {
 }
 
 // ReadSettings returns the settings of a unit that is now, or was once,
-// participating in the relation, and caches the result.
+// participating in the relation.
 func (ctx *RelationContext) ReadSettings(unit string) (settings map[string]interface{}, err error) {
 	settings, member := ctx.members[unit]
 	if settings == nil {
-		settings, err = ctx.ru.ReadSettings(unit)
-		if err != nil {
-			return nil, err
+		if settings = ctx.cache[unit]; settings == nil {
+			settings, err = ctx.ru.ReadSettings(unit)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	if member {
