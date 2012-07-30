@@ -7,9 +7,9 @@ import (
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/version"
 	"sync"
 	"time"
 )
@@ -172,7 +172,7 @@ func (e *environ) s3() *s3.S3 {
 	s3 := e.s3Unlocked
 	e.ecfgMutex.Unlock()
 	return s3
-} 
+}
 
 func (e *environ) Name() string {
 	return e.name

@@ -49,8 +49,8 @@ func mkVersion(vers string) version.Version {
 func mkToolsPath(vers string) string {
 	return environs.ToolsetPath(version.BinaryVersion{
 		Version: mkVersion(vers),
-		Series: config.CurrentSeries,
-		Arch: config.CurrentArch,
+		Series:  config.CurrentSeries,
+		Arch:    config.CurrentArch,
 	})
 }
 
@@ -62,7 +62,7 @@ func (t *ToolsSuite) TestPutTools(c *C) {
 	c.Assert(toolset.BinaryVersion, Equals, version.Current)
 	c.Assert(toolset.URL, Not(Equals), "")
 
-	for i, getTools := range []func(url, dir string) error {
+	for i, getTools := range []func(url, dir string) error{
 		environs.GetToolset,
 		getToolsWithTar,
 	} {
@@ -209,13 +209,13 @@ var findToolsTests = []struct {
 	contents: []string{
 		environs.ToolsetPath(version.BinaryVersion{
 			Version: mkVersion("1.9.9"),
-			Series: "foo",
-			Arch: config.CurrentArch,
+			Series:  "foo",
+			Arch:    config.CurrentArch,
 		}),
 		environs.ToolsetPath(version.BinaryVersion{
 			Version: mkVersion("1.9.9"),
-			Series: config.CurrentSeries,
-			Arch: "foo",
+			Series:  config.CurrentSeries,
+			Arch:    "foo",
 		}),
 		mkToolsPath("1.0.0"),
 	},
@@ -239,8 +239,8 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 		}
 		vers := version.BinaryVersion{
 			Version: tt.version,
-			Series: config.CurrentSeries,
-			Arch: config.CurrentArch,
+			Series:  config.CurrentSeries,
+			Arch:    config.CurrentArch,
 		}
 		toolset, err := environs.FindToolset(t.env, vers)
 		if tt.err != "" {

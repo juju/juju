@@ -8,11 +8,11 @@ import (
 	"io/ioutil"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/version"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"net/http"
 	"strings"
 )
 
