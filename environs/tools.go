@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 	"net/http"
 	"os"
@@ -17,28 +18,22 @@ import (
 
 var toolPrefix = "tools/juju-"
 
-// Tools describes a particular set of juju tools and where to find them.
-type Tools struct {
-	version.Binary
-	URL string
-}
-
 // ListTools returns all the tools found in the given storage
 // that have the given major version.
-func ListTools(store StorageReader, majorVersion int) ([]*Tools, error) {
+func ListTools(store StorageReader, majorVersion int) ([]*state.Tools, error) {
 	dir := fmt.Sprintf("%s%d.", toolPrefix, majorVersion)
 	names, err := store.List(dir)
 	if err != nil {
 		return nil, err
 	}
-	var toolsList []*Tools
+	var toolsList []*state.Tools
 	for _, name := range names {
 		if !strings.HasPrefix(name, toolPrefix) || !strings.HasSuffix(name, ".tgz") {
 			log.Printf("unexpected tools file found %q", name)
 			continue
 		}
 		vers := name[len(toolPrefix) : len(name)-len(".tgz")]
-		var t Tools
+		var t state.Tools
 		t.Binary, err = version.ParseBinary(vers)
 		if err != nil {
 			log.Printf("failed to parse %q: %v", vers, err)
@@ -63,7 +58,7 @@ func ListTools(store StorageReader, majorVersion int) ([]*Tools, error) {
 // instance describing them.
 // TODO find binaries from $PATH when not using a development
 // version of juju within a $GOPATH.
-func PutTools(storage Storage) (*Tools, error) {
+func PutTools(storage Storage) (*state.Tools, error) {
 	// We create the entire archive before asking the environment to
 	// start uploading so that we can be sure we have archived
 	// correctly.
@@ -95,7 +90,7 @@ func PutTools(storage Storage) (*Tools, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Tools{version.Current, url}, nil
+	return &state.Tools{version.Current, url}, nil
 }
 
 // archive writes the executable files found in the given directory in
@@ -176,8 +171,8 @@ func closeErrorCheck(errp *error, c io.Closer) {
 // BestTools the most recent tools compatible with the
 // given specification. It returns nil if nothing appropriate
 // was found.
-func BestTools(toolsList []*Tools, vers version.Binary) *Tools {
-	var bestTools *Tools
+func BestTools(toolsList []*state.Tools, vers version.Binary) *state.Tools {
+	var bestTools *state.Tools
 	for _, t := range toolsList {
 		t := t
 		if t.Major != vers.Major ||
@@ -238,7 +233,7 @@ func ToolsPath(vers version.Binary) string {
 // with the given version from the given environment.
 // If no tools are found and there's no other error, a NotFoundError
 // is returned.
-func FindTools(env Environ, vers version.Binary) (*Tools, error) {
+func FindTools(env Environ, vers version.Binary) (*state.Tools, error) {
 	// If there's anything compatible in the environ's Storage,
 	// it gets precedence over anything in its PublicStorage.
 	toolsList, err := ListTools(env.Storage(), vers.Major)

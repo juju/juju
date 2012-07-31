@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"net/http"
@@ -298,8 +299,8 @@ func binaryVersion(major, minor, patch int, series, arch string) version.Binary 
 	}
 }
 
-func newTools(major, minor, patch int, series, arch, url string) *environs.Tools {
-	return &environs.Tools{
+func newTools(major, minor, patch int, series, arch, url string) *state.Tools {
+	return &state.Tools{
 		Binary: binaryVersion(major, minor, patch, series, arch),
 		URL:    url,
 	}
@@ -319,7 +320,7 @@ func (t *ToolsSuite) TestListTools(c *C) {
 	}
 	toolsList, err := environs.ListTools(r, 2)
 	c.Assert(err, IsNil)
-	c.Check(toolsList, DeepEquals, []*environs.Tools{
+	c.Check(toolsList, DeepEquals, []*state.Tools{
 		newTools(2, 2, 3, "precise", "amd64", "http://tools/juju-2.2.3-precise-amd64.tgz"),
 		newTools(2, 2, 3, "precise", "i386", "http://tools/juju-2.2.3-precise-i386.tgz"),
 		newTools(2, 2, 4, "precise", "i386", "http://tools/juju-2.2.4-precise-i386.tgz"),
@@ -327,13 +328,13 @@ func (t *ToolsSuite) TestListTools(c *C) {
 
 	toolsList, err = environs.ListTools(r, 3)
 	c.Assert(err, IsNil)
-	c.Check(toolsList, DeepEquals, []*environs.Tools{
+	c.Check(toolsList, DeepEquals, []*state.Tools{
 		newTools(3, 2, 1, "precise", "amd64", "http://tools/juju-3.2.1-precise-amd64.tgz"),
 	})
 }
 
 var bestToolsTests = []struct {
-	list   []*environs.Tools
+	list   []*state.Tools
 	vers   version.Binary
 	expect int
 }{{
@@ -341,7 +342,7 @@ var bestToolsTests = []struct {
 	binaryVersion(1, 2, 3, "precise", "amd64"),
 	-1,
 }, {
-	[]*environs.Tools{
+	[]*state.Tools{
 		newTools(1, 2, 3, "precise", "amd64", ""),
 		newTools(1, 2, 4, "precise", "amd64", ""),
 		newTools(1, 3, 4, "precise", "amd64", ""),
@@ -352,7 +353,7 @@ var bestToolsTests = []struct {
 	binaryVersion(1, 9, 4, "precise", "amd64"),
 	2,
 }, {
-	[]*environs.Tools{
+	[]*state.Tools{
 		newTools(1, 2, 3, "precise", "amd64", ""),
 		newTools(1, 2, 4, "precise", "amd64", ""),
 		newTools(1, 3, 4, "precise", "amd64", ""),

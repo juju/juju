@@ -404,7 +404,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId int, info *state.Info, _ *environs.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId int, info *state.Info, _ *state.Tools) (environs.Instance, error) {
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, err
 	}
