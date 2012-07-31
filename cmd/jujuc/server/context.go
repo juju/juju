@@ -157,7 +157,7 @@ func NewRelationContext(ru *state.RelationUnit, members map[string]int) *Relatio
 	return ctx
 }
 
-// WriteSettings persists all changes made to Settings
+// WriteSettings persists all changes made to the unit's relation settings.
 func (ctx *RelationContext) WriteSettings() (err error) {
 	if ctx.settings != nil {
 		_, err = ctx.settings.Write()
@@ -165,7 +165,8 @@ func (ctx *RelationContext) WriteSettings() (err error) {
 	return
 }
 
-// ClearCache discards all cached non-member unit settings, and Settings,
+// ClearCache discards all cached settings for units that are not members
+// of the relation, and all unwritten changes to the unit's relation settings.
 // including any changes to Settings that have not been written.
 func (ctx *RelationContext) ClearCache() {
 	ctx.settings = nil
