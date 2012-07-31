@@ -141,8 +141,8 @@ func (at *agentTools) setAgentTools(prefix string, t *Tools) (err error) {
 	if err != nil {
 		return err
 	}
-	config.Set(prefix + "-agent-tools-version", t.Binary.String())
-	config.Set(prefix + "-agent-tools-url", t.URL)
+	config.Set(prefix+"-agent-tools-version", t.Binary.String())
+	config.Set(prefix+"-agent-tools-url", t.URL)
 	_, err = config.Write()
 	return err
 }

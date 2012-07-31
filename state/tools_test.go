@@ -1,10 +1,10 @@
 package state_test
 
 import (
-	. "launchpad.net/gocheck"
 	"fmt"
-	"launchpad.net/juju-core/version"
+	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/version"
 )
 
 type versioner interface {
@@ -35,7 +35,7 @@ func testAgentTools(c *C, obj versioner, agent string) {
 	// check that we can set the version
 	t0 := &state.Tools{
 		Binary: version.MustParseBinary("5.6.7-precise-amd64"),
-		URL: "http://foo/bar.tgz",
+		URL:    "http://foo/bar.tgz",
 	}
 	err = obj.ProposeAgentTools(t0)
 	c.Assert(err, IsNil)
@@ -47,7 +47,7 @@ func testAgentTools(c *C, obj versioner, agent string) {
 	c.Assert(err, ErrorMatches, fmt.Sprintf("cannot set %s agent current tools: empty series or arch", agent))
 	t2 := &state.Tools{
 		Binary: version.MustParseBinary("7.8.9-foo-bar"),
-		URL: "http://arble.tgz",
+		URL:    "http://arble.tgz",
 	}
 	err = obj.SetAgentTools(t2)
 	c.Assert(err, IsNil)
