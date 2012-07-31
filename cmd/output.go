@@ -14,19 +14,50 @@ import (
 // Formatter converts an arbitrary object into a []byte.
 type Formatter func(value interface{}) ([]byte, error)
 
-// formatYaml marshals value to a yaml-formatted []byte, unless value is nil.
-func formatYaml(value interface{}) ([]byte, error) {
+// FormatYaml marshals value to a yaml-formatted []byte, unless value is nil.
+func FormatYaml(value interface{}) ([]byte, error) {
 	if value == nil {
 		return nil, nil
 	}
-	return goyaml.Marshal(value)
+	result, err := goyaml.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	for i := len(result) - 1; i > 0; i-- {
+		if result[i] != '\n' {
+			break
+		}
+		result = result[:i]
+	}
+	return result, nil
 }
 
-// DefaultFormatters holds the formatters that can be 
+// FormatJson marshals value to a json-formatted []byte.
+var FormatJson = json.Marshal
+
+// FormatSmart marshals value into a []byte according to the following rules:
+//   * string:        untouched
+//   * bool:          converted to `true` or `false`
+//   * int or float:  converted to sensible strings
+//   * []string:      joined by `\n`s into a single string
+//   * anything else: delegate to FormatYaml
+func FormatSmart(value interface{}) ([]byte, error) {
+	if str, ok := value.(string); ok {
+		return []byte(str), nil
+	}
+	if strs, ok := value.([]string); ok {
+		return []byte(strings.Join(strs, "\n")), nil
+	}
+	// FormatYaml works as specified for int, float, bool; may as well use it.
+	return FormatYaml(value)
+}
+
+// DefaultFormatters holds the formatters that can be
 // specified with the --format flag.
 var DefaultFormatters = map[string]Formatter{
-	"yaml": formatYaml,
-	"json": json.Marshal,
+	"smart": FormatSmart,
+	"yaml":  FormatYaml,
+	"json":  FormatJson,
 }
 
 // formatterValue implements gnuflag.Value for the --format flag.
@@ -48,7 +79,7 @@ func newFormatterValue(initial string, formatters map[string]Formatter) *formatt
 // Set stores the chosen formatter name in v.name.
 func (v *formatterValue) Set(value string) error {
 	if v.formatters[value] == nil {
-		return fmt.Errorf("unknown format: %s", value)
+		return fmt.Errorf("unknown format %q", value)
 	}
 	v.name = value
 	return nil

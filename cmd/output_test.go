@@ -8,7 +8,8 @@ import (
 
 // OutputCommand is a command that uses the output.go formatters.
 type OutputCommand struct {
-	out cmd.Output
+	out   cmd.Output
+	value interface{}
 }
 
 func (c *OutputCommand) Info() *cmd.Info {
@@ -16,7 +17,7 @@ func (c *OutputCommand) Info() *cmd.Info {
 }
 
 func (c *OutputCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
@@ -24,48 +25,89 @@ func (c *OutputCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *OutputCommand) Run(ctx *cmd.Context) error {
-	// use a struct to control field ordering.
-	v := struct {
-		Juju   int
-		Puppet bool
-	}{1, false}
-	return c.out.Write(ctx, v)
+	return c.out.Write(ctx, c.value)
 }
 
-var outputTests = []struct {
-	options        []string
-	result         int
-	stdout, stderr string
-}{{
-	// default
-	nil,
-	0,
-	"juju: 1\npuppet: false\n\n",
-	"",
-}, {
-	[]string{"--format", "yaml"},
-	0,
-	"juju: 1\npuppet: false\n\n",
-	"",
-}, {
-	[]string{"--format", "json"},
-	0,
-	"{\"Juju\":1,\"Puppet\":false}\n",
-	"",
-}, {
-	[]string{"--format", "cuneiform"},
-	2,
-	"",
-	`usage(.|\n)*invalid value \"cuneiform\"(.|\n)*`,
-}}
+// use a struct to control field ordering.
+var defaultValue = struct {
+	Juju   int
+	Puppet bool
+}{1, false}
+
+var outputTests = map[string][]struct {
+	value  interface{}
+	output string
+}{
+	"": {
+		{1, "1\n"},
+		{-1, "-1\n"},
+		{1.1, "1.1\n"},
+		{true, "true\n"},
+		{false, "false\n"},
+		{"hello", "hello\n"},
+		{"\n\n\n", "\n\n\n\n"},
+		{"foo: bar", "foo: bar\n"},
+		{[]string{"blam", "dink"}, "blam\ndink\n"},
+		{defaultValue, "juju: 1\npuppet: false\n"},
+	},
+	"smart": {
+		{1, "1\n"},
+		{-1, "-1\n"},
+		{1.1, "1.1\n"},
+		{true, "true\n"},
+		{false, "false\n"},
+		{"hello", "hello\n"},
+		{"\n\n\n", "\n\n\n\n"},
+		{"foo: bar", "foo: bar\n"},
+		{[]string{"blam", "dink"}, "blam\ndink\n"},
+		{defaultValue, "juju: 1\npuppet: false\n"},
+	},
+	"json": {
+		{1, "1\n"},
+		{-1, "-1\n"},
+		{1.1, "1.1\n"},
+		{true, "true\n"},
+		{false, "false\n"},
+		{"hello", `"hello"` + "\n"},
+		{"\n\n\n", `"\n\n\n"` + "\n"},
+		{"foo: bar", `"foo: bar"` + "\n"},
+		{[]string{"blam", "dink"}, `["blam","dink"]` + "\n"},
+		{defaultValue, `{"Juju":1,"Puppet":false}` + "\n"},
+	},
+	"yaml": {
+		{1, "1\n"},
+		{-1, "-1\n"},
+		{1.1, "1.1\n"},
+		{true, "true\n"},
+		{false, "false\n"},
+		{"hello", "hello\n"},
+		{"\n\n\n", "'\n\n\n\n'\n"},
+		{"foo: bar", "'foo: bar'\n"},
+		{[]string{"blam", "dink"}, "- blam\n- dink\n"},
+		{defaultValue, "juju: 1\npuppet: false\n"},
+	},
+}
 
 func (s *CmdSuite) TestOutputFormat(c *C) {
-	for _, t := range outputTests {
-		ctx := dummyContext(c)
-		c.Logf("Options: %v", t.options)
-		result := cmd.Main(&OutputCommand{}, ctx, t.options)
-		c.Assert(result, Equals, t.result)
-		c.Assert(bufferString(ctx.Stdout), Equals, t.stdout)
-		c.Assert(bufferString(ctx.Stderr), Matches, t.stderr)
+	for format, tests := range outputTests {
+		c.Logf("format %s", format)
+		args := []string{}
+		if format != "" {
+			args = []string{"--format", format}
+		}
+		for i, t := range tests {
+			c.Logf("  test %d", i)
+			ctx := dummyContext(c)
+			result := cmd.Main(&OutputCommand{value: t.value}, ctx, args)
+			c.Assert(result, Equals, 0)
+			c.Assert(bufferString(ctx.Stdout), Equals, t.output)
+			c.Assert(bufferString(ctx.Stderr), Equals, "")
+		}
 	}
+
+	ctx := dummyContext(c)
+	result := cmd.Main(&OutputCommand{}, ctx, []string{"--format", "cuneiform"})
+	c.Assert(result, Equals, 2)
+	c.Assert(bufferString(ctx.Stdout), Equals, "")
+	c.Assert(bufferString(ctx.Stderr), Matches, "usage(.|\n)*: unknown format \"cuneiform\"\n")
 }

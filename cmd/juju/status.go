@@ -26,7 +26,10 @@ func (c *StatusCommand) Info() *cmd.Info {
 
 func (c *StatusCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	addEnvironFlags(&c.EnvName, f)
-	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
+		"yaml": cmd.FormatYaml,
+		"json": cmd.FormatJson,
+	})
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
