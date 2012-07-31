@@ -125,7 +125,7 @@ func processMachines(machines map[int]*state.Machine, instances map[string]envir
 	r := make(map[int]interface{})
 	for _, m := range machines {
 		instid, err := m.InstanceId()
-		if err, ok := err.(*state.NoInstanceIdError); ok {
+		if err, ok := err.(*state.NotFoundError); ok {
 			r[m.Id()] = map[string]interface{}{
 				"instance-id": "pending",
 			}
