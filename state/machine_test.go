@@ -4,6 +4,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/version"
 	"sort"
 	"time"
 )
@@ -46,13 +47,13 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
 	c.Assert(err, IsNil)
 
 	id, err := s.machine.InstanceId()
-	c.Assert(err.Error(), Equals, `invalid type for value map[interface {}]interface {}{} of instance id of machine 0: map[interface {}]interface {}`)
+	c.Assert(err.Error(), Equals, `invalid type of value map[interface {}]interface {}{} of instance id of machine 0: map[interface {}]interface {}`)
 	c.Assert(id, Equals, "")
 }
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {
 	id, err := s.machine.InstanceId()
-	c.Assert(err, FitsTypeOf, &state.NoInstanceIdError{})
+	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
 	c.Assert(id, Equals, "")
 }
 
@@ -63,7 +64,7 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
 	c.Assert(err, IsNil)
 
 	id, err := s.machine.InstanceId()
-	c.Assert(err, FitsTypeOf, &state.NoInstanceIdError{})
+	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
 	c.Assert(id, Equals, "")
 }
 
@@ -281,4 +282,112 @@ func unitNames(units []*state.Unit) (s []string) {
 		s = append(s, u.Name())
 	}
 	return
+}
+
+type machineInfo struct {
+	version         version.Version
+	proposedVersion version.Version
+	instanceId      string
+}
+
+var watchMachineTests = []struct {
+	test func(m *state.Machine) error
+	want machineInfo
+}{
+	{
+		func(*state.Machine) error {
+			return nil
+		},
+		machineInfo{},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.ProposeAgentVersion(version.Version{0, 0, 1})
+		},
+		machineInfo{
+			proposedVersion: version.Version{0, 0, 1},
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.ProposeAgentVersion(version.Version{0, 0, 2})
+		},
+		machineInfo{
+			proposedVersion: version.Version{0, 0, 2},
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.SetInstanceId("m-foo")
+		},
+		machineInfo{
+			proposedVersion: version.Version{0, 0, 2},
+			instanceId:      "m-foo",
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.SetInstanceId("")
+		},
+		machineInfo{
+			proposedVersion: version.Version{0, 0, 2},
+			instanceId:      "",
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.SetAgentVersion(version.Version{1, 0, 0})
+		},
+		machineInfo{
+			proposedVersion: version.Version{0, 0, 2},
+			version:         version.Version{1, 0, 0},
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.SetAgentVersion(version.Version{1, 0, 1})
+		},
+		machineInfo{
+			proposedVersion: version.Version{0, 0, 2},
+			version:         version.Version{1, 0, 1},
+		},
+	},
+}
+
+func (s *MachineSuite) TestWatchMachine(c *C) {
+	w := s.machine.Watch()
+	defer func() {
+		c.Assert(w.Stop(), IsNil)
+	}()
+	for i, test := range watchMachineTests {
+		c.Logf("test %d", i)
+		err := test.test(s.machine)
+		c.Assert(err, IsNil)
+		select {
+		case m, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(m.Id(), Equals, s.machine.Id())
+			var info machineInfo
+			info.version, err = m.AgentVersion()
+			if _, ok := err.(*state.NotFoundError); !ok {
+				c.Assert(err, IsNil)
+			}
+			info.proposedVersion, err = m.ProposedAgentVersion()
+			if _, ok := err.(*state.NotFoundError); !ok {
+				c.Assert(err, IsNil)
+			}
+			info.instanceId, err = m.InstanceId()
+			if _, ok := err.(*state.NotFoundError); !ok {
+				c.Assert(err, IsNil)
+			}
+			c.Assert(info, Equals, test.want)
+		case <-time.After(500 * time.Millisecond):
+			c.Fatalf("did not get change: %v", test.want)
+		}
+	}
+	select {
+	case got := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
 }
