@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/state"
 )
 
 // RelationGetCommand implements the relation-get command.
@@ -61,7 +62,8 @@ func (c *RelationGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 func (c *RelationGetCommand) Run(ctx *cmd.Context) (err error) {
 	var settings map[string]interface{}
 	if c.UnitName == c.Unit.Name() {
-		node, err := c.Relations[c.RelationId].Settings()
+		var node *state.ConfigNode
+		node, err = c.Relations[c.RelationId].Settings()
 		settings = node.Map()
 	} else {
 		settings, err = c.Relations[c.RelationId].ReadSettings(c.UnitName)
