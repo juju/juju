@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/jujuc/server"
 	"launchpad.net/juju-core/state"
@@ -24,35 +25,58 @@ func bufferString(w io.Writer) string {
 	return w.(*bytes.Buffer).String()
 }
 
-type UnitSuite struct {
+type HookContextSuite struct {
 	testing.StateSuite
-	ctx     *server.ClientContext
-	service *state.Service
-	unit    *state.Unit
+	ch       *state.Charm
+	service  *state.Service
+	unit     *state.Unit
+	relunits map[int]*state.RelationUnit
+	relctxs  map[int]*server.RelationContext
 }
 
-func (s *UnitSuite) SetUpTest(c *C) {
+func (s *HookContextSuite) SetUpTest(c *C) {
 	s.StateSuite.SetUpTest(c)
-	s.ctx = &server.ClientContext{
-		Id:            "TestCtx",
-		State:         s.State,
-		LocalUnitName: "minecraft/0",
-	}
+	s.ch = s.AddTestingCharm(c, "dummy")
 	var err error
-	s.service, err = s.State.AddService("minecraft", s.AddTestingCharm(c, "dummy"))
+	s.service, err = s.State.AddService("u", s.ch)
 	c.Assert(err, IsNil)
 	s.unit, err = s.service.AddUnit()
 	c.Assert(err, IsNil)
+	err = s.unit.SetPrivateAddress("u-0.example.com")
+	c.Assert(err, IsNil)
+	s.relunits = map[int]*state.RelationUnit{}
+	s.relctxs = map[int]*server.RelationContext{}
+	s.AddRelationContext(c, "peer0")
+	s.AddRelationContext(c, "peer1")
 }
 
-func (s *UnitSuite) AssertUnitCommand(c *C, name string) {
-	ctx := &server.ClientContext{Id: "TestCtx", State: s.State}
-	com, err := ctx.NewCommand(name)
-	c.Assert(com, IsNil)
-	c.Assert(err, ErrorMatches, "context TestCtx is not attached to a unit")
+func (s *HookContextSuite) AddRelationContext(c *C, name string) {
+	ep := state.RelationEndpoint{
+		s.service.Name(), "ifce", name, state.RolePeer, charm.ScopeGlobal,
+	}
+	rel, err := s.State.AddRelation(ep)
+	c.Assert(err, IsNil)
+	ru, err := rel.Unit(s.unit)
+	c.Assert(err, IsNil)
+	s.relunits[rel.Id()] = ru
+	p, err := ru.Join()
+	c.Assert(err, IsNil)
+	err = p.Kill()
+	c.Assert(err, IsNil)
+	s.relctxs[rel.Id()] = server.NewRelationContext(ru, nil)
+}
 
-	ctx = &server.ClientContext{Id: "TestCtx", LocalUnitName: s.ctx.LocalUnitName}
-	com, err = ctx.NewCommand(name)
-	c.Assert(com, IsNil)
-	c.Assert(err, ErrorMatches, "context TestCtx cannot access state")
+func (s *HookContextSuite) GetHookContext(c *C, relid int, remote string) *server.HookContext {
+	if relid != -1 {
+		_, found := s.relctxs[relid]
+		c.Assert(found, Equals, true)
+	}
+	return &server.HookContext{
+		Service:        s.service,
+		Unit:           s.unit,
+		Id:             "TestCtx",
+		RelationId:     relid,
+		RemoteUnitName: remote,
+		Relations:      s.relctxs,
+	}
 }

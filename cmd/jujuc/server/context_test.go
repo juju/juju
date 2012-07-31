@@ -13,7 +13,9 @@ import (
 	"strings"
 )
 
-type GetCommandSuite struct{}
+type GetCommandSuite struct {
+	HookContextSuite
+}
 
 var _ = Suite(&GetCommandSuite{})
 
@@ -30,11 +32,7 @@ var getCommandTests = []struct {
 }
 
 func (s *GetCommandSuite) TestGetCommand(c *C) {
-	ctx := &server.ClientContext{
-		Id:            "ctxid",
-		State:         &state.State{},
-		LocalUnitName: "minecraft/0",
-	}
+	ctx := s.GetHookContext(c, 0, "")
 	for _, t := range getCommandTests {
 		com, err := ctx.NewCommand(t.name)
 		if t.err == "" {
@@ -50,7 +48,7 @@ func (s *GetCommandSuite) TestGetCommand(c *C) {
 }
 
 type RunHookSuite struct {
-	outPath string
+	HookContextSuite
 }
 
 var _ = Suite(&RunHookSuite{})
@@ -87,7 +85,7 @@ func AssertEnvContains(c *C, lines []string, env map[string]string) {
 	}
 }
 
-func AssertEnv(c *C, outPath string, env map[string]string) {
+func AssertEnv(c *C, outPath string, charmDir string, env map[string]string) {
 	out, err := ioutil.ReadFile(outPath)
 	c.Assert(err, IsNil)
 	lines := strings.Split(string(out), "\n")
@@ -96,54 +94,151 @@ func AssertEnv(c *C, outPath string, env map[string]string) {
 		"PATH":                     os.Getenv("PATH"),
 		"DEBIAN_FRONTEND":          "noninteractive",
 		"APT_LISTCHANGES_FRONTEND": "none",
+		"CHARM_DIR":                charmDir,
+		"JUJU_AGENT_SOCKET":        "/path/to/socket",
 	})
 }
 
-func (s *RunHookSuite) TestNoHook(c *C) {
-	ctx := &server.ClientContext{}
-	err := ctx.RunHook("tree-fell-in-forest", c.MkDir(), "")
-	c.Assert(err, IsNil)
+var runHookTests = []struct {
+	summary string
+	relid   int
+	remote  string
+	perms   os.FileMode
+	code    int
+	err     string
+	env     map[string]string
+}{
+	{
+		summary: "missing hook is not an error",
+		relid:   -1,
+	}, {
+		summary: "report failure to execute hook",
+		relid:   -1,
+		perms:   0600,
+		err:     `exec: .*something-happened": permission denied`,
+	}, {
+		summary: "report error indicated by hook's exit status",
+		relid:   -1,
+		perms:   0700,
+		code:    99,
+		err:     "exit status 99",
+	}, {
+		summary: "check shell environment for non-relation hook context",
+		relid:   -1,
+		perms:   0700,
+		env: map[string]string{
+			"JUJU_UNIT_NAME": "u/0",
+		},
+	}, {
+		summary: "check shell environment for relation-broken hook context",
+		relid:   1,
+		perms:   0700,
+		env: map[string]string{
+			"JUJU_UNIT_NAME":   "u/0",
+			"JUJU_RELATION":    "peer1",
+			"JUJU_RELATION_ID": "peer1:1",
+		},
+	}, {
+		summary: "check shell environment for relation hook context",
+		relid:   1,
+		remote:  "u/1",
+		perms:   0700,
+		env: map[string]string{
+			"JUJU_UNIT_NAME":   "u/0",
+			"JUJU_RELATION":    "peer1",
+			"JUJU_RELATION_ID": "peer1:1",
+			"JUJU_REMOTE_UNIT": "u/1",
+		},
+	},
 }
 
-func (s *RunHookSuite) TestNonExecutableHook(c *C) {
-	ctx := &server.ClientContext{}
-	charmDir, _ := makeCharm(c, "something-happened", 0600, 0)
-	err := ctx.RunHook("something-happened", charmDir, "")
-	c.Assert(err, ErrorMatches, `exec: ".*/something-happened": permission denied`)
-}
-
-func (s *RunHookSuite) TestBadHook(c *C) {
-	ctx := &server.ClientContext{Id: "ctx-id"}
-	charmDir, outPath := makeCharm(c, "occurrence-occurred", 0700, 99)
-	socketPath := "/path/to/socket"
-	err := ctx.RunHook("occurrence-occurred", charmDir, socketPath)
-	c.Assert(err, ErrorMatches, "exit status 99")
-	AssertEnv(c, outPath, map[string]string{
-		"CHARM_DIR":         charmDir,
-		"JUJU_AGENT_SOCKET": socketPath,
-		"JUJU_CONTEXT_ID":   "ctx-id",
-	})
-}
-
-func (s *RunHookSuite) TestGoodHookWithVars(c *C) {
-	ctx := &server.ClientContext{
-		Id:             "some-id",
-		LocalUnitName:  "local/99",
-		RemoteUnitName: "remote/123",
-		RelationName:   "rel",
+func (s *RunHookSuite) TestRunHook(c *C) {
+	for i, t := range runHookTests {
+		c.Logf("test %d: %s", i, t.summary)
+		ctx := s.GetHookContext(c, t.relid, t.remote)
+		var charmDir, outPath string
+		if t.perms == 0 {
+			charmDir = c.MkDir()
+		} else {
+			charmDir, outPath = makeCharm(c, "something-happened", t.perms, t.code)
+		}
+		err := ctx.RunHook("something-happened", charmDir, "/path/to/socket")
+		if t.err == "" {
+			c.Assert(err, IsNil)
+		} else {
+			c.Assert(err, ErrorMatches, t.err)
+		}
+		if t.env != nil {
+			AssertEnv(c, outPath, charmDir, t.env)
+		}
 	}
-	charmDir, outPath := makeCharm(c, "something-happened", 0700, 0)
-	socketPath := "/path/to/socket"
-	err := ctx.RunHook("something-happened", charmDir, socketPath)
+}
+
+func (s *RunHookSuite) TestRunHookRelationFlushing(c *C) {
+	// Create a charm with a breaking hook.
+	ctx := s.GetHookContext(c, -1, "")
+	charmDir, _ := makeCharm(c, "something-happened", 0700, 123)
+
+	// Mess with multiple relation settings.
+	node0, err := s.relctxs[0].Settings()
+	node0.Set("foo", 1)
+	node1, err := s.relctxs[1].Settings()
+	node1.Set("bar", 2)
+
+	// Run the failing hook.
+	err = ctx.RunHook("something-happened", charmDir, "/path/to/socket")
+	c.Assert(err, ErrorMatches, "exit status 123")
+
+	// Check that the changes to the local settings nodes have been discarded.
+	node0, err = s.relctxs[0].Settings()
 	c.Assert(err, IsNil)
-	AssertEnv(c, outPath, map[string]string{
-		"CHARM_DIR":         charmDir,
-		"JUJU_AGENT_SOCKET": socketPath,
-		"JUJU_CONTEXT_ID":   "some-id",
-		"JUJU_UNIT_NAME":    "local/99",
-		"JUJU_REMOTE_UNIT":  "remote/123",
-		"JUJU_RELATION":     "rel",
+	c.Assert(node0.Map(), DeepEquals, map[string]interface{}{
+		"private-address": "u-0.example.com",
 	})
+	node1, err = s.relctxs[1].Settings()
+	c.Assert(err, IsNil)
+	c.Assert(node1.Map(), DeepEquals, map[string]interface{}{
+		"private-address": "u-0.example.com",
+	})
+
+	// Check that the changes have been written to state.
+	settings0, err := s.relunits[0].ReadSettings("u/0")
+	c.Assert(err, IsNil)
+	c.Assert(settings0, DeepEquals, node0.Map())
+	settings1, err := s.relunits[1].ReadSettings("u/0")
+	c.Assert(err, IsNil)
+	c.Assert(settings1, DeepEquals, node1.Map())
+
+	// Create a charm with a working hook, and mess with settings again.
+	charmDir, _ = makeCharm(c, "something-happened", 0700, 0)
+	node0.Set("baz", 3)
+	node1.Set("qux", 4)
+
+	// Run the hook.
+	err = ctx.RunHook("something-happened", charmDir, "/path/to/socket")
+	c.Assert(err, IsNil)
+
+	// Check that the changes to the local settings nodes are still there.
+	node0, err = s.relctxs[0].Settings()
+	c.Assert(err, IsNil)
+	c.Assert(node0.Map(), DeepEquals, map[string]interface{}{
+		"private-address": "u-0.example.com",
+		"baz":             3,
+	})
+	node1, err = s.relctxs[1].Settings()
+	c.Assert(err, IsNil)
+	c.Assert(node1.Map(), DeepEquals, map[string]interface{}{
+		"private-address": "u-0.example.com",
+		"qux":             4,
+	})
+
+	// Check that the changes have been written to state.
+	settings0, err = s.relunits[0].ReadSettings("u/0")
+	c.Assert(err, IsNil)
+	c.Assert(settings0, DeepEquals, node0.Map())
+	settings1, err = s.relunits[1].ReadSettings("u/0")
+	c.Assert(err, IsNil)
+	c.Assert(settings1, DeepEquals, node1.Map())
 }
 
 type RelationContextSuite struct {

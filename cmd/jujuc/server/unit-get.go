@@ -5,21 +5,17 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/state"
 )
 
 // UnitGetCommand implements the unit-get command.
 type UnitGetCommand struct {
-	*ClientContext
+	*HookContext
 	Key string
 	out cmd.Output
 }
 
-func NewUnitGetCommand(ctx *ClientContext) (cmd.Command, error) {
-	if err := ctx.check(); err != nil {
-		return nil, err
-	}
-	return &UnitGetCommand{ClientContext: ctx}, nil
+func NewUnitGetCommand(ctx *HookContext) (cmd.Command, error) {
+	return &UnitGetCommand{HookContext: ctx}, nil
 }
 
 func (c *UnitGetCommand) Info() *cmd.Info {
@@ -45,16 +41,11 @@ func (c *UnitGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *UnitGetCommand) Run(ctx *cmd.Context) (err error) {
-	var unit *state.Unit
-	unit, err = c.State.Unit(c.LocalUnitName)
-	if err != nil {
-		return
-	}
 	var value string
 	if c.Key == "private-address" {
-		value, err = unit.PrivateAddress()
+		value, err = c.Unit.PrivateAddress()
 	} else {
-		value, err = unit.PublicAddress()
+		value, err = c.Unit.PublicAddress()
 	}
 	if err != nil {
 		return

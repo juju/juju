@@ -8,13 +8,13 @@ import (
 )
 
 type ConfigGetSuite struct {
-	UnitSuite
+	HookContextSuite
 }
 
 var _ = Suite(&ConfigGetSuite{})
 
 func (s *ConfigGetSuite) SetUpTest(c *C) {
-	s.UnitSuite.SetUpTest(c)
+	s.HookContextSuite.SetUpTest(c)
 	conf, err := s.service.Config()
 	c.Assert(err, IsNil)
 	conf.Update(map[string]interface{}{
@@ -47,7 +47,8 @@ var configGetTests = []struct {
 func (s *ConfigGetSuite) TestOutputFormat(c *C) {
 	for i, t := range configGetTests {
 		c.Logf("test %d: %#v", i, t.args)
-		com, err := s.ctx.NewCommand("config-get")
+		hctx := s.GetHookContext(c, -1, "")
+		com, err := hctx.NewCommand("config-get")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, t.args)
@@ -58,7 +59,8 @@ func (s *ConfigGetSuite) TestOutputFormat(c *C) {
 }
 
 func (s *ConfigGetSuite) TestHelp(c *C) {
-	com, err := s.ctx.NewCommand("config-get")
+	hctx := s.GetHookContext(c, -1, "")
+	com, err := hctx.NewCommand("config-get")
 	c.Assert(err, IsNil)
 	ctx := dummyContext(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
@@ -78,7 +80,8 @@ If a key is given, only the value for that key will be printed.
 }
 
 func (s *ConfigGetSuite) TestOutputPath(c *C) {
-	com, err := s.ctx.NewCommand("config-get")
+	hctx := s.GetHookContext(c, -1, "")
+	com, err := hctx.NewCommand("config-get")
 	c.Assert(err, IsNil)
 	ctx := dummyContext(c)
 	code := cmd.Main(com, ctx, []string{"--output", "some-file", "monsters"})
@@ -91,12 +94,9 @@ func (s *ConfigGetSuite) TestOutputPath(c *C) {
 }
 
 func (s *ConfigGetSuite) TestUnknownArg(c *C) {
-	com, err := s.ctx.NewCommand("config-get")
+	hctx := s.GetHookContext(c, -1, "")
+	com, err := hctx.NewCommand("config-get")
 	c.Assert(err, IsNil)
 	err = com.Init(dummyFlagSet(), []string{"multiple", "keys"})
 	c.Assert(err, ErrorMatches, `unrecognized args: \["keys"\]`)
-}
-
-func (s *ConfigGetSuite) TestUnitCommand(c *C) {
-	s.AssertUnitCommand(c, "config-get")
 }
