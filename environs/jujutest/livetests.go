@@ -201,7 +201,7 @@ func (t *LiveTests) assertStartInstance(c *C, m *state.Machine) {
 	// Wait for machine to get an instance id.
 	for a := waitAgent.Start(); a.Next(); {
 		instId, err := m.InstanceId()
-		if _, ok := err.(*state.NoInstanceIdError); ok {
+		if _, ok := err.(*state.NotFoundError); ok {
 			continue
 		}
 		c.Assert(err, IsNil)
@@ -216,7 +216,7 @@ func (t *LiveTests) assertStopInstance(c *C, m *state.Machine) {
 	// Wait for machine id to be cleared.
 	for a := waitAgent.Start(); a.Next(); {
 		if instId, err := m.InstanceId(); instId == "" {
-			c.Assert(err, FitsTypeOf, &state.NoInstanceIdError{})
+			c.Assert(err, FitsTypeOf, &state.NotFoundError{})
 			return
 		}
 	}
@@ -235,7 +235,7 @@ func assertInstanceId(c *C, m *state.Machine, inst environs.Instance) {
 	}
 	for a := waitAgent.Start(); a.Next(); {
 		id, err = m.InstanceId()
-		_, notset := err.(*state.NoInstanceIdError)
+		_, notset := err.(*state.NotFoundError)
 		if notset {
 			if inst == nil {
 				return
