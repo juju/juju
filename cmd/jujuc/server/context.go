@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 )
 
 // ClientContext is responsible for the state against which a jujuc-forwarded
@@ -93,4 +94,99 @@ func (ctx *ClientContext) RunHook(hookName, charmDir, socketPath string) error {
 		return err
 	}
 	return nil
+}
+
+// SettingsMap is a map from unit name to relation settings.
+type SettingsMap map[string]map[string]interface{}
+
+// RelationContext exposes relation membership and unit settings information.
+type RelationContext struct {
+	ru *state.RelationUnit
+
+	// members contains settings for known relation members. Nil values
+	// indicate members whose settings have not yet been cached.
+	members SettingsMap
+
+	// settings allows read and write access to the relation unit settings.
+	settings *state.ConfigNode
+
+	// cache is a short-term cache that enables consistent access to settings
+	// for units that are not currently participating in the relation. Its
+	// contents should be cleared whenever a new hook is executed.
+	cache SettingsMap
+}
+
+// NewRelationContext creates a new context for the given relation unit.
+// The unit-name keys of members supplies the initial membership.
+func NewRelationContext(ru *state.RelationUnit, members map[string]int) *RelationContext {
+	ctx := &RelationContext{ru: ru, members: SettingsMap{}}
+	for unit := range members {
+		ctx.members[unit] = nil
+	}
+	ctx.ClearCache()
+	return ctx
+}
+
+// WriteSettings persists all changes made to the unit's relation settings.
+func (ctx *RelationContext) WriteSettings() (err error) {
+	if ctx.settings != nil {
+		_, err = ctx.settings.Write()
+	}
+	return
+}
+
+// ClearCache discards all cached settings for units that are not members
+// of the relation, and all unwritten changes to the unit's relation settings.
+// including any changes to Settings that have not been written.
+func (ctx *RelationContext) ClearCache() {
+	ctx.settings = nil
+	ctx.cache = make(SettingsMap)
+}
+
+// SetMembers completely replaces the context's membership data.
+func (ctx *RelationContext) SetMembers(members SettingsMap) {
+	ctx.members = members
+}
+
+// Settings returns a ConfigNode that gives read and write access to the
+// unit's relation settings.
+func (ctx *RelationContext) Settings() (*state.ConfigNode, error) {
+	if ctx.settings == nil {
+		node, err := ctx.ru.Settings()
+		if err != nil {
+			return nil, err
+		}
+		ctx.settings = node
+	}
+	return ctx.settings, nil
+}
+
+// Units returns the names of the units that are present in the relation, in
+// alphabetical order.
+func (ctx *RelationContext) Units() (units []string) {
+	for unit := range ctx.members {
+		units = append(units, unit)
+	}
+	sort.Strings(units)
+	return units
+}
+
+// ReadSettings returns the settings of a unit that is now, or was once,
+// participating in the relation.
+func (ctx *RelationContext) ReadSettings(unit string) (settings map[string]interface{}, err error) {
+	settings, member := ctx.members[unit]
+	if settings == nil {
+		if settings = ctx.cache[unit]; settings == nil {
+			settings, err = ctx.ru.ReadSettings(unit)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	if member {
+		ctx.members[unit] = settings
+	} else {
+		ctx.cache[unit] = settings
+	}
+	return settings, nil
 }

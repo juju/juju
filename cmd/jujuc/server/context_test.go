@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd/jujuc/server"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/testing"
 	"os"
 	"path/filepath"
 	"strings"
@@ -142,4 +144,181 @@ func (s *RunHookSuite) TestGoodHookWithVars(c *C) {
 		"JUJU_REMOTE_UNIT":  "remote/123",
 		"JUJU_RELATION":     "rel",
 	})
+}
+
+type RelationContextSuite struct {
+	testing.StateSuite
+	svc *state.Service
+	rel *state.Relation
+	ru  *state.RelationUnit
+}
+
+var _ = Suite(&RelationContextSuite{})
+
+func (s *RelationContextSuite) SetUpTest(c *C) {
+	s.StateSuite.SetUpTest(c)
+	ch := s.AddTestingCharm(c, "dummy")
+	var err error
+	s.svc, err = s.State.AddService("u", ch)
+	c.Assert(err, IsNil)
+	s.rel, err = s.State.AddRelation(
+		state.RelationEndpoint{"u", "ifce", "ring", state.RolePeer, charm.ScopeGlobal},
+	)
+	c.Assert(err, IsNil)
+	unit, err := s.svc.AddUnit()
+	c.Assert(err, IsNil)
+	unit.SetPrivateAddress("u-0.example.com")
+	c.Assert(err, IsNil)
+	s.ru, err = s.rel.Unit(unit)
+	c.Assert(err, IsNil)
+	// Quickest way to get needed ZK paths in place:
+	p, err := s.ru.Join()
+	c.Assert(err, IsNil)
+	err = p.Kill()
+	c.Assert(err, IsNil)
+}
+
+func (s *RelationContextSuite) TestSetMembers(c *C) {
+	ctx := server.NewRelationContext(s.ru, nil)
+	c.Assert(ctx.Units(), HasLen, 0)
+
+	// Check the units and settings after a simple update.
+	ctx.SetMembers(server.SettingsMap{
+		"u/2": {"baz": 2},
+	})
+	c.Assert(ctx.Units(), DeepEquals, []string{"u/2"})
+	settings, err := ctx.ReadSettings("u/2")
+	c.Assert(err, IsNil)
+	c.Assert(settings, DeepEquals, map[string]interface{}{"baz": 2})
+
+	// Check that a second update entirely overwrites the first.
+	ctx.SetMembers(server.SettingsMap{
+		"u/1": {"foo": 1},
+		"u/3": {"bar": 3},
+	})
+	c.Assert(ctx.Units(), DeepEquals, []string{"u/1", "u/3"})
+
+	// Check that the second settings were cached.
+	settings, err = ctx.ReadSettings("u/1")
+	c.Assert(err, IsNil)
+	c.Assert(settings, DeepEquals, map[string]interface{}{"foo": 1})
+	settings, err = ctx.ReadSettings("u/3")
+	c.Assert(err, IsNil)
+	c.Assert(settings, DeepEquals, map[string]interface{}{"bar": 3})
+
+	// Check that the first settings are not still cached.
+	_, err = ctx.ReadSettings("u/2")
+	c.Assert(err, ErrorMatches, `cannot read settings for unit "u/2" in relation "u:ring": unit settings do not exist`)
+}
+
+func (s *RelationContextSuite) TestMemberCaching(c *C) {
+	unit, err := s.svc.AddUnit()
+	c.Assert(err, IsNil)
+	ru, err := s.rel.Unit(unit)
+	c.Assert(err, IsNil)
+	node, err := ru.Settings()
+	c.Assert(err, IsNil)
+	node.Set("ping", "pong")
+	_, err = node.Write()
+	c.Assert(err, IsNil)
+	ctx := server.NewRelationContext(s.ru, map[string]int{"u/1": 0})
+
+	// Check that uncached settings are read from state.
+	settings, err := ctx.ReadSettings("u/1")
+	c.Assert(err, IsNil)
+	expect := node.Map()
+	c.Assert(settings, DeepEquals, expect)
+
+	// Check that changes to state do not affect the cached settings.
+	node.Set("ping", "pow")
+	_, err = node.Write()
+	c.Assert(err, IsNil)
+	settings, err = ctx.ReadSettings("u/1")
+	c.Assert(err, IsNil)
+	c.Assert(settings, DeepEquals, expect)
+
+	// Check that ClearCache spares the members cache.
+	ctx.ClearCache()
+	settings, err = ctx.ReadSettings("u/1")
+	c.Assert(err, IsNil)
+	c.Assert(settings, DeepEquals, expect)
+
+	// Check that updating the context overwrites the cached settings, and
+	// that the contents of state are ignored.
+	ctx.SetMembers(server.SettingsMap{"u/1": {"entirely": "different"}})
+	settings, err = ctx.ReadSettings("u/1")
+	c.Assert(err, IsNil)
+	c.Assert(settings, DeepEquals, map[string]interface{}{"entirely": "different"})
+}
+
+func (s *RelationContextSuite) TestNonMemberCaching(c *C) {
+	unit, err := s.svc.AddUnit()
+	c.Assert(err, IsNil)
+	ru, err := s.rel.Unit(unit)
+	c.Assert(err, IsNil)
+	node, err := ru.Settings()
+	c.Assert(err, IsNil)
+	node.Set("ping", "pong")
+	_, err = node.Write()
+	c.Assert(err, IsNil)
+	ctx := server.NewRelationContext(s.ru, nil)
+
+	// Check that settings are read from state.
+	settings, err := ctx.ReadSettings("u/1")
+	c.Assert(err, IsNil)
+	expect := node.Map()
+	c.Assert(settings, DeepEquals, expect)
+
+	// Check that changes to state do not affect the obtained settings...
+	node.Set("ping", "pow")
+	_, err = node.Write()
+	c.Assert(err, IsNil)
+	settings, err = ctx.ReadSettings("u/1")
+	c.Assert(err, IsNil)
+	c.Assert(settings, DeepEquals, expect)
+
+	// ...until the caches are cleared.
+	ctx.ClearCache()
+	c.Assert(err, IsNil)
+	settings, err = ctx.ReadSettings("u/1")
+	c.Assert(err, IsNil)
+	c.Assert(settings, DeepEquals, map[string]interface{}{"ping": "pow"})
+}
+
+func (s *RelationContextSuite) TestSettings(c *C) {
+	ctx := server.NewRelationContext(s.ru, nil)
+
+	// Change Settings, then clear cache without writing.
+	node, err := ctx.Settings()
+	c.Assert(err, IsNil)
+	expect := node.Map()
+	node.Set("change", "exciting")
+	ctx.ClearCache()
+
+	// Check that the change is not cached...
+	node, err = ctx.Settings()
+	c.Assert(err, IsNil)
+	c.Assert(node.Map(), DeepEquals, expect)
+
+	// ...and not written to state.
+	settings, err := s.ru.ReadSettings("u/0")
+	c.Assert(err, IsNil)
+	c.Assert(settings, DeepEquals, expect)
+
+	// Change again, write settings, and clear caches.
+	node.Set("change", "exciting")
+	err = ctx.WriteSettings()
+	c.Assert(err, IsNil)
+	ctx.ClearCache()
+
+	// Check that the change is reflected in Settings...
+	expect["change"] = "exciting"
+	node, err = ctx.Settings()
+	c.Assert(err, IsNil)
+	c.Assert(node.Map(), DeepEquals, expect)
+
+	// ...and was written to state.
+	settings, err = s.ru.ReadSettings("u/0")
+	c.Assert(err, IsNil)
+	c.Assert(settings, DeepEquals, expect)
 }
