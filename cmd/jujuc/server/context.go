@@ -96,8 +96,8 @@ func (ctx *ClientContext) RunHook(hookName, charmDir, socketPath string) error {
 	return nil
 }
 
-// settingsMap is a map from unit name to relation settings.
-type settingsMap map[string]map[string]interface{}
+// SettingsMap is a map from unit name to relation settings.
+type SettingsMap map[string]map[string]interface{}
 
 // RelationContext exposes relation membership and unit settings information.
 type RelationContext struct {
@@ -105,49 +105,45 @@ type RelationContext struct {
 
 	// members contains settings for known relation members. Nil values
 	// indicate members whose settings have not yet been cached.
-	members settingsMap
+	members SettingsMap
 
 	// settings allows read and write access to the relation unit settings.
 	settings *state.ConfigNode
 
-	// units is a sorted list of unit names reflecting the contents of members.
-	units []string
-
 	// cache is a short-term cache that enables consistent access to settings
 	// for units that are not currently participating in the relation. Its
 	// contents should be cleared whenever a new hook is executed.
-	cache settingsMap
+	cache SettingsMap
 }
 
 // NewRelationContext creates a new context for the given relation unit.
 // The unit-name keys of members supplies the initial membership.
 func NewRelationContext(ru *state.RelationUnit, members map[string]int) *RelationContext {
-	ctx := &RelationContext{ru: ru}
-	m := settingsMap{}
+	ctx := &RelationContext{ru: ru, members: SettingsMap{}}
 	for unit := range members {
-		m[unit] = nil
+		ctx.members[unit] = nil
 	}
-	ctx.Update(m)
-	ctx.Flush(false)
+	ctx.ClearCache()
 	return ctx
 }
 
-// Flush clears the cached data for non-member units, making the context
-// suitable for use in the execution of a fresh hook. If write is true,
-// any changes made to Settings will be persisted; otherwise, they will
-// be discarded.
-func (ctx *RelationContext) Flush(write bool) error {
-	if write && ctx.settings != nil {
-		_, err := ctx.settings.Write()
-		return err
+// WriteSettings persists all changes made to Settings
+func (ctx *RelationContext) WriteSettings() (err error) {
+	if ctx.settings != nil {
+		_, err = ctx.settings.Write()
 	}
-	ctx.settings = nil
-	ctx.cache = make(settingsMap)
-	return nil
+	return
 }
 
-// Update completely replaces the context's membership data.
-func (ctx *RelationContext) Update(members settingsMap) {
+// ClearCache discards all cached non-member unit settings, and Settings,
+// including any changes to Settings that have not been written.
+func (ctx *RelationContext) ClearCache() {
+	ctx.settings = nil
+	ctx.cache = make(SettingsMap)
+}
+
+// SetMembers completely replaces the context's membership data.
+func (ctx *RelationContext) SetMembers(members SettingsMap) {
 	ctx.members = members
 }
 

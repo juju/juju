@@ -178,12 +178,12 @@ func (s *RelationContextSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *RelationContextSuite) TestUpdateMembers(c *C) {
+func (s *RelationContextSuite) TestSetMembers(c *C) {
 	ctx := server.NewRelationContext(s.ru, nil)
 	c.Assert(ctx.Units(), HasLen, 0)
 
 	// Check the units and settings after a simple update.
-	ctx.Update(map[string]map[string]interface{}{
+	ctx.SetMembers(server.SettingsMap{
 		"u/2": {"baz": 2},
 	})
 	c.Assert(ctx.Units(), DeepEquals, []string{"u/2"})
@@ -192,7 +192,7 @@ func (s *RelationContextSuite) TestUpdateMembers(c *C) {
 	c.Assert(settings, DeepEquals, map[string]interface{}{"baz": 2})
 
 	// Check that a second update entirely overwrites the first.
-	ctx.Update(map[string]map[string]interface{}{
+	ctx.SetMembers(server.SettingsMap{
 		"u/1": {"foo": 1},
 		"u/3": {"bar": 3},
 	})
@@ -237,16 +237,15 @@ func (s *RelationContextSuite) TestMemberCaching(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(settings, DeepEquals, expect)
 
-	// Check that flushing the context does not affect the cached settings.
-	err = ctx.Flush(true)
-	c.Assert(err, IsNil)
+	// Check that ClearCache spares the members cache.
+	ctx.ClearCache()
 	settings, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
 	c.Assert(settings, DeepEquals, expect)
 
 	// Check that updating the context overwrites the cached settings, and
 	// that the contents of state are ignored.
-	ctx.Update(map[string]map[string]interface{}{"u/1": {"entirely": "different"}})
+	ctx.SetMembers(server.SettingsMap{"u/1": {"entirely": "different"}})
 	settings, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
 	c.Assert(settings, DeepEquals, map[string]interface{}{"entirely": "different"})
@@ -278,8 +277,8 @@ func (s *RelationContextSuite) TestNonMemberCaching(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(settings, DeepEquals, expect)
 
-	// ...until the context is flushed.
-	err = ctx.Flush(true)
+	// ...until the caches are cleared.
+	ctx.ClearCache()
 	c.Assert(err, IsNil)
 	settings, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
@@ -289,12 +288,12 @@ func (s *RelationContextSuite) TestNonMemberCaching(c *C) {
 func (s *RelationContextSuite) TestSettings(c *C) {
 	ctx := server.NewRelationContext(s.ru, nil)
 
-	// Change Settings, then flush without writing.
+	// Change Settings, then clear cache without writing.
 	node, err := ctx.Settings()
 	c.Assert(err, IsNil)
 	expect := node.Map()
 	node.Set("change", "exciting")
-	ctx.Flush(false)
+	ctx.ClearCache()
 
 	// Check that the change is not cached...
 	node, err = ctx.Settings()
@@ -306,9 +305,11 @@ func (s *RelationContextSuite) TestSettings(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(settings, DeepEquals, expect)
 
-	// Change again, and flush with a write.
+	// Change again, write settings, and clear caches.
 	node.Set("change", "exciting")
-	ctx.Flush(true)
+	err = ctx.WriteSettings()
+	c.Assert(err, IsNil)
+	ctx.ClearCache()
 
 	// Check that the change is reflected in Settings...
 	expect["change"] = "exciting"
@@ -316,7 +317,7 @@ func (s *RelationContextSuite) TestSettings(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(node.Map(), DeepEquals, expect)
 
-	// ...and written to state.
+	// ...and was written to state.
 	settings, err = s.ru.ReadSettings("u/0")
 	c.Assert(err, IsNil)
 	c.Assert(settings, DeepEquals, expect)
