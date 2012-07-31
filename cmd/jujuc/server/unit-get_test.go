@@ -25,11 +25,11 @@ var unitGetTests = []struct {
 	args []string
 	out  string
 }{
-	{[]string{"private-address"}, "192.168.0.99\n\n"},
-	{[]string{"private-address", "--format", "yaml"}, "192.168.0.99\n\n"},
+	{[]string{"private-address"}, "192.168.0.99\n"},
+	{[]string{"private-address", "--format", "yaml"}, "192.168.0.99\n"},
 	{[]string{"private-address", "--format", "json"}, `"192.168.0.99"` + "\n"},
-	{[]string{"public-address"}, "gimli.minecraft.example.com\n\n"},
-	{[]string{"public-address", "--format", "yaml"}, "gimli.minecraft.example.com\n\n"},
+	{[]string{"public-address"}, "gimli.minecraft.example.com\n"},
+	{[]string{"public-address", "--format", "yaml"}, "gimli.minecraft.example.com\n"},
 	{[]string{"public-address", "--format", "json"}, `"gimli.minecraft.example.com"` + "\n"},
 }
 
@@ -45,18 +45,6 @@ func (s *UnitGetSuite) TestOutputFormat(c *C) {
 	}
 }
 
-func (s *UnitGetSuite) TestTestMode(c *C) {
-	for _, key := range []string{"public-address", "private-address"} {
-		com, err := s.ctx.NewCommand("unit-get")
-		c.Assert(err, IsNil)
-		ctx := dummyContext(c)
-		code := cmd.Main(com, ctx, []string{"--test", key})
-		c.Assert(code, Equals, 0)
-		c.Assert(bufferString(ctx.Stderr), Equals, "")
-		c.Assert(bufferString(ctx.Stdout), Equals, "")
-	}
-}
-
 func (s *UnitGetSuite) TestHelp(c *C) {
 	com, err := s.ctx.NewCommand("unit-get")
 	c.Assert(err, IsNil)
@@ -68,12 +56,10 @@ func (s *UnitGetSuite) TestHelp(c *C) {
 purpose: print public-address or private-address
 
 options:
---format  (= yaml)
-    specify output format (json|yaml)
+--format  (= smart)
+    specify output format (json|smart|yaml)
 -o, --output (= "")
     specify an output file
---test  (= false)
-    returns non-zero exit code if value is false/zero/empty
 `)
 }
 
@@ -87,7 +73,7 @@ func (s *UnitGetSuite) TestOutputPath(c *C) {
 	c.Assert(bufferString(ctx.Stdout), Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, IsNil)
-	c.Assert(string(content), Equals, "192.168.0.99\n\n")
+	c.Assert(string(content), Equals, "192.168.0.99\n")
 }
 
 func (s *UnitGetSuite) TestUnknownSetting(c *C) {
