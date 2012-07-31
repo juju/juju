@@ -2,11 +2,13 @@ package environs_test
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"net/http"
 	"os"
@@ -17,9 +19,11 @@ import (
 
 type ToolsSuite struct {
 	env environs.Environ
+	testing.LoggingSuite
 }
 
 func (t *ToolsSuite) SetUpTest(c *C) {
+	t.LoggingSuite.SetUpTest(c)
 	env, err := environs.NewFromAttrs(map[string]interface{}{
 		"name":            "test",
 		"type":            "dummy",
@@ -32,6 +36,7 @@ func (t *ToolsSuite) SetUpTest(c *C) {
 
 func (t *ToolsSuite) TearDownTest(c *C) {
 	dummy.Reset()
+	t.LoggingSuite.TearDownTest(c)
 }
 
 var envs *environs.Environs
@@ -56,7 +61,7 @@ func mkToolsPath(vers string) string {
 
 var _ = Suite(&ToolsSuite{})
 
-func (t *ToolsSuite) TestPutTools(c *C) {
+func (t *ToolsSuite) TestPutGetTools(c *C) {
 	tools, err := environs.PutTools(t.env.Storage())
 	c.Assert(err, IsNil)
 	c.Assert(tools.BinaryVersion, Equals, version.Current)
@@ -82,6 +87,11 @@ func (t *ToolsSuite) TestPutTools(c *C) {
 			c.Check(string(out), Matches, fmt.Sprintf(`usage: %s (.|\n)*`, tool))
 		}
 	}
+}
+
+func (t *ToolsSuite) TestToolsPath(c *C) {
+	c.Assert(environs.ToolsPath(binaryVersion(1, 2, 3, "precise", "amd64")),
+		Equals, "tools/juju-1.2.3-precise-amd64.tgz")
 }
 
 // getToolsWithTar is the same as GetTools but uses tar
@@ -276,4 +286,115 @@ func (*ToolsSuite) TestSetenv(c *C) {
 		env = environs.Setenv(env, t.set)
 		c.Check(env, DeepEquals, t.expect)
 	}
+}
+
+func binaryVersion(major, minor, patch int, series, arch string) version.BinaryVersion {
+	return version.BinaryVersion{
+		Version: version.Version{
+			Major: major,
+			Minor: minor,
+			Patch: patch,
+		},
+		Series: series,
+		Arch:   arch,
+	}
+}
+
+func newTools(major, minor, patch int, series, arch, url string) *environs.Tools {
+	return &environs.Tools{
+		BinaryVersion: binaryVersion(major, minor, patch, series, arch),
+		URL:           url,
+	}
+}
+
+func (t *ToolsSuite) TestListTools(c *C) {
+	r := storageReader{
+		"foo",
+		"tools/.tgz",
+		"tools/juju-1.2.3-precise-i386.tgz",
+		"tools/juju-2.2.3-precise-amd64.tgz",
+		"tools/juju-2.2.3-precise-i386.tgz",
+		"tools/juju-2.2.4-precise-i386.tgz",
+		"tools/juju-2.2-precise-amd64.tgz",
+		"tools/juju-3.2.1-precise-amd64.tgz",
+		"xtools/juju-2.2.3-precise-amd64.tgz",
+	}
+	toolsList, err := environs.ListTools(r, 2)
+	c.Assert(err, IsNil)
+	c.Check(toolsList, DeepEquals, []*environs.Tools{
+		newTools(2, 2, 3, "precise", "amd64", "http://tools/juju-2.2.3-precise-amd64.tgz"),
+		newTools(2, 2, 3, "precise", "i386", "http://tools/juju-2.2.3-precise-i386.tgz"),
+		newTools(2, 2, 4, "precise", "i386", "http://tools/juju-2.2.4-precise-i386.tgz"),
+	})
+
+	toolsList, err = environs.ListTools(r, 3)
+	c.Assert(err, IsNil)
+	c.Check(toolsList, DeepEquals, []*environs.Tools{
+		newTools(3, 2, 1, "precise", "amd64", "http://tools/juju-3.2.1-precise-amd64.tgz"),
+	})
+}
+
+var bestToolsTests = []struct {
+	list   []*environs.Tools
+	vers   version.BinaryVersion
+	expect int
+}{{
+	nil,
+	binaryVersion(1, 2, 3, "precise", "amd64"),
+	-1,
+}, {
+	[]*environs.Tools{
+		newTools(1, 2, 3, "precise", "amd64", ""),
+		newTools(1, 2, 4, "precise", "amd64", ""),
+		newTools(1, 3, 4, "precise", "amd64", ""),
+		newTools(1, 4, 4, "precise", "i386", ""),
+		newTools(1, 4, 5, "quantal", "i386", ""),
+		newTools(2, 2, 3, "precise", "amd64", ""),
+	},
+	binaryVersion(1, 9, 4, "precise", "amd64"),
+	2,
+}, {
+	[]*environs.Tools{
+		newTools(1, 2, 3, "precise", "amd64", ""),
+		newTools(1, 2, 4, "precise", "amd64", ""),
+		newTools(1, 3, 4, "precise", "amd64", ""),
+		newTools(1, 4, 4, "precise", "i386", ""),
+		newTools(1, 4, 5, "quantal", "i386", ""),
+		newTools(2, 2, 3, "precise", "amd64", ""),
+	},
+	binaryVersion(2, 0, 0, "precise", "amd64"),
+	5,
+},
+}
+
+func (t *ToolsSuite) TestBestTools(c *C) {
+	for i, t := range bestToolsTests {
+		c.Logf("test %d", i)
+		tools := environs.BestTools(t.list, t.vers)
+		if t.expect == -1 {
+			c.Assert(tools, IsNil)
+		} else {
+			c.Assert(tools, Equals, t.list[t.expect])
+		}
+	}
+}
+
+type storageReader []string
+
+func (r storageReader) Get(name string) (io.ReadCloser, error) {
+	panic("get called on fake storage reader")
+}
+
+func (r storageReader) List(prefix string) ([]string, error) {
+	var l []string
+	for _, f := range r {
+		if strings.HasPrefix(f, prefix) {
+			l = append(l, f)
+		}
+	}
+	return l, nil
+}
+
+func (r storageReader) URL(name string) (string, error) {
+	return "http://" + name, nil
 }
