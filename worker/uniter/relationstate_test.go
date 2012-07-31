@@ -53,17 +53,22 @@ var badRelationsTests = []struct {
 	subdirs  []string
 	err      string
 }{
-	{nil, []string{"foo-bar-1"}, `.* is a directory`},
-	{map[string]string{
-		"foo-1": "'",
-	}, nil, `invalid unit file "foo-1": YAML error: .*`},
-	{map[string]string{
-		"foo-1": "blah: blah\n",
-	}, nil, `invalid unit file "foo-1": "changed-version" not set`},
-	{map[string]string{
-		"foo-1": "change-version: 123\nchanged-pending: true\n",
-		"foo-2": "change-version: 456\nchanged-pending: true\n",
-	}, nil, `"foo/1" and "foo/2" both have pending changed hooks`},
+	{
+		nil, []string{"foo-bar-1"},
+		`.* is a directory`,
+	}, {
+		map[string]string{"foo-1": "'"}, nil,
+		`invalid unit file "foo-1": YAML error: .*`,
+	}, {
+		map[string]string{"foo-1": "blah: blah\n"}, nil,
+		`invalid unit file "foo-1": "changed-version" not set`,
+	}, {
+		map[string]string{
+			"foo-1": "change-version: 123\nchanged-pending: true\n",
+			"foo-2": "change-version: 456\nchanged-pending: true\n",
+		}, nil,
+		`"foo/1" and "foo/2" both have pending changed hooks`,
+	},
 }
 
 func (s *RelationStateSuite) TestBadRelations(c *C) {
@@ -80,100 +85,91 @@ func (s *RelationStateSuite) TestBadRelations(c *C) {
 	}
 }
 
-type hookInfo struct {
-	unit, hook        string
-	version, relation int
-}
+var defaultMembers = msi{"foo/1": 0, "foo/2": 0}
 
-func newHookInfo(hi hookInfo) uniter.HookInfo {
-	return uniter.HookInfo{
-		RelationId:    hi.relation,
-		HookKind:      hi.hook,
-		RemoteUnit:    hi.unit,
-		ChangeVersion: hi.version,
-		// Leave Members nil: it should not be referenced by the
-		// RelationState, which writes a single file for the single
-		// changed unit in the relation, to ensure Commit is O(1).
-	}
-}
-
-func hookInfos(src []hookInfo) []uniter.HookInfo {
-	his := []uniter.HookInfo{}
-	for _, hi := range src {
-		his = append(his, newHookInfo(hi))
-	}
-	return his
-}
-
+// commitTests verify the behaviour of sequences of HookInfos on a relation
+// state that starts off containing defaultMembers.
 var commitTests = []struct {
 	hooks   []uniter.HookInfo
 	members msi
 	pending string
 	err     string
 }{
+	// Verify that valid changes work.
 	{
-		// Verify that valid changes work.
-		hookInfos([]hookInfo{
-			{"foo/1", "changed", 1, 123},
-		}), msi{"foo/1": 1, "foo/2": 0}, "", "",
+		hooks: []uniter.HookInfo{
+			{RelationId: 123, HookKind: "changed", RemoteUnit: "foo/1", ChangeVersion: 1},
+		},
+		members: msi{"foo/1": 1, "foo/2": 0},
 	}, {
-		hookInfos([]hookInfo{
-			{"foo/3", "joined", 0, 123},
-		}), msi{"foo/1": 0, "foo/2": 0, "foo/3": 0}, "foo/3", "",
+		hooks: []uniter.HookInfo{
+			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/3", ChangeVersion: 0},
+		},
+		members: msi{"foo/1": 0, "foo/2": 0, "foo/3": 0},
+		pending: "foo/3",
 	}, {
-		hookInfos([]hookInfo{
-			{"foo/3", "joined", 0, 123},
-			{"foo/3", "changed", 0, 123},
-		}), msi{"foo/1": 0, "foo/2": 0, "foo/3": 0}, "", "",
+		hooks: []uniter.HookInfo{
+			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/3", ChangeVersion: 0},
+			{RelationId: 123, HookKind: "changed", RemoteUnit: "foo/3", ChangeVersion: 0},
+		},
+		members: msi{"foo/1": 0, "foo/2": 0, "foo/3": 0},
 	}, {
-		hookInfos([]hookInfo{
-			{"foo/1", "departed", 0, 123},
-		}), msi{"foo/2": 0}, "", "",
+		hooks: []uniter.HookInfo{
+			{RelationId: 123, HookKind: "departed", RemoteUnit: "foo/1", ChangeVersion: 0},
+		},
+		members: msi{"foo/2": 0},
 	}, {
-		hookInfos([]hookInfo{
-			{"foo/1", "departed", 0, 123},
-			{"foo/1", "joined", 0, 123},
-		}), msi{"foo/1": 0, "foo/2": 0}, "foo/1", "",
+		hooks: []uniter.HookInfo{
+			{RelationId: 123, HookKind: "departed", RemoteUnit: "foo/1", ChangeVersion: 0},
+			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/1", ChangeVersion: 0},
+		},
+		members: msi{"foo/1": 0, "foo/2": 0},
+		pending: "foo/1",
 	}, {
-		hookInfos([]hookInfo{
-			{"foo/1", "departed", 0, 123},
-			{"foo/1", "joined", 0, 123},
-			{"foo/1", "changed", 0, 123},
-		}), msi{"foo/1": 0, "foo/2": 0}, "", "",
+		hooks: []uniter.HookInfo{
+			{RelationId: 123, HookKind: "departed", RemoteUnit: "foo/1", ChangeVersion: 0},
+			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/1", ChangeVersion: 0},
+			{RelationId: 123, HookKind: "changed", RemoteUnit: "foo/1", ChangeVersion: 0},
+		},
+		members: msi{"foo/1": 0, "foo/2": 0},
+	},
+	// Verify detection of various error conditions.
+	{
+		hooks: []uniter.HookInfo{
+			{RelationId: 456, HookKind: "joined", RemoteUnit: "foo/1", ChangeVersion: 0},
+		},
+		err: "expected relation 123, got relation 456",
 	}, {
-
-		// Verify detection of various error conditions.
-		hookInfos([]hookInfo{
-			{"foo/3", "joined", 0, 456},
-		}), msi{"foo/1": 0, "foo/2": 0}, "",
-		`expected relation 123, got relation 456`,
+		hooks: []uniter.HookInfo{
+			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/3", ChangeVersion: 0},
+			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/4", ChangeVersion: 0},
+		},
+		members: msi{"foo/1": 0, "foo/2": 0, "foo/3": 0},
+		pending: "foo/3",
+		err:     `expected "changed" for "foo/3"`,
 	}, {
-		hookInfos([]hookInfo{
-			{"foo/3", "joined", 0, 123},
-			{"foo/4", "joined", 0, 123},
-		}), msi{"foo/1": 0, "foo/2": 0, "foo/3": 0}, "foo/3",
-		`expected "changed" for "foo/3"`,
+		hooks: []uniter.HookInfo{
+			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/3", ChangeVersion: 0},
+			{RelationId: 123, HookKind: "changed", RemoteUnit: "foo/1", ChangeVersion: 0},
+		},
+		members: msi{"foo/1": 0, "foo/2": 0, "foo/3": 0},
+		pending: "foo/3",
+		err:     `expected "changed" for "foo/3"`,
 	}, {
-		hookInfos([]hookInfo{
-			{"foo/3", "joined", 0, 123},
-			{"foo/1", "changed", 1, 123},
-		}), msi{"foo/1": 0, "foo/2": 0, "foo/3": 0}, "foo/3",
-		`expected "changed" for "foo/3"`,
+		hooks: []uniter.HookInfo{
+			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/1", ChangeVersion: 0},
+		},
+		err: "unit already joined",
 	}, {
-		hookInfos([]hookInfo{
-			{"foo/1", "joined", 0, 123},
-		}), msi{"foo/1": 0, "foo/2": 0}, "",
-		`unit already joined`,
+		hooks: []uniter.HookInfo{
+			{RelationId: 123, HookKind: "changed", RemoteUnit: "foo/3", ChangeVersion: 0},
+		},
+		err: "unit has not joined",
 	}, {
-		hookInfos([]hookInfo{
-			{"foo/3", "changed", 0, 123},
-		}), msi{"foo/1": 0, "foo/2": 0}, "",
-		`unit has not joined`,
-	}, {
-		hookInfos([]hookInfo{
-			{"foo/3", "departed", 0, 123},
-		}), msi{"foo/1": 0, "foo/2": 0}, "",
-		`unit has not joined`,
+		hooks: []uniter.HookInfo{
+			{RelationId: 123, HookKind: "departed", RemoteUnit: "foo/3", ChangeVersion: 0},
+		},
+		err: "unit has not joined",
 	},
 }
 
@@ -202,7 +198,11 @@ func (s *RelationStateSuite) TestCommit(c *C) {
 				c.Assert(err, IsNil)
 			}
 		}
-		assertState(c, rs, t.members, t.pending)
+		members := t.members
+		if members == nil {
+			members = defaultMembers
+		}
+		assertState(c, rs, members, t.pending)
 	}
 }
 
