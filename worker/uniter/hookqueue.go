@@ -37,20 +37,6 @@ type HookInfo struct {
 	Members map[string]map[string]interface{}
 }
 
-// RelationState is a snapshot of the state of a relation.
-type RelationState struct {
-	// RelationId identifies the relation.
-	RelationId int
-
-	// Members is a map from unit name to the last change version
-	// for which a HookInfo was delivered on the output channel.
-	Members map[string]int
-
-	// ChangedPending indicates that a "changed" hook for the given unit
-	// name must be the first HookInfo to be sent to the output channel.
-	ChangedPending string
-}
-
 // HookQueue aggregates values obtained from a relation settings watcher
 // and sends out details about hooks that must be executed in the unit.
 type HookQueue struct {

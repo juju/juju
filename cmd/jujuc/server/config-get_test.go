@@ -25,16 +25,16 @@ func (s *ConfigGetSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-var configGetYamlMap = "(spline-reticulation: 45\nmonsters: false\n|monsters: false\nspline-reticulation: 45\n)\n"
+var configGetYamlMap = "(spline-reticulation: 45\nmonsters: false\n|monsters: false\nspline-reticulation: 45\n)"
 var configGetTests = []struct {
 	args []string
 	out  string
 }{
-	{[]string{"monsters"}, "false\n\n"},
-	{[]string{"--format", "yaml", "monsters"}, "false\n\n"},
+	{[]string{"monsters"}, "false\n"},
+	{[]string{"--format", "yaml", "monsters"}, "false\n"},
 	{[]string{"--format", "json", "monsters"}, "false\n"},
-	{[]string{"spline-reticulation"}, "45\n\n"},
-	{[]string{"--format", "yaml", "spline-reticulation"}, "45\n\n"},
+	{[]string{"spline-reticulation"}, "45\n"},
+	{[]string{"--format", "yaml", "spline-reticulation"}, "45\n"},
 	{[]string{"--format", "json", "spline-reticulation"}, "45\n"},
 	{[]string{"missing"}, ""},
 	{[]string{"--format", "yaml", "missing"}, ""},
@@ -45,7 +45,8 @@ var configGetTests = []struct {
 }
 
 func (s *ConfigGetSuite) TestOutputFormat(c *C) {
-	for _, t := range configGetTests {
+	for i, t := range configGetTests {
+		c.Logf("test %d: %#v", i, t.args)
 		com, err := s.ctx.NewCommand("config-get")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
@@ -53,28 +54,6 @@ func (s *ConfigGetSuite) TestOutputFormat(c *C) {
 		c.Assert(code, Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), Equals, "")
 		c.Assert(bufferString(ctx.Stdout), Matches, t.out)
-	}
-}
-
-var configGetTestModeTests = []struct {
-	args []string
-	code int
-}{
-	{[]string{"monsters", "--test"}, 1},
-	{[]string{"spline-reticulation", "--test"}, 0},
-	{[]string{"missing", "--test"}, 1},
-	{[]string{"--test"}, 0},
-}
-
-func (s *ConfigGetSuite) TestTestMode(c *C) {
-	for _, t := range configGetTestModeTests {
-		com, err := s.ctx.NewCommand("config-get")
-		c.Assert(err, IsNil)
-		ctx := dummyContext(c)
-		code := cmd.Main(com, ctx, t.args)
-		c.Assert(code, Equals, t.code)
-		c.Assert(bufferString(ctx.Stderr), Equals, "")
-		c.Assert(bufferString(ctx.Stdout), Equals, "")
 	}
 }
 
@@ -89,12 +68,10 @@ func (s *ConfigGetSuite) TestHelp(c *C) {
 purpose: print service configuration
 
 options:
---format  (= yaml)
-    specify output format (json|yaml)
+--format  (= smart)
+    specify output format (json|smart|yaml)
 -o, --output (= "")
     specify an output file
---test  (= false)
-    returns non-zero exit code if value is false/zero/empty
 
 If a key is given, only the value for that key will be printed.
 `)
@@ -110,7 +87,7 @@ func (s *ConfigGetSuite) TestOutputPath(c *C) {
 	c.Assert(bufferString(ctx.Stdout), Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, IsNil)
-	c.Assert(string(content), Equals, "false\n\n")
+	c.Assert(string(content), Equals, "false\n")
 }
 
 func (s *ConfigGetSuite) TestUnknownArg(c *C) {

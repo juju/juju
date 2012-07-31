@@ -11,9 +11,8 @@ import (
 // UnitGetCommand implements the unit-get command.
 type UnitGetCommand struct {
 	*ClientContext
-	Key      string
-	out      cmd.Output
-	testMode bool
+	Key string
+	out cmd.Output
 }
 
 func NewUnitGetCommand(ctx *ClientContext) (cmd.Command, error) {
@@ -30,8 +29,7 @@ func (c *UnitGetCommand) Info() *cmd.Info {
 }
 
 func (c *UnitGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
-	f.BoolVar(&c.testMode, "test", false, "returns non-zero exit code if value is false/zero/empty")
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
@@ -60,9 +58,6 @@ func (c *UnitGetCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	if err != nil {
 		return
-	}
-	if c.testMode {
-		return truthError(value)
 	}
 	return c.out.Write(ctx, value)
 }
