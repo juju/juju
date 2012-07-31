@@ -8,7 +8,7 @@ import (
 	"strconv"
 )
 
-var Current = MustParse("0.0.0")
+var Current = MustParse("0.0.1")
 
 // Version represents a juju version. When bugs are
 // fixed the patch number is incremented; when new features are added

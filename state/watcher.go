@@ -431,6 +431,47 @@ func (w *MachineUnitsWatcher) done() {
 	close(w.changeChan)
 }
 
+// MachineWatcher observes changes to the settings of a machine.
+type MachineWatcher struct {
+	contentWatcher
+	m          *Machine
+	changeChan chan *Machine
+}
+
+// newMachineWatcher creates and starts a watcher to watch information
+// about the machine.
+func newMachineWatcher(m *Machine) *MachineWatcher {
+	w := &MachineWatcher{
+		m:              m,
+		contentWatcher: newContentWatcher(m.st, m.zkPath()),
+		changeChan:     make(chan *Machine),
+	}
+	go w.loop(w)
+	return w
+}
+
+// Changes returns a channel that will receive the new
+// *Machine when a change is detected. Note that multiple
+// changes may be observed as a single event in the channel.
+// The first event on the channel holds the initial state
+// as returned by Machine.Info.
+func (w *MachineWatcher) Changes() <-chan *Machine {
+	return w.changeChan
+}
+
+func (w *MachineWatcher) update(change watcher.ContentChange) error {
+	select {
+	case <-w.tomb.Dying():
+		return tomb.ErrDying
+	case w.changeChan <- w.m:
+	}
+	return nil
+}
+
+func (w *MachineWatcher) done() {
+	close(w.changeChan)
+}
+
 // ServicesWatcher observes the addition and removal of services.
 type ServicesWatcher struct {
 	contentWatcher
