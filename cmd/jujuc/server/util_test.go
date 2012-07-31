@@ -40,14 +40,20 @@ func (s *HookContextSuite) SetUpTest(c *C) {
 	var err error
 	s.service, err = s.State.AddService("u", s.ch)
 	c.Assert(err, IsNil)
-	s.unit, err = s.service.AddUnit()
-	c.Assert(err, IsNil)
-	err = s.unit.SetPrivateAddress("u-0.example.com")
-	c.Assert(err, IsNil)
+	s.unit = s.AddUnit(c)
 	s.relunits = map[int]*state.RelationUnit{}
 	s.relctxs = map[int]*server.RelationContext{}
 	s.AddRelationContext(c, "peer0")
 	s.AddRelationContext(c, "peer1")
+}
+
+func (s *HookContextSuite) AddUnit(c *C) *state.Unit {
+	unit, err := s.service.AddUnit()
+	c.Assert(err, IsNil)
+	name := strings.Replace(unit.Name(), "/", "-", 1)
+	err = unit.SetPrivateAddress(name + ".example.com")
+	c.Assert(err, IsNil)
+	return unit
 }
 
 func (s *HookContextSuite) AddRelationContext(c *C, name string) {

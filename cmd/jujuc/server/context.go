@@ -50,6 +50,7 @@ var newCommands = map[string]func(*HookContext) (cmd.Command, error){
 	"config-get":   NewConfigGetCommand,
 	"juju-log":     NewJujuLogCommand,
 	"open-port":    NewOpenPortCommand,
+	"relation-get": NewRelationGetCommand,
 	"relation-set": NewRelationSetCommand,
 	"unit-get":     NewUnitGetCommand,
 }

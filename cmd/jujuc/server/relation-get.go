@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/state"
 )
 
 // RelationGetCommand implements the relation-get command.
@@ -35,7 +34,8 @@ key empty, or setting it to "-", will cause all keys and values to be returned.
 }
 
 func (c *RelationGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	c.out.AddFlags(f, "yaml", relationGetFormatters)
+	// TODO FWER implement --format shell
+	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
 	f.BoolVar(&c.testMode, "test", false, "returns non-zero exit code if value is false/zero/empty")
 	relationId, err := c.parseRelationId(f, args)
 	if err != nil {
@@ -48,28 +48,33 @@ func (c *RelationGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 		if c.Key = args[0]; c.Key == "-" {
 			c.Key = ""
 		}
+		args = args[1:]
 	}
 	c.UnitName = c.RemoteUnitName
-	if len(args) > 1 {
+	if len(args) > 0 {
 		c.UnitName = args[1]
+		args = args[1:]
 	}
 	if c.UnitName == "" {
 		return fmt.Errorf("unit not specified")
 	}
-	return cmd.CheckEmpty(args[2:])
+	return cmd.CheckEmpty(args)
 }
 
-func (c *RelationGetCommand) Run(ctx *cmd.Context) (err error) {
+func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 	var settings map[string]interface{}
 	if c.UnitName == c.Unit.Name() {
-		var node *state.ConfigNode
-		node, err = c.Relations[c.RelationId].Settings()
+		node, err := c.Relations[c.RelationId].Settings()
+		if err != nil {
+			return err
+		}
 		settings = node.Map()
 	} else {
+		var err error
 		settings, err = c.Relations[c.RelationId].ReadSettings(c.UnitName)
-	}
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
 	}
 	var value interface{}
 	if c.Key == "" {
@@ -81,17 +86,4 @@ func (c *RelationGetCommand) Run(ctx *cmd.Context) (err error) {
 		return truthError(value)
 	}
 	return c.out.Write(ctx, value)
-}
-
-var relationGetFormatters = map[string]cmd.Formatter{}
-
-func init() {
-	for name, f := range cmd.DefaultFormatters {
-		relationGetFormatters[name] = f
-	}
-	relationGetFormatters["shell"] = formatShell
-}
-
-func formatShell(value interface{}) ([]byte, error) {
-	panic(value)
 }
