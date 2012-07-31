@@ -1,10 +1,11 @@
 package mstate
 
 type (
-	CharmDoc   charmDoc
-	MachineDoc machineDoc
-	ServiceDoc serviceDoc
-	UnitDoc    unitDoc
+	CharmDoc    charmDoc
+	MachineDoc  machineDoc
+	RelationDoc relationDoc
+	ServiceDoc  serviceDoc
+	UnitDoc     unitDoc
 )
 
 func (doc *MachineDoc) String() string {

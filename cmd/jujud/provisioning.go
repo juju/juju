@@ -52,9 +52,9 @@ func (a *ProvisioningAgent) Run(_ *cmd.Context) (err error) {
 	defer a.tomb.Done()
 	for {
 		err = a.runOnce()
-		if err == nil {
+		if a.tomb.Err() != tomb.ErrStillAlive {
 			// Stop requested by user.
-			return nil
+			return err
 		}
 		time.Sleep(retryDuration)
 		log.Printf("restarting provisioner and firewaller after error: %v", err)

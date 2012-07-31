@@ -11,14 +11,6 @@ import (
 
 const providerMachineId = "provider-machine-id"
 
-type NoInstanceIdError struct {
-	machineId int
-}
-
-func (e *NoInstanceIdError) Error() string {
-	return fmt.Sprintf("instance id for machine %d is not set", e.machineId)
-}
-
 // Machine represents the state of a machine.
 type Machine struct {
 	st  *State
@@ -72,13 +64,14 @@ func (m *Machine) SetInstanceId(id string) (err error) {
 }
 
 // InstanceId returns the provider specific machine id for this machine.
-// If the id is not set, or its value is "" and error of type NoInstanceIdError
-// will be returned.
+// If the id is not set, it returns a *NotFoundError.
 func (m *Machine) InstanceId() (string, error) {
 	instanceId, err := getConfigString(m.st.zk, m.zkPath(), providerMachineId,
-		"instance id of machine %v", m)
-	if _, ok := err.(*attrNotFoundError); ok || (err == nil && instanceId == "") {
-		return "", &NoInstanceIdError{m.Id()}
+		"instance id of machine %v", m.String())
+	if _, ok := err.(*NotFoundError); ok || (err == nil && instanceId == "") {
+		return "", &NotFoundError{
+			fmt.Sprintf("instance id for machine %d is not set", m.Id()),
+		}
 	}
 	return instanceId, err
 }
@@ -104,6 +97,10 @@ func (m *Machine) Units() (units []*Unit, err error) {
 
 func (m *Machine) WatchUnits() *MachineUnitsWatcher {
 	return newMachineUnitsWatcher(m)
+}
+
+func (m *Machine) Watch() *MachineWatcher {
+	return newMachineWatcher(m)
 }
 
 // String returns a unique description of this machine
