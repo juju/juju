@@ -37,7 +37,15 @@ type BinaryVersion struct {
 	Arch   string
 }
 
-var versionPat = regexp.MustCompile(`^(\d{1,9})\.(\d{1,9})\.(\d{1,9})$`)
+func (v BinaryVersion) String() string {
+	return fmt.Sprintf("%v-%s-%s", v.Version, v.Series, v.Arch)
+}
+
+
+var (
+	binaryVersionPat = regexp.MustCompile(`^(\d{1,9})\.(\d{1,9})\.(\d{1,9})-([^-]+)-([^-]+)$`)
+	versionPat = regexp.MustCompile(`^(\d{1,9})\.(\d{1,9})\.(\d{1,9})$`)
+)
 
 // MustParse parses a version and panics if it does
 // not parse correctly.
@@ -47,6 +55,32 @@ func MustParse(s string) Version {
 		panic(fmt.Errorf("version: cannot parse %q: %v", s, err))
 	}
 	return v
+}
+
+// MustParseBinary parses a binary version and panics if it does
+// not parse correctly.
+func MustParseBinary(s string) BinaryVersion {
+	v, err := ParseBinary(s)
+	if err != nil {
+		panic(fmt.Errorf("version: cannot parse %q: %v", s, err))
+	}
+	return v
+}
+
+// ParseBinary parses a binary version of the form
+// 1.2.3-series-arch.
+func ParseBinary(s string) (BinaryVersion, error) {
+	m := binaryVersionPat.FindStringSubmatch(s)
+	if m == nil {
+		return BinaryVersion{}, fmt.Errorf("invalid binary version %q", s)
+	}
+	var v BinaryVersion
+	v.Major = atoi(m[1])
+	v.Minor = atoi(m[2])
+	v.Patch = atoi(m[3])
+	v.Series = m[4]
+	v.Arch = m[5]
+	return v, nil
 }
 
 // Parse parses the version, which is of the form 1.2.3
