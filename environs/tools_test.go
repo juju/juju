@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/version"
 	"net/http"
@@ -19,10 +20,11 @@ type ToolsSuite struct {
 }
 
 func (t *ToolsSuite) SetUpTest(c *C) {
-	env, err := environs.NewEnviron(map[string]interface{}{
-		"name":      "test",
-		"type":      "dummy",
-		"zookeeper": false,
+	env, err := environs.NewFromAttrs(map[string]interface{}{
+		"name":            "test",
+		"type":            "dummy",
+		"zookeeper":       false,
+		"authorized-keys": "i-am-a-key",
 	})
 	c.Assert(err, IsNil)
 	t.env = env
@@ -45,7 +47,7 @@ func mkVersion(vers string) version.Version {
 }
 
 func mkToolsPath(vers string) string {
-	return environs.ToolsPath(mkVersion(vers), environs.CurrentSeries, environs.CurrentArch)
+	return environs.ToolsPath(mkVersion(vers), config.CurrentSeries, config.CurrentArch)
 }
 
 var _ = Suite(&ToolsSuite{})
@@ -199,8 +201,8 @@ var findToolsTests = []struct {
 	// mismatching series or architecture is ignored.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		environs.ToolsPath(mkVersion("1.9.9"), "foo", environs.CurrentArch),
-		environs.ToolsPath(mkVersion("1.9.9"), environs.CurrentSeries, "foo"),
+		environs.ToolsPath(mkVersion("1.9.9"), "foo", config.CurrentArch),
+		environs.ToolsPath(mkVersion("1.9.9"), config.CurrentSeries, "foo"),
 		mkToolsPath("1.0.0"),
 	},
 	expect: mkToolsPath("1.0.0"),
@@ -221,7 +223,7 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 			err := t.env.PublicStorage().(environs.Storage).Put(name, strings.NewReader(data), int64(len(data)))
 			c.Assert(err, IsNil)
 		}
-		url, err := environs.FindTools(t.env, tt.version, environs.CurrentSeries, environs.CurrentArch)
+		url, err := environs.FindTools(t.env, tt.version, config.CurrentSeries, config.CurrentArch)
 		if tt.err != "" {
 			c.Assert(err, ErrorMatches, tt.err)
 		} else {
@@ -236,58 +238,23 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 	}
 }
 
-var readSeriesTests = []struct {
-	contents string
-	series   string
-}{{
-	`DISTRIB_ID=Ubuntu
-DISTRIB_RELEASE=12.04
-DISTRIB_CODENAME=precise
-DISTRIB_DESCRIPTION="Ubuntu 12.04 LTS"`,
-	"precise",
-}, {
-	"DISTRIB_CODENAME= \tprecise\t",
-	"precise",
-}, {
-	`DISTRIB_CODENAME="precise"`,
-	"precise",
-}, {
-	"DISTRIB_CODENAME='precise'",
-	"precise",
-}, {
-	`DISTRIB_ID=Ubuntu
-DISTRIB_RELEASE=12.10
-DISTRIB_CODENAME=quantal
-DISTRIB_DESCRIPTION="Ubuntu 12.10"`,
-	"quantal",
-}, {
-	"",
-	"unknown",
-},
+var setenvTests = []struct {
+	set    string
+	expect []string
+}{
+	{"foo=1", []string{"foo=1", "arble="}},
+	{"foo=", []string{"foo=", "arble="}},
+	{"arble=23", []string{"foo=bar", "arble=23"}},
+	{"zaphod=42", []string{"foo=bar", "arble=", "zaphod=42"}},
 }
 
-func (t *ToolsSuite) TestReadSeries(c *C) {
-	d := c.MkDir()
-	f := filepath.Join(d, "foo")
-	for i, t := range readSeriesTests {
+func (*ToolsSuite) TestSetenv(c *C) {
+	env0 := []string{"foo=bar", "arble="}
+	for i, t := range setenvTests {
 		c.Logf("test %d", i)
-		err := ioutil.WriteFile(f, []byte(t.contents), 0666)
-		c.Assert(err, IsNil)
-		c.Assert(environs.ReadSeries(f), Equals, t.series)
-	}
-}
-
-func (t *ToolsSuite) TestCurrentSeries(c *C) {
-	s := environs.CurrentSeries
-	if s == "unknown" {
-		s = "n/a"
-	}
-	out, err := exec.Command("lsb_release", "-c").CombinedOutput()
-	if err != nil {
-		// If the command fails (for instance if we're running on some other
-		// platform) then CurrentSeries should be unknown.
-		c.Assert(s, Equals, "n/a")
-	} else {
-		c.Assert(string(out), Equals, "Codename:\t"+s+"\n")
+		env := make([]string, len(env0))
+		copy(env, env0)
+		env = environs.Setenv(env, t.set)
+		c.Check(env, DeepEquals, t.expect)
 	}
 }

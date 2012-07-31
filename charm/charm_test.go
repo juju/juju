@@ -31,33 +31,34 @@ func (s *CharmSuite) TestRead(c *C) {
 }
 
 var inferRepoTests = []struct {
-	name   string
-	series string
-	path   string
-	curl   string
+	url  string
+	path string
 }{
-	{"wordpress", "precise", "anything", "cs:precise/wordpress"},
-	{"oneiric/wordpress", "anything", "anything", "cs:oneiric/wordpress"},
-	{"cs:oneiric/wordpress", "anything", "anything", "cs:oneiric/wordpress"},
-	{"local:wordpress", "precise", "/some/path", "local:precise/wordpress"},
-	{"local:oneiric/wordpress", "anything", "/some/path", "local:oneiric/wordpress"},
+	{"cs:precise/wordpress", ""},
+	{"local:oneiric/wordpress", "/some/path"},
 }
 
 func (s *CharmSuite) TestInferRepository(c *C) {
-	for _, t := range inferRepoTests {
-		repo, curl, err := charm.InferRepository(t.name, t.series, t.path)
+	for i, t := range inferRepoTests {
+		c.Logf("test %d", i)
+		curl, err := charm.InferURL(t.url, "precise")
 		c.Assert(err, IsNil)
-		expectCurl := charm.MustParseURL(t.curl)
-		c.Assert(curl, DeepEquals, expectCurl)
-		if localRepo, ok := repo.(*charm.LocalRepository); ok {
-			c.Assert(localRepo.Path, Equals, t.path)
-			c.Assert(curl.Schema, Equals, "local")
-		} else {
-			c.Assert(curl.Schema, Equals, "cs")
+		repo, err := charm.InferRepository(curl, "/some/path")
+		c.Assert(err, IsNil)
+		switch repo := repo.(type) {
+		case *charm.LocalRepository:
+			c.Assert(repo.Path, Equals, t.path)
+		default:
+			c.Assert(repo, FitsTypeOf, charm.Store())
 		}
 	}
-	_, _, err := charm.InferRepository("local:whatever", "series", "")
+	curl, err := charm.InferURL("local:whatever", "precise")
+	c.Assert(err, IsNil)
+	_, err = charm.InferRepository(curl, "")
 	c.Assert(err, ErrorMatches, "path to local repository not specified")
+	curl.Schema = "foo"
+	_, err = charm.InferRepository(curl, "")
+	c.Assert(err, ErrorMatches, "unknown schema for charm URL.*")
 }
 
 func checkDummy(c *C, f charm.Charm, path string) {

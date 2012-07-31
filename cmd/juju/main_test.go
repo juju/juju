@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/dummy"
+	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
 	"os"
 	"os/exec"
@@ -16,11 +16,7 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
-	srv := testing.StartZkServer()
-	defer srv.Destroy()
-	dummy.SetZookeeper(srv)
-	defer dummy.SetZookeeper(nil)
-	TestingT(t)
+	testing.ZkTestPackage(t)
 }
 
 type MainSuite struct{}
@@ -92,11 +88,13 @@ environments:
     one:
         type: dummy
         zookeeper: false
-        broken: true
+        authorized-keys: i-am-a-key
+        broken: %s
 `
 
-// Induce failure to load environments and hence break Run.
-func breakJuju(c *C) (string, func()) {
+// breakJuju forces the dummy environment to return an error
+// when environMethod is called.
+func breakJuju(c *C, environMethod string) (msg string, unbreak func()) {
 	home := os.Getenv("HOME")
 	path := c.MkDir()
 	os.Setenv("HOME", path)
@@ -105,16 +103,17 @@ func breakJuju(c *C) (string, func()) {
 	err := os.Mkdir(jujuDir, 0777)
 	c.Assert(err, IsNil)
 
-	err = ioutil.WriteFile(filepath.Join(jujuDir, "environments.yaml"), []byte(brokenConfig), 0666)
+	yaml := fmt.Sprintf(brokenConfig, environMethod)
+	err = ioutil.WriteFile(filepath.Join(jujuDir, "environments.yaml"), []byte(yaml), 0666)
 	c.Assert(err, IsNil)
 
-	msg := "broken environment"
+	msg = fmt.Sprintf("dummy.%s is broken", environMethod)
 	return msg, func() { os.Setenv("HOME", home) }
 }
 
 func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
 	// Check global args work when specified before command
-	msg, unbreak := breakJuju(c)
+	msg, unbreak := breakJuju(c, "Bootstrap")
 	defer unbreak()
 	logpath := filepath.Join(c.MkDir(), "log")
 	lines := badrun(c, 1, "--log-file", logpath, "--verbose", "--debug", "bootstrap")
@@ -127,7 +126,7 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
 
 func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 	// Check global args work when specified after command
-	msg, unbreak := breakJuju(c)
+	msg, unbreak := breakJuju(c, "Bootstrap")
 	defer unbreak()
 	logpath := filepath.Join(c.MkDir(), "log")
 	lines := badrun(c, 1, "bootstrap", "--log-file", logpath, "--verbose", "--debug")
@@ -140,7 +139,9 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 
 var commandNames = []string{
 	"bootstrap",
+	"deploy",
 	"destroy-environment",
+	"status",
 }
 
 func (s *MainSuite) TestHelp(c *C) {

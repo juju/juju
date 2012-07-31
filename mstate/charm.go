@@ -28,7 +28,7 @@ type Charm struct {
 func newCharm(st *State, cdoc *charmDoc) (*Charm, error) {
 	burl, err := url.Parse(cdoc.BundleURL)
 	if err != nil {
-		return nil, fmt.Errorf("can't parse charm bundle URL: %q", cdoc.BundleURL)
+		return nil, fmt.Errorf("cannot parse charm bundle URL: %q", cdoc.BundleURL)
 	}
 	c := &Charm{
 		st:           st,

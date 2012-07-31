@@ -1,143 +1,201 @@
 package ec2
 
 import (
+	"io/ioutil"
 	"launchpad.net/goamz/aws"
 	. "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
 // Use local suite since this file lives in the ec2 package
 // for testing internals.
-type configSuite struct{}
+type ConfigSuite struct {
+	savedHome, savedAccessKey, savedSecretKey string
+}
 
-var _ = Suite(configSuite{})
+var _ = Suite(&ConfigSuite{})
 
 var configTestRegion = aws.Region{
+	Name:        "configtest",
 	EC2Endpoint: "testregion.nowhere:1234",
 }
 
 var testAuth = aws.Auth{"gopher", "long teeth"}
-
-// the mandatory fields in config.
-var baseConfig = "control-bucket: x\n"
-
-// the result of parsing baseConfig.
-var baseConfigResult = providerConfig{
-	name:   "testenv",
-	region: "us-east-1",
-	bucket: "x",
-	auth:   testAuth,
-}
 
 // configTest specifies a config parsing test, checking that env when
 // parsed as the ec2 section of a config file matches baseConfigResult
 // when mutated by the mutate function, or that the parse matches the
 // given error.
 type configTest struct {
-	env    string
-	mutate func(*providerConfig)
-	err    string
+	config    attrs
+	change    attrs
+	region    string
+	cbucket   string
+	pbucket   string
+	accessKey string
+	secretKey string
+	err       string
+}
+
+type attrs map[string]interface{}
+
+func (t configTest) check(c *C) {
+	envs := attrs{
+		"environments": attrs{
+			"testenv": attrs{
+				"type": "ec2",
+			},
+		},
+	}
+	testenv := envs["environments"].(attrs)["testenv"].(attrs)
+	for k, v := range t.config {
+		testenv[k] = v
+	}
+	if _, ok := testenv["control-bucket"]; !ok {
+		testenv["control-bucket"] = "x"
+	}
+	data, err := goyaml.Marshal(envs)
+	c.Assert(err, IsNil)
+
+	es, err := environs.ReadEnvironsBytes(data)
+	c.Check(err, IsNil)
+
+	e, err := es.Open("testenv")
+	if t.change != nil {
+		c.Assert(err, IsNil)
+
+		// Testing a change in configuration.
+		var old, changed, valid *config.Config
+		ec2env := e.(*environ)
+		old = ec2env.ecfg().Config
+		changed, err = old.Apply(t.change)
+		c.Assert(err, IsNil)
+
+		// Keep err for validation below.
+		valid, err = providerInstance.Validate(changed, old)
+		if err == nil {
+			err = ec2env.SetConfig(valid)
+		}
+	}
+	if t.err != "" {
+		c.Check(err, ErrorMatches, t.err)
+		return
+	}
+	c.Assert(err, IsNil)
+
+	ecfg := e.(*environ).ecfg()
+	c.Assert(ecfg.Name(), Equals, "testenv")
+	c.Assert(ecfg.controlBucket(), Equals, "x")
+	if t.region != "" {
+		c.Assert(ecfg.region(), Equals, t.region)
+	}
+	if t.pbucket != "" {
+		c.Assert(ecfg.publicBucket(), Equals, t.pbucket)
+	}
+	if t.accessKey != "" {
+		c.Assert(ecfg.accessKey(), Equals, t.accessKey)
+		c.Assert(ecfg.secretKey(), Equals, t.secretKey)
+		expected := map[string]interface{}{
+			"access-key": t.accessKey,
+			"secret-key": t.secretKey,
+		}
+		c.Assert(err, IsNil)
+		actual, err := e.Provider().SecretAttrs(ecfg.Config)
+		c.Assert(err, IsNil)
+		c.Assert(expected, DeepEquals, actual)
+	} else {
+		c.Assert(ecfg.accessKey(), DeepEquals, testAuth.AccessKey)
+		c.Assert(ecfg.secretKey(), DeepEquals, testAuth.SecretKey)
+	}
 }
 
 var configTests = []configTest{
 	{
-		baseConfig,
-		func(cfg *providerConfig) {},
-		"",
-	},
-	{
-		"region: eu-west-1\n" + baseConfig,
-		func(cfg *providerConfig) {
-			cfg.region = "eu-west-1"
+		config: attrs{},
+	}, {
+		config: attrs{
+			"region": "eu-west-1",
 		},
-		"",
-	},
-	{
-		"region: unknown\n" + baseConfig,
-		nil,
-		".*invalid region name.*",
-	},
-	{
-		"region: configtest\n" + baseConfig,
-		func(cfg *providerConfig) {
-			cfg.region = "configtest"
+		region: "eu-west-1",
+	}, {
+		config: attrs{
+			"region": "unknown",
 		},
-		"",
-	},
-	{
-		"region: 666\n" + baseConfig,
-		nil,
-		".*expected string, got 666",
-	},
-	{
-		"access-key: 666\n" + baseConfig,
-		nil,
-		".*expected string, got 666",
-	},
-	{
-		"secret-key: 666\n" + baseConfig,
-		nil,
-		".*expected string, got 666",
-	},
-	{
-		"control-bucket: 666\n",
-		nil,
-		".*expected string, got 666",
-	},
-	{
-		"public-bucket: 666\n" + baseConfig,
-		nil,
-		".*expected string, got 666",
-	},
-	{
-		"public-bucket: foo\n" + baseConfig,
-		func(cfg *providerConfig) {
-			cfg.publicBucket = "foo"
+		err: ".*invalid region name.*",
+	}, {
+		config: attrs{
+			"region": "configtest",
 		},
-		"",
-	},
-	{
-		"access-key: jujuer\nsecret-key: open sesame\n" + baseConfig,
-		func(cfg *providerConfig) {
-			cfg.auth = aws.Auth{
-				AccessKey: "jujuer",
-				SecretKey: "open sesame",
-			}
+		region: "configtest",
+	}, {
+		config: attrs{
+			"region": "configtest",
 		},
-		"",
-	},
-	{
-		"authorized-keys: authkeys\n" + baseConfig,
-		func(cfg *providerConfig) {
-			cfg.authorizedKeys = "authkeys"
+		change: attrs{
+			"region": "us-east-1",
 		},
-		"",
-	},
-	{
-		"authorized-keys-path: 'some path'\n" + baseConfig,
-		func(cfg *providerConfig) {
-			cfg.authorizedKeysPath = "some path"
+		err: `cannot change region from "configtest" to "us-east-1"`,
+	}, {
+		config: attrs{
+			"region": 666,
 		},
-		"",
-	},
-	{
-		"access-key: jujuer\n" + baseConfig,
-		nil,
-		".*environment has access-key but no secret-key",
-	},
-	{
-		"secret-key: badness\n" + baseConfig,
-		nil,
-		".*environment has secret-key but no access-key",
-	},
-
-	// unknown fields are discarded
-	{
-		"unknown-something: 666\n" + baseConfig,
-		func(cfg *providerConfig) {},
-		"",
+		err: ".*expected string, got 666",
+	}, {
+		config: attrs{
+			"access-key": 666,
+		},
+		err: ".*expected string, got 666",
+	}, {
+		config: attrs{
+			"secret-key": 666,
+		},
+		err: ".*expected string, got 666",
+	}, {
+		config: attrs{
+			"control-bucket": 666,
+		},
+		err: ".*expected string, got 666",
+	}, {
+		change: attrs{
+			"control-bucket": "new-x",
+		},
+		err: `cannot change control-bucket from "x" to "new-x"`,
+	}, {
+		config: attrs{
+			"public-bucket": 666,
+		},
+		err: ".*expected string, got 666",
+	}, {
+		config: attrs{
+			"public-bucket": "foo",
+		},
+		pbucket: "foo",
+	}, {
+		config: attrs{
+			"access-key": "jujuer",
+			"secret-key": "open sesame",
+		},
+		accessKey: "jujuer",
+		secretKey: "open sesame",
+	}, {
+		config: attrs{
+			"access-key": "jujuer",
+		},
+		err: ".*environment has no access-key or secret-key",
+	}, {
+		config: attrs{
+			"secret-key": "badness",
+		},
+		err: ".*environment has no access-key or secret-key",
+	}, {
+		config: attrs{
+			"admin-secret": "Futumpsh",
+		},
 	},
 }
 
@@ -150,48 +208,42 @@ func indent(s string, with string) string {
 	return r
 }
 
-func makeEnv(s string) []byte {
-	return []byte("environments:\n  testenv:\n    type: ec2\n" + indent(s, "    "))
-}
+func (s *ConfigSuite) SetUpTest(c *C) {
+	s.savedHome = os.Getenv("HOME")
+	s.savedAccessKey = os.Getenv("AWS_ACCESS_KEY_ID")
+	s.savedSecretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
 
-func (configSuite) TestConfig(c *C) {
-	Regions["configtest"] = configTestRegion
-	defer delete(Regions, "configtest")
+	home := c.MkDir()
+	sshDir := filepath.Join(home, ".ssh")
+	err := os.Mkdir(sshDir, 0777)
+	c.Assert(err, IsNil)
+	err = ioutil.WriteFile(filepath.Join(sshDir, "id_rsa.pub"), []byte("sshkey\n"), 0666)
+	c.Assert(err, IsNil)
 
-	defer os.Setenv("AWS_ACCESS_KEY_ID", os.Getenv("AWS_ACCESS_KEY_ID"))
-	defer os.Setenv("AWS_SECRET_ACCESS_KEY", os.Getenv("AWS_SECRET_ACCESS_KEY"))
-
-	os.Setenv("AWS_ACCESS_KEY_ID", "")
-	os.Setenv("AWS_SECRET_ACCESS_KEY", "")
-
-	// first try with no auth environment vars set
-	test := configTests[0]
-	test.err = ".*not found in environment"
-	test.check(c)
-
-	// then set testAuthults
+	os.Setenv("HOME", home)
 	os.Setenv("AWS_ACCESS_KEY_ID", testAuth.AccessKey)
 	os.Setenv("AWS_SECRET_ACCESS_KEY", testAuth.SecretKey)
+	aws.Regions["configtest"] = configTestRegion
+}
 
+func (s *ConfigSuite) TearDownTest(c *C) {
+	os.Setenv("HOME", s.savedHome)
+	os.Setenv("AWS_ACCESS_KEY_ID", s.savedAccessKey)
+	os.Setenv("AWS_SECRET_ACCESS_KEY", s.savedSecretKey)
+	delete(aws.Regions, "configtest")
+}
+
+func (s *ConfigSuite) TestConfig(c *C) {
 	for i, t := range configTests {
-		c.Logf("test %d (environ %q)", i, t.env)
+		c.Logf("test %d: %q", i, t.config)
 		t.check(c)
 	}
 }
 
-func (t configTest) check(c *C) {
-	envs, err := environs.ReadEnvironsBytes(makeEnv(t.env))
-	if t.err != "" {
-		c.Check(err, ErrorMatches, t.err)
-		return
-	}
-	c.Check(err, IsNil)
-	e, err := envs.Open("testenv")
-	c.Assert(err, IsNil)
-	c.Assert(e, NotNil)
-	c.Assert(e, FitsTypeOf, (*environ)(nil))
-	tconfig := baseConfigResult
-	t.mutate(&tconfig)
-	c.Check(e.(*environ).config(), DeepEquals, &tconfig)
-	c.Check(e.(*environ).name, Equals, tconfig.name)
+func (s *ConfigSuite) TestMissingAuth(c *C) {
+	os.Setenv("AWS_ACCESS_KEY_ID", "")
+	os.Setenv("AWS_SECRET_ACCESS_KEY", "")
+	test := configTests[0]
+	test.err = "environment has no access-key or secret-key"
+	test.check(c)
 }

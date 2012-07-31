@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/environs/config"
 	"os"
 	"path/filepath"
 )
 
 // environ holds information about one environment.
 type environ struct {
-	config EnvironConfig
+	config *config.Config
 	err    error // an error if the config data could not be parsed.
 }
 
@@ -46,6 +47,15 @@ func RegisterProvider(name string, p EnvironProvider) {
 	providers[name] = p
 }
 
+// Provider returns the previously registered provider with the given type.
+func Provider(typ string) (EnvironProvider, error) {
+	p, ok := providers[typ]
+	if !ok {
+		return nil, fmt.Errorf("no registered provider for %q", typ)
+	}
+	return p, nil
+}
+
 // ReadEnvironsBytes parses the contents of an environments.yaml file
 // and returns its representation. An environment with an unknown type
 // will only generate an error when New is called for that environment.
@@ -78,24 +88,27 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 	for name, attrs := range raw.Environments {
 		kind, _ := attrs["type"].(string)
 		if kind == "" {
-			return nil, fmt.Errorf("environment %q has no type", name)
+			environs[name] = environ{
+				err: fmt.Errorf("environment %q has no type", name),
+			}
+			continue
 		}
-
 		p := providers[kind]
 		if p == nil {
-			// unknown provider type - skip entry but leave error message
-			// in case the environment is used later.
 			environs[name] = environ{
-				err: fmt.Errorf("environment %q has an unknown provider type: %q", name, kind),
+				err: fmt.Errorf("environment %q has an unknown provider type %q", name, kind),
 			}
 			continue
 		}
 		// store the name of the this environment in the config itself
 		// so that providers can see it.
 		attrs["name"] = name
-		cfg, err := p.NewConfig(attrs)
+		cfg, err := config.New(attrs)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing environment %q: %v", name, err)
+			environs[name] = environ{
+				err: fmt.Errorf("error parsing environment %q: %v", name, err),
+			}
+			continue
 		}
 		environs[name] = environ{config: cfg}
 	}

@@ -3,6 +3,8 @@ package state
 import (
 	"fmt"
 	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/state/presence"
 	"strconv"
 	"strings"
 )
@@ -34,21 +36,13 @@ func (r RelationRole) counterpartRole() RelationRole {
 	panic(fmt.Errorf("unknown RelationRole: %q", r))
 }
 
-// RelationScope describes the scope of a relation endpoint.
-type RelationScope string
-
-const (
-	ScopeGlobal    RelationScope = "global"
-	ScopeContainer RelationScope = "container"
-)
-
 // RelationEndpoint represents one endpoint of a relation.
 type RelationEndpoint struct {
 	ServiceName   string
 	Interface     string
 	RelationName  string
 	RelationRole  RelationRole
-	RelationScope RelationScope
+	RelationScope charm.RelationScope
 }
 
 // CanRelateTo returns whether a relation may be established between e and other.
@@ -86,7 +80,7 @@ type Relation struct {
 }
 
 func (r *Relation) String() string {
-	return fmt.Sprintf("relation %q", describeEndpoints(r.endpoints))
+	return describeEndpoints(r.endpoints)
 }
 
 // Id returns the integer part of the internal relation key. This is
@@ -110,7 +104,7 @@ func (r *Relation) Endpoint(serviceName string) (RelationEndpoint, error) {
 			return ep, nil
 		}
 	}
-	return RelationEndpoint{}, fmt.Errorf("service %q is not a member of %q", serviceName, r)
+	return RelationEndpoint{}, fmt.Errorf("service %q is not a member of relation %q", serviceName, r)
 }
 
 // RelatedEndpoints returns the endpoints of the relation r with which
@@ -129,9 +123,130 @@ func (r *Relation) RelatedEndpoints(serviceName string) ([]RelationEndpoint, err
 		}
 	}
 	if eps == nil {
-		return nil, fmt.Errorf("no endpoints of %q relate to service %q", r, serviceName)
+		return nil, fmt.Errorf("no endpoints of relation %q relate to service %q", r, serviceName)
 	}
 	return eps, nil
+}
+
+// Unit returns a RelationUnit for the supplied unit.
+func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
+	ep, err := r.Endpoint(u.serviceName)
+	if err != nil {
+		return nil, err
+	}
+	path := []string{"/relations", r.key}
+	if ep.RelationScope == charm.ScopeContainer {
+		container := u.principalKey
+		if container == "" {
+			container = u.key
+		}
+		path = append(path, container)
+	}
+	return &RelationUnit{
+		st:       r.st,
+		relation: r,
+		unit:     u,
+		endpoint: ep,
+		scope:    unitScopePath(strings.Join(path, "/")),
+	}, nil
+}
+
+// RelationUnit holds information about a single unit in a relation, and
+// allows clients to conveniently access unit-specific functionality.
+type RelationUnit struct {
+	st       *State
+	relation *Relation
+	unit     *Unit
+	endpoint RelationEndpoint
+	scope    unitScopePath
+}
+
+// Relation returns the relation associated with the unit.
+func (ru *RelationUnit) Relation() *Relation {
+	return ru.relation
+}
+
+// Endpoint returns the relation endpoint that defines the unit's
+// participation in the relation.
+func (ru *RelationUnit) Endpoint() RelationEndpoint {
+	return ru.endpoint
+}
+
+// Join joins the unit to the relation, such that other units watching the
+// relation will observe its presence and changes to its settings.
+func (ru *RelationUnit) Join() (p *presence.Pinger, err error) {
+	defer errorContextf(&err, "cannot join unit %q to relation %q", ru.unit, ru.relation)
+	if err = ru.scope.prepareJoin(ru.st.zk, ru.endpoint.RelationRole); err != nil {
+		return
+	}
+	// Private address should be set at agent startup.
+	address, err := ru.unit.PrivateAddress()
+	if err != nil {
+		return
+	}
+	err = setConfigString(ru.st.zk, ru.scope.settingsPath(ru.unit.key), "private-address", address, "private address of relation unit")
+	if err != nil {
+		return
+	}
+	presencePath := ru.scope.presencePath(ru.endpoint.RelationRole, ru.unit.key)
+	return presence.StartPinger(ru.st.zk, presencePath, agentPingerPeriod)
+}
+
+// Watch returns a watcher that notifies when any other unit in
+// the relation joins, departs, or has its settings changed.
+func (ru *RelationUnit) Watch() *RelationUnitsWatcher {
+	role := ru.endpoint.RelationRole.counterpartRole()
+	return newRelationUnitsWatcher(ru.scope, role, ru.unit)
+}
+
+// Settings returns a ConfigNode which allows access to the unit's settings
+// within the relation.
+func (ru *RelationUnit) Settings() (*ConfigNode, error) {
+	return readConfigNode(ru.st.zk, ru.scope.settingsPath(ru.unit.key))
+}
+
+// ReadSettings returns a map holding the settings of the unit with the
+// supplied name. An error will be returned if the relation no longer
+// exists, or if the unit's service is not part of the relation, or the
+// settings are invalid; but mere non-existence of the unit is not grounds
+// for an error, because the unit settings are guaranteed to persist for
+// the lifetime of the relation.
+func (ru *RelationUnit) ReadSettings(uname string) (settings map[string]interface{}, err error) {
+	defer errorContextf(&err, "cannot read settings for unit %q in relation %q", uname, ru.relation)
+	topo, err := readTopology(ru.st.zk)
+	if err != nil {
+		return nil, err
+	}
+	if !topo.HasRelation(ru.relation.key) {
+		// TODO this will be a problem until we have lifecycle management. IE,
+		// we expect to occasionally call this method during hook execution;
+		// until we can defer relation death until all interested parties have
+		// lost interest, we're in danger of the relation disappearing on us.
+		return nil, fmt.Errorf("relation broken; settings no longer accessible")
+	}
+	sname, useq, err := parseUnitName(uname)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = ru.relation.Endpoint(sname); err != nil {
+		return nil, err
+	}
+	skey, err := topo.ServiceKey(sname)
+	if err != nil {
+		return nil, err
+	}
+	ukey := makeUnitKey(skey, useq)
+	path := ru.scope.settingsPath(ukey)
+	if stat, err := ru.st.zk.Exists(path); err != nil {
+		return nil, err
+	} else if stat == nil {
+		return nil, fmt.Errorf("unit settings do not exist")
+	}
+	node, err := readConfigNode(ru.st.zk, path)
+	if err != nil {
+		return nil, err
+	}
+	return node.Map(), nil
 }
 
 // unitScopePath represents a common zookeeper path used by the set of units

@@ -147,7 +147,7 @@ func (w *ContentWatcher) update() (nextWatch <-chan zookeeper.Event, err error) 
 			}
 		}
 		// Any other error during GetW() or ExistsW().
-		return nil, fmt.Errorf("watcher: can't get content of node %q: %v", w.path, err)
+		return nil, fmt.Errorf("watcher: cannot get content of node %q: %v", w.path, err)
 	}
 	newContent := ContentChange{}
 	if stat != nil {
@@ -169,10 +169,10 @@ func (w *ContentWatcher) update() (nextWatch <-chan zookeeper.Event, err error) 
 }
 
 // ChildrenChange contains information about
-// children that have been created or deleted.
+// children that have been added or removed.
 type ChildrenChange struct {
 	Added   []string
-	Deleted []string
+	Removed []string
 }
 
 // ChildrenWatcher observes a ZooKeeper node and delivers a
@@ -288,7 +288,7 @@ func (w *ChildrenWatcher) update(eventType int) (nextWatch <-chan zookeeper.Even
 	var change ChildrenChange
 	for child, _ := range w.children {
 		if !children[child] {
-			change.Deleted = append(change.Deleted, child)
+			change.Removed = append(change.Removed, child)
 			delete(w.children, child)
 		}
 	}
@@ -298,7 +298,7 @@ func (w *ChildrenWatcher) update(eventType int) (nextWatch <-chan zookeeper.Even
 			w.children[child] = true
 		}
 	}
-	if w.emittedValue && len(change.Deleted) == 0 && len(change.Added) == 0 {
+	if w.emittedValue && len(change.Removed) == 0 && len(change.Added) == 0 {
 		return
 	}
 	select {

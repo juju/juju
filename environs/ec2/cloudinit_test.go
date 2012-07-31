@@ -58,9 +58,18 @@ func (t *cloudinitTest) check(c *C) {
 	} else {
 		t.checkScripts(c, "JUJU_ZOOKEEPER='"+strings.Join(t.cfg.stateInfo.Addrs, ",")+"'")
 	}
+	t.checkPackage(c, "libzookeeper-mt2")
 	t.checkScripts(c, "JUJU_MACHINE_ID=[0-9]+")
 
-	// TODO check provisioner and machine agent scripts.
+	if t.cfg.provisioner {
+		t.checkScripts(c, "jujud provisioning --zookeeper-servers 'localhost"+zkPortSuffix+"'")
+	}
+
+	if t.cfg.zookeeper {
+		t.checkScripts(c, "jujud machine --zookeeper-servers 'localhost"+zkPortSuffix+"' .* --machine-id [0-9]+")
+	} else {
+		t.checkScripts(c, "jujud machine --zookeeper-servers '"+strings.Join(t.cfg.stateInfo.Addrs, ",")+"' .* --machine-id [0-9]+")
+	}
 }
 
 func (t *cloudinitTest) checkScripts(c *C, pattern string) {

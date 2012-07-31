@@ -10,14 +10,18 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/state/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"strings"
 )
 
+// you need to make sure the region you use here
+// has entries in the images/query txt files.
 var functionalConfig = []byte(`
 environments:
   sample:
@@ -30,7 +34,9 @@ environments:
 `)
 
 func registerLocalTests() {
-	ec2.Regions["test"] = aws.Region{}
+	aws.Regions["test"] = aws.Region{
+		Name: "test",
+	}
 	envs, err := environs.ReadEnvironsBytes(functionalConfig)
 	if err != nil {
 		panic(fmt.Errorf("cannot parse functional tests config data: %v", err))
@@ -57,7 +63,8 @@ func registerLocalTests() {
 // localLiveSuite runs tests from LiveTests using a fake
 // EC2 server that runs within the test process itself.
 type localLiveSuite struct {
-	testing.LoggingSuite
+	coretesting.LoggingSuite
+	testing.StateSuite
 	LiveTests
 	srv localServer
 	env environs.Environ
@@ -106,11 +113,13 @@ func (srv *localServer) startServer(c *C) {
 	if err != nil {
 		c.Fatalf("cannot start s3 test server: %v", err)
 	}
-	ec2.Regions["test"] = aws.Region{
-		EC2Endpoint: srv.ec2srv.URL(),
-		S3Endpoint:  srv.s3srv.URL(),
+	aws.Regions["test"] = aws.Region{
+		Name:                 "test",
+		EC2Endpoint:          srv.ec2srv.URL(),
+		S3Endpoint:           srv.s3srv.URL(),
+		S3LocationConstraint: true,
 	}
-	s3inst := s3.New(aws.Auth{}, ec2.Regions["test"])
+	s3inst := s3.New(aws.Auth{}, aws.Regions["test"])
 	putFakeTools(c, ec2.BucketStorage(s3inst.Bucket("public-tools")))
 	srv.addSpice(c)
 }
@@ -120,13 +129,11 @@ func (srv *localServer) startServer(c *C) {
 // that start an instance can succeed even though they
 // do not upload tools.
 func putFakeTools(c *C, s environs.StorageWriter) {
-	path := environs.ToolsPath(version.Current, environs.CurrentSeries, environs.CurrentArch)
+	path := environs.ToolsPath(version.Current, config.CurrentSeries, config.CurrentArch)
 	c.Logf("putting fake tools at %v", path)
 	toolsContents := "tools archive, honest guv"
 	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
-	if err != nil {
-		c.Fatal(err)
-	}
+	c.Assert(err, IsNil)
 }
 
 // addSpice adds some "spice" to the local server
@@ -147,7 +154,7 @@ func (srv *localServer) stopServer(c *C) {
 	srv.s3srv.Quit()
 	// Clear out the region because the server address is
 	// no longer valid.
-	ec2.Regions["test"] = aws.Region{}
+	delete(aws.Regions, "test")
 }
 
 // localServerSuite contains tests that run against a fake EC2 server
@@ -157,7 +164,8 @@ func (srv *localServer) stopServer(c *C) {
 // accessed by using the "test" region, which is changed to point to the
 // network address of the local server.
 type localServerSuite struct {
-	testing.LoggingSuite
+	coretesting.LoggingSuite
+	testing.StateSuite
 	jujutest.Tests
 	srv localServer
 	env environs.Environ

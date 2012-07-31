@@ -9,6 +9,8 @@ package presence
 import (
 	"fmt"
 	zk "launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 	"time"
 )
@@ -39,10 +41,12 @@ func (n *changeNode) change() (mtime time.Time, err error) {
 
 // Pinger periodically updates a node in zookeeper while it is running.
 type Pinger struct {
-	conn   *zk.Conn
-	target changeNode
-	period time.Duration
-	tomb   tomb.Tomb
+	conn      *zk.Conn
+	tomb      tomb.Tomb
+	target    changeNode
+	period    time.Duration
+	lastPing  time.Time
+	stayAlive chan struct{}
 }
 
 // StartPinger returns a new Pinger that refreshes the content of path periodically.
@@ -52,25 +56,66 @@ func StartPinger(conn *zk.Conn, path string, period time.Duration) (*Pinger, err
 	if err != nil {
 		return nil, err
 	}
-	p := &Pinger{conn: conn, target: target, period: period}
+	p := &Pinger{
+		conn:      conn,
+		target:    target,
+		period:    period,
+		lastPing:  time.Now(),
+		stayAlive: make(chan struct{}),
+	}
 	go p.loop()
 	return p, nil
 }
 
 // loop calls change on p.target every p.period nanoseconds until p is stopped.
 func (p *Pinger) loop() {
-	defer p.tomb.Done()
+	defer p.finish()
+	tick := p.getTick()
 	for {
 		select {
 		case <-p.tomb.Dying():
+			log.Debugf("presence: %s pinger died after %s wait", p.target.path, time.Now().Sub(p.lastPing))
 			return
-		case <-time.After(p.period):
-			if _, err := p.target.change(); err != nil {
+		case now := <-tick:
+			log.Debugf("presence: %s pinger awakened after %s wait", p.target.path, time.Now().Sub(p.lastPing))
+			p.lastPing = now
+			mtime, err := p.target.change()
+			if err != nil {
 				p.tomb.Kill(err)
 				return
 			}
+			log.Debugf("presence: wrote to %s at (zk) %s", p.target.path, mtime)
+			tick = p.getTick()
 		}
 	}
+}
+
+// getTick returns a channel that will receive an event when the pinger is next
+// due to fire.
+func (p *Pinger) getTick() <-chan time.Time {
+	next := p.lastPing.Add(p.period)
+	wait := next.Sub(time.Now())
+	if wait <= 0 {
+		wait = 0
+	}
+	log.Debugf("presence: anticipating ping of %s in %s", p.target.path, wait)
+	return time.After(wait)
+}
+
+// finish marks the Pinger as finally dead; it may also trigger a final write
+// to the target node, if the Pinger has been cleanly shut down via the Stop
+// method.
+func (p *Pinger) finish() {
+	if p.tomb.Err() == nil {
+		select {
+		case <-p.stayAlive:
+			if _, err := p.target.change(); err != nil {
+				p.tomb.Kill(err)
+			}
+		default:
+		}
+	}
+	p.tomb.Done()
 }
 
 // Dying returns a channel that will be closed when the Pinger is no longer
@@ -80,25 +125,25 @@ func (p *Pinger) Dying() <-chan struct{} {
 }
 
 // Stop stops updating the node; AliveW watches will not notice any change
-// until they time out. A final write to the node is triggered to ensure
-// watchers time out as late as possible.
+// until they time out. If the pinger is shut down without errors, a final
+// write to the target node will occur, to ensure that remote watchers take
+// as long as possible to detect the Pinger's absence.
 func (p *Pinger) Stop() error {
+	close(p.stayAlive)
 	p.tomb.Kill(nil)
-	if err := p.tomb.Wait(); err != nil {
-		return err
-	}
-	_, err := p.target.change()
-	return err
+	return p.tomb.Wait()
 }
 
 // Kill stops updating and deletes the node, causing any AliveW watches
 // to observe its departure (almost) immediately.
-func (p *Pinger) Kill() error {
+func (p *Pinger) Kill() (err error) {
 	p.tomb.Kill(nil)
-	if err := p.tomb.Wait(); err != nil {
-		return err
+	if err = p.tomb.Wait(); err == nil {
+		if err = p.conn.Delete(p.target.path, -1); zk.IsError(err, zk.ZNONODE) {
+			return nil
+		}
 	}
-	return p.conn.Delete(p.target.path, -1)
+	return
 }
 
 // node represents the state of a presence node from a watcher's perspective.
@@ -118,15 +163,31 @@ func (n *node) setState(content string, stat *zk.Stat, firstTime bool) error {
 	if err != nil {
 		return fmt.Errorf("%s presence node has bad data: %q", n.path, content)
 	}
-	n.timeout = period * 2
+	// Worst observed combination of GC pauses and scheduler weirdness led to
+	// a gap between "500ms" pings of >1000ms; timeout should comfortably beat
+	// that. This is largely an artifact of the notably short periods used in
+	// tests; actual distributed Pingers should use longer periods in order to
+	// compensate for network flakiness... and to allow a comfortable buffer
+	// for Pinger re-establishment by a replacement process when (eg when
+	// upgrading agent binaries).
+	n.timeout = period * 3
 	if firstTime {
 		clock := changeNode{n.conn, "/clock", ""}
 		now, err := clock.change()
 		if err != nil {
 			return err
 		}
-		delay := now.Sub(stat.MTime())
+		mtime := stat.MTime()
+		delay := now.Sub(mtime)
 		n.alive = delay < n.timeout
+		log.Debugf(`
+presence: initial diagnosis of %s
+  now (zk)          %s
+  last write (zk)   %s
+  apparent delay    %s
+  timeout           %s
+  alive             %t
+`[1:], n.path, now, mtime, delay, n.timeout, n.alive)
 	} else {
 		// If this method is not being run for the first time, we know that
 		// the node has just changed, so we know that it's alive and there's
@@ -179,7 +240,10 @@ func (n *node) waitDead(zkWatch <-chan zk.Event, watch chan bool) {
 	for n.alive {
 		select {
 		case <-time.After(n.timeout):
-			n.alive = false
+			if err := n.update(); err != nil {
+				close(watch)
+				return
+			}
 		case event := <-zkWatch:
 			if !event.Ok() {
 				close(watch)
@@ -278,4 +342,185 @@ func WaitAlive(conn *zk.Conn, path string, timeout time.Duration) error {
 		return fmt.Errorf("presence: still not alive after timeout")
 	}
 	return nil
+}
+
+// ChildrenWatcher mimics state/watcher's ChildrenWatcher, but treats nodes that
+// do not have active Pingers as nonexistent.
+type ChildrenWatcher struct {
+	conn    *zk.Conn
+	tomb    tomb.Tomb
+	path    string
+	alive   map[string]bool
+	stops   map[string]chan bool
+	updates chan aliveChange
+	changes chan watcher.ChildrenChange
+}
+
+// aliveChange is used internally by ChildrenWatcher to communicate node
+// status changes from childLoop goroutines to the main loop goroutine.
+type aliveChange struct {
+	key   string
+	alive bool
+}
+
+// NewChildrenWatcher returns a ChildrenWatcher that notifies of the
+// presence and absence of Pingers in the direct child nodes of path.
+func NewChildrenWatcher(conn *zk.Conn, path string) *ChildrenWatcher {
+	w := &ChildrenWatcher{
+		conn:    conn,
+		path:    path,
+		alive:   make(map[string]bool),
+		stops:   make(map[string]chan bool),
+		updates: make(chan aliveChange),
+		changes: make(chan watcher.ChildrenChange),
+	}
+	go w.loop()
+	return w
+}
+
+// Changes returns a channel on which presence changes can be received.
+// The first event returns the current set of children on which Pingers
+// are active.
+func (w *ChildrenWatcher) Changes() <-chan watcher.ChildrenChange {
+	return w.changes
+}
+
+// Stop terminates the watcher and returns any error encountered while watching.
+func (w *ChildrenWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
+}
+
+// Err returns the error that stopped the watcher, or
+// tomb.ErrStillAlive if the watcher is still running.
+func (w *ChildrenWatcher) Err() error {
+	return w.tomb.Err()
+}
+
+func (w *ChildrenWatcher) loop() {
+	defer w.finish()
+	cw := watcher.NewChildrenWatcher(w.conn, w.path)
+	defer watcher.Stop(cw, &w.tomb)
+	emittedValue := false
+	for {
+		var change watcher.ChildrenChange
+		select {
+		case <-w.tomb.Dying():
+			return
+		case ch, ok := <-cw.Changes():
+			var err error
+			if !ok {
+				err = watcher.MustErr(cw)
+			} else {
+				change, err = w.changeWatches(ch)
+			}
+			if err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			if emittedValue && len(change.Added) == 0 && len(change.Removed) == 0 {
+				continue
+			}
+		case ch, ok := <-w.updates:
+			if !ok {
+				panic("updates channel closed")
+			}
+			if ch.alive {
+				w.alive[ch.key] = true
+				change = watcher.ChildrenChange{Added: []string{ch.key}}
+			} else if w.alive[ch.key] {
+				delete(w.alive, ch.key)
+				change = watcher.ChildrenChange{Removed: []string{ch.key}}
+			} else {
+				// The node is already known to be dead, as a result of a
+				// child removal detected by cw, and no further action need
+				// be taken.
+				continue
+			}
+		}
+		select {
+		case <-w.tomb.Dying():
+			return
+		case w.changes <- change:
+			emittedValue = true
+		}
+	}
+}
+
+// finish tidies up any active watches on the child nodes, closes
+// channels, and marks the watcher as finished.
+func (w *ChildrenWatcher) finish() {
+	for _, stop := range w.stops {
+		stop <- true
+	}
+	// No need to close w.updates.
+	close(w.changes)
+	w.tomb.Done()
+}
+
+// changeWatches starts new presence watches on newly-added candidates, and
+// stops them on deleted ones. It returns a ChildrenChange representing only
+// those changes that correspond to the presence or hitherto-undetected
+// absence of a Pinger on a candidate node.
+func (w *ChildrenWatcher) changeWatches(ch watcher.ChildrenChange) (watcher.ChildrenChange, error) {
+	change := watcher.ChildrenChange{}
+	for _, key := range ch.Removed {
+		stop := w.stops[key]
+		delete(w.stops, key)
+		stop <- true
+		// The node might not already be known to be dead.
+		if w.alive[key] {
+			delete(w.alive, key)
+			change.Removed = append(change.Removed, key)
+		}
+	}
+	for _, key := range ch.Added {
+		path := w.path + "/" + key
+		alive, aliveW, err := AliveW(w.conn, path)
+		if err != nil {
+			return watcher.ChildrenChange{}, err
+		}
+		stop := make(chan bool)
+		w.stops[key] = stop
+		go w.childLoop(key, path, aliveW, stop)
+		if alive {
+			w.alive[key] = true
+			change.Added = append(change.Added, key)
+		}
+	}
+	return change, nil
+}
+
+// childLoop sends aliveChange events to w.updates, in response to presence
+// changes received from watch (which is refreshed internally as required),
+// until its stop chan is closed.
+func (w *ChildrenWatcher) childLoop(key, path string, watch <-chan bool, stop <-chan bool) {
+	for {
+		select {
+		case <-stop:
+			return
+		case alive, ok := <-watch:
+			if !ok {
+				w.tomb.Killf("presence watch on %q failed", path)
+				return
+			}
+			// We definitely need to watch again; do so early, so we can verify
+			// that the state has changed an odd number of times since we last
+			// notified, and thereby only send notifications on real changes.
+			aliveNow, newWatch, err := AliveW(w.conn, path)
+			if err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			watch = newWatch
+			if aliveNow != alive {
+				continue
+			}
+			select {
+			case <-stop:
+				return
+			case w.updates <- aliveChange{key, aliveNow}:
+			}
+		}
+	}
 }

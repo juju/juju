@@ -5,18 +5,14 @@ import (
 )
 
 // ZkConn returns the ZooKeeper connection used by a state.
-// It is defined in export_test.go so that tests can have access
-// to this connection.
+// It is required by state_test.ConnSuite.
 func ZkConn(st *State) *zookeeper.Conn {
 	return st.zk
 }
 
 // NewMachine constructs *Machine's for tests.
 func NewMachine(st *State, key string) *Machine {
-	return &Machine{
-		st:  st,
-		key: key,
-	}
+	return newMachine(st, key)
 }
 
 // ReadConfigNode exports readConfigNode for testing.

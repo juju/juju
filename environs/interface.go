@@ -3,22 +3,25 @@ package environs
 import (
 	"errors"
 	"io"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 )
 
 // A EnvironProvider represents a computing and storage provider.
 type EnvironProvider interface {
-	// NewConfig returns a new EnvironConfig representing the
-	// environment with the given attributes.  Every provider must
-	// accept the "name" and "type" keys, holding the name of the
-	// environment and the provider type respectively.
-	NewConfig(attrs map[string]interface{}) (EnvironConfig, error)
-}
-
-// EnvironConfig represents an environment's configuration.
-type EnvironConfig interface {
 	// Open opens the environment and returns it.
-	Open() (Environ, error)
+	Open(cfg *config.Config) (Environ, error)
+
+	// Validate ensures that config is a valid configuration for this
+	// provider, applying changes to it if necessary, and returns the
+	// validated configuration.
+	// If old is not nil, it holds the previous environment configuration
+	// for consideration when validating changes.
+	Validate(cfg, old *config.Config) (valid *config.Config, err error)
+
+	// SecretAttrs filters the supplied configuation returning only values
+	// which are considered sensitive.
+	SecretAttrs(cfg *config.Config) (map[string]interface{}, error)
 }
 
 var ErrNoDNSName = errors.New("DNS name not allocated")
@@ -36,6 +39,19 @@ type Instance interface {
 	// WaitDNSName returns the DNS name for the instance,
 	// waiting until it is allocated if necessary.
 	WaitDNSName() (string, error)
+
+	// OpenPorts opens the given ports on the instance, which
+	// should have been started with the given machine id.
+	OpenPorts(machineId int, ports []state.Port) error
+
+	// ClosePorts closes the given ports on the instance, which
+	// should have been started with the given machine id.
+	ClosePorts(machineId int, ports []state.Port) error
+
+	// Ports returns the set of ports open on the instance, which
+	// should have been started with the given machine id.
+	// The ports are returned as sorted by state.SortPorts.
+	Ports(machineId int) ([]state.Port, error)
 }
 
 var ErrNoInstances = errors.New("no instances found")
@@ -96,6 +112,9 @@ type Storage interface {
 // consistent with a previous operation.
 // 
 type Environ interface {
+	// Name returns the Environ's name.
+	Name() string
+
 	// Bootstrap initializes the state for the environment,
 	// possibly starting one or more instances.
 	// If uploadTools is true, the current version of
@@ -107,15 +126,19 @@ type Environ interface {
 	// by Bootstrap.
 	StateInfo() (*state.Info, error)
 
+	// Config returns the current configuration of this Environ.
+	Config() *config.Config
+
 	// SetConfig updates the Environs configuration.
 	// Calls to SetConfig do not affect the configuration of
 	// values previously obtained from Storage and PublicStorage.
-	SetConfig(config EnvironConfig)
+	SetConfig(cfg *config.Config) error
 
 	// StartInstance asks for a new instance to be created,
-	// associated with the provided machine identifier.
-	// The given info describes the juju state for the new
-	// instance to connect to.
+	// associated with the provided machine identifier.  The given
+	// info describes the juju state for the new instance to connect
+	// to.  Using the same machine id as another running instance
+	// can lead to undefined results.
 	// TODO add arguments to specify type of new machine.
 	StartInstance(machineId int, info *state.Info) (Instance, error)
 
@@ -153,4 +176,7 @@ type Environ interface {
 
 	// AssignmentPolicy returns the environment's unit assignment policy.
 	AssignmentPolicy() state.AssignmentPolicy
+
+	// Provider returns the EnvironProvider that created this Environ.
+	Provider() EnvironProvider
 }

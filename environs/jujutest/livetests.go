@@ -4,6 +4,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"time"
 )
@@ -59,6 +60,81 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Assert(insts, HasLen, 0)
 }
 
+func (t *LiveTests) TestPorts(c *C) {
+	inst1, err := t.Env.StartInstance(1, InvalidStateInfo)
+	c.Assert(err, IsNil)
+	c.Assert(inst1, NotNil)
+	defer t.Env.StopInstances([]environs.Instance{inst1})
+
+	ports, err := inst1.Ports(1)
+	c.Assert(err, IsNil)
+	c.Assert(ports, HasLen, 0)
+
+	inst2, err := t.Env.StartInstance(2, InvalidStateInfo)
+	c.Assert(err, IsNil)
+	c.Assert(inst2, NotNil)
+	ports, err = inst2.Ports(2)
+	c.Assert(err, IsNil)
+	c.Assert(ports, HasLen, 0)
+	defer t.Env.StopInstances([]environs.Instance{inst2})
+
+	// Open some ports and check they're there.
+	err = inst1.OpenPorts(1, []state.Port{{"udp", 67}, {"tcp", 45}})
+	c.Assert(err, IsNil)
+	ports, err = inst1.Ports(1)
+	c.Assert(err, IsNil)
+	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"udp", 67}})
+	ports, err = inst2.Ports(2)
+	c.Assert(err, IsNil)
+	c.Assert(ports, HasLen, 0)
+
+	// Check there's no crosstalk to another machine
+	err = inst2.OpenPorts(2, []state.Port{{"tcp", 89}, {"tcp", 45}})
+	c.Assert(err, IsNil)
+	ports, err = inst2.Ports(2)
+	c.Assert(err, IsNil)
+	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}})
+	ports, err = inst1.Ports(1)
+	c.Assert(err, IsNil)
+	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"udp", 67}})
+
+	// Check that opening the same port again is ok.
+	err = inst2.OpenPorts(2, []state.Port{{"tcp", 45}})
+	c.Assert(err, IsNil)
+	ports, err = inst2.Ports(2)
+	c.Assert(err, IsNil)
+	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}})
+
+	// Check that opening the same port again and another port is ok.
+	err = inst2.OpenPorts(2, []state.Port{{"tcp", 45}, {"tcp", 99}})
+	c.Assert(err, IsNil)
+	ports, err = inst2.Ports(2)
+	c.Assert(err, IsNil)
+	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
+
+	// Check that we can close ports and that there's no crosstalk.
+	err = inst2.ClosePorts(2, []state.Port{{"tcp", 45}, {"tcp", 99}})
+	c.Assert(err, IsNil)
+	ports, err = inst2.Ports(2)
+	c.Assert(err, IsNil)
+	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 89}})
+	ports, err = inst1.Ports(1)
+	c.Assert(err, IsNil)
+	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"udp", 67}})
+
+	// Check that we can close multiple ports.
+	err = inst1.ClosePorts(1, []state.Port{{"tcp", 45}, {"udp", 67}})
+	c.Assert(err, IsNil)
+	ports, err = inst1.Ports(1)
+	c.Assert(ports, HasLen, 0)
+
+	// Check that we can close ports that aren't there.
+	err = inst2.ClosePorts(2, []state.Port{{"tcp", 111}, {"udp", 222}})
+	c.Assert(err, IsNil)
+	ports, err = inst2.Ports(2)
+	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 89}})
+}
+
 func (t *LiveTests) TestBootstrap(c *C) {
 	t.BootstrapOnce(c)
 
@@ -70,12 +146,13 @@ func (t *LiveTests) TestBootstrap(c *C) {
 	info, err := t.Env.StateInfo()
 	c.Assert(err, IsNil)
 	c.Assert(info, NotNil)
-	c.Check(info.Addrs, Not(HasLen), 0)
+	c.Assert(info.Addrs, Not(HasLen), 0)
 
 	if t.CanOpenState {
 		st, err := state.Open(info)
 		c.Assert(err, IsNil)
-		st.Close()
+		err = st.Close()
+		c.Assert(err, IsNil)
 	}
 
 	c.Logf("destroy env")
@@ -83,6 +160,93 @@ func (t *LiveTests) TestBootstrap(c *C) {
 
 	// check that we can bootstrap after destroy
 	t.BootstrapOnce(c)
+}
+
+func (t *LiveTests) TestBootstrapProvisioner(c *C) {
+	if !t.CanOpenState || !t.HasProvisioner {
+		c.Skip(fmt.Sprintf("skipping provisioner test, CanOpenState: %v, HasProvisioner: %v", t.CanOpenState, t.HasProvisioner))
+	}
+	t.BootstrapOnce(c)
+
+	// TODO(dfc) constructing a juju.Conn by hand is a code smell.
+	conn, err := juju.NewConnFromAttrs(t.Env.Config().AllAttrs())
+	c.Assert(err, IsNil)
+
+	st, err := conn.State()
+	c.Assert(err, IsNil)
+
+	// place a new machine into the state
+	m, err := st.AddMachine()
+	c.Assert(err, IsNil)
+
+	t.assertStartInstance(c, m)
+
+	// now remove it
+	c.Assert(st.RemoveMachine(m.Id()), IsNil)
+
+	// watch the PA remove it
+	t.assertStopInstance(c, m)
+	assertInstanceId(c, m, nil)
+
+	err = st.Close()
+	c.Assert(err, IsNil)
+}
+
+var waitAgent = environs.AttemptStrategy{
+	Total: 30 * time.Second,
+	Delay: 1 * time.Second,
+}
+
+func (t *LiveTests) assertStartInstance(c *C, m *state.Machine) {
+	// Wait for machine to get an instance id.
+	for a := waitAgent.Start(); a.Next(); {
+		instId, err := m.InstanceId()
+		if _, ok := err.(*state.NotFoundError); ok {
+			continue
+		}
+		c.Assert(err, IsNil)
+		_, err = t.Env.Instances([]string{instId})
+		c.Assert(err, IsNil)
+		return
+	}
+	c.Fatalf("provisioner failed to start machine after %v", waitAgent.Total)
+}
+
+func (t *LiveTests) assertStopInstance(c *C, m *state.Machine) {
+	// Wait for machine id to be cleared.
+	for a := waitAgent.Start(); a.Next(); {
+		if instId, err := m.InstanceId(); instId == "" {
+			c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+			return
+		}
+	}
+	c.Fatalf("provisioner failed to stop machine after %v", waitAgent.Total)
+}
+
+// assertInstanceId asserts that the machine has an instance id
+// that matches that of the given instance. If the instance is nil,
+// It asserts that the instance id is unset.
+func assertInstanceId(c *C, m *state.Machine, inst environs.Instance) {
+	// TODO(dfc) add machine.WatchConfig() to avoid having to poll.
+	var instId, id string
+	var err error
+	if inst != nil {
+		instId = inst.Id()
+	}
+	for a := waitAgent.Start(); a.Next(); {
+		id, err = m.InstanceId()
+		_, notset := err.(*state.NotFoundError)
+		if notset {
+			if inst == nil {
+				return
+			}
+			continue
+		}
+		c.Assert(err, IsNil)
+		break
+	}
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, instId)
 }
 
 // TODO check that binary data works ok?

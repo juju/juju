@@ -11,18 +11,24 @@ import (
 
 const providerMachineId = "provider-machine-id"
 
-type NoInstanceIdError struct {
-	machineId int
-}
-
-func (e *NoInstanceIdError) Error() string {
-	return fmt.Sprintf("instance id for machine %d is not set", e.machineId)
-}
-
 // Machine represents the state of a machine.
 type Machine struct {
 	st  *State
 	key string
+	agentVersion
+}
+
+func newMachine(st *State, key string) *Machine {
+	m := &Machine{
+		st:  st,
+		key: key,
+	}
+	m.agentVersion = agentVersion{
+		zk:    st.zk,
+		agent: "machine",
+		path:  m.zkPath(),
+	}
+	return m
 }
 
 // Id returns the machine id.
@@ -51,31 +57,29 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 	return presence.StartPinger(m.st.zk, m.zkAgentPath(), agentPingerPeriod)
 }
 
+// SetInstanceId sets the provider specific machine id for this machine.
+func (m *Machine) SetInstanceId(id string) (err error) {
+	return setConfigString(m.st.zk, m.zkPath(), providerMachineId, id,
+		"instance id of machine %v", m)
+}
+
 // InstanceId returns the provider specific machine id for this machine.
-// If the id is not set, or its value is "" and error of type NoInstanceIdError
-// will be returned.
+// If the id is not set, it returns a *NotFoundError.
 func (m *Machine) InstanceId() (string, error) {
-	config, err := readConfigNode(m.st.zk, m.zkPath())
-	if err != nil {
-		return "", fmt.Errorf("can't get instance id of machine %s: %v", m, err)
-	}
-	v, ok := config.Get(providerMachineId)
-	if !ok {
-		return "", &NoInstanceIdError{m.Id()}
-	}
-	if id, ok := v.(string); ok {
-		if id == "" {
-			return "", &NoInstanceIdError{m.Id()}
+	instanceId, err := getConfigString(m.st.zk, m.zkPath(), providerMachineId,
+		"instance id of machine %v", m.String())
+	if _, ok := err.(*NotFoundError); ok || (err == nil && instanceId == "") {
+		return "", &NotFoundError{
+			fmt.Sprintf("instance id for machine %d is not set", m.Id()),
 		}
-		return id, nil
 	}
-	return "", fmt.Errorf("invalid internal machine id type %T for machine %s", v, m)
+	return instanceId, err
 }
 
 // Units returns all the units that have been assigned
 // to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
-	defer errorContextf(&err, "can't get all assigned units of machine %s", m)
+	defer errorContextf(&err, "cannot get all assigned units of machine %s", m)
 	topology, err := readTopology(m.st.zk)
 	if err != nil {
 		return nil, err
@@ -95,16 +99,8 @@ func (m *Machine) WatchUnits() *MachineUnitsWatcher {
 	return newMachineUnitsWatcher(m)
 }
 
-// SetInstanceId sets the provider specific machine id for this machine.
-func (m *Machine) SetInstanceId(id string) (err error) {
-	defer errorContextf(&err, "can't set instance id of machine %s to %q", m, id)
-	config, err := readConfigNode(m.st.zk, m.zkPath())
-	if err != nil {
-		return err
-	}
-	config.Set(providerMachineId, id)
-	_, err = config.Write()
-	return err
+func (m *Machine) Watch() *MachineWatcher {
+	return newMachineWatcher(m)
 }
 
 // String returns a unique description of this machine

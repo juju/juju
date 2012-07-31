@@ -11,43 +11,20 @@ import (
 	"time"
 )
 
-var zkAddr string
-
 func TestPackage(t *stdtesting.T) {
-	srv := testing.StartZkServer()
-	defer srv.Destroy()
-	var err error
-	zkAddr, err = srv.Addr()
-	if err != nil {
-		t.Fatalf("could not get ZooKeeper server address")
-	}
-	TestingT(t)
+	testing.ZkTestPackage(t)
 }
 
 type WatcherSuite struct {
-	zkConn *zookeeper.Conn
-	path   string
+	testing.ZkConnSuite
+	path string
 }
 
 var _ = Suite(&WatcherSuite{})
 
-func (s *WatcherSuite) SetUpTest(c *C) {
-	zk, session, err := zookeeper.Dial(zkAddr, 15e9)
-	c.Assert(err, IsNil)
-	event := <-session
-	c.Assert(event.Ok(), Equals, true)
-	c.Assert(event.Type, Equals, zookeeper.EVENT_SESSION)
-	c.Assert(event.State, Equals, zookeeper.STATE_CONNECTED)
-
-	s.zkConn = zk
+func (s *WatcherSuite) SetUpSuite(c *C) {
+	s.ZkConnSuite.SetUpSuite(c)
 	s.path = "/watcher"
-
-	c.Assert(err, IsNil)
-}
-
-func (s *WatcherSuite) TearDownTest(c *C) {
-	testing.ZkRemoveTree(s.zkConn, s.path)
-	s.zkConn.Close()
 }
 
 type contentWatcherTest struct {
@@ -65,7 +42,7 @@ var contentWatcherTests = []contentWatcherTest{
 }
 
 func (s *WatcherSuite) TestContentWatcher(c *C) {
-	contentWatcher := watcher.NewContentWatcher(s.zkConn, s.path)
+	contentWatcher := watcher.NewContentWatcher(s.ZkConn, s.path)
 
 	for i, test := range contentWatcherTests {
 		c.Logf("test %d", i)
@@ -75,7 +52,7 @@ func (s *WatcherSuite) TestContentWatcher(c *C) {
 			c.Assert(ok, Equals, true)
 			c.Assert(got, Equals, test.want)
 		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("didn't get change: %#v", test.want)
+			c.Fatalf("did not get change: %#v", test.want)
 		}
 	}
 
@@ -115,7 +92,7 @@ var childrenWatcherTests = []childrenWatcherTest{
 
 func (s *WatcherSuite) TestChildrenWatcher(c *C) {
 	s.createPath(c, "init")
-	childrenWatcher := watcher.NewChildrenWatcher(s.zkConn, s.path)
+	childrenWatcher := watcher.NewChildrenWatcher(s.ZkConn, s.path)
 
 	for i, test := range childrenWatcherTests {
 		c.Logf("test %d", i)
@@ -130,7 +107,7 @@ func (s *WatcherSuite) TestChildrenWatcher(c *C) {
 			}
 		case <-time.After(200 * time.Millisecond):
 			if test.want != nil {
-				c.Fatalf("didn't get change: %#v", test.want)
+				c.Fatalf("did not get change: %#v", test.want)
 			}
 		}
 	}
@@ -155,16 +132,16 @@ func (s *WatcherSuite) TestChildrenWatcher(c *C) {
 }
 
 func (s *WatcherSuite) createPath(c *C, content string) {
-	_, err := s.zkConn.Create(s.path, content, 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
+	_, err := s.ZkConn.Create(s.path, content, 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
 	c.Assert(err, IsNil)
 }
 
 func (s *WatcherSuite) removePath(c *C) {
-	testing.ZkRemoveTree(s.zkConn, s.path)
+	testing.ZkRemoveTree(s.ZkConn, s.path)
 }
 
 func (s *WatcherSuite) changeContent(c *C, content string) {
-	_, err := s.zkConn.Set(s.path, content, -1)
+	_, err := s.ZkConn.Set(s.path, content, -1)
 	c.Assert(err, IsNil)
 }
 
@@ -172,9 +149,9 @@ func (s *WatcherSuite) changeChildren(c *C, add bool, child string) {
 	var err error
 	path := s.path + "/" + child
 	if add {
-		_, err = s.zkConn.Create(path, "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
+		_, err = s.ZkConn.Create(path, "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
 	} else {
-		err = s.zkConn.Delete(path, -1)
+		err = s.ZkConn.Delete(path, -1)
 	}
 	c.Assert(err, IsNil)
 }

@@ -22,6 +22,7 @@ environments:
     palermo:
         type: dummy
         zookeeper: true
+        authorized-keys: i-am-a-key
 `
 
 type DeploySuite struct {
@@ -149,13 +150,13 @@ func (s *DeploySuite) TestCharmBundle(c *C) {
 func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
 	testing.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
-	c.Assert(err, ErrorMatches, `can't upgrade: charm "local:precise/dummy-1" is not a directory`)
+	c.Assert(err, ErrorMatches, `cannot increment version of charm "local:precise/dummy-1": not a directory`)
 	// Verify state not touched...
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	_, err = s.st.Charm(curl)
-	c.Assert(err, ErrorMatches, `can't get charm "local:precise/dummy-1": charm not found`)
+	c.Assert(err, ErrorMatches, `cannot get charm "local:precise/dummy-1": charm not found`)
 	_, err = s.st.Service("dummy")
-	c.Assert(err, ErrorMatches, `can't get service "dummy": service with name "dummy" not found`)
+	c.Assert(err, ErrorMatches, `cannot get service "dummy": service with name "dummy" not found`)
 }
 
 func (s *DeploySuite) TestAddsPeerRelations(c *C) {
@@ -169,7 +170,7 @@ func (s *DeploySuite) TestAddsPeerRelations(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ep.RelationName, Equals, "ring")
 	c.Assert(ep.RelationRole, Equals, state.RolePeer)
-	c.Assert(ep.RelationScope, Equals, state.ScopeGlobal)
+	c.Assert(ep.RelationScope, Equals, charm.ScopeGlobal)
 }
 
 func (s *DeploySuite) TestNumUnits(c *C) {

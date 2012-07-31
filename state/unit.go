@@ -67,10 +67,11 @@ type openPortsNode struct {
 
 // Unit represents the state of a service unit.
 type Unit struct {
-	st          *State
-	key         string
-	serviceName string
-	isPrincipal bool
+	st           *State
+	key          string
+	serviceName  string
+	principalKey string
+	agentVersion
 }
 
 // ServiceName returns the service name.
@@ -109,106 +110,83 @@ func serviceKeyForUnitKey(unitKey string) (string, error) {
 	return "service-" + k[0:i], nil
 }
 
+func newUnit(st *State, serviceName string, key, principalKey string) *Unit {
+	u := &Unit{
+		st:           st,
+		serviceName:  serviceName,
+		key:          key,
+		principalKey: principalKey,
+	}
+	u.agentVersion = agentVersion{
+		zk:    st.zk,
+		path:  u.zkPath(),
+		agent: "unit",
+	}
+	return u
+}
+
 func (st *State) unitFromKey(t *topology, unitKey string) (*Unit, error) {
 	tsvc, tunit, err := t.serviceAndUnit(unitKey)
 	if err != nil {
 		return nil, err
 	}
-	return &Unit{
-		st:          st,
-		key:         unitKey,
-		serviceName: tsvc.Name,
-		isPrincipal: tunit.isPrincipal(),
-	}, nil
+	return newUnit(st, tsvc.Name, unitKey, tunit.Principal), nil
 }
 
 // PublicAddress returns the public address of the unit.
 func (u *Unit) PublicAddress() (string, error) {
-	cn, err := readConfigNode(u.st.zk, u.zkPath())
-	if err != nil {
-		return "", fmt.Errorf("can't get public address of unit %q: %v", u, err)
-	}
-	if address, ok := cn.Get("public-address"); ok {
-		return address.(string), nil
-	}
-	return "", errors.New("unit has no public address")
+	return getConfigString(u.st.zk, u.zkPath(), "public-address",
+		"public address of unit %q", u)
 }
 
 // SetPublicAddress sets the public address of the unit.
 func (u *Unit) SetPublicAddress(address string) (err error) {
-	defer errorContextf(&err, "can't set public address of unit %q to %q", u, address)
-	cn, err := readConfigNode(u.st.zk, u.zkPath())
-	if err != nil {
-		return err
-	}
-	cn.Set("public-address", address)
-	_, err = cn.Write()
-	return err
+	return setConfigString(u.st.zk, u.zkPath(), "public-address", address,
+		"public address of unit %q", u)
 }
 
 // PrivateAddress returns the private address of the unit.
 func (u *Unit) PrivateAddress() (string, error) {
-	cn, err := readConfigNode(u.st.zk, u.zkPath())
-	if err != nil {
-		return "", fmt.Errorf("can't get private address of unit %q: %v", u, err)
-	}
-	if address, ok := cn.Get("private-address"); ok {
-		return address.(string), nil
-	}
-	return "", errors.New("unit has no private address")
+	return getConfigString(u.st.zk, u.zkPath(), "private-address",
+		"private address of unit %q", u)
 }
 
 // SetPrivateAddress sets the private address of the unit.
 func (u *Unit) SetPrivateAddress(address string) (err error) {
-	defer errorContextf(&err, "can't set private address of unit %q", u)
-	cn, err := readConfigNode(u.st.zk, u.zkPath())
-	if err != nil {
-		return err
-	}
-	cn.Set("private-address", address)
-	_, err = cn.Write()
-	return err
+	return setConfigString(u.st.zk, u.zkPath(), "private-address", address,
+		"private address of unit %q", u)
 }
 
 // CharmURL returns the charm URL this unit is supposed
 // to use.
 func (u *Unit) CharmURL() (url *charm.URL, err error) {
-	defer errorContextf(&err, "can't get charm URL of unit %q", u)
-	cn, err := readConfigNode(u.st.zk, u.zkPath())
+	surl, err := getConfigString(u.st.zk, u.zkPath(), "charm",
+		"charm URL of unit %q", u)
 	if err != nil {
 		return nil, err
 	}
-	if id, ok := cn.Get("charm"); ok {
-		url, err = charm.ParseURL(id.(string))
-		if err != nil {
-			return nil, err
-		}
-		return url, nil
+	url, err = charm.ParseURL(surl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse charm URL of unit %q: %v", u, err)
 	}
-	return nil, errors.New("unit has no charm URL")
+	return url, err
 }
 
 // SetCharmURL changes the charm URL for the unit.
 func (u *Unit) SetCharmURL(url *charm.URL) (err error) {
-	defer errorContextf(&err, "can't set charm URL of unit %q to %q", u, url)
-	cn, err := readConfigNode(u.st.zk, u.zkPath())
-	if err != nil {
-		return err
-	}
-	cn.Set("charm", url.String())
-	_, err = cn.Write()
-	return err
+	return setConfigString(u.st.zk, u.zkPath(), "charm", url.String(),
+		"charm URL of unit %q", u)
 }
 
 // IsPrincipal returns whether the unit is deployed in its own container,
 // and can therefore have subordinate services deployed alongside it.
 func (u *Unit) IsPrincipal() bool {
-	return u.isPrincipal
+	return u.principalKey == ""
 }
 
 // AssignedMachineId returns the id of the assigned machine.
 func (u *Unit) AssignedMachineId() (id int, err error) {
-	defer errorContextf(&err, "can't get machine id of unit %q", u)
+	defer errorContextf(&err, "cannot get machine id of unit %q", u)
 	topology, err := readTopology(u.st.zk)
 	if err != nil {
 		return 0, err
@@ -225,7 +203,7 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 
 // AssignToMachine assigns this unit to a given machine.
 func (u *Unit) AssignToMachine(machine *Machine) (err error) {
-	defer errorContextf(&err, "can't assign unit %q to machine %s", u, machine)
+	defer errorContextf(&err, "cannot assign unit %q to machine %s", u, machine)
 	assignUnit := func(t *topology) error {
 		if !t.HasUnit(u.key) {
 			return stateChanged
@@ -279,15 +257,15 @@ func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
 		if err == noUnusedMachines {
 			return nil, err
 		}
-		return nil, fmt.Errorf("can't assign unit %q to unused machine: %v", u, err)
+		return nil, fmt.Errorf("cannot assign unit %q to unused machine: %v", u, err)
 	}
-	return &Machine{u.st, machineKey}, nil
+	return newMachine(u.st, machineKey), nil
 }
 
 // UnassignFromMachine removes the assignment between this unit and
 // the machine it's assigned to.
 func (u *Unit) UnassignFromMachine() (err error) {
-	defer errorContextf(&err, "can't unassign unit %q from machine", u.Name())
+	defer errorContextf(&err, "cannot unassign unit %q from machine", u.Name())
 	unassignUnit := func(t *topology) error {
 		if !t.HasUnit(u.key) {
 			return stateChanged
@@ -307,7 +285,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 // NeedsUpgrade returns whether the unit needs an upgrade 
 // and if it does, if this is forced.
 func (u *Unit) NeedsUpgrade() (needsUpgrade *NeedsUpgrade, err error) {
-	defer errorContextf(&err, "can't check if unit %q needs an upgrade", u.Name())
+	defer errorContextf(&err, "cannot check if unit %q needs an upgrade", u.Name())
 	yaml, _, err := u.st.zk.Get(u.zkNeedsUpgradePath())
 	if zookeeper.IsError(err, zookeeper.ZNONODE) {
 		return &NeedsUpgrade{}, nil
@@ -325,7 +303,7 @@ func (u *Unit) NeedsUpgrade() (needsUpgrade *NeedsUpgrade, err error) {
 // SetNeedsUpgrade informs the unit that it should perform 
 // a regular or forced upgrade.
 func (u *Unit) SetNeedsUpgrade(force bool) (err error) {
-	defer errorContextf(&err, "can't inform unit %q about upgrade", u.Name())
+	defer errorContextf(&err, "cannot inform unit %q about upgrade", u.Name())
 	setNeedsUpgrade := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
 		var setting needsUpgradeNode
 		if oldYaml == "" {
@@ -350,7 +328,7 @@ func (u *Unit) SetNeedsUpgrade(force bool) (err error) {
 // ClearNeedsUpgrade resets the upgrade notification. It is typically
 // done by the unit agent before beginning the upgrade.
 func (u *Unit) ClearNeedsUpgrade() (err error) {
-	defer errorContextf(&err, "upgrade notification for unit %q can't be reset", u.Name())
+	defer errorContextf(&err, "upgrade notification for unit %q cannot be reset", u.Name())
 	err = u.st.zk.Delete(u.zkNeedsUpgradePath(), -1)
 	if zookeeper.IsError(err, zookeeper.ZNONODE) {
 		// Node doesn't exist, so same state.
@@ -367,7 +345,7 @@ func (u *Unit) WatchNeedsUpgrade() *NeedsUpgradeWatcher {
 
 // Resolved returns the resolved mode for the unit.
 func (u *Unit) Resolved() (mode ResolvedMode, err error) {
-	defer errorContextf(&err, "can't get resolved mode for unit %q", u)
+	defer errorContextf(&err, "cannot get resolved mode for unit %q", u)
 	yaml, _, err := u.st.zk.Get(u.zkResolvedPath())
 	if zookeeper.IsError(err, zookeeper.ZNONODE) {
 		// Default value.
@@ -394,7 +372,7 @@ func (u *Unit) Resolved() (mode ResolvedMode, err error) {
 // reexecute previous failed hooks or to continue as if they had 
 // succeeded before.
 func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
-	defer errorContextf(&err, "can't set resolved mode for unit %q", u)
+	defer errorContextf(&err, "cannot set resolved mode for unit %q", u)
 	if err := validResolvedMode(mode, false); err != nil {
 		return err
 	}
@@ -412,7 +390,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 
 // ClearResolved removes any resolved setting on the unit.
 func (u *Unit) ClearResolved() (err error) {
-	defer errorContextf(&err, "resolved mode for unit %q can't be cleared", u)
+	defer errorContextf(&err, "resolved mode for unit %q cannot be cleared", u)
 	err = u.st.zk.Delete(u.zkResolvedPath(), -1)
 	if zookeeper.IsError(err, zookeeper.ZNONODE) {
 		// Node doesn't exist, so same state.
@@ -430,7 +408,7 @@ func (u *Unit) WatchResolved() *ResolvedWatcher {
 
 // OpenPort sets the policy of the port with protocol and number to be opened.
 func (u *Unit) OpenPort(protocol string, number int) (err error) {
-	defer errorContextf(&err, "can't open port %s:%d for unit %q", protocol, number, u)
+	defer errorContextf(&err, "cannot open port %s:%d for unit %q", protocol, number, u)
 	openPort := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
 		var ports openPortsNode
 		if oldYaml != "" {
@@ -460,7 +438,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 
 // ClosePort sets the policy of the port with protocol and number to be closed.
 func (u *Unit) ClosePort(protocol string, number int) (err error) {
-	defer errorContextf(&err, "can't close port %s:%d for unit %q", protocol, number, u)
+	defer errorContextf(&err, "cannot close port %s:%d for unit %q", protocol, number, u)
 	closePort := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
 		var ports openPortsNode
 		if oldYaml != "" {
@@ -487,7 +465,7 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 
 // OpenPorts returns a slice containing the open ports of the unit.
 func (u *Unit) OpenPorts() (openPorts []Port, err error) {
-	defer errorContextf(&err, "can't get open ports of unit %q", u)
+	defer errorContextf(&err, "cannot get open ports of unit %q", u)
 	yaml, _, err := u.st.zk.Get(u.zkPortsPath())
 	if zookeeper.IsError(err, zookeeper.ZNONODE) {
 		// Default value.
@@ -567,9 +545,9 @@ func parseUnitName(name string) (serviceName string, serviceSeq int, err error) 
 	if len(parts) != 2 {
 		return "", 0, fmt.Errorf("%q is not a valid unit name", name)
 	}
-	seq, err := strconv.ParseInt(parts[1], 10, 0)
+	seq, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return "", 0, err
+		return "", 0, fmt.Errorf("%q is not a valid unit name", name)
 	}
 	return parts[0], int(seq), nil
 }

@@ -27,3 +27,7 @@ precise	server	release	20120424	ebs	amd64	us-west-2	ami-20800c10	aki-98e26fa8		p
 precise	server	release	20120424	ebs	i386	us-west-2	ami-3e800c0e	aki-c2e26ff2		paravirtual
 precise	server	release	20120424	instance-store	amd64	us-west-2	ami-38800c08	aki-98e26fa8		paravirtual
 precise	server	release	20120424	instance-store	i386	us-west-2	ami-cc870bfc	aki-c2e26ff2		paravirtual
+precise	server	release	20120424	ebs	amd64	test	ami-20800c10	aki-98e26fa8		paravirtual
+precise	server	release	20120424	ebs	i386	test	ami-3e800c0e	aki-c2e26ff2		paravirtual
+precise	server	release	20120424	instance-store	amd64	test	ami-38800c08	aki-98e26fa8		paravirtual
+precise	server	release	20120424	instance-store	i386	test	ami-cc870bfc	aki-c2e26ff2		paravirtual

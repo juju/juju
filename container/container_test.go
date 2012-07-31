@@ -1,15 +1,11 @@
 package container_test
 
 import (
-	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/container"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing"
-	"net/url"
+	"launchpad.net/juju-core/state/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -17,26 +13,13 @@ import (
 )
 
 type suite struct {
-	state *state.State
+	testing.StateSuite
 }
-
-var zkServer *zookeeper.Server
 
 var _ = Suite(&suite{})
 
-func Test(t *stdtesting.T) {
-	zkServer = testing.StartZkServer()
-	defer zkServer.Destroy()
-	TestingT(t)
-}
-
-func (s *suite) SetUpSuite(c *C) {
-	addr, err := zkServer.Addr()
-	c.Assert(err, IsNil)
-	s.state, err = state.Initialize(&state.Info{
-		Addrs: []string{addr},
-	})
-	c.Assert(err, IsNil)
+func TestPackage(t *stdtesting.T) {
+	coretesting.ZkTestPackage(t)
 }
 
 func (s *suite) TestDeploy(c *C) {
@@ -49,14 +32,8 @@ func (s *suite) TestDeploy(c *C) {
 	c.Assert(err, IsNil)
 
 	// create a unit to deploy
-	dummyCharm := testing.Charms.Dir("dummy")
-	u := fmt.Sprintf("local:series/%s-%d", dummyCharm.Meta().Name, dummyCharm.Revision())
-	curl := charm.MustParseURL(u)
-	bundleURL, err := url.Parse("http://bundle.url")
-	c.Assert(err, IsNil)
-	dummy, err := s.state.AddCharm(dummyCharm, curl, bundleURL, "dummy-sha256")
-	c.Assert(err, IsNil)
-	service, err := s.state.AddService("dummy", dummy)
+	dummy := s.AddTestingCharm(c, "dummy")
+	service, err := s.State.AddService("dummy", dummy)
 	c.Assert(err, IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, IsNil)
@@ -95,4 +72,8 @@ func (s *suite) TestDeploy(c *C) {
 
 	_, err = os.Stat(upstartScript)
 	c.Assert(err, NotNil)
+}
+
+func (s *suite) TestSimpleToolsDir(c *C) {
+	c.Assert(container.Simple.ToolsDir(nil), Equals, "/var/lib/juju/tools")
 }

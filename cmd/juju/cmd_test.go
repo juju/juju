@@ -41,7 +41,6 @@ type cmdSuite struct {
 
 var _ = Suite(&cmdSuite{})
 
-// N.B. Barking is broken.
 var config = `
 default:
     peckham
@@ -49,13 +48,16 @@ environments:
     peckham:
         type: dummy
         zookeeper: false
+        authorized-keys: i-am-a-key
     walthamstow:
         type: dummy
         zookeeper: false
-    barking:
+        authorized-keys: i-am-a-key
+    brokenenv:
         type: dummy
-        broken: true
+        broken: Bootstrap Destroy
         zookeeper: false
+        authorized-keys: i-am-a-key
 `
 
 func (s *cmdSuite) SetUpTest(c *C) {
@@ -102,6 +104,7 @@ var EnvironmentInitTests = []func() (cmd.Command, []string){
 	func() (cmd.Command, []string) {
 		return new(DeployCommand), []string{"charm-name", "service-name"}
 	},
+	func() (cmd.Command, []string) { return new(StatusCommand), nil },
 }
 
 // TestEnvironmentInit tests that all commands which accept
@@ -171,9 +174,9 @@ func (*cmdSuite) TestBootstrapCommand(c *C) {
 	c.Assert(err, IsNil)
 
 	// bootstrap with broken environment
-	opc, errc = runCommand(new(BootstrapCommand), "-e", "barking")
+	opc, errc = runCommand(new(BootstrapCommand), "-e", "brokenenv")
 	c.Check(<-opc, IsNil)
-	c.Check(<-errc, ErrorMatches, `broken environment`)
+	c.Check(<-errc, ErrorMatches, "dummy.Bootstrap is broken")
 }
 
 func (*cmdSuite) TestDestroyCommand(c *C) {
@@ -183,9 +186,9 @@ func (*cmdSuite) TestDestroyCommand(c *C) {
 	c.Check(<-errc, IsNil)
 
 	// destroy with broken environment
-	opc, errc = runCommand(new(DestroyCommand), "-e", "barking")
+	opc, errc = runCommand(new(DestroyCommand), "-e", "brokenenv")
 	c.Check(<-opc, IsNil)
-	c.Check(<-errc, ErrorMatches, `broken environment`)
+	c.Check(<-errc, ErrorMatches, "dummy.Destroy is broken")
 }
 
 var deployTests = []struct {

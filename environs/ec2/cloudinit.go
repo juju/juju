@@ -3,7 +3,9 @@ package ec2
 import (
 	"fmt"
 	"launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/upstart"
 	"path"
 	"strings"
 )
@@ -64,30 +66,23 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 	c := cloudinit.New()
 
 	c.AddSSHAuthorizedKeys(cfg.authorizedKeys)
+	c.AddPackage("libzookeeper-mt2")
 	if cfg.zookeeper {
-		pkgs := []string{
-			"default-jre-headless",
-			"zookeeper",
-			"zookeeperd",
-			"libzookeeper-mt2",
-		}
-		for _, pkg := range pkgs {
-			c.AddPackage(pkg)
-		}
+		c.AddPackage("default-jre-headless")
+		c.AddPackage("zookeeper")
+		c.AddPackage("zookeeperd")
 	}
 
 	addScripts(c,
 		"sudo mkdir -p /var/lib/juju",
 		"sudo mkdir -p /var/log/juju")
 
-	// Make a directory for the tools to live in,
-	// then fetch the tools and unarchive them
-	// into it.
+	// Make a directory for the tools to live in, then fetch the
+	// tools and unarchive them into it.
 	addScripts(c,
-		"bin="+shquote("/var/lib/juju/tools/"+versionDir(cfg.toolsURL)),
+		"bin="+shquote(cfg.jujuTools()),
 		"mkdir -p $bin",
 		fmt.Sprintf("wget -O - %s | tar xz -C $bin", shquote(cfg.toolsURL)),
-		`export PATH="$bin:$PATH"`,
 	)
 
 	addScripts(c,
@@ -95,24 +90,59 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 		fmt.Sprintf("JUJU_MACHINE_ID=%d", cfg.machineId),
 	)
 
+	debugFlag := ""
+	if log.Debug {
+		debugFlag = " --debug"
+	}
+
 	// zookeeper scripts
 	if cfg.zookeeper {
 		addScripts(c,
-			"jujud initzk"+
+			cfg.jujuTools()+"/jujud initzk"+
 				" --instance-id "+cfg.instanceIdAccessor+
 				" --env-type "+shquote(cfg.providerType)+
-				" --zookeeper-servers localhost"+zkPortSuffix,
+				" --zookeeper-servers localhost"+zkPortSuffix+
+				debugFlag,
 		)
 	}
 
-	// TODO start machine agent
-	// TODO start provisioning agent if cfg.provisioner.
+	if err := addAgentScript(c, cfg, "machine", fmt.Sprintf("--machine-id %d "+debugFlag, cfg.machineId)); err != nil {
+		return nil, err
+	}
+	if cfg.provisioner {
+		if err := addAgentScript(c, cfg, "provisioning", debugFlag); err != nil {
+			return nil, err
+		}
+	}
 
 	// general options
 	c.SetAptUpgrade(true)
 	c.SetAptUpdate(true)
 	c.SetOutput(cloudinit.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
 	return c, nil
+}
+
+func addAgentScript(c *cloudinit.Config, cfg *machineConfig, name, args string) error {
+	// Make the agent run via a symbolic link to the actual tools
+	// directory, so it can upgrade itself without needing to change
+	// the upstart script.
+	addScripts(c, fmt.Sprintf("ln -s $bin %s/%s", toolsDir, name))
+	svc := upstart.NewService(fmt.Sprintf("jujud-%s", name))
+	cmd := fmt.Sprintf(
+		"%s/%s/jujud %s --zookeeper-servers '%s' --log-file /var/log/juju/%s-agent.log %s",
+		toolsDir, name, name, cfg.zookeeperHostAddrs(), name, args,
+	)
+	conf := &upstart.Conf{
+		Service: *svc,
+		Desc:    fmt.Sprintf("juju %s agent", name),
+		Cmd:     cmd,
+	}
+	cmds, err := conf.InstallCommands()
+	if err != nil {
+		return fmt.Errorf("cannot make cloud-init %s agent upstart script: %v", name, err)
+	}
+	addScripts(c, cmds...)
+	return nil
 }
 
 // versionDir converts a tools URL into a name
@@ -122,6 +152,12 @@ func versionDir(toolsURL string) string {
 	name := path.Base(toolsURL)
 	ext := path.Ext(name)
 	return name[:len(name)-len(ext)]
+}
+
+const toolsDir = "/var/lib/juju/tools"
+
+func (cfg *machineConfig) jujuTools() string {
+	return toolsDir + "/" + versionDir(cfg.toolsURL)
 }
 
 func (cfg *machineConfig) zookeeperHostAddrs() string {

@@ -1,7 +1,9 @@
 package juju
 
 import (
+	"fmt"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"regexp"
 	"sync"
@@ -27,6 +29,16 @@ func NewConn(environName string) (*Conn, error) {
 		return nil, err
 	}
 	environ, err := environs.Open(environName)
+	if err != nil {
+		return nil, err
+	}
+	return &Conn{Environ: environ}, nil
+}
+
+// NewConnFromAttrs returns a Conn pointing at the environment
+// created with the given attributes, as created with environs.NewFromAttrs.
+func NewConnFromAttrs(attrs map[string]interface{}) (*Conn, error) {
+	environ, err := environs.NewFromAttrs(attrs)
 	if err != nil {
 		return nil, err
 	}
@@ -59,8 +71,35 @@ func (c *Conn) State() (*state.State, error) {
 			return nil, err
 		}
 		c.state = st
+		if err := c.updateSecrets(); err != nil {
+			c.state = nil
+			return nil, fmt.Errorf("unable to push secrets: %v", err)
+		}
 	}
 	return c.state, nil
+}
+
+// updateSecrets updates the sensitive parts of the environment 
+// from the local configuration.
+func (c *Conn) updateSecrets() error {
+	cfg := c.Environ.Config()
+	env, err := c.state.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	// This is wrong. This will _always_ overwrite the secrets
+	// in the state with the local secrets. To fix this properly
+	// we need to ensure that the config, minus secrets, is always
+	// pushed on bootstrap, then we can fill in the secrets here.
+	env.Update(cfg.AllAttrs())
+	n, err := env.Write()
+	if err != nil {
+		return err
+	}
+	if len(n) > 0 {
+		log.Debugf("Updating %d secret(s) in environment %q", len(n), c.Environ.Name())
+	}
+	return nil
 }
 
 // Close terminates the connection to the environment and releases

@@ -19,40 +19,25 @@ package dummy
 import (
 	"errors"
 	"fmt"
-	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 )
-
-// zkServer holds the shared zookeeper server which is used by all dummy
-// environs to store state.
-var zkServer *zookeeper.Server
-
-// SetZookeeper sets the zookeeper server that will be used to hold the
-// environ's state.State. If the environ's "zookeeper" config setting is
-// true and no zookeeper server has been set, the StateInfo method will
-// panic (unless the "isBroken" config setting is also true).
-func SetZookeeper(srv *zookeeper.Server) {
-	zkServer = srv
-}
 
 // stateInfo returns a *state.Info which allows clients to connect to the
 // shared dummy zookeeper, if it exists.
 func stateInfo() *state.Info {
-	if zkServer == nil {
-		panic("SetZookeeper not called")
+	if testing.ZkAddr == "" {
+		panic("dummy environ zookeeper tests must be run with ZkTestPackage")
 	}
-	addr, err := zkServer.Addr()
-	if err != nil {
-		panic(err)
-	}
-	return &state.Info{Addrs: []string{addr}}
+	return &state.Info{Addrs: []string{testing.ZkAddr}}
 }
 
 // Operation represents an action on the dummy provider.
@@ -78,6 +63,20 @@ type OpStopInstances struct {
 	Instances []environs.Instance
 }
 
+type OpOpenPorts struct {
+	Env        string
+	MachineId  int
+	InstanceId string
+	Ports      []state.Port
+}
+
+type OpClosePorts struct {
+	Env        string
+	MachineId  int
+	InstanceId string
+	Ports      []state.Port
+}
+
 type OpPutFile GenericOperation
 
 // environProvider represents the dummy provider.  There is only ever one
@@ -89,6 +88,8 @@ type environProvider struct {
 	state map[string]*environState
 }
 
+var providerInstance environProvider
+
 // environState represents the state of an environment.
 // It can be shared between several environ values,
 // so that a given environment can be opened several times.
@@ -98,6 +99,7 @@ type environState struct {
 	mu            sync.Mutex
 	maxId         int // maximum instance id allocated so far.
 	insts         map[string]*instance
+	ports         map[int]map[state.Port]bool
 	bootstrapped  bool
 	storage       *storage
 	publicStorage *storage
@@ -107,11 +109,9 @@ type environState struct {
 // environ represents a client's connection to a given environment's
 // state.
 type environ struct {
-	state *environState
-
-	// configMutex protects visibility of config.
-	configMutex sync.Mutex
-	config      *environConfig
+	state        *environState
+	ecfgMutex    sync.Mutex
+	ecfgUnlocked *environConfig
 }
 
 // storage holds the storage for an environState.
@@ -122,15 +122,6 @@ type storage struct {
 	state *environState
 	files map[string][]byte
 }
-
-type environConfig struct {
-	provider  *environProvider
-	name      string
-	zookeeper bool
-	broken    bool
-}
-
-var providerInstance environProvider
 
 // discardOperations discards all Operations written to it.
 var discardOperations chan<- Operation
@@ -162,8 +153,8 @@ func Reset() {
 	}
 	providerInstance.ops = discardOperations
 	providerInstance.state = make(map[string]*environState)
-	if zkServer != nil {
-		testing.ResetZkServer(zkServer)
+	if testing.ZkAddr != "" {
+		testing.ZkReset()
 	}
 }
 
@@ -175,6 +166,7 @@ func newState(name string, ops chan<- Operation) *environState {
 		name:  name,
 		ops:   ops,
 		insts: make(map[string]*instance),
+		ports: make(map[int]map[state.Port]bool),
 	}
 	s.storage = newStorage(s, "/"+name+"/private")
 	s.publicStorage = newStorage(s, "/"+name+"/public")
@@ -214,63 +206,113 @@ func Listen(c chan<- Operation) {
 	p.ops = c
 }
 
-var checker = schema.FieldMap(
+var checker = schema.StrictFieldMap(
 	schema.Fields{
-		"type":      schema.Const("dummy"),
 		"zookeeper": schema.Bool(),
-		"broken":    schema.Bool(),
-		"name":      schema.String(),
+		"broken":    schema.String(),
+		"secret":    schema.String(),
 	},
-	[]string{
-		"broken",
+	schema.Defaults{
+		"broken": "",
+		"secret": "pork",
 	},
 )
 
-func (p *environProvider) NewConfig(attrs map[string]interface{}) (environs.EnvironConfig, error) {
-	m0, err := checker.Coerce(attrs, nil)
+type environConfig struct {
+	*config.Config
+	attrs map[string]interface{}
+}
+
+func (c *environConfig) zookeeper() bool {
+	return c.attrs["zookeeper"].(bool)
+}
+
+func (c *environConfig) broken() string {
+	return c.attrs["broken"].(string)
+}
+
+func (c *environConfig) secret() string {
+	return c.attrs["secret"].(string)
+}
+
+func (p *environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
+	valid, err := p.Validate(cfg, nil)
 	if err != nil {
 		return nil, err
 	}
-	m1 := m0.(schema.MapType)
-	cfg := &environConfig{
-		provider:  p,
-		name:      m1["name"].(string),
-		zookeeper: m1["zookeeper"].(bool),
-	}
-	cfg.broken, _ = m1["broken"].(bool)
-	return cfg, nil
+	return &environConfig{valid, valid.UnknownAttrs()}, nil
 }
 
-func (cfg *environConfig) Open() (environs.Environ, error) {
-	p := cfg.provider
+func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+	v, err := checker.Coerce(cfg.UnknownAttrs(), nil)
+	if err != nil {
+		return nil, err
+	}
+	return cfg.Apply(v.(map[string]interface{}))
+}
+
+func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	state := p.state[cfg.name]
+	name := cfg.Name()
+	ecfg, err := p.newConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	state := p.state[name]
 	if state == nil {
-		if cfg.zookeeper && len(p.state) != 0 {
+		if ecfg.zookeeper() && len(p.state) != 0 {
 			panic("cannot share a zookeeper between two dummy environs")
 		}
-		state = newState(cfg.name, p.ops)
-		p.state[cfg.name] = state
+		state = newState(name, p.ops)
+		p.state[name] = state
 	}
 	env := &environ{
-		state: state,
+		state:        state,
+		ecfgUnlocked: ecfg,
 	}
-	env.SetConfig(cfg)
+	if err := env.checkBroken("Open"); err != nil {
+		return nil, err
+	}
 	return env, nil
+}
+
+func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
+	m := make(map[string]interface{})
+	ecfg, err := providerInstance.newConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	m["secret"] = ecfg.secret()
+	return m, nil
+
 }
 
 var errBroken = errors.New("broken environment")
 
-// EnvironName returns the name of the environment,
-// which must be opened from a dummy environment.
-func EnvironName(e environs.Environ) string {
-	return e.(*environ).state.name
+func (e *environ) ecfg() *environConfig {
+	e.ecfgMutex.Lock()
+	ecfg := e.ecfgUnlocked
+	e.ecfgMutex.Unlock()
+	return ecfg
+}
+
+func (e *environ) checkBroken(method string) error {
+	for _, m := range strings.Fields(e.ecfg().broken()) {
+		if m == method {
+			return fmt.Errorf("dummy.%s is broken", method)
+		}
+	}
+	return nil
+}
+
+func (e *environ) Name() string {
+	return e.state.name
 }
 
 func (e *environ) Bootstrap(uploadTools bool) error {
-	if e.isBroken() {
-		return errBroken
+	if err := e.checkBroken("Bootstrap"); err != nil {
+		return err
 	}
 	if uploadTools {
 		err := environs.PutTools(e.Storage())
@@ -278,13 +320,13 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 			return err
 		}
 	}
-	e.state.ops <- OpBootstrap{Env: e.state.name}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
+	e.state.ops <- OpBootstrap{Env: e.state.name}
 	if e.state.bootstrapped {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
-	if e.config.zookeeper {
+	if e.ecfg().zookeeper() {
 		info := stateInfo()
 		st, err := state.Initialize(info)
 		if err != nil {
@@ -296,7 +338,8 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		}
 		cfg.Set("type", "dummy")
 		cfg.Set("zookeeper", true)
-		cfg.Set("name", e.config.name)
+		cfg.Set("name", e.ecfg().Name())
+		cfg.Set("authorized-keys", e.ecfg().AuthorizedKeys())
 		_, err = cfg.Write()
 		if err != nil {
 			panic(err)
@@ -311,10 +354,10 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 }
 
 func (e *environ) StateInfo() (*state.Info, error) {
-	if e.isBroken() {
-		return nil, errBroken
+	if err := e.checkBroken("StateInfo"); err != nil {
+		return nil, err
 	}
-	if !e.config.zookeeper {
+	if !e.ecfg().zookeeper() {
 		return nil, errors.New("dummy environment has no zookeeper configured")
 	}
 	if !e.state.bootstrapped {
@@ -327,39 +370,54 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignUnused
 }
 
-func (e *environ) SetConfig(cfg environs.EnvironConfig) {
-	config := cfg.(*environConfig)
-	e.configMutex.Lock()
-	defer e.configMutex.Unlock()
-	e.config = config
+func (e *environ) Config() *config.Config {
+	return e.ecfg().Config
+}
+
+func (e *environ) SetConfig(cfg *config.Config) error {
+	if err := e.checkBroken("SetConfig"); err != nil {
+		return err
+	}
+	ecfg, err := providerInstance.newConfig(cfg)
+	if err != nil {
+		return err
+	}
+	e.ecfgMutex.Lock()
+	e.ecfgUnlocked = ecfg
+	e.ecfgMutex.Unlock()
+	return nil
 }
 
 func (e *environ) Destroy([]environs.Instance) error {
-	if e.isBroken() {
-		return errBroken
+	if err := e.checkBroken("Destroy"); err != nil {
+		return err
 	}
-	e.state.ops <- OpDestroy{Env: e.state.name}
 	e.state.mu.Lock()
-	if zkServer != nil {
-		testing.ResetZkServer(zkServer)
+	defer e.state.mu.Unlock()
+	e.state.ops <- OpDestroy{Env: e.state.name}
+	if testing.ZkAddr != "" {
+		testing.ZkReset()
 	}
 	e.state.bootstrapped = false
 	e.state.storage.files = make(map[string][]byte)
-	e.state.mu.Unlock()
+
 	return nil
 }
 
 func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Instance, error) {
-	if e.isBroken() {
-		return nil, errBroken
+	if err := e.checkBroken("StartInstance"); err != nil {
+		return nil, err
 	}
 	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
 	i := &instance{
-		id: fmt.Sprintf("%s-%d", e.state.name, e.state.maxId),
+		state:     e.state,
+		id:        fmt.Sprintf("%s-%d", e.state.name, e.state.maxId),
+		ports:     make(map[state.Port]bool),
+		machineId: machineId,
 	}
 	e.state.insts[i.id] = i
 	e.state.maxId++
-	e.state.mu.Unlock()
 	e.state.ops <- OpStartInstance{
 		Env:       e.state.name,
 		MachineId: machineId,
@@ -370,14 +428,14 @@ func (e *environ) StartInstance(machineId int, info *state.Info) (environs.Insta
 }
 
 func (e *environ) StopInstances(is []environs.Instance) error {
-	if e.isBroken() {
-		return errBroken
+	if err := e.checkBroken("StopInstance"); err != nil {
+		return err
 	}
 	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
 	for _, i := range is {
 		delete(e.state.insts, i.(*instance).id)
 	}
-	e.state.mu.Unlock()
 	e.state.ops <- OpStopInstances{
 		Env:       e.state.name,
 		Instances: is,
@@ -386,8 +444,8 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 }
 
 func (e *environ) Instances(ids []string) (insts []environs.Instance, err error) {
-	if e.isBroken() {
-		return nil, errBroken
+	if err := e.checkBroken("Instances"); err != nil {
+		return nil, err
 	}
 	if len(ids) == 0 {
 		return nil, nil
@@ -410,8 +468,8 @@ func (e *environ) Instances(ids []string) (insts []environs.Instance, err error)
 }
 
 func (e *environ) AllInstances() ([]environs.Instance, error) {
-	if e.isBroken() {
-		return nil, errBroken
+	if err := e.checkBroken("AllInstances"); err != nil {
+		return nil, err
 	}
 	var insts []environs.Instance
 	e.state.mu.Lock()
@@ -422,24 +480,74 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 	return insts, nil
 }
 
-func (e *environ) isBroken() bool {
-	e.configMutex.Lock()
-	defer e.configMutex.Unlock()
-	return e.config.broken
+func (*environ) Provider() environs.EnvironProvider {
+	return &providerInstance
 }
 
 type instance struct {
-	id string
+	state     *environState
+	ports     map[state.Port]bool
+	id        string
+	machineId int
 }
 
-func (m *instance) Id() string {
-	return m.id
+func (inst *instance) Id() string {
+	return inst.id
 }
 
-func (m *instance) DNSName() (string, error) {
-	return m.id + ".dns", nil
+func (inst *instance) DNSName() (string, error) {
+	return inst.id + ".dns", nil
 }
 
-func (m *instance) WaitDNSName() (string, error) {
-	return m.DNSName()
+func (inst *instance) WaitDNSName() (string, error) {
+	return inst.DNSName()
+}
+
+func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
+	if inst.machineId != machineId {
+		panic(fmt.Errorf("OpenPorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
+	}
+	inst.state.mu.Lock()
+	defer inst.state.mu.Unlock()
+	inst.state.ops <- OpOpenPorts{
+		Env:        inst.state.name,
+		MachineId:  machineId,
+		InstanceId: inst.Id(),
+		Ports:      ports,
+	}
+	for _, p := range ports {
+		inst.ports[p] = true
+	}
+	return nil
+}
+
+func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
+	if inst.machineId != machineId {
+		panic(fmt.Errorf("ClosePorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
+	}
+	inst.state.mu.Lock()
+	defer inst.state.mu.Unlock()
+	inst.state.ops <- OpClosePorts{
+		Env:        inst.state.name,
+		MachineId:  machineId,
+		InstanceId: inst.Id(),
+		Ports:      ports,
+	}
+	for _, p := range ports {
+		delete(inst.ports, p)
+	}
+	return nil
+}
+
+func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
+	if inst.machineId != machineId {
+		panic(fmt.Errorf("Ports with mismatched machine id, expected %d got %d", inst.machineId, machineId))
+	}
+	inst.state.mu.Lock()
+	defer inst.state.mu.Unlock()
+	for p := range inst.ports {
+		ports = append(ports, p)
+	}
+	state.SortPorts(ports)
+	return
 }

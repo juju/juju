@@ -20,7 +20,7 @@ func (s *State) sequence(name string) (int, error) {
 	result := &sequenceDoc{}
 	_, err := query.Apply(inc, result)
 	if err != nil {
-		return -1, fmt.Errorf("can't increment %q sequence number: %v", name, err)
+		return -1, fmt.Errorf("cannot increment %q sequence number: %v", name, err)
 	}
 	return result.Counter, nil
 }

@@ -9,9 +9,16 @@ import (
 	"launchpad.net/juju-core/schema"
 )
 
+// RelationScope describes the scope of a relation endpoint.
+type RelationScope string
+
+// Note that schema doesn't support custom string types,
+// so when we use these values in a schema.Checker,
+// we must store them as strings, not RelationScopes.
+
 const (
-	ScopeGlobal    = "global"
-	ScopeContainer = "container"
+	ScopeGlobal    RelationScope = "global"
+	ScopeContainer RelationScope = "container"
 )
 
 // Relation represents a single relation defined in the charm
@@ -20,7 +27,7 @@ type Relation struct {
 	Interface string
 	Optional  bool
 	Limit     int
-	Scope     string
+	Scope     RelationScope
 }
 
 // Meta represents all the known content that may be defined
@@ -52,7 +59,7 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 	if err != nil {
 		return nil, errors.New("metadata: " + err.Error())
 	}
-	m := v.(schema.MapType)
+	m := v.(map[string]interface{})
 	meta = &Meta{}
 	meta.Name = m["name"].(string)
 	// Schema decodes as int64, but the int range should be good
@@ -92,20 +99,20 @@ func parseRelations(relations interface{}) map[string]Relation {
 		return nil
 	}
 	result := make(map[string]Relation)
-	for name, rel := range relations.(schema.MapType) {
-		relMap := rel.(schema.MapType)
+	for name, rel := range relations.(map[string]interface{}) {
+		relMap := rel.(map[string]interface{})
 		relation := Relation{}
 		relation.Interface = relMap["interface"].(string)
 		relation.Optional = relMap["optional"].(bool)
 		if scope := relMap["scope"]; scope != nil {
-			relation.Scope = scope.(string)
+			relation.Scope = RelationScope(scope.(string))
 		}
 		if relMap["limit"] != nil {
 			// Schema defaults to int64, but we know
 			// the int range should be more than enough.
 			relation.Limit = int(relMap["limit"].(int64))
 		}
-		result[name.(string)] = relation
+		result[name] = relation
 	}
 	return result
 }
@@ -140,38 +147,28 @@ type ifaceExpC struct {
 
 var (
 	stringC = schema.String()
-	mapC    = schema.Map(schema.String(), schema.Any())
+	mapC    = schema.StringMap(schema.Any())
 )
 
 func (c ifaceExpC) Coerce(v interface{}, path []string) (newv interface{}, err error) {
 	s, err := stringC.Coerce(v, path)
 	if err == nil {
-		newv = schema.MapType{
+		newv = map[string]interface{}{
 			"interface": s,
 			"limit":     c.limit,
 			"optional":  false,
-			"scope":     ScopeGlobal,
+			"scope":     string(ScopeGlobal),
 		}
 		return
 	}
 
-	// Optional values are context-sensitive and/or have
-	// defaults, which is different than what KeyDict can
-	// readily support. So just do it here first, then
-	// coerce to the real schema.
 	v, err = mapC.Coerce(v, path)
 	if err != nil {
 		return
 	}
-	m := v.(schema.MapType)
+	m := v.(map[string]interface{})
 	if _, ok := m["limit"]; !ok {
 		m["limit"] = c.limit
-	}
-	if _, ok := m["optional"]; !ok {
-		m["optional"] = false
-	}
-	if _, ok := m["scope"]; !ok {
-		m["scope"] = ScopeGlobal
 	}
 	return ifaceSchema.Coerce(m, path)
 }
@@ -180,10 +177,13 @@ var ifaceSchema = schema.FieldMap(
 	schema.Fields{
 		"interface": schema.String(),
 		"limit":     schema.OneOf(schema.Const(nil), schema.Int()),
-		"scope":     schema.OneOf(schema.Const(ScopeGlobal), schema.Const(ScopeContainer)),
+		"scope":     schema.OneOf(schema.Const(string(ScopeGlobal)), schema.Const(string(ScopeContainer))),
 		"optional":  schema.Bool(),
 	},
-	schema.Optional{"scope"},
+	schema.Defaults{
+		"scope":    string(ScopeGlobal),
+		"optional": false,
+	},
 )
 
 var charmSchema = schema.FieldMap(
@@ -191,11 +191,17 @@ var charmSchema = schema.FieldMap(
 		"name":        schema.String(),
 		"summary":     schema.String(),
 		"description": schema.String(),
-		"peers":       schema.Map(schema.String(), ifaceExpander(1)),
-		"provides":    schema.Map(schema.String(), ifaceExpander(nil)),
-		"requires":    schema.Map(schema.String(), ifaceExpander(1)),
+		"peers":       schema.StringMap(ifaceExpander(int64(1))),
+		"provides":    schema.StringMap(ifaceExpander(nil)),
+		"requires":    schema.StringMap(ifaceExpander(int64(1))),
 		"revision":    schema.Int(), // Obsolete
 		"subordinate": schema.Bool(),
 	},
-	schema.Optional{"provides", "requires", "peers", "revision", "subordinate"},
+	schema.Defaults{
+		"provides":    schema.Omit,
+		"requires":    schema.Omit,
+		"peers":       schema.Omit,
+		"revision":    schema.Omit,
+		"subordinate": schema.Omit,
+	},
 )

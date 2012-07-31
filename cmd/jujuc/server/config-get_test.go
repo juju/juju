@@ -8,13 +8,13 @@ import (
 )
 
 type ConfigGetSuite struct {
-	UnitFixture
+	UnitSuite
 }
 
 var _ = Suite(&ConfigGetSuite{})
 
 func (s *ConfigGetSuite) SetUpTest(c *C) {
-	s.UnitFixture.SetUpTest(c)
+	s.UnitSuite.SetUpTest(c)
 	conf, err := s.service.Config()
 	c.Assert(err, IsNil)
 	conf.Update(map[string]interface{}{

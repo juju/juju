@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
@@ -77,6 +76,12 @@ func (s *MetaSuite) TestParseMetaRelations(c *C) {
 	c.Assert(meta.Peers["ring"], Equals, charm.Relation{Interface: "riak", Limit: 1, Scope: charm.ScopeGlobal})
 	c.Assert(meta.Requires, IsNil)
 
+	meta, err = charm.ReadMeta(repoMeta("terracotta"))
+	c.Assert(err, IsNil)
+	c.Assert(meta.Provides["dso"], Equals, charm.Relation{Interface: "terracotta", Optional: true, Scope: charm.ScopeGlobal})
+	c.Assert(meta.Peers["server-array"], Equals, charm.Relation{Interface: "terracotta-server", Limit: 1, Scope: charm.ScopeGlobal})
+	c.Assert(meta.Requires, IsNil)
+
 	meta, err = charm.ReadMeta(repoMeta("wordpress"))
 	c.Assert(err, IsNil)
 	c.Assert(meta.Provides["url"], Equals, charm.Relation{Interface: "http", Scope: charm.ScopeGlobal})
@@ -104,34 +109,34 @@ func (s *MetaSuite) TestIfaceExpander(c *C) {
 	// Shorthand is properly rewritten
 	v, err := e.Coerce("http", path)
 	c.Assert(err, IsNil)
-	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": nil, "optional": false, "scope": charm.ScopeGlobal})
+	c.Assert(v, DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": false, "scope": string(charm.ScopeGlobal)})
 
 	// Defaults are properly applied
-	v, err = e.Coerce(schema.MapType{"interface": "http"}, path)
+	v, err = e.Coerce(map[string]interface{}{"interface": "http"}, path)
 	c.Assert(err, IsNil)
-	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": nil, "optional": false, "scope": charm.ScopeGlobal})
+	c.Assert(v, DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": false, "scope": string(charm.ScopeGlobal)})
 
-	v, err = e.Coerce(schema.MapType{"interface": "http", "limit": 2}, path)
+	v, err = e.Coerce(map[string]interface{}{"interface": "http", "limit": 2}, path)
 	c.Assert(err, IsNil)
-	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": int64(2), "optional": false, "scope": charm.ScopeGlobal})
+	c.Assert(v, DeepEquals, map[string]interface{}{"interface": "http", "limit": int64(2), "optional": false, "scope": string(charm.ScopeGlobal)})
 
-	v, err = e.Coerce(schema.MapType{"interface": "http", "optional": true}, path)
+	v, err = e.Coerce(map[string]interface{}{"interface": "http", "optional": true}, path)
 	c.Assert(err, IsNil)
-	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": nil, "optional": true, "scope": charm.ScopeGlobal})
+	c.Assert(v, DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": true, "scope": string(charm.ScopeGlobal)})
 
 	// Invalid data raises an error.
 	v, err = e.Coerce(42, path)
 	c.Assert(err, ErrorMatches, "<path>: expected map, got 42")
 
-	v, err = e.Coerce(schema.MapType{"interface": "http", "optional": nil}, path)
+	v, err = e.Coerce(map[string]interface{}{"interface": "http", "optional": nil}, path)
 	c.Assert(err, ErrorMatches, "<path>.optional: expected bool, got nothing")
 
-	v, err = e.Coerce(schema.MapType{"interface": "http", "limit": "none, really"}, path)
-	c.Assert(err, ErrorMatches, "<path>.limit: unsupported value")
+	v, err = e.Coerce(map[string]interface{}{"interface": "http", "limit": "none, really"}, path)
+	c.Assert(err, ErrorMatches, "<path>.limit: unexpected value.*")
 
 	// Can change default limit
 	e = charm.IfaceExpander(1)
-	v, err = e.Coerce(schema.MapType{"interface": "http"}, path)
+	v, err = e.Coerce(map[string]interface{}{"interface": "http"}, path)
 	c.Assert(err, IsNil)
-	c.Assert(v, DeepEquals, schema.MapType{"interface": "http", "limit": int64(1), "optional": false, "scope": charm.ScopeGlobal})
+	c.Assert(v, DeepEquals, map[string]interface{}{"interface": "http", "limit": int64(1), "optional": false, "scope": string(charm.ScopeGlobal)})
 }

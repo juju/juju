@@ -1,7 +1,3 @@
-// launchpad.net/juju/state
-//
-// Copyright (c) 2011-2012 Canonical Ltd.
-
 package state
 
 import (
@@ -28,31 +24,22 @@ func (s *Service) Name() string {
 // CharmURL returns the charm URL this service is supposed
 // to use.
 func (s *Service) CharmURL() (url *charm.URL, err error) {
-	defer errorContextf(&err, "can't get the charm URL of service %q", s)
-	cn, err := readConfigNode(s.st.zk, s.zkPath())
+	surl, err := getConfigString(s.st.zk, s.zkPath(), "charm",
+		"charm URL of service %q", s)
 	if err != nil {
 		return nil, err
 	}
-	if id, ok := cn.Get("charm"); ok {
-		url, err = charm.ParseURL(id.(string))
-		if err != nil {
-			return nil, err
-		}
-		return url, nil
+	url, err = charm.ParseURL(surl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse charm URL of service %q: %v", s, err)
 	}
-	return nil, errors.New("service has no charm URL")
+	return url, err
 }
 
 // SetCharmURL changes the charm URL for the service.
 func (s *Service) SetCharmURL(url *charm.URL) (err error) {
-	defer errorContextf(&err, "can't set the charm URL of service %q", s)
-	cn, err := readConfigNode(s.st.zk, s.zkPath())
-	if err != nil {
-		return err
-	}
-	cn.Set("charm", url.String())
-	_, err = cn.Write()
-	return err
+	return setConfigString(s.st.zk, s.zkPath(), "charm", url.String(),
+		"charm URL of service %v", s)
 }
 
 // Charm returns the service's charm.
@@ -67,7 +54,7 @@ func (s *Service) Charm() (*Charm, error) {
 // addUnit adds a new unit to the service. If s is a subordinate service,
 // principalKey must be the unit key of some principal unit.
 func (s *Service) addUnit(principalKey string) (unit *Unit, err error) {
-	defer errorContextf(&err, "can't add unit to service %q", s)
+	defer errorContextf(&err, "cannot add unit to service %q", s)
 	// Get charm id and create ZooKeeper node.
 	url, err := s.CharmURL()
 	if err != nil {
@@ -97,12 +84,7 @@ func (s *Service) addUnit(principalKey string) (unit *Unit, err error) {
 	if err := retryTopologyChange(s.st.zk, addUnit); err != nil {
 		return nil, err
 	}
-	return &Unit{
-		st:          s.st,
-		key:         key,
-		serviceName: s.name,
-		isPrincipal: principalKey == "",
-	}, nil
+	return s.newUnit(key, principalKey), nil
 }
 
 // AddUnit adds a new principal unit to the service.
@@ -125,7 +107,7 @@ func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
 		return nil, err
 	}
 	if !ch.Meta().Subordinate {
-		return nil, fmt.Errorf("can't add unit of principal service %q as a subordinate of %q", s, principal)
+		return nil, fmt.Errorf("cannot add unit of principal service %q as a subordinate of %q", s, principal)
 	}
 	if !principal.IsPrincipal() {
 		return nil, errors.New("a subordinate unit must be added to a principal unit")
@@ -156,7 +138,7 @@ func (s *Service) RemoveUnit(unit *Unit) error {
 
 // Unit returns the service's unit with name.
 func (s *Service) Unit(name string) (unit *Unit, err error) {
-	defer errorContextf(&err, "can't get unit %q from service %q", name, s)
+	defer errorContextf(&err, "cannot get unit %q from service %q", name, s)
 	serviceName, serviceId, err := parseUnitName(name)
 	if err != nil {
 		return nil, err
@@ -179,17 +161,12 @@ func (s *Service) Unit(name string) (unit *Unit, err error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Unit{
-		st:          s.st,
-		key:         key,
-		serviceName: s.name,
-		isPrincipal: tunit.isPrincipal(),
-	}, nil
+	return s.newUnit(key, tunit.Principal), nil
 }
 
 // AllUnits returns all units of the service.
 func (s *Service) AllUnits() (units []*Unit, err error) {
-	defer errorContextf(&err, "can't get all units from service %q", s)
+	defer errorContextf(&err, "cannot get all units from service %q", s)
 	topology, err := readTopology(s.st.zk)
 	if err != nil {
 		return nil, err
@@ -208,27 +185,28 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("inconsistent topology: %v", err)
 		}
-		units = append(units, &Unit{
-			st:          s.st,
-			key:         key,
-			serviceName: s.name,
-			isPrincipal: tunit.isPrincipal(),
-		})
+		units = append(units, s.newUnit(key, tunit.Principal))
 	}
 	return units, nil
 }
 
-// Relations returns a Relation for every relation the service is in.
-func (s *Service) Relations() (relations []*Relation, err error) {
-	defer errorContextf(&err, "can't get relations for service %q", s)
-	t, err := readTopology(s.st.zk)
-	if err != nil {
-		return nil, err
+// WatchUnits creates a watcher for the assigned units
+// of the service.
+func (s *Service) WatchUnits() *ServiceUnitsWatcher {
+	return newServiceUnitsWatcher(s)
+}
+
+// relationsFromTopology returns a Relation for every relation the service
+// is in, according to the supplied topology.
+func (s *Service) relationsFromTopology(t *topology) ([]*Relation, error) {
+	if !t.HasService(s.key) {
+		return nil, stateChanged
 	}
 	trs, err := t.RelationsForService(s.key)
 	if err != nil {
 		return nil, err
 	}
+	relations := []*Relation{}
 	for key, tr := range trs {
 		r := &Relation{s.st, key, make([]RelationEndpoint, len(tr.Endpoints))}
 		i := 0
@@ -249,6 +227,22 @@ func (s *Service) Relations() (relations []*Relation, err error) {
 	return relations, nil
 }
 
+// Relations returns a Relation for every relation the service is in.
+func (s *Service) Relations() (relations []*Relation, err error) {
+	defer errorContextf(&err, "cannot get relations for service %q", s.name)
+	t, err := readTopology(s.st.zk)
+	if err != nil {
+		return nil, err
+	}
+	return s.relationsFromTopology(t)
+}
+
+// WatchRelations returns a watcher which notifies of changes to the
+// set of relations in which this service is participating.
+func (s *Service) WatchRelations() *ServiceRelationsWatcher {
+	return newServiceRelationsWatcher(s)
+}
+
 // IsExposed returns whether this service is exposed.
 // The explicitly open ports (with open-port) for exposed
 // services may be accessed from machines outside of the
@@ -256,7 +250,7 @@ func (s *Service) Relations() (relations []*Relation, err error) {
 func (s *Service) IsExposed() (bool, error) {
 	stat, err := s.st.zk.Exists(s.zkExposedPath())
 	if err != nil {
-		return false, fmt.Errorf("can't check if service %q is exposed: %v", s, err)
+		return false, fmt.Errorf("cannot check if service %q is exposed: %v", s, err)
 	}
 	return stat != nil, nil
 }
@@ -266,7 +260,7 @@ func (s *Service) IsExposed() (bool, error) {
 func (s *Service) SetExposed() error {
 	_, err := s.st.zk.Create(s.zkExposedPath(), "", 0, zkPermAll)
 	if err != nil && !zookeeper.IsError(err, zookeeper.ZNODEEXISTS) {
-		return fmt.Errorf("can't set exposed flag for service %q: %v", s, err)
+		return fmt.Errorf("cannot set exposed flag for service %q: %v", s, err)
 	}
 	return nil
 }
@@ -276,7 +270,7 @@ func (s *Service) SetExposed() error {
 func (s *Service) ClearExposed() error {
 	err := s.st.zk.Delete(s.zkExposedPath(), -1)
 	if err != nil && !zookeeper.IsError(err, zookeeper.ZNONODE) {
-		return fmt.Errorf("can't clear exposed flag for service %q: %v", s, err)
+		return fmt.Errorf("cannot clear exposed flag for service %q: %v", s, err)
 	}
 	return nil
 }
@@ -291,7 +285,7 @@ func (s *Service) WatchExposed() *FlagWatcher {
 func (s *Service) Config() (config *ConfigNode, err error) {
 	config, err = readConfigNode(s.st.zk, s.zkConfigPath())
 	if err != nil {
-		return nil, fmt.Errorf("can't get configuration of service %q: %v", s, err)
+		return nil, fmt.Errorf("cannot get configuration of service %q: %v", s, err)
 	}
 	return config, nil
 }
@@ -305,6 +299,11 @@ func (s *Service) WatchConfig() *ConfigWatcher {
 // String returns the service name.
 func (s *Service) String() string {
 	return s.Name()
+}
+
+// newUnit creates a *Unit.
+func (s *Service) newUnit(key, principalKey string) *Unit {
+	return newUnit(s.st, s.name, key, principalKey)
 }
 
 // zkPath returns the ZooKeeper base path for the service.
