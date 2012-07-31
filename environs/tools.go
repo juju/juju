@@ -18,11 +18,11 @@ import (
 
 var toolPrefix = "tools/juju-"
 
-var toolFilePat = regexp.MustCompile(`^` + toolPrefix + `(\d+\.\d+\.\d+)-([^-]+)-([^-]+)\.tgz$`)
+var toolFilePat = regexp.MustCompile(`^` + toolPrefix + `(.*)\.tgz$`)
 
 // Tools describes a particular set of juju tools and where to find them.
 type Tools struct {
-	version.BinaryVersion
+	version.Binary
 	URL string
 }
 
@@ -36,23 +36,21 @@ func ListTools(store StorageReader, majorVersion int) ([]*Tools, error) {
 	}
 	var toolsList []*Tools
 	for _, name := range names {
-		m := toolFilePat.FindStringSubmatch(name)
-		if m == nil {
+		if !strings.HasPrefix(name, toolPrefix) || !strings.HasSuffix(name, ".tgz") {
 			log.Printf("unexpected tools file found %q", name)
 			continue
 		}
+		vers := name[len(toolPrefix):len(name)-len(".tgz")]
 		var t Tools
-		t.Version, err = version.Parse(m[1])
+		t.Binary, err = version.ParseBinary(vers)
 		if err != nil {
-			log.Printf("failed to parse version %q: %v", name, err)
+			log.Printf("failed to parse %q: %v", vers, err)
 			continue
 		}
-		if t.Version.Major != majorVersion {
+		if t.Major != majorVersion {
 			log.Printf("tool %q found in wrong directory %q", name, dir)
 			continue
 		}
-		t.Series = m[2]
-		t.Arch = m[3]
 		t.URL, err = store.URL(name)
 		if err != nil {
 			log.Printf("cannot get URL for %q: %v", name, err)
@@ -181,16 +179,16 @@ func closeErrorCheck(errp *error, c io.Closer) {
 // BestTools the most recent tools compatible with the
 // given specification. It returns nil if nothing appropriate
 // was found.
-func BestTools(toolsList []*Tools, vers version.BinaryVersion) *Tools {
+func BestTools(toolsList []*Tools, vers version.Binary) *Tools {
 	var bestTools *Tools
 	for _, t := range toolsList {
 		t := t
-		if t.Version.Major != vers.Version.Major ||
+		if t.Major != vers.Major ||
 			t.Series != vers.Series ||
 			t.Arch != vers.Arch {
 			continue
 		}
-		if bestTools == nil || bestTools.Version.Less(t.Version) {
+		if bestTools == nil || bestTools.Number.Less(t.Number) {
 			bestTools = t
 		}
 	}
@@ -235,18 +233,15 @@ func GetTools(url, dir string) error {
 
 // ToolsPath returns path that is used to store and
 // retrieve the given version of the juju tools in a Storage.
-func ToolsPath(vers version.BinaryVersion) string {
-	return fmt.Sprintf(toolPrefix+"%v-%s-%s.tgz",
-		vers.Version,
-		vers.Series,
-		vers.Arch)
+func ToolsPath(vers version.Binary) string {
+	return toolPrefix+vers.String()+".tgz"
 }
 
 // FindTools tries to find a set of tools compatible
 // with the given version from the given environment.
 // If no tools are found and there's no other error, a NotFoundError
 // is returned.
-func FindTools(env Environ, vers version.BinaryVersion) (*Tools, error) {
+func FindTools(env Environ, vers version.Binary) (*Tools, error) {
 	// If there's anything compatible in the environ's Storage,
 	// it gets precedence over anything in its PublicStorage.
 	toolsList, err := ListTools(env.Storage(), vers.Major)

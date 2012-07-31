@@ -6,10 +6,10 @@ import (
 )
 
 type versioner interface {
-	AgentVersion() (version.Version, error)
-	SetAgentVersion(v version.Version) error
-	ProposedAgentVersion() (version.Version, error)
-	ProposeAgentVersion(v version.Version) error
+	AgentVersion() (version.Number, error)
+	SetAgentVersion(v version.Number) error
+	ProposedAgentVersion() (version.Number, error)
+	ProposeAgentVersion(v version.Number) error
 }
 
 var _ = Suite(&VersionSuite{})
@@ -26,22 +26,22 @@ func testVersion(c *C, obj versioner, agent string) {
 	c.Assert(err, ErrorMatches, agent+" agent proposed version not found")
 
 	// check that we can set the version
-	err = obj.ProposeAgentVersion(version.Version{5, 6, 7})
+	err = obj.ProposeAgentVersion(version.Number{5, 6, 7})
 	c.Assert(err, IsNil)
 	v, err := obj.ProposedAgentVersion()
 	c.Assert(err, IsNil)
-	c.Assert(v, Equals, version.Version{5, 6, 7})
+	c.Assert(v, Equals, version.Number{5, 6, 7})
 
-	err = obj.SetAgentVersion(version.Version{3, 4, 5})
+	err = obj.SetAgentVersion(version.Number{3, 4, 5})
 	c.Assert(err, IsNil)
 	v, err = obj.AgentVersion()
 	c.Assert(err, IsNil)
-	c.Assert(v, Equals, version.Version{3, 4, 5})
+	c.Assert(v, Equals, version.Number{3, 4, 5})
 
 	// check there's no cross-talk
 	v, err = obj.ProposedAgentVersion()
 	c.Assert(err, IsNil)
-	c.Assert(v, Equals, version.Version{5, 6, 7})
+	c.Assert(v, Equals, version.Number{5, 6, 7})
 }
 
 func (s *VersionSuite) TestMachineVersion(c *C) {

@@ -52,7 +52,7 @@ func (suite) TestComparison(c *C) {
 var parseTests = []struct {
 	v      string
 	err    string
-	expect version.Version
+	expect version.Number
 	dev    bool
 }{
 	{
@@ -61,22 +61,22 @@ var parseTests = []struct {
 	},
 	{
 		v:      "1.0.0",
-		expect: version.Version{Major: 1},
+		expect: version.Number{Major: 1},
 		dev:    true,
 	},
 	{
 		v:      "0.1.0",
-		expect: version.Version{Minor: 1},
+		expect: version.Number{Minor: 1},
 		dev:    true,
 	},
 	{
 		v:      "0.0.1",
-		expect: version.Version{Patch: 1},
+		expect: version.Number{Patch: 1},
 		dev:    true,
 	},
 	{
 		v:      "10.234.3456",
-		expect: version.Version{Major: 10, Minor: 234, Patch: 3456},
+		expect: version.Number{Major: 10, Minor: 234, Patch: 3456},
 		dev:    false,
 	},
 	{
@@ -103,9 +103,9 @@ func (suite) TestParse(c *C) {
 	}
 }
 
-func binaryVersion(major, minor, patch int, series, arch string) version.BinaryVersion {
-	return version.BinaryVersion{
-		Version: version.Version{
+func binaryVersion(major, minor, patch int, series, arch string) version.Binary {
+	return version.Binary{
+		Number: version.Number{
 			Major: major,
 			Minor: minor,
 			Patch: patch,
@@ -118,7 +118,7 @@ func binaryVersion(major, minor, patch int, series, arch string) version.BinaryV
 var parseBinaryTests = []struct {
 	v      string
 	err    string
-	expect version.BinaryVersion
+	expect version.Binary
 	dev    bool
 }{
 	{
@@ -151,8 +151,8 @@ func (suite) TestParseBinary(c *C) {
 		c.Logf("test 2: %d", i)
 		v := test.v + "-a-b"
 		got, err := version.ParseBinary(v)
-		expect := version.BinaryVersion{
-			Version: test.expect,
+		expect := version.Binary{
+			Number: test.expect,
 			Series: "a",
 			Arch: "b",
 		}

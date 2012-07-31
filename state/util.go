@@ -99,43 +99,43 @@ type agentVersion struct {
 	agent string
 }
 
-func (av *agentVersion) agentVersion(attr string) (version.BinaryVersion, error) {
+func (av *agentVersion) agentVersion(attr string) (version.Number, error) {
 	text := strings.Replace(attr, "-", " ", -1) // e.g. "proposed version"
 	sv, err := getConfigString(av.zk, av.path, attr,
 		"%s agent %s", av.agent, text)
 	if err != nil {
-		return version.Version{}, err
+		return version.Number{}, err
 	}
 	v, err := version.Parse(sv)
 	if err != nil {
-		return version.Version{}, fmt.Errorf("cannot parse %s agent %s: %v", av.agent, text, err)
+		return version.Number{}, fmt.Errorf("cannot parse %s agent %s: %v", av.agent, text, err)
 	}
 	return v, nil
 }
 
-func (av *agentVersion) setAgentVersion(attr string, v version.BinaryVersion) error {
+func (av *agentVersion) setAgentVersion(attr string, v version.Number) error {
 	return setConfigString(av.zk, av.path, attr, v.String(),
 		"%s agent %s", av.agent, strings.Replace(attr, "-", " ", -1))
 }
 
 // AgentVersion returns the current version of the agent.
-func (av *agentVersion) AgentVersion() (version.BinaryVersion, error) {
+func (av *agentVersion) AgentVersion() (version.Number, error) {
 	return av.agentVersion("version")
 }
 
 // SetAgentVersion sets the currently running version of the agent.
-func (av *agentVersion) SetAgentVersion(v version.BinaryVersion) error {
+func (av *agentVersion) SetAgentVersion(v version.Number) error {
 	return av.setAgentVersion("version", v)
 }
 
 // ProposedAgent version returns the version of the agent that
 // is proposed to be run.
-func (av *agentVersion) ProposedAgentVersion() (version.BinaryVersion, error) {
+func (av *agentVersion) ProposedAgentVersion() (version.Number, error) {
 	return av.agentVersion("proposed-version")
 }
 
 // ProposeAgentVersion sets the the version of the agent that
 // is proposed to be run.
-func (av *agentVersion) ProposeAgentVersion(v version.BinaryVersion) error {
+func (av *agentVersion) ProposeAgentVersion(v version.Number) error {
 	return av.setAgentVersion("proposed-version", v)
 }
