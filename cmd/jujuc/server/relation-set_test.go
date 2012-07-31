@@ -29,7 +29,7 @@ func (s *RelationSetSuite) TestHelp(c *C) {
 		code := cmd.Main(com, ctx, []string{"--help"})
 		c.Assert(code, Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), Equals, "")
-		c.Assert(bufferString(ctx.Stderr), Equals, fmt.Sprintf(`usage: relation-set [options] <key=value> [, ...]
+		c.Assert(bufferString(ctx.Stderr), Equals, fmt.Sprintf(`usage: relation-set [options] <key>=<value> [...]
 purpose: set relation settings
 
 options:
@@ -46,27 +46,91 @@ var relationSetInitTests = []struct {
 	relid    int
 	settings map[string]interface{}
 }{
-	{-1, nil, `no relation specified`, 0, nil},
-	{1, nil, `no settings specified`, 0, nil},
-	{-1, []string{"-r", "one"}, `invalid relation id "one"`, 0, nil},
-	{1, []string{"-r", "one"}, `invalid relation id "one"`, 0, nil},
-	{-1, []string{"-r", "ignored:one"}, `invalid relation id "ignored:one"`, 0, nil},
-	{1, []string{"-r", "ignored:one"}, `invalid relation id "ignored:one"`, 0, nil},
-	{-1, []string{"-r", "2"}, `unknown relation id "2"`, 0, nil},
-	{1, []string{"-r", "ignored:2"}, `unknown relation id "ignored:2"`, 0, nil},
-	{-1, []string{"-r", "ignored:0"}, `no settings specified`, 0, nil},
-	{1, []string{"-r", "ignored:0"}, `no settings specified`, 0, nil},
-	{-1, []string{"-r", "0"}, `no settings specified`, 0, nil},
-	{1, []string{"-r", "0"}, `no settings specified`, 0, nil},
-	{-1, []string{"-r", "1"}, `no settings specified`, 0, nil},
-	{0, []string{"-r", "1"}, `no settings specified`, 0, nil},
-	{1, []string{"foo='"}, `cannot parse "foo='": YAML error: .*`, 0, nil},
-	{1, []string{"=haha"}, `cannot parse "=haha": no key specified`, 0, nil},
-	{1, []string{"foo=bar"}, ``, 1, map[string]interface{}{"foo": "bar"}},
-	{0, []string{"-r", "1", "foo=bar"}, ``, 1, map[string]interface{}{"foo": "bar"}},
-	{1, []string{"foo=123", "bar=true", "baz=4.5", "qux="}, ``, 1, map[string]interface{}{
-		"foo": 123, "bar": true, "baz": 4.5, "qux": nil,
-	}},
+	{
+		ctxrelid: -1,
+		err:      `no relation specified`,
+	}, {
+		ctxrelid: 1,
+		err:      `no settings specified`,
+	}, {
+		ctxrelid: -1,
+		args:     []string{"-r", "one"},
+		err:      `invalid relation id "one"`,
+	}, {
+		ctxrelid: 1,
+		args:     []string{"-r", "one"},
+		err:      `invalid relation id "one"`,
+	},
+	{
+		ctxrelid: -1,
+		args:     []string{"-r", "ignored:one"},
+		err:      `invalid relation id "ignored:one"`,
+	}, {
+		ctxrelid: 1,
+		args:     []string{"-r", "ignored:one"}, err: `invalid relation id "ignored:one"`,
+	}, {
+		ctxrelid: -1,
+		args:     []string{"-r", "2"},
+		err:      `unknown relation id "2"`,
+	}, {
+		ctxrelid: 1,
+		args:     []string{"-r", "ignored:2"},
+		err:      `unknown relation id "ignored:2"`,
+	},
+	{
+		ctxrelid: -1,
+		args:     []string{"-r", "ignored:0"},
+		err:      `no settings specified`,
+	}, {
+		ctxrelid: 1,
+		args:     []string{"-r", "ignored:0"},
+		err:      `no settings specified`,
+	}, {
+		ctxrelid: -1,
+		args:     []string{"-r", "0"},
+		err:      `no settings specified`,
+	}, {
+		ctxrelid: 1,
+		args:     []string{"-r", "0"},
+		err:      `no settings specified`,
+	}, {
+		ctxrelid: -1,
+		args:     []string{"-r", "1"},
+		err:      `no settings specified`,
+	}, {
+		ctxrelid: 0,
+		args:     []string{"-r", "1"},
+		err:      `no settings specified`,
+	}, {
+		ctxrelid: 1,
+		args:     []string{"=haha"},
+		err:      `cannot parse "=haha": no key specified`,
+	}, {
+		ctxrelid: 1,
+		args:     []string{"foo='"},
+		relid:    1,
+		settings: map[string]interface{}{"foo": "'"},
+	}, {
+		ctxrelid: 1,
+		args:     []string{"foo=bar"},
+		relid:    1,
+		settings: map[string]interface{}{"foo": "bar"},
+	}, {
+		ctxrelid: 1,
+		args:     []string{"foo=foo: bar"},
+		relid:    1,
+		settings: map[string]interface{}{"foo": "foo: bar"},
+	}, {
+		ctxrelid: 0,
+		args:     []string{"-r", "1", "foo=bar"},
+		relid:    1,
+		settings: map[string]interface{}{"foo": "bar"},
+	}, {
+		ctxrelid: 1,
+		args:     []string{"foo=123", "bar=true", "baz=4.5", "qux="},
+		relid:    1,
+		settings: map[string]interface{}{"foo": "123", "bar": "true", "baz": "4.5", "qux": ""},
+	},
 }
 
 func (s *RelationSetSuite) TestInit(c *C) {
@@ -91,20 +155,16 @@ var relationSetRunTests = []struct {
 	settings map[string]interface{}
 	expect   map[string]interface{}
 }{
-	{map[string]interface{}{
-		"base": nil,
-	}, map[string]interface{}{}},
-	{map[string]interface{}{
-		"foo": "bar",
-	}, map[string]interface{}{
-		"base": "value",
-		"foo":  "bar",
-	}},
-	{map[string]interface{}{
-		"base": "changed",
-	}, map[string]interface{}{
-		"base": "changed",
-	}},
+	{
+		map[string]interface{}{"base": ""},
+		map[string]interface{}{},
+	}, {
+		map[string]interface{}{"foo": "bar"},
+		map[string]interface{}{"base": "value", "foo": "bar"},
+	}, {
+		map[string]interface{}{"base": "changed"},
+		map[string]interface{}{"base": "changed"},
+	},
 }
 
 func (s *RelationSetSuite) TestRun(c *C) {
@@ -113,7 +173,7 @@ func (s *RelationSetSuite) TestRun(c *C) {
 		c.Logf("test %d", i)
 
 		// Set base settings for this test's relations.
-		err := hctx.Relations[1].Flush(false)
+		hctx.Relations[1].ClearCache()
 		pristine := map[string]interface{}{"pristine": "untouched"}
 		setSettings(c, s.relunits[0], pristine)
 		basic := map[string]interface{}{"base": "value"}
@@ -142,8 +202,8 @@ func (s *RelationSetSuite) TestRun(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(settings, DeepEquals, basic)
 
-		// ...until the relation context is flushed.
-		err = hctx.Relations[1].Flush(true)
+		// ...until we ask for it.
+		err = hctx.Relations[1].WriteSettings()
 		c.Assert(err, IsNil)
 		settings, err = s.relunits[1].ReadSettings("u/0")
 		c.Assert(settings, DeepEquals, t.expect)
@@ -155,7 +215,7 @@ func (s *RelationSetSuite) TestRun(c *C) {
 		c.Assert(settings, DeepEquals, pristine)
 
 		// ...even when flushed.
-		err = hctx.Relations[0].Flush(true)
+		err = hctx.Relations[0].WriteSettings()
 		c.Assert(err, IsNil)
 		settings, err = s.relunits[0].ReadSettings("u/0")
 		c.Assert(err, IsNil)

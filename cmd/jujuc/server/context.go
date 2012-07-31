@@ -94,26 +94,33 @@ func (ctx *HookContext) RunHook(hookName, charmDir, socketPath string) error {
 	err := ps.Run()
 	if ee, ok := err.(*exec.Error); ok && err != nil {
 		if os.IsNotExist(ee.Err) {
-			// Nothing happened at all: no need to flush, just return.
+			// Missing hook is perfectly valid.
 			return nil
 		}
 	}
 	write := err == nil
 	for id, rctx := range ctx.Relations {
-		if e := rctx.Flush(write); e != nil {
-			log.Printf("jujuc/server: failed to flush context for relation %d: %v", id, e)
-			if err == nil {
-				err = e
+		if write {
+			if e := rctx.WriteSettings(); e != nil {
+				e = fmt.Errorf(
+					"could not write settings from %q to relation %d: %v",
+					hookName, id, e,
+				)
+				log.Printf("%v", e)
+				if err == nil {
+					err = e
+				}
 			}
 		}
+		rctx.ClearCache()
 	}
 	return err
 }
 
 // relationIdentifiers returns the relation name and identifier exposed to
-// hooks as JUJU_RELATION and JUJU_RELATION_ID respectively. If RelationId
-// is currently -1, it will return empty strings. Otherwise, it will panic
-// if the current RelationId is not a key in the Relations map.
+// hooks as JUJU_RELATION and JUJU_RELATION_ID respectively. If the context
+// is does not have a relation, it will return empty strings. Otherwise, it
+// will panic if the current RelationId is not a key in the Relations map.
 func (ctx *HookContext) relationIdentifiers() (string, string) {
 	if ctx.RelationId == -1 {
 		return "", ""
@@ -124,8 +131,8 @@ func (ctx *HookContext) relationIdentifiers() (string, string) {
 	return name, id
 }
 
-// settingsMap is a map from unit name to relation settings.
-type settingsMap map[string]map[string]interface{}
+// SettingsMap is a map from unit name to relation settings.
+type SettingsMap map[string]map[string]interface{}
 
 // RelationContext exposes relation membership and unit settings information.
 type RelationContext struct {
@@ -133,49 +140,46 @@ type RelationContext struct {
 
 	// members contains settings for known relation members. Nil values
 	// indicate members whose settings have not yet been cached.
-	members settingsMap
+	members SettingsMap
 
 	// settings allows read and write access to the relation unit settings.
 	settings *state.ConfigNode
 
-	// units is a sorted list of unit names reflecting the contents of members.
-	units []string
-
 	// cache is a short-term cache that enables consistent access to settings
 	// for units that are not currently participating in the relation. Its
 	// contents should be cleared whenever a new hook is executed.
-	cache settingsMap
+	cache SettingsMap
 }
 
 // NewRelationContext creates a new context for the given relation unit.
 // The unit-name keys of members supplies the initial membership.
 func NewRelationContext(ru *state.RelationUnit, members map[string]int) *RelationContext {
-	ctx := &RelationContext{ru: ru}
-	m := settingsMap{}
+	ctx := &RelationContext{ru: ru, members: SettingsMap{}}
 	for unit := range members {
-		m[unit] = nil
+		ctx.members[unit] = nil
 	}
-	ctx.Update(m)
-	ctx.Flush(false)
+	ctx.ClearCache()
 	return ctx
 }
 
-// Flush clears the cached data for non-member units, making the context
-// suitable for use in the execution of a fresh hook. If write is true,
-// any changes made to Settings will be persisted; otherwise, they will
-// be discarded.
-func (ctx *RelationContext) Flush(write bool) error {
-	if write && ctx.settings != nil {
-		_, err := ctx.settings.Write()
-		return err
+// WriteSettings persists all changes made to the unit's relation settings.
+func (ctx *RelationContext) WriteSettings() (err error) {
+	if ctx.settings != nil {
+		_, err = ctx.settings.Write()
 	}
-	ctx.settings = nil
-	ctx.cache = make(settingsMap)
-	return nil
+	return
 }
 
-// Update completely replaces the context's membership data.
-func (ctx *RelationContext) Update(members settingsMap) {
+// ClearCache discards all cached settings for units that are not members
+// of the relation, and all unwritten changes to the unit's relation settings.
+// including any changes to Settings that have not been written.
+func (ctx *RelationContext) ClearCache() {
+	ctx.settings = nil
+	ctx.cache = make(SettingsMap)
+}
+
+// SetMembers completely replaces the context's membership data.
+func (ctx *RelationContext) SetMembers(members SettingsMap) {
 	ctx.members = members
 }
 
