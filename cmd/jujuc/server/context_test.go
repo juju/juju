@@ -102,41 +102,61 @@ func AssertEnv(c *C, outPath string, charmDir string, env map[string]string) {
 }
 
 var runHookTests = []struct {
-	relid  int
-	remote string
-	perms  os.FileMode
-	code   int
-	err    string
-	env    map[string]string
+	summary string
+	relid   int
+	remote  string
+	perms   os.FileMode
+	code    int
+	err     string
+	env     map[string]string
 }{
-	// Missing hook is not an error.
-	{-1, "", 0, 0, "", nil},
-	// Report failure to execute hook.
-	{-1, "", 0600, 0, `exec: .*something-happened": permission denied`, nil},
-	// Report error indicated by hook's exit status.
-	{-1, "", 0700, 99, `exit status 99`, nil},
-	// Check shell environment for non-relation hook context.
-	{-1, "", 0700, 0, "", map[string]string{
-		"JUJU_UNIT_NAME": "u/0",
-	}},
-	// Check shell environment for relation-broken hook context.
-	{0, "", 0700, 0, "", map[string]string{
-		"JUJU_UNIT_NAME":   "u/0",
-		"JUJU_RELATION":    "peer0",
-		"JUJU_RELATION_ID": "peer0:0",
-	}},
-	// Check shell environment for normal relation hook context.
-	{0, "u/1", 0700, 0, "", map[string]string{
-		"JUJU_UNIT_NAME":   "u/0",
-		"JUJU_RELATION":    "peer0",
-		"JUJU_RELATION_ID": "peer0:0",
-		"JUJU_REMOTE_UNIT": "u/1",
-	}},
+	{
+		summary: "missing hook is not an error",
+		relid:   -1,
+	}, {
+		summary: "report failure to execute hook",
+		relid:   -1,
+		perms:   0600,
+		err:     `exec: .*something-happened": permission denied`,
+	}, {
+		summary: "report error indicated by hook's exit status",
+		relid:   -1,
+		perms:   0700,
+		code:    99,
+		err:     "exit status 99",
+	}, {
+		summary: "check shell environment for non-relation hook context",
+		relid:   -1,
+		perms:   0700,
+		env: map[string]string{
+			"JUJU_UNIT_NAME": "u/0",
+		},
+	}, {
+		summary: "check shell environment for relation-broken hook context",
+		relid:   1,
+		perms:   0700,
+		env: map[string]string{
+			"JUJU_UNIT_NAME":   "u/0",
+			"JUJU_RELATION":    "peer1",
+			"JUJU_RELATION_ID": "peer1:1",
+		},
+	}, {
+		summary: "check shell environment for relation hook context",
+		relid:   1,
+		remote:  "u/1",
+		perms:   0700,
+		env: map[string]string{
+			"JUJU_UNIT_NAME":   "u/0",
+			"JUJU_RELATION":    "peer1",
+			"JUJU_RELATION_ID": "peer1:1",
+			"JUJU_REMOTE_UNIT": "u/1",
+		},
+	},
 }
 
 func (s *RunHookSuite) TestRunHook(c *C) {
 	for i, t := range runHookTests {
-		c.Logf("test %d", i)
+		c.Logf("test %d: %s", i, t.summary)
 		ctx := s.GetHookContext(c, t.relid, t.remote)
 		var charmDir, outPath string
 		if t.perms == 0 {
@@ -255,12 +275,12 @@ func (s *RelationContextSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *RelationContextSuite) TestUpdateMembers(c *C) {
+func (s *RelationContextSuite) TestSetMembers(c *C) {
 	ctx := server.NewRelationContext(s.ru, nil)
 	c.Assert(ctx.Units(), HasLen, 0)
 
 	// Check the units and settings after a simple update.
-	ctx.Update(map[string]map[string]interface{}{
+	ctx.SetMembers(server.SettingsMap{
 		"u/2": {"baz": 2},
 	})
 	c.Assert(ctx.Units(), DeepEquals, []string{"u/2"})
@@ -269,7 +289,7 @@ func (s *RelationContextSuite) TestUpdateMembers(c *C) {
 	c.Assert(settings, DeepEquals, map[string]interface{}{"baz": 2})
 
 	// Check that a second update entirely overwrites the first.
-	ctx.Update(map[string]map[string]interface{}{
+	ctx.SetMembers(server.SettingsMap{
 		"u/1": {"foo": 1},
 		"u/3": {"bar": 3},
 	})
@@ -314,16 +334,15 @@ func (s *RelationContextSuite) TestMemberCaching(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(settings, DeepEquals, expect)
 
-	// Check that flushing the context does not affect the cached settings.
-	err = ctx.Flush(true)
-	c.Assert(err, IsNil)
+	// Check that ClearCache spares the members cache.
+	ctx.ClearCache()
 	settings, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
 	c.Assert(settings, DeepEquals, expect)
 
 	// Check that updating the context overwrites the cached settings, and
 	// that the contents of state are ignored.
-	ctx.Update(map[string]map[string]interface{}{"u/1": {"entirely": "different"}})
+	ctx.SetMembers(server.SettingsMap{"u/1": {"entirely": "different"}})
 	settings, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
 	c.Assert(settings, DeepEquals, map[string]interface{}{"entirely": "different"})
@@ -355,8 +374,8 @@ func (s *RelationContextSuite) TestNonMemberCaching(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(settings, DeepEquals, expect)
 
-	// ...until the context is flushed.
-	err = ctx.Flush(true)
+	// ...until the caches are cleared.
+	ctx.ClearCache()
 	c.Assert(err, IsNil)
 	settings, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
@@ -366,12 +385,12 @@ func (s *RelationContextSuite) TestNonMemberCaching(c *C) {
 func (s *RelationContextSuite) TestSettings(c *C) {
 	ctx := server.NewRelationContext(s.ru, nil)
 
-	// Change Settings, then flush without writing.
+	// Change Settings, then clear cache without writing.
 	node, err := ctx.Settings()
 	c.Assert(err, IsNil)
 	expect := node.Map()
 	node.Set("change", "exciting")
-	ctx.Flush(false)
+	ctx.ClearCache()
 
 	// Check that the change is not cached...
 	node, err = ctx.Settings()
@@ -383,9 +402,11 @@ func (s *RelationContextSuite) TestSettings(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(settings, DeepEquals, expect)
 
-	// Change again, and flush with a write.
+	// Change again, write settings, and clear caches.
 	node.Set("change", "exciting")
-	ctx.Flush(true)
+	err = ctx.WriteSettings()
+	c.Assert(err, IsNil)
+	ctx.ClearCache()
 
 	// Check that the change is reflected in Settings...
 	expect["change"] = "exciting"
@@ -393,7 +414,7 @@ func (s *RelationContextSuite) TestSettings(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(node.Map(), DeepEquals, expect)
 
-	// ...and written to state.
+	// ...and was written to state.
 	settings, err = s.ru.ReadSettings("u/0")
 	c.Assert(err, IsNil)
 	c.Assert(settings, DeepEquals, expect)

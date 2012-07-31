@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
-	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cmd"
 	"strings"
 )
@@ -21,7 +20,7 @@ func NewRelationSetCommand(ctx *HookContext) (cmd.Command, error) {
 
 func (c *RelationSetCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"relation-set", "<key=value> [, ...]", "set relation settings", "",
+		"relation-set", "<key>=<value> [...]", "set relation settings", "",
 	}
 }
 
@@ -37,17 +36,10 @@ func (c *RelationSetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	}
 	for _, kv := range args {
 		parts := strings.SplitN(kv, "=", 2)
-		var err error
-		var value interface{}
 		if parts[0] == "" {
-			err = fmt.Errorf("no key specified")
-		} else {
-			err = goyaml.Unmarshal([]byte(parts[1]), &value)
+			return fmt.Errorf("cannot parse %q: no key specified", kv)
 		}
-		if err != nil {
-			return fmt.Errorf("cannot parse %q: %v", kv, err)
-		}
-		c.Settings[parts[0]] = value
+		c.Settings[parts[0]] = parts[1]
 	}
 	return nil
 }
@@ -55,8 +47,8 @@ func (c *RelationSetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
 	node, err := c.Relations[c.RelationId].Settings()
 	for k, v := range c.Settings {
-		if v != nil {
-			node.Set(k, v)
+		if s := v.(string); s != "" {
+			node.Set(k, s)
 		} else {
 			node.Delete(k)
 		}
