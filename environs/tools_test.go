@@ -52,8 +52,8 @@ func mkVersion(vers string) version.Number {
 func mkToolsPath(vers string) string {
 	return environs.ToolsPath(version.Binary{
 		Number: mkVersion(vers),
-		Series:  config.CurrentSeries,
-		Arch:    config.CurrentArch,
+		Series: config.CurrentSeries,
+		Arch:   config.CurrentArch,
 	})
 }
 
@@ -143,10 +143,10 @@ type toolsSpec struct {
 
 var findToolsTests = []struct {
 	version        version.Number // version to assume is current for the test.
-	contents       []string        // names in private storage.
-	publicContents []string        // names in public storage.
-	expect         string          // the name we expect to find (if no error).
-	err            string          // the error we expect to find (if not blank).
+	contents       []string       // names in private storage.
+	publicContents []string       // names in public storage.
+	expect         string         // the name we expect to find (if no error).
+	err            string         // the error we expect to find (if not blank).
 }{{
 	// current version should be satisfied by current tools path.
 	version:  version.Current.Number,
@@ -217,13 +217,13 @@ var findToolsTests = []struct {
 	contents: []string{
 		environs.ToolsPath(version.Binary{
 			Number: mkVersion("1.9.9"),
-			Series:  "foo",
-			Arch:    config.CurrentArch,
+			Series: "foo",
+			Arch:   config.CurrentArch,
 		}),
 		environs.ToolsPath(version.Binary{
 			Number: mkVersion("1.9.9"),
-			Series:  config.CurrentSeries,
-			Arch:    "foo",
+			Series: config.CurrentSeries,
+			Arch:   "foo",
 		}),
 		mkToolsPath("1.0.0"),
 	},
@@ -247,8 +247,8 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 		}
 		vers := version.Binary{
 			Number: tt.version,
-			Series:  config.CurrentSeries,
-			Arch:    config.CurrentArch,
+			Series: config.CurrentSeries,
+			Arch:   config.CurrentArch,
 		}
 		tools, err := environs.FindTools(t.env, vers)
 		if tt.err != "" {
@@ -301,7 +301,7 @@ func binaryVersion(major, minor, patch int, series, arch string) version.Binary 
 func newTools(major, minor, patch int, series, arch, url string) *environs.Tools {
 	return &environs.Tools{
 		Binary: binaryVersion(major, minor, patch, series, arch),
-		URL:           url,
+		URL:    url,
 	}
 }
 

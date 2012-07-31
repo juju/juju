@@ -14,8 +14,8 @@ import (
 // Current gives the current version of the system.
 var Current = Binary{
 	Number: MustParse("0.0.1"),
-	Series:  readSeries("/etc/lsb-release"), // current Ubuntu release name.  
-	Arch:    ubuntuArch(runtime.GOARCH),
+	Series: readSeries("/etc/lsb-release"), // current Ubuntu release name.  
+	Arch:   ubuntuArch(runtime.GOARCH),
 }
 
 // Number represents a juju version. When bugs are

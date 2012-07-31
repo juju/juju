@@ -122,15 +122,15 @@ var parseBinaryTests = []struct {
 	dev    bool
 }{
 	{
-		v: "1.2.3-a-b",
-		expect: binaryVersion(1,2,3, "a", "b"),
+		v:      "1.2.3-a-b",
+		expect: binaryVersion(1, 2, 3, "a", "b"),
 	},
 	{
-		v: "1.2.3--b",
+		v:   "1.2.3--b",
 		err: "invalid binary version.*",
 	},
 	{
-		v: "1.2.3-a-",
+		v:   "1.2.3-a-",
 		err: "invalid binary version.*",
 	},
 }
@@ -154,7 +154,7 @@ func (suite) TestParseBinary(c *C) {
 		expect := version.Binary{
 			Number: test.expect,
 			Series: "a",
-			Arch: "b",
+			Arch:   "b",
 		}
 		if test.err != "" {
 			c.Assert(err, ErrorMatches, strings.Replace(test.err, "version", "binary version", 1))

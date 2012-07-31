@@ -12,13 +12,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
 var toolPrefix = "tools/juju-"
-
-var toolFilePat = regexp.MustCompile(`^` + toolPrefix + `(.*)\.tgz$`)
 
 // Tools describes a particular set of juju tools and where to find them.
 type Tools struct {
@@ -40,7 +37,7 @@ func ListTools(store StorageReader, majorVersion int) ([]*Tools, error) {
 			log.Printf("unexpected tools file found %q", name)
 			continue
 		}
-		vers := name[len(toolPrefix):len(name)-len(".tgz")]
+		vers := name[len(toolPrefix) : len(name)-len(".tgz")]
 		var t Tools
 		t.Binary, err = version.ParseBinary(vers)
 		if err != nil {
@@ -234,7 +231,7 @@ func GetTools(url, dir string) error {
 // ToolsPath returns path that is used to store and
 // retrieve the given version of the juju tools in a Storage.
 func ToolsPath(vers version.Binary) string {
-	return toolPrefix+vers.String()+".tgz"
+	return toolPrefix + vers.String() + ".tgz"
 }
 
 // FindTools tries to find a set of tools compatible
