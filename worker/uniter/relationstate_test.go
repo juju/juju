@@ -32,10 +32,13 @@ func (s *RelationStateSuite) TestNewRelationStateEmpty(c *C) {
 func (s *RelationStateSuite) TestNewRelationStateValid(c *C) {
 	basedir := c.MkDir()
 	reldir := setUpDir(c, basedir, "123", map[string]string{
-		"foo-bar-1":  "change-version: 99\n",
-		"foo-bar-1~": "change-version: 100\n",
-		"baz-qux-7":  "change-version: 101\nchanged-pending: true\n",
+		"foo-bar-1":           "change-version: 99\n",
+		"foo-bar-1.preparing": "change-version: 100\n",
+		"baz-qux-7":           "change-version: 101\nchanged-pending: true\n",
+		"nonsensical":         "blah",
+		"27":                  "blah",
 	})
+	setUpDir(c, reldir, "ignored", nil)
 
 	rs, err := uniter.NewRelationState(basedir, 123)
 	c.Assert(err, IsNil)
@@ -45,45 +48,34 @@ func (s *RelationStateSuite) TestNewRelationStateValid(c *C) {
 	c.Assert(rs.ChangedPending, Equals, "baz-qux/7")
 }
 
-func (s *RelationStateSuite) TestSubdirsInvalid(c *C) {
-	basedir := c.MkDir()
-	reldir := setUpDir(c, basedir, "123", nil)
-	setUpDir(c, reldir, "bad", nil)
-	_, err := uniter.NewRelationState(basedir, 123)
-	c.Assert(err, ErrorMatches, `cannot load relation state from .*: directory must be flat`)
-}
-
-var badRelations = []struct {
+var badRelationsTests = []struct {
 	contents map[string]string
+	subdirs  []string
 	err      string
 }{
-	{
-		map[string]string{"foo": "anything"},
-		`invalid unit filename "foo"`,
-	}, {
-		map[string]string{"foo-bar": "anything"},
-		`invalid unit filename "foo-bar"`,
-	}, {
-		map[string]string{"1": "anything"},
-		`invalid unit filename "1"`,
-	}, {
-		map[string]string{"foo-1": "nonsense"},
-		`invalid unit file "foo-1"`,
-	}, {
-		map[string]string{
-			"foo-1": "change-version: 123\nchanged-pending: true\n",
-			"foo-2": "change-version: 456\nchanged-pending: true\n",
-		},
-		`"foo/1" and "foo/2" both have pending changed hooks`,
-	},
+	{nil, []string{"foo-bar-1"}, `.* is a directory`},
+	{map[string]string{
+		"foo-1": "'",
+	}, nil, `invalid unit file "foo-1": YAML error: .*`},
+	{map[string]string{
+		"foo-1": "blah: blah\n",
+	}, nil, `invalid unit file "foo-1": "changed-version" not set`},
+	{map[string]string{
+		"foo-1": "change-version: 123\nchanged-pending: true\n",
+		"foo-2": "change-version: 456\nchanged-pending: true\n",
+	}, nil, `"foo/1" and "foo/2" both have pending changed hooks`},
 }
 
 func (s *RelationStateSuite) TestBadRelations(c *C) {
-	for _, t := range badRelations {
+	for i, t := range badRelationsTests {
+		c.Logf("test %d", i)
 		basedir := c.MkDir()
-		setUpDir(c, basedir, "123", t.contents)
+		reldir := setUpDir(c, basedir, "123", t.contents)
+		for _, subdir := range t.subdirs {
+			setUpDir(c, reldir, subdir, nil)
+		}
 		_, err := uniter.NewRelationState(basedir, 123)
-		expect := fmt.Sprintf(`cannot load relation state from .*: %s`, t.err)
+		expect := `cannot load relation state from ".*": ` + t.err
 		c.Assert(err, ErrorMatches, expect)
 	}
 }
@@ -176,12 +168,12 @@ var commitTests = []struct {
 		hookInfos([]hookInfo{
 			{"foo/3", "changed", 0, 123},
 		}), msi{"foo/1": 0, "foo/2": 0}, "",
-		`unit not joined`,
+		`unit has not joined`,
 	}, {
 		hookInfos([]hookInfo{
 			{"foo/3", "departed", 0, 123},
 		}), msi{"foo/1": 0, "foo/2": 0}, "",
-		`unit not joined`,
+		`unit has not joined`,
 	},
 }
 
@@ -231,45 +223,36 @@ func (s *AllRelationStatesSuite) TestNoExist(c *C) {
 	c.Assert(fi.IsDir(), Equals, true)
 }
 
-func (s *AllRelationStatesSuite) TestBadRelationId(c *C) {
-	basedir := c.MkDir()
-	relsdir := setUpDir(c, basedir, "relations", nil)
-	setUpDir(c, relsdir, "invalid", nil)
-	_, err := uniter.AllRelationStates(relsdir)
-	c.Assert(err, ErrorMatches, `cannot load relations state from .*: "invalid" is not a valid relation id`)
-}
-
-func (s *AllRelationStatesSuite) TestBadFile(c *C) {
-	basedir := c.MkDir()
-	relsdir := setUpDir(c, basedir, "relations", map[string]string{
-		"123": "anything",
-	})
-	_, err := uniter.AllRelationStates(relsdir)
-	c.Assert(err, ErrorMatches, `cannot load relations state from .*: relation 123 is not a directory`)
-}
-
 func (s *AllRelationStatesSuite) TestBadRelationState(c *C) {
 	basedir := c.MkDir()
 	relsdir := setUpDir(c, basedir, "relations", nil)
 	setUpDir(c, relsdir, "123", map[string]string{
-		"bad-unit": "anything",
+		"bad-0": "blah: blah\n",
 	})
 	_, err := uniter.AllRelationStates(relsdir)
-	c.Assert(err, ErrorMatches, `cannot load relations state from .*: cannot load relation state from .*: invalid unit filename "bad-unit"`)
+	c.Assert(err, ErrorMatches, `cannot load relations state from .*: cannot load relation state from .*: invalid unit file "bad-0": "changed-version" not set`)
 }
 
 func (s *AllRelationStatesSuite) TestAllRelationStates(c *C) {
 	basedir := c.MkDir()
-	relsdir := setUpDir(c, basedir, "relations", nil)
+	relsdir := setUpDir(c, basedir, "relations", map[string]string{
+		"ignored":     "blah",
+		"foo-bar-123": "gibberish",
+	})
 	setUpDir(c, relsdir, "123", map[string]string{
-		"foo-0": "change-version: 1\n",
-		"foo-1": "change-version: 2\nchanged-pending: true\n",
+		"foo-0":     "change-version: 1\n",
+		"foo-1":     "change-version: 2\nchanged-pending: true\n",
+		"gibberish": "gibberish",
 	})
 	setUpDir(c, relsdir, "456", map[string]string{
 		"bar-0": "change-version: 3\n",
 		"bar-1": "change-version: 4\n",
 	})
 	setUpDir(c, relsdir, "789", nil)
+	setUpDir(c, relsdir, "onethousand", map[string]string{
+		"baz-0": "change-version: 3\n",
+		"baz-1": "change-version: 4\n",
+	})
 
 	states, err := uniter.AllRelationStates(relsdir)
 	c.Assert(err, IsNil)

@@ -11,12 +11,14 @@ import (
 	"strings"
 )
 
+const preparing = ".preparing"
+
 // AllRelationStates loads and returns every RelationState persisted directly
-// inside the directory at the supplied path. It is an error for the directory
-// to contain anything other than valid persisted RelationStates, identified by
-// relation id. If the directory does not exist, it will be created.
+// inside the directory at the supplied path. Entries with integer names must
+// be directories containing RelationState data; all other names will be ignored.
+// If the directory does not exist, it will be created.
 func AllRelationStates(dirpath string) (states map[int]*RelationState, err error) {
-	defer errorContextf(&err, "cannot load relations state from %s: %v", dirpath, err)
+	defer errorContextf(&err, "cannot load relations state from %q", dirpath)
 	if err = ensureDir(dirpath); err != nil {
 		return nil, err
 	}
@@ -28,10 +30,8 @@ func AllRelationStates(dirpath string) (states map[int]*RelationState, err error
 	for _, fi := range fis {
 		relationId, err := strconv.Atoi(fi.Name())
 		if err != nil {
-			return nil, fmt.Errorf("%q is not a valid relation id", fi.Name())
-		}
-		if !fi.IsDir() {
-			return nil, fmt.Errorf("relation %d is not a directory", relationId)
+			// This doesn't look like a relation.
+			continue
 		}
 		state, err := NewRelationState(dirpath, relationId)
 		if err != nil {
@@ -68,13 +68,12 @@ type diskInfo struct {
 }
 
 // NewRelationState loads a RelationState from the subdirectory of dirpath named
-// for the supplied RelationId. The directory must not contain anything other than
-// valid relation unit files, as written by Commit(), and files with names ending
-// with "~", which will be ignored. If the directory does not exist, it will be
-// created.
+// for the supplied RelationId. Entries with names ending in "-" followed by an
+// integer must be files containing valid unit data; all other names are ignored.
+// If the directory does not exist, it will be created.
 func NewRelationState(dirpath string, relationId int) (rs *RelationState, err error) {
-	path := filepath.Join(dirpath, fmt.Sprintf("%d", relationId))
-	defer errorContextf(&err, "cannot load relation state from %s: %v", path, err)
+	path := filepath.Join(dirpath, strconv.Itoa(relationId))
+	defer errorContextf(&err, "cannot load relation state from %q", path)
 	if err = ensureDir(path); err != nil {
 		return nil, err
 	}
@@ -84,27 +83,22 @@ func NewRelationState(dirpath string, relationId int) (rs *RelationState, err er
 	}
 	rs = &RelationState{path, relationId, map[string]int{}, ""}
 	for _, fi := range fis {
-		if fi.IsDir() {
-			return nil, fmt.Errorf("directory must be flat")
-		}
 		name := fi.Name()
-		if strings.HasSuffix(name, "~") {
+		unitname, ok := unitName(name)
+		if !ok {
+			// This doesn't look like a unit file.
 			continue
-		}
-		unitname, err := unitName(name)
-		if err != nil {
-			return nil, err
 		}
 		data, err := ioutil.ReadFile(filepath.Join(path, name))
 		if err != nil {
 			return nil, err
 		}
 		var info diskInfo
-		if err := goyaml.Unmarshal(data, &info); err != nil {
-			return nil, err
+		if err = goyaml.Unmarshal(data, &info); err != nil {
+			return nil, fmt.Errorf("invalid unit file %q: %v", name, err)
 		}
 		if info.ChangeVersion == nil {
-			return nil, fmt.Errorf("invalid unit file %q", name)
+			return nil, fmt.Errorf(`invalid unit file %q: "changed-version" not set`, name)
 		}
 		rs.Members[unitname] = *info.ChangeVersion
 		if info.ChangedPending {
@@ -131,9 +125,9 @@ func (rs *RelationState) Validate(hi HookInfo) (err error) {
 			return fmt.Errorf(`expected "changed" for %q`, rs.ChangedPending)
 		}
 	} else if _, joined := rs.Members[unit]; joined && hook == "joined" {
-		return fmt.Errorf(`unit already joined`)
+		return fmt.Errorf("unit already joined")
 	} else if !joined && hook != "joined" {
-		return fmt.Errorf("unit not joined")
+		return fmt.Errorf("unit has not joined")
 	}
 	return nil
 }
@@ -147,8 +141,8 @@ func (rs *RelationState) Commit(hi HookInfo) (err error) {
 	if err = rs.Validate(hi); err != nil {
 		return err
 	}
-	defer errorContextf(&err, "failed to commit %q for %q: %v", hi.HookKind, hi.RemoteUnit)
-	name := strings.Replace(hi.RemoteUnit, "/", "-", -1)
+	defer errorContextf(&err, "failed to commit %q for %q", hi.HookKind, hi.RemoteUnit)
+	name := strings.Replace(hi.RemoteUnit, "/", "-", 1)
 	path := filepath.Join(rs.Path, name)
 	if hi.HookKind == "departed" {
 		if err = os.Remove(path); err != nil {
@@ -158,17 +152,16 @@ func (rs *RelationState) Commit(hi HookInfo) (err error) {
 		delete(rs.Members, hi.RemoteUnit)
 		return nil
 	}
-	info := diskInfo{&hi.ChangeVersion, hi.HookKind == "joined"}
-	data, err := goyaml.Marshal(info)
+	data, err := goyaml.Marshal(diskInfo{&hi.ChangeVersion, hi.HookKind == "joined"})
 	if err != nil {
 		return err
 	}
 	// Create the entry for the relation and atomically
 	// rename it to replace the old one.
-	if err = ioutil.WriteFile(path+"~", data, 0777); err != nil {
+	if err = ioutil.WriteFile(path+preparing, data, 0644); err != nil {
 		return err
 	}
-	if err = os.Rename(path+"~", path); err != nil {
+	if err = os.Rename(path+preparing, path); err != nil {
 		return err
 	}
 	// If write was successful, update own fields.
@@ -181,12 +174,12 @@ func (rs *RelationState) Commit(hi HookInfo) (err error) {
 	return nil
 }
 
-// ensureDir returns if an error if a directory does not exist, and cannot
+// ensureDir returns an error if a directory does not exist, and cannot
 // be created, at path.
 func ensureDir(path string) error {
 	fi, err := os.Stat(path)
 	if os.IsNotExist(err) {
-		return os.Mkdir(path, 0777)
+		return os.Mkdir(path, 0755)
 	} else if !fi.IsDir() {
 		return fmt.Errorf("%s must be a directory", path)
 	}
@@ -203,15 +196,15 @@ func errorContextf(err *error, format string, args ...interface{}) {
 }
 
 // unitName converts a relation unit filename to a unit name.
-func unitName(filename string) (string, error) {
+func unitName(filename string) (string, bool) {
 	i := strings.LastIndex(filename, "-")
 	if i == -1 {
-		return "", fmt.Errorf("invalid unit filename %q", filename)
+		return "", false
 	}
 	svcName := filename[:i]
 	unitId := filename[i+1:]
 	if _, err := strconv.Atoi(unitId); err != nil {
-		return "", fmt.Errorf("invalid unit filename %q", filename)
+		return "", false
 	}
-	return svcName + "/" + unitId, nil
+	return svcName + "/" + unitId, true
 }
