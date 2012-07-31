@@ -45,7 +45,8 @@ var configGetTests = []struct {
 }
 
 func (s *ConfigGetSuite) TestOutputFormat(c *C) {
-	for _, t := range configGetTests {
+	for i, t := range configGetTests {
+		c.Logf("test %d: %#v", i, t.args)
 		com, err := s.ctx.NewCommand("config-get")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)

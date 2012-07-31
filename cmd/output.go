@@ -7,6 +7,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
 	"os"
+	"reflect"
 	"sort"
 	"strings"
 )
@@ -42,13 +43,23 @@ var FormatJson = json.Marshal
 //   * []string:      joined by `\n`s into a single string
 //   * anything else: delegate to FormatYaml
 func FormatSmart(value interface{}) ([]byte, error) {
-	if str, ok := value.(string); ok {
-		return []byte(str), nil
+	if value == nil {
+		return nil, nil
 	}
-	if strs, ok := value.([]string); ok {
-		return []byte(strings.Join(strs, "\n")), nil
+	v := reflect.ValueOf(value)
+	switch kind := v.Kind(); kind {
+	case reflect.String:
+		return []byte(value.(string)), nil
+	case reflect.Array, reflect.Slice:
+		if v.Type().Elem().Kind() == reflect.String {
+			return []byte(strings.Join(value.([]string), "\n")), nil
+		}
+	case reflect.Map, reflect.Bool, reflect.Float32, reflect.Float64:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	default:
+		return nil, fmt.Errorf("cannot marshal %#v", value)
 	}
-	// FormatYaml works as specified for int, float, bool; may as well use it.
 	return FormatYaml(value)
 }
 
@@ -108,7 +119,7 @@ func (v *formatterValue) format(value interface{}) ([]byte, error) {
 }
 
 // Output is responsible for interpreting output-related command line flags
-// and writing a value to a file or to stdout as directed. 
+// and writing a value to a file or to stdout as directed.
 type Output struct {
 	formatter *formatterValue
 	outPath   string
@@ -122,7 +133,7 @@ func (c *Output) AddFlags(f *gnuflag.FlagSet, defaultFormatter string, formatter
 	f.StringVar(&c.outPath, "output", "", "")
 }
 
-// Write formats and outputs the value as directed by the --format and 
+// Write formats and outputs the value as directed by the --format and
 // --output command line flags.
 func (c *Output) Write(ctx *Context, value interface{}) (err error) {
 	var target io.Writer

@@ -48,7 +48,7 @@ var outputTests = map[string][]struct {
 		{"\n\n\n", "\n\n\n\n"},
 		{"foo: bar", "foo: bar\n"},
 		{[]string{"blam", "dink"}, "blam\ndink\n"},
-		{defaultValue, "juju: 1\npuppet: false\n"},
+		{map[interface{}]interface{}{"foo": "bar"}, "foo: bar\n"},
 	},
 	"smart": {
 		{1, "1\n"},
@@ -60,7 +60,7 @@ var outputTests = map[string][]struct {
 		{"\n\n\n", "\n\n\n\n"},
 		{"foo: bar", "foo: bar\n"},
 		{[]string{"blam", "dink"}, "blam\ndink\n"},
-		{defaultValue, "juju: 1\npuppet: false\n"},
+		{map[interface{}]interface{}{"foo": "bar"}, "foo: bar\n"},
 	},
 	"json": {
 		{1, "1\n"},
