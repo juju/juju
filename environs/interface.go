@@ -138,9 +138,12 @@ type Environ interface {
 	// associated with the provided machine identifier.  The given
 	// info describes the juju state for the new instance to connect
 	// to.  Using the same machine id as another running instance
-	// can lead to undefined results.
+	// can lead to undefined results. The juju tools that will run
+	// on the new machine are given by tools - if nil,
+	// the Environ will find a set of tools compatible with the
+	// current version.
 	// TODO add arguments to specify type of new machine.
-	StartInstance(machineId int, info *state.Info) (Instance, error)
+	StartInstance(machineId int, info *state.Info, tools *Tools) (Instance, error)
 
 	// StopInstances shuts down the given instances.
 	StopInstances([]Instance) error
