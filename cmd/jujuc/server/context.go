@@ -43,11 +43,12 @@ type HookContext struct {
 
 // newCommands maps Command names to initializers.
 var newCommands = map[string]func(*HookContext) (cmd.Command, error){
-	"close-port": NewClosePortCommand,
-	"config-get": NewConfigGetCommand,
-	"juju-log":   NewJujuLogCommand,
-	"open-port":  NewOpenPortCommand,
-	"unit-get":   NewUnitGetCommand,
+	"close-port":   NewClosePortCommand,
+	"config-get":   NewConfigGetCommand,
+	"juju-log":     NewJujuLogCommand,
+	"open-port":    NewOpenPortCommand,
+	"relation-ids": NewRelationIdsCommand,
+	"unit-get":     NewUnitGetCommand,
 }
 
 // NewCommand returns an instance of the named Command, initialized to execute
@@ -120,6 +121,9 @@ func (ctx *HookContext) RunHook(hookName, charmDir, socketPath string) error {
 // hooks as JUJU_RELATION and JUJU_RELATION_ID respectively. It will panic
 // if RelationId is not a key in the Relations map.
 func (ctx *HookContext) relationIdentifiers() (string, string) {
+	if ctx.RelationId == -1 {
+		return "", ""
+	}
 	ru := ctx.Relations[ctx.RelationId].ru
 	name := ru.Endpoint().RelationName
 	id := fmt.Sprintf("%s:%d", name, ctx.RelationId)
