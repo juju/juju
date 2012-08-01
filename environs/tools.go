@@ -25,9 +25,9 @@ type Tools struct {
 
 // ListTools returns all the tools found in the given storage
 // that have the given major version.
-func ListTools(storage StorageReader, majorVersion int) ([]*Tools, error) {
+func ListTools(store StorageReader, majorVersion int) ([]*Tools, error) {
 	dir := fmt.Sprintf("%s%d.", toolPrefix, majorVersion)
-	names, err := storage.List(dir)
+	names, err := store.List(dir)
 	if err != nil {
 		return nil, err
 	}

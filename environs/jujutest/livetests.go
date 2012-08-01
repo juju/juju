@@ -305,7 +305,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 	url, err := storage.URL(name)
 	c.Assert(err, IsNil)
 	tools := &environs.Tools{
-		BinaryVersion: vers,
+		Binary: vers,
 		URL:           url,
 	}
 

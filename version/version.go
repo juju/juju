@@ -61,7 +61,7 @@ func MustParse(s string) Number {
 func MustParseBinary(s string) Binary {
 	v, err := ParseBinary(s)
 	if err != nil {
-		panic(fmt.Errorf(err))
+		panic(err)
 	}
 	return v
 }
