@@ -45,7 +45,7 @@ func (s *State) AddMachine() (m *Machine, err error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Machine{st: s, id: id}, nil
+	return newMachine(s, &mdoc), nil
 }
 
 // RemoveMachine removes the machine with the the given id.
@@ -67,8 +67,8 @@ func (s *State) AllMachines() (machines []*Machine, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all machines: %v", err)
 	}
-	for _, v := range mdocs {
-		machines = append(machines, &Machine{st: s, id: v.Id})
+	for _, doc := range mdocs {
+		machines = append(machines, newMachine(s, &doc))
 	}
 	return
 }
@@ -81,7 +81,7 @@ func (s *State) Machine(id int) (*Machine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot get machine %d: %v", id, err)
 	}
-	return &Machine{st: s, id: mdoc.Id}, nil
+	return newMachine(s, mdoc), nil
 }
 
 // AddCharm adds the ch charm with curl to the state.  bundleUrl must be

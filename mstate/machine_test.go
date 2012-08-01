@@ -30,8 +30,9 @@ func (s *MachineSuite) TestMachineInstanceId(c *C) {
 	)
 	c.Assert(err, IsNil)
 
-	iid, err := machine.InstanceId()
+	err = machine.Refresh()
 	c.Assert(err, IsNil)
+	iid, _ := machine.InstanceId()
 	c.Assert(iid, Equals, "spaceship/0")
 }
 
