@@ -159,15 +159,15 @@ func (fw *Firewaller) flushUnits(unitds []*unitData) error {
 		}
 	}
 	for _, machined := range machineds {
-		if err := fw.flushMashine(machined); err != nil {
+		if err := fw.flushMachine(machined); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// flushMashine opens and closes ports for the passed machine.
-func (fw *Firewaller) flushMashine(machined *machineData) error {
+// flushMachine opens and closes ports for the passed machine.
+func (fw *Firewaller) flushMachine(machined *machineData) error {
 	// Gather ports to open and close.
 	ports := map[state.Port]bool{}
 	for _, unitd := range machined.unitds {
