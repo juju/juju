@@ -17,12 +17,9 @@ type charmDoc struct {
 
 // Charm represents the state of a charm in the environment.
 type Charm struct {
-	st           *State
-	url          *charm.URL
-	meta         *charm.Meta
-	config       *charm.Config
-	bundleURL    *url.URL
-	bundleSha256 string
+	st   *State
+	doc  charmDoc
+	burl *url.URL
 }
 
 func newCharm(st *State, cdoc *charmDoc) (*Charm, error) {
@@ -30,46 +27,48 @@ func newCharm(st *State, cdoc *charmDoc) (*Charm, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse charm bundle URL: %q", cdoc.BundleURL)
 	}
-	c := &Charm{
-		st:           st,
-		url:          cdoc.URL,
-		meta:         cdoc.Meta,
-		config:       cdoc.Config,
-		bundleURL:    burl,
-		bundleSha256: cdoc.BundleSha256,
+	return &Charm{st: st, doc: *cdoc, burl: burl}, nil
+}
+
+func (c *Charm) Refresh() error {
+	doc := charmDoc{}
+	err := c.st.charms.FindId(c.doc.URL).One(&doc)
+	if err != nil {
+		return fmt.Errorf("cannot refresh charm %v: %v", c, err)
 	}
-	return c, nil
+	c.doc = doc
+	return nil
 }
 
 // URL returns the URL that identifies the charm.
 func (c *Charm) URL() *charm.URL {
-	clone := *c.url
+	clone := *c.doc.URL
 	return &clone
 }
 
 // Revision returns the monotonically increasing charm 
 // revision number.
 func (c *Charm) Revision() int {
-	return c.url.Revision
+	return c.doc.URL.Revision
 }
 
 // Meta returns the metadata of the charm.
 func (c *Charm) Meta() *charm.Meta {
-	return c.meta
+	return c.doc.Meta
 }
 
 // Config returns the configuration of the charm.
 func (c *Charm) Config() *charm.Config {
-	return c.config
+	return c.doc.Config
 }
 
 // BundleURL returns the url to the charm bundle in 
 // the provider storage.
 func (c *Charm) BundleURL() *url.URL {
-	return c.bundleURL
+	return c.burl
 }
 
 // BundleSha256 returns the SHA256 digest of the charm bundle bytes.
 func (c *Charm) BundleSha256() string {
-	return c.bundleSha256
+	return c.doc.BundleSha256
 }
