@@ -41,9 +41,7 @@ func (t *ToolsSuite) TearDownTest(c *C) {
 
 var envs *environs.Environs
 
-var currentToolsPath = mkToolsPath(version.Current.String())
-
-func mkVersion(vers string) version.Version {
+func mkVersion(vers string) version.Number {
 	v, err := version.Parse(vers)
 	if err != nil {
 		panic(err)
@@ -52,10 +50,10 @@ func mkVersion(vers string) version.Version {
 }
 
 func mkToolsPath(vers string) string {
-	return environs.ToolsPath(version.BinaryVersion{
-		Version: mkVersion(vers),
-		Series:  config.CurrentSeries,
-		Arch:    config.CurrentArch,
+	return environs.ToolsPath(version.Binary{
+		Number: mkVersion(vers),
+		Series: config.CurrentSeries,
+		Arch:   config.CurrentArch,
 	})
 }
 
@@ -64,7 +62,7 @@ var _ = Suite(&ToolsSuite{})
 func (t *ToolsSuite) TestPutGetTools(c *C) {
 	tools, err := environs.PutTools(t.env.Storage())
 	c.Assert(err, IsNil)
-	c.Assert(tools.BinaryVersion, Equals, version.Current)
+	c.Assert(tools.Binary, Equals, version.Current)
 	c.Assert(tools.URL, Not(Equals), "")
 
 	for i, getTools := range []func(url, dir string) error{
@@ -144,16 +142,16 @@ type toolsSpec struct {
 }
 
 var findToolsTests = []struct {
-	version        version.Version // version to assume is current for the test.
-	contents       []string        // names in private storage.
-	publicContents []string        // names in public storage.
-	expect         string          // the name we expect to find (if no error).
-	err            string          // the error we expect to find (if not blank).
+	version        version.Number // version to assume is current for the test.
+	contents       []string       // names in private storage.
+	publicContents []string       // names in public storage.
+	expect         string         // the name we expect to find (if no error).
+	err            string         // the error we expect to find (if not blank).
 }{{
 	// current version should be satisfied by current tools path.
-	version:  version.Current.Version,
-	contents: []string{currentToolsPath},
-	expect:   currentToolsPath,
+	version:  version.Current.Number,
+	contents: []string{environs.ToolsPath(version.Current)},
+	expect:   environs.ToolsPath(version.Current),
 }, {
 	// major versions don't match.
 	version: mkVersion("1.0.0"),
@@ -217,15 +215,15 @@ var findToolsTests = []struct {
 	// mismatching series or architecture is ignored.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		environs.ToolsPath(version.BinaryVersion{
-			Version: mkVersion("1.9.9"),
-			Series:  "foo",
-			Arch:    config.CurrentArch,
+		environs.ToolsPath(version.Binary{
+			Number: mkVersion("1.9.9"),
+			Series: "foo",
+			Arch:   config.CurrentArch,
 		}),
-		environs.ToolsPath(version.BinaryVersion{
-			Version: mkVersion("1.9.9"),
-			Series:  config.CurrentSeries,
-			Arch:    "foo",
+		environs.ToolsPath(version.Binary{
+			Number: mkVersion("1.9.9"),
+			Series: config.CurrentSeries,
+			Arch:   "foo",
 		}),
 		mkToolsPath("1.0.0"),
 	},
@@ -247,10 +245,10 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 			err := t.env.PublicStorage().(environs.Storage).Put(name, strings.NewReader(data), int64(len(data)))
 			c.Assert(err, IsNil)
 		}
-		vers := version.BinaryVersion{
-			Version: tt.version,
-			Series:  config.CurrentSeries,
-			Arch:    config.CurrentArch,
+		vers := version.Binary{
+			Number: tt.version,
+			Series: config.CurrentSeries,
+			Arch:   config.CurrentArch,
 		}
 		tools, err := environs.FindTools(t.env, vers)
 		if tt.err != "" {
@@ -288,9 +286,9 @@ func (*ToolsSuite) TestSetenv(c *C) {
 	}
 }
 
-func binaryVersion(major, minor, patch int, series, arch string) version.BinaryVersion {
-	return version.BinaryVersion{
-		Version: version.Version{
+func binaryVersion(major, minor, patch int, series, arch string) version.Binary {
+	return version.Binary{
+		Number: version.Number{
 			Major: major,
 			Minor: minor,
 			Patch: patch,
@@ -302,8 +300,8 @@ func binaryVersion(major, minor, patch int, series, arch string) version.BinaryV
 
 func newTools(major, minor, patch int, series, arch, url string) *environs.Tools {
 	return &environs.Tools{
-		BinaryVersion: binaryVersion(major, minor, patch, series, arch),
-		URL:           url,
+		Binary: binaryVersion(major, minor, patch, series, arch),
+		URL:    url,
 	}
 }
 
@@ -340,7 +338,7 @@ func (t *ToolsSuite) TestListTools(c *C) {
 
 var bestToolsTests = []struct {
 	list   []*environs.Tools
-	vers   version.BinaryVersion
+	vers   version.Binary
 	expect int
 }{{
 	nil,

@@ -285,8 +285,8 @@ func unitNames(units []*state.Unit) (s []string) {
 }
 
 type machineInfo struct {
-	version         version.Version
-	proposedVersion version.Version
+	version         version.Number
+	proposedVersion version.Number
 	instanceId      string
 }
 
@@ -302,18 +302,18 @@ var watchMachineTests = []struct {
 	},
 	{
 		func(m *state.Machine) error {
-			return m.ProposeAgentVersion(version.Version{0, 0, 1})
+			return m.ProposeAgentVersion(version.Number{0, 0, 1})
 		},
 		machineInfo{
-			proposedVersion: version.Version{0, 0, 1},
+			proposedVersion: version.Number{0, 0, 1},
 		},
 	},
 	{
 		func(m *state.Machine) error {
-			return m.ProposeAgentVersion(version.Version{0, 0, 2})
+			return m.ProposeAgentVersion(version.Number{0, 0, 2})
 		},
 		machineInfo{
-			proposedVersion: version.Version{0, 0, 2},
+			proposedVersion: version.Number{0, 0, 2},
 		},
 	},
 	{
@@ -321,7 +321,7 @@ var watchMachineTests = []struct {
 			return m.SetInstanceId("m-foo")
 		},
 		machineInfo{
-			proposedVersion: version.Version{0, 0, 2},
+			proposedVersion: version.Number{0, 0, 2},
 			instanceId:      "m-foo",
 		},
 	},
@@ -330,26 +330,26 @@ var watchMachineTests = []struct {
 			return m.SetInstanceId("")
 		},
 		machineInfo{
-			proposedVersion: version.Version{0, 0, 2},
+			proposedVersion: version.Number{0, 0, 2},
 			instanceId:      "",
 		},
 	},
 	{
 		func(m *state.Machine) error {
-			return m.SetAgentVersion(version.Version{1, 0, 0})
+			return m.SetAgentVersion(version.Number{1, 0, 0})
 		},
 		machineInfo{
-			proposedVersion: version.Version{0, 0, 2},
-			version:         version.Version{1, 0, 0},
+			proposedVersion: version.Number{0, 0, 2},
+			version:         version.Number{1, 0, 0},
 		},
 	},
 	{
 		func(m *state.Machine) error {
-			return m.SetAgentVersion(version.Version{1, 0, 1})
+			return m.SetAgentVersion(version.Number{1, 0, 1})
 		},
 		machineInfo{
-			proposedVersion: version.Version{0, 0, 2},
-			version:         version.Version{1, 0, 1},
+			proposedVersion: version.Number{0, 0, 2},
+			version:         version.Number{1, 0, 1},
 		},
 	},
 }
