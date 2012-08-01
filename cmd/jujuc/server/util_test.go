@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	"strings"
 	stdtesting "testing"
 )
 
@@ -85,4 +86,15 @@ func (s *HookContextSuite) GetHookContext(c *C, relid int, remote string) *serve
 		RemoteUnitName: remote,
 		Relations:      s.relctxs,
 	}
+}
+
+func setSettings(c *C, ru *state.RelationUnit, settings map[string]interface{}) {
+	node, err := ru.Settings()
+	c.Assert(err, IsNil)
+	for _, k := range node.Keys() {
+		node.Delete(k)
+	}
+	node.Update(settings)
+	_, err = node.Write()
+	c.Assert(err, IsNil)
 }

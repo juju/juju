@@ -5,7 +5,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/jujuc/server"
-	"launchpad.net/juju-core/state"
 )
 
 type RelationSetSuite struct {
@@ -221,15 +220,4 @@ func (s *RelationSetSuite) TestRun(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(settings, DeepEquals, pristine)
 	}
-}
-
-func setSettings(c *C, ru *state.RelationUnit, settings map[string]interface{}) {
-	node, err := ru.Settings()
-	c.Assert(err, IsNil)
-	for _, k := range node.Keys() {
-		node.Delete(k)
-	}
-	node.Update(settings)
-	_, err = node.Write()
-	c.Assert(err, IsNil)
 }

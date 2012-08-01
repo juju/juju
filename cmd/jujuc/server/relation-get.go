@@ -10,10 +10,9 @@ import (
 type RelationGetCommand struct {
 	*HookContext
 	RelationId int
-	UnitName   string
 	Key        string
+	UnitName   string
 	out        cmd.Output
-	testMode   bool
 }
 
 func NewRelationGetCommand(ctx *HookContext) (cmd.Command, error) {
@@ -23,20 +22,20 @@ func NewRelationGetCommand(ctx *HookContext) (cmd.Command, error) {
 func (c *RelationGetCommand) Info() *cmd.Info {
 	args := "<key> <unit>"
 	if c.RemoteUnitName != "" {
-		args = fmt.Sprintf("[<key> [<unit (= %q)]]", c.RemoteUnitName)
+		args = fmt.Sprintf("[<key> [<unit (= %q)>]]", c.RemoteUnitName)
 	}
 	return &cmd.Info{
 		"relation-get", args, "get relation settings", `
-Specifying a key will cause a single settings value to be returned. Leaving
-key empty, or setting it to "-", will cause all keys and values to be returned.
+Specifying a key will cause a single settings value to be written to stdout.
+If the value does not exist, nothing is written. Leaving key empty, or setting
+it to "-", will cause all keys and values to be written.
 `,
 	}
 }
 
 func (c *RelationGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	// TODO FWER implement --format shell
-	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
-	f.BoolVar(&c.testMode, "test", false, "returns non-zero exit code if value is false/zero/empty")
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	relationId, err := c.parseRelationId(f, args)
 	if err != nil {
 		return err
@@ -52,11 +51,11 @@ func (c *RelationGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	}
 	c.UnitName = c.RemoteUnitName
 	if len(args) > 0 {
-		c.UnitName = args[1]
+		c.UnitName = args[0]
 		args = args[1:]
 	}
 	if c.UnitName == "" {
-		return fmt.Errorf("unit not specified")
+		return fmt.Errorf("no unit specified")
 	}
 	return cmd.CheckEmpty(args)
 }
@@ -81,9 +80,6 @@ func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 		value = settings
 	} else {
 		value, _ = settings[c.Key]
-	}
-	if c.testMode {
-		return truthError(value)
 	}
 	return c.out.Write(ctx, value)
 }
