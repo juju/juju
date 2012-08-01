@@ -22,7 +22,7 @@ func NewRelationGetCommand(ctx *HookContext) (cmd.Command, error) {
 func (c *RelationGetCommand) Info() *cmd.Info {
 	args := "<key> <unit>"
 	if c.RemoteUnitName != "" {
-		args = fmt.Sprintf("[<key> [<unit (= %q)>]]", c.RemoteUnitName)
+		args = fmt.Sprintf("[<key> [<unit (= %s)>]]", c.RemoteUnitName)
 	}
 	return &cmd.Info{
 		"relation-get", args, "get relation settings", `
@@ -34,13 +34,14 @@ it to "-", will cause all keys and values to be written.
 }
 
 func (c *RelationGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	// TODO FWER implement --format shell
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	relationId, err := c.parseRelationId(f, args)
-	if err != nil {
+	f.Var(c.relationIdValue(&c.RelationId), "r", "specify a relation by id")
+	if err := f.Parse(true, args); err != nil {
 		return err
 	}
-	c.RelationId = relationId
+	if c.RelationId == -1 {
+		return fmt.Errorf("no relation specified")
+	}
 	args = f.Args()
 	c.Key = ""
 	if len(args) > 0 {

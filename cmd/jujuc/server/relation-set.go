@@ -25,11 +25,13 @@ func (c *RelationSetCommand) Info() *cmd.Info {
 }
 
 func (c *RelationSetCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	relationId, err := c.parseRelationId(f, args)
-	if err != nil {
+	f.Var(c.relationIdValue(&c.RelationId), "r", "specify a relation by id")
+	if err := f.Parse(true, args); err != nil {
 		return err
 	}
-	c.RelationId = relationId
+	if c.RelationId == -1 {
+		return fmt.Errorf("no relation specified")
+	}
 	args = f.Args()
 	if len(args) == 0 {
 		return fmt.Errorf("no settings specified")

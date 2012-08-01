@@ -32,8 +32,8 @@ func (s *RelationSetSuite) TestHelp(c *C) {
 purpose: set relation settings
 
 options:
--r (= "%s")
-    relation id
+-r  (= %s)
+    specify a relation by id
 `, t.expect))
 	}
 }
@@ -54,29 +54,28 @@ var relationSetInitTests = []struct {
 	}, {
 		ctxrelid: -1,
 		args:     []string{"-r", "one"},
-		err:      `invalid relation id "one"`,
+		err:      `invalid value "one" for flag -r: invalid relation id`,
 	}, {
 		ctxrelid: 1,
 		args:     []string{"-r", "one"},
-		err:      `invalid relation id "one"`,
-	},
-	{
+		err:      `invalid value "one" for flag -r: invalid relation id`,
+	}, {
 		ctxrelid: -1,
 		args:     []string{"-r", "ignored:one"},
-		err:      `invalid relation id "ignored:one"`,
+		err:      `invalid value "ignored:one" for flag -r: invalid relation id`,
 	}, {
 		ctxrelid: 1,
-		args:     []string{"-r", "ignored:one"}, err: `invalid relation id "ignored:one"`,
+		args:     []string{"-r", "ignored:one"},
+		err:      `invalid value "ignored:one" for flag -r: invalid relation id`,
 	}, {
 		ctxrelid: -1,
 		args:     []string{"-r", "2"},
-		err:      `unknown relation id "2"`,
+		err:      `invalid value "2" for flag -r: unknown relation id`,
 	}, {
 		ctxrelid: 1,
 		args:     []string{"-r", "ignored:2"},
-		err:      `unknown relation id "ignored:2"`,
-	},
-	{
+		err:      `invalid value "ignored:2" for flag -r: unknown relation id`,
+	}, {
 		ctxrelid: -1,
 		args:     []string{"-r", "ignored:0"},
 		err:      `no settings specified`,

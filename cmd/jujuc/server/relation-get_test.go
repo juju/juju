@@ -34,7 +34,7 @@ var relationGetTests = []struct {
 		relid:   -1,
 		code:    2,
 		args:    []string{"-r", "burble:123"},
-		out:     `unknown relation id "burble:123"`,
+		out:     `invalid value "burble:123" for flag -r: unknown relation id`,
 	}, {
 		summary: "default relation, no unit chosen",
 		relid:   1,
@@ -205,8 +205,8 @@ options:
     specify output format (json|smart|yaml)
 -o, --output (= "")
     specify an output file
--r (= %q)
-    relation id
+-r  (= %s)
+    specify a relation by id
 
 Specifying a key will cause a single settings value to be written to stdout.
 If the value does not exist, nothing is written. Leaving key empty, or setting
@@ -233,7 +233,7 @@ var relationGetHelpTests = []struct {
 		summary: "default unit",
 		relid:   1,
 		unit:    "any/1",
-		usage:   `relation-get [options] [<key> [<unit (= "any/1")>]]`,
+		usage:   "relation-get [options] [<key> [<unit (= any/1)>]]",
 		rel:     "peer1:1",
 	},
 }
