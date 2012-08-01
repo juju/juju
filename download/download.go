@@ -109,7 +109,6 @@ func NewDownloader() *Downloader {
 // If Start is called while another download is already in progress,
 // the previous download will be cancelled.
 func (d *Downloader) Start(url, dir string) {
-
 	if d.current != nil {
 		// If we are already downloading the right tools,
 		// we need do nothing.
