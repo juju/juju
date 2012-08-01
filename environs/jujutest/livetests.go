@@ -4,9 +4,9 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/version"
 	"time"
 )
 
@@ -306,7 +306,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 	c.Assert(err, IsNil)
 	tools := &environs.Tools{
 		BinaryVersion: vers,
-		URL: url,
+		URL:           url,
 	}
 
 	inst, err := t.Env.StartInstance(4, InvalidStateInfo, tools)
