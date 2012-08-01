@@ -6,61 +6,96 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
 var toolPrefix = "tools/juju-"
 
-var toolFilePat = regexp.MustCompile(`^` + toolPrefix + `(\d+\.\d+\.\d+)-([^-]+)-([^-]+)\.tgz$`)
-
-// ToolsPath returns the path that is used to store and
-// retrieve the juju tools in a Storage.
-func ToolsPath(v version.Version, series, arch string) string {
-	return fmt.Sprintf(toolPrefix+"%v-%s-%s.tgz", v, series, arch)
+// ListTools returns all the tools found in the given storage
+// that have the given major version.
+func ListTools(store StorageReader, majorVersion int) ([]*state.Tools, error) {
+	dir := fmt.Sprintf("%s%d.", toolPrefix, majorVersion)
+	names, err := store.List(dir)
+	if err != nil {
+		return nil, err
+	}
+	var toolsList []*state.Tools
+	for _, name := range names {
+		if !strings.HasPrefix(name, toolPrefix) || !strings.HasSuffix(name, ".tgz") {
+			log.Printf("unexpected tools file found %q", name)
+			continue
+		}
+		vers := name[len(toolPrefix) : len(name)-len(".tgz")]
+		var t state.Tools
+		t.Binary, err = version.ParseBinary(vers)
+		if err != nil {
+			log.Printf("failed to parse %q: %v", vers, err)
+			continue
+		}
+		if t.Major != majorVersion {
+			log.Printf("tool %q found in wrong directory %q", name, dir)
+			continue
+		}
+		t.URL, err = store.URL(name)
+		if err != nil {
+			log.Printf("cannot get URL for %q: %v", name, err)
+			continue
+		}
+		toolsList = append(toolsList, &t)
+	}
+	return toolsList, nil
 }
 
 // PutTools uploads the current version of the juju tools
-// executables to the given storage.
+// executables to the given storage and returns a Tools
+// instance describing them.
 // TODO find binaries from $PATH when not using a development
 // version of juju within a $GOPATH.
-func PutTools(storage StorageWriter) error {
+func PutTools(storage Storage) (*state.Tools, error) {
 	// We create the entire archive before asking the environment to
 	// start uploading so that we can be sure we have archived
 	// correctly.
 	f, err := ioutil.TempFile("", "juju-tgz")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer f.Close()
 	defer os.Remove(f.Name())
 	err = bundleTools(f)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	_, err = f.Seek(0, 0)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("cannot seek to start of tools archive: %v", err)
 	}
 	fi, err := f.Stat()
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("cannot stat newly made tools archive: %v", err)
 	}
-	p := ToolsPath(version.Current, config.CurrentSeries, config.CurrentArch)
+	p := ToolsPath(version.Current)
 	log.Printf("environs: putting tools %v", p)
-	return storage.Put(p, f, fi.Size())
+	err = storage.Put(p, f, fi.Size())
+	if err != nil {
+		return nil, err
+	}
+	url, err := storage.URL(p)
+	if err != nil {
+		return nil, err
+	}
+	return &state.Tools{version.Current, url}, nil
 }
 
-// archive writes the executable files found in the given
-// directory in gzipped tar format to w.
-// An error is returned if an entry inside dir is not
-// a regular executable file.
+// archive writes the executable files found in the given directory in
+// gzipped tar format to w.  An error is returned if an entry inside dir
+// is not a regular executable file.
 func archive(w io.Writer, dir string) (err error) {
 	entries, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -133,37 +168,34 @@ func closeErrorCheck(errp *error, c io.Closer) {
 	}
 }
 
-type toolsSpec struct {
-	vers   version.Version
-	series string
-	arch   string
-}
-
-// FindTools tries to find a set of tools appropriate for the given
-// version, Ubuntu series and architecture, and returns a URL that can
-// be used to access them in gzipped tar archive format.
-func FindTools(env Environ, vers version.Version, series, arch string) (url string, err error) {
-	storage, path, err := findTools(env, toolsSpec{vers, series, arch})
-	if err != nil {
-		return "", err
+// BestTools the most recent tools compatible with the
+// given specification. It returns nil if nothing appropriate
+// was found.
+func BestTools(toolsList []*state.Tools, vers version.Binary) *state.Tools {
+	var bestTools *state.Tools
+	for _, t := range toolsList {
+		if t.Major != vers.Major ||
+			t.Series != vers.Series ||
+			t.Arch != vers.Arch {
+			continue
+		}
+		if bestTools == nil || bestTools.Number.Less(t.Number) {
+			bestTools = t
+		}
 	}
-	return storage.URL(path)
+	return bestTools
 }
 
-// GetTools finds the latest compatible version of the juju tools
-// and downloads them into the given directory.
-func GetTools(env Environ, dir string) error {
-	storage, path, err := findTools(env, toolsSpec{version.Current, config.CurrentSeries, config.CurrentArch})
+// GetTools downloads a set of tools from the given URL
+// into the given directory.
+func GetTools(url, dir string) error {
+	resp, err := http.Get(url)
 	if err != nil {
 		return err
 	}
-	r, err := storage.Get(path)
-	if err != nil {
-		return err
-	}
-	defer r.Close()
+	defer resp.Body.Close()
 
-	r, err = gzip.NewReader(r)
+	r, err := gzip.NewReader(resp.Body)
 	if err != nil {
 		return err
 	}
@@ -190,63 +222,35 @@ func GetTools(env Environ, dir string) error {
 	panic("not reached")
 }
 
-// findToolsPath is an internal version of FindTools that returns the
-// storage in which the tools have been found, and the path within that storage.
-func findTools(env Environ, spec toolsSpec) (storage StorageReader, path string, err error) {
-	storage = env.Storage()
-	path, err = findToolsPath(storage, spec)
-	if _, ok := err.(*NotFoundError); ok {
-		storage = env.PublicStorage()
-		path, err = findToolsPath(storage, spec)
-	}
-	if err != nil {
-		return nil, "", err
-	}
-	return
+// ToolsPath returns path that is used to store and
+// retrieve the given version of the juju tools in a Storage.
+func ToolsPath(vers version.Binary) string {
+	return toolPrefix + vers.String() + ".tgz"
 }
 
-// findToolsPath looks for the tools in the given storage.
-func findToolsPath(store StorageReader, spec toolsSpec) (path string, err error) {
-	names, err := store.List(fmt.Sprintf("%s%d.", toolPrefix, spec.vers.Major))
-	log.Printf("findTools searching for %v in %q", spec, names)
+// FindTools tries to find a set of tools compatible with the given
+// version from the given environment.  If no tools are found and
+// there's no other error, a NotFoundError is returned.  If there's
+// anything compatible in the environ's Storage, it gets precedence over
+// anything in its PublicStorage.
+func FindTools(env Environ, vers version.Binary) (*state.Tools, error) {
+	toolsList, err := ListTools(env.Storage(), vers.Major)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	if len(names) == 0 {
-		return "", &NotFoundError{fmt.Errorf("no compatible tools found")}
+	tools := BestTools(toolsList, vers)
+	if tools != nil {
+		return tools, nil
 	}
-	bestVersion := version.Version{Major: -1}
-	bestName := ""
-	for _, name := range names {
-		m := toolFilePat.FindStringSubmatch(name)
-		if m == nil {
-			log.Printf("unexpected tools file found %q", name)
-			continue
-		}
-		vers, err := version.Parse(m[1])
-		if err != nil {
-			log.Printf("failed to parse version %q: %v", name, err)
-			continue
-		}
-		if m[2] != spec.series {
-			continue
-		}
-		// TODO allow different architectures.
-		if m[3] != spec.arch {
-			continue
-		}
-		if vers.Major != spec.vers.Major {
-			continue
-		}
-		if bestVersion.Less(vers) {
-			bestVersion = vers
-			bestName = name
-		}
+	toolsList, err = ListTools(env.PublicStorage(), vers.Major)
+	if err != nil {
+		return nil, err
 	}
-	if bestVersion.Major < 0 {
-		return "", &NotFoundError{fmt.Errorf("no compatible tools found")}
+	tools = BestTools(toolsList, vers)
+	if tools == nil {
+		return nil, &NotFoundError{fmt.Errorf("no compatible tools found")}
 	}
-	return bestName, nil
+	return tools, nil
 }
 
 func setenv(env []string, val string) []string {

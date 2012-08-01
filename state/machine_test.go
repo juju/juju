@@ -3,8 +3,8 @@ package state_test
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/state"
 	"sort"
 	"time"
 )
@@ -285,9 +285,20 @@ func unitNames(units []*state.Unit) (s []string) {
 }
 
 type machineInfo struct {
-	version         version.Version
-	proposedVersion version.Version
+	tools         *state.Tools
+	proposedTools *state.Tools
 	instanceId      string
+}
+
+func tools(tools int, url string) *state.Tools {
+	return &state.Tools {
+		URL: url,
+		Binary: version.Binary {
+			Number: version.Number{0, 0, tools},
+			Series: "series",
+			Arch: "arch",
+		},
+	}
 }
 
 var watchMachineTests = []struct {
@@ -298,22 +309,36 @@ var watchMachineTests = []struct {
 		func(*state.Machine) error {
 			return nil
 		},
-		machineInfo{},
-	},
-	{
-		func(m *state.Machine) error {
-			return m.ProposeAgentVersion(version.Version{0, 0, 1})
-		},
 		machineInfo{
-			proposedVersion: version.Version{0, 0, 1},
+			tools: &state.Tools{},
+			proposedTools: &state.Tools{},
 		},
 	},
 	{
 		func(m *state.Machine) error {
-			return m.ProposeAgentVersion(version.Version{0, 0, 2})
+			return m.ProposeAgentTools(tools(1, "foo"))
 		},
 		machineInfo{
-			proposedVersion: version.Version{0, 0, 2},
+			tools: &state.Tools{},
+			proposedTools: tools(1, "foo"),
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.ProposeAgentTools(tools(2, "foo"))
+		},
+		machineInfo{
+			tools: &state.Tools{},
+			proposedTools: tools(2, "foo"),
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.ProposeAgentTools(tools(2, "bar"))
+		},
+		machineInfo{
+			tools: &state.Tools{},
+			proposedTools: tools(2, "bar"),
 		},
 	},
 	{
@@ -321,7 +346,8 @@ var watchMachineTests = []struct {
 			return m.SetInstanceId("m-foo")
 		},
 		machineInfo{
-			proposedVersion: version.Version{0, 0, 2},
+			tools: &state.Tools{},
+			proposedTools: tools(2, "bar"),
 			instanceId:      "m-foo",
 		},
 	},
@@ -330,26 +356,27 @@ var watchMachineTests = []struct {
 			return m.SetInstanceId("")
 		},
 		machineInfo{
-			proposedVersion: version.Version{0, 0, 2},
+			tools: &state.Tools{},
+			proposedTools: tools(2, "bar"),
 			instanceId:      "",
 		},
 	},
 	{
 		func(m *state.Machine) error {
-			return m.SetAgentVersion(version.Version{1, 0, 0})
+			return m.SetAgentTools(tools(3, "baz"))
 		},
 		machineInfo{
-			proposedVersion: version.Version{0, 0, 2},
-			version:         version.Version{1, 0, 0},
+			proposedTools: tools(2, "bar"),
+			tools:         tools(3, "baz"),
 		},
 	},
 	{
 		func(m *state.Machine) error {
-			return m.SetAgentVersion(version.Version{1, 0, 1})
+			return m.SetAgentTools(tools(4, "khroomph"))
 		},
 		machineInfo{
-			proposedVersion: version.Version{0, 0, 2},
-			version:         version.Version{1, 0, 1},
+			proposedTools: tools(2, "bar"),
+			tools:         tools(4, "khroomph"),
 		},
 	},
 }
@@ -368,19 +395,15 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 			c.Assert(ok, Equals, true)
 			c.Assert(m.Id(), Equals, s.machine.Id())
 			var info machineInfo
-			info.version, err = m.AgentVersion()
-			if _, ok := err.(*state.NotFoundError); !ok {
-				c.Assert(err, IsNil)
-			}
-			info.proposedVersion, err = m.ProposedAgentVersion()
-			if _, ok := err.(*state.NotFoundError); !ok {
-				c.Assert(err, IsNil)
-			}
+			info.tools, err = m.AgentTools()
+			c.Assert(err, IsNil)
+			info.proposedTools, err = m.ProposedAgentTools()
+			c.Assert(err, IsNil)
 			info.instanceId, err = m.InstanceId()
 			if _, ok := err.(*state.NotFoundError); !ok {
 				c.Assert(err, IsNil)
 			}
-			c.Assert(info, Equals, test.want)
+			c.Assert(info, DeepEquals, test.want)
 		case <-time.After(500 * time.Millisecond):
 			c.Fatalf("did not get change: %v", test.want)
 		}
