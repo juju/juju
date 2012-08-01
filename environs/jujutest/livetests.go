@@ -294,9 +294,9 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 	// Note that we want this test to function correctly in the
 	// dummy environment, so to avoid enumerating all possible
 	// platforms in the dummy provider, it treats only series and/or
-	// architectures with the "dummy" prefix as invalid.
-	vers.Series = "dummyseries"
-	vers.Arch = "dummyarch"
+	// architectures with the "unknown" prefix as invalid.
+	vers.Series = "unknownseries"
+	vers.Arch = "unknownarch"
 	name := environs.ToolsPath(vers)
 	storage := t.Env.Storage()
 	checkPutFile(c, storage, name, []byte("fake tools on invalid series"))
