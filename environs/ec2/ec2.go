@@ -203,7 +203,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	if _, notFound := err.(*environs.NotFoundError); !notFound {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
-	var tools *environs.Tools
+	var tools *state.Tools
 	if uploadTools {
 		tools, err = environs.PutTools(e.Storage())
 		if err != nil {
@@ -271,11 +271,11 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignUnused
 }
 
-func (e *environ) StartInstance(machineId int, info *state.Info, tools *environs.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.Tools) (environs.Instance, error) {
 	return e.startInstance(machineId, info, tools, false)
 }
 
-func (e *environ) userData(machineId int, info *state.Info, tools *environs.Tools, master bool) ([]byte, error) {
+func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, master bool) ([]byte, error) {
 	cfg := &machineConfig{
 		provisioner:        master,
 		zookeeper:          master,
@@ -296,7 +296,7 @@ func (e *environ) userData(machineId int, info *state.Info, tools *environs.Tool
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
-func (e *environ) startInstance(machineId int, info *state.Info, tools *environs.Tools, master bool) (environs.Instance, error) {
+func (e *environ) startInstance(machineId int, info *state.Info, tools *state.Tools, master bool) (environs.Instance, error) {
 	if tools == nil {
 		var err error
 		tools, err = environs.FindTools(e, version.Current)

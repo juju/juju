@@ -143,7 +143,7 @@ type Environ interface {
 	// the Environ will find a set of tools compatible with the
 	// current version.
 	// TODO add arguments to specify type of new machine.
-	StartInstance(machineId int, info *state.Info, tools *Tools) (Instance, error)
+	StartInstance(machineId int, info *state.Info, tools *state.Tools) (Instance, error)
 
 	// StopInstances shuts down the given instances.
 	StopInstances([]Instance) error
