@@ -31,7 +31,7 @@ func testAgentTools(c *C, obj versioner, agent string) {
 	c.Assert(t, DeepEquals, &state.Tools{})
 
 	err = obj.ProposeAgentTools(&state.Tools{})
-	c.Assert(err, ErrorMatches, fmt.Sprintf("cannot set %s agent proposed tools: empty series or arch", agent))
+	c.Assert(err, ErrorMatches, fmt.Sprintf("cannot set proposed tools for %s agent: empty series or arch", agent))
 	// check that we can set the version
 	t0 := &state.Tools{
 		Binary: version.MustParseBinary("5.6.7-precise-amd64"),
@@ -44,7 +44,7 @@ func testAgentTools(c *C, obj versioner, agent string) {
 	c.Assert(t1, DeepEquals, t0)
 
 	err = obj.SetAgentTools(&state.Tools{})
-	c.Assert(err, ErrorMatches, fmt.Sprintf("cannot set %s agent current tools: empty series or arch", agent))
+	c.Assert(err, ErrorMatches, fmt.Sprintf("cannot set current tools for %s agent: empty series or arch", agent))
 	t2 := &state.Tools{
 		Binary: version.MustParseBinary("7.8.9-foo-bar"),
 		URL:    "http://arble.tgz",

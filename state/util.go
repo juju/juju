@@ -133,7 +133,7 @@ func (at *agentTools) agentTools(prefix string) (tools *Tools, err error) {
 }
 
 func (at *agentTools) setAgentTools(prefix string, t *Tools) (err error) {
-	defer errorContextf(&err, "cannot set %s agent %s tools", at.agent, prefix)
+	defer errorContextf(&err, "cannot set %s tools for %s agent", prefix, at.agent)
 	if t.Series == "" || t.Arch == "" {
 		return fmt.Errorf("empty series or arch")
 	}
