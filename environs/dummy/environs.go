@@ -16,7 +16,7 @@
 // with ".dns" appended.
 //
 // To avoid enumerating all possible series and architectures,
-// any series or architecture with the prefix "dummy" is
+// any series or architecture with the prefix "unknown" is
 // treated as bad when starting a new instance.
 package dummy
 
@@ -414,7 +414,7 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *environs
 	}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
-	if tools != nil && (strings.HasPrefix(tools.Series, "dummy") || strings.HasPrefix(tools.Arch, "dummy")) {
+	if tools != nil && (strings.HasPrefix(tools.Series, "unknown") || strings.HasPrefix(tools.Arch, "unknown")) {
 		return nil, fmt.Errorf("cannot find image for %s-%s", tools.Series, tools.Arch)
 	}
 	i := &instance{

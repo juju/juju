@@ -11,7 +11,9 @@ import (
 	stdlog "log"
 )
 
-type JujuLogSuite struct{}
+type JujuLogSuite struct {
+	HookContextSuite
+}
 
 var _ = Suite(&JujuLogSuite{})
 
@@ -39,7 +41,7 @@ var commonLogTests = []struct {
 	{true, true, "JUJU:DEBUG"},
 }
 
-func assertLogs(c *C, ctx *server.ClientContext, badge string) {
+func assertLogs(c *C, ctx *server.HookContext, badge string) {
 	msg1 := "the chickens"
 	msg2 := "are 110% AWESOME"
 	com, err := ctx.NewCommand("juju-log")
@@ -67,14 +69,14 @@ func assertLogs(c *C, ctx *server.ClientContext, badge string) {
 }
 
 func (s *JujuLogSuite) TestBadges(c *C) {
-	local := &server.ClientContext{LocalUnitName: "minecraft/0"}
-	assertLogs(c, local, "minecraft/0")
-	relation := &server.ClientContext{LocalUnitName: "minecraft/0", RelationName: "bot"}
-	assertLogs(c, relation, "minecraft/0 bot")
+	hctx := s.GetHookContext(c, -1, "")
+	assertLogs(c, hctx, "u/0")
+	hctx = s.GetHookContext(c, 1, "u/1")
+	assertLogs(c, hctx, "u/0 peer1:1")
 }
 
 func (s *JujuLogSuite) TestRequiresMessage(c *C) {
-	ctx := &server.ClientContext{}
+	ctx := &server.HookContext{}
 	com, err := ctx.NewCommand("juju-log")
 	c.Assert(err, IsNil)
 	err = com.Init(dummyFlagSet(), nil)
