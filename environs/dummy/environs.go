@@ -14,6 +14,10 @@
 // 
 // The DNS name of instances is the same as the Id,
 // with ".dns" appended.
+//
+// To avoid enumerating all possible series and architectures,
+// any series or architecture with the prefix "unknown" is
+// treated as bad when starting a new instance.
 package dummy
 
 import (
@@ -404,12 +408,15 @@ func (e *environ) Destroy([]environs.Instance) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId int, info *state.Info, _ *state.Tools) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId int, info *state.Info, tools *environs.Tools) (environs.Instance, error) {
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, err
 	}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
+	if tools != nil && (strings.HasPrefix(tools.Series, "unknown") || strings.HasPrefix(tools.Arch, "unknown")) {
+		return nil, fmt.Errorf("cannot find image for %s-%s", tools.Series, tools.Arch)
+	}
 	i := &instance{
 		state:     e.state,
 		id:        fmt.Sprintf("%s-%d", e.state.name, e.state.maxId),

@@ -119,7 +119,6 @@ var parseBinaryTests = []struct {
 	v      string
 	err    string
 	expect version.Binary
-	dev    bool
 }{
 	{
 		v:      "1.2.3-a-b",

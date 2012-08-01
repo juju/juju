@@ -162,7 +162,7 @@ func (s *ProvisionerSuite) checkMachineId(c *C, m *state.Machine, inst environs.
 	}
 	for a := veryShortAttempt.Start(); a.Next(); {
 		_, err := m.InstanceId()
-		_, notset := err.(*state.NoInstanceIdError)
+		_, notset := err.(*state.NotFoundError)
 		if notset {
 			if inst == nil {
 				return

@@ -320,17 +320,21 @@ func (t *ToolsSuite) TestListTools(c *C) {
 	}
 	toolsList, err := environs.ListTools(r, 2)
 	c.Assert(err, IsNil)
-	c.Check(toolsList, DeepEquals, []*state.Tools{
-		newTools(2, 2, 3, "precise", "amd64", "http://tools/juju-2.2.3-precise-amd64.tgz"),
-		newTools(2, 2, 3, "precise", "i386", "http://tools/juju-2.2.3-precise-i386.tgz"),
-		newTools(2, 2, 4, "precise", "i386", "http://tools/juju-2.2.4-precise-i386.tgz"),
+	c.Check(toolsList, DeepEquals, []*environs.Tools{
+		newTools(2, 2, 3, "precise", "amd64", "<base>tools/juju-2.2.3-precise-amd64.tgz"),
+		newTools(2, 2, 3, "precise", "i386", "<base>tools/juju-2.2.3-precise-i386.tgz"),
+		newTools(2, 2, 4, "precise", "i386", "<base>tools/juju-2.2.4-precise-i386.tgz"),
 	})
 
 	toolsList, err = environs.ListTools(r, 3)
 	c.Assert(err, IsNil)
-	c.Check(toolsList, DeepEquals, []*state.Tools{
-		newTools(3, 2, 1, "precise", "amd64", "http://tools/juju-3.2.1-precise-amd64.tgz"),
+	c.Check(toolsList, DeepEquals, []*environs.Tools{
+		newTools(3, 2, 1, "precise", "amd64", "<base>tools/juju-3.2.1-precise-amd64.tgz"),
 	})
+
+	toolsList, err = environs.ListTools(r, 4)
+	c.Assert(err, IsNil)
+	c.Check(toolsList, HasLen, 0)
 }
 
 var bestToolsTests = []struct {
@@ -395,5 +399,5 @@ func (r storageReader) List(prefix string) ([]string, error) {
 }
 
 func (r storageReader) URL(name string) (string, error) {
-	return "http://" + name, nil
+	return "<base>" + name, nil
 }

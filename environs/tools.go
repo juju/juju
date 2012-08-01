@@ -174,7 +174,6 @@ func closeErrorCheck(errp *error, c io.Closer) {
 func BestTools(toolsList []*state.Tools, vers version.Binary) *state.Tools {
 	var bestTools *state.Tools
 	for _, t := range toolsList {
-		t := t
 		if t.Major != vers.Major ||
 			t.Series != vers.Series ||
 			t.Arch != vers.Arch {
@@ -229,13 +228,12 @@ func ToolsPath(vers version.Binary) string {
 	return toolPrefix + vers.String() + ".tgz"
 }
 
-// FindTools tries to find a set of tools compatible
-// with the given version from the given environment.
-// If no tools are found and there's no other error, a NotFoundError
-// is returned.
-func FindTools(env Environ, vers version.Binary) (*state.Tools, error) {
-	// If there's anything compatible in the environ's Storage,
-	// it gets precedence over anything in its PublicStorage.
+// FindTools tries to find a set of tools compatible with the given
+// version from the given environment.  If no tools are found and
+// there's no other error, a NotFoundError is returned.  If there's
+// anything compatible in the environ's Storage, it gets precedence over
+// anything in its PublicStorage.
+func FindTools(env Environ, vers version.Binary) (*Tools, error) {
 	toolsList, err := ListTools(env.Storage(), vers.Major)
 	if err != nil {
 		return nil, err
