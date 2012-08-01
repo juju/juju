@@ -51,7 +51,7 @@ var (
 func MustParse(s string) Number {
 	v, err := Parse(s)
 	if err != nil {
-		panic(fmt.Errorf("version: cannot parse %q: %v", s, err))
+		panic(err)
 	}
 	return v
 }
@@ -61,7 +61,7 @@ func MustParse(s string) Number {
 func MustParseBinary(s string) Binary {
 	v, err := ParseBinary(s)
 	if err != nil {
-		panic(fmt.Errorf("version: cannot parse %q: %v", s, err))
+		panic(fmt.Errorf(err))
 	}
 	return v
 }
