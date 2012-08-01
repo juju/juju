@@ -320,7 +320,7 @@ func (t *ToolsSuite) TestListTools(c *C) {
 	}
 	toolsList, err := environs.ListTools(r, 2)
 	c.Assert(err, IsNil)
-	c.Check(toolsList, DeepEquals, []*environs.Tools{
+	c.Check(toolsList, DeepEquals, []*state.Tools{
 		newTools(2, 2, 3, "precise", "amd64", "<base>tools/juju-2.2.3-precise-amd64.tgz"),
 		newTools(2, 2, 3, "precise", "i386", "<base>tools/juju-2.2.3-precise-i386.tgz"),
 		newTools(2, 2, 4, "precise", "i386", "<base>tools/juju-2.2.4-precise-i386.tgz"),
@@ -328,7 +328,7 @@ func (t *ToolsSuite) TestListTools(c *C) {
 
 	toolsList, err = environs.ListTools(r, 3)
 	c.Assert(err, IsNil)
-	c.Check(toolsList, DeepEquals, []*environs.Tools{
+	c.Check(toolsList, DeepEquals, []*state.Tools{
 		newTools(3, 2, 1, "precise", "amd64", "<base>tools/juju-3.2.1-precise-amd64.tgz"),
 	})
 

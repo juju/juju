@@ -233,7 +233,7 @@ func ToolsPath(vers version.Binary) string {
 // there's no other error, a NotFoundError is returned.  If there's
 // anything compatible in the environ's Storage, it gets precedence over
 // anything in its PublicStorage.
-func FindTools(env Environ, vers version.Binary) (*Tools, error) {
+func FindTools(env Environ, vers version.Binary) (*state.Tools, error) {
 	toolsList, err := ListTools(env.Storage(), vers.Major)
 	if err != nil {
 		return nil, err
