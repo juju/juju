@@ -119,6 +119,7 @@ func (av *agentVersion) setAgentVersion(attr string, v version.Version) error {
 }
 
 // AgentVersion returns the current version of the agent.
+// It returns a *NotFoundError if the version has not been set.
 func (av *agentVersion) AgentVersion() (version.Version, error) {
 	return av.agentVersion("version")
 }
@@ -128,8 +129,9 @@ func (av *agentVersion) SetAgentVersion(v version.Version) error {
 	return av.setAgentVersion("version", v)
 }
 
-// ProposedAgent version returns the version of the agent that
-// is proposed to be run.
+// ProposedAgent version returns the version of the agent that is
+// proposed to be run.  It returns a *NotFoundError if the proposed
+// version has not been set.
 func (av *agentVersion) ProposedAgentVersion() (version.Version, error) {
 	return av.agentVersion("proposed-version")
 }

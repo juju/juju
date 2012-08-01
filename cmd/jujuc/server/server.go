@@ -11,7 +11,6 @@ import (
 	"net/rpc"
 	"os"
 	"path/filepath"
-	"reflect"
 	"sync"
 )
 
@@ -131,31 +130,4 @@ func (s *Server) Close() {
 	s.listener.Close()
 	os.Remove(s.socketPath)
 	<-s.closed
-}
-
-// truthError returns ErrSilent if value is nil, false, or 0, or an empty
-// array, map, slice, or string.
-func truthError(value interface{}) error {
-	b := true
-	v := reflect.ValueOf(value)
-	switch v.Kind() {
-	case reflect.Invalid:
-		b = false
-	case reflect.Bool:
-		b = v.Bool()
-	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
-		b = v.Len() != 0
-	case reflect.Float32, reflect.Float64:
-		b = v.Float() != 0
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		b = v.Int() != 0
-	case reflect.Uint, reflect.Uintptr, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		b = v.Uint() != 0
-	case reflect.Interface, reflect.Ptr:
-		b = !v.IsNil()
-	}
-	if b {
-		return nil
-	}
-	return cmd.ErrSilent
 }
