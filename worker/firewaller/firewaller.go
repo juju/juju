@@ -45,10 +45,7 @@ func NewFirewaller(st *state.State) (*Firewaller, error) {
 func (fw *Firewaller) loop() {
 	defer fw.finish()
 
-	// Get a new StateInfo from the environment: the one used to
-	// launch the agent may refer to localhost, which will be
-	// unhelpful when attempting to run an agent on a new machine.
-refreshState:
+Loop:
 	for {
 		select {
 		case <-fw.tomb.Dying():
@@ -64,7 +61,7 @@ refreshState:
 				continue
 			}
 			log.Printf("firewaller loaded new environment configuration")
-			break refreshState
+			break Loop
 		}
 	}
 
@@ -103,7 +100,7 @@ refreshState:
 				log.Debugf("firewaller: started watching machine %d", machine.Id())
 			}
 		case change := <-fw.unitsChange:
-			unitds := []*unitData{}
+			changed := []*unitData{}
 			for _, unit := range change.Removed {
 				unitd, ok := fw.unitds[unit.Name()]
 				if !ok {
@@ -112,7 +109,7 @@ refreshState:
 				delete(fw.unitds, unit.Name())
 				delete(unitd.machined.unitds, unit.Name())
 				delete(unitd.serviced.unitds, unit.Name())
-				unitds = append(unitds, unitd)
+				changed = append(changed, unitd)
 				if err := unitd.stopWatch(); err != nil {
 					log.Printf("unit watcher %q returned error when stopping: %v", unit.Name(), err)
 				}
@@ -123,7 +120,7 @@ refreshState:
 				fw.unitds[unit.Name()] = unitd
 				machineId, err := unit.AssignedMachineId()
 				if err != nil {
-					fw.tomb.Killf("machin id of unit state %q cannot be retrieved: %v", unit, err)
+					fw.tomb.Kill(err)
 				}
 				if fw.machineds[machineId] == nil {
 					panic("machine of added unit is not watched")
@@ -133,7 +130,7 @@ refreshState:
 				if fw.serviceds[unit.ServiceName()] == nil {
 					service, err := fw.st.Service(unit.ServiceName())
 					if err != nil {
-						fw.tomb.Killf("service state %q cannot be retrieved: %v", unit.ServiceName(), err)
+						fw.tomb.Kill(err)
 						return
 					}
 					fw.serviceds[unit.ServiceName()] = newServiceData(service, fw)
@@ -141,17 +138,17 @@ refreshState:
 				unitd.serviced = fw.serviceds[unit.ServiceName()]
 				unitd.serviced.unitds[unit.ServiceName()] = unitd
 				fw.serviceds[unit.ServiceName()].unitds[unit.Name()] = unitd
-				unitds = append(unitds, unitd)
+				changed = append(changed, unitd)
 				log.Debugf("firewaller: started watching unit %s", unit.Name())
 			}
-			if err := fw.openClosePorts(unitds); err != nil {
-				fw.tomb.Killf("ports cannot be opened or closed: %v", err)
+			if err := fw.flushUnits(changed); err != nil {
+				fw.tomb.Killf("cannot change firewall ports: %v", err)
 				return
 			}
 		case change := <-fw.portsChange:
 			change.unitd.ports = change.ports
-			if err := fw.openClosePorts([]*unitData{change.unitd}); err != nil {
-				fw.tomb.Killf("ports cannot be opened or closed: %v", err)
+			if err := fw.flushUnits([]*unitData{change.unitd}); err != nil {
+				fw.tomb.Killf("cannot change firewall ports: %v", err)
 				return
 			}
 		case change := <-fw.exposedChange:
@@ -160,30 +157,30 @@ refreshState:
 			for _, unitd := range change.serviced.unitds {
 				unitds = append(unitds, unitd)
 			}
-			if err := fw.openClosePorts(unitds); err != nil {
-				fw.tomb.Killf("ports cannot be opened or closed: %v", err)
+			if err := fw.flushUnits(unitds); err != nil {
+				fw.tomb.Killf("cannot change firewall ports: %v", err)
 				return
 			}
 		}
 	}
 }
 
-// openClosePorts opens and closes ports for the passed unit data.
-func (fw *Firewaller) openClosePorts(unitds []*unitData) error {
+// flushUnits opens and closes ports for the passed unit data.
+func (fw *Firewaller) flushUnits(unitds []*unitData) error {
 	machineds := map[int]*machineData{}
 	for _, unitd := range unitds {
 		machineds[unitd.machined.machine.Id()] = unitd.machined
 	}
 	for _, machined := range machineds {
-		if err := fw.openClosePortsMachine(machined); err != nil {
+		if err := fw.flushMashine(machined); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// openClosePortsMachine opens and closes ports for the passed machine.
-func (fw *Firewaller) openClosePortsMachine(machined *machineData) error {
+// flushMashine opens and closes ports for the passed machine.
+func (fw *Firewaller) flushMashine(machined *machineData) error {
 	// Gather ports to open and close.
 	ports := map[state.Port]bool{}
 	for _, unitd := range machined.unitds {
@@ -216,7 +213,7 @@ func (fw *Firewaller) openClosePortsMachine(machined *machineData) error {
 			return err
 		}
 		state.SortPorts(toOpen)
-		log.Debugf("firewaller: opened ports %v on machine %d", toOpen, machined.machine.Id())
+		log.Printf("firewaller: opened ports %v on machine %d", toOpen, machined.machine.Id())
 	}
 	if len(toClose) > 0 {
 		err = instances[0].ClosePorts(machined.machine.Id(), toClose)
@@ -225,7 +222,7 @@ func (fw *Firewaller) openClosePortsMachine(machined *machineData) error {
 			return err
 		}
 		state.SortPorts(toClose)
-		log.Debugf("firewaller: closed ports %v on machine %d", toClose, machined.machine.Id())
+		log.Printf("firewaller: closed ports %v on machine %d", toClose, machined.machine.Id())
 	}
 	return nil
 }
@@ -263,8 +260,7 @@ type unitsChange struct {
 	*state.MachineUnitsChange
 }
 
-// machineData watches the unit changes of a machine and passes them
-// to the firewaller for handling.
+// machineData holds machine details and watches units added or removed.
 type machineData struct {
 	tomb       tomb.Tomb
 	firewaller *Firewaller
@@ -274,7 +270,8 @@ type machineData struct {
 	ports      []state.Port
 }
 
-// newMachineData starts the watching of the passed machine. 
+// newMachineData returns a new data value for tracking details of the
+// machine, and starts watching the machine for units added or removed.
 func newMachineData(machine *state.Machine, fw *Firewaller) *machineData {
 	md := &machineData{
 		firewaller: fw,
@@ -287,7 +284,7 @@ func newMachineData(machine *state.Machine, fw *Firewaller) *machineData {
 	return md
 }
 
-// watchLoop is the backend watching for machine units changes.
+// watchLoop watches the machine for units added or removed.
 func (md *machineData) watchLoop() {
 	defer md.tomb.Done()
 	defer md.watcher.Stop()
@@ -321,8 +318,7 @@ type portsChange struct {
 	ports []state.Port
 }
 
-// unitData watches the port changes of a unit and passes them
-// to the firewaller for handling.
+// unitData holds unit details and watches port changes.
 type unitData struct {
 	tomb       tomb.Tomb
 	firewaller *Firewaller
@@ -333,7 +329,8 @@ type unitData struct {
 	ports      []state.Port
 }
 
-// newMachineData starts the watching of the passed unit. 
+// newUnitData returns a new data value for tracking details of the unit,
+// and starts watching the unit for port changes.
 func newUnitData(unit *state.Unit, fw *Firewaller) *unitData {
 	ud := &unitData{
 		firewaller: fw,
@@ -345,7 +342,7 @@ func newUnitData(unit *state.Unit, fw *Firewaller) *unitData {
 	return ud
 }
 
-// watchLoop is the backend watching for machine units changes.
+// watchLoop watches the unit for port changes.
 func (ud *unitData) watchLoop() {
 	defer ud.tomb.Done()
 	defer ud.watcher.Stop()
@@ -379,8 +376,7 @@ type exposedChange struct {
 	exposed  bool
 }
 
-// serviceData watches the exposed flag changes of a service and passes them
-// to the firewaller for handling.
+// serviceData holds service details and watches exposure changes.
 type serviceData struct {
 	tomb       tomb.Tomb
 	firewaller *Firewaller
@@ -390,7 +386,8 @@ type serviceData struct {
 	unitds     map[string]*unitData
 }
 
-// newServiceData starts the watching of the passed service. 
+// newServiceData returns a new data value for tracking details of the
+// service, and starts watching the service for exposure changes.
 func newServiceData(service *state.Service, fw *Firewaller) *serviceData {
 	sd := &serviceData{
 		firewaller: fw,
@@ -401,14 +398,14 @@ func newServiceData(service *state.Service, fw *Firewaller) *serviceData {
 	var err error
 	sd.exposed, err = service.IsExposed()
 	if err != nil {
-		sd.firewaller.tomb.Killf("cannot retrieve initial exposed flag of service %q: %v", service, err)
+		sd.firewaller.tomb.Kill(err)
 		return sd
 	}
 	go sd.watchLoop()
 	return sd
 }
 
-// watchLoop is the backend watching for service exposed flag changes.
+// watchLoop watches the services' exposed flag for changes.
 func (sd *serviceData) watchLoop() {
 	defer sd.tomb.Done()
 	defer sd.watcher.Stop()
@@ -441,7 +438,7 @@ func diff(A, B []state.Port) (missing []state.Port) {
 next:
 	for _, a := range A {
 		for _, b := range B {
-			if a.Protocol == b.Protocol && a.Number == b.Number {
+			if a == b {
 				continue next
 			}
 		}
