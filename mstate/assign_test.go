@@ -60,7 +60,7 @@ func (s *AssignSuite) TestAssignUnitToMachineAgainFails(c *C) {
 	c.Assert(err, IsNil)
 
 	// Assigning the unit to a different machine should fail.
-	// BUG: use error strings from state.
+	// BUG(aram): use error strings from state.
 	err = s.unit.AssignToMachine(machineTwo)
 	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to machine 2: .*`)
 

@@ -191,7 +191,7 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 		if v.RelationScope == charm.ScopeContainer {
 			scope = charm.ScopeContainer
 		}
-		// BUG potential race in the time between getting the service
+		// BUG(aram): potential race in the time between getting the service
 		// to validate the endpoint and actually writting the relation
 		// into MongoDB; the service might have disappeared.
 		_, err = s.Service(v.ServiceName)
@@ -237,7 +237,7 @@ func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error)
 func (s *State) RemoveRelation(r *Relation) (err error) {
 	defer errorContextf(&err, "cannot remove relation %q", r.doc.Key)
 
-	// TODO panic if life is not dead after implementing lifecycle.
+	// TODO(aram): panic if life is not dead after implementing lifecycle.
 	sel := bson.D{{"_id", r.doc.Id}}
 	err = s.relations.Remove(sel)
 	if err != nil {
