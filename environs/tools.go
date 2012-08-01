@@ -28,9 +28,9 @@ type Tools struct {
 
 // ListTools returns all the tools found in the given storage
 // that have the given major version.
-func ListTools(store StorageReader, majorVersion int) ([]*Tools, error) {
+func ListTools(storage StorageReader, majorVersion int) ([]*Tools, error) {
 	dir := fmt.Sprintf("%s%d.", toolPrefix, majorVersion)
-	names, err := store.List(dir)
+	names, err := storage.List(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func ListTools(store StorageReader, majorVersion int) ([]*Tools, error) {
 		}
 		t.Series = m[2]
 		t.Arch = m[3]
-		t.URL, err = store.URL(name)
+		t.URL, err = storage.URL(name)
 		if err != nil {
 			log.Printf("cannot get URL for %q: %v", name, err)
 			continue
@@ -184,7 +184,6 @@ func closeErrorCheck(errp *error, c io.Closer) {
 func BestTools(toolsList []*Tools, vers version.BinaryVersion) *Tools {
 	var bestTools *Tools
 	for _, t := range toolsList {
-		t := t
 		if t.Version.Major != vers.Version.Major ||
 			t.Series != vers.Series ||
 			t.Arch != vers.Arch {
@@ -233,22 +232,18 @@ func GetTools(url, dir string) error {
 	panic("not reached")
 }
 
-// ToolsPath returns path that is used to store and
-// retrieve the given version of the juju tools in a Storage.
+// ToolsPath returns path that is used to store and retrieve the given
+// version of the juju tools in a Storage.
 func ToolsPath(vers version.BinaryVersion) string {
-	return fmt.Sprintf(toolPrefix+"%v-%s-%s.tgz",
-		vers.Version,
-		vers.Series,
-		vers.Arch)
+	return fmt.Sprintf(toolPrefix+"%v-%s-%s.tgz", vers.Version, vers.Series, vers.Arch)
 }
 
-// FindTools tries to find a set of tools compatible
-// with the given version from the given environment.
-// If no tools are found and there's no other error, a NotFoundError
-// is returned.
+// FindTools tries to find a set of tools compatible with the given
+// version from the given environment.  If no tools are found and
+// there's no other error, a NotFoundError is returned.  If there's
+// anything compatible in the environ's Storage, it gets precedence over
+// anything in its PublicStorage.
 func FindTools(env Environ, vers version.BinaryVersion) (*Tools, error) {
-	// If there's anything compatible in the environ's Storage,
-	// it gets precedence over anything in its PublicStorage.
 	toolsList, err := ListTools(env.Storage(), vers.Major)
 	if err != nil {
 		return nil, err
