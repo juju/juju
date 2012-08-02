@@ -132,6 +132,10 @@ func (s *RelationSuite) TestPeerRelation(c *C) {
 	c.Assert(err, ErrorMatches, `cannot remove relation "peer:baz": not found`)
 }
 
+func (s *RelationSuite) TestLifecycleStateChanges(c *C) {
+	// TODO(aram)
+}
+
 func assertNoRelations(c *C, srv *state.Service) {
 	rels, err := srv.Relations()
 	c.Assert(err, IsNil)
