@@ -1,18 +1,42 @@
 package main
 
 import (
-	// "fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
-	// "launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	// "sort"
-	// "strings"
-	// "time"
+	"launchpad.net/tomb"
+	"time"
 )
+
+func assertAlive(c *C, a *ProvisioningAgent, alive bool) {
+	start := time.Now()
+	for {
+		time.Sleep(50 * time.Millisecond)
+		pgot := a.provisioner.Err()
+		fwgot := a.firewaller.Err()
+		if alive {
+			// Provisioner and firewaller have to be alive.
+			if pgot == tomb.ErrStillAlive && fwgot == tomb.ErrStillAlive {
+				c.Succeed()
+				return
+			}
+		} else {
+			// Provisioner and firewaller have to be stopped.
+			if pgot != tomb.ErrStillAlive && fwgot != tomb.ErrStillAlive {
+				c.Succeed()
+				return
+			}
+		}
+		if time.Since(start) > 500*time.Millisecond {
+			c.Fatalf("timed out")
+			return
+		}
+	}
+	panic("unreachable")
+}
 
 type ProvisioningSuite struct {
 	coretesting.LoggingSuite
@@ -70,6 +94,10 @@ func (s *ProvisioningSuite) TestRunStop(c *C) {
 		c.Assert(err, IsNil)
 	}()
 
+	assertAlive(c, a, true)
+
 	err := a.Stop()
 	c.Assert(err, IsNil)
+
+	assertAlive(c, a, false)
 }
