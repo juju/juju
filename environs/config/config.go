@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"launchpad.net/juju-core/schema"
+	"launchpad.net/juju-core/version"
 )
 
 // Config holds an immutable environment configuration.
@@ -25,7 +26,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	}
 
 	if c.m["default-series"].(string) == "" {
-		c.m["default-series"] = CurrentSeries
+		c.m["default-series"] = version.Current.Series
 	}
 
 	// Load authorized-keys-path onto authorized-keys, if necessary.
@@ -114,7 +115,7 @@ var fields = schema.Fields{
 }
 
 var defaults = schema.Defaults{
-	"default-series":       CurrentSeries,
+	"default-series":       version.Current.Series,
 	"authorized-keys":      "",
 	"authorized-keys-path": "",
 }

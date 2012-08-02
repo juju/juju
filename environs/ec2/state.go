@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/environs"
 )
 
 const stateFile = "provider-state"
@@ -38,11 +37,4 @@ func (e *environ) loadState() (*bootstrapState, error) {
 		return nil, fmt.Errorf("error unmarshalling %q: %v", stateFile, err)
 	}
 	return &state, nil
-}
-
-func maybeNotFound(err error) error {
-	if s3ErrorStatusCode(err) == 404 {
-		return &environs.NotFoundError{err}
-	}
-	return err
 }
