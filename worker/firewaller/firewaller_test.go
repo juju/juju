@@ -262,6 +262,44 @@ func (s *FirewallerSuite) TestFirewallerStartWithPartialState(c *C) {
 	assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}})
 }
 
+func (s *FirewallerSuite) TestSetClearExposedService(c *C) {
+	fw, err := firewaller.NewFirewaller(s.State)
+	c.Assert(err, IsNil)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
+
+	m, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId("testing-0")
+	c.Assert(err, IsNil)
+	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c), nil)
+	c.Assert(err, IsNil)
+	svc, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	u, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	err = u.AssignToMachine(m)
+	c.Assert(err, IsNil)
+	err = u.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+	err = u.OpenPort("tcp", 8080)
+	c.Assert(err, IsNil)
+
+	// Not exposed service, so no open port.
+	assertPorts(c, inst, m.Id(), nil)
+
+	// SeExposed opens the ports.
+	err = svc.SetExposed()
+	c.Assert(err, IsNil)
+
+	assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}, {"tcp", 8080}})
+
+	// ClearExposed closes the ports again.
+	err = svc.ClearExposed()
+	c.Assert(err, IsNil)
+
+	assertPorts(c, inst, m.Id(), nil)
+}
+
 func (s *FirewallerSuite) TestFirewallerStopOnStateClose(c *C) {
 	fw, err := firewaller.NewFirewaller(s.State)
 	c.Assert(err, IsNil)
