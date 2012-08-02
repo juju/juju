@@ -3,6 +3,7 @@ package version_test
 import (
 	"."
 	. "launchpad.net/gocheck"
+	"strings"
 	"testing"
 )
 
@@ -51,7 +52,7 @@ func (suite) TestComparison(c *C) {
 var parseTests = []struct {
 	v      string
 	err    string
-	expect version.Version
+	expect version.Number
 	dev    bool
 }{
 	{
@@ -60,22 +61,22 @@ var parseTests = []struct {
 	},
 	{
 		v:      "1.0.0",
-		expect: version.Version{Major: 1},
+		expect: version.Number{Major: 1},
 		dev:    true,
 	},
 	{
 		v:      "0.1.0",
-		expect: version.Version{Minor: 1},
+		expect: version.Number{Minor: 1},
 		dev:    true,
 	},
 	{
 		v:      "0.0.1",
-		expect: version.Version{Patch: 1},
+		expect: version.Number{Patch: 1},
 		dev:    true,
 	},
 	{
 		v:      "10.234.3456",
-		expect: version.Version{Major: 10, Minor: 234, Patch: 3456},
+		expect: version.Number{Major: 10, Minor: 234, Patch: 3456},
 		dev:    false,
 	},
 	{
@@ -91,13 +92,75 @@ var parseTests = []struct {
 func (suite) TestParse(c *C) {
 	for i, test := range parseTests {
 		c.Logf("test %d", i)
-		v, err := version.Parse(test.v)
+		got, err := version.Parse(test.v)
 		if test.err != "" {
 			c.Assert(err, ErrorMatches, test.err)
 		} else {
 			c.Assert(err, IsNil)
-			c.Assert(v, Equals, test.expect)
-			c.Check(v.IsDev(), Equals, test.dev)
+			c.Assert(got, Equals, test.expect)
+			c.Check(got.IsDev(), Equals, test.dev)
+		}
+	}
+}
+
+func binaryVersion(major, minor, patch int, series, arch string) version.Binary {
+	return version.Binary{
+		Number: version.Number{
+			Major: major,
+			Minor: minor,
+			Patch: patch,
+		},
+		Series: series,
+		Arch:   arch,
+	}
+}
+
+var parseBinaryTests = []struct {
+	v      string
+	err    string
+	expect version.Binary
+}{
+	{
+		v:      "1.2.3-a-b",
+		expect: binaryVersion(1, 2, 3, "a", "b"),
+	},
+	{
+		v:   "1.2.3--b",
+		err: "invalid binary version.*",
+	},
+	{
+		v:   "1.2.3-a-",
+		err: "invalid binary version.*",
+	},
+}
+
+func (suite) TestParseBinary(c *C) {
+	for i, test := range parseBinaryTests {
+		c.Logf("test 1: %d", i)
+		got, err := version.ParseBinary(test.v)
+		if test.err != "" {
+			c.Assert(err, ErrorMatches, test.err)
+		} else {
+			c.Assert(err, IsNil)
+			c.Assert(got, Equals, test.expect)
+		}
+	}
+
+	for i, test := range parseTests {
+		c.Logf("test 2: %d", i)
+		v := test.v + "-a-b"
+		got, err := version.ParseBinary(v)
+		expect := version.Binary{
+			Number: test.expect,
+			Series: "a",
+			Arch:   "b",
+		}
+		if test.err != "" {
+			c.Assert(err, ErrorMatches, strings.Replace(test.err, "version", "binary version", 1))
+		} else {
+			c.Assert(err, IsNil)
+			c.Assert(got, Equals, expect)
+			c.Check(got.IsDev(), Equals, test.dev)
 		}
 	}
 }

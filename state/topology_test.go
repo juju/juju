@@ -2,6 +2,7 @@ package state
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -403,7 +404,7 @@ func (s *TopologySuite) TestRelation(c *C) {
 	s.t.AddService("service-p", "riak")
 	r := &topoRelation{
 		Interface: "ifce",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{topoEndpoint{"service-p", RolePeer, "cache"}},
 	}
 	s.t.AddRelation("relation-1", r)
@@ -423,7 +424,7 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 	s.t.AddService("service-r", "wordpress")
 	r := &topoRelation{
 		Interface: "ifce",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{
 			topoEndpoint{"service-p", RoleProvider, "db"},
 			topoEndpoint{"service-r", RoleRequirer, "db"},
@@ -437,7 +438,7 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 
 	err = s.t.AddRelation("relation-2", &topoRelation{
 		Interface: "",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{
 			topoEndpoint{"service-p", RoleProvider, "db"},
 			topoEndpoint{"service-r", RoleRequirer, "db"},
@@ -447,14 +448,14 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 
 	err = s.t.AddRelation("relation-3", &topoRelation{
 		Interface: "ifce",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{},
 	})
 	c.Assert(err, ErrorMatches, `relation has no services`)
 
 	err = s.t.AddRelation("relation-4", &topoRelation{
 		Interface: "ifce",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{
 			topoEndpoint{"service-p", RoleProvider, "db"},
 		},
@@ -463,7 +464,7 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 
 	err = s.t.AddRelation("relation-5", &topoRelation{
 		Interface: "ifce",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{
 			topoEndpoint{"service-p", RoleProvider, "db"},
 			topoEndpoint{"service-r", RolePeer, "db"},
@@ -473,7 +474,7 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 
 	err = s.t.AddRelation("relation-6", &topoRelation{
 		Interface: "ifce",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{
 			topoEndpoint{"service-p", RoleProvider, "db"},
 			topoEndpoint{"service-r", RoleRequirer, "db"},
@@ -484,7 +485,7 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 
 	err = s.t.AddRelation("relation-7", &topoRelation{
 		Interface: "ifce",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{
 			topoEndpoint{"service-p", RoleProvider, "db"},
 			topoEndpoint{"illegal", RoleRequirer, "db"},
@@ -494,7 +495,7 @@ func (s *TopologySuite) TestAddRelation(c *C) {
 
 	err = s.t.AddRelation("relation-1", &topoRelation{
 		Interface: "ifce",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{
 			topoEndpoint{"service-p", RoleProvider, "db"},
 			topoEndpoint{"service-r", RoleRequirer, "db"},
@@ -511,7 +512,7 @@ func (s *TopologySuite) TestRelationKeys(c *C) {
 	s.t.AddService("service-p", "riak")
 	s.t.AddRelation("relation-1", &topoRelation{
 		Interface: "ifce",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{
 			topoEndpoint{"service-p", RolePeer, "cache"},
 		},
@@ -521,7 +522,7 @@ func (s *TopologySuite) TestRelationKeys(c *C) {
 
 	s.t.AddRelation("relation-2", &topoRelation{
 		Interface: "ifce",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{
 			topoEndpoint{"service-p", RolePeer, "cache"},
 		},
@@ -539,14 +540,14 @@ func (s *TopologySuite) TestRelationsForService(c *C) {
 
 	s.t.AddRelation("relation-0", &topoRelation{
 		Interface: "ifce0",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{
 			topoEndpoint{"service-p", RolePeer, "cache"},
 		},
 	})
 	s.t.AddRelation("relation-1", &topoRelation{
 		Interface: "ifce1",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{
 			topoEndpoint{"service-p", RolePeer, "cache"},
 		},
@@ -571,7 +572,7 @@ func (s *TopologySuite) TestRemoveRelation(c *C) {
 
 	err := s.t.AddRelation("relation-1", &topoRelation{
 		Interface: "ifce",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{
 			topoEndpoint{"service-p", RoleProvider, "db"},
 			topoEndpoint{"service-r", RoleRequirer, "db"},
@@ -591,7 +592,7 @@ func (s *TopologySuite) TestRemoveServiceWithRelations(c *C) {
 	s.t.AddService("service-p", "riak")
 	s.t.AddRelation("relation-1", &topoRelation{
 		Interface: "ifce",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{
 			topoEndpoint{"service-p", RolePeer, "cache"},
 		},
@@ -602,17 +603,17 @@ func (s *TopologySuite) TestRemoveServiceWithRelations(c *C) {
 }
 
 func (s *TopologySuite) TestRelationKeyEndpoints(c *C) {
-	mysqlep1 := RelationEndpoint{"mysql", "ifce1", "db", RoleProvider, ScopeGlobal}
-	blogep1 := RelationEndpoint{"wordpress", "ifce1", "db", RoleRequirer, ScopeGlobal}
-	mysqlep2 := RelationEndpoint{"mysql", "ifce2", "db", RoleProvider, ScopeGlobal}
-	blogep2 := RelationEndpoint{"wordpress", "ifce2", "db", RoleRequirer, ScopeGlobal}
-	mysqlep3 := RelationEndpoint{"mysql", "ifce3", "db", RoleProvider, ScopeGlobal}
-	blogep3 := RelationEndpoint{"wordpress", "ifce3", "db", RoleRequirer, ScopeGlobal}
+	mysqlep1 := RelationEndpoint{"mysql", "ifce1", "db", RoleProvider, charm.ScopeGlobal}
+	blogep1 := RelationEndpoint{"wordpress", "ifce1", "db", RoleRequirer, charm.ScopeGlobal}
+	mysqlep2 := RelationEndpoint{"mysql", "ifce2", "db", RoleProvider, charm.ScopeGlobal}
+	blogep2 := RelationEndpoint{"wordpress", "ifce2", "db", RoleRequirer, charm.ScopeGlobal}
+	mysqlep3 := RelationEndpoint{"mysql", "ifce3", "db", RoleProvider, charm.ScopeGlobal}
+	blogep3 := RelationEndpoint{"wordpress", "ifce3", "db", RoleRequirer, charm.ScopeGlobal}
 	s.t.AddService("service-r", "wordpress")
 	s.t.AddService("service-p", "mysql")
 	s.t.AddRelation("relation-0", &topoRelation{
 		Interface: "ifce1",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{
 			topoEndpoint{"service-p", RoleProvider, "db"},
 			topoEndpoint{"service-r", RoleRequirer, "db"},
@@ -620,7 +621,7 @@ func (s *TopologySuite) TestRelationKeyEndpoints(c *C) {
 	})
 	s.t.AddRelation("relation-1", &topoRelation{
 		Interface: "ifce2",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{
 			topoEndpoint{"service-p", RoleProvider, "db"},
 			topoEndpoint{"service-r", RoleRequirer, "db"},
@@ -657,17 +658,17 @@ func (s *TopologySuite) TestRelationKeyEndpoints(c *C) {
 }
 
 func (s *TopologySuite) TestRelationKeyIllegalEndpoints(c *C) {
-	mysqlep1 := RelationEndpoint{"mysql", "ifce", "db", RoleProvider, ScopeGlobal}
-	blogep1 := RelationEndpoint{"wordpress", "ifce", "db", RoleRequirer, ScopeGlobal}
-	mysqlep2 := RelationEndpoint{"illegal-mysql", "ifce", "db", RoleProvider, ScopeGlobal}
-	blogep2 := RelationEndpoint{"illegal-wordpress", "ifce", "db", RoleRequirer, ScopeGlobal}
-	riakep3 := RelationEndpoint{"riak", "ifce", "ring", RolePeer, ScopeGlobal}
+	mysqlep1 := RelationEndpoint{"mysql", "ifce", "db", RoleProvider, charm.ScopeGlobal}
+	blogep1 := RelationEndpoint{"wordpress", "ifce", "db", RoleRequirer, charm.ScopeGlobal}
+	mysqlep2 := RelationEndpoint{"illegal-mysql", "ifce", "db", RoleProvider, charm.ScopeGlobal}
+	blogep2 := RelationEndpoint{"illegal-wordpress", "ifce", "db", RoleRequirer, charm.ScopeGlobal}
+	riakep3 := RelationEndpoint{"riak", "ifce", "ring", RolePeer, charm.ScopeGlobal}
 	s.t.AddService("service-r", "wordpress")
 	s.t.AddService("service-p1", "mysql")
 	s.t.AddService("service-p2", "riak")
 	s.t.AddRelation("relation-0", &topoRelation{
 		Interface: "ifce1",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{
 			topoEndpoint{"service-p", RoleProvider, "db"},
 			topoEndpoint{"service-r", RoleRequirer, "db"},
@@ -686,20 +687,20 @@ func (s *TopologySuite) TestRelationKeyIllegalEndpoints(c *C) {
 }
 
 func (s *TopologySuite) TestPeerRelationKeyEndpoints(c *C) {
-	riakep1 := RelationEndpoint{"riak", "ifce1", "ring", RolePeer, ScopeGlobal}
-	riakep2 := RelationEndpoint{"riak", "ifce2", "ring", RolePeer, ScopeGlobal}
-	riakep3 := RelationEndpoint{"riak", "ifce3", "ring", RolePeer, ScopeGlobal}
+	riakep1 := RelationEndpoint{"riak", "ifce1", "ring", RolePeer, charm.ScopeGlobal}
+	riakep2 := RelationEndpoint{"riak", "ifce2", "ring", RolePeer, charm.ScopeGlobal}
+	riakep3 := RelationEndpoint{"riak", "ifce3", "ring", RolePeer, charm.ScopeGlobal}
 	s.t.AddService("service-p", "riak")
 	s.t.AddRelation("relation-0", &topoRelation{
 		Interface: "ifce1",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{
 			topoEndpoint{"service-p", RolePeer, "ring"},
 		},
 	})
 	s.t.AddRelation("relation-1", &topoRelation{
 		Interface: "ifce2",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{
 			topoEndpoint{"service-p", RolePeer, "ring"},
 		},
@@ -719,11 +720,11 @@ func (s *TopologySuite) TestPeerRelationKeyEndpoints(c *C) {
 }
 
 func (s *TopologySuite) TestPeerRelationKeyIllegalEndpoints(c *C) {
-	riakep1 := RelationEndpoint{"riak", "ifce", "illegal-ring", RolePeer, ScopeGlobal}
+	riakep1 := RelationEndpoint{"riak", "ifce", "illegal-ring", RolePeer, charm.ScopeGlobal}
 	s.t.AddService("service-p", "riak")
 	s.t.AddRelation("relation-0", &topoRelation{
 		Interface: "ifce",
-		Scope:     ScopeGlobal,
+		Scope:     charm.ScopeGlobal,
 		Endpoints: []topoEndpoint{
 			topoEndpoint{"service-p", RolePeer, "ring"},
 		},

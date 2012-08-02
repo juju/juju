@@ -33,7 +33,7 @@ func (conn *Conn) AddService(name string, ch *state.Charm) (*state.Service, erro
 			rel.Interface,
 			rname,
 			state.RolePeer,
-			state.RelationScope(rel.Scope),
+			rel.Scope,
 		}
 		if _, err := st.AddRelation(ep); err != nil {
 			return nil, fmt.Errorf("cannot add peer relation %q to service %q: %v", rname, name, err)

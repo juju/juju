@@ -7,17 +7,13 @@ import (
 
 // ConfigGetCommand implements the config-get command.
 type ConfigGetCommand struct {
-	*ClientContext
-	Key      string // The key to show. If empty, show all.
-	out      cmd.Output
-	testMode bool
+	*HookContext
+	Key string // The key to show. If empty, show all.
+	out cmd.Output
 }
 
-func NewConfigGetCommand(ctx *ClientContext) (cmd.Command, error) {
-	if err := ctx.check(); err != nil {
-		return nil, err
-	}
-	return &ConfigGetCommand{ClientContext: ctx}, nil
+func NewConfigGetCommand(ctx *HookContext) (cmd.Command, error) {
+	return &ConfigGetCommand{HookContext: ctx}, nil
 }
 
 func (c *ConfigGetCommand) Info() *cmd.Info {
@@ -29,8 +25,7 @@ func (c *ConfigGetCommand) Info() *cmd.Info {
 }
 
 func (c *ConfigGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
-	f.BoolVar(&c.testMode, "test", false, "returns non-zero exit code if value is false/zero/empty")
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
@@ -43,15 +38,7 @@ func (c *ConfigGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
-	unit, err := c.State.Unit(c.LocalUnitName)
-	if err != nil {
-		return err
-	}
-	service, err := c.State.Service(unit.ServiceName())
-	if err != nil {
-		return err
-	}
-	conf, err := service.Config()
+	conf, err := c.Service.Config()
 	if err != nil {
 		return err
 	}
@@ -60,9 +47,6 @@ func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
 		value = conf.Map()
 	} else {
 		value, _ = conf.Get(c.Key)
-	}
-	if c.testMode {
-		return truthError(value)
 	}
 	return c.out.Write(ctx, value)
 }

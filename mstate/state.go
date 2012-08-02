@@ -22,11 +22,12 @@ const (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	db       *mgo.Database
-	charms   *mgo.Collection
-	machines *mgo.Collection
-	services *mgo.Collection
-	units    *mgo.Collection
+	db        *mgo.Database
+	charms    *mgo.Collection
+	machines  *mgo.Collection
+	relations *mgo.Collection
+	services  *mgo.Collection
+	units     *mgo.Collection
 }
 
 // AddMachine creates a new machine state.
@@ -167,4 +168,80 @@ func (s *State) AllServices() (services []*Service, err error) {
 		services = append(services, &Service{st: s, name: v.Name})
 	}
 	return services, nil
+}
+
+// AddRelation creates a new relation with the given endpoints.
+func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err error) {
+	defer errorContextf(&err, "cannot add relation %q", relationKey(endpoints))
+	switch len(endpoints) {
+	case 1:
+		if endpoints[0].RelationRole != RolePeer {
+			return nil, fmt.Errorf("single endpoint must be a peer relation")
+		}
+	case 2:
+		if !endpoints[0].CanRelateTo(&endpoints[1]) {
+			return nil, fmt.Errorf("endpoints do not relate")
+		}
+	default:
+		return nil, fmt.Errorf("cannot relate %d endpoints", len(endpoints))
+	}
+
+	var scope charm.RelationScope
+	for _, v := range endpoints {
+		if v.RelationScope == charm.ScopeContainer {
+			scope = charm.ScopeContainer
+		}
+		// BUG potential race in the time between getting the service
+		// to validate the endpoint and actually writting the relation
+		// into MongoDB; the service might have disappeared.
+		_, err = s.Service(v.ServiceName)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if scope == charm.ScopeContainer {
+		for i := range endpoints {
+			endpoints[i].RelationScope = scope
+		}
+	}
+	id, err := s.sequence("relation")
+	if err != nil {
+		return nil, err
+	}
+	doc := relationDoc{
+		Id:        id,
+		Key:       relationKey(endpoints),
+		Endpoints: endpoints,
+		Life:      Alive,
+	}
+	err = s.relations.Insert(doc)
+	if err != nil {
+		return nil, err
+	}
+	return newRelation(s, &doc), nil
+}
+
+// Relation returns the existing relation with the given endpoints.
+func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error) {
+	defer errorContextf(&err, "cannot get relation %q", relationKey(endpoints))
+
+	doc := relationDoc{}
+	err = s.relations.Find(bson.D{{"key", relationKey(endpoints)}}).One(&doc)
+	if err != nil {
+		return nil, err
+	}
+	return newRelation(s, &doc), nil
+}
+
+// RemoveRelation removes the supplied relation.
+func (s *State) RemoveRelation(r *Relation) (err error) {
+	defer errorContextf(&err, "cannot remove relation %q", r.doc.Key)
+
+	// TODO panic if life is not dead after implementing lifecycle.
+	sel := bson.D{{"_id", r.doc.Id}}
+	err = s.relations.Remove(sel)
+	if err != nil {
+		return err
+	}
+	return nil
 }

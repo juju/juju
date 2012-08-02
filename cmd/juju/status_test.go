@@ -87,7 +87,7 @@ var statusTests = []struct {
 		func(st *state.State, conn *juju.Conn, c *C) {
 			m, err := st.Machine(0)
 			c.Assert(err, IsNil)
-			inst, err := conn.Environ.StartInstance(m.Id(), nil)
+			inst, err := conn.Environ.StartInstance(m.Id(), nil, nil)
 			c.Assert(err, IsNil)
 			err = m.SetInstanceId(inst.Id())
 			c.Assert(err, IsNil)

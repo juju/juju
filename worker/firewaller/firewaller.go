@@ -172,15 +172,15 @@ func (fw *Firewaller) flushUnits(unitds []*unitData) error {
 		machineds[unitd.machined.machine.Id()] = unitd.machined
 	}
 	for _, machined := range machineds {
-		if err := fw.flushMashine(machined); err != nil {
+		if err := fw.flushMachine(machined); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// flushMashine opens and closes ports for the passed machine.
-func (fw *Firewaller) flushMashine(machined *machineData) error {
+// flushMachine opens and closes ports for the passed machine.
+func (fw *Firewaller) flushMachine(machined *machineData) error {
 	// Gather ports to open and close.
 	ports := map[state.Port]bool{}
 	for _, unitd := range machined.unitds {
@@ -241,6 +241,11 @@ func (fw *Firewaller) finish() {
 		fw.tomb.Kill(machined.stopWatch())
 	}
 	fw.tomb.Done()
+}
+
+// Dying returns a channel that signals a Firewaller exit.
+func (fw *Firewaller) Dying() <-chan struct{} {
+	return fw.tomb.Dying()
 }
 
 // Wait waits for the Firewaller to exit.
@@ -405,7 +410,7 @@ func newServiceData(service *state.Service, fw *Firewaller) *serviceData {
 	return sd
 }
 
-// watchLoop watches the services' exposed flag for changes.
+// watchLoop watches the service's exposed flag for changes.
 func (sd *serviceData) watchLoop() {
 	defer sd.tomb.Done()
 	defer sd.watcher.Stop()

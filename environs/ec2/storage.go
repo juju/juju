@@ -86,7 +86,13 @@ func (s *storage) List(prefix string) ([]string, error) {
 	// TODO cope with more than 1000 objects in the bucket.
 	resp, err := s.bucket.List(prefix, "", "", 0)
 	if err != nil {
-		return nil, maybeNotFound(err)
+		// If the bucket is not found, it's not an error
+		// because it's only created when the first
+		// file is put.
+		if s3ErrorStatusCode(err) == 404 {
+			return nil, nil
+		}
+		return nil, err
 	}
 	var names []string
 	for _, key := range resp.Contents {
@@ -132,4 +138,11 @@ func (s *storage) deleteAll() error {
 	// might have succeeded even if we get an error.
 	s.madeBucket = false
 	return s.bucket.DelBucket()
+}
+
+func maybeNotFound(err error) error {
+	if s3ErrorStatusCode(err) == 404 {
+		return &environs.NotFoundError{err}
+	}
+	return err
 }

@@ -6,7 +6,7 @@ import (
 )
 
 type UnitSuite struct {
-	UtilSuite
+	ConnSuite
 	charm *state.Charm
 	unit  *state.Unit
 }
@@ -14,7 +14,7 @@ type UnitSuite struct {
 var _ = Suite(&UnitSuite{})
 
 func (s *UnitSuite) SetUpTest(c *C) {
-	s.UtilSuite.SetUpTest(c)
+	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "dummy")
 	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)

@@ -1,9 +1,9 @@
-package config_test
+package version_test
 
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/version"
 	"os/exec"
 	"path/filepath"
 )
@@ -49,12 +49,12 @@ func (*CurrentSuite) TestReadSeries(c *C) {
 		c.Logf("test %d", i)
 		err := ioutil.WriteFile(f, []byte(t.contents), 0666)
 		c.Assert(err, IsNil)
-		c.Assert(config.ReadSeries(f), Equals, t.series)
+		c.Assert(version.ReadSeries(f), Equals, t.series)
 	}
 }
 
 func (*CurrentSuite) TestCurrentSeries(c *C) {
-	s := config.CurrentSeries
+	s := version.Current.Series
 	if s == "unknown" {
 		s = "n/a"
 	}
