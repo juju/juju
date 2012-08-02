@@ -14,60 +14,6 @@ import (
 	// "time"
 )
 
-// // hookLogger allows the grabbing of log statements
-// // to compare them inside the tests.
-// type hookLogger struct {
-// 	event     chan string
-// 	oldTarget log.Logger
-// }
-
-// var logHook *hookLogger
-
-// const prefix = "JUJU:DEBUG provisioning: "
-
-// func (h *hookLogger) Output(calldepth int, s string) error {
-// 	err := h.oldTarget.Output(calldepth, s)
-// 	if strings.HasPrefix(s, prefix) {
-// 		h.event <- s[len(prefix):]
-// 	}
-// 	return err
-// }
-
-// func setUpLogHook() {
-// 	logHook = &hookLogger{
-// 		event:     make(chan string, 100),
-// 		oldTarget: log.Target,
-// 	}
-// 	log.Target = logHook
-// }
-
-// func tearDownLogHook() {
-// 	log.Target = logHook.oldTarget
-// }
-
-// // assertEvents asserts that the expected events are received from
-// // the firewaller, in no particular order.
-// func assertEvents(c *C, expect []string) {
-// 	var got []string
-// 	for _ = range expect {
-// 		select {
-// 		case e := <-logHook.event:
-// 			got = append(got, e)
-// 		case <-time.After(500 * time.Millisecond):
-// 			c.Fatalf("expected %q; timed out, got %q", expect, got)
-// 		}
-// 	}
-// 	select {
-// 	case e := <-logHook.event:
-// 		got = append(got, e)
-// 		c.Fatalf("expected %q; too many events %q ", expect, got)
-// 	case <-time.After(100 * time.Millisecond):
-// 	}
-// 	sort.Strings(expect)
-// 	sort.Strings(got)
-// 	c.Assert(got, DeepEquals, expect)
-// }
-
 type ProvisioningSuite struct {
 	coretesting.LoggingSuite
 	testing.StateSuite
