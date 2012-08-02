@@ -10,9 +10,9 @@ const (
 )
 
 var lifeStrings = [Nlife]string{
-	Alive:	"alive",
-	Dying:	"dying",
-	Dead:	"dead",
+	Alive: "alive",
+	Dying: "dying",
+	Dead:  "dead",
 }
 
 func (l Life) String() string {
@@ -20,9 +20,9 @@ func (l Life) String() string {
 }
 
 var transitions = [Nlife][Nlife]bool{
-	Alive:	{Alive: true, Dying: true},
-	Dying:	{Dying: true, Dead: true},
-	Dead:	{Dead: true},
+	Alive: {Alive: true, Dying: true},
+	Dying: {Dying: true, Dead: true},
+	Dead:  {Dead: true},
 }
 
 func (l Life) isNextValid(next Life) bool {

@@ -83,6 +83,10 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	assertOneRelation(c, req, 0, reqep, proep)
 
 	// Remove the relation, and check it can't be removed again.
+	err = rel.SetLife(state.Dying)
+	c.Assert(err, IsNil)
+	err = rel.SetLife(state.Dead)
+	c.Assert(err, IsNil)
 	err = s.State.RemoveRelation(rel)
 	c.Assert(err, IsNil)
 	assertNoRelations(c, pro)
@@ -117,6 +121,10 @@ func (s *RelationSuite) TestPeerRelation(c *C) {
 	assertOneRelation(c, peer, 0, peerep)
 
 	// Remove the relation, and check it can't be removed again.
+	err = rel.SetLife(state.Dying)
+	c.Assert(err, IsNil)
+	err = rel.SetLife(state.Dead)
+	c.Assert(err, IsNil)
 	err = s.State.RemoveRelation(rel)
 	c.Assert(err, IsNil)
 	assertNoRelations(c, peer)

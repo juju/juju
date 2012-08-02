@@ -2,6 +2,7 @@ package mstate
 
 import (
 	"fmt"
+	"labix.org/v2/mgo/bson"
 	"launchpad.net/juju-core/charm"
 	"sort"
 	"strings"
@@ -94,6 +95,39 @@ func newRelation(st *State, doc *relationDoc) *Relation {
 
 func (r *Relation) String() string {
 	return r.doc.Key
+}
+
+func (r *Relation) Refresh() error {
+	doc := relationDoc{}
+	err := r.st.relations.FindId(r.doc.Id).One(&doc)
+	if err != nil {
+		return fmt.Errorf("cannot refresh relation %v: %v", r, err)
+	}
+	r.doc = doc
+	return nil
+}
+
+func (r *Relation) Life() Life {
+	return r.doc.Life
+}
+
+func (r *Relation) SetLife(life Life) error {
+	if life != Dying && life != Dead {
+		panic(fmt.Errorf(`cannot set life to %q, only to "dying" or "dead"`, life))
+	}
+	sel := bson.D{
+		{"_id", r.doc.Id},
+		{"life", bson.D{{"$lte", life}}},
+	}
+	change := bson.D{{"$set", bson.D{{"life", life}}}}
+	ci, err := r.st.relations.UpdateAll(sel, change)
+	if err != nil {
+		return fmt.Errorf("cannot set life to %v for relation %v: %v", life, r, err)
+	}
+	if ci.Updated == 1 {
+		r.doc.Life = life
+	}
+	return nil
 }
 
 // Id returns the integer internal relation key. This is exposed
