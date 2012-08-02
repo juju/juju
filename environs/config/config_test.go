@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/version"
 	"os"
 	"path/filepath"
 	"testing"
@@ -130,7 +131,7 @@ func (*ConfigSuite) TestConfig(c *C) {
 		if series, _ := test.attrs["default-series"].(string); series != "" {
 			c.Assert(cfg.DefaultSeries(), Equals, series)
 		} else {
-			c.Assert(cfg.DefaultSeries(), Equals, config.CurrentSeries)
+			c.Assert(cfg.DefaultSeries(), Equals, version.Current.Series)
 		}
 
 		if path, _ := test.attrs["authorized-keys-path"].(string); path != "" {
@@ -160,7 +161,7 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 		"type":            "my-type",
 		"name":            "my-name",
 		"authorized-keys": "my-keys",
-		"default-series":  config.CurrentSeries,
+		"default-series":  version.Current.Series,
 		"unknown":         "my-unknown",
 	}
 	cfg, err := config.New(attrs)

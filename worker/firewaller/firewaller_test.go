@@ -97,7 +97,7 @@ func (s *FirewallerSuite) TestNotExposedService(c *C) {
 	c.Assert(err, IsNil)
 	err = m.SetInstanceId("testing-0")
 	c.Assert(err, IsNil)
-	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c))
+	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c), nil)
 	c.Assert(err, IsNil)
 
 	svc, err := s.State.AddService("wordpress", s.charm)
@@ -128,7 +128,7 @@ func (s *FirewallerSuite) TestExposedService(c *C) {
 	c.Assert(err, IsNil)
 	err = m.SetInstanceId("testing-0")
 	c.Assert(err, IsNil)
-	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c))
+	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c), nil)
 	c.Assert(err, IsNil)
 
 	svc, err := s.State.AddService("wordpress", s.charm)
@@ -161,13 +161,13 @@ func (s *FirewallerSuite) TestMultipleUnits(c *C) {
 	c.Assert(err, IsNil)
 	err = m1.SetInstanceId("testing-0")
 	c.Assert(err, IsNil)
-	inst1, err := s.environ.StartInstance(m1.Id(), s.StateInfo(c))
+	inst1, err := s.environ.StartInstance(m1.Id(), s.StateInfo(c), nil)
 	c.Assert(err, IsNil)
 	m2, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 	err = m2.SetInstanceId("testing-1")
 	c.Assert(err, IsNil)
-	inst2, err := s.environ.StartInstance(m2.Id(), s.StateInfo(c))
+	inst2, err := s.environ.StartInstance(m2.Id(), s.StateInfo(c), nil)
 	c.Assert(err, IsNil)
 
 	svc, err := s.State.AddService("wordpress", s.charm)
@@ -204,7 +204,7 @@ func (s *FirewallerSuite) TestFirewallerStartWithState(c *C) {
 	c.Assert(err, IsNil)
 	err = m.SetInstanceId("testing-0")
 	c.Assert(err, IsNil)
-	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c))
+	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c), nil)
 	c.Assert(err, IsNil)
 
 	svc, err := s.State.AddService("wordpress", s.charm)
@@ -236,7 +236,7 @@ func (s *FirewallerSuite) TestFirewallerStartWithPartialState(c *C) {
 	c.Assert(err, IsNil)
 	err = m.SetInstanceId("testing-0")
 	c.Assert(err, IsNil)
-	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c))
+	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c), nil)
 	c.Assert(err, IsNil)
 
 	svc, err := s.State.AddService("wordpress", s.charm)
