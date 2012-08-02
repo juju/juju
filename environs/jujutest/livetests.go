@@ -306,7 +306,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 	c.Assert(err, IsNil)
 	tools := &state.Tools{
 		Binary: vers,
-		URL:           url,
+		URL:    url,
 	}
 
 	inst, err := t.Env.StartInstance(4, InvalidStateInfo, tools)
