@@ -3,8 +3,8 @@ package state_test
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/version"
 	"sort"
 	"time"
 )
@@ -287,16 +287,16 @@ func unitNames(units []*state.Unit) (s []string) {
 type machineInfo struct {
 	tools         *state.Tools
 	proposedTools *state.Tools
-	instanceId      string
+	instanceId    string
 }
 
 func tools(tools int, url string) *state.Tools {
-	return &state.Tools {
+	return &state.Tools{
 		URL: url,
-		Binary: version.Binary {
+		Binary: version.Binary{
 			Number: version.Number{0, 0, tools},
 			Series: "series",
-			Arch: "arch",
+			Arch:   "arch",
 		},
 	}
 }
@@ -310,7 +310,7 @@ var watchMachineTests = []struct {
 			return nil
 		},
 		machineInfo{
-			tools: &state.Tools{},
+			tools:         &state.Tools{},
 			proposedTools: &state.Tools{},
 		},
 	},
@@ -319,7 +319,7 @@ var watchMachineTests = []struct {
 			return m.ProposeAgentTools(tools(1, "foo"))
 		},
 		machineInfo{
-			tools: &state.Tools{},
+			tools:         &state.Tools{},
 			proposedTools: tools(1, "foo"),
 		},
 	},
@@ -328,7 +328,7 @@ var watchMachineTests = []struct {
 			return m.ProposeAgentTools(tools(2, "foo"))
 		},
 		machineInfo{
-			tools: &state.Tools{},
+			tools:         &state.Tools{},
 			proposedTools: tools(2, "foo"),
 		},
 	},
@@ -337,7 +337,7 @@ var watchMachineTests = []struct {
 			return m.ProposeAgentTools(tools(2, "bar"))
 		},
 		machineInfo{
-			tools: &state.Tools{},
+			tools:         &state.Tools{},
 			proposedTools: tools(2, "bar"),
 		},
 	},
@@ -346,9 +346,9 @@ var watchMachineTests = []struct {
 			return m.SetInstanceId("m-foo")
 		},
 		machineInfo{
-			tools: &state.Tools{},
+			tools:         &state.Tools{},
 			proposedTools: tools(2, "bar"),
-			instanceId:      "m-foo",
+			instanceId:    "m-foo",
 		},
 	},
 	{
@@ -356,9 +356,9 @@ var watchMachineTests = []struct {
 			return m.SetInstanceId("")
 		},
 		machineInfo{
-			tools: &state.Tools{},
+			tools:         &state.Tools{},
 			proposedTools: tools(2, "bar"),
-			instanceId:      "",
+			instanceId:    "",
 		},
 	},
 	{
