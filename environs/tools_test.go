@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
@@ -53,8 +52,8 @@ func mkVersion(vers string) version.Number {
 func mkToolsPath(vers string) string {
 	return environs.ToolsPath(version.Binary{
 		Number: mkVersion(vers),
-		Series: config.CurrentSeries,
-		Arch:   config.CurrentArch,
+		Series: version.Current.Series,
+		Arch:   version.Current.Arch,
 	})
 }
 
@@ -219,11 +218,11 @@ var findToolsTests = []struct {
 		environs.ToolsPath(version.Binary{
 			Number: mkVersion("1.9.9"),
 			Series: "foo",
-			Arch:   config.CurrentArch,
+			Arch:   version.Current.Arch,
 		}),
 		environs.ToolsPath(version.Binary{
 			Number: mkVersion("1.9.9"),
-			Series: config.CurrentSeries,
+			Series: version.Current.Series,
 			Arch:   "foo",
 		}),
 		mkToolsPath("1.0.0"),
@@ -248,8 +247,8 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 		}
 		vers := version.Binary{
 			Number: tt.version,
-			Series: config.CurrentSeries,
-			Arch:   config.CurrentArch,
+			Series: version.Current.Series,
+			Arch:   version.Current.Arch,
 		}
 		tools, err := environs.FindTools(t.env, vers)
 		if tt.err != "" {
