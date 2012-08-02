@@ -71,7 +71,7 @@ type Unit struct {
 	key          string
 	serviceName  string
 	principalKey string
-	agentVersion
+	agentTools
 }
 
 // ServiceName returns the service name.
@@ -117,7 +117,7 @@ func newUnit(st *State, serviceName string, key, principalKey string) *Unit {
 		key:          key,
 		principalKey: principalKey,
 	}
-	u.agentVersion = agentVersion{
+	u.agentTools = agentTools{
 		zk:    st.zk,
 		path:  u.zkPath(),
 		agent: "unit",
