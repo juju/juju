@@ -11,14 +11,6 @@ import (
 	"net/url"
 )
 
-type Life int
-
-const (
-	Alive Life = 1 + iota
-	Dying
-	Dead
-)
-
 // State represents the state of an environment
 // managed by juju.
 type State struct {
