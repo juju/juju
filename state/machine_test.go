@@ -3,6 +3,7 @@ package state_test
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/state"
 	"sort"
 	"time"
@@ -46,13 +47,13 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
 	c.Assert(err, IsNil)
 
 	id, err := s.machine.InstanceId()
-	c.Assert(err.Error(), Equals, "invalid internal machine id type map[interface {}]interface {} for machine 0")
+	c.Assert(err.Error(), Equals, `invalid type of value map[interface {}]interface {}{} of instance id of machine 0: map[interface {}]interface {}`)
 	c.Assert(id, Equals, "")
 }
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {
 	id, err := s.machine.InstanceId()
-	c.Assert(err, FitsTypeOf, &state.NoInstanceIdError{})
+	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
 	c.Assert(id, Equals, "")
 }
 
@@ -63,7 +64,7 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
 	c.Assert(err, IsNil)
 
 	id, err := s.machine.InstanceId()
-	c.Assert(err, FitsTypeOf, &state.NoInstanceIdError{})
+	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
 	c.Assert(id, Equals, "")
 }
 
@@ -281,4 +282,135 @@ func unitNames(units []*state.Unit) (s []string) {
 		s = append(s, u.Name())
 	}
 	return
+}
+
+type machineInfo struct {
+	tools         *state.Tools
+	proposedTools *state.Tools
+	instanceId      string
+}
+
+func tools(tools int, url string) *state.Tools {
+	return &state.Tools {
+		URL: url,
+		Binary: version.Binary {
+			Number: version.Number{0, 0, tools},
+			Series: "series",
+			Arch: "arch",
+		},
+	}
+}
+
+var watchMachineTests = []struct {
+	test func(m *state.Machine) error
+	want machineInfo
+}{
+	{
+		func(*state.Machine) error {
+			return nil
+		},
+		machineInfo{
+			tools: &state.Tools{},
+			proposedTools: &state.Tools{},
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.ProposeAgentTools(tools(1, "foo"))
+		},
+		machineInfo{
+			tools: &state.Tools{},
+			proposedTools: tools(1, "foo"),
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.ProposeAgentTools(tools(2, "foo"))
+		},
+		machineInfo{
+			tools: &state.Tools{},
+			proposedTools: tools(2, "foo"),
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.ProposeAgentTools(tools(2, "bar"))
+		},
+		machineInfo{
+			tools: &state.Tools{},
+			proposedTools: tools(2, "bar"),
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.SetInstanceId("m-foo")
+		},
+		machineInfo{
+			tools: &state.Tools{},
+			proposedTools: tools(2, "bar"),
+			instanceId:      "m-foo",
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.SetInstanceId("")
+		},
+		machineInfo{
+			tools: &state.Tools{},
+			proposedTools: tools(2, "bar"),
+			instanceId:      "",
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.SetAgentTools(tools(3, "baz"))
+		},
+		machineInfo{
+			proposedTools: tools(2, "bar"),
+			tools:         tools(3, "baz"),
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.SetAgentTools(tools(4, "khroomph"))
+		},
+		machineInfo{
+			proposedTools: tools(2, "bar"),
+			tools:         tools(4, "khroomph"),
+		},
+	},
+}
+
+func (s *MachineSuite) TestWatchMachine(c *C) {
+	w := s.machine.Watch()
+	defer func() {
+		c.Assert(w.Stop(), IsNil)
+	}()
+	for i, test := range watchMachineTests {
+		c.Logf("test %d", i)
+		err := test.test(s.machine)
+		c.Assert(err, IsNil)
+		select {
+		case m, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(m.Id(), Equals, s.machine.Id())
+			var info machineInfo
+			info.tools, err = m.AgentTools()
+			c.Assert(err, IsNil)
+			info.proposedTools, err = m.ProposedAgentTools()
+			c.Assert(err, IsNil)
+			info.instanceId, err = m.InstanceId()
+			if _, ok := err.(*state.NotFoundError); !ok {
+				c.Assert(err, IsNil)
+			}
+			c.Assert(info, DeepEquals, test.want)
+		case <-time.After(500 * time.Millisecond):
+			c.Fatalf("did not get change: %v", test.want)
+		}
+	}
+	select {
+	case got := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
 }

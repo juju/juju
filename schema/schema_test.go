@@ -63,7 +63,7 @@ func (s *S) TestOneOf(c *C) {
 
 	out, err = sch.Coerce("bar", aPath)
 	c.Assert(out, IsNil)
-	c.Assert(err, ErrorMatches, `<path>: unsupported value`)
+	c.Assert(err, ErrorMatches, `<path>: unexpected value "bar"`)
 }
 
 func (s *S) TestBool(c *C) {

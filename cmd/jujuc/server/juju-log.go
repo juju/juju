@@ -10,13 +10,13 @@ import (
 
 // JujuLogCommand implements the juju-log command.
 type JujuLogCommand struct {
-	*ClientContext
+	*HookContext
 	Message string
 	Debug   bool
 }
 
-func NewJujuLogCommand(ctx *ClientContext) (cmd.Command, error) {
-	return &JujuLogCommand{ClientContext: ctx}, nil
+func NewJujuLogCommand(ctx *HookContext) (cmd.Command, error) {
+	return &JujuLogCommand{HookContext: ctx}, nil
 }
 
 func (c *JujuLogCommand) Info() *cmd.Info {
@@ -37,17 +37,12 @@ func (c *JujuLogCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *JujuLogCommand) Run(_ *cmd.Context) error {
-	s := []string{}
-	if c.LocalUnitName != "" {
-		s = append(s, c.LocalUnitName)
+	s := []string{c.Unit.Name()}
+	if c.RelationId != -1 {
+		_, id := c.relationIdentifiers()
+		s = append(s, id)
 	}
-	if c.RelationName != "" {
-		s = append(s, c.RelationName)
-	}
-	msg := c.Message
-	if len(s) > 0 {
-		msg = strings.Join(s, " ") + ": " + msg
-	}
+	msg := strings.Join(s, " ") + ": " + c.Message
 	if c.Debug {
 		log.Debugf("%s", msg)
 	} else {

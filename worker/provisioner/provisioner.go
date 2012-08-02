@@ -22,14 +22,9 @@ type Provisioner struct {
 }
 
 // NewProvisioner returns a Provisioner.
-func NewProvisioner(info *state.Info) (*Provisioner, error) {
-	st, err := state.Open(info)
-	if err != nil {
-		return nil, err
-	}
+func NewProvisioner(st *state.State) (*Provisioner, error) {
 	p := &Provisioner{
 		st:        st,
-		info:      info,
 		instances: make(map[int]environs.Instance),
 		machines:  make(map[string]*state.Machine),
 	}
@@ -39,7 +34,6 @@ func NewProvisioner(info *state.Info) (*Provisioner, error) {
 
 func (p *Provisioner) loop() {
 	defer p.tomb.Done()
-	defer p.st.Close()
 	environWatcher := p.st.WatchEnvironConfig()
 	defer watcher.Stop(environWatcher, &p.tomb)
 
@@ -114,6 +108,11 @@ refreshState:
 	}
 }
 
+// Dying returns a channel that signals a Provisioners exit.
+func (p *Provisioner) Dying() <-chan struct{} {
+	return p.tomb.Dying()
+}
+
 // Wait waits for the Provisioner to exit.
 func (p *Provisioner) Wait() error {
 	return p.tomb.Wait()
@@ -173,7 +172,7 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 	for _, m := range machines {
 		id, err := m.InstanceId()
 		if err != nil {
-			if _, ok := err.(*state.NoInstanceIdError); !ok {
+			if _, ok := err.(*state.NotFoundError); !ok {
 				return nil, err
 			}
 		}
@@ -192,7 +191,7 @@ func (p *Provisioner) findNotStarted(machines []*state.Machine) ([]*state.Machin
 	for _, m := range machines {
 		id, err := m.InstanceId()
 		if err != nil {
-			if _, ok := err.(*state.NoInstanceIdError); !ok {
+			if _, ok := err.(*state.NotFoundError); !ok {
 				return nil, err
 			}
 			notstarted = append(notstarted, m)
@@ -217,7 +216,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	// however as the PA only knows one state.Info, and that info is used by MAs and 
 	// UAs to locate the ZK for this environment, it is logical to use the same 
 	// state.Info as the PA. 
-	inst, err := p.environ.StartInstance(m.Id(), p.info)
+	inst, err := p.environ.StartInstance(m.Id(), p.info, nil)
 	if err != nil {
 		log.Printf("provisioner cannot start machine %s: %v", m, err)
 		return err

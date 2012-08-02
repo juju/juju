@@ -55,7 +55,7 @@ func registerAmazonTests() {
 				Name:             name,
 				ConsistencyDelay: 5 * time.Second,
 				CanOpenState:     true,
-				HasProvisioner:   false, // TODO(dfc) waiting on juju/conn.Deploy
+				HasProvisioner:   true,
 			},
 		})
 	}
@@ -98,7 +98,7 @@ func (t *LiveTests) TearDownTest(c *C) {
 }
 
 func (t *LiveTests) TestInstanceDNSName(c *C) {
-	inst, err := t.Env.StartInstance(30, jujutest.InvalidStateInfo)
+	inst, err := t.Env.StartInstance(30, jujutest.InvalidStateInfo, nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst})
 	dns, err := inst.WaitDNSName()
@@ -148,7 +148,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 		})
 	c.Assert(err, IsNil)
 
-	inst0, err := t.Env.StartInstance(98, jujutest.InvalidStateInfo)
+	inst0, err := t.Env.StartInstance(98, jujutest.InvalidStateInfo, nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst0})
 
@@ -156,7 +156,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	// before starting it, to check that it's reused correctly.
 	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
-	inst1, err := t.Env.StartInstance(99, jujutest.InvalidStateInfo)
+	inst1, err := t.Env.StartInstance(99, jujutest.InvalidStateInfo, nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 
@@ -231,16 +231,14 @@ func (t *LiveTests) TestDestroy(c *C) {
 	c.Assert(len(names) >= 2, Equals, true)
 
 	t.Destroy(c)
-
 	for i := 0; i < 30; i++ {
-		_, err = s.List("")
-		if err != nil {
+		names, err = s.List("")
+		if len(names) == 0 {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	var notFoundError *environs.NotFoundError
-	c.Assert(err, FitsTypeOf, notFoundError)
+	c.Assert(names, HasLen, 0)
 }
 
 func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {
@@ -260,12 +258,12 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	// It would be nice if this test was in jujutest, but
 	// there's no way for jujutest to fabricate a valid-looking
 	// instance id.
-	inst0, err := t.Env.StartInstance(40, jujutest.InvalidStateInfo)
+	inst0, err := t.Env.StartInstance(40, jujutest.InvalidStateInfo, nil)
 	c.Assert(err, IsNil)
 
 	inst1 := ec2.FabricateInstance(inst0, "i-aaaaaaaa")
 
-	inst2, err := t.Env.StartInstance(41, jujutest.InvalidStateInfo)
+	inst2, err := t.Env.StartInstance(41, jujutest.InvalidStateInfo, nil)
 	c.Assert(err, IsNil)
 
 	err = t.Env.StopInstances([]environs.Instance{inst0, inst1, inst2})

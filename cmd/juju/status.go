@@ -26,7 +26,10 @@ func (c *StatusCommand) Info() *cmd.Info {
 
 func (c *StatusCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	addEnvironFlags(&c.EnvName, f)
-	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
+		"yaml": cmd.FormatYaml,
+		"json": cmd.FormatJson,
+	})
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
@@ -125,7 +128,7 @@ func processMachines(machines map[int]*state.Machine, instances map[string]envir
 	r := make(map[int]interface{})
 	for _, m := range machines {
 		instid, err := m.InstanceId()
-		if err, ok := err.(*state.NoInstanceIdError); ok {
+		if err, ok := err.(*state.NotFoundError); ok {
 			r[m.Id()] = map[string]interface{}{
 				"instance-id": "pending",
 			}

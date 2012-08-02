@@ -109,6 +109,50 @@ func readConfigNode(zk *zookeeper.Conn, path string) (*ConfigNode, error) {
 	return c, nil
 }
 
+// NotFoundError represents the error that something is not found.
+type NotFoundError struct {
+	what string
+}
+
+func (e *NotFoundError) Error() string {
+	return fmt.Sprintf("%s not found", e.what)
+}
+
+// getConfigString returns the string-valued attribute in the ConfigNode at path.
+// If there is an error, the given format and arguments are used to construct
+// a string describing the attribute.
+func getConfigString(zk *zookeeper.Conn, path, attr string, whatFmt string, whatArgs ...interface{}) (string, error) {
+	cn, err := readConfigNode(zk, path)
+	if err != nil {
+		return "", fmt.Errorf("cannot get %s: %v", fmt.Sprintf(whatFmt, whatArgs...), err)
+	}
+	val, ok := cn.Get(attr)
+	if !ok {
+		return "", &NotFoundError{fmt.Sprintf(whatFmt, whatArgs...)}
+	}
+	sval, ok := val.(string)
+	if !ok {
+		return "", fmt.Errorf("invalid type of value %#v of %s: %T", val, fmt.Sprintf(whatFmt, whatArgs...), val)
+	}
+	return sval, nil
+}
+
+// setConfigString sets the value of the attribute in the ConfigNode at path.
+// If there is an error, the given format and arguments are used to construct
+// a string describing the attribute.
+func setConfigString(zk *zookeeper.Conn, path, attr, val, whatFmt string, whatArgs ...interface{}) error {
+	config, err := readConfigNode(zk, path)
+	if err != nil {
+		return err
+	}
+	config.Set(attr, val)
+	_, err = config.Write()
+	if err != nil {
+		return fmt.Errorf("cannot set %s to %q: %v", fmt.Sprintf(whatFmt, whatArgs...), val, err)
+	}
+	return nil
+}
+
 // Read (re)reads the node data into c.
 func (c *ConfigNode) Read() (err error) {
 	defer errorContextf(&err, "cannot read configuration node %q", c.path)
