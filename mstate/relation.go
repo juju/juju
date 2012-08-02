@@ -115,6 +115,9 @@ func (r *Relation) SetLife(life Life) error {
 	if life != Dying && life != Dead {
 		panic(fmt.Errorf(`cannot set life to %q, only to "dying" or "dead"`, life))
 	}
+	if !r.doc.Life.isNextValid(life) {
+		return fmt.Errorf("illegal lifecycle state change from %q to %q", r.doc.Life, life)
+	}
 	sel := bson.D{
 		{"_id", r.doc.Id},
 		{"life", bson.D{{"$lte", life}}},
