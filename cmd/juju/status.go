@@ -141,7 +141,7 @@ func processMachines(machines map[int]*state.Machine, instances map[string]envir
 				// yet the environ cannot find that id. 
 				return nil, fmt.Errorf("instance %s for machine %d not found", instid, m.Id())
 			}
-			r[m.Id()] = chkError(processMachine(m, instance))
+			r[m.Id()] = checkError(processMachine(m, instance))
 		}
 	}
 	return r, nil
@@ -166,7 +166,7 @@ func processMachine(machine *state.Machine, instance environs.Instance) (map[str
 func processServices(services map[string]*state.Service) (map[string]interface{}, error) {
 	r := m()
 	for _, s := range services {
-		r[s.Name()] = chkError(processService(s))
+		r[s.Name()] = checkError(processService(s))
 	}
 	return r, nil
 }
@@ -190,7 +190,7 @@ func processService(service *state.Service) (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	u := chkError(processUnits(units))
+	u := checkError(processUnits(units))
 	if len(u) > 0 {
 		r["units"] = u
 	}
@@ -202,7 +202,7 @@ func processService(service *state.Service) (map[string]interface{}, error) {
 func processUnits(units []*state.Unit) (map[string]interface{}, error) {
 	r := m()
 	for _, unit := range units {
-		r[unit.Name()] = chkError(processUnit(unit))
+		r[unit.Name()] = checkError(processUnit(unit))
 	}
 	return r, nil
 }
@@ -263,7 +263,7 @@ func jsonify(r map[string]interface{}) map[string]map[string]interface{} {
 
 func m() map[string]interface{} { return make(map[string]interface{}) }
 
-func chkError(m map[string]interface{}, err error) map[string]interface{} {
+func checkError(m map[string]interface{}, err error) map[string]interface{} {
 	if err != nil {
 		return map[string]interface{}{"status-error": err.Error()}
 	}
