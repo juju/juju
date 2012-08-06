@@ -8,33 +8,37 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/downloader"
+	"launchpad.net/juju-core/testing"
 	"math/rand"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
-	"testing"
+	stdtesting "testing"
 	"time"
 )
 
 type suite struct {
 	downloader *downloader.Downloader
 	dir        string
+	testing.LoggingSuite
 }
 
 var _ = Suite(&suite{})
 
 func (s *suite) SetUpTest(c *C) {
+	s.LoggingSuite.SetUpTest(c)
 	s.downloader = downloader.New()
 	s.dir = c.MkDir()
 }
 
 func (s *suite) TearDownTest(c *C) {
 	s.downloader.Stop()
+	s.LoggingSuite.TearDownTest(c)
 }
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	TestingT(t)
 }
 
@@ -202,10 +206,51 @@ func (s *suite) TestInterruptDownload(c *C) {
 	// start content1 http get going again.
 	content1.started <- true
 	status := <-s.downloader.Done()
-	c.Assert(status.URL, Equals, content2.url)
-	c.Assert(status.Dir, Equals, dest2)
-	c.Assert(status.Err, IsNil)
+	c.Check(status.URL, Equals, content2.url)
+	c.Check(status.Dir, Equals, dest2)
+	c.Check(status.Err, IsNil)
 	assertDirContents(c, dest2, content2.url, files2)
+}
+
+func (s *suite) TestDuplicateIndependentDownload(c *C) {
+	l := newServer()
+	defer l.close()
+
+	// both downloads will download to the same destination directory.
+	dest := filepath.Join(s.dir, "dest")
+
+	// start a downloader fetching content, but make sure it's blocked.
+	content1 := l.addContent("/x.tgz", makeArchive(newFile("test1", tar.TypeReg, "")))
+	content1.started = make(chan bool)
+	s.downloader.Start(content1.url, dest)
+	<-content1.started
+
+	// start another downloader downloading different content
+	// to the same directory.
+	files2 := []*file{
+		newFile("test2", tar.TypeReg, "test contents"),
+	}
+	content2 := l.addContent("/y.tgz", makeArchive(files2...))
+	downloader2 := downloader.New()
+	downloader2.Start(content2.url, dest)
+
+	status := <-downloader2.Done()
+	c.Assert(status.URL, Equals, content2.url)
+	c.Assert(status.Dir, Equals, dest)
+	c.Assert(status.Err, IsNil)
+	assertDirContents(c, dest, content2.url, files2)
+
+	// allow the first downloader to complete and find that
+	// the directory has been created in the meantime.
+	content1.started <- true
+	status = <-s.downloader.Done()
+	c.Check(status.URL, Equals, content2.url)
+	c.Check(status.Dir, Equals, dest)
+	c.Check(status.Err, IsNil)
+	// check the contents again to make sure they have not been
+	// overwritten.
+	assertDirContents(c, dest, content2.url, files2)
+	assertDirNames(c, s.dir, []string{"dest"})
 }
 
 // assertDirNames asserts that the given directory

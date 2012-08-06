@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/tomb"
 	"net/http"
 	"os"
@@ -122,7 +123,9 @@ func (d *downloadOne) download() (err error) {
 	}
 	defer func() {
 		if err != nil {
-			os.RemoveAll(tmpdir)
+			if err := os.RemoveAll(tmpdir); err != nil {
+				log.Printf("downloader: cannot remove download directory %q: %v", err)
+			}
 		}
 	}()
 	resp, err := http.Get(d.url)
@@ -141,7 +144,24 @@ func (d *downloadOne) download() (err error) {
 	if err := ioutil.WriteFile(filepath.Join(tmpdir, "downloaded-url.txt"), []byte(d.url), 0666); err != nil {
 		return err
 	}
-	return os.Rename(tmpdir, d.dir)
+	err = os.Rename(tmpdir, d.dir)
+	// If we've failed to rename the directory, it may be because
+	// another downloading process has done the download for us, so
+	// check to see if there's a valid downloaded-url.txt file - if
+	// so, we throw away our download and continue without error.
+	if err != nil {
+		if err := os.RemoveAll(tmpdir); err != nil {
+			log.Printf("downloader: cannot remove download directory %q: %v", err)
+		}
+
+		url, err := ioutil.ReadFile(filepath.Join(d.dir, "downloaded-url.txt"))
+		if err == nil && len(url) > 0 {
+			// Update the url to reflect the actual url downloaded into the directory.
+			d.url = string(url)
+			return nil
+		}
+	}
+	return err
 }
 
 // unarchive unarchives the gzipped tar archive from the given reader
