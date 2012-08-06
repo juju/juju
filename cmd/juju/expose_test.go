@@ -8,39 +8,42 @@ import (
 	"launchpad.net/juju-core/testing"
 )
 
-type AddUnitSuite struct {
+type ExposeSuite struct {
 	DeploySuite
 }
 
-var _ = Suite(&AddUnitSuite{})
+var _ = Suite(&ExposeSuite{})
 
-func (s *AddUnitSuite) SetUpTest(c *C) {
+func (s *ExposeSuite) SetUpTest(c *C) {
 	s.DeploySuite.SetUpTest(c)
 }
 
-func (s *AddUnitSuite) TearDownTest(c *C) {
+func (s *ExposeSuite) TearDownTest(c *C) {
 	s.DeploySuite.TearDownTest(c)
 }
 
-func runAddUnit(c *C, args ...string) error {
-	com := &AddUnitCommand{}
+func runExpose(c *C, args ...string) error {
+	com := &ExposeCommand{}
 	err := com.Init(newFlagSet(), args)
 	c.Assert(err, IsNil)
 	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}})
 }
 
-func (s *AddUnitSuite) TestAddUnit(c *C) {
+func (s *ExposeSuite) assertExposed(c *C, service string) {
+	svc, err := s.st.Service(service)
+	c.Assert(err, IsNil)
+	exposed, err := svc.IsExposed()
+	c.Assert(exposed, Equals, true)
+}
+
+func (s *ExposeSuite) TestAddUnit(c *C) {
 	testing.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	s.assertService(c, "some-service-name", curl, 1, 0)
 
-	err = runAddUnit(c, "some-service-name")
+	err = runExpose(c, "some-service-name")
 	c.Assert(err, IsNil)
-	s.assertService(c, "some-service-name", curl, 2, 0)
-
-	err = runAddUnit(c, "--num-units", "2", "some-service-name")
-	c.Assert(err, IsNil)
-	s.assertService(c, "some-service-name", curl, 4, 0)
+	s.assertExposed(c, "some-service-name")
 }

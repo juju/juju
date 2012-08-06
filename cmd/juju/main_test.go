@@ -141,6 +141,7 @@ var commandNames = []string{
 	"bootstrap",
 	"deploy",
 	"destroy-environment",
+	"expose",
 	"status",
 }
 
