@@ -42,13 +42,5 @@ func (c *ExposeCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	st, err := conn.State()
-	if err != nil {
-		return err
-	}
-	service, err := st.Service(c.ServiceName)
-	if err != nil {
-		return err
-	}
-	return service.SetExposed()
+	return conn.Expose(c.ServiceName)
 }

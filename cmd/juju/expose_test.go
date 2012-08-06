@@ -36,7 +36,7 @@ func (s *ExposeSuite) assertExposed(c *C, service string) {
 	c.Assert(exposed, Equals, true)
 }
 
-func (s *ExposeSuite) TestAddUnit(c *C) {
+func (s *ExposeSuite) TestExpose(c *C) {
 	testing.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, IsNil)
@@ -46,4 +46,7 @@ func (s *ExposeSuite) TestAddUnit(c *C) {
 	err = runExpose(c, "some-service-name")
 	c.Assert(err, IsNil)
 	s.assertExposed(c, "some-service-name")
+
+	err = runExpose(c, "nonexistent-service")
+	c.Assert(err, ErrorMatches, `.*service with name "nonexistent-service" not found`)
 }
