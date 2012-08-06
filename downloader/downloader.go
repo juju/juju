@@ -19,8 +19,8 @@ type Status struct {
 	URL string
 	// Dir holds the directory that it has been downloaded to.
 	Dir string
-	// Error describes any error encountered downloading the tools.
-	Error error
+	// Err describes any error encountered downloading the tools.
+	Err error
 }
 
 // Downloader can download an archived directory from the network.
@@ -72,6 +72,7 @@ func (d *Downloader) Done() <-chan Status {
 	return d.done
 }
 
+// downloadOne runs a single download attempt.
 type downloadOne struct {
 	tomb tomb.Tomb
 	done chan Status
@@ -91,9 +92,9 @@ func (d *downloadOne) run() {
 		err = fmt.Errorf("cannot download %q to %q: %v", d.url, d.dir, err)
 	}
 	status := Status{
-		URL:   d.url,
-		Dir:   d.dir,
-		Error: err,
+		URL: d.url,
+		Dir: d.dir,
+		Err: err,
 	}
 	// If we have been interrupted while downloading
 	// then don't try to send the status.

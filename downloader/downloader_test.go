@@ -68,7 +68,7 @@ func (s *suite) TestDownloader(c *C) {
 	dest := filepath.Join(s.dir, "dest")
 	s.downloader.Start(content.url, dest)
 	status := <-s.downloader.Done()
-	c.Assert(status.Error, IsNil)
+	c.Assert(status.Err, IsNil)
 	c.Assert(status.Dir, Equals, dest)
 	c.Assert(status.URL, Equals, content.url)
 	assertDirContents(c, dest, content.url, files)
@@ -127,7 +127,7 @@ func (s *suite) TestBadDownloadData(c *C) {
 		status := <-s.downloader.Done()
 		c.Assert(status.Dir, Equals, dest)
 		c.Assert(status.URL, Equals, content.url)
-		c.Assert(status.Error, ErrorMatches, `cannot download ".*" to ".*": `+t.err)
+		c.Assert(status.Err, ErrorMatches, `cannot download ".*" to ".*": `+t.err)
 	}
 }
 
@@ -140,7 +140,7 @@ func (s *suite) TestDownloadTwice(c *C) {
 	dest := filepath.Join(s.dir, "dest")
 	s.downloader.Start(content.url, dest)
 	status := <-s.downloader.Done()
-	c.Assert(status.Error, IsNil)
+	c.Assert(status.Err, IsNil)
 
 	// Stop the web server and check that
 	// a download to the same directory succeeds
@@ -148,7 +148,7 @@ func (s *suite) TestDownloadTwice(c *C) {
 	l.close()
 	s.downloader.Start(content.url, dest)
 	status = <-s.downloader.Done()
-	c.Assert(status.Error, IsNil)
+	c.Assert(status.Err, IsNil)
 	assertDirContents(c, dest, content.url, files)
 }
 
@@ -204,7 +204,7 @@ func (s *suite) TestInterruptDownload(c *C) {
 	status := <-s.downloader.Done()
 	c.Assert(status.URL, Equals, content2.url)
 	c.Assert(status.Dir, Equals, dest2)
-	c.Assert(status.Error, IsNil)
+	c.Assert(status.Err, IsNil)
 	assertDirContents(c, dest2, content2.url, files2)
 }
 
