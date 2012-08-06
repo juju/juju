@@ -8,7 +8,7 @@ import (
 	"launchpad.net/juju-core/juju"
 )
 
-// AddUnitCommand is responsible adding a set of units to a service of the environment.
+// AddUnitCommand is responsible adding additional units to a service.
 type AddUnitCommand struct {
 	EnvName     string
 	ServiceName string
@@ -40,8 +40,8 @@ func (c *AddUnitCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return nil
 }
 
-// Run connects to the environment specified on the command line and calls 
-// service.AddUnit the specified number of times.
+// Run connects to the environment specified on the command line 
+// and calls conn.AddUnits.
 func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 	conn, err := juju.NewConn(c.EnvName)
 	if err != nil {
