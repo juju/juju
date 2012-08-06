@@ -47,6 +47,16 @@ func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	_ = conn
-	return nil
+	defer conn.Close()
+	st, err := conn.State()
+	if err != nil {
+		return err
+	}
+	service, err := st.Service(c.ServiceName)
+	if err != nil {
+		return err
+	}
+	_, err = conn.AddUnits(service, c.NumUnits)
+	return err
+
 }
