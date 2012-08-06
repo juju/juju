@@ -20,7 +20,7 @@ func NewRelationSetCommand(ctx *HookContext) (cmd.Command, error) {
 
 func (c *RelationSetCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"relation-set", "<key>=<value> [...]", "set relation settings", "",
+		"relation-set", "key=value [key=value ...]", "set relation settings", "",
 	}
 }
 
@@ -34,15 +34,12 @@ func (c *RelationSetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	}
 	args = f.Args()
 	if len(args) == 0 {
-		return fmt.Errorf("no settings specified")
+		return fmt.Errorf(`expected "key=value" parameters, got nothing`)
 	}
 	for _, kv := range args {
 		parts := strings.SplitN(kv, "=", 2)
-		if len(parts) != 2 {
-			return fmt.Errorf("cannot parse %q: no %q", kv, "=")
-		}
-		if parts[0] == "" {
-			return fmt.Errorf("cannot parse %q: no key specified", kv)
+		if len(parts) != 2 || len(parts[0]) == 0 {
+			return fmt.Errorf(`expected "key=value", got %q`, kv)
 		}
 		c.Settings[parts[0]] = parts[1]
 	}

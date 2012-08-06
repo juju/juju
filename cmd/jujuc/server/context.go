@@ -79,9 +79,8 @@ func (ctx *HookContext) hookVars(charmDir, socketPath string) []string {
 		"JUJU_UNIT_NAME=" + ctx.Unit.Name(),
 	}
 	if ctx.RelationId != -1 {
-		name, id := ctx.relationIdentifiers()
-		vars = append(vars, "JUJU_RELATION="+name)
-		vars = append(vars, "JUJU_RELATION_ID="+id)
+		vars = append(vars, "JUJU_RELATION="+ctx.envRelation())
+		vars = append(vars, "JUJU_RELATION_ID="+ctx.envRelationId())
 		if ctx.RemoteUnitName != "" {
 			vars = append(vars, "JUJU_REMOTE_UNIT="+ctx.RemoteUnitName)
 		}
@@ -121,18 +120,24 @@ func (ctx *HookContext) RunHook(hookName, charmDir, socketPath string) error {
 	return err
 }
 
-// relationIdentifiers returns the relation name and identifier exposed to
-// hooks as JUJU_RELATION and JUJU_RELATION_ID respectively. If the context
-// does not have a relation, it will return empty strings. Otherwise, it
-// will panic if the current RelationId is not a key in the Relations map.
-func (ctx *HookContext) relationIdentifiers() (string, string) {
+// envRelation returns the relation name exposed to hooks as JUJU_RELATION.
+// If the context does not have a relation, it will return an empty string.
+// Otherwise, it will panic if RelationId is not a key in the Relations map.
+func (ctx *HookContext) envRelation() string {
 	if ctx.RelationId == -1 {
-		return "", ""
+		return ""
 	}
-	ru := ctx.Relations[ctx.RelationId].ru
-	name := ru.Endpoint().RelationName
-	id := fmt.Sprintf("%s:%d", name, ctx.RelationId)
-	return name, id
+	return ctx.Relations[ctx.RelationId].ru.Endpoint().RelationName
+}
+
+// envRelationId returns the relation id exposed to hooks as JUJU_RELATION_ID.
+// If the context does not have a relation, it will return an empty string.
+// Otherwise, it will panic if RelationId is not a key in the Relations map.
+func (ctx *HookContext) envRelationId() string {
+	if ctx.RelationId == -1 {
+		return ""
+	}
+	return fmt.Sprintf("%s:%d", ctx.envRelation(), ctx.RelationId)
 }
 
 // SettingsMap is a map from unit name to relation settings.
@@ -234,8 +239,7 @@ func (ctx *RelationContext) ReadSettings(unit string) (settings map[string]inter
 // ids in context.
 func (ctx *HookContext) relationIdValue(result *int) *relationIdValue {
 	*result = ctx.RelationId
-	_, value := ctx.relationIdentifiers()
-	return &relationIdValue{result: result, ctx: ctx, value: value}
+	return &relationIdValue{result: result, ctx: ctx, value: ctx.envRelationId()}
 }
 
 // relationIdValue implements gnuflag.Value for use in relation hook commands.

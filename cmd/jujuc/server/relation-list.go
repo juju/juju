@@ -19,8 +19,7 @@ func NewRelationListCommand(ctx *HookContext) (cmd.Command, error) {
 
 func (c *RelationListCommand) Info() *cmd.Info {
 	args := "<id>"
-	_, id := c.relationIdentifiers()
-	if id != "" {
+	if id := c.envRelationId(); id != "" {
 		args = fmt.Sprintf("[<id (= %s)>]", id)
 	}
 	return &cmd.Info{
