@@ -31,6 +31,7 @@ func (s *RelationerSuite) SetUpTest(c *C) {
 	s.rel, err = s.State.AddRelation(state.RelationEndpoint{
 		"u", "ifce", "my-relation", state.RolePeer, charm.ScopeGlobal,
 	})
+	c.Assert(err, IsNil)
 	s.ru = s.AddRelationUnit(c, "u/0")
 	s.rs, err = uniter.NewRelationState(c.MkDir(), s.rel.Id())
 	c.Assert(err, IsNil)
