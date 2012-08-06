@@ -3,7 +3,10 @@ package ec2
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/version"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -23,7 +26,7 @@ var cloudinitTests = []machineConfig{
 		providerType:       "ec2",
 		provisioner:        true,
 		authorizedKeys:     "sshkey1",
-		toolsURL:           "http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
+		tools:              mkTools("1.2.3-linux-amd64"),
 		zookeeper:          true,
 	},
 	{
@@ -32,9 +35,16 @@ var cloudinitTests = []machineConfig{
 		provisioner:    false,
 		authorizedKeys: "sshkey1",
 		zookeeper:      false,
-		toolsURL:       "http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
+		tools:          mkTools("1.2.3-linux-amd64"),
 		stateInfo:      &state.Info{Addrs: []string{"zk1"}},
 	},
+}
+
+func mkTools(vers string) *state.Tools {
+	return &state.Tools{
+		URL:    "http://foo.com/tools/juju" + vers + ".tgz",
+		Binary: version.MustParseBinary(vers),
+	}
 }
 
 // cloundInitTest runs a set of tests for one of the machineConfig
@@ -47,8 +57,8 @@ type cloudinitTest struct {
 func (t *cloudinitTest) check(c *C) {
 	c.Check(t.x["apt_upgrade"], Equals, true)
 	c.Check(t.x["apt_update"], Equals, true)
-	t.checkScripts(c, "mkdir -p /var/lib/juju")
-	t.checkScripts(c, "wget.*"+regexp.QuoteMeta(t.cfg.toolsURL)+".*tar .*xz")
+	t.checkScripts(c, "mkdir -p "+filepath.ToSlash(environs.JujuDir))
+	t.checkScripts(c, "wget.*"+regexp.QuoteMeta(t.cfg.tools.URL)+".*tar .*xz")
 
 	if t.cfg.zookeeper {
 		t.checkPackage(c, "zookeeperd")
@@ -186,8 +196,12 @@ var verifyTests = []struct {
 		cfg.zookeeper = false
 		cfg.stateInfo = &state.Info{}
 	}},
+	{"missing tools", func(cfg *machineConfig) {
+		cfg.tools = nil
+		cfg.stateInfo = &state.Info{}
+	}},
 	{"missing tools URL", func(cfg *machineConfig) {
-		cfg.toolsURL = ""
+		cfg.tools = &state.Tools{}
 		cfg.stateInfo = &state.Info{}
 	}},
 }
@@ -201,7 +215,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		instanceIdAccessor: "$instance_id",
 		providerType:       "ec2",
 		machineId:          99,
-		toolsURL:           "http://foo/bar.tgz",
+		tools:              mkTools("9.9.9-linux-arble"),
 		authorizedKeys:     "sshkey1",
 		stateInfo:          &state.Info{Addrs: []string{"zkhost"}},
 	}

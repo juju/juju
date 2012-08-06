@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
 	"regexp"
 	"strings"
@@ -48,13 +49,13 @@ func stateInfoVar(fs *gnuflag.FlagSet, target *state.Info, name string, value []
 
 // AgentConf handles command-line flags shared by all agents.
 type AgentConf struct {
-	JujuDir   string // Defaults to "/var/lib/juju".
+	JujuDir   string
 	StateInfo state.Info
 }
 
 // addFlags injects common agent flags into f.
 func (c *AgentConf) addFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.JujuDir, "juju-directory", "/var/lib/juju", "juju working directory")
+	f.StringVar(&c.JujuDir, "juju-directory", environs.JujuDir, "juju working directory")
 	stateInfoVar(f, &c.StateInfo, "zookeeper-servers", nil, "zookeeper servers to connect to")
 }
 

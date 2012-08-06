@@ -2,6 +2,7 @@ package container
 
 import (
 	"fmt"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/upstart"
 	"os"
@@ -39,8 +40,6 @@ var Simple Container = simpleContainer{}
 // to choose a different directory.
 var initDir = ""
 
-var jujuDir = "/var/lib/juju"
-
 type simpleContainer struct{}
 
 func deslash(s string) string {
@@ -54,7 +53,7 @@ func service(unit *state.Unit) *upstart.Service {
 }
 
 func dirName(unit *state.Unit) string {
-	return filepath.Join(jujuDir, "units", deslash(unit.Name()))
+	return filepath.Join(environs.JujuDir, "units", deslash(unit.Name()))
 }
 
 func (simpleContainer) Deploy(unit *state.Unit) error {
@@ -89,5 +88,5 @@ func (simpleContainer) Destroy(unit *state.Unit) error {
 }
 
 func (simpleContainer) ToolsDir(*state.Unit) string {
-	return "/var/lib/juju/tools"
+	return filepath.Join(environs.JujuDir, "tools")
 }

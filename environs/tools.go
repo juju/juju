@@ -16,6 +16,11 @@ import (
 	"strings"
 )
 
+// JujuDir gives the directory where local juju data is stored.
+// The tools directories are stored inside the "tools" subdirectory
+// inside JujuDir.
+var JujuDir = filepath.FromSlash("/var/lib/juju")
+
 var toolPrefix = "tools/juju-"
 
 // ListTools returns all the tools found in the given storage
@@ -222,10 +227,24 @@ func GetTools(url, dir string) error {
 	panic("not reached")
 }
 
-// ToolsPath returns path that is used to store and
+// ToolsPath returns the path that is used to store and
 // retrieve the given version of the juju tools in a Storage.
 func ToolsPath(vers version.Binary) string {
 	return toolPrefix + vers.String() + ".tgz"
+}
+
+// ToolsDir returns the directory name that is used to store
+// binaries for the given version of the juju tools.
+func ToolsDir(vers version.Binary) string {
+	return filepath.Join(JujuDir, filepath.FromSlash(ToolsPath(vers)))
+}
+
+// AgentToolsDir returns the directory name that
+// is used to store binaries for the tools used by
+// the given agent. Conventionally it is a symbolic
+// link to the actual tools directory.
+func AgentToolsDir(agentName string) string {
+	return filepath.Join(JujuDir, "tools", agentName)
 }
 
 // FindTools tries to find a set of tools compatible with the given
