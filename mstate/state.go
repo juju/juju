@@ -31,7 +31,7 @@ func (l Life) String() string {
 }
 
 var transitions = [Nlife][Nlife]bool{
-	Alive: {Alive: true, Dying: true},
+	Alive: {Dying: true},
 	Dying: {Dying: true, Dead: true},
 	Dead:  {Dead: true},
 }
