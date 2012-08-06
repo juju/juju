@@ -55,7 +55,7 @@ type AgentConf struct {
 
 // addFlags injects common agent flags into f.
 func (c *AgentConf) addFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.JujuDir, "juju-directory", environs.JujuDir, "juju working directory")
+	f.StringVar(&c.JujuDir, "juju-directory", environs.VarDir, "juju working directory")
 	stateInfoVar(f, &c.StateInfo, "zookeeper-servers", nil, "zookeeper servers to connect to")
 }
 

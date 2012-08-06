@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/upstart"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -19,8 +20,8 @@ type Container interface {
 	// Destroy destroys the unit's container.
 	Destroy(unit *state.Unit) error
 
-	// ToolsDir returns the directory that the tools binaries
-	// are stored in for the given unit.
+	// ToolsDir returns the slash-separated directory that the tools binaries
+	// are stored in for the given unit
 	ToolsDir(*state.Unit) string
 }
 
@@ -53,7 +54,7 @@ func service(unit *state.Unit) *upstart.Service {
 }
 
 func dirName(unit *state.Unit) string {
-	return filepath.Join(environs.JujuDir, "units", deslash(unit.Name()))
+	return filepath.FromSlash(path.Join(environs.VarDir, "units", deslash(unit.Name())))
 }
 
 func (simpleContainer) Deploy(unit *state.Unit) error {
@@ -88,5 +89,5 @@ func (simpleContainer) Destroy(unit *state.Unit) error {
 }
 
 func (simpleContainer) ToolsDir(*state.Unit) string {
-	return filepath.Join(environs.JujuDir, "tools")
+	return path.Join(environs.VarDir, "tools")
 }

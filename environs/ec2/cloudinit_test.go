@@ -6,7 +6,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
-	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -26,7 +25,7 @@ var cloudinitTests = []machineConfig{
 		providerType:       "ec2",
 		provisioner:        true,
 		authorizedKeys:     "sshkey1",
-		tools:              mkTools("1.2.3-linux-amd64"),
+		tools:              newTools("1.2.3-linux-amd64"),
 		zookeeper:          true,
 	},
 	{
@@ -35,12 +34,12 @@ var cloudinitTests = []machineConfig{
 		provisioner:    false,
 		authorizedKeys: "sshkey1",
 		zookeeper:      false,
-		tools:          mkTools("1.2.3-linux-amd64"),
+		tools:          newTools("1.2.3-linux-amd64"),
 		stateInfo:      &state.Info{Addrs: []string{"zk1"}},
 	},
 }
 
-func mkTools(vers string) *state.Tools {
+func newTools(vers string) *state.Tools {
 	return &state.Tools{
 		URL:    "http://foo.com/tools/juju" + vers + ".tgz",
 		Binary: version.MustParseBinary(vers),
@@ -57,7 +56,7 @@ type cloudinitTest struct {
 func (t *cloudinitTest) check(c *C) {
 	c.Check(t.x["apt_upgrade"], Equals, true)
 	c.Check(t.x["apt_update"], Equals, true)
-	t.checkScripts(c, "mkdir -p "+filepath.ToSlash(environs.JujuDir))
+	t.checkScripts(c, "mkdir -p "+environs.VarDir)
 	t.checkScripts(c, "wget.*"+regexp.QuoteMeta(t.cfg.tools.URL)+".*tar .*xz")
 
 	if t.cfg.zookeeper {
@@ -215,7 +214,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		instanceIdAccessor: "$instance_id",
 		providerType:       "ec2",
 		machineId:          99,
-		tools:              mkTools("9.9.9-linux-arble"),
+		tools:              newTools("9.9.9-linux-arble"),
 		authorizedKeys:     "sshkey1",
 		stateInfo:          &state.Info{Addrs: []string{"zkhost"}},
 	}

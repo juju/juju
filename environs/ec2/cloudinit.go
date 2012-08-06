@@ -8,7 +8,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/upstart"
 	"path"
-	"path/filepath"
 	"strings"
 )
 
@@ -34,7 +33,7 @@ type machineConfig struct {
 	// set), there must be at least one zookeeper address supplied.
 	stateInfo *state.Info
 
-	// tools gives the juju tools to be used on the new machine.
+	// tools is juju tools to be used on the new machine.
 	tools *state.Tools
 
 	// machineId identifies the new machine. It must be non-negative.
@@ -76,7 +75,7 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 	}
 
 	addScripts(c,
-		fmt.Sprintf("sudo mkdir -p %s", filepath.ToSlash(environs.JujuDir)),
+		fmt.Sprintf("sudo mkdir -p %s", environs.VarDir),
 		"sudo mkdir -p /var/log/juju")
 
 	// Make a directory for the tools to live in, then fetch the
@@ -128,7 +127,7 @@ func addAgentScript(c *cloudinit.Config, cfg *machineConfig, name, args string) 
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
-	toolsDir := filepath.ToSlash(environs.AgentToolsDir(name))
+	toolsDir := environs.AgentToolsDir(name)
 	addScripts(c, fmt.Sprintf("ln -s $bin %s", toolsDir))
 	svc := upstart.NewService(fmt.Sprintf("jujud-%s", name))
 	cmd := fmt.Sprintf(
@@ -158,7 +157,7 @@ func versionDir(toolsURL string) string {
 }
 
 func (cfg *machineConfig) jujuTools() string {
-	return filepath.ToSlash(environs.ToolsDir(cfg.tools.Binary))
+	return environs.ToolsDir(cfg.tools.Binary)
 }
 
 func (cfg *machineConfig) zookeeperHostAddrs() string {
