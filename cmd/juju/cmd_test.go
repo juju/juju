@@ -264,3 +264,16 @@ func (*cmdSuite) TestDeployCommandInit(c *C) {
 
 	// environment tested elsewhere
 }
+
+func initExposeCommand(args ...string) (*ExposeCommand, error) {
+	com := &ExposeCommand{}
+	return com, com.Init(newFlagSet(), args)
+}
+
+func (*cmdSuite) TestExposeCommandInit(c *C) {
+	// missing args
+	_, err := initExposeCommand()
+	c.Assert(err, ErrorMatches, "no service specified")
+
+	// environment tested elsewhere
+}
