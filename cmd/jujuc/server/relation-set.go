@@ -11,11 +11,11 @@ import (
 type RelationSetCommand struct {
 	*HookContext
 	RelationId int
-	Settings   map[string]interface{}
+	Settings   map[string]string
 }
 
 func NewRelationSetCommand(ctx *HookContext) (cmd.Command, error) {
-	return &RelationSetCommand{HookContext: ctx, Settings: map[string]interface{}{}}, nil
+	return &RelationSetCommand{HookContext: ctx, Settings: map[string]string{}}, nil
 }
 
 func (c *RelationSetCommand) Info() *cmd.Info {
@@ -38,6 +38,9 @@ func (c *RelationSetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	}
 	for _, kv := range args {
 		parts := strings.SplitN(kv, "=", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("cannot parse %q: no %q", kv, "=")
+		}
 		if parts[0] == "" {
 			return fmt.Errorf("cannot parse %q: no key specified", kv)
 		}
@@ -49,8 +52,8 @@ func (c *RelationSetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
 	node, err := c.Relations[c.RelationId].Settings()
 	for k, v := range c.Settings {
-		if s := v.(string); s != "" {
-			node.Set(k, s)
+		if v != "" {
+			node.Set(k, v)
 		} else {
 			node.Delete(k)
 		}

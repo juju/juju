@@ -43,7 +43,7 @@ var relationSetInitTests = []struct {
 	args     []string
 	err      string
 	relid    int
-	settings map[string]interface{}
+	settings map[string]string
 }{
 	{
 		ctxrelid: -1,
@@ -101,33 +101,47 @@ var relationSetInitTests = []struct {
 		err:      `no settings specified`,
 	}, {
 		ctxrelid: 1,
+		args:     []string{"haha"},
+		err:      `cannot parse "haha": no "="`,
+	}, {
+		ctxrelid: 1,
 		args:     []string{"=haha"},
 		err:      `cannot parse "=haha": no key specified`,
 	}, {
 		ctxrelid: 1,
+		args:     []string{"foo="},
+		relid:    1,
+		settings: map[string]string{"foo": ""},
+	}, {
+		ctxrelid: 1,
 		args:     []string{"foo='"},
 		relid:    1,
-		settings: map[string]interface{}{"foo": "'"},
+		settings: map[string]string{"foo": "'"},
 	}, {
 		ctxrelid: 1,
 		args:     []string{"foo=bar"},
 		relid:    1,
-		settings: map[string]interface{}{"foo": "bar"},
+		settings: map[string]string{"foo": "bar"},
+	}, {
+		ctxrelid: 1,
+		args:     []string{"foo=bar=baz=qux"},
+		relid:    1,
+		settings: map[string]string{"foo": "bar=baz=qux"},
 	}, {
 		ctxrelid: 1,
 		args:     []string{"foo=foo: bar"},
 		relid:    1,
-		settings: map[string]interface{}{"foo": "foo: bar"},
+		settings: map[string]string{"foo": "foo: bar"},
 	}, {
 		ctxrelid: 0,
 		args:     []string{"-r", "1", "foo=bar"},
 		relid:    1,
-		settings: map[string]interface{}{"foo": "bar"},
+		settings: map[string]string{"foo": "bar"},
 	}, {
 		ctxrelid: 1,
 		args:     []string{"foo=123", "bar=true", "baz=4.5", "qux="},
 		relid:    1,
-		settings: map[string]interface{}{"foo": "123", "bar": "true", "baz": "4.5", "qux": ""},
+		settings: map[string]string{"foo": "123", "bar": "true", "baz": "4.5", "qux": ""},
 	},
 }
 
@@ -150,17 +164,17 @@ func (s *RelationSetSuite) TestInit(c *C) {
 }
 
 var relationSetRunTests = []struct {
-	settings map[string]interface{}
+	settings map[string]string
 	expect   map[string]interface{}
 }{
 	{
-		map[string]interface{}{"base": ""},
+		map[string]string{"base": ""},
 		map[string]interface{}{},
 	}, {
-		map[string]interface{}{"foo": "bar"},
+		map[string]string{"foo": "bar"},
 		map[string]interface{}{"base": "value", "foo": "bar"},
 	}, {
-		map[string]interface{}{"base": "changed"},
+		map[string]string{"base": "changed"},
 		map[string]interface{}{"base": "changed"},
 	},
 }

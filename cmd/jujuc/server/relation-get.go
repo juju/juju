@@ -26,9 +26,10 @@ func (c *RelationGetCommand) Info() *cmd.Info {
 	}
 	return &cmd.Info{
 		"relation-get", args, "get relation settings", `
-Specifying a key will cause a single settings value to be written to stdout.
-If the value does not exist, nothing is written. Leaving key empty, or setting
-it to "-", will cause all keys and values to be written.
+relation-get prints the value of a unit's relation setting, specified by key.
+If no key is given, or if the key is "-", all keys and values will be printed.
+If relation-get is not run in the context of a relation hook, a key and a unit
+name must both be specified.
 `,
 	}
 }

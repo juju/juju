@@ -1,16 +1,14 @@
 package firewaller_test
 
 import (
-	"fmt"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/firewaller"
-	"sort"
-	"strings"
+	"reflect"
 	stdtesting "testing"
 	"time"
 )
@@ -19,65 +17,37 @@ func TestPackage(t *stdtesting.T) {
 	coretesting.ZkTestPackage(t)
 }
 
-// hooLogger allows the grabbing of debug log statements
-// to compare them inside the tests.
-type hookLogger struct {
-	event     chan string
-	oldTarget log.Logger
-}
-
-var logHook *hookLogger
-
-const prefix = "JUJU:DEBUG firewaller: "
-
-func (h *hookLogger) Output(calldepth int, s string) error {
-	err := h.oldTarget.Output(calldepth, s)
-	if strings.HasPrefix(s, prefix) {
-		h.event <- s[len(prefix):]
-	}
-	return err
-}
-
-func setUpLogHook() {
-	logHook = &hookLogger{
-		event:     make(chan string, 30),
-		oldTarget: log.Target,
-	}
-	log.Target = logHook
-}
-
-func tearDownLogHook() {
-	log.Target = logHook.oldTarget
-}
-
-// assertEvents asserts that the expected events are received from
-// the firewaller, in no particular order.
-func assertEvents(c *C, expect []string) {
-	var got []string
-	for _ = range expect {
-		select {
-		case e := <-logHook.event:
-			got = append(got, e)
-		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("expected %q; timed out, got %q", expect, got)
+// assertPorts retrieves the open ports of the instance and compares them
+// to the expected. 
+func assertPorts(c *C, inst environs.Instance, machineId int, expected []state.Port) {
+	start := time.Now()
+	for {
+		got, err := inst.Ports(machineId)
+		if err != nil {
+			c.Fatal(err)
+			return
 		}
+		state.SortPorts(got)
+		state.SortPorts(expected)
+		if reflect.DeepEqual(got, expected) {
+			c.Succeed()
+			return
+		}
+		if time.Since(start) > 500*time.Millisecond {
+			c.Fatalf("timed out: expected %q; got %q", expected, got)
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
-	select {
-	case e := <-logHook.event:
-		got = append(got, e)
-		c.Fatalf("expected %q; too many events %q ", expect, got)
-	case <-time.After(100 * time.Millisecond):
-	}
-	sort.Strings(expect)
-	sort.Strings(got)
-	c.Assert(got, DeepEquals, expect)
+	panic("unreachable")
 }
 
 type FirewallerSuite struct {
 	coretesting.LoggingSuite
 	testing.StateSuite
-	op    <-chan dummy.Operation
-	charm *state.Charm
+	environ environs.Environ
+	op      <-chan dummy.Operation
+	charm   *state.Charm
 }
 
 var _ = Suite(&FirewallerSuite{})
@@ -85,11 +55,26 @@ var _ = Suite(&FirewallerSuite{})
 func (s *FirewallerSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 
-	op := make(chan dummy.Operation, 500)
-	dummy.Listen(op)
-	s.op = op
+	var err error
+	config := map[string]interface{}{
+		"name":            "testing",
+		"type":            "dummy",
+		"zookeeper":       true,
+		"authorized-keys": "i-am-a-key",
+	}
+	s.environ, err = environs.NewFromAttrs(config)
+	c.Assert(err, IsNil)
+	err = s.environ.Bootstrap(false)
+	c.Assert(err, IsNil)
+
+	// Sanity check
+	info, err := s.environ.StateInfo()
+	c.Assert(err, IsNil)
+	c.Assert(info, DeepEquals, s.StateInfo(c))
 
 	s.StateSuite.SetUpTest(c)
+
+	s.charm = s.AddTestingCharm(c, "dummy")
 }
 
 func (s *FirewallerSuite) TearDownTest(c *C) {
@@ -103,74 +88,216 @@ func (s *FirewallerSuite) TestStartStop(c *C) {
 	c.Assert(fw.Stop(), IsNil)
 }
 
-func (s *FirewallerSuite) TestAddRemoveMachine(c *C) {
+func (s *FirewallerSuite) TestNotExposedService(c *C) {
 	fw, err := firewaller.NewFirewaller(s.State)
 	c.Assert(err, IsNil)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
-	setUpLogHook()
-	defer tearDownLogHook()
-
-	m1, err := s.State.AddMachine()
+	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
-	m2, err := s.State.AddMachine()
+	err = m.SetInstanceId("testing-0")
 	c.Assert(err, IsNil)
-	m3, err := s.State.AddMachine()
+	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c), nil)
 	c.Assert(err, IsNil)
 
-	assertEvents(c, []string{
-		fmt.Sprint("started watching machine ", m1.Id()),
-		fmt.Sprint("started watching machine ", m2.Id()),
-		fmt.Sprint("started watching machine ", m3.Id()),
-	})
-
-	err = s.State.RemoveMachine(m2.Id())
+	svc, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	u, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	err = u.AssignToMachine(m)
+	c.Assert(err, IsNil)
+	err = u.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+	err = u.OpenPort("tcp", 8080)
 	c.Assert(err, IsNil)
 
-	assertEvents(c, []string{
-		fmt.Sprint("stopped watching machine ", m2.Id()),
-	})
+	assertPorts(c, inst, m.Id(), nil)
 
-	c.Assert(fw.Stop(), IsNil)
+	err = u.ClosePort("tcp", 80)
+	c.Assert(err, IsNil)
+
+	assertPorts(c, inst, m.Id(), nil)
 }
 
-func (s *FirewallerSuite) TestAssignUnassignUnit(c *C) {
+func (s *FirewallerSuite) TestExposedService(c *C) {
 	fw, err := firewaller.NewFirewaller(s.State)
 	c.Assert(err, IsNil)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
-	setUpLogHook()
-	defer tearDownLogHook()
+	m, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId("testing-0")
+	c.Assert(err, IsNil)
+	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c), nil)
+	c.Assert(err, IsNil)
+
+	svc, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	err = svc.SetExposed()
+	c.Assert(err, IsNil)
+	u, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	err = u.AssignToMachine(m)
+	c.Assert(err, IsNil)
+	err = u.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+	err = u.OpenPort("tcp", 8080)
+	c.Assert(err, IsNil)
+
+	assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}, {"tcp", 8080}})
+
+	err = u.ClosePort("tcp", 80)
+	c.Assert(err, IsNil)
+
+	assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 8080}})
+}
+
+func (s *FirewallerSuite) TestMultipleUnits(c *C) {
+	fw, err := firewaller.NewFirewaller(s.State)
+	c.Assert(err, IsNil)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
 	m1, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
+	err = m1.SetInstanceId("testing-0")
+	c.Assert(err, IsNil)
+	inst1, err := s.environ.StartInstance(m1.Id(), s.StateInfo(c), nil)
+	c.Assert(err, IsNil)
 	m2, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
-	s.charm = s.AddTestingCharm(c, "dummy")
-	s1, err := s.State.AddService("wordpress", s.charm)
+	err = m2.SetInstanceId("testing-1")
 	c.Assert(err, IsNil)
-	u1, err := s1.AddUnit()
+	inst2, err := s.environ.StartInstance(m2.Id(), s.StateInfo(c), nil)
+	c.Assert(err, IsNil)
+
+	svc, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	err = svc.SetExposed()
+	c.Assert(err, IsNil)
+	u1, err := svc.AddUnit()
 	c.Assert(err, IsNil)
 	err = u1.AssignToMachine(m1)
 	c.Assert(err, IsNil)
-	u2, err := s1.AddUnit()
+	err = u1.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+	u2, err := svc.AddUnit()
 	c.Assert(err, IsNil)
 	err = u2.AssignToMachine(m2)
 	c.Assert(err, IsNil)
-
-	assertEvents(c, []string{
-		fmt.Sprint("started watching machine ", m1.Id()),
-		fmt.Sprint("started watching machine ", m2.Id()),
-		fmt.Sprint("started watching unit ", u1.Name()),
-		fmt.Sprint("started watching unit ", u2.Name()),
-	})
-
-	err = u1.UnassignFromMachine()
+	err = u2.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
 
-	assertEvents(c, []string{
-		fmt.Sprint("stopped watching unit ", u1.Name()),
-	})
+	assertPorts(c, inst1, m1.Id(), []state.Port{{"tcp", 80}})
+	assertPorts(c, inst2, m2.Id(), []state.Port{{"tcp", 80}})
 
-	c.Assert(fw.Stop(), IsNil)
+	err = u1.ClosePort("tcp", 80)
+	c.Assert(err, IsNil)
+	err = u2.ClosePort("tcp", 80)
+	c.Assert(err, IsNil)
+
+	assertPorts(c, inst1, m1.Id(), nil)
+	assertPorts(c, inst2, m2.Id(), nil)
+}
+
+func (s *FirewallerSuite) TestFirewallerStartWithState(c *C) {
+	m, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId("testing-0")
+	c.Assert(err, IsNil)
+	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c), nil)
+	c.Assert(err, IsNil)
+
+	svc, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	err = svc.SetExposed()
+	c.Assert(err, IsNil)
+	u, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	err = u.AssignToMachine(m)
+	c.Assert(err, IsNil)
+	err = u.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+	err = u.OpenPort("tcp", 8080)
+	c.Assert(err, IsNil)
+
+	// Nothing open without firewaller.
+	assertPorts(c, inst, m.Id(), nil)
+
+	// Starting the firewaller opens the ports.
+	fw, err := firewaller.NewFirewaller(s.State)
+	c.Assert(err, IsNil)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
+
+	assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}, {"tcp", 8080}})
+}
+
+func (s *FirewallerSuite) TestFirewallerStartWithPartialState(c *C) {
+	m, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId("testing-0")
+	c.Assert(err, IsNil)
+	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c), nil)
+	c.Assert(err, IsNil)
+
+	svc, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	err = svc.SetExposed()
+	c.Assert(err, IsNil)
+
+	// Starting the firewaller, no open ports.
+	fw, err := firewaller.NewFirewaller(s.State)
+	c.Assert(err, IsNil)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
+
+	assertPorts(c, inst, m.Id(), nil)
+
+	// Complete steps to open port.
+	u, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	err = u.AssignToMachine(m)
+	c.Assert(err, IsNil)
+	err = u.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+
+	assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}})
+}
+
+func (s *FirewallerSuite) TestSetClearExposedService(c *C) {
+	fw, err := firewaller.NewFirewaller(s.State)
+	c.Assert(err, IsNil)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
+
+	m, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId("testing-0")
+	c.Assert(err, IsNil)
+	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c), nil)
+	c.Assert(err, IsNil)
+	svc, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	u, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	err = u.AssignToMachine(m)
+	c.Assert(err, IsNil)
+	err = u.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+	err = u.OpenPort("tcp", 8080)
+	c.Assert(err, IsNil)
+
+	// Not exposed service, so no open port.
+	assertPorts(c, inst, m.Id(), nil)
+
+	// SeExposed opens the ports.
+	err = svc.SetExposed()
+	c.Assert(err, IsNil)
+
+	assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}, {"tcp", 8080}})
+
+	// ClearExposed closes the ports again.
+	err = svc.ClearExposed()
+	c.Assert(err, IsNil)
+
+	assertPorts(c, inst, m.Id(), nil)
 }
 
 func (s *FirewallerSuite) TestFirewallerStopOnStateClose(c *C) {
