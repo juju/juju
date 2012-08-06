@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 )
 
 type StatusSuite struct {
@@ -87,7 +88,7 @@ var statusTests = []struct {
 		func(st *state.State, conn *juju.Conn, c *C) {
 			m, err := st.Machine(0)
 			c.Assert(err, IsNil)
-			inst, err := conn.Environ.StartInstance(m.Id(), nil)
+			inst, err := conn.Environ.StartInstance(m.Id(), nil, nil)
 			c.Assert(err, IsNil)
 			err = m.SetInstanceId(inst.Id())
 			c.Assert(err, IsNil)
@@ -95,8 +96,66 @@ var statusTests = []struct {
 		map[string]interface{}{
 			"machines": map[int]interface{}{
 				0: map[string]interface{}{
-					"dns-name":    "palermo-0.dns",
-					"instance-id": "palermo-0",
+					"dns-name":               "palermo-0.dns",
+					"instance-id":            "palermo-0",
+					"agent-version":          "0.0.0",
+					"proposed-agent-version": "0.0.0",
+				},
+			},
+			"services": make(map[string]interface{}),
+		},
+	},
+	{
+		"simulate the MA setting the version",
+		func(st *state.State, conn *juju.Conn, c *C) {
+			m, err := st.Machine(0)
+			c.Assert(err, IsNil)
+			t := &state.Tools{
+				Binary: version.Binary{
+					Number: version.MustParse("1.2.3"),
+					Series: "gutsy",
+					Arch:   "ppc",
+				},
+				URL: "http://canonical.com/",
+			}
+			err = m.SetAgentTools(t)
+			c.Assert(err, IsNil)
+		},
+		map[string]interface{}{
+			"machines": map[int]interface{}{
+				0: map[string]interface{}{
+					"dns-name":               "palermo-0.dns",
+					"instance-id":            "palermo-0",
+					"agent-version":          "1.2.3",
+					"proposed-agent-version": "0.0.0",
+				},
+			},
+			"services": make(map[string]interface{}),
+		},
+	},
+	{
+		"simulate setting the proposed version",
+		func(st *state.State, conn *juju.Conn, c *C) {
+			m, err := st.Machine(0)
+			c.Assert(err, IsNil)
+			t := &state.Tools{
+				Binary: version.Binary{
+					Number: version.MustParse("2.0.3"),
+					Series: "gutsy",
+					Arch:   "ppc",
+				},
+				URL: "http://canonical.com/",
+			}
+			err = m.ProposeAgentTools(t)
+			c.Assert(err, IsNil)
+		},
+		map[string]interface{}{
+			"machines": map[int]interface{}{
+				0: map[string]interface{}{
+					"dns-name":               "palermo-0.dns",
+					"instance-id":            "palermo-0",
+					"agent-version":          "1.2.3",
+					"proposed-agent-version": "2.0.3",
 				},
 			},
 			"services": make(map[string]interface{}),
@@ -123,8 +182,10 @@ var statusTests = []struct {
 		map[string]interface{}{
 			"machines": map[int]interface{}{
 				0: map[string]interface{}{
-					"dns-name":    "palermo-0.dns",
-					"instance-id": "palermo-0",
+					"dns-name":               "palermo-0.dns",
+					"instance-id":            "palermo-0",
+					"agent-version":          "1.2.3",
+					"proposed-agent-version": "2.0.3",
 				},
 			},
 			"services": map[string]interface{}{
@@ -139,6 +200,115 @@ var statusTests = []struct {
 			},
 		},
 	},
+	{
+		"add two more machines for units",
+		func(st *state.State, conn *juju.Conn, c *C) {
+			for i := 1; i < 3; i++ {
+				m, err := st.AddMachine()
+				c.Assert(err, IsNil)
+				c.Assert(m.Id(), Equals, i)
+				inst, err := conn.Environ.StartInstance(m.Id(), nil, nil)
+				c.Assert(err, IsNil)
+				err = m.SetInstanceId(inst.Id())
+				c.Assert(err, IsNil)
+			}
+		},
+		map[string]interface{}{
+			"machines": map[int]interface{}{
+				0: map[string]interface{}{
+					"dns-name":               "palermo-0.dns",
+					"instance-id":            "palermo-0",
+					"agent-version":          "1.2.3",
+					"proposed-agent-version": "2.0.3",
+				},
+				1: map[string]interface{}{
+					"dns-name":               "palermo-1.dns",
+					"instance-id":            "palermo-1",
+					"agent-version":          "0.0.0",
+					"proposed-agent-version": "0.0.0",
+				},
+				2: map[string]interface{}{
+					"dns-name":               "palermo-2.dns",
+					"instance-id":            "palermo-2",
+					"agent-version":          "0.0.0",
+					"proposed-agent-version": "0.0.0",
+				},
+			},
+			"services": map[string]interface{}{
+				"dummy-service": map[string]interface{}{
+					"charm":   "dummy",
+					"exposed": false,
+				},
+				"exposed-service": map[string]interface{}{
+					"charm":   "dummy",
+					"exposed": true,
+				},
+			},
+		},
+	},
+	{
+		"add units for services",
+		func(st *state.State, conn *juju.Conn, c *C) {
+			for i, n := range []string{"dummy-service", "exposed-service"} {
+				s, err := st.Service(n)
+				c.Assert(err, IsNil)
+				u, err := s.AddUnit()
+				c.Assert(err, IsNil)
+				m, err := st.Machine(i + 1)
+				c.Assert(err, IsNil)
+				err = u.AssignToMachine(m)
+				c.Assert(err, IsNil)
+			}
+		},
+		map[string]interface{}{
+			"machines": map[int]interface{}{
+				0: map[string]interface{}{
+					"dns-name":               "palermo-0.dns",
+					"instance-id":            "palermo-0",
+					"agent-version":          "1.2.3",
+					"proposed-agent-version": "2.0.3",
+				},
+				1: map[string]interface{}{
+					"dns-name":               "palermo-1.dns",
+					"instance-id":            "palermo-1",
+					"agent-version":          "0.0.0",
+					"proposed-agent-version": "0.0.0",
+				},
+				2: map[string]interface{}{
+					"dns-name":               "palermo-2.dns",
+					"instance-id":            "palermo-2",
+					"agent-version":          "0.0.0",
+					"proposed-agent-version": "0.0.0",
+				},
+			},
+			"services": map[string]interface{}{
+				"exposed-service": map[string]interface{}{
+					"exposed": true,
+					"units": map[string]interface{}{
+						"exposed-service/0": map[string]interface{}{
+							"agent-version":          "0.0.0",
+							"proposed-agent-version": "0.0.0",
+							"machine":                2,
+						},
+					},
+					"charm": "dummy",
+				},
+				"dummy-service": map[string]interface{}{
+					"charm":   "dummy",
+					"exposed": false,
+					"units": map[string]interface{}{
+						"dummy-service/0": map[string]interface{}{
+							"agent-version":          "0.0.0",
+							"proposed-agent-version": "0.0.0",
+							"machine":                1,
+						},
+					},
+				},
+			},
+		},
+	},
+
+	// TODO(dfc) test failing components by destructively mutating zk under the hood
 }
 
 func (s *StatusSuite) testStatus(format string, marshal func(v interface{}) ([]byte, error), unmarshal func(data []byte, v interface{}) error, c *C) {
@@ -165,7 +335,6 @@ func (s *StatusSuite) testStatus(format string, marshal func(v interface{}) ([]b
 		actual := make(map[string]interface{})
 		err = unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &actual)
 		c.Assert(err, IsNil)
-
 		c.Assert(actual, DeepEquals, expected)
 	}
 }

@@ -63,7 +63,7 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	result := make(map[string]interface{})
+	result := m()
 
 	result["machines"], err = processMachines(machines, instances)
 	if err != nil {
@@ -141,34 +141,22 @@ func processMachines(machines map[int]*state.Machine, instances map[string]envir
 				// yet the environ cannot find that id. 
 				return nil, fmt.Errorf("instance %s for machine %d not found", instid, m.Id())
 			}
-			machine, err := processMachine(m, instance)
-			if err != nil {
-				return nil, err
-			}
-			r[m.Id()] = machine
+			r[m.Id()] = checkError(processMachine(m, instance))
 		}
 	}
 	return r, nil
 }
 
 func processMachine(machine *state.Machine, instance environs.Instance) (map[string]interface{}, error) {
-	r := make(map[string]interface{})
-	dnsname, err := instance.DNSName()
-	if err != nil {
-		return nil, err
-	}
-	r["dns-name"] = dnsname
+	r := m()
 	r["instance-id"] = instance.Id()
 
-	alive, err := machine.AgentAlive()
-	if err != nil {
-		return nil, err
+	if dnsname, err := instance.DNSName(); err == nil {
+		r["dns-name"] = dnsname
 	}
 
-	// TODO(dfc) revisit this once unit-status is done
-	if alive {
-		r["agent-state"] = "running"
-	}
+	processVersion(r, machine)
+	processAgentStatus(r, machine)
 
 	// TODO(dfc) unit-status
 	return r, nil
@@ -176,30 +164,88 @@ func processMachine(machine *state.Machine, instance environs.Instance) (map[str
 
 // processServices gathers information about services.
 func processServices(services map[string]*state.Service) (map[string]interface{}, error) {
-	r := make(map[string]interface{})
+	r := m()
 	for _, s := range services {
-		var err error
-		r[s.Name()], err = processService(s)
-		if err != nil {
-			return nil, err
-		}
+		r[s.Name()] = checkError(processService(s))
 	}
 	return r, nil
 }
 
 func processService(service *state.Service) (map[string]interface{}, error) {
-	r := make(map[string]interface{})
+	r := m()
 	ch, err := service.Charm()
 	if err != nil {
 		return nil, err
 	}
 	r["charm"] = ch.Meta().Name
-	r["exposed"], err = service.IsExposed()
+
+	if exposed, err := service.IsExposed(); err == nil {
+		r["exposed"] = exposed
+	}
+
+	// TODO(dfc) service.IsSubordinate() ?
+
+	units, err := service.AllUnits()
 	if err != nil {
 		return nil, err
 	}
-	// TODO(dfc) process units and relations
+
+	u := checkError(processUnits(units))
+	if len(u) > 0 {
+		r["units"] = u
+	}
+
+	// TODO(dfc) process relations
 	return r, nil
+}
+
+func processUnits(units []*state.Unit) (map[string]interface{}, error) {
+	r := m()
+	for _, unit := range units {
+		r[unit.Name()] = checkError(processUnit(unit))
+	}
+	return r, nil
+}
+
+func processUnit(unit *state.Unit) (map[string]interface{}, error) {
+	r := m()
+
+	if addr, err := unit.PublicAddress(); err == nil {
+		r["public-address"] = addr
+	}
+
+	if id, err := unit.AssignedMachineId(); err == nil {
+		// TODO(dfc) we could make this nicer, ie machine/0
+		r["machine"] = id
+	}
+
+	processVersion(r, unit)
+	return r, nil
+}
+
+type versioned interface {
+	AgentTools() (*state.Tools, error)
+	ProposedAgentTools() (*state.Tools, error)
+}
+
+func processVersion(r map[string]interface{}, v versioned) {
+	if t, err := v.AgentTools(); err == nil {
+		r["agent-version"] = t.Binary.Number.String()
+	}
+
+	if t, err := v.ProposedAgentTools(); err == nil {
+		r["proposed-agent-version"] = t.Binary.Number.String()
+	}
+}
+
+type agent interface {
+	AgentAlive() (bool, error)
+}
+
+func processAgentStatus(r map[string]interface{}, a agent) {
+	if alive, err := a.AgentAlive(); err == nil && alive {
+		r["agent-state"] = "running"
+	}
 }
 
 // jsonify converts the keys of the machines map into their string
@@ -207,10 +253,19 @@ func processService(service *state.Service) (map[string]interface{}, error) {
 func jsonify(r map[string]interface{}) map[string]map[string]interface{} {
 	m := map[string]map[string]interface{}{
 		"services": r["services"].(map[string]interface{}),
-		"machines": make(map[string]interface{}),
+		"machines": m(),
 	}
 	for k, v := range r["machines"].(map[int]interface{}) {
 		m["machines"][strconv.Itoa(k)] = v
+	}
+	return m
+}
+
+func m() map[string]interface{} { return make(map[string]interface{}) }
+
+func checkError(m map[string]interface{}, err error) map[string]interface{} {
+	if err != nil {
+		return map[string]interface{}{"status-error": err.Error()}
 	}
 	return m
 }
