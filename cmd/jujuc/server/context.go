@@ -123,7 +123,7 @@ func (ctx *HookContext) RunHook(hookName, charmDir, socketPath string) error {
 
 // relationIdentifiers returns the relation name and identifier exposed to
 // hooks as JUJU_RELATION and JUJU_RELATION_ID respectively. If the context
-// is does not have a relation, it will return empty strings. Otherwise, it
+// does not have a relation, it will return empty strings. Otherwise, it
 // will panic if the current RelationId is not a key in the Relations map.
 func (ctx *HookContext) relationIdentifiers() (string, string) {
 	if ctx.RelationId == -1 {
