@@ -8,6 +8,10 @@ type (
 	UnitDoc     unitDoc
 )
 
+func NewRelation(st *State, doc *RelationDoc) *Relation {
+	return &Relation{st: st, doc: relationDoc(*doc)}
+}
+
 func (doc *MachineDoc) String() string {
 	m := &Machine{doc: machineDoc(*doc)}
 	return m.String()

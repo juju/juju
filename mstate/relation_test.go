@@ -132,8 +132,42 @@ func (s *RelationSuite) TestPeerRelation(c *C) {
 	c.Assert(err, ErrorMatches, `cannot remove relation "peer:baz": not found`)
 }
 
+var stateChanges = []struct {
+	cached, desired    state.Life
+	dbinitial, dbfinal state.Life
+}{
+	{state.Alive, state.Dying, state.Alive, state.Dying},
+	{state.Alive, state.Dying, state.Dying, state.Dying},
+	{state.Alive, state.Dying, state.Dead, state.Dead},
+	{state.Dying, state.Dying, state.Dying, state.Dying},
+	{state.Dying, state.Dying, state.Dead, state.Dead},
+	{state.Dying, state.Dead, state.Dying, state.Dead},
+	{state.Dying, state.Dead, state.Dead, state.Dead},
+	{state.Dead, state.Dead, state.Dead, state.Dead},
+}
+
+func createRelationFromDoc(c *C, s *RelationSuite, doc *state.RelationDoc, dblife state.Life) *state.Relation {
+	rdoc := *doc
+	rdoc.Life = dblife
+	err := s.relations.Insert(rdoc)
+	c.Assert(err, IsNil)
+	return state.NewRelation(s.State, doc)
+}
+
 func (s *RelationSuite) TestLifecycleStateChanges(c *C) {
-	// TODO(aram)
+	for _, v := range stateChanges {
+		doc := state.RelationDoc{
+			Id:   0,
+			Life: v.cached,
+		}
+		r := createRelationFromDoc(c, s, &doc, v.dbinitial)
+		r.SetLife(v.desired)
+		err := s.relations.FindId(0).One(&doc)
+		c.Assert(err, IsNil)
+		c.Assert(doc.Life, Equals, v.dbfinal)
+		err = s.relations.DropCollection()
+		c.Assert(err, IsNil)
+	}
 }
 
 func assertNoRelations(c *C, srv *state.Service) {
