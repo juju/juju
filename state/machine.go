@@ -15,7 +15,7 @@ const providerMachineId = "provider-machine-id"
 type Machine struct {
 	st  *State
 	key string
-	agentVersion
+	agentTools
 }
 
 func newMachine(st *State, key string) *Machine {
@@ -23,7 +23,7 @@ func newMachine(st *State, key string) *Machine {
 		st:  st,
 		key: key,
 	}
-	m.agentVersion = agentVersion{
+	m.agentTools = agentTools{
 		zk:    st.zk,
 		agent: "machine",
 		path:  m.zkPath(),

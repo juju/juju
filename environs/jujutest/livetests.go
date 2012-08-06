@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/version"
 	"time"
 )
 
@@ -16,7 +17,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(insts, HasLen, 0)
 
-	inst, err := t.Env.StartInstance(0, InvalidStateInfo)
+	inst, err := t.Env.StartInstance(0, InvalidStateInfo, nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst, NotNil)
 	id0 := inst.Id()
@@ -61,7 +62,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 }
 
 func (t *LiveTests) TestPorts(c *C) {
-	inst1, err := t.Env.StartInstance(1, InvalidStateInfo)
+	inst1, err := t.Env.StartInstance(1, InvalidStateInfo, nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst1, NotNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
@@ -70,7 +71,7 @@ func (t *LiveTests) TestPorts(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	inst2, err := t.Env.StartInstance(2, InvalidStateInfo)
+	inst2, err := t.Env.StartInstance(2, InvalidStateInfo, nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst2, NotNil)
 	ports, err = inst2.Ports(2)
@@ -284,4 +285,35 @@ func (t *LiveTests) TestFile(c *C) {
 	// removing a file that does not exist should not be an error.
 	err = storage.Remove(name)
 	c.Check(err, IsNil)
+}
+
+// Check that we can't start an instance running tools
+// that correspond with no available platform.
+func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
+	vers := version.Current
+	// Note that we want this test to function correctly in the
+	// dummy environment, so to avoid enumerating all possible
+	// platforms in the dummy provider, it treats only series and/or
+	// architectures with the "unknown" prefix as invalid.
+	vers.Series = "unknownseries"
+	vers.Arch = "unknownarch"
+	name := environs.ToolsPath(vers)
+	storage := t.Env.Storage()
+	checkPutFile(c, storage, name, []byte("fake tools on invalid series"))
+	defer storage.Remove(name)
+
+	url, err := storage.URL(name)
+	c.Assert(err, IsNil)
+	tools := &state.Tools{
+		Binary: vers,
+		URL:    url,
+	}
+
+	inst, err := t.Env.StartInstance(4, InvalidStateInfo, tools)
+	if inst != nil {
+		err := t.Env.StopInstances([]environs.Instance{inst})
+		c.Check(err, IsNil)
+	}
+	c.Assert(inst, IsNil)
+	c.Assert(err, ErrorMatches, "cannot find image.*")
 }
