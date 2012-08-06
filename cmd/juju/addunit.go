@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
@@ -9,7 +11,8 @@ import (
 // AddUnitCommand is responsible adding a set of units to a service of the environment.
 type AddUnitCommand struct {
 	EnvName     string
-	Num	int
+	ServiceName string
+	NumUnits    int
 }
 
 func (c *AddUnitCommand) Info() *cmd.Info {
@@ -18,11 +21,23 @@ func (c *AddUnitCommand) Info() *cmd.Info {
 
 func (c *AddUnitCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	addEnvironFlags(&c.EnvName, f)
-	f.IntVar(&c.Num, "num-units", 1, "Number of service units to add.")
+	f.IntVar(&c.NumUnits, "num-units", 1, "Number of service units to add.")
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
-	return cmd.CheckEmpty(f.Args())
+	args = f.Args()
+	switch len(args) {
+	case 1:
+		c.ServiceName = args[0]
+	case 0:
+		return errors.New("no service specified")
+	default:
+		return cmd.CheckEmpty(args[1:])
+	}
+	if c.NumUnits < 1 {
+		return errors.New("must add at least one unit")
+	}
+	return nil
 }
 
 // Run connects to the environment specified on the command line and calls 

@@ -264,3 +264,20 @@ func (*cmdSuite) TestDeployCommandInit(c *C) {
 
 	// environment tested elsewhere
 }
+
+func initAddUnitCommand(args ...string) (*AddUnitCommand, error) {
+	com := &AddUnitCommand{}
+	return com, com.Init(newFlagSet(), args)
+}
+
+func (*cmdSuite) TestAddUnitCommandInit(c *C) {
+	// missing args
+	_, err := initAddUnitCommand()
+	c.Assert(err, ErrorMatches, "no service specified")
+
+	// bad unit count
+	_, err = initAddUnitCommand("service-name", "--num-units", "0")
+	c.Assert(err, ErrorMatches, "must add at least one unit")
+
+	// environment tested elsewhere
+}
