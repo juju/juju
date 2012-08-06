@@ -29,13 +29,14 @@ func (s *RelationSetSuite) TestHelp(c *C) {
 		code := cmd.Main(com, ctx, []string{"--help"})
 		c.Assert(code, Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), Equals, "")
-		c.Assert(bufferString(ctx.Stderr), Equals, fmt.Sprintf(`usage: relation-set [options] <key>=<value> [...]
+		c.Assert(bufferString(ctx.Stderr), Equals, fmt.Sprintf(`
+usage: relation-set [options] key=value [key=value ...]
 purpose: set relation settings
 
 options:
 -r (= "%s")
     relation id
-`, t.expect))
+`[1:], t.expect))
 	}
 }
 
@@ -51,7 +52,7 @@ var relationSetInitTests = []struct {
 		err:      `no relation specified`,
 	}, {
 		ctxrelid: 1,
-		err:      `no settings specified`,
+		err:      `expected "key=value" parameters, got nothing`,
 	}, {
 		ctxrelid: -1,
 		args:     []string{"-r", "one"},
@@ -80,35 +81,35 @@ var relationSetInitTests = []struct {
 	{
 		ctxrelid: -1,
 		args:     []string{"-r", "ignored:0"},
-		err:      `no settings specified`,
+		err:      `expected "key=value" parameters, got nothing`,
 	}, {
 		ctxrelid: 1,
 		args:     []string{"-r", "ignored:0"},
-		err:      `no settings specified`,
+		err:      `expected "key=value" parameters, got nothing`,
 	}, {
 		ctxrelid: -1,
 		args:     []string{"-r", "0"},
-		err:      `no settings specified`,
+		err:      `expected "key=value" parameters, got nothing`,
 	}, {
 		ctxrelid: 1,
 		args:     []string{"-r", "0"},
-		err:      `no settings specified`,
+		err:      `expected "key=value" parameters, got nothing`,
 	}, {
 		ctxrelid: -1,
 		args:     []string{"-r", "1"},
-		err:      `no settings specified`,
+		err:      `expected "key=value" parameters, got nothing`,
 	}, {
 		ctxrelid: 0,
 		args:     []string{"-r", "1"},
-		err:      `no settings specified`,
+		err:      `expected "key=value" parameters, got nothing`,
 	}, {
 		ctxrelid: 1,
 		args:     []string{"haha"},
-		err:      `cannot parse "haha": no "="`,
+		err:      `expected "key=value", got "haha"`,
 	}, {
 		ctxrelid: 1,
 		args:     []string{"=haha"},
-		err:      `cannot parse "=haha": no key specified`,
+		err:      `expected "key=value", got "=haha"`,
 	}, {
 		ctxrelid: 1,
 		args:     []string{"foo="},
@@ -165,9 +166,10 @@ func (s *RelationSetSuite) TestInit(c *C) {
 	}
 }
 
+// Tests start with a relation with the settings {"base": "value"}
 var relationSetRunTests = []struct {
-	settings map[string]string
-	expect   map[string]interface{}
+	change map[string]string
+	expect map[string]interface{}
 }{
 	{
 		map[string]string{"base": ""},
@@ -200,7 +202,7 @@ func (s *RelationSetSuite) TestRun(c *C) {
 		c.Assert(err, IsNil)
 		rset := com.(*server.RelationSetCommand)
 		rset.RelationId = 1
-		rset.Settings = t.settings
+		rset.Settings = t.change
 		ctx := dummyContext(c)
 		err = com.Run(ctx)
 		c.Assert(err, IsNil)
