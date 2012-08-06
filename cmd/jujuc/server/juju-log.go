@@ -39,8 +39,7 @@ func (c *JujuLogCommand) Init(f *gnuflag.FlagSet, args []string) error {
 func (c *JujuLogCommand) Run(_ *cmd.Context) error {
 	s := []string{c.Unit.Name()}
 	if c.RelationId != -1 {
-		_, id := c.relationIdentifiers()
-		s = append(s, id)
+		s = append(s, c.envRelationId())
 	}
 	msg := strings.Join(s, " ") + ": " + c.Message
 	if c.Debug {

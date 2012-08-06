@@ -20,7 +20,7 @@ func NewRelationIdsCommand(ctx *HookContext) (cmd.Command, error) {
 
 func (c *RelationIdsCommand) Info() *cmd.Info {
 	args := "<name>"
-	if name, _ := c.relationIdentifiers(); name != "" {
+	if name := c.envRelation(); name != "" {
 		args = fmt.Sprintf("[<name (= %s)>]", name)
 	}
 	return &cmd.Info{
@@ -34,7 +34,7 @@ func (c *RelationIdsCommand) Init(f *gnuflag.FlagSet, args []string) error {
 		return err
 	}
 	args = f.Args()
-	c.Name, _ = c.relationIdentifiers()
+	c.Name = c.envRelation()
 	if len(args) > 0 {
 		c.Name = args[0]
 		args = args[1:]
