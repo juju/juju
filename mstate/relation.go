@@ -129,13 +129,11 @@ func (r *Relation) SetLife(life Life) error {
 	change := bson.D{{"$set", bson.D{{"life", life}}}}
 	// UpdateAll instead of Update so it will not error out if it can't
 	// find the relation with constraints in sel.
-	ci, err := r.st.relations.UpdateAll(sel, change)
+	_, err := r.st.relations.UpdateAll(sel, change)
 	if err != nil {
 		return fmt.Errorf("cannot set life to %v for relation %v: %v", life, r, err)
 	}
-	if ci.Updated == 1 {
-		r.doc.Life = life
-	}
+	r.doc.Life = life
 	return nil
 }
 
