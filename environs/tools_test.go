@@ -92,6 +92,12 @@ func (t *ToolsSuite) TestToolsPath(c *C) {
 		Equals, "tools/juju-1.2.3-precise-amd64.tgz")
 }
 
+func (t *ToolsSuite) TestToolsDir(c *C) {
+	c.Assert(environs.ToolsDir(binaryVersion(1, 2, 3, "precise", "amd64")),
+		Equals,
+		filepath.FromSlash("/var/lib/juju/tools/juju-1.2.3-precise-amd64.tgz"))
+}
+
 // getToolsWithTar is the same as GetTools but uses tar
 // itself so we're not just testing the Go tar package against
 // itself.

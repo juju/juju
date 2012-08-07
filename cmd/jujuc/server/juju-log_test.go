@@ -3,6 +3,7 @@ package server_test
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
@@ -27,7 +28,9 @@ func pushLog(debug bool) (buf *bytes.Buffer, pop func()) {
 }
 
 func dummyFlagSet() *gnuflag.FlagSet {
-	return gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
+	f := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
+	f.SetOutput(ioutil.Discard)
+	return f
 }
 
 var commonLogTests = []struct {
