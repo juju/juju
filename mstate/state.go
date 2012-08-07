@@ -137,7 +137,7 @@ func (s *State) Charm(curl *charm.URL) (*Charm, error) {
 // AddService creates a new service state with the given unique name
 // and the charm state.
 func (s *State) AddService(name string, ch *Charm) (service *Service, err error) {
-	sdoc := &serviceDoc{
+	sdoc := serviceDoc{
 		Name:     name,
 		CharmURL: ch.URL(),
 		Life:     Alive,
@@ -146,7 +146,7 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add service %q:", name, err)
 	}
-	return &Service{st: s, name: name}, nil
+	return &Service{st: s, doc: sdoc}, nil
 }
 
 // RemoveService removes a service from the state. It will also remove all
@@ -154,14 +154,14 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 func (s *State) RemoveService(svc *Service) (err error) {
 	defer errorContextf(&err, "cannot remove service %q", svc)
 
-	sel := bson.D{{"_id", svc.name}, {"life", Alive}}
+	sel := bson.D{{"_id", svc.doc.Name}, {"life", Alive}}
 	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
 	err = s.services.Update(sel, change)
 	if err != nil {
 		return err
 	}
 
-	sel = bson.D{{"service", svc.name}}
+	sel = bson.D{{"service", svc.doc.Name}}
 	change = bson.D{{"$set", bson.D{{"life", Dying}}}}
 	_, err = s.units.UpdateAll(sel, change)
 	return err
@@ -169,13 +169,13 @@ func (s *State) RemoveService(svc *Service) (err error) {
 
 // Service returns a service state by name.
 func (s *State) Service(name string) (service *Service, err error) {
-	sdoc := &serviceDoc{}
+	sdoc := serviceDoc{}
 	sel := bson.D{{"_id", name}, {"life", Alive}}
-	err = s.services.Find(sel).One(sdoc)
+	err = s.services.Find(sel).One(&sdoc)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get service %q: %v", name, err)
 	}
-	return &Service{st: s, name: name}, nil
+	return &Service{st: s, doc: sdoc}, nil
 }
 
 // AllServices returns all deployed services in the environment.
@@ -186,7 +186,7 @@ func (s *State) AllServices() (services []*Service, err error) {
 		return nil, fmt.Errorf("cannot get all services")
 	}
 	for _, v := range sdocs {
-		services = append(services, &Service{st: s, name: v.Name})
+		services = append(services, &Service{st: s, doc: v})
 	}
 	return services, nil
 }
