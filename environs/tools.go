@@ -17,7 +17,7 @@ import (
 	"strings"
 )
 
-// VarDir gives the directory where juju data is stored.
+// VarDir is the directory where juju data is stored.
 // The tools directories are stored inside the "tools" subdirectory
 // inside VarDir.
 var VarDir = "/var/lib/juju"
