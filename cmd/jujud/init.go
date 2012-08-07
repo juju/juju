@@ -6,19 +6,19 @@ import (
 	"launchpad.net/juju-core/state"
 )
 
-type InitzkCommand struct {
+type InitCommand struct {
 	StateInfo  state.Info
 	InstanceId string
 	EnvType    string
 }
 
 // Info returns a decription of the command.
-func (c *InitzkCommand) Info() *cmd.Info {
-	return &cmd.Info{"initzk", "", "initialize juju state in a local zookeeper", ""}
+func (c *InitCommand) Info() *cmd.Info {
+	return &cmd.Info{"init", "", "initialize juju state.", ""}
 }
 
 // Init initializes the command for running.
-func (c *InitzkCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *InitCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	stateInfoVar(f, &c.StateInfo, "zookeeper-servers", []string{"127.0.0.1:2181"}, "address of zookeeper to initialize")
 	f.StringVar(&c.InstanceId, "instance-id", "", "instance id of this machine")
 	f.StringVar(&c.EnvType, "env-type", "", "environment type")
@@ -38,7 +38,7 @@ func (c *InitzkCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 // Run initializes zookeeper state for an environment.
-func (c *InitzkCommand) Run(_ *cmd.Context) error {
+func (c *InitCommand) Run(_ *cmd.Context) error {
 	st, err := state.Initialize(&c.StateInfo)
 	if err != nil {
 		return err

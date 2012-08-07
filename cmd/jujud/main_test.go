@@ -44,7 +44,7 @@ func (s *MainSuite) TestParseErrors(c *C) {
 	msgf := "flag provided but not defined: --cheese"
 	checkMessage(c, msgf, "--cheese", "cavitate")
 
-	cmds := []string{"initzk", "unit", "machine", "provisioning"}
+	cmds := []string{"init", "unit", "machine", "provisioning"}
 	msgz := `invalid value "localhost:2181,zk" for flag --zookeeper-servers: "zk" is not a valid zookeeper address`
 	for _, cmd := range cmds {
 		checkMessage(c, msgf, cmd, "--cheese")
@@ -52,7 +52,7 @@ func (s *MainSuite) TestParseErrors(c *C) {
 	}
 
 	msga := `unrecognized args: ["toastie"]`
-	checkMessage(c, msga, "initzk",
+	checkMessage(c, msga, "init",
 		"--zookeeper-servers", "zk:2181",
 		"--instance-id", "ii",
 		"--env-type", "et",
