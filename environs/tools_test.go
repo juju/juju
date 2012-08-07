@@ -82,7 +82,7 @@ func (t *ToolsSuite) TestPutGetTools(c *C) {
 			if err != nil {
 				c.Assert(err, FitsTypeOf, (*exec.ExitError)(nil))
 			}
-			c.Check(string(out), Matches, fmt.Sprintf(`usage: %s (.|\n)*`, tool))
+			c.Check(string(out), Equals, fmt.Sprintf("error: unrecognized command: %s arble\n", tool))
 		}
 	}
 }
