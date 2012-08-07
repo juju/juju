@@ -77,7 +77,7 @@ var relationIdsTests = []struct {
 		summary: "no default, no name",
 		relid:   -1,
 		code:    2,
-		out:     "(.|\n)*error: no name specified\n",
+		out:     "(.|\n)*error: no relation name specified\n",
 	}, {
 		summary: "default name",
 		relid:   1,
@@ -160,19 +160,21 @@ func (s *RelationIdsSuite) TestRelationIds(c *C) {
 func (s *RelationIdsSuite) TestHelp(c *C) {
 	template := `
 usage: %s
-purpose: list all relation ids with the given name
+purpose: list all relation ids with the given relation name
 
 options:
 --format  (= smart)
     specify output format (json|smart|yaml)
 -o, --output (= "")
     specify an output file
-`[1:]
+%s`[1:]
 
-	for relid, usage := range map[int]string{
-		-1: "relation-ids [options] <name>",
-		0:  "relation-ids [options] [<name (= x)>]",
-		3:  "relation-ids [options] [<name (= y)>]",
+	for relid, t := range map[int]struct {
+		usage, doc string
+	}{
+		-1: {"relation-ids [options] <name>", ""},
+		0:  {"relation-ids [options] [<name>]", "\nCurrent default relation name is \"x\".\n"},
+		3:  {"relation-ids [options] [<name>]", "\nCurrent default relation name is \"y\".\n"},
 	} {
 		c.Logf("relid %d", relid)
 		hctx := s.GetHookContext(c, relid)
@@ -182,7 +184,7 @@ options:
 		code := cmd.Main(com, ctx, []string{"--help"})
 		c.Assert(code, Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), Equals, "")
-		expect := fmt.Sprintf(template, usage)
+		expect := fmt.Sprintf(template, t.usage, t.doc)
 		c.Assert(bufferString(ctx.Stderr), Equals, expect)
 	}
 }

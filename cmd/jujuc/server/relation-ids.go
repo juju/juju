@@ -20,11 +20,13 @@ func NewRelationIdsCommand(ctx *HookContext) (cmd.Command, error) {
 
 func (c *RelationIdsCommand) Info() *cmd.Info {
 	args := "<name>"
+	doc := ""
 	if name := c.envRelation(); name != "" {
-		args = fmt.Sprintf("[<name (= %s)>]", name)
+		args = "[<name>]"
+		doc = fmt.Sprintf("Current default relation name is %q.", name)
 	}
 	return &cmd.Info{
-		"relation-ids", args, "list all relation ids with the given name", "",
+		"relation-ids", args, "list all relation ids with the given relation name", doc,
 	}
 }
 
@@ -39,7 +41,7 @@ func (c *RelationIdsCommand) Init(f *gnuflag.FlagSet, args []string) error {
 		c.Name = args[0]
 		args = args[1:]
 	} else if c.Name == "" {
-		return fmt.Errorf("no name specified")
+		return fmt.Errorf("no relation name specified")
 	}
 	return cmd.CheckEmpty(args)
 }
