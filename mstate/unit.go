@@ -6,6 +6,36 @@ import (
 	"labix.org/v2/mgo/bson"
 )
 
+// ResolvedMode describes the way state transition errors 
+// are resolved. 
+type ResolvedMode int
+
+const (
+	ResolvedNone       ResolvedMode = 0
+	ResolvedRetryHooks ResolvedMode = 1000
+	ResolvedNoHooks    ResolvedMode = 1001
+)
+
+// AssignmentPolicy controls what machine a unit will be assigned to.
+type AssignmentPolicy string
+
+const (
+	// AssignLocal indicates that all service units should be assigned 
+	// to machine 0.
+	AssignLocal AssignmentPolicy = "local"
+	// AssignUnused indicates that every service unit should be assigned
+	// to a dedicated machine, and that new machines should be launched
+	// if required.
+	AssignUnused AssignmentPolicy = "unused"
+)
+
+// NeedsUpgrade describes if a unit needs an
+// upgrade and if this is forced.
+type NeedsUpgrade struct {
+	Upgrade bool
+	Force   bool
+}
+
 // unitDoc represents the internal state of a unit in MongoDB.
 type unitDoc struct {
 	Name      string `bson:"_id"`
