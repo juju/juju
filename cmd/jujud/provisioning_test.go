@@ -13,29 +13,25 @@ import (
 
 func assertAlive(c *C, a *ProvisioningAgent, alive bool) {
 	start := time.Now()
-	for {
+	for time.Since(start) < 500*time.Millisecond {
 		time.Sleep(50 * time.Millisecond)
-		pgot := a.provisioner.Err()
-		fwgot := a.firewaller.Err()
+		perr := a.provisioner.Err()
+		fwerr := a.firewaller.Err()
 		if alive {
 			// Provisioner and firewaller have to be alive.
-			if pgot == tomb.ErrStillAlive && fwgot == tomb.ErrStillAlive {
-				c.Succeed()
+			if perr == tomb.ErrStillAlive && fwerr == tomb.ErrStillAlive {
 				return
 			}
 		} else {
 			// Provisioner and firewaller have to be stopped.
-			if pgot != tomb.ErrStillAlive && fwgot != tomb.ErrStillAlive {
+			if perr != tomb.ErrStillAlive && fwerr != tomb.ErrStillAlive {
 				c.Succeed()
 				return
 			}
 		}
-		if time.Since(start) > 500*time.Millisecond {
-			c.Fatalf("timed out")
-			return
-		}
 	}
-	panic("unreachable")
+	c.Fatalf("timed out")
+	return
 }
 
 type ProvisioningSuite struct {

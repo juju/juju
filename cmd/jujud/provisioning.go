@@ -15,7 +15,7 @@ import (
 	_ "launchpad.net/juju-core/environs/ec2"
 )
 
-var retryDuration = 10 * time.Second
+var retryDuration = 3 * time.Second
 
 // ProvisioningAgent is a cmd.Command responsible for running a provisioning agent.
 type ProvisioningAgent struct {
