@@ -17,10 +17,10 @@ const (
 	Alive Life = iota
 	Dying
 	Dead
-	Nlife
+	nLife
 )
 
-var lifeStrings = [Nlife]string{
+var lifeStrings = [nLife]string{
 	Alive: "alive",
 	Dying: "dying",
 	Dead:  "dead",
@@ -30,7 +30,7 @@ func (l Life) String() string {
 	return lifeStrings[l]
 }
 
-var transitions = [Nlife][Nlife]bool{
+var transitions = [nLife][nLife]bool{
 	Alive: {Dying: true},
 	Dying: {Dying: true, Dead: true},
 	Dead:  {Dead: true},

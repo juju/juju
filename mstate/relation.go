@@ -117,7 +117,7 @@ func (r *Relation) Life() Life {
 // state. If the lifecycle transitioned concurrently so that the cache is
 // stale, the call is valid but will yield no effect in the database.
 func (r *Relation) SetLife(life Life) error {
-	if !r.doc.Life.isNextValid(life) {
+	if !transitions[r.doc.Life][life] {
 		panic(fmt.Errorf("illegal lifecycle state change from %q to %q", r.doc.Life, life))
 	}
 	sel := bson.D{
