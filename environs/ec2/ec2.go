@@ -282,7 +282,7 @@ func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, 
 		stateInfo:          info,
 		instanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		providerType:       "ec2",
-		toolsURL:           tools.URL,
+		tools:              tools,
 		machineId:          machineId,
 		authorizedKeys:     e.ecfg().AuthorizedKeys(),
 	}
@@ -304,7 +304,7 @@ func (e *environ) startInstance(machineId int, info *state.Info, tools *state.To
 			return nil, err
 		}
 	}
-	log.Printf("environs/ec2: starting machine %d in %q running tools from %q", machineId, e.name, tools.URL)
+	log.Printf("environs/ec2: starting machine %d in %q running tools version %q from %q", machineId, e.name, tools.Binary, tools.URL)
 	spec, err := findInstanceSpec(&instanceConstraint{
 		series: tools.Series,
 		arch:   tools.Arch,

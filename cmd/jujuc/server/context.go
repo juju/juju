@@ -51,6 +51,7 @@ var newCommands = map[string]func(*HookContext) (cmd.Command, error){
 	"juju-log":     NewJujuLogCommand,
 	"open-port":    NewOpenPortCommand,
 	"relation-get": NewRelationGetCommand,
+	"relation-ids": NewRelationIdsCommand,
 	"relation-set": NewRelationSetCommand,
 	"unit-get":     NewUnitGetCommand,
 }
@@ -243,7 +244,7 @@ func (ctx *HookContext) parseRelationId(f *gnuflag.FlagSet, args []string) (int,
 	}
 	if relationId == "" {
 		if ctx.RelationId == -1 {
-			return 0, fmt.Errorf("no relation specified")
+			return 0, fmt.Errorf("no relation id specified")
 		}
 		return ctx.RelationId, nil
 	}

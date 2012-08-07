@@ -28,7 +28,7 @@ var relationGetTests = []struct {
 		summary: "no default relation",
 		relid:   -1,
 		code:    2,
-		out:     `no relation specified`,
+		out:     `no relation id specified`,
 	}, {
 		summary: "explicit relation, not known",
 		relid:   -1,
@@ -39,13 +39,13 @@ var relationGetTests = []struct {
 		summary: "default relation, no unit chosen",
 		relid:   1,
 		code:    2,
-		out:     `no unit specified`,
+		out:     `no unit id specified`,
 	}, {
 		summary: "explicit relation, no unit chosen",
 		relid:   -1,
 		code:    2,
 		args:    []string{"-r", "burble:1"},
-		out:     `no unit specified`,
+		out:     `no unit id specified`,
 	}, {
 		summary: "missing key",
 		relid:   1,
@@ -210,9 +210,7 @@ options:
 
 relation-get prints the value of a unit's relation setting, specified by key.
 If no key is given, or if the key is "-", all keys and values will be printed.
-If relation-get is not run in the context of a relation hook, a key and a unit
-name must both be specified.
-`[1:]
+%s`[1:]
 
 var relationGetHelpTests = []struct {
 	summary string
@@ -224,17 +222,17 @@ var relationGetHelpTests = []struct {
 	{
 		summary: "no default relation",
 		relid:   -1,
-		usage:   "relation-get [options] <key> <unit>",
+		usage:   "relation-get [options] <key> <unit id>",
 	}, {
 		summary: "no default unit",
 		relid:   1,
-		usage:   "relation-get [options] <key> <unit>",
+		usage:   "relation-get [options] <key> <unit id>",
 		rel:     "peer1:1",
 	}, {
 		summary: "default unit",
 		relid:   1,
 		unit:    "any/1",
-		usage:   `relation-get [options] [<key> [<unit (= "any/1")>]]`,
+		usage:   `relation-get [options] [<key> [<unit id>]]`,
 		rel:     "peer1:1",
 	},
 }
@@ -249,7 +247,11 @@ func (s *RelationGetSuite) TestHelp(c *C) {
 		code := cmd.Main(com, ctx, []string{"--help"})
 		c.Assert(code, Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), Equals, "")
-		expect := fmt.Sprintf(helpTemplate, t.usage, t.rel)
+		unitHelp := ""
+		if t.unit != "" {
+			unitHelp = fmt.Sprintf("Current default unit id is %q.\n", t.unit)
+		}
+		expect := fmt.Sprintf(helpTemplate, t.usage, t.rel, unitHelp)
 		c.Assert(bufferString(ctx.Stderr), Equals, expect)
 	}
 }
