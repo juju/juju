@@ -62,31 +62,31 @@ func (s *RelationerSuite) TestStartStopPresence(c *C) {
 	c.Assert(ch.Departed, HasLen, 0)
 
 	// Start u/0's pinger and check it is observed by u/1.
-	err := r.StartPresence()
+	err := r.Join()
 	c.Assert(err, IsNil)
-	defer stopPresence(c, r)
+	defer abandon(c, r)
 	assertChanged(c, w)
 
 	// Check that we can't start u/0's pinger again while it's running.
-	f := func() { r.StartPresence() }
-	c.Assert(f, PanicMatches, "presence already started!")
+	f := func() { r.Join() }
+	c.Assert(f, PanicMatches, "unit already joined!")
 
 	// Stop the pinger and check the change is observed.
-	err = r.StopPresence()
+	err = r.Abandon()
 	c.Assert(err, IsNil)
 	assertDeparted(c, w)
 
 	// Stop it again to check that multiple stops are safe.
-	err = r.StopPresence()
+	err = r.Abandon()
 	c.Assert(err, IsNil)
 
 	// Check we can start it again, and it works...
-	err = r.StartPresence()
+	err = r.Join()
 	c.Assert(err, IsNil)
 	assertChanged(c, w)
 
 	// ..and stop it again, and that works too.
-	err = r.StopPresence()
+	err = r.Abandon()
 	c.Assert(err, IsNil)
 	assertDeparted(c, w)
 }
@@ -278,7 +278,7 @@ func (s *RelationerSuite) assertNoHook(c *C) {
 	select {
 	case hi, ok := <-s.hooks:
 		c.Fatalf("got unexpected hook info %#v (%b)", hi, ok)
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(100 * time.Millisecond):
 	}
 }
 
@@ -301,6 +301,6 @@ func stop(c *C, w *state.RelationUnitsWatcher) {
 	c.Assert(w.Stop(), Equals, nil)
 }
 
-func stopPresence(c *C, r *uniter.Relationer) {
-	c.Assert(r.StopPresence(), Equals, nil)
+func abandon(c *C, r *uniter.Relationer) {
+	c.Assert(r.Abandon(), Equals, nil)
 }
