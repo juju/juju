@@ -49,6 +49,16 @@ func (u *Unit) IsPrincipal() bool {
 	return u.doc.Principal == ""
 }
 
+func (u *Unit) Refresh() error {
+	doc := unitDoc{}
+	err := u.st.units.FindId(u.doc.Name).One(&doc)
+	if err != nil {
+		return fmt.Errorf("cannot refresh unit %v: %v", u, err)
+	}
+	u.doc = doc
+	return nil
+}
+
 // AssignedMachineId returns the id of the assigned machine.
 func (u *Unit) AssignedMachineId() (id int, err error) {
 	defer errorContextf(&err, "cannot get machine id of unit %q", u)
