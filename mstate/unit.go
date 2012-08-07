@@ -36,6 +36,19 @@ type NeedsUpgrade struct {
 	Force   bool
 }
 
+// Port identifies a network port number for a particular protocol.
+type Port struct {
+	Protocol string `yaml:"proto"`
+	Number   int    `yaml:"port"`
+}
+
+// UnitSettings holds information about a service unit's settings within a
+// relation.
+type UnitSettings struct {
+	Version  int
+	Settings map[string]interface{}
+}
+
 // unitDoc represents the internal state of a unit in MongoDB.
 type unitDoc struct {
 	Name      string `bson:"_id"`

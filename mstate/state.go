@@ -11,6 +11,12 @@ import (
 	"net/url"
 )
 
+// Tools describes a particular set of juju tools and where to find them.
+type Tools struct {
+	version.Binary
+	URL string
+}
+
 type Life int8
 
 const (
