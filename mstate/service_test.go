@@ -37,6 +37,24 @@ func (s *ServiceSuite) TestServiceCharm(c *C) {
 	c.Assert(testcurl.String(), Equals, "local:myseries/mydummy-1")
 }
 
+func (s *ServiceSuite) TestServiceRefesh(c *C) {
+	s1, err := s.State.Service(s.service.Name())
+	c.Assert(err, IsNil)
+
+	newcurl := charm.MustParseURL("local:myseries/mydummy-1")
+	err = s.service.SetCharmURL(newcurl)
+	c.Assert(err, IsNil)
+
+	testcurl, err := s1.CharmURL()
+	c.Assert(err, IsNil)
+	c.Assert(testcurl.String(), Equals, s.charm.URL().String())
+
+	err = s1.Refresh()
+	testcurl, err = s1.CharmURL()
+	c.Assert(err, IsNil)
+	c.Assert(testcurl.String(), Equals, "local:myseries/mydummy-1")
+}
+
 func (s *ServiceSuite) TestAddUnit(c *C) {
 	// Check that principal units can be added on their own.
 	unitZero, err := s.service.AddUnit()
