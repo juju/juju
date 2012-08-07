@@ -10,6 +10,11 @@ import (
 	"os"
 )
 
+// TempDir is the temporary directory where downloaded files
+// are stored. If it is empty, it uses the default directory for temporary
+// files (see os.TempDir).
+var TempDir string
+
 // Status represents the status of a completed download.
 // It is the receiver's responsibility to close and remove
 // the file.
@@ -71,7 +76,7 @@ type downloadOne struct {
 	tomb tomb.Tomb
 	done chan Status
 	url  string
-	w io.Writer
+	w    io.Writer
 }
 
 func (d *downloadOne) stop() error {
@@ -85,37 +90,52 @@ func (d *downloadOne) run() {
 	if err != nil {
 		err = fmt.Errorf("cannot download %q: %v", d.url, err)
 	}
-	status := Status{
-		URL: d.url,
+	if !d.sendStatus(Status{
+		URL:  d.url,
 		File: file,
-		Err: err,
+		Err:  err,
+	}) {
+		// If we have failed to send the status then we need
+		// to clean up the temporary file ourselves.
+		if file != nil {
+			cleanTempFile(file)
+		}
 	}
+}
+
+func cleanTempFile(f *os.File) {
+	f.Close()
+	if err := os.Remove(f.Name()); err != nil {
+		log.Printf("downloader: cannot remove temporary file: %v", err)
+	}
+}
+
+func (d *downloadOne) sendStatus(status Status) bool {
 	// If we have been interrupted while downloading
 	// then don't try to send the status.
 	// This is to make tests easier - when we can interrupt
 	// downloads, this can go away.
 	select {
 	case <-d.tomb.Dying():
-		return
+		return false
 	default:
 	}
 	select {
 	case d.done <- status:
 	case <-d.tomb.Dying():
+		return false
 	}
+	return true
 }
 
 func (d *downloadOne) download() (file *os.File, err error) {
-	tmpFile, err := ioutil.TempFile("", "juju-download-")
+	tmpFile, err := ioutil.TempFile(TempDir, "juju-download-")
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
 		if err != nil {
-			tmpFile.Close()
-			if err := os.Remove(tmpFile.Name()); err != nil {
-				log.Printf("downloader: cannot remove temporary file: %v", err)
-			}
+			cleanTempFile(tmpFile)
 		}
 	}()
 	// TODO(rog) make the Get operation interruptible.

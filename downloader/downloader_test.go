@@ -22,12 +22,14 @@ type suite struct {
 var _ = Suite(&suite{})
 
 func (s *suite) SetUpTest(c *C) {
+	downloader.TempDir = c.MkDir()
 	s.LoggingSuite.SetUpTest(c)
 	s.downloader = downloader.New()
 	s.dir = c.MkDir()
 }
 
 func (s *suite) TearDownTest(c *C) {
+	downloader.TempDir = ""
 	s.downloader.Stop()
 	s.LoggingSuite.TearDownTest(c)
 }
@@ -85,6 +87,12 @@ func (s *suite) TestInterruptDownload(c *C) {
 	defer os.Remove(status.File.Name())
 	defer status.File.Close()
 	assertFileContents(c, status.File, "content2")
+
+	// Wait for a little and check that the interrupted file has been removed.
+	time.Sleep(100 * time.Millisecond)
+	infos, err := ioutil.ReadDir(downloader.TempDir)
+	c.Assert(err, IsNil)
+	c.Assert(infos, HasLen, 1)
 }
 
 func assertFileContents(c *C, f *os.File, expect string) {
