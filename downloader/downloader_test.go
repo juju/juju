@@ -150,8 +150,10 @@ func (s *suite) TestDownloadTwice(c *C) {
 	// a download to the same directory succeeds
 	// because the directory aleady exists.
 	l.close()
-	s.downloader.Start(content.url, dest)
+	s.downloader.Start("http://bad.url/", dest)
 	status = <-s.downloader.Done()
+	c.Check(status.Dir, Equals, dest)
+	c.Check(status.URL, Equals, content.url)
 	c.Assert(status.Err, IsNil)
 	assertDirContents(c, dest, content.url, files)
 }

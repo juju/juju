@@ -38,6 +38,8 @@ func New() *Downloader {
 	}
 }
 
+const urlFile = "downloaded-url.txt"
+
 // Start requests that the given tools be downloaded into the given
 // directory.  If the directory already exists, nothing is done and the
 // download is counted as successful.  The url must contain a
@@ -111,10 +113,10 @@ func (d *downloadOne) run() {
 }
 
 func (d *downloadOne) download() (err error) {
-	// If the directory already exists, we assume that the
-	// download has already taken place and succeeded.
-	if info, err := os.Stat(d.dir); err == nil && info.IsDir() {
-		return nil
+	// If the directory name already exists, we assume that the
+	// download has already taken place.
+	if _, err := os.Stat(d.dir); err == nil {
+		return d.readExisting()
 	}
 	parent, _ := filepath.Split(d.dir)
 	tmpdir, err := ioutil.TempDir(parent, "inprogress-")
@@ -141,25 +143,33 @@ func (d *downloadOne) download() (err error) {
 	if err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(filepath.Join(tmpdir, "downloaded-url.txt"), []byte(d.url), 0666); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(tmpdir, urlFile), []byte(d.url), 0666); err != nil {
 		return err
 	}
 	err = os.Rename(tmpdir, d.dir)
 	// If we've failed to rename the directory, it may be because
 	// another downloading process has done the download for us, so
-	// check to see if there's a valid downloaded-url.txt file - if
+	// check to see if there's a valid URL file - if
 	// so, we throw away our download and continue without error.
 	if err != nil {
 		if err := os.RemoveAll(tmpdir); err != nil {
 			log.Printf("downloader: cannot remove download directory %q: %v", err)
 		}
-
-		url, err := ioutil.ReadFile(filepath.Join(d.dir, "downloaded-url.txt"))
-		if err == nil && len(url) > 0 {
-			// Update the url to reflect the actual url downloaded into the directory.
-			d.url = string(url)
+		if d.readExisting() == nil {
 			return nil
 		}
+	}
+	return err
+}
+
+// readExisting tries to read a URL file from an existing
+// (previously downloaded) directory. If successful, it
+// updates d.url to reflect the already-downloaded URL.
+func (d *downloadOne) readExisting() error {
+	url, err := ioutil.ReadFile(filepath.Join(d.dir, urlFile))
+	if err == nil && len(url) > 0 {
+		d.url = string(url)
+		return nil
 	}
 	return err
 }
