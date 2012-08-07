@@ -122,10 +122,11 @@ var argsTests = []struct {
 	{[]string{"jujuc", "whatever"}, 2, Help + "error: jujuc should not be called directly\n"},
 	{[]string{"remote"}, 0, "success!\n"},
 	{[]string{"/path/to/remote"}, 0, "success!\n"},
+	{[]string{"remote", "--help"}, 0, expectUsage},
 	{[]string{"unknown"}, 1, "error: bad request: bad command: unknown\n"},
 	{[]string{"remote", "--error", "borken"}, 1, "error: borken\n"},
-	{[]string{"remote", "--unknown"}, 2, expectUsage + "error: flag provided but not defined: --unknown\n"},
-	{[]string{"remote", "unwanted"}, 2, expectUsage + `error: unrecognized args: ["unwanted"]` + "\n"},
+	{[]string{"remote", "--unknown"}, 2, "error: flag provided but not defined: --unknown\n"},
+	{[]string{"remote", "unwanted"}, 2, `error: unrecognized args: ["unwanted"]` + "\n"},
 }
 
 func (s *MainSuite) TestArgs(c *C) {
