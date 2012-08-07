@@ -46,7 +46,8 @@ func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
 
 func (s *UnitSuite) TestGetSetStatus(c *C) {
 	status, err := s.unit.Status()
-	c.Assert(err, ErrorMatches, `status of unit "wordpress/0" not found`)
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, "pending")
 	err = s.unit.SetStatus("started")
 	c.Assert(err, IsNil)
 	status, err = s.unit.Status()

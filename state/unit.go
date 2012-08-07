@@ -159,8 +159,15 @@ func (u *Unit) SetPrivateAddress(address string) (err error) {
 
 // Status returns the status of the unit.
 func (u *Unit) Status() (string, error) {
-	return getConfigString(u.st.zk, u.zkPath(), "status",
-		"status of unit %q", u)
+	status, err := getConfigString(u.st.zk, u.zkPath(), "status", "status of unit %q", u)
+	if err != nil {
+		if _, ok := err.(*NotFoundError); ok {
+			// Default to 'pending'.
+			return "pending", nil
+		}
+		return "", err
+	}
+	return status, nil
 }
 
 // SetStatus sets the status of the unit.
