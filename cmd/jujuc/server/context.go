@@ -5,7 +5,6 @@ package server
 
 import (
 	"fmt"
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -46,14 +45,15 @@ type HookContext struct {
 
 // newCommands maps Command names to initializers.
 var newCommands = map[string]func(*HookContext) (cmd.Command, error){
-	"close-port":   NewClosePortCommand,
-	"config-get":   NewConfigGetCommand,
-	"juju-log":     NewJujuLogCommand,
-	"open-port":    NewOpenPortCommand,
-	"relation-get": NewRelationGetCommand,
-	"relation-ids": NewRelationIdsCommand,
-	"relation-set": NewRelationSetCommand,
-	"unit-get":     NewUnitGetCommand,
+	"close-port":    NewClosePortCommand,
+	"config-get":    NewConfigGetCommand,
+	"juju-log":      NewJujuLogCommand,
+	"open-port":     NewOpenPortCommand,
+	"relation-get":  NewRelationGetCommand,
+	"relation-ids":  NewRelationIdsCommand,
+	"relation-list": NewRelationListCommand,
+	"relation-set":  NewRelationSetCommand,
+	"unit-get":      NewUnitGetCommand,
 }
 
 // NewCommand returns an instance of the named Command, initialized to execute
@@ -236,28 +236,41 @@ func (ctx *RelationContext) ReadSettings(unit string) (settings map[string]inter
 	return settings, nil
 }
 
-func (ctx *HookContext) parseRelationId(f *gnuflag.FlagSet, args []string) (int, error) {
-	relationId := ""
-	f.StringVar(&relationId, "r", ctx.envRelationId(), "relation id")
-	if err := f.Parse(true, args); err != nil {
-		return 0, err
-	}
-	if relationId == "" {
-		if ctx.RelationId == -1 {
-			return 0, fmt.Errorf("no relation id specified")
-		}
-		return ctx.RelationId, nil
-	}
-	trim := relationId
+// relationIdValue returns a gnuflag.Value for convenient parsing of relation
+// ids in context.
+func (ctx *HookContext) relationIdValue(result *int) *relationIdValue {
+	*result = ctx.RelationId
+	return &relationIdValue{result: result, ctx: ctx, value: ctx.envRelationId()}
+}
+
+// relationIdValue implements gnuflag.Value for use in relation hook commands.
+type relationIdValue struct {
+	result *int
+	ctx    *HookContext
+	value  string
+}
+
+// String returns the current value.
+func (v *relationIdValue) String() string {
+	return v.value
+}
+
+// Set interprets value as a relation id, if possible, and returns an error
+// if it is not known to the system. The parsed relation id will be written
+// to v.result.
+func (v *relationIdValue) Set(value string) error {
+	trim := value
 	if idx := strings.LastIndex(trim, ":"); idx != -1 {
 		trim = trim[idx+1:]
 	}
 	id, err := strconv.Atoi(trim)
 	if err != nil {
-		return 0, fmt.Errorf("invalid relation id %q", relationId)
+		return fmt.Errorf("invalid relation id")
 	}
-	if _, found := ctx.Relations[id]; !found {
-		return 0, fmt.Errorf("unknown relation id %q", relationId)
+	if _, found := v.ctx.Relations[id]; !found {
+		return fmt.Errorf("unknown relation id")
 	}
-	return id, nil
+	*v.result = id
+	v.value = value
+	return nil
 }

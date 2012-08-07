@@ -34,7 +34,7 @@ var relationGetTests = []struct {
 		relid:   -1,
 		code:    2,
 		args:    []string{"-r", "burble:123"},
-		out:     `unknown relation id "burble:123"`,
+		out:     `invalid value "burble:123" for flag -r: unknown relation id`,
 	}, {
 		summary: "default relation, no unit chosen",
 		relid:   1,
@@ -205,8 +205,8 @@ options:
     specify output format (json|smart|yaml)
 -o, --output (= "")
     specify an output file
--r (= %q)
-    relation id
+-r  (= %s)
+    specify a relation by id
 
 relation-get prints the value of a unit's relation setting, specified by key.
 If no key is given, or if the key is "-", all keys and values will be printed.

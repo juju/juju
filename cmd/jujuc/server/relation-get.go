@@ -37,11 +37,13 @@ If no key is given, or if the key is "-", all keys and values will be printed.
 func (c *RelationGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	// TODO FWER implement --format shell lp:1033511
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	relationId, err := c.parseRelationId(f, args)
-	if err != nil {
+	f.Var(c.relationIdValue(&c.RelationId), "r", "specify a relation by id")
+	if err := f.Parse(true, args); err != nil {
 		return err
 	}
-	c.RelationId = relationId
+	if c.RelationId == -1 {
+		return fmt.Errorf("no relation id specified")
+	}
 	args = f.Args()
 	c.Key = ""
 	if len(args) > 0 {
