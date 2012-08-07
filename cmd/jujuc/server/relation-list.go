@@ -19,11 +19,13 @@ func NewRelationListCommand(ctx *HookContext) (cmd.Command, error) {
 
 func (c *RelationListCommand) Info() *cmd.Info {
 	args := "<id>"
+	doc := ""
 	if id := c.envRelationId(); id != "" {
-		args = fmt.Sprintf("[<id (= %s)>]", id)
+		args = "[<id>]"
+		doc = fmt.Sprintf("Current default relation id is %q.", id)
 	}
 	return &cmd.Info{
-		"relation-list", args, "list relation units", "",
+		"relation-list", args, "list relation units", doc,
 	}
 }
 
@@ -41,7 +43,7 @@ func (c *RelationListCommand) Init(f *gnuflag.FlagSet, args []string) (err error
 		args = args[1:]
 	}
 	if c.RelationId == -1 {
-		return fmt.Errorf("no relation specified")
+		return fmt.Errorf("no relation id specified")
 	}
 	return cmd.CheckEmpty(args)
 }

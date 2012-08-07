@@ -20,28 +20,29 @@ func NewRelationGetCommand(ctx *HookContext) (cmd.Command, error) {
 }
 
 func (c *RelationGetCommand) Info() *cmd.Info {
-	args := "<key> <unit>"
-	if c.RemoteUnitName != "" {
-		args = fmt.Sprintf("[<key> [<unit (= %s)>]]", c.RemoteUnitName)
-	}
-	return &cmd.Info{
-		"relation-get", args, "get relation settings", `
+	args := "<key> <unit id>"
+	doc := `
 relation-get prints the value of a unit's relation setting, specified by key.
 If no key is given, or if the key is "-", all keys and values will be printed.
-If relation-get is not run in the context of a relation hook, a key and a unit
-name must both be specified.
-`,
+`
+	if c.RemoteUnitName != "" {
+		args = "[<key> [<unit id>]]"
+		doc += fmt.Sprintf("Current default unit id is %q.", c.RemoteUnitName)
+	}
+	return &cmd.Info{
+		"relation-get", args, "get relation settings", doc,
 	}
 }
 
 func (c *RelationGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
+	// TODO FWER implement --format shell lp:1033511
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.Var(c.relationIdValue(&c.RelationId), "r", "specify a relation by id")
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
 	if c.RelationId == -1 {
-		return fmt.Errorf("no relation specified")
+		return fmt.Errorf("no relation id specified")
 	}
 	args = f.Args()
 	c.Key = ""
@@ -57,7 +58,7 @@ func (c *RelationGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 		args = args[1:]
 	}
 	if c.UnitName == "" {
-		return fmt.Errorf("no unit specified")
+		return fmt.Errorf("no unit id specified")
 	}
 	return cmd.CheckEmpty(args)
 }

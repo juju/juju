@@ -25,7 +25,7 @@ var relationListTests = []struct {
 		summary: "no default relation, no arg",
 		relid:   -1,
 		code:    2,
-		out:     "no relation specified",
+		out:     "no relation id specified",
 	}, {
 		summary: "no default relation, bad arg",
 		relid:   -1,
@@ -136,9 +136,14 @@ options:
     specify output format (json|smart|yaml)
 -o, --output (= "")
     specify an output file
-`[1:]
+%s`[1:]
 
-	for relid, usage := range map[int]string{-1: "<id>", 0: "[<id (= peer0:0)>]"} {
+	for relid, t := range map[int]struct {
+		usage, doc string
+	}{
+		-1: {"<id>", ""},
+		0:  {"[<id>]", "\nCurrent default relation id is \"peer0:0\".\n"},
+	} {
 		c.Logf("test relid %d", relid)
 		hctx := s.GetHookContext(c, relid, "")
 		com, err := hctx.NewCommand("relation-list")
@@ -147,7 +152,7 @@ options:
 		code := cmd.Main(com, ctx, []string{"--help"})
 		c.Assert(code, Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), Equals, "")
-		expect := fmt.Sprintf(template, usage)
+		expect := fmt.Sprintf(template, t.usage, t.doc)
 		c.Assert(bufferString(ctx.Stderr), Equals, expect)
 
 	}

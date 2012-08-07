@@ -30,7 +30,7 @@ func (c *RelationSetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 		return err
 	}
 	if c.RelationId == -1 {
-		return fmt.Errorf("no relation specified")
+		return fmt.Errorf("no relation id specified")
 	}
 	args = f.Args()
 	if len(args) == 0 {

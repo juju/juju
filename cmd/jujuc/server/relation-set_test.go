@@ -48,7 +48,7 @@ var relationSetInitTests = []struct {
 }{
 	{
 		ctxrelid: -1,
-		err:      `no relation specified`,
+		err:      `no relation id specified`,
 	}, {
 		ctxrelid: 1,
 		err:      `expected "key=value" parameters, got nothing`,
