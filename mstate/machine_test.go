@@ -47,6 +47,18 @@ func (s *MachineSuite) TestMachineSetInstanceId(c *C) {
 	c.Assert(n, Equals, 1)
 }
 
+func (s *MachineSuite) TestMachineRefresh(c *C) {
+	m0, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	m1, err := s.State.Machine(m0.Id())
+	c.Assert(err, IsNil)
+	err = m0.SetInstanceId("umbrella/0")
+	c.Assert(err, IsNil)
+	err = m1.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(m0, DeepEquals, m1)
+}
+
 func (s *MachineSuite) TestMachineUnits(c *C) {
 	// Check that Machine.Units works correctly.
 
