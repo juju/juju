@@ -11,16 +11,18 @@ import (
 )
 
 // Status represents the status of a completed download.
+// It is the receiver's responsibility to close and remove
+// the file.
 type Status struct {
 	// URL holds the downloaded URL.
 	URL string
-	// Err describes any error encountered downloading the tools.
+	// Err describes any error encountered while downloading.
 	Err error
 	// File holds the file that the URL has downloaded to.
 	File *os.File
 }
 
-// Downloader can download an archived directory from the network.
+// Downloader can download a file from the network.
 type Downloader struct {
 	current *downloadOne
 	done    chan Status
@@ -59,7 +61,7 @@ func (d *Downloader) Stop() {
 }
 
 // Done returns a channel that receives a value when
-// some tools have been successfully downloaded and installed.
+// a file has been successfully downloaded and installed.
 func (d *Downloader) Done() <-chan Status {
 	return d.done
 }
@@ -116,6 +118,7 @@ func (d *downloadOne) download() (file *os.File, err error) {
 			}
 		}
 	}()
+	// TODO(rog) make the Get operation interruptible.
 	resp, err := http.Get(d.url)
 	if err != nil {
 		return nil, err
@@ -124,7 +127,6 @@ func (d *downloadOne) download() (file *os.File, err error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("bad http response %v", resp.Status)
 	}
-	// TODO(rog) make the Copy operation interruptible.
 	_, err = io.Copy(tmpFile, resp.Body)
 	if err != nil {
 		return nil, err
