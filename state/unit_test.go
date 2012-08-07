@@ -44,6 +44,16 @@ func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
 	c.Assert(address, Equals, "example.local")
 }
 
+func (s *UnitSuite) TestGetSetStatus(c *C) {
+	status, err := s.unit.Status()
+	c.Assert(err, ErrorMatches, `status of unit "wordpress/0" not found`)
+	err = s.unit.SetStatus("started")
+	c.Assert(err, IsNil)
+	status, err = s.unit.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, "started")
+}
+
 func (s *UnitSuite) TestUnitCharm(c *C) {
 	testcurl, err := s.unit.CharmURL()
 	c.Assert(err, IsNil)

@@ -157,6 +157,18 @@ func (u *Unit) SetPrivateAddress(address string) (err error) {
 		"private address of unit %q", u)
 }
 
+// Status returns the status of the unit.
+func (u *Unit) Status() (string, error) {
+	return getConfigString(u.st.zk, u.zkPath(), "status",
+		"status of unit %q", u)
+}
+
+// SetStatus sets the status of the unit.
+func (u *Unit) SetStatus(status string) (err error) {
+	return setConfigString(u.st.zk, u.zkPath(), "status", status,
+		"status of unit %q", u)
+}
+
 // CharmURL returns the charm URL this unit is supposed
 // to use.
 func (u *Unit) CharmURL() (url *charm.URL, err error) {
