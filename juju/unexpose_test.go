@@ -28,6 +28,9 @@ func (s *UnexposeSuite) TestUnexposeService(c *C) {
 	_, err = s.conn.AddService("testriak", sch)
 	c.Assert(err, IsNil)
 
+	err = s.conn.Expose("testriak")
+	c.Assert(err, IsNil)
+
 	err = s.conn.Unexpose("testriak")
 	c.Assert(err, IsNil)
 
