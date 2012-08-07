@@ -176,3 +176,37 @@ func (r *Relation) RelatedEndpoints(serviceName string) ([]RelationEndpoint, err
 	}
 	return eps, nil
 }
+
+// RelationUnit holds information about a single unit in a relation, and
+// allows clients to conveniently access unit-specific functionality.
+type RelationUnit struct {
+	st       *State
+	relation *Relation
+	unit     *Unit
+	endpoint RelationEndpoint
+}
+
+// Relation returns the relation associated with the unit.
+func (ru *RelationUnit) Relation() *Relation {
+	return ru.relation
+}
+
+// Endpoint returns the relation endpoint that defines the unit's
+// participation in the relation.
+func (ru *RelationUnit) Endpoint() RelationEndpoint {
+	return ru.endpoint
+}
+
+// Unit returns a RelationUnit for the supplied unit.
+func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
+	ep, err := r.Endpoint(u.doc.Service)
+	if err != nil {
+		return nil, err
+	}
+	return &RelationUnit{
+		st:       r.st,
+		relation: r,
+		unit:     u,
+		endpoint: ep,
+	}, nil
+}
