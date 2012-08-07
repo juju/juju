@@ -51,11 +51,13 @@ type UnitSettings struct {
 
 // unitDoc represents the internal state of a unit in MongoDB.
 type unitDoc struct {
-	Name      string `bson:"_id"`
-	Service   string
-	Principal string
-	MachineId *int
-	Life      Life
+	Name           string `bson:"_id"`
+	Service        string
+	Principal      string
+	MachineId      *int
+	Life           Life
+	PublicAddress  *string
+	PrivateAddress *string
 }
 
 // Unit represents the state of a service unit.
@@ -90,6 +92,22 @@ func (u *Unit) Name() string {
 // and can therefore have subordinate services deployed alongside it.
 func (u *Unit) IsPrincipal() bool {
 	return u.doc.Principal == ""
+}
+
+// PublicAddress returns the public address of the unit.
+func (u *Unit) PublicAddress() (string, error) {
+	if u.doc.PublicAddress == nil {
+		return "", fmt.Errorf("public address of unit %q not found", u)
+	}
+	return *u.doc.PublicAddress, nil
+}
+
+// PrivateAddress returns the public address of the unit.
+func (u *Unit) PrivateAddress() (string, error) {
+	if u.doc.PrivateAddress == nil {
+		return "", fmt.Errorf("private address of unit %q not found", u)
+	}
+	return *u.doc.PrivateAddress, nil
 }
 
 func (u *Unit) Refresh() error {
@@ -150,5 +168,30 @@ func (u *Unit) UnassignFromMachine() (err error) {
 	if err != nil {
 		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, err)
 	}
+	u.doc.MachineId = nil
+	return nil
+}
+
+// SetPublicAddress sets the public address of the unit.
+func (u *Unit) SetPublicAddress(address string) error {
+	change := bson.D{{"$set", bson.D{{"publicaddress", address}}}}
+	sel := bson.D{{"_id", u.doc.Name}}
+	err := u.st.units.Update(sel, change)
+	if err != nil {
+		return fmt.Errorf("cannot set public address of unit %q: %v", u, err)
+	}
+	u.doc.PublicAddress = &address
+	return nil
+}
+
+// SetPrivateAddress sets the public address of the unit.
+func (u *Unit) SetPrivateAddress(address string) error {
+	change := bson.D{{"$set", bson.D{{"privateaddress", address}}}}
+	sel := bson.D{{"_id", u.doc.Name}}
+	err := u.st.units.Update(sel, change)
+	if err != nil {
+		return fmt.Errorf("cannot set private address of unit %q: %v", u, err)
+	}
+	u.doc.PrivateAddress = &address
 	return nil
 }
