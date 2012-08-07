@@ -135,15 +135,117 @@ func (s *RelationSuite) TestPeerRelation(c *C) {
 var stateChanges = []struct {
 	cached, desired    state.Life
 	dbinitial, dbfinal state.Life
+	panic              bool
+	panicMessage       string
 }{
-	{state.Alive, state.Dying, state.Alive, state.Dying},
-	{state.Alive, state.Dying, state.Dying, state.Dying},
-	{state.Alive, state.Dying, state.Dead, state.Dead},
-	{state.Dying, state.Dying, state.Dying, state.Dying},
-	{state.Dying, state.Dying, state.Dead, state.Dead},
-	{state.Dying, state.Dead, state.Dying, state.Dead},
-	{state.Dying, state.Dead, state.Dead, state.Dead},
-	{state.Dead, state.Dead, state.Dead, state.Dead},
+	{
+		state.Alive, state.Alive,
+		state.Alive, state.Alive,
+		true,
+		`illegal lifecycle state change from "alive" to "alive"`,
+	},
+	{
+		state.Alive, state.Alive,
+		state.Dying, state.Dying,
+		true,
+		`illegal lifecycle state change from "alive" to "alive"`,
+	},
+	{
+		state.Alive, state.Alive,
+		state.Dead, state.Dead,
+		true,
+		`illegal lifecycle state change from "alive" to "alive"`,
+	},
+	{
+		state.Alive, state.Dying,
+		state.Alive, state.Dying,
+		false,
+		"",
+	},
+	{
+		state.Alive, state.Dying,
+		state.Dying, state.Dying,
+		false,
+		"",
+	},
+	{
+		state.Alive, state.Dying,
+		state.Dead, state.Dead,
+		false,
+		"",
+	},
+	{
+		state.Alive, state.Dead,
+		state.Alive, state.Alive,
+		true,
+		`illegal lifecycle state change from "alive" to "dead"`,
+	},
+	{
+		state.Alive, state.Dead,
+		state.Dying, state.Dying,
+		true,
+		`illegal lifecycle state change from "alive" to "dead"`,
+	},
+	{
+		state.Alive, state.Dead,
+		state.Dead, state.Dead,
+		true,
+		`illegal lifecycle state change from "alive" to "dead"`,
+	},
+	{
+		state.Dying, state.Alive,
+		state.Dying, state.Dying,
+		true,
+		`illegal lifecycle state change from "dying" to "alive"`,
+	},
+	{
+		state.Dying, state.Alive,
+		state.Dead, state.Dead,
+		true,
+		`illegal lifecycle state change from "dying" to "alive"`,
+	},
+	{
+		state.Dying, state.Dying,
+		state.Dying, state.Dying,
+		false,
+		"",
+	},
+	{
+		state.Dying, state.Dying,
+		state.Dead, state.Dead,
+		false,
+		"",
+	},
+	{
+		state.Dying, state.Dead,
+		state.Dying, state.Dead,
+		false,
+		"",
+	},
+	{
+		state.Dying, state.Dead,
+		state.Dead, state.Dead,
+		false,
+		"",
+	},
+	{
+		state.Dead, state.Alive,
+		state.Dead, state.Dead,
+		true,
+		`illegal lifecycle state change from "dead" to "alive"`,
+	},
+	{
+		state.Dead, state.Dying,
+		state.Dead, state.Dead,
+		true,
+		`illegal lifecycle state change from "dead" to "dying"`,
+	},
+	{
+		state.Dead, state.Dead,
+		state.Dead, state.Dead,
+		false,
+		"",
+	},
 }
 
 func createRelationFromDoc(c *C, s *RelationSuite, doc *state.RelationDoc, dblife state.Life) *state.Relation {
@@ -161,7 +263,11 @@ func (s *RelationSuite) TestLifecycleStateChanges(c *C) {
 			Life: v.cached,
 		}
 		r := createRelationFromDoc(c, s, &doc, v.dbinitial)
-		r.SetLife(v.desired)
+		if v.panic {
+			c.Assert(func() { r.SetLife(v.desired) }, PanicMatches, v.panicMessage)
+		} else {
+			r.SetLife(v.desired)
+		}
 		err := s.relations.FindId(0).One(&doc)
 		c.Assert(err, IsNil)
 		c.Assert(doc.Life, Equals, v.dbfinal)
