@@ -1,8 +1,6 @@
 package downloader
 
 import (
-	"archive/tar"
-	"compress/gzip"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -10,18 +8,16 @@ import (
 	"launchpad.net/tomb"
 	"net/http"
 	"os"
-	"path/filepath"
-	"strings"
 )
 
 // Status represents the status of a completed download.
 type Status struct {
 	// URL holds the downloaded URL.
 	URL string
-	// Dir holds the directory that it has been downloaded to.
-	Dir string
 	// Err describes any error encountered downloading the tools.
 	Err error
+	// File holds the file that the URL has downloaded to.
+	File *os.File
 }
 
 // Downloader can download an archived directory from the network.
@@ -38,24 +34,17 @@ func New() *Downloader {
 	}
 }
 
-const urlFile = "downloaded-url.txt"
-
-// Start requests that the given tools be downloaded into the given
-// directory.  If the directory already exists, nothing is done and the
-// download is counted as successful.  The url must contain a
-// gzipped tar archive holding single-level directory containing regular files
-// only. The URL is recorded by writing it to a file in the destination directory
-// called "downloaded-url.txt".
+// Start requests that the given URL be downloaded and written
+// to the given Writer.
 //
 // If Start is called while another download is already in progress, the
 // previous download will be cancelled.
-func (d *Downloader) Start(url, dir string) {
+func (d *Downloader) Start(url string) {
 	if d.current != nil {
 		d.Stop()
 	}
 	d.current = &downloadOne{
 		url:  url,
-		dir:  dir,
 		done: d.done,
 	}
 	go d.current.run()
@@ -80,7 +69,7 @@ type downloadOne struct {
 	tomb tomb.Tomb
 	done chan Status
 	url  string
-	dir  string
+	w io.Writer
 }
 
 func (d *downloadOne) stop() error {
@@ -90,17 +79,19 @@ func (d *downloadOne) stop() error {
 
 func (d *downloadOne) run() {
 	defer d.tomb.Done()
-	err := d.download()
+	file, err := d.download()
 	if err != nil {
-		err = fmt.Errorf("cannot download %q to %q: %v", d.url, d.dir, err)
+		err = fmt.Errorf("cannot download %q: %v", d.url, err)
 	}
 	status := Status{
 		URL: d.url,
-		Dir: d.dir,
+		File: file,
 		Err: err,
 	}
 	// If we have been interrupted while downloading
 	// then don't try to send the status.
+	// This is to make tests easier - when we can interrupt
+	// downloads, this can go away.
 	select {
 	case <-d.tomb.Dying():
 		return
@@ -112,108 +103,35 @@ func (d *downloadOne) run() {
 	}
 }
 
-func (d *downloadOne) download() (err error) {
-	// If the directory name already exists, we assume that the
-	// download has already taken place.
-	if _, err := os.Stat(d.dir); err == nil {
-		return d.readExisting()
-	}
-	parent, _ := filepath.Split(d.dir)
-	tmpdir, err := ioutil.TempDir(parent, "inprogress-")
+func (d *downloadOne) download() (file *os.File, err error) {
+	tmpFile, err := ioutil.TempFile("", "juju-download-")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer func() {
 		if err != nil {
-			if err := os.RemoveAll(tmpdir); err != nil {
-				log.Printf("downloader: cannot remove download directory %q: %v", err)
+			tmpFile.Close()
+			if err := os.Remove(tmpFile.Name()); err != nil {
+				log.Printf("downloader: cannot remove temporary file: %v", err)
 			}
 		}
 	}()
 	resp, err := http.Get(d.url)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad http response %v", resp.Status)
+		return nil, fmt.Errorf("bad http response %v", resp.Status)
 	}
-	// TODO(rog) make the unarchive operation interruptible.
-	err = d.unarchive(resp.Body, tmpdir)
+	// TODO(rog) make the Copy operation interruptible.
+	_, err = io.Copy(tmpFile, resp.Body)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if err := ioutil.WriteFile(filepath.Join(tmpdir, urlFile), []byte(d.url), 0666); err != nil {
-		return err
-	}
-	err = os.Rename(tmpdir, d.dir)
-	// If we've failed to rename the directory, it may be because
-	// another downloading process has done the download for us, so
-	// check to see if there's a valid URL file - if
-	// so, we throw away our download and continue without error.
+	_, err = tmpFile.Seek(0, 0)
 	if err != nil {
-		if err := os.RemoveAll(tmpdir); err != nil {
-			log.Printf("downloader: cannot remove download directory %q: %v", err)
-		}
-		if d.readExisting() == nil {
-			return nil
-		}
+		return nil, err
 	}
-	return err
-}
-
-// readExisting tries to read a URL file from an existing
-// (previously downloaded) directory. If successful, it
-// updates d.url to reflect the already-downloaded URL.
-func (d *downloadOne) readExisting() error {
-	url, err := ioutil.ReadFile(filepath.Join(d.dir, urlFile))
-	if err == nil && len(url) > 0 {
-		d.url = string(url)
-		return nil
-	}
-	return err
-}
-
-// unarchive unarchives the gzipped tar archive from the given reader
-// into the given directory.  The archive must contain only regular
-// files in its top level directory.
-func (d *downloadOne) unarchive(r io.Reader, dir string) (err error) {
-	zr, err := gzip.NewReader(r)
-	if err != nil {
-		return err
-	}
-	defer zr.Close()
-
-	tr := tar.NewReader(zr)
-	for {
-		hdr, err := tr.Next()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-		// TODO (rog) relax the "no sub-directories" restriction.
-		if strings.ContainsAny(hdr.Name, "/\\") {
-			return fmt.Errorf("bad name %q in tools archive", hdr.Name)
-		}
-		if hdr.Typeflag != tar.TypeReg {
-			return fmt.Errorf("bad file type %#c in file %q in tools archive", hdr.Typeflag, hdr.Name)
-		}
-		name := filepath.Join(dir, hdr.Name)
-		if err := writeFile(name, os.FileMode(hdr.Mode&0777), tr); err != nil {
-			return fmt.Errorf("tar extract %q failed: %v", name, err)
-		}
-	}
-	return nil
-}
-
-func writeFile(name string, mode os.FileMode, r io.Reader) error {
-	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = io.Copy(f, r)
-	return err
+	return tmpFile, nil
 }
