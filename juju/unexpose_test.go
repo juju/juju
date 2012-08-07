@@ -6,21 +6,21 @@ import (
 	"launchpad.net/juju-core/testing"
 )
 
-var _ = Suite(&ExposeSuite{})
+var _ = Suite(&UnexposeSuite{})
 
-type ExposeSuite struct {
+type UnexposeSuite struct {
 	DeploySuite
 }
 
-func (s *ExposeSuite) SetUpTest(c *C) {
+func (s *UnexposeSuite) SetUpTest(c *C) {
 	s.DeploySuite.SetUpTest(c)
 }
 
-func (s *ExposeSuite) TearDownTest(c *C) {
+func (s *UnexposeSuite) TearDownTest(c *C) {
 	s.DeploySuite.TearDownTest(c)
 }
 
-func (s *DeploySuite) TestExposeService(c *C) {
+func (s *UnexposeSuite) TestUnexposeService(c *C) {
 	curl := testing.Charms.ClonedURL(s.repo.Path, "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo.Path, false)
 	c.Assert(err, IsNil)
@@ -28,9 +28,9 @@ func (s *DeploySuite) TestExposeService(c *C) {
 	_, err = s.conn.AddService("testriak", sch)
 	c.Assert(err, IsNil)
 
-	err = s.conn.Expose("testriak")
+	err = s.conn.Unexpose("testriak")
 	c.Assert(err, IsNil)
 
-	err = s.conn.Expose("unknown-service")
+	err = s.conn.Unexpose("unknown-service")
 	c.Assert(err, ErrorMatches, `.*service with name "unknown-service" not found`)
 }

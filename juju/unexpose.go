@@ -1,7 +1,7 @@
 package juju
 
-// Expose exposes a service to the internet.
-func (c *Conn) Expose(service string) error {
+// Unexpose hides a service from the internet.
+func (c *Conn) Unxpose(service string) error {
 	st, err := c.State()
 	if err != nil {
 		return err
