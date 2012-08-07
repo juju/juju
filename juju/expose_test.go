@@ -20,7 +20,7 @@ func (s *ExposeSuite) TearDownTest(c *C) {
 	s.DeploySuite.TearDownTest(c)
 }
 
-func (s *DeploySuite) TestExposeService(c *C) {
+func (s *ExposeSuite) TestExposeService(c *C) {
 	curl := testing.Charms.ClonedURL(s.repo.Path, "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo.Path, false)
 	c.Assert(err, IsNil)
