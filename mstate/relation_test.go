@@ -132,6 +132,45 @@ func (s *RelationSuite) TestPeerRelation(c *C) {
 	c.Assert(err, ErrorMatches, `cannot remove relation "peer:baz": not found`)
 }
 
+func (s *RelationSuite) TestLifecycle(c *C) {
+	peer, err := s.State.AddService("peer", s.charm)
+	c.Assert(err, IsNil)
+	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
+	assertNoRelations(c, peer)
+
+	rel, err := s.State.AddRelation(peerep)
+	c.Assert(err, IsNil)
+	life := rel.Life()
+	c.Assert(life, Equals, state.Alive)
+
+	// Check legal next state.
+	err = rel.SetLife(state.Dying)
+	c.Assert(err, IsNil)
+	life = rel.Life()
+	c.Assert(life, Equals, state.Dying)
+
+	// Check invalid next state.
+	c.Assert(func() { rel.SetLife(state.Alive) }, PanicMatches, `invalid lifecycle state change from "dying" to "alive"`)
+
+	// Check legal repeated state setting.
+	err = rel.SetLife(state.Dying)
+	c.Assert(err, IsNil)
+	life = rel.Life()
+	c.Assert(life, Equals, state.Dying)
+
+	// Check non-dead removal.
+	c.Assert(func() { s.State.RemoveRelation(rel) }, PanicMatches, `relation .* is not dead`)
+
+	// Check final state.
+	err = rel.SetLife(state.Dead)
+	c.Assert(err, IsNil)
+	life = rel.Life()
+	c.Assert(life, Equals, state.Dead)
+
+	// Check invalid next state.
+	c.Assert(func() { rel.SetLife(state.Alive) }, PanicMatches, `invalid lifecycle state change from "dead" to "alive"`)
+}
+
 var stateChanges = []struct {
 	cached, desired    state.Life
 	dbinitial, dbfinal state.Life
@@ -142,19 +181,19 @@ var stateChanges = []struct {
 		state.Alive, state.Alive,
 		state.Alive, state.Alive,
 		true,
-		`illegal lifecycle state change from "alive" to "alive"`,
+		`invalid lifecycle state change from "alive" to "alive"`,
 	},
 	{
 		state.Alive, state.Alive,
 		state.Dying, state.Dying,
 		true,
-		`illegal lifecycle state change from "alive" to "alive"`,
+		`invalid lifecycle state change from "alive" to "alive"`,
 	},
 	{
 		state.Alive, state.Alive,
 		state.Dead, state.Dead,
 		true,
-		`illegal lifecycle state change from "alive" to "alive"`,
+		`invalid lifecycle state change from "alive" to "alive"`,
 	},
 	{
 		state.Alive, state.Dying,
@@ -178,31 +217,31 @@ var stateChanges = []struct {
 		state.Alive, state.Dead,
 		state.Alive, state.Alive,
 		true,
-		`illegal lifecycle state change from "alive" to "dead"`,
+		`invalid lifecycle state change from "alive" to "dead"`,
 	},
 	{
 		state.Alive, state.Dead,
 		state.Dying, state.Dying,
 		true,
-		`illegal lifecycle state change from "alive" to "dead"`,
+		`invalid lifecycle state change from "alive" to "dead"`,
 	},
 	{
 		state.Alive, state.Dead,
 		state.Dead, state.Dead,
 		true,
-		`illegal lifecycle state change from "alive" to "dead"`,
+		`invalid lifecycle state change from "alive" to "dead"`,
 	},
 	{
 		state.Dying, state.Alive,
 		state.Dying, state.Dying,
 		true,
-		`illegal lifecycle state change from "dying" to "alive"`,
+		`invalid lifecycle state change from "dying" to "alive"`,
 	},
 	{
 		state.Dying, state.Alive,
 		state.Dead, state.Dead,
 		true,
-		`illegal lifecycle state change from "dying" to "alive"`,
+		`invalid lifecycle state change from "dying" to "alive"`,
 	},
 	{
 		state.Dying, state.Dying,
@@ -232,13 +271,13 @@ var stateChanges = []struct {
 		state.Dead, state.Alive,
 		state.Dead, state.Dead,
 		true,
-		`illegal lifecycle state change from "dead" to "alive"`,
+		`invalid lifecycle state change from "dead" to "alive"`,
 	},
 	{
 		state.Dead, state.Dying,
 		state.Dead, state.Dead,
 		true,
-		`illegal lifecycle state change from "dead" to "dying"`,
+		`invalid lifecycle state change from "dead" to "dying"`,
 	},
 	{
 		state.Dead, state.Dead,

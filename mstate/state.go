@@ -258,6 +258,9 @@ func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error)
 func (s *State) RemoveRelation(r *Relation) (err error) {
 	defer errorContextf(&err, "cannot remove relation %q", r.doc.Key)
 
+	if r.doc.Life != Dead {
+		panic(fmt.Errorf("relation %q is not dead", r))
+	}
 	sel := bson.D{
 		{"_id", r.doc.Id},
 		{"life", Dead},

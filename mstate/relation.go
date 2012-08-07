@@ -118,7 +118,7 @@ func (r *Relation) Life() Life {
 // stale, the call is valid but will yield no effect in the database.
 func (r *Relation) SetLife(life Life) error {
 	if !transitions[r.doc.Life][life] {
-		panic(fmt.Errorf("illegal lifecycle state change from %q to %q", r.doc.Life, life))
+		panic(fmt.Errorf("invalid lifecycle state change from %q to %q", r.doc.Life, life))
 	}
 	sel := bson.D{
 		{"_id", r.doc.Id},
