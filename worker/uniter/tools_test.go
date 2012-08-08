@@ -25,7 +25,7 @@ func (s *ToolsSuite) SetUpTest(c *C) {
 	toolsDir := filepath.Join(s.varDir, "tools")
 	err := os.Mkdir(toolsDir, 0755)
 	c.Assert(err, IsNil)
-	err = os.Symlink(s.toolsDir, filepath.Join(toolsDir, "u-123"))
+	err = os.Symlink(s.toolsDir, filepath.Join(toolsDir, "unit-u-123"))
 	c.Assert(err, IsNil)
 }
 
@@ -41,7 +41,7 @@ func (s *ToolsSuite) TestEnsureTools(c *C) {
 	assertLink := func(path string) time.Time {
 		target, err := os.Readlink(path)
 		c.Assert(err, IsNil)
-		c.Assert(target, Equals, jujuc)
+		c.Assert(target, Equals, "./jujuc")
 		fi, err := os.Lstat(path)
 		c.Assert(err, IsNil)
 		return fi.ModTime()
@@ -62,25 +62,4 @@ func (s *ToolsSuite) TestEnsureTools(c *C) {
 	for tool, mtime := range mtimes {
 		c.Assert(assertLink(tool), Equals, mtime)
 	}
-
-	// Check that failure to write correct symlinks fails.
-	jujuLog := filepath.Join(s.toolsDir, "juju-log")
-	err = os.Remove(jujuLog)
-	c.Assert(err, IsNil)
-	err = os.Symlink("/lol/broken", jujuLog)
-	err = uniter.EnsureTools("u/123")
-	expect := `cannot initialize hook commands for unit "u/123": .*juju-log: file exists`
-	c.Assert(err, ErrorMatches, expect)
-
-	// Check that nonsense tools cause failures.
-	err = ioutil.WriteFile(jujuLog, []byte("har har"), 0755)
-	err = uniter.EnsureTools("u/123")
-	expect = `cannot initialize hook commands for unit "u/123": .*juju-log: file exists`
-	c.Assert(err, ErrorMatches, expect)
-}
-
-func (s *ToolsSuite) TestNoJujuc(c *C) {
-	err := uniter.EnsureTools("u/123")
-	expect := `cannot initialize hook commands for unit "u/123": .*jujuc: no such file or directory`
-	c.Assert(err, ErrorMatches, expect)
 }
