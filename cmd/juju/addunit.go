@@ -21,7 +21,8 @@ func (c *AddUnitCommand) Info() *cmd.Info {
 
 func (c *AddUnitCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	addEnvironFlags(&c.EnvName, f)
-	f.IntVar(&c.NumUnits, "num-units", 1, "Number of service units to add.")
+	f.IntVar(&c.NumUnits, "n", 1, "number of service units to add")
+	f.IntVar(&c.NumUnits, "num-units", 1, "")
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

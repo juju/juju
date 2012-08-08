@@ -261,6 +261,8 @@ func (*cmdSuite) TestDeployCommandInit(c *C) {
 	// bad unit count
 	_, err = initDeployCommand("charm-name", "--num-units", "0")
 	c.Assert(err, ErrorMatches, "must deploy at least one unit")
+	_, err = initDeployCommand("charm-name", "-n", "0")
+	c.Assert(err, ErrorMatches, "must deploy at least one unit")
 
 	// environment tested elsewhere
 }
@@ -277,6 +279,8 @@ func (*cmdSuite) TestAddUnitCommandInit(c *C) {
 
 	// bad unit count
 	_, err = initAddUnitCommand("service-name", "--num-units", "0")
+	c.Assert(err, ErrorMatches, "must add at least one unit")
+	_, err = initAddUnitCommand("service-name", "-n", "0")
 	c.Assert(err, ErrorMatches, "must add at least one unit")
 
 	// environment tested elsewhere
