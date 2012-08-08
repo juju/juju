@@ -248,6 +248,12 @@ func (fw *Firewaller) Dying() <-chan struct{} {
 	return fw.tomb.Dying()
 }
 
+// Err returns the reason why the firewaller has stopped or tomb.ErrStillAlive
+// when it is still alive.
+func (fw *Firewaller) Err() (reason error) {
+	return fw.tomb.Err()
+}
+
 // Wait waits for the Firewaller to exit.
 func (fw *Firewaller) Wait() error {
 	return fw.tomb.Wait()
