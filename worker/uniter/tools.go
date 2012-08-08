@@ -22,7 +22,7 @@ func EnsureTools(unitName string) (err error) {
 		if err == nil {
 			continue
 		}
-		// TODO(rog) use os.IsExist when fix is released (see http://codereview.appspot.com/6442080/)
+		// TODO(rog) drop LinkError check when fix is released (see http://codereview.appspot.com/6442080/)
 		if e, ok := err.(*os.LinkError); !ok || !os.IsExist(e.Err) {
 			return fmt.Errorf("cannot initialize hook commands for unit %q: %v", unitName, err)
 		}
