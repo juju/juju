@@ -60,6 +60,7 @@ type unitDoc struct {
 	PrivateAddress *string
 	MachineId      *int
 	Resolved       ResolvedMode
+	NeedsUpgrade   *NeedsUpgrade
 	Life           Life
 }
 
@@ -239,5 +240,51 @@ func (u *Unit) ClearResolved() error {
 		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, err)
 	}
 	u.doc.Resolved = ResolvedNone
+	return nil
+}
+
+// NeedsUpgrade returns whether the unit needs an upgrade 
+// and if it does, if this is forced.
+func (u *Unit) NeedsUpgrade() (*NeedsUpgrade, error) {
+	if u.doc.NeedsUpgrade == nil {
+		return &NeedsUpgrade{Upgrade: false, Force: false}, nil
+	}
+	return u.doc.NeedsUpgrade, nil
+}
+
+// SetNeedsUpgrade informs the unit that it should perform 
+// a regular or forced upgrade.
+func (u *Unit) SetNeedsUpgrade(force bool) (err error) {
+	defer errorContextf(&err, "cannot inform unit %q about upgrade", u)
+	nu := &NeedsUpgrade{Upgrade: true, Force: force}
+	change := bson.D{{"$set", bson.D{{"needsupgrade", nu}}}}
+	sel := bson.D{
+		{"_id", u.doc.Name},
+		{"$or", []bson.D{
+			bson.D{{"needsupgrade", nil}},
+			bson.D{{"needsupgrade", nu}},
+		}},
+	}
+	err = u.st.units.Update(sel, change)
+	if err == mgo.ErrNotFound {
+		return errors.New("upgrade already enabled")
+	}
+	if err != nil {
+		return err
+	}
+	u.doc.NeedsUpgrade = nu
+	return nil
+}
+
+// ClearNeedsUpgrade resets the upgrade notification. It is typically
+// done by the unit agent before beginning the upgrade.
+func (u *Unit) ClearNeedsUpgrade() error {
+	change := bson.D{{"$set", bson.D{{"needsupgrade", nil}}}}
+	sel := bson.D{{"_id", u.doc.Name}}
+	err := u.st.units.Update(sel, change)
+	if err != nil {
+		return fmt.Errorf("upgrade notification for unit %q cannot be reset: %v", u, err)
+	}
+	u.doc.NeedsUpgrade = nil
 	return nil
 }
