@@ -258,6 +258,11 @@ var statusTests = []struct {
 				c.Assert(err, IsNil)
 				err = u.AssignToMachine(m)
 				c.Assert(err, IsNil)
+
+				if n == "dummy-service" {
+					err := u.SetStatus("started")
+					c.Assert(err, IsNil)
+				}
 			}
 		},
 		map[string]interface{}{
@@ -289,6 +294,7 @@ var statusTests = []struct {
 							"agent-version":          "0.0.0",
 							"proposed-agent-version": "0.0.0",
 							"machine":                2,
+							"status":                 "pending",
 						},
 					},
 					"charm": "dummy",
@@ -301,6 +307,7 @@ var statusTests = []struct {
 							"agent-version":          "0.0.0",
 							"proposed-agent-version": "0.0.0",
 							"machine":                1,
+							"status":                 "started",
 						},
 					},
 				},
