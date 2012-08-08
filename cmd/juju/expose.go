@@ -15,7 +15,7 @@ type ExposeCommand struct {
 }
 
 func (c *ExposeCommand) Info() *cmd.Info {
-	return &cmd.Info{"expose", "", "Expose a service.", ""}
+	return &cmd.Info{"expose", "", "expose a service", ""}
 }
 
 func (c *ExposeCommand) Init(f *gnuflag.FlagSet, args []string) error {
@@ -35,12 +35,21 @@ func (c *ExposeCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return nil
 }
 
-// Run exposes a service to the internet.
+// Run changes the juju-managed firewall to expose any
+// ports that were also explicitly marked by units as open.
 func (c *ExposeCommand) Run(_ *cmd.Context) error {
 	conn, err := juju.NewConn(c.EnvName)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
-	return conn.Expose(c.ServiceName)
+	st, err := conn.State()
+	if err != nil {
+		return err
+	}
+	svc, err := st.Service(c.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.SetExposed()
 }
