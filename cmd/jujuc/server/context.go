@@ -12,6 +12,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
+	"strings"
 )
 
 // HookContext is responsible for the state against which a jujuc-forwarded
@@ -43,11 +45,15 @@ type HookContext struct {
 
 // newCommands maps Command names to initializers.
 var newCommands = map[string]func(*HookContext) (cmd.Command, error){
-	"close-port": NewClosePortCommand,
-	"config-get": NewConfigGetCommand,
-	"juju-log":   NewJujuLogCommand,
-	"open-port":  NewOpenPortCommand,
-	"unit-get":   NewUnitGetCommand,
+	"close-port":    NewClosePortCommand,
+	"config-get":    NewConfigGetCommand,
+	"juju-log":      NewJujuLogCommand,
+	"open-port":     NewOpenPortCommand,
+	"relation-get":  NewRelationGetCommand,
+	"relation-ids":  NewRelationIdsCommand,
+	"relation-list": NewRelationListCommand,
+	"relation-set":  NewRelationSetCommand,
+	"unit-get":      NewUnitGetCommand,
 }
 
 // NewCommand returns an instance of the named Command, initialized to execute
@@ -74,9 +80,8 @@ func (ctx *HookContext) hookVars(charmDir, socketPath string) []string {
 		"JUJU_UNIT_NAME=" + ctx.Unit.Name(),
 	}
 	if ctx.RelationId != -1 {
-		name, id := ctx.relationIdentifiers()
-		vars = append(vars, "JUJU_RELATION="+name)
-		vars = append(vars, "JUJU_RELATION_ID="+id)
+		vars = append(vars, "JUJU_RELATION="+ctx.envRelation())
+		vars = append(vars, "JUJU_RELATION_ID="+ctx.envRelationId())
 		if ctx.RemoteUnitName != "" {
 			vars = append(vars, "JUJU_REMOTE_UNIT="+ctx.RemoteUnitName)
 		}
@@ -116,14 +121,24 @@ func (ctx *HookContext) RunHook(hookName, charmDir, socketPath string) error {
 	return err
 }
 
-// relationIdentifiers returns the relation name and identifier exposed to
-// hooks as JUJU_RELATION and JUJU_RELATION_ID respectively. It will panic
-// if RelationId is not a key in the Relations map.
-func (ctx *HookContext) relationIdentifiers() (string, string) {
-	ru := ctx.Relations[ctx.RelationId].ru
-	name := ru.Endpoint().RelationName
-	id := fmt.Sprintf("%s:%d", name, ctx.RelationId)
-	return name, id
+// envRelation returns the relation name exposed to hooks as JUJU_RELATION.
+// If the context does not have a relation, it will return an empty string.
+// Otherwise, it will panic if RelationId is not a key in the Relations map.
+func (ctx *HookContext) envRelation() string {
+	if ctx.RelationId == -1 {
+		return ""
+	}
+	return ctx.Relations[ctx.RelationId].ru.Endpoint().RelationName
+}
+
+// envRelationId returns the relation id exposed to hooks as JUJU_RELATION_ID.
+// If the context does not have a relation, it will return an empty string.
+// Otherwise, it will panic if RelationId is not a key in the Relations map.
+func (ctx *HookContext) envRelationId() string {
+	if ctx.RelationId == -1 {
+		return ""
+	}
+	return fmt.Sprintf("%s:%d", ctx.envRelation(), ctx.RelationId)
 }
 
 // SettingsMap is a map from unit name to relation settings.
@@ -219,4 +234,43 @@ func (ctx *RelationContext) ReadSettings(unit string) (settings map[string]inter
 		ctx.cache[unit] = settings
 	}
 	return settings, nil
+}
+
+// relationIdValue returns a gnuflag.Value for convenient parsing of relation
+// ids in context.
+func (ctx *HookContext) relationIdValue(result *int) *relationIdValue {
+	*result = ctx.RelationId
+	return &relationIdValue{result: result, ctx: ctx, value: ctx.envRelationId()}
+}
+
+// relationIdValue implements gnuflag.Value for use in relation hook commands.
+type relationIdValue struct {
+	result *int
+	ctx    *HookContext
+	value  string
+}
+
+// String returns the current value.
+func (v *relationIdValue) String() string {
+	return v.value
+}
+
+// Set interprets value as a relation id, if possible, and returns an error
+// if it is not known to the system. The parsed relation id will be written
+// to v.result.
+func (v *relationIdValue) Set(value string) error {
+	trim := value
+	if idx := strings.LastIndex(trim, ":"); idx != -1 {
+		trim = trim[idx+1:]
+	}
+	id, err := strconv.Atoi(trim)
+	if err != nil {
+		return fmt.Errorf("invalid relation id")
+	}
+	if _, found := v.ctx.Relations[id]; !found {
+		return fmt.Errorf("unknown relation id")
+	}
+	*v.result = id
+	v.value = value
+	return nil
 }

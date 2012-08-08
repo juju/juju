@@ -51,7 +51,7 @@ func (s *CmdSuite) TestMainInitError(c *C) {
 		result := cmd.Main(t.c, ctx, []string{"--unknown"})
 		c.Assert(result, Equals, 2)
 		c.Assert(bufferString(ctx.Stdout), Equals, "")
-		expected := t.help + "error: flag provided but not defined: --unknown\n"
+		expected := "error: flag provided but not defined: --unknown\n"
 		c.Assert(bufferString(ctx.Stderr), Equals, expected)
 	}
 }

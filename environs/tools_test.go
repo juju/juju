@@ -82,7 +82,7 @@ func (t *ToolsSuite) TestPutGetTools(c *C) {
 			if err != nil {
 				c.Assert(err, FitsTypeOf, (*exec.ExitError)(nil))
 			}
-			c.Check(string(out), Matches, fmt.Sprintf(`usage: %s (.|\n)*`, tool))
+			c.Check(string(out), Equals, fmt.Sprintf("error: unrecognized command: %s arble\n", tool))
 		}
 	}
 }
@@ -90,6 +90,12 @@ func (t *ToolsSuite) TestPutGetTools(c *C) {
 func (t *ToolsSuite) TestToolsPath(c *C) {
 	c.Assert(environs.ToolsPath(binaryVersion(1, 2, 3, "precise", "amd64")),
 		Equals, "tools/juju-1.2.3-precise-amd64.tgz")
+}
+
+func (t *ToolsSuite) TestToolsDir(c *C) {
+	c.Assert(environs.ToolsDir(binaryVersion(1, 2, 3, "precise", "amd64")),
+		Equals,
+		filepath.FromSlash("/var/lib/juju/tools/juju-1.2.3-precise-amd64.tgz"))
 }
 
 // getToolsWithTar is the same as GetTools but uses tar
