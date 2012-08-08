@@ -3,6 +3,7 @@ package mstate
 import (
 	"errors"
 	"fmt"
+	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 )
 
@@ -11,9 +12,10 @@ import (
 type ResolvedMode int
 
 const (
-	ResolvedNone       ResolvedMode = 0
-	ResolvedRetryHooks ResolvedMode = 1000
-	ResolvedNoHooks    ResolvedMode = 1001
+	ResolvedNone ResolvedMode = iota
+	ResolvedRetryHooks
+	ResolvedNoHooks
+	nResolvedModes
 )
 
 // AssignmentPolicy controls what machine a unit will be assigned to.
@@ -54,10 +56,11 @@ type unitDoc struct {
 	Name           string `bson:"_id"`
 	Service        string
 	Principal      string
-	MachineId      *int
-	Life           Life
 	PublicAddress  *string
 	PrivateAddress *string
+	MachineId      *int
+	Resolved       ResolvedMode
+	Life           Life
 }
 
 // Unit represents the state of a service unit.
@@ -86,6 +89,11 @@ func (u *Unit) String() string {
 // Name returns the unit name.
 func (u *Unit) Name() string {
 	return u.doc.Name
+}
+
+// Resolved returns the resolved mode for the unit.
+func (u *Unit) Resolved() (mode ResolvedMode, err error) {
+	return u.doc.Resolved, nil
 }
 
 // IsPrincipal returns whether the unit is deployed in its own container,
@@ -193,5 +201,43 @@ func (u *Unit) SetPrivateAddress(address string) error {
 		return fmt.Errorf("cannot set private address of unit %q: %v", u, err)
 	}
 	u.doc.PrivateAddress = &address
+	return nil
+}
+
+// SetResolved marks the unit as having had any previous state transition
+// problems resolved, and informs the unit that it may attempt to
+// reestablish normal workflow. The resolved mode parameter informs
+// whether to attempt to reexecute previous failed hooks or to continue
+// as if they had succeeded before.
+func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
+	defer errorContextf(&err, "cannot set resolved mode for unit %q", u)
+	if !(0 <= mode && mode < nResolvedModes) {
+		return fmt.Errorf("invalid error resolution mode: %v", mode)
+	}
+	change := bson.D{{"$set", bson.D{{"resolved", mode}}}}
+	sel := bson.D{
+		{"_id", u.doc.Name},
+		{"resolved", ResolvedNone},
+	}
+	err = u.st.units.Update(sel, change)
+	if err == mgo.ErrNotFound {
+		return errors.New("flag already set")
+	}
+	if err != nil {
+		return err
+	}
+	u.doc.Resolved = mode
+	return nil
+}
+
+// ClearResolved removes any resolved setting on the unit.
+func (u *Unit) ClearResolved() error {
+	change := bson.D{{"$set", bson.D{{"resolved", ResolvedNone}}}}
+	sel := bson.D{{"_id", u.doc.Name}}
+	err := u.st.units.Update(sel, change)
+	if err != nil {
+		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, err)
+	}
+	u.doc.Resolved = ResolvedNone
 	return nil
 }

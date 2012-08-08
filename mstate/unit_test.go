@@ -41,3 +41,28 @@ func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(address, Equals, "example.local")
 }
+
+func (s *UnitSuite) TestGetSetClearResolved(c *C) {
+	setting, err := s.unit.Resolved()
+	c.Assert(err, IsNil)
+	c.Assert(setting, Equals, state.ResolvedNone)
+
+	err = s.unit.SetResolved(state.ResolvedNoHooks)
+	c.Assert(err, IsNil)
+	err = s.unit.SetResolved(state.ResolvedNoHooks)
+	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": flag already set`)
+	retry, err := s.unit.Resolved()
+	c.Assert(err, IsNil)
+	c.Assert(retry, Equals, state.ResolvedNoHooks)
+
+	err = s.unit.ClearResolved()
+	c.Assert(err, IsNil)
+	setting, err = s.unit.Resolved()
+	c.Assert(err, IsNil)
+	c.Assert(setting, Equals, state.ResolvedNone)
+	err = s.unit.ClearResolved()
+	c.Assert(err, IsNil)
+
+	err = s.unit.SetResolved(state.ResolvedMode(999))
+	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": invalid error resolution mode: 999`)
+}
