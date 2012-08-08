@@ -15,12 +15,7 @@ import (
 // files (see os.TempDir).
 var TempDir string
 
-// Status represents the status of a completed download.
-// It is the receiver's responsibility to close and remove
-// the file.
-type Status struct {
-	// URL holds the downloaded URL.
-	URL string
+type status struct {
 	// Err describes any error encountered while downloading.
 	Err error
 	// File holds the file that the URL has downloaded to.
@@ -29,40 +24,25 @@ type Status struct {
 
 // Downloader can download a file from the network.
 type Downloader struct {
-	current *downloadOne
-	done    chan Status
+	tomb tomb.Tomb
+	done chan Status
+	url  string
+	w    io.Writer
 }
 
-// New returns a new Downloader instance.
-// Nothing will be downloaded until Start is called.
-func New() *Downloader {
+// New returns a new Downloader downloading the given
+// url into a temporary file.
+func New(url string) *Downloader {
 	return &Downloader{
 		done: make(chan Status),
 	}
 }
 
-// Start requests that the given URL be downloaded and written
-// to the given Writer.
-//
-// If Start is called while another download is already in progress, the
-// previous download will be cancelled.
-func (d *Downloader) Start(url string) {
-	if d.current != nil {
-		d.Stop()
-	}
-	d.current = &downloadOne{
-		url:  url,
-		done: d.done,
-	}
-	go d.current.run()
-}
-
-// Stop stops any download that's in progress.
-func (d *Downloader) Stop() {
-	if d.current != nil {
-		d.current.stop()
-		d.current = nil
-	}
+// Stop stops any download that's in progress and returns
+// any error encountered
+func (d *Downloader) Stop() error {
+	d.tomb.Kill(nil)
+	return d.tomb.Wait()
 }
 
 // Done returns a channel that receives a value when
