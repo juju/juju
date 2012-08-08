@@ -12,6 +12,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
+	"strings"
 )
 
 // HookContext is responsible for the state against which a jujuc-forwarded
@@ -43,12 +45,24 @@ type HookContext struct {
 
 // newCommands maps Command names to initializers.
 var newCommands = map[string]func(*HookContext) (cmd.Command, error){
-	"close-port":   NewClosePortCommand,
-	"config-get":   NewConfigGetCommand,
-	"juju-log":     NewJujuLogCommand,
-	"open-port":    NewOpenPortCommand,
-	"relation-set": NewRelationSetCommand,
-	"unit-get":     NewUnitGetCommand,
+	"close-port":    NewClosePortCommand,
+	"config-get":    NewConfigGetCommand,
+	"juju-log":      NewJujuLogCommand,
+	"open-port":     NewOpenPortCommand,
+	"relation-get":  NewRelationGetCommand,
+	"relation-ids":  NewRelationIdsCommand,
+	"relation-list": NewRelationListCommand,
+	"relation-set":  NewRelationSetCommand,
+	"unit-get":      NewUnitGetCommand,
+}
+
+// CommandNames returns the names of all jujuc commands.
+func CommandNames() (names []string) {
+	for name := range newCommands {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return
 }
 
 // NewCommand returns an instance of the named Command, initialized to execute
@@ -229,4 +243,43 @@ func (ctx *RelationContext) ReadSettings(unit string) (settings map[string]inter
 		ctx.cache[unit] = settings
 	}
 	return settings, nil
+}
+
+// relationIdValue returns a gnuflag.Value for convenient parsing of relation
+// ids in context.
+func (ctx *HookContext) relationIdValue(result *int) *relationIdValue {
+	*result = ctx.RelationId
+	return &relationIdValue{result: result, ctx: ctx, value: ctx.envRelationId()}
+}
+
+// relationIdValue implements gnuflag.Value for use in relation hook commands.
+type relationIdValue struct {
+	result *int
+	ctx    *HookContext
+	value  string
+}
+
+// String returns the current value.
+func (v *relationIdValue) String() string {
+	return v.value
+}
+
+// Set interprets value as a relation id, if possible, and returns an error
+// if it is not known to the system. The parsed relation id will be written
+// to v.result.
+func (v *relationIdValue) Set(value string) error {
+	trim := value
+	if idx := strings.LastIndex(trim, ":"); idx != -1 {
+		trim = trim[idx+1:]
+	}
+	id, err := strconv.Atoi(trim)
+	if err != nil {
+		return fmt.Errorf("invalid relation id")
+	}
+	if _, found := v.ctx.Relations[id]; !found {
+		return fmt.Errorf("unknown relation id")
+	}
+	*v.result = id
+	v.value = value
+	return nil
 }

@@ -5,7 +5,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/jujuc/server"
-	"launchpad.net/juju-core/state"
 )
 
 type RelationSetSuite struct {
@@ -34,8 +33,8 @@ usage: relation-set [options] key=value [key=value ...]
 purpose: set relation settings
 
 options:
--r (= "%s")
-    relation id
+-r  (= %s)
+    specify a relation by id
 `[1:], t.expect))
 	}
 }
@@ -49,36 +48,35 @@ var relationSetInitTests = []struct {
 }{
 	{
 		ctxrelid: -1,
-		err:      `no relation specified`,
+		err:      `no relation id specified`,
 	}, {
 		ctxrelid: 1,
 		err:      `expected "key=value" parameters, got nothing`,
 	}, {
 		ctxrelid: -1,
 		args:     []string{"-r", "one"},
-		err:      `invalid relation id "one"`,
+		err:      `invalid value "one" for flag -r: invalid relation id`,
 	}, {
 		ctxrelid: 1,
 		args:     []string{"-r", "one"},
-		err:      `invalid relation id "one"`,
-	},
-	{
+		err:      `invalid value "one" for flag -r: invalid relation id`,
+	}, {
 		ctxrelid: -1,
 		args:     []string{"-r", "ignored:one"},
-		err:      `invalid relation id "ignored:one"`,
+		err:      `invalid value "ignored:one" for flag -r: invalid relation id`,
 	}, {
 		ctxrelid: 1,
-		args:     []string{"-r", "ignored:one"}, err: `invalid relation id "ignored:one"`,
+		args:     []string{"-r", "ignored:one"},
+		err:      `invalid value "ignored:one" for flag -r: invalid relation id`,
 	}, {
 		ctxrelid: -1,
 		args:     []string{"-r", "2"},
-		err:      `unknown relation id "2"`,
+		err:      `invalid value "2" for flag -r: unknown relation id`,
 	}, {
 		ctxrelid: 1,
 		args:     []string{"-r", "ignored:2"},
-		err:      `unknown relation id "ignored:2"`,
-	},
-	{
+		err:      `invalid value "ignored:2" for flag -r: unknown relation id`,
+	}, {
 		ctxrelid: -1,
 		args:     []string{"-r", "ignored:0"},
 		err:      `expected "key=value" parameters, got nothing`,
@@ -237,15 +235,4 @@ func (s *RelationSetSuite) TestRun(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(settings, DeepEquals, pristine)
 	}
-}
-
-func setSettings(c *C, ru *state.RelationUnit, settings map[string]interface{}) {
-	node, err := ru.Settings()
-	c.Assert(err, IsNil)
-	for _, k := range node.Keys() {
-		node.Delete(k)
-	}
-	node.Update(settings)
-	_, err = node.Write()
-	c.Assert(err, IsNil)
 }

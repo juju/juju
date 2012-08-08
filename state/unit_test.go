@@ -47,6 +47,11 @@ func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
 func (s *UnitSuite) TestGetSetStatus(c *C) {
 	status, err := s.unit.Status()
 	c.Assert(err, IsNil)
+	c.Assert(status, Equals, "down")
+	_, err = s.unit.SetAgentAlive()
+	c.Assert(err, IsNil)
+	status, err = s.unit.Status()
+	c.Assert(err, IsNil)
 	c.Assert(status, Equals, "pending")
 	err = s.unit.SetStatus("started")
 	c.Assert(err, IsNil)

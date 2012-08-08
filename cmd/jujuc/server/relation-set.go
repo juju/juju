@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"strconv"
 	"strings"
 )
 
@@ -26,29 +25,12 @@ func (c *RelationSetCommand) Info() *cmd.Info {
 }
 
 func (c *RelationSetCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	relationId := ""
-	f.StringVar(&relationId, "r", c.envRelationId(), "relation id")
+	f.Var(c.relationIdValue(&c.RelationId), "r", "specify a relation by id")
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
-	if relationId == "" {
-		if c.HookContext.RelationId == -1 {
-			return fmt.Errorf("no relation specified")
-		}
-		c.RelationId = c.HookContext.RelationId
-	} else {
-		trim := relationId
-		if idx := strings.LastIndex(trim, ":"); idx != -1 {
-			trim = trim[idx+1:]
-		}
-		id, err := strconv.Atoi(trim)
-		if err != nil {
-			return fmt.Errorf("invalid relation id %q", relationId)
-		}
-		if _, found := c.Relations[id]; !found {
-			return fmt.Errorf("unknown relation id %q", relationId)
-		}
-		c.RelationId = id
+	if c.RelationId == -1 {
+		return fmt.Errorf("no relation id specified")
 	}
 	args = f.Args()
 	if len(args) == 0 {

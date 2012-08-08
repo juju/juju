@@ -157,15 +157,32 @@ func (u *Unit) SetPrivateAddress(address string) (err error) {
 		"private address of unit %q", u)
 }
 
-// Status returns the status of the unit.
+// Status returns the status of the unit's agent. Expected
+// results include:
+//   pending:   the agent has not started
+//   installed: the agent has installed the charm
+//   started:   the agent is running and nothing is wrong
+//   stopped:   the agent has done everything it ever will
+//   *-error:   the agent failed to run the referenced hook
+//   down:      the agent is not functioning correctly
 func (u *Unit) Status() (string, error) {
-	status, err := getConfigString(u.st.zk, u.zkPath(), "status", "status of unit %q", u)
+	status, err := getConfigString(u.st.zk, u.zkPath(), "status",
+		"status of unit %q", u)
 	if err != nil {
-		if _, ok := err.(*NotFoundError); ok {
-			// Default to 'pending'.
-			return "pending", nil
+		if _, ok := err.(*NotFoundError); !ok {
+			return "", err
 		}
-		return "", err
+		// Default to 'pending'.
+		status = "pending"
+	}
+	if status != "stopped" {
+		alive, err := u.AgentAlive()
+		if err != nil {
+			return "", err
+		}
+		if !alive {
+			status = "down"
+		}
 	}
 	return status, nil
 }
