@@ -63,3 +63,8 @@ func (s *ToolsSuite) TestEnsureTools(c *C) {
 		c.Assert(assertLink(tool), Equals, mtime)
 	}
 }
+
+func (s *ToolsSuite) TestEnsureToolsBadDir(c *C) {
+	err := uniter.EnsureTools("u/999")
+	c.Assert(err, ErrorMatches, "cannot initialize hook commands.*: no such file or directory")
+}
