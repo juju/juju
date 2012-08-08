@@ -173,7 +173,7 @@ func (u *Unit) Status() (string, error) {
 			return "", err
 		}
 		// Default to 'pending'.
-		status = "pending"
+		return "pending", nil
 	}
 	if status != "stopped" {
 		alive, err := u.AgentAlive()
