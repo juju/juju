@@ -472,6 +472,57 @@ func (w *MachineWatcher) done() {
 	close(w.changeChan)
 }
 
+// AgentToolsWatcher observes changes to an agent's tools.
+type AgentToolsWatcher struct {
+	contentWatcher
+	changeChan chan *Tools
+	prefix string
+	current *Tools
+}
+
+// newAgentToolsWatcher creates a new watcher watching
+// the tools at the given path with the given attribute prefix
+// ("current" or "proposed").
+func newAgentToolsWatcher(st *State, path, prefix string) *AgentToolsWatcher {
+	w := &AgentToolsWatcher{
+		contentWatcher: newContentWatcher(st, path),
+		changeChan:     make(chan *Tools),
+		prefix: prefix,
+	}
+	go w.loop(w)
+	return w
+}
+
+func (w *AgentToolsWatcher) Changes() <-chan *Tools {
+	return w.changeChan
+}
+
+func (w *AgentToolsWatcher) update(change watcher.ContentChange) error {
+	// A non-existent node is treated as an empty node.
+	configNode, err := parseConfigNode(w.st.zk, w.path, change.Content)
+	if err != nil {
+		return err
+	}
+	tools, err := getAgentTools(configNode, w.prefix)
+	if err != nil {
+		return err
+	}
+	if w.current != nil && *tools == *w.current {
+		return nil
+	}
+	w.current = tools
+	select {
+	case <-w.tomb.Dying():
+		return tomb.ErrDying
+	case w.changeChan <- w.current:
+	}
+	return nil
+}
+
+func (w *AgentToolsWatcher) done() {
+	close(w.changeChan)
+}
+
 // ServicesWatcher observes the addition and removal of services.
 type ServicesWatcher struct {
 	contentWatcher
