@@ -2,6 +2,7 @@ package ec2
 
 import (
 	"fmt"
+	"io/ioutil"
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
@@ -10,6 +11,8 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -778,4 +781,22 @@ func ec2ErrCode(err error) string {
 		return ""
 	}
 	return ec2err.Code
+}
+
+// fetchMetadata fetches a single atom of data from the ec2 instance metadata service.
+// http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
+func fetchMetadata(name string) (string, error) {
+	resp, err := http.Get(fmt.Sprintf("http://169.254.169.254/1.0/meta-data/%s", name))
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("bad http response %v", resp.Status)
+	}
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(data)), nil
 }
