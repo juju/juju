@@ -788,7 +788,7 @@ func ec2ErrCode(err error) string {
 func fetchMetadata(name string) (value string, err error) {
 	for a := shortAttempt.Start(); a.Next(); {
 		var resp *http.Response
-		resp, err = http.Get(fmt.Sprintf("http://169.254.169.254/1.0/meta-data/%s", name))
+		resp, err = http.Get("http://169.254.169.254/1.0/meta-data/"+ name)
 		if err != nil {
 			continue
 		}
