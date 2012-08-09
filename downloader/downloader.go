@@ -45,8 +45,9 @@ func (d *Download) Stop() {
 	d.tomb.Wait()
 }
 
-// Done returns a channel that receives a value when
-// the download has completed.
+// Done returns a channel that receives a status when the download has
+// completed.  It is the receiver's responsibility to close and remove
+// the received file.
 func (d *Download) Done() <-chan Status {
 	return d.done
 }
