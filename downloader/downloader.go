@@ -17,7 +17,7 @@ var TempDir string
 
 // Status represents the status of a completed download.
 type Status struct {
-	// File holds the file that it has been downloaded to.
+	// File holds the downloaded data on success.
 	File *os.File
 	// Err describes any error encountered while downloading.
 	Err error
