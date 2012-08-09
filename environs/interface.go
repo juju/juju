@@ -22,6 +22,14 @@ type EnvironProvider interface {
 	// SecretAttrs filters the supplied configuation returning only values
 	// which are considered sensitive.
 	SecretAttrs(cfg *config.Config) (map[string]interface{}, error)
+
+	// PublicAddress returns the string representation of this machines 
+	// public IP address.
+	PublicAddress() (string, error)
+
+	// PrivateAddress returns the string representation of this machines 
+	// private IP address.
+	PrivateAddress() (string, error)
 }
 
 var ErrNoDNSName = errors.New("DNS name not allocated")
@@ -182,18 +190,4 @@ type Environ interface {
 
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
-
-	// Addresses returns the IP addresses available to the current machine.
-	Addresses() (Addresses, error)
-}
-
-// Addresses represents the IP addresses available to the current machine.
-type Addresses interface {
-	// PublicAddress returns the string representation of this machines 
-	// public IP address.
-	PublicAddress() (string, error)
-
-	// PrivateAddress returns the string representation of this machines 
-	// private IP address.
-	PrivateAddress() (string, error)
 }

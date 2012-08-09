@@ -56,6 +56,15 @@ var newCommands = map[string]func(*HookContext) (cmd.Command, error){
 	"unit-get":      NewUnitGetCommand,
 }
 
+// CommandNames returns the names of all jujuc commands.
+func CommandNames() (names []string) {
+	for name := range newCommands {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return
+}
+
 // NewCommand returns an instance of the named Command, initialized to execute
 // against this HookContext.
 func (ctx *HookContext) NewCommand(name string) (cmd.Command, error) {

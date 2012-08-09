@@ -119,6 +119,14 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, 
 	return m, nil
 }
 
+func (environProvider) PublicAddress() (string, error) {
+	return fetchMetadata("public-hostname")
+}
+
+func (environProvider) PrivateAddress() (string, error) {
+	return fetchMetadata("local-hostname")
+}
+
 func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
