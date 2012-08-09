@@ -293,11 +293,11 @@ func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{},
 }
 
 func (*environProvider) PublicAddress() (string, error) {
-	return "localhost", nil
+	return "public.dummy.address.example.com", nil
 }
 
 func (*environProvider) PrivateAddress() (string, error) {
-	return "localhost", nil
+	return "private.dummy.address.example.com", nil
 }
 
 var errBroken = errors.New("broken environment")

@@ -23,12 +23,12 @@ type EnvironProvider interface {
 	// which are considered sensitive.
 	SecretAttrs(cfg *config.Config) (map[string]interface{}, error)
 
-	// PublicAddress returns the string representation of this machines 
-	// public IP address.
+	// PublicAddress returns the string representation of this machine's
+	// public hostname.
 	PublicAddress() (string, error)
 
-	// PrivateAddress returns the string representation of this machines 
-	// private IP address.
+	// PrivateAddress returns the string representation of this machine's
+	// private hostname.
 	PrivateAddress() (string, error)
 }
 
