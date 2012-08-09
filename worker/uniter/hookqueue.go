@@ -88,7 +88,7 @@ type unitInfo struct {
 // from the w watcher and sends into out the details about hooks that must
 // be executed in the unit. If any values have previously been received from
 // w's Changes channel, the HookQueue's behaviour is undefined.
-func NewHookQueue(initial RelationState, out chan<- HookInfo, w RelationUnitsWatcher) *HookQueue {
+func NewHookQueue(initial *RelationState, out chan<- HookInfo, w RelationUnitsWatcher) *HookQueue {
 	q := &HookQueue{
 		w:          w,
 		out:        out,
@@ -99,7 +99,7 @@ func NewHookQueue(initial RelationState, out chan<- HookInfo, w RelationUnitsWat
 	return q
 }
 
-func (q *HookQueue) loop(initial RelationState) {
+func (q *HookQueue) loop(initial *RelationState) {
 	defer q.tomb.Done()
 	defer watcher.Stop(q.w, &q.tomb)
 
