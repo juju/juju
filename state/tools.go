@@ -64,7 +64,7 @@ func (at *agentTools) setAgentTools(prefix string, t *Tools) (err error) {
 	return err
 }
 
-// AgentVersion returns the tools that the agent is current running.
+// AgentVersion returns the tools that the agent is currently running.
 func (at *agentTools) AgentTools() (*Tools, error) {
 	return at.agentTools("current")
 }
@@ -74,7 +74,7 @@ func (at *agentTools) SetAgentTools(t *Tools) error {
 	return at.setAgentTools("current", t)
 }
 
-// WatchAgentVersion watches the set of tools that the agent is currentl
+// WatchAgentVersion watches the set of tools that the agent is currently
 // running.
 func (at *agentTools) WatchAgentTools() *AgentToolsWatcher {
 	return newAgentToolsWatcher(at.st, at.path, "current")

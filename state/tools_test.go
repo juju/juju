@@ -65,6 +65,8 @@ func testAgentTools(c *C, obj tooler, agent string) {
 	c.Assert(t4, DeepEquals, t0)
 }
 
+// toolSetter provides an interface that lets us test a tools watcher
+// independently of whether we are watching current or proposed tools.
 type toolSetter interface {
 	setTools(t *state.Tools) error
 	setOtherTools(t *state.Tools) error
