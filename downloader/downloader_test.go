@@ -9,90 +9,75 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	stdtesting "testing"
 	"time"
 )
 
 type suite struct {
-	downloader *downloader.Downloader
-	dir        string
 	testing.LoggingSuite
 }
 
 var _ = Suite(&suite{})
 
-func (s *suite) SetUpTest(c *C) {
-	downloader.TempDir = c.MkDir()
-	s.LoggingSuite.SetUpTest(c)
-	s.downloader = downloader.New()
-	s.dir = c.MkDir()
-}
-
-func (s *suite) TearDownTest(c *C) {
-	downloader.TempDir = ""
-	s.downloader.Stop()
-	s.LoggingSuite.TearDownTest(c)
-}
-
 func Test(t *stdtesting.T) {
 	TestingT(t)
 }
 
-func (s *suite) TestDownloader(c *C) {
+func (s *suite) TestDownload(c *C) {
 	l := newServer()
 	defer l.close()
 
+	defer func() {
+		downloader.TempDir = ""
+	}()
+	downloader.TempDir = c.MkDir()
+
 	content := l.addContent("/archive.tgz", "archive")
-	s.downloader.Start(content.url)
-	status := <-s.downloader.Done()
+	d := downloader.New(content.url)
+	status := <-d.Done()
 	c.Assert(status.Err, IsNil)
-	c.Assert(status.URL, Equals, content.url)
 	c.Assert(status.File, NotNil)
 	defer os.Remove(status.File.Name())
 	defer status.File.Close()
+
+	dir, _ := filepath.Split(status.File.Name())
+	c.Assert(filepath.Clean(dir), Equals, downloader.TempDir)
 	assertFileContents(c, status.File, "archive")
 }
 
-func (s *suite) TestInterruptDownload(c *C) {
+func (s *suite) TestDownloadError(c *C) {
 	l := newServer()
 	defer l.close()
-	content1 := l.addContent("/x.tgz", "content1")
-	content1.started = make(chan bool)
+	// Add some content, then delete it - we should
+	// get a 404 response.
+	url := l.addContent("/archive.tgz", "archive").url
+	delete(l.contents, "/archive.tgz")
+	d := downloader.New(url)
+	status := <-d.Done()
+	c.Assert(status.File, IsNil)
+	c.Assert(status.Err, ErrorMatches, `cannot download ".*": bad http response 404 Not Found`)
+}
 
-	content2 := l.addContent("/y.tgz", "content2")
-
-	s.downloader.Start(content1.url)
-	<-content1.started
-
-	// Currently we can't interrupt the http get, so we
-	// check to make sure that the Start is blocking while
-	// the previous download completes.
-	// When we fix this, this test will need to change.
-	startDone := make(chan bool)
-	go func() {
-		s.downloader.Start(content2.url)
-		startDone <- true
+func (s *suite) TestStopDownload(c *C) {
+	defer func() {
+		downloader.TempDir = ""
 	}()
+	downloader.TempDir = c.MkDir()
+
+	l := newServer()
+	defer l.close()
+	content := l.addContent("/x.tgz", "content")
+	d := downloader.New(content.url)
+	d.Stop()
 	select {
-	case <-startDone:
-		c.Fatalf("Start did not wait for previous download to complete")
+	case status := <-d.Done():
+		c.Fatalf("received status %#v after stop", status)
 	case <-time.After(100 * time.Millisecond):
 	}
-	// start content1 http get going again.
-	content1.started <- true
-	status := <-s.downloader.Done()
-	c.Check(status.URL, Equals, content2.url)
-	c.Check(status.Err, IsNil)
-	c.Assert(status.File, NotNil)
-	defer os.Remove(status.File.Name())
-	defer status.File.Close()
-	assertFileContents(c, status.File, "content2")
-
-	// Wait for a little and check that the interrupted file has been removed.
-	time.Sleep(100 * time.Millisecond)
 	infos, err := ioutil.ReadDir(downloader.TempDir)
 	c.Assert(err, IsNil)
-	c.Assert(infos, HasLen, 1)
+	c.Assert(infos, HasLen, 0)
 }
 
 func assertFileContents(c *C, f *os.File, expect string) {
@@ -106,9 +91,8 @@ func assertFileContents(c *C, f *os.File, expect string) {
 }
 
 type content struct {
-	url     string
-	data    []byte
-	started chan bool
+	url  string
+	data []byte
 }
 
 type server struct {
@@ -147,17 +131,5 @@ func (srv *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		http.NotFound(w, req)
 		return
 	}
-	if c.started != nil {
-		// The test wants to know when we have started,
-		// so send half the data (meaning that at
-		// least *some* of the archive might have been written)
-		// then notify that we've started.
-		n := len(c.data) / 2
-		w.Write(c.data[0:n])
-		c.started <- true
-		<-c.started
-		w.Write(c.data[n:])
-	} else {
-		w.Write(c.data)
-	}
+	w.Write(c.data)
 }
