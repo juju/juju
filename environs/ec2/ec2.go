@@ -785,18 +785,24 @@ func ec2ErrCode(err error) string {
 
 // fetchMetadata fetches a single atom of data from the ec2 instance metadata service.
 // http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
-func fetchMetadata(name string) (string, error) {
-	resp, err := http.Get(fmt.Sprintf("http://169.254.169.254/1.0/meta-data/%s", name))
-	if err != nil {
-		return "", err
+func fetchMetadata(name string) (value string, err error) {
+	for a := shortAttempt.Start(); a.Next(); {
+		var resp *http.Response
+		resp, err = http.Get(fmt.Sprintf("http://169.254.169.254/1.0/meta-data/%s", name))
+		if err != nil {
+			continue
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			err = fmt.Errorf("bad http response %v", resp.Status)
+			continue
+		}
+		var data []byte
+		data, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			continue
+		}
+		return strings.TrimSpace(string(data)), nil
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("bad http response %v", resp.Status)
-	}
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(data)), nil
+	return
 }
