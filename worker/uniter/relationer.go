@@ -127,6 +127,9 @@ func (r *Relationer) PrepareHook(hi HookInfo) (hookName string, err error) {
 // CommitHook persists the fact of the supplied hook's completion.
 func (r *Relationer) CommitHook(hi HookInfo) error {
 	if hi.HookKind == "broken" {
+		if err := r.StopHooks(); err != nil {
+			return err
+		}
 		if err := r.ru.Depart(); err != nil {
 			return err
 		}
