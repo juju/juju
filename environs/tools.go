@@ -6,22 +6,15 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 	"net/http"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strings"
 )
-
-// VarDir is the directory where juju data is stored.
-// The tools directories are stored inside the "tools" subdirectory
-// inside VarDir.
-var VarDir = "/var/lib/juju"
 
 var toolPrefix = "tools/juju-"
 
@@ -193,10 +186,16 @@ func BestTools(toolsList []*state.Tools, vers version.Binary) *state.Tools {
 	return bestTools
 }
 
-// UnpackTools unpacks a set of tools in gzipped tar-archive
-// format from the given Reader into the given directory.
-func UnpackTools(r io.Reader, dir string) error {
-	r, err := gzip.NewReader(r)
+// GetTools downloads a set of tools from the given URL
+// into the given directory.
+func GetTools(url, dir string) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	r, err := gzip.NewReader(resp.Body)
 	if err != nil {
 		return err
 	}
@@ -223,23 +222,10 @@ func UnpackTools(r io.Reader, dir string) error {
 	panic("not reached")
 }
 
-// ToolsPath returns the slash-separated path that is used to store and
+// ToolsPath returns path that is used to store and
 // retrieve the given version of the juju tools in a Storage.
 func ToolsPath(vers version.Binary) string {
 	return toolPrefix + vers.String() + ".tgz"
-}
-
-// ToolsDir returns the slash-separated directory name that is used to
-// store binaries for the given version of the juju tools.
-func ToolsDir(vers version.Binary) string {
-	return path.Join(VarDir, "tools", vers.String())
-}
-
-// AgentToolsDir returns the slash-separated directory name that is used
-// to store binaries for the tools used by the given agent.
-// Conventionally it is a symbolic link to the actual tools directory.
-func AgentToolsDir(agentName string) string {
-	return path.Join(VarDir, "tools", agentName)
 }
 
 // FindTools tries to find a set of tools compatible with the given
@@ -320,165 +306,4 @@ func (s emptyStorage) URL(string) (string, error) {
 
 func (s emptyStorage) List(prefix string) ([]string, error) {
 	return nil, nil
-}
-
-type DownloadStatus struct {
-	Tools *state.Tools
-	File *os.File
-	Err error
-}
-
-// Upgrader can handle the download and upgrade of an agent's tools.
-type Upgrader struct {
-	agentName   string
-	current     *state.Tools
-	downloading *state.Tools
-	downloadDone chan DownloadStatus
-}
-
-// NewUpgrader returns a new Upgrader for the agent with the
-// given name, running the given tools.
-func NewUpgrader(agentName string, currentTools *state.Tools) *Upgrader {
-	return &Upgrader{
-		current:    currentTools,
-		agentName:  agentName,
-		downloader: downloader.New(),
-	}
-}
-
-// DownloadTools requests that the given tools be downloaded.
-func (u *Upgrader) DownloadTools(t *state.Tools) {
-	switch {
-	case t.URL == "" || u.current != nil && *t == *u.current:
-		// We don't need to be downloading anything
-		// if there's no proposed URL or if the version is
-		// the same as we're currently running.
-		u.Stop()
-		return
-	case u.downloading != nil && *t == *u.downloading:
-		// Leave the existing download if it's already happening.
-		return
-	}
-
-	// If the tools directory already exists, we need do nothing.
-	existingTools, err := readToolsDir(t)
-	if err == nil {
-		u.downloadDone = make(chan DownloadStatus, 1)
-		u.downloadDone <- DownloadStatus{Tools: t}
-		close(u.downloadDone)
-		return
-	}
-	u.downloading = t
-	file, err := os.TempFile("", "juju-download-")
-	if err != nil {
-		u.downloadDone = make(chan DownloadStatus, 1)
-		u.downloadDone <- DownloadStatus{Err: err}
-		close(u.downloadDone)
-		return
-	}
-	done := make(chan DownloadStatus)
-	go func() {
-		err := download(file, t.URL)
-		if err == nil {
-			err = file.Seek(0, 0)
-		}
-		done <- DownloadStatus{
-			Tools: t,
-			File: file,
-			Err: err,
-		}
-		close(done)
-	}()
-	u.downloadDone = done
-}
-
-func readToolsDir(t *state.Tools) (*state.Tools, error) {
-	url, err := ioutil.ReadFile(filepath.Join(ToolsDir(t.Binary), urlFile))
-	if err != nil {
-		return err
-	}
-	return &state.Tools{
-		URL: url,
-		Binary: t.Binary,
-	}
-}
-
-func (u *Upgrader) Stop() {
-	if u.downloading == nil {
-		return
-	}
-	u.downloading = nil
-	// TODO(rog) make downloads interruptible and interrupt it here.
-	status := <-u.downloadDone
-	u.downloadDone = nil
-	cleanTempFile(status.File)
-}
-
-// Done returns a channel that receives a value when
-// the latest proposed tools have been successfully downloaded.
-// It is only valid until the next call to DownloadTools or Stop.
-// Upgrade should then be called with the received status
-// to complete the upgrade.
-func (u *Upgrader) Done() <-chan DownloadStatus {
-	return u.downloadDone
-}
-
-// Upgrade tries to complete an upgrade by unpacking
-// the tools and replacing the agent's tools directory. If the upgrade
-// succeeds, Upgrade returns the newly upgraded tools.
-// The file, status.File is closed and removed.
-func (u *Upgrader) Upgrade(status DownloadStatus) (*state.Tools, error) {
-	u.Stop()
-	defer cleanTempFile(status.File)
-	if status.Err != nil {
-		// TODO set download error status on machine?
-		return nil, fmt.Errorf("tools download %q failed: %v", status.URL, status.Err)
-	}
-	if status.File == nil {
-		if !toolsDirExists(status.Tools) {
-			return nil, fmt.Errorf("no tools archive file provided")
-		}
-		check dir exists
-	} else {
-		defer os.Remove(status.File.Name())
-		defer status.File.Close()
-		unpack(status.File)
-	}
-	defer os.Remove(status.File.Name())
-	defer status.File.Close()
-
-	err := u.replaceSymlink(tools)
-	if err != nil {
-		return nil, fmt.Errorf("cannot update tools symlink: %v", err)
-	}
-	// N.B.  there's no point in using path.ToSlash here as we don't
-	// have symlinks on Windows anyway.
-	err := os.Symlink(ToolsDir(tools.Binary), AgentToolsDir(u.agentName))
-	if err != nil {
-		return nil, fmt.Errorf("cannot update tools symlink: %v", err)
-	}
-	return tools, nil
-}
-
-func cleanTempFile(f *os.File) {
-	if f == nil {
-		return
-	}
-	f.Close()
-	if err := os.Remove(f.Name()); err != nil {
-		log.Printf("environs: cannot remove temporary download file: %v", err)
-	}
-}
-
-func download(w io.Writer, url string) error {
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad http response %v", resp.Status)
-	}
-	_, err = io.Copy(w, resp.Body)
-	return err
 }
