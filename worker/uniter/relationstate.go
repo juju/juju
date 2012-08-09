@@ -120,6 +120,12 @@ func (rs *RelationState) Validate(hi HookInfo) (err error) {
 		return fmt.Errorf("expected relation %d, got relation %d", rs.RelationId, hi.RelationId)
 	}
 	unit, hook := hi.RemoteUnit, hi.HookKind
+	if hook == "broken" {
+		if len(rs.Members) == 0 {
+			return nil
+		}
+		return fmt.Errorf(`cannot run "broken" while units still present`)
+	}
 	if rs.ChangedPending != "" {
 		if unit != rs.ChangedPending || hook != "changed" {
 			return fmt.Errorf(`expected "changed" for %q`, rs.ChangedPending)
@@ -142,6 +148,9 @@ func (rs *RelationState) Commit(hi HookInfo) (err error) {
 		return err
 	}
 	defer errorContextf(&err, "failed to commit %q for %q", hi.HookKind, hi.RemoteUnit)
+	if hi.HookKind == "broken" {
+		return os.Remove(rs.Path)
+	}
 	name := unitFsName(hi.RemoteUnit)
 	path := filepath.Join(rs.Path, name)
 	if hi.HookKind == "departed" {

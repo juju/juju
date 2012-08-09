@@ -9,12 +9,13 @@ import (
 
 // Relationer manages a unit's presence in a relation.
 type Relationer struct {
-	ctx    *server.RelationContext
-	ru     *state.RelationUnit
-	rs     *RelationState
-	pinger *presence.Pinger
-	queue  *HookQueue
-	hooks  chan<- HookInfo
+	ctx      *server.RelationContext
+	ru       *state.RelationUnit
+	rs       *RelationState
+	pinger   *presence.Pinger
+	queue    hookQueue
+	hooks    chan<- HookInfo
+	breaking bool
 }
 
 // NewRelationer creates a new Relationer. The unit will not join the
@@ -44,8 +45,8 @@ func (r *Relationer) Join() error {
 }
 
 // Abandon stops the periodic signalling of the unit's presence in the relation.
-// It does not immediately signal that the unit has departed the relation; see
-// the Depart method.
+// It does not immediately signal that the unit has departed the relation; this
+// is done only when a -broken hook is committed.
 func (r *Relationer) Abandon() error {
 	if r.pinger == nil {
 		return nil
@@ -55,10 +56,21 @@ func (r *Relationer) Abandon() error {
 	return pinger.Stop()
 }
 
-// Depart immediately signals that the unit has departed the relation, and
-// cleans up local state.
-func (r *Relationer) Depart() error {
-	panic("not implemented")
+// Breaking informs the relationer that the unit is departing the relation,
+// and that the only hooks it should send henceforth are -departed hooks,
+// until the relation is empty, followed by a -broken hook.
+func (r *Relationer) Breaking() error {
+	if err := r.Abandon(); err != nil {
+		return err
+	}
+	if r.queue != nil {
+		if err := r.StopHooks(); err != nil {
+			return err
+		}
+		defer r.StartHooks()
+	}
+	r.breaking = true
+	return nil
 }
 
 // StartHooks starts watching the relation, and sending HookInfo events on the
@@ -68,7 +80,11 @@ func (r *Relationer) StartHooks() {
 	if r.queue != nil {
 		panic("hooks already started!")
 	}
-	r.queue = NewHookQueue(r.rs, r.hooks, r.ru.Watch())
+	if r.breaking {
+		r.queue = NewBrokenHookQueue(r.rs, r.hooks)
+	} else {
+		r.queue = NewHookQueue(r.rs, r.hooks, r.ru.Watch())
+	}
 }
 
 // StopHooks ensures that the relationer is not watching the relation, or sending
@@ -95,12 +111,25 @@ func (r *Relationer) PrepareHook(hi HookInfo) (hookName string, err error) {
 	if err = r.rs.Validate(hi); err != nil {
 		return "", err
 	}
-	r.ctx.SetMembers(hi.Members)
+	if hi.HookKind == "departed" && r.breaking {
+		// We're using a BrokenHookQueue, which does not send membership
+		// information; it has no access to state, and can't send valid
+		// settings. To avoid dropping cached settings for any remaining
+		// members, we just delete the one we know is going away.
+		r.ctx.DelMember(hi.RemoteUnit)
+	} else {
+		r.ctx.SetMembers(hi.Members)
+	}
 	relName := r.ru.Endpoint().RelationName
 	return fmt.Sprintf("%s-relation-%s", relName, hi.HookKind), nil
 }
 
 // CommitHook persists the fact of the supplied hook's completion.
 func (r *Relationer) CommitHook(hi HookInfo) error {
+	if hi.HookKind == "broken" {
+		if err := r.ru.Depart(); err != nil {
+			return err
+		}
+	}
 	return r.rs.Commit(hi)
 }

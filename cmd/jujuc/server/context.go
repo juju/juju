@@ -202,6 +202,12 @@ func (ctx *RelationContext) SetMembers(members SettingsMap) {
 	ctx.members = members
 }
 
+// DelMember drops the membership and cache of a single remote unit, without
+// perturbing settings for the remaining members.
+func (ctx *RelationContext) DelMember(member string) {
+	delete(ctx.members, member)
+}
+
 // Settings returns a ConfigNode that gives read and write access to the
 // unit's relation settings.
 func (ctx *RelationContext) Settings() (*state.ConfigNode, error) {

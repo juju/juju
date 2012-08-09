@@ -192,6 +192,16 @@ func (ru *RelationUnit) Join() (p *presence.Pinger, err error) {
 	return presence.StartPinger(ru.st.zk, presencePath, agentPingerPeriod)
 }
 
+// Depart signals that the unit has left the relation and will never return.
+func (ru *RelationUnit) Depart() error {
+	presencePath := ru.scope.presencePath(ru.endpoint.RelationRole, ru.unit.key)
+	err := ru.st.zk.Delete(presencePath, -1)
+	if zookeeper.IsError(err, zookeeper.ZNONODE) {
+		err = nil
+	}
+	return err
+}
+
 // Watch returns a watcher that notifies when any other unit in
 // the relation joins, departs, or has its settings changed.
 func (ru *RelationUnit) Watch() *RelationUnitsWatcher {
