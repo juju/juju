@@ -267,6 +267,16 @@ func UnpackTools(tools *state.Tools, r io.Reader) (err error) {
 	return nil
 }
 
+func writeFile(name string, mode os.FileMode, r io.Reader) error {
+	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = io.Copy(f, r)
+	return err
+}
+
 // ReadTools checks that the tools for the given version exist
 // and returns a Tools instance describing them.
 func ReadTools(vers version.Binary) (*state.Tools, error) {
@@ -285,16 +295,6 @@ func ReadTools(vers version.Binary) (*state.Tools, error) {
 		URL:    url,
 		Binary: vers,
 	}, nil
-}
-
-func writeFile(name string, mode os.FileMode, r io.Reader) error {
-	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = io.Copy(f, r)
-	return err
 }
 
 // ToolsPath returns the slash-separated path that is used to store and
