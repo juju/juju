@@ -476,8 +476,8 @@ func (w *MachineWatcher) done() {
 type AgentToolsWatcher struct {
 	contentWatcher
 	changeChan chan *Tools
-	prefix string
-	current *Tools
+	prefix     string
+	current    *Tools
 }
 
 // newAgentToolsWatcher creates a new watcher watching
@@ -487,7 +487,7 @@ func newAgentToolsWatcher(st *State, path, prefix string) *AgentToolsWatcher {
 	w := &AgentToolsWatcher{
 		contentWatcher: newContentWatcher(st, path),
 		changeChan:     make(chan *Tools),
-		prefix: prefix,
+		prefix:         prefix,
 	}
 	go w.loop(w)
 	return w

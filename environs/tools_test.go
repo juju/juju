@@ -1,6 +1,9 @@
 package environs_test
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,12 +17,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
+	"time"
 )
 
 type ToolsSuite struct {
 	env environs.Environ
 	testing.LoggingSuite
+	oldVarDir string
 }
 
 func (t *ToolsSuite) SetUpTest(c *C) {
@@ -32,9 +38,12 @@ func (t *ToolsSuite) SetUpTest(c *C) {
 	})
 	c.Assert(err, IsNil)
 	t.env = env
+	t.oldVarDir = environs.VarDir
+	environs.VarDir = c.MkDir()
 }
 
 func (t *ToolsSuite) TearDownTest(c *C) {
+	environs.VarDir = t.oldVarDir
 	dummy.Reset()
 	t.LoggingSuite.TearDownTest(c)
 }
@@ -59,22 +68,25 @@ func mkToolsPath(vers string) string {
 
 var _ = Suite(&ToolsSuite{})
 
+const urlFile = "downloaded-url.txt"
+
 func (t *ToolsSuite) TestPutGetTools(c *C) {
 	tools, err := environs.PutTools(t.env.Storage())
 	c.Assert(err, IsNil)
 	c.Assert(tools.Binary, Equals, version.Current)
 	c.Assert(tools.URL, Not(Equals), "")
 
-	for i, getTools := range []func(url, dir string) error{
-		environs.GetTools,
+	for i, getTools := range []func(t *state.Tools) error{
+		getTools,
 		getToolsWithTar,
 	} {
 		c.Logf("test %d", i)
 		// Unarchive the tool executables into a temp directory.
-		dir := c.MkDir()
-		err = getTools(tools.URL, dir)
+		environs.VarDir = c.MkDir()
+		err = getTools(tools)
 		c.Assert(err, IsNil)
 
+		dir := environs.ToolsDir(version.Current)
 		// Verify that each tool executes and produces some
 		// characteristic output.
 		for _, tool := range []string{"juju", "jujud"} {
@@ -84,40 +96,23 @@ func (t *ToolsSuite) TestPutGetTools(c *C) {
 			}
 			c.Check(string(out), Equals, fmt.Sprintf("error: unrecognized command: %s arble\n", tool))
 		}
+		data, err := ioutil.ReadFile(filepath.Join(dir, urlFile))
+		c.Assert(err, IsNil)
+		c.Assert(string(data), Equals, tools.URL)
 	}
 }
 
-func (t *ToolsSuite) TestToolsPath(c *C) {
-	c.Assert(environs.ToolsPath(binaryVersion(1, 2, 3, "precise", "amd64")),
-		Equals, "tools/juju-1.2.3-precise-amd64.tgz")
-}
-
-func (t *ToolsSuite) TestToolsDir(c *C) {
-	c.Assert(environs.ToolsDir(binaryVersion(1, 2, 3, "precise", "amd64")),
-		Equals,
-		filepath.FromSlash("/var/lib/juju/tools/juju-1.2.3-precise-amd64.tgz"))
-}
-
-// getToolsWithTar is the same as GetTools but uses tar
-// itself so we're not just testing the Go tar package against
-// itself.
-func getToolsWithTar(url, dir string) error {
-	resp, err := http.Get(url)
+// getTools downloads and unpacks the given tools.
+func getTools(tools *state.Tools) error {
+	resp, err := http.Get(tools.URL)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-
-	// unarchive using actual tar command so we're
-	// not just verifying the Go tar package against itself.
-	cmd := exec.Command("tar", "xz")
-	cmd.Dir = dir
-	cmd.Stdin = resp.Body
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("tar extract failed: %s", out)
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad http status: %v", resp.Status)
 	}
-	return nil
+	return environs.UnpackTools(tools, resp.Body)
 }
 
 // Test that the upload procedure fails correctly
@@ -139,6 +134,242 @@ func (t *ToolsSuite) TestUploadBadBuild(c *C) {
 	tools, err := environs.PutTools(t.env.Storage())
 	c.Assert(tools, IsNil)
 	c.Assert(err, ErrorMatches, `build failed: exit status 1; can't load package:(.|\n)*`)
+}
+
+var unpackToolsBadDataTests = []struct {
+	data []byte
+	err  string
+}{
+	{
+		makeArchive(newFile("bar", tar.TypeDir, "")),
+		"bad file type.*",
+	},
+	{
+		makeArchive(newFile("../../etc/passwd", tar.TypeReg, "")),
+		"bad name.*",
+	},
+	{
+		makeArchive(newFile(`\ini.sys`, tar.TypeReg, "")),
+		"bad name.*",
+	},
+	{
+		[]byte("x"),
+		"unexpected EOF",
+	},
+	{
+		gzyesses,
+		"archive/tar: invalid tar header",
+	},
+}
+
+func (t *ToolsSuite) TestUnpackToolsBadData(c *C) {
+	for i, test := range unpackToolsBadDataTests {
+		c.Logf("test %d", i)
+		tools := &state.Tools{
+			URL:    "http://foo/bar",
+			Binary: version.MustParseBinary("1.2.3-foo-bar"),
+		}
+		err := environs.UnpackTools(tools, bytes.NewReader(test.data))
+		c.Assert(err, ErrorMatches, test.err)
+		assertDirNames(c, toolsDir(), []string{})
+	}
+}
+
+func toolsDir() string {
+	return filepath.Join(filepath.FromSlash(environs.VarDir), "tools")
+}
+
+func (t *ToolsSuite) TestUnpackToolsContents(c *C) {
+	files := []*file{
+		newFile("bar", tar.TypeReg, "bar contents"),
+		newFile("foo", tar.TypeReg, "foo contents"),
+	}
+	tools := &state.Tools{
+		URL:    "http://foo/bar",
+		Binary: version.MustParseBinary("1.2.3-foo-bar"),
+	}
+
+	err := environs.UnpackTools(tools, bytes.NewReader(makeArchive(files...)))
+	c.Assert(err, IsNil)
+	assertDirNames(c, toolsDir(), []string{"1.2.3-foo-bar"})
+	assertToolsContents(c, tools, files)
+
+	// Try to unpack the same version of tools again - it should succeed,
+	// leaving the original version around.
+	tools2 := &state.Tools{
+		URL:    "http://arble",
+		Binary: version.MustParseBinary("1.2.3-foo-bar"),
+	}
+	files2 := []*file{
+		newFile("bar", tar.TypeReg, "bar2 contents"),
+		newFile("x", tar.TypeReg, "x contents"),
+	}
+	err = environs.UnpackTools(tools2, bytes.NewReader(makeArchive(files2...)))
+	c.Assert(err, IsNil)
+	assertDirNames(c, toolsDir(), []string{"1.2.3-foo-bar"})
+	assertToolsContents(c, tools, files)
+}
+
+func (t *ToolsSuite) TestReadToolsErrors(c *C) {
+	vers := version.MustParseBinary("1.2.3-precise-amd64")
+	tools, err := environs.ReadTools(vers)
+	c.Assert(tools, IsNil)
+	c.Assert(err, ErrorMatches, "cannot read URL in tools directory: .*")
+
+	dir := filepath.FromSlash(environs.ToolsDir(vers))
+	err = os.MkdirAll(dir, 0755)
+	c.Assert(err, IsNil)
+
+	err = ioutil.WriteFile(filepath.Join(dir, urlFile), []byte(" \t\n"), 0644)
+	c.Assert(err, IsNil)
+
+	tools, err = environs.ReadTools(vers)
+	c.Assert(tools, IsNil)
+	c.Assert(err, ErrorMatches, "empty URL in tools directory.*")
+}
+
+func (t *ToolsSuite) TestToolsPath(c *C) {
+	c.Assert(environs.ToolsPath(binaryVersion(1, 2, 3, "precise", "amd64")),
+		Equals, "tools/juju-1.2.3-precise-amd64.tgz")
+}
+
+func (t *ToolsSuite) TestToolsDir(c *C) {
+	environs.VarDir = "/var/lib/juju"
+	c.Assert(environs.ToolsDir(binaryVersion(1, 2, 3, "precise", "amd64")),
+		Equals,
+		filepath.FromSlash("/var/lib/juju/tools/1.2.3-precise-amd64"))
+}
+
+// getToolsWithTar is the same as getTools but uses tar
+// itself so we're not just testing the Go tar package against
+// itself.
+func getToolsWithTar(tools *state.Tools) error {
+	resp, err := http.Get(tools.URL)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	dir := environs.ToolsDir(tools.Binary)
+	err = os.MkdirAll(dir, 0755)
+	if err != nil {
+		return err
+	}
+
+	cmd := exec.Command("tar", "xz")
+	cmd.Dir = dir
+	cmd.Stdin = resp.Body
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("tar extract failed: %s", out)
+	}
+	return ioutil.WriteFile(filepath.Join(cmd.Dir, urlFile), []byte(tools.URL), 0644)
+}
+
+// assertToolsContents asserts that the directory for the tools
+// has the given contents.
+func assertToolsContents(c *C, tools *state.Tools, files []*file) {
+	var wantNames []string
+	for _, f := range files {
+		wantNames = append(wantNames, f.header.Name)
+	}
+	wantNames = append(wantNames, urlFile)
+	dir := filepath.FromSlash(environs.ToolsDir(tools.Binary))
+	assertDirNames(c, dir, wantNames)
+	assertFileContents(c, dir, urlFile, tools.URL)
+	for _, f := range files {
+		assertFileContents(c, dir, f.header.Name, f.contents)
+	}
+	gotTools, err := environs.ReadTools(tools.Binary)
+	c.Assert(err, IsNil)
+	c.Assert(*gotTools, Equals, *tools)
+}
+
+// assertFileContents asserts that the given file in the
+// given directory has the given contents.
+func assertFileContents(c *C, dir, file, contents string) {
+	file = filepath.Join(dir, file)
+	info, err := os.Stat(file)
+	c.Assert(err, IsNil)
+	c.Assert(info.Mode()&os.ModeType, Equals, os.FileMode(0))
+	data, err := ioutil.ReadFile(file)
+	c.Assert(err, IsNil)
+	c.Assert(string(data), Equals, contents)
+}
+
+// assertDirNames asserts that the given directory
+// holds the given file or directory names.
+func assertDirNames(c *C, dir string, names []string) {
+	f, err := os.Open(dir)
+	c.Assert(err, IsNil)
+	defer f.Close()
+	dnames, err := f.Readdirnames(0)
+	c.Assert(err, IsNil)
+	sort.Strings(dnames)
+	sort.Strings(names)
+	c.Assert(dnames, DeepEquals, names)
+}
+
+// gzyesses holds the result of running:
+// yes | head -17000 | gzip
+var gzyesses = []byte{
+	0x1f, 0x8b, 0x08, 0x00, 0x29, 0xae, 0x1a, 0x50,
+	0x00, 0x03, 0xed, 0xc2, 0x31, 0x0d, 0x00, 0x00,
+	0x00, 0x02, 0xa0, 0xdf, 0xc6, 0xb6, 0xb7, 0x87,
+	0x63, 0xd0, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x38, 0x31, 0x53, 0xad, 0x03,
+	0x8d, 0xd0, 0x84, 0x00, 0x00,
+}
+
+type file struct {
+	header   tar.Header
+	contents string
+}
+
+func newFile(name string, ftype byte, contents string) *file {
+	return &file{
+		header: tar.Header{
+			Typeflag:   ftype,
+			Name:       name,
+			Size:       int64(len(contents)),
+			Mode:       0666,
+			ModTime:    time.Now(),
+			AccessTime: time.Now(),
+			ChangeTime: time.Now(),
+			Uname:      "ubuntu",
+			Gname:      "ubuntu",
+		},
+		contents: contents,
+	}
+}
+
+func makeArchive(files ...*file) []byte {
+	var buf bytes.Buffer
+	gzw := gzip.NewWriter(&buf)
+	tarw := tar.NewWriter(gzw)
+
+	for _, f := range files {
+		err := tarw.WriteHeader(&f.header)
+		if err != nil {
+			panic(err)
+		}
+		_, err = tarw.Write([]byte(f.contents))
+		if err != nil {
+			panic(err)
+		}
+	}
+	err := tarw.Close()
+	if err != nil {
+		panic(err)
+	}
+	err = gzw.Close()
+	if err != nil {
+		panic(err)
+	}
+	return buf.Bytes()
 }
 
 type toolsSpec struct {
