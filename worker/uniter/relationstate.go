@@ -119,6 +119,9 @@ func (rs *RelationState) Validate(hi HookInfo) (err error) {
 	if hi.RelationId != rs.RelationId {
 		return fmt.Errorf("expected relation %d, got relation %d", rs.RelationId, hi.RelationId)
 	}
+	if rs.Members == nil {
+		return fmt.Errorf(`relation is broken and cannot be changed further`)
+	}
 	unit, hook := hi.RemoteUnit, hi.HookKind
 	if hook == "broken" {
 		if len(rs.Members) == 0 {
@@ -140,21 +143,25 @@ func (rs *RelationState) Validate(hi HookInfo) (err error) {
 
 // Commit atomically writes to disk the relation state change embodied by
 // the supplied HookInfo. It should be called after the supplied HookInfo
-// has been successfully run. If the change is not valid, or cannot be
-// written, an error is returned and the change is neither persisted on
-// disk nor changed in memory.
+// has been successfully run. Commit does *not* validate the supplied
+// HookInfo, but *is* idempotent: that is, recommitting the most recent
+// HookInfo (for example, in the course of recovery from unexpected process
+// death) will not change the RelationState either on disk or in memory.
+// Attempting to commit a HookInfo that is neither valid nor a repeat of the
+// most recently committed one will cause undefined behaviour.
 func (rs *RelationState) Commit(hi HookInfo) (err error) {
-	if err = rs.Validate(hi); err != nil {
-		return err
-	}
 	defer errorContextf(&err, "failed to commit %q for %q", hi.HookKind, hi.RemoteUnit)
 	if hi.HookKind == "broken" {
-		return os.Remove(rs.Path)
+		if err = os.Remove(rs.Path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		rs.Members = nil
+		return nil
 	}
 	name := unitFsName(hi.RemoteUnit)
 	path := filepath.Join(rs.Path, name)
 	if hi.HookKind == "departed" {
-		if err = os.Remove(path); err != nil {
+		if err = os.Remove(path); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 		// If atomic delete succeeded, update own fields.

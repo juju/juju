@@ -21,7 +21,6 @@ type Relationer struct {
 // NewRelationer creates a new Relationer. The unit will not join the
 // relation until explicitly requested.
 func NewRelationer(ru *state.RelationUnit, rs *RelationState, hooks chan<- HookInfo) *Relationer {
-	// TODO lifecycle handling?
 	return &Relationer{
 		ctx:   server.NewRelationContext(ru, rs.Members),
 		ru:    ru,
@@ -30,11 +29,20 @@ func NewRelationer(ru *state.RelationUnit, rs *RelationState, hooks chan<- HookI
 	}
 }
 
+// Context returns the RelationContext associated with r.
+func (r *Relationer) Context() *server.RelationContext {
+	return r.ctx
+}
+
 // Join starts the periodic signalling of the unit's presence in the relation.
-// It must not be called again until Abandon has been called.
+// It must not be called again until Abandon has been called, and must not be
+// called at all if Breaking has been called.
 func (r *Relationer) Join() error {
 	if r.pinger != nil {
 		panic("unit already joined!")
+	}
+	if r.breaking {
+		panic("breaking unit must not join!")
 	}
 	pinger, err := r.ru.Join()
 	if err != nil {
@@ -98,11 +106,6 @@ func (r *Relationer) StopHooks() error {
 	return queue.Stop()
 }
 
-// Context returns the RelationContext associated with r.
-func (r *Relationer) Context() *server.RelationContext {
-	return r.ctx
-}
-
 // PrepareHook checks that the relation is in a state such that it makes
 // sense to execute the supplied hook, and ensures that the relation context
 // contains the latest relation state as communicated in the HookInfo. It
@@ -111,14 +114,9 @@ func (r *Relationer) PrepareHook(hi HookInfo) (hookName string, err error) {
 	if err = r.rs.Validate(hi); err != nil {
 		return "", err
 	}
-	if hi.HookKind == "departed" && r.breaking {
-		// We're using a BrokenHookQueue, which does not send membership
-		// information; it has no access to state, and can't send valid
-		// settings. To avoid dropping cached settings for any remaining
-		// members, we just delete the one we know is going away.
+	r.ctx.UpdateMembers(hi.Members)
+	if hi.HookKind == "departed" {
 		r.ctx.DelMember(hi.RemoteUnit)
-	} else {
-		r.ctx.SetMembers(hi.Members)
 	}
 	relName := r.ru.Endpoint().RelationName
 	return fmt.Sprintf("%s-relation-%s", relName, hi.HookKind), nil
@@ -127,9 +125,6 @@ func (r *Relationer) PrepareHook(hi HookInfo) (hookName string, err error) {
 // CommitHook persists the fact of the supplied hook's completion.
 func (r *Relationer) CommitHook(hi HookInfo) error {
 	if hi.HookKind == "broken" {
-		if err := r.StopHooks(); err != nil {
-			return err
-		}
 		if err := r.ru.Depart(); err != nil {
 			return err
 		}

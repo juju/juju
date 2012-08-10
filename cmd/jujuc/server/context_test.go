@@ -275,36 +275,45 @@ func (s *RelationContextSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *RelationContextSuite) TestSetMembers(c *C) {
+func (s *RelationContextSuite) TestChangeMembers(c *C) {
 	ctx := server.NewRelationContext(s.ru, nil)
 	c.Assert(ctx.Units(), HasLen, 0)
 
 	// Check the units and settings after a simple update.
-	ctx.SetMembers(server.SettingsMap{
+	ctx.UpdateMembers(server.SettingsMap{
 		"u/2": {"baz": 2},
+		"u/4": {"qux": 4},
 	})
-	c.Assert(ctx.Units(), DeepEquals, []string{"u/2"})
-	settings, err := ctx.ReadSettings("u/2")
-	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, map[string]interface{}{"baz": 2})
+	c.Assert(ctx.Units(), DeepEquals, []string{"u/2", "u/4"})
+	assertSettings := func(unit string, expect map[string]interface{}) {
+		actual, err := ctx.ReadSettings(unit)
+		c.Assert(err, IsNil)
+		c.Assert(actual, DeepEquals, expect)
+	}
+	assertSettings("u/2", map[string]interface{}{"baz": 2})
+	assertSettings("u/4", map[string]interface{}{"qux": 4})
 
-	// Check that a second update entirely overwrites the first.
-	ctx.SetMembers(server.SettingsMap{
+	// Send a second update; check that members are only added, not removed.
+	ctx.UpdateMembers(server.SettingsMap{
 		"u/1": {"foo": 1},
+		"u/2": nil,
 		"u/3": {"bar": 3},
 	})
-	c.Assert(ctx.Units(), DeepEquals, []string{"u/1", "u/3"})
+	c.Assert(ctx.Units(), DeepEquals, []string{"u/1", "u/2", "u/3", "u/4"})
 
-	// Check that the second settings were cached.
-	settings, err = ctx.ReadSettings("u/1")
-	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, map[string]interface{}{"foo": 1})
-	settings, err = ctx.ReadSettings("u/3")
-	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, map[string]interface{}{"bar": 3})
+	// Check that all settings remain cached, including u/2's (which lacked
+	// new settings data in the second update).
+	assertSettings("u/1", map[string]interface{}{"foo": 1})
+	assertSettings("u/2", map[string]interface{}{"baz": 2})
+	assertSettings("u/3", map[string]interface{}{"bar": 3})
+	assertSettings("u/4", map[string]interface{}{"qux": 4})
 
-	// Check that the first settings are not still cached.
-	_, err = ctx.ReadSettings("u/2")
+	// Delete a member, and check that it is no longer a member...
+	ctx.DelMember("u/2")
+	c.Assert(ctx.Units(), DeepEquals, []string{"u/1", "u/3", "u/4"})
+
+	// ...and that its settings are no longer cached.
+	_, err := ctx.ReadSettings("u/2")
 	c.Assert(err, ErrorMatches, `cannot read settings for unit "u/2" in relation "u:ring": unit settings do not exist`)
 }
 
@@ -342,7 +351,7 @@ func (s *RelationContextSuite) TestMemberCaching(c *C) {
 
 	// Check that updating the context overwrites the cached settings, and
 	// that the contents of state are ignored.
-	ctx.SetMembers(server.SettingsMap{"u/1": {"entirely": "different"}})
+	ctx.UpdateMembers(server.SettingsMap{"u/1": {"entirely": "different"}})
 	settings, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
 	c.Assert(settings, DeepEquals, map[string]interface{}{"entirely": "different"})

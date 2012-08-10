@@ -321,19 +321,21 @@ func (q *HookQueue) unqueue(unit string) {
 // BrokenHookQueue acts similarly to HookQueue, but its only concern is sending
 // a -departed hook for each current unit, and finishing with a -broken hook.
 type BrokenHookQueue struct {
-	tomb       *tomb.Tomb
-	out        chan<- HookInfo
-	relationId int
-	members    map[string]int
+	tomb           tomb.Tomb
+	out            chan<- HookInfo
+	relationId     int
+	members        map[string]int
+	changedPending string
 }
 
 // NewBrokenHookQueue returns a new HookQueue that sends out details about the
 // hooks that must be executed in a relation that is going away.
 func NewBrokenHookQueue(initial *RelationState, out chan<- HookInfo) *BrokenHookQueue {
 	q := &BrokenHookQueue{
-		out:        out,
-		relationId: initial.RelationId,
-		members:    map[string]int{},
+		out:            out,
+		relationId:     initial.RelationId,
+		members:        map[string]int{},
+		changedPending: initial.ChangedPending,
 	}
 	for m, v := range initial.Members {
 		q.members[m] = v
@@ -343,28 +345,56 @@ func NewBrokenHookQueue(initial *RelationState, out chan<- HookInfo) *BrokenHook
 }
 
 func (q *BrokenHookQueue) loop() {
-	for {
-		hi := HookInfo{
-			RelationId: q.relationId,
-			HookKind:   "broken",
-		}
-		for m, v := range q.members {
-			hi.HookKind = "departed"
-			hi.RemoteUnit = m
-			hi.ChangeVersion = v
-			delete(q.members, m)
-			break
-		}
+	defer q.tomb.Done()
+
+	// Honour any expected changed hook.
+	if q.changedPending != "" {
 		select {
 		case <-q.tomb.Dying():
 			return
-		case q.out <- hi:
-		}
-		if hi.HookKind == "broken" {
-			q.tomb.Kill(nil)
-			return
+		case q.out <- q.hookInfo("changed", q.changedPending):
 		}
 	}
+
+	// Depart in consistent order, mainly for testing purposes.
+	dels := []string{}
+	for m := range q.members {
+		dels = append(dels, m)
+	}
+	sort.Strings(dels)
+	for _, del := range dels {
+		select {
+		case <-q.tomb.Dying():
+			return
+		case q.out <- q.hookInfo("departed", del):
+		}
+	}
+
+	// Finally break the relation.
+	select {
+	case <-q.tomb.Dying():
+		return
+	case q.out <- HookInfo{RelationId: q.relationId, HookKind: "broken"}:
+	}
+	q.tomb.Kill(nil)
+	return
+}
+
+func (q *BrokenHookQueue) hookInfo(hook, unit string) HookInfo {
+	hi := HookInfo{
+		RelationId:    q.relationId,
+		HookKind:      hook,
+		RemoteUnit:    unit,
+		ChangeVersion: q.members[unit],
+		Members:       map[string]map[string]interface{}{},
+	}
+	if hook == "departed" {
+		delete(q.members, unit)
+	}
+	for m := range q.members {
+		hi.Members[m] = nil
+	}
+	return hi
 }
 
 func (q *BrokenHookQueue) hookQueue() {

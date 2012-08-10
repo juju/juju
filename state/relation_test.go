@@ -196,6 +196,54 @@ func (s *RelationUnitSuite) TestRelationUnitJoinError(c *C) {
 	c.Assert(err, ErrorMatches, `cannot join unit "peer/0" to relation "peer:baz": private address of unit "peer/0" not found`)
 }
 
+func (s *RelationUnitSuite) TestRelationUnitDepart(c *C) {
+	peer, err := s.State.AddService("peer", s.charm)
+	c.Assert(err, IsNil)
+	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
+	rel, err := s.State.AddRelation(peerep)
+	c.Assert(err, IsNil)
+	u0, err := peer.AddUnit()
+	c.Assert(err, IsNil)
+	ru0, err := rel.Unit(u0)
+	c.Assert(err, IsNil)
+	err = u0.SetPrivateAddress("required")
+	c.Assert(err, IsNil)
+
+	// Check that Departing a relation we never Joined is fine.
+	err = ru0.Depart()
+	c.Assert(err, IsNil)
+
+	// Join ru0 and check that another unit is aware of it.
+	p0, err := ru0.Join()
+	c.Assert(err, IsNil)
+	defer kill(c, p0)
+	u1, err := peer.AddUnit()
+	c.Assert(err, IsNil)
+	ru1, err := rel.Unit(u1)
+	c.Assert(err, IsNil)
+	w1 := ru1.Watch()
+	expect := state.RelationUnitsChange{Changed: map[string]state.UnitSettings{
+		"peer/0": state.UnitSettings{0, map[string]interface{}{
+			"private-address": "required"},
+		},
+	}}
+	assertChange(c, w1, expect)
+
+	// Stop (not Kill!) the ru0 Pinger, which will lead to a *delayed* change...
+	err = p0.Stop()
+	c.Assert(err, IsNil)
+
+	// ...but then call Depart, and check it's detected quickly.
+	err = ru0.Depart()
+	c.Assert(err, IsNil)
+	expect = state.RelationUnitsChange{Departed: []string{"peer/0"}}
+	assertChange(c, w1, expect)
+
+	// Departing again is still fine.
+	err = ru0.Depart()
+	c.Assert(err, IsNil)
+}
+
 func (s *RelationUnitSuite) TestRelationUnitReadSettings(c *C) {
 	// Create a peer service with a relation and two units.
 	peer, err := s.State.AddService("peer", s.charm)

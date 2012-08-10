@@ -159,9 +159,12 @@ options:
 }
 
 func setMembers(rctx *server.RelationContext, members []string) {
+	for _, u := range rctx.Units() {
+		rctx.DelMember(u)
+	}
 	m := server.SettingsMap{}
 	for _, name := range members {
 		m[name] = nil
 	}
-	rctx.SetMembers(m)
+	rctx.UpdateMembers(m)
 }
