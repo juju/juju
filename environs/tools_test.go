@@ -310,6 +310,45 @@ func assertDirNames(c *C, dir string, names []string) {
 	c.Assert(dnames, DeepEquals, names)
 }
 
+func (t *ToolsSuite) TestUpgradeTools(c *C) {
+	files := []*file{
+		newFile("jujuc", tar.TypeReg, "juju executable"),
+		newFile("jujud", tar.TypeReg, "jujuc executable"),
+	}
+	tools := &state.Tools{
+		URL:    "http://foo/bar1",
+		Binary: version.MustParseBinary("1.2.3-foo-bar"),
+	}
+	err := environs.UnpackTools(tools, bytes.NewReader(makeArchive(files...)))
+	c.Assert(err, IsNil)
+
+	gotTools, err := environs.UpgradeTools("testagent", tools.Binary)
+	c.Assert(err, IsNil)
+	c.Assert(*gotTools, Equals, *tools)
+
+	assertDirNames(c, toolsDir(), []string{"1.2.3-foo-bar", "testagent"})
+	assertDirNames(c, environs.AgentToolsDir("testagent"), []string{"jujuc", "jujud", urlFile})
+
+	// Upgrade again to check that the link replacement logic works ok.
+	files2 := []*file{
+		newFile("foo", tar.TypeReg, "foo content"),
+		newFile("bar", tar.TypeReg, "bar content"),
+	}
+	tools2 := &state.Tools{
+		URL:    "http://foo/bar2",
+		Binary: version.MustParseBinary("1.2.4-foo-bar"),
+	}
+	err = environs.UnpackTools(tools2, bytes.NewReader(makeArchive(files2...)))
+	c.Assert(err, IsNil)
+
+	gotTools, err = environs.UpgradeTools("testagent", tools2.Binary)
+	c.Assert(err, IsNil)
+	c.Assert(*gotTools, Equals, *tools2)
+
+	assertDirNames(c, toolsDir(), []string{"1.2.3-foo-bar", "1.2.4-foo-bar", "testagent"})
+	assertDirNames(c, environs.AgentToolsDir("testagent"), []string{"foo", "bar", urlFile})
+}
+
 // gzyesses holds the result of running:
 // yes | head -17000 | gzip
 var gzyesses = []byte{

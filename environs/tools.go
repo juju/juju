@@ -193,6 +193,11 @@ func BestTools(toolsList []*state.Tools, vers version.Binary) *state.Tools {
 
 const urlFile = "downloaded-url.txt"
 
+// toolsParentDir returns the tools parent directory as an OS path.
+func toolsParentDir() string {
+	return path.Join(filepath.FromSlash(VarDir), "tools")
+}
+
 // UnpackTools reads a set of juju tools in gzipped tar-archive
 // format and unpacks them into the appropriate tools directory.
 // If a valid tools directory already exists, UnpackTools returns
@@ -206,12 +211,11 @@ func UnpackTools(tools *state.Tools, r io.Reader) (err error) {
 
 	// Make a temporary directory in the tools directory,
 	// first ensuring that the tools directory exists.
-	toolsDir := path.Join(filepath.FromSlash(VarDir), "tools")
-	err = os.MkdirAll(toolsDir, 0755)
+	err = os.MkdirAll(toolsParentDir(), 0755)
 	if err != nil {
 		return err
 	}
-	dir, err := ioutil.TempDir(toolsDir, "unpacking-")
+	dir, err := ioutil.TempDir(toolsParentDir(), "unpacking-")
 	if err != nil {
 		return err
 	}
@@ -295,6 +299,26 @@ func ReadTools(vers version.Binary) (*state.Tools, error) {
 		URL:    url,
 		Binary: vers,
 	}, nil
+}
+
+// UpgradeTools changes the tools for the given agent
+// to use the given version, checking that they exist.
+// It returns the tools that will be used.
+func UpgradeTools(agentName string, vers version.Binary) (*state.Tools, error) {
+	tools, err := ReadTools(vers)
+	if err != nil {
+		return nil, err
+	}
+	tmpName := AgentToolsDir("tmplink-" + agentName)
+	err = os.Symlink(tools.Binary.String(), tmpName)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create tools symlink: %v", err)
+	}
+	err = os.Rename(tmpName, AgentToolsDir(agentName))
+	if err != nil {
+		return nil, fmt.Errorf("cannot update tools symlink: %v", err)
+	}
+	return tools, nil
 }
 
 // ToolsPath returns the slash-separated path that is used to store and
