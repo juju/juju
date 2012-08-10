@@ -71,9 +71,9 @@ var _ = Suite(&ToolsSuite{})
 const urlFile = "downloaded-url.txt"
 
 var commandTests = []struct {
-	cmd []string
+	cmd    []string
 	output string
-} {
+}{
 	{
 		[]string{"juju", "arble"},
 		"error: unrecognized command: juju arble\n",
@@ -310,7 +310,7 @@ func assertFileContents(c *C, dir, file, contents string, mode os.FileMode) {
 	file = filepath.Join(dir, file)
 	info, err := os.Stat(file)
 	c.Assert(err, IsNil)
-	c.Assert(info.Mode()&(os.ModeType | mode), Equals, mode)
+	c.Assert(info.Mode()&(os.ModeType|mode), Equals, mode)
 	data, err := ioutil.ReadFile(file)
 	c.Assert(err, IsNil)
 	c.Assert(string(data), Equals, contents)
