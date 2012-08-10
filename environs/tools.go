@@ -237,7 +237,6 @@ func UnpackTools(tools *state.Tools, r io.Reader) (err error) {
 			}
 			return err
 		}
-		log.Printf("unarchiving %q, mode %#c", hdr.Name, hdr.Typeflag)
 		if strings.ContainsAny(hdr.Name, "/\\") {
 			return fmt.Errorf("bad name %q in tools archive", hdr.Name)
 		}
