@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -170,11 +171,20 @@ func (*cmdSuite) TestBootstrapCommand(c *C) {
 	c.Assert(err, IsNil)
 	env, err := envs.Open("peckham")
 	c.Assert(err, IsNil)
-	dir := c.MkDir()
+
+	oldVarDir := environs.VarDir
+	defer func() {
+		environs.VarDir = oldVarDir
+	}()
+	environs.VarDir = c.MkDir()
 
 	tools, err := environs.FindTools(env, version.Current)
 	c.Assert(err, IsNil)
-	err = environs.GetTools(tools.URL, dir)
+	resp, err := http.Get(tools.URL)
+	c.Assert(err, IsNil)
+	defer resp.Body.Close()
+
+	err = environs.UnpackTools(tools, resp.Body)
 	c.Assert(err, IsNil)
 
 	// bootstrap with broken environment
