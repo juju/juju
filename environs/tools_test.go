@@ -70,6 +70,24 @@ var _ = Suite(&ToolsSuite{})
 
 const urlFile = "downloaded-url.txt"
 
+var commandTests = []struct {
+	cmd    []string
+	output string
+}{
+	{
+		[]string{"juju", "arble"},
+		"error: unrecognized command: juju arble\n",
+	},
+	{
+		[]string{"jujud", "arble"},
+		"error: unrecognized command: jujud arble\n",
+	},
+	{
+		[]string{"jujuc"},
+		"(.|\n)*error: jujuc should not be called directly\n",
+	},
+}
+
 func (t *ToolsSuite) TestPutGetTools(c *C) {
 	tools, err := environs.PutTools(t.env.Storage())
 	c.Assert(err, IsNil)
@@ -89,12 +107,13 @@ func (t *ToolsSuite) TestPutGetTools(c *C) {
 		dir := environs.ToolsDir(version.Current)
 		// Verify that each tool executes and produces some
 		// characteristic output.
-		for _, tool := range []string{"juju", "jujud"} {
-			out, err := exec.Command(filepath.Join(dir, tool), "arble").CombinedOutput()
+		for i, test := range commandTests {
+			c.Logf("command test %d", i)
+			out, err := exec.Command(filepath.Join(dir, test.cmd[0]), test.cmd[1:]...).CombinedOutput()
 			if err != nil {
 				c.Assert(err, FitsTypeOf, (*exec.ExitError)(nil))
 			}
-			c.Check(string(out), Equals, fmt.Sprintf("error: unrecognized command: %s arble\n", tool))
+			c.Check(string(out), Matches, test.output)
 		}
 		data, err := ioutil.ReadFile(filepath.Join(dir, urlFile))
 		c.Assert(err, IsNil)
@@ -276,9 +295,9 @@ func assertToolsContents(c *C, tools *state.Tools, files []*file) {
 	wantNames = append(wantNames, urlFile)
 	dir := filepath.FromSlash(environs.ToolsDir(tools.Binary))
 	assertDirNames(c, dir, wantNames)
-	assertFileContents(c, dir, urlFile, tools.URL)
+	assertFileContents(c, dir, urlFile, tools.URL, 0200)
 	for _, f := range files {
-		assertFileContents(c, dir, f.header.Name, f.contents)
+		assertFileContents(c, dir, f.header.Name, f.contents, 0400)
 	}
 	gotTools, err := environs.ReadTools(tools.Binary)
 	c.Assert(err, IsNil)
@@ -287,11 +306,11 @@ func assertToolsContents(c *C, tools *state.Tools, files []*file) {
 
 // assertFileContents asserts that the given file in the
 // given directory has the given contents.
-func assertFileContents(c *C, dir, file, contents string) {
+func assertFileContents(c *C, dir, file, contents string, mode os.FileMode) {
 	file = filepath.Join(dir, file)
 	info, err := os.Stat(file)
 	c.Assert(err, IsNil)
-	c.Assert(info.Mode()&os.ModeType, Equals, os.FileMode(0))
+	c.Assert(info.Mode()&(os.ModeType|mode), Equals, mode)
 	data, err := ioutil.ReadFile(file)
 	c.Assert(err, IsNil)
 	c.Assert(string(data), Equals, contents)
@@ -374,7 +393,7 @@ func newFile(name string, ftype byte, contents string) *file {
 			Typeflag:   ftype,
 			Name:       name,
 			Size:       int64(len(contents)),
-			Mode:       0666,
+			Mode:       0777,
 			ModTime:    time.Now(),
 			AccessTime: time.Now(),
 			ChangeTime: time.Now(),

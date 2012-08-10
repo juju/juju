@@ -248,7 +248,7 @@ func UnpackTools(tools *state.Tools, r io.Reader) (err error) {
 			return fmt.Errorf("bad file type %#c in file %q in tools archive", hdr.Typeflag, hdr.Name)
 		}
 		name := filepath.Join(dir, hdr.Name)
-		if err := writeFile(name, os.FileMode(hdr.Mode&0777), tr); err != nil {
+		if err := writeFile(name, 0755, tr); err != nil {
 			return fmt.Errorf("tar extract %q failed: %v", name, err)
 		}
 	}
