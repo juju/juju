@@ -210,9 +210,9 @@ func (ctx *RelationContext) UpdateMembers(members SettingsMap) {
 	}
 }
 
-// DelMember drops the membership and cache of a single remote unit, without
+// DeleteMember drops the membership and cache of a single remote unit, without
 // perturbing settings for the remaining members.
-func (ctx *RelationContext) DelMember(member string) {
+func (ctx *RelationContext) DeleteMember(member string) {
 	delete(ctx.members, member)
 }
 

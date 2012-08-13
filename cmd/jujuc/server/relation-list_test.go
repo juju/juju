@@ -160,7 +160,7 @@ options:
 
 func setMembers(rctx *server.RelationContext, members []string) {
 	for _, u := range rctx.Units() {
-		rctx.DelMember(u)
+		rctx.DeleteMember(u)
 	}
 	m := server.SettingsMap{}
 	for _, name := range members {

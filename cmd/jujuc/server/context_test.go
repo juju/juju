@@ -309,7 +309,7 @@ func (s *RelationContextSuite) TestChangeMembers(c *C) {
 	assertSettings("u/4", map[string]interface{}{"qux": 4})
 
 	// Delete a member, and check that it is no longer a member...
-	ctx.DelMember("u/2")
+	ctx.DeleteMember("u/2")
 	c.Assert(ctx.Units(), DeepEquals, []string{"u/1", "u/3", "u/4"})
 
 	// ...and that its settings are no longer cached.

@@ -116,7 +116,7 @@ func (r *Relationer) PrepareHook(hi HookInfo) (hookName string, err error) {
 	}
 	r.ctx.UpdateMembers(hi.Members)
 	if hi.HookKind == "departed" {
-		r.ctx.DelMember(hi.RemoteUnit)
+		r.ctx.DeleteMember(hi.RemoteUnit)
 	}
 	relName := r.ru.Endpoint().RelationName
 	return fmt.Sprintf("%s-relation-%s", relName, hi.HookKind), nil
