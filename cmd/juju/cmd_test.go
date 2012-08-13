@@ -307,7 +307,7 @@ func initUnexposeCommand(args ...string) (*UnexposeCommand, error) {
 func (*cmdSuite) TestUnexposeCommandInit(c *C) {
 	// missing args
 	_, err := initUnexposeCommand()
-	c.Assert(err, ErrorMatches, "no service specified")
+	c.Assert(err, ErrorMatches, "no service name specified")
 
 	// environment tested elsewhere
 }
