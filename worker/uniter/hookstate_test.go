@@ -15,7 +15,7 @@ func (s *HookStateSuite) TestHookState(c *C) {
 	path := filepath.Join(c.MkDir(), "hook")
 	hs := uniter.NewHookState(path)
 	_, _, err := hs.Get()
-	c.Assert(err, Equals, uniter.NoHook)
+	c.Assert(err, Equals, uniter.ErrNoHook)
 
 	err = ioutil.WriteFile(path, []byte("roflcopter"), 0644)
 	c.Assert(err, IsNil)

@@ -47,16 +47,16 @@ func NewHookState(path string) *HookState {
 	return &HookState{path}
 }
 
-// NoHook indicates that no hook has ever been stored.
-var NoHook = errors.New("no hook")
+// ErrNoHook indicates that no hook has ever been stored.
+var ErrNoHook = errors.New("no hook")
 
 // Get loads the status of, and the HookInfo, that was last Set. If no hook
-// has ever been set, the error will be NoHook.
+// has ever been set, the error will be ErrNoHook.
 func (s *HookState) Get() (hi HookInfo, hs HookStatus, err error) {
 	var data []byte
 	if data, err = ioutil.ReadFile(s.path); err != nil {
 		if os.IsNotExist(err) {
-			err = NoHook
+			err = ErrNoHook
 		}
 		return
 	}
