@@ -276,17 +276,17 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.To
 }
 
 func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, master bool) ([]byte, error) {
-	cfg := &machineConfig{
-		provisioner:        master,
-		zookeeper:          master,
-		stateInfo:          info,
-		instanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
-		providerType:       "ec2",
-		tools:              tools,
-		machineId:          machineId,
-		authorizedKeys:     e.ecfg().AuthorizedKeys(),
+	cfg := &environs.MachineConfig{
+		Provisioner:        master,
+		Zookeeper:          master,
+		StateInfo:          info,
+		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
+		ProviderType:       "ec2",
+		Tools:              tools,
+		MachineId:          machineId,
+		AuthorizedKeys:     e.ecfg().AuthorizedKeys(),
 	}
-	cloudcfg, err := newCloudInit(cfg)
+	cloudcfg, err := environs.NewCloudInit(cfg)
 	if err != nil {
 		return nil, err
 	}
