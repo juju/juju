@@ -71,7 +71,7 @@ func (a *ProvisioningAgent) runOnce() (stoperr error) {
 	log.Debugf("provisioning: opened state")
 	defer func() {
 		if e := st.Close(); err != nil {
-			err = e
+			stoperr = e
 		}
 		log.Debugf("provisioning: closed state")
 	}()
@@ -83,7 +83,7 @@ func (a *ProvisioningAgent) runOnce() (stoperr error) {
 	log.Debugf("provisioning: started provisioner")
 	defer func() {
 		if e := a.provisioner.Stop(); err != nil {
-			err = e
+			stoperr = e
 		}
 		log.Debugf("provisioning: stopped provisioner")
 	}()
@@ -95,7 +95,7 @@ func (a *ProvisioningAgent) runOnce() (stoperr error) {
 	log.Debugf("provisioning: started firewaller")
 	defer func() {
 		if e := a.firewaller.Stop(); err != nil {
-			err = e
+			stoperr = e
 		}
 		log.Debugf("provisioning: stopped firewaller")
 	}()
