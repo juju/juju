@@ -301,9 +301,8 @@ func ReadTools(vers version.Binary) (*state.Tools, error) {
 	}, nil
 }
 
-// UpgradeTools changes the tools for the given agent
-// to use the given version, checking that they exist.
-// It returns the tools that will be used.
+// UpgradeTools changes the tools for the given agent to use the given
+// version, checking that they exist.  It returns the tools that will be used.
 func UpgradeTools(agentName string, vers version.Binary) (*state.Tools, error) {
 	tools, err := ReadTools(vers)
 	if err != nil {
