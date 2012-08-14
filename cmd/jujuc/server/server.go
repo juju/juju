@@ -34,6 +34,7 @@ type CmdGetter func(contextId, cmdName string) (cmd.Command, error)
 
 // Jujuc implements the jujuc command in the form required by net/rpc.
 type Jujuc struct {
+	mu     sync.Mutex
 	getCmd CmdGetter
 }
 
@@ -42,7 +43,8 @@ func badReqErr(format string, v ...interface{}) error {
 	return fmt.Errorf("bad request: "+format, v...)
 }
 
-// Main runs the Command specified by req, and fills in resp.
+// Main runs the Command specified by req, and fills in resp. No more than one
+// command will run in parallel.
 func (j *Jujuc) Main(req Request, resp *Response) error {
 	if req.CommandName == "" {
 		return badReqErr("command not specified")
@@ -56,6 +58,8 @@ func (j *Jujuc) Main(req Request, resp *Response) error {
 	}
 	var stdout, stderr bytes.Buffer
 	ctx := &cmd.Context{req.Dir, &stdout, &stderr}
+	j.mu.Lock()
+	defer j.mu.Unlock()
 	resp.Code = cmd.Main(c, ctx, req.Args)
 	resp.Stdout = stdout.Bytes()
 	resp.Stderr = stderr.Bytes()
@@ -78,7 +82,7 @@ type Server struct {
 // actually do so until Run is called.
 func NewServer(getCmd CmdGetter, socketPath string) (*Server, error) {
 	server := rpc.NewServer()
-	if err := server.Register(&Jujuc{getCmd}); err != nil {
+	if err := server.Register(&Jujuc{getCmd: getCmd}); err != nil {
 		return nil, err
 	}
 	listener, err := net.Listen("unix", socketPath)
