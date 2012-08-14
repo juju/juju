@@ -32,7 +32,7 @@ func (m *Machine) Refresh() error {
 	doc := machineDoc{}
 	err := m.st.machines.FindId(m.doc.Id).One(&doc)
 	if err != nil {
-		return fmt.Errorf("cannot refresh machine %v", m)
+		return fmt.Errorf("cannot refresh machine %v: %v", m, err)
 	}
 	m.doc = doc
 	return nil
