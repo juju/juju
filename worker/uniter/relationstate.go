@@ -142,7 +142,7 @@ func (rs *RelationState) Commit(hi HookInfo) (err error) {
 		return err
 	}
 	defer errorContextf(&err, "failed to commit %q for %q", hi.HookKind, hi.RemoteUnit)
-	name := strings.Replace(hi.RemoteUnit, "/", "-", 1)
+	name := unitFsName(hi.RemoteUnit)
 	path := filepath.Join(rs.Path, name)
 	if hi.HookKind == "departed" {
 		if err = os.Remove(path); err != nil {
