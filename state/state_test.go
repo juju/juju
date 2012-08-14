@@ -221,13 +221,13 @@ func (s *StateSuite) TestReadNonExistentMachine(c *C) {
 }
 
 func (s *StateSuite) TestAllMachines(c *C) {
-	s.AssertMachineCount(c, 0)
+	assertMachineCount(c, s.State, 0)
 	_, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
-	s.AssertMachineCount(c, 1)
+	assertMachineCount(c, s.State, 1)
 	_, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
-	s.AssertMachineCount(c, 2)
+	assertMachineCount(c, s.State, 2)
 }
 
 type machinesWatchTest struct {

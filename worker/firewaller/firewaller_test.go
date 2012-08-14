@@ -5,7 +5,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/testing"
+	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/firewaller"
 	"reflect"
@@ -33,7 +33,7 @@ func assertPorts(c *C, inst environs.Instance, machineId int, expected []state.P
 			c.Succeed()
 			return
 		}
-		if time.Since(start) > 500*time.Millisecond {
+		if time.Since(start) > 5000*time.Millisecond {
 			c.Fatalf("timed out: expected %q; got %q", expected, got)
 			return
 		}
@@ -44,8 +44,7 @@ func assertPorts(c *C, inst environs.Instance, machineId int, expected []state.P
 
 type FirewallerSuite struct {
 	coretesting.LoggingSuite
-	testing.StateSuite
-	environ environs.Environ
+	testing.JujuConnSuite
 	op      <-chan dummy.Operation
 	charm   *state.Charm
 }
@@ -54,31 +53,12 @@ var _ = Suite(&FirewallerSuite{})
 
 func (s *FirewallerSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
-
-	var err error
-	config := map[string]interface{}{
-		"name":            "testing",
-		"type":            "dummy",
-		"zookeeper":       true,
-		"authorized-keys": "i-am-a-key",
-	}
-	s.environ, err = environs.NewFromAttrs(config)
-	c.Assert(err, IsNil)
-	err = s.environ.Bootstrap(false)
-	c.Assert(err, IsNil)
-
-	// Sanity check
-	info, err := s.environ.StateInfo()
-	c.Assert(err, IsNil)
-	c.Assert(info, DeepEquals, s.StateInfo(c))
-
-	s.StateSuite.SetUpTest(c)
-
+	s.JujuConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "dummy")
 }
 
 func (s *FirewallerSuite) TearDownTest(c *C) {
-	dummy.Reset()
+	s.JujuConnSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
@@ -97,7 +77,7 @@ func (s *FirewallerSuite) TestNotExposedService(c *C) {
 	c.Assert(err, IsNil)
 	err = m.SetInstanceId("testing-0")
 	c.Assert(err, IsNil)
-	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c), nil)
+	inst, err := s.Conn.Environ.StartInstance(m.Id(), s.StateInfo(c), nil)
 	c.Assert(err, IsNil)
 
 	svc, err := s.State.AddService("wordpress", s.charm)
@@ -126,10 +106,17 @@ func (s *FirewallerSuite) TestExposedService(c *C) {
 
 	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
+	inst, err := s.Conn.Environ.StartInstance(m.Id(), s.StateInfo(c), nil)
+	c.Assert(err, IsNil)
 	err = m.SetInstanceId("testing-0")
 	c.Assert(err, IsNil)
-	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c), nil)
+
+	config, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
+	env, err := environs.NewFromAttrs(config.Map())
+	_, err = env.Instances([]string{inst.Id()})
+	c.Assert(err, IsNil)
+	c.Logf("got instance fine, id %q", inst.Id())
 
 	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
@@ -159,15 +146,17 @@ func (s *FirewallerSuite) TestMultipleUnits(c *C) {
 
 	m1, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
+
 	err = m1.SetInstanceId("testing-0")
 	c.Assert(err, IsNil)
-	inst1, err := s.environ.StartInstance(m1.Id(), s.StateInfo(c), nil)
+	inst1, err := s.Conn.Environ.StartInstance(m1.Id(), s.StateInfo(c), nil)
 	c.Assert(err, IsNil)
+
 	m2, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 	err = m2.SetInstanceId("testing-1")
 	c.Assert(err, IsNil)
-	inst2, err := s.environ.StartInstance(m2.Id(), s.StateInfo(c), nil)
+	inst2, err := s.Conn.Environ.StartInstance(m2.Id(), s.StateInfo(c), nil)
 	c.Assert(err, IsNil)
 
 	svc, err := s.State.AddService("wordpress", s.charm)
@@ -204,7 +193,7 @@ func (s *FirewallerSuite) TestFirewallerStartWithState(c *C) {
 	c.Assert(err, IsNil)
 	err = m.SetInstanceId("testing-0")
 	c.Assert(err, IsNil)
-	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c), nil)
+	inst, err := s.Conn.Environ.StartInstance(m.Id(), s.StateInfo(c), nil)
 	c.Assert(err, IsNil)
 
 	svc, err := s.State.AddService("wordpress", s.charm)
@@ -236,7 +225,7 @@ func (s *FirewallerSuite) TestFirewallerStartWithPartialState(c *C) {
 	c.Assert(err, IsNil)
 	err = m.SetInstanceId("testing-0")
 	c.Assert(err, IsNil)
-	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c), nil)
+	inst, err := s.Conn.Environ.StartInstance(m.Id(), s.StateInfo(c), nil)
 	c.Assert(err, IsNil)
 
 	svc, err := s.State.AddService("wordpress", s.charm)
@@ -271,7 +260,7 @@ func (s *FirewallerSuite) TestSetClearExposedService(c *C) {
 	c.Assert(err, IsNil)
 	err = m.SetInstanceId("testing-0")
 	c.Assert(err, IsNil)
-	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c), nil)
+	inst, err := s.Conn.Environ.StartInstance(m.Id(), s.StateInfo(c), nil)
 	c.Assert(err, IsNil)
 	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)

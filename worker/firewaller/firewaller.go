@@ -1,6 +1,7 @@
 package firewaller
 
 import (
+	"fmt"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
@@ -44,7 +45,7 @@ func NewFirewaller(st *state.State) (*Firewaller, error) {
 
 func (fw *Firewaller) loop() {
 	defer fw.finish()
-
+	defer log.Printf("mainloop: returned")
 Loop:
 	for {
 		select {
@@ -55,6 +56,7 @@ Loop:
 				return
 			}
 			var err error
+			log.Printf("connecting to environ with %#v", config.Map())
 			fw.environ, err = environs.NewFromAttrs(config.Map())
 			if err != nil {
 				log.Printf("firewaller loaded invalid environment configuration: %v", err)
@@ -66,11 +68,14 @@ Loop:
 	}
 
 	for {
+		log.Printf("mainloop; select")
 		select {
 		case <-fw.tomb.Dying():
 			return
 		case change, ok := <-fw.environWatcher.Changes():
+			log.Printf("mainloop: environ change")
 			if !ok {
+				log.Printf("mainloop: environ EOF")
 				return
 			}
 			config, err := config.New(change.Map())
@@ -81,7 +86,9 @@ Loop:
 			fw.environ.SetConfig(config)
 			log.Printf("firewaller loaded new environment configuration")
 		case change, ok := <-fw.machinesWatcher.Changes():
+			log.Printf("mainloop: got machines change %#v", change)
 			if !ok {
+				log.Printf("mainloop: machinechange EOF")
 				return
 			}
 			for _, machine := range change.Removed {
@@ -100,6 +107,7 @@ Loop:
 				log.Debugf("firewaller: started watching machine %d", machine.Id())
 			}
 		case change := <-fw.unitsChange:
+			log.Printf("mainloop: got units change, id %d, %#v", change.machined.machine.Id(), change.MachineUnitsChange)
 			changed := []*unitData{}
 			for _, unit := range change.Removed {
 				unitd, ok := fw.unitds[unit.Name()]
@@ -111,7 +119,7 @@ Loop:
 				delete(unitd.serviced.unitds, unit.Name())
 				changed = append(changed, unitd)
 				if err := unitd.stopWatch(); err != nil {
-					log.Printf("unit watcher %q returned error when stopping: %v", unit.Name(), err)
+					log.Printf("mainloop: unit watcher %q returned error when stopping: %v", unit.Name(), err)
 				}
 				log.Debugf("firewaller: stopped watching unit %s", unit.Name())
 			}
@@ -131,6 +139,7 @@ Loop:
 					service, err := fw.st.Service(unit.ServiceName())
 					if err != nil {
 						fw.tomb.Kill(err)
+				log.Printf("mainloop: service err")
 						return
 					}
 					fw.serviceds[unit.ServiceName()] = newServiceData(service, fw)
@@ -143,15 +152,19 @@ Loop:
 			}
 			if err := fw.flushUnits(changed); err != nil {
 				fw.tomb.Killf("cannot change firewall ports: %v", err)
+				log.Printf("mainloop: port change err: %v", err)
 				return
 			}
 		case change := <-fw.portsChange:
+			log.Printf("mainloop: got ports change %#v", change)
 			change.unitd.ports = change.ports
 			if err := fw.flushUnits([]*unitData{change.unitd}); err != nil {
 				fw.tomb.Killf("cannot change firewall ports: %v", err)
+				log.Printf("mainloop: flush units err")
 				return
 			}
 		case change := <-fw.exposedChange:
+			log.Printf("mainloop: got exposed change %#v", change)
 			change.serviced.exposed = change.exposed
 			unitds := []*unitData{}
 			for _, unitd := range change.serviced.unitds {
@@ -159,6 +172,7 @@ Loop:
 			}
 			if err := fw.flushUnits(unitds); err != nil {
 				fw.tomb.Killf("cannot change firewall ports: %v", err)
+				log.Printf("mainloop: flush units err")
 				return
 			}
 		}
@@ -200,11 +214,12 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 	// Open and close the ports.
 	instanceId, err := machined.machine.InstanceId()
 	if err != nil {
+		log.Printf("flushMachine: no machine: %v", err)
 		return err
 	}
 	instances, err := fw.environ.Instances([]string{instanceId})
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot get instance id %q: %v", instanceId, err)
 	}
 	if len(toOpen) > 0 {
 		err = instances[0].OpenPorts(machined.machine.Id(), toOpen)
@@ -343,6 +358,7 @@ type unitData struct {
 // newUnitData returns a new data value for tracking details of the unit,
 // and starts watching the unit for port changes.
 func newUnitData(unit *state.Unit, fw *Firewaller) *unitData {
+	log.Printf("newUnitData tracking %v", unit)
 	ud := &unitData{
 		firewaller: fw,
 		unit:       unit,
@@ -400,6 +416,7 @@ type serviceData struct {
 // newServiceData returns a new data value for tracking details of the
 // service, and starts watching the service for exposure changes.
 func newServiceData(service *state.Service, fw *Firewaller) *serviceData {
+	log.Printf("newServiceData tracking %v", service)
 	sd := &serviceData{
 		firewaller: fw,
 		service:    service,
@@ -425,12 +442,14 @@ func (sd *serviceData) watchLoop() {
 		case <-sd.tomb.Dying():
 			return
 		case change, ok := <-sd.watcher.Changes():
+			log.Printf("got service exposed change %v", change)
 			if !ok {
 				sd.firewaller.tomb.Kill(watcher.MustErr(sd.watcher))
 				return
 			}
 			select {
 			case sd.firewaller.exposedChange <- &exposedChange{sd, change}:
+				log.Printf("sent exposed change to central loop")
 			case <-sd.tomb.Dying():
 				return
 			}

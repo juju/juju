@@ -409,6 +409,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 }
 
 func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.Tools) (environs.Instance, error) {
+	log.Printf("dummy startinstance, machine %d", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, err
 	}
@@ -511,6 +512,7 @@ func (inst *instance) WaitDNSName() (string, error) {
 }
 
 func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
+	log.Printf("openPorts %d, %#v", machineId, ports)
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("OpenPorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
 	}
