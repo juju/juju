@@ -230,7 +230,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, IsNil)
 	ec2.CheckPackage(c, x, "zookeeper", true)
 	ec2.CheckPackage(c, x, "zookeeperd", true)
-	ec2.CheckScripts(c, x, "jujud init", true)
+	ec2.CheckScripts(c, x, "jujud bootstrap-state", true)
 	// TODO check for provisioning agent
 	// TODO check for machine agent
 	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='localhost%s'", ec2.ZkPortSuffix), true)
