@@ -75,9 +75,9 @@ func (s *FirewallerSuite) TestNotExposedService(c *C) {
 
 	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
-	err = m.SetInstanceId("testing-0")
-	c.Assert(err, IsNil)
 	inst, err := s.Conn.Environ.StartInstance(m.Id(), s.StateInfo(c), nil)
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId(inst.Id())
 	c.Assert(err, IsNil)
 
 	svc, err := s.State.AddService("wordpress", s.charm)
@@ -108,7 +108,7 @@ func (s *FirewallerSuite) TestExposedService(c *C) {
 	c.Assert(err, IsNil)
 	inst, err := s.Conn.Environ.StartInstance(m.Id(), s.StateInfo(c), nil)
 	c.Assert(err, IsNil)
-	err = m.SetInstanceId("testing-0")
+	err = m.SetInstanceId(inst.Id())
 	c.Assert(err, IsNil)
 
 	config, err := s.State.EnvironConfig()
@@ -147,16 +147,16 @@ func (s *FirewallerSuite) TestMultipleUnits(c *C) {
 	m1, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 
-	err = m1.SetInstanceId("testing-0")
-	c.Assert(err, IsNil)
 	inst1, err := s.Conn.Environ.StartInstance(m1.Id(), s.StateInfo(c), nil)
+	c.Assert(err, IsNil)
+	err = m1.SetInstanceId(inst1.Id())
 	c.Assert(err, IsNil)
 
 	m2, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
-	err = m2.SetInstanceId("testing-1")
-	c.Assert(err, IsNil)
 	inst2, err := s.Conn.Environ.StartInstance(m2.Id(), s.StateInfo(c), nil)
+	c.Assert(err, IsNil)
+	err = m2.SetInstanceId(inst2.Id())
 	c.Assert(err, IsNil)
 
 	svc, err := s.State.AddService("wordpress", s.charm)
@@ -191,9 +191,9 @@ func (s *FirewallerSuite) TestMultipleUnits(c *C) {
 func (s *FirewallerSuite) TestFirewallerStartWithState(c *C) {
 	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
-	err = m.SetInstanceId("testing-0")
-	c.Assert(err, IsNil)
 	inst, err := s.Conn.Environ.StartInstance(m.Id(), s.StateInfo(c), nil)
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId(inst.Id())
 	c.Assert(err, IsNil)
 
 	svc, err := s.State.AddService("wordpress", s.charm)
@@ -223,9 +223,9 @@ func (s *FirewallerSuite) TestFirewallerStartWithState(c *C) {
 func (s *FirewallerSuite) TestFirewallerStartWithPartialState(c *C) {
 	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
-	err = m.SetInstanceId("testing-0")
-	c.Assert(err, IsNil)
 	inst, err := s.Conn.Environ.StartInstance(m.Id(), s.StateInfo(c), nil)
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId(inst.Id())
 	c.Assert(err, IsNil)
 
 	svc, err := s.State.AddService("wordpress", s.charm)
@@ -258,9 +258,9 @@ func (s *FirewallerSuite) TestSetClearExposedService(c *C) {
 
 	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
-	err = m.SetInstanceId("testing-0")
-	c.Assert(err, IsNil)
 	inst, err := s.Conn.Environ.StartInstance(m.Id(), s.StateInfo(c), nil)
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId(inst.Id())
 	c.Assert(err, IsNil)
 	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
@@ -290,9 +290,11 @@ func (s *FirewallerSuite) TestSetClearExposedService(c *C) {
 }
 
 func (s *FirewallerSuite) TestFirewallerStopOnStateClose(c *C) {
-	fw, err := firewaller.NewFirewaller(s.State)
+	st, err := state.Open(s.StateInfo(c))
 	c.Assert(err, IsNil)
-	fw.CloseState()
+	fw, err := firewaller.NewFirewaller(st)
+	c.Assert(err, IsNil)
+	st.Close()
 	c.Check(fw.Wait(), ErrorMatches, ".* zookeeper is closing")
 	c.Assert(fw.Stop(), ErrorMatches, ".* zookeeper is closing")
 }
