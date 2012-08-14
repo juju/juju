@@ -33,6 +33,31 @@ const (
 	AssignUnused AssignmentPolicy = "unused"
 )
 
+// UnitStatus represents the status of the unit's agent.
+type UnitStatus string
+
+const (
+	// pending: the agent has not started.
+	UnitStatusPending UnitStatus = "pending"
+	// installed: the agent has installed the charm.
+	UnitStatusInstalled UnitStatus = "installed"
+	// started: the agent is running and nothing is wrong.
+	UnitStatusStarted UnitStatus = "started"
+	// stopped: the agent has done everything it ever will.
+	UnitStatusStopped UnitStatus = "stopped"
+	// error: the agent failed, reason is specified in the info.
+	UnitStatusError UnitStatus = "error"
+	// down: the agent is not functioning correctly.
+	UnitStatusDown UnitStatus = "down"
+)
+
+// UnitInfo allows to add an additional info, e.g. an error reason
+// to the unit status.
+type UnitInfo struct {
+	Status UnitStatus
+	Info   string
+}
+
 // NeedsUpgrade describes if a unit needs an
 // upgrade and if this is forced.
 type NeedsUpgrade struct {
@@ -157,40 +182,51 @@ func (u *Unit) SetPrivateAddress(address string) (err error) {
 		"private address of unit %q", u)
 }
 
-// Status returns the status of the unit's agent. Expected
-// results include:
-//   pending:   the agent has not started
-//   installed: the agent has installed the charm
-//   started:   the agent is running and nothing is wrong
-//   stopped:   the agent has done everything it ever will
-//   *-error:   the agent failed to run the referenced hook
-//   down:      the agent is not functioning correctly
-func (u *Unit) Status() (string, error) {
+// Status returns the status of the unit's agent
+func (u *Unit) Status() (*UnitInfo, error) {
 	status, err := getConfigString(u.st.zk, u.zkPath(), "status",
 		"status of unit %q", u)
 	if err != nil {
 		if _, ok := err.(*NotFoundError); !ok {
-			return "", err
+			return nil, err
 		}
 		// Default to 'pending'.
-		return "pending", nil
+		return &UnitInfo{UnitStatusPending, ""}, nil
 	}
-	if status != "stopped" {
-		alive, err := u.AgentAlive()
+	unitStatus := UnitStatus(status)
+	switch unitStatus {
+	case UnitStatusError:
+		// We allways expect an info if status is 'error'.
+		info, err := getConfigString(u.st.zk, u.zkPath(), "status-info",
+			"status-info of unit %q", u)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
-		if !alive {
-			status = "down"
-		}
+		return &UnitInfo{unitStatus, info}, nil
+	case UnitStatusStopped:
+		return &UnitInfo{unitStatus, ""}, nil
 	}
-	return status, nil
+	alive, err := u.AgentAlive()
+	if err != nil {
+		return nil, err
+	}
+	if !alive {
+		unitStatus = UnitStatusDown
+	}
+	return &UnitInfo{unitStatus, ""}, nil
 }
 
 // SetStatus sets the status of the unit.
-func (u *Unit) SetStatus(status string) (err error) {
-	return setConfigString(u.st.zk, u.zkPath(), "status", status,
-		"status of unit %q", u)
+func (u *Unit) SetStatus(status UnitStatus, info string) error {
+	if err := setConfigString(u.st.zk, u.zkPath(), "status", string(status),
+		"status of unit %q", u); err != nil {
+		return err
+	}
+	if info != "" {
+		return setConfigString(u.st.zk, u.zkPath(), "status-info", info,
+			"status-info of unit %q", u)
+	}
+	return nil
 }
 
 // CharmURL returns the charm URL this unit is supposed
