@@ -39,8 +39,7 @@ func (a *ProvisioningAgent) Init(f *gnuflag.FlagSet, args []string) error {
 	return a.Conf.checkArgs(f.Args())
 }
 
-// Stop stops the provisionig agent by stopping the provisioner
-// and the firewaller.
+// Stop stops the provisioning agent.
 func (a *ProvisioningAgent) Stop() error {
 	a.tomb.Kill(nil)
 	return a.tomb.Wait()
@@ -63,48 +62,15 @@ func (a *ProvisioningAgent) Run(_ *cmd.Context) (err error) {
 }
 
 // runOnce runs a provisioner and firewaller once.
-func (a *ProvisioningAgent) runOnce() (stoperr error) {
+func (a *ProvisioningAgent) runOnce() error {
 	st, err := state.Open(&a.Conf.StateInfo)
 	if err != nil {
 		return err
 	}
 	log.Debugf("provisioning: opened state")
-	defer func() {
-		if e := st.Close(); err != nil {
-			err = e
-		}
-		log.Debugf("provisioning: closed state")
-	}()
+	defer st.Close()
 
-	a.provisioner, err = provisioner.NewProvisioner(st)
-	if err != nil {
-		return err
-	}
-	log.Debugf("provisioning: started provisioner")
-	defer func() {
-		if e := a.provisioner.Stop(); err != nil {
-			err = e
-		}
-		log.Debugf("provisioning: stopped provisioner")
-	}()
-
-	a.firewaller, err = firewaller.NewFirewaller(st)
-	if err != nil {
-		return err
-	}
-	log.Debugf("provisioning: started firewaller")
-	defer func() {
-		if e := a.firewaller.Stop(); err != nil {
-			err = e
-		}
-		log.Debugf("provisioning: stopped firewaller")
-	}()
-
-	select {
-	case <-a.tomb.Dying():
-	case <-a.provisioner.Dying():
-	case <-a.firewaller.Dying():
-	}
-
-	return
+	return runTasks(a.tomb.Dying(),
+		provisioner.NewProvisioner(st),
+		firewaller.NewFirewaller(st))
 }

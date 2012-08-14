@@ -9,6 +9,7 @@ import (
 	"launchpad.net/tomb"
 )
 
+// Provisioner represents a running provisioning worker.
 type Provisioner struct {
 	st      *state.State
 	info    *state.Info
@@ -21,15 +22,17 @@ type Provisioner struct {
 	machines map[string]*state.Machine
 }
 
-// NewProvisioner returns a Provisioner.
-func NewProvisioner(st *state.State) (*Provisioner, error) {
+// NewProvisioner returns a new Provisioner. When new machines
+// are added to the state, it allocates instances from the environment
+// and allocates them to the new machines.
+func NewProvisioner(st *state.State) *Provisioner {
 	p := &Provisioner{
 		st:        st,
 		instances: make(map[int]environs.Instance),
 		machines:  make(map[string]*state.Machine),
 	}
 	go p.loop()
-	return p, nil
+	return p
 }
 
 func (p *Provisioner) loop() {

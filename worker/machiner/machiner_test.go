@@ -36,8 +36,7 @@ func (s *MachinerSuite) TestMachinerStartStop(c *C) {
 	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 
-	p, err := machiner.NewMachiner(s.StateInfo(c), m.Id())
-	c.Assert(err, IsNil)
+	p := machiner.NewMachiner(s.State, m.Id())
 	c.Assert(p.Stop(), IsNil)
 }
 
@@ -77,8 +76,7 @@ func (s *MachinerSuite) TestMachinerDeployDestroy(c *C) {
 	err = ud0.AssignToMachine(m0)
 	c.Assert(err, IsNil)
 
-	machiner, err := machiner.NewMachiner(s.StateInfo(c), m0.Id())
-	c.Assert(err, IsNil)
+	machiner := machiner.NewMachiner(s.State, m0.Id())
 
 	tests := []struct {
 		change  func()

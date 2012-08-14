@@ -3,12 +3,17 @@ package main
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
+	"launchpad.net/tomb"
+	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/worker/machiner"
+	"time"
 )
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
+	tomb        tomb.Tomb
 	Conf      AgentConf
 	MachineId int
 }
@@ -31,12 +36,33 @@ func (a *MachineAgent) Init(f *gnuflag.FlagSet, args []string) error {
 	return a.Conf.checkArgs(f.Args())
 }
 
+// Stop stops the machine agent.
+func (a *MachineAgent) Stop() error {
+	a.tomb.Kill(nil)
+	return a.tomb.Wait()
+}
+
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
-	// TODO reconnect when the machiner fails.
-	m, err := machiner.NewMachiner(&a.Conf.StateInfo, a.MachineId)
+	defer a.tomb.Done()
+	for {
+		err := a.runOnce()
+		if a.tomb.Err() != tomb.ErrStillAlive {
+			// Stop requested by user.
+			return err
+		}
+		time.Sleep(retryDuration)
+		log.Printf("restarting provisioner and firewaller after error: %v", err)
+	}
+	panic("unreachable")
+}
+
+func (a *MachineAgent) runOnce() error {
+	st, err := state.Open(&a.Conf.StateInfo)
 	if err != nil {
 		return err
 	}
-	return m.Wait()
+	defer st.Close()
+	return runTasks(a.tomb.Dying(),
+		machiner.NewMachiner(st, a.MachineId))
 }

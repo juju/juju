@@ -8,31 +8,9 @@ import (
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/tomb"
+	"reflect"
 	"time"
 )
-
-func assertAlive(c *C, a *ProvisioningAgent, alive bool) {
-	start := time.Now()
-	for time.Since(start) < 500*time.Millisecond {
-		time.Sleep(50 * time.Millisecond)
-		perr := a.provisioner.Err()
-		fwerr := a.firewaller.Err()
-		if alive {
-			// Provisioner and firewaller have to be alive.
-			if perr == tomb.ErrStillAlive && fwerr == tomb.ErrStillAlive {
-				return
-			}
-		} else {
-			// Provisioner and firewaller have to be stopped.
-			if perr != tomb.ErrStillAlive && fwerr != tomb.ErrStillAlive {
-				c.Succeed()
-				return
-			}
-		}
-	}
-	c.Fatalf("timed out")
-	return
-}
 
 type ProvisioningSuite struct {
 	coretesting.LoggingSuite
@@ -45,15 +23,6 @@ var _ = Suite(&ProvisioningSuite{})
 func (s *ProvisioningSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 
-	env, err := environs.NewFromAttrs(map[string]interface{}{
-		"name":            "testing",
-		"type":            "dummy",
-		"zookeeper":       true,
-		"authorized-keys": "i-am-a-key",
-	})
-	c.Assert(err, IsNil)
-	err = env.Bootstrap(false)
-	c.Assert(err, IsNil)
 
 	s.StateSuite.SetUpTest(c)
 }
@@ -78,22 +47,82 @@ func (s *ProvisioningSuite) TestParseUnknown(c *C) {
 }
 
 func (s *ProvisioningSuite) TestRunStop(c *C) {
+	conn, err := juju.NewConnFromAttrs(map[string]interface{}{
+		"name":            "testing",
+		"type":            "dummy",
+		"zookeeper":       true,
+		"authorized-keys": "i-am-a-key",
+	})
+	c.Assert(err, IsNil)
+	op := make(chan dummy.Operation, 200)
+	dummy.Listen(op)
+	s.op = filterOps(op, dummy.OpStartInstance{}, dummy.OpOpenPorts{})
+
+	err = env.Bootstrap(false)
+	c.Assert(err, IsNil)
+
 	a := &ProvisioningAgent{
 		Conf: AgentConf{
 			JujuDir:   "/var/lib/juju",
 			StateInfo: *s.StateInfo(c),
 		},
 	}
-
+	done := make(chan error)
 	go func() {
-		err := a.Run(nil)
-		c.Assert(err, IsNil)
+		done <- a.Run(nil)
 	}()
 
-	assertAlive(c, a, true)
-
-	err := a.Stop()
+	// Check that the provisioner is alive by doing a rudimentary check
+	// that it responds to state changes.
+	st, err := conn.State()
 	c.Assert(err, IsNil)
 
-	assertAlive(c, a, false)
+	charm := s.AddTestingCharm(c, "dummy")
+
+	s.checkProvisionerAlive(c)
+	s.checkFirewallerAlive(c)
+
+	err = a.Stop()
+	c.Assert(err, IsNil)
+
+	err = <-done
+	c.Assert(err, IsNil)
+}
+
+func (s *ProvisioningSuite) checkProvisionerAlive(c *C) {
+	// Allocate a machine and check that we get a StartInstance operation
+	_, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+
+	c.Assert(<-s.op, FitsTypeOf, dummy.OpStartInstance{})
+
+}
+
+func (s *ProvisioningSuite) checkFirewallerAlive(c *C) {
+	charm := s.AddTestingCharm(c, "dummy")
+
+	m, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	err = m.SetInstanceId("testing-0")
+	c.Assert(err, IsNil)
+	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c), nil)
+	c.Assert(err, IsNil)
+}
+
+// filterOps filters all but the given kinds of operation from
+// the operations channel.
+func filterOps(c <-chan dummy.Operation, kinds ...dummy.Operation) <-chan dummy.Operation {
+	rc := make(chan dummy.Operation)
+	go func() {
+		for op := range c {
+			for _, k := range kinds {
+				if reflect.TypeOf(op) == reflect.TypeOf(k) {
+					rc <- op
+					break
+				}
+			}
+		}
+		close(rc)
+	}()
+	return rc
 }
