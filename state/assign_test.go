@@ -226,3 +226,9 @@ func (s *AssignSuite) TestAssignUnit(c *C) {
 	err = s.State.AssignUnit(unit3, state.AssignUnused)
 	c.Assert(err, ErrorMatches, `subordinate unit "logging/0" cannot be assigned directly to a machine`)
 }
+
+func assertMachineCount(c *C, st *state.State, expect int) {
+	ms, err := st.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(ms, HasLen, expect)
+}

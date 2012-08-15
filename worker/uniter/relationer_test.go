@@ -3,9 +3,9 @@ package uniter_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/presence"
-	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/worker/uniter"
 	"strings"
 	"time"

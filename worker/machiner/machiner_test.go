@@ -3,8 +3,8 @@ package machiner_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/container"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/machiner"
 	stdtesting "testing"

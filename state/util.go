@@ -3,7 +3,6 @@ package state
 import (
 	"errors"
 	"fmt"
-	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/version"
 	pathpkg "path"
@@ -16,12 +15,6 @@ var (
 	// zkPermAll is a convenience variable for creating new nodes.
 	zkPermAll = zookeeper.WorldACL(zookeeper.PERM_ALL)
 )
-
-func assertMachineCount(c *C, st *State, expect int) {
-	ms, err := st.AllMachines()
-	c.Assert(err, IsNil)
-	c.Assert(ms, HasLen, expect)
-}
 
 // zkRemoveTree recursively removes a zookeeper node and all its
 // children.  It does not delete "/zookeeper" or the root node itself

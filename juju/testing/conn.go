@@ -1,20 +1,21 @@
 package testing
+
 import (
 	"fmt"
-	"net/url"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/charm"
-	state "launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/juju"
+	state "launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
+	"net/url"
 )
 
 // StateSuite provides a pre-bootstrapped juju.Conn
 // for for each test method.
 type JujuConnSuite struct {
 	testing.ZkSuite
-	Conn *juju.Conn
+	Conn  *juju.Conn
 	State *state.State
 }
 

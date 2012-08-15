@@ -3,10 +3,10 @@ package juju_test
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"

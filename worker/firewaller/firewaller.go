@@ -139,7 +139,7 @@ Loop:
 					service, err := fw.st.Service(unit.ServiceName())
 					if err != nil {
 						fw.tomb.Kill(err)
-				log.Printf("mainloop: service err")
+						log.Printf("mainloop: service err")
 						return
 					}
 					fw.serviceds[unit.ServiceName()] = newServiceData(service, fw)

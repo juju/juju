@@ -4,8 +4,8 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/firewaller"
 	"reflect"
@@ -45,8 +45,8 @@ func assertPorts(c *C, inst environs.Instance, machineId int, expected []state.P
 type FirewallerSuite struct {
 	coretesting.LoggingSuite
 	testing.JujuConnSuite
-	op      <-chan dummy.Operation
-	charm   *state.Charm
+	op    <-chan dummy.Operation
+	charm *state.Charm
 }
 
 var _ = Suite(&FirewallerSuite{})
