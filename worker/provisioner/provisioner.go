@@ -26,7 +26,6 @@ type Provisioner struct {
 // are added to the state, it allocates instances from the environment
 // and allocates them to the new machines.
 func NewProvisioner(st *state.State) *Provisioner {
-	log.Printf("new provisioner called")
 	p := &Provisioner{
 		st:        st,
 		instances: make(map[int]environs.Instance),
@@ -37,7 +36,6 @@ func NewProvisioner(st *state.State) *Provisioner {
 }
 
 func (p *Provisioner) loop() {
-	log.Printf("in provisioner loop")
 	defer p.tomb.Done()
 	environWatcher := p.st.WatchEnvironConfig()
 	defer watcher.Stop(environWatcher, &p.tomb)
