@@ -24,14 +24,17 @@ func Test(t *stdtesting.T) {
 	TestingT(t)
 }
 
+func (s *suite) SetUpTest(c *C) {
+	downloader.TempDir = c.MkDir()
+}
+
+func (s *suite) TearDownTest(c *C) {
+	downloader.TempDir = os.TempDir()
+}
+
 func (s *suite) TestDownload(c *C) {
 	l := newServer()
 	defer l.close()
-
-	defer func() {
-		downloader.TempDir = ""
-	}()
-	downloader.TempDir = c.MkDir()
 
 	content := l.addContent("/archive.tgz", "archive")
 	d := downloader.New(content.url)
@@ -56,15 +59,10 @@ func (s *suite) TestDownloadError(c *C) {
 	d := downloader.New(url)
 	status := <-d.Done()
 	c.Assert(status.File, IsNil)
-	c.Assert(status.Err, ErrorMatches, `cannot download ".*": bad http response 404 Not Found`)
+	c.Assert(status.Err, ErrorMatches, `cannot download ".*": bad http response: 404 Not Found`)
 }
 
 func (s *suite) TestStopDownload(c *C) {
-	defer func() {
-		downloader.TempDir = ""
-	}()
-	downloader.TempDir = c.MkDir()
-
 	l := newServer()
 	defer l.close()
 	content := l.addContent("/x.tgz", "content")

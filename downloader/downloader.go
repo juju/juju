@@ -11,9 +11,8 @@ import (
 )
 
 // TempDir holds the temporary directory used to
-// write the URL download. If it is empty, the default
-// temporary directory is used (see os.TempDir).
-var TempDir string
+// write the URL download.
+var TempDir  = os.TempDir()
 
 // Status represents the status of a completed download.
 type Status struct {
@@ -23,7 +22,7 @@ type Status struct {
 	Err error
 }
 
-// Download can download an archived directory from the network.
+// Download can download a file from the network.
 type Download struct {
 	tomb tomb.Tomb
 	done chan Status
@@ -86,7 +85,7 @@ func download(url string) (file *os.File, err error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bad http response %v", resp.Status)
+		return nil, fmt.Errorf("bad http response: %v", resp.Status)
 	}
 	_, err = io.Copy(tempFile, resp.Body)
 	if err != nil {
