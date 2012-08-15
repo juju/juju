@@ -13,20 +13,20 @@ var _ = Suite(&HookStateSuite{})
 
 func (s *HookStateSuite) TestHookState(c *C) {
 	path := filepath.Join(c.MkDir(), "hook")
-	hs := uniter.NewHookState(path)
-	_, _, err := hs.Get()
-	c.Assert(err, Equals, uniter.ErrNoHook)
+	f := uniter.NewHookStateFile(path)
+	_, _, err := f.Read()
+	c.Assert(err, Equals, uniter.ErrNoHookState)
 
 	err = ioutil.WriteFile(path, []byte("roflcopter"), 0644)
 	c.Assert(err, IsNil)
-	_, _, err = hs.Get()
+	_, _, err = f.Read()
 	c.Assert(err, ErrorMatches, "invalid hook state at "+path)
 
-	f := func() { hs.Set(uniter.HookInfo{}, uniter.HookStatus("nonsense")) }
-	c.Assert(f, PanicMatches, `unknown HookStatus "nonsense"!`)
+	bad := func() { f.Write(uniter.HookInfo{}, uniter.HookStatus("nonsense")) }
+	c.Assert(bad, PanicMatches, `unknown hook status "nonsense"`)
 
-	f = func() { hs.Set(uniter.HookInfo{}, uniter.StatusStarted) }
-	c.Assert(f, PanicMatches, `empty HookKind!`)
+	bad = func() { f.Write(uniter.HookInfo{}, uniter.StatusStarted) }
+	c.Assert(bad, PanicMatches, `empty HookKind!`)
 
 	hi := uniter.HookInfo{
 		RelationId:    123,
@@ -38,13 +38,13 @@ func (s *HookStateSuite) TestHookState(c *C) {
 			"abc/1000": {"baz": 3, "qux": 4},
 		},
 	}
-	err = hs.Set(hi, uniter.StatusStarted)
+	err = f.Write(hi, uniter.StatusStarted)
 	c.Assert(err, IsNil)
 
-	ghi, gst, err := hs.Get()
+	rhi, rst, err := f.Read()
 	c.Assert(err, IsNil)
-	c.Assert(gst, Equals, uniter.StatusStarted)
-	c.Assert(ghi, DeepEquals, uniter.HookInfo{
+	c.Assert(rst, Equals, uniter.StatusStarted)
+	c.Assert(rhi, DeepEquals, uniter.HookInfo{
 		RelationId:    123,
 		HookKind:      "changed",
 		RemoteUnit:    "abc/999",

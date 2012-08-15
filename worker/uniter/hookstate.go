@@ -12,23 +12,34 @@ import (
 type HookStatus string
 
 const (
-	StatusStarted   HookStatus = "started"
+	// StatusStarted indicates that the unit agent intended to run the hook.
+	// This status implies that a hook *may* have been interrupted and have
+	// failed to complete all required operations, and that therefore the
+	// proper response is to treat it as a hook execution failure and punt
+	// to the user for manual resolution.
+	StatusStarted HookStatus = "started"
+
+	// StatusSucceeded indicates that the hook itself completed successfully,
+	// but that local state (ie relation membership) may not have been
+	// synchronized, and that recovery may therefore be necessary.
 	StatusSucceeded HookStatus = "succeeded"
+
+	// StatusCommitted indicates that the last hook ran successfully and that
+	// local state has been synchronized.
 	StatusCommitted HookStatus = "committed"
 )
 
-// validate will return an error if the HookStatus is not a known value.
-func (hs HookStatus) validate() (err error) {
+// valid will return true if the value is known.
+func (hs HookStatus) valid() bool {
 	switch hs {
 	case StatusStarted, StatusSucceeded, StatusCommitted:
-	default:
-		err = fmt.Errorf("unknown HookStatus %q!", hs)
+		return true
 	}
-	return
+	return false
 }
 
-// diskHook defines the hook state serialization.
-type diskHook struct {
+// hookState defines the hook state serialization.
+type hookState struct {
 	RelationId    int
 	HookKind      string
 	RemoteUnit    string
@@ -37,61 +48,61 @@ type diskHook struct {
 	Status        HookStatus
 }
 
-// HookState stores and retrieves a hook and its execution status.
-type HookState struct {
+// HookStateFile stores and retrieves a hook and its execution status.
+type HookStateFile struct {
 	path string
 }
 
-// NewHookState returns a new hook state that persists to the supplied path.
-func NewHookState(path string) *HookState {
-	return &HookState{path}
+// NewHookStateFile returns a new hook state that persists to the supplied path.
+func NewHookStateFile(path string) *HookStateFile {
+	return &HookStateFile{path}
 }
 
-// ErrNoHook indicates that no hook has ever been stored.
-var ErrNoHook = errors.New("no hook")
+// ErrNoHookState indicates that no hook has ever been stored.
+var ErrNoHookState = errors.New("no hook")
 
-// Get loads the status of, and the HookInfo, that was last Set. If no hook
-// has ever been set, the error will be ErrNoHook.
-func (s *HookState) Get() (hi HookInfo, hs HookStatus, err error) {
+// Read reads the current hook state from disk. It returns ErrNoHookState if
+// the file doesn't exist.
+func (f *HookStateFile) Read() (hi HookInfo, hs HookStatus, err error) {
 	var data []byte
-	if data, err = ioutil.ReadFile(s.path); err != nil {
+	if data, err = ioutil.ReadFile(f.path); err != nil {
 		if os.IsNotExist(err) {
-			err = ErrNoHook
+			err = ErrNoHookState
 		}
 		return
 	}
-	var dh diskHook
-	if err = goyaml.Unmarshal(data, &dh); err != nil {
+	var state hookState
+	if err = goyaml.Unmarshal(data, &state); err != nil {
 		return
 	}
-	if dh.HookKind == "" || dh.Status.validate() != nil {
-		err = fmt.Errorf("invalid hook state at %s", s.path)
-	} else {
-		hi = HookInfo{
-			RelationId:    dh.RelationId,
-			HookKind:      dh.HookKind,
-			RemoteUnit:    dh.RemoteUnit,
-			ChangeVersion: dh.ChangeVersion,
-			Members:       map[string]map[string]interface{}{},
-		}
-		for _, m := range dh.Members {
-			hi.Members[m] = nil
-		}
-		hs = dh.Status
+	if state.HookKind == "" || !state.Status.valid() {
+		err = fmt.Errorf("invalid hook state at %s", f.path)
+		return
 	}
+	hi = HookInfo{
+		RelationId:    state.RelationId,
+		HookKind:      state.HookKind,
+		RemoteUnit:    state.RemoteUnit,
+		ChangeVersion: state.ChangeVersion,
+		Members:       map[string]map[string]interface{}{},
+	}
+	for _, m := range state.Members {
+		hi.Members[m] = nil
+	}
+	hs = state.Status
 	return
 }
 
-// Set persists the status of, and information necessary to reconstruct, the
-// supplied hook. It will panic if asked to store invalid data.
-func (s *HookState) Set(hi HookInfo, hs HookStatus) error {
-	if err := hs.validate(); err != nil {
-		panic(err)
+// Write writes the supplied hook state to disk. It panics if asked to store
+// invalid data.
+func (f *HookStateFile) Write(hi HookInfo, hs HookStatus) error {
+	if !hs.valid() {
+		panic(fmt.Errorf("unknown hook status %q", hs))
 	}
 	if hi.HookKind == "" {
 		panic("empty HookKind!")
 	}
-	dh := diskHook{
+	state := hookState{
 		RelationId:    hi.RelationId,
 		HookKind:      hi.HookKind,
 		RemoteUnit:    hi.RemoteUnit,
@@ -99,7 +110,7 @@ func (s *HookState) Set(hi HookInfo, hs HookStatus) error {
 		Status:        hs,
 	}
 	for m := range hi.Members {
-		dh.Members = append(dh.Members, m)
+		state.Members = append(state.Members, m)
 	}
-	return atomicWrite(s.path, dh)
+	return atomicWrite(f.path, &state)
 }

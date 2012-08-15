@@ -149,7 +149,7 @@ func (rs *RelationState) Commit(hi HookInfo) (err error) {
 		return nil
 	}
 	di := diskInfo{&hi.ChangeVersion, hi.HookKind == "joined"}
-	if err := atomicWrite(path, di); err != nil {
+	if err := atomicWrite(path, &di); err != nil {
 		return err
 	}
 	// If write was successful, update own fields.

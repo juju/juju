@@ -30,23 +30,22 @@ func unitFsName(unitName string) string {
 	return strings.Replace(unitName, "/", "-", 1)
 }
 
-const preparing = ".preparing"
-
-// atomicWrite writes a file atomically by first writing a sibling with the
-// suffix ".preparing", and then moving the sibling to the real path.
+// atomicWrite marshals obj as yaml and then writes it to a file atomically
+// by first writing a sibling with the suffix ".preparing", and then moving
+// the sibling to the real path.
 func atomicWrite(path string, obj interface{}) error {
 	data, err := goyaml.Marshal(obj)
 	if err != nil {
 		return err
 	}
+	preparing := ".preparing"
 	if err = ioutil.WriteFile(path+preparing, data, 0644); err != nil {
 		return err
 	}
 	return os.Rename(path+preparing, path)
 }
 
-// ensureDir returns an error if a directory does not exist, and cannot
-// be created, at path.
+// ensureDir creates the directory at path if it doesn't already exist.
 func ensureDir(path string) error {
 	fi, err := os.Stat(path)
 	if os.IsNotExist(err) {
