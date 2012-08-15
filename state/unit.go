@@ -51,7 +51,7 @@ const (
 	UnitStatusDown UnitStatus = "down"
 )
 
-// UnitInfo allows to add an additional info, e.g. an error reason
+// UnitInfo allows to add additional info, e.g. an error reason
 // to the unit status.
 type UnitInfo struct {
 	Status UnitStatus
@@ -182,7 +182,7 @@ func (u *Unit) SetPrivateAddress(address string) (err error) {
 		"private address of unit %q", u)
 }
 
-// Status returns the status of the unit's agent
+// Status returns the status of the unit's agent.
 func (u *Unit) Status() (*UnitInfo, error) {
 	status, err := getConfigString(u.st.zk, u.zkPath(), "status",
 		"status of unit %q", u)
@@ -196,7 +196,7 @@ func (u *Unit) Status() (*UnitInfo, error) {
 	unitStatus := UnitStatus(status)
 	switch unitStatus {
 	case UnitStatusError:
-		// We allways expect an info if status is 'error'.
+		// We always expect an info if status is 'error'.
 		info, err := getConfigString(u.st.zk, u.zkPath(), "status-info",
 			"status-info of unit %q", u)
 		if err != nil {
@@ -218,6 +218,9 @@ func (u *Unit) Status() (*UnitInfo, error) {
 
 // SetStatus sets the status of the unit.
 func (u *Unit) SetStatus(status UnitStatus, info string) error {
+	if status == UnitStatusPending {
+		panic("unit status must not be set to pending")
+	}
 	if err := setConfigString(u.st.zk, u.zkPath(), "status", string(status),
 		"status of unit %q", u); err != nil {
 		return err

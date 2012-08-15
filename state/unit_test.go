@@ -45,6 +45,9 @@ func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
 }
 
 func (s *UnitSuite) TestGetSetStatus(c *C) {
+	fail := func() { s.unit.SetStatus(state.UnitStatusPending, "") }
+	c.Assert(fail, PanicMatches, "unit status must not be set to pending")
+
 	unitInfo, err := s.unit.Status()
 	c.Assert(err, IsNil)
 	c.Assert(unitInfo, DeepEquals, &state.UnitInfo{state.UnitStatusPending, ""})
