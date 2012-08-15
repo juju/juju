@@ -1,20 +1,18 @@
 package main
 
 import (
+	"time"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/tomb"
 	"reflect"
-	"time"
 )
 
 type ProvisioningSuite struct {
 	coretesting.LoggingSuite
 	testing.JujuConnSuite
-	op <-chan dummy.Operation
 }
 
 var _ = Suite(&ProvisioningSuite{})
@@ -25,7 +23,7 @@ func (s *ProvisioningSuite) SetUpTest(c *C) {
 }
 
 func (s *ProvisioningSuite) TearDownTest(c *C) {
-	dummy.Reset()
+	s.JujuConnSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
@@ -44,19 +42,8 @@ func (s *ProvisioningSuite) TestParseUnknown(c *C) {
 }
 
 func (s *ProvisioningSuite) TestRunStop(c *C) {
-	conn, err := juju.NewConnFromAttrs(map[string]interface{}{
-		"name":            "testing",
-		"type":            "dummy",
-		"zookeeper":       true,
-		"authorized-keys": "i-am-a-key",
-	})
-	c.Assert(err, IsNil)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
-	s.op = filterOps(op, dummy.OpStartInstance{}, dummy.OpOpenPorts{})
-
-	err = env.Bootstrap(false)
-	c.Assert(err, IsNil)
 
 	a := &ProvisioningAgent{
 		Conf: AgentConf{
@@ -71,39 +58,44 @@ func (s *ProvisioningSuite) TestRunStop(c *C) {
 
 	// Check that the provisioner is alive by doing a rudimentary check
 	// that it responds to state changes.
-	st, err := conn.State()
+
+	// Add one unit to a service; it should get allocated a machine
+	// and then its ports should be opened.
+	charm := s.AddTestingCharm(c, "dummy")
+	svc, err := s.Conn.AddService("test-service", charm)
+	c.Assert(err, IsNil)
+	err = svc.SetExposed()
+	c.Assert(err, IsNil)
+	units, err := s.Conn.AddUnits(svc, 1)
+	c.Assert(err, IsNil)
+	mid, err := units[0].AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Logf("assigned machine: %d", mid)
+	err = units[0].OpenPort("tcp", 999)
 	c.Assert(err, IsNil)
 
-	charm := s.AddTestingCharm(c, "dummy")
-
-	s.checkProvisionerAlive(c)
-	s.checkFirewallerAlive(c)
+	c.Assert(opRecvTimeout(c, op), FitsTypeOf, dummy.OpStartInstance{})
+	c.Assert(opRecvTimeout(c, op), FitsTypeOf, dummy.OpOpenPorts{})
 
 	err = a.Stop()
 	c.Assert(err, IsNil)
 
-	err = <-done
-	c.Assert(err, IsNil)
+	select {
+	case err := <-done:
+		c.Assert(err, IsNil)
+	case <-time.After(2 * time.Second):
+		c.Fatalf("timed out waiting for agent to terminate")
+	}
 }
 
-func (s *ProvisioningSuite) checkProvisionerAlive(c *C) {
-	// Allocate a machine and check that we get a StartInstance operation
-	_, err := s.State.AddMachine()
-	c.Assert(err, IsNil)
-
-	c.Assert(<-s.op, FitsTypeOf, dummy.OpStartInstance{})
-
-}
-
-func (s *ProvisioningSuite) checkFirewallerAlive(c *C) {
-	charm := s.AddTestingCharm(c, "dummy")
-
-	m, err := s.State.AddMachine()
-	c.Assert(err, IsNil)
-	err = m.SetInstanceId("testing-0")
-	c.Assert(err, IsNil)
-	inst, err := s.environ.StartInstance(m.Id(), s.StateInfo(c), nil)
-	c.Assert(err, IsNil)
+func opRecvTimeout(c *C, opc <-chan dummy.Operation) dummy.Operation {
+	select {
+	case op := <-opc:
+		return op
+	case <-time.After(2 * time.Second):
+		c.Fatalf("time out wating for operation")
+	}
+	panic("not reached")
 }
 
 // filterOps filters all but the given kinds of operation from
