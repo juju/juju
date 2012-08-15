@@ -7,11 +7,11 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/jujuc/server"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/testing"
+	"launchpad.net/juju-core/juju/testing"
 )
 
 type RelationIdsSuite struct {
-	testing.StateSuite
+	testing.JujuConnSuite
 	ch      *state.Charm
 	service *state.Service
 	unit    *state.Unit
@@ -21,7 +21,7 @@ type RelationIdsSuite struct {
 var _ = Suite(&RelationIdsSuite{})
 
 func (s *RelationIdsSuite) SetUpTest(c *C) {
-	s.StateSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
 	s.ch = s.AddTestingCharm(c, "dummy")
 	var err error
 	s.service, err = s.State.AddService("main", s.ch)

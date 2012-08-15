@@ -7,7 +7,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd/jujuc/server"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/testing"
+	"launchpad.net/juju-core/juju/testing"
 	"os"
 	"path/filepath"
 	"strings"
@@ -244,7 +244,7 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *C) {
 }
 
 type RelationContextSuite struct {
-	testing.StateSuite
+	testing.JujuConnSuite
 	svc *state.Service
 	rel *state.Relation
 	ru  *state.RelationUnit
@@ -253,7 +253,7 @@ type RelationContextSuite struct {
 var _ = Suite(&RelationContextSuite{})
 
 func (s *RelationContextSuite) SetUpTest(c *C) {
-	s.StateSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
 	ch := s.AddTestingCharm(c, "dummy")
 	var err error
 	s.svc, err = s.State.AddService("u", ch)
