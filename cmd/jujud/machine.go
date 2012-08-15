@@ -3,17 +3,17 @@ package main
 import (
 	"fmt"
 	"launchpad.net/gnuflag"
-	"launchpad.net/tomb"
+	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/worker/machiner"
+	"launchpad.net/tomb"
 	"time"
 )
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
-	tomb        tomb.Tomb
+	tomb      tomb.Tomb
 	Conf      AgentConf
 	MachineId int
 }

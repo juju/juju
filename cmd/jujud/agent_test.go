@@ -1,4 +1,5 @@
 package main
+
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
@@ -62,7 +63,7 @@ func (agentSuite) TestTaskStop(c *C) {
 
 type testTask struct {
 	tomb.Tomb
-	done chan error
+	done    chan error
 	stopErr error
 }
 

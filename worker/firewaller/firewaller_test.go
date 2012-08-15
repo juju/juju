@@ -63,7 +63,7 @@ func (s *FirewallerSuite) TearDownTest(c *C) {
 }
 
 func (s *FirewallerSuite) TestStartStop(c *C) {
-	fw:= firewaller.NewFirewaller(s.State)
+	fw := firewaller.NewFirewaller(s.State)
 	c.Assert(fw.Stop(), IsNil)
 }
 

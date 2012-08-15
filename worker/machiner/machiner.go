@@ -18,8 +18,8 @@ func NewMachiner(st *state.State, machineId int) *Machiner {
 
 // Machiner represents a running machine agent.
 type Machiner struct {
-	tomb    tomb.Tomb
-	st      *state.State
+	tomb tomb.Tomb
+	st   *state.State
 }
 
 func (m *Machiner) loop(machineId int) {
