@@ -128,7 +128,7 @@ func (srv *localServer) startServer(c *C) {
 // that start an instance can succeed even though they
 // do not upload tools.
 func putFakeTools(c *C, s environs.StorageWriter) {
-	path := environs.ToolsPath(version.Current)
+	path := environs.ToolsStoragePath(version.Current)
 	c.Logf("putting fake tools at %v", path)
 	toolsContents := "tools archive, honest guv"
 	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))

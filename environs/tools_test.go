@@ -58,8 +58,8 @@ func mkVersion(vers string) version.Number {
 	return v
 }
 
-func mkToolsPath(vers string) string {
-	return environs.ToolsPath(version.Binary{
+func mkToolsStoragePath(vers string) string {
+	return environs.ToolsStoragePath(version.Binary{
 		Number: mkVersion(vers),
 		Series: version.Current.Series,
 		Arch:   version.Current.Arch,
@@ -77,12 +77,10 @@ var commandTests = []struct {
 	{
 		[]string{"juju", "arble"},
 		"error: unrecognized command: juju arble\n",
-	},
-	{
+	}, {
 		[]string{"jujud", "arble"},
 		"error: unrecognized command: jujud arble\n",
-	},
-	{
+	}, {
 		[]string{"jujuc"},
 		"(.|\n)*error: jujuc should not be called directly\n",
 	},
@@ -94,14 +92,14 @@ func (t *ToolsSuite) TestPutGetTools(c *C) {
 	c.Assert(tools.Binary, Equals, version.Current)
 	c.Assert(tools.URL, Not(Equals), "")
 
-	for i, getTools := range []func(t *state.Tools) error{
+	for i, get := range []func(t *state.Tools) error{
 		getTools,
 		getToolsWithTar,
 	} {
 		c.Logf("test %d", i)
 		// Unarchive the tool executables into a temp directory.
 		environs.VarDir = c.MkDir()
-		err = getTools(tools)
+		err = get(tools)
 		c.Assert(err, IsNil)
 
 		dir := environs.ToolsDir(version.Current)
@@ -119,19 +117,6 @@ func (t *ToolsSuite) TestPutGetTools(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(string(data), Equals, tools.URL)
 	}
-}
-
-// getTools downloads and unpacks the given tools.
-func getTools(tools *state.Tools) error {
-	resp, err := http.Get(tools.URL)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad http status: %v", resp.Status)
-	}
-	return environs.UnpackTools(tools, resp.Body)
 }
 
 // Test that the upload procedure fails correctly
@@ -162,20 +147,16 @@ var unpackToolsBadDataTests = []struct {
 	{
 		makeArchive(newFile("bar", tar.TypeDir, "")),
 		"bad file type.*",
-	},
-	{
+	}, {
 		makeArchive(newFile("../../etc/passwd", tar.TypeReg, "")),
 		"bad name.*",
-	},
-	{
+	}, {
 		makeArchive(newFile(`\ini.sys`, tar.TypeReg, "")),
 		"bad name.*",
-	},
-	{
+	}, {
 		[]byte("x"),
 		"unexpected EOF",
-	},
-	{
+	}, {
 		gzyesses,
 		"archive/tar: invalid tar header",
 	},
@@ -195,7 +176,7 @@ func (t *ToolsSuite) TestUnpackToolsBadData(c *C) {
 }
 
 func toolsDir() string {
-	return filepath.Join(filepath.FromSlash(environs.VarDir), "tools")
+	return filepath.Join(environs.VarDir, "tools")
 }
 
 func (t *ToolsSuite) TestUnpackToolsContents(c *C) {
@@ -235,7 +216,7 @@ func (t *ToolsSuite) TestReadToolsErrors(c *C) {
 	c.Assert(tools, IsNil)
 	c.Assert(err, ErrorMatches, "cannot read URL in tools directory: .*")
 
-	dir := filepath.FromSlash(environs.ToolsDir(vers))
+	dir := environs.ToolsDir(vers)
 	err = os.MkdirAll(dir, 0755)
 	c.Assert(err, IsNil)
 
@@ -247,8 +228,8 @@ func (t *ToolsSuite) TestReadToolsErrors(c *C) {
 	c.Assert(err, ErrorMatches, "empty URL in tools directory.*")
 }
 
-func (t *ToolsSuite) TestToolsPath(c *C) {
-	c.Assert(environs.ToolsPath(binaryVersion(1, 2, 3, "precise", "amd64")),
+func (t *ToolsSuite) TestToolsStoragePath(c *C) {
+	c.Assert(environs.ToolsStoragePath(binaryVersion(1, 2, 3, "precise", "amd64")),
 		Equals, "tools/juju-1.2.3-precise-amd64.tgz")
 }
 
@@ -256,7 +237,20 @@ func (t *ToolsSuite) TestToolsDir(c *C) {
 	environs.VarDir = "/var/lib/juju"
 	c.Assert(environs.ToolsDir(binaryVersion(1, 2, 3, "precise", "amd64")),
 		Equals,
-		filepath.FromSlash("/var/lib/juju/tools/1.2.3-precise-amd64"))
+		"/var/lib/juju/tools/1.2.3-precise-amd64")
+}
+
+// getTools downloads and unpacks the given tools.
+func getTools(tools *state.Tools) error {
+	resp, err := http.Get(tools.URL)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad http status: %v", resp.Status)
+	}
+	return environs.UnpackTools(tools, resp.Body)
 }
 
 // getToolsWithTar is the same as getTools but uses tar
@@ -293,7 +287,7 @@ func assertToolsContents(c *C, tools *state.Tools, files []*file) {
 		wantNames = append(wantNames, f.header.Name)
 	}
 	wantNames = append(wantNames, urlFile)
-	dir := filepath.FromSlash(environs.ToolsDir(tools.Binary))
+	dir := environs.ToolsDir(tools.Binary)
 	assertDirNames(c, dir, wantNames)
 	assertFileContents(c, dir, urlFile, tools.URL, 0200)
 	for _, f := range files {
@@ -406,84 +400,84 @@ var findToolsTests = []struct {
 }{{
 	// current version should be satisfied by current tools path.
 	version:  version.Current.Number,
-	contents: []string{environs.ToolsPath(version.Current)},
-	expect:   environs.ToolsPath(version.Current),
+	contents: []string{environs.ToolsStoragePath(version.Current)},
+	expect:   environs.ToolsStoragePath(version.Current),
 }, {
 	// major versions don't match.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		mkToolsPath("0.0.9"),
+		mkToolsStoragePath("0.0.9"),
 	},
 	err: "no compatible tools found",
 }, {
 	// major versions don't match.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		mkToolsPath("2.0.9"),
+		mkToolsStoragePath("2.0.9"),
 	},
 	err: "no compatible tools found",
 }, {
 	// fall back to public storage when nothing found in private.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		mkToolsPath("0.0.9"),
+		mkToolsStoragePath("0.0.9"),
 	},
 	publicContents: []string{
-		mkToolsPath("1.0.0"),
+		mkToolsStoragePath("1.0.0"),
 	},
-	expect: "public-" + mkToolsPath("1.0.0"),
+	expect: "public-" + mkToolsStoragePath("1.0.0"),
 }, {
 	// always use private storage in preference to public storage.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		mkToolsPath("1.0.2"),
+		mkToolsStoragePath("1.0.2"),
 	},
 	publicContents: []string{
-		mkToolsPath("1.0.9"),
+		mkToolsStoragePath("1.0.9"),
 	},
-	expect: mkToolsPath("1.0.2"),
+	expect: mkToolsStoragePath("1.0.2"),
 }, {
 	// we'll use an earlier version if the major version number matches.
 	version: mkVersion("1.99.99"),
 	contents: []string{
-		mkToolsPath("1.0.0"),
+		mkToolsStoragePath("1.0.0"),
 	},
-	expect: mkToolsPath("1.0.0"),
+	expect: mkToolsStoragePath("1.0.0"),
 }, {
 	// check that version comparing is numeric, not alphabetical.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		mkToolsPath("1.0.9"),
-		mkToolsPath("1.0.10"),
-		mkToolsPath("1.0.11"),
+		mkToolsStoragePath("1.0.9"),
+		mkToolsStoragePath("1.0.10"),
+		mkToolsStoragePath("1.0.11"),
 	},
-	expect: mkToolsPath("1.0.11"),
+	expect: mkToolsStoragePath("1.0.11"),
 }, {
 	// minor version wins over patch version.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		mkToolsPath("1.9.11"),
-		mkToolsPath("1.10.10"),
-		mkToolsPath("1.11.9"),
+		mkToolsStoragePath("1.9.11"),
+		mkToolsStoragePath("1.10.10"),
+		mkToolsStoragePath("1.11.9"),
 	},
-	expect: mkToolsPath("1.11.9"),
+	expect: mkToolsStoragePath("1.11.9"),
 }, {
 	// mismatching series or architecture is ignored.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		environs.ToolsPath(version.Binary{
+		environs.ToolsStoragePath(version.Binary{
 			Number: mkVersion("1.9.9"),
 			Series: "foo",
 			Arch:   version.Current.Arch,
 		}),
-		environs.ToolsPath(version.Binary{
+		environs.ToolsStoragePath(version.Binary{
 			Number: mkVersion("1.9.9"),
 			Series: version.Current.Series,
 			Arch:   "foo",
 		}),
-		mkToolsPath("1.0.0"),
+		mkToolsStoragePath("1.0.0"),
 	},
-	expect: mkToolsPath("1.0.0"),
+	expect: mkToolsStoragePath("1.0.0"),
 },
 }
 

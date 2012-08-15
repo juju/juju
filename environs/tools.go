@@ -85,7 +85,7 @@ func PutTools(storage Storage) (*state.Tools, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot stat newly made tools archive: %v", err)
 	}
-	p := ToolsPath(version.Current)
+	p := ToolsStoragePath(version.Current)
 	log.Printf("environs: putting tools %v", p)
 	err = storage.Put(p, f, fi.Size())
 	if err != nil {
@@ -206,7 +206,7 @@ func UnpackTools(tools *state.Tools, r io.Reader) (err error) {
 
 	// Make a temporary directory in the tools directory,
 	// first ensuring that the tools directory exists.
-	toolsDir := path.Join(filepath.FromSlash(VarDir), "tools")
+	toolsDir := filepath.Join(VarDir, "tools")
 	err = os.MkdirAll(toolsDir, 0755)
 	if err != nil {
 		return err
@@ -215,26 +215,15 @@ func UnpackTools(tools *state.Tools, r io.Reader) (err error) {
 	if err != nil {
 		return err
 	}
-
-	cleanup := func() {
-		err := os.RemoveAll(dir)
-		if err != nil {
-			log.Printf("environs: cannot remove UnpackTools temporary directory: %v", err)
-		}
-	}
-	defer func() {
-		if err != nil {
-			cleanup()
-		}
-	}()
+	defer removeAll(dir)
 
 	tr := tar.NewReader(zr)
 	for {
 		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
-			if err == io.EOF {
-				break
-			}
 			return err
 		}
 		if strings.ContainsAny(hdr.Name, "/\\") {
@@ -244,7 +233,7 @@ func UnpackTools(tools *state.Tools, r io.Reader) (err error) {
 			return fmt.Errorf("bad file type %#c in file %q in tools archive", hdr.Typeflag, hdr.Name)
 		}
 		name := filepath.Join(dir, hdr.Name)
-		if err := writeFile(name, 0755, tr); err != nil {
+		if err := writeFile(name, os.FileMode(hdr.Mode&0777), tr); err != nil {
 			return fmt.Errorf("tar extract %q failed: %v", name, err)
 		}
 	}
@@ -258,13 +247,20 @@ func UnpackTools(tools *state.Tools, r io.Reader) (err error) {
 	// the directory already exists - if ReadTools succeeds, we
 	// assume all's ok.
 	if err != nil {
-		cleanup()
 		_, err := ReadTools(tools.Binary)
 		if err == nil {
 			return nil
 		}
 	}
 	return nil
+}
+
+func removeAll(dir string) {
+	err := os.RemoveAll(dir)
+	if err == nil || os.IsNotExist(err) {
+		return
+	}
+	log.Printf("environs: cannot remove %q: %v", dir, err)
 }
 
 func writeFile(name string, mode os.FileMode, r io.Reader) error {
@@ -297,9 +293,9 @@ func ReadTools(vers version.Binary) (*state.Tools, error) {
 	}, nil
 }
 
-// ToolsPath returns the slash-separated path that is used to store and
+// ToolsStoragePath returns the slash-separated path that is used to store and
 // retrieve the given version of the juju tools in a Storage.
-func ToolsPath(vers version.Binary) string {
+func ToolsStoragePath(vers version.Binary) string {
 	return toolPrefix + vers.String() + ".tgz"
 }
 
