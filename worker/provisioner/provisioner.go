@@ -113,6 +113,12 @@ func (p *Provisioner) Dying() <-chan struct{} {
 	return p.tomb.Dying()
 }
 
+// Err returns the reason why the Provisioner has stopped or tomb.ErrStillAlive
+// when it is still alive.
+func (p *Provisioner) Err() (reason error) {
+	return p.tomb.Err()
+}
+
 // Wait waits for the Provisioner to exit.
 func (p *Provisioner) Wait() error {
 	return p.tomb.Wait()

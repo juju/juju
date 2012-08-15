@@ -127,16 +127,7 @@ func (s *ServerSuite) AssertBadCommand(c *C, args []string, code int) server.Res
 func (s *ServerSuite) TestParseError(c *C) {
 	resp := s.AssertBadCommand(c, []string{"remote", "--cheese"}, 2)
 	c.Assert(string(resp.Stdout), Equals, "")
-	c.Assert(string(resp.Stderr), Equals, `usage: remote [options]
-purpose: act at a distance
-
-options:
---value (= "")
-    doc
-
-blah doc
-error: flag provided but not defined: --cheese
-`)
+	c.Assert(string(resp.Stderr), Equals, "error: flag provided but not defined: --cheese\n")
 }
 
 func (s *ServerSuite) TestBrokenCommand(c *C) {

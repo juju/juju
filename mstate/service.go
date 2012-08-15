@@ -46,7 +46,10 @@ func (s *Service) SetCharmURL(url *charm.URL) (err error) {
 
 // Charm returns the service's charm.
 func (s *Service) Charm() (*Charm, error) {
-	url, _ := s.CharmURL()
+	url, err := s.CharmURL()
+	if err != nil {
+		panic(fmt.Errorf("cannot happen, err must be nil, got %v", err))
+	}
 	return s.st.Charm(url)
 }
 
@@ -56,12 +59,10 @@ func (s *Service) String() string {
 }
 
 func (s *Service) Refresh() error {
-	doc := serviceDoc{}
-	err := s.st.services.FindId(s.doc.Name).One(&doc)
+	err := s.st.services.FindId(s.doc.Name).One(&s.doc)
 	if err != nil {
 		return fmt.Errorf("cannot refresh service %v: %v", s, err)
 	}
-	s.doc = doc
 	return nil
 }
 
