@@ -56,7 +56,7 @@ func (s *Service) SetCharmURL(url *charm.URL) (err error) {
 // See ClearExposed and IsExposed.
 func (s *Service) SetExposed() error {
 	change := bson.D{{"$set", bson.D{{"exposed", true}}}}
-	err := s.st.services.Update(bson.D{{"_id", s.doc.Name}}, change)
+	err := s.st.services.UpdateId(s.doc.Name, change)
 	if err != nil {
 		return fmt.Errorf("cannot set exposed flag for service %q: %v", s, err)
 	}

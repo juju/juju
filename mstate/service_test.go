@@ -74,7 +74,7 @@ func (s *ServiceSuite) TestServiceExposed(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(exposed, Equals, false)
 
-	// Check that setting and clearing the exposed flag multiple doesn't fail.
+	// Check that setting and clearing the exposed flag repeatedly does not fail.
 	err = s.service.SetExposed()
 	c.Assert(err, IsNil)
 	err = s.service.SetExposed()
