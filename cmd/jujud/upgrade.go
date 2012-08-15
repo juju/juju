@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
+	"os"
 )
 
 type Upgrader struct {
@@ -103,8 +104,8 @@ func (u *Upgrader) run() error {
 			}
 			// It's possible the tools are already downloaded - attempt
 			// an upgrade without downloading to check if that's the case.
-			if tools, err := environs.UpgradeTools(u.agentName, tools.Binary); err == nil {
-				return &upgradedError{tools}
+			if tools, err := environs.ChangeAgentTools(u.agentName, tools.Binary); err == nil {
+				return &UpgradedError{tools}
 			}
 			download = downloader.New(tools.URL)
 			downloadTools = tools
@@ -125,12 +126,12 @@ func (u *Upgrader) run() error {
 				log.Printf("unpack error: %v", err)
 				break
 			}
-			tools, err = environs.UpgradeTools(u.agentName, tools.Binary)
+			tools, err = environs.ChangeAgentTools(u.agentName, tools.Binary)
 			if err != nil {
 				log.Printf("upgrade error: %v", err)
 				break
 			}
-			return &upgradedError{tools}
+			return &UpgradedError{tools}
 		case <-u.tomb.Dying():
 			return nil
 		}
