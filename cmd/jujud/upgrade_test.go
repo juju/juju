@@ -1,9 +1,18 @@
 package main
+import (
+	"launchpad.net/tomb"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/version"
+	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/juju/testing"
+	coretesting "launchpad.net/juju-core/testing"
+	"time"
+)
 
 var _ = Suite(&upgraderSuite{})
 
 type upgraderSuite struct {
-	testing.LoggingSuite
+	coretesting.LoggingSuite
 	testing.JujuConnSuite
 	oldVarDir string
 	// We use a Machine as a stand-in for anything that
@@ -45,12 +54,63 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 
+	as := newTestAgentState(m)
 	upgraderDone := make(chan error, 1)
 	go func() {
-		upgraderDone <- NewUpgrader("testagent", newTestAgentState(m))
+		upgraderDone <- NewUpgrader("testagent", as)
 	}()
-	c.Assert(recvTimeout(r.event
+	assertEvent(c, as.event, "SetAgentTools 1.0.1-foo-bar http://oldurl.tgz")
+	assertEvent(c, as.event, "WatchProposedTools")
 
+	// Propose some tools but delay the fetching.
+	delayedURL, start := delayedFetch()
+	s.proposeTools(&state.Tools{
+		URL:    delayedURL,
+		Binary: v2.Binary,
+	})
+	<-start
+
+	start <- true
+	assertNoEvent(c, as.event)
+
+	s.proposeTools(v2)
+	assertNoEvent(c, as.event)
+
+	select {
+	case err := <-upgraderDone:
+		c.Assert(tools, DeepEquals, &UpgraderError{v2})
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("upgrader did not stop as expected")
+	}
+
+	// Check that the upgraded version was really downloaded.
+	data, err := ioutil.ReadFile(filepath.Join(environs.AgentToolsDir("testagent"), "jujud"))
+	c.Assert(err, IsNil)
+	c.Assert(string(data), Equals, "jujud contents v2")
+
+	as = newTestAgentState(m)
+	upgraderDone = make(chan error, 1)
+	go func() {
+		upgraderDone <- NewUpgrader("testagent", as)
+	}()
+
+	assertEvent(c, as.event, "SetAgentTools 1.0.1-foo-bar http://oldurl.tgz")
+	assertEvent(c, as.event, "WatchProposedTools")
+
+	// Use delayedURL but don't make it respond - if the upgrade
+	// succeeds then we know that it has (correctly) not tried to
+	// fetch the URL
+	s.proposeTools(&state.Tools{
+		URL:    delayedURL,
+		Binary: v2.Binary,
+	})
+	assertNoEvent(c, r.event)
+	select {
+	case tools := <-runnerDone:
+		c.Assert(tools, DeepEquals, &UpgraderError{v2})
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("upgrader did not stop as expected")
+	}
 }
 
 type testAgentState struct {
