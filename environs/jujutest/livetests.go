@@ -136,25 +136,13 @@ func (t *LiveTests) TestPorts(c *C) {
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 89}})
 }
 
-func (t *LiveTests) TestBootstrap(c *C) {
+func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 
 	// Wait for a while to let eventual consistency catch up, hopefully.
 	time.Sleep(t.ConsistencyDelay)
 	err := t.Env.Bootstrap(false)
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
-
-	info, err := t.Env.StateInfo()
-	c.Assert(err, IsNil)
-	c.Assert(info, NotNil)
-	c.Assert(info.Addrs, Not(HasLen), 0)
-
-	if t.CanOpenState {
-		st, err := state.Open(info)
-		c.Assert(err, IsNil)
-		err = st.Close()
-		c.Assert(err, IsNil)
-	}
 
 	c.Logf("destroy env")
 	t.Destroy(c)

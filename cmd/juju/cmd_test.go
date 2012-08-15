@@ -304,7 +304,20 @@ func initExposeCommand(args ...string) (*ExposeCommand, error) {
 func (*cmdSuite) TestExposeCommandInit(c *C) {
 	// missing args
 	_, err := initExposeCommand()
-	c.Assert(err, ErrorMatches, "no service specified")
+	c.Assert(err, ErrorMatches, "no service name specified")
+
+	// environment tested elsewhere
+}
+
+func initUnexposeCommand(args ...string) (*UnexposeCommand, error) {
+	com := &UnexposeCommand{}
+	return com, com.Init(newFlagSet(), args)
+}
+
+func (*cmdSuite) TestUnexposeCommandInit(c *C) {
+	// missing args
+	_, err := initUnexposeCommand()
+	c.Assert(err, ErrorMatches, "no service name specified")
 
 	// environment tested elsewhere
 }

@@ -1,17 +1,13 @@
 package uniter
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 )
-
-const preparing = ".preparing"
 
 // AllRelationStates loads and returns every RelationState persisted directly
 // inside the directory at the supplied path. Entries with integer names must
@@ -152,16 +148,8 @@ func (rs *RelationState) Commit(hi HookInfo) (err error) {
 		delete(rs.Members, hi.RemoteUnit)
 		return nil
 	}
-	data, err := goyaml.Marshal(diskInfo{&hi.ChangeVersion, hi.HookKind == "joined"})
-	if err != nil {
-		return err
-	}
-	// Create the entry for the relation and atomically
-	// rename it to replace the old one.
-	if err = ioutil.WriteFile(path+preparing, data, 0644); err != nil {
-		return err
-	}
-	if err = os.Rename(path+preparing, path); err != nil {
+	di := diskInfo{&hi.ChangeVersion, hi.HookKind == "joined"}
+	if err := atomicWrite(path, &di); err != nil {
 		return err
 	}
 	// If write was successful, update own fields.
@@ -172,39 +160,4 @@ func (rs *RelationState) Commit(hi HookInfo) (err error) {
 		rs.ChangedPending = ""
 	}
 	return nil
-}
-
-// ensureDir returns an error if a directory does not exist, and cannot
-// be created, at path.
-func ensureDir(path string) error {
-	fi, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		return os.Mkdir(path, 0755)
-	} else if !fi.IsDir() {
-		return fmt.Errorf("%s must be a directory", path)
-	}
-	return nil
-}
-
-// errorContextf prefixes any error stored in err with text formatted
-// according to the format specifier. If err does not contain an error,
-// errorContextf does nothing.
-func errorContextf(err *error, format string, args ...interface{}) {
-	if *err != nil {
-		*err = errors.New(fmt.Sprintf(format, args...) + ": " + (*err).Error())
-	}
-}
-
-// unitName converts a relation unit filename to a unit name.
-func unitName(filename string) (string, bool) {
-	i := strings.LastIndex(filename, "-")
-	if i == -1 {
-		return "", false
-	}
-	svcName := filename[:i]
-	unitId := filename[i+1:]
-	if _, err := strconv.Atoi(unitId); err != nil {
-		return "", false
-	}
-	return svcName + "/" + unitId, true
 }
