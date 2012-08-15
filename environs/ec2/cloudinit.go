@@ -3,6 +3,7 @@ package ec2
 import (
 	"fmt"
 	"launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/upstart"
@@ -32,8 +33,8 @@ type machineConfig struct {
 	// set), there must be at least one zookeeper address supplied.
 	stateInfo *state.Info
 
-	// toolsURL is the URL to be used for downloading the juju tools.
-	toolsURL string
+	// tools is juju tools to be used on the new machine.
+	tools *state.Tools
 
 	// machineId identifies the new machine. It must be non-negative.
 	machineId int
@@ -74,7 +75,7 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 	}
 
 	addScripts(c,
-		"sudo mkdir -p /var/lib/juju",
+		fmt.Sprintf("sudo mkdir -p %s", environs.VarDir),
 		"sudo mkdir -p /var/log/juju")
 
 	// Make a directory for the tools to live in, then fetch the
@@ -82,7 +83,7 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 	addScripts(c,
 		"bin="+shquote(cfg.jujuTools()),
 		"mkdir -p $bin",
-		fmt.Sprintf("wget -O - %s | tar xz -C $bin", shquote(cfg.toolsURL)),
+		fmt.Sprintf("wget -O - %s | tar xz -C $bin", shquote(cfg.tools.URL)),
 	)
 
 	addScripts(c,
@@ -98,7 +99,7 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 	// zookeeper scripts
 	if cfg.zookeeper {
 		addScripts(c,
-			cfg.jujuTools()+"/jujud initzk"+
+			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --instance-id "+cfg.instanceIdAccessor+
 				" --env-type "+shquote(cfg.providerType)+
 				" --zookeeper-servers localhost"+zkPortSuffix+
@@ -126,11 +127,12 @@ func addAgentScript(c *cloudinit.Config, cfg *machineConfig, name, args string) 
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
-	addScripts(c, fmt.Sprintf("ln -s $bin %s/%s", toolsDir, name))
+	toolsDir := environs.AgentToolsDir(name)
+	addScripts(c, fmt.Sprintf("ln -s $bin %s", toolsDir))
 	svc := upstart.NewService(fmt.Sprintf("jujud-%s", name))
 	cmd := fmt.Sprintf(
-		"%s/%s/jujud %s --zookeeper-servers '%s' --log-file /var/log/juju/%s-agent.log %s",
-		toolsDir, name, name, cfg.zookeeperHostAddrs(), name, args,
+		"%s/jujud %s --zookeeper-servers '%s' --log-file /var/log/juju/%s-agent.log %s",
+		toolsDir, name, cfg.zookeeperHostAddrs(), name, args,
 	)
 	conf := &upstart.Conf{
 		Service: *svc,
@@ -154,10 +156,8 @@ func versionDir(toolsURL string) string {
 	return name[:len(name)-len(ext)]
 }
 
-const toolsDir = "/var/lib/juju/tools"
-
 func (cfg *machineConfig) jujuTools() string {
-	return toolsDir + "/" + versionDir(cfg.toolsURL)
+	return environs.ToolsDir(cfg.tools.Binary)
 }
 
 func (cfg *machineConfig) zookeeperHostAddrs() string {
@@ -185,7 +185,10 @@ func verifyConfig(cfg *machineConfig) error {
 	if cfg.providerType == "" {
 		return requiresError("provider type")
 	}
-	if cfg.toolsURL == "" {
+	if cfg.tools == nil {
+		return requiresError("tools")
+	}
+	if cfg.tools.URL == "" {
 		return requiresError("tools URL")
 	}
 	if cfg.zookeeper {
