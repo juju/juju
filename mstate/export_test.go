@@ -9,6 +9,6 @@ type (
 )
 
 func (doc *MachineDoc) String() string {
-	m := &Machine{id: doc.Id}
+	m := &Machine{doc: machineDoc(*doc)}
 	return m.String()
 }

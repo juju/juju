@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/container"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"os"
@@ -38,16 +39,16 @@ func (s *suite) TestDeploy(c *C) {
 	unit, err := service.AddUnit()
 	c.Assert(err, IsNil)
 
-	oldInitDir, oldJujuDir := *container.InitDir, *container.JujuDir
+	oldInitDir, oldVarDir := *container.InitDir, environs.VarDir
 	defer func() {
-		*container.InitDir, *container.JujuDir = oldInitDir, oldJujuDir
+		*container.InitDir, environs.VarDir = oldInitDir, oldVarDir
 	}()
-	*container.InitDir, *container.JujuDir = c.MkDir(), c.MkDir()
+	*container.InitDir, environs.VarDir = c.MkDir(), c.MkDir()
 
 	unitName := "juju-agent-dummy-0"
 	upstartScript := filepath.Join(*container.InitDir, unitName+".conf")
 
-	unitDir := filepath.Join(*container.JujuDir, "units", "dummy-0")
+	unitDir := filepath.Join(environs.VarDir, "units", "dummy-0")
 
 	cont := container.Simple
 	err = cont.Deploy(unit)
@@ -75,5 +76,5 @@ func (s *suite) TestDeploy(c *C) {
 }
 
 func (s *suite) TestSimpleToolsDir(c *C) {
-	c.Assert(container.Simple.ToolsDir(nil), Equals, "/var/lib/juju/tools")
+	c.Assert(container.Simple.ToolsDir(nil), Equals, filepath.Join(environs.VarDir, "tools"))
 }
