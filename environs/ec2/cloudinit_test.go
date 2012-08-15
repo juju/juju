@@ -61,7 +61,7 @@ func (t *cloudinitTest) check(c *C) {
 
 	if t.cfg.zookeeper {
 		t.checkPackage(c, "zookeeperd")
-		t.checkScripts(c, "jujud initzk")
+		t.checkScripts(c, "jujud bootstrap-state")
 		t.checkScripts(c, regexp.QuoteMeta(t.cfg.instanceIdAccessor))
 		t.checkScripts(c, "JUJU_ZOOKEEPER='localhost"+zkPortSuffix+"'")
 	} else {
