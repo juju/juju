@@ -6,7 +6,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // EnsureTools creates a symbolic link to jujuc for each
@@ -32,10 +31,4 @@ func EnsureTools(unitName string) (err error) {
 
 func agentName(unitName string) string {
 	return "unit-" + unitFsName(unitName)
-}
-
-// unitFsName returns a variation on the supplied unit name that can be used in
-// a filesystem path.
-func unitFsName(unitName string) string {
-	return strings.Replace(unitName, "/", "-", 1)
 }

@@ -84,7 +84,7 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	if err != nil {
 		return fmt.Errorf("cannot assign unit %q to machine %s: %v", u, m, err)
 	}
-	u.doc.MachineId = &m.id
+	u.doc.MachineId = &m.doc.Id
 	return nil
 }
 

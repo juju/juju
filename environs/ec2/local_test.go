@@ -128,7 +128,7 @@ func (srv *localServer) startServer(c *C) {
 // that start an instance can succeed even though they
 // do not upload tools.
 func putFakeTools(c *C, s environs.StorageWriter) {
-	path := environs.ToolsPath(version.Current)
+	path := environs.ToolsStoragePath(version.Current)
 	c.Logf("putting fake tools at %v", path)
 	toolsContents := "tools archive, honest guv"
 	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
@@ -230,7 +230,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, IsNil)
 	ec2.CheckPackage(c, x, "zookeeper", true)
 	ec2.CheckPackage(c, x, "zookeeperd", true)
-	ec2.CheckScripts(c, x, "jujud initzk", true)
+	ec2.CheckScripts(c, x, "jujud bootstrap-state", true)
 	// TODO check for provisioning agent
 	// TODO check for machine agent
 	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='localhost%s'", ec2.ZkPortSuffix), true)

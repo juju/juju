@@ -145,6 +145,7 @@ var commandNames = []string{
 	"destroy-environment",
 	"expose",
 	"status",
+	"unexpose",
 }
 
 func (s *MainSuite) TestHelp(c *C) {
