@@ -37,16 +37,6 @@ func (l Life) String() string {
 	return lifeStrings[l]
 }
 
-var lifeTrans = [nLife][nLife]bool{
-	Alive: {Dying: true},
-	Dying: {Dying: true, Dead: true},
-	Dead:  {Dead: true},
-}
-
-func (l Life) isNextValid(next Life) bool {
-	return lifeTrans[l][next]
-}
-
 // State represents the state of an environment
 // managed by juju.
 type State struct {
