@@ -278,3 +278,13 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 	}
 	return nil
 }
+
+// Unit returns a unit by name.
+func (s *State) Unit(name string) (*Unit, error) {
+	doc := unitDoc{}
+	err := s.units.FindId(name).One(&doc)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get unit %q: %v", name, err)
+	}
+	return newUnit(s, &doc), nil
+}

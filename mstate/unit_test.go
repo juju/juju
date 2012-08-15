@@ -42,6 +42,30 @@ func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
 	c.Assert(address, Equals, "example.local")
 }
 
+func (s *UnitSuite) TestRefresh(c *C) {
+	unit1, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, IsNil)
+
+	err = s.unit.SetPrivateAddress("example.local")
+	c.Assert(err, IsNil)
+	err = s.unit.SetPublicAddress("example.foobar.com")
+	c.Assert(err, IsNil)
+
+	address, err := unit1.PrivateAddress()
+	c.Assert(err, ErrorMatches, `private address of unit "wordpress/0" not found`)
+	address, err = unit1.PublicAddress()
+	c.Assert(err, ErrorMatches, `public address of unit "wordpress/0" not found`)
+
+	err = unit1.Refresh()
+	c.Assert(err, IsNil)
+	address, err = unit1.PrivateAddress()
+	c.Assert(err, IsNil)
+	c.Assert(address, Equals, "example.local")
+	address, err = unit1.PublicAddress()
+	c.Assert(err, IsNil)
+	c.Assert(address, Equals, "example.foobar.com")
+}
+
 func (s *UnitSuite) TestGetSetClearResolved(c *C) {
 	setting, err := s.unit.Resolved()
 	c.Assert(err, IsNil)
