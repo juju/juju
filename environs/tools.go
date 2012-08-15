@@ -193,6 +193,11 @@ func BestTools(toolsList []*state.Tools, vers version.Binary) *state.Tools {
 
 const urlFile = "downloaded-url.txt"
 
+// toolsParentDir returns the tools parent directory.
+func toolsParentDir() string {
+	return path.Join(VarDir, "tools")
+}
+
 // UnpackTools reads a set of juju tools in gzipped tar-archive
 // format and unpacks them into the appropriate tools directory.
 // If a valid tools directory already exists, UnpackTools returns
@@ -206,12 +211,11 @@ func UnpackTools(tools *state.Tools, r io.Reader) (err error) {
 
 	// Make a temporary directory in the tools directory,
 	// first ensuring that the tools directory exists.
-	toolsDir := filepath.Join(VarDir, "tools")
-	err = os.MkdirAll(toolsDir, 0755)
+	err = os.MkdirAll(toolsParentDir(), 0755)
 	if err != nil {
 		return err
 	}
-	dir, err := ioutil.TempDir(toolsDir, "unpacking-")
+	dir, err := ioutil.TempDir(toolsParentDir(), "unpacking-")
 	if err != nil {
 		return err
 	}
@@ -242,7 +246,7 @@ func UnpackTools(tools *state.Tools, r io.Reader) (err error) {
 		return err
 	}
 
-	err = os.Rename(dir, filepath.FromSlash(ToolsDir(tools.Binary)))
+	err = os.Rename(dir, ToolsDir(tools.Binary))
 	// If we've failed to rename the directory, it may be because
 	// the directory already exists - if ReadTools succeeds, we
 	// assume all's ok.
@@ -276,7 +280,7 @@ func writeFile(name string, mode os.FileMode, r io.Reader) error {
 // ReadTools checks that the tools for the given version exist
 // and returns a Tools instance describing them.
 func ReadTools(vers version.Binary) (*state.Tools, error) {
-	dir := filepath.FromSlash(ToolsDir(vers))
+	dir := ToolsDir(vers)
 	urlData, err := ioutil.ReadFile(filepath.Join(dir, urlFile))
 	if err != nil {
 		return nil, fmt.Errorf("cannot read URL in tools directory: %v", err)
@@ -291,6 +295,26 @@ func ReadTools(vers version.Binary) (*state.Tools, error) {
 		URL:    url,
 		Binary: vers,
 	}, nil
+}
+
+// ChangeAgentTools atomically replaces the agent-specific symlink
+// under the tools directory so it points to the previously unpacked
+// version vers. It returns the new tools read.
+func ChangeAgentTools(agentName string, vers version.Binary) (*state.Tools, error) {
+	tools, err := ReadTools(vers)
+	if err != nil {
+		return nil, err
+	}
+	tmpName := AgentToolsDir("tmplink-" + agentName)
+	err = os.Symlink(tools.Binary.String(), tmpName)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create tools symlink: %v", err)
+	}
+	err = os.Rename(tmpName, AgentToolsDir(agentName))
+	if err != nil {
+		return nil, fmt.Errorf("cannot update tools symlink: %v", err)
+	}
+	return tools, nil
 }
 
 // ToolsStoragePath returns the slash-separated path that is used to store and
