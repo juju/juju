@@ -47,12 +47,13 @@ func (s *ServiceSuite) TestServiceRefesh(c *C) {
 
 	testcurl, err := s1.CharmURL()
 	c.Assert(err, IsNil)
-	c.Assert(testcurl.String(), Equals, s.charm.URL().String())
+	c.Assert(testcurl, DeepEquals, s.charm.URL())
 
 	err = s1.Refresh()
+	c.Assert(err, IsNil)
 	testcurl, err = s1.CharmURL()
 	c.Assert(err, IsNil)
-	c.Assert(testcurl.String(), Equals, "local:myseries/mydummy-1")
+	c.Assert(testcurl, DeepEquals, newcurl)
 }
 
 func (s *ServiceSuite) TestServiceExposed(c *C) {
@@ -168,22 +169,6 @@ func (s *ServiceSuite) TestReadUnit(c *C) {
 	c.Assert(len(units), Equals, 2)
 	c.Assert(units[0].Name(), Equals, "mysql/0")
 	c.Assert(units[1].Name(), Equals, "mysql/1")
-}
-
-func (s *ServiceSuite) TestUnitRefresh(c *C) {
-	u0, err := s.service.AddUnit()
-	c.Assert(err, IsNil)
-	u1, err := s.service.Unit(u0.Name())
-	c.Assert(err, IsNil)
-
-	m, err := s.State.AddMachine()
-	c.Assert(err, IsNil)
-	err = u0.AssignToMachine(m)
-	c.Assert(err, IsNil)
-
-	c.Assert(u1.MachineId(), IsNil)
-	err = u1.Refresh()
-	c.Assert(u1.MachineId(), DeepEquals, u0.MachineId())
 }
 
 func (s *ServiceSuite) TestRemoveUnit(c *C) {
