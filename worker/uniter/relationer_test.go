@@ -265,8 +265,10 @@ func (s *RelationerSuite) TestBreaking(c *C) {
 		},
 	})
 
-	// While a changed hook is still pending, the relation breaks!
-	err = r.Dying()
+	// While a changed hook is still pending, the relation (or possibly the unit,
+	// pending lifecycle work), changes Life to Dying, and the relationer is
+	// informed.
+	err = r.SetDying()
 	c.Assert(err, IsNil)
 
 	// Check that we cannot rejoin the relation.

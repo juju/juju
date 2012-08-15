@@ -1,3 +1,5 @@
+// hook provides types and constants that define the hooks known to Juju,
+// and implements persistence of hook execution state.
 package hook
 
 import (
@@ -8,7 +10,7 @@ import (
 	"os"
 )
 
-// Kind enumerates the different kinds of hooks implemented by charms.
+// Kind enumerates the different kinds of hooks that exist.
 type Kind string
 
 const (
@@ -33,8 +35,8 @@ const (
 	RelationBroken Kind = "relation-broken"
 )
 
-// Valid will return true if the Kind is known.
-func (kind Kind) Valid() bool {
+// valid will return true if the Kind is known.
+func (kind Kind) valid() bool {
 	switch kind {
 	case Install, Start, ConfigChanged, UpgradeCharm:
 	case RelationJoined, RelationChanged, RelationDeparted:
@@ -92,8 +94,8 @@ const (
 	StatusCommitted Status = "committed"
 )
 
-// Valid will return true if the Status is known.
-func (status Status) Valid() bool {
+// valid will return true if the Status is known.
+func (status Status) valid() bool {
 	switch status {
 	case StatusStarted, StatusSucceeded, StatusCommitted:
 		return true
@@ -101,68 +103,65 @@ func (status Status) Valid() bool {
 	return false
 }
 
-// state defines the hook state serialization.
-type state struct {
-	RelationId    int
-	Kind          Kind
-	RemoteUnit    string
-	ChangeVersion int
-	Members       []string
-	Status        Status
+// State describes a hook execution and its status.
+type State struct {
+	Info   Info
+	Status Status
 }
 
-// StateFile stores and retrieves a hook and its execution status.
+// StateFile stores and retrieves hook state.
 type StateFile struct {
 	path string
 }
 
-// NewStateFile returns a new hook state that persists to the supplied path.
+// NewStateFile returns a new state file that uses the supplied path.
 func NewStateFile(path string) *StateFile {
 	return &StateFile{path}
 }
 
-// ErrNoStateFile indicates that no hook has ever been stored.
+// ErrNoStateFile indicates that no hook has ever been written.
 var ErrNoStateFile = errors.New("hook state file does not exist")
 
 // Read reads the current hook state from disk. It returns ErrNoStateFile if
 // the file doesn't exist.
-func (f *StateFile) Read() (info Info, status Status, err error) {
-	var data []byte
-	if data, err = ioutil.ReadFile(f.path); err != nil {
+func (f *StateFile) Read() (*State, error) {
+	data, err := ioutil.ReadFile(f.path)
+	if err != nil {
 		if os.IsNotExist(err) {
-			err = ErrNoStateFile
+			return nil, ErrNoStateFile
 		}
-		return
+		return nil, err
 	}
 	var st state
 	if err = goyaml.Unmarshal(data, &st); err != nil {
-		return
+		return nil, err
 	}
-	if !st.Kind.Valid() || !st.Status.Valid() {
-		err = fmt.Errorf("invalid hook state at %s", f.path)
-		return
+	if !st.Kind.valid() || !st.Status.valid() {
+		return nil, fmt.Errorf("invalid hook state at %s", f.path)
 	}
-	info = Info{
-		Kind:          st.Kind,
-		RelationId:    st.RelationId,
-		RemoteUnit:    st.RemoteUnit,
-		ChangeVersion: st.ChangeVersion,
-		Members:       map[string]map[string]interface{}{},
-	}
+	members := map[string]map[string]interface{}{}
 	for _, m := range st.Members {
-		info.Members[m] = nil
+		members[m] = nil
 	}
-	status = st.Status
-	return
+	return &State{
+		Info: Info{
+			Kind:          st.Kind,
+			RelationId:    st.RelationId,
+			RemoteUnit:    st.RemoteUnit,
+			ChangeVersion: st.ChangeVersion,
+			Members:       members,
+		},
+		Status: st.Status,
+	}, nil
 }
 
 // Write writes the supplied hook state to disk. It panics if asked to store
 // invalid data.
 func (f *StateFile) Write(info Info, status Status) error {
-	if !status.Valid() {
+	if !status.valid() {
 		panic(fmt.Errorf("unknown hook status %q", status))
 	}
-	if !info.Kind.Valid() {
+	if !info.Kind.valid() {
 		panic(fmt.Errorf("unknown hook kind %q", info.Kind))
 	}
 	st := state{
@@ -191,4 +190,14 @@ func atomicWrite(path string, obj interface{}) error {
 		return err
 	}
 	return os.Rename(path+preparing, path)
+}
+
+// state defines the hook state serialization.
+type state struct {
+	Kind          Kind
+	RelationId    int      `yaml:"relation-id,omitempty"`
+	RemoteUnit    string   `yaml:"remote-unit,omitempty"`
+	ChangeVersion int      `yaml:"change-version,omitempty"`
+	Members       []string `yaml:"members,omitempty"`
+	Status        Status
 }

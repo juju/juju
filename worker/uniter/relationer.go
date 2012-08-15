@@ -66,10 +66,10 @@ func (r *Relationer) Abandon() error {
 	return pinger.Stop()
 }
 
-// Dying informs the relationer that the unit is departing the relation,
+// SetDying informs the relationer that the unit is departing the relation,
 // and that the only hooks it should send henceforth are -departed hooks,
 // until the relation is empty, followed by a -broken hook.
-func (r *Relationer) Dying() error {
+func (r *Relationer) SetDying() error {
 	if err := r.Abandon(); err != nil {
 		return err
 	}

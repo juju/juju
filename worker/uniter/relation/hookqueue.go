@@ -15,16 +15,16 @@ type HookQueue interface {
 	Stop() error
 }
 
-// RelationUnitsWatcher is used to enable deterministic testing, by
-// supplying a reliable stream of RelationUnitsChange events; usually,
-// it will be a *state.RelationUnitsWatcher.
+// RelationUnitsWatcher is used to enable deterministic testing of
+// AliveHookQueue, by supplying a reliable stream of RelationUnitsChange
+// events; usually, it will be a *state.RelationUnitsWatcher.
 type RelationUnitsWatcher interface {
 	Err() error
 	Stop() error
 	Changes() <-chan state.RelationUnitsChange
 }
 
-// AliveHookQueue aggregates values obtained from a relation settings watcher
+// AliveHookQueue aggregates values obtained from a relation units watcher
 // and sends out details about hooks that must be executed in the unit.
 type AliveHookQueue struct {
 	tomb       tomb.Tomb
@@ -73,10 +73,12 @@ type unitInfo struct {
 	prev, next *unitInfo
 }
 
-// NewAliveHookQueue returns a new AliveHookQueue that aggregates the values obtained
-// from the w watcher and sends into out the details about hooks that must
-// be executed in the unit. If any values have previously been received from
-// w's Changes channel, the AliveHookQueue's behaviour is undefined.
+// NewAliveHookQueue returns a new AliveHookQueue that aggregates the values
+// obtained from the w watcher and sends into out the details about hooks that
+// must be executed in the unit. It guarantees that the stream of hooks will
+// respect the guarantees Juju makes about hook execution order. If any values
+// have previously been received from w's Changes channel, the AliveHookQueue's
+// behaviour is undefined.
 func NewAliveHookQueue(initial *State, out chan<- hook.Info, w RelationUnitsWatcher) *AliveHookQueue {
 	q := &AliveHookQueue{
 		w:          w,
@@ -147,8 +149,8 @@ func (q *AliveHookQueue) hookQueue() {
 	panic("interface sentinel method, do not call")
 }
 
-// Stop stops the AliveHookQueue and returns any errors encountered during operation
-// or while shutting down.
+// Stop stops the AliveHookQueue and returns any errors encountered during
+// operation or while shutting down.
 func (q *AliveHookQueue) Stop() error {
 	q.tomb.Kill(nil)
 	return q.tomb.Wait()
@@ -260,7 +262,7 @@ func (q *AliveHookQueue) next() hook.Info {
 func (q *AliveHookQueue) queue(unit string, kind hook.Kind) {
 	// If the unit is not in the queue, place it at the tail.
 	info := q.info[unit]
-	if !info.hookKind.Valid() {
+	if info.hookKind == "" {
 		info.prev = q.tail
 		if q.tail != nil {
 			q.tail.next = info
@@ -286,11 +288,11 @@ func (q *AliveHookQueue) unqueue(unit string) {
 
 	// Get the unit info and clear its next action.
 	info := q.info[unit]
-	if !info.hookKind.Valid() {
+	if info.hookKind == "" {
 		// The unit is not in the queue, nothing to do.
 		return
 	}
-	info.hookKind = hook.Kind("")
+	info.hookKind = ""
 
 	// Update queue pointers.
 	if info.prev == nil {
@@ -307,8 +309,10 @@ func (q *AliveHookQueue) unqueue(unit string) {
 	info.next = nil
 }
 
-// DyingHookQueue acts similarly to AliveHookQueue, but its only concern is sending
-// a -departed hook for each current unit, and finishing with a -broken hook.
+// DyingHookQueue honours the obligations of an AliveHookQueue with respect to
+// relation hook execution order; as soon as those obligations are fulfilled,
+// it sends a "relation-departed" hook for every relation member, and finally a
+// "relation-broken" hook for the relation itself.
 type DyingHookQueue struct {
 	tomb           tomb.Tomb
 	out            chan<- hook.Info
@@ -318,7 +322,7 @@ type DyingHookQueue struct {
 }
 
 // NewDyingHookQueue returns a new DyingHookQueue that sends out details about the
-// hooks that must be executed in a relation that is going away.
+// hooks that must be executed in a relation that is being shut down.
 func NewDyingHookQueue(initial *State, out chan<- hook.Info) *DyingHookQueue {
 	q := &DyingHookQueue{
 		out:            out,
@@ -336,7 +340,7 @@ func NewDyingHookQueue(initial *State, out chan<- hook.Info) *DyingHookQueue {
 func (q *DyingHookQueue) loop() {
 	defer q.tomb.Done()
 
-	// Honour any expected changed hook.
+	// Honour any expected relation-changed hook.
 	if q.changedPending != "" {
 		select {
 		case <-q.tomb.Dying():
@@ -369,6 +373,8 @@ func (q *DyingHookQueue) loop() {
 	return
 }
 
+// hookInfo updates the queue's internal membership state according to the
+// supplied information, and returns a hook.Info reflecting that change.
 func (q *DyingHookQueue) hookInfo(kind hook.Kind, unit string) hook.Info {
 	hi := hook.Info{
 		Kind:          kind,

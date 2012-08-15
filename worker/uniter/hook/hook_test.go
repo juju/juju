@@ -14,12 +14,12 @@ var _ = Suite(&StateFileSuite{})
 func (s *StateFileSuite) TestStateFile(c *C) {
 	path := filepath.Join(c.MkDir(), "hook")
 	f := hook.NewStateFile(path)
-	_, _, err := f.Read()
+	_, err := f.Read()
 	c.Assert(err, Equals, hook.ErrNoStateFile)
 
 	err = ioutil.WriteFile(path, []byte("roflcopter"), 0644)
 	c.Assert(err, IsNil)
-	_, _, err = f.Read()
+	_, err = f.Read()
 	c.Assert(err, ErrorMatches, "invalid hook state at "+path)
 
 	bad := func() { f.Write(hook.Info{}, hook.Status("nonsense")) }
@@ -41,10 +41,10 @@ func (s *StateFileSuite) TestStateFile(c *C) {
 	err = f.Write(hi, hook.StatusStarted)
 	c.Assert(err, IsNil)
 
-	rhi, rst, err := f.Read()
+	st, err := f.Read()
 	c.Assert(err, IsNil)
-	c.Assert(rst, Equals, hook.StatusStarted)
-	c.Assert(rhi, DeepEquals, hook.Info{
+	c.Assert(st.Status, Equals, hook.StatusStarted)
+	c.Assert(st.Info, DeepEquals, hook.Info{
 		Kind:          hook.RelationChanged,
 		RelationId:    123,
 		RemoteUnit:    "abc/999",
