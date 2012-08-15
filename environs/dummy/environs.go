@@ -266,7 +266,12 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	state := p.state[name]
 	if state == nil {
 		if ecfg.zookeeper() && len(p.state) != 0 {
-			panic("cannot share a zookeeper between two dummy environs")
+			var old string
+			for oldName := range p.state {
+				old = oldName
+				break
+			}
+			panic(fmt.Errorf("cannot share a zookeeper between two dummy environs; old %q; new %q", old, name))
 		}
 		state = newState(name, p.ops)
 		p.state[name] = state
@@ -409,6 +414,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 }
 
 func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.Tools) (environs.Instance, error) {
+	log.Printf("dummy startinstance, machine %d", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, err
 	}
@@ -511,6 +517,7 @@ func (inst *instance) WaitDNSName() (string, error) {
 }
 
 func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
+	log.Printf("openPorts %d, %#v", machineId, ports)
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("OpenPorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
 	}

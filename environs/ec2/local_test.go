@@ -12,8 +12,8 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"strings"
@@ -63,7 +63,7 @@ func registerLocalTests() {
 // EC2 server that runs within the test process itself.
 type localLiveSuite struct {
 	coretesting.LoggingSuite
-	testing.StateSuite
+	testing.JujuConnSuite
 	LiveTests
 	srv localServer
 	env environs.Environ
@@ -128,7 +128,7 @@ func (srv *localServer) startServer(c *C) {
 // that start an instance can succeed even though they
 // do not upload tools.
 func putFakeTools(c *C, s environs.StorageWriter) {
-	path := environs.ToolsPath(version.Current)
+	path := environs.ToolsStoragePath(version.Current)
 	c.Logf("putting fake tools at %v", path)
 	toolsContents := "tools archive, honest guv"
 	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
@@ -164,7 +164,7 @@ func (srv *localServer) stopServer(c *C) {
 // network address of the local server.
 type localServerSuite struct {
 	coretesting.LoggingSuite
-	testing.StateSuite
+	testing.JujuConnSuite
 	jujutest.Tests
 	srv localServer
 	env environs.Environ
@@ -230,7 +230,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, IsNil)
 	ec2.CheckPackage(c, x, "zookeeper", true)
 	ec2.CheckPackage(c, x, "zookeeperd", true)
-	ec2.CheckScripts(c, x, "jujud initzk", true)
+	ec2.CheckScripts(c, x, "jujud bootstrap-state", true)
 	// TODO check for provisioning agent
 	// TODO check for machine agent
 	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='localhost%s'", ec2.ZkPortSuffix), true)

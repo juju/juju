@@ -3,9 +3,8 @@ package main
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
-	"launchpad.net/juju-core/state/testing"
+	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/tomb"
 	"reflect"
@@ -14,7 +13,7 @@ import (
 
 type ProvisioningSuite struct {
 	coretesting.LoggingSuite
-	testing.StateSuite
+	testing.JujuConnSuite
 	op <-chan dummy.Operation
 }
 
@@ -22,9 +21,7 @@ var _ = Suite(&ProvisioningSuite{})
 
 func (s *ProvisioningSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
-
-
-	s.StateSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
 }
 
 func (s *ProvisioningSuite) TearDownTest(c *C) {

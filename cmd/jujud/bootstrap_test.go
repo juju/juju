@@ -2,65 +2,65 @@ package main
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/state/testing"
+	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 )
 
-type InitzkSuite struct {
+type BootstrapSuite struct {
 	coretesting.LoggingSuite
-	testing.StateSuite
+	testing.JujuConnSuite
 	path string
 }
 
-var _ = Suite(&InitzkSuite{})
+var _ = Suite(&BootstrapSuite{})
 
-func (s *InitzkSuite) SetUpTest(c *C) {
+func (s *BootstrapSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.path = "/watcher"
-	s.StateSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
 }
 
-func (s *InitzkSuite) TearDownTest(c *C) {
-	s.StateSuite.TearDownTest(c)
+func (s *BootstrapSuite) TearDownTest(c *C) {
+	s.JujuConnSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func initInitzkCommand(args []string) (*InitzkCommand, error) {
-	c := &InitzkCommand{}
+func initBootstrapCommand(args []string) (*BootstrapCommand, error) {
+	c := &BootstrapCommand{}
 	return c, initCmd(c, args)
 }
 
-func (s *InitzkSuite) TestParse(c *C) {
+func (s *BootstrapSuite) TestParse(c *C) {
 	args := []string{}
-	_, err := initInitzkCommand(args)
+	_, err := initBootstrapCommand(args)
 	c.Assert(err, ErrorMatches, "--instance-id option must be set")
 
 	args = append(args, "--instance-id", "iWhatever")
-	_, err = initInitzkCommand(args)
+	_, err = initBootstrapCommand(args)
 	c.Assert(err, ErrorMatches, "--env-type option must be set")
 
 	args = append(args, "--env-type", "dummy")
-	izk, err := initInitzkCommand(args)
+	cmd, err := initBootstrapCommand(args)
 	c.Assert(err, IsNil)
-	c.Assert(izk.StateInfo.Addrs, DeepEquals, []string{"127.0.0.1:2181"})
-	c.Assert(izk.InstanceId, Equals, "iWhatever")
-	c.Assert(izk.EnvType, Equals, "dummy")
+	c.Assert(cmd.StateInfo.Addrs, DeepEquals, []string{"127.0.0.1:2181"})
+	c.Assert(cmd.InstanceId, Equals, "iWhatever")
+	c.Assert(cmd.EnvType, Equals, "dummy")
 
 	args = append(args, "--zookeeper-servers", "zk1:2181,zk2:2181")
-	izk, err = initInitzkCommand(args)
+	cmd, err = initBootstrapCommand(args)
 	c.Assert(err, IsNil)
-	c.Assert(izk.StateInfo.Addrs, DeepEquals, []string{"zk1:2181", "zk2:2181"})
+	c.Assert(cmd.StateInfo.Addrs, DeepEquals, []string{"zk1:2181", "zk2:2181"})
 
 	args = append(args, "haha disregard that")
-	_, err = initInitzkCommand(args)
+	_, err = initBootstrapCommand(args)
 	c.Assert(err, ErrorMatches, `unrecognized args: \["haha disregard that"\]`)
 }
 
-func (s *InitzkSuite) TestSetMachineId(c *C) {
+func (s *BootstrapSuite) TestSetMachineId(c *C) {
 	args := []string{"--zookeeper-servers"}
 	args = append(args, s.StateInfo(c).Addrs...)
 	args = append(args, "--instance-id", "over9000", "--env-type", "dummy")
-	cmd, err := initInitzkCommand(args)
+	cmd, err := initBootstrapCommand(args)
 	c.Assert(err, IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, IsNil)

@@ -24,15 +24,11 @@ func (c *ExposeCommand) Init(f *gnuflag.FlagSet, args []string) error {
 		return err
 	}
 	args = f.Args()
-	switch len(args) {
-	case 1:
-		c.ServiceName = args[0]
-	case 0:
-		return errors.New("no service specified")
-	default:
-		return cmd.CheckEmpty(args[1:])
+	if len(args) == 0 {
+		return errors.New("no service name specified")
 	}
-	return nil
+	c.ServiceName = args[0]
+	return cmd.CheckEmpty(args[1:])
 }
 
 // Run changes the juju-managed firewall to expose any

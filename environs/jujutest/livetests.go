@@ -285,7 +285,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 	// architectures with the "unknown" prefix as invalid.
 	vers.Series = "unknownseries"
 	vers.Arch = "unknownarch"
-	name := environs.ToolsPath(vers)
+	name := environs.ToolsStoragePath(vers)
 	storage := t.Env.Storage()
 	checkPutFile(c, storage, name, []byte("fake tools on invalid series"))
 	defer storage.Remove(name)
