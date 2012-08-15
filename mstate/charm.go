@@ -11,23 +11,18 @@ type charmDoc struct {
 	URL          *charm.URL `bson:"_id"`
 	Meta         *charm.Meta
 	Config       *charm.Config
-	BundleURL    string
+	BundleURL    *url.URL
 	BundleSha256 string
 }
 
 // Charm represents the state of a charm in the environment.
 type Charm struct {
-	st   *State
-	doc  charmDoc
-	burl *url.URL
+	st  *State
+	doc charmDoc
 }
 
 func newCharm(st *State, cdoc *charmDoc) (*Charm, error) {
-	burl, err := url.Parse(cdoc.BundleURL)
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse charm bundle URL: %q", cdoc.BundleURL)
-	}
-	return &Charm{st: st, doc: *cdoc, burl: burl}, nil
+	return &Charm{st: st, doc: *cdoc}, nil
 }
 
 func (c *Charm) Refresh() error {
@@ -65,7 +60,7 @@ func (c *Charm) Config() *charm.Config {
 // BundleURL returns the url to the charm bundle in 
 // the provider storage.
 func (c *Charm) BundleURL() *url.URL {
-	return c.burl
+	return c.doc.BundleURL
 }
 
 // BundleSha256 returns the SHA256 digest of the charm bundle bytes.
