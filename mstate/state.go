@@ -92,7 +92,7 @@ func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bu
 		URL:          curl,
 		Meta:         ch.Meta(),
 		Config:       ch.Config(),
-		BundleURL:    bundleURL.String(),
+		BundleURL:    bundleURL,
 		BundleSha256: bundleSha256,
 	}
 	err = s.charms.Insert(cdoc)
