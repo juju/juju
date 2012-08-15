@@ -193,8 +193,8 @@ func (s *environState) listen() {
 }
 
 // Listen closes the previously registered listener (if any).
-// Subsequent operations on any dummy
-// environment can be received on c (if not nil).
+// Subsequent operations on any dummy environment can be received on c
+// (if not nil).
 func Listen(c chan<- Operation) {
 	p := &providerInstance
 	p.mu.Lock()
