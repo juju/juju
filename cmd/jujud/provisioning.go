@@ -63,15 +63,15 @@ func (a *ProvisioningAgent) Run(_ *cmd.Context) (err error) {
 }
 
 // runOnce runs a provisioner and firewaller once.
-func (a *ProvisioningAgent) runOnce() (stoperr error) {
+func (a *ProvisioningAgent) runOnce() (err error) {
 	st, err := state.Open(&a.Conf.StateInfo)
 	if err != nil {
 		return err
 	}
 	log.Debugf("provisioning: opened state")
 	defer func() {
-		if e := st.Close(); err != nil {
-			stoperr = e
+		if e := st.Close(); err == nil {
+			err = e
 		}
 		log.Debugf("provisioning: closed state")
 	}()
@@ -82,8 +82,8 @@ func (a *ProvisioningAgent) runOnce() (stoperr error) {
 	}
 	log.Debugf("provisioning: started provisioner")
 	defer func() {
-		if e := a.provisioner.Stop(); err != nil {
-			stoperr = e
+		if e := a.provisioner.Stop(); err == nil {
+			err = e
 		}
 		log.Debugf("provisioning: stopped provisioner")
 	}()
@@ -94,8 +94,8 @@ func (a *ProvisioningAgent) runOnce() (stoperr error) {
 	}
 	log.Debugf("provisioning: started firewaller")
 	defer func() {
-		if e := a.firewaller.Stop(); err != nil {
-			stoperr = e
+		if e := a.firewaller.Stop(); err == nil {
+			err = e
 		}
 		log.Debugf("provisioning: stopped firewaller")
 	}()
