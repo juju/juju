@@ -142,23 +142,6 @@ func (s *ServiceSuite) TestReadUnit(c *C) {
 	c.Assert(units[1].Name(), Equals, "mysql/1")
 }
 
-func (s *ServiceSuite) TestUnitRefresh(c *C) {
-	u0, err := s.service.AddUnit()
-	c.Assert(err, IsNil)
-	u1, err := s.service.Unit(u0.Name())
-	c.Assert(err, IsNil)
-
-	m, err := s.State.AddMachine()
-	c.Assert(err, IsNil)
-	err = u0.AssignToMachine(m)
-	c.Assert(err, IsNil)
-
-	c.Assert(u1.MachineId(), IsNil)
-	err = u1.Refresh()
-	c.Assert(err, IsNil)
-	c.Assert(u1.MachineId(), DeepEquals, u0.MachineId())
-}
-
 func (s *ServiceSuite) TestRemoveUnit(c *C) {
 	_, err := s.service.AddUnit()
 	c.Assert(err, IsNil)
