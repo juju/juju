@@ -33,30 +33,17 @@ const (
 	AssignUnused AssignmentPolicy = "unused"
 )
 
-// UnitStatus represents the status of the unit's agent.
+// UnitStatus represents the status of the unit agent.
 type UnitStatus string
 
 const (
-	// pending: the agent has not started.
-	UnitStatusPending UnitStatus = "pending"
-	// installed: the agent has installed the charm.
-	UnitStatusInstalled UnitStatus = "installed"
-	// started: the agent is running and nothing is wrong.
-	UnitStatusStarted UnitStatus = "started"
-	// stopped: the agent has done everything it ever will.
-	UnitStatusStopped UnitStatus = "stopped"
-	// error: the agent failed, reason is specified in the info.
-	UnitStatusError UnitStatus = "error"
-	// down: the agent is not functioning correctly.
-	UnitStatusDown UnitStatus = "down"
+	UnitPending   UnitStatus = "pending"   // Agent hasn't started
+	UnitInstalled UnitStatus = "installed" // Agent has run the installed hook
+	UnitStarted   UnitStatus = "started"   // Agent is running properly
+	UnitStopped   UnitStatus = "stopped"   // Agent has stopped running on request
+	UnitError     UnitStatus = "error"     // Agent is waiting in an error state
+	UnitDown      UnitStatus = "down"      // Agent is down or not communicating
 )
-
-// UnitInfo allows to add additional info, e.g. an error reason
-// to the unit status.
-type UnitInfo struct {
-	Status UnitStatus
-	Info   string
-}
 
 // NeedsUpgrade describes if a unit needs an
 // upgrade and if this is forced.
@@ -183,51 +170,51 @@ func (u *Unit) SetPrivateAddress(address string) (err error) {
 }
 
 // Status returns the status of the unit's agent.
-func (u *Unit) Status() (*UnitInfo, error) {
-	status, err := getConfigString(u.st.zk, u.zkPath(), "status",
-		"status of unit %q", u)
+func (u *Unit) Status() (UnitStatus, string, error) {
+	cn, err := readConfigNode(u.st.zk, u.zkPath())
 	if err != nil {
-		if _, ok := err.(*NotFoundError); !ok {
-			return nil, err
-		}
-		// Default to 'pending'.
-		return &UnitInfo{UnitStatusPending, ""}, nil
+		return "", "", err
 	}
-	unitStatus := UnitStatus(status)
-	switch unitStatus {
-	case UnitStatusError:
+	raw, found := cn.Get("status")
+	if !found {
+		return UnitPending, "", nil
+	}
+	status := UnitStatus(raw.(string))
+	switch status {
+	case UnitError:
 		// We always expect an info if status is 'error'.
-		info, err := getConfigString(u.st.zk, u.zkPath(), "status-info",
-			"status-info of unit %q", u)
-		if err != nil {
-			return nil, err
+		raw, found = cn.Get("status-info")
+		if !found {
+			panic("no status-info for unit error found")
 		}
-		return &UnitInfo{unitStatus, info}, nil
-	case UnitStatusStopped:
-		return &UnitInfo{unitStatus, ""}, nil
+		return status, raw.(string), nil
+	case UnitStopped:
+		return UnitStopped, "", nil
 	}
 	alive, err := u.AgentAlive()
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
 	if !alive {
-		unitStatus = UnitStatusDown
+		status = UnitDown
 	}
-	return &UnitInfo{unitStatus, ""}, nil
+	return status, "", nil
 }
 
 // SetStatus sets the status of the unit.
 func (u *Unit) SetStatus(status UnitStatus, info string) error {
-	if status == UnitStatusPending {
+	if status == UnitPending {
 		panic("unit status must not be set to pending")
 	}
-	if err := setConfigString(u.st.zk, u.zkPath(), "status", string(status),
-		"status of unit %q", u); err != nil {
+	cn, err := readConfigNode(u.st.zk, u.zkPath())
+	if err != nil {
 		return err
 	}
-	if info != "" {
-		return setConfigString(u.st.zk, u.zkPath(), "status-info", info,
-			"status-info of unit %q", u)
+	cn.Set("status", status)
+	cn.Set("status-info", info)
+	_, err = cn.Write()
+	if err != nil {
+		return fmt.Errorf("cannot set status of %q: %v", u, err)
 	}
 	return nil
 }

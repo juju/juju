@@ -45,30 +45,38 @@ func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
 }
 
 func (s *UnitSuite) TestGetSetStatus(c *C) {
-	fail := func() { s.unit.SetStatus(state.UnitStatusPending, "") }
+	fail := func() { s.unit.SetStatus(state.UnitPending, "") }
 	c.Assert(fail, PanicMatches, "unit status must not be set to pending")
 
-	unitInfo, err := s.unit.Status()
+	status, info, err := s.unit.Status()
 	c.Assert(err, IsNil)
-	c.Assert(unitInfo, DeepEquals, &state.UnitInfo{state.UnitStatusPending, ""})
-	err = s.unit.SetStatus(state.UnitStatusStarted, "")
+	c.Assert(status, Equals, state.UnitPending)
+	c.Assert(info, Equals, "")
+
+	err = s.unit.SetStatus(state.UnitStarted, "")
 	c.Assert(err, IsNil)
-	unitInfo, err = s.unit.Status()
+	status, info, err = s.unit.Status()
 	c.Assert(err, IsNil)
-	c.Assert(unitInfo, DeepEquals, &state.UnitInfo{state.UnitStatusDown, ""})
+	c.Assert(status, Equals, state.UnitDown)
+	c.Assert(info, Equals, "")
+
 	p, err := s.unit.SetAgentAlive()
 	c.Assert(err, IsNil)
 	defer func() {
 		c.Assert(p.Kill(), IsNil)
 	}()
-	unitInfo, err = s.unit.Status()
+
+	status, info, err = s.unit.Status()
 	c.Assert(err, IsNil)
-	c.Assert(unitInfo, DeepEquals, &state.UnitInfo{state.UnitStatusStarted, ""})
-	err = s.unit.SetStatus(state.UnitStatusError, "test-hook failed")
+	c.Assert(status, Equals, state.UnitStarted)
+	c.Assert(info, Equals, "")
+
+	err = s.unit.SetStatus(state.UnitError, "test-hook failed")
 	c.Assert(err, IsNil)
-	unitInfo, err = s.unit.Status()
+	status, info, err = s.unit.Status()
 	c.Assert(err, IsNil)
-	c.Assert(unitInfo, DeepEquals, &state.UnitInfo{state.UnitStatusError, "test-hook failed"})
+	c.Assert(status, Equals, state.UnitError)
+	c.Assert(info, Equals, "test-hook failed")
 }
 
 func (s *UnitSuite) TestUnitCharm(c *C) {
