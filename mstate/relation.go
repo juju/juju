@@ -112,9 +112,9 @@ func (r *Relation) Life() Life {
 	return r.doc.Life
 }
 
-// SetLife changes the lifecycle state of the relation.
+// ensureLife changes the lifecycle state of the relation.
 // See the Life type for more details.
-func (r *Relation) SetLife(life Life) error {
+func (r *Relation) ensureLife(life Life) error {
 	if life == Alive {
 		panic("cannot set life to alive")
 	}
@@ -134,6 +134,16 @@ func (r *Relation) SetLife(life Life) error {
 	}
 	r.doc.Life = life
 	return nil
+}
+
+// Kill makes sure the lifecycle of the relation is at least Dying.
+func (r *Relation) Kill() error {
+	return r.ensureLife(Dying)
+}
+
+// Die makes sure the lifecycle of the relation is Dead.
+func (r *Relation) Die() error {
+	return r.ensureLife(Dead)
 }
 
 // Id returns the integer internal relation key. This is exposed

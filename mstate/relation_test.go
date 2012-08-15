@@ -83,9 +83,7 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	assertOneRelation(c, req, 0, reqep, proep)
 
 	// Remove the relation, and check it can't be removed again.
-	err = rel.SetLife(state.Dying)
-	c.Assert(err, IsNil)
-	err = rel.SetLife(state.Dead)
+	err = rel.Die()
 	c.Assert(err, IsNil)
 	err = s.State.RemoveRelation(rel)
 	c.Assert(err, IsNil)
@@ -121,9 +119,7 @@ func (s *RelationSuite) TestPeerRelation(c *C) {
 	assertOneRelation(c, peer, 0, peerep)
 
 	// Remove the relation, and check it can't be removed again.
-	err = rel.SetLife(state.Dying)
-	c.Assert(err, IsNil)
-	err = rel.SetLife(state.Dead)
+	err = rel.Die()
 	c.Assert(err, IsNil)
 	err = s.State.RemoveRelation(rel)
 	c.Assert(err, IsNil)
@@ -144,16 +140,13 @@ func (s *RelationSuite) TestLifecycle(c *C) {
 	c.Assert(life, Equals, state.Alive)
 
 	// Check legal next state.
-	err = rel.SetLife(state.Dying)
+	err = rel.Kill()
 	c.Assert(err, IsNil)
 	life = rel.Life()
 	c.Assert(life, Equals, state.Dying)
 
-	// Check invalid next state.
-	c.Assert(func() { rel.SetLife(state.Alive) }, PanicMatches, "cannot set life to alive")
-
 	// Check legal repeated state setting.
-	err = rel.SetLife(state.Dying)
+	err = rel.Kill()
 	c.Assert(err, IsNil)
 	life = rel.Life()
 	c.Assert(life, Equals, state.Dying)
@@ -162,109 +155,63 @@ func (s *RelationSuite) TestLifecycle(c *C) {
 	c.Assert(func() { s.State.RemoveRelation(rel) }, PanicMatches, `relation .* is not dead`)
 
 	// Check final state.
-	err = rel.SetLife(state.Dead)
+	err = rel.Die()
 	c.Assert(err, IsNil)
 	life = rel.Life()
 	c.Assert(life, Equals, state.Dead)
-
-	// Check invalid next state.
-	c.Assert(func() { rel.SetLife(state.Alive) }, PanicMatches, "cannot set life to alive")
 }
 
 var stateChanges = []struct {
 	cached, desired    state.Life
 	dbinitial, dbfinal state.Life
-	panic              string
 }{
 	{
-		state.Alive, state.Alive,
-		state.Alive, state.Alive,
-		`cannot set life to alive`,
-	},
-	{
-		state.Alive, state.Alive,
-		state.Dying, state.Dying,
-		`cannot set life to alive`,
-	},
-	{
-		state.Alive, state.Alive,
-		state.Dead, state.Dead,
-		`cannot set life to alive`,
-	},
-	{
 		state.Alive, state.Dying,
 		state.Alive, state.Dying,
-		"",
 	},
 	{
 		state.Alive, state.Dying,
 		state.Dying, state.Dying,
-		"",
 	},
 	{
 		state.Alive, state.Dying,
 		state.Dead, state.Dead,
-		"",
 	},
 	{
 		state.Alive, state.Dead,
 		state.Alive, state.Dead,
-		"",
 	},
 	{
 		state.Alive, state.Dead,
 		state.Dying, state.Dead,
-		"",
 	},
 	{
 		state.Alive, state.Dead,
 		state.Dead, state.Dead,
-		"",
-	},
-	{
-		state.Dying, state.Alive,
-		state.Dying, state.Dying,
-		`cannot set life to alive`,
-	},
-	{
-		state.Dying, state.Alive,
-		state.Dead, state.Dead,
-		`cannot set life to alive`,
 	},
 	{
 		state.Dying, state.Dying,
 		state.Dying, state.Dying,
-		"",
 	},
 	{
 		state.Dying, state.Dying,
 		state.Dead, state.Dead,
-		"",
 	},
 	{
 		state.Dying, state.Dead,
 		state.Dying, state.Dead,
-		"",
 	},
 	{
 		state.Dying, state.Dead,
 		state.Dead, state.Dead,
-		"",
-	},
-	{
-		state.Dead, state.Alive,
-		state.Dead, state.Dead,
-		`cannot set life to alive`,
 	},
 	{
 		state.Dead, state.Dying,
 		state.Dead, state.Dead,
-		"",
 	},
 	{
 		state.Dead, state.Dead,
 		state.Dead, state.Dead,
-		"",
 	},
 }
 
@@ -283,10 +230,13 @@ func (s *RelationSuite) TestLifecycleStateChanges(c *C) {
 			Life: v.cached,
 		}
 		r := createRelationFromDoc(c, s, &doc, v.dbinitial)
-		if v.panic != "" {
-			c.Assert(func() { r.SetLife(v.desired) }, PanicMatches, v.panic)
-		} else {
-			r.SetLife(v.desired)
+		switch v.desired {
+		case state.Dying:
+			r.Kill()
+		case state.Dead:
+			r.Die()
+		default:
+			panic("desired lifecycle can only be dying or dead")
 		}
 		err := s.relations.FindId(0).One(&doc)
 		c.Assert(err, IsNil)
