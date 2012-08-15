@@ -46,7 +46,10 @@ func (s *Service) SetCharmURL(url *charm.URL) (err error) {
 
 // Charm returns the service's charm.
 func (s *Service) Charm() (*Charm, error) {
-	url, _ := s.CharmURL()
+	url, err := s.CharmURL()
+	if err != nil {
+		panic(fmt.Errorf("cannot happen, err must be nil, got %v", err))
+	}
 	return s.st.Charm(url)
 }
 
