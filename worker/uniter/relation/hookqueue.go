@@ -1,15 +1,16 @@
-package uniter
+package relation
 
 import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/tomb"
 	"sort"
 )
 
-// hookQueue is the minimal interface implemented by both HookQueue and
-// BrokenHookQueue.
-type hookQueue interface {
+// HookQueue is the minimal interface implemented by both AliveHookQueue and
+// DyingHookQueue.
+type HookQueue interface {
 	hookQueue()
 	Stop() error
 }
@@ -23,80 +24,61 @@ type RelationUnitsWatcher interface {
 	Changes() <-chan state.RelationUnitsChange
 }
 
-// HookInfo holds details required to execute a relation hook.
-type HookInfo struct {
-	// RelationId identifies the relation associated with the hook queue.
-	RelationId int
-
-	// HookKind is one of "joined", "changed", "departed", or "broken".
-	HookKind string
-
-	// RemoteUnit is the unit name associated with HookKind.
-	RemoteUnit string
-
-	// ChangeVersion identifies the most recent unit settings change
-	// associated with RemoteUnit.
-	ChangeVersion int
-
-	// Members is a map from remote unit name to its settings.
-	// It contains all members known in the relation up to the
-	// moment in which the HookInfo was delivered.
-	Members map[string]map[string]interface{}
-}
-
-// HookQueue aggregates values obtained from a relation settings watcher
+// AliveHookQueue aggregates values obtained from a relation settings watcher
 // and sends out details about hooks that must be executed in the unit.
-type HookQueue struct {
+type AliveHookQueue struct {
 	tomb       tomb.Tomb
 	w          RelationUnitsWatcher
-	out        chan<- HookInfo
+	out        chan<- hook.Info
 	relationId int
 
 	// info holds information about all units that were added to the
-	// queue and haven't had a "departed" event popped. This means the
-	// unit may be in info and not currently in the queue itself.
+	// queue and haven't had a "relation-departed" event popped. This
+	// means the unit may be in info and not currently in the queue
+	// itself.
 	info map[string]*unitInfo
 
 	// head and tail are the ends of the queue.
 	head, tail *unitInfo
 
 	// changedPending, if not empty, indicates that the most recently
-	// popped event was a "joined" for the named unit, and therefore
-	// that the next event must be to a "changed" for that same unit.
+	// popped event was a "relation-joined" for the named unit, and
+	// therefore that the next event must be a "relation-changed"
+	// for that same unit.
 	// If changedPending is not empty, the queue is considered non-
 	// empty, even if head is nil.
 	changedPending string
 }
 
-// unitInfo holds unit information for management by HookQueue.
+// unitInfo holds unit information for management by AliveHookQueue.
 type unitInfo struct {
 	// unit holds the name of the unit.
 	unit string
 
 	// version and settings hold the most recent settings known
-	// to the HookQueue.
+	// to the AliveHookQueue.
 	version  int
 	settings map[string]interface{}
 
-	// joined is set to true when a "joined" is popped for this unit.
+	// joined is set to true when a "relation-joined" is popped for this unit.
 	joined bool
 
-	// hook holds the current idea of the next hook that should
+	// hookKind holds the current idea of the next hook that should
 	// be run for the unit, and is empty if and only if the unit
 	// is not queued.
-	hook string
+	hookKind hook.Kind
 
 	// prev and next define the position in the queue of the
 	// unit's next hook.
 	prev, next *unitInfo
 }
 
-// NewHookQueue returns a new HookQueue that aggregates the values obtained
+// NewAliveHookQueue returns a new AliveHookQueue that aggregates the values obtained
 // from the w watcher and sends into out the details about hooks that must
 // be executed in the unit. If any values have previously been received from
-// w's Changes channel, the HookQueue's behaviour is undefined.
-func NewHookQueue(initial *RelationState, out chan<- HookInfo, w RelationUnitsWatcher) *HookQueue {
-	q := &HookQueue{
+// w's Changes channel, the AliveHookQueue's behaviour is undefined.
+func NewAliveHookQueue(initial *State, out chan<- hook.Info, w RelationUnitsWatcher) *AliveHookQueue {
+	q := &AliveHookQueue{
 		w:          w,
 		out:        out,
 		relationId: initial.RelationId,
@@ -106,7 +88,7 @@ func NewHookQueue(initial *RelationState, out chan<- HookInfo, w RelationUnitsWa
 	return q
 }
 
-func (q *HookQueue) loop(initial *RelationState) {
+func (q *AliveHookQueue) loop(initial *State) {
 	defer q.tomb.Done()
 	defer watcher.Stop(q.w, &q.tomb)
 
@@ -120,7 +102,7 @@ func (q *HookQueue) loop(initial *RelationState) {
 		return
 	}
 	if len(ch1.Departed) != 0 {
-		panic("HookQueue must be started with a fresh RelationUnitsWatcher")
+		panic("AliveHookQueue must be started with a fresh RelationUnitsWatcher")
 	}
 	q.changedPending = initial.ChangedPending
 	ch0 := state.RelationUnitsChange{}
@@ -137,8 +119,8 @@ func (q *HookQueue) loop(initial *RelationState) {
 	q.update(ch0)
 	q.update(ch1)
 
-	var next HookInfo
-	var out chan<- HookInfo
+	var next hook.Info
+	var out chan<- hook.Info
 	for {
 		if q.empty() {
 			out = nil
@@ -161,25 +143,25 @@ func (q *HookQueue) loop(initial *RelationState) {
 	}
 }
 
-func (q *HookQueue) hookQueue() {
+func (q *AliveHookQueue) hookQueue() {
 	panic("interface sentinel method, do not call")
 }
 
-// Stop stops the HookQueue and returns any errors encountered during operation
+// Stop stops the AliveHookQueue and returns any errors encountered during operation
 // or while shutting down.
-func (q *HookQueue) Stop() error {
+func (q *AliveHookQueue) Stop() error {
 	q.tomb.Kill(nil)
 	return q.tomb.Wait()
 }
 
 // empty returns true if the queue is empty.
-func (q *HookQueue) empty() bool {
+func (q *AliveHookQueue) empty() bool {
 	return q.head == nil && q.changedPending == ""
 }
 
-// update modifies the queue such that the HookInfo values it sends will
+// update modifies the queue such that the hook.Info values it sends will
 // reflect the supplied change.
-func (q *HookQueue) update(ruc state.RelationUnitsChange) {
+func (q *AliveHookQueue) update(ruc state.RelationUnitsChange) {
 	// Enforce consistent addition order, mainly for testing purposes.
 	changedUnits := []string{}
 	for unit, _ := range ruc.Changed {
@@ -193,10 +175,10 @@ func (q *HookQueue) update(ruc state.RelationUnitsChange) {
 		if !found {
 			info = &unitInfo{unit: unit}
 			q.info[unit] = info
-			q.queue(unit, "joined")
-		} else if info.hook != "joined" {
+			q.queue(unit, hook.RelationJoined)
+		} else if info.hookKind != hook.RelationJoined {
 			if settings.Version != info.version {
-				q.queue(unit, "changed")
+				q.queue(unit, hook.RelationChanged)
 			} else {
 				q.unqueue(unit)
 			}
@@ -206,21 +188,21 @@ func (q *HookQueue) update(ruc state.RelationUnitsChange) {
 	}
 
 	for _, unit := range ruc.Departed {
-		if hook := q.info[unit].hook; hook == "joined" {
+		if hookKind := q.info[unit].hookKind; hookKind == hook.RelationJoined {
 			q.unqueue(unit)
 		} else {
-			q.queue(unit, "departed")
+			q.queue(unit, hook.RelationDeparted)
 		}
 	}
 }
 
 // pop advances the queue. It will panic if the queue is already empty.
-func (q *HookQueue) pop() {
+func (q *AliveHookQueue) pop() {
 	if q.empty() {
 		panic("queue is empty")
 	}
 	if q.changedPending != "" {
-		if q.info[q.changedPending].hook == "changed" {
+		if q.info[q.changedPending].hookKind == hook.RelationChanged {
 			// We just ran this very hook; no sense keeping it queued.
 			q.unqueue(q.changedPending)
 		}
@@ -228,27 +210,28 @@ func (q *HookQueue) pop() {
 	} else {
 		old := *q.head
 		q.unqueue(q.head.unit)
-		if old.hook == "joined" {
+		if old.hookKind == hook.RelationJoined {
 			q.changedPending = old.unit
 			q.info[old.unit].joined = true
-		} else if old.hook == "departed" {
+		} else if old.hookKind == hook.RelationDeparted {
 			delete(q.info, old.unit)
 		}
 	}
 }
 
-// next returns the next HookInfo value to send.
-func (q *HookQueue) next() HookInfo {
+// next returns the next hook.Info value to send.
+func (q *AliveHookQueue) next() hook.Info {
 	if q.empty() {
 		panic("queue is empty")
 	}
-	var unit, hook string
+	var unit string
+	var kind hook.Kind
 	if q.changedPending != "" {
 		unit = q.changedPending
-		hook = "changed"
+		kind = hook.RelationChanged
 	} else {
 		unit = q.head.unit
-		hook = q.head.hook
+		kind = q.head.hookKind
 	}
 	version := q.info[unit].version
 	members := make(map[string]map[string]interface{})
@@ -257,21 +240,27 @@ func (q *HookQueue) next() HookInfo {
 			members[unit] = info.settings
 		}
 	}
-	if hook == "joined" {
+	if kind == hook.RelationJoined {
 		members[unit] = q.info[unit].settings
-	} else if hook == "departed" {
+	} else if kind == hook.RelationDeparted {
 		delete(members, unit)
 	}
-	return HookInfo{q.relationId, hook, unit, version, members}
+	return hook.Info{
+		Kind:          kind,
+		RelationId:    q.relationId,
+		RemoteUnit:    unit,
+		ChangeVersion: version,
+		Members:       members,
+	}
 }
 
 // queue sets the next hook to be run for the named unit, and places it
 // at the tail of the queue if it is not already queued. It will panic
 // if the unit is not in q.info.
-func (q *HookQueue) queue(unit, hook string) {
+func (q *AliveHookQueue) queue(unit string, kind hook.Kind) {
 	// If the unit is not in the queue, place it at the tail.
 	info := q.info[unit]
-	if info.hook == "" {
+	if !info.hookKind.Valid() {
 		info.prev = q.tail
 		if q.tail != nil {
 			q.tail.next = info
@@ -283,13 +272,13 @@ func (q *HookQueue) queue(unit, hook string) {
 			q.head = info
 		}
 	}
-	info.hook = hook
+	info.hookKind = kind
 }
 
 // unqueue removes the named unit from the queue. It is fine to
 // unqueue a unit that is not in the queue, but it will panic if
 // the unit is not in q.info.
-func (q *HookQueue) unqueue(unit string) {
+func (q *AliveHookQueue) unqueue(unit string) {
 	if q.head == nil {
 		// The queue is empty, nothing to do.
 		return
@@ -297,11 +286,11 @@ func (q *HookQueue) unqueue(unit string) {
 
 	// Get the unit info and clear its next action.
 	info := q.info[unit]
-	if info.hook == "" {
+	if !info.hookKind.Valid() {
 		// The unit is not in the queue, nothing to do.
 		return
 	}
-	info.hook = ""
+	info.hookKind = hook.Kind("")
 
 	// Update queue pointers.
 	if info.prev == nil {
@@ -318,20 +307,20 @@ func (q *HookQueue) unqueue(unit string) {
 	info.next = nil
 }
 
-// BrokenHookQueue acts similarly to HookQueue, but its only concern is sending
+// DyingHookQueue acts similarly to AliveHookQueue, but its only concern is sending
 // a -departed hook for each current unit, and finishing with a -broken hook.
-type BrokenHookQueue struct {
+type DyingHookQueue struct {
 	tomb           tomb.Tomb
-	out            chan<- HookInfo
+	out            chan<- hook.Info
 	relationId     int
 	members        map[string]int
 	changedPending string
 }
 
-// NewBrokenHookQueue returns a new HookQueue that sends out details about the
+// NewDyingHookQueue returns a new DyingHookQueue that sends out details about the
 // hooks that must be executed in a relation that is going away.
-func NewBrokenHookQueue(initial *RelationState, out chan<- HookInfo) *BrokenHookQueue {
-	q := &BrokenHookQueue{
+func NewDyingHookQueue(initial *State, out chan<- hook.Info) *DyingHookQueue {
+	q := &DyingHookQueue{
 		out:            out,
 		relationId:     initial.RelationId,
 		members:        map[string]int{},
@@ -344,7 +333,7 @@ func NewBrokenHookQueue(initial *RelationState, out chan<- HookInfo) *BrokenHook
 	return q
 }
 
-func (q *BrokenHookQueue) loop() {
+func (q *DyingHookQueue) loop() {
 	defer q.tomb.Done()
 
 	// Honour any expected changed hook.
@@ -352,21 +341,21 @@ func (q *BrokenHookQueue) loop() {
 		select {
 		case <-q.tomb.Dying():
 			return
-		case q.out <- q.hookInfo("changed", q.changedPending):
+		case q.out <- q.hookInfo(hook.RelationChanged, q.changedPending):
 		}
 	}
 
 	// Depart in consistent order, mainly for testing purposes.
-	dels := []string{}
+	departs := []string{}
 	for m := range q.members {
-		dels = append(dels, m)
+		departs = append(departs, m)
 	}
-	sort.Strings(dels)
-	for _, del := range dels {
+	sort.Strings(departs)
+	for _, unit := range departs {
 		select {
 		case <-q.tomb.Dying():
 			return
-		case q.out <- q.hookInfo("departed", del):
+		case q.out <- q.hookInfo(hook.RelationDeparted, unit):
 		}
 	}
 
@@ -374,21 +363,21 @@ func (q *BrokenHookQueue) loop() {
 	select {
 	case <-q.tomb.Dying():
 		return
-	case q.out <- HookInfo{RelationId: q.relationId, HookKind: "broken"}:
+	case q.out <- hook.Info{Kind: hook.RelationBroken, RelationId: q.relationId}:
 	}
 	q.tomb.Kill(nil)
 	return
 }
 
-func (q *BrokenHookQueue) hookInfo(hook, unit string) HookInfo {
-	hi := HookInfo{
+func (q *DyingHookQueue) hookInfo(kind hook.Kind, unit string) hook.Info {
+	hi := hook.Info{
+		Kind:          kind,
 		RelationId:    q.relationId,
-		HookKind:      hook,
 		RemoteUnit:    unit,
 		ChangeVersion: q.members[unit],
 		Members:       map[string]map[string]interface{}{},
 	}
-	if hook == "departed" {
+	if kind == hook.RelationDeparted {
 		delete(q.members, unit)
 	}
 	for m := range q.members {
@@ -397,13 +386,13 @@ func (q *BrokenHookQueue) hookInfo(hook, unit string) HookInfo {
 	return hi
 }
 
-func (q *BrokenHookQueue) hookQueue() {
+func (q *DyingHookQueue) hookQueue() {
 	panic("interface sentinel method, do not call")
 }
 
-// Stop stops the BrokenHookQueue and returns any errors encountered
+// Stop stops the DyingHookQueue and returns any errors encountered
 // during operation or while shutting down.
-func (q *BrokenHookQueue) Stop() error {
+func (q *DyingHookQueue) Stop() error {
 	q.tomb.Kill(nil)
 	return q.tomb.Wait()
 }

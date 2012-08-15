@@ -5,26 +5,28 @@ import (
 	"launchpad.net/juju-core/cmd/jujuc/server"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/worker/uniter/hook"
+	"launchpad.net/juju-core/worker/uniter/relation"
 )
 
 // Relationer manages a unit's presence in a relation.
 type Relationer struct {
-	ctx      *server.RelationContext
-	ru       *state.RelationUnit
-	rs       *RelationState
-	pinger   *presence.Pinger
-	queue    hookQueue
-	hooks    chan<- HookInfo
-	breaking bool
+	ctx    *server.RelationContext
+	ru     *state.RelationUnit
+	dir    *relation.StateDir
+	pinger *presence.Pinger
+	queue  relation.HookQueue
+	hooks  chan<- hook.Info
+	dying  bool
 }
 
 // NewRelationer creates a new Relationer. The unit will not join the
 // relation until explicitly requested.
-func NewRelationer(ru *state.RelationUnit, rs *RelationState, hooks chan<- HookInfo) *Relationer {
+func NewRelationer(ru *state.RelationUnit, dir *relation.StateDir, hooks chan<- hook.Info) *Relationer {
 	return &Relationer{
-		ctx:   server.NewRelationContext(ru, rs.Members),
+		ctx:   server.NewRelationContext(ru, dir.State().Members),
 		ru:    ru,
-		rs:    rs,
+		dir:   dir,
 		hooks: hooks,
 	}
 }
@@ -41,8 +43,8 @@ func (r *Relationer) Join() error {
 	if r.pinger != nil {
 		panic("unit already joined!")
 	}
-	if r.breaking {
-		panic("breaking unit must not join!")
+	if r.dying {
+		panic("dying relationer must not join!")
 	}
 	pinger, err := r.ru.Join()
 	if err != nil {
@@ -64,10 +66,10 @@ func (r *Relationer) Abandon() error {
 	return pinger.Stop()
 }
 
-// Breaking informs the relationer that the unit is departing the relation,
+// Dying informs the relationer that the unit is departing the relation,
 // and that the only hooks it should send henceforth are -departed hooks,
 // until the relation is empty, followed by a -broken hook.
-func (r *Relationer) Breaking() error {
+func (r *Relationer) Dying() error {
 	if err := r.Abandon(); err != nil {
 		return err
 	}
@@ -77,26 +79,26 @@ func (r *Relationer) Breaking() error {
 		}
 		defer r.StartHooks()
 	}
-	r.breaking = true
+	r.dying = true
 	return nil
 }
 
-// StartHooks starts watching the relation, and sending HookInfo events on the
+// StartHooks starts watching the relation, and sending hook.Info events on the
 // hooks channel. It will panic if called when already responding to relation
 // changes.
 func (r *Relationer) StartHooks() {
 	if r.queue != nil {
 		panic("hooks already started!")
 	}
-	if r.breaking {
-		r.queue = NewBrokenHookQueue(r.rs, r.hooks)
+	if r.dying {
+		r.queue = relation.NewDyingHookQueue(r.dir.State(), r.hooks)
 	} else {
-		r.queue = NewHookQueue(r.rs, r.hooks, r.ru.Watch())
+		r.queue = relation.NewAliveHookQueue(r.dir.State(), r.hooks, r.ru.Watch())
 	}
 }
 
 // StopHooks ensures that the relationer is not watching the relation, or sending
-// HookInfo events on the hooks channel.
+// hook.Info events on the hooks channel.
 func (r *Relationer) StopHooks() error {
 	if r.queue == nil {
 		return nil
@@ -108,26 +110,26 @@ func (r *Relationer) StopHooks() error {
 
 // PrepareHook checks that the relation is in a state such that it makes
 // sense to execute the supplied hook, and ensures that the relation context
-// contains the latest relation state as communicated in the HookInfo. It
+// contains the latest relation state as communicated in the hook.Info. It
 // returns the name of the hook that must be run.
-func (r *Relationer) PrepareHook(hi HookInfo) (hookName string, err error) {
-	if err = r.rs.Validate(hi); err != nil {
+func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
+	if err = r.dir.State().Validate(hi); err != nil {
 		return "", err
 	}
 	r.ctx.UpdateMembers(hi.Members)
-	if hi.HookKind == "departed" {
+	if hi.Kind == hook.RelationDeparted {
 		r.ctx.DeleteMember(hi.RemoteUnit)
 	}
-	relName := r.ru.Endpoint().RelationName
-	return fmt.Sprintf("%s-relation-%s", relName, hi.HookKind), nil
+	name := r.ru.Endpoint().RelationName
+	return fmt.Sprintf("%s-%s", name, hi.Kind), nil
 }
 
 // CommitHook persists the fact of the supplied hook's completion.
-func (r *Relationer) CommitHook(hi HookInfo) error {
-	if hi.HookKind == "broken" {
+func (r *Relationer) CommitHook(hi hook.Info) error {
+	if hi.Kind == hook.RelationBroken {
 		if err := r.ru.Depart(); err != nil {
 			return err
 		}
 	}
-	return r.rs.Commit(hi)
+	return r.dir.Write(hi)
 }

@@ -1,4 +1,4 @@
-package uniter
+package relation
 
 import (
 	"errors"

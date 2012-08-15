@@ -6,13 +6,15 @@ import (
 	"launchpad.net/juju-core/environs"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // EnsureTools creates a symbolic link to jujuc for each
 // hook command. If the commands already exist, this operation
 // does nothing.
 func EnsureTools(unitName string) (err error) {
-	dir := environs.AgentToolsDir(agentName(unitName))
+	agentName := "unit-" + strings.Replace(unitName, "/", "-", 1)
+	dir := environs.AgentToolsDir(agentName)
 	for _, name := range server.CommandNames() {
 		// The link operation fails when the target already exists,
 		// so this is a no-op when the command names already
@@ -27,8 +29,4 @@ func EnsureTools(unitName string) (err error) {
 		}
 	}
 	return nil
-}
-
-func agentName(unitName string) string {
-	return "unit-" + unitFsName(unitName)
 }
