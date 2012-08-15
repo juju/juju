@@ -7,7 +7,6 @@ import (
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"reflect"
 )
 
 type ProvisioningSuite struct {
@@ -68,9 +67,6 @@ func (s *ProvisioningSuite) TestRunStop(c *C) {
 	c.Assert(err, IsNil)
 	units, err := s.Conn.AddUnits(svc, 1)
 	c.Assert(err, IsNil)
-	mid, err := units[0].AssignedMachineId()
-	c.Assert(err, IsNil)
-	c.Logf("assigned machine: %d", mid)
 	err = units[0].OpenPort("tcp", 999)
 	c.Assert(err, IsNil)
 
@@ -96,22 +92,4 @@ func opRecvTimeout(c *C, opc <-chan dummy.Operation) dummy.Operation {
 		c.Fatalf("time out wating for operation")
 	}
 	panic("not reached")
-}
-
-// filterOps filters all but the given kinds of operation from
-// the operations channel.
-func filterOps(c <-chan dummy.Operation, kinds ...dummy.Operation) <-chan dummy.Operation {
-	rc := make(chan dummy.Operation)
-	go func() {
-		for op := range c {
-			for _, k := range kinds {
-				if reflect.TypeOf(op) == reflect.TypeOf(k) {
-					rc <- op
-					break
-				}
-			}
-		}
-		close(rc)
-	}()
-	return rc
 }
