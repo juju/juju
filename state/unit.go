@@ -118,7 +118,7 @@ func newUnit(st *State, serviceName string, key, principalKey string) *Unit {
 		principalKey: principalKey,
 	}
 	u.agentTools = agentTools{
-		zk:    st.zk,
+		st:    st,
 		path:  u.zkPath(),
 		agent: "unit",
 	}
