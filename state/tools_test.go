@@ -68,38 +68,38 @@ func testAgentTools(c *C, obj tooler, agent string) {
 
 var agentToolsWatcherTests = []struct {
 	version string
-	url string
-	other bool		// whether to set the "other" tools (current <-> proposed)
-	want *state.Tools
+	url     string
+	other   bool // whether to set the "other" tools (current <-> proposed)
+	want    *state.Tools
 }{
 	{
 		want: &state.Tools{},
 	},
 	{
-		version:  "7.8.9-foo-bar",
-		url: "http://arble.tgz",
-		want: newTools("7.8.9-foo-bar", "http://arble.tgz"),
+		version: "7.8.9-foo-bar",
+		url:     "http://arble.tgz",
+		want:    newTools("7.8.9-foo-bar", "http://arble.tgz"),
 	},
 	{
 		version: "7.8.9-foo-bar",
-		url: "http://foo.com",
-		want: newTools("7.8.9-foo-bar", "http://foo.com"),
+		url:     "http://foo.com",
+		want:    newTools("7.8.9-foo-bar", "http://foo.com"),
 	},
 	{
 		version: "1.1.1-x-y",
-		url: "http://foo.com",
-		want: newTools("1.1.1-x-y", "http://foo.com"),
+		url:     "http://foo.com",
+		want:    newTools("1.1.1-x-y", "http://foo.com"),
 	},
 	{
 		version: "1.1.1-x-y",
-		url: "http://foo.com",
-		want: nil,
+		url:     "http://foo.com",
+		want:    nil,
 	},
 	{
-		other: true,
+		other:   true,
 		version: "1.1.1-x-y",
-		url: "http://nowhere",
-		want: nil,
+		url:     "http://nowhere",
+		want:    nil,
 	},
 }
 
