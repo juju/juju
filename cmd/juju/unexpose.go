@@ -8,17 +8,17 @@ import (
 	"launchpad.net/juju-core/juju"
 )
 
-// ExposeCommand is responsible exposing services.
-type ExposeCommand struct {
+// UnexposeCommand is responsible exposing services.
+type UnexposeCommand struct {
 	EnvName     string
 	ServiceName string
 }
 
-func (c *ExposeCommand) Info() *cmd.Info {
-	return &cmd.Info{"expose", "", "expose a service", ""}
+func (c *UnexposeCommand) Info() *cmd.Info {
+	return &cmd.Info{"unexpose", "", "unexpose a service", ""}
 }
 
-func (c *ExposeCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *UnexposeCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	addEnvironFlags(&c.EnvName, f)
 	if err := f.Parse(true, args); err != nil {
 		return err
@@ -31,9 +31,9 @@ func (c *ExposeCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
-// Run changes the juju-managed firewall to expose any
-// ports that were also explicitly marked by units as open.
-func (c *ExposeCommand) Run(_ *cmd.Context) error {
+// Run changes the juju-managed firewall to hide any
+// ports that were also explicitly marked by units as closed.
+func (c *UnexposeCommand) Run(_ *cmd.Context) error {
 	conn, err := juju.NewConn(c.EnvName)
 	if err != nil {
 		return err
@@ -47,5 +47,5 @@ func (c *ExposeCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	return svc.SetExposed()
+	return svc.ClearExposed()
 }
