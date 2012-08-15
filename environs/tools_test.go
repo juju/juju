@@ -323,7 +323,7 @@ func assertDirNames(c *C, dir string, names []string) {
 	c.Assert(dnames, DeepEquals, names)
 }
 
-func (t *ToolsSuite) TestUpgradeTools(c *C) {
+func (t *ToolsSuite) TestChangeAgentTools(c *C) {
 	files := []*file{
 		newFile("jujuc", tar.TypeReg, "juju executable"),
 		newFile("jujud", tar.TypeReg, "jujuc executable"),
@@ -335,7 +335,7 @@ func (t *ToolsSuite) TestUpgradeTools(c *C) {
 	err := environs.UnpackTools(tools, bytes.NewReader(makeArchive(files...)))
 	c.Assert(err, IsNil)
 
-	gotTools, err := environs.UpgradeTools("testagent", tools.Binary)
+	gotTools, err := environs.ChangeAgentTools("testagent", tools.Binary)
 	c.Assert(err, IsNil)
 	c.Assert(*gotTools, Equals, *tools)
 
@@ -354,7 +354,7 @@ func (t *ToolsSuite) TestUpgradeTools(c *C) {
 	err = environs.UnpackTools(tools2, bytes.NewReader(makeArchive(files2...)))
 	c.Assert(err, IsNil)
 
-	gotTools, err = environs.UpgradeTools("testagent", tools2.Binary)
+	gotTools, err = environs.ChangeAgentTools("testagent", tools2.Binary)
 	c.Assert(err, IsNil)
 	c.Assert(*gotTools, Equals, *tools2)
 

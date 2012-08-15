@@ -193,9 +193,9 @@ func BestTools(toolsList []*state.Tools, vers version.Binary) *state.Tools {
 
 const urlFile = "downloaded-url.txt"
 
-// toolsParentDir returns the tools parent directory as an OS path.
+// toolsParentDir returns the tools parent directory.
 func toolsParentDir() string {
-	return path.Join(filepath.FromSlash(VarDir), "tools")
+	return path.Join(VarDir, "tools")
 }
 
 // UnpackTools reads a set of juju tools in gzipped tar-archive
@@ -246,7 +246,7 @@ func UnpackTools(tools *state.Tools, r io.Reader) (err error) {
 		return err
 	}
 
-	err = os.Rename(dir, filepath.FromSlash(ToolsDir(tools.Binary)))
+	err = os.Rename(dir, ToolsDir(tools.Binary))
 	// If we've failed to rename the directory, it may be because
 	// the directory already exists - if ReadTools succeeds, we
 	// assume all's ok.
@@ -280,7 +280,7 @@ func writeFile(name string, mode os.FileMode, r io.Reader) error {
 // ReadTools checks that the tools for the given version exist
 // and returns a Tools instance describing them.
 func ReadTools(vers version.Binary) (*state.Tools, error) {
-	dir := filepath.FromSlash(ToolsDir(vers))
+	dir := ToolsDir(vers)
 	urlData, err := ioutil.ReadFile(filepath.Join(dir, urlFile))
 	if err != nil {
 		return nil, fmt.Errorf("cannot read URL in tools directory: %v", err)
@@ -297,9 +297,10 @@ func ReadTools(vers version.Binary) (*state.Tools, error) {
 	}, nil
 }
 
-// UpgradeTools changes the tools for the given agent to use the given
-// version, checking that they exist.  It returns the tools that will be used.
-func UpgradeTools(agentName string, vers version.Binary) (*state.Tools, error) {
+// ChangeAgentTools atomically replaces the agent-specific symlink
+// under the tools directory so it points to the previously unpacked
+// version vers. It returns the new tools read.
+func ChangeAgentTools(agentName string, vers version.Binary) (*state.Tools, error) {
 	tools, err := ReadTools(vers)
 	if err != nil {
 		return nil, err
