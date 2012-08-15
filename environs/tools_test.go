@@ -1,9 +1,7 @@
 package environs_test
 
 import (
-	"archive/tar"
 	"bytes"
-	"compress/gzip"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,7 +17,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 )
 
 type ToolsSuite struct {
@@ -145,13 +142,13 @@ var unpackToolsBadDataTests = []struct {
 	err  string
 }{
 	{
-		makeArchive(newFile("bar", tar.TypeDir, "")),
+		testing.Archive(testing.NewFile("bar", os.ModeDir, "")),
 		"bad file type.*",
 	}, {
-		makeArchive(newFile("../../etc/passwd", tar.TypeReg, "")),
+		testing.Archive(testing.NewFile("../../etc/passwd", 0755, "")),
 		"bad name.*",
 	}, {
-		makeArchive(newFile(`\ini.sys`, tar.TypeReg, "")),
+		testing.Archive(testing.NewFile(`\ini.sys`, 0755, "")),
 		"bad name.*",
 	}, {
 		[]byte("x"),
@@ -180,16 +177,16 @@ func toolsDir() string {
 }
 
 func (t *ToolsSuite) TestUnpackToolsContents(c *C) {
-	files := []*file{
-		newFile("bar", tar.TypeReg, "bar contents"),
-		newFile("foo", tar.TypeReg, "foo contents"),
+	files := []*testing.File{
+		testing.NewFile("bar", 0755, "bar contents"),
+		testing.NewFile("foo", 0755, "foo contents"),
 	}
 	tools := &state.Tools{
 		URL:    "http://foo/bar",
 		Binary: version.MustParseBinary("1.2.3-foo-bar"),
 	}
 
-	err := environs.UnpackTools(tools, bytes.NewReader(makeArchive(files...)))
+	err := environs.UnpackTools(tools, bytes.NewReader(testing.Archive(files...)))
 	c.Assert(err, IsNil)
 	assertDirNames(c, toolsDir(), []string{"1.2.3-foo-bar"})
 	assertToolsContents(c, tools, files)
@@ -200,11 +197,11 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *C) {
 		URL:    "http://arble",
 		Binary: version.MustParseBinary("1.2.3-foo-bar"),
 	}
-	files2 := []*file{
-		newFile("bar", tar.TypeReg, "bar2 contents"),
-		newFile("x", tar.TypeReg, "x contents"),
+	files2 := []*testing.File{
+		testing.NewFile("bar", 0755, "bar2 contents"),
+		testing.NewFile("x", 0755, "x contents"),
 	}
-	err = environs.UnpackTools(tools2, bytes.NewReader(makeArchive(files2...)))
+	err = environs.UnpackTools(tools2, bytes.NewReader(testing.Archive(files2...)))
 	c.Assert(err, IsNil)
 	assertDirNames(c, toolsDir(), []string{"1.2.3-foo-bar"})
 	assertToolsContents(c, tools, files)
@@ -281,17 +278,17 @@ func getToolsWithTar(tools *state.Tools) error {
 
 // assertToolsContents asserts that the directory for the tools
 // has the given contents.
-func assertToolsContents(c *C, tools *state.Tools, files []*file) {
+func assertToolsContents(c *C, tools *state.Tools, files []*testing.File) {
 	var wantNames []string
 	for _, f := range files {
-		wantNames = append(wantNames, f.header.Name)
+		wantNames = append(wantNames, f.Header.Name)
 	}
 	wantNames = append(wantNames, urlFile)
 	dir := environs.ToolsDir(tools.Binary)
 	assertDirNames(c, dir, wantNames)
 	assertFileContents(c, dir, urlFile, tools.URL, 0200)
 	for _, f := range files {
-		assertFileContents(c, dir, f.header.Name, f.contents, 0400)
+		assertFileContents(c, dir, f.Header.Name, f.Contents, 0400)
 	}
 	gotTools, err := environs.ReadTools(tools.Binary)
 	c.Assert(err, IsNil)
@@ -324,15 +321,15 @@ func assertDirNames(c *C, dir string, names []string) {
 }
 
 func (t *ToolsSuite) TestChangeAgentTools(c *C) {
-	files := []*file{
-		newFile("jujuc", tar.TypeReg, "juju executable"),
-		newFile("jujud", tar.TypeReg, "jujuc executable"),
+	files := []*testing.File{
+		testing.NewFile("jujuc", 0755, "juju executable"),
+		testing.NewFile("jujud", 0755, "jujuc executable"),
 	}
 	tools := &state.Tools{
 		URL:    "http://foo/bar1",
 		Binary: version.MustParseBinary("1.2.3-foo-bar"),
 	}
-	err := environs.UnpackTools(tools, bytes.NewReader(makeArchive(files...)))
+	err := environs.UnpackTools(tools, bytes.NewReader(testing.Archive(files...)))
 	c.Assert(err, IsNil)
 
 	gotTools, err := environs.ChangeAgentTools("testagent", tools.Binary)
@@ -343,15 +340,15 @@ func (t *ToolsSuite) TestChangeAgentTools(c *C) {
 	assertDirNames(c, environs.AgentToolsDir("testagent"), []string{"jujuc", "jujud", urlFile})
 
 	// Upgrade again to check that the link replacement logic works ok.
-	files2 := []*file{
-		newFile("foo", tar.TypeReg, "foo content"),
-		newFile("bar", tar.TypeReg, "bar content"),
+	files2 := []*testing.File{
+		testing.NewFile("foo", 0755, "foo content"),
+		testing.NewFile("bar", 0755, "bar content"),
 	}
 	tools2 := &state.Tools{
 		URL:    "http://foo/bar2",
 		Binary: version.MustParseBinary("1.2.4-foo-bar"),
 	}
-	err = environs.UnpackTools(tools2, bytes.NewReader(makeArchive(files2...)))
+	err = environs.UnpackTools(tools2, bytes.NewReader(testing.Archive(files2...)))
 	c.Assert(err, IsNil)
 
 	gotTools, err = environs.ChangeAgentTools("testagent", tools2.Binary)
@@ -374,54 +371,6 @@ var gzyesses = []byte{
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x38, 0x31, 0x53, 0xad, 0x03,
 	0x8d, 0xd0, 0x84, 0x00, 0x00,
-}
-
-type file struct {
-	header   tar.Header
-	contents string
-}
-
-func newFile(name string, ftype byte, contents string) *file {
-	return &file{
-		header: tar.Header{
-			Typeflag:   ftype,
-			Name:       name,
-			Size:       int64(len(contents)),
-			Mode:       0777,
-			ModTime:    time.Now(),
-			AccessTime: time.Now(),
-			ChangeTime: time.Now(),
-			Uname:      "ubuntu",
-			Gname:      "ubuntu",
-		},
-		contents: contents,
-	}
-}
-
-func makeArchive(files ...*file) []byte {
-	var buf bytes.Buffer
-	gzw := gzip.NewWriter(&buf)
-	tarw := tar.NewWriter(gzw)
-
-	for _, f := range files {
-		err := tarw.WriteHeader(&f.header)
-		if err != nil {
-			panic(err)
-		}
-		_, err = tarw.Write([]byte(f.contents))
-		if err != nil {
-			panic(err)
-		}
-	}
-	err := tarw.Close()
-	if err != nil {
-		panic(err)
-	}
-	err = gzw.Close()
-	if err != nil {
-		panic(err)
-	}
-	return buf.Bytes()
 }
 
 type toolsSpec struct {
