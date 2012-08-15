@@ -109,5 +109,5 @@ func (s *CmdSuite) TestOutputFormat(c *C) {
 	result := cmd.Main(&OutputCommand{}, ctx, []string{"--format", "cuneiform"})
 	c.Assert(result, Equals, 2)
 	c.Assert(bufferString(ctx.Stdout), Equals, "")
-	c.Assert(bufferString(ctx.Stderr), Matches, "usage(.|\n)*: unknown format \"cuneiform\"\n")
+	c.Assert(bufferString(ctx.Stderr), Matches, ".*: unknown format \"cuneiform\"\n")
 }

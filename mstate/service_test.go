@@ -47,12 +47,12 @@ func (s *ServiceSuite) TestServiceRefesh(c *C) {
 
 	testcurl, err := s1.CharmURL()
 	c.Assert(err, IsNil)
-	c.Assert(testcurl.String(), Equals, s.charm.URL().String())
+	c.Assert(testcurl, DeepEquals, s.charm.URL())
 
 	err = s1.Refresh()
 	testcurl, err = s1.CharmURL()
 	c.Assert(err, IsNil)
-	c.Assert(testcurl.String(), Equals, "local:myseries/mydummy-1")
+	c.Assert(testcurl, DeepEquals, newcurl)
 }
 
 func (s *ServiceSuite) TestAddUnit(c *C) {

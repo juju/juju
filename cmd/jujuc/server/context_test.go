@@ -27,6 +27,8 @@ var getCommandTests = []struct {
 	{"config-get", ""},
 	{"juju-log", ""},
 	{"open-port", ""},
+	{"relation-get", ""},
+	{"relation-set", ""},
 	{"unit-get", ""},
 	{"random", "unknown command: random"},
 }

@@ -50,13 +50,20 @@ func (s *MachineSuite) TestMachineSetInstanceId(c *C) {
 func (s *MachineSuite) TestMachineRefresh(c *C) {
 	m0, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
+	oldId, _ := m0.InstanceId()
+
 	m1, err := s.State.Machine(m0.Id())
 	c.Assert(err, IsNil)
 	err = m0.SetInstanceId("umbrella/0")
 	c.Assert(err, IsNil)
+	newId, _ := m0.InstanceId()
+
+	m1Id, _ := m1.InstanceId()
+	c.Assert(m1Id, Equals, oldId)
 	err = m1.Refresh()
 	c.Assert(err, IsNil)
-	c.Assert(m0, DeepEquals, m1)
+	m1Id, _ = m1.InstanceId()
+	c.Assert(m1Id, Equals, newId)
 }
 
 func (s *MachineSuite) TestMachineUnits(c *C) {
