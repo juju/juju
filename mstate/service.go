@@ -59,12 +59,10 @@ func (s *Service) String() string {
 }
 
 func (s *Service) Refresh() error {
-	doc := serviceDoc{}
-	err := s.st.services.FindId(s.doc.Name).One(&doc)
+	err := s.st.services.FindId(s.doc.Name).One(&s.doc)
 	if err != nil {
 		return fmt.Errorf("cannot refresh service %v: %v", s, err)
 	}
-	s.doc = doc
 	return nil
 }
 
