@@ -9,7 +9,6 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
-	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -86,7 +85,7 @@ func PutTools(storage Storage) (*state.Tools, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot stat newly made tools archive: %v", err)
 	}
-	p := ToolsPath(version.Current)
+	p := ToolsStoragePath(version.Current)
 	log.Printf("environs: putting tools %v", p)
 	err = storage.Put(p, f, fi.Size())
 	if err != nil {
@@ -192,52 +191,118 @@ func BestTools(toolsList []*state.Tools, vers version.Binary) *state.Tools {
 	return bestTools
 }
 
-// GetTools downloads a set of tools from the given URL
-// into the given directory.
-func GetTools(url, dir string) error {
-	resp, err := http.Get(url)
+const urlFile = "downloaded-url.txt"
+
+// UnpackTools reads a set of juju tools in gzipped tar-archive
+// format and unpacks them into the appropriate tools directory.
+// If a valid tools directory already exists, UnpackTools returns
+// without error.
+func UnpackTools(tools *state.Tools, r io.Reader) (err error) {
+	zr, err := gzip.NewReader(r)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer zr.Close()
 
-	r, err := gzip.NewReader(resp.Body)
+	// Make a temporary directory in the tools directory,
+	// first ensuring that the tools directory exists.
+	toolsDir := filepath.Join(VarDir, "tools")
+	err = os.MkdirAll(toolsDir, 0755)
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	dir, err := ioutil.TempDir(toolsDir, "unpacking-")
+	if err != nil {
+		return err
+	}
+	defer removeAll(dir)
 
-	tr := tar.NewReader(r)
+	tr := tar.NewReader(zr)
 	for {
 		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
-			if err == io.EOF {
-				err = nil
-			}
 			return err
 		}
-		if strings.Contains(hdr.Name, "/\\") {
+		if strings.ContainsAny(hdr.Name, "/\\") {
 			return fmt.Errorf("bad name %q in tools archive", hdr.Name)
 		}
-
+		if hdr.Typeflag != tar.TypeReg {
+			return fmt.Errorf("bad file type %#c in file %q in tools archive", hdr.Typeflag, hdr.Name)
+		}
 		name := filepath.Join(dir, hdr.Name)
 		if err := writeFile(name, os.FileMode(hdr.Mode&0777), tr); err != nil {
 			return fmt.Errorf("tar extract %q failed: %v", name, err)
 		}
 	}
-	panic("not reached")
+	err = ioutil.WriteFile(filepath.Join(dir, urlFile), []byte(tools.URL), 0644)
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(dir, filepath.FromSlash(ToolsDir(tools.Binary)))
+	// If we've failed to rename the directory, it may be because
+	// the directory already exists - if ReadTools succeeds, we
+	// assume all's ok.
+	if err != nil {
+		_, err := ReadTools(tools.Binary)
+		if err == nil {
+			return nil
+		}
+	}
+	return nil
 }
 
-// ToolsPath returns the slash-separated path that is used to store and
+func removeAll(dir string) {
+	err := os.RemoveAll(dir)
+	if err == nil || os.IsNotExist(err) {
+		return
+	}
+	log.Printf("environs: cannot remove %q: %v", dir, err)
+}
+
+func writeFile(name string, mode os.FileMode, r io.Reader) error {
+	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = io.Copy(f, r)
+	return err
+}
+
+// ReadTools checks that the tools for the given version exist
+// and returns a Tools instance describing them.
+func ReadTools(vers version.Binary) (*state.Tools, error) {
+	dir := filepath.FromSlash(ToolsDir(vers))
+	urlData, err := ioutil.ReadFile(filepath.Join(dir, urlFile))
+	if err != nil {
+		return nil, fmt.Errorf("cannot read URL in tools directory: %v", err)
+	}
+	url := strings.TrimSpace(string(urlData))
+	if len(url) == 0 {
+		return nil, fmt.Errorf("empty URL in tools directory %q", dir)
+	}
+	// TODO(rog): do more verification here too, such as checking
+	// for the existence of certain files.
+	return &state.Tools{
+		URL:    url,
+		Binary: vers,
+	}, nil
+}
+
+// ToolsStoragePath returns the slash-separated path that is used to store and
 // retrieve the given version of the juju tools in a Storage.
-func ToolsPath(vers version.Binary) string {
+func ToolsStoragePath(vers version.Binary) string {
 	return toolPrefix + vers.String() + ".tgz"
 }
 
 // ToolsDir returns the slash-separated directory name that is used to
 // store binaries for the given version of the juju tools.
 func ToolsDir(vers version.Binary) string {
-	return path.Join(VarDir, ToolsPath(vers))
+	return path.Join(VarDir, "tools", vers.String())
 }
 
 // AgentToolsDir returns the slash-separated directory name that is used
@@ -298,16 +363,6 @@ func bundleTools(w io.Writer) error {
 		return fmt.Errorf("build failed: %v; %s", err, out)
 	}
 	return archive(w, dir)
-}
-
-func writeFile(name string, mode os.FileMode, r io.Reader) error {
-	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = io.Copy(f, r)
-	return err
 }
 
 // EmptyStorage holds a StorageReader object that contains nothing.
