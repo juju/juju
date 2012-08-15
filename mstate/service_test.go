@@ -50,6 +50,7 @@ func (s *ServiceSuite) TestServiceRefesh(c *C) {
 	c.Assert(testcurl, DeepEquals, s.charm.URL())
 
 	err = s1.Refresh()
+	c.Assert(err, IsNil)
 	testcurl, err = s1.CharmURL()
 	c.Assert(err, IsNil)
 	c.Assert(testcurl, DeepEquals, newcurl)
@@ -154,6 +155,7 @@ func (s *ServiceSuite) TestUnitRefresh(c *C) {
 
 	c.Assert(u1.MachineId(), IsNil)
 	err = u1.Refresh()
+	c.Assert(err, IsNil)
 	c.Assert(u1.MachineId(), DeepEquals, u0.MachineId())
 }
 
