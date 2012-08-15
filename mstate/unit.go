@@ -120,12 +120,10 @@ func (u *Unit) PrivateAddress() (string, error) {
 }
 
 func (u *Unit) Refresh() error {
-	doc := unitDoc{}
-	err := u.st.units.FindId(u.doc.Name).One(&doc)
+	err := u.st.units.FindId(u.doc.Name).One(&u.doc)
 	if err != nil {
 		return fmt.Errorf("cannot refresh unit %v: %v", u, err)
 	}
-	u.doc = doc
 	return nil
 }
 
