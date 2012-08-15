@@ -102,7 +102,7 @@ func NewCloudInit(cfg *MachineConfig) (*cloudinit.Config, error) {
 	// zookeeper scripts
 	if cfg.Zookeeper {
 		addScripts(c,
-			cfg.jujuTools()+"/jujud initzk"+
+			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --instance-id "+cfg.InstanceIdAccessor+
 				" --env-type "+shquote(cfg.ProviderType)+
 				" --zookeeper-servers localhost"+zkPortSuffix+

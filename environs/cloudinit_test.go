@@ -3,9 +3,9 @@ package environs_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
-	"launchpad.net/juju-core/environs"
 	"regexp"
 	"strings"
 )
@@ -50,7 +50,7 @@ func newSimpleTools(vers string) *state.Tools {
 // values above.
 type cloudinitTest struct {
 	x   map[interface{}]interface{} // the unmarshalled YAML.
-	cfg *environs.MachineConfig              // the config being tested.
+	cfg *environs.MachineConfig     // the config being tested.
 }
 
 func (t *cloudinitTest) check(c *C) {
@@ -61,7 +61,7 @@ func (t *cloudinitTest) check(c *C) {
 
 	if t.cfg.Zookeeper {
 		t.checkPackage(c, "zookeeperd")
-		t.checkScripts(c, "jujud initzk")
+		t.checkScripts(c, "jujud bootstrap-state")
 		t.checkScripts(c, regexp.QuoteMeta(t.cfg.InstanceIdAccessor))
 		t.checkScripts(c, "JUJU_ZOOKEEPER='localhost"+environs.ZkPortSuffix+"'")
 	} else {

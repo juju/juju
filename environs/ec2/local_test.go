@@ -229,9 +229,9 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	var x map[interface{}]interface{}
 	err = goyaml.Unmarshal(inst.UserData, &x)
 	c.Assert(err, IsNil)
-	CheckPackage(c, x, "zookeeper", true)
-	CheckPackage(c, x, "zookeeperd", true)
-	CheckScripts(c, x, "jujud initzk", true)
+	ec2.CheckPackage(c, x, "zookeeper", true)
+	ec2.CheckPackage(c, x, "zookeeperd", true)
+	ec2.CheckScripts(c, x, "jujud bootstrap-state", true)
 	// TODO check for provisioning agent
 	// TODO check for machine agent
 	CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='localhost%s'", ec2.ZkPortSuffix), true)
