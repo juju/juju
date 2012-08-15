@@ -115,7 +115,7 @@ func (r *Relation) Life() Life {
 // SetLife changes the lifecycle state of the relation.
 // See the Life type for more details.
 func (r *Relation) SetLife(life Life) error {
-	if !transitions[r.doc.Life][life] {
+	if !lifeTrans[r.doc.Life][life] {
 		panic(fmt.Errorf("invalid lifecycle state change from %q to %q", r.doc.Life, life))
 	}
 	sel := bson.D{

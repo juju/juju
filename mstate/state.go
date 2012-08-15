@@ -30,14 +30,14 @@ func (l Life) String() string {
 	return lifeStrings[l]
 }
 
-var transitions = [nLife][nLife]bool{
+var lifeTrans = [nLife][nLife]bool{
 	Alive: {Dying: true},
 	Dying: {Dying: true, Dead: true},
 	Dead:  {Dead: true},
 }
 
 func (l Life) isNextValid(next Life) bool {
-	return transitions[l][next]
+	return lifeTrans[l][next]
 }
 
 // State represents the state of an environment
