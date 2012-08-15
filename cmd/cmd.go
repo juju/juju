@@ -100,8 +100,8 @@ func Main(c Command, ctx *Context, args []string) int {
 	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
 	f.SetOutput(ioutil.Discard)
 	if err := c.Init(f, args); err != nil {
-		ctx.Stderr.Write(c.Info().Help(f))
 		if err == gnuflag.ErrHelp {
+			ctx.Stderr.Write(c.Info().Help(f))
 			return 0
 		}
 		fmt.Fprintf(ctx.Stderr, "error: %v\n", err)

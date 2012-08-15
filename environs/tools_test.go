@@ -1,6 +1,9 @@
 package environs_test
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,12 +17,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
+	"time"
 )
 
 type ToolsSuite struct {
 	env environs.Environ
 	testing.LoggingSuite
+	oldVarDir string
 }
 
 func (t *ToolsSuite) SetUpTest(c *C) {
@@ -32,9 +38,12 @@ func (t *ToolsSuite) SetUpTest(c *C) {
 	})
 	c.Assert(err, IsNil)
 	t.env = env
+	t.oldVarDir = environs.VarDir
+	environs.VarDir = c.MkDir()
 }
 
 func (t *ToolsSuite) TearDownTest(c *C) {
+	environs.VarDir = t.oldVarDir
 	dummy.Reset()
 	t.LoggingSuite.TearDownTest(c)
 }
@@ -49,8 +58,8 @@ func mkVersion(vers string) version.Number {
 	return v
 }
 
-func mkToolsPath(vers string) string {
-	return environs.ToolsPath(version.Binary{
+func mkToolsStoragePath(vers string) string {
+	return environs.ToolsStoragePath(version.Binary{
 		Number: mkVersion(vers),
 		Series: version.Current.Series,
 		Arch:   version.Current.Arch,
@@ -59,59 +68,55 @@ func mkToolsPath(vers string) string {
 
 var _ = Suite(&ToolsSuite{})
 
+const urlFile = "downloaded-url.txt"
+
+var commandTests = []struct {
+	cmd    []string
+	output string
+}{
+	{
+		[]string{"juju", "arble"},
+		"error: unrecognized command: juju arble\n",
+	}, {
+		[]string{"jujud", "arble"},
+		"error: unrecognized command: jujud arble\n",
+	}, {
+		[]string{"jujuc"},
+		"(.|\n)*error: jujuc should not be called directly\n",
+	},
+}
+
 func (t *ToolsSuite) TestPutGetTools(c *C) {
 	tools, err := environs.PutTools(t.env.Storage())
 	c.Assert(err, IsNil)
 	c.Assert(tools.Binary, Equals, version.Current)
 	c.Assert(tools.URL, Not(Equals), "")
 
-	for i, getTools := range []func(url, dir string) error{
-		environs.GetTools,
+	for i, get := range []func(t *state.Tools) error{
+		getTools,
 		getToolsWithTar,
 	} {
 		c.Logf("test %d", i)
 		// Unarchive the tool executables into a temp directory.
-		dir := c.MkDir()
-		err = getTools(tools.URL, dir)
+		environs.VarDir = c.MkDir()
+		err = get(tools)
 		c.Assert(err, IsNil)
 
+		dir := environs.ToolsDir(version.Current)
 		// Verify that each tool executes and produces some
 		// characteristic output.
-		for _, tool := range []string{"juju", "jujud"} {
-			out, err := exec.Command(filepath.Join(dir, tool), "arble").CombinedOutput()
+		for i, test := range commandTests {
+			c.Logf("command test %d", i)
+			out, err := exec.Command(filepath.Join(dir, test.cmd[0]), test.cmd[1:]...).CombinedOutput()
 			if err != nil {
 				c.Assert(err, FitsTypeOf, (*exec.ExitError)(nil))
 			}
-			c.Check(string(out), Matches, fmt.Sprintf(`usage: %s (.|\n)*`, tool))
+			c.Check(string(out), Matches, test.output)
 		}
+		data, err := ioutil.ReadFile(filepath.Join(dir, urlFile))
+		c.Assert(err, IsNil)
+		c.Assert(string(data), Equals, tools.URL)
 	}
-}
-
-func (t *ToolsSuite) TestToolsPath(c *C) {
-	c.Assert(environs.ToolsPath(binaryVersion(1, 2, 3, "precise", "amd64")),
-		Equals, "tools/juju-1.2.3-precise-amd64.tgz")
-}
-
-// getToolsWithTar is the same as GetTools but uses tar
-// itself so we're not just testing the Go tar package against
-// itself.
-func getToolsWithTar(url, dir string) error {
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	// unarchive using actual tar command so we're
-	// not just verifying the Go tar package against itself.
-	cmd := exec.Command("tar", "xz")
-	cmd.Dir = dir
-	cmd.Stdin = resp.Body
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("tar extract failed: %s", out)
-	}
-	return nil
 }
 
 // Test that the upload procedure fails correctly
@@ -135,6 +140,290 @@ func (t *ToolsSuite) TestUploadBadBuild(c *C) {
 	c.Assert(err, ErrorMatches, `build failed: exit status 1; can't load package:(.|\n)*`)
 }
 
+var unpackToolsBadDataTests = []struct {
+	data []byte
+	err  string
+}{
+	{
+		makeArchive(newFile("bar", tar.TypeDir, "")),
+		"bad file type.*",
+	}, {
+		makeArchive(newFile("../../etc/passwd", tar.TypeReg, "")),
+		"bad name.*",
+	}, {
+		makeArchive(newFile(`\ini.sys`, tar.TypeReg, "")),
+		"bad name.*",
+	}, {
+		[]byte("x"),
+		"unexpected EOF",
+	}, {
+		gzyesses,
+		"archive/tar: invalid tar header",
+	},
+}
+
+func (t *ToolsSuite) TestUnpackToolsBadData(c *C) {
+	for i, test := range unpackToolsBadDataTests {
+		c.Logf("test %d", i)
+		tools := &state.Tools{
+			URL:    "http://foo/bar",
+			Binary: version.MustParseBinary("1.2.3-foo-bar"),
+		}
+		err := environs.UnpackTools(tools, bytes.NewReader(test.data))
+		c.Assert(err, ErrorMatches, test.err)
+		assertDirNames(c, toolsDir(), []string{})
+	}
+}
+
+func toolsDir() string {
+	return filepath.Join(environs.VarDir, "tools")
+}
+
+func (t *ToolsSuite) TestUnpackToolsContents(c *C) {
+	files := []*file{
+		newFile("bar", tar.TypeReg, "bar contents"),
+		newFile("foo", tar.TypeReg, "foo contents"),
+	}
+	tools := &state.Tools{
+		URL:    "http://foo/bar",
+		Binary: version.MustParseBinary("1.2.3-foo-bar"),
+	}
+
+	err := environs.UnpackTools(tools, bytes.NewReader(makeArchive(files...)))
+	c.Assert(err, IsNil)
+	assertDirNames(c, toolsDir(), []string{"1.2.3-foo-bar"})
+	assertToolsContents(c, tools, files)
+
+	// Try to unpack the same version of tools again - it should succeed,
+	// leaving the original version around.
+	tools2 := &state.Tools{
+		URL:    "http://arble",
+		Binary: version.MustParseBinary("1.2.3-foo-bar"),
+	}
+	files2 := []*file{
+		newFile("bar", tar.TypeReg, "bar2 contents"),
+		newFile("x", tar.TypeReg, "x contents"),
+	}
+	err = environs.UnpackTools(tools2, bytes.NewReader(makeArchive(files2...)))
+	c.Assert(err, IsNil)
+	assertDirNames(c, toolsDir(), []string{"1.2.3-foo-bar"})
+	assertToolsContents(c, tools, files)
+}
+
+func (t *ToolsSuite) TestReadToolsErrors(c *C) {
+	vers := version.MustParseBinary("1.2.3-precise-amd64")
+	tools, err := environs.ReadTools(vers)
+	c.Assert(tools, IsNil)
+	c.Assert(err, ErrorMatches, "cannot read URL in tools directory: .*")
+
+	dir := environs.ToolsDir(vers)
+	err = os.MkdirAll(dir, 0755)
+	c.Assert(err, IsNil)
+
+	err = ioutil.WriteFile(filepath.Join(dir, urlFile), []byte(" \t\n"), 0644)
+	c.Assert(err, IsNil)
+
+	tools, err = environs.ReadTools(vers)
+	c.Assert(tools, IsNil)
+	c.Assert(err, ErrorMatches, "empty URL in tools directory.*")
+}
+
+func (t *ToolsSuite) TestToolsStoragePath(c *C) {
+	c.Assert(environs.ToolsStoragePath(binaryVersion(1, 2, 3, "precise", "amd64")),
+		Equals, "tools/juju-1.2.3-precise-amd64.tgz")
+}
+
+func (t *ToolsSuite) TestToolsDir(c *C) {
+	environs.VarDir = "/var/lib/juju"
+	c.Assert(environs.ToolsDir(binaryVersion(1, 2, 3, "precise", "amd64")),
+		Equals,
+		"/var/lib/juju/tools/1.2.3-precise-amd64")
+}
+
+// getTools downloads and unpacks the given tools.
+func getTools(tools *state.Tools) error {
+	resp, err := http.Get(tools.URL)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad http status: %v", resp.Status)
+	}
+	return environs.UnpackTools(tools, resp.Body)
+}
+
+// getToolsWithTar is the same as getTools but uses tar
+// itself so we're not just testing the Go tar package against
+// itself.
+func getToolsWithTar(tools *state.Tools) error {
+	resp, err := http.Get(tools.URL)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	dir := environs.ToolsDir(tools.Binary)
+	err = os.MkdirAll(dir, 0755)
+	if err != nil {
+		return err
+	}
+
+	cmd := exec.Command("tar", "xz")
+	cmd.Dir = dir
+	cmd.Stdin = resp.Body
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("tar extract failed: %s", out)
+	}
+	return ioutil.WriteFile(filepath.Join(cmd.Dir, urlFile), []byte(tools.URL), 0644)
+}
+
+// assertToolsContents asserts that the directory for the tools
+// has the given contents.
+func assertToolsContents(c *C, tools *state.Tools, files []*file) {
+	var wantNames []string
+	for _, f := range files {
+		wantNames = append(wantNames, f.header.Name)
+	}
+	wantNames = append(wantNames, urlFile)
+	dir := environs.ToolsDir(tools.Binary)
+	assertDirNames(c, dir, wantNames)
+	assertFileContents(c, dir, urlFile, tools.URL, 0200)
+	for _, f := range files {
+		assertFileContents(c, dir, f.header.Name, f.contents, 0400)
+	}
+	gotTools, err := environs.ReadTools(tools.Binary)
+	c.Assert(err, IsNil)
+	c.Assert(*gotTools, Equals, *tools)
+}
+
+// assertFileContents asserts that the given file in the
+// given directory has the given contents.
+func assertFileContents(c *C, dir, file, contents string, mode os.FileMode) {
+	file = filepath.Join(dir, file)
+	info, err := os.Stat(file)
+	c.Assert(err, IsNil)
+	c.Assert(info.Mode()&(os.ModeType|mode), Equals, mode)
+	data, err := ioutil.ReadFile(file)
+	c.Assert(err, IsNil)
+	c.Assert(string(data), Equals, contents)
+}
+
+// assertDirNames asserts that the given directory
+// holds the given file or directory names.
+func assertDirNames(c *C, dir string, names []string) {
+	f, err := os.Open(dir)
+	c.Assert(err, IsNil)
+	defer f.Close()
+	dnames, err := f.Readdirnames(0)
+	c.Assert(err, IsNil)
+	sort.Strings(dnames)
+	sort.Strings(names)
+	c.Assert(dnames, DeepEquals, names)
+}
+
+func (t *ToolsSuite) TestChangeAgentTools(c *C) {
+	files := []*file{
+		newFile("jujuc", tar.TypeReg, "juju executable"),
+		newFile("jujud", tar.TypeReg, "jujuc executable"),
+	}
+	tools := &state.Tools{
+		URL:    "http://foo/bar1",
+		Binary: version.MustParseBinary("1.2.3-foo-bar"),
+	}
+	err := environs.UnpackTools(tools, bytes.NewReader(makeArchive(files...)))
+	c.Assert(err, IsNil)
+
+	gotTools, err := environs.ChangeAgentTools("testagent", tools.Binary)
+	c.Assert(err, IsNil)
+	c.Assert(*gotTools, Equals, *tools)
+
+	assertDirNames(c, toolsDir(), []string{"1.2.3-foo-bar", "testagent"})
+	assertDirNames(c, environs.AgentToolsDir("testagent"), []string{"jujuc", "jujud", urlFile})
+
+	// Upgrade again to check that the link replacement logic works ok.
+	files2 := []*file{
+		newFile("foo", tar.TypeReg, "foo content"),
+		newFile("bar", tar.TypeReg, "bar content"),
+	}
+	tools2 := &state.Tools{
+		URL:    "http://foo/bar2",
+		Binary: version.MustParseBinary("1.2.4-foo-bar"),
+	}
+	err = environs.UnpackTools(tools2, bytes.NewReader(makeArchive(files2...)))
+	c.Assert(err, IsNil)
+
+	gotTools, err = environs.ChangeAgentTools("testagent", tools2.Binary)
+	c.Assert(err, IsNil)
+	c.Assert(*gotTools, Equals, *tools2)
+
+	assertDirNames(c, toolsDir(), []string{"1.2.3-foo-bar", "1.2.4-foo-bar", "testagent"})
+	assertDirNames(c, environs.AgentToolsDir("testagent"), []string{"foo", "bar", urlFile})
+}
+
+// gzyesses holds the result of running:
+// yes | head -17000 | gzip
+var gzyesses = []byte{
+	0x1f, 0x8b, 0x08, 0x00, 0x29, 0xae, 0x1a, 0x50,
+	0x00, 0x03, 0xed, 0xc2, 0x31, 0x0d, 0x00, 0x00,
+	0x00, 0x02, 0xa0, 0xdf, 0xc6, 0xb6, 0xb7, 0x87,
+	0x63, 0xd0, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x38, 0x31, 0x53, 0xad, 0x03,
+	0x8d, 0xd0, 0x84, 0x00, 0x00,
+}
+
+type file struct {
+	header   tar.Header
+	contents string
+}
+
+func newFile(name string, ftype byte, contents string) *file {
+	return &file{
+		header: tar.Header{
+			Typeflag:   ftype,
+			Name:       name,
+			Size:       int64(len(contents)),
+			Mode:       0777,
+			ModTime:    time.Now(),
+			AccessTime: time.Now(),
+			ChangeTime: time.Now(),
+			Uname:      "ubuntu",
+			Gname:      "ubuntu",
+		},
+		contents: contents,
+	}
+}
+
+func makeArchive(files ...*file) []byte {
+	var buf bytes.Buffer
+	gzw := gzip.NewWriter(&buf)
+	tarw := tar.NewWriter(gzw)
+
+	for _, f := range files {
+		err := tarw.WriteHeader(&f.header)
+		if err != nil {
+			panic(err)
+		}
+		_, err = tarw.Write([]byte(f.contents))
+		if err != nil {
+			panic(err)
+		}
+	}
+	err := tarw.Close()
+	if err != nil {
+		panic(err)
+	}
+	err = gzw.Close()
+	if err != nil {
+		panic(err)
+	}
+	return buf.Bytes()
+}
+
 type toolsSpec struct {
 	version string
 	os      string
@@ -150,84 +439,84 @@ var findToolsTests = []struct {
 }{{
 	// current version should be satisfied by current tools path.
 	version:  version.Current.Number,
-	contents: []string{environs.ToolsPath(version.Current)},
-	expect:   environs.ToolsPath(version.Current),
+	contents: []string{environs.ToolsStoragePath(version.Current)},
+	expect:   environs.ToolsStoragePath(version.Current),
 }, {
 	// major versions don't match.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		mkToolsPath("0.0.9"),
+		mkToolsStoragePath("0.0.9"),
 	},
 	err: "no compatible tools found",
 }, {
 	// major versions don't match.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		mkToolsPath("2.0.9"),
+		mkToolsStoragePath("2.0.9"),
 	},
 	err: "no compatible tools found",
 }, {
 	// fall back to public storage when nothing found in private.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		mkToolsPath("0.0.9"),
+		mkToolsStoragePath("0.0.9"),
 	},
 	publicContents: []string{
-		mkToolsPath("1.0.0"),
+		mkToolsStoragePath("1.0.0"),
 	},
-	expect: "public-" + mkToolsPath("1.0.0"),
+	expect: "public-" + mkToolsStoragePath("1.0.0"),
 }, {
 	// always use private storage in preference to public storage.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		mkToolsPath("1.0.2"),
+		mkToolsStoragePath("1.0.2"),
 	},
 	publicContents: []string{
-		mkToolsPath("1.0.9"),
+		mkToolsStoragePath("1.0.9"),
 	},
-	expect: mkToolsPath("1.0.2"),
+	expect: mkToolsStoragePath("1.0.2"),
 }, {
 	// we'll use an earlier version if the major version number matches.
 	version: mkVersion("1.99.99"),
 	contents: []string{
-		mkToolsPath("1.0.0"),
+		mkToolsStoragePath("1.0.0"),
 	},
-	expect: mkToolsPath("1.0.0"),
+	expect: mkToolsStoragePath("1.0.0"),
 }, {
 	// check that version comparing is numeric, not alphabetical.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		mkToolsPath("1.0.9"),
-		mkToolsPath("1.0.10"),
-		mkToolsPath("1.0.11"),
+		mkToolsStoragePath("1.0.9"),
+		mkToolsStoragePath("1.0.10"),
+		mkToolsStoragePath("1.0.11"),
 	},
-	expect: mkToolsPath("1.0.11"),
+	expect: mkToolsStoragePath("1.0.11"),
 }, {
 	// minor version wins over patch version.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		mkToolsPath("1.9.11"),
-		mkToolsPath("1.10.10"),
-		mkToolsPath("1.11.9"),
+		mkToolsStoragePath("1.9.11"),
+		mkToolsStoragePath("1.10.10"),
+		mkToolsStoragePath("1.11.9"),
 	},
-	expect: mkToolsPath("1.11.9"),
+	expect: mkToolsStoragePath("1.11.9"),
 }, {
 	// mismatching series or architecture is ignored.
 	version: mkVersion("1.0.0"),
 	contents: []string{
-		environs.ToolsPath(version.Binary{
+		environs.ToolsStoragePath(version.Binary{
 			Number: mkVersion("1.9.9"),
 			Series: "foo",
 			Arch:   version.Current.Arch,
 		}),
-		environs.ToolsPath(version.Binary{
+		environs.ToolsStoragePath(version.Binary{
 			Number: mkVersion("1.9.9"),
 			Series: version.Current.Series,
 			Arch:   "foo",
 		}),
-		mkToolsPath("1.0.0"),
+		mkToolsStoragePath("1.0.0"),
 	},
-	expect: mkToolsPath("1.0.0"),
+	expect: mkToolsStoragePath("1.0.0"),
 },
 }
 

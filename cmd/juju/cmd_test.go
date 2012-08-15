@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -170,11 +171,20 @@ func (*cmdSuite) TestBootstrapCommand(c *C) {
 	c.Assert(err, IsNil)
 	env, err := envs.Open("peckham")
 	c.Assert(err, IsNil)
-	dir := c.MkDir()
+
+	oldVarDir := environs.VarDir
+	defer func() {
+		environs.VarDir = oldVarDir
+	}()
+	environs.VarDir = c.MkDir()
 
 	tools, err := environs.FindTools(env, version.Current)
 	c.Assert(err, IsNil)
-	err = environs.GetTools(tools.URL, dir)
+	resp, err := http.Get(tools.URL)
+	c.Assert(err, IsNil)
+	defer resp.Body.Close()
+
+	err = environs.UnpackTools(tools, resp.Body)
 	c.Assert(err, IsNil)
 
 	// bootstrap with broken environment
@@ -261,6 +271,53 @@ func (*cmdSuite) TestDeployCommandInit(c *C) {
 	// bad unit count
 	_, err = initDeployCommand("charm-name", "--num-units", "0")
 	c.Assert(err, ErrorMatches, "must deploy at least one unit")
+	_, err = initDeployCommand("charm-name", "-n", "0")
+	c.Assert(err, ErrorMatches, "must deploy at least one unit")
+
+	// environment tested elsewhere
+}
+
+func initAddUnitCommand(args ...string) (*AddUnitCommand, error) {
+	com := &AddUnitCommand{}
+	return com, com.Init(newFlagSet(), args)
+}
+
+func (*cmdSuite) TestAddUnitCommandInit(c *C) {
+	// missing args
+	_, err := initAddUnitCommand()
+	c.Assert(err, ErrorMatches, "no service specified")
+
+	// bad unit count
+	_, err = initAddUnitCommand("service-name", "--num-units", "0")
+	c.Assert(err, ErrorMatches, "must add at least one unit")
+	_, err = initAddUnitCommand("service-name", "-n", "0")
+	c.Assert(err, ErrorMatches, "must add at least one unit")
+
+	// environment tested elsewhere
+}
+
+func initExposeCommand(args ...string) (*ExposeCommand, error) {
+	com := &ExposeCommand{}
+	return com, com.Init(newFlagSet(), args)
+}
+
+func (*cmdSuite) TestExposeCommandInit(c *C) {
+	// missing args
+	_, err := initExposeCommand()
+	c.Assert(err, ErrorMatches, "no service name specified")
+
+	// environment tested elsewhere
+}
+
+func initUnexposeCommand(args ...string) (*UnexposeCommand, error) {
+	com := &UnexposeCommand{}
+	return com, com.Init(newFlagSet(), args)
+}
+
+func (*cmdSuite) TestUnexposeCommandInit(c *C) {
+	// missing args
+	_, err := initUnexposeCommand()
+	c.Assert(err, ErrorMatches, "no service name specified")
 
 	// environment tested elsewhere
 }

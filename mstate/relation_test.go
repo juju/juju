@@ -174,115 +174,96 @@ func (s *RelationSuite) TestLifecycle(c *C) {
 var stateChanges = []struct {
 	cached, desired    state.Life
 	dbinitial, dbfinal state.Life
-	panic              bool
-	panicMessage       string
+	panic              string
 }{
 	{
 		state.Alive, state.Alive,
 		state.Alive, state.Alive,
-		true,
 		`invalid lifecycle state change from "alive" to "alive"`,
 	},
 	{
 		state.Alive, state.Alive,
 		state.Dying, state.Dying,
-		true,
 		`invalid lifecycle state change from "alive" to "alive"`,
 	},
 	{
 		state.Alive, state.Alive,
 		state.Dead, state.Dead,
-		true,
 		`invalid lifecycle state change from "alive" to "alive"`,
 	},
 	{
 		state.Alive, state.Dying,
 		state.Alive, state.Dying,
-		false,
 		"",
 	},
 	{
 		state.Alive, state.Dying,
 		state.Dying, state.Dying,
-		false,
 		"",
 	},
 	{
 		state.Alive, state.Dying,
 		state.Dead, state.Dead,
-		false,
 		"",
 	},
 	{
 		state.Alive, state.Dead,
 		state.Alive, state.Alive,
-		true,
 		`invalid lifecycle state change from "alive" to "dead"`,
 	},
 	{
 		state.Alive, state.Dead,
 		state.Dying, state.Dying,
-		true,
 		`invalid lifecycle state change from "alive" to "dead"`,
 	},
 	{
 		state.Alive, state.Dead,
 		state.Dead, state.Dead,
-		true,
 		`invalid lifecycle state change from "alive" to "dead"`,
 	},
 	{
 		state.Dying, state.Alive,
 		state.Dying, state.Dying,
-		true,
 		`invalid lifecycle state change from "dying" to "alive"`,
 	},
 	{
 		state.Dying, state.Alive,
 		state.Dead, state.Dead,
-		true,
 		`invalid lifecycle state change from "dying" to "alive"`,
 	},
 	{
 		state.Dying, state.Dying,
 		state.Dying, state.Dying,
-		false,
 		"",
 	},
 	{
 		state.Dying, state.Dying,
 		state.Dead, state.Dead,
-		false,
 		"",
 	},
 	{
 		state.Dying, state.Dead,
 		state.Dying, state.Dead,
-		false,
 		"",
 	},
 	{
 		state.Dying, state.Dead,
 		state.Dead, state.Dead,
-		false,
 		"",
 	},
 	{
 		state.Dead, state.Alive,
 		state.Dead, state.Dead,
-		true,
 		`invalid lifecycle state change from "dead" to "alive"`,
 	},
 	{
 		state.Dead, state.Dying,
 		state.Dead, state.Dead,
-		true,
 		`invalid lifecycle state change from "dead" to "dying"`,
 	},
 	{
 		state.Dead, state.Dead,
 		state.Dead, state.Dead,
-		false,
 		"",
 	},
 }
@@ -302,8 +283,8 @@ func (s *RelationSuite) TestLifecycleStateChanges(c *C) {
 			Life: v.cached,
 		}
 		r := createRelationFromDoc(c, s, &doc, v.dbinitial)
-		if v.panic {
-			c.Assert(func() { r.SetLife(v.desired) }, PanicMatches, v.panicMessage)
+		if v.panic != "" {
+			c.Assert(func() { r.SetLife(v.desired) }, PanicMatches, v.panic)
 		} else {
 			r.SetLife(v.desired)
 		}
