@@ -5,6 +5,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
+	"strings"
 	"time"
 )
 
@@ -65,104 +66,72 @@ func testAgentTools(c *C, obj tooler, agent string) {
 	c.Assert(t4, DeepEquals, t0)
 }
 
-// toolSetter provides an interface that lets us test a tools watcher
-// independently of whether we are watching current or proposed tools.
-type toolSetter interface {
-	setTools(t *state.Tools) error
-	setOtherTools(t *state.Tools) error
-	watch() *state.AgentToolsWatcher
-}
-
-type agentToolsSetter struct {
-	t tooler
-}
-
-func (s agentToolsSetter) setTools(t *state.Tools) error {
-	return s.t.SetAgentTools(t)
-}
-func (s agentToolsSetter) setOtherTools(t *state.Tools) error {
-	return s.t.ProposeAgentTools(t)
-}
-func (s agentToolsSetter) watch() *state.AgentToolsWatcher {
-	return s.t.WatchAgentTools()
-}
-
-type proposedAgentToolsSetter struct {
-	t tooler
-}
-
-func (s proposedAgentToolsSetter) setTools(t *state.Tools) error {
-	return s.t.ProposeAgentTools(t)
-}
-func (s proposedAgentToolsSetter) setOtherTools(t *state.Tools) error {
-	return s.t.SetAgentTools(t)
-}
-func (s proposedAgentToolsSetter) watch() *state.AgentToolsWatcher {
-	return s.t.WatchProposedAgentTools()
-}
-
 var agentToolsWatcherTests = []struct {
-	test func(t toolSetter) error
+	version string
+	url string
+	other bool		// whether to set the "other" tools (current <-> proposed)
 	want *state.Tools
 }{
 	{
-		func(t toolSetter) error { return nil },
-		&state.Tools{},
+		want: &state.Tools{},
 	},
 	{
-		func(t toolSetter) error {
-			return t.setTools(newTools("7.8.9-foo-bar", "http://arble.tgz"))
-		},
-		newTools("7.8.9-foo-bar", "http://arble.tgz"),
+		version:  "7.8.9-foo-bar",
+		url: "http://arble.tgz",
+		want: newTools("7.8.9-foo-bar", "http://arble.tgz"),
 	},
 	{
-		func(t toolSetter) error {
-			return t.setTools(newTools("7.8.9-foo-bar", "http://foo.com"))
-		},
-		newTools("7.8.9-foo-bar", "http://foo.com"),
+		version: "7.8.9-foo-bar",
+		url: "http://foo.com",
+		want: newTools("7.8.9-foo-bar", "http://foo.com"),
 	},
 	{
-		func(t toolSetter) error {
-			return t.setTools(newTools("1.1.1-x-y", "http://foo.com"))
-		},
-		newTools("1.1.1-x-y", "http://foo.com"),
+		version: "1.1.1-x-y",
+		url: "http://foo.com",
+		want: newTools("1.1.1-x-y", "http://foo.com"),
 	},
 	{
-		func(t toolSetter) error {
-			return t.setTools(newTools("1.1.1-x-y", "http://foo.com"))
-		},
-		nil,
+		version: "1.1.1-x-y",
+		url: "http://foo.com",
+		want: nil,
 	},
 	{
-		func(t toolSetter) error {
-			return t.setOtherTools(newTools("1.1.1-x-y", "http://nowhere"))
-		},
-		nil,
+		other: true,
+		version: "1.1.1-x-y",
+		url: "http://nowhere",
+		want: nil,
 	},
 }
 
-func testAgentToolsWatcher(c *C, setter toolSetter, kind string) {
+func testAgentToolsWatcher(c *C, t tooler, w *state.AgentToolsWatcher, kind string) {
 	c.Logf("watcher tests for %v tools", kind)
-	w := setter.watch()
-	for i, t := range agentToolsWatcherTests {
+	current := strings.HasSuffix(kind, "current")
+	for i, test := range agentToolsWatcherTests {
 		c.Logf("test %d", i)
-		err := t.test(setter)
-		c.Assert(err, IsNil)
+		if test.version != "" {
+			if current != test.other {
+				err := t.SetAgentTools(newTools(test.version, test.url))
+				c.Assert(err, IsNil)
+			} else {
+				err := t.ProposeAgentTools(newTools(test.version, test.url))
+				c.Assert(err, IsNil)
+			}
+		}
 		timeout := 200 * time.Millisecond
-		if t.want == nil {
+		if test.want == nil {
 			timeout /= 2
 		}
 		select {
 		case got, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
-			if t.want == nil {
+			if test.want == nil {
 				c.Fatalf("got change %v; expected nothing", got)
 			} else {
-				c.Assert(got, DeepEquals, t.want)
+				c.Assert(got, DeepEquals, test.want)
 			}
 		case <-time.After(timeout):
-			if t.want != nil {
-				c.Fatalf("got no change, expected %v", t.want)
+			if test.want != nil {
+				c.Fatalf("got no change, expected %v", test.want)
 			}
 		}
 	}
@@ -175,11 +144,11 @@ func (s *ToolsSuite) TestMachineAgentTools(c *C) {
 
 	m, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
-	testAgentToolsWatcher(c, agentToolsSetter{m}, "machine current")
+	testAgentToolsWatcher(c, m, m.WatchAgentTools(), "machine current")
 
 	m, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
-	testAgentToolsWatcher(c, proposedAgentToolsSetter{m}, "machine proposed")
+	testAgentToolsWatcher(c, m, m.WatchProposedAgentTools(), "machine proposed")
 }
 
 func (s *ToolsSuite) TestUnitAgentTools(c *C) {
@@ -192,9 +161,9 @@ func (s *ToolsSuite) TestUnitAgentTools(c *C) {
 
 	unit, err = svc.AddUnit()
 	c.Assert(err, IsNil)
-	testAgentToolsWatcher(c, agentToolsSetter{unit}, "unit current")
+	testAgentToolsWatcher(c, unit, unit.WatchAgentTools(), "unit current")
 
 	unit, err = svc.AddUnit()
 	c.Assert(err, IsNil)
-	testAgentToolsWatcher(c, proposedAgentToolsSetter{unit}, "unit proposed")
+	testAgentToolsWatcher(c, unit, unit.WatchProposedAgentTools(), "unit proposed")
 }
