@@ -4,7 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/testing"
+	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/machiner"
 	stdtesting "testing"
@@ -17,18 +17,18 @@ func TestPackage(t *stdtesting.T) {
 
 type MachinerSuite struct {
 	coretesting.LoggingSuite
-	testing.StateSuite
+	testing.JujuConnSuite
 }
 
 var _ = Suite(&MachinerSuite{})
 
 func (s *MachinerSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.StateSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
 }
 
 func (s *MachinerSuite) TearDownTest(c *C) {
-	s.StateSuite.TearDownTest(c)
+	s.JujuConnSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
