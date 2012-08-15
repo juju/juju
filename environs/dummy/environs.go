@@ -192,11 +192,9 @@ func (s *environState) listen() {
 	go http.Serve(l, mux)
 }
 
-// Listen closes the previously registered listener (if any),
-// and if c is not nil registers it to receive notifications 
-// of follow up operations in the environment.
-// Environments opened before Listen is called will
-// not be affected.
+// Listen closes the previously registered listener (if any).
+// Subsequent operations on any dummy environment can be received on c
+// (if not nil).
 func Listen(c chan<- Operation) {
 	p := &providerInstance
 	p.mu.Lock()
@@ -208,6 +206,11 @@ func Listen(c chan<- Operation) {
 		close(p.ops)
 	}
 	p.ops = c
+	for _, st := range p.state {
+		st.mu.Lock()
+		st.ops = c
+		st.mu.Unlock()
+	}
 }
 
 var checker = schema.StrictFieldMap(
