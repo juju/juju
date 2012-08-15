@@ -150,7 +150,7 @@ func (s *RelationSuite) TestLifecycle(c *C) {
 	c.Assert(life, Equals, state.Dying)
 
 	// Check invalid next state.
-	c.Assert(func() { rel.SetLife(state.Alive) }, PanicMatches, `invalid lifecycle state change from "dying" to "alive"`)
+	c.Assert(func() { rel.SetLife(state.Alive) }, PanicMatches, "cannot set life to alive")
 
 	// Check legal repeated state setting.
 	err = rel.SetLife(state.Dying)
@@ -168,7 +168,7 @@ func (s *RelationSuite) TestLifecycle(c *C) {
 	c.Assert(life, Equals, state.Dead)
 
 	// Check invalid next state.
-	c.Assert(func() { rel.SetLife(state.Alive) }, PanicMatches, `invalid lifecycle state change from "dead" to "alive"`)
+	c.Assert(func() { rel.SetLife(state.Alive) }, PanicMatches, "cannot set life to alive")
 }
 
 var stateChanges = []struct {
@@ -179,17 +179,17 @@ var stateChanges = []struct {
 	{
 		state.Alive, state.Alive,
 		state.Alive, state.Alive,
-		`invalid lifecycle state change from "alive" to "alive"`,
+		`cannot set life to alive`,
 	},
 	{
 		state.Alive, state.Alive,
 		state.Dying, state.Dying,
-		`invalid lifecycle state change from "alive" to "alive"`,
+		`cannot set life to alive`,
 	},
 	{
 		state.Alive, state.Alive,
 		state.Dead, state.Dead,
-		`invalid lifecycle state change from "alive" to "alive"`,
+		`cannot set life to alive`,
 	},
 	{
 		state.Alive, state.Dying,
@@ -208,28 +208,28 @@ var stateChanges = []struct {
 	},
 	{
 		state.Alive, state.Dead,
-		state.Alive, state.Alive,
-		`invalid lifecycle state change from "alive" to "dead"`,
+		state.Alive, state.Dead,
+		"",
 	},
 	{
 		state.Alive, state.Dead,
-		state.Dying, state.Dying,
-		`invalid lifecycle state change from "alive" to "dead"`,
+		state.Dying, state.Dead,
+		"",
 	},
 	{
 		state.Alive, state.Dead,
 		state.Dead, state.Dead,
-		`invalid lifecycle state change from "alive" to "dead"`,
+		"",
 	},
 	{
 		state.Dying, state.Alive,
 		state.Dying, state.Dying,
-		`invalid lifecycle state change from "dying" to "alive"`,
+		`cannot set life to alive`,
 	},
 	{
 		state.Dying, state.Alive,
 		state.Dead, state.Dead,
-		`invalid lifecycle state change from "dying" to "alive"`,
+		`cannot set life to alive`,
 	},
 	{
 		state.Dying, state.Dying,
@@ -254,12 +254,12 @@ var stateChanges = []struct {
 	{
 		state.Dead, state.Alive,
 		state.Dead, state.Dead,
-		`invalid lifecycle state change from "dead" to "alive"`,
+		`cannot set life to alive`,
 	},
 	{
 		state.Dead, state.Dying,
 		state.Dead, state.Dead,
-		`invalid lifecycle state change from "dead" to "dying"`,
+		"",
 	},
 	{
 		state.Dead, state.Dead,
