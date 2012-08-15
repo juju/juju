@@ -2,13 +2,13 @@ package main
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/state/testing"
+	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 )
 
 type BootstrapSuite struct {
 	coretesting.LoggingSuite
-	testing.StateSuite
+	testing.JujuConnSuite
 	path string
 }
 
@@ -17,11 +17,11 @@ var _ = Suite(&BootstrapSuite{})
 func (s *BootstrapSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.path = "/watcher"
-	s.StateSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
 }
 
 func (s *BootstrapSuite) TearDownTest(c *C) {
-	s.StateSuite.TearDownTest(c)
+	s.JujuConnSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
