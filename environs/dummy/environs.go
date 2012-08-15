@@ -266,7 +266,12 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	state := p.state[name]
 	if state == nil {
 		if ecfg.zookeeper() && len(p.state) != 0 {
-			panic("cannot share a zookeeper between two dummy environs")
+			var old string
+			for oldName := range p.state {
+				old = oldName
+				break
+			}
+			panic(fmt.Errorf("cannot share a zookeeper between two dummy environs; old %q; new %q", old, name))
 		}
 		state = newState(name, p.ops)
 		p.state[name] = state
