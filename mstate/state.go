@@ -45,7 +45,7 @@ func (s *State) AddMachine() (m *Machine, err error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Machine{st: s, id: id}, nil
+	return newMachine(s, &mdoc), nil
 }
 
 // RemoveMachine removes the machine with the the given id.
@@ -67,8 +67,8 @@ func (s *State) AllMachines() (machines []*Machine, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all machines: %v", err)
 	}
-	for _, v := range mdocs {
-		machines = append(machines, &Machine{st: s, id: v.Id})
+	for _, doc := range mdocs {
+		machines = append(machines, newMachine(s, &doc))
 	}
 	return
 }
@@ -81,7 +81,7 @@ func (s *State) Machine(id int) (*Machine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot get machine %d: %v", id, err)
 	}
-	return &Machine{st: s, id: mdoc.Id}, nil
+	return newMachine(s, mdoc), nil
 }
 
 // AddCharm adds the ch charm with curl to the state.  bundleUrl must be
@@ -191,7 +191,7 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 		if v.RelationScope == charm.ScopeContainer {
 			scope = charm.ScopeContainer
 		}
-		// BUG potential race in the time between getting the service
+		// BUG(aram): potential race in the time between getting the service
 		// to validate the endpoint and actually writting the relation
 		// into MongoDB; the service might have disappeared.
 		_, err = s.Service(v.ServiceName)
@@ -237,7 +237,7 @@ func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error)
 func (s *State) RemoveRelation(r *Relation) (err error) {
 	defer errorContextf(&err, "cannot remove relation %q", r.doc.Key)
 
-	// TODO panic if life is not dead after implementing lifecycle.
+	// TODO(aram): panic if life is not dead after implementing lifecycle.
 	sel := bson.D{{"_id", r.doc.Id}}
 	err = s.relations.Remove(sel)
 	if err != nil {

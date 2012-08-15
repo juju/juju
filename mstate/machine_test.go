@@ -30,8 +30,9 @@ func (s *MachineSuite) TestMachineInstanceId(c *C) {
 	)
 	c.Assert(err, IsNil)
 
-	iid, err := machine.InstanceId()
+	err = machine.Refresh()
 	c.Assert(err, IsNil)
+	iid, _ := machine.InstanceId()
 	c.Assert(iid, Equals, "spaceship/0")
 }
 
@@ -44,6 +45,25 @@ func (s *MachineSuite) TestMachineSetInstanceId(c *C) {
 	n, err := s.machines.Find(bson.D{{"instanceid", "umbrella/0"}}).Count()
 	c.Assert(err, IsNil)
 	c.Assert(n, Equals, 1)
+}
+
+func (s *MachineSuite) TestMachineRefresh(c *C) {
+	m0, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	oldId, _ := m0.InstanceId()
+
+	m1, err := s.State.Machine(m0.Id())
+	c.Assert(err, IsNil)
+	err = m0.SetInstanceId("umbrella/0")
+	c.Assert(err, IsNil)
+	newId, _ := m0.InstanceId()
+
+	m1Id, _ := m1.InstanceId()
+	c.Assert(m1Id, Equals, oldId)
+	err = m1.Refresh()
+	c.Assert(err, IsNil)
+	m1Id, _ = m1.InstanceId()
+	c.Assert(m1Id, Equals, newId)
 }
 
 func (s *MachineSuite) TestMachineUnits(c *C) {
