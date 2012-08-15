@@ -2,6 +2,7 @@ package mstate
 
 import (
 	"fmt"
+	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/juju-core/charm"
 	"sort"
@@ -111,11 +112,8 @@ func (r *Relation) Life() Life {
 	return r.doc.Life
 }
 
-// SetLife sets the lifecycle of the relation. The state transition is valid
-// if and only if life ≥ r.doc.Life and life ≠ Alive. The function has an
-// effect only if the lifecycle state in the database is equal to the cached
-// state. If the lifecycle transitioned concurrently so that the cache is
-// stale, the call is valid but will yield no effect in the database.
+// SetLife changes the lifecycle state of the relation.
+// See the Life type for more details.
 func (r *Relation) SetLife(life Life) error {
 	if !transitions[r.doc.Life][life] {
 		panic(fmt.Errorf("invalid lifecycle state change from %q to %q", r.doc.Life, life))
@@ -127,10 +125,8 @@ func (r *Relation) SetLife(life Life) error {
 		{"life", bson.D{{"$lte", life}}},
 	}
 	change := bson.D{{"$set", bson.D{{"life", life}}}}
-	// UpdateAll instead of Update so it will not error out if it can't
-	// find the relation with constraints in sel.
-	_, err := r.st.relations.UpdateAll(sel, change)
-	if err != nil {
+	err := r.st.relations.Update(sel, change)
+	if err != nil && err != mgo.ErrNotFound {
 		return fmt.Errorf("cannot set life to %v for relation %v: %v", life, r, err)
 	}
 	r.doc.Life = life
