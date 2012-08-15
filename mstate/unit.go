@@ -56,8 +56,8 @@ type unitDoc struct {
 	Name           string `bson:"_id"`
 	Service        string
 	Principal      string
-	PublicAddress  *string
-	PrivateAddress *string
+	PublicAddress  string
+	PrivateAddress string
 	MachineId      *int
 	Resolved       ResolvedMode
 	NeedsUpgrade   *NeedsUpgrade
@@ -105,18 +105,18 @@ func (u *Unit) IsPrincipal() bool {
 
 // PublicAddress returns the public address of the unit.
 func (u *Unit) PublicAddress() (string, error) {
-	if u.doc.PublicAddress == nil {
+	if u.doc.PublicAddress == "" {
 		return "", fmt.Errorf("public address of unit %q not found", u)
 	}
-	return *u.doc.PublicAddress, nil
+	return u.doc.PublicAddress, nil
 }
 
 // PrivateAddress returns the public address of the unit.
 func (u *Unit) PrivateAddress() (string, error) {
-	if u.doc.PrivateAddress == nil {
+	if u.doc.PrivateAddress == "" {
 		return "", fmt.Errorf("private address of unit %q not found", u)
 	}
-	return *u.doc.PrivateAddress, nil
+	return u.doc.PrivateAddress, nil
 }
 
 func (u *Unit) Refresh() error {
@@ -187,7 +187,7 @@ func (u *Unit) SetPublicAddress(address string) error {
 	if err != nil {
 		return fmt.Errorf("cannot set public address of unit %q: %v", u, err)
 	}
-	u.doc.PublicAddress = &address
+	u.doc.PublicAddress = address
 	return nil
 }
 
@@ -199,7 +199,7 @@ func (u *Unit) SetPrivateAddress(address string) error {
 	if err != nil {
 		return fmt.Errorf("cannot set private address of unit %q: %v", u, err)
 	}
-	u.doc.PrivateAddress = &address
+	u.doc.PrivateAddress = address
 	return nil
 }
 
