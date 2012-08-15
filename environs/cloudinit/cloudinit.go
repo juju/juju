@@ -1,8 +1,9 @@
-package environs
+package cloudinit
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/cloudinit"
+	ci "launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/upstart"
@@ -57,17 +58,17 @@ func (e requiresError) Error() string {
 	return "invalid machine configuration: missing " + string(e)
 }
 
-func addScripts(c *cloudinit.Config, scripts ...string) {
+func addScripts(c *ci.Config, scripts ...string) {
 	for _, s := range scripts {
 		c.AddRunCmd(s)
 	}
 }
 
-func NewCloudInit(cfg *MachineConfig) (*cloudinit.Config, error) {
+func NewCloudInit(cfg *MachineConfig) (*ci.Config, error) {
 	if err := verifyConfig(cfg); err != nil {
 		return nil, err
 	}
-	c := cloudinit.New()
+	c := ci.New()
 
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.AddPackage("libzookeeper-mt2")
@@ -78,7 +79,7 @@ func NewCloudInit(cfg *MachineConfig) (*cloudinit.Config, error) {
 	}
 
 	addScripts(c,
-		fmt.Sprintf("sudo mkdir -p %s", VarDir),
+		fmt.Sprintf("sudo mkdir -p %s", environs.VarDir),
 		"sudo mkdir -p /var/log/juju")
 
 	// Make a directory for the tools to live in, then fetch the
@@ -122,15 +123,15 @@ func NewCloudInit(cfg *MachineConfig) (*cloudinit.Config, error) {
 	// general options
 	c.SetAptUpgrade(true)
 	c.SetAptUpdate(true)
-	c.SetOutput(cloudinit.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
+	c.SetOutput(ci.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
 	return c, nil
 }
 
-func addAgentScript(c *cloudinit.Config, cfg *MachineConfig, name, args string) error {
+func addAgentScript(c *ci.Config, cfg *MachineConfig, name, args string) error {
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
-	toolsDir := AgentToolsDir(name)
+	toolsDir := environs.AgentToolsDir(name)
 	addScripts(c, fmt.Sprintf("ln -s $bin %s", toolsDir))
 	svc := upstart.NewService(fmt.Sprintf("jujud-%s", name))
 	cmd := fmt.Sprintf(
@@ -160,7 +161,7 @@ func versionDir(toolsURL string) string {
 }
 
 func (cfg *MachineConfig) jujuTools() string {
-	return ToolsDir(cfg.Tools.Binary)
+	return environs.ToolsDir(cfg.Tools.Binary)
 }
 
 func (cfg *MachineConfig) zookeeperHostAddrs() string {

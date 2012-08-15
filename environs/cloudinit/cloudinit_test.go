@@ -1,9 +1,10 @@
-package environs_test
+package cloudinit_test
 
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 	"regexp"
@@ -63,7 +64,7 @@ func (t *cloudinitTest) check(c *C) {
 		t.checkPackage(c, "zookeeperd")
 		t.checkScripts(c, "jujud bootstrap-state")
 		t.checkScripts(c, regexp.QuoteMeta(t.cfg.InstanceIdAccessor))
-		t.checkScripts(c, "JUJU_ZOOKEEPER='localhost"+environs.ZkPortSuffix+"'")
+		t.checkScripts(c, "JUJU_ZOOKEEPER='localhost"+cloudinit.ZkPortSuffix+"'")
 	} else {
 		t.checkScripts(c, "JUJU_ZOOKEEPER='"+strings.Join(t.cfg.StateInfo.Addrs, ",")+"'")
 	}
@@ -71,11 +72,11 @@ func (t *cloudinitTest) check(c *C) {
 	t.checkScripts(c, "JUJU_MACHINE_ID=[0-9]+")
 
 	if t.cfg.Provisioner {
-		t.checkScripts(c, "jujud provisioning --zookeeper-servers 'localhost"+environs.ZkPortSuffix+"'")
+		t.checkScripts(c, "jujud provisioning --zookeeper-servers 'localhost"+cloudinit.ZkPortSuffix+"'")
 	}
 
 	if t.cfg.Zookeeper {
-		t.checkScripts(c, "jujud machine --zookeeper-servers 'localhost"+environs.ZkPortSuffix+"' .* --machine-id [0-9]+")
+		t.checkScripts(c, "jujud machine --zookeeper-servers 'localhost"+cloudinit.ZkPortSuffix+"' .* --machine-id [0-9]+")
 	} else {
 		t.checkScripts(c, "jujud machine --zookeeper-servers '"+strings.Join(t.cfg.StateInfo.Addrs, ",")+"' .* --machine-id [0-9]+")
 	}
