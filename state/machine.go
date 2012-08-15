@@ -24,7 +24,7 @@ func newMachine(st *State, key string) *Machine {
 		key: key,
 	}
 	m.agentTools = agentTools{
-		zk:    st.zk,
+		st:    st,
 		agent: "machine",
 		path:  m.zkPath(),
 	}
