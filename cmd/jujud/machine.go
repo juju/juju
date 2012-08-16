@@ -47,9 +47,14 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	defer a.tomb.Done()
 	for {
 		err := a.runOnce()
-		if a.tomb.Err() != tomb.ErrStillAlive {
-			// Stop requested by user.
-			return err
+		if err == nil {
+			// We have been explicitly stopped.
+			return nil
+		}
+		if ug, ok := err.(*UpgradedError); ok {
+			log.Printf("upgrade to %v from %q", ug.Binary, ug.URL)
+			// Return and let upstart deal with the restart.
+			return nil
 		}
 		time.Sleep(retryDuration)
 		log.Printf("restarting provisioner and firewaller after error: %v", err)

@@ -18,11 +18,11 @@ type Upgrader struct {
 }
 
 type UpgradedError struct {
-	tools *state.Tools
+	*state.Tools
 }
 
 func (e *UpgradedError) Error() string {
-	return fmt.Sprintf("agent has been upgraded to %v (from %q)", e.tools.Binary, e.tools.URL)
+	return fmt.Sprintf("agent has been upgraded to %v (from %q)", e.Binary, e.URL)
 }
 
 type AgentState interface {
