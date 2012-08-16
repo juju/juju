@@ -1,19 +1,20 @@
 package main
+
 import (
 	"bytes"
 	"fmt"
-	"launchpad.net/tomb"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/version"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/testing"
-	coretesting "launchpad.net/juju-core/testing"
-	"time"
 	"io/ioutil"
-	"path/filepath"
+	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
+	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
+	"launchpad.net/tomb"
 	"net"
 	"net/http"
+	"path/filepath"
+	"time"
 )
 
 var _ = Suite(&upgraderSuite{})
@@ -76,7 +77,6 @@ func (s *upgraderSuite) TestUpgraderStop(c *C) {
 		c.Fatalf("upgrader did not stop as expected")
 	}
 }
-
 
 // startUpgrader starts the upgrader using the given machine
 // for observing and changing agent tools.
@@ -207,13 +207,13 @@ func delayedFetch() (url string, started chan bool) {
 type testAgentState struct {
 	tomb.Tomb
 	event chan string
-	m *state.Machine
+	m     *state.Machine
 }
 
 func newTestAgentState(m *state.Machine) *testAgentState {
 	return &testAgentState{
 		event: make(chan string),
-		m: m,
+		m:     m,
 	}
 }
 
