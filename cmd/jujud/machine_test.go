@@ -65,4 +65,8 @@ func (s *MachineSuite) TestRunStop(c *C) {
 	go func() {
 		done <- a.Run(nil)
 	}()
+	err = a.Stop()
+	c.Assert(err, IsNil)
+	c.Assert(<-done, IsNil)
 }
+
