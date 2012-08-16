@@ -6,12 +6,18 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/relation"
 	"strings"
+	stdtesting "testing"
 	"time"
 )
+
+func TestPackage(t *stdtesting.T) {
+	coretesting.ZkTestPackage(t)
+}
 
 type msi map[string]int
 
@@ -273,7 +279,7 @@ func (s *RelationerSuite) TestBreaking(c *C) {
 
 	// Check that we cannot rejoin the relation.
 	f := func() { r.Join() }
-	c.Assert(f, PanicMatches, "breaking unit must not join!")
+	c.Assert(f, PanicMatches, "dying relationer must not join!")
 
 	// ...but the hook stream continues, sending the required changed hook for
 	// u/1 before moving on to a departed, despite the fact that its pinger is
@@ -294,7 +300,7 @@ func (s *RelationerSuite) TestBreaking(c *C) {
 
 	// Check that the relation state has been broken.
 	err = s.dir.State().Validate(hook.Info{Kind: hook.RelationBroken})
-	c.Assert(err, ErrorMatches, "")
+	c.Assert(err, ErrorMatches, ".*: relation is broken and cannot be changed further")
 
 	// TODO: when we have lifecycle handling, veryify that the relation can
 	// be destroyed. Can't see a clean way to do so currently.

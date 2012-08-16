@@ -5,7 +5,12 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"path/filepath"
+	"testing"
 )
+
+func Test(t *testing.T) {
+	TestingT(t)
+}
 
 type StateFileSuite struct{}
 
