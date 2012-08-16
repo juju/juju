@@ -3,10 +3,8 @@ package main
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
-	"launchpad.net/juju-core/state/testing"
-	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/tomb"
 	"time"
 )
@@ -35,33 +33,11 @@ func assertAlive(c *C, a *ProvisioningAgent, alive bool) {
 }
 
 type ProvisioningSuite struct {
-	coretesting.LoggingSuite
-	testing.StateSuite
+	testing.JujuConnSuite
 	op <-chan dummy.Operation
 }
 
 var _ = Suite(&ProvisioningSuite{})
-
-func (s *ProvisioningSuite) SetUpTest(c *C) {
-	s.LoggingSuite.SetUpTest(c)
-
-	env, err := environs.NewFromAttrs(map[string]interface{}{
-		"name":            "testing",
-		"type":            "dummy",
-		"zookeeper":       true,
-		"authorized-keys": "i-am-a-key",
-	})
-	c.Assert(err, IsNil)
-	err = env.Bootstrap(false)
-	c.Assert(err, IsNil)
-
-	s.StateSuite.SetUpTest(c)
-}
-
-func (s *ProvisioningSuite) TearDownTest(c *C) {
-	dummy.Reset()
-	s.LoggingSuite.TearDownTest(c)
-}
 
 func (s *ProvisioningSuite) TestParseSuccess(c *C) {
 	create := func() (cmd.Command, *AgentConf) {

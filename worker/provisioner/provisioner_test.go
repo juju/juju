@@ -6,8 +6,8 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/provisioner"
 	stdtesting "testing"
@@ -18,9 +18,9 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type ProvisionerSuite struct {
-	coretesting.LoggingSuite
-	testing.StateSuite
-	op <-chan dummy.Operation
+	testing.JujuConnSuite
+	op      <-chan dummy.Operation
+	envName string
 }
 
 var _ = Suite(&ProvisionerSuite{})
@@ -31,35 +31,17 @@ var veryShortAttempt = environs.AttemptStrategy{
 }
 
 func (s *ProvisionerSuite) SetUpTest(c *C) {
-	s.LoggingSuite.SetUpTest(c)
-
 	// Create the operations channel with more than enough space
 	// for those tests that don't listen on it.
 	op := make(chan dummy.Operation, 500)
 	dummy.Listen(op)
 	s.op = op
+	s.JujuConnSuite.SetUpTest(c)
 
-	env, err := environs.NewFromAttrs(map[string]interface{}{
-		"name":            "testing",
-		"type":            "dummy",
-		"zookeeper":       true,
-		"authorized-keys": "i-am-a-key",
-	})
+	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	err = env.Bootstrap(false)
-	c.Assert(err, IsNil)
-
-	// Sanity check
-	info, err := env.StateInfo()
-	c.Assert(err, IsNil)
-	c.Assert(info, DeepEquals, s.StateInfo(c))
-
-	s.StateSuite.SetUpTest(c)
-}
-
-func (s *ProvisionerSuite) TearDownTest(c *C) {
-	dummy.Reset()
-	s.LoggingSuite.TearDownTest(c)
+	name, _ := cfg.Get("name")
+	s.envName = name.(string)
 }
 
 // invalidateEnvironment alters the environment configuration
@@ -81,7 +63,7 @@ func (s *ProvisionerSuite) fixEnvironment() error {
 	if err != nil {
 		return err
 	}
-	env.Set("name", "testing")
+	env.Set("name", s.envName)
 	_, err = env.Write()
 	return err
 }
@@ -199,7 +181,9 @@ func (s *ProvisionerSuite) TestProvisionerEnvironmentChange(c *C) {
 }
 
 func (s *ProvisionerSuite) TestProvisionerStopOnStateClose(c *C) {
-	p, err := provisioner.NewProvisioner(s.State)
+	st, err := state.Open(s.StateInfo(c))
+	c.Assert(err, IsNil)
+	p, err := provisioner.NewProvisioner(st)
 	c.Assert(err, IsNil)
 
 	p.CloseState()
