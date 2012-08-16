@@ -73,7 +73,7 @@ func PutTools(storage Storage) (*state.Tools, error) {
 	}
 	defer f.Close()
 	defer os.Remove(f.Name())
-	err = bundleTools(f)
+	vers, err := bundleTools(f)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +85,7 @@ func PutTools(storage Storage) (*state.Tools, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot stat newly made tools archive: %v", err)
 	}
-	p := ToolsStoragePath(version.Current)
+	p := ToolsStoragePath(vers)
 	log.Printf("environs: putting tools %v", p)
 	err = storage.Put(p, f, fi.Size())
 	if err != nil {
@@ -95,7 +95,7 @@ func PutTools(storage Storage) (*state.Tools, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &state.Tools{version.Current, url}, nil
+	return &state.Tools{vers, url}, nil
 }
 
 // archive writes the executable files found in the given directory in
@@ -374,19 +374,33 @@ func setenv(env []string, val string) []string {
 
 // bundleTools bundles all the current juju tools in gzipped tar
 // format to the given writer.
-func bundleTools(w io.Writer) error {
+func bundleTools(w io.Writer) (version.Binary, error) {
 	dir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
-		return err
+		return version.Binary{}, err
 	}
 	defer os.RemoveAll(dir)
 	cmd := exec.Command("go", "install", "launchpad.net/juju-core/cmd/...")
 	cmd.Env = setenv(os.Environ(), "GOBIN="+dir)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("build failed: %v; %s", err, out)
+		return version.Binary{}, fmt.Errorf("build failed: %v; %s", err, out)
 	}
-	return archive(w, dir)
+	cmd = exec.Command(filepath.Join(dir, "jujud"), "version")
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		return version.Binary{}, fmt.Errorf("cannot get version from %q: %v; %s", cmd.Args[0], err, out)
+	}
+	vs := strings.TrimSpace(string(out))
+	vers, err := version.ParseBinary(vs)
+	if err != nil {
+		return version.Binary{}, fmt.Errorf("invalid version %q printed by jujud", vs)
+	}
+	err = archive(w, dir)
+	if err != nil {
+		return version.Binary{}, err
+	}
+	return vers, err
 }
 
 // EmptyStorage holds a StorageReader object that contains nothing.
