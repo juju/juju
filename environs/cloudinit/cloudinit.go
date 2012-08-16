@@ -11,6 +11,8 @@ import (
 	"strings"
 )
 
+// TODO(dfc) duplicated from environs/ec2
+
 const zkPort = 2181
 
 var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
@@ -22,7 +24,7 @@ type MachineConfig struct {
 	// Provisioner specifies whether the new machine will run a provisioning agent.
 	Provisioner bool
 
-	// Zookeeper specifies whether the new machine will run a zookeeper instance.
+	// ZooKeeper specifies whether the new machine will run a zookeeper instance.
 	ZooKeeper bool
 
 	// InstanceIdAccessor holds bash code that evaluates to the current instance id.
@@ -33,7 +35,7 @@ type MachineConfig struct {
 	ProviderType string
 
 	// StateInfo holds the means for the new instance to communicate with the
-	// juju state. Unless the new machine is running zookeeper (Zookeeper is
+	// juju state. Unless the new machine is running zookeeper (ZooKeeper is
 	// set), there must be at least one zookeeper address supplied.
 	StateInfo *state.Info
 
