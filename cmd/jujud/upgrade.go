@@ -6,6 +6,7 @@ import (
 	"launchpad.net/tomb"
 	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/version"
 	"os"
 )
@@ -86,7 +87,10 @@ func (u *Upgrader) run() error {
 		// hangs up) another change to the proposed tools can
 		// potentially fix things.
 		select {
-		case tools := <-w.Changes():
+		case tools, ok := <-w.Changes():
+			if !ok {
+				return watcher.MustErr(w)
+			}
 			// If there's a download in progress, stop it if we need to.
 			if download != nil {
 				// If we are already downloading the requested tools,
@@ -97,9 +101,9 @@ func (u *Upgrader) run() error {
 				download.Stop()
 				download, downloadTools, downloadDone = nil, nil, nil
 			}
-			// There's no need to download anything if we're already running
-			// the proposed version.
-			if *tools == *currentTools {
+			// Ignore the proposed tools if they haven't been set yet
+			// or we're already running the proposed version.
+			if tools.URL == "" || *tools == *currentTools {
 				break
 			}
 			// It's possible the tools are already downloaded - attempt
@@ -114,7 +118,7 @@ func (u *Upgrader) run() error {
 			tools := downloadTools
 			download, downloadTools, downloadDone = nil, nil, nil
 			if status.Err != nil {
-				log.Printf("download %q failed: %v", tools.Binary, tools.URL)
+				log.Printf("download %v from %q failed: %v", tools.Binary, tools.URL, status.Err)
 				break
 			}
 			err := environs.UnpackTools(tools, status.File)
