@@ -46,6 +46,7 @@ func (a *MachineAgent) Stop() error {
 func (a *MachineAgent) Run(_ *cmd.Context) error {
 	defer a.tomb.Done()
 	for {
+		log.Printf("machine agent starting")
 		err := a.runOnce()
 		if err == nil {
 			// We have been explicitly stopped.
@@ -56,8 +57,8 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 			// Return and let upstart deal with the restart.
 			return nil
 		}
+		log.Printf("error from provisioner or firewaller: %v", err)
 		time.Sleep(retryDuration)
-		log.Printf("restarting provisioner and firewaller after error: %v", err)
 	}
 	panic("unreachable")
 }
