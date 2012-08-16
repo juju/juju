@@ -5,6 +5,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 	"time"

@@ -21,6 +21,10 @@ import (
 // inside VarDir.
 var VarDir = "/var/lib/juju"
 
+// PutToolsBuildTags specifies the tags that will be used
+// when PutTools is building the juju tools.
+var PutToolsBuildTags = ""
+
 var toolPrefix = "tools/juju-"
 
 // ListTools returns all the tools found in the given storage
@@ -380,7 +384,7 @@ func bundleTools(w io.Writer) error {
 		return err
 	}
 	defer os.RemoveAll(dir)
-	cmd := exec.Command("go", "install", "launchpad.net/juju-core/cmd/...")
+	cmd := exec.Command("go", "install", "-tags="+PutToolsBuildTags, "launchpad.net/juju-core/cmd/...")
 	cmd.Env = setenv(os.Environ(), "GOBIN="+dir)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
