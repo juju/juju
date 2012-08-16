@@ -1,7 +1,6 @@
 package mstate
 
 import (
-	"fmt"
 	"launchpad.net/juju-core/charm"
 	"net/url"
 )
@@ -23,16 +22,6 @@ type Charm struct {
 
 func newCharm(st *State, cdoc *charmDoc) (*Charm, error) {
 	return &Charm{st: st, doc: *cdoc}, nil
-}
-
-func (c *Charm) Refresh() error {
-	doc := charmDoc{}
-	err := c.st.charms.FindId(c.doc.URL).One(&doc)
-	if err != nil {
-		return fmt.Errorf("cannot refresh charm %v: %v", c, err)
-	}
-	c.doc = doc
-	return nil
 }
 
 // URL returns the URL that identifies the charm.
