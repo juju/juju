@@ -11,15 +11,18 @@ import (
 	"net/url"
 )
 
-// StateSuite provides a pre-bootstrapped juju.Conn
-// for for each test method.
+// JujuConnSuite provides a freshly bootstrapped juju.Conn
+// for each test. It also includes testing.LoggingSuite.
 type JujuConnSuite struct {
+	testing.LoggingSuite
 	testing.ZkSuite
 	Conn  *juju.Conn
 	State *state.State
 }
 
 func (s *JujuConnSuite) SetUpTest(c *C) {
+	s.LoggingSuite.SetUpTest(c)
+
 	config := map[string]interface{}{
 		"name":            "foo",
 		"type":            "dummy",
@@ -40,6 +43,7 @@ func (s *JujuConnSuite) TearDownTest(c *C) {
 	c.Assert(s.Conn.Close(), IsNil)
 	s.Conn = nil
 	s.State = nil
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *JujuConnSuite) StateInfo(c *C) *state.Info {

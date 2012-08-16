@@ -14,7 +14,11 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+<<<<<<< TREE
 	coretesting "launchpad.net/juju-core/testing"
+=======
+	"launchpad.net/juju-core/testing"
+>>>>>>> MERGE-SOURCE
 	"launchpad.net/juju-core/version"
 	"regexp"
 	"strings"
@@ -63,8 +67,6 @@ func registerLocalTests() {
 // localLiveSuite runs tests from LiveTests using a fake
 // EC2 server that runs within the test process itself.
 type localLiveSuite struct {
-	coretesting.LoggingSuite
-	testing.JujuConnSuite
 	LiveTests
 	srv localServer
 	env environs.Environ
@@ -164,8 +166,6 @@ func (srv *localServer) stopServer(c *C) {
 // accessed by using the "test" region, which is changed to point to the
 // network address of the local server.
 type localServerSuite struct {
-	coretesting.LoggingSuite
-	testing.JujuConnSuite
 	jujutest.Tests
 	srv localServer
 	env environs.Environ

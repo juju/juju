@@ -18,7 +18,6 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type ProvisionerSuite struct {
-	coretesting.LoggingSuite
 	testing.JujuConnSuite
 	op      <-chan dummy.Operation
 	envName string
@@ -32,7 +31,6 @@ var veryShortAttempt = environs.AttemptStrategy{
 }
 
 func (s *ProvisionerSuite) SetUpTest(c *C) {
-	s.LoggingSuite.SetUpTest(c)
 	// Create the operations channel with more than enough space
 	// for those tests that don't listen on it.
 	op := make(chan dummy.Operation, 500)
@@ -44,12 +42,6 @@ func (s *ProvisionerSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	name, _ := cfg.Get("name")
 	s.envName = name.(string)
-}
-
-func (s *ProvisionerSuite) TearDownTest(c *C) {
-	dummy.Reset()
-	s.JujuConnSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
 }
 
 // invalidateEnvironment alters the environment configuration
