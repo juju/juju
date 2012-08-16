@@ -12,13 +12,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
-	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-<<<<<<< TREE
-	coretesting "launchpad.net/juju-core/testing"
-=======
-	"launchpad.net/juju-core/testing"
->>>>>>> MERGE-SOURCE
 	"launchpad.net/juju-core/version"
 	"regexp"
 	"strings"
