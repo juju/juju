@@ -85,20 +85,17 @@ var base64ConfigTests = []struct {
 		nil,
 		"",
 		nil,
-	},
-	{
+	}, {
 		// empty 
 		[]string{"--env-config", ""},
 		"",
 		nil,
-	},
-	{
+	}, {
 		// wrong, should be base64
 		[]string{"--env-config", "name: banana\n"},
 		".*illegal base64 data at input byte.*",
 		nil,
-	},
-	{
+	}, {
 		[]string{"--env-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n"))},
 		"",
 		map[string]interface{}{"name": "banana"},
