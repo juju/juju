@@ -122,7 +122,7 @@ func (u *Unit) PrivateAddress() (string, error) {
 func (u *Unit) Refresh() error {
 	err := u.st.units.FindId(u.doc.Name).One(&u.doc)
 	if err != nil {
-		return fmt.Errorf("cannot refresh unit %v: %v", u, err)
+		return fmt.Errorf("cannot refresh unit %q: %v", u, err)
 	}
 	return nil
 }
