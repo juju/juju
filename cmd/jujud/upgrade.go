@@ -1,19 +1,20 @@
 package main
+
 import (
 	"fmt"
+	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/tomb"
-	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/tomb"
 	"os"
 )
 
 type Upgrader struct {
-	tomb tomb.Tomb
-	agentName string
+	tomb       tomb.Tomb
+	agentName  string
 	agentState AgentState
 }
 
@@ -35,7 +36,7 @@ type AgentState interface {
 // will return an UpgradedError describing the new tools.
 func NewUpgrader(agentName string, as AgentState) *Upgrader {
 	u := &Upgrader{
-		agentName: agentName,
+		agentName:  agentName,
 		agentState: as,
 	}
 	go func() {
@@ -72,7 +73,7 @@ func (u *Upgrader) run() error {
 	if err != nil {
 		return err
 	}
-	
+
 	w := u.agentState.WatchProposedAgentTools()
 
 	// TODO(rog) retry downloads when they fail.

@@ -43,7 +43,6 @@ func assertPorts(c *C, inst environs.Instance, machineId int, expected []state.P
 }
 
 type FirewallerSuite struct {
-	coretesting.LoggingSuite
 	testing.JujuConnSuite
 	op    <-chan dummy.Operation
 	charm *state.Charm
@@ -52,14 +51,8 @@ type FirewallerSuite struct {
 var _ = Suite(&FirewallerSuite{})
 
 func (s *FirewallerSuite) SetUpTest(c *C) {
-	s.LoggingSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "dummy")
-}
-
-func (s *FirewallerSuite) TearDownTest(c *C) {
-	s.JujuConnSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *FirewallerSuite) TestStartStop(c *C) {
