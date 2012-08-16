@@ -170,24 +170,24 @@ func (u *Unit) SetPrivateAddress(address string) (err error) {
 }
 
 // Status returns the status of the unit's agent.
-func (u *Unit) Status() (UnitStatus, string, error) {
+func (u *Unit) Status() (s UnitStatus, info string, err error) {
 	cn, err := readConfigNode(u.st.zk, u.zkPath())
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("cannot read status of unit %q: %v", u, err)
 	}
 	raw, found := cn.Get("status")
 	if !found {
 		return UnitPending, "", nil
 	}
-	status := UnitStatus(raw.(string))
-	switch status {
+	s = UnitStatus(raw.(string))
+	switch s {
 	case UnitError:
 		// We always expect an info if status is 'error'.
 		raw, found = cn.Get("status-info")
 		if !found {
-			panic("no status-info for unit error found")
+			panic("no status-info found for unit error")
 		}
-		return status, raw.(string), nil
+		return s, raw.(string), nil
 	case UnitStopped:
 		return UnitStopped, "", nil
 	}
@@ -196,9 +196,9 @@ func (u *Unit) Status() (UnitStatus, string, error) {
 		return "", "", err
 	}
 	if !alive {
-		status = UnitDown
+		s = UnitDown
 	}
-	return status, "", nil
+	return s, "", nil
 }
 
 // SetStatus sets the status of the unit.
@@ -214,7 +214,7 @@ func (u *Unit) SetStatus(status UnitStatus, info string) error {
 	cn.Set("status-info", info)
 	_, err = cn.Write()
 	if err != nil {
-		return fmt.Errorf("cannot set status of %q: %v", u, err)
+		return fmt.Errorf("cannot set status of unit %q: %v", u, err)
 	}
 	return nil
 }
