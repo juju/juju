@@ -2,6 +2,8 @@ package mstate
 
 import (
 	"fmt"
+	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"launchpad.net/juju-core/charm"
 	"sort"
 	"strings"
@@ -94,6 +96,56 @@ func newRelation(st *State, doc *relationDoc) *Relation {
 
 func (r *Relation) String() string {
 	return r.doc.Key
+}
+
+func (r *Relation) Refresh() error {
+	doc := relationDoc{}
+	err := r.st.relations.FindId(r.doc.Id).One(&doc)
+	if err != nil {
+		return fmt.Errorf("cannot refresh relation %v: %v", r, err)
+	}
+	r.doc = doc
+	return nil
+}
+
+func (r *Relation) Life() Life {
+	return r.doc.Life
+}
+
+// ensureLife changes the lifecycle state of the relation.
+// See the Life type for more details.
+func (r *Relation) ensureLife(life Life) error {
+	if life == Alive {
+		panic("cannot set life to alive")
+	}
+	sel := bson.D{
+		{"_id", r.doc.Id},
+		// $lte is used so that we don't overwrite a previous
+		// change we don't know about. 
+		{"life", bson.D{{"$lte", life}}},
+	}
+	change := bson.D{{"$set", bson.D{{"life", life}}}}
+	err := r.st.relations.Update(sel, change)
+	if err == mgo.ErrNotFound {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("cannot set life to %v for relation %v: %v", life, r, err)
+	}
+	r.doc.Life = life
+	return nil
+}
+
+// Kill sets the relation lifecycle to Dying if it is Alive.
+// It does nothing otherwise.
+func (r *Relation) Kill() error {
+	return r.ensureLife(Dying)
+}
+
+// Die sets the relation lifecycle to Dead if it is Alive or Dying.
+// It does nothing otherwise.
+func (r *Relation) Die() error {
+	return r.ensureLife(Dead)
 }
 
 // Id returns the integer internal relation key. This is exposed

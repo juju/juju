@@ -11,13 +11,24 @@ import (
 	"net/url"
 )
 
-type Life int
+type Life int8
 
 const (
-	Alive Life = 1 + iota
+	Alive Life = iota
 	Dying
 	Dead
+	nLife
 )
+
+var lifeStrings = [nLife]string{
+	Alive: "alive",
+	Dying: "dying",
+	Dead:  "dead",
+}
+
+func (l Life) String() string {
+	return lifeStrings[l]
+}
 
 // State represents the state of an environment
 // managed by juju.
@@ -237,8 +248,13 @@ func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error)
 func (s *State) RemoveRelation(r *Relation) (err error) {
 	defer errorContextf(&err, "cannot remove relation %q", r.doc.Key)
 
-	// TODO(aram): panic if life is not dead after implementing lifecycle.
-	sel := bson.D{{"_id", r.doc.Id}}
+	if r.doc.Life != Dead {
+		panic(fmt.Errorf("relation %q is not dead", r))
+	}
+	sel := bson.D{
+		{"_id", r.doc.Id},
+		{"life", Dead},
+	}
 	err = s.relations.Remove(sel)
 	if err != nil {
 		return err
