@@ -20,7 +20,7 @@ var statusDoc = "This command will report on the runtime state of various system
 
 func (c *StatusCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		"status", "", "Output status information about an environment.", statusDoc,
+		"status", "", "output status information about an environment", statusDoc,
 	}
 }
 
@@ -240,12 +240,15 @@ func processVersion(r map[string]interface{}, v versioned) {
 }
 
 type status interface {
-	Status() (string, error)
+	Status() (state.UnitStatus, string, error)
 }
 
 func processStatus(r map[string]interface{}, s status) {
-	if status, err := s.Status(); err == nil {
+	if status, info, err := s.Status(); err == nil {
 		r["status"] = status
+		if len(info) > 0 {
+			r["status-info"] = info
+		}
 	}
 }
 

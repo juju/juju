@@ -8,8 +8,8 @@ import (
 
 // Machine represents the state of a machine.
 type Machine struct {
-	st *State
-	id int
+	st  *State
+	doc machineDoc
 }
 
 // machineDoc represents the internal state of a machine in MongoDB.
@@ -21,28 +21,33 @@ type machineDoc struct {
 
 // Id returns the machine id.
 func (m *Machine) Id() int {
-	return m.id
+	return m.doc.Id
+}
+
+func newMachine(st *State, doc *machineDoc) *Machine {
+	return &Machine{st: st, doc: *doc}
+}
+
+func (m *Machine) Refresh() error {
+	doc := machineDoc{}
+	err := m.st.machines.FindId(m.doc.Id).One(&doc)
+	if err != nil {
+		return fmt.Errorf("cannot refresh machine %v: %v", m, err)
+	}
+	m.doc = doc
+	return nil
 }
 
 // InstanceId returns the provider specific machine id for this machine.
 func (m *Machine) InstanceId() (string, error) {
-	mdoc := &machineDoc{}
-	sel := bson.D{
-		{"_id", m.id},
-		{"life", Alive},
-	}
-	err := m.st.machines.Find(sel).One(mdoc)
-	if err != nil {
-		return "", fmt.Errorf("cannot get instance id of machine %s: %v", m, err)
-	}
-	return mdoc.InstanceId, nil
+	return m.doc.InstanceId, nil
 }
 
 // Units returns all the units that have been assigned to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
 	defer errorContextf(&err, "cannot get units assigned to machine %s", m)
 	pudocs := []unitDoc{}
-	err = m.st.units.Find(bson.D{{"machineid", m.id}}).All(&pudocs)
+	err = m.st.units.Find(bson.D{{"machineid", m.doc.Id}}).All(&pudocs)
 	if err != nil {
 		return nil, err
 	}
@@ -64,14 +69,15 @@ func (m *Machine) Units() (units []*Unit, err error) {
 // SetInstanceId sets the provider specific machine id for this machine.
 func (m *Machine) SetInstanceId(id string) error {
 	change := bson.D{{"$set", bson.D{{"instanceid", id}}}}
-	err := m.st.machines.Update(bson.D{{"_id", m.id}}, change)
+	err := m.st.machines.Update(bson.D{{"_id", m.doc.Id}}, change)
 	if err != nil {
 		return fmt.Errorf("cannot set instance id of machine %s: %v", m, err)
 	}
+	m.doc.InstanceId = id
 	return nil
 }
 
 // String returns a unique description of this machine.
 func (m *Machine) String() string {
-	return strconv.Itoa(m.id)
+	return strconv.Itoa(m.doc.Id)
 }

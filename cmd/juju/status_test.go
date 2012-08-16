@@ -259,8 +259,8 @@ var statusTests = []struct {
 				err = u.AssignToMachine(m)
 				c.Assert(err, IsNil)
 
-				if n == "dummy-service" {
-					err := u.SetStatus("started")
+				if n == "exposed-service" {
+					err := u.SetStatus("error", "You Require More Vespene Gas")
 					c.Assert(err, IsNil)
 				}
 			}
@@ -294,7 +294,8 @@ var statusTests = []struct {
 							"agent-version":          "0.0.0",
 							"proposed-agent-version": "0.0.0",
 							"machine":                2,
-							"status":                 "pending",
+							"status":                 "error",
+							"status-info":            "You Require More Vespene Gas",
 						},
 					},
 					"charm": "dummy",
@@ -307,7 +308,7 @@ var statusTests = []struct {
 							"agent-version":          "0.0.0",
 							"proposed-agent-version": "0.0.0",
 							"machine":                1,
-							"status":                 "started",
+							"status":                 "pending",
 						},
 					},
 				},

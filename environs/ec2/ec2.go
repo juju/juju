@@ -6,6 +6,7 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -276,17 +277,17 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.To
 }
 
 func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, master bool) ([]byte, error) {
-	cfg := &machineConfig{
-		provisioner:        master,
-		zookeeper:          master,
-		stateInfo:          info,
-		instanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
-		providerType:       "ec2",
-		tools:              tools,
-		machineId:          machineId,
-		authorizedKeys:     e.ecfg().AuthorizedKeys(),
+	cfg := &cloudinit.MachineConfig{
+		Provisioner:        master,
+		ZooKeeper:          master,
+		StateInfo:          info,
+		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
+		ProviderType:       "ec2",
+		Tools:              tools,
+		MachineId:          machineId,
+		AuthorizedKeys:     e.ecfg().AuthorizedKeys(),
 	}
-	cloudcfg, err := newCloudInit(cfg)
+	cloudcfg, err := cloudinit.New(cfg)
 	if err != nil {
 		return nil, err
 	}
