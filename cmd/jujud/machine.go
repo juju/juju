@@ -63,6 +63,12 @@ func (a *MachineAgent) runOnce() error {
 		return err
 	}
 	defer st.Close()
+	m, err := st.Machine(a.MachineId)
+	if err != nil {
+		return err
+	}
 	return runTasks(a.tomb.Dying(),
-		machiner.NewMachiner(st, a.MachineId))
+		machiner.NewMachiner(m),
+		NewUpgrader("machine", m),
+	)
 }
