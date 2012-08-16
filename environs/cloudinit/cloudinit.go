@@ -2,7 +2,7 @@ package cloudinit
 
 import (
 	"fmt"
-	ci "launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -23,7 +23,7 @@ type MachineConfig struct {
 	Provisioner bool
 
 	// Zookeeper specifies whether the new machine will run a zookeeper instance.
-	Zookeeper bool
+	ZooKeeper bool
 
 	// InstanceIdAccessor holds bash code that evaluates to the current instance id.
 	InstanceIdAccessor string
@@ -58,21 +58,21 @@ func (e requiresError) Error() string {
 	return "invalid machine configuration: missing " + string(e)
 }
 
-func addScripts(c *ci.Config, scripts ...string) {
+func addScripts(c *cloudinit.Config, scripts ...string) {
 	for _, s := range scripts {
 		c.AddRunCmd(s)
 	}
 }
 
-func NewCloudInit(cfg *MachineConfig) (*ci.Config, error) {
+func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	if err := verifyConfig(cfg); err != nil {
 		return nil, err
 	}
-	c := ci.New()
+	c := cloudinit.New()
 
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.AddPackage("libzookeeper-mt2")
-	if cfg.Zookeeper {
+	if cfg.ZooKeeper {
 		c.AddPackage("default-jre-headless")
 		c.AddPackage("zookeeper")
 		c.AddPackage("zookeeperd")
@@ -101,7 +101,7 @@ func NewCloudInit(cfg *MachineConfig) (*ci.Config, error) {
 	}
 
 	// zookeeper scripts
-	if cfg.Zookeeper {
+	if cfg.ZooKeeper {
 		addScripts(c,
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --instance-id "+cfg.InstanceIdAccessor+
@@ -123,11 +123,11 @@ func NewCloudInit(cfg *MachineConfig) (*ci.Config, error) {
 	// general options
 	c.SetAptUpgrade(true)
 	c.SetAptUpdate(true)
-	c.SetOutput(ci.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
+	c.SetOutput(cloudinit.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
 	return c, nil
 }
 
-func addAgentScript(c *ci.Config, cfg *MachineConfig, name, args string) error {
+func addAgentScript(c *cloudinit.Config, cfg *MachineConfig, name, args string) error {
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
@@ -166,7 +166,7 @@ func (cfg *MachineConfig) jujuTools() string {
 
 func (cfg *MachineConfig) zookeeperHostAddrs() string {
 	var hosts []string
-	if cfg.Zookeeper {
+	if cfg.ZooKeeper {
 		hosts = append(hosts, "localhost"+zkPortSuffix)
 	}
 	if cfg.StateInfo != nil {
@@ -195,7 +195,7 @@ func verifyConfig(cfg *MachineConfig) error {
 	if cfg.Tools.URL == "" {
 		return requiresError("tools URL")
 	}
-	if cfg.Zookeeper {
+	if cfg.ZooKeeper {
 		if cfg.InstanceIdAccessor == "" {
 			return requiresError("instance id accessor")
 		}
