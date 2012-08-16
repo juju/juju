@@ -1,6 +1,7 @@
 package mstate_test
 
 import (
+	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	state "launchpad.net/juju-core/mstate"
@@ -215,33 +216,48 @@ var stateChanges = []struct {
 	},
 }
 
-func createRelationFromDoc(c *C, s *RelationSuite, doc *state.RelationDoc, dblife state.Life) *state.Relation {
-	rdoc := *doc
-	rdoc.Life = dblife
-	err := s.relations.Insert(rdoc)
+func (s *RelationSuite) createRelationWithLife(svc *state.Service, cached, dbinitial state.Life, c *C) *state.Relation {
+	peerep := state.RelationEndpoint{svc.Name(), "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
+	rel, err := s.State.AddRelation(peerep)
 	c.Assert(err, IsNil)
-	return state.NewRelation(s.State, doc)
+
+	err = s.relations.UpdateId(rel.Id(), bson.D{{"$set", bson.D{
+		{"life", cached},
+	}}})
+	c.Assert(err, IsNil)
+	err = rel.Refresh()
+	c.Assert(err, IsNil)
+
+	err = s.relations.UpdateId(rel.Id(), bson.D{{"$set", bson.D{
+		{"life", dbinitial},
+	}}})
+	c.Assert(err, IsNil)
+
+	return rel
 }
 
 func (s *RelationSuite) TestLifecycleStateChanges(c *C) {
+	peer, err := s.State.AddService("peer", s.charm)
+	c.Assert(err, IsNil)
 	for _, v := range stateChanges {
-		doc := state.RelationDoc{
-			Id:   0,
-			Life: v.cached,
-		}
-		r := createRelationFromDoc(c, s, &doc, v.dbinitial)
+		r := s.createRelationWithLife(peer, v.cached, v.dbinitial, c)
 		switch v.desired {
 		case state.Dying:
-			r.Kill()
+			err := r.Kill()
+			c.Assert(err, IsNil)
 		case state.Dead:
-			r.Die()
+			err := r.Die()
+			c.Assert(err, IsNil)
 		default:
 			panic("desired lifecycle can only be dying or dead")
 		}
-		err := s.relations.FindId(0).One(&doc)
+		err := r.Refresh()
 		c.Assert(err, IsNil)
-		c.Assert(doc.Life, Equals, v.dbfinal)
-		err = s.relations.DropCollection()
+		c.Assert(r.Life(), Equals, v.dbfinal)
+
+		err = r.Die()
+		c.Assert(err, IsNil)
+		err = s.State.RemoveRelation(r)
 		c.Assert(err, IsNil)
 	}
 }
