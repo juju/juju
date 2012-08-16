@@ -119,6 +119,21 @@ func (t *ToolsSuite) TestPutGetTools(c *C) {
 	}
 }
 
+func (t *ToolsSuite) TestPutToolsBuildTagsAndTestVersion(c *C) {
+	// This test actually tests three thing:
+	//   the build tags; the test version building; and the reading
+	//   of the version from jujud.
+	environs.PutToolsBuildTags = "testversion"
+	defer func() {
+		environs.PutToolsBuildTags = ""
+	}()
+	tools, err := environs.PutTools(t.env.Storage())
+	c.Assert(err, IsNil)
+	newVersion := version.Current
+	newVersion.Patch++
+	c.Assert(tools.Binary, Equals, newVersion)
+}
+
 // Test that the upload procedure fails correctly
 // when the build process fails (because of a bad Go source
 // file in this case).

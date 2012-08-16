@@ -21,6 +21,10 @@ import (
 // inside VarDir.
 var VarDir = "/var/lib/juju"
 
+// PutToolsBuildTags specifies the tags that will be used
+// when PutTools is building the juju tools.
+var PutToolsBuildTags = ""
+
 var toolPrefix = "tools/juju-"
 
 // ListTools returns all the tools found in the given storage
@@ -380,7 +384,23 @@ func bundleTools(w io.Writer) (version.Binary, error) {
 		return version.Binary{}, err
 	}
 	defer os.RemoveAll(dir)
-	cmd := exec.Command("go", "install", "launchpad.net/juju-core/cmd/...")
+
+	// There's a bug in the go command (issue 3895) which causes the
+	// tools not to be re-built if the tags change. Work around
+	// it for the moment by cleaning the version package,
+	// which is all we use build tags for currently.
+	// Ignore the error, because we want the error from the subsequent
+	// install command instead.
+	// TODO(rog) remove this
+	exec.Command("go", "clean", "-i", "launchpad.net/juju-core/version").Run()
+
+	cmd := exec.Command("go", "install", "-tags="+PutToolsBuildTags, "launchpad.net/juju-core/cmd/...")
+
+	// Clean the version package again, so that our build isn't corrupted.
+	// TODO(rog) remove this
+	exec.Command("go", "clean", "-i", "launchpad.net/juju-core/version").Run()
+
+	log.Printf("running %v", cmd.Args)
 	cmd.Env = setenv(os.Environ(), "GOBIN="+dir)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
