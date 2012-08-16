@@ -88,7 +88,7 @@ func (c *ConfigNode) Get(key string) (value interface{}, found bool) {
 
 // Map returns all keys and values of the node.
 func (c *ConfigNode) Map() map[string]interface{} {
-	return copyCache(c.core)
+	return copyMap(c.core)
 }
 
 // Set sets key to value
@@ -108,8 +108,8 @@ func (c *ConfigNode) Delete(key string) {
 	delete(c.core, key)
 }
 
-// copyCache copies the keys and values of one cache into a new one.
-func copyCache(in map[string]interface{}) (out map[string]interface{}) {
+// copyMap copies the keys and values of one map into a new one.
+func copyMap(in map[string]interface{}) (out map[string]interface{}) {
 	out = make(map[string]interface{})
 	for key, value := range in {
 		out[key] = value
@@ -169,7 +169,7 @@ func (c *ConfigNode) Write() ([]ItemChange, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot write configuration node %q: %v", c.path, err)
 	}
-	c.disk = copyCache(c.core)
+	c.disk = copyMap(c.core)
 	return changes, nil
 }
 
@@ -189,15 +189,15 @@ func (c *ConfigNode) Read() error {
 		return fmt.Errorf("cannot read configuration node %q: %v", c.path, err)
 	}
 	delete(config, "_id")
-	c.disk = copyCache(config)
-	c.core = copyCache(config)
+	c.disk = copyMap(config)
+	c.core = copyMap(config)
 	return nil
 }
 
 // createConfigNode writes an initial config node.
 func createConfigNode(st *State, path string, values map[string]interface{}) (*ConfigNode, error) {
 	c := newConfigNode(st, path)
-	c.core = copyCache(values)
+	c.core = copyMap(values)
 	_, err := c.Write()
 	if err != nil {
 		return nil, err
