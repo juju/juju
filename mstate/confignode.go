@@ -2,6 +2,7 @@ package mstate
 
 import (
 	"fmt"
+	"labix.org/v2/mgo/bson"
 	"sort"
 )
 
@@ -49,15 +50,15 @@ func (ics itemChangeSlice) Swap(i, j int)      { ics[i], ics[j] = ics[j], ics[i]
 type ConfigNode struct {
 	st   *State
 	path string
-	// pristineCache holds the values in the config node before
+	// disk holds the values in the config node before
 	// any keys have been changed. It is reset on Read and Write
 	// operations.
-	pristineCache map[string]interface{}
+	disk map[string]interface{}
 	// cache holds the current values in the config node.
-	// The difference between pristineCache and cache
+	// The difference between disk and core
 	// determines the delta to be applied when ConfigNode.Write
 	// is called.
-	cache map[string]interface{}
+	core map[string]interface{}
 }
 
 // NotFoundError represents the error that something is not found.
@@ -72,7 +73,7 @@ func (e *NotFoundError) Error() string {
 // Keys returns the current keys in alphabetical order.
 func (c *ConfigNode) Keys() []string {
 	keys := []string{}
-	for key := range c.cache {
+	for key := range c.core {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
@@ -81,30 +82,30 @@ func (c *ConfigNode) Keys() []string {
 
 // Get returns the value of key and whether it was found.
 func (c *ConfigNode) Get(key string) (value interface{}, found bool) {
-	value, found = c.cache[key]
+	value, found = c.core[key]
 	return
 }
 
 // Map returns all keys and values of the node.
 func (c *ConfigNode) Map() map[string]interface{} {
-	return copyCache(c.cache)
+	return copyCache(c.core)
 }
 
 // Set sets key to value
 func (c *ConfigNode) Set(key string, value interface{}) {
-	c.cache[key] = value
+	c.core[key] = value
 }
 
 // Update sets multiple key/value pairs.
 func (c *ConfigNode) Update(kv map[string]interface{}) {
 	for key, value := range kv {
-		c.cache[key] = value
+		c.core[key] = value
 	}
 }
 
 // Delete removes key.
 func (c *ConfigNode) Delete(key string) {
-	delete(c.cache, key)
+	delete(c.core, key)
 }
 
 // copyCache copies the keys and values of one cache into a new one.
@@ -114,4 +115,92 @@ func copyCache(in map[string]interface{}) (out map[string]interface{}) {
 		out[key] = value
 	}
 	return
+}
+
+// cacheKeys returns the keys of all caches as a key=>true map.
+func cacheKeys(caches ...map[string]interface{}) map[string]bool {
+	keys := make(map[string]bool)
+	for _, cache := range caches {
+		for key := range cache {
+			keys[key] = true
+		}
+	}
+	return keys
+}
+
+// Write writes changes made to c back onto its node.  Changes are written
+// as a delta applied on top of the latest version of the node, to prevent
+// overwriting unrelated changes made to the node since it was last read.
+func (c *ConfigNode) Write() ([]ItemChange, error) {
+	changes := []ItemChange{}
+	upserts := map[string]interface{}{}
+	deletions := map[string]int{}
+	for key := range cacheKeys(c.disk, c.core) {
+		old, ondisk := c.disk[key]
+		new, incore := c.core[key]
+		if new == old {
+			continue
+		}
+		var change ItemChange
+		switch {
+		case incore && ondisk:
+			change = ItemChange{ItemModified, key, old, new}
+			upserts[key] = new
+		case incore && !ondisk:
+			change = ItemChange{ItemAdded, key, nil, new}
+			upserts[key] = new
+		case ondisk && !incore:
+			change = ItemChange{ItemDeleted, key, old, nil}
+			deletions[key] = 1
+		default:
+			panic("unreachable")
+		}
+		changes = append(changes, change)
+	}
+	if len(changes) == 0 {
+		return nil, nil
+	}
+	sort.Sort(itemChangeSlice(changes))
+	change := bson.D{
+		{"$set", upserts},
+		{"$unset", deletions},
+	}
+	_, err := c.st.cfgnodes.UpsertId(c.path, change)
+	if err != nil {
+		return nil, fmt.Errorf("cannot write configuration node %q: %v", c.path, err)
+	}
+	c.disk = copyCache(c.core)
+	return changes, nil
+}
+
+func newConfigNode(st *State, path string) *ConfigNode {
+	return &ConfigNode{
+		st:   st,
+		path: path,
+		core: make(map[string]interface{}),
+	}
+}
+
+// Read (re)reads the node data into c.
+func (c *ConfigNode) Read() error {
+	config := map[string]interface{}{}
+	err := c.st.cfgnodes.FindId(c.path).One(config)
+	if err != nil {
+		return fmt.Errorf("cannot read configuration node %q: %v", c.path, err)
+	}
+	delete(config, "_id")
+	c.disk = copyCache(config)
+	c.core = copyCache(config)
+	return nil
+}
+
+// createConfigNode writes an initial config node.
+func createConfigNode(st *State, path string, values map[string]interface{}) (*ConfigNode, error) {
+	c := newConfigNode(st, path)
+	c.core = copyCache(values)
+	_, err := c.Write()
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }
