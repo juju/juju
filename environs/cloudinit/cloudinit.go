@@ -7,8 +7,10 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/upstart"
+	"launchpad.net/goyaml"
 	"path"
 	"strings"
+	"encoding/base64"
 )
 
 // TODO(dfc) duplicated from environs/ec2
@@ -52,6 +54,10 @@ type MachineConfig struct {
 	// machines it will mean that the ssh, scp and debug-hooks
 	// commands cannot work.
 	AuthorizedKeys string
+
+	// Config specifies a set of key/values that are passed to the bootstrap machine
+	// and inserted into the state on initialisation.
+	Config	map[string]interface{}
 }
 
 type requiresError string
@@ -64,6 +70,15 @@ func addScripts(c *cloudinit.Config, scripts ...string) {
 	for _, s := range scripts {
 		c.AddRunCmd(s)
 	}
+}
+
+func base64yaml(m map[string]interface{}) string {
+	data, err := goyaml.Marshal(m)
+	if err != nil {
+		// can't happen, these values have been validated a number of times
+		panic(err)
+	}
+	return base64.StdEncoding.EncodeToString(data)
 }
 
 func New(cfg *MachineConfig) (*cloudinit.Config, error) {
@@ -108,6 +123,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --instance-id "+cfg.InstanceIdAccessor+
 				" --env-type "+shquote(cfg.ProviderType)+
+				" --env-config "+shquote(base64yaml(cfg.Config))+
 				" --zookeeper-servers localhost"+zkPortSuffix+
 				debugFlag,
 		)

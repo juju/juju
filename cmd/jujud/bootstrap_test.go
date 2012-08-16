@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
@@ -72,4 +73,51 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 	instid, err := machines[0].InstanceId()
 	c.Assert(err, IsNil)
 	c.Assert(instid, Equals, "over9000")
+}
+
+var base64ConfigTests = []struct {
+	input    []string
+	err      string
+	expected map[string]interface{}
+}{
+	{
+		// no value supplied
+		nil,
+		"",
+		nil,
+	},
+	{
+		// empty 
+		[]string{"--env-config", ""},
+		"",
+		nil,
+	},
+	{
+		// wrong, should be base64
+		[]string{"--env-config", "name: banana\n"},
+		".*illegal base64 data at input byte.*",
+		nil,
+	},
+	{
+		[]string{"--env-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n"))},
+		"",
+		map[string]interface{}{"name": "banana"},
+	},
+}
+
+func (s *BootstrapSuite) TestBase64Config(c *C) {
+	for _, t := range base64ConfigTests {
+		args := []string{"--zookeeper-servers"}
+		args = append(args, s.StateInfo(c).Addrs...)
+		args = append(args, "--instance-id", "over9000", "--env-type", "dummy")
+		args = append(args, t.input...)
+		cmd, err := initBootstrapCommand(args)
+		if t.err == "" {
+			c.Assert(cmd, NotNil)
+			c.Assert(err, IsNil)
+			c.Assert(cmd.EnvConfig, DeepEquals, t.expected)
+		} else {
+			c.Assert(err, ErrorMatches, t.err)
+		}
+	}
 }
