@@ -8,8 +8,15 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/version"
 	"net/url"
 )
+
+// Tools describes a particular set of juju tools and where to find them.
+type Tools struct {
+	version.Binary
+	URL string
+}
 
 type Life int8
 
