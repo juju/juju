@@ -5,7 +5,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 	"time"
@@ -165,8 +164,14 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	st, err := conn.State()
 	c.Assert(err, IsNil)
 
+	// Check that we can upgrade the machine agent on the bootstrap machine.
+	m, err := st.Machine(0)
+	c.Assert(err, IsNil)
+
+	checkUpgradeMachineAgent(c, m)
+
 	// place a new machine into the state
-	m, err := st.AddMachine()
+	m, err = st.AddMachine()
 	c.Assert(err, IsNil)
 
 	t.assertStartInstance(c, m)
@@ -180,6 +185,48 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 
 	err = st.Close()
 	c.Assert(err, IsNil)
+}
+
+func (t *LiveTests) checkUpgradeMachineAgent(c *C, m *state.Machine) {
+	// First watch the machine agent's current tools to make sure
+	// that it sets them appropriately.
+	w := m.WatchAgentTools()
+
+	var gotTools *state.Tools
+	for tools := range w.Changes() {
+		if tools.URL == "" {
+			// Machine agent hasn't started yet.
+			continue
+		}
+		gotTools = tools
+		break
+	}
+	c.Assert(gotTools, NotNil, Commentf("tools watcher died: %v", w.Err()))
+	c.Assert(gotTools.Binary, Equals, version.Current)
+
+	// We force PutTools to put a different version of the juju
+	// tools by setting the build tags.
+	oldTags := environs.PutToolsBuildTags
+	defer func() {
+		environs.PutToolsBuildTags = oldTags
+	}()
+	environs.PutToolsBuildTags = "testversion"	// See ../../version/testversion.go
+	c.Logf("putting testing version of juju tools")
+	upgradeTools, err := environs.PutTools(t.Env.Storage())
+	c.Assert(err, IsNil)
+
+	// Check that the put version really is the version we expect.
+	newVersion := version.Current
+	newVersion.Patch++
+	c.Assert(upgradeTools.Binary, Equals, newVersion)
+	err = m.ProposeAgentTools(upgradeTools)
+
+	c.Logf("waiting for upgrade")
+	tools, ok := <-w.Changes()
+	if !ok {
+		c.Fatalf("watcher died: %v", w.Err())
+	}
+	c.Assert(tools, DeepEquals, upgradeTools)
 }
 
 var waitAgent = environs.AttemptStrategy{
