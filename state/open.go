@@ -3,8 +3,8 @@ package state
 import (
 	"errors"
 	"fmt"
-	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/goyaml"
+	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/log"
 	"strings"
 	"time"
@@ -112,10 +112,15 @@ func (s *State) initialize(config map[string]interface{}) error {
 	}
 	// TODO Create node for bootstrap machine.
 
-	yaml, err := goyaml.Marshal(config)
-	if err != nil { return err }
-	if _, err := s.zk.Create("/environment", string(yaml), 0, zkPermAll); err != nil {
-		return err
+	if config != nil {
+		yaml, err := goyaml.Marshal(config)
+		if err != nil {
+			return err
+		}
+		if _, err := s.zk.Create(zkEnvironmentPath, string(yaml), 0, zkPermAll); err != nil {
+			return err
+		}
+		fmt.Printf("%s\n", yaml)
 	}
 
 	// Finally creation of /initialized as marker.

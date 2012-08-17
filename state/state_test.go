@@ -81,15 +81,22 @@ func (s *StateSuite) TestInitialize(c *C) {
 	}
 }
 
-func (s *StateSuite) TestEnvironConfig(c *C) {
-	path, err := s.zkConn.Create("/environment", "type: dummy\nname: foo\n", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
+func (s *StateSuite) TestInitalizeWithConfig(c *C) {
+	m := map[string]interface{}{
+		"name":            "only",
+		"type":            "dummy",
+		"zookeeper":       true,
+		"authorized-keys": "i-am-a-key",
+	}
+	st, err := state.Initialize(s.StateInfo(c), m)
 	c.Assert(err, IsNil)
-	c.Assert(path, Equals, "/environment")
+	c.Assert(st, NotNil)
+	defer st.Close()
 
-	env, err := s.State.EnvironConfig()
+	env, err := st.EnvironConfig()
 	env.Read()
 	c.Assert(err, IsNil)
-	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"type": "dummy", "name": "foo"})
+	c.Assert(env.Map(), DeepEquals, m)
 }
 
 type environConfig map[string]interface{}
