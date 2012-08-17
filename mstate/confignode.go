@@ -2,6 +2,7 @@ package mstate
 
 import (
 	"fmt"
+	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"sort"
 )
@@ -158,7 +159,7 @@ func (c *ConfigNode) Write() ([]ItemChange, error) {
 		changes = append(changes, change)
 	}
 	if len(changes) == 0 {
-		return nil, nil
+		return []ItemChange{}, nil
 	}
 	sort.Sort(itemChangeSlice(changes))
 	change := bson.D{
@@ -185,6 +186,11 @@ func newConfigNode(st *State, path string) *ConfigNode {
 func (c *ConfigNode) Read() error {
 	config := map[string]interface{}{}
 	err := c.st.cfgnodes.FindId(c.path).One(config)
+	if err == mgo.ErrNotFound {
+		c.disk = nil
+		c.core = make(map[string]interface{})
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("cannot read configuration node %q: %v", c.path, err)
 	}
@@ -192,6 +198,15 @@ func (c *ConfigNode) Read() error {
 	c.disk = copyMap(config)
 	c.core = copyMap(config)
 	return nil
+}
+
+// readConfigNode returns the ConfigNode for path.
+func readConfigNode(st *State, path string) (*ConfigNode, error) {
+	c := newConfigNode(st, path)
+	if err := c.Read(); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // createConfigNode writes an initial config node.
