@@ -21,10 +21,6 @@ import (
 // inside VarDir.
 var VarDir = "/var/lib/juju"
 
-// PutToolsBuildTags specifies the tags that will be used
-// when PutTools is building the juju tools.
-var PutToolsBuildTags = ""
-
 var toolPrefix = "tools/juju-"
 
 // ListTools returns all the tools found in the given storage
@@ -62,12 +58,12 @@ func ListTools(store StorageReader, majorVersion int) ([]*state.Tools, error) {
 	return toolsList, nil
 }
 
-// PutTools uploads the current version of the juju tools
-// executables to the given storage and returns a Tools
+// PutTools builds the current version of the juju tools with the given
+// build tags, uploads them to the given storage, and returns a Tools
 // instance describing them.
 // TODO find binaries from $PATH when not using a development
 // version of juju within a $GOPATH.
-func PutTools(storage Storage) (*state.Tools, error) {
+func PutTools(storage Storage, tags string) (*state.Tools, error) {
 	// We create the entire archive before asking the environment to
 	// start uploading so that we can be sure we have archived
 	// correctly.
@@ -77,7 +73,7 @@ func PutTools(storage Storage) (*state.Tools, error) {
 	}
 	defer f.Close()
 	defer os.Remove(f.Name())
-	vers, err := bundleTools(f)
+	vers, err := bundleTools(f, tags)
 	if err != nil {
 		return nil, err
 	}
@@ -378,7 +374,7 @@ func setenv(env []string, val string) []string {
 
 // bundleTools bundles all the current juju tools in gzipped tar
 // format to the given writer.
-func bundleTools(w io.Writer) (version.Binary, error) {
+func bundleTools(w io.Writer, tags string) (version.Binary, error) {
 	dir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
 		return version.Binary{}, err
@@ -394,15 +390,16 @@ func bundleTools(w io.Writer) (version.Binary, error) {
 	// TODO(rog) remove this
 	exec.Command("go", "clean", "-i", "launchpad.net/juju-core/version").Run()
 
-	cmd := exec.Command("go", "install", "-tags="+PutToolsBuildTags, "launchpad.net/juju-core/cmd/...")
+	cmd := exec.Command("go", "install", "-tags="+tags, "launchpad.net/juju-core/cmd/...")
+
+	log.Printf("running %v", cmd.Args)
+	cmd.Env = setenv(os.Environ(), "GOBIN="+dir)
+	out, err := cmd.CombinedOutput()
 
 	// Clean the version package again, so that our build isn't corrupted.
 	// TODO(rog) remove this
 	exec.Command("go", "clean", "-i", "launchpad.net/juju-core/version").Run()
 
-	log.Printf("running %v", cmd.Args)
-	cmd.Env = setenv(os.Environ(), "GOBIN="+dir)
-	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return version.Binary{}, fmt.Errorf("build failed: %v; %s", err, out)
 	}

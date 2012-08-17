@@ -87,7 +87,7 @@ var commandTests = []struct {
 }
 
 func (t *ToolsSuite) TestPutGetTools(c *C) {
-	tools, err := environs.PutTools(t.env.Storage())
+	tools, err := environs.PutTools(t.env.Storage(), "")
 	c.Assert(err, IsNil)
 	c.Assert(tools.Binary, Equals, version.Current)
 	c.Assert(tools.URL, Not(Equals), "")
@@ -119,15 +119,11 @@ func (t *ToolsSuite) TestPutGetTools(c *C) {
 	}
 }
 
-func (t *ToolsSuite) TestPutToolsBuildTagsAndTestVersion(c *C) {
+func (t *ToolsSuite) TestPutToolsAndBumpVersion(c *C) {
 	// This test actually tests three thing:
 	//   the build tags; the test version building; and the reading
 	//   of the version from jujud.
-	environs.PutToolsBuildTags = "testversion"
-	defer func() {
-		environs.PutToolsBuildTags = ""
-	}()
-	tools, err := environs.PutTools(t.env.Storage())
+	tools, err := environs.PutTools(t.env.Storage(), "bumpversion")
 	c.Assert(err, IsNil)
 	newVersion := version.Current
 	newVersion.Patch++
@@ -150,7 +146,7 @@ func (t *ToolsSuite) TestUploadBadBuild(c *C) {
 	defer os.Setenv("GOPATH", os.Getenv("GOPATH"))
 	os.Setenv("GOPATH", gopath)
 
-	tools, err := environs.PutTools(t.env.Storage())
+	tools, err := environs.PutTools(t.env.Storage(), "")
 	c.Assert(tools, IsNil)
 	c.Assert(err, ErrorMatches, `build failed: exit status 1; can't load package:(.|\n)*`)
 }

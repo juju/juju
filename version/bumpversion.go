@@ -3,7 +3,7 @@
 // upgrading logic without actually creating a new version of the source
 // code.
 
-// +build testversion
+// +build bumpversion
 package version
 
 func init() {
