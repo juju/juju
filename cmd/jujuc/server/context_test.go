@@ -268,10 +268,7 @@ func (s *RelationContextSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	s.ru, err = s.rel.Unit(unit)
 	c.Assert(err, IsNil)
-	// Quickest way to get needed ZK paths in place:
-	p, err := s.ru.Join()
-	c.Assert(err, IsNil)
-	err = p.Kill()
+	err = s.ru.Init()
 	c.Assert(err, IsNil)
 }
 

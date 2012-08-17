@@ -212,8 +212,8 @@ func (ctx *RelationContext) UpdateMembers(members SettingsMap) {
 
 // DeleteMember drops the membership and cache of a single remote unit, without
 // perturbing settings for the remaining members.
-func (ctx *RelationContext) DeleteMember(member string) {
-	delete(ctx.members, member)
+func (ctx *RelationContext) DeleteMember(unitName string) {
+	delete(ctx.members, unitName)
 }
 
 // Settings returns a ConfigNode that gives read and write access to the

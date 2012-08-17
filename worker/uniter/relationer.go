@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/cmd/jujuc/server"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/presence"
 )
 
 // Relationer manages a unit's presence in a relation.
@@ -12,7 +11,6 @@ type Relationer struct {
 	ctx      *server.RelationContext
 	ru       *state.RelationUnit
 	rs       *RelationState
-	pinger   *presence.Pinger
 	queue    hookQueue
 	hooks    chan<- HookInfo
 	breaking bool
@@ -38,30 +36,20 @@ func (r *Relationer) Context() *server.RelationContext {
 // It must not be called again until Abandon has been called, and must not be
 // called at all if Breaking has been called.
 func (r *Relationer) Join() error {
-	if r.pinger != nil {
-		panic("unit already joined!")
-	}
 	if r.breaking {
 		panic("breaking unit must not join!")
 	}
-	pinger, err := r.ru.Join()
-	if err != nil {
+	if err := r.ru.Init(); err != nil {
 		return err
 	}
-	r.pinger = pinger
-	return nil
+	return r.ru.Pinger().Start()
 }
 
 // Abandon stops the periodic signalling of the unit's presence in the relation.
 // It does not immediately signal that the unit has departed the relation; this
 // is done only when a -broken hook is committed.
 func (r *Relationer) Abandon() error {
-	if r.pinger == nil {
-		return nil
-	}
-	pinger := r.pinger
-	r.pinger = nil
-	return pinger.Stop()
+	return r.ru.Pinger().Stop()
 }
 
 // Breaking informs the relationer that the unit is departing the relation,
@@ -125,7 +113,7 @@ func (r *Relationer) PrepareHook(hi HookInfo) (hookName string, err error) {
 // CommitHook persists the fact of the supplied hook's completion.
 func (r *Relationer) CommitHook(hi HookInfo) error {
 	if hi.HookKind == "broken" {
-		if err := r.ru.Depart(); err != nil {
+		if err := r.ru.Pinger().Kill(); err != nil {
 			return err
 		}
 	}

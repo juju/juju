@@ -70,7 +70,7 @@ func (s *RelationerSuite) TestStartStopPresence(c *C) {
 
 	// Check that we can't start u/0's pinger again while it's running.
 	f := func() { r.Join() }
-	c.Assert(f, PanicMatches, "unit already joined!")
+	c.Assert(f, PanicMatches, "pinger is already started")
 
 	// Stop the pinger and check the change is observed.
 	err = r.Abandon()
@@ -109,9 +109,11 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	c.Assert(f, PanicMatches, "hooks already started!")
 
 	// Join u/1 to the relation, and check that we receive the expected hooks.
-	p, err := ru1.Join()
+	err := ru1.Init()
 	c.Assert(err, IsNil)
-	defer kill(c, p)
+	err = ru1.Pinger().Start()
+	c.Assert(err, IsNil)
+	defer kill(c, ru1.Pinger())
 	s.assertHook(c, uniter.HookInfo{
 		HookKind:   "joined",
 		RemoteUnit: "u/1",
@@ -131,10 +133,12 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	// Stop hooks, make more changes, check no events.
 	err = r.StopHooks()
 	c.Assert(err, IsNil)
-	kill(c, p)
-	p, err = ru2.Join()
+	kill(c, ru1.Pinger())
+	err = ru2.Init()
 	c.Assert(err, IsNil)
-	defer kill(c, p)
+	err = ru2.Pinger().Start()
+	c.Assert(err, IsNil)
+	defer kill(c, ru2.Pinger())
 	node, err := ru2.Settings()
 	c.Assert(err, IsNil)
 	node.Set("private-address", "roehampton")
@@ -247,9 +251,11 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 
 func (s *RelationerSuite) TestBreaking(c *C) {
 	ru1 := s.AddRelationUnit(c, "u/1")
-	p, err := ru1.Join()
+	err := ru1.Init()
 	c.Assert(err, IsNil)
-	defer kill(c, p)
+	err = ru1.Pinger().Start()
+	c.Assert(err, IsNil)
+	defer kill(c, ru1.Pinger())
 	r := uniter.NewRelationer(s.ru, s.rs, s.hooks)
 	err = r.Join()
 	c.Assert(err, IsNil)
@@ -291,7 +297,7 @@ func (s *RelationerSuite) TestBreaking(c *C) {
 	_, err = os.Stat(s.rs.Path)
 	c.Assert(os.IsNotExist(err), Equals, true)
 
-	// TODO: when we have lifecycle handling, veryify that the relation can
+	// TODO: when we have lifecycle handling, verify that the relation can
 	// be destroyed. Can't see a clean way to do so currently.
 }
 
