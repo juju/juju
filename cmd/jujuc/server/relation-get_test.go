@@ -160,7 +160,7 @@ func (s *RelationGetSuite) SetUpTest(c *C) {
 	node.Set("private-address", "foo: bar\n")
 
 	// Add some member settings for a "member" in relation 1.
-	s.relctxs[1].SetMembers(server.SettingsMap{
+	s.relctxs[1].UpdateMembers(server.SettingsMap{
 		"m/0": map[string]interface{}{"pew": "pew\npew\n"},
 	})
 

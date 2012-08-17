@@ -60,14 +60,10 @@ func assertNoChange(c *C, watch <-chan bool) {
 }
 
 func kill(c *C, p *presence.Pinger) {
-	select {
-	case <-p.Dying():
-	default:
-		c.Assert(p.Kill(), IsNil)
-	}
+	c.Assert(p.Kill(), IsNil)
 }
 
-func (s *PresenceSuite) TestNewPinger(c *C) {
+func (s *PresenceSuite) TestStartPinger(c *C) {
 	// Check not considered Alive before it exists.
 	alive, err := presence.Alive(s.ZkConn, path)
 	c.Assert(err, IsNil)
@@ -79,10 +75,14 @@ func (s *PresenceSuite) TestNewPinger(c *C) {
 	c.Assert(alive, Equals, false)
 	assertNoChange(c, watch)
 
-	// Start a Pinger, and check the watch fires.
-	p, err := presence.StartPinger(s.ZkConn, path, period)
+	// Creating a Pinger does not automatically Start it.
+	p := presence.NewPinger(s.ZkConn, path, period)
 	c.Assert(err, IsNil)
-	defer kill(c, p)
+	assertNoChange(c, watch)
+
+	// Pinger Start should be detected on the change channel.
+	err = p.Start()
+	c.Assert(err, IsNil)
 	assertChange(c, watch, true)
 
 	// Check that Alive agrees.
@@ -90,29 +90,19 @@ func (s *PresenceSuite) TestNewPinger(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
 
-	// Watch for life again, and check it doesn't change.
+	// Watch for life again, and check that agrees.
 	alive, watch, err = presence.AliveW(s.ZkConn, path)
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
 	assertNoChange(c, watch)
 
-	// Check Dying.
-	select {
-	case <-p.Dying():
-		c.Fatalf("supposedly-alive pinger reported death")
-	default:
-	}
+	// Starting the pinger when it is already running is not allowed.
+	bad := func() { p.Start() }
+	c.Assert(bad, PanicMatches, "pinger is already started")
 
 	// Clean up.
 	err = p.Kill()
 	c.Assert(err, IsNil)
-
-	// Check Dying.
-	select {
-	case <-p.Dying():
-	default:
-		c.Fatalf("supposedly-dead pinger reported life")
-	}
 }
 
 func (s *PresenceSuite) TestKillPinger(c *C) {
@@ -137,6 +127,12 @@ func (s *PresenceSuite) TestKillPinger(c *C) {
 	stat, err := s.ZkConn.Exists(path)
 	c.Assert(err, IsNil)
 	c.Assert(stat, IsNil)
+
+	// Check the pinger can no longer be used:
+	bad := func() { p.Start() }
+	c.Assert(bad, PanicMatches, "pinger has been killed")
+	bad = func() { p.Stop() }
+	c.Assert(bad, PanicMatches, "pinger has been killed")
 }
 
 func (s *PresenceSuite) TestStopPinger(c *C) {
@@ -153,14 +149,24 @@ func (s *PresenceSuite) TestStopPinger(c *C) {
 	err = p.Stop()
 	c.Assert(err, IsNil)
 	assertChange(c, watch, false)
-	alive, err = presence.Alive(s.ZkConn, path)
+	alive, watch, err = presence.AliveW(s.ZkConn, path)
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 
-	// Check that the pinger's node is still present.
+	// Check that we can Stop again.
+	err = p.Stop()
+	c.Assert(err, IsNil)
+
+	// Check that the pinger's node is still present, but no changes have been seen.
 	stat, err := s.ZkConn.Exists(path)
 	c.Assert(err, IsNil)
 	c.Assert(stat, NotNil)
+	assertNoChange(c, watch)
+
+	// Start the Pinger again, and check the change is detected.
+	err = p.Start()
+	c.Assert(err, IsNil)
+	assertChange(c, watch, true)
 }
 
 func (s *PresenceSuite) TestWatchDeadnessChange(c *C) {
@@ -260,7 +266,7 @@ func (s *PresenceSuite) TestDisconnectPinger(c *C) {
 	altConn := testing.ZkConnect()
 	p, err := presence.StartPinger(altConn, path, period)
 	c.Assert(err, IsNil)
-	defer kill(c, p)
+	defer p.Kill()
 
 	// Watch on the "main" connection.
 	alive, watch, err := presence.AliveW(s.ZkConn, path)
@@ -270,9 +276,6 @@ func (s *PresenceSuite) TestDisconnectPinger(c *C) {
 	// Kill the pinger connection and check the watch notices.
 	altConn.Close()
 	assertChange(c, watch, false)
-
-	// Check the pinger already knows it broke.
-	<-p.Dying()
 
 	// Stop the pinger anyway; check we still get an error.
 	err = p.Stop()

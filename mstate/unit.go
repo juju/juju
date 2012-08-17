@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
+	"launchpad.net/juju-core/trivial"
 )
 
 // ResolvedMode describes the way state transition errors 
@@ -129,7 +130,7 @@ func (u *Unit) Refresh() error {
 
 // AssignedMachineId returns the id of the assigned machine.
 func (u *Unit) AssignedMachineId() (id int, err error) {
-	defer errorContextf(&err, "cannot get machine id of unit %q", u)
+	defer trivial.ErrorContextf(&err, "cannot get machine id of unit %q", u)
 	if u.IsPrincipal() {
 		if u.doc.MachineId == nil {
 			return 0, errors.New("unit not assigned to machine")
@@ -209,7 +210,7 @@ func (u *Unit) SetPrivateAddress(address string) error {
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
 func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
-	defer errorContextf(&err, "cannot set resolved mode for unit %q", u)
+	defer trivial.ErrorContextf(&err, "cannot set resolved mode for unit %q", u)
 	if !(0 <= mode && mode < nResolvedModes) {
 		return fmt.Errorf("invalid error resolution mode: %v", mode)
 	}
@@ -253,7 +254,7 @@ func (u *Unit) NeedsUpgrade() (*NeedsUpgrade, error) {
 // SetNeedsUpgrade informs the unit that it should perform 
 // a regular or forced upgrade.
 func (u *Unit) SetNeedsUpgrade(force bool) (err error) {
-	defer errorContextf(&err, "cannot inform unit %q about upgrade", u)
+	defer trivial.ErrorContextf(&err, "cannot inform unit %q about upgrade", u)
 	nu := &NeedsUpgrade{Upgrade: true, Force: force}
 	change := bson.D{{"$set", bson.D{{"needsupgrade", nu}}}}
 	sel := bson.D{
