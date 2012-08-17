@@ -27,7 +27,7 @@ func AtomicWrite(path string, obj interface{}) error {
 func EnsureDir(path string) error {
 	fi, err := os.Stat(path)
 	if os.IsNotExist(err) {
-		return os.Mkdir(path, 0755)
+		return os.MkdirAll(path, 0755)
 	} else if !fi.IsDir() {
 		return fmt.Errorf("%s must be a directory", path)
 	}
