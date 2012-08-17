@@ -259,10 +259,10 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	p := t.env.Provider()
 	addr, err := p.PublicAddress()
 	c.Assert(err, IsNil)
-	c.Assert(addr, Equals, "foofoo")
-	addr, err = p.PublicAddress()
+	c.Assert(addr, Equals, "public.dummy.address.example.com")
+	addr, err = p.PrivateAddress()
 	c.Assert(err, IsNil)
-	c.Assert(addr, Equals, "foofoo")
+	c.Assert(addr, Equals, "private.dummy.address.example.com")
 
 	err = t.env.Destroy(append(insts, inst1))
 	c.Assert(err, IsNil)

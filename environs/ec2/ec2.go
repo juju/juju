@@ -794,7 +794,6 @@ var metadataHost = "http://169.254.169.254"
 func fetchMetadata(name string) (value string, err error) {
 	for a := shortAttempt.Start(); a.Next(); {
 		uri := fmt.Sprintf("%s/1.0/meta-data/%s", metadataHost, name)
-		fmt.Println(uri)
 		var resp *http.Response
 		resp, err = http.Get(uri)
 		if err != nil {
