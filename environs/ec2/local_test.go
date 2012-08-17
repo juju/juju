@@ -173,6 +173,7 @@ type localServerSuite struct {
 
 func (t *localServerSuite) SetUpSuite(c *C) {
 	ec2.UseTestImageData(true)
+	ec2.UseTestMetadata(true)
 	t.Tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
@@ -180,6 +181,7 @@ func (t *localServerSuite) SetUpSuite(c *C) {
 func (t *localServerSuite) TearDownSuite(c *C) {
 	t.Tests.TearDownSuite(c)
 	ec2.ShortTimeouts(false)
+	ec2.UseTestMetadata(false)
 	ec2.UseTestImageData(false)
 }
 
@@ -253,6 +255,14 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	// TODO check for machine agent
 	CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='%s%s'", bootstrapDNS, ec2.ZkPortSuffix), true)
 	CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID=1"), true)
+
+	p := t.env.Provider()
+	addr, err := p.PublicAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "foofoo")
+	addr, err = p.PublicAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "foofoo")
 
 	err = t.env.Destroy(append(insts, inst1))
 	c.Assert(err, IsNil)

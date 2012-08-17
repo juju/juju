@@ -784,12 +784,19 @@ func ec2ErrCode(err error) string {
 	return ec2err.Code
 }
 
+// metadataHost holds the address of the instance metadata service.
+// It is a variable so that tests can change it to refer to a local
+// server when needed.
+var metadataHost = "http://169.254.169.254"
+
 // fetchMetadata fetches a single atom of data from the ec2 instance metadata service.
 // http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
 func fetchMetadata(name string) (value string, err error) {
 	for a := shortAttempt.Start(); a.Next(); {
+		uri := fmt.Sprintf("%s/1.0/meta-data/%s", metadataHost, name)
+		fmt.Println(uri)
 		var resp *http.Response
-		resp, err = http.Get("http://169.254.169.254/1.0/meta-data/"+ name)
+		resp, err = http.Get(uri)
 		if err != nil {
 			continue
 		}

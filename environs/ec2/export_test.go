@@ -66,6 +66,16 @@ func UseTestImageData(local bool) {
 	}
 }
 
+var origMetadataHost = metadataHost
+
+func UseTestMetadata(local bool) {
+	if local {
+		metadataHost = "file:"
+	} else {
+		metadataHost = origMetadataHost
+	}
+}
+
 var originalShortAttempt = shortAttempt
 var originalLongAttempt = longAttempt
 
