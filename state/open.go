@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/log"
 	"strings"
 	"time"
@@ -72,13 +73,15 @@ func open(info *Info) (*State, error) {
 // Initialize sets up an initial empty state in ZooKeeper and returns
 // it.  This needs to be performed only once for a given cluster of
 // ZooKeeper servers.
-func Initialize(info *Info) (*State, error) {
+// If config is non nil its contents will be written into the environment
+// configuration for this state.
+func Initialize(info *Info, config map[string]interface{}) (*State, error) {
 	st, err := open(info)
 	if err != nil {
 		return nil, err
 	}
 	log.Printf("state: initializing zookeeper")
-	err = st.initialize()
+	err = st.initialize(config)
 	if err != nil {
 		st.Close()
 		return nil, err
@@ -86,7 +89,7 @@ func Initialize(info *Info) (*State, error) {
 	return st, nil
 }
 
-func (s *State) initialize() error {
+func (s *State) initialize(config map[string]interface{}) error {
 	already, err := s.initialized()
 	if err != nil || already {
 		return err
@@ -109,7 +112,11 @@ func (s *State) initialize() error {
 	}
 	// TODO Create node for bootstrap machine.
 
-	// TODO Setup default global settings information.
+	yaml, err := goyaml.Marshal(config)
+	if err != nil { return err }
+	if _, err := s.zk.Create("/environment", string(yaml), 0, zkPermAll); err != nil {
+		return err
+	}
 
 	// Finally creation of /initialized as marker.
 	if _, err := s.zk.Create("/initialized", "", 0, zkPermAll); err != nil {

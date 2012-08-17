@@ -17,7 +17,7 @@ type StateSuite struct {
 
 func (s *StateSuite) SetUpTest(c *C) {
 	var err error
-	s.State, err = state.Initialize(s.StateInfo(c))
+	s.State, err = state.Initialize(s.StateInfo(c), nil)
 	c.Assert(err, IsNil)
 }
 

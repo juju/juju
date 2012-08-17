@@ -43,7 +43,7 @@ var _ = Suite(&StateSuite{})
 
 func (s *StateSuite) TestInitialize(c *C) {
 	// Check that initialization of an already-initialized state succeeds.
-	st, err := state.Initialize(s.StateInfo(c))
+	st, err := state.Initialize(s.StateInfo(c), nil)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	st.Close()
@@ -68,7 +68,7 @@ func (s *StateSuite) TestInitialize(c *C) {
 	default:
 	}
 
-	st, err = state.Initialize(s.StateInfo(c))
+	st, err = state.Initialize(s.StateInfo(c), nil)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	defer st.Close()
@@ -105,12 +105,6 @@ var environmentWatchTests = []struct {
 }
 
 func (s *StateSuite) TestWatchEnvironment(c *C) {
-	// create a blank /environment key manually as it is
-	// not created by state.Initialize().
-	path, err := s.zkConn.Create("/environment", "", 0, zookeeper.WorldACL(zookeeper.PERM_ALL))
-	c.Assert(err, IsNil)
-	c.Assert(path, Equals, "/environment")
-
 	// fetch the /environment key as a *ConfigNode
 	environConfigWatcher := s.State.WatchEnvironConfig()
 	defer func() {
