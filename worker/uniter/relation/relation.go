@@ -26,19 +26,19 @@ type State struct {
 	ChangedPending string
 }
 
-// clone returns an independent clone of the state.
-func (s *State) clone() *State {
-	clone := &State{
+// copy returns an independent copy of the state.
+func (s *State) copy() *State {
+	copy := &State{
 		RelationId:     s.RelationId,
 		ChangedPending: s.ChangedPending,
 	}
 	if s.Members != nil {
-		clone.Members = map[string]int{}
+		copy.Members = map[string]int{}
 		for m, v := range s.Members {
-			clone.Members[m] = v
+			copy.Members[m] = v
 		}
 	}
-	return clone
+	return copy
 }
 
 // Validate returns an error if the supplied hook.Info does not represent
@@ -74,7 +74,7 @@ func (s *State) Validate(hi hook.Info) (err error) {
 
 // StateDir is a filesystem-backed representation of the state of a
 // relation. Concurrent modifications to the underlying state directory
-// may cause StateDir instances to exhibit undefined behaviour.
+// will have undefined consequences.
 type StateDir struct {
 	// path identifies the directory holding persistent state.
 	path string
@@ -85,38 +85,39 @@ type StateDir struct {
 	state State
 }
 
-// State returns the current state of the relation. It will be accurate so
-// long as no concurrent modifications are made to the underlying directory.
+// State returns the current state of the relation.
 func (d *StateDir) State() *State {
-	return d.state.clone()
+	return d.state.copy()
 }
 
 // ReadStateDir loads a StateDir from the subdirectory of dirPath named
-// for the supplied RelationId. Entries with names ending in "-" followed by an
-// integer must be files containing valid unit data; all other names are ignored.
-// If the directory does not exist, it will be created.
+// for the supplied RelationId. If the directory does not exist, no error
+// is returned,
 func ReadStateDir(dirPath string, relationId int) (d *StateDir, err error) {
-	path := filepath.Join(dirPath, strconv.Itoa(relationId))
-	defer errorContextf(&err, "cannot load relation state from %q", path)
-	if err = ensureDir(path); err != nil {
+	d = &StateDir{
+		filepath.Join(dirPath, strconv.Itoa(relationId)),
+		State{relationId, map[string]int{}, ""},
+	}
+	defer errorContextf(&err, "cannot load relation state from %q", d.path)
+	if _, err := os.Stat(d.path); os.IsNotExist(err) {
+		return d, nil
+	} else if err != nil {
 		return nil, err
 	}
-	fis, err := ioutil.ReadDir(path)
+	fis, err := ioutil.ReadDir(d.path)
 	if err != nil {
 		return nil, err
 	}
-	state := State{
-		RelationId: relationId,
-		Members:    map[string]int{},
-	}
 	for _, fi := range fis {
+		// Entries with names ending in "-" followed by an integer must be
+		// files containing valid unit data; all other names are ignored.
 		name := fi.Name()
 		unitName, ok := unitName(name)
 		if !ok {
 			// This doesn't look like a unit file.
 			continue
 		}
-		data, err := ioutil.ReadFile(filepath.Join(path, name))
+		data, err := ioutil.ReadFile(filepath.Join(d.path, name))
 		if err != nil {
 			return nil, err
 		}
@@ -127,24 +128,24 @@ func ReadStateDir(dirPath string, relationId int) (d *StateDir, err error) {
 		if info.ChangeVersion == nil {
 			return nil, fmt.Errorf(`invalid unit file %q: "changed-version" not set`, name)
 		}
-		state.Members[unitName] = *info.ChangeVersion
+		d.state.Members[unitName] = *info.ChangeVersion
 		if info.ChangedPending {
-			if state.ChangedPending != "" {
-				return nil, fmt.Errorf("%q and %q both have pending changed hooks", state.ChangedPending, unitName)
+			if d.state.ChangedPending != "" {
+				return nil, fmt.Errorf("%q and %q both have pending changed hooks", d.state.ChangedPending, unitName)
 			}
-			state.ChangedPending = unitName
+			d.state.ChangedPending = unitName
 		}
 	}
-	return &StateDir{path, state}, nil
+	return d, nil
 }
 
 // ReadAllStateDirs loads and returns every StateDir persisted directly inside
-// the supplied dirPath. Entries with integer names must be directories
-// containing StateDir data; all other names will be ignored. If dirPath
-// does not exist, it will be created.
+// the supplied dirPath. If dirPath does not exist, no error is returned.
 func ReadAllStateDirs(dirPath string) (dirs map[int]*StateDir, err error) {
 	defer errorContextf(&err, "cannot load relations state from %q", dirPath)
-	if err = ensureDir(dirPath); err != nil {
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		return nil, nil
+	} else if err != nil {
 		return nil, err
 	}
 	fis, err := ioutil.ReadDir(dirPath)
@@ -153,6 +154,8 @@ func ReadAllStateDirs(dirPath string) (dirs map[int]*StateDir, err error) {
 	}
 	dirs = map[int]*StateDir{}
 	for _, fi := range fis {
+		// Entries with integer names must be directories containing StateDir
+		// data; all other names will be ignored.
 		relationId, err := strconv.Atoi(fi.Name())
 		if err != nil {
 			// This doesn't look like a relation.
@@ -167,16 +170,17 @@ func ReadAllStateDirs(dirPath string) (dirs map[int]*StateDir, err error) {
 	return dirs, nil
 }
 
-// Write atomically writes to disk the relation state change embodied by
-// the supplied hook.Info. It should be called after the supplied hook.Info
-// has been successfully run. Write does *not* validate the supplied
-// hook.Info, but *is* idempotent: that is, rewriting the most recent
-// hook.Info (for example, in the course of recovery from unexpected process
-// death) will not change the state either on disk or in memory.
-// Attempting to write a hook.Info that is neither valid nor a repeat of the
-// most recently written one will cause undefined behaviour.
+// Ensure creates the directory if it does not already exist.
+func (d *StateDir) Ensure() error {
+	return ensureDir(d.path)
+}
+
+// Write atomically writes to disk the relation state change in hi.
+// It must be called after the respective hook was executed successfully.
+// Write doesn't validate hi but guarantees that successive writes of
+// the same hi are idempotent.
 func (d *StateDir) Write(hi hook.Info) (err error) {
-	defer errorContextf(&err, "failed to commit %q for %q", hi.Kind, hi.RemoteUnit)
+	defer errorContextf(&err, "failed to write %q hook info for %q on state directory", hi.Kind, hi.RemoteUnit)
 	if hi.Kind == hook.RelationBroken {
 		if err = os.Remove(d.path); err != nil && !os.IsNotExist(err) {
 			return err

@@ -23,15 +23,16 @@ const (
 	UpgradeCharm  Kind = "upgrade-charm"
 
 	// These hooks require an associated relation, and the name of the relation
-	// unit whose change triggered the hook. The values are not themselves valid
-	// hook names: they need to be prefixed with the name of the associated
-	// relation, and a hyphen, before they can be executed.
+	// unit whose change triggered the hook. The hook file names that these
+	// kinds represent will be prefixed by the relation name; for example,
+	// "db-relation-joined".
 	RelationJoined   Kind = "relation-joined"
 	RelationChanged  Kind = "relation-changed"
 	RelationDeparted Kind = "relation-departed"
 
-	// This hook requires an associated relation. To get a valid hook name from
-	// the value, if must be prefixed just like the other Relation* Kind values.
+	// This hook requires an associated relation. The represented hook file name
+	// will be prefixed by the relation name, just like the other Relation* Kind
+	// values.
 	RelationBroken Kind = "relation-broken"
 )
 
@@ -103,7 +104,8 @@ func (status Status) valid() bool {
 	return false
 }
 
-// State describes a hook execution and its status.
+// State holds details necessary for executing a hook, and the
+// status of the execution.
 type State struct {
 	Info   Info
 	Status Status

@@ -9,10 +9,10 @@ import (
 	"strings"
 )
 
-// EnsureTools creates a symbolic link to jujuc for each
+// EnsureJujucSymlinks creates a symbolic link to jujuc for each
 // hook command. If the commands already exist, this operation
 // does nothing.
-func EnsureTools(unitName string) (err error) {
+func EnsureJujucSymlinks(unitName string) (err error) {
 	agentName := "unit-" + strings.Replace(unitName, "/", "-", 1)
 	dir := environs.AgentToolsDir(agentName)
 	for _, name := range server.CommandNames() {

@@ -44,6 +44,9 @@ func (r *Relationer) Join() error {
 	if err := r.ru.Init(); err != nil {
 		return err
 	}
+	if err := r.dir.Ensure(); err != nil {
+		return err
+	}
 	return r.ru.Pinger().Start()
 }
 
@@ -102,7 +105,7 @@ func (r *Relationer) StopHooks() error {
 // returns the name of the hook that must be run.
 func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
 	if err = r.dir.State().Validate(hi); err != nil {
-		return "", err
+		return
 	}
 	r.ctx.UpdateMembers(hi.Members)
 	if hi.Kind == hook.RelationDeparted {

@@ -19,8 +19,6 @@ func TestPackage(t *stdtesting.T) {
 	coretesting.ZkTestPackage(t)
 }
 
-type msi map[string]int
-
 type RelationerSuite struct {
 	testing.JujuConnSuite
 	hooks chan hook.Info
@@ -105,6 +103,9 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	ru1 := s.AddRelationUnit(c, "u/1")
 	ru2 := s.AddRelationUnit(c, "u/2")
 	r := uniter.NewRelationer(s.ru, s.dir, s.hooks)
+	err := r.Join()
+	c.Assert(err, IsNil)
+	defer r.Abandon()
 
 	// Check no hooks are being sent.
 	s.assertNoHook(c)
@@ -118,7 +119,7 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	c.Assert(f, PanicMatches, "hooks already started!")
 
 	// Join u/1 to the relation, and check that we receive the expected hooks.
-	err := ru1.Init()
+	err = ru1.Init()
 	c.Assert(err, IsNil)
 	err = ru1.Pinger().Start()
 	c.Assert(err, IsNil)
@@ -193,6 +194,9 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 
 func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	r := uniter.NewRelationer(s.ru, s.dir, s.hooks)
+	err := r.Join()
+	c.Assert(err, IsNil)
+	defer r.Abandon()
 	ctx := r.Context()
 	c.Assert(ctx.Units(), HasLen, 0)
 
@@ -205,7 +209,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 			"u/1": {"private-address": "glastonbury"},
 		},
 	}
-	_, err := r.PrepareHook(changed)
+	_, err = r.PrepareHook(changed)
 	c.Assert(err, ErrorMatches, `inappropriate "relation-changed" for "u/1": unit has not joined`)
 	c.Assert(ctx.Units(), HasLen, 0)
 	c.Assert(s.dir.State().Members, HasLen, 0)
@@ -241,7 +245,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	// relation state...
 	err = r.CommitHook(joined)
 	c.Assert(err, IsNil)
-	c.Assert(msi(s.dir.State().Members), DeepEquals, msi{"u/1": 0})
+	c.Assert(s.dir.State().Members, DeepEquals, map[string]int{"u/1": 0})
 	c.Assert(ctx.Units(), DeepEquals, []string{"u/1"})
 	s1, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
@@ -251,14 +255,14 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	name, err = r.PrepareHook(changed)
 	c.Assert(err, IsNil)
 	c.Assert(name, Equals, "my-relation-relation-changed")
-	c.Assert(msi(s.dir.State().Members), DeepEquals, msi{"u/1": 0})
+	c.Assert(s.dir.State().Members, DeepEquals, map[string]int{"u/1": 0})
 	c.Assert(ctx.Units(), DeepEquals, []string{"u/1"})
 	s1, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
 	c.Assert(s1, DeepEquals, changed.Members["u/1"])
 }
 
-func (s *RelationerSuite) TestBreaking(c *C) {
+func (s *RelationerSuite) TestSetDying(c *C) {
 	ru1 := s.AddRelationUnit(c, "u/1")
 	err := ru1.Init()
 	c.Assert(err, IsNil)
@@ -268,6 +272,7 @@ func (s *RelationerSuite) TestBreaking(c *C) {
 	r := uniter.NewRelationer(s.ru, s.dir, s.hooks)
 	err = r.Join()
 	c.Assert(err, IsNil)
+	defer r.Abandon()
 	r.StartHooks()
 	s.assertHook(c, hook.Info{
 		Kind:       hook.RelationJoined,

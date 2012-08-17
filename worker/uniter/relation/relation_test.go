@@ -26,6 +26,11 @@ func (s *StateDirDuite) TestReadStateDirEmpty(c *C) {
 	c.Assert(msi(state.Members), DeepEquals, msi{})
 	c.Assert(state.ChangedPending, Equals, "")
 
+	_, err = os.Stat(reldir)
+	c.Assert(os.IsNotExist(err), Equals, true)
+
+	err = dir.Ensure()
+	c.Assert(err, IsNil)
 	fi, err := os.Stat(reldir)
 	c.Assert(err, IsNil)
 	c.Assert(fi.IsDir(), Equals, true)
@@ -244,9 +249,8 @@ func (s *ReadAllStateDirsSuite) TestNoDir(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(dirs, HasLen, 0)
 
-	fi, err := os.Stat(relsdir)
-	c.Assert(err, IsNil)
-	c.Assert(fi.IsDir(), Equals, true)
+	_, err = os.Stat(relsdir)
+	c.Assert(os.IsNotExist(err), Equals, true)
 }
 
 func (s *ReadAllStateDirsSuite) TestBadStateDir(c *C) {

@@ -190,7 +190,7 @@ func (q *AliveHookQueue) update(ruc state.RelationUnitsChange) {
 	}
 
 	for _, unit := range ruc.Departed {
-		if hookKind := q.info[unit].hookKind; hookKind == hook.RelationJoined {
+		if q.info[unit].hookKind == hook.RelationJoined {
 			q.unqueue(unit)
 		} else {
 			q.queue(unit, hook.RelationDeparted)
@@ -309,7 +309,8 @@ func (q *AliveHookQueue) unqueue(unit string) {
 	info.next = nil
 }
 
-// DyingHookQueue honours the obligations of an AliveHookQueue with respect to
+// DyingHookQueue is a hook queue that deals with a relation that is being
+// shut down. It honours the obligations of an AliveHookQueue with respect to
 // relation hook execution order; as soon as those obligations are fulfilled,
 // it sends a "relation-departed" hook for every relation member, and finally a
 // "relation-broken" hook for the relation itself.
@@ -321,8 +322,8 @@ type DyingHookQueue struct {
 	changedPending string
 }
 
-// NewDyingHookQueue returns a new DyingHookQueue that sends out details about the
-// hooks that must be executed in a relation that is being shut down.
+// NewDyingHookQueue returns a new DyingHookQueue that shuts down the state in
+// initial.
 func NewDyingHookQueue(initial *State, out chan<- hook.Info) *DyingHookQueue {
 	q := &DyingHookQueue{
 		out:            out,
