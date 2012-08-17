@@ -37,6 +37,54 @@ func (s *ServiceSuite) TestServiceCharm(c *C) {
 	c.Assert(testcurl.String(), Equals, "local:myseries/mydummy-1")
 }
 
+func (s *ServiceSuite) TestServiceRefesh(c *C) {
+	s1, err := s.State.Service(s.service.Name())
+	c.Assert(err, IsNil)
+
+	newcurl := charm.MustParseURL("local:myseries/mydummy-1")
+	err = s.service.SetCharmURL(newcurl)
+	c.Assert(err, IsNil)
+
+	testcurl, err := s1.CharmURL()
+	c.Assert(err, IsNil)
+	c.Assert(testcurl, DeepEquals, s.charm.URL())
+
+	err = s1.Refresh()
+	c.Assert(err, IsNil)
+	testcurl, err = s1.CharmURL()
+	c.Assert(err, IsNil)
+	c.Assert(testcurl, DeepEquals, newcurl)
+}
+
+func (s *ServiceSuite) TestServiceExposed(c *C) {
+	// Check that querying for the exposed flag works correctly.
+	exposed, err := s.service.IsExposed()
+	c.Assert(err, IsNil)
+	c.Assert(exposed, Equals, false)
+
+	// Check that setting and clearing the exposed flag works correctly.
+	err = s.service.SetExposed()
+	c.Assert(err, IsNil)
+	exposed, err = s.service.IsExposed()
+	c.Assert(err, IsNil)
+	c.Assert(exposed, Equals, true)
+	err = s.service.ClearExposed()
+	c.Assert(err, IsNil)
+	exposed, err = s.service.IsExposed()
+	c.Assert(err, IsNil)
+	c.Assert(exposed, Equals, false)
+
+	// Check that setting and clearing the exposed flag repeatedly does not fail.
+	err = s.service.SetExposed()
+	c.Assert(err, IsNil)
+	err = s.service.SetExposed()
+	c.Assert(err, IsNil)
+	err = s.service.ClearExposed()
+	c.Assert(err, IsNil)
+	err = s.service.ClearExposed()
+	c.Assert(err, IsNil)
+}
+
 func (s *ServiceSuite) TestAddUnit(c *C) {
 	// Check that principal units can be added on their own.
 	unitZero, err := s.service.AddUnit()
