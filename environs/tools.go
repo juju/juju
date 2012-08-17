@@ -382,23 +382,15 @@ func bundleTools(w io.Writer, tags string) (version.Binary, error) {
 	defer os.RemoveAll(dir)
 
 	// There's a bug in the go command (issue 3895) which causes the
-	// tools not to be re-built if the tags change. Work around
-	// it for the moment by cleaning the version package,
-	// which is all we use build tags for currently.
-	// Ignore the error, because we want the error from the subsequent
-	// install command instead.
-	// TODO(rog) remove this
-	exec.Command("go", "clean", "-i", "launchpad.net/juju-core/version").Run()
+	// tools not to be re-built if the tags change. This means
+	// that this does not work (or worse, can break things).
+	// TODO(rog) fix!
 
 	cmd := exec.Command("go", "install", "-tags="+tags, "launchpad.net/juju-core/cmd/...")
 
 	log.Printf("running %v", cmd.Args)
 	cmd.Env = setenv(os.Environ(), "GOBIN="+dir)
 	out, err := cmd.CombinedOutput()
-
-	// Clean the version package again, so that our build isn't corrupted.
-	// TODO(rog) remove this
-	exec.Command("go", "clean", "-i", "launchpad.net/juju-core/version").Run()
 
 	if err != nil {
 		return version.Binary{}, fmt.Errorf("build failed: %v; %s", err, out)
