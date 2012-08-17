@@ -5,6 +5,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju/testing"
+	"reflect"
 	"time"
 )
 
@@ -58,8 +59,8 @@ func (s *ProvisioningSuite) TestRunStop(c *C) {
 	err = units[0].OpenPort("tcp", 999)
 	c.Assert(err, IsNil)
 
-	c.Assert(opRecvTimeout(c, op), FitsTypeOf, dummy.OpStartInstance{})
-	c.Assert(opRecvTimeout(c, op), FitsTypeOf, dummy.OpOpenPorts{})
+	c.Assert(opRecvTimeout(c, op, dummy.OpStartInstance{}), NotNil)
+	c.Assert(opRecvTimeout(c, op, dummy.OpOpenPorts{}), NotNil)
 
 	err = a.Stop()
 	c.Assert(err, IsNil)
@@ -72,12 +73,21 @@ func (s *ProvisioningSuite) TestRunStop(c *C) {
 	}
 }
 
-func opRecvTimeout(c *C, opc <-chan dummy.Operation) dummy.Operation {
-	select {
-	case op := <-opc:
-		return op
-	case <-time.After(2 * time.Second):
-		c.Fatalf("time out wating for operation")
+// opRecvTimeout waits for any of the given kinds of operation to
+// be received from ops, and times out if not.
+func opRecvTimeout(c *C, opc <-chan dummy.Operation, kinds ...dummy.Operation) dummy.Operation {
+	for {
+		select {
+		case op := <-opc:
+			for _, k := range kinds {
+				if reflect.TypeOf(op) == reflect.TypeOf(k) {
+					return op
+				}
+			}
+			c.Logf("discarding unknown event %#v", op)
+		case <-time.After(2 * time.Second):
+			c.Fatalf("time out wating for operation")
+		}
 	}
 	panic("not reached")
 }
