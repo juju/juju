@@ -53,15 +53,17 @@ func StartMgoServer() (server *exec.Cmd, dbdir string) {
 	return server, dbdir
 }
 
+func MgoDestroy(server *exec.Cmd, dbdir string) {
+	server.Process.Kill()
+	server.Process.Wait()
+	os.RemoveAll(dbdir)
+}
+
 // MgoTestPackage should be called to register the tests for any package that
 // requires a MongoDB server.
 func MgoTestPackage(t *stdtesting.T) {
 	server, dbdir := StartMgoServer()
-	defer func() {
-		server.Process.Kill()
-		server.Process.Wait()
-		os.RemoveAll(dbdir)
-	}()
+	defer MgoDestroy(server, dbdir)
 	TestingT(t)
 }
 

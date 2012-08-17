@@ -24,7 +24,7 @@ func (f testt) Fatalf(format string, args ...interface{}) {
 
 var allPerms = zk.WorldACL(zk.PERM_ALL)
 
-func (Z) TestStartAndClean(c *C) {
+func (Z) TestZkStartAndClean(c *C) {
 	srv := testing.StartZkServer()
 	defer srv.Destroy()
 
