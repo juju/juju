@@ -58,7 +58,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 			return nil
 		}
 		log.Printf("error from provisioner or firewaller: %v", err)
-		time.Sleep(retryDuration)
+		time.Sleep(retryDelay)
 	}
 	panic("unreachable")
 }

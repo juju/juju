@@ -99,20 +99,20 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 	}
 	version.Current = v1.Binary
 	// unpack the "current" version of the tools.
-	v1tools := coretesting.Archive(
-		coretesting.NewFile("juju", 0777, "juju contents v1"),
-		coretesting.NewFile("jujuc", 0777, "jujuc contents v1"),
-		coretesting.NewFile("jujud", 0777, "jujud contents v1"),
+	v1tools := coretesting.TarGz(
+		coretesting.NewTarFile("juju", 0777, "juju contents v1"),
+		coretesting.NewTarFile("jujuc", 0777, "jujuc contents v1"),
+		coretesting.NewTarFile("jujud", 0777, "jujud contents v1"),
 	)
 	err := environs.UnpackTools(v1, bytes.NewReader(v1tools))
 	c.Assert(err, IsNil)
 
 	// Upload a new version of the tools to the environ's storage.
 	// We'll test upgrading to these tools.
-	v2tools := coretesting.Archive(
-		coretesting.NewFile("juju", 0777, "juju contents v2"),
-		coretesting.NewFile("jujuc", 0777, "jujuc contents v2"),
-		coretesting.NewFile("jujud", 0777, "jujud contents v2"),
+	v2tools := coretesting.TarGz(
+		coretesting.NewTarFile("juju", 0777, "juju contents v2"),
+		coretesting.NewTarFile("jujuc", 0777, "jujuc contents v2"),
+		coretesting.NewTarFile("jujud", 0777, "jujud contents v2"),
 	)
 	v2 := &state.Tools{
 		Binary: version.MustParseBinary("1.0.2-foo-bar"),
