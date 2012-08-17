@@ -112,6 +112,7 @@ func (s *State) initialize(config map[string]interface{}) error {
 	}
 	// TODO Create node for bootstrap machine.
 
+	fmt.Println("config", config)
 	if config != nil {
 		yaml, err := goyaml.Marshal(config)
 		if err != nil {
