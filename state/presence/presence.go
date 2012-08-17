@@ -70,8 +70,7 @@ func StartPinger(conn *zk.Conn, path string, period time.Duration) (*Pinger, err
 }
 
 // Start begins periodically refreshing the context of the Pinger's path.
-// Consecutive calls to Start will panic, and will attempts to Start a
-// Pinger that has been Killed.
+// Start panics if called consecutively or after Kill.
 func (p *Pinger) Start() error {
 	if p.tomb != nil {
 		panic("pinger is already started")
@@ -125,7 +124,6 @@ func (p *Pinger) Kill() error {
 
 // loop calls change on p.target every p.period nanoseconds until p is stopped.
 func (p *Pinger) loop() {
-	defer p.tomb.Done()
 	defer func() {
 		// If we haven't encountered an error, always send a final write, to
 		// ensure watchers detect the pinger's death as late as possible.
@@ -133,6 +131,7 @@ func (p *Pinger) loop() {
 			_, err := p.target.change()
 			p.tomb.Kill(err)
 		}
+		p.tomb.Done()
 	}()
 	for {
 		select {
