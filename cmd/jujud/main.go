@@ -21,6 +21,7 @@ func Main(args []string) {
 	jujud.Register(&MachineAgent{})
 	jujud.Register(&ProvisioningAgent{})
 	jujud.Register(&UnitAgent{})
+	jujud.Register(&VersionCommand{})
 	os.Exit(cmd.Main(jujud, cmd.DefaultContext(), args[1:]))
 }
 
