@@ -301,7 +301,6 @@ func (s *ConfigNodeSuite) TestMultipleWrites(c *C) {
 	c.Assert(changes, DeepEquals, []ItemChange{})
 }
 
-/*
 func (s *ConfigNodeSuite) TestMultipleWritesAreStable(c *C) {
 	node, err := readConfigNode(s.state, s.path)
 	c.Assert(err, IsNil)
@@ -309,8 +308,10 @@ func (s *ConfigNodeSuite) TestMultipleWritesAreStable(c *C) {
 	_, err = node.Write()
 	c.Assert(err, IsNil)
 
-	stat, err := s.state.Exists(s.path)
-	version := stat.Version()
+	mgoData := make(map[string]interface{})
+	err = s.MgoSession.DB("juju").C("cfgnodes").FindId(s.path).One(&mgoData)
+	c.Assert(err, IsNil)
+	version := mgoData["version"]
 	for i := 0; i < 100; i++ {
 		node.Set("value", i)
 		node.Set("foo", "bar")
@@ -319,11 +320,13 @@ func (s *ConfigNodeSuite) TestMultipleWritesAreStable(c *C) {
 		_, err := node.Write()
 		c.Assert(err, IsNil)
 	}
-	stat, err = s.state.Exists(s.path)
-	newVersion := stat.Version()
+	mgoData = make(map[string]interface{})
+	err = s.MgoSession.DB("juju").C("cfgnodes").FindId(s.path).One(&mgoData)
+	c.Assert(err, IsNil)
+	newVersion := mgoData["version"]
 	c.Assert(version, Equals, newVersion)
 }
-*/
+
 func (s *ConfigNodeSuite) TestWriteTwice(c *C) {
 	// Check the correct writing into a node by two config nodes.
 	nodeOne, err := readConfigNode(s.state, s.path)
