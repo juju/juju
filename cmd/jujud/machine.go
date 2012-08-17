@@ -5,6 +5,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/tomb"
@@ -53,7 +54,13 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 			return nil
 		}
 		if ug, ok := err.(*UpgradedError); ok {
-			log.Printf("upgrade to %v from %q", ug.Binary, ug.URL)
+			tools, err := environs.ChangeAgentTools("machine", ug.Binary)
+			if err == nil {
+				log.Printf("cannot change agent tools: %v", err)
+				time.Sleep(retryDelay)
+				continue
+			}
+			log.Printf("upgrade to %v from %q", tools.Binary, tools.URL)
 			// Return and let upstart deal with the restart.
 			return nil
 		}

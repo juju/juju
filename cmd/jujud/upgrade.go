@@ -26,7 +26,7 @@ type UpgradedError struct {
 }
 
 func (e *UpgradedError) Error() string {
-	return fmt.Sprintf("must restart: agent has been upgraded to %v (from %q)", e.tools.Binary, e.tools.URL)
+	return fmt.Sprintf("must restart: agent has been upgraded to %v (from %q)", e.Binary, e.URL)
 }
 
 // AgentState represents the state of an agent.
