@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io/ioutil"
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
@@ -10,7 +11,9 @@ import (
 type acCreator func() (cmd.Command, *AgentConf)
 
 func initCmd(c cmd.Command, args []string) error {
-	return c.Init(gnuflag.NewFlagSet("", gnuflag.ContinueOnError), args)
+	f := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
+	f.SetOutput(ioutil.Discard)
+	return c.Init(f, args)
 }
 
 // CheckAgentCommand is a utility function for verifying that common agent

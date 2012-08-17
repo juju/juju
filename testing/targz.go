@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-// File represents a file to be archived.
-type File struct {
+// TarFile represents a file to be archived.
+type TarFile struct {
 	Header   tar.Header
 	Contents string
 }
@@ -21,14 +21,14 @@ var modes = map[os.FileMode]byte{
 	0:              tar.TypeReg,
 }
 
-// NewFile returns a new File instance with the given file
+// NewTarFile returns a new TarFile instance with the given file
 // mode and contents.
-func NewFile(name string, mode os.FileMode, contents string) *File {
+func NewTarFile(name string, mode os.FileMode, contents string) *TarFile {
 	ftype := modes[mode&os.ModeType]
 	if ftype == 0 {
 		panic(fmt.Errorf("unexpected mode %v", mode))
 	}
-	return &File{
+	return &TarFile{
 		Header: tar.Header{
 			Typeflag:   ftype,
 			Name:       name,
@@ -44,8 +44,8 @@ func NewFile(name string, mode os.FileMode, contents string) *File {
 	}
 }
 
-// Archive returns the given files in gzipped tar-archive format.
-func Archive(files ...*File) []byte {
+// TarGz returns the given files in gzipped tar-archive format.
+func TarGz(files ...*TarFile) []byte {
 	var buf bytes.Buffer
 	gzw := gzip.NewWriter(&buf)
 	tarw := tar.NewWriter(gzw)

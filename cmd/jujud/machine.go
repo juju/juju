@@ -51,7 +51,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 			// Stop requested by user.
 			return err
 		}
-		time.Sleep(retryDuration)
+		time.Sleep(retryDelay)
 		log.Printf("restarting provisioner and firewaller after error: %v", err)
 	}
 	panic("unreachable")

@@ -15,7 +15,7 @@ import (
 	_ "launchpad.net/juju-core/environs/ec2"
 )
 
-var retryDuration = 3 * time.Second
+var retryDelay = 3 * time.Second
 
 // ProvisioningAgent is a cmd.Command responsible for running a provisioning agent.
 type ProvisioningAgent struct {
@@ -55,7 +55,7 @@ func (a *ProvisioningAgent) Run(_ *cmd.Context) (err error) {
 			// Stop requested by user.
 			return err
 		}
-		time.Sleep(retryDuration)
+		time.Sleep(retryDelay)
 		log.Printf("restarting provisioner and firewaller after error: %v", err)
 	}
 	panic("unreachable")
