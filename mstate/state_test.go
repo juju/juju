@@ -8,10 +8,7 @@ import (
 	state "launchpad.net/juju-core/mstate"
 	coretesting "launchpad.net/juju-core/testing"
 	"net/url"
-	stdtesting "testing"
 )
-
-func Test(t *stdtesting.T) { TestingT(t) }
 
 type StateSuite struct {
 	ConnSuite
