@@ -220,6 +220,7 @@ func processUnit(unit *state.Unit) (map[string]interface{}, error) {
 	}
 
 	processVersion(r, unit)
+	processStatus(r, unit)
 	return r, nil
 }
 
@@ -235,6 +236,19 @@ func processVersion(r map[string]interface{}, v versioned) {
 
 	if t, err := v.ProposedAgentTools(); err == nil {
 		r["proposed-agent-version"] = t.Binary.Number.String()
+	}
+}
+
+type status interface {
+	Status() (state.UnitStatus, string, error)
+}
+
+func processStatus(r map[string]interface{}, s status) {
+	if status, info, err := s.Status(); err == nil {
+		r["status"] = status
+		if len(info) > 0 {
+			r["status-info"] = info
+		}
 	}
 }
 
