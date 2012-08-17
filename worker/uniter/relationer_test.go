@@ -3,9 +3,9 @@ package uniter_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/presence"
-	"launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/worker/uniter"
 	"os"
 	"strings"
@@ -13,7 +13,7 @@ import (
 )
 
 type RelationerSuite struct {
-	testing.StateSuite
+	testing.JujuConnSuite
 	hooks chan uniter.HookInfo
 	svc   *state.Service
 	rel   *state.Relation
@@ -24,7 +24,7 @@ type RelationerSuite struct {
 var _ = Suite(&RelationerSuite{})
 
 func (s *RelationerSuite) SetUpTest(c *C) {
-	s.StateSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
 	ch := s.AddTestingCharm(c, "dummy")
 	var err error
 	s.svc, err = s.State.AddService("u", ch)

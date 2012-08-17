@@ -11,8 +11,8 @@ import (
 
 // Service represents the state of a service.
 type Service struct {
-	st   *State
-	name string
+	st  *State
+	doc serviceDoc
 }
 
 // serviceDoc represents the internal state of a service in MongoDB.
@@ -21,31 +21,58 @@ type serviceDoc struct {
 	CharmURL *charm.URL
 	Life     Life
 	UnitSeq  int
+	Exposed  bool
 }
 
 // Name returns the service name.
 func (s *Service) Name() string {
-	return s.name
+	return s.doc.Name
+}
+
+// IsExposed returns whether this service is exposed. The explicitly open
+// ports (with open-port) for exposed services may be accessed from machines
+// outside of the local deployment network. See SetExposed and ClearExposed.
+func (s *Service) IsExposed() (bool, error) {
+	return s.doc.Exposed, nil
 }
 
 // CharmURL returns the charm URL this service is supposed to use.
 func (s *Service) CharmURL() (url *charm.URL, err error) {
-	sdoc := &serviceDoc{}
-	sel := bson.D{{"_id", s.name}, {"life", Alive}}
-	err = s.st.services.Find(sel).One(sdoc)
-	if err != nil {
-		return nil, fmt.Errorf("cannot get the charm URL of service %q: %v", s, err)
-	}
-	return sdoc.CharmURL, nil
+	return s.doc.CharmURL, nil
 }
 
 // SetCharmURL changes the charm URL for the service.
 func (s *Service) SetCharmURL(url *charm.URL) (err error) {
 	change := bson.D{{"$set", bson.D{{"charmurl", url}}}}
-	err = s.st.services.Update(bson.D{{"_id", s.name}}, change)
+	err = s.st.services.Update(bson.D{{"_id", s.doc.Name}}, change)
 	if err != nil {
 		return fmt.Errorf("cannot set the charm URL of service %q: %v", s, err)
 	}
+	s.doc.CharmURL = url
+	return nil
+}
+
+// SetExposed marks the service as exposed.
+// See ClearExposed and IsExposed.
+func (s *Service) SetExposed() error {
+	change := bson.D{{"$set", bson.D{{"exposed", true}}}}
+	err := s.st.services.UpdateId(s.doc.Name, change)
+	if err != nil {
+		return fmt.Errorf("cannot set exposed flag for service %q: %v", s, err)
+	}
+	s.doc.Exposed = true
+	return nil
+}
+
+// ClearExposed removes the exposed flag from the service.
+// See SetExposed and IsExposed.
+func (s *Service) ClearExposed() error {
+	change := bson.D{{"$set", bson.D{{"exposed", false}}}}
+	err := s.st.services.Update(bson.D{{"_id", s.doc.Name}}, change)
+	if err != nil {
+		return fmt.Errorf("cannot clear exposed flag for service %q: %v", s, err)
+	}
+	s.doc.Exposed = false
 	return nil
 }
 
@@ -53,34 +80,42 @@ func (s *Service) SetCharmURL(url *charm.URL) (err error) {
 func (s *Service) Charm() (*Charm, error) {
 	url, err := s.CharmURL()
 	if err != nil {
-		return nil, err
+		panic(fmt.Errorf("cannot happen, err must be nil, got %v", err))
 	}
 	return s.st.Charm(url)
 }
 
 // String returns the service name.
 func (s *Service) String() string {
-	return s.Name()
+	return s.doc.Name
+}
+
+func (s *Service) Refresh() error {
+	err := s.st.services.FindId(s.doc.Name).One(&s.doc)
+	if err != nil {
+		return fmt.Errorf("cannot refresh service %v: %v", s, err)
+	}
+	return nil
 }
 
 // newUnitName returns the next unit name.
 func (s *Service) newUnitName() (string, error) {
-	sel := bson.D{{"_id", s.name}, {"life", Alive}}
+	sel := bson.D{{"_id", s.doc.Name}, {"life", Alive}}
 	change := mgo.Change{Update: bson.D{{"$inc", bson.D{{"unitseq", 1}}}}}
 	result := serviceDoc{}
 	_, err := s.st.services.Find(sel).Apply(change, &result)
 	if err != nil {
 		return "", err
 	}
-	name := s.name + "/" + strconv.Itoa(result.UnitSeq)
+	name := s.doc.Name + "/" + strconv.Itoa(result.UnitSeq)
 	return name, nil
 }
 
-// addUnit adds the named unit, which is part of unitSet.
+// addUnit adds the named unit.
 func (s *Service) addUnit(name string, principal string) (*Unit, error) {
 	udoc := unitDoc{
 		Name:      name,
-		Service:   s.name,
+		Service:   s.doc.Name,
 		Principal: principal,
 		Life:      Alive,
 	}
@@ -131,7 +166,7 @@ func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
 func (s *Service) RemoveUnit(unit *Unit) error {
 	sel := bson.D{
 		{"_id", unit.Name()},
-		{"service", s.name},
+		{"service", s.doc.Name},
 		{"life", Alive},
 	}
 	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
@@ -146,7 +181,7 @@ func (s *Service) unitDoc(name string) (*unitDoc, error) {
 	udoc := &unitDoc{}
 	sel := bson.D{
 		{"_id", name},
-		{"service", s.name},
+		{"service", s.doc.Name},
 		{"life", Alive},
 	}
 	err := s.st.units.Find(sel).One(udoc)
@@ -160,7 +195,7 @@ func (s *Service) unitDoc(name string) (*unitDoc, error) {
 func (s *Service) Unit(name string) (*Unit, error) {
 	udoc, err := s.unitDoc(name)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get unit %q from service %q: %v", name, s.name, err)
+		return nil, fmt.Errorf("cannot get unit %q from service %q: %v", name, s.doc.Name, err)
 	}
 	return newUnit(s.st, udoc), nil
 }
@@ -168,7 +203,7 @@ func (s *Service) Unit(name string) (*Unit, error) {
 // AllUnits returns all units of the service.
 func (s *Service) AllUnits() (units []*Unit, err error) {
 	docs := []unitDoc{}
-	sel := bson.D{{"service", s.name}, {"life", Alive}}
+	sel := bson.D{{"service", s.doc.Name}, {"life", Alive}}
 	err = s.st.units.Find(sel).All(&docs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all units from service %q: %v", err)
@@ -181,10 +216,10 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 
 // Relations returns a Relation for every relation the service is in.
 func (s *Service) Relations() (relations []*Relation, err error) {
-	defer errorContextf(&err, "can't get relations for service %q", s.name)
+	defer errorContextf(&err, "can't get relations for service %q", s)
 	sel := bson.D{
 		{"life", Alive},
-		{"endpoints.servicename", s.name},
+		{"endpoints.servicename", s.doc.Name},
 	}
 	docs := []relationDoc{}
 	err = s.st.relations.Find(sel).All(&docs)
