@@ -12,28 +12,37 @@ import (
 	"os"
 )
 
+// Upgrader represents a upgrader task.
 type Upgrader struct {
 	tomb       tomb.Tomb
 	agentName  string
 	agentState AgentState
 }
 
+// UpgradedError the status from an Upgrader when
+// an upgrade has been requested.
 type UpgradedError struct {
 	*state.Tools
 }
 
 func (e *UpgradedError) Error() string {
-	return fmt.Sprintf("agent has been upgraded to %v (from %q)", e.Binary, e.URL)
+	return fmt.Sprintf("must restart: agent has been upgraded to %v (from %q)", e.tools.Binary, e.tools.URL)
 }
 
+// AgentState represents the state of an agent.
 type AgentState interface {
+	// SetAgentTools sets the tools that the agent is currently running.
 	SetAgentTools(tools *state.Tools) error
+
+	// WatchProposedAgentTools watches the tools that the agent is
+	// currently proposed to run.
 	WatchProposedAgentTools() *state.AgentToolsWatcher
 }
 
 // NewUpgrader watches the given agent state and attempts to upgrade the
-// tools for the agent with the given name. If it is successful, Wait
-// will return an UpgradedError describing the new tools.
+// tools for the agent with the given name.  given name.  If an upgrade
+// happens, Wait and Stop will return an UpgradedError to notify that a
+// version replacement is necessary.
 func NewUpgrader(agentName string, as AgentState) *Upgrader {
 	u := &Upgrader{
 		agentName:  agentName,
@@ -41,9 +50,7 @@ func NewUpgrader(agentName string, as AgentState) *Upgrader {
 	}
 	go func() {
 		defer u.tomb.Done()
-		if err := u.run(); err != nil {
-			u.tomb.Kill(err)
-		}
+		u.tomb.Kill(u.run())
 	}()
 	return u
 }
@@ -64,7 +71,7 @@ func (u *Upgrader) run() error {
 		// Don't abort everything because we can't find the tools directory.
 		// The problem should sort itself out as we will immediately
 		// download some more tools and upgrade.
-		log.Printf("cannot read tools directory: %v", err)
+		log.Printf("upgrader: cannot read current tools: %v", err)
 		currentTools = &state.Tools{
 			Binary: version.Current,
 		}
@@ -75,6 +82,7 @@ func (u *Upgrader) run() error {
 	}
 
 	w := u.agentState.WatchProposedAgentTools()
+	defer watcher.Stop(w, &u.tomb)
 
 	// TODO(rog) retry downloads when they fail.
 	var (
@@ -92,13 +100,13 @@ func (u *Upgrader) run() error {
 			if !ok {
 				return watcher.MustErr(w)
 			}
-			// If there's a download in progress, stop it if we need to.
 			if download != nil {
-				// If we are already downloading the requested tools,
-				// continue to do so.
+				// There's a download in progress, stop it if we need to.
 				if *tools == *downloadTools {
+					// We are already downloading the requested tools.
 					break
 				}
+				// Tools changed. We need to stop and restart.
 				download.Stop()
 				download, downloadTools, downloadDone = nil, nil, nil
 			}
@@ -107,9 +115,8 @@ func (u *Upgrader) run() error {
 			if tools.URL == "" || *tools == *currentTools {
 				break
 			}
-			// It's possible the tools are already downloaded - attempt
-			// an upgrade without downloading to check if that's the case.
-			if tools, err := environs.ChangeAgentTools(u.agentName, tools.Binary); err == nil {
+			if tools, err := environs.ReadTools(tools.Binary); err == nil {
+				// The tools have already been downloaded, so use them.
 				return &UpgradedError{tools}
 			}
 			download = downloader.New(tools.URL)
@@ -119,21 +126,16 @@ func (u *Upgrader) run() error {
 			tools := downloadTools
 			download, downloadTools, downloadDone = nil, nil, nil
 			if status.Err != nil {
-				log.Printf("download %v from %q failed: %v", tools.Binary, tools.URL, status.Err)
+				log.Printf("download %v failed: %v", tools.Binary, status.Err)
 				break
 			}
 			err := environs.UnpackTools(tools, status.File)
 			status.File.Close()
 			if err := os.Remove(status.File.Name()); err != nil {
-				log.Printf("%s agent: cannot remove temporary download file: %v", err)
+				log.Printf("%s agent: cannot remove temporary download file: %v", u.agentName, err)
 			}
 			if err != nil {
 				log.Printf("unpack error: %v", err)
-				break
-			}
-			tools, err = environs.ChangeAgentTools(u.agentName, tools.Binary)
-			if err != nil {
-				log.Printf("upgrade error: %v", err)
 				break
 			}
 			return &UpgradedError{tools}
