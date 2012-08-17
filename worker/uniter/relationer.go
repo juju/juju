@@ -4,20 +4,18 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/cmd/jujuc/server"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/relation"
 )
 
 // Relationer manages a unit's presence in a relation.
 type Relationer struct {
-	ctx    *server.RelationContext
-	ru     *state.RelationUnit
-	dir    *relation.StateDir
-	pinger *presence.Pinger
-	queue  relation.HookQueue
-	hooks  chan<- hook.Info
-	dying  bool
+	ctx   *server.RelationContext
+	ru    *state.RelationUnit
+	dir   *relation.StateDir
+	queue relation.HookQueue
+	hooks chan<- hook.Info
+	dying bool
 }
 
 // NewRelationer creates a new Relationer. The unit will not join the
@@ -40,30 +38,20 @@ func (r *Relationer) Context() *server.RelationContext {
 // It must not be called again until Abandon has been called, and must not be
 // called at all if Breaking has been called.
 func (r *Relationer) Join() error {
-	if r.pinger != nil {
-		panic("unit already joined!")
-	}
 	if r.dying {
 		panic("dying relationer must not join!")
 	}
-	pinger, err := r.ru.Join()
-	if err != nil {
+	if err := r.ru.Init(); err != nil {
 		return err
 	}
-	r.pinger = pinger
-	return nil
+	return r.ru.Pinger().Start()
 }
 
 // Abandon stops the periodic signalling of the unit's presence in the relation.
 // It does not immediately signal that the unit has departed the relation; this
 // is done only when a -broken hook is committed.
 func (r *Relationer) Abandon() error {
-	if r.pinger == nil {
-		return nil
-	}
-	pinger := r.pinger
-	r.pinger = nil
-	return pinger.Stop()
+	return r.ru.Pinger().Stop()
 }
 
 // SetDying informs the relationer that the unit is departing the relation,
@@ -127,7 +115,7 @@ func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
 // CommitHook persists the fact of the supplied hook's completion.
 func (r *Relationer) CommitHook(hi hook.Info) error {
 	if hi.Kind == hook.RelationBroken {
-		if err := r.ru.Depart(); err != nil {
+		if err := r.ru.Pinger().Kill(); err != nil {
 			return err
 		}
 	}

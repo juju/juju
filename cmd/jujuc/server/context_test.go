@@ -6,8 +6,8 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd/jujuc/server"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/testing"
 	"os"
 	"path/filepath"
 	"strings"
@@ -244,7 +244,7 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *C) {
 }
 
 type RelationContextSuite struct {
-	testing.StateSuite
+	testing.JujuConnSuite
 	svc *state.Service
 	rel *state.Relation
 	ru  *state.RelationUnit
@@ -253,7 +253,7 @@ type RelationContextSuite struct {
 var _ = Suite(&RelationContextSuite{})
 
 func (s *RelationContextSuite) SetUpTest(c *C) {
-	s.StateSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
 	ch := s.AddTestingCharm(c, "dummy")
 	var err error
 	s.svc, err = s.State.AddService("u", ch)
@@ -268,10 +268,7 @@ func (s *RelationContextSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	s.ru, err = s.rel.Unit(unit)
 	c.Assert(err, IsNil)
-	// Quickest way to get needed ZK paths in place:
-	p, err := s.ru.Join()
-	c.Assert(err, IsNil)
-	err = p.Kill()
+	err = s.ru.Init()
 	c.Assert(err, IsNil)
 }
 

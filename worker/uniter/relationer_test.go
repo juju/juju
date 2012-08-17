@@ -3,9 +3,9 @@ package uniter_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/presence"
-	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/hook"
@@ -22,7 +22,7 @@ func TestPackage(t *stdtesting.T) {
 type msi map[string]int
 
 type RelationerSuite struct {
-	testing.StateSuite
+	testing.JujuConnSuite
 	hooks chan hook.Info
 	svc   *state.Service
 	rel   *state.Relation
@@ -33,7 +33,7 @@ type RelationerSuite struct {
 var _ = Suite(&RelationerSuite{})
 
 func (s *RelationerSuite) SetUpTest(c *C) {
-	s.StateSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
 	ch := s.AddTestingCharm(c, "dummy")
 	var err error
 	s.svc, err = s.State.AddService("u", ch)
@@ -79,7 +79,7 @@ func (s *RelationerSuite) TestStartStopPresence(c *C) {
 
 	// Check that we can't start u/0's pinger again while it's running.
 	f := func() { r.Join() }
-	c.Assert(f, PanicMatches, "unit already joined!")
+	c.Assert(f, PanicMatches, "pinger is already started")
 
 	// Stop the pinger and check the change is observed.
 	err = r.Abandon()
@@ -118,9 +118,11 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	c.Assert(f, PanicMatches, "hooks already started!")
 
 	// Join u/1 to the relation, and check that we receive the expected hooks.
-	p, err := ru1.Join()
+	err := ru1.Init()
 	c.Assert(err, IsNil)
-	defer kill(c, p)
+	err = ru1.Pinger().Start()
+	c.Assert(err, IsNil)
+	defer kill(c, ru1.Pinger())
 	s.assertHook(c, hook.Info{
 		Kind:       hook.RelationJoined,
 		RemoteUnit: "u/1",
@@ -140,10 +142,12 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	// Stop hooks, make more changes, check no events.
 	err = r.StopHooks()
 	c.Assert(err, IsNil)
-	kill(c, p)
-	p, err = ru2.Join()
+	kill(c, ru1.Pinger())
+	err = ru2.Init()
 	c.Assert(err, IsNil)
-	defer kill(c, p)
+	err = ru2.Pinger().Start()
+	c.Assert(err, IsNil)
+	defer kill(c, ru2.Pinger())
 	node, err := ru2.Settings()
 	c.Assert(err, IsNil)
 	node.Set("private-address", "roehampton")
@@ -256,9 +260,11 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 
 func (s *RelationerSuite) TestBreaking(c *C) {
 	ru1 := s.AddRelationUnit(c, "u/1")
-	p, err := ru1.Join()
+	err := ru1.Init()
 	c.Assert(err, IsNil)
-	defer kill(c, p)
+	err = ru1.Pinger().Start()
+	c.Assert(err, IsNil)
+	defer kill(c, ru1.Pinger())
 	r := uniter.NewRelationer(s.ru, s.dir, s.hooks)
 	err = r.Join()
 	c.Assert(err, IsNil)
@@ -302,7 +308,7 @@ func (s *RelationerSuite) TestBreaking(c *C) {
 	err = s.dir.State().Validate(hook.Info{Kind: hook.RelationBroken})
 	c.Assert(err, ErrorMatches, ".*: relation is broken and cannot be changed further")
 
-	// TODO: when we have lifecycle handling, veryify that the relation can
+	// TODO: when we have lifecycle handling, verify that the relation can
 	// be destroyed. Can't see a clean way to do so currently.
 }
 

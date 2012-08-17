@@ -1,6 +1,7 @@
 package mstate_test
 
 import (
+	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	state "launchpad.net/juju-core/mstate"
@@ -83,6 +84,8 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	assertOneRelation(c, req, 0, reqep, proep)
 
 	// Remove the relation, and check it can't be removed again.
+	err = rel.Die()
+	c.Assert(err, IsNil)
 	err = s.State.RemoveRelation(rel)
 	c.Assert(err, IsNil)
 	assertNoRelations(c, pro)
@@ -117,11 +120,146 @@ func (s *RelationSuite) TestPeerRelation(c *C) {
 	assertOneRelation(c, peer, 0, peerep)
 
 	// Remove the relation, and check it can't be removed again.
+	err = rel.Die()
+	c.Assert(err, IsNil)
 	err = s.State.RemoveRelation(rel)
 	c.Assert(err, IsNil)
 	assertNoRelations(c, peer)
 	err = s.State.RemoveRelation(rel)
 	c.Assert(err, ErrorMatches, `cannot remove relation "peer:baz": not found`)
+}
+
+func (s *RelationSuite) TestLifecycle(c *C) {
+	peer, err := s.State.AddService("peer", s.charm)
+	c.Assert(err, IsNil)
+	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
+	assertNoRelations(c, peer)
+
+	rel, err := s.State.AddRelation(peerep)
+	c.Assert(err, IsNil)
+	life := rel.Life()
+	c.Assert(life, Equals, state.Alive)
+
+	// Check legal next state.
+	err = rel.Kill()
+	c.Assert(err, IsNil)
+	life = rel.Life()
+	c.Assert(life, Equals, state.Dying)
+
+	// Check legal repeated state setting.
+	err = rel.Kill()
+	c.Assert(err, IsNil)
+	life = rel.Life()
+	c.Assert(life, Equals, state.Dying)
+
+	// Check non-dead removal.
+	c.Assert(func() { s.State.RemoveRelation(rel) }, PanicMatches, `relation .* is not dead`)
+
+	// Check final state.
+	err = rel.Die()
+	c.Assert(err, IsNil)
+	life = rel.Life()
+	c.Assert(life, Equals, state.Dead)
+}
+
+var stateChanges = []struct {
+	cached, desired    state.Life
+	dbinitial, dbfinal state.Life
+}{
+	{
+		state.Alive, state.Dying,
+		state.Alive, state.Dying,
+	},
+	{
+		state.Alive, state.Dying,
+		state.Dying, state.Dying,
+	},
+	{
+		state.Alive, state.Dying,
+		state.Dead, state.Dead,
+	},
+	{
+		state.Alive, state.Dead,
+		state.Alive, state.Dead,
+	},
+	{
+		state.Alive, state.Dead,
+		state.Dying, state.Dead,
+	},
+	{
+		state.Alive, state.Dead,
+		state.Dead, state.Dead,
+	},
+	{
+		state.Dying, state.Dying,
+		state.Dying, state.Dying,
+	},
+	{
+		state.Dying, state.Dying,
+		state.Dead, state.Dead,
+	},
+	{
+		state.Dying, state.Dead,
+		state.Dying, state.Dead,
+	},
+	{
+		state.Dying, state.Dead,
+		state.Dead, state.Dead,
+	},
+	{
+		state.Dead, state.Dying,
+		state.Dead, state.Dead,
+	},
+	{
+		state.Dead, state.Dead,
+		state.Dead, state.Dead,
+	},
+}
+
+func (s *RelationSuite) createRelationWithLife(svc *state.Service, cached, dbinitial state.Life, c *C) *state.Relation {
+	peerep := state.RelationEndpoint{svc.Name(), "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
+	rel, err := s.State.AddRelation(peerep)
+	c.Assert(err, IsNil)
+
+	err = s.relations.UpdateId(rel.Id(), bson.D{{"$set", bson.D{
+		{"life", cached},
+	}}})
+	c.Assert(err, IsNil)
+	err = rel.Refresh()
+	c.Assert(err, IsNil)
+
+	err = s.relations.UpdateId(rel.Id(), bson.D{{"$set", bson.D{
+		{"life", dbinitial},
+	}}})
+	c.Assert(err, IsNil)
+
+	return rel
+}
+
+func (s *RelationSuite) TestLifecycleStateChanges(c *C) {
+	peer, err := s.State.AddService("peer", s.charm)
+	c.Assert(err, IsNil)
+	for _, v := range stateChanges {
+		r := s.createRelationWithLife(peer, v.cached, v.dbinitial, c)
+		switch v.desired {
+		case state.Dying:
+			err := r.Kill()
+			c.Assert(err, IsNil)
+		case state.Dead:
+			err := r.Die()
+			c.Assert(err, IsNil)
+		default:
+			panic("desired lifecycle can only be dying or dead")
+		}
+		err := r.Refresh()
+		c.Assert(err, IsNil)
+		c.Assert(r.Life(), Equals, v.dbfinal)
+
+		err = r.Die()
+		c.Assert(err, IsNil)
+		err = s.State.RemoveRelation(r)
+		c.Assert(err, IsNil)
+	}
 }
 
 func assertNoRelations(c *C, srv *state.Service) {

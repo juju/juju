@@ -39,44 +39,107 @@ func (n *changeNode) change() (mtime time.Time, err error) {
 	return stat.MTime(), nil
 }
 
-// Pinger periodically updates a node in zookeeper while it is running.
+// Pinger allows a client to control the existence and refreshment of a
+// presence node. Pingers can be started whenever they are stopped, and
+// stopped whenever they are not killed.
 type Pinger struct {
-	conn      *zk.Conn
-	tomb      tomb.Tomb
-	target    changeNode
-	period    time.Duration
-	lastPing  time.Time
-	stayAlive chan struct{}
+	conn     *zk.Conn
+	target   changeNode
+	period   time.Duration
+	killed   bool
+	tomb     *tomb.Tomb
+	lastPing time.Time
 }
 
-// StartPinger returns a new Pinger that refreshes the content of path periodically.
+// NewPinger returns a stopped Pinger.
+func NewPinger(conn *zk.Conn, path string, period time.Duration) *Pinger {
+	return &Pinger{
+		conn:   conn,
+		target: changeNode{conn, path, period.String()},
+		period: period,
+	}
+}
+
+// StartPinger returns a started Pinger.
 func StartPinger(conn *zk.Conn, path string, period time.Duration) (*Pinger, error) {
-	target := changeNode{conn, path, period.String()}
-	_, err := target.change()
-	if err != nil {
+	p := NewPinger(conn, path, period)
+	if err := p.Start(); err != nil {
 		return nil, err
 	}
-	p := &Pinger{
-		conn:      conn,
-		target:    target,
-		period:    period,
-		lastPing:  time.Now(),
-		stayAlive: make(chan struct{}),
-	}
-	go p.loop()
 	return p, nil
+}
+
+// Start begins periodically refreshing the context of the Pinger's path.
+// Consecutive calls to Start will panic, and will attempts to Start a
+// Pinger that has been Killed.
+func (p *Pinger) Start() error {
+	if p.tomb != nil {
+		panic("pinger is already started")
+	}
+	if p.killed {
+		panic("pinger has been killed")
+	}
+	_, err := p.target.change()
+	if err != nil {
+		return err
+	}
+	p.lastPing = time.Now()
+	p.tomb = &tomb.Tomb{}
+	go p.loop()
+	return nil
+}
+
+// Stop stops the periodic writes to the target node, if they are occurring.
+// If this is the case, a final write to the node will be triggered, so that
+// watchers will time out as late as possible.
+func (p *Pinger) Stop() error {
+	if p.killed {
+		panic("pinger has been killed")
+	}
+	if p.tomb != nil {
+		p.tomb.Kill(nil)
+		err := p.tomb.Wait()
+		p.tomb = nil
+		return err
+	}
+	return nil
+}
+
+// Kill deletes the Pinger's target node, immediately signalling permanent
+// departure to any watchers. Once the Pinger has been killed it must not
+// be used again.
+func (p *Pinger) Kill() error {
+	if p.killed {
+		return nil
+	}
+	if err := p.Stop(); err != nil {
+		return err
+	}
+	p.killed = true
+	err := p.conn.Delete(p.target.path, -1)
+	if zk.IsError(err, zk.ZNONODE) {
+		err = nil
+	}
+	return err
 }
 
 // loop calls change on p.target every p.period nanoseconds until p is stopped.
 func (p *Pinger) loop() {
-	defer p.finish()
-	tick := p.getTick()
+	defer p.tomb.Done()
+	defer func() {
+		// If we haven't encountered an error, always send a final write, to
+		// ensure watchers detect the pinger's death as late as possible.
+		if p.tomb.Err() == nil {
+			_, err := p.target.change()
+			p.tomb.Kill(err)
+		}
+	}()
 	for {
 		select {
 		case <-p.tomb.Dying():
 			log.Debugf("presence: %s pinger died after %s wait", p.target.path, time.Now().Sub(p.lastPing))
 			return
-		case now := <-tick:
+		case now := <-p.nextPing():
 			log.Debugf("presence: %s pinger awakened after %s wait", p.target.path, time.Now().Sub(p.lastPing))
 			p.lastPing = now
 			mtime, err := p.target.change()
@@ -85,14 +148,13 @@ func (p *Pinger) loop() {
 				return
 			}
 			log.Debugf("presence: wrote to %s at (zk) %s", p.target.path, mtime)
-			tick = p.getTick()
 		}
 	}
 }
 
-// getTick returns a channel that will receive an event when the pinger is next
+// nextPing returns a channel that will receive an event when the pinger is next
 // due to fire.
-func (p *Pinger) getTick() <-chan time.Time {
+func (p *Pinger) nextPing() <-chan time.Time {
 	next := p.lastPing.Add(p.period)
 	wait := next.Sub(time.Now())
 	if wait <= 0 {
@@ -100,50 +162,6 @@ func (p *Pinger) getTick() <-chan time.Time {
 	}
 	log.Debugf("presence: anticipating ping of %s in %s", p.target.path, wait)
 	return time.After(wait)
-}
-
-// finish marks the Pinger as finally dead; it may also trigger a final write
-// to the target node, if the Pinger has been cleanly shut down via the Stop
-// method.
-func (p *Pinger) finish() {
-	if p.tomb.Err() == nil {
-		select {
-		case <-p.stayAlive:
-			if _, err := p.target.change(); err != nil {
-				p.tomb.Kill(err)
-			}
-		default:
-		}
-	}
-	p.tomb.Done()
-}
-
-// Dying returns a channel that will be closed when the Pinger is no longer
-// operating.
-func (p *Pinger) Dying() <-chan struct{} {
-	return p.tomb.Dying()
-}
-
-// Stop stops updating the node; AliveW watches will not notice any change
-// until they time out. If the pinger is shut down without errors, a final
-// write to the target node will occur, to ensure that remote watchers take
-// as long as possible to detect the Pinger's absence.
-func (p *Pinger) Stop() error {
-	close(p.stayAlive)
-	p.tomb.Kill(nil)
-	return p.tomb.Wait()
-}
-
-// Kill stops updating and deletes the node, causing any AliveW watches
-// to observe its departure (almost) immediately.
-func (p *Pinger) Kill() (err error) {
-	p.tomb.Kill(nil)
-	if err = p.tomb.Wait(); err == nil {
-		if err = p.conn.Delete(p.target.path, -1); zk.IsError(err, zk.ZNONODE) {
-			return nil
-		}
-	}
-	return
 }
 
 // node represents the state of a presence node from a watcher's perspective.
@@ -168,7 +186,7 @@ func (n *node) setState(content string, stat *zk.Stat, firstTime bool) error {
 	// that. This is largely an artifact of the notably short periods used in
 	// tests; actual distributed Pingers should use longer periods in order to
 	// compensate for network flakiness... and to allow a comfortable buffer
-	// for Pinger re-establishment by a replacement process when (eg when
+	// for pinger re-establishment by a replacement process when (eg when
 	// upgrading agent binaries).
 	n.timeout = period * 3
 	if firstTime {

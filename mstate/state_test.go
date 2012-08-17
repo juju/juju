@@ -130,7 +130,7 @@ func (s *StateSuite) TestRemoveService(c *C) {
 	_, err = s.State.Service("wordpress")
 	c.Assert(err, ErrorMatches, `cannot get service "wordpress": .*`)
 
-	// Remove of an illegal service, it has already been removed.
+	// Remove of an invalid service, it has already been removed.
 	// BUG(aram): use error strings from state.
 	err = s.State.RemoveService(service)
 	c.Assert(err, ErrorMatches, `cannot remove service "wordpress": .*`)
