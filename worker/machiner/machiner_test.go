@@ -3,8 +3,8 @@ package machiner_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/container"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/machiner"
 	stdtesting "testing"
@@ -16,28 +16,16 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type MachinerSuite struct {
-	coretesting.LoggingSuite
-	testing.StateSuite
+	testing.JujuConnSuite
 }
 
 var _ = Suite(&MachinerSuite{})
-
-func (s *MachinerSuite) SetUpTest(c *C) {
-	s.LoggingSuite.SetUpTest(c)
-	s.StateSuite.SetUpTest(c)
-}
-
-func (s *MachinerSuite) TearDownTest(c *C) {
-	s.StateSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
-}
 
 func (s *MachinerSuite) TestMachinerStartStop(c *C) {
 	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 
-	p, err := machiner.NewMachiner(s.StateInfo(c), m.Id())
-	c.Assert(err, IsNil)
+	p := machiner.NewMachiner(s.State, m.Id())
 	c.Assert(p.Stop(), IsNil)
 }
 
@@ -77,8 +65,7 @@ func (s *MachinerSuite) TestMachinerDeployDestroy(c *C) {
 	err = ud0.AssignToMachine(m0)
 	c.Assert(err, IsNil)
 
-	machiner, err := machiner.NewMachiner(s.StateInfo(c), m0.Id())
-	c.Assert(err, IsNil)
+	machiner := machiner.NewMachiner(s.State, m0.Id())
 
 	tests := []struct {
 		change  func()

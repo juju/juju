@@ -12,7 +12,7 @@ import (
 
 // TempDir holds the temporary directory used to
 // write the URL download.
-var TempDir  = os.TempDir()
+var TempDir = os.TempDir()
 
 // Status represents the status of a completed download.
 type Status struct {

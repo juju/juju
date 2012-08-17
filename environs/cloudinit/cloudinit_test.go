@@ -1,9 +1,10 @@
-package ec2
+package cloudinit_test
 
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 	"regexp"
@@ -18,66 +19,66 @@ var _ = Suite(cloudinitSuite{})
 
 // Each test gives a cloudinit config - we check the
 // output to see if it looks correct.
-var cloudinitTests = []machineConfig{
+var cloudinitTests = []cloudinit.MachineConfig{
 	{
-		instanceIdAccessor: "$instance_id",
-		machineId:          0,
-		providerType:       "ec2",
-		provisioner:        true,
-		authorizedKeys:     "sshkey1",
-		tools:              newTools("1.2.3-linux-amd64"),
-		zookeeper:          true,
+		InstanceIdAccessor: "$instance_id",
+		MachineId:          0,
+		ProviderType:       "ec2",
+		Provisioner:        true,
+		AuthorizedKeys:     "sshkey1",
+		Tools:              newSimpleTools("1.2.3-linux-amd64"),
+		ZooKeeper:          true,
 	},
 	{
-		machineId:      99,
-		providerType:   "ec2",
-		provisioner:    false,
-		authorizedKeys: "sshkey1",
-		zookeeper:      false,
-		tools:          newTools("1.2.3-linux-amd64"),
-		stateInfo:      &state.Info{Addrs: []string{"zk1"}},
+		MachineId:      99,
+		ProviderType:   "ec2",
+		Provisioner:    false,
+		AuthorizedKeys: "sshkey1",
+		ZooKeeper:      false,
+		Tools:          newSimpleTools("1.2.3-linux-amd64"),
+		StateInfo:      &state.Info{Addrs: []string{"zk1"}},
 	},
 }
 
-func newTools(vers string) *state.Tools {
+func newSimpleTools(vers string) *state.Tools {
 	return &state.Tools{
 		URL:    "http://foo.com/tools/juju" + vers + ".tgz",
 		Binary: version.MustParseBinary(vers),
 	}
 }
 
-// cloundInitTest runs a set of tests for one of the machineConfig
+// cloundInitTest runs a set of tests for one of the MachineConfig
 // values above.
 type cloudinitTest struct {
 	x   map[interface{}]interface{} // the unmarshalled YAML.
-	cfg *machineConfig              // the config being tested.
+	cfg *cloudinit.MachineConfig    // the config being tested.
 }
 
 func (t *cloudinitTest) check(c *C) {
 	c.Check(t.x["apt_upgrade"], Equals, true)
 	c.Check(t.x["apt_update"], Equals, true)
 	t.checkScripts(c, "mkdir -p "+environs.VarDir)
-	t.checkScripts(c, "wget.*"+regexp.QuoteMeta(t.cfg.tools.URL)+".*tar .*xz")
+	t.checkScripts(c, "wget.*"+regexp.QuoteMeta(t.cfg.Tools.URL)+".*tar .*xz")
 
-	if t.cfg.zookeeper {
+	if t.cfg.ZooKeeper {
 		t.checkPackage(c, "zookeeperd")
 		t.checkScripts(c, "jujud bootstrap-state")
-		t.checkScripts(c, regexp.QuoteMeta(t.cfg.instanceIdAccessor))
-		t.checkScripts(c, "JUJU_ZOOKEEPER='localhost"+zkPortSuffix+"'")
+		t.checkScripts(c, regexp.QuoteMeta(t.cfg.InstanceIdAccessor))
+		t.checkScripts(c, "JUJU_ZOOKEEPER='localhost"+cloudinit.ZkPortSuffix+"'")
 	} else {
-		t.checkScripts(c, "JUJU_ZOOKEEPER='"+strings.Join(t.cfg.stateInfo.Addrs, ",")+"'")
+		t.checkScripts(c, "JUJU_ZOOKEEPER='"+strings.Join(t.cfg.StateInfo.Addrs, ",")+"'")
 	}
 	t.checkPackage(c, "libzookeeper-mt2")
 	t.checkScripts(c, "JUJU_MACHINE_ID=[0-9]+")
 
-	if t.cfg.provisioner {
-		t.checkScripts(c, "jujud provisioning --zookeeper-servers 'localhost"+zkPortSuffix+"'")
+	if t.cfg.Provisioner {
+		t.checkScripts(c, "jujud provisioning --zookeeper-servers 'localhost"+cloudinit.ZkPortSuffix+"'")
 	}
 
-	if t.cfg.zookeeper {
-		t.checkScripts(c, "jujud machine --zookeeper-servers 'localhost"+zkPortSuffix+"' .* --machine-id [0-9]+")
+	if t.cfg.ZooKeeper {
+		t.checkScripts(c, "jujud machine --zookeeper-servers 'localhost"+cloudinit.ZkPortSuffix+"' .* --machine-id [0-9]+")
 	} else {
-		t.checkScripts(c, "jujud machine --zookeeper-servers '"+strings.Join(t.cfg.stateInfo.Addrs, ",")+"' .* --machine-id [0-9]+")
+		t.checkScripts(c, "jujud machine --zookeeper-servers '"+strings.Join(t.cfg.StateInfo.Addrs, ",")+"' .* --machine-id [0-9]+")
 	}
 }
 
@@ -150,7 +151,7 @@ func CheckPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
 func (cloudinitSuite) TestCloudInit(c *C) {
 	for i, cfg := range cloudinitTests {
 		c.Logf("check %d", i)
-		ci, err := newCloudInit(&cfg)
+		ci, err := cloudinit.New(&cfg)
 		c.Assert(err, IsNil)
 		c.Check(ci, NotNil)
 
@@ -174,58 +175,58 @@ func (cloudinitSuite) TestCloudInit(c *C) {
 	}
 }
 
-// When mutate is called on a known-good machineConfig,
+// When mutate is called on a known-good MachineConfig,
 // there should be an error complaining about the missing
 // field named by the adjacent err.
 var verifyTests = []struct {
 	err    string
-	mutate func(*machineConfig)
+	mutate func(*cloudinit.MachineConfig)
 }{
-	{"negative machine id", func(cfg *machineConfig) { cfg.machineId = -1 }},
-	{"missing provider type", func(cfg *machineConfig) { cfg.providerType = "" }},
-	{"missing instance id accessor", func(cfg *machineConfig) {
-		cfg.zookeeper = true
-		cfg.instanceIdAccessor = ""
+	{"negative machine id", func(cfg *cloudinit.MachineConfig) { cfg.MachineId = -1 }},
+	{"missing provider type", func(cfg *cloudinit.MachineConfig) { cfg.ProviderType = "" }},
+	{"missing instance id accessor", func(cfg *cloudinit.MachineConfig) {
+		cfg.ZooKeeper = true
+		cfg.InstanceIdAccessor = ""
 	}},
-	{"missing zookeeper hosts", func(cfg *machineConfig) {
-		cfg.zookeeper = false
-		cfg.stateInfo = nil
+	{"missing zookeeper hosts", func(cfg *cloudinit.MachineConfig) {
+		cfg.ZooKeeper = false
+		cfg.StateInfo = nil
 	}},
-	{"missing zookeeper hosts", func(cfg *machineConfig) {
-		cfg.zookeeper = false
-		cfg.stateInfo = &state.Info{}
+	{"missing zookeeper hosts", func(cfg *cloudinit.MachineConfig) {
+		cfg.ZooKeeper = false
+		cfg.StateInfo = &state.Info{}
 	}},
-	{"missing tools", func(cfg *machineConfig) {
-		cfg.tools = nil
-		cfg.stateInfo = &state.Info{}
+	{"missing tools", func(cfg *cloudinit.MachineConfig) {
+		cfg.Tools = nil
+		cfg.StateInfo = &state.Info{}
 	}},
-	{"missing tools URL", func(cfg *machineConfig) {
-		cfg.tools = &state.Tools{}
-		cfg.stateInfo = &state.Info{}
+	{"missing tools URL", func(cfg *cloudinit.MachineConfig) {
+		cfg.Tools = &state.Tools{}
+		cfg.StateInfo = &state.Info{}
 	}},
 }
 
 // TestCloudInitVerify checks that required fields are appropriately
-// checked for by newCloudInit.
+// checked for by NewCloudInit.
 func (cloudinitSuite) TestCloudInitVerify(c *C) {
-	cfg := &machineConfig{
-		provisioner:        true,
-		zookeeper:          true,
-		instanceIdAccessor: "$instance_id",
-		providerType:       "ec2",
-		machineId:          99,
-		tools:              newTools("9.9.9-linux-arble"),
-		authorizedKeys:     "sshkey1",
-		stateInfo:          &state.Info{Addrs: []string{"zkhost"}},
+	cfg := &cloudinit.MachineConfig{
+		Provisioner:        true,
+		ZooKeeper:          true,
+		InstanceIdAccessor: "$instance_id",
+		ProviderType:       "ec2",
+		MachineId:          99,
+		Tools:              newSimpleTools("9.9.9-linux-arble"),
+		AuthorizedKeys:     "sshkey1",
+		StateInfo:          &state.Info{Addrs: []string{"zkhost"}},
 	}
 	// check that the base configuration does not give an error
-	_, err := newCloudInit(cfg)
+	_, err := cloudinit.New(cfg)
 	c.Assert(err, IsNil)
 
 	for _, test := range verifyTests {
 		cfg1 := *cfg
 		test.mutate(&cfg1)
-		t, err := newCloudInit(&cfg1)
+		t, err := cloudinit.New(&cfg1)
 		c.Assert(err, ErrorMatches, "invalid machine configuration: "+test.err)
 		c.Assert(t, IsNil)
 	}

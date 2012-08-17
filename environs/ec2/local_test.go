@@ -13,9 +13,9 @@ import (
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/testing"
-	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
+	"regexp"
 	"strings"
 )
 
@@ -62,8 +62,7 @@ func registerLocalTests() {
 // localLiveSuite runs tests from LiveTests using a fake
 // EC2 server that runs within the test process itself.
 type localLiveSuite struct {
-	coretesting.LoggingSuite
-	testing.StateSuite
+	testing.LoggingSuite
 	LiveTests
 	srv localServer
 	env environs.Environ
@@ -163,8 +162,7 @@ func (srv *localServer) stopServer(c *C) {
 // accessed by using the "test" region, which is changed to point to the
 // network address of the local server.
 type localServerSuite struct {
-	coretesting.LoggingSuite
-	testing.StateSuite
+	testing.LoggingSuite
 	jujutest.Tests
 	srv localServer
 	env environs.Environ
@@ -228,13 +226,13 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	var x map[interface{}]interface{}
 	err = goyaml.Unmarshal(inst.UserData, &x)
 	c.Assert(err, IsNil)
-	ec2.CheckPackage(c, x, "zookeeper", true)
-	ec2.CheckPackage(c, x, "zookeeperd", true)
-	ec2.CheckScripts(c, x, "jujud bootstrap-state", true)
+	CheckPackage(c, x, "zookeeper", true)
+	CheckPackage(c, x, "zookeeperd", true)
+	CheckScripts(c, x, "jujud bootstrap-state", true)
 	// TODO check for provisioning agent
 	// TODO check for machine agent
-	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='localhost%s'", ec2.ZkPortSuffix), true)
-	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID=0"), true)
+	CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='localhost%s'", ec2.ZkPortSuffix), true)
+	CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID=0"), true)
 
 	// check that a new instance will be started without
 	// zookeeper, with a machine agent, and without a
@@ -247,15 +245,71 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	x = nil
 	err = goyaml.Unmarshal(inst.UserData, &x)
 	c.Assert(err, IsNil)
-	ec2.CheckPackage(c, x, "zookeeperd", false)
+	CheckPackage(c, x, "zookeeperd", false)
 	// TODO check for provisioning agent
 	// TODO check for machine agent
-	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='%s%s'", bootstrapDNS, ec2.ZkPortSuffix), true)
-	ec2.CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID=1"), true)
+	CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='%s%s'", bootstrapDNS, ec2.ZkPortSuffix), true)
+	CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID=1"), true)
 
 	err = t.env.Destroy(append(insts, inst1))
 	c.Assert(err, IsNil)
 
 	_, err = ec2.LoadState(t.env)
 	c.Assert(err, NotNil)
+}
+
+// If match is true, CheckScripts checks that at least one script started
+// by the cloudinit data matches the given regexp pattern, otherwise it
+// checks that no script matches.  It's exported so it can be used by tests
+// defined in ec2_test.
+func CheckScripts(c *C, x map[interface{}]interface{}, pattern string, match bool) {
+	scripts0 := x["runcmd"]
+	if scripts0 == nil {
+		c.Errorf("cloudinit has no entry for runcmd")
+		return
+	}
+	scripts := scripts0.([]interface{})
+	re := regexp.MustCompile(pattern)
+	found := false
+	for _, s0 := range scripts {
+		s := s0.(string)
+		if re.MatchString(s) {
+			found = true
+		}
+	}
+	switch {
+	case match && !found:
+		c.Errorf("script %q not found in %q", pattern, scripts)
+	case !match && found:
+		c.Errorf("script %q found but not expected in %q", pattern, scripts)
+	}
+}
+
+// CheckPackage checks that the cloudinit will or won't install the given
+// package, depending on the value of match.  It's exported so it can be
+// used by tests defined outside the ec2 package.
+func CheckPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
+	pkgs0 := x["packages"]
+	if pkgs0 == nil {
+		if match {
+			c.Errorf("cloudinit has no entry for packages")
+		}
+		return
+	}
+
+	pkgs := pkgs0.([]interface{})
+
+	found := false
+	for _, p0 := range pkgs {
+		p := p0.(string)
+		if p == pkg {
+			found = true
+		}
+	}
+	switch {
+	case match && !found:
+		c.Errorf("package %q not found in %v", pkg, pkgs)
+	case !match && found:
+		c.Errorf("%q found but not expected in %v", pkg, pkgs)
+	}
 }
