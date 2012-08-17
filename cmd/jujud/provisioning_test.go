@@ -3,65 +3,17 @@ package main
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
-	"launchpad.net/juju-core/state/testing"
-	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/tomb"
+	"launchpad.net/juju-core/juju/testing"
+	"reflect"
 	"time"
 )
 
-func assertAlive(c *C, a *ProvisioningAgent, alive bool) {
-	start := time.Now()
-	for time.Since(start) < 500*time.Millisecond {
-		time.Sleep(50 * time.Millisecond)
-		perr := a.provisioner.Err()
-		fwerr := a.firewaller.Err()
-		if alive {
-			// Provisioner and firewaller have to be alive.
-			if perr == tomb.ErrStillAlive && fwerr == tomb.ErrStillAlive {
-				return
-			}
-		} else {
-			// Provisioner and firewaller have to be stopped.
-			if perr != tomb.ErrStillAlive && fwerr != tomb.ErrStillAlive {
-				c.Succeed()
-				return
-			}
-		}
-	}
-	c.Fatalf("timed out")
-	return
-}
-
 type ProvisioningSuite struct {
-	coretesting.LoggingSuite
-	testing.StateSuite
-	op <-chan dummy.Operation
+	testing.JujuConnSuite
 }
 
 var _ = Suite(&ProvisioningSuite{})
-
-func (s *ProvisioningSuite) SetUpTest(c *C) {
-	s.LoggingSuite.SetUpTest(c)
-
-	env, err := environs.NewFromAttrs(map[string]interface{}{
-		"name":            "testing",
-		"type":            "dummy",
-		"zookeeper":       true,
-		"authorized-keys": "i-am-a-key",
-	})
-	c.Assert(err, IsNil)
-	err = env.Bootstrap(false)
-	c.Assert(err, IsNil)
-
-	s.StateSuite.SetUpTest(c)
-}
-
-func (s *ProvisioningSuite) TearDownTest(c *C) {
-	dummy.Reset()
-	s.LoggingSuite.TearDownTest(c)
-}
 
 func (s *ProvisioningSuite) TestParseSuccess(c *C) {
 	create := func() (cmd.Command, *AgentConf) {
@@ -78,22 +30,64 @@ func (s *ProvisioningSuite) TestParseUnknown(c *C) {
 }
 
 func (s *ProvisioningSuite) TestRunStop(c *C) {
+	op := make(chan dummy.Operation, 200)
+	dummy.Listen(op)
+
 	a := &ProvisioningAgent{
 		Conf: AgentConf{
 			JujuDir:   "/var/lib/juju",
 			StateInfo: *s.StateInfo(c),
 		},
 	}
-
+	done := make(chan error)
 	go func() {
-		err := a.Run(nil)
-		c.Assert(err, IsNil)
+		done <- a.Run(nil)
 	}()
 
-	assertAlive(c, a, true)
+	// Check that the provisioner is alive by doing a rudimentary check
+	// that it responds to state changes.
 
-	err := a.Stop()
+	// Add one unit to a service; it should get allocated a machine
+	// and then its ports should be opened.
+	charm := s.AddTestingCharm(c, "dummy")
+	svc, err := s.Conn.AddService("test-service", charm)
+	c.Assert(err, IsNil)
+	err = svc.SetExposed()
+	c.Assert(err, IsNil)
+	units, err := s.Conn.AddUnits(svc, 1)
+	c.Assert(err, IsNil)
+	err = units[0].OpenPort("tcp", 999)
 	c.Assert(err, IsNil)
 
-	assertAlive(c, a, false)
+	c.Assert(opRecvTimeout(c, op, dummy.OpStartInstance{}), NotNil)
+	c.Assert(opRecvTimeout(c, op, dummy.OpOpenPorts{}), NotNil)
+
+	err = a.Stop()
+	c.Assert(err, IsNil)
+
+	select {
+	case err := <-done:
+		c.Assert(err, IsNil)
+	case <-time.After(2 * time.Second):
+		c.Fatalf("timed out waiting for agent to terminate")
+	}
+}
+
+// opRecvTimeout waits for any of the given kinds of operation to
+// be received from ops, and times out if not.
+func opRecvTimeout(c *C, opc <-chan dummy.Operation, kinds ...dummy.Operation) dummy.Operation {
+	for {
+		select {
+		case op := <-opc:
+			for _, k := range kinds {
+				if reflect.TypeOf(op) == reflect.TypeOf(k) {
+					return op
+				}
+			}
+			c.Logf("discarding unknown event %#v", op)
+		case <-time.After(2 * time.Second):
+			c.Fatalf("time out wating for operation")
+		}
+	}
+	panic("not reached")
 }
