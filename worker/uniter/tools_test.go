@@ -33,7 +33,7 @@ func (s *ToolsSuite) TearDownTest(c *C) {
 	environs.VarDir = s.oldVarDir
 }
 
-func (s *ToolsSuite) TestEnsureTools(c *C) {
+func (s *ToolsSuite) TestEnsureJujucSymlinks(c *C) {
 	jujuc := filepath.Join(s.toolsDir, "jujuc")
 	err := ioutil.WriteFile(jujuc, []byte("assume sane"), 0755)
 	c.Assert(err, IsNil)
@@ -47,8 +47,8 @@ func (s *ToolsSuite) TestEnsureTools(c *C) {
 		return fi.ModTime()
 	}
 
-	// Check that EnsureTools writes appropriate symlinks.
-	err = uniter.EnsureTools("u/123")
+	// Check that EnsureJujucSymlinks writes appropriate symlinks.
+	err = uniter.EnsureJujucSymlinks("u/123")
 	c.Assert(err, IsNil)
 	mtimes := map[string]time.Time{}
 	for _, name := range server.CommandNames() {
@@ -56,15 +56,15 @@ func (s *ToolsSuite) TestEnsureTools(c *C) {
 		mtimes[tool] = assertLink(tool)
 	}
 
-	// Check that EnsureTools doesn't overwrite things that don't need to be.
-	err = uniter.EnsureTools("u/123")
+	// Check that EnsureJujucSymlinks doesn't overwrite things that don't need to be.
+	err = uniter.EnsureJujucSymlinks("u/123")
 	c.Assert(err, IsNil)
 	for tool, mtime := range mtimes {
 		c.Assert(assertLink(tool), Equals, mtime)
 	}
 }
 
-func (s *ToolsSuite) TestEnsureToolsBadDir(c *C) {
-	err := uniter.EnsureTools("u/999")
+func (s *ToolsSuite) TestEnsureJujucSymlinksBadDir(c *C) {
+	err := uniter.EnsureJujucSymlinks("u/999")
 	c.Assert(err, ErrorMatches, "cannot initialize hook commands.*: no such file or directory")
 }
