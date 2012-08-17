@@ -1,4 +1,4 @@
-package ec2
+package cloudinit
 
 import (
 	"fmt"
@@ -11,41 +11,47 @@ import (
 	"strings"
 )
 
-// machineConfig represents initialization information for a new juju machine.
+// TODO(dfc) duplicated from environs/ec2
+
+const zkPort = 2181
+
+var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
+
+// MachineConfig represents initialization information for a new juju machine.
 // Creation of cloudinit data from this struct is largely provider-independent,
 // but we'll keep it internal until we need to factor it out.
-type machineConfig struct {
-	// provisioner specifies whether the new machine will run a provisioning agent.
-	provisioner bool
+type MachineConfig struct {
+	// Provisioner specifies whether the new machine will run a provisioning agent.
+	Provisioner bool
 
-	// zookeeper specifies whether the new machine will run a zookeeper instance.
-	zookeeper bool
+	// ZooKeeper specifies whether the new machine will run a zookeeper instance.
+	ZooKeeper bool
 
-	// instanceIdAccessor holds bash code that evaluates to the current instance id.
-	instanceIdAccessor string
+	// InstanceIdAccessor holds bash code that evaluates to the current instance id.
+	InstanceIdAccessor string
 
-	// providerType identifies the provider type so the host
+	// ProviderType identifies the provider type so the host
 	// knows which kind of provider to use.
-	providerType string
+	ProviderType string
 
-	// stateInfo holds the means for the new instance to communicate with the
-	// juju state. Unless the new machine is running zookeeper (Zookeeper is
+	// StateInfo holds the means for the new instance to communicate with the
+	// juju state. Unless the new machine is running zookeeper (ZooKeeper is
 	// set), there must be at least one zookeeper address supplied.
-	stateInfo *state.Info
+	StateInfo *state.Info
 
-	// tools is juju tools to be used on the new machine.
-	tools *state.Tools
+	// Tools is juju tools to be used on the new machine.
+	Tools *state.Tools
 
-	// machineId identifies the new machine. It must be non-negative.
-	machineId int
+	// MachineId identifies the new machine. It must be non-negative.
+	MachineId int
 
-	// authorizedKeys specifies the keys that are allowed to
+	// AuthorizedKeys specifies the keys that are allowed to
 	// connect to the machine (see cloudinit.SSHAddAuthorizedKeys)
 	// If no keys are supplied, there can be no ssh access to the node.
 	// On a bootstrap machine, that is fatal. On other
 	// machines it will mean that the ssh, scp and debug-hooks
 	// commands cannot work.
-	authorizedKeys string
+	AuthorizedKeys string
 }
 
 type requiresError string
@@ -60,15 +66,15 @@ func addScripts(c *cloudinit.Config, scripts ...string) {
 	}
 }
 
-func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
+func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	if err := verifyConfig(cfg); err != nil {
 		return nil, err
 	}
 	c := cloudinit.New()
 
-	c.AddSSHAuthorizedKeys(cfg.authorizedKeys)
+	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.AddPackage("libzookeeper-mt2")
-	if cfg.zookeeper {
+	if cfg.ZooKeeper {
 		c.AddPackage("default-jre-headless")
 		c.AddPackage("zookeeper")
 		c.AddPackage("zookeeperd")
@@ -83,12 +89,12 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 	addScripts(c,
 		"bin="+shquote(cfg.jujuTools()),
 		"mkdir -p $bin",
-		fmt.Sprintf("wget -O - %s | tar xz -C $bin", shquote(cfg.tools.URL)),
+		fmt.Sprintf("wget -O - %s | tar xz -C $bin", shquote(cfg.Tools.URL)),
 	)
 
 	addScripts(c,
 		"JUJU_ZOOKEEPER="+shquote(cfg.zookeeperHostAddrs()),
-		fmt.Sprintf("JUJU_MACHINE_ID=%d", cfg.machineId),
+		fmt.Sprintf("JUJU_MACHINE_ID=%d", cfg.MachineId),
 	)
 
 	debugFlag := ""
@@ -97,20 +103,20 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 	}
 
 	// zookeeper scripts
-	if cfg.zookeeper {
+	if cfg.ZooKeeper {
 		addScripts(c,
-			cfg.jujuTools()+"/jujud initzk"+
-				" --instance-id "+cfg.instanceIdAccessor+
-				" --env-type "+shquote(cfg.providerType)+
+			cfg.jujuTools()+"/jujud bootstrap-state"+
+				" --instance-id "+cfg.InstanceIdAccessor+
+				" --env-type "+shquote(cfg.ProviderType)+
 				" --zookeeper-servers localhost"+zkPortSuffix+
 				debugFlag,
 		)
 	}
 
-	if err := addAgentScript(c, cfg, "machine", fmt.Sprintf("--machine-id %d "+debugFlag, cfg.machineId)); err != nil {
+	if err := addAgentScript(c, cfg, "machine", fmt.Sprintf("--machine-id %d "+debugFlag, cfg.MachineId)); err != nil {
 		return nil, err
 	}
-	if cfg.provisioner {
+	if cfg.Provisioner {
 		if err := addAgentScript(c, cfg, "provisioning", debugFlag); err != nil {
 			return nil, err
 		}
@@ -123,7 +129,7 @@ func newCloudInit(cfg *machineConfig) (*cloudinit.Config, error) {
 	return c, nil
 }
 
-func addAgentScript(c *cloudinit.Config, cfg *machineConfig, name, args string) error {
+func addAgentScript(c *cloudinit.Config, cfg *MachineConfig, name, args string) error {
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
@@ -156,17 +162,17 @@ func versionDir(toolsURL string) string {
 	return name[:len(name)-len(ext)]
 }
 
-func (cfg *machineConfig) jujuTools() string {
-	return environs.ToolsDir(cfg.tools.Binary)
+func (cfg *MachineConfig) jujuTools() string {
+	return environs.ToolsDir(cfg.Tools.Binary)
 }
 
-func (cfg *machineConfig) zookeeperHostAddrs() string {
+func (cfg *MachineConfig) zookeeperHostAddrs() string {
 	var hosts []string
-	if cfg.zookeeper {
+	if cfg.ZooKeeper {
 		hosts = append(hosts, "localhost"+zkPortSuffix)
 	}
-	if cfg.stateInfo != nil {
-		hosts = append(hosts, cfg.stateInfo.Addrs...)
+	if cfg.StateInfo != nil {
+		hosts = append(hosts, cfg.StateInfo.Addrs...)
 	}
 	return strings.Join(hosts, ",")
 }
@@ -178,25 +184,25 @@ func shquote(s string) string {
 	return `'` + strings.Replace(s, `'`, `'"'"'`, -1) + `'`
 }
 
-func verifyConfig(cfg *machineConfig) error {
-	if cfg.machineId < 0 {
+func verifyConfig(cfg *MachineConfig) error {
+	if cfg.MachineId < 0 {
 		return fmt.Errorf("invalid machine configuration: negative machine id")
 	}
-	if cfg.providerType == "" {
+	if cfg.ProviderType == "" {
 		return requiresError("provider type")
 	}
-	if cfg.tools == nil {
+	if cfg.Tools == nil {
 		return requiresError("tools")
 	}
-	if cfg.tools.URL == "" {
+	if cfg.Tools.URL == "" {
 		return requiresError("tools URL")
 	}
-	if cfg.zookeeper {
-		if cfg.instanceIdAccessor == "" {
+	if cfg.ZooKeeper {
+		if cfg.InstanceIdAccessor == "" {
 			return requiresError("instance id accessor")
 		}
 	} else {
-		if cfg.stateInfo == nil || len(cfg.stateInfo.Addrs) == 0 {
+		if cfg.StateInfo == nil || len(cfg.StateInfo.Addrs) == 0 {
 			return requiresError("zookeeper hosts")
 		}
 	}
