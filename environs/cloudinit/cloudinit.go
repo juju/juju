@@ -1,16 +1,16 @@
 package cloudinit
 
 import (
+	"encoding/base64"
 	"fmt"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/upstart"
-	"launchpad.net/goyaml"
 	"path"
 	"strings"
-	"encoding/base64"
 )
 
 // TODO(dfc) duplicated from environs/ec2
@@ -57,7 +57,7 @@ type MachineConfig struct {
 
 	// Config specifies a set of key/values that are passed to the bootstrap machine
 	// and inserted into the state on initialisation.
-	Config	map[string]interface{}
+	Config map[string]interface{}
 }
 
 type requiresError string

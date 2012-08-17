@@ -130,7 +130,9 @@ func (environProvider) publicAttrs(cfg *config.Config) (map[string]interface{}, 
 		m[k] = v
 	}
 	secret, err := providerInstance.SecretAttrs(cfg)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	for k, _ := range secret {
 		delete(m, k)
 	}
@@ -308,7 +310,7 @@ func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, 
 		Tools:              tools,
 		MachineId:          machineId,
 		AuthorizedKeys:     e.ecfg().AuthorizedKeys(),
-		Config:			config,
+		Config:             config,
 	}
 	cloudcfg, err := cloudinit.New(cfg)
 	if err != nil {

@@ -1,6 +1,7 @@
 package cloudinit_test
 
 import (
+	"encoding/base64"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
@@ -28,6 +29,7 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		AuthorizedKeys:     "sshkey1",
 		Tools:              newSimpleTools("1.2.3-linux-amd64"),
 		ZooKeeper:          true,
+		Config:             map[string]interface{}{"name": "foo", "zookeeper": true},
 	},
 	{
 		MachineId:      99,
@@ -63,6 +65,7 @@ func (t *cloudinitTest) check(c *C) {
 	if t.cfg.ZooKeeper {
 		t.checkPackage(c, "zookeeperd")
 		t.checkScripts(c, "jujud bootstrap-state")
+		t.checkEnvConfig(c)
 		t.checkScripts(c, regexp.QuoteMeta(t.cfg.InstanceIdAccessor))
 		t.checkScripts(c, "JUJU_ZOOKEEPER='localhost"+cloudinit.ZkPortSuffix+"'")
 	} else {
@@ -80,6 +83,32 @@ func (t *cloudinitTest) check(c *C) {
 	} else {
 		t.checkScripts(c, "jujud machine --zookeeper-servers '"+strings.Join(t.cfg.StateInfo.Addrs, ",")+"' .* --machine-id [0-9]+")
 	}
+}
+
+// check that any --env-config $base64 is valid and matches t.cfg.Config
+func (t *cloudinitTest) checkEnvConfig(c *C) {
+	scripts0 := t.x["runcmd"]
+	if scripts0 == nil {
+		c.Errorf("cloudinit has no entry for runcmd")
+		return
+	}
+	scripts := scripts0.([]interface{})
+	re := regexp.MustCompile(`--env-config '[\w,=]+'`)
+	found := false
+	for _, s0 := range scripts {
+		if s := re.FindString(s0.(string)); len(s) > 0 {
+			found = true
+			v := strings.Split(s, `'`)
+			c.Assert(len(v), Equals, 3)
+			buf, err := base64.StdEncoding.DecodeString(v[1])
+			c.Assert(err, IsNil)
+			actual := make(map[string]interface{})
+			err = goyaml.Unmarshal(buf, &actual)
+			c.Assert(err, IsNil)
+			c.Assert(t.cfg.Config, DeepEquals, actual)
+		}
+	}
+	c.Assert(found, Equals, true)
 }
 
 func (t *cloudinitTest) checkScripts(c *C, pattern string) {
