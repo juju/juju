@@ -68,12 +68,12 @@ func (s *ConfigNodeSuite) TestUpdateWithWrite(c *C) {
 	})
 	// Check local state.
 	c.Assert(node.Map(), DeepEquals, options)
-	
+
 	// Check MongoDB state.
 	mgoData := make(map[string]interface{}, 0)
 	err = s.MgoSession.DB("juju").C("cfgnodes").FindId(s.path).One(&mgoData)
 	c.Assert(err, IsNil)
-	delete(mgoData, "_id")
+	cleanMap(mgoData)
 	c.Assert(mgoData, DeepEquals, options)
 }
 
@@ -155,7 +155,7 @@ func (s *ConfigNodeSuite) TestSetItem(c *C) {
 	mgoData := make(map[string]interface{}, 0)
 	err = s.MgoSession.DB("juju").C("cfgnodes").FindId(s.path).One(&mgoData)
 	c.Assert(err, IsNil)
-	delete(mgoData, "_id")
+	cleanMap(mgoData)
 	c.Assert(mgoData, DeepEquals, options)
 }
 
@@ -300,6 +300,7 @@ func (s *ConfigNodeSuite) TestMultipleWrites(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(changes, DeepEquals, []ItemChange{})
 }
+
 /*
 func (s *ConfigNodeSuite) TestMultipleWritesAreStable(c *C) {
 	node, err := readConfigNode(s.state, s.path)

@@ -163,6 +163,7 @@ func (c *ConfigNode) Write() ([]ItemChange, error) {
 	}
 	sort.Sort(itemChangeSlice(changes))
 	change := bson.D{
+		{"$inc", bson.D{{"version", 1}}},
 		{"$set", upserts},
 		{"$unset", deletions},
 	}
@@ -182,6 +183,12 @@ func newConfigNode(st *State, path string) *ConfigNode {
 	}
 }
 
+// cleanMap cleans the map of version and _id fields.
+func cleanMap(in map[string]interface{}) {
+	delete(in, "_id")
+	delete(in, "version")
+}
+
 // Read (re)reads the node data into c.
 func (c *ConfigNode) Read() error {
 	config := map[string]interface{}{}
@@ -194,7 +201,7 @@ func (c *ConfigNode) Read() error {
 	if err != nil {
 		return fmt.Errorf("cannot read configuration node %q: %v", c.path, err)
 	}
-	delete(config, "_id")
+	cleanMap(config)
 	c.disk = copyMap(config)
 	c.core = copyMap(config)
 	return nil
