@@ -26,7 +26,7 @@ func init() {
 	toolsDir := filepath.Dir(os.Args[0])
 	v, err := ioutil.ReadFile(filepath.Join(toolsDir, "FORCE-VERSION"))
 	if err != nil {
-		if os.IsNotFound(err) {
+		if os.IsNotExist(err) {
 			return
 		}
 		panic(fmt.Errorf("version: cannot read forced version: %v", err))
