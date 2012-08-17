@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 // State describes the state of a relation.
@@ -46,7 +48,7 @@ func (s *State) copy() *State {
 // against the current state before they are run, to ensure that the system
 // meets its guarantees about hook execution order.
 func (s *State) Validate(hi hook.Info) (err error) {
-	defer errorContextf(&err, "inappropriate %q for %q", hi.Kind, hi.RemoteUnit)
+	defer trivial.ErrorContextf(&err, "inappropriate %q for %q", hi.Kind, hi.RemoteUnit)
 	if hi.RelationId != s.RelationId {
 		return fmt.Errorf("expected relation %d, got relation %d", s.RelationId, hi.RelationId)
 	}
@@ -98,7 +100,7 @@ func ReadStateDir(dirPath string, relationId int) (d *StateDir, err error) {
 		filepath.Join(dirPath, strconv.Itoa(relationId)),
 		State{relationId, map[string]int{}, ""},
 	}
-	defer errorContextf(&err, "cannot load relation state from %q", d.path)
+	defer trivial.ErrorContextf(&err, "cannot load relation state from %q", d.path)
 	if _, err := os.Stat(d.path); os.IsNotExist(err) {
 		return d, nil
 	} else if err != nil {
@@ -112,11 +114,16 @@ func ReadStateDir(dirPath string, relationId int) (d *StateDir, err error) {
 		// Entries with names ending in "-" followed by an integer must be
 		// files containing valid unit data; all other names are ignored.
 		name := fi.Name()
-		unitName, ok := unitName(name)
-		if !ok {
-			// This doesn't look like a unit file.
+		i := strings.LastIndex(name, "-")
+		if i == -1 {
 			continue
 		}
+		svcName := name[:i]
+		unitId := name[i+1:]
+		if _, err := strconv.Atoi(unitId); err != nil {
+			continue
+		}
+		unitName := svcName + "/" + unitId
 		data, err := ioutil.ReadFile(filepath.Join(d.path, name))
 		if err != nil {
 			return nil, err
@@ -142,7 +149,7 @@ func ReadStateDir(dirPath string, relationId int) (d *StateDir, err error) {
 // ReadAllStateDirs loads and returns every StateDir persisted directly inside
 // the supplied dirPath. If dirPath does not exist, no error is returned.
 func ReadAllStateDirs(dirPath string) (dirs map[int]*StateDir, err error) {
-	defer errorContextf(&err, "cannot load relations state from %q", dirPath)
+	defer trivial.ErrorContextf(&err, "cannot load relations state from %q", dirPath)
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 		return nil, nil
 	} else if err != nil {
@@ -172,7 +179,7 @@ func ReadAllStateDirs(dirPath string) (dirs map[int]*StateDir, err error) {
 
 // Ensure creates the directory if it does not already exist.
 func (d *StateDir) Ensure() error {
-	return ensureDir(d.path)
+	return trivial.EnsureDir(d.path)
 }
 
 // Write atomically writes to disk the relation state change in hi.
@@ -180,7 +187,7 @@ func (d *StateDir) Ensure() error {
 // Write doesn't validate hi but guarantees that successive writes of
 // the same hi are idempotent.
 func (d *StateDir) Write(hi hook.Info) (err error) {
-	defer errorContextf(&err, "failed to write %q hook info for %q on state directory", hi.Kind, hi.RemoteUnit)
+	defer trivial.ErrorContextf(&err, "failed to write %q hook info for %q on state directory", hi.Kind, hi.RemoteUnit)
 	if hi.Kind == hook.RelationBroken {
 		if err = os.Remove(d.path); err != nil && !os.IsNotExist(err) {
 			return err
@@ -189,7 +196,7 @@ func (d *StateDir) Write(hi hook.Info) (err error) {
 		d.state.Members = nil
 		return nil
 	}
-	name := unitFsName(hi.RemoteUnit)
+	name := strings.Replace(hi.RemoteUnit, "/", "-", 1)
 	path := filepath.Join(d.path, name)
 	if hi.Kind == hook.RelationDeparted {
 		if err = os.Remove(path); err != nil && !os.IsNotExist(err) {
@@ -200,7 +207,7 @@ func (d *StateDir) Write(hi hook.Info) (err error) {
 		return nil
 	}
 	di := diskInfo{&hi.ChangeVersion, hi.Kind == hook.RelationJoined}
-	if err := atomicWrite(path, &di); err != nil {
+	if err := trivial.AtomicWrite(path, &di); err != nil {
 		return err
 	}
 	// If write was successful, update own state.

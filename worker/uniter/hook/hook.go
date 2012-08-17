@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/trivial"
 	"os"
 )
 
@@ -176,22 +177,7 @@ func (f *StateFile) Write(info Info, status Status) error {
 	for m := range info.Members {
 		st.Members = append(st.Members, m)
 	}
-	return atomicWrite(f.path, &st)
-}
-
-// atomicWrite marshals obj as yaml and then writes it to a file atomically
-// by first writing a sibling with the suffix ".preparing", and then moving
-// the sibling to the real path.
-func atomicWrite(path string, obj interface{}) error {
-	data, err := goyaml.Marshal(obj)
-	if err != nil {
-		return err
-	}
-	preparing := ".preparing"
-	if err = ioutil.WriteFile(path+preparing, data, 0644); err != nil {
-		return err
-	}
-	return os.Rename(path+preparing, path)
+	return trivial.AtomicWrite(f.path, &st)
 }
 
 // state defines the hook state serialization.

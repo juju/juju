@@ -5,6 +5,7 @@ import (
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/trivial"
 	"strconv"
 	"strings"
 )
@@ -185,7 +186,7 @@ func (ru *RelationUnit) Pinger() *presence.Pinger {
 // Init ensures that the required relation unit settings are in place, and
 // that it is safe to start the pinger.
 func (ru *RelationUnit) Init() (err error) {
-	defer errorContextf(&err, "cannot initialize state for unit %q in relation %q", ru.unit, ru.relation)
+	defer trivial.ErrorContextf(&err, "cannot initialize state for unit %q in relation %q", ru.unit, ru.relation)
 	if err = ru.scope.prepareJoin(ru.st.zk, ru.endpoint.RelationRole); err != nil {
 		return
 	}
@@ -219,7 +220,7 @@ func (ru *RelationUnit) Settings() (*ConfigNode, error) {
 // for an error, because the unit settings are guaranteed to persist for
 // the lifetime of the relation.
 func (ru *RelationUnit) ReadSettings(uname string) (settings map[string]interface{}, err error) {
-	defer errorContextf(&err, "cannot read settings for unit %q in relation %q", uname, ru.relation)
+	defer trivial.ErrorContextf(&err, "cannot read settings for unit %q in relation %q", uname, ru.relation)
 	topo, err := readTopology(ru.st.zk)
 	if err != nil {
 		return nil, err
