@@ -15,7 +15,7 @@ import (
 	_ "launchpad.net/juju-core/environs/ec2"
 )
 
-var retryDuration = 3 * time.Second
+var retryDelay = 3 * time.Second
 
 // ProvisioningAgent is a cmd.Command responsible for running a provisioning agent.
 type ProvisioningAgent struct {
@@ -39,8 +39,7 @@ func (a *ProvisioningAgent) Init(f *gnuflag.FlagSet, args []string) error {
 	return a.Conf.checkArgs(f.Args())
 }
 
-// Stop stops the provisionig agent by stopping the provisioner
-// and the firewaller.
+// Stop stops the provisioning agent.
 func (a *ProvisioningAgent) Stop() error {
 	a.tomb.Kill(nil)
 	return a.tomb.Wait()
@@ -56,55 +55,22 @@ func (a *ProvisioningAgent) Run(_ *cmd.Context) (err error) {
 			// Stop requested by user.
 			return err
 		}
-		time.Sleep(retryDuration)
+		time.Sleep(retryDelay)
 		log.Printf("restarting provisioner and firewaller after error: %v", err)
 	}
 	panic("unreachable")
 }
 
 // runOnce runs a provisioner and firewaller once.
-func (a *ProvisioningAgent) runOnce() (err error) {
+func (a *ProvisioningAgent) runOnce() error {
 	st, err := state.Open(&a.Conf.StateInfo)
 	if err != nil {
 		return err
 	}
 	log.Debugf("provisioning: opened state")
-	defer func() {
-		if e := st.Close(); err == nil {
-			err = e
-		}
-		log.Debugf("provisioning: closed state")
-	}()
+	defer st.Close()
 
-	a.provisioner, err = provisioner.NewProvisioner(st)
-	if err != nil {
-		return err
-	}
-	log.Debugf("provisioning: started provisioner")
-	defer func() {
-		if e := a.provisioner.Stop(); err == nil {
-			err = e
-		}
-		log.Debugf("provisioning: stopped provisioner")
-	}()
-
-	a.firewaller, err = firewaller.NewFirewaller(st)
-	if err != nil {
-		return err
-	}
-	log.Debugf("provisioning: started firewaller")
-	defer func() {
-		if e := a.firewaller.Stop(); err == nil {
-			err = e
-		}
-		log.Debugf("provisioning: stopped firewaller")
-	}()
-
-	select {
-	case <-a.tomb.Dying():
-	case <-a.provisioner.Dying():
-	case <-a.firewaller.Dying():
-	}
-
-	return
+	return runTasks(a.tomb.Dying(),
+		provisioner.NewProvisioner(st),
+		firewaller.NewFirewaller(st))
 }

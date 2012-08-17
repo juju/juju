@@ -26,7 +26,7 @@ type Firewaller struct {
 }
 
 // NewFirewaller returns a new Firewaller.
-func NewFirewaller(st *state.State) (*Firewaller, error) {
+func NewFirewaller(st *state.State) *Firewaller {
 	fw := &Firewaller{
 		st:              st,
 		environWatcher:  st.WatchEnvironConfig(),
@@ -39,7 +39,7 @@ func NewFirewaller(st *state.State) (*Firewaller, error) {
 		exposedChange:   make(chan *exposedChange),
 	}
 	go fw.loop()
-	return fw, nil
+	return fw
 }
 
 func (fw *Firewaller) loop() {

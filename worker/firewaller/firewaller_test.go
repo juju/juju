@@ -56,14 +56,12 @@ func (s *FirewallerSuite) SetUpTest(c *C) {
 }
 
 func (s *FirewallerSuite) TestStartStop(c *C) {
-	fw, err := firewaller.NewFirewaller(s.State)
-	c.Assert(err, IsNil)
+	fw := firewaller.NewFirewaller(s.State)
 	c.Assert(fw.Stop(), IsNil)
 }
 
 func (s *FirewallerSuite) TestNotExposedService(c *C) {
-	fw, err := firewaller.NewFirewaller(s.State)
-	c.Assert(err, IsNil)
+	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
 	m, err := s.State.AddMachine()
@@ -93,8 +91,7 @@ func (s *FirewallerSuite) TestNotExposedService(c *C) {
 }
 
 func (s *FirewallerSuite) TestExposedService(c *C) {
-	fw, err := firewaller.NewFirewaller(s.State)
-	c.Assert(err, IsNil)
+	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
 	m, err := s.State.AddMachine()
@@ -133,8 +130,7 @@ func (s *FirewallerSuite) TestExposedService(c *C) {
 }
 
 func (s *FirewallerSuite) TestMultipleUnits(c *C) {
-	fw, err := firewaller.NewFirewaller(s.State)
-	c.Assert(err, IsNil)
+	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
 	m1, err := s.State.AddMachine()
@@ -206,8 +202,7 @@ func (s *FirewallerSuite) TestFirewallerStartWithState(c *C) {
 	assertPorts(c, inst, m.Id(), nil)
 
 	// Starting the firewaller opens the ports.
-	fw, err := firewaller.NewFirewaller(s.State)
-	c.Assert(err, IsNil)
+	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
 	assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}, {"tcp", 8080}})
@@ -227,8 +222,7 @@ func (s *FirewallerSuite) TestFirewallerStartWithPartialState(c *C) {
 	c.Assert(err, IsNil)
 
 	// Starting the firewaller, no open ports.
-	fw, err := firewaller.NewFirewaller(s.State)
-	c.Assert(err, IsNil)
+	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
 	assertPorts(c, inst, m.Id(), nil)
@@ -245,8 +239,7 @@ func (s *FirewallerSuite) TestFirewallerStartWithPartialState(c *C) {
 }
 
 func (s *FirewallerSuite) TestSetClearExposedService(c *C) {
-	fw, err := firewaller.NewFirewaller(s.State)
-	c.Assert(err, IsNil)
+	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
 	m, err := s.State.AddMachine()
@@ -285,8 +278,7 @@ func (s *FirewallerSuite) TestSetClearExposedService(c *C) {
 func (s *FirewallerSuite) TestFirewallerStopOnStateClose(c *C) {
 	st, err := state.Open(s.StateInfo(c))
 	c.Assert(err, IsNil)
-	fw, err := firewaller.NewFirewaller(st)
-	c.Assert(err, IsNil)
+	fw := firewaller.NewFirewaller(st)
 	st.Close()
 	c.Check(fw.Wait(), ErrorMatches, ".* zookeeper is closing")
 	c.Assert(fw.Stop(), ErrorMatches, ".* zookeeper is closing")
