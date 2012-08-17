@@ -114,7 +114,8 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 	v2 := &state.Tools{
 		Binary: version.MustParseBinary("1.0.2-foo-bar"),
 	}
-	err = s.Conn.Environ.Storage().Put(environs.ToolsStoragePath(v2.Binary), bytes.NewReader(v2tools), int64(len(v2tools)))
+	storage := s.Conn.Environ.Storage()
+	err = storage.Put(environs.ToolsStoragePath(v2.Binary), bytes.NewReader(v2tools), int64(len(v2tools)))
 	c.Assert(err, IsNil)
 	v2.URL, err = s.Conn.Environ.Storage().URL(environs.ToolsStoragePath(v2.Binary))
 	c.Assert(err, IsNil)
@@ -183,7 +184,7 @@ func assertNoEvent(c *C, event <-chan string) {
 	select {
 	case got := <-event:
 		c.Fatalf("expected no event; got %q", got)
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(100 * time.Millisecond):
 	}
 }
 
