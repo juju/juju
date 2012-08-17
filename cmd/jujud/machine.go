@@ -55,7 +55,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		}
 		if ug, ok := err.(*UpgradedError); ok {
 			tools, err := environs.ChangeAgentTools("machine", ug.Binary)
-			if err == nil {
+			if err != nil {
 				log.Printf("cannot change agent tools: %v", err)
 				time.Sleep(retryDelay)
 				continue
