@@ -8,6 +8,7 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/trivial"
 	"net/url"
 	"strings"
 )
@@ -27,7 +28,7 @@ type State struct {
 
 // AddMachine creates a new machine state.
 func (s *State) AddMachine() (m *Machine, err error) {
-	defer errorContextf(&err, "cannot add a new machine")
+	defer trivial.ErrorContextf(&err, "cannot add a new machine")
 	path, err := s.zk.Create("/machines/machine-", "", zookeeper.SEQUENCE, zkPermAll)
 	if err != nil {
 		return nil, err
@@ -44,7 +45,7 @@ func (s *State) AddMachine() (m *Machine, err error) {
 
 // RemoveMachine removes the machine with the given id.
 func (s *State) RemoveMachine(id int) (err error) {
-	defer errorContextf(&err, "cannot remove machine %d", id)
+	defer trivial.ErrorContextf(&err, "cannot remove machine %d", id)
 	key := machineKey(id)
 	removeMachine := func(t *topology) error {
 		if !t.HasMachine(key) {
@@ -119,7 +120,7 @@ func (s *State) AllMachines() ([]*Machine, error) {
 // may be downloaded from.
 // On success the newly added charm state is returned.
 func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (stch *Charm, err error) {
-	defer errorContextf(&err, "cannot add charm %q", curl)
+	defer trivial.ErrorContextf(&err, "cannot add charm %q", curl)
 	data := &charmData{
 		Meta:         ch.Meta(),
 		Config:       ch.Config(),
@@ -143,7 +144,7 @@ func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bu
 
 // Charm returns the charm with the given URL.
 func (s *State) Charm(curl *charm.URL) (stch *Charm, err error) {
-	defer errorContextf(&err, "cannot get charm %q", curl)
+	defer trivial.ErrorContextf(&err, "cannot get charm %q", curl)
 	path, err := charmPath(curl)
 	if err != nil {
 		return
@@ -165,7 +166,7 @@ func (s *State) Charm(curl *charm.URL) (stch *Charm, err error) {
 // AddService creates a new service state with the given unique name
 // and the charm state.
 func (s *State) AddService(name string, ch *Charm) (service *Service, err error) {
-	defer errorContextf(&err, "cannot add service %q", name)
+	defer trivial.ErrorContextf(&err, "cannot add service %q", name)
 	details := map[string]interface{}{"charm": ch.URL().String()}
 	yaml, err := goyaml.Marshal(details)
 	if err != nil {
@@ -204,7 +205,7 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 // also remove all its units and break any of its existing
 // relations.
 func (s *State) RemoveService(svc *Service) (err error) {
-	defer errorContextf(&err, "cannot remove service %q", svc.Name())
+	defer trivial.ErrorContextf(&err, "cannot remove service %q", svc.Name())
 	// Remove relations first, to minimize unwanted hook executions.
 	rels, err := svc.Relations()
 	if err != nil {
@@ -240,7 +241,7 @@ func (s *State) RemoveService(svc *Service) (err error) {
 
 // Service returns the service with the given name.
 func (s *State) Service(name string) (service *Service, err error) {
-	defer errorContextf(&err, "cannot get service %q", name)
+	defer trivial.ErrorContextf(&err, "cannot get service %q", name)
 	topology, err := readTopology(s.zk)
 	if err != nil {
 		return nil, err
@@ -254,7 +255,7 @@ func (s *State) Service(name string) (service *Service, err error) {
 
 // AllServices returns all deployed services in the environment.
 func (s *State) AllServices() (services []*Service, err error) {
-	defer errorContextf(&err, "cannot get all services")
+	defer trivial.ErrorContextf(&err, "cannot get all services")
 	topology, err := readTopology(s.zk)
 	if err != nil {
 		return
@@ -272,7 +273,7 @@ func (s *State) AllServices() (services []*Service, err error) {
 
 // Unit returns a unit by name.
 func (s *State) Unit(name string) (unit *Unit, err error) {
-	defer errorContextf(&err, "cannot get unit %q", name)
+	defer trivial.ErrorContextf(&err, "cannot get unit %q", name)
 	serviceName, _, err := parseUnitName(name)
 	if err != nil {
 		return
@@ -291,7 +292,7 @@ func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	if !u.IsPrincipal() {
 		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
-	defer errorContextf(&err, "cannot assign unit %q to machine", u)
+	defer trivial.ErrorContextf(&err, "cannot assign unit %q to machine", u)
 	var m *Machine
 	switch policy {
 	case AssignLocal:
@@ -350,7 +351,7 @@ func (s *State) addRelationNode(endpoints ...RelationEndpoint) (relationKey stri
 
 // AddRelation creates a new relation with the given endpoints.
 func (s *State) AddRelation(endpoints ...RelationEndpoint) (rel *Relation, err error) {
-	defer errorContextf(&err, "cannot add relation %q", describeEndpoints(endpoints))
+	defer trivial.ErrorContextf(&err, "cannot add relation %q", describeEndpoints(endpoints))
 	key, err := s.addRelationNode(endpoints...)
 	if err != nil {
 		return nil, err
@@ -383,7 +384,7 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (rel *Relation, err e
 
 // Relation returns the existing relation with the given endpoints.
 func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error) {
-	defer errorContextf(&err, "cannot get relation %q", describeEndpoints(endpoints))
+	defer trivial.ErrorContextf(&err, "cannot get relation %q", describeEndpoints(endpoints))
 	t, err := readTopology(s.zk)
 	if err != nil {
 		return nil, err
