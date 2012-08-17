@@ -58,7 +58,7 @@ func ListTools(store StorageReader, majorVersion int) ([]*state.Tools, error) {
 	return toolsList, nil
 }
 
-// PutTools builds the current version of the juju tools and uploads them
+// PutTools builds the current version of the juju tools, uploads them
 // to the given storage, and returns a Tools instance describing them.
 // If vers is non-nil, a FORCE_VERSION file will be written into the
 // tools directory which will override the current version.
