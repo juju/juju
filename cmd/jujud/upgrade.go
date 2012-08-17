@@ -12,15 +12,19 @@ import (
 	"os"
 )
 
-// Upgrader represents a upgrader task.
+// An Upgrader observes the version information for an agent in the
+// environment state, and handles the downloading and unpacking of
+// new versions of the juju tools when necessary.
+//
+// When a new version is available Wait and Stop return UpgradedError.
 type Upgrader struct {
 	tomb       tomb.Tomb
 	agentName  string
 	agentState AgentState
 }
 
-// UpgradedError the status from an Upgrader when
-// an upgrade has been requested.
+// UpgradedError is returned by an Upgrader to report that
+// an upgrade has been performed and a restart is due.
 type UpgradedError struct {
 	tools *state.Tools
 }
@@ -29,7 +33,8 @@ func (e *UpgradedError) Error() string {
 	return fmt.Sprintf("must restart: agent has been upgraded to %v (from %q)", e.tools.Binary, e.tools.URL)
 }
 
-// AgentState represents the state of an agent.
+// The AgentState interface is implemented by state types
+// that represent running agents.
 type AgentState interface {
 	// SetAgentTools sets the tools that the agent is currently running.
 	SetAgentTools(tools *state.Tools) error
@@ -39,14 +44,11 @@ type AgentState interface {
 	WatchProposedAgentTools() *state.AgentToolsWatcher
 }
 
-// NewUpgrader watches the given agent state and attempts to upgrade the
-// tools for the agent with the given name.  given name.  If an upgrade
-// happens, Wait and Stop will return an UpgradedError to notify that a
-// version replacement is necessary.
-func NewUpgrader(agentName string, as AgentState) *Upgrader {
+// NewUpgrader returns a new Upgrader watching the given agent.
+func NewUpgrader(agentName string, agentState AgentState) *Upgrader {
 	u := &Upgrader{
 		agentName:  agentName,
-		agentState: as,
+		agentState: agentState,
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -126,16 +128,16 @@ func (u *Upgrader) run() error {
 			tools := downloadTools
 			download, downloadTools, downloadDone = nil, nil, nil
 			if status.Err != nil {
-				log.Printf("download %v failed: %v", tools.Binary, status.Err)
+				log.Printf("upgrader: download of %v failed: %v", tools.Binary, status.Err)
 				break
 			}
 			err := environs.UnpackTools(tools, status.File)
 			status.File.Close()
 			if err := os.Remove(status.File.Name()); err != nil {
-				log.Printf("%s agent: cannot remove temporary download file: %v", u.agentName, err)
+				log.Printf("upgrader: cannot remove temporary download file: %v", u.agentName, err)
 			}
 			if err != nil {
-				log.Printf("unpack error: %v", err)
+				log.Printf("upgrader: cannot unpack %v tools: %v", tools.Binary, err)
 				break
 			}
 			return &UpgradedError{tools}
