@@ -66,9 +66,7 @@ func (s *HookContextSuite) AddRelationContext(c *C, name string) {
 	ru, err := rel.Unit(s.unit)
 	c.Assert(err, IsNil)
 	s.relunits[rel.Id()] = ru
-	p, err := ru.Join()
-	c.Assert(err, IsNil)
-	err = p.Kill()
+	err = ru.Init()
 	c.Assert(err, IsNil)
 	s.relctxs[rel.Id()] = server.NewRelationContext(ru, nil)
 }

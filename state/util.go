@@ -2,8 +2,8 @@ package state
 
 import (
 	"errors"
-	"fmt"
 	"launchpad.net/gozk/zookeeper"
+	"launchpad.net/juju-core/trivial"
 	pathpkg "path"
 	"sort"
 )
@@ -19,7 +19,7 @@ var (
 // children.  It does not delete "/zookeeper" or the root node itself
 // and it does not consider deleting a nonexistent node to be an error.
 func zkRemoveTree(zk *zookeeper.Conn, path string) (err error) {
-	defer errorContextf(&err, "cannot clean up data")
+	defer trivial.ErrorContextf(&err, "cannot clean up data")
 	// If we try to delete the zookeeper node (for example when
 	// calling ZkRemoveTree(zk, "/")) we silently ignore it.
 	if path == "/zookeeper" {
@@ -47,15 +47,6 @@ func zkRemoveTree(zk *zookeeper.Conn, path string) (err error) {
 		return err
 	}
 	return nil
-}
-
-// errorContextf prefixes any error stored in err with text formatted
-// according to the format specifier. If err does not contain an error,
-// errorContextf does nothing.
-func errorContextf(err *error, format string, args ...interface{}) {
-	if *err != nil {
-		*err = errors.New(fmt.Sprintf(format, args...) + ": " + (*err).Error())
-	}
 }
 
 // diff returns all the elements that exist in A but not B.

@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 )
 
@@ -41,7 +42,7 @@ func getAgentTools(cn *ConfigNode, prefix string) (tools *Tools, err error) {
 }
 
 func (at *agentTools) agentTools(prefix string) (tools *Tools, err error) {
-	defer errorContextf(&err, "cannot get %s agent %s tools", at.agent, prefix)
+	defer trivial.ErrorContextf(&err, "cannot get %s agent %s tools", at.agent, prefix)
 	cn, err := readConfigNode(at.st.zk, at.path)
 	if err != nil {
 		return nil, err
@@ -50,7 +51,7 @@ func (at *agentTools) agentTools(prefix string) (tools *Tools, err error) {
 }
 
 func (at *agentTools) setAgentTools(prefix string, t *Tools) (err error) {
-	defer errorContextf(&err, "cannot set %s tools for %s agent", prefix, at.agent)
+	defer trivial.ErrorContextf(&err, "cannot set %s tools for %s agent", prefix, at.agent)
 	if t.Series == "" || t.Arch == "" {
 		return fmt.Errorf("empty series or arch")
 	}

@@ -327,7 +327,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		return err
 	}
 	if uploadTools {
-		_, err := environs.PutTools(e.Storage(), "")
+		_, err := environs.PutTools(e.Storage(), nil)
 		if err != nil {
 			return err
 		}
