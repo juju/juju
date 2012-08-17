@@ -16,12 +16,13 @@ import (
 // test suites (StateSuite, CharmSuite, MachineSuite, etc).
 type ConnSuite struct {
 	MgoSuite
-	session  *mgo.Session
-	charms   *mgo.Collection
-	machines *mgo.Collection
-	services *mgo.Collection
-	units    *mgo.Collection
-	State    *state.State
+	session   *mgo.Session
+	charms    *mgo.Collection
+	machines  *mgo.Collection
+	relations *mgo.Collection
+	services  *mgo.Collection
+	units     *mgo.Collection
+	State     *state.State
 }
 
 func (cs *ConnSuite) SetUpTest(c *C) {
@@ -31,6 +32,7 @@ func (cs *ConnSuite) SetUpTest(c *C) {
 	cs.session = session
 	cs.charms = session.DB("juju").C("charms")
 	cs.machines = session.DB("juju").C("machines")
+	cs.relations = session.DB("juju").C("relations")
 	cs.services = session.DB("juju").C("services")
 	cs.units = session.DB("juju").C("units")
 	cs.State, err = state.Dial(mgoaddr)
