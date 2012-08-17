@@ -1,4 +1,5 @@
 package testing
+
 import (
 	"archive/tar"
 	"bytes"
@@ -14,16 +15,16 @@ type TarFile struct {
 	Contents string
 }
 
-var modes = map[os.FileMode] byte {
-	os.ModeDir: tar.TypeDir,
+var modes = map[os.FileMode]byte{
+	os.ModeDir:     tar.TypeDir,
 	os.ModeSymlink: tar.TypeSymlink,
-	0: tar.TypeReg,
+	0:              tar.TypeReg,
 }
 
 // NewTarFile returns a new TarFile instance with the given file
 // mode and contents.
 func NewTarFile(name string, mode os.FileMode, contents string) *TarFile {
-	ftype := modes[mode & os.ModeType]
+	ftype := modes[mode&os.ModeType]
 	if ftype == 0 {
 		panic(fmt.Errorf("unexpected mode %v", mode))
 	}
