@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"fmt"
+	"go/build"
 	"io"
 	"io/ioutil"
 	"launchpad.net/juju-core/log"
@@ -61,7 +62,7 @@ func ListTools(store StorageReader, majorVersion int) ([]*state.Tools, error) {
 // PutTools builds the current version of the juju tools with the given
 // build tags, uploads them to the given storage, and returns a Tools
 // instance describing them.
-// TODO find binaries from $PATH when not using a development
+// TODO(rog) find binaries from $PATH when not using a development
 // version of juju within a $GOPATH.
 func PutTools(storage Storage, tags string) (*state.Tools, error) {
 	// We create the entire archive before asking the environment to
@@ -381,15 +382,22 @@ func bundleTools(w io.Writer, tags string) (version.Binary, error) {
 	}
 	defer os.RemoveAll(dir)
 
-	// There's a bug in the go command (issue 3895) which causes the
-	// tools not to be re-built if the tags change. This means
-	// that this does not work (or worse, can break things).
-	// TODO(rog) fix!
-
+	env := setenv(os.Environ(), "GOBIN="+dir)
+	if tags != "" {
+		tmpDir, err := cloneJujuSource()
+		if err != nil {
+			return version.Binary{}, fmt.Errorf("cannot clone source: %v", err)
+		}
+		defer removeAll(tmpDir)
+		oldPath := os.Getenv("GOPATH")
+		if oldPath != "" {
+			oldPath = ":" + oldPath
+		}
+		env = setenv(env, "GOPATH="+tmpDir+oldPath)
+log.Printf("env: %q", env)
+	}
 	cmd := exec.Command("go", "install", "-tags="+tags, "launchpad.net/juju-core/cmd/...")
-
-	log.Printf("running %v", cmd.Args)
-	cmd.Env = setenv(os.Environ(), "GOBIN="+dir)
+	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 
 	if err != nil {
@@ -427,4 +435,26 @@ func (s emptyStorage) URL(string) (string, error) {
 
 func (s emptyStorage) List(prefix string) ([]string, error) {
 	return nil, nil
+}
+
+// cloneJujuSource makes a virtual clone of the juju source directories
+// into a temporary directory suitable for adding to GOPATH.  It returns
+// the name of the directory.
+//
+// This avoids contaminating the installed object files with a build
+// with the wrong tags.
+func cloneJujuSource() (tmpDir string, err error) {
+	pkg, err := build.Import("launchpad.net/juju-core/version", "", build.FindOnly)
+	if err != nil {
+		return
+	}
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		return
+	}
+	err = os.Symlink(filepath.Join(pkg.Dir, "../../.."), filepath.Join(dir, "src"))
+	if err != nil {
+		return
+	}
+	return dir, nil
 }

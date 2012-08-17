@@ -117,7 +117,6 @@ func (t *ToolsSuite) TestPutGetTools(c *C) {
 }
 
 func (t *ToolsSuite) TestPutToolsAndBumpVersion(c *C) {
-	c.Skip("this test breaks the build")
 	// This test actually tests three thing:
 	//   the build tags; the test version building; and the reading
 	//   of the version from jujud.
