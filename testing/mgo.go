@@ -33,7 +33,7 @@ func StartMgoServer() (server *exec.Cmd, dbdir string) {
 	if err != nil {
 		panic(fmt.Errorf("cannot create temporary directory: %v", err))
 	}
-	mgoport :=  strconv.Itoa(FindTCPPort())
+	mgoport := strconv.Itoa(FindTCPPort())
 	mgoargs := []string{
 		"--dbpath", dbdir,
 		"--bind_ip", "localhost",

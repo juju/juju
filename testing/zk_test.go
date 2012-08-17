@@ -8,9 +8,9 @@ import (
 	stdtesting "testing"
 )
 
-type S struct{}
+type Z struct{}
 
-var _ = Suite(S{})
+var _ = Suite(Z{})
 
 func TestT(t *stdtesting.T) {
 	TestingT(t)
@@ -24,7 +24,7 @@ func (f testt) Fatalf(format string, args ...interface{}) {
 
 var allPerms = zk.WorldACL(zk.PERM_ALL)
 
-func (S) TestStartAndClean(c *C) {
+func (Z) TestStartAndClean(c *C) {
 	srv := testing.StartZkServer()
 	defer srv.Destroy()
 
