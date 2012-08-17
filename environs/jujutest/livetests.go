@@ -205,12 +205,13 @@ func (t *LiveTests) checkUpgradeMachineAgent(c *C, m *state.Machine) {
 	c.Assert(gotTools.Binary, Equals, version.Current)
 
 	c.Logf("putting testing version of juju tools")
-	upgradeTools, err := environs.PutTools(t.Env.Storage(), "bumpversion")
+
+	newVersion := version.Current
+	newVersion.Patch++
+	upgradeTools, err := environs.PutTools(t.Env.Storage(), &newVersion)
 	c.Assert(err, IsNil)
 
 	// Check that the put version really is the version we expect.
-	newVersion := version.Current
-	newVersion.Patch++
 	c.Assert(upgradeTools.Binary, Equals, newVersion)
 	err = m.ProposeAgentTools(upgradeTools)
 
