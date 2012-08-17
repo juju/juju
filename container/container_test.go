@@ -5,7 +5,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/state/testing"
+	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
@@ -14,7 +14,7 @@ import (
 )
 
 type suite struct {
-	testing.StateSuite
+	testing.JujuConnSuite
 }
 
 var _ = Suite(&suite{})

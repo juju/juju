@@ -12,8 +12,8 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"regexp"
@@ -64,7 +64,7 @@ func registerLocalTests() {
 // EC2 server that runs within the test process itself.
 type localLiveSuite struct {
 	coretesting.LoggingSuite
-	testing.StateSuite
+	testing.JujuConnSuite
 	LiveTests
 	srv localServer
 	env environs.Environ
@@ -165,7 +165,7 @@ func (srv *localServer) stopServer(c *C) {
 // network address of the local server.
 type localServerSuite struct {
 	coretesting.LoggingSuite
-	testing.StateSuite
+	testing.JujuConnSuite
 	jujutest.Tests
 	srv localServer
 	env environs.Environ
