@@ -94,6 +94,7 @@ var commitTests = []struct {
 	members msi
 	pending string
 	err     string
+	deleted bool
 }{
 	// Verify that valid changes work.
 	{
@@ -103,73 +104,94 @@ var commitTests = []struct {
 		members: msi{"foo/1": 1, "foo/2": 0},
 	}, {
 		hooks: []uniter.HookInfo{
-			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/3", ChangeVersion: 0},
+			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/3"},
 		},
 		members: msi{"foo/1": 0, "foo/2": 0, "foo/3": 0},
 		pending: "foo/3",
 	}, {
 		hooks: []uniter.HookInfo{
-			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/3", ChangeVersion: 0},
-			{RelationId: 123, HookKind: "changed", RemoteUnit: "foo/3", ChangeVersion: 0},
+			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/3"},
+			{RelationId: 123, HookKind: "changed", RemoteUnit: "foo/3"},
 		},
 		members: msi{"foo/1": 0, "foo/2": 0, "foo/3": 0},
 	}, {
 		hooks: []uniter.HookInfo{
-			{RelationId: 123, HookKind: "departed", RemoteUnit: "foo/1", ChangeVersion: 0},
+			{RelationId: 123, HookKind: "departed", RemoteUnit: "foo/1"},
 		},
 		members: msi{"foo/2": 0},
 	}, {
 		hooks: []uniter.HookInfo{
-			{RelationId: 123, HookKind: "departed", RemoteUnit: "foo/1", ChangeVersion: 0},
-			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/1", ChangeVersion: 0},
+			{RelationId: 123, HookKind: "departed", RemoteUnit: "foo/1"},
+			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/1"},
 		},
 		members: msi{"foo/1": 0, "foo/2": 0},
 		pending: "foo/1",
 	}, {
 		hooks: []uniter.HookInfo{
-			{RelationId: 123, HookKind: "departed", RemoteUnit: "foo/1", ChangeVersion: 0},
-			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/1", ChangeVersion: 0},
-			{RelationId: 123, HookKind: "changed", RemoteUnit: "foo/1", ChangeVersion: 0},
+			{RelationId: 123, HookKind: "departed", RemoteUnit: "foo/1"},
+			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/1"},
+			{RelationId: 123, HookKind: "changed", RemoteUnit: "foo/1"},
 		},
 		members: msi{"foo/1": 0, "foo/2": 0},
+	}, {
+		hooks: []uniter.HookInfo{
+			{RelationId: 123, HookKind: "departed", RemoteUnit: "foo/1"},
+			{RelationId: 123, HookKind: "departed", RemoteUnit: "foo/2"},
+			{RelationId: 123, HookKind: "broken"},
+		},
+		deleted: true,
 	},
 	// Verify detection of various error conditions.
 	{
 		hooks: []uniter.HookInfo{
-			{RelationId: 456, HookKind: "joined", RemoteUnit: "foo/1", ChangeVersion: 0},
+			{RelationId: 456, HookKind: "joined", RemoteUnit: "foo/1"},
 		},
 		err: "expected relation 123, got relation 456",
 	}, {
 		hooks: []uniter.HookInfo{
-			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/3", ChangeVersion: 0},
-			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/4", ChangeVersion: 0},
+			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/3"},
+			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/4"},
 		},
 		members: msi{"foo/1": 0, "foo/2": 0, "foo/3": 0},
 		pending: "foo/3",
 		err:     `expected "changed" for "foo/3"`,
 	}, {
 		hooks: []uniter.HookInfo{
-			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/3", ChangeVersion: 0},
-			{RelationId: 123, HookKind: "changed", RemoteUnit: "foo/1", ChangeVersion: 0},
+			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/3"},
+			{RelationId: 123, HookKind: "changed", RemoteUnit: "foo/1"},
 		},
 		members: msi{"foo/1": 0, "foo/2": 0, "foo/3": 0},
 		pending: "foo/3",
 		err:     `expected "changed" for "foo/3"`,
 	}, {
 		hooks: []uniter.HookInfo{
-			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/1", ChangeVersion: 0},
+			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/1"},
 		},
 		err: "unit already joined",
 	}, {
 		hooks: []uniter.HookInfo{
-			{RelationId: 123, HookKind: "changed", RemoteUnit: "foo/3", ChangeVersion: 0},
+			{RelationId: 123, HookKind: "changed", RemoteUnit: "foo/3"},
 		},
 		err: "unit has not joined",
 	}, {
 		hooks: []uniter.HookInfo{
-			{RelationId: 123, HookKind: "departed", RemoteUnit: "foo/3", ChangeVersion: 0},
+			{RelationId: 123, HookKind: "departed", RemoteUnit: "foo/3"},
 		},
 		err: "unit has not joined",
+	}, {
+		hooks: []uniter.HookInfo{
+			{RelationId: 123, HookKind: "broken"},
+		},
+		err: `cannot run "broken" while units still present`,
+	}, {
+		hooks: []uniter.HookInfo{
+			{RelationId: 123, HookKind: "departed", RemoteUnit: "foo/1"},
+			{RelationId: 123, HookKind: "departed", RemoteUnit: "foo/2"},
+			{RelationId: 123, HookKind: "broken"},
+			{RelationId: 123, HookKind: "joined", RemoteUnit: "foo/1"},
+		},
+		err:     `relation is broken and cannot be changed further`,
+		deleted: true,
 	},
 }
 
@@ -189,20 +211,21 @@ func (s *RelationStateSuite) TestCommit(c *C) {
 				err = rs.Validate(hi)
 				expect := fmt.Sprintf(`inappropriate %q for %q: %s`, hi.HookKind, hi.RemoteUnit, t.err)
 				c.Assert(err, ErrorMatches, expect)
-				err = rs.Commit(hi)
-				c.Assert(err, ErrorMatches, expect)
 			} else {
 				err = rs.Validate(hi)
 				c.Assert(err, IsNil)
 				err = rs.Commit(hi)
 				c.Assert(err, IsNil)
+				// Check that committing the same change again is OK.
+				err = rs.Commit(hi)
+				c.Assert(err, IsNil)
 			}
 		}
 		members := t.members
-		if members == nil {
+		if members == nil && !t.deleted {
 			members = defaultMembers
 		}
-		assertState(c, rs, members, t.pending)
+		assertState(c, rs, members, t.pending, t.deleted)
 	}
 }
 
@@ -259,9 +282,9 @@ func (s *AllRelationStatesSuite) TestAllRelationStates(c *C) {
 	for id, rs := range states {
 		c.Logf("%d: %#v", id, rs)
 	}
-	assertState(c, states[123], msi{"foo/0": 1, "foo/1": 2}, "foo/1")
-	assertState(c, states[456], msi{"bar/0": 3, "bar/1": 4}, "")
-	assertState(c, states[789], msi{}, "")
+	assertState(c, states[123], msi{"foo/0": 1, "foo/1": 2}, "foo/1", false)
+	assertState(c, states[456], msi{"bar/0": 3, "bar/1": 4}, "", false)
+	assertState(c, states[789], msi{}, "", false)
 	c.Assert(states, HasLen, 3)
 }
 
@@ -277,7 +300,7 @@ func setUpDir(c *C, basedir, name string, contents map[string]string) string {
 	return reldir
 }
 
-func assertState(c *C, rs *uniter.RelationState, members msi, pending string) {
+func assertState(c *C, rs *uniter.RelationState, members msi, pending string, deleted bool) {
 	expect := &uniter.RelationState{
 		Path:           rs.Path,
 		RelationId:     rs.RelationId,
@@ -285,8 +308,13 @@ func assertState(c *C, rs *uniter.RelationState, members msi, pending string) {
 		ChangedPending: pending,
 	}
 	c.Assert(rs, DeepEquals, expect)
-	basedir := filepath.Dir(rs.Path)
-	committed, err := uniter.NewRelationState(basedir, rs.RelationId)
-	c.Assert(err, IsNil)
-	c.Assert(committed, DeepEquals, expect)
+	if deleted {
+		_, err := os.Stat(rs.Path)
+		c.Assert(os.IsNotExist(err), Equals, true)
+	} else {
+		basedir := filepath.Dir(rs.Path)
+		committed, err := uniter.NewRelationState(basedir, rs.RelationId)
+		c.Assert(err, IsNil)
+		c.Assert(committed, DeepEquals, expect)
+	}
 }

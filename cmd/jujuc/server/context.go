@@ -197,9 +197,23 @@ func (ctx *RelationContext) ClearCache() {
 	ctx.cache = make(SettingsMap)
 }
 
-// SetMembers completely replaces the context's membership data.
-func (ctx *RelationContext) SetMembers(members SettingsMap) {
-	ctx.members = members
+// UpdateMembers ensures that the context is aware of every supplied member
+// unit. For each supplied member that has non-nil settings, the cached
+// settings will be overwritten; but nil settings will not overwrite cached
+// ones.
+func (ctx *RelationContext) UpdateMembers(members SettingsMap) {
+	for m, s := range members {
+		_, found := ctx.members[m]
+		if !found || s != nil {
+			ctx.members[m] = s
+		}
+	}
+}
+
+// DeleteMember drops the membership and cache of a single remote unit, without
+// perturbing settings for the remaining members.
+func (ctx *RelationContext) DeleteMember(unitName string) {
+	delete(ctx.members, unitName)
 }
 
 // Settings returns a ConfigNode that gives read and write access to the

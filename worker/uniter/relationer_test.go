@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/worker/uniter"
+	"os"
 	"strings"
 	"time"
 )
@@ -69,7 +70,7 @@ func (s *RelationerSuite) TestStartStopPresence(c *C) {
 
 	// Check that we can't start u/0's pinger again while it's running.
 	f := func() { r.Join() }
-	c.Assert(f, PanicMatches, "unit already joined!")
+	c.Assert(f, PanicMatches, "pinger is already started")
 
 	// Stop the pinger and check the change is observed.
 	err = r.Abandon()
@@ -108,9 +109,11 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	c.Assert(f, PanicMatches, "hooks already started!")
 
 	// Join u/1 to the relation, and check that we receive the expected hooks.
-	p, err := ru1.Join()
+	err := ru1.Init()
 	c.Assert(err, IsNil)
-	defer kill(c, p)
+	err = ru1.Pinger().Start()
+	c.Assert(err, IsNil)
+	defer kill(c, ru1.Pinger())
 	s.assertHook(c, uniter.HookInfo{
 		HookKind:   "joined",
 		RemoteUnit: "u/1",
@@ -130,10 +133,12 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	// Stop hooks, make more changes, check no events.
 	err = r.StopHooks()
 	c.Assert(err, IsNil)
-	kill(c, p)
-	p, err = ru2.Join()
+	kill(c, ru1.Pinger())
+	err = ru2.Init()
 	c.Assert(err, IsNil)
-	defer kill(c, p)
+	err = ru2.Pinger().Start()
+	c.Assert(err, IsNil)
+	defer kill(c, ru2.Pinger())
 	node, err := ru2.Settings()
 	c.Assert(err, IsNil)
 	node.Set("private-address", "roehampton")
@@ -182,7 +187,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	ctx := r.Context()
 	c.Assert(ctx.Units(), HasLen, 0)
 
-	// Check preparing an invalid hook changes nothing...
+	// Check preparing an invalid hook changes nothing.
 	changed := uniter.HookInfo{
 		HookKind:      "changed",
 		RemoteUnit:    "u/1",
@@ -192,12 +197,6 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 		},
 	}
 	_, err := r.PrepareHook(changed)
-	c.Assert(err, ErrorMatches, `inappropriate "changed" for "u/1": unit has not joined`)
-	c.Assert(ctx.Units(), HasLen, 0)
-	c.Assert(s.rs.Members, HasLen, 0)
-
-	// ...as does committing an invalid hook.
-	err = r.CommitHook(changed)
 	c.Assert(err, ErrorMatches, `inappropriate "changed" for "u/1": unit has not joined`)
 	c.Assert(ctx.Units(), HasLen, 0)
 	c.Assert(s.rs.Members, HasLen, 0)
@@ -248,6 +247,58 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	s1, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
 	c.Assert(s1, DeepEquals, changed.Members["u/1"])
+}
+
+func (s *RelationerSuite) TestBreaking(c *C) {
+	ru1 := s.AddRelationUnit(c, "u/1")
+	err := ru1.Init()
+	c.Assert(err, IsNil)
+	err = ru1.Pinger().Start()
+	c.Assert(err, IsNil)
+	defer kill(c, ru1.Pinger())
+	r := uniter.NewRelationer(s.ru, s.rs, s.hooks)
+	err = r.Join()
+	c.Assert(err, IsNil)
+	r.StartHooks()
+	s.assertHook(c, uniter.HookInfo{
+		HookKind:   "joined",
+		RemoteUnit: "u/1",
+		Members: map[string]map[string]interface{}{
+			"u/1": {"private-address": "u-1.example.com"},
+		},
+	})
+
+	// While a changed hook is still pending, the relation breaks!
+	err = r.Breaking()
+	c.Assert(err, IsNil)
+
+	// Check that we cannot rejoin the relation.
+	f := func() { r.Join() }
+	c.Assert(f, PanicMatches, "breaking unit must not join!")
+
+	// ...but the hook stream continues, sending the required changed hook for
+	// u/1 before moving on to a departed, despite the fact that its pinger is
+	// still running, and closing with a broken.
+	s.assertHook(c, uniter.HookInfo{
+		HookKind:   "changed",
+		RemoteUnit: "u/1",
+		Members:    map[string]map[string]interface{}{"u/1": nil},
+	})
+	s.assertHook(c, uniter.HookInfo{
+		HookKind:   "departed",
+		RemoteUnit: "u/1",
+		Members:    map[string]map[string]interface{}{},
+	})
+	s.assertHook(c, uniter.HookInfo{
+		HookKind: "broken",
+	})
+
+	// Check that the relation state has been killed.
+	_, err = os.Stat(s.rs.Path)
+	c.Assert(os.IsNotExist(err), Equals, true)
+
+	// TODO: when we have lifecycle handling, verify that the relation can
+	// be destroyed. Can't see a clean way to do so currently.
 }
 
 func assertChanged(c *C, w *state.RelationUnitsWatcher) {

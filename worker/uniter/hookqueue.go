@@ -7,6 +7,13 @@ import (
 	"sort"
 )
 
+// hookQueue is the minimal interface implemented by both HookQueue and
+// BrokenHookQueue.
+type hookQueue interface {
+	hookQueue()
+	Stop() error
+}
+
 // RelationUnitsWatcher is used to enable deterministic testing, by
 // supplying a reliable stream of RelationUnitsChange events; usually,
 // it will be a *state.RelationUnitsWatcher.
@@ -21,7 +28,7 @@ type HookInfo struct {
 	// RelationId identifies the relation associated with the hook queue.
 	RelationId int
 
-	// HookKind is one of "joined", "changed", or "departed".
+	// HookKind is one of "joined", "changed", "departed", or "broken".
 	HookKind string
 
 	// RemoteUnit is the unit name associated with HookKind.
@@ -152,6 +159,10 @@ func (q *HookQueue) loop(initial *RelationState) {
 			q.pop()
 		}
 	}
+}
+
+func (q *HookQueue) hookQueue() {
+	panic("interface sentinel method, do not call")
 }
 
 // Stop stops the HookQueue and returns any errors encountered during operation
@@ -305,4 +316,94 @@ func (q *HookQueue) unqueue(unit string) {
 	}
 	info.prev = nil
 	info.next = nil
+}
+
+// BrokenHookQueue acts similarly to HookQueue, but its only concern is sending
+// a -departed hook for each current unit, and finishing with a -broken hook.
+type BrokenHookQueue struct {
+	tomb           tomb.Tomb
+	out            chan<- HookInfo
+	relationId     int
+	members        map[string]int
+	changedPending string
+}
+
+// NewBrokenHookQueue returns a new HookQueue that sends out details about the
+// hooks that must be executed in a relation that is going away.
+func NewBrokenHookQueue(initial *RelationState, out chan<- HookInfo) *BrokenHookQueue {
+	q := &BrokenHookQueue{
+		out:            out,
+		relationId:     initial.RelationId,
+		members:        map[string]int{},
+		changedPending: initial.ChangedPending,
+	}
+	for m, v := range initial.Members {
+		q.members[m] = v
+	}
+	go q.loop()
+	return q
+}
+
+func (q *BrokenHookQueue) loop() {
+	defer q.tomb.Done()
+
+	// Honour any expected changed hook.
+	if q.changedPending != "" {
+		select {
+		case <-q.tomb.Dying():
+			return
+		case q.out <- q.hookInfo("changed", q.changedPending):
+		}
+	}
+
+	// Depart in consistent order, mainly for testing purposes.
+	dels := []string{}
+	for m := range q.members {
+		dels = append(dels, m)
+	}
+	sort.Strings(dels)
+	for _, del := range dels {
+		select {
+		case <-q.tomb.Dying():
+			return
+		case q.out <- q.hookInfo("departed", del):
+		}
+	}
+
+	// Finally break the relation.
+	select {
+	case <-q.tomb.Dying():
+		return
+	case q.out <- HookInfo{RelationId: q.relationId, HookKind: "broken"}:
+	}
+	q.tomb.Kill(nil)
+	return
+}
+
+func (q *BrokenHookQueue) hookInfo(hook, unit string) HookInfo {
+	hi := HookInfo{
+		RelationId:    q.relationId,
+		HookKind:      hook,
+		RemoteUnit:    unit,
+		ChangeVersion: q.members[unit],
+		Members:       map[string]map[string]interface{}{},
+	}
+	if hook == "departed" {
+		delete(q.members, unit)
+	}
+	for m := range q.members {
+		hi.Members[m] = nil
+	}
+	return hi
+}
+
+func (q *BrokenHookQueue) hookQueue() {
+	panic("interface sentinel method, do not call")
+}
+
+// Stop stops the BrokenHookQueue and returns any errors encountered
+// during operation or while shutting down.
+func (q *BrokenHookQueue) Stop() error {
+	q.tomb.Kill(nil)
+	return q.tomb.Wait()
 }

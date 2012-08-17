@@ -62,14 +62,14 @@ var hookQueueTests = []hookQueueTest{
 		expect{"joined", "u/0", 0, msi{"u/0": 0}},
 		send{nil, []string{"u/0"}},
 		expect{"changed", "u/0", 0, msi{"u/0": 0}},
-		expect{"departed", "u/0", 0, nil},
+		expect{"departed", "u/0", 0, msi{}},
 	), fullTest(
 		// A departed replaces a changed.
 		send{msi{"u/0": 0}, nil},
 		advance{2},
 		send{msi{"u/0": 7}, nil},
 		send{nil, []string{"u/0"}},
-		expect{"departed", "u/0", 7, nil},
+		expect{"departed", "u/0", 7, msi{}},
 	), fullTest(
 		// Changed events are ignored if the version has not changed.
 		send{msi{"u/0": 0}, nil},
@@ -143,7 +143,7 @@ var hookQueueTests = []hookQueueTest{
 		// Check that missing units are queued for depart as early as possible.
 		msi{"u/0": 0}, "",
 		send{msi{"u/1": 0}, nil},
-		expect{"departed", "u/0", 0, nil},
+		expect{"departed", "u/0", 0, msi{}},
 		expect{"joined", "u/1", 0, msi{"u/1": 0}},
 		expect{"changed", "u/1", 0, msi{"u/1": 0}},
 	), reconcileTest(
@@ -152,13 +152,13 @@ var hookQueueTests = []hookQueueTest{
 		msi{"u/0": 0}, "u/0",
 		send{nil, nil},
 		expect{"changed", "u/0", 0, msi{"u/0": -1}},
-		expect{"departed", "u/0", 0, nil},
+		expect{"departed", "u/0", 0, msi{}},
 	), reconcileTest(
 		// Check that missing units don't slip in front of required changed hooks.
 		msi{"u/0": 0}, "u/0",
 		send{msi{"u/1": 0}, nil},
 		expect{"changed", "u/0", 0, msi{"u/0": -1}},
-		expect{"departed", "u/0", 0, nil},
+		expect{"departed", "u/0", 0, msi{}},
 		expect{"joined", "u/1", 0, msi{"u/1": 0}},
 		expect{"changed", "u/1", 0, msi{"u/1": 0}},
 	),
@@ -178,6 +178,39 @@ func (s *HookQueueSuite) TestHookQueue(c *C) {
 		expect{}.check(c, in, out)
 		q.Stop()
 		c.Assert(ruw.stopped, Equals, true)
+	}
+}
+
+var brokenHookQueueTests = []hookQueueTest{
+	fullTest(
+		// Empty state just gets a broken hook.
+		expect{hook: "broken"},
+	), reconcileTest(
+		// Each current member is departed before broken is sent.
+		msi{"u/1": 7, "u/4": 33}, "",
+		expect{"departed", "u/1", 7, msi{"u/4": -1}},
+		expect{"departed", "u/4", 33, msi{}},
+		expect{hook: "broken"},
+	), reconcileTest(
+		// If there's a pending changed, that must still be respected.
+		msi{"u/0": 3}, "u/0",
+		expect{"changed", "u/0", 3, msi{"u/0": -1}},
+		expect{"departed", "u/0", 3, msi{}},
+		expect{hook: "broken"},
+	),
+}
+
+func (s *HookQueueSuite) TestBrokenHookQueue(c *C) {
+	for i, t := range brokenHookQueueTests {
+		c.Logf("test %d", i)
+		out := make(chan uniter.HookInfo)
+		q := uniter.NewBrokenHookQueue(t.initial, out)
+		for i, step := range t.steps {
+			c.Logf("  step %d", i)
+			step.check(c, nil, out)
+		}
+		expect{}.check(c, nil, out)
+		q.Stop()
 	}
 }
 
@@ -259,10 +292,12 @@ func (d expect) check(c *C, in chan state.RelationUnitsChange, out chan uniter.H
 		HookKind:      d.hook,
 		RemoteUnit:    d.unit,
 		ChangeVersion: d.version,
-		Members:       map[string]map[string]interface{}{},
 	}
-	for name, version := range d.members {
-		expect.Members[name] = settings(name, version)
+	if d.members != nil {
+		expect.Members = map[string]map[string]interface{}{}
+		for name, version := range d.members {
+			expect.Members[name] = settings(name, version)
+		}
 	}
 	select {
 	case actual := <-out:
