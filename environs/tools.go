@@ -60,11 +60,12 @@ func ListTools(store StorageReader, majorVersion int) ([]*state.Tools, error) {
 
 // PutTools builds the current version of the juju tools, uploads them
 // to the given storage, and returns a Tools instance describing them.
-// If vers is non-nil, a FORCE_VERSION file will be written into the
-// tools directory which will override the current version.
-// TODO(rog) find binaries from $PATH when not using a development
-// version of juju within a $GOPATH.
+// If vers is non-nil it will override the current version in the uploaded
+// tools.
 func PutTools(storage Storage, vers *version.Binary) (*state.Tools, error) {
+	// TODO(rog) find binaries from $PATH when not using a development
+	// version of juju within a $GOPATH.
+
 	// We create the entire archive before asking the environment to
 	// start uploading so that we can be sure we have archived
 	// correctly.
