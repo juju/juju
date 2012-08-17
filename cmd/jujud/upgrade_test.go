@@ -20,13 +20,11 @@ import (
 var _ = Suite(&upgraderSuite{})
 
 type upgraderSuite struct {
-	coretesting.LoggingSuite
 	testing.JujuConnSuite
 	oldVarDir string
 }
 
 func (s *upgraderSuite) SetUpTest(c *C) {
-	s.LoggingSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
 	s.oldVarDir = environs.VarDir
 	environs.VarDir = c.MkDir()
@@ -35,11 +33,11 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 func (s *upgraderSuite) TearDownTest(c *C) {
 	environs.VarDir = s.oldVarDir
 	s.JujuConnSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *upgraderSuite) TestUpgraderError(c *C) {
 	st, err := state.Open(s.StateInfo(c))
+	c.Assert(err, IsNil)
 	m, err := st.AddMachine()
 	c.Assert(err, IsNil)
 	_, as, upgraderDone := startUpgrader(m)
@@ -48,8 +46,8 @@ func (s *upgraderSuite) TestUpgraderError(c *C) {
 	assertEvent(c, as.event, fmt.Sprintf("SetAgentTools %s ", version.Current))
 	assertEvent(c, as.event, "WatchProposedTools")
 
+	// Close the state under the watcher and check that the upgrader dies.
 	st.Close()
-
 	select {
 	case err := <-upgraderDone:
 		c.Assert(err, Not(FitsTypeOf), &UpgradedError{})
@@ -60,8 +58,7 @@ func (s *upgraderSuite) TestUpgraderError(c *C) {
 }
 
 func (s *upgraderSuite) TestUpgraderStop(c *C) {
-	st, err := state.Open(s.StateInfo(c))
-	m, err := st.AddMachine()
+	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 	u, as, upgraderDone := startUpgrader(m)
 	assertEvent(c, as.event, fmt.Sprintf("SetAgentTools %s ", version.Current))
@@ -149,7 +146,7 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 	}
 
 	// Check that the upgraded version was really downloaded.
-	data, err := ioutil.ReadFile(filepath.Join(environs.AgentToolsDir("testagent"), "jujud"))
+	data, err := ioutil.ReadFile(filepath.Join(environs.ToolsDir(v2.Binary), "jujud"))
 	c.Assert(err, IsNil)
 	c.Assert(string(data), Equals, "jujud contents v2")
 
@@ -218,7 +215,6 @@ func newTestAgentState(m *state.Machine) *testAgentState {
 }
 
 func (t *testAgentState) SetAgentTools(tools *state.Tools) error {
-	// TODO(rog) add logic to make this return an error
 	t.event <- fmt.Sprintf("SetAgentTools %v %s", tools.Binary, tools.URL)
 	return t.m.SetAgentTools(tools)
 }
