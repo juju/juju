@@ -30,7 +30,7 @@ const (
 // valid returns false if the status is not recognized.
 func (s Status) valid() bool {
 	switch s {
-	case Missing, Installing, Installed, Upgrading, UpgradingForced:
+	case Installing, Installed, Upgrading, UpgradingForced:
 		return true
 	}
 	return false
@@ -42,11 +42,18 @@ type State struct {
 }
 
 // StateFile gives access to persistent charm state.
-type StateFile string
+type StateFile struct {
+	path string
+}
+
+// NewStateFile returns a new state file at path.
+func NewStateFile(path string) *StateFile {
+	return &StateFile{path}
+}
 
 // Read reads charm state stored at f.
-func (f StateFile) Read() (st State, err error) {
-	data, err := ioutil.ReadFile(string(f))
+func (f *StateFile) Read() (st State, err error) {
+	data, err := ioutil.ReadFile(f.path)
 	if os.IsNotExist(err) {
 		return st, nil
 	} else if err != nil {
@@ -56,40 +63,39 @@ func (f StateFile) Read() (st State, err error) {
 		return
 	}
 	if !st.Status.valid() {
-		return State{}, fmt.Errorf("invalid charm state at %s", f)
+		return State{}, fmt.Errorf("invalid charm state at %s", f.path)
 	}
 	return
 }
 
 // Write writes charm state to f.
-func (f StateFile) Write(s Status) error {
+func (f *StateFile) Write(s Status) error {
 	if !s.valid() {
-		panic(fmt.Errorf("unknown charm status %q", s))
-	} else if s == Missing {
-		panic("insane operation")
+		panic(fmt.Errorf("invalid charm status %q", s))
 	}
-	return trivial.AtomicWrite(f, &State{s})
+	return trivial.AtomicWrite(f.path, &State{s})
 }
 
-// Bundles is responsible for storing and retrieving charm bundles
+// BundlesDir is responsible for storing and retrieving charm bundles
 // identified by state charms.
-type Bundles struct {
+type BundlesDir struct {
 	path string
 }
 
-func NewBundles(path string) *Bundles {
-	return *Bundles{path}
+// NewBundlesDir returns a new BundlesDir which uses path for storage.
+func NewBundlesDir(path string) *BundlesDir {
+	return &BundlesDir{path}
 }
 
-// Get returns a charm bundle from the directory. If no bundle exists yet,
-// one will be downloaded and validated and copied into the bundles directory
-// before being returned. Downloads will be aborted if the supplied tomb dies.
-func (b Bundles) Get(sch *state.Charm, t *tomb.Tomb) (*charm.Bundle, error) {
-	path := b.path(sch)
+// Read returns a charm bundle from the directory. If no bundle exists yet,
+// one will be downloaded and validated and copied into the directory before
+// being returned. Downloads will be aborted if the supplied tomb dies.
+func (d *BundlesDir) Read(sch *state.Charm, t *tomb.Tomb) (*charm.Bundle, error) {
+	path := d.bundlePath(sch)
 	if _, err := os.Stat(path); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
-		} else if err = b.download(sch, t); err != nil {
+		} else if err = d.download(sch, t); err != nil {
 			return nil, err
 		}
 	}
@@ -97,15 +103,16 @@ func (b Bundles) Get(sch *state.Charm, t *tomb.Tomb) (*charm.Bundle, error) {
 }
 
 // download gets the supplied charm and checks that it has the correct sha256
-// hash, then copies it into the bundles directory. If the supplied tomb dies,
-// the download will abort.
-func (b Bundles) download(sch *state.Charm, t *tomb.Tomb) (err error) {
+// hash, then copies it into the directory. If the supplied tomb dies, the
+// download will abort.
+func (d *BundlesDir) download(sch *state.Charm, t *tomb.Tomb) (err error) {
+	defer trivial.ErrorContextf(&err, "failed to download charm %q from %q", sch.URL(), sch.BundleURL())
 	dl := downloader.New(sch.BundleURL().String())
 	defer dl.Stop()
 	for {
 		select {
 		case <-t.Dying():
-			return tomb.ErrDying
+			return fmt.Errorf("aborted")
 		case st := <-dl.Done():
 			if st.Err != nil {
 				return st.Err
@@ -118,21 +125,20 @@ func (b Bundles) download(sch *state.Charm, t *tomb.Tomb) (err error) {
 			actualSha256 := hex.EncodeToString(hash.Sum(nil))
 			if actualSha256 != sch.BundleSha256() {
 				return fmt.Errorf(
-					"sha256 mismatch for %q from %q: expected %q, got %q",
-					sch.URL(), sch.BundleURL(), sch.BundleSha256(), actualSha256,
+					"expected sha256 %q, got %q", sch.BundleSha256(), actualSha256,
 				)
 			}
-			if err := trivial.EnsureDir(b); err != nil {
+			if err := trivial.EnsureDir(d.path); err != nil {
 				return err
 			}
-			return os.Rename(st.File.Name(), b.path(sch))
+			return os.Rename(st.File.Name(), d.bundlePath(sch))
 		}
 	}
 	panic("unreachable")
 }
 
-// path returns the path to the location where the verified charm
+// bundlePath returns the path to the location where the verified charm
 // bundle identified by sch will be, or has been, saved.
-func (b Bundles) bundlePath(sch *state.Charm) string {
-	return filepath.Join(b, charm.Quote(sch.URL().String()))
+func (d *BundlesDir) bundlePath(sch *state.Charm) string {
+	return filepath.Join(d.path, charm.Quote(sch.URL().String()))
 }

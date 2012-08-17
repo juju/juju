@@ -1,13 +1,10 @@
 package downloader_test
 
 import (
-	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/testing"
-	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 	stdtesting "testing"
@@ -33,11 +30,11 @@ func (s *suite) TearDownTest(c *C) {
 }
 
 func (s *suite) TestDownload(c *C) {
-	l := newServer()
-	defer l.close()
+	l := testing.NewServer()
+	defer l.Close()
 
-	content := l.addContent("/archive.tgz", "archive")
-	d := downloader.New(content.url)
+	url := l.AddContent("/archive.tgz", []byte("archive"))
+	d := downloader.New(url)
 	status := <-d.Done()
 	c.Assert(status.Err, IsNil)
 	c.Assert(status.File, NotNil)
@@ -50,12 +47,12 @@ func (s *suite) TestDownload(c *C) {
 }
 
 func (s *suite) TestDownloadError(c *C) {
-	l := newServer()
-	defer l.close()
+	l := testing.NewServer()
+	defer l.Close()
 	// Add some content, then delete it - we should
 	// get a 404 response.
-	url := l.addContent("/archive.tgz", "archive").url
-	delete(l.contents, "/archive.tgz")
+	url := l.AddContent("/archive.tgz", nil)
+	l.RemoveContent("/archive.tgz")
 	d := downloader.New(url)
 	status := <-d.Done()
 	c.Assert(status.File, IsNil)
@@ -63,10 +60,10 @@ func (s *suite) TestDownloadError(c *C) {
 }
 
 func (s *suite) TestStopDownload(c *C) {
-	l := newServer()
-	defer l.close()
-	content := l.addContent("/x.tgz", "content")
-	d := downloader.New(content.url)
+	l := testing.NewServer()
+	defer l.Close()
+	url := l.AddContent("/x.tgz", []byte("content"))
+	d := downloader.New(url)
 	d.Stop()
 	select {
 	case status := <-d.Done():
@@ -86,48 +83,4 @@ func assertFileContents(c *C, f *os.File, expect string) {
 		c.Assert(err, IsNil)
 		c.Logf("info %#v", info)
 	}
-}
-
-type content struct {
-	url  string
-	data []byte
-}
-
-type server struct {
-	l        net.Listener
-	contents map[string]*content
-}
-
-func newServer() *server {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		panic(fmt.Errorf("cannot start server: %v", err))
-	}
-	srv := &server{l, make(map[string]*content)}
-	go http.Serve(l, srv)
-	return srv
-}
-
-func (srv *server) close() {
-	srv.l.Close()
-}
-
-// addContent makes the given data available from the server
-// at the given URL path.
-func (srv *server) addContent(path string, data string) *content {
-	c := &content{
-		data: []byte(data),
-	}
-	c.url = fmt.Sprintf("http://%v%s", srv.l.Addr(), path)
-	srv.contents[path] = c
-	return c
-}
-
-func (srv *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	c := srv.contents[req.URL.Path]
-	if c == nil {
-		http.NotFound(w, req)
-		return
-	}
-	w.Write(c.data)
 }
