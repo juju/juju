@@ -168,7 +168,7 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	m, err := st.Machine(0)
 	c.Assert(err, IsNil)
 
-	checkUpgradeMachineAgent(c, m)
+	t.checkUpgradeMachineAgent(c, m)
 
 	// place a new machine into the state
 	m, err = st.AddMachine()
@@ -204,15 +204,8 @@ func (t *LiveTests) checkUpgradeMachineAgent(c *C, m *state.Machine) {
 	c.Assert(gotTools, NotNil, Commentf("tools watcher died: %v", w.Err()))
 	c.Assert(gotTools.Binary, Equals, version.Current)
 
-	// We force PutTools to put a different version of the juju
-	// tools by setting the build tags.
-	oldTags := environs.PutToolsBuildTags
-	defer func() {
-		environs.PutToolsBuildTags = oldTags
-	}()
-	environs.PutToolsBuildTags = "testversion"	// See ../../version/testversion.go
 	c.Logf("putting testing version of juju tools")
-	upgradeTools, err := environs.PutTools(t.Env.Storage())
+	upgradeTools, err := environs.PutTools(t.Env.Storage(), "bumpversion")
 	c.Assert(err, IsNil)
 
 	// Check that the put version really is the version we expect.
@@ -227,6 +220,7 @@ func (t *LiveTests) checkUpgradeMachineAgent(c *C, m *state.Machine) {
 		c.Fatalf("watcher died: %v", w.Err())
 	}
 	c.Assert(tools, DeepEquals, upgradeTools)
+	c.Logf("upgrade successful!")
 }
 
 var waitAgent = environs.AttemptStrategy{
