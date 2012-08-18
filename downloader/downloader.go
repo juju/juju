@@ -10,10 +10,6 @@ import (
 	"os"
 )
 
-// TempDir holds the temporary directory used to
-// write the URL download.
-var TempDir = os.TempDir()
-
 // Status represents the status of a completed download.
 type Status struct {
 	// File holds the downloaded data on success.
@@ -29,12 +25,12 @@ type Download struct {
 }
 
 // New returns a new Download instance downloading
-// from the given URL.
-func New(url string) *Download {
+// from the given URL to the given directory.
+func New(url, dir string) *Download {
 	d := &Download{
 		done: make(chan Status),
 	}
-	go d.run(url)
+	go d.run(url, dir)
 	return d
 }
 
@@ -51,9 +47,9 @@ func (d *Download) Done() <-chan Status {
 	return d.done
 }
 
-func (d *Download) run(url string) {
+func (d *Download) run(url, dir string) {
 	defer d.tomb.Done()
-	file, err := download(url)
+	file, err := download(url, dir)
 	if err != nil {
 		err = fmt.Errorf("cannot download %q: %v", url, err)
 	}
@@ -68,8 +64,11 @@ func (d *Download) run(url string) {
 	}
 }
 
-func download(url string) (file *os.File, err error) {
-	tempFile, err := ioutil.TempFile(TempDir, "inprogress-")
+func download(url, dir string) (file *os.File, err error) {
+	if dir == "" {
+		dir = os.TempDir()
+	}
+	tempFile, err := ioutil.TempFile(dir, "inprogress-")
 	if err != nil {
 		return nil, err
 	}

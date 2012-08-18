@@ -16,7 +16,6 @@ import (
 	"os"
 	"path/filepath"
 	stdtesting "testing"
-	"time"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -32,7 +31,7 @@ func (s *StateFileSuite) TestStateFile(c *C) {
 	f := charm.NewStateFile(path)
 	st, err := f.Read()
 	c.Assert(err, IsNil)
-	c.Assert(st, DeepEquals, charm.State{charm.Missing})
+	c.Assert(st, Equals, charm.Missing)
 
 	err = ioutil.WriteFile(path, []byte("roflcopter"), 0644)
 	c.Assert(err, IsNil)
@@ -49,60 +48,58 @@ func (s *StateFileSuite) TestStateFile(c *C) {
 	c.Assert(err, IsNil)
 	st, err = f.Read()
 	c.Assert(err, IsNil)
-	c.Assert(st, DeepEquals, charm.State{charm.Installed})
+	c.Assert(st, Equals, charm.Installed)
 }
 
 type BundlesDirSuite struct {
+	coretesting.HTTPSuite
 	testing.JujuConnSuite
 }
 
 var _ = Suite(&BundlesDirSuite{})
 
 func (s *BundlesDirSuite) TestGet(c *C) {
-	l := coretesting.NewServer()
-	defer l.Close()
-	lpath := "/some/charm/bundle"
-	lurl, err := url.Parse(l.AddContent(lpath, []byte("roflcopter")))
-	c.Assert(err, IsNil)
 	basedir := c.MkDir()
 	bunsdir := filepath.Join(basedir, "random", "bundles")
 	d := charm.NewBundlesDir(bunsdir)
 
 	// Check it doesn't get created until it's needed.
-	_, err = os.Stat(bunsdir)
+	_, err := os.Stat(bunsdir)
 	c.Assert(os.IsNotExist(err), Equals, true)
 
 	// Add a charm to state that we can try to get.
 	curl := corecharm.MustParseURL("cs:series/dummy-1")
+	surl, err := url.Parse(s.URL("/some/charm.bundle"))
+	c.Assert(err, IsNil)
 	bunpath := coretesting.Charms.BundlePath(c.MkDir(), "dummy")
 	bun, err := corecharm.ReadBundle(bunpath)
 	c.Assert(err, IsNil)
 	bundata, hash := readHash(c, bunpath)
-	sch, err := s.State.AddCharm(bun, curl, lurl, hash)
+	sch, err := s.State.AddCharm(bun, curl, surl, hash)
 	c.Assert(err, IsNil)
 
-	// Try to get the charm when the content doesn't match:
+	// Try to get the charm when the content doesn't match.
+	coretesting.Server.Response(200, nil, []byte("roflcopter"))
 	var t tomb.Tomb
 	_, err = d.Read(sch, &t)
-	prefix := fmt.Sprintf(`failed to download charm "cs:series/dummy-1" from %q: `, lurl)
+	prefix := fmt.Sprintf(`failed to download charm "cs:series/dummy-1" from %q: `, surl)
 	c.Assert(err, ErrorMatches, prefix+fmt.Sprintf(`expected sha256 %q, got ".*"`, hash))
 	c.Assert(t.Err(), Equals, tomb.ErrStillAlive)
 
 	// Try to get a charm whose bundle doesn't exist.
-	l.RemoveContent(lpath)
+	coretesting.Server.Response(404, nil, nil)
 	_, err = d.Read(sch, &t)
 	c.Assert(err, ErrorMatches, prefix+`.* 404 Not Found`)
 	c.Assert(t.Err(), Equals, tomb.ErrStillAlive)
 
 	// Get a charm whose bundle exists and whose content matches.
-	l.AddContent(lpath, bundata)
+	coretesting.Server.Response(200, nil, bundata)
 	ch, err := d.Read(sch, &t)
 	c.Assert(err, IsNil)
 	assertCharm(c, ch, sch)
 	c.Assert(t.Err(), Equals, tomb.ErrStillAlive)
 
-	// Remove the bundle from the server and get the same charm again.
-	l.RemoveContent(lpath)
+	// Get the same charm again, without preparing a response from the server.
 	ch, err = d.Read(sch, &t)
 	c.Assert(err, IsNil)
 	assertCharm(c, ch, sch)
@@ -111,8 +108,6 @@ func (s *BundlesDirSuite) TestGet(c *C) {
 	// Abort a download.
 	err = os.RemoveAll(bunsdir)
 	c.Assert(err, IsNil)
-	l.AddDelay(lpath, 500*time.Millisecond)
-	l.AddContent(lpath, bundata)
 	done := make(chan bool)
 	go func() {
 		ch, err := d.Read(sch, &t)

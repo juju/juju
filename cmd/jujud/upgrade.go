@@ -121,7 +121,7 @@ func (u *Upgrader) run() error {
 				// The tools have already been downloaded, so use them.
 				return &UpgradedError{tools}
 			}
-			download = downloader.New(tools.URL)
+			download = downloader.New(tools.URL, "")
 			downloadTools = tools
 			downloadDone = download.Done()
 		case status := <-downloadDone:

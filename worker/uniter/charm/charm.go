@@ -5,8 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/state"
@@ -16,7 +14,7 @@ import (
 	"path/filepath"
 )
 
-// Status enumerates the possible states for the charm directory.
+// Status enumerates the possible states for a charm directory.
 type Status string
 
 const (
@@ -27,7 +25,7 @@ const (
 	UpgradingForced Status = "upgrading-forced"
 )
 
-// valid returns false if the status is not recognized.
+// valid returns whether the status is recognized.
 func (s Status) valid() bool {
 	switch s {
 	case Installing, Installed, Upgrading, UpgradingForced:
@@ -36,12 +34,12 @@ func (s Status) valid() bool {
 	return false
 }
 
-// State describes a charm directory's state.
-type State struct {
+// cstate describes a charm directory's state.
+type cstate struct {
 	Status Status
 }
 
-// StateFile gives access to persistent charm state.
+// StateFile contains the description of a charm directory's state.
 type StateFile struct {
 	path string
 }
@@ -52,20 +50,18 @@ func NewStateFile(path string) *StateFile {
 }
 
 // Read reads charm state stored at f.
-func (f *StateFile) Read() (st State, err error) {
-	data, err := ioutil.ReadFile(f.path)
-	if os.IsNotExist(err) {
-		return st, nil
-	} else if err != nil {
-		return
-	}
-	if err = goyaml.Unmarshal(data, &st); err != nil {
-		return
+func (f *StateFile) Read() (Status, error) {
+	var st cstate
+	if err := trivial.ReadYaml(f.path, &st); err != nil {
+		if os.IsNotExist(err) {
+			return Missing, nil
+		}
+		return Missing, err
 	}
 	if !st.Status.valid() {
-		return State{}, fmt.Errorf("invalid charm state at %s", f.path)
+		return Missing, fmt.Errorf("invalid charm state at %s", f.path)
 	}
-	return
+	return st.Status, nil
 }
 
 // Write writes charm state to f.
@@ -73,7 +69,7 @@ func (f *StateFile) Write(s Status) error {
 	if !s.valid() {
 		panic(fmt.Errorf("invalid charm status %q", s))
 	}
-	return trivial.AtomicWrite(f.path, &State{s})
+	return trivial.WriteYaml(f.path, &cstate{s})
 }
 
 // BundlesDir is responsible for storing and retrieving charm bundles
@@ -102,12 +98,16 @@ func (d *BundlesDir) Read(sch *state.Charm, t *tomb.Tomb) (*charm.Bundle, error)
 	return charm.ReadBundle(path)
 }
 
-// download gets the supplied charm and checks that it has the correct sha256
+// download fetches the supplied charm and checks that it has the correct sha256
 // hash, then copies it into the directory. If the supplied tomb dies, the
 // download will abort.
 func (d *BundlesDir) download(sch *state.Charm, t *tomb.Tomb) (err error) {
 	defer trivial.ErrorContextf(&err, "failed to download charm %q from %q", sch.URL(), sch.BundleURL())
-	dl := downloader.New(sch.BundleURL().String())
+	dir := d.downloadsPath()
+	if err := trivial.EnsureDir(dir); err != nil {
+		return err
+	}
+	dl := downloader.New(sch.BundleURL().String(), dir)
 	defer dl.Stop()
 	for {
 		select {
@@ -141,4 +141,10 @@ func (d *BundlesDir) download(sch *state.Charm, t *tomb.Tomb) (err error) {
 // bundle identified by sch will be, or has been, saved.
 func (d *BundlesDir) bundlePath(sch *state.Charm) string {
 	return filepath.Join(d.path, charm.Quote(sch.URL().String()))
+}
+
+// downloadsPath returns the path to the directory into which charms are
+// downloaded.
+func (d *BundlesDir) downloadsPath() string {
+	return filepath.Join(d.path, "downloads")
 }

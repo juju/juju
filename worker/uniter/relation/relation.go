@@ -5,7 +5,6 @@ package relation
 import (
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"os"
@@ -124,12 +123,8 @@ func ReadStateDir(dirPath string, relationId int) (d *StateDir, err error) {
 			continue
 		}
 		unitName := svcName + "/" + unitId
-		data, err := ioutil.ReadFile(filepath.Join(d.path, name))
-		if err != nil {
-			return nil, err
-		}
 		var info diskInfo
-		if err = goyaml.Unmarshal(data, &info); err != nil {
+		if err = trivial.ReadYaml(filepath.Join(d.path, name), &info); err != nil {
 			return nil, fmt.Errorf("invalid unit file %q: %v", name, err)
 		}
 		if info.ChangeVersion == nil {
@@ -207,7 +202,7 @@ func (d *StateDir) Write(hi hook.Info) (err error) {
 		return nil
 	}
 	di := diskInfo{&hi.ChangeVersion, hi.Kind == hook.RelationJoined}
-	if err := trivial.AtomicWrite(path, &di); err != nil {
+	if err := trivial.WriteYaml(path, &di); err != nil {
 		return err
 	}
 	// If write was successful, update own state.

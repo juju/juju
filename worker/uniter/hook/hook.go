@@ -5,8 +5,6 @@ package hook
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/trivial"
 	"os"
 )
@@ -128,15 +126,11 @@ var ErrNoStateFile = errors.New("hook state file does not exist")
 // Read reads the current hook state from disk. It returns ErrNoStateFile if
 // the file doesn't exist.
 func (f *StateFile) Read() (*State, error) {
-	data, err := ioutil.ReadFile(f.path)
-	if err != nil {
+	var st state
+	if err := trivial.ReadYaml(f.path, &st); err != nil {
 		if os.IsNotExist(err) {
 			return nil, ErrNoStateFile
 		}
-		return nil, err
-	}
-	var st state
-	if err = goyaml.Unmarshal(data, &st); err != nil {
 		return nil, err
 	}
 	if !st.Kind.valid() || !st.Status.valid() {
@@ -177,7 +171,7 @@ func (f *StateFile) Write(info Info, status Status) error {
 	for m := range info.Members {
 		st.Members = append(st.Members, m)
 	}
-	return trivial.AtomicWrite(f.path, &st)
+	return trivial.WriteYaml(f.path, &st)
 }
 
 // state defines the hook state serialization.
