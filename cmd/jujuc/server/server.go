@@ -43,8 +43,8 @@ func badReqErr(format string, v ...interface{}) error {
 	return fmt.Errorf("bad request: "+format, v...)
 }
 
-// Main runs the Command specified by req, and fills in resp. No more than one
-// command will run in parallel.
+// Main runs the Command specified by req, and fills in resp. A single command
+// is run at a time.
 func (j *Jujuc) Main(req Request, resp *Response) error {
 	if req.CommandName == "" {
 		return badReqErr("command not specified")

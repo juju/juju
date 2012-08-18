@@ -38,7 +38,7 @@ func (c *RpcCommand) Run(ctx *cmd.Context) error {
 		return errors.New("blam")
 	}
 	if c.Slow {
-		<-time.After(50 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 		return nil
 	}
 	ctx.Stdout.Write([]byte("eye of newt\n"))
