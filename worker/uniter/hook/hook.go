@@ -47,6 +47,23 @@ func (kind Kind) valid() bool {
 	return true
 }
 
+// IsRelation will return true if the Kind represents a relation hook.
+func (kind Kind) IsRelation() bool {
+	switch kind {
+	case RelationJoined, RelationChanged, RelationDeparted:
+	case RelationBroken:
+	default:
+		return false
+	}
+	return true
+}
+
+// IsCharmChange will return true if the Kind represents a hook associated
+// with changes to the charm directory.
+func (kind Kind) IsCharmChange() bool {
+	return kind == Install || kind == UpgradeCharm
+}
+
 // Info holds details required to execute a hook. Not all fields are
 // relevant to all Kind values.
 type Info struct {
