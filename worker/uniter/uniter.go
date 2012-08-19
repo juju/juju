@@ -53,14 +53,14 @@ func NewUniter(st *state.State, name string) (*Uniter, error) {
 	if err != nil {
 		return nil, err
 	}
-	statePath := func(name string) string {
-		return filepath.Join(path, "state", name)
+	p := func(parts ...string) string {
+		return filepath.Join(path, parts...)
 	}
 	u := &Uniter{
 		path:    path,
-		hook:    hook.NewStateFile(statePath("hook")),
-		charm:   charm.NewStateFile(statePath("charm")),
-		bundles: charm.NewBundlesDir(statePath("bundles")),
+		hook:    hook.NewStateFile(p("state", "hook")),
+		charm:   charm.NewStateFile(p("state", "charm")),
+		bundles: charm.NewBundlesDir(p("bundles")),
 		rand:    rand.New(rand.NewSource(time.Now().Unix())),
 		unit:    unit,
 		service: service,
@@ -179,10 +179,6 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 // operation associated with the supplied hook have been persisted.
 // It does not record the fact of the hook's execution.
 func (u *Uniter) syncState(hi hook.Info) error {
-	if hi.Kind.IsRelation() {
-		panic("relation hooks are not yet supported")
-		// TODO: commit relation state changes.
-	}
 	if hi.Kind == hook.UpgradeCharm {
 		if err := u.unit.ClearNeedsUpgrade(); err != nil {
 			return err
@@ -192,6 +188,10 @@ func (u *Uniter) syncState(hi hook.Info) error {
 		if err := u.charm.Write(charm.Installed); err != nil {
 			return err
 		}
+	}
+	if hi.Kind.IsRelation() {
+		panic("relation hooks are not yet supported")
+		// TODO: commit relation state changes.
 	}
 	return nil
 }

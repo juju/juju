@@ -59,6 +59,20 @@ func (s *BundleSuite) TestExpandTo(c *C) {
 	dir, err := charm.ReadDir(path)
 	c.Assert(err, IsNil)
 	checkDummy(c, dir, path)
+
+	other := filepath.Join(path, "arbitrary")
+	err = ioutil.WriteFile(other, []byte("content"), 0644)
+	c.Assert(err, IsNil)
+	err = bundle.ExpandTo(path)
+	c.Assert(err, IsNil)
+
+	dir, err = charm.ReadDir(path)
+	c.Assert(err, IsNil)
+	checkDummy(c, dir, path)
+
+	content, err := ioutil.ReadFile(other)
+	c.Assert(err, IsNil)
+	c.Assert(string(content), Equals, "content")
 }
 
 func (s *BundleSuite) TestBundleFileModes(c *C) {

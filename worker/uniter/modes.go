@@ -87,7 +87,7 @@ func ModeChangingCharm(reason charm.Status) Mode {
 			}
 			if hs, _ := u.hook.Read(); hs.Info.Kind == hi.Kind {
 				if hs.Status == hook.StatusCommitted {
-					panic("hook committed out of sequence")
+					return nil, fmt.Errorf("inconsistent %q hook status %q", hi.Kind, hs.Status)
 				}
 				// We'd already started to run the hook; we should be in a
 				// different mode. State will be synced when the hook is
@@ -179,7 +179,7 @@ func ModeHookError(u *Uniter) (mode Mode, err error) {
 		return nil, err
 	}
 	if hs.Status != hook.StatusStarted {
-		return nil, fmt.Errorf("inappropriate hook status %q", hs.Status)
+		return nil, fmt.Errorf("inconsistent hook status %q", hs.Status)
 	}
 	msg := fmt.Sprintf("failed to run %q hook", hs.Info.Kind)
 	if err = u.unit.SetStatus(state.UnitError, msg); err != nil {
