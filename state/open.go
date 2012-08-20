@@ -112,7 +112,6 @@ func (s *State) initialize(config map[string]interface{}) error {
 	}
 	// TODO Create node for bootstrap machine.
 
-	fmt.Println("config", config)
 	if config != nil {
 		yaml, err := goyaml.Marshal(config)
 		if err != nil {
@@ -121,7 +120,6 @@ func (s *State) initialize(config map[string]interface{}) error {
 		if _, err := s.zk.Create(zkEnvironmentPath, string(yaml), 0, zkPermAll); err != nil {
 			return err
 		}
-		fmt.Printf("%s\n", yaml)
 	}
 
 	// Finally creation of /initialized as marker.

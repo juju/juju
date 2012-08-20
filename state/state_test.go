@@ -82,6 +82,9 @@ func (s *StateSuite) TestInitialize(c *C) {
 }
 
 func (s *StateSuite) TestInitalizeWithConfig(c *C) {
+	// clean existing state
+	coretesting.ZkRemoveTree(s.zkConn, "/")
+
 	m := map[string]interface{}{
 		"name":            "only",
 		"type":            "dummy",
