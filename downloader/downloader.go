@@ -24,8 +24,8 @@ type Download struct {
 	done chan Status
 }
 
-// New returns a new Download instance downloading
-// from the given URL to the given directory.
+// New returns a new Download instance downloading from the given URL to
+// the given directory. If dir is empty, it defaults to os.TempDir().
 func New(url, dir string) *Download {
 	d := &Download{
 		done: make(chan Status),
