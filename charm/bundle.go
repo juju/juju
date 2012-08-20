@@ -220,11 +220,6 @@ func (b *Bundle) expand(dir string, zfile *zip.File) error {
 		if err := checkSymlinkTarget(dir, cleanName, target); err != nil {
 			return err
 		}
-		if _, err := os.Lstat(path); err == nil {
-			if err := os.Remove(path); err != nil {
-				return err
-			}
-		}
 		return os.Symlink(target, path)
 	}
 
@@ -232,7 +227,7 @@ func (b *Bundle) expand(dir string, zfile *zip.File) error {
 		return err
 	}
 
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, mode&0777)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode&0777)
 	if err != nil {
 		return err
 	}

@@ -75,17 +75,6 @@ func (ctx *HookContext) NewCommand(name string) (cmd.Command, error) {
 	return f(ctx)
 }
 
-// CmdGetter returns a CmdGetter that verifies the request's context ID against
-// the context's ID.
-func (ctx *HookContext) CmdGetter() CmdGetter {
-	return func(ctxId, name string) (cmd.Command, error) {
-		if ctxId != ctx.Id {
-			return nil, fmt.Errorf("expected context %q, got %q", ctx.Id, ctxId)
-		}
-		return ctx.NewCommand(name)
-	}
-}
-
 // hookVars returns an os.Environ-style list of strings necessary to run a hook
 // such that it can know what environment it's operating in, and can call back
 // into ctx.

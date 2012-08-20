@@ -34,16 +34,6 @@ func (s Status) valid() bool {
 	return false
 }
 
-// IsChange returns true if the status indicates that that charm directory
-// is being changed.
-func (s Status) IsChange() bool {
-	switch s {
-	case Installing, Upgrading, UpgradingForced:
-		return true
-	}
-	return false
-}
-
 // cstate describes a charm directory's state.
 type cstate struct {
 	Status Status

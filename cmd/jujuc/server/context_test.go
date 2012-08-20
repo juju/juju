@@ -28,8 +28,6 @@ var getCommandTests = []struct {
 	{"juju-log", ""},
 	{"open-port", ""},
 	{"relation-get", ""},
-	{"relation-ids", ""},
-	{"relation-list", ""},
 	{"relation-set", ""},
 	{"unit-get", ""},
 	{"random", "unknown command: random"},
@@ -37,9 +35,8 @@ var getCommandTests = []struct {
 
 func (s *GetCommandSuite) TestGetCommand(c *C) {
 	ctx := s.GetHookContext(c, 0, "")
-	getCmd := ctx.CmdGetter()
 	for _, t := range getCommandTests {
-		com, err := getCmd("TestCtx", t.name)
+		com, err := ctx.NewCommand(t.name)
 		if t.err == "" {
 			// At this level, just check basic sanity; commands are tested in
 			// more detail elsewhere.
@@ -49,8 +46,6 @@ func (s *GetCommandSuite) TestGetCommand(c *C) {
 			c.Assert(com, IsNil)
 			c.Assert(err, ErrorMatches, t.err)
 		}
-		_, err = getCmd("OtherCtx", t.name)
-		c.Assert(err, ErrorMatches, `expected context "TestCtx", got "OtherCtx"`)
 	}
 }
 
