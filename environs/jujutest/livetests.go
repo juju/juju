@@ -164,6 +164,19 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	st, err := conn.State()
 	c.Assert(err, IsNil)
 
+	// check that the minimum configuration is present in the environment
+	cfg, err := st.EnvironConfig()
+	c.Assert(err, IsNil)
+	v, ok := cfg.Get("name")
+	c.Assert(ok, Equals, true)
+	c.Assert(v, Not(Equals), "")
+	v, ok = cfg.Get("type")
+	c.Assert(ok, Equals, true)
+	c.Assert(v, Not(Equals), "")
+	v, ok = cfg.Get("authorized-keys")
+	c.Assert(ok, Equals, true)
+	c.Assert(v, Not(Equals), "")
+
 	// place a new machine into the state
 	m, err := st.AddMachine()
 	c.Assert(err, IsNil)
