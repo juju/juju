@@ -8,10 +8,10 @@ import (
 	"os"
 )
 
-// AtomicWrite marshals obj as yaml and then writes it to a file atomically
-// by first writing a sibling with the suffix ".preparing", and then moving
+// WriteYaml marshals obj as yaml and then writes it to a file, atomically,
+// by first writing a sibling with the suffix ".preparing" and then moving
 // the sibling to the real path.
-func AtomicWrite(path string, obj interface{}) error {
+func WriteYaml(path string, obj interface{}) error {
 	data, err := goyaml.Marshal(obj)
 	if err != nil {
 		return err
@@ -21,6 +21,16 @@ func AtomicWrite(path string, obj interface{}) error {
 		return err
 	}
 	return os.Rename(path+preparing, path)
+}
+
+// ReadYaml unmarshals the yaml contained in the file at path into obj. See
+// goyaml.Unmarshal.
+func ReadYaml(path string, obj interface{}) error {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	return goyaml.Unmarshal(data, obj)
 }
 
 // EnsureDir creates the directory at path if it doesn't already exist.
