@@ -47,6 +47,17 @@ func (kind Kind) valid() bool {
 	return true
 }
 
+// IsRelation will return true if the Kind represents a relation hook.
+func (kind Kind) IsRelation() bool {
+	switch kind {
+	case RelationJoined, RelationChanged, RelationDeparted:
+	case RelationBroken:
+	default:
+		return false
+	}
+	return true
+}
+
 // Info holds details required to execute a hook. Not all fields are
 // relevant to all Kind values.
 type Info struct {
@@ -125,22 +136,22 @@ var ErrNoStateFile = errors.New("hook state file does not exist")
 
 // Read reads the current hook state from disk. It returns ErrNoStateFile if
 // the file doesn't exist.
-func (f *StateFile) Read() (*State, error) {
+func (f *StateFile) Read() (State, error) {
 	var st state
 	if err := trivial.ReadYaml(f.path, &st); err != nil {
 		if os.IsNotExist(err) {
-			return nil, ErrNoStateFile
+			return State{}, ErrNoStateFile
 		}
-		return nil, err
+		return State{}, err
 	}
 	if !st.Kind.valid() || !st.Status.valid() {
-		return nil, fmt.Errorf("invalid hook state at %s", f.path)
+		return State{}, fmt.Errorf("invalid hook state at %s", f.path)
 	}
 	members := map[string]map[string]interface{}{}
 	for _, m := range st.Members {
 		members[m] = nil
 	}
-	return &State{
+	return State{
 		Info: Info{
 			Kind:          st.Kind,
 			RelationId:    st.RelationId,
