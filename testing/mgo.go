@@ -12,7 +12,7 @@ import (
 )
 
 // MgoAddr holds the address of the shared MongoDB server set up by
-// MgoTestPackage.
+// StartMgoServer.
 var MgoAddr string
 
 // MgoSuite is a suite that deletes all content from the shared MongoDB
