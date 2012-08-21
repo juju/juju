@@ -25,19 +25,19 @@ func (s *ServiceSuite) SetUpTest(c *C) {
 }
 
 func (s *ServiceSuite) TestServiceCharm(c *C) {
-	ch, err := s.service.Charm()
+	ch, force, err := s.service.Charm()
 	c.Assert(err, IsNil)
-	c.Assert(ch.Force, Equals, false)
-	c.Assert(ch.Charm.URL(), DeepEquals, s.charm.URL())
+	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
+	c.Assert(force, Equals, false)
 
 	// TODO: changing the charm like this is not especially sane in itself.
 	wp := s.AddTestingCharm(c, "wordpress")
 	err = s.service.SetCharm(wp, true)
 	c.Assert(err, IsNil)
-	ch, err = s.service.Charm()
+	ch, force, err = s.service.Charm()
 	c.Assert(err, IsNil)
-	c.Assert(ch.Force, Equals, true)
-	c.Assert(ch.Charm.URL(), DeepEquals, wp.URL())
+	c.Assert(ch.URL(), DeepEquals, wp.URL())
+	c.Assert(force, Equals, true)
 }
 
 func (s *ServiceSuite) TestServiceExposed(c *C) {
@@ -277,7 +277,7 @@ func (s *ServiceSuite) TestWatchCharm(c *C) {
 		select {
 		case ch, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
-			c.Assert(ch.URL(), DeepEquals, curl)
+			c.Assert(ch.Charm.URL(), DeepEquals, curl)
 			c.Assert(ch.Force, Equals, force)
 		case <-time.After(500 * time.Millisecond):
 			c.Fatalf("expected change, got none")

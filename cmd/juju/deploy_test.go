@@ -67,7 +67,7 @@ func runDeploy(c *C, args ...string) error {
 func (s *DeploySuite) assertService(c *C, name string, expectCurl *charm.URL, unitCount, relCount int) []*state.Relation {
 	srv, err := s.st.Service(name)
 	c.Assert(err, IsNil)
-	ch, err := srv.Charm()
+	ch, _, err := srv.Charm()
 	c.Assert(err, IsNil)
 	c.Assert(ch.URL(), DeepEquals, expectCurl)
 	s.assertCharmUploaded(c, expectCurl)

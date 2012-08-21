@@ -152,47 +152,6 @@ func (w *FlagWatcher) done() {
 	close(w.changeChan)
 }
 
-// ServiceCharmWatcher observes changes to a service's charm.
-type ServiceCharmWatcher struct {
-	contentWatcher
-	changeChan chan ServiceCharm
-}
-
-// newServiceCharmWatcher creates and starts a new service charm watcher
-// for the given path.
-func newServiceCharmWatcher(st *State, path string) *ServiceCharmWatcher {
-	w := &ServiceCharmWatcher{
-		contentWatcher: newContentWatcher(st, path),
-		changeChan:     make(chan ServiceCharm),
-	}
-	go w.loop(w)
-	return w
-}
-
-// Changes returns a channel that will receive notifications
-// about changes to the service's charm. The first event on the
-// channel hold the initial state of the charm.
-func (w *ServiceCharmWatcher) Changes() <-chan ServiceCharm {
-	return w.changeChan
-}
-
-func (w *ServiceCharmWatcher) update(change watcher.ContentChange) error {
-	sc, err := readServiceCharm(w.st, change.Content)
-	if err != nil {
-		return err
-	}
-	select {
-	case <-w.tomb.Dying():
-		return tomb.ErrDying
-	case w.changeChan <- sc:
-	}
-	return nil
-}
-
-func (w *ServiceCharmWatcher) done() {
-	close(w.changeChan)
-}
-
 // ResolvedWatcher observes changes to a unit's resolved
 // mode. See SetResolved for details.
 type ResolvedWatcher struct {
@@ -591,6 +550,58 @@ func (w *ServicesWatcher) update(change watcher.ContentChange) error {
 }
 
 func (w *ServicesWatcher) done() {
+	close(w.changeChan)
+}
+
+// ServiceCharmWatcher observes changes to a service's charm.
+type ServiceCharmWatcher struct {
+	contentWatcher
+	changeChan chan ServiceCharmChange
+}
+
+// ServiceCharmChange describes a change to the service's charm, and
+// whether units should upgrade to that charm in spite of error states.
+type ServiceCharmChange struct {
+	Charm *Charm
+	Force bool
+}
+
+// newServiceCharmWatcher creates and starts a new service charm watcher
+// for the given path.
+func newServiceCharmWatcher(st *State, path string) *ServiceCharmWatcher {
+	w := &ServiceCharmWatcher{
+		contentWatcher: newContentWatcher(st, path),
+		changeChan:     make(chan ServiceCharmChange),
+	}
+	go w.loop(w)
+	return w
+}
+
+// Changes returns a channel that will receive notifications
+// about changes to the service's charm. The first event on the
+// channel hold the initial state of the charm.
+func (w *ServiceCharmWatcher) Changes() <-chan ServiceCharmChange {
+	return w.changeChan
+}
+
+func (w *ServiceCharmWatcher) update(change watcher.ContentChange) error {
+	node, err := parseConfigNode(w.st.zk, w.path, change.Content)
+	if err != nil {
+		return err
+	}
+	ch, force, err := serviceCharm(w.st, node)
+	if err != nil {
+		return err
+	}
+	select {
+	case <-w.tomb.Dying():
+		return tomb.ErrDying
+	case w.changeChan <- ServiceCharmChange{ch, force}:
+	}
+	return nil
+}
+
+func (w *ServiceCharmWatcher) done() {
 	close(w.changeChan)
 }
 

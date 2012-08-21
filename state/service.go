@@ -3,7 +3,6 @@ package state
 import (
 	"errors"
 	"fmt"
-	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/trivial"
@@ -22,47 +21,32 @@ func (s *Service) Name() string {
 	return s.name
 }
 
-// serviceNode defines the service node serialization.
-type serviceNode struct {
-	CharmURL   string `yaml:"charm-url"`
-	ForceCharm bool   `yaml:"force-charm,omitempty"`
-}
-
-// ServiceCharm describes the charm that units of the service should use.
-// If a unit's charm differs from the service's, the unit should upgrade.
-type ServiceCharm struct {
-	*Charm
-	// Force indicates whether units should upgrade to this charm even
-	// if they are in an error state, which would usually block upgrades.
-	Force bool
-}
-
-// readServiceCharm unmarshals yaml into a ServiceCharm.
-func readServiceCharm(st *State, yaml string) (sc ServiceCharm, err error) {
-	var sn serviceNode
-	if err = goyaml.Unmarshal([]byte(yaml), &sn); err != nil {
-		return
-	}
-	url, err := charm.ParseURL(sn.CharmURL)
+// serviceCharm extracts the charm-related information from a ConfigNode.
+func serviceCharm(st *State, node *ConfigNode) (ch *Charm, force bool, err error) {
+	iurl, _ := node.Get("charm-url")
+	surl, _ := iurl.(string)
+	url, err := charm.ParseURL(surl)
 	if err != nil {
 		return
 	}
-	ch, err := st.Charm(url)
+	ch, err = st.Charm(url)
 	if err != nil {
 		return
 	}
-	return ServiceCharm{ch, sn.ForceCharm}, nil
+	iforce, _ := node.Get("force-charm")
+	force, _ = iforce.(bool)
+	return
 }
 
 // Charm returns the service's charm, and whether units should upgrade to that
 // charm even if they are in an error state.
-func (s *Service) Charm() (sc ServiceCharm, err error) {
+func (s *Service) Charm() (ch *Charm, force bool, err error) {
 	defer trivial.ErrorContextf(&err, "cannot get charm for service %q", s)
-	yaml, _, err := s.st.zk.Get(s.zkPath())
+	node, err := readConfigNode(s.st.zk, s.zkPath())
 	if err != nil {
 		return
 	}
-	return readServiceCharm(s.st, yaml)
+	return serviceCharm(s.st, node)
 }
 
 // SetCharm changes the charm for the service. New units will be started with
@@ -70,24 +54,14 @@ func (s *Service) Charm() (sc ServiceCharm, err error) {
 // units will be upgraded even if they are in an error state.
 func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot set charm for service %q", s)
-	setCharm := func(oldYaml string, _ *zookeeper.Stat) (string, error) {
-		var sn serviceNode
-		if err = goyaml.Unmarshal([]byte(oldYaml), &sn); err != nil {
-			return "", err
-		}
-		url := ch.URL().String()
-		if sn.CharmURL == url && sn.ForceCharm == force {
-			return oldYaml, nil
-		}
-		sn.CharmURL = url
-		sn.ForceCharm = force
-		newYaml, err := goyaml.Marshal(&sn)
-		if err != nil {
-			return "", err
-		}
-		return string(newYaml), nil
+	node, err := readConfigNode(s.st.zk, s.zkPath())
+	if err != nil {
+		return
 	}
-	return s.st.zk.RetryChange(s.zkPath(), 0, zkPermAll, setCharm)
+	node.Set("charm-url", ch.URL().String())
+	node.Set("force-charm", force)
+	_, err = node.Write()
+	return
 }
 
 // WatchCharm returns a watcher that sends notifications of changes to the
@@ -125,7 +99,7 @@ func (s *Service) addUnit(principalKey string) (unit *Unit, err error) {
 
 // AddUnit adds a new principal unit to the service.
 func (s *Service) AddUnit() (*Unit, error) {
-	ch, err := s.Charm()
+	ch, _, err := s.Charm()
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +112,7 @@ func (s *Service) AddUnit() (*Unit, error) {
 // AddUnitSubordinateTo adds a new subordinate unit to the service,
 // subordinate to principal.
 func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
-	ch, err := s.Charm()
+	ch, _, err := s.Charm()
 	if err != nil {
 		return nil, err
 	}
