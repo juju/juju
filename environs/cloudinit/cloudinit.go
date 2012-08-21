@@ -90,6 +90,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		"bin="+shquote(cfg.jujuTools()),
 		"mkdir -p $bin",
 		fmt.Sprintf("wget -O - %s | tar xz -C $bin", shquote(cfg.Tools.URL)),
+		fmt.Sprintf("echo -n %s > $bin/downloaded-url.txt", shquote(cfg.Tools.URL)),
 	)
 
 	addScripts(c,
