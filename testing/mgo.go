@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strconv"
 	stdtesting "testing"
+	"time"
 )
 
 // MgoAddr holds the address of the shared MongoDB server set up by
@@ -71,6 +72,7 @@ func (s MgoSuite) SetUpSuite(c *C) {
 	if MgoAddr == "" {
 		panic("MgoSuite tests must be run with MgoTestPackage")
 	}
+	mgo.SetStats(true)
 }
 
 // MgoDial returns a new connection to the shared MongoDB server.
@@ -104,6 +106,18 @@ func MgoReset() {
 
 func (s MgoSuite) TearDownTest(c *C) {
 	MgoReset()
+	for i := 0; ; i++ {
+		stats := mgo.GetStats()
+		if stats.SocketsInUse == 0 && stats.SocketsAlive == 0 {
+			break
+		}
+		if i == 20 {
+			c.Fatal("Test left sockets in a dirty state")
+		}
+		c.Logf("Waiting for sockets to die: %d in use, %d alive", stats.SocketsInUse, stats.SocketsAlive)
+		time.Sleep(500 * time.Millisecond)
+	}
+	mgo.ResetStats()
 }
 
 func (s *MgoSessionSuite) SetUpSuite(c *C) {
