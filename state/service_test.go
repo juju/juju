@@ -30,7 +30,7 @@ func (s *ServiceSuite) TestServiceCharm(c *C) {
 	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
 	c.Assert(force, Equals, false)
 
-	// TODO: changing the charm like this is not especially sane in itself.
+	// TODO: SetCharm must validate the change (version, relations, etc)
 	wp := s.AddTestingCharm(c, "wordpress")
 	err = s.service.SetCharm(wp, true)
 	c.Assert(err, IsNil)
@@ -273,6 +273,7 @@ func (s *ServiceSuite) TestWatchConfigIllegalData(c *C) {
 func (s *ServiceSuite) TestWatchCharm(c *C) {
 	// Check initial event.
 	w := s.service.WatchCharm()
+	defer w.Stop()
 	assertChange := func(curl *charm.URL, force bool) {
 		select {
 		case ch, ok := <-w.Changes():

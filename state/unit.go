@@ -209,7 +209,7 @@ func (u *Unit) SetStatus(status UnitStatus, info string) error {
 
 // Charm returns the charm this unit is currently using.
 func (u *Unit) Charm() (ch *Charm, err error) {
-	surl, err := getConfigString(u.st.zk, u.zkPath(), "charm-url",
+	surl, err := getConfigString(u.st.zk, u.zkPath(), "charm",
 		"charm URL of unit %q", u)
 	if err != nil {
 		return nil, err
@@ -223,7 +223,7 @@ func (u *Unit) Charm() (ch *Charm, err error) {
 
 // SetCharm marks the unit as currently using the supplied charm.
 func (u *Unit) SetCharm(ch *Charm) (err error) {
-	return setConfigString(u.st.zk, u.zkPath(), "charm-url", ch.URL().String(),
+	return setConfigString(u.st.zk, u.zkPath(), "charm", ch.URL().String(),
 		"charm URL of unit %q", u)
 }
 

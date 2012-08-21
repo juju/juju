@@ -23,7 +23,7 @@ func (s *Service) Name() string {
 
 // serviceCharm extracts the charm-related information from a ConfigNode.
 func serviceCharm(st *State, node *ConfigNode) (ch *Charm, force bool, err error) {
-	iurl, _ := node.Get("charm-url")
+	iurl, _ := node.Get("charm")
 	surl, _ := iurl.(string)
 	url, err := charm.ParseURL(surl)
 	if err != nil {
@@ -58,7 +58,7 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 	if err != nil {
 		return
 	}
-	node.Set("charm-url", ch.URL().String())
+	node.Set("charm", ch.URL().String())
 	node.Set("force-charm", force)
 	_, err = node.Write()
 	return
