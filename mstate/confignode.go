@@ -44,10 +44,8 @@ func (ics itemChangeSlice) Len() int           { return len(ics) }
 func (ics itemChangeSlice) Less(i, j int) bool { return ics[i].Key < ics[j].Key }
 func (ics itemChangeSlice) Swap(i, j int)      { ics[i], ics[j] = ics[j], ics[i] }
 
-// A ConfigNode represents the data of a ZooKeeper node
-// containing YAML-based settings. It manages changes to
-// the data as a delta in memory, and merges them back
-// onto the node when explicitly requested.
+// A ConfigNode manages changes to settings as a delta in memory and merges
+// them back onto the disk when explicitly requested
 type ConfigNode struct {
 	st   *State
 	path string
