@@ -6,11 +6,11 @@ import (
 	"launchpad.net/juju-core/testing"
 )
 
-type M struct{}
+type mgoSuite struct{}
 
-var _ = Suite(M{})
+var _ = Suite(mgoSuite{})
 
-func (M) TestMgoStartAndClean(c *C) {
+func (mgoSuite) TestMgoStartAndClean(c *C) {
 	server, dbdir := testing.StartMgoServer()
 	defer testing.MgoDestroy(server, dbdir)
 	c.Assert(testing.MgoAddr, Not(Equals), "")

@@ -6,6 +6,7 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/trivial"
 	"strconv"
 )
 
@@ -216,7 +217,7 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 
 // Relations returns a Relation for every relation the service is in.
 func (s *Service) Relations() (relations []*Relation, err error) {
-	defer errorContextf(&err, "can't get relations for service %q", s)
+	defer trivial.ErrorContextf(&err, "can't get relations for service %q", s)
 	sel := bson.D{
 		{"life", Alive},
 		{"endpoints.servicename", s.doc.Name},

@@ -7,6 +7,7 @@ import (
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/trivial"
 	"strconv"
 	"strings"
 	"time"
@@ -248,7 +249,7 @@ func (u *Unit) IsPrincipal() bool {
 
 // AssignedMachineId returns the id of the assigned machine.
 func (u *Unit) AssignedMachineId() (id int, err error) {
-	defer errorContextf(&err, "cannot get machine id of unit %q", u)
+	defer trivial.ErrorContextf(&err, "cannot get machine id of unit %q", u)
 	topology, err := readTopology(u.st.zk)
 	if err != nil {
 		return 0, err
@@ -265,7 +266,7 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 
 // AssignToMachine assigns this unit to a given machine.
 func (u *Unit) AssignToMachine(machine *Machine) (err error) {
-	defer errorContextf(&err, "cannot assign unit %q to machine %s", u, machine)
+	defer trivial.ErrorContextf(&err, "cannot assign unit %q to machine %s", u, machine)
 	assignUnit := func(t *topology) error {
 		if !t.HasUnit(u.key) {
 			return stateChanged
@@ -327,7 +328,7 @@ func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
 // UnassignFromMachine removes the assignment between this unit and
 // the machine it's assigned to.
 func (u *Unit) UnassignFromMachine() (err error) {
-	defer errorContextf(&err, "cannot unassign unit %q from machine", u.Name())
+	defer trivial.ErrorContextf(&err, "cannot unassign unit %q from machine", u.Name())
 	unassignUnit := func(t *topology) error {
 		if !t.HasUnit(u.key) {
 			return stateChanged
@@ -347,7 +348,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 // NeedsUpgrade returns whether the unit needs an upgrade 
 // and if it does, if this is forced.
 func (u *Unit) NeedsUpgrade() (needsUpgrade *NeedsUpgrade, err error) {
-	defer errorContextf(&err, "cannot check if unit %q needs an upgrade", u.Name())
+	defer trivial.ErrorContextf(&err, "cannot check if unit %q needs an upgrade", u.Name())
 	yaml, _, err := u.st.zk.Get(u.zkNeedsUpgradePath())
 	if zookeeper.IsError(err, zookeeper.ZNONODE) {
 		return &NeedsUpgrade{}, nil
@@ -365,7 +366,7 @@ func (u *Unit) NeedsUpgrade() (needsUpgrade *NeedsUpgrade, err error) {
 // SetNeedsUpgrade informs the unit that it should perform 
 // a regular or forced upgrade.
 func (u *Unit) SetNeedsUpgrade(force bool) (err error) {
-	defer errorContextf(&err, "cannot inform unit %q about upgrade", u.Name())
+	defer trivial.ErrorContextf(&err, "cannot inform unit %q about upgrade", u.Name())
 	setNeedsUpgrade := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
 		var setting needsUpgradeNode
 		if oldYaml == "" {
@@ -390,7 +391,7 @@ func (u *Unit) SetNeedsUpgrade(force bool) (err error) {
 // ClearNeedsUpgrade resets the upgrade notification. It is typically
 // done by the unit agent before beginning the upgrade.
 func (u *Unit) ClearNeedsUpgrade() (err error) {
-	defer errorContextf(&err, "upgrade notification for unit %q cannot be reset", u.Name())
+	defer trivial.ErrorContextf(&err, "upgrade notification for unit %q cannot be reset", u.Name())
 	err = u.st.zk.Delete(u.zkNeedsUpgradePath(), -1)
 	if zookeeper.IsError(err, zookeeper.ZNONODE) {
 		// Node doesn't exist, so same state.
@@ -407,7 +408,7 @@ func (u *Unit) WatchNeedsUpgrade() *NeedsUpgradeWatcher {
 
 // Resolved returns the resolved mode for the unit.
 func (u *Unit) Resolved() (mode ResolvedMode, err error) {
-	defer errorContextf(&err, "cannot get resolved mode for unit %q", u)
+	defer trivial.ErrorContextf(&err, "cannot get resolved mode for unit %q", u)
 	yaml, _, err := u.st.zk.Get(u.zkResolvedPath())
 	if zookeeper.IsError(err, zookeeper.ZNONODE) {
 		// Default value.
@@ -434,7 +435,7 @@ func (u *Unit) Resolved() (mode ResolvedMode, err error) {
 // reexecute previous failed hooks or to continue as if they had 
 // succeeded before.
 func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
-	defer errorContextf(&err, "cannot set resolved mode for unit %q", u)
+	defer trivial.ErrorContextf(&err, "cannot set resolved mode for unit %q", u)
 	if err := validResolvedMode(mode, false); err != nil {
 		return err
 	}
@@ -452,7 +453,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 
 // ClearResolved removes any resolved setting on the unit.
 func (u *Unit) ClearResolved() (err error) {
-	defer errorContextf(&err, "resolved mode for unit %q cannot be cleared", u)
+	defer trivial.ErrorContextf(&err, "resolved mode for unit %q cannot be cleared", u)
 	err = u.st.zk.Delete(u.zkResolvedPath(), -1)
 	if zookeeper.IsError(err, zookeeper.ZNONODE) {
 		// Node doesn't exist, so same state.
@@ -470,7 +471,7 @@ func (u *Unit) WatchResolved() *ResolvedWatcher {
 
 // OpenPort sets the policy of the port with protocol and number to be opened.
 func (u *Unit) OpenPort(protocol string, number int) (err error) {
-	defer errorContextf(&err, "cannot open port %s:%d for unit %q", protocol, number, u)
+	defer trivial.ErrorContextf(&err, "cannot open port %s:%d for unit %q", protocol, number, u)
 	openPort := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
 		var ports openPortsNode
 		if oldYaml != "" {
@@ -500,7 +501,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 
 // ClosePort sets the policy of the port with protocol and number to be closed.
 func (u *Unit) ClosePort(protocol string, number int) (err error) {
-	defer errorContextf(&err, "cannot close port %s:%d for unit %q", protocol, number, u)
+	defer trivial.ErrorContextf(&err, "cannot close port %s:%d for unit %q", protocol, number, u)
 	closePort := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
 		var ports openPortsNode
 		if oldYaml != "" {
@@ -527,7 +528,7 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 
 // OpenPorts returns a slice containing the open ports of the unit.
 func (u *Unit) OpenPorts() (openPorts []Port, err error) {
-	defer errorContextf(&err, "cannot get open ports of unit %q", u)
+	defer trivial.ErrorContextf(&err, "cannot get open ports of unit %q", u)
 	yaml, _, err := u.st.zk.Get(u.zkPortsPath())
 	if zookeeper.IsError(err, zookeeper.ZNONODE) {
 		// Default value.

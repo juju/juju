@@ -8,6 +8,7 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/url"
 )
@@ -51,7 +52,7 @@ type State struct {
 
 // AddMachine creates a new machine state.
 func (s *State) AddMachine() (m *Machine, err error) {
-	defer errorContextf(&err, "cannot add a new machine")
+	defer trivial.ErrorContextf(&err, "cannot add a new machine")
 	id, err := s.sequence("machine")
 	if err != nil {
 		return nil, err
@@ -150,7 +151,7 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 // RemoveService removes a service from the state. It will also remove all
 // its units and break any of its existing relations.
 func (s *State) RemoveService(svc *Service) (err error) {
-	defer errorContextf(&err, "cannot remove service %q", svc)
+	defer trivial.ErrorContextf(&err, "cannot remove service %q", svc)
 
 	sel := bson.D{{"_id", svc.doc.Name}, {"life", Alive}}
 	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
@@ -191,7 +192,7 @@ func (s *State) AllServices() (services []*Service, err error) {
 
 // AddRelation creates a new relation with the given endpoints.
 func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err error) {
-	defer errorContextf(&err, "cannot add relation %q", relationKey(endpoints))
+	defer trivial.ErrorContextf(&err, "cannot add relation %q", relationKey(endpoints))
 	switch len(endpoints) {
 	case 1:
 		if endpoints[0].RelationRole != RolePeer {
@@ -242,7 +243,7 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 
 // Relation returns the existing relation with the given endpoints.
 func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error) {
-	defer errorContextf(&err, "cannot get relation %q", relationKey(endpoints))
+	defer trivial.ErrorContextf(&err, "cannot get relation %q", relationKey(endpoints))
 
 	doc := relationDoc{}
 	err = s.relations.Find(bson.D{{"key", relationKey(endpoints)}}).One(&doc)
@@ -254,7 +255,7 @@ func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error)
 
 // RemoveRelation removes the supplied relation.
 func (s *State) RemoveRelation(r *Relation) (err error) {
-	defer errorContextf(&err, "cannot remove relation %q", r.doc.Key)
+	defer trivial.ErrorContextf(&err, "cannot remove relation %q", r.doc.Key)
 
 	if r.doc.Life != Dead {
 		panic(fmt.Errorf("relation %q is not dead", r))
