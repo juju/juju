@@ -24,7 +24,7 @@ var _ = Suite(&TrivialSuite{})
 
 type StoreSuite struct {
 	MgoSuite
-	HTTPSuite
+	testing.HTTPSuite
 	store *store.Store
 }
 
