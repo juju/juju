@@ -6,6 +6,7 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/trivial"
 	pathPkg "path"
 )
 
@@ -54,7 +55,7 @@ func (s *Service) Charm() (*Charm, error) {
 // addUnit adds a new unit to the service. If s is a subordinate service,
 // principalKey must be the unit key of some principal unit.
 func (s *Service) addUnit(principalKey string) (unit *Unit, err error) {
-	defer errorContextf(&err, "cannot add unit to service %q", s)
+	defer trivial.ErrorContextf(&err, "cannot add unit to service %q", s)
 	// Get charm id and create ZooKeeper node.
 	url, err := s.CharmURL()
 	if err != nil {
@@ -138,7 +139,7 @@ func (s *Service) RemoveUnit(unit *Unit) error {
 
 // Unit returns the service's unit with name.
 func (s *Service) Unit(name string) (unit *Unit, err error) {
-	defer errorContextf(&err, "cannot get unit %q from service %q", name, s)
+	defer trivial.ErrorContextf(&err, "cannot get unit %q from service %q", name, s)
 	serviceName, serviceId, err := parseUnitName(name)
 	if err != nil {
 		return nil, err
@@ -166,7 +167,7 @@ func (s *Service) Unit(name string) (unit *Unit, err error) {
 
 // AllUnits returns all units of the service.
 func (s *Service) AllUnits() (units []*Unit, err error) {
-	defer errorContextf(&err, "cannot get all units from service %q", s)
+	defer trivial.ErrorContextf(&err, "cannot get all units from service %q", s)
 	topology, err := readTopology(s.st.zk)
 	if err != nil {
 		return nil, err
@@ -229,7 +230,7 @@ func (s *Service) relationsFromTopology(t *topology) ([]*Relation, error) {
 
 // Relations returns a Relation for every relation the service is in.
 func (s *Service) Relations() (relations []*Relation, err error) {
-	defer errorContextf(&err, "cannot get relations for service %q", s.name)
+	defer trivial.ErrorContextf(&err, "cannot get relations for service %q", s.name)
 	t, err := readTopology(s.st.zk)
 	if err != nil {
 		return nil, err
