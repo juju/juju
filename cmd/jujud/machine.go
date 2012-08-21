@@ -49,9 +49,9 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	for {
 		log.Printf("machine agent starting")
 		err := a.runOnce()
-		if err == nil {
+		if a.tomb.Err() != tomb.ErrStillAlive {
 			// We have been explicitly stopped.
-			return nil
+			return err
 		}
 		if ug, ok := err.(*UpgradedError); ok {
 			tools, err := environs.ChangeAgentTools("machine", ug.Binary)
@@ -60,7 +60,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 				time.Sleep(retryDelay)
 				continue
 			}
-			log.Printf("upgrade to %v from %q", tools.Binary, tools.URL)
+			log.Printf("exiting to upgrade to %v from %q", tools.Binary, tools.URL)
 			// Return and let upstart deal with the restart.
 			return nil
 		}
