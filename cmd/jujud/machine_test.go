@@ -2,8 +2,8 @@ package main
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju/testing"
 )
 
@@ -69,4 +69,3 @@ func (s *MachineSuite) TestRunStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(<-done, IsNil)
 }
-
