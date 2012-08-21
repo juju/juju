@@ -22,7 +22,6 @@ func TestPackage(t *stdtesting.T) {
 // test suites (StateSuite, CharmSuite, MachineSuite, etc).
 type ConnSuite struct {
 	testing.MgoSuite
-	session   *mgo.Session
 	charms    *mgo.Collection
 	machines  *mgo.Collection
 	relations *mgo.Collection
@@ -32,12 +31,12 @@ type ConnSuite struct {
 }
 
 func (cs *ConnSuite) SetUpTest(c *C) {
-	cs.session = testing.MgoDial()
-	cs.charms = cs.session.DB("juju").C("charms")
-	cs.machines = cs.session.DB("juju").C("machines")
-	cs.relations = cs.session.DB("juju").C("relations")
-	cs.services = cs.session.DB("juju").C("services")
-	cs.units = cs.session.DB("juju").C("units")
+	cs.MgoSuite.SetUpTest(c)
+	cs.charms = cs.MgoSuite.Session.DB("juju").C("charms")
+	cs.machines = cs.MgoSuite.Session.DB("juju").C("machines")
+	cs.relations = cs.MgoSuite.Session.DB("juju").C("relations")
+	cs.services = cs.MgoSuite.Session.DB("juju").C("services")
+	cs.units = cs.MgoSuite.Session.DB("juju").C("units")
 	var err error
 	cs.State, err = state.Dial(testing.MgoAddr)
 	c.Assert(err, IsNil)
@@ -45,7 +44,6 @@ func (cs *ConnSuite) SetUpTest(c *C) {
 
 func (cs *ConnSuite) TearDownTest(c *C) {
 	cs.State.Close()
-	cs.session.Close()
 	cs.MgoSuite.TearDownTest(c)
 }
 
