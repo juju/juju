@@ -25,18 +25,19 @@ func (s *ServiceSuite) SetUpTest(c *C) {
 }
 
 func (s *ServiceSuite) TestServiceCharm(c *C) {
-	// Check that getting and setting the service charm URL works correctly.
-	testcurl, err := s.service.CharmURL()
+	ch, err := s.service.Charm()
 	c.Assert(err, IsNil)
-	c.Assert(testcurl.String(), Equals, s.charm.URL().String())
+	c.Assert(ch.Force, Equals, false)
+	c.Assert(ch.Charm.URL(), DeepEquals, s.charm.URL())
 
-	// TODO BUG https://bugs.launchpad.net/juju-core/+bug/1020318
-	testcurl = charm.MustParseURL("local:myseries/mydummy-1")
-	err = s.service.SetCharmURL(testcurl)
+	// TODO: changing the charm like this is not especially sane in itself.
+	wp := s.AddTestingCharm(c, "wordpress")
+	err = s.service.SetCharm(wp, true)
 	c.Assert(err, IsNil)
-	testcurl, err = s.service.CharmURL()
+	ch, err = s.service.Charm()
 	c.Assert(err, IsNil)
-	c.Assert(testcurl.String(), Equals, "local:myseries/mydummy-1")
+	c.Assert(ch.Force, Equals, true)
+	c.Assert(ch.Charm.URL(), DeepEquals, wp.URL())
 }
 
 func (s *ServiceSuite) TestServiceExposed(c *C) {
@@ -266,6 +267,60 @@ func (s *ServiceSuite) TestWatchConfigIllegalData(c *C) {
 	case _, ok := <-configWatcher.Changes():
 		c.Assert(ok, Equals, false)
 	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func (s *ServiceSuite) TestWatchCharm(c *C) {
+	// Check initial event.
+	w := s.service.WatchCharm()
+	assertChange := func(curl *charm.URL, force bool) {
+		select {
+		case ch, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(ch.URL(), DeepEquals, curl)
+			c.Assert(ch.Force, Equals, force)
+		case <-time.After(500 * time.Millisecond):
+			c.Fatalf("expected change, got none")
+		}
+	}
+	assertChange(s.charm.URL(), false)
+
+	// Check resetting the same charm has no effect.
+	err := s.service.SetCharm(s.charm, false)
+	c.Assert(err, IsNil)
+	assertNoChange := func() {
+		select {
+		case ch, ok := <-w.Changes():
+			c.Fatalf("got unexpected change: %#v, %t", ch, ok)
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
+	assertNoChange()
+
+	// Set the force flag.
+	err = s.service.SetCharm(s.charm, true)
+	c.Assert(err, IsNil)
+	assertChange(s.charm.URL(), true)
+
+	// Set a different charm.
+	alt := s.AddTestingCharm(c, "mysql")
+	err = s.service.SetCharm(alt, true)
+	c.Assert(err, IsNil)
+	assertChange(alt.URL(), true)
+
+	// Reset the original charm.
+	err = s.service.SetCharm(s.charm, false)
+	c.Assert(err, IsNil)
+	assertChange(s.charm.URL(), false)
+
+	// Stop the watcher.
+	err = w.Stop()
+	c.Assert(err, IsNil)
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, Equals, false)
+	default:
+		c.Fatalf("channel not closed")
 	}
 }
 

@@ -152,51 +152,44 @@ func (w *FlagWatcher) done() {
 	close(w.changeChan)
 }
 
-// NeedsUpgradeWatcher observes changes to a unit's upgrade flag.
-type NeedsUpgradeWatcher struct {
+// ServiceCharmWatcher observes changes to a service's charm.
+type ServiceCharmWatcher struct {
 	contentWatcher
-	changeChan chan NeedsUpgrade
+	changeChan chan ServiceCharm
 }
 
-// newNeedsUpgradeWatcher creates and starts a new resolved flag node
-// watcher for the given path.
-func newNeedsUpgradeWatcher(st *State, path string) *NeedsUpgradeWatcher {
-	w := &NeedsUpgradeWatcher{
+// newServiceCharmWatcher creates and starts a new service charm watcher
+// for the given path.
+func newServiceCharmWatcher(st *State, path string) *ServiceCharmWatcher {
+	w := &ServiceCharmWatcher{
 		contentWatcher: newContentWatcher(st, path),
-		changeChan:     make(chan NeedsUpgrade),
+		changeChan:     make(chan ServiceCharm),
 	}
 	go w.loop(w)
 	return w
 }
 
 // Changes returns a channel that will receive notifications
-// about upgrades for the unit. Note that multiple changes
-// may be observed as a single event in the channel.
-// The first event on the channel holds the initial
-// state as returned by Unit.NeedsUpgrade.
-func (w *NeedsUpgradeWatcher) Changes() <-chan NeedsUpgrade {
+// about changes to the service's charm. The first event on the
+// channel hold the initial state of the charm.
+func (w *ServiceCharmWatcher) Changes() <-chan ServiceCharm {
 	return w.changeChan
 }
 
-func (w *NeedsUpgradeWatcher) update(change watcher.ContentChange) error {
-	var needsUpgrade NeedsUpgrade
-	if change.Exists {
-		needsUpgrade.Upgrade = true
-		var setting needsUpgradeNode
-		if err := goyaml.Unmarshal([]byte(change.Content), &setting); err != nil {
-			return err
-		}
-		needsUpgrade.Force = setting.Force
+func (w *ServiceCharmWatcher) update(change watcher.ContentChange) error {
+	sc, err := readServiceCharm(w.st, change.Content)
+	if err != nil {
+		return err
 	}
 	select {
 	case <-w.tomb.Dying():
 		return tomb.ErrDying
-	case w.changeChan <- needsUpgrade:
+	case w.changeChan <- sc:
 	}
 	return nil
 }
 
-func (w *NeedsUpgradeWatcher) done() {
+func (w *ServiceCharmWatcher) done() {
 	close(w.changeChan)
 }
 
