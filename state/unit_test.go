@@ -2,7 +2,6 @@ package state_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 	"time"
 )
@@ -80,73 +79,15 @@ func (s *UnitSuite) TestGetSetStatus(c *C) {
 }
 
 func (s *UnitSuite) TestUnitCharm(c *C) {
-	testcurl, err := s.unit.CharmURL()
-	c.Assert(err, IsNil)
-	c.Assert(testcurl.String(), Equals, s.charm.URL().String())
+	_, err := s.unit.Charm()
+	c.Assert(err, ErrorMatches, `charm URL of unit "wordpress/0" not found`)
 
-	// TODO BUG surely we shouldn't be able to (1) set a charm that isn't in state
-	// or (2) change a unit to run a charm that bears no apparent relation to
-	// it service?
-	testcurl, err = charm.ParseURL("local:myseries/mydummy-1")
+	err = s.unit.SetCharm(s.charm)
 	c.Assert(err, IsNil)
-	err = s.unit.SetCharmURL(testcurl)
-	c.Assert(err, IsNil)
-	testcurl, err = s.unit.CharmURL()
-	c.Assert(err, IsNil)
-	c.Assert(testcurl.String(), Equals, "local:myseries/mydummy-1")
-}
 
-func (s *UnitSuite) TestGetSetClearUnitUpgrade(c *C) {
-	// Defaults to false and false.
-	needsUpgrade, err := s.unit.NeedsUpgrade()
+	ch, err := s.unit.Charm()
 	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{false, false})
-
-	// Can be set.
-	err = s.unit.SetNeedsUpgrade(false)
-	c.Assert(err, IsNil)
-	needsUpgrade, err = s.unit.NeedsUpgrade()
-	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{true, false})
-
-	// Can be set multiple times.
-	err = s.unit.SetNeedsUpgrade(false)
-	c.Assert(err, IsNil)
-	needsUpgrade, err = s.unit.NeedsUpgrade()
-	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{true, false})
-
-	// Can be cleared.
-	err = s.unit.ClearNeedsUpgrade()
-	c.Assert(err, IsNil)
-	needsUpgrade, err = s.unit.NeedsUpgrade()
-	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{false, false})
-
-	// Can be cleared multiple times
-	err = s.unit.ClearNeedsUpgrade()
-	c.Assert(err, IsNil)
-	needsUpgrade, err = s.unit.NeedsUpgrade()
-	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{false, false})
-
-	// Can be set forced.
-	err = s.unit.SetNeedsUpgrade(true)
-	c.Assert(err, IsNil)
-	needsUpgrade, err = s.unit.NeedsUpgrade()
-	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{true, true})
-
-	// Can be set forced multiple times.
-	err = s.unit.SetNeedsUpgrade(true)
-	c.Assert(err, IsNil)
-	needsUpgrade, err = s.unit.NeedsUpgrade()
-	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{true, true})
-
-	// Can't be set multipe with different force flag.
-	err = s.unit.SetNeedsUpgrade(false)
-	c.Assert(err, ErrorMatches, `cannot inform unit "wordpress/0" about upgrade: upgrade already enabled`)
+	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
 }
 
 func (s *UnitSuite) TestGetSetClearResolved(c *C) {
@@ -270,44 +211,6 @@ func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
 	alive, err = s.unit.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
-}
-
-type unitWatchNeedsUpgradeTest struct {
-	test func(*state.Unit) error
-	want state.NeedsUpgrade
-}
-
-var unitWatchNeedsUpgradeTests = []unitWatchNeedsUpgradeTest{
-	{func(u *state.Unit) error { return nil }, state.NeedsUpgrade{false, false}},
-	{func(u *state.Unit) error { return u.SetNeedsUpgrade(false) }, state.NeedsUpgrade{true, false}},
-	{func(u *state.Unit) error { return u.ClearNeedsUpgrade() }, state.NeedsUpgrade{false, false}},
-	{func(u *state.Unit) error { return u.SetNeedsUpgrade(true) }, state.NeedsUpgrade{true, true}},
-}
-
-func (s *UnitSuite) TestUnitWatchNeedsUpgrade(c *C) {
-	needsUpgradeWatcher := s.unit.WatchNeedsUpgrade()
-	defer func() {
-		c.Assert(needsUpgradeWatcher.Stop(), IsNil)
-	}()
-
-	for i, test := range unitWatchNeedsUpgradeTests {
-		c.Logf("test %d", i)
-		err := test.test(s.unit)
-		c.Assert(err, IsNil)
-		select {
-		case got, ok := <-needsUpgradeWatcher.Changes():
-			c.Assert(ok, Equals, true)
-			c.Assert(got, DeepEquals, test.want)
-		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("did not get change: %#v", test.want)
-		}
-	}
-
-	select {
-	case got := <-needsUpgradeWatcher.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
-	case <-time.After(100 * time.Millisecond):
-	}
 }
 
 type unitWatchResolvedTest struct {
