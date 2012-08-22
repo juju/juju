@@ -3,6 +3,7 @@ package mstate
 import (
 	"fmt"
 	"labix.org/v2/mgo/bson"
+	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/trivial"
 	"strconv"
 )
@@ -69,8 +70,13 @@ func (m *Machine) Units() (units []*Unit, err error) {
 
 // SetInstanceId sets the provider specific machine id for this machine.
 func (m *Machine) SetInstanceId(id string) error {
-	change := bson.D{{"$set", bson.D{{"instanceid", id}}}}
-	err := m.st.machines.Update(bson.D{{"_id", m.doc.Id}}, change)
+	op := []txn.Operation{{
+		Collection: m.st.machines.Name,
+		DocId:      m.doc.Id,
+		Assert:     bson.D{{"_id", m.doc.Id}, {"life", Alive}},
+		Change:     bson.D{{"$set", bson.D{{"instanceid", id}}}},
+	}}
+	err := m.st.runner.Run(op, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot set instance id of machine %s: %v", m, err)
 	}
