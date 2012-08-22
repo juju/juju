@@ -137,7 +137,13 @@ func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bu
 		BundleURL:    bundleURL,
 		BundleSha256: bundleSha256,
 	}
-	err = s.charms.Insert(cdoc)
+	op := []txn.Operation{{
+		Collection: s.charms.Name,
+		DocId: curl,
+		Assert: txn.DocMissing,
+		Insert: cdoc,
+	}}
+	err = s.runner.Run(op, "", nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add charm %q: %v", curl, err)
 	}
