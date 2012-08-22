@@ -233,13 +233,18 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	if !(0 <= mode && mode < nResolvedModes) {
 		return fmt.Errorf("invalid error resolution mode: %v", mode)
 	}
-	change := bson.D{{"$set", bson.D{{"resolved", mode}}}}
 	sel := bson.D{
 		{"_id", u.doc.Name},
 		{"resolved", ResolvedNone},
 	}
-	err = u.st.units.Update(sel, change)
-	if err == mgo.ErrNotFound {
+	op := []txn.Operation{{
+		Collection: u.st.units.Name,
+		DocId:      u.doc.Name,
+		Assert:     sel,
+		Change:    	bson.D{{"$set", bson.D{{"resolved", mode}}}},
+	}}
+	err = u.st.runner.Run(op, "", nil)
+	if err == txn.ErrAborted {
 		return errors.New("flag already set")
 	}
 	if err != nil {
