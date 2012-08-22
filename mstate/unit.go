@@ -241,7 +241,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 		Collection: u.st.units.Name,
 		DocId:      u.doc.Name,
 		Assert:     sel,
-		Change:    	bson.D{{"$set", bson.D{{"resolved", mode}}}},
+		Change:     bson.D{{"$set", bson.D{{"resolved", mode}}}},
 	}}
 	err = u.st.runner.Run(op, "", nil)
 	if err == txn.ErrAborted {
@@ -260,7 +260,7 @@ func (u *Unit) ClearResolved() error {
 		Collection: u.st.units.Name,
 		DocId:      u.doc.Name,
 		Assert:     txn.DocExists,
-		Change:    	bson.D{{"$set", bson.D{{"resolved", ResolvedNone}}}},
+		Change:     bson.D{{"$set", bson.D{{"resolved", ResolvedNone}}}},
 	}}
 	err := u.st.runner.Run(op, "", nil)
 	if err != nil {
