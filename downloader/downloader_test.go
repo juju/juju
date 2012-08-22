@@ -1,13 +1,10 @@
 package downloader_test
 
 import (
-	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/testing"
-	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 	stdtesting "testing"
@@ -15,6 +12,7 @@ import (
 )
 
 type suite struct {
+	testing.HTTPSuite
 	testing.LoggingSuite
 }
 
@@ -24,20 +22,10 @@ func Test(t *stdtesting.T) {
 	TestingT(t)
 }
 
-func (s *suite) SetUpTest(c *C) {
-	downloader.TempDir = c.MkDir()
-}
-
-func (s *suite) TearDownTest(c *C) {
-	downloader.TempDir = os.TempDir()
-}
-
 func (s *suite) TestDownload(c *C) {
-	l := newServer()
-	defer l.close()
-
-	content := l.addContent("/archive.tgz", "archive")
-	d := downloader.New(content.url)
+	tmp := c.MkDir()
+	testing.Server.Response(200, nil, []byte("archive"))
+	d := downloader.New(s.URL("/archive.tgz"), tmp)
 	status := <-d.Done()
 	c.Assert(status.Err, IsNil)
 	c.Assert(status.File, NotNil)
@@ -45,35 +33,28 @@ func (s *suite) TestDownload(c *C) {
 	defer status.File.Close()
 
 	dir, _ := filepath.Split(status.File.Name())
-	c.Assert(filepath.Clean(dir), Equals, downloader.TempDir)
+	c.Assert(filepath.Clean(dir), Equals, tmp)
 	assertFileContents(c, status.File, "archive")
 }
 
 func (s *suite) TestDownloadError(c *C) {
-	l := newServer()
-	defer l.close()
-	// Add some content, then delete it - we should
-	// get a 404 response.
-	url := l.addContent("/archive.tgz", "archive").url
-	delete(l.contents, "/archive.tgz")
-	d := downloader.New(url)
+	testing.Server.Response(404, nil, nil)
+	d := downloader.New(s.URL("/archive.tgz"), c.MkDir())
 	status := <-d.Done()
 	c.Assert(status.File, IsNil)
 	c.Assert(status.Err, ErrorMatches, `cannot download ".*": bad http response: 404 Not Found`)
 }
 
 func (s *suite) TestStopDownload(c *C) {
-	l := newServer()
-	defer l.close()
-	content := l.addContent("/x.tgz", "content")
-	d := downloader.New(content.url)
+	tmp := c.MkDir()
+	d := downloader.New(s.URL("/x.tgz"), tmp)
 	d.Stop()
 	select {
 	case status := <-d.Done():
 		c.Fatalf("received status %#v after stop", status)
 	case <-time.After(100 * time.Millisecond):
 	}
-	infos, err := ioutil.ReadDir(downloader.TempDir)
+	infos, err := ioutil.ReadDir(tmp)
 	c.Assert(err, IsNil)
 	c.Assert(infos, HasLen, 0)
 }
@@ -86,48 +67,4 @@ func assertFileContents(c *C, f *os.File, expect string) {
 		c.Assert(err, IsNil)
 		c.Logf("info %#v", info)
 	}
-}
-
-type content struct {
-	url  string
-	data []byte
-}
-
-type server struct {
-	l        net.Listener
-	contents map[string]*content
-}
-
-func newServer() *server {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		panic(fmt.Errorf("cannot start server: %v", err))
-	}
-	srv := &server{l, make(map[string]*content)}
-	go http.Serve(l, srv)
-	return srv
-}
-
-func (srv *server) close() {
-	srv.l.Close()
-}
-
-// addContent makes the given data available from the server
-// at the given URL path.
-func (srv *server) addContent(path string, data string) *content {
-	c := &content{
-		data: []byte(data),
-	}
-	c.url = fmt.Sprintf("http://%v%s", srv.l.Addr(), path)
-	srv.contents[path] = c
-	return c
-}
-
-func (srv *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	c := srv.contents[req.URL.Path]
-	if c == nil {
-		http.NotFound(w, req)
-		return
-	}
-	w.Write(c.data)
 }

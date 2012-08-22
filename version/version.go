@@ -5,17 +5,33 @@ package version
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 )
 
-// Current gives the current version of the system.
+// Current gives the current version of the system.  If the file
+// "FORCE-VERSION" is present in the same directory as the running
+// binary, it will override this.
 var Current = Binary{
 	Number: MustParse("0.0.1"),
 	Series: readSeries("/etc/lsb-release"), // current Ubuntu release name.  
 	Arch:   ubuntuArch(runtime.GOARCH),
+}
+
+func init() {
+	toolsDir := filepath.Dir(os.Args[0])
+	v, err := ioutil.ReadFile(filepath.Join(toolsDir, "FORCE-VERSION"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return
+		}
+		panic(fmt.Errorf("version: cannot read forced version: %v", err))
+	}
+	Current = MustParseBinary(strings.TrimSpace(string(v)))
 }
 
 // Number represents a juju version. When bugs are

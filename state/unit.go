@@ -7,6 +7,7 @@ import (
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/trivial"
 	"strconv"
 	"strings"
 	"time"
@@ -44,19 +45,6 @@ const (
 	UnitError     UnitStatus = "error"     // Agent is waiting in an error state
 	UnitDown      UnitStatus = "down"      // Agent is down or not communicating
 )
-
-// NeedsUpgrade describes if a unit needs an
-// upgrade and if this is forced.
-type NeedsUpgrade struct {
-	Upgrade bool
-	Force   bool
-}
-
-// needsUpgradeNode represents the content of the
-// upgrade node of a unit.
-type needsUpgradeNode struct {
-	Force bool
-}
 
 // agentPingerPeriod defines the period of pinging the
 // ZooKeeper to signal that a unit agent is alive. It's
@@ -219,24 +207,23 @@ func (u *Unit) SetStatus(status UnitStatus, info string) error {
 	return nil
 }
 
-// CharmURL returns the charm URL this unit is supposed
-// to use.
-func (u *Unit) CharmURL() (url *charm.URL, err error) {
+// Charm returns the charm this unit is currently using.
+func (u *Unit) Charm() (ch *Charm, err error) {
 	surl, err := getConfigString(u.st.zk, u.zkPath(), "charm",
 		"charm URL of unit %q", u)
 	if err != nil {
 		return nil, err
 	}
-	url, err = charm.ParseURL(surl)
+	url, err := charm.ParseURL(surl)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse charm URL of unit %q: %v", u, err)
 	}
-	return url, err
+	return u.st.Charm(url)
 }
 
-// SetCharmURL changes the charm URL for the unit.
-func (u *Unit) SetCharmURL(url *charm.URL) (err error) {
-	return setConfigString(u.st.zk, u.zkPath(), "charm", url.String(),
+// SetCharm marks the unit as currently using the supplied charm.
+func (u *Unit) SetCharm(ch *Charm) (err error) {
+	return setConfigString(u.st.zk, u.zkPath(), "charm", ch.URL().String(),
 		"charm URL of unit %q", u)
 }
 
@@ -248,7 +235,7 @@ func (u *Unit) IsPrincipal() bool {
 
 // AssignedMachineId returns the id of the assigned machine.
 func (u *Unit) AssignedMachineId() (id int, err error) {
-	defer errorContextf(&err, "cannot get machine id of unit %q", u)
+	defer trivial.ErrorContextf(&err, "cannot get machine id of unit %q", u)
 	topology, err := readTopology(u.st.zk)
 	if err != nil {
 		return 0, err
@@ -265,7 +252,7 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 
 // AssignToMachine assigns this unit to a given machine.
 func (u *Unit) AssignToMachine(machine *Machine) (err error) {
-	defer errorContextf(&err, "cannot assign unit %q to machine %s", u, machine)
+	defer trivial.ErrorContextf(&err, "cannot assign unit %q to machine %s", u, machine)
 	assignUnit := func(t *topology) error {
 		if !t.HasUnit(u.key) {
 			return stateChanged
@@ -327,7 +314,7 @@ func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
 // UnassignFromMachine removes the assignment between this unit and
 // the machine it's assigned to.
 func (u *Unit) UnassignFromMachine() (err error) {
-	defer errorContextf(&err, "cannot unassign unit %q from machine", u.Name())
+	defer trivial.ErrorContextf(&err, "cannot unassign unit %q from machine", u.Name())
 	unassignUnit := func(t *topology) error {
 		if !t.HasUnit(u.key) {
 			return stateChanged
@@ -344,70 +331,9 @@ func (u *Unit) UnassignFromMachine() (err error) {
 	return retryTopologyChange(u.st.zk, unassignUnit)
 }
 
-// NeedsUpgrade returns whether the unit needs an upgrade 
-// and if it does, if this is forced.
-func (u *Unit) NeedsUpgrade() (needsUpgrade *NeedsUpgrade, err error) {
-	defer errorContextf(&err, "cannot check if unit %q needs an upgrade", u.Name())
-	yaml, _, err := u.st.zk.Get(u.zkNeedsUpgradePath())
-	if zookeeper.IsError(err, zookeeper.ZNONODE) {
-		return &NeedsUpgrade{}, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	var setting needsUpgradeNode
-	if err = goyaml.Unmarshal([]byte(yaml), &setting); err != nil {
-		return nil, err
-	}
-	return &NeedsUpgrade{true, setting.Force}, nil
-}
-
-// SetNeedsUpgrade informs the unit that it should perform 
-// a regular or forced upgrade.
-func (u *Unit) SetNeedsUpgrade(force bool) (err error) {
-	defer errorContextf(&err, "cannot inform unit %q about upgrade", u.Name())
-	setNeedsUpgrade := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
-		var setting needsUpgradeNode
-		if oldYaml == "" {
-			setting.Force = force
-			newYaml, err := goyaml.Marshal(setting)
-			if err != nil {
-				return "", err
-			}
-			return string(newYaml), nil
-		}
-		if err := goyaml.Unmarshal([]byte(oldYaml), &setting); err != nil {
-			return "", err
-		}
-		if setting.Force != force {
-			return "", fmt.Errorf("upgrade already enabled")
-		}
-		return oldYaml, nil
-	}
-	return u.st.zk.RetryChange(u.zkNeedsUpgradePath(), 0, zkPermAll, setNeedsUpgrade)
-}
-
-// ClearNeedsUpgrade resets the upgrade notification. It is typically
-// done by the unit agent before beginning the upgrade.
-func (u *Unit) ClearNeedsUpgrade() (err error) {
-	defer errorContextf(&err, "upgrade notification for unit %q cannot be reset", u.Name())
-	err = u.st.zk.Delete(u.zkNeedsUpgradePath(), -1)
-	if zookeeper.IsError(err, zookeeper.ZNONODE) {
-		// Node doesn't exist, so same state.
-		return nil
-	}
-	return err
-}
-
-// WatchNeedsUpgrade creates a watcher for the upgrade notification
-// of the unit. See SetNeedsUpgrade and ClearNeedsUpgrade for details.
-func (u *Unit) WatchNeedsUpgrade() *NeedsUpgradeWatcher {
-	return newNeedsUpgradeWatcher(u.st, u.zkNeedsUpgradePath())
-}
-
 // Resolved returns the resolved mode for the unit.
 func (u *Unit) Resolved() (mode ResolvedMode, err error) {
-	defer errorContextf(&err, "cannot get resolved mode for unit %q", u)
+	defer trivial.ErrorContextf(&err, "cannot get resolved mode for unit %q", u)
 	yaml, _, err := u.st.zk.Get(u.zkResolvedPath())
 	if zookeeper.IsError(err, zookeeper.ZNONODE) {
 		// Default value.
@@ -434,7 +360,7 @@ func (u *Unit) Resolved() (mode ResolvedMode, err error) {
 // reexecute previous failed hooks or to continue as if they had 
 // succeeded before.
 func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
-	defer errorContextf(&err, "cannot set resolved mode for unit %q", u)
+	defer trivial.ErrorContextf(&err, "cannot set resolved mode for unit %q", u)
 	if err := validResolvedMode(mode, false); err != nil {
 		return err
 	}
@@ -452,7 +378,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 
 // ClearResolved removes any resolved setting on the unit.
 func (u *Unit) ClearResolved() (err error) {
-	defer errorContextf(&err, "resolved mode for unit %q cannot be cleared", u)
+	defer trivial.ErrorContextf(&err, "resolved mode for unit %q cannot be cleared", u)
 	err = u.st.zk.Delete(u.zkResolvedPath(), -1)
 	if zookeeper.IsError(err, zookeeper.ZNONODE) {
 		// Node doesn't exist, so same state.
@@ -461,8 +387,8 @@ func (u *Unit) ClearResolved() (err error) {
 	return err
 }
 
-// WatchResolved returns a watcher that fires when the unit 
-// is marked as having had its problems resolved. See 
+// WatchResolved returns a watcher that fires when the unit
+// is marked as having had its problems resolved. See
 // SetResolved for details.
 func (u *Unit) WatchResolved() *ResolvedWatcher {
 	return newResolvedWatcher(u.st, u.zkResolvedPath())
@@ -470,7 +396,7 @@ func (u *Unit) WatchResolved() *ResolvedWatcher {
 
 // OpenPort sets the policy of the port with protocol and number to be opened.
 func (u *Unit) OpenPort(protocol string, number int) (err error) {
-	defer errorContextf(&err, "cannot open port %s:%d for unit %q", protocol, number, u)
+	defer trivial.ErrorContextf(&err, "cannot open port %s:%d for unit %q", protocol, number, u)
 	openPort := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
 		var ports openPortsNode
 		if oldYaml != "" {
@@ -500,7 +426,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 
 // ClosePort sets the policy of the port with protocol and number to be closed.
 func (u *Unit) ClosePort(protocol string, number int) (err error) {
-	defer errorContextf(&err, "cannot close port %s:%d for unit %q", protocol, number, u)
+	defer trivial.ErrorContextf(&err, "cannot close port %s:%d for unit %q", protocol, number, u)
 	closePort := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
 		var ports openPortsNode
 		if oldYaml != "" {
@@ -527,7 +453,7 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 
 // OpenPorts returns a slice containing the open ports of the unit.
 func (u *Unit) OpenPorts() (openPorts []Port, err error) {
-	defer errorContextf(&err, "cannot get open ports of unit %q", u)
+	defer trivial.ErrorContextf(&err, "cannot get open ports of unit %q", u)
 	yaml, _, err := u.st.zk.Get(u.zkPortsPath())
 	if zookeeper.IsError(err, zookeeper.ZNONODE) {
 		// Default value.
@@ -588,11 +514,6 @@ func (u *Unit) zkPortsPath() string {
 // zkAgentPath returns the ZooKeeper path for the unit agent.
 func (u *Unit) zkAgentPath() string {
 	return u.zkPath() + "/agent"
-}
-
-// zkNeedsUpgradePath returns the ZooKeeper path for the upgrade flag.
-func (u *Unit) zkNeedsUpgradePath() string {
-	return u.zkPath() + "/upgrade"
 }
 
 // zkResolvedPath returns the ZooKeeper path for the mark to resolve a unit.

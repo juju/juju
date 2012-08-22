@@ -217,7 +217,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	}
 	var tools *state.Tools
 	if uploadTools {
-		tools, err = environs.PutTools(e.Storage())
+		tools, err = environs.PutTools(e.Storage(), nil)
 		if err != nil {
 			return fmt.Errorf("cannot upload tools: %v", err)
 		}

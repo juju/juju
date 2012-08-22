@@ -7,8 +7,8 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/jujuc/server"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"strings"
 	stdtesting "testing"
@@ -27,7 +27,7 @@ func bufferString(w io.Writer) string {
 }
 
 type HookContextSuite struct {
-	testing.StateSuite
+	testing.JujuConnSuite
 	ch       *state.Charm
 	service  *state.Service
 	unit     *state.Unit
@@ -36,7 +36,7 @@ type HookContextSuite struct {
 }
 
 func (s *HookContextSuite) SetUpTest(c *C) {
-	s.StateSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
 	s.ch = s.AddTestingCharm(c, "dummy")
 	var err error
 	s.service, err = s.State.AddService("u", s.ch)
@@ -66,9 +66,7 @@ func (s *HookContextSuite) AddRelationContext(c *C, name string) {
 	ru, err := rel.Unit(s.unit)
 	c.Assert(err, IsNil)
 	s.relunits[rel.Id()] = ru
-	p, err := ru.Join()
-	c.Assert(err, IsNil)
-	err = p.Kill()
+	err = ru.Init()
 	c.Assert(err, IsNil)
 	s.relctxs[rel.Id()] = server.NewRelationContext(ru, nil)
 }

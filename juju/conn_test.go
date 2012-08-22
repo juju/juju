@@ -3,9 +3,10 @@ package juju_test
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state/testing"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
@@ -18,19 +19,16 @@ func Test(t *stdtesting.T) {
 
 type ConnSuite struct {
 	coretesting.LoggingSuite
-	testing.StateSuite
 }
 
 var _ = Suite(&ConnSuite{})
 
 func (cs *ConnSuite) SetUpTest(c *C) {
 	cs.LoggingSuite.SetUpTest(c)
-	cs.StateSuite.SetUpTest(c)
 }
 
 func (cs *ConnSuite) TearDownTest(c *C) {
 	dummy.Reset()
-	cs.StateSuite.TearDownTest(c)
 	cs.LoggingSuite.TearDownTest(c)
 }
 
@@ -99,30 +97,41 @@ func (*ConnSuite) TestNewConnFromAttrs(c *C) {
 }
 
 func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
-	env, err := cs.State.EnvironConfig()
-	c.Assert(err, IsNil)
-	// verify we have no secret in the environ config
-	_, ok := env.Get("secret")
-	c.Assert(ok, Equals, false)
-	attrs := map[string]interface{}{
+	env, err := environs.NewFromAttrs(map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
 		"zookeeper":       true,
 		"authorized-keys": "i-am-a-key",
-	}
-	conn, err := juju.NewConnFromAttrs(attrs)
+	})
+	c.Assert(err, IsNil)
+	err = env.Bootstrap(false)
+	c.Assert(err, IsNil)
+	info, err := env.StateInfo()
+	c.Assert(err, IsNil)
+	st, err := state.Open(info)
+	c.Assert(err, IsNil)
+
+	// verify we have no secret in the environ config
+	cfg, err := st.EnvironConfig()
+	c.Assert(err, IsNil)
+	_, ok := cfg.Get("secret")
+	c.Assert(ok, Equals, false)
+	conn, err := juju.NewConnFromAttrs(map[string]interface{}{
+		"name":            "erewhemos",
+		"type":            "dummy",
+		"zookeeper":       true,
+		"authorized-keys": "i-am-a-key",
+	})
 	c.Assert(err, IsNil)
 	defer conn.Close()
-	err = conn.Bootstrap(false)
-	c.Assert(err, IsNil)
 	// fetch a state connection via the conn, which will 
 	// push the secrets.
 	_, err = conn.State()
 	c.Assert(err, IsNil)
-	err = env.Read()
+	err = cfg.Read()
 	c.Assert(err, IsNil)
 	// check that the secret has been populated
-	secret, ok := env.Get("secret")
+	secret, ok := cfg.Get("secret")
 	c.Assert(ok, Equals, true)
 	c.Assert(secret, Equals, "pork")
 }

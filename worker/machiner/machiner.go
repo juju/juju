@@ -10,31 +10,20 @@ import (
 
 // NewMachiner starts a machine agent running.
 // The Machiner dies when it encounters an error.
-func NewMachiner(info *state.Info, machineId int) (m *Machiner, err error) {
-	m = new(Machiner)
-	m.st, err = state.Open(info)
-	if err != nil {
-		return nil, err
-	}
-	m.machine, err = m.st.Machine(machineId)
-	if err != nil {
-		return nil, err
-	}
-	go m.loop()
-	return m, nil
+func NewMachiner(machine *state.Machine) *Machiner {
+	m := &Machiner{}
+	go m.loop(machine)
+	return m
 }
 
 // Machiner represents a running machine agent.
 type Machiner struct {
-	tomb    tomb.Tomb
-	st      *state.State
-	machine *state.Machine
+	tomb tomb.Tomb
 }
 
-func (m *Machiner) loop() {
+func (m *Machiner) loop(machine *state.Machine) {
 	defer m.tomb.Done()
-	defer m.st.Close()
-	w := m.machine.WatchUnits()
+	w := machine.WatchUnits()
 	defer watcher.Stop(w, &m.tomb)
 
 	// TODO read initial units, check if they're running
