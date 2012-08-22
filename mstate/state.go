@@ -73,7 +73,13 @@ func (s *State) AddMachine() (m *Machine, err error) {
 		Id:   id,
 		Life: Alive,
 	}
-	err = s.machines.Insert(mdoc)
+	op := []txn.Operation{{
+		Collection: "machines",
+		DocId:      id,
+		Assert:     txn.DocMissing,
+		Insert:     mdoc,
+	}}
+	err = s.runner.Run(op, "", nil)
 	if err != nil {
 		return nil, err
 	}
