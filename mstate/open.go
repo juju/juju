@@ -2,6 +2,7 @@ package mstate
 
 import (
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/log"
 )
 
@@ -25,7 +26,9 @@ func Dial(servers string) (*State, error) {
 		machines:  db.C("machines"),
 		relations: db.C("relations"),
 		services:  db.C("services"),
+		txns:      db.C("txns"),
 		units:     db.C("units"),
+		runner:    txn.NewRunner(db.C("txns")),
 	}
 	for _, index := range indexes {
 		err = st.relations.EnsureIndex(index)
