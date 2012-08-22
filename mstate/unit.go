@@ -209,9 +209,13 @@ func (u *Unit) SetPublicAddress(address string) error {
 
 // SetPrivateAddress sets the public address of the unit.
 func (u *Unit) SetPrivateAddress(address string) error {
-	change := bson.D{{"$set", bson.D{{"privateaddress", address}}}}
-	sel := bson.D{{"_id", u.doc.Name}}
-	err := u.st.units.Update(sel, change)
+	op := []txn.Operation{{
+		Collection: u.st.units.Name,
+		DocId:      u.doc.Name,
+		Assert:     txn.DocExists,
+		Change:     bson.D{{"$set", bson.D{{"privateaddress", address}}}},
+	}}
+	err := u.st.runner.Run(op, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot set private address of unit %q: %v", u, err)
 	}
