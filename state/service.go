@@ -3,9 +3,9 @@ package state
 import (
 	"errors"
 	"fmt"
-	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/trivial"
 	pathPkg "path"
 )
 
@@ -21,52 +21,62 @@ func (s *Service) Name() string {
 	return s.name
 }
 
-// CharmURL returns the charm URL this service is supposed
-// to use.
-func (s *Service) CharmURL() (url *charm.URL, err error) {
-	surl, err := getConfigString(s.st.zk, s.zkPath(), "charm",
-		"charm URL of service %q", s)
+// serviceCharm extracts the charm-related information from a ConfigNode.
+func serviceCharm(st *State, node *ConfigNode) (ch *Charm, force bool, err error) {
+	iurl, _ := node.Get("charm")
+	surl, _ := iurl.(string)
+	url, err := charm.ParseURL(surl)
 	if err != nil {
-		return nil, err
+		return
 	}
-	url, err = charm.ParseURL(surl)
+	ch, err = st.Charm(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse charm URL of service %q: %v", s, err)
+		return
 	}
-	return url, err
+	iforce, _ := node.Get("force-charm")
+	force, _ = iforce.(bool)
+	return
 }
 
-// SetCharmURL changes the charm URL for the service.
-func (s *Service) SetCharmURL(url *charm.URL) (err error) {
-	return setConfigString(s.st.zk, s.zkPath(), "charm", url.String(),
-		"charm URL of service %v", s)
+// Charm returns the service's charm, and whether units should upgrade to that
+// charm even if they are in an error state.
+func (s *Service) Charm() (ch *Charm, force bool, err error) {
+	defer trivial.ErrorContextf(&err, "cannot get charm for service %q", s)
+	node, err := readConfigNode(s.st.zk, s.zkPath())
+	if err != nil {
+		return
+	}
+	return serviceCharm(s.st, node)
 }
 
-// Charm returns the service's charm.
-func (s *Service) Charm() (*Charm, error) {
-	url, err := s.CharmURL()
+// SetCharm changes the charm for the service. New units will be started with
+// this charm, and existing units will be upgraded to use it. If force is true,
+// units will be upgraded even if they are in an error state.
+func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot set charm for service %q", s)
+	node, err := readConfigNode(s.st.zk, s.zkPath())
 	if err != nil {
-		return nil, err
+		return
 	}
-	return s.st.Charm(url)
+	node.Set("charm", ch.URL().String())
+	node.Set("force-charm", force)
+	_, err = node.Write()
+	return
+}
+
+// WatchCharm returns a watcher that sends notifications of changes to the
+// service's charm.
+func (s *Service) WatchCharm() *ServiceCharmWatcher {
+	return newServiceCharmWatcher(s.st, s.zkPath())
 }
 
 // addUnit adds a new unit to the service. If s is a subordinate service,
 // principalKey must be the unit key of some principal unit.
 func (s *Service) addUnit(principalKey string) (unit *Unit, err error) {
-	defer errorContextf(&err, "cannot add unit to service %q", s)
-	// Get charm id and create ZooKeeper node.
-	url, err := s.CharmURL()
-	if err != nil {
-		return nil, err
-	}
-	unitData := map[string]string{"charm": url.String()}
-	unitYaml, err := goyaml.Marshal(unitData)
-	if err != nil {
-		return nil, err
-	}
+	defer trivial.ErrorContextf(&err, "cannot add unit to service %q", s)
+	// Create ZooKeeper node.
 	keyPrefix := s.zkPath() + "/units/unit-" + s.key[len("service-"):] + "-"
-	path, err := s.st.zk.Create(keyPrefix, string(unitYaml), zookeeper.SEQUENCE, zkPermAll)
+	path, err := s.st.zk.Create(keyPrefix, "", zookeeper.SEQUENCE, zkPermAll)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +99,7 @@ func (s *Service) addUnit(principalKey string) (unit *Unit, err error) {
 
 // AddUnit adds a new principal unit to the service.
 func (s *Service) AddUnit() (*Unit, error) {
-	ch, err := s.Charm()
+	ch, _, err := s.Charm()
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +112,7 @@ func (s *Service) AddUnit() (*Unit, error) {
 // AddUnitSubordinateTo adds a new subordinate unit to the service,
 // subordinate to principal.
 func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
-	ch, err := s.Charm()
+	ch, _, err := s.Charm()
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +148,7 @@ func (s *Service) RemoveUnit(unit *Unit) error {
 
 // Unit returns the service's unit with name.
 func (s *Service) Unit(name string) (unit *Unit, err error) {
-	defer errorContextf(&err, "cannot get unit %q from service %q", name, s)
+	defer trivial.ErrorContextf(&err, "cannot get unit %q from service %q", name, s)
 	serviceName, serviceId, err := parseUnitName(name)
 	if err != nil {
 		return nil, err
@@ -166,7 +176,7 @@ func (s *Service) Unit(name string) (unit *Unit, err error) {
 
 // AllUnits returns all units of the service.
 func (s *Service) AllUnits() (units []*Unit, err error) {
-	defer errorContextf(&err, "cannot get all units from service %q", s)
+	defer trivial.ErrorContextf(&err, "cannot get all units from service %q", s)
 	topology, err := readTopology(s.st.zk)
 	if err != nil {
 		return nil, err
@@ -229,7 +239,7 @@ func (s *Service) relationsFromTopology(t *topology) ([]*Relation, error) {
 
 // Relations returns a Relation for every relation the service is in.
 func (s *Service) Relations() (relations []*Relation, err error) {
-	defer errorContextf(&err, "cannot get relations for service %q", s.name)
+	defer trivial.ErrorContextf(&err, "cannot get relations for service %q", s.name)
 	t, err := readTopology(s.st.zk)
 	if err != nil {
 		return nil, err

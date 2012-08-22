@@ -3,28 +3,14 @@ package main
 import (
 	"encoding/base64"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/state/testing"
-	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/juju/testing"
 )
 
 type BootstrapSuite struct {
-	coretesting.LoggingSuite
-	testing.StateSuite
-	path string
+	testing.JujuConnSuite
 }
 
 var _ = Suite(&BootstrapSuite{})
-
-func (s *BootstrapSuite) SetUpTest(c *C) {
-	s.LoggingSuite.SetUpTest(c)
-	s.path = "/watcher"
-	s.StateSuite.SetUpTest(c)
-}
-
-func (s *BootstrapSuite) TearDownTest(c *C) {
-	s.StateSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
-}
 
 func initBootstrapCommand(args []string) (*BootstrapCommand, error) {
 	c := &BootstrapCommand{}

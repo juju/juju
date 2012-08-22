@@ -58,12 +58,14 @@ func ListTools(store StorageReader, majorVersion int) ([]*state.Tools, error) {
 	return toolsList, nil
 }
 
-// PutTools uploads the current version of the juju tools
-// executables to the given storage and returns a Tools
-// instance describing them.
-// TODO find binaries from $PATH when not using a development
-// version of juju within a $GOPATH.
-func PutTools(storage Storage) (*state.Tools, error) {
+// PutTools builds the current version of the juju tools, uploads them
+// to the given storage, and returns a Tools instance describing them.
+// If vers is non-nil it will override the current version in the uploaded
+// tools.
+func PutTools(storage Storage, vers *version.Binary) (*state.Tools, error) {
+	// TODO(rog) find binaries from $PATH when not using a development
+	// version of juju within a $GOPATH.
+
 	// We create the entire archive before asking the environment to
 	// start uploading so that we can be sure we have archived
 	// correctly.
@@ -73,7 +75,7 @@ func PutTools(storage Storage) (*state.Tools, error) {
 	}
 	defer f.Close()
 	defer os.Remove(f.Name())
-	err = bundleTools(f)
+	tvers, err := bundleTools(f, vers)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +87,7 @@ func PutTools(storage Storage) (*state.Tools, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot stat newly made tools archive: %v", err)
 	}
-	p := ToolsStoragePath(version.Current)
+	p := ToolsStoragePath(tvers)
 	log.Printf("environs: putting tools %v", p)
 	err = storage.Put(p, f, fi.Size())
 	if err != nil {
@@ -95,7 +97,7 @@ func PutTools(storage Storage) (*state.Tools, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &state.Tools{version.Current, url}, nil
+	return &state.Tools{tvers, url}, nil
 }
 
 // archive writes the executable files found in the given directory in
@@ -114,12 +116,13 @@ func archive(w io.Writer, dir string) (err error) {
 	defer closeErrorCheck(&err, tarw)
 
 	for _, ent := range entries {
-		if !isExecutable(ent) {
-			return fmt.Errorf("archive: found non-executable file %q", filepath.Join(dir, ent.Name()))
-		}
 		h := tarHeader(ent)
 		// ignore local umask
-		h.Mode = 0755
+		if isExecutable(ent) {
+			h.Mode = 0755
+		} else {
+			h.Mode = 0644
+		}
 		err := tarw.WriteHeader(h)
 		if err != nil {
 			return err
@@ -374,19 +377,39 @@ func setenv(env []string, val string) []string {
 
 // bundleTools bundles all the current juju tools in gzipped tar
 // format to the given writer.
-func bundleTools(w io.Writer) error {
+func bundleTools(w io.Writer, vers *version.Binary) (version.Binary, error) {
 	dir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
-		return err
+		return version.Binary{}, err
 	}
 	defer os.RemoveAll(dir)
+
 	cmd := exec.Command("go", "install", "launchpad.net/juju-core/cmd/...")
 	cmd.Env = setenv(os.Environ(), "GOBIN="+dir)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("build failed: %v; %s", err, out)
+		return version.Binary{}, fmt.Errorf("build failed: %v; %s", err, out)
 	}
-	return archive(w, dir)
+	if vers != nil {
+		if err := ioutil.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte((*vers).String()), 0666); err != nil {
+			return version.Binary{}, err
+		}
+	}
+	cmd = exec.Command(filepath.Join(dir, "jujud"), "version")
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		return version.Binary{}, fmt.Errorf("cannot get version from %q: %v; %s", cmd.Args[0], err, out)
+	}
+	tvs := strings.TrimSpace(string(out))
+	tvers, err := version.ParseBinary(tvs)
+	if err != nil {
+		return version.Binary{}, fmt.Errorf("invalid version %q printed by jujud", tvs)
+	}
+	err = archive(w, dir)
+	if err != nil {
+		return version.Binary{}, err
+	}
+	return tvers, err
 }
 
 // EmptyStorage holds a StorageReader object that contains nothing.

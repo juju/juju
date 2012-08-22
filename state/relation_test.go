@@ -180,7 +180,7 @@ func (s *RelationUnitSuite) SetUpTest(c *C) {
 	s.charm = s.AddTestingCharm(c, "dummy")
 }
 
-func (s *RelationUnitSuite) TestRelationUnitJoinError(c *C) {
+func (s *RelationUnitSuite) TestRelationUnitInitError(c *C) {
 	peer, err := s.State.AddService("peer", s.charm)
 	c.Assert(err, IsNil)
 	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
@@ -192,8 +192,8 @@ func (s *RelationUnitSuite) TestRelationUnitJoinError(c *C) {
 	c.Assert(err, IsNil)
 	err = peer.RemoveUnit(u)
 	c.Assert(err, IsNil)
-	_, err = ru.Join()
-	c.Assert(err, ErrorMatches, `cannot join unit "peer/0" to relation "peer:baz": private address of unit "peer/0" not found`)
+	err = ru.Init()
+	c.Assert(err, ErrorMatches, `cannot initialize state for unit "peer/0" in relation "peer:baz": private address of unit "peer/0" not found`)
 }
 
 func (s *RelationUnitSuite) TestRelationUnitReadSettings(c *C) {
@@ -226,9 +226,8 @@ func (s *RelationUnitSuite) TestRelationUnitReadSettings(c *C) {
 	// both RelationUnits.
 	err = u1.SetPrivateAddress("blah.example.com")
 	c.Assert(err, IsNil)
-	p, err := ru1.Join()
+	err = ru1.Init()
 	c.Assert(err, IsNil)
-	kill(c, p)
 	assertSettings := func(ru *state.RelationUnit, expect map[string]interface{}) {
 		settings, err := ru0.ReadSettings("peer/1")
 		c.Assert(err, IsNil)
@@ -292,18 +291,22 @@ func (s *RelationUnitSuite) TestPeerRelationUnit(c *C) {
 
 	// Join the first unit to the relation, and change the settings, and
 	// check that nothing apparently happens.
-	p0, err := ru0.Join()
+	err = ru0.Init()
 	c.Assert(err, IsNil)
-	defer kill(c, p0)
+	err = ru0.Pinger().Start()
+	c.Assert(err, IsNil)
+	defer kill(c, ru0.Pinger())
 	s0 := changeSettings(c, ru0)
 	assertNoChange(c, w0)
 
 	// ---------- Two units ----------
 
 	// Now join another unit to the relation...
-	p1, err := ru1.Join()
+	err = ru1.Init()
 	c.Assert(err, IsNil)
-	defer kill(c, p1)
+	err = ru1.Pinger().Start()
+	c.Assert(err, IsNil)
+	defer kill(c, ru1.Pinger())
 
 	// ...and check that the first relation unit sees the change.
 	s1, err := ru1.Settings()
@@ -337,9 +340,11 @@ func (s *RelationUnitSuite) TestPeerRelationUnit(c *C) {
 	assertNoChange(c, w2)
 
 	// Join the third unit, and check the first and second units see it.
-	p2, err := ru2.Join()
+	err = ru2.Init()
 	c.Assert(err, IsNil)
-	defer kill(c, p2)
+	err = ru2.Pinger().Start()
+	c.Assert(err, IsNil)
+	defer kill(c, ru2.Pinger())
 	s2, err := ru2.Settings()
 	c.Assert(err, IsNil)
 	expect = state.RelationUnitsChange{Changed: map[string]state.UnitSettings{
@@ -365,7 +370,7 @@ func (s *RelationUnitSuite) TestPeerRelationUnit(c *C) {
 	// ---------- Two units again ----------
 
 	// Depart the second unit, and check that the first and third detect it.
-	err = p1.Kill()
+	err = ru1.Pinger().Kill()
 	c.Assert(err, IsNil)
 	expect = state.RelationUnitsChange{Departed: []string{"peer/1"}}
 	assertChange(c, w0, expect)
@@ -387,12 +392,10 @@ func (s *RelationUnitSuite) TestPeerRelationUnit(c *C) {
 
 	// Cause the first unit to silently depart, then bring it back, and
 	// check its watcher observes no changes...
-	err = p0.Stop()
+	err = ru0.Pinger().Stop()
 	c.Assert(err, IsNil)
-	defer kill(c, p0)
-	p0, err = ru0.Join()
+	err = ru0.Pinger().Start()
 	c.Assert(err, IsNil)
-	defer kill(c, p0)
 	assertNoChange(c, w0)
 
 	// ...then check that the third unit didn't notice anything either.
@@ -444,17 +447,21 @@ func (s *RelationUnitSuite) TestGlobalProReqRelationUnit(c *C) {
 
 	// Join the unit to the relation, change its settings, and check that
 	// nothing apparently happens.
-	prop0, err := proru0.Join()
+	err = proru0.Init()
 	c.Assert(err, IsNil)
-	defer kill(c, prop0)
+	err = proru0.Pinger().Start()
+	c.Assert(err, IsNil)
+	defer kill(c, proru0.Pinger())
 	pros0 := changeSettings(c, proru0)
 	assertNoChange(c, prow0)
 
 	// Join the second provider unit, start its watch, and check what it thinks the
 	// state of the relation is.
-	prop1, err := proru1.Join()
+	err = proru1.Init()
 	c.Assert(err, IsNil)
-	defer kill(c, prop1)
+	err = proru1.Pinger().Start()
+	c.Assert(err, IsNil)
+	defer kill(c, proru1.Pinger())
 	prow1 := proru1.Watch()
 	assertChange(c, prow1, state.RelationUnitsChange{})
 	assertNoChange(c, prow1)
@@ -483,9 +490,11 @@ func (s *RelationUnitSuite) TestGlobalProReqRelationUnit(c *C) {
 	assertNoChange(c, reqw1)
 
 	// Join the first requirer unit, and check the provider units see it.
-	reqp0, err := reqru0.Join()
+	err = reqru0.Init()
 	c.Assert(err, IsNil)
-	defer kill(c, reqp0)
+	err = reqru0.Pinger().Start()
+	c.Assert(err, IsNil)
+	defer kill(c, reqru0.Pinger())
 	reqs0, err := reqru0.Settings()
 	c.Assert(err, IsNil)
 	expect = state.RelationUnitsChange{Changed: map[string]state.UnitSettings{
@@ -497,9 +506,11 @@ func (s *RelationUnitSuite) TestGlobalProReqRelationUnit(c *C) {
 	assertNoChange(c, prow1)
 
 	// Join the second requirer, and check the provider units see the change.
-	reqp1, err := reqru1.Join()
+	err = reqru1.Init()
 	c.Assert(err, IsNil)
-	defer kill(c, reqp1)
+	err = reqru1.Pinger().Start()
+	c.Assert(err, IsNil)
+	defer kill(c, reqru1.Pinger())
 	reqs1, err := reqru1.Settings()
 	c.Assert(err, IsNil)
 	expect = state.RelationUnitsChange{Changed: map[string]state.UnitSettings{
@@ -529,7 +540,7 @@ func (s *RelationUnitSuite) TestGlobalProReqRelationUnit(c *C) {
 	assertNoChange(c, reqw1)
 
 	// Depart the second requirer and check the providers see it...
-	err = reqp1.Kill()
+	err = reqru1.Pinger().Kill()
 	c.Assert(err, IsNil)
 	expect = state.RelationUnitsChange{Departed: []string{"req/1"}}
 	assertChange(c, prow0, expect)
@@ -595,9 +606,11 @@ func (s *RelationUnitSuite) TestContainerProReqRelationUnit(c *C) {
 
 	// Join the unit to the relation, change its settings, and check that
 	// nothing apparently happens.
-	prop0, err := proru0.Join()
+	err = proru0.Init()
 	c.Assert(err, IsNil)
-	defer kill(c, prop0)
+	err = proru0.Pinger().Start()
+	c.Assert(err, IsNil)
+	defer kill(c, proru0.Pinger())
 	pros0 := changeSettings(c, proru0)
 	assertNoChange(c, prow0)
 
@@ -610,9 +623,11 @@ func (s *RelationUnitSuite) TestContainerProReqRelationUnit(c *C) {
 
 	// Join the second provider unit to the relation, and check that neither
 	// watching unit observes any change.
-	prop1, err := proru1.Join()
+	err = proru1.Init()
 	c.Assert(err, IsNil)
-	defer kill(c, prop1)
+	err = proru1.Pinger().Start()
+	c.Assert(err, IsNil)
+	defer kill(c, proru1.Pinger())
 	assertNoChange(c, prow1)
 	assertNoChange(c, prow0)
 
@@ -635,9 +650,11 @@ func (s *RelationUnitSuite) TestContainerProReqRelationUnit(c *C) {
 
 	// Join the first requirer unit, and check that only the first provider
 	// observes the change.
-	reqp0, err := reqru0.Join()
+	err = reqru0.Init()
 	c.Assert(err, IsNil)
-	defer kill(c, reqp0)
+	err = reqru0.Pinger().Start()
+	c.Assert(err, IsNil)
+	defer kill(c, reqru0.Pinger())
 	reqs0, err := reqru0.Settings()
 	c.Assert(err, IsNil)
 	expect = state.RelationUnitsChange{Changed: map[string]state.UnitSettings{
@@ -659,9 +676,11 @@ func (s *RelationUnitSuite) TestContainerProReqRelationUnit(c *C) {
 	assertNoChange(c, reqw1)
 
 	// Join the second requirer, and check that the first provider observes it...
-	reqp1, err := reqru1.Join()
+	err = reqru1.Init()
 	c.Assert(err, IsNil)
-	defer kill(c, reqp1)
+	err = reqru1.Pinger().Start()
+	c.Assert(err, IsNil)
+	defer kill(c, reqru1.Pinger())
 	reqs1, err := reqru1.Settings()
 	c.Assert(err, IsNil)
 	expect = state.RelationUnitsChange{Changed: map[string]state.UnitSettings{
@@ -691,7 +710,7 @@ func (s *RelationUnitSuite) TestContainerProReqRelationUnit(c *C) {
 
 	// Finally, depart the first provider, and check that only the first
 	// requirer observes any change.
-	err = prop0.Kill()
+	err = proru0.Pinger().Kill()
 	c.Assert(err, IsNil)
 	expect = state.RelationUnitsChange{Departed: []string{"pro/0"}}
 	assertChange(c, reqw0, expect)
@@ -705,11 +724,7 @@ func (s *RelationUnitSuite) TestContainerProReqRelationUnit(c *C) {
 }
 
 func kill(c *C, p *presence.Pinger) {
-	select {
-	case <-p.Dying():
-	default:
-		c.Assert(p.Kill(), IsNil)
-	}
+	c.Assert(p.Kill(), IsNil)
 }
 
 func stop(c *C, w *state.RelationUnitsWatcher) {

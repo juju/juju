@@ -5,10 +5,9 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/store"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/lpad"
 )
-
-var apiBase = lpad.APIBase(testServer.URL)
 
 var jsonType = map[string]string{
 	"Content-Type": "application/json",
@@ -18,7 +17,7 @@ func (s *StoreSuite) TestPublishCharmDistro(c *C) {
 	branch := s.dummyBranch(c, "~joe/charms/oneiric/dummy/trunk")
 
 	// The Distro call will look for bare /charms, first.
-	testServer.Response(200, jsonType, "{}")
+	testing.Server.Response(200, jsonType, []byte("{}"))
 
 	// And then it picks up the tips.
 	data := fmt.Sprintf(`[`+
@@ -28,8 +27,9 @@ func (s *StoreSuite) TestPublishCharmDistro(c *C) {
 		`["file:///non-existent/~jeff/charms/precise/bad/skip-me", "rev3", []]`+
 		`]`,
 		branch.path(), branch.path(), branch.digest())
-	testServer.Response(200, jsonType, data)
+	testing.Server.Response(200, jsonType, []byte(data))
 
+	apiBase := lpad.APIBase(testing.Server.URL)
 	err := store.PublishCharmsDistro(s.store, apiBase)
 
 	// Should have a single failure from the trunk branch that doesn't
@@ -52,12 +52,12 @@ func (s *StoreSuite) TestPublishCharmDistro(c *C) {
 	c.Assert(err, Equals, store.ErrNotFound)
 
 	// bare /charms lookup
-	req := testServer.WaitRequest()
+	req := testing.Server.WaitRequest()
 	c.Assert(req.Method, Equals, "GET")
 	c.Assert(req.URL.Path, Equals, "/charms")
 
 	// tips request
-	req = testServer.WaitRequest()
+	req = testing.Server.WaitRequest()
 	c.Assert(req.Method, Equals, "GET")
 	c.Assert(req.URL.Path, Equals, "/charms")
 	c.Assert(req.Form["ws.op"], DeepEquals, []string{"getBranchTips"})

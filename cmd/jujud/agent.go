@@ -69,3 +69,38 @@ func (c *AgentConf) checkArgs(args []string) error {
 	}
 	return cmd.CheckEmpty(args)
 }
+
+type task interface {
+	Stop() error
+	Wait() error
+}
+
+// runTasks runs all the given tasks until any of them fails with an
+// error.  It then stops all of them and returns that error.  If a value
+// is received on the stop channel, the workers are stopped.
+func runTasks(stop <-chan struct{}, tasks ...task) (err error) {
+	done := make(chan error, len(tasks))
+	for _, t := range tasks {
+		t := t
+		go func() {
+			done <- t.Wait()
+		}()
+	}
+waiting:
+	for _ = range tasks {
+		select {
+		case err = <-done:
+			if err != nil {
+				break waiting
+			}
+		case <-stop:
+			break waiting
+		}
+	}
+	for _, t := range tasks {
+		if terr := t.Stop(); terr != nil && err == nil {
+			err = terr
+		}
+	}
+	return
+}
