@@ -256,9 +256,13 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 
 // ClearResolved removes any resolved setting on the unit.
 func (u *Unit) ClearResolved() error {
-	change := bson.D{{"$set", bson.D{{"resolved", ResolvedNone}}}}
-	sel := bson.D{{"_id", u.doc.Name}}
-	err := u.st.units.Update(sel, change)
+	op := []txn.Operation{{
+		Collection: u.st.units.Name,
+		DocId:      u.doc.Name,
+		Assert:     txn.DocExists,
+		Change:    	bson.D{{"$set", bson.D{{"resolved", ResolvedNone}}}},
+	}}
+	err := u.st.runner.Run(op, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, err)
 	}
