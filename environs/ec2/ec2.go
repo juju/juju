@@ -2,6 +2,7 @@ package ec2
 
 import (
 	"fmt"
+	"io/ioutil"
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
@@ -11,6 +12,8 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -120,6 +123,33 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, 
 	return m, nil
 }
 
+func (environProvider) publicAttrs(cfg *config.Config) (map[string]interface{}, error) {
+	m := make(map[string]interface{})
+	ecfg, err := providerInstance.newConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range ecfg.UnknownAttrs() {
+		m[k] = v
+	}
+	secret, err := providerInstance.SecretAttrs(cfg)
+	if err != nil {
+		return nil, err
+	}
+	for k, _ := range secret {
+		delete(m, k)
+	}
+	return m, nil
+}
+
+func (environProvider) PublicAddress() (string, error) {
+	return fetchMetadata("public-hostname")
+}
+
+func (environProvider) PrivateAddress() (string, error) {
+	return fetchMetadata("local-hostname")
+}
+
 func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
@@ -211,7 +241,12 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 			return fmt.Errorf("cannot upload tools: %v", err)
 		}
 	}
-	inst, err := e.startInstance(0, nil, tools, true)
+
+	config, err := providerInstance.publicAttrs(e.Config())
+	if err != nil {
+		return fmt.Errorf("unable to determine inital configuration: %v", err)
+	}
+	inst, err := e.startInstance(0, nil, tools, true, config)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -273,10 +308,10 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 }
 
 func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.Tools) (environs.Instance, error) {
-	return e.startInstance(machineId, info, tools, false)
+	return e.startInstance(machineId, info, tools, false, nil)
 }
 
-func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, master bool) ([]byte, error) {
+func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, master bool, config map[string]interface{}) ([]byte, error) {
 	cfg := &cloudinit.MachineConfig{
 		Provisioner:        master,
 		ZooKeeper:          master,
@@ -286,6 +321,7 @@ func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, 
 		Tools:              tools,
 		MachineId:          machineId,
 		AuthorizedKeys:     e.ecfg().AuthorizedKeys(),
+		Config:             config,
 	}
 	cloudcfg, err := cloudinit.New(cfg)
 	if err != nil {
@@ -297,7 +333,7 @@ func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, 
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
-func (e *environ) startInstance(machineId int, info *state.Info, tools *state.Tools, master bool) (environs.Instance, error) {
+func (e *environ) startInstance(machineId int, info *state.Info, tools *state.Tools, master bool, config map[string]interface{}) (environs.Instance, error) {
 	if tools == nil {
 		var err error
 		tools, err = environs.FindTools(e, version.Current)
@@ -315,7 +351,7 @@ func (e *environ) startInstance(machineId int, info *state.Info, tools *state.To
 		return nil, fmt.Errorf("cannot find image satisfying constraints: %v", err)
 	}
 	// TODO quick sanity check that we can access the tools URL?
-	userData, err := e.userData(machineId, info, tools, master)
+	userData, err := e.userData(machineId, info, tools, master, config)
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
@@ -771,4 +807,34 @@ func ec2ErrCode(err error) string {
 		return ""
 	}
 	return ec2err.Code
+}
+
+// metadataHost holds the address of the instance metadata service.
+// It is a variable so that tests can change it to refer to a local
+// server when needed.
+var metadataHost = "http://169.254.169.254"
+
+// fetchMetadata fetches a single atom of data from the ec2 instance metadata service.
+// http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
+func fetchMetadata(name string) (value string, err error) {
+	for a := shortAttempt.Start(); a.Next(); {
+		uri := fmt.Sprintf("%s/1.0/meta-data/%s", metadataHost, name)
+		var resp *http.Response
+		resp, err = http.Get(uri)
+		if err != nil {
+			continue
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			err = fmt.Errorf("bad http response %v", resp.Status)
+			continue
+		}
+		var data []byte
+		data, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			continue
+		}
+		return strings.TrimSpace(string(data)), nil
+	}
+	return
 }

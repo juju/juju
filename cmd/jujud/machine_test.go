@@ -3,22 +3,15 @@ package main
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/juju/testing"
 )
 
 type MachineSuite struct {
-	coretesting.LoggingSuite
+	testing.JujuConnSuite
 }
 
 var _ = Suite(&MachineSuite{})
-
-func (s *MachineSuite) SetUpTest(c *C) {
-	s.LoggingSuite.SetUpTest(c)
-}
-
-func (s *MachineSuite) TearDownTest(c *C) {
-	s.LoggingSuite.TearDownTest(c)
-}
 
 func (s *MachineSuite) TestParseSuccess(c *C) {
 	create := func() (cmd.Command, *AgentConf) {
@@ -43,4 +36,36 @@ func (s *MachineSuite) TestParseUnknown(c *C) {
 	a := &MachineAgent{}
 	err := ParseAgentCommand(a, []string{"--machine-id", "42", "blistering barnacles"})
 	c.Assert(err, ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
+}
+
+func (s *MachineSuite) TestRunInvalidMachineId(c *C) {
+	c.Skip("agents don't yet distinguish between temporary and permanent errors")
+	a := &MachineAgent{
+		Conf: AgentConf{
+			JujuDir:   environs.VarDir,
+			StateInfo: *s.StateInfo(c),
+		},
+		MachineId: 2,
+	}
+	err := a.Run(nil)
+	c.Assert(err, ErrorMatches, "some error")
+}
+
+func (s *MachineSuite) TestRunStop(c *C) {
+	m, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	a := &MachineAgent{
+		Conf: AgentConf{
+			JujuDir:   environs.VarDir,
+			StateInfo: *s.StateInfo(c),
+		},
+		MachineId: m.Id(),
+	}
+	done := make(chan error)
+	go func() {
+		done <- a.Run(nil)
+	}()
+	err = a.Stop()
+	c.Assert(err, IsNil)
+	c.Assert(<-done, IsNil)
 }

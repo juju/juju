@@ -300,6 +300,14 @@ func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{},
 
 }
 
+func (*environProvider) PublicAddress() (string, error) {
+	return "public.dummy.address.example.com", nil
+}
+
+func (*environProvider) PrivateAddress() (string, error) {
+	return "private.dummy.address.example.com", nil
+}
+
 var errBroken = errors.New("broken environment")
 
 func (e *environ) ecfg() *environConfig {

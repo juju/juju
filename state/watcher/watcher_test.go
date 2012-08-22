@@ -51,7 +51,7 @@ func (s *WatcherSuite) TestContentWatcher(c *C) {
 		case got, ok := <-contentWatcher.Changes():
 			c.Assert(ok, Equals, true)
 			c.Assert(got, Equals, test.want)
-		case <-time.After(200 * time.Millisecond):
+		case <-time.After(500 * time.Millisecond):
 			c.Fatalf("did not get change: %#v", test.want)
 		}
 	}
