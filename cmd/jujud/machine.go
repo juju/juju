@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/machiner"
@@ -46,13 +47,25 @@ func (a *MachineAgent) Stop() error {
 func (a *MachineAgent) Run(_ *cmd.Context) error {
 	defer a.tomb.Done()
 	for {
+		log.Printf("machine agent starting")
 		err := a.runOnce()
 		if a.tomb.Err() != tomb.ErrStillAlive {
-			// Stop requested by user.
+			// We have been explicitly stopped.
 			return err
 		}
+		if ug, ok := err.(*UpgradedError); ok {
+			tools, err := environs.ChangeAgentTools("machine", ug.Binary)
+			if err != nil {
+				log.Printf("cannot change agent tools: %v", err)
+				time.Sleep(retryDelay)
+				continue
+			}
+			log.Printf("exiting to upgrade to %v from %q", tools.Binary, tools.URL)
+			// Return and let upstart deal with the restart.
+			return nil
+		}
+		log.Printf("error from provisioner or firewaller: %v", err)
 		time.Sleep(retryDelay)
-		log.Printf("restarting provisioner and firewaller after error: %v", err)
 	}
 	panic("unreachable")
 }
@@ -63,6 +76,12 @@ func (a *MachineAgent) runOnce() error {
 		return err
 	}
 	defer st.Close()
+	m, err := st.Machine(a.MachineId)
+	if err != nil {
+		return err
+	}
 	return runTasks(a.tomb.Dying(),
-		machiner.NewMachiner(st, a.MachineId))
+		machiner.NewMachiner(m),
+		NewUpgrader("machine", m),
+	)
 }

@@ -167,8 +167,11 @@ func (s *State) Charm(curl *charm.URL) (stch *Charm, err error) {
 // and the charm state.
 func (s *State) AddService(name string, ch *Charm) (service *Service, err error) {
 	defer trivial.ErrorContextf(&err, "cannot add service %q", name)
-	details := map[string]interface{}{"charm": ch.URL().String()}
-	yaml, err := goyaml.Marshal(details)
+	initial := map[string]interface{}{
+		"charm":       ch.URL().String(),
+		"force-charm": false,
+	}
+	yaml, err := goyaml.Marshal(initial)
 	if err != nil {
 		return nil, err
 	}
