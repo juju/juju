@@ -47,17 +47,9 @@ func (t *ToolsSuite) TearDownTest(c *C) {
 
 var envs *environs.Environs
 
-func mkVersion(vers string) version.Number {
-	v, err := version.Parse(vers)
-	if err != nil {
-		panic(err)
-	}
-	return v
-}
-
-func mkToolsStoragePath(vers string) string {
+func toolsStoragePath(vers string) string {
 	return environs.ToolsStoragePath(version.Binary{
-		Number: mkVersion(vers),
+		Number: version.MustParse(vers),
 		Series: version.Current.Series,
 		Arch:   version.Current.Arch,
 	})
@@ -238,13 +230,13 @@ func (t *ToolsSuite) TestReadToolsErrors(c *C) {
 }
 
 func (t *ToolsSuite) TestToolsStoragePath(c *C) {
-	c.Assert(environs.ToolsStoragePath(binaryVersion(1, 2, 3, "precise", "amd64")),
+	c.Assert(environs.ToolsStoragePath(binaryVersion("1.2.3-precise-amd64")),
 		Equals, "tools/juju-1.2.3-precise-amd64.tgz")
 }
 
 func (t *ToolsSuite) TestToolsDir(c *C) {
 	environs.VarDir = "/var/lib/juju"
-	c.Assert(environs.ToolsDir(binaryVersion(1, 2, 3, "precise", "amd64")),
+	c.Assert(environs.ToolsDir(binaryVersion("1.2.3-precise-amd64")),
 		Equals,
 		"/var/lib/juju/tools/1.2.3-precise-amd64")
 }
@@ -404,80 +396,80 @@ var findToolsTests = []struct {
 	expect:   environs.ToolsStoragePath(version.Current),
 }, {
 	// major versions don't match.
-	version: mkVersion("1.0.0"),
+	version: version.MustParse("1.0.0"),
 	contents: []string{
-		mkToolsStoragePath("0.0.9"),
+		toolsStoragePath("0.0.9"),
 	},
 	err: "no compatible tools found",
 }, {
 	// major versions don't match.
-	version: mkVersion("1.0.0"),
+	version: version.MustParse("1.0.0"),
 	contents: []string{
-		mkToolsStoragePath("2.0.9"),
+		toolsStoragePath("2.0.9"),
 	},
 	err: "no compatible tools found",
 }, {
 	// fall back to public storage when nothing found in private.
-	version: mkVersion("1.0.0"),
+	version: version.MustParse("1.0.0"),
 	contents: []string{
-		mkToolsStoragePath("0.0.9"),
+		toolsStoragePath("0.0.9"),
 	},
 	publicContents: []string{
-		mkToolsStoragePath("1.0.0"),
+		toolsStoragePath("1.0.0"),
 	},
-	expect: "public-" + mkToolsStoragePath("1.0.0"),
+	expect: "public-" + toolsStoragePath("1.0.0"),
 }, {
 	// always use private storage in preference to public storage.
-	version: mkVersion("1.0.0"),
+	version: version.MustParse("1.0.0"),
 	contents: []string{
-		mkToolsStoragePath("1.0.2"),
+		toolsStoragePath("1.0.2"),
 	},
 	publicContents: []string{
-		mkToolsStoragePath("1.0.9"),
+		toolsStoragePath("1.0.9"),
 	},
-	expect: mkToolsStoragePath("1.0.2"),
+	expect: toolsStoragePath("1.0.2"),
 }, {
 	// we'll use an earlier version if the major version number matches.
-	version: mkVersion("1.99.99"),
+	version: version.MustParse("1.99.99"),
 	contents: []string{
-		mkToolsStoragePath("1.0.0"),
+		toolsStoragePath("1.0.0"),
 	},
-	expect: mkToolsStoragePath("1.0.0"),
+	expect: toolsStoragePath("1.0.0"),
 }, {
 	// check that version comparing is numeric, not alphabetical.
-	version: mkVersion("1.0.0"),
+	version: version.MustParse("1.0.0"),
 	contents: []string{
-		mkToolsStoragePath("1.0.9"),
-		mkToolsStoragePath("1.0.10"),
-		mkToolsStoragePath("1.0.11"),
+		toolsStoragePath("1.0.9"),
+		toolsStoragePath("1.0.10"),
+		toolsStoragePath("1.0.11"),
 	},
-	expect: mkToolsStoragePath("1.0.11"),
+	expect: toolsStoragePath("1.0.11"),
 }, {
 	// minor version wins over patch version.
-	version: mkVersion("1.0.0"),
+	version: version.MustParse("1.0.0"),
 	contents: []string{
-		mkToolsStoragePath("1.9.11"),
-		mkToolsStoragePath("1.10.10"),
-		mkToolsStoragePath("1.11.9"),
+		toolsStoragePath("1.9.11"),
+		toolsStoragePath("1.10.10"),
+		toolsStoragePath("1.11.9"),
 	},
-	expect: mkToolsStoragePath("1.11.9"),
+	expect: toolsStoragePath("1.11.9"),
 }, {
 	// mismatching series or architecture is ignored.
-	version: mkVersion("1.0.0"),
+	version: version.MustParse("1.0.0"),
 	contents: []string{
 		environs.ToolsStoragePath(version.Binary{
-			Number: mkVersion("1.9.9"),
+			Number: version.MustParse("1.9.9"),
 			Series: "foo",
 			Arch:   version.Current.Arch,
 		}),
 		environs.ToolsStoragePath(version.Binary{
-			Number: mkVersion("1.9.9"),
+			Number: version.MustParse("1.9.9"),
 			Series: version.Current.Series,
 			Arch:   "foo",
 		}),
-		mkToolsStoragePath("1.0.0"),
+		toolsStoragePath("1.0.0"),
 	},
-	expect: mkToolsStoragePath("1.0.0"),
+	expect: toolsStoragePath("1.0.0"),
 },
 }
 
@@ -536,27 +528,19 @@ func (*ToolsSuite) TestSetenv(c *C) {
 	}
 }
 
-func binaryVersion(major, minor, patch int, series, arch string) version.Binary {
-	return version.Binary{
-		Number: version.Number{
-			Major: major,
-			Minor: minor,
-			Patch: patch,
-		},
-		Series: series,
-		Arch:   arch,
-	}
+func binaryVersion(vers string) version.Binary {
+	return version.MustParseBinary(vers)
 }
 
-func newTools(major, minor, patch int, series, arch, url string) *state.Tools {
+func newTools(vers, url string) *state.Tools {
 	return &state.Tools{
-		Binary: binaryVersion(major, minor, patch, series, arch),
+		Binary: binaryVersion(vers),
 		URL:    url,
 	}
 }
 
 func (t *ToolsSuite) TestListTools(c *C) {
-	r := storageReader{
+	testList := []string{
 		"foo",
 		"tools/.tgz",
 		"tools/juju-1.2.3-precise-i386.tgz",
@@ -567,71 +551,140 @@ func (t *ToolsSuite) TestListTools(c *C) {
 		"tools/juju-3.2.1-precise-amd64.tgz",
 		"xtools/juju-2.2.3-precise-amd64.tgz",
 	}
-	toolsList, err := environs.ListTools(r, 2)
+
+	e := newSRE(testList, testList)
+
+	toolsList, err := environs.ListTools(e, 2)
 	c.Assert(err, IsNil)
-	c.Check(toolsList, DeepEquals, []*state.Tools{
-		newTools(2, 2, 3, "precise", "amd64", "<base>tools/juju-2.2.3-precise-amd64.tgz"),
-		newTools(2, 2, 3, "precise", "i386", "<base>tools/juju-2.2.3-precise-i386.tgz"),
-		newTools(2, 2, 4, "precise", "i386", "<base>tools/juju-2.2.4-precise-i386.tgz"),
+	expectTools := []*state.Tools{
+		newTools("2.2.3-precise-amd64", "<base>tools/juju-2.2.3-precise-amd64.tgz"),
+		newTools("2.2.3-precise-i386", "<base>tools/juju-2.2.3-precise-i386.tgz"),
+		newTools("2.2.4-precise-i386", "<base>tools/juju-2.2.4-precise-i386.tgz"),
+	}
+	c.Check(toolsList, DeepEquals, &environs.ToolsList{
+		Private: expectTools,
+		Public:  expectTools,
 	})
 
-	toolsList, err = environs.ListTools(r, 3)
+	toolsList, err = environs.ListTools(e, 3)
 	c.Assert(err, IsNil)
-	c.Check(toolsList, DeepEquals, []*state.Tools{
-		newTools(3, 2, 1, "precise", "amd64", "<base>tools/juju-3.2.1-precise-amd64.tgz"),
+	expectTools = []*state.Tools{
+		newTools("3.2.1-precise-amd64", "<base>tools/juju-3.2.1-precise-amd64.tgz"),
+	}
+	c.Check(toolsList, DeepEquals, &environs.ToolsList{
+		Private: expectTools,
+		Public:  expectTools,
 	})
 
-	toolsList, err = environs.ListTools(r, 4)
+	toolsList, err = environs.ListTools(e, 4)
 	c.Assert(err, IsNil)
-	c.Check(toolsList, HasLen, 0)
+	c.Check(toolsList.Private, HasLen, 0)
+	c.Check(toolsList.Public, HasLen, 0)
 }
 
 var bestToolsTests = []struct {
-	list   []*state.Tools
+	list   *environs.ToolsList
 	vers   version.Binary
-	expect int
+	expect *state.Tools
 }{{
+	&environs.ToolsList{},
+	binaryVersion("1.2.3-precise-amd64"),
 	nil,
-	binaryVersion(1, 2, 3, "precise", "amd64"),
-	-1,
 }, {
-	[]*state.Tools{
-		newTools(1, 2, 3, "precise", "amd64", ""),
-		newTools(1, 2, 4, "precise", "amd64", ""),
-		newTools(1, 3, 4, "precise", "amd64", ""),
-		newTools(1, 4, 4, "precise", "i386", ""),
-		newTools(1, 4, 5, "quantal", "i386", ""),
-		newTools(2, 2, 3, "precise", "amd64", ""),
+	&environs.ToolsList{
+		Private: []*state.Tools{
+			newTools("1.2.3-precise-amd64", ""),
+			newTools("1.2.4-precise-amd64", ""),
+			newTools("1.3.4-precise-amd64", ""),
+			newTools("1.4.4-precise-i386", ""),
+			newTools("1.4.5-quantal-i386", ""),
+			newTools("2.2.3-precise-amd64", ""),
+		},
 	},
-	binaryVersion(1, 9, 4, "precise", "amd64"),
-	2,
+	binaryVersion("1.9.4-precise-amd64"),
+	newTools("1.3.4-precise-amd64", ""),
 }, {
-	[]*state.Tools{
-		newTools(1, 2, 3, "precise", "amd64", ""),
-		newTools(1, 2, 4, "precise", "amd64", ""),
-		newTools(1, 3, 4, "precise", "amd64", ""),
-		newTools(1, 4, 4, "precise", "i386", ""),
-		newTools(1, 4, 5, "quantal", "i386", ""),
-		newTools(2, 2, 3, "precise", "amd64", ""),
+	&environs.ToolsList{
+		Private: []*state.Tools{
+			newTools("1.2.3-precise-amd64", ""),
+			newTools("1.2.4-precise-amd64", ""),
+			newTools("1.3.4-precise-amd64", ""),
+			newTools("1.4.4-precise-i386", ""),
+			newTools("1.4.5-quantal-i386", ""),
+			newTools("2.2.3-precise-amd64", ""),
+		},
 	},
-	binaryVersion(2, 0, 0, "precise", "amd64"),
-	5,
+	binaryVersion("2.0.0-precise-amd64"),
+	newTools("2.2.3-precise-amd64", ""),
 },
+	{
+		&environs.ToolsList{
+			Private: []*state.Tools{
+				newTools("1.2.3-precise-amd64", ""),
+			},
+			Public: []*state.Tools{
+				newTools("1.2.4-precise-amd64", ""),
+			},
+		},
+		binaryVersion("1.0.0-precise-amd64"),
+		newTools("1.2.3-precise-amd64", ""),
+	},
+	{
+		&environs.ToolsList{
+			Public: []*state.Tools{
+				newTools("1.2.4-precise-amd64", ""),
+			},
+		},
+		binaryVersion("1.0.0-precise-amd64"),
+		newTools("1.2.4-precise-amd64", ""),
+	},
 }
 
 func (t *ToolsSuite) TestBestTools(c *C) {
 	for i, t := range bestToolsTests {
 		c.Logf("test %d", i)
 		tools := environs.BestTools(t.list, t.vers)
-		if t.expect == -1 {
-			c.Assert(tools, IsNil)
-		} else {
-			c.Assert(tools, Equals, t.list[t.expect])
-		}
+		c.Assert(tools, DeepEquals, t.expect)
 	}
 }
 
+// storageReaderEnviron implements an Environ where
+// all methods panic except those involved with reading
+// its storage. Get panics too.
+type storageReaderEnviron struct {
+	environs.Environ // never set - just there so we can satisfy Environ.
+	private, public  storageReader
+}
+
 type storageReader []string
+
+// newSRE returns a new storageReaderEnviron with the
+// given contents list in its private and public storage
+// respectively.
+func newSRE(private, public []string) *storageReaderEnviron {
+	return &storageReaderEnviron{
+		private: private,
+		public:  public,
+	}
+}
+
+func (e *storageReaderEnviron) Storage() environs.Storage {
+	// Let the dummy StorageWriter methods be overridden by
+	// the storageReader.
+	type writerMethods struct {
+		environs.StorageWriter
+	}
+	return struct {
+		storageReader
+		writerMethods
+	}{
+		storageReader: e.private,
+	}
+}
+
+func (e *storageReaderEnviron) PublicStorage() environs.StorageReader {
+	return e.public
+}
 
 func (r storageReader) Get(name string) (io.ReadCloser, error) {
 	panic("get called on fake storage reader")
