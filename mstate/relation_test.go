@@ -221,14 +221,14 @@ func (s *RelationSuite) createRelationWithLife(svc *state.Service, cached, dbini
 	rel, err := s.State.AddRelation(peerep)
 	c.Assert(err, IsNil)
 
-	err = s.relations.UpdateId(rel.Id(), bson.D{{"$set", bson.D{
+	err = s.relations.UpdateId(rel.String(), bson.D{{"$set", bson.D{
 		{"life", cached},
 	}}})
 	c.Assert(err, IsNil)
 	err = rel.Refresh()
 	c.Assert(err, IsNil)
 
-	err = s.relations.UpdateId(rel.Id(), bson.D{{"$set", bson.D{
+	err = s.relations.UpdateId(rel.String(), bson.D{{"$set", bson.D{
 		{"life", dbinitial},
 	}}})
 	c.Assert(err, IsNil)
