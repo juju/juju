@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
+	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/trivial"
 )
 
@@ -151,7 +152,6 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 
 // AssignToMachine assigns this unit to a given machine.
 func (u *Unit) AssignToMachine(m *Machine) (err error) {
-	change := bson.D{{"$set", bson.D{{"machineid", m.Id()}}}}
 	sel := bson.D{
 		{"_id", u.doc.Name},
 		{"$or", []bson.D{
@@ -159,7 +159,13 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 			bson.D{{"machineid", m.Id()}},
 		}},
 	}
-	err = u.st.units.Update(sel, change)
+	op := []txn.Operation{{
+		Collection: u.st.units.Name,
+		DocId:      u.doc.Name,
+		Assert:     sel,
+		Change:     bson.D{{"$set", bson.D{{"machineid", m.Id()}}}},
+	}}
+	err = u.st.runner.Run(op, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot assign unit %q to machine %s: %v", u, m, err)
 	}
