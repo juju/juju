@@ -1,7 +1,9 @@
 package cloudinit
 
 import (
+	"encoding/base64"
 	"fmt"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
@@ -52,6 +54,10 @@ type MachineConfig struct {
 	// machines it will mean that the ssh, scp and debug-hooks
 	// commands cannot work.
 	AuthorizedKeys string
+
+	// Config is map that is provided to juju bootstrap-state's --env-config
+	// option for initializing the environment configuration.
+	Config map[string]interface{}
 }
 
 type requiresError string
@@ -64,6 +70,15 @@ func addScripts(c *cloudinit.Config, scripts ...string) {
 	for _, s := range scripts {
 		c.AddRunCmd(s)
 	}
+}
+
+func base64yaml(m map[string]interface{}) string {
+	data, err := goyaml.Marshal(m)
+	if err != nil {
+		// can't happen, these values have been validated a number of times
+		panic(err)
+	}
+	return base64.StdEncoding.EncodeToString(data)
 }
 
 func New(cfg *MachineConfig) (*cloudinit.Config, error) {
@@ -109,6 +124,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --instance-id "+cfg.InstanceIdAccessor+
 				" --env-type "+shquote(cfg.ProviderType)+
+				" --env-config "+shquote(base64yaml(cfg.Config))+
 				" --zookeeper-servers localhost"+zkPortSuffix+
 				debugFlag,
 		)
