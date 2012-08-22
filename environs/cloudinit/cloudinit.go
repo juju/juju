@@ -55,8 +55,8 @@ type MachineConfig struct {
 	// commands cannot work.
 	AuthorizedKeys string
 
-	// Config specifies a set of key/values that are passed to the bootstrap machine
-	// and inserted into the state on initialisation.
+	// Config is map that is provided to juju bootstrap-state's --env-config
+	// option for initializing the environment configuration.
 	Config map[string]interface{}
 }
 
