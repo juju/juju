@@ -91,7 +91,7 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	assertNoRelations(c, pro)
 	assertNoRelations(c, req)
 	err = s.State.RemoveRelation(rel)
-	c.Assert(err, ErrorMatches, `cannot remove relation "pro:foo req:bar": not found`)
+	c.Assert(err, ErrorMatches, `cannot remove relation "pro:foo req:bar": .*`)
 
 	// Check that we can add it again if we want to; but this time,
 	// give one of the endpoints container scope and check that both
@@ -126,7 +126,7 @@ func (s *RelationSuite) TestPeerRelation(c *C) {
 	c.Assert(err, IsNil)
 	assertNoRelations(c, peer)
 	err = s.State.RemoveRelation(rel)
-	c.Assert(err, ErrorMatches, `cannot remove relation "peer:baz": not found`)
+	c.Assert(err, ErrorMatches, `cannot remove relation "peer:baz": .*`)
 }
 
 func (s *RelationSuite) TestLifecycle(c *C) {

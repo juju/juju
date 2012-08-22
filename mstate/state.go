@@ -306,11 +306,13 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 	if r.doc.Life != Dead {
 		panic(fmt.Errorf("relation %q is not dead", r))
 	}
-	sel := bson.D{
-		{"_id", r.doc.Key},
-		{"life", Dead},
-	}
-	err = s.relations.Remove(sel)
+	op := []txn.Operation{{
+		Collection: s.relations.Name,
+		DocId:      r.doc.Key,
+		Assert:     bson.D{{"_id", r.doc.Key}, {"life", Dead}},
+		Remove:     true,
+	}}
+	err = s.runner.Run(op, "", nil)
 	if err != nil {
 		return err
 	}
