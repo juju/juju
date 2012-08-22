@@ -198,8 +198,8 @@ func (s *State) RemoveService(svc *Service) (err error) {
 		return err
 	}
 
-	// BUG(aram): this should be in the above transaction, but we
-	// are missing UpdateAll for now.
+	// BUG(aram): units should monitor their service and set themselves
+	// to dead. this requires watchers.
 	sel := bson.D{{"service", svc.doc.Name}}
 	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
 	_, err = s.units.UpdateAll(sel, change)

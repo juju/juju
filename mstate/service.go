@@ -79,9 +79,13 @@ func (s *Service) SetExposed() error {
 // ClearExposed removes the exposed flag from the service.
 // See SetExposed and IsExposed.
 func (s *Service) ClearExposed() error {
-	change := bson.D{{"$set", bson.D{{"exposed", false}}}}
-	
-	err := s.st.services.Update(bson.D{{"_id", s.doc.Name}}, change)
+	op := []txn.Operation{{
+		Collection: s.st.services.Name,
+		DocId:      s.doc.Name,
+		Assert:     bson.D{{"_id", s.doc.Name}, {"life", Alive}},
+		Change:     bson.D{{"$set", bson.D{{"exposed", false}}}},
+	}}
+	err := s.st.runner.Run(op, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot clear exposed flag for service %q: %v", s, err)
 	}
