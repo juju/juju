@@ -607,6 +607,38 @@ var bestToolsTests = []struct {
 	true,
 	newTools("1.3.4-precise-amd64", ""),
 }, {
+	// Check that we can't upgrade to a dev version from
+	// a release version if dev is false.
+	&environs.ToolsList{
+		Private: []*state.Tools{
+			newTools("2.2.3-precise-amd64", ""),
+			newTools("2.2.4-precise-amd64", ""),
+			newTools("2.3.4-precise-amd64", ""),
+			newTools("2.4.4-precise-i386", ""),
+			newTools("2.4.5-quantal-i386", ""),
+			newTools("3.2.3-precise-amd64", ""),
+		},
+	},
+	binaryVersion("2.0.0-precise-amd64"),
+	false,
+	newTools("2.2.4-precise-amd64", ""),
+}, {
+	// Check that we can upgrade to a release version from
+	// a dev version if dev is false.
+	&environs.ToolsList{
+		Private: []*state.Tools{
+			newTools("2.2.3-precise-amd64", ""),
+			newTools("2.2.4-precise-amd64", ""),
+			newTools("2.3.4-precise-amd64", ""),
+			newTools("2.4.4-precise-i386", ""),
+			newTools("3.2.3-precise-amd64", ""),
+		},
+	},
+	binaryVersion("2.0.1-precise-amd64"),
+	false,
+	newTools("2.4.4-precise-amd64", ""),
+}, {
+	// Check that a different major version works ok.
 	&environs.ToolsList{
 		Private: []*state.Tools{
 			newTools("1.2.3-precise-amd64", ""),
@@ -621,6 +653,8 @@ var bestToolsTests = []struct {
 	true,
 	newTools("2.2.3-precise-amd64", ""),
 }, {
+	// Check that the private tools are chosen even though
+	// they have a lower version number.
 	&environs.ToolsList{
 		Private: []*state.Tools{
 			newTools("1.2.3-precise-amd64", ""),
@@ -633,6 +667,8 @@ var bestToolsTests = []struct {
 	true,
 	newTools("1.2.3-precise-amd64", ""),
 }, {
+	// Check that the public tools can be chosen when
+	// there are no private tools.
 	&environs.ToolsList{
 		Public: []*state.Tools{
 			newTools("1.2.4-precise-amd64", ""),
