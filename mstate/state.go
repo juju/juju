@@ -74,7 +74,7 @@ func (s *State) AddMachine() (m *Machine, err error) {
 		Life: Alive,
 	}
 	op := []txn.Operation{{
-		Collection: "machines",
+		Collection: s.machines.Name,
 		DocId:      id,
 		Assert:     txn.DocMissing,
 		Insert:     mdoc,
@@ -88,9 +88,13 @@ func (s *State) AddMachine() (m *Machine, err error) {
 
 // RemoveMachine removes the machine with the the given id.
 func (s *State) RemoveMachine(id int) error {
-	sel := bson.D{{"_id", id}, {"life", Alive}}
-	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
-	err := s.machines.Update(sel, change)
+	op := []txn.Operation{{
+		Collection: s.machines.Name,
+		DocId:      id,
+		Assert:     bson.D{{"life", Alive}},
+		Change:     bson.D{{"$set", bson.D{{"life", Dying}}}},
+	}}
+	err := s.runner.Run(op, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot remove machine %d: %v", id, err)
 	}
