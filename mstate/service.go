@@ -177,8 +177,13 @@ func (s *Service) RemoveUnit(unit *Unit) error {
 		{"service", s.doc.Name},
 		{"life", Alive},
 	}
-	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
-	err := s.st.units.Update(sel, change)
+	op := []txn.Operation{{
+		Collection: s.st.units.Name,
+		DocId:      unit.doc.Name,
+		Assert:     sel,
+		Change:     bson.D{{"$set", bson.D{{"life", Dying}}}},
+	}}
+	err := s.st.runner.Run(op, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot remove unit %q: %v", unit, err)
 	}
