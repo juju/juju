@@ -173,7 +173,7 @@ func processServices(services map[string]*state.Service) (map[string]interface{}
 
 func processService(service *state.Service) (map[string]interface{}, error) {
 	r := m()
-	ch, err := service.Charm()
+	ch, _, err := service.Charm()
 	if err != nil {
 		return nil, err
 	}
