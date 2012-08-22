@@ -134,8 +134,6 @@ func (s *RelationSuite) testLifecycleStateChangesForLiving(env *livingEnv, c *C)
 		c.Assert(err, IsNil)
 		c.Assert(l.Life(), Equals, v.dbfinal)
 
-		err = l.Die()
-		c.Assert(err, IsNil)
 		env.teardown(l, c)
 	}
 }
@@ -155,6 +153,8 @@ func (s *RelationSuite) TestLifecycleStateChanges(c *C) {
 				if !ok {
 					c.Errorf("unexpected living type")
 				}
+				err := r.Die()
+				c.Assert(err, IsNil)
 				err = s.State.RemoveRelation(r)
 				c.Assert(err, IsNil)
 
@@ -170,6 +170,8 @@ func (s *RelationSuite) TestLifecycleStateChanges(c *C) {
 				if !ok {
 					c.Errorf("unexpected living type")
 				}
+				err := u.Die()
+				c.Assert(err, IsNil)
 				err = peer.RemoveUnit(u)
 				c.Assert(err, IsNil)
 
