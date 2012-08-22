@@ -274,7 +274,13 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 		Endpoints: endpoints,
 		Life:      Alive,
 	}
-	err = s.relations.Insert(doc)
+	op := []txn.Operation{{
+		Collection: s.relations.Name,
+		DocId:      doc.Key,
+		Assert:     txn.DocMissing,
+		Insert:     doc,
+	}}
+	err = s.runner.Run(op, "", nil)
 	if err != nil {
 		return nil, err
 	}
