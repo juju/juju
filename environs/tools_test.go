@@ -3,7 +3,6 @@ package environs_test
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
@@ -473,20 +472,27 @@ var findToolsTests = []struct {
 },
 }
 
+// putNames puts a set of names into the environ's private
+// and public storage. The data in the private storage is
+// the name itself; in the public storage the name is preceded with "public-".
+func putNames(c *C, env environs.Environ, private, public []string) {
+	for _, name := range private {
+		err := env.Storage().Put(name, strings.NewReader(name), int64(len(name)))
+		c.Assert(err, IsNil)
+	}
+	// The contents of all files in the public storage is prefixed with "public-" so
+	// that we can easily tell if we've got the right thing.
+	for _, name := range public {
+		data := "public-" + name
+		err := env.PublicStorage().(environs.Storage).Put(name, strings.NewReader(data), int64(len(data)))
+		c.Assert(err, IsNil)
+	}
+}
+
 func (t *ToolsSuite) TestFindTools(c *C) {
 	for i, tt := range findToolsTests {
 		c.Logf("test %d", i)
-		for _, name := range tt.contents {
-			err := t.env.Storage().Put(name, strings.NewReader(name), int64(len(name)))
-			c.Assert(err, IsNil)
-		}
-		// The contents of all files in the public storage is prefixed with "public-" so
-		// that we can easily tell if we've got the right thing.
-		for _, name := range tt.publicContents {
-			data := "public-" + name
-			err := t.env.PublicStorage().(environs.Storage).Put(name, strings.NewReader(data), int64(len(data)))
-			c.Assert(err, IsNil)
-		}
+		putNames(c, t.env, tt.contents, tt.publicContents)
 		vers := version.Binary{
 			Number: tt.version,
 			Series: version.Current.Series,
@@ -496,12 +502,7 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 		if tt.err != "" {
 			c.Assert(err, ErrorMatches, tt.err)
 		} else {
-			c.Assert(err, IsNil)
-			resp, err := http.Get(tools.URL)
-			c.Assert(err, IsNil)
-			data, err := ioutil.ReadAll(resp.Body)
-			c.Assert(err, IsNil)
-			c.Assert(string(data), Equals, tt.expect, Commentf("url %s", tools.URL))
+			assertURLContents(c, tools.URL, tt.expect)
 		}
 		t.env.Destroy(nil)
 	}
@@ -539,6 +540,32 @@ func newTools(vers, url string) *state.Tools {
 	}
 }
 
+func assertURLContents(c *C, url string, expect string) {
+	resp, err := http.Get(url)
+	c.Assert(err, IsNil)
+	defer resp.Body.Close()
+	data, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, IsNil)
+	c.Assert(string(data), Equals, expect)
+}
+
+var listToolsTests = []struct {
+	major int
+	expect []string
+}{{
+	1,
+	[]string{"1.2.3-precise-i386"},
+}, {
+	2,
+	[]string{"2.2.3-precise-amd64", "2.2.3-precise-i386", "2.2.4-precise-i386"},
+}, {
+	3,
+	[]string{"3.2.1-quantal-amd64"},
+}, {
+	4,
+	nil,
+}}
+
 func (t *ToolsSuite) TestListTools(c *C) {
 	testList := []string{
 		"foo",
@@ -548,38 +575,29 @@ func (t *ToolsSuite) TestListTools(c *C) {
 		"tools/juju-2.2.3-precise-i386.tgz",
 		"tools/juju-2.2.4-precise-i386.tgz",
 		"tools/juju-2.2-precise-amd64.tgz",
-		"tools/juju-3.2.1-precise-amd64.tgz",
+		"tools/juju-3.2.1-quantal-amd64.tgz",
 		"xtools/juju-2.2.3-precise-amd64.tgz",
 	}
 
-	e := newSRE(testList, testList)
+	putNames(c, t.env, testList, testList)
 
-	toolsList, err := environs.ListTools(e, 2)
-	c.Assert(err, IsNil)
-	expectTools := []*state.Tools{
-		newTools("2.2.3-precise-amd64", "<base>tools/juju-2.2.3-precise-amd64.tgz"),
-		newTools("2.2.3-precise-i386", "<base>tools/juju-2.2.3-precise-i386.tgz"),
-		newTools("2.2.4-precise-i386", "<base>tools/juju-2.2.4-precise-i386.tgz"),
+	for i, test := range listToolsTests {
+		c.Logf("test %d", i)
+		toolsList, err := environs.ListTools(t.env, test.major)
+		c.Assert(err, IsNil)
+		c.Assert(toolsList.Private, HasLen, len(test.expect))
+		c.Assert(toolsList.Public, HasLen, len(test.expect))
+		for i, t := range toolsList.Private {
+			vers := binaryVersion(test.expect[i])
+			c.Assert(t.Binary, Equals, vers)
+			assertURLContents(c, t.URL, environs.ToolsStoragePath(vers))
+		}
+		for i, t := range toolsList.Public {
+			vers := binaryVersion(test.expect[i])
+			c.Assert(t.Binary, Equals, vers)
+			assertURLContents(c, t.URL, "public-" + environs.ToolsStoragePath(vers))
+		}
 	}
-	c.Check(toolsList, DeepEquals, &environs.ToolsList{
-		Private: expectTools,
-		Public:  expectTools,
-	})
-
-	toolsList, err = environs.ListTools(e, 3)
-	c.Assert(err, IsNil)
-	expectTools = []*state.Tools{
-		newTools("3.2.1-precise-amd64", "<base>tools/juju-3.2.1-precise-amd64.tgz"),
-	}
-	c.Check(toolsList, DeepEquals, &environs.ToolsList{
-		Private: expectTools,
-		Public:  expectTools,
-	})
-
-	toolsList, err = environs.ListTools(e, 4)
-	c.Assert(err, IsNil)
-	c.Check(toolsList.Private, HasLen, 0)
-	c.Check(toolsList.Public, HasLen, 0)
 }
 
 var bestToolsTests = []struct {
@@ -646,60 +664,4 @@ func (t *ToolsSuite) TestBestTools(c *C) {
 		tools := environs.BestTools(t.list, t.vers)
 		c.Assert(tools, DeepEquals, t.expect)
 	}
-}
-
-// storageReaderEnviron implements an Environ where
-// all methods panic except those involved with reading
-// its storage. Get panics too.
-type storageReaderEnviron struct {
-	environs.Environ // never set - just there so we can satisfy Environ.
-	private, public  storageReader
-}
-
-type storageReader []string
-
-// newSRE returns a new storageReaderEnviron with the
-// given contents list in its private and public storage
-// respectively.
-func newSRE(private, public []string) *storageReaderEnviron {
-	return &storageReaderEnviron{
-		private: private,
-		public:  public,
-	}
-}
-
-func (e *storageReaderEnviron) Storage() environs.Storage {
-	// Let the dummy StorageWriter methods be overridden by
-	// the storageReader.
-	type writerMethods struct {
-		environs.StorageWriter
-	}
-	return struct {
-		storageReader
-		writerMethods
-	}{
-		storageReader: e.private,
-	}
-}
-
-func (e *storageReaderEnviron) PublicStorage() environs.StorageReader {
-	return e.public
-}
-
-func (r storageReader) Get(name string) (io.ReadCloser, error) {
-	panic("get called on fake storage reader")
-}
-
-func (r storageReader) List(prefix string) ([]string, error) {
-	var l []string
-	for _, f := range r {
-		if strings.HasPrefix(f, prefix) {
-			l = append(l, f)
-		}
-	}
-	return l, nil
-}
-
-func (r storageReader) URL(name string) (string, error) {
-	return "<base>" + name, nil
 }
