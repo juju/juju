@@ -169,7 +169,13 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 		CharmURL: ch.URL(),
 		Life:     Alive,
 	}
-	err = s.services.Insert(sdoc)
+	op := []txn.Operation{{
+		Collection: s.services.Name,
+		DocId: name,
+		Assert: txn.DocMissing,
+		Insert: sdoc,
+	}}
+	err = s.runner.Run(op, "", nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add service %q:", name, err)
 	}
