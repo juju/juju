@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
+	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/trivial"
 	"strconv"
@@ -120,7 +121,13 @@ func (s *Service) addUnit(name string, principal string) (*Unit, error) {
 		Principal: principal,
 		Life:      Alive,
 	}
-	err := s.st.units.Insert(udoc)
+	op := []txn.Operation{{
+		Collection: s.st.units.Name,
+		DocId:      udoc.Name,
+		Assert:     txn.DocMissing,
+		Insert:     udoc,
+	}}
+	err := s.st.runner.Run(op, "", nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add unit to service %q", s)
 	}
