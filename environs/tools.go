@@ -23,9 +23,35 @@ var VarDir = "/var/lib/juju"
 
 var toolPrefix = "tools/juju-"
 
-// ListTools returns all the tools found in the given storage
-// that have the given major version.
-func ListTools(store StorageReader, majorVersion int) ([]*state.Tools, error) {
+// ToolsList holds a list of available tools.  Private tools take
+// precedence over public tools, even if they have a lower
+// version number.
+type ToolsList struct {
+	Private []*state.Tools
+	Public  []*state.Tools
+}
+
+// ListTools returns a ToolsList holding all the tools
+// available in the given environment that have the
+// given major version.
+func ListTools(env Environ, majorVersion int) (*ToolsList, error) {
+	private, err := listTools(env.Storage(), majorVersion)
+	if err != nil {
+		return nil, err
+	}
+	public, err := listTools(env.PublicStorage(), majorVersion)
+	if err != nil {
+		return nil, err
+	}
+	return &ToolsList{
+		Private: private,
+		Public:  public,
+	}, nil
+}
+
+// listTools is like ListTools, but only returns the tools from
+// a particular storage.
+func listTools(store StorageReader, majorVersion int) ([]*state.Tools, error) {
 	dir := fmt.Sprintf("%s%d.", toolPrefix, majorVersion)
 	names, err := store.List(dir)
 	if err != nil {
@@ -176,10 +202,18 @@ func closeErrorCheck(errp *error, c io.Closer) {
 	}
 }
 
-// BestTools the most recent tools compatible with the
-// given specification. It returns nil if nothing appropriate
-// was found.
-func BestTools(toolsList []*state.Tools, vers version.Binary) *state.Tools {
+// BestTools returns the best set of tools in the ToolsList
+// that are compatible with the given version,
+// or nil if no such tools are found.
+func BestTools(list *ToolsList, vers version.Binary) *state.Tools {
+	if tools := bestTools(list.Private, vers); tools != nil {
+		return tools
+	}
+	return bestTools(list.Public, vers)
+}
+
+// bestTools is like BestTools but operates on a single list only.
+func bestTools(toolsList []*state.Tools, vers version.Binary) *state.Tools {
 	var bestTools *state.Tools
 	for _, t := range toolsList {
 		if t.Major != vers.Major ||
@@ -345,21 +379,13 @@ func AgentToolsDir(agentName string) string {
 // anything compatible in the environ's Storage, it gets precedence over
 // anything in its PublicStorage.
 func FindTools(env Environ, vers version.Binary) (*state.Tools, error) {
-	toolsList, err := ListTools(env.Storage(), vers.Major)
+	toolsList, err := ListTools(env, vers.Major)
 	if err != nil {
 		return nil, err
 	}
 	tools := BestTools(toolsList, vers)
-	if tools != nil {
-		return tools, nil
-	}
-	toolsList, err = ListTools(env.PublicStorage(), vers.Major)
-	if err != nil {
-		return nil, err
-	}
-	tools = BestTools(toolsList, vers)
 	if tools == nil {
-		return nil, &NotFoundError{fmt.Errorf("no compatible tools found")}
+		return tools, &NotFoundError{fmt.Errorf("no compatible tools found")}
 	}
 	return tools, nil
 }
