@@ -550,7 +550,7 @@ func assertURLContents(c *C, url string, expect string) {
 }
 
 var listToolsTests = []struct {
-	major int
+	major  int
 	expect []string
 }{{
 	1,
@@ -595,7 +595,7 @@ func (t *ToolsSuite) TestListTools(c *C) {
 		for i, t := range toolsList.Public {
 			vers := binaryVersion(test.expect[i])
 			c.Assert(t.Binary, Equals, vers)
-			assertURLContents(c, t.URL, "public-" + environs.ToolsStoragePath(vers))
+			assertURLContents(c, t.URL, "public-"+environs.ToolsStoragePath(vers))
 		}
 	}
 }
