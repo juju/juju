@@ -22,6 +22,12 @@ type EnvironProvider interface {
 	// SecretAttrs filters the supplied configuation returning only values
 	// which are considered sensitive.
 	SecretAttrs(cfg *config.Config) (map[string]interface{}, error)
+
+	// PublicAddress returns this machine's public host name.
+	PublicAddress() (string, error)
+
+	// PrivateAddress returns this machine's private host name.
+	PrivateAddress() (string, error)
 }
 
 var ErrNoDNSName = errors.New("DNS name not allocated")

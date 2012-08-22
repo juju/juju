@@ -18,17 +18,16 @@ import (
 type Status string
 
 const (
-	Missing         Status = ""
-	Installing      Status = "installing"
-	Installed       Status = "installed"
-	Upgrading       Status = "upgrading"
-	UpgradingForced Status = "upgrading-forced"
+	Missing    Status = ""
+	Installing Status = "installing"
+	Installed  Status = "installed"
+	Upgrading  Status = "upgrading"
 )
 
 // valid returns whether the status is recognized.
 func (s Status) valid() bool {
 	switch s {
-	case Installing, Installed, Upgrading, UpgradingForced:
+	case Installing, Installed, Upgrading:
 		return true
 	}
 	return false
