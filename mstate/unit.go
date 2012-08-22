@@ -158,6 +158,7 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 			bson.D{{"machineid", nil}},
 			bson.D{{"machineid", m.Id()}},
 		}},
+		{"life", Alive},
 	}
 	op := []txn.Operation{{
 		Collection: u.st.units.Name,
