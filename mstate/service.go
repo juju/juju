@@ -45,8 +45,13 @@ func (s *Service) CharmURL() (url *charm.URL, err error) {
 
 // SetCharmURL changes the charm URL for the service.
 func (s *Service) SetCharmURL(url *charm.URL) (err error) {
-	change := bson.D{{"$set", bson.D{{"charmurl", url}}}}
-	err = s.st.services.Update(bson.D{{"_id", s.doc.Name}}, change)
+	op := []txn.Operation{{
+		Collection: s.st.services.Name,
+		DocId:      s.doc.Name,
+		Assert:     bson.D{{"_id", s.doc.Name}, {"life", Alive}},
+		Change:     bson.D{{"$set", bson.D{{"charmurl", url}}}},
+	}}
+	err = s.st.runner.Run(op, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot set the charm URL of service %q: %v", s, err)
 	}
