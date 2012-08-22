@@ -62,8 +62,13 @@ func (s *Service) SetCharmURL(url *charm.URL) (err error) {
 // SetExposed marks the service as exposed.
 // See ClearExposed and IsExposed.
 func (s *Service) SetExposed() error {
-	change := bson.D{{"$set", bson.D{{"exposed", true}}}}
-	err := s.st.services.UpdateId(s.doc.Name, change)
+	op := []txn.Operation{{
+		Collection: s.st.services.Name,
+		DocId:      s.doc.Name,
+		Assert:     bson.D{{"_id", s.doc.Name}, {"life", Alive}},
+		Change:     bson.D{{"$set", bson.D{{"exposed", true}}}},
+	}}
+	err := s.st.runner.Run(op, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot set exposed flag for service %q: %v", s, err)
 	}
@@ -75,6 +80,7 @@ func (s *Service) SetExposed() error {
 // See SetExposed and IsExposed.
 func (s *Service) ClearExposed() error {
 	change := bson.D{{"$set", bson.D{{"exposed", false}}}}
+	
 	err := s.st.services.Update(bson.D{{"_id", s.doc.Name}}, change)
 	if err != nil {
 		return fmt.Errorf("cannot clear exposed flag for service %q: %v", s, err)
