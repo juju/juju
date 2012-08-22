@@ -310,15 +310,18 @@ func (s *StateSuite) TestAddService(c *C) {
 	wordpress, err = s.State.Service("wordpress")
 	c.Assert(err, IsNil)
 	c.Assert(wordpress.Name(), Equals, "wordpress")
-	url, err := wordpress.CharmURL()
+	wch, force, err := wordpress.Charm()
 	c.Assert(err, IsNil)
-	c.Assert(url.String(), Equals, charm.URL().String())
+	c.Assert(wch.URL(), DeepEquals, charm.URL())
+	c.Assert(force, Equals, false)
+
 	mysql, err = s.State.Service("mysql")
 	c.Assert(err, IsNil)
 	c.Assert(mysql.Name(), Equals, "mysql")
-	url, err = mysql.CharmURL()
+	mch, force, err := mysql.Charm()
 	c.Assert(err, IsNil)
-	c.Assert(url.String(), Equals, charm.URL().String())
+	c.Assert(mch.URL(), DeepEquals, charm.URL())
+	c.Assert(force, Equals, false)
 }
 
 func (s *StateSuite) TestRemoveService(c *C) {

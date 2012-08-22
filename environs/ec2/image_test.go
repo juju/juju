@@ -93,7 +93,7 @@ func RegenerateImages(t *testing.T) {
 	}
 }
 
-var imagesRoot = "images"
+var imagesRoot = "testdata"
 
 func copylocal(s string) error {
 	r, err := http.Get("http://uec-images.ubuntu.com/" + s)

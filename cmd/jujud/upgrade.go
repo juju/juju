@@ -26,11 +26,11 @@ type Upgrader struct {
 // UpgradedError is returned by an Upgrader to report that
 // an upgrade has been performed and a restart is due.
 type UpgradedError struct {
-	tools *state.Tools
+	*state.Tools
 }
 
 func (e *UpgradedError) Error() string {
-	return fmt.Sprintf("must restart: agent has been upgraded to %v (from %q)", e.tools.Binary, e.tools.URL)
+	return fmt.Sprintf("must restart: agent has been upgraded to %v (from %q)", e.Binary, e.URL)
 }
 
 // The AgentState interface is implemented by state types
