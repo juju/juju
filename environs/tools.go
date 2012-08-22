@@ -202,6 +202,32 @@ func closeErrorCheck(errp *error, c io.Closer) {
 	}
 }
 
+// BestTools returns the best set of tools in the ToolsList
+// that are compatible with the given version,
+// or nil if no such tools are found.
+func BestTools(list *ToolsList, vers version.Binary) *state.Tools {
+	if tools := bestTools(list.Private, vers); tools != nil {
+		return tools
+	}
+	return bestTools(list.Public, vers)
+}
+
+// bestTools is like BestTools but operates on a single list only.
+func bestTools(toolsList []*state.Tools, vers version.Binary) *state.Tools {
+	var bestTools *state.Tools
+	for _, t := range toolsList {
+		if t.Major != vers.Major ||
+			t.Series != vers.Series ||
+			t.Arch != vers.Arch {
+			continue
+		}
+		if bestTools == nil || bestTools.Number.Less(t.Number) {
+			bestTools = t
+		}
+	}
+	return bestTools
+}
+
 const urlFile = "downloaded-url.txt"
 
 // toolsParentDir returns the tools parent directory.
@@ -345,32 +371,6 @@ func ToolsDir(vers version.Binary) string {
 // Conventionally it is a symbolic link to the actual tools directory.
 func AgentToolsDir(agentName string) string {
 	return path.Join(VarDir, "tools", agentName)
-}
-
-// BestTools returns the best set of tools in the ToolsList
-// that are compatible with the given version,
-// or nil if no such tools are found.
-func BestTools(list *ToolsList, vers version.Binary) *state.Tools {
-	if tools := bestTools(list.Private, vers); tools != nil {
-		return tools
-	}
-	return bestTools(list.Public, vers)
-}
-
-// bestTools is like BestTools but operates on a single list only.
-func bestTools(toolsList []*state.Tools, vers version.Binary) *state.Tools {
-	var bestTools *state.Tools
-	for _, t := range toolsList {
-		if t.Major != vers.Major ||
-			t.Series != vers.Series ||
-			t.Arch != vers.Arch {
-			continue
-		}
-		if bestTools == nil || bestTools.Number.Less(t.Number) {
-			bestTools = t
-		}
-	}
-	return bestTools
 }
 
 // FindTools tries to find a set of tools compatible with the given
