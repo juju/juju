@@ -139,9 +139,9 @@ func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bu
 	}
 	op := []txn.Operation{{
 		Collection: s.charms.Name,
-		DocId: curl,
-		Assert: txn.DocMissing,
-		Insert: cdoc,
+		DocId:      curl,
+		Assert:     txn.DocMissing,
+		Insert:     cdoc,
 	}}
 	err = s.runner.Run(op, "", nil)
 	if err != nil {
@@ -171,9 +171,9 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 	}
 	op := []txn.Operation{{
 		Collection: s.services.Name,
-		DocId: name,
-		Assert: txn.DocMissing,
-		Insert: sdoc,
+		DocId:      name,
+		Assert:     txn.DocMissing,
+		Insert:     sdoc,
 	}}
 	err = s.runner.Run(op, "", nil)
 	if err != nil {
@@ -187,15 +187,21 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 func (s *State) RemoveService(svc *Service) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot remove service %q", svc)
 
-	sel := bson.D{{"_id", svc.doc.Name}, {"life", Alive}}
-	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
-	err = s.services.Update(sel, change)
+	op := []txn.Operation{{
+		Collection: s.services.Name,
+		DocId:      svc.doc.Name,
+		Assert:     bson.D{{"_id", svc.doc.Name}, {"life", Alive}},
+		Change:     bson.D{{"$set", bson.D{{"life", Dying}}}},
+	}}
+	err = s.runner.Run(op, "", nil)
 	if err != nil {
 		return err
 	}
 
-	sel = bson.D{{"service", svc.doc.Name}}
-	change = bson.D{{"$set", bson.D{{"life", Dying}}}}
+	// BUG(aram): this should be in the above transaction, but we
+	// are missing UpdateAll for now.
+	sel := bson.D{{"service", svc.doc.Name}}
+	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
 	_, err = s.units.UpdateAll(sel, change)
 	return err
 }
