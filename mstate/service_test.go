@@ -194,3 +194,20 @@ func (s *ServiceSuite) TestRemoveUnit(c *C) {
 	err = s.service.RemoveUnit(unit)
 	c.Assert(err, ErrorMatches, `cannot remove unit "mysql/0": .*`)
 }
+
+func (s *ServiceSuite) TestServiceConfig(c *C) {
+	env, err := s.service.Config()
+	err = env.Read()
+	c.Assert(err, IsNil)
+	c.Assert(env.Map(), DeepEquals, map[string]interface{}{})
+
+	env.Update(map[string]interface{}{"spam": "eggs", "eggs": "spam"})
+	env.Update(map[string]interface{}{"spam": "spam", "chaos": "emeralds"})
+	_, err = env.Write()
+	c.Assert(err, IsNil)
+
+	env, err = s.service.Config()
+	err = env.Read()
+	c.Assert(err, IsNil)
+	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"spam": "spam", "eggs": "spam", "chaos": "emeralds"})
+}

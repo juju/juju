@@ -162,3 +162,20 @@ func (s *StateSuite) TestAllServices(c *C) {
 	c.Assert(services[0].Name(), Equals, "wordpress")
 	c.Assert(services[1].Name(), Equals, "mysql")
 }
+
+func (s *StateSuite) TestEnvironConfig(c *C) {
+	env, err := s.State.EnvironConfig()
+	err = env.Read()
+	c.Assert(err, IsNil)
+	c.Assert(env.Map(), DeepEquals, map[string]interface{}{})
+
+	env.Update(map[string]interface{}{"spam": "eggs", "eggs": "spam"})
+	env.Update(map[string]interface{}{"spam": "spam", "chaos": "emeralds"})
+	_, err = env.Write()
+	c.Assert(err, IsNil)
+
+	env, err = s.State.EnvironConfig()
+	err = env.Read()
+	c.Assert(err, IsNil)
+	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"spam": "spam", "eggs": "spam", "chaos": "emeralds"})
+}

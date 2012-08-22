@@ -13,6 +13,10 @@ import (
 	"net/url"
 )
 
+const (
+	environConfigKey = "environ"
+)
+
 // Tools describes a particular set of juju tools and where to find them.
 type Tools struct {
 	version.Binary
@@ -48,6 +52,11 @@ type State struct {
 	relations *mgo.Collection
 	services  *mgo.Collection
 	units     *mgo.Collection
+}
+
+// EnvironConfig returns the current configuration of the environment.
+func (s *State) EnvironConfig() (*ConfigNode, error) {
+	return readConfigNode(s, environConfigKey)
 }
 
 // AddMachine creates a new machine state.
