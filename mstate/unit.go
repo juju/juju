@@ -93,6 +93,31 @@ func (u *Unit) Name() string {
 	return u.doc.Name
 }
 
+// Life return the unit lifecycle.
+func (u *Unit) Life() Life {
+	return u.doc.Life
+}
+
+// Kill sets the unit lifecycle to Dying if it is Alive.
+// It does nothing otherwise.
+func (u *Unit) Kill() error {
+	if err := ensureLife(u.doc.Name, u.st.units, "unit", Dying); err != nil {
+		return err
+	}
+	u.doc.Life = Dying
+	return nil
+}
+
+// Die sets the unit lifecycle to Dead if it is Alive or Dying.
+// It does nothing otherwise.
+func (u *Unit) Die() error {
+	if err := ensureLife(u.doc.Name, u.st.units, "unit", Dead); err != nil {
+		return err
+	}
+	u.doc.Life = Dead
+	return nil
+}
+
 // Resolved returns the resolved mode for the unit.
 func (u *Unit) Resolved() (mode ResolvedMode, err error) {
 	return u.doc.Resolved, nil

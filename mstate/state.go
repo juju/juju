@@ -38,6 +38,29 @@ func (l Life) String() string {
 	return lifeStrings[l]
 }
 
+// ensureLife changes the lifecycle state of the entity with
+// the id in the collection.
+func ensureLife(id interface{}, coll *mgo.Collection, descr string, life Life) error {
+	if life == Alive {
+		panic("cannot set life to alive")
+	}
+	sel := bson.D{
+		{"_id", id},
+		// $lte is used so that we don't overwrite a previous
+		// change we don't know about. 
+		{"life", bson.D{{"$lte", life}}},
+	}
+	change := bson.D{{"$set", bson.D{{"life", life}}}}
+	err := coll.Update(sel, change)
+	if err == mgo.ErrNotFound {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("cannot set life to %s for %s %q: %v", life, descr, id, err)
+	}
+	return nil
+}
+
 // State represents the state of an environment
 // managed by juju.
 type State struct {
