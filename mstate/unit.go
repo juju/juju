@@ -177,9 +177,13 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 // UnassignFromMachine removes the assignment between this unit and the
 // machine it's assigned to.
 func (u *Unit) UnassignFromMachine() (err error) {
-	change := bson.D{{"$set", bson.D{{"machineid", nil}}}}
-	sel := bson.D{{"_id", u.doc.Name}}
-	err = u.st.units.Update(sel, change)
+	op := []txn.Operation{{
+		Collection: u.st.units.Name,
+		DocId:      u.doc.Name,
+		Assert:     txn.DocExists,
+		Change:     bson.D{{"$set", bson.D{{"machineid", nil}}}},
+	}}
+	err = u.st.runner.Run(op, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, err)
 	}
