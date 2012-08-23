@@ -30,7 +30,7 @@ func (s *StateFileSuite) TestStateFile(c *C) {
 	bad := func() { f.Write(hook.Info{}, hook.Status("nonsense")) }
 	c.Assert(bad, PanicMatches, `unknown hook status "nonsense"`)
 
-	bad = func() { f.Write(hook.Info{Kind: hook.Kind("incoherent")}, hook.StatusStarted) }
+	bad = func() { f.Write(hook.Info{Kind: hook.Kind("incoherent")}, hook.Started) }
 	c.Assert(bad, PanicMatches, `unknown hook kind "incoherent"`)
 
 	hi := hook.Info{
@@ -43,12 +43,12 @@ func (s *StateFileSuite) TestStateFile(c *C) {
 			"abc/1000": {"baz": 3, "qux": 4},
 		},
 	}
-	err = f.Write(hi, hook.StatusStarted)
+	err = f.Write(hi, hook.Started)
 	c.Assert(err, IsNil)
 
 	st, err := f.Read()
 	c.Assert(err, IsNil)
-	c.Assert(st.Status, Equals, hook.StatusStarted)
+	c.Assert(st.Status, Equals, hook.Started)
 	c.Assert(st.Info, DeepEquals, hook.Info{
 		Kind:          hook.RelationChanged,
 		RelationId:    123,

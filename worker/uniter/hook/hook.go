@@ -88,27 +88,27 @@ type Info struct {
 type Status string
 
 const (
-	// StatusStarted indicates that the unit agent intended to run the hook.
+	// Started indicates that the unit agent intended to run the hook.
 	// This status implies that a hook *may* have been interrupted and have
 	// failed to complete all required operations, and that therefore the
 	// proper response is to treat it as a hook execution failure and punt
 	// to the user for manual resolution.
-	StatusStarted Status = "started"
+	Started Status = "started"
 
-	// StatusSucceeded indicates that the hook itself completed successfully,
+	// Succeeded indicates that the hook itself completed successfully,
 	// but that local state (ie relation membership) may not have been
 	// synchronized, and that recovery should therefore be performed.
-	StatusSucceeded Status = "succeeded"
+	Succeeded Status = "succeeded"
 
-	// StatusCommitted indicates that the last hook ran successfully and that
+	// Committed indicates that the last hook ran successfully and that
 	// local state has been synchronized.
-	StatusCommitted Status = "committed"
+	Committed Status = "committed"
 )
 
 // valid will return true if the Status is known.
 func (status Status) valid() bool {
 	switch status {
-	case StatusStarted, StatusSucceeded, StatusCommitted:
+	case Started, Succeeded, Committed:
 		return true
 	}
 	return false
