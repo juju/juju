@@ -9,18 +9,10 @@ import (
 )
 
 type ExposeSuite struct {
-	DeploySuite
+	repoSuite
 }
 
 var _ = Suite(&ExposeSuite{})
-
-func (s *ExposeSuite) SetUpTest(c *C) {
-	s.DeploySuite.SetUpTest(c)
-}
-
-func (s *ExposeSuite) TearDownTest(c *C) {
-	s.DeploySuite.TearDownTest(c)
-}
 
 func runExpose(c *C, args ...string) error {
 	com := &ExposeCommand{}
