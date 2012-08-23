@@ -1,48 +1,27 @@
 package main
 
 import (
-	"io/ioutil"
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/version"
 	"net/http"
 	"os"
-	"path/filepath"
 	"reflect"
 )
 
-type envSuite struct {
-	home string
+type CmdSuite struct {
+	testing.JujuConnSuite
 }
 
-func (f *envSuite) SetUpTest(c *C, config string) {
-	// Arrange so that the "home" directory points
-	// to a temporary directory containing the config file.
-	f.home = os.Getenv("HOME")
-	dir := c.MkDir()
-	os.Setenv("HOME", dir)
-	err := os.Mkdir(filepath.Join(dir, ".juju"), 0777)
-	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(filepath.Join(dir, ".juju", "environments.yaml"), []byte(config), 0666)
-	c.Assert(err, IsNil)
-}
+var _ = Suite(&CmdSuite{})
 
-func (f *envSuite) TearDownTest(c *C) {
-	os.Setenv("HOME", f.home)
-	dummy.Reset()
-}
-
-type cmdSuite struct {
-	testing.LoggingSuite
-	envSuite
-}
-
-var _ = Suite(&cmdSuite{})
-
+// N.B. none of the environment names in this config
+// should coincide with the environment name used in
+// JujuConnSuite.
 var config = `
 default:
     peckham
@@ -62,14 +41,9 @@ environments:
         authorized-keys: i-am-a-key
 `
 
-func (s *cmdSuite) SetUpTest(c *C) {
-	s.LoggingSuite.SetUpTest(c)
-	s.envSuite.SetUpTest(c, config)
-}
-
-func (s *cmdSuite) TearDownTest(c *C) {
-	s.envSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+func (s *CmdSuite) SetUpTest(c *C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.JujuConnSuite.WriteConfig(config)
 }
 
 func newFlagSet() *gnuflag.FlagSet {
@@ -112,7 +86,7 @@ var EnvironmentInitTests = []func() (cmd.Command, []string){
 // TestEnvironmentInit tests that all commands which accept
 // the --environment variable initialise their
 // environment name correctly.
-func (*cmdSuite) TestEnvironmentInit(c *C) {
+func (*CmdSuite) TestEnvironmentInit(c *C) {
 	for i, cmdFunc := range EnvironmentInitTests {
 		c.Logf("test %d", i)
 		com, args := cmdFunc()
@@ -153,7 +127,7 @@ func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc
 	return
 }
 
-func (*cmdSuite) TestBootstrapCommand(c *C) {
+func (*CmdSuite) TestBootstrapCommand(c *C) {
 	// normal bootstrap
 	opc, errc := runCommand(new(BootstrapCommand))
 	c.Check((<-opc).(dummy.OpBootstrap).Env, Equals, "peckham")
@@ -193,7 +167,7 @@ func (*cmdSuite) TestBootstrapCommand(c *C) {
 	c.Check(<-errc, ErrorMatches, "dummy.Bootstrap is broken")
 }
 
-func (*cmdSuite) TestDestroyCommand(c *C) {
+func (*CmdSuite) TestDestroyCommand(c *C) {
 	// normal destroy
 	opc, errc := runCommand(new(DestroyCommand))
 	c.Check((<-opc).(dummy.OpDestroy).Env, Equals, "peckham")
@@ -253,7 +227,7 @@ func initDeployCommand(args ...string) (*DeployCommand, error) {
 	return com, com.Init(newFlagSet(), args)
 }
 
-func (*cmdSuite) TestDeployCommandInit(c *C) {
+func (*CmdSuite) TestDeployCommandInit(c *C) {
 	defer os.Setenv("JUJU_REPOSITORY", os.Getenv("JUJU_REPOSITORY"))
 	os.Setenv("JUJU_REPOSITORY", "/path/to/repo")
 
@@ -282,7 +256,7 @@ func initAddUnitCommand(args ...string) (*AddUnitCommand, error) {
 	return com, com.Init(newFlagSet(), args)
 }
 
-func (*cmdSuite) TestAddUnitCommandInit(c *C) {
+func (*CmdSuite) TestAddUnitCommandInit(c *C) {
 	// missing args
 	_, err := initAddUnitCommand()
 	c.Assert(err, ErrorMatches, "no service specified")
@@ -301,7 +275,7 @@ func initExposeCommand(args ...string) (*ExposeCommand, error) {
 	return com, com.Init(newFlagSet(), args)
 }
 
-func (*cmdSuite) TestExposeCommandInit(c *C) {
+func (*CmdSuite) TestExposeCommandInit(c *C) {
 	// missing args
 	_, err := initExposeCommand()
 	c.Assert(err, ErrorMatches, "no service name specified")
@@ -314,7 +288,7 @@ func initUnexposeCommand(args ...string) (*UnexposeCommand, error) {
 	return com, com.Init(newFlagSet(), args)
 }
 
-func (*cmdSuite) TestUnexposeCommandInit(c *C) {
+func (*CmdSuite) TestUnexposeCommandInit(c *C) {
 	// missing args
 	_, err := initUnexposeCommand()
 	c.Assert(err, ErrorMatches, "no service name specified")

@@ -5,22 +5,14 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/testing"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 type AddUnitSuite struct {
-	DeploySuite
+	repoSuite
 }
 
 var _ = Suite(&AddUnitSuite{})
-
-func (s *AddUnitSuite) SetUpTest(c *C) {
-	s.DeploySuite.SetUpTest(c)
-}
-
-func (s *AddUnitSuite) TearDownTest(c *C) {
-	s.DeploySuite.TearDownTest(c)
-}
 
 func runAddUnit(c *C, args ...string) error {
 	com := &AddUnitCommand{}
@@ -30,7 +22,7 @@ func runAddUnit(c *C, args ...string) error {
 }
 
 func (s *AddUnitSuite) TestAddUnit(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "dummy")
+	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
