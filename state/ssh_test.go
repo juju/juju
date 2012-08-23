@@ -35,6 +35,26 @@ func init() {
 
 var _ = Suite(&sshSuite{})
 
+func (s *sshSuite) SetUpSuite(c *C) {
+	s.LoggingSuite.SetUpSuite(c)
+	s.ZkSuite.SetUpSuite(c)
+}
+
+func (s *sshSuite) TearDownSuite(c *C) {
+	s.ZkSuite.TearDownSuite(c)
+	s.LoggingSuite.TearDownSuite(c)
+}
+
+func (s *sshSuite) SetUpTest(c *C) {
+	s.LoggingSuite.SetUpTest(c)
+	s.ZkSuite.SetUpTest(c)
+}
+
+func (s *sshSuite) TearDownTest(c *C) {
+	s.ZkSuite.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
+}
+
 // fakeSSHRun represents the behaviour of the ssh command when run once.
 type fakeSSHRun struct {
 	Output string // The fake ssh will print this...

@@ -35,6 +35,11 @@ func (s *StoreSuite) SetUpSuite(c *C) {
 	s.HTTPSuite.SetUpSuite(c)
 }
 
+func (s *StoreSuite) TearDownSuite(c *C) {
+	s.HTTPSuite.TearDownSuite(c)
+	s.MgoSuite.TearDownSuite(c)
+}
+
 func (s *StoreSuite) SetUpTest(c *C) {
 	s.MgoSuite.SetUpTest(c)
 	var err error

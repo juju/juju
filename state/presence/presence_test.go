@@ -14,16 +14,10 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type PresenceSuite struct {
-	testing.LoggingSuite
 	testing.ZkConnSuite
 }
 
 var _ = Suite(&PresenceSuite{})
-
-func (s *PresenceSuite) TearDownTest(c *C) {
-	s.ZkConnSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
-}
 
 var (
 	path       = "/presence"

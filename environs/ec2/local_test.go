@@ -69,6 +69,7 @@ type localLiveSuite struct {
 }
 
 func (t *localLiveSuite) SetUpSuite(c *C) {
+	t.LoggingSuite.SetUpSuite(c)
 	ec2.UseTestImageData(true)
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
@@ -82,6 +83,7 @@ func (t *localLiveSuite) TearDownSuite(c *C) {
 	t.env = nil
 	ec2.ShortTimeouts(false)
 	ec2.UseTestImageData(false)
+	t.LoggingSuite.TearDownSuite(c)
 }
 
 func (t *localLiveSuite) SetUpTest(c *C) {
@@ -169,6 +171,7 @@ type localServerSuite struct {
 }
 
 func (t *localServerSuite) SetUpSuite(c *C) {
+	t.LoggingSuite.SetUpSuite(c)
 	ec2.UseTestImageData(true)
 	ec2.UseTestMetadata(true)
 	t.Tests.SetUpSuite(c)
@@ -180,6 +183,7 @@ func (t *localServerSuite) TearDownSuite(c *C) {
 	ec2.ShortTimeouts(false)
 	ec2.UseTestMetadata(false)
 	ec2.UseTestImageData(false)
+	t.LoggingSuite.TearDownSuite(c)
 }
 
 func (t *localServerSuite) SetUpTest(c *C) {
