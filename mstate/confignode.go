@@ -45,7 +45,7 @@ func (ics itemChangeSlice) Less(i, j int) bool { return ics[i].Key < ics[j].Key 
 func (ics itemChangeSlice) Swap(i, j int)      { ics[i], ics[j] = ics[j], ics[i] }
 
 // A ConfigNode manages changes to settings as a delta in memory and merges
-// them back onto the disk when explicitly requested
+// them back in the database when explicitly requested.
 type ConfigNode struct {
 	st   *State
 	path string
