@@ -17,14 +17,10 @@ import (
 var MgoAddr string
 
 // MgoSuite is a suite that deletes all content from the shared MongoDB
-// server at the end of every test.
-type MgoSuite struct{}
-
-// MgoSessionSuite is a suite that supplies a connection to the shared
+// server at the end of every test and supplies a connection to the shared
 // MongoDB server.
-type MgoSessionSuite struct {
-	MgoSuite
-	MgoSession *mgo.Session
+type MgoSuite struct {
+	Session *mgo.Session
 }
 
 // StartMgoServer starts a MongoDB server in a temporary directory.
@@ -84,6 +80,11 @@ func MgoDial() *mgo.Session {
 	return session
 }
 
+func (s *MgoSuite) SetUpTest(c *C) {
+	mgo.ResetStats()
+	s.Session = MgoDial()
+}
+
 // MgoReset deletes all content from the shared MongoDB server.
 func MgoReset() {
 	session := MgoDial()
@@ -106,6 +107,7 @@ func MgoReset() {
 
 func (s MgoSuite) TearDownTest(c *C) {
 	MgoReset()
+	s.Session.Close()
 	for i := 0; ; i++ {
 		stats := mgo.GetStats()
 		if stats.SocketsInUse == 0 && stats.SocketsAlive == 0 {
@@ -117,14 +119,4 @@ func (s MgoSuite) TearDownTest(c *C) {
 		c.Logf("Waiting for sockets to die: %d in use, %d alive", stats.SocketsInUse, stats.SocketsAlive)
 		time.Sleep(500 * time.Millisecond)
 	}
-	mgo.ResetStats()
-}
-
-func (s *MgoSessionSuite) SetUpSuite(c *C) {
-	s.MgoSuite.SetUpSuite(c)
-	s.MgoSession = MgoDial()
-}
-
-func (s *MgoSessionSuite) TearDownSuite(c *C) {
-	s.MgoSession.Close()
 }

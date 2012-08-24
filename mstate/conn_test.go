@@ -10,13 +10,18 @@ import (
 	"launchpad.net/juju-core/testing"
 	"net/url"
 	"sort"
+	stdtesting "testing"
 )
+
+// TestPackage integrates the tests into gotest.
+func TestPackage(t *stdtesting.T) {
+	testing.MgoTestPackage(t)
+}
 
 // ConnSuite provides the infrastructure for all other 
 // test suites (StateSuite, CharmSuite, MachineSuite, etc).
 type ConnSuite struct {
-	MgoSuite
-	session   *mgo.Session
+	testing.MgoSuite
 	charms    *mgo.Collection
 	machines  *mgo.Collection
 	relations *mgo.Collection
@@ -27,21 +32,18 @@ type ConnSuite struct {
 
 func (cs *ConnSuite) SetUpTest(c *C) {
 	cs.MgoSuite.SetUpTest(c)
-	session, err := mgo.Dial(mgoaddr)
-	c.Assert(err, IsNil)
-	cs.session = session
-	cs.charms = session.DB("juju").C("charms")
-	cs.machines = session.DB("juju").C("machines")
-	cs.relations = session.DB("juju").C("relations")
-	cs.services = session.DB("juju").C("services")
-	cs.units = session.DB("juju").C("units")
-	cs.State, err = state.Dial(mgoaddr)
+	cs.charms = cs.MgoSuite.Session.DB("juju").C("charms")
+	cs.machines = cs.MgoSuite.Session.DB("juju").C("machines")
+	cs.relations = cs.MgoSuite.Session.DB("juju").C("relations")
+	cs.services = cs.MgoSuite.Session.DB("juju").C("services")
+	cs.units = cs.MgoSuite.Session.DB("juju").C("units")
+	var err error
+	cs.State, err = state.Dial(testing.MgoAddr)
 	c.Assert(err, IsNil)
 }
 
 func (cs *ConnSuite) TearDownTest(c *C) {
 	cs.State.Close()
-	cs.session.Close()
 	cs.MgoSuite.TearDownTest(c)
 }
 
