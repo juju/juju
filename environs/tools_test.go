@@ -603,10 +603,12 @@ func (t *ToolsSuite) TestListTools(c *C) {
 var bestToolsTests = []struct {
 	list   *environs.ToolsList
 	vers   version.Binary
+	dev    bool
 	expect *state.Tools
 }{{
 	&environs.ToolsList{},
 	binaryVersion("1.2.3-precise-amd64"),
+	true,
 	nil,
 }, {
 	&environs.ToolsList{
@@ -620,8 +622,41 @@ var bestToolsTests = []struct {
 		},
 	},
 	binaryVersion("1.9.4-precise-amd64"),
+	true,
 	newTools("1.3.4-precise-amd64", ""),
 }, {
+	// Check that we can't upgrade to a dev version from
+	// a release version if dev is false.
+	&environs.ToolsList{
+		Private: []*state.Tools{
+			newTools("2.2.3-precise-amd64", ""),
+			newTools("2.2.4-precise-amd64", ""),
+			newTools("2.3.4-precise-amd64", ""),
+			newTools("2.4.4-precise-i386", ""),
+			newTools("2.4.5-quantal-i386", ""),
+			newTools("3.2.3-precise-amd64", ""),
+		},
+	},
+	binaryVersion("2.0.0-precise-amd64"),
+	false,
+	newTools("2.2.4-precise-amd64", ""),
+}, {
+	// Check that we can upgrade to a release version from
+	// a dev version if dev is false.
+	&environs.ToolsList{
+		Private: []*state.Tools{
+			newTools("2.2.3-precise-amd64", ""),
+			newTools("2.2.4-precise-amd64", ""),
+			newTools("2.3.4-precise-amd64", ""),
+			newTools("2.4.4-precise-amd64", ""),
+			newTools("3.2.3-precise-amd64", ""),
+		},
+	},
+	binaryVersion("2.0.1-precise-amd64"),
+	false,
+	newTools("2.4.4-precise-amd64", ""),
+}, {
+	// Check that a different major version works ok.
 	&environs.ToolsList{
 		Private: []*state.Tools{
 			newTools("1.2.3-precise-amd64", ""),
@@ -633,35 +668,40 @@ var bestToolsTests = []struct {
 		},
 	},
 	binaryVersion("2.0.0-precise-amd64"),
+	true,
 	newTools("2.2.3-precise-amd64", ""),
+}, {
+	// Check that the private tools are chosen even though
+	// they have a lower version number.
+	&environs.ToolsList{
+		Private: []*state.Tools{
+			newTools("1.2.3-precise-amd64", ""),
+		},
+		Public: []*state.Tools{
+			newTools("1.2.4-precise-amd64", ""),
+		},
+	},
+	binaryVersion("1.0.0-precise-amd64"),
+	true,
+	newTools("1.2.3-precise-amd64", ""),
+}, {
+	// Check that the public tools can be chosen when
+	// there are no private tools.
+	&environs.ToolsList{
+		Public: []*state.Tools{
+			newTools("1.2.4-precise-amd64", ""),
+		},
+	},
+	binaryVersion("1.0.0-precise-amd64"),
+	true,
+	newTools("1.2.4-precise-amd64", ""),
 },
-	{
-		&environs.ToolsList{
-			Private: []*state.Tools{
-				newTools("1.2.3-precise-amd64", ""),
-			},
-			Public: []*state.Tools{
-				newTools("1.2.4-precise-amd64", ""),
-			},
-		},
-		binaryVersion("1.0.0-precise-amd64"),
-		newTools("1.2.3-precise-amd64", ""),
-	},
-	{
-		&environs.ToolsList{
-			Public: []*state.Tools{
-				newTools("1.2.4-precise-amd64", ""),
-			},
-		},
-		binaryVersion("1.0.0-precise-amd64"),
-		newTools("1.2.4-precise-amd64", ""),
-	},
 }
 
 func (t *ToolsSuite) TestBestTools(c *C) {
 	for i, t := range bestToolsTests {
 		c.Logf("test %d", i)
-		tools := environs.BestTools(t.list, t.vers)
+		tools := environs.BestTools(t.list, t.vers, t.dev)
 		c.Assert(tools, DeepEquals, t.expect)
 	}
 }
