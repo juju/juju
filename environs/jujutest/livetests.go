@@ -166,6 +166,8 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 
 	// check that the minimum configuration is present in the environment
 	cfg, err := st.EnvironConfig()
+	// Check that we can upgrade the machine agent on the bootstrap machine.
+	m, err := st.Machine(0)
 	c.Assert(err, IsNil)
 	v, ok := cfg.Get("name")
 	c.Assert(ok, Equals, true)
@@ -177,8 +179,10 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(v, Not(Equals), "")
 
+	t.checkUpgradeMachineAgent(c, m)
+
 	// place a new machine into the state
-	m, err := st.AddMachine()
+	m, err = st.AddMachine()
 	c.Assert(err, IsNil)
 
 	t.assertStartInstance(c, m)
@@ -192,6 +196,43 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 
 	err = st.Close()
 	c.Assert(err, IsNil)
+}
+
+func (t *LiveTests) checkUpgradeMachineAgent(c *C, m *state.Machine) {
+	// First watch the machine agent's current tools to make sure
+	// that it sets them appropriately.
+	w := m.WatchAgentTools()
+
+	var gotTools *state.Tools
+	for tools := range w.Changes() {
+		if tools.URL == "" {
+			// Machine agent hasn't started yet.
+			continue
+		}
+		gotTools = tools
+		break
+	}
+	c.Assert(gotTools, NotNil, Commentf("tools watcher died: %v", w.Err()))
+	c.Assert(gotTools.Binary, Equals, version.Current)
+
+	c.Logf("putting testing version of juju tools")
+
+	newVersion := version.Current
+	newVersion.Patch++
+	upgradeTools, err := environs.PutTools(t.Env.Storage(), &newVersion)
+	c.Assert(err, IsNil)
+
+	// Check that the put version really is the version we expect.
+	c.Assert(upgradeTools.Binary, Equals, newVersion)
+	err = m.ProposeAgentTools(upgradeTools)
+
+	c.Logf("waiting for upgrade")
+	tools, ok := <-w.Changes()
+	if !ok {
+		c.Fatalf("watcher died: %v", w.Err())
+	}
+	c.Assert(tools, DeepEquals, upgradeTools)
+	c.Logf("upgrade successful!")
 }
 
 var waitAgent = environs.AttemptStrategy{

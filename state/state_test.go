@@ -5,8 +5,8 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"net/url"
 	"sort"
@@ -26,12 +26,12 @@ func TestPackage(t *stdtesting.T) {
 // eventually have a single set of tests that work against both state and
 // mstate.
 type ConnSuite struct {
-	testing.StateSuite
+	testing.JujuConnSuite
 	zkConn *zookeeper.Conn
 }
 
 func (s *ConnSuite) SetUpTest(c *C) {
-	s.StateSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
 	s.zkConn = state.ZkConn(s.State)
 }
 
@@ -95,7 +95,6 @@ func (s *StateSuite) TestInitalizeWithConfig(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	defer st.Close()
-
 	env, err := st.EnvironConfig()
 	env.Read()
 	c.Assert(err, IsNil)
@@ -115,6 +114,10 @@ var environmentWatchTests = []struct {
 }
 
 func (s *StateSuite) TestWatchEnvironment(c *C) {
+	// Blank out the environment created by JujuConnSuite,
+	// so that we know what we have.
+	_, err := s.zkConn.Set("/environment", "", -1)
+	c.Assert(err, IsNil)
 	// fetch the /environment key as a *ConfigNode
 	environConfigWatcher := s.State.WatchEnvironConfig()
 	defer func() {
@@ -225,13 +228,13 @@ func (s *StateSuite) TestReadNonExistentMachine(c *C) {
 }
 
 func (s *StateSuite) TestAllMachines(c *C) {
-	s.AssertMachineCount(c, 0)
+	assertMachineCount(c, s.State, 0)
 	_, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
-	s.AssertMachineCount(c, 1)
+	assertMachineCount(c, s.State, 1)
 	_, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
-	s.AssertMachineCount(c, 2)
+	assertMachineCount(c, s.State, 2)
 }
 
 type machinesWatchTest struct {
@@ -316,15 +319,18 @@ func (s *StateSuite) TestAddService(c *C) {
 	wordpress, err = s.State.Service("wordpress")
 	c.Assert(err, IsNil)
 	c.Assert(wordpress.Name(), Equals, "wordpress")
-	url, err := wordpress.CharmURL()
+	wch, force, err := wordpress.Charm()
 	c.Assert(err, IsNil)
-	c.Assert(url.String(), Equals, charm.URL().String())
+	c.Assert(wch.URL(), DeepEquals, charm.URL())
+	c.Assert(force, Equals, false)
+
 	mysql, err = s.State.Service("mysql")
 	c.Assert(err, IsNil)
 	c.Assert(mysql.Name(), Equals, "mysql")
-	url, err = mysql.CharmURL()
+	mch, force, err := mysql.Charm()
 	c.Assert(err, IsNil)
-	c.Assert(url.String(), Equals, charm.URL().String())
+	c.Assert(mch.URL(), DeepEquals, charm.URL())
+	c.Assert(force, Equals, false)
 }
 
 func (s *StateSuite) TestRemoveService(c *C) {

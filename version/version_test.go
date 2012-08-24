@@ -15,6 +15,8 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
+// N.B. The FORCE-VERSION logic is tested in the environs package.
+
 var cmpTests = []struct {
 	v1, v2 string
 	less   bool

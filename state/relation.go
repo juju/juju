@@ -5,6 +5,7 @@ import (
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/trivial"
 	"strconv"
 	"strings"
 )
@@ -142,12 +143,15 @@ func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
 		}
 		path = append(path, container)
 	}
+	scope := unitScopePath(strings.Join(path, "/"))
+	presencePath := scope.presencePath(ep.RelationRole, u.key)
 	return &RelationUnit{
 		st:       r.st,
 		relation: r,
 		unit:     u,
 		endpoint: ep,
-		scope:    unitScopePath(strings.Join(path, "/")),
+		scope:    scope,
+		pinger:   presence.NewPinger(r.st.zk, presencePath, agentPingerPeriod),
 	}, nil
 }
 
@@ -159,6 +163,7 @@ type RelationUnit struct {
 	unit     *Unit
 	endpoint RelationEndpoint
 	scope    unitScopePath
+	pinger   *presence.Pinger
 }
 
 // Relation returns the relation associated with the unit.
@@ -172,24 +177,27 @@ func (ru *RelationUnit) Endpoint() RelationEndpoint {
 	return ru.endpoint
 }
 
-// Join joins the unit to the relation, such that other units watching the
-// relation will observe its presence and changes to its settings.
-func (ru *RelationUnit) Join() (p *presence.Pinger, err error) {
-	defer errorContextf(&err, "cannot join unit %q to relation %q", ru.unit, ru.relation)
+// Pinger exposes the pinger used to signal the unit's participation
+// in the relation to the rest of the system.
+func (ru *RelationUnit) Pinger() *presence.Pinger {
+	return ru.pinger
+}
+
+// Init ensures that the required relation unit settings are in place, and
+// that it is safe to start the pinger.
+func (ru *RelationUnit) Init() (err error) {
+	defer trivial.ErrorContextf(&err, "cannot initialize state for unit %q in relation %q", ru.unit, ru.relation)
 	if err = ru.scope.prepareJoin(ru.st.zk, ru.endpoint.RelationRole); err != nil {
 		return
 	}
-	// Private address should be set at agent startup.
 	address, err := ru.unit.PrivateAddress()
 	if err != nil {
 		return
 	}
-	err = setConfigString(ru.st.zk, ru.scope.settingsPath(ru.unit.key), "private-address", address, "private address of relation unit")
-	if err != nil {
-		return
-	}
-	presencePath := ru.scope.presencePath(ru.endpoint.RelationRole, ru.unit.key)
-	return presence.StartPinger(ru.st.zk, presencePath, agentPingerPeriod)
+	return setConfigString(
+		ru.st.zk, ru.scope.settingsPath(ru.unit.key), "private-address", address,
+		"private address of relation unit",
+	)
 }
 
 // Watch returns a watcher that notifies when any other unit in
@@ -212,7 +220,7 @@ func (ru *RelationUnit) Settings() (*ConfigNode, error) {
 // for an error, because the unit settings are guaranteed to persist for
 // the lifetime of the relation.
 func (ru *RelationUnit) ReadSettings(uname string) (settings map[string]interface{}, err error) {
-	defer errorContextf(&err, "cannot read settings for unit %q in relation %q", uname, ru.relation)
+	defer trivial.ErrorContextf(&err, "cannot read settings for unit %q in relation %q", uname, ru.relation)
 	topo, err := readTopology(ru.st.zk)
 	if err != nil {
 		return nil, err

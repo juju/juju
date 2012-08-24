@@ -3,6 +3,7 @@ package state
 import (
 	"fmt"
 	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/trivial"
 	"path"
 	"strconv"
 	"strings"
@@ -79,7 +80,7 @@ func (m *Machine) InstanceId() (string, error) {
 // Units returns all the units that have been assigned
 // to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
-	defer errorContextf(&err, "cannot get all assigned units of machine %s", m)
+	defer trivial.ErrorContextf(&err, "cannot get all assigned units of machine %s", m)
 	topology, err := readTopology(m.st.zk)
 	if err != nil {
 		return nil, err

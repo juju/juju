@@ -55,7 +55,7 @@ var origImagesHost = imagesHost
 
 func init() {
 	// Make the images data accessible through the "file" protocol.
-	http.DefaultTransport.(*http.Transport).RegisterProtocol("file", http.NewFileTransport(http.Dir("images")))
+	http.DefaultTransport.(*http.Transport).RegisterProtocol("file", http.NewFileTransport(http.Dir("testdata")))
 }
 
 func UseTestImageData(local bool) {
@@ -63,6 +63,16 @@ func UseTestImageData(local bool) {
 		imagesHost = "file:"
 	} else {
 		imagesHost = origImagesHost
+	}
+}
+
+var origMetadataHost = metadataHost
+
+func UseTestMetadata(local bool) {
+	if local {
+		metadataHost = "file:"
+	} else {
+		metadataHost = origMetadataHost
 	}
 }
 

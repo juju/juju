@@ -3,6 +3,7 @@ package mstate
 import (
 	"fmt"
 	"labix.org/v2/mgo/bson"
+	"launchpad.net/juju-core/trivial"
 	"strconv"
 )
 
@@ -45,7 +46,7 @@ func (m *Machine) InstanceId() (string, error) {
 
 // Units returns all the units that have been assigned to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
-	defer errorContextf(&err, "cannot get units assigned to machine %s", m)
+	defer trivial.ErrorContextf(&err, "cannot get units assigned to machine %s", m)
 	pudocs := []unitDoc{}
 	err = m.st.units.Find(bson.D{{"machineid", m.doc.Id}}).All(&pudocs)
 	if err != nil {

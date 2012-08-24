@@ -13,8 +13,7 @@ import (
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/testing"
-	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"regexp"
 	"strings"
@@ -63,8 +62,7 @@ func registerLocalTests() {
 // localLiveSuite runs tests from LiveTests using a fake
 // EC2 server that runs within the test process itself.
 type localLiveSuite struct {
-	coretesting.LoggingSuite
-	testing.StateSuite
+	testing.LoggingSuite
 	LiveTests
 	srv localServer
 	env environs.Environ
@@ -164,8 +162,7 @@ func (srv *localServer) stopServer(c *C) {
 // accessed by using the "test" region, which is changed to point to the
 // network address of the local server.
 type localServerSuite struct {
-	coretesting.LoggingSuite
-	testing.StateSuite
+	testing.LoggingSuite
 	jujutest.Tests
 	srv localServer
 	env environs.Environ
@@ -173,6 +170,7 @@ type localServerSuite struct {
 
 func (t *localServerSuite) SetUpSuite(c *C) {
 	ec2.UseTestImageData(true)
+	ec2.UseTestMetadata(true)
 	t.Tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
@@ -180,6 +178,7 @@ func (t *localServerSuite) SetUpSuite(c *C) {
 func (t *localServerSuite) TearDownSuite(c *C) {
 	t.Tests.TearDownSuite(c)
 	ec2.ShortTimeouts(false)
+	ec2.UseTestMetadata(false)
 	ec2.UseTestImageData(false)
 }
 
@@ -253,6 +252,14 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	// TODO check for machine agent
 	CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='%s%s'", bootstrapDNS, ec2.ZkPortSuffix), true)
 	CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID=1"), true)
+
+	p := t.env.Provider()
+	addr, err := p.PublicAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "public.dummy.address.example.com")
+	addr, err = p.PrivateAddress()
+	c.Assert(err, IsNil)
+	c.Assert(addr, Equals, "private.dummy.address.example.com")
 
 	err = t.env.Destroy(append(insts, inst1))
 	c.Assert(err, IsNil)

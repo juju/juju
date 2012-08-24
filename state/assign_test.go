@@ -186,7 +186,7 @@ func (s *AssignSuite) TestAssignUnit(c *C) {
 	c.Assert(fail, PanicMatches, `unknown unit assignment policy: "random"`)
 	_, err := s.unit.AssignedMachineId()
 	c.Assert(err, NotNil)
-	s.AssertMachineCount(c, 1)
+	assertMachineCount(c, s.State, 1)
 
 	// Check local placement
 	err = s.State.AssignUnit(s.unit, state.AssignLocal)
@@ -194,7 +194,7 @@ func (s *AssignSuite) TestAssignUnit(c *C) {
 	mid, err := s.unit.AssignedMachineId()
 	c.Assert(err, IsNil)
 	c.Assert(mid, Equals, 0)
-	s.AssertMachineCount(c, 1)
+	assertMachineCount(c, s.State, 1)
 
 	// Check unassigned placement with no unused machines
 	unit1, err := s.service.AddUnit()
@@ -204,7 +204,7 @@ func (s *AssignSuite) TestAssignUnit(c *C) {
 	mid, err = unit1.AssignedMachineId()
 	c.Assert(err, IsNil)
 	c.Assert(mid, Equals, 1)
-	s.AssertMachineCount(c, 2)
+	assertMachineCount(c, s.State, 2)
 
 	// Check unassigned placement on an unused machine
 	_, err = s.State.AddMachine()
@@ -215,7 +215,7 @@ func (s *AssignSuite) TestAssignUnit(c *C) {
 	mid, err = unit2.AssignedMachineId()
 	c.Assert(err, IsNil)
 	c.Assert(mid, Equals, 2)
-	s.AssertMachineCount(c, 3)
+	assertMachineCount(c, s.State, 3)
 
 	// Check cannot assign subordinates to machines
 	subCharm := s.AddTestingCharm(c, "logging")
@@ -225,4 +225,10 @@ func (s *AssignSuite) TestAssignUnit(c *C) {
 	c.Assert(err, IsNil)
 	err = s.State.AssignUnit(unit3, state.AssignUnused)
 	c.Assert(err, ErrorMatches, `subordinate unit "logging/0" cannot be assigned directly to a machine`)
+}
+
+func assertMachineCount(c *C, st *state.State, expect int) {
+	ms, err := st.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(ms, HasLen, expect)
 }

@@ -55,8 +55,8 @@ type MachineConfig struct {
 	// commands cannot work.
 	AuthorizedKeys string
 
-	// Config specifies a set of key/values that are passed to the bootstrap machine
-	// and inserted into the state on initialisation.
+	// Config is map that is provided to juju bootstrap-state's --env-config
+	// option for initializing the environment configuration.
 	Config map[string]interface{}
 }
 
@@ -105,6 +105,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		"bin="+shquote(cfg.jujuTools()),
 		"mkdir -p $bin",
 		fmt.Sprintf("wget -O - %s | tar xz -C $bin", shquote(cfg.Tools.URL)),
+		fmt.Sprintf("echo -n %s > $bin/downloaded-url.txt", shquote(cfg.Tools.URL)),
 	)
 
 	addScripts(c,
