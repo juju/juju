@@ -348,24 +348,17 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	}
 	if e.ecfg().zookeeper() {
 		info := stateInfo()
-		st, err := state.Initialize(info)
+		config := map[string]interface{}{
+			"type":            "dummy",
+			"zookeeper":       true,
+			"name":            e.ecfg().Name(),
+			"authorized-keys": e.ecfg().AuthorizedKeys(),
+		}
+		st, err := state.Initialize(info, config)
 		if err != nil {
 			panic(err)
 		}
-		cfg, err := st.EnvironConfig()
-		if err != nil {
-			panic(err)
-		}
-		cfg.Set("type", "dummy")
-		cfg.Set("zookeeper", true)
-		cfg.Set("name", e.ecfg().Name())
-		cfg.Set("authorized-keys", e.ecfg().AuthorizedKeys())
-		_, err = cfg.Write()
-		if err != nil {
-			panic(err)
-		}
-		err = st.Close()
-		if err != nil {
+		if err := st.Close(); err != nil {
 			panic(err)
 		}
 	}
