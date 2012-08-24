@@ -93,7 +93,7 @@ func (u *Unit) Name() string {
 	return u.doc.Name
 }
 
-// Life return the unit lifecycle.
+// Life returns whether the unit is Alive, Dying or Dead.
 func (u *Unit) Life() Life {
 	return u.doc.Life
 }

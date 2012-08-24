@@ -166,7 +166,7 @@ func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
 // RemoveUnit removes the given unit from s.
 func (s *Service) RemoveUnit(u *Unit) (err error) {
 	if u.doc.Life != Dead {
-		panic(fmt.Errorf("unit %q is not dead", u))
+		return fmt.Errorf("unit %q is not dead", u)
 	}
 	sel := bson.D{
 		{"_id", u.doc.Name},
@@ -175,7 +175,7 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 	}
 	err = s.st.units.Remove(sel)
 	if err != nil {
-		return fmt.Errorf("cannot remove unit %q: %v", u.doc.Name, err)
+		return fmt.Errorf("cannot remove unit %q: %v", u, err)
 	}
 	return nil
 }

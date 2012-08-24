@@ -56,7 +56,7 @@ func ensureLife(id interface{}, coll *mgo.Collection, descr string, life Life) e
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("cannot set life to %s for %s %q: %v", life, descr, id, err)
+		return fmt.Errorf("cannot set life to %q for %s %q: %v", life, descr, id, err)
 	}
 	return nil
 }
