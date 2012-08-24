@@ -180,8 +180,6 @@ func (s *ServiceSuite) TestRemoveUnit(c *C) {
 	// Check that removing a unit works.
 	unit, err := s.service.Unit("mysql/0")
 	c.Assert(err, IsNil)
-	err = unit.Kill()
-	c.Assert(err, IsNil)
 	err = unit.Die()
 	c.Assert(err, IsNil)
 	err = s.service.RemoveUnit(unit)

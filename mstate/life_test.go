@@ -10,11 +10,15 @@ import (
 type LifeSuite struct {
 	ConnSuite
 	charm *state.Charm
+	svc   *state.Service
 }
 
 func (s *LifeSuite) SetUpTest(c *C) {
+	var err error
 	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "dummy")
+	s.svc, err = s.State.AddService("dummysvc", s.charm)
+	c.Assert(err, IsNil)
 }
 
 var _ = Suite(&LifeSuite{})
@@ -73,113 +77,94 @@ var stateChanges = []struct {
 	},
 }
 
-func (s *RelationSuite) createRelationWithLife(svc *state.Service, cached, dbinitial state.Life, c *C) *state.Relation {
-	peerep := state.RelationEndpoint{svc.Name(), "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
-	rel, err := s.State.AddRelation(peerep)
-	c.Assert(err, IsNil)
+type lifeFixture interface {
+	id() (coll string, id interface{})
+	setup(s *LifeSuite, c *C) state.Living
+	teardown(s *LifeSuite, c *C)
+}
 
-	err = s.relations.UpdateId(rel.Id(), bson.D{{"$set", bson.D{
+type relationLife struct {
+	rel *state.Relation
+}
+
+func (l *relationLife) id() (coll string, id interface{}) {
+	return "relations", l.rel.Id()
+}
+
+func (l *relationLife) setup(s *LifeSuite, c *C) state.Living {
+	var err error
+	ep := state.RelationEndpoint{s.svc.Name(), "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
+	l.rel, err = s.State.AddRelation(ep)
+	c.Assert(err, IsNil)
+	return l.rel
+}
+
+func (l *relationLife) teardown(s *LifeSuite, c *C) {
+	err := s.State.RemoveRelation(l.rel)
+	c.Assert(err, IsNil)
+}
+
+type unitLife struct {
+	unit *state.Unit
+}
+
+func (l *unitLife) id() (coll string, id interface{}) {
+	return "units", l.unit.Name()
+}
+
+func (l *unitLife) setup(s *LifeSuite, c *C) state.Living {
+	var err error
+	l.unit, err = s.svc.AddUnit()
+	c.Assert(err, IsNil)
+	return l.unit
+}
+
+func (l *unitLife) teardown(s *LifeSuite, c *C) {
+	err := s.svc.RemoveUnit(l.unit)
+	c.Assert(err, IsNil)
+}
+
+func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached, dbinitial state.Life, c *C) {
+	coll, id := lfix.id()
+
+	n, err := s.session.DB("juju").C(coll).Count()
+	c.Assert(err, IsNil)
+	c.Logf("preparing %q with %q (id %v of %d entries)", coll, living, id, n)
+
+	err = s.session.DB("juju").C(coll).UpdateId(id, bson.D{{"$set", bson.D{
 		{"life", cached},
 	}}})
 	c.Assert(err, IsNil)
-	err = rel.Refresh()
+	err = living.Refresh()
 	c.Assert(err, IsNil)
 
-	err = s.relations.UpdateId(rel.Id(), bson.D{{"$set", bson.D{
+	err = s.session.DB("juju").C(coll).UpdateId(id, bson.D{{"$set", bson.D{
 		{"life", dbinitial},
 	}}})
 	c.Assert(err, IsNil)
-
-	return rel
 }
 
-func (s *RelationSuite) createUnitWithLife(svc *state.Service, cached, dbinitial state.Life, c *C) *state.Unit {
-	unit, err := svc.AddUnit()
-	c.Assert(err, IsNil)
-
-	err = s.units.UpdateId(unit.Name(), bson.D{{"$set", bson.D{
-		{"life", cached},
-	}}})
-	c.Assert(err, IsNil)
-	err = unit.Refresh()
-	c.Assert(err, IsNil)
-
-	err = s.units.UpdateId(unit.Name(), bson.D{{"$set", bson.D{
-		{"life", dbinitial},
-	}}})
-	c.Assert(err, IsNil)
-
-	return unit
-}
-
-type livingEnv struct {
-	setup    func(cached, dbinitial state.Life, c *C) state.Living
-	teardown func(l state.Living, c *C)
-}
-
-func (s *RelationSuite) testLifecycleStateChangesForLiving(env *livingEnv, c *C) {
-	for _, v := range stateChanges {
-		l := env.setup(v.cached, v.dbinitial, c)
-		switch v.desired {
-		case state.Dying:
-			err := l.Kill()
+func (s *LifeSuite) TestLifecycleStateChanges(c *C) {
+	for _, lfix := range []lifeFixture{&relationLife{}, &unitLife{}} {
+		for _, v := range stateChanges {
+			living := lfix.setup(s, c)
+			s.prepareFixture(living, lfix, v.cached, v.dbinitial, c)
+			switch v.desired {
+			case state.Dying:
+				err := living.Kill()
+				c.Assert(err, IsNil)
+			case state.Dead:
+				err := living.Die()
+				c.Assert(err, IsNil)
+			default:
+				panic("desired lifecycle can only be dying or dead")
+			}
+			err := living.Refresh()
 			c.Assert(err, IsNil)
-		case state.Dead:
-			err := l.Die()
+			c.Assert(living.Life(), Equals, v.dbfinal)
+			err = living.Die()
 			c.Assert(err, IsNil)
-		default:
-			panic("desired lifecycle can only be dying or dead")
+			lfix.teardown(s, c)
 		}
-		err := l.Refresh()
-		c.Assert(err, IsNil)
-		c.Assert(l.Life(), Equals, v.dbfinal)
-
-		env.teardown(l, c)
-	}
-}
-
-func (s *RelationSuite) TestLifecycleStateChanges(c *C) {
-	peer, err := s.State.AddService("peer", s.charm)
-	c.Assert(err, IsNil)
-
-	envs := []*livingEnv{
-		{
-			// Relation.
-			setup: func(cached, dbinitial state.Life, c *C) state.Living {
-				return s.createRelationWithLife(peer, cached, dbinitial, c)
-			},
-			teardown: func(l state.Living, c *C) {
-				r, ok := l.(*state.Relation)
-				if !ok {
-					c.Errorf("unexpected living type")
-				}
-				err := r.Die()
-				c.Assert(err, IsNil)
-				err = s.State.RemoveRelation(r)
-				c.Assert(err, IsNil)
-
-			},
-		},
-		{
-			// Unit.
-			setup: func(cached, dbinitial state.Life, c *C) state.Living {
-				return s.createUnitWithLife(peer, cached, dbinitial, c)
-			},
-			teardown: func(l state.Living, c *C) {
-				u, ok := l.(*state.Unit)
-				if !ok {
-					c.Errorf("unexpected living type")
-				}
-				err := u.Die()
-				c.Assert(err, IsNil)
-				err = peer.RemoveUnit(u)
-				c.Assert(err, IsNil)
-
-			},
-		},
-	}
-
-	for _, env := range envs {
-		s.testLifecycleStateChangesForLiving(env, c)
 	}
 }

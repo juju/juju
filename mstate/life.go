@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
 )
 
 // Life represents the lifecycle state of the entities
@@ -38,7 +37,7 @@ type Living interface {
 
 // ensureLife changes the lifecycle state of the entity with
 // the id in the collection.
-func ensureLife(st *State, id interface{}, coll *mgo.Collection, descr string, life Life) error {
+func ensureLife(id interface{}, coll *mgo.Collection, descr string, life Life) error {
 	if life == Alive {
 		panic("cannot set life to alive")
 	}
@@ -49,15 +48,12 @@ func ensureLife(st *State, id interface{}, coll *mgo.Collection, descr string, l
 		{"life", bson.D{{"$lte", life}}},
 	}
 	change := bson.D{{"$set", bson.D{{"life", life}}}}
-	op := []txn.Operation{{
-		Collection: coll.Name,
-		DocId:      id,
-		Assert:     sel,
-		Change:     change,
-	}}
-	err = st.runner.Run(op, "", nil)
+	err := coll.Update(sel, change)
+	if err == mgo.ErrNotFound {
+		return nil
+	}
 	if err != nil {
-		return fmt.Errorf("cannot set life to %s for %s %q: %v", life, descr, id, err)
+		return fmt.Errorf("cannot set life to %q for %s %q: %v", life, descr, id, err)
 	}
 	return nil
 }
