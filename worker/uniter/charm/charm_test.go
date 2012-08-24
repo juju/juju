@@ -11,11 +11,11 @@ import (
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/charm"
-	"launchpad.net/tomb"
 	"net/url"
 	"os"
 	"path/filepath"
 	stdtesting "testing"
+	"time"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -51,78 +51,70 @@ type ManagerSuite struct {
 
 var _ = Suite(&ManagerSuite{})
 
-func (s *ManagerSuite) TestReadURL(c *C) {
+func (s *ManagerSuite) TestStatus(c *C) {
 	mgr := charm.NewManager(c.MkDir(), c.MkDir())
-	_, err := mgr.ReadURL()
+	_, err := mgr.ReadState()
+	c.Assert(err, Equals, charm.ErrMissing)
+
+	err = mgr.WriteState(charm.Deployed, nil)
+	c.Assert(err, IsNil)
+	_, err = mgr.ReadState()
 	c.Assert(err, Equals, charm.ErrMissing)
 
 	setCharmURL(c, mgr, "roflcopter")
-	_, err = mgr.ReadURL()
+	_, err = mgr.ReadState()
 	c.Assert(err, ErrorMatches, `charm URL has invalid schema: "roflcopter"`)
-
-	surl := "cs:series/minecraft-90210"
-	setCharmURL(c, mgr, surl)
-	url, err := mgr.ReadURL()
-	c.Assert(err, IsNil)
-	c.Assert(url, DeepEquals, corecharm.MustParseURL(surl))
-}
-
-func (s *ManagerSuite) TestStatus(c *C) {
-	mgr := charm.NewManager(c.MkDir(), c.MkDir())
-	_, _, err := mgr.ReadStatus()
-	c.Assert(err, Equals, charm.ErrMissing)
-
-	err = mgr.WriteStatus(charm.Installed, nil)
-	c.Assert(err, IsNil)
-	_, _, err = mgr.ReadStatus()
-	c.Assert(err, Equals, charm.ErrMissing)
-
-	charmURL := "cs:series/expansion-123"
-	setCharmURL(c, mgr, charmURL)
-	st, url, err := mgr.ReadStatus()
-	c.Assert(err, IsNil)
-	c.Assert(st, Equals, charm.Installed)
-	c.Assert(url, DeepEquals, corecharm.MustParseURL(charmURL))
 
 	statusURL := corecharm.MustParseURL("cs:series/contraction-987")
 	for _, expect := range []charm.Status{
 		charm.Installing, charm.Upgrading, charm.Conflicted,
 	} {
-		err = mgr.WriteStatus(expect, statusURL)
+		err = mgr.WriteState(expect, statusURL)
 		c.Assert(err, IsNil)
-		st, url, err := mgr.ReadStatus()
+		st, err := mgr.ReadState()
 		c.Assert(err, IsNil)
-		c.Assert(st, Equals, expect)
-		c.Assert(url, DeepEquals, statusURL)
+		c.Assert(st.Status, Equals, expect)
+		c.Assert(st.URL, DeepEquals, statusURL)
 	}
+
+	charmURL := "cs:series/expansion-123"
+	setCharmURL(c, mgr, charmURL)
+	err = mgr.WriteState(charm.Deployed, statusURL)
+	c.Assert(err, IsNil)
+	st, err := mgr.ReadState()
+	c.Assert(err, IsNil)
+	c.Assert(st.Status, Equals, charm.Deployed)
+	c.Assert(st.URL, DeepEquals, corecharm.MustParseURL(charmURL))
 }
 
 func (s *ManagerSuite) TestUpdate(c *C) {
 	// TODO: reimplement SUT using bzr; write much much nastier tests.
 	mgr := charm.NewManager(c.MkDir(), c.MkDir())
 	sch, bundata := s.AddCharm(c)
-	err := os.Chmod(mgr.Path(), 0555)
+	err := os.Chmod(mgr.CharmDir(), 0555)
 	c.Assert(err, IsNil)
-	defer os.Chmod(mgr.Path(), 0755)
+	defer os.Chmod(mgr.CharmDir(), 0755)
 
 	coretesting.Server.Response(200, nil, bundata)
-	t := tomb.Tomb{}
-	err = mgr.Update(sch, &t)
-	c.Assert(err, ErrorMatches, fmt.Sprintf("failed to write charm to %s: .*", mgr.Path()))
-	_, err = mgr.ReadURL()
+	err = mgr.Update(sch, nil)
+	expect := fmt.Sprintf("failed to write charm to %s: .*", mgr.CharmDir())
+	c.Assert(err, ErrorMatches, expect)
+	_, err = mgr.ReadState()
 	c.Assert(err, Equals, charm.ErrMissing)
 
-	err = os.Chmod(mgr.Path(), 0755)
+	err = os.Chmod(mgr.CharmDir(), 0755)
 	c.Assert(err, IsNil)
-	err = mgr.Update(sch, &t)
+	err = mgr.Update(sch, nil)
 	c.Assert(err, IsNil)
-	curl, err := mgr.ReadURL()
+	err = mgr.WriteState(charm.Deployed, nil)
+	st, err := mgr.ReadState()
 	c.Assert(err, IsNil)
-	c.Assert(curl, DeepEquals, sch.URL())
+	c.Assert(st.Status, Equals, charm.Deployed)
+	c.Assert(st.URL, DeepEquals, sch.URL())
 }
 
 func setCharmURL(c *C, mgr *charm.Manager, url string) {
-	path := filepath.Join(mgr.Path(), ".juju-charm")
+	path := filepath.Join(mgr.CharmDir(), ".juju-charm")
 	err := ioutil.WriteFile(path, []byte(url), 0644)
 	c.Assert(err, IsNil)
 }
@@ -147,43 +139,44 @@ func (s *BundlesDirSuite) TestGet(c *C) {
 
 	// Try to get the charm when the content doesn't match.
 	coretesting.Server.Response(200, nil, []byte("roflcopter"))
-	var t tomb.Tomb
-	_, err = d.Read(sch, &t)
+	_, err = d.Read(sch, nil)
 	prefix := fmt.Sprintf(`failed to download charm "cs:series/dummy-1" from %q: `, sch.BundleURL())
 	c.Assert(err, ErrorMatches, prefix+fmt.Sprintf(`expected sha256 %q, got ".*"`, sch.BundleSha256()))
-	c.Assert(t.Err(), Equals, tomb.ErrStillAlive)
 
 	// Try to get a charm whose bundle doesn't exist.
 	coretesting.Server.Response(404, nil, nil)
-	_, err = d.Read(sch, &t)
+	_, err = d.Read(sch, nil)
 	c.Assert(err, ErrorMatches, prefix+`.* 404 Not Found`)
-	c.Assert(t.Err(), Equals, tomb.ErrStillAlive)
 
 	// Get a charm whose bundle exists and whose content matches.
 	coretesting.Server.Response(200, nil, bundata)
-	ch, err := d.Read(sch, &t)
+	ch, err := d.Read(sch, nil)
 	c.Assert(err, IsNil)
 	assertCharm(c, ch, sch)
-	c.Assert(t.Err(), Equals, tomb.ErrStillAlive)
 
 	// Get the same charm again, without preparing a response from the server.
-	ch, err = d.Read(sch, &t)
+	ch, err = d.Read(sch, nil)
 	c.Assert(err, IsNil)
 	assertCharm(c, ch, sch)
-	c.Assert(t.Err(), Equals, tomb.ErrStillAlive)
 
 	// Abort a download.
 	err = os.RemoveAll(bunsdir)
 	c.Assert(err, IsNil)
+	abort := make(chan struct{})
 	done := make(chan bool)
 	go func() {
-		ch, err := d.Read(sch, &t)
+		ch, err := d.Read(sch, abort)
 		c.Assert(ch, IsNil)
 		c.Assert(err, ErrorMatches, prefix+"aborted")
 		close(done)
 	}()
-	t.Kill(fmt.Errorf("some unrelated error"))
-	<-done
+	close(abort)
+	coretesting.Server.Response(500, nil, nil)
+	select {
+	case <-done:
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("timed out waiting for abort")
+	}
 }
 
 func readHash(c *C, path string) ([]byte, string) {

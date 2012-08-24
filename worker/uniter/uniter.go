@@ -111,10 +111,10 @@ func (u *Uniter) changeCharm(sch *state.Charm, st charm.Status) error {
 	if st != charm.Installing && st != charm.Upgrading {
 		panic(fmt.Errorf("charm status %q does not represent a change", st))
 	}
-	if err := u.charm.WriteStatus(st, sch.URL()); err != nil {
+	if err := u.charm.WriteState(st, sch.URL()); err != nil {
 		return err
 	}
-	if err := u.charm.Update(sch, &u.tomb); err != nil {
+	if err := u.charm.Update(sch, u.tomb.Dying()); err != nil {
 		return err
 	}
 	if err := u.unit.SetCharm(sch); err != nil {
@@ -160,7 +160,7 @@ func (u *Uniter) runHook(hi hook.Info) error {
 	if hi.Kind == hook.Install || hi.Kind == hook.UpgradeCharm {
 		// Once hook execution is started, we can forget about the charm
 		// change operation; we'll restart from this point.
-		if err := u.charm.WriteStatus(charm.Installed, nil); err != nil {
+		if err := u.charm.WriteState(charm.Deployed, nil); err != nil {
 			return err
 		}
 	}
@@ -172,7 +172,7 @@ func (u *Uniter) runHook(hi hook.Info) error {
 	go srv.Run()
 	defer srv.Close()
 	log.Printf("running hook %q", hookName)
-	if err := hctx.RunHook(hookName, u.charm.Path(), socketPath); err != nil {
+	if err := hctx.RunHook(hookName, u.charm.CharmDir(), socketPath); err != nil {
 		log.Printf("hook failed: %s", err)
 		return errHookFailed
 	}

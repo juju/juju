@@ -20,9 +20,9 @@ func ModeInit(u *Uniter) (mode Mode, err error) {
 	defer trivial.ErrorContextf(&err, "ModeInit")
 	log.Printf("examining charm state...")
 	var sch *state.Charm
-	st, url, err := u.charm.ReadStatus()
+	cs, err := u.charm.ReadState()
 	if err == charm.ErrMissing {
-		log.Printf("charm is not installed")
+		log.Printf("charm is not deployed")
 		if sch, _, err = u.service.Charm(); err != nil {
 			return nil, err
 		}
@@ -30,13 +30,13 @@ func ModeInit(u *Uniter) (mode Mode, err error) {
 	} else if err != nil {
 		return nil, err
 	}
-	if st == charm.Installed {
-		log.Printf("charm is installed")
+	if cs.Status == charm.Deployed {
+		log.Printf("charm is deployed")
 		return nextMode(u)
-	} else if sch, err = u.st.Charm(url); err != nil {
+	} else if sch, err = u.st.Charm(cs.URL); err != nil {
 		return nil, err
 	}
-	switch st {
+	switch cs.Status {
 	case charm.Installing:
 		log.Printf("resuming charm install")
 		return ModeInstalling(sch), nil
