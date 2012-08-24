@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/log"
@@ -95,14 +94,14 @@ func (mgr *Manager) ReadState() (State, error) {
 // deployed, it returns ErrMissing.
 func (mgr *Manager) readURL() (*charm.URL, error) {
 	path := filepath.Join(mgr.charmDir, ".juju-charm")
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
+	var surl *string
+	if err := trivial.ReadYaml(path, &surl); err != nil {
 		if os.IsNotExist(err) {
 			err = ErrMissing
 		}
 		return nil, err
 	}
-	return charm.ParseURL(string(data))
+	return charm.ParseURL(*surl)
 }
 
 // WriteState stores the current state of the charm. If st is Deployed,
@@ -138,7 +137,7 @@ func (mgr *Manager) Update(sch *state.Charm, abort <-chan struct{}) (err error) 
 		return err
 	}
 	path := filepath.Join(mgr.charmDir, ".juju-charm")
-	return ioutil.WriteFile(path, []byte(sch.URL().String()), 0644)
+	return trivial.WriteYaml(path, sch.URL().String())
 }
 
 // Resolved signals that update conflicts have been resolved, and puts the
