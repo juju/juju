@@ -43,7 +43,7 @@ var _ = Suite(&StateSuite{})
 
 func (s *StateSuite) TestInitialize(c *C) {
 	// Check that initialization of an already-initialized state succeeds.
-	st, err := state.Initialize(s.StateInfo(c))
+	st, err := state.Initialize(s.StateInfo(c), nil)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	st.Close()
@@ -68,7 +68,7 @@ func (s *StateSuite) TestInitialize(c *C) {
 	default:
 	}
 
-	st, err = state.Initialize(s.StateInfo(c))
+	st, err = state.Initialize(s.StateInfo(c), nil)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	defer st.Close()
@@ -81,14 +81,24 @@ func (s *StateSuite) TestInitialize(c *C) {
 	}
 }
 
-func (s *StateSuite) TestEnvironConfig(c *C) {
-	_, err := s.zkConn.Set("/environment", "type: dummy\nname: foo\n", -1)
-	c.Assert(err, IsNil)
+func (s *StateSuite) TestInitalizeWithConfig(c *C) {
+	// clean existing state
+	coretesting.ZkRemoveTree(s.zkConn, "/")
 
-	env, err := s.State.EnvironConfig()
+	m := map[string]interface{}{
+		"name":            "only",
+		"type":            "dummy",
+		"zookeeper":       true,
+		"authorized-keys": "i-am-a-key",
+	}
+	st, err := state.Initialize(s.StateInfo(c), m)
+	c.Assert(err, IsNil)
+	c.Assert(st, NotNil)
+	defer st.Close()
+	env, err := st.EnvironConfig()
 	env.Read()
 	c.Assert(err, IsNil)
-	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"type": "dummy", "name": "foo"})
+	c.Assert(env.Map(), DeepEquals, m)
 }
 
 type environConfig map[string]interface{}
@@ -108,7 +118,6 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 	// so that we know what we have.
 	_, err := s.zkConn.Set("/environment", "", -1)
 	c.Assert(err, IsNil)
-
 	// fetch the /environment key as a *ConfigNode
 	environConfigWatcher := s.State.WatchEnvironConfig()
 	defer func() {
