@@ -45,19 +45,24 @@ func (l Life) String() string {
 
 // ensureLife changes the lifecycle state of the entity with
 // the id in the collection.
-func ensureLife(id interface{}, coll *mgo.Collection, descr string, life Life) error {
-	if life == Alive {
-		panic("cannot set life to alive")
-	}
+func ensureLife(id interface{}, st *State, coll *mgo.Collection, descr string, life Life) error {
 	sel := bson.D{
 		{"_id", id},
 		// $lte is used so that we don't overwrite a previous
 		// change we don't know about. 
 		{"life", bson.D{{"$lte", life}}},
 	}
-	change := bson.D{{"$set", bson.D{{"life", life}}}}
-	err := coll.Update(sel, change)
-	if err == mgo.ErrNotFound {
+	change := bson.D{{"$set", bson.D{
+		{"life", life},
+	}}}
+	ops := []txn.Op{{
+		C:      coll.Name,
+		Id:     id,
+		Assert: sel,
+		Update: change,
+	}}
+	err := st.runner.Run(ops, "", nil)
+	if err == txn.ErrAborted {
 		return nil
 	}
 	if err != nil {
