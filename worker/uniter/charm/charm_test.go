@@ -56,6 +56,26 @@ type BundlesDirSuite struct {
 	testing.JujuConnSuite
 }
 
+func (s *BundlesDirSuite) SetUpSuite(c *C) {
+	s.HTTPSuite.SetUpSuite(c)
+	s.JujuConnSuite.SetUpSuite(c)
+}
+
+func (s *BundlesDirSuite) TearDownSuite(c *C) {
+	s.JujuConnSuite.TearDownSuite(c)
+	s.HTTPSuite.TearDownSuite(c)
+}
+
+func (s *BundlesDirSuite) SetUpTest(c *C) {
+	s.HTTPSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
+}
+
+func (s *BundlesDirSuite) TearDownTest(c *C) {
+	s.JujuConnSuite.TearDownTest(c)
+	s.HTTPSuite.TearDownTest(c)
+}
+
 var _ = Suite(&BundlesDirSuite{})
 
 func (s *BundlesDirSuite) TestGet(c *C) {

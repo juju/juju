@@ -12,7 +12,7 @@ type LoggingSuite struct {
 	oldDebug  bool
 }
 
-func (t *LoggingSuite) SetUpSuite(c *C) {}
+func (t *LoggingSuite) SetUpSuite(c *C)    {}
 func (t *LoggingSuite) TearDownSuite(c *C) {}
 
 func (t *LoggingSuite) SetUpTest(c *C) {

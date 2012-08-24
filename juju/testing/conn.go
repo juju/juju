@@ -15,7 +15,7 @@ import (
 	"path/filepath"
 )
 
-// JujuConnSuitex provides a freshly bootstrapped juju.Conn
+// JujuConnSuite provides a freshly bootstrapped juju.Conn
 // for each test. It also includes testing.LoggingSuite.
 //
 // It also sets up $HOME and environs.VarDir to
@@ -23,7 +23,7 @@ import (
 // hold the dummy environments.yaml file.
 //
 // The name of the dummy environment is "jujutest".
-type JujuConnSuitex struct {
+type JujuConnSuite struct {
 	testing.LoggingSuite
 	testing.ZkSuite
 	Conn   *juju.Conn
@@ -40,17 +40,17 @@ environments:
         authorized-keys: 'i-am-a-key'
 `)
 
-func (s *JujuConnSuitex) SetUpSuite(c *C) {
+func (s *JujuConnSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.ZkSuite.SetUpSuite(c)
 }
 
-func (s *JujuConnSuitex) TearDownSuite(c *C) {
+func (s *JujuConnSuite) TearDownSuite(c *C) {
 	s.ZkSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 }
 
-func (s *JujuConnSuitex) SetUpTest(c *C) {
+func (s *JujuConnSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.ZkSuite.SetUpTest(c)
 
@@ -78,7 +78,7 @@ func (s *JujuConnSuitex) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *JujuConnSuitex) TearDownTest(c *C) {
+func (s *JujuConnSuite) TearDownTest(c *C) {
 	dummy.Reset()
 	c.Assert(s.Conn.Close(), IsNil)
 	s.Conn = nil
@@ -92,7 +92,7 @@ func (s *JujuConnSuitex) TearDownTest(c *C) {
 }
 
 // WriteConfig writes a juju config file to the "home" directory.
-func (s *JujuConnSuitex) WriteConfig(config string) {
+func (s *JujuConnSuite) WriteConfig(config string) {
 	if s.home == "" {
 		panic("SetUpTest has not been called; will not overwrite $HOME/.juju/environments.yaml")
 	}
@@ -103,11 +103,11 @@ func (s *JujuConnSuitex) WriteConfig(config string) {
 	}
 }
 
-func (s *JujuConnSuitex) StateInfo(c *C) *state.Info {
+func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
 	return &state.Info{Addrs: []string{testing.ZkAddr}}
 }
 
-func (s *JujuConnSuitex) AddTestingCharm(c *C, name string) *state.Charm {
+func (s *JujuConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	ch := testing.Charms.Dir(name)
 	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
 	curl := charm.MustParseURL("local:series/" + ident)
