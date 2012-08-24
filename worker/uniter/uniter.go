@@ -56,16 +56,16 @@ func NewUniter(st *state.State, name string) (u *Uniter, err error) {
 	if err != nil {
 		return nil, err
 	}
-	p := func(parts ...string) string {
-		return filepath.Join(append([]string{path}, parts...)...)
-	}
+	charmDir := filepath.Join(path, "charm")
+	stateDir := filepath.Join(path, "state")
+	hookPath := filepath.Join(stateDir, "hook")
 	u = &Uniter{
 		path:    path,
 		st:      st,
 		unit:    unit,
 		service: service,
-		hook:    hook.NewStateFile(p("state", "hook")),
-		charm:   charm.NewManager(p("charm"), p("state")),
+		hook:    hook.NewStateFile(hookPath),
+		charm:   charm.NewManager(charmDir, stateDir),
 		rand:    rand.New(rand.NewSource(time.Now().Unix())),
 		pinger:  pinger,
 	}
@@ -79,11 +79,7 @@ func (u *Uniter) loop() {
 	for mode != nil {
 		mode, err = mode(u)
 	}
-	select {
-	case <-u.tomb.Dying():
-	default:
-		u.tomb.Kill(err)
-	}
+	u.tomb.Kill(err)
 	u.tomb.Kill(u.pinger.Stop())
 	u.tomb.Done()
 }
@@ -131,7 +127,7 @@ var errHookFailed = errors.New("hook execution failed")
 // runHook executes the supplied hook.Info in an appropriate hook context. If
 // the hook itself fails to execute, it returns errHookFailed.
 func (u *Uniter) runHook(hi hook.Info) error {
-	// Prepare context.
+	// Prepare context and start server.
 	hookName := string(hi.Kind)
 	if hi.Kind.IsRelation() {
 		panic("relation hooks are not yet supported")
@@ -152,9 +148,16 @@ func (u *Uniter) runHook(hi hook.Info) error {
 		}
 		return hctx.NewCommand(cmdName)
 	}
+	socketPath := filepath.Join(u.path, "agent.socket")
+	srv, err := server.NewServer(getCmd, socketPath)
+	if err != nil {
+		return err
+	}
+	go srv.Run()
+	defer srv.Close()
 
-	// Mark hook execution started.
-	if err := u.hook.Write(hi, hook.Started); err != nil {
+	// Mark hook execution in progress.
+	if err := u.hook.Write(hi, hook.Running); err != nil {
 		return err
 	}
 	if hi.Kind == hook.Install || hi.Kind == hook.UpgradeCharm {
@@ -164,20 +167,10 @@ func (u *Uniter) runHook(hi hook.Info) error {
 			return err
 		}
 	}
-	socketPath := filepath.Join(u.path, "agent.socket")
-	srv, err := server.NewServer(getCmd, socketPath)
-	if err != nil {
-		return err
-	}
-	go srv.Run()
-	defer srv.Close()
 	log.Printf("running hook %q", hookName)
 	if err := hctx.RunHook(hookName, u.charm.CharmDir(), socketPath); err != nil {
 		log.Printf("hook failed: %s", err)
 		return errHookFailed
-	}
-	if err := u.hook.Write(hi, hook.Succeeded); err != nil {
-		return err
 	}
 	log.Printf("hook succeeded")
 	return u.commitHook(hi)
@@ -186,14 +179,17 @@ func (u *Uniter) runHook(hi hook.Info) error {
 // commitHook ensures that state is consistent with the supplied hook, and
 // that the fact of the hook's completion is persisted.
 func (u *Uniter) commitHook(hi hook.Info) error {
+	if err := u.hook.Write(hi, hook.Committing); err != nil {
+		return err
+	}
 	if hi.Kind.IsRelation() {
 		panic("relation hooks are not yet supported")
 		// TODO: commit relation state changes.
 	}
-	if err := u.hook.Write(hi, hook.Committed); err != nil {
+	if err := u.hook.Write(hi, hook.Complete); err != nil {
 		return err
 	}
-	log.Printf("hook committed")
+	log.Printf("hook complete")
 	return nil
 }
 
