@@ -213,7 +213,7 @@ func BestTools(list *ToolsList, vers version.Binary, dev bool) *state.Tools {
 	return bestTools(list.Public, vers, dev)
 }
 
-// bestTools is like BestTools but operates on a single list of tools only.
+// bestTools is like BestTools but operates on a single list of tools.
 func bestTools(toolsList []*state.Tools, vers version.Binary, dev bool) *state.Tools {
 	var bestTools *state.Tools
 	allowDev := vers.IsDev() || dev
