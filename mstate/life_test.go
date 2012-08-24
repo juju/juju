@@ -127,10 +127,6 @@ func (l *unitLife) teardown(s *LifeSuite, c *C) {
 func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached, dbinitial state.Life, c *C) {
 	coll, id := lfix.id()
 
-	n, err := s.session.DB("juju").C(coll).Count()
-	c.Assert(err, IsNil)
-	c.Logf("preparing %q with %q (id %v of %d entries)", coll, living, id, n)
-
 	err = s.session.DB("juju").C(coll).UpdateId(id, bson.D{{"$set", bson.D{
 		{"life", cached},
 	}}})
