@@ -43,12 +43,12 @@ func (s *StateFileSuite) TestStateFile(c *C) {
 			"abc/1000": {"baz": 3, "qux": 4},
 		},
 	}
-	err = f.Write(hi, hook.Running)
+	err = f.Write(hi, hook.Pending)
 	c.Assert(err, IsNil)
 
 	st, err := f.Read()
 	c.Assert(err, IsNil)
-	c.Assert(st.Status, Equals, hook.Running)
+	c.Assert(st.Status, Equals, hook.Pending)
 	c.Assert(st.Info, DeepEquals, hook.Info{
 		Kind:          hook.RelationChanged,
 		RelationId:    123,

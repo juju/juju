@@ -31,7 +31,7 @@ func ModeInit(u *Uniter) (next Mode, err error) {
 	}
 	if cs.Status == charm.Deployed {
 		log.Printf("charm is deployed")
-		return hookStateMode(u)
+		return ModeContinue, nil
 	} else if sch, err = u.st.Charm(cs.URL); err != nil {
 		return nil, err
 	}
@@ -45,32 +45,41 @@ func ModeInit(u *Uniter) (next Mode, err error) {
 	panic("unreachable")
 }
 
-// hookStateMode determines the next Mode to run, based purely on hook
-// state. A hook which is "started" has necessarily not "succeeded",
-// and always leads us into ModeHookError; but a hook which has
-// "succeeded" but not been "committed" indicates that state can be
-// repaired by recommitting the stored change (commit is idempotent
-// with respect to successive writes of the same data). When the hook
-// is "committed", its kind is used to determine the next mode.
-func hookStateMode(u *Uniter) (Mode, error) {
+// ModeContinue determines what action to take based on hook status.
+func ModeContinue(u *Uniter) (next Mode, err error) {
+	defer trivial.ErrorContextf(&err, "ModeContinue")
 	log.Printf("examining hook state...")
 	hs, err := u.hook.Read()
 	if err != nil {
 		return nil, err
-	} else if hs.Status == hook.Running {
+	}
+	switch hs.Status {
+	case hook.Pending:
 		log.Printf("awaiting error resolution for %q hook", hs.Info.Kind)
 		return ModeHookError, nil
-	} else if hs.Status == hook.Committing {
+	case hook.Committing:
 		log.Printf("recovering uncommitted %q hook", hs.Info.Kind)
 		if err = u.commitHook(hs.Info); err != nil {
 			return nil, err
 		}
+		return ModeContinue, nil
+	case hook.Queued:
+		log.Printf("running queued %q hook", hs.Info.Kind)
+		if err := u.runHook(hs.Info); err != nil {
+			if err == errHookFailed {
+				return ModeHookError, nil
+			}
+			return nil, err
+		}
+		return ModeContinue, nil
+	case hook.Complete:
+		log.Printf("continuing after %q hook", hs.Info.Kind)
+		if hs.Info.Kind == hook.Install {
+			return ModeStarting, nil
+		}
+		return ModeStarted, nil
 	}
-	log.Printf("continuing after %q hook", hs.Info.Kind)
-	if hs.Info.Kind == hook.Install {
-		return ModeStarting, nil
-	}
-	return ModeStarted, nil
+	panic(fmt.Errorf("unhandled hook status %q", hs.Status))
 }
 
 // ModeInstalling is responsible for creating the charm directory and running
@@ -81,11 +90,7 @@ func ModeInstalling(sch *state.Charm) Mode {
 		if err = u.changeCharm(sch, charm.Installing); err != nil {
 			return nil, err
 		}
-		err = u.runHook(hook.Info{Kind: hook.Install})
-		if err != nil && err != errHookFailed {
-			return nil, err
-		}
-		return hookStateMode(u)
+		return ModeContinue, nil
 	}
 }
 
@@ -99,7 +104,7 @@ func ModeStarting(u *Uniter) (next Mode, err error) {
 	if err := u.runHook(hi); err != nil && err != errHookFailed {
 		return nil, err
 	}
-	return hookStateMode(u)
+	return ModeContinue, nil
 }
 
 // ModeStarted is the Uniter's usual steady state. It watches for and responds to:
@@ -146,7 +151,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if hs.Status != hook.Running {
+	if hs.Status != hook.Pending {
 		return nil, fmt.Errorf("inconsistent hook status %q", hs.Status)
 	}
 	msg := fmt.Sprintf("hook failed: %q", hs.Info.Kind)
@@ -182,7 +187,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 			} else if err != nil {
 				return nil, err
 			}
-			return hookStateMode(u)
+			return ModeContinue, nil
 		}
 		// TODO: unit death; charm upgrades.
 	}

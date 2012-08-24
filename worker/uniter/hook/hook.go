@@ -88,10 +88,14 @@ type Info struct {
 type Status string
 
 const (
-	// Running indicates that execution of the hook has started. A hook
+	// Queued indicates that the hook should be executed at the earliest
+	// opportunity.
+	Queued Status = "queued"
+
+	// Pending indicates that execution of the hook has started. A hook
 	// that fails should keep this status until it is successfully re-
 	// executed or skipped.
-	Running Status = "running"
+	Pending Status = "pending"
 
 	// Committing indicates that execution of the hook has successfully
 	// completed, or that the hook has been skipped, but that persistent
@@ -107,7 +111,7 @@ const (
 // valid will return true if the Status is known.
 func (status Status) valid() bool {
 	switch status {
-	case Running, Committing, Complete:
+	case Queued, Pending, Committing, Complete:
 		return true
 	}
 	return false

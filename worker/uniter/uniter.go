@@ -116,6 +116,17 @@ func (u *Uniter) changeCharm(sch *state.Charm, st charm.Status) error {
 	if err := u.unit.SetCharm(sch); err != nil {
 		return err
 	}
+	if st == charm.Installing {
+		hi := hook.Info{Kind: hook.Install}
+		if err := u.hook.Write(hi, hook.Queued); err != nil {
+			return err
+		}
+	} else {
+		panic("not implemented")
+	}
+	if err := u.charm.WriteState(charm.Deployed, nil); err != nil {
+		return err
+	}
 	log.Printf("charm changed successfully")
 	return nil
 }
@@ -127,7 +138,7 @@ var errHookFailed = errors.New("hook execution failed")
 // runHook executes the supplied hook.Info in an appropriate hook context. If
 // the hook itself fails to execute, it returns errHookFailed.
 func (u *Uniter) runHook(hi hook.Info) error {
-	// Prepare context and start server.
+	// Prepare context.
 	hookName := string(hi.Kind)
 	if hi.Kind.IsRelation() {
 		panic("relation hooks are not yet supported")
@@ -140,6 +151,8 @@ func (u *Uniter) runHook(hi hook.Info) error {
 		Id:         hctxId,
 		RelationId: -1,
 	}
+
+	// Prepare server.
 	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
 		// TODO: switch to long-running server with single context;
 		// use nonce in place of context id.
@@ -156,16 +169,9 @@ func (u *Uniter) runHook(hi hook.Info) error {
 	go srv.Run()
 	defer srv.Close()
 
-	// Mark hook execution in progress.
-	if err := u.hook.Write(hi, hook.Running); err != nil {
+	// Run the hook.
+	if err := u.hook.Write(hi, hook.Pending); err != nil {
 		return err
-	}
-	if hi.Kind == hook.Install || hi.Kind == hook.UpgradeCharm {
-		// Once hook execution is started, we can forget about the charm
-		// change operation; we'll restart from this point.
-		if err := u.charm.WriteState(charm.Deployed, nil); err != nil {
-			return err
-		}
 	}
 	log.Printf("running hook %q", hookName)
 	if err := hctx.RunHook(hookName, u.charm.CharmDir(), socketPath); err != nil {
