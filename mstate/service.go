@@ -186,21 +186,24 @@ func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
 }
 
 // RemoveUnit removes the given unit from s.
-func (s *Service) RemoveUnit(unit *Unit) error {
+func (s *Service) RemoveUnit(u *Unit) (err error) {
+	if u.doc.Life != Dead {
+		return fmt.Errorf("unit %q is not dead", u)
+	}
 	sel := bson.D{
-		{"_id", unit.Name()},
+		{"_id", u.doc.Name},
 		{"service", s.doc.Name},
-		{"life", Alive},
+		{"life", Dead},
 	}
 	op := []txn.Op{{
 		C:      s.st.units.Name,
-		Id:     unit.doc.Name,
+		Id:     u.doc.Name,
 		Assert: sel,
-		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
+		Remove: true,
 	}}
-	err := s.st.runner.Run(op, "", nil)
+	err = s.st.runner.Run(op, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot remove unit %q: %v", unit, err)
+		return fmt.Errorf("cannot remove unit %q: %v", u, err)
 	}
 	return nil
 }
