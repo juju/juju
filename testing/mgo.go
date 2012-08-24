@@ -64,7 +64,7 @@ func MgoTestPackage(t *stdtesting.T) {
 	TestingT(t)
 }
 
-func (s MgoSuite) SetUpSuite(c *C) {
+func (s *MgoSuite) SetUpSuite(c *C) {
 	if MgoAddr == "" {
 		panic("MgoSuite tests must be run with MgoTestPackage")
 	}
@@ -105,7 +105,7 @@ func MgoReset() {
 	}
 }
 
-func (s MgoSuite) TearDownTest(c *C) {
+func (s *MgoSuite) TearDownTest(c *C) {
 	MgoReset()
 	s.Session.Close()
 	for i := 0; ; i++ {
