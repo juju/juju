@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	stdtesting "testing"
+	"time"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -170,7 +171,12 @@ func (s *BundlesDirSuite) TestGet(c *C) {
 		close(done)
 	}()
 	close(abort)
-	<-done
+	coretesting.Server.Response(500, nil, nil)
+	select {
+	case <-done:
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("timed out waiting for abort")
+	}
 }
 
 func readHash(c *C, path string) ([]byte, string) {
