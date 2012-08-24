@@ -45,11 +45,11 @@ func (s *Service) CharmURL() (url *charm.URL, err error) {
 
 // SetCharmURL changes the charm URL for the service.
 func (s *Service) SetCharmURL(url *charm.URL) (err error) {
-	op := []txn.Operation{{
-		Collection: s.st.services.Name,
-		DocId:      s.doc.Name,
-		Assert:     bson.D{{"_id", s.doc.Name}, {"life", Alive}},
-		Change:     bson.D{{"$set", bson.D{{"charmurl", url}}}},
+	op := []txn.Op{{
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: bson.D{{"_id", s.doc.Name}, {"life", Alive}},
+		Update: bson.D{{"$set", bson.D{{"charmurl", url}}}},
 	}}
 	err = s.st.runner.Run(op, "", nil)
 	if err != nil {
@@ -62,11 +62,11 @@ func (s *Service) SetCharmURL(url *charm.URL) (err error) {
 // SetExposed marks the service as exposed.
 // See ClearExposed and IsExposed.
 func (s *Service) SetExposed() error {
-	op := []txn.Operation{{
-		Collection: s.st.services.Name,
-		DocId:      s.doc.Name,
-		Assert:     bson.D{{"_id", s.doc.Name}, {"life", Alive}},
-		Change:     bson.D{{"$set", bson.D{{"exposed", true}}}},
+	op := []txn.Op{{
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: bson.D{{"_id", s.doc.Name}, {"life", Alive}},
+		Update: bson.D{{"$set", bson.D{{"exposed", true}}}},
 	}}
 	err := s.st.runner.Run(op, "", nil)
 	if err != nil {
@@ -79,11 +79,11 @@ func (s *Service) SetExposed() error {
 // ClearExposed removes the exposed flag from the service.
 // See SetExposed and IsExposed.
 func (s *Service) ClearExposed() error {
-	op := []txn.Operation{{
-		Collection: s.st.services.Name,
-		DocId:      s.doc.Name,
-		Assert:     bson.D{{"_id", s.doc.Name}, {"life", Alive}},
-		Change:     bson.D{{"$set", bson.D{{"exposed", false}}}},
+	op := []txn.Op{{
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: bson.D{{"_id", s.doc.Name}, {"life", Alive}},
+		Update: bson.D{{"$set", bson.D{{"exposed", false}}}},
 	}}
 	err := s.st.runner.Run(op, "", nil)
 	if err != nil {
@@ -136,11 +136,11 @@ func (s *Service) addUnit(name string, principal string) (*Unit, error) {
 		Principal: principal,
 		Life:      Alive,
 	}
-	op := []txn.Operation{{
-		Collection: s.st.units.Name,
-		DocId:      udoc.Name,
-		Assert:     txn.DocMissing,
-		Insert:     udoc,
+	op := []txn.Op{{
+		C:      s.st.units.Name,
+		Id:     udoc.Name,
+		Assert: txn.DocMissing,
+		Insert: udoc,
 	}}
 	err := s.st.runner.Run(op, "", nil)
 	if err != nil {
@@ -192,11 +192,11 @@ func (s *Service) RemoveUnit(unit *Unit) error {
 		{"service", s.doc.Name},
 		{"life", Alive},
 	}
-	op := []txn.Operation{{
-		Collection: s.st.units.Name,
-		DocId:      unit.doc.Name,
-		Assert:     sel,
-		Change:     bson.D{{"$set", bson.D{{"life", Dying}}}},
+	op := []txn.Op{{
+		C:      s.st.units.Name,
+		Id:     unit.doc.Name,
+		Assert: sel,
+		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}}
 	err := s.st.runner.Run(op, "", nil)
 	if err != nil {

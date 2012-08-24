@@ -73,11 +73,11 @@ func (s *State) AddMachine() (m *Machine, err error) {
 		Id:   id,
 		Life: Alive,
 	}
-	op := []txn.Operation{{
-		Collection: s.machines.Name,
-		DocId:      id,
-		Assert:     txn.DocMissing,
-		Insert:     mdoc,
+	op := []txn.Op{{
+		C:      s.machines.Name,
+		Id:     id,
+		Assert: txn.DocMissing,
+		Insert: mdoc,
 	}}
 	err = s.runner.Run(op, "", nil)
 	if err != nil {
@@ -88,11 +88,11 @@ func (s *State) AddMachine() (m *Machine, err error) {
 
 // RemoveMachine removes the machine with the the given id.
 func (s *State) RemoveMachine(id int) error {
-	op := []txn.Operation{{
-		Collection: s.machines.Name,
-		DocId:      id,
-		Assert:     bson.D{{"life", Alive}},
-		Change:     bson.D{{"$set", bson.D{{"life", Dying}}}},
+	op := []txn.Op{{
+		C:      s.machines.Name,
+		Id:     id,
+		Assert: bson.D{{"life", Alive}},
+		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}}
 	err := s.runner.Run(op, "", nil)
 	if err != nil {
@@ -137,11 +137,11 @@ func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bu
 		BundleURL:    bundleURL,
 		BundleSha256: bundleSha256,
 	}
-	op := []txn.Operation{{
-		Collection: s.charms.Name,
-		DocId:      curl,
-		Assert:     txn.DocMissing,
-		Insert:     cdoc,
+	op := []txn.Op{{
+		C:      s.charms.Name,
+		Id:     curl,
+		Assert: txn.DocMissing,
+		Insert: cdoc,
 	}}
 	err = s.runner.Run(op, "", nil)
 	if err != nil {
@@ -169,11 +169,11 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 		CharmURL: ch.URL(),
 		Life:     Alive,
 	}
-	op := []txn.Operation{{
-		Collection: s.services.Name,
-		DocId:      name,
-		Assert:     txn.DocMissing,
-		Insert:     sdoc,
+	op := []txn.Op{{
+		C:      s.services.Name,
+		Id:     name,
+		Assert: txn.DocMissing,
+		Insert: sdoc,
 	}}
 	err = s.runner.Run(op, "", nil)
 	if err != nil {
@@ -187,11 +187,11 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 func (s *State) RemoveService(svc *Service) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot remove service %q", svc)
 
-	op := []txn.Operation{{
-		Collection: s.services.Name,
-		DocId:      svc.doc.Name,
-		Assert:     bson.D{{"_id", svc.doc.Name}, {"life", Alive}},
-		Change:     bson.D{{"$set", bson.D{{"life", Dying}}}},
+	op := []txn.Op{{
+		C:      s.services.Name,
+		Id:     svc.doc.Name,
+		Assert: bson.D{{"_id", svc.doc.Name}, {"life", Alive}},
+		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}}
 	err = s.runner.Run(op, "", nil)
 	if err != nil {
@@ -274,11 +274,11 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 		Endpoints: endpoints,
 		Life:      Alive,
 	}
-	op := []txn.Operation{{
-		Collection: s.relations.Name,
-		DocId:      doc.Key,
-		Assert:     txn.DocMissing,
-		Insert:     doc,
+	op := []txn.Op{{
+		C:      s.relations.Name,
+		Id:     doc.Key,
+		Assert: txn.DocMissing,
+		Insert: doc,
 	}}
 	err = s.runner.Run(op, "", nil)
 	if err != nil {
@@ -306,11 +306,11 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 	if r.doc.Life != Dead {
 		panic(fmt.Errorf("relation %q is not dead", r))
 	}
-	op := []txn.Operation{{
-		Collection: s.relations.Name,
-		DocId:      r.doc.Key,
-		Assert:     bson.D{{"_id", r.doc.Key}, {"life", Dead}},
-		Remove:     true,
+	op := []txn.Op{{
+		C:      s.relations.Name,
+		Id:     r.doc.Key,
+		Assert: bson.D{{"_id", r.doc.Key}, {"life", Dead}},
+		Remove: true,
 	}}
 	err = s.runner.Run(op, "", nil)
 	if err != nil {
