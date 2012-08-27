@@ -125,16 +125,17 @@ func (l *unitLife) teardown(s *LifeSuite, c *C) {
 }
 
 func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached, dbinitial state.Life, c *C) {
-	coll, id := lfix.id()
+	collName, id := lfix.id()
+	coll := s.MgoSuite.Session.DB("juju").C(collName)
 
-	err := s.session.DB("juju").C(coll).UpdateId(id, bson.D{{"$set", bson.D{
+	err := coll.UpdateId(id, bson.D{{"$set", bson.D{
 		{"life", cached},
 	}}})
 	c.Assert(err, IsNil)
 	err = living.Refresh()
 	c.Assert(err, IsNil)
 
-	err = s.session.DB("juju").C(coll).UpdateId(id, bson.D{{"$set", bson.D{
+	err = coll.UpdateId(id, bson.D{{"$set", bson.D{
 		{"life", dbinitial},
 	}}})
 	c.Assert(err, IsNil)

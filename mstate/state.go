@@ -23,6 +23,7 @@ type Tools struct {
 // managed by juju.
 type State struct {
 	db        *mgo.Database
+	cfgnodes  *mgo.Collection
 	charms    *mgo.Collection
 	machines  *mgo.Collection
 	relations *mgo.Collection

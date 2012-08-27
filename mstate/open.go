@@ -20,6 +20,7 @@ func Dial(servers string) (*State, error) {
 	db := session.DB("juju")
 	st := &State{
 		db:        db,
+		cfgnodes:  db.C("cfgnodes"),
 		charms:    db.C("charms"),
 		machines:  db.C("machines"),
 		relations: db.C("relations"),
