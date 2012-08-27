@@ -55,8 +55,15 @@ func (a *ProvisioningAgent) Run(_ *cmd.Context) (err error) {
 			// Stop requested by user.
 			return err
 		}
-		time.Sleep(retryDelay)
-		log.Printf("restarting provisioner and firewaller after error: %v", err)
+		timeout := time.NewTimer(retryDelay)
+		select {
+		case <-a.tomb.Dying():
+			timeout.Stop()
+			return a.tomb.Err()
+		case <-timeout.C:
+			timeout.Stop()
+			log.Printf("restarting provisioner and firewaller after error: %v", err)
+		}
 	}
 	panic("unreachable")
 }
