@@ -175,14 +175,30 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 // its units and break any of its existing relations.
 func (s *State) RemoveService(svc *Service) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot remove service %q", svc)
-
+	// Remove relations first, to minimize unwanted hook executions.
+	// TODO(mue) Will change with full lifecycle integration.
+	rels, err := svc.Relations()
+	if err != nil {
+		return err
+	}
+	for _, rel := range rels {
+		err = rel.Die()
+		if err != nil {
+			return err
+		}
+		err = s.RemoveRelation(rel)
+		if err != nil {
+			return err
+		}
+	}
+	// Remove the service.
 	sel := bson.D{{"_id", svc.doc.Name}, {"life", Alive}}
 	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
 	err = s.services.Update(sel, change)
 	if err != nil {
 		return err
 	}
-
+	// Remove the units.
 	sel = bson.D{{"service", svc.doc.Name}}
 	change = bson.D{{"$set", bson.D{{"life", Dying}}}}
 	_, err = s.units.UpdateAll(sel, change)
