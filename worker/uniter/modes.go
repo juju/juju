@@ -1,13 +1,14 @@
 package uniter
 
 import (
+	"errors"
 	"fmt"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
+	"launchpad.net/tomb"
 )
 
 // Mode defines the signature of the functions that implement the possible
@@ -16,7 +17,7 @@ type Mode func(u *Uniter) (Mode, error)
 
 // ModeInit is the initial Uniter mode.
 func ModeInit(u *Uniter) (next Mode, err error) {
-	defer trivial.ErrorContextf(&err, "ModeInit")
+	defer errorContextf(&err, "ModeInit")
 	log.Printf("examining charm state...")
 	var sch *state.Charm
 	cs, err := u.charm.ReadState()
@@ -47,7 +48,7 @@ func ModeInit(u *Uniter) (next Mode, err error) {
 
 // ModeContinue determines what action to take based on hook status.
 func ModeContinue(u *Uniter) (next Mode, err error) {
-	defer trivial.ErrorContextf(&err, "ModeContinue")
+	defer errorContextf(&err, "ModeContinue")
 	log.Printf("examining hook state...")
 	hs, err := u.hook.Read()
 	if err != nil {
@@ -86,7 +87,7 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 // the "install" hook.
 func ModeInstalling(sch *state.Charm) Mode {
 	return func(u *Uniter) (next Mode, err error) {
-		defer trivial.ErrorContextf(&err, "ModeInstalling")
+		defer errorContextf(&err, "ModeInstalling")
 		if err = u.changeCharm(sch, charm.Installing); err != nil {
 			return nil, err
 		}
@@ -96,7 +97,7 @@ func ModeInstalling(sch *state.Charm) Mode {
 
 // ModeStarting is responsible for running the "start" hook.
 func ModeStarting(u *Uniter) (next Mode, err error) {
-	defer trivial.ErrorContextf(&err, "ModeStarting")
+	defer errorContextf(&err, "ModeStarting")
 	if err := u.unit.SetStatus(state.UnitInstalled, ""); err != nil {
 		return nil, err
 	}
@@ -113,7 +114,7 @@ func ModeStarting(u *Uniter) (next Mode, err error) {
 // * relation changes (not implemented)
 // * unit death (not implemented)
 func ModeStarted(u *Uniter) (next Mode, err error) {
-	defer trivial.ErrorContextf(&err, "ModeStarted")
+	defer errorContextf(&err, "ModeStarted")
 	if err = u.unit.SetStatus(state.UnitStarted, ""); err != nil {
 		return nil, err
 	}
@@ -122,7 +123,7 @@ func ModeStarted(u *Uniter) (next Mode, err error) {
 	for {
 		select {
 		case <-u.tomb.Dying():
-			return nil, nil
+			return nil, tomb.ErrDying
 		case _, ok := <-config.Changes():
 			if !ok {
 				return nil, watcher.MustErr(config)
@@ -146,7 +147,7 @@ func ModeStarted(u *Uniter) (next Mode, err error) {
 // * forced charm upgrade requests (not implemented)
 // * unit death (not implemented)
 func ModeHookError(u *Uniter) (next Mode, err error) {
-	defer trivial.ErrorContextf(&err, "ModeHookError")
+	defer errorContextf(&err, "ModeHookError")
 	hs, err := u.hook.Read()
 	if err != nil {
 		return nil, err
@@ -164,7 +165,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	for {
 		select {
 		case <-u.tomb.Dying():
-			return nil, nil
+			return nil, tomb.ErrDying
 		case rm, ok := <-resolved.Changes():
 			if !ok {
 				return nil, watcher.MustErr(resolved)
@@ -204,4 +205,13 @@ func stop(s stopper, next *Mode, err *error) {
 
 type stopper interface {
 	Stop() error
+}
+
+// errorContextf prefixes the error stored in err with text formatted
+// according to the format specifier. If err does not contain an error,
+// or if err is tome.ErrDying, errorContextf does nothing.
+func errorContextf(err *error, format string, args ...interface{}) {
+	if *err != nil && *err != tomb.ErrDying {
+		*err = errors.New(fmt.Sprintf(format, args...) + ": " + (*err).Error())
+	}
 }

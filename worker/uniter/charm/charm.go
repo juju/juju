@@ -94,14 +94,14 @@ func (mgr *Manager) ReadState() (State, error) {
 // deployed, it returns ErrMissing.
 func (mgr *Manager) readURL() (*charm.URL, error) {
 	path := filepath.Join(mgr.charmDir, ".juju-charm")
-	var surl *string
+	surl := ""
 	if err := trivial.ReadYaml(path, &surl); err != nil {
 		if os.IsNotExist(err) {
 			err = ErrMissing
 		}
 		return nil, err
 	}
-	return charm.ParseURL(*surl)
+	return charm.ParseURL(surl)
 }
 
 // WriteState stores the current state of the charm. If st is Deployed,

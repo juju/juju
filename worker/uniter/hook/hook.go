@@ -92,7 +92,7 @@ const (
 	// opportunity.
 	Queued Status = "queued"
 
-	// Pending indicates that execution of the hook has started. A hook
+	// Pending indicates that execution of the hook is pending. A hook
 	// that fails should keep this status until it is successfully re-
 	// executed or skipped.
 	Pending Status = "pending"
