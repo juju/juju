@@ -359,8 +359,8 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 			return err
 		}
 	}
-	e.state.mu.Lock()
 	e.state.delay()
+	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	e.state.ops <- OpBootstrap{Env: e.state.name}
 	if e.state.bootstrapped {
@@ -425,9 +425,9 @@ func (e *environ) Destroy([]environs.Instance) error {
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err
 	}
+	e.state.delay()
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
-	e.state.delay()
 	e.state.ops <- OpDestroy{Env: e.state.name}
 	if testing.ZkAddr != "" {
 		testing.ZkReset()
@@ -443,9 +443,9 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.To
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, err
 	}
+	e.state.delay()
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
-	e.state.delay()
 	if tools != nil && (strings.HasPrefix(tools.Series, "unknown") || strings.HasPrefix(tools.Arch, "unknown")) {
 		return nil, fmt.Errorf("cannot find image for %s-%s", tools.Series, tools.Arch)
 	}
@@ -470,9 +470,9 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 	if err := e.checkBroken("StopInstance"); err != nil {
 		return err
 	}
+	e.state.delay()
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
-	e.state.delay()
 	for _, i := range is {
 		delete(e.state.insts, i.(*instance).id)
 	}
@@ -490,9 +490,9 @@ func (e *environ) Instances(ids []string) (insts []environs.Instance, err error)
 	if len(ids) == 0 {
 		return nil, nil
 	}
+	e.state.delay()
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
-	e.state.delay()
 	notFound := 0
 	for _, id := range ids {
 		inst := e.state.insts[id]
@@ -512,10 +512,10 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 	if err := e.checkBroken("AllInstances"); err != nil {
 		return nil, err
 	}
+	e.state.delay()
 	var insts []environs.Instance
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
-	e.state.delay()
 	for _, v := range e.state.insts {
 		insts = append(insts, v)
 	}
@@ -548,12 +548,12 @@ func (inst *instance) WaitDNSName() (string, error) {
 
 func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 	log.Printf("openPorts %d, %#v", machineId, ports)
+	inst.state.delay()
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("OpenPorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
-	inst.state.delay()
 	inst.state.ops <- OpOpenPorts{
 		Env:        inst.state.name,
 		MachineId:  machineId,
@@ -570,9 +570,9 @@ func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("ClosePorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
 	}
+	inst.state.delay()
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
-	inst.state.delay()
 	inst.state.ops <- OpClosePorts{
 		Env:        inst.state.name,
 		MachineId:  machineId,
@@ -589,9 +589,9 @@ func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("Ports with mismatched machine id, expected %d got %d", inst.machineId, machineId))
 	}
+	inst.state.delay()
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
-	inst.state.delay()
 	for p := range inst.ports {
 		ports = append(ports, p)
 	}
