@@ -182,7 +182,7 @@ func (s *State) RemoveService(svc *Service) (err error) {
 // Service returns a service state by name.
 func (s *State) Service(name string) (service *Service, err error) {
 	sdoc := serviceDoc{}
-	sel := bson.D{{"_id", name}, {"life", Alive}}
+	sel := bson.D{{"_id", name}}
 	err = s.services.Find(sel).One(&sdoc)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get service %q: %v", name, err)
@@ -193,7 +193,7 @@ func (s *State) Service(name string) (service *Service, err error) {
 // AllServices returns all deployed services in the environment.
 func (s *State) AllServices() (services []*Service, err error) {
 	sdocs := []serviceDoc{}
-	err = s.services.Find(bson.D{{"life", Alive}}).All(&sdocs)
+	err = s.services.Find(bson.D{}).All(&sdocs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all services")
 	}
