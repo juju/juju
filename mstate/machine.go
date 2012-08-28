@@ -20,13 +20,40 @@ type machineDoc struct {
 	Life       Life
 }
 
+func newMachine(st *State, doc *machineDoc) *Machine {
+	return &Machine{st: st, doc: *doc}
+}
+
 // Id returns the machine id.
 func (m *Machine) Id() int {
 	return m.doc.Id
 }
 
-func newMachine(st *State, doc *machineDoc) *Machine {
-	return &Machine{st: st, doc: *doc}
+// Life returns whether the machine is Alive, Dying or Dead.
+func (m *Machine) Life() Life {
+	return m.doc.Life
+}
+
+// Kill sets the machine lifecycle to Dying if it is Alive.
+// It does nothing otherwise.
+func (m *Machine) Kill() error {
+	err := ensureLife(m.doc.Id, m.st.machines, "machine", Dying)
+	if err != nil {
+		return err
+	}
+	m.doc.Life = Dying
+	return nil
+}
+
+// Die sets the machine lifecycle to Dead if it is Alive or Dying.
+// It does nothing otherwise.
+func (m *Machine) Die() error {
+	err := ensureLife(m.doc.Id, m.st.machines, "machine", Dead)
+	if err != nil {
+		return err
+	}
+	m.doc.Life = Dead
+	return nil
 }
 
 func (m *Machine) Refresh() error {

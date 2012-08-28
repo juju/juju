@@ -58,6 +58,8 @@ func (s *StateSuite) TestRemoveMachine(c *C) {
 	c.Assert(err, IsNil)
 	_, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
+	err = machine.Die()
+	c.Assert(err, IsNil)
 	err = s.State.RemoveMachine(machine.Id())
 	c.Assert(err, IsNil)
 
