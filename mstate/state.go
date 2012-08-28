@@ -132,9 +132,13 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 // RemoveService removes a service from the state. It will also remove all
 // its units and break any of its existing relations.
 func (s *State) RemoveService(svc *Service) (err error) {
+	// TODO(mue) Will change with full txn integration.
 	defer trivial.ErrorContextf(&err, "cannot remove service %q", svc)
+
+	if svc.doc.Life != Dead {
+		panic(fmt.Errorf("service %q is not dead", svc))
+	}
 	// Remove relations first, to minimize unwanted hook executions.
-	// TODO(mue) Will change with full lifecycle integration.
 	rels, err := svc.Relations()
 	if err != nil {
 		return err
@@ -149,18 +153,30 @@ func (s *State) RemoveService(svc *Service) (err error) {
 			return err
 		}
 	}
-	// Remove the service.
-	sel := bson.D{{"_id", svc.doc.Name}, {"life", Alive}}
-	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
-	err = s.services.Update(sel, change)
+	// Remove the units.
+	units, err := svc.AllUnits()
 	if err != nil {
 		return err
 	}
-	// Remove the units.
-	sel = bson.D{{"service", svc.doc.Name}}
-	change = bson.D{{"$set", bson.D{{"life", Dying}}}}
-	_, err = s.units.UpdateAll(sel, change)
-	return err
+	for _, unit := range units {
+		err = unit.Die()
+		if err != nil {
+			return err
+		}
+		if err = svc.RemoveUnit(unit); err != nil {
+			return err
+		}
+	}
+	// Remove the service.
+	sel := bson.D{
+		{"_id", svc.doc.Name},
+		{"life", Dead},
+	}
+	err = s.services.Remove(sel)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Service returns a service state by name.

@@ -122,6 +122,8 @@ func (s *StateSuite) TestRemoveService(c *C) {
 	c.Assert(err, IsNil)
 
 	// Remove of existing service.
+	err = service.Die()
+	c.Assert(err, IsNil)
 	err = s.State.RemoveService(service)
 	c.Assert(err, IsNil)
 	_, err = s.State.Service("wordpress")
