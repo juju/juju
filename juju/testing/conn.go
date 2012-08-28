@@ -26,9 +26,9 @@ import (
 type JujuConnSuite struct {
 	testing.LoggingSuite
 	testing.ZkSuite
-	Conn   *juju.Conn
-	State  *state.State
-	rootDir string		// the faked-up root directory.
+	Conn      *juju.Conn
+	State     *state.State
+	rootDir   string // the faked-up root directory.
 	oldHome   string
 	oldVarDir string
 }
