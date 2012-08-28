@@ -19,48 +19,6 @@ type Tools struct {
 	URL string
 }
 
-type Life int8
-
-const (
-	Alive Life = iota
-	Dying
-	Dead
-	nLife
-)
-
-var lifeStrings = [nLife]string{
-	Alive: "alive",
-	Dying: "dying",
-	Dead:  "dead",
-}
-
-func (l Life) String() string {
-	return lifeStrings[l]
-}
-
-// ensureLife changes the lifecycle state of the entity with
-// the id in the collection.
-func ensureLife(id interface{}, coll *mgo.Collection, descr string, life Life) error {
-	if life == Alive {
-		panic("cannot set life to alive")
-	}
-	sel := bson.D{
-		{"_id", id},
-		// $lte is used so that we don't overwrite a previous
-		// change we don't know about. 
-		{"life", bson.D{{"$lte", life}}},
-	}
-	change := bson.D{{"$set", bson.D{{"life", life}}}}
-	err := coll.Update(sel, change)
-	if err == mgo.ErrNotFound {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("cannot set life to %q for %s %q: %v", life, descr, id, err)
-	}
-	return nil
-}
-
 // State represents the state of an environment
 // managed by juju.
 type State struct {
@@ -175,14 +133,30 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 // its units and break any of its existing relations.
 func (s *State) RemoveService(svc *Service) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot remove service %q", svc)
-
+	// Remove relations first, to minimize unwanted hook executions.
+	// TODO(mue) Will change with full lifecycle integration.
+	rels, err := svc.Relations()
+	if err != nil {
+		return err
+	}
+	for _, rel := range rels {
+		err = rel.Die()
+		if err != nil {
+			return err
+		}
+		err = s.RemoveRelation(rel)
+		if err != nil {
+			return err
+		}
+	}
+	// Remove the service.
 	sel := bson.D{{"_id", svc.doc.Name}, {"life", Alive}}
 	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
 	err = s.services.Update(sel, change)
 	if err != nil {
 		return err
 	}
-
+	// Remove the units.
 	sel = bson.D{{"service", svc.doc.Name}}
 	change = bson.D{{"$set", bson.D{{"life", Dying}}}}
 	_, err = s.units.UpdateAll(sel, change)
