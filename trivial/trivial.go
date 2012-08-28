@@ -16,11 +16,16 @@ func WriteYaml(path string, obj interface{}) error {
 	if err != nil {
 		return err
 	}
-	preparing := ".preparing"
-	if err = ioutil.WriteFile(path+preparing, data, 0644); err != nil {
+	prep := path + ".preparing"
+	f, err := os.OpenFile(prep, os.O_WRONLY|os.O_CREATE|os.O_SYNC, 0644)
+	if err != nil {
 		return err
 	}
-	return os.Rename(path+preparing, path)
+	defer f.Close()
+	if _, err = f.Write(data); err != nil {
+		return err
+	}
+	return os.Rename(prep, path)
 }
 
 // ReadYaml unmarshals the yaml contained in the file at path into obj. See

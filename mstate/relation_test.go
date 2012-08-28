@@ -134,6 +134,8 @@ func (s *RelationSuite) TestRemoveServiceRemovesRelations(c *C) {
 	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
 	_, err = s.State.AddRelation(peerep)
 	c.Assert(err, IsNil)
+	err = peer.Die()
+	c.Assert(err, IsNil)
 	err = s.State.RemoveService(peer)
 	c.Assert(err, IsNil)
 	_, err = s.State.Service("peer")
