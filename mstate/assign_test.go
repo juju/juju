@@ -82,6 +82,8 @@ func (s *AssignSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 	_, err = s.unit.AssignedMachineId()
 	c.Assert(err, ErrorMatches, `cannot get machine id of unit "wordpress/0": unit not assigned to machine`)
 
+	err = s.service.Die()
+	c.Assert(err, IsNil)
 	err = s.State.RemoveService(s.service)
 	c.Assert(err, IsNil)
 

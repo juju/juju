@@ -124,6 +124,22 @@ func (l *unitLife) teardown(s *LifeSuite, c *C) {
 	c.Assert(err, IsNil)
 }
 
+type serviceLife struct {
+	service *state.Service
+}
+
+func (l *serviceLife) id() (coll string, id interface{}) {
+	return "services", l.service.Name()
+}
+
+func (l *serviceLife) setup(s *LifeSuite, c *C) state.Living {
+	l.service = s.svc
+	return l.service
+}
+
+func (l *serviceLife) teardown(s *LifeSuite, c *C) {
+}
+
 func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached, dbinitial state.Life, c *C) {
 	collName, id := lfix.id()
 	coll := s.MgoSuite.Session.DB("juju").C(collName)
@@ -142,7 +158,7 @@ func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached
 }
 
 func (s *LifeSuite) TestLifecycleStateChanges(c *C) {
-	for _, lfix := range []lifeFixture{&relationLife{}, &unitLife{}} {
+	for _, lfix := range []lifeFixture{&relationLife{}, &unitLife{}, &serviceLife{}} {
 		for _, v := range stateChanges {
 			living := lfix.setup(s, c)
 			s.prepareFixture(living, lfix, v.cached, v.dbinitial, c)
