@@ -19,9 +19,6 @@ type CmdSuite struct {
 
 var _ = Suite(&CmdSuite{})
 
-// N.B. none of the environment names in this config
-// should coincide with the environment name used in
-// JujuConnSuite.
 var config = `
 default:
     peckham

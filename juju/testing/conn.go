@@ -22,19 +22,20 @@ import (
 // temporary directories; the former is primed to
 // hold the dummy environments.yaml file.
 //
-// The name of the dummy environment is "jujutest".
+// The name of the dummy environment is "dummyenv".
 type JujuConnSuite struct {
 	testing.LoggingSuite
 	testing.ZkSuite
 	Conn   *juju.Conn
 	State  *state.State
-	home   string
-	varDir string
+	rootDir string		// the faked-up root directory.
+	oldHome   string
+	oldVarDir string
 }
 
 var config = []byte(`
 environments:
-    jujutest:
+    dummyenv:
         type: dummy
         zookeeper: true
         authorized-keys: 'i-am-a-key'
@@ -43,23 +44,29 @@ environments:
 func (s *JujuConnSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 
-	s.home = os.Getenv("HOME")
-	home := c.MkDir()
+	s.rootDir = c.MkDir()
+	s.oldHome = os.Getenv("HOME")
+	home := filepath.Join(s.rootDir, "/home/ubuntu")
+	err := os.MkdirAll(home, 0777)
+	c.Assert(err, IsNil)
 	os.Setenv("HOME", home)
 
-	s.varDir = environs.VarDir
-	environs.VarDir = c.MkDir()
+	s.oldVarDir = environs.VarDir
+	varDir := filepath.Join(s.rootDir, environs.VarDir)
+	err = os.MkdirAll(varDir, 0777)
+	c.Assert(err, IsNil)
+	environs.VarDir = varDir
 
-	err := os.Mkdir(filepath.Join(home, ".juju"), 0777)
+	err = os.Mkdir(filepath.Join(home, ".juju"), 0777)
 	c.Assert(err, IsNil)
 
 	err = ioutil.WriteFile(filepath.Join(home, ".juju", "environments.yaml"), config, 0666)
 	c.Assert(err, IsNil)
-	conn, err := juju.NewConn("jujutest")
+	conn, err := juju.NewConn("dummyenv")
 	c.Assert(err, IsNil)
 
 	// sanity check we've got the correct environment.
-	c.Assert(conn.Environ.Name(), Equals, "jujutest")
+	c.Assert(conn.Environ.Name(), Equals, "dummyenv")
 
 	c.Assert(conn.Bootstrap(false), IsNil)
 	s.Conn = conn
@@ -72,16 +79,17 @@ func (s *JujuConnSuite) TearDownTest(c *C) {
 	c.Assert(s.Conn.Close(), IsNil)
 	s.Conn = nil
 	s.State = nil
-	os.Setenv("HOME", s.home)
-	s.home = ""
-	environs.VarDir = s.varDir
-	s.varDir = ""
+	os.Setenv("HOME", s.oldHome)
+	s.oldHome = ""
+	environs.VarDir = s.oldVarDir
+	s.oldVarDir = ""
+	s.rootDir = ""
 	s.LoggingSuite.TearDownTest(c)
 }
 
 // WriteConfig writes a juju config file to the "home" directory.
 func (s *JujuConnSuite) WriteConfig(config string) {
-	if s.home == "" {
+	if s.rootDir == "" {
 		panic("SetUpTest has not been called; will not overwrite $HOME/.juju/environments.yaml")
 	}
 	path := filepath.Join(os.Getenv("HOME"), ".juju", "environments.yaml")

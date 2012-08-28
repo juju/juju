@@ -67,8 +67,8 @@ var statusTests = []struct {
 		map[string]interface{}{
 			"machines": map[int]interface{}{
 				0: map[string]interface{}{
-					"dns-name":               "jujutest-0.dns",
-					"instance-id":            "jujutest-0",
+					"dns-name":               "dummyenv-0.dns",
+					"instance-id":            "dummyenv-0",
 					"agent-version":          "0.0.0",
 					"proposed-agent-version": "0.0.0",
 				},
@@ -95,8 +95,8 @@ var statusTests = []struct {
 		map[string]interface{}{
 			"machines": map[int]interface{}{
 				0: map[string]interface{}{
-					"dns-name":               "jujutest-0.dns",
-					"instance-id":            "jujutest-0",
+					"dns-name":               "dummyenv-0.dns",
+					"instance-id":            "dummyenv-0",
 					"agent-version":          "1.2.3",
 					"proposed-agent-version": "0.0.0",
 				},
@@ -123,8 +123,8 @@ var statusTests = []struct {
 		map[string]interface{}{
 			"machines": map[int]interface{}{
 				0: map[string]interface{}{
-					"dns-name":               "jujutest-0.dns",
-					"instance-id":            "jujutest-0",
+					"dns-name":               "dummyenv-0.dns",
+					"instance-id":            "dummyenv-0",
 					"agent-version":          "1.2.3",
 					"proposed-agent-version": "2.0.3",
 				},
@@ -153,8 +153,8 @@ var statusTests = []struct {
 		map[string]interface{}{
 			"machines": map[int]interface{}{
 				0: map[string]interface{}{
-					"dns-name":               "jujutest-0.dns",
-					"instance-id":            "jujutest-0",
+					"dns-name":               "dummyenv-0.dns",
+					"instance-id":            "dummyenv-0",
 					"agent-version":          "1.2.3",
 					"proposed-agent-version": "2.0.3",
 				},
@@ -187,20 +187,20 @@ var statusTests = []struct {
 		map[string]interface{}{
 			"machines": map[int]interface{}{
 				0: map[string]interface{}{
-					"dns-name":               "jujutest-0.dns",
-					"instance-id":            "jujutest-0",
+					"dns-name":               "dummyenv-0.dns",
+					"instance-id":            "dummyenv-0",
 					"agent-version":          "1.2.3",
 					"proposed-agent-version": "2.0.3",
 				},
 				1: map[string]interface{}{
-					"dns-name":               "jujutest-1.dns",
-					"instance-id":            "jujutest-1",
+					"dns-name":               "dummyenv-1.dns",
+					"instance-id":            "dummyenv-1",
 					"agent-version":          "0.0.0",
 					"proposed-agent-version": "0.0.0",
 				},
 				2: map[string]interface{}{
-					"dns-name":               "jujutest-2.dns",
-					"instance-id":            "jujutest-2",
+					"dns-name":               "dummyenv-2.dns",
+					"instance-id":            "dummyenv-2",
 					"agent-version":          "0.0.0",
 					"proposed-agent-version": "0.0.0",
 				},
@@ -239,20 +239,20 @@ var statusTests = []struct {
 		map[string]interface{}{
 			"machines": map[int]interface{}{
 				0: map[string]interface{}{
-					"dns-name":               "jujutest-0.dns",
-					"instance-id":            "jujutest-0",
+					"dns-name":               "dummyenv-0.dns",
+					"instance-id":            "dummyenv-0",
 					"agent-version":          "1.2.3",
 					"proposed-agent-version": "2.0.3",
 				},
 				1: map[string]interface{}{
-					"dns-name":               "jujutest-1.dns",
-					"instance-id":            "jujutest-1",
+					"dns-name":               "dummyenv-1.dns",
+					"instance-id":            "dummyenv-1",
 					"agent-version":          "0.0.0",
 					"proposed-agent-version": "0.0.0",
 				},
 				2: map[string]interface{}{
-					"dns-name":               "jujutest-2.dns",
-					"instance-id":            "jujutest-2",
+					"dns-name":               "dummyenv-2.dns",
+					"instance-id":            "dummyenv-2",
 					"agent-version":          "0.0.0",
 					"proposed-agent-version": "0.0.0",
 				},
