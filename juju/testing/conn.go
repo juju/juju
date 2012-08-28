@@ -22,28 +22,19 @@ type JujuConnSuite struct {
 
 func (s *JujuConnSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
-
-	config := map[string]interface{}{
-		"name":            "foo",
-		"type":            "dummy",
-		"zookeeper":       true,
-		"authorized-keys": "i-am-a-key",
-	}
-	conn, err := juju.NewConnFromAttrs(config)
-	c.Assert(err, IsNil)
-
-	c.Assert(conn.Bootstrap(false), IsNil)
-	s.Conn = conn
-	s.State, err = conn.State()
-	c.Assert(err, IsNil)
+	s.setUpConn(c)
 }
 
 func (s *JujuConnSuite) TearDownTest(c *C) {
-	dummy.Reset()
-	c.Assert(s.Conn.Close(), IsNil)
-	s.Conn = nil
-	s.State = nil
+	s.tearDownConn(c)
 	s.LoggingSuite.TearDownTest(c)
+}
+
+// Reset returns environment state to that which existed at the start of
+// the test.
+func (s *JujuConnSuite) Reset(c *C) {
+	s.tearDownConn(c)
+	s.setUpConn(c)
 }
 
 func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
@@ -59,4 +50,27 @@ func (s *JujuConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	sch, err := s.State.AddCharm(ch, curl, bundleURL, ident+"-sha256")
 	c.Assert(err, IsNil)
 	return sch
+}
+
+func (s *JujuConnSuite) setUpConn(c *C) {
+	config := map[string]interface{}{
+		"name":            "foo",
+		"type":            "dummy",
+		"zookeeper":       true,
+		"authorized-keys": "i-am-a-key",
+	}
+	conn, err := juju.NewConnFromAttrs(config)
+	c.Assert(err, IsNil)
+
+	c.Assert(conn.Bootstrap(false), IsNil)
+	s.Conn = conn
+	s.State, err = conn.State()
+	c.Assert(err, IsNil)
+}
+
+func (s *JujuConnSuite) tearDownConn(c *C) {
+	dummy.Reset()
+	c.Assert(s.Conn.Close(), IsNil)
+	s.Conn = nil
+	s.State = nil
 }
