@@ -50,12 +50,22 @@ func (s *State) AddMachine() (m *Machine, err error) {
 }
 
 // RemoveMachine removes the machine with the the given id.
-func (s *State) RemoveMachine(id int) error {
-	sel := bson.D{{"_id", id}, {"life", Alive}}
-	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
-	err := s.machines.Update(sel, change)
+func (s *State) RemoveMachine(id int) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot remove machine %d", id)
+	m, err := s.Machine(id)
 	if err != nil {
-		return fmt.Errorf("cannot remove machine %d: %v", id, err)
+		return err
+	}
+	if m.doc.Life != Dead {
+		panic(fmt.Errorf("machine %d is not dead", id))
+	}
+	sel := bson.D{
+		{"_id", id},
+		{"life", Dead},
+	}
+	err = s.machines.Remove(sel)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -63,7 +73,7 @@ func (s *State) RemoveMachine(id int) error {
 // AllMachines returns all machines in the environment.
 func (s *State) AllMachines() (machines []*Machine, err error) {
 	mdocs := []machineDoc{}
-	sel := bson.D{{"life", Alive}}
+	sel := bson.D{}
 	err = s.machines.Find(sel).Select(bson.D{{"_id", 1}}).All(&mdocs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all machines: %v", err)
@@ -77,7 +87,7 @@ func (s *State) AllMachines() (machines []*Machine, err error) {
 // Machine returns the machine with the given id.
 func (s *State) Machine(id int) (*Machine, error) {
 	mdoc := &machineDoc{}
-	sel := bson.D{{"_id", id}, {"life", Alive}}
+	sel := bson.D{{"_id", id}}
 	err := s.machines.Find(sel).One(mdoc)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get machine %d: %v", id, err)
