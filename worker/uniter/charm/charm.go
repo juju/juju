@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/downloader"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/trivial"
 	"os"
@@ -94,14 +94,14 @@ func (mgr *Manager) ReadState() (State, error) {
 // deployed, it returns ErrMissing.
 func (mgr *Manager) deployedURL() (*charm.URL, error) {
 	path := filepath.Join(mgr.charmDir, ".juju-charm")
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
+	surl := ""
+	if err := trivial.ReadYaml(path, &surl); err != nil {
 		if os.IsNotExist(err) {
 			err = ErrMissing
 		}
 		return nil, err
 	}
-	return charm.ParseURL(string(data))
+	return charm.ParseURL(surl)
 }
 
 // WriteState stores the current state of the charm.
@@ -133,7 +133,7 @@ func (mgr *Manager) Update(sch *state.Charm, abort <-chan struct{}) (err error) 
 		return err
 	}
 	path := filepath.Join(mgr.charmDir, ".juju-charm")
-	return ioutil.WriteFile(path, []byte(sch.URL().String()), 0644)
+	return trivial.WriteYaml(path, sch.URL().String())
 }
 
 // Resolved signals that update conflicts have been resolved, and puts the
@@ -186,16 +186,20 @@ func (d *BundlesDir) download(sch *state.Charm, abort <-chan struct{}) (err erro
 	if err := trivial.EnsureDir(dir); err != nil {
 		return err
 	}
-	dl := downloader.New(sch.BundleURL().String(), dir)
+	burl := sch.BundleURL().String()
+	log.Printf("downloading %s from %s", sch.URL(), burl)
+	dl := downloader.New(burl, dir)
 	defer dl.Stop()
 	for {
 		select {
 		case <-abort:
+			log.Printf("download aborted")
 			return fmt.Errorf("aborted")
 		case st := <-dl.Done():
 			if st.Err != nil {
 				return st.Err
 			}
+			log.Printf("download complete")
 			defer st.File.Close()
 			hash := sha256.New()
 			if _, err = io.Copy(hash, st.File); err != nil {
@@ -207,6 +211,7 @@ func (d *BundlesDir) download(sch *state.Charm, abort <-chan struct{}) (err erro
 					"expected sha256 %q, got %q", sch.BundleSha256(), actualSha256,
 				)
 			}
+			log.Printf("download verified")
 			if err := trivial.EnsureDir(d.path); err != nil {
 				return err
 			}
