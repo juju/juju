@@ -78,7 +78,7 @@ func (mgr *Manager) ReadState() (State, error) {
 	var url *charm.URL
 	switch ds.Status {
 	case Deployed:
-		url, err = mgr.readURL()
+		url, err = mgr.deployedURL()
 	case Installing, Upgrading, Conflicted:
 		url, err = charm.ParseURL(ds.URL)
 	default:
@@ -90,9 +90,9 @@ func (mgr *Manager) ReadState() (State, error) {
 	return State{ds.Status, url}, nil
 }
 
-// readURL returns the URL of the currently deployed charm. If no charm is
+// deployedURL returns the URL of the currently deployed charm. If no charm is
 // deployed, it returns ErrMissing.
-func (mgr *Manager) readURL() (*charm.URL, error) {
+func (mgr *Manager) deployedURL() (*charm.URL, error) {
 	path := filepath.Join(mgr.charmDir, ".juju-charm")
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -104,21 +104,17 @@ func (mgr *Manager) readURL() (*charm.URL, error) {
 	return charm.ParseURL(string(data))
 }
 
-// WriteState stores the current state of the charm. If st is Deployed,
-// url is ignored.
+// WriteState stores the current state of the charm.
 func (mgr *Manager) WriteState(st Status, url *charm.URL) error {
 	if err := trivial.EnsureDir(filepath.Dir(mgr.statePath)); err != nil {
 		return err
 	}
-	surl := ""
 	switch st {
-	case Deployed:
-	case Installing, Upgrading, Conflicted:
-		surl = url.String()
+	case Deployed, Installing, Upgrading, Conflicted:
 	default:
 		panic(fmt.Errorf("unhandled charm status %q", st))
 	}
-	return trivial.WriteYaml(mgr.statePath, &diskState{Status: st, URL: surl})
+	return trivial.WriteYaml(mgr.statePath, &diskState{Status: st, URL: url.String()})
 }
 
 // Update sets the content of the charm directory to match the supplied
