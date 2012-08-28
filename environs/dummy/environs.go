@@ -31,8 +31,10 @@ import (
 	"launchpad.net/juju-core/testing"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
+	"time"
 )
 
 // stateInfo returns a *state.Info which allows clients to connect to the
@@ -108,6 +110,15 @@ type environState struct {
 	storage       *storage
 	publicStorage *storage
 	httpListener  net.Listener
+	delayTime     time.Duration // delay before actioning request
+}
+
+// pause execution to simulate the latency of a real provider
+func (e *environState) delay() {
+	if e.delayTime > 0 {
+		log.Printf("dummy: pausing for %v", e.delayTime)
+		<-time.After(e.delayTime)
+	}
 }
 
 // environ represents a client's connection to a given environment's
@@ -127,8 +138,12 @@ type storage struct {
 	files map[string][]byte
 }
 
-// discardOperations discards all Operations written to it.
-var discardOperations chan<- Operation
+var (
+	// discardOperations discards all Operations written to it.
+	discardOperations chan<- Operation
+
+	providerDelay time.Duration
+)
 
 func init() {
 	environs.RegisterProvider("dummy", &providerInstance)
@@ -142,6 +157,9 @@ func init() {
 	}()
 	discardOperations = c
 	Reset()
+
+	// parse errors are ignored
+	providerDelay, _ = time.ParseDuration(os.Getenv("JUJU_DUMMY_DELAY"))
 }
 
 // Reset resets the entire dummy environment and forgets any registered
@@ -167,10 +185,11 @@ func Reset() {
 // storage requests.
 func newState(name string, ops chan<- Operation) *environState {
 	s := &environState{
-		name:  name,
-		ops:   ops,
-		insts: make(map[string]*instance),
-		ports: make(map[int]map[state.Port]bool),
+		name:      name,
+		ops:       ops,
+		insts:     make(map[string]*instance),
+		ports:     make(map[int]map[state.Port]bool),
+		delayTime: providerDelay,
 	}
 	s.storage = newStorage(s, "/"+name+"/private")
 	s.publicStorage = newStorage(s, "/"+name+"/public")
@@ -341,6 +360,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		}
 	}
 	e.state.mu.Lock()
+	e.state.delay()
 	defer e.state.mu.Unlock()
 	e.state.ops <- OpBootstrap{Env: e.state.name}
 	if e.state.bootstrapped {
@@ -407,6 +427,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
+	e.state.delay()
 	e.state.ops <- OpDestroy{Env: e.state.name}
 	if testing.ZkAddr != "" {
 		testing.ZkReset()
@@ -424,6 +445,7 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.To
 	}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
+	e.state.delay()
 	if tools != nil && (strings.HasPrefix(tools.Series, "unknown") || strings.HasPrefix(tools.Arch, "unknown")) {
 		return nil, fmt.Errorf("cannot find image for %s-%s", tools.Series, tools.Arch)
 	}
@@ -450,6 +472,7 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 	}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
+	e.state.delay()
 	for _, i := range is {
 		delete(e.state.insts, i.(*instance).id)
 	}
@@ -469,6 +492,7 @@ func (e *environ) Instances(ids []string) (insts []environs.Instance, err error)
 	}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
+	e.state.delay()
 	notFound := 0
 	for _, id := range ids {
 		inst := e.state.insts[id]
@@ -491,6 +515,7 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 	var insts []environs.Instance
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
+	e.state.delay()
 	for _, v := range e.state.insts {
 		insts = append(insts, v)
 	}
@@ -513,6 +538,7 @@ func (inst *instance) Id() string {
 }
 
 func (inst *instance) DNSName() (string, error) {
+	inst.state.delay()
 	return inst.id + ".dns", nil
 }
 
@@ -527,6 +553,7 @@ func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
+	inst.state.delay()
 	inst.state.ops <- OpOpenPorts{
 		Env:        inst.state.name,
 		MachineId:  machineId,
@@ -545,6 +572,7 @@ func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
+	inst.state.delay()
 	inst.state.ops <- OpClosePorts{
 		Env:        inst.state.name,
 		MachineId:  machineId,
@@ -563,6 +591,7 @@ func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
+	inst.state.delay()
 	for p := range inst.ports {
 		ports = append(ports, p)
 	}
