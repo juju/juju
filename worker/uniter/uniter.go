@@ -124,7 +124,7 @@ func (u *Uniter) changeCharm(sch *state.Charm, st charm.Status) error {
 	} else {
 		panic("not implemented")
 	}
-	if err := u.charm.WriteState(charm.Deployed, nil); err != nil {
+	if err := u.charm.WriteState(charm.Deployed, sch.URL()); err != nil {
 		return err
 	}
 	log.Printf("charm changed successfully")

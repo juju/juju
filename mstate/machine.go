@@ -41,6 +41,10 @@ func (m *Machine) Refresh() error {
 
 // InstanceId returns the provider specific machine id for this machine.
 func (m *Machine) InstanceId() (string, error) {
+	if m.doc.InstanceId == "" {
+		msg := fmt.Sprintf("instance id for machine %d is not set", m.Id())
+		return "", &NotFoundError{msg}
+	}
 	return m.doc.InstanceId, nil
 }
 

@@ -356,7 +356,7 @@ func (s waitUniterDead) step(c *C, ctx *context) {
 	case <-u.Dying():
 		err := u.Wait()
 		c.Assert(err, ErrorMatches, s.err)
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(1000 * time.Millisecond):
 		c.Fatalf("uniter still alive")
 	}
 }
@@ -442,7 +442,7 @@ type waitUnit struct {
 }
 
 func (s waitUnit) step(c *C, ctx *context) {
-	timeout := time.After(1000 * time.Millisecond)
+	timeout := time.After(2000 * time.Millisecond)
 	// Upgrade/resolved checks are easy...
 	resolved := ctx.unit.WatchResolved()
 	defer stop(c, resolved)
@@ -505,10 +505,10 @@ func (s waitHooks) step(c *C, ctx *context) {
 	if match {
 		return
 	}
-	timeout := time.After(500 * time.Millisecond)
+	timeout := time.After(1000 * time.Millisecond)
 	for {
 		select {
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(100 * time.Millisecond):
 			if match, _ = ctx.matchLogHooks(c); match {
 				return
 			}

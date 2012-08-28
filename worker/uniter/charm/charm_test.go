@@ -56,7 +56,9 @@ func (s *ManagerSuite) TestStatus(c *C) {
 	_, err := mgr.ReadState()
 	c.Assert(err, Equals, charm.ErrMissing)
 
-	err = mgr.WriteState(charm.Deployed, nil)
+	scharmURL := "cs:series/expansion-123"
+	charmURL := corecharm.MustParseURL(scharmURL)
+	err = mgr.WriteState(charm.Deployed, charmURL)
 	c.Assert(err, IsNil)
 	_, err = mgr.ReadState()
 	c.Assert(err, Equals, charm.ErrMissing)
@@ -77,14 +79,13 @@ func (s *ManagerSuite) TestStatus(c *C) {
 		c.Assert(st.URL, DeepEquals, statusURL)
 	}
 
-	charmURL := "cs:series/expansion-123"
-	setCharmURL(c, mgr, charmURL)
+	setCharmURL(c, mgr, scharmURL)
 	err = mgr.WriteState(charm.Deployed, statusURL)
 	c.Assert(err, IsNil)
 	st, err := mgr.ReadState()
 	c.Assert(err, IsNil)
 	c.Assert(st.Status, Equals, charm.Deployed)
-	c.Assert(st.URL, DeepEquals, corecharm.MustParseURL(charmURL))
+	c.Assert(st.URL, DeepEquals, charmURL)
 }
 
 func (s *ManagerSuite) TestUpdate(c *C) {
@@ -106,7 +107,7 @@ func (s *ManagerSuite) TestUpdate(c *C) {
 	c.Assert(err, IsNil)
 	err = mgr.Update(sch, nil)
 	c.Assert(err, IsNil)
-	err = mgr.WriteState(charm.Deployed, nil)
+	err = mgr.WriteState(charm.Deployed, corecharm.MustParseURL("cs:series/not-canonical-1"))
 	st, err := mgr.ReadState()
 	c.Assert(err, IsNil)
 	c.Assert(st.Status, Equals, charm.Deployed)
