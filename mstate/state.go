@@ -132,7 +132,7 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 // RemoveService removes a service from the state. It will also remove all
 // its units and break any of its existing relations.
 func (s *State) RemoveService(svc *Service) (err error) {
-	// TODO(mue) Will change with full txn integration.
+	// TODO Integrate with txn and do lifecycle properly.
 	defer trivial.ErrorContextf(&err, "cannot remove service %q", svc)
 
 	if svc.doc.Life != Dead {
@@ -153,7 +153,7 @@ func (s *State) RemoveService(svc *Service) (err error) {
 			return err
 		}
 	}
-	// Remove the units.
+	// TODO Will be deleted with proper lifecycle integration.
 	units, err := svc.AllUnits()
 	if err != nil {
 		return err
