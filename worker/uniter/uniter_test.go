@@ -32,8 +32,8 @@ func TestPackage(t *stdtesting.T) {
 type UniterSuite struct {
 	testing.JujuConnSuite
 	coretesting.HTTPSuite
-	varDir string
-	oldPath   string
+	varDir  string
+	oldPath string
 }
 
 var _ = Suite(&UniterSuite{})
@@ -42,7 +42,7 @@ func (s *UniterSuite) SetUpSuite(c *C) {
 	s.JujuConnSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
 	s.varDir = c.MkDir()
-	environs.VarDir = s.varDir	// it's restored by JujuConnSuite.
+	environs.VarDir = s.varDir // it's restored by JujuConnSuite.
 	toolsDir := environs.AgentToolsDir("unit-u-0")
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, IsNil)
