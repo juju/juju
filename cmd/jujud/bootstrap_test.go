@@ -70,12 +70,12 @@ var base64ConfigTests = []struct {
 		// no value supplied
 		nil,
 		"",
-		nil,
+		map[string]interface{},
 	}, {
 		// empty 
 		[]string{"--env-config", ""},
 		"",
-		nil,
+		map[string]interface{}{"agent-version": "3.4.5"}),
 	}, {
 		// wrong, should be base64
 		[]string{"--env-config", "name: banana\n"},
@@ -84,11 +84,16 @@ var base64ConfigTests = []struct {
 	}, {
 		[]string{"--env-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n"))},
 		"",
-		map[string]interface{}{"name": "banana"},
+		map[string]interface{}{"agent-version": "3.4.5", "name": "banana"},
 	},
 }
 
 func (s *BootstrapSuite) TestBase64Config(c *C) {
+	oldVersion := version.Current
+	defer func() {
+		version.Current = oldVersion
+	}()
+	version.Current = version.MustParseBinary("3.4.5-foo-bar")
 	for _, t := range base64ConfigTests {
 		args := []string{"--zookeeper-servers"}
 		args = append(args, s.StateInfo(c).Addrs...)
