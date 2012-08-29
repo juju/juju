@@ -28,7 +28,7 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		Provisioner:        true,
 		AuthorizedKeys:     "sshkey1",
 		Tools:              newSimpleTools("1.2.3-linux-amd64"),
-		HasState:           true,
+		StateServer:        true,
 		Config:             map[string]interface{}{"name": "foo", "zookeeper": true},
 	},
 	{
@@ -36,7 +36,7 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		ProviderType:   "ec2",
 		Provisioner:    false,
 		AuthorizedKeys: "sshkey1",
-		HasState:       false,
+		StateServer:    false,
 		Tools:          newSimpleTools("1.2.3-linux-amd64"),
 		StateInfo:      &state.Info{Addrs: []string{"zk1"}},
 	},
@@ -62,7 +62,7 @@ func (t *cloudinitTest) check(c *C) {
 	t.checkScripts(c, "mkdir -p "+environs.VarDir)
 	t.checkScripts(c, "wget.*"+regexp.QuoteMeta(t.cfg.Tools.URL)+".*tar .*xz")
 
-	if t.cfg.HasState {
+	if t.cfg.StateServer {
 		t.checkPackage(c, "zookeeperd")
 		t.checkScripts(c, "jujud bootstrap-state")
 		t.checkEnvConfig(c)
@@ -78,7 +78,7 @@ func (t *cloudinitTest) check(c *C) {
 		t.checkScripts(c, "jujud provisioning --zookeeper-servers 'localhost"+cloudinit.ZkPortSuffix+"'")
 	}
 
-	if t.cfg.HasState {
+	if t.cfg.StateServer {
 		t.checkScripts(c, "jujud machine --zookeeper-servers 'localhost"+cloudinit.ZkPortSuffix+"' .* --machine-id [0-9]+")
 	} else {
 		t.checkScripts(c, "jujud machine --zookeeper-servers '"+strings.Join(t.cfg.StateInfo.Addrs, ",")+"' .* --machine-id [0-9]+")
@@ -214,15 +214,15 @@ var verifyTests = []struct {
 	{"negative machine id", func(cfg *cloudinit.MachineConfig) { cfg.MachineId = -1 }},
 	{"missing provider type", func(cfg *cloudinit.MachineConfig) { cfg.ProviderType = "" }},
 	{"missing instance id accessor", func(cfg *cloudinit.MachineConfig) {
-		cfg.HasState = true
+		cfg.StateServer = true
 		cfg.InstanceIdAccessor = ""
 	}},
 	{"missing zookeeper hosts", func(cfg *cloudinit.MachineConfig) {
-		cfg.HasState = false
+		cfg.StateServer = false
 		cfg.StateInfo = nil
 	}},
 	{"missing zookeeper hosts", func(cfg *cloudinit.MachineConfig) {
-		cfg.HasState = false
+		cfg.StateServer = false
 		cfg.StateInfo = &state.Info{}
 	}},
 	{"missing tools", func(cfg *cloudinit.MachineConfig) {
@@ -240,7 +240,7 @@ var verifyTests = []struct {
 func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	cfg := &cloudinit.MachineConfig{
 		Provisioner:        true,
-		HasState:           true,
+		StateServer:        true,
 		InstanceIdAccessor: "$instance_id",
 		ProviderType:       "ec2",
 		MachineId:          99,
