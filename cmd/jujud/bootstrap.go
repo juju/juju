@@ -26,7 +26,6 @@ func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	stateInfoVar(f, &c.StateInfo, "zookeeper-servers", []string{"127.0.0.1:2181"}, "address of zookeeper to initialize")
 	f.StringVar(&c.InstanceId, "instance-id", "", "instance id of this machine")
 	f.StringVar(&c.EnvType, "env-type", "", "environment type")
-	c.EnvConfig = make(map[string]interface{})
 	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
 	if err := f.Parse(true, args); err != nil {
 		return err
@@ -45,7 +44,6 @@ func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
-	c.EnvConfig["agent-version"] = version.Current.Number.String()
 	st, err := state.Initialize(&c.StateInfo, c.EnvConfig)
 	if err != nil {
 		return err
