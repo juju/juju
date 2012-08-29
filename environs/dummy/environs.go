@@ -113,14 +113,6 @@ type environState struct {
 	delayTime     time.Duration // delay before actioning request
 }
 
-// pause execution to simulate the latency of a real provider
-func (e *environState) delay() {
-	if e.delayTime > 0 {
-		log.Printf("dummy: pausing for %v", e.delayTime)
-		<-time.After(e.delayTime)
-	}
-}
-
 // environ represents a client's connection to a given environment's
 // state.
 type environ struct {
@@ -142,6 +134,9 @@ var (
 	// discardOperations discards all Operations written to it.
 	discardOperations chan<- Operation
 
+	// providerDelay controls the delay before dummy responds.
+	// non empty values in JUJU_DUMMY_DELAY will be parsed as 
+	// time.Durations into this value.
 	providerDelay time.Duration
 )
 
@@ -350,6 +345,7 @@ func (e *environ) Name() string {
 }
 
 func (e *environ) Bootstrap(uploadTools bool) error {
+	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err
 	}
@@ -359,7 +355,6 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 			return err
 		}
 	}
-	e.state.delay()
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	e.state.ops <- OpBootstrap{Env: e.state.name}
@@ -422,10 +417,10 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 }
 
 func (e *environ) Destroy([]environs.Instance) error {
+	defer delay()
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err
 	}
-	e.state.delay()
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	e.state.ops <- OpDestroy{Env: e.state.name}
@@ -439,11 +434,11 @@ func (e *environ) Destroy([]environs.Instance) error {
 }
 
 func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.Tools) (environs.Instance, error) {
+	defer delay()
 	log.Printf("dummy startinstance, machine %d", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, err
 	}
-	e.state.delay()
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if tools != nil && (strings.HasPrefix(tools.Series, "unknown") || strings.HasPrefix(tools.Arch, "unknown")) {
@@ -467,10 +462,10 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.To
 }
 
 func (e *environ) StopInstances(is []environs.Instance) error {
+	defer delay()
 	if err := e.checkBroken("StopInstance"); err != nil {
 		return err
 	}
-	e.state.delay()
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	for _, i := range is {
@@ -484,13 +479,13 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 }
 
 func (e *environ) Instances(ids []string) (insts []environs.Instance, err error) {
+	defer delay()
 	if err := e.checkBroken("Instances"); err != nil {
 		return nil, err
 	}
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	e.state.delay()
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	notFound := 0
@@ -509,10 +504,10 @@ func (e *environ) Instances(ids []string) (insts []environs.Instance, err error)
 }
 
 func (e *environ) AllInstances() ([]environs.Instance, error) {
+	defer delay()
 	if err := e.checkBroken("AllInstances"); err != nil {
 		return nil, err
 	}
-	e.state.delay()
 	var insts []environs.Instance
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
@@ -538,7 +533,7 @@ func (inst *instance) Id() string {
 }
 
 func (inst *instance) DNSName() (string, error) {
-	inst.state.delay()
+	defer delay()
 	return inst.id + ".dns", nil
 }
 
@@ -547,8 +542,8 @@ func (inst *instance) WaitDNSName() (string, error) {
 }
 
 func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
+	defer delay()
 	log.Printf("openPorts %d, %#v", machineId, ports)
-	inst.state.delay()
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("OpenPorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
 	}
@@ -567,10 +562,10 @@ func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 }
 
 func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
+	defer delay()
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("ClosePorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
 	}
-	inst.state.delay()
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
 	inst.state.ops <- OpClosePorts{
@@ -586,10 +581,10 @@ func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 }
 
 func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
+	defer delay()
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("Ports with mismatched machine id, expected %d got %d", inst.machineId, machineId))
 	}
-	inst.state.delay()
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
 	for p := range inst.ports {
@@ -597,4 +592,12 @@ func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 	}
 	state.SortPorts(ports)
 	return
+}
+
+// pause execution to simulate the latency of a real provider
+func delay() {
+	if providerDelay > 0 {
+		log.Printf("dummy: pausing for %v", providerDelay)
+		<-time.After(providerDelay)
+	}
 }
