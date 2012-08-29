@@ -26,8 +26,9 @@ type MachineConfig struct {
 	// Provisioner specifies whether the new machine will run a provisioning agent.
 	Provisioner bool
 
-	// ZooKeeper specifies whether the new machine will run a zookeeper instance.
-	ZooKeeper bool
+	// HasState specifies whether the new machine will run a ZooKeeper 
+	// or MongoDB instance.
+	HasState bool
 
 	// InstanceIdAccessor holds bash code that evaluates to the current instance id.
 	InstanceIdAccessor string
@@ -89,7 +90,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.AddPackage("libzookeeper-mt2")
-	if cfg.ZooKeeper {
+	if cfg.HasState {
 		c.AddPackage("default-jre-headless")
 		c.AddPackage("zookeeper")
 		c.AddPackage("zookeeperd")
@@ -118,8 +119,8 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		debugFlag = " --debug"
 	}
 
-	// zookeeper scripts
-	if cfg.ZooKeeper {
+	if cfg.HasState {
+		// zookeeper scripts
 		addScripts(c,
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --instance-id "+cfg.InstanceIdAccessor+
@@ -185,7 +186,7 @@ func (cfg *MachineConfig) jujuTools() string {
 
 func (cfg *MachineConfig) zookeeperHostAddrs() string {
 	var hosts []string
-	if cfg.ZooKeeper {
+	if cfg.HasState {
 		hosts = append(hosts, "localhost"+zkPortSuffix)
 	}
 	if cfg.StateInfo != nil {
@@ -214,7 +215,7 @@ func verifyConfig(cfg *MachineConfig) error {
 	if cfg.Tools.URL == "" {
 		return requiresError("tools URL")
 	}
-	if cfg.ZooKeeper {
+	if cfg.HasState {
 		if cfg.InstanceIdAccessor == "" {
 			return requiresError("instance id accessor")
 		}
