@@ -75,12 +75,12 @@ func (s *Service) SetCharmURL(url *charm.URL) (err error) {
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: bson.D{{"_id", s.doc.Name}, {"life", Alive}},
+		Assert: bson.D{{"life", Alive}},
 		Update: bson.D{{"$set", bson.D{{"charmurl", url}}}},
 	}}
 	err = s.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot set the charm URL of service %q: %v", s, err)
+		return fmt.Errorf("cannot set the charm URL of service %q: %v", s, deadOnAbort(err))
 	}
 	s.doc.CharmURL = url
 	return nil
@@ -92,12 +92,12 @@ func (s *Service) SetExposed() error {
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: bson.D{{"_id", s.doc.Name}, {"life", Alive}},
+		Assert: bson.D{{"life", Alive}},
 		Update: bson.D{{"$set", bson.D{{"exposed", true}}}},
 	}}
 	err := s.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot set exposed flag for service %q: %v", s, err)
+		return fmt.Errorf("cannot set exposed flag for service %q: %v", s, deadOnAbort(err))
 	}
 	s.doc.Exposed = true
 	return nil
@@ -109,12 +109,12 @@ func (s *Service) ClearExposed() error {
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: bson.D{{"_id", s.doc.Name}, {"life", Alive}},
+		Assert: bson.D{{"life", Alive}},
 		Update: bson.D{{"$set", bson.D{{"exposed", false}}}},
 	}}
 	err := s.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot clear exposed flag for service %q: %v", s, err)
+		return fmt.Errorf("cannot clear exposed flag for service %q: %v", s, deadOnAbort(err))
 	}
 	s.doc.Exposed = false
 	return nil
@@ -214,23 +214,22 @@ func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
 
 // RemoveUnit removes the given unit from s.
 func (s *Service) RemoveUnit(u *Unit) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot remove unit %q", u)
 	if u.doc.Life != Dead {
-		return fmt.Errorf("unit %q is not dead", u)
+		return errors.New("unit is not dead")
 	}
-	sel := bson.D{
-		{"_id", u.doc.Name},
-		{"service", s.doc.Name},
-		{"life", Dead},
+	if u.doc.Service != s.doc.Name {
+		return fmt.Errorf("unit is not assigned to service %q", s)
 	}
 	ops := []txn.Op{{
 		C:      s.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: sel,
+		Assert: bson.D{{"life", Dead}},
 		Remove: true,
 	}}
 	err = s.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot remove unit %q: %v", u, err)
+		return deadOnAbort(err)
 	}
 	return nil
 }

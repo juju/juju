@@ -33,6 +33,13 @@ type State struct {
 	runner    *txn.Runner
 }
 
+func deadOnAbort(err error) error {
+	if err == txn.ErrAborted {
+		return fmt.Errorf("not found or not alive")
+	}
+	return err
+}
+
 // EnvironConfig returns the current configuration of the environment.
 func (s *State) EnvironConfig() (*ConfigNode, error) {
 	return readConfigNode(s, "e")
@@ -84,7 +91,7 @@ func (s *State) RemoveMachine(id int) (err error) {
 	}}
 	err = s.runner.Run(ops, "", nil)
 	if err != nil {
-		return err
+		return deadOnAbort(err)
 	}
 	return nil
 }
@@ -167,13 +174,14 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 // RemoveService removes a service from the state. It will also remove all
 // its units and break any of its existing relations.
 func (s *State) RemoveService(svc *Service) (err error) {
-	// TODO Integrate with txn and do lifecycle properly.
+	// TODO Do lifecycle properly.
+	// Removing relations and units here is wrong. They need to monitor
+	// their own parent and set themselves to dying.
 	defer trivial.ErrorContextf(&err, "cannot remove service %q", svc)
 
 	if svc.doc.Life != Dead {
 		panic(fmt.Errorf("service %q is not dead", svc))
 	}
-	// Remove relations first, to minimize unwanted hook executions.
 	rels, err := svc.Relations()
 	if err != nil {
 		return err
@@ -188,7 +196,6 @@ func (s *State) RemoveService(svc *Service) (err error) {
 			return err
 		}
 	}
-	// TODO Will be deleted with proper lifecycle integration.
 	units, err := svc.AllUnits()
 	if err != nil {
 		return err
@@ -202,12 +209,13 @@ func (s *State) RemoveService(svc *Service) (err error) {
 			return err
 		}
 	}
-	// Remove the service.
-	sel := bson.D{
-		{"_id", svc.doc.Name},
-		{"life", Dead},
-	}
-	err = s.services.Remove(sel)
+	ops := []txn.Op{{
+		C:      s.services.Name,
+		Id:     svc.doc.Name,
+		Assert: bson.D{{"life", Dead}},
+		Remove: true,
+	}}
+	err = s.runner.Run(ops, "", nil)
 	if err != nil {
 		return err
 	}
@@ -314,13 +322,15 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 	if r.doc.Life != Dead {
 		panic(fmt.Errorf("relation %q is not dead", r))
 	}
-	sel := bson.D{
-		{"_id", r.doc.Key},
-		{"life", Dead},
-	}
-	err = s.relations.Remove(sel)
+	ops := []txn.Op{{
+		C:      s.relations.Name,
+		Id:     r.doc.Key,
+		Assert: bson.D{{"life", Dead}},
+		Remove: true,
+	}}
+	err = s.runner.Run(ops, "", nil)
 	if err != nil {
-		return err
+		return deadOnAbort(err)
 	}
 	return nil
 }

@@ -104,12 +104,12 @@ func (m *Machine) SetInstanceId(id string) error {
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
-		Assert: bson.D{{"_id", m.doc.Id}, {"life", Alive}},
+		Assert: bson.D{{"life", Alive}},
 		Update: bson.D{{"$set", bson.D{{"instanceid", id}}}},
 	}}
 	err := m.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot set instance id of machine %s: %v", m, err)
+		return fmt.Errorf("cannot set instance id of machine %s: %v", m, deadOnAbort(err))
 	}
 	m.doc.InstanceId = id
 	return nil

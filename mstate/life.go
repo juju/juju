@@ -43,17 +43,15 @@ func ensureLife(st *State, coll *mgo.Collection, id interface{}, life Life, desc
 		panic("cannot set life to alive")
 	}
 	sel := bson.D{
-		{"_id", id},
 		// $lte is used so that we don't overwrite a previous
 		// change we don't know about. 
 		{"life", bson.D{{"$lte", life}}},
 	}
-	change := bson.D{{"$set", bson.D{{"life", life}}}}
 	ops := []txn.Op{{
 		C:      coll.Name,
 		Id:     id,
 		Assert: sel,
-		Update: change,
+		Update: bson.D{{"$set", bson.D{{"life", life}}}},
 	}}
 	err := st.runner.Run(ops, "", nil)
 	if err == txn.ErrAborted {
