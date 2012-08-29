@@ -59,6 +59,7 @@ func (s *JujuConnSuite) SetUpTest(c *C) {
 
 func (s *JujuConnSuite) TearDownTest(c *C) {
 	s.tearDownConn(c)
+	s.ZkSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 

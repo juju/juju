@@ -55,7 +55,6 @@ func (s *CharmSuite) AddCharm(c *C) (*state.Charm, []byte) {
 	bun, err := corecharm.ReadBundle(bunpath)
 	c.Assert(err, IsNil)
 	bundata, hash := readHash(c, bunpath)
-	c.Assert(s.State, NotNil)
 	sch, err := s.State.AddCharm(bun, curl, surl, hash)
 	c.Assert(err, IsNil)
 	return sch, bundata
