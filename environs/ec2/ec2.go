@@ -600,6 +600,7 @@ func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 	if err != nil {
 		return fmt.Errorf("cannot open ports: %v", err)
 	}
+	log.Printf("environs/ec2: opened ports in security group %s: %v", g.Name, ports)
 	return nil
 }
 
@@ -615,6 +616,7 @@ func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 	if err != nil {
 		return fmt.Errorf("cannot close ports: %v", err)
 	}
+	log.Printf("environs/ec2: closed ports in security group %s: %v", g.Name, ports)
 	return nil
 }
 
