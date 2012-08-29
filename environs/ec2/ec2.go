@@ -314,7 +314,7 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.To
 func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, master bool, config map[string]interface{}) ([]byte, error) {
 	cfg := &cloudinit.MachineConfig{
 		Provisioner:        master,
-		ZooKeeper:          master,
+		StateServer:        master,
 		StateInfo:          info,
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		ProviderType:       "ec2",
