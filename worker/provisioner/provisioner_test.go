@@ -37,12 +37,12 @@ func (s *ProvisionerSuite) SetUpSuite(c *C) {
 }
 
 func (s *ProvisionerSuite) SetUpTest(c *C) {
+	s.JujuConnSuite.SetUpTest(c)
 	// Create the operations channel with more than enough space
 	// for those tests that don't listen on it.
 	op := make(chan dummy.Operation, 500)
 	dummy.Listen(op)
 	s.op = op
-	s.JujuConnSuite.SetUpTest(c)
 
 	environ, _, err := s.ZkConn.Get("/environment")
 	c.Assert(err, IsNil)

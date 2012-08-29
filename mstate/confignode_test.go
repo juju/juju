@@ -49,7 +49,7 @@ func (s *ConfigNodeSuite) TestUpdateWithoutWrite(c *C) {
 	c.Assert(node.Map(), DeepEquals, options)
 	// Node data has to be empty.
 	mgoData := []interface{}{}
-	err = s.MgoSuite.Session.DB("juju").C("cfgnodes").FindId(s.path).All(&mgoData)
+	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.path).All(&mgoData)
 	c.Assert(err, IsNil)
 	c.Assert(mgoData, HasLen, 0)
 }
@@ -71,7 +71,7 @@ func (s *ConfigNodeSuite) TestUpdateWithWrite(c *C) {
 
 	// Check MongoDB state.
 	mgoData := make(map[string]interface{}, 0)
-	err = s.MgoSuite.Session.DB("juju").C("cfgnodes").FindId(s.path).One(&mgoData)
+	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.path).One(&mgoData)
 	c.Assert(err, IsNil)
 	cleanMap(mgoData)
 	c.Assert(mgoData, DeepEquals, options)
@@ -153,7 +153,7 @@ func (s *ConfigNodeSuite) TestSetItem(c *C) {
 	c.Assert(node.Map(), DeepEquals, options)
 	// Check MongoDB state.
 	mgoData := make(map[string]interface{}, 0)
-	err = s.MgoSuite.Session.DB("juju").C("cfgnodes").FindId(s.path).One(&mgoData)
+	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.path).One(&mgoData)
 	c.Assert(err, IsNil)
 	cleanMap(mgoData)
 	c.Assert(mgoData, DeepEquals, options)
@@ -309,7 +309,7 @@ func (s *ConfigNodeSuite) TestMultipleWritesAreStable(c *C) {
 	c.Assert(err, IsNil)
 
 	mgoData := make(map[string]interface{})
-	err = s.MgoSuite.Session.DB("juju").C("cfgnodes").FindId(s.path).One(&mgoData)
+	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.path).One(&mgoData)
 	c.Assert(err, IsNil)
 	version := mgoData["version"]
 	for i := 0; i < 100; i++ {
@@ -321,7 +321,7 @@ func (s *ConfigNodeSuite) TestMultipleWritesAreStable(c *C) {
 		c.Assert(err, IsNil)
 	}
 	mgoData = make(map[string]interface{})
-	err = s.MgoSuite.Session.DB("juju").C("cfgnodes").FindId(s.path).One(&mgoData)
+	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.path).One(&mgoData)
 	c.Assert(err, IsNil)
 	newVersion := mgoData["version"]
 	c.Assert(version, Equals, newVersion)

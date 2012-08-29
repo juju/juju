@@ -18,6 +18,9 @@ var Server = NewHTTPServer("http://localhost:4444", 5*time.Second)
 func (s *HTTPSuite) SetUpSuite(c *C) {
 	Server.Start()
 }
+func (s *HTTPSuite) TearDownSuite(c *C) {}
+
+func (s *HTTPSuite) SetUpTest(c *C) {}
 
 func (s *HTTPSuite) TearDownTest(c *C) {
 	Server.Flush()

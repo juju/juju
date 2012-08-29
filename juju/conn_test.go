@@ -23,10 +23,6 @@ type ConnSuite struct {
 
 var _ = Suite(&ConnSuite{})
 
-func (cs *ConnSuite) SetUpTest(c *C) {
-	cs.LoggingSuite.SetUpTest(c)
-}
-
 func (cs *ConnSuite) TearDownTest(c *C) {
 	dummy.Reset()
 	cs.LoggingSuite.TearDownTest(c)

@@ -9,18 +9,10 @@ import (
 )
 
 type AddUnitSuite struct {
-	DeploySuite
+	repoSuite
 }
 
 var _ = Suite(&AddUnitSuite{})
-
-func (s *AddUnitSuite) SetUpTest(c *C) {
-	s.DeploySuite.SetUpTest(c)
-}
-
-func (s *AddUnitSuite) TearDownTest(c *C) {
-	s.DeploySuite.TearDownTest(c)
-}
 
 func runAddUnit(c *C, args ...string) error {
 	com := &AddUnitCommand{}

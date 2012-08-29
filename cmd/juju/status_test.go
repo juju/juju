@@ -5,52 +5,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"os"
-	"path/filepath"
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
 
 type StatusSuite struct {
-	envSuite
-	repoPath, seriesPath string
-	conn                 *juju.Conn
-	st                   *state.State
+	testing.JujuConnSuite
 }
 
 var _ = Suite(&StatusSuite{})
-
-func (s *StatusSuite) SetUpTest(c *C) {
-	s.envSuite.SetUpTest(c, zkConfig)
-	repoPath := c.MkDir()
-	s.repoPath = os.Getenv("JUJU_REPOSITORY")
-	os.Setenv("JUJU_REPOSITORY", repoPath)
-	s.seriesPath = filepath.Join(repoPath, "precise")
-	err := os.Mkdir(s.seriesPath, 0777)
-	c.Assert(err, IsNil)
-	s.conn, err = juju.NewConn("")
-	c.Assert(err, IsNil)
-	err = s.conn.Bootstrap(false)
-	c.Assert(err, IsNil)
-	s.st, err = s.conn.State()
-	c.Assert(err, IsNil)
-}
-
-func (s *StatusSuite) TearDownTest(c *C) {
-	s.conn.Close()
-	dummy.Reset()
-	//	s.StateSuite.TearDownTest(c)
-	s.envSuite.TearDownTest(c)
-	os.Setenv("JUJU_REPOSITORY", s.repoPath)
-}
 
 var statusTests = []struct {
 	title   string
@@ -96,8 +67,8 @@ var statusTests = []struct {
 		map[string]interface{}{
 			"machines": map[int]interface{}{
 				0: map[string]interface{}{
-					"dns-name":               "palermo-0.dns",
-					"instance-id":            "palermo-0",
+					"dns-name":               "dummyenv-0.dns",
+					"instance-id":            "dummyenv-0",
 					"agent-version":          "0.0.0",
 					"proposed-agent-version": "0.0.0",
 				},
@@ -124,8 +95,8 @@ var statusTests = []struct {
 		map[string]interface{}{
 			"machines": map[int]interface{}{
 				0: map[string]interface{}{
-					"dns-name":               "palermo-0.dns",
-					"instance-id":            "palermo-0",
+					"dns-name":               "dummyenv-0.dns",
+					"instance-id":            "dummyenv-0",
 					"agent-version":          "1.2.3",
 					"proposed-agent-version": "0.0.0",
 				},
@@ -152,8 +123,8 @@ var statusTests = []struct {
 		map[string]interface{}{
 			"machines": map[int]interface{}{
 				0: map[string]interface{}{
-					"dns-name":               "palermo-0.dns",
-					"instance-id":            "palermo-0",
+					"dns-name":               "dummyenv-0.dns",
+					"instance-id":            "dummyenv-0",
 					"agent-version":          "1.2.3",
 					"proposed-agent-version": "2.0.3",
 				},
@@ -182,8 +153,8 @@ var statusTests = []struct {
 		map[string]interface{}{
 			"machines": map[int]interface{}{
 				0: map[string]interface{}{
-					"dns-name":               "palermo-0.dns",
-					"instance-id":            "palermo-0",
+					"dns-name":               "dummyenv-0.dns",
+					"instance-id":            "dummyenv-0",
 					"agent-version":          "1.2.3",
 					"proposed-agent-version": "2.0.3",
 				},
@@ -216,20 +187,20 @@ var statusTests = []struct {
 		map[string]interface{}{
 			"machines": map[int]interface{}{
 				0: map[string]interface{}{
-					"dns-name":               "palermo-0.dns",
-					"instance-id":            "palermo-0",
+					"dns-name":               "dummyenv-0.dns",
+					"instance-id":            "dummyenv-0",
 					"agent-version":          "1.2.3",
 					"proposed-agent-version": "2.0.3",
 				},
 				1: map[string]interface{}{
-					"dns-name":               "palermo-1.dns",
-					"instance-id":            "palermo-1",
+					"dns-name":               "dummyenv-1.dns",
+					"instance-id":            "dummyenv-1",
 					"agent-version":          "0.0.0",
 					"proposed-agent-version": "0.0.0",
 				},
 				2: map[string]interface{}{
-					"dns-name":               "palermo-2.dns",
-					"instance-id":            "palermo-2",
+					"dns-name":               "dummyenv-2.dns",
+					"instance-id":            "dummyenv-2",
 					"agent-version":          "0.0.0",
 					"proposed-agent-version": "0.0.0",
 				},
@@ -268,20 +239,20 @@ var statusTests = []struct {
 		map[string]interface{}{
 			"machines": map[int]interface{}{
 				0: map[string]interface{}{
-					"dns-name":               "palermo-0.dns",
-					"instance-id":            "palermo-0",
+					"dns-name":               "dummyenv-0.dns",
+					"instance-id":            "dummyenv-0",
 					"agent-version":          "1.2.3",
 					"proposed-agent-version": "2.0.3",
 				},
 				1: map[string]interface{}{
-					"dns-name":               "palermo-1.dns",
-					"instance-id":            "palermo-1",
+					"dns-name":               "dummyenv-1.dns",
+					"instance-id":            "dummyenv-1",
 					"agent-version":          "0.0.0",
 					"proposed-agent-version": "0.0.0",
 				},
 				2: map[string]interface{}{
-					"dns-name":               "palermo-2.dns",
-					"instance-id":            "palermo-2",
+					"dns-name":               "dummyenv-2.dns",
+					"instance-id":            "dummyenv-2",
 					"agent-version":          "0.0.0",
 					"proposed-agent-version": "0.0.0",
 				},
@@ -322,7 +293,7 @@ var statusTests = []struct {
 func (s *StatusSuite) testStatus(format string, marshal func(v interface{}) ([]byte, error), unmarshal func(data []byte, v interface{}) error, c *C) {
 	for _, t := range statusTests {
 		c.Logf("testing %s: %s", format, t.title)
-		t.prepare(s.st, s.conn, c)
+		t.prepare(s.State, s.Conn, c)
 		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}}
 		code := cmd.Main(&StatusCommand{}, ctx, []string{"--format", format})
 		c.Check(code, Equals, 0)

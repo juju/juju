@@ -32,8 +32,8 @@ func TestPackage(t *stdtesting.T) {
 type UniterSuite struct {
 	testing.JujuConnSuite
 	coretesting.HTTPSuite
-	oldVarDir string
-	oldPath   string
+	varDir  string
+	oldPath string
 }
 
 var _ = Suite(&UniterSuite{})
@@ -41,9 +41,9 @@ var _ = Suite(&UniterSuite{})
 func (s *UniterSuite) SetUpSuite(c *C) {
 	s.JujuConnSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
-	s.oldVarDir = environs.VarDir
-	environs.VarDir = c.MkDir()
-	toolsDir := filepath.Join(environs.VarDir, "tools", "unit-u-0")
+	s.varDir = c.MkDir()
+	environs.VarDir = s.varDir // it's restored by JujuConnSuite.
+	toolsDir := environs.AgentToolsDir("unit-u-0")
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, IsNil)
 	cmd := exec.Command("go", "build", "launchpad.net/juju-core/cmd/jujuc")
@@ -56,8 +56,22 @@ func (s *UniterSuite) SetUpSuite(c *C) {
 }
 
 func (s *UniterSuite) TearDownSuite(c *C) {
-	environs.VarDir = s.oldVarDir
 	os.Setenv("PATH", s.oldPath)
+}
+
+func (s *UniterSuite) SetUpTest(c *C) {
+	s.JujuConnSuite.SetUpTest(c)
+	environs.VarDir = s.varDir
+}
+
+func (s *UniterSuite) TearDownTest(c *C) {
+	s.HTTPSuite.TearDownTest(c)
+	s.JujuConnSuite.TearDownTest(c)
+}
+
+func (s *UniterSuite) Reset(c *C) {
+	s.JujuConnSuite.Reset(c)
+	environs.VarDir = s.varDir
 }
 
 type uniterTest struct {
@@ -260,14 +274,19 @@ func (s *UniterSuite) TestUniter(c *C) {
 			charms: coretesting.ResponseMap{},
 		}
 		for i, s := range t.steps {
-			c.Logf("  step %d: %#v", i, s)
-			s.step(c, ctx)
+			c.Logf("step %d", i)
+			step(c, ctx, s)
 		}
 		if ctx.uniter != nil {
 			err := ctx.uniter.Stop()
 			c.Assert(err, IsNil)
 		}
 	}
+}
+
+func step(c *C, ctx *context, s stepper) {
+	c.Logf("%#v", s)
+	s.step(c, ctx)
 }
 
 type createCharm struct {
@@ -324,7 +343,7 @@ func (s createUniter) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	ctx.svc = svc
 	ctx.unit = unit
-	startUniter{}.step(c, ctx)
+	step(c, ctx, startUniter{})
 }
 
 type startUniter struct {
@@ -379,17 +398,17 @@ func (s stopUniter) step(c *C, ctx *context) {
 type verifyWaiting struct{}
 
 func (s verifyWaiting) step(c *C, ctx *context) {
-	stopUniter{}.step(c, ctx)
-	startUniter{}.step(c, ctx)
-	waitHooks{}.step(c, ctx)
+	step(c, ctx, stopUniter{})
+	step(c, ctx, startUniter{})
+	step(c, ctx, waitHooks{})
 }
 
 type verifyRunning struct{}
 
 func (s verifyRunning) step(c *C, ctx *context) {
-	stopUniter{}.step(c, ctx)
-	startUniter{}.step(c, ctx)
-	waitHooks{"config-changed"}.step(c, ctx)
+	step(c, ctx, stopUniter{})
+	step(c, ctx, startUniter{})
+	step(c, ctx, waitHooks{"config-changed"})
 }
 
 type startupError struct {
@@ -397,32 +416,32 @@ type startupError struct {
 }
 
 func (s startupError) step(c *C, ctx *context) {
-	createCharm{badHooks: []string{s.badHook}}.step(c, ctx)
-	serveCharm{}.step(c, ctx)
-	createUniter{}.step(c, ctx)
-	waitUnit{
+	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
+	step(c, ctx, serveCharm{})
+	step(c, ctx, createUniter{})
+	step(c, ctx, waitUnit{
 		status: state.UnitError,
 		info:   fmt.Sprintf(`hook failed: %q`, s.badHook),
-	}.step(c, ctx)
+	})
 	for _, hook := range []string{"install", "start", "config-changed"} {
 		if hook == s.badHook {
-			waitHooks{"fail-" + hook}.step(c, ctx)
+			step(c, ctx, waitHooks{"fail-" + hook})
 			break
 		}
-		waitHooks{hook}.step(c, ctx)
+		step(c, ctx, waitHooks{hook})
 	}
-	verifyCharm{}.step(c, ctx)
+	step(c, ctx, verifyCharm{})
 }
 
 type quickStart struct{}
 
 func (s quickStart) step(c *C, ctx *context) {
-	createCharm{}.step(c, ctx)
-	serveCharm{}.step(c, ctx)
-	createUniter{}.step(c, ctx)
-	waitUnit{status: state.UnitStarted}.step(c, ctx)
-	waitHooks{"install", "start", "config-changed"}.step(c, ctx)
-	verifyCharm{}.step(c, ctx)
+	step(c, ctx, createCharm{})
+	step(c, ctx, serveCharm{})
+	step(c, ctx, createUniter{})
+	step(c, ctx, waitUnit{status: state.UnitStarted})
+	step(c, ctx, waitHooks{"install", "start", "config-changed"})
+	step(c, ctx, verifyCharm{})
 }
 
 type resolveError struct {

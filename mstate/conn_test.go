@@ -3,7 +3,6 @@ package mstate_test
 import (
 	"fmt"
 	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	state "launchpad.net/juju-core/mstate"
@@ -49,7 +48,7 @@ func (cs *ConnSuite) TearDownTest(c *C) {
 
 func (s *ConnSuite) AllMachines(c *C) []int {
 	docs := []state.MachineDoc{}
-	err := s.machines.Find(bson.D{{"life", state.Alive}}).All(&docs)
+	err := s.machines.Find(D{{"life", state.Alive}}).All(&docs)
 	c.Assert(err, IsNil)
 	ids := []int{}
 	for _, v := range docs {

@@ -9,18 +9,10 @@ import (
 )
 
 type UnexposeSuite struct {
-	DeploySuite
+	repoSuite
 }
 
 var _ = Suite(&UnexposeSuite{})
-
-func (s *UnexposeSuite) SetUpTest(c *C) {
-	s.DeploySuite.SetUpTest(c)
-}
-
-func (s *UnexposeSuite) TearDownTest(c *C) {
-	s.DeploySuite.TearDownTest(c)
-}
 
 func runUnexpose(c *C, args ...string) error {
 	com := &UnexposeCommand{}
@@ -30,7 +22,7 @@ func runUnexpose(c *C, args ...string) error {
 }
 
 func (s *UnexposeSuite) assertExposed(c *C, service string, expected bool) {
-	svc, err := s.st.Service(service)
+	svc, err := s.State.Service(service)
 	c.Assert(err, IsNil)
 	actual, err := svc.IsExposed()
 	c.Assert(actual, Equals, expected)

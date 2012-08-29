@@ -3,7 +3,6 @@ package mstate
 import (
 	"fmt"
 	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
 	"sort"
 )
 
@@ -160,12 +159,12 @@ func (c *ConfigNode) Write() ([]ItemChange, error) {
 		return []ItemChange{}, nil
 	}
 	sort.Sort(itemChangeSlice(changes))
-	change := bson.D{
-		{"$inc", bson.D{{"version", 1}}},
+	change := D{
+		{"$inc", D{{"version", 1}}},
 		{"$set", upserts},
 		{"$unset", deletions},
 	}
-	_, err := c.st.cfgnodes.UpsertId(c.path, change)
+	_, err := c.st.settings.UpsertId(c.path, change)
 	if err != nil {
 		return nil, fmt.Errorf("cannot write configuration node %q: %v", c.path, err)
 	}
@@ -190,7 +189,7 @@ func cleanMap(in map[string]interface{}) {
 // Read (re)reads the node data into c.
 func (c *ConfigNode) Read() error {
 	config := map[string]interface{}{}
-	err := c.st.cfgnodes.FindId(c.path).One(config)
+	err := c.st.settings.FindId(c.path).One(config)
 	if err == mgo.ErrNotFound {
 		c.disk = nil
 		c.core = make(map[string]interface{})

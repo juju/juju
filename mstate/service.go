@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
+	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/trivial"
 	"strconv"
@@ -38,7 +38,7 @@ func (s *Service) Life() Life {
 // Kill sets the service lifecycle to Dying if it is Alive.
 // It does nothing otherwise.
 func (s *Service) Kill() error {
-	err := ensureLife(s.doc.Name, s.st.services, "service", Dying)
+	err := ensureLife(s.st, s.st.services, s.doc.Name, Dying, "service")
 	if err != nil {
 		return err
 	}
@@ -49,7 +49,7 @@ func (s *Service) Kill() error {
 // Die sets the service lifecycle to Dead if it is Alive or Dying.
 // It does nothing otherwise.
 func (s *Service) Die() error {
-	err := ensureLife(s.doc.Name, s.st.services, "service", Dead)
+	err := ensureLife(s.st, s.st.services, s.doc.Name, Dead, "service")
 	if err != nil {
 		return err
 	}
@@ -71,10 +71,15 @@ func (s *Service) CharmURL() (url *charm.URL, err error) {
 
 // SetCharmURL changes the charm URL for the service.
 func (s *Service) SetCharmURL(url *charm.URL) (err error) {
-	change := bson.D{{"$set", bson.D{{"charmurl", url}}}}
-	err = s.st.services.Update(bson.D{{"_id", s.doc.Name}}, change)
+	ops := []txn.Op{{
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: D{{"life", Alive}},
+		Update: D{{"$set", D{{"charmurl", url}}}},
+	}}
+	err = s.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot set the charm URL of service %q: %v", s, err)
+		return fmt.Errorf("cannot set the charm URL of service %q: %v", s, deadOnAbort(err))
 	}
 	s.doc.CharmURL = url
 	return nil
@@ -83,10 +88,15 @@ func (s *Service) SetCharmURL(url *charm.URL) (err error) {
 // SetExposed marks the service as exposed.
 // See ClearExposed and IsExposed.
 func (s *Service) SetExposed() error {
-	change := bson.D{{"$set", bson.D{{"exposed", true}}}}
-	err := s.st.services.UpdateId(s.doc.Name, change)
+	ops := []txn.Op{{
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: D{{"life", Alive}},
+		Update: D{{"$set", D{{"exposed", true}}}},
+	}}
+	err := s.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot set exposed flag for service %q: %v", s, err)
+		return fmt.Errorf("cannot set exposed flag for service %q: %v", s, deadOnAbort(err))
 	}
 	s.doc.Exposed = true
 	return nil
@@ -95,10 +105,15 @@ func (s *Service) SetExposed() error {
 // ClearExposed removes the exposed flag from the service.
 // See SetExposed and IsExposed.
 func (s *Service) ClearExposed() error {
-	change := bson.D{{"$set", bson.D{{"exposed", false}}}}
-	err := s.st.services.Update(bson.D{{"_id", s.doc.Name}}, change)
+	ops := []txn.Op{{
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: D{{"life", Alive}},
+		Update: D{{"$set", D{{"exposed", false}}}},
+	}}
+	err := s.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot clear exposed flag for service %q: %v", s, err)
+		return fmt.Errorf("cannot clear exposed flag for service %q: %v", s, deadOnAbort(err))
 	}
 	s.doc.Exposed = false
 	return nil
@@ -128,8 +143,8 @@ func (s *Service) Refresh() error {
 
 // newUnitName returns the next unit name.
 func (s *Service) newUnitName() (string, error) {
-	sel := bson.D{{"_id", s.doc.Name}, {"life", Alive}}
-	change := mgo.Change{Update: bson.D{{"$inc", bson.D{{"unitseq", 1}}}}}
+	sel := D{{"_id", s.doc.Name}, {"life", Alive}}
+	change := mgo.Change{Update: D{{"$inc", D{{"unitseq", 1}}}}}
 	result := serviceDoc{}
 	_, err := s.st.services.Find(sel).Apply(change, &result)
 	if err != nil {
@@ -147,7 +162,13 @@ func (s *Service) addUnit(name string, principal string) (*Unit, error) {
 		Principal: principal,
 		Life:      Alive,
 	}
-	err := s.st.units.Insert(udoc)
+	ops := []txn.Op{{
+		C:      s.st.units.Name,
+		Id:     udoc.Name,
+		Assert: txn.DocMissing,
+		Insert: udoc,
+	}}
+	err := s.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add unit to service %q", s)
 	}
@@ -192,24 +213,29 @@ func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
 
 // RemoveUnit removes the given unit from s.
 func (s *Service) RemoveUnit(u *Unit) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot remove unit %q", u)
 	if u.doc.Life != Dead {
-		return fmt.Errorf("unit %q is not dead", u)
+		return errors.New("unit is not dead")
 	}
-	sel := bson.D{
-		{"_id", u.doc.Name},
-		{"service", s.doc.Name},
-		{"life", Dead},
+	if u.doc.Service != s.doc.Name {
+		return fmt.Errorf("unit is not assigned to service %q", s)
 	}
-	err = s.st.units.Remove(sel)
+	ops := []txn.Op{{
+		C:      s.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: D{{"life", Dead}},
+		Remove: true,
+	}}
+	err = s.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot remove unit %q: %v", u, err)
+		return deadOnAbort(err)
 	}
 	return nil
 }
 
 func (s *Service) unitDoc(name string) (*unitDoc, error) {
 	udoc := &unitDoc{}
-	sel := bson.D{
+	sel := D{
 		{"_id", name},
 		{"service", s.doc.Name},
 		{"life", Alive},
@@ -233,7 +259,7 @@ func (s *Service) Unit(name string) (*Unit, error) {
 // AllUnits returns all units of the service.
 func (s *Service) AllUnits() (units []*Unit, err error) {
 	docs := []unitDoc{}
-	sel := bson.D{{"service", s.doc.Name}, {"life", Alive}}
+	sel := D{{"service", s.doc.Name}, {"life", Alive}}
 	err = s.st.units.Find(sel).All(&docs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all units from service %q: %v", err)
@@ -247,7 +273,7 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 // Relations returns a Relation for every relation the service is in.
 func (s *Service) Relations() (relations []*Relation, err error) {
 	defer trivial.ErrorContextf(&err, "can't get relations for service %q", s)
-	sel := bson.D{
+	sel := D{
 		{"life", Alive},
 		{"endpoints.servicename", s.doc.Name},
 	}
@@ -260,4 +286,13 @@ func (s *Service) Relations() (relations []*Relation, err error) {
 		relations = append(relations, newRelation(s.st, &v))
 	}
 	return relations, nil
+}
+
+// Config returns the configuration node for the service.
+func (s *Service) Config() (config *ConfigNode, err error) {
+	config, err = readConfigNode(s.st, "s/"+s.Name())
+	if err != nil {
+		return nil, fmt.Errorf("cannot get configuration of service %q: %v", s, err)
+	}
+	return config, nil
 }

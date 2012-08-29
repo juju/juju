@@ -2,7 +2,7 @@ package mstate
 
 import (
 	"fmt"
-	"labix.org/v2/mgo/bson"
+	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/trivial"
 	"strconv"
 )
@@ -37,7 +37,7 @@ func (m *Machine) Life() Life {
 // Kill sets the machine lifecycle to Dying if it is Alive.
 // It does nothing otherwise.
 func (m *Machine) Kill() error {
-	err := ensureLife(m.doc.Id, m.st.machines, "machine", Dying)
+	err := ensureLife(m.st, m.st.machines, m.doc.Id, Dying, "machine")
 	if err != nil {
 		return err
 	}
@@ -48,7 +48,7 @@ func (m *Machine) Kill() error {
 // Die sets the machine lifecycle to Dead if it is Alive or Dying.
 // It does nothing otherwise.
 func (m *Machine) Die() error {
-	err := ensureLife(m.doc.Id, m.st.machines, "machine", Dead)
+	err := ensureLife(m.st, m.st.machines, m.doc.Id, Dead, "machine")
 	if err != nil {
 		return err
 	}
@@ -79,14 +79,14 @@ func (m *Machine) InstanceId() (string, error) {
 func (m *Machine) Units() (units []*Unit, err error) {
 	defer trivial.ErrorContextf(&err, "cannot get units assigned to machine %s", m)
 	pudocs := []unitDoc{}
-	err = m.st.units.Find(bson.D{{"machineid", m.doc.Id}}).All(&pudocs)
+	err = m.st.units.Find(D{{"machineid", m.doc.Id}}).All(&pudocs)
 	if err != nil {
 		return nil, err
 	}
 	for _, pudoc := range pudocs {
 		units = append(units, newUnit(m.st, &pudoc))
 		docs := []unitDoc{}
-		sel := bson.D{{"principal", pudoc.Name}, {"life", Alive}}
+		sel := D{{"principal", pudoc.Name}, {"life", Alive}}
 		err = m.st.units.Find(sel).All(&docs)
 		if err != nil {
 			return nil, err
@@ -100,10 +100,15 @@ func (m *Machine) Units() (units []*Unit, err error) {
 
 // SetInstanceId sets the provider specific machine id for this machine.
 func (m *Machine) SetInstanceId(id string) error {
-	change := bson.D{{"$set", bson.D{{"instanceid", id}}}}
-	err := m.st.machines.Update(bson.D{{"_id", m.doc.Id}}, change)
+	ops := []txn.Op{{
+		C:      m.st.machines.Name,
+		Id:     m.doc.Id,
+		Assert: D{{"life", Alive}},
+		Update: D{{"$set", D{{"instanceid", id}}}},
+	}}
+	err := m.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot set instance id of machine %s: %v", m, err)
+		return fmt.Errorf("cannot set instance id of machine %s: %v", m, deadOnAbort(err))
 	}
 	m.doc.InstanceId = id
 	return nil

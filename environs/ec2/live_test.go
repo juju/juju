@@ -69,6 +69,7 @@ type LiveTests struct {
 }
 
 func (t *LiveTests) SetUpSuite(c *C) {
+	t.LoggingSuite.SetUpSuite(c)
 	e, err := t.Environs.Open("")
 	c.Assert(err, IsNil)
 	// Put some fake tools in place so that tests that are simply
@@ -85,6 +86,7 @@ func (t *LiveTests) TearDownSuite(c *C) {
 	}
 	err := ec2.DeleteStorageContent(t.Env.PublicStorage().(environs.Storage))
 	c.Assert(err, IsNil)
+	t.LoggingSuite.TearDownSuite(c)
 }
 
 func (t *LiveTests) SetUpTest(c *C) {

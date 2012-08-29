@@ -207,3 +207,22 @@ func (s *ServiceSuite) TestReadUnitWithChangingState(c *C) {
 	_, err = s.State.Unit("mysql/0")
 	c.Assert(err, ErrorMatches, `cannot get unit "mysql/0": not found`)
 }
+
+func (s *ServiceSuite) TestServiceConfig(c *C) {
+	env, err := s.service.Config()
+	c.Assert(err, IsNil)
+	err = env.Read()
+	c.Assert(err, IsNil)
+	c.Assert(env.Map(), DeepEquals, map[string]interface{}{})
+
+	env.Update(map[string]interface{}{"spam": "eggs", "eggs": "spam"})
+	env.Update(map[string]interface{}{"spam": "spam", "chaos": "emeralds"})
+	_, err = env.Write()
+	c.Assert(err, IsNil)
+
+	env, err = s.service.Config()
+	c.Assert(err, IsNil)
+	err = env.Read()
+	c.Assert(err, IsNil)
+	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"spam": "spam", "eggs": "spam", "chaos": "emeralds"})
+}
