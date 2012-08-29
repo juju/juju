@@ -44,7 +44,7 @@ func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
-	st, err := state.Initialize(&c.StateInfo)
+	st, err := state.Initialize(&c.StateInfo, c.EnvConfig)
 	if err != nil {
 		return err
 	}

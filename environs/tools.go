@@ -202,23 +202,26 @@ func closeErrorCheck(errp *error, c io.Closer) {
 	}
 }
 
-// BestTools returns the best set of tools in the ToolsList
-// that are compatible with the given version,
-// or nil if no such tools are found.
-func BestTools(list *ToolsList, vers version.Binary) *state.Tools {
-	if tools := bestTools(list.Private, vers); tools != nil {
+// BestTools returns the best set of tools in the ToolsList that are
+// compatible with the given version, or nil if no such tools are found.
+// If dev is true, it will consider development versions of the tools
+// even if vers is not a development version.
+func BestTools(list *ToolsList, vers version.Binary, dev bool) *state.Tools {
+	if tools := bestTools(list.Private, vers, dev); tools != nil {
 		return tools
 	}
-	return bestTools(list.Public, vers)
+	return bestTools(list.Public, vers, dev)
 }
 
-// bestTools is like BestTools but operates on a single list only.
-func bestTools(toolsList []*state.Tools, vers version.Binary) *state.Tools {
+// bestTools is like BestTools but operates on a single list of tools.
+func bestTools(toolsList []*state.Tools, vers version.Binary, dev bool) *state.Tools {
 	var bestTools *state.Tools
+	allowDev := vers.IsDev() || dev
 	for _, t := range toolsList {
 		if t.Major != vers.Major ||
 			t.Series != vers.Series ||
-			t.Arch != vers.Arch {
+			t.Arch != vers.Arch ||
+			!allowDev && t.IsDev() {
 			continue
 		}
 		if bestTools == nil || bestTools.Number.Less(t.Number) {
@@ -383,7 +386,7 @@ func FindTools(env Environ, vers version.Binary) (*state.Tools, error) {
 	if err != nil {
 		return nil, err
 	}
-	tools := BestTools(toolsList, vers)
+	tools := BestTools(toolsList, vers, false)
 	if tools == nil {
 		return tools, &NotFoundError{fmt.Errorf("no compatible tools found")}
 	}

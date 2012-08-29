@@ -46,28 +46,26 @@ func (a *MachineAgent) Stop() error {
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
 	defer a.tomb.Done()
-	for {
+	for a.tomb.Err() == tomb.ErrStillAlive {
 		log.Printf("machine agent starting")
 		err := a.runOnce()
-		if a.tomb.Err() != tomb.ErrStillAlive {
-			// We have been explicitly stopped.
-			return err
-		}
 		if ug, ok := err.(*UpgradedError); ok {
-			tools, err := environs.ChangeAgentTools("machine", ug.Binary)
-			if err != nil {
-				log.Printf("cannot change agent tools: %v", err)
-				time.Sleep(retryDelay)
-				continue
+			tools, err1 := environs.ChangeAgentTools("machine", ug.Binary)
+			if err1 == nil {
+				log.Printf("exiting to upgrade to %v from %q", tools.Binary, tools.URL)
+				// Return and let upstart deal with the restart.
+				return nil
 			}
-			log.Printf("exiting to upgrade to %v from %q", tools.Binary, tools.URL)
-			// Return and let upstart deal with the restart.
-			return nil
+			err = err1
 		}
-		log.Printf("error from provisioner or firewaller: %v", err)
-		time.Sleep(retryDelay)
+		select {
+		case <-a.tomb.Dying():
+			a.tomb.Kill(err)
+		case <-time.After(retryDelay):
+			log.Printf("restarting machiner after error: %v", err)
+		}
 	}
-	panic("unreachable")
+	return a.tomb.Err()
 }
 
 func (a *MachineAgent) runOnce() error {

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
+	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/trivial"
 )
 
@@ -93,6 +93,33 @@ func (u *Unit) Name() string {
 	return u.doc.Name
 }
 
+// Life returns whether the unit is Alive, Dying or Dead.
+func (u *Unit) Life() Life {
+	return u.doc.Life
+}
+
+// Kill sets the unit lifecycle to Dying if it is Alive.
+// It does nothing otherwise.
+func (u *Unit) Kill() error {
+	err := ensureLife(u.st, u.st.units, u.doc.Name, Dying, "unit")
+	if err != nil {
+		return err
+	}
+	u.doc.Life = Dying
+	return nil
+}
+
+// Die sets the unit lifecycle to Dead if it is Alive or Dying.
+// It does nothing otherwise.
+func (u *Unit) Die() error {
+	err := ensureLife(u.st, u.st.units, u.doc.Name, Dead, "unit")
+	if err != nil {
+		return err
+	}
+	u.doc.Life = Dead
+	return nil
+}
+
 // Resolved returns the resolved mode for the unit.
 func (u *Unit) Resolved() (mode ResolvedMode, err error) {
 	return u.doc.Resolved, nil
@@ -138,7 +165,7 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 		return *u.doc.MachineId, nil
 	}
 	pudoc := unitDoc{}
-	sel := bson.D{{"_id", u.doc.Principal}, {"life", Alive}}
+	sel := D{{"_id", u.doc.Principal}, {"life", Alive}}
 	err = u.st.units.Find(sel).One(&pudoc)
 	if err != nil {
 		return 0, err
@@ -151,30 +178,62 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 
 // AssignToMachine assigns this unit to a given machine.
 func (u *Unit) AssignToMachine(m *Machine) (err error) {
-	change := bson.D{{"$set", bson.D{{"machineid", m.Id()}}}}
-	sel := bson.D{
-		{"_id", u.doc.Name},
-		{"$or", []bson.D{
-			bson.D{{"machineid", nil}},
-			bson.D{{"machineid", m.Id()}},
+	defer trivial.ErrorContextf(&err, "cannot assign unit %q to machine %s", u, m)
+	assert := D{
+		{"$or", []D{
+			D{{"machineid", nil}},
+			D{{"machineid", m.Id()}},
 		}},
+		{"life", Alive},
 	}
-	err = u.st.units.Update(sel, change)
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: assert,
+		Update: D{{"$set", D{{"machineid", m.Id()}}}},
+	}, {
+		C:      u.st.machines.Name,
+		Id:     m.Id(),
+		Assert: D{{"life", Alive}},
+	}}
+	err = u.st.runner.Run(ops, "", nil)
+	if err == nil {
+		u.doc.MachineId = &m.doc.Id
+		return nil
+	}
+	err = u.Refresh()
 	if err != nil {
-		return fmt.Errorf("cannot assign unit %q to machine %s: %v", u, m, err)
+		return err
 	}
-	u.doc.MachineId = &m.doc.Id
-	return nil
+	err = m.Refresh()
+	if err != nil {
+		return err
+	}
+	switch {
+	case u.doc.MachineId != nil && *u.doc.MachineId != m.Id():
+		return fmt.Errorf("already assigned to machine %s", *u.doc.MachineId)
+	case u.doc.Life != Alive:
+		return fmt.Errorf("unit is %v", u.doc.Life)
+	case m.doc.Life != Alive:
+		return fmt.Errorf("machine is %v", m.doc.Life)
+	default:
+		panic("unreachable")
+	}
+	panic("unreachable")
 }
 
 // UnassignFromMachine removes the assignment between this unit and the
 // machine it's assigned to.
 func (u *Unit) UnassignFromMachine() (err error) {
-	change := bson.D{{"$set", bson.D{{"machineid", nil}}}}
-	sel := bson.D{{"_id", u.doc.Name}}
-	err = u.st.units.Update(sel, change)
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: txn.DocExists,
+		Update: D{{"$set", D{{"machineid", nil}}}},
+	}}
+	err = u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, err)
+		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, deadOnAbort(err))
 	}
 	u.doc.MachineId = nil
 	return nil
@@ -182,11 +241,15 @@ func (u *Unit) UnassignFromMachine() (err error) {
 
 // SetPublicAddress sets the public address of the unit.
 func (u *Unit) SetPublicAddress(address string) error {
-	change := bson.D{{"$set", bson.D{{"publicaddress", address}}}}
-	sel := bson.D{{"_id", u.doc.Name}}
-	err := u.st.units.Update(sel, change)
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: txn.DocExists,
+		Update: D{{"$set", D{{"publicaddress", address}}}},
+	}}
+	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot set public address of unit %q: %v", u, err)
+		return fmt.Errorf("cannot set public address of unit %q: %v", u, deadOnAbort(err))
 	}
 	u.doc.PublicAddress = address
 	return nil
@@ -194,11 +257,15 @@ func (u *Unit) SetPublicAddress(address string) error {
 
 // SetPrivateAddress sets the public address of the unit.
 func (u *Unit) SetPrivateAddress(address string) error {
-	change := bson.D{{"$set", bson.D{{"privateaddress", address}}}}
-	sel := bson.D{{"_id", u.doc.Name}}
-	err := u.st.units.Update(sel, change)
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: txn.DocExists,
+		Update: D{{"$set", D{{"privateaddress", address}}}},
+	}}
+	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot set private address of unit %q: %v", u, err)
+		return fmt.Errorf("cannot set private address of unit %q: %v", u, deadOnAbort(err))
 	}
 	u.doc.PrivateAddress = address
 	return nil
@@ -214,13 +281,14 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	if !(0 <= mode && mode < nResolvedModes) {
 		return fmt.Errorf("invalid error resolution mode: %v", mode)
 	}
-	change := bson.D{{"$set", bson.D{{"resolved", mode}}}}
-	sel := bson.D{
-		{"_id", u.doc.Name},
-		{"resolved", ResolvedNone},
-	}
-	err = u.st.units.Update(sel, change)
-	if err == mgo.ErrNotFound {
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: D{{"resolved", ResolvedNone}},
+		Update: D{{"$set", D{{"resolved", mode}}}},
+	}}
+	err = u.st.runner.Run(ops, "", nil)
+	if err == txn.ErrAborted {
 		return errors.New("flag already set")
 	}
 	if err != nil {
@@ -232,11 +300,15 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 
 // ClearResolved removes any resolved setting on the unit.
 func (u *Unit) ClearResolved() error {
-	change := bson.D{{"$set", bson.D{{"resolved", ResolvedNone}}}}
-	sel := bson.D{{"_id", u.doc.Name}}
-	err := u.st.units.Update(sel, change)
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: txn.DocExists,
+		Update: D{{"$set", D{{"resolved", ResolvedNone}}}},
+	}}
+	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, err)
+		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, deadOnAbort(err))
 	}
 	u.doc.Resolved = ResolvedNone
 	return nil
@@ -256,12 +328,12 @@ func (u *Unit) NeedsUpgrade() (*NeedsUpgrade, error) {
 func (u *Unit) SetNeedsUpgrade(force bool) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot inform unit %q about upgrade", u)
 	nu := &NeedsUpgrade{Upgrade: true, Force: force}
-	change := bson.D{{"$set", bson.D{{"needsupgrade", nu}}}}
-	sel := bson.D{
+	change := D{{"$set", D{{"needsupgrade", nu}}}}
+	sel := D{
 		{"_id", u.doc.Name},
-		{"$or", []bson.D{
-			bson.D{{"needsupgrade", nil}},
-			bson.D{{"needsupgrade", nu}},
+		{"$or", []D{
+			D{{"needsupgrade", nil}},
+			D{{"needsupgrade", nu}},
 		}},
 	}
 	err = u.st.units.Update(sel, change)
@@ -278,8 +350,8 @@ func (u *Unit) SetNeedsUpgrade(force bool) (err error) {
 // ClearNeedsUpgrade resets the upgrade notification. It is typically
 // done by the unit agent before beginning the upgrade.
 func (u *Unit) ClearNeedsUpgrade() error {
-	change := bson.D{{"$set", bson.D{{"needsupgrade", nil}}}}
-	sel := bson.D{{"_id", u.doc.Name}}
+	change := D{{"$set", D{{"needsupgrade", nil}}}}
+	sel := D{{"_id", u.doc.Name}}
 	err := u.st.units.Update(sel, change)
 	if err != nil {
 		return fmt.Errorf("upgrade notification for unit %q cannot be reset: %v", u, err)
