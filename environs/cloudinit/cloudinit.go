@@ -91,9 +91,13 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.AddPackage("libzookeeper-mt2")
 	if cfg.HasState {
+		// TODO(dfc) remove these once we cut over to mstate
 		c.AddPackage("default-jre-headless")
 		c.AddPackage("zookeeper")
 		c.AddPackage("zookeeperd")
+
+		// mongodb
+		c.AddPackage("mongodb-server")
 	}
 
 	addScripts(c,
