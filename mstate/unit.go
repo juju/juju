@@ -102,7 +102,7 @@ func (u *Unit) Life() Life {
 // Kill sets the unit lifecycle to Dying if it is Alive.
 // It does nothing otherwise.
 func (u *Unit) Kill() error {
-	err := ensureLife(u.doc.Name, u.st, u.st.units, "unit", Dying)
+	err := ensureLife(u.st, u.st.units, u.doc.Name, Dying, "unit")
 	if err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func (u *Unit) Kill() error {
 // Die sets the unit lifecycle to Dead if it is Alive or Dying.
 // It does nothing otherwise.
 func (u *Unit) Die() error {
-	err := ensureLife(u.doc.Name, u.st, u.st.units, "unit", Dead)
+	err := ensureLife(u.st, u.st.units, u.doc.Name, Dead, "unit")
 	if err != nil {
 		return err
 	}

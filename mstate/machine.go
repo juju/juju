@@ -38,7 +38,7 @@ func (m *Machine) Life() Life {
 // Kill sets the machine lifecycle to Dying if it is Alive.
 // It does nothing otherwise.
 func (m *Machine) Kill() error {
-	err := ensureLife(m.doc.Id, m.st.machines, "machine", Dying)
+	err := ensureLife(m.st, m.st.machines, m.doc.Id, Dying, "machine")
 	if err != nil {
 		return err
 	}
@@ -49,7 +49,7 @@ func (m *Machine) Kill() error {
 // Die sets the machine lifecycle to Dead if it is Alive or Dying.
 // It does nothing otherwise.
 func (m *Machine) Die() error {
-	err := ensureLife(m.doc.Id, m.st.machines, "machine", Dead)
+	err := ensureLife(m.st, m.st.machines, m.doc.Id, Dead, "machine")
 	if err != nil {
 		return err
 	}

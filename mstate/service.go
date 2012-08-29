@@ -39,7 +39,7 @@ func (s *Service) Life() Life {
 // Kill sets the service lifecycle to Dying if it is Alive.
 // It does nothing otherwise.
 func (s *Service) Kill() error {
-	err := ensureLife(s.doc.Name, s.st.services, "service", Dying)
+	err := ensureLife(s.st, s.st.services, s.doc.Name, Dying, "service")
 	if err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func (s *Service) Kill() error {
 // Die sets the service lifecycle to Dead if it is Alive or Dying.
 // It does nothing otherwise.
 func (s *Service) Die() error {
-	err := ensureLife(s.doc.Name, s.st.services, "service", Dead)
+	err := ensureLife(s.st, s.st.services, s.doc.Name, Dead, "service")
 	if err != nil {
 		return err
 	}

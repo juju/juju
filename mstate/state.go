@@ -47,7 +47,13 @@ func (s *State) AddMachine() (m *Machine, err error) {
 		Id:   id,
 		Life: Alive,
 	}
-	err = s.machines.Insert(mdoc)
+	ops := []txn.Op{{
+		C:      s.machines.Name,
+		Id:     id,
+		Assert: txn.DocMissing,
+		Insert: mdoc,
+	}}
+	err = s.runner.Run(ops, "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +74,13 @@ func (s *State) RemoveMachine(id int) (err error) {
 		{"_id", id},
 		{"life", Dead},
 	}
-	err = s.machines.Remove(sel)
+	ops := []txn.Op{{
+		C:      s.machines.Name,
+		Id:     id,
+		Assert: sel,
+		Remove: true,
+	}}
+	err = s.runner.Run(ops, "", nil)
 	if err != nil {
 		return err
 	}
@@ -137,7 +149,13 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 		CharmURL: ch.URL(),
 		Life:     Alive,
 	}
-	err = s.services.Insert(sdoc)
+	ops := []txn.Op{{
+		C:      s.services.Name,
+		Id:     name,
+		Assert: txn.DocMissing,
+		Insert: sdoc,
+	}}
+	err = s.runner.Run(ops, "", nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add service %q:", name, err)
 	}
@@ -262,7 +280,13 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 		Endpoints: endpoints,
 		Life:      Alive,
 	}
-	err = s.relations.Insert(doc)
+	ops := []txn.Op{{
+		C:      s.relations.Name,
+		Id:     id,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}}
+	err = s.runner.Run(ops, "", nil)
 	if err != nil {
 		return nil, err
 	}

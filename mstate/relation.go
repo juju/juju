@@ -113,7 +113,7 @@ func (r *Relation) Life() Life {
 // Kill sets the relation lifecycle to Dying if it is Alive.
 // It does nothing otherwise.
 func (r *Relation) Kill() error {
-	err := ensureLife(r.doc.Id, r.st.relations, "relation", Dying)
+	err := ensureLife(r.st, r.st.relations, r.doc.Id, Dying, "relation")
 	if err != nil {
 		return err
 	}
@@ -124,7 +124,7 @@ func (r *Relation) Kill() error {
 // Die sets the relation lifecycle to Dead if it is Alive or Dying.
 // It does nothing otherwise.
 func (r *Relation) Die() error {
-	err := ensureLife(r.doc.Id, r.st.relations, "relation", Dead)
+	err := ensureLife(r.st, r.st.relations, r.doc.Id, Dead, "relation")
 	if err != nil {
 		return err
 	}

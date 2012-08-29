@@ -37,7 +37,7 @@ type Living interface {
 
 // ensureLife changes the lifecycle state of the entity with
 // the id in the collection.
-func ensureLife(id interface{}, coll *mgo.Collection, descr string, life Life) error {
+func ensureLife(st *State, coll *mgo.Collection, id interface{}, life Life, descr string) error {
 	if life == Alive {
 		panic("cannot set life to alive")
 	}
@@ -48,8 +48,14 @@ func ensureLife(id interface{}, coll *mgo.Collection, descr string, life Life) e
 		{"life", bson.D{{"$lte", life}}},
 	}
 	change := bson.D{{"$set", bson.D{{"life", life}}}}
-	err := coll.Update(sel, change)
-	if err == mgo.ErrNotFound {
+	ops := []txn.Op{{
+		C:      coll.Name,
+		Id:     id,
+		Assert: sel,
+		Update: change,
+	}}
+	err := st.runner.Run(ops, "", nil)
+	if err == txn.ErrAborted {
 		return nil
 	}
 	if err != nil {
