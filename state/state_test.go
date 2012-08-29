@@ -7,8 +7,8 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/version"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"net/url"
 	"sort"
 	stdtesting "testing"
@@ -97,7 +97,7 @@ func (s *StateSuite) TestInitalizeWithConfig(c *C) {
 		"type":            "dummy",
 		"zookeeper":       true,
 		"authorized-keys": "i-am-a-key",
-		"agent-version": version.Current.Number.String(),
+		"agent-version":   version.Current.Number.String(),
 	}
 	st, err := state.Initialize(s.StateInfo(c), m)
 	c.Assert(err, IsNil)
