@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/trivial"
@@ -75,8 +74,8 @@ func (s *Service) SetCharmURL(url *charm.URL) (err error) {
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: bson.D{{"life", Alive}},
-		Update: bson.D{{"$set", bson.D{{"charmurl", url}}}},
+		Assert: D{{"life", Alive}},
+		Update: D{{"$set", D{{"charmurl", url}}}},
 	}}
 	err = s.st.runner.Run(ops, "", nil)
 	if err != nil {
@@ -92,8 +91,8 @@ func (s *Service) SetExposed() error {
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: bson.D{{"life", Alive}},
-		Update: bson.D{{"$set", bson.D{{"exposed", true}}}},
+		Assert: D{{"life", Alive}},
+		Update: D{{"$set", D{{"exposed", true}}}},
 	}}
 	err := s.st.runner.Run(ops, "", nil)
 	if err != nil {
@@ -109,8 +108,8 @@ func (s *Service) ClearExposed() error {
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: bson.D{{"life", Alive}},
-		Update: bson.D{{"$set", bson.D{{"exposed", false}}}},
+		Assert: D{{"life", Alive}},
+		Update: D{{"$set", D{{"exposed", false}}}},
 	}}
 	err := s.st.runner.Run(ops, "", nil)
 	if err != nil {
@@ -144,8 +143,8 @@ func (s *Service) Refresh() error {
 
 // newUnitName returns the next unit name.
 func (s *Service) newUnitName() (string, error) {
-	sel := bson.D{{"_id", s.doc.Name}, {"life", Alive}}
-	change := mgo.Change{Update: bson.D{{"$inc", bson.D{{"unitseq", 1}}}}}
+	sel := D{{"_id", s.doc.Name}, {"life", Alive}}
+	change := mgo.Change{Update: D{{"$inc", D{{"unitseq", 1}}}}}
 	result := serviceDoc{}
 	_, err := s.st.services.Find(sel).Apply(change, &result)
 	if err != nil {
@@ -224,7 +223,7 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 	ops := []txn.Op{{
 		C:      s.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: bson.D{{"life", Dead}},
+		Assert: D{{"life", Dead}},
 		Remove: true,
 	}}
 	err = s.st.runner.Run(ops, "", nil)
@@ -236,7 +235,7 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 
 func (s *Service) unitDoc(name string) (*unitDoc, error) {
 	udoc := &unitDoc{}
-	sel := bson.D{
+	sel := D{
 		{"_id", name},
 		{"service", s.doc.Name},
 		{"life", Alive},
@@ -260,7 +259,7 @@ func (s *Service) Unit(name string) (*Unit, error) {
 // AllUnits returns all units of the service.
 func (s *Service) AllUnits() (units []*Unit, err error) {
 	docs := []unitDoc{}
-	sel := bson.D{{"service", s.doc.Name}, {"life", Alive}}
+	sel := D{{"service", s.doc.Name}, {"life", Alive}}
 	err = s.st.units.Find(sel).All(&docs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all units from service %q: %v", err)
@@ -274,7 +273,7 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 // Relations returns a Relation for every relation the service is in.
 func (s *Service) Relations() (relations []*Relation, err error) {
 	defer trivial.ErrorContextf(&err, "can't get relations for service %q", s)
-	sel := bson.D{
+	sel := D{
 		{"life", Alive},
 		{"endpoints.servicename", s.doc.Name},
 	}

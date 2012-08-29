@@ -3,7 +3,6 @@ package mstate
 import (
 	"fmt"
 	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 )
 
@@ -42,16 +41,16 @@ func ensureLife(st *State, coll *mgo.Collection, id interface{}, life Life, desc
 	if life == Alive {
 		panic("cannot set life to alive")
 	}
-	sel := bson.D{
+	sel := D{
 		// $lte is used so that we don't overwrite a previous
 		// change we don't know about. 
-		{"life", bson.D{{"$lte", life}}},
+		{"life", D{{"$lte", life}}},
 	}
 	ops := []txn.Op{{
 		C:      coll.Name,
 		Id:     id,
 		Assert: sel,
-		Update: bson.D{{"$set", bson.D{{"life", life}}}},
+		Update: D{{"$set", D{{"life", life}}}},
 	}}
 	err := st.runner.Run(ops, "", nil)
 	if err == txn.ErrAborted {

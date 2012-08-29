@@ -1,7 +1,6 @@
 package mstate_test
 
 import (
-	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	state "launchpad.net/juju-core/mstate"
@@ -164,14 +163,14 @@ func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached
 	collName, id := lfix.id()
 	coll := s.MgoSuite.Session.DB("juju").C(collName)
 
-	err := coll.UpdateId(id, bson.D{{"$set", bson.D{
+	err := coll.UpdateId(id, D{{"$set", D{
 		{"life", cached},
 	}}})
 	c.Assert(err, IsNil)
 	err = living.Refresh()
 	c.Assert(err, IsNil)
 
-	err = coll.UpdateId(id, bson.D{{"$set", bson.D{
+	err = coll.UpdateId(id, D{{"$set", D{
 		{"life", dbinitial},
 	}}})
 	c.Assert(err, IsNil)
