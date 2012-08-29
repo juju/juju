@@ -8,64 +8,40 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 )
 
-var zkConfig = `
-environments:
-    palermo:
-        type: dummy
-        zookeeper: true
-        authorized-keys: i-am-a-key
-`
-
-type DeploySuite struct {
-	envSuite
+// repoSuite acts as a JujuConnSuite but also sets up
+// $JUJU_REPOSITORY to point to a local charm repository.
+type repoSuite struct {
+	testing.JujuConnSuite
 	seriesPath string
 	repoPath   string
-	conn       *juju.Conn
-	st         *state.State
 }
 
-var _ = Suite(&DeploySuite{})
-
-func (s *DeploySuite) SetUpTest(c *C) {
-	s.envSuite.SetUpTest(c, zkConfig)
-	repoPath := c.MkDir()
+func (s *repoSuite) SetUpTest(c *C) {
+	s.JujuConnSuite.SetUpTest(c)
 	s.repoPath = os.Getenv("JUJU_REPOSITORY")
+	repoPath := c.MkDir()
 	os.Setenv("JUJU_REPOSITORY", repoPath)
 	s.seriesPath = filepath.Join(repoPath, "precise")
 	err := os.Mkdir(s.seriesPath, 0777)
 	c.Assert(err, IsNil)
-	s.conn, err = juju.NewConn("")
-	c.Assert(err, IsNil)
-	err = s.conn.Environ.Bootstrap(false)
-	c.Assert(err, IsNil)
-	s.st, err = s.conn.State()
-	c.Assert(err, IsNil)
 }
 
-func (s *DeploySuite) TearDownTest(c *C) {
-	s.envSuite.TearDownTest(c)
+func (s *repoSuite) TearDownTest(c *C) {
 	os.Setenv("JUJU_REPOSITORY", s.repoPath)
-	s.conn.Close()
+	s.JujuConnSuite.TearDownTest(c)
 }
 
-func runDeploy(c *C, args ...string) error {
-	com := &DeployCommand{}
-	err := com.Init(newFlagSet(), args)
-	c.Assert(err, IsNil)
-	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}})
-}
-
-func (s *DeploySuite) assertService(c *C, name string, expectCurl *charm.URL, unitCount, relCount int) []*state.Relation {
-	srv, err := s.st.Service(name)
+func (s *repoSuite) assertService(c *C, name string, expectCurl *charm.URL, unitCount, relCount int) []*state.Relation {
+	srv, err := s.State.Service(name)
 	c.Assert(err, IsNil)
 	ch, _, err := srv.Charm()
 	c.Assert(err, IsNil)
@@ -81,8 +57,8 @@ func (s *DeploySuite) assertService(c *C, name string, expectCurl *charm.URL, un
 	return rels
 }
 
-func (s *DeploySuite) assertCharmUploaded(c *C, curl *charm.URL) {
-	ch, err := s.st.Charm(curl)
+func (s *repoSuite) assertCharmUploaded(c *C, curl *charm.URL) {
+	ch, err := s.State.Charm(curl)
 	c.Assert(err, IsNil)
 	url := ch.BundleURL()
 	resp, err := http.Get(url.String())
@@ -96,14 +72,14 @@ func (s *DeploySuite) assertCharmUploaded(c *C, curl *charm.URL) {
 	c.Assert(ch.BundleSha256(), Equals, digest)
 }
 
-func (s *DeploySuite) assertUnitMachines(c *C, units []*state.Unit) {
+func (s *repoSuite) assertUnitMachines(c *C, units []*state.Unit) {
 	expectUnitNames := []string{}
 	for _, u := range units {
 		expectUnitNames = append(expectUnitNames, u.Name())
 	}
 	sort.Strings(expectUnitNames)
 
-	machines, err := s.st.AllMachines()
+	machines, err := s.State.AllMachines()
 	c.Assert(err, IsNil)
 	// NOTE: this will fail when state.Initialize starts doing
 	// the right thing and poking machine 0 into ZK state.
@@ -119,8 +95,21 @@ func (s *DeploySuite) assertUnitMachines(c *C, units []*state.Unit) {
 	c.Assert(unitNames, DeepEquals, expectUnitNames)
 }
 
+type DeploySuite struct {
+	repoSuite
+}
+
+var _ = Suite(&DeploySuite{})
+
+func runDeploy(c *C, args ...string) error {
+	com := &DeployCommand{}
+	err := com.Init(newFlagSet(), args)
+	c.Assert(err, IsNil)
+	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}})
+}
+
 func (s *DeploySuite) TestCharmDir(c *C) {
-	testing.Charms.ClonedDirPath(s.seriesPath, "dummy")
+	coretesting.Charms.ClonedDirPath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
@@ -128,7 +117,7 @@ func (s *DeploySuite) TestCharmDir(c *C) {
 }
 
 func (s *DeploySuite) TestUpgradeCharmDir(c *C) {
-	dirPath := testing.Charms.ClonedDirPath(s.seriesPath, "dummy")
+	dirPath := coretesting.Charms.ClonedDirPath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-2")
@@ -140,7 +129,7 @@ func (s *DeploySuite) TestUpgradeCharmDir(c *C) {
 }
 
 func (s *DeploySuite) TestCharmBundle(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "dummy")
+	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
@@ -148,19 +137,19 @@ func (s *DeploySuite) TestCharmBundle(c *C) {
 }
 
 func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "dummy")
+	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
 	c.Assert(err, ErrorMatches, `cannot increment version of charm "local:precise/dummy-1": not a directory`)
 	// Verify state not touched...
 	curl := charm.MustParseURL("local:precise/dummy-1")
-	_, err = s.st.Charm(curl)
+	_, err = s.State.Charm(curl)
 	c.Assert(err, ErrorMatches, `cannot get charm "local:precise/dummy-1": charm not found`)
-	_, err = s.st.Service("dummy")
+	_, err = s.State.Service("dummy")
 	c.Assert(err, ErrorMatches, `cannot get service "dummy": service with name "dummy" not found`)
 }
 
 func (s *DeploySuite) TestAddsPeerRelations(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "riak")
+	coretesting.Charms.BundlePath(s.seriesPath, "riak")
 	err := runDeploy(c, "local:riak")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/riak-7")
@@ -174,7 +163,7 @@ func (s *DeploySuite) TestAddsPeerRelations(c *C) {
 }
 
 func (s *DeploySuite) TestNumUnits(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "dummy")
+	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-n", "13")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
@@ -182,7 +171,7 @@ func (s *DeploySuite) TestNumUnits(c *C) {
 }
 
 func (s *DeploySuite) TestSubordinateCharm(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "logging")
+	coretesting.Charms.BundlePath(s.seriesPath, "logging")
 	err := runDeploy(c, "local:logging")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/logging-1")
