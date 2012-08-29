@@ -6,18 +6,12 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/presence"
-	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/relation"
 	"strings"
-	stdtesting "testing"
 	"time"
 )
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.ZkTestPackage(t)
-}
 
 type RelationerSuite struct {
 	testing.JujuConnSuite
@@ -364,8 +358,12 @@ func kill(c *C, p *presence.Pinger) {
 	c.Assert(p.Kill(), Equals, nil)
 }
 
-func stop(c *C, w *state.RelationUnitsWatcher) {
-	c.Assert(w.Stop(), Equals, nil)
+type stopper interface {
+	Stop() error
+}
+
+func stop(c *C, s stopper) {
+	c.Assert(s.Stop(), Equals, nil)
 }
 
 func abandon(c *C, r *uniter.Relationer) {

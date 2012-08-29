@@ -36,6 +36,44 @@ func (s *MachineSuite) TestMachineInstanceId(c *C) {
 	c.Assert(iid, Equals, "spaceship/0")
 }
 
+func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
+	machine, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	err = s.machines.Update(
+		bson.D{{"_id", machine.Id()}},
+		bson.D{{"$set", bson.D{{"instanceid", bson.D{{"foo", "bar"}}}}}},
+	)
+	c.Assert(err, IsNil)
+
+	err = machine.Refresh()
+	c.Assert(err, IsNil)
+	iid, err := machine.InstanceId()
+	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+	c.Assert(iid, Equals, "")
+}
+
+func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {
+	iid, err := s.machine.InstanceId()
+	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+	c.Assert(iid, Equals, "")
+}
+
+func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
+	machine, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	err = s.machines.Update(
+		bson.D{{"_id", machine.Id()}},
+		bson.D{{"$set", bson.D{{"instanceid", ""}}}},
+	)
+	c.Assert(err, IsNil)
+
+	err = machine.Refresh()
+	c.Assert(err, IsNil)
+	iid, err := machine.InstanceId()
+	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+	c.Assert(iid, Equals, "")
+}
+
 func (s *MachineSuite) TestMachineSetInstanceId(c *C) {
 	machine, err := s.State.AddMachine()
 	c.Assert(err, IsNil)

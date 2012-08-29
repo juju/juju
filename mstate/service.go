@@ -30,6 +30,33 @@ func (s *Service) Name() string {
 	return s.doc.Name
 }
 
+// Life returns whether the service is Alive, Dying or Dead.
+func (s *Service) Life() Life {
+	return s.doc.Life
+}
+
+// Kill sets the service lifecycle to Dying if it is Alive.
+// It does nothing otherwise.
+func (s *Service) Kill() error {
+	err := ensureLife(s.doc.Name, s.st.services, "service", Dying)
+	if err != nil {
+		return err
+	}
+	s.doc.Life = Dying
+	return nil
+}
+
+// Die sets the service lifecycle to Dead if it is Alive or Dying.
+// It does nothing otherwise.
+func (s *Service) Die() error {
+	err := ensureLife(s.doc.Name, s.st.services, "service", Dead)
+	if err != nil {
+		return err
+	}
+	s.doc.Life = Dead
+	return nil
+}
+
 // IsExposed returns whether this service is exposed. The explicitly open
 // ports (with open-port) for exposed services may be accessed from machines
 // outside of the local deployment network. See SetExposed and ClearExposed.

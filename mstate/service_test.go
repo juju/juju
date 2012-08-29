@@ -200,7 +200,9 @@ func (s *ServiceSuite) TestRemoveUnit(c *C) {
 func (s *ServiceSuite) TestReadUnitWithChangingState(c *C) {
 	// Check that reading a unit after removing the service
 	// fails nicely.
-	err := s.State.RemoveService(s.service)
+	err := s.service.Die()
+	c.Assert(err, IsNil)
+	err = s.State.RemoveService(s.service)
 	c.Assert(err, IsNil)
 	_, err = s.State.Unit("mysql/0")
 	c.Assert(err, ErrorMatches, `cannot get unit "mysql/0": not found`)
