@@ -88,7 +88,7 @@ type relationLife struct {
 }
 
 func (l *relationLife) id() (coll string, id interface{}) {
-	return "relations", l.rel.Id()
+	return "relations", l.rel.String()
 }
 
 func (l *relationLife) setup(s *LifeSuite, c *C) state.Living {
