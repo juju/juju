@@ -15,7 +15,7 @@ type Firewaller struct {
 	tomb            tomb.Tomb
 	st              *state.State
 	environ         environs.Environ
-	environWatcher  *state.ConfigWatcher
+	environWatcher  *state.EnvironConfigWatcher
 	machinesWatcher *state.MachinesWatcher
 	machineds       map[int]*machineData
 	unitsChange     chan *unitsChange
@@ -55,7 +55,7 @@ Loop:
 				return
 			}
 			var err error
-			fw.environ, err = environs.NewFromAttrs(config.Map())
+			fw.environ, err = environs.NewFromAttrs(config.AllAttrs())
 			if err != nil {
 				log.Printf("firewaller loaded invalid environment configuration: %v", err)
 				continue
@@ -73,7 +73,7 @@ Loop:
 			if !ok {
 				return
 			}
-			config, err := config.New(change.Map())
+			config, err := config.New(change.AllAttrs())
 			if err != nil {
 				log.Printf("firewaller loaded invalid environment configuration: %v", err)
 				continue

@@ -55,7 +55,7 @@ refreshState:
 			}
 			var err error
 			// TODO Change state so it hands off *config.Config.
-			p.environ, err = environs.NewFromAttrs(config.Map())
+			p.environ, err = environs.NewFromAttrs(config.AllAttrs())
 			if err != nil {
 				log.Printf("provisioner loaded invalid environment configuration: %v", err)
 				continue
@@ -89,7 +89,7 @@ refreshState:
 				return
 			}
 			// TODO Change state so it hands off *config.Config.
-			config, err := config.New(change.Map())
+			config, err := config.New(change.AllAttrs())
 			if err != nil {
 				log.Printf("provisioner loaded invalid environment configuration: %v", err)
 				continue

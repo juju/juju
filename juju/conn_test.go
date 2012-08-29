@@ -114,7 +114,8 @@ func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	// verify we have no secret in the environ config
 	cfg, err := st.EnvironConfig()
 	c.Assert(err, IsNil)
-	_, ok := cfg.Get("secret")
+	attrs := cfg.AllAttrs()
+	_, ok := attrs["secret"]
 	c.Assert(ok, Equals, false)
 	conn, err := juju.NewConnFromAttrs(map[string]interface{}{
 		"name":            "erewhemos",
@@ -126,12 +127,12 @@ func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	defer conn.Close()
 	// fetch a state connection via the conn, which will 
 	// push the secrets.
-	_, err = conn.State()
+	st, err = conn.State()
 	c.Assert(err, IsNil)
-	err = cfg.Read()
+	cfg, err = st.EnvironConfig()
 	c.Assert(err, IsNil)
-	// check that the secret has been populated
-	secret, ok := cfg.Get("secret")
+	attrs = cfg.AllAttrs()
+	secret, ok := attrs["secret"]
 	c.Assert(ok, Equals, true)
 	c.Assert(secret, Equals, "pork")
 }

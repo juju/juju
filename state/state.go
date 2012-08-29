@@ -8,6 +8,7 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/trivial"
 	"net/url"
 	"strings"
@@ -80,13 +81,31 @@ func (s *State) WatchMachines() *MachinesWatcher {
 
 // WatchEnvironConfig returns a watcher for observing
 // changes to the environment configuration.
-func (s *State) WatchEnvironConfig() *ConfigWatcher {
-	return newConfigWatcher(s, zkEnvironmentPath)
+func (s *State) WatchEnvironConfig() *EnvironConfigWatcher {
+	return newEnvironConfigWatcher(s)
 }
 
 // EnvironConfig returns the current configuration of the environment.
-func (s *State) EnvironConfig() (*ConfigNode, error) {
-	return readConfigNode(s.zk, zkEnvironmentPath)
+func (s *State) EnvironConfig() (*config.Config, error) {
+	configNode, err := readConfigNode(s.zk, zkEnvironmentPath)
+	if err != nil {
+		return nil, err
+	}
+	attrs := configNode.Map()
+	return config.New(attrs)
+}
+
+// UpdateEnvironConfig updates the current configuration of the 
+// environment with the attributes of the passed configuration.
+func (s *State) UpdateEnvironConfig(cfg *config.Config) error {
+	attrs := cfg.AllAttrs()
+	configNode, err := readConfigNode(s.zk, zkEnvironmentPath)
+	if err != nil {
+		return err
+	}
+	configNode.Update(attrs)
+	_, err = configNode.Write()
+	return err
 }
 
 // Machine returns the machine with the given id.

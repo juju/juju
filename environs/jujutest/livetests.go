@@ -166,16 +166,17 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 
 	// check that the minimum configuration is present in the environment
 	cfg, err := st.EnvironConfig()
+	cfgAttrs := cfg.AllAttrs()
 	// Check that we can upgrade the machine agent on the bootstrap machine.
 	m, err := st.Machine(0)
 	c.Assert(err, IsNil)
-	v, ok := cfg.Get("name")
+	v, ok := cfgAttrs["name"]
 	c.Assert(ok, Equals, true)
 	c.Assert(v, Not(Equals), "")
-	v, ok = cfg.Get("type")
+	v, ok = cfgAttrs["type"]
 	c.Assert(ok, Equals, true)
 	c.Assert(v, Not(Equals), "")
-	v, ok = cfg.Get("authorized-keys")
+	v, ok = cfgAttrs["authorized-keys"]
 	c.Assert(ok, Equals, true)
 	c.Assert(v, Not(Equals), "")
 

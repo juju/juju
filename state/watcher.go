@@ -2,6 +2,7 @@ package state
 
 import (
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
@@ -106,6 +107,54 @@ func (w *ConfigWatcher) update(change watcher.ContentChange) error {
 }
 
 func (w *ConfigWatcher) done() {
+	close(w.changeChan)
+}
+
+// EnvironConfigWatcher observes changes to the environ 
+// configuration node.
+type EnvironConfigWatcher struct {
+	contentWatcher
+	changeChan chan *config.Config
+}
+
+// newEnvironConfigWatcher creates and starts a new environ config 
+// watcher.
+func newEnvironConfigWatcher(st *State) *EnvironConfigWatcher {
+	w := &EnvironConfigWatcher{
+		contentWatcher: newContentWatcher(st, zkEnvironmentPath),
+		changeChan:     make(chan *config.Config),
+	}
+	go w.loop(w)
+	return w
+}
+
+// Changes returns a channel that will receive the new
+// environ config when a change is detected. Note that multiple
+// changes may be observed as a single event in the channel.
+func (w *EnvironConfigWatcher) Changes() <-chan *config.Config {
+	return w.changeChan
+}
+
+func (w *EnvironConfigWatcher) update(change watcher.ContentChange) error {
+	// A non-existent node is treated as an empty node.
+	configNode, err := parseConfigNode(w.st.zk, w.path, change.Content)
+	if err != nil {
+		return err
+	}
+	attrs := configNode.Map()
+	cfg, err := config.New(attrs)
+	if err == nil {
+		// Only deliver valid configurations.
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case w.changeChan <- cfg:
+		}
+	}
+	return nil
+}
+
+func (w *EnvironConfigWatcher) done() {
 	close(w.changeChan)
 }
 
