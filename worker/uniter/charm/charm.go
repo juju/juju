@@ -3,13 +3,14 @@ package charm
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/downloader"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/trivial"
-	"launchpad.net/tomb"
 	"os"
 	"path/filepath"
 )
@@ -18,57 +19,136 @@ import (
 type Status string
 
 const (
-	Missing    Status = ""
 	Installing Status = "installing"
-	Installed  Status = "installed"
+	Deployed   Status = "deployed"
 	Upgrading  Status = "upgrading"
+	Conflicted Status = "conflicted"
 )
 
-// valid returns whether the status is recognized.
-func (s Status) valid() bool {
-	switch s {
-	case Installing, Installed, Upgrading:
-		return true
-	}
-	return false
+var ErrMissing = errors.New("charm deployment not found")
+var ErrConflict = errors.New("charm upgrade has conflicts")
+
+// Manager is responsible for downloading, deploying, and upgrading charms.
+type Manager struct {
+	charmDir   string
+	statePath  string
+	bundlesDir *BundlesDir
 }
 
-// cstate describes a charm directory's state.
-type cstate struct {
+// NewManager returns a new Manager that controls the content of charmDir and
+// stores its own state in stateDir.
+func NewManager(charmDir, stateDir string) *Manager {
+	return &Manager{
+		charmDir:   charmDir,
+		statePath:  filepath.Join(stateDir, "charm"),
+		bundlesDir: NewBundlesDir(filepath.Join(stateDir, "bundles")),
+	}
+}
+
+// CharmDir returns the path to the charm directory.
+func (mgr *Manager) CharmDir() string {
+	return mgr.charmDir
+}
+
+// State describes the state of a charm directory. If Status is Deployed, the
+// URL field refers to the current deployed charm; otherwise, it refers to the
+// charm proposed by the change described in Status.
+type State struct {
 	Status Status
+	URL    *charm.URL
 }
 
-// StateFile contains the description of a charm directory's state.
-type StateFile struct {
-	path string
+// diskState defines the State serialization.
+type diskState struct {
+	Status Status
+	URL    string
 }
 
-// NewStateFile returns a new state file at path.
-func NewStateFile(path string) *StateFile {
-	return &StateFile{path}
-}
-
-// Read reads charm state stored at f.
-func (f *StateFile) Read() (Status, error) {
-	var st cstate
-	if err := trivial.ReadYaml(f.path, &st); err != nil {
+// ReadState returns the current state of the charm. If no charm is deployed,
+// it returns ErrMissing.
+func (mgr *Manager) ReadState() (State, error) {
+	var ds diskState
+	if err := trivial.ReadYaml(mgr.statePath, &ds); err != nil {
 		if os.IsNotExist(err) {
-			return Missing, nil
+			err = ErrMissing
 		}
-		return Missing, err
+		return State{}, err
 	}
-	if !st.Status.valid() {
-		return Missing, fmt.Errorf("invalid charm state at %s", f.path)
+	var err error
+	var url *charm.URL
+	switch ds.Status {
+	case Deployed:
+		url, err = mgr.deployedURL()
+	case Installing, Upgrading, Conflicted:
+		url, err = charm.ParseURL(ds.URL)
+	default:
+		panic(fmt.Errorf("unhandled charm status %q", ds.Status))
 	}
-	return st.Status, nil
+	if err != nil {
+		return State{}, err
+	}
+	return State{ds.Status, url}, nil
 }
 
-// Write writes charm state to f.
-func (f *StateFile) Write(s Status) error {
-	if !s.valid() {
-		panic(fmt.Errorf("invalid charm status %q", s))
+// deployedURL returns the URL of the currently deployed charm. If no charm is
+// deployed, it returns ErrMissing.
+func (mgr *Manager) deployedURL() (*charm.URL, error) {
+	path := filepath.Join(mgr.charmDir, ".juju-charm")
+	surl := ""
+	if err := trivial.ReadYaml(path, &surl); err != nil {
+		if os.IsNotExist(err) {
+			err = ErrMissing
+		}
+		return nil, err
 	}
-	return trivial.WriteYaml(f.path, &cstate{s})
+	return charm.ParseURL(surl)
+}
+
+// WriteState stores the current state of the charm.
+func (mgr *Manager) WriteState(st Status, url *charm.URL) error {
+	if err := trivial.EnsureDir(filepath.Dir(mgr.statePath)); err != nil {
+		return err
+	}
+	switch st {
+	case Deployed, Installing, Upgrading, Conflicted:
+	default:
+		panic(fmt.Errorf("unhandled charm status %q", st))
+	}
+	return trivial.WriteYaml(mgr.statePath, &diskState{Status: st, URL: url.String()})
+}
+
+// Update sets the content of the charm directory to match the supplied
+// charm. If a charm bundle needs to be downloaded, the download will
+// abort when a value is received on the supplied channel. If the contents
+// of the supplied charm conflict with the contents of the existing
+// charm directory, it returns ErrConflict.
+func (mgr *Manager) Update(sch *state.Charm, abort <-chan struct{}) (err error) {
+	// TODO integrate bzr, to allow for updates/recovery/resolution/rollback.
+	bun, err := mgr.bundlesDir.Read(sch, abort)
+	if err != nil {
+		return err
+	}
+	defer trivial.ErrorContextf(&err, "failed to write charm to %s", mgr.charmDir)
+	if err = bun.ExpandTo(mgr.charmDir); err != nil {
+		return err
+	}
+	path := filepath.Join(mgr.charmDir, ".juju-charm")
+	return trivial.WriteYaml(path, sch.URL().String())
+}
+
+// Resolved signals that update conflicts have been resolved, and puts the
+// charm directory into a state from which a fresh attempt at updating is
+// expected to succeed. If conflicts have in fact not been resolved, it
+// returns ErrConflict.
+func (mgr *Manager) Resolved() error {
+	panic("charm.Manager.Resolved not implemented")
+}
+
+// Revert restores the content of the charm directory to that which existed
+// when it entered its current status. Files not present in the charm bundles
+// will not be changed.
+func (mgr *Manager) Revert() error {
+	panic("charm.Manager.Revert not implemented")
 }
 
 // BundlesDir is responsible for storing and retrieving charm bundles
@@ -84,13 +164,13 @@ func NewBundlesDir(path string) *BundlesDir {
 
 // Read returns a charm bundle from the directory. If no bundle exists yet,
 // one will be downloaded and validated and copied into the directory before
-// being returned. Downloads will be aborted if the supplied tomb dies.
-func (d *BundlesDir) Read(sch *state.Charm, t *tomb.Tomb) (*charm.Bundle, error) {
+// being returned. Downloads will be aborted if a value is received on abort.
+func (d *BundlesDir) Read(sch *state.Charm, abort <-chan struct{}) (*charm.Bundle, error) {
 	path := d.bundlePath(sch)
 	if _, err := os.Stat(path); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
-		} else if err = d.download(sch, t); err != nil {
+		} else if err = d.download(sch, abort); err != nil {
 			return nil, err
 		}
 	}
@@ -98,24 +178,28 @@ func (d *BundlesDir) Read(sch *state.Charm, t *tomb.Tomb) (*charm.Bundle, error)
 }
 
 // download fetches the supplied charm and checks that it has the correct sha256
-// hash, then copies it into the directory. If the supplied tomb dies, the
-// download will abort.
-func (d *BundlesDir) download(sch *state.Charm, t *tomb.Tomb) (err error) {
+// hash, then copies it into the directory. If a value is received on abort, the
+// download will be stopped.
+func (d *BundlesDir) download(sch *state.Charm, abort <-chan struct{}) (err error) {
 	defer trivial.ErrorContextf(&err, "failed to download charm %q from %q", sch.URL(), sch.BundleURL())
 	dir := d.downloadsPath()
 	if err := trivial.EnsureDir(dir); err != nil {
 		return err
 	}
-	dl := downloader.New(sch.BundleURL().String(), dir)
+	burl := sch.BundleURL().String()
+	log.Printf("downloading %s from %s", sch.URL(), burl)
+	dl := downloader.New(burl, dir)
 	defer dl.Stop()
 	for {
 		select {
-		case <-t.Dying():
+		case <-abort:
+			log.Printf("download aborted")
 			return fmt.Errorf("aborted")
 		case st := <-dl.Done():
 			if st.Err != nil {
 				return st.Err
 			}
+			log.Printf("download complete")
 			defer st.File.Close()
 			hash := sha256.New()
 			if _, err = io.Copy(hash, st.File); err != nil {
@@ -127,6 +211,7 @@ func (d *BundlesDir) download(sch *state.Charm, t *tomb.Tomb) (err error) {
 					"expected sha256 %q, got %q", sch.BundleSha256(), actualSha256,
 				)
 			}
+			log.Printf("download verified")
 			if err := trivial.EnsureDir(d.path); err != nil {
 				return err
 			}

@@ -58,6 +58,8 @@ func (s *StateSuite) TestRemoveMachine(c *C) {
 	c.Assert(err, IsNil)
 	_, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
+	err = machine.Die()
+	c.Assert(err, IsNil)
 	err = s.State.RemoveMachine(machine.Id())
 	c.Assert(err, IsNil)
 
@@ -122,6 +124,8 @@ func (s *StateSuite) TestRemoveService(c *C) {
 	c.Assert(err, IsNil)
 
 	// Remove of existing service.
+	err = service.Die()
+	c.Assert(err, IsNil)
 	err = s.State.RemoveService(service)
 	c.Assert(err, IsNil)
 	_, err = s.State.Service("wordpress")
@@ -165,6 +169,7 @@ func (s *StateSuite) TestAllServices(c *C) {
 
 func (s *StateSuite) TestEnvironConfig(c *C) {
 	env, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
 	err = env.Read()
 	c.Assert(err, IsNil)
 	c.Assert(env.Map(), DeepEquals, map[string]interface{}{})
@@ -175,6 +180,7 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 	c.Assert(err, IsNil)
 
 	env, err = s.State.EnvironConfig()
+	c.Assert(err, IsNil)
 	err = env.Read()
 	c.Assert(err, IsNil)
 	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"spam": "spam", "eggs": "spam", "chaos": "emeralds"})
