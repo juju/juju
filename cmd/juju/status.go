@@ -226,16 +226,11 @@ func processUnit(unit *state.Unit) (map[string]interface{}, error) {
 
 type versioned interface {
 	AgentTools() (*state.Tools, error)
-	ProposedAgentTools() (*state.Tools, error)
 }
 
 func processVersion(r map[string]interface{}, v versioned) {
 	if t, err := v.AgentTools(); err == nil {
 		r["agent-version"] = t.Binary.Number.String()
-	}
-
-	if t, err := v.ProposedAgentTools(); err == nil {
-		r["proposed-agent-version"] = t.Binary.Number.String()
 	}
 }
 

@@ -70,7 +70,6 @@ var statusTests = []struct {
 					"dns-name":               "dummyenv-0.dns",
 					"instance-id":            "dummyenv-0",
 					"agent-version":          "0.0.0",
-					"proposed-agent-version": "0.0.0",
 				},
 			},
 			"services": make(map[string]interface{}),
@@ -98,35 +97,6 @@ var statusTests = []struct {
 					"dns-name":               "dummyenv-0.dns",
 					"instance-id":            "dummyenv-0",
 					"agent-version":          "1.2.3",
-					"proposed-agent-version": "0.0.0",
-				},
-			},
-			"services": make(map[string]interface{}),
-		},
-	},
-	{
-		"simulate setting the proposed version",
-		func(st *state.State, conn *juju.Conn, c *C) {
-			m, err := st.Machine(0)
-			c.Assert(err, IsNil)
-			t := &state.Tools{
-				Binary: version.Binary{
-					Number: version.MustParse("2.0.3"),
-					Series: "gutsy",
-					Arch:   "ppc",
-				},
-				URL: "http://canonical.com/",
-			}
-			err = m.ProposeAgentTools(t)
-			c.Assert(err, IsNil)
-		},
-		map[string]interface{}{
-			"machines": map[int]interface{}{
-				0: map[string]interface{}{
-					"dns-name":               "dummyenv-0.dns",
-					"instance-id":            "dummyenv-0",
-					"agent-version":          "1.2.3",
-					"proposed-agent-version": "2.0.3",
 				},
 			},
 			"services": make(map[string]interface{}),
@@ -156,7 +126,6 @@ var statusTests = []struct {
 					"dns-name":               "dummyenv-0.dns",
 					"instance-id":            "dummyenv-0",
 					"agent-version":          "1.2.3",
-					"proposed-agent-version": "2.0.3",
 				},
 			},
 			"services": map[string]interface{}{
@@ -190,19 +159,16 @@ var statusTests = []struct {
 					"dns-name":               "dummyenv-0.dns",
 					"instance-id":            "dummyenv-0",
 					"agent-version":          "1.2.3",
-					"proposed-agent-version": "2.0.3",
 				},
 				1: map[string]interface{}{
 					"dns-name":               "dummyenv-1.dns",
 					"instance-id":            "dummyenv-1",
 					"agent-version":          "0.0.0",
-					"proposed-agent-version": "0.0.0",
 				},
 				2: map[string]interface{}{
 					"dns-name":               "dummyenv-2.dns",
 					"instance-id":            "dummyenv-2",
 					"agent-version":          "0.0.0",
-					"proposed-agent-version": "0.0.0",
 				},
 			},
 			"services": map[string]interface{}{
@@ -242,19 +208,16 @@ var statusTests = []struct {
 					"dns-name":               "dummyenv-0.dns",
 					"instance-id":            "dummyenv-0",
 					"agent-version":          "1.2.3",
-					"proposed-agent-version": "2.0.3",
 				},
 				1: map[string]interface{}{
 					"dns-name":               "dummyenv-1.dns",
 					"instance-id":            "dummyenv-1",
 					"agent-version":          "0.0.0",
-					"proposed-agent-version": "0.0.0",
 				},
 				2: map[string]interface{}{
 					"dns-name":               "dummyenv-2.dns",
 					"instance-id":            "dummyenv-2",
 					"agent-version":          "0.0.0",
-					"proposed-agent-version": "0.0.0",
 				},
 			},
 			"services": map[string]interface{}{
@@ -263,7 +226,6 @@ var statusTests = []struct {
 					"units": map[string]interface{}{
 						"exposed-service/0": map[string]interface{}{
 							"agent-version":          "0.0.0",
-							"proposed-agent-version": "0.0.0",
 							"machine":                2,
 							"status":                 "error",
 							"status-info":            "You Require More Vespene Gas",
@@ -277,7 +239,6 @@ var statusTests = []struct {
 					"units": map[string]interface{}{
 						"dummy-service/0": map[string]interface{}{
 							"agent-version":          "0.0.0",
-							"proposed-agent-version": "0.0.0",
 							"machine":                1,
 							"status":                 "pending",
 						},
