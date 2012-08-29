@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
+	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
@@ -29,6 +30,7 @@ type State struct {
 	services  *mgo.Collection
 	settings  *mgo.Collection
 	units     *mgo.Collection
+	runner    *txn.Runner
 }
 
 // EnvironConfig returns the current configuration of the environment.
