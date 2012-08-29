@@ -286,7 +286,6 @@ func unitNames(units []*state.Unit) (s []string) {
 
 type machineInfo struct {
 	tools         *state.Tools
-	proposedTools *state.Tools
 	instanceId    string
 }
 
@@ -306,39 +305,11 @@ var watchMachineTests = []struct {
 	want machineInfo
 }{
 	{
-		func(*state.Machine) error {
+		func(m *state.Machine) error {
 			return nil
 		},
 		machineInfo{
 			tools:         &state.Tools{},
-			proposedTools: &state.Tools{},
-		},
-	},
-	{
-		func(m *state.Machine) error {
-			return m.ProposeAgentTools(tools(1, "foo"))
-		},
-		machineInfo{
-			tools:         &state.Tools{},
-			proposedTools: tools(1, "foo"),
-		},
-	},
-	{
-		func(m *state.Machine) error {
-			return m.ProposeAgentTools(tools(2, "foo"))
-		},
-		machineInfo{
-			tools:         &state.Tools{},
-			proposedTools: tools(2, "foo"),
-		},
-	},
-	{
-		func(m *state.Machine) error {
-			return m.ProposeAgentTools(tools(2, "bar"))
-		},
-		machineInfo{
-			tools:         &state.Tools{},
-			proposedTools: tools(2, "bar"),
 		},
 	},
 	{
@@ -347,7 +318,6 @@ var watchMachineTests = []struct {
 		},
 		machineInfo{
 			tools:         &state.Tools{},
-			proposedTools: tools(2, "bar"),
 			instanceId:    "m-foo",
 		},
 	},
@@ -357,7 +327,6 @@ var watchMachineTests = []struct {
 		},
 		machineInfo{
 			tools:         &state.Tools{},
-			proposedTools: tools(2, "bar"),
 			instanceId:    "",
 		},
 	},
@@ -366,7 +335,6 @@ var watchMachineTests = []struct {
 			return m.SetAgentTools(tools(3, "baz"))
 		},
 		machineInfo{
-			proposedTools: tools(2, "bar"),
 			tools:         tools(3, "baz"),
 		},
 	},
@@ -375,7 +343,6 @@ var watchMachineTests = []struct {
 			return m.SetAgentTools(tools(4, "khroomph"))
 		},
 		machineInfo{
-			proposedTools: tools(2, "bar"),
 			tools:         tools(4, "khroomph"),
 		},
 	},
@@ -396,8 +363,6 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 			c.Assert(m.Id(), Equals, s.machine.Id())
 			var info machineInfo
 			info.tools, err = m.AgentTools()
-			c.Assert(err, IsNil)
-			info.proposedTools, err = m.ProposedAgentTools()
 			c.Assert(err, IsNil)
 			info.instanceId, err = m.InstanceId()
 			if _, ok := err.(*state.NotFoundError); !ok {
