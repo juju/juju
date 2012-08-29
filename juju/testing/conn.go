@@ -60,7 +60,7 @@ func (s *JujuConnSuite) SetUpTest(c *C) {
 	err = os.Mkdir(filepath.Join(home, ".juju"), 0777)
 	c.Assert(err, IsNil)
 
-	err = ioutil.WriteFile(filepath.Join(home, ".juju", "environments.yaml"), config, 0666)
+	err = ioutil.WriteFile(filepath.Join(home, ".juju", "environments.yaml"), config, 0600)
 	c.Assert(err, IsNil)
 	conn, err := juju.NewConn("dummyenv")
 	c.Assert(err, IsNil)
@@ -93,7 +93,7 @@ func (s *JujuConnSuite) WriteConfig(config string) {
 		panic("SetUpTest has not been called; will not overwrite $HOME/.juju/environments.yaml")
 	}
 	path := filepath.Join(os.Getenv("HOME"), ".juju", "environments.yaml")
-	err := ioutil.WriteFile(path, []byte(config), 0666)
+	err := ioutil.WriteFile(path, []byte(config), 0600)
 	if err != nil {
 		panic(err)
 	}
