@@ -43,7 +43,7 @@ func (s *UniterSuite) SetUpSuite(c *C) {
 	s.HTTPSuite.SetUpSuite(c)
 	s.varDir = c.MkDir()
 	environs.VarDir = s.varDir	// it's restored by JujuConnSuite.
-	toolsDir := filepath.Join(environs.VarDir, "tools", "unit-u-0")
+	toolsDir := environs.AgentToolsDir("unit-u-0")
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, IsNil)
 	cmd := exec.Command("go", "build", "launchpad.net/juju-core/cmd/jujuc")
@@ -274,14 +274,19 @@ func (s *UniterSuite) TestUniter(c *C) {
 			charms: coretesting.ResponseMap{},
 		}
 		for i, s := range t.steps {
-			c.Logf("  step %d: %#v", i, s)
-			s.step(c, ctx)
+			c.Logf("step %d", i)
+			step(c, ctx, s)
 		}
 		if ctx.uniter != nil {
 			err := ctx.uniter.Stop()
 			c.Assert(err, IsNil)
 		}
 	}
+}
+
+func step(c *C, ctx *context, s stepper) {
+	c.Logf("%#v", s)
+	s.step(c, ctx)
 }
 
 type createCharm struct {
@@ -338,7 +343,7 @@ func (s createUniter) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	ctx.svc = svc
 	ctx.unit = unit
-	startUniter{}.step(c, ctx)
+	step(c, ctx, startUniter{})
 }
 
 type startUniter struct {
@@ -393,17 +398,17 @@ func (s stopUniter) step(c *C, ctx *context) {
 type verifyWaiting struct{}
 
 func (s verifyWaiting) step(c *C, ctx *context) {
-	stopUniter{}.step(c, ctx)
-	startUniter{}.step(c, ctx)
-	waitHooks{}.step(c, ctx)
+	step(c, ctx, stopUniter{})
+	step(c, ctx, startUniter{})
+	step(c, ctx, waitHooks{})
 }
 
 type verifyRunning struct{}
 
 func (s verifyRunning) step(c *C, ctx *context) {
-	stopUniter{}.step(c, ctx)
-	startUniter{}.step(c, ctx)
-	waitHooks{"config-changed"}.step(c, ctx)
+	step(c, ctx, stopUniter{})
+	step(c, ctx, startUniter{})
+	step(c, ctx, waitHooks{"config-changed"})
 }
 
 type startupError struct {
@@ -411,32 +416,32 @@ type startupError struct {
 }
 
 func (s startupError) step(c *C, ctx *context) {
-	createCharm{badHooks: []string{s.badHook}}.step(c, ctx)
-	serveCharm{}.step(c, ctx)
-	createUniter{}.step(c, ctx)
-	waitUnit{
+	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
+	step(c, ctx, serveCharm{})
+	step(c, ctx, createUniter{})
+	step(c, ctx, waitUnit{
 		status: state.UnitError,
 		info:   fmt.Sprintf(`hook failed: %q`, s.badHook),
-	}.step(c, ctx)
+	})
 	for _, hook := range []string{"install", "start", "config-changed"} {
 		if hook == s.badHook {
-			waitHooks{"fail-" + hook}.step(c, ctx)
+			step(c, ctx, waitHooks{"fail-" + hook})
 			break
 		}
-		waitHooks{hook}.step(c, ctx)
+		step(c, ctx, waitHooks{hook})
 	}
-	verifyCharm{}.step(c, ctx)
+	step(c, ctx, verifyCharm{})
 }
 
 type quickStart struct{}
 
 func (s quickStart) step(c *C, ctx *context) {
-	createCharm{}.step(c, ctx)
-	serveCharm{}.step(c, ctx)
-	createUniter{}.step(c, ctx)
-	waitUnit{status: state.UnitStarted}.step(c, ctx)
-	waitHooks{"install", "start", "config-changed"}.step(c, ctx)
-	verifyCharm{}.step(c, ctx)
+	step(c, ctx, createCharm{})
+	step(c, ctx, serveCharm{})
+	step(c, ctx, createUniter{})
+	step(c, ctx, waitUnit{status: state.UnitStarted})
+	step(c, ctx, waitHooks{"install", "start", "config-changed"})
+	step(c, ctx, verifyCharm{})
 }
 
 type resolveError struct {

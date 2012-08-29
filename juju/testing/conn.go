@@ -103,7 +103,6 @@ func (s *JujuConnSuite) tearDownConn(c *C) {
 	environs.VarDir = s.oldVarDir
 	s.oldVarDir = ""
 	s.rootDir = ""
-	s.LoggingSuite.TearDownTest(c)
 }
 
 // WriteConfig writes a juju config file to the "home" directory.
