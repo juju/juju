@@ -23,12 +23,17 @@ type Tools struct {
 // managed by juju.
 type State struct {
 	db        *mgo.Database
-	cfgnodes  *mgo.Collection
 	charms    *mgo.Collection
 	machines  *mgo.Collection
 	relations *mgo.Collection
 	services  *mgo.Collection
+	settings  *mgo.Collection
 	units     *mgo.Collection
+}
+
+// EnvironConfig returns the current configuration of the environment.
+func (s *State) EnvironConfig() (*ConfigNode, error) {
+	return readConfigNode(s, "e")
 }
 
 // AddMachine creates a new machine state.

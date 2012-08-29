@@ -20,11 +20,11 @@ func Dial(servers string) (*State, error) {
 	db := session.DB("juju")
 	st := &State{
 		db:        db,
-		cfgnodes:  db.C("cfgnodes"),
 		charms:    db.C("charms"),
 		machines:  db.C("machines"),
 		relations: db.C("relations"),
 		services:  db.C("services"),
+		settings:  db.C("settings"),
 		units:     db.C("units"),
 	}
 	for _, index := range indexes {
