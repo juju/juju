@@ -3,7 +3,6 @@ package mstate
 import (
 	"fmt"
 	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
 	"sort"
 )
 
@@ -160,8 +159,8 @@ func (c *ConfigNode) Write() ([]ItemChange, error) {
 		return []ItemChange{}, nil
 	}
 	sort.Sort(itemChangeSlice(changes))
-	change := bson.D{
-		{"$inc", bson.D{{"version", 1}}},
+	change := D{
+		{"$inc", D{{"version", 1}}},
 		{"$set", upserts},
 		{"$unset", deletions},
 	}

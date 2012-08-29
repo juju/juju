@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/trivial"
 )
@@ -166,7 +165,7 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 		return *u.doc.MachineId, nil
 	}
 	pudoc := unitDoc{}
-	sel := bson.D{{"_id", u.doc.Principal}, {"life", Alive}}
+	sel := D{{"_id", u.doc.Principal}, {"life", Alive}}
 	err = u.st.units.Find(sel).One(&pudoc)
 	if err != nil {
 		return 0, err
@@ -180,10 +179,10 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 // AssignToMachine assigns this unit to a given machine.
 func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot assign unit %q to machine %s", u, m)
-	assert := bson.D{
-		{"$or", []bson.D{
-			bson.D{{"machineid", nil}},
-			bson.D{{"machineid", m.Id()}},
+	assert := D{
+		{"$or", []D{
+			D{{"machineid", nil}},
+			D{{"machineid", m.Id()}},
 		}},
 		{"life", Alive},
 	}
@@ -191,11 +190,11 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: assert,
-		Update: bson.D{{"$set", bson.D{{"machineid", m.Id()}}}},
+		Update: D{{"$set", D{{"machineid", m.Id()}}}},
 	}, {
 		C:      u.st.machines.Name,
 		Id:     m.Id(),
-		Assert: bson.D{{"life", Alive}},
+		Assert: D{{"life", Alive}},
 	}}
 	err = u.st.runner.Run(ops, "", nil)
 	if err == nil {
@@ -230,7 +229,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"machineid", nil}}}},
+		Update: D{{"$set", D{{"machineid", nil}}}},
 	}}
 	err = u.st.runner.Run(ops, "", nil)
 	if err != nil {
@@ -246,7 +245,7 @@ func (u *Unit) SetPublicAddress(address string) error {
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"publicaddress", address}}}},
+		Update: D{{"$set", D{{"publicaddress", address}}}},
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
@@ -262,7 +261,7 @@ func (u *Unit) SetPrivateAddress(address string) error {
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"privateaddress", address}}}},
+		Update: D{{"$set", D{{"privateaddress", address}}}},
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
@@ -285,8 +284,8 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: bson.D{{"resolved", ResolvedNone}},
-		Update: bson.D{{"$set", bson.D{{"resolved", mode}}}},
+		Assert: D{{"resolved", ResolvedNone}},
+		Update: D{{"$set", D{{"resolved", mode}}}},
 	}}
 	err = u.st.runner.Run(ops, "", nil)
 	if err == txn.ErrAborted {
@@ -305,7 +304,7 @@ func (u *Unit) ClearResolved() error {
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"resolved", ResolvedNone}}}},
+		Update: D{{"$set", D{{"resolved", ResolvedNone}}}},
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
@@ -329,12 +328,12 @@ func (u *Unit) NeedsUpgrade() (*NeedsUpgrade, error) {
 func (u *Unit) SetNeedsUpgrade(force bool) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot inform unit %q about upgrade", u)
 	nu := &NeedsUpgrade{Upgrade: true, Force: force}
-	change := bson.D{{"$set", bson.D{{"needsupgrade", nu}}}}
-	sel := bson.D{
+	change := D{{"$set", D{{"needsupgrade", nu}}}}
+	sel := D{
 		{"_id", u.doc.Name},
-		{"$or", []bson.D{
-			bson.D{{"needsupgrade", nil}},
-			bson.D{{"needsupgrade", nu}},
+		{"$or", []D{
+			D{{"needsupgrade", nil}},
+			D{{"needsupgrade", nu}},
 		}},
 	}
 	err = u.st.units.Update(sel, change)
@@ -351,8 +350,8 @@ func (u *Unit) SetNeedsUpgrade(force bool) (err error) {
 // ClearNeedsUpgrade resets the upgrade notification. It is typically
 // done by the unit agent before beginning the upgrade.
 func (u *Unit) ClearNeedsUpgrade() error {
-	change := bson.D{{"$set", bson.D{{"needsupgrade", nil}}}}
-	sel := bson.D{{"_id", u.doc.Name}}
+	change := D{{"$set", D{{"needsupgrade", nil}}}}
+	sel := D{{"_id", u.doc.Name}}
 	err := u.st.units.Update(sel, change)
 	if err != nil {
 		return fmt.Errorf("upgrade notification for unit %q cannot be reset: %v", u, err)

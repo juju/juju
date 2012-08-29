@@ -10,6 +10,8 @@ import (
 	"net/url"
 )
 
+type D []bson.DocElem
+
 type StateSuite struct {
 	ConnSuite
 }
@@ -84,7 +86,7 @@ func (s *StateSuite) TestReadMachine(c *C) {
 func (s *StateSuite) TestAllMachines(c *C) {
 	numInserts := 42
 	for i := 0; i < numInserts; i++ {
-		err := s.machines.Insert(bson.D{{"_id", i}, {"life", state.Alive}})
+		err := s.machines.Insert(D{{"_id", i}, {"life", state.Alive}})
 		c.Assert(err, IsNil)
 	}
 	s.AssertMachineCount(c, numInserts)

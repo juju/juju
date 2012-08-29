@@ -2,7 +2,6 @@ package mstate
 
 import (
 	"fmt"
-	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/trivial"
 	"strconv"
@@ -80,14 +79,14 @@ func (m *Machine) InstanceId() (string, error) {
 func (m *Machine) Units() (units []*Unit, err error) {
 	defer trivial.ErrorContextf(&err, "cannot get units assigned to machine %s", m)
 	pudocs := []unitDoc{}
-	err = m.st.units.Find(bson.D{{"machineid", m.doc.Id}}).All(&pudocs)
+	err = m.st.units.Find(D{{"machineid", m.doc.Id}}).All(&pudocs)
 	if err != nil {
 		return nil, err
 	}
 	for _, pudoc := range pudocs {
 		units = append(units, newUnit(m.st, &pudoc))
 		docs := []unitDoc{}
-		sel := bson.D{{"principal", pudoc.Name}, {"life", Alive}}
+		sel := D{{"principal", pudoc.Name}, {"life", Alive}}
 		err = m.st.units.Find(sel).All(&docs)
 		if err != nil {
 			return nil, err
@@ -104,8 +103,8 @@ func (m *Machine) SetInstanceId(id string) error {
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
-		Assert: bson.D{{"life", Alive}},
-		Update: bson.D{{"$set", bson.D{{"instanceid", id}}}},
+		Assert: D{{"life", Alive}},
+		Update: D{{"$set", D{{"instanceid", id}}}},
 	}}
 	err := m.st.runner.Run(ops, "", nil)
 	if err != nil {
