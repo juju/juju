@@ -31,8 +31,10 @@ import (
 	"launchpad.net/juju-core/testing"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
+	"time"
 )
 
 // stateInfo returns a *state.Info which allows clients to connect to the
@@ -142,6 +144,9 @@ func init() {
 	}()
 	discardOperations = c
 	Reset()
+
+	// parse errors are ignored
+	providerDelay, _ = time.ParseDuration(os.Getenv("JUJU_DUMMY_DELAY"))
 }
 
 // Reset resets the entire dummy environment and forgets any registered
@@ -167,10 +172,11 @@ func Reset() {
 // storage requests.
 func newState(name string, ops chan<- Operation) *environState {
 	s := &environState{
-		name:  name,
-		ops:   ops,
-		insts: make(map[string]*instance),
-		ports: make(map[int]map[state.Port]bool),
+		name:      name,
+		ops:       ops,
+		insts:     make(map[string]*instance),
+		ports:     make(map[int]map[state.Port]bool),
+		delayTime: providerDelay,
 	}
 	s.storage = newStorage(s, "/"+name+"/private")
 	s.publicStorage = newStorage(s, "/"+name+"/public")
@@ -331,6 +337,7 @@ func (e *environ) Name() string {
 }
 
 func (e *environ) Bootstrap(uploadTools bool) error {
+	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err
 	}
@@ -402,6 +409,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 }
 
 func (e *environ) Destroy([]environs.Instance) error {
+	defer delay()
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err
 	}
@@ -418,6 +426,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 }
 
 func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.Tools) (environs.Instance, error) {
+	defer delay()
 	log.Printf("dummy startinstance, machine %d", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, err
@@ -445,6 +454,7 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.To
 }
 
 func (e *environ) StopInstances(is []environs.Instance) error {
+	defer delay()
 	if err := e.checkBroken("StopInstance"); err != nil {
 		return err
 	}
@@ -461,6 +471,7 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 }
 
 func (e *environ) Instances(ids []string) (insts []environs.Instance, err error) {
+	defer delay()
 	if err := e.checkBroken("Instances"); err != nil {
 		return nil, err
 	}
@@ -485,6 +496,7 @@ func (e *environ) Instances(ids []string) (insts []environs.Instance, err error)
 }
 
 func (e *environ) AllInstances() ([]environs.Instance, error) {
+	defer delay()
 	if err := e.checkBroken("AllInstances"); err != nil {
 		return nil, err
 	}
@@ -513,6 +525,7 @@ func (inst *instance) Id() string {
 }
 
 func (inst *instance) DNSName() (string, error) {
+	defer delay()
 	return inst.id + ".dns", nil
 }
 
@@ -521,6 +534,7 @@ func (inst *instance) WaitDNSName() (string, error) {
 }
 
 func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
+	defer delay()
 	log.Printf("openPorts %d, %#v", machineId, ports)
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("OpenPorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
@@ -540,6 +554,7 @@ func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 }
 
 func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
+	defer delay()
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("ClosePorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
 	}
@@ -558,6 +573,7 @@ func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 }
 
 func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
+	defer delay()
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("Ports with mismatched machine id, expected %d got %d", inst.machineId, machineId))
 	}
@@ -568,4 +584,17 @@ func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 	}
 	state.SortPorts(ports)
 	return
+}
+
+// providerDelay controls the delay before dummy responds.
+// non empty values in JUJU_DUMMY_DELAY will be parsed as 
+// time.Durations into this value.
+var providerDelay time.Duration
+
+// pause execution to simulate the latency of a real provider
+func delay() {
+	if providerDelay > 0 {
+		log.Printf("dummy: pausing for %v", providerDelay)
+		<-time.After(providerDelay)
+	}
 }
