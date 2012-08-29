@@ -1,7 +1,6 @@
 package mstate_test
 
 import (
-	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	state "launchpad.net/juju-core/mstate"
 	"sort"
@@ -25,8 +24,8 @@ func (s *MachineSuite) TestMachineInstanceId(c *C) {
 	machine, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 	err = s.machines.Update(
-		bson.D{{"_id", machine.Id()}},
-		bson.D{{"$set", bson.D{{"instanceid", "spaceship/0"}}}},
+		D{{"_id", machine.Id()}},
+		D{{"$set", D{{"instanceid", "spaceship/0"}}}},
 	)
 	c.Assert(err, IsNil)
 
@@ -36,13 +35,51 @@ func (s *MachineSuite) TestMachineInstanceId(c *C) {
 	c.Assert(iid, Equals, "spaceship/0")
 }
 
+func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
+	machine, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	err = s.machines.Update(
+		D{{"_id", machine.Id()}},
+		D{{"$set", D{{"instanceid", D{{"foo", "bar"}}}}}},
+	)
+	c.Assert(err, IsNil)
+
+	err = machine.Refresh()
+	c.Assert(err, IsNil)
+	iid, err := machine.InstanceId()
+	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+	c.Assert(iid, Equals, "")
+}
+
+func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {
+	iid, err := s.machine.InstanceId()
+	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+	c.Assert(iid, Equals, "")
+}
+
+func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
+	machine, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	err = s.machines.Update(
+		D{{"_id", machine.Id()}},
+		D{{"$set", D{{"instanceid", ""}}}},
+	)
+	c.Assert(err, IsNil)
+
+	err = machine.Refresh()
+	c.Assert(err, IsNil)
+	iid, err := machine.InstanceId()
+	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+	c.Assert(iid, Equals, "")
+}
+
 func (s *MachineSuite) TestMachineSetInstanceId(c *C) {
 	machine, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 	err = machine.SetInstanceId("umbrella/0")
 	c.Assert(err, IsNil)
 
-	n, err := s.machines.Find(bson.D{{"instanceid", "umbrella/0"}}).Count()
+	n, err := s.machines.Find(D{{"instanceid", "umbrella/0"}}).Count()
 	c.Assert(err, IsNil)
 	c.Assert(n, Equals, 1)
 }

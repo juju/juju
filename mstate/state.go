@@ -7,35 +7,19 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
+	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/url"
 )
 
+type D []bson.DocElem
+
 // Tools describes a particular set of juju tools and where to find them.
 type Tools struct {
 	version.Binary
 	URL string
-}
-
-type Life int8
-
-const (
-	Alive Life = iota
-	Dying
-	Dead
-	nLife
-)
-
-var lifeStrings = [nLife]string{
-	Alive: "alive",
-	Dying: "dying",
-	Dead:  "dead",
-}
-
-func (l Life) String() string {
-	return lifeStrings[l]
 }
 
 // State represents the state of an environment
@@ -46,7 +30,21 @@ type State struct {
 	machines  *mgo.Collection
 	relations *mgo.Collection
 	services  *mgo.Collection
+	settings  *mgo.Collection
 	units     *mgo.Collection
+	runner    *txn.Runner
+}
+
+func deadOnAbort(err error) error {
+	if err == txn.ErrAborted {
+		return fmt.Errorf("not found or not alive")
+	}
+	return err
+}
+
+// EnvironConfig returns the current configuration of the environment.
+func (s *State) EnvironConfig() (*ConfigNode, error) {
+	return readConfigNode(s, "e")
 }
 
 // AddMachine creates a new machine state.
@@ -60,7 +58,13 @@ func (s *State) AddMachine() (m *Machine, err error) {
 		Id:   id,
 		Life: Alive,
 	}
-	err = s.machines.Insert(mdoc)
+	ops := []txn.Op{{
+		C:      s.machines.Name,
+		Id:     id,
+		Assert: txn.DocMissing,
+		Insert: mdoc,
+	}}
+	err = s.runner.Run(ops, "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -68,12 +72,28 @@ func (s *State) AddMachine() (m *Machine, err error) {
 }
 
 // RemoveMachine removes the machine with the the given id.
-func (s *State) RemoveMachine(id int) error {
-	sel := bson.D{{"_id", id}, {"life", Alive}}
-	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
-	err := s.machines.Update(sel, change)
+func (s *State) RemoveMachine(id int) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot remove machine %d", id)
+	m, err := s.Machine(id)
 	if err != nil {
-		return fmt.Errorf("cannot remove machine %d: %v", id, err)
+		return err
+	}
+	if m.doc.Life != Dead {
+		panic(fmt.Errorf("machine %d is not dead", id))
+	}
+	sel := D{
+		{"_id", id},
+		{"life", Dead},
+	}
+	ops := []txn.Op{{
+		C:      s.machines.Name,
+		Id:     id,
+		Assert: sel,
+		Remove: true,
+	}}
+	err = s.runner.Run(ops, "", nil)
+	if err != nil {
+		return deadOnAbort(err)
 	}
 	return nil
 }
@@ -81,8 +101,8 @@ func (s *State) RemoveMachine(id int) error {
 // AllMachines returns all machines in the environment.
 func (s *State) AllMachines() (machines []*Machine, err error) {
 	mdocs := []machineDoc{}
-	sel := bson.D{{"life", Alive}}
-	err = s.machines.Find(sel).Select(bson.D{{"_id", 1}}).All(&mdocs)
+	sel := D{}
+	err = s.machines.Find(sel).Select(D{{"_id", 1}}).All(&mdocs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all machines: %v", err)
 	}
@@ -95,7 +115,7 @@ func (s *State) AllMachines() (machines []*Machine, err error) {
 // Machine returns the machine with the given id.
 func (s *State) Machine(id int) (*Machine, error) {
 	mdoc := &machineDoc{}
-	sel := bson.D{{"_id", id}, {"life", Alive}}
+	sel := D{{"_id", id}}
 	err := s.machines.Find(sel).One(mdoc)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get machine %d: %v", id, err)
@@ -124,7 +144,7 @@ func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bu
 // Charm returns the charm with the given URL.
 func (s *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
-	err := s.charms.Find(bson.D{{"_id", curl}}).One(cdoc)
+	err := s.charms.Find(D{{"_id", curl}}).One(cdoc)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
 	}
@@ -140,7 +160,13 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 		CharmURL: ch.URL(),
 		Life:     Alive,
 	}
-	err = s.services.Insert(sdoc)
+	ops := []txn.Op{{
+		C:      s.services.Name,
+		Id:     name,
+		Assert: txn.DocMissing,
+		Insert: sdoc,
+	}}
+	err = s.runner.Run(ops, "", nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add service %q:", name, err)
 	}
@@ -150,25 +176,58 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 // RemoveService removes a service from the state. It will also remove all
 // its units and break any of its existing relations.
 func (s *State) RemoveService(svc *Service) (err error) {
+	// TODO Do lifecycle properly.
+	// Removing relations and units here is wrong. They need to monitor
+	// their own parent and set themselves to dying.
 	defer trivial.ErrorContextf(&err, "cannot remove service %q", svc)
 
-	sel := bson.D{{"_id", svc.doc.Name}, {"life", Alive}}
-	change := bson.D{{"$set", bson.D{{"life", Dying}}}}
-	err = s.services.Update(sel, change)
+	if svc.doc.Life != Dead {
+		panic(fmt.Errorf("service %q is not dead", svc))
+	}
+	rels, err := svc.Relations()
 	if err != nil {
 		return err
 	}
-
-	sel = bson.D{{"service", svc.doc.Name}}
-	change = bson.D{{"$set", bson.D{{"life", Dying}}}}
-	_, err = s.units.UpdateAll(sel, change)
-	return err
+	for _, rel := range rels {
+		err = rel.Die()
+		if err != nil {
+			return err
+		}
+		err = s.RemoveRelation(rel)
+		if err != nil {
+			return err
+		}
+	}
+	units, err := svc.AllUnits()
+	if err != nil {
+		return err
+	}
+	for _, unit := range units {
+		err = unit.Die()
+		if err != nil {
+			return err
+		}
+		if err = svc.RemoveUnit(unit); err != nil {
+			return err
+		}
+	}
+	ops := []txn.Op{{
+		C:      s.services.Name,
+		Id:     svc.doc.Name,
+		Assert: D{{"life", Dead}},
+		Remove: true,
+	}}
+	err = s.runner.Run(ops, "", nil)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Service returns a service state by name.
 func (s *State) Service(name string) (service *Service, err error) {
 	sdoc := serviceDoc{}
-	sel := bson.D{{"_id", name}, {"life", Alive}}
+	sel := D{{"_id", name}}
 	err = s.services.Find(sel).One(&sdoc)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get service %q: %v", name, err)
@@ -179,7 +238,7 @@ func (s *State) Service(name string) (service *Service, err error) {
 // AllServices returns all deployed services in the environment.
 func (s *State) AllServices() (services []*Service, err error) {
 	sdocs := []serviceDoc{}
-	err = s.services.Find(bson.D{{"life", Alive}}).All(&sdocs)
+	err = s.services.Find(D{}).All(&sdocs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all services")
 	}
@@ -228,12 +287,18 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 		return nil, err
 	}
 	doc := relationDoc{
-		Id:        id,
 		Key:       relationKey(endpoints),
+		Id:        id,
 		Endpoints: endpoints,
 		Life:      Alive,
 	}
-	err = s.relations.Insert(doc)
+	ops := []txn.Op{{
+		C:      s.relations.Name,
+		Id:     doc.Key,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}}
+	err = s.runner.Run(ops, "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +310,7 @@ func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error)
 	defer trivial.ErrorContextf(&err, "cannot get relation %q", relationKey(endpoints))
 
 	doc := relationDoc{}
-	err = s.relations.Find(bson.D{{"key", relationKey(endpoints)}}).One(&doc)
+	err = s.relations.Find(D{{"_id", relationKey(endpoints)}}).One(&doc)
 	if err != nil {
 		return nil, err
 	}
@@ -259,13 +324,15 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 	if r.doc.Life != Dead {
 		panic(fmt.Errorf("relation %q is not dead", r))
 	}
-	sel := bson.D{
-		{"_id", r.doc.Id},
-		{"life", Dead},
-	}
-	err = s.relations.Remove(sel)
+	ops := []txn.Op{{
+		C:      s.relations.Name,
+		Id:     r.doc.Key,
+		Assert: D{{"life", Dead}},
+		Remove: true,
+	}}
+	err = s.runner.Run(ops, "", nil)
 	if err != nil {
-		return err
+		return deadOnAbort(err)
 	}
 	return nil
 }

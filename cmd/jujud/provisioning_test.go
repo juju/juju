@@ -59,8 +59,8 @@ func (s *ProvisioningSuite) TestRunStop(c *C) {
 	err = units[0].OpenPort("tcp", 999)
 	c.Assert(err, IsNil)
 
-	c.Assert(opRecvTimeout(c, op, dummy.OpStartInstance{}), NotNil)
-	c.Assert(opRecvTimeout(c, op, dummy.OpOpenPorts{}), NotNil)
+	c.Check(opRecvTimeout(c, op, dummy.OpStartInstance{}), NotNil)
+	c.Check(opRecvTimeout(c, op, dummy.OpOpenPorts{}), NotNil)
 
 	err = a.Stop()
 	c.Assert(err, IsNil)
@@ -86,7 +86,7 @@ func opRecvTimeout(c *C, opc <-chan dummy.Operation, kinds ...dummy.Operation) d
 			}
 			c.Logf("discarding unknown event %#v", op)
 		case <-time.After(2 * time.Second):
-			c.Fatalf("time out wating for operation")
+			c.Errorf("time out wating for operation")
 		}
 	}
 	panic("not reached")

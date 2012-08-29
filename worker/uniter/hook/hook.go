@@ -88,27 +88,30 @@ type Info struct {
 type Status string
 
 const (
-	// StatusStarted indicates that the unit agent intended to run the hook.
-	// This status implies that a hook *may* have been interrupted and have
-	// failed to complete all required operations, and that therefore the
-	// proper response is to treat it as a hook execution failure and punt
-	// to the user for manual resolution.
-	StatusStarted Status = "started"
+	// Queued indicates that the hook should be executed at the earliest
+	// opportunity.
+	Queued Status = "queued"
 
-	// StatusSucceeded indicates that the hook itself completed successfully,
-	// but that local state (ie relation membership) may not have been
-	// synchronized, and that recovery should therefore be performed.
-	StatusSucceeded Status = "succeeded"
+	// Pending indicates that execution of the hook is pending. A hook
+	// that fails should keep this status until it is successfully re-
+	// executed or skipped.
+	Pending Status = "pending"
 
-	// StatusCommitted indicates that the last hook ran successfully and that
-	// local state has been synchronized.
-	StatusCommitted Status = "committed"
+	// Committing indicates that execution of the hook has successfully
+	// completed, or that the hook has been skipped, but that persistent
+	// local state has not been synchronized with the change embodied by
+	// the hook.
+	Committing Status = "committing"
+
+	// Complete indicates that all operations associated with the hook have
+	// succeeded.
+	Complete Status = "complete"
 )
 
 // valid will return true if the Status is known.
 func (status Status) valid() bool {
 	switch status {
-	case StatusStarted, StatusSucceeded, StatusCommitted:
+	case Queued, Pending, Committing, Complete:
 		return true
 	}
 	return false

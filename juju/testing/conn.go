@@ -43,7 +43,26 @@ environments:
 
 func (s *JujuConnSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
+	c.Logf("JujuConnSuite SetUpTest (vardir %q)", environs.VarDir)
+	s.setUpConn(c)
+}
 
+func (s *JujuConnSuite) TearDownTest(c *C) {
+	s.tearDownConn(c)
+	s.LoggingSuite.TearDownTest(c)
+}
+
+// Reset returns environment state to that which existed at the start of
+// the test.
+func (s *JujuConnSuite) Reset(c *C) {
+	s.tearDownConn(c)
+	s.setUpConn(c)
+}
+
+func (s *JujuConnSuite) setUpConn(c *C) {
+	if s.rootDir != "" {
+		panic("JujuConnSuite.setUpConn without teardown")
+	}
 	s.rootDir = c.MkDir()
 	s.oldHome = os.Getenv("HOME")
 	home := filepath.Join(s.rootDir, "/home/ubuntu")
@@ -74,7 +93,7 @@ func (s *JujuConnSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *JujuConnSuite) TearDownTest(c *C) {
+func (s *JujuConnSuite) tearDownConn(c *C) {
 	dummy.Reset()
 	c.Assert(s.Conn.Close(), IsNil)
 	s.Conn = nil

@@ -47,18 +47,18 @@ func (a *ProvisioningAgent) Stop() error {
 
 // Run run a provisioning agent with a provisioner and a firewaller.
 // If either fails, both will be shutdown and restarted.
-func (a *ProvisioningAgent) Run(_ *cmd.Context) (err error) {
+func (a *ProvisioningAgent) Run(_ *cmd.Context) error {
 	defer a.tomb.Done()
-	for {
-		err = a.runOnce()
-		if a.tomb.Err() != tomb.ErrStillAlive {
-			// Stop requested by user.
-			return err
+	for a.tomb.Err() == tomb.ErrStillAlive {
+		err := a.runOnce()
+		select {
+		case <-a.tomb.Dying():
+			a.tomb.Kill(err)
+		case <-time.After(retryDelay):
+			log.Printf("restarting provisioner and firewaller after error: %v", err)
 		}
-		time.Sleep(retryDelay)
-		log.Printf("restarting provisioner and firewaller after error: %v", err)
 	}
-	panic("unreachable")
+	return a.tomb.Err()
 }
 
 // runOnce runs a provisioner and firewaller once.

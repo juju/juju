@@ -68,3 +68,60 @@ func (s *AssignSuite) TestAssignUnitToMachineAgainFails(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(machineId, Equals, 1)
 }
+
+func (s *AssignSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
+	// Check that unassigning while the state changes fails nicely.
+	// Remove the unit for the tests.
+	err := s.unit.Die()
+	c.Assert(err, IsNil)
+	err = s.service.RemoveUnit(s.unit)
+	c.Assert(err, IsNil)
+
+	err = s.unit.UnassignFromMachine()
+	c.Assert(err, ErrorMatches, `cannot unassign unit "wordpress/0" from machine: .*`)
+	_, err = s.unit.AssignedMachineId()
+	c.Assert(err, ErrorMatches, `cannot get machine id of unit "wordpress/0": unit not assigned to machine`)
+
+	err = s.service.Die()
+	c.Assert(err, IsNil)
+	err = s.State.RemoveService(s.service)
+	c.Assert(err, IsNil)
+
+	err = s.unit.UnassignFromMachine()
+	c.Assert(err, ErrorMatches, `cannot unassign unit "wordpress/0" from machine: .*`)
+	_, err = s.unit.AssignedMachineId()
+	c.Assert(err, ErrorMatches, `cannot get machine id of unit "wordpress/0": unit not assigned to machine`)
+}
+
+func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
+	// Check that assigning a principal unit assigns its subordinates too.
+	subCharm := s.AddTestingCharm(c, "logging")
+	logService1, err := s.State.AddService("logging1", subCharm)
+	c.Assert(err, IsNil)
+	logService2, err := s.State.AddService("logging2", subCharm)
+	c.Assert(err, IsNil)
+	log1Unit, err := logService1.AddUnitSubordinateTo(s.unit)
+	c.Assert(err, IsNil)
+	log2Unit, err := logService2.AddUnitSubordinateTo(s.unit)
+	c.Assert(err, IsNil)
+
+	m1, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	err = s.unit.AssignToMachine(m1)
+	c.Assert(err, IsNil)
+
+	id, err := log1Unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Check(id, Equals, m1.Id())
+	id, err = log2Unit.AssignedMachineId()
+	c.Check(id, Equals, m1.Id())
+
+	// Check that unassigning the principal unassigns the
+	// subordinates too.
+	err = s.unit.UnassignFromMachine()
+	c.Assert(err, IsNil)
+	_, err = log1Unit.AssignedMachineId()
+	c.Assert(err, ErrorMatches, `cannot get machine id of unit "logging1/0": unit not assigned to machine`)
+	_, err = log2Unit.AssignedMachineId()
+	c.Assert(err, ErrorMatches, `cannot get machine id of unit "logging2/0": unit not assigned to machine`)
+}
