@@ -138,7 +138,6 @@ var errHookFailed = errors.New("hook execution failed")
 // runHook executes the supplied hook.Info in an appropriate hook context. If
 // the hook itself fails to execute, it returns errHookFailed.
 func (u *Uniter) runHook(hi hook.Info) error {
-	log.Printf("run hook kind %q", hi.Kind)
 	// Prepare context.
 	hookName := string(hi.Kind)
 	if hi.Kind.IsRelation() {

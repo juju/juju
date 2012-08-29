@@ -43,7 +43,6 @@ environments:
 
 func (s *JujuConnSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
-	c.Logf("JujuConnSuite SetUpTest (vardir %q)", environs.VarDir)
 	s.setUpConn(c)
 }
 
