@@ -210,6 +210,7 @@ func (s *ServiceSuite) TestReadUnitWithChangingState(c *C) {
 
 func (s *ServiceSuite) TestServiceConfig(c *C) {
 	env, err := s.service.Config()
+	c.Assert(err, IsNil)
 	err = env.Read()
 	c.Assert(err, IsNil)
 	c.Assert(env.Map(), DeepEquals, map[string]interface{}{})
@@ -220,6 +221,7 @@ func (s *ServiceSuite) TestServiceConfig(c *C) {
 	c.Assert(err, IsNil)
 
 	env, err = s.service.Config()
+	c.Assert(err, IsNil)
 	err = env.Read()
 	c.Assert(err, IsNil)
 	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"spam": "spam", "eggs": "spam", "chaos": "emeralds"})

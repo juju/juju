@@ -169,6 +169,7 @@ func (s *StateSuite) TestAllServices(c *C) {
 
 func (s *StateSuite) TestEnvironConfig(c *C) {
 	env, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
 	err = env.Read()
 	c.Assert(err, IsNil)
 	c.Assert(env.Map(), DeepEquals, map[string]interface{}{})
@@ -179,6 +180,7 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 	c.Assert(err, IsNil)
 
 	env, err = s.State.EnvironConfig()
+	c.Assert(err, IsNil)
 	err = env.Read()
 	c.Assert(err, IsNil)
 	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"spam": "spam", "eggs": "spam", "chaos": "emeralds"})

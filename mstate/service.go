@@ -264,7 +264,7 @@ func (s *Service) Relations() (relations []*Relation, err error) {
 
 // Config returns the configuration node for the service.
 func (s *Service) Config() (config *ConfigNode, err error) {
-	config, err = readConfigNode(s.st, s.Name())
+	config, err = readConfigNode(s.st, "s/"+s.Name())
 	if err != nil {
 		return nil, fmt.Errorf("cannot get configuration of service %q: %v", s, err)
 	}
