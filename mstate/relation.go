@@ -73,8 +73,8 @@ func relationKey(endpoints []RelationEndpoint) string {
 
 // relationDoc is the internal representation of a Relation in MongoDB.
 type relationDoc struct {
-	Id        int `bson:"_id"`
-	Key       string
+	Key       string `bson:"_id"`
+	Id        int
 	Endpoints []RelationEndpoint
 	Life      Life
 }
@@ -98,7 +98,7 @@ func (r *Relation) String() string {
 
 func (r *Relation) Refresh() error {
 	doc := relationDoc{}
-	err := r.st.relations.FindId(r.doc.Id).One(&doc)
+	err := r.st.relations.FindId(r.doc.Key).One(&doc)
 	if err != nil {
 		return fmt.Errorf("cannot refresh relation %v: %v", r, err)
 	}
@@ -113,7 +113,7 @@ func (r *Relation) Life() Life {
 // Kill sets the relation lifecycle to Dying if it is Alive.
 // It does nothing otherwise.
 func (r *Relation) Kill() error {
-	err := ensureLife(r.st, r.st.relations, r.doc.Id, Dying, "relation")
+	err := ensureLife(r.st, r.st.relations, r.doc.Key, Dying, "relation")
 	if err != nil {
 		return err
 	}
@@ -124,7 +124,7 @@ func (r *Relation) Kill() error {
 // Die sets the relation lifecycle to Dead if it is Alive or Dying.
 // It does nothing otherwise.
 func (r *Relation) Die() error {
-	err := ensureLife(r.st, r.st.relations, r.doc.Id, Dead, "relation")
+	err := ensureLife(r.st, r.st.relations, r.doc.Key, Dead, "relation")
 	if err != nil {
 		return err
 	}

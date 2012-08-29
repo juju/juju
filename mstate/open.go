@@ -6,7 +6,6 @@ import (
 )
 
 var indexes = []mgo.Index{
-	{Key: []string{"key"}, Unique: true},
 	{Key: []string{"endpoints.relationname"}},
 	{Key: []string{"endpoints.servicename"}},
 }

@@ -275,8 +275,8 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 		return nil, err
 	}
 	doc := relationDoc{
-		Id:        id,
 		Key:       relationKey(endpoints),
+		Id:        id,
 		Endpoints: endpoints,
 		Life:      Alive,
 	}
@@ -298,7 +298,7 @@ func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error)
 	defer trivial.ErrorContextf(&err, "cannot get relation %q", relationKey(endpoints))
 
 	doc := relationDoc{}
-	err = s.relations.Find(bson.D{{"key", relationKey(endpoints)}}).One(&doc)
+	err = s.relations.Find(bson.D{{"_id", relationKey(endpoints)}}).One(&doc)
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +313,7 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 		panic(fmt.Errorf("relation %q is not dead", r))
 	}
 	sel := bson.D{
-		{"_id", r.doc.Id},
+		{"_id", r.doc.Key},
 		{"life", Dead},
 	}
 	err = s.relations.Remove(sel)
