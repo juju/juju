@@ -32,6 +32,7 @@ func TestPackage(t *stdtesting.T) {
 type UniterSuite struct {
 	testing.JujuConnSuite
 	coretesting.HTTPSuite
+	varDir string
 	oldPath   string
 }
 
@@ -40,6 +41,8 @@ var _ = Suite(&UniterSuite{})
 func (s *UniterSuite) SetUpSuite(c *C) {
 	s.JujuConnSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
+	s.varDir = c.MkDir()
+	environs.VarDir = s.varDir	// it's restored by JujuConnSuite.
 	toolsDir := filepath.Join(environs.VarDir, "tools", "unit-u-0")
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, IsNil)
@@ -52,17 +55,23 @@ func (s *UniterSuite) SetUpSuite(c *C) {
 	os.Setenv("PATH", toolsDir+":"+s.oldPath)
 }
 
+func (s *UniterSuite) TearDownSuite(c *C) {
+	os.Setenv("PATH", s.oldPath)
+}
+
 func (s *UniterSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
+	environs.VarDir = s.varDir
 }
 
 func (s *UniterSuite) TearDownTest(c *C) {
-	s.JujuConnSuite.TearDownTest(c)
 	s.HTTPSuite.TearDownTest(c)
+	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *UniterSuite) TearDownSuite(c *C) {
-	os.Setenv("PATH", s.oldPath)
+func (s *UniterSuite) Reset(c *C) {
+	s.JujuConnSuite.Reset(c)
+	environs.VarDir = s.varDir
 }
 
 type uniterTest struct {
