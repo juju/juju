@@ -27,22 +27,22 @@ type CharmSuite struct {
 	testing.JujuConnSuite
 }
 
-func (s *BundlesDirSuite) SetUpSuite(c *C) {
+func (s *CharmSuite) SetUpSuite(c *C) {
 	s.HTTPSuite.SetUpSuite(c)
 	s.JujuConnSuite.SetUpSuite(c)
 }
 
-func (s *BundlesDirSuite) TearDownSuite(c *C) {
+func (s *CharmSuite) TearDownSuite(c *C) {
 	s.JujuConnSuite.TearDownSuite(c)
 	s.HTTPSuite.TearDownSuite(c)
 }
 
-func (s *BundlesDirSuite) SetUpTest(c *C) {
+func (s *CharmSuite) SetUpTest(c *C) {
 	s.HTTPSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
 }
 
-func (s *BundlesDirSuite) TearDownTest(c *C) {
+func (s *CharmSuite) TearDownTest(c *C) {
 	s.JujuConnSuite.TearDownTest(c)
 	s.HTTPSuite.TearDownTest(c)
 }
@@ -55,6 +55,7 @@ func (s *CharmSuite) AddCharm(c *C) (*state.Charm, []byte) {
 	bun, err := corecharm.ReadBundle(bunpath)
 	c.Assert(err, IsNil)
 	bundata, hash := readHash(c, bunpath)
+	c.Assert(s.State, NotNil)
 	sch, err := s.State.AddCharm(bun, curl, surl, hash)
 	c.Assert(err, IsNil)
 	return sch, bundata
