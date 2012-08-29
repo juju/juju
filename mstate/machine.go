@@ -101,13 +101,13 @@ func (m *Machine) Units() (units []*Unit, err error) {
 
 // SetInstanceId sets the provider specific machine id for this machine.
 func (m *Machine) SetInstanceId(id string) error {
-	op := []txn.Op{{
+	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: bson.D{{"_id", m.doc.Id}, {"life", Alive}},
 		Update: bson.D{{"$set", bson.D{{"instanceid", id}}}},
 	}}
-	err := m.st.runner.Run(op, "", nil)
+	err := m.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot set instance id of machine %s: %v", m, err)
 	}

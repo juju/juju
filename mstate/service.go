@@ -72,13 +72,13 @@ func (s *Service) CharmURL() (url *charm.URL, err error) {
 
 // SetCharmURL changes the charm URL for the service.
 func (s *Service) SetCharmURL(url *charm.URL) (err error) {
-	op := []txn.Op{{
+	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
 		Assert: bson.D{{"_id", s.doc.Name}, {"life", Alive}},
 		Update: bson.D{{"$set", bson.D{{"charmurl", url}}}},
 	}}
-	err = s.st.runner.Run(op, "", nil)
+	err = s.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot set the charm URL of service %q: %v", s, err)
 	}
@@ -89,13 +89,13 @@ func (s *Service) SetCharmURL(url *charm.URL) (err error) {
 // SetExposed marks the service as exposed.
 // See ClearExposed and IsExposed.
 func (s *Service) SetExposed() error {
-	op := []txn.Op{{
+	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
 		Assert: bson.D{{"_id", s.doc.Name}, {"life", Alive}},
 		Update: bson.D{{"$set", bson.D{{"exposed", true}}}},
 	}}
-	err := s.st.runner.Run(op, "", nil)
+	err := s.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot set exposed flag for service %q: %v", s, err)
 	}
@@ -106,13 +106,13 @@ func (s *Service) SetExposed() error {
 // ClearExposed removes the exposed flag from the service.
 // See SetExposed and IsExposed.
 func (s *Service) ClearExposed() error {
-	op := []txn.Op{{
+	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
 		Assert: bson.D{{"_id", s.doc.Name}, {"life", Alive}},
 		Update: bson.D{{"$set", bson.D{{"exposed", false}}}},
 	}}
-	err := s.st.runner.Run(op, "", nil)
+	err := s.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot clear exposed flag for service %q: %v", s, err)
 	}
@@ -163,13 +163,13 @@ func (s *Service) addUnit(name string, principal string) (*Unit, error) {
 		Principal: principal,
 		Life:      Alive,
 	}
-	op := []txn.Op{{
+	ops := []txn.Op{{
 		C:      s.st.units.Name,
 		Id:     udoc.Name,
 		Assert: txn.DocMissing,
 		Insert: udoc,
 	}}
-	err := s.st.runner.Run(op, "", nil)
+	err := s.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add unit to service %q", s)
 	}
@@ -222,13 +222,13 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 		{"service", s.doc.Name},
 		{"life", Dead},
 	}
-	op := []txn.Op{{
+	ops := []txn.Op{{
 		C:      s.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: sel,
 		Remove: true,
 	}}
-	err = s.st.runner.Run(op, "", nil)
+	err = s.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot remove unit %q: %v", u, err)
 	}

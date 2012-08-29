@@ -187,13 +187,13 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 		}},
 		{"life", Alive},
 	}
-	op := []txn.Op{{
+	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: sel,
 		Update: bson.D{{"$set", bson.D{{"machineid", m.Id()}}}},
 	}}
-	err = u.st.runner.Run(op, "", nil)
+	err = u.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot assign unit %q to machine %s: %v", u, m, err)
 	}
@@ -204,13 +204,13 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 // UnassignFromMachine removes the assignment between this unit and the
 // machine it's assigned to.
 func (u *Unit) UnassignFromMachine() (err error) {
-	op := []txn.Op{{
+	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"machineid", nil}}}},
 	}}
-	err = u.st.runner.Run(op, "", nil)
+	err = u.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, err)
 	}
@@ -220,13 +220,13 @@ func (u *Unit) UnassignFromMachine() (err error) {
 
 // SetPublicAddress sets the public address of the unit.
 func (u *Unit) SetPublicAddress(address string) error {
-	op := []txn.Op{{
+	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"publicaddress", address}}}},
 	}}
-	err := u.st.runner.Run(op, "", nil)
+	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot set public address of unit %q: %v", u, err)
 	}
@@ -236,13 +236,13 @@ func (u *Unit) SetPublicAddress(address string) error {
 
 // SetPrivateAddress sets the public address of the unit.
 func (u *Unit) SetPrivateAddress(address string) error {
-	op := []txn.Op{{
+	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"privateaddress", address}}}},
 	}}
-	err := u.st.runner.Run(op, "", nil)
+	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot set private address of unit %q: %v", u, err)
 	}
@@ -264,13 +264,13 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 		{"_id", u.doc.Name},
 		{"resolved", ResolvedNone},
 	}
-	op := []txn.Op{{
+	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: sel,
 		Update: bson.D{{"$set", bson.D{{"resolved", mode}}}},
 	}}
-	err = u.st.runner.Run(op, "", nil)
+	err = u.st.runner.Run(ops, "", nil)
 	if err == txn.ErrAborted {
 		return errors.New("flag already set")
 	}
@@ -283,13 +283,13 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 
 // ClearResolved removes any resolved setting on the unit.
 func (u *Unit) ClearResolved() error {
-	op := []txn.Op{{
+	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"resolved", ResolvedNone}}}},
 	}}
-	err := u.st.runner.Run(op, "", nil)
+	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, err)
 	}
