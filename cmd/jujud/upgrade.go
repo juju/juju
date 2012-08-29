@@ -19,6 +19,7 @@ import (
 // When a new version is available Wait and Stop return UpgradedError.
 type Upgrader struct {
 	tomb       tomb.Tomb
+	st *state.State
 	agentName  string
 	agentState AgentState
 }
@@ -45,8 +46,9 @@ type AgentState interface {
 }
 
 // NewUpgrader returns a new Upgrader watching the given agent.
-func NewUpgrader(agentName string, agentState AgentState) *Upgrader {
+func NewUpgrader(st *state.State, agentName string, agentState AgentState) *Upgrader {
 	u := &Upgrader{
+		st: st,
 		agentName:  agentName,
 		agentState: agentState,
 	}
@@ -66,6 +68,10 @@ func (u *Upgrader) Wait() error {
 	return u.tomb.Wait()
 }
 
+func configAgentVersion(cfg *state.ConfigNode) (version.Number, error) {
+...
+}
+
 func (u *Upgrader) run() error {
 	// Let the state know the version that is currently running.
 	currentTools, err := environs.ReadTools(version.Current)
@@ -83,7 +89,7 @@ func (u *Upgrader) run() error {
 		return err
 	}
 
-	w := u.agentState.WatchProposedAgentTools()
+	w := u.agentState.WatchEnvironConfig()
 	defer watcher.Stop(w, &u.tomb)
 
 	// TODO(rog) retry downloads when they fail.
@@ -98,13 +104,17 @@ func (u *Upgrader) run() error {
 		// hangs up) another change to the proposed tools can
 		// potentially fix things.
 		select {
-		case tools, ok := <-w.Changes():
+		case cfg, ok := <-w.Changes():
 			if !ok {
 				return watcher.MustErr(w)
 			}
+			vers, err := configAgentVersion(cfg)
+			if err != nil {
+				return err
+			}
 			if download != nil {
 				// There's a download in progress, stop it if we need to.
-				if *tools == *downloadTools {
+				if vers == downloadTools.Number {
 					// We are already downloading the requested tools.
 					break
 				}
@@ -114,10 +124,12 @@ func (u *Upgrader) run() error {
 			}
 			// Ignore the proposed tools if they haven't been set yet
 			// or we're already running the proposed version.
-			if tools.URL == "" || *tools == *currentTools {
+			if vers == version.Current.Number {
 				break
 			}
-			if tools, err := environs.ReadTools(tools.Binary); err == nil {
+			binary := version.Current
+			binary.Number = vers
+			if tools, err := environs.ReadTools(binary); err == nil {
 				// The tools have already been downloaded, so use them.
 				return &UpgradedError{tools}
 			}
