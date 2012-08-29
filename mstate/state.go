@@ -284,7 +284,7 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 	}
 	ops := []txn.Op{{
 		C:      s.relations.Name,
-		Id:     id,
+		Id:     doc.Key,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
