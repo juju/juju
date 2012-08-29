@@ -63,7 +63,10 @@ func (t *cloudinitTest) check(c *C) {
 	t.checkScripts(c, "wget.*"+regexp.QuoteMeta(t.cfg.Tools.URL)+".*tar .*xz")
 
 	if t.cfg.StateServer {
+		// TODO(dfc) remove this after the switch to mstate
 		t.checkPackage(c, "zookeeperd")
+
+		t.checkPackage(c, "mongodb-server")
 		t.checkScripts(c, "jujud bootstrap-state")
 		t.checkEnvConfig(c)
 		t.checkScripts(c, regexp.QuoteMeta(t.cfg.InstanceIdAccessor))
