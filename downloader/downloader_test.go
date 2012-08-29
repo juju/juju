@@ -12,8 +12,28 @@ import (
 )
 
 type suite struct {
-	testing.HTTPSuite
 	testing.LoggingSuite
+	testing.HTTPSuite
+}
+
+func (s *suite) SetUpSuite(c *C) {
+	s.LoggingSuite.SetUpSuite(c)
+	s.HTTPSuite.SetUpSuite(c)
+}
+
+func (s *suite) TearDownSuite(c *C) {
+	s.HTTPSuite.TearDownSuite(c)
+	s.LoggingSuite.TearDownSuite(c)
+}
+
+func (s *suite) SetUpTest(c *C) {
+	s.LoggingSuite.SetUpTest(c)
+	s.HTTPSuite.SetUpTest(c)
+}
+
+func (s *suite) TearDownTest(c *C) {
+	s.HTTPSuite.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
 }
 
 var _ = Suite(&suite{})

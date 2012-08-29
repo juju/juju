@@ -41,13 +41,25 @@ environments:
         authorized-keys: 'i-am-a-key'
 `)
 
+func (s *JujuConnSuite) SetUpSuite(c *C) {
+	s.LoggingSuite.SetUpSuite(c)
+	s.ZkSuite.SetUpSuite(c)
+}
+
+func (s *JujuConnSuite) TearDownSuite(c *C) {
+	s.ZkSuite.TearDownSuite(c)
+	s.LoggingSuite.TearDownSuite(c)
+}
+
 func (s *JujuConnSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
+	s.ZkSuite.SetUpTest(c)
 	s.setUpConn(c)
 }
 
 func (s *JujuConnSuite) TearDownTest(c *C) {
 	s.tearDownConn(c)
+	s.ZkSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 

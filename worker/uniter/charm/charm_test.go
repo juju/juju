@@ -27,9 +27,24 @@ type CharmSuite struct {
 	testing.JujuConnSuite
 }
 
+func (s *CharmSuite) SetUpSuite(c *C) {
+	s.HTTPSuite.SetUpSuite(c)
+	s.JujuConnSuite.SetUpSuite(c)
+}
+
+func (s *CharmSuite) TearDownSuite(c *C) {
+	s.JujuConnSuite.TearDownSuite(c)
+	s.HTTPSuite.TearDownSuite(c)
+}
+
+func (s *CharmSuite) SetUpTest(c *C) {
+	s.HTTPSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
+}
+
 func (s *CharmSuite) TearDownTest(c *C) {
-	s.HTTPSuite.TearDownTest(c)
 	s.JujuConnSuite.TearDownTest(c)
+	s.HTTPSuite.TearDownTest(c)
 }
 
 func (s *CharmSuite) AddCharm(c *C) (*state.Charm, []byte) {

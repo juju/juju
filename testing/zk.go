@@ -66,6 +66,9 @@ func (s ZkSuite) SetUpSuite(c *C) {
 		panic("ZkSuite tests must be run with ZkTestPackage")
 	}
 }
+func (s ZkSuite) TearDownSuite(c *C) {}
+
+func (s ZkSuite) SetUpTest(c *C) {}
 
 func (s ZkSuite) TearDownTest(c *C) {
 	ZkReset()
