@@ -110,7 +110,6 @@ type environState struct {
 	storage       *storage
 	publicStorage *storage
 	httpListener  net.Listener
-	delayTime     time.Duration // delay before actioning request
 }
 
 // environ represents a client's connection to a given environment's
@@ -130,15 +129,8 @@ type storage struct {
 	files map[string][]byte
 }
 
-var (
-	// discardOperations discards all Operations written to it.
-	discardOperations chan<- Operation
-
-	// providerDelay controls the delay before dummy responds.
-	// non empty values in JUJU_DUMMY_DELAY will be parsed as 
-	// time.Durations into this value.
-	providerDelay time.Duration
-)
+// discardOperations discards all Operations written to it.
+var discardOperations chan<- Operation
 
 func init() {
 	environs.RegisterProvider("dummy", &providerInstance)
@@ -593,6 +585,11 @@ func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 	state.SortPorts(ports)
 	return
 }
+
+// providerDelay controls the delay before dummy responds.
+// non empty values in JUJU_DUMMY_DELAY will be parsed as 
+// time.Durations into this value.
+var providerDelay time.Duration
 
 // pause execution to simulate the latency of a real provider
 func delay() {
