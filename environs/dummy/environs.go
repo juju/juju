@@ -172,11 +172,10 @@ func Reset() {
 // storage requests.
 func newState(name string, ops chan<- Operation) *environState {
 	s := &environState{
-		name:      name,
-		ops:       ops,
-		insts:     make(map[string]*instance),
-		ports:     make(map[int]map[state.Port]bool),
-		delayTime: providerDelay,
+		name:  name,
+		ops:   ops,
+		insts: make(map[string]*instance),
+		ports: make(map[int]map[state.Port]bool),
 	}
 	s.storage = newStorage(s, "/"+name+"/private")
 	s.publicStorage = newStorage(s, "/"+name+"/public")
