@@ -153,7 +153,6 @@ func (s *FirewallerSuite) TestMachineWithoutInstanceId(c *C) {
 	c.Assert(err, IsNil)
 	assertPorts(c, inst2, m2.Id(), []state.Port{{"tcp", 80}})
 
-
 	inst1 := s.startInstance(c, m1)
 	err = u1.OpenPort("tcp", 8080)
 	c.Assert(err, IsNil)
