@@ -419,7 +419,7 @@ var findToolsTests = []struct {
 	expect: "public-" + toolsStoragePath("1.0.0"),
 }, {
 	// always use private storage in preference to public storage.
-	version: version.MustParse("1.0.0"),
+	version: version.MustParse("1.9.0"),
 	contents: []string{
 		toolsStoragePath("1.0.2"),
 	},
@@ -436,7 +436,7 @@ var findToolsTests = []struct {
 	expect: toolsStoragePath("1.0.0"),
 }, {
 	// check that version comparing is numeric, not alphabetical.
-	version: version.MustParse("1.0.0"),
+	version: version.MustParse("1.0.99"),
 	contents: []string{
 		toolsStoragePath("1.0.9"),
 		toolsStoragePath("1.0.10"),
@@ -445,13 +445,23 @@ var findToolsTests = []struct {
 	expect: toolsStoragePath("1.0.11"),
 }, {
 	// minor version wins over patch version.
-	version: version.MustParse("1.0.0"),
+	version: version.MustParse("1.99.99"),
 	contents: []string{
 		toolsStoragePath("1.9.11"),
 		toolsStoragePath("1.10.10"),
 		toolsStoragePath("1.11.9"),
 	},
 	expect: toolsStoragePath("1.11.9"),
+}, {
+	// only earlier versions are chosen.
+	version: version.MustParse("1.10.9"),
+	contents: []string{
+		toolsStoragePath("1.9.10"),
+		toolsStoragePath("1.9.11"),
+		toolsStoragePath("1.10.10"),
+		toolsStoragePath("1.11.9"),
+	},
+	expect: toolsStoragePath("1.9.11"),
 }, {
 	// mismatching series or architecture is ignored.
 	version: version.MustParse("1.0.0"),
@@ -637,7 +647,7 @@ var bestToolsTests = []struct {
 			newTools("3.2.3-precise-amd64", ""),
 		},
 	},
-	binaryVersion("2.0.0-precise-amd64"),
+	binaryVersion("2.8.8-precise-amd64"),
 	false,
 	newTools("2.2.4-precise-amd64", ""),
 }, {
@@ -652,7 +662,7 @@ var bestToolsTests = []struct {
 			newTools("3.2.3-precise-amd64", ""),
 		},
 	},
-	binaryVersion("2.0.1-precise-amd64"),
+	binaryVersion("2.8.8-precise-amd64"),
 	false,
 	newTools("2.4.4-precise-amd64", ""),
 }, {
@@ -667,7 +677,7 @@ var bestToolsTests = []struct {
 			newTools("2.2.3-precise-amd64", ""),
 		},
 	},
-	binaryVersion("2.0.0-precise-amd64"),
+	binaryVersion("2.8.8-precise-amd64"),
 	true,
 	newTools("2.2.3-precise-amd64", ""),
 }, {
@@ -681,7 +691,7 @@ var bestToolsTests = []struct {
 			newTools("1.2.4-precise-amd64", ""),
 		},
 	},
-	binaryVersion("1.0.0-precise-amd64"),
+	binaryVersion("1.8.8-precise-amd64"),
 	true,
 	newTools("1.2.3-precise-amd64", ""),
 }, {
@@ -692,9 +702,22 @@ var bestToolsTests = []struct {
 			newTools("1.2.4-precise-amd64", ""),
 		},
 	},
-	binaryVersion("1.0.0-precise-amd64"),
+	binaryVersion("1.8.9-precise-amd64"),
 	true,
 	newTools("1.2.4-precise-amd64", ""),
+}, {
+	// Check that we don't choose a version later
+	// than requested.
+	&environs.ToolsList{
+		Public: []*state.Tools{
+			newTools("1.2.2-precise-amd64", ""),
+			newTools("1.2.3-precise-amd64", ""),
+			newTools("1.3.4-precise-amd64", ""),
+		},
+	},
+	binaryVersion("1.3.3-precise-amd64"),
+	true,
+	newTools("1.2.3-precise-amd64", ""),
 },
 }
 
