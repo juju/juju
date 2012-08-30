@@ -314,7 +314,7 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.To
 func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, master bool, config map[string]interface{}) ([]byte, error) {
 	cfg := &cloudinit.MachineConfig{
 		Provisioner:        master,
-		ZooKeeper:          master,
+		StateServer:        master,
 		StateInfo:          info,
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		ProviderType:       "ec2",
@@ -600,6 +600,7 @@ func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 	if err != nil {
 		return fmt.Errorf("cannot open ports: %v", err)
 	}
+	log.Printf("environs/ec2: opened ports in security group %s: %v", g.Name, ports)
 	return nil
 }
 
@@ -615,6 +616,7 @@ func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 	if err != nil {
 		return fmt.Errorf("cannot close ports: %v", err)
 	}
+	log.Printf("environs/ec2: closed ports in security group %s: %v", g.Name, ports)
 	return nil
 }
 
