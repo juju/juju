@@ -70,6 +70,22 @@ var configTests = []struct {
 		"",
 	}, {
 		attrs{
+			"type":	"my-type",
+			"name":            "my-name",
+			"authorized-keys": "my-keys",
+			"agent-version": "1.2.3",
+		},
+		"",
+	}, {
+		attrs{
+			"type":	"my-type",
+			"name":            "my-name",
+			"authorized-keys": "my-keys",
+			"agent-version": "2",
+		},
+		`invalid agent version in environment configuration: "2"`,
+	}, {
+		attrs{
 			"name": "my-name",
 		},
 		"type: expected string, got nothing",
@@ -90,7 +106,8 @@ var configTests = []struct {
 			"name": "",
 		},
 		"empty name in environment configuration",
-	}}
+	},
+}
 
 func (*ConfigSuite) TestConfig(c *C) {
 	homedir := c.MkDir()
@@ -114,7 +131,8 @@ func (*ConfigSuite) TestConfig(c *C) {
 		c.Assert(err, IsNil)
 	}
 
-	for _, test := range configTests {
+	for i, test := range configTests {
+		c.Logf("test %d", i)
 		cfg, err := config.New(test.attrs)
 		if test.err != "" {
 			c.Assert(err, ErrorMatches, test.err)
@@ -127,7 +145,13 @@ func (*ConfigSuite) TestConfig(c *C) {
 		name, _ := test.attrs["name"].(string)
 		c.Assert(cfg.Type(), Equals, typ)
 		c.Assert(cfg.Name(), Equals, name)
-
+		if s := test.attrs["agent-version"]; s != nil {
+			vers, err := version.Parse(s.(string))
+			c.Assert(err, IsNil)
+			c.Assert(cfg.AgentVersion(), Equals, vers)
+		} else {
+			c.Assert(cfg.AgentVersion(), Equals, version.Number{})
+		}
 		if series, _ := test.attrs["default-series"].(string); series != "" {
 			c.Assert(cfg.DefaultSeries(), Equals, series)
 		} else {

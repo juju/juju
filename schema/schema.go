@@ -322,8 +322,8 @@ type Defaults map[string]interface{}
 // and returns with the underlying error.
 //
 // Fields in defaults will be set to the provided value if not present
-// in the coerced map. If the default value is schema.Omit, the field
-// missing field will be ommitted from the coerced map as well.
+// in the coerced map. If the default value is schema.Omit, the
+// missing field will be omitted from the coerced map.
 //
 // The coerced output value has type map[string]interface{}.
 func FieldMap(fields Fields, defaults Defaults) Checker {

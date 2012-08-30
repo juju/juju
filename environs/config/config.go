@@ -47,6 +47,13 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		}
 	}
 
+	// Check that the agent version parses ok if set.
+	if v, ok := c.m["agent-version"].(string); ok {
+		if _, err := version.Parse(v); err != nil {
+			return nil, fmt.Errorf("invalid agent version in environment configuration: %q", v)
+		}
+	}
+
 	// Copy unknown attributes onto the type-specific map.
 	for k, v := range attrs {
 		if _, ok := fields[k]; !ok {
@@ -74,6 +81,20 @@ func (c *Config) DefaultSeries() string {
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
 	return c.m["authorized-keys"].(string)
+}
+
+// AgentVersion returns the proposed version number for the agent tools.
+// It returns the zero version if unset.
+func (c *Config) AgentVersion() version.Number {
+	v, ok := c.m["agent-version"].(string)
+	if !ok {
+		return version.Number{}
+	}
+	n, err := version.Parse(v)
+	if err != nil {
+		panic(err)		// We should have checked it earlier.
+	}
+	return n
 }
 
 // UnknownAttrs returns a copy of the raw configuration attributes
@@ -112,12 +133,14 @@ var fields = schema.Fields{
 	"default-series":       schema.String(),
 	"authorized-keys":      schema.String(),
 	"authorized-keys-path": schema.String(),
+	"agent-version": schema.String(),
 }
 
 var defaults = schema.Defaults{
 	"default-series":       version.Current.Series,
 	"authorized-keys":      "",
 	"authorized-keys-path": "",
+	"agent-version": schema.Omit,
 }
 
 var checker = schema.FieldMap(fields, defaults)
