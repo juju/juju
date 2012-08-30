@@ -110,15 +110,17 @@ var environmentWatchTests = []attrs{
 		"authorized-keys": "i-am-a-key",
 	},
 	{
+		// Add an attribute.
 		"type":            "my-type",
-		"name":            "my-new-name",
+		"name":            "my-name",
 		"default-series":  "my-series",
 		"authorized-keys": "i-am-a-key",
 	},
 	{
+		// Set a new attribute value.
 		"type":            "my-type",
 		"name":            "my-new-name",
-		"default-series":  "my-other-series",
+		"default-series":  "my-series",
 		"authorized-keys": "i-am-a-key",
 	},
 }

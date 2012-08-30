@@ -202,8 +202,10 @@ func closeErrorCheck(errp *error, c io.Closer) {
 	}
 }
 
-// BestTools returns the best set of tools in the ToolsList that are
-// compatible with the given version, or nil if no such tools are found.
+// BestTools returns the most recent version
+// from the set of tools in the ToolsList that are
+// compatible with the given version, and with a version
+// number <= vers.Number, or nil if no such tools are found.
 // If dev is true, it will consider development versions of the tools
 // even if vers is not a development version.
 func BestTools(list *ToolsList, vers version.Binary, dev bool) *state.Tools {
@@ -221,7 +223,8 @@ func bestTools(toolsList []*state.Tools, vers version.Binary, dev bool) *state.T
 		if t.Major != vers.Major ||
 			t.Series != vers.Series ||
 			t.Arch != vers.Arch ||
-			!allowDev && t.IsDev() {
+			!allowDev && t.IsDev() ||
+			vers.Number.Less(t.Number) {
 			continue
 		}
 		if bestTools == nil || bestTools.Number.Less(t.Number) {
@@ -377,10 +380,12 @@ func AgentToolsDir(agentName string) string {
 }
 
 // FindTools tries to find a set of tools compatible with the given
-// version from the given environment.  If no tools are found and
-// there's no other error, a NotFoundError is returned.  If there's
-// anything compatible in the environ's Storage, it gets precedence over
-// anything in its PublicStorage.
+// version from the given environment.  The latest version found with a
+// number <= vers.Number will be used.
+// 
+// If no tools are found and there's no other error, a NotFoundError is
+// returned.  If there's anything compatible in the environ's Storage,
+// it gets precedence over anything in its PublicStorage.
 func FindTools(env Environ, vers version.Binary) (*state.Tools, error) {
 	toolsList, err := ListTools(env, vers.Major)
 	if err != nil {
