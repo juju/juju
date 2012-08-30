@@ -92,7 +92,7 @@ func (c *Config) AgentVersion() version.Number {
 	}
 	n, err := version.Parse(v)
 	if err != nil {
-		panic(err)		// We should have checked it earlier.
+		panic(err) // We should have checked it earlier.
 	}
 	return n
 }
@@ -133,14 +133,14 @@ var fields = schema.Fields{
 	"default-series":       schema.String(),
 	"authorized-keys":      schema.String(),
 	"authorized-keys-path": schema.String(),
-	"agent-version": schema.String(),
+	"agent-version":        schema.String(),
 }
 
 var defaults = schema.Defaults{
 	"default-series":       version.Current.Series,
 	"authorized-keys":      "",
 	"authorized-keys-path": "",
-	"agent-version": schema.Omit,
+	"agent-version":        schema.Omit,
 }
 
 var checker = schema.FieldMap(fields, defaults)
