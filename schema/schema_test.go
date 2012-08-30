@@ -285,6 +285,10 @@ func (s *S) TestFieldMap(c *C) {
 	out, err := sch.Coerce(map[string]interface{}{"a": "A", "b": "B", "d": "D"}, aPath)
 	c.Assert(err, IsNil)
 	c.Assert(out, DeepEquals, map[string]interface{}{"a": "A", "b": "B", "c": "C"})
+
+	out, err = sch.Coerce(map[string]interface{}{"a": "A", "d": "D"}, aPath)
+	c.Assert(err, IsNil)
+	c.Assert(out, DeepEquals, map[string]interface{}{"a": "A", "c": "C"})
 }
 
 func (s *S) TestFieldMapDefaultInvalid(c *C) {
