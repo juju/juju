@@ -36,7 +36,6 @@ type HTTPServer struct {
 	started  bool
 	request  chan *http.Request
 	response chan ResponseFunc
-	pending  chan bool
 }
 
 func NewHTTPServer(url_ string, timeout time.Duration) *HTTPServer {
@@ -59,7 +58,6 @@ func (s *HTTPServer) Start() {
 
 	s.request = make(chan *http.Request, 64)
 	s.response = make(chan ResponseFunc, 64)
-	s.pending = make(chan bool, 64)
 
 	url_, _ := url.Parse(s.URL)
 	go http.ListenAndServe(url_.Host, s)
@@ -76,7 +74,7 @@ func (s *HTTPServer) Start() {
 	s.WaitRequest() // Consume dummy request.
 }
 
-// FlushRequests discards requests which were not yet consumed by WaitRequest.
+// Flush discards all pending requests and responses.
 func (s *HTTPServer) Flush() {
 	for {
 		select {
