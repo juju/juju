@@ -29,6 +29,7 @@ import (
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"net"
 	"net/http"
 	"os"
@@ -179,8 +180,21 @@ func newState(name string, ops chan<- Operation) *environState {
 	}
 	s.storage = newStorage(s, "/"+name+"/private")
 	s.publicStorage = newStorage(s, "/"+name+"/public")
+	putFakeTools(s.publicStorage)
 	s.listen()
 	return s
+}
+
+// putFakeTools writes something
+// that looks like a tools archive so Bootstrap can
+// find some tools and initialise the state correctly.
+func putFakeTools(s environs.StorageWriter) {
+	path := environs.ToolsStoragePath(version.Current)
+	toolsContents := "tools archive, honest guv"
+	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
+	if err != nil {
+		panic(err)
+	}
 }
 
 // listen starts a network listener listening for http
@@ -340,8 +354,19 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err
 	}
+	var tools *state.Tools
+	var err error
 	if uploadTools {
-		_, err := environs.PutTools(e.Storage(), nil)
+		tools, err = environs.PutTools(e.Storage(), nil)
+		if err != nil {
+			return err
+		}
+	} else {
+		// Choose any tools compatible with the current major version
+		// by using a minor version with a stupidly high number.
+		vers := version.Current
+		vers.Minor = 1<<30
+		tools, err = environs.FindTools(e, vers)
 		if err != nil {
 			return err
 		}
@@ -354,13 +379,11 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	}
 	if e.ecfg().zookeeper() {
 		info := stateInfo()
-		config := map[string]interface{}{
-			"type":            "dummy",
-			"zookeeper":       true,
-			"name":            e.ecfg().Name(),
-			"authorized-keys": e.ecfg().AuthorizedKeys(),
+		cfg, err := environs.BootstrapConfig(&providerInstance, e.ecfg().Config, tools)
+		if err != nil {
+			return err
 		}
-		st, err := state.Initialize(info, config)
+		st, err := state.Initialize(info, cfg.AllAttrs())
 		if err != nil {
 			panic(err)
 		}
