@@ -20,9 +20,8 @@ func TestPackage(t *stdtesting.T) {
 
 type ProvisionerSuite struct {
 	testing.JujuConnSuite
-	coretesting.ZkConnSuite
-	op      <-chan dummy.Operation
-	environ string
+	op  <-chan dummy.Operation
+	cfg *config.Config
 }
 
 var _ = Suite(&ProvisionerSuite{})
@@ -30,10 +29,6 @@ var _ = Suite(&ProvisionerSuite{})
 var veryShortAttempt = environs.AttemptStrategy{
 	Total: 1 * time.Second,
 	Delay: 80 * time.Millisecond,
-}
-
-func (s *ProvisionerSuite) SetUpSuite(c *C) {
-	s.ZkConnSuite.SetUpSuite(c)
 }
 
 func (s *ProvisionerSuite) SetUpTest(c *C) {
@@ -44,23 +39,24 @@ func (s *ProvisionerSuite) SetUpTest(c *C) {
 	dummy.Listen(op)
 	s.op = op
 
-	environ, _, err := s.ZkConn.Get("/environment")
+	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	s.environ = environ
+	s.cfg = cfg
 }
 
 // invalidateEnvironment alters the environment configuration
 // so the ConfigNode returned from the watcher will not pass
 // validation.
 func (s *ProvisionerSuite) invalidateEnvironment() error {
-	_, err := s.ZkConn.Set("/environment", "type: test\nname: 1", -1)
+	zkConn := coretesting.ZkConnect()
+	_, err := zkConn.Set("/environment", "type: test\nname: 1", -1)
+	zkConn.Close()
 	return err
 }
 
 // fixEnvironment undoes the work of invalidateEnvironment.
 func (s *ProvisionerSuite) fixEnvironment() error {
-	_, err := s.ZkConn.Set("/environment", s.environ, -1)
-	return err
+	return s.State.SetEnvironConfig(s.cfg)
 }
 
 func (s *ProvisionerSuite) stopProvisioner(c *C, p *provisioner.Provisioner) {
@@ -169,11 +165,13 @@ func (s *ProvisionerSuite) TestProvisionerEnvironmentChange(c *C) {
 	cfgAttrs := cfg.AllAttrs()
 	cfgAttrs["name"] = "testing2"
 	cfg, err = config.New(cfgAttrs)
-	err = s.State.UpdateEnvironConfig(cfg)
+	c.Assert(err, IsNil)
+	err = s.State.SetEnvironConfig(cfg)
 	c.Assert(err, IsNil)
 	cfgAttrs["name"] = "testing3"
 	cfg, err = config.New(cfgAttrs)
-	err = s.State.UpdateEnvironConfig(cfg)
+	c.Assert(err, IsNil)
+	err = s.State.SetEnvironConfig(cfg)
 	c.Assert(err, IsNil)
 }
 

@@ -110,15 +110,15 @@ func (w *ConfigWatcher) done() {
 	close(w.changeChan)
 }
 
-// EnvironConfigWatcher observes changes to the environ 
-// configuration node.
+// EnvironConfigWatcher observes changes to the
+// environment configuration.
 type EnvironConfigWatcher struct {
 	contentWatcher
 	changeChan chan *config.Config
 }
 
-// newEnvironConfigWatcher creates and starts a new environ config 
-// watcher.
+// newEnvironConfigWatcher creates and starts a new environment 
+// configuration watcher.
 func newEnvironConfigWatcher(st *State) *EnvironConfigWatcher {
 	w := &EnvironConfigWatcher{
 		contentWatcher: newContentWatcher(st, zkEnvironmentPath),
@@ -129,14 +129,17 @@ func newEnvironConfigWatcher(st *State) *EnvironConfigWatcher {
 }
 
 // Changes returns a channel that will receive the new
-// environ config when a change is detected. Note that multiple
-// changes may be observed as a single event in the channel.
+// environment configuration when a change is detected. Note that 
+// multiple changes may be observed as a single event in the channel.
 func (w *EnvironConfigWatcher) Changes() <-chan *config.Config {
 	return w.changeChan
 }
 
 func (w *EnvironConfigWatcher) update(change watcher.ContentChange) error {
-	// A non-existent node is treated as an empty node.
+	if change.Content == "" {
+		// Empty node is invalid.
+		return nil
+	}
 	configNode, err := parseConfigNode(w.st.zk, w.path, change.Content)
 	if err != nil {
 		return err

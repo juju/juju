@@ -103,35 +103,35 @@ func (s *StateSuite) TestInitalizeWithConfig(c *C) {
 
 type attrs map[string]interface{}
 
-var environmentWatchTests = []struct {
-	change map[string]interface{}
-}{
+var environmentWatchTests = []attrs{
 	{
-		attrs{
-			"type": "my-type",
-			"name": "my-name",
-		},
+		"type":            "my-type",
+		"name":            "my-name",
+		"authorized-keys": "i-am-a-key",
 	},
 	{
-		attrs{
-			"type":           "my-type",
-			"name":           "my-new-name",
-			"default-series": "my-series",
-		},
+		"type":            "my-type",
+		"name":            "my-new-name",
+		"default-series":  "my-series",
+		"authorized-keys": "i-am-a-key",
 	},
 	{
-		attrs{
-			"type":           "my-type",
-			"name":           "my-new-name",
-			"default-series": "my-other-series",
-		},
+		"type":            "my-type",
+		"name":            "my-new-name",
+		"default-series":  "my-other-series",
+		"authorized-keys": "i-am-a-key",
 	},
 }
+
+var initialEnvironment = `name: test,
+type: test,
+authorized-keys: i-am-a-key,
+default-series: precise`
 
 func (s *StateSuite) TestWatchEnvironment(c *C) {
 	// Re-init the environment originally created by JujuConnSuite,
 	// so that we know what we have.
-	_, err := s.zkConn.Set("/environment", "type: test\nname: test", -1)
+	_, err := s.zkConn.Set("/environment", initialEnvironment, -1)
 	c.Assert(err, IsNil)
 	environConfigWatcher := s.State.WatchEnvironConfig()
 	defer func() {
@@ -143,19 +143,19 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 
 	for i, test := range environmentWatchTests {
 		c.Logf("test %d", i)
-		update, err := config.New(test.change)
+		change, err := config.New(test)
 		c.Assert(err, IsNil)
-		err = s.State.UpdateEnvironConfig(update)
+		err = s.State.SetEnvironConfig(change)
 		c.Assert(err, IsNil)
 		select {
 		case got, ok := <-environConfigWatcher.Changes():
 			c.Assert(ok, Equals, true)
 			gotAttrs := got.AllAttrs()
-			for key, value := range test.change {
+			for key, value := range test {
 				c.Assert(gotAttrs[key], Equals, value)
 			}
 		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("did not get change: %#v", test.change)
+			c.Fatalf("did not get change: %#v", test)
 		}
 	}
 

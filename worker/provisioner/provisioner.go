@@ -2,7 +2,6 @@ package provisioner
 
 import (
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -54,8 +53,7 @@ refreshState:
 				return
 			}
 			var err error
-			// TODO Change state so it hands off *config.Config.
-			p.environ, err = environs.NewFromAttrs(config.AllAttrs())
+			p.environ, err = environs.New(config)
 			if err != nil {
 				log.Printf("provisioner loaded invalid environment configuration: %v", err)
 				continue
@@ -88,13 +86,11 @@ refreshState:
 				p.tomb.Kill(watcher.MustErr(environWatcher))
 				return
 			}
-			// TODO Change state so it hands off *config.Config.
-			config, err := config.New(change.AllAttrs())
+			err := p.environ.SetConfig(change)
 			if err != nil {
 				log.Printf("provisioner loaded invalid environment configuration: %v", err)
 				continue
 			}
-			p.environ.SetConfig(config)
 			log.Printf("provisioner loaded new environment configuration")
 		case machines, ok := <-machinesWatcher.Changes():
 			if !ok {

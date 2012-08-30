@@ -95,16 +95,11 @@ func (s *State) EnvironConfig() (*config.Config, error) {
 	return config.New(attrs)
 }
 
-// UpdateEnvironConfig updates the current configuration of the 
-// environment with the attributes of the passed configuration.
-func (s *State) UpdateEnvironConfig(cfg *config.Config) error {
+// SetEnvironConfig replaces the current configuration of the 
+// environment with the passed configuration.
+func (s *State) SetEnvironConfig(cfg *config.Config) error {
 	attrs := cfg.AllAttrs()
-	configNode, err := readConfigNode(s.zk, zkEnvironmentPath)
-	if err != nil {
-		return err
-	}
-	configNode.Update(attrs)
-	_, err = configNode.Write()
+	_, err := createConfigNode(s.zk, zkEnvironmentPath, attrs)
 	return err
 }
 

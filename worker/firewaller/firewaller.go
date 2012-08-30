@@ -2,7 +2,6 @@ package firewaller
 
 import (
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -55,7 +54,7 @@ Loop:
 				return
 			}
 			var err error
-			fw.environ, err = environs.NewFromAttrs(config.AllAttrs())
+			fw.environ, err = environs.New(config)
 			if err != nil {
 				log.Printf("firewaller loaded invalid environment configuration: %v", err)
 				continue
@@ -73,12 +72,11 @@ Loop:
 			if !ok {
 				return
 			}
-			config, err := config.New(change.AllAttrs())
+			err := fw.environ.SetConfig(change)
 			if err != nil {
 				log.Printf("firewaller loaded invalid environment configuration: %v", err)
 				continue
 			}
-			fw.environ.SetConfig(config)
 			log.Printf("firewaller loaded new environment configuration")
 		case change, ok := <-fw.machinesWatcher.Changes():
 			if !ok {

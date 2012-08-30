@@ -110,9 +110,8 @@ func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	// verify we have no secret in the environ config
 	cfg, err := st.EnvironConfig()
 	c.Assert(err, IsNil)
-	attrs := cfg.AllAttrs()
-	_, ok := attrs["secret"]
-	c.Assert(ok, Equals, false)
+	c.Assert(cfg.UnknownAttrs()["secret"], IsNil)
+
 	conn, err := juju.NewConnFromAttrs(map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
@@ -127,10 +126,7 @@ func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	c.Assert(err, IsNil)
 	cfg, err = st.EnvironConfig()
 	c.Assert(err, IsNil)
-	attrs = cfg.AllAttrs()
-	secret, ok := attrs["secret"]
-	c.Assert(ok, Equals, true)
-	c.Assert(secret, Equals, "pork")
+	c.Assert(cfg.UnknownAttrs()["secret"], Equals, "pork")
 }
 
 func (*ConnSuite) TestValidRegexps(c *C) {

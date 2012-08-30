@@ -103,7 +103,7 @@ func (s *FirewallerSuite) TestExposedService(c *C) {
 
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	env, err := environs.NewFromAttrs(cfg.AllAttrs())
+	env, err := environs.New(cfg)
 	_, err = env.Instances([]string{inst.Id()})
 	c.Assert(err, IsNil)
 	c.Logf("got instance fine, id %q", inst.Id())

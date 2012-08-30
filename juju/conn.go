@@ -82,12 +82,11 @@ func (c *Conn) State() (*state.State, error) {
 // from the local configuration.
 func (c *Conn) updateSecrets() error {
 	cfg := c.Environ.Config()
-	// TODO(mue) Is this comment still ok?
 	// This is wrong. This will _always_ overwrite the secrets
 	// in the state with the local secrets. To fix this properly
 	// we need to ensure that the config, minus secrets, is always
 	// pushed on bootstrap, then we can fill in the secrets here.
-	return c.state.UpdateEnvironConfig(cfg)
+	return c.state.SetEnvironConfig(cfg)
 }
 
 // Close terminates the connection to the environment and releases
