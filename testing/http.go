@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"time"
 )
 
 type HTTPSuite struct{}
 
-var Server = NewHTTPServer("http://localhost:4444", 5*time.Second)
+var Server = NewHTTPServer(5 * time.Second)
 
 func (s *HTTPSuite) SetUpSuite(c *C) {
 	Server.Start()
@@ -38,8 +38,8 @@ type HTTPServer struct {
 	response chan ResponseFunc
 }
 
-func NewHTTPServer(url_ string, timeout time.Duration) *HTTPServer {
-	return &HTTPServer{URL: url_, Timeout: timeout}
+func NewHTTPServer(timeout time.Duration) *HTTPServer {
+	return &HTTPServer{Timeout: timeout}
 }
 
 type Response struct {
@@ -59,8 +59,13 @@ func (s *HTTPServer) Start() {
 	s.request = make(chan *http.Request, 64)
 	s.response = make(chan ResponseFunc, 64)
 
-	url_, _ := url.Parse(s.URL)
-	go http.ListenAndServe(url_.Host, s)
+	l, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		panic(err)
+	}
+	port := l.Addr().(*net.TCPAddr).Port
+	s.URL = fmt.Sprintf("http://localhost:%d", port)
+	go http.Serve(l, s)
 
 	s.Response(203, nil, nil)
 	for {

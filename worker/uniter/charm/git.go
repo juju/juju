@@ -122,7 +122,7 @@ func (d *GitDir) Revert() error {
 func (d *GitDir) Log() ([]string, error) {
 	cmd := exec.Command("git", "--no-pager", "log", "--oneline")
 	cmd.Dir = d.path
-	out, err := cmd.CombinedOutput()
+	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}
