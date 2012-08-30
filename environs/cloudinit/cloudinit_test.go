@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/state"
@@ -18,6 +19,21 @@ type cloudinitSuite struct{}
 
 var _ = Suite(cloudinitSuite{})
 
+var envConfig = mustNewConfig(map[string] interface{} {
+		"type": "ec2",
+		"name": "foo",
+		"default-series": "series",
+		"authorized-keys": "keys",
+	})
+
+func mustNewConfig(m map[string] interface{}) *config.Config {
+	cfg, err := config.New(m)
+	if err != nil {
+		panic(err)
+	}
+	return cfg
+}
+
 // Each test gives a cloudinit config - we check the
 // output to see if it looks correct.
 var cloudinitTests = []cloudinit.MachineConfig{
@@ -29,7 +45,7 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		AuthorizedKeys:     "sshkey1",
 		Tools:              newSimpleTools("1.2.3-linux-amd64"),
 		StateServer:        true,
-		Config:             map[string]interface{}{"name": "foo", "zookeeper": true},
+		Config:             envConfig,
 	},
 	{
 		MachineId:      99,
@@ -65,14 +81,15 @@ func (t *cloudinitTest) check(c *C) {
 	if t.cfg.StateServer {
 		// TODO(dfc) remove this after the switch to mstate
 		t.checkPackage(c, "zookeeperd")
-
 		t.checkPackage(c, "mongodb-server")
 		t.checkScripts(c, "jujud bootstrap-state")
-		t.checkEnvConfig(c)
 		t.checkScripts(c, regexp.QuoteMeta(t.cfg.InstanceIdAccessor))
 		t.checkScripts(c, "JUJU_ZOOKEEPER='localhost"+cloudinit.ZkPortSuffix+"'")
 	} else {
 		t.checkScripts(c, "JUJU_ZOOKEEPER='"+strings.Join(t.cfg.StateInfo.Addrs, ",")+"'")
+	}
+	if t.cfg.Config != nil {
+		t.checkEnvConfig(c)
 	}
 	t.checkPackage(c, "libzookeeper-mt2")
 	t.checkScripts(c, "JUJU_MACHINE_ID=[0-9]+")
@@ -96,20 +113,20 @@ func (t *cloudinitTest) checkEnvConfig(c *C) {
 		return
 	}
 	scripts := scripts0.([]interface{})
-	re := regexp.MustCompile(`--env-config '[\w,=]+'`)
+	re := regexp.MustCompile(`--env-config '([\w,=]+)'`)
 	found := false
 	for _, s0 := range scripts {
-		if s := re.FindString(s0.(string)); len(s) > 0 {
-			found = true
-			v := strings.Split(s, `'`)
-			c.Assert(len(v), Equals, 3)
-			buf, err := base64.StdEncoding.DecodeString(v[1])
-			c.Assert(err, IsNil)
-			actual := make(map[string]interface{})
-			err = goyaml.Unmarshal(buf, &actual)
-			c.Assert(err, IsNil)
-			c.Assert(t.cfg.Config, DeepEquals, actual)
+		m := re.FindStringSubmatch(s0.(string))
+		if m == nil {
+			continue
 		}
+		found = true
+		buf, err := base64.StdEncoding.DecodeString(m[1])
+		c.Assert(err, IsNil)
+		var actual map[string]interface{}
+		err = goyaml.Unmarshal(buf, &actual)
+		c.Assert(err, IsNil)
+		c.Assert(t.cfg.Config.AllAttrs(), DeepEquals, actual)
 	}
 	c.Assert(found, Equals, true)
 }
@@ -182,7 +199,7 @@ func CheckPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
 // in cloudinitTests is well formed.
 func (cloudinitSuite) TestCloudInit(c *C) {
 	for i, cfg := range cloudinitTests {
-		c.Logf("check %d", i)
+		c.Logf("test %d, config %v, envConfig %v", i, cfg.Config, envConfig)
 		ci, err := cloudinit.New(&cfg)
 		c.Assert(err, IsNil)
 		c.Check(ci, NotNil)
@@ -217,8 +234,10 @@ var verifyTests = []struct {
 	{"negative machine id", func(cfg *cloudinit.MachineConfig) { cfg.MachineId = -1 }},
 	{"missing provider type", func(cfg *cloudinit.MachineConfig) { cfg.ProviderType = "" }},
 	{"missing instance id accessor", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateServer = true
 		cfg.InstanceIdAccessor = ""
+	}},
+	{"missing environment configuration", func(cfg *cloudinit.MachineConfig) {
+		cfg.Config = nil
 	}},
 	{"missing zookeeper hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
@@ -250,6 +269,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		Tools:              newSimpleTools("9.9.9-linux-arble"),
 		AuthorizedKeys:     "sshkey1",
 		StateInfo:          &state.Info{Addrs: []string{"zkhost"}},
+		Config: envConfig,
 	}
 	// check that the base configuration does not give an error
 	_, err := cloudinit.New(cfg)

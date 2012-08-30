@@ -15,6 +15,8 @@ type Config struct {
 // Fields that are common to all environment providers are verified,
 // and authorized-keys-path is also translated into authorized-keys
 // by loading the content from respective file.
+//
+// The required keys are: "name", "type", "default-series" and "authorized-keys".
 func New(attrs map[string]interface{}) (*Config, error) {
 	m, err := checker.Coerce(attrs, nil)
 	if err != nil {
@@ -63,7 +65,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	return c, nil
 }
 
-// Type returns the enviornment type.
+// Type returns the environment type.
 func (c *Config) Type() string {
 	return c.m["type"].(string)
 }

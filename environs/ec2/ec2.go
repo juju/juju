@@ -123,25 +123,6 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, 
 	return m, nil
 }
 
-func (environProvider) publicAttrs(cfg *config.Config) (map[string]interface{}, error) {
-	m := make(map[string]interface{})
-	ecfg, err := providerInstance.newConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	for k, v := range ecfg.UnknownAttrs() {
-		m[k] = v
-	}
-	secret, err := providerInstance.SecretAttrs(cfg)
-	if err != nil {
-		return nil, err
-	}
-	for k, _ := range secret {
-		delete(m, k)
-	}
-	return m, nil
-}
-
 func (environProvider) PublicAddress() (string, error) {
 	return fetchMetadata("public-hostname")
 }
@@ -241,8 +222,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 			return fmt.Errorf("cannot upload tools: %v", err)
 		}
 	}
-
-	config, err := providerInstance.publicAttrs(e.Config())
+	config, err := environs.BootstrapConfig(providerInstance, e.Config(), tools)
 	if err != nil {
 		return fmt.Errorf("unable to determine inital configuration: %v", err)
 	}
@@ -311,7 +291,7 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.To
 	return e.startInstance(machineId, info, tools, false, nil)
 }
 
-func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, master bool, config map[string]interface{}) ([]byte, error) {
+func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, master bool, config *config.Config) ([]byte, error) {
 	cfg := &cloudinit.MachineConfig{
 		Provisioner:        master,
 		StateServer:        master,
@@ -333,7 +313,7 @@ func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, 
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself. If master is true, a bootstrap
 // instance will be started.
-func (e *environ) startInstance(machineId int, info *state.Info, tools *state.Tools, master bool, config map[string]interface{}) (environs.Instance, error) {
+func (e *environ) startInstance(machineId int, info *state.Info, tools *state.Tools, master bool, config *config.Config) (environs.Instance, error) {
 	if tools == nil {
 		var err error
 		tools, err = environs.FindTools(e, version.Current)
