@@ -189,6 +189,7 @@ func newState(name string, ops chan<- Operation) *environState {
 // that looks like a tools archive so Bootstrap can
 // find some tools and initialise the state correctly.
 func putFakeTools(s environs.StorageWriter) {
+	log.Printf("putting fake tools")
 	path := environs.ToolsStoragePath(version.Current)
 	toolsContents := "tools archive, honest guv"
 	err := s.Put(path, strings.NewReader(toolsContents), int64(len(toolsContents)))
@@ -362,11 +363,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 			return err
 		}
 	} else {
-		// Choose any tools compatible with the current major version
-		// by using a minor version with a stupidly high number.
-		vers := version.Current
-		vers.Minor = 1<<30
-		tools, err = environs.FindTools(e, vers)
+		tools, err = environs.FindTools(e, version.Current, true)
 		if err != nil {
 			return err
 		}

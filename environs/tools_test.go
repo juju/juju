@@ -384,6 +384,7 @@ type toolsSpec struct {
 
 var findToolsTests = []struct {
 	version        version.Number // version to assume is current for the test.
+	best bool
 	contents       []string       // names in private storage.
 	publicContents []string       // names in public storage.
 	expect         string         // the name we expect to find (if no error).
@@ -396,6 +397,7 @@ var findToolsTests = []struct {
 }, {
 	// major versions don't match.
 	version: version.MustParse("1.0.0"),
+	best: false,
 	contents: []string{
 		toolsStoragePath("0.0.9"),
 	},
@@ -403,6 +405,7 @@ var findToolsTests = []struct {
 }, {
 	// major versions don't match.
 	version: version.MustParse("1.0.0"),
+	best: false,
 	contents: []string{
 		toolsStoragePath("2.0.9"),
 	},
@@ -410,6 +413,7 @@ var findToolsTests = []struct {
 }, {
 	// fall back to public storage when nothing found in private.
 	version: version.MustParse("1.0.0"),
+	best: false,
 	contents: []string{
 		toolsStoragePath("0.0.9"),
 	},
@@ -420,6 +424,7 @@ var findToolsTests = []struct {
 }, {
 	// always use private storage in preference to public storage.
 	version: version.MustParse("1.9.0"),
+	best: false,
 	contents: []string{
 		toolsStoragePath("1.0.2"),
 	},
@@ -430,6 +435,7 @@ var findToolsTests = []struct {
 }, {
 	// we'll use an earlier version if the major version number matches.
 	version: version.MustParse("1.99.99"),
+	best: false,
 	contents: []string{
 		toolsStoragePath("1.0.0"),
 	},
@@ -437,6 +443,7 @@ var findToolsTests = []struct {
 }, {
 	// check that version comparing is numeric, not alphabetical.
 	version: version.MustParse("1.0.99"),
+	best: false,
 	contents: []string{
 		toolsStoragePath("1.0.9"),
 		toolsStoragePath("1.0.10"),
@@ -446,6 +453,7 @@ var findToolsTests = []struct {
 }, {
 	// minor version wins over patch version.
 	version: version.MustParse("1.99.99"),
+	best: false,
 	contents: []string{
 		toolsStoragePath("1.9.11"),
 		toolsStoragePath("1.10.10"),
@@ -453,8 +461,9 @@ var findToolsTests = []struct {
 	},
 	expect: toolsStoragePath("1.11.9"),
 }, {
-	// only earlier versions are chosen.
+	// only earlier versions are chosen if best is false.
 	version: version.MustParse("1.10.9"),
+	best: false,
 	contents: []string{
 		toolsStoragePath("1.9.10"),
 		toolsStoragePath("1.9.11"),
@@ -462,9 +471,21 @@ var findToolsTests = []struct {
 		toolsStoragePath("1.11.9"),
 	},
 	expect: toolsStoragePath("1.9.11"),
+},  {
+	// latest version is chosen if best is true.
+	version: version.MustParse("1.10.9"),
+	best: true,
+	contents: []string{
+		toolsStoragePath("1.9.10"),
+		toolsStoragePath("1.9.11"),
+		toolsStoragePath("1.10.10"),
+		toolsStoragePath("1.11.9"),
+	},
+	expect: toolsStoragePath("1.11.9"),
 }, {
 	// mismatching series or architecture is ignored.
 	version: version.MustParse("1.0.0"),
+	best: false,
 	contents: []string{
 		environs.ToolsStoragePath(version.Binary{
 			Number: version.MustParse("1.9.9"),
@@ -508,7 +529,7 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 			Series: version.Current.Series,
 			Arch:   version.Current.Arch,
 		}
-		tools, err := environs.FindTools(t.env, vers)
+		tools, err := environs.FindTools(t.env, vers, tt.best)
 		if tt.err != "" {
 			c.Assert(err, ErrorMatches, tt.err)
 		} else {

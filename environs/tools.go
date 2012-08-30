@@ -381,16 +381,24 @@ func AgentToolsDir(agentName string) string {
 
 // FindTools tries to find a set of tools compatible with the given
 // version from the given environment.  The latest version found with a
-// number <= vers.Number will be used.
+// number <= vers.Number will be used, unless best is true, in
+// which case the latest version with the same major version number
+// will be used.
 // 
 // If no tools are found and there's no other error, a NotFoundError is
 // returned.  If there's anything compatible in the environ's Storage,
 // it gets precedence over anything in its PublicStorage.
-func FindTools(env Environ, vers version.Binary) (*state.Tools, error) {
+func FindTools(env Environ, vers version.Binary, best bool) (*state.Tools, error) {
+	if best {
+		// Use a stupidly large minor version number
+		// so we'll get the highest compatible version available.
+		vers.Minor, vers.Patch = 1<<30, 0
+	}
 	toolsList, err := ListTools(env, vers.Major)
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("findTools got tools %v", toolsList)
 	tools := BestTools(toolsList, vers, false)
 	if tools == nil {
 		return tools, &NotFoundError{fmt.Errorf("no compatible tools found")}

@@ -221,6 +221,11 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		if err != nil {
 			return fmt.Errorf("cannot upload tools: %v", err)
 		}
+	} else {
+		tools, err = environs.FindTools(e, version.Current, true)
+		if err != nil {
+			return fmt.Errorf("cannot find tools: %v", err)
+		}
 	}
 	config, err := environs.BootstrapConfig(providerInstance, e.Config(), tools)
 	if err != nil {
@@ -316,7 +321,7 @@ func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, 
 func (e *environ) startInstance(machineId int, info *state.Info, tools *state.Tools, master bool, config *config.Config) (environs.Instance, error) {
 	if tools == nil {
 		var err error
-		tools, err = environs.FindTools(e, version.Current)
+		tools, err = environs.FindTools(e, version.Current, true)
 		if err != nil {
 			return nil, err
 		}
