@@ -55,7 +55,6 @@ func (s *HTTPServer) Start() {
 		return
 	}
 	s.started = true
-
 	s.request = make(chan *http.Request, 64)
 	s.response = make(chan ResponseFunc, 64)
 
