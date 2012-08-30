@@ -213,7 +213,7 @@ func Listen(c chan<- Operation) {
 	}
 }
 
-var checker = schema.FieldMap(
+var checker = schema.StrictFieldMap(
 	schema.Fields{
 		"zookeeper": schema.Bool(),
 		"broken":    schema.String(),
