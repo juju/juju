@@ -58,6 +58,13 @@ environments:
     only:
         type: dummy
 `, "only", `.*zookeeper: expected bool, got nothing`,
+	}, {`
+environments:
+    only:
+        type: dummy
+        zookeeper: false
+        unknown-value: causes-an-error
+`, "only", `.*unknown-value: expected nothing, got "causes-an-error"`,
 	},
 }
 
