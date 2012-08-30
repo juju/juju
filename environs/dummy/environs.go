@@ -363,7 +363,8 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 			return err
 		}
 	} else {
-		tools, err = environs.FindTools(e, version.Current, true)
+		flags := environs.HighestVersion|environs.CompatVersion
+		tools, err = environs.FindTools(e, version.Current, flags)
 		if err != nil {
 			return err
 		}

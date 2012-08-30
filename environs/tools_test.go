@@ -384,7 +384,7 @@ type toolsSpec struct {
 
 var findToolsTests = []struct {
 	version        version.Number // version to assume is current for the test.
-	best bool
+	flags environs.ToolsSearchFlags
 	contents       []string       // names in private storage.
 	publicContents []string       // names in public storage.
 	expect         string         // the name we expect to find (if no error).
@@ -392,39 +392,34 @@ var findToolsTests = []struct {
 }{{
 	// current version should be satisfied by current tools path.
 	version:  version.Current.Number,
+	flags: environs.CompatVersion,
 	contents: []string{environs.ToolsStoragePath(version.Current)},
 	expect:   environs.ToolsStoragePath(version.Current),
 }, {
-	// major versions don't match.
-	version: version.MustParse("1.0.0"),
-	best: false,
+	// highest version of tools is chosen.
+	version: version.MustParse("0.0.0"),
+	flags: environs.HighestVersion|environs.DevVersion|environs.CompatVersion,
 	contents: []string{
 		toolsStoragePath("0.0.9"),
+		toolsStoragePath("0.1.9"),
 	},
-	err: "no compatible tools found",
-}, {
-	// major versions don't match.
-	version: version.MustParse("1.0.0"),
-	best: false,
-	contents: []string{
-		toolsStoragePath("2.0.9"),
-	},
-	err: "no compatible tools found",
+	expect: toolsStoragePath("0.1.9"),
 }, {
 	// fall back to public storage when nothing found in private.
-	version: version.MustParse("1.0.0"),
-	best: false,
+	version: version.MustParse("1.0.2"),
+	flags: environs.DevVersion|environs.CompatVersion,
 	contents: []string{
 		toolsStoragePath("0.0.9"),
 	},
 	publicContents: []string{
 		toolsStoragePath("1.0.0"),
+		toolsStoragePath("1.0.1"),
 	},
-	expect: "public-" + toolsStoragePath("1.0.0"),
+	expect: "public-" + toolsStoragePath("1.0.1"),
 }, {
 	// always use private storage in preference to public storage.
 	version: version.MustParse("1.9.0"),
-	best: false,
+	flags: environs.DevVersion|environs.CompatVersion,
 	contents: []string{
 		toolsStoragePath("1.0.2"),
 	},
@@ -433,59 +428,9 @@ var findToolsTests = []struct {
 	},
 	expect: toolsStoragePath("1.0.2"),
 }, {
-	// we'll use an earlier version if the major version number matches.
-	version: version.MustParse("1.99.99"),
-	best: false,
-	contents: []string{
-		toolsStoragePath("1.0.0"),
-	},
-	expect: toolsStoragePath("1.0.0"),
-}, {
-	// check that version comparing is numeric, not alphabetical.
-	version: version.MustParse("1.0.99"),
-	best: false,
-	contents: []string{
-		toolsStoragePath("1.0.9"),
-		toolsStoragePath("1.0.10"),
-		toolsStoragePath("1.0.11"),
-	},
-	expect: toolsStoragePath("1.0.11"),
-}, {
-	// minor version wins over patch version.
-	version: version.MustParse("1.99.99"),
-	best: false,
-	contents: []string{
-		toolsStoragePath("1.9.11"),
-		toolsStoragePath("1.10.10"),
-		toolsStoragePath("1.11.9"),
-	},
-	expect: toolsStoragePath("1.11.9"),
-}, {
-	// only earlier versions are chosen if best is false.
-	version: version.MustParse("1.10.9"),
-	best: false,
-	contents: []string{
-		toolsStoragePath("1.9.10"),
-		toolsStoragePath("1.9.11"),
-		toolsStoragePath("1.10.10"),
-		toolsStoragePath("1.11.9"),
-	},
-	expect: toolsStoragePath("1.9.11"),
-},  {
-	// latest version is chosen if best is true.
-	version: version.MustParse("1.10.9"),
-	best: true,
-	contents: []string{
-		toolsStoragePath("1.9.10"),
-		toolsStoragePath("1.9.11"),
-		toolsStoragePath("1.10.10"),
-		toolsStoragePath("1.11.9"),
-	},
-	expect: toolsStoragePath("1.11.9"),
-}, {
 	// mismatching series or architecture is ignored.
 	version: version.MustParse("1.0.0"),
-	best: false,
+	flags: environs.CompatVersion,
 	contents: []string{
 		environs.ToolsStoragePath(version.Binary{
 			Number: version.MustParse("1.9.9"),
@@ -529,10 +474,11 @@ func (t *ToolsSuite) TestFindTools(c *C) {
 			Series: version.Current.Series,
 			Arch:   version.Current.Arch,
 		}
-		tools, err := environs.FindTools(t.env, vers, tt.best)
+		tools, err := environs.FindTools(t.env, vers, tt.flags)
 		if tt.err != "" {
 			c.Assert(err, ErrorMatches, tt.err)
 		} else {
+			c.Assert(err, IsNil)
 			assertURLContents(c, tools.URL, tt.expect)
 		}
 		t.env.Destroy(nil)
@@ -634,15 +580,53 @@ func (t *ToolsSuite) TestListTools(c *C) {
 var bestToolsTests = []struct {
 	list   *environs.ToolsList
 	vers   version.Binary
-	dev    bool
+	flags    environs.ToolsSearchFlags
 	expect *state.Tools
+	expectDev *state.Tools
+	expectHighest *state.Tools
+	expectDevHighest *state.Tools
 }{{
-	&environs.ToolsList{},
-	binaryVersion("1.2.3-precise-amd64"),
-	true,
-	nil,
+	// 0. Check that we don't get anything from an empty list.
+	list: &environs.ToolsList{},
+	vers: binaryVersion("1.2.3-precise-amd64"),
+	flags: environs.DevVersion|environs.CompatVersion,
+	expect: nil,
 }, {
-	&environs.ToolsList{
+	// 1. Check that we can choose the same development version.
+	list: &environs.ToolsList{
+		Private: []*state.Tools{
+			newTools("1.0.0-precise-amd64", ""),
+		},
+	},
+	vers: binaryVersion("1.0.0-precise-amd64"),
+	expect: newTools("1.0.0-precise-amd64", ""),
+	expectDev: newTools("1.0.0-precise-amd64", ""),
+	expectHighest: newTools("1.0.0-precise-amd64", ""),
+	expectDevHighest: newTools("1.0.0-precise-amd64", ""),
+}, {
+	// 2. Check that major versions need to match.
+	list: &environs.ToolsList{
+		Private: []*state.Tools{
+			newTools("2.0.0-precise-amd64", ""),
+			newTools("6.0.0-precise-amd64", ""),
+		},
+	},
+	vers: binaryVersion("4.0.0-precise-amd64"),
+}, {
+	// 3. Check that we can choose the same released version.
+	list: &environs.ToolsList{
+		Private: []*state.Tools{
+			newTools("2.0.0-precise-amd64", ""),
+		},
+	},
+	vers: binaryVersion("2.0.0-precise-amd64"),
+	expect: newTools("2.0.0-precise-amd64", ""),
+	expectDev: newTools("2.0.0-precise-amd64", ""),
+	expectHighest: newTools("2.0.0-precise-amd64", ""),
+	expectDevHighest: newTools("2.0.0-precise-amd64", ""),
+},  {
+	// 4. Check that different arch/series are ignored.
+	list: &environs.ToolsList{
 		Private: []*state.Tools{
 			newTools("1.2.3-precise-amd64", ""),
 			newTools("1.2.4-precise-amd64", ""),
@@ -652,29 +636,31 @@ var bestToolsTests = []struct {
 			newTools("2.2.3-precise-amd64", ""),
 		},
 	},
-	binaryVersion("1.9.4-precise-amd64"),
-	true,
-	newTools("1.3.4-precise-amd64", ""),
+	vers: binaryVersion("1.9.4-precise-amd64"),
+	expect: newTools("1.3.4-precise-amd64", ""),
+	expectDev: newTools("1.3.4-precise-amd64", ""),
+	expectHighest: newTools("1.3.4-precise-amd64", ""),
+	expectDevHighest: newTools("1.3.4-precise-amd64", ""),
 }, {
-	// Check that we can't upgrade to a dev version from
+	// 5. Check that we can't upgrade to a dev version from
 	// a release version if dev is false.
-	&environs.ToolsList{
+	list: &environs.ToolsList{
 		Private: []*state.Tools{
 			newTools("2.2.3-precise-amd64", ""),
 			newTools("2.2.4-precise-amd64", ""),
 			newTools("2.3.4-precise-amd64", ""),
-			newTools("2.4.4-precise-i386", ""),
-			newTools("2.4.5-quantal-i386", ""),
 			newTools("3.2.3-precise-amd64", ""),
 		},
 	},
-	binaryVersion("2.8.8-precise-amd64"),
-	false,
-	newTools("2.2.4-precise-amd64", ""),
+	vers: binaryVersion("2.8.8-precise-amd64"),
+	expect: newTools("2.2.4-precise-amd64", ""),
+	expectDev: newTools("2.3.4-precise-amd64", ""),
+	expectHighest: newTools("2.2.4-precise-amd64", ""),
+	expectDevHighest: newTools("2.3.4-precise-amd64", ""),
 }, {
-	// Check that we can upgrade to a release version from
+	// 6. Check that we can upgrade to a release version from
 	// a dev version if dev is false.
-	&environs.ToolsList{
+	list: &environs.ToolsList{
 		Private: []*state.Tools{
 			newTools("2.2.3-precise-amd64", ""),
 			newTools("2.2.4-precise-amd64", ""),
@@ -683,12 +669,14 @@ var bestToolsTests = []struct {
 			newTools("3.2.3-precise-amd64", ""),
 		},
 	},
-	binaryVersion("2.8.8-precise-amd64"),
-	false,
-	newTools("2.4.4-precise-amd64", ""),
+	vers: binaryVersion("2.8.8-precise-amd64"),
+	expect: newTools("2.4.4-precise-amd64", ""),
+	expectDev: newTools("2.4.4-precise-amd64", ""),
+	expectHighest: newTools("2.4.4-precise-amd64", ""),
+	expectDevHighest: newTools("2.4.4-precise-amd64", ""),
 }, {
-	// Check that a different major version works ok.
-	&environs.ToolsList{
+	// 7. Check that a different minor version works ok.
+	list: &environs.ToolsList{
 		Private: []*state.Tools{
 			newTools("1.2.3-precise-amd64", ""),
 			newTools("1.2.4-precise-amd64", ""),
@@ -698,54 +686,96 @@ var bestToolsTests = []struct {
 			newTools("2.2.3-precise-amd64", ""),
 		},
 	},
-	binaryVersion("2.8.8-precise-amd64"),
-	true,
-	newTools("2.2.3-precise-amd64", ""),
+	vers: binaryVersion("2.8.8-precise-amd64"),
+	expect: nil,
+	expectDev: newTools("2.2.3-precise-amd64", ""),
+	expectHighest: nil,
+	expectDevHighest: newTools("2.2.3-precise-amd64", ""),
 }, {
-	// Check that the private tools are chosen even though
+	// 8. Check that the private tools are chosen even though
 	// they have a lower version number.
-	&environs.ToolsList{
+	list: &environs.ToolsList{
 		Private: []*state.Tools{
-			newTools("1.2.3-precise-amd64", ""),
-		},
-		Public: []*state.Tools{
-			newTools("1.2.4-precise-amd64", ""),
-		},
-	},
-	binaryVersion("1.8.8-precise-amd64"),
-	true,
-	newTools("1.2.3-precise-amd64", ""),
-}, {
-	// Check that the public tools can be chosen when
-	// there are no private tools.
-	&environs.ToolsList{
-		Public: []*state.Tools{
-			newTools("1.2.4-precise-amd64", ""),
-		},
-	},
-	binaryVersion("1.8.9-precise-amd64"),
-	true,
-	newTools("1.2.4-precise-amd64", ""),
-}, {
-	// Check that we don't choose a version later
-	// than requested.
-	&environs.ToolsList{
-		Public: []*state.Tools{
 			newTools("1.2.2-precise-amd64", ""),
-			newTools("1.2.3-precise-amd64", ""),
-			newTools("1.3.4-precise-amd64", ""),
+		},
+		Public: []*state.Tools{
+			newTools("1.2.4-precise-amd64", ""),
 		},
 	},
-	binaryVersion("1.3.3-precise-amd64"),
-	true,
-	newTools("1.2.3-precise-amd64", ""),
+	vers: binaryVersion("1.8.8-precise-amd64"),
+	expect: newTools("1.2.2-precise-amd64", ""),
+	expectDev: newTools("1.2.2-precise-amd64", ""),
+	expectHighest: newTools("1.2.2-precise-amd64", ""),
+	expectDevHighest: newTools("1.2.2-precise-amd64", ""),
+}, {
+	// 9. Check that the public tools can be chosen when
+	// there are no private tools.
+	list: &environs.ToolsList{
+		Public: []*state.Tools{
+			newTools("1.2.4-precise-amd64", ""),
+		},
+	},
+	vers: binaryVersion("1.8.9-precise-amd64"),
+	expect: newTools("1.2.4-precise-amd64", ""),
+	expectDev: newTools("1.2.4-precise-amd64", ""),
+	expectHighest: newTools("1.2.4-precise-amd64", ""),
+	expectDevHighest: newTools("1.2.4-precise-amd64", ""),
+}, {
+	// 10. One test giving different values for all flag combinations.
+	list: &environs.ToolsList{
+		Public: []*state.Tools{
+			newTools("0.2.0-precise-amd64", ""),
+			newTools("0.2.1-precise-amd64", ""),
+			newTools("0.4.2-precise-amd64", ""),
+			newTools("0.4.3-precise-amd64", ""),
+		},
+	},
+	vers: binaryVersion("0.2.2-precise-amd64"),
+	expect: newTools("0.2.0-precise-amd64", ""),
+	expectDev: newTools("0.2.1-precise-amd64", ""),
+	expectHighest: newTools("0.4.2-precise-amd64", ""),
+	expectDevHighest: newTools("0.4.3-precise-amd64", ""),
+}, {
+	// 11. check that version comparing is numeric, not alphabetical.
+	list: &environs.ToolsList{
+		Public: []*state.Tools{
+			newTools("0.0.9-precise-amd64", ""),
+			newTools("0.0.10-precise-amd64", ""),
+			newTools("0.0.11-precise-amd64", ""),
+		},
+	},
+	vers: binaryVersion("0.0.98-precise-amd64"),
+	expect: newTools("0.0.10-precise-amd64", ""),
+	expectDev: newTools("0.0.11-precise-amd64", ""),
+	expectHighest: newTools("0.0.10-precise-amd64", ""),
+	expectDevHighest: newTools("0.0.11-precise-amd64", ""),
+}, {
+	// 12. check that minor version wins over patch version.
+	list: &environs.ToolsList{
+		Public: []*state.Tools{
+			newTools("0.9.11-precise-amd64", ""),
+			newTools("0.10.10-precise-amd64", ""),
+			newTools("0.11.9-precise-amd64", ""),
+		},
+	},
+	vers: binaryVersion("0.10.10-precise-amd64"),
+	expect: newTools("0.10.10-precise-amd64", ""),
+	expectDev: newTools("0.10.10-precise-amd64", ""),
+	expectHighest: newTools("0.10.10-precise-amd64", ""),
+	expectDevHighest: newTools("0.11.9-precise-amd64", ""),
 },
 }
 
 func (t *ToolsSuite) TestBestTools(c *C) {
 	for i, t := range bestToolsTests {
 		c.Logf("test %d", i)
-		tools := environs.BestTools(t.list, t.vers, t.dev)
+		tools := environs.BestTools(t.list, t.vers, environs.CompatVersion)
 		c.Assert(tools, DeepEquals, t.expect)
+		tools = environs.BestTools(t.list, t.vers, environs.DevVersion|environs.CompatVersion)
+		c.Assert(tools, DeepEquals, t.expectDev)
+		tools = environs.BestTools(t.list, t.vers, environs.HighestVersion|environs.CompatVersion)
+		c.Assert(tools, DeepEquals, t.expectHighest)
+		tools = environs.BestTools(t.list, t.vers, environs.DevVersion|environs.HighestVersion|environs.CompatVersion)
+		c.Assert(tools, DeepEquals, t.expectDevHighest)
 	}
 }
