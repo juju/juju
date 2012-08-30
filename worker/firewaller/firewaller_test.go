@@ -60,23 +60,42 @@ func (s *FirewallerSuite) TestStartStop(c *C) {
 	c.Assert(fw.Stop(), IsNil)
 }
 
-func (s *FirewallerSuite) TestNotExposedService(c *C) {
-	fw := firewaller.NewFirewaller(s.State)
-	defer func() { c.Assert(fw.Stop(), IsNil) }()
-
-	m, err := s.State.AddMachine()
+func (s *FirewallerSuite) addUnit(c *C, svc *state.Service) (*state.Unit, *state.Machine) {
+	units, err := s.Conn.AddUnits(svc, 1)
 	c.Assert(err, IsNil)
+	u := units[0]
+	id, err := u.AssignedMachineId()
+	c.Assert(err, IsNil)
+	m, err := s.State.Machine(id)
+	c.Assert(err, IsNil)
+	return u, m
+}
+
+// startInstance starts a new instance for the given machine.
+func (s *FirewallerSuite) startInstance(c *C, m *state.Machine) environs.Instance {
 	inst, err := s.Conn.Environ.StartInstance(m.Id(), s.StateInfo(c), nil)
 	c.Assert(err, IsNil)
 	err = m.SetInstanceId(inst.Id())
 	c.Assert(err, IsNil)
 
-	svc, err := s.State.AddService("wordpress", s.charm)
+	// Check that instance has actually been started
+	config, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	u, err := svc.AddUnit()
+	env, err := environs.NewFromAttrs(config.Map())
+	_, err = env.Instances([]string{inst.Id()})
 	c.Assert(err, IsNil)
-	err = u.AssignToMachine(m)
+	return inst
+}
+
+func (s *FirewallerSuite) TestNotExposedService(c *C) {
+	fw := firewaller.NewFirewaller(s.State)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
+
+	svc, err := s.Conn.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
+	u, m := s.addUnit(c, svc)
+	inst := s.startInstance(c, m)
+
 	err = u.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
 	err = u.OpenPort("tcp", 8080)
@@ -94,28 +113,14 @@ func (s *FirewallerSuite) TestExposedService(c *C) {
 	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
-	m, err := s.State.AddMachine()
-	c.Assert(err, IsNil)
-	inst, err := s.Conn.Environ.StartInstance(m.Id(), s.StateInfo(c), nil)
-	c.Assert(err, IsNil)
-	err = m.SetInstanceId(inst.Id())
+	svc, err := s.Conn.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 
-	config, err := s.State.EnvironConfig()
-	c.Assert(err, IsNil)
-	env, err := environs.NewFromAttrs(config.Map())
-	_, err = env.Instances([]string{inst.Id()})
-	c.Assert(err, IsNil)
-	c.Logf("got instance fine, id %q", inst.Id())
-
-	svc, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, IsNil)
 	err = svc.SetExposed()
 	c.Assert(err, IsNil)
-	u, err := svc.AddUnit()
-	c.Assert(err, IsNil)
-	err = u.AssignToMachine(m)
-	c.Assert(err, IsNil)
+	u, m := s.addUnit(c, svc)
+	inst := s.startInstance(c, m)
+
 	err = u.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
 	err = u.OpenPort("tcp", 8080)
@@ -129,39 +134,48 @@ func (s *FirewallerSuite) TestExposedService(c *C) {
 	assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 8080}})
 }
 
-func (s *FirewallerSuite) TestMultipleUnits(c *C) {
+func (s *FirewallerSuite) TestMachineWithoutInstanceId(c *C) {
 	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
-	m1, err := s.State.AddMachine()
+	svc, err := s.Conn.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
+	err = svc.SetExposed()
+	c.Assert(err, IsNil)
+	// add a unit but don't start its instance yet.
+	u1, m1 := s.addUnit(c, svc)
 
-	inst1, err := s.Conn.Environ.StartInstance(m1.Id(), s.StateInfo(c), nil)
+	// add another unit and start its instance, so that
+	// we're sure the firewaller has seen the first instance.
+	u2, m2 := s.addUnit(c, svc)
+	inst2 := s.startInstance(c, m2)
+	err = u2.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
-	err = m1.SetInstanceId(inst1.Id())
-	c.Assert(err, IsNil)
+	assertPorts(c, inst2, m2.Id(), []state.Port{{"tcp", 80}})
 
-	m2, err := s.State.AddMachine()
+
+	inst1 := s.startInstance(c, m1)
+	err = u1.OpenPort("tcp", 8080)
 	c.Assert(err, IsNil)
-	inst2, err := s.Conn.Environ.StartInstance(m2.Id(), s.StateInfo(c), nil)
-	c.Assert(err, IsNil)
-	err = m2.SetInstanceId(inst2.Id())
-	c.Assert(err, IsNil)
+	assertPorts(c, inst1, m1.Id(), []state.Port{{"tcp", 8080}})
+}
+
+func (s *FirewallerSuite) TestMultipleUnits(c *C) {
+	fw := firewaller.NewFirewaller(s.State)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
 	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 	err = svc.SetExposed()
 	c.Assert(err, IsNil)
-	u1, err := svc.AddUnit()
-	c.Assert(err, IsNil)
-	err = u1.AssignToMachine(m1)
-	c.Assert(err, IsNil)
+
+	u1, m1 := s.addUnit(c, svc)
+	inst1 := s.startInstance(c, m1)
 	err = u1.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
-	u2, err := svc.AddUnit()
-	c.Assert(err, IsNil)
-	err = u2.AssignToMachine(m2)
-	c.Assert(err, IsNil)
+
+	u2, m2 := s.addUnit(c, svc)
+	inst2 := s.startInstance(c, m2)
 	err = u2.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
 
@@ -178,21 +192,13 @@ func (s *FirewallerSuite) TestMultipleUnits(c *C) {
 }
 
 func (s *FirewallerSuite) TestFirewallerStartWithState(c *C) {
-	m, err := s.State.AddMachine()
-	c.Assert(err, IsNil)
-	inst, err := s.Conn.Environ.StartInstance(m.Id(), s.StateInfo(c), nil)
-	c.Assert(err, IsNil)
-	err = m.SetInstanceId(inst.Id())
-	c.Assert(err, IsNil)
-
 	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 	err = svc.SetExposed()
 	c.Assert(err, IsNil)
-	u, err := svc.AddUnit()
-	c.Assert(err, IsNil)
-	err = u.AssignToMachine(m)
-	c.Assert(err, IsNil)
+	u, m := s.addUnit(c, svc)
+	inst := s.startInstance(c, m)
+
 	err = u.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
 	err = u.OpenPort("tcp", 8080)
@@ -206,6 +212,9 @@ func (s *FirewallerSuite) TestFirewallerStartWithState(c *C) {
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
 	assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}, {"tcp", 8080}})
+
+	err = svc.SetExposed()
+	c.Assert(err, IsNil)
 }
 
 func (s *FirewallerSuite) TestFirewallerStartWithPartialState(c *C) {
@@ -242,18 +251,11 @@ func (s *FirewallerSuite) TestSetClearExposedService(c *C) {
 	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
-	m, err := s.State.AddMachine()
-	c.Assert(err, IsNil)
-	inst, err := s.Conn.Environ.StartInstance(m.Id(), s.StateInfo(c), nil)
-	c.Assert(err, IsNil)
-	err = m.SetInstanceId(inst.Id())
-	c.Assert(err, IsNil)
 	svc, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
-	u, err := svc.AddUnit()
-	c.Assert(err, IsNil)
-	err = u.AssignToMachine(m)
-	c.Assert(err, IsNil)
+
+	u, m := s.addUnit(c, svc)
+	inst := s.startInstance(c, m)
 	err = u.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
 	err = u.OpenPort("tcp", 8080)
