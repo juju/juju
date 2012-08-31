@@ -4,9 +4,9 @@ import (
 	"encoding/base64"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 	"regexp"
@@ -19,14 +19,14 @@ type cloudinitSuite struct{}
 
 var _ = Suite(cloudinitSuite{})
 
-var envConfig = mustNewConfig(map[string] interface{} {
-		"type": "ec2",
-		"name": "foo",
-		"default-series": "series",
-		"authorized-keys": "keys",
-	})
+var envConfig = mustNewConfig(map[string]interface{}{
+	"type":            "ec2",
+	"name":            "foo",
+	"default-series":  "series",
+	"authorized-keys": "keys",
+})
 
-func mustNewConfig(m map[string] interface{}) *config.Config {
+func mustNewConfig(m map[string]interface{}) *config.Config {
 	cfg, err := config.New(m)
 	if err != nil {
 		panic(err)
@@ -269,7 +269,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		Tools:              newSimpleTools("9.9.9-linux-arble"),
 		AuthorizedKeys:     "sshkey1",
 		StateInfo:          &state.Info{Addrs: []string{"zkhost"}},
-		Config: envConfig,
+		Config:             envConfig,
 	}
 	// check that the base configuration does not give an error
 	_, err := cloudinit.New(cfg)

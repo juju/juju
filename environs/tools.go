@@ -384,10 +384,11 @@ func AgentToolsDir(agentName string) string {
 // ToolsSearchFlags gives options when searching
 // for tools.
 type ToolsSearchFlags int
+
 const (
 	// HighestVersion specifies that the highest (minor, patch) version number should
 	// be chosen. The default is to choose a version no higher than specified.
-	HighestVersion ToolsSearchFlags = 1<<iota
+	HighestVersion ToolsSearchFlags = 1 << iota
 
 	// DevVersion specifies "dev mode" - it allows a development version to
 	// be chosen even when the specified version is not a development

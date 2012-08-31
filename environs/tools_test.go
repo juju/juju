@@ -384,21 +384,21 @@ type toolsSpec struct {
 
 var findToolsTests = []struct {
 	version        version.Number // version to assume is current for the test.
-	flags environs.ToolsSearchFlags
-	contents       []string       // names in private storage.
-	publicContents []string       // names in public storage.
-	expect         string         // the name we expect to find (if no error).
-	err            string         // the error we expect to find (if not blank).
+	flags          environs.ToolsSearchFlags
+	contents       []string // names in private storage.
+	publicContents []string // names in public storage.
+	expect         string   // the name we expect to find (if no error).
+	err            string   // the error we expect to find (if not blank).
 }{{
 	// current version should be satisfied by current tools path.
 	version:  version.Current.Number,
-	flags: environs.CompatVersion,
+	flags:    environs.CompatVersion,
 	contents: []string{environs.ToolsStoragePath(version.Current)},
 	expect:   environs.ToolsStoragePath(version.Current),
 }, {
 	// highest version of tools is chosen.
 	version: version.MustParse("0.0.0"),
-	flags: environs.HighestVersion|environs.DevVersion|environs.CompatVersion,
+	flags:   environs.HighestVersion | environs.DevVersion | environs.CompatVersion,
 	contents: []string{
 		toolsStoragePath("0.0.9"),
 		toolsStoragePath("0.1.9"),
@@ -407,7 +407,7 @@ var findToolsTests = []struct {
 }, {
 	// fall back to public storage when nothing found in private.
 	version: version.MustParse("1.0.2"),
-	flags: environs.DevVersion|environs.CompatVersion,
+	flags:   environs.DevVersion | environs.CompatVersion,
 	contents: []string{
 		toolsStoragePath("0.0.9"),
 	},
@@ -419,7 +419,7 @@ var findToolsTests = []struct {
 }, {
 	// always use private storage in preference to public storage.
 	version: version.MustParse("1.9.0"),
-	flags: environs.DevVersion|environs.CompatVersion,
+	flags:   environs.DevVersion | environs.CompatVersion,
 	contents: []string{
 		toolsStoragePath("1.0.2"),
 	},
@@ -430,7 +430,7 @@ var findToolsTests = []struct {
 }, {
 	// mismatching series or architecture is ignored.
 	version: version.MustParse("1.0.0"),
-	flags: environs.CompatVersion,
+	flags:   environs.CompatVersion,
 	contents: []string{
 		environs.ToolsStoragePath(version.Binary{
 			Number: version.MustParse("1.9.9"),
@@ -578,18 +578,18 @@ func (t *ToolsSuite) TestListTools(c *C) {
 }
 
 var bestToolsTests = []struct {
-	list   *environs.ToolsList
-	vers   version.Binary
-	flags    environs.ToolsSearchFlags
-	expect *state.Tools
-	expectDev *state.Tools
-	expectHighest *state.Tools
+	list             *environs.ToolsList
+	vers             version.Binary
+	flags            environs.ToolsSearchFlags
+	expect           *state.Tools
+	expectDev        *state.Tools
+	expectHighest    *state.Tools
 	expectDevHighest *state.Tools
 }{{
 	// 0. Check that we don't get anything from an empty list.
-	list: &environs.ToolsList{},
-	vers: binaryVersion("1.2.3-precise-amd64"),
-	flags: environs.DevVersion|environs.CompatVersion,
+	list:   &environs.ToolsList{},
+	vers:   binaryVersion("1.2.3-precise-amd64"),
+	flags:  environs.DevVersion | environs.CompatVersion,
 	expect: nil,
 }, {
 	// 1. Check that we can choose the same development version.
@@ -598,10 +598,10 @@ var bestToolsTests = []struct {
 			newTools("1.0.0-precise-amd64", ""),
 		},
 	},
-	vers: binaryVersion("1.0.0-precise-amd64"),
-	expect: newTools("1.0.0-precise-amd64", ""),
-	expectDev: newTools("1.0.0-precise-amd64", ""),
-	expectHighest: newTools("1.0.0-precise-amd64", ""),
+	vers:             binaryVersion("1.0.0-precise-amd64"),
+	expect:           newTools("1.0.0-precise-amd64", ""),
+	expectDev:        newTools("1.0.0-precise-amd64", ""),
+	expectHighest:    newTools("1.0.0-precise-amd64", ""),
 	expectDevHighest: newTools("1.0.0-precise-amd64", ""),
 }, {
 	// 2. Check that major versions need to match.
@@ -619,12 +619,12 @@ var bestToolsTests = []struct {
 			newTools("2.0.0-precise-amd64", ""),
 		},
 	},
-	vers: binaryVersion("2.0.0-precise-amd64"),
-	expect: newTools("2.0.0-precise-amd64", ""),
-	expectDev: newTools("2.0.0-precise-amd64", ""),
-	expectHighest: newTools("2.0.0-precise-amd64", ""),
+	vers:             binaryVersion("2.0.0-precise-amd64"),
+	expect:           newTools("2.0.0-precise-amd64", ""),
+	expectDev:        newTools("2.0.0-precise-amd64", ""),
+	expectHighest:    newTools("2.0.0-precise-amd64", ""),
 	expectDevHighest: newTools("2.0.0-precise-amd64", ""),
-},  {
+}, {
 	// 4. Check that different arch/series are ignored.
 	list: &environs.ToolsList{
 		Private: []*state.Tools{
@@ -636,10 +636,10 @@ var bestToolsTests = []struct {
 			newTools("2.2.3-precise-amd64", ""),
 		},
 	},
-	vers: binaryVersion("1.9.4-precise-amd64"),
-	expect: newTools("1.3.4-precise-amd64", ""),
-	expectDev: newTools("1.3.4-precise-amd64", ""),
-	expectHighest: newTools("1.3.4-precise-amd64", ""),
+	vers:             binaryVersion("1.9.4-precise-amd64"),
+	expect:           newTools("1.3.4-precise-amd64", ""),
+	expectDev:        newTools("1.3.4-precise-amd64", ""),
+	expectHighest:    newTools("1.3.4-precise-amd64", ""),
 	expectDevHighest: newTools("1.3.4-precise-amd64", ""),
 }, {
 	// 5. Check that we can't upgrade to a dev version from
@@ -652,10 +652,10 @@ var bestToolsTests = []struct {
 			newTools("3.2.3-precise-amd64", ""),
 		},
 	},
-	vers: binaryVersion("2.8.8-precise-amd64"),
-	expect: newTools("2.2.4-precise-amd64", ""),
-	expectDev: newTools("2.3.4-precise-amd64", ""),
-	expectHighest: newTools("2.2.4-precise-amd64", ""),
+	vers:             binaryVersion("2.8.8-precise-amd64"),
+	expect:           newTools("2.2.4-precise-amd64", ""),
+	expectDev:        newTools("2.3.4-precise-amd64", ""),
+	expectHighest:    newTools("2.2.4-precise-amd64", ""),
 	expectDevHighest: newTools("2.3.4-precise-amd64", ""),
 }, {
 	// 6. Check that we can upgrade to a release version from
@@ -669,10 +669,10 @@ var bestToolsTests = []struct {
 			newTools("3.2.3-precise-amd64", ""),
 		},
 	},
-	vers: binaryVersion("2.8.8-precise-amd64"),
-	expect: newTools("2.4.4-precise-amd64", ""),
-	expectDev: newTools("2.4.4-precise-amd64", ""),
-	expectHighest: newTools("2.4.4-precise-amd64", ""),
+	vers:             binaryVersion("2.8.8-precise-amd64"),
+	expect:           newTools("2.4.4-precise-amd64", ""),
+	expectDev:        newTools("2.4.4-precise-amd64", ""),
+	expectHighest:    newTools("2.4.4-precise-amd64", ""),
 	expectDevHighest: newTools("2.4.4-precise-amd64", ""),
 }, {
 	// 7. Check that a different minor version works ok.
@@ -686,10 +686,10 @@ var bestToolsTests = []struct {
 			newTools("2.2.3-precise-amd64", ""),
 		},
 	},
-	vers: binaryVersion("2.8.8-precise-amd64"),
-	expect: nil,
-	expectDev: newTools("2.2.3-precise-amd64", ""),
-	expectHighest: nil,
+	vers:             binaryVersion("2.8.8-precise-amd64"),
+	expect:           nil,
+	expectDev:        newTools("2.2.3-precise-amd64", ""),
+	expectHighest:    nil,
 	expectDevHighest: newTools("2.2.3-precise-amd64", ""),
 }, {
 	// 8. Check that the private tools are chosen even though
@@ -702,10 +702,10 @@ var bestToolsTests = []struct {
 			newTools("1.2.4-precise-amd64", ""),
 		},
 	},
-	vers: binaryVersion("1.8.8-precise-amd64"),
-	expect: newTools("1.2.2-precise-amd64", ""),
-	expectDev: newTools("1.2.2-precise-amd64", ""),
-	expectHighest: newTools("1.2.2-precise-amd64", ""),
+	vers:             binaryVersion("1.8.8-precise-amd64"),
+	expect:           newTools("1.2.2-precise-amd64", ""),
+	expectDev:        newTools("1.2.2-precise-amd64", ""),
+	expectHighest:    newTools("1.2.2-precise-amd64", ""),
 	expectDevHighest: newTools("1.2.2-precise-amd64", ""),
 }, {
 	// 9. Check that the public tools can be chosen when
@@ -715,10 +715,10 @@ var bestToolsTests = []struct {
 			newTools("1.2.4-precise-amd64", ""),
 		},
 	},
-	vers: binaryVersion("1.8.9-precise-amd64"),
-	expect: newTools("1.2.4-precise-amd64", ""),
-	expectDev: newTools("1.2.4-precise-amd64", ""),
-	expectHighest: newTools("1.2.4-precise-amd64", ""),
+	vers:             binaryVersion("1.8.9-precise-amd64"),
+	expect:           newTools("1.2.4-precise-amd64", ""),
+	expectDev:        newTools("1.2.4-precise-amd64", ""),
+	expectHighest:    newTools("1.2.4-precise-amd64", ""),
 	expectDevHighest: newTools("1.2.4-precise-amd64", ""),
 }, {
 	// 10. One test giving different values for all flag combinations.
@@ -730,10 +730,10 @@ var bestToolsTests = []struct {
 			newTools("0.4.3-precise-amd64", ""),
 		},
 	},
-	vers: binaryVersion("0.2.2-precise-amd64"),
-	expect: newTools("0.2.0-precise-amd64", ""),
-	expectDev: newTools("0.2.1-precise-amd64", ""),
-	expectHighest: newTools("0.4.2-precise-amd64", ""),
+	vers:             binaryVersion("0.2.2-precise-amd64"),
+	expect:           newTools("0.2.0-precise-amd64", ""),
+	expectDev:        newTools("0.2.1-precise-amd64", ""),
+	expectHighest:    newTools("0.4.2-precise-amd64", ""),
 	expectDevHighest: newTools("0.4.3-precise-amd64", ""),
 }, {
 	// 11. check that version comparing is numeric, not alphabetical.
@@ -744,10 +744,10 @@ var bestToolsTests = []struct {
 			newTools("0.0.11-precise-amd64", ""),
 		},
 	},
-	vers: binaryVersion("0.0.98-precise-amd64"),
-	expect: newTools("0.0.10-precise-amd64", ""),
-	expectDev: newTools("0.0.11-precise-amd64", ""),
-	expectHighest: newTools("0.0.10-precise-amd64", ""),
+	vers:             binaryVersion("0.0.98-precise-amd64"),
+	expect:           newTools("0.0.10-precise-amd64", ""),
+	expectDev:        newTools("0.0.11-precise-amd64", ""),
+	expectHighest:    newTools("0.0.10-precise-amd64", ""),
 	expectDevHighest: newTools("0.0.11-precise-amd64", ""),
 }, {
 	// 12. check that minor version wins over patch version.
@@ -758,10 +758,10 @@ var bestToolsTests = []struct {
 			newTools("0.11.9-precise-amd64", ""),
 		},
 	},
-	vers: binaryVersion("0.10.10-precise-amd64"),
-	expect: newTools("0.10.10-precise-amd64", ""),
-	expectDev: newTools("0.10.10-precise-amd64", ""),
-	expectHighest: newTools("0.10.10-precise-amd64", ""),
+	vers:             binaryVersion("0.10.10-precise-amd64"),
+	expect:           newTools("0.10.10-precise-amd64", ""),
+	expectDev:        newTools("0.10.10-precise-amd64", ""),
+	expectHighest:    newTools("0.10.10-precise-amd64", ""),
 	expectDevHighest: newTools("0.11.9-precise-amd64", ""),
 },
 }
