@@ -168,6 +168,12 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	m, err := st.Machine(0)
 	c.Assert(err, IsNil)
 
+	// Check that the agent version has made it through the
+	// bootstrap process (it's optional in the config.Config)
+	cfg, err := st.EnvironConfig()
+	c.Assert(err, IsNil)
+	c.Check(cfg.AgentVersion(), Equals, version.Current.Number)
+
 	t.checkUpgradeMachineAgent(c, m)
 
 	// place a new machine into the state
