@@ -224,7 +224,10 @@ func (t *LiveTests) checkUpgradeMachineAgent(c *C, st *state.State, m *state.Mac
 	}
 	tools, err := m.AgentTools()
 	c.Assert(err, IsNil)
-	c.Assert(tools, DeepEquals, upgradeTools)
+	// N.B. We can't test that the URL is the same because there's
+	// no guarantee that it is, even though it might be referring to
+	// the same thing.
+	c.Assert(tools.Binary, DeepEquals, upgradeTools.Binary)
 	c.Logf("upgrade successful!")
 }
 
