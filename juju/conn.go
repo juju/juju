@@ -81,11 +81,24 @@ func (c *Conn) State() (*state.State, error) {
 // updateSecrets updates the sensitive parts of the environment 
 // from the local configuration.
 func (c *Conn) updateSecrets() error {
-	cfg := c.Environ.Config()
-	// This is wrong. This will _always_ overwrite the secrets
-	// in the state with the local secrets. To fix this properly
-	// we need to ensure that the config, minus secrets, is always
-	// pushed on bootstrap, then we can fill in the secrets here.
+	secrets, err := c.Environ.Provider().SecretAttrs(c.Environ.Config())
+	if err != nil {
+		return err
+	}
+	cfg, err := c.state.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	attrs := cfg.AllAttrs()
+	for k := range secrets {
+		if _, exists := attrs[k]; exists {
+			delete(secrets, k)
+		}
+	}
+	cfg, err = cfg.Apply(secrets)
+	if err != nil {
+		return err
+	}
 	return c.state.SetEnvironConfig(cfg)
 }
 
