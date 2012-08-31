@@ -27,7 +27,7 @@ func (s *suite) TestStop(c *C) {
 	done := make(chan error)
 	go func() {
 		env, err := worker.WaitForEnviron(w, stop)
-		c.Assert(env, IsNil)
+		c.Check(env, IsNil)
 		done <- err
 	}()
 	close(stop)
@@ -51,7 +51,7 @@ func (s *suite) TestInvalidConfig(c *C) {
 	done := make(chan environs.Environ)
 	go func() {
 		env, err := worker.WaitForEnviron(w, nil)
-		c.Assert(err, IsNil)
+		c.Check(err, IsNil)
 		done <- env
 	}()
 	// Wait for the loop to process the invalid configuratrion
@@ -67,5 +67,6 @@ func (s *suite) TestInvalidConfig(c *C) {
 	c.Assert(err, IsNil)
 
 	env := <-done
+	c.Assert(env, NotNil)
 	c.Assert(env.Config().AllAttrs()["secret"], Equals, "environ_test")
 }

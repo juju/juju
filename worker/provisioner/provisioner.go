@@ -66,7 +66,7 @@ func (p *Provisioner) loop() error {
 	for {
 		select {
 		case <-p.tomb.Dying():
-			return nil
+			return tomb.ErrDying
 		case change, ok := <-environWatcher.Changes():
 			if !ok {
 				return watcher.MustErr(environWatcher)

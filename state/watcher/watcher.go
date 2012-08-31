@@ -11,8 +11,8 @@ type Stopper interface {
 	Stop() error
 }
 
-// Errorer is implemented by all watchers.
-type Errorer interface {
+// Errer is implemented by all watchers.
+type Errer interface {
 	Err() error
 }
 
@@ -26,7 +26,7 @@ func Stop(w Stopper, t *tomb.Tomb) {
 
 // MustErr returns the error with which w died.
 // Calling it will panic if w is still running or was stopped cleanly.
-func MustErr(w Errorer) error {
+func MustErr(w Errer) error {
 	err := w.Err()
 	if err == nil {
 		panic("watcher was stopped cleanly")

@@ -4,6 +4,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 )
 
@@ -11,22 +12,21 @@ var loadedInvalid = func() {}
 
 // WaitForEnviron waits for an valid environment to arrive from
 // the given watcher. It terminates with tomb.ErrDying if
-// it receives a value on stopped.
-func WaitForEnviron(w *state.EnvironConfigWatcher, stop <-chan struct{}) (environs.Environ, error) {
+// it receives a value on dying.
+func WaitForEnviron(w *state.EnvironConfigWatcher, dying <-chan struct{}) (environs.Environ, error) {
 	for {
 		select {
-		case <-stop:
+		case <-dying:
 			return nil, tomb.ErrDying
 		case config, ok := <-w.Changes():
 			if !ok {
-				return nil, w.Err()
+				return nil, watcher.MustErr(w)
 			}
-			var err error
 			environ, err := environs.New(config)
 			if err == nil {
 				return environ, nil
 			}
-			log.Printf("firewaller loaded invalid environment configuration: %v", err)
+			log.Printf("loaded invalid environment configuration: %v", err)
 			loadedInvalid()
 		}
 	}
