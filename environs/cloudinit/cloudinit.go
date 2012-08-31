@@ -6,6 +6,7 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/upstart"
@@ -56,9 +57,8 @@ type MachineConfig struct {
 	// commands cannot work.
 	AuthorizedKeys string
 
-	// Config is map that is provided to juju bootstrap-state's --env-config
-	// option for initializing the environment configuration.
-	Config map[string]interface{}
+	// Config holds the initial environment configuration.
+	Config *config.Config
 }
 
 type requiresError string
@@ -73,8 +73,8 @@ func addScripts(c *cloudinit.Config, scripts ...string) {
 	}
 }
 
-func base64yaml(m map[string]interface{}) string {
-	data, err := goyaml.Marshal(m)
+func base64yaml(m *config.Config) string {
+	data, err := goyaml.Marshal(m.AllAttrs())
 	if err != nil {
 		// can't happen, these values have been validated a number of times
 		panic(err)
@@ -222,6 +222,9 @@ func verifyConfig(cfg *MachineConfig) error {
 	if cfg.StateServer {
 		if cfg.InstanceIdAccessor == "" {
 			return requiresError("instance id accessor")
+		}
+		if cfg.Config == nil {
+			return requiresError("environment configuration")
 		}
 	} else {
 		if cfg.StateInfo == nil || len(cfg.StateInfo.Addrs) == 0 {
