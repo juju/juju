@@ -92,7 +92,7 @@ func (*ConnSuite) TestNewConnFromAttrs(c *C) {
 	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
 }
 
-func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
+func (*ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	env, err := environs.NewFromAttrs(map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
@@ -125,6 +125,25 @@ func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	st, err = conn.State()
 	c.Assert(err, IsNil)
 	cfg, err = st.EnvironConfig()
+	c.Assert(err, IsNil)
+	c.Assert(cfg.UnknownAttrs()["secret"], Equals, "pork")
+}
+
+func (cs *ConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
+	cs.TestConnStateSecretsSideEffect(c)
+	conn, err := juju.NewConnFromAttrs(map[string]interface{}{
+		"name":            "erewhemos",
+		"type":            "dummy",
+		"zookeeper":       true,
+		"authorized-keys": "i-am-a-key",
+		"secret":          "squirrel",
+	})
+	c.Assert(err, IsNil)
+	defer conn.Close()
+	st, err := conn.State()
+	c.Assert(err, IsNil)
+	// check that the secret has not changed
+	cfg, err := st.EnvironConfig()
 	c.Assert(err, IsNil)
 	c.Assert(cfg.UnknownAttrs()["secret"], Equals, "pork")
 }
