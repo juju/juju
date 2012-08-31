@@ -168,6 +168,21 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 	}
 }
 
+func (s *StateSuite) SetAgentVersion(c *C) {
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	vers := cfg.AgentVersion()
+	vers.Patch++
+
+	err = s.State.SetAgentVersion(vers)
+	c.Assert(err, IsNil)
+
+	cfg, err = s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+
+	c.Assert(cfg.AgentVersion(), Equals, vers)
+}
+
 func (s *StateSuite) TestAddCharm(c *C) {
 	// Check that adding charms from scratch works correctly.
 	ch := coretesting.Charms.Dir("dummy")

@@ -285,8 +285,8 @@ func unitNames(units []*state.Unit) (s []string) {
 }
 
 type machineInfo struct {
-	tools         *state.Tools
-	instanceId    string
+	tools      *state.Tools
+	instanceId string
 }
 
 func tools(tools int, url string) *state.Tools {
@@ -309,7 +309,7 @@ var watchMachineTests = []struct {
 			return nil
 		},
 		machineInfo{
-			tools:         &state.Tools{},
+			tools: &state.Tools{},
 		},
 	},
 	{
@@ -317,8 +317,8 @@ var watchMachineTests = []struct {
 			return m.SetInstanceId("m-foo")
 		},
 		machineInfo{
-			tools:         &state.Tools{},
-			instanceId:    "m-foo",
+			tools:      &state.Tools{},
+			instanceId: "m-foo",
 		},
 	},
 	{
@@ -326,8 +326,8 @@ var watchMachineTests = []struct {
 			return m.SetInstanceId("")
 		},
 		machineInfo{
-			tools:         &state.Tools{},
-			instanceId:    "",
+			tools:      &state.Tools{},
+			instanceId: "",
 		},
 	},
 	{
@@ -335,7 +335,7 @@ var watchMachineTests = []struct {
 			return m.SetAgentTools(tools(3, "baz"))
 		},
 		machineInfo{
-			tools:         tools(3, "baz"),
+			tools: tools(3, "baz"),
 		},
 	},
 	{
@@ -343,7 +343,7 @@ var watchMachineTests = []struct {
 			return m.SetAgentTools(tools(4, "khroomph"))
 		},
 		machineInfo{
-			tools:         tools(4, "khroomph"),
+			tools: tools(4, "khroomph"),
 		},
 	},
 }

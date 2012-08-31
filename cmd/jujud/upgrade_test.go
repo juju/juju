@@ -6,12 +6,12 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/tomb"
-	"net"
 	"net/http"
 	"path/filepath"
 	"time"
@@ -32,19 +32,18 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 
 func (s *upgraderSuite) TearDownTest(c *C) {
 	environs.VarDir = s.oldVarDir
+	invalidVersion = func() {}
+	sameVersion = func() {}
 	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *upgraderSuite) TestUpgraderError(c *C) {
 	st, err := state.Open(s.StateInfo(c))
 	c.Assert(err, IsNil)
-	m, err := st.AddMachine()
-	c.Assert(err, IsNil)
-	_, as, upgraderDone := startUpgrader(m)
+	_, as, upgraderDone := startUpgrader(st)
 	// We have no installed tools, so the logic should set the agent
 	// tools anyway, but with no URL.
 	assertEvent(c, as.event, fmt.Sprintf("SetAgentTools %s ", version.Current))
-	assertEvent(c, as.event, "WatchProposedTools")
 
 	// Close the state under the watcher and check that the upgrader dies.
 	st.Close()
@@ -58,13 +57,10 @@ func (s *upgraderSuite) TestUpgraderError(c *C) {
 }
 
 func (s *upgraderSuite) TestUpgraderStop(c *C) {
-	m, err := s.State.AddMachine()
-	c.Assert(err, IsNil)
-	u, as, upgraderDone := startUpgrader(m)
+	u, as, upgraderDone := startUpgrader(s.State)
 	assertEvent(c, as.event, fmt.Sprintf("SetAgentTools %s ", version.Current))
-	assertEvent(c, as.event, "WatchProposedTools")
 
-	err = u.Stop()
+	err := u.Stop()
 	c.Assert(err, IsNil)
 
 	select {
@@ -77,9 +73,9 @@ func (s *upgraderSuite) TestUpgraderStop(c *C) {
 
 // startUpgrader starts the upgrader using the given machine
 // for observing and changing agent tools.
-func startUpgrader(m *state.Machine) (u *Upgrader, as *testAgentState, upgraderDone <-chan error) {
-	as = newTestAgentState(m)
-	u = NewUpgrader("testagent", as)
+func startUpgrader(st *state.State) (u *Upgrader, as *testAgentState, upgraderDone <-chan error) {
+	as = newTestAgentState()
+	u = NewUpgrader(st, "testagent", as)
 	done := make(chan error, 1)
 	go func() {
 		done <- u.Wait()
@@ -99,82 +95,93 @@ func (s *upgraderSuite) proposeVersion(c *C, vers version.Number) {
 	c.Assert(err, IsNil)
 }
 
-func (s *upgraderSuite) TestUpgrader(c *C) {
-	// Set up the current version and tools.
-	v1 := &state.Tools{
-		URL:    "http://oldurl.tgz",
-		Binary: version.MustParseBinary("1.0.1-foo-bar"),
-	}
-	version.Current = v1.Binary
-	// unpack the "current" version of the tools.
-	v1tools := coretesting.TarGz(
-		coretesting.NewTarFile("juju", 0777, "juju contents v1"),
-		coretesting.NewTarFile("jujuc", 0777, "jujuc contents v1"),
-		coretesting.NewTarFile("jujud", 0777, "jujud contents v1"),
+func (s *upgraderSuite) uploadTools(c *C, vers version.Binary) (path string, tools *state.Tools) {
+	tgz := coretesting.TarGz(
+		coretesting.NewTarFile("juju", 0777, "juju contents "+vers.String()),
+		coretesting.NewTarFile("jujuc", 0777, "jujuc contents "+vers.String()),
+		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()),
 	)
-	err := environs.UnpackTools(v1, bytes.NewReader(v1tools))
-	c.Assert(err, IsNil)
-
-	// Upload a new version of the tools to the environ's storage.
-	// We'll test upgrading to these tools.
-	v2tools := coretesting.TarGz(
-		coretesting.NewTarFile("juju", 0777, "juju contents v2"),
-		coretesting.NewTarFile("jujuc", 0777, "jujuc contents v2"),
-		coretesting.NewTarFile("jujud", 0777, "jujud contents v2"),
-	)
-	v2 := &state.Tools{
-		Binary: version.MustParseBinary("1.0.2-foo-bar"),
-	}
 	storage := s.Conn.Environ.Storage()
-	err = storage.Put(environs.ToolsStoragePath(v2.Binary), bytes.NewReader(v2tools), int64(len(v2tools)))
+	err := storage.Put(environs.ToolsStoragePath(vers), bytes.NewReader(tgz), int64(len(tgz)))
 	c.Assert(err, IsNil)
-	v2.URL, err = s.Conn.Environ.Storage().URL(environs.ToolsStoragePath(v2.Binary))
+	path = environs.ToolsStoragePath(vers)
+	url, err := s.Conn.Environ.Storage().URL(path)
 	c.Assert(err, IsNil)
+	return path, &state.Tools{URL: url, Binary: vers}
+}
 
-	m, err := s.State.AddMachine()
+func (s *upgraderSuite) TestUpgrader(c *C) {
+	// Set up the test hooks.
+	sameVersionEvent := make(chan struct{}, 10)
+	sameVersion = func() {
+		sameVersionEvent <- struct{}{}
+	}
+	invalidVersionEvent := make(chan struct{}, 10)
+	invalidVersion = func() {
+		invalidVersionEvent <- struct{}{}
+	}
+
+	// Set up the current version and tools.
+	version.Current = version.MustParseBinary("1.0.1-foo-bar")
+	v1path, v1tools := s.uploadTools(c, version.Current)
+
+	// Unpack the "current" version of the tools, and delete them from
+	// the storage so that we're sure that the uploader isn't trying
+	// to fetch them.
+	resp, err := http.Get(v1tools.URL)
+	c.Assert(err, IsNil)
+	err = environs.UnpackTools(v1tools, resp.Body)
+	c.Assert(err, IsNil)
+	err = s.Conn.Environ.Storage().Remove(v1path)
 	c.Assert(err, IsNil)
 
 	// Start the upgrader going and check that the tools are those
 	// that we set up.
-	_, as, upgraderDone := startUpgrader(m)
-	assertEvent(c, as.event, "SetAgentTools 1.0.1-foo-bar http://oldurl.tgz")
+	_, as, upgraderDone := startUpgrader(s.State)
+	assertEvent(c, as.event, "SetAgentTools 1.0.1-foo-bar "+v1tools.URL)
 
-	// Propose some invalid tools then check that
-	// the URL is fetched and that nothing happens.
-	delayedURL, started := delayedFetch()
-	s.proposeVersion(c, v2.Binary.Number)
-	<-started
+	// Propose some tools that are not there, and check that it saw
+	// the change.
+	s.proposeVersion(c, version.MustParse("1.0.2"))
+	<-invalidVersionEvent
 
-	s.proposeVersion(c, v2.Binary.Number)
-	assertNoEvent(c, as.event)
+	// Upload the current tools again, and check that it saw the change.
+	v1path, v1tools = s.uploadTools(c, version.Current)
+	s.proposeVersion(c, version.MustParse("1.0.3"))
+	<-sameVersionEvent
 
+	// Upload a two new versions of the tools. We'll test upgrading to these tools.
+	_, v5tools := s.uploadTools(c, version.MustParseBinary("1.0.5-foo-bar"))
+	_, v6tools := s.uploadTools(c, version.MustParseBinary("1.0.6-foo-bar"))
+
+	// Check that it won't choose tools with a greater version number.
+	s.proposeVersion(c, version.MustParse("1.0.4"))
+	<-sameVersionEvent
+
+	s.proposeVersion(c, v6tools.Number)
 	select {
 	case err := <-upgraderDone:
-		c.Assert(err, DeepEquals, &UpgradedError{v2})
+		c.Assert(err, DeepEquals, &UpgradedError{v6tools})
 	case <-time.After(500 * time.Millisecond):
 		c.Fatalf("upgrader did not stop as expected")
 	}
 
 	// Check that the upgraded version was really downloaded.
-	data, err := ioutil.ReadFile(filepath.Join(environs.ToolsDir(v2.Binary), "jujud"))
+	data, err := ioutil.ReadFile(filepath.Join(environs.ToolsDir(v6tools.Binary), "jujud"))
 	c.Assert(err, IsNil)
-	c.Assert(string(data), Equals, "jujud contents v2")
+	c.Assert(string(data), Equals, "jujud contents 1.0.6-foo-bar")
 
-	_, as, upgraderDone = startUpgrader(m)
-	assertEvent(c, as.event, "SetAgentTools 1.0.1-foo-bar http://oldurl.tgz")
-	assertEvent(c, as.event, "WatchProposedTools")
+	version.Current = v6tools.Binary
+	// Check that we can start again.
+	_, as, upgraderDone = startUpgrader(s.State)
+	assertEvent(c, as.event, "SetAgentTools 1.0.6-foo-bar "+v6tools.URL)
 
-	// Use delayedURL but don't make it respond - if the upgrade
-	// succeeds then we know that it has (correctly) not tried to
-	// fetch the URL
-	as.proposeTools(&state.Tools{
-		URL:    delayedURL,
-		Binary: v2.Binary,
-	})
-	assertNoEvent(c, as.event)
+	// Check that we can downgrade.
+	s.proposeVersion(c, v5tools.Number)
+
 	select {
 	case tools := <-upgraderDone:
-		c.Assert(tools, DeepEquals, &UpgradedError{v2})
+		c.Assert(tools, DeepEquals, &UpgradedError{v5tools})
 	case <-time.After(500 * time.Millisecond):
 		c.Fatalf("upgrader did not stop as expected")
 	}
@@ -189,49 +196,18 @@ func assertEvent(c *C, event <-chan string, want string) {
 	}
 }
 
-func assertNoEvent(c *C, event <-chan string) {
-	select {
-	case got := <-event:
-		c.Fatalf("expected no event; got %q", got)
-	case <-time.After(100 * time.Millisecond):
-	}
-}
-
-func delayedFetch() (url string, started chan bool) {
-	l, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		panic(err)
-	}
-	started = make(chan bool)
-	go http.Serve(l, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		started <- true
-		http.NotFound(w, r)
-		r.Body.Close()
-	}))
-	return fmt.Sprintf("http://%s/delayed", l.Addr()), started
-}
-
 type testAgentState struct {
 	tomb.Tomb
 	event chan string
-	m     *state.Machine
 }
 
-func newTestAgentState(m *state.Machine) *testAgentState {
+func newTestAgentState() *testAgentState {
 	return &testAgentState{
 		event: make(chan string),
-		m:     m,
 	}
 }
 
 func (t *testAgentState) SetAgentTools(tools *state.Tools) error {
 	t.event <- fmt.Sprintf("SetAgentTools %v %s", tools.Binary, tools.URL)
-	return t.m.SetAgentTools(tools)
-}
-
-func (t *testAgentState) proposeTools(tools *state.Tools) {
-	err := t.m.ProposeAgentTools(tools)
-	if err != nil {
-		panic(err)
-	}
+	return nil
 }

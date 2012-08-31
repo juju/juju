@@ -6,11 +6,20 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
 	"os"
+)
+
+// testing hooks
+var (
+	// invalidVersion is called when an invalid version has been proposed.
+	invalidVersion = func() {}
+	// sameVersion is called when a version has been proposed, but
+	// only the same version can be found.
+	sameVersion = func() {}
 )
 
 // An Upgrader observes the version information for an agent in the
@@ -20,7 +29,7 @@ import (
 // When a new version is available Wait and Stop return UpgradedError.
 type Upgrader struct {
 	tomb       tomb.Tomb
-	st *state.State
+	st         *state.State
 	agentName  string
 	agentState AgentState
 }
@@ -45,12 +54,10 @@ type AgentState interface {
 // NewUpgrader returns a new Upgrader watching the given agent.
 func NewUpgrader(st *state.State, agentName string, agentState AgentState) *Upgrader {
 	u := &Upgrader{
-		st: st,
+		st:         st,
 		agentName:  agentName,
 		agentState: agentState,
 	}
-	var err error
-	u.environ, err = 
 	go func() {
 		defer u.tomb.Done()
 		u.tomb.Kill(u.run())
@@ -87,6 +94,11 @@ func (u *Upgrader) run() error {
 	w := u.st.WatchEnvironConfig()
 	defer watcher.Stop(w, &u.tomb)
 
+	environ, err := worker.WaitForEnviron(w, u.tomb.Dying())
+	if err != nil {
+		return err
+	}
+
 	// TODO(rog) retry downloads when they fail.
 	var (
 		download      *downloader.Download
@@ -102,6 +114,11 @@ func (u *Upgrader) run() error {
 		case cfg, ok := <-w.Changes():
 			if !ok {
 				return watcher.MustErr(w)
+			}
+			err := environ.SetConfig(cfg)
+			if err != nil {
+				log.Printf("provisioner loaded invalid environment configuration: %v", err)
+				// continue on, because the version number is still significant.
 			}
 			vers := cfg.AgentVersion()
 			if download != nil {
@@ -127,9 +144,10 @@ func (u *Upgrader) run() error {
 				return &UpgradedError{tools}
 			}
 			// TODO(rog) add support for environs.DevVersion
-			tools, err := environs.FindTools(binary, environs.CompatVersion)
+			tools, err := environs.FindTools(environ, binary, environs.CompatVersion)
 			if err != nil {
 				log.Printf("upgrader: error finding tools for %v: %v", binary, err)
+				invalidVersion()
 				// TODO(rog): poll until tools become available.
 				break
 			}
@@ -137,6 +155,7 @@ func (u *Upgrader) run() error {
 				if tools.Number == version.Current.Number {
 					// TODO(rog): poll until tools become available.
 					log.Printf("upgrader: version %v requested but no newer version found", binary)
+					sameVersion()
 					break
 				}
 				log.Printf("upgrader: cannot find exact tools match for %s; using %s instead", binary, tools.Binary)

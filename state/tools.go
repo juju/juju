@@ -2,9 +2,9 @@ package state
 
 import (
 	"fmt"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
-	"launchpad.net/juju-core/log"
 )
 
 // Tools describes a particular set of juju tools and where to find them.

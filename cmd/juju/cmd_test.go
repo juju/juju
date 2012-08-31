@@ -10,8 +10,8 @@ import (
 	"launchpad.net/juju-core/version"
 	"net/http"
 	"os"
-	"time"
 	"reflect"
+	"time"
 )
 
 type CmdSuite struct {

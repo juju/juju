@@ -168,7 +168,7 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	m, err := st.Machine(0)
 	c.Assert(err, IsNil)
 
-	t.checkUpgradeMachineAgent(c, m)
+	t.checkUpgradeMachineAgent(c, st, m)
 
 	// place a new machine into the state
 	m, err = st.AddMachine()
@@ -187,13 +187,15 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (t *LiveTests) checkUpgradeMachineAgent(c *C, m *state.Machine) {
-	// First watch the machine agent's current tools to make sure
-	// that it sets them appropriately.
-	w := m.WatchAgentTools()
+func (t *LiveTests) checkUpgradeMachineAgent(c *C, st *state.State, m *state.Machine) {
+	// First watch the machine agent's to make sure that the its
+	// current tools are set appropriately.
+	w := m.Watch()
 
 	var gotTools *state.Tools
-	for tools := range w.Changes() {
+	for _ = range w.Changes() {
+		tools, err := m.AgentTools()
+		c.Assert(err, IsNil)
 		if tools.URL == "" {
 			// Machine agent hasn't started yet.
 			continue
@@ -213,13 +215,15 @@ func (t *LiveTests) checkUpgradeMachineAgent(c *C, m *state.Machine) {
 
 	// Check that the put version really is the version we expect.
 	c.Assert(upgradeTools.Binary, Equals, newVersion)
-	err = m.ProposeAgentTools(upgradeTools)
+	err = st.SetAgentVersion(newVersion.Number)
 
 	c.Logf("waiting for upgrade")
-	tools, ok := <-w.Changes()
+	_, ok := <-w.Changes()
 	if !ok {
 		c.Fatalf("watcher died: %v", w.Err())
 	}
+	tools, err := m.AgentTools()
+	c.Assert(err, IsNil)
 	c.Assert(tools, DeepEquals, upgradeTools)
 	c.Logf("upgrade successful!")
 }
