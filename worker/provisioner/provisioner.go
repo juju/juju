@@ -5,6 +5,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
 )
 
@@ -30,47 +31,32 @@ func NewProvisioner(st *state.State) *Provisioner {
 		instances: make(map[int]environs.Instance),
 		machines:  make(map[string]*state.Machine),
 	}
-	go p.loop()
+	go func() {
+		defer p.tomb.Done()
+		p.tomb.Kill(p.loop())
+	}()
 	return p
 }
 
-func (p *Provisioner) loop() {
-	defer p.tomb.Done()
+func (p *Provisioner) loop() error {
 	environWatcher := p.st.WatchEnvironConfig()
 	defer watcher.Stop(environWatcher, &p.tomb)
 
+	var err error
+	p.environ, err = worker.WaitForEnviron(environWatcher, p.tomb.Dying())
+	if err != nil {
+		return err
+	}
 	// Get a new StateInfo from the environment: the one used to
 	// launch the agent may refer to localhost, which will be
 	// unhelpful when attempting to run an agent on a new machine.
-refreshState:
-	for {
-		select {
-		case <-p.tomb.Dying():
-			return
-		case config, ok := <-environWatcher.Changes():
-			if !ok {
-				p.tomb.Kill(watcher.MustErr(environWatcher))
-				return
-			}
-			var err error
-			p.environ, err = environs.New(config)
-			if err != nil {
-				log.Printf("provisioner loaded invalid environment configuration: %v", err)
-				continue
-			}
-			log.Printf("provisioner loaded new environment configuration")
-			if p.info, err = p.environ.StateInfo(); err != nil {
-				p.tomb.Kill(err)
-				return
-			}
-			break refreshState
-		}
+	if p.info, err = p.environ.StateInfo(); err != nil {
+		return err
 	}
 
 	// Call processMachines to stop any unknown instances before watching machines.
 	if err := p.processMachines(nil, nil); err != nil {
-		p.tomb.Kill(err)
-		return
+		return err
 	}
 
 	// Start responding to changes in machines, and to any further updates
@@ -80,11 +66,10 @@ refreshState:
 	for {
 		select {
 		case <-p.tomb.Dying():
-			return
+			return nil
 		case change, ok := <-environWatcher.Changes():
 			if !ok {
-				p.tomb.Kill(watcher.MustErr(environWatcher))
-				return
+				return watcher.MustErr(environWatcher)
 			}
 			err := p.environ.SetConfig(change)
 			if err != nil {
@@ -94,17 +79,16 @@ refreshState:
 			log.Printf("provisioner loaded new environment configuration")
 		case machines, ok := <-machinesWatcher.Changes():
 			if !ok {
-				p.tomb.Kill(watcher.MustErr(machinesWatcher))
-				return
+				return watcher.MustErr(machinesWatcher)
 			}
 			// TODO(dfc) fire process machines periodically to shut down unknown
 			// instances.
 			if err := p.processMachines(machines.Added, machines.Removed); err != nil {
-				p.tomb.Kill(err)
-				return
+				return err
 			}
 		}
 	}
+	panic("not reached")
 }
 
 // Dying returns a channel that signals a Provisioners exit.
