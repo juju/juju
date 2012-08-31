@@ -338,8 +338,6 @@ func (s *ProvisionerSuite) TestProvisioningStopsOnlyUnknownInstances(c *C) {
 }
 
 func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublished(c *C) {
-	// TODO(mue) Add secret testing.
-	// go test -gocheck.f TestProvisioningRecoversAfterInvalidEnvironmentPublished
 	p := provisioner.NewProvisioner(s.State)
 	defer s.stopProvisioner(c, p)
 
