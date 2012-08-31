@@ -57,7 +57,7 @@ func (fw *Firewaller) loop() error {
 	for {
 		select {
 		case <-fw.tomb.Dying():
-			return nil
+			return tomb.ErrDying
 		case change, ok := <-fw.environWatcher.Changes():
 			if !ok {
 				return watcher.MustErr(fw.environWatcher)
