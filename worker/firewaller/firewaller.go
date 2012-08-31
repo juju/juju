@@ -195,6 +195,14 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 	toOpen := diff(want, machined.ports)
 	toClose := diff(machined.ports, want)
 	machined.ports = want
+
+	// If there's nothing to do, do nothing.
+	// This is important because when a machine is first created,
+	// it will have no instance id but also no open ports -
+	// InstanceId will fail but we don't care.
+	if len(toOpen) == 0 && len(toClose) == 0 {
+		return nil
+	}
 	// Open and close the ports.
 	instanceId, err := machined.machine.InstanceId()
 	if err != nil {
