@@ -5,6 +5,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -97,55 +98,73 @@ func (s *StateSuite) TestInitalizeWithConfig(c *C) {
 		"type":            "dummy",
 		"zookeeper":       true,
 		"authorized-keys": "i-am-a-key",
-		"agent-version":   version.Current.Number.String(),
+		"default-series":  "precise",
 	}
 	st, err := state.Initialize(s.StateInfo(c), m)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	defer st.Close()
 	env, err := st.EnvironConfig()
-	env.Read()
-	c.Assert(err, IsNil)
-	c.Assert(env.Map(), DeepEquals, m)
+	c.Assert(env.AllAttrs(), DeepEquals, m)
 }
 
-type environConfig map[string]interface{}
+type attrs map[string]interface{}
 
-var environmentWatchTests = []struct {
-	key   string
-	value interface{}
-	want  map[string]interface{}
-}{
-	{"provider", "dummy", environConfig{"provider": "dummy"}},
-	{"secret", "shhh", environConfig{"provider": "dummy", "secret": "shhh"}},
-	{"provider", "aws", environConfig{"provider": "aws", "secret": "shhh"}},
+var environmentWatchTests = []attrs{
+	{
+		"type":            "my-type",
+		"name":            "my-name",
+		"authorized-keys": "i-am-a-key",
+	},
+	{
+		// Add an attribute.
+		"type":            "my-type",
+		"name":            "my-name",
+		"default-series":  "my-series",
+		"authorized-keys": "i-am-a-key",
+	},
+	{
+		// Set a new attribute value.
+		"type":            "my-type",
+		"name":            "my-new-name",
+		"default-series":  "my-series",
+		"authorized-keys": "i-am-a-key",
+	},
 }
+
+var initialEnvironment = `name: test,
+type: test,
+authorized-keys: i-am-a-key,
+default-series: precise`
 
 func (s *StateSuite) TestWatchEnvironment(c *C) {
-	// Blank out the environment created by JujuConnSuite,
+	// Re-init the environment originally created by JujuConnSuite,
 	// so that we know what we have.
-	_, err := s.zkConn.Set("/environment", "", -1)
+	_, err := s.zkConn.Set("/environment", initialEnvironment, -1)
 	c.Assert(err, IsNil)
-	// fetch the /environment key as a *ConfigNode
 	environConfigWatcher := s.State.WatchEnvironConfig()
 	defer func() {
 		c.Assert(environConfigWatcher.Stop(), IsNil)
 	}()
 
-	config, ok := <-environConfigWatcher.Changes()
+	_, ok := <-environConfigWatcher.Changes()
 	c.Assert(ok, Equals, true)
 
 	for i, test := range environmentWatchTests {
 		c.Logf("test %d", i)
-		config.Set(test.key, test.value)
-		_, err := config.Write()
+		change, err := config.New(test)
+		c.Assert(err, IsNil)
+		err = s.State.SetEnvironConfig(change)
 		c.Assert(err, IsNil)
 		select {
 		case got, ok := <-environConfigWatcher.Changes():
 			c.Assert(ok, Equals, true)
-			c.Assert(got.Map(), DeepEquals, test.want)
+			gotAttrs := got.AllAttrs()
+			for key, value := range test {
+				c.Assert(gotAttrs[key], Equals, value)
+			}
 		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("did not get change: %#v", test.want)
+			c.Fatalf("did not get change: %#v", test)
 		}
 	}
 

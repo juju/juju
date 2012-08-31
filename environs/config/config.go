@@ -15,6 +15,8 @@ type Config struct {
 // Fields that are common to all environment providers are verified,
 // and authorized-keys-path is also translated into authorized-keys
 // by loading the content from respective file.
+//
+// The required keys are: "name", "type", "default-series" and "authorized-keys".
 func New(attrs map[string]interface{}) (*Config, error) {
 	m, err := checker.Coerce(attrs, nil)
 	if err != nil {
@@ -63,7 +65,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	return c, nil
 }
 
-// Type returns the enviornment type.
+// Type returns the environment type.
 func (c *Config) Type() string {
 	return c.m["type"].(string)
 }
@@ -92,7 +94,7 @@ func (c *Config) AgentVersion() version.Number {
 	}
 	n, err := version.Parse(v)
 	if err != nil {
-		panic(err)		// We should have checked it earlier.
+		panic(err) // We should have checked it earlier.
 	}
 	return n
 }
@@ -133,14 +135,14 @@ var fields = schema.Fields{
 	"default-series":       schema.String(),
 	"authorized-keys":      schema.String(),
 	"authorized-keys-path": schema.String(),
-	"agent-version": schema.String(),
+	"agent-version":        schema.String(),
 }
 
 var defaults = schema.Defaults{
 	"default-series":       version.Current.Series,
 	"authorized-keys":      "",
 	"authorized-keys-path": "",
-	"agent-version": schema.Omit,
+	"agent-version":        schema.Omit,
 }
 
 var checker = schema.FieldMap(fields, defaults)

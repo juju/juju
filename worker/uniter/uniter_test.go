@@ -513,7 +513,7 @@ type waitHooks []string
 func (s waitHooks) step(c *C, ctx *context) {
 	if len(s) == 0 {
 		// Give unwanted hooks a moment to run...
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(200 * time.Millisecond)
 	}
 	ctx.hooks = append(ctx.hooks, s...)
 	c.Logf("waiting for hooks: %#v", ctx.hooks)
@@ -524,10 +524,10 @@ func (s waitHooks) step(c *C, ctx *context) {
 	if match {
 		return
 	}
-	timeout := time.After(1000 * time.Millisecond)
+	timeout := time.After(2000 * time.Millisecond)
 	for {
 		select {
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(200 * time.Millisecond):
 			if match, _ = ctx.matchLogHooks(c); match {
 				return
 			}

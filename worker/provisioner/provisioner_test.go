@@ -5,6 +5,7 @@ import (
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -19,8 +20,8 @@ func TestPackage(t *stdtesting.T) {
 
 type ProvisionerSuite struct {
 	testing.JujuConnSuite
-	op      <-chan dummy.Operation
-	envName string
+	op  <-chan dummy.Operation
+	cfg *config.Config
 }
 
 var _ = Suite(&ProvisionerSuite{})
@@ -40,32 +41,22 @@ func (s *ProvisionerSuite) SetUpTest(c *C) {
 
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	name, _ := cfg.Get("name")
-	s.envName = name.(string)
+	s.cfg = cfg
 }
 
 // invalidateEnvironment alters the environment configuration
 // so the ConfigNode returned from the watcher will not pass
 // validation.
 func (s *ProvisionerSuite) invalidateEnvironment() error {
-	env, err := s.State.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	env.Set("name", 1)
-	_, err = env.Write()
+	zkConn := coretesting.ZkConnect()
+	_, err := zkConn.Set("/environment", "type: test\nname: 1", -1)
+	zkConn.Close()
 	return err
 }
 
 // fixEnvironment undoes the work of invalidateEnvironment.
 func (s *ProvisionerSuite) fixEnvironment() error {
-	env, err := s.State.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	env.Set("name", s.envName)
-	_, err = env.Write()
-	return err
+	return s.State.SetEnvironConfig(s.cfg)
 }
 
 func (s *ProvisionerSuite) stopProvisioner(c *C, p *provisioner.Provisioner) {
@@ -169,13 +160,19 @@ func (s *ProvisionerSuite) TestProvisionerEnvironmentChange(c *C) {
 	p := provisioner.NewProvisioner(s.State)
 	defer s.stopProvisioner(c, p)
 	// Twiddle with the environment configuration.
-	env, err := s.State.EnvironConfig()
+	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	env.Set("name", "testing2")
-	_, err = env.Write()
+	cfgAttrs := cfg.AllAttrs()
+	cfgAttrs["name"] = "testing2"
+	cfg, err = config.New(cfgAttrs)
 	c.Assert(err, IsNil)
-	env.Set("name", "testing3")
-	_, err = env.Write()
+	err = s.State.SetEnvironConfig(cfg)
+	c.Assert(err, IsNil)
+	cfgAttrs["name"] = "testing3"
+	cfg, err = config.New(cfgAttrs)
+	c.Assert(err, IsNil)
+	err = s.State.SetEnvironConfig(cfg)
+	c.Assert(err, IsNil)
 }
 
 func (s *ProvisionerSuite) TestProvisionerStopOnStateClose(c *C) {

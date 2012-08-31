@@ -71,7 +71,7 @@ func (m *Machine) InstanceId() (string, error) {
 		"instance id of machine %v", m.String())
 	if _, ok := err.(*NotFoundError); ok || (err == nil && instanceId == "") {
 		return "", &NotFoundError{
-			fmt.Sprintf("instance id for machine %d is not set", m.Id()),
+			fmt.Sprintf("instance id for machine %d", m.Id()),
 		}
 	}
 	return instanceId, err

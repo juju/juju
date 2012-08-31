@@ -2,7 +2,6 @@ package firewaller
 
 import (
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -15,7 +14,7 @@ type Firewaller struct {
 	tomb            tomb.Tomb
 	st              *state.State
 	environ         environs.Environ
-	environWatcher  *state.ConfigWatcher
+	environWatcher  *state.EnvironConfigWatcher
 	machinesWatcher *state.MachinesWatcher
 	machineds       map[int]*machineData
 	unitsChange     chan *unitsChange
@@ -55,7 +54,7 @@ Loop:
 				return
 			}
 			var err error
-			fw.environ, err = environs.NewFromAttrs(config.Map())
+			fw.environ, err = environs.New(config)
 			if err != nil {
 				log.Printf("firewaller loaded invalid environment configuration: %v", err)
 				continue
@@ -73,12 +72,11 @@ Loop:
 			if !ok {
 				return
 			}
-			config, err := config.New(change.Map())
+			err := fw.environ.SetConfig(change)
 			if err != nil {
 				log.Printf("firewaller loaded invalid environment configuration: %v", err)
 				continue
 			}
-			fw.environ.SetConfig(config)
 			log.Printf("firewaller loaded new environment configuration")
 		case change, ok := <-fw.machinesWatcher.Changes():
 			if !ok {
@@ -197,6 +195,14 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 	toOpen := diff(want, machined.ports)
 	toClose := diff(machined.ports, want)
 	machined.ports = want
+
+	// If there's nothing to do, do nothing.
+	// This is important because when a machine is first created,
+	// it will have no instance id but also no open ports -
+	// InstanceId will fail but we don't care.
+	if len(toOpen) == 0 && len(toClose) == 0 {
+		return nil
+	}
 	// Open and close the ports.
 	instanceId, err := machined.machine.InstanceId()
 	if err != nil {

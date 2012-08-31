@@ -204,27 +204,30 @@ func closeErrorCheck(errp *error, c io.Closer) {
 
 // BestTools returns the most recent version
 // from the set of tools in the ToolsList that are
-// compatible with the given version, and with a version
-// number <= vers.Number, or nil if no such tools are found.
-// If dev is true, it will consider development versions of the tools
-// even if vers is not a development version.
-func BestTools(list *ToolsList, vers version.Binary, dev bool) *state.Tools {
-	if tools := bestTools(list.Private, vers, dev); tools != nil {
+// compatible with the given version, using flags
+// to determine possible candidates.
+// It returns nil if no such tools are found.
+func BestTools(list *ToolsList, vers version.Binary, flags ToolsSearchFlags) *state.Tools {
+	if flags&CompatVersion == 0 {
+		panic("CompatVersion not implemented")
+	}
+	if tools := bestTools(list.Private, vers, flags); tools != nil {
 		return tools
 	}
-	return bestTools(list.Public, vers, dev)
+	return bestTools(list.Public, vers, flags)
 }
 
 // bestTools is like BestTools but operates on a single list of tools.
-func bestTools(toolsList []*state.Tools, vers version.Binary, dev bool) *state.Tools {
+func bestTools(toolsList []*state.Tools, vers version.Binary, flags ToolsSearchFlags) *state.Tools {
 	var bestTools *state.Tools
-	allowDev := vers.IsDev() || dev
+	allowDev := vers.IsDev() || flags&DevVersion != 0
+	allowHigher := flags&HighestVersion != 0
 	for _, t := range toolsList {
 		if t.Major != vers.Major ||
 			t.Series != vers.Series ||
 			t.Arch != vers.Arch ||
 			!allowDev && t.IsDev() ||
-			vers.Number.Less(t.Number) {
+			!allowHigher && vers.Number.Less(t.Number) {
 			continue
 		}
 		if bestTools == nil || bestTools.Number.Less(t.Number) {
@@ -379,19 +382,39 @@ func AgentToolsDir(agentName string) string {
 	return path.Join(VarDir, "tools", agentName)
 }
 
+// ToolsSearchFlags gives options when searching
+// for tools.
+type ToolsSearchFlags int
+
+const (
+	// HighestVersion indicates that versions above the version being
+	// searched for may be included in the search. The default behavior
+	// is to search for versions <= the one provided.
+	HighestVersion ToolsSearchFlags = 1 << iota
+
+	// DevVersion includes development versions in the search, even
+	// when the version to match against isn't a development version.
+	DevVersion
+
+	// CompatVersion specifies that the major version number
+	// must be the same as specified. At the moment this flag is required.
+	CompatVersion
+)
+
 // FindTools tries to find a set of tools compatible with the given
-// version from the given environment.  The latest version found with a
-// number <= vers.Number will be used.
+// version from the given environment, using flags to determine
+// possible candidates.
 // 
 // If no tools are found and there's no other error, a NotFoundError is
 // returned.  If there's anything compatible in the environ's Storage,
 // it gets precedence over anything in its PublicStorage.
-func FindTools(env Environ, vers version.Binary) (*state.Tools, error) {
+func FindTools(env Environ, vers version.Binary, flags ToolsSearchFlags) (*state.Tools, error) {
 	toolsList, err := ListTools(env, vers.Major)
 	if err != nil {
 		return nil, err
 	}
-	tools := BestTools(toolsList, vers, false)
+	log.Printf("findTools got tools list %v", toolsList)
+	tools := BestTools(toolsList, vers, flags)
 	if tools == nil {
 		return tools, &NotFoundError{fmt.Errorf("no compatible tools found")}
 	}

@@ -70,18 +70,18 @@ var configTests = []struct {
 		"",
 	}, {
 		attrs{
-			"type":	"my-type",
+			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-			"agent-version": "1.2.3",
+			"agent-version":   "1.2.3",
 		},
 		"",
 	}, {
 		attrs{
-			"type":	"my-type",
+			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-			"agent-version": "2",
+			"agent-version":   "2",
 		},
 		`invalid agent version in environment configuration: "2"`,
 	}, {
