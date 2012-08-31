@@ -77,13 +77,6 @@ func (s *FirewallerSuite) startInstance(c *C, m *state.Machine) environs.Instanc
 	c.Assert(err, IsNil)
 	err = m.SetInstanceId(inst.Id())
 	c.Assert(err, IsNil)
-
-	// Check that instance has actually been started
-	config, err := s.State.EnvironConfig()
-	c.Assert(err, IsNil)
-	env, err := environs.NewFromAttrs(config.Map())
-	_, err = env.Instances([]string{inst.Id()})
-	c.Assert(err, IsNil)
 	return inst
 }
 
