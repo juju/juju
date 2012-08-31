@@ -221,7 +221,7 @@ func BestTools(list *ToolsList, vers version.Binary, flags ToolsSearchFlags) *st
 func bestTools(toolsList []*state.Tools, vers version.Binary, flags ToolsSearchFlags) *state.Tools {
 	var bestTools *state.Tools
 	allowDev := vers.IsDev() || flags&DevVersion != 0
-	allowHigher = flags&HighestVersion != 0
+	allowHigher := flags&HighestVersion != 0
 	for _, t := range toolsList {
 		if t.Major != vers.Major ||
 			t.Series != vers.Series ||
