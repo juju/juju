@@ -23,7 +23,6 @@ func WaitForEnviron(w *state.EnvironConfigWatcher, stop <-chan struct{}) (enviro
 			var err error
 			environ, err := environs.New(config)
 			if err == nil {
-				log.Printf("loaded new environment configuration")
 				return environ, nil
 			}
 			log.Printf("firewaller loaded invalid environment configuration: %v", err)
