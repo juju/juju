@@ -221,12 +221,13 @@ func BestTools(list *ToolsList, vers version.Binary, flags ToolsSearchFlags) *st
 func bestTools(toolsList []*state.Tools, vers version.Binary, flags ToolsSearchFlags) *state.Tools {
 	var bestTools *state.Tools
 	allowDev := vers.IsDev() || flags&DevVersion != 0
+	allowHigher = flags&HighestVersion != 0
 	for _, t := range toolsList {
 		if t.Major != vers.Major ||
 			t.Series != vers.Series ||
 			t.Arch != vers.Arch ||
 			!allowDev && t.IsDev() ||
-			flags&HighestVersion == 0 && vers.Number.Less(t.Number) {
+			!allowHigher && vers.Number.Less(t.Number) {
 			continue
 		}
 		if bestTools == nil || bestTools.Number.Less(t.Number) {
@@ -386,17 +387,17 @@ func AgentToolsDir(agentName string) string {
 type ToolsSearchFlags int
 
 const (
-	// HighestVersion specifies that the highest (minor, patch) version number should
-	// be chosen. The default is to choose a version no higher than specified.
+	// HighestVersion indicates that versions above the version being
+	// searched for may be included in the search. The default behavior
+	// is to search for versions <= the one provided.
 	HighestVersion ToolsSearchFlags = 1 << iota
 
-	// DevVersion specifies "dev mode" - it allows a development version to
-	// be chosen even when the specified version is not a development
-	// version.
+	// DevVersion includes development versions in the search, even
+	// when the version to match against isn't a development version.
 	DevVersion
 
 	// CompatVersion specifies that the major version number
-	// must be the same as specified. It is not yet implemented.
+	// must be the same as specified. At the moment this flag is required.
 	CompatVersion
 )
 

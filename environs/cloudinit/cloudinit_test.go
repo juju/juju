@@ -199,7 +199,7 @@ func CheckPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
 // in cloudinitTests is well formed.
 func (cloudinitSuite) TestCloudInit(c *C) {
 	for i, cfg := range cloudinitTests {
-		c.Logf("test %d, config %v, envConfig %v", i, cfg.Config, envConfig)
+		c.Logf("test %d", i)
 		ci, err := cloudinit.New(&cfg)
 		c.Assert(err, IsNil)
 		c.Check(ci, NotNil)
