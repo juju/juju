@@ -88,6 +88,17 @@ func startUpgrader(m *state.Machine) (u *Upgrader, as *testAgentState, upgraderD
 	return
 }
 
+func (s *upgraderSuite) proposeVersion(c *C, vers version.Number) {
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	attrs := cfg.AllAttrs()
+	attrs["agent-version"] = vers.String()
+	newCfg, err := config.New(attrs)
+	c.Assert(err, IsNil)
+	err = s.State.SetEnvironConfig(newCfg)
+	c.Assert(err, IsNil)
+}
+
 func (s *upgraderSuite) TestUpgrader(c *C) {
 	// Set up the current version and tools.
 	v1 := &state.Tools{
@@ -123,20 +134,18 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 
+	// Start the upgrader going and check that the tools are those
+	// that we set up.
 	_, as, upgraderDone := startUpgrader(m)
 	assertEvent(c, as.event, "SetAgentTools 1.0.1-foo-bar http://oldurl.tgz")
-	assertEvent(c, as.event, "WatchProposedTools")
 
 	// Propose some invalid tools then check that
 	// the URL is fetched and that nothing happens.
 	delayedURL, started := delayedFetch()
-	as.proposeTools(&state.Tools{
-		URL:    delayedURL,
-		Binary: v2.Binary,
-	})
+	s.proposeVersion(c, v2.Binary.Number),
 	<-started
 
-	as.proposeTools(v2)
+	s.proposeVersion(c, v2.Binary.Number),
 	assertNoEvent(c, as.event)
 
 	select {
@@ -218,11 +227,6 @@ func newTestAgentState(m *state.Machine) *testAgentState {
 func (t *testAgentState) SetAgentTools(tools *state.Tools) error {
 	t.event <- fmt.Sprintf("SetAgentTools %v %s", tools.Binary, tools.URL)
 	return t.m.SetAgentTools(tools)
-}
-
-func (t *testAgentState) WatchProposedAgentTools() *state.AgentToolsWatcher {
-	t.event <- "WatchProposedTools"
-	return t.m.WatchProposedAgentTools()
 }
 
 func (t *testAgentState) proposeTools(tools *state.Tools) {
