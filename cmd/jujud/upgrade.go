@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/tomb"
@@ -48,6 +49,8 @@ func NewUpgrader(st *state.State, agentName string, agentState AgentState) *Upgr
 		agentName:  agentName,
 		agentState: agentState,
 	}
+	var err error
+	u.environ, err = 
 	go func() {
 		defer u.tomb.Done()
 		u.tomb.Kill(u.run())

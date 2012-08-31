@@ -142,10 +142,10 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 	// Propose some invalid tools then check that
 	// the URL is fetched and that nothing happens.
 	delayedURL, started := delayedFetch()
-	s.proposeVersion(c, v2.Binary.Number),
+	s.proposeVersion(c, v2.Binary.Number)
 	<-started
 
-	s.proposeVersion(c, v2.Binary.Number),
+	s.proposeVersion(c, v2.Binary.Number)
 	assertNoEvent(c, as.event)
 
 	select {
