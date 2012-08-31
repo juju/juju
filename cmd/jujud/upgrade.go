@@ -39,10 +39,6 @@ func (e *UpgradedError) Error() string {
 type AgentState interface {
 	// SetAgentTools sets the tools that the agent is currently running.
 	SetAgentTools(tools *state.Tools) error
-
-	// WatchProposedAgentTools watches the tools that the agent is
-	// currently proposed to run.
-	WatchProposedAgentTools() *state.AgentToolsWatcher
 }
 
 // NewUpgrader returns a new Upgrader watching the given agent.
@@ -68,10 +64,6 @@ func (u *Upgrader) Wait() error {
 	return u.tomb.Wait()
 }
 
-func configAgentVersion(cfg *state.ConfigNode) (version.Number, error) {
-...
-}
-
 func (u *Upgrader) run() error {
 	// Let the state know the version that is currently running.
 	currentTools, err := environs.ReadTools(version.Current)
@@ -89,7 +81,7 @@ func (u *Upgrader) run() error {
 		return err
 	}
 
-	w := u.agentState.WatchEnvironConfig()
+	w := u.st.WatchEnvironConfig()
 	defer watcher.Stop(w, &u.tomb)
 
 	// TODO(rog) retry downloads when they fail.
@@ -108,10 +100,7 @@ func (u *Upgrader) run() error {
 			if !ok {
 				return watcher.MustErr(w)
 			}
-			vers, err := configAgentVersion(cfg)
-			if err != nil {
-				return err
-			}
+			vers := cfg.AgentVersion()
 			if download != nil {
 				// There's a download in progress, stop it if we need to.
 				if vers == downloadTools.Number {
@@ -129,9 +118,25 @@ func (u *Upgrader) run() error {
 			}
 			binary := version.Current
 			binary.Number = vers
+
 			if tools, err := environs.ReadTools(binary); err == nil {
 				// The tools have already been downloaded, so use them.
 				return &UpgradedError{tools}
+			}
+			// TODO(rog) add support for environs.DevVersion
+			tools, err := environs.FindTools(binary, environs.CompatVersion)
+			if err != nil {
+				log.Printf("upgrader: error finding tools for %v: %v", binary, err)
+				// TODO(rog): poll until tools become available.
+				break
+			}
+			if tools.Binary != binary {
+				if tools.Number == version.Current.Number {
+					// TODO(rog): poll until tools become available.
+					log.Printf("upgrader: version %v requested but no newer version found", binary)
+					break
+				}
+				log.Printf("upgrader: cannot find exact tools match for %s; using %s instead", binary, tools.Binary)
 			}
 			download = downloader.New(tools.URL, "")
 			downloadTools = tools

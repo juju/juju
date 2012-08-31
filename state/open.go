@@ -3,9 +3,9 @@ package state
 import (
 	"errors"
 	"fmt"
+	"launchpad.net/goyaml"
 	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/version"
 	"strings"
 	"time"
 )
@@ -110,16 +110,16 @@ func (s *State) initialize(config map[string]interface{}) error {
 	if _, err := s.zk.Create("/relations", "", 0, zkPermAll); err != nil {
 		return err
 	}
-	if _, err = s.zk.Create(zkEnvironmentPath, "", 0, zkPermAll); err != nil {
-		return err
-	}
-	n, err := createConfigNode(s.zk, zkEnvironmentPath, config)
-	if err != nil {
-		return err
-	}
-	n.Set("agent-version", version.Current.Number.String())
-	if _, err = n.Write(); err != nil {
-		return err
+	// TODO Create node for bootstrap machine.
+
+	if config != nil {
+		yaml, err := goyaml.Marshal(config)
+		if err != nil {
+			return err
+		}
+		if _, err := s.zk.Create(zkEnvironmentPath, string(yaml), 0, zkPermAll); err != nil {
+			return err
+		}
 	}
 
 	// Finally creation of /initialized as marker.
