@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
 )
 

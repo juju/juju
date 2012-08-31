@@ -1,12 +1,13 @@
 package worker_test
+
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/tomb"
-	"launchpad.net/juju-core/environs/config"
-	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker"
+	"launchpad.net/tomb"
 	stdtesting "testing"
 )
 

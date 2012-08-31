@@ -1,12 +1,13 @@
 package worker
+
 import (
-	"launchpad.net/tomb"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/tomb"
 )
 
-var loadedInvalid = func(){}
+var loadedInvalid = func() {}
 
 // WaitForEnviron waits for an valid environment to arrive from
 // the given watcher. It terminates with tomb.ErrDying if
