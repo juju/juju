@@ -16,9 +16,10 @@ type UpgradeJujuCommand struct {
 	UploadTools bool
 	BumpVersion bool
 	Version version.Number
-	DevVersion bool
+	DevVersion  bool
 	conn *juju.Conn
 	toolsList *environs.ToolsList
+	agentVersion version.Number
 }
 
 func (c *UpgradeJujuCommand) Info() *cmd.Info {
@@ -64,8 +65,8 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	currentVers := cfg.AgentVersion()
-	c.toolsList, err = environs.ListTools(c.conn.Environ, currentVers.Major)
+	c.agentVersion = cfg.AgentVersion()
+	c.toolsList, err = environs.ListTools(c.conn.Environ, c.agentVersion.Major)
 	if err != nil {
 		return err
 	}
@@ -87,51 +88,58 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) error {
 			return err
 		}
 	}
+	if c.Version.Major != c.agentVersion.Major {
+		return fmt.Errorf("cannot upgrade major versions yet")
+	}
+	if c.Version == c.agentVersion && c.DevVersion == cfg.DevVersion() {
+		return nil
+	}
 	return c.conn.State.SetAgentVersion(c.Version, c.DevVersion)
 }
 
 // newestVersion returns the newest version of any tool.
 // Private tools take precedence over public tools.
 func (c *UpgradeJujuCommand) newestVersion() (version.Number, error) {
-	max := highestVersion(c.toolsList.Private)
+	// When choosing a default version, don't choose
+	// a dev version if the current version is a release version.
+	allowDev := c.agentVersion.IsDev() || c.DevVersion
+	max := c.highestVersion(c.toolsList.Private, allowDev)
 	if max != nil {
 		return max.Number, nil
 	}
-	max = highestVersion(c.toolsList.Public)
+	max = c.highestVersion(c.toolsList.Public, allowDev)
 	if max == nil {
 		return version.Number{}, fmt.Errorf("no tools found")
 	}
 	return max.Number, nil
 }
 
-// bumpedVersion returns a version higher than anything
-// in the private tools storage.
+// bumpedVersion returns a version higher than anything in the private
+// tools storage.
 func (c *UpgradeJujuCommand) bumpedVersion() version.Binary {
 	vers := version.Current
 	// We ignore the public tools because anything in the private
 	// storage will override them.
-	max := highestVersion(c.toolsList.Private)
+	max := c.highestVersion(c.toolsList.Private, true)
 	if max == nil {
 		return vers
 	}
 	// Increment in units of 10000 so we can still see the original
 	// version number in the least significant digits of the bumped
 	// version number (also vers.IsDev remains unaffected).
-	for !max.Number.Less(vers.Number) {
-		vers.Minor += 10000
-		vers.Patch += 10000
-		if vers.Minor < 0 || vers.Patch < 0 {
-			panic("version number too large (possible DOS attack)")
-		}
-	}
+	vers.Minor = (max.Minor / 10000 * 10000) + (vers.Minor % 10000) + 10000
+	vers.Patch = (max.Patch / 10000 * 10000) + (vers.Patch % 10000) + 10000
 	return vers
 }
 
 // highestVersion returns the tools with the highest
 // version number from the given list.
-func highestVersion(list []*state.Tools) *state.Tools {
+func (c *UpgradeJujuCommand) highestVersion(list []*state.Tools, allowDev bool) *state.Tools {
 	var max *state.Tools
 	for _, t := range list {
+		if !allowDev && t.IsDev() {
+			continue
+		}
 		if max == nil || max.Number.Less(t.Number) {
 			max = t
 		}
