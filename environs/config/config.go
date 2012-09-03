@@ -145,7 +145,7 @@ var fields = schema.Fields{
 	"authorized-keys":      schema.String(),
 	"authorized-keys-path": schema.String(),
 	"agent-version":        schema.String(),
-	"dev-version":        schema.Bool(),
+	"dev-version":          schema.Bool(),
 }
 
 var defaults = schema.Defaults{
@@ -153,7 +153,7 @@ var defaults = schema.Defaults{
 	"authorized-keys":      "",
 	"authorized-keys-path": "",
 	"agent-version":        schema.Omit,
-	"dev-version":        schema.Omit,
+	"dev-version":          schema.Omit,
 }
 
 var checker = schema.FieldMap(fields, defaults)

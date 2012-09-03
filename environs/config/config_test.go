@@ -81,7 +81,7 @@ var configTests = []struct {
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-			"dev-version":   true,
+			"dev-version":     true,
 		},
 		"",
 	}, {
@@ -89,15 +89,15 @@ var configTests = []struct {
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-			"dev-version":   false,
+			"dev-version":     false,
 		},
 		"",
-	},  {
+	}, {
 		attrs{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-			"dev-version":   "true",
+			"dev-version":     "true",
 		},
 		"dev-version: expected bool, got \"true\"",
 	}, {

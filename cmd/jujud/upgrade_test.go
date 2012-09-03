@@ -75,7 +75,7 @@ func (s *upgraderSuite) TestUpgraderStop(c *C) {
 
 // startUpgrader starts the upgrader using the given machine
 // for observing and changing agent tools.
-func startUpgrader(st *state.State, event chan<-string) (u *Upgrader, upgraderDone <-chan error) {
+func startUpgrader(st *state.State, event chan<- string) (u *Upgrader, upgraderDone <-chan error) {
 	as := &testAgentState{
 		event: event,
 	}
@@ -116,59 +116,59 @@ func (s *upgraderSuite) uploadTools(c *C, vers version.Binary) (path string, too
 }
 
 type proposal struct {
-	version string
+	version    string
 	devVersion bool
-}	
+}
 
-var upgraderTests = []struct{
-	about string
-	upload []string		// Upload these tools versions.
-	propose string		// Propose this version...
-	devVersion bool	// ... with devVersion set to this.
+var upgraderTests = []struct {
+	about      string
+	upload     []string // Upload these tools versions.
+	propose    string   // Propose this version...
+	devVersion bool     // ... with devVersion set to this.
 
 	// Things that may happen.
 	invalidVersion bool
-	sameVersion bool
-	upgradeTo string
-} {{
-	about: "propose with no possible candidates",
-	propose: "2.0.2",
+	sameVersion    bool
+	upgradeTo      string
+}{{
+	about:          "propose with no possible candidates",
+	propose:        "2.0.2",
 	invalidVersion: true,
 }, {
-	about: "propose with same candidate as current",
-	upload: []string{"2.0.0"},
-	propose: "2.0.4",
+	about:       "propose with same candidate as current",
+	upload:      []string{"2.0.0"},
+	propose:     "2.0.4",
 	sameVersion: true,
 }, {
-	about: "propose development version when !devVersion",
-	upload: []string{"2.0.1"},
-	propose: "2.0.4",
+	about:       "propose development version when !devVersion",
+	upload:      []string{"2.0.1"},
+	propose:     "2.0.4",
 	sameVersion: true,
 }, {
-	about: "propose development version when devVersion",
-	propose: "2.0.4",
+	about:      "propose development version when devVersion",
+	propose:    "2.0.4",
 	devVersion: true,
-	upgradeTo: "2.0.1",
+	upgradeTo:  "2.0.1",
 }, {
-	about: "propose release version when !devVersion",
-	propose: "2.0.4",
+	about:     "propose release version when !devVersion",
+	propose:   "2.0.4",
 	upgradeTo: "2.0.0",
 }, {
-	about: "propose with higher available candidates",
-	upload: []string{"2.0.5", "2.0.6"},
-	propose: "2.0.4",
+	about:       "propose with higher available candidates",
+	upload:      []string{"2.0.5", "2.0.6"},
+	propose:     "2.0.4",
 	sameVersion: true,
 }, {
-	about: "propose exact available version",
-	propose: "2.0.6",
+	about:     "propose exact available version",
+	propose:   "2.0.6",
 	upgradeTo: "2.0.6",
 }, {
-	about: "propose downgrade",
-	propose: "2.0.5",
+	about:     "propose downgrade",
+	propose:   "2.0.5",
 	upgradeTo: "2.0.5",
 },
 }
-		
+
 func (s *upgraderSuite) TestUpgrader(c *C) {
 	// Set up the test hooks.
 	event := make(chan string, 10)
@@ -194,7 +194,7 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 	c.Assert(err, IsNil)
 
 	var (
-		u *Upgrader
+		u            *Upgrader
 		upgraderDone <-chan error
 		currentTools = v0tools
 	)
@@ -210,7 +210,7 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 		}
 	}()
 
-	uploaded := make(map[version.Number] *state.Tools)
+	uploaded := make(map[version.Number]*state.Tools)
 	for i, test := range upgraderTests {
 		c.Logf("%d. %s; current version: %v", i, test.about, version.Current)
 		for _, v := range test.upload {
@@ -242,7 +242,7 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 			// Check that the upgraded version was really downloaded.
 			data, err := ioutil.ReadFile(filepath.Join(environs.ToolsDir(tools.Binary), "jujud"))
 			c.Assert(err, IsNil)
-			c.Assert(string(data), Equals, "jujud contents " + tools.Binary.String())
+			c.Assert(string(data), Equals, "jujud contents "+tools.Binary.String())
 
 			u, upgraderDone = nil, nil
 			currentTools = tools
