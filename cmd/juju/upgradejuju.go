@@ -6,7 +6,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/juju"
 )
@@ -17,8 +16,9 @@ type UpgradeJujuCommand struct {
 	UploadTools bool
 	BumpVersion bool
 	Version version.Number
-	Dev bool
+	DevVersion bool
 	conn *juju.Conn
+	toolsList *environs.ToolsList
 }
 
 func (c *UpgradeJujuCommand) Info() *cmd.Info {
@@ -27,10 +27,11 @@ func (c *UpgradeJujuCommand) Info() *cmd.Info {
 
 func (c *UpgradeJujuCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	addEnvironFlags(&c.EnvName, f)
-	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before upgrading")
+	var vers string
+	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools")
 	f.StringVar(&vers, "version", "", "version to upgrade to (defaults to highest available version with the current major version number)")
-	f.BoolVar(&c.BumpVersion, "bump-version", false, "upload the tools as a higher version number if necessary")
-	f.BoolVar(&c.Dev, "dev", false, "allow development versions to be chosen")
+	f.BoolVar(&c.BumpVersion, "bump-version", false, "upload the tools as a higher version number if necessary, and use that version (overrides --version)")
+	f.BoolVar(&c.DevVersion, "dev", false, "allow development versions to be chosen")
 
 	if err := f.Parse(true, args); err != nil {
 		return err
@@ -41,7 +42,7 @@ func (c *UpgradeJujuCommand) Init(f *gnuflag.FlagSet, args []string) error {
 		if err != nil {
 			return err
 		}
-		if c.Version == version.Number{} {
+		if c.Version == (version.Number{}) {
 			return fmt.Errorf("cannot upgrade to version 0.0.0")
 		}
 	}
@@ -59,91 +60,101 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) error {
 	}
 	defer c.conn.Close()
 
-	st, err := c.conn.State()
+	cfg, err := c.conn.State.EnvironConfig()
 	if err != nil {
 		return err
 	}
-
-	if c.Version == version.Number{} {
-		c.Version, err = getLatestVersion(st)
+	currentVers := cfg.AgentVersion()
+	c.toolsList, err = environs.ListTools(c.conn.Environ, currentVers.Major)
+	if err != nil {
+		return err
+	}
+	if c.Version == (version.Number{}) {
+		c.Version, err = c.newestVersion()
 		if err != nil {
-			return err
+			return fmt.Errorf("cannot find newest version: %v", err)
 		}
-	}
-
-	
-	// We assume that the client is running the same major version
-	// as the tools. Given that major-version upgrades require
-	// extra logic, this seems OK for the time being.
-	toolsList, err := environs.ListTools(c.conn.Environ, version.Current.Major)
-	if err != nil {
-		return err
 	}
 	if c.UploadTools {
-		if err := c.uploadTools(toolsList); err != nil {
-			return err
+		var forceVersion *version.Binary
+		if c.BumpVersion {
+			vers := c.bumpedVersion()
+			forceVersion = &vers
+			c.Version = vers.Number
 		}
+		_, err := environs.PutTools(c.conn.Environ.Storage(), forceVersion)
 	}
-	// TODO first upgrade the provisioning agent, so that we know that any
-	// new instances will be running the new tools.
-
-	var agents []agentState
-	machines, err := st.AllMachines()
-	if err != nil {
-		return err
-	}
-	for _, m := range machines {
-		agents = append(agents, m)
-	}
-
-	// TODO units
-	return c.upgrade(toolsList, agents)
+	return c.conn.State.SetAgentVersion(c.Version, c.)
 }
 
-func getLatestVersion(st *state.State) (version.Number, error) {
-	currentVers := cfg.AgentVersion()
-	
-	cfg, err := st.EnvironConfig()
-	if err != nil {
-		return err
+// newestVersion returns the newest version of any tool.
+// Private tools take precedence over public tools.
+func (c *UpgradeJujuCommand) newestVersion() (version.Number, error) {
+	max := highestVersion(t.Private)
+	if max != nil {
+		return max.Number, nil
 	}
+	max = highestVersion(t.Public)
+	if max == 0 {
+		return version.Number{}, fmt.Errorf("no tools found")
+	}
+	return max.Number, nil
+}
+
+// listTools lists the available tools and saves the result
+// so that we can avoid unnecessary round-trips.
+func (c *UpgradeJujuCommand) listTools() (*environs.ToolsList, error) {
+	if c.toolsList != nil {
+		return c.toolsList, nil
+	}
+	toolsList, err := environs.ListTools(c.conn.Environ, currentVers.Major)
+	if err != nil {
+		return nil, err
+	}
+	c.toolsList = toolsList
+	return toolsList, nil
+}
 
 // uploadTools uploads the current tools to the given environment.
-// It adds the uploaded tools to the tools list.
-func (c *UpgradeJujuCommand) uploadTools(toolsList *environs.ToolsList) error {
+// It adds the uploaded tools to the tools list and returns the
+// version used.
+func (c *UpgradeJujuCommand) uploadTools() (version.Number, error) {
 	var forceVersion *version.Binary
 	if c.BumpVersion {
-		vers := version.Current
-		if max := highestToolsVersion(toolsList); max != nil {
-			// Increment in units of 10000 so we can still
-			// see the original version number in the least
-			// significant digits of the bumped version
-			// number (also vers.IsDev remains unaffected).
-			for !max.Number.Less(vers.Number) {
-				vers.Minor += 10000
-				vers.Patch += 10000
-				if vers.Minor < 0 || vers.Patch < 0 {
-					panic("version number too large (probable DOS attack)")
-				}
-			}
-		}
 		if vers != version.Current {
 			forceVersion = &vers
 		}
 	}
 	tools, err := environs.PutTools(c.conn.Environ.Storage(), forceVersion)
-	if err != nil {
-		return err
-	}
-	toolsList.Private = append(toolsList.Private, tools)
-	return nil
+	return tools.Number, err
 }
 
-// highestToolsVersion returns the private tools with the highest
-// version number, or nil if there are no private tools.
-// We ignore the public tools because anything in the private
-// storage will override them.
-func highestToolsVersion(list *environs.ToolsList) *state.Tools {
+// bumpedVersion returns a version higher than anything
+// in the private tools storage.
+func (c *UpgradeJujuCommand) bumpedVersion() version.Binary {
+	vers := version.Current
+	// We ignore the public tools because anything in the private
+	// storage will override them.
+	max := highestToolsVersion(c.toolsList.Private)
+	if max == nil {
+		return vers
+	}
+	// Increment in units of 10000 so we can still see the original
+	// version number in the least significant digits of the bumped
+	// version number (also vers.IsDev remains unaffected).
+	for !max.Number.Less(vers.Number) {
+		vers.Minor += 10000
+		vers.Patch += 10000
+		if vers.Minor < 0 || vers.Patch < 0 {
+			panic("version number too large (possible DOS attack)")
+		}
+	}
+	return vers
+}
+
+// highestVersion returns the tools with the highest
+// version number from the given list.
+func highestVersion(tools []*state.Tools) *state.Tools {
 	var max *state.Tools
 	for _, t := range list.Private {
 		if max == nil || max.Number.Less(t.Number) {
@@ -151,41 +162,4 @@ func highestToolsVersion(list *environs.ToolsList) *state.Tools {
 		}
 	}
 	return max
-}
-
-func (c *UpgradeJujuCommand) upgrade(list *environs.ToolsList, agents []agentState) error {
-	// TODO(rog) do the ProposeTools concurrently to avoid
-	// many round-trips in strict sequence.
-	for _, a := range agents {
-		// We use the agent's proposed tools to work out
-		// what series/architecture the agent is running on,
-		// as the agent may not yet be running, so the	current
-		// tools might not yet be set.
-		proposedTools, err := a.ProposedAgentTools()
-		if err != nil {
-			return err
-		}
-		tools := environs.BestTools(list, proposedTools.Binary, c.Dev)
-		if tools == nil {
-			log.Printf("cannot find any tools appropriate for %s", agentName(a))
-			continue
-		}
-		if proposedTools.Number.Less(tools.Number) {
-			if err := a.ProposeAgentTools(tools); err != nil {
-				return err
-			}
-			log.Printf("propose version for %s: %v", tools.Binary, agentName(a))
-		} else {
-			log.Printf("%s is already running its latest version: %v", agentName(a), tools.Binary)
-		}
-	}
-	return nil
-}
-
-func agentName(a agentState) string {
-	switch a := a.(type) {
-	case *state.Machine:
-		return fmt.Sprintf("machine %d", a.Id())
-	}
-	panic("unknown agent type")
 }
