@@ -99,6 +99,13 @@ func (c *Config) AgentVersion() version.Number {
 	return n
 }
 
+// DevVersion returns whether upgrades are allowed from release versions
+// to development versions.
+func (c *Config) DevVersion() bool {
+	v, _ := c.m["dev-version"].(bool)
+	return v
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -136,6 +143,7 @@ var fields = schema.Fields{
 	"authorized-keys":      schema.String(),
 	"authorized-keys-path": schema.String(),
 	"agent-version":        schema.String(),
+	"dev-version":        schema.Bool(),
 }
 
 var defaults = schema.Defaults{
@@ -143,6 +151,7 @@ var defaults = schema.Defaults{
 	"authorized-keys":      "",
 	"authorized-keys-path": "",
 	"agent-version":        schema.Omit,
+	"dev-version":        schema.Omit,
 }
 
 var checker = schema.FieldMap(fields, defaults)

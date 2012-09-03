@@ -81,6 +81,30 @@ var configTests = []struct {
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
+			"dev-version":   true,
+		},
+		"",
+	}, {
+		attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"authorized-keys": "my-keys",
+			"dev-version":   false,
+		},
+		"",
+	},  {
+		attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"authorized-keys": "my-keys",
+			"dev-version":   "true",
+		},
+		"dev-version: expected bool, got \"true\"",
+	}, {
+		attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"authorized-keys": "my-keys",
 			"agent-version":   "2",
 		},
 		`invalid agent version in environment configuration: "2"`,
@@ -151,6 +175,9 @@ func (*ConfigSuite) TestConfig(c *C) {
 			c.Assert(cfg.AgentVersion(), Equals, vers)
 		} else {
 			c.Assert(cfg.AgentVersion(), Equals, version.Number{})
+		}
+		if s := test.attrs["dev-version"]; s != nil {
+			c.Assert(cfg.DevVersion(), Equals, s)
 		}
 		if series, _ := test.attrs["default-series"].(string); series != "" {
 			c.Assert(cfg.DefaultSeries(), Equals, series)
