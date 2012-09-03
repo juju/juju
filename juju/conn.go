@@ -49,11 +49,7 @@ func NewConnFromEnviron(environ environs.Environ) (*Conn, error) {
 // NewConn returns a Conn pointing at the environName environment, or the
 // default environment if not specified.
 func NewConn(environName string) (*Conn, error) {
-	environs, err := environs.ReadEnvirons("")
-	if err != nil {
-		return nil, err
-	}
-	environ, err := environs.Open(environName)
+	environ, err := environs.NewFromName(environName)
 	if err != nil {
 		return nil, err
 	}

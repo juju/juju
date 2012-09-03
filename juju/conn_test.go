@@ -60,9 +60,7 @@ environments:
 	conn, err = juju.NewConn("")
 	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
 
-	envCfg, err := environs.ReadEnvirons("")
-	c.Assert(err, IsNil)
-	environ, err := envCfg.Open("")
+	environ, err := environs.NewFromName("")
 	c.Assert(err, IsNil)
 	err = environ.Bootstrap(false)
 	c.Assert(err, IsNil)

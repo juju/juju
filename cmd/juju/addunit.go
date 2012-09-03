@@ -49,11 +49,7 @@ func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	st, err := conn.State()
-	if err != nil {
-		return err
-	}
-	service, err := st.Service(c.ServiceName)
+	service, err := conn.State.Service(c.ServiceName)
 	if err != nil {
 		return err
 	}
