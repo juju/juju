@@ -19,10 +19,10 @@ type Conn struct {
 	State   *state.State
 }
 
-// NewConnFromEnviron returns a new Conn that uses the
+// NewConn returns a new Conn that uses the
 // given environment. The environment must have already
 // been bootstrapped.
-func NewConnFromEnviron(environ environs.Environ) (*Conn, error) {
+func NewConn(environ environs.Environ) (*Conn, error) {
 	info, err := environ.StateInfo()
 	if err != nil {
 		return nil, err
@@ -46,14 +46,14 @@ func NewConnFromEnviron(environ environs.Environ) (*Conn, error) {
 	}, nil
 }
 
-// NewConn returns a Conn pointing at the environName environment, or the
+// NewConnFromName returns a Conn pointing at the environName environment, or the
 // default environment if not specified.
-func NewConn(environName string) (*Conn, error) {
+func NewConnFromName(environName string) (*Conn, error) {
 	environ, err := environs.NewFromName(environName)
 	if err != nil {
 		return nil, err
 	}
-	return NewConnFromEnviron(environ)
+	return NewConn(environ)
 }
 
 // Close terminates the connection to the environment and releases

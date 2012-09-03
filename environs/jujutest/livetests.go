@@ -157,7 +157,7 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	}
 	t.BootstrapOnce(c)
 
-	conn, err := juju.NewConnFromEnviron(t.Env)
+	conn, err := juju.NewConn(t.Env)
 	c.Assert(err, IsNil)
 	defer conn.Close()
 

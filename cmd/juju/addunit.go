@@ -44,7 +44,7 @@ func (c *AddUnitCommand) Init(f *gnuflag.FlagSet, args []string) error {
 // Run connects to the environment specified on the command line 
 // and calls conn.AddUnits.
 func (c *AddUnitCommand) Run(_ *cmd.Context) error {
-	conn, err := juju.NewConn(c.EnvName)
+	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
