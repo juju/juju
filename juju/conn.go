@@ -42,7 +42,7 @@ func NewConnFromEnviron(environ environs.Environ) (*Conn, error) {
 	}
 	return &Conn{
 		Environ: environ,
-		State: st,
+		State:   st,
 	}, nil
 }
 

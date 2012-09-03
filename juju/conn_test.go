@@ -108,7 +108,7 @@ func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 		"type":            "dummy",
 		"zookeeper":       true,
 		"authorized-keys": "i-am-a-key",
-		"secret": "food",
+		"secret":          "food",
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)

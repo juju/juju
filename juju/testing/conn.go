@@ -102,7 +102,7 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	conn, err := juju.NewConn("dummyenv")
 	c.Assert(err, IsNil)
 	s.Conn = conn
-	s.State= conn.State
+	s.State = conn.State
 	c.Assert(err, IsNil)
 }
 
