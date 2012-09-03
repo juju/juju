@@ -58,23 +58,28 @@ environments:
 	// Just run through a few operations on the dummy provider and verify that
 	// they behave as expected.
 	conn, err = juju.NewConn("")
-	c.Assert(err, IsNil)
-	defer conn.Close()
-	st, err := conn.State()
-	c.Assert(st, IsNil)
 	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
-	err = conn.Bootstrap(false)
+
+	envCfg, err := environs.ReadEnvirons("")
 	c.Assert(err, IsNil)
-	st, err = conn.State()
-	c.Check(err, IsNil)
-	c.Check(st, NotNil)
-	err = conn.Destroy()
+	environ, err := envCfg.Open("")
+	c.Assert(err, IsNil)
+	err = environ.Bootstrap(false)
 	c.Assert(err, IsNil)
 
+	conn, err = juju.NewConn("")
+	c.Assert(err, IsNil)
+	defer conn.Close()
+	c.Assert(conn.Environ, NotNil)
+	c.Assert(conn.Environ.Name(), Equals, "erewhemos")
+	c.Assert(conn.State, NotNil)
+
 	// Close the conn (thereby closing its state) a couple of times to
-	// verify that multiple closes are safe.
-	c.Assert(conn.Close(), IsNil)
-	c.Assert(conn.Close(), IsNil)
+	// verify that multiple closes will not panic. We ignore the error,
+	// as the underlying State will return an error the second
+	// time.
+	conn.Close()
+	conn.Close()
 }
 
 func (*ConnSuite) TestNewConnFromAttrs(c *C) {
@@ -85,20 +90,29 @@ func (*ConnSuite) TestNewConnFromAttrs(c *C) {
 		"authorized-keys": "i-am-a-key",
 	}
 	conn, err := juju.NewConnFromAttrs(attrs)
+	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
+
+	environ, err := environs.NewFromAttrs(attrs)
+	c.Assert(err, IsNil)
+	err = environ.Bootstrap(false)
+	c.Assert(err, IsNil)
+
+	conn, err = juju.NewConnFromAttrs(attrs)
 	c.Assert(err, IsNil)
 	defer conn.Close()
-	st, err := conn.State()
-	c.Assert(st, IsNil)
-	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
+	c.Assert(conn.Environ.Name(), Equals, "erewhemos")
+	c.Assert(conn.State, NotNil)
 }
 
 func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
-	env, err := environs.NewFromAttrs(map[string]interface{}{
+	attrs := map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
 		"zookeeper":       true,
 		"authorized-keys": "i-am-a-key",
-	})
+		"secret": "food",
+	}
+	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
 	err = env.Bootstrap(false)
 	c.Assert(err, IsNil)
@@ -112,21 +126,14 @@ func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(cfg.UnknownAttrs()["secret"], IsNil)
 
-	conn, err := juju.NewConnFromAttrs(map[string]interface{}{
-		"name":            "erewhemos",
-		"type":            "dummy",
-		"zookeeper":       true,
-		"authorized-keys": "i-am-a-key",
-	})
+	conn, err := juju.NewConnFromAttrs(attrs)
 	c.Assert(err, IsNil)
 	defer conn.Close()
 	// fetch a state connection via the conn, which will 
 	// push the secrets.
-	st, err = conn.State()
+	cfg, err = conn.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	cfg, err = st.EnvironConfig()
-	c.Assert(err, IsNil)
-	c.Assert(cfg.UnknownAttrs()["secret"], Equals, "pork")
+	c.Assert(cfg.UnknownAttrs()["secret"], Equals, "food")
 }
 
 func (*ConnSuite) TestValidRegexps(c *C) {
