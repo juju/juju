@@ -78,7 +78,8 @@ func (s *UnitSuite) TestGetSetStatus(c *C) {
 	err = s.unit.SetStatus(state.UnitStarted, "")
 	c.Assert(err, IsNil)
 
-	// TODO(mue) Has to uncommented when mstate presence exists!
+	// TODO(mue) Has to be uncommented when mstate presence is available
+	// and AgentAlive() and SetAgentAlive() are working!
 	// status, info, err = s.unit.Status()
 	// c.Assert(err, IsNil)
 	// c.Assert(status, Equals, state.UnitDown)
