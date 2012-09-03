@@ -413,7 +413,6 @@ func FindTools(env Environ, vers version.Binary, flags ToolsSearchFlags) (*state
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("findTools got tools list %v", toolsList)
 	tools := BestTools(toolsList, vers, flags)
 	if tools == nil {
 		return tools, &NotFoundError{fmt.Errorf("no compatible tools found")}
