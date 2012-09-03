@@ -104,15 +104,16 @@ func (s *State) SetEnvironConfig(cfg *config.Config) error {
 	return err
 }
 
-// SetAgentVersion sets the current agent version in the
-// state's environment configuration.
-func (s *State) SetAgentVersion(vers version.Number) error {
+// SetAgentVersion sets the current agent version and
+// DevVersion flag in the state's environment configuration.
+func (s *State) SetAgentVersion(vers version.Number, devVersion bool) error {
 	cfg, err := s.EnvironConfig()
 	if err != nil {
 		return err
 	}
 	attrs := cfg.AllAttrs()
 	attrs["agent-version"] = vers.String()
+	attrs["dev-version"] = devVersion
 	cfg, err = config.New(attrs)
 	if err != nil {
 		panic(fmt.Errorf("config refused agent-version: %v", err))
