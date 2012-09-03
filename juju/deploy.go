@@ -16,7 +16,7 @@ import (
 // charm.  If svcName is empty, the charm name will be used.
 func (conn *Conn) AddService(name string, ch *state.Charm) (*state.Service, error) {
 	if name == "" {
-		name = ch.URL().Name // TODO sch.Meta().Name ?
+		name = ch.URL().Name // TODO ch.Meta().Name ?
 	}
 	svc, err := conn.State.AddService(name, ch)
 	if err != nil {
