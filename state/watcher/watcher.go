@@ -6,15 +6,19 @@ import (
 	"launchpad.net/tomb"
 )
 
-// ErrStopper is implemented by all watchers.
-type ErrStopper interface {
+// Stopper is implemented by all watchers.
+type Stopper interface {
 	Stop() error
+}
+
+// Errer is implemented by all watchers.
+type Errer interface {
 	Err() error
 }
 
 // Stop stops the watcher. If an error is returned by the
 // watcher, t is killed with the error.
-func Stop(w ErrStopper, t *tomb.Tomb) {
+func Stop(w Stopper, t *tomb.Tomb) {
 	if err := w.Stop(); err != nil {
 		t.Kill(err)
 	}
@@ -22,7 +26,7 @@ func Stop(w ErrStopper, t *tomb.Tomb) {
 
 // MustErr returns the error with which w died.
 // Calling it will panic if w is still running or was stopped cleanly.
-func MustErr(w ErrStopper) error {
+func MustErr(w Errer) error {
 	err := w.Err()
 	if err == nil {
 		panic("watcher was stopped cleanly")

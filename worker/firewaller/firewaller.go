@@ -1,10 +1,12 @@
 package firewaller
 
 import (
+	"fmt"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
 )
 
@@ -37,50 +39,38 @@ func NewFirewaller(st *state.State) *Firewaller {
 		serviceds:       make(map[string]*serviceData),
 		exposedChange:   make(chan *exposedChange),
 	}
-	go fw.loop()
+	go func() {
+		defer fw.tomb.Done()
+		fw.tomb.Kill(fw.loop())
+	}()
 	return fw
 }
 
-func (fw *Firewaller) loop() {
-	defer fw.finish()
+func (fw *Firewaller) loop() error {
+	defer fw.stopWatchers()
 
-Loop:
-	for {
-		select {
-		case <-fw.tomb.Dying():
-			return
-		case config, ok := <-fw.environWatcher.Changes():
-			if !ok {
-				return
-			}
-			var err error
-			fw.environ, err = environs.New(config)
-			if err != nil {
-				log.Printf("firewaller loaded invalid environment configuration: %v", err)
-				continue
-			}
-			log.Printf("firewaller loaded new environment configuration")
-			break Loop
-		}
+	var err error
+	fw.environ, err = worker.WaitForEnviron(fw.environWatcher, fw.tomb.Dying())
+	if err != nil {
+		return err
 	}
-
 	for {
 		select {
 		case <-fw.tomb.Dying():
-			return
+			return tomb.ErrDying
 		case change, ok := <-fw.environWatcher.Changes():
 			if !ok {
-				return
+				return watcher.MustErr(fw.environWatcher)
 			}
 			err := fw.environ.SetConfig(change)
 			if err != nil {
 				log.Printf("firewaller loaded invalid environment configuration: %v", err)
-				continue
+				break
 			}
 			log.Printf("firewaller loaded new environment configuration")
 		case change, ok := <-fw.machinesWatcher.Changes():
 			if !ok {
-				return
+				return watcher.MustErr(fw.machinesWatcher)
 			}
 			for _, machine := range change.Removed {
 				machined, ok := fw.machineds[machine.Id()]
@@ -88,7 +78,7 @@ Loop:
 					panic("trying to remove machine that was not added")
 				}
 				delete(fw.machineds, machine.Id())
-				if err := machined.stopWatch(); err != nil {
+				if err := machined.Stop(); err != nil {
 					log.Printf("machine data %d returned error when stopping: %v", machine.Id(), err)
 				}
 				log.Debugf("firewaller: stopped watching machine %d", machine.Id())
@@ -108,7 +98,7 @@ Loop:
 				delete(unitd.machined.unitds, unit.Name())
 				delete(unitd.serviced.unitds, unit.Name())
 				changed = append(changed, unitd)
-				if err := unitd.stopWatch(); err != nil {
+				if err := unitd.Stop(); err != nil {
 					log.Printf("unit watcher %q returned error when stopping: %v", unit.Name(), err)
 				}
 				log.Debugf("firewaller: stopped watching unit %s", unit.Name())
@@ -128,8 +118,7 @@ Loop:
 				if fw.serviceds[unit.ServiceName()] == nil {
 					service, err := fw.st.Service(unit.ServiceName())
 					if err != nil {
-						fw.tomb.Kill(err)
-						return
+						return err
 					}
 					fw.serviceds[unit.ServiceName()] = newServiceData(service, fw)
 				}
@@ -140,14 +129,12 @@ Loop:
 				log.Debugf("firewaller: started watching unit %s", unit.Name())
 			}
 			if err := fw.flushUnits(changed); err != nil {
-				fw.tomb.Killf("cannot change firewall ports: %v", err)
-				return
+				return fmt.Errorf("cannot change firewall ports: %v", err)
 			}
 		case change := <-fw.portsChange:
 			change.unitd.ports = change.ports
 			if err := fw.flushUnits([]*unitData{change.unitd}); err != nil {
-				fw.tomb.Killf("cannot change firewall ports: %v", err)
-				return
+				return fmt.Errorf("cannot change firewall ports: %v", err)
 			}
 		case change := <-fw.exposedChange:
 			change.serviced.exposed = change.exposed
@@ -156,11 +143,11 @@ Loop:
 				unitds = append(unitds, unitd)
 			}
 			if err := fw.flushUnits(unitds); err != nil {
-				fw.tomb.Killf("cannot change firewall ports: %v", err)
-				return
+				return fmt.Errorf("cannot change firewall ports: %v", err)
 			}
 		}
 	}
+	panic("not reached")
 }
 
 // flushUnits opens and closes ports for the passed unit data.
@@ -195,6 +182,14 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 	toOpen := diff(want, machined.ports)
 	toClose := diff(machined.ports, want)
 	machined.ports = want
+
+	// If there's nothing to do, do nothing.
+	// This is important because when a machine is first created,
+	// it will have no instance id but also no open ports -
+	// InstanceId will fail but we don't care.
+	if len(toOpen) == 0 && len(toClose) == 0 {
+		return nil
+	}
 	// Open and close the ports.
 	instanceId, err := machined.machine.InstanceId()
 	if err != nil {
@@ -225,20 +220,19 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 	return nil
 }
 
-// finishes cleans up when the firewaller is stopping.
-func (fw *Firewaller) finish() {
+// stopWatchers stops all the firewaller's watchers.
+func (fw *Firewaller) stopWatchers() {
 	watcher.Stop(fw.environWatcher, &fw.tomb)
 	watcher.Stop(fw.machinesWatcher, &fw.tomb)
 	for _, unitd := range fw.unitds {
-		fw.tomb.Kill(unitd.stopWatch())
+		watcher.Stop(unitd, &fw.tomb)
 	}
 	for _, serviced := range fw.serviceds {
-		fw.tomb.Kill(serviced.stopWatch())
+		watcher.Stop(serviced, &fw.tomb)
 	}
 	for _, machined := range fw.machineds {
-		fw.tomb.Kill(machined.stopWatch())
+		watcher.Stop(machined, &fw.tomb)
 	}
-	fw.tomb.Done()
 }
 
 // Dying returns a channel that signals a Firewaller exit.
@@ -316,7 +310,7 @@ func (md *machineData) watchLoop() {
 }
 
 // stopWatch stops the machine watching.
-func (md *machineData) stopWatch() error {
+func (md *machineData) Stop() error {
 	md.tomb.Kill(nil)
 	return md.tomb.Wait()
 }
@@ -373,8 +367,8 @@ func (ud *unitData) watchLoop() {
 	}
 }
 
-// stopWatch stops the unit watching.
-func (ud *unitData) stopWatch() error {
+// Stop stops the unit watching.
+func (ud *unitData) Stop() error {
 	ud.tomb.Kill(nil)
 	return ud.tomb.Wait()
 }
@@ -436,8 +430,8 @@ func (sd *serviceData) watchLoop() {
 	}
 }
 
-// stopWatch stops the service watching.
-func (sd *serviceData) stopWatch() error {
+// Stop stops the service watching.
+func (sd *serviceData) Stop() error {
 	sd.tomb.Kill(nil)
 	return sd.tomb.Wait()
 }
