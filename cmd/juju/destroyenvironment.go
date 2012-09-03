@@ -7,11 +7,11 @@ import (
 )
 
 // DestroyCommand destroys an environment.
-type DestroyCommand struct {
+type DestroyEnvironmentCommand struct {
 	EnvName string
 }
 
-func (c *DestroyCommand) Info() *cmd.Info {
+func (c *DestroyEnvironmentCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		"destroy-environment", "[options]",
 		"terminate all machines and other associated resources for an environment",
@@ -19,7 +19,7 @@ func (c *DestroyCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *DestroyCommand) Init(f *gnuflag.FlagSet, args []string) error {
+func (c *DestroyEnvironmentCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	addEnvironFlags(&c.EnvName, f)
 	if err := f.Parse(true, args); err != nil {
 		return err
@@ -27,7 +27,7 @@ func (c *DestroyCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return cmd.CheckEmpty(f.Args())
 }
 
-func (c *DestroyCommand) Run(_ *cmd.Context) error {
+func (c *DestroyEnvironmentCommand) Run(_ *cmd.Context) error {
 	conn, err := juju.NewConn(c.EnvName)
 	if err != nil {
 		return err
