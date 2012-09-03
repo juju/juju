@@ -6,7 +6,7 @@ import (
 	"launchpad.net/juju-core/juju"
 )
 
-// DestroyCommand destroys an environment.
+// DestroyEnvironmentCommand destroys an environment.
 type DestroyEnvironmentCommand struct {
 	EnvName string
 }

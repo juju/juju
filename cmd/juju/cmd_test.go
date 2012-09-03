@@ -164,7 +164,7 @@ func (*CmdSuite) TestBootstrapCommand(c *C) {
 	c.Check(<-errc, ErrorMatches, "dummy.Bootstrap is broken")
 }
 
-func (*CmdSuite) TestDestroyCommand(c *C) {
+func (*CmdSuite) TestDestroyEnvironmentCommand(c *C) {
 	// normal destroy
 	opc, errc := runCommand(new(DestroyEnvironmentCommand))
 	c.Check((<-opc).(dummy.OpDestroy).Env, Equals, "peckham")
