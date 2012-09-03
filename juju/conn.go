@@ -56,16 +56,6 @@ func NewConn(environName string) (*Conn, error) {
 	return NewConnFromEnviron(environ)
 }
 
-// NewConnFromAttrs returns a Conn pointing at the environment
-// created with the given attributes, as created with environs.NewFromAttrs.
-func NewConnFromAttrs(attrs map[string]interface{}) (*Conn, error) {
-	environ, err := environs.NewFromAttrs(attrs)
-	if err != nil {
-		return nil, err
-	}
-	return NewConnFromEnviron(environ)
-}
-
 // Close terminates the connection to the environment and releases
 // any associated resources.
 func (c *Conn) Close() error {
