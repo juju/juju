@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/trivial"
+	"time"
 )
 
 // ResolvedMode describes the way state transition errors 
@@ -30,6 +32,18 @@ const (
 	// to a dedicated machine, and that new machines should be launched
 	// if required.
 	AssignUnused AssignmentPolicy = "unused"
+)
+
+// UnitStatus represents the status of the unit agent.
+type UnitStatus string
+
+const (
+	UnitPending   UnitStatus = "pending"   // Agent hasn't started
+	UnitInstalled UnitStatus = "installed" // Agent has run the installed hook
+	UnitStarted   UnitStatus = "started"   // Agent is running properly
+	UnitStopped   UnitStatus = "stopped"   // Agent has stopped running on request
+	UnitError     UnitStatus = "error"     // Agent is waiting in an error state
+	UnitDown      UnitStatus = "down"      // Agent is down or not communicating
 )
 
 // NeedsUpgrade describes if a unit needs an
@@ -153,6 +167,76 @@ func (u *Unit) Refresh() error {
 		return fmt.Errorf("cannot refresh unit %q: %v", u, err)
 	}
 	return nil
+}
+
+// Status returns the status of the unit's agent.
+func (u *Unit) Status() (s UnitStatus, info string, err error) {
+	config, err := u.Config()
+	if err != nil {
+		return "", "", fmt.Errorf("cannot read status of unit %q: %v", u, err)
+	}
+	raw, found := config.Get("status")
+	if !found {
+		return UnitPending, "", nil
+	}
+	s = UnitStatus(raw.(string))
+	switch s {
+	case UnitError:
+		// We always expect an info if status is 'error'.
+		raw, found = config.Get("status-info")
+		if !found {
+			panic("no status-info found for unit error")
+		}
+		return s, raw.(string), nil
+	case UnitStopped:
+		return UnitStopped, "", nil
+	}
+	alive, err := u.AgentAlive()
+	if err != nil {
+		return "", "", err
+	}
+	if !alive {
+		s = UnitDown
+	}
+	return s, "", nil
+}
+
+// SetStatus sets the status of the unit.
+func (u *Unit) SetStatus(status UnitStatus, info string) error {
+	if status == UnitPending {
+		panic("unit status must not be set to pending")
+	}
+	config, err := u.Config()
+	if err != nil {
+		return err
+	}
+	config.Set("status", status)
+	config.Set("status-info", info)
+	_, err = config.Write()
+	if err != nil {
+		return fmt.Errorf("cannot set status of unit %q: %v", u, err)
+	}
+	return nil
+}
+
+// AgentAlive returns whether the respective remote agent is alive.
+func (u *Unit) AgentAlive() (bool, error) {
+	// TODO(mue) Has to implemented with mstate presence!
+	return true, nil
+}
+
+// WaitAgentAlive blocks until the respective agent is alive.
+func (u *Unit) WaitAgentAlive(timeout time.Duration) error {
+	// TODO(mue) Has to implemented with mstate presence!
+	return nil
+}
+
+// SetAgentAlive signals that the agent for unit u is alive
+// by starting a pinger on its presence node. It returns the
+// started pinger.
+func (u *Unit) SetAgentAlive() (*presence.Pinger, error) {
+	// TODO(mue) Has to implemented with mstate presence!
+	return nil, nil
 }
 
 // AssignedMachineId returns the id of the assigned machine.
@@ -358,4 +442,13 @@ func (u *Unit) ClearNeedsUpgrade() error {
 	}
 	u.doc.NeedsUpgrade = nil
 	return nil
+}
+
+// Config returns the configuration node for the unit.
+func (u *Unit) Config() (config *ConfigNode, err error) {
+	config, err = readConfigNode(u.st, "u/"+u.Name())
+	if err != nil {
+		return nil, fmt.Errorf("cannot get configuration of unit %q: %v", u, err)
+	}
+	return config, nil
 }

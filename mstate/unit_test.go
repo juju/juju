@@ -66,6 +66,43 @@ func (s *UnitSuite) TestRefresh(c *C) {
 	c.Assert(address, Equals, "example.foobar.com")
 }
 
+func (s *UnitSuite) TestGetSetStatus(c *C) {
+	fail := func() { s.unit.SetStatus(state.UnitPending, "") }
+	c.Assert(fail, PanicMatches, "unit status must not be set to pending")
+
+	status, info, err := s.unit.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, state.UnitPending)
+	c.Assert(info, Equals, "")
+
+	err = s.unit.SetStatus(state.UnitStarted, "")
+	c.Assert(err, IsNil)
+
+	// TODO(mue) Has to uncommented when mstate presence exists!
+	// status, info, err = s.unit.Status()
+	// c.Assert(err, IsNil)
+	// c.Assert(status, Equals, state.UnitDown)
+	// c.Assert(info, Equals, "")
+
+	// _, err = s.unit.SetAgentAlive()
+	// c.Assert(err, IsNil)
+	// defer func() {
+	// 	c.Assert(p.Kill(), IsNil)
+	// }()
+
+	status, info, err = s.unit.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, state.UnitStarted)
+	c.Assert(info, Equals, "")
+
+	err = s.unit.SetStatus(state.UnitError, "test-hook failed")
+	c.Assert(err, IsNil)
+	status, info, err = s.unit.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, state.UnitError)
+	c.Assert(info, Equals, "test-hook failed")
+}
+
 func (s *UnitSuite) TestGetSetClearResolved(c *C) {
 	setting, err := s.unit.Resolved()
 	c.Assert(err, IsNil)
