@@ -157,8 +157,7 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	}
 	t.BootstrapOnce(c)
 
-	// TODO(dfc) constructing a juju.Conn by hand is a code smell.
-	conn, err := juju.NewConnFromAttrs(t.Env.Config().AllAttrs())
+	conn, err := juju.NewConnFromEnviron(t.Env)
 	c.Assert(err, IsNil)
 	defer conn.Close()
 

@@ -80,28 +80,6 @@ environments:
 	conn.Close()
 }
 
-func (*ConnSuite) TestNewConnFromAttrs(c *C) {
-	attrs := map[string]interface{}{
-		"name":            "erewhemos",
-		"type":            "dummy",
-		"zookeeper":       true,
-		"authorized-keys": "i-am-a-key",
-	}
-	conn, err := juju.NewConnFromAttrs(attrs)
-	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
-
-	environ, err := environs.NewFromAttrs(attrs)
-	c.Assert(err, IsNil)
-	err = environ.Bootstrap(false)
-	c.Assert(err, IsNil)
-
-	conn, err = juju.NewConnFromAttrs(attrs)
-	c.Assert(err, IsNil)
-	defer conn.Close()
-	c.Assert(conn.Environ.Name(), Equals, "erewhemos")
-	c.Assert(conn.State, NotNil)
-}
-
 func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	attrs := map[string]interface{}{
 		"name":            "erewhemos",
@@ -119,12 +97,12 @@ func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	st, err := state.Open(info)
 	c.Assert(err, IsNil)
 
-	// verify we have no secret in the environ config
+	// Verify we have no secret in the environ config
 	cfg, err := st.EnvironConfig()
 	c.Assert(err, IsNil)
 	c.Assert(cfg.UnknownAttrs()["secret"], IsNil)
 
-	conn, err := juju.NewConnFromAttrs(attrs)
+	conn, err := juju.NewConnFromEnviron(env)
 	c.Assert(err, IsNil)
 	defer conn.Close()
 	// fetch a state connection via the conn, which will 
