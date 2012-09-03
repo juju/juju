@@ -115,8 +115,8 @@ func (s *PresenceSuite) TestWorkflow(c *C) {
 	assertNoChange(c, cha)
 	assertNoChange(c, chb)
 
-	//c.Assert(w.Alive("a"), Equals, true)
-	//c.Assert(w.Alive("b"), Equals, false)
+	c.Assert(w.Alive("a"), Equals, true)
+	c.Assert(w.Alive("b"), Equals, false)
 
 	// Changes while the channel is out are not observed.
 	w.Remove("a", cha)
@@ -126,6 +126,10 @@ func (s *PresenceSuite) TestWorkflow(c *C) {
 	pa.Start()
 	w.ForceRefresh()
 	assertNoChange(c, cha)
+
+	// We can still query it manually, though.
+	c.Assert(w.Alive("a"), Equals, true)
+	c.Assert(w.Alive("b"), Equals, false)
 
 	// Initial positive event. No refresh needed.
 	w.Add("a", cha)
@@ -197,7 +201,7 @@ func (s *PresenceSuite) TestExpiry(c *C) {
 	defer w.Stop()
 	defer p.Stop()
 
-	ch := make(chan presence.Change, 1)
+	ch := make(chan presence.Change)
 	w.Add("a", ch)
 	assertChange(c, ch, presence.Change{"a", false})
 
@@ -241,4 +245,30 @@ func (s *PresenceSuite) TestWatchPeriod(c *C) {
 	// Wait for next periodic refresh.
 	time.Sleep(1 * time.Second)
 	assertChange(c, ch, presence.Change{"a", true})
+}
+
+func (s *PresenceSuite) TestAddRemoveOnQueue(c *C) {
+	w := presence.NewWatcher(s.presence)
+	ch := make(chan presence.Change)
+	for i := 0; i < 100; i++ {
+		key := strconv.Itoa(i)
+		c.Logf("Adding %q", key)
+		w.Add(key, ch)
+	}
+	for i := 1; i < 100; i += 2 {
+		key := strconv.Itoa(i)
+		c.Logf("Removing %q", key)
+		w.Remove(key, ch)
+	}
+	alive := make(map[string]bool)
+	for i := 0; i < 50; i++ {
+		change := <-ch
+		c.Logf("Got change for %q: %v", change.Key, change.Alive)
+		alive[change.Key] = change.Alive
+	}
+	for i := 0; i < 100; i += 2 {
+		key := strconv.Itoa(i)
+		c.Logf("Checking %q...", key)
+		c.Assert(alive[key], Equals, false)
+	}
 }

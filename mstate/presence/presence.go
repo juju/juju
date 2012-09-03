@@ -11,17 +11,27 @@ import (
 
 // A Watcher can watch any number of pinger keys for liveness changes.
 type Watcher struct {
-	base      *mgo.Collection
-	pings     *mgo.Collection
-	beings    *mgo.Collection
-	delta     time.Duration
-	beingKey  map[int64]string
-	beingSeq  map[string]int64
-	watches   map[string][]chan<- Change
-	request   chan interface{}
+	base     *mgo.Collection
+	pings    *mgo.Collection
+	beings   *mgo.Collection
+	delta    time.Duration
+	beingKey map[int64]string
+	beingSeq map[string]int64
+	watches  map[string][]chan<- Change
+	request  chan interface{}
+	tomb     tomb.Tomb
+	next     <-chan time.Time
+	pending  []event
+
+	// refreshed contains pending ForcedRefresh done channels
+	// that are waiting for the completion notice.
 	refreshed []chan bool
-	tomb      tomb.Tomb
-	next      <-chan time.Time
+}
+
+type event struct {
+	ch    chan<- Change
+	key   string
+	alive bool
 }
 
 // Change holds a liveness change notification.
@@ -54,47 +64,6 @@ func (w *Watcher) Stop() error {
 	return w.tomb.Wait()
 }
 
-// period is the delay between each ping and also the duration
-// of each time slot. It's not a time.Duration because the code is
-// more convenient like this and also because sub-second timings
-// don't work as the slot id is in seconds.
-var period int64 = 30 // seconds
-
-// loop implements the main watcher loop.
-func (w *Watcher) loop() error {
-	var err error
-	if w.delta, err = clockDelta(w.base); err != nil {
-		return err
-	}
-	w.next = time.After(0)
-	for {
-		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case <-w.next:
-			w.next = time.After(time.Duration(period) * time.Second)
-			refreshed := w.refreshed
-			w.refreshed = nil
-			if err := w.refresh(); err != nil {
-				return err
-			}
-			for _, done := range refreshed {
-				select {
-				case done <- true:
-				case <-w.tomb.Dying():
-				}
-			}
-		case req := <-w.request:
-			w.handle(req)
-		}
-	}
-	return nil
-}
-
-type reqRefresh struct {
-	done chan bool
-}
-
 type reqAdd struct {
 	key string
 	ch  chan<- Change
@@ -103,6 +72,10 @@ type reqAdd struct {
 type reqRemove struct {
 	key string
 	ch  chan<- Change
+}
+
+type reqRefresh struct {
+	done chan bool
 }
 
 type reqAlive struct {
@@ -125,8 +98,9 @@ func (w *Watcher) Remove(key string, ch chan<- Change) {
 }
 
 // ForceRefresh forces a synchronous refresh of the watcher knowledge.
-// Being synchronous means the events generated from the updated
-// knowledge must be consumed while the refresh is being run.
+// It blocks until the database state has been loaded and the events
+// have been prepared, but it is fine to consume the events after
+// ForceRefresh returns.
 func (w *Watcher) ForceRefresh() {
 	done := make(chan bool)
 	w.request <- reqRefresh{done}
@@ -148,23 +122,91 @@ func (w *Watcher) Alive(key string) bool {
 	return alive
 }
 
-// handle deals with requests delivered by the public API onto
-// the main watcher loop.
+// period is the length of each time slot in seconds.
+// It's not a time.Duration because the code is more convenient like
+// this and also because sub-second timings don't work as the slot
+// identifier is an int64 in seconds.
+var period int64 = 30
+
+// loop implements the main watcher loop.
+func (w *Watcher) loop() error {
+	var err error
+	if w.delta, err = clockDelta(w.base); err != nil {
+		return err
+	}
+	w.next = time.After(0)
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.next:
+			w.next = time.After(time.Duration(period) * time.Second)
+			refreshed := w.refreshed
+			w.refreshed = nil
+			if err := w.refresh(); err != nil {
+				return err
+			}
+			for _, done := range refreshed {
+				close(done)
+			}
+		case req := <-w.request:
+			w.handle(req)
+		}
+		w.flush()
+	}
+	return nil
+}
+
+// flush sends all pending events to their respective channels.
+func (w *Watcher) flush() {
+	i := 0
+	for i < len(w.pending) {
+		e := &w.pending[i]
+		if e.ch == nil {
+			i++ // Removed meanwhile.
+			continue
+		}
+		select {
+		case <-w.tomb.Dying():
+			return
+		case req := <-w.request:
+			w.handle(req)
+		case e.ch <- Change{e.key, e.alive}:
+			i++
+		}
+	}
+	w.pending = w.pending[:0]
+}
+
+// handle deals with requests delivered by the public API
+// onto the background watcher goroutine.
 func (w *Watcher) handle(req interface{}) {
 	switch r := req.(type) {
 	case reqRefresh:
 		w.next = time.After(0)
 		w.refreshed = append(w.refreshed, r.done)
 	case reqAdd:
+		for _, ch := range w.watches[r.key] {
+			if ch == r.ch {
+				panic("adding channel twice for same key")
+			}
+		}
 		w.watches[r.key] = append(w.watches[r.key], r.ch)
 		_, alive := w.beingSeq[r.key]
-		w.dispatch(r.key, alive, []chan<- Change{r.ch})
+		w.pending = append(w.pending, event{r.ch, r.key, alive})
 	case reqRemove:
 		watches := w.watches[r.key]
 		for i, ch := range watches {
 			if ch == r.ch {
 				copy(watches[:len(watches)-1], watches[i+1:])
 				w.watches[r.key] = watches[:len(watches)-1]
+				break
+			}
+		}
+		for i := range w.pending {
+			e := &w.pending[i]
+			if e.key == r.key && e.ch == r.ch {
+				e.ch = nil
 			}
 		}
 	case reqAlive:
@@ -190,7 +232,7 @@ type pingInfo struct {
 }
 
 // refresh updates the watcher knowledge from the database, and
-// dispatches events to observing channels. The process is done by
+// queues events to observing channels. The process is done by
 // fetching the last two time slots, and comparing the union of
 // both to the in-memory state.
 func (w *Watcher) refresh() error {
@@ -224,9 +266,9 @@ func (w *Watcher) refresh() error {
 		}
 	}
 
-	// Learn about all the pingers that reported and dispatch
-	// events for those that weren't known to be alive and are
-	// not reportedly dead either.
+	// Learn about all the pingers that reported and queue
+	// events for those that weren't known to be alive and
+	// are not reportedly dead either.
 	alive := make(map[int64]bool)
 	for i := range ping {
 		for key, value := range ping[i].Alive {
@@ -254,7 +296,9 @@ func (w *Watcher) refresh() error {
 				}
 				w.beingKey[seq] = being.Key
 				w.beingSeq[being.Key] = seq
-				w.dispatch(being.Key, true, w.watches[being.Key])
+				for _, ch := range w.watches[being.Key] {
+					w.pending = append(w.pending, event{ch, being.Key, true})
+				}
 			}
 		}
 	}
@@ -268,50 +312,13 @@ func (w *Watcher) refresh() error {
 			seq2, ok := w.beingSeq[key]
 			if !ok || seq2 == seq || !alive[seq2] {
 				delete(w.beingSeq, key)
-				w.dispatch(key, false, w.watches[key])
+				for _, ch := range w.watches[key] {
+					w.pending = append(w.pending, event{ch, key, false})
+				}
 			}
-		} else {
 		}
 	}
 	return nil
-}
-
-// dispatch sends a change event with key and alive to the
-// named watches. It handles properly the case of a channel
-// being removed while a change is being dispatched.
-func (w *Watcher) dispatch(key string, alive bool, watches []chan<- Change) {
-	if len(watches) == 0 {
-		return
-	}
-	change := Change{key, alive}
-	var removed map[chan<- Change]bool
-	var requests []interface{}
-	for i := 0; i < len(watches); i++ {
-		ch := watches[i]
-		if removed[ch] {
-			continue
-		}
-		select {
-		case <-w.tomb.Dying():
-			return
-		case req := <-w.request:
-			// Must observe requests to avoid blocking forever
-			// on a channel that is being removed.
-			requests = append(requests, req)
-			if r, ok := req.(reqRemove); ok && r.key == key {
-				if removed == nil {
-					removed = make(map[chan<- Change]bool)
-				}
-				removed[r.ch] = true
-			}
-			i-- // retry
-		case ch <- change:
-		}
-	}
-	// Handle all requests observed meanwhile.
-	for _, req := range requests {
-		w.handle(req)
-	}
 }
 
 // A Pinger periodically reports that a specific key is alive, so that
@@ -333,8 +340,8 @@ func NewPinger(base *mgo.Collection, key string) *Pinger {
 	return &Pinger{base: base, pings: pingsC(base), beingKey: key}
 }
 
-// Start starts periodically reporting that the key p is
-// responsible for is alive.
+// Start starts periodically reporting that the key the pinger
+// is responsible for is alive.
 func (p *Pinger) Start() error {
 	// FIXME Error on double-starts
 	var being beingInfo
@@ -411,7 +418,7 @@ func timeSlot(now time.Time, delta time.Duration) int64 {
 	if fake {
 		now = fakeNow
 	}
-	slot := now.UTC().Add(delta).Unix()
+	slot := now.Add(delta).Unix()
 	slot -= slot % period
 	if fake {
 		slot += int64(fakeOffset) * period
