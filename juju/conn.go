@@ -69,11 +69,5 @@ func NewConnFromAttrs(attrs map[string]interface{}) (*Conn, error) {
 // Close terminates the connection to the environment and releases
 // any associated resources.
 func (c *Conn) Close() error {
-	if c == nil {
-		panic("nil conn")
-	}
-	if c.State == nil {
-		panic("nil state")
-	}
 	return c.State.Close()
 }
