@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/environs"
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
@@ -16,9 +17,8 @@ var _ = Suite(&DeploySuite{})
 
 type DeploySuite struct {
 	testing.ZkSuite
-	conn  *juju.Conn
-	state *state.State
-	repo  *charm.LocalRepository
+	conn *juju.Conn
+	repo *charm.LocalRepository
 }
 
 func (s *DeploySuite) SetUpTest(c *C) {
@@ -28,14 +28,12 @@ func (s *DeploySuite) SetUpTest(c *C) {
 		"zookeeper":       true,
 		"authorized-keys": "i-am-a-key",
 	}
-	conn, err := juju.NewConnFromAttrs(attrs)
+	environ, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
-	err = conn.Bootstrap(false)
+	err = environ.Bootstrap(false)
 	c.Assert(err, IsNil)
-	st, err := conn.State()
+	s.conn, err = juju.NewConnFromEnviron(environ)
 	c.Assert(err, IsNil)
-	s.conn = conn
-	s.state = st
 	s.repo = &charm.LocalRepository{Path: c.MkDir()}
 }
 
@@ -43,7 +41,7 @@ func (s *DeploySuite) TearDownTest(c *C) {
 	if s.conn == nil {
 		return
 	}
-	err := s.conn.Destroy()
+	err := s.conn.Environ.Destroy(nil)
 	c.Check(err, IsNil)
 	s.conn.Close()
 	s.conn = nil
@@ -56,7 +54,7 @@ func (s *DeploySuite) TestPutCharmBasic(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(sch.Meta().Summary, Equals, "K/V storage engine")
 
-	sch, err = s.state.Charm(sch.URL())
+	sch, err = s.conn.State.Charm(sch.URL())
 	c.Assert(err, IsNil)
 	c.Assert(sch.Meta().Summary, Equals, "K/V storage engine")
 }
@@ -86,7 +84,7 @@ func (s *DeploySuite) TestPutBundledCharm(c *C) {
 	c.Assert(sch.Meta().Summary, Equals, "K/V storage engine")
 
 	// Check that we can get the charm from the state.
-	sch, err = s.state.Charm(sch.URL())
+	sch, err = s.conn.State.Charm(sch.URL())
 	c.Assert(err, IsNil)
 	c.Assert(sch.Meta().Summary, Equals, "K/V storage engine")
 }
@@ -100,7 +98,7 @@ func (s *DeploySuite) TestPutCharmUpload(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(sch.Meta().Summary, Equals, "K/V storage engine")
 
-	sch, err = s.state.Charm(sch.URL())
+	sch, err = s.conn.State.Charm(sch.URL())
 	c.Assert(err, IsNil)
 	sha256 := sch.BundleSha256()
 	rev := sch.Revision()
@@ -116,7 +114,7 @@ func (s *DeploySuite) TestPutCharmUpload(c *C) {
 	sch, err = s.conn.PutCharm(curl, repo.Path, false)
 	c.Assert(err, IsNil)
 
-	sch, err = s.state.Charm(sch.URL())
+	sch, err = s.conn.State.Charm(sch.URL())
 	c.Assert(err, IsNil)
 	c.Assert(sch.BundleSha256(), Equals, sha256)
 	c.Assert(sch.Revision(), Equals, rev)
@@ -126,7 +124,7 @@ func (s *DeploySuite) TestPutCharmUpload(c *C) {
 	sch, err = s.conn.PutCharm(curl, repo.Path, true)
 	c.Assert(err, IsNil)
 
-	sch, err = s.state.Charm(sch.URL())
+	sch, err = s.conn.State.Charm(sch.URL())
 	c.Assert(err, IsNil)
 	c.Assert(sch.BundleSha256(), Not(Equals), sha256)
 	c.Assert(sch.Revision(), Equals, rev+1)

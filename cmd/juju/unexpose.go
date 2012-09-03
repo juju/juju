@@ -39,11 +39,7 @@ func (c *UnexposeCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-	st, err := conn.State()
-	if err != nil {
-		return err
-	}
-	svc, err := st.Service(c.ServiceName)
+	svc, err := conn.State.Service(c.ServiceName)
 	if err != nil {
 		return err
 	}

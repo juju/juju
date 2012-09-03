@@ -92,15 +92,17 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 
 	err = ioutil.WriteFile(filepath.Join(home, ".juju", "environments.yaml"), config, 0600)
 	c.Assert(err, IsNil)
+
+	environ, err := environs.NewFromName("dummyenv")
+	c.Assert(err, IsNil)
+	// sanity check we've got the correct environment.
+	c.Assert(environ.Name(), Equals, "dummyenv")
+	c.Assert(environ.Bootstrap(false), IsNil)
+
 	conn, err := juju.NewConn("dummyenv")
 	c.Assert(err, IsNil)
-
-	// sanity check we've got the correct environment.
-	c.Assert(conn.Environ.Name(), Equals, "dummyenv")
-
-	c.Assert(conn.Bootstrap(false), IsNil)
 	s.Conn = conn
-	s.State, err = conn.State()
+	s.State = conn.State
 	c.Assert(err, IsNil)
 }
 
