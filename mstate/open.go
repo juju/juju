@@ -4,6 +4,7 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/mstate/presence"
 )
 
 var indexes = []mgo.Index{
@@ -18,17 +19,21 @@ func Dial(servers string) (*State, error) {
 		return nil, err
 	}
 	db := session.DB("juju")
+	presencedb := session.DB("presence")
 	txns := db.C("txns")
 	st := &State{
-		db:        db,
-		charms:    db.C("charms"),
-		machines:  db.C("machines"),
-		relations: db.C("relations"),
-		services:  db.C("services"),
-		settings:  db.C("settings"),
-		units:     db.C("units"),
-		runner:    txn.NewRunner(txns),
+		db:         db,
+		presencedb: presencedb,
+		charms:     db.C("charms"),
+		machines:   db.C("machines"),
+		relations:  db.C("relations"),
+		services:   db.C("services"),
+		settings:   db.C("settings"),
+		units:      db.C("units"),
+		agents:     presencedb.C("agents"),
+		runner:     txn.NewRunner(txns),
 	}
+	st.agentsw = presence.NewWatcher(st.agents)
 	for _, index := range indexes {
 		err = st.relations.EnsureIndex(index)
 		if err != nil {

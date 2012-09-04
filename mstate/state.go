@@ -9,6 +9,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/mstate/presence"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/url"
@@ -22,17 +23,26 @@ type Tools struct {
 	URL string
 }
 
+// entity is implemented by all state entity types which
+// provide a unique key for the database.  
+type entity interface {
+	entityKey() string
+}
+
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	db        *mgo.Database
-	charms    *mgo.Collection
-	machines  *mgo.Collection
-	relations *mgo.Collection
-	services  *mgo.Collection
-	settings  *mgo.Collection
-	units     *mgo.Collection
-	runner    *txn.Runner
+	db         *mgo.Database
+	presencedb *mgo.Database
+	charms     *mgo.Collection
+	machines   *mgo.Collection
+	relations  *mgo.Collection
+	services   *mgo.Collection
+	settings   *mgo.Collection
+	units      *mgo.Collection
+	agents     *mgo.Collection
+	agentsw    *presence.Watcher
+	runner     *txn.Runner
 }
 
 func deadOnAbort(err error) error {

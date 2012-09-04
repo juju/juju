@@ -3,6 +3,7 @@ package mstate_test
 import (
 	. "launchpad.net/gocheck"
 	state "launchpad.net/juju-core/mstate"
+	"time"
 )
 
 type UnitSuite struct {
@@ -78,18 +79,16 @@ func (s *UnitSuite) TestGetSetStatus(c *C) {
 	err = s.unit.SetStatus(state.UnitStarted, "")
 	c.Assert(err, IsNil)
 
-	// TODO(mue) Has to be uncommented when mstate presence is available
-	// and AgentAlive() and SetAgentAlive() are working!
-	// status, info, err = s.unit.Status()
-	// c.Assert(err, IsNil)
-	// c.Assert(status, Equals, state.UnitDown)
-	// c.Assert(info, Equals, "")
+	status, info, err = s.unit.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, state.UnitDown)
+	c.Assert(info, Equals, "")
 
-	// _, err = s.unit.SetAgentAlive()
-	// c.Assert(err, IsNil)
-	// defer func() {
-	// 	c.Assert(p.Kill(), IsNil)
-	// }()
+	p, err := s.unit.SetAgentAlive()
+	c.Assert(err, IsNil)
+	defer func() {
+		c.Assert(p.Kill(), IsNil)
+	}()
 
 	status, info, err = s.unit.Status()
 	c.Assert(err, IsNil)
@@ -102,6 +101,43 @@ func (s *UnitSuite) TestGetSetStatus(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(status, Equals, state.UnitError)
 	c.Assert(info, Equals, "test-hook failed")
+}
+
+func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
+	alive := s.unit.AgentAlive()
+	c.Assert(alive, Equals, false)
+
+	pinger, err := s.unit.SetAgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(pinger, Not(IsNil))
+	defer pinger.Kill()
+
+	alive = s.unit.AgentAlive()
+	c.Assert(alive, Equals, true)
+}
+
+func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
+	timeout := 5 * time.Second
+	alive := s.unit.AgentAlive()
+	c.Assert(alive, Equals, false)
+
+	err := s.unit.WaitAgentAlive(timeout)
+	c.Assert(err, ErrorMatches, `waiting for agent of unit "wordpress/0": still not alive after timeout`)
+
+	pinger, err := s.unit.SetAgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(pinger, Not(IsNil))
+
+	err = s.unit.WaitAgentAlive(timeout)
+	c.Assert(err, IsNil)
+
+	alive = s.unit.AgentAlive()
+	c.Assert(alive, Equals, true)
+
+	pinger.Kill()
+
+	alive = s.unit.AgentAlive()
+	c.Assert(alive, Equals, false)
 }
 
 func (s *UnitSuite) TestGetSetClearResolved(c *C) {

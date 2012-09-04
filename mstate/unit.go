@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
-	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/mstate/presence"
 	"launchpad.net/juju-core/trivial"
 	"time"
 )
@@ -107,6 +107,11 @@ func (u *Unit) Name() string {
 	return u.doc.Name
 }
 
+// entityKey returns the database key of the unit.
+func (u *Unit) entityKey() string {
+	return "u#" + u.doc.Name
+}
+
 // Life returns whether the unit is Alive, Dying or Dead.
 func (u *Unit) Life() Life {
 	return u.doc.Life
@@ -191,10 +196,7 @@ func (u *Unit) Status() (s UnitStatus, info string, err error) {
 	case UnitStopped:
 		return UnitStopped, "", nil
 	}
-	alive, err := u.AgentAlive()
-	if err != nil {
-		return "", "", err
-	}
+	alive := u.AgentAlive()
 	if !alive {
 		s = UnitDown
 	}
@@ -220,23 +222,43 @@ func (u *Unit) SetStatus(status UnitStatus, info string) error {
 }
 
 // AgentAlive returns whether the respective remote agent is alive.
-func (u *Unit) AgentAlive() (bool, error) {
-	// TODO(mue) Has to implemented with mstate presence!
-	return true, nil
+func (u *Unit) AgentAlive() bool {
+	u.st.agentsw.ForceRefresh()
+	return u.st.agentsw.Alive(u.entityKey())
 }
 
 // WaitAgentAlive blocks until the respective agent is alive.
 func (u *Unit) WaitAgentAlive(timeout time.Duration) error {
-	// TODO(mue) Has to implemented with mstate presence!
-	return nil
+	ch := make(chan presence.Change)
+	u.st.agentsw.Add(u.entityKey(), ch)
+	defer u.st.agentsw.Remove(u.entityKey(), ch)
+
+	end := time.Now().Add(timeout)
+	for {
+		remaining := end.Sub(time.Now())
+		select {
+		case change := <-ch:
+			if change.Alive {
+				return nil
+			}
+		case <-time.After(remaining):
+			return fmt.Errorf("waiting for agent of unit %q: still not alive after timeout", u)
+		}
+	}
+	panic("unreachable")
 }
 
 // SetAgentAlive signals that the agent for unit u is alive
 // by starting a pinger on its presence node. It returns the
 // started pinger.
 func (u *Unit) SetAgentAlive() (*presence.Pinger, error) {
-	// TODO(mue) Has to implemented with mstate presence!
-	return nil, nil
+	p := presence.NewPinger(u.st.agents, u.entityKey())
+	err := p.Start()
+	if err != nil {
+		return nil, err
+	}
+	u.st.agentsw.ForceRefresh()
+	return p, nil
 }
 
 // AssignedMachineId returns the id of the assigned machine.
@@ -446,7 +468,7 @@ func (u *Unit) ClearNeedsUpgrade() error {
 
 // Config returns the configuration node for the unit.
 func (u *Unit) Config() (config *ConfigNode, err error) {
-	config, err = readConfigNode(u.st, "u/"+u.Name())
+	config, err = readConfigNode(u.st, u.entityKey())
 	if err != nil {
 		return nil, fmt.Errorf("cannot get configuration of unit %q: %v", u, err)
 	}

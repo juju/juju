@@ -3,7 +3,7 @@ package main
 import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/environs"
 )
 
 // BootstrapCommand is responsible for launching the first machine in a juju
@@ -29,9 +29,9 @@ func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
-	conn, err := juju.NewConn(c.EnvName)
+	environ, err := environs.NewFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	return conn.Bootstrap(c.UploadTools)
+	return environ.Bootstrap(c.UploadTools)
 }

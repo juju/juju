@@ -24,6 +24,17 @@ func (envs *Environs) Open(name string) (Environ, error) {
 	return New(e.config)
 }
 
+// NewFromName opens the environment with the given
+// name from the default environments file. If the
+// name is blank, the default environment will be used.
+func NewFromName(name string) (Environ, error) {
+	environs, err := ReadEnvirons("")
+	if err != nil {
+		return nil, err
+	}
+	return environs.Open(name)
+}
+
 // NewFromAttrs returns a new environment based on the provided configuration
 // attributes.
 func NewFromAttrs(attrs map[string]interface{}) (Environ, error) {
