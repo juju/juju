@@ -165,7 +165,7 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	m, err := conn.State.Machine(0)
 	c.Assert(err, IsNil)
 
-	t.checkUpgradeMachineAgent(c, st, m)
+	t.checkUpgradeMachineAgent(c, conn.State, m)
 
 	// place a new machine into the state
 	m, err = conn.State.AddMachine()
