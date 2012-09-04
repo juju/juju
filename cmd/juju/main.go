@@ -32,6 +32,7 @@ func Main(args []string) {
 	juju.Register(&ExposeCommand{})
 	juju.Register(&StatusCommand{})
 	juju.Register(&UnexposeCommand{})
+	juju.Register(&UpgradeJujuCommand{})
 	os.Exit(cmd.Main(juju, cmd.DefaultContext(), args[1:]))
 }
 
