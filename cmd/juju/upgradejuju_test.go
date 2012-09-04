@@ -1,13 +1,13 @@
 package main
 
 import (
+	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/version"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/juju/testing"
-	"io/ioutil"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/version"
 	"strings"
 )
 
@@ -18,105 +18,118 @@ type UpgradeJujuSuite struct {
 var _ = Suite(&UpgradeJujuSuite{})
 
 var upgradeJujuTests = []struct {
-	about string
-	private []string
-	public []string
+	about          string
+	private        []string
+	public         []string
 	currentVersion string
-	agentVersion string
+	agentVersion   string
 
-	args []string
-	expectErr string
-	expectVersion string
+	args             []string
+	expectInitErr    string
+	expectErr        string
+	expectVersion    string
 	expectDevVersion bool
-	expectUploaded string
-} {{
-	about: "from private storage",
-	private: []string{"2.0.0-foo-bar", "2.0.2-foo-bletch", "2.0.3-foo-bar"},
-	public: []string{"2.0.0-foo-bar", "2.0.4-foo-bar", "2.0.5-foo-bar"},
-	currentVersion: "2.0.0-foo-bar",
-	agentVersion: "2.0.0",
-	expectVersion: "2.0.2",
+	expectUploaded   string
+}{{
+	about:          "unwanted extra argument",
+	currentVersion: "1.0.0-foo-bar",
+	agentVersion:   "1.0.0",
+	args:           []string{"foo"},
+	expectInitErr:  "unrecognized args:.*",
 }, {
-	about: "current dev version, from private storage",
-	private: []string{"2.0.0-foo-bar", "2.0.2-foo-bar", "2.0.3-foo-bar", "3.0.1-foo-bar"},
-	public: []string{"2.0.0-foo-bar", "2.0.4-foo-bar", "2.0.5-foo-bar"},
-	currentVersion: "2.0.1-foo-bar",
-	agentVersion: "2.0.1",
-	expectVersion: "2.0.3",
-},  {
-	about: "dev version flag, from private storage",
-	private: []string{"2.0.0-foo-bar", "2.0.2-foo-bar", "2.0.3-foo-bar"},
-	public: []string{"2.0.0-foo-bar", "2.0.4-foo-bar", "2.0.5-foo-bar"},
+	about:          "invalid --version value",
+	currentVersion: "1.0.0-foo-bar",
+	agentVersion:   "1.0.0",
+	args:           []string{"--version", "invalid-version"},
+	expectInitErr:  "invalid version .*",
+}, {
+	about:          "from private storage",
+	private:        []string{"2.0.0-foo-bar", "2.0.2-foo-bletch", "2.0.3-foo-bar"},
+	public:         []string{"2.0.0-foo-bar", "2.0.4-foo-bar", "2.0.5-foo-bar"},
 	currentVersion: "2.0.0-foo-bar",
-	args: []string{"--dev"},
-	agentVersion: "2.0.0",
-	expectVersion: "2.0.3",
+	agentVersion:   "2.0.0",
+	expectVersion:  "2.0.2",
+}, {
+	about:          "current dev version, from private storage",
+	private:        []string{"2.0.0-foo-bar", "2.0.2-foo-bar", "2.0.3-foo-bar", "3.0.1-foo-bar"},
+	public:         []string{"2.0.0-foo-bar", "2.0.4-foo-bar", "2.0.5-foo-bar"},
+	currentVersion: "2.0.1-foo-bar",
+	agentVersion:   "2.0.1",
+	expectVersion:  "2.0.3",
+}, {
+	about:            "dev version flag, from private storage",
+	private:          []string{"2.0.0-foo-bar", "2.0.2-foo-bar", "2.0.3-foo-bar"},
+	public:           []string{"2.0.0-foo-bar", "2.0.4-foo-bar", "2.0.5-foo-bar"},
+	currentVersion:   "2.0.0-foo-bar",
+	args:             []string{"--dev"},
+	agentVersion:     "2.0.0",
+	expectVersion:    "2.0.3",
 	expectDevVersion: true,
 }, {
-	about: "from public storage",
-	public: []string{"2.0.0-foo-bar", "2.0.2-arble-bletch", "2.0.3-foo-bar"},
+	about:          "from public storage",
+	public:         []string{"2.0.0-foo-bar", "2.0.2-arble-bletch", "2.0.3-foo-bar"},
 	currentVersion: "2.0.0-foo-bar",
-	agentVersion: "2.0.0",
-	expectVersion: "2.0.2",
+	agentVersion:   "2.0.0",
+	expectVersion:  "2.0.2",
 }, {
-	about: "current dev version, from public storage",
-	public: []string{"2.0.0-foo-bar", "2.0.2-arble-bletch", "2.0.3-foo-bar"},
+	about:          "current dev version, from public storage",
+	public:         []string{"2.0.0-foo-bar", "2.0.2-arble-bletch", "2.0.3-foo-bar"},
 	currentVersion: "2.0.1-foo-bar",
-	agentVersion: "2.0.1",
-	expectVersion: "2.0.3",
-},  {
-	about: "dev version flag, from public storage",
-	public: []string{"2.0.0-foo-bar", "2.0.2-arble-bletch", "2.0.3-foo-bar"},
-	currentVersion: "2.0.0-foo-bar",
-	args: []string{"--dev"},
-	agentVersion: "2.0.0",
-	expectVersion: "2.0.3",
+	agentVersion:   "2.0.1",
+	expectVersion:  "2.0.3",
+}, {
+	about:            "dev version flag, from public storage",
+	public:           []string{"2.0.0-foo-bar", "2.0.2-arble-bletch", "2.0.3-foo-bar"},
+	currentVersion:   "2.0.0-foo-bar",
+	args:             []string{"--dev"},
+	agentVersion:     "2.0.0",
+	expectVersion:    "2.0.3",
 	expectDevVersion: true,
 }, {
-	about: "specified version",
+	about:          "specified version",
 	currentVersion: "3.0.0-foo-bar",
-	agentVersion: "2.0.0",
-	args: []string{"--version", "2.0.3"},
-	expectVersion: "2.0.3",
+	agentVersion:   "2.0.0",
+	args:           []string{"--version", "2.0.3"},
+	expectVersion:  "2.0.3",
 }, {
-	about: "major version change",
+	about:          "major version change",
 	currentVersion: "2.0.0-foo-bar",
-	agentVersion: "4.1.2",
-	args: []string{"--version", "3.1.2"},
-	expectErr: "cannot upgrade major versions yet",
+	agentVersion:   "4.1.2",
+	args:           []string{"--version", "3.1.2"},
+	expectErr:      "cannot upgrade major versions yet",
 }, {
-	about: "upload",
+	about:          "upload",
 	currentVersion: "2.0.2-foo-bar",
-	agentVersion: "2.0.0",
-	args: []string{"--upload-tools"},
-	expectVersion: "2.0.2",
+	agentVersion:   "2.0.0",
+	args:           []string{"--upload-tools"},
+	expectVersion:  "2.0.2",
 	expectUploaded: "2.0.2-foo-bar",
-},  {
-	about: "upload dev version, currently on release version",
+}, {
+	about:          "upload dev version, currently on release version",
 	currentVersion: "2.0.1-foo-bar",
-	agentVersion: "2.0.0",
-	args: []string{"--upload-tools"},
-	expectErr: "cannot find newest version: no tools found",
+	agentVersion:   "2.0.0",
+	args:           []string{"--upload-tools"},
+	expectErr:      "cannot find newest version: no tools found",
 	expectUploaded: "2.0.1-foo-bar",
 }, {
-	about: "upload and bump version",
-	private: []string{"2.4.6-foo-bar", "2.4.8-foo-bar"},
-	public: []string{"2.4.10-foo-bar"},
+	about:          "upload and bump version",
+	private:        []string{"2.4.6-foo-bar", "2.4.8-foo-bar"},
+	public:         []string{"2.4.10-foo-bar"},
 	currentVersion: "2.4.6-foo-bar",
-	agentVersion: "2.4.0",
-	args: []string{"--upload-tools", "--bump-version"},
-	expectVersion: "2.10004.10006",
+	agentVersion:   "2.4.0",
+	args:           []string{"--upload-tools", "--bump-version"},
+	expectVersion:  "2.10004.10006",
 	expectUploaded: "2.10004.10006-foo-bar",
 }, {
-	about: "upload with previously bumped version",
-	private: []string{"2.4.6-foo-bar", "2.4.8-foo-bar", "2.10004.10006-foo-bar"},
-	public: []string{"2.4.10-foo-bar"},
+	about:          "upload with previously bumped version",
+	private:        []string{"2.4.6-foo-bar", "2.4.8-foo-bar", "2.10004.10006-foo-bar"},
+	public:         []string{"2.4.10-foo-bar"},
 	currentVersion: "2.4.6-foo-bar",
-	agentVersion: "2.10004.10006",
-	args: []string{"--upload-tools", "--bump-version"},
-	expectVersion: "2.20004.20006",
+	agentVersion:   "2.10004.10006",
+	args:           []string{"--upload-tools", "--bump-version"},
+	expectVersion:  "2.20004.20006",
 	expectUploaded: "2.20004.20006-foo-bar",
-}, 
+},
 }
 
 func upload(s environs.Storage, v string) {
@@ -139,7 +152,7 @@ func testPutTools(storage environs.Storage, forceVersion *version.Binary) (*stat
 		vers = *forceVersion
 	}
 	upload(storage, vers.String())
-	return &state.Tools {
+	return &state.Tools{
 		Binary: vers,
 	}, nil
 }
@@ -170,8 +183,10 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 		// Run the command
 		com := &UpgradeJujuCommand{}
 		err = com.Init(newFlagSet(), test.args)
-		c.Assert(err, IsNil)
-
+		if test.expectInitErr != "" {
+			c.Check(err, ErrorMatches, test.expectInitErr)
+			continue
+		}
 		err = com.Run(&cmd.Context{c.MkDir(), ioutil.Discard, ioutil.Discard})
 		if test.expectErr != "" {
 			c.Check(err, ErrorMatches, test.expectErr)
@@ -194,7 +209,6 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 		}
 	}
 }
-
 
 // JujuConnSuite very helpfully uploads some default
 // tools to the environment's storage. We don't want
