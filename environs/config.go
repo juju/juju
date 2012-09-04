@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/state"
 	"os"
 	"path/filepath"
 )
@@ -137,4 +138,22 @@ func ReadEnvirons(environsFile string) (*Environs, error) {
 		return nil, fmt.Errorf("cannot parse %q: %v", environsFile, err)
 	}
 	return e, nil
+}
+
+// BootstrapConfig returns an environment configuration suitable for
+// priming the juju state using the given provider, configuration and
+// tools.
+// 
+// The returned configuration contains no secret attributes.
+func BootstrapConfig(p EnvironProvider, cfg *config.Config, tools *state.Tools) (*config.Config, error) {
+	secrets, err := p.SecretAttrs(cfg)
+	if err != nil {
+		return nil, err
+	}
+	m := cfg.AllAttrs()
+	for k, _ := range secrets {
+		delete(m, k)
+	}
+	m["agent-version"] = tools.Number.String()
+	return config.New(m)
 }

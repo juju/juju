@@ -56,10 +56,23 @@ func (s *ProvisioningSuite) TestRunStop(c *C) {
 	c.Assert(err, IsNil)
 	units, err := s.Conn.AddUnits(svc, 1)
 	c.Assert(err, IsNil)
+	c.Check(opRecvTimeout(c, op, dummy.OpStartInstance{}), NotNil)
+
+	// Wait for the instance id to show up in the state.
+	id, err := units[0].AssignedMachineId()
+	c.Assert(err, IsNil)
+	m, err := s.State.Machine(id)
+	c.Assert(err, IsNil)
+	w := m.Watch()
+	for _ = range w.Changes() {
+		_, err := m.InstanceId()
+		if err == nil {
+			break
+		}
+	}
 	err = units[0].OpenPort("tcp", 999)
 	c.Assert(err, IsNil)
 
-	c.Check(opRecvTimeout(c, op, dummy.OpStartInstance{}), NotNil)
 	c.Check(opRecvTimeout(c, op, dummy.OpOpenPorts{}), NotNil)
 
 	err = a.Stop()

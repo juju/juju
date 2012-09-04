@@ -149,7 +149,7 @@ func (*CmdSuite) TestBootstrapCommand(c *C) {
 	}()
 	environs.VarDir = c.MkDir()
 
-	tools, err := environs.FindTools(env, version.Current)
+	tools, err := environs.FindTools(env, version.Current, environs.CompatVersion)
 	c.Assert(err, IsNil)
 	resp, err := http.Get(tools.URL)
 	c.Assert(err, IsNil)

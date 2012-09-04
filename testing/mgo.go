@@ -71,6 +71,8 @@ func (s *MgoSuite) SetUpSuite(c *C) {
 	mgo.SetStats(true)
 }
 
+func (s *MgoSuite) TearDownSuite(c *C) {}
+
 // MgoDial returns a new connection to the shared MongoDB server.
 func MgoDial() *mgo.Session {
 	session, err := mgo.Dial(MgoAddr)

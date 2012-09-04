@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
 	"time"
 )
 
@@ -19,6 +20,7 @@ var InvalidStateInfo = &state.Info{
 // is opened once for each test, and some potentially expensive operations
 // may be executed.
 type Tests struct {
+	testing.LoggingSuite
 	Environs *environs.Environs
 	Name     string
 	Env      environs.Environ
@@ -32,25 +34,22 @@ func (t *Tests) Open(c *C) environs.Environ {
 	return e
 }
 
-func (t *Tests) SetUpSuite(*C) {
-}
-
-func (t *Tests) TearDownSuite(*C) {
-}
-
 func (t *Tests) SetUpTest(c *C) {
+	t.LoggingSuite.SetUpTest(c)
 	t.Env = t.Open(c)
 }
 
-func (t *Tests) TearDownTest(*C) {
+func (t *Tests) TearDownTest(c *C) {
 	t.Env.Destroy(nil)
 	t.Env = nil
+	t.LoggingSuite.TearDownTest(c)
 }
 
 // LiveTests contains tests that are designed to run against a live server
 // (e.g. Amazon EC2).  The Environ is opened once only for all the tests
 // in the suite, stored in Env, and Destroyed after the suite has completed.
 type LiveTests struct {
+	testing.LoggingSuite
 	Environs *environs.Environs
 	Name     string
 	Env      environs.Environ
@@ -70,10 +69,18 @@ type LiveTests struct {
 }
 
 func (t *LiveTests) SetUpSuite(c *C) {
+	t.LoggingSuite.SetUpSuite(c)
 	e, err := t.Environs.Open(t.Name)
 	c.Assert(err, IsNil, Commentf("opening environ %q", t.Name))
 	c.Assert(e, NotNil)
 	t.Env = e
+}
+
+func (t *LiveTests) TearDownSuite(c *C) {
+	err := t.Env.Destroy(nil)
+	c.Check(err, IsNil)
+	t.Env = nil
+	t.LoggingSuite.TearDownSuite(c)
 }
 
 func (t *LiveTests) BootstrapOnce(c *C) {
@@ -89,16 +96,4 @@ func (t *LiveTests) Destroy(c *C) {
 	err := t.Env.Destroy(nil)
 	c.Assert(err, IsNil)
 	t.bootstrapped = false
-}
-
-func (t *LiveTests) TearDownSuite(c *C) {
-	err := t.Env.Destroy(nil)
-	c.Check(err, IsNil)
-	t.Env = nil
-}
-
-func (t *LiveTests) SetUpTest(*C) {
-}
-
-func (t *LiveTests) TearDownTest(*C) {
 }
