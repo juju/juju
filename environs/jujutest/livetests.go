@@ -167,7 +167,7 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 
 	// Check that the agent version has made it through the
 	// bootstrap process (it's optional in the config.Config)
-	cfg, err := st.EnvironConfig()
+	cfg, err := conn.State.EnvironConfig()
 	c.Assert(err, IsNil)
 	c.Check(cfg.AgentVersion(), Equals, version.Current.Number)
 
