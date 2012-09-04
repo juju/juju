@@ -316,3 +316,43 @@ func (s *PresenceSuite) TestRestartWithoutGaps(c *C) {
 	done <- true
 	done <- true
 }
+
+func (s *PresenceSuite) TestPingerPeriodAndResilience(c *C) {
+	// This test verifies both the periodic pinging,
+	// and also a great property of the design: deaths
+	// also expire, which means erroneous scenarios are
+	// automatically recovered from.
+
+	const period = 1
+	presence.FakePeriod(period)
+	presence.RealTimeSlot()
+
+	w := presence.NewWatcher(s.presence)
+	p1 := presence.NewPinger(s.presence, "a")
+	p2 := presence.NewPinger(s.presence, "a")
+	defer w.Stop()
+	defer p1.Stop()
+	defer p2.Stop()
+
+	// Start p1 and let it go on.
+	c.Assert(p1.Start(), IsNil)
+
+	w.ForceRefresh()
+	c.Assert(w.Alive("a"), Equals, true)
+
+	// Start and kill p2, which will temporarily
+	// invalidate p1 and set the key as dead.
+	c.Assert(p2.Start(), IsNil)
+	c.Assert(p2.Kill(), IsNil)
+
+	w.ForceRefresh()
+	c.Assert(w.Alive("a"), Equals, false)
+
+	// Wait for two periods, and check again. Since
+	// p1 is still alive, p2's death will expire and
+	// the key will come back.
+	time.Sleep(period * 2 * time.Second)
+
+	w.ForceRefresh()
+	c.Assert(w.Alive("a"), Equals, true)
+}
