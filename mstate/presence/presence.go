@@ -378,8 +378,7 @@ func NewPinger(base *mgo.Collection, key string) *Pinger {
 	return &Pinger{base: base, pings: pingsC(base), beingKey: key}
 }
 
-// Start starts periodically reporting that the key the pinger is
-// responsible for is alive.
+// Start starts periodically reporting that p's key is alive.
 func (p *Pinger) Start() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -402,6 +401,9 @@ func (p *Pinger) Start() error {
 	return nil
 }
 
+// Stop stops p's periodical ping.
+// Watchers will not notice p has stopped pinging until the
+// previous ping times out.
 func (p *Pinger) Stop() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -410,11 +412,13 @@ func (p *Pinger) Stop() error {
 	}
 	p.tomb.Kill(nil)
 	err := p.tomb.Wait()
+	// TODO ping one more time to guarantee a late timeout.
 	p.started = false
 	return err
 
 }
 
+// Stop stops p's periodical ping and immediately report that it is dead.
 func (p *Pinger) Kill() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
