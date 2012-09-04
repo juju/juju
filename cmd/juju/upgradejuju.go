@@ -57,7 +57,7 @@ func (c *UpgradeJujuCommand) Init(f *gnuflag.FlagSet, args []string) error {
 // ports that were also explicitly marked by units as open.
 func (c *UpgradeJujuCommand) Run(_ *cmd.Context) error {
 	var err error
-	c.conn, err = juju.NewConn(c.EnvName)
+	c.conn, err = juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
 	}

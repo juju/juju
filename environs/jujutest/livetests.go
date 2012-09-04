@@ -157,7 +157,7 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	}
 	t.BootstrapOnce(c)
 
-	conn, err := juju.NewConnFromEnviron(t.Env)
+	conn, err := juju.NewConn(t.Env)
 	c.Assert(err, IsNil)
 	defer conn.Close()
 
@@ -165,7 +165,7 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	m, err := conn.State.Machine(0)
 	c.Assert(err, IsNil)
 
-	t.checkUpgradeMachineAgent(c, st, m)
+	t.checkUpgradeMachineAgent(c, conn.State, m)
 
 	// place a new machine into the state
 	m, err = conn.State.AddMachine()
@@ -209,7 +209,7 @@ func (t *LiveTests) checkUpgradeMachineAgent(c *C, st *state.State, m *state.Mac
 
 	// Check that the put version really is the version we expect.
 	c.Assert(upgradeTools.Binary, Equals, newVersion)
-	err = st.SetAgentVersion(newVersion.Number)
+	err = st.SetAgentVersion(newVersion.Number, false)
 
 	c.Logf("waiting for upgrade")
 	_, ok := <-w.Changes()

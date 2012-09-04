@@ -28,11 +28,11 @@ func (cs *ConnSuite) TearDownTest(c *C) {
 	cs.LoggingSuite.TearDownTest(c)
 }
 
-func (*ConnSuite) TestNewConn(c *C) {
+func (*ConnSuite) TestNewConnFromName(c *C) {
 	home := c.MkDir()
 	defer os.Setenv("HOME", os.Getenv("HOME"))
 	os.Setenv("HOME", home)
-	conn, err := juju.NewConn("")
+	conn, err := juju.NewConnFromName("")
 	c.Assert(conn, IsNil)
 	c.Assert(err, ErrorMatches, ".*: no such file or directory")
 
@@ -57,7 +57,7 @@ environments:
 
 	// Just run through a few operations on the dummy provider and verify that
 	// they behave as expected.
-	conn, err = juju.NewConn("")
+	conn, err = juju.NewConnFromName("")
 	c.Assert(err, ErrorMatches, "dummy environment not bootstrapped")
 
 	environ, err := environs.NewFromName("")
@@ -65,7 +65,7 @@ environments:
 	err = environ.Bootstrap(false)
 	c.Assert(err, IsNil)
 
-	conn, err = juju.NewConn("")
+	conn, err = juju.NewConnFromName("")
 	c.Assert(err, IsNil)
 	defer conn.Close()
 	c.Assert(conn.Environ, NotNil)
@@ -102,7 +102,7 @@ func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(cfg.UnknownAttrs()["secret"], IsNil)
 
-	conn, err := juju.NewConnFromEnviron(env)
+	conn, err := juju.NewConn(env)
 	c.Assert(err, IsNil)
 	defer conn.Close()
 	// fetch a state connection via the conn, which will 

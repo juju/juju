@@ -34,7 +34,7 @@ func (c *UnexposeCommand) Init(f *gnuflag.FlagSet, args []string) error {
 // Run changes the juju-managed firewall to hide any
 // ports that were also explicitly marked by units as closed.
 func (c *UnexposeCommand) Run(_ *cmd.Context) error {
-	conn, err := juju.NewConn(c.EnvName)
+	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
 	}

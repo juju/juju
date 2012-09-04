@@ -32,7 +32,7 @@ func (s *DeploySuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	err = environ.Bootstrap(false)
 	c.Assert(err, IsNil)
-	s.conn, err = juju.NewConnFromEnviron(environ)
+	s.conn, err = juju.NewConn(environ)
 	c.Assert(err, IsNil)
 	s.repo = &charm.LocalRepository{Path: c.MkDir()}
 }

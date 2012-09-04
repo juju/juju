@@ -99,7 +99,7 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	c.Assert(environ.Name(), Equals, "dummyenv")
 	c.Assert(environ.Bootstrap(false), IsNil)
 
-	conn, err := juju.NewConn("dummyenv")
+	conn, err := juju.NewConnFromName("dummyenv")
 	c.Assert(err, IsNil)
 	s.Conn = conn
 	s.State = conn.State
