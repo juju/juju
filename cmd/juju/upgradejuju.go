@@ -4,21 +4,21 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/version"
 )
 
 // UpgradeJujuCommand upgrades the agents in a juju installation.
 type UpgradeJujuCommand struct {
-	EnvName     string
-	UploadTools bool
-	BumpVersion bool
-	Version version.Number
-	DevVersion  bool
-	conn *juju.Conn
-	toolsList *environs.ToolsList
+	EnvName      string
+	UploadTools  bool
+	BumpVersion  bool
+	Version      version.Number
+	DevVersion   bool
+	conn         *juju.Conn
+	toolsList    *environs.ToolsList
 	agentVersion version.Number
 }
 
