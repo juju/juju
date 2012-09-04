@@ -644,6 +644,10 @@ func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 	state.SortPorts(ports)
 	return ports, nil
 }
+//            yield self._provider.ec2.authorize_security_group(
+//                juju_group,
+ //               source_group_name=juju_group,
+  //              source_group_owner_id=groups_info.pop().owner_id)
 
 // setUpGroups creates the security groups for the new machine, and
 // returns them.
@@ -653,7 +657,7 @@ func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
 func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
-	jujuGroup, err := e.ensureGroup(e.groupName(),
+	jujuGroup, err := e.ensureGroup(e.groupName(), true,
 		[]ec2.IPPerm{
 			{
 				Protocol:  "tcp",
@@ -661,12 +665,11 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 				ToPort:    22,
 				SourceIPs: []string{"0.0.0.0/0"},
 			},
-			// TODO authorize internal traffic
 		})
 	if err != nil {
 		return nil, err
 	}
-	jujuMachineGroup, err := e.ensureGroup(e.machineGroupName(machineId), nil)
+	jujuMachineGroup, err := e.ensureGroup(e.machineGroupName(machineId), false, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -679,28 +682,38 @@ var zeroGroup ec2.SecurityGroup
 // ensureGroup returns the security group with name and perms.
 // If a group with name does not exist, one will be created.
 // If it exists, its permissions are set to perms.
-func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
+func (e *environ) ensureGroup(name string, authSelf bool, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
 	ec2inst := e.ec2()
 	resp, err := ec2inst.CreateSecurityGroup(name, "juju group")
 	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
 		return zeroGroup, err
 	}
 
-	want := newPermSet(perms)
+	var ownerId string
 	var have permSet
-	if err == nil {
+	if err == nil && !authSelf {
+		// We've just created the group and we don't need
+		// the owner id, so use the group in the CreateSecurityGroup
+		// response.
 		g = resp.SecurityGroup
 	} else {
 		resp, err := ec2inst.SecurityGroups(ec2.SecurityGroupNames(name), nil)
 		if err != nil {
 			return zeroGroup, err
 		}
+		info := resp.Groups[0]
 		// It's possible that the old group has the wrong
 		// description here, but if it does it's probably due
 		// to something deliberately playing games with juju,
 		// so we ignore it.
-		have = newPermSet(resp.Groups[0].IPPerms)
-		g = resp.Groups[0].SecurityGroup
+		have = newPermSet(info.IPPerms)
+		g = info.SecurityGroup
+		ownerId = info.OwnerId
+		log.Printf("ownerId %q", ownerId)
+	}
+	want := newPermSet(perms)
+	if authSelf {
+		want[permKey{groupId: g.Id}] = true
 	}
 	revoke := make(permSet)
 	for p := range have {
@@ -709,7 +722,7 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 		}
 	}
 	if len(revoke) > 0 {
-		_, err := ec2inst.RevokeSecurityGroup(g, revoke.ipPerms())
+		_, err := ec2inst.RevokeSecurityGroup(g, revoke.ipPerms(ownerId))
 		if err != nil {
 			return zeroGroup, fmt.Errorf("cannot revoke security group: %v", err)
 		}
@@ -722,7 +735,7 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 		}
 	}
 	if len(add) > 0 {
-		_, err := ec2inst.AuthorizeSecurityGroup(g, add.ipPerms())
+		_, err := ec2inst.AuthorizeSecurityGroup(g, add.ipPerms(ownerId))
 		if err != nil {
 			return zeroGroup, fmt.Errorf("cannot authorize securityGroup: %v", err)
 		}
@@ -769,7 +782,7 @@ func newPermSet(ps []ec2.IPPerm) permSet {
 
 // ipPerms returns m as a slice of permissions usable
 // with the ec2 package.
-func (m permSet) ipPerms() (ps []ec2.IPPerm) {
+func (m permSet) ipPerms(ownerId string) (ps []ec2.IPPerm) {
 	// We could compact the permissions, but it
 	// hardly seems worth it.
 	for p := range m {
@@ -781,10 +794,17 @@ func (m permSet) ipPerms() (ps []ec2.IPPerm) {
 		if p.ipAddr != "" {
 			ipp.SourceIPs = []string{p.ipAddr}
 		} else {
-			ipp.SourceGroups = []ec2.UserSecurityGroup{{Id: p.groupId}}
+			if ownerId == "" {
+				panic("empty ownerId")
+			}
+			ipp.SourceGroups = []ec2.UserSecurityGroup{{
+				OwnerId: ownerId,
+				Id: p.groupId,
+			}}
 		}
 		ps = append(ps, ipp)
 	}
+	log.Printf("ipPerms(%+v, %q) returning %+v", m, ownerId, ps)
 	return
 }
 

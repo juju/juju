@@ -190,8 +190,9 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	// that the unneeded permission that we added earlier
 	// has been deleted).
 	perms := info[0].IPPerms
-	c.Assert(perms, HasLen, 1)
+	c.Assert(perms, HasLen, 2)
 	checkPortAllowed(c, perms, 22)
+	checkSecurityGroupAllowed(c, perms, groups[0])
 
 	// The old machine group should have been reused also.
 	c.Check(groups[2].Id, Equals, oldMachineGroup.Id)
@@ -254,6 +255,17 @@ func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {
 		}
 	}
 	c.Errorf("ip port permission not found for %d in %#v", port, perms)
+}
+
+func checkSecurityGroupAllowed(c *C, perms []amzec2.IPPerm, g amzec2.SecurityGroup) {
+	for _, perm := range perms {
+		if len(perm.SourceGroups) > 0 {
+			c.Check(perm.SourceGroups, HasLen, 1)
+			c.Check(perm.SourceGroups[0].Id, Equals, g.Id)
+			return
+		}
+	}
+	c.Errorf("security group permission not found for %#v in %#v", g, perms)
 }
 
 func (t *LiveTests) TestStopInstances(c *C) {
