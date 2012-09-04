@@ -22,6 +22,8 @@ type UpgradeJujuCommand struct {
 	agentVersion version.Number
 }
 
+var putTools = environs.PutTools
+
 func (c *UpgradeJujuCommand) Info() *cmd.Info {
 	return &cmd.Info{"upgrade-juju", "", "upgrade the tools in a juju environment", ""}
 }
@@ -70,22 +72,22 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	if c.Version == (version.Number{}) {
-		c.Version, err = c.newestVersion()
-		if err != nil {
-			return fmt.Errorf("cannot find newest version: %v", err)
-		}
-	}
 	if c.UploadTools {
 		var forceVersion *version.Binary
 		if c.BumpVersion {
 			vers := c.bumpedVersion()
 			forceVersion = &vers
-			c.Version = vers.Number
 		}
-		_, err := environs.PutTools(c.conn.Environ.Storage(), forceVersion)
+		tools, err := putTools(c.conn.Environ.Storage(), forceVersion)
 		if err != nil {
 			return err
+		}
+		c.toolsList.Private = append(c.toolsList.Private, tools)
+	}
+	if c.Version == (version.Number{}) {
+		c.Version, err = c.newestVersion()
+		if err != nil {
+			return fmt.Errorf("cannot find newest version: %v", err)
 		}
 	}
 	if c.Version.Major != c.agentVersion.Major {
