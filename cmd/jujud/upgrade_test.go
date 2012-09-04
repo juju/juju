@@ -150,7 +150,7 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 	s.proposeVersion(c, version.MustParse("1.0.3"))
 	<-sameVersionEvent
 
-	// Upload a two new versions of the tools. We'll test upgrading to these tools.
+	// Upload two new versions of the tools. We'll test upgrading to these tools.
 	_, v5tools := s.uploadTools(c, version.MustParseBinary("1.0.5-foo-bar"))
 	_, v6tools := s.uploadTools(c, version.MustParseBinary("1.0.6-foo-bar"))
 
