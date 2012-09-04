@@ -1,4 +1,4 @@
-// The watcher package implements an interface for observing liveness
+// The presence package implements an interface for observing liveness
 // of arbitrary keys (agents, processes, etc) on top of MongoDB.
 // The design works by periodically updating the database so that
 // watchers can tell an arbitrary key is alive.
