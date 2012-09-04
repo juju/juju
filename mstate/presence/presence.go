@@ -1,3 +1,11 @@
+
+// The watcher package implements an interface for observing liveness
+// of arbitrary keys (agents, processes, etc) on top of MongoDB.
+//
+// The design works by assigning a unique sequence number to each
+// pinger that is alive, and the pinger is then responsible for
+// periodically updating the current time slot document with its
+// sequence number so that watchers can tell it is alive.
 package presence
 
 import (
@@ -6,8 +14,23 @@ import (
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/tomb"
+	"sync"
 	"time"
 )
+
+// The internal implementation of the time slot document is as follows:
+//
+// {
+//   "_id":   <time slot>, 
+//   "alive": { hex(<pinger seq> / 63) : (<pinger seq> % 63 | <other pingers>) },
+//   "dead":  { hex(<pinger seq> / 63) : (<pinger seq> % 63 | <other pingers>) },
+// }
+//
+// All pingers that have their sequence number under "alive" and not
+// under "dead" are currently alive. This design enables implementing
+// a ping with a single update operation, a kill with another operation,
+// and obtaining liveness data with a single query that returns two
+// documents (the last two time slots).
 
 // A Watcher can watch any number of pinger keys for liveness changes.
 type Watcher struct {
@@ -51,6 +74,7 @@ func NewWatcher(base *mgo.Collection) *Watcher {
 		watches:  make(map[string][]chan<- Change),
 		request:  make(chan interface{}),
 	}
+	w.beings.EnsureIndexKey("key")
 	go func() {
 		w.tomb.Kill(w.loop())
 		w.tomb.Done()
@@ -181,6 +205,7 @@ func (w *Watcher) flush() {
 // handle deals with requests delivered by the public API
 // onto the background watcher goroutine.
 func (w *Watcher) handle(req interface{}) {
+	log.Debugf("presence: got request: %#v", req)
 	switch r := req.(type) {
 	case reqRefresh:
 		w.next = time.After(0)
@@ -221,8 +246,8 @@ func (w *Watcher) handle(req interface{}) {
 }
 
 type beingInfo struct {
-	Key string "_id,omitempty"
-	Seq int64  "seq,omitempty"
+	Seq int64  "_id,omitempty"
+	Key string "key,omitempty"
 }
 
 type pingInfo struct {
@@ -236,6 +261,7 @@ type pingInfo struct {
 // fetching the last two time slots, and comparing the union of
 // both to the in-memory state.
 func (w *Watcher) refresh() error {
+	log.Debugf("presence: refreshing watcher knowledge from database...")
 	slot := timeSlot(time.Now(), w.delta)
 	var ping []pingInfo
 	err := w.pings.Find(bson.D{{"$or", []pingInfo{{Slot: slot}, {Slot: slot - period}}}}).All(&ping)
@@ -262,6 +288,7 @@ func (w *Watcher) refresh() error {
 				}
 				seq := k + i
 				dead[seq] = true
+				log.Debugf("presence: found seq=%d dead", seq)
 			}
 		}
 	}
@@ -283,19 +310,30 @@ func (w *Watcher) refresh() error {
 					continue
 				}
 				seq := k + i
-				if dead[seq] {
-					continue
-				}
 				alive[seq] = true
 				if _, ok := w.beingKey[seq]; ok {
 					continue
 				}
-				err := w.beings.Find(bson.D{{"seq", seq}}).One(&being)
-				if err != nil {
-					log.Printf("presence found unowned ping with seq=%d", seq)
+				err := w.beings.Find(bson.D{{"_id", seq}}).One(&being)
+				if err == mgo.ErrNotFound {
+					log.Printf("presence: found seq=%d unowned", seq)
+					continue
+				} else if err != nil {
+					return err
+				}
+				cur := w.beingSeq[being.Key]
+				if cur < seq {
+					delete(w.beingKey, cur)
+				} else {
+					// Current sequence is more recent.
+					continue
 				}
 				w.beingKey[seq] = being.Key
 				w.beingSeq[being.Key] = seq
+				if cur > 0 || dead[seq] {
+					continue
+				}
+				log.Debugf("presence: found seq=%d alive with key %q", seq, being.Key)
 				for _, ch := range w.watches[being.Key] {
 					w.pending = append(w.pending, event{ch, being.Key, true})
 				}
@@ -307,14 +345,11 @@ func (w *Watcher) refresh() error {
 	// in the last two slots are now considered dead. Dispatch
 	// the respective events and forget their sequences.
 	for seq, key := range w.beingKey {
-		if !alive[seq] {
+		if dead[seq] || !alive[seq] {
 			delete(w.beingKey, seq)
-			seq2, ok := w.beingSeq[key]
-			if !ok || seq2 == seq || !alive[seq2] {
-				delete(w.beingSeq, key)
-				for _, ch := range w.watches[key] {
-					w.pending = append(w.pending, event{ch, key, false})
-				}
+			delete(w.beingSeq, key)
+			for _, ch := range w.watches[key] {
+				w.pending = append(w.pending, event{ch, key, false})
 			}
 		}
 	}
@@ -324,43 +359,146 @@ func (w *Watcher) refresh() error {
 // A Pinger periodically reports that a specific key is alive, so that
 // watchers interested on that fact can react appropriately.
 type Pinger struct {
+	mu       sync.Mutex
+	tomb     tomb.Tomb
 	base     *mgo.Collection
 	pings    *mgo.Collection
+	started  bool
 	beingKey string
 	beingSeq int64
-	fieldKey string // hex(beingN / 63)
-	fieldBit uint64 // 1 << (beingN%63)
+	fieldKey string // hex(beingKey / 63)
+	fieldBit uint64 // 1 << (beingKey%63)
 	lastSlot int64
 	delta    time.Duration
 }
 
-// NewPinger returns a new Pinger to report that key is alive. It
-// will not start reporting until the Start method is called.
+// NewPinger returns a new Pinger to report that key is alive.
+// It starts reporting after Start is called.
 func NewPinger(base *mgo.Collection, key string) *Pinger {
 	return &Pinger{base: base, pings: pingsC(base), beingKey: key}
 }
 
-// Start starts periodically reporting that the key the pinger
-// is responsible for is alive.
+// Start starts periodically reporting that the key the pinger is
+// responsible for is alive.
 func (p *Pinger) Start() error {
-	// FIXME Error on double-starts
-	var being beingInfo
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.started {
+		return fmt.Errorf("pinger already started")
+	}
+	p.tomb = tomb.Tomb{}
+	if err := p.prepare(); err != nil {
+		return err
+	}
+	log.Debugf("presence: starting pinger for %q with seq=%d", p.beingKey, p.beingSeq)
+	if err := p.ping(); err != nil {
+		return err
+	}
+	p.started = true
+	go func() {
+		p.tomb.Kill(p.loop())
+		p.tomb.Done()
+	}()
+	return nil
+}
+
+func (p *Pinger) Stop() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.started {
+		log.Debugf("presence: stopping pinger for %q with seq=%d", p.beingKey, p.beingSeq)
+	}
+	p.tomb.Kill(nil)
+	err := p.tomb.Wait()
+	p.started = false
+	return err
+
+}
+
+func (p *Pinger) Kill() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.started {
+		log.Debugf("presence: killing pinger for %q (was started)", p.beingKey)
+		return p.killStarted()
+	}
+	log.Debugf("presence: killing pinger for %q (was stopped)", p.beingKey)
+	return p.killStopped()
+}
+
+// killStarted kills the pinger while it is running, by first
+// stopping it and then recording in the last pinged slot that
+// the pinger was killed.
+func (p *Pinger) killStarted() error {
+	p.tomb.Kill(nil)
+	killErr := p.tomb.Wait()
+	p.started = false
+
+	slot := p.lastSlot
+	udoc := bson.D{{"$inc", bson.D{{"dead." + p.fieldKey, p.fieldBit}}}}
+	if _, err := p.pings.UpsertId(slot, udoc); err != nil {
+		return err
+	}
+	return killErr
+}
+
+// killStopped kills the pinger while it is not running, by
+// first allocating a new sequence, and then atomically recording
+// the new sequence both as alive and dead at once.
+func (p *Pinger) killStopped() error {
+	if err := p.prepare(); err != nil {
+		return err
+	}
+	slot := timeSlot(time.Now(), p.delta)
+	udoc := bson.D{{"$inc", bson.D{
+		{"dead." + p.fieldKey, p.fieldBit},
+		{"alive." + p.fieldKey, p.fieldBit},
+	}}}
+	_, err := p.pings.UpsertId(slot, udoc)
+	return err
+}
+
+// loop is the main pinger loop that runs while it is
+// in started state.
+func (p *Pinger) loop() error {
+	for {
+		select {
+		case <-p.tomb.Dying():
+			return tomb.ErrDying
+		case <-time.After(time.Duration(float64(period+1)*0.75) * time.Second):
+			if err := p.ping(); err != nil {
+				return err
+			}
+		}
+	}
+	panic("unreachable")
+}
+
+// prepare allocates a new unique sequence for the
+// pinger key and prepares the pinger to use it.
+func (p *Pinger) prepare() error {
 	change := mgo.Change{
 		Update:    bson.D{{"$inc", bson.D{{"seq", int64(1)}}}},
 		Upsert:    true,
 		ReturnNew: true,
 	}
 	seqs := seqsC(p.base)
-	if _, err := seqs.FindId("beings").Apply(change, &being); err != nil {
+	var seq struct{ Seq int64 }
+	if _, err := seqs.FindId("beings").Apply(change, &seq); err != nil {
 		return err
 	}
-	p.beingSeq = being.Seq
+	p.beingSeq = seq.Seq
 	p.fieldKey = fmt.Sprintf("%x", p.beingSeq/63)
 	p.fieldBit = 1 << uint64(p.beingSeq%63)
+	p.lastSlot = 0
 	beings := beingsC(p.base)
-	if _, err := beings.UpsertId(p.beingKey, bson.D{{"$set", bson.D{{"seq", p.beingSeq}}}}); err != nil {
-		return err
-	}
+	return beings.Insert(beingInfo{p.beingSeq, p.beingKey})
+}
+
+// ping records updates the current time slot with the
+// sequence in use by the pinger.
+func (p *Pinger) ping() error {
+	log.Debugf("presence: pinging %q with seq=%d", p.beingKey, p.beingSeq)
 	if p.delta == 0 {
 		delta, err := clockDelta(p.base)
 		if err != nil {
@@ -368,24 +506,14 @@ func (p *Pinger) Start() error {
 		}
 		p.delta = delta
 	}
-	return p.ping()
-}
-
-func (p *Pinger) ping() error {
-	p.lastSlot = timeSlot(time.Now(), p.delta)
-	if _, err := p.pings.UpsertId(p.lastSlot, bson.D{{"$inc", bson.D{{"alive." + p.fieldKey, p.fieldBit}}}}); err != nil {
-		return err
+	slot := timeSlot(time.Now(), p.delta)
+	if slot == p.lastSlot {
+		// Never, ever, ping the same slot twice.
+		// The increment below would corrupt the slot.
+		return nil
 	}
-	return nil
-}
-
-func (p *Pinger) Stop() error {
-	return nil
-}
-
-func (p *Pinger) Kill() error {
-	// FIXME Error on double-kills
-	if _, err := p.pings.UpsertId(p.lastSlot, bson.D{{"$inc", bson.D{{"dead." + p.fieldKey, p.fieldBit}}}}); err != nil {
+	p.lastSlot = slot
+	if _, err := p.pings.UpsertId(slot, bson.D{{"$inc", bson.D{{"alive." + p.fieldKey, p.fieldBit}}}}); err != nil {
 		return err
 	}
 	return nil
@@ -413,6 +541,13 @@ func clockDelta(c *mgo.Collection) (time.Duration, error) {
 	return 0, fmt.Errorf("cannot synchronize clock with database server")
 }
 
+// timeSlot returns the current time slot, in seconds since the
+// epoch, for the provided now time. The delta skew is applied
+// to the now time to improve the synchronization with a
+// centrally agreed time.
+//
+// The result of this method may be manipulated for test purposes
+// by fakeTimeSlot and realTimeSlot.
 func timeSlot(now time.Time, delta time.Duration) int64 {
 	fake := !fakeNow.IsZero()
 	if fake {
@@ -429,6 +564,10 @@ func timeSlot(now time.Time, delta time.Duration) int64 {
 var fakeNow time.Time
 var fakeOffset int
 
+// fakeTimeSlot hardcodes the slot time returned by the timeSlot
+// function for testing purposes. The offset parameter is the slot
+// position to return: offsets +1 and -1 are +period and -period
+// seconds from slot 0, respectively.
 func fakeTimeSlot(offset int) {
 	if fakeNow.IsZero() {
 		fakeNow = time.Now()
@@ -437,6 +576,7 @@ func fakeTimeSlot(offset int) {
 	log.Printf("Faking presence to time slot %d", offset)
 }
 
+// realTimeSlot disables the hardcoding introduced by fakeTimeSlot.
 func realTimeSlot() {
 	fakeNow = time.Time{}
 	fakeOffset = 0

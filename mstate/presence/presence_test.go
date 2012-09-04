@@ -123,6 +123,7 @@ func (s *PresenceSuite) TestWorkflow(c *C) {
 	assertNoChange(c, cha)
 	pa.Kill()
 	w.ForceRefresh()
+	pa = presence.NewPinger(s.presence, "a")
 	pa.Start()
 	w.ForceRefresh()
 	assertNoChange(c, cha)
@@ -148,6 +149,7 @@ func (s *PresenceSuite) TestWorkflow(c *C) {
 	assertNoChange(c, cha)
 	assertNoChange(c, chb)
 
+	// pb is running, pa isn't.
 	c.Assert(pa.Kill(), IsNil)
 	c.Assert(pb.Kill(), IsNil)
 
@@ -271,4 +273,46 @@ func (s *PresenceSuite) TestAddRemoveOnQueue(c *C) {
 		c.Logf("Checking %q...", key)
 		c.Assert(alive[key], Equals, false)
 	}
+}
+
+func (s *PresenceSuite) TestRestartWithoutGaps(c *C) {
+	p := presence.NewPinger(s.presence, "a")
+	c.Assert(p.Start(), IsNil)
+	defer p.Stop()
+
+	done := make(chan bool)
+	go func() {
+		stop := false
+		for !stop {
+			if !c.Check(p.Stop(), IsNil) {
+				break
+			}
+			if !c.Check(p.Start(), IsNil) {
+				break
+			}
+			select {
+			case stop = <-done:
+			default:
+			}
+		}
+	}()
+	go func() {
+		stop := false
+		for !stop {
+			w := presence.NewWatcher(s.presence)
+			w.ForceRefresh()
+			alive := w.Alive("a")
+			c.Check(w.Stop(), IsNil)
+			if !c.Check(alive, Equals, true) {
+				break
+			}
+			select {
+			case stop = <-done:
+			default:
+			}
+		}
+	}()
+	time.Sleep(500 * time.Millisecond)
+	done <- true
+	done <- true
 }
