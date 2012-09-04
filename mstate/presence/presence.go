@@ -223,6 +223,7 @@ func (w *Watcher) loop() error {
 
 // flush sends all pending events to their respective channels.
 func (w *Watcher) flush() {
+	// w.pending may get new requests as we handle other requests.
 	i := 0
 	for i < len(w.pending) {
 		e := &w.pending[i]
