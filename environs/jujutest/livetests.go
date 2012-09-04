@@ -157,34 +157,28 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	}
 	t.BootstrapOnce(c)
 
-	// TODO(dfc) constructing a juju.Conn by hand is a code smell.
-	conn, err := juju.NewConnFromAttrs(t.Env.Config().AllAttrs())
+	conn, err := juju.NewConn(t.Env)
 	c.Assert(err, IsNil)
-
-	st, err := conn.State()
-	c.Assert(err, IsNil)
+	defer conn.Close()
 
 	// Check that we can upgrade the machine agent on the bootstrap machine.
-	m, err := st.Machine(0)
+	m, err := conn.State.Machine(0)
 	c.Assert(err, IsNil)
 
-	t.checkUpgradeMachineAgent(c, st, m)
+	t.checkUpgradeMachineAgent(c, conn.State, m)
 
 	// place a new machine into the state
-	m, err = st.AddMachine()
+	m, err = conn.State.AddMachine()
 	c.Assert(err, IsNil)
 
 	t.assertStartInstance(c, m)
 
 	// now remove it
-	c.Assert(st.RemoveMachine(m.Id()), IsNil)
+	c.Assert(conn.State.RemoveMachine(m.Id()), IsNil)
 
 	// watch the PA remove it
 	t.assertStopInstance(c, m)
 	assertInstanceId(c, m, nil)
-
-	err = st.Close()
-	c.Assert(err, IsNil)
 }
 
 func (t *LiveTests) checkUpgradeMachineAgent(c *C, st *state.State, m *state.Machine) {

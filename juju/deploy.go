@@ -15,14 +15,10 @@ import (
 // AddService creates a new service with the given name to run the given
 // charm.  If svcName is empty, the charm name will be used.
 func (conn *Conn) AddService(name string, ch *state.Charm) (*state.Service, error) {
-	st, err := conn.State()
-	if err != nil {
-		return nil, err
-	}
 	if name == "" {
-		name = ch.URL().Name // TODO sch.Meta().Name ?
+		name = ch.URL().Name // TODO ch.Meta().Name ?
 	}
-	svc, err := st.AddService(name, ch)
+	svc, err := conn.State.AddService(name, ch)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +31,7 @@ func (conn *Conn) AddService(name string, ch *state.Charm) (*state.Service, erro
 			state.RolePeer,
 			rel.Scope,
 		}
-		if _, err := st.AddRelation(ep); err != nil {
+		if _, err := conn.State.AddRelation(ep); err != nil {
 			return nil, fmt.Errorf("cannot add peer relation %q to service %q: %v", rname, name, err)
 		}
 	}
@@ -74,11 +70,7 @@ func (conn *Conn) PutCharm(curl *charm.URL, repoPath string, bumpRevision bool) 
 		}
 		curl = curl.WithRevision(chd.Revision())
 	}
-	st, err := conn.State()
-	if err != nil {
-		return nil, err
-	}
-	if sch, err := st.Charm(curl); err == nil {
+	if sch, err := conn.State.Charm(curl); err == nil {
 		return sch, nil
 	}
 	var buf bytes.Buffer
@@ -115,7 +107,7 @@ func (conn *Conn) PutCharm(curl *charm.URL, repoPath string, bumpRevision bool) 
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse storage URL: %v", err)
 	}
-	sch, err := st.AddCharm(ch, curl, u, digest)
+	sch, err := conn.State.AddCharm(ch, curl, u, digest)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add charm: %v", err)
 	}
@@ -125,10 +117,6 @@ func (conn *Conn) PutCharm(curl *charm.URL, repoPath string, bumpRevision bool) 
 // AddUnits starts n units of the given service and allocates machines
 // to them as necessary.
 func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
-	st, err := conn.State()
-	if err != nil {
-		return nil, err
-	}
 	units := make([]*state.Unit, n)
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
@@ -137,7 +125,7 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot add unit %d/%d to service %q: %v", i+1, n, svc.Name(), err)
 		}
-		if err := st.AssignUnit(unit, policy); err != nil {
+		if err := conn.State.AssignUnit(unit, policy); err != nil {
 			return nil, fmt.Errorf("cannot assign machine to unit %s of service %q: %v", unit.Name(), svc.Name(), err)
 		}
 		units[i] = unit
