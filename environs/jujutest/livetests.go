@@ -209,7 +209,7 @@ func (t *LiveTests) checkUpgradeMachineAgent(c *C, st *state.State, m *state.Mac
 
 	// Check that the put version really is the version we expect.
 	c.Assert(upgradeTools.Binary, Equals, newVersion)
-	err = st.SetAgentVersion(newVersion.Number)
+	err = st.SetAgentVersion(newVersion.Number, false)
 
 	c.Logf("waiting for upgrade")
 	_, ok := <-w.Changes()
