@@ -1,11 +1,7 @@
-
 // The watcher package implements an interface for observing liveness
 // of arbitrary keys (agents, processes, etc) on top of MongoDB.
-//
-// The design works by assigning a unique sequence number to each
-// pinger that is alive, and the pinger is then responsible for
-// periodically updating the current time slot document with its
-// sequence number so that watchers can tell it is alive.
+// The design works by periodically updating the database so that
+// watchers can tell an arbitrary key is alive.
 package presence
 
 import (
@@ -14,16 +10,22 @@ import (
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/tomb"
+	"strconv"
 	"sync"
 	"time"
 )
 
+// The implementation works by assigning a unique sequence number to each
+// pinger that is alive, and the pinger is then responsible for
+// periodically updating the current time slot document with its
+// sequence number so that watchers can tell it is alive.
+//
 // The internal implementation of the time slot document is as follows:
 //
 // {
 //   "_id":   <time slot>, 
-//   "alive": { hex(<pinger seq> / 63) : (<pinger seq> % 63 | <other pingers>) },
-//   "dead":  { hex(<pinger seq> / 63) : (<pinger seq> % 63 | <other pingers>) },
+//   "alive": { hex(<pinger seq> / 63) : (1 << (<pinger seq> % 63) | <others>) },
+//   "dead":  { hex(<pinger seq> / 63) : (1 << (<pinger seq> % 63) | <others>) },
 // }
 //
 // All pingers that have their sequence number under "alive" and not
@@ -31,24 +33,51 @@ import (
 // a ping with a single update operation, a kill with another operation,
 // and obtaining liveness data with a single query that returns two
 // documents (the last two time slots).
+//
+// A new pinger sequence is obtained every time a pinger starts by
+// atomically incrementing a counter in a globally used document in a
+// helper collection. That sequence number is then inserted into the
+// beings collection to establish the mapping between pinger sequence
+// and key.
+
+// BUG(gn): The pings and beings collection currently grow without bound.
 
 // A Watcher can watch any number of pinger keys for liveness changes.
 type Watcher struct {
-	base     *mgo.Collection
-	pings    *mgo.Collection
-	beings   *mgo.Collection
-	delta    time.Duration
+	tomb   tomb.Tomb
+	base   *mgo.Collection
+	pings  *mgo.Collection
+	beings *mgo.Collection
+
+	// delta is an approximate clock skew between the local system
+	// clock and the database clock.
+	delta time.Duration
+
+	// beingKey and beingSeq are the pinger seq <=> key mappings.
+	// Entries in these maps are considered alive.
 	beingKey map[int64]string
 	beingSeq map[string]int64
-	watches  map[string][]chan<- Change
-	request  chan interface{}
-	tomb     tomb.Tomb
-	next     <-chan time.Time
-	pending  []event
+
+	// watches has the per-key observer channels from Add/Remove.
+	watches map[string][]chan<- Change
+
+	// pending contains all the events to be dispatched to the watcher
+	// channels. They're queued during processing and flushed at the
+	// end to simplify the algorithm.
+	pending []event
+
+	// request is used to deliver requests from the public API into
+	// the the gorotuine loop.
+	request chan interface{}
 
 	// refreshed contains pending ForcedRefresh done channels
 	// that are waiting for the completion notice.
 	refreshed []chan bool
+
+	// next will dispatch when it's time to refresh the database
+	// knowledge. It's maintained here so that ForceRefresh
+	// can manipulate it to force a refresh sooner.
+	next <-chan time.Time
 }
 
 type event struct {
@@ -74,7 +103,6 @@ func NewWatcher(base *mgo.Collection) *Watcher {
 		watches:  make(map[string][]chan<- Change),
 		request:  make(chan interface{}),
 	}
-	w.beings.EnsureIndexKey("key")
 	go func() {
 		w.tomb.Kill(w.loop())
 		w.tomb.Done()
@@ -107,27 +135,36 @@ type reqAlive struct {
 	result chan bool
 }
 
-// Add includes key into w for liveness monitoring. An initial
-// event will be sent onto ch to report the initially known status
-// for key, and from then on a new event will be sent whenever a
-// change is detected. Change values sent to the channel must be
-// consumed, or the whole watcher will blocked.
+// Add includes key into w for liveness monitoring. An event will
+// be sent onto ch to report the initial status for the key, and
+// from then on a new event will be sent whenever a change is
+// detected. Change values sent to the channel must be consumed,
+// or the whole watcher will blocked.
 func (w *Watcher) Add(key string, ch chan<- Change) {
-	w.request <- reqAdd{key, ch}
+	select {
+	case w.request <- reqAdd{key, ch}:
+	case <-w.tomb.Dying():
+	}
 }
 
 // Remove removes key and ch from liveness monitoring.
 func (w *Watcher) Remove(key string, ch chan<- Change) {
-	w.request <- reqRemove{key, ch}
+	select {
+	case w.request <- reqRemove{key, ch}:
+	case <-w.tomb.Dying():
+	}
 }
 
 // ForceRefresh forces a synchronous refresh of the watcher knowledge.
 // It blocks until the database state has been loaded and the events
-// have been prepared, but it is fine to consume the events after
-// ForceRefresh returns.
+// have been prepared, but unblocks before changes are sent onto the
+// registered channels.
 func (w *Watcher) ForceRefresh() {
 	done := make(chan bool)
-	w.request <- reqRefresh{done}
+	select {
+	case w.request <- reqRefresh{done}:
+	case <-w.tomb.Dying():
+	}
 	select {
 	case <-done:
 	case <-w.tomb.Dying():
@@ -136,8 +173,11 @@ func (w *Watcher) ForceRefresh() {
 
 // Alive returns whether the key is currently considered alive by w.
 func (w *Watcher) Alive(key string) bool {
-	result := make(chan bool)
-	w.request <- reqAlive{key, result}
+	result := make(chan bool, 1)
+	select {
+	case w.request <- reqAlive{key, result}:
+	case <-w.tomb.Dying():
+	}
 	var alive bool
 	select {
 	case alive = <-result:
@@ -223,7 +263,7 @@ func (w *Watcher) handle(req interface{}) {
 		watches := w.watches[r.key]
 		for i, ch := range watches {
 			if ch == r.ch {
-				copy(watches[:len(watches)-1], watches[i+1:])
+				watches[i] = watches[len(watches)-1]
 				w.watches[r.key] = watches[:len(watches)-1]
 				break
 			}
@@ -236,10 +276,7 @@ func (w *Watcher) handle(req interface{}) {
 		}
 	case reqAlive:
 		_, alive := w.beingSeq[r.key]
-		select {
-		case r.result <- alive:
-		case <-w.tomb.Dying():
-		}
+		r.result <- alive
 	default:
 		panic(fmt.Errorf("unknown request: %T", req))
 	}
@@ -257,9 +294,8 @@ type pingInfo struct {
 }
 
 // refresh updates the watcher knowledge from the database, and
-// queues events to observing channels. The process is done by
-// fetching the last two time slots, and comparing the union of
-// both to the in-memory state.
+// queues events to observing channels. It fetches the last two time
+// slots and compares the union of both to the in-memory state.
 func (w *Watcher) refresh() error {
 	log.Debugf("presence: refreshing watcher knowledge from database...")
 	slot := timeSlot(time.Now(), w.delta)
@@ -269,18 +305,16 @@ func (w *Watcher) refresh() error {
 		return err
 	}
 
-	var k int64
-	var being beingInfo
-
 	// Learn about all enforced deaths.
 	dead := make(map[int64]bool)
 	for i := range ping {
 		for key, value := range ping[i].Dead {
-			if _, err := fmt.Sscanf(key, "%x", &k); err != nil {
+			k, err := strconv.ParseInt(key, 16, 64)
+			if err != nil {
 				panic(fmt.Errorf("presence cannot parse dead key: %q", key))
 			}
 			k *= 63
-			for i := int64(0); i < 64 && value > 0; i++ {
+			for i := int64(0); i < 63 && value > 0; i++ {
 				on := value&1 == 1
 				value >>= 1
 				if !on {
@@ -297,13 +331,15 @@ func (w *Watcher) refresh() error {
 	// events for those that weren't known to be alive and
 	// are not reportedly dead either.
 	alive := make(map[int64]bool)
+	being := beingInfo{}
 	for i := range ping {
 		for key, value := range ping[i].Alive {
-			if _, err := fmt.Sscanf(key, "%x", &k); err != nil {
+			k, err := strconv.ParseInt(key, 16, 64)
+			if err != nil {
 				panic(fmt.Errorf("presence cannot parse alive key: %q", key))
 			}
 			k *= 63
-			for i := int64(0); i < 64 && value > 0; i++ {
+			for i := int64(0); i < 63 && value > 0; i++ {
 				on := value&1 == 1
 				value >>= 1
 				if !on {
@@ -530,9 +566,9 @@ func clockDelta(c *mgo.Collection) (time.Duration, error) {
 		time.Time "retval"
 	}
 	for i := 0; i < 10; i++ {
-		before := time.Now().UTC()
+		before := time.Now()
 		err := c.Database.Run(bson.D{{"$eval", "function() { return new Date(); }"}}, &server)
-		after := time.Now().UTC()
+		after := time.Now()
 		if err != nil {
 			return 0, err
 		}
