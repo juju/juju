@@ -90,6 +90,7 @@ func (s *UnitSuite) TestGetSetStatus(c *C) {
 		c.Assert(p.Kill(), IsNil)
 	}()
 
+	s.State.ForcePresenceRefresh()
 	status, info, err = s.unit.Status()
 	c.Assert(err, IsNil)
 	c.Assert(status, Equals, state.UnitStarted)
@@ -112,6 +113,7 @@ func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
 	c.Assert(pinger, Not(IsNil))
 	defer pinger.Kill()
 
+	s.State.ForcePresenceRefresh()
 	alive = s.unit.AgentAlive()
 	c.Assert(alive, Equals, true)
 }
@@ -128,6 +130,7 @@ func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(pinger, Not(IsNil))
 
+	s.State.ForcePresenceRefresh()
 	err = s.unit.WaitAgentAlive(timeout)
 	c.Assert(err, IsNil)
 
@@ -136,6 +139,7 @@ func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
 
 	pinger.Kill()
 
+	s.State.ForcePresenceRefresh()
 	alive = s.unit.AgentAlive()
 	c.Assert(alive, Equals, false)
 }

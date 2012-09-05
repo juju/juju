@@ -30,10 +30,10 @@ func Dial(servers string) (*State, error) {
 		services:   db.C("services"),
 		settings:   db.C("settings"),
 		units:      db.C("units"),
-		agents:     presencedb.C("agents"),
+		presence:   presencedb.C("presence"),
 		runner:     txn.NewRunner(txns),
 	}
-	st.agentsw = presence.NewWatcher(st.agents)
+	st.presencew = presence.NewWatcher(st.presence)
 	for _, index := range indexes {
 		err = st.relations.EnsureIndex(index)
 		if err != nil {

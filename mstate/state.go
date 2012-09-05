@@ -23,12 +23,6 @@ type Tools struct {
 	URL string
 }
 
-// entity is implemented by all state entity types which
-// provide a unique key for the database.  
-type entity interface {
-	entityKey() string
-}
-
 // State represents the state of an environment
 // managed by juju.
 type State struct {
@@ -40,8 +34,8 @@ type State struct {
 	services   *mgo.Collection
 	settings   *mgo.Collection
 	units      *mgo.Collection
-	agents     *mgo.Collection
-	agentsw    *presence.Watcher
+	presence   *mgo.Collection
+	presencew  *presence.Watcher
 	runner     *txn.Runner
 }
 
@@ -355,4 +349,10 @@ func (s *State) Unit(name string) (*Unit, error) {
 		return nil, fmt.Errorf("cannot get unit %q: %v", name, err)
 	}
 	return newUnit(s, &doc), nil
+}
+
+// ForcePresenceRefresh forces a synchronous refresh of 
+// the presence watcher knowledge
+func (s *State) ForcePresenceRefresh() {
+	s.presencew.ForceRefresh()
 }

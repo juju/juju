@@ -107,8 +107,8 @@ func (u *Unit) Name() string {
 	return u.doc.Name
 }
 
-// entityKey returns the database key of the unit.
-func (u *Unit) entityKey() string {
+// globalKey returns the global database key for the unit.
+func (u *Unit) globalKey() string {
 	return "u#" + u.doc.Name
 }
 
@@ -223,27 +223,32 @@ func (u *Unit) SetStatus(status UnitStatus, info string) error {
 
 // AgentAlive returns whether the respective remote agent is alive.
 func (u *Unit) AgentAlive() bool {
-	u.st.agentsw.ForceRefresh()
-	return u.st.agentsw.Alive(u.entityKey())
+	return u.st.presencew.Alive(u.globalKey())
 }
 
 // WaitAgentAlive blocks until the respective agent is alive.
 func (u *Unit) WaitAgentAlive(timeout time.Duration) error {
 	ch := make(chan presence.Change)
-	u.st.agentsw.Add(u.entityKey(), ch)
-	defer u.st.agentsw.Remove(u.entityKey(), ch)
-
-	end := time.Now().Add(timeout)
-	for {
-		remaining := end.Sub(time.Now())
-		select {
-		case change := <-ch:
-			if change.Alive {
-				return nil
-			}
-		case <-time.After(remaining):
-			return fmt.Errorf("waiting for agent of unit %q: still not alive after timeout", u)
+	u.st.presencew.Add(u.globalKey(), ch)
+	defer u.st.presencew.Remove(u.globalKey(), ch)
+	// Initial check.		
+	select {
+	case change := <-ch:
+		if change.Alive {
+			return nil
 		}
+	case <-time.After(timeout):
+		return fmt.Errorf("waiting for agent of unit %q: still not alive after timeout", u)
+	}
+	// Hasn't been alive, so now wait for change.
+	select {
+	case change := <-ch:
+		if change.Alive {
+			return nil
+		}
+		panic(fmt.Sprintf("unexpected alive status of unit %q", u))
+	case <-time.After(timeout):
+		return fmt.Errorf("waiting for agent of unit %q: still not alive after timeout", u)
 	}
 	panic("unreachable")
 }
@@ -252,12 +257,11 @@ func (u *Unit) WaitAgentAlive(timeout time.Duration) error {
 // by starting a pinger on its presence node. It returns the
 // started pinger.
 func (u *Unit) SetAgentAlive() (*presence.Pinger, error) {
-	p := presence.NewPinger(u.st.agents, u.entityKey())
+	p := presence.NewPinger(u.st.presence, u.globalKey())
 	err := p.Start()
 	if err != nil {
 		return nil, err
 	}
-	u.st.agentsw.ForceRefresh()
 	return p, nil
 }
 
@@ -468,7 +472,7 @@ func (u *Unit) ClearNeedsUpgrade() error {
 
 // Config returns the configuration node for the unit.
 func (u *Unit) Config() (config *ConfigNode, err error) {
-	config, err = readConfigNode(u.st, u.entityKey())
+	config, err = readConfigNode(u.st, u.globalKey())
 	if err != nil {
 		return nil, fmt.Errorf("cannot get configuration of unit %q: %v", u, err)
 	}
