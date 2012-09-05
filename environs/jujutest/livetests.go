@@ -151,7 +151,7 @@ func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 }
 
-func (t *LiveTests) TestBootstrapProvisioner(c *C) {
+func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	if !t.CanOpenState || !t.HasProvisioner {
 		c.Skip(fmt.Sprintf("skipping provisioner test, CanOpenState: %v, HasProvisioner: %v", t.CanOpenState, t.HasProvisioner))
 	}
@@ -161,12 +161,19 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	c.Assert(err, IsNil)
 	defer conn.Close()
 
-	// Check that we can upgrade the machine agent on the bootstrap machine.
 	m, err := conn.State.Machine(0)
 	c.Assert(err, IsNil)
 
+	tools := t.machineAgentTools(c, m)
+
+	ch := t.putCharm(c, "dummy")
+
+	
+	// Wait for machine agent to come up on new
+	// machine and find the deployed series from that.
 	t.checkUpgradeMachineAgent(c, m)
 
+	
 	// place a new machine into the state
 	m, err = conn.State.AddMachine()
 	c.Assert(err, IsNil)
@@ -181,9 +188,18 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	assertInstanceId(c, m, nil)
 }
 
-func (t *LiveTests) checkUpgradeMachineAgent(c *C, m *state.Machine) {
-	// First watch the machine agent's current tools to make sure
-	// that it sets them appropriately.
+func (t *LiveTests) putCharm(conn *juju.Conn, series, name string) *state.Charm {
+	ch := testing.Charms.Dir("dummy")
+	d := c.MkDir()
+	err := os.Mkdir(filepath.Join(d, series), 0777)
+	c.Assert(err, IsNil)
+
+}
+
+// machineAgentTools waits for the given machine agent
+// to start and returns the tools that it's running.
+func (t *LiveTests) machineAgentTools(c *C, m *state.Machine) *state.Tools{
+	c.Logf("waiting for machine %d to signal agent version", m.Id())
 	w := m.WatchAgentTools()
 
 	var gotTools *state.Tools
@@ -197,6 +213,12 @@ func (t *LiveTests) checkUpgradeMachineAgent(c *C, m *state.Machine) {
 	}
 	c.Assert(gotTools, NotNil, Commentf("tools watcher died: %v", w.Err()))
 	c.Assert(gotTools.Binary, Equals, version.Current)
+	return gotTools
+}
+
+func (t *LiveTests) checkUpgradeMachineAgent(c *C, m *state.Machine) {
+	// First watch the machine agent's current tools to make sure
+	// that it sets them appropriately.
 
 	c.Logf("putting testing version of juju tools")
 
