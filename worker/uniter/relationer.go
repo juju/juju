@@ -110,10 +110,6 @@ func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
 	r.ctx.UpdateMembers(hi.Members)
 	if hi.Kind == hook.RelationDeparted {
 		r.ctx.DeleteMember(hi.RemoteUnit)
-	} else if hi.RemoteUnit != "" {
-		// In case hi was deserialized, and lacks membership data, ensure
-		// that joined/changed hooks always update their own membership.
-		r.ctx.UpdateMembers(server.SettingsMap{hi.RemoteUnit: nil})
 	}
 	name := r.ru.Endpoint().RelationName
 	return fmt.Sprintf("%s-%s", name, hi.Kind), nil
