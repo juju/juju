@@ -39,7 +39,7 @@ func (s *Repo) Dir(name string) *charm.Dir {
 	return s.DirWithSeries("series", name)
 }
 
-// Dir returns the charm.Dir with the requested testing
+// DirWithSeries returns the charm.Dir with the requested testing
 // charm. If the charm directory doesn't yet exist in the
 // temporary repository, it will be copied from the pristine
 // testing repository.
@@ -73,7 +73,7 @@ func (s *Repo) ensureSeries(series string) string {
 	return dir
 }
 
-// CharmURL returns a local URL for a charm with the given series and name.
+// URL returns a local URL for a charm with the given series and name.
 func (s *Repo) URL(series, name string) *charm.URL {
 	return &charm.URL{
 		Schema:   "local",
@@ -89,7 +89,7 @@ func (s *Repo) Bundle(name string) string {
 	return s.BundleWithSeries("series", name)
 }
 
-// CharmBundle creates a bundle in the charm repository holding a copy
+// BundleWithSeries creates a bundle in the charm repository holding a copy
 // of the testing charm with the given name and series and returns its
 // path.
 func (s *Repo) BundleWithSeries(series, name string) string {
