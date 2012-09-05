@@ -81,7 +81,7 @@ var configTests = []struct {
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-			"dev-version":     true,
+			"development":     true,
 		},
 		"",
 	}, {
@@ -89,7 +89,7 @@ var configTests = []struct {
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-			"dev-version":     false,
+			"development":     false,
 		},
 		"",
 	}, {
@@ -97,9 +97,9 @@ var configTests = []struct {
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-			"dev-version":     "true",
+			"development":     "true",
 		},
-		"dev-version: expected bool, got \"true\"",
+		"development: expected bool, got \"true\"",
 	}, {
 		attrs{
 			"type":            "my-type",
@@ -176,9 +176,10 @@ func (*ConfigSuite) TestConfig(c *C) {
 		} else {
 			c.Assert(cfg.AgentVersion(), Equals, version.Number{})
 		}
-		if s := test.attrs["dev-version"]; s != nil {
-			c.Assert(cfg.DevVersion(), Equals, s)
-		}
+
+		dev, _ := test.attrs["development"].(bool)
+		c.Assert(cfg.Development(), Equals, dev)
+
 		if series, _ := test.attrs["default-series"].(string); series != "" {
 			c.Assert(cfg.DefaultSeries(), Equals, series)
 		} else {
