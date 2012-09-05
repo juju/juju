@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	state "launchpad.net/juju-core/mstate"
 	"sort"
+	"time"
 )
 
 type MachineSuite struct {
@@ -18,6 +19,50 @@ func (s *MachineSuite) SetUpTest(c *C) {
 	var err error
 	s.machine, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
+}
+
+func (s *MachineSuite) TestMachineSetAgentAlive(c *C) {
+	alive := s.machine.AgentAlive()
+	c.Assert(alive, Equals, false)
+
+	pinger, err := s.machine.SetAgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(pinger, Not(IsNil))
+	defer pinger.Kill()
+
+	s.State.ForcePresenceRefresh()
+	alive = s.machine.AgentAlive()
+	c.Assert(alive, Equals, true)
+}
+
+func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
+	// test -gocheck.f TestMachineWaitAgentAlive
+	timeout := 5 * time.Second
+	alive := s.machine.AgentAlive()
+	c.Assert(alive, Equals, false)
+
+	s.State.ForcePresenceRefresh()
+	err := s.machine.WaitAgentAlive(timeout)
+	c.Assert(err, ErrorMatches, `waiting for agent of machine 0: still not alive after timeout`)
+
+	pinger, err := s.machine.SetAgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(pinger, Not(IsNil))
+
+	s.State.ForcePresenceRefresh()
+	err = s.machine.WaitAgentAlive(timeout)
+	c.Assert(err, IsNil)
+
+	alive = s.machine.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, true)
+
+	pinger.Kill()
+
+	s.State.ForcePresenceRefresh()
+	alive = s.machine.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, false)
 }
 
 func (s *MachineSuite) TestMachineInstanceId(c *C) {

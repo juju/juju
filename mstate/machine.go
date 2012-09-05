@@ -3,8 +3,10 @@ package mstate
 import (
 	"fmt"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/mstate/presence"
 	"launchpad.net/juju-core/trivial"
 	"strconv"
+	"time"
 )
 
 // Machine represents the state of a machine.
@@ -27,6 +29,11 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 // Id returns the machine id.
 func (m *Machine) Id() int {
 	return m.doc.Id
+}
+
+// globalKey returns the global database key for the machine.
+func (m *Machine) globalKey() string {
+	return "m#" + m.String()
 }
 
 // Life returns whether the machine is Alive, Dying or Dead.
@@ -64,6 +71,50 @@ func (m *Machine) Refresh() error {
 	}
 	m.doc = doc
 	return nil
+}
+
+// AgentAlive returns whether the respective remote agent is alive.
+func (m *Machine) AgentAlive() bool {
+	return m.st.presencew.Alive(m.globalKey())
+}
+
+// WaitAgentAlive blocks until the respective agent is alive.
+func (m *Machine) WaitAgentAlive(timeout time.Duration) error {
+	ch := make(chan presence.Change)
+	m.st.presencew.Add(m.globalKey(), ch)
+	defer m.st.presencew.Remove(m.globalKey(), ch)
+	// Initial check.		
+	select {
+	case change := <-ch:
+		if change.Alive {
+			return nil
+		}
+	case <-time.After(timeout):
+		return fmt.Errorf("waiting for agent of machine %v: still not alive after timeout", m)
+	}
+	// Hasn't been alive, so now wait for change.
+	select {
+	case change := <-ch:
+		if change.Alive {
+			return nil
+		}
+		panic(fmt.Sprintf("unexpected alive status of machine %v", m))
+	case <-time.After(timeout):
+		return fmt.Errorf("waiting for agent of machine %v: still not alive after timeout", m)
+	}
+	panic("unreachable")
+}
+
+// SetAgentAlive signals that the agent for machine m is alive
+// by starting a pinger on its presence node. It returns the
+// started pinger.
+func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
+	p := presence.NewPinger(m.st.presence, m.globalKey())
+	err := p.Start()
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 // InstanceId returns the provider specific machine id for this machine.
