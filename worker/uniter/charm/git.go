@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/trivial"
 	"os"
@@ -46,6 +47,19 @@ func (d *GitDir) Init() error {
 	return d.cmd("init")
 }
 
+// Recover deletes the lock file, and soft-resets the directory, allowing
+// the client to resume operations that were unexpectedly aborted. If no
+// lock file is present, it does nothing.
+func (d *GitDir) Recover() error {
+	if err := os.Remove(filepath.Join(d.path, ".git", "index.lock")); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	return d.cmd("reset", "--soft")
+}
+
 // AddAll ensures that the next commit will reflect the current contents of
 // the directory. Empty directories will be preserved by inserting and tracking
 // empty files named .empty.
@@ -82,6 +96,15 @@ func (d *GitDir) Commitf(format string, args ...interface{}) error {
 	return d.cmd("commit", "--allow-empty", "-m", fmt.Sprintf(format, args...))
 }
 
+// Snapshotf adds all changes made since the last commit, including deletions
+// and empty directories, and commits them using the supplied message.
+func (d *GitDir) Snapshotf(format string, args ...interface{}) error {
+	if err := d.AddAll(); err != nil {
+		return err
+	}
+	return d.Commitf(format, args...)
+}
+
 // Clone creates a new GitDir at the specified path, with history cloned
 // from the existing GitDir. It does not check out any files.
 func (d *GitDir) Clone(path string) (*GitDir, error) {
@@ -93,20 +116,37 @@ func (d *GitDir) Clone(path string) (*GitDir, error) {
 
 // Pull pulls from the supplied GitDir.
 func (d *GitDir) Pull(src *GitDir) error {
-	return d.cmd("pull", src.path)
+	err := d.cmd("pull", src.path)
+	if err != nil {
+		if conflicted, e := d.Conflicted(); e == nil && conflicted {
+			return ErrConflict
+		}
+	}
+	return err
 }
 
-// Recover deletes the lock file, and soft-resets the directory, allowing
-// the client to resume operations that were unexpectedly aborted. If no
-// lock file is present, it does nothing.
-func (d *GitDir) Recover() error {
-	if err := os.Remove(filepath.Join(d.path, ".git", "index.lock")); err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
+// Dirty returns true if the directory contains any uncommitted local changes.
+func (d *GitDir) Dirty() (bool, error) {
+	statuses, err := d.statuses()
+	if err != nil {
+		return false, err
 	}
-	return d.cmd("reset", "--soft")
+	return len(statuses) != 0, nil
+}
+
+// Conflicted returns true if the directory contains any conflicts.
+func (d *GitDir) Conflicted() (bool, error) {
+	statuses, err := d.statuses()
+	if err != nil {
+		return false, err
+	}
+	for _, st := range statuses {
+		switch st {
+		case "AA", "DD", "UU", "AU", "UA", "DU", "UD":
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // Revert removes unversioned files and reverts everything else to its state
@@ -130,14 +170,57 @@ func (d *GitDir) Log() ([]string, error) {
 	return strings.Split(trim, "\n"), nil
 }
 
+// ReadCharmURL reads the charm identity file from the directory.
+func (d *GitDir) ReadCharmURL() (*charm.URL, error) {
+	path := filepath.Join(d.path, ".juju-charm")
+	surl := ""
+	if err := trivial.ReadYaml(path, &surl); err != nil {
+		return nil, err
+	}
+	return charm.ParseURL(surl)
+}
+
+// WriteCharmURL writes a charm identity file into the directory.
+func (d *GitDir) WriteCharmURL(url *charm.URL) error {
+	return trivial.WriteYaml(filepath.Join(d.path, ".juju-charm"), url.String())
+}
+
 // cmd runs the specified command inside the directory. Errors will be logged
 // in detail.
 func (d *GitDir) cmd(args ...string) error {
 	cmd := exec.Command("git", args...)
 	cmd.Dir = d.path
 	if out, err := cmd.CombinedOutput(); err != nil {
-		log.Printf("git command failed: %s\npath: %s\nargs: %#v\n%s", err, d.path, args, string(out))
+		log.Printf("git command failed: %s\npath: %s\nargs: %#v\n%s",
+			err, d.path, args, string(out))
 		return fmt.Errorf("git %s failed: %s", args[0], err)
 	}
 	return nil
+}
+
+// statuses returns a list of XY-coded git statuses for the files in the directory.
+func (d *GitDir) statuses() ([]string, error) {
+	cmd := exec.Command("git", "status", "--porcelain")
+	cmd.Dir = d.path
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("git status failed: %s", err)
+	}
+	log.Printf(string(out))
+	statuses := []string{}
+	for _, line := range strings.Split(string(out), "\n") {
+		if line != "" {
+			statuses = append(statuses, line[:2])
+		}
+	}
+
+	cmd = exec.Command("git", "status")
+	cmd.Dir = d.path
+	out, err = cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("git status failed: %s", err)
+	}
+	log.Printf(string(out))
+
+	return statuses, nil
 }
