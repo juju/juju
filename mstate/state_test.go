@@ -5,8 +5,8 @@ import (
 	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/environs/config"
 	state "launchpad.net/juju-core/mstate"
-	coretesting "launchpad.net/juju-core/testing"
 	"net/url"
 )
 
@@ -20,7 +20,7 @@ var _ = Suite(&StateSuite{})
 
 func (s *StateSuite) TestAddCharm(c *C) {
 	// Check that adding charms from scratch works correctly.
-	ch := coretesting.Charms.Dir("dummy")
+	ch := s.repo.Dir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
@@ -170,20 +170,28 @@ func (s *StateSuite) TestAllServices(c *C) {
 }
 
 func (s *StateSuite) TestEnvironConfig(c *C) {
-	env, err := s.State.EnvironConfig()
+	initial := map[string]interface{}{
+		"name":            "test",
+		"type":            "test",
+		"authorized-keys": "i-am-a-key",
+		"default-series":  "precise",
+	}
+	env, err := config.New(initial)
 	c.Assert(err, IsNil)
-	err = env.Read()
+	err = s.State.SetEnvironConfig(env)
 	c.Assert(err, IsNil)
-	c.Assert(env.Map(), DeepEquals, map[string]interface{}{})
-
-	env.Update(map[string]interface{}{"spam": "eggs", "eggs": "spam"})
-	env.Update(map[string]interface{}{"spam": "spam", "chaos": "emeralds"})
-	_, err = env.Write()
-	c.Assert(err, IsNil)
-
 	env, err = s.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	err = env.Read()
+	current := env.AllAttrs()
+	c.Assert(current, DeepEquals, initial)
+
+	current["authorized-keys"] = "i-am-a-new-key"
+	env, err = config.New(current)
 	c.Assert(err, IsNil)
-	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"spam": "spam", "eggs": "spam", "chaos": "emeralds"})
+	err = s.State.SetEnvironConfig(env)
+	c.Assert(err, IsNil)
+	env, err = s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	final := env.AllAttrs()
+	c.Assert(final, DeepEquals, current)
 }

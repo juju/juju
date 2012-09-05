@@ -24,6 +24,7 @@ var _ = Suite(&TrivialSuite{})
 
 type StoreSuite struct {
 	MgoSuite
+	Repo testing.Repo
 	testing.HTTPSuite
 	store *store.Store
 }
@@ -42,6 +43,8 @@ func (s *StoreSuite) TearDownSuite(c *C) {
 
 func (s *StoreSuite) SetUpTest(c *C) {
 	s.MgoSuite.SetUpTest(c)
+	s.HTTPSuite.SetUpTest(c)
+	s.Repo.Path = c.MkDir()
 	var err error
 	s.store, err = store.Open(s.Addr)
 	c.Assert(err, IsNil)
@@ -110,7 +113,7 @@ func (s *StoreSuite) TestCharmPublisher(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(pub.Revision(), Equals, 0)
 
-	err = pub.Publish(testing.Charms.ClonedDir(c.MkDir(), "dummy"))
+	err = pub.Publish(s.Repo.Dir("dummy"))
 	c.Assert(err, IsNil)
 
 	for _, url := range urls {

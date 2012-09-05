@@ -171,6 +171,12 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	
 	// Wait for machine agent to come up on new
 	// machine and find the deployed series from that.
+	// Check that the agent version has made it through the
+	// bootstrap process (it's optional in the config.Config)
+	cfg, err := conn.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	c.Check(cfg.AgentVersion(), Equals, version.Current.Number)
+
 	t.checkUpgradeMachineAgent(c, m)
 
 	

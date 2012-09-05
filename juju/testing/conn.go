@@ -15,8 +15,8 @@ import (
 	"path/filepath"
 )
 
-// JujuConnSuite provides a freshly bootstrapped juju.Conn
-// for each test. It also includes testing.LoggingSuite.
+// JujuConnSuite provides a freshly bootstrapped juju.Conn for each
+// test.  It also includes testing.LoggingSuite and testing.CharmSuite.
 //
 // It also sets up $HOME and environs.VarDir to
 // temporary directories; the former is primed to
@@ -28,6 +28,7 @@ type JujuConnSuite struct {
 	testing.ZkSuite
 	Conn      *juju.Conn
 	State     *state.State
+	Repo      testing.Repo
 	rootDir   string // the faked-up root directory.
 	oldHome   string
 	oldVarDir string
@@ -90,6 +91,11 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	err = os.Mkdir(filepath.Join(home, ".juju"), 0777)
 	c.Assert(err, IsNil)
 
+	charmDir := filepath.Join(home, "charms")
+	err = os.Mkdir(charmDir, 0777)
+	c.Assert(err, IsNil)
+	s.Repo.Path = charmDir
+
 	err = ioutil.WriteFile(filepath.Join(home, ".juju", "environments.yaml"), config, 0600)
 	c.Assert(err, IsNil)
 
@@ -116,6 +122,7 @@ func (s *JujuConnSuite) tearDownConn(c *C) {
 	environs.VarDir = s.oldVarDir
 	s.oldVarDir = ""
 	s.rootDir = ""
+	s.Repo.Path = ""
 }
 
 // WriteConfig writes a juju config file to the "home" directory.
@@ -135,7 +142,7 @@ func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
 }
 
 func (s *JujuConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
-	ch := testing.Charms.Dir(name)
+	ch := s.Repo.Dir(name)
 	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
 	curl := charm.MustParseURL("local:series/" + ident)
 	bundleURL, err := url.Parse("http://bundles.example.com/" + ident)
