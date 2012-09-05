@@ -15,8 +15,8 @@ import (
 	"path/filepath"
 )
 
-// JujuConnSuite provides a freshly bootstrapped juju.Conn
-// for each test. It also includes testing.LoggingSuite.
+// JujuConnSuite provides a freshly bootstrapped juju.Conn for each
+// test.  It also includes testing.LoggingSuite and testing.CharmSuite.
 //
 // It also sets up $HOME and environs.VarDir to
 // temporary directories; the former is primed to
@@ -25,6 +25,7 @@ import (
 // The name of the dummy environment is "dummyenv".
 type JujuConnSuite struct {
 	testing.LoggingSuite
+	testing.CharmSuite
 	testing.ZkSuite
 	Conn      *juju.Conn
 	State     *state.State
@@ -43,16 +44,19 @@ environments:
 
 func (s *JujuConnSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
+	s.CharmSuite.SetUpSuite(c)
 	s.ZkSuite.SetUpSuite(c)
 }
 
 func (s *JujuConnSuite) TearDownSuite(c *C) {
 	s.ZkSuite.TearDownSuite(c)
+	s.CharmSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 }
 
 func (s *JujuConnSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
+	s.CharmSuite.SetUpTest(c)
 	s.ZkSuite.SetUpTest(c)
 	s.setUpConn(c)
 }
@@ -60,6 +64,7 @@ func (s *JujuConnSuite) SetUpTest(c *C) {
 func (s *JujuConnSuite) TearDownTest(c *C) {
 	s.tearDownConn(c)
 	s.ZkSuite.TearDownTest(c)
+	s.CharmSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
@@ -135,7 +140,7 @@ func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
 }
 
 func (s *JujuConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
-	ch := testing.Charms.Dir(name)
+	ch := s.CharmDir("series", name)
 	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
 	curl := charm.MustParseURL("local:series/" + ident)
 	bundleURL, err := url.Parse("http://bundles.example.com/" + ident)

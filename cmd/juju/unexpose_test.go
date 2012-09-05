@@ -5,7 +5,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/testing"
 )
 
 type UnexposeSuite struct {
@@ -29,7 +28,7 @@ func (s *UnexposeSuite) assertExposed(c *C, service string, expected bool) {
 }
 
 func (s *UnexposeSuite) TestUnexpose(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "dummy")
+	s.CharmDir("precise", "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")

@@ -25,6 +25,7 @@ var _ = Suite(&TrivialSuite{})
 type StoreSuite struct {
 	MgoSuite
 	testing.HTTPSuite
+	testing.CharmSuite
 	store *store.Store
 }
 
@@ -33,15 +34,19 @@ type TrivialSuite struct{}
 func (s *StoreSuite) SetUpSuite(c *C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
+	s.CharmSuite.SetUpSuite(c)
 }
 
 func (s *StoreSuite) TearDownSuite(c *C) {
+	s.CharmSuite.TearDownSuite(c)
 	s.HTTPSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
 }
 
 func (s *StoreSuite) SetUpTest(c *C) {
 	s.MgoSuite.SetUpTest(c)
+	s.HTTPSuite.SetUpTest(c)
+	s.CharmSuite.SetUpTest(c)
 	var err error
 	s.store, err = store.Open(s.Addr)
 	c.Assert(err, IsNil)
@@ -50,6 +55,7 @@ func (s *StoreSuite) SetUpTest(c *C) {
 }
 
 func (s *StoreSuite) TearDownTest(c *C) {
+	s.CharmSuite.TearDownTest(c)
 	s.HTTPSuite.TearDownTest(c)
 	if s.store != nil {
 		s.store.Close()
@@ -110,7 +116,7 @@ func (s *StoreSuite) TestCharmPublisher(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(pub.Revision(), Equals, 0)
 
-	err = pub.Publish(testing.Charms.ClonedDir(c.MkDir(), "dummy"))
+	err = pub.Publish(s.CharmDir("series", "dummy"))
 	c.Assert(err, IsNil)
 
 	for _, url := range urls {

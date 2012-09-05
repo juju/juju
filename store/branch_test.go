@@ -7,7 +7,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/store"
-	"launchpad.net/juju-core/testing"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,7 +24,7 @@ func (s *StoreSuite) dummyBranch(c *C, suffix string) bzrDir {
 	branch := bzrDir(tmpDir)
 	branch.init()
 
-	copyCharmDir(branch.path(), testing.Charms.Dir("dummy"))
+	copyCharmDir(branch.path(), s.CharmDir("series", "dummy"))
 	branch.add()
 	branch.commit("Imported charm.")
 	return branch
