@@ -65,23 +65,20 @@ type Info struct {
 
 	// RelationId identifies the relation associated with the hook. It is
 	// only set when Kind indicates a relation hook.
-	RelationId int
+	RelationId int `yaml:"relation-id, omitempty"`
 
 	// RemoteUnit is the name of the unit that triggered the hook. It is only
 	// set when Kind inicates a relation hook other than relation-broken.
-	RemoteUnit string
+	RemoteUnit string `yaml:"remote-unit, omitempty"`
 
 	// ChangeVersion identifies the most recent unit settings change
 	// associated with RemoteUnit. It is only set when RemoteUnit is set.
-	ChangeVersion int
+	ChangeVersion int `yaml:"change-version,omitempty"`
 
-	// Members contains the latest known state of the relation; its set of
-	// keys is the set of unit names that should be treated as present in
-	// the relation. The values may contain up-to-date relation settings
-	// for the member units, but these are communicated only when already
-	// known to the producer: their presence should never be assumed. The
-	// field is only set when Kind identifies a relation hook.
-	Members map[string]map[string]interface{}
+	// Members may contain member unit relation settings, keyed on unit name.
+	// If a unit is present in members, it is always a member of the relation;
+	// if a unit is not present, no inferences about its state can be drawn.
+	Members map[string]map[string]interface{} `yaml:"members,omitempty"`
 }
 
 // Status defines the stages of execution through which a hook passes.
@@ -150,17 +147,12 @@ func (f *StateFile) Read() (State, error) {
 	if !st.Kind.valid() || !st.Status.valid() {
 		return State{}, fmt.Errorf("invalid hook state at %s", f.path)
 	}
-	members := map[string]map[string]interface{}{}
-	for _, m := range st.Members {
-		members[m] = nil
-	}
 	return State{
 		Info: Info{
 			Kind:          st.Kind,
 			RelationId:    st.RelationId,
 			RemoteUnit:    st.RemoteUnit,
 			ChangeVersion: st.ChangeVersion,
-			Members:       members,
 		},
 		Status: st.Status,
 	}, nil
@@ -182,18 +174,14 @@ func (f *StateFile) Write(info Info, status Status) error {
 		ChangeVersion: info.ChangeVersion,
 		Status:        status,
 	}
-	for m := range info.Members {
-		st.Members = append(st.Members, m)
-	}
 	return trivial.WriteYaml(f.path, &st)
 }
 
 // state defines the hook state serialization.
 type state struct {
 	Kind          Kind
-	RelationId    int      `yaml:"relation-id,omitempty"`
-	RemoteUnit    string   `yaml:"remote-unit,omitempty"`
-	ChangeVersion int      `yaml:"change-version,omitempty"`
-	Members       []string `yaml:"members,omitempty"`
+	RelationId    int    `yaml:"relation-id,omitempty"`
+	RemoteUnit    string `yaml:"remote-unit,omitempty"`
+	ChangeVersion int    `yaml:"change-version,omitempty"`
 	Status        Status
 }
