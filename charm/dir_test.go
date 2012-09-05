@@ -12,19 +12,21 @@ import (
 	"syscall"
 )
 
-type DirSuite struct{}
+type DirSuite struct{
+	testing.CharmSuite
+}
 
 var _ = Suite(&DirSuite{})
 
 func (s *DirSuite) TestReadDir(c *C) {
-	path := testing.Charms.DirPath("dummy")
+	path := s.CharmDir("series", "dummy").Path
 	dir, err := charm.ReadDir(path)
 	c.Assert(err, IsNil)
 	checkDummy(c, dir, path)
 }
 
 func (s *DirSuite) TestReadDirWithoutConfig(c *C) {
-	path := testing.Charms.DirPath("varnish")
+	path := s.CharmDir("series", "varnish").Path
 	dir, err := charm.ReadDir(path)
 	c.Assert(err, IsNil)
 
@@ -34,7 +36,7 @@ func (s *DirSuite) TestReadDirWithoutConfig(c *C) {
 }
 
 func (s *DirSuite) TestBundleTo(c *C) {
-	dir := testing.Charms.Dir("dummy")
+	dir := s.CharmDir("series", "dummy")
 	path := filepath.Join(c.MkDir(), "bundle.charm")
 	file, err := os.Create(path)
 	c.Assert(err, IsNil)
@@ -103,7 +105,7 @@ func (s *DirSuite) TestBundleTo(c *C) {
 }
 
 func (s *DirSuite) TestBundleToWithBadType(c *C) {
-	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	charmDir := s.CharmDir("series", "dummy").Path
 	badFile := filepath.Join(charmDir, "hooks", "badfile")
 
 	// Symlink targeting a path outside of the charm.
@@ -140,7 +142,7 @@ func (s *DirSuite) TestBundleToWithBadType(c *C) {
 }
 
 func (s *DirSuite) TestDirRevisionFile(c *C) {
-	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	charmDir := s.CharmDir("series", "dummy").Path
 	revPath := filepath.Join(charmDir, "revision")
 
 	// Missing revision file
@@ -171,7 +173,7 @@ func (s *DirSuite) TestDirRevisionFile(c *C) {
 }
 
 func (s *DirSuite) TestDirSetRevision(c *C) {
-	dir := testing.Charms.ClonedDir(c.MkDir(), "dummy")
+	dir := s.CharmDir("series", "dummy")
 	c.Assert(dir.Revision(), Equals, 1)
 	dir.SetRevision(42)
 	c.Assert(dir.Revision(), Equals, 42)
@@ -185,7 +187,7 @@ func (s *DirSuite) TestDirSetRevision(c *C) {
 }
 
 func (s *DirSuite) TestDirSetDiskRevision(c *C) {
-	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	charmDir := s.CharmDir("series", "dummy").Path
 	dir, err := charm.ReadDir(charmDir)
 	c.Assert(err, IsNil)
 

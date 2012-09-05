@@ -17,6 +17,7 @@ import (
 )
 
 type MockStore struct {
+	charmSuite testing.CharmSuite
 	mux          *http.ServeMux
 	lis          net.Listener
 	bundleBytes  []byte
@@ -26,7 +27,9 @@ type MockStore struct {
 
 func NewMockStore(c *C) *MockStore {
 	s := &MockStore{}
-	bytes, err := ioutil.ReadFile(testing.Charms.BundlePath(c.MkDir(), "dummy"))
+	s.charmSuite.SetUpSuite(c)
+	s.charmSuite.SetUpTest(c)
+	bytes, err := ioutil.ReadFile(c.charmSuite.CharmBundle("series", "dummy"))
 	c.Assert(err, IsNil)
 	s.bundleBytes = bytes
 	h := sha256.New()
@@ -204,26 +207,43 @@ func (s *StoreSuite) TestGetBadCache(c *C) {
 
 type LocalRepoSuite struct {
 	testing.LoggingSuite
+	testing.CharmSuite
 	repo       *charm.LocalRepository
 	seriesPath string
 }
 
 var _ = Suite(&LocalRepoSuite{})
 
+func (s *LocalRepoSuite) SetUpSuite(c *C) {
+	s.LoggingSuite.SetUpSuite(c)
+	s.CharmSuite.SetUpSuite(c)
+}
+
+func (s *LocalRepoSuite) TearDownSuite(c *C) {
+	s.CharmSuite.TearDownSuite(c)
+	s.LoggingSuite.TearDownSuite(c)
+}
+
 func (s *LocalRepoSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
+	s.CharmSuite.SetUpTest(c)
 	root := c.MkDir()
 	s.repo = &charm.LocalRepository{root}
 	s.seriesPath = filepath.Join(root, "series")
 	c.Assert(os.Mkdir(s.seriesPath, 0777), IsNil)
 }
 
+func (s *LocalRepoSuite) TearDownTest(c *C) {
+	s.CharmSuite.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
+}
+
 func (s *LocalRepoSuite) addBundle(name string) string {
-	return testing.Charms.BundlePath(s.seriesPath, name)
+	return s.CharmBundle("series", name)
 }
 
 func (s *LocalRepoSuite) addDir(name string) string {
-	return testing.Charms.ClonedDirPath(s.seriesPath, name)
+	return s.CharmDir("series", name).Path
 }
 
 func (s *LocalRepoSuite) TestMissingCharm(c *C) {

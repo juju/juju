@@ -130,8 +130,7 @@ func (s *DeploySuite) TestCharmBundle(c *C) {
 }
 
 func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
-	s.CharmDir("precise", "dummy")
-	a.CharmBundlePath(filepath.Join(s.RepoPath, "dummy-bundled"), "dummy")
+	s.CharmBundlePath("precise", "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
 	c.Assert(err, ErrorMatches, `cannot increment version of charm "local:precise/dummy-1": not a directory`)
 	// Verify state not touched...

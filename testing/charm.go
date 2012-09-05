@@ -2,6 +2,7 @@ package testing
 
 import (
 	"go/build"
+	"io/ioutil"
 	"launchpad.net/juju-core/charm"
 	. "launchpad.net/gocheck"
 	"os"
@@ -52,34 +53,32 @@ func (s *CharmSuite) Reset(c *C) {
 // the testing charm with the given name and series.
 // It does nothing if the directory already exists.
 func (s *CharmSuite) CharmDir(series, name string) *charm.Dir {
+	// Read the directory first to give a nice error if the
+	// charm does not exist.
+	unclonedDir, err := charm.ReadDir(filepath.Join(repoPath, series, name))
+	check(err)
 	path := filepath.Join(s.RepoPath, series, name)
-	info, err := os.Stat(path)
+	_, err = os.Stat(path)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			check(err)
 		}
-		unclonedPath := filepath.Join(repoPath, series, name)
-		// First check that the source exists, so that we don't
-		// see an obscure status error message from the cp command.
-		if _, err := os.Stat(unclonedPath); err != nil {
-			panic(err)
-		}
 		s.ensureSeries(series)
-		check(exec.Command("cp", "-r", unclonedPath, path).Run())
+		check(exec.Command("cp", "-r", unclonedDir.Path, path).Run())
 	}
 	d, err := charm.ReadDir(path)
 	check(err)
 	return d
 }
 
-func (s *CharmSuite) ensureSeries(series string) {
-	check(os.MkdirAll(filepath.Join(s.RepoPath, series), 0777))
+func (s *CharmSuite) ensureSeries(series string) string{
+	dir := filepath.Join(s.RepoPath, series)
+	check(os.MkdirAll(dir, 0777))
+	return dir
 }
 
-// CharmURL returns a URL for the charm with the given series and name,
-// first calling CharmDir to ensure that the charm exists.
+// CharmURL returns a local URL for a charm with the given series and name.
 func (s *CharmSuite) CharmURL(series, name string) *charm.URL {
-	s.CharmDir(series, name)
 	return &charm.URL{
 		Schema:   "local",
 		Series:   series,
@@ -90,14 +89,15 @@ func (s *CharmSuite) CharmURL(series, name string) *charm.URL {
 
 // CharmBundlePath creates a charm bundle holding a copy
 // of the testing charm with the given name and series
-// and returns its path. If does nothing if the bundle already exists.
-func (s *CharmSuite) CharmBundle(dst, series, name string) string {
-	s.ensureSeries(series)
-	path := filepath.Join(s.RepoPath, series, name)
-	path := filepath.Join(dst, "bundle.charm")
-	file, err := os.Create(path)
+// and returns its path.
+func (s *CharmSuite) CharmBundle(series, name string) string {
+	file, err := ioutil.TempFile(s.ensureSeries(series), name)
 	check(err)
 	defer file.Close()
+	dir, err := charm.ReadDir(filepath.Join(repoPath, series, name))
+	check(err)
 	check(dir.BundleTo(file))
+	path := file.Name() + ".charm"
+	check(os.Rename(file.Name(), path))
 	return path
 }

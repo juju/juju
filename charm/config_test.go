@@ -36,8 +36,8 @@ options:
     type: boolean
 `
 
-func repoConfig(name string) io.Reader {
-	charmDir := testing.Charms.DirPath(name)
+func (s *ConfigSuite) repoConfig(name string) io.Reader {
+	charmDir := s.CharmDir("series", name).Path
 	file, err := os.Open(filepath.Join(charmDir, "config.yaml"))
 	if err != nil {
 		panic(err)
@@ -50,12 +50,14 @@ func repoConfig(name string) io.Reader {
 	return bytes.NewBuffer(data)
 }
 
-type ConfigSuite struct{}
+type ConfigSuite struct{
+	testing.CharmSuite
+}
 
 var _ = Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) TestReadConfig(c *C) {
-	config, err := charm.ReadConfig(repoConfig("dummy"))
+	config, err := charm.ReadConfig(s.repoConfig("dummy"))
 	c.Assert(err, IsNil)
 	c.Assert(config.Options["title"], DeepEquals,
 		charm.Option{

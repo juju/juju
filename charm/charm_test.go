@@ -15,16 +15,18 @@ func Test(t *stdtesting.T) {
 	TestingT(t)
 }
 
-type CharmSuite struct{}
+type CharmSuite struct{
+	testing.CharmSuite
+}
 
 var _ = Suite(&CharmSuite{})
 
 func (s *CharmSuite) TestRead(c *C) {
-	bPath := testing.Charms.BundlePath(c.MkDir(), "dummy")
+	bPath := s.CharmBundle("series", "dummy")
 	ch, err := charm.Read(bPath)
 	c.Assert(err, IsNil)
 	c.Assert(ch.Meta().Name, Equals, "dummy")
-	dPath := testing.Charms.DirPath("dummy")
+	dPath := s.CharmDir("series", "dummy").Path
 	ch, err = charm.Read(dPath)
 	c.Assert(err, IsNil)
 	c.Assert(ch.Meta().Name, Equals, "dummy")
