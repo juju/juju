@@ -3,8 +3,8 @@ package testing
 import (
 	"go/build"
 	"io/ioutil"
-	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	. "launchpad.net/gocheck"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -34,7 +34,7 @@ type CharmSuite struct {
 	RepoPath string
 }
 
-func (s *CharmSuite) SetUpSuite(c *C)    {}
+func (s *CharmSuite) SetUpSuite(c *C) {}
 func (s *CharmSuite) TearDownSuite(c *C) {}
 
 func (s *CharmSuite) SetUpTest(c *C) {
@@ -71,7 +71,10 @@ func (s *CharmSuite) CharmDir(series, name string) *charm.Dir {
 	return d
 }
 
-func (s *CharmSuite) ensureSeries(series string) string {
+func (s *CharmSuite) ensureSeries(series string) string{
+	if s.RepoPath == "" {
+		panic("CharmSuite used outside test")
+	}
 	dir := filepath.Join(s.RepoPath, series)
 	check(os.MkdirAll(dir, 0777))
 	return dir

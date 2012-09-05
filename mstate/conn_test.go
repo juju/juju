@@ -36,12 +36,12 @@ func (cs *ConnSuite) SetUpSuite(c *C) {
 }
 
 func (cs *ConnSuite) TearDownSuite(c *C) {
-	cs.CharmSuite.SetUpTest(c)
 	cs.MgoSuite.TearDownSuite(c)
 	cs.CharmSuite.TearDownSuite(c)
 }
 
 func (cs *ConnSuite) SetUpTest(c *C) {
+	cs.CharmSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
 	cs.charms = cs.MgoSuite.Session.DB("juju").C("charms")
 	cs.machines = cs.MgoSuite.Session.DB("juju").C("machines")
