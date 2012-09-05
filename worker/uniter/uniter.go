@@ -103,12 +103,19 @@ func (u *Uniter) Wait() error {
 // deploy deploys the supplied charm, and sets follow-up hook operation state
 // as indicated by reason.
 func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
-	if reason != Install {
-		panic(fmt.Errorf("unknown deploy operation %q", reason))
+	if reason != Install && reason != Upgrade {
+		panic(fmt.Errorf("%q is not a deploy operation", reason))
 	}
 	op, err := u.op.Read()
 	if err != nil && err != ErrNoStateFile {
 		return err
+	}
+	var hi *hook.Info
+	if op.Op == RunHook || op.Op == Upgrade {
+		// These operations can be interrupted to perform an upgrade; if hook
+		// information is stored, we need to preserve it so we can restore the
+		// original state once the upgrade is complete.
+		hi = op.Hook
 	}
 	url := sch.URL()
 	if op.Status != Committing {
@@ -121,13 +128,13 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 			return err
 		}
 		log.Printf("deploying charm %q", url)
-		if err = u.op.Write(reason, Pending, nil, url); err != nil {
+		if err = u.op.Write(reason, Pending, hi, url); err != nil {
 			return err
 		}
 		if err = u.deployer.Deploy(u.charm); err != nil {
 			return err
 		}
-		if err = u.op.Write(reason, Committing, nil, url); err != nil {
+		if err = u.op.Write(reason, Committing, hi, url); err != nil {
 			return err
 		}
 	}
@@ -135,7 +142,20 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 	if err := u.unit.SetCharm(sch); err != nil {
 		return err
 	}
-	return u.op.Write(RunHook, Queued, &hook.Info{Kind: hook.Install}, nil)
+	status := Queued
+	if hi != nil {
+		// If a hook operation was interrupted, restore it.
+		status = Pending
+	} else {
+		// Otherwise, queue the relevant post-deploy hook.
+		hi = &hook.Info{
+			Kind: map[Op]hook.Kind{
+				Install: hook.Install,
+				Upgrade: hook.UpgradeCharm,
+			}[reason],
+		}
+	}
+	return u.op.Write(RunHook, status, hi, nil)
 }
 
 // errHookFailed indicates that a hook failed to execute, but that the Uniter's
