@@ -32,8 +32,6 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 
 func (s *upgraderSuite) TearDownTest(c *C) {
 	environs.VarDir = s.oldVarDir
-	invalidVersion = func() {}
-	sameVersion = func() {}
 	s.JujuConnSuite.TearDownTest(c)
 }
 
@@ -170,14 +168,6 @@ var upgraderTests = []struct {
 }
 
 func (s *upgraderSuite) TestUpgrader(c *C) {
-	// Set up the test hooks.
-	event := make(chan string, 10)
-	sameVersion = func() {
-		event <- "sameVersion"
-	}
-	invalidVersion = func() {
-		event <- "invalidVersion"
-	}
 
 	// Set up the current version and tools.
 	version.Current = version.MustParseBinary("2.0.0-foo-bar")
@@ -250,6 +240,14 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 		default:
 			panic("no action in test")
 		}
+	}
+}
+
+func assertNothingHappens(c *C, upgraderDone <-chan error) {
+	select {
+	case got := <-upgraderDone:
+		c.Fatalf("expected nothing to happen, got %v", got)
+	case <-time.After(100 * time.Millisecond):
 	}
 }
 

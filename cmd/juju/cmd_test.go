@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"reflect"
-	"time"
 )
 
 type CmdSuite struct {
@@ -106,7 +105,7 @@ func (*CmdSuite) TestEnvironmentInit(c *C) {
 
 func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc chan error) {
 	errc = make(chan error, 1)
-	opc = make(chan dummy.Operation, 20)
+	opc = make(chan dummy.Operation, 200)
 	dummy.Reset()
 	dummy.Listen(opc)
 	go func() {
@@ -134,7 +133,6 @@ func (*CmdSuite) TestBootstrapCommand(c *C) {
 	// bootstrap with tool uploading - checking that a file
 	// is uploaded should be sufficient, as the detailed semantics
 	// of UploadTools are tested in environs.
-	time.Sleep(500 * time.Millisecond)
 	opc, errc = runCommand(new(BootstrapCommand), "--upload-tools")
 	c.Check(<-errc, IsNil)
 	c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham")

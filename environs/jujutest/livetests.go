@@ -4,6 +4,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
@@ -209,7 +210,8 @@ func (t *LiveTests) checkUpgradeMachineAgent(c *C, st *state.State, m *state.Mac
 
 	// Check that the put version really is the version we expect.
 	c.Assert(upgradeTools.Binary, Equals, newVersion)
-	err = st.SetAgentVersion(newVersion.Number, false)
+	err = setAgentVersion(st, newVersion.Number, false)
+	c.Assert(err, IsNil)
 
 	c.Logf("waiting for upgrade")
 	_, ok := <-w.Changes()
@@ -223,6 +225,23 @@ func (t *LiveTests) checkUpgradeMachineAgent(c *C, st *state.State, m *state.Mac
 	// the same thing.
 	c.Assert(tools.Binary, DeepEquals, upgradeTools.Binary)
 	c.Logf("upgrade successful!")
+}
+
+// setStateAgentVersion sets the current agent version and
+// DevVersion flag in the state's environment configuration.
+func setStateAgentVersion(st *state.State, vers version.Number, devVersion bool) error {
+	cfg, err := st.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	attrs := cfg.AllAttrs()
+	attrs["agent-version"] = vers.String()
+	attrs["dev-version"] = devVersion
+	cfg, err = config.New(attrs)
+	if err != nil {
+		panic(fmt.Errorf("config refused agent-version: %v", err))
+	}
+	return st.SetEnvironConfig(cfg)
 }
 
 var waitAgent = environs.AttemptStrategy{
