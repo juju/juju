@@ -30,13 +30,17 @@ func (d *GitDir) Path() string {
 
 // Exists returns true if the directory exists.
 func (d *GitDir) Exists() (bool, error) {
-	if _, err := os.Stat(d.path); err != nil {
+	fi, err := os.Stat(d.path)
+	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
 		return false, err
 	}
-	return true, nil
+	if fi.IsDir() {
+		return true, nil
+	}
+	return false, fmt.Errorf("%s is not a directory", d.path)
 }
 
 // Init ensures that a git repository exists in the directory.
@@ -51,6 +55,9 @@ func (d *GitDir) Init() error {
 // the client to resume operations that were unexpectedly aborted. If no
 // lock file is present, it does nothing.
 func (d *GitDir) Recover() error {
+	if exists, err := d.Exists(); !exists {
+		return err
+	}
 	if err := os.Remove(filepath.Join(d.path, ".git", "index.lock")); err != nil {
 		if os.IsNotExist(err) {
 			return nil
