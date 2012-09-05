@@ -149,9 +149,8 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 	)
 
 	defer func() {
-		// If a test failed, make sure we see any error from the upgrader.
 		if u != nil {
-			waitDeath(c, u, nil, "")
+			c.Assert(u.Stop(), IsNil)
 		}
 	}()
 
