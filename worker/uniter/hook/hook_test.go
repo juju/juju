@@ -1,10 +1,8 @@
 package hook_test
 
 import (
-	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/worker/uniter/hook"
-	"path/filepath"
 	"testing"
 )
 
@@ -12,51 +10,46 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
-type StateFileSuite struct{}
+type InfoSuite struct{}
 
-var _ = Suite(&StateFileSuite{})
+var _ = Suite(&InfoSuite{})
 
-func (s *StateFileSuite) TestStateFile(c *C) {
-	path := filepath.Join(c.MkDir(), "hook")
-	f := hook.NewStateFile(path)
-	_, err := f.Read()
-	c.Assert(err, Equals, hook.ErrNoStateFile)
+var validateTests = []struct {
+	info hook.Info
+	err  string
+}{
+	{
+		hook.Info{Kind: hook.RelationJoined},
+		`"relation-joined" hook requires a remote unit`,
+	}, {
+		hook.Info{Kind: hook.RelationChanged},
+		`"relation-changed" hook requires a remote unit`,
+	}, {
+		hook.Info{Kind: hook.RelationDeparted},
+		`"relation-departed" hook requires a remote unit`,
+	}, {
+		hook.Info{Kind: hook.Kind("grok")},
+		`unknown hook kind "grok"`,
+	},
+	{hook.Info{Kind: hook.Install}, ""},
+	{hook.Info{Kind: hook.Start}, ""},
+	{hook.Info{Kind: hook.ConfigChanged}, ""},
+	{hook.Info{Kind: hook.UpgradeCharm}, ""},
+	{hook.Info{Kind: hook.Stop}, ""},
+	{hook.Info{Kind: hook.RelationJoined, RemoteUnit: "x"}, ""},
+	{hook.Info{Kind: hook.RelationChanged, RemoteUnit: "x"}, ""},
+	{hook.Info{Kind: hook.RelationDeparted, RemoteUnit: "x"}, ""},
+	{hook.Info{Kind: hook.RelationBroken}, ""},
+}
 
-	err = ioutil.WriteFile(path, []byte("roflcopter"), 0644)
-	c.Assert(err, IsNil)
-	_, err = f.Read()
-	c.Assert(err, ErrorMatches, "invalid hook state at "+path)
-
-	bad := func() { f.Write(hook.Info{}, hook.Status("nonsense")) }
-	c.Assert(bad, PanicMatches, `unknown hook status "nonsense"`)
-
-	bad = func() { f.Write(hook.Info{Kind: hook.Kind("incoherent")}, hook.Committing) }
-	c.Assert(bad, PanicMatches, `unknown hook kind "incoherent"`)
-
-	hi := hook.Info{
-		Kind:          hook.RelationChanged,
-		RelationId:    123,
-		RemoteUnit:    "abc/999",
-		ChangeVersion: 321,
-		Members: map[string]map[string]interface{}{
-			"abc/999":  {"foo": 1, "bar": 2},
-			"abc/1000": {"baz": 3, "qux": 4},
-		},
+func (s *InfoSuite) TestValidate(c *C) {
+	for i, t := range validateTests {
+		c.Logf("test %d", i)
+		err := t.info.Validate()
+		if t.err == "" {
+			c.Assert(err, IsNil)
+		} else {
+			c.Assert(err, ErrorMatches, t.err)
+		}
 	}
-	err = f.Write(hi, hook.Pending)
-	c.Assert(err, IsNil)
-
-	st, err := f.Read()
-	c.Assert(err, IsNil)
-	c.Assert(st.Status, Equals, hook.Pending)
-	c.Assert(st.Info, DeepEquals, hook.Info{
-		Kind:          hook.RelationChanged,
-		RelationId:    123,
-		RemoteUnit:    "abc/999",
-		ChangeVersion: 321,
-		Members: map[string]map[string]interface{}{
-			"abc/999":  nil,
-			"abc/1000": nil,
-		},
-	})
 }
