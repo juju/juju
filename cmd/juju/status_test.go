@@ -133,7 +133,7 @@ var statusTests = []struct {
 	{
 		"add two services and expose one",
 		func(s *StatusSuite, c *C) {
-			ch := s.CharmDir("series", "dummy")
+			ch := s.Repo.Dir("dummy")
 			curl := charm.MustParseURL(
 				fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
 			)

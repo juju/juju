@@ -13,15 +13,15 @@ import (
 )
 
 type BundleSuite struct {
-	testing.CharmSuite
+	repo testing.Repo
 	bundlePath string
 }
 
 var _ = Suite(&BundleSuite{})
 
 func (s *BundleSuite) SetUpTest(c *C) {
-	s.CharmSuite.SetUpTest(c)
-	s.bundlePath = s.CharmBundle("series", "dummy")
+	s.repo.Path = c.MkDir()
+	s.bundlePath = s.repo.Bundle("dummy")
 }
 
 func (s *BundleSuite) TestReadBundle(c *C) {
@@ -31,7 +31,7 @@ func (s *BundleSuite) TestReadBundle(c *C) {
 }
 
 func (s *BundleSuite) TestReadBundleWithoutConfig(c *C) {
-	path := s.CharmBundle("series", "varnish")
+	path := s.repo.Bundle("varnish")
 	bundle, err := charm.ReadBundle(path)
 	c.Assert(err, IsNil)
 
@@ -64,7 +64,7 @@ func (s *BundleSuite) TestExpandTo(c *C) {
 
 func (s *BundleSuite) TestBundleFileModes(c *C) {
 	// Apply subtler mode differences than can be expressed in Bazaar.
-	srcPath := s.CharmDir("series", "dummy").Path
+	srcPath := s.repo.Dir("dummy").Path
 	modes := []struct {
 		path string
 		mode os.FileMode
@@ -113,7 +113,7 @@ func (s *BundleSuite) TestBundleFileModes(c *C) {
 }
 
 func (s *BundleSuite) TestBundleRevisionFile(c *C) {
-	charmDir := s.CharmDir("series", "dummy").Path
+	charmDir := s.repo.Dir("dummy").Path
 	revPath := filepath.Join(charmDir, "revision")
 
 	// Missing revision file
@@ -161,7 +161,7 @@ func (s *BundleSuite) TestBundleSetRevision(c *C) {
 }
 
 func (s *BundleSuite) TestExpandToWithBadLink(c *C) {
-	charmDir := s.CharmDir("series", "dummy").Path
+	charmDir := s.repo.Dir("dummy").Path
 	badLink := filepath.Join(charmDir, "hooks", "badlink")
 
 	// Symlink targeting a path outside of the charm.

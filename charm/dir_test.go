@@ -13,20 +13,24 @@ import (
 )
 
 type DirSuite struct {
-	testing.CharmSuite
+	repo testing.Repo
 }
 
 var _ = Suite(&DirSuite{})
 
+func (s *DirSuite) SetUpTest(c *C) {
+	s.repo.Path = c.MkDir()
+}
+
 func (s *DirSuite) TestReadDir(c *C) {
-	path := s.CharmDir("series", "dummy").Path
+	path := s.repo.Dir("dummy").Path
 	dir, err := charm.ReadDir(path)
 	c.Assert(err, IsNil)
 	checkDummy(c, dir, path)
 }
 
 func (s *DirSuite) TestReadDirWithoutConfig(c *C) {
-	path := s.CharmDir("series", "varnish").Path
+	path := s.repo.Dir("varnish").Path
 	dir, err := charm.ReadDir(path)
 	c.Assert(err, IsNil)
 
@@ -36,7 +40,7 @@ func (s *DirSuite) TestReadDirWithoutConfig(c *C) {
 }
 
 func (s *DirSuite) TestBundleTo(c *C) {
-	dir := s.CharmDir("series", "dummy")
+	dir := s.repo.Dir("dummy")
 	path := filepath.Join(c.MkDir(), "bundle.charm")
 	file, err := os.Create(path)
 	c.Assert(err, IsNil)
@@ -105,7 +109,7 @@ func (s *DirSuite) TestBundleTo(c *C) {
 }
 
 func (s *DirSuite) TestBundleToWithBadType(c *C) {
-	charmDir := s.CharmDir("series", "dummy").Path
+	charmDir := s.repo.Dir("dummy").Path
 	badFile := filepath.Join(charmDir, "hooks", "badfile")
 
 	// Symlink targeting a path outside of the charm.
@@ -142,7 +146,7 @@ func (s *DirSuite) TestBundleToWithBadType(c *C) {
 }
 
 func (s *DirSuite) TestDirRevisionFile(c *C) {
-	charmDir := s.CharmDir("series", "dummy").Path
+	charmDir := s.repo.Dir("dummy").Path
 	revPath := filepath.Join(charmDir, "revision")
 
 	// Missing revision file
@@ -173,7 +177,7 @@ func (s *DirSuite) TestDirRevisionFile(c *C) {
 }
 
 func (s *DirSuite) TestDirSetRevision(c *C) {
-	dir := s.CharmDir("series", "dummy")
+	dir := s.repo.Dir("dummy")
 	c.Assert(dir.Revision(), Equals, 1)
 	dir.SetRevision(42)
 	c.Assert(dir.Revision(), Equals, 42)
@@ -187,7 +191,7 @@ func (s *DirSuite) TestDirSetRevision(c *C) {
 }
 
 func (s *DirSuite) TestDirSetDiskRevision(c *C) {
-	charmDir := s.CharmDir("series", "dummy").Path
+	charmDir := s.repo.Dir("dummy").Path
 	dir, err := charm.ReadDir(charmDir)
 	c.Assert(err, IsNil)
 

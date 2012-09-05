@@ -51,7 +51,7 @@ func (s *CharmSuite) AddCharm(c *C) (*state.Charm, []byte) {
 	curl := corecharm.MustParseURL("cs:series/dummy-1")
 	surl, err := url.Parse(s.URL("/some/charm.bundle"))
 	c.Assert(err, IsNil)
-	bunpath := s.CharmBundle("series", "dummy")
+	bunpath := s.Repo.Bundle("dummy")
 	bun, err := corecharm.ReadBundle(bunpath)
 	c.Assert(err, IsNil)
 	bundata, hash := readHash(c, bunpath)

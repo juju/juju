@@ -25,10 +25,10 @@ import (
 // The name of the dummy environment is "dummyenv".
 type JujuConnSuite struct {
 	testing.LoggingSuite
-	testing.CharmSuite
 	testing.ZkSuite
 	Conn      *juju.Conn
 	State     *state.State
+	Repo testing.Repo
 	rootDir   string // the faked-up root directory.
 	oldHome   string
 	oldVarDir string
@@ -44,19 +44,16 @@ environments:
 
 func (s *JujuConnSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
-	s.CharmSuite.SetUpSuite(c)
 	s.ZkSuite.SetUpSuite(c)
 }
 
 func (s *JujuConnSuite) TearDownSuite(c *C) {
 	s.ZkSuite.TearDownSuite(c)
-	s.CharmSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 }
 
 func (s *JujuConnSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.CharmSuite.SetUpTest(c)
 	s.ZkSuite.SetUpTest(c)
 	s.setUpConn(c)
 }
@@ -64,7 +61,6 @@ func (s *JujuConnSuite) SetUpTest(c *C) {
 func (s *JujuConnSuite) TearDownTest(c *C) {
 	s.tearDownConn(c)
 	s.ZkSuite.TearDownTest(c)
-	s.CharmSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
@@ -95,6 +91,11 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	err = os.Mkdir(filepath.Join(home, ".juju"), 0777)
 	c.Assert(err, IsNil)
 
+	charmDir := filepath.Join(home, "charms")
+	err = os.Mkdir(charmDir, 0777)
+	c.Assert(err, IsNil)
+	s.Repo.Path = charmDir
+
 	err = ioutil.WriteFile(filepath.Join(home, ".juju", "environments.yaml"), config, 0600)
 	c.Assert(err, IsNil)
 
@@ -121,6 +122,7 @@ func (s *JujuConnSuite) tearDownConn(c *C) {
 	environs.VarDir = s.oldVarDir
 	s.oldVarDir = ""
 	s.rootDir = ""
+	s.Repo.Path = ""
 }
 
 // WriteConfig writes a juju config file to the "home" directory.
@@ -140,7 +142,7 @@ func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
 }
 
 func (s *JujuConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
-	ch := s.CharmDir("series", name)
+	ch := s.Repo.Dir(name)
 	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
 	curl := charm.MustParseURL("local:series/" + ident)
 	bundleURL, err := url.Parse("http://bundles.example.com/" + ident)

@@ -16,24 +16,12 @@ var _ = Suite(&DeploySuite{})
 
 type DeploySuite struct {
 	testing.ZkSuite
-	testing.CharmSuite
 	conn *juju.Conn
-	repo *charm.LocalRepository
-}
-
-func (s *DeploySuite) SetUpSuite(c *C) {
-	s.ZkSuite.SetUpSuite(c)
-	s.CharmSuite.SetUpSuite(c)
-}
-
-func (s *DeploySuite) TearDownSuite(c *C) {
-	s.ZkSuite.TearDownSuite(c)
-	s.CharmSuite.TearDownSuite(c)
+	repo testing.Repo
 }
 
 func (s *DeploySuite) SetUpTest(c *C) {
 	s.ZkSuite.SetUpTest(c)
-	s.CharmSuite.SetUpTest(c)
 	attrs := map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
@@ -46,7 +34,7 @@ func (s *DeploySuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	s.conn, err = juju.NewConn(environ)
 	c.Assert(err, IsNil)
-	s.repo = &charm.LocalRepository{Path: s.RepoPath}
+	s.repo.Path = c.MkDir()
 }
 
 func (s *DeploySuite) TearDownTest(c *C) {
@@ -57,18 +45,18 @@ func (s *DeploySuite) TearDownTest(c *C) {
 	c.Check(err, IsNil)
 	s.conn.Close()
 	s.conn = nil
-	s.CharmSuite.TearDownTest(c)
+	s.repo.Path = ""
 	s.ZkSuite.TearDownTest(c)
 }
 
 func (s *DeploySuite) charmURL() *charm.URL {
-	s.CharmDir("series", "riak")
-	return s.CharmURL("series", "riak")
+	s.repo.Dir("riak")
+	return s.repo.URL("series", "riak")
 }
 
 func (s *DeploySuite) TestPutCharmBasic(c *C) {
-	s.CharmDir("series", "riak")
-	curl := s.CharmURL("series", "riak")
+	s.repo.Dir("riak")
+	curl := s.repo.URL("series", "riak")
 	curl.Revision = -1 // make sure we trigger the repo.Latest logic.
 	sch, err := s.conn.PutCharm(curl, s.repo.Path, false)
 	c.Assert(err, IsNil)
@@ -80,8 +68,8 @@ func (s *DeploySuite) TestPutCharmBasic(c *C) {
 }
 
 func (s *DeploySuite) TestPutBundledCharm(c *C) {
-	s.CharmBundle("series", "riak")
-	curl := s.CharmURL("series", "riak")
+	s.repo.Bundle("riak")
+	curl := s.repo.URL("series", "riak")
 
 	sch, err := s.conn.PutCharm(curl, s.repo.Path, false)
 	c.Assert(err, IsNil)
@@ -107,7 +95,8 @@ func (s *DeploySuite) TestPutCharmUpload(c *C) {
 	rev := sch.Revision()
 
 	// Change the charm on disk.
-	ch, err := s.repo.Get(curl)
+	repo := charm.LocalRepository{Path: s.repo.Path}
+	ch, err := repo.Get(curl)
 	c.Assert(err, IsNil)
 	chd := ch.(*charm.Dir)
 	err = ioutil.WriteFile(filepath.Join(chd.Path, "extra"), []byte("arble"), 0666)

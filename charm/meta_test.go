@@ -11,8 +11,18 @@ import (
 	"path/filepath"
 )
 
+type MetaSuite struct {
+	repo testing.Repo
+}
+
+var _ = Suite(&MetaSuite{})
+
+func (s *MetaSuite) SetUpSuite(c *C) {
+	s.repo.Path = c.MkDir()
+}
+
 func (s *MetaSuite) repoMeta(name string) io.Reader {
-	charmDir := s.CharmDir("series", name).Path
+	charmDir := s.repo.Dir(name).Path
 	file, err := os.Open(filepath.Join(charmDir, "metadata.yaml"))
 	if err != nil {
 		panic(err)
@@ -24,12 +34,6 @@ func (s *MetaSuite) repoMeta(name string) io.Reader {
 	}
 	return bytes.NewBuffer(data)
 }
-
-type MetaSuite struct {
-	testing.CharmSuite
-}
-
-var _ = Suite(&MetaSuite{})
 
 func (s *MetaSuite) TestReadMeta(c *C) {
 	meta, err := charm.ReadMeta(s.repoMeta("dummy"))

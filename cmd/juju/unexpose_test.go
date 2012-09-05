@@ -28,7 +28,7 @@ func (s *UnexposeSuite) assertExposed(c *C, service string, expected bool) {
 }
 
 func (s *UnexposeSuite) TestUnexpose(c *C) {
-	s.CharmDir("precise", "dummy")
+	s.Repo.DirWithSeries("precise", "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")

@@ -70,7 +70,6 @@ func (s *UniterSuite) TearDownTest(c *C) {
 }
 
 func (s *UniterSuite) Reset(c *C) {
-	s.CharmSuite.Reset(c)
 	s.JujuConnSuite.Reset(c)
 	environs.VarDir = s.varDir
 }
@@ -296,7 +295,7 @@ type createCharm struct {
 }
 
 func (s createCharm) step(c *C, ctx *context) {
-	base := ctx.s.CharmDir("series", "dummy").Path
+	base := ctx.s.Repo.Dir("dummy").Path
 	for _, name := range []string{"install", "start", "config-changed", "upgrade-charm"} {
 		path := filepath.Join(base, "hooks", name)
 		good := true

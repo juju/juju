@@ -36,8 +36,16 @@ options:
     type: boolean
 `
 
+type ConfigSuite struct {
+	repo testing.Repo
+}
+
+func (s *ConfigSuite) SetUpSuite(c *C) {
+	s.repo.Path = c.MkDir()
+}
+
 func (s *ConfigSuite) repoConfig(name string) io.Reader {
-	charmDir := s.CharmDir("series", name).Path
+	charmDir := s.repo.Dir(name).Path
 	file, err := os.Open(filepath.Join(charmDir, "config.yaml"))
 	if err != nil {
 		panic(err)
@@ -48,10 +56,6 @@ func (s *ConfigSuite) repoConfig(name string) io.Reader {
 		panic(err)
 	}
 	return bytes.NewBuffer(data)
-}
-
-type ConfigSuite struct {
-	testing.CharmSuite
 }
 
 var _ = Suite(&ConfigSuite{})

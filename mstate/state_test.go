@@ -20,7 +20,7 @@ var _ = Suite(&StateSuite{})
 
 func (s *StateSuite) TestAddCharm(c *C) {
 	// Check that adding charms from scratch works correctly.
-	ch := s.CharmDir("series", "dummy")
+	ch := s.repo.Dir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
