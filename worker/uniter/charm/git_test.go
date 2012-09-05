@@ -37,6 +37,13 @@ func (s *GitDirSuite) TestCreate(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(exists, Equals, false)
 
+	err = ioutil.WriteFile(repo.Path(), nil, 0644)
+	c.Assert(err, IsNil)
+	_, err = repo.Exists()
+	c.Assert(err, ErrorMatches, ".*/repo is not a directory")
+	err = os.Remove(repo.Path())
+	c.Assert(err, IsNil)
+
 	err = os.Chmod(base, 0555)
 	c.Assert(err, IsNil)
 	defer os.Chmod(base, 0755)
@@ -151,8 +158,16 @@ func (s *GitDirSuite) TestClone(c *C) {
 }
 
 func (s *GitDirSuite) TestRecover(c *C) {
-	repo := newRepo(c)
-	err := ioutil.WriteFile(filepath.Join(repo.Path(), "some-file"), []byte("goodbye"), 0644)
+	repo := charm.NewGitDir(filepath.Join(c.MkDir(), "not-dir"))
+	err := ioutil.WriteFile(repo.Path(), nil, 0644)
+	c.Assert(err, IsNil)
+	_, err = repo.Exists()
+	c.Assert(err, ErrorMatches, ".*/not-dir is not a directory")
+	err = os.Remove(repo.Path())
+	c.Assert(err, IsNil)
+
+	repo = newRepo(c)
+	err = ioutil.WriteFile(filepath.Join(repo.Path(), "some-file"), []byte("goodbye"), 0644)
 	c.Assert(err, IsNil)
 
 	err = repo.Recover()
