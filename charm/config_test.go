@@ -50,7 +50,7 @@ func (s *ConfigSuite) repoConfig(name string) io.Reader {
 	return bytes.NewBuffer(data)
 }
 
-type ConfigSuite struct{
+type ConfigSuite struct {
 	testing.CharmSuite
 }
 

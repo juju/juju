@@ -15,7 +15,7 @@ func Test(t *stdtesting.T) {
 	TestingT(t)
 }
 
-type CharmSuite struct{
+type CharmSuite struct {
 	testing.CharmSuite
 }
 

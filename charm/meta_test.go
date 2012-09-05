@@ -25,7 +25,7 @@ func (s *MetaSuite) repoMeta(name string) io.Reader {
 	return bytes.NewBuffer(data)
 }
 
-type MetaSuite struct{
+type MetaSuite struct {
 	testing.CharmSuite
 }
 

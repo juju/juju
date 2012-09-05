@@ -12,7 +12,7 @@ import (
 	"syscall"
 )
 
-type DirSuite struct{
+type DirSuite struct {
 	testing.CharmSuite
 }
 

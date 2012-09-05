@@ -17,7 +17,7 @@ import (
 )
 
 type MockStore struct {
-	charmSuite testing.CharmSuite
+	charmSuite   testing.CharmSuite
 	mux          *http.ServeMux
 	lis          net.Listener
 	bundleBytes  []byte
