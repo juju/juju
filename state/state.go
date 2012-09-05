@@ -10,7 +10,6 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/trivial"
-	"launchpad.net/juju-core/version"
 	"net/url"
 	"strings"
 )
@@ -102,22 +101,6 @@ func (s *State) SetEnvironConfig(cfg *config.Config) error {
 	attrs := cfg.AllAttrs()
 	_, err := createConfigNode(s.zk, zkEnvironmentPath, attrs)
 	return err
-}
-
-// SetAgentVersion sets the current agent version in the
-// state's environment configuration.
-func (s *State) SetAgentVersion(vers version.Number) error {
-	cfg, err := s.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	attrs := cfg.AllAttrs()
-	attrs["agent-version"] = vers.String()
-	cfg, err = config.New(attrs)
-	if err != nil {
-		panic(fmt.Errorf("config refused agent-version: %v", err))
-	}
-	return s.SetEnvironConfig(cfg)
 }
 
 // Machine returns the machine with the given id.

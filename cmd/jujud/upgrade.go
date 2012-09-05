@@ -13,15 +13,6 @@ import (
 	"os"
 )
 
-// testing hooks
-var (
-	// invalidVersion is called when an invalid version has been proposed.
-	invalidVersion = func() {}
-	// sameVersion is called when a version has been proposed, but
-	// only the same version can be found.
-	sameVersion = func() {}
-)
-
 // An Upgrader observes the version information for an agent in the
 // environment state, and handles the downloading and unpacking of
 // new versions of the juju tools when necessary.
@@ -147,7 +138,6 @@ func (u *Upgrader) run() error {
 			tools, err := environs.FindTools(environ, binary, environs.CompatVersion)
 			if err != nil {
 				log.Printf("upgrader: error finding tools for %v: %v", binary, err)
-				invalidVersion()
 				// TODO(rog): poll until tools become available.
 				break
 			}
@@ -155,7 +145,6 @@ func (u *Upgrader) run() error {
 				if tools.Number == version.Current.Number {
 					// TODO(rog): poll until tools become available.
 					log.Printf("upgrader: version %v requested but no newer version found", binary)
-					sameVersion()
 					break
 				}
 				log.Printf("upgrader: cannot find exact tools match for %s; using %s instead", binary, tools.Binary)

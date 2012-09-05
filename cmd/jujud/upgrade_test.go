@@ -32,8 +32,6 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 
 func (s *upgraderSuite) TearDownTest(c *C) {
 	environs.VarDir = s.oldVarDir
-	invalidVersion = func() {}
-	sameVersion = func() {}
 	s.JujuConnSuite.TearDownTest(c)
 }
 
@@ -111,15 +109,6 @@ func (s *upgraderSuite) uploadTools(c *C, vers version.Binary) (path string, too
 }
 
 func (s *upgraderSuite) TestUpgrader(c *C) {
-	// Set up the test hooks.
-	sameVersionEvent := make(chan struct{}, 10)
-	sameVersion = func() {
-		sameVersionEvent <- struct{}{}
-	}
-	invalidVersionEvent := make(chan struct{}, 10)
-	invalidVersion = func() {
-		invalidVersionEvent <- struct{}{}
-	}
 
 	// Set up the current version and tools.
 	version.Current = version.MustParseBinary("1.0.1-foo-bar")
@@ -140,15 +129,14 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 	_, as, upgraderDone := startUpgrader(s.State)
 	assertEvent(c, as.event, "SetAgentTools 1.0.1-foo-bar "+v1tools.URL)
 
-	// Propose some tools that are not there, and check that it saw
-	// the change.
+	// Propose some tools that are not there.
 	s.proposeVersion(c, version.MustParse("1.0.2"))
-	<-invalidVersionEvent
+	assertNothingHappens(c, upgraderDone)
 
-	// Upload the current tools again, and check that it saw the change.
+	// Upload the current tools again.
 	v1path, v1tools = s.uploadTools(c, version.Current)
 	s.proposeVersion(c, version.MustParse("1.0.3"))
-	<-sameVersionEvent
+	assertNothingHappens(c, upgraderDone)
 
 	// Upload two new versions of the tools. We'll test upgrading to these tools.
 	_, v5tools := s.uploadTools(c, version.MustParseBinary("1.0.5-foo-bar"))
@@ -156,7 +144,7 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 
 	// Check that it won't choose tools with a greater version number.
 	s.proposeVersion(c, version.MustParse("1.0.4"))
-	<-sameVersionEvent
+	assertNothingHappens(c, upgraderDone)
 
 	s.proposeVersion(c, v6tools.Number)
 	select {
@@ -184,6 +172,14 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 		c.Assert(tools, DeepEquals, &UpgradedError{v5tools})
 	case <-time.After(500 * time.Millisecond):
 		c.Fatalf("upgrader did not stop as expected")
+	}
+}
+
+func assertNothingHappens(c *C, upgraderDone <-chan error) {
+	select {
+	case got := <-upgraderDone:
+		c.Fatalf("expected nothing to happen, got %v", got)
+	case <-time.After(100 * time.Millisecond):
 	}
 }
 
