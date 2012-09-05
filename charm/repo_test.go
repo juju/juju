@@ -17,7 +17,7 @@ import (
 )
 
 type MockStore struct {
-	repo testing.Repo
+	repo         testing.Repo
 	mux          *http.ServeMux
 	lis          net.Listener
 	bundleBytes  []byte
@@ -207,8 +207,8 @@ func (s *StoreSuite) TestGetBadCache(c *C) {
 type LocalRepoSuite struct {
 	testing.LoggingSuite
 	testingRepo testing.Repo
-	repo       charm.LocalRepository
-	seriesPath string
+	repo        charm.LocalRepository
+	seriesPath  string
 }
 
 var _ = Suite(&LocalRepoSuite{})

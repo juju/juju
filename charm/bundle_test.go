@@ -13,7 +13,7 @@ import (
 )
 
 type BundleSuite struct {
-	repo testing.Repo
+	repo       testing.Repo
 	bundlePath string
 }
 

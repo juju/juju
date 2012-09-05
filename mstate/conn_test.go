@@ -21,7 +21,7 @@ func TestPackage(t *stdtesting.T) {
 // test suites (StateSuite, CharmSuite, MachineSuite, etc).
 type ConnSuite struct {
 	testing.MgoSuite
-	repo testing.Repo
+	repo      testing.Repo
 	charms    *mgo.Collection
 	machines  *mgo.Collection
 	relations *mgo.Collection

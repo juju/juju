@@ -15,7 +15,7 @@ var repoPath string
 func init() {
 	p, err := build.Import("launchpad.net/juju-core/testing", "", build.FindOnly)
 	check(err)
-	
+
 	repoPath = filepath.Join(p.Dir, "repo")
 }
 
@@ -33,13 +33,16 @@ type Repo struct {
 	Path string
 }
 
+// Dir is a convenience method that calls DirWithSeries with
+// the series "series".
 func (s *Repo) Dir(name string) *charm.Dir {
 	return s.DirWithSeries("series", name)
 }
 
-// CharmDir creates a charm directory holding a copy of
-// the testing charm with the given name and series.
-// It does nothing if the directory already exists.
+// Dir returns the charm.Dir with the requested testing
+// charm. If the charm directory doesn't yet exist in the
+// temporary repository, it will be copied from the pristine
+// testing repository.
 func (s *Repo) DirWithSeries(series, name string) *charm.Dir {
 	// Read the directory first to give a nice error if the
 	// charm does not exist.
@@ -47,22 +50,21 @@ func (s *Repo) DirWithSeries(series, name string) *charm.Dir {
 	check(err)
 	path := filepath.Join(s.Path, series, name)
 	_, err = os.Stat(path)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			check(err)
-		}
+	if os.IsNotExist(err) {
 		s.ensureSeries(series)
 		check(exec.Command("cp", "-r", unclonedDir.Path, path).Run())
+	} else {
+		check(err)
 	}
 	d, err := charm.ReadDir(path)
 	check(err)
 	if d.Path != path {
-		panic("unexpected charm dir path: "+d.Path)
+		panic("unexpected charm dir path: " + d.Path)
 	}
 	return d
 }
 
-func (s *Repo) ensureSeries(series string) string{
+func (s *Repo) ensureSeries(series string) string {
 	if s.Path == "" {
 		panic("CharmSuite used outside test")
 	}
@@ -81,13 +83,15 @@ func (s *Repo) URL(series, name string) *charm.URL {
 	}
 }
 
+// Bundle is a convenience method that calls BundleWithSeries with
+// the series "series".
 func (s *Repo) Bundle(name string) string {
 	return s.BundleWithSeries("series", name)
 }
 
-// CharmBundle creates a charm bundle holding a copy
-// of the testing charm with the given name and series
-// and returns its path.
+// CharmBundle creates a bundle in the charm repository holding a copy
+// of the testing charm with the given name and series and returns its
+// path.
 func (s *Repo) BundleWithSeries(series, name string) string {
 	file, err := ioutil.TempFile(s.ensureSeries(series), name)
 	check(err)
@@ -97,7 +101,5 @@ func (s *Repo) BundleWithSeries(series, name string) string {
 	file.Close()
 	path := file.Name() + ".charm"
 	check(os.Rename(file.Name(), path))
-	_, err = charm.ReadBundle(path)
-	check(err)
 	return path
 }

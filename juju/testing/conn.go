@@ -28,7 +28,7 @@ type JujuConnSuite struct {
 	testing.ZkSuite
 	Conn      *juju.Conn
 	State     *state.State
-	Repo testing.Repo
+	Repo      testing.Repo
 	rootDir   string // the faked-up root directory.
 	oldHome   string
 	oldVarDir string
