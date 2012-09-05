@@ -21,7 +21,7 @@ var _ = Suite(&BundleSuite{})
 
 func (s *BundleSuite) SetUpTest(c *C) {
 	s.CharmSuite.SetUpTest(c)
-	s.bundlePath = s.CharmBundle(c.MkDir(), "dummy")
+	s.bundlePath = s.CharmBundle("series", "dummy")
 }
 
 func (s *BundleSuite) TestReadBundle(c *C) {

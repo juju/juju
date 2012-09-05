@@ -29,7 +29,7 @@ func NewMockStore(c *C) *MockStore {
 	s := &MockStore{}
 	s.charmSuite.SetUpSuite(c)
 	s.charmSuite.SetUpTest(c)
-	bytes, err := ioutil.ReadFile(c.charmSuite.CharmBundle("series", "dummy"))
+	bytes, err := ioutil.ReadFile(s.charmSuite.CharmBundle("series", "dummy"))
 	c.Assert(err, IsNil)
 	s.bundleBytes = bytes
 	h := sha256.New()
@@ -227,9 +227,8 @@ func (s *LocalRepoSuite) TearDownSuite(c *C) {
 func (s *LocalRepoSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.CharmSuite.SetUpTest(c)
-	root := c.MkDir()
-	s.repo = &charm.LocalRepository{root}
-	s.seriesPath = filepath.Join(root, "series")
+	s.repo = &charm.LocalRepository{s.RepoPath}
+	s.seriesPath = filepath.Join(s.RepoPath, "series")
 	c.Assert(os.Mkdir(s.seriesPath, 0777), IsNil)
 }
 

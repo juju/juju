@@ -20,6 +20,7 @@ func TestPackage(t *stdtesting.T) {
 // ConnSuite provides the infrastructure for all other 
 // test suites (StateSuite, CharmSuite, MachineSuite, etc).
 type ConnSuite struct {
+	testing.CharmSuite
 	testing.MgoSuite
 	charms    *mgo.Collection
 	machines  *mgo.Collection
@@ -27,6 +28,17 @@ type ConnSuite struct {
 	services  *mgo.Collection
 	units     *mgo.Collection
 	State     *state.State
+}
+
+func (cs *ConnSuite) SetUpSuite(c *C) {
+	cs.CharmSuite.SetUpSuite(c)
+	cs.MgoSuite.SetUpSuite(c)
+}
+
+func (cs *ConnSuite) TearDownSuite(c *C) {
+	cs.CharmSuite.SetUpTest(c)
+	cs.MgoSuite.TearDownSuite(c)
+	cs.CharmSuite.TearDownSuite(c)
 }
 
 func (cs *ConnSuite) SetUpTest(c *C) {
@@ -44,6 +56,7 @@ func (cs *ConnSuite) SetUpTest(c *C) {
 func (cs *ConnSuite) TearDownTest(c *C) {
 	cs.State.Close()
 	cs.MgoSuite.TearDownTest(c)
+	cs.CharmSuite.TearDownTest(c)
 }
 
 func (s *ConnSuite) AllMachines(c *C) []int {
@@ -59,7 +72,7 @@ func (s *ConnSuite) AllMachines(c *C) []int {
 }
 
 func (s *ConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
-	ch := testing.Charms.Dir(name)
+	ch := s.CharmDir("series", name)
 	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
 	curl := charm.MustParseURL("local:series/" + ident)
 	bundleURL, err := url.Parse("http://bundles.example.com/" + ident)

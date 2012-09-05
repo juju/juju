@@ -7,7 +7,6 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"
 	state "launchpad.net/juju-core/mstate"
-	coretesting "launchpad.net/juju-core/testing"
 	"net/url"
 )
 
@@ -21,7 +20,7 @@ var _ = Suite(&StateSuite{})
 
 func (s *StateSuite) TestAddCharm(c *C) {
 	// Check that adding charms from scratch works correctly.
-	ch := coretesting.Charms.Dir("dummy")
+	ch := s.CharmDir("series", "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
 	)

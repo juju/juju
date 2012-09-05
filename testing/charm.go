@@ -93,11 +93,13 @@ func (s *CharmSuite) CharmURL(series, name string) *charm.URL {
 func (s *CharmSuite) CharmBundle(series, name string) string {
 	file, err := ioutil.TempFile(s.ensureSeries(series), name)
 	check(err)
-	defer file.Close()
 	dir, err := charm.ReadDir(filepath.Join(repoPath, series, name))
 	check(err)
 	check(dir.BundleTo(file))
+	file.Close()
 	path := file.Name() + ".charm"
 	check(os.Rename(file.Name(), path))
+	_, err = charm.ReadBundle(path)
+	check(err)
 	return path
 }
