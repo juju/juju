@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/store"
 	"launchpad.net/juju-core/testing"
 	"strconv"
+	"sync"
 	stdtesting "testing"
 	"time"
 )
@@ -533,8 +534,13 @@ func (s *StoreSuite) TestCountersTokenCaching(c *C) {
 
 	// Now go behind the scenes and corrupt all the tokens.
 	tokens := s.Session.DB("juju").C("stat.tokens")
-	_, err = tokens.UpdateAll(nil, bson.M{"$set": bson.M{"t": "corrupted"}})
-	c.Assert(err, IsNil)
+	iter := tokens.Find(nil).Iter()
+	var t struct{ Id int "_id"; Token string "t" }
+	for iter.Next(&t) {
+		err := tokens.UpdateId(t.Id, bson.M{"$set": bson.M{"t": "corrupted" + t.Token}})
+		c.Assert(err, IsNil)
+	}
+	c.Assert(iter.Err(), IsNil)
 
 	// We can consult the counters for the cached entries still.
 	// First, check that the newest generation is good.
@@ -566,6 +572,26 @@ func (s *StoreSuite) TestCountersTokenCaching(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(n, Equals, int64(1))
 	}
+}
+
+func (s *StoreSuite) TestCounterTokenUniqueness(c *C) {
+	var barrier, running sync.WaitGroup
+	barrier.Add(1)
+	running.Add(10)
+	for i := 0; i < 10; i++ {
+		go func() {
+			defer running.Done()
+			barrier.Wait()
+			err := s.store.IncCounter([]string{"a"})
+			c.Check(err, IsNil)
+		}()
+	}
+	barrier.Done()
+	running.Wait()
+
+	sum, err := s.store.SumCounter([]string{"a"}, false)
+	c.Assert(err, IsNil)
+	c.Assert(sum, Equals, int64(10))
 }
 
 func (s *TrivialSuite) TestEventString(c *C) {
