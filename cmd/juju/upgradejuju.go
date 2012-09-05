@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 )
@@ -14,9 +15,8 @@ import (
 type UpgradeJujuCommand struct {
 	EnvName      string
 	UploadTools  bool
-	BumpVersion  bool
 	Version      version.Number
-	DevVersion   bool
+	Development   bool
 	conn         *juju.Conn
 	toolsList    *environs.ToolsList
 	agentVersion version.Number
@@ -33,8 +33,7 @@ func (c *UpgradeJujuCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	var vers string
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools")
 	f.StringVar(&vers, "version", "", "version to upgrade to (defaults to highest available version with the current major version number)")
-	f.BoolVar(&c.BumpVersion, "bump-version", false, "upload the tools as a higher version number if necessary, and use that version (overrides --version)")
-	f.BoolVar(&c.DevVersion, "dev", false, "allow development versions to be chosen")
+	f.BoolVar(&c.Development, "dev", false, "allow development versions to be chosen")
 
 	if err := f.Parse(true, args); err != nil {
 		return err
@@ -74,10 +73,6 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) error {
 	}
 	if c.UploadTools {
 		var forceVersion *version.Binary
-		if c.BumpVersion {
-			vers := c.bumpedVersion()
-			forceVersion = &vers
-		}
 		tools, err := putTools(c.conn.Environ.Storage(), forceVersion)
 		if err != nil {
 			return err
@@ -93,10 +88,10 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) error {
 	if c.Version.Major != c.agentVersion.Major {
 		return fmt.Errorf("cannot upgrade major versions yet")
 	}
-	if c.Version == c.agentVersion && c.DevVersion == cfg.DevVersion() {
+	if c.Version == c.agentVersion && c.Development == cfg.Development() {
 		return nil
 	}
-	return c.conn.State.SetAgentVersion(c.Version, c.DevVersion)
+	return SetStateAgentVersion(c.conn.State, c.Version, c.Development)
 }
 
 // newestVersion returns the newest version of any tool.
@@ -104,7 +99,7 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) error {
 func (c *UpgradeJujuCommand) newestVersion() (version.Number, error) {
 	// When choosing a default version, don't choose
 	// a dev version if the current version is a release version.
-	allowDev := c.agentVersion.IsDev() || c.DevVersion
+	allowDev := c.agentVersion.IsDev() || c.Development
 	max := c.highestVersion(c.toolsList.Private, allowDev)
 	if max != nil {
 		return max.Number, nil
@@ -114,24 +109,6 @@ func (c *UpgradeJujuCommand) newestVersion() (version.Number, error) {
 		return version.Number{}, fmt.Errorf("no tools found")
 	}
 	return max.Number, nil
-}
-
-// bumpedVersion returns a version higher than anything in the private
-// tools storage.
-func (c *UpgradeJujuCommand) bumpedVersion() version.Binary {
-	vers := version.Current
-	// We ignore the public tools because anything in the private
-	// storage will override them.
-	max := c.highestVersion(c.toolsList.Private, true)
-	if max == nil {
-		return vers
-	}
-	// Increment in units of 10000 so we can still see the original
-	// version number in the least significant digits of the bumped
-	// version number (also vers.IsDev remains unaffected).
-	vers.Minor = (max.Minor / 10000 * 10000) + (vers.Minor % 10000) + 10000
-	vers.Patch = (max.Patch / 10000 * 10000) + (vers.Patch % 10000) + 10000
-	return vers
 }
 
 // highestVersion returns the tools with the highest
@@ -147,4 +124,21 @@ func (c *UpgradeJujuCommand) highestVersion(list []*state.Tools, allowDev bool) 
 		}
 	}
 	return max
+}
+
+// SetStateAgentVersion sets the current agent version and
+// development flag in the state's environment configuration.
+func SetStateAgentVersion(st *state.State, vers version.Number, development bool) error {
+	cfg, err := st.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	attrs := cfg.AllAttrs()
+	attrs["agent-version"] = vers.String()
+	attrs["development"] = development
+	cfg, err = config.New(attrs)
+	if err != nil {
+		panic(fmt.Errorf("config refused agent-version: %v", err))
+	}
+	return st.SetEnvironConfig(cfg)
 }

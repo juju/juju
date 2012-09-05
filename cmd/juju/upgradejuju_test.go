@@ -28,7 +28,7 @@ var upgradeJujuTests = []struct {
 	expectInitErr    string
 	expectErr        string
 	expectVersion    string
-	expectDevVersion bool
+	expectDevelopment bool
 	expectUploaded   string
 }{{
 	about:          "unwanted extra argument",
@@ -64,7 +64,7 @@ var upgradeJujuTests = []struct {
 	args:             []string{"--dev"},
 	agentVersion:     "2.0.0",
 	expectVersion:    "2.0.3",
-	expectDevVersion: true,
+	expectDevelopment: true,
 }, {
 	about:          "from public storage",
 	public:         []string{"2.0.0-foo-bar", "2.0.2-arble-bletch", "2.0.3-foo-bar"},
@@ -84,7 +84,7 @@ var upgradeJujuTests = []struct {
 	args:             []string{"--dev"},
 	agentVersion:     "2.0.0",
 	expectVersion:    "2.0.3",
-	expectDevVersion: true,
+	expectDevelopment: true,
 }, {
 	about:          "specified version",
 	currentVersion: "3.0.0-foo-bar",
@@ -111,24 +111,6 @@ var upgradeJujuTests = []struct {
 	args:           []string{"--upload-tools"},
 	expectErr:      "cannot find newest version: no tools found",
 	expectUploaded: "2.0.1-foo-bar",
-}, {
-	about:          "upload and bump version",
-	private:        []string{"2.4.6-foo-bar", "2.4.8-foo-bar"},
-	public:         []string{"2.4.10-foo-bar"},
-	currentVersion: "2.4.6-foo-bar",
-	agentVersion:   "2.4.0",
-	args:           []string{"--upload-tools", "--bump-version"},
-	expectVersion:  "2.10004.10006",
-	expectUploaded: "2.10004.10006-foo-bar",
-}, {
-	about:          "upload with previously bumped version",
-	private:        []string{"2.4.6-foo-bar", "2.4.8-foo-bar", "2.10004.10006-foo-bar"},
-	public:         []string{"2.4.10-foo-bar"},
-	currentVersion: "2.4.6-foo-bar",
-	agentVersion:   "2.10004.10006",
-	args:           []string{"--upload-tools", "--bump-version"},
-	expectVersion:  "2.20004.20006",
-	expectUploaded: "2.20004.20006-foo-bar",
 },
 }
 
@@ -177,7 +159,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 			upload(storage, v)
 		}
 		version.Current = version.MustParseBinary(test.currentVersion)
-		err := s.State.SetAgentVersion(version.MustParse(test.agentVersion), false)
+		err := SetStateAgentVersion(s.State, version.MustParse(test.agentVersion), false)
 		c.Assert(err, IsNil)
 
 		// Run the command
@@ -196,7 +178,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 		cfg, err := s.State.EnvironConfig()
 		c.Check(err, IsNil)
 		c.Check(cfg.AgentVersion(), Equals, version.MustParse(test.expectVersion))
-		c.Check(cfg.DevVersion(), Equals, test.expectDevVersion)
+		c.Check(cfg.Development(), Equals, test.expectDevelopment)
 
 		if test.expectUploaded != "" {
 			p := environs.ToolsStoragePath(version.MustParseBinary(test.expectUploaded))
