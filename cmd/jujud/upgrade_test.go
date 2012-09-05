@@ -52,12 +52,12 @@ func (s *upgraderSuite) TestUpgraderStop(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *upgraderSuite) proposeVersion(c *C, vers version.Number, devVersion bool) {
+func (s *upgraderSuite) proposeVersion(c *C, vers version.Number, development bool) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
 	attrs := cfg.AllAttrs()
 	attrs["agent-version"] = vers.String()
-	attrs["dev-version"] = devVersion
+	attrs["development"] = development
 	newCfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
 	err = s.State.SetEnvironConfig(newCfg)

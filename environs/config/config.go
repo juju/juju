@@ -18,7 +18,7 @@ type Config struct {
 //
 // The required keys are: "name", "type", "default-series" and "authorized-keys",
 // all of type string. Additional keys recognised are: "agent-version" and
-// "dev-version", of types string and bool respectively.
+// "development", of types string and bool respectively.
 func New(attrs map[string]interface{}) (*Config, error) {
 	m, err := checker.Coerce(attrs, nil)
 	if err != nil {
@@ -101,10 +101,10 @@ func (c *Config) AgentVersion() version.Number {
 	return n
 }
 
-// DevVersion returns whether upgrades are allowed from release versions
-// to development versions.
-func (c *Config) DevVersion() bool {
-	v, _ := c.m["dev-version"].(bool)
+// Development returns whether the environment is in development
+// mode.
+func (c *Config) Development() bool {
+	v, _ := c.m["development"].(bool)
 	return v
 }
 
@@ -145,7 +145,7 @@ var fields = schema.Fields{
 	"authorized-keys":      schema.String(),
 	"authorized-keys-path": schema.String(),
 	"agent-version":        schema.String(),
-	"dev-version":          schema.Bool(),
+	"development":          schema.Bool(),
 }
 
 var defaults = schema.Defaults{
@@ -153,7 +153,7 @@ var defaults = schema.Defaults{
 	"authorized-keys":      "",
 	"authorized-keys-path": "",
 	"agent-version":        schema.Omit,
-	"dev-version":          schema.Omit,
+	"development":          schema.Omit,
 }
 
 var checker = schema.FieldMap(fields, defaults)

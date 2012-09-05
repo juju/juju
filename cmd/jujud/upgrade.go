@@ -135,7 +135,7 @@ func (u *Upgrader) run() error {
 				return &UpgradedError{tools}
 			}
 			flags := environs.CompatVersion
-			if cfg.DevVersion() {
+			if cfg.Development() {
 				flags |= environs.DevVersion
 			}
 			tools, err := environs.FindTools(environ, binary, flags)
