@@ -92,7 +92,9 @@ func (c *Conn) updateSecrets() error {
 	attrs := cfg.AllAttrs()
 	for k := range secrets {
 		if _, exists := attrs[k]; exists {
-			delete(secrets, k)
+			// there is at least one secret key already present in 
+			// the state then return without changing anything.
+			return nil
 		}
 	}
 	cfg, err = cfg.Apply(secrets)
