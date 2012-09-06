@@ -64,24 +64,24 @@ func (c *Conn) Close() error {
 // whole environment configuration but without secrets, and then secrets
 // are delivered on the first communication with the running environment.
 func (c *Conn) updateSecrets() error {
-        secrets, err := c.Environ.Provider().SecretAttrs(c.Environ.Config())
-        if err != nil {
-                return err
-        }
-        cfg, err := c.State.EnvironConfig()
-        if err != nil {
-                return err
-        }
-        attrs := cfg.AllAttrs()
-        for k := range secrets {
-                if _, exists := attrs[k]; exists {
-                        // Environment already has secrets. Won't send again.
-                        return nil
-                }
-        }
-        cfg, err = cfg.Apply(secrets)
-        if err != nil {
-                return err
-        }
-        return c.State.SetEnvironConfig(cfg)
+	secrets, err := c.Environ.Provider().SecretAttrs(c.Environ.Config())
+	if err != nil {
+		return err
+	}
+	cfg, err := c.State.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	attrs := cfg.AllAttrs()
+	for k := range secrets {
+		if _, exists := attrs[k]; exists {
+			// Environment already has secrets. Won't send again.
+			return nil
+		}
+	}
+	cfg, err = cfg.Apply(secrets)
+	if err != nil {
+		return err
+	}
+	return c.State.SetEnvironConfig(cfg)
 }
