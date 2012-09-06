@@ -33,9 +33,19 @@ func (s *UpstartSuite) TearDownTest(c *C) {
 	os.Setenv("PATH", s.origPath)
 }
 
+var checkargs = `
+#!/bin/bash
+if [ "$1" != "some-service" ]; then
+  exit 255
+fi
+if [ "$2" != "" ]; then
+  exit 255
+fi
+`[1:]
+
 func (s *UpstartSuite) MakeTool(c *C, name, script string) {
 	path := filepath.Join(s.testPath, name)
-	err := ioutil.WriteFile(path, []byte("#!/bin/bash\n"+script), 0755)
+	err := ioutil.WriteFile(path, []byte(checkargs+script), 0755)
 	c.Assert(err, IsNil)
 }
 
