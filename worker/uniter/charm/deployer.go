@@ -2,12 +2,12 @@ package charm
 
 import (
 	"fmt"
-	"io/ioutil"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/trivial"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // Deployer maintains a git repository tracking a series of charm versions,
@@ -28,6 +28,7 @@ func NewDeployer(path string) *Deployer {
 
 // SetCharm causes subsequent calls to Deploy to deploy the supplied charm.
 func (d *Deployer) SetCharm(bun *charm.Bundle, url *charm.URL) error {
+	// Read present state of current.
 	if err := trivial.EnsureDir(d.path); err != nil {
 		return err
 	}
@@ -45,31 +46,38 @@ func (d *Deployer) SetCharm(bun *charm.Bundle, url *charm.URL) error {
 			return nil
 		}
 	}
-	tmp, err := ioutil.TempDir(d.path, "update-")
+
+	// Prepare a fresh repository for the update, using current's history
+	// if it exists.
+	path, err := d.newDir("update")
 	if err != nil {
 		return err
 	}
-	var tmpRepo *GitDir
+	var repo *GitDir
 	if srcExists {
-		tmpRepo, err = d.current.Clone(tmp)
+		repo, err = d.current.Clone(path)
 	} else {
-		tmpRepo = NewGitDir(tmp)
-		err = tmpRepo.Init()
+		repo = NewGitDir(path)
+		err = repo.Init()
 	}
 	if err != nil {
 		return err
 	}
-	if err = bun.ExpandTo(tmp); err != nil {
+
+	// Write the desired new state and commit.
+	if err = bun.ExpandTo(path); err != nil {
 		return err
 	}
-	if err = tmpRepo.WriteCharmURL(url); err != nil {
+	if err = repo.WriteCharmURL(url); err != nil {
 		return err
 	}
-	if err = tmpRepo.Snapshotf("imported charm %s from %s", url, bun.Path); err != nil {
+	if err = repo.Snapshotf("imported charm %s from %s", url, bun.Path); err != nil {
 		return err
 	}
-	tmplink := filepath.Join(tmp, "tmplink")
-	if err = os.Symlink(tmp, tmplink); err != nil {
+
+	// Atomically rename temporary update repository to current.
+	tmplink := filepath.Join(path, "tmplink")
+	if err = os.Symlink(path, tmplink); err != nil {
 		return err
 	}
 	return os.Rename(tmplink, d.current.Path())
@@ -78,12 +86,13 @@ func (d *Deployer) SetCharm(bun *charm.Bundle, url *charm.URL) error {
 // Deploy deploys the current charm to the target directory.
 func (d *Deployer) Deploy(target *GitDir) (err error) {
 	defer func() {
-		if err != nil {
-			if err != ErrConflict {
-				err = fmt.Errorf("deploy failed: %s", err)
-			}
+		if err == ErrConflict {
+			log.Printf("charm deployment completed with conflicts")
+		} else if err != nil {
+			err = fmt.Errorf("charm deployment failed: %s", err)
+			log.Printf(err.Error())
 		} else {
-			log.Printf("deploy complete")
+			log.Printf("charm deployment succeeded")
 		}
 	}()
 	if exists, err := d.current.Exists(); err != nil {
@@ -108,22 +117,22 @@ func (d *Deployer) install(target *GitDir) error {
 	if err != nil {
 		return err
 	}
-	tmp, err := ioutil.TempDir(d.path, "init-")
+	path, err := d.newDir("install")
 	if err != nil {
 		return err
 	}
-	tmpRepo := NewGitDir(tmp)
-	if err = tmpRepo.Init(); err != nil {
+	repo := NewGitDir(path)
+	if err = repo.Init(); err != nil {
 		return err
 	}
-	if err = tmpRepo.Pull(d.current); err != nil {
+	if err = repo.Pull(d.current); err != nil {
 		return err
 	}
-	if err = tmpRepo.Snapshotf("deployed charm %s", url); err != nil {
+	if err = repo.Snapshotf("deployed charm %s", url); err != nil {
 		return err
 	}
 	log.Printf("deploying charm")
-	return os.Rename(tmp, target.Path())
+	return os.Rename(path, target.Path())
 }
 
 // upgrade pulls from current into target. If target has local changes, but
@@ -171,4 +180,20 @@ func (d *Deployer) collectOrphans() {
 		}
 		return err
 	})
+}
+
+// newDir creates a new timestamped directory with the given prefix. It
+// assumes that the deployer will not need to create more than 10
+// directories in any given second.
+func (d *Deployer) newDir(prefix string) (string, error) {
+	prefix = prefix + time.Now().Format("-%Y%m%d-%H%M%S")
+	for i := 0; i < 10; i++ {
+		path := filepath.Join(d.path, fmt.Sprintf("%s-%d", prefix, i))
+		if err := os.Mkdir(path, 0755); err != nil {
+			log.Printf("failed to create %s: %s", path, err)
+		} else {
+			return path, nil
+		}
+	}
+	return "", fmt.Errorf("failed to create deployer directory after 10 tries")
 }
