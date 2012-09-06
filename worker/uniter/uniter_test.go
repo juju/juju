@@ -90,7 +90,7 @@ type stepper interface {
 type context struct {
 	id     int
 	path   string
-	st	*state.State
+	st     *state.State
 	charms coretesting.ResponseMap
 	hooks  []string
 	svc    *state.Service
@@ -268,7 +268,7 @@ func (s *UniterSuite) TestUniter(c *C) {
 		}
 		c.Logf("\ntest %d: %s\n", i, t.summary)
 		ctx := &context{
-			st:      s.State,
+			st:     s.State,
 			id:     i,
 			path:   unitDir,
 			charms: coretesting.ResponseMap{},
