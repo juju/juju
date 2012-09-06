@@ -645,11 +645,6 @@ func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 	return ports, nil
 }
 
-//            yield self._provider.ec2.authorize_security_group(
-//                juju_group,
-//               source_group_name=juju_group,
-//              source_group_owner_id=groups_info.pop().owner_id)
-
 // setUpGroups creates the security groups for the new machine, and
 // returns them.
 // 
