@@ -233,8 +233,8 @@ func (t *LiveTests) checkUpgradeMachineAgent(c *C, st *state.State, m *state.Mac
 	c.Logf("upgrade successful!")
 }
 
-// setStateAgentVersion sets the current agent version and
-// DevVersion flag in the state's environment configuration.
+// setStateAgentVersion sets the current agent version in the state's
+// environment configuration.
 func setStateAgentVersion(st *state.State, vers version.Number) error {
 	cfg, err := st.EnvironConfig()
 	if err != nil {

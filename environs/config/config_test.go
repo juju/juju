@@ -219,6 +219,7 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
 
+	attrs["development"] = false // This attribute is added if not set.
 	c.Assert(cfg.AllAttrs(), DeepEquals, attrs)
 	c.Assert(cfg.UnknownAttrs(), DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
 

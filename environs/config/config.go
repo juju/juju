@@ -104,8 +104,7 @@ func (c *Config) AgentVersion() version.Number {
 // Development returns whether the environment is in development
 // mode.
 func (c *Config) Development() bool {
-	v, _ := c.m["development"].(bool)
-	return v
+	return c.m["development"].(bool)
 }
 
 // UnknownAttrs returns a copy of the raw configuration attributes
@@ -153,7 +152,7 @@ var defaults = schema.Defaults{
 	"authorized-keys":      "",
 	"authorized-keys-path": "",
 	"agent-version":        schema.Omit,
-	"development":          schema.Omit,
+	"development":          false,
 }
 
 var checker = schema.FieldMap(fields, defaults)

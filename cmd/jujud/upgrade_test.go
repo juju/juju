@@ -42,8 +42,7 @@ func (s *upgraderSuite) TestUpgraderError(c *C) {
 
 	// Close the state under the watcher and check that the upgrader dies.
 	st.Close()
-	err = waitDeath(c, u, nil, ".*")
-	c.Assert(err, Not(FitsTypeOf), &UpgradedError{})
+	waitDeath(c, u, nil, "watcher: cannot get content of node.*")
 }
 
 func (s *upgraderSuite) TestUpgraderStop(c *C) {
@@ -91,18 +90,18 @@ var upgraderTests = []struct {
 	devVersion bool     // ... with devVersion set to this.
 
 	// upgradeTo is blank if nothing should happen.
-	upgradeTo      string
+	upgradeTo string
 }{{
-	about:          "propose with no possible candidates",
-	propose:        "2.0.2",
+	about:   "propose with no possible candidates",
+	propose: "2.0.2",
 }, {
-	about:       "propose with same candidate as current",
-	upload:      []string{"2.0.0"},
-	propose:     "2.0.4",
+	about:   "propose with same candidate as current",
+	upload:  []string{"2.0.0"},
+	propose: "2.0.4",
 }, {
-	about:       "propose development version when !devVersion",
-	upload:      []string{"2.0.1"},
-	propose:     "2.0.4",
+	about:   "propose development version when !devVersion",
+	upload:  []string{"2.0.1"},
+	propose: "2.0.4",
 }, {
 	about:      "propose development version when devVersion",
 	propose:    "2.0.4",
@@ -113,9 +112,9 @@ var upgraderTests = []struct {
 	propose:   "2.0.4",
 	upgradeTo: "2.0.0",
 }, {
-	about:       "propose with higher available candidates",
-	upload:      []string{"2.0.5", "2.0.6"},
-	propose:     "2.0.4",
+	about:   "propose with higher available candidates",
+	upload:  []string{"2.0.5", "2.0.6"},
+	propose: "2.0.4",
 }, {
 	about:     "propose exact available version",
 	propose:   "2.0.6",
@@ -215,7 +214,7 @@ func startUpgrader(c *C, st *state.State, expectTools *state.Tools) *Upgrader {
 	return u
 }
 
-func waitDeath(c *C, u *Upgrader, upgradeTo *state.Tools, errPat string) error {
+func waitDeath(c *C, u *Upgrader, upgradeTo *state.Tools, errPat string) {
 	done := make(chan error, 1)
 	go func() {
 		done <- u.Wait()
@@ -230,11 +229,9 @@ func waitDeath(c *C, u *Upgrader, upgradeTo *state.Tools, errPat string) error {
 		default:
 			c.Assert(err, IsNil)
 		}
-		return err
 	case <-time.After(500 * time.Millisecond):
 		c.Fatalf("upgrader did not die as expected")
 	}
-	panic("not reached")
 }
 
 type testAgentState chan *state.Tools
