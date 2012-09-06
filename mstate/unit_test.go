@@ -111,7 +111,7 @@ func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
 	pinger, err := s.unit.SetAgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(pinger, Not(IsNil))
-	defer pinger.Kill()
+	defer pinger.Stop()
 
 	s.State.ForcePresenceRefresh()
 	alive = s.unit.AgentAlive()
@@ -128,7 +128,6 @@ func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
 
 	pinger, err := s.unit.SetAgentAlive()
 	c.Assert(err, IsNil)
-	c.Assert(pinger, Not(IsNil))
 
 	s.State.ForcePresenceRefresh()
 	err = s.unit.WaitAgentAlive(timeout)
@@ -137,7 +136,8 @@ func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
 	alive = s.unit.AgentAlive()
 	c.Assert(alive, Equals, true)
 
-	pinger.Kill()
+	err = pinger.Kill()
+	c.Assert(err, IsNil)
 
 	s.State.ForcePresenceRefresh()
 	alive = s.unit.AgentAlive()
