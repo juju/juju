@@ -3,7 +3,6 @@ package presence_test
 import (
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
-	state "launchpad.net/juju-core/mstate"
 	"launchpad.net/juju-core/mstate/presence"
 	"launchpad.net/juju-core/testing"
 	"strconv"
@@ -15,17 +14,11 @@ func TestPackage(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
 
-var (
-	period     = 50 * time.Millisecond
-	longEnough = period * 6
-)
-
 type PresenceSuite struct {
 	testing.MgoSuite
 	testing.LoggingSuite
 	presence *mgo.Collection
 	pings    *mgo.Collection
-	state    *state.State
 }
 
 var _ = Suite(&PresenceSuite{})
@@ -48,15 +41,10 @@ func (s *PresenceSuite) SetUpTest(c *C) {
 	s.presence = db.C("presence")
 	s.pings = db.C("presence.pings")
 
-	var err error
-	s.state, err = state.Dial(testing.MgoAddr)
-	c.Assert(err, IsNil)
-
 	presence.FakeTimeSlot(0)
 }
 
 func (s *PresenceSuite) TearDownTest(c *C) {
-	s.state.Close()
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 
