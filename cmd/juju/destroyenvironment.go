@@ -3,7 +3,7 @@ package main
 import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/environs"
 )
 
 // DestroyEnvironmentCommand destroys an environment.
@@ -28,9 +28,9 @@ func (c *DestroyEnvironmentCommand) Init(f *gnuflag.FlagSet, args []string) erro
 }
 
 func (c *DestroyEnvironmentCommand) Run(_ *cmd.Context) error {
-	conn, err := juju.NewConn(c.EnvName)
+	environ, err := environs.NewFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	return conn.Destroy()
+	return environ.Destroy(nil)
 }

@@ -37,7 +37,7 @@ func (c *StatusCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
-	conn, err := juju.NewConn(c.EnvName)
+	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
@@ -48,17 +48,12 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	state, err := conn.State()
+	machines, err := fetchAllMachines(conn.State)
 	if err != nil {
 		return err
 	}
 
-	machines, err := fetchAllMachines(state)
-	if err != nil {
-		return err
-	}
-
-	services, err := fetchAllServices(state)
+	services, err := fetchAllServices(conn.State)
 	if err != nil {
 		return err
 	}
@@ -226,16 +221,11 @@ func processUnit(unit *state.Unit) (map[string]interface{}, error) {
 
 type versioned interface {
 	AgentTools() (*state.Tools, error)
-	ProposedAgentTools() (*state.Tools, error)
 }
 
 func processVersion(r map[string]interface{}, v versioned) {
 	if t, err := v.AgentTools(); err == nil {
 		r["agent-version"] = t.Binary.Number.String()
-	}
-
-	if t, err := v.ProposedAgentTools(); err == nil {
-		r["proposed-agent-version"] = t.Binary.Number.String()
 	}
 }
 

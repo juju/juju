@@ -5,7 +5,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
 	"regexp"
-	"sync"
 )
 
 var (
@@ -13,91 +12,76 @@ var (
 	ValidUnit    = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
 )
 
-// Conn holds a connection to a juju.
+// Conn holds a connection to a juju environment and its
+// associated state.
 type Conn struct {
 	Environ environs.Environ
-	state   *state.State
-	mu      sync.Mutex
+	State   *state.State
 }
 
-// NewConn returns a Conn pointing at the environName environment, or the
+// NewConn returns a new Conn that uses the
+// given environment. The environment must have already
+// been bootstrapped.
+func NewConn(environ environs.Environ) (*Conn, error) {
+	info, err := environ.StateInfo()
+	if err != nil {
+		return nil, err
+	}
+	st, err := state.Open(info)
+	if err != nil {
+		return nil, err
+	}
+	conn := &Conn{
+		Environ: environ,
+		State:   st,
+	}
+	if err := conn.updateSecrets(); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("unable to push secrets: %v", err)
+	}
+	return conn, nil
+}
+
+// NewConnFromName returns a Conn pointing at the environName environment, or the
 // default environment if not specified.
-func NewConn(environName string) (*Conn, error) {
-	environs, err := environs.ReadEnvirons("")
+func NewConnFromName(environName string) (*Conn, error) {
+	environ, err := environs.NewFromName(environName)
 	if err != nil {
 		return nil, err
 	}
-	environ, err := environs.Open(environName)
-	if err != nil {
-		return nil, err
-	}
-	return &Conn{Environ: environ}, nil
-}
-
-// NewConnFromAttrs returns a Conn pointing at the environment
-// created with the given attributes, as created with environs.NewFromAttrs.
-func NewConnFromAttrs(attrs map[string]interface{}) (*Conn, error) {
-	environ, err := environs.NewFromAttrs(attrs)
-	if err != nil {
-		return nil, err
-	}
-	return &Conn{Environ: environ}, nil
-}
-
-// Bootstrap initializes the Conn's environment and makes it ready to deploy
-// services.
-func (c *Conn) Bootstrap(uploadTools bool) error {
-	return c.Environ.Bootstrap(uploadTools)
-}
-
-// Destroy destroys the Conn's environment and all its instances.
-func (c *Conn) Destroy() error {
-	return c.Environ.Destroy(nil)
-}
-
-// State returns the environment state associated with c. Closing the
-// obtained state will have undefined consequences; Close c instead.
-func (c *Conn) State() (*state.State, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.state == nil {
-		info, err := c.Environ.StateInfo()
-		if err != nil {
-			return nil, err
-		}
-		st, err := state.Open(info)
-		if err != nil {
-			return nil, err
-		}
-		c.state = st
-		if err := c.updateSecrets(); err != nil {
-			c.state = nil
-			return nil, fmt.Errorf("unable to push secrets: %v", err)
-		}
-	}
-	return c.state, nil
-}
-
-// updateSecrets updates the sensitive parts of the environment 
-// from the local configuration.
-func (c *Conn) updateSecrets() error {
-	cfg := c.Environ.Config()
-	// This is wrong. This will _always_ overwrite the secrets
-	// in the state with the local secrets. To fix this properly
-	// we need to ensure that the config, minus secrets, is always
-	// pushed on bootstrap, then we can fill in the secrets here.
-	return c.state.SetEnvironConfig(cfg)
+	return NewConn(environ)
 }
 
 // Close terminates the connection to the environment and releases
 // any associated resources.
 func (c *Conn) Close() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	state := c.state
-	c.state = nil
-	if state != nil {
-		return state.Close()
+	return c.State.Close()
+}
+
+// updateSecrets writes secrets into the environment when there are none.
+// This is done because environments such as ec2 offer no way to securely
+// deliver the secrets onto the machine, so the bootstrap is done with the
+// whole environment configuration but without secrets, and then secrets
+// are delivered on the first communication with the running environment.
+func (c *Conn) updateSecrets() error {
+	secrets, err := c.Environ.Provider().SecretAttrs(c.Environ.Config())
+	if err != nil {
+		return err
 	}
-	return nil
+	cfg, err := c.State.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	attrs := cfg.AllAttrs()
+	for k := range secrets {
+		if _, exists := attrs[k]; exists {
+			// Environment already has secrets. Won't send again.
+			return nil
+		}
+	}
+	cfg, err = cfg.Apply(secrets)
+	if err != nil {
+		return err
+	}
+	return c.State.SetEnvironConfig(cfg)
 }
