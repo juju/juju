@@ -22,10 +22,12 @@ import (
 
 // The following MongoDB collections are currently used:
 //
-//     juju.events    - Log of events relating to the lifecycle of charms
-//     juju.charms    - Information about the stored charms
-//     juju.charmfs.* - GridFS with the charm files
-//     juju.locks     - Has unique keys with url of updating charms
+//     juju.events        - Log of events relating to the lifecycle of charms
+//     juju.charms        - Information about the stored charms
+//     juju.charmfs.*     - GridFS with the charm files
+//     juju.locks         - Has unique keys with url of updating charms
+//     juju.stat.counters - Counters for statistics
+//     juju.stat.tokens   - Tokens used in statistics counter keys
 
 var (
 	ErrUpdateConflict  = errors.New("charm update in progress")
@@ -65,33 +67,42 @@ func Open(mongoAddr string) (store *Store, err error) {
 	// TODO Check the error once mgo hands it to us.
 	_ = store.session.DB("juju").Run(bson.D{{"create", "stat.counters"}, {"autoIndexId", false}}, nil)
 
-	counters := store.session.StatCounters()
-	err = counters.EnsureIndex(mgo.Index{Key: []string{"k", "t"}, Unique: true})
-	if err != nil {
-		log.Printf("Error ensuring stat.counters index: %v", err)
+	if err := store.ensureIndexes(); err != nil {
 		session.Close()
 		return nil, err
 	}
 
-	charms := store.session.Charms()
-	err = charms.EnsureIndex(mgo.Index{Key: []string{"urls", "revision"}, Unique: true})
-	if err != nil {
-		log.Printf("Error ensuring charms index: %v", err)
-		session.Close()
-		return nil, err
-	}
-
-	events := store.session.Events()
-	err = events.EnsureIndex(mgo.Index{Key: []string{"urls", "digest"}})
-	if err != nil {
-		log.Printf("Error ensuring events index: %v", err)
-		session.Close()
-		return nil, err
-	}
-
-	// Put the socket we used back in the pool.
+	// Put the used socket back in the pool.
 	session.Refresh()
 	return store, nil
+}
+
+func (s *Store) ensureIndexes() error {
+	session := s.session
+	indexes := []struct {
+		c *mgo.Collection
+		i mgo.Index
+	}{{
+		session.StatCounters(),
+		mgo.Index{Key: []string{"k", "t"}, Unique: true},
+	}, {
+		session.StatTokens(),
+		mgo.Index{Key: []string{"t"}, Unique: true},
+	}, {
+		session.Charms(),
+		mgo.Index{Key: []string{"urls", "revision"}, Unique: true},
+	}, {
+		session.Events(),
+		mgo.Index{Key: []string{"urls", "digest"}},
+	}}
+	for _, idx := range indexes {
+		err := idx.c.EnsureIndex(idx.i)
+		if err != nil {
+			log.Printf("Error ensuring stat.counters index: %v", err)
+			return err
+		}
+	}
+	return nil
 }
 
 // Close terminates the connection with the store.
@@ -116,6 +127,7 @@ func (s *Store) statsKey(session *storeSession, key []string, write bool) (strin
 	// The logic below should deteministically stop in normal scenarios.
 	var err error
 	for i, retry := 0, 30; i < len(key) && retry > 0; retry-- {
+		err = nil
 		id, found := s.statsTokenId(key[i])
 		if !found {
 			var t struct {
