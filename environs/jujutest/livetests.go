@@ -166,6 +166,12 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	m, err := conn.State.Machine(0)
 	c.Assert(err, IsNil)
 
+	// Check that the agent version has made it through the
+	// bootstrap process (it's optional in the config.Config)
+	cfg, err := conn.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	c.Check(cfg.AgentVersion(), Equals, version.Current.Number)
+
 	t.checkUpgradeMachineAgent(c, conn.State, m)
 
 	// place a new machine into the state
@@ -227,8 +233,8 @@ func (t *LiveTests) checkUpgradeMachineAgent(c *C, st *state.State, m *state.Mac
 	c.Logf("upgrade successful!")
 }
 
-// setStateAgentVersion sets the current agent version and
-// DevVersion flag in the state's environment configuration.
+// setStateAgentVersion sets the current agent version in the state's
+// environment configuration.
 func setStateAgentVersion(st *state.State, vers version.Number) error {
 	cfg, err := st.EnvironConfig()
 	if err != nil {

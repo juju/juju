@@ -114,7 +114,7 @@ func PutTools(storage Storage, vers *version.Binary) (*state.Tools, error) {
 		return nil, fmt.Errorf("cannot stat newly made tools archive: %v", err)
 	}
 	p := ToolsStoragePath(tvers)
-	log.Printf("environs: putting tools %v", p)
+	log.Printf("environs: putting tools %v (%dkB)", p, (fi.Size()+512)/1024)
 	err = storage.Put(p, f, fi.Size())
 	if err != nil {
 		return nil, err

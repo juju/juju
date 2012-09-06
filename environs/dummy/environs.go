@@ -63,6 +63,7 @@ type OpStartInstance struct {
 	MachineId int
 	Instance  environs.Instance
 	Info      *state.Info
+	Secret    string
 }
 
 type OpStopInstances struct {
@@ -469,6 +470,7 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.To
 		MachineId: machineId,
 		Instance:  i,
 		Info:      info,
+		Secret:    e.ecfg().secret(),
 	}
 	return i, nil
 }
