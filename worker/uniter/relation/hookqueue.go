@@ -382,13 +382,6 @@ func (q *DyingHookQueue) hookInfo(kind hook.Kind, unit string) hook.Info {
 		RelationId:    q.relationId,
 		RemoteUnit:    unit,
 		ChangeVersion: q.members[unit],
-		Members:       map[string]map[string]interface{}{},
-	}
-	if kind == hook.RelationDeparted {
-		delete(q.members, unit)
-	}
-	for m := range q.members {
-		hi.Members[m] = nil
 	}
 	return hi
 }

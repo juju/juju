@@ -73,7 +73,7 @@ func assertConnName(c *C, com cmd.Command, name string) {
 // flags, and that extra arguments will cause parsing to fail.
 var EnvironmentInitTests = []func() (cmd.Command, []string){
 	func() (cmd.Command, []string) { return new(BootstrapCommand), nil },
-	func() (cmd.Command, []string) { return new(DestroyCommand), nil },
+	func() (cmd.Command, []string) { return new(DestroyEnvironmentCommand), nil },
 	func() (cmd.Command, []string) {
 		return new(DeployCommand), []string{"charm-name", "service-name"}
 	},
@@ -164,14 +164,15 @@ func (*CmdSuite) TestBootstrapCommand(c *C) {
 	c.Check(<-opc, IsNil)
 }
 
-func (*CmdSuite) TestDestroyCommand(c *C) {
+func (*CmdSuite) TestDestroyEnvironmentCommand(c *C) {
 	// normal destroy
-	opc, errc := runCommand(new(DestroyCommand))
+	opc, errc := runCommand(new(DestroyEnvironmentCommand))
 	c.Check(<-errc, IsNil)
 	c.Check((<-opc).(dummy.OpDestroy).Env, Equals, "peckham")
 
 	// destroy with broken environment
-	opc, errc = runCommand(new(DestroyCommand), "-e", "brokenenv")
+	opc, errc = runCommand(new(DestroyEnvironmentCommand), "-e", "brokenenv")
+	c.Check(<-opc, IsNil)
 	c.Check(<-errc, ErrorMatches, "dummy.Destroy is broken")
 	c.Check(<-opc, IsNil)
 }
