@@ -81,6 +81,30 @@ var configTests = []struct {
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
+			"development":     true,
+		},
+		"",
+	}, {
+		attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"authorized-keys": "my-keys",
+			"development":     false,
+		},
+		"",
+	}, {
+		attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"authorized-keys": "my-keys",
+			"development":     "true",
+		},
+		"development: expected bool, got \"true\"",
+	}, {
+		attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"authorized-keys": "my-keys",
 			"agent-version":   "2",
 		},
 		`invalid agent version in environment configuration: "2"`,
@@ -152,6 +176,10 @@ func (*ConfigSuite) TestConfig(c *C) {
 		} else {
 			c.Assert(cfg.AgentVersion(), Equals, version.Number{})
 		}
+
+		dev, _ := test.attrs["development"].(bool)
+		c.Assert(cfg.Development(), Equals, dev)
+
 		if series, _ := test.attrs["default-series"].(string); series != "" {
 			c.Assert(cfg.DefaultSeries(), Equals, series)
 		} else {
@@ -191,6 +219,7 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
 
+	attrs["development"] = false // This attribute is added if not set.
 	c.Assert(cfg.AllAttrs(), DeepEquals, attrs)
 	c.Assert(cfg.UnknownAttrs(), DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
 

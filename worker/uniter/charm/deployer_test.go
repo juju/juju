@@ -17,7 +17,7 @@ var _ = Suite(&DeployerSuite{})
 func (s *DeployerSuite) TestUnsetCharm(c *C) {
 	d := charm.NewDeployer(filepath.Join(c.MkDir(), "deployer"))
 	err := d.Deploy(charm.NewGitDir(c.MkDir()))
-	c.Assert(err, ErrorMatches, "deploy failed: no charm set")
+	c.Assert(err, ErrorMatches, "charm deployment failed: no charm set")
 }
 
 func (s *DeployerSuite) TestInstall(c *C) {

@@ -56,9 +56,10 @@ type Info struct {
 	// associated with RemoteUnit. It is only set when RemoteUnit is set.
 	ChangeVersion int `yaml:"change-version,omitempty"`
 
-	// Members may contain member unit relation settings, keyed on unit name.
-	// If a unit is present in members, it is always a member of the relation;
-	// if a unit is not present, no inferences about its state can be drawn.
+	// Members may contain settings for units that are members of the relation,
+	// keyed on unit name. If a unit is present in members, it is always a
+	// member of the relation; if a unit is not present, no inferences about
+	// its state can be drawn.
 	Members map[string]map[string]interface{} `yaml:"members,omitempty"`
 }
 

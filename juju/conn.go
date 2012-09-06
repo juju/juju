@@ -31,19 +31,15 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Update secrets in the environment.
-	// This is wrong. This will _always_ overwrite the secrets
-	// in the state with the local secrets. To fix this properly
-	// we need to ensure that the config, minus secrets, is always
-	// pushed on bootstrap, then we can fill in the secrets here.
-	if err := st.SetEnvironConfig(environ.Config()); err != nil {
-		st.Close()
-		return nil, fmt.Errorf("unable to push secrets: %v", err)
-	}
-	return &Conn{
+	conn := &Conn{
 		Environ: environ,
 		State:   st,
-	}, nil
+	}
+	if err := conn.updateSecrets(); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("unable to push secrets: %v", err)
+	}
+	return conn, nil
 }
 
 // NewConnFromName returns a Conn pointing at the environName environment, or the
@@ -60,4 +56,32 @@ func NewConnFromName(environName string) (*Conn, error) {
 // any associated resources.
 func (c *Conn) Close() error {
 	return c.State.Close()
+}
+
+// updateSecrets writes secrets into the environment when there are none.
+// This is done because environments such as ec2 offer no way to securely
+// deliver the secrets onto the machine, so the bootstrap is done with the
+// whole environment configuration but without secrets, and then secrets
+// are delivered on the first communication with the running environment.
+func (c *Conn) updateSecrets() error {
+	secrets, err := c.Environ.Provider().SecretAttrs(c.Environ.Config())
+	if err != nil {
+		return err
+	}
+	cfg, err := c.State.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	attrs := cfg.AllAttrs()
+	for k := range secrets {
+		if _, exists := attrs[k]; exists {
+			// Environment already has secrets. Won't send again.
+			return nil
+		}
+	}
+	cfg, err = cfg.Apply(secrets)
+	if err != nil {
+		return err
+	}
+	return c.State.SetEnvironConfig(cfg)
 }

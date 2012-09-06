@@ -10,6 +10,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -161,7 +162,7 @@ var uniterTests = []uniterTest{
 		serveCharm{},
 		writeFile{"charm", 0644},
 		createUniter{},
-		waitUniterDead{`ModeInit: .*/charm is not a directory`},
+		waitUniterDead{`ModeInit: ".*/charm" is not a directory`},
 	), ut(
 		"charm cannot be downloaded",
 		createCharm{},
@@ -647,6 +648,15 @@ func (s serveCharm) step(c *C, ctx *context) {
 type createUniter struct{}
 
 func (s createUniter) step(c *C, ctx *context) {
+	cfg, err := config.New(map[string]interface{}{
+		"name":            "testenv",
+		"type":            "dummy",
+		"default-series":  "abominable",
+		"authorized-keys": "we-are-the-keys",
+	})
+	c.Assert(err, IsNil)
+	err = ctx.st.SetEnvironConfig(cfg)
+	c.Assert(err, IsNil)
 	sch, err := ctx.st.Charm(curl(0))
 	c.Assert(err, IsNil)
 	svc, err := ctx.st.AddService("u", sch)
@@ -656,6 +666,25 @@ func (s createUniter) step(c *C, ctx *context) {
 	ctx.svc = svc
 	ctx.unit = unit
 	step(c, ctx, startUniter{})
+
+	// Poll for correct address settings (consequence of "dummy" env type).
+	timeout := time.After(1 * time.Second)
+	for {
+		select {
+		case <-timeout:
+			c.Fatalf("timed out waiting for unit addresses")
+		case <-time.After(50 * time.Millisecond):
+			private, err := unit.PrivateAddress()
+			if err != nil || private != "private.dummy.address.example.com" {
+				continue
+			}
+			public, err := unit.PublicAddress()
+			if err != nil || public != "public.dummy.address.example.com" {
+				continue
+			}
+			return
+		}
+	}
 }
 
 type startUniter struct {

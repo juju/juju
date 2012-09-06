@@ -3,6 +3,7 @@ package uniter
 import (
 	"errors"
 	"fmt"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -18,6 +19,26 @@ type Mode func(u *Uniter) (Mode, error)
 // ModeInit is the initial Uniter mode.
 func ModeInit(u *Uniter) (next Mode, err error) {
 	defer errorContextf(&err, "ModeInit")
+	log.Printf("updating unit addresses")
+	cfg, err := u.st.EnvironConfig()
+	if err != nil {
+		return nil, err
+	}
+	provider, err := environs.Provider(cfg.Type())
+	if err != nil {
+		return nil, err
+	}
+	if private, err := provider.PrivateAddress(); err != nil {
+		return nil, err
+	} else if err = u.unit.SetPrivateAddress(private); err != nil {
+		return nil, err
+	}
+	if public, err := provider.PublicAddress(); err != nil {
+		return nil, err
+	} else if err = u.unit.SetPublicAddress(public); err != nil {
+		return nil, err
+	}
+
 	if err := u.charm.Recover(); err != nil {
 		return nil, err
 	}

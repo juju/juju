@@ -4,6 +4,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
@@ -171,7 +172,7 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(cfg.AgentVersion(), Equals, version.Current.Number)
 
-	t.checkUpgradeMachineAgent(c, m)
+	t.checkUpgradeMachineAgent(c, conn.State, m)
 
 	// place a new machine into the state
 	m, err = conn.State.AddMachine()
@@ -187,13 +188,15 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	assertInstanceId(c, m, nil)
 }
 
-func (t *LiveTests) checkUpgradeMachineAgent(c *C, m *state.Machine) {
-	// First watch the machine agent's current tools to make sure
-	// that it sets them appropriately.
-	w := m.WatchAgentTools()
+func (t *LiveTests) checkUpgradeMachineAgent(c *C, st *state.State, m *state.Machine) {
+	// First watch the machine agent's to make sure that the its
+	// current tools are set appropriately.
+	w := m.Watch()
 
 	var gotTools *state.Tools
-	for tools := range w.Changes() {
+	for _ = range w.Changes() {
+		tools, err := m.AgentTools()
+		c.Assert(err, IsNil)
 		if tools.URL == "" {
 			// Machine agent hasn't started yet.
 			continue
@@ -213,15 +216,37 @@ func (t *LiveTests) checkUpgradeMachineAgent(c *C, m *state.Machine) {
 
 	// Check that the put version really is the version we expect.
 	c.Assert(upgradeTools.Binary, Equals, newVersion)
-	err = m.ProposeAgentTools(upgradeTools)
+	err = setAgentVersion(st, newVersion.Number)
+	c.Assert(err, IsNil)
 
 	c.Logf("waiting for upgrade")
-	tools, ok := <-w.Changes()
+	_, ok := <-w.Changes()
 	if !ok {
 		c.Fatalf("watcher died: %v", w.Err())
 	}
-	c.Assert(tools, DeepEquals, upgradeTools)
+	tools, err := m.AgentTools()
+	c.Assert(err, IsNil)
+	// N.B. We can't test that the URL is the same because there's
+	// no guarantee that it is, even though it might be referring to
+	// the same thing.
+	c.Assert(tools.Binary, DeepEquals, upgradeTools.Binary)
 	c.Logf("upgrade successful!")
+}
+
+// setAgentVersion sets the current agent version in the state's
+// environment configuration.
+func setAgentVersion(st *state.State, vers version.Number) error {
+	cfg, err := st.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	attrs := cfg.AllAttrs()
+	attrs["agent-version"] = vers.String()
+	cfg, err = config.New(attrs)
+	if err != nil {
+		panic(fmt.Errorf("config refused agent-version: %v", err))
+	}
+	return st.SetEnvironConfig(cfg)
 }
 
 var waitAgent = environs.AttemptStrategy{

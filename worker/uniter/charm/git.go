@@ -43,7 +43,7 @@ func (d *GitDir) Exists() (bool, error) {
 	if fi.IsDir() {
 		return true, nil
 	}
-	return false, fmt.Errorf("%s is not a directory", d.path)
+	return false, fmt.Errorf("%q is not a directory", d.path)
 }
 
 // Init ensures that a git repository exists in the directory.
@@ -54,20 +54,23 @@ func (d *GitDir) Init() error {
 	return d.cmd("init")
 }
 
-// Recover deletes the lock file, and soft-resets the directory, allowing
-// the client to resume operations that were unexpectedly aborted. If no
-// lock file is present, it does nothing.
+// Recover soft-resets the directory (which resets HEAD while leaving the
+// files and the index untouched -- and still works when a lock file is
+// present); then delete the lock file (if it is present). This will leave
+// the directory in a consistent state, such that the interrupted operation
+// can be reapplied safely.
 func (d *GitDir) Recover() error {
 	if exists, err := d.Exists(); !exists {
 		return err
 	}
-	if err := os.Remove(filepath.Join(d.path, ".git", "index.lock")); err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
+	if err := d.cmd("reset", "--soft"); err != nil {
 		return err
 	}
-	return d.cmd("reset", "--soft")
+	err := os.Remove(filepath.Join(d.path, ".git", "index.lock"))
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return err
 }
 
 // AddAll ensures that the next commit will reflect the current contents of
@@ -214,23 +217,13 @@ func (d *GitDir) statuses() ([]string, error) {
 	cmd.Dir = d.path
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("git status failed: %s", err)
+		return nil, fmt.Errorf("git status failed: %v", err)
 	}
-	log.Printf(string(out))
 	statuses := []string{}
 	for _, line := range strings.Split(string(out), "\n") {
 		if line != "" {
 			statuses = append(statuses, line[:2])
 		}
 	}
-
-	cmd = exec.Command("git", "status")
-	cmd.Dir = d.path
-	out, err = cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("git status failed: %s", err)
-	}
-	log.Printf(string(out))
-
 	return statuses, nil
 }
