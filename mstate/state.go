@@ -9,6 +9,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/mstate/presence"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
@@ -46,9 +47,21 @@ func deadOnAbort(err error) error {
 	return err
 }
 
-// EnvironConfig returns the current configuration of the environment.
-func (s *State) EnvironConfig() (*ConfigNode, error) {
-	return readConfigNode(s, "e")
+func (s *State) EnvironConfig() (*config.Config, error) {
+	configNode, err := readConfigNode(s, "e")
+	if err != nil {
+		return nil, err
+	}
+	attrs := configNode.Map()
+	return config.New(attrs)
+}
+
+// SetEnvironConfig replaces the current configuration of the 
+// environment with the passed configuration.
+func (s *State) SetEnvironConfig(cfg *config.Config) error {
+	attrs := cfg.AllAttrs()
+	_, err := createConfigNode(s, "e", attrs)
+	return err
 }
 
 // AddMachine creates a new machine state.

@@ -62,12 +62,9 @@ func (fw *Firewaller) loop() error {
 			if !ok {
 				return watcher.MustErr(fw.environWatcher)
 			}
-			err := fw.environ.SetConfig(change)
-			if err != nil {
+			if err := fw.environ.SetConfig(change); err != nil {
 				log.Printf("firewaller loaded invalid environment configuration: %v", err)
-				break
 			}
-			log.Printf("firewaller loaded new environment configuration")
 		case change, ok := <-fw.machinesWatcher.Changes():
 			if !ok {
 				return watcher.MustErr(fw.machinesWatcher)

@@ -16,7 +16,9 @@ type Config struct {
 // and authorized-keys-path is also translated into authorized-keys
 // by loading the content from respective file.
 //
-// The required keys are: "name", "type", "default-series" and "authorized-keys".
+// The required keys are: "name", "type", "default-series" and "authorized-keys",
+// all of type string. Additional keys recognised are: "agent-version" and
+// "development", of types string and bool respectively.
 func New(attrs map[string]interface{}) (*Config, error) {
 	m, err := checker.Coerce(attrs, nil)
 	if err != nil {
@@ -99,6 +101,12 @@ func (c *Config) AgentVersion() version.Number {
 	return n
 }
 
+// Development returns whether the environment is in development
+// mode.
+func (c *Config) Development() bool {
+	return c.m["development"].(bool)
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -136,6 +144,7 @@ var fields = schema.Fields{
 	"authorized-keys":      schema.String(),
 	"authorized-keys-path": schema.String(),
 	"agent-version":        schema.String(),
+	"development":          schema.Bool(),
 }
 
 var defaults = schema.Defaults{
@@ -143,6 +152,7 @@ var defaults = schema.Defaults{
 	"authorized-keys":      "",
 	"authorized-keys-path": "",
 	"agent-version":        schema.Omit,
+	"development":          false,
 }
 
 var checker = schema.FieldMap(fields, defaults)

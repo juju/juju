@@ -231,7 +231,7 @@ func (u *Unit) WaitAgentAlive(timeout time.Duration) error {
 	ch := make(chan presence.Change)
 	u.st.presencew.Add(u.globalKey(), ch)
 	defer u.st.presencew.Remove(u.globalKey(), ch)
-	// Initial check.		
+	// Initial check.
 	select {
 	case change := <-ch:
 		if change.Alive {
@@ -246,16 +246,15 @@ func (u *Unit) WaitAgentAlive(timeout time.Duration) error {
 		if change.Alive {
 			return nil
 		}
-		panic(fmt.Sprintf("unexpected alive status of unit %q", u))
+		panic(fmt.Sprintf("presence reported dead status twice in a row for unit %q", u))
 	case <-time.After(timeout):
 		return fmt.Errorf("waiting for agent of unit %q: still not alive after timeout", u)
 	}
 	panic("unreachable")
 }
 
-// SetAgentAlive signals that the agent for unit u is alive
-// by starting a pinger on its presence node. It returns the
-// started pinger.
+// SetAgentAlive signals that the agent for unit u is alive. 
+// It returns the started pinger.
 func (u *Unit) SetAgentAlive() (*presence.Pinger, error) {
 	p := presence.NewPinger(u.st.presence, u.globalKey())
 	err := p.Start()

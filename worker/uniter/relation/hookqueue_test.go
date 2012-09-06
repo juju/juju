@@ -181,14 +181,14 @@ var dyingHookQueueTests = []hookQueueTest{
 	), reconcileTest(
 		"Each current member is departed before broken is sent.",
 		msi{"u/1": 7, "u/4": 33}, "",
-		expect{hook.RelationDeparted, "u/1", 7, msi{"u/4": -1}},
-		expect{hook.RelationDeparted, "u/4", 33, msi{}},
+		expect{hook.RelationDeparted, "u/1", 7, nil},
+		expect{hook.RelationDeparted, "u/4", 33, nil},
 		expect{hook: hook.RelationBroken},
 	), reconcileTest(
 		"If there's a pending changed, that must still be respected.",
 		msi{"u/0": 3}, "u/0",
-		expect{hook.RelationChanged, "u/0", 3, msi{"u/0": -1}},
-		expect{hook.RelationDeparted, "u/0", 3, msi{}},
+		expect{hook.RelationChanged, "u/0", 3, nil},
+		expect{hook.RelationDeparted, "u/0", 3, nil},
 		expect{hook: hook.RelationBroken},
 	),
 }
