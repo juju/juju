@@ -88,9 +88,9 @@ type stepper interface {
 }
 
 type context struct {
-	s      *UniterSuite
 	id     int
 	path   string
+	st	*state.State
 	charms coretesting.ResponseMap
 	hooks  []string
 	svc    *state.Service
@@ -268,7 +268,7 @@ func (s *UniterSuite) TestUniter(c *C) {
 		}
 		c.Logf("\ntest %d: %s\n", i, t.summary)
 		ctx := &context{
-			s:      s,
+			st:      s.State,
 			id:     i,
 			path:   unitDir,
 			charms: coretesting.ResponseMap{},
@@ -295,7 +295,8 @@ type createCharm struct {
 }
 
 func (s createCharm) step(c *C, ctx *context) {
-	base := ctx.s.Repo.Dir("dummy").Path
+	repo := &coretesting.Repo{c.MkDir()}
+	base := repo.Dir("dummy").Path
 	for _, name := range []string{"install", "start", "config-changed", "upgrade-charm"} {
 		path := filepath.Join(base, "hooks", name)
 		good := true
@@ -322,7 +323,7 @@ func (s createCharm) step(c *C, ctx *context) {
 	hurl, err := url.Parse(coretesting.Server.URL + key)
 	c.Assert(err, IsNil)
 	ctx.charms[key] = coretesting.Response{200, nil, body}
-	_, err = ctx.s.State.AddCharm(dir, curl(s.revision), hurl, hash)
+	_, err = ctx.st.AddCharm(dir, curl(s.revision), hurl, hash)
 	c.Assert(err, IsNil)
 }
 
@@ -335,9 +336,9 @@ func (s serveCharm) step(c *C, ctx *context) {
 type createUniter struct{}
 
 func (s createUniter) step(c *C, ctx *context) {
-	sch, err := ctx.s.State.Charm(curl(0))
+	sch, err := ctx.st.Charm(curl(0))
 	c.Assert(err, IsNil)
-	svc, err := ctx.s.State.AddService("u", sch)
+	svc, err := ctx.st.AddService("u", sch)
 	c.Assert(err, IsNil)
 	unit, err := svc.AddUnit()
 	c.Assert(err, IsNil)
@@ -354,7 +355,7 @@ func (s startUniter) step(c *C, ctx *context) {
 	if ctx.uniter != nil {
 		panic("don't start two uniters!")
 	}
-	u, err := uniter.NewUniter(ctx.s.State, "u/0")
+	u, err := uniter.NewUniter(ctx.st, "u/0")
 	if s.err == "" {
 		c.Assert(err, IsNil)
 		ctx.uniter = u
@@ -566,7 +567,7 @@ type upgradeCharm struct {
 }
 
 func (s upgradeCharm) step(c *C, ctx *context) {
-	sch, err := ctx.s.State.Charm(curl(s.revision))
+	sch, err := ctx.st.Charm(curl(s.revision))
 	c.Assert(err, IsNil)
 	err = ctx.svc.SetCharm(sch, s.forced)
 	c.Assert(err, IsNil)
