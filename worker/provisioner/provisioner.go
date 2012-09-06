@@ -67,16 +67,13 @@ func (p *Provisioner) loop() error {
 		select {
 		case <-p.tomb.Dying():
 			return tomb.ErrDying
-		case change, ok := <-environWatcher.Changes():
+		case cfg, ok := <-environWatcher.Changes():
 			if !ok {
 				return watcher.MustErr(environWatcher)
 			}
-			err := p.environ.SetConfig(change)
-			if err != nil {
+			if err := p.environ.SetConfig(cfg); err != nil {
 				log.Printf("provisioner loaded invalid environment configuration: %v", err)
-				continue
 			}
-			log.Printf("provisioner loaded new environment configuration")
 		case machines, ok := <-machinesWatcher.Changes():
 			if !ok {
 				return watcher.MustErr(machinesWatcher)

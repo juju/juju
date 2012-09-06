@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
 	"os"
 )
@@ -19,6 +20,7 @@ import (
 // When a new version is available Wait and Stop return UpgradedError.
 type Upgrader struct {
 	tomb       tomb.Tomb
+	st         *state.State
 	agentName  string
 	agentState AgentState
 }
@@ -38,15 +40,12 @@ func (e *UpgradedError) Error() string {
 type AgentState interface {
 	// SetAgentTools sets the tools that the agent is currently running.
 	SetAgentTools(tools *state.Tools) error
-
-	// WatchProposedAgentTools watches the tools that the agent is
-	// currently proposed to run.
-	WatchProposedAgentTools() *state.AgentToolsWatcher
 }
 
 // NewUpgrader returns a new Upgrader watching the given agent.
-func NewUpgrader(agentName string, agentState AgentState) *Upgrader {
+func NewUpgrader(st *state.State, agentName string, agentState AgentState) *Upgrader {
 	u := &Upgrader{
+		st:         st,
 		agentName:  agentName,
 		agentState: agentState,
 	}
@@ -83,8 +82,13 @@ func (u *Upgrader) run() error {
 		return err
 	}
 
-	w := u.agentState.WatchProposedAgentTools()
+	w := u.st.WatchEnvironConfig()
 	defer watcher.Stop(w, &u.tomb)
+
+	environ, err := worker.WaitForEnviron(w, u.tomb.Dying())
+	if err != nil {
+		return err
+	}
 
 	// TODO(rog) retry downloads when they fail.
 	var (
@@ -98,13 +102,19 @@ func (u *Upgrader) run() error {
 		// hangs up) another change to the proposed tools can
 		// potentially fix things.
 		select {
-		case tools, ok := <-w.Changes():
+		case cfg, ok := <-w.Changes():
 			if !ok {
 				return watcher.MustErr(w)
 			}
+			err := environ.SetConfig(cfg)
+			if err != nil {
+				log.Printf("provisioner loaded invalid environment configuration: %v", err)
+				// continue on, because the version number is still significant.
+			}
+			vers := cfg.AgentVersion()
 			if download != nil {
 				// There's a download in progress, stop it if we need to.
-				if *tools == *downloadTools {
+				if vers == downloadTools.Number {
 					// We are already downloading the requested tools.
 					break
 				}
@@ -114,12 +124,30 @@ func (u *Upgrader) run() error {
 			}
 			// Ignore the proposed tools if they haven't been set yet
 			// or we're already running the proposed version.
-			if tools.URL == "" || *tools == *currentTools {
+			if vers == version.Current.Number {
 				break
 			}
-			if tools, err := environs.ReadTools(tools.Binary); err == nil {
+			binary := version.Current
+			binary.Number = vers
+
+			if tools, err := environs.ReadTools(binary); err == nil {
 				// The tools have already been downloaded, so use them.
 				return &UpgradedError{tools}
+			}
+			// TODO(rog) add support for environs.DevVersion
+			tools, err := environs.FindTools(environ, binary, environs.CompatVersion)
+			if err != nil {
+				log.Printf("upgrader: error finding tools for %v: %v", binary, err)
+				// TODO(rog): poll until tools become available.
+				break
+			}
+			if tools.Binary != binary {
+				if tools.Number == version.Current.Number {
+					// TODO(rog): poll until tools become available.
+					log.Printf("upgrader: version %v requested but no newer version found", binary)
+					break
+				}
+				log.Printf("upgrader: cannot find exact tools match for %s; using %s instead", binary, tools.Binary)
 			}
 			download = downloader.New(tools.URL, "")
 			downloadTools = tools
