@@ -78,8 +78,11 @@ func (c *Conn) State() (*state.State, error) {
 	return c.state, nil
 }
 
-// updateSecrets updates the sensitive parts of the environment 
-// from the local configuration.
+// updateSecrets writes secrets into the environment when there are none.
+// This is done because environments such as ec2 offer no way to securely
+// deliver the secrets onto the machine, so the bootstrap is done with the
+// whole environment configuration but without secrets, and then secrets
+// are delivered on the first communication with the running environment.
 func (c *Conn) updateSecrets() error {
 	secrets, err := c.Environ.Provider().SecretAttrs(c.Environ.Config())
 	if err != nil {
@@ -92,8 +95,7 @@ func (c *Conn) updateSecrets() error {
 	attrs := cfg.AllAttrs()
 	for k := range secrets {
 		if _, exists := attrs[k]; exists {
-			// there is at least one secret key already present in 
-			// the state then return without changing anything.
+			// Environment already has secrets. Won't send again.
 			return nil
 		}
 	}
