@@ -15,8 +15,8 @@ import (
 	"path/filepath"
 )
 
-// JujuConnSuite provides a freshly bootstrapped juju.Conn for each
-// test.  It also includes testing.LoggingSuite and testing.CharmSuite.
+// JujuConnSuite provides a freshly bootstrapped juju.Conn and a newly
+// made testing.Repo for each test.  It also includes testing.LoggingSuite.
 //
 // It also sets up $HOME and environs.VarDir to
 // temporary directories; the former is primed to
