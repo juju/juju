@@ -77,7 +77,7 @@ func (c *DeployCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
-	conn, err := juju.NewConn(c.EnvName)
+	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
