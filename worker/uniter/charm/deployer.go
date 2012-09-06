@@ -75,7 +75,7 @@ func (d *Deployer) SetCharm(bun *charm.Bundle, url *charm.URL) error {
 		return err
 	}
 
-	// Atomically rename temporary update repository to current.
+	// Atomically rename fresh repository to current.
 	tmplink := filepath.Join(path, "tmplink")
 	if err = os.Symlink(path, tmplink); err != nil {
 		return err
@@ -187,13 +187,15 @@ func (d *Deployer) collectOrphans() {
 // directories in any given second.
 func (d *Deployer) newDir(prefix string) (string, error) {
 	prefix = prefix + time.Now().Format("-%Y%m%d-%H%M%S")
+	var err error
+	var path string
 	for i := 0; i < 10; i++ {
-		path := filepath.Join(d.path, fmt.Sprintf("%s-%d", prefix, i))
-		if err := os.Mkdir(path, 0755); err != nil {
-			log.Printf("failed to create %s: %s", path, err)
-		} else {
+		path = filepath.Join(d.path, fmt.Sprintf("%s-%d", prefix, i))
+		if err = os.Mkdir(path, 0755); err == nil {
 			return path, nil
+		} else if !os.IsExist(err) {
+			break
 		}
 	}
-	return "", fmt.Errorf("failed to create deployer directory after 10 tries")
+	return "", fmt.Errorf("failed to create %q: %v", path, err)
 }
