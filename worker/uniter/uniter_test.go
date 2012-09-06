@@ -356,12 +356,12 @@ func (s createUniter) step(c *C, ctx *context) {
 	step(c, ctx, startUniter{})
 
 	// Poll for correct address settings (consequence of "dummy" env type).
-	timeout := time.After(1000 * time.Millisecond)
+	timeout := time.After(1 * time.Second)
 	for {
 		select {
 		case <-timeout:
 			c.Fatalf("timed out waiting for unit addresses")
-		case <-time.After(200 * time.Millisecond):
+		case <-time.After(50 * time.Millisecond):
 			private, err := unit.PrivateAddress()
 			if err != nil || private != "private.dummy.address.example.com" {
 				continue
