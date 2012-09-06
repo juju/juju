@@ -146,6 +146,7 @@ var commandNames = []string{
 	"expose",
 	"status",
 	"unexpose",
+	"upgrade-juju",
 }
 
 func (s *MainSuite) TestHelp(c *C) {

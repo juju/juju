@@ -10,6 +10,7 @@ import (
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/mstate/presence"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/url"
@@ -26,14 +27,17 @@ type Tools struct {
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	db        *mgo.Database
-	charms    *mgo.Collection
-	machines  *mgo.Collection
-	relations *mgo.Collection
-	services  *mgo.Collection
-	settings  *mgo.Collection
-	units     *mgo.Collection
-	runner    *txn.Runner
+	db         *mgo.Database
+	presencedb *mgo.Database
+	charms     *mgo.Collection
+	machines   *mgo.Collection
+	relations  *mgo.Collection
+	services   *mgo.Collection
+	settings   *mgo.Collection
+	units      *mgo.Collection
+	presence   *mgo.Collection
+	presencew  *presence.Watcher
+	runner     *txn.Runner
 }
 
 func deadOnAbort(err error) error {
@@ -358,4 +362,10 @@ func (s *State) Unit(name string) (*Unit, error) {
 		return nil, fmt.Errorf("cannot get unit %q: %v", name, err)
 	}
 	return newUnit(s, &doc), nil
+}
+
+// ForcePresenceRefresh forces a synchronous refresh of 
+// the presence watcher knowledge
+func (s *State) ForcePresenceRefresh() {
+	s.presencew.ForceRefresh()
 }

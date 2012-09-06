@@ -40,7 +40,7 @@ func (s *GitDirSuite) TestCreate(c *C) {
 	err = ioutil.WriteFile(repo.Path(), nil, 0644)
 	c.Assert(err, IsNil)
 	_, err = repo.Exists()
-	c.Assert(err, ErrorMatches, ".*/repo is not a directory")
+	c.Assert(err, ErrorMatches, `".*/repo" is not a directory`)
 	err = os.Remove(repo.Path())
 	c.Assert(err, IsNil)
 
@@ -162,7 +162,7 @@ func (s *GitDirSuite) TestRecover(c *C) {
 	err := ioutil.WriteFile(repo.Path(), nil, 0644)
 	c.Assert(err, IsNil)
 	_, err = repo.Exists()
-	c.Assert(err, ErrorMatches, ".*/not-dir is not a directory")
+	c.Assert(err, ErrorMatches, `".*/not-dir" is not a directory`)
 	err = os.Remove(repo.Path())
 	c.Assert(err, IsNil)
 

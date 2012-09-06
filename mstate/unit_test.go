@@ -3,6 +3,7 @@ package mstate_test
 import (
 	. "launchpad.net/gocheck"
 	state "launchpad.net/juju-core/mstate"
+	"time"
 )
 
 type UnitSuite struct {
@@ -64,6 +65,83 @@ func (s *UnitSuite) TestRefresh(c *C) {
 	address, err = unit1.PublicAddress()
 	c.Assert(err, IsNil)
 	c.Assert(address, Equals, "example.foobar.com")
+}
+
+func (s *UnitSuite) TestGetSetStatus(c *C) {
+	fail := func() { s.unit.SetStatus(state.UnitPending, "") }
+	c.Assert(fail, PanicMatches, "unit status must not be set to pending")
+
+	status, info, err := s.unit.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, state.UnitPending)
+	c.Assert(info, Equals, "")
+
+	err = s.unit.SetStatus(state.UnitStarted, "")
+	c.Assert(err, IsNil)
+
+	status, info, err = s.unit.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, state.UnitDown)
+	c.Assert(info, Equals, "")
+
+	p, err := s.unit.SetAgentAlive()
+	c.Assert(err, IsNil)
+	defer func() {
+		c.Assert(p.Kill(), IsNil)
+	}()
+
+	s.State.ForcePresenceRefresh()
+	status, info, err = s.unit.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, state.UnitStarted)
+	c.Assert(info, Equals, "")
+
+	err = s.unit.SetStatus(state.UnitError, "test-hook failed")
+	c.Assert(err, IsNil)
+	status, info, err = s.unit.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, state.UnitError)
+	c.Assert(info, Equals, "test-hook failed")
+}
+
+func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
+	alive := s.unit.AgentAlive()
+	c.Assert(alive, Equals, false)
+
+	pinger, err := s.unit.SetAgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(pinger, Not(IsNil))
+	defer pinger.Stop()
+
+	s.State.ForcePresenceRefresh()
+	alive = s.unit.AgentAlive()
+	c.Assert(alive, Equals, true)
+}
+
+func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
+	timeout := 5 * time.Second
+	alive := s.unit.AgentAlive()
+	c.Assert(alive, Equals, false)
+
+	err := s.unit.WaitAgentAlive(timeout)
+	c.Assert(err, ErrorMatches, `waiting for agent of unit "wordpress/0": still not alive after timeout`)
+
+	pinger, err := s.unit.SetAgentAlive()
+	c.Assert(err, IsNil)
+
+	s.State.ForcePresenceRefresh()
+	err = s.unit.WaitAgentAlive(timeout)
+	c.Assert(err, IsNil)
+
+	alive = s.unit.AgentAlive()
+	c.Assert(alive, Equals, true)
+
+	err = pinger.Kill()
+	c.Assert(err, IsNil)
+
+	s.State.ForcePresenceRefresh()
+	alive = s.unit.AgentAlive()
+	c.Assert(alive, Equals, false)
 }
 
 func (s *UnitSuite) TestGetSetClearResolved(c *C) {
