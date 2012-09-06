@@ -122,8 +122,8 @@ func (u *Upgrader) run() error {
 				download.Stop()
 				download, downloadTools, downloadDone = nil, nil, nil
 			}
-			// Ignore the proposed tools if they haven't been set yet
-			// or we're already running the proposed version.
+			// Ignore the proposed tools if we're already running the
+			// proposed version.
 			if vers == version.Current.Number {
 				break
 			}
@@ -134,8 +134,11 @@ func (u *Upgrader) run() error {
 				// The tools have already been downloaded, so use them.
 				return &UpgradedError{tools}
 			}
-			// TODO(rog) add support for environs.DevVersion
-			tools, err := environs.FindTools(environ, binary, environs.CompatVersion)
+			flags := environs.CompatVersion
+			if cfg.Development() {
+				flags |= environs.DevVersion
+			}
+			tools, err := environs.FindTools(environ, binary, flags)
 			if err != nil {
 				log.Printf("upgrader: error finding tools for %v: %v", binary, err)
 				// TODO(rog): poll until tools become available.
@@ -144,7 +147,7 @@ func (u *Upgrader) run() error {
 			if tools.Binary != binary {
 				if tools.Number == version.Current.Number {
 					// TODO(rog): poll until tools become available.
-					log.Printf("upgrader: version %v requested but no newer version found", binary)
+					log.Printf("upgrader: version %v requested but found only current version: %v", binary, tools.Number)
 					break
 				}
 				log.Printf("upgrader: cannot find exact tools match for %s; using %s instead", binary, tools.Binary)

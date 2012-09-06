@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
@@ -11,7 +10,6 @@ import (
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
-	"launchpad.net/tomb"
 	"net/http"
 	"path/filepath"
 	"time"
@@ -38,55 +36,27 @@ func (s *upgraderSuite) TearDownTest(c *C) {
 func (s *upgraderSuite) TestUpgraderError(c *C) {
 	st, err := state.Open(s.StateInfo(c))
 	c.Assert(err, IsNil)
-	_, as, upgraderDone := startUpgrader(st)
 	// We have no installed tools, so the logic should set the agent
 	// tools anyway, but with no URL.
-	assertEvent(c, as.event, fmt.Sprintf("SetAgentTools %s ", version.Current))
+	u := startUpgrader(c, st, &state.Tools{Binary: version.Current})
 
 	// Close the state under the watcher and check that the upgrader dies.
 	st.Close()
-	select {
-	case err := <-upgraderDone:
-		c.Assert(err, Not(FitsTypeOf), &UpgradedError{})
-		c.Assert(err, NotNil)
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("upgrader did not stop as expected")
-	}
+	waitDeath(c, u, nil, "watcher: cannot get content of node.*")
 }
 
 func (s *upgraderSuite) TestUpgraderStop(c *C) {
-	u, as, upgraderDone := startUpgrader(s.State)
-	assertEvent(c, as.event, fmt.Sprintf("SetAgentTools %s ", version.Current))
-
+	u := startUpgrader(c, s.State, &state.Tools{Binary: version.Current})
 	err := u.Stop()
 	c.Assert(err, IsNil)
-
-	select {
-	case err := <-upgraderDone:
-		c.Assert(err, IsNil)
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("upgrader did not stop as expected")
-	}
 }
 
-// startUpgrader starts the upgrader using the given machine
-// for observing and changing agent tools.
-func startUpgrader(st *state.State) (u *Upgrader, as *testAgentState, upgraderDone <-chan error) {
-	as = newTestAgentState()
-	u = NewUpgrader(st, "testagent", as)
-	done := make(chan error, 1)
-	go func() {
-		done <- u.Wait()
-	}()
-	upgraderDone = done
-	return
-}
-
-func (s *upgraderSuite) proposeVersion(c *C, vers version.Number) {
+func (s *upgraderSuite) proposeVersion(c *C, vers version.Number, development bool) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
 	attrs := cfg.AllAttrs()
 	attrs["agent-version"] = vers.String()
+	attrs["development"] = development
 	newCfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
 	err = s.State.SetEnvironConfig(newCfg)
@@ -108,70 +78,108 @@ func (s *upgraderSuite) uploadTools(c *C, vers version.Binary) (path string, too
 	return path, &state.Tools{URL: url, Binary: vers}
 }
 
-func (s *upgraderSuite) TestUpgrader(c *C) {
+type proposal struct {
+	version    string
+	devVersion bool
+}
 
+var upgraderTests = []struct {
+	about      string
+	upload     []string // Upload these tools versions.
+	propose    string   // Propose this version...
+	devVersion bool     // ... with devVersion set to this.
+
+	// upgradeTo is blank if nothing should happen.
+	upgradeTo string
+}{{
+	about:   "propose with no possible candidates",
+	propose: "2.0.2",
+}, {
+	about:   "propose with same candidate as current",
+	upload:  []string{"2.0.0"},
+	propose: "2.0.4",
+}, {
+	about:   "propose development version when !devVersion",
+	upload:  []string{"2.0.1"},
+	propose: "2.0.4",
+}, {
+	about:      "propose development version when devVersion",
+	propose:    "2.0.4",
+	devVersion: true,
+	upgradeTo:  "2.0.1",
+}, {
+	about:     "propose release version when !devVersion",
+	propose:   "2.0.4",
+	upgradeTo: "2.0.0",
+}, {
+	about:   "propose with higher available candidates",
+	upload:  []string{"2.0.5", "2.0.6"},
+	propose: "2.0.4",
+}, {
+	about:     "propose exact available version",
+	propose:   "2.0.6",
+	upgradeTo: "2.0.6",
+}, {
+	about:     "propose downgrade",
+	propose:   "2.0.5",
+	upgradeTo: "2.0.5",
+},
+}
+
+func (s *upgraderSuite) TestUpgrader(c *C) {
 	// Set up the current version and tools.
-	version.Current = version.MustParseBinary("1.0.1-foo-bar")
-	v1path, v1tools := s.uploadTools(c, version.Current)
+	version.Current = version.MustParseBinary("2.0.0-foo-bar")
+	v0path, v0tools := s.uploadTools(c, version.Current)
 
 	// Unpack the "current" version of the tools, and delete them from
 	// the storage so that we're sure that the uploader isn't trying
 	// to fetch them.
-	resp, err := http.Get(v1tools.URL)
+	resp, err := http.Get(v0tools.URL)
 	c.Assert(err, IsNil)
-	err = environs.UnpackTools(v1tools, resp.Body)
+	err = environs.UnpackTools(v0tools, resp.Body)
 	c.Assert(err, IsNil)
-	err = s.Conn.Environ.Storage().Remove(v1path)
+	err = s.Conn.Environ.Storage().Remove(v0path)
 	c.Assert(err, IsNil)
 
-	// Start the upgrader going and check that the tools are those
-	// that we set up.
-	_, as, upgraderDone := startUpgrader(s.State)
-	assertEvent(c, as.event, "SetAgentTools 1.0.1-foo-bar "+v1tools.URL)
+	var (
+		u            *Upgrader
+		upgraderDone <-chan error
+		currentTools = v0tools
+	)
 
-	// Propose some tools that are not there.
-	s.proposeVersion(c, version.MustParse("1.0.2"))
-	assertNothingHappens(c, upgraderDone)
+	defer func() {
+		if u != nil {
+			c.Assert(u.Stop(), IsNil)
+		}
+	}()
 
-	// Upload the current tools again.
-	v1path, v1tools = s.uploadTools(c, version.Current)
-	s.proposeVersion(c, version.MustParse("1.0.3"))
-	assertNothingHappens(c, upgraderDone)
+	uploaded := make(map[version.Number]*state.Tools)
+	for i, test := range upgraderTests {
+		c.Logf("%d. %s; current version: %v", i, test.about, version.Current)
+		for _, v := range test.upload {
+			vers := version.Current
+			vers.Number = version.MustParse(v)
+			_, tools := s.uploadTools(c, vers)
+			uploaded[vers.Number] = tools
+		}
+		if u == nil {
+			u = startUpgrader(c, s.State, currentTools)
+		}
+		s.proposeVersion(c, version.MustParse(test.propose), test.devVersion)
+		if test.upgradeTo == "" {
+			assertNothingHappens(c, upgraderDone)
+		} else {
+			tools := uploaded[version.MustParse(test.upgradeTo)]
+			waitDeath(c, u, tools, "")
+			// Check that the upgraded version was really downloaded.
+			data, err := ioutil.ReadFile(filepath.Join(environs.ToolsDir(tools.Binary), "jujud"))
+			c.Assert(err, IsNil)
+			c.Assert(string(data), Equals, "jujud contents "+tools.Binary.String())
 
-	// Upload two new versions of the tools. We'll test upgrading to these tools.
-	_, v5tools := s.uploadTools(c, version.MustParseBinary("1.0.5-foo-bar"))
-	_, v6tools := s.uploadTools(c, version.MustParseBinary("1.0.6-foo-bar"))
-
-	// Check that it won't choose tools with a greater version number.
-	s.proposeVersion(c, version.MustParse("1.0.4"))
-	assertNothingHappens(c, upgraderDone)
-
-	s.proposeVersion(c, v6tools.Number)
-	select {
-	case err := <-upgraderDone:
-		c.Assert(err, DeepEquals, &UpgradedError{v6tools})
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("upgrader did not stop as expected")
-	}
-
-	// Check that the upgraded version was really downloaded.
-	data, err := ioutil.ReadFile(filepath.Join(environs.ToolsDir(v6tools.Binary), "jujud"))
-	c.Assert(err, IsNil)
-	c.Assert(string(data), Equals, "jujud contents 1.0.6-foo-bar")
-
-	version.Current = v6tools.Binary
-	// Check that we can start again.
-	_, as, upgraderDone = startUpgrader(s.State)
-	assertEvent(c, as.event, "SetAgentTools 1.0.6-foo-bar "+v6tools.URL)
-
-	// Check that we can downgrade.
-	s.proposeVersion(c, v5tools.Number)
-
-	select {
-	case tools := <-upgraderDone:
-		c.Assert(tools, DeepEquals, &UpgradedError{v5tools})
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("upgrader did not stop as expected")
+			u, upgraderDone = nil, nil
+			currentTools = tools
+			version.Current = tools.Binary
+		}
 	}
 }
 
@@ -192,18 +200,44 @@ func assertEvent(c *C, event <-chan string, want string) {
 	}
 }
 
-type testAgentState struct {
-	tomb.Tomb
-	event chan string
+// startUpgrader starts the upgrader using the given machine,
+// expecting to see it set the given agent tools.
+func startUpgrader(c *C, st *state.State, expectTools *state.Tools) *Upgrader {
+	as := testAgentState(make(chan *state.Tools))
+	u := NewUpgrader(st, "testagent", as)
+	select {
+	case tools := <-as:
+		c.Assert(tools, DeepEquals, expectTools)
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("upgrader did not set agent tools")
+	}
+	return u
 }
 
-func newTestAgentState() *testAgentState {
-	return &testAgentState{
-		event: make(chan string),
+func waitDeath(c *C, u *Upgrader, upgradeTo *state.Tools, errPat string) {
+	done := make(chan error, 1)
+	go func() {
+		done <- u.Wait()
+	}()
+	select {
+	case err := <-done:
+		switch {
+		case upgradeTo != nil:
+			c.Assert(err, DeepEquals, &UpgradedError{upgradeTo})
+		case errPat != "":
+			c.Assert(err, ErrorMatches, errPat)
+		default:
+			c.Assert(err, IsNil)
+		}
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("upgrader did not die as expected")
 	}
 }
 
-func (t *testAgentState) SetAgentTools(tools *state.Tools) error {
-	t.event <- fmt.Sprintf("SetAgentTools %v %s", tools.Binary, tools.URL)
+type testAgentState chan *state.Tools
+
+func (as testAgentState) SetAgentTools(tools *state.Tools) error {
+	t := *tools
+	as <- &t
 	return nil
 }
