@@ -52,8 +52,7 @@ func (c *UpgradeJujuCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	return cmd.CheckEmpty(f.Args())
 }
 
-// Run changes the juju-managed firewall to expose any
-// ports that were also explicitly marked by units as open.
+// Run changes the version proposed for the juju tools.
 func (c *UpgradeJujuCommand) Run(_ *cmd.Context) error {
 	var err error
 	c.conn, err = juju.NewConnFromName(c.EnvName)
