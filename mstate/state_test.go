@@ -175,7 +175,7 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 		"type":            "test",
 		"authorized-keys": "i-am-a-key",
 		"default-series":  "precise",
-		"development": true,
+		"development":     true,
 	}
 	env, err := config.New(initial)
 	c.Assert(err, IsNil)

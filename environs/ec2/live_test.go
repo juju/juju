@@ -190,7 +190,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	// that the unneeded permission that we added earlier
 	// has been deleted).
 	perms := info[0].IPPerms
-	c.Assert(perms, HasLen, 2)
+	c.Assert(perms, HasLen, 4)
 	checkPortAllowed(c, perms, 22)
 	checkSecurityGroupAllowed(c, perms, groups[0])
 
@@ -258,14 +258,31 @@ func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {
 }
 
 func checkSecurityGroupAllowed(c *C, perms []amzec2.IPPerm, g amzec2.SecurityGroup) {
+	protos := map[string]struct {
+		fromPort int
+		toPort   int
+	}{
+		"tcp":  {0, 65535},
+		"udp":  {0, 65535},
+		"icmp": {-1, -1},
+	}
 	for _, perm := range perms {
 		if len(perm.SourceGroups) > 0 {
 			c.Check(perm.SourceGroups, HasLen, 1)
 			c.Check(perm.SourceGroups[0].Id, Equals, g.Id)
-			return
+			ports, ok := protos[perm.Protocol]
+			if !ok {
+				c.Errorf("unexpected protocol in security group: %q", perm.Protocol)
+				continue
+			}
+			delete(protos, perm.Protocol)
+			c.Check(perm.FromPort, Equals, ports.fromPort)
+			c.Check(perm.ToPort, Equals, ports.toPort)
 		}
 	}
-	c.Errorf("security group permission not found for %#v in %#v", g, perms)
+	if len(protos) > 0 {
+		c.Errorf("%d security group permission not found for %#v in %#v", len(protos), g, perms)
+	}
 }
 
 func (t *LiveTests) TestStopInstances(c *C) {
