@@ -73,7 +73,7 @@ func assertConnName(c *C, com cmd.Command, name string) {
 // flags, and that extra arguments will cause parsing to fail.
 var EnvironmentInitTests = []func() (cmd.Command, []string){
 	func() (cmd.Command, []string) { return new(BootstrapCommand), nil },
-	func() (cmd.Command, []string) { return new(DestroyCommand), nil },
+	func() (cmd.Command, []string) { return new(DestroyEnvironmentCommand), nil },
 	func() (cmd.Command, []string) {
 		return new(DeployCommand), []string{"charm-name", "service-name"}
 	},
@@ -105,7 +105,7 @@ func (*CmdSuite) TestEnvironmentInit(c *C) {
 
 func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc chan error) {
 	errc = make(chan error, 1)
-	opc = make(chan dummy.Operation)
+	opc = make(chan dummy.Operation, 200)
 	dummy.Reset()
 	dummy.Listen(opc)
 	go func() {
@@ -127,16 +127,16 @@ func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc
 func (*CmdSuite) TestBootstrapCommand(c *C) {
 	// normal bootstrap
 	opc, errc := runCommand(new(BootstrapCommand))
-	c.Check((<-opc).(dummy.OpBootstrap).Env, Equals, "peckham")
 	c.Check(<-errc, IsNil)
+	c.Check((<-opc).(dummy.OpBootstrap).Env, Equals, "peckham")
 
 	// bootstrap with tool uploading - checking that a file
 	// is uploaded should be sufficient, as the detailed semantics
 	// of UploadTools are tested in environs.
 	opc, errc = runCommand(new(BootstrapCommand), "--upload-tools")
+	c.Check(<-errc, IsNil)
 	c.Check((<-opc).(dummy.OpPutFile).Env, Equals, "peckham")
 	c.Check((<-opc).(dummy.OpBootstrap).Env, Equals, "peckham")
-	c.Check(<-errc, IsNil)
 
 	envs, err := environs.ReadEnvirons("")
 	c.Assert(err, IsNil)
@@ -160,20 +160,21 @@ func (*CmdSuite) TestBootstrapCommand(c *C) {
 
 	// bootstrap with broken environment
 	opc, errc = runCommand(new(BootstrapCommand), "-e", "brokenenv")
-	c.Check(<-opc, IsNil)
 	c.Check(<-errc, ErrorMatches, "dummy.Bootstrap is broken")
+	c.Check(<-opc, IsNil)
 }
 
-func (*CmdSuite) TestDestroyCommand(c *C) {
+func (*CmdSuite) TestDestroyEnvironmentCommand(c *C) {
 	// normal destroy
-	opc, errc := runCommand(new(DestroyCommand))
-	c.Check((<-opc).(dummy.OpDestroy).Env, Equals, "peckham")
+	opc, errc := runCommand(new(DestroyEnvironmentCommand))
 	c.Check(<-errc, IsNil)
+	c.Check((<-opc).(dummy.OpDestroy).Env, Equals, "peckham")
 
 	// destroy with broken environment
-	opc, errc = runCommand(new(DestroyCommand), "-e", "brokenenv")
+	opc, errc = runCommand(new(DestroyEnvironmentCommand), "-e", "brokenenv")
 	c.Check(<-opc, IsNil)
 	c.Check(<-errc, ErrorMatches, "dummy.Destroy is broken")
+	c.Check(<-opc, IsNil)
 }
 
 var deployTests = []struct {
