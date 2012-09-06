@@ -28,7 +28,7 @@ func (s *MachineSuite) TestMachineSetAgentAlive(c *C) {
 	pinger, err := s.machine.SetAgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(pinger, Not(IsNil))
-	defer pinger.Kill()
+	defer pinger.Stop()
 
 	s.State.ForcePresenceRefresh()
 	alive = s.machine.AgentAlive()
@@ -47,7 +47,6 @@ func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
 
 	pinger, err := s.machine.SetAgentAlive()
 	c.Assert(err, IsNil)
-	c.Assert(pinger, Not(IsNil))
 
 	s.State.ForcePresenceRefresh()
 	err = s.machine.WaitAgentAlive(timeout)
@@ -57,7 +56,8 @@ func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
 
-	pinger.Kill()
+	err = pinger.Kill()
+	c.Assert(err, IsNil)
 
 	s.State.ForcePresenceRefresh()
 	alive = s.machine.AgentAlive()

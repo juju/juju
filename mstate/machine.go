@@ -83,7 +83,7 @@ func (m *Machine) WaitAgentAlive(timeout time.Duration) error {
 	ch := make(chan presence.Change)
 	m.st.presencew.Add(m.globalKey(), ch)
 	defer m.st.presencew.Remove(m.globalKey(), ch)
-	// Initial check.		
+	// Initial check.
 	select {
 	case change := <-ch:
 		if change.Alive {
@@ -98,16 +98,15 @@ func (m *Machine) WaitAgentAlive(timeout time.Duration) error {
 		if change.Alive {
 			return nil
 		}
-		panic(fmt.Sprintf("unexpected alive status of machine %v", m))
+		panic(fmt.Sprintf("presence reported dead status twice in a row for machine %v", m))
 	case <-time.After(timeout):
 		return fmt.Errorf("waiting for agent of machine %v: still not alive after timeout", m)
 	}
 	panic("unreachable")
 }
 
-// SetAgentAlive signals that the agent for machine m is alive
-// by starting a pinger on its presence node. It returns the
-// started pinger.
+// SetAgentAlive signals that the agent for machine m is alive. 
+// It returns the started pinger.
 func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 	p := presence.NewPinger(m.st.presence, m.globalKey())
 	err := p.Start()
