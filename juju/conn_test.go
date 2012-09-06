@@ -86,7 +86,7 @@ func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 		"type":            "dummy",
 		"zookeeper":       true,
 		"authorized-keys": "i-am-a-key",
-		"secret":          "food",
+		"secret":          "pork",
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, IsNil)
@@ -109,7 +109,26 @@ func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	// push the secrets.
 	cfg, err = conn.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	c.Assert(cfg.UnknownAttrs()["secret"], Equals, "food")
+	c.Assert(cfg.UnknownAttrs()["secret"], Equals, "pork")
+}
+
+func (cs *ConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
+	cs.TestConnStateSecretsSideEffect(c)
+	env, err := environs.NewFromAttrs(map[string]interface{}{
+		"name":            "erewhemos",
+		"type":            "dummy",
+		"zookeeper":       true,
+		"authorized-keys": "i-am-a-key",
+		"secret":          "squirrel",
+	})
+	c.Assert(err, IsNil)
+	conn, err := juju.NewConn(env)
+	c.Assert(err, IsNil)
+	defer conn.Close()
+	// check that the secret has not changed
+	cfg, err := conn.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	c.Assert(cfg.UnknownAttrs()["secret"], Equals, "pork")
 }
 
 func (*ConnSuite) TestValidRegexps(c *C) {

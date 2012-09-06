@@ -55,7 +55,7 @@ func (s *Service) Start() error {
 }
 
 func runCommand(args ...string) error {
-	out, err := exec.Command(args[0], args...).CombinedOutput()
+	out, err := exec.Command(args[0], args[1:]...).CombinedOutput()
 	if err == nil {
 		return nil
 	}
