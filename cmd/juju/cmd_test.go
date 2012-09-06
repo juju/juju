@@ -19,7 +19,7 @@ type CmdSuite struct {
 
 var _ = Suite(&CmdSuite{})
 
-var config = `
+var envConfig = `
 default:
     peckham
 environments:
@@ -40,7 +40,7 @@ environments:
 
 func (s *CmdSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.JujuConnSuite.WriteConfig(config)
+	s.JujuConnSuite.WriteConfig(envConfig)
 }
 
 func newFlagSet() *gnuflag.FlagSet {
