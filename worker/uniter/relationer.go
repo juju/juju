@@ -108,10 +108,9 @@ func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
 		return
 	}
 	r.ctx.UpdateMembers(hi.Members)
-	switch {
-	case hi.Kind == hook.RelationDeparted:
+	if hi.Kind == hook.RelationDeparted {
 		r.ctx.DeleteMember(hi.RemoteUnit)
-	case hi.RemoteUnit != "":
+	} else if hi.RemoteUnit != "" {
 		r.ctx.UpdateMembers(server.SettingsMap{hi.RemoteUnit: nil})
 	}
 	name := r.ru.Endpoint().RelationName
