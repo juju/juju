@@ -36,7 +36,7 @@ func (r *Relationer) Context() *server.RelationContext {
 
 // Join starts the periodic signalling of the unit's presence in the relation.
 // It must not be called again until Abandon has been called, and must not be
-// called at all if Breaking has been called.
+// called at all if SetDying has been called.
 func (r *Relationer) Join() error {
 	if r.dying {
 		panic("dying relationer must not join!")
@@ -110,6 +110,8 @@ func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
 	r.ctx.UpdateMembers(hi.Members)
 	if hi.Kind == hook.RelationDeparted {
 		r.ctx.DeleteMember(hi.RemoteUnit)
+	} else if hi.RemoteUnit != "" {
+		r.ctx.UpdateMembers(server.SettingsMap{hi.RemoteUnit: nil})
 	}
 	name := r.ru.Endpoint().RelationName
 	return fmt.Sprintf("%s-%s", name, hi.Kind), nil
