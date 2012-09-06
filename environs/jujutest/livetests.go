@@ -160,46 +160,52 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	conn, err := juju.NewConn(t.Env)
 	c.Assert(err, IsNil)
 	defer conn.Close()
-
-	m, err := conn.State.Machine(0)
-	c.Assert(err, IsNil)
-
-	tools := t.machineAgentTools(c, m)
-
-	ch := t.putCharm(c, "dummy")
-
 	
-	// Wait for machine agent to come up on new
-	// machine and find the deployed series from that.
 	// Check that the agent version has made it through the
 	// bootstrap process (it's optional in the config.Config)
 	cfg, err := conn.State.EnvironConfig()
 	c.Assert(err, IsNil)
 	c.Check(cfg.AgentVersion(), Equals, version.Current.Number)
 
-	t.checkUpgradeMachineAgent(c, m)
-
-	
-	// place a new machine into the state
-	m, err = conn.State.AddMachine()
+	// Wait for machine agent to come up on the bootstrap
+	// machine and find the deployed series from that.
+	m0, err := conn.State.Machine(0)
 	c.Assert(err, IsNil)
+	tools0 := t.machineAgentTools(c, m0)
 
-	t.assertStartInstance(c, m)
-
-	// now remove it
-	c.Assert(conn.State.RemoveMachine(m.Id()), IsNil)
-
-	// watch the PA remove it
-	t.assertStopInstance(c, m)
-	assertInstanceId(c, m, nil)
-}
-
-func (t *LiveTests) putCharm(conn *juju.Conn, series, name string) *state.Charm {
-	ch := testing.Charms.Dir("dummy")
-	d := c.MkDir()
-	err := os.Mkdir(filepath.Join(d, series), 0777)
+	// Create a new service and deploy a unit of it.
+	repo := &testing.Repo{c.MkDir()}
+	repo.Dir(tools.Series, "dummy")
+	sch, err := conn.PutCharm(repo.URL(tools.Series, "dummy"), repo.Path, false)
 	c.Assert(err, IsNil)
+	svc, err := conn.AddService("", sch)
+	c.Assert(err, IsNil)
+	units, err := conn.AddUnits(svc, 1)
+	c.Assert(err, IsNil)
+	unit := units[0]
 
+	// Wait for the unit's machine and associated agent to come up
+	// and announce itself.
+	mid, err := unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	m1, err := conn.State.Machine(mid)
+	c.Assert(err, IsNil)
+	tools1 := t.machineAgentTools(c, m1)
+	c.Assert(tools1.Binary, Equals, tools0.Binary)
+
+	// Check that we can upgrade the environment.
+	newVersion := tools1.Binary
+	newVersion.Patch++
+	t.checkUpgrade(c, newVersion, m0, m1)
+
+	// Now remove the unit and its assigned machine and
+	// check that the PA removes it.
+	err = svc.RemoveUnit(unit)
+	c.Assert(err, IsNil)
+	err = conn.State.RemoveMachine(m1.Id())
+	c.Assert(err, IsNil)
+	t.assertStopInstance(c, m1)
+	assertInstanceId(c, m1, nil)
 }
 
 // machineAgentTools waits for the given machine agent
@@ -222,14 +228,9 @@ func (t *LiveTests) machineAgentTools(c *C, m *state.Machine) *state.Tools{
 	return gotTools
 }
 
-func (t *LiveTests) checkUpgradeMachineAgent(c *C, m *state.Machine) {
-	// First watch the machine agent's current tools to make sure
-	// that it sets them appropriately.
-
+func (t *LiveTests) checkUpgrade(c *C, newVersion version.Binary, agents ...*state.Machine) {
 	c.Logf("putting testing version of juju tools")
 
-	newVersion := version.Current
-	newVersion.Patch++
 	upgradeTools, err := environs.PutTools(t.Env.Storage(), &newVersion)
 	c.Assert(err, IsNil)
 
