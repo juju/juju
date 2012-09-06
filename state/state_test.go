@@ -92,7 +92,7 @@ func (s *StateSuite) TestInitalizeWithConfig(c *C) {
 		"zookeeper":       true,
 		"authorized-keys": "i-am-a-key",
 		"default-series":  "precise",
-		"development":     true,
+		"development": true,
 	}
 	st, err := state.Initialize(s.StateInfo(c), m)
 	c.Assert(err, IsNil)
