@@ -70,7 +70,7 @@ type Watcher struct {
 	// the the gorotuine loop.
 	request chan interface{}
 
-	// refreshed contains pending ForcedRefresh done channels
+	// refreshed contains pending ForceRefresh done channels
 	// that are waiting for the completion notice.
 	refreshed []chan bool
 
@@ -92,7 +92,7 @@ type Change struct {
 	Alive bool
 }
 
-// New returns a new Watcher.
+// NewWatcher returns a new Watcher.
 func NewWatcher(base *mgo.Collection) *Watcher {
 	w := &Watcher{
 		base:     base,
