@@ -216,7 +216,7 @@ func (t *LiveTests) checkUpgradeMachineAgent(c *C, st *state.State, m *state.Mac
 
 	// Check that the put version really is the version we expect.
 	c.Assert(upgradeTools.Binary, Equals, newVersion)
-	err = setStateAgentVersion(st, newVersion.Number)
+	err = setAgentVersion(st, newVersion.Number)
 	c.Assert(err, IsNil)
 
 	c.Logf("waiting for upgrade")
@@ -233,9 +233,9 @@ func (t *LiveTests) checkUpgradeMachineAgent(c *C, st *state.State, m *state.Mac
 	c.Logf("upgrade successful!")
 }
 
-// setStateAgentVersion sets the current agent version in the state's
+// setAgentVersion sets the current agent version in the state's
 // environment configuration.
-func setStateAgentVersion(st *state.State, vers version.Number) error {
+func setAgentVersion(st *state.State, vers version.Number) error {
 	cfg, err := st.EnvironConfig()
 	if err != nil {
 		return err

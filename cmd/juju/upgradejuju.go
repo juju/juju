@@ -90,7 +90,7 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) error {
 	if c.Version == c.agentVersion && c.Development == cfg.Development() {
 		return nil
 	}
-	return SetStateAgentVersion(c.conn.State, c.Version, c.Development)
+	return SetAgentVersion(c.conn.State, c.Version, c.Development)
 }
 
 // newestVersion returns the newest version of any tool.
@@ -125,9 +125,9 @@ func (c *UpgradeJujuCommand) highestVersion(list []*state.Tools, allowDev bool) 
 	return max
 }
 
-// SetStateAgentVersion sets the current agent version and
+// SetAgentVersion sets the current agent version and
 // development flag in the state's environment configuration.
-func SetStateAgentVersion(st *state.State, vers version.Number, development bool) error {
+func SetAgentVersion(st *state.State, vers version.Number, development bool) error {
 	cfg, err := st.EnvironConfig()
 	if err != nil {
 		return err

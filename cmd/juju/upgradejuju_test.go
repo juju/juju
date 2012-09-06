@@ -159,7 +159,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 			upload(storage, v)
 		}
 		version.Current = version.MustParseBinary(test.currentVersion)
-		err := SetStateAgentVersion(s.State, version.MustParse(test.agentVersion), false)
+		err := SetAgentVersion(s.State, version.MustParse(test.agentVersion), false)
 		c.Assert(err, IsNil)
 
 		// Run the command
