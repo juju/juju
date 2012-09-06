@@ -575,19 +575,19 @@ func (s *StoreSuite) TestCountersTokenCaching(c *C) {
 }
 
 func (s *StoreSuite) TestCounterTokenUniqueness(c *C) {
-	var barrier, running sync.WaitGroup
-	barrier.Add(1)
-	running.Add(10)
+	var wg0, wg1 sync.WaitGroup
+	wg0.Add(10)
+	wg1.Add(10)
 	for i := 0; i < 10; i++ {
 		go func() {
-			defer running.Done()
-			barrier.Wait()
+			wg0.Done()
+			wg0.Wait()
+			defer wg1.Done()
 			err := s.store.IncCounter([]string{"a"})
 			c.Check(err, IsNil)
 		}()
 	}
-	barrier.Done()
-	running.Wait()
+	wg1.Wait()
 
 	sum, err := s.store.SumCounter([]string{"a"}, false)
 	c.Assert(err, IsNil)
