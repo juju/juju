@@ -18,10 +18,6 @@ type Container interface {
 
 	// Destroy destroys the unit's container.
 	Destroy(unit *state.Unit) error
-
-	// ToolsDir returns the slash-separated directory that the tools binaries
-	// are stored in for the given unit
-	ToolsDir(*state.Unit) string
 }
 
 // TODO:

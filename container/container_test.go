@@ -23,6 +23,8 @@ func TestPackage(t *stdtesting.T) {
 	coretesting.ZkTestPackage(t)
 }
 
+var _ container.Container = (*container.Simple)(nil)
+
 func (s *suite) TestDeploy(c *C) {
 	// make sure there's a jujud "executable" in the path.
 	varDir := c.MkDir()
