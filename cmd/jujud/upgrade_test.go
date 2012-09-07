@@ -204,7 +204,7 @@ func assertEvent(c *C, event <-chan string, want string) {
 // expecting to see it set the given agent tools.
 func startUpgrader(c *C, st *state.State, expectTools *state.Tools) *Upgrader {
 	as := testAgentState(make(chan *state.Tools))
-	u := NewUpgrader(st, "testagent", as)
+	u := NewUpgrader(st, as)
 	select {
 	case tools := <-as:
 		c.Assert(tools, DeepEquals, expectTools)
