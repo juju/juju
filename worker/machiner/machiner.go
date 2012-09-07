@@ -9,7 +9,7 @@ import (
 )
 
 // NewMachiner starts a machine agent running that
-// deploy agents using the given container.
+// deploys agents in the given directory.
 // The Machiner dies when it encounters an error.
 func NewMachiner(machine *state.Machine, varDir string) *Machiner {
 	cont := &container.Simple{VarDir: varDir}
