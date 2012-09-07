@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
@@ -46,12 +45,14 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		Tools:              newSimpleTools("1.2.3-linux-amd64"),
 		StateServer:        true,
 		Config:             envConfig,
+		VarDir:	"/var/lib/juju",
 	},
 	{
 		MachineId:      99,
 		ProviderType:   "ec2",
 		Provisioner:    false,
 		AuthorizedKeys: "sshkey1",
+		VarDir:	"/var/lib/juju",
 		StateServer:    false,
 		Tools:          newSimpleTools("1.2.3-linux-amd64"),
 		StateInfo:      &state.Info{Addrs: []string{"zk1"}},
@@ -72,10 +73,10 @@ type cloudinitTest struct {
 	cfg *cloudinit.MachineConfig    // the config being tested.
 }
 
-func (t *cloudinitTest) check(c *C) {
+func (t *cloudinitTest) check(c *C, cfg *cloudinit.MachineConfig) {
 	c.Check(t.x["apt_upgrade"], Equals, true)
 	c.Check(t.x["apt_update"], Equals, true)
-	t.checkScripts(c, "mkdir -p "+environs.VarDir)
+	t.checkScripts(c, "mkdir -p "+cfg.VarDir)
 	t.checkScripts(c, "wget.*"+regexp.QuoteMeta(t.cfg.Tools.URL)+".*tar .*xz")
 
 	if t.cfg.StateServer {
@@ -220,7 +221,7 @@ func (cloudinitSuite) TestCloudInit(c *C) {
 			cfg: &cfg,
 			x:   x,
 		}
-		t.check(c)
+		t.check(c, &cfg)
 	}
 }
 
@@ -247,6 +248,10 @@ var verifyTests = []struct {
 		cfg.StateServer = false
 		cfg.StateInfo = &state.Info{}
 	}},
+	{"missing var directory", func(cfg *cloudinit.MachineConfig) {
+		cfg.VarDir = ""
+		cfg.StateInfo = &state.Info{}
+	}},
 	{"missing tools", func(cfg *cloudinit.MachineConfig) {
 		cfg.Tools = nil
 		cfg.StateInfo = &state.Info{}
@@ -270,6 +275,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		AuthorizedKeys:     "sshkey1",
 		StateInfo:          &state.Info{Addrs: []string{"zkhost"}},
 		Config:             envConfig,
+		VarDir: "/var/lib/juju",
 	}
 	// check that the base configuration does not give an error
 	_, err := cloudinit.New(cfg)
