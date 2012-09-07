@@ -22,6 +22,7 @@ type Upgrader struct {
 	tomb       tomb.Tomb
 	st         *state.State
 	agentState AgentState
+	varDir string
 }
 
 // UpgradedError is returned by an Upgrader to report that
@@ -42,10 +43,11 @@ type AgentState interface {
 }
 
 // NewUpgrader returns a new Upgrader watching the given agent.
-func NewUpgrader(st *state.State, agentState AgentState) *Upgrader {
+func NewUpgrader(st *state.State, agentState AgentState, varDir string) *Upgrader {
 	u := &Upgrader{
 		st:         st,
 		agentState: agentState,
+		varDir: varDir,
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -65,7 +67,7 @@ func (u *Upgrader) Wait() error {
 
 func (u *Upgrader) run() error {
 	// Let the state know the version that is currently running.
-	currentTools, err := environs.ReadTools(version.Current)
+	currentTools, err := environs.ReadTools(u.varDir, version.Current)
 	if err != nil {
 		// Don't abort everything because we can't find the tools directory.
 		// The problem should sort itself out as we will immediately
@@ -128,7 +130,7 @@ func (u *Upgrader) run() error {
 			binary := version.Current
 			binary.Number = vers
 
-			if tools, err := environs.ReadTools(binary); err == nil {
+			if tools, err := environs.ReadTools(u.varDir, binary); err == nil {
 				// The tools have already been downloaded, so use them.
 				return &UpgradedError{tools}
 			}
@@ -160,7 +162,7 @@ func (u *Upgrader) run() error {
 				log.Printf("upgrader: download of %v failed: %v", tools.Binary, status.Err)
 				break
 			}
-			err := environs.UnpackTools(tools, status.File)
+			err := environs.UnpackTools(u.varDir, tools, status.File)
 			status.File.Close()
 			if err := os.Remove(status.File.Name()); err != nil {
 				log.Printf("upgrader: cannot remove temporary download file: %v", err)
