@@ -21,7 +21,7 @@ import (
 type ToolsSuite struct {
 	env environs.Environ
 	testing.LoggingSuite
-	oldVarDir string
+	varDir string
 }
 
 func (t *ToolsSuite) SetUpTest(c *C) {
@@ -34,12 +34,10 @@ func (t *ToolsSuite) SetUpTest(c *C) {
 	})
 	c.Assert(err, IsNil)
 	t.env = env
-	t.oldVarDir = environs.VarDir
-	environs.VarDir = c.MkDir()
+	t.varDir = c.MkDir()
 }
 
 func (t *ToolsSuite) TearDownTest(c *C) {
-	environs.VarDir = t.oldVarDir
 	dummy.Reset()
 	t.LoggingSuite.TearDownTest(c)
 }
@@ -80,17 +78,17 @@ func (t *ToolsSuite) TestPutGetTools(c *C) {
 	c.Assert(tools.Binary, Equals, version.Current)
 	c.Assert(tools.URL, Not(Equals), "")
 
-	for i, get := range []func(t *state.Tools) error{
+	for i, get := range []func(varDir string, t *state.Tools) error{
 		getTools,
 		getToolsWithTar,
 	} {
 		c.Logf("test %d", i)
 		// Unarchive the tool executables into a temp directory.
-		environs.VarDir = c.MkDir()
-		err = get(tools)
+		varDir := c.MkDir()
+		err = get(varDir, tools)
 		c.Assert(err, IsNil)
 
-		dir := environs.ToolsDir(version.Current)
+		dir := environs.ToolsDir(varDir, version.Current)
 		// Verify that each tool executes and produces some
 		// characteristic output.
 		for i, test := range commandTests {
@@ -169,14 +167,14 @@ func (t *ToolsSuite) TestUnpackToolsBadData(c *C) {
 			URL:    "http://foo/bar",
 			Binary: version.MustParseBinary("1.2.3-foo-bar"),
 		}
-		err := environs.UnpackTools(tools, bytes.NewReader(test.data))
+		err := environs.UnpackTools(t.varDir, tools, bytes.NewReader(test.data))
 		c.Assert(err, ErrorMatches, test.err)
-		assertDirNames(c, toolsDir(), []string{})
+		assertDirNames(c, t.toolsDir(), []string{})
 	}
 }
 
-func toolsDir() string {
-	return filepath.Join(environs.VarDir, "tools")
+func (t *ToolsSuite) toolsDir() string {
+	return filepath.Join(t.varDir, "tools")
 }
 
 func (t *ToolsSuite) TestUnpackToolsContents(c *C) {
@@ -189,10 +187,10 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *C) {
 		Binary: version.MustParseBinary("1.2.3-foo-bar"),
 	}
 
-	err := environs.UnpackTools(tools, bytes.NewReader(testing.TarGz(files...)))
+	err := environs.UnpackTools(t.varDir, tools, bytes.NewReader(testing.TarGz(files...)))
 	c.Assert(err, IsNil)
-	assertDirNames(c, toolsDir(), []string{"1.2.3-foo-bar"})
-	assertToolsContents(c, tools, files)
+	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar"})
+	t.assertToolsContents(c, tools, files)
 
 	// Try to unpack the same version of tools again - it should succeed,
 	// leaving the original version around.
@@ -204,26 +202,26 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *C) {
 		testing.NewTarFile("bar", 0755, "bar2 contents"),
 		testing.NewTarFile("x", 0755, "x contents"),
 	}
-	err = environs.UnpackTools(tools2, bytes.NewReader(testing.TarGz(files2...)))
+	err = environs.UnpackTools(t.varDir, tools2, bytes.NewReader(testing.TarGz(files2...)))
 	c.Assert(err, IsNil)
-	assertDirNames(c, toolsDir(), []string{"1.2.3-foo-bar"})
-	assertToolsContents(c, tools, files)
+	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar"})
+	t.assertToolsContents(c, tools, files)
 }
 
 func (t *ToolsSuite) TestReadToolsErrors(c *C) {
 	vers := version.MustParseBinary("1.2.3-precise-amd64")
-	tools, err := environs.ReadTools(vers)
+	tools, err := environs.ReadTools(t.varDir, vers)
 	c.Assert(tools, IsNil)
 	c.Assert(err, ErrorMatches, "cannot read URL in tools directory: .*")
 
-	dir := environs.ToolsDir(vers)
+	dir := environs.ToolsDir(t.varDir, vers)
 	err = os.MkdirAll(dir, 0755)
 	c.Assert(err, IsNil)
 
 	err = ioutil.WriteFile(filepath.Join(dir, urlFile), []byte(" \t\n"), 0644)
 	c.Assert(err, IsNil)
 
-	tools, err = environs.ReadTools(vers)
+	tools, err = environs.ReadTools(t.varDir, vers)
 	c.Assert(tools, IsNil)
 	c.Assert(err, ErrorMatches, "empty URL in tools directory.*")
 }
@@ -234,14 +232,13 @@ func (t *ToolsSuite) TestToolsStoragePath(c *C) {
 }
 
 func (t *ToolsSuite) TestToolsDir(c *C) {
-	environs.VarDir = "/var/lib/juju"
-	c.Assert(environs.ToolsDir(binaryVersion("1.2.3-precise-amd64")),
+	c.Assert(environs.ToolsDir("/var/lib/juju", binaryVersion("1.2.3-precise-amd64")),
 		Equals,
 		"/var/lib/juju/tools/1.2.3-precise-amd64")
 }
 
 // getTools downloads and unpacks the given tools.
-func getTools(tools *state.Tools) error {
+func getTools(varDir string, tools *state.Tools) error {
 	resp, err := http.Get(tools.URL)
 	if err != nil {
 		return err
@@ -250,20 +247,20 @@ func getTools(tools *state.Tools) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("bad http status: %v", resp.Status)
 	}
-	return environs.UnpackTools(tools, resp.Body)
+	return environs.UnpackTools(varDir, tools, resp.Body)
 }
 
 // getToolsWithTar is the same as getTools but uses tar
 // itself so we're not just testing the Go tar package against
 // itself.
-func getToolsWithTar(tools *state.Tools) error {
+func getToolsWithTar(varDir string, tools *state.Tools) error {
 	resp, err := http.Get(tools.URL)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
-	dir := environs.ToolsDir(tools.Binary)
+	dir := environs.ToolsDir(varDir, tools.Binary)
 	err = os.MkdirAll(dir, 0755)
 	if err != nil {
 		return err
@@ -281,19 +278,19 @@ func getToolsWithTar(tools *state.Tools) error {
 
 // assertToolsContents asserts that the directory for the tools
 // has the given contents.
-func assertToolsContents(c *C, tools *state.Tools, files []*testing.TarFile) {
+func (t *ToolsSuite) assertToolsContents(c *C, tools *state.Tools, files []*testing.TarFile) {
 	var wantNames []string
 	for _, f := range files {
 		wantNames = append(wantNames, f.Header.Name)
 	}
 	wantNames = append(wantNames, urlFile)
-	dir := environs.ToolsDir(tools.Binary)
+	dir := environs.ToolsDir(t.varDir, tools.Binary)
 	assertDirNames(c, dir, wantNames)
 	assertFileContents(c, dir, urlFile, tools.URL, 0200)
 	for _, f := range files {
 		assertFileContents(c, dir, f.Header.Name, f.Contents, 0400)
 	}
-	gotTools, err := environs.ReadTools(tools.Binary)
+	gotTools, err := environs.ReadTools(t.varDir, tools.Binary)
 	c.Assert(err, IsNil)
 	c.Assert(*gotTools, Equals, *tools)
 }
@@ -332,15 +329,15 @@ func (t *ToolsSuite) TestChangeAgentTools(c *C) {
 		URL:    "http://foo/bar1",
 		Binary: version.MustParseBinary("1.2.3-foo-bar"),
 	}
-	err := environs.UnpackTools(tools, bytes.NewReader(testing.TarGz(files...)))
+	err := environs.UnpackTools(t.varDir, tools, bytes.NewReader(testing.TarGz(files...)))
 	c.Assert(err, IsNil)
 
-	gotTools, err := environs.ChangeAgentTools("testagent", tools.Binary)
+	gotTools, err := environs.ChangeAgentTools(t.varDir, "testagent", tools.Binary)
 	c.Assert(err, IsNil)
 	c.Assert(*gotTools, Equals, *tools)
 
-	assertDirNames(c, toolsDir(), []string{"1.2.3-foo-bar", "testagent"})
-	assertDirNames(c, environs.AgentToolsDir("testagent"), []string{"jujuc", "jujud", urlFile})
+	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar", "testagent"})
+	assertDirNames(c, environs.AgentToolsDir(t.varDir, "testagent"), []string{"jujuc", "jujud", urlFile})
 
 	// Upgrade again to check that the link replacement logic works ok.
 	files2 := []*testing.TarFile{
@@ -351,15 +348,15 @@ func (t *ToolsSuite) TestChangeAgentTools(c *C) {
 		URL:    "http://foo/bar2",
 		Binary: version.MustParseBinary("1.2.4-foo-bar"),
 	}
-	err = environs.UnpackTools(tools2, bytes.NewReader(testing.TarGz(files2...)))
+	err = environs.UnpackTools(t.varDir, tools2, bytes.NewReader(testing.TarGz(files2...)))
 	c.Assert(err, IsNil)
 
-	gotTools, err = environs.ChangeAgentTools("testagent", tools2.Binary)
+	gotTools, err = environs.ChangeAgentTools(t.varDir, "testagent", tools2.Binary)
 	c.Assert(err, IsNil)
 	c.Assert(*gotTools, Equals, *tools2)
 
-	assertDirNames(c, toolsDir(), []string{"1.2.3-foo-bar", "1.2.4-foo-bar", "testagent"})
-	assertDirNames(c, environs.AgentToolsDir("testagent"), []string{"foo", "bar", urlFile})
+	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar", "1.2.4-foo-bar", "testagent"})
+	assertDirNames(c, environs.AgentToolsDir(t.varDir, "testagent"), []string{"foo", "bar", urlFile})
 }
 
 // gzyesses holds the result of running:
