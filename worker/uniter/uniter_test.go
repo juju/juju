@@ -43,8 +43,7 @@ func (s *UniterSuite) SetUpSuite(c *C) {
 	s.JujuConnSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
 	s.varDir = c.MkDir()
-	environs.VarDir = s.varDir // it's restored by JujuConnSuite.
-	toolsDir := environs.AgentToolsDir("unit-u-0")
+	toolsDir := environs.AgentToolsDir(s.varDir, "unit-u-0")
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, IsNil)
 	cmd := exec.Command("go", "build", "launchpad.net/juju-core/cmd/jujuc")
@@ -62,7 +61,7 @@ func (s *UniterSuite) TearDownSuite(c *C) {
 
 func (s *UniterSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
-	environs.VarDir = s.varDir
+	s.HTTPSuite.SetUpTest(c)
 }
 
 func (s *UniterSuite) TearDownTest(c *C) {
@@ -72,7 +71,6 @@ func (s *UniterSuite) TearDownTest(c *C) {
 
 func (s *UniterSuite) Reset(c *C) {
 	s.JujuConnSuite.Reset(c)
-	environs.VarDir = s.varDir
 }
 
 type uniterTest struct {
@@ -91,6 +89,7 @@ type stepper interface {
 type context struct {
 	id     int
 	path   string
+	varDir string
 	st     *state.State
 	charms coretesting.ResponseMap
 	hooks  []string
@@ -259,7 +258,7 @@ var uniterTests = []uniterTest{
 }
 
 func (s *UniterSuite) TestUniter(c *C) {
-	unitDir := filepath.Join(environs.VarDir, "units", "u-0")
+	unitDir := filepath.Join(s.varDir, "units", "u-0")
 	for i, t := range uniterTests {
 		if i != 0 {
 			s.Reset(c)
@@ -271,6 +270,7 @@ func (s *UniterSuite) TestUniter(c *C) {
 		ctx := &context{
 			id:     i,
 			path:   unitDir,
+			varDir: s.varDir,
 			st:     s.State,
 			charms: coretesting.ResponseMap{},
 		}
@@ -383,7 +383,7 @@ func (s startUniter) step(c *C, ctx *context) {
 	if ctx.uniter != nil {
 		panic("don't start two uniters!")
 	}
-	u, err := uniter.NewUniter(ctx.st, "u/0")
+	u, err := uniter.NewUniter(ctx.st, "u/0", ctx.varDir)
 	if s.err == "" {
 		c.Assert(err, IsNil)
 		ctx.uniter = u

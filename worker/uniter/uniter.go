@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/jujuc/server"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/presence"
@@ -38,9 +37,9 @@ type Uniter struct {
 // NewUniter creates a new Uniter which will install, run, and upgrade a
 // charm on behalf of the named unit, by executing hooks and operations
 // provoked by changes in st.
-func NewUniter(st *state.State, name string) (u *Uniter, err error) {
+func NewUniter(st *state.State, name string, varDir string) (u *Uniter, err error) {
 	defer trivial.ErrorContextf(&err, "failed to create uniter for unit %q", name)
-	path, err := ensureFs(name)
+	path, err := ensureFs(varDir, name)
 	if err != nil {
 		return nil, err
 	}
@@ -200,14 +199,14 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 }
 
 // ensureFs ensures that files and directories required by the named uniter
-// exist. It returns the path to the directory within which the uniter must
+// exist inside varDir. It returns the path to the directory within which the uniter must
 // store its data.
-func ensureFs(name string) (string, error) {
+func ensureFs(varDir, name string) (string, error) {
 	// TODO: do this OAOO at packaging time?
-	if err := EnsureJujucSymlinks(name); err != nil {
+	if err := EnsureJujucSymlinks(varDir, name); err != nil {
 		return "", err
 	}
-	path := filepath.Join(environs.VarDir, "units", strings.Replace(name, "/", "-", 1))
+	path := filepath.Join(varDir, "units", strings.Replace(name, "/", "-", 1))
 	if err := trivial.EnsureDir(filepath.Join(path, "state")); err != nil {
 		return "", err
 	}
