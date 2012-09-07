@@ -43,7 +43,8 @@ func Dial(servers string) (*State, error) {
 	return st, nil
 }
 
-func (st *State) Close() (err error) {
+func (st *State) Close() error {
+	err := st.presencew.Stop()
 	st.db.Session.Close()
-	return
+	return err
 }
