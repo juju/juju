@@ -25,18 +25,11 @@ func (s *MachinerSuite) TestMachinerStartStop(c *C) {
 	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 
-	p := machiner.NewMachiner(m)
+	p := machiner.NewMachiner(m, c.MkDir())
 	c.Assert(p.Stop(), IsNil)
 }
 
 func (s *MachinerSuite) TestMachinerDeployDestroy(c *C) {
-	dcontainer := newDummyContainer()
-	backup := container.Simple
-	container.Simple = dcontainer
-	defer func() {
-		container.Simple = backup
-	}()
-
 	dummyCharm := s.AddTestingCharm(c, "dummy")
 	loggingCharm := s.AddTestingCharm(c, "logging")
 
@@ -65,7 +58,8 @@ func (s *MachinerSuite) TestMachinerDeployDestroy(c *C) {
 	err = ud0.AssignToMachine(m0)
 	c.Assert(err, IsNil)
 
-	machiner := machiner.NewMachiner(m0)
+	dcontainer := newDummyContainer()
+	machiner := machiner.NewMachinerWithContainer(m0, dcontainer)
 
 	tests := []struct {
 		change  func()
@@ -116,6 +110,8 @@ func (s *MachinerSuite) TestMachinerDeployDestroy(c *C) {
 type dummyContainer struct {
 	action chan string
 }
+
+var _ container.Container = (*dummyContainer)(nil)
 
 func newDummyContainer() *dummyContainer {
 	return &dummyContainer{

@@ -8,14 +8,17 @@ import (
 	"launchpad.net/tomb"
 )
 
-// NewMachiner starts a machine agent running.
+
+// NewMachiner starts a machine agent running that
+// deploy agents using the given container.
 // The Machiner dies when it encounters an error.
 func NewMachiner(machine *state.Machine, varDir string) *Machiner {
-	m := &Machiner{
-		container: &container.Simple{
-			VarDir: varDir,
-		},
-	}
+	cont := &container.Simple{VarDir: varDir}
+	return newMachiner(machine, cont)
+}
+
+func newMachiner(machine *state.Machine, cont container.Container) *Machiner {
+	m := &Machiner{container: cont}
 	go m.loop(machine)
 	return m
 }
