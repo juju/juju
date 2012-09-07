@@ -46,7 +46,7 @@ func (s *suite) TestDeploy(c *C) {
 
 	initDir := c.MkDir()
 	cont := container.Simple{
-		VarDir: varDir,
+		VarDir:  varDir,
 		InitDir: initDir,
 	}
 

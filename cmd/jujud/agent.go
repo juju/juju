@@ -48,7 +48,7 @@ func stateInfoVar(fs *gnuflag.FlagSet, target *state.Info, name string, value []
 
 // AgentConf handles command-line flags shared by all agents.
 type AgentConf struct {
-	VarDir   string
+	VarDir    string
 	StateInfo state.Info
 }
 

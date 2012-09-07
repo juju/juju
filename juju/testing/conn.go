@@ -32,10 +32,10 @@ import (
 type JujuConnSuite struct {
 	testing.LoggingSuite
 	testing.ZkSuite
-	Conn      *juju.Conn
-	State     *state.State
-	RootDir string	// The faked-up root directory.
-	oldHome   string
+	Conn    *juju.Conn
+	State   *state.State
+	RootDir string // The faked-up root directory.
+	oldHome string
 }
 
 var config = []byte(`

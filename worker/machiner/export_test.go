@@ -1,4 +1,5 @@
 package machiner
+
 import (
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/state"

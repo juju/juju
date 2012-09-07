@@ -8,7 +8,6 @@ import (
 	"launchpad.net/tomb"
 )
 
-
 // NewMachiner starts a machine agent running that
 // deploy agents using the given container.
 // The Machiner dies when it encounters an error.
@@ -25,7 +24,7 @@ func newMachiner(machine *state.Machine, cont container.Container) *Machiner {
 
 // Machiner represents a running machine agent.
 type Machiner struct {
-	tomb tomb.Tomb
+	tomb      tomb.Tomb
 	container container.Container
 }
 

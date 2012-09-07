@@ -346,7 +346,7 @@ func ChangeAgentTools(varDir string, agentName string, vers version.Binary) (*st
 	if err != nil {
 		return nil, err
 	}
-	tmpName := AgentToolsDir(varDir, "tmplink-" + agentName)
+	tmpName := AgentToolsDir(varDir, "tmplink-"+agentName)
 	err = os.Symlink(tools.Binary.String(), tmpName)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create tools symlink: %v", err)

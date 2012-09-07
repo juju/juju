@@ -143,7 +143,6 @@ func (*CmdSuite) TestBootstrapCommand(c *C) {
 	env, err := envs.Open("peckham")
 	c.Assert(err, IsNil)
 
-
 	tools, err := environs.FindTools(env, version.Current, environs.CompatVersion)
 	c.Assert(err, IsNil)
 	resp, err := http.Get(tools.URL)

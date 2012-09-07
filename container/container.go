@@ -30,7 +30,7 @@ type Container interface {
 
 // Simple is a Container that knows how deploy units within
 // the current machine.
-type Simple struct{
+type Simple struct {
 	VarDir string
 	// InitDir holds the directory where upstart scripts
 	// will be deployed. If blank, the system default will

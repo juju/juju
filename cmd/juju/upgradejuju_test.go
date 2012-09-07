@@ -24,12 +24,12 @@ var upgradeJujuTests = []struct {
 	currentVersion string
 	agentVersion   string
 
-	args             []string
-	expectInitErr    string
-	expectErr        string
-	expectVersion    string
+	args              []string
+	expectInitErr     string
+	expectErr         string
+	expectVersion     string
 	expectDevelopment bool
-	expectUploaded   string
+	expectUploaded    string
 }{{
 	about:          "unwanted extra argument",
 	currentVersion: "1.0.0-foo-bar",
@@ -57,13 +57,13 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.0.1",
 	expectVersion:  "2.0.3",
 }, {
-	about:            "dev version flag, from private storage",
-	private:          []string{"2.0.0-foo-bar", "2.0.2-foo-bar", "2.0.3-foo-bar"},
-	public:           []string{"2.0.0-foo-bar", "2.0.4-foo-bar", "2.0.5-foo-bar"},
-	currentVersion:   "2.0.0-foo-bar",
-	args:             []string{"--dev"},
-	agentVersion:     "2.0.0",
-	expectVersion:    "2.0.3",
+	about:             "dev version flag, from private storage",
+	private:           []string{"2.0.0-foo-bar", "2.0.2-foo-bar", "2.0.3-foo-bar"},
+	public:            []string{"2.0.0-foo-bar", "2.0.4-foo-bar", "2.0.5-foo-bar"},
+	currentVersion:    "2.0.0-foo-bar",
+	args:              []string{"--dev"},
+	agentVersion:      "2.0.0",
+	expectVersion:     "2.0.3",
 	expectDevelopment: true,
 }, {
 	about:          "from public storage",
@@ -78,12 +78,12 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.0.1",
 	expectVersion:  "2.0.3",
 }, {
-	about:            "dev version flag, from public storage",
-	public:           []string{"2.0.0-foo-bar", "2.0.2-arble-bletch", "2.0.3-foo-bar"},
-	currentVersion:   "2.0.0-foo-bar",
-	args:             []string{"--dev"},
-	agentVersion:     "2.0.0",
-	expectVersion:    "2.0.3",
+	about:             "dev version flag, from public storage",
+	public:            []string{"2.0.0-foo-bar", "2.0.2-arble-bletch", "2.0.3-foo-bar"},
+	currentVersion:    "2.0.0-foo-bar",
+	args:              []string{"--dev"},
+	agentVersion:      "2.0.0",
+	expectVersion:     "2.0.3",
 	expectDevelopment: true,
 }, {
 	about:          "specified version",

@@ -22,7 +22,7 @@ type Upgrader struct {
 	tomb       tomb.Tomb
 	st         *state.State
 	agentState AgentState
-	varDir string
+	varDir     string
 }
 
 // UpgradedError is returned by an Upgrader to report that
@@ -47,7 +47,7 @@ func NewUpgrader(st *state.State, agentState AgentState, varDir string) *Upgrade
 	u := &Upgrader{
 		st:         st,
 		agentState: agentState,
-		varDir: varDir,
+		varDir:     varDir,
 	}
 	go func() {
 		defer u.tomb.Done()
