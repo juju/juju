@@ -34,6 +34,7 @@ type State struct {
 	settings  *mgo.Collection
 	units     *mgo.Collection
 	runner    *txn.Runner
+	fwd       *sshForwarder
 }
 
 func deadOnAbort(err error) error {
