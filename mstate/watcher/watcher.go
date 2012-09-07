@@ -33,7 +33,7 @@ type Watcher struct {
 	refreshEvents, requestEvents []event
 
 	// request is used to deliver requests from the public API into
-	// the the gorotuine loop.
+	// the the goroutine loop.
 	request chan interface{}
 
 	// refreshed contains pending ForceRefresh done channels
@@ -148,11 +148,8 @@ func (w *Watcher) ForceRefresh() {
 	}
 }
 
-// period is the length of each time slot in seconds.
-// It's not a time.Duration because the code is more convenient like
-// this and also because sub-second timings don't work as the slot
-// identifier is an int64 in seconds.
-var period int64 = 30
+// period is the delay between each refresh.
+var period time.Duration = 5 * time.Second
 
 // loop implements the main watcher loop.
 func (w *Watcher) loop() error {
@@ -165,7 +162,7 @@ func (w *Watcher) loop() error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-w.next:
-			w.next = time.After(time.Duration(period) * time.Second)
+			w.next = time.After(period)
 			refreshed := w.refreshed
 			w.refreshed = nil
 			if err := w.refresh(); err != nil {
@@ -316,6 +313,7 @@ func (w *Watcher) refresh() error {
 		}
 		log.Debugf("watcher: got changelog document: %#v", entry)
 		for _, c := range entry {
+			// See txn's Runner.ChangeLog for the structure of log entries.
 			var d, r []interface{}
 			dr, _ := c.Value.(bson.D)
 			for _, item := range dr {

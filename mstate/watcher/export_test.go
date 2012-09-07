@@ -1,7 +1,11 @@
 package watcher
 
-func FakePeriod(seconds int64) {
-	period = seconds
+import (
+	"time"
+)
+
+func FakePeriod(p time.Duration) {
+	period = p
 }
 
 var realPeriod = period

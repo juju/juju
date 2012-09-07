@@ -368,14 +368,15 @@ func (s *WatcherSuite) TestScale(c *C) {
 }
 
 func (s *WatcherSuite) TestWatchPeriod(c *C) {
-	watcher.FakePeriod(1)
+	period := 1 * time.Second
+	watcher.FakePeriod(period)
 	revno1 := s.insert(c, "test", "a")
 	s.w.ForceRefresh()
 	s.w.Watch("test", "a", revno1, s.ch)
 	revno2 := s.update(c, "test", "a")
 
 	// Wait for next periodic refresh.
-	time.Sleep(1 * time.Second)
+	time.Sleep(period)
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno2})
 
 	assertOrder(c, -1, revno1, revno2)
