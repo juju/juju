@@ -205,12 +205,3 @@ func (d *GitDir) statuses() ([]string, error) {
 	}
 	return statuses, nil
 }
-
-// recover deletes the index lock file if it exists.
-func (d *GitDir) recover() error {
-	err := os.Remove(filepath.Join(d.path, ".git", "index.lock"))
-	if os.IsNotExist(err) {
-		return nil
-	}
-	return fmt.Errorf("cannot recover locked git index: %v", err)
-}
