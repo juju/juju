@@ -25,27 +25,26 @@ type Watcher struct {
 	// omitted from this map and are considered to have revno -1.
 	current map[watchKey]int64
 
-	// refreshEvents and requestEvents contain the events to be
+	// syncEvents and requestEvents contain the events to be
 	// dispatched to the watcher channels. They're queued during
 	// processing and flushed at the end to simplify the algorithm.
-	// The two queues are separated because events from refresh are
+	// The two queues are separated because events from sync are
 	// handled in reverse order due to the way the algorithm works.
-	refreshEvents, requestEvents []event
+	syncEvents, requestEvents []event
 
 	// request is used to deliver requests from the public API into
 	// the the goroutine loop.
 	request chan interface{}
 
-	// refreshed contains pending ForceRefresh done channels
-	// that are waiting for the completion notice.
-	refreshed []chan bool
+	// syncDone contains pending done channels from sync requests.
+	syncDone []chan bool
 
-	// lastId is the most recent transaction id observed by a refresh.
+	// lastId is the most recent transaction id observed by a sync.
 	lastId interface{}
 
-	// next will dispatch when it's time to refresh the database
-	// knowledge. It's maintained here so that ForceRefresh
-	// can manipulate it to force a refresh sooner.
+	// next will dispatch when it's time to sync the database
+	// knowledge. It's maintained here so that Sync and StartSync
+	// can manipulate it to force a sync sooner.
 	next <-chan time.Time
 }
 
@@ -108,7 +107,7 @@ type reqUnwatch struct {
 	ch  chan<- Change
 }
 
-type reqRefresh struct {
+type reqSync struct {
 	done chan bool
 }
 
@@ -132,14 +131,20 @@ func (w *Watcher) Unwatch(collection string, id interface{}, ch chan<- Change) {
 	}
 }
 
-// ForceRefresh forces a synchronous refresh of the watcher knowledge.
-// It blocks until the database state has been loaded and the events
-// have been prepared, but unblocks before changes are sent onto the
-// registered channels.
-func (w *Watcher) ForceRefresh() {
+// StartSync forces the watcher to load new events from the database.
+func (w *Watcher) StartSync() {
+	select {
+	case w.request <- reqSync{nil}:
+	case <-w.tomb.Dying():
+	}
+}
+
+// Sync forces the watcher to load new events from the database and blocks
+// until all events have been dispatched.
+func (w *Watcher) Sync() {
 	done := make(chan bool)
 	select {
-	case w.request <- reqRefresh{done}:
+	case w.request <- reqSync{done}:
 	case <-w.tomb.Dying():
 	}
 	select {
@@ -148,7 +153,7 @@ func (w *Watcher) ForceRefresh() {
 	}
 }
 
-// period is the delay between each refresh.
+// period is the delay between each sync.
 var period time.Duration = 5 * time.Second
 
 // loop implements the main watcher loop.
@@ -163,18 +168,19 @@ func (w *Watcher) loop() error {
 			return tomb.ErrDying
 		case <-w.next:
 			w.next = time.After(period)
-			refreshed := w.refreshed
-			w.refreshed = nil
-			if err := w.refresh(); err != nil {
+			syncDone := w.syncDone
+			w.syncDone = nil
+			if err := w.sync(); err != nil {
 				return err
 			}
-			for _, done := range refreshed {
+			w.flush()
+			for _, done := range syncDone {
 				close(done)
 			}
 		case req := <-w.request:
 			w.handle(req)
+			w.flush()
 		}
-		w.flush()
 	}
 	return nil
 }
@@ -183,9 +189,8 @@ func (w *Watcher) loop() error {
 func (w *Watcher) flush() {
 	// Refresh events are handled backwards, to prevent moving
 	// significant data around and still preserve occurrence order.
-	i := len(w.refreshEvents)-1
-	for i >= 0 {
-		e := &w.refreshEvents[i]
+	for i := len(w.syncEvents)-1; i >= 0; i-- {
+		e := &w.syncEvents[i]
 		for e.ch != nil {
 			select {
 			case <-w.tomb.Dying():
@@ -197,11 +202,10 @@ func (w *Watcher) flush() {
 			}
 			break
 		}
-		i--
 	}
 	// Request events are handled forwards.
-	i = 0
-	for i < len(w.requestEvents) {
+	// requestEvents may grow during the loop.
+	for i := 0; i < len(w.requestEvents); i++ {
 		e := &w.requestEvents[i]
 		for e.ch != nil {
 			select {
@@ -214,9 +218,8 @@ func (w *Watcher) flush() {
 			}
 			break
 		}
-		i++
 	}
-	w.refreshEvents = w.refreshEvents[:0]
+	w.syncEvents = w.syncEvents[:0]
 	w.requestEvents = w.requestEvents[:0]
 }
 
@@ -225,9 +228,11 @@ func (w *Watcher) flush() {
 func (w *Watcher) handle(req interface{}) {
 	log.Debugf("watcher: got request: %#v", req)
 	switch r := req.(type) {
-	case reqRefresh:
+	case reqSync:
 		w.next = time.After(0)
-		w.refreshed = append(w.refreshed, r.done)
+		if r.done != nil {
+			w.syncDone = append(w.syncDone, r.done)
+		}
 	case reqWatch:
 		for _, info := range w.watches[r.key] {
 			if info.ch == r.info.ch {
@@ -254,8 +259,8 @@ func (w *Watcher) handle(req interface{}) {
 				e.ch = nil
 			}
 		}
-		for i := range w.refreshEvents {
-			e := &w.refreshEvents[i]
+		for i := range w.syncEvents {
+			e := &w.syncEvents[i]
 			if e.key == r.key && e.ch == r.ch {
 				e.ch = nil
 			}
@@ -286,10 +291,10 @@ func (w *Watcher) initLastId() error {
 	return nil
 }
 
-// refresh updates the watcher knowledge from the database, and
+// sync updates the watcher knowledge from the database, and
 // queues events to observing channels.
-func (w *Watcher) refresh() error {
-	log.Debugf("watcher: refreshing watcher knowledge from database...")
+func (w *Watcher) sync() error {
+	log.Debugf("watcher: loading new events from changelog collection...")
 	iter := w.log.Find(nil).Batch(10).Sort("-$natural").Iter()
 	seen := make(map[watchKey]bool)
 	first := true
@@ -312,7 +317,7 @@ func (w *Watcher) refresh() error {
 			break
 		}
 		log.Debugf("watcher: got changelog document: %#v", entry)
-		for _, c := range entry {
+		for _, c := range entry[1:] {
 			// See txn's Runner.ChangeLog for the structure of log entries.
 			var d, r []interface{}
 			dr, _ := c.Value.(bson.D)
@@ -347,7 +352,7 @@ func (w *Watcher) refresh() error {
 				for i, info := range infos {
 					if revno > info.revno || revno < 0 && info.revno >= 0 {
 						infos[i].revno = revno
-						w.refreshEvents = append(w.refreshEvents, event{info.ch, key, revno})
+						w.syncEvents = append(w.syncEvents, event{info.ch, key, revno})
 					}
 				}
 			}

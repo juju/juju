@@ -160,7 +160,7 @@ func (s *WatcherSuite) TestWatchBeforeKnown(c *C) {
 
 	revno := s.insert(c, "test", "a")
 
-	s.w.ForceRefresh()
+	s.w.StartSync()
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno})
 	assertNoChange(c, s.ch)
 
@@ -170,7 +170,7 @@ func (s *WatcherSuite) TestWatchBeforeKnown(c *C) {
 func (s *WatcherSuite) TestWatchAfterKnown(c *C) {
 	revno := s.insert(c, "test", "a")
 
-	s.w.ForceRefresh()
+	s.w.StartSync()
 
 	s.w.Watch("test", "a", -1, s.ch)
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno})
@@ -180,7 +180,7 @@ func (s *WatcherSuite) TestWatchAfterKnown(c *C) {
 }
 
 func (s *WatcherSuite) TestWatchOrder(c *C) {
-	s.w.ForceRefresh()
+	s.w.StartSync()
 	for _, id := range []string{"a", "b", "c", "d"} {
 		s.w.Watch("test", id, -1, s.ch)
 	}
@@ -188,7 +188,7 @@ func (s *WatcherSuite) TestWatchOrder(c *C) {
 	revno2 := s.insert(c, "test", "b")
 	revno3 := s.insert(c, "test", "c")
 
-	s.w.ForceRefresh()
+	s.w.StartSync()
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno1})
 	assertChange(c, s.ch, watcher.Change{"test", "b", revno2})
 	assertChange(c, s.ch, watcher.Change{"test", "c", revno3})
@@ -196,12 +196,12 @@ func (s *WatcherSuite) TestWatchOrder(c *C) {
 }
 
 func (s *WatcherSuite) TestTransactionWithMultiple(c *C) {
-	s.w.ForceRefresh()
+	s.w.StartSync()
 	for _, id := range []string{"a", "b", "c"} {
 		s.w.Watch("test", id, -1, s.ch)
 	}
 	revnos := s.insertAll(c, "test", "a", "b", "c")
-	s.w.ForceRefresh()
+	s.w.StartSync()
 	assertChange(c, s.ch, watcher.Change{"test", "a", revnos[0]})
 	assertChange(c, s.ch, watcher.Change{"test", "b", revnos[1]})
 	assertChange(c, s.ch, watcher.Change{"test", "c", revnos[2]})
@@ -218,7 +218,7 @@ func (s *WatcherSuite) TestWatchMultipleChannels(c *C) {
 	revno1 := s.insert(c, "test1", 1)
 	revno2 := s.insert(c, "test2", 2)
 	revno3 := s.insert(c, "test3", 3)
-	s.w.ForceRefresh()
+	s.w.StartSync()
 	s.w.Unwatch("test2", 2, ch2)
 	assertChange(c, ch1, watcher.Change{"test1", 1, revno1})
 	_ = revno2
@@ -233,7 +233,7 @@ func (s *WatcherSuite) TestIgnoreAncientHistory(c *C) {
 
 	w := watcher.New(s.log)
 	defer w.Stop()
-	w.ForceRefresh()
+	w.StartSync()
 
 	w.Watch("test", "a", -1, s.ch)
 	assertNoChange(c, s.ch)
@@ -244,12 +244,12 @@ func (s *WatcherSuite) TestUpdate(c *C) {
 	assertNoChange(c, s.ch)
 
 	revno1 := s.insert(c, "test", "a")
-	s.w.ForceRefresh()
+	s.w.StartSync()
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno1})
 	assertNoChange(c, s.ch)
 
 	revno2 := s.update(c, "test", "a")
-	s.w.ForceRefresh()
+	s.w.StartSync()
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno2})
 
 	assertOrder(c, -1, revno1, revno2)
@@ -259,7 +259,7 @@ func (s *WatcherSuite) TestDoubleUpdate(c *C) {
 	assertNoChange(c, s.ch)
 
 	revno1 := s.insert(c, "test", "a")
-	s.w.ForceRefresh()
+	s.w.StartSync()
 
 	revno2 := s.update(c, "test", "a")
 	revno3 := s.update(c, "test", "a")
@@ -267,7 +267,7 @@ func (s *WatcherSuite) TestDoubleUpdate(c *C) {
 	s.w.Watch("test", "a", revno2, s.ch)
 	assertNoChange(c, s.ch)
 
-	s.w.ForceRefresh()
+	s.w.StartSync()
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno3})
 	assertNoChange(c, s.ch)
 
@@ -279,17 +279,17 @@ func (s *WatcherSuite) TestRemove(c *C) {
 	assertNoChange(c, s.ch)
 
 	revno1 := s.insert(c, "test", "a")
-	s.w.ForceRefresh()
+	s.w.StartSync()
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno1})
 	assertNoChange(c, s.ch)
 
 	revno2 := s.remove(c, "test", "a")
-	s.w.ForceRefresh()
+	s.w.StartSync()
 	assertChange(c, s.ch, watcher.Change{"test", "a", -1})
 	assertNoChange(c, s.ch)
 
 	revno3 := s.insert(c, "test", "a")
-	s.w.ForceRefresh()
+	s.w.StartSync()
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno3})
 	assertNoChange(c, s.ch)
 
@@ -299,12 +299,12 @@ func (s *WatcherSuite) TestRemove(c *C) {
 
 func (s *WatcherSuite) TestWatchBeforeRemoveKnown(c *C) {
 	revno1 := s.insert(c, "test", "a")
-	s.w.ForceRefresh()
+	s.w.StartSync()
 	revno2 := s.remove(c, "test", "a")
 
 	s.w.Watch("test", "a", -1, s.ch)
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno1})
-	s.w.ForceRefresh()
+	s.w.StartSync()
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno2})
 
 	assertOrder(c, revno2, revno1)
@@ -313,7 +313,7 @@ func (s *WatcherSuite) TestWatchBeforeRemoveKnown(c *C) {
 func (s *WatcherSuite) TestWatchKnownRemove(c *C) {
 	revno1 := s.insert(c, "test", "a")
 	revno2 := s.remove(c, "test", "a")
-	s.w.ForceRefresh()
+	s.w.StartSync()
 
 	s.w.Watch("test", "a", revno1, s.ch)
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno2})
@@ -347,7 +347,7 @@ func (s *WatcherSuite) TestScale(c *C) {
 	}
 
 	c.Logf("Forcing a refresh...")
-	s.w.ForceRefresh()
+	s.w.StartSync()
 
 	count, err := s.Session.DB("juju").C("test").Count()
 	c.Assert(err, IsNil)
@@ -371,7 +371,7 @@ func (s *WatcherSuite) TestWatchPeriod(c *C) {
 	period := 1 * time.Second
 	watcher.FakePeriod(period)
 	revno1 := s.insert(c, "test", "a")
-	s.w.ForceRefresh()
+	s.w.StartSync()
 	s.w.Watch("test", "a", revno1, s.ch)
 	revno2 := s.update(c, "test", "a")
 
@@ -387,7 +387,7 @@ func (s *WatcherSuite) TestWatchUnwatchOnQueue(c *C) {
 	for i := 0; i < N; i++ {
 		s.insert(c, "test", i)
 	}
-	s.w.ForceRefresh()
+	s.w.StartSync()
 	for i := 0; i < N; i++ {
 		s.w.Watch("test", i, -1, s.ch)
 	}
@@ -408,4 +408,58 @@ func (s *WatcherSuite) TestWatchUnwatchOnQueue(c *C) {
 	}
 	c.Assert(len(seen), Equals, N/2)
 	assertNoChange(c, s.ch)
+}
+
+func (s *WatcherSuite) TestStartSync(c *C) {
+	s.w.Watch("test", "a", -1, s.ch)
+
+	// Nothing to do.
+	s.w.StartSync()
+
+	revno := s.insert(c, "test", "a")
+
+	done := make(chan bool)
+	go func() {
+		s.w.StartSync()
+		s.w.StartSync()
+		s.w.StartSync()
+		done <- true
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(100 * time.Millisecond):
+		c.Fatalf("SyncStart failed to return")
+	}
+
+	assertChange(c, s.ch, watcher.Change{"test", "a", revno})
+}
+
+func (s *WatcherSuite) TestSync(c *C) {
+	s.w.Watch("test", "a", -1, s.ch)
+
+	// Nothing to do, so the syncronous request does nothing.
+	s.w.Sync()
+
+	revno := s.insert(c, "test", "a")
+
+	done := make(chan bool)
+	go func() {
+		s.w.Sync()
+		done <- true
+	}()
+
+	select {
+	case <-done:
+		c.Fatalf("Sync returned too early")
+	case <-time.After(500 * time.Millisecond):
+	}
+
+	assertChange(c, s.ch, watcher.Change{"test", "a", revno})
+
+	select {
+	case <-done:
+	case <-time.After(100 * time.Millisecond):
+		c.Fatalf("Sync failed to returned")
+	}
 }
