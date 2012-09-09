@@ -1,4 +1,4 @@
-// The watcher package implements an interface for observing changes
+// The watcher package provides an interface for observing changes
 // to arbitrary MongoDB documents that are maintained via the
 // mgo/txn transaction package.
 package watcher
@@ -61,7 +61,7 @@ type Change struct {
 
 type watchKey struct {
 	c  string
-	id interface{}
+	id interface{} // nil when watching collection
 }
 
 type watchInfo struct {
@@ -75,8 +75,8 @@ type event struct {
 	revno int64
 }
 
-// New returns a new Watcher observing the changelog collection.
-// That collection must be maintained by the mgo/txn package.
+// New returns a new Watcher observing the changelog collection,
+// which must be a capped collection maintained by mgo/txn.
 func New(changelog *mgo.Collection) *Watcher {
 	w := &Watcher{
 		log:     changelog,
@@ -111,22 +111,46 @@ type reqSync struct {
 	done chan bool
 }
 
-// Watch includes the given collection and document id into w for monitoring.
-// An event will be sent onto ch whenever its txn-revno is observed to
-// change after a transaction is applied.
-// The revno parameter informs the currently known revision number for the
-// document, or -1 if it doesn't currently exist.
+// Watch starts watching the given collection and document id.
+// An event will be sent onto ch whenever a matching document's txn-revno
+// field is observed to change after a transaction is applied. The revno
+// parameter informs the currently known revision number for the document.
+// Non-existing documents are represented by a -1 revno.
 func (w *Watcher) Watch(collection string, id interface{}, revno int64, ch chan<- Change) {
+	if id == nil {
+		panic("watcher: cannot watch a document with nil id")
+	}
 	select {
 	case w.request <- reqWatch{watchKey{collection, id}, watchInfo{ch, revno}}:
 	case <-w.tomb.Dying():
 	}
 }
 
-// Unwatch removes from w the given collection, document id, and channel.
+// WatchCollection starts watching the given collection.
+// An event will be sent onto ch whenever the txn-revno field is observed
+// to change after a transaction is applied for any document in the collection.
+func (w *Watcher) WatchCollection(collection string, ch chan<- Change) {
+	select {
+	case w.request <- reqWatch{watchKey{collection, nil}, watchInfo{ch, 0}}:
+	case <-w.tomb.Dying():
+	}
+}
+
+// Unwatch stops watching the given collection and document id via ch.
 func (w *Watcher) Unwatch(collection string, id interface{}, ch chan<- Change) {
+	if id == nil {
+		panic("watcher: cannot unwatch a document with nil id")
+	}
 	select {
 	case w.request <- reqUnwatch{watchKey{collection, id}, ch}:
+	case <-w.tomb.Dying():
+	}
+}
+
+// UnwatchCollection stops watching the given collection via ch.
+func (w *Watcher) UnwatchCollection(collection string, ch chan<- Change) {
+	select {
+	case w.request <- reqUnwatch{watchKey{collection, nil}, ch}:
 	case <-w.tomb.Dying():
 	}
 }
@@ -187,8 +211,7 @@ func (w *Watcher) loop() error {
 
 // flush sends all pending events to their respective channels.
 func (w *Watcher) flush() {
-	// Refresh events are handled backwards, to prevent moving
-	// significant data around and still preserve occurrence order.
+	// refreshEvents are stored newest first.
 	for i := len(w.syncEvents)-1; i >= 0; i-- {
 		e := &w.syncEvents[i]
 		for e.ch != nil {
@@ -203,8 +226,8 @@ func (w *Watcher) flush() {
 			break
 		}
 	}
-	// Request events are handled forwards.
-	// requestEvents may grow during the loop.
+	// requestEvents are stored oldest first, and
+	// may grow during the loop.
 	for i := 0; i < len(w.requestEvents); i++ {
 		e := &w.requestEvents[i]
 		for e.ch != nil {
@@ -236,7 +259,7 @@ func (w *Watcher) handle(req interface{}) {
 	case reqWatch:
 		for _, info := range w.watches[r.key] {
 			if info.ch == r.info.ch {
-				panic("adding channel twice for same document")
+				panic("adding channel twice for the same collection/document")
 			}
 		}
 		if revno, ok := w.current[r.key]; ok && (revno > r.info.revno || revno == -1 && r.info.revno >= 0) {
@@ -347,7 +370,15 @@ func (w *Watcher) sync() error {
 				if revno < 0 {
 					revno = -1
 				}
+				if w.current[key] == revno {
+					continue
+				}
 				w.current[key] = revno
+				// Queue notifications for per-collection watches.
+				for _, info := range w.watches[watchKey{c.Name, nil}] {
+					w.syncEvents = append(w.syncEvents, event{info.ch, key, revno})
+				}
+				// Queue notifications for per-document watches.
 				infos := w.watches[key]
 				for i, info := range infos {
 					if revno > info.revno || revno < 0 && info.revno >= 0 {

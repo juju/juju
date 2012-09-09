@@ -179,6 +179,16 @@ func (s *WatcherSuite) TestWatchAfterKnown(c *C) {
 	assertOrder(c, -1, revno)
 }
 
+func (s *WatcherSuite) TestWatchIgnoreUnwatched(c *C) {
+	s.w.Watch("test", "a", -1, s.ch)
+	assertNoChange(c, s.ch)
+
+	s.insert(c, "test", "b")
+
+	s.w.StartSync()
+	assertNoChange(c, s.ch)
+}
+
 func (s *WatcherSuite) TestWatchOrder(c *C) {
 	s.w.StartSync()
 	for _, id := range []string{"a", "b", "c", "d"} {
@@ -413,7 +423,7 @@ func (s *WatcherSuite) TestWatchUnwatchOnQueue(c *C) {
 func (s *WatcherSuite) TestStartSync(c *C) {
 	s.w.Watch("test", "a", -1, s.ch)
 
-	// Nothing to do.
+	// Nothing to do here.
 	s.w.StartSync()
 
 	revno := s.insert(c, "test", "a")
@@ -438,7 +448,7 @@ func (s *WatcherSuite) TestStartSync(c *C) {
 func (s *WatcherSuite) TestSync(c *C) {
 	s.w.Watch("test", "a", -1, s.ch)
 
-	// Nothing to do, so the syncronous request does nothing.
+	// Nothing to do here.
 	s.w.Sync()
 
 	revno := s.insert(c, "test", "a")
@@ -462,4 +472,96 @@ func (s *WatcherSuite) TestSync(c *C) {
 	case <-time.After(100 * time.Millisecond):
 		c.Fatalf("Sync failed to returned")
 	}
+}
+
+func (s *WatcherSuite) TestWatchCollection(c *C) {
+	chA1 := make(chan watcher.Change)
+	chB1 := make(chan watcher.Change)
+	chA := make(chan watcher.Change)
+	chB := make(chan watcher.Change)
+
+	s.w.Watch("testA", 1, -1, chA1)
+	s.w.Watch("testB", 1, -1, chB1)
+	s.w.WatchCollection("testA", chA)
+	s.w.WatchCollection("testB", chB)
+
+	revno1 := s.insert(c, "testA", 1)
+	revno2 := s.insert(c, "testA", 2)
+	revno3 := s.insert(c, "testB", 1)
+	revno4 := s.insert(c, "testB", 2)
+
+	s.w.StartSync()
+
+	seen := map[chan<- watcher.Change][]watcher.Change{}
+Loop1:
+	for {
+		select {
+		case chg := <-chA1:
+			seen[chA1] = append(seen[chA1], chg)
+		case chg := <-chB1:
+			seen[chB1] = append(seen[chB1], chg)
+		case chg := <-chA:
+			seen[chA] = append(seen[chA], chg)
+		case chg := <-chB:
+			seen[chB] = append(seen[chB], chg)
+		case <-time.After(100 * time.Millisecond):
+			break Loop1
+		}
+	}
+
+	c.Assert(seen[chA1], DeepEquals, []watcher.Change{{"testA", 1, revno1}})
+	c.Assert(seen[chB1], DeepEquals, []watcher.Change{{"testB", 1, revno3}})
+	c.Assert(seen[chA], DeepEquals, []watcher.Change{{"testA", 1, revno1}, {"testA", 2, revno2}})
+	c.Assert(seen[chB], DeepEquals, []watcher.Change{{"testB", 1, revno3}, {"testB", 2, revno4}})
+
+	s.w.UnwatchCollection("testB", chB)
+	s.w.Unwatch("testB", 1, chB1)
+
+	revno1 = s.update(c, "testA", 1)
+	revno3 = s.update(c, "testB", 1)
+
+	s.w.StartSync()
+
+	seen = map[chan<- watcher.Change][]watcher.Change{}
+Loop2:
+	for {
+		select {
+		case chg := <-chA1:
+			seen[chA1] = append(seen[chA1], chg)
+		case chg := <-chB1:
+			seen[chB1] = append(seen[chB1], chg)
+		case chg := <-chA:
+			seen[chA] = append(seen[chA], chg)
+		case chg := <-chB:
+			seen[chB] = append(seen[chB], chg)
+		case <-time.After(100 * time.Millisecond):
+			break Loop2
+		}
+	}
+
+	c.Assert(seen[chA1], DeepEquals, []watcher.Change{{"testA", 1, revno1}})
+	c.Assert(seen[chB1], IsNil)
+	c.Assert(seen[chA], DeepEquals, []watcher.Change{{"testA", 1, revno1}})
+	c.Assert(seen[chB], IsNil)
+}
+
+func (s *WatcherSuite) TestNonMutatingTxn(c *C) {
+	chA1 := make(chan watcher.Change)
+	chA := make(chan watcher.Change)
+
+	revno1 := s.insert(c, "test", "a")
+
+	s.w.Sync()
+
+	s.w.Watch("test", 1, revno1, chA1)
+	s.w.WatchCollection("test", chA)
+
+	revno2 := s.insert(c, "test", "a")
+
+	c.Assert(revno1, Equals, revno2)
+
+	s.w.StartSync()
+
+	assertNoChange(c, chA1)
+	assertNoChange(c, chA)
 }
