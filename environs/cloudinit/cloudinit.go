@@ -113,11 +113,6 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		fmt.Sprintf("echo -n %s > $bin/downloaded-url.txt", shquote(cfg.Tools.URL)),
 	)
 
-	addScripts(c,
-		"JUJU_ZOOKEEPER="+shquote(cfg.zookeeperHostAddrs()),
-		fmt.Sprintf("JUJU_MACHINE_ID=%d", cfg.MachineId),
-	)
-
 	debugFlag := ""
 	if log.Debug {
 		debugFlag = " --debug"
@@ -128,7 +123,6 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		addScripts(c,
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --instance-id "+cfg.InstanceIdAccessor+
-				" --env-type "+shquote(cfg.ProviderType)+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
 				" --zookeeper-servers localhost"+zkPortSuffix+
 				debugFlag,
