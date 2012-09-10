@@ -2,11 +2,11 @@ package container
 
 import (
 	"fmt"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/upstart"
 	"os"
-	"os/exec"
-	"path"
 	"path/filepath"
 	"strings"
 )
@@ -14,19 +14,14 @@ import (
 // Container contains running juju service units.
 type Container interface {
 	// Deploy deploys the unit into a new container.
-	Deploy(unit *state.Unit) error
+	Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) error
 
 	// Destroy destroys the unit's container.
 	Destroy(unit *state.Unit) error
 }
 
 // TODO:
-//type lxc struct {
-//	name string
-//}
-//
-//func LXC(args...) Container {
-//}
+// type LXC struct { ... }
 
 // Simple is a Container that knows how deploy units within
 // the current machine.
@@ -38,12 +33,8 @@ type Simple struct {
 	InitDir string
 }
 
-func deslash(s string) string {
-	return strings.Replace(s, "/", "-", -1)
-}
-
 func (c *Simple) service(unit *state.Unit) *upstart.Service {
-	svc := upstart.NewService("juju-agent-" + deslash(unit.Name()))
+	svc := upstart.NewService("juju-" + unit.AgentName())
 	if c.InitDir != "" {
 		svc.InitDir = c.InitDir
 	}
@@ -51,35 +42,53 @@ func (c *Simple) service(unit *state.Unit) *upstart.Service {
 }
 
 func (c *Simple) dirName(unit *state.Unit) string {
-	return filepath.FromSlash(path.Join(c.VarDir, "units", deslash(unit.Name())))
+	return filepath.Join(c.VarDir, "agents", unit.AgentName())
 }
 
-func (c *Simple) Deploy(unit *state.Unit) error {
-	exe, err := exec.LookPath("jujud")
-	if err != nil {
-		return fmt.Errorf("cannot find executable: %v", err)
+func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) (err error) {
+	if info.UseSSH {
+		return fmt.Errorf("cannot deploy agent connecting with ssh")
 	}
+	toolsDir := environs.AgentToolsDir(c.VarDir, unit.AgentName())
+	err = os.Symlink(tools.Binary.String(), toolsDir)
+	if err != nil {
+		return fmt.Errorf("cannot make agent tools symlink: %v", err)
+	}
+	defer func() {
+		if err != nil {
+			if err := os.Remove(toolsDir); err != nil {
+				log.Printf("container: cannot remove tools symlink: %v", err)
+			}
+		}
+	}()
+	cmd := fmt.Sprintf(
+		"%s unit --zookeeper-servers '%s' --log-file %s --unit-name %s",
+		filepath.Join(toolsDir, "jujud"),
+		strings.Join(info.Addrs, ","),
+		filepath.Join("/var/log/juju", unit.AgentName() + ".log"),
+		unit.Name())
+
 	conf := &upstart.Conf{
 		Service: *c.service(unit),
 		Desc:    "juju unit agent for " + unit.Name(),
-		Cmd:     exe + " unit --unit-name " + unit.Name(),
-		// TODO: Out
+		Cmd:     cmd,
 	}
 	dir := c.dirName(unit)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	err = conf.Install()
-	if err != nil {
-		os.Remove(dir)
-		return err
-	}
-	return nil
+	defer func() {
+		if err != nil {
+			if err := os.Remove(dir); err != nil {
+				log.Printf("container: cannot remove agent dir: %v", err)
+			}
+		}
+	}()
+	return conf.Install()
 }
 
 func (c *Simple) Destroy(unit *state.Unit) error {
-	svc := c.service(unit)
-	if err := svc.Remove(); err != nil {
+	if err := c.service(unit).Remove(); err != nil {
 		return err
 	}
 	return os.RemoveAll(c.dirName(unit))

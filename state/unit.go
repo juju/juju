@@ -481,6 +481,11 @@ func (u *Unit) AgentAlive() (bool, error) {
 	return presence.Alive(u.st.zk, u.zkAgentPath())
 }
 
+// AgentName returns the name used to identify the unit's agent.
+func (u *Unit) AgentName() string {
+	return fmt.Sprintf("unit-%s-%d", u.serviceName, keySeq(u.key))
+}
+
 // WaitAgentAlive blocks until the respective agent is alive.
 func (u *Unit) WaitAgentAlive(timeout time.Duration) error {
 	err := presence.WaitAlive(u.st.zk, u.zkAgentPath(), timeout)
