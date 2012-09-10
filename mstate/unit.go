@@ -196,7 +196,10 @@ func (u *Unit) Status() (s UnitStatus, info string, err error) {
 	case UnitStopped:
 		return UnitStopped, "", nil
 	}
-	alive := u.AgentAlive()
+	alive, err := u.AgentAlive()
+	if err != nil {
+		return "", "", err
+	}
 	if !alive {
 		s = UnitDown
 	}
@@ -222,16 +225,15 @@ func (u *Unit) SetStatus(status UnitStatus, info string) error {
 }
 
 // AgentAlive returns whether the respective remote agent is alive.
-func (u *Unit) AgentAlive() bool {
-	return u.st.presencew.Alive(u.globalKey())
+func (u *Unit) AgentAlive() (bool, error) {
+	return u.st.pwatcher.Alive(u.globalKey())
 }
 
 // WaitAgentAlive blocks until the respective agent is alive.
 func (u *Unit) WaitAgentAlive(timeout time.Duration) error {
 	ch := make(chan presence.Change)
-	u.st.presencew.Add(u.globalKey(), ch)
-	defer u.st.presencew.Remove(u.globalKey(), ch)
-	// Initial check.
+	u.st.pwatcher.Watch(u.globalKey(), ch)
+	defer u.st.pwatcher.Unwatch(u.globalKey(), ch)
 	select {
 	case change := <-ch:
 		if change.Alive {
@@ -239,8 +241,10 @@ func (u *Unit) WaitAgentAlive(timeout time.Duration) error {
 		}
 	case <-time.After(timeout):
 		return fmt.Errorf("waiting for agent of unit %q: still not alive after timeout", u)
+	case <-u.st.pwatcher.Dying():
+		return fmt.Errorf("waiting for agent of unit %q: watcher is dying", u)
 	}
-	// Hasn't been alive, so now wait for change.
+	// Not alive. Wait for change.
 	select {
 	case change := <-ch:
 		if change.Alive {
@@ -249,6 +253,8 @@ func (u *Unit) WaitAgentAlive(timeout time.Duration) error {
 		panic(fmt.Sprintf("presence reported dead status twice in a row for unit %q", u))
 	case <-time.After(timeout):
 		return fmt.Errorf("waiting for agent of unit %q: still not alive after timeout", u)
+	case <-u.st.pwatcher.Dying():
+		return fmt.Errorf("waiting for agent of unit %q: watcher is dying", u)
 	}
 	panic("unreachable")
 }

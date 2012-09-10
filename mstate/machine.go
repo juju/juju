@@ -80,26 +80,29 @@ func (m *Machine) Watch() *MachineWatcher {
 }
 
 // AgentAlive returns whether the respective remote agent is alive.
-func (m *Machine) AgentAlive() bool {
-	return m.st.presencew.Alive(m.globalKey())
+func (m *Machine) AgentAlive() (bool, error) {
+	return m.st.pwatcher.Alive(m.globalKey())
 }
 
 // WaitAgentAlive blocks until the respective agent is alive.
 func (m *Machine) WaitAgentAlive(timeout time.Duration) error {
 	ch := make(chan presence.Change)
-	m.st.presencew.Add(m.globalKey(), ch)
-	defer m.st.presencew.Remove(m.globalKey(), ch)
-	// Initial check.
+	m.st.pwatcher.Watch(m.globalKey(), ch)
+	defer m.st.pwatcher.Unwatch(m.globalKey(), ch)
 	select {
 	case change := <-ch:
 		if change.Alive {
 			return nil
 		}
 	case <-time.After(timeout):
-		return fmt.Errorf("waiting for agent of machine %v: still not alive after timeout", m)
+		return fmt.Errorf("waiting for agent of machine %v: no response after timeout", m)
+	case <-m.st.pwatcher.Dying():
+		return fmt.Errorf("waiting for agent of machine %v: watcher is dying", m)
 	}
-	// Hasn't been alive, so now wait for change.
+	// Not alive. Wait for change.
 	select {
+	case <-m.st.pwatcher.Dying():
+		return fmt.Errorf("waiting for agent of machine %v: watcher is dying", m)
 	case change := <-ch:
 		if change.Alive {
 			return nil
@@ -107,6 +110,8 @@ func (m *Machine) WaitAgentAlive(timeout time.Duration) error {
 		panic(fmt.Sprintf("presence reported dead status twice in a row for machine %v", m))
 	case <-time.After(timeout):
 		return fmt.Errorf("waiting for agent of machine %v: still not alive after timeout", m)
+	case <-m.st.pwatcher.Dying():
+		return fmt.Errorf("waiting for agent of machine %v: watcher is dying", m)
 	}
 	panic("unreachable")
 }
