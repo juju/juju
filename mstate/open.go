@@ -5,6 +5,7 @@ import (
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/mstate/presence"
+	"launchpad.net/juju-core/mstate/watcher"
 )
 
 var indexes = []mgo.Index{
@@ -19,21 +20,21 @@ func Dial(servers string) (*State, error) {
 		return nil, err
 	}
 	db := session.DB("juju")
-	presencedb := session.DB("presence")
-	txns := db.C("txns")
+	pdb := session.DB("presence")
 	st := &State{
 		db:         db,
-		presencedb: presencedb,
 		charms:     db.C("charms"),
 		machines:   db.C("machines"),
 		relations:  db.C("relations"),
 		services:   db.C("services"),
 		settings:   db.C("settings"),
 		units:      db.C("units"),
-		presence:   presencedb.C("presence"),
-		runner:     txn.NewRunner(txns),
+		presence:   pdb.C("presence"),
 	}
-	st.presencew = presence.NewWatcher(st.presence)
+	st.runner = txn.NewRunner(db.C("txns"))
+	st.runner.ChangeLog(db.C("txns.log"))
+	st.watcher = watcher.New(db.C("txns.log"))
+	st.presencew = presence.NewWatcher(pdb.C("presence"))
 	for _, index := range indexes {
 		err = st.relations.EnsureIndex(index)
 		if err != nil {
@@ -44,7 +45,13 @@ func Dial(servers string) (*State, error) {
 }
 
 func (st *State) Close() error {
-	err := st.presencew.Stop()
+	err1 := st.presencew.Stop()
+	err2 := st.watcher.Stop()
 	st.db.Session.Close()
-	return err
+	for _, err := range []error{err1, err2} {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
