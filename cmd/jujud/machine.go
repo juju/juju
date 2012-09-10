@@ -80,6 +80,6 @@ func (a *MachineAgent) runOnce() error {
 	}
 	return runTasks(a.tomb.Dying(),
 		machiner.NewMachiner(m),
-		NewUpgrader(st, "machine", m),
+		NewUpgrader(st, m),
 	)
 }

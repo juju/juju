@@ -136,17 +136,17 @@ func (p *Pinger) loop() {
 	for {
 		select {
 		case <-p.tomb.Dying():
-			log.Debugf("presence: %s pinger died after %s wait", p.target.path, time.Now().Sub(p.lastPing))
+			debugf("presence: %s pinger died after %s wait", p.target.path, time.Now().Sub(p.lastPing))
 			return
 		case now := <-p.nextPing():
-			log.Debugf("presence: %s pinger awakened after %s wait", p.target.path, time.Now().Sub(p.lastPing))
+			debugf("presence: %s pinger awakened after %s wait", p.target.path, time.Now().Sub(p.lastPing))
 			p.lastPing = now
 			mtime, err := p.target.change()
 			if err != nil {
 				p.tomb.Kill(err)
 				return
 			}
-			log.Debugf("presence: wrote to %s at (zk) %s", p.target.path, mtime)
+			debugf("presence: wrote to %s at (zk) %s", p.target.path, mtime)
 		}
 	}
 }
@@ -159,7 +159,7 @@ func (p *Pinger) nextPing() <-chan time.Time {
 	if wait <= 0 {
 		wait = 0
 	}
-	log.Debugf("presence: anticipating ping of %s in %s", p.target.path, wait)
+	debugf("presence: anticipating ping of %s in %s", p.target.path, wait)
 	return time.After(wait)
 }
 
@@ -197,7 +197,7 @@ func (n *node) setState(content string, stat *zk.Stat, firstTime bool) error {
 		mtime := stat.MTime()
 		delay := now.Sub(mtime)
 		n.alive = delay < n.timeout
-		log.Debugf(`
+		debugf(`
 presence: initial diagnosis of %s
   now (zk)          %s
   last write (zk)   %s
@@ -539,5 +539,15 @@ func (w *ChildrenWatcher) childLoop(key, path string, watch <-chan bool, stop <-
 			case w.updates <- aliveChange{key, aliveNow}:
 			}
 		}
+	}
+}
+
+// Debug, when true, causes detailed presence logs to be generated.
+var Debug = false
+
+// debugf passes its args on to log.Debugf if Debug is true.
+func debugf(format string, args ...interface{}) {
+	if Debug {
+		log.Debugf(format, args...)
 	}
 }

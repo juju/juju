@@ -21,7 +21,6 @@ import (
 type Upgrader struct {
 	tomb       tomb.Tomb
 	st         *state.State
-	agentName  string
 	agentState AgentState
 }
 
@@ -43,10 +42,9 @@ type AgentState interface {
 }
 
 // NewUpgrader returns a new Upgrader watching the given agent.
-func NewUpgrader(st *state.State, agentName string, agentState AgentState) *Upgrader {
+func NewUpgrader(st *state.State, agentState AgentState) *Upgrader {
 	u := &Upgrader{
 		st:         st,
-		agentName:  agentName,
 		agentState: agentState,
 	}
 	go func() {
@@ -165,7 +163,7 @@ func (u *Upgrader) run() error {
 			err := environs.UnpackTools(tools, status.File)
 			status.File.Close()
 			if err := os.Remove(status.File.Name()); err != nil {
-				log.Printf("upgrader: cannot remove temporary download file: %v", u.agentName, err)
+				log.Printf("upgrader: cannot remove temporary download file: %v", err)
 			}
 			if err != nil {
 				log.Printf("upgrader: cannot unpack %v tools: %v", tools.Binary, err)

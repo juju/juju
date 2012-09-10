@@ -51,25 +51,6 @@ func (d *GitDir) Init() error {
 	return d.cmd("init")
 }
 
-// Recover soft-resets the directory (which resets HEAD while leaving the
-// files and the index untouched -- and still works when a lock file is
-// present); then delete the lock file (if it is present). This will leave
-// the directory in a consistent state, such that the interrupted operation
-// can be reapplied safely.
-func (d *GitDir) Recover() error {
-	if exists, err := d.Exists(); !exists {
-		return err
-	}
-	if err := d.cmd("reset", "--soft"); err != nil {
-		return err
-	}
-	err := os.Remove(filepath.Join(d.path, ".git", "index.lock"))
-	if os.IsNotExist(err) {
-		return nil
-	}
-	return err
-}
-
 // AddAll ensures that the next commit will reflect the current contents of
 // the directory. Empty directories will be preserved by inserting and tracking
 // empty files named .empty.
