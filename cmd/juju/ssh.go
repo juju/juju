@@ -50,7 +50,7 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	}
 	defer c.Close()
 	host, err := c.hostFromTarget()
-	args := []string{"-l", "ubuntu", "-h", host, "-t", "-o", "StrictHostKeyChecking no", "-o", "PasswordAuthentication no", "--"}
+	args := []string{"-l", "ubuntu", "-t", "-o", "StrictHostKeyChecking no", "-o", "PasswordAuthentication no", host, "--"}
 	args = append(args, c.Args...)
 	cmd := exec.Command("/usr/bin/ssh", args...)
 	cmd.Stdin = ctx.Stdin
