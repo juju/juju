@@ -40,11 +40,9 @@ func (w *MachineWatcher) Stop() error {
 func (w *MachineWatcher) loop(m *Machine) (err error) {
 	ch := make(chan watcher.Change)
 	id := m.Id()
-
 	st := m.st
 	st.watcher.Watch(st.machines.Name, id, m.doc.TxnRevno, ch)
 	defer st.watcher.Unwatch(st.machines.Name, id, ch)
-
 	for {
 		select {
 		case <-st.watcher.Dying():
@@ -53,9 +51,7 @@ func (w *MachineWatcher) loop(m *Machine) (err error) {
 			return tomb.ErrDying
 		case <-ch:
 		}
-
-		m, err = st.Machine(id)
-		if err != nil {
+		if m, err = st.Machine(id); err != nil {
 			return err
 		}
 		for {
