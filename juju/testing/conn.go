@@ -39,6 +39,7 @@ environments:
         type: dummy
         zookeeper: true
         authorized-keys: 'i-am-a-key'
+        default-series: decrepit
 `)
 
 func (s *JujuConnSuite) SetUpSuite(c *C) {
