@@ -1,6 +1,7 @@
 package cmd_test
 
 import (
+	"bytes"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"path/filepath"
@@ -77,6 +78,16 @@ func (s *CmdSuite) TestMainSuccess(c *C) {
 	result := cmd.Main(&TestCommand{Name: "verb"}, ctx, []string{"--option", "success!"})
 	c.Assert(result, Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), Equals, "success!\n")
+	c.Assert(bufferString(ctx.Stderr), Equals, "")
+}
+
+func (s *CmdSuite) TestStdin(c *C) {
+	const phrase = "Do you, Juju?"
+	ctx := dummyContext(c)
+	ctx.Stdin = bytes.NewBuffer([]byte(phrase))
+	result := cmd.Main(&TestCommand{Name: "verb"}, ctx, []string{"--option", "echo"})
+	c.Assert(result, Equals, 0)
+	c.Assert(bufferString(ctx.Stdout), Equals, phrase)
 	c.Assert(bufferString(ctx.Stderr), Equals, "")
 }
 
