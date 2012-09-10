@@ -70,13 +70,12 @@ type Watcher struct {
 	// the the gorotuine loop.
 	request chan interface{}
 
-	// refreshed contains pending ForceRefresh done channels
-	// that are waiting for the completion notice.
-	refreshed []chan bool
+	// syncDone contains pending done channels from sync requests.
+	syncDone []chan bool
 
-	// next will dispatch when it's time to refresh the database
+	// next will dispatch when it's time to sync the database
 	// knowledge. It's maintained here so that ForceRefresh
-	// can manipulate it to force a refresh sooner.
+	// can manipulate it to force a sync sooner.
 	next <-chan time.Time
 }
 
@@ -116,6 +115,20 @@ func (w *Watcher) Stop() error {
 	return w.tomb.Wait()
 }
 
+// Dying returns a channel that is closed when the watcher is stopping
+// due to an error or because Stop was called explicitly.
+func (w *Watcher) Dying() <-chan struct{} {
+	return w.tomb.Dying()
+}
+
+// Err returns the error with which the watcher stopped.
+// It returns nil if the watcher stopped cleanly, tomb.ErrStillAlive
+// if the watcher is still running properly, or the respective error
+// if the watcher is terminating or has terminated with an error.
+func (w *Watcher) Err() error {
+	return w.tomb.Err()
+}
+
 type reqAdd struct {
 	key string
 	ch  chan<- Change
@@ -126,7 +139,7 @@ type reqRemove struct {
 	ch  chan<- Change
 }
 
-type reqRefresh struct {
+type reqSync struct {
 	done chan bool
 }
 
@@ -156,13 +169,16 @@ func (w *Watcher) Remove(key string, ch chan<- Change) {
 	w.sendReq(reqRemove{key, ch})
 }
 
-// ForceRefresh forces a synchronous refresh of the watcher knowledge.
-// It blocks until the database state has been loaded and the events
-// have been prepared, but unblocks before changes are sent onto the
-// registered channels.
-func (w *Watcher) ForceRefresh() {
+// StartSync forces the watcher to load new events from the database.
+func (w *Watcher) StartSync() {
+	w.sendReq(reqSync{nil})
+}
+
+// Sync forces the watcher to load new events from the database and blocks
+// until all events have been dispatched.
+func (w *Watcher) Sync() {
 	done := make(chan bool)
-	w.sendReq(reqRefresh{done})
+	w.sendReq(reqSync{done})
 	select {
 	case <-done:
 	case <-w.tomb.Dying():
@@ -200,18 +216,19 @@ func (w *Watcher) loop() error {
 			return tomb.ErrDying
 		case <-w.next:
 			w.next = time.After(time.Duration(period) * time.Second)
-			refreshed := w.refreshed
-			w.refreshed = nil
-			if err := w.refresh(); err != nil {
+			syncDone := w.syncDone
+			w.syncDone = nil
+			if err := w.sync(); err != nil {
 				return err
 			}
-			for _, done := range refreshed {
+			w.flush()
+			for _, done := range syncDone {
 				close(done)
 			}
 		case req := <-w.request:
 			w.handle(req)
+			w.flush()
 		}
-		w.flush()
 	}
 	return nil
 }
@@ -243,9 +260,11 @@ func (w *Watcher) flush() {
 func (w *Watcher) handle(req interface{}) {
 	log.Debugf("presence: got request: %#v", req)
 	switch r := req.(type) {
-	case reqRefresh:
+	case reqSync:
 		w.next = time.After(0)
-		w.refreshed = append(w.refreshed, r.done)
+		if r.done != nil {
+			w.syncDone = append(w.syncDone, r.done)
+		}
 	case reqAdd:
 		for _, ch := range w.watches[r.key] {
 			if ch == r.ch {
@@ -289,11 +308,11 @@ type pingInfo struct {
 	Dead  map[string]int64 ",omitempty"
 }
 
-// refresh updates the watcher knowledge from the database, and
+// sync updates the watcher knowledge from the database, and
 // queues events to observing channels. It fetches the last two time
 // slots and compares the union of both to the in-memory state.
-func (w *Watcher) refresh() error {
-	log.Debugf("presence: refreshing watcher knowledge from database...")
+func (w *Watcher) sync() error {
+	log.Debugf("presence: synchronizing watcher knowledge with database...")
 	slot := timeSlot(time.Now(), w.delta)
 	var ping []pingInfo
 	err := w.pings.Find(bson.D{{"$or", []pingInfo{{Slot: slot}, {Slot: slot - period}}}}).All(&ping)

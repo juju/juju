@@ -5,6 +5,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/mstate/presence"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/tomb"
 	"strconv"
 	stdtesting "testing"
 	"time"
@@ -71,6 +72,25 @@ func assertNoChange(c *C, watch <-chan presence.Change) {
 	}
 }
 
+func (s *PresenceSuite) TestErrAndDying(c *C) {
+	w := presence.NewWatcher(s.presence)
+	defer w.Stop()
+
+	c.Assert(w.Err(), Equals, tomb.ErrStillAlive)
+	select {
+	case <-w.Dying():
+		c.Fatalf("Dying channel fired unexpectedly")
+	default:
+	}
+	c.Assert(w.Stop(), IsNil)
+	c.Assert(w.Err(), IsNil)
+	select {
+	case <-w.Dying():
+	default:
+		c.Fatalf("Dying channel should have fired")
+	}
+}
+
 func (s *PresenceSuite) TestWorkflow(c *C) {
 	w := presence.NewWatcher(s.presence)
 	pa := presence.NewPinger(s.presence, "a")
@@ -92,13 +112,13 @@ func (s *PresenceSuite) TestWorkflow(c *C) {
 	assertChange(c, cha, presence.Change{"a", false})
 	assertChange(c, chb, presence.Change{"b", false})
 
-	w.ForceRefresh()
+	w.StartSync()
 	assertNoChange(c, cha)
 	assertNoChange(c, chb)
 
 	c.Assert(pa.Start(), IsNil)
 
-	w.ForceRefresh()
+	w.StartSync()
 	assertChange(c, cha, presence.Change{"a", true})
 	assertNoChange(c, cha)
 	assertNoChange(c, chb)
@@ -110,10 +130,10 @@ func (s *PresenceSuite) TestWorkflow(c *C) {
 	w.Remove("a", cha)
 	assertNoChange(c, cha)
 	pa.Kill()
-	w.ForceRefresh()
+	w.Sync()
 	pa = presence.NewPinger(s.presence, "a")
 	pa.Start()
-	w.ForceRefresh()
+	w.StartSync()
 	assertNoChange(c, cha)
 
 	// We can still query it manually, though.
@@ -126,14 +146,14 @@ func (s *PresenceSuite) TestWorkflow(c *C) {
 
 	c.Assert(pb.Start(), IsNil)
 
-	w.ForceRefresh()
+	w.StartSync()
 	assertChange(c, chb, presence.Change{"b", true})
 	assertNoChange(c, cha)
 	assertNoChange(c, chb)
 
 	c.Assert(pa.Stop(), IsNil)
 
-	w.ForceRefresh()
+	w.StartSync()
 	assertNoChange(c, cha)
 	assertNoChange(c, chb)
 
@@ -141,7 +161,7 @@ func (s *PresenceSuite) TestWorkflow(c *C) {
 	c.Assert(pa.Kill(), IsNil)
 	c.Assert(pb.Kill(), IsNil)
 
-	w.ForceRefresh()
+	w.StartSync()
 	assertChange(c, cha, presence.Change{"a", false})
 	assertChange(c, chb, presence.Change{"b", false})
 
@@ -172,7 +192,7 @@ func (s *PresenceSuite) TestScale(c *C) {
 	c.Logf("Checking who's still alive...")
 	w := presence.NewWatcher(s.presence)
 	defer w.Stop()
-	w.ForceRefresh()
+	w.Sync()
 	ch := make(chan presence.Change)
 	for i := 0; i < N; i++ {
 		k := strconv.Itoa(i)
@@ -196,22 +216,22 @@ func (s *PresenceSuite) TestExpiry(c *C) {
 	assertChange(c, ch, presence.Change{"a", false})
 
 	c.Assert(p.Start(), IsNil)
-	w.ForceRefresh()
+	w.StartSync()
 	assertChange(c, ch, presence.Change{"a", true})
 
 	// Still alive in previous slot.
 	presence.FakeTimeSlot(1)
-	w.ForceRefresh()
+	w.StartSync()
 	assertNoChange(c, ch)
 
 	// Two last slots are empty.
 	presence.FakeTimeSlot(2)
-	w.ForceRefresh()
+	w.StartSync()
 	assertChange(c, ch, presence.Change{"a", false})
 
 	// Already dead so killing isn't noticed.
 	p.Kill()
-	w.ForceRefresh()
+	w.StartSync()
 	assertNoChange(c, ch)
 }
 
@@ -288,7 +308,7 @@ func (s *PresenceSuite) TestRestartWithoutGaps(c *C) {
 		stop := false
 		for !stop {
 			w := presence.NewWatcher(s.presence)
-			w.ForceRefresh()
+			w.Sync()
 			alive := w.Alive("a")
 			c.Check(w.Stop(), IsNil)
 			if !c.Check(alive, Equals, true) {
@@ -325,7 +345,7 @@ func (s *PresenceSuite) TestPingerPeriodAndResilience(c *C) {
 	// Start p1 and let it go on.
 	c.Assert(p1.Start(), IsNil)
 
-	w.ForceRefresh()
+	w.Sync()
 	c.Assert(w.Alive("a"), Equals, true)
 
 	// Start and kill p2, which will temporarily
@@ -333,7 +353,7 @@ func (s *PresenceSuite) TestPingerPeriodAndResilience(c *C) {
 	c.Assert(p2.Start(), IsNil)
 	c.Assert(p2.Kill(), IsNil)
 
-	w.ForceRefresh()
+	w.Sync()
 	c.Assert(w.Alive("a"), Equals, false)
 
 	// Wait for two periods, and check again. Since
@@ -341,6 +361,71 @@ func (s *PresenceSuite) TestPingerPeriodAndResilience(c *C) {
 	// the key will come back.
 	time.Sleep(period * 2 * time.Second)
 
-	w.ForceRefresh()
+	w.Sync()
 	c.Assert(w.Alive("a"), Equals, true)
+}
+
+func (s *PresenceSuite) TestStartSync(c *C) {
+	w := presence.NewWatcher(s.presence)
+	p := presence.NewPinger(s.presence, "a")
+	defer w.Stop()
+	defer p.Stop()
+
+	ch := make(chan presence.Change)
+	w.Add("a", ch)
+	assertChange(c, ch, presence.Change{"a", false})
+
+	c.Assert(p.Start(), IsNil)
+
+	done := make(chan bool)
+	go func() {
+		w.StartSync()
+		w.StartSync()
+		w.StartSync()
+		done <- true
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(100 * time.Millisecond):
+		c.Fatalf("StartSync failed to return")
+	}
+
+	assertChange(c, ch, presence.Change{"a", true})
+}
+
+func (s *PresenceSuite) TestSync(c *C) {
+	w := presence.NewWatcher(s.presence)
+	p := presence.NewPinger(s.presence, "a")
+	defer w.Stop()
+	defer p.Stop()
+
+	ch := make(chan presence.Change)
+	w.Add("a", ch)
+	assertChange(c, ch, presence.Change{"a", false})
+
+	// Nothing to do here.
+	w.Sync()
+
+	c.Assert(p.Start(), IsNil)
+
+	done := make(chan bool)
+	go func() {
+		w.Sync()
+		done <- true
+	}()
+
+	select {
+	case <-done:
+		c.Fatalf("Sync returned too early")
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	assertChange(c, ch, presence.Change{"a", true})
+
+	select {
+	case <-done:
+	case <-time.After(100 * time.Millisecond):
+		c.Fatalf("Sync failed to returned")
+	}
 }
