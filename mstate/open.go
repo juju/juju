@@ -1,6 +1,7 @@
 package mstate
 
 import (
+	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/log"
@@ -13,6 +14,14 @@ var indexes = []mgo.Index{
 	{Key: []string{"endpoints.servicename"}},
 }
 
+// The capped collection used for transaction logs defaults to 200MB.
+// It's tweaked in export_test.go to 1MB to avoid the overhead of
+// creating and deleting the large file repeatedly.
+var (
+	logSize      = 200000000
+	logSizeTests = 1000000
+)
+
 func Dial(servers string) (*State, error) {
 	log.Printf("opening state with servers: %q", servers)
 	session, err := mgo.Dial(servers)
@@ -22,14 +31,20 @@ func Dial(servers string) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	st := &State{
-		db:         db,
-		charms:     db.C("charms"),
-		machines:   db.C("machines"),
-		relations:  db.C("relations"),
-		services:   db.C("services"),
-		settings:   db.C("settings"),
-		units:      db.C("units"),
-		presence:   pdb.C("presence"),
+		db:        db,
+		charms:    db.C("charms"),
+		machines:  db.C("machines"),
+		relations: db.C("relations"),
+		services:  db.C("services"),
+		settings:  db.C("settings"),
+		units:     db.C("units"),
+		presence:  pdb.C("presence"),
+	}
+	log := db.C("txns.log")
+	info := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
+	// Quite unfortunate that the error has no appropriate code.
+	if err := log.Create(&info); err != nil && err.Error() != "collection already exists" {
+		return nil, fmt.Errorf("cannot create log collection: %v", err)
 	}
 	st.runner = txn.NewRunner(db.C("txns"))
 	st.runner.ChangeLog(db.C("txns.log"))
@@ -38,7 +53,7 @@ func Dial(servers string) (*State, error) {
 	for _, index := range indexes {
 		err = st.relations.EnsureIndex(index)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("cannot create database index: %v", err)
 		}
 	}
 	return st, nil

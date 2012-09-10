@@ -12,3 +12,7 @@ func (doc *MachineDoc) String() string {
 	m := &Machine{doc: machineDoc(*doc)}
 	return m.String()
 }
+
+func init() {
+	logSize = logSizeTests
+}
