@@ -135,24 +135,25 @@ type reqAlive struct {
 	result chan bool
 }
 
+func (w *Watcher) sendReq(req interface{}) {
+	select {
+	case w.request <- req:
+	case <-w.tomb.Dying():
+	}
+}
+
 // Add includes key into w for liveness monitoring. An event will
 // be sent onto ch to report the initial status for the key, and
 // from then on a new event will be sent whenever a change is
 // detected. Change values sent to the channel must be consumed,
 // or the whole watcher will blocked.
 func (w *Watcher) Add(key string, ch chan<- Change) {
-	select {
-	case w.request <- reqAdd{key, ch}:
-	case <-w.tomb.Dying():
-	}
+	w.sendReq(reqAdd{key, ch})
 }
 
 // Remove removes key and ch from liveness monitoring.
 func (w *Watcher) Remove(key string, ch chan<- Change) {
-	select {
-	case w.request <- reqRemove{key, ch}:
-	case <-w.tomb.Dying():
-	}
+	w.sendReq(reqRemove{key, ch})
 }
 
 // ForceRefresh forces a synchronous refresh of the watcher knowledge.
@@ -161,10 +162,7 @@ func (w *Watcher) Remove(key string, ch chan<- Change) {
 // registered channels.
 func (w *Watcher) ForceRefresh() {
 	done := make(chan bool)
-	select {
-	case w.request <- reqRefresh{done}:
-	case <-w.tomb.Dying():
-	}
+	w.sendReq(reqRefresh{done})
 	select {
 	case <-done:
 	case <-w.tomb.Dying():
@@ -174,10 +172,7 @@ func (w *Watcher) ForceRefresh() {
 // Alive returns whether the key is currently considered alive by w.
 func (w *Watcher) Alive(key string) bool {
 	result := make(chan bool, 1)
-	select {
-	case w.request <- reqAlive{key, result}:
-	case <-w.tomb.Dying():
-	}
+	w.sendReq(reqAlive{key, result})
 	var alive bool
 	select {
 	case alive = <-result:
