@@ -111,29 +111,30 @@ type reqSync struct {
 	done chan bool
 }
 
+func (w *Watcher) sendReq(req interface{}) {
+	select {
+	case w.request <- req:
+	case <-w.tomb.Dying():
+	}
+}
+
 // Watch starts watching the given collection and document id.
 // An event will be sent onto ch whenever a matching document's txn-revno
 // field is observed to change after a transaction is applied. The revno
-// parameter informs the currently known revision number for the document.
-// Non-existing documents are represented by a -1 revno.
+// parameter holds the currently known revision number for the document.
+// Non-existent documents are represented by a -1 revno.
 func (w *Watcher) Watch(collection string, id interface{}, revno int64, ch chan<- Change) {
 	if id == nil {
 		panic("watcher: cannot watch a document with nil id")
 	}
-	select {
-	case w.request <- reqWatch{watchKey{collection, id}, watchInfo{ch, revno}}:
-	case <-w.tomb.Dying():
-	}
+	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, revno}})
 }
 
 // WatchCollection starts watching the given collection.
 // An event will be sent onto ch whenever the txn-revno field is observed
 // to change after a transaction is applied for any document in the collection.
 func (w *Watcher) WatchCollection(collection string, ch chan<- Change) {
-	select {
-	case w.request <- reqWatch{watchKey{collection, nil}, watchInfo{ch, 0}}:
-	case <-w.tomb.Dying():
-	}
+	w.sendReq(reqWatch{watchKey{collection, nil}, watchInfo{ch, 0}})
 }
 
 // Unwatch stops watching the given collection and document id via ch.
@@ -141,36 +142,24 @@ func (w *Watcher) Unwatch(collection string, id interface{}, ch chan<- Change) {
 	if id == nil {
 		panic("watcher: cannot unwatch a document with nil id")
 	}
-	select {
-	case w.request <- reqUnwatch{watchKey{collection, id}, ch}:
-	case <-w.tomb.Dying():
-	}
+	w.sendReq(reqUnwatch{watchKey{collection, id}, ch})
 }
 
 // UnwatchCollection stops watching the given collection via ch.
 func (w *Watcher) UnwatchCollection(collection string, ch chan<- Change) {
-	select {
-	case w.request <- reqUnwatch{watchKey{collection, nil}, ch}:
-	case <-w.tomb.Dying():
-	}
+	w.sendReq(reqUnwatch{watchKey{collection, nil}, ch})
 }
 
 // StartSync forces the watcher to load new events from the database.
 func (w *Watcher) StartSync() {
-	select {
-	case w.request <- reqSync{nil}:
-	case <-w.tomb.Dying():
-	}
+	w.sendReq(reqSync{nil})
 }
 
 // Sync forces the watcher to load new events from the database and blocks
 // until all events have been dispatched.
 func (w *Watcher) Sync() {
 	done := make(chan bool)
-	select {
-	case w.request <- reqSync{done}:
-	case <-w.tomb.Dying():
-	}
+	w.sendReq(reqSync{done})
 	select {
 	case <-done:
 	case <-w.tomb.Dying():
@@ -318,6 +307,7 @@ func (w *Watcher) initLastId() error {
 // queues events to observing channels.
 func (w *Watcher) sync() error {
 	log.Debugf("watcher: loading new events from changelog collection...")
+	// Iterate through log events in reverse insertion order (newest first).
 	iter := w.log.Find(nil).Batch(10).Sort("-$natural").Iter()
 	seen := make(map[watchKey]bool)
 	first := true
