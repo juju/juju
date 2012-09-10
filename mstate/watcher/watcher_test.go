@@ -309,7 +309,7 @@ func (s *WatcherSuite) TestRemove(c *C) {
 
 func (s *WatcherSuite) TestWatchBeforeRemoveKnown(c *C) {
 	revno1 := s.insert(c, "test", "a")
-	s.w.StartSync()
+	s.w.Sync()
 	revno2 := s.remove(c, "test", "a")
 
 	s.w.Watch("test", "a", -1, s.ch)
@@ -323,7 +323,7 @@ func (s *WatcherSuite) TestWatchBeforeRemoveKnown(c *C) {
 func (s *WatcherSuite) TestWatchKnownRemove(c *C) {
 	revno1 := s.insert(c, "test", "a")
 	revno2 := s.remove(c, "test", "a")
-	s.w.StartSync()
+	s.w.Sync()
 
 	s.w.Watch("test", "a", revno1, s.ch)
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno2})
@@ -381,7 +381,7 @@ func (s *WatcherSuite) TestWatchPeriod(c *C) {
 	period := 1 * time.Second
 	watcher.FakePeriod(period)
 	revno1 := s.insert(c, "test", "a")
-	s.w.StartSync()
+	s.w.Sync()
 	s.w.Watch("test", "a", revno1, s.ch)
 	revno2 := s.update(c, "test", "a")
 
