@@ -47,6 +47,8 @@ func (w *MachineWatcher) loop(m *Machine) (err error) {
 
 	for {
 		select {
+		case <-st.watcher.Dying():
+			return watcher.MustErr(st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-ch:
@@ -58,6 +60,8 @@ func (w *MachineWatcher) loop(m *Machine) (err error) {
 		}
 		for {
 			select {
+			case <-st.watcher.Dying():
+				return watcher.MustErr(st.watcher)
 			case <-w.tomb.Dying():
 				return tomb.ErrDying
 			case <-ch:
