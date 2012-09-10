@@ -120,8 +120,8 @@ func (s *PresenceSuite) TestWorkflow(c *C) {
 	// Buffer one entry to avoid blocking the watcher here.
 	cha := make(chan presence.Change, 1)
 	chb := make(chan presence.Change, 1)
-	w.Add("a", cha)
-	w.Add("b", chb)
+	w.Watch("a", cha)
+	w.Watch("b", chb)
 
 	// Initial events with current status.
 	assertChange(c, cha, presence.Change{"a", false})
@@ -142,7 +142,7 @@ func (s *PresenceSuite) TestWorkflow(c *C) {
 	assertAlive(c, w, "b", false)
 
 	// Changes while the channel is out are not observed.
-	w.Remove("a", cha)
+	w.Unwatch("a", cha)
 	assertNoChange(c, cha)
 	pa.Kill()
 	w.Sync()
@@ -156,7 +156,7 @@ func (s *PresenceSuite) TestWorkflow(c *C) {
 	assertAlive(c, w, "b", false)
 
 	// Initial positive event. No refresh needed.
-	w.Add("a", cha)
+	w.Watch("a", cha)
 	assertChange(c, cha, presence.Change{"a", true})
 
 	c.Assert(pb.Start(), IsNil)
@@ -211,7 +211,7 @@ func (s *PresenceSuite) TestScale(c *C) {
 	ch := make(chan presence.Change)
 	for i := 0; i < N; i++ {
 		k := strconv.Itoa(i)
-		w.Add(k, ch)
+		w.Watch(k, ch)
 		if i%2 == 0 {
 			assertChange(c, ch, presence.Change{k, true})
 		} else {
@@ -227,7 +227,7 @@ func (s *PresenceSuite) TestExpiry(c *C) {
 	defer p.Stop()
 
 	ch := make(chan presence.Change)
-	w.Add("a", ch)
+	w.Watch("a", ch)
 	assertChange(c, ch, presence.Change{"a", false})
 
 	c.Assert(p.Start(), IsNil)
@@ -260,7 +260,7 @@ func (s *PresenceSuite) TestWatchPeriod(c *C) {
 	defer p.Stop()
 
 	ch := make(chan presence.Change)
-	w.Add("a", ch)
+	w.Watch("a", ch)
 	assertChange(c, ch, presence.Change{"a", false})
 
 	// A single ping.
@@ -272,18 +272,18 @@ func (s *PresenceSuite) TestWatchPeriod(c *C) {
 	assertChange(c, ch, presence.Change{"a", true})
 }
 
-func (s *PresenceSuite) TestAddRemoveOnQueue(c *C) {
+func (s *PresenceSuite) TestWatchUnwatchOnQueue(c *C) {
 	w := presence.NewWatcher(s.presence)
 	ch := make(chan presence.Change)
 	for i := 0; i < 100; i++ {
 		key := strconv.Itoa(i)
 		c.Logf("Adding %q", key)
-		w.Add(key, ch)
+		w.Watch(key, ch)
 	}
 	for i := 1; i < 100; i += 2 {
 		key := strconv.Itoa(i)
 		c.Logf("Removing %q", key)
-		w.Remove(key, ch)
+		w.Unwatch(key, ch)
 	}
 	alive := make(map[string]bool)
 	for i := 0; i < 50; i++ {
@@ -387,7 +387,7 @@ func (s *PresenceSuite) TestStartSync(c *C) {
 	defer p.Stop()
 
 	ch := make(chan presence.Change)
-	w.Add("a", ch)
+	w.Watch("a", ch)
 	assertChange(c, ch, presence.Change{"a", false})
 
 	c.Assert(p.Start(), IsNil)
@@ -416,7 +416,7 @@ func (s *PresenceSuite) TestSync(c *C) {
 	defer p.Stop()
 
 	ch := make(chan presence.Change)
-	w.Add("a", ch)
+	w.Watch("a", ch)
 	assertChange(c, ch, presence.Change{"a", false})
 
 	// Nothing to do here.

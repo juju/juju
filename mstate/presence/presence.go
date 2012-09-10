@@ -58,7 +58,7 @@ type Watcher struct {
 	beingKey map[int64]string
 	beingSeq map[string]int64
 
-	// watches has the per-key observer channels from Add/Remove.
+	// watches has the per-key observer channels from Watch/Unwatch.
 	watches map[string][]chan<- Change
 
 	// pending contains all the events to be dispatched to the watcher
@@ -129,12 +129,12 @@ func (w *Watcher) Err() error {
 	return w.tomb.Err()
 }
 
-type reqAdd struct {
+type reqWatch struct {
 	key string
 	ch  chan<- Change
 }
 
-type reqRemove struct {
+type reqUnwatch struct {
 	key string
 	ch  chan<- Change
 }
@@ -155,18 +155,18 @@ func (w *Watcher) sendReq(req interface{}) {
 	}
 }
 
-// Add includes key into w for liveness monitoring. An event will
+// Watch starts watching the liveness of key. An event will
 // be sent onto ch to report the initial status for the key, and
 // from then on a new event will be sent whenever a change is
 // detected. Change values sent to the channel must be consumed,
 // or the whole watcher will blocked.
-func (w *Watcher) Add(key string, ch chan<- Change) {
-	w.sendReq(reqAdd{key, ch})
+func (w *Watcher) Watch(key string, ch chan<- Change) {
+	w.sendReq(reqWatch{key, ch})
 }
 
-// Remove removes key and ch from liveness monitoring.
-func (w *Watcher) Remove(key string, ch chan<- Change) {
-	w.sendReq(reqRemove{key, ch})
+// Unwatch stops watching the liveness of key via ch.
+func (w *Watcher) Unwatch(key string, ch chan<- Change) {
+	w.sendReq(reqUnwatch{key, ch})
 }
 
 // StartSync forces the watcher to load new events from the database.
@@ -238,20 +238,18 @@ func (w *Watcher) loop() error {
 // flush sends all pending events to their respective channels.
 func (w *Watcher) flush() {
 	// w.pending may get new requests as we handle other requests.
-	i := 0
-	for i < len(w.pending) {
+	for i := 0; i < len(w.pending); i++ {
 		e := &w.pending[i]
-		if e.ch == nil {
-			i++ // Removed meanwhile.
-			continue
-		}
-		select {
-		case <-w.tomb.Dying():
-			return
-		case req := <-w.request:
-			w.handle(req)
-		case e.ch <- Change{e.key, e.alive}:
-			i++
+		for e.ch != nil {
+			select {
+			case <-w.tomb.Dying():
+				return
+			case req := <-w.request:
+				w.handle(req)
+				continue
+			case e.ch <- Change{e.key, e.alive}:
+			}
+			break
 		}
 	}
 	w.pending = w.pending[:0]
@@ -267,7 +265,7 @@ func (w *Watcher) handle(req interface{}) {
 		if r.done != nil {
 			w.syncDone = append(w.syncDone, r.done)
 		}
-	case reqAdd:
+	case reqWatch:
 		for _, ch := range w.watches[r.key] {
 			if ch == r.ch {
 				panic("adding channel twice for same key")
@@ -276,7 +274,7 @@ func (w *Watcher) handle(req interface{}) {
 		w.watches[r.key] = append(w.watches[r.key], r.ch)
 		_, alive := w.beingSeq[r.key]
 		w.pending = append(w.pending, event{r.ch, r.key, alive})
-	case reqRemove:
+	case reqUnwatch:
 		watches := w.watches[r.key]
 		for i, ch := range watches {
 			if ch == r.ch {
