@@ -293,3 +293,14 @@ func (*CmdSuite) TestUnexposeCommandInit(c *C) {
 
 	// environment tested elsewhere
 }
+
+func initSSHCommand(args ...string) (*SSHCommand, error) {
+	com := &SSHCommand{}
+	return com, com.Init(newFlagSet(), args)
+}
+
+func (*CmdSuite) TestSSHCommandInit(c *C) {
+	// missing args
+	_, err := initSSHCommand()
+	c.Assert(err, ErrorMatches, "no service name specified")
+}

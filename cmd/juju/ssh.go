@@ -11,9 +11,9 @@ import (
 
 // SSHCommand is responsible for launchin an ssh shell on a given unit or machine.
 type SSHCommand struct {
-	EnvName     string
-	Target 	string
-	Args	[]string
+	EnvName string
+	Target  string
+	Args    []string
 }
 
 func (c *SSHCommand) Info() *cmd.Info {
@@ -27,7 +27,7 @@ func (c *SSHCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	}
 	args = f.Args()
 	switch len(args) {
-	case 0: 
+	case 0:
 		return errors.New("no service name specified")
 	default:
 		c.Args = args[1:]
@@ -47,10 +47,13 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	}
 	defer conn.Close()
 	host, err := c.hostFromTarget()
-	args := c.Args
+	args := []string{"-l", "ubuntu", "-h", host, "-t", "-o", "StrictHostKeyChecking no", "-o", "PasswordAuthentication no", "--"}
+	args = append(args, c.Args...)
 	cmd := exec.Command("/usr/bin/ssh", args...)
 	cmd.Stdin = ctx.Stdin
 	cmd.Stdout = ctx.Stdout
 	cmd.Stderr = ctx.Stderr
 	return cmd.Run()
 }
+
+func (c *SSHCommand) hostFromTarget() (string, error) { return "", nil }
