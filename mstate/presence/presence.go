@@ -185,16 +185,18 @@ func (w *Watcher) Sync() {
 	}
 }
 
-// Alive returns whether the key is currently considered alive by w.
-func (w *Watcher) Alive(key string) bool {
+// Alive returns whether the key is currently considered alive by w,
+// or an error in case the watcher is dying.
+func (w *Watcher) Alive(key string) (bool, error) {
 	result := make(chan bool, 1)
 	w.sendReq(reqAlive{key, result})
 	var alive bool
 	select {
 	case alive = <-result:
 	case <-w.tomb.Dying():
+		return false, fmt.Errorf("cannot check liveness: watcher is dying")
 	}
-	return alive
+	return alive, nil
 }
 
 // period is the length of each time slot in seconds.

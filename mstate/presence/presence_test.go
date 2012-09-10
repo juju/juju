@@ -72,6 +72,12 @@ func assertNoChange(c *C, watch <-chan presence.Change) {
 	}
 }
 
+func assertAlive(c *C, w *presence.Watcher, key string, alive bool) {
+	alive, err := w.Alive("a")
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, alive)
+}
+
 func (s *PresenceSuite) TestErrAndDying(c *C) {
 	w := presence.NewWatcher(s.presence)
 	defer w.Stop()
@@ -91,6 +97,15 @@ func (s *PresenceSuite) TestErrAndDying(c *C) {
 	}
 }
 
+func (s *PresenceSuite) TestAliveError(c *C) {
+	w := presence.NewWatcher(s.presence)
+	c.Assert(w.Stop(), IsNil)
+
+	alive, err := w.Alive("a")
+	c.Assert(err, ErrorMatches, ".*: watcher is dying")
+	c.Assert(alive, Equals, false)
+}
+
 func (s *PresenceSuite) TestWorkflow(c *C) {
 	w := presence.NewWatcher(s.presence)
 	pa := presence.NewPinger(s.presence, "a")
@@ -99,8 +114,8 @@ func (s *PresenceSuite) TestWorkflow(c *C) {
 	defer pa.Stop()
 	defer pb.Stop()
 
-	c.Assert(w.Alive("a"), Equals, false)
-	c.Assert(w.Alive("b"), Equals, false)
+	assertAlive(c, w, "a", false)
+	assertAlive(c, w, "b", false)
 
 	// Buffer one entry to avoid blocking the watcher here.
 	cha := make(chan presence.Change, 1)
@@ -123,8 +138,8 @@ func (s *PresenceSuite) TestWorkflow(c *C) {
 	assertNoChange(c, cha)
 	assertNoChange(c, chb)
 
-	c.Assert(w.Alive("a"), Equals, true)
-	c.Assert(w.Alive("b"), Equals, false)
+	assertAlive(c, w, "a", true)
+	assertAlive(c, w, "b", false)
 
 	// Changes while the channel is out are not observed.
 	w.Remove("a", cha)
@@ -137,8 +152,8 @@ func (s *PresenceSuite) TestWorkflow(c *C) {
 	assertNoChange(c, cha)
 
 	// We can still query it manually, though.
-	c.Assert(w.Alive("a"), Equals, true)
-	c.Assert(w.Alive("b"), Equals, false)
+	assertAlive(c, w, "a", true)
+	assertAlive(c, w, "b", false)
 
 	// Initial positive event. No refresh needed.
 	w.Add("a", cha)
@@ -309,9 +324,9 @@ func (s *PresenceSuite) TestRestartWithoutGaps(c *C) {
 		for !stop {
 			w := presence.NewWatcher(s.presence)
 			w.Sync()
-			alive := w.Alive("a")
+			alive, err := w.Alive("a")
 			c.Check(w.Stop(), IsNil)
-			if !c.Check(alive, Equals, true) {
+			if !c.Check(err, IsNil) || !c.Check(alive, Equals, true) {
 				break
 			}
 			select {
@@ -346,7 +361,7 @@ func (s *PresenceSuite) TestPingerPeriodAndResilience(c *C) {
 	c.Assert(p1.Start(), IsNil)
 
 	w.Sync()
-	c.Assert(w.Alive("a"), Equals, true)
+	assertAlive(c, w, "a", true)
 
 	// Start and kill p2, which will temporarily
 	// invalidate p1 and set the key as dead.
@@ -354,7 +369,7 @@ func (s *PresenceSuite) TestPingerPeriodAndResilience(c *C) {
 	c.Assert(p2.Kill(), IsNil)
 
 	w.Sync()
-	c.Assert(w.Alive("a"), Equals, false)
+	assertAlive(c, w, "a", false)
 
 	// Wait for two periods, and check again. Since
 	// p1 is still alive, p2's death will expire and
@@ -362,7 +377,7 @@ func (s *PresenceSuite) TestPingerPeriodAndResilience(c *C) {
 	time.Sleep(period * 2 * time.Second)
 
 	w.Sync()
-	c.Assert(w.Alive("a"), Equals, true)
+	assertAlive(c, w, "a", true)
 }
 
 func (s *PresenceSuite) TestStartSync(c *C) {
