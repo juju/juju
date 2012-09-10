@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"os/exec"
-	"os"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
@@ -41,14 +40,17 @@ func (c *SSHCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run resolves c.Target to a machine, or host of a unit and
 // forks ssh with c.Args, if provided.
-// ports that were also explicitly marked by units as open.
-func (c *SSHCommand) Run(_ *cmd.Context) error {
+func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
 	host, err := c.hostFromTarget()
-	
-	cmd := 
+	args := c.Args
+	cmd := exec.Command("/usr/bin/ssh", args...)
+	cmd.Stdin = ctx.Stdin
+	cmd.Stdout = ctx.Stdout
+	cmd.Stderr = ctx.Stderr
+	return cmd.Run()
 }
