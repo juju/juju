@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/mstate/presence"
+	"launchpad.net/juju-core/mstate/watcher"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/url"
@@ -28,7 +29,6 @@ type Tools struct {
 // managed by juju.
 type State struct {
 	db         *mgo.Database
-	presencedb *mgo.Database
 	charms     *mgo.Collection
 	machines   *mgo.Collection
 	relations  *mgo.Collection
@@ -36,8 +36,9 @@ type State struct {
 	settings   *mgo.Collection
 	units      *mgo.Collection
 	presence   *mgo.Collection
-	presencew  *presence.Watcher
 	runner     *txn.Runner
+	watcher    *watcher.Watcher
+	presencew  *presence.Watcher
 }
 
 func deadOnAbort(err error) error {
@@ -368,4 +369,12 @@ func (s *State) Unit(name string) (*Unit, error) {
 // the presence watcher knowledge
 func (s *State) ForcePresenceRefresh() {
 	s.presencew.ForceRefresh()
+}
+
+// StartSync forces watchers to resynchronize their state with the
+// database immediately. This will happen periodically automatically.
+func (s *State) StartSync() {
+	// TODO Make presence more like watcher, add it here, and
+	// remove ForcePresenceRefresh.
+	s.watcher.StartSync()
 }
