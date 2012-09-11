@@ -97,6 +97,20 @@ func (w *Watcher) Stop() error {
 	return w.tomb.Wait()
 }
 
+// Dying returns a channel that is closed when the watcher is stopping
+// due to an error or because Stop was called explicitly.
+func (w *Watcher) Dying() <-chan struct{} {
+       return w.tomb.Dying()
+}
+
+// Err returns the error with which the watcher stopped.
+// It returns nil if the watcher stopped cleanly, tomb.ErrStillAlive
+// if the watcher is still running properly, or the respective error
+// if the watcher is terminating or has terminated with an error.
+func (w *Watcher) Err() error {
+       return w.tomb.Err()
+}
+
 type reqWatch struct {
 	key  watchKey
 	info watchInfo
