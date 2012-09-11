@@ -100,6 +100,7 @@ func newState(session *mgo.Session, fwd *sshForwarder) (*State, error) {
 		return nil, fmt.Errorf("cannot create log collection: %v", err)
 	}
 	st.runner = txn.NewRunner(db.C("txns"))
+	st.runner.ChangeLog(db.C("txns.log"))
 	st.watcher = watcher.New(db.C("txns.log"))
 	st.pwatcher = presence.NewWatcher(pdb.C("presence"))
 	for _, index := range indexes {
