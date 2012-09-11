@@ -2,8 +2,8 @@ package mstate
 
 import (
 	"errors"
-	"strings"
 	"fmt"
+	"strings"
 
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
@@ -89,7 +89,6 @@ func newState(session *mgo.Session, fwd *sshForwarder) (*State, error) {
 		services:  db.C("services"),
 		settings:  db.C("settings"),
 		units:     db.C("units"),
-		runner:    txn.NewRunner(txns),
 		presence:  pdb.C("presence"),
 		fwd:       fwd,
 	}
@@ -101,7 +100,6 @@ func newState(session *mgo.Session, fwd *sshForwarder) (*State, error) {
 		return nil, fmt.Errorf("cannot create log collection: %v", err)
 	}
 	st.runner = txn.NewRunner(db.C("txns"))
-	st.runner.ChangeLog(db.C("txns.log"))
 	st.watcher = watcher.New(db.C("txns.log"))
 	st.pwatcher = presence.NewWatcher(pdb.C("presence"))
 	for _, index := range indexes {
