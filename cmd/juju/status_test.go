@@ -255,7 +255,7 @@ func (s *StatusSuite) testStatus(format string, marshal func(v interface{}) ([]b
 	for _, t := range statusTests {
 		c.Logf("testing %s: %s", format, t.title)
 		t.prepare(s.State, s.Conn, c)
-		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}}
+		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
 		code := cmd.Main(&StatusCommand{}, ctx, []string{"--format", format})
 		c.Check(code, Equals, 0)
 		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), Equals, "")
