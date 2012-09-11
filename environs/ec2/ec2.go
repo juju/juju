@@ -653,7 +653,8 @@ func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
 func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
-	jujuGroup, err := e.ensureGroup(e.groupName(), true,
+	sourceGroups := []ec2.UserSecurityGroup{{Name: e.groupName()}}
+	jujuGroup, err := e.ensureGroup(e.groupName(),
 		[]ec2.IPPerm{
 			{
 				Protocol:  "tcp",
@@ -661,11 +662,29 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 				ToPort:    22,
 				SourceIPs: []string{"0.0.0.0/0"},
 			},
+			{
+				Protocol:     "tcp",
+				FromPort:     0,
+				ToPort:       65535,
+				SourceGroups: sourceGroups,
+			},
+			{
+				Protocol:     "udp",
+				FromPort:     0,
+				ToPort:       65535,
+				SourceGroups: sourceGroups,
+			},
+			{
+				Protocol:     "icmp",
+				FromPort:     -1,
+				ToPort:       -1,
+				SourceGroups: sourceGroups,
+			},
 		})
 	if err != nil {
 		return nil, err
 	}
-	jujuMachineGroup, err := e.ensureGroup(e.machineGroupName(machineId), false, nil)
+	jujuMachineGroup, err := e.ensureGroup(e.machineGroupName(machineId), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -678,7 +697,7 @@ var zeroGroup ec2.SecurityGroup
 // ensureGroup returns the security group with name and perms.
 // If a group with name does not exist, one will be created.
 // If it exists, its permissions are set to perms.
-func (e *environ) ensureGroup(name string, authSelf bool, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
+func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
 	ec2inst := e.ec2()
 	resp, err := ec2inst.CreateSecurityGroup(name, "juju group")
 	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
@@ -702,26 +721,6 @@ func (e *environ) ensureGroup(name string, authSelf bool, perms []ec2.IPPerm) (g
 		g = info.SecurityGroup
 	}
 	want := newPermSet(perms)
-	if authSelf {
-		want[permKey{
-			groupId:  g.Id,
-			fromPort: 0,
-			toPort:   65535,
-			protocol: "tcp",
-		}] = true
-		want[permKey{
-			groupId:  g.Id,
-			fromPort: 0,
-			toPort:   65535,
-			protocol: "udp",
-		}] = true
-		want[permKey{
-			groupId:  g.Id,
-			fromPort: -1,
-			toPort:   -1,
-			protocol: "icmp",
-		}] = true
-	}
 	revoke := make(permSet)
 	for p := range have {
 		if !want[p] {
@@ -751,14 +750,14 @@ func (e *environ) ensureGroup(name string, authSelf bool, perms []ec2.IPPerm) (g
 }
 
 // permKey represents a permission for a group or an ip address range
-// to access the given range of ports. Only one of groupId or ipAddr
+// to access the given range of ports. Only one of groupName or ipAddr
 // should be non-empty.
 type permKey struct {
-	protocol string
-	fromPort int
-	toPort   int
-	groupId  string
-	ipAddr   string
+	protocol  string
+	fromPort  int
+	toPort    int
+	groupName string
+	ipAddr    string
 }
 
 type permSet map[permKey]bool
@@ -775,10 +774,10 @@ func newPermSet(ps []ec2.IPPerm) permSet {
 			toPort:   p.ToPort,
 		}
 		for _, g := range p.SourceGroups {
-			k.groupId = g.Id
+			k.groupName = g.Name
 			m[k] = true
 		}
-		k.groupId = ""
+		k.groupName = ""
 		for _, ip := range p.SourceIPs {
 			k.ipAddr = ip
 			m[k] = true
@@ -801,7 +800,7 @@ func (m permSet) ipPerms() (ps []ec2.IPPerm) {
 		if p.ipAddr != "" {
 			ipp.SourceIPs = []string{p.ipAddr}
 		} else {
-			ipp.SourceGroups = []ec2.UserSecurityGroup{{Id: p.groupId}}
+			ipp.SourceGroups = []ec2.UserSecurityGroup{{Name: p.groupName}}
 		}
 		ps = append(ps, ipp)
 	}
