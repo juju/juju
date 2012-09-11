@@ -243,7 +243,7 @@ func (u *Unit) WaitAgentAlive(timeout time.Duration) (err error) {
 			}
 		case <-time.After(timeout):
 			return fmt.Errorf("still not alive after timeout")
-		case <-u.st.pwatcher.Dying():
+		case <-u.st.pwatcher.Dead():
 			return u.st.pwatcher.Err()
 		}
 	}
