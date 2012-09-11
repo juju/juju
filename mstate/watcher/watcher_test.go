@@ -155,19 +155,19 @@ func (s *WatcherSuite) remove(c *C, coll string, id interface{}) (revno int64) {
 	return -1
 }
 
-func (s *WatcherSuite) TestErrAndDying(c *C) {
+func (s *WatcherSuite) TestErrAndDead(c *C) {
 	c.Assert(s.w.Err(), Equals, tomb.ErrStillAlive)
 	select {
-	case <-s.w.Dying():
-		c.Fatalf("Dying channel fired unexpectedly")
+	case <-s.w.Dead():
+		c.Fatalf("Dead channel fired unexpectedly")
 	default:
 	}
 	c.Assert(s.w.Stop(), IsNil)
 	c.Assert(s.w.Err(), IsNil)
 	select {
-	case <-s.w.Dying():
+	case <-s.w.Dead():
 	default:
-		c.Fatalf("Dying channel should have fired")
+		c.Fatalf("Dead channel should have fired")
 	}
 }
 

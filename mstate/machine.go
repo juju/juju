@@ -98,7 +98,7 @@ func (m *Machine) WaitAgentAlive(timeout time.Duration) (err error) {
 			}
 		case <-time.After(timeout):
 			return fmt.Errorf("still not alive after timeout")
-		case <-m.st.pwatcher.Dying():
+		case <-m.st.pwatcher.Dead():
 			return m.st.pwatcher.Err()
 		}
 	}

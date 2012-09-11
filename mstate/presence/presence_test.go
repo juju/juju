@@ -78,22 +78,22 @@ func assertAlive(c *C, w *presence.Watcher, key string, alive bool) {
 	c.Assert(alive, Equals, alive)
 }
 
-func (s *PresenceSuite) TestErrAndDying(c *C) {
+func (s *PresenceSuite) TestErrAndDead(c *C) {
 	w := presence.NewWatcher(s.presence)
 	defer w.Stop()
 
 	c.Assert(w.Err(), Equals, tomb.ErrStillAlive)
 	select {
-	case <-w.Dying():
-		c.Fatalf("Dying channel fired unexpectedly")
+	case <-w.Dead():
+		c.Fatalf("Dead channel fired unexpectedly")
 	default:
 	}
 	c.Assert(w.Stop(), IsNil)
 	c.Assert(w.Err(), IsNil)
 	select {
-	case <-w.Dying():
+	case <-w.Dead():
 	default:
-		c.Fatalf("Dying channel should have fired")
+		c.Fatalf("Dead channel should have fired")
 	}
 }
 
