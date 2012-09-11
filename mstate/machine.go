@@ -20,6 +20,7 @@ type machineDoc struct {
 	Id         int `bson:"_id"`
 	InstanceId string
 	Life       Life
+	TxnRevno   int64 `bson:"txn-revno"`
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -71,6 +72,11 @@ func (m *Machine) Refresh() error {
 	}
 	m.doc = doc
 	return nil
+}
+
+// Watch returns a watcher that fires when the machine changes.
+func (m *Machine) Watch() *MachineWatcher {
+	return newMachineWatcher(m)
 }
 
 // AgentAlive returns whether the respective remote agent is alive.
