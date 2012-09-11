@@ -117,7 +117,7 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 		if err != nil {
 			return err
 		}
-		if err = u.deployer.SetCharm(bun, url); err != nil {
+		if err = u.deployer.Stage(bun, url); err != nil {
 			return err
 		}
 		log.Printf("deploying charm %q", url)
