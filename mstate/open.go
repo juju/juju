@@ -25,20 +25,10 @@ type Info struct {
 	UseSSH bool
 }
 
-// Open connects to the server described by the given
+// DialInfo connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
 // representing the environment connected to.
-func Open(info *Info) (*State, error) {
-	st, err := open(info)
-	if err != nil {
-		return nil, err
-	}
-	log.Printf("mstate: waiting for state to be initialized")
-	// TODO(dfc) wait for the /environment key 
-	return st, err
-}
-
-func open(info *Info) (*State, error) {
+func DialInfo(info *Info) (*State, error) {
 	log.Printf("mstate: opening state; mongo addresses: %q", info.Addrs)
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no mongo addresses")
@@ -53,7 +43,11 @@ func open(info *Info) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newState(session, fwd)
+	st, err := newState(session, fwd)
+	if err != nil {
+		return nil, err
+	}
+	return st, err
 }
 
 var indexes = []mgo.Index{
