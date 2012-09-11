@@ -22,7 +22,6 @@ const zkPort = 2181
 
 var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
 
-
 // A request may fail to due "eventual consistency" semantics, which
 // should resolve fairly quickly.  A request may also fail due to a slow
 // state transition (for instance an instance taking a while to release
