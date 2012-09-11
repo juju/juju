@@ -19,22 +19,21 @@ type Machiner struct {
 	tools *state.Tools
 }
 
-// NewMachiner starts a machine agent running that
-// deploys agents in the given directory.
-// The Machiner dies when it encounters an error.
+// newSimpleContainer is for testing.
+var newSimpleContainer = func(varDir string) container.Container {
+	return &container.Simple{VarDir: varDir}
+}
+
+// NewMachiner starts a machine agent running that deploys agents in the
+// given directory.  The Machiner dies when it encounters an error.
 func NewMachiner(machine *state.Machine, info *state.Info, varDir string) *Machiner {
-	cont := &container.Simple{VarDir: varDir}
 	tools, err := environs.ReadTools(varDir, version.Current)
 	if err != nil {
 		tools = &state.Tools{Binary: version.Current}
 	}
-	return newMachiner(machine, info, cont, tools)
-}
-
-func newMachiner(machine *state.Machine, info *state.Info, cont container.Container, tools *state.Tools) *Machiner {
 	m := &Machiner{
 		machine: machine,
-		localContainer: cont,
+		localContainer: newSimpleContainer(varDir),
 		stateInfo: info,
 		tools: tools,
 	}
