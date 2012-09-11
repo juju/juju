@@ -7,8 +7,8 @@ import (
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/log"
 )
 
 // SSHCommand is responsible for launchin an ssh shell on a given unit or machine.
@@ -51,6 +51,9 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	}
 	defer c.Close()
 	host, err := c.hostFromTarget()
+	if err != nil {
+		return err
+	}
 	args := []string{"-l", "ubuntu", "-t", "-o", "StrictHostKeyChecking no", "-o", "PasswordAuthentication no", host, "--"}
 	args = append(args, c.Args...)
 	cmd := exec.Command("/usr/bin/ssh", args...)
@@ -87,6 +90,7 @@ func (c *SSHCommand) hostFromTarget() (string, error) {
 	}
 	// maybe the target is a unit
 	if unit, err := c.State.Unit(c.Target); err == nil {
+		log.Printf("unit %s, err %v", unit, err)
 		log.Printf("juju/ssh: fetching machine address using unit name")
 		id, err := unit.AssignedMachineId()
 		// TODO(dfc) add a watcher here
