@@ -7,6 +7,7 @@ import (
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/juju"
 )
 
@@ -62,11 +63,13 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 func (c *SSHCommand) hostFromTarget() (string, error) {
 	// is the target the id of a machine ?
 	if id, err := strconv.Atoi(c.Target); err == nil {
+		log.Printf("juju/ssh: fetching machine address using juju machine id")
 		machine, err := c.State.Machine(id)
 		if err != nil {
 			return "", err
 		}
 		// wait for instance id
+		// TODO(dfc) use WaitAgentAlive() ?
 		w := machine.Watch()
 		for _ = range w.Changes() {
 			instid, err := machine.InstanceId()
@@ -84,6 +87,7 @@ func (c *SSHCommand) hostFromTarget() (string, error) {
 	}
 	// maybe the target is a unit
 	if unit, err := c.State.Unit(c.Target); err == nil {
+		log.Printf("juju/ssh: fetching machine address using unit name")
 		id, err := unit.AssignedMachineId()
 		// TODO(dfc) add a watcher here
 		if err != nil {
@@ -94,6 +98,7 @@ func (c *SSHCommand) hostFromTarget() (string, error) {
 			return "", err
 		}
 		// wait for instance id
+		// TODO(dfc) use WaitAgentAlive() ?
 		w := machine.Watch()
 		for _ = range w.Changes() {
 			instid, err := machine.InstanceId()
