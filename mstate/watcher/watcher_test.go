@@ -440,9 +440,6 @@ func (s *WatcherSuite) TestWatchUnwatchOnQueue(c *C) {
 func (s *WatcherSuite) TestStartSync(c *C) {
 	s.w.Watch("test", "a", -1, s.ch)
 
-	// Nothing to do here.
-	s.w.StartSync()
-
 	revno := s.insert(c, "test", "a")
 
 	done := make(chan bool)
@@ -456,7 +453,7 @@ func (s *WatcherSuite) TestStartSync(c *C) {
 	select {
 	case <-done:
 	case <-time.After(100 * time.Millisecond):
-		c.Fatalf("SyncStart failed to return")
+		c.Fatalf("StartSync failed to return")
 	}
 
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno})
@@ -479,7 +476,7 @@ func (s *WatcherSuite) TestSync(c *C) {
 	select {
 	case <-done:
 		c.Fatalf("Sync returned too early")
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(200 * time.Millisecond):
 	}
 
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno})

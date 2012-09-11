@@ -50,7 +50,7 @@ func Dial(servers string) (*State, error) {
 	st.runner = txn.NewRunner(db.C("txns"))
 	st.runner.ChangeLog(db.C("txns.log"))
 	st.watcher = watcher.New(db.C("txns.log"))
-	st.presencew = presence.NewWatcher(pdb.C("presence"))
+	st.pwatcher = presence.NewWatcher(pdb.C("presence"))
 	for _, index := range indexes {
 		err = st.relations.EnsureIndex(index)
 		if err != nil {
@@ -61,8 +61,8 @@ func Dial(servers string) (*State, error) {
 }
 
 func (st *State) Close() error {
-	err1 := st.presencew.Stop()
-	err2 := st.watcher.Stop()
+	err1 := st.watcher.Stop()
+	err2 := st.pwatcher.Stop()
 	st.db.Session.Close()
 	for _, err := range []error{err1, err2} {
 		if err != nil {

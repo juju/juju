@@ -23,7 +23,8 @@ func (s *MachineSuite) SetUpTest(c *C) {
 }
 
 func (s *MachineSuite) TestMachineSetAgentAlive(c *C) {
-	alive := s.machine.AgentAlive()
+	alive, err := s.machine.AgentAlive()
+	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 
 	pinger, err := s.machine.SetAgentAlive()
@@ -31,37 +32,39 @@ func (s *MachineSuite) TestMachineSetAgentAlive(c *C) {
 	c.Assert(pinger, Not(IsNil))
 	defer pinger.Stop()
 
-	s.State.ForcePresenceRefresh()
-	alive = s.machine.AgentAlive()
+	s.State.Sync()
+	alive, err = s.machine.AgentAlive()
+	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
 }
 
 func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
 	// test -gocheck.f TestMachineWaitAgentAlive
 	timeout := 5 * time.Second
-	alive := s.machine.AgentAlive()
+	alive, err := s.machine.AgentAlive()
+	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 
-	s.State.ForcePresenceRefresh()
-	err := s.machine.WaitAgentAlive(timeout)
+	s.State.StartSync()
+	err = s.machine.WaitAgentAlive(timeout)
 	c.Assert(err, ErrorMatches, `waiting for agent of machine 0: still not alive after timeout`)
 
 	pinger, err := s.machine.SetAgentAlive()
 	c.Assert(err, IsNil)
 
-	s.State.ForcePresenceRefresh()
+	s.State.StartSync()
 	err = s.machine.WaitAgentAlive(timeout)
 	c.Assert(err, IsNil)
 
-	alive = s.machine.AgentAlive()
+	alive, err = s.machine.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
 
 	err = pinger.Kill()
 	c.Assert(err, IsNil)
 
-	s.State.ForcePresenceRefresh()
-	alive = s.machine.AgentAlive()
+	s.State.Sync()
+	alive, err = s.machine.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 }
