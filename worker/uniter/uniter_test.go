@@ -158,7 +158,7 @@ var uniterTests = []uniterTest{
 		serveCharm{},
 		writeFile{"charm", 0644},
 		createUniter{},
-		waitUniterDead{`ModeInit: ".*/charm" is not a directory`},
+		waitUniterDead{`ModeInstalling: charm deployment failed: ".*/charm" is not a directory`},
 	), ut(
 		"charm cannot be downloaded",
 		createCharm{},

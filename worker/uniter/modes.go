@@ -37,10 +37,6 @@ func ModeInit(u *Uniter) (next Mode, err error) {
 	} else if err = u.unit.SetPublicAddress(public); err != nil {
 		return nil, err
 	}
-
-	if err := u.charm.Recover(); err != nil {
-		return nil, err
-	}
 	return ModeContinue, nil
 }
 
