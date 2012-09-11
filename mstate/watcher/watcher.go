@@ -97,7 +97,7 @@ func (w *Watcher) Stop() error {
 	return w.tomb.Wait()
 }
 
-// Dead returns a channel that is closed when the watcher is stopped.
+// Dead returns a channel that is closed when the watcher has stopped.
 func (w *Watcher) Dead() <-chan struct{} {
        return w.tomb.Dead()
 }
