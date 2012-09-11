@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/mstate/presence"
+	"launchpad.net/juju-core/mstate/watcher"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/url"
@@ -27,17 +28,17 @@ type Tools struct {
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	db         *mgo.Database
-	presencedb *mgo.Database
-	charms     *mgo.Collection
-	machines   *mgo.Collection
-	relations  *mgo.Collection
-	services   *mgo.Collection
-	settings   *mgo.Collection
-	units      *mgo.Collection
-	presence   *mgo.Collection
-	presencew  *presence.Watcher
-	runner     *txn.Runner
+	db        *mgo.Database
+	charms    *mgo.Collection
+	machines  *mgo.Collection
+	relations *mgo.Collection
+	services  *mgo.Collection
+	settings  *mgo.Collection
+	units     *mgo.Collection
+	presence  *mgo.Collection
+	runner    *txn.Runner
+	watcher   *watcher.Watcher
+	pwatcher  *presence.Watcher
 }
 
 func deadOnAbort(err error) error {
@@ -364,8 +365,16 @@ func (s *State) Unit(name string) (*Unit, error) {
 	return newUnit(s, &doc), nil
 }
 
-// ForcePresenceRefresh forces a synchronous refresh of 
-// the presence watcher knowledge
-func (s *State) ForcePresenceRefresh() {
-	s.presencew.ForceRefresh()
+// StartSync forces watchers to resynchronize their state with the
+// database immediately. This will happen periodically automatically.
+func (s *State) StartSync() {
+	s.watcher.StartSync()
+	s.pwatcher.StartSync()
+}
+
+// Sync forces watchers to resynchronize their state with the
+// database immediately, and waits until all events are known.
+func (s *State) Sync() {
+	s.watcher.Sync()
+	s.pwatcher.Sync()
 }

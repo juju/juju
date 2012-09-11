@@ -157,40 +157,6 @@ func (s *GitDirSuite) TestClone(c *C) {
 	c.Assert(lines[1], Matches, "[a-f0-9]{7} im in ur repo committin ur files")
 }
 
-func (s *GitDirSuite) TestRecover(c *C) {
-	repo := charm.NewGitDir(filepath.Join(c.MkDir(), "not-dir"))
-	err := ioutil.WriteFile(repo.Path(), nil, 0644)
-	c.Assert(err, IsNil)
-	_, err = repo.Exists()
-	c.Assert(err, ErrorMatches, `".*/not-dir" is not a directory`)
-	err = os.Remove(repo.Path())
-	c.Assert(err, IsNil)
-
-	repo = newRepo(c)
-	err = ioutil.WriteFile(filepath.Join(repo.Path(), "some-file"), []byte("goodbye"), 0644)
-	c.Assert(err, IsNil)
-
-	err = repo.Recover()
-	c.Assert(err, IsNil)
-	data, err := ioutil.ReadFile(filepath.Join(repo.Path(), "some-file"))
-	c.Assert(err, IsNil)
-	c.Assert(string(data), Equals, "goodbye")
-
-	err = ioutil.WriteFile(filepath.Join(repo.Path(), ".git", "index.lock"), nil, 0644)
-	c.Assert(err, IsNil)
-
-	err = repo.Recover()
-	c.Assert(err, IsNil)
-	data, err = ioutil.ReadFile(filepath.Join(repo.Path(), "some-file"))
-	c.Assert(err, IsNil)
-	c.Assert(string(data), Equals, "goodbye")
-
-	err = repo.AddAll()
-	c.Assert(err, IsNil)
-	err = repo.Commitf("blah")
-	c.Assert(err, IsNil)
-}
-
 func (s *GitDirSuite) TestConflictRevert(c *C) {
 	source := newRepo(c)
 	updated, err := source.Clone(c.MkDir())
