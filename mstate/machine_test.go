@@ -3,6 +3,7 @@ package mstate_test
 import (
 	. "launchpad.net/gocheck"
 	state "launchpad.net/juju-core/mstate"
+	"launchpad.net/juju-core/version"
 	"sort"
 	"time"
 )
@@ -22,7 +23,8 @@ func (s *MachineSuite) SetUpTest(c *C) {
 }
 
 func (s *MachineSuite) TestMachineSetAgentAlive(c *C) {
-	alive := s.machine.AgentAlive()
+	alive, err := s.machine.AgentAlive()
+	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 
 	pinger, err := s.machine.SetAgentAlive()
@@ -30,37 +32,39 @@ func (s *MachineSuite) TestMachineSetAgentAlive(c *C) {
 	c.Assert(pinger, Not(IsNil))
 	defer pinger.Stop()
 
-	s.State.ForcePresenceRefresh()
-	alive = s.machine.AgentAlive()
+	s.State.Sync()
+	alive, err = s.machine.AgentAlive()
+	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
 }
 
 func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
 	// test -gocheck.f TestMachineWaitAgentAlive
 	timeout := 5 * time.Second
-	alive := s.machine.AgentAlive()
+	alive, err := s.machine.AgentAlive()
+	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 
-	s.State.ForcePresenceRefresh()
-	err := s.machine.WaitAgentAlive(timeout)
+	s.State.StartSync()
+	err = s.machine.WaitAgentAlive(timeout)
 	c.Assert(err, ErrorMatches, `waiting for agent of machine 0: still not alive after timeout`)
 
 	pinger, err := s.machine.SetAgentAlive()
 	c.Assert(err, IsNil)
 
-	s.State.ForcePresenceRefresh()
+	s.State.StartSync()
 	err = s.machine.WaitAgentAlive(timeout)
 	c.Assert(err, IsNil)
 
-	alive = s.machine.AgentAlive()
+	alive, err = s.machine.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
 
 	err = pinger.Kill()
 	c.Assert(err, IsNil)
 
-	s.State.ForcePresenceRefresh()
-	alive = s.machine.AgentAlive()
+	s.State.Sync()
+	alive, err = s.machine.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 }
@@ -219,4 +223,104 @@ func sortedUnitNames(units []*state.Unit) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+type machineInfo struct {
+	tools      *state.Tools
+	instanceId string
+}
+
+func tools(tools int, url string) *state.Tools {
+	return &state.Tools{
+		URL: url,
+		Binary: version.Binary{
+			Number: version.Number{0, 0, tools},
+			Series: "series",
+			Arch:   "arch",
+		},
+	}
+}
+
+var watchMachineTests = []struct {
+	test func(m *state.Machine) error
+	want machineInfo
+}{
+	{
+		func(m *state.Machine) error {
+			return nil
+		},
+		machineInfo{
+			tools: &state.Tools{},
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.SetInstanceId("m-foo")
+		},
+		machineInfo{
+			tools:      &state.Tools{},
+			instanceId: "m-foo",
+		},
+	},
+	{
+		func(m *state.Machine) error {
+			return m.SetInstanceId("")
+		},
+		machineInfo{
+			tools:      &state.Tools{},
+			instanceId: "",
+		},
+	},
+	// TODO SetAgentTools is missing.
+	//{
+	//	func(m *state.Machine) error {
+	//		return m.SetAgentTools(tools(3, "baz"))
+	//	},
+	//	machineInfo{
+	//		tools: tools(3, "baz"),
+	//	},
+	//},
+	//{
+	//	func(m *state.Machine) error {
+	//		return m.SetAgentTools(tools(4, "khroomph"))
+	//	},
+	//	machineInfo{
+	//		tools: tools(4, "khroomph"),
+	//	},
+	//},
+}
+
+func (s *MachineSuite) TestWatchMachine(c *C) {
+	w := s.machine.Watch()
+	defer func() {
+		c.Assert(w.Stop(), IsNil)
+	}()
+	for i, test := range watchMachineTests {
+		c.Logf("test %d", i)
+		err := test.test(s.machine)
+		c.Assert(err, IsNil)
+		s.State.StartSync()
+		select {
+		case m, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(m.Id(), Equals, s.machine.Id())
+			var info machineInfo
+			// TODO AgentTools is missing.
+			info.tools = test.want.tools
+			//info.tools, err = m.AgentTools()
+			//c.Assert(err, IsNil)
+			info.instanceId, err = m.InstanceId()
+			if _, ok := err.(*state.NotFoundError); !ok {
+				c.Assert(err, IsNil)
+			}
+			c.Assert(info, DeepEquals, test.want)
+		case <-time.After(500 * time.Millisecond):
+			c.Fatalf("did not get change: %v", test.want)
+		}
+	}
+	select {
+	case got := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
 }
