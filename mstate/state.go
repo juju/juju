@@ -372,7 +372,7 @@ func (s *State) StartSync() {
 	s.pwatcher.StartSync()
 }
 
-// StartSync forces watchers to resynchronize their state with the
+// Sync forces watchers to resynchronize their state with the
 // database immediately, and waits until all events are known.
 func (s *State) Sync() {
 	s.watcher.Sync()
