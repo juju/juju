@@ -42,7 +42,8 @@ func Dial(servers string) (*State, error) {
 	}
 	log := db.C("txns.log")
 	info := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
-	// Quite unfortunate that the error has no appropriate code.
+	// The lack of error code for this error was reported upstream:
+	//     https://jira.mongodb.org/browse/SERVER-6992
 	if err := log.Create(&info); err != nil && err.Error() != "collection already exists" {
 		return nil, fmt.Errorf("cannot create log collection: %v", err)
 	}
