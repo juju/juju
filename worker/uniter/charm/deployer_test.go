@@ -43,8 +43,8 @@ func (s *DeployerSuite) TestInstall(c *C) {
 	lines, err := target.Log()
 	c.Assert(err, IsNil)
 	c.Assert(lines, HasLen, 2)
-	c.Assert(lines[0], Matches, "[0-9a-f]{7} deployed charm cs:s/c-1")
-	c.Assert(lines[1], Matches, "[0-9a-f]{7} imported charm cs:s/c-1 from .*")
+	c.Assert(lines[0], Matches, `[0-9a-f]{7} Deployed charm "cs:s/c-1".`)
+	c.Assert(lines[1], Matches, `[0-9a-f]{7} Imported charm "cs:s/c-1" from ".*".`)
 }
 
 func (s *DeployerSuite) TestUpgrade(c *C) {
@@ -80,7 +80,7 @@ func (s *DeployerSuite) TestUpgrade(c *C) {
 	lines, err := target.Log()
 	c.Assert(err, IsNil)
 	c.Assert(lines, HasLen, 5)
-	c.Assert(lines[0], Matches, "[0-9a-f]{7} upgraded charm to cs:s/c-2")
+	c.Assert(lines[0], Matches, `[0-9a-f]{7} Upgraded charm to "cs:s/c-2".`)
 }
 
 func (s *DeployerSuite) TestConflict(c *C) {
@@ -160,7 +160,7 @@ func (s *DeployerSuite) TestConflict(c *C) {
 	c.Assert(conflicted, Equals, false)
 	lines, err := target.Log()
 	c.Assert(err, IsNil)
-	c.Assert(lines[0], Matches, "[0-9a-f]{7} upgraded charm to cs:s/c-2")
+	c.Assert(lines[0], Matches, `[0-9a-f]{7} Upgraded charm to "cs:s/c-2".`)
 }
 
 func (s *DeployerSuite) bundle(c *C, customize func(path string)) *corecharm.Bundle {

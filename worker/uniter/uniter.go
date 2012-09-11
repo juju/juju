@@ -112,9 +112,11 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 	}
 	var hi *hook.Info
 	if op.Op == RunHook || op.Op == Upgrade {
-		// These operations can be interrupted to perform an upgrade; if hook
-		// information is stored, we need to preserve it so we can restore the
-		// original state once the upgrade is complete.
+		// If this upgrade interrupts a RunHook, we need to preserve the hook
+		// info so that we can return to the appropriate error state. However,
+		// if we're resuming (or have force-interrupted) an Upgrade, we also
+		// need to preserve whatever hook info was preserved when we initially
+		// started upgrading, to ensure we still return to the correct state.
 		hi = op.Hook
 	}
 	url := sch.URL()
@@ -148,11 +150,12 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 		status = Pending
 	} else {
 		// Otherwise, queue the relevant post-deploy hook.
-		hi = &hook.Info{
-			Kind: map[Op]hook.Kind{
-				Install: hook.Install,
-				Upgrade: hook.UpgradeCharm,
-			}[reason],
+		hi = &hook.Info{}
+		switch reason {
+		case Install:
+			hi.Kind = hook.Install
+		case Upgrade:
+			hi.Kind = hook.UpgradeCharm
 		}
 	}
 	return u.op.Write(RunHook, status, hi, nil)
@@ -219,7 +222,7 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 		panic("relation hooks are not yet supported")
 		// TODO: commit relation state changes.
 	}
-	if err := u.charm.Snapshotf("completed %q hook", hi.Kind); err != nil {
+	if err := u.charm.Snapshotf("Completed %q hook.", hi.Kind); err != nil {
 		return err
 	}
 	if err := u.op.Write(Abide, Pending, &hi, nil); err != nil {

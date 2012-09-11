@@ -100,13 +100,14 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	if op.Op == Install {
 		log.Printf("resuming charm install")
 		return ModeInstalling(sch), nil
+	} else if op.Op == Upgrade {
+		log.Printf("resuming charm upgrade")
+		return ModeUpgrading(sch), nil
 	}
-	log.Printf("resuming charm upgrade")
-	return ModeUpgrading(sch), nil
+	panic(fmt.Errorf("unhandled uniter operation %q", op.Op))
 }
 
-// ModeInstalling is responsible for creating the charm directory and running
-// the "install" hook.
+// ModeInstalling is responsible for the initial charm deployment.
 func ModeInstalling(sch *state.Charm) Mode {
 	return func(u *Uniter) (next Mode, err error) {
 		defer errorContextf(&err, "ModeInstalling")
@@ -262,8 +263,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	panic("unreachable")
 }
 
-// ModeUpgrading is responsible for upgrading the charm, and for running an
-// upgrade-charm hook if no other hook is in an error state.
+// ModeUpgrading is responsible for upgrading the charm.
 func ModeUpgrading(sch *state.Charm) Mode {
 	return func(u *Uniter) (Mode, error) {
 		log.Printf("upgrading charm to %q", sch.URL())
@@ -278,8 +278,9 @@ func ModeUpgrading(sch *state.Charm) Mode {
 }
 
 // ModeConflicted waits for the user to resolve an error encountered when
-// upgrading a charm: either by manually resolving errors and then setting
-// the resolved flag, or by forcing an upgrade to a different charm.
+// upgrading a charm. This may be done either by manually resolving errors
+// and then setting the resolved flag, or by forcing an upgrade to a
+// different charm.
 func ModeConflicted(sch *state.Charm) Mode {
 	return func(u *Uniter) (next Mode, err error) {
 		if err = u.unit.SetStatus(state.UnitError, "upgrade failed"); err != nil {
@@ -310,11 +311,9 @@ func ModeConflicted(sch *state.Charm) Mode {
 				if rm == state.ResolvedNone {
 					continue
 				}
-				err := u.charm.Snapshotf("user resolved upgrade conflict")
-				if e := u.unit.ClearResolved(); e != nil {
-					if err == nil {
-						err = e
-					}
+				err := u.charm.Snapshotf("Upgrade conflict resolved.")
+				if e := u.unit.ClearResolved(); e != nil && err == nil {
+					err = e
 				}
 				if err != nil {
 					return nil, err
