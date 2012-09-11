@@ -10,6 +10,8 @@ import (
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/mstate/presence"
+	"launchpad.net/juju-core/mstate/watcher"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/url"
@@ -33,7 +35,10 @@ type State struct {
 	services  *mgo.Collection
 	settings  *mgo.Collection
 	units     *mgo.Collection
+	presence  *mgo.Collection
 	runner    *txn.Runner
+	watcher   *watcher.Watcher
+	pwatcher  *presence.Watcher
 	fwd       *sshForwarder
 }
 
@@ -359,4 +364,18 @@ func (s *State) Unit(name string) (*Unit, error) {
 		return nil, fmt.Errorf("cannot get unit %q: %v", name, err)
 	}
 	return newUnit(s, &doc), nil
+}
+
+// StartSync forces watchers to resynchronize their state with the
+// database immediately. This will happen periodically automatically.
+func (s *State) StartSync() {
+	s.watcher.StartSync()
+	s.pwatcher.StartSync()
+}
+
+// Sync forces watchers to resynchronize their state with the
+// database immediately, and waits until all events are known.
+func (s *State) Sync() {
+	s.watcher.Sync()
+	s.pwatcher.Sync()
 }

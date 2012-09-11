@@ -31,7 +31,7 @@ func init() {
 	// unnecessary.
 	// b) we'll get an error later anyway if the file mode is not as
 	// requested.
-	os.Chmod("../testing/sshtest/id_rsa", 0600)
+	os.Chmod("../testing/sshdata/id_rsa", 0600)
 }
 
 var _ = Suite(&sshSuite{})
@@ -415,7 +415,7 @@ func (t *sshTest) resetSSHParams() {
 
 // file returns the full path name of an ssh test file.
 func (t *sshTest) file(name string) string {
-	return filepath.Join(t.dir, "../testing/sshtest", name)
+	return filepath.Join(t.dir, "../testing/sshdata", name)
 }
 
 // dialTwice tests that a client can contact a server through the

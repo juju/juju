@@ -28,10 +28,11 @@ func Main(args []string) {
 	juju.Register(&AddUnitCommand{})
 	juju.Register(&BootstrapCommand{})
 	juju.Register(&DeployCommand{})
-	juju.Register(&DestroyCommand{})
+	juju.Register(&DestroyEnvironmentCommand{})
 	juju.Register(&ExposeCommand{})
 	juju.Register(&StatusCommand{})
 	juju.Register(&UnexposeCommand{})
+	juju.Register(&UpgradeJujuCommand{})
 	os.Exit(cmd.Main(juju, cmd.DefaultContext(), args[1:]))
 }
 

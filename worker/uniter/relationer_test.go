@@ -226,6 +226,9 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(s1, DeepEquals, joined.Members["u/1"])
 
+	// Clear the changed hook's Members, as though it had been deserialized.
+	changed.Members = nil
+
 	// Check that preparing the following hook fails as before...
 	_, err = r.PrepareHook(changed)
 	c.Assert(err, ErrorMatches, `inappropriate "relation-changed" for "u/1": unit has not joined`)
@@ -245,7 +248,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(s1, DeepEquals, joined.Members["u/1"])
 
-	// ...and allows us to prepare the next hook.
+	// ...and allows us to prepare the next hook...
 	name, err = r.PrepareHook(changed)
 	c.Assert(err, IsNil)
 	c.Assert(name, Equals, "my-relation-relation-changed")
@@ -253,7 +256,31 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	c.Assert(ctx.Units(), DeepEquals, []string{"u/1"})
 	s1, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	c.Assert(s1, DeepEquals, changed.Members["u/1"])
+	c.Assert(s1, DeepEquals, map[string]interface{}{"private-address": "u-1.example.com"})
+
+	// ...and commit it.
+	err = r.CommitHook(changed)
+	c.Assert(err, IsNil)
+	c.Assert(s.dir.State().Members, DeepEquals, map[string]int{"u/1": 7})
+	c.Assert(ctx.Units(), DeepEquals, []string{"u/1"})
+
+	// To verify implied behaviour above, prepare a new joined hook with
+	// missing membership information, and check relation context
+	// membership is updated appropriately...
+	joined.RemoteUnit = "u/2"
+	joined.ChangeVersion = 3
+	joined.Members = nil
+	name, err = r.PrepareHook(joined)
+	c.Assert(err, IsNil)
+	c.Assert(s.dir.State().Members, HasLen, 1)
+	c.Assert(name, Equals, "my-relation-relation-joined")
+	c.Assert(ctx.Units(), DeepEquals, []string{"u/1", "u/2"})
+
+	// ...and so is relation state on commit.
+	err = r.CommitHook(joined)
+	c.Assert(err, IsNil)
+	c.Assert(s.dir.State().Members, DeepEquals, map[string]int{"u/1": 7, "u/2": 3})
+	c.Assert(ctx.Units(), DeepEquals, []string{"u/1", "u/2"})
 }
 
 func (s *RelationerSuite) TestSetDying(c *C) {
@@ -289,19 +316,9 @@ func (s *RelationerSuite) TestSetDying(c *C) {
 	// ...but the hook stream continues, sending the required changed hook for
 	// u/1 before moving on to a departed, despite the fact that its pinger is
 	// still running, and closing with a broken.
-	s.assertHook(c, hook.Info{
-		Kind:       hook.RelationChanged,
-		RemoteUnit: "u/1",
-		Members:    map[string]map[string]interface{}{"u/1": nil},
-	})
-	s.assertHook(c, hook.Info{
-		Kind:       hook.RelationDeparted,
-		RemoteUnit: "u/1",
-		Members:    map[string]map[string]interface{}{},
-	})
-	s.assertHook(c, hook.Info{
-		Kind: hook.RelationBroken,
-	})
+	s.assertHook(c, hook.Info{Kind: hook.RelationChanged, RemoteUnit: "u/1"})
+	s.assertHook(c, hook.Info{Kind: hook.RelationDeparted, RemoteUnit: "u/1"})
+	s.assertHook(c, hook.Info{Kind: hook.RelationBroken})
 
 	// Check that the relation state has been broken.
 	err = s.dir.State().Validate(hook.Info{Kind: hook.RelationBroken})

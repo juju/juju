@@ -3,8 +3,10 @@ package mstate
 import (
 	"fmt"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/mstate/presence"
 	"launchpad.net/juju-core/trivial"
 	"strconv"
+	"time"
 )
 
 // Machine represents the state of a machine.
@@ -18,6 +20,7 @@ type machineDoc struct {
 	Id         int `bson:"_id"`
 	InstanceId string
 	Life       Life
+	TxnRevno   int64 `bson:"txn-revno"`
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -27,6 +30,11 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 // Id returns the machine id.
 func (m *Machine) Id() int {
 	return m.doc.Id
+}
+
+// globalKey returns the global database key for the machine.
+func (m *Machine) globalKey() string {
+	return "m#" + m.String()
 }
 
 // Life returns whether the machine is Alive, Dying or Dead.
@@ -64,6 +72,48 @@ func (m *Machine) Refresh() error {
 	}
 	m.doc = doc
 	return nil
+}
+
+// Watch returns a watcher that fires when the machine changes.
+func (m *Machine) Watch() *MachineWatcher {
+	return newMachineWatcher(m)
+}
+
+// AgentAlive returns whether the respective remote agent is alive.
+func (m *Machine) AgentAlive() (bool, error) {
+	return m.st.pwatcher.Alive(m.globalKey())
+}
+
+// WaitAgentAlive blocks until the respective agent is alive.
+func (m *Machine) WaitAgentAlive(timeout time.Duration) (err error) {
+	defer trivial.ErrorContextf(&err, "waiting for agent of machine %v", m)
+	ch := make(chan presence.Change)
+	m.st.pwatcher.Watch(m.globalKey(), ch)
+	defer m.st.pwatcher.Unwatch(m.globalKey(), ch)
+	for i := 0; i < 2; i++ {
+		select {
+		case change := <-ch:
+			if change.Alive {
+				return nil
+			}
+		case <-time.After(timeout):
+			return fmt.Errorf("still not alive after timeout")
+		case <-m.st.pwatcher.Dead():
+			return m.st.pwatcher.Err()
+		}
+	}
+	panic(fmt.Sprintf("presence reported dead status twice in a row for machine %v", m))
+}
+
+// SetAgentAlive signals that the agent for machine m is alive. 
+// It returns the started pinger.
+func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
+	p := presence.NewPinger(m.st.presence, m.globalKey())
+	err := p.Start()
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 // InstanceId returns the provider specific machine id for this machine.
