@@ -46,7 +46,7 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 
 	// When no charm exists, install it.
 	log.Printf("reading uniter state from disk...")
-	op, err := u.op.Read()
+	s, err := u.sf.Read()
 	if err == ErrNoStateFile {
 		log.Printf("charm is not deployed")
 		sch, _, err := u.service.Charm()
@@ -59,44 +59,44 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	}
 
 	// Filter out states not related to charm deployment.
-	switch op.Op {
+	switch s.Op {
 	case Abide:
-		log.Printf("continuing after %q hook", op.Hook.Kind)
-		if op.Hook.Kind == hook.Install {
+		log.Printf("continuing after %q hook", s.Hook.Kind)
+		if s.Hook.Kind == hook.Install {
 			return ModeStarting, nil
 		}
 		return ModeStarted, nil
 	case RunHook:
-		if op.Status == Queued {
-			log.Printf("running queued %q hook", op.Hook.Kind)
-			if err := u.runHook(*op.Hook); err != nil {
+		if s.OpStep == Queued {
+			log.Printf("running queued %q hook", s.Hook.Kind)
+			if err := u.runHook(*s.Hook); err != nil {
 				if err != errHookFailed {
 					return nil, err
 				}
 			}
 			return ModeContinue, nil
 		}
-		if op.Status == Committing {
-			log.Printf("recovering uncommitted %q hook", op.Hook.Kind)
-			if err = u.commitHook(*op.Hook); err != nil {
+		if s.OpStep == Done {
+			log.Printf("recovering uncommitted %q hook", s.Hook.Kind)
+			if err = u.commitHook(*s.Hook); err != nil {
 				return nil, err
 			}
 			return ModeContinue, nil
 		}
-		log.Printf("awaiting error resolution for %q hook", op.Hook.Kind)
+		log.Printf("awaiting error resolution for %q hook", s.Hook.Kind)
 		return ModeHookError, nil
 	}
 
 	// Resume interrupted deployment operations.
-	sch, err := u.st.Charm(op.CharmURL)
+	sch, err := u.st.Charm(s.CharmURL)
 	if err != nil {
 		return nil, err
 	}
-	if op.Op == Install {
+	if s.Op == Install {
 		log.Printf("resuming charm install")
 		return ModeInstalling(sch), nil
 	}
-	panic(fmt.Errorf("unhandled operation %q", op.Op))
+	panic(fmt.Errorf("unhandled operation %q", s.Op))
 }
 
 // ModeInstalling is responsible for creating the charm directory and running
@@ -131,12 +131,12 @@ func ModeStarting(u *Uniter) (next Mode, err error) {
 // * unit death (not implemented)
 func ModeStarted(u *Uniter) (next Mode, err error) {
 	defer errorContextf(&err, "ModeStarted")
-	op, err := u.op.Read()
+	s, err := u.sf.Read()
 	if err != nil {
 		return nil, err
 	}
-	if op.Op != Abide {
-		return nil, fmt.Errorf("insane uniter state: %#v", op)
+	if s.Op != Abide {
+		return nil, fmt.Errorf("insane uniter state: %#v", s)
 	}
 	if err = u.unit.SetStatus(state.UnitStarted, ""); err != nil {
 		return nil, err
@@ -171,14 +171,14 @@ func ModeStarted(u *Uniter) (next Mode, err error) {
 // * unit death (not implemented)
 func ModeHookError(u *Uniter) (next Mode, err error) {
 	defer errorContextf(&err, "ModeHookError")
-	op, err := u.op.Read()
+	s, err := u.sf.Read()
 	if err != nil {
 		return nil, err
 	}
-	if op.Op != RunHook || op.Status != Pending {
-		return nil, fmt.Errorf("insane uniter state: %#v", op)
+	if s.Op != RunHook || s.OpStep != Pending {
+		return nil, fmt.Errorf("insane uniter state: %#v", s)
 	}
-	msg := fmt.Sprintf("hook failed: %q", op.Hook.Kind)
+	msg := fmt.Sprintf("hook failed: %q", s.Hook.Kind)
 	if err = u.unit.SetStatus(state.UnitError, msg); err != nil {
 		return nil, err
 	}
@@ -197,9 +197,9 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 			case state.ResolvedNone:
 				continue
 			case state.ResolvedRetryHooks:
-				err = u.runHook(*op.Hook)
+				err = u.runHook(*s.Hook)
 			case state.ResolvedNoHooks:
-				err = u.commitHook(*op.Hook)
+				err = u.commitHook(*s.Hook)
 			default:
 				panic(fmt.Errorf("unhandled resolved mode %q", rm))
 			}

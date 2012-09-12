@@ -27,21 +27,21 @@ const (
 	Abide Op = "abide"
 )
 
-// Status enumerates the possible operation statuses.
-type Status string
+// OpStep describes the recorded progression of an operation.
+type OpStep string
 
 const (
 	// Queued indicates that the uniter should undertake the operation
 	// as soon as possible.
-	Queued Status = "queued"
+	Queued OpStep = "queued"
 
 	// Pending indicates that the uniter has started, but not completed,
 	// the operation.
-	Pending Status = "pending"
+	Pending OpStep = "pending"
 
-	// Committing indicates that the uniter has completed the operation,
-	// but has yet to synchronize all necessary state.
-	Committing Status = "committing"
+	// Done indicates that the uniter has completed the operation,
+	// but may not yet have synchronized all necessary secondary state.
+	Done OpStep = "done"
 )
 
 // State defines the local persistent state of the uniter, excluding relation
@@ -50,8 +50,8 @@ type State struct {
 	// Op indicates the current operation.
 	Op Op
 
-	// Status indicates the current operation's status.
-	Status Status
+	// OpStep indicates the current operation's progression.
+	OpStep OpStep
 
 	// Hook holds hook information relevant to the current operation. If Op
 	// is Abide, it holds the last hook that was executed; if Op is RunHook,
@@ -88,10 +88,10 @@ func (st State) validate() error {
 	default:
 		return fmt.Errorf("unknown operation %q", st.Op)
 	}
-	switch st.Status {
-	case Queued, Pending, Committing:
+	switch st.OpStep {
+	case Queued, Pending, Done:
 	default:
-		return fmt.Errorf("unknown operation status %q", st.Status)
+		return fmt.Errorf("unknown operation step %q", st.OpStep)
 	}
 	if hasHook {
 		return st.Hook.Validate()
@@ -127,7 +127,7 @@ func (f *StateFile) Read() (*State, error) {
 }
 
 // Write stores the supplied state to the file.
-func (f *StateFile) Write(op Op, status Status, hi *hook.Info, url *charm.URL) error {
+func (f *StateFile) Write(op Op, step OpStep, hi *hook.Info, url *charm.URL) error {
 	if hi != nil {
 		// Strip membership info: it's potentially large, and can
 		// be reconstructed from relation state when required.
@@ -137,7 +137,7 @@ func (f *StateFile) Write(op Op, status Status, hi *hook.Info, url *charm.URL) e
 	}
 	st := &State{
 		Op:       op,
-		Status:   status,
+		OpStep:   step,
 		Hook:     hi,
 		CharmURL: url,
 	}

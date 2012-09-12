@@ -26,36 +26,36 @@ var stateTests = []struct {
 	st  uniter.State
 	err string
 }{
-	// Invalid op/status.
+	// Invalid op/step.
 	{
 		st:  uniter.State{Op: uniter.Op("bloviate")},
 		err: `unknown operation "bloviate"`,
 	}, {
 		st: uniter.State{
 			Op:     uniter.Abide,
-			Status: uniter.Status("dudelike"),
+			OpStep: uniter.OpStep("dudelike"),
 			Hook:   &hook.Info{Kind: hook.ConfigChanged},
 		},
-		err: `unknown operation status "dudelike"`,
+		err: `unknown operation step "dudelike"`,
 	},
 	// Install operation.
 	{
 		st: uniter.State{
 			Op:     uniter.Install,
-			Status: uniter.Pending,
+			OpStep: uniter.Pending,
 			Hook:   &hook.Info{Kind: hook.ConfigChanged},
 		},
 		err: `unexpected hook info`,
 	}, {
 		st: uniter.State{
 			Op:     uniter.Install,
-			Status: uniter.Pending,
+			OpStep: uniter.Pending,
 		},
 		err: `missing charm URL`,
 	}, {
 		st: uniter.State{
 			Op:       uniter.Install,
-			Status:   uniter.Pending,
+			OpStep:   uniter.Pending,
 			CharmURL: stcurl,
 		},
 	},
@@ -63,21 +63,21 @@ var stateTests = []struct {
 	{
 		st: uniter.State{
 			Op:     uniter.RunHook,
-			Status: uniter.Pending,
+			OpStep: uniter.Pending,
 			Hook:   &hook.Info{Kind: hook.Kind("machine-exploded")},
 		},
 		err: `unknown hook kind "machine-exploded"`,
 	}, {
 		st: uniter.State{
 			Op:     uniter.RunHook,
-			Status: uniter.Pending,
+			OpStep: uniter.Pending,
 			Hook:   &hook.Info{Kind: hook.RelationJoined},
 		},
 		err: `"relation-joined" hook requires a remote unit`,
 	}, {
 		st: uniter.State{
 			Op:       uniter.RunHook,
-			Status:   uniter.Pending,
+			OpStep:   uniter.Pending,
 			Hook:     &hook.Info{Kind: hook.ConfigChanged},
 			CharmURL: stcurl,
 		},
@@ -85,13 +85,13 @@ var stateTests = []struct {
 	}, {
 		st: uniter.State{
 			Op:     uniter.RunHook,
-			Status: uniter.Pending,
+			OpStep: uniter.Pending,
 			Hook:   &hook.Info{Kind: hook.ConfigChanged},
 		},
 	}, {
 		st: uniter.State{
 			Op:     uniter.RunHook,
-			Status: uniter.Pending,
+			OpStep: uniter.Pending,
 			Hook:   relhook,
 		},
 	},
@@ -99,19 +99,19 @@ var stateTests = []struct {
 	{
 		st: uniter.State{
 			Op:     uniter.Upgrade,
-			Status: uniter.Pending,
+			OpStep: uniter.Pending,
 		},
 		err: `missing charm URL`,
 	}, {
 		st: uniter.State{
 			Op:       uniter.Upgrade,
-			Status:   uniter.Pending,
+			OpStep:   uniter.Pending,
 			CharmURL: stcurl,
 		},
 	}, {
 		st: uniter.State{
 			Op:       uniter.Upgrade,
-			Status:   uniter.Pending,
+			OpStep:   uniter.Pending,
 			Hook:     relhook,
 			CharmURL: stcurl,
 		},
@@ -120,13 +120,13 @@ var stateTests = []struct {
 	{
 		st: uniter.State{
 			Op:     uniter.Abide,
-			Status: uniter.Pending,
+			OpStep: uniter.Pending,
 		},
 		err: `missing hook info`,
 	}, {
 		st: uniter.State{
 			Op:       uniter.Abide,
-			Status:   uniter.Pending,
+			OpStep:   uniter.Pending,
 			Hook:     relhook,
 			CharmURL: stcurl,
 		},
@@ -134,7 +134,7 @@ var stateTests = []struct {
 	}, {
 		st: uniter.State{
 			Op:     uniter.Abide,
-			Status: uniter.Pending,
+			OpStep: uniter.Pending,
 			Hook:   relhook,
 		},
 	},
@@ -148,7 +148,7 @@ func (s *StateFileSuite) TestStates(c *C) {
 		_, err := file.Read()
 		c.Assert(err, Equals, uniter.ErrNoStateFile)
 		write := func() {
-			err := file.Write(t.st.Op, t.st.Status, t.st.Hook, t.st.CharmURL)
+			err := file.Write(t.st.Op, t.st.OpStep, t.st.Hook, t.st.CharmURL)
 			c.Assert(err, IsNil)
 		}
 		if t.err != "" {

@@ -34,7 +34,7 @@ type Uniter struct {
 	charm    *charm.GitDir
 	bundles  *charm.BundlesDir
 	deployer *charm.Deployer
-	op       *StateFile
+	sf       *StateFile
 	rand     *rand.Rand
 }
 
@@ -68,7 +68,7 @@ func NewUniter(st *state.State, name string) (u *Uniter, err error) {
 		charm:    charm.NewGitDir(filepath.Join(baseDir, "charm")),
 		bundles:  charm.NewBundlesDir(filepath.Join(baseDir, "state", "bundles")),
 		deployer: charm.NewDeployer(filepath.Join(baseDir, "state", "deployer")),
-		op:       NewStateFile(filepath.Join(baseDir, "state", "uniter")),
+		sf:       NewStateFile(filepath.Join(baseDir, "state", "uniter")),
 		rand:     rand.New(rand.NewSource(time.Now().Unix())),
 	}
 	go u.loop()
@@ -106,12 +106,12 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 	if reason != Install {
 		panic(fmt.Errorf("unknown deploy operation %q", reason))
 	}
-	op, err := u.op.Read()
+	s, err := u.sf.Read()
 	if err != nil && err != ErrNoStateFile {
 		return err
 	}
 	url := sch.URL()
-	if op == nil || op.Status != Committing {
+	if s == nil || s.OpStep != Done {
 		log.Printf("fetching charm %q", url)
 		bun, err := u.bundles.Read(sch, u.tomb.Dying())
 		if err != nil {
@@ -121,13 +121,13 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 			return err
 		}
 		log.Printf("deploying charm %q", url)
-		if err = u.op.Write(reason, Pending, nil, url); err != nil {
+		if err = u.sf.Write(reason, Pending, nil, url); err != nil {
 			return err
 		}
 		if err = u.deployer.Deploy(u.charm); err != nil {
 			return err
 		}
-		if err = u.op.Write(reason, Committing, nil, url); err != nil {
+		if err = u.sf.Write(reason, Done, nil, url); err != nil {
 			return err
 		}
 	}
@@ -135,7 +135,7 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 	if err := u.unit.SetCharm(sch); err != nil {
 		return err
 	}
-	return u.op.Write(RunHook, Queued, &hook.Info{Kind: hook.Install}, nil)
+	return u.sf.Write(RunHook, Queued, &hook.Info{Kind: hook.Install}, nil)
 }
 
 // errHookFailed indicates that a hook failed to execute, but that the Uniter's
@@ -177,7 +177,7 @@ func (u *Uniter) runHook(hi hook.Info) error {
 	defer srv.Close()
 
 	// Run the hook.
-	if err := u.op.Write(RunHook, Pending, &hi, nil); err != nil {
+	if err := u.sf.Write(RunHook, Pending, &hi, nil); err != nil {
 		return err
 	}
 	log.Printf("running hook %q", hookName)
@@ -192,7 +192,7 @@ func (u *Uniter) runHook(hi hook.Info) error {
 // commitHook ensures that state is consistent with the supplied hook, and
 // that the fact of the hook's completion is persisted.
 func (u *Uniter) commitHook(hi hook.Info) error {
-	if err := u.op.Write(RunHook, Committing, &hi, nil); err != nil {
+	if err := u.sf.Write(RunHook, Done, &hi, nil); err != nil {
 		return err
 	}
 	if hi.Kind.IsRelation() {
@@ -202,7 +202,7 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 	if err := u.charm.Snapshotf("completed %q hook", hi.Kind); err != nil {
 		return err
 	}
-	if err := u.op.Write(Abide, Pending, &hi, nil); err != nil {
+	if err := u.sf.Write(Abide, Pending, &hi, nil); err != nil {
 		return err
 	}
 	log.Printf("hook complete")
