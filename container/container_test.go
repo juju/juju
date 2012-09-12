@@ -23,8 +23,6 @@ func TestPackage(t *stdtesting.T) {
 	coretesting.ZkTestPackage(t)
 }
 
-var _ container.Container = (*container.Simple)(nil)
-
 func (s *suite) TestDeploy(c *C) {
 	// make sure there's a jujud "executable" in the path.
 	varDir := c.MkDir()
@@ -45,16 +43,16 @@ func (s *suite) TestDeploy(c *C) {
 	c.Assert(err, IsNil)
 
 	initDir := c.MkDir()
-	cont := container.Simple{
+	cfg := container.Config{
 		VarDir:  varDir,
 		InitDir: initDir,
 	}
 
-	err = cont.Deploy(unit)
+	err = container.Deploy(cfg, unit)
 	c.Assert(err, ErrorMatches, `(.|\n)+Unknown job(.|\n)+`)
 
 	unitName := "juju-agent-dummy-0"
-	upstartScript := filepath.Join(cont.InitDir, unitName+".conf")
+	upstartScript := filepath.Join(cfg.InitDir, unitName+".conf")
 
 	data, err := ioutil.ReadFile(upstartScript)
 	c.Assert(err, IsNil)
@@ -64,11 +62,11 @@ func (s *suite) TestDeploy(c *C) {
 	// it is removed when the call to Deploy fails, but
 	// we can check that it is removed.
 
-	unitDir := filepath.Join(cont.VarDir, "units", "dummy-0")
+	unitDir := filepath.Join(cfg.VarDir, "units", "dummy-0")
 	err = os.MkdirAll(filepath.Join(unitDir, "foo"), 0777)
 	c.Assert(err, IsNil)
 
-	err = cont.Destroy(unit)
+	err = container.Destroy(cfg, unit)
 	c.Assert(err, IsNil)
 
 	_, err = os.Stat(unitDir)

@@ -6,55 +6,57 @@ import (
 	"launchpad.net/juju-core/upstart"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strings"
 )
 
-// Container contains running juju service units.
-type Container interface {
-	// Deploy deploys the unit into a new container.
-	Deploy(unit *state.Unit) error
-
-	// Destroy destroys the unit's container.
-	Destroy(unit *state.Unit) error
-}
-
-// TODO:
-//type lxc struct {
-//	name string
-//}
-//
-//func LXC(args...) Container {
-//}
-
-// Simple is a Container that knows how deploy units within
-// the current machine.
-type Simple struct {
+// Config holds information about where containers should
+// be started.
+type Config struct {
 	VarDir string
 	// InitDir holds the directory where upstart scripts
 	// will be deployed. If blank, the system default will
 	// be used.
 	InitDir string
+
+	// TODO(rog) add LogDir?
 }
 
 func deslash(s string) string {
 	return strings.Replace(s, "/", "-", -1)
 }
 
-func (c *Simple) service(unit *state.Unit) *upstart.Service {
+func (c *simple) dirName(unit *state.Unit) string {
+	return filepath.Join(c.cfg.VarDir, "units", deslash(unit.Name()))
+}
+
+func (c *simple) service(unit *state.Unit) *upstart.Service {
 	svc := upstart.NewService("juju-agent-" + deslash(unit.Name()))
-	if c.InitDir != "" {
-		svc.InitDir = c.InitDir
+	if c.cfg.InitDir != "" {
+		svc.InitDir = c.cfg.InitDir
 	}
 	return svc
 }
 
-func (c *Simple) dirName(unit *state.Unit) string {
-	return filepath.FromSlash(path.Join(c.VarDir, "units", deslash(unit.Name())))
+// Deploy deploys the unit into a new container.
+func Deploy(cfg Config, unit *state.Unit) (err error) {
+	// TODO choose an LXC container when the unit requires isolation.
+	cont := &simple{cfg}
+	return cont.deploy(unit)
 }
 
-func (c *Simple) Deploy(unit *state.Unit) error {
+// Destroy destroys the unit's container.
+func Destroy(cfg Config, unit *state.Unit) error {
+	cont := &simple{cfg}
+	return cont.destroy(unit)
+}
+
+// simple knows how deploy units within the current machine.
+type simple struct {
+	cfg Config
+}
+
+func (c *simple) deploy(unit *state.Unit) (err error) {
 	exe, err := exec.LookPath("jujud")
 	if err != nil {
 		return fmt.Errorf("cannot find executable: %v", err)
@@ -77,9 +79,8 @@ func (c *Simple) Deploy(unit *state.Unit) error {
 	return nil
 }
 
-func (c *Simple) Destroy(unit *state.Unit) error {
-	svc := c.service(unit)
-	if err := svc.Remove(); err != nil {
+func (c *simple) destroy(unit *state.Unit) error {
+	if err := c.service(unit).Remove(); err != nil {
 		return err
 	}
 	return os.RemoveAll(c.dirName(unit))

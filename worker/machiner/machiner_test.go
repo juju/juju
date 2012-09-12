@@ -58,8 +58,20 @@ func (s *MachinerSuite) TestMachinerDeployDestroy(c *C) {
 	err = ud0.AssignToMachine(m0)
 	c.Assert(err, IsNil)
 
-	dcontainer := newDummyContainer()
-	machiner := machiner.NewMachinerWithContainer(m0, dcontainer)
+	varDir := c.MkDir()
+
+	action := make(chan string, 5)
+	*machiner.Deploy = func(cfg container.Config, u *state.Unit) error {
+		c.Check(cfg.VarDir, Equals, varDir)
+		action <- "+" + u.Name()
+		return nil
+	}
+	*machiner.Destroy = func(cfg container.Config, u *state.Unit) error {
+		c.Check(cfg.VarDir, Equals, varDir)
+		action <- "-" + u.Name()
+		return nil
+	}
+	machiner := machiner.NewMachiner(m0, varDir)
 
 	tests := []struct {
 		change  func()
@@ -98,52 +110,26 @@ func (s *MachinerSuite) TestMachinerDeployDestroy(c *C) {
 		c.Logf("test %d", i)
 		t.change()
 		for _, a := range t.actions {
-			dcontainer.checkAction(c, a)
+			checkAction(c, action, a)
 		}
-		dcontainer.checkAction(c, "")
+			checkAction(c, action, "")
 	}
 
 	err = machiner.Stop()
 	c.Assert(err, IsNil)
 }
 
-type dummyContainer struct {
-	action chan string
-}
-
-var _ container.Container = (*dummyContainer)(nil)
-
-func newDummyContainer() *dummyContainer {
-	return &dummyContainer{
-		make(chan string, 5),
-	}
-}
-
-func (d *dummyContainer) Deploy(u *state.Unit) error {
-	d.action <- "+" + u.Name()
-	return nil
-}
-
-func (d *dummyContainer) Destroy(u *state.Unit) error {
-	d.action <- "-" + u.Name()
-	return nil
-}
-
-func (d *dummyContainer) ToolsDir(u *state.Unit) string {
-	return "/dummy/tools"
-}
-
-func (d *dummyContainer) checkAction(c *C, action string) {
+func checkAction(c *C, action <-chan string, expect string) {
 	timeout := 500 * time.Millisecond
-	if action == "" {
+	if expect == "" {
 		timeout = 200 * time.Millisecond
 	}
 	select {
-	case a := <-d.action:
-		c.Assert(a, Equals, action)
+	case a := <-action:
+		c.Assert(a, Equals, expect)
 	case <-time.After(timeout):
-		if action != "" {
-			c.Fatalf("expected action %v got nothing", action)
+		if expect != "" {
+			c.Fatalf("expected action %v got nothing", expect)
 		}
 	}
 }
