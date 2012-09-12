@@ -166,7 +166,7 @@ func addAgentScript(c *cloudinit.Config, cfg *MachineConfig, name, args string) 
 		"%s/jujud %s"+
 			" --zookeeper-servers '%s'"+
 			" --log-file /var/log/juju/%s-agent.log"+
-			" --data-directory '%s'"+
+			" --data-dir '%s'"+
 			" %s",
 		toolsDir, name,
 		cfg.zookeeperHostAddrs(),
