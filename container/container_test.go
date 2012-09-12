@@ -24,8 +24,6 @@ func TestPackage(t *stdtesting.T) {
 	coretesting.ZkTestPackage(t)
 }
 
-var _ container.Container = (*container.Simple)(nil)
-
 func (s *suite) TestDeploy(c *C) {
 	// create a unit to deploy
 	dummy := s.AddTestingCharm(c, "dummy")
@@ -49,7 +47,7 @@ func (s *suite) TestDeploy(c *C) {
 	c.Assert(err, IsNil)
 
 	initDir := c.MkDir()
-	cont := container.Simple{
+	cfg := container.Config{
 		VarDir:  varDir,
 		InitDir: initDir,
 	}
@@ -58,10 +56,10 @@ func (s *suite) TestDeploy(c *C) {
 		Addrs: []string{"a", "b"},
 	}
 
-	err = cont.Deploy(unit, info, tools)
+	err = container.Deploy(cfg, unit, info, tools)
 	c.Assert(err, ErrorMatches, `(.|\n)+Unknown job(.|\n)+`)
 
-	upstartScript := filepath.Join(cont.InitDir, "juju-unit-dummy-0.conf")
+	upstartScript := filepath.Join(cfg.InitDir, "juju-unit-dummy-0.conf")
 
 	data, err := ioutil.ReadFile(upstartScript)
 	c.Assert(err, IsNil)
@@ -76,11 +74,11 @@ func (s *suite) TestDeploy(c *C) {
 	// We can't check that the unit directory is created, because
 	// it is removed when the call to Deploy fails, but
 	// we can check that it is removed.
-	unitDir := filepath.Join(cont.VarDir, "agents", "unit-dummy-0")
+	unitDir := filepath.Join(cfg.VarDir, "agents", "unit-dummy-0")
 	err = os.MkdirAll(filepath.Join(unitDir, "foo"), 0777)
 	c.Assert(err, IsNil)
 
-	err = cont.Destroy(unit)
+	err = container.Destroy(cfg, unit)
 	c.Assert(err, IsNil)
 
 	_, err = os.Stat(unitDir)

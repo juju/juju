@@ -1,3 +1,4 @@
 package machiner
 
-var NewSimpleContainer = &newSimpleContainer
+var Deploy = &deploy
+var Destroy = &destroy
