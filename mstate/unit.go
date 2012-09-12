@@ -7,6 +7,7 @@ import (
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/mstate/presence"
 	"launchpad.net/juju-core/trivial"
+	"strings"
 	"time"
 )
 
@@ -224,6 +225,11 @@ func (u *Unit) SetStatus(status UnitStatus, info string) error {
 // AgentAlive returns whether the respective remote agent is alive.
 func (u *Unit) AgentAlive() bool {
 	return u.st.presencew.Alive(u.globalKey())
+}
+
+// AgentName returns the name used to identify the unit's agent.
+func (u *Unit) AgentName() string {
+	return "unit-"+strings.Replace(u.Name(), "/", "-", -1)
 }
 
 // WaitAgentAlive blocks until the respective agent is alive.

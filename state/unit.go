@@ -483,7 +483,7 @@ func (u *Unit) AgentAlive() (bool, error) {
 
 // AgentName returns the name used to identify the unit's agent.
 func (u *Unit) AgentName() string {
-	return fmt.Sprintf("unit-%s-%d", u.serviceName, keySeq(u.key))
+	return "unit-"+strings.Replace(u.Name(), "/", "-", -1)
 }
 
 // WaitAgentAlive blocks until the respective agent is alive.

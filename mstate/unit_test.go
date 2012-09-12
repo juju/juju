@@ -104,6 +104,10 @@ func (s *UnitSuite) TestGetSetStatus(c *C) {
 	c.Assert(info, Equals, "test-hook failed")
 }
 
+func (s *UnitSuite) TestAgentName(c *C) {
+	c.Assert(s.unit.AgentName(), Equals, "unit-wordpress-0")
+}
+
 func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
 	alive := s.unit.AgentAlive()
 	c.Assert(alive, Equals, false)
