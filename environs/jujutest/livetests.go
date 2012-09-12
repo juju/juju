@@ -181,8 +181,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	// Create a new service and deploy a unit of it.
 	c.Logf("deploying service")
 	repoDir := c.MkDir()
-	// TODO with series
-	url := testing.Charms.ClonedURL(repoDir, "dummy")
+	url := testing.Charms.ClonedURL(repoDir, "dummy", tools0.Series)
 	sch, err := conn.PutCharm(url, &charm.LocalRepository{repoDir}, false)
 
 	c.Assert(err, IsNil)
