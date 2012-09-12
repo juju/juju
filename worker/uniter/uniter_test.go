@@ -273,7 +273,7 @@ func (s *UniterSuite) TestUniter(c *C) {
 			st:     s.State,
 			id:     i,
 			path:   unitDir,
-			varDir: s.dataDir,
+			dataDir: s.dataDir,
 			charms: coretesting.ResponseMap{},
 		}
 		for i, s := range t.steps {
