@@ -48,7 +48,7 @@ func (s *DeploySuite) TearDownTest(c *C) {
 }
 
 func (s *DeploySuite) TestPutCharmBasic(c *C) {
-	curl := testing.Charms.ClonedURL(s.repo.Path, "riak")
+	curl := testing.Charms.ClonedURL(s.repo.Path, "riak", "series")
 	curl.Revision = -1 // make sure we trigger the repo.Latest logic.
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)
@@ -67,7 +67,7 @@ func (s *DeploySuite) TestPutBundledCharm(c *C) {
 	w, err := os.Create(filepath.Join(dir, "riak.charm"))
 	c.Assert(err, IsNil)
 	defer w.Close()
-	charmDir := testing.Charms.Dir("riak")
+	charmDir := testing.Charms.Dir("riak", "series")
 	err = charmDir.BundleTo(w)
 	c.Assert(err, IsNil)
 
@@ -91,7 +91,7 @@ func (s *DeploySuite) TestPutBundledCharm(c *C) {
 
 func (s *DeploySuite) TestPutCharmUpload(c *C) {
 	repo := &charm.LocalRepository{c.MkDir()}
-	curl := testing.Charms.ClonedURL(repo.Path, "riak")
+	curl := testing.Charms.ClonedURL(repo.Path, "riak", "series")
 
 	// Put charm for the first time.
 	sch, err := s.conn.PutCharm(curl, repo, false)
@@ -131,7 +131,7 @@ func (s *DeploySuite) TestPutCharmUpload(c *C) {
 }
 
 func (s *DeploySuite) TestAddService(c *C) {
-	curl := testing.Charms.ClonedURL(s.repo.Path, "riak")
+	curl := testing.Charms.ClonedURL(s.repo.Path, "riak", "series")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)
 
@@ -153,7 +153,7 @@ func (s *DeploySuite) TestAddService(c *C) {
 }
 
 func (s *DeploySuite) TestAddServiceDefaultName(c *C) {
-	curl := testing.Charms.ClonedURL(s.repo.Path, "riak")
+	curl := testing.Charms.ClonedURL(s.repo.Path, "riak", "series")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)
 
@@ -163,7 +163,7 @@ func (s *DeploySuite) TestAddServiceDefaultName(c *C) {
 }
 
 func (s *DeploySuite) TestAddUnits(c *C) {
-	curl := testing.Charms.ClonedURL(s.repo.Path, "riak")
+	curl := testing.Charms.ClonedURL(s.repo.Path, "riak", "series")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)
 	svc, err := s.conn.AddService("testriak", sch)

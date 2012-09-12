@@ -165,7 +165,7 @@ func (s *DeployerSuite) TestConflict(c *C) {
 
 func (s *DeployerSuite) bundle(c *C, customize func(path string)) *corecharm.Bundle {
 	base := c.MkDir()
-	dirpath := testing.Charms.ClonedDirPath(base, "dummy")
+	dirpath := testing.Charms.ClonedDirPath(base, "dummy", "series")
 	customize(dirpath)
 	dir, err := corecharm.ReadDir(dirpath)
 	c.Assert(err, IsNil)

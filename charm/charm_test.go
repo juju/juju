@@ -20,11 +20,11 @@ type CharmSuite struct{}
 var _ = Suite(&CharmSuite{})
 
 func (s *CharmSuite) TestRead(c *C) {
-	bPath := testing.Charms.BundlePath(c.MkDir(), "dummy")
+	bPath := testing.Charms.BundlePath(c.MkDir(), "dummy", "series")
 	ch, err := charm.Read(bPath)
 	c.Assert(err, IsNil)
 	c.Assert(ch.Meta().Name, Equals, "dummy")
-	dPath := testing.Charms.DirPath("dummy")
+	dPath := testing.Charms.DirPath("dummy", "series")
 	ch, err = charm.Read(dPath)
 	c.Assert(err, IsNil)
 	c.Assert(ch.Meta().Name, Equals, "dummy")

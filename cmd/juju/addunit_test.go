@@ -22,7 +22,7 @@ func runAddUnit(c *C, args ...string) error {
 }
 
 func (s *AddUnitSuite) TestAddUnit(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "dummy")
+	testing.Charms.BundlePath(s.seriesPath, "dummy", "series")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")

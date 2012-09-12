@@ -105,7 +105,7 @@ var statusTests = []struct {
 	{
 		"add two services and expose one",
 		func(st *state.State, conn *juju.Conn, c *C) {
-			ch := coretesting.Charms.Dir("dummy")
+			ch := coretesting.Charms.Dir("dummy", "series")
 			curl := charm.MustParseURL(
 				fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
 			)
