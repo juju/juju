@@ -169,7 +169,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 			c.Check(err, ErrorMatches, test.expectInitErr)
 			continue
 		}
-		err = com.Run(&cmd.Context{c.MkDir(), ioutil.Discard, ioutil.Discard})
+		err = com.Run(&cmd.Context{c.MkDir(), nil, ioutil.Discard, ioutil.Discard})
 		if test.expectErr != "" {
 			c.Check(err, ErrorMatches, test.expectErr)
 			continue
@@ -214,7 +214,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealPutTools(c *C) {
 	com := &UpgradeJujuCommand{}
 	err := com.Init(newFlagSet(), []string{"--upload-tools", "--dev"})
 	c.Assert(err, IsNil)
-	err = com.Run(&cmd.Context{c.MkDir(), ioutil.Discard, ioutil.Discard})
+	err = com.Run(&cmd.Context{c.MkDir(), nil, ioutil.Discard, ioutil.Discard})
 	c.Assert(err, IsNil)
 	p := environs.ToolsStoragePath(version.Current)
 	r, err := s.Conn.Environ.Storage().Get(p)
