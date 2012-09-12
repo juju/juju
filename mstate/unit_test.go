@@ -105,7 +105,7 @@ func (s *UnitSuite) TestGetSetStatus(c *C) {
 }
 
 func (s *UnitSuite) TestPathKey(c *C) {
-	c.Assert(s.unit.TestPathKey(), Equals, "unit-wordpress-0")
+	c.Assert(s.unit.PathKey(), Equals, "unit-wordpress-0")
 }
 
 func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
