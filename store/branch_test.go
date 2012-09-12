@@ -25,7 +25,7 @@ func (s *StoreSuite) dummyBranch(c *C, suffix string) bzrDir {
 	branch := bzrDir(tmpDir)
 	branch.init()
 
-	copyCharmDir(branch.path(), testing.Charms.Dir("dummy"))
+	copyCharmDir(branch.path(), testing.Charms.Dir("dummy", "series"))
 	branch.add()
 	branch.commit("Imported charm.")
 	return branch
