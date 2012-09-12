@@ -50,7 +50,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		log.Printf("machine agent starting")
 		err := a.runOnce()
 		if ug, ok := err.(*UpgradedError); ok {
-			tools, err1 := environs.ChangeAgentTools(a.Conf.VarDir, "machine", ug.Binary)
+			tools, err1 := environs.ChangeAgentTools(a.Conf.DataDir, "machine", ug.Binary)
 			if err1 == nil {
 				log.Printf("exiting to upgrade to %v from %q", tools.Binary, tools.URL)
 				// Return and let upstart deal with the restart.
@@ -79,7 +79,7 @@ func (a *MachineAgent) runOnce() error {
 		return err
 	}
 	return runTasks(a.tomb.Dying(),
-		machiner.NewMachiner(m, a.Conf.VarDir),
-		NewUpgrader(st, m, a.Conf.VarDir),
+		machiner.NewMachiner(m, a.Conf.DataDir),
+		NewUpgrader(st, m, a.Conf.DataDir),
 	)
 }

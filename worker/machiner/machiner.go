@@ -20,10 +20,10 @@ type Machiner struct {
 // NewMachiner starts a machine agent running that
 // deploys agents in the given directory.
 // The Machiner dies when it encounters an error.
-func NewMachiner(machine *state.Machine, varDir string) *Machiner {
+func NewMachiner(machine *state.Machine, dataDir string) *Machiner {
 	m := &Machiner{
 		cfg: container.Config{
-			VarDir: varDir,
+			DataDir: dataDir,
 		},
 	}
 	go m.loop(machine)

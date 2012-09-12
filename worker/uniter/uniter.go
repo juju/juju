@@ -37,9 +37,9 @@ type Uniter struct {
 // NewUniter creates a new Uniter which will install, run, and upgrade a
 // charm on behalf of the named unit, by executing hooks and operations
 // provoked by changes in st.
-func NewUniter(st *state.State, name string, varDir string) (u *Uniter, err error) {
+func NewUniter(st *state.State, name string, dataDir string) (u *Uniter, err error) {
 	defer trivial.ErrorContextf(&err, "failed to create uniter for unit %q", name)
-	path, err := ensureFs(varDir, name)
+	path, err := ensureFs(dataDir, name)
 	if err != nil {
 		return nil, err
 	}
@@ -199,14 +199,14 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 }
 
 // ensureFs ensures that files and directories required by the named uniter
-// exist inside varDir. It returns the path to the directory within which the uniter must
+// exist inside dataDir. It returns the path to the directory within which the uniter must
 // store its data.
-func ensureFs(varDir, name string) (string, error) {
+func ensureFs(dataDir, name string) (string, error) {
 	// TODO: do this OAOO at packaging time?
-	if err := EnsureJujucSymlinks(varDir, name); err != nil {
+	if err := EnsureJujucSymlinks(dataDir, name); err != nil {
 		return "", err
 	}
-	path := filepath.Join(varDir, "units", strings.Replace(name, "/", "-", 1))
+	path := filepath.Join(dataDir, "units", strings.Replace(name, "/", "-", 1))
 	if err := trivial.EnsureDir(filepath.Join(path, "state")); err != nil {
 		return "", err
 	}

@@ -25,8 +25,8 @@ func TestPackage(t *stdtesting.T) {
 
 func (s *suite) TestDeploy(c *C) {
 	// make sure there's a jujud "executable" in the path.
-	varDir := c.MkDir()
-	toolsDir := environs.AgentToolsDir(varDir, "unit-0")
+	dataDir := c.MkDir()
+	toolsDir := environs.AgentToolsDir(dataDir, "unit-0")
 	err := os.MkdirAll(toolsDir, 0777)
 	c.Assert(err, IsNil)
 	exe := filepath.Join(toolsDir, "jujud")
@@ -44,7 +44,7 @@ func (s *suite) TestDeploy(c *C) {
 
 	initDir := c.MkDir()
 	cfg := container.Config{
-		VarDir:  varDir,
+		DataDir:  dataDir,
 		InitDir: initDir,
 	}
 
@@ -62,7 +62,7 @@ func (s *suite) TestDeploy(c *C) {
 	// it is removed when the call to Deploy fails, but
 	// we can check that it is removed.
 
-	unitDir := filepath.Join(cfg.VarDir, "units", "dummy-0")
+	unitDir := filepath.Join(cfg.DataDir, "units", "dummy-0")
 	err = os.MkdirAll(filepath.Join(unitDir, "foo"), 0777)
 	c.Assert(err, IsNil)
 

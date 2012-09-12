@@ -58,20 +58,20 @@ func (s *MachinerSuite) TestMachinerDeployDestroy(c *C) {
 	err = ud0.AssignToMachine(m0)
 	c.Assert(err, IsNil)
 
-	varDir := c.MkDir()
+	dataDir := c.MkDir()
 
 	action := make(chan string, 5)
 	*machiner.Deploy = func(cfg container.Config, u *state.Unit) error {
-		c.Check(cfg.VarDir, Equals, varDir)
+		c.Check(cfg.DataDir, Equals, dataDir)
 		action <- "+" + u.Name()
 		return nil
 	}
 	*machiner.Destroy = func(cfg container.Config, u *state.Unit) error {
-		c.Check(cfg.VarDir, Equals, varDir)
+		c.Check(cfg.DataDir, Equals, dataDir)
 		action <- "-" + u.Name()
 		return nil
 	}
-	machiner := machiner.NewMachiner(m0, varDir)
+	machiner := machiner.NewMachiner(m0, dataDir)
 
 	tests := []struct {
 		change  func()

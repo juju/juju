@@ -46,9 +46,9 @@ type MachineConfig struct {
 	// Tools is juju tools to be used on the new machine.
 	Tools *state.Tools
 
-	// VarDir holds the directory that juju state will be put in the new
+	// DataDir holds the directory that juju state will be put in the new
 	// machine.
-	VarDir string
+	DataDir string
 
 	// MachineId identifies the new machine. It must be non-negative.
 	MachineId int
@@ -105,7 +105,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	}
 
 	addScripts(c,
-		fmt.Sprintf("sudo mkdir -p %s", cfg.VarDir),
+		fmt.Sprintf("sudo mkdir -p %s", cfg.DataDir),
 		"sudo mkdir -p /var/log/juju")
 
 	// Make a directory for the tools to live in, then fetch the
@@ -159,7 +159,7 @@ func addAgentScript(c *cloudinit.Config, cfg *MachineConfig, name, args string) 
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
-	toolsDir := environs.AgentToolsDir(cfg.VarDir, name)
+	toolsDir := environs.AgentToolsDir(cfg.DataDir, name)
 	addScripts(c, fmt.Sprintf("ln -s $bin %s", toolsDir))
 	svc := upstart.NewService(fmt.Sprintf("jujud-%s", name))
 	cmd := fmt.Sprintf(
@@ -189,7 +189,7 @@ func versionDir(toolsURL string) string {
 }
 
 func (cfg *MachineConfig) jujuTools() string {
-	return environs.ToolsDir(cfg.VarDir, cfg.Tools.Binary)
+	return environs.ToolsDir(cfg.DataDir, cfg.Tools.Binary)
 }
 
 func (cfg *MachineConfig) zookeeperHostAddrs() string {
@@ -217,7 +217,7 @@ func verifyConfig(cfg *MachineConfig) error {
 	if cfg.ProviderType == "" {
 		return requiresError("provider type")
 	}
-	if cfg.VarDir == "" {
+	if cfg.DataDir == "" {
 		return requiresError("var directory")
 	}
 	if cfg.Tools == nil {

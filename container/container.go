@@ -13,7 +13,7 @@ import (
 // Config holds information about where containers should
 // be started.
 type Config struct {
-	VarDir string
+	DataDir string
 	// InitDir holds the directory where upstart scripts
 	// will be deployed. If blank, the system default will
 	// be used.
@@ -27,7 +27,7 @@ func deslash(s string) string {
 }
 
 func (c *simple) dirName(unit *state.Unit) string {
-	return filepath.Join(c.cfg.VarDir, "units", deslash(unit.Name()))
+	return filepath.Join(c.cfg.DataDir, "units", deslash(unit.Name()))
 }
 
 func (c *simple) service(unit *state.Unit) *upstart.Service {
