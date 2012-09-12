@@ -19,6 +19,7 @@ import (
 type InfoResponse struct {
 	Revision int      `json:"revision"` // Zero is valid. Can't omitempty.
 	Sha256   string   `json:"sha256,omitempty"`
+	Digest   string   `json:"digest,omitempty"`
 	Errors   []string `json:"errors,omitempty"`
 	Warnings []string `json:"warnings,omitempty"`
 }
