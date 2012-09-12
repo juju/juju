@@ -143,19 +143,13 @@ func (*CmdSuite) TestBootstrapCommand(c *C) {
 	env, err := envs.Open("peckham")
 	c.Assert(err, IsNil)
 
-	oldVarDir := environs.VarDir
-	defer func() {
-		environs.VarDir = oldVarDir
-	}()
-	environs.VarDir = c.MkDir()
-
 	tools, err := environs.FindTools(env, version.Current, environs.CompatVersion)
 	c.Assert(err, IsNil)
 	resp, err := http.Get(tools.URL)
 	c.Assert(err, IsNil)
 	defer resp.Body.Close()
 
-	err = environs.UnpackTools(tools, resp.Body)
+	err = environs.UnpackTools(c.MkDir(), tools, resp.Body)
 	c.Assert(err, IsNil)
 
 	// bootstrap with broken environment
