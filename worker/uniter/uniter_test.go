@@ -553,7 +553,7 @@ func (s waitHooks) step(c *C, ctx *context) {
 	if match {
 		return
 	}
-	timeout := time.After(2000 * time.Millisecond)
+	timeout := time.After(3 * time.Second)
 	for {
 		select {
 		case <-time.After(200 * time.Millisecond):
