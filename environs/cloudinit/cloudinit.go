@@ -118,7 +118,8 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	)
 
 	debugFlag := ""
-	if log.Debug {
+	// TODO: disable debug mode by default when the system is stable.
+	if true || log.Debug {
 		debugFlag = " --debug"
 	}
 
