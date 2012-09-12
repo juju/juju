@@ -90,7 +90,7 @@ func (s *UnitSuite) TestGetSetStatus(c *C) {
 		c.Assert(p.Kill(), IsNil)
 	}()
 
-	s.State.ForcePresenceRefresh()
+	s.State.StartSync()
 	status, info, err = s.unit.Status()
 	c.Assert(err, IsNil)
 	c.Assert(status, Equals, state.UnitStarted)
@@ -109,7 +109,8 @@ func (s *UnitSuite) TestAgentName(c *C) {
 }
 
 func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
-	alive := s.unit.AgentAlive()
+	alive, err := s.unit.AgentAlive()
+	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 
 	pinger, err := s.unit.SetAgentAlive()
@@ -117,34 +118,38 @@ func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
 	c.Assert(pinger, Not(IsNil))
 	defer pinger.Stop()
 
-	s.State.ForcePresenceRefresh()
-	alive = s.unit.AgentAlive()
+	s.State.Sync()
+	alive, err = s.unit.AgentAlive()
+	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
 }
 
 func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
 	timeout := 5 * time.Second
-	alive := s.unit.AgentAlive()
+	alive, err := s.unit.AgentAlive()
+	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 
-	err := s.unit.WaitAgentAlive(timeout)
+	err = s.unit.WaitAgentAlive(timeout)
 	c.Assert(err, ErrorMatches, `waiting for agent of unit "wordpress/0": still not alive after timeout`)
 
 	pinger, err := s.unit.SetAgentAlive()
 	c.Assert(err, IsNil)
 
-	s.State.ForcePresenceRefresh()
+	s.State.StartSync()
 	err = s.unit.WaitAgentAlive(timeout)
 	c.Assert(err, IsNil)
 
-	alive = s.unit.AgentAlive()
+	alive, err = s.unit.AgentAlive()
+	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
 
 	err = pinger.Kill()
 	c.Assert(err, IsNil)
 
-	s.State.ForcePresenceRefresh()
-	alive = s.unit.AgentAlive()
+	s.State.Sync()
+	alive, err = s.unit.AgentAlive()
+	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 }
 

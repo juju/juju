@@ -7,7 +7,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"
 	state "launchpad.net/juju-core/mstate"
-	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing"
 	"net/url"
 )
 
@@ -19,9 +19,18 @@ type StateSuite struct {
 
 var _ = Suite(&StateSuite{})
 
+func (s *StateSuite) TestDialAgain(c *C) {
+	// Ensure idempotent operations on Dial are working fine.
+	for i := 0; i < 2; i++ {
+		st, err := state.Dial(testing.MgoAddr)
+		c.Assert(err, IsNil)
+		c.Assert(st.Close(), IsNil)
+	}
+}
+
 func (s *StateSuite) TestAddCharm(c *C) {
 	// Check that adding charms from scratch works correctly.
-	ch := coretesting.Charms.Dir("dummy")
+	ch := testing.Charms.Dir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
 	)

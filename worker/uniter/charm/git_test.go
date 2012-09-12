@@ -61,7 +61,7 @@ func (s *GitDirSuite) TestCreate(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(exists, Equals, true)
 
-	_, err = repo.ReadCharmURL()
+	_, err = charm.ReadCharmURL(repo)
 	c.Assert(os.IsNotExist(err), Equals, true)
 
 	err = repo.Init()
@@ -74,7 +74,7 @@ func (s *GitDirSuite) TestAddCommitPullRevert(c *C) {
 	c.Assert(err, IsNil)
 	err = ioutil.WriteFile(filepath.Join(target.Path(), "initial"), []byte("initial"), 0644)
 	c.Assert(err, IsNil)
-	err = target.WriteCharmURL(curl)
+	err = charm.WriteCharmURL(target, curl)
 	c.Assert(err, IsNil)
 	err = target.AddAll()
 	c.Assert(err, IsNil)
@@ -90,7 +90,7 @@ func (s *GitDirSuite) TestAddCommitPullRevert(c *C) {
 	source := newRepo(c)
 	err = target.Pull(source)
 	c.Assert(err, IsNil)
-	url, err := target.ReadCharmURL()
+	url, err := charm.ReadCharmURL(target)
 	c.Assert(err, IsNil)
 	c.Assert(url, DeepEquals, curl)
 	fi, err := os.Stat(filepath.Join(target.Path(), "some-dir"))
