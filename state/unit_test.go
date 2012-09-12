@@ -295,7 +295,7 @@ func (s *UnitSuite) TestUnitWatchPorts(c *C) {
 
 type unitInfo struct {
 	publicAddress string
-	tools *state.Tools
+	tools         *state.Tools
 }
 
 var watchUnitTests = []struct {
@@ -315,8 +315,8 @@ var watchUnitTests = []struct {
 			return u.SetPublicAddress("localhost")
 		},
 		unitInfo{
-			publicAddress:      "localhost",
-			tools: &state.Tools{},
+			publicAddress: "localhost",
+			tools:         &state.Tools{},
 		},
 	},
 	{
@@ -324,8 +324,8 @@ var watchUnitTests = []struct {
 			return u.SetAgentTools(tools(3, "baz"))
 		},
 		unitInfo{
-			publicAddress:      "localhost",
-			tools: tools(3, "baz"),
+			publicAddress: "localhost",
+			tools:         tools(3, "baz"),
 		},
 	},
 	{
@@ -333,8 +333,8 @@ var watchUnitTests = []struct {
 			return u.SetAgentTools(tools(4, "khroomph"))
 		},
 		unitInfo{
-			publicAddress:      "localhost",
-			tools: tools(4, "khroomph"),
+			publicAddress: "localhost",
+			tools:         tools(4, "khroomph"),
 		},
 	},
 }
