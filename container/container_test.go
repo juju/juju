@@ -58,7 +58,7 @@ func (s *suite) TestDeploy(c *C) {
 		Addrs: []string{"a", "b"},
 	}
 
-	err = cont.Deploy(cfg, unit, info, tools)
+	err = cont.Deploy(unit, info, tools)
 	c.Assert(err, ErrorMatches, `(.|\n)+Unknown job(.|\n)+`)
 
 	upstartScript := filepath.Join(cont.InitDir, "juju-unit-dummy-0.conf")
