@@ -298,7 +298,7 @@ type createCharm struct {
 }
 
 func (s createCharm) step(c *C, ctx *context) {
-	base := coretesting.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	base := coretesting.Charms.ClonedDirPath(c.MkDir(), "series", "dummy")
 	for _, name := range []string{"install", "start", "config-changed", "upgrade-charm"} {
 		path := filepath.Join(base, "hooks", name)
 		good := true
@@ -498,7 +498,7 @@ type waitUnit struct {
 }
 
 func (s waitUnit) step(c *C, ctx *context) {
-	timeout := time.After(2000 * time.Millisecond)
+	timeout := time.After(3000 * time.Millisecond)
 	// Upgrade/resolved checks are easy...
 	resolved := ctx.unit.WatchResolved()
 	defer stop(c, resolved)
@@ -518,7 +518,7 @@ func (s waitUnit) step(c *C, ctx *context) {
 	// ...but we have no status/charm watchers, so just poll.
 	for {
 		select {
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(200 * time.Millisecond):
 			status, info, err := ctx.unit.Status()
 			c.Assert(err, IsNil)
 			if status != s.status {
@@ -561,7 +561,7 @@ func (s waitHooks) step(c *C, ctx *context) {
 	if match {
 		return
 	}
-	timeout := time.After(2000 * time.Millisecond)
+	timeout := time.After(3 * time.Second)
 	for {
 		select {
 		case <-time.After(200 * time.Millisecond):

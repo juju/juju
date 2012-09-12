@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/base64"
 	. "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/juju/testing"
 )
 
@@ -24,14 +25,14 @@ func (s *BootstrapSuite) TestParse(c *C) {
 
 	args = append(args, "--instance-id", "iWhatever")
 	_, err = initBootstrapCommand(args)
-	c.Assert(err, ErrorMatches, "--env-type option must be set")
+	c.Assert(err, ErrorMatches, "--env-config option must be set")
 
-	args = append(args, "--env-type", "dummy")
+	args = append(args, "--env-config", b64yaml{"foo": 123}.encode())
 	cmd, err := initBootstrapCommand(args)
 	c.Assert(err, IsNil)
 	c.Assert(cmd.StateInfo.Addrs, DeepEquals, []string{"127.0.0.1:2181"})
 	c.Assert(cmd.InstanceId, Equals, "iWhatever")
-	c.Assert(cmd.EnvType, Equals, "dummy")
+	c.Assert(cmd.EnvConfig, DeepEquals, map[string]interface{}{"foo": 123})
 
 	args = append(args, "--zookeeper-servers", "zk1:2181,zk2:2181")
 	cmd, err = initBootstrapCommand(args)
@@ -46,7 +47,8 @@ func (s *BootstrapSuite) TestParse(c *C) {
 func (s *BootstrapSuite) TestSetMachineId(c *C) {
 	args := []string{"--zookeeper-servers"}
 	args = append(args, s.StateInfo(c).Addrs...)
-	args = append(args, "--instance-id", "over9000", "--env-type", "dummy")
+	args = append(args, "--instance-id", "over9000")
+	args = append(args, "--env-config", b64yaml{"blah": "blah"}.encode())
 	cmd, err := initBootstrapCommand(args)
 	c.Assert(err, IsNil)
 	err = cmd.Run(nil)
@@ -69,12 +71,12 @@ var base64ConfigTests = []struct {
 	{
 		// no value supplied
 		nil,
-		"",
+		"--env-config option must be set",
 		nil,
 	}, {
-		// empty 
+		// empty
 		[]string{"--env-config", ""},
-		"",
+		"--env-config option must be set",
 		nil,
 	}, {
 		// wrong, should be base64
@@ -89,10 +91,11 @@ var base64ConfigTests = []struct {
 }
 
 func (s *BootstrapSuite) TestBase64Config(c *C) {
-	for _, t := range base64ConfigTests {
+	for i, t := range base64ConfigTests {
+		c.Logf("test %d", i)
 		args := []string{"--zookeeper-servers"}
 		args = append(args, s.StateInfo(c).Addrs...)
-		args = append(args, "--instance-id", "over9000", "--env-type", "dummy")
+		args = append(args, "--instance-id", "over9000")
 		args = append(args, t.input...)
 		cmd, err := initBootstrapCommand(args)
 		if t.err == "" {
@@ -103,4 +106,14 @@ func (s *BootstrapSuite) TestBase64Config(c *C) {
 			c.Assert(err, ErrorMatches, t.err)
 		}
 	}
+}
+
+type b64yaml map[string]interface{}
+
+func (m b64yaml) encode() string {
+	data, err := goyaml.Marshal(m)
+	if err != nil {
+		panic(err)
+	}
+	return base64.StdEncoding.EncodeToString(data)
 }

@@ -43,6 +43,7 @@ environments:
         type: dummy
         zookeeper: true
         authorized-keys: 'i-am-a-key'
+        default-series: decrepit
 `)
 
 func (s *JujuConnSuite) SetUpSuite(c *C) {
@@ -142,10 +143,12 @@ func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
 }
 
 func (s *JujuConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
-	ch := testing.Charms.Dir(name)
+	ch := testing.Charms.Dir("series", name)
 	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
 	curl := charm.MustParseURL("local:series/" + ident)
-	sch, err := s.Conn.PutCharm(curl, testing.Charms.Path, false)
+	repo, err := charm.InferRepository(curl, testing.Charms.Path)
+	c.Assert(err, IsNil)
+	sch, err := s.Conn.PutCharm(curl, repo, false)
 	c.Assert(err, IsNil)
 	return sch
 }
