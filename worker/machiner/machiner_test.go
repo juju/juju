@@ -112,7 +112,7 @@ func (s *MachinerSuite) TestMachinerDeployDestroy(c *C) {
 		for _, a := range t.actions {
 			checkAction(c, action, a)
 		}
-			checkAction(c, action, "")
+		checkAction(c, action, "")
 	}
 
 	err = machiner.Stop()

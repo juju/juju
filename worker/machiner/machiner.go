@@ -13,8 +13,8 @@ var destroy = container.Destroy
 
 // Machiner represents a running machine agent.
 type Machiner struct {
-	tomb      tomb.Tomb
-	cfg container.Config
+	tomb tomb.Tomb
+	cfg  container.Config
 }
 
 // NewMachiner starts a machine agent running that
