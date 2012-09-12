@@ -270,11 +270,11 @@ func (s *UniterSuite) TestUniter(c *C) {
 		}
 		c.Logf("\ntest %d: %s\n", i, t.summary)
 		ctx := &context{
-			st:     s.State,
-			id:     i,
-			path:   unitDir,
+			st:      s.State,
+			id:      i,
+			path:    unitDir,
 			dataDir: s.dataDir,
-			charms: coretesting.ResponseMap{},
+			charms:  coretesting.ResponseMap{},
 		}
 		for i, s := range t.steps {
 			c.Logf("step %d", i)

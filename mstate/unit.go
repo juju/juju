@@ -229,7 +229,7 @@ func (u *Unit) AgentAlive() bool {
 
 // AgentName returns the name used to identify the unit's agent.
 func (u *Unit) AgentName() string {
-	return "unit-"+strings.Replace(u.Name(), "/", "-", -1)
+	return "unit-" + strings.Replace(u.Name(), "/", "-", -1)
 }
 
 // WaitAgentAlive blocks until the respective agent is alive.
