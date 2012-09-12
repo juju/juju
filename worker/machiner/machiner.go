@@ -24,7 +24,7 @@ func newMachiner(machine *state.Machine, cont container.Container) *Machiner {
 
 // Machiner represents a running machine agent.
 type Machiner struct {
-	tomb      tomb.Tomb
+	tomb           tomb.Tomb
 	localContainer container.Container
 }
 
