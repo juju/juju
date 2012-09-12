@@ -33,7 +33,7 @@ func TestPackage(t *stdtesting.T) {
 type UniterSuite struct {
 	testing.JujuConnSuite
 	coretesting.HTTPSuite
-	dataDir  string
+	dataDir string
 	oldPath string
 }
 
@@ -87,15 +87,15 @@ type stepper interface {
 }
 
 type context struct {
-	id     int
-	path   string
+	id      int
+	path    string
 	dataDir string
-	st     *state.State
-	charms coretesting.ResponseMap
-	hooks  []string
-	svc    *state.Service
-	unit   *state.Unit
-	uniter *uniter.Uniter
+	st      *state.State
+	charms  coretesting.ResponseMap
+	hooks   []string
+	svc     *state.Service
+	unit    *state.Unit
+	uniter  *uniter.Uniter
 }
 
 var goodHook = `
@@ -268,11 +268,11 @@ func (s *UniterSuite) TestUniter(c *C) {
 		}
 		c.Logf("\ntest %d: %s\n", i, t.summary)
 		ctx := &context{
-			id:     i,
-			path:   unitDir,
+			id:      i,
+			path:    unitDir,
 			dataDir: s.dataDir,
-			st:     s.State,
-			charms: coretesting.ResponseMap{},
+			st:      s.State,
+			charms:  coretesting.ResponseMap{},
 		}
 		for i, s := range t.steps {
 			c.Logf("step %d", i)

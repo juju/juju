@@ -163,10 +163,10 @@ func addAgentScript(c *cloudinit.Config, cfg *MachineConfig, name, args string) 
 	addScripts(c, fmt.Sprintf("ln -s $bin %s", toolsDir))
 	svc := upstart.NewService(fmt.Sprintf("jujud-%s", name))
 	cmd := fmt.Sprintf(
-		"%s/jujud %s" +
-			" --zookeeper-servers '%s'" +
-			" --log-file /var/log/juju/%s-agent.log" +
-			" --data-directory '%s'" +
+		"%s/jujud %s"+
+			" --zookeeper-servers '%s'"+
+			" --log-file /var/log/juju/%s-agent.log"+
+			" --data-directory '%s'"+
 			" %s",
 		toolsDir, name,
 		cfg.zookeeperHostAddrs(),

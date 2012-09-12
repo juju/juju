@@ -41,7 +41,7 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *C) {
 	c.Skip("agents don't yet distinguish between temporary and permanent errors")
 	a := &MachineAgent{
 		Conf: AgentConf{
-			DataDir:    c.MkDir(),
+			DataDir:   c.MkDir(),
 			StateInfo: *s.StateInfo(c),
 		},
 		MachineId: 2,
@@ -55,7 +55,7 @@ func (s *MachineSuite) TestRunStop(c *C) {
 	c.Assert(err, IsNil)
 	a := &MachineAgent{
 		Conf: AgentConf{
-			DataDir:    c.MkDir(),
+			DataDir:   c.MkDir(),
 			StateInfo: *s.StateInfo(c),
 		},
 		MachineId: m.Id(),

@@ -35,7 +35,7 @@ func (s *ProvisioningSuite) TestRunStop(c *C) {
 
 	a := &ProvisioningAgent{
 		Conf: AgentConf{
-			DataDir:    "/var/lib/juju",
+			DataDir:   "/var/lib/juju",
 			StateInfo: *s.StateInfo(c),
 		},
 	}

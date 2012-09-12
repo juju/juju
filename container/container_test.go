@@ -44,7 +44,7 @@ func (s *suite) TestDeploy(c *C) {
 
 	initDir := c.MkDir()
 	cfg := container.Config{
-		DataDir:  dataDir,
+		DataDir: dataDir,
 		InitDir: initDir,
 	}
 
