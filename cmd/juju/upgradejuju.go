@@ -5,8 +5,8 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 )
@@ -16,7 +16,7 @@ type UpgradeJujuCommand struct {
 	EnvName      string
 	UploadTools  bool
 	Version      version.Number
-	Development   bool
+	Development  bool
 	conn         *juju.Conn
 	toolsList    *environs.ToolsList
 	agentVersion version.Number
