@@ -111,7 +111,7 @@ func (s *StoreSuite) TestCharmPublisher(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(pub.Revision(), Equals, 0)
 
-	err = pub.Publish(testing.Charms.ClonedDir(c.MkDir(), "dummy", "series"))
+	err = pub.Publish(testing.Charms.ClonedDir(c.MkDir(), "series", "dummy"))
 	c.Assert(err, IsNil)
 
 	for _, url := range urls {
