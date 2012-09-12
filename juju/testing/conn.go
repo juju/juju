@@ -26,7 +26,7 @@ import (
 //		a default environment named "dummyenv"
 //		which uses the "dummy" environment type.
 //	RootDir/var/lib/juju
-//		An empty directory returned as VarDir - the
+//		An empty directory returned as DataDir - the
 //		root of the juju data storage space.
 // $HOME is set to point to RootDir/home/ubuntu.
 type JujuConnSuite struct {
@@ -86,8 +86,8 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	c.Assert(err, IsNil)
 	os.Setenv("HOME", home)
 
-	varDir := filepath.Join(s.RootDir, "/var/lib/juju")
-	err = os.MkdirAll(varDir, 0777)
+	dataDir := filepath.Join(s.RootDir, "/var/lib/juju")
+	err = os.MkdirAll(dataDir, 0777)
 	c.Assert(err, IsNil)
 
 	err = os.Mkdir(filepath.Join(home, ".juju"), 0777)
@@ -119,9 +119,9 @@ func (s *JujuConnSuite) tearDownConn(c *C) {
 	s.RootDir = ""
 }
 
-func (s *JujuConnSuite) VarDir() string {
+func (s *JujuConnSuite) DataDir() string {
 	if s.RootDir == "" {
-		panic("VarDir called out of test context")
+		panic("DataDir called out of test context")
 	}
 	return filepath.Join(s.RootDir, "/var/lib/juju")
 }

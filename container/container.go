@@ -14,7 +14,7 @@ import (
 // Config holds information about where containers should
 // be started.
 type Config struct {
-	VarDir string
+	DataDir string
 	// InitDir holds the directory where upstart scripts
 	// will be deployed. If blank, the system default will
 	// be used.
@@ -32,7 +32,7 @@ func (c *simple) service(unit *state.Unit) *upstart.Service {
 }
 
 func (c *simple) dirName(unit *state.Unit) string {
-	return filepath.Join(c.cfg.VarDir, "agents", unit.AgentName())
+	return filepath.Join(c.cfg.DataDir, "agents", unit.AgentName())
 }
 
 // Deploy deploys a unit running the given tools unit into a new container.
@@ -58,7 +58,7 @@ func (c *simple) deploy(unit *state.Unit, info *state.Info, tools *state.Tools) 
 	if info.UseSSH {
 		return fmt.Errorf("cannot deploy unit agent connecting with ssh")
 	}
-	toolsDir := environs.AgentToolsDir(c.cfg.VarDir, unit.AgentName())
+	toolsDir := environs.AgentToolsDir(c.cfg.DataDir, unit.AgentName())
 	err = os.Symlink(tools.Binary.String(), toolsDir)
 	if err != nil {
 		return fmt.Errorf("cannot make agent tools symlink: %v", err)

@@ -235,15 +235,15 @@ func bestTools(toolsList []*state.Tools, vers version.Binary, flags ToolsSearchF
 const urlFile = "downloaded-url.txt"
 
 // toolsParentDir returns the tools parent directory.
-func toolsParentDir(varDir string) string {
-	return path.Join(varDir, "tools")
+func toolsParentDir(dataDir string) string {
+	return path.Join(dataDir, "tools")
 }
 
 // UnpackTools reads a set of juju tools in gzipped tar-archive
 // format and unpacks them into the appropriate tools directory
-// within varDir. If a valid tools directory already exists,
+// within dataDir. If a valid tools directory already exists,
 // UnpackTools returns without error.
-func UnpackTools(varDir string, tools *state.Tools, r io.Reader) (err error) {
+func UnpackTools(dataDir string, tools *state.Tools, r io.Reader) (err error) {
 	zr, err := gzip.NewReader(r)
 	if err != nil {
 		return err
@@ -252,11 +252,11 @@ func UnpackTools(varDir string, tools *state.Tools, r io.Reader) (err error) {
 
 	// Make a temporary directory in the tools directory,
 	// first ensuring that the tools directory exists.
-	err = os.MkdirAll(toolsParentDir(varDir), 0755)
+	err = os.MkdirAll(toolsParentDir(dataDir), 0755)
 	if err != nil {
 		return err
 	}
-	dir, err := ioutil.TempDir(toolsParentDir(varDir), "unpacking-")
+	dir, err := ioutil.TempDir(toolsParentDir(dataDir), "unpacking-")
 	if err != nil {
 		return err
 	}
@@ -287,12 +287,12 @@ func UnpackTools(varDir string, tools *state.Tools, r io.Reader) (err error) {
 		return err
 	}
 
-	err = os.Rename(dir, ToolsDir(varDir, tools.Binary))
+	err = os.Rename(dir, ToolsDir(dataDir, tools.Binary))
 	// If we've failed to rename the directory, it may be because
 	// the directory already exists - if ReadTools succeeds, we
 	// assume all's ok.
 	if err != nil {
-		_, err := ReadTools(varDir, tools.Binary)
+		_, err := ReadTools(dataDir, tools.Binary)
 		if err == nil {
 			return nil
 		}
@@ -319,9 +319,9 @@ func writeFile(name string, mode os.FileMode, r io.Reader) error {
 }
 
 // ReadTools checks that the tools for the given version exist
-// in the varDir directory, and returns a Tools instance describing them.
-func ReadTools(varDir string, vers version.Binary) (*state.Tools, error) {
-	dir := ToolsDir(varDir, vers)
+// in the dataDir directory, and returns a Tools instance describing them.
+func ReadTools(dataDir string, vers version.Binary) (*state.Tools, error) {
+	dir := ToolsDir(dataDir, vers)
 	urlData, err := ioutil.ReadFile(filepath.Join(dir, urlFile))
 	if err != nil {
 		return nil, fmt.Errorf("cannot read URL in tools directory: %v", err)
@@ -339,19 +339,19 @@ func ReadTools(varDir string, vers version.Binary) (*state.Tools, error) {
 }
 
 // ChangeAgentTools atomically replaces the agent-specific symlink
-// under varDir so it points to the previously unpacked
+// under dataDir so it points to the previously unpacked
 // version vers. It returns the new tools read.
-func ChangeAgentTools(varDir string, agentName string, vers version.Binary) (*state.Tools, error) {
-	tools, err := ReadTools(varDir, vers)
+func ChangeAgentTools(dataDir string, agentName string, vers version.Binary) (*state.Tools, error) {
+	tools, err := ReadTools(dataDir, vers)
 	if err != nil {
 		return nil, err
 	}
-	tmpName := AgentToolsDir(varDir, "tmplink-"+agentName)
+	tmpName := AgentToolsDir(dataDir, "tmplink-"+agentName)
 	err = os.Symlink(tools.Binary.String(), tmpName)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create tools symlink: %v", err)
 	}
-	err = os.Rename(tmpName, AgentToolsDir(varDir, agentName))
+	err = os.Rename(tmpName, AgentToolsDir(dataDir, agentName))
 	if err != nil {
 		return nil, fmt.Errorf("cannot update tools symlink: %v", err)
 	}
@@ -366,17 +366,17 @@ func ToolsStoragePath(vers version.Binary) string {
 
 // ToolsDir returns the slash-separated directory name that is used to
 // store binaries for the given version of the juju tools
-// within the varDir directory.
-func ToolsDir(varDir string, vers version.Binary) string {
-	return path.Join(varDir, "tools", vers.String())
+// within the dataDir directory.
+func ToolsDir(dataDir string, vers version.Binary) string {
+	return path.Join(dataDir, "tools", vers.String())
 }
 
 // AgentToolsDir returns the slash-separated directory name that is used
 // to store binaries for the tools used by the given agent
-// within the given varDir directory.
+// within the given dataDir directory.
 // Conventionally it is a symbolic link to the actual tools directory.
-func AgentToolsDir(varDir, agentName string) string {
-	return path.Join(varDir, "tools", agentName)
+func AgentToolsDir(dataDir, agentName string) string {
+	return path.Join(dataDir, "tools", agentName)
 }
 
 // ToolsSearchFlags gives options when searching

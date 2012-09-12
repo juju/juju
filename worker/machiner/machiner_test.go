@@ -63,22 +63,22 @@ func (s *MachinerSuite) TestMachinerDeployDestroy(c *C) {
 
 	expectedTools := &state.Tools{Binary: version.Current}
 
-	varDir := c.MkDir()
+	dataDir := c.MkDir()
 
 	action := make(chan string, 5)
 	*machiner.Deploy = func(cfg container.Config, u *state.Unit, info *state.Info, tools *state.Tools) error {
 		c.Check(info, Equals, stateInfo)
 		c.Check(tools, DeepEquals, expectedTools)
-		c.Check(cfg.VarDir, Equals, varDir)
+		c.Check(cfg.DataDir, Equals, dataDir)
 		action <- "+" + u.Name()
 		return nil
 	}
 	*machiner.Destroy = func(cfg container.Config, u *state.Unit) error {
-		c.Check(cfg.VarDir, Equals, varDir)
+		c.Check(cfg.DataDir, Equals, dataDir)
 		action <- "-" + u.Name()
 		return nil
 	}
-	machiner := machiner.NewMachiner(m0, stateInfo, varDir)
+	machiner := machiner.NewMachiner(m0, stateInfo, dataDir)
 
 	tests := []struct {
 		change  func()

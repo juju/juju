@@ -48,20 +48,20 @@ func stateInfoVar(fs *gnuflag.FlagSet, target *state.Info, name string, value []
 
 // AgentConf handles command-line flags shared by all agents.
 type AgentConf struct {
-	VarDir    string
+	DataDir   string
 	StateInfo state.Info
 }
 
 // addFlags injects common agent flags into f.
 func (c *AgentConf) addFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.VarDir, "juju-directory", "/var/lib/juju", "juju working directory")
+	f.StringVar(&c.DataDir, "data-directory", "/var/lib/juju", "directory for juju data")
 	stateInfoVar(f, &c.StateInfo, "zookeeper-servers", nil, "zookeeper servers to connect to")
 }
 
 // checkArgs checks that required flags have been set and that args is empty.
 func (c *AgentConf) checkArgs(args []string) error {
-	if c.VarDir == "" {
-		return requiredError("juju-directory")
+	if c.DataDir == "" {
+		return requiredError("data-directory")
 	}
 	if c.StateInfo.Addrs == nil {
 		return requiredError("zookeeper-servers")

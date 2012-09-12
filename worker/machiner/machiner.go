@@ -24,8 +24,8 @@ type Machiner struct {
 
 // NewMachiner starts a machine agent running that deploys agents in the
 // given directory.  The Machiner dies when it encounters an error.
-func NewMachiner(machine *state.Machine, info *state.Info, varDir string) *Machiner {
-	tools, err := environs.ReadTools(varDir, version.Current)
+func NewMachiner(machine *state.Machine, info *state.Info, dataDir string) *Machiner {
+	tools, err := environs.ReadTools(dataDir, version.Current)
 	if err != nil {
 		tools = &state.Tools{Binary: version.Current}
 	}
@@ -34,7 +34,7 @@ func NewMachiner(machine *state.Machine, info *state.Info, varDir string) *Machi
 		stateInfo: info,
 		tools:     tools,
 		cfg: container.Config{
-			VarDir: varDir,
+			DataDir: dataDir,
 		},
 	}
 	go m.loop()

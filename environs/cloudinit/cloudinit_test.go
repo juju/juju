@@ -45,14 +45,14 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		Tools:              newSimpleTools("1.2.3-linux-amd64"),
 		StateServer:        true,
 		Config:             envConfig,
-		VarDir:             "/var/lib/juju",
+		DataDir:            "/var/lib/juju",
 	},
 	{
 		MachineId:      99,
 		ProviderType:   "ec2",
 		Provisioner:    false,
 		AuthorizedKeys: "sshkey1",
-		VarDir:         "/var/lib/juju",
+		DataDir:        "/var/lib/juju",
 		StateServer:    false,
 		Tools:          newSimpleTools("1.2.3-linux-amd64"),
 		StateInfo:      &state.Info{Addrs: []string{"zk1"}},
@@ -76,7 +76,7 @@ type cloudinitTest struct {
 func (t *cloudinitTest) check(c *C, cfg *cloudinit.MachineConfig) {
 	c.Check(t.x["apt_upgrade"], Equals, true)
 	c.Check(t.x["apt_update"], Equals, true)
-	t.checkScripts(c, "mkdir -p "+cfg.VarDir)
+	t.checkScripts(c, "mkdir -p "+cfg.DataDir)
 	t.checkScripts(c, "wget.*"+regexp.QuoteMeta(t.cfg.Tools.URL)+".*tar .*xz")
 
 	if t.cfg.StateServer {
@@ -249,7 +249,7 @@ var verifyTests = []struct {
 		cfg.StateInfo = &state.Info{}
 	}},
 	{"missing var directory", func(cfg *cloudinit.MachineConfig) {
-		cfg.VarDir = ""
+		cfg.DataDir = ""
 		cfg.StateInfo = &state.Info{}
 	}},
 	{"missing tools", func(cfg *cloudinit.MachineConfig) {
@@ -275,7 +275,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		AuthorizedKeys:     "sshkey1",
 		StateInfo:          &state.Info{Addrs: []string{"zkhost"}},
 		Config:             envConfig,
-		VarDir:             "/var/lib/juju",
+		DataDir:            "/var/lib/juju",
 	}
 	// check that the base configuration does not give an error
 	_, err := cloudinit.New(cfg)

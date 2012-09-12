@@ -38,8 +38,8 @@ func (s *suite) TestDeploy(c *C) {
 		URL:    "unused",
 		Binary: version.MustParseBinary("3.2.1-foo-bar"),
 	}
-	varDir := c.MkDir()
-	toolsDir := environs.ToolsDir(varDir, tools.Binary)
+	dataDir := c.MkDir()
+	toolsDir := environs.ToolsDir(dataDir, tools.Binary)
 	err = os.MkdirAll(toolsDir, 0777)
 	c.Assert(err, IsNil)
 	exe := filepath.Join(toolsDir, "jujud")
@@ -48,7 +48,7 @@ func (s *suite) TestDeploy(c *C) {
 
 	initDir := c.MkDir()
 	cfg := container.Config{
-		VarDir:  varDir,
+		DataDir: dataDir,
 		InitDir: initDir,
 	}
 
@@ -74,7 +74,7 @@ func (s *suite) TestDeploy(c *C) {
 	// We can't check that the unit directory is created, because
 	// it is removed when the call to Deploy fails, but
 	// we can check that it is removed.
-	unitDir := filepath.Join(cfg.VarDir, "agents", "unit-dummy-0")
+	unitDir := filepath.Join(cfg.DataDir, "agents", "unit-dummy-0")
 	err = os.MkdirAll(filepath.Join(unitDir, "foo"), 0777)
 	c.Assert(err, IsNil)
 

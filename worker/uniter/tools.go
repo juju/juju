@@ -8,11 +8,11 @@ import (
 	"path/filepath"
 )
 
-// EnsureJujucSymlinks creates a symbolic link to jujuc in varDir for each
+// EnsureJujucSymlinks creates a symbolic link to jujuc in dataDir for each
 // hook command. If the commands already exist, this operation
 // does nothing.
-func EnsureJujucSymlinks(varDir, agentName string) (err error) {
-	dir := environs.AgentToolsDir(varDir, agentName)
+func EnsureJujucSymlinks(dataDir, agentName string) (err error) {
+	dir := environs.AgentToolsDir(dataDir, agentName)
 	for _, name := range server.CommandNames() {
 		// The link operation fails when the target already exists,
 		// so this is a no-op when the command names already
