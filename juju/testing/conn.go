@@ -138,7 +138,9 @@ func (s *JujuConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	ch := testing.Charms.Dir(name)
 	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
 	curl := charm.MustParseURL("local:series/" + ident)
-	sch, err := s.Conn.PutCharm(curl, testing.Charms.Path, false)
+	repo, err := charm.InferRepository(curl, testing.Charms.Path)
+	c.Assert(err, IsNil)
+	sch, err := s.Conn.PutCharm(curl, repo, false)
 	c.Assert(err, IsNil)
 	return sch
 }

@@ -90,7 +90,11 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	ch, err := conn.PutCharm(curl, c.RepoPath, c.BumpRevision)
+	repo, err := charm.InferRepository(curl, ctx.AbsPath(c.RepoPath))
+	if err != nil {
+		return err
+	}
+	ch, err := conn.PutCharm(curl, repo, c.BumpRevision)
 	if err != nil {
 		return err
 	}

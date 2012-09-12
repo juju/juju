@@ -43,12 +43,7 @@ func (conn *Conn) AddService(name string, ch *state.Charm) (*state.Service, erro
 // the same URL already exists in the state.
 // If bumpRevision is true, the charm must be a local directory,
 // and the revision number will be incremented before pushing.
-// Local charms will be interpreted relative to the repoPath directory.
-func (conn *Conn) PutCharm(curl *charm.URL, repoPath string, bumpRevision bool) (*state.Charm, error) {
-	repo, err := charm.InferRepository(curl, repoPath)
-	if err != nil {
-		return nil, fmt.Errorf("cannot infer charm repository: %v", err)
-	}
+func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision bool) (*state.Charm, error) {
 	if curl.Revision == -1 {
 		rev, err := repo.Latest(curl)
 		if err != nil {
