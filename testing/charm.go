@@ -37,27 +37,27 @@ func clone(dst, src string) string {
 
 // DirPath returns the path to a charm directory named name
 // and series.
-func (r *Repo) DirPath(name, series string) string {
+func (r *Repo) DirPath(series, name string) string {
 	return filepath.Join(r.Path, series, name)
 }
 
 // Dir returns the actual charm.Dir named name.
-func (r *Repo) Dir(name, series string) *charm.Dir {
-	ch, err := charm.ReadDir(r.DirPath(name, series))
+func (r *Repo) Dir(series, name string) *charm.Dir {
+	ch, err := charm.ReadDir(r.DirPath(series, name))
 	check(err)
 	return ch
 }
 
 // ClonedDirPath returns the path to a new copy of the charm directory
 // named name with the given series.
-func (r *Repo) ClonedDirPath(dst, name, series string) string {
-	return clone(dst, r.DirPath(name, series))
+func (r *Repo) ClonedDirPath(dst, series, name string) string {
+	return clone(dst, r.DirPath(series, name))
 }
 
 // ClonedDir returns an actual charm.Dir based on a new copy of the charm directory
 // named name, with the given series, in the directory dst.
-func (r *Repo) ClonedDir(dst, name, series string) *charm.Dir {
-	ch, err := charm.ReadDir(r.ClonedDirPath(dst, name, series))
+func (r *Repo) ClonedDir(dst, series, name string) *charm.Dir {
+	ch, err := charm.ReadDir(r.ClonedDirPath(dst, series, name))
 	check(err)
 	return ch
 }
@@ -65,12 +65,12 @@ func (r *Repo) ClonedDir(dst, name, series string) *charm.Dir {
 // ClonedURL makes a copy of the charm directory named name
 // into the destination directory (creating it if necessary),
 // and returns a URL for it.
-func (r *Repo) ClonedURL(dst, name, series string) *charm.URL {
+func (r *Repo) ClonedURL(dst, series, name string) *charm.URL {
 	dst = filepath.Join(dst, series)
 	if err := os.MkdirAll(dst, 0777); err != nil {
 		panic(fmt.Errorf("cannot make destination directory: %v", err))
 	}
-	clone(dst, r.DirPath(name, series))
+	clone(dst, r.DirPath(series, name))
 	return &charm.URL{
 		Schema:   "local",
 		Series:   series,
@@ -81,8 +81,8 @@ func (r *Repo) ClonedURL(dst, name, series string) *charm.URL {
 
 // BundlePath returns the path to a new charm bundle file created from the charm
 // directory named name, with the given series, in the directory dst.
-func (r *Repo) BundlePath(dst, name, series string) string {
-	dir := r.Dir(name, series)
+func (r *Repo) BundlePath(dst, series, name string) string {
+	dir := r.Dir(series, name)
 	path := filepath.Join(dst, "bundle.charm")
 	file, err := os.Create(path)
 	check(err)
@@ -94,8 +94,8 @@ func (r *Repo) BundlePath(dst, name, series string) string {
 // Bundle returns an actual charm.Bundle created from a new charm bundle file
 // created from the charm directory named name, with the given series, in the
 // directory dst.
-func (r *Repo) Bundle(dst, name, series string) *charm.Bundle {
-	ch, err := charm.ReadBundle(r.BundlePath(dst, name, series))
+func (r *Repo) Bundle(dst, series, name string) *charm.Bundle {
+	ch, err := charm.ReadBundle(r.BundlePath(dst, series, name))
 	check(err)
 	return ch
 }

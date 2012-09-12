@@ -37,7 +37,7 @@ options:
 `
 
 func repoConfig(name string) io.Reader {
-	charmDir := testing.Charms.DirPath(name, "series")
+	charmDir := testing.Charms.DirPath("series", name)
 	file, err := os.Open(filepath.Join(charmDir, "config.yaml"))
 	if err != nil {
 		panic(err)
