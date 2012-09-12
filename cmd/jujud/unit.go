@@ -5,10 +5,16 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker/uniter"
+	"launchpad.net/tomb"
+	"time"
 )
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {
+	tomb     tomb.Tomb
 	Conf     AgentConf
 	UnitName string
 }
@@ -34,7 +40,38 @@ func (a *UnitAgent) Init(f *gnuflag.FlagSet, args []string) error {
 	return a.Conf.checkArgs(f.Args())
 }
 
+// Stop stops the unit agent.
+func (a *UnitAgent) Stop() error {
+	a.tomb.Kill(nil)
+	return a.tomb.Wait()
+}
+
 // Run runs a unit agent.
-func (a *UnitAgent) Run(_ *cmd.Context) error {
-	return fmt.Errorf("UnitAgent.Run not implemented")
+func (a *UnitAgent) Run(ctx *cmd.Context) error {
+	defer a.tomb.Done()
+	for a.tomb.Err() == tomb.ErrStillAlive {
+		err := a.runOnce()
+		log.Printf("uniter error: %v", err)
+		select {
+		case <-a.tomb.Dying():
+			a.tomb.Kill(err)
+		case <-time.After(retryDelay):
+			log.Printf("rerunning uniter")
+		}
+	}
+	return a.tomb.Err()
+}
+
+// runOnce runs a uniter once.
+func (a *UnitAgent) runOnce() error {
+	st, err := state.Open(&a.Conf.StateInfo)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	u, err := uniter.NewUniter(st, a.UnitName)
+	if err != nil {
+		return err
+	}
+	return runTasks(a.tomb.Dying(), u)
 }
