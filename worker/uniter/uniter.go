@@ -14,7 +14,6 @@ import (
 	"launchpad.net/tomb"
 	"math/rand"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -39,11 +38,11 @@ type Uniter struct {
 // provoked by changes in st.
 func NewUniter(st *state.State, name string, varDir string) (u *Uniter, err error) {
 	defer trivial.ErrorContextf(&err, "failed to create uniter for unit %q", name)
-	path, err := ensureFs(varDir, name)
+	unit, err := st.Unit(name)
 	if err != nil {
 		return nil, err
 	}
-	unit, err := st.Unit(name)
+	path, err := ensureFs(varDir, unit)
 	if err != nil {
 		return nil, err
 	}
@@ -201,12 +200,12 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 // ensureFs ensures that files and directories required by the named uniter
 // exist inside varDir. It returns the path to the directory within which the uniter must
 // store its data.
-func ensureFs(varDir, name string) (string, error) {
+func ensureFs(varDir string, unit *state.Unit) (string, error) {
 	// TODO: do this OAOO at packaging time?
-	if err := EnsureJujucSymlinks(varDir, name); err != nil {
+	if err := EnsureJujucSymlinks(varDir, unit.AgentName()); err != nil {
 		return "", err
 	}
-	path := filepath.Join(varDir, "units", strings.Replace(name, "/", "-", 1))
+	path := filepath.Join(varDir, "agents", unit.AgentName())
 	if err := trivial.EnsureDir(filepath.Join(path, "state")); err != nil {
 		return "", err
 	}

@@ -146,6 +146,8 @@ var uniterTests = []uniterTest{
 	ut(
 		"unable to create directories",
 		writeFile{"state", 0644},
+		createCharm{},
+		createServiceAndUnit{},
 		startUniter{`failed to create uniter for unit "u/0": .*state must be a directory`},
 	), ut(
 		"unknown unit",
@@ -258,7 +260,7 @@ var uniterTests = []uniterTest{
 }
 
 func (s *UniterSuite) TestUniter(c *C) {
-	unitDir := filepath.Join(s.varDir, "units", "u-0")
+	unitDir := filepath.Join(s.varDir, "agents", "unit-u-0")
 	for i, t := range uniterTests {
 		if i != 0 {
 			s.Reset(c)
@@ -268,10 +270,10 @@ func (s *UniterSuite) TestUniter(c *C) {
 		}
 		c.Logf("\ntest %d: %s\n", i, t.summary)
 		ctx := &context{
+			st:     s.State,
 			id:     i,
 			path:   unitDir,
 			varDir: s.varDir,
-			st:     s.State,
 			charms: coretesting.ResponseMap{},
 		}
 		for i, s := range t.steps {
@@ -296,7 +298,8 @@ type createCharm struct {
 }
 
 func (s createCharm) step(c *C, ctx *context) {
-	base := coretesting.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	repo := &coretesting.Repo{c.MkDir()}
+	base := repo.Dir("dummy").Path
 	for _, name := range []string{"install", "start", "config-changed", "upgrade-charm"} {
 		path := filepath.Join(base, "hooks", name)
 		good := true
@@ -329,13 +332,13 @@ func (s createCharm) step(c *C, ctx *context) {
 
 type serveCharm struct{}
 
-func (s serveCharm) step(c *C, ctx *context) {
+func (serveCharm) step(c *C, ctx *context) {
 	coretesting.Server.ResponseMap(1, ctx.charms)
 }
 
-type createUniter struct{}
+type createServiceAndUnit struct{}
 
-func (s createUniter) step(c *C, ctx *context) {
+func (createServiceAndUnit) step(c *C, ctx *context) {
 	cfg, err := config.New(map[string]interface{}{
 		"name":            "testenv",
 		"type":            "dummy",
@@ -353,6 +356,12 @@ func (s createUniter) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	ctx.svc = svc
 	ctx.unit = unit
+}
+
+type createUniter struct{}
+
+func (createUniter) step(c *C, ctx *context) {
+	step(c, ctx, createServiceAndUnit{})
 	step(c, ctx, startUniter{})
 
 	// Poll for correct address settings (consequence of "dummy" env type).
@@ -362,11 +371,11 @@ func (s createUniter) step(c *C, ctx *context) {
 		case <-timeout:
 			c.Fatalf("timed out waiting for unit addresses")
 		case <-time.After(50 * time.Millisecond):
-			private, err := unit.PrivateAddress()
+			private, err := ctx.unit.PrivateAddress()
 			if err != nil || private != "private.dummy.address.example.com" {
 				continue
 			}
-			public, err := unit.PublicAddress()
+			public, err := ctx.unit.PublicAddress()
 			if err != nil || public != "public.dummy.address.example.com" {
 				continue
 			}
@@ -388,7 +397,7 @@ func (s startUniter) step(c *C, ctx *context) {
 		c.Assert(err, IsNil)
 		ctx.uniter = u
 	} else {
-		c.Assert(u, IsNil)
+		c.Check(u, IsNil)
 		c.Assert(err, ErrorMatches, s.err)
 	}
 }
