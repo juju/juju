@@ -54,9 +54,5 @@ func (s *StateFileSuite) TestStateFile(c *C) {
 		RelationId:    123,
 		RemoteUnit:    "abc/999",
 		ChangeVersion: 321,
-		Members: map[string]map[string]interface{}{
-			"abc/999":  nil,
-			"abc/1000": nil,
-		},
 	})
 }

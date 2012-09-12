@@ -19,7 +19,7 @@ type CmdSuite struct {
 
 var _ = Suite(&CmdSuite{})
 
-var config = `
+var envConfig = `
 default:
     peckham
 environments:
@@ -40,7 +40,7 @@ environments:
 
 func (s *CmdSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.JujuConnSuite.WriteConfig(config)
+	s.JujuConnSuite.WriteConfig(envConfig)
 }
 
 func newFlagSet() *gnuflag.FlagSet {
@@ -73,7 +73,7 @@ func assertConnName(c *C, com cmd.Command, name string) {
 // flags, and that extra arguments will cause parsing to fail.
 var EnvironmentInitTests = []func() (cmd.Command, []string){
 	func() (cmd.Command, []string) { return new(BootstrapCommand), nil },
-	func() (cmd.Command, []string) { return new(DestroyCommand), nil },
+	func() (cmd.Command, []string) { return new(DestroyEnvironmentCommand), nil },
 	func() (cmd.Command, []string) {
 		return new(DeployCommand), []string{"charm-name", "service-name"}
 	},
@@ -143,19 +143,13 @@ func (*CmdSuite) TestBootstrapCommand(c *C) {
 	env, err := envs.Open("peckham")
 	c.Assert(err, IsNil)
 
-	oldVarDir := environs.VarDir
-	defer func() {
-		environs.VarDir = oldVarDir
-	}()
-	environs.VarDir = c.MkDir()
-
 	tools, err := environs.FindTools(env, version.Current, environs.CompatVersion)
 	c.Assert(err, IsNil)
 	resp, err := http.Get(tools.URL)
 	c.Assert(err, IsNil)
 	defer resp.Body.Close()
 
-	err = environs.UnpackTools(tools, resp.Body)
+	err = environs.UnpackTools(c.MkDir(), tools, resp.Body)
 	c.Assert(err, IsNil)
 
 	// bootstrap with broken environment
@@ -164,14 +158,15 @@ func (*CmdSuite) TestBootstrapCommand(c *C) {
 	c.Check(<-opc, IsNil)
 }
 
-func (*CmdSuite) TestDestroyCommand(c *C) {
+func (*CmdSuite) TestDestroyEnvironmentCommand(c *C) {
 	// normal destroy
-	opc, errc := runCommand(new(DestroyCommand))
+	opc, errc := runCommand(new(DestroyEnvironmentCommand))
 	c.Check(<-errc, IsNil)
 	c.Check((<-opc).(dummy.OpDestroy).Env, Equals, "peckham")
 
 	// destroy with broken environment
-	opc, errc = runCommand(new(DestroyCommand), "-e", "brokenenv")
+	opc, errc = runCommand(new(DestroyEnvironmentCommand), "-e", "brokenenv")
+	c.Check(<-opc, IsNil)
 	c.Check(<-errc, ErrorMatches, "dummy.Destroy is broken")
 	c.Check(<-opc, IsNil)
 }

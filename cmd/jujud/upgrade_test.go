@@ -19,18 +19,6 @@ var _ = Suite(&upgraderSuite{})
 
 type upgraderSuite struct {
 	testing.JujuConnSuite
-	oldVarDir string
-}
-
-func (s *upgraderSuite) SetUpTest(c *C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.oldVarDir = environs.VarDir
-	environs.VarDir = c.MkDir()
-}
-
-func (s *upgraderSuite) TearDownTest(c *C) {
-	environs.VarDir = s.oldVarDir
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *upgraderSuite) TestUpgraderError(c *C) {
@@ -38,7 +26,7 @@ func (s *upgraderSuite) TestUpgraderError(c *C) {
 	c.Assert(err, IsNil)
 	// We have no installed tools, so the logic should set the agent
 	// tools anyway, but with no URL.
-	u := startUpgrader(c, st, &state.Tools{Binary: version.Current})
+	u := startUpgrader(c, st, c.MkDir(), &state.Tools{Binary: version.Current})
 
 	// Close the state under the watcher and check that the upgrader dies.
 	st.Close()
@@ -46,7 +34,7 @@ func (s *upgraderSuite) TestUpgraderError(c *C) {
 }
 
 func (s *upgraderSuite) TestUpgraderStop(c *C) {
-	u := startUpgrader(c, s.State, &state.Tools{Binary: version.Current})
+	u := startUpgrader(c, s.State, c.MkDir(), &state.Tools{Binary: version.Current})
 	err := u.Stop()
 	c.Assert(err, IsNil)
 }
@@ -131,12 +119,13 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 	version.Current = version.MustParseBinary("2.0.0-foo-bar")
 	v0path, v0tools := s.uploadTools(c, version.Current)
 
+	dataDir := c.MkDir()
 	// Unpack the "current" version of the tools, and delete them from
 	// the storage so that we're sure that the uploader isn't trying
 	// to fetch them.
 	resp, err := http.Get(v0tools.URL)
 	c.Assert(err, IsNil)
-	err = environs.UnpackTools(v0tools, resp.Body)
+	err = environs.UnpackTools(dataDir, v0tools, resp.Body)
 	c.Assert(err, IsNil)
 	err = s.Conn.Environ.Storage().Remove(v0path)
 	c.Assert(err, IsNil)
@@ -163,7 +152,7 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 			uploaded[vers.Number] = tools
 		}
 		if u == nil {
-			u = startUpgrader(c, s.State, currentTools)
+			u = startUpgrader(c, s.State, dataDir, currentTools)
 		}
 		s.proposeVersion(c, version.MustParse(test.propose), test.devVersion)
 		if test.upgradeTo == "" {
@@ -172,7 +161,7 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 			tools := uploaded[version.MustParse(test.upgradeTo)]
 			waitDeath(c, u, tools, "")
 			// Check that the upgraded version was really downloaded.
-			data, err := ioutil.ReadFile(filepath.Join(environs.ToolsDir(tools.Binary), "jujud"))
+			data, err := ioutil.ReadFile(filepath.Join(environs.ToolsDir(dataDir, tools.Binary), "jujud"))
 			c.Assert(err, IsNil)
 			c.Assert(string(data), Equals, "jujud contents "+tools.Binary.String())
 
@@ -202,9 +191,9 @@ func assertEvent(c *C, event <-chan string, want string) {
 
 // startUpgrader starts the upgrader using the given machine,
 // expecting to see it set the given agent tools.
-func startUpgrader(c *C, st *state.State, expectTools *state.Tools) *Upgrader {
+func startUpgrader(c *C, st *state.State, dataDir string, expectTools *state.Tools) *Upgrader {
 	as := testAgentState(make(chan *state.Tools))
-	u := NewUpgrader(st, "testagent", as)
+	u := NewUpgrader(st, as, dataDir)
 	select {
 	case tools := <-as:
 		c.Assert(tools, DeepEquals, expectTools)

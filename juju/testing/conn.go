@@ -10,7 +10,6 @@ import (
 	"launchpad.net/juju-core/juju"
 	state "launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"net/url"
 	"os"
 	"path/filepath"
 )
@@ -18,19 +17,24 @@ import (
 // JujuConnSuite provides a freshly bootstrapped juju.Conn
 // for each test. It also includes testing.LoggingSuite.
 //
-// It also sets up $HOME and environs.VarDir to
-// temporary directories; the former is primed to
-// hold the dummy environments.yaml file.
-//
-// The name of the dummy environment is "dummyenv".
+// It also sets up RootDir to point to a directory hierarchy
+// mirroring the intended juju directory structure, including
+// the following:
+// 	RootDir/home/ubuntu/.juju/environments.yaml
+//		The dummy environments.yaml file, holding
+//		a default environment named "dummyenv"
+//		which uses the "dummy" environment type.
+//	RootDir/var/lib/juju
+//		An empty directory returned as DataDir - the
+//		root of the juju data storage space.
+// $HOME is set to point to RootDir/home/ubuntu.
 type JujuConnSuite struct {
 	testing.LoggingSuite
 	testing.ZkSuite
-	Conn      *juju.Conn
-	State     *state.State
-	rootDir   string // the faked-up root directory.
-	oldHome   string
-	oldVarDir string
+	Conn    *juju.Conn
+	State   *state.State
+	RootDir string // The faked-up root directory.
+	oldHome string
 }
 
 var config = []byte(`
@@ -39,6 +43,7 @@ environments:
         type: dummy
         zookeeper: true
         authorized-keys: 'i-am-a-key'
+        default-series: decrepit
 `)
 
 func (s *JujuConnSuite) SetUpSuite(c *C) {
@@ -71,21 +76,19 @@ func (s *JujuConnSuite) Reset(c *C) {
 }
 
 func (s *JujuConnSuite) setUpConn(c *C) {
-	if s.rootDir != "" {
+	if s.RootDir != "" {
 		panic("JujuConnSuite.setUpConn without teardown")
 	}
-	s.rootDir = c.MkDir()
+	s.RootDir = c.MkDir()
 	s.oldHome = os.Getenv("HOME")
-	home := filepath.Join(s.rootDir, "/home/ubuntu")
+	home := filepath.Join(s.RootDir, "/home/ubuntu")
 	err := os.MkdirAll(home, 0777)
 	c.Assert(err, IsNil)
 	os.Setenv("HOME", home)
 
-	s.oldVarDir = environs.VarDir
-	varDir := filepath.Join(s.rootDir, environs.VarDir)
-	err = os.MkdirAll(varDir, 0777)
+	dataDir := filepath.Join(s.RootDir, "/var/lib/juju")
+	err = os.MkdirAll(dataDir, 0777)
 	c.Assert(err, IsNil)
-	environs.VarDir = varDir
 
 	err = os.Mkdir(filepath.Join(home, ".juju"), 0777)
 	c.Assert(err, IsNil)
@@ -113,14 +116,19 @@ func (s *JujuConnSuite) tearDownConn(c *C) {
 	s.State = nil
 	os.Setenv("HOME", s.oldHome)
 	s.oldHome = ""
-	environs.VarDir = s.oldVarDir
-	s.oldVarDir = ""
-	s.rootDir = ""
+	s.RootDir = ""
+}
+
+func (s *JujuConnSuite) DataDir() string {
+	if s.RootDir == "" {
+		panic("DataDir called out of test context")
+	}
+	return filepath.Join(s.RootDir, "/var/lib/juju")
 }
 
 // WriteConfig writes a juju config file to the "home" directory.
 func (s *JujuConnSuite) WriteConfig(config string) {
-	if s.rootDir == "" {
+	if s.RootDir == "" {
 		panic("SetUpTest has not been called; will not overwrite $HOME/.juju/environments.yaml")
 	}
 	path := filepath.Join(os.Getenv("HOME"), ".juju", "environments.yaml")
@@ -138,9 +146,9 @@ func (s *JujuConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	ch := testing.Charms.Dir(name)
 	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
 	curl := charm.MustParseURL("local:series/" + ident)
-	bundleURL, err := url.Parse("http://bundles.example.com/" + ident)
+	repo, err := charm.InferRepository(curl, testing.Charms.Path)
 	c.Assert(err, IsNil)
-	sch, err := s.State.AddCharm(ch, curl, bundleURL, ident+"-sha256")
+	sch, err := s.Conn.PutCharm(curl, repo, false)
 	c.Assert(err, IsNil)
 	return sch
 }

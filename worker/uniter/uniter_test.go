@@ -33,7 +33,7 @@ func TestPackage(t *stdtesting.T) {
 type UniterSuite struct {
 	testing.JujuConnSuite
 	coretesting.HTTPSuite
-	varDir  string
+	dataDir string
 	oldPath string
 }
 
@@ -42,9 +42,8 @@ var _ = Suite(&UniterSuite{})
 func (s *UniterSuite) SetUpSuite(c *C) {
 	s.JujuConnSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
-	s.varDir = c.MkDir()
-	environs.VarDir = s.varDir // it's restored by JujuConnSuite.
-	toolsDir := environs.AgentToolsDir("unit-u-0")
+	s.dataDir = c.MkDir()
+	toolsDir := environs.AgentToolsDir(s.dataDir, "unit-u-0")
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, IsNil)
 	cmd := exec.Command("go", "build", "launchpad.net/juju-core/cmd/jujuc")
@@ -62,7 +61,7 @@ func (s *UniterSuite) TearDownSuite(c *C) {
 
 func (s *UniterSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
-	environs.VarDir = s.varDir
+	s.HTTPSuite.SetUpTest(c)
 }
 
 func (s *UniterSuite) TearDownTest(c *C) {
@@ -72,7 +71,6 @@ func (s *UniterSuite) TearDownTest(c *C) {
 
 func (s *UniterSuite) Reset(c *C) {
 	s.JujuConnSuite.Reset(c)
-	environs.VarDir = s.varDir
 }
 
 type uniterTest struct {
@@ -89,14 +87,15 @@ type stepper interface {
 }
 
 type context struct {
-	id     int
-	path   string
-	st     *state.State
-	charms coretesting.ResponseMap
-	hooks  []string
-	svc    *state.Service
-	unit   *state.Unit
-	uniter *uniter.Uniter
+	id      int
+	path    string
+	dataDir string
+	st      *state.State
+	charms  coretesting.ResponseMap
+	hooks   []string
+	svc     *state.Service
+	unit    *state.Unit
+	uniter  *uniter.Uniter
 }
 
 var goodHook = `
@@ -259,7 +258,7 @@ var uniterTests = []uniterTest{
 }
 
 func (s *UniterSuite) TestUniter(c *C) {
-	unitDir := filepath.Join(environs.VarDir, "units", "u-0")
+	unitDir := filepath.Join(s.dataDir, "units", "u-0")
 	for i, t := range uniterTests {
 		if i != 0 {
 			s.Reset(c)
@@ -269,10 +268,11 @@ func (s *UniterSuite) TestUniter(c *C) {
 		}
 		c.Logf("\ntest %d: %s\n", i, t.summary)
 		ctx := &context{
-			id:     i,
-			path:   unitDir,
-			st:     s.State,
-			charms: coretesting.ResponseMap{},
+			id:      i,
+			path:    unitDir,
+			dataDir: s.dataDir,
+			st:      s.State,
+			charms:  coretesting.ResponseMap{},
 		}
 		for i, s := range t.steps {
 			c.Logf("step %d", i)
@@ -383,7 +383,7 @@ func (s startUniter) step(c *C, ctx *context) {
 	if ctx.uniter != nil {
 		panic("don't start two uniters!")
 	}
-	u, err := uniter.NewUniter(ctx.st, "u/0")
+	u, err := uniter.NewUniter(ctx.st, "u/0", ctx.dataDir)
 	if s.err == "" {
 		c.Assert(err, IsNil)
 		ctx.uniter = u
@@ -490,7 +490,7 @@ type waitUnit struct {
 }
 
 func (s waitUnit) step(c *C, ctx *context) {
-	timeout := time.After(2000 * time.Millisecond)
+	timeout := time.After(3000 * time.Millisecond)
 	// Upgrade/resolved checks are easy...
 	resolved := ctx.unit.WatchResolved()
 	defer stop(c, resolved)
@@ -510,7 +510,7 @@ func (s waitUnit) step(c *C, ctx *context) {
 	// ...but we have no status/charm watchers, so just poll.
 	for {
 		select {
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(200 * time.Millisecond):
 			status, info, err := ctx.unit.Status()
 			c.Assert(err, IsNil)
 			if status != s.status {
@@ -553,7 +553,7 @@ func (s waitHooks) step(c *C, ctx *context) {
 	if match {
 		return
 	}
-	timeout := time.After(2000 * time.Millisecond)
+	timeout := time.After(3 * time.Second)
 	for {
 		select {
 		case <-time.After(200 * time.Millisecond):

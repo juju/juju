@@ -23,13 +23,18 @@ func TestPackage(t *stdtesting.T) {
 	coretesting.ZkTestPackage(t)
 }
 
+var _ container.Container = (*container.Simple)(nil)
+
 func (s *suite) TestDeploy(c *C) {
 	// make sure there's a jujud "executable" in the path.
-	binDir := c.MkDir()
-	exe := filepath.Join(binDir, "jujud")
+	dataDir := c.MkDir()
+	toolsDir := environs.AgentToolsDir(dataDir, "unit-0")
+	err := os.MkdirAll(toolsDir, 0777)
+	c.Assert(err, IsNil)
+	exe := filepath.Join(toolsDir, "jujud")
 	defer os.Setenv("PATH", os.Getenv("PATH"))
-	os.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
-	err := ioutil.WriteFile(exe, []byte("#!/bin/sh\n"), 0777)
+	os.Setenv("PATH", toolsDir+":"+os.Getenv("PATH"))
+	err = ioutil.WriteFile(exe, []byte("#!/bin/sh\n"), 0777)
 	c.Assert(err, IsNil)
 
 	// create a unit to deploy
@@ -39,20 +44,17 @@ func (s *suite) TestDeploy(c *C) {
 	unit, err := service.AddUnit()
 	c.Assert(err, IsNil)
 
-	oldInitDir, oldVarDir := *container.InitDir, environs.VarDir
-	defer func() {
-		*container.InitDir, environs.VarDir = oldInitDir, oldVarDir
-	}()
-	*container.InitDir, environs.VarDir = c.MkDir(), c.MkDir()
+	initDir := c.MkDir()
+	cont := container.Simple{
+		DataDir: dataDir,
+		InitDir: initDir,
+	}
 
-	unitName := "juju-agent-dummy-0"
-	upstartScript := filepath.Join(*container.InitDir, unitName+".conf")
-
-	unitDir := filepath.Join(environs.VarDir, "units", "dummy-0")
-
-	cont := container.Simple
 	err = cont.Deploy(unit)
 	c.Assert(err, ErrorMatches, `(.|\n)+Unknown job(.|\n)+`)
+
+	unitName := "juju-agent-dummy-0"
+	upstartScript := filepath.Join(cont.InitDir, unitName+".conf")
 
 	data, err := ioutil.ReadFile(upstartScript)
 	c.Assert(err, IsNil)
@@ -62,6 +64,7 @@ func (s *suite) TestDeploy(c *C) {
 	// it is removed when the call to Deploy fails, but
 	// we can check that it is removed.
 
+	unitDir := filepath.Join(cont.DataDir, "units", "dummy-0")
 	err = os.MkdirAll(filepath.Join(unitDir, "foo"), 0777)
 	c.Assert(err, IsNil)
 
@@ -73,8 +76,4 @@ func (s *suite) TestDeploy(c *C) {
 
 	_, err = os.Stat(upstartScript)
 	c.Assert(err, NotNil)
-}
-
-func (s *suite) TestSimpleToolsDir(c *C) {
-	c.Assert(container.Simple.ToolsDir(nil), Equals, filepath.Join(environs.VarDir, "tools"))
 }

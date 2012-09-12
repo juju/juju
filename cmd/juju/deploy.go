@@ -82,13 +82,19 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-
-	// TODO get default series from state environ config.
-	curl, err := charm.InferURL(c.CharmName, "precise")
+	conf, err := conn.State.EnvironConfig()
 	if err != nil {
 		return err
 	}
-	ch, err := conn.PutCharm(curl, c.RepoPath, c.BumpRevision)
+	curl, err := charm.InferURL(c.CharmName, conf.DefaultSeries())
+	if err != nil {
+		return err
+	}
+	repo, err := charm.InferRepository(curl, ctx.AbsPath(c.RepoPath))
+	if err != nil {
+		return err
+	}
+	ch, err := conn.PutCharm(curl, repo, c.BumpRevision)
 	if err != nil {
 		return err
 	}

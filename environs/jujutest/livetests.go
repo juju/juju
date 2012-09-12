@@ -179,9 +179,11 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 
 	// Create a new service and deploy a unit of it.
 	c.Logf("deploying service")
-	repo := &testing.Repo{c.MkDir()}
-	repo.DirWithSeries(tools0.Series, "dummy")
-	sch, err := conn.PutCharm(repo.URL(tools0.Series, "dummy"), repo.Path, false)
+	repoDir := c.MkDir()
+	// TODO with series
+	url := testing.Charms.ClonedURL(repoDir, "dummy")
+	sch, err := conn.PutCharm(url, repoDir, false)
+
 	c.Assert(err, IsNil)
 	svc, err := conn.AddService("", sch)
 	c.Assert(err, IsNil)
@@ -247,7 +249,7 @@ func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binar
 
 	// Check that the put version really is the version we expect.
 	c.Assert(upgradeTools.Binary, Equals, newVersion)
-	err = setStateAgentVersion(conn.State, newVersion.Number)
+	err = setAgentVersion(conn.State, newVersion.Number)
 	c.Assert(err, IsNil)
 
 	for i, w := range watchers {
@@ -269,9 +271,9 @@ func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binar
 	}
 }
 
-// setStateAgentVersion sets the current agent version in the state's
+// setAgentVersion sets the current agent version in the state's
 // environment configuration.
-func setStateAgentVersion(st *state.State, vers version.Number) error {
+func setAgentVersion(st *state.State, vers version.Number) error {
 	cfg, err := st.EnvironConfig()
 	if err != nil {
 		return err
