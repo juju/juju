@@ -58,20 +58,8 @@ func (s *MachinerSuite) TestMachinerDeployDestroy(c *C) {
 	err = ud0.AssignToMachine(m0)
 	c.Assert(err, IsNil)
 
-	dataDir := c.MkDir()
-
-	action := make(chan string, 5)
-	*machiner.Deploy = func(cfg container.Config, u *state.Unit) error {
-		c.Check(cfg.DataDir, Equals, dataDir)
-		action <- "+" + u.Name()
-		return nil
-	}
-	*machiner.Destroy = func(cfg container.Config, u *state.Unit) error {
-		c.Check(cfg.DataDir, Equals, dataDir)
-		action <- "-" + u.Name()
-		return nil
-	}
-	machiner := machiner.NewMachiner(m0, dataDir)
+	dcontainer := newDummyContainer()
+	machiner := machiner.NewMachinerWithContainer(m0, dcontainer)
 
 	tests := []struct {
 		change  func()
@@ -110,26 +98,52 @@ func (s *MachinerSuite) TestMachinerDeployDestroy(c *C) {
 		c.Logf("test %d", i)
 		t.change()
 		for _, a := range t.actions {
-			checkAction(c, action, a)
+			dcontainer.checkAction(c, a)
 		}
-		checkAction(c, action, "")
+		dcontainer.checkAction(c, "")
 	}
 
 	err = machiner.Stop()
 	c.Assert(err, IsNil)
 }
 
-func checkAction(c *C, action <-chan string, expect string) {
+type dummyContainer struct {
+	action chan string
+}
+
+var _ container.Container = (*dummyContainer)(nil)
+
+func newDummyContainer() *dummyContainer {
+	return &dummyContainer{
+		make(chan string, 5),
+	}
+}
+
+func (d *dummyContainer) Deploy(u *state.Unit) error {
+	d.action <- "+" + u.Name()
+	return nil
+}
+
+func (d *dummyContainer) Destroy(u *state.Unit) error {
+	d.action <- "-" + u.Name()
+	return nil
+}
+
+func (d *dummyContainer) ToolsDir(u *state.Unit) string {
+	return "/dummy/tools"
+}
+
+func (d *dummyContainer) checkAction(c *C, action string) {
 	timeout := 500 * time.Millisecond
-	if expect == "" {
+	if action == "" {
 		timeout = 200 * time.Millisecond
 	}
 	select {
-	case a := <-action:
-		c.Assert(a, Equals, expect)
+	case a := <-d.action:
+		c.Assert(a, Equals, action)
 	case <-time.After(timeout):
-		if expect != "" {
-			c.Fatalf("expected action %v got nothing", expect)
+		if action != "" {
+			c.Fatalf("expected action %v got nothing", action)
 		}
 	}
 }

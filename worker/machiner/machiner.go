@@ -8,26 +8,24 @@ import (
 	"launchpad.net/tomb"
 )
 
-var deploy = container.Deploy
-var destroy = container.Destroy
-
-// Machiner represents a running machine agent.
-type Machiner struct {
-	tomb tomb.Tomb
-	cfg  container.Config
-}
-
 // NewMachiner starts a machine agent running that
 // deploys agents in the given directory.
 // The Machiner dies when it encounters an error.
 func NewMachiner(machine *state.Machine, dataDir string) *Machiner {
-	m := &Machiner{
-		cfg: container.Config{
-			DataDir: dataDir,
-		},
-	}
+	cont := &container.Simple{DataDir: dataDir}
+	return newMachiner(machine, cont)
+}
+
+func newMachiner(machine *state.Machine, cont container.Container) *Machiner {
+	m := &Machiner{container: cont}
 	go m.loop(machine)
 	return m
+}
+
+// Machiner represents a running machine agent.
+type Machiner struct {
+	tomb      tomb.Tomb
+	container container.Container
 }
 
 func (m *Machiner) loop(machine *state.Machine) {
@@ -49,14 +47,14 @@ func (m *Machiner) loop(machine *state.Machine) {
 			}
 			for _, u := range change.Removed {
 				if u.IsPrincipal() {
-					if err := destroy(m.cfg, u); err != nil {
+					if err := m.container.Destroy(u); err != nil {
 						log.Printf("cannot destroy unit %s: %v", u.Name(), err)
 					}
 				}
 			}
 			for _, u := range change.Added {
 				if u.IsPrincipal() {
-					if err := deploy(m.cfg, u); err != nil {
+					if err := m.container.Deploy(u); err != nil {
 						// TODO put unit into a queue to retry the deploy.
 						log.Printf("cannot deploy unit %s: %v", u.Name(), err)
 					}
