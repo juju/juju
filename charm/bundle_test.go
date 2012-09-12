@@ -20,7 +20,7 @@ type BundleSuite struct {
 var _ = Suite(&BundleSuite{})
 
 func (s *BundleSuite) SetUpSuite(c *C) {
-	s.bundlePath = testing.Charms.BundlePath(c.MkDir(), "dummy")
+	s.bundlePath = testing.Charms.BundlePath(c.MkDir(), "dummy", "series")
 }
 
 func (s *BundleSuite) TestReadBundle(c *C) {
@@ -30,7 +30,7 @@ func (s *BundleSuite) TestReadBundle(c *C) {
 }
 
 func (s *BundleSuite) TestReadBundleWithoutConfig(c *C) {
-	path := testing.Charms.BundlePath(c.MkDir(), "varnish")
+	path := testing.Charms.BundlePath(c.MkDir(), "varnish", "series")
 	bundle, err := charm.ReadBundle(path)
 	c.Assert(err, IsNil)
 
@@ -63,7 +63,7 @@ func (s *BundleSuite) TestExpandTo(c *C) {
 
 func (s *BundleSuite) TestBundleFileModes(c *C) {
 	// Apply subtler mode differences than can be expressed in Bazaar.
-	srcPath := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	srcPath := testing.Charms.ClonedDirPath(c.MkDir(), "dummy", "series")
 	modes := []struct {
 		path string
 		mode os.FileMode
@@ -112,7 +112,7 @@ func (s *BundleSuite) TestBundleFileModes(c *C) {
 }
 
 func (s *BundleSuite) TestBundleRevisionFile(c *C) {
-	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy", "series")
 	revPath := filepath.Join(charmDir, "revision")
 
 	// Missing revision file
@@ -160,7 +160,7 @@ func (s *BundleSuite) TestBundleSetRevision(c *C) {
 }
 
 func (s *BundleSuite) TestExpandToWithBadLink(c *C) {
-	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy", "series")
 	badLink := filepath.Join(charmDir, "hooks", "badlink")
 
 	// Symlink targeting a path outside of the charm.

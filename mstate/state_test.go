@@ -30,7 +30,7 @@ func (s *StateSuite) TestDialAgain(c *C) {
 
 func (s *StateSuite) TestAddCharm(c *C) {
 	// Check that adding charms from scratch works correctly.
-	ch := testing.Charms.Dir("dummy")
+	ch := testing.Charms.Dir("dummy", "series")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
