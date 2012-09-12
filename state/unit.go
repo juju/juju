@@ -481,8 +481,10 @@ func (u *Unit) AgentAlive() (bool, error) {
 	return presence.Alive(u.st.zk, u.zkAgentPath())
 }
 
-// AgentName returns the name used to identify the unit's agent.
-func (u *Unit) AgentName() string {
+// PathKey returns a name identifying the unit that can be used as a
+// file name.  The returned key will be different from other
+// PathKeys returned by any other entities from the same state.
+func (u *Unit) PathKey() string {
 	return "unit-" + strings.Replace(u.Name(), "/", "-", -1)
 }
 

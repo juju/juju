@@ -33,7 +33,7 @@ type Simple struct {
 }
 
 func (c *Simple) service(unit *state.Unit) *upstart.Service {
-	svc := upstart.NewService("juju-" + unit.AgentName())
+	svc := upstart.NewService("juju-" + unit.PathKey())
 	if c.InitDir != "" {
 		svc.InitDir = c.InitDir
 	}
@@ -41,7 +41,7 @@ func (c *Simple) service(unit *state.Unit) *upstart.Service {
 }
 
 func (c *Simple) dirName(unit *state.Unit) string {
-	return filepath.Join(c.DataDir, "agents", unit.AgentName())
+	return filepath.Join(c.DataDir, "agents", unit.PathKey())
 }
 
 // Deploy deploys a unit running the given tools unit into a new container.
@@ -50,7 +50,7 @@ func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) 
 	if info.UseSSH {
 		return fmt.Errorf("cannot deploy unit agent connecting with ssh")
 	}
-	toolsDir := environs.AgentToolsDir(c.DataDir, unit.AgentName())
+	toolsDir := environs.AgentToolsDir(c.DataDir, unit.PathKey())
 	err = os.Symlink(tools.Binary.String(), toolsDir)
 	if err != nil {
 		return fmt.Errorf("cannot make agent tools symlink: %v", err)
@@ -66,7 +66,7 @@ func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) 
 		"%s unit --zookeeper-servers '%s' --log-file %s --unit-name %s",
 		filepath.Join(toolsDir, "jujud"),
 		strings.Join(info.Addrs, ","),
-		filepath.Join("/var/log/juju", unit.AgentName()+".log"),
+		filepath.Join("/var/log/juju", unit.PathKey()+".log"),
 		unit.Name())
 
 	conf := &upstart.Conf{

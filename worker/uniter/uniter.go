@@ -202,10 +202,10 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 // store its data.
 func ensureFs(dataDir string, unit *state.Unit) (string, error) {
 	// TODO: do this OAOO at packaging time?
-	if err := EnsureJujucSymlinks(dataDir, unit.AgentName()); err != nil {
+	if err := EnsureJujucSymlinks(dataDir, unit.PathKey()); err != nil {
 		return "", err
 	}
-	path := filepath.Join(dataDir, "agents", unit.AgentName())
+	path := filepath.Join(dataDir, "agents", unit.PathKey())
 	if err := trivial.EnsureDir(filepath.Join(path, "state")); err != nil {
 		return "", err
 	}

@@ -171,8 +171,8 @@ func (s *UnitSuite) TestGetOpenPorts(c *C) {
 	})
 }
 
-func (s *UnitSuite) TestAgentName(c *C) {
-	c.Assert(s.unit.AgentName(), Equals, "unit-wordpress-0")
+func (s *UnitSuite) TestPathKey(c *C) {
+	c.Assert(s.unit.PathKey(), Equals, "unit-wordpress-0")
 }
 
 func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
