@@ -5,6 +5,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
@@ -182,7 +183,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	repoDir := c.MkDir()
 	// TODO with series
 	url := testing.Charms.ClonedURL(repoDir, "dummy")
-	sch, err := conn.PutCharm(url, repoDir, false)
+	sch, err := conn.PutCharm(url, &charm.LocalRepository{repoDir}, false)
 
 	c.Assert(err, IsNil)
 	svc, err := conn.AddService("", sch)
