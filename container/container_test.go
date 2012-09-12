@@ -4,11 +4,11 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/container"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"os"
 	"path/filepath"
 	stdtesting "testing"
@@ -35,7 +35,7 @@ func (s *suite) TestDeploy(c *C) {
 	// make sure there's a jujud "executable" in the tools directory
 	// for the current version.
 	tools := &state.Tools{
-		URL: "unused",
+		URL:    "unused",
 		Binary: version.MustParseBinary("3.2.1-foo-bar"),
 	}
 	varDir := c.MkDir()

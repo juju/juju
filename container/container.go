@@ -74,7 +74,7 @@ func (c *simple) deploy(unit *state.Unit, info *state.Info, tools *state.Tools) 
 		"%s unit --zookeeper-servers '%s' --log-file %s --unit-name %s",
 		filepath.Join(toolsDir, "jujud"),
 		strings.Join(info.Addrs, ","),
-		filepath.Join("/var/log/juju", unit.AgentName() + ".log"),
+		filepath.Join("/var/log/juju", unit.AgentName()+".log"),
 		unit.Name())
 
 	conf := &upstart.Conf{

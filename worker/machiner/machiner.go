@@ -2,11 +2,11 @@ package machiner
 
 import (
 	"launchpad.net/juju-core/container"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/tomb"
 )
 
@@ -16,10 +16,10 @@ var destroy = container.Destroy
 // Machiner represents a running machine agent.
 type Machiner struct {
 	tomb      tomb.Tomb
-	machine *state.Machine
-	cfg container.Config
+	machine   *state.Machine
+	cfg       container.Config
 	stateInfo *state.Info
-	tools *state.Tools
+	tools     *state.Tools
 }
 
 // NewMachiner starts a machine agent running that deploys agents in the
@@ -30,9 +30,9 @@ func NewMachiner(machine *state.Machine, info *state.Info, varDir string) *Machi
 		tools = &state.Tools{Binary: version.Current}
 	}
 	m := &Machiner{
-		machine: machine,
+		machine:   machine,
 		stateInfo: info,
-		tools: tools,
+		tools:     tools,
 		cfg: container.Config{
 			VarDir: varDir,
 		},
