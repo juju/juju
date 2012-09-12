@@ -99,7 +99,7 @@ func (st State) validate() error {
 	return nil
 }
 
-// StateFile reads and writes uniter operation state.
+// StateFile holds the disk state for a uniter.
 type StateFile struct {
 	path string
 }
@@ -113,17 +113,17 @@ var ErrNoStateFile = errors.New("uniter state file does not exist")
 
 // Read reads a State from the file. If the file does not exist it returns
 // ErrNoStateFile.
-func (f *StateFile) Read() (State, error) {
+func (f *StateFile) Read() (*State, error) {
 	var st State
 	if err := trivial.ReadYaml(f.path, &st); err != nil {
 		if os.IsNotExist(err) {
-			return State{}, ErrNoStateFile
+			return nil, ErrNoStateFile
 		}
 	}
 	if err := st.validate(); err != nil {
-		return State{}, fmt.Errorf("invalid uniter state at %s: %s", f.path, err)
+		return nil, fmt.Errorf("invalid uniter state at %q: %v", f.path, err)
 	}
-	return st, nil
+	return &st, nil
 }
 
 // Write stores the supplied state to the file.
@@ -131,12 +131,9 @@ func (f *StateFile) Write(op Op, status Status, hi *hook.Info, url *charm.URL) e
 	if hi != nil {
 		// Strip membership info: it's potentially large, and can
 		// be reconstructed from relation state when required.
-		hi = &hook.Info{
-			Kind:          hi.Kind,
-			RelationId:    hi.RelationId,
-			RemoteUnit:    hi.RemoteUnit,
-			ChangeVersion: hi.ChangeVersion,
-		}
+		hiCopy := *hi
+		hiCopy.Members = nil
+		hi = &hiCopy
 	}
 	st := &State{
 		Op:       op,

@@ -45,7 +45,7 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	defer errorContextf(&err, "ModeContinue")
 
 	// When no charm exists, install it.
-	log.Printf("examining persistent state...")
+	log.Printf("reading uniter state from disk...")
 	op, err := u.op.Read()
 	if err == ErrNoStateFile {
 		log.Printf("charm is not deployed")

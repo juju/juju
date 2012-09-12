@@ -111,7 +111,7 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 		return err
 	}
 	url := sch.URL()
-	if op.Status != Committing {
+	if op == nil || op.Status != Committing {
 		log.Printf("fetching charm %q", url)
 		bun, err := u.bundles.Read(sch, u.tomb.Dying())
 		if err != nil {

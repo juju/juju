@@ -166,6 +166,6 @@ func (s *StateFileSuite) TestStates(c *C) {
 			c.Assert(st.Hook.Members, HasLen, 0)
 			st.Hook.Members = t.st.Hook.Members
 		}
-		c.Assert(st, DeepEquals, t.st)
+		c.Assert(*st, DeepEquals, t.st)
 	}
 }
