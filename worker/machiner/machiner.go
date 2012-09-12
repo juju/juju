@@ -17,7 +17,7 @@ func NewMachiner(machine *state.Machine, dataDir string) *Machiner {
 }
 
 func newMachiner(machine *state.Machine, cont container.Container) *Machiner {
-	m := &Machiner{container: cont}
+	m := &Machiner{localContainer: cont}
 	go m.loop(machine)
 	return m
 }
@@ -25,7 +25,7 @@ func newMachiner(machine *state.Machine, cont container.Container) *Machiner {
 // Machiner represents a running machine agent.
 type Machiner struct {
 	tomb      tomb.Tomb
-	container container.Container
+	localContainer container.Container
 }
 
 func (m *Machiner) loop(machine *state.Machine) {
@@ -47,14 +47,14 @@ func (m *Machiner) loop(machine *state.Machine) {
 			}
 			for _, u := range change.Removed {
 				if u.IsPrincipal() {
-					if err := m.container.Destroy(u); err != nil {
+					if err := m.localContainer.Destroy(u); err != nil {
 						log.Printf("cannot destroy unit %s: %v", u.Name(), err)
 					}
 				}
 			}
 			for _, u := range change.Added {
 				if u.IsPrincipal() {
-					if err := m.container.Deploy(u); err != nil {
+					if err := m.localContainer.Deploy(u); err != nil {
 						// TODO put unit into a queue to retry the deploy.
 						log.Printf("cannot deploy unit %s: %v", u.Name(), err)
 					}
