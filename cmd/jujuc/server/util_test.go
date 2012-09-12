@@ -19,7 +19,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 func dummyContext(c *C) *cmd.Context {
-	return &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}}
+	return &cmd.Context{c.MkDir(), nil, &bytes.Buffer{}, &bytes.Buffer{}}
 }
 
 func bufferString(w io.Writer) string {

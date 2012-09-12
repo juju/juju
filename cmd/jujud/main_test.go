@@ -30,8 +30,10 @@ func TestRunMain(t *stdtesting.T) {
 
 func checkMessage(c *C, msg string, cmd ...string) {
 	args := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "jujud"}, cmd...)
+	c.Logf("check %#v", args)
 	ps := exec.Command(os.Args[0], args...)
 	output, err := ps.CombinedOutput()
+	c.Logf(string(output))
 	c.Assert(err, ErrorMatches, "exit status 2")
 	lines := strings.Split(string(output), "\n")
 	c.Assert(lines[len(lines)-2], Equals, "error: "+msg)
@@ -52,10 +54,11 @@ func (s *MainSuite) TestParseErrors(c *C) {
 	}
 
 	msga := `unrecognized args: ["toastie"]`
-	checkMessage(c, msga, "bootstrap-state",
+	checkMessage(c, msga,
+		"bootstrap-state",
 		"--zookeeper-servers", "zk:2181",
 		"--instance-id", "ii",
-		"--env-type", "et",
+		"--env-config", b64yaml{"blah": "blah"}.encode(),
 		"toastie")
 	checkMessage(c, msga, "unit",
 		"--zookeeper-servers", "localhost:2181,zk:2181",

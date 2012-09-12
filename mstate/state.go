@@ -39,6 +39,7 @@ type State struct {
 	runner    *txn.Runner
 	watcher   *watcher.Watcher
 	pwatcher  *presence.Watcher
+	fwd       *sshForwarder
 }
 
 func deadOnAbort(err error) error {

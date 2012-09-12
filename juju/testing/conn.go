@@ -10,7 +10,6 @@ import (
 	"launchpad.net/juju-core/juju"
 	state "launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"net/url"
 	"os"
 	"path/filepath"
 )
@@ -39,6 +38,7 @@ environments:
         type: dummy
         zookeeper: true
         authorized-keys: 'i-am-a-key'
+        default-series: decrepit
 `)
 
 func (s *JujuConnSuite) SetUpSuite(c *C) {
@@ -138,9 +138,9 @@ func (s *JujuConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	ch := testing.Charms.Dir(name)
 	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
 	curl := charm.MustParseURL("local:series/" + ident)
-	bundleURL, err := url.Parse("http://bundles.example.com/" + ident)
+	repo, err := charm.InferRepository(curl, testing.Charms.Path)
 	c.Assert(err, IsNil)
-	sch, err := s.State.AddCharm(ch, curl, bundleURL, ident+"-sha256")
+	sch, err := s.Conn.PutCharm(curl, repo, false)
 	c.Assert(err, IsNil)
 	return sch
 }

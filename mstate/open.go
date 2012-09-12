@@ -1,13 +1,54 @@
 package mstate
 
 import (
+	"errors"
 	"fmt"
+	"strings"
+
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/mstate/presence"
 	"launchpad.net/juju-core/mstate/watcher"
 )
+
+// Info encapsulates information about cluster of
+// servers holding juju state and can be used to make a
+// connection to that cluster.
+type Info struct {
+	// Addrs gives the addresses of the MongoDB servers for the state. 
+	// Each address should be in the form address:port.
+	Addrs []string
+
+	// UseSSH specifies whether MongoDB should be contacted through an 
+	// SSH tunnel.
+	UseSSH bool
+}
+
+// DialInfo connects to the server described by the given
+// info, waits for it to be initialized, and returns a new State
+// representing the environment connected to.
+func DialInfo(info *Info) (*State, error) {
+	log.Printf("mstate: opening state; mongo addresses: %q", info.Addrs)
+	if len(info.Addrs) == 0 {
+		return nil, errors.New("no mongo addresses")
+	}
+	if !info.UseSSH {
+		return Dial(strings.Join(info.Addrs, ","))
+	}
+	if len(info.Addrs) > 1 {
+		return nil, errors.New("ssh connect does not support multiple addresses")
+	}
+	fwd, session, err := sshDial(info.Addrs[0], "")
+	if err != nil {
+		return nil, err
+	}
+	st, err := newState(session, fwd)
+	if err != nil {
+		return nil, err
+	}
+	return st, err
+}
 
 var indexes = []mgo.Index{
 	{Key: []string{"endpoints.relationname"}},
@@ -28,6 +69,10 @@ func Dial(servers string) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
+	return newState(session, nil)
+}
+
+func newState(session *mgo.Session, fwd *sshForwarder) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	st := &State{
@@ -39,6 +84,7 @@ func Dial(servers string) (*State, error) {
 		settings:  db.C("settings"),
 		units:     db.C("units"),
 		presence:  pdb.C("presence"),
+		fwd:       fwd,
 	}
 	log := db.C("txns.log")
 	info := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
@@ -52,8 +98,7 @@ func Dial(servers string) (*State, error) {
 	st.watcher = watcher.New(db.C("txns.log"))
 	st.pwatcher = presence.NewWatcher(pdb.C("presence"))
 	for _, index := range indexes {
-		err = st.relations.EnsureIndex(index)
-		if err != nil {
+		if err := st.relations.EnsureIndex(index); err != nil {
 			return nil, fmt.Errorf("cannot create database index: %v", err)
 		}
 	}
