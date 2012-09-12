@@ -316,6 +316,7 @@ var watchUnitTests = []struct {
 		},
 		unitInfo{
 			publicAddress:      "localhost",
+			tools: &state.Tools{},
 		},
 	},
 	{
@@ -355,8 +356,10 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 			info.tools, err = u.AgentTools()
 			c.Assert(err, IsNil)
 			info.publicAddress, err = u.PublicAddress()
-			c.Assert(err, IsNil)
-			c.Assert(info, DeepEquals, test.want)
+			if _, ok := err.(*state.NotFoundError); !ok {
+				c.Assert(err, IsNil)
+			}
+			c.Assert(info, DeepEquals, test.want, Commentf("%+v", info.tools))
 		case <-time.After(500 * time.Millisecond):
 			c.Fatalf("did not get change: %v", test.want)
 		}
