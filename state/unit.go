@@ -394,6 +394,10 @@ func (u *Unit) WatchResolved() *ResolvedWatcher {
 	return newResolvedWatcher(u.st, u.zkResolvedPath())
 }
 
+func (u *Unit) Watch() *UnitWatcher {
+	return newUnitWatcher(u)
+}
+
 // OpenPort sets the policy of the port with protocol and number to be opened.
 func (u *Unit) OpenPort(protocol string, number int) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot open port %s:%d for unit %q", protocol, number, u)

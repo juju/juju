@@ -292,3 +292,78 @@ func (s *UnitSuite) TestUnitWatchPorts(c *C) {
 	case <-time.After(100 * time.Millisecond):
 	}
 }
+
+type unitInfo struct {
+	publicAddress string
+	tools *state.Tools
+}
+
+var watchUnitTests = []struct {
+	test func(u *state.Unit) error
+	want unitInfo
+}{
+	{
+		func(u *state.Unit) error {
+			return nil
+		},
+		unitInfo{
+			tools: &state.Tools{},
+		},
+	},
+	{
+		func(u *state.Unit) error {
+			return u.SetPublicAddress("localhost")
+		},
+		unitInfo{
+			publicAddress:      "localhost",
+		},
+	},
+	{
+		func(u *state.Unit) error {
+			return u.SetAgentTools(tools(3, "baz"))
+		},
+		unitInfo{
+			publicAddress:      "localhost",
+			tools: tools(3, "baz"),
+		},
+	},
+	{
+		func(u *state.Unit) error {
+			return u.SetAgentTools(tools(4, "khroomph"))
+		},
+		unitInfo{
+			publicAddress:      "localhost",
+			tools: tools(4, "khroomph"),
+		},
+	},
+}
+
+func (s *UnitSuite) TestWatchUnit(c *C) {
+	w := s.unit.Watch()
+	defer func() {
+		c.Assert(w.Stop(), IsNil)
+	}()
+	for i, test := range watchUnitTests {
+		c.Logf("test %d", i)
+		err := test.test(s.unit)
+		c.Assert(err, IsNil)
+		select {
+		case u, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(u.Name(), Equals, s.unit.Name())
+			var info unitInfo
+			info.tools, err = u.AgentTools()
+			c.Assert(err, IsNil)
+			info.publicAddress, err = u.PublicAddress()
+			c.Assert(err, IsNil)
+			c.Assert(info, DeepEquals, test.want)
+		case <-time.After(500 * time.Millisecond):
+			c.Fatalf("did not get change: %v", test.want)
+		}
+	}
+	select {
+	case got := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
