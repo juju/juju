@@ -10,8 +10,10 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
 
@@ -23,14 +25,14 @@ var _ = Suite(&StatusSuite{})
 
 var statusTests = []struct {
 	title   string
-	prepare func(*StatusSuite, *C)
+	prepare func(*state.State, *juju.Conn, *C)
 	output  map[string]interface{}
 }{
 	{
 		// unlikely, as you can't run juju status in real life without 
 		// machine/0 bootstrapped.
 		"empty state",
-		func(s *StatusSuite, c *C) {},
+		func(*state.State, *juju.Conn, *C) {},
 		map[string]interface{}{
 			"machines": make(map[int]interface{}),
 			"services": make(map[string]interface{}),
@@ -38,8 +40,8 @@ var statusTests = []struct {
 	},
 	{
 		"simulate juju bootstrap by adding machine/0 to the state",
-		func(s *StatusSuite, c *C) {
-			m, err := s.State.AddMachine()
+		func(st *state.State, _ *juju.Conn, c *C) {
+			m, err := st.AddMachine()
 			c.Assert(err, IsNil)
 			c.Assert(m.Id(), Equals, 0)
 		},
@@ -54,10 +56,10 @@ var statusTests = []struct {
 	},
 	{
 		"simulate the PA starting an instance in response to the state change",
-		func(s *StatusSuite, c *C) {
-			m, err := s.State.Machine(0)
+		func(st *state.State, conn *juju.Conn, c *C) {
+			m, err := st.Machine(0)
 			c.Assert(err, IsNil)
-			inst, err := s.Conn.Environ.StartInstance(m.Id(), nil, nil)
+			inst, err := conn.Environ.StartInstance(m.Id(), nil, nil)
 			c.Assert(err, IsNil)
 			err = m.SetInstanceId(inst.Id())
 			c.Assert(err, IsNil)
@@ -75,8 +77,8 @@ var statusTests = []struct {
 	},
 	{
 		"simulate the MA setting the version",
-		func(s *StatusSuite, c *C) {
-			m, err := s.State.Machine(0)
+		func(st *state.State, conn *juju.Conn, c *C) {
+			m, err := st.Machine(0)
 			c.Assert(err, IsNil)
 			t := &state.Tools{
 				Binary: version.Binary{
@@ -102,20 +104,20 @@ var statusTests = []struct {
 	},
 	{
 		"add two services and expose one",
-		func(s *StatusSuite, c *C) {
-			ch := s.Repo.Dir("dummy")
+		func(st *state.State, conn *juju.Conn, c *C) {
+			ch := coretesting.Charms.Dir("dummy")
 			curl := charm.MustParseURL(
 				fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
 			)
 			bundleURL, err := url.Parse("http://bundles.example.com/dummy-1")
 			c.Assert(err, IsNil)
-			dummy, err := s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+			dummy, err := st.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
 			c.Assert(err, IsNil)
-			_, err = s.State.AddService("dummy-service", dummy)
+			_, err = st.AddService("dummy-service", dummy)
 			c.Assert(err, IsNil)
-			svc, err := s.State.AddService("exposed-service", dummy)
+			s, err := st.AddService("exposed-service", dummy)
 			c.Assert(err, IsNil)
-			err = svc.SetExposed()
+			err = s.SetExposed()
 			c.Assert(err, IsNil)
 		},
 		map[string]interface{}{
@@ -140,12 +142,12 @@ var statusTests = []struct {
 	},
 	{
 		"add two more machines for units",
-		func(s *StatusSuite, c *C) {
+		func(st *state.State, conn *juju.Conn, c *C) {
 			for i := 1; i < 3; i++ {
-				m, err := s.State.AddMachine()
+				m, err := st.AddMachine()
 				c.Assert(err, IsNil)
 				c.Assert(m.Id(), Equals, i)
-				inst, err := s.Conn.Environ.StartInstance(m.Id(), nil, nil)
+				inst, err := conn.Environ.StartInstance(m.Id(), nil, nil)
 				c.Assert(err, IsNil)
 				err = m.SetInstanceId(inst.Id())
 				c.Assert(err, IsNil)
@@ -183,13 +185,13 @@ var statusTests = []struct {
 	},
 	{
 		"add units for services",
-		func(s *StatusSuite, c *C) {
+		func(st *state.State, conn *juju.Conn, c *C) {
 			for i, n := range []string{"dummy-service", "exposed-service"} {
-				svc, err := s.State.Service(n)
+				s, err := st.Service(n)
 				c.Assert(err, IsNil)
-				u, err := svc.AddUnit()
+				u, err := s.AddUnit()
 				c.Assert(err, IsNil)
-				m, err := s.State.Machine(i + 1)
+				m, err := st.Machine(i + 1)
 				c.Assert(err, IsNil)
 				err = u.AssignToMachine(m)
 				c.Assert(err, IsNil)
@@ -252,7 +254,7 @@ var statusTests = []struct {
 func (s *StatusSuite) testStatus(format string, marshal func(v interface{}) ([]byte, error), unmarshal func(data []byte, v interface{}) error, c *C) {
 	for _, t := range statusTests {
 		c.Logf("testing %s: %s", format, t.title)
-		t.prepare(s, c)
+		t.prepare(s.State, s.Conn, c)
 		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}}
 		code := cmd.Main(&StatusCommand{}, ctx, []string{"--format", format})
 		c.Check(code, Equals, 0)

@@ -269,9 +269,9 @@ func (s *UniterSuite) TestUniter(c *C) {
 		}
 		c.Logf("\ntest %d: %s\n", i, t.summary)
 		ctx := &context{
-			st:     s.State,
 			id:     i,
 			path:   unitDir,
+			st:     s.State,
 			charms: coretesting.ResponseMap{},
 		}
 		for i, s := range t.steps {
@@ -296,8 +296,7 @@ type createCharm struct {
 }
 
 func (s createCharm) step(c *C, ctx *context) {
-	repo := &coretesting.Repo{c.MkDir()}
-	base := repo.Dir("dummy").Path
+	base := coretesting.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	for _, name := range []string{"install", "start", "config-changed", "upgrade-charm"} {
 		path := filepath.Join(base, "hooks", name)
 		good := true

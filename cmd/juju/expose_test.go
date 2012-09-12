@@ -5,6 +5,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/testing"
 )
 
 type ExposeSuite struct {
@@ -28,7 +29,7 @@ func (s *ExposeSuite) assertExposed(c *C, service string) {
 }
 
 func (s *ExposeSuite) TestExpose(c *C) {
-	s.Repo.DirWithSeries("precise", "dummy")
+	testing.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")

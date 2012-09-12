@@ -10,8 +10,10 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	coretesting "launchpad.net/juju-core/testing"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 )
 
@@ -19,17 +21,22 @@ import (
 // $JUJU_REPOSITORY to point to a local charm repository.
 type repoSuite struct {
 	testing.JujuConnSuite
-	oldRepoPath string
+	seriesPath string
+	repoPath   string
 }
 
 func (s *repoSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.oldRepoPath = os.Getenv("JUJU_REPOSITORY")
-	os.Setenv("JUJU_REPOSITORY", s.Repo.Path)
+	s.repoPath = os.Getenv("JUJU_REPOSITORY")
+	repoPath := c.MkDir()
+	os.Setenv("JUJU_REPOSITORY", repoPath)
+	s.seriesPath = filepath.Join(repoPath, "precise")
+	err := os.Mkdir(s.seriesPath, 0777)
+	c.Assert(err, IsNil)
 }
 
 func (s *repoSuite) TearDownTest(c *C) {
-	os.Setenv("JUJU_REPOSITORY", s.oldRepoPath)
+	os.Setenv("JUJU_REPOSITORY", s.repoPath)
 	s.JujuConnSuite.TearDownTest(c)
 }
 
@@ -102,7 +109,7 @@ func runDeploy(c *C, args ...string) error {
 }
 
 func (s *DeploySuite) TestCharmDir(c *C) {
-	s.Repo.DirWithSeries("precise", "dummy")
+	coretesting.Charms.ClonedDirPath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
@@ -110,19 +117,19 @@ func (s *DeploySuite) TestCharmDir(c *C) {
 }
 
 func (s *DeploySuite) TestUpgradeCharmDir(c *C) {
-	dir := s.Repo.DirWithSeries("precise", "dummy")
+	dirPath := coretesting.Charms.ClonedDirPath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-2")
 	s.assertService(c, "dummy", curl, 1, 0)
 	// Check the charm really was upgraded.
-	ch, err := charm.ReadDir(dir.Path)
+	ch, err := charm.ReadDir(dirPath)
 	c.Assert(err, IsNil)
 	c.Assert(ch.Revision(), Equals, 2)
 }
 
 func (s *DeploySuite) TestCharmBundle(c *C) {
-	s.Repo.DirWithSeries("precise", "dummy")
+	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
@@ -130,7 +137,7 @@ func (s *DeploySuite) TestCharmBundle(c *C) {
 }
 
 func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
-	s.Repo.BundleWithSeries("precise", "dummy")
+	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
 	c.Assert(err, ErrorMatches, `cannot increment version of charm "local:precise/dummy-1": not a directory`)
 	// Verify state not touched...
@@ -142,7 +149,7 @@ func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
 }
 
 func (s *DeploySuite) TestAddsPeerRelations(c *C) {
-	s.Repo.DirWithSeries("precise", "riak")
+	coretesting.Charms.BundlePath(s.seriesPath, "riak")
 	err := runDeploy(c, "local:riak")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/riak-7")
@@ -156,7 +163,7 @@ func (s *DeploySuite) TestAddsPeerRelations(c *C) {
 }
 
 func (s *DeploySuite) TestNumUnits(c *C) {
-	s.Repo.DirWithSeries("precise", "dummy")
+	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-n", "13")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
@@ -164,7 +171,7 @@ func (s *DeploySuite) TestNumUnits(c *C) {
 }
 
 func (s *DeploySuite) TestSubordinateCharm(c *C) {
-	s.Repo.DirWithSeries("precise", "logging")
+	coretesting.Charms.BundlePath(s.seriesPath, "logging")
 	err := runDeploy(c, "local:logging")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/logging-1")

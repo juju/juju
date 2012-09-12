@@ -17,7 +17,6 @@ import (
 )
 
 type MockStore struct {
-	repo         testing.Repo
 	mux          *http.ServeMux
 	lis          net.Listener
 	bundleBytes  []byte
@@ -27,8 +26,7 @@ type MockStore struct {
 
 func NewMockStore(c *C) *MockStore {
 	s := &MockStore{}
-	s.repo.Path = c.MkDir()
-	bytes, err := ioutil.ReadFile(s.repo.Bundle("dummy"))
+	bytes, err := ioutil.ReadFile(testing.Charms.BundlePath(c.MkDir(), "dummy"))
 	c.Assert(err, IsNil)
 	s.bundleBytes = bytes
 	h := sha256.New()
@@ -206,27 +204,26 @@ func (s *StoreSuite) TestGetBadCache(c *C) {
 
 type LocalRepoSuite struct {
 	testing.LoggingSuite
-	testingRepo testing.Repo
-	repo        charm.LocalRepository
-	seriesPath  string
+	repo       *charm.LocalRepository
+	seriesPath string
 }
 
 var _ = Suite(&LocalRepoSuite{})
 
 func (s *LocalRepoSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.testingRepo.Path = c.MkDir()
-	s.repo.Path = s.testingRepo.Path
-	s.seriesPath = filepath.Join(s.repo.Path, "series")
+	root := c.MkDir()
+	s.repo = &charm.LocalRepository{root}
+	s.seriesPath = filepath.Join(root, "series")
 	c.Assert(os.Mkdir(s.seriesPath, 0777), IsNil)
 }
 
 func (s *LocalRepoSuite) addBundle(name string) string {
-	return s.testingRepo.Bundle(name)
+	return testing.Charms.BundlePath(s.seriesPath, name)
 }
 
 func (s *LocalRepoSuite) addDir(name string) string {
-	return s.testingRepo.Dir(name).Path
+	return testing.Charms.ClonedDirPath(s.seriesPath, name)
 }
 
 func (s *LocalRepoSuite) TestMissingCharm(c *C) {

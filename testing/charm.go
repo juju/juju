@@ -1,22 +1,18 @@
 package testing
 
 import (
+	"fmt"
 	"go/build"
-	"io/ioutil"
 	"launchpad.net/juju-core/charm"
 	"os"
 	"os/exec"
 	"path/filepath"
 )
 
-// repoPath holds the path to the uncloned testing charms.
-var repoPath string
-
 func init() {
 	p, err := build.Import("launchpad.net/juju-core/testing", "", build.FindOnly)
 	check(err)
-
-	repoPath = filepath.Join(p.Dir, "repo")
+	Charms = &Repo{Path: filepath.Join(p.Dir, "repo")}
 }
 
 func check(err error) {
@@ -25,81 +21,80 @@ func check(err error) {
 	}
 }
 
-// A Repo provides access to a set of testing charms.
-// Charms are cloned before being made available.
-// The series named "series" is always available.
+// Repo represents a charm repository used for testing.
 type Repo struct {
-	// Path holds the path to the charm repository.
 	Path string
 }
 
-// Dir is a convenience method that calls DirWithSeries with
-// the series "series".
-func (s *Repo) Dir(name string) *charm.Dir {
-	return s.DirWithSeries("series", name)
+// Charms represents the specific charm repository stored in this package and
+// used by the Juju unit tests.
+var Charms *Repo
+
+func clone(dst, src string) string {
+	check(exec.Command("cp", "-r", src, dst).Run())
+	return filepath.Join(dst, filepath.Base(src))
 }
 
-// DirWithSeries returns the charm.Dir with the requested testing
-// charm. If the charm directory doesn't yet exist in the
-// temporary repository, it will be copied from the pristine
-// testing repository.
-func (s *Repo) DirWithSeries(series, name string) *charm.Dir {
-	// Read the directory first to give a nice error if the
-	// charm does not exist.
-	unclonedDir, err := charm.ReadDir(filepath.Join(repoPath, series, name))
+// DirPath returns the path to a charm directory named name, with series "series".
+func (r *Repo) DirPath(name string) string {
+	return filepath.Join(r.Path, "series", name)
+}
+
+// Dir returns the actual charm.Dir named name, with series "series".
+func (r *Repo) Dir(name string) *charm.Dir {
+	ch, err := charm.ReadDir(r.DirPath(name))
 	check(err)
-	path := filepath.Join(s.Path, series, name)
-	_, err = os.Stat(path)
-	if os.IsNotExist(err) {
-		s.ensureSeries(series)
-		check(exec.Command("cp", "-r", unclonedDir.Path, path).Run())
-	} else {
-		check(err)
-	}
-	d, err := charm.ReadDir(path)
+	return ch
+}
+
+// ClonedDirPath returns the path to a new copy of the charm directory named name,
+// with series "series", in the directory dst.
+func (r *Repo) ClonedDirPath(dst, name string) string {
+	return clone(dst, r.DirPath(name))
+}
+
+// ClonedDir returns an actual charm.Dir based on a new copy of the charm directory
+// named name, with series "series", in the directory dst.
+func (r *Repo) ClonedDir(dst, name string) *charm.Dir {
+	ch, err := charm.ReadDir(r.ClonedDirPath(dst, name))
 	check(err)
-	if d.Path != path {
-		panic("unexpected charm dir path: " + d.Path)
-	}
-	return d
+	return ch
 }
 
-func (s *Repo) ensureSeries(series string) string {
-	if s.Path == "" {
-		panic("CharmSuite used outside test")
+// ClonedURL makes a copy of the charm directory named name
+// into the destination directory (creating it if necessary),
+// and returns a URL for it.
+func (r *Repo) ClonedURL(dst, name string) *charm.URL {
+	dst = filepath.Join(dst, "series")
+	if err := os.MkdirAll(dst, 0777); err != nil {
+		panic(fmt.Errorf("cannot make destination directory: %v", err))
 	}
-	dir := filepath.Join(s.Path, series)
-	check(os.MkdirAll(dir, 0777))
-	return dir
-}
-
-// URL returns a local URL for a charm with the given series and name.
-func (s *Repo) URL(series, name string) *charm.URL {
+	clone(dst, r.DirPath(name))
 	return &charm.URL{
 		Schema:   "local",
-		Series:   series,
+		Series:   "series",
 		Name:     name,
 		Revision: -1,
 	}
 }
 
-// Bundle is a convenience method that calls BundleWithSeries with
-// the series "series".
-func (s *Repo) Bundle(name string) string {
-	return s.BundleWithSeries("series", name)
+// BundlePath returns the path to a new charm bundle file created from the charm
+// directory named name, with series "series", in the directory dst.
+func (r *Repo) BundlePath(dst, name string) string {
+	dir := r.Dir(name)
+	path := filepath.Join(dst, "bundle.charm")
+	file, err := os.Create(path)
+	check(err)
+	defer file.Close()
+	check(dir.BundleTo(file))
+	return path
 }
 
-// BundleWithSeries creates a bundle in the charm repository holding a copy
-// of the testing charm with the given name and series and returns its
-// path.
-func (s *Repo) BundleWithSeries(series, name string) string {
-	file, err := ioutil.TempFile(s.ensureSeries(series), name)
+// Bundle returns an actual charm.Bundle created from a new charm bundle file
+// created from the charm directory named name, with series "series", in the
+// directory dst.
+func (r *Repo) Bundle(dst, name string) *charm.Bundle {
+	ch, err := charm.ReadBundle(r.BundlePath(dst, name))
 	check(err)
-	dir, err := charm.ReadDir(filepath.Join(repoPath, series, name))
-	check(err)
-	check(dir.BundleTo(file))
-	file.Close()
-	path := file.Name() + ".charm"
-	check(os.Rename(file.Name(), path))
-	return path
+	return ch
 }

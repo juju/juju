@@ -171,7 +171,7 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 
 func (s *StateSuite) TestAddCharm(c *C) {
 	// Check that adding charms from scratch works correctly.
-	ch := s.Repo.Dir("dummy")
+	ch := coretesting.Charms.Dir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
 	)

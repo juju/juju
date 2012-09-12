@@ -21,7 +21,6 @@ func TestPackage(t *stdtesting.T) {
 // test suites (StateSuite, CharmSuite, MachineSuite, etc).
 type ConnSuite struct {
 	testing.MgoSuite
-	repo      testing.Repo
 	charms    *mgo.Collection
 	machines  *mgo.Collection
 	relations *mgo.Collection
@@ -32,7 +31,6 @@ type ConnSuite struct {
 
 func (cs *ConnSuite) SetUpTest(c *C) {
 	cs.MgoSuite.SetUpTest(c)
-	cs.repo.Path = c.MkDir()
 	cs.charms = cs.MgoSuite.Session.DB("juju").C("charms")
 	cs.machines = cs.MgoSuite.Session.DB("juju").C("machines")
 	cs.relations = cs.MgoSuite.Session.DB("juju").C("relations")
@@ -61,7 +59,7 @@ func (s *ConnSuite) AllMachines(c *C) []int {
 }
 
 func (s *ConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
-	ch := s.repo.Dir(name)
+	ch := testing.Charms.Dir(name)
 	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
 	curl := charm.MustParseURL("local:series/" + ident)
 	bundleURL, err := url.Parse("http://bundles.example.com/" + ident)
