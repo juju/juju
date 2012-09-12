@@ -58,7 +58,7 @@ func (s *MainSuite) TestParseErrors(c *C) {
 		"bootstrap-state",
 		"--zookeeper-servers", "zk:2181",
 		"--instance-id", "ii",
-		"--env-config", b64yaml(c, map[string]interface{}{"blah": "blah"}),
+		"--env-config", b64yaml{"blah": "blah"}.encode(),
 		"toastie")
 	checkMessage(c, msga, "unit",
 		"--zookeeper-servers", "localhost:2181,zk:2181",
