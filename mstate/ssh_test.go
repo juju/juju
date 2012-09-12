@@ -1,8 +1,9 @@
-package state
+package mstate
 
 import (
 	"bufio"
 	"fmt"
+	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/testing"
 	"net"
@@ -17,7 +18,7 @@ import (
 )
 
 type sshSuite struct {
-	testing.ZkSuite
+	testing.MgoSuite
 	testing.LoggingSuite
 }
 
@@ -37,21 +38,21 @@ var _ = Suite(&sshSuite{})
 
 func (s *sshSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
-	s.ZkSuite.SetUpSuite(c)
+	s.MgoSuite.SetUpSuite(c)
 }
 
 func (s *sshSuite) TearDownSuite(c *C) {
-	s.ZkSuite.TearDownSuite(c)
+	s.MgoSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 }
 
 func (s *sshSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.ZkSuite.SetUpTest(c)
+	s.MgoSuite.SetUpTest(c)
 }
 
 func (s *sshSuite) TearDownTest(c *C) {
-	s.ZkSuite.TearDownTest(c)
+	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
@@ -276,14 +277,14 @@ func (*sshSuite) TestSSHConnect(c *C) {
 	// attempting to connect again
 }
 
-func testingZkPort() int {
-	_, serverPort, err := net.SplitHostPort(testing.ZkAddr)
+func testingPort() int {
+	_, serverPort, err := net.SplitHostPort(testing.MgoAddr)
 	if err != nil {
-		panic("bad local zk address: " + testing.ZkAddr)
+		panic("bad local mongo address: " + testing.MgoAddr)
 	}
 	port, err := strconv.Atoi(serverPort)
 	if err != nil {
-		panic("bad local zk port: " + testing.ZkAddr)
+		panic("bad local mongo port: " + testing.MgoAddr)
 	}
 	return port
 }
@@ -295,25 +296,40 @@ func (*sshSuite) TestSSHDial(c *C) {
 	t.setSSHParams(sshdPort)
 	defer t.resetSSHParams()
 
-	serverPort := testingZkPort()
+	serverPort := testingPort()
 
 	p := t.sshDaemon(sshdPort, serverPort)
 	defer p.Kill()
 
-	fwd, zk, err := sshDial(testing.ZkAddr, t.file("id_rsa"))
+	fwd, session, err := sshDial(testing.MgoAddr, t.file("id_rsa"))
 	c.Assert(err, IsNil)
 	defer func() {
+		session.Close()
 		err := fwd.stop()
 		c.Assert(err, IsNil)
 	}()
 
-	// Simplest test to make sure the connection is working.
-
-	_, err = zk.Create("/testit", "", 0, zkPermAll)
+	// Exercise mgo to make sure the connection is working
+	// These tests are taken from testing/mgo_test.go
+	menu := session.DB("food").C("menu")
+	err = menu.Insert(
+		bson.D{{"spam", "lots"}},
+		bson.D{{"eggs", "fried"}},
+	)
 	c.Assert(err, IsNil)
-
-	err = zk.Delete("/testit", -1)
+	food := make([]map[string]string, 0)
+	err = menu.Find(nil).All(&food)
 	c.Assert(err, IsNil)
+	c.Assert(food, HasLen, 2)
+	c.Assert(food[0]["spam"], Equals, "lots")
+	c.Assert(food[1]["eggs"], Equals, "fried")
+
+	testing.MgoReset()
+	morefood := make([]map[string]string, 0)
+	err = menu.Find(nil).All(&morefood)
+	c.Assert(err, IsNil)
+	c.Assert(morefood, HasLen, 0)
+
 }
 
 // TestSSHSimpleConnect tests a slightly simpler configuration

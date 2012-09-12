@@ -82,9 +82,11 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
-
-	// TODO get default series from state environ config.
-	curl, err := charm.InferURL(c.CharmName, "precise")
+	conf, err := conn.State.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	curl, err := charm.InferURL(c.CharmName, conf.DefaultSeries())
 	if err != nil {
 		return err
 	}

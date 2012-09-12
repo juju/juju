@@ -97,10 +97,9 @@ func (w *Watcher) Stop() error {
 	return w.tomb.Wait()
 }
 
-// Dying returns a channel that is closed when the watcher is stopping
-// due to an error or because Stop was called explicitly.
-func (w *Watcher) Dying() <-chan struct{} {
-       return w.tomb.Dying()
+// Dead returns a channel that is closed when the watcher has stopped.
+func (w *Watcher) Dead() <-chan struct{} {
+	return w.tomb.Dead()
 }
 
 // Err returns the error with which the watcher stopped.
@@ -108,7 +107,7 @@ func (w *Watcher) Dying() <-chan struct{} {
 // if the watcher is still running properly, or the respective error
 // if the watcher is terminating or has terminated with an error.
 func (w *Watcher) Err() error {
-       return w.tomb.Err()
+	return w.tomb.Err()
 }
 
 type reqWatch struct {
@@ -215,7 +214,7 @@ func (w *Watcher) loop() error {
 // flush sends all pending events to their respective channels.
 func (w *Watcher) flush() {
 	// refreshEvents are stored newest first.
-	for i := len(w.syncEvents)-1; i >= 0; i-- {
+	for i := len(w.syncEvents) - 1; i >= 0; i-- {
 		e := &w.syncEvents[i]
 		for e.ch != nil {
 			select {

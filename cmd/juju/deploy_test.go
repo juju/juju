@@ -27,11 +27,19 @@ type repoSuite struct {
 
 func (s *repoSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
+	// Change the environ's config to ensure we're using the one in state,
+	// not the one in the local environments.yaml
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	cfg, err = cfg.Apply(map[string]interface{}{"default-series": "precise"})
+	c.Assert(err, IsNil)
+	err = s.State.SetEnvironConfig(cfg)
+	c.Assert(err, IsNil)
 	s.repoPath = os.Getenv("JUJU_REPOSITORY")
 	repoPath := c.MkDir()
 	os.Setenv("JUJU_REPOSITORY", repoPath)
 	s.seriesPath = filepath.Join(repoPath, "precise")
-	err := os.Mkdir(s.seriesPath, 0777)
+	err = os.Mkdir(s.seriesPath, 0777)
 	c.Assert(err, IsNil)
 }
 
@@ -105,7 +113,7 @@ func runDeploy(c *C, args ...string) error {
 	com := &DeployCommand{}
 	err := com.Init(newFlagSet(), args)
 	c.Assert(err, IsNil)
-	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}})
+	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}})
 }
 
 func (s *DeploySuite) TestCharmDir(c *C) {

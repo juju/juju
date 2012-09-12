@@ -18,7 +18,7 @@ func runAddUnit(c *C, args ...string) error {
 	com := &AddUnitCommand{}
 	err := com.Init(newFlagSet(), args)
 	c.Assert(err, IsNil)
-	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}})
+	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}})
 }
 
 func (s *AddUnitSuite) TestAddUnit(c *C) {

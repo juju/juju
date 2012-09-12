@@ -36,6 +36,7 @@ type Command interface {
 // output and errors to Stdout and Stderr respectively.
 type Context struct {
 	Dir    string
+	Stdin  io.Reader
 	Stdout io.Writer
 	Stderr io.Writer
 }
@@ -127,7 +128,7 @@ func DefaultContext() *Context {
 	if err != nil {
 		panic(err)
 	}
-	return &Context{abs, os.Stdout, os.Stderr}
+	return &Context{abs, os.Stdin, os.Stdout, os.Stderr}
 }
 
 // CheckEmpty is a utility function that returns an error if args is not empty.
