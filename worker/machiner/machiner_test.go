@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/machiner"
 	stdtesting "testing"
 	"time"
@@ -25,7 +26,7 @@ func (s *MachinerSuite) TestMachinerStartStop(c *C) {
 	m, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 
-	p := machiner.NewMachiner(m, c.MkDir())
+	p := machiner.NewMachiner(m, &state.Info{}, c.MkDir())
 	c.Assert(p.Stop(), IsNil)
 }
 
@@ -58,8 +59,15 @@ func (s *MachinerSuite) TestMachinerDeployDestroy(c *C) {
 	err = ud0.AssignToMachine(m0)
 	c.Assert(err, IsNil)
 
-	dcontainer := newDummyContainer()
-	machiner := machiner.NewMachinerWithContainer(m0, dcontainer)
+	stateInfo := &state.Info{}
+
+	dcontainer := &dummyContainer{
+		c:             c,
+		expectedTools: &state.Tools{Binary: version.Current},
+		expectedInfo:  stateInfo,
+		action:        make(chan string, 5),
+	}
+	machiner := machiner.NewMachinerWithContainer(m0, stateInfo, s.DataDir(), dcontainer)
 
 	tests := []struct {
 		change  func()
@@ -108,18 +116,18 @@ func (s *MachinerSuite) TestMachinerDeployDestroy(c *C) {
 }
 
 type dummyContainer struct {
-	action chan string
+	c             *C
+	expectedTools *state.Tools
+	expectedInfo  *state.Info
+	action        chan string
 }
 
 var _ container.Container = (*dummyContainer)(nil)
 
-func newDummyContainer() *dummyContainer {
-	return &dummyContainer{
-		make(chan string, 5),
-	}
-}
+func (d *dummyContainer) Deploy(u *state.Unit, info *state.Info, tools *state.Tools) error {
+	d.c.Check(info, Equals, d.expectedInfo)
+	d.c.Check(tools, DeepEquals, d.expectedTools)
 
-func (d *dummyContainer) Deploy(u *state.Unit) error {
 	d.action <- "+" + u.Name()
 	return nil
 }
@@ -127,10 +135,6 @@ func (d *dummyContainer) Deploy(u *state.Unit) error {
 func (d *dummyContainer) Destroy(u *state.Unit) error {
 	d.action <- "-" + u.Name()
 	return nil
-}
-
-func (d *dummyContainer) ToolsDir(u *state.Unit) string {
-	return "/dummy/tools"
 }
 
 func (d *dummyContainer) checkAction(c *C, action string) {

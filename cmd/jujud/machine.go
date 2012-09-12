@@ -79,7 +79,7 @@ func (a *MachineAgent) runOnce() error {
 		return err
 	}
 	return runTasks(a.tomb.Dying(),
-		machiner.NewMachiner(m, a.Conf.DataDir),
+		machiner.NewMachiner(m, &a.Conf.StateInfo, a.Conf.DataDir),
 		NewUpgrader(st, m, a.Conf.DataDir),
 	)
 }

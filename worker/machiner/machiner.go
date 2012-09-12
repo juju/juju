@@ -2,35 +2,49 @@ package machiner
 
 import (
 	"launchpad.net/juju-core/container"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/tomb"
 )
-
-// NewMachiner starts a machine agent running that
-// deploys agents in the given directory.
-// The Machiner dies when it encounters an error.
-func NewMachiner(machine *state.Machine, dataDir string) *Machiner {
-	cont := &container.Simple{DataDir: dataDir}
-	return newMachiner(machine, cont)
-}
-
-func newMachiner(machine *state.Machine, cont container.Container) *Machiner {
-	m := &Machiner{localContainer: cont}
-	go m.loop(machine)
-	return m
-}
 
 // Machiner represents a running machine agent.
 type Machiner struct {
 	tomb           tomb.Tomb
+	machine        *state.Machine
 	localContainer container.Container
+	stateInfo      *state.Info
+	tools          *state.Tools
 }
 
-func (m *Machiner) loop(machine *state.Machine) {
+// NewMachiner starts a machine agent running that
+// deploys agents in the given directory.
+// The Machiner dies when it encounters an error.
+func NewMachiner(machine *state.Machine, info *state.Info, dataDir string) *Machiner {
+	cont := &container.Simple{DataDir: dataDir}
+	return newMachiner(machine, info, dataDir, cont)
+}
+
+func newMachiner(machine *state.Machine, info *state.Info, dataDir string, cont container.Container) *Machiner {
+	tools, err := environs.ReadTools(dataDir, version.Current)
+	if err != nil {
+		tools = &state.Tools{Binary: version.Current}
+	}
+	m := &Machiner{
+		machine:        machine,
+		stateInfo:      info,
+		tools:          tools,
+		localContainer: cont,
+	}
+	go m.loop()
+	return m
+}
+
+func (m *Machiner) loop() {
 	defer m.tomb.Done()
-	w := machine.WatchUnits()
+	w := m.machine.WatchUnits()
 	defer watcher.Stop(w, &m.tomb)
 
 	// TODO read initial units, check if they're running
@@ -54,7 +68,7 @@ func (m *Machiner) loop(machine *state.Machine) {
 			}
 			for _, u := range change.Added {
 				if u.IsPrincipal() {
-					if err := m.localContainer.Deploy(u); err != nil {
+					if err := m.localContainer.Deploy(u, m.stateInfo, m.tools); err != nil {
 						// TODO put unit into a queue to retry the deploy.
 						log.Printf("cannot deploy unit %s: %v", u.Name(), err)
 					}

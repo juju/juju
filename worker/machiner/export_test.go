@@ -5,6 +5,6 @@ import (
 	"launchpad.net/juju-core/state"
 )
 
-func NewMachinerWithContainer(m *state.Machine, cont container.Container) *Machiner {
-	return newMachiner(m, cont)
+func NewMachinerWithContainer(m *state.Machine, info *state.Info, dataDir string, cont container.Container) *Machiner {
+	return newMachiner(m, info, dataDir, cont)
 }
