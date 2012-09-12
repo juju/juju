@@ -56,8 +56,8 @@ func (j *Jujuc) Main(req Request, resp *Response) error {
 	if err != nil {
 		return badReqErr("%s", err)
 	}
-	var stdout, stderr bytes.Buffer
-	ctx := &cmd.Context{req.Dir, &stdout, &stderr}
+	var stdin, stdout, stderr bytes.Buffer
+	ctx := &cmd.Context{req.Dir, &stdin, &stdout, &stderr}
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	resp.Code = cmd.Main(c, ctx, req.Args)

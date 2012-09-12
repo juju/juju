@@ -30,10 +30,10 @@ func (s *StoreSuite) TestServerCharmInfo(c *C) {
 	req, err := http.NewRequest("GET", "/charm-info", nil)
 	c.Assert(err, IsNil)
 
-	var tests = []struct{ url, sha, err string }{
-		{curl.String(), fakeRevZeroSha, ""},
-		{"cs:oneiric/non-existent", "", "entry not found"},
-		{"cs:bad", "", `charm URL without series: "cs:bad"`},
+	var tests = []struct{ url, sha, digest, err string }{
+		{curl.String(), fakeRevZeroSha, "some-digest", ""},
+		{"cs:oneiric/non-existent", "", "", "entry not found"},
+		{"cs:bad", "", "", `charm URL without series: "cs:bad"`},
 	}
 
 	for _, t := range tests {
@@ -46,6 +46,7 @@ func (s *StoreSuite) TestServerCharmInfo(c *C) {
 			expected[t.url] = map[string]interface{}{
 				"revision": float64(0),
 				"sha256":   t.sha,
+				"digest":   t.digest,
 			}
 		} else {
 			expected[t.url] = map[string]interface{}{
