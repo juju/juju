@@ -62,10 +62,10 @@ func (s *MachinerSuite) TestMachinerDeployDestroy(c *C) {
 	stateInfo := &state.Info{}
 
 	dcontainer := &dummyContainer{
-		c: c,
+		c:             c,
 		expectedTools: &state.Tools{Binary: version.Current},
-		expectedInfo: stateInfo,
-		action: make(chan string, 5),
+		expectedInfo:  stateInfo,
+		action:        make(chan string, 5),
 	}
 	machiner := machiner.NewMachinerWithContainer(m0, stateInfo, s.DataDir(), dcontainer)
 
@@ -116,10 +116,10 @@ func (s *MachinerSuite) TestMachinerDeployDestroy(c *C) {
 }
 
 type dummyContainer struct {
-	c *C
+	c             *C
 	expectedTools *state.Tools
-	expectedInfo *state.Info
-	action chan string
+	expectedInfo  *state.Info
+	action        chan string
 }
 
 var _ container.Container = (*dummyContainer)(nil)

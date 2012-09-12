@@ -10,14 +10,13 @@ import (
 	"launchpad.net/tomb"
 )
 
-
 // Machiner represents a running machine agent.
 type Machiner struct {
-	tomb      tomb.Tomb
-	machine   *state.Machine
+	tomb           tomb.Tomb
+	machine        *state.Machine
 	localContainer container.Container
-	stateInfo *state.Info
-	tools     *state.Tools
+	stateInfo      *state.Info
+	tools          *state.Tools
 }
 
 // NewMachiner starts a machine agent running that
@@ -34,9 +33,9 @@ func newMachiner(machine *state.Machine, info *state.Info, dataDir string, cont 
 		tools = &state.Tools{Binary: version.Current}
 	}
 	m := &Machiner{
-		machine:   machine,
-		stateInfo: info,
-		tools:     tools,
+		machine:        machine,
+		stateInfo:      info,
+		tools:          tools,
 		localContainer: cont,
 	}
 	go m.loop()
