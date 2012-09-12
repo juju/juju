@@ -83,12 +83,12 @@ func (s *UnitSuite) TestRunStop(c *C) {
 		done <- a.Run(nil)
 	}()
 	defer a.Stop()
-	timeout := time.After(2000 * time.Millisecond)
+	timeout := time.After(3 * time.Second)
 	for {
 		select {
 		case <-timeout:
 			c.Fatalf("no activity detected")
-		case <-time.After(200 * time.Millisecond):
+		case <-time.After(50 * time.Millisecond):
 			st, info, err := unit.Status()
 			c.Assert(err, IsNil)
 			switch st {
