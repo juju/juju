@@ -10,6 +10,22 @@ import (
 	"strings"
 )
 
+// Container contains running juju service units.
+type Container interface {
+	// Deploy deploys the unit into a new container.
+	Deploy(unit *state.Unit) error
+
+	// Destroy destroys the unit's container.
+	Destroy(unit *state.Unit) error
+}
+
+// Simple is a Container that knows how deploy units within	
+// the current machine.
+type Simple struct {
+	DataDir string
+	InitDir string
+}
+
 // Config holds information about where containers should
 // be started.
 type Config struct {
@@ -26,37 +42,19 @@ func deslash(s string) string {
 	return strings.Replace(s, "/", "-", -1)
 }
 
-func (c *simple) dirName(unit *state.Unit) string {
-	return filepath.Join(c.cfg.DataDir, "units", deslash(unit.Name()))
+func (c *Simple) dirName(unit *state.Unit) string {
+	return filepath.Join(c.DataDir, "units", deslash(unit.Name()))
 }
 
-func (c *simple) service(unit *state.Unit) *upstart.Service {
+func (c *Simple) service(unit *state.Unit) *upstart.Service {
 	svc := upstart.NewService("juju-agent-" + deslash(unit.Name()))
-	if c.cfg.InitDir != "" {
-		svc.InitDir = c.cfg.InitDir
+	if c.InitDir != "" {
+		svc.InitDir = c.InitDir
 	}
 	return svc
 }
 
-// Deploy deploys the unit into a new container.
-func Deploy(cfg Config, unit *state.Unit) (err error) {
-	// TODO choose an LXC container when the unit requires isolation.
-	cont := &simple{cfg}
-	return cont.deploy(unit)
-}
-
-// Destroy destroys the unit's container.
-func Destroy(cfg Config, unit *state.Unit) error {
-	cont := &simple{cfg}
-	return cont.destroy(unit)
-}
-
-// simple knows how deploy units within the current machine.
-type simple struct {
-	cfg Config
-}
-
-func (c *simple) deploy(unit *state.Unit) (err error) {
+func (c *Simple) Deploy(unit *state.Unit) (err error) {
 	exe, err := exec.LookPath("jujud")
 	if err != nil {
 		return fmt.Errorf("cannot find executable: %v", err)
@@ -79,7 +77,7 @@ func (c *simple) deploy(unit *state.Unit) (err error) {
 	return nil
 }
 
-func (c *simple) destroy(unit *state.Unit) error {
+func (c *Simple) Destroy(unit *state.Unit) error {
 	if err := c.service(unit).Remove(); err != nil {
 		return err
 	}
