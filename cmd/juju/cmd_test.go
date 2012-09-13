@@ -295,6 +295,19 @@ func initGetCommand(args ...string) (*GetCommand, error) {
 
 func (*CmdSuite) TestGetCommandInit(c *C) {
 	// missing args
+	_, err := initCommand()
+	c.Assert(err, ErrorMatches, "no service name specified")
+}
+
+func initSetCommand(args ...string) (*SetCommand, error) {
+	com := &SetCommand{}
+	return com, com.Init(newFlagSet(), args)
+}
+
+func (*CmdSuite) TestSetCommandInit(c *C) {
+	// missing args
 	_, err := initUnexposeCommand()
 	c.Assert(err, ErrorMatches, "no service name specified")
+
+	_, err := initU
 }
