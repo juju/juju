@@ -1,6 +1,7 @@
 package charm
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,6 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 )
+
+var ErrConflict = errors.New("charm upgrade has conflicts")
 
 // GitDir exposes a specialized subset of git operations on a directory.
 type GitDir struct {

@@ -23,14 +23,17 @@ import (
 // uniter to react appropriately to changes in the system.
 type Uniter struct {
 	tomb    tomb.Tomb
-	path    string
 	st      *state.State
 	unit    *state.Unit
 	service *state.Service
-	hook    *hook.StateFile
-	charm   *charm.Manager
-	rand    *rand.Rand
 	pinger  *presence.Pinger
+
+	baseDir  string
+	charm    *charm.GitDir
+	bundles  *charm.BundlesDir
+	deployer *charm.Deployer
+	sf       *StateFile
+	rand     *rand.Rand
 }
 
 // NewUniter creates a new Uniter which will install, run, and upgrade a
@@ -42,7 +45,7 @@ func NewUniter(st *state.State, name string, dataDir string) (u *Uniter, err err
 	if err != nil {
 		return nil, err
 	}
-	path, err := ensureFs(dataDir, unit)
+	baseDir, err := ensureFs(dataDir, unit)
 	if err != nil {
 		return nil, err
 	}
@@ -54,18 +57,17 @@ func NewUniter(st *state.State, name string, dataDir string) (u *Uniter, err err
 	if err != nil {
 		return nil, err
 	}
-	charmDir := filepath.Join(path, "charm")
-	stateDir := filepath.Join(path, "state")
-	hookPath := filepath.Join(stateDir, "hook")
 	u = &Uniter{
-		path:    path,
-		st:      st,
-		unit:    unit,
-		service: service,
-		hook:    hook.NewStateFile(hookPath),
-		charm:   charm.NewManager(charmDir, stateDir),
-		rand:    rand.New(rand.NewSource(time.Now().Unix())),
-		pinger:  pinger,
+		st:       st,
+		unit:     unit,
+		service:  service,
+		pinger:   pinger,
+		baseDir:  baseDir,
+		charm:    charm.NewGitDir(filepath.Join(baseDir, "charm")),
+		bundles:  charm.NewBundlesDir(filepath.Join(baseDir, "state", "bundles")),
+		deployer: charm.NewDeployer(filepath.Join(baseDir, "state", "deployer")),
+		sf:       NewStateFile(filepath.Join(baseDir, "state", "uniter")),
+		rand:     rand.New(rand.NewSource(time.Now().Unix())),
 	}
 	go u.loop()
 	return u, nil
@@ -77,6 +79,7 @@ func (u *Uniter) loop() {
 	for mode != nil {
 		mode, err = mode(u)
 	}
+	log.Printf("uniter shutting down: %s", err)
 	u.tomb.Kill(err)
 	u.tomb.Kill(u.pinger.Stop())
 	u.tomb.Done()
@@ -95,38 +98,42 @@ func (u *Uniter) Wait() error {
 	return u.tomb.Wait()
 }
 
-// changeCharm writes the supplied charm to the state directory. Before writing,
-// it records the supplied charm and reason; when writing is complete, it sets
-// the unit's charm in state. It does *not* clear the supplied charm and reason;
-// to avoid sequence breaking, the change must only be marked complete once the
-// associated hook has been marked as started.
-func (u *Uniter) changeCharm(sch *state.Charm, st charm.Status) error {
-	log.Printf("changing charm (%s)", st)
-	if st != charm.Installing && st != charm.Upgrading {
-		panic(fmt.Errorf("charm status %q does not represent a change", st))
+// deploy deploys the supplied charm, and sets follow-up hook operation state
+// as indicated by reason.
+func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
+	if reason != Install {
+		panic(fmt.Errorf("unknown deploy operation %q", reason))
 	}
-	if err := u.charm.WriteState(st, sch.URL()); err != nil {
+	s, err := u.sf.Read()
+	if err != nil && err != ErrNoStateFile {
 		return err
 	}
-	if err := u.charm.Update(sch, u.tomb.Dying()); err != nil {
-		return err
+	url := sch.URL()
+	if s == nil || s.OpStep != Done {
+		log.Printf("fetching charm %q", url)
+		bun, err := u.bundles.Read(sch, u.tomb.Dying())
+		if err != nil {
+			return err
+		}
+		if err = u.deployer.Stage(bun, url); err != nil {
+			return err
+		}
+		log.Printf("deploying charm %q", url)
+		if err = u.sf.Write(reason, Pending, nil, url); err != nil {
+			return err
+		}
+		if err = u.deployer.Deploy(u.charm); err != nil {
+			return err
+		}
+		if err = u.sf.Write(reason, Done, nil, url); err != nil {
+			return err
+		}
 	}
+	log.Printf("charm %q is deployed", url)
 	if err := u.unit.SetCharm(sch); err != nil {
 		return err
 	}
-	if st == charm.Installing {
-		hi := hook.Info{Kind: hook.Install}
-		if err := u.hook.Write(hi, hook.Queued); err != nil {
-			return err
-		}
-	} else {
-		panic("not implemented")
-	}
-	if err := u.charm.WriteState(charm.Deployed, sch.URL()); err != nil {
-		return err
-	}
-	log.Printf("charm changed successfully")
-	return nil
+	return u.sf.Write(RunHook, Queued, &hook.Info{Kind: hook.Install}, nil)
 }
 
 // errHookFailed indicates that a hook failed to execute, but that the Uniter's
@@ -159,7 +166,7 @@ func (u *Uniter) runHook(hi hook.Info) error {
 		}
 		return hctx.NewCommand(cmdName)
 	}
-	socketPath := filepath.Join(u.path, "agent.socket")
+	socketPath := filepath.Join(u.baseDir, "agent.socket")
 	srv, err := server.NewServer(getCmd, socketPath)
 	if err != nil {
 		return err
@@ -168,11 +175,11 @@ func (u *Uniter) runHook(hi hook.Info) error {
 	defer srv.Close()
 
 	// Run the hook.
-	if err := u.hook.Write(hi, hook.Pending); err != nil {
+	if err := u.sf.Write(RunHook, Pending, &hi, nil); err != nil {
 		return err
 	}
 	log.Printf("running hook %q", hookName)
-	if err := hctx.RunHook(hookName, u.charm.CharmDir(), socketPath); err != nil {
+	if err := hctx.RunHook(hookName, u.charm.Path(), socketPath); err != nil {
 		log.Printf("hook failed: %s", err)
 		return errHookFailed
 	}
@@ -183,14 +190,17 @@ func (u *Uniter) runHook(hi hook.Info) error {
 // commitHook ensures that state is consistent with the supplied hook, and
 // that the fact of the hook's completion is persisted.
 func (u *Uniter) commitHook(hi hook.Info) error {
-	if err := u.hook.Write(hi, hook.Committing); err != nil {
+	if err := u.sf.Write(RunHook, Done, &hi, nil); err != nil {
 		return err
 	}
 	if hi.Kind.IsRelation() {
 		panic("relation hooks are not yet supported")
 		// TODO: commit relation state changes.
 	}
-	if err := u.hook.Write(hi, hook.Complete); err != nil {
+	if err := u.charm.Snapshotf("completed %q hook", hi.Kind); err != nil {
+		return err
+	}
+	if err := u.sf.Write(Abide, Pending, &hi, nil); err != nil {
 		return err
 	}
 	log.Printf("hook complete")
