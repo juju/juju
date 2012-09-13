@@ -295,6 +295,6 @@ func initGetCommand(args ...string) (*GetCommand, error) {
 
 func (*CmdSuite) TestGetCommandInit(c *C) {
 	// missing args
-	_, err := initUnexposeCommand()
+	_, err := initGetCommand()
 	c.Assert(err, ErrorMatches, "no service name specified")
 }
