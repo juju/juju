@@ -82,7 +82,7 @@ func (s *UnitSuite) TestRunStop(c *C) {
 		done <- a.Run(nil)
 	}()
 	defer a.Stop()
-	timeout := time.After(4 * time.Second)
+	timeout := time.After(5 * time.Second)
 	for {
 		select {
 		case <-timeout:

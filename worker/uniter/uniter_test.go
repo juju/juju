@@ -806,7 +806,7 @@ type waitUnit struct {
 }
 
 func (s waitUnit) step(c *C, ctx *context) {
-	timeout := time.After(4 * time.Second)
+	timeout := time.After(5 * time.Second)
 	// Resolved check is easy...
 	resolved := ctx.unit.WatchResolved()
 	defer stop(c, resolved)
@@ -826,7 +826,7 @@ func (s waitUnit) step(c *C, ctx *context) {
 	// ...but we have no status/charm watchers, so just poll.
 	for {
 		select {
-		case <-time.After(200 * time.Millisecond):
+		case <-time.After(50 * time.Millisecond):
 			status, info, err := ctx.unit.Status()
 			c.Assert(err, IsNil)
 			if status != s.status {
@@ -869,10 +869,10 @@ func (s waitHooks) step(c *C, ctx *context) {
 	if match {
 		return
 	}
-	timeout := time.After(3 * time.Second)
+	timeout := time.After(5 * time.Second)
 	for {
 		select {
-		case <-time.After(200 * time.Millisecond):
+		case <-time.After(50 * time.Millisecond):
 			if match, _ = ctx.matchLogHooks(c); match {
 				return
 			}
