@@ -5,8 +5,8 @@ import (
 	"reflect"
 
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 )
 
@@ -14,7 +14,7 @@ import (
 type GetCommand struct {
 	EnvName     string
 	ServiceName string
-	out	cmd.Output
+	out         cmd.Output
 }
 
 func (c *GetCommand) Info() *cmd.Info {
@@ -24,9 +24,9 @@ func (c *GetCommand) Info() *cmd.Info {
 func (c *GetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	addEnvironFlags(&c.EnvName, f)
 	// TODO(dfc) add cmd.NewFormatter to avoid this
-        c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-                "yaml": cmd.FormatYaml,
-        })
+	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
+		"yaml": cmd.FormatYaml,
+	})
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
@@ -47,18 +47,24 @@ func (c *GetCommand) Run(ctx *cmd.Context) error {
 	}
 	defer conn.Close()
 	svc, err := conn.State.Service(c.ServiceName)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	svcfg, err := svc.Config()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	charm, _, err := svc.Charm()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	chcfg := charm.Config().Options
-	
-	config := merge(svcfg.Map(), chcfg)	
-	
-	result := map[string]interface{} {
-		"service": svc.Name(),
-		"charm": charm.Meta().Name,
+
+	config := merge(svcfg.Map(), chcfg)
+
+	result := map[string]interface{}{
+		"service":  svc.Name(),
+		"charm":    charm.Meta().Name,
 		"settings": config,
 	}
 	return c.out.Write(ctx, result)
@@ -68,9 +74,9 @@ func (c *GetCommand) Run(ctx *cmd.Context) error {
 func merge(svcfg map[string]interface{}, chcfg map[string]charm.Option) map[string]interface{} {
 	r := make(map[string]interface{})
 	for k, v := range chcfg {
-		m := map[string]interface{} {
+		m := map[string]interface{}{
 			"description": v.Description,
-			"type": v.Type,
+			"type":        v.Type,
 		}
 		if s, ok := svcfg[k]; ok {
 			m["value"] = s
@@ -81,7 +87,7 @@ func merge(svcfg map[string]interface{}, chcfg map[string]charm.Option) map[stri
 			if reflect.DeepEqual(v.Default, svcfg[k]) {
 				m["default"] = true
 			}
-		}		
+		}
 		r[k] = m
 	}
 	return r
