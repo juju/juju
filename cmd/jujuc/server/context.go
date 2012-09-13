@@ -4,7 +4,9 @@
 package server
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -14,6 +16,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
 // HookContext is responsible for the state against which a jujuc-forwarded
@@ -104,12 +108,35 @@ func (ctx *HookContext) RunHook(hookName, charmDir, socketPath string) error {
 	ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
 	ps.Env = ctx.hookVars(charmDir, socketPath)
 	ps.Dir = charmDir
-	err := ps.Run()
+	outReader, err := ps.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	ps.Stderr = ps.Stdout
+	logger := &hookLogger{
+		r:    outReader,
+		done: make(chan struct{}),
+	}
+	go logger.run()
+	err = ps.Run()
+	// We can see the process exit before the logger has processed
+	// all its output, so allow a moment for the data buffered
+	// in the pipe to be processed. We don't wait indefinitely though,
+	// because the hook may have started a background process
+	// that keeps the pipe open.
+	select {
+	case <-logger.done:
+	case <-time.After(50 * time.Millisecond):
+	}
+	logger.stop()
 	if ee, ok := err.(*exec.Error); ok && err != nil {
 		if os.IsNotExist(ee.Err) {
 			// Missing hook is perfectly valid.
 			return nil
 		}
+	}
+	if err != nil {
+		log.Printf("hook exec failed: %v", err)
 	}
 	write := err == nil
 	for id, rctx := range ctx.Relations {
@@ -128,6 +155,44 @@ func (ctx *HookContext) RunHook(hookName, charmDir, socketPath string) error {
 		rctx.ClearCache()
 	}
 	return err
+}
+
+type hookLogger struct {
+	r       io.ReadCloser
+	done    chan struct{}
+	mu      sync.Mutex
+	stopped bool
+}
+
+func (l *hookLogger) run() {
+	defer close(l.done)
+	defer l.r.Close()
+	br := bufio.NewReader(l.r)
+
+	for {
+		line, err := br.ReadBytes('\n')
+		if err != nil {
+			break
+		}
+		if line[len(line)-1] == '\n' {
+			line = line[:len(line)-1]
+		}
+		l.mu.Lock()
+		if l.stopped {
+			l.mu.Unlock()
+			return
+		}
+		log.Printf("HOOK %s", line)
+		l.mu.Unlock()
+	}
+}
+
+func (l *hookLogger) stop() {
+	// We can't close the pipe asynchronously, so just
+	// stifle output instead.
+	l.mu.Lock()
+	l.stopped = true
+	l.mu.Unlock()
 }
 
 // envRelation returns the relation name exposed to hooks as JUJU_RELATION.
