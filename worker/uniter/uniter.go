@@ -29,6 +29,7 @@ type Uniter struct {
 	pinger  *presence.Pinger
 
 	baseDir  string
+	toolsDir string
 	charm    *charm.GitDir
 	bundles  *charm.BundlesDir
 	deployer *charm.Deployer
@@ -45,7 +46,7 @@ func NewUniter(st *state.State, name string, dataDir string) (u *Uniter, err err
 	if err != nil {
 		return nil, err
 	}
-	baseDir, err := ensureFs(dataDir, unit)
+	baseDir, toolsDir, err := ensureFs(dataDir, unit)
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +64,7 @@ func NewUniter(st *state.State, name string, dataDir string) (u *Uniter, err err
 		service:  service,
 		pinger:   pinger,
 		baseDir:  baseDir,
+		toolsDir: toolsDir,
 		charm:    charm.NewGitDir(filepath.Join(baseDir, "charm")),
 		bundles:  charm.NewBundlesDir(filepath.Join(baseDir, "state", "bundles")),
 		deployer: charm.NewDeployer(filepath.Join(baseDir, "state", "deployer")),
@@ -202,7 +204,7 @@ func (u *Uniter) runHook(hi hook.Info) error {
 		return err
 	}
 	log.Printf("running hook %q", hookName)
-	if err := hctx.RunHook(hookName, u.charm.Path(), socketPath); err != nil {
+	if err := hctx.RunHook(hookName, u.charm.Path(), u.toolsDir, socketPath); err != nil {
 		log.Printf("hook failed: %s", err)
 		return errHookFailed
 	}
@@ -232,15 +234,17 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 
 // ensureFs ensures that files and directories required by the named uniter
 // exist inside dataDir. It returns the path to the directory within which
-// the uniter must store its data.
-func ensureFs(dataDir string, unit *state.Unit) (string, error) {
+// the uniter must store its data, and the path to the directory containing
+// the tools needed to run hooks.
+func ensureFs(dataDir string, unit *state.Unit) (string, string, error) {
 	// TODO: do this OAOO at packaging time?
-	if err := EnsureJujucSymlinks(dataDir, unit.PathKey()); err != nil {
-		return "", err
+	toolsDir, err := EnsureJujucSymlinks(dataDir, unit.PathKey())
+	if err != nil {
+		return "", "", err
 	}
-	path := filepath.Join(dataDir, "agents", unit.PathKey())
-	if err := trivial.EnsureDir(filepath.Join(path, "state")); err != nil {
-		return "", err
+	unitDir := filepath.Join(dataDir, "agents", unit.PathKey())
+	if err := trivial.EnsureDir(filepath.Join(unitDir, "state")); err != nil {
+		return "", "", err
 	}
-	return path, nil
+	return unitDir, toolsDir, nil
 }

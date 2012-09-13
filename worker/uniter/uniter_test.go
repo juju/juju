@@ -34,7 +34,6 @@ type UniterSuite struct {
 	testing.JujuConnSuite
 	coretesting.HTTPSuite
 	dataDir  string
-	oldPath  string
 	oldLcAll string
 }
 
@@ -52,14 +51,11 @@ func (s *UniterSuite) SetUpSuite(c *C) {
 	out, err := cmd.CombinedOutput()
 	c.Logf(string(out))
 	c.Assert(err, IsNil)
-	s.oldPath = os.Getenv("PATH")
-	os.Setenv("PATH", toolsDir+":"+s.oldPath)
 	s.oldLcAll = os.Getenv("LC_ALL")
 	os.Setenv("LC_ALL", "en_US")
 }
 
 func (s *UniterSuite) TearDownSuite(c *C) {
-	os.Setenv("PATH", s.oldPath)
 	os.Setenv("LC_ALL", s.oldLcAll)
 }
 

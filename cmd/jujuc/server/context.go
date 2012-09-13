@@ -78,11 +78,11 @@ func (ctx *HookContext) NewCommand(name string) (cmd.Command, error) {
 // hookVars returns an os.Environ-style list of strings necessary to run a hook
 // such that it can know what environment it's operating in, and can call back
 // into ctx.
-func (ctx *HookContext) hookVars(charmDir, socketPath string) []string {
+func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string {
 	vars := []string{
 		"APT_LISTCHANGES_FRONTEND=none",
 		"DEBIAN_FRONTEND=noninteractive",
-		"PATH=" + os.Getenv("PATH"),
+		"PATH=" + toolsDir + ":" + os.Getenv("PATH"),
 		"CHARM_DIR=" + charmDir,
 		"JUJU_CONTEXT_ID=" + ctx.Id,
 		"JUJU_AGENT_SOCKET=" + socketPath,
@@ -100,9 +100,9 @@ func (ctx *HookContext) hookVars(charmDir, socketPath string) []string {
 
 // RunHook executes a hook in an environment which allows it to to call back
 // into ctx to execute jujuc tools.
-func (ctx *HookContext) RunHook(hookName, charmDir, socketPath string) error {
+func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
 	ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
-	ps.Env = ctx.hookVars(charmDir, socketPath)
+	ps.Env = ctx.hookVars(charmDir, toolsDir, socketPath)
 	ps.Dir = charmDir
 	err := ps.Run()
 	if ee, ok := err.(*exec.Error); ok && err != nil {

@@ -93,7 +93,6 @@ func AssertEnv(c *C, outPath string, charmDir string, env map[string]string) {
 	lines := strings.Split(string(out), "\n")
 	AssertEnvContains(c, lines, env)
 	AssertEnvContains(c, lines, map[string]string{
-		"PATH":                     os.Getenv("PATH"),
 		"DEBIAN_FRONTEND":          "noninteractive",
 		"APT_LISTCHANGES_FRONTEND": "none",
 		"CHARM_DIR":                charmDir,
@@ -164,14 +163,19 @@ func (s *RunHookSuite) TestRunHook(c *C) {
 		} else {
 			charmDir, outPath = makeCharm(c, "something-happened", t.perms, t.code)
 		}
-		err := ctx.RunHook("something-happened", charmDir, "/path/to/socket")
+		toolsDir := c.MkDir()
+		err := ctx.RunHook("something-happened", charmDir, toolsDir, "/path/to/socket")
 		if t.err == "" {
 			c.Assert(err, IsNil)
 		} else {
 			c.Assert(err, ErrorMatches, t.err)
 		}
 		if t.env != nil {
-			AssertEnv(c, outPath, charmDir, t.env)
+			env := map[string]string{"PATH": toolsDir + ":" + os.Getenv("PATH")}
+			for k, v := range t.env {
+				env[k] = v
+			}
+			AssertEnv(c, outPath, charmDir, env)
 		}
 	}
 }
@@ -188,7 +192,7 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *C) {
 	node1.Set("bar", 2)
 
 	// Run the failing hook.
-	err = ctx.RunHook("something-happened", charmDir, "/path/to/socket")
+	err = ctx.RunHook("something-happened", charmDir, c.MkDir(), "/path/to/socket")
 	c.Assert(err, ErrorMatches, "exit status 123")
 
 	// Check that the changes to the local settings nodes have been discarded.
@@ -217,7 +221,7 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *C) {
 	node1.Set("qux", 4)
 
 	// Run the hook.
-	err = ctx.RunHook("something-happened", charmDir, "/path/to/socket")
+	err = ctx.RunHook("something-happened", charmDir, c.MkDir(), "/path/to/socket")
 	c.Assert(err, IsNil)
 
 	// Check that the changes to the local settings nodes are still there.
