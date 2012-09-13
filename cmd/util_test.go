@@ -15,7 +15,7 @@ func dummyFlagSet() *gnuflag.FlagSet {
 }
 
 func dummyContext(c *C) *cmd.Context {
-	return &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}}
+	return &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
 }
 
 func bufferString(stream io.Writer) string {
@@ -47,13 +47,17 @@ func (c *TestCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *TestCommand) Run(ctx *cmd.Context) error {
-	if c.Option == "error" {
+	switch c.Option {
+	case "error":
 		return errors.New("BAM!")
-	}
-	if c.Option == "silent-error" {
+	case "silent-error":
 		return cmd.ErrSilent
+	case "echo":
+		_, err := io.Copy(ctx.Stdout, ctx.Stdin)
+		return err
+	default:
+		fmt.Fprintln(ctx.Stdout, c.Option)
 	}
-	fmt.Fprintln(ctx.Stdout, c.Option)
 	return nil
 }
 

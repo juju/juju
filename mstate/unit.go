@@ -7,6 +7,7 @@ import (
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/mstate/presence"
 	"launchpad.net/juju-core/trivial"
+	"strings"
 	"time"
 )
 
@@ -227,6 +228,13 @@ func (u *Unit) SetStatus(status UnitStatus, info string) error {
 // AgentAlive returns whether the respective remote agent is alive.
 func (u *Unit) AgentAlive() (bool, error) {
 	return u.st.pwatcher.Alive(u.globalKey())
+}
+
+// PathKey returns a name identifying the unit that can be used as a
+// file name.  The returned key will be different from other
+// PathKeys returned by any other entities from the same state.
+func (u *Unit) PathKey() string {
+	return "unit-" + strings.Replace(u.Name(), "/", "-", -1)
 }
 
 // WaitAgentAlive blocks until the respective agent is alive.

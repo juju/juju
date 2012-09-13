@@ -38,4 +38,3 @@ func (s *WatcherSuite) TestMustErr(c *C) {
 	noErr := func() { watcher.MustErr(&dummyWatcher{nil}) }
 	c.Assert(noErr, PanicMatches, "watcher was stopped cleanly")
 }
-

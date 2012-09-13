@@ -237,8 +237,6 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	CheckScripts(c, x, "jujud bootstrap-state", true)
 	// TODO check for provisioning agent
 	// TODO check for machine agent
-	CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='localhost%s'", ec2.ZkPortSuffix), true)
-	CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID=0"), true)
 
 	// check that a new instance will be started without
 	// zookeeper, with a machine agent, and without a
@@ -254,8 +252,6 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	CheckPackage(c, x, "zookeeperd", false)
 	// TODO check for provisioning agent
 	// TODO check for machine agent
-	CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='%s%s'", bootstrapDNS, ec2.ZkPortSuffix), true)
-	CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID=1"), true)
 
 	p := t.env.Provider()
 	addr, err := p.PublicAddress()

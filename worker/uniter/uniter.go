@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/jujuc/server"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/presence"
@@ -15,7 +14,6 @@ import (
 	"launchpad.net/tomb"
 	"math/rand"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -34,20 +32,20 @@ type Uniter struct {
 	charm    *charm.GitDir
 	bundles  *charm.BundlesDir
 	deployer *charm.Deployer
-	op       *StateFile
+	sf       *StateFile
 	rand     *rand.Rand
 }
 
 // NewUniter creates a new Uniter which will install, run, and upgrade a
 // charm on behalf of the named unit, by executing hooks and operations
 // provoked by changes in st.
-func NewUniter(st *state.State, name string) (u *Uniter, err error) {
+func NewUniter(st *state.State, name string, dataDir string) (u *Uniter, err error) {
 	defer trivial.ErrorContextf(&err, "failed to create uniter for unit %q", name)
-	baseDir, err := ensureFs(name)
+	unit, err := st.Unit(name)
 	if err != nil {
 		return nil, err
 	}
-	unit, err := st.Unit(name)
+	baseDir, err := ensureFs(dataDir, unit)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +66,7 @@ func NewUniter(st *state.State, name string) (u *Uniter, err error) {
 		charm:    charm.NewGitDir(filepath.Join(baseDir, "charm")),
 		bundles:  charm.NewBundlesDir(filepath.Join(baseDir, "state", "bundles")),
 		deployer: charm.NewDeployer(filepath.Join(baseDir, "state", "deployer")),
-		op:       NewStateFile(filepath.Join(baseDir, "state", "uniter")),
+		sf:       NewStateFile(filepath.Join(baseDir, "state", "uniter")),
 		rand:     rand.New(rand.NewSource(time.Now().Unix())),
 	}
 	go u.loop()
@@ -106,37 +104,37 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 	if reason != Install && reason != Upgrade {
 		panic(fmt.Errorf("%q is not a deploy operation", reason))
 	}
-	op, err := u.op.Read()
+	s, err := u.sf.Read()
 	if err != nil && err != ErrNoStateFile {
 		return err
 	}
 	var hi *hook.Info
-	if op.Op == RunHook || op.Op == Upgrade {
+	if s != nil && (s.Op == RunHook || s.Op == Upgrade) {
 		// If this upgrade interrupts a RunHook, we need to preserve the hook
 		// info so that we can return to the appropriate error state. However,
 		// if we're resuming (or have force-interrupted) an Upgrade, we also
 		// need to preserve whatever hook info was preserved when we initially
 		// started upgrading, to ensure we still return to the correct state.
-		hi = op.Hook
+		hi = s.Hook
 	}
 	url := sch.URL()
-	if op.Status != Committing {
+	if s == nil || s.OpStep != Done {
 		log.Printf("fetching charm %q", url)
 		bun, err := u.bundles.Read(sch, u.tomb.Dying())
 		if err != nil {
 			return err
 		}
-		if err = u.deployer.SetCharm(bun, url); err != nil {
+		if err = u.deployer.Stage(bun, url); err != nil {
 			return err
 		}
 		log.Printf("deploying charm %q", url)
-		if err = u.op.Write(reason, Pending, hi, url); err != nil {
+		if err = u.sf.Write(reason, Pending, hi, url); err != nil {
 			return err
 		}
 		if err = u.deployer.Deploy(u.charm); err != nil {
 			return err
 		}
-		if err = u.op.Write(reason, Committing, hi, url); err != nil {
+		if err = u.sf.Write(reason, Done, hi, url); err != nil {
 			return err
 		}
 	}
@@ -158,7 +156,7 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 			hi.Kind = hook.UpgradeCharm
 		}
 	}
-	return u.op.Write(RunHook, status, hi, nil)
+	return u.sf.Write(RunHook, status, hi, nil)
 }
 
 // errHookFailed indicates that a hook failed to execute, but that the Uniter's
@@ -200,7 +198,7 @@ func (u *Uniter) runHook(hi hook.Info) error {
 	defer srv.Close()
 
 	// Run the hook.
-	if err := u.op.Write(RunHook, Pending, &hi, nil); err != nil {
+	if err := u.sf.Write(RunHook, Pending, &hi, nil); err != nil {
 		return err
 	}
 	log.Printf("running hook %q", hookName)
@@ -215,7 +213,7 @@ func (u *Uniter) runHook(hi hook.Info) error {
 // commitHook ensures that state is consistent with the supplied hook, and
 // that the fact of the hook's completion is persisted.
 func (u *Uniter) commitHook(hi hook.Info) error {
-	if err := u.op.Write(RunHook, Committing, &hi, nil); err != nil {
+	if err := u.sf.Write(RunHook, Done, &hi, nil); err != nil {
 		return err
 	}
 	if hi.Kind.IsRelation() {
@@ -225,7 +223,7 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 	if err := u.charm.Snapshotf("Completed %q hook.", hi.Kind); err != nil {
 		return err
 	}
-	if err := u.op.Write(Abide, Pending, &hi, nil); err != nil {
+	if err := u.sf.Write(Abide, Pending, &hi, nil); err != nil {
 		return err
 	}
 	log.Printf("hook complete")
@@ -233,14 +231,14 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 }
 
 // ensureFs ensures that files and directories required by the named uniter
-// exist. It returns the path to the directory within which the uniter must
-// store its data.
-func ensureFs(name string) (string, error) {
+// exist inside dataDir. It returns the path to the directory within which
+// the uniter must store its data.
+func ensureFs(dataDir string, unit *state.Unit) (string, error) {
 	// TODO: do this OAOO at packaging time?
-	if err := EnsureJujucSymlinks(name); err != nil {
+	if err := EnsureJujucSymlinks(dataDir, unit.PathKey()); err != nil {
 		return "", err
 	}
-	path := filepath.Join(environs.VarDir, "units", strings.Replace(name, "/", "-", 1))
+	path := filepath.Join(dataDir, "agents", unit.PathKey())
 	if err := trivial.EnsureDir(filepath.Join(path, "state")); err != nil {
 		return "", err
 	}

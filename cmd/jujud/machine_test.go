@@ -3,7 +3,6 @@ package main
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju/testing"
 )
 
@@ -42,7 +41,7 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *C) {
 	c.Skip("agents don't yet distinguish between temporary and permanent errors")
 	a := &MachineAgent{
 		Conf: AgentConf{
-			JujuDir:   environs.VarDir,
+			DataDir:   c.MkDir(),
 			StateInfo: *s.StateInfo(c),
 		},
 		MachineId: 2,
@@ -56,7 +55,7 @@ func (s *MachineSuite) TestRunStop(c *C) {
 	c.Assert(err, IsNil)
 	a := &MachineAgent{
 		Conf: AgentConf{
-			JujuDir:   environs.VarDir,
+			DataDir:   c.MkDir(),
 			StateInfo: *s.StateInfo(c),
 		},
 		MachineId: m.Id(),

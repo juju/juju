@@ -27,21 +27,21 @@ const (
 	Abide Op = "abide"
 )
 
-// Status enumerates the possible operation statuses.
-type Status string
+// OpStep describes the recorded progression of an operation.
+type OpStep string
 
 const (
 	// Queued indicates that the uniter should undertake the operation
 	// as soon as possible.
-	Queued Status = "queued"
+	Queued OpStep = "queued"
 
 	// Pending indicates that the uniter has started, but not completed,
 	// the operation.
-	Pending Status = "pending"
+	Pending OpStep = "pending"
 
-	// Committing indicates that the uniter has completed the operation,
-	// but has yet to synchronize all necessary state.
-	Committing Status = "committing"
+	// Done indicates that the uniter has completed the operation,
+	// but may not yet have synchronized all necessary secondary state.
+	Done OpStep = "done"
 )
 
 // State defines the local persistent state of the uniter, excluding relation
@@ -50,8 +50,8 @@ type State struct {
 	// Op indicates the current operation.
 	Op Op
 
-	// Status indicates the current operation's status.
-	Status Status
+	// OpStep indicates the current operation's progression.
+	OpStep OpStep
 
 	// Hook holds hook information relevant to the current operation. If Op
 	// is Abide, it holds the last hook that was executed; if Op is RunHook,
@@ -88,10 +88,10 @@ func (st State) validate() error {
 	default:
 		return fmt.Errorf("unknown operation %q", st.Op)
 	}
-	switch st.Status {
-	case Queued, Pending, Committing:
+	switch st.OpStep {
+	case Queued, Pending, Done:
 	default:
-		return fmt.Errorf("unknown operation status %q", st.Status)
+		return fmt.Errorf("unknown operation step %q", st.OpStep)
 	}
 	if hasHook {
 		return st.Hook.Validate()
@@ -99,7 +99,7 @@ func (st State) validate() error {
 	return nil
 }
 
-// StateFile reads and writes uniter operation state.
+// StateFile holds the disk state for a uniter.
 type StateFile struct {
 	path string
 }
@@ -113,34 +113,31 @@ var ErrNoStateFile = errors.New("uniter state file does not exist")
 
 // Read reads a State from the file. If the file does not exist it returns
 // ErrNoStateFile.
-func (f *StateFile) Read() (State, error) {
+func (f *StateFile) Read() (*State, error) {
 	var st State
 	if err := trivial.ReadYaml(f.path, &st); err != nil {
 		if os.IsNotExist(err) {
-			return State{}, ErrNoStateFile
+			return nil, ErrNoStateFile
 		}
 	}
 	if err := st.validate(); err != nil {
-		return State{}, fmt.Errorf("invalid uniter state at %s: %s", f.path, err)
+		return nil, fmt.Errorf("invalid uniter state at %q: %v", f.path, err)
 	}
-	return st, nil
+	return &st, nil
 }
 
 // Write stores the supplied state to the file.
-func (f *StateFile) Write(op Op, status Status, hi *hook.Info, url *charm.URL) error {
+func (f *StateFile) Write(op Op, step OpStep, hi *hook.Info, url *charm.URL) error {
 	if hi != nil {
 		// Strip membership info: it's potentially large, and can
 		// be reconstructed from relation state when required.
-		hi = &hook.Info{
-			Kind:          hi.Kind,
-			RelationId:    hi.RelationId,
-			RemoteUnit:    hi.RemoteUnit,
-			ChangeVersion: hi.ChangeVersion,
-		}
+		hiCopy := *hi
+		hiCopy.Members = nil
+		hi = &hiCopy
 	}
 	st := &State{
 		Op:       op,
-		Status:   status,
+		OpStep:   step,
 		Hook:     hi,
 		CharmURL: url,
 	}

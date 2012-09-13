@@ -5,6 +5,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd/jujuc/server"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/uniter"
 	"os"
 	"path/filepath"
@@ -12,25 +13,18 @@ import (
 )
 
 type ToolsSuite struct {
-	varDir, oldVarDir, toolsDir string
+	dataDir, toolsDir string
 }
 
 var _ = Suite(&ToolsSuite{})
 
 func (s *ToolsSuite) SetUpTest(c *C) {
-	s.oldVarDir = environs.VarDir
-	s.varDir = c.MkDir()
-	environs.VarDir = s.varDir
-	s.toolsDir = c.MkDir()
-	toolsDir := filepath.Join(s.varDir, "tools")
-	err := os.Mkdir(toolsDir, 0755)
+	s.dataDir = c.MkDir()
+	s.toolsDir = environs.ToolsDir(s.dataDir, version.Current)
+	err := os.MkdirAll(s.toolsDir, 0755)
 	c.Assert(err, IsNil)
-	err = os.Symlink(s.toolsDir, filepath.Join(toolsDir, "unit-u-123"))
+	err = os.Symlink(s.toolsDir, environs.AgentToolsDir(s.dataDir, "unit-u-123"))
 	c.Assert(err, IsNil)
-}
-
-func (s *ToolsSuite) TearDownTest(c *C) {
-	environs.VarDir = s.oldVarDir
 }
 
 func (s *ToolsSuite) TestEnsureJujucSymlinks(c *C) {
@@ -48,7 +42,7 @@ func (s *ToolsSuite) TestEnsureJujucSymlinks(c *C) {
 	}
 
 	// Check that EnsureJujucSymlinks writes appropriate symlinks.
-	err = uniter.EnsureJujucSymlinks("u/123")
+	err = uniter.EnsureJujucSymlinks(s.dataDir, "unit-u-123")
 	c.Assert(err, IsNil)
 	mtimes := map[string]time.Time{}
 	for _, name := range server.CommandNames() {
@@ -57,7 +51,7 @@ func (s *ToolsSuite) TestEnsureJujucSymlinks(c *C) {
 	}
 
 	// Check that EnsureJujucSymlinks doesn't overwrite things that don't need to be.
-	err = uniter.EnsureJujucSymlinks("u/123")
+	err = uniter.EnsureJujucSymlinks(s.dataDir, "unit-u-123")
 	c.Assert(err, IsNil)
 	for tool, mtime := range mtimes {
 		c.Assert(assertLink(tool), Equals, mtime)
@@ -65,6 +59,6 @@ func (s *ToolsSuite) TestEnsureJujucSymlinks(c *C) {
 }
 
 func (s *ToolsSuite) TestEnsureJujucSymlinksBadDir(c *C) {
-	err := uniter.EnsureJujucSymlinks("u/999")
+	err := uniter.EnsureJujucSymlinks(s.dataDir, "unit-u-999")
 	c.Assert(err, ErrorMatches, "cannot initialize hook commands.*: no such file or directory")
 }

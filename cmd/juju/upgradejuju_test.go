@@ -24,12 +24,12 @@ var upgradeJujuTests = []struct {
 	currentVersion string
 	agentVersion   string
 
-	args             []string
-	expectInitErr    string
-	expectErr        string
-	expectVersion    string
+	args              []string
+	expectInitErr     string
+	expectErr         string
+	expectVersion     string
 	expectDevelopment bool
-	expectUploaded   string
+	expectUploaded    string
 }{{
 	about:          "unwanted extra argument",
 	currentVersion: "1.0.0-foo-bar",
@@ -57,13 +57,13 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.0.1",
 	expectVersion:  "2.0.3",
 }, {
-	about:            "dev version flag, from private storage",
-	private:          []string{"2.0.0-foo-bar", "2.0.2-foo-bar", "2.0.3-foo-bar"},
-	public:           []string{"2.0.0-foo-bar", "2.0.4-foo-bar", "2.0.5-foo-bar"},
-	currentVersion:   "2.0.0-foo-bar",
-	args:             []string{"--dev"},
-	agentVersion:     "2.0.0",
-	expectVersion:    "2.0.3",
+	about:             "dev version flag, from private storage",
+	private:           []string{"2.0.0-foo-bar", "2.0.2-foo-bar", "2.0.3-foo-bar"},
+	public:            []string{"2.0.0-foo-bar", "2.0.4-foo-bar", "2.0.5-foo-bar"},
+	currentVersion:    "2.0.0-foo-bar",
+	args:              []string{"--dev"},
+	agentVersion:      "2.0.0",
+	expectVersion:     "2.0.3",
 	expectDevelopment: true,
 }, {
 	about:          "from public storage",
@@ -78,12 +78,12 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.0.1",
 	expectVersion:  "2.0.3",
 }, {
-	about:            "dev version flag, from public storage",
-	public:           []string{"2.0.0-foo-bar", "2.0.2-arble-bletch", "2.0.3-foo-bar"},
-	currentVersion:   "2.0.0-foo-bar",
-	args:             []string{"--dev"},
-	agentVersion:     "2.0.0",
-	expectVersion:    "2.0.3",
+	about:             "dev version flag, from public storage",
+	public:            []string{"2.0.0-foo-bar", "2.0.2-arble-bletch", "2.0.3-foo-bar"},
+	currentVersion:    "2.0.0-foo-bar",
+	args:              []string{"--dev"},
+	agentVersion:      "2.0.0",
+	expectVersion:     "2.0.3",
 	expectDevelopment: true,
 }, {
 	about:          "specified version",
@@ -169,7 +169,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 			c.Check(err, ErrorMatches, test.expectInitErr)
 			continue
 		}
-		err = com.Run(&cmd.Context{c.MkDir(), ioutil.Discard, ioutil.Discard})
+		err = com.Run(&cmd.Context{c.MkDir(), nil, ioutil.Discard, ioutil.Discard})
 		if test.expectErr != "" {
 			c.Check(err, ErrorMatches, test.expectErr)
 			continue
@@ -214,7 +214,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealPutTools(c *C) {
 	com := &UpgradeJujuCommand{}
 	err := com.Init(newFlagSet(), []string{"--upload-tools", "--dev"})
 	c.Assert(err, IsNil)
-	err = com.Run(&cmd.Context{c.MkDir(), ioutil.Discard, ioutil.Discard})
+	err = com.Run(&cmd.Context{c.MkDir(), nil, ioutil.Discard, ioutil.Discard})
 	c.Assert(err, IsNil)
 	p := environs.ToolsStoragePath(version.Current)
 	r, err := s.Conn.Environ.Storage().Get(p)
