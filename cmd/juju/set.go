@@ -13,8 +13,8 @@ import (
 type SetCommand struct {
 	EnvName     string
 	ServiceName string
-	Options		[]Option
-	ConfPath	string
+	Options     []Option
+	ConfPath    string
 }
 
 type Option struct {
@@ -32,7 +32,7 @@ func (c *SetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 		return err
 	}
 	args = f.Args()
-	if len(args) == 0 || len(strings.Split(args[1], "=")) > 1 {
+	if len(args) == 0 || len(strings.Split(args[0], "=")) > 1 {
 		return errors.New("no service name specified")
 	}
 	c.ServiceName = args[0]
@@ -44,9 +44,18 @@ func (c *SetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 func parseOptions(opts []string) ([]Option, error) {
 	var o []Option
 	for _, opt := range opts {
-		v := strings.SplitN(opt, "=", 2)
-		if len(v) != 2 { return nil, errors.New("invalid option") }
-		o = append(o, Option{v[0], v[1]})
+		s := strings.SplitN(opt, "=", 2)
+		if len(s) != 2 {
+			return nil, errors.New("invalid option")
+		}
+		k, v := strings.TrimSpace(s[0]), strings.TrimSpace(s[1])
+		if len(k) == 0 {
+			return nil, errors.New("missing option key")
+		}
+		if len(v) == 0 {
+			return nil, errors.New("missing option value")
+		}
+		o = append(o, Option{k, v})
 	}
 	return o, nil
 }
