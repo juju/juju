@@ -4,8 +4,8 @@
 package server
 
 import (
-	"fmt"
 	"bufio"
+	"fmt"
 	"io"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
@@ -16,8 +16,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 	"sync"
+	"time"
 )
 
 // HookContext is responsible for the state against which a jujuc-forwarded
@@ -114,7 +114,7 @@ func (ctx *HookContext) RunHook(hookName, charmDir, socketPath string) error {
 	}
 	ps.Stderr = ps.Stdout
 	logger := &hookLogger{
-		r: outReader,
+		r:    outReader,
 		done: make(chan struct{}),
 	}
 	go logger.run()
@@ -155,9 +155,9 @@ func (ctx *HookContext) RunHook(hookName, charmDir, socketPath string) error {
 }
 
 type hookLogger struct {
-	r io.ReadCloser
-	done chan struct{}
-	mu sync.Mutex
+	r       io.ReadCloser
+	done    chan struct{}
+	mu      sync.Mutex
 	stopped bool
 }
 
@@ -165,7 +165,7 @@ func (l *hookLogger) run() {
 	defer close(l.done)
 	defer l.r.Close()
 	br := bufio.NewReader(l.r)
-	
+
 	for {
 		line, err := br.ReadBytes('\n')
 		if err != nil {
@@ -190,7 +190,7 @@ func (l *hookLogger) stop() {
 	l.mu.Lock()
 	l.stopped = true
 	l.mu.Unlock()
-}	
+}
 
 // envRelation returns the relation name exposed to hooks as JUJU_RELATION.
 // If the context does not have a relation, it will return an empty string.
