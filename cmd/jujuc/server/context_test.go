@@ -141,6 +141,10 @@ func AssertEnv(c *C, outPath string, charmDir string, env map[string]string) {
 	})
 }
 
+// LineBufferSize matches the constant used when creating
+// the bufio line reader.
+const lineBufferSize = 4096
+
 var runHookTests = []struct {
 	summary string
 	relid   int
@@ -186,7 +190,7 @@ var runHookTests = []struct {
 		relid:   -1,
 		spec: hookSpec{
 			perm:   0700,
-			stdout: strings.Repeat("a", server.LineBufferSize+10),
+			stdout: strings.Repeat("a", lineBufferSize+10),
 		},
 	}, {
 		summary: "check shell environment for non-relation hook context",
@@ -279,9 +283,9 @@ func (s *RunHookSuite) TestRunHook(c *C) {
 // split the line into buffer-sized lengths.
 func splitLine(s string) []string {
 	var ss []string
-	for len(s) > server.LineBufferSize {
-		ss = append(ss, s[0:server.LineBufferSize])
-		s = s[server.LineBufferSize:]
+	for len(s) > lineBufferSize {
+		ss = append(ss, s[0:lineBufferSize])
+		s = s[lineBufferSize:]
 	}
 	if len(s) > 0 {
 		ss = append(ss, s)

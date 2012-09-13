@@ -152,15 +152,10 @@ type hookLogger struct {
 	stopped bool
 }
 
-// LineBufferSize holds the maximum length of a line read
-// from a hook. Lines longer than this will overflow into
-// subsequent log messages.
-var LineBufferSize = 4096
-
 func (l *hookLogger) run() {
 	defer close(l.done)
 	defer l.r.Close()
-	br := bufio.NewReaderSize(l.r, LineBufferSize)
+	br := bufio.NewReaderSize(l.r, 4096)
 	for {
 		line, _, err := br.ReadLine()
 		if err != nil {
