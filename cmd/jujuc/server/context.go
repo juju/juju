@@ -119,15 +119,6 @@ func (ctx *HookContext) RunHook(hookName, charmDir, socketPath string) error {
 	}
 	go logger.run()
 	err = ps.Run()
-	// We can see the process exit before the logger has processed
-	// all its output, so allow a moment for the data buffered
-	// in the pipe to be processed. We don't wait indefinitely though,
-	// because the hook may have started a background process
-	// that keeps the pipe open.
-	select {
-	case <-logger.done:
-	case <-time.After(50 * time.Millisecond):
-	}
 	logger.stop()
 	if ee, ok := err.(*exec.Error); ok && err != nil {
 		if os.IsNotExist(ee.Err) {
@@ -161,18 +152,22 @@ type hookLogger struct {
 	stopped bool
 }
 
+// LineBufferSize holds the maximum length of a line read
+// from a hook. Lines longer than this will overflow into
+// subsequent log messages.
+var LineBufferSize = 4096
+
 func (l *hookLogger) run() {
 	defer close(l.done)
 	defer l.r.Close()
-	br := bufio.NewReader(l.r)
-
+	br := bufio.NewReaderSize(l.r, LineBufferSize)
 	for {
-		line, err := br.ReadBytes('\n')
+		line, _, err := br.ReadLine()
 		if err != nil {
+			if err != io.EOF {
+				log.Printf("cannot read hook output: %v", err)
+			}
 			break
-		}
-		if line[len(line)-1] == '\n' {
-			line = line[:len(line)-1]
 		}
 		l.mu.Lock()
 		if l.stopped {
@@ -185,6 +180,15 @@ func (l *hookLogger) run() {
 }
 
 func (l *hookLogger) stop() {
+	// We can see the process exit before the logger has processed
+	// all its output, so allow a moment for the data buffered
+	// in the pipe to be processed. We don't wait indefinitely though,
+	// because the hook may have started a background process
+	// that keeps the pipe open.
+	select {
+	case <-l.done:
+	case <-time.After(100 * time.Millisecond):
+	}
 	// We can't close the pipe asynchronously, so just
 	// stifle output instead.
 	l.mu.Lock()

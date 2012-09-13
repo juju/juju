@@ -68,7 +68,7 @@ type hookSpec struct {
 	stdout string
 	// stderr holds a string to print to stderr
 	stderr string
-	// background holds a string to print in the background after 0.1s.
+	// background holds a string to print in the background after 0.2s.
 	background string
 }
 
@@ -106,7 +106,7 @@ func makeCharm(c *C, spec hookSpec) (charmDir, outPath string) {
 		// blocking because of the background process,
 		// the hook execution will take much longer than
 		// expected.
-		printf("(sleep 0.1; echo %s; sleep 10) &", spec.background)
+		printf("(sleep 0.2; echo %s; sleep 10) &", spec.background)
 	}
 	printf("exit %d", spec.code)
 	return charmDir, outPath
@@ -167,7 +167,7 @@ var runHookTests = []struct {
 		err: "exit status 99",
 	}, {
 		summary: "output logging",
-		relid:   1,
+		relid:   -1,
 		spec: hookSpec{
 			perm:   0700,
 			stdout: "stdout",
@@ -175,11 +175,18 @@ var runHookTests = []struct {
 		},
 	}, {
 		summary: "output logging with background process",
-		relid:   1,
+		relid:   -1,
 		spec: hookSpec{
 			perm:       0700,
 			stdout:     "stdout",
 			background: "not printed",
+		},
+	}, {
+		summary: "long line split",
+		relid: -1,
+		spec: hookSpec{
+			perm: 0700,
+			stdout: strings.Repeat("a", server.LineBufferSize + 10),
 		},
 	}, {
 		summary: "check shell environment for non-relation hook context",
@@ -257,16 +264,29 @@ func (s *RunHookSuite) TestRunHook(c *C) {
 		}
 		var expectLog []string
 		if t.spec.stdout != "" {
-			expectLog = append(expectLog, t.spec.stdout)
+			expectLog = append(expectLog, splitLine(t.spec.stdout)...)
 		}
 		if t.spec.stderr != "" {
-			expectLog = append(expectLog, t.spec.stderr)
+			expectLog = append(expectLog, splitLine(t.spec.stderr)...)
 		}
 		if t.spec.background != "" && time.Now().Sub(t0) > 5*time.Second {
 			c.Errorf("background process holding up hook execution")
 		}
 		c.Assert(logger.lines, DeepEquals, expectLog)
 	}
+}
+
+// split the line into buffer-sized lengths.
+func splitLine(s string) []string {
+	var ss []string
+	for len(s) > server.LineBufferSize {
+		ss = append(ss, s[0:server.LineBufferSize])
+		s = s[server.LineBufferSize:]
+	}
+	if len(s) > 0 {
+		ss = append(ss, s)
+	}
+	return ss
 }
 
 func (s *RunHookSuite) TestRunHookRelationFlushing(c *C) {
