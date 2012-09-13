@@ -183,10 +183,10 @@ var runHookTests = []struct {
 		},
 	}, {
 		summary: "long line split",
-		relid: -1,
+		relid:   -1,
 		spec: hookSpec{
-			perm: 0700,
-			stdout: strings.Repeat("a", server.LineBufferSize + 10),
+			perm:   0700,
+			stdout: strings.Repeat("a", server.LineBufferSize+10),
 		},
 	}, {
 		summary: "check shell environment for non-relation hook context",
