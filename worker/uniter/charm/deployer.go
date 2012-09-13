@@ -71,7 +71,7 @@ func (d *Deployer) Stage(bun *charm.Bundle, url *charm.URL) error {
 	if err = WriteCharmURL(repo, url); err != nil {
 		return err
 	}
-	if err = repo.Snapshotf("imported charm %s from %s", url, bun.Path); err != nil {
+	if err = repo.Snapshotf("Imported charm %q from %q.", url, bun.Path); err != nil {
 		return err
 	}
 
@@ -128,7 +128,7 @@ func (d *Deployer) install(target *GitDir) error {
 	if err = repo.Pull(d.current); err != nil {
 		return err
 	}
-	if err = repo.Snapshotf("deployed charm %s", url); err != nil {
+	if err = repo.Snapshotf("Deployed charm %q.", url); err != nil {
 		return err
 	}
 	log.Printf("deploying charm")
@@ -153,7 +153,7 @@ func (d *Deployer) upgrade(target *GitDir) error {
 			return err
 		} else if !conflicted {
 			log.Printf("snapshotting dirty charm before upgrade")
-			if err = target.Snapshotf("pre-upgrade snapshot"); err != nil {
+			if err = target.Snapshotf("Pre-upgrade snapshot."); err != nil {
 				return err
 			}
 		}
@@ -162,7 +162,7 @@ func (d *Deployer) upgrade(target *GitDir) error {
 	if err := target.Pull(d.current); err != nil {
 		return err
 	}
-	return target.Snapshotf("upgraded charm to %s", url)
+	return target.Snapshotf("Upgraded charm to %q.", url)
 }
 
 // collectOrphans deletes all repos in path except the one pointed to by current.

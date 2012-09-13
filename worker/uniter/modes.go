@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/tomb"
 )
@@ -95,12 +96,14 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	if s.Op == Install {
 		log.Printf("resuming charm install")
 		return ModeInstalling(sch), nil
+	} else if s.Op == Upgrade {
+		log.Printf("resuming charm upgrade")
+		return ModeUpgrading(sch), nil
 	}
-	panic(fmt.Errorf("unhandled operation %q", s.Op))
+	panic(fmt.Errorf("unhandled uniter operation %q", s.Op))
 }
 
-// ModeInstalling is responsible for creating the charm directory and running
-// the "install" hook.
+// ModeInstalling is responsible for the initial charm deployment.
 func ModeInstalling(sch *state.Charm) Mode {
 	return func(u *Uniter) (next Mode, err error) {
 		defer errorContextf(&err, "ModeInstalling")
@@ -141,8 +144,15 @@ func ModeStarted(u *Uniter) (next Mode, err error) {
 	if err = u.unit.SetStatus(state.UnitStarted, ""); err != nil {
 		return nil, err
 	}
+
+	// To begin with, only watch for config changes, and exploit the
+	// guaranteed initial send to ensure we run a config-changed hook
+	// before starting any other watches.
+	starting := true
 	configw := u.service.WatchConfig()
 	defer stop(configw, &next, &err)
+	var charmw *state.ServiceCharmWatcher
+	var charms <-chan state.ServiceCharmChange
 	for {
 		select {
 		case <-u.tomb.Dying():
@@ -158,9 +168,26 @@ func ModeStarted(u *Uniter) (next Mode, err error) {
 				}
 				return nil, err
 			}
-			// TODO once we've run the initial config-changed, start other watches.
+			if starting {
+				// If we haven't already set up additional watches, do so now.
+				starting = false
+				charmw = u.service.WatchCharm()
+				defer stop(charmw, &next, &err)
+				charms = charmw.Changes()
+			}
+		case ch, ok := <-charms:
+			if !ok {
+				return nil, watcher.MustErr(charmw)
+			}
+			url, err := charm.ReadCharmURL(u.charm)
+			if err != nil {
+				return nil, err
+			}
+			if *ch.Charm.URL() != *url {
+				return ModeUpgrading(ch.Charm), nil
+			}
 		}
-		// TODO: unit death; charm upgrades; relations.
+		// TODO: unit death; relations.
 	}
 	panic("unreachable")
 }
@@ -182,9 +209,12 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	if err = u.unit.SetStatus(state.UnitError, msg); err != nil {
 		return nil, err
 	}
+
 	// Wait for shutdown, error resolution, or forced charm upgrade.
 	resolvedw := u.unit.WatchResolved()
 	defer stop(resolvedw, &next, &err)
+	charmw := u.service.WatchCharm()
+	defer stop(charmw, &next, &err)
 	for {
 		select {
 		case <-u.tomb.Dying():
@@ -212,10 +242,84 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 				return nil, err
 			}
 			return ModeContinue, nil
+		case ch, ok := <-charmw.Changes():
+			if !ok {
+				return nil, watcher.MustErr(charmw)
+			}
+			url, err := charm.ReadCharmURL(u.charm)
+			if err != nil {
+				return nil, err
+			}
+			if ch.Force && *ch.Charm.URL() != *url {
+				return ModeUpgrading(ch.Charm), nil
+			}
 		}
-		// TODO: unit death; charm upgrades.
+		// TODO: unit death.
 	}
 	panic("unreachable")
+}
+
+// ModeUpgrading is responsible for upgrading the charm.
+func ModeUpgrading(sch *state.Charm) Mode {
+	return func(u *Uniter) (Mode, error) {
+		log.Printf("upgrading charm to %q", sch.URL())
+		if err := u.deploy(sch, Upgrade); err != nil {
+			if err == charm.ErrConflict {
+				return ModeConflicted(sch), nil
+			}
+			return nil, err
+		}
+		return ModeContinue, nil
+	}
+}
+
+// ModeConflicted waits for the user to resolve an error encountered when
+// upgrading a charm. This may be done either by manually resolving errors
+// and then setting the resolved flag, or by forcing an upgrade to a
+// different charm.
+func ModeConflicted(sch *state.Charm) Mode {
+	return func(u *Uniter) (next Mode, err error) {
+		if err = u.unit.SetStatus(state.UnitError, "upgrade failed"); err != nil {
+			return nil, err
+		}
+		resolvedw := u.unit.WatchResolved()
+		defer stop(resolvedw, &next, &err)
+		charmw := u.service.WatchCharm()
+		defer stop(charmw, &next, &err)
+		for {
+			select {
+			case <-u.tomb.Dying():
+				return nil, tomb.ErrDying
+			case ch, ok := <-charmw.Changes():
+				if !ok {
+					return nil, watcher.MustErr(charmw)
+				}
+				if ch.Force && *ch.Charm.URL() != *sch.URL() {
+					if err := u.charm.Revert(); err != nil {
+						return nil, err
+					}
+					return ModeUpgrading(ch.Charm), nil
+				}
+			case rm, ok := <-resolvedw.Changes():
+				if !ok {
+					return nil, watcher.MustErr(resolvedw)
+				}
+				if rm == state.ResolvedNone {
+					continue
+				}
+				err := u.charm.Snapshotf("Upgrade conflict resolved.")
+				if e := u.unit.ClearResolved(); e != nil && err == nil {
+					err = e
+				}
+				if err != nil {
+					return nil, err
+				}
+				return ModeUpgrading(sch), nil
+			}
+			// TODO: unit death.
+		}
+		panic("unreachable")
+	}
 }
 
 // stop is used by Mode funcs to shut down watchers on return.

@@ -101,12 +101,21 @@ func (u *Uniter) Wait() error {
 // deploy deploys the supplied charm, and sets follow-up hook operation state
 // as indicated by reason.
 func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
-	if reason != Install {
-		panic(fmt.Errorf("unknown deploy operation %q", reason))
+	if reason != Install && reason != Upgrade {
+		panic(fmt.Errorf("%q is not a deploy operation", reason))
 	}
 	s, err := u.sf.Read()
 	if err != nil && err != ErrNoStateFile {
 		return err
+	}
+	var hi *hook.Info
+	if s != nil && (s.Op == RunHook || s.Op == Upgrade) {
+		// If this upgrade interrupts a RunHook, we need to preserve the hook
+		// info so that we can return to the appropriate error state. However,
+		// if we're resuming (or have force-interrupted) an Upgrade, we also
+		// need to preserve whatever hook info was preserved when we initially
+		// started upgrading, to ensure we still return to the correct state.
+		hi = s.Hook
 	}
 	url := sch.URL()
 	if s == nil || s.OpStep != Done {
@@ -119,13 +128,13 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 			return err
 		}
 		log.Printf("deploying charm %q", url)
-		if err = u.sf.Write(reason, Pending, nil, url); err != nil {
+		if err = u.sf.Write(reason, Pending, hi, url); err != nil {
 			return err
 		}
 		if err = u.deployer.Deploy(u.charm); err != nil {
 			return err
 		}
-		if err = u.sf.Write(reason, Done, nil, url); err != nil {
+		if err = u.sf.Write(reason, Done, hi, url); err != nil {
 			return err
 		}
 	}
@@ -133,7 +142,21 @@ func (u *Uniter) deploy(sch *state.Charm, reason Op) error {
 	if err := u.unit.SetCharm(sch); err != nil {
 		return err
 	}
-	return u.sf.Write(RunHook, Queued, &hook.Info{Kind: hook.Install}, nil)
+	status := Queued
+	if hi != nil {
+		// If a hook operation was interrupted, restore it.
+		status = Pending
+	} else {
+		// Otherwise, queue the relevant post-deploy hook.
+		hi = &hook.Info{}
+		switch reason {
+		case Install:
+			hi.Kind = hook.Install
+		case Upgrade:
+			hi.Kind = hook.UpgradeCharm
+		}
+	}
+	return u.sf.Write(RunHook, status, hi, nil)
 }
 
 // errHookFailed indicates that a hook failed to execute, but that the Uniter's
@@ -197,7 +220,7 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 		panic("relation hooks are not yet supported")
 		// TODO: commit relation state changes.
 	}
-	if err := u.charm.Snapshotf("completed %q hook", hi.Kind); err != nil {
+	if err := u.charm.Snapshotf("Completed %q hook.", hi.Kind); err != nil {
 		return err
 	}
 	if err := u.sf.Write(Abide, Pending, &hi, nil); err != nil {
@@ -208,8 +231,8 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 }
 
 // ensureFs ensures that files and directories required by the named uniter
-// exist inside dataDir. It returns the path to the directory within which the uniter must
-// store its data.
+// exist inside dataDir. It returns the path to the directory within which
+// the uniter must store its data.
 func ensureFs(dataDir string, unit *state.Unit) (string, error) {
 	// TODO: do this OAOO at packaging time?
 	if err := EnsureJujucSymlinks(dataDir, unit.PathKey()); err != nil {
