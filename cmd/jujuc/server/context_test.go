@@ -7,10 +7,12 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd/jujuc/server"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type GetCommandSuite struct {
@@ -55,20 +57,58 @@ type RunHookSuite struct {
 
 var _ = Suite(&RunHookSuite{})
 
-// makeCharm constructs a fake charm dir containing a single named hook with
-// permissions perm and exit code code. It returns the charm directory and the
-// path to which the hook script will write environment variables.
-func makeCharm(c *C, hookName string, perm os.FileMode, code int) (charmDir, outPath string) {
+type hookSpec struct {
+	// name is the name of the hook.
+	name string
+	// perm is the file permissions of the hook.
+	perm os.FileMode
+	// code is the exit status of the hook.
+	code int
+	// stdout holds a string to print to stdout
+	stdout string
+	// stderr holds a string to print to stderr
+	stderr string
+	// background holds a string to print in the background after 0.2s.
+	background string
+}
+
+// makeCharm constructs a fake charm dir containing a single named hook
+// with permissions perm and exit code code.  If output is non-empty,
+// the charm will write it to stdout and stderr, with each one prefixed
+// by name of the stream.  It returns the charm directory and the path
+// to which the hook script will write environment variables.
+func makeCharm(c *C, spec hookSpec) (charmDir, outPath string) {
 	charmDir = c.MkDir()
 	hooksDir := filepath.Join(charmDir, "hooks")
 	err := os.Mkdir(hooksDir, 0755)
 	c.Assert(err, IsNil)
-	hook, err := os.OpenFile(filepath.Join(hooksDir, hookName), os.O_CREATE|os.O_WRONLY, perm)
+	c.Logf("openfile perm %v", spec.perm)
+	hook, err := os.OpenFile(filepath.Join(hooksDir, spec.name), os.O_CREATE|os.O_WRONLY, spec.perm)
 	c.Assert(err, IsNil)
 	defer hook.Close()
+	printf := func(f string, a ...interface{}) {
+		if _, err := fmt.Fprintf(hook, f+"\n", a...); err != nil {
+			panic(err)
+		}
+	}
 	outPath = filepath.Join(c.MkDir(), "hook.out")
-	_, err = fmt.Fprintf(hook, "#!/bin/bash\nenv > %s\nexit %d", outPath, code)
-	c.Assert(err, IsNil)
+	printf("#!/bin/bash")
+	printf("env > " + outPath)
+	if spec.stdout != "" {
+		printf("echo %s", spec.stdout)
+	}
+	if spec.stderr != "" {
+		printf("echo %s >&2", spec.stderr)
+	}
+	if spec.background != "" {
+		// Print something fairly quickly, then sleep for
+		// quite a long time - if the hook execution is
+		// blocking because of the background process,
+		// the hook execution will take much longer than
+		// expected.
+		printf("(sleep 0.2; echo %s; sleep 10) &", spec.background)
+	}
+	printf("exit %d", spec.code)
 	return charmDir, outPath
 }
 
@@ -101,12 +141,15 @@ func AssertEnv(c *C, outPath string, charmDir string, env map[string]string) {
 	})
 }
 
+// LineBufferSize matches the constant used when creating
+// the bufio line reader.
+const lineBufferSize = 4096
+
 var runHookTests = []struct {
 	summary string
 	relid   int
 	remote  string
-	perms   os.FileMode
-	code    int
+	spec    hookSpec
 	err     string
 	env     map[string]string
 }{
@@ -116,25 +159,50 @@ var runHookTests = []struct {
 	}, {
 		summary: "report failure to execute hook",
 		relid:   -1,
-		perms:   0600,
+		spec:    hookSpec{perm: 0600},
 		err:     `exec: .*something-happened": permission denied`,
 	}, {
 		summary: "report error indicated by hook's exit status",
 		relid:   -1,
-		perms:   0700,
-		code:    99,
-		err:     "exit status 99",
+		spec: hookSpec{
+			perm: 0700,
+			code: 99,
+		},
+		err: "exit status 99",
+	}, {
+		summary: "output logging",
+		relid:   -1,
+		spec: hookSpec{
+			perm:   0700,
+			stdout: "stdout",
+			stderr: "stderr",
+		},
+	}, {
+		summary: "output logging with background process",
+		relid:   -1,
+		spec: hookSpec{
+			perm:       0700,
+			stdout:     "stdout",
+			background: "not printed",
+		},
+	}, {
+		summary: "long line split",
+		relid:   -1,
+		spec: hookSpec{
+			perm:   0700,
+			stdout: strings.Repeat("a", lineBufferSize+10),
+		},
 	}, {
 		summary: "check shell environment for non-relation hook context",
 		relid:   -1,
-		perms:   0700,
+		spec:    hookSpec{perm: 0700},
 		env: map[string]string{
 			"JUJU_UNIT_NAME": "u/0",
 		},
 	}, {
 		summary: "check shell environment for relation-broken hook context",
 		relid:   1,
-		perms:   0700,
+		spec:    hookSpec{perm: 0700},
 		env: map[string]string{
 			"JUJU_UNIT_NAME":   "u/0",
 			"JUJU_RELATION":    "peer1",
@@ -144,7 +212,7 @@ var runHookTests = []struct {
 		summary: "check shell environment for relation hook context",
 		relid:   1,
 		remote:  "u/1",
-		perms:   0700,
+		spec:    hookSpec{perm: 0700},
 		env: map[string]string{
 			"JUJU_UNIT_NAME":   "u/0",
 			"JUJU_RELATION":    "peer1",
@@ -154,16 +222,41 @@ var runHookTests = []struct {
 	},
 }
 
+type logRecorder struct {
+	c      *C
+	prefix string
+	lines  []string
+}
+
+func (l *logRecorder) Output(calldepth int, s string) error {
+	if strings.HasPrefix(s, l.prefix) {
+		l.lines = append(l.lines, s[len(l.prefix):])
+	}
+	l.c.Logf("%s", s)
+	return nil
+}
+
 func (s *RunHookSuite) TestRunHook(c *C) {
+	oldLogger := log.Target
+	defer func() {
+		log.Target = oldLogger
+	}()
+	logger := &logRecorder{c: c, prefix: "JUJU HOOK "}
+	log.Target = logger
 	for i, t := range runHookTests {
-		c.Logf("test %d: %s", i, t.summary)
+		c.Logf("test %d: %s; perm %v", i, t.summary, t.spec.perm)
 		ctx := s.GetHookContext(c, t.relid, t.remote)
 		var charmDir, outPath string
-		if t.perms == 0 {
+		if t.spec.perm == 0 {
 			charmDir = c.MkDir()
 		} else {
-			charmDir, outPath = makeCharm(c, "something-happened", t.perms, t.code)
+			spec := t.spec
+			spec.name = "something-happened"
+			c.Logf("makeCharm %#v", spec)
+			charmDir, outPath = makeCharm(c, spec)
 		}
+		logger.lines = nil
+		t0 := time.Now()
 		err := ctx.RunHook("something-happened", charmDir, "/path/to/socket")
 		if t.err == "" {
 			c.Assert(err, IsNil)
@@ -173,13 +266,41 @@ func (s *RunHookSuite) TestRunHook(c *C) {
 		if t.env != nil {
 			AssertEnv(c, outPath, charmDir, t.env)
 		}
+		var expectLog []string
+		if t.spec.stdout != "" {
+			expectLog = append(expectLog, splitLine(t.spec.stdout)...)
+		}
+		if t.spec.stderr != "" {
+			expectLog = append(expectLog, splitLine(t.spec.stderr)...)
+		}
+		if t.spec.background != "" && time.Now().Sub(t0) > 5*time.Second {
+			c.Errorf("background process holding up hook execution")
+		}
+		c.Assert(logger.lines, DeepEquals, expectLog)
 	}
+}
+
+// split the line into buffer-sized lengths.
+func splitLine(s string) []string {
+	var ss []string
+	for len(s) > lineBufferSize {
+		ss = append(ss, s[0:lineBufferSize])
+		s = s[lineBufferSize:]
+	}
+	if len(s) > 0 {
+		ss = append(ss, s)
+	}
+	return ss
 }
 
 func (s *RunHookSuite) TestRunHookRelationFlushing(c *C) {
 	// Create a charm with a breaking hook.
 	ctx := s.GetHookContext(c, -1, "")
-	charmDir, _ := makeCharm(c, "something-happened", 0700, 123)
+	charmDir, _ := makeCharm(c, hookSpec{
+		name: "something-happened",
+		perm: 0700,
+		code: 123,
+	})
 
 	// Mess with multiple relation settings.
 	node0, err := s.relctxs[0].Settings()
@@ -212,7 +333,10 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *C) {
 	c.Assert(settings1, DeepEquals, node1.Map())
 
 	// Create a charm with a working hook, and mess with settings again.
-	charmDir, _ = makeCharm(c, "something-happened", 0700, 0)
+	charmDir, _ = makeCharm(c, hookSpec{
+		name: "something-happened",
+		perm: 0700,
+	})
 	node0.Set("baz", 3)
 	node1.Set("qux", 4)
 
