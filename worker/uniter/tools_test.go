@@ -42,9 +42,8 @@ func (s *ToolsSuite) TestEnsureJujucSymlinks(c *C) {
 	}
 
 	// Check that EnsureJujucSymlinks writes appropriate symlinks.
-	path, err := uniter.EnsureJujucSymlinks(s.dataDir, "unit-u-123")
+	err = uniter.EnsureJujucSymlinks(s.toolsDir)
 	c.Assert(err, IsNil)
-	c.Assert(path, Equals, filepath.Join(s.dataDir, "tools", "unit-u-123"))
 	mtimes := map[string]time.Time{}
 	for _, name := range server.CommandNames() {
 		tool := filepath.Join(s.toolsDir, name)
@@ -52,15 +51,14 @@ func (s *ToolsSuite) TestEnsureJujucSymlinks(c *C) {
 	}
 
 	// Check that EnsureJujucSymlinks doesn't overwrite things that don't need to be.
-	path, err = uniter.EnsureJujucSymlinks(s.dataDir, "unit-u-123")
+	err = uniter.EnsureJujucSymlinks(s.toolsDir)
 	c.Assert(err, IsNil)
-	c.Assert(path, Equals, filepath.Join(s.dataDir, "tools", "unit-u-123"))
 	for tool, mtime := range mtimes {
 		c.Assert(assertLink(tool), Equals, mtime)
 	}
 }
 
 func (s *ToolsSuite) TestEnsureJujucSymlinksBadDir(c *C) {
-	_, err := uniter.EnsureJujucSymlinks(s.dataDir, "unit-u-999")
-	c.Assert(err, ErrorMatches, "cannot initialize hook commands.*: no such file or directory")
+	err := uniter.EnsureJujucSymlinks(filepath.Join(c.MkDir(), "noexist"))
+	c.Assert(err, ErrorMatches, "cannot initialize hook commands in .*: no such file or directory")
 }

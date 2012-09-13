@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/jujuc/server"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/presence"
@@ -46,8 +47,13 @@ func NewUniter(st *state.State, name string, dataDir string) (u *Uniter, err err
 	if err != nil {
 		return nil, err
 	}
-	baseDir, toolsDir, err := ensureFs(dataDir, unit)
-	if err != nil {
+	pathKey := unit.PathKey()
+	toolsDir := environs.AgentToolsDir(dataDir, pathKey)
+	if err := EnsureJujucSymlinks(toolsDir); err != nil {
+		return nil, err
+	}
+	baseDir := filepath.Join(dataDir, "agents", pathKey)
+	if err := trivial.EnsureDir(filepath.Join(baseDir, "state")); err != nil {
 		return nil, err
 	}
 	service, err := st.Service(unit.ServiceName())
@@ -230,21 +236,4 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 	}
 	log.Printf("hook complete")
 	return nil
-}
-
-// ensureFs ensures that files and directories required by the named uniter
-// exist inside dataDir. It returns the path to the directory within which
-// the uniter must store its data, and the path to the directory containing
-// the tools needed to run hooks.
-func ensureFs(dataDir string, unit *state.Unit) (string, string, error) {
-	// TODO: do this OAOO at packaging time?
-	toolsDir, err := EnsureJujucSymlinks(dataDir, unit.PathKey())
-	if err != nil {
-		return "", "", err
-	}
-	unitDir := filepath.Join(dataDir, "agents", unit.PathKey())
-	if err := trivial.EnsureDir(filepath.Join(unitDir, "state")); err != nil {
-		return "", "", err
-	}
-	return unitDir, toolsDir, nil
 }
