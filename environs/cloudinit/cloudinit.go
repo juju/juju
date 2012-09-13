@@ -46,6 +46,10 @@ type MachineConfig struct {
 	// Tools is juju tools to be used on the new machine.
 	Tools *state.Tools
 
+	// DataDir holds the directory that juju state will be put in the new
+	// machine.
+	DataDir string
+
 	// MachineId identifies the new machine. It must be non-negative.
 	MachineId int
 
@@ -101,7 +105,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	}
 
 	addScripts(c,
-		fmt.Sprintf("sudo mkdir -p %s", environs.VarDir),
+		fmt.Sprintf("sudo mkdir -p %s", cfg.DataDir),
 		"sudo mkdir -p /var/log/juju")
 
 	// Make a directory for the tools to live in, then fetch the
@@ -114,7 +118,8 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	)
 
 	debugFlag := ""
-	if log.Debug {
+	// TODO: disable debug mode by default when the system is stable.
+	if true || log.Debug {
 		debugFlag = " --debug"
 	}
 
@@ -149,12 +154,20 @@ func addAgentScript(c *cloudinit.Config, cfg *MachineConfig, name, args string) 
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
-	toolsDir := environs.AgentToolsDir(name)
-	addScripts(c, fmt.Sprintf("ln -s $bin %s", toolsDir))
+	toolsDir := environs.AgentToolsDir(cfg.DataDir, name)
+	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Binary, toolsDir))
 	svc := upstart.NewService(fmt.Sprintf("jujud-%s", name))
 	cmd := fmt.Sprintf(
-		"%s/jujud %s --zookeeper-servers '%s' --log-file /var/log/juju/%s-agent.log %s",
-		toolsDir, name, cfg.zookeeperHostAddrs(), name, args,
+		"%s/jujud %s"+
+			" --zookeeper-servers '%s'"+
+			" --log-file /var/log/juju/%s-agent.log"+
+			" --data-dir '%s'"+
+			" %s",
+		toolsDir, name,
+		cfg.zookeeperHostAddrs(),
+		name,
+		cfg.DataDir,
+		args,
 	)
 	conf := &upstart.Conf{
 		Service: *svc,
@@ -179,7 +192,7 @@ func versionDir(toolsURL string) string {
 }
 
 func (cfg *MachineConfig) jujuTools() string {
-	return environs.ToolsDir(cfg.Tools.Binary)
+	return environs.ToolsDir(cfg.DataDir, cfg.Tools.Binary)
 }
 
 func (cfg *MachineConfig) zookeeperHostAddrs() string {
@@ -206,6 +219,9 @@ func verifyConfig(cfg *MachineConfig) error {
 	}
 	if cfg.ProviderType == "" {
 		return requiresError("provider type")
+	}
+	if cfg.DataDir == "" {
+		return requiresError("var directory")
 	}
 	if cfg.Tools == nil {
 		return requiresError("tools")

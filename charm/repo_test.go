@@ -26,7 +26,7 @@ type MockStore struct {
 
 func NewMockStore(c *C) *MockStore {
 	s := &MockStore{}
-	bytes, err := ioutil.ReadFile(testing.Charms.BundlePath(c.MkDir(), "dummy"))
+	bytes, err := ioutil.ReadFile(testing.Charms.BundlePath(c.MkDir(), "series", "dummy"))
 	c.Assert(err, IsNil)
 	s.bundleBytes = bytes
 	h := sha256.New()
@@ -219,11 +219,11 @@ func (s *LocalRepoSuite) SetUpTest(c *C) {
 }
 
 func (s *LocalRepoSuite) addBundle(name string) string {
-	return testing.Charms.BundlePath(s.seriesPath, name)
+	return testing.Charms.BundlePath(s.seriesPath, "series", name)
 }
 
 func (s *LocalRepoSuite) addDir(name string) string {
-	return testing.Charms.ClonedDirPath(s.seriesPath, name)
+	return testing.Charms.ClonedDirPath(s.seriesPath, "series", name)
 }
 
 func (s *LocalRepoSuite) TestMissingCharm(c *C) {

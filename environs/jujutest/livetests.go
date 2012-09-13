@@ -3,10 +3,12 @@ package jujutest
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"time"
 )
@@ -152,19 +154,16 @@ func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 }
 
-func (t *LiveTests) TestBootstrapProvisioner(c *C) {
+func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	if !t.CanOpenState || !t.HasProvisioner {
 		c.Skip(fmt.Sprintf("skipping provisioner test, CanOpenState: %v, HasProvisioner: %v", t.CanOpenState, t.HasProvisioner))
 	}
 	t.BootstrapOnce(c)
 
+	c.Logf("opening connection")
 	conn, err := juju.NewConn(t.Env)
 	c.Assert(err, IsNil)
 	defer conn.Close()
-
-	// Check that we can upgrade the machine agent on the bootstrap machine.
-	m, err := conn.State.Machine(0)
-	c.Assert(err, IsNil)
 
 	// Check that the agent version has made it through the
 	// bootstrap process (it's optional in the config.Config)
@@ -172,26 +171,58 @@ func (t *LiveTests) TestBootstrapProvisioner(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(cfg.AgentVersion(), Equals, version.Current.Number)
 
-	t.checkUpgradeMachineAgent(c, conn.State, m)
-
-	// place a new machine into the state
-	m, err = conn.State.AddMachine()
+	// Wait for machine agent to come up on the bootstrap
+	// machine and find the deployed series from that.
+	m0, err := conn.State.Machine(0)
 	c.Assert(err, IsNil)
+	w0, tools0 := t.machineAgentTools(c, m0)
+	defer w0.Stop()
 
-	t.assertStartInstance(c, m)
+	// Create a new service and deploy a unit of it.
+	c.Logf("deploying service")
+	repoDir := c.MkDir()
+	url := testing.Charms.ClonedURL(repoDir, tools0.Series, "dummy")
+	sch, err := conn.PutCharm(url, &charm.LocalRepository{repoDir}, false)
 
-	// now remove it
-	c.Assert(conn.State.RemoveMachine(m.Id()), IsNil)
+	c.Assert(err, IsNil)
+	svc, err := conn.AddService("", sch)
+	c.Assert(err, IsNil)
+	units, err := conn.AddUnits(svc, 1)
+	c.Assert(err, IsNil)
+	unit := units[0]
 
-	// watch the PA remove it
-	t.assertStopInstance(c, m)
-	assertInstanceId(c, m, nil)
+	// Wait for the unit's machine and associated agent to come up
+	// and announce itself.
+	mid, err := unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	m1, err := conn.State.Machine(mid)
+	c.Assert(err, IsNil)
+	w1, tools1 := t.machineAgentTools(c, m1)
+	defer w1.Stop()
+	c.Assert(tools1.Binary, Equals, tools0.Binary)
+
+	// Check that we can upgrade the environment.
+	newVersion := tools1.Binary
+	newVersion.Patch++
+	t.checkUpgrade(c, conn, newVersion, w0, w1)
+
+	c.Logf("removing unit")
+	// Now remove the unit and its assigned machine and
+	// check that the PA removes it.
+	err = svc.RemoveUnit(unit)
+	c.Assert(err, IsNil)
+	err = conn.State.RemoveMachine(m1.Id())
+	c.Assert(err, IsNil)
+	c.Logf("waiting for instance to be removed")
+	t.assertStopInstance(c, m1)
+	assertInstanceId(c, m1, nil)
 }
 
-func (t *LiveTests) checkUpgradeMachineAgent(c *C, st *state.State, m *state.Machine) {
-	// First watch the machine agent's to make sure that the its
-	// current tools are set appropriately.
-	w := m.Watch()
+// machineAgentTools waits for the given machine agent
+// to start and returns the machine watcher and the tools that it's running.
+func (t *LiveTests) machineAgentTools(c *C, m *state.Machine) (w *state.MachineWatcher, tools *state.Tools) {
+	c.Logf("waiting for machine %d to signal agent version", m.Id())
+	w = m.Watch()
 
 	var gotTools *state.Tools
 	for _ = range w.Changes() {
@@ -206,31 +237,38 @@ func (t *LiveTests) checkUpgradeMachineAgent(c *C, st *state.State, m *state.Mac
 	}
 	c.Assert(gotTools, NotNil, Commentf("tools watcher died: %v", w.Err()))
 	c.Assert(gotTools.Binary, Equals, version.Current)
+	return w, gotTools
+}
 
+// checkUpgrade sets the environment agent version and checks that
+// all the provided watchers upgrade to the requested version.
+func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binary, watchers ...*state.MachineWatcher) {
 	c.Logf("putting testing version of juju tools")
-
-	newVersion := version.Current
-	newVersion.Patch++
 	upgradeTools, err := environs.PutTools(t.Env.Storage(), &newVersion)
 	c.Assert(err, IsNil)
 
 	// Check that the put version really is the version we expect.
 	c.Assert(upgradeTools.Binary, Equals, newVersion)
-	err = setAgentVersion(st, newVersion.Number)
+	err = setAgentVersion(conn.State, newVersion.Number)
 	c.Assert(err, IsNil)
 
-	c.Logf("waiting for upgrade")
-	_, ok := <-w.Changes()
-	if !ok {
-		c.Fatalf("watcher died: %v", w.Err())
+	for i, w := range watchers {
+		c.Logf("waiting for upgrade %d", i)
+		m, ok := <-w.Changes()
+		if !c.Check(ok, Equals, true, Commentf("watcher %d died: %v", i, w.Err())) {
+			continue
+		}
+		tools, err := m.AgentTools()
+		if !c.Check(err, IsNil) {
+			continue
+		}
+		// N.B. We can't test that the URL is the same because there's
+		// no guarantee that it is, even though it might be referring to
+		// the same thing.
+		if c.Check(tools.Binary, DeepEquals, newVersion) {
+			c.Logf("upgrade %d successful", i)
+		}
 	}
-	tools, err := m.AgentTools()
-	c.Assert(err, IsNil)
-	// N.B. We can't test that the URL is the same because there's
-	// no guarantee that it is, even though it might be referring to
-	// the same thing.
-	c.Assert(tools.Binary, DeepEquals, upgradeTools.Binary)
-	c.Logf("upgrade successful!")
 }
 
 // setAgentVersion sets the current agent version in the state's

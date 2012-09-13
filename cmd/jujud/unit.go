@@ -69,7 +69,7 @@ func (a *UnitAgent) runOnce() error {
 		return err
 	}
 	defer st.Close()
-	u, err := uniter.NewUniter(st, a.UnitName)
+	u, err := uniter.NewUniter(st, a.UnitName, a.Conf.DataDir)
 	if err != nil {
 		return err
 	}

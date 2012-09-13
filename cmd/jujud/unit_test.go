@@ -4,7 +4,6 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
@@ -62,20 +61,20 @@ func (s *UnitSuite) TestRunStop(c *C) {
 	c.Assert(err, IsNil)
 
 	// Set up local environment.
-	jujuDir := environs.VarDir
+	dataDir := s.DataDir()
 	vers := version.Current.String()
-	toolsDir := filepath.Join(jujuDir, "tools", vers)
+	toolsDir := filepath.Join(dataDir, "tools", vers)
 	err = os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, IsNil)
 	err = ioutil.WriteFile(filepath.Join(toolsDir, "jujuc"), nil, 0644)
 	c.Assert(err, IsNil)
-	toolsLink := filepath.Join(jujuDir, "tools", "unit-dummy-0")
+	toolsLink := filepath.Join(dataDir, "tools", "unit-dummy-0")
 	err = os.Symlink(vers, toolsLink)
 	c.Assert(err, IsNil)
 
 	// Run a unit agent.
 	a := &UnitAgent{
-		Conf:     AgentConf{jujuDir, *s.StateInfo(c)},
+		Conf:     AgentConf{dataDir, *s.StateInfo(c)},
 		UnitName: unit.Name(),
 	}
 	done := make(chan error)

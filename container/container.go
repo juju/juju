@@ -3,11 +3,10 @@ package container
 import (
 	"fmt"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/upstart"
 	"os"
-	"os/exec"
-	"path"
 	"path/filepath"
 	"strings"
 )
@@ -15,79 +14,84 @@ import (
 // Container contains running juju service units.
 type Container interface {
 	// Deploy deploys the unit into a new container.
-	Deploy(unit *state.Unit) error
+	Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) error
 
 	// Destroy destroys the unit's container.
 	Destroy(unit *state.Unit) error
-
-	// ToolsDir returns the slash-separated directory that the tools binaries
-	// are stored in for the given unit
-	ToolsDir(*state.Unit) string
 }
 
-// Simple is an instance of Container that knows how deploy units within
+// Simple is a Container that knows how deploy units within	
 // the current machine.
-var Simple Container = simpleContainer{}
+type Simple struct {
+	DataDir string
+	// InitDir holds the directory where upstart scripts
+	// will be deployed. If blank, the system default will
+	// be used.
+	InitDir string
 
-// TODO:
-//type lxc struct {
-//	name string
-//}
-//
-//func LXC(args...) Container {
-//}
-
-// upstart uses the system init directory by default. Allow the tests
-// to choose a different directory.
-var initDir = ""
-
-type simpleContainer struct{}
-
-func deslash(s string) string {
-	return strings.Replace(s, "/", "-", -1)
+	// TODO(rog) add LogDir?
 }
 
-func service(unit *state.Unit) *upstart.Service {
-	svc := upstart.NewService("juju-agent-" + deslash(unit.Name()))
-	svc.InitDir = initDir
+func (c *Simple) service(unit *state.Unit) *upstart.Service {
+	svc := upstart.NewService("juju-" + unit.PathKey())
+	if c.InitDir != "" {
+		svc.InitDir = c.InitDir
+	}
 	return svc
 }
 
-func dirName(unit *state.Unit) string {
-	return filepath.FromSlash(path.Join(environs.VarDir, "units", deslash(unit.Name())))
+func (c *Simple) dirName(unit *state.Unit) string {
+	return filepath.Join(c.DataDir, "agents", unit.PathKey())
 }
 
-func (simpleContainer) Deploy(unit *state.Unit) error {
-	exe, err := exec.LookPath("jujud")
+// Deploy deploys a unit running the given tools unit into a new container.
+// The unit will use the given info to connect to the state.
+func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) (err error) {
+	if info.UseSSH {
+		return fmt.Errorf("cannot deploy unit agent connecting with ssh")
+	}
+	toolsDir := environs.AgentToolsDir(c.DataDir, unit.PathKey())
+	err = os.Symlink(tools.Binary.String(), toolsDir)
 	if err != nil {
-		return fmt.Errorf("cannot find executable: %v", err)
+		return fmt.Errorf("cannot make agent tools symlink: %v", err)
 	}
+	defer func() {
+		if err != nil {
+			if err := os.Remove(toolsDir); err != nil {
+				log.Printf("container: cannot remove tools symlink: %v", err)
+			}
+		}
+	}()
+	cmd := fmt.Sprintf(
+		"%s unit --zookeeper-servers '%s' --log-file %s --unit-name %s",
+		filepath.Join(toolsDir, "jujud"),
+		strings.Join(info.Addrs, ","),
+		filepath.Join("/var/log/juju", unit.PathKey()+".log"),
+		unit.Name())
+
 	conf := &upstart.Conf{
-		Service: *service(unit),
+		Service: *c.service(unit),
 		Desc:    "juju unit agent for " + unit.Name(),
-		Cmd:     exe + " unit --unit-name " + unit.Name(),
-		// TODO: Out
+		Cmd:     cmd,
 	}
-	dir := dirName(unit)
+	dir := c.dirName(unit)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	err = conf.Install()
-	if err != nil {
-		os.Remove(dir)
-		return err
-	}
-	return nil
+	defer func() {
+		if err != nil {
+			if err := os.Remove(dir); err != nil {
+				log.Printf("container: cannot remove agent dir: %v", err)
+			}
+		}
+	}()
+	return conf.Install()
 }
 
-func (simpleContainer) Destroy(unit *state.Unit) error {
-	svc := service(unit)
-	if err := svc.Remove(); err != nil {
+// Destroy destroys the unit's container.
+func (c *Simple) Destroy(unit *state.Unit) error {
+	if err := c.service(unit).Remove(); err != nil {
 		return err
 	}
-	return os.RemoveAll(dirName(unit))
-}
-
-func (simpleContainer) ToolsDir(*state.Unit) string {
-	return path.Join(environs.VarDir, "tools")
+	return os.RemoveAll(c.dirName(unit))
 }

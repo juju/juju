@@ -33,7 +33,7 @@ func TestPackage(t *stdtesting.T) {
 type UniterSuite struct {
 	testing.JujuConnSuite
 	coretesting.HTTPSuite
-	varDir  string
+	dataDir string
 	oldPath string
 }
 
@@ -42,9 +42,8 @@ var _ = Suite(&UniterSuite{})
 func (s *UniterSuite) SetUpSuite(c *C) {
 	s.JujuConnSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
-	s.varDir = c.MkDir()
-	environs.VarDir = s.varDir // it's restored by JujuConnSuite.
-	toolsDir := environs.AgentToolsDir("unit-u-0")
+	s.dataDir = c.MkDir()
+	toolsDir := environs.AgentToolsDir(s.dataDir, "unit-u-0")
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, IsNil)
 	cmd := exec.Command("go", "build", "launchpad.net/juju-core/cmd/jujuc")
@@ -62,7 +61,7 @@ func (s *UniterSuite) TearDownSuite(c *C) {
 
 func (s *UniterSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
-	environs.VarDir = s.varDir
+	s.HTTPSuite.SetUpTest(c)
 }
 
 func (s *UniterSuite) TearDownTest(c *C) {
@@ -72,7 +71,6 @@ func (s *UniterSuite) TearDownTest(c *C) {
 
 func (s *UniterSuite) Reset(c *C) {
 	s.JujuConnSuite.Reset(c)
-	environs.VarDir = s.varDir
 }
 
 type uniterTest struct {
@@ -89,14 +87,15 @@ type stepper interface {
 }
 
 type context struct {
-	id     int
-	path   string
-	st     *state.State
-	charms coretesting.ResponseMap
-	hooks  []string
-	svc    *state.Service
-	unit   *state.Unit
-	uniter *uniter.Uniter
+	id      int
+	path    string
+	dataDir string
+	st      *state.State
+	charms  coretesting.ResponseMap
+	hooks   []string
+	svc     *state.Service
+	unit    *state.Unit
+	uniter  *uniter.Uniter
 }
 
 var goodHook = `
@@ -146,6 +145,8 @@ var uniterTests = []uniterTest{
 	ut(
 		"unable to create state dir",
 		writeFile{"state", 0644},
+		createCharm{},
+		createServiceAndUnit{},
 		startUniter{`failed to create uniter for unit "u/0": .*state must be a directory`},
 	), ut(
 		"unknown unit",
@@ -281,7 +282,7 @@ var uniterTests = []uniterTest{
 }
 
 func (s *UniterSuite) TestUniter(c *C) {
-	unitDir := filepath.Join(environs.VarDir, "units", "u-0")
+	unitDir := filepath.Join(s.dataDir, "agents", "unit-u-0")
 	for i, t := range uniterTests {
 		if i != 0 {
 			s.Reset(c)
@@ -291,10 +292,11 @@ func (s *UniterSuite) TestUniter(c *C) {
 		}
 		c.Logf("\ntest %d: %s\n", i, t.summary)
 		ctx := &context{
-			id:     i,
-			path:   unitDir,
-			st:     s.State,
-			charms: coretesting.ResponseMap{},
+			st:      s.State,
+			id:      i,
+			path:    unitDir,
+			dataDir: s.dataDir,
+			charms:  coretesting.ResponseMap{},
 		}
 		for i, s := range t.steps {
 			c.Logf("step %d", i)
@@ -318,7 +320,7 @@ type createCharm struct {
 }
 
 func (s createCharm) step(c *C, ctx *context) {
-	base := coretesting.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	base := coretesting.Charms.ClonedDirPath(c.MkDir(), "series", "dummy")
 	for _, name := range []string{"install", "start", "config-changed", "upgrade-charm"} {
 		path := filepath.Join(base, "hooks", name)
 		good := true
@@ -351,13 +353,13 @@ func (s createCharm) step(c *C, ctx *context) {
 
 type serveCharm struct{}
 
-func (s serveCharm) step(c *C, ctx *context) {
+func (serveCharm) step(c *C, ctx *context) {
 	coretesting.Server.ResponseMap(1, ctx.charms)
 }
 
-type createUniter struct{}
+type createServiceAndUnit struct{}
 
-func (s createUniter) step(c *C, ctx *context) {
+func (createServiceAndUnit) step(c *C, ctx *context) {
 	cfg, err := config.New(map[string]interface{}{
 		"name":            "testenv",
 		"type":            "dummy",
@@ -375,6 +377,12 @@ func (s createUniter) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	ctx.svc = svc
 	ctx.unit = unit
+}
+
+type createUniter struct{}
+
+func (createUniter) step(c *C, ctx *context) {
+	step(c, ctx, createServiceAndUnit{})
 	step(c, ctx, startUniter{})
 
 	// Poll for correct address settings (consequence of "dummy" env type).
@@ -384,11 +392,11 @@ func (s createUniter) step(c *C, ctx *context) {
 		case <-timeout:
 			c.Fatalf("timed out waiting for unit addresses")
 		case <-time.After(50 * time.Millisecond):
-			private, err := unit.PrivateAddress()
+			private, err := ctx.unit.PrivateAddress()
 			if err != nil || private != "private.dummy.address.example.com" {
 				continue
 			}
-			public, err := unit.PublicAddress()
+			public, err := ctx.unit.PublicAddress()
 			if err != nil || public != "public.dummy.address.example.com" {
 				continue
 			}
@@ -405,12 +413,12 @@ func (s startUniter) step(c *C, ctx *context) {
 	if ctx.uniter != nil {
 		panic("don't start two uniters!")
 	}
-	u, err := uniter.NewUniter(ctx.st, "u/0")
+	u, err := uniter.NewUniter(ctx.st, "u/0", ctx.dataDir)
 	if s.err == "" {
 		c.Assert(err, IsNil)
 		ctx.uniter = u
 	} else {
-		c.Assert(u, IsNil)
+		c.Check(u, IsNil)
 		c.Assert(err, ErrorMatches, s.err)
 	}
 }
