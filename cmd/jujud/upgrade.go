@@ -207,7 +207,6 @@ func (u *Upgrader) run() error {
 			}
 			return &UpgradedError{tools}
 		case <-tomb.Dying():
-			log.Printf("upgrader: dying, real tomb: %v", tomb == &u.tomb)
 			if download != nil {
 				return fmt.Errorf("download aborted of %q", downloadTools.URL)
 			}
@@ -215,19 +214,6 @@ func (u *Upgrader) run() error {
 		}
 	}
 	panic("not reached")
-}
-
-// delay returns a channel that is closed the given
-// duration after c is closed.
-func delay(c <-chan struct{}, d time.Duration) <-chan struct{} {
-	out := make(chan struct{})
-	go func() {
-		for _ = range c {
-		}
-		time.Sleep(d)
-		close(out)
-	}()
-	return out
 }
 
 // delayedTomb returns a tomb that starts dying a given duration
