@@ -81,7 +81,8 @@ func merge(svcfg map[string]interface{}, chcfg map[string]charm.Option) map[stri
 		if s, ok := svcfg[k]; ok {
 			m["value"] = s
 		} else {
-			m["value"] = "-Not Set-"
+			// breaks compatibility with py/juju
+			m["value"] = nil
 		}
 		if v.Default != nil {
 			if reflect.DeepEqual(v.Default, svcfg[k]) {
