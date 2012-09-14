@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -50,28 +51,39 @@ func (a *UnitAgent) Stop() error {
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	defer a.tomb.Done()
 	for a.tomb.Err() == tomb.ErrStillAlive {
-		err := a.runOnce()
-		log.Printf("uniter error: %v", err)
+		unit, err := a.runOnce()
+		if ug, ok := err.(*UpgradedError); ok {
+			tools, err1 := environs.ChangeAgentTools(a.Conf.DataDir, unit.PathKey(), ug.Binary)
+			if err1 == nil {
+				log.Printf("exiting to upgrade to %v from %q", tools.Binary, tools.URL)
+				// Return and let upstart deal with the restart.
+				return nil
+			}
+			err = err1
+		}
 		select {
 		case <-a.tomb.Dying():
 			a.tomb.Kill(err)
 		case <-time.After(retryDelay):
-			log.Printf("rerunning uniter")
+			log.Printf("rerunning uniter after error: %v", err)
 		}
 	}
 	return a.tomb.Err()
 }
 
 // runOnce runs a uniter once.
-func (a *UnitAgent) runOnce() error {
+func (a *UnitAgent) runOnce() (*state.Unit, error) {
 	st, err := state.Open(&a.Conf.StateInfo)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer st.Close()
-	u, err := uniter.NewUniter(st, a.UnitName, a.Conf.DataDir)
+	unit, err := st.Unit(a.UnitName)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return runTasks(a.tomb.Dying(), u)
+	return unit, runTasks(a.tomb.Dying(),
+		uniter.NewUniter(st, unit.Name(), a.Conf.DataDir),
+		NewUpgrader(st, unit, a.Conf.DataDir),
+	)
 }

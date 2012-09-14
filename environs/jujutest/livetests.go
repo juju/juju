@@ -175,13 +175,14 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	// machine and find the deployed series from that.
 	m0, err := conn.State.Machine(0)
 	c.Assert(err, IsNil)
-	w0, tools0 := t.machineAgentTools(c, m0)
-	defer w0.Stop()
+	mw0 := newMachineToolsWatcher(c, m0)
+	defer mw0.Stop()
+	mtools0 := waitAgentTools(c, mw0)
 
 	// Create a new service and deploy a unit of it.
 	c.Logf("deploying service")
 	repoDir := c.MkDir()
-	url := testing.Charms.ClonedURL(repoDir, tools0.Series, "dummy")
+	url := testing.Charms.ClonedURL(repoDir, mtools0.Series, "dummy")
 	sch, err := conn.PutCharm(url, &charm.LocalRepository{repoDir}, false)
 
 	c.Assert(err, IsNil)
@@ -197,14 +198,18 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	c.Assert(err, IsNil)
 	m1, err := conn.State.Machine(mid)
 	c.Assert(err, IsNil)
-	w1, tools1 := t.machineAgentTools(c, m1)
-	defer w1.Stop()
-	c.Assert(tools1.Binary, Equals, tools0.Binary)
+	mw1 := newMachineToolsWatcher(c, m1)
+	defer mw1.Stop()
+	waitAgentTools(c, mw1)
+
+	uw := newUnitToolsWatcher(c, unit)
+	defer uw.Stop()
+	utools := waitAgentTools(c, uw)
 
 	// Check that we can upgrade the environment.
-	newVersion := tools1.Binary
+	newVersion := utools.Binary
 	newVersion.Patch++
-	t.checkUpgrade(c, conn, newVersion, w0, w1)
+	t.checkUpgrade(c, conn, newVersion, mw0, mw1, uw)
 
 	c.Logf("removing unit")
 	// Now remove the unit and its assigned machine and
@@ -218,18 +223,15 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	assertInstanceId(c, m1, nil)
 }
 
-// machineAgentTools waits for the given machine agent
-// to start and returns the machine watcher and the tools that it's running.
-func (t *LiveTests) machineAgentTools(c *C, m *state.Machine) (w *state.MachineWatcher, tools *state.Tools) {
-	c.Logf("waiting for machine %d to signal agent version", m.Id())
-	w = m.Watch()
+// waitAgentTools waits for the given machine agent
+// to start and returns the tools that the agent is running.
+func waitAgentTools(c *C, w toolsWatcher) *state.Tools {
+	c.Logf("waiting for %v to signal agent version", w)
 
 	var gotTools *state.Tools
-	for _ = range w.Changes() {
-		tools, err := m.AgentTools()
-		c.Assert(err, IsNil)
+	for tools := range w.Changes() {
 		if tools.URL == "" {
-			// Machine agent hasn't started yet.
+			// Agent hasn't started yet.
 			continue
 		}
 		gotTools = tools
@@ -237,12 +239,102 @@ func (t *LiveTests) machineAgentTools(c *C, m *state.Machine) (w *state.MachineW
 	}
 	c.Assert(gotTools, NotNil, Commentf("tools watcher died: %v", w.Err()))
 	c.Assert(gotTools.Binary, Equals, version.Current)
-	return w, gotTools
+	return gotTools
+}
+
+// differentTools sends only tools it receives that are different
+// from the previous tools it has received.
+func differentTools(in <-chan *state.Tools) <-chan *state.Tools {
+	out := make(chan *state.Tools)
+	var current *state.Tools
+	go func() {
+		for tools := range in {
+			if current == nil || *tools != *current {
+				out <- tools
+			}
+			current = tools
+		}
+		close(out)
+	}()
+	return out
+}
+
+type toolsWatcher interface {
+	Stop() error
+	Changes() <-chan *state.Tools
+	String() string
+	Err() error
+}
+
+type unitToolsWatcher struct {
+	*state.Unit
+	*state.UnitWatcher
+	changes <-chan *state.Tools
+}
+
+func newUnitToolsWatcher(c *C, unit *state.Unit) *unitToolsWatcher {
+	ch := make(chan *state.Tools)
+	w := &unitToolsWatcher{
+		unit,
+		unit.Watch(),
+		differentTools(ch),
+	}
+	go func() {
+		defer close(ch)
+		for u := range w.UnitWatcher.Changes() {
+			tools, err := u.AgentTools()
+			if err != nil {
+				c.Errorf("unit agent tools watcher died: %v", err)
+				break
+			}
+			ch <- tools
+		}
+	}()
+	return w
+}
+
+func (w *unitToolsWatcher) Changes() <-chan *state.Tools {
+	return w.changes
+}
+
+type machineToolsWatcher struct {
+	m *state.Machine
+	*state.MachineWatcher
+	changes <-chan *state.Tools
+}
+
+func newMachineToolsWatcher(c *C, machine *state.Machine) *machineToolsWatcher {
+	ch := make(chan *state.Tools)
+	w := &machineToolsWatcher{
+		machine,
+		machine.Watch(),
+		differentTools(ch),
+	}
+	go func() {
+		defer close(ch)
+		for m := range w.MachineWatcher.Changes() {
+			tools, err := m.AgentTools()
+			if err != nil {
+				c.Errorf("machine agent tools watcher died: %v", err)
+				break
+			}
+			ch <- tools
+		}
+	}()
+	return w
+}
+
+func (w *machineToolsWatcher) String() string {
+	return "machine " + w.m.String()
+}
+
+func (w *machineToolsWatcher) Changes() <-chan *state.Tools {
+	return w.changes
 }
 
 // checkUpgrade sets the environment agent version and checks that
 // all the provided watchers upgrade to the requested version.
-func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binary, watchers ...*state.MachineWatcher) {
+func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binary, watchers ...toolsWatcher) {
 	c.Logf("putting testing version of juju tools")
 	upgradeTools, err := environs.PutTools(t.Env.Storage(), &newVersion)
 	c.Assert(err, IsNil)
@@ -254,12 +346,8 @@ func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binar
 
 	for i, w := range watchers {
 		c.Logf("waiting for upgrade %d", i)
-		m, ok := <-w.Changes()
+		tools, ok := <-w.Changes()
 		if !c.Check(ok, Equals, true, Commentf("watcher %d died: %v", i, w.Err())) {
-			continue
-		}
-		tools, err := m.AgentTools()
-		if !c.Check(err, IsNil) {
 			continue
 		}
 		// N.B. We can't test that the URL is the same because there's

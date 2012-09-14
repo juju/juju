@@ -29,6 +29,7 @@ type Uniter struct {
 	service *state.Service
 	pinger  *presence.Pinger
 
+	dataDir  string
 	baseDir  string
 	toolsDir string
 	charm    *charm.GitDir
@@ -41,61 +42,73 @@ type Uniter struct {
 // NewUniter creates a new Uniter which will install, run, and upgrade a
 // charm on behalf of the named unit, by executing hooks and operations
 // provoked by changes in st.
-func NewUniter(st *state.State, name string, dataDir string) (u *Uniter, err error) {
-	defer trivial.ErrorContextf(&err, "failed to create uniter for unit %q", name)
-	unit, err := st.Unit(name)
-	if err != nil {
-		return nil, err
+func NewUniter(st *state.State, name string, dataDir string) *Uniter {
+	u := &Uniter{
+		st:      st,
+		dataDir: dataDir,
 	}
-	pathKey := unit.PathKey()
-	toolsDir := environs.AgentToolsDir(dataDir, pathKey)
-	if err := EnsureJujucSymlinks(toolsDir); err != nil {
-		return nil, err
-	}
-	baseDir := filepath.Join(dataDir, "agents", pathKey)
-	if err := trivial.EnsureDir(filepath.Join(baseDir, "state")); err != nil {
-		return nil, err
-	}
-	service, err := st.Service(unit.ServiceName())
-	if err != nil {
-		return nil, err
-	}
-	pinger, err := unit.SetAgentAlive()
-	if err != nil {
-		return nil, err
-	}
-	u = &Uniter{
-		st:       st,
-		unit:     unit,
-		service:  service,
-		pinger:   pinger,
-		baseDir:  baseDir,
-		toolsDir: toolsDir,
-		charm:    charm.NewGitDir(filepath.Join(baseDir, "charm")),
-		bundles:  charm.NewBundlesDir(filepath.Join(baseDir, "state", "bundles")),
-		deployer: charm.NewDeployer(filepath.Join(baseDir, "state", "deployer")),
-		sf:       NewStateFile(filepath.Join(baseDir, "state", "uniter")),
-		rand:     rand.New(rand.NewSource(time.Now().Unix())),
-	}
-	go u.loop()
-	return u, nil
+	go func() {
+		err := u.loop(name)
+		log.Printf("uniter shutting down: %s", err)
+		u.tomb.Kill(err)
+		if u.pinger != nil {
+			u.tomb.Kill(u.pinger.Stop())
+		}
+		u.tomb.Done()
+	}()
+	return u
 }
 
-func (u *Uniter) loop() {
+func (u *Uniter) loop(name string) error {
+	if err := u.init(name); err != nil {
+		return err
+	}
 	var err error
 	mode := ModeInit
 	for mode != nil {
 		mode, err = mode(u)
 	}
-	log.Printf("uniter shutting down: %s", err)
-	u.tomb.Kill(err)
-	u.tomb.Kill(u.pinger.Stop())
-	u.tomb.Done()
+	return err
+}
+
+func (u *Uniter) init(name string) (err error) {
+	defer trivial.ErrorContextf(&err, "failed to initialize uniter for unit %q", name)
+	u.unit, err = u.st.Unit(name)
+	if err != nil {
+		return err
+	}
+	pathKey := u.unit.PathKey()
+	u.toolsDir = environs.AgentToolsDir(u.dataDir, pathKey)
+	if err := EnsureJujucSymlinks(u.toolsDir); err != nil {
+		return err
+	}
+	u.baseDir = filepath.Join(u.dataDir, "agents", pathKey)
+	if err := trivial.EnsureDir(filepath.Join(u.baseDir, "state")); err != nil {
+		return err
+	}
+	u.service, err = u.st.Service(u.unit.ServiceName())
+	if err != nil {
+		return err
+	}
+	u.pinger, err = u.unit.SetAgentAlive()
+	if err != nil {
+		return err
+	}
+	u.charm = charm.NewGitDir(filepath.Join(u.baseDir, "charm"))
+	u.bundles = charm.NewBundlesDir(filepath.Join(u.baseDir, "state", "bundles"))
+	u.deployer = charm.NewDeployer(filepath.Join(u.baseDir, "state", "deployer"))
+	u.sf = NewStateFile(filepath.Join(u.baseDir, "state", "uniter"))
+	u.rand = rand.New(rand.NewSource(time.Now().Unix()))
+	return nil
 }
 
 func (u *Uniter) Stop() error {
 	u.tomb.Kill(nil)
 	return u.Wait()
+}
+
+func (u *Uniter) String() string {
+	return "uniter worker for " + u.unit.Name()
 }
 
 func (u *Uniter) Dying() <-chan struct{} {

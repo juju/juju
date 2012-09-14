@@ -55,8 +55,9 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 			return nil, err
 		}
 		return ModeInstalling(sch), nil
-	} else if err != nil {
-		return nil, err
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot read charm state: %v", err)
 	}
 
 	// Filter out states not related to charm deployment.
