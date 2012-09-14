@@ -30,6 +30,7 @@ func Main(args []string) {
 	juju.Register(&DeployCommand{})
 	juju.Register(&DestroyEnvironmentCommand{})
 	juju.Register(&ExposeCommand{})
+	juju.Register(&GetCommand{})
 	juju.Register(&StatusCommand{})
 	juju.Register(&UnexposeCommand{})
 	juju.Register(&UpgradeJujuCommand{})
