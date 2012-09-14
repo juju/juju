@@ -69,8 +69,8 @@ func (s *ConfigSuite) TestGetConfig(c *C) {
 		c.Check(code, Equals, 0)
 		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), Equals, "")
 		// round trip via goyaml to avoid being sucked into a quagmire of
-		// map[interface{}]interface{} vs map[string]interface{}. This also
-		// required if we add json support to this command.
+		// map[interface{}]interface{} vs map[string]interface{}. This is
+		// also required if we add json support to this command.
 		buf, err := goyaml.Marshal(t.expected)
 		c.Assert(err, IsNil)
 		expected := make(map[string]interface{})

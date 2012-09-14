@@ -23,10 +23,11 @@ func (c *GetCommand) Info() *cmd.Info {
 
 func (c *GetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	addEnvironFlags(&c.EnvName, f)
-	// TODO(dfc) add cmd.NewFormatter to avoid this
+	// TODO(dfc) add json formatting ?
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 	})
+	// TODO(dfc) add --schema-only
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
@@ -70,7 +71,7 @@ func (c *GetCommand) Run(ctx *cmd.Context) error {
 	return c.out.Write(ctx, result)
 }
 
-// merge service and charm settings
+// merge service settings and charm schema
 func merge(svcfg map[string]interface{}, chcfg map[string]charm.Option) map[string]interface{} {
 	r := make(map[string]interface{})
 	for k, v := range chcfg {
