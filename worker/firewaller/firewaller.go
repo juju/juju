@@ -232,6 +232,10 @@ func (fw *Firewaller) stopWatchers() {
 	}
 }
 
+func (fw *Firewaller) String() string {
+	return "firewaller worker"
+}
+
 // Dying returns a channel that signals a Firewaller exit.
 func (fw *Firewaller) Dying() <-chan struct{} {
 	return fw.tomb.Dying()
