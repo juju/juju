@@ -91,9 +91,9 @@ func (u *Upgrader) run() error {
 	w := u.st.WatchEnvironConfig()
 	defer watcher.Stop(w, &u.tomb)
 
-	// We can't use worker.WaitForEnviron because then we miss the
-	// first config event, so we initialise the environ when we are
-	// first able.
+	// We can't use worker.WaitForEnviron because then we don't see
+	// the first event from the watcher, which contains version
+	// information that we must see.
 	var environ environs.Environ
 
 	// TODO(rog) retry downloads when they fail.
