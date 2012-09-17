@@ -388,3 +388,180 @@ func assertSameMachines(c *C, change *state.MachinesChange, added, removed []int
 	}
 	c.Assert(got, DeepEquals, removed)
 }
+
+var servicesWatchTests = []struct {
+	test    func(*C, *state.State, *state.Charm)
+	added   []string
+	removed []string
+}{
+	{
+		test:  func(_ *C, _ *state.State, _ *state.Charm) {},
+		added: []string{},
+	},
+	{
+		test: func(c *C, s *state.State, ch *state.Charm) {
+			_, err := s.AddService("0", ch)
+			c.Assert(err, IsNil)
+		},
+		added: []string{"0"},
+	},
+	{
+		test: func(c *C, s *state.State, ch *state.Charm) {
+			_, err := s.AddService("1", ch)
+			c.Assert(err, IsNil)
+		},
+		added: []string{"1"},
+	},
+	{
+		test: func(c *C, s *state.State, ch *state.Charm) {
+			_, err := s.AddService("2", ch)
+			c.Assert(err, IsNil)
+			_, err = s.AddService("3", ch)
+			c.Assert(err, IsNil)
+		},
+		added: []string{"2", "3"},
+	},
+	{
+		test: func(c *C, s *state.State, _ *state.Charm) {
+			svc3, err := s.Service("3")
+			c.Assert(err, IsNil)
+			err = svc3.Die()
+			c.Assert(err, IsNil)
+			err = s.RemoveService(svc3)
+			c.Assert(err, IsNil)
+		},
+		removed: []string{"3"},
+	},
+	{
+		test: func(c *C, s *state.State, _ *state.Charm) {
+			svc0, err := s.Service("0")
+			c.Assert(err, IsNil)
+			err = svc0.Die()
+			c.Assert(err, IsNil)
+			err = s.RemoveService(svc0)
+			c.Assert(err, IsNil)
+			svc2, err := s.Service("2")
+			c.Assert(err, IsNil)
+			err = svc2.Die()
+			c.Assert(err, IsNil)
+			err = s.RemoveService(svc2)
+			c.Assert(err, IsNil)
+		},
+		removed: []string{"0", "2"},
+	},
+	{
+		test: func(c *C, s *state.State, ch *state.Charm) {
+			_, err := s.AddService("4", ch)
+			c.Assert(err, IsNil)
+			svc1, err := s.Service("1")
+			c.Assert(err, IsNil)
+			err = svc1.Die()
+			c.Assert(err, IsNil)
+			err = s.RemoveService(svc1)
+			c.Assert(err, IsNil)
+		},
+		added:   []string{"4"},
+		removed: []string{"1"},
+	},
+	{
+		test: func(c *C, s *state.State, ch *state.Charm) {
+			services := [20]*state.Service{}
+			var err error
+			for i := 0; i < len(services); i++ {
+				services[i], err = s.AddService("s"+fmt.Sprint(i), ch)
+				c.Assert(err, IsNil)
+			}
+			for i := 10; i < len(services); i++ {
+				err = services[i].Die()
+				c.Assert(err, IsNil)
+				err = s.RemoveService(services[i])
+				c.Assert(err, IsNil)
+			}
+		},
+		added: []string{"s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9"},
+	},
+	{
+		test: func(c *C, s *state.State, ch *state.Charm) {
+			_, err := s.AddService("twenty five", ch)
+			c.Assert(err, IsNil)
+			svc9, err := s.Service("s9")
+			c.Assert(err, IsNil)
+			err = svc9.Die()
+			c.Assert(err, IsNil)
+			err = s.RemoveService(svc9)
+			c.Assert(err, IsNil)
+		},
+		added:   []string{"twenty five"},
+		removed: []string{"s9"},
+	},
+}
+
+func (s *StateSuite) TestWatchServices(c *C) {
+	serviceWatcher := s.State.WatchServices()
+	defer func() {
+		c.Assert(serviceWatcher.Stop(), IsNil)
+	}()
+	charm := s.AddTestingCharm(c, "dummy")
+	for i, test := range servicesWatchTests {
+		c.Logf("test %d", i)
+		test.test(c, s.State, charm)
+		s.State.StartSync()
+		got := &state.ServicesChange{}
+		for {
+			select {
+			case new, ok := <-serviceWatcher.Changes():
+				c.Assert(ok, Equals, true)
+				addServiceChanges(got, new)
+				if moreServicesRequired(got, test.added, test.removed) {
+					continue
+				}
+				assertSameServices(c, got, test.added, test.removed)
+			case <-time.After(500 * time.Millisecond):
+				c.Fatalf("did not get change, want: added: %#v, removed: %#v, got: %#v", test.added, test.removed, got)
+			}
+			break
+		}
+	}
+	select {
+	case got := <-serviceWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func moreServicesRequired(got *state.ServicesChange, added, removed []string) bool {
+	return len(got.Added)+len(got.Removed) < len(added)+len(removed)
+}
+
+func addServiceChanges(changes *state.ServicesChange, more *state.ServicesChange) {
+	changes.Added = append(changes.Added, more.Added...)
+	changes.Removed = append(changes.Removed, more.Removed...)
+}
+
+type serviceSlice []*state.Service
+
+func (m serviceSlice) Len() int           { return len(m) }
+func (m serviceSlice) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
+func (m serviceSlice) Less(i, j int) bool { return m[i].Name() < m[j].Name() }
+
+func assertSameServices(c *C, change *state.ServicesChange, added, removed []string) {
+	c.Assert(change, NotNil)
+	if len(added) == 0 {
+		added = nil
+	}
+	if len(removed) == 0 {
+		removed = nil
+	}
+	sort.Sort(serviceSlice(change.Added))
+	sort.Sort(serviceSlice(change.Removed))
+	var got []string
+	for _, g := range change.Added {
+		got = append(got, g.Name())
+	}
+	c.Assert(got, DeepEquals, added)
+	got = nil
+	for _, g := range change.Removed {
+		got = append(got, g.Name())
+	}
+	c.Assert(got, DeepEquals, removed)
+}

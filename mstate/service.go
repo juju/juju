@@ -26,6 +26,10 @@ type serviceDoc struct {
 	Exposed    bool
 }
 
+func newService(st *State, doc *serviceDoc) *Service {
+	return &Service{st: st, doc: *doc}
+}
+
 // Name returns the service name.
 func (s *Service) Name() string {
 	return s.doc.Name
