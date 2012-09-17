@@ -232,6 +232,16 @@ func (s *UnitSuite) TestGetOpenPorts(c *C) {
 		{"tcp", 53},
 		{"tcp", 443},
 	})
+
+	err = s.unit.ClosePort("tcp", 80)
+	c.Assert(err, IsNil)
+	open, err = s.unit.OpenPorts()
+	c.Assert(err, IsNil)
+	c.Assert(open, DeepEquals, []state.Port{
+		{"udp", 53},
+		{"tcp", 53},
+		{"tcp", 443},
+	})
 }
 
 func (s *UnitSuite) TestGetSetClearUnitUpgrade(c *C) {
