@@ -1,6 +1,11 @@
 package main
 
 import (
+	"net/http"
+	"os"
+	"path/filepath"
+	"reflect"
+
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
@@ -8,9 +13,6 @@ import (
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/version"
-	"net/http"
-	"os"
-	"reflect"
 )
 
 type CmdSuite struct {
@@ -182,9 +184,6 @@ var deployTests = []struct {
 		[]string{"charm-name", "service-name"},
 		&DeployCommand{ServiceName: "service-name"},
 	}, {
-		[]string{"--config", "/path/to/config.yaml", "charm-name"},
-		&DeployCommand{ConfPath: "/path/to/config.yaml"},
-	}, {
 		[]string{"--repository", "/path/to/another-repo", "charm-name"},
 		&DeployCommand{RepoPath: "/path/to/another-repo"},
 	}, {
@@ -230,8 +229,20 @@ func (*CmdSuite) TestDeployCommandInit(c *C) {
 		c.Assert(com, DeepEquals, t.com)
 	}
 
+	// test --config path
+	dir := c.MkDir()
+	path := filepath.Join(dir, "testconfig.yaml")
+	file, err := os.Create(path)
+	c.Assert(err, IsNil)
+	file.Close()
+	com, err := initDeployCommand("--config", path, "charm-name")
+	c.Assert(err, IsNil)
+	defer com.Config.Close()
+	c.Assert(com.Config.Path, Equals, path)
+	c.Assert(com.Config.ReadCloser, NotNil)
+
 	// missing args
-	_, err := initDeployCommand()
+	_, err = initDeployCommand()
 	c.Assert(err, ErrorMatches, "no charm specified")
 
 	// bad unit count

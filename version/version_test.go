@@ -2,6 +2,7 @@ package version_test
 
 import (
 	"."
+	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"strings"
 	"testing"
@@ -165,4 +166,30 @@ func (suite) TestParseBinary(c *C) {
 			c.Check(got.IsDev(), Equals, test.dev)
 		}
 	}
+}
+
+func (suite) TestBinaryBSON(c *C) {
+	type doc struct {
+		Version version.Binary
+	}
+	v := doc{version.MustParseBinary("1.2.3-foo-bar")}
+	data, err := bson.Marshal(v)
+	c.Assert(err, IsNil)
+	var nv doc
+	err = bson.Unmarshal(data, &nv)
+	c.Assert(err, IsNil)
+	c.Assert(v, Equals, nv)
+}
+
+func (suite) TestNumberBSON(c *C) {
+	type doc struct {
+		Version version.Number
+	}
+	v := doc{version.MustParse("1.2.3")}
+	data, err := bson.Marshal(&v)
+	c.Assert(err, IsNil)
+	var nv doc
+	err = bson.Unmarshal(data, &nv)
+	c.Assert(err, IsNil)
+	c.Assert(v, Equals, nv)
 }

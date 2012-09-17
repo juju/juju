@@ -2,10 +2,12 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -18,7 +20,18 @@ import (
 var _ = Suite(&upgraderSuite{})
 
 type upgraderSuite struct {
+	oldVersion version.Binary
 	testing.JujuConnSuite
+}
+
+func (s *upgraderSuite) SetUpTest(c *C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.oldVersion = version.Current
+}
+
+func (s *upgraderSuite) TearDownTest(c *C) {
+	version.Current = s.oldVersion
+	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *upgraderSuite) TestUpgraderError(c *C) {
@@ -51,7 +64,7 @@ func (s *upgraderSuite) proposeVersion(c *C, vers version.Number, development bo
 	c.Assert(err, IsNil)
 }
 
-func (s *upgraderSuite) uploadTools(c *C, vers version.Binary) (path string, tools *state.Tools) {
+func (s *upgraderSuite) uploadTools(c *C, vers version.Binary) *state.Tools {
 	tgz := coretesting.TarGz(
 		coretesting.NewTarFile("juju", 0777, "juju contents "+vers.String()),
 		coretesting.NewTarFile("jujuc", 0777, "jujuc contents "+vers.String()),
@@ -60,10 +73,9 @@ func (s *upgraderSuite) uploadTools(c *C, vers version.Binary) (path string, too
 	storage := s.Conn.Environ.Storage()
 	err := storage.Put(environs.ToolsStoragePath(vers), bytes.NewReader(tgz), int64(len(tgz)))
 	c.Assert(err, IsNil)
-	path = environs.ToolsStoragePath(vers)
-	url, err := s.Conn.Environ.Storage().URL(path)
+	url, err := s.Conn.Environ.Storage().URL(environs.ToolsStoragePath(vers))
 	c.Assert(err, IsNil)
-	return path, &state.Tools{URL: url, Binary: vers}
+	return &state.Tools{URL: url, Binary: vers}
 }
 
 type proposal struct {
@@ -73,6 +85,7 @@ type proposal struct {
 
 var upgraderTests = []struct {
 	about      string
+	current    string   // current version.
 	upload     []string // Upload these tools versions.
 	propose    string   // Propose this version...
 	devVersion bool     // ... with devVersion set to this.
@@ -111,29 +124,26 @@ var upgraderTests = []struct {
 	about:     "propose downgrade",
 	propose:   "2.0.5",
 	upgradeTo: "2.0.5",
+}, {
+	about:     "upgrade with no proposal",
+	current:   "2.0.6-foo-bar",
+	upgradeTo: "2.0.5",
 },
 }
 
 func (s *upgraderSuite) TestUpgrader(c *C) {
-	// Set up the current version and tools.
-	version.Current = version.MustParseBinary("2.0.0-foo-bar")
-	v0path, v0tools := s.uploadTools(c, version.Current)
-
-	dataDir := c.MkDir()
-	// Unpack the "current" version of the tools, and delete them from
-	// the storage so that we're sure that the uploader isn't trying
-	// to fetch them.
-	resp, err := http.Get(v0tools.URL)
+	dataDir, currentTools := s.primeTools(c, version.MustParseBinary("2.0.0-foo-bar"))
+	// Remove the tools from the storage so that we're sure that the
+	// uploader isn't trying to fetch them.
+	resp, err := http.Get(currentTools.URL)
 	c.Assert(err, IsNil)
-	err = environs.UnpackTools(dataDir, v0tools, resp.Body)
+	err = environs.UnpackTools(dataDir, currentTools, resp.Body)
 	c.Assert(err, IsNil)
-	err = s.Conn.Environ.Storage().Remove(v0path)
-	c.Assert(err, IsNil)
+	s.removeVersion(c, currentTools.Binary)
 
 	var (
 		u            *Upgrader
 		upgraderDone <-chan error
-		currentTools = v0tools
 	)
 
 	defer func() {
@@ -148,13 +158,20 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 		for _, v := range test.upload {
 			vers := version.Current
 			vers.Number = version.MustParse(v)
-			_, tools := s.uploadTools(c, vers)
+			tools := s.uploadTools(c, vers)
 			uploaded[vers.Number] = tools
+		}
+		if test.current != "" {
+			version.Current = version.MustParseBinary(test.current)
+			currentTools, err = environs.ReadTools(dataDir, version.Current)
+			c.Assert(err, IsNil)
 		}
 		if u == nil {
 			u = startUpgrader(c, s.State, dataDir, currentTools)
 		}
-		s.proposeVersion(c, version.MustParse(test.propose), test.devVersion)
+		if test.propose != "" {
+			s.proposeVersion(c, version.MustParse(test.propose), test.devVersion)
+		}
 		if test.upgradeTo == "" {
 			assertNothingHappens(c, upgraderDone)
 		} else {
@@ -170,6 +187,102 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 			version.Current = tools.Binary
 		}
 	}
+}
+
+var delayedStopTests = []struct {
+	about             string
+	upgraderKillDelay time.Duration
+	storageDelay      time.Duration
+	propose           string
+	err               string
+}{{
+	about:             "same version",
+	upgraderKillDelay: time.Second,
+	propose:           "2.0.3",
+}, {
+	about:             "same version found for higher proposed version",
+	upgraderKillDelay: time.Second,
+	propose:           "2.0.4",
+}, {
+	about:             "no appropriate version found",
+	upgraderKillDelay: time.Second,
+	propose:           "2.0.3",
+}, {
+	about:             "time out",
+	propose:           "2.0.6",
+	storageDelay:      time.Second,
+	upgraderKillDelay: 10 * time.Millisecond,
+	err:               "upgrader aborted download.*",
+}, {
+	about:             "successful upgrade",
+	upgraderKillDelay: time.Second,
+	propose:           "2.0.6",
+	// enough delay that the stop will probably arrive before the
+	// tools have downloaded, thus checking that the
+	// upgrader really did wait for the download.
+	storageDelay: 5 * time.Millisecond,
+	err:          `must restart:.*2\.0\.6.*`,
+}, {
+	about:             "fetch error",
+	upgraderKillDelay: time.Second,
+	propose:           "2.0.7",
+},
+}
+
+func (s *upgraderSuite) TestDelayedStop(c *C) {
+	defer dummy.SetStorageDelay(0)
+	dataDir, tools := s.primeTools(c, version.MustParseBinary("2.0.3-foo-bar"))
+	s.uploadTools(c, version.MustParseBinary("2.0.5-foo-bar"))
+	s.uploadTools(c, version.MustParseBinary("2.0.6-foo-bar"))
+	s.uploadTools(c, version.MustParseBinary("2.0.6-foo-bar"))
+	s.uploadTools(c, version.MustParseBinary("2.0.7-foo-bar"))
+	s.poisonVersion(version.MustParseBinary("2.0.7-foo-bar"))
+
+	for i, test := range delayedStopTests {
+		c.Logf("%d. %v", i, test.about)
+		upgraderKillDelay = test.upgraderKillDelay
+		dummy.SetStorageDelay(test.storageDelay)
+		proposed := version.MustParse(test.propose)
+		s.proposeVersion(c, proposed, true)
+		u := startUpgrader(c, s.State, dataDir, tools)
+		t0 := time.Now()
+		err := u.Stop()
+		d := time.Now().Sub(t0)
+		if d > 100*time.Millisecond {
+			c.Errorf("upgrader took took too long: %v", d)
+		}
+		if test.err == "" {
+			c.Check(err, IsNil)
+		} else {
+			c.Check(err, ErrorMatches, test.err)
+		}
+	}
+}
+
+func (s *upgraderSuite) poisonVersion(vers version.Binary) {
+	path := environs.ToolsStoragePath(vers)
+	dummy.Poison(s.Conn.Environ.Storage(), path, fmt.Errorf("poisoned file"))
+}
+
+func (s *upgraderSuite) removeVersion(c *C, vers version.Binary) {
+	path := environs.ToolsStoragePath(vers)
+	err := s.Conn.Environ.Storage().Remove(path)
+	c.Assert(err, IsNil)
+}
+
+// primeTools sets up the current version of the tools to vers and
+// makes sure that they're available in the returned dataDir.
+func (s *upgraderSuite) primeTools(c *C, vers version.Binary) (dataDir string, tools *state.Tools) {
+	dataDir = c.MkDir()
+	// Set up the current version and tools.
+	version.Current = vers
+	tools = s.uploadTools(c, vers)
+	resp, err := http.Get(tools.URL)
+	c.Assert(err, IsNil)
+	defer resp.Body.Close()
+	err = environs.UnpackTools(dataDir, tools, resp.Body)
+	c.Assert(err, IsNil)
+	return dataDir, tools
 }
 
 func assertNothingHappens(c *C, upgraderDone <-chan error) {

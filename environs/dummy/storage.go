@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 )
 
 func (e *environ) Storage() environs.Storage {
@@ -21,10 +22,20 @@ func (e *environ) PublicStorage() environs.StorageReader {
 
 func newStorage(state *environState, path string) *storage {
 	return &storage{
-		state: state,
-		files: make(map[string][]byte),
-		path:  path,
+		state:    state,
+		files:    make(map[string][]byte),
+		path:     path,
+		poisoned: make(map[string]error),
 	}
+}
+
+// Poison causes all fetches of the given path to
+// return the given error.
+func Poison(ss environs.Storage, path string, err error) {
+	s := ss.(*storage)
+	s.state.mu.Lock()
+	s.poisoned[path] = err
+	s.state.mu.Unlock()
 }
 
 func (s *storage) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -32,11 +43,9 @@ func (s *storage) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "only GET is supported", http.StatusMethodNotAllowed)
 		return
 	}
-	s.state.mu.Lock()
-	data, ok := s.files[req.URL.Path]
-	s.state.mu.Unlock()
-	if !ok {
-		http.NotFound(w, req)
+	data, err := s.dataWithDelay(req.URL.Path)
+	if err != nil {
+		http.Error(w, "404 "+err.Error(), http.StatusNotFound)
 		return
 	}
 	w.Header().Set("Content-Type", "application/octet-stream")
@@ -44,6 +53,34 @@ func (s *storage) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// It's more likely because the client has legitimately dropped the
 	// connection.
 	w.Write(data)
+}
+
+func (s *storage) Get(name string) (io.ReadCloser, error) {
+	data, err := s.dataWithDelay(name)
+	if err != nil {
+		return nil, err
+	}
+	return ioutil.NopCloser(bytes.NewBuffer(data)), nil
+}
+
+// dataWithDelay returns the data for the given path,
+// waiting for the configured amount of time before
+// accessing it.
+func (s *storage) dataWithDelay(path string) (data []byte, err error) {
+	s.state.mu.Lock()
+	delay := s.state.storageDelay
+	s.state.mu.Unlock()
+	time.Sleep(delay)
+	s.state.mu.Lock()
+	defer s.state.mu.Unlock()
+	if err := s.poisoned[path]; err != nil {
+		return nil, err
+	}
+	data, ok := s.files[path]
+	if !ok {
+		return nil, &environs.NotFoundError{fmt.Errorf("file %q not found", path)}
+	}
+	return data, nil
 }
 
 func (s *storage) URL(name string) (string, error) {
@@ -64,16 +101,6 @@ func (s *storage) Put(name string, r io.Reader, length int64) error {
 	s.files[name] = buf.Bytes()
 	s.state.mu.Unlock()
 	return nil
-}
-
-func (s *storage) Get(name string) (io.ReadCloser, error) {
-	s.state.mu.Lock()
-	defer s.state.mu.Unlock()
-	data, ok := s.files[name]
-	if !ok {
-		return nil, &environs.NotFoundError{fmt.Errorf("file %q not found", name)}
-	}
-	return ioutil.NopCloser(bytes.NewBuffer(data)), nil
 }
 
 func (s *storage) Remove(name string) error {
