@@ -5,16 +5,40 @@ import (
 	"launchpad.net/tomb"
 )
 
+// commonWatcher is part of all client watchers.
+type commonWatcher struct {
+	st   *State
+	tomb tomb.Tomb
+}
+
 // MachineWatcher observes changes to the settings of a machine.
 type MachineWatcher struct {
+	commonWatcher
 	changeChan chan *Machine
-	tomb       tomb.Tomb
+}
+
+// MachinesWatcher notifies about machines being added or removed
+// from the environment.
+type MachinesWatcher struct {
+	commonWatcher
+	changeChan    chan *MachinesChange
+	knownMachines map[int]*Machine
+}
+
+// MachinesChange contains information about
+// machines that have been added or deleted.
+type MachinesChange struct {
+	Added   []*Machine
+	Removed []*Machine
 }
 
 // newMachineWatcher creates and starts a watcher to watch information
 // about the machine.
 func newMachineWatcher(m *Machine) *MachineWatcher {
-	w := &MachineWatcher{changeChan: make(chan *Machine)}
+	w := &MachineWatcher{
+		changeChan:    make(chan *Machine),
+		commonWatcher: commonWatcher{st: m.st},
+	}
 	go func() {
 		defer w.tomb.Done()
 		defer close(w.changeChan)
