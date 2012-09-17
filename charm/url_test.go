@@ -2,6 +2,7 @@ package charm_test
 
 import (
 	"fmt"
+	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 )
@@ -104,6 +105,23 @@ func (s *URLSuite) TestWithRevision(c *C) {
 	// Should always copy. The opposite behavior is error prone.
 	c.Assert(other.WithRevision(1), Not(Equals), other)
 	c.Assert(other.WithRevision(1), DeepEquals, other)
+}
+
+func (s *URLSuite) TestBSON(c *C) {
+	type doc struct {
+		URL *charm.URL
+	}
+	url := charm.MustParseURL("cs:series/name")
+	data, err := bson.Marshal(doc{url})
+	c.Assert(err, IsNil)
+	var v doc
+	err = bson.Unmarshal(data, &v)
+	c.Assert(v.URL, DeepEquals, url)
+
+	data, err = bson.Marshal(doc{})
+	c.Assert(err, IsNil)
+	err = bson.Unmarshal(data, &v)
+	c.Assert(v.URL, IsNil)
 }
 
 type QuoteSuite struct{}

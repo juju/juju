@@ -13,7 +13,7 @@ type DeployCommand struct {
 	EnvName      string
 	CharmName    string
 	ServiceName  string
-	ConfPath     string
+	Config       cmd.FileVar
 	NumUnits     int // defaults to 1
 	BumpRevision bool
 	RepoPath     string // defaults to JUJU_REPOSITORY
@@ -52,7 +52,7 @@ func (c *DeployCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision")
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
-	f.StringVar(&c.ConfPath, "config", "", "path to yaml-formatted service config")
+	f.Var(&c.Config, "config", "path to yaml-formatted service config")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv("JUJU_REPOSITORY"), "local charm repository")
 	// TODO --constraints
 	if err := f.Parse(true, args); err != nil {
@@ -98,7 +98,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	if c.ConfPath != "" {
+	if c.Config.ReadCloser != nil {
 		// TODO many dependencies :(
 		return errors.New("state.Service.SetConfig not implemented (format 2...)")
 	}

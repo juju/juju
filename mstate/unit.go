@@ -70,6 +70,7 @@ type unitDoc struct {
 	PrivateAddress string
 	MachineId      *int
 	Resolved       ResolvedMode
+	Tools          *Tools `bson:",omitempty"`
 	Life           Life
 }
 
@@ -109,6 +110,36 @@ func (u *Unit) globalKey() string {
 // Life returns whether the unit is Alive, Dying or Dead.
 func (u *Unit) Life() Life {
 	return u.doc.Life
+}
+
+// AgentTools returns the tools that the agent is currently running.
+func (u *Unit) AgentTools() (*Tools, error) {
+	if u.doc.Tools == nil {
+		return &Tools{}, nil
+	}
+	tools := *u.doc.Tools
+	return &tools, nil
+}
+
+// SetAgentTools sets the tools that the agent is currently running.
+func (u *Unit) SetAgentTools(t *Tools) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot set agent tools for unit %v", u)
+	if t.Series == "" || t.Arch == "" {
+		return fmt.Errorf("empty series or arch")
+	}
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: D{{"life", Alive}},
+		Update: D{{"$set", D{{"tools", t}}}},
+	}}
+	err = u.st.runner.Run(ops, "", nil)
+	if err != nil {
+		return deadOnAbort(err)
+	}
+	tools := *t
+	u.doc.Tools = &tools
+	return nil
 }
 
 // Kill sets the unit lifecycle to Dying if it is Alive.
@@ -231,7 +262,7 @@ func (u *Unit) SetCharm(ch *Charm) (err error) {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: D{{"life", Alive}},
+		Assert: D{{"life", D{{"$ne", Dead}}}},
 		Update: D{{"$set", D{{"charmurl", ch.URL()}}}},
 	}}
 	err = u.st.runner.Run(ops, "", nil)

@@ -99,10 +99,10 @@ func (s *Service) ClearExposed() error {
 	return nil
 }
 
-// Charm returns the service's charm, and whether units should upgrade to that
+// Charm returns the service's charm and whether units should upgrade to that
 // charm even if they are in an error state.
-func (s *Service) Charm() (*Charm, bool, error) {
-	ch, err := s.st.Charm(s.doc.CharmURL)
+func (s *Service) Charm() (ch *Charm, force bool, err error) {
+	ch, err = s.st.Charm(s.doc.CharmURL)
 	if err != nil {
 		return nil, false, err
 	}
