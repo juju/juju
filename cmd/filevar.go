@@ -1,10 +1,8 @@
 package cmd
 
 import (
-	"os"
 	"io"
-
-        "launchpad.net/gnuflag"
+	"os"
 )
 
 // FileVar represents a path to a file. If the flag is 
@@ -18,7 +16,9 @@ type FileVar struct {
 // Set opens the file. 
 func (f *FileVar) Set(v string) error {
 	file, err := os.Open(v)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	f.ReadCloser = file
 	f.Path = v
 	return nil
@@ -28,8 +28,3 @@ func (f *FileVar) Set(v string) error {
 func (f *FileVar) String() string {
 	return f.Path
 }
-
-func (f *FileVar) AddFlags(fs *gnuflag.FlagSet, name, desc string) {
-        fs.Var(f, name, desc)
-}
-

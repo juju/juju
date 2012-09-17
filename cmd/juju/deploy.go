@@ -52,7 +52,7 @@ func (c *DeployCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision")
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
-	c.Config.AddFlags(f, "config", "path to yaml-formatted service config")
+	f.Var(&c.Config, "config", "path to yaml-formatted service config")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv("JUJU_REPOSITORY"), "local charm repository")
 	// TODO --constraints
 	if err := f.Parse(true, args); err != nil {
