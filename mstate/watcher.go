@@ -133,7 +133,7 @@ func (w *MachinesWatcher) Stop() error {
 	return w.tomb.Wait()
 }
 
-func (w *MachinesWatcher) appendChange(changes *MachinesChange, ch watcher.Change) (err error) {
+func (w *MachinesWatcher) mergeChange(changes *MachinesChange, ch watcher.Change) (err error) {
 	id := ch.Id.(int)
 	if m, ok := w.knownMachines[id]; ch.Revno == -1 && ok {
 		m.doc.Life = Dead
@@ -193,7 +193,7 @@ func (w *MachinesWatcher) loop() (err error) {
 				return tomb.ErrDying
 			case c := <-ch:
 				changes = &MachinesChange{}
-				err := w.appendChange(changes, c)
+				err := w.mergeChange(changes, c)
 				if err != nil {
 					return err
 				}
@@ -209,7 +209,7 @@ func (w *MachinesWatcher) loop() (err error) {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c := <-ch:
-			err := w.appendChange(changes, c)
+			err := w.mergeChange(changes, c)
 			if err != nil {
 				return err
 			}
