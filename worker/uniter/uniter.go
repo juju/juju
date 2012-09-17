@@ -98,6 +98,10 @@ func (u *Uniter) Stop() error {
 	return u.Wait()
 }
 
+func (u *Uniter) String() string {
+	return "uniter for " + u.unit.Name()
+}
+
 func (u *Uniter) Dying() <-chan struct{} {
 	return u.tomb.Dying()
 }

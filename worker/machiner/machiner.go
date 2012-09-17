@@ -1,6 +1,7 @@
 package machiner
 
 import (
+	"fmt"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
@@ -76,6 +77,10 @@ func (m *Machiner) loop() {
 			}
 		}
 	}
+}
+
+func (a *Machiner) String() string {
+	return fmt.Sprintf("machiner for machine %d", a.machine.Id())
 }
 
 // Wait waits until the Machiner has died, and returns the error encountered.
