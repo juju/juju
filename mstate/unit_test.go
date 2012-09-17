@@ -104,6 +104,30 @@ func (s *UnitSuite) TestGetSetStatus(c *C) {
 	c.Assert(info, Equals, "test-hook failed")
 }
 
+func (s *UnitSuite) TestUnitCharm(c *C) {
+	_, err := s.unit.Charm()
+	c.Assert(err, ErrorMatches, `charm URL of unit "wordpress/0" not found`)
+
+	err = s.unit.SetCharm(s.charm)
+	c.Assert(err, IsNil)
+	ch, err := s.unit.Charm()
+	c.Assert(err, IsNil)
+	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
+
+	err = s.unit.Kill()
+	c.Assert(err, IsNil)
+	err = s.unit.SetCharm(s.charm)
+	c.Assert(err, IsNil)
+	ch, err = s.unit.Charm()
+	c.Assert(err, IsNil)
+	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
+
+	err = s.unit.Die()
+	c.Assert(err, IsNil)
+	err = s.unit.SetCharm(s.charm)
+	c.Assert(err, ErrorMatches, `cannot set charm for unit "wordpress/0": not found or not alive`)
+}
+
 func (s *UnitSuite) TestPathKey(c *C) {
 	c.Assert(s.unit.PathKey(), Equals, "unit-wordpress-0")
 }
@@ -176,57 +200,4 @@ func (s *UnitSuite) TestGetSetClearResolved(c *C) {
 
 	err = s.unit.SetResolved(state.ResolvedMode(999))
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": invalid error resolution mode: 999`)
-}
-
-func (s *UnitSuite) TestGetSetClearUnitUpgrade(c *C) {
-	// Defaults to false and false.
-	needsUpgrade, err := s.unit.NeedsUpgrade()
-	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{false, false})
-
-	// Can be set.
-	err = s.unit.SetNeedsUpgrade(false)
-	c.Assert(err, IsNil)
-	needsUpgrade, err = s.unit.NeedsUpgrade()
-	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{true, false})
-
-	// Can be set multiple times.
-	err = s.unit.SetNeedsUpgrade(false)
-	c.Assert(err, IsNil)
-	needsUpgrade, err = s.unit.NeedsUpgrade()
-	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{true, false})
-
-	// Can be cleared.
-	err = s.unit.ClearNeedsUpgrade()
-	c.Assert(err, IsNil)
-	needsUpgrade, err = s.unit.NeedsUpgrade()
-	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{false, false})
-
-	// Can be cleared multiple times
-	err = s.unit.ClearNeedsUpgrade()
-	c.Assert(err, IsNil)
-	needsUpgrade, err = s.unit.NeedsUpgrade()
-	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{false, false})
-
-	// Can be set forced.
-	err = s.unit.SetNeedsUpgrade(true)
-	c.Assert(err, IsNil)
-	needsUpgrade, err = s.unit.NeedsUpgrade()
-	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{true, true})
-
-	// Can be set forced multiple times.
-	err = s.unit.SetNeedsUpgrade(true)
-	c.Assert(err, IsNil)
-	needsUpgrade, err = s.unit.NeedsUpgrade()
-	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{true, true})
-
-	// Can't be set multiple times with different force flag.
-	err = s.unit.SetNeedsUpgrade(false)
-	c.Assert(err, ErrorMatches, `cannot inform unit "wordpress/0" about upgrade: upgrade already enabled`)
 }

@@ -18,11 +18,12 @@ type Service struct {
 
 // serviceDoc represents the internal state of a service in MongoDB.
 type serviceDoc struct {
-	Name     string `bson:"_id"`
-	CharmURL *charm.URL
-	Life     Life
-	UnitSeq  int
-	Exposed  bool
+	Name       string `bson:"_id"`
+	CharmURL   *charm.URL
+	ForceCharm bool
+	Life       Life
+	UnitSeq    int
+	Exposed    bool
 }
 
 // Name returns the service name.
@@ -64,27 +65,6 @@ func (s *Service) IsExposed() (bool, error) {
 	return s.doc.Exposed, nil
 }
 
-// CharmURL returns the charm URL this service is supposed to use.
-func (s *Service) CharmURL() (url *charm.URL, err error) {
-	return s.doc.CharmURL, nil
-}
-
-// SetCharmURL changes the charm URL for the service.
-func (s *Service) SetCharmURL(url *charm.URL) (err error) {
-	ops := []txn.Op{{
-		C:      s.st.services.Name,
-		Id:     s.doc.Name,
-		Assert: D{{"life", Alive}},
-		Update: D{{"$set", D{{"charmurl", url}}}},
-	}}
-	err = s.st.runner.Run(ops, "", nil)
-	if err != nil {
-		return fmt.Errorf("cannot set the charm URL of service %q: %v", s, deadOnAbort(err))
-	}
-	s.doc.CharmURL = url
-	return nil
-}
-
 // SetExposed marks the service as exposed.
 // See ClearExposed and IsExposed.
 func (s *Service) SetExposed() error {
@@ -119,13 +99,33 @@ func (s *Service) ClearExposed() error {
 	return nil
 }
 
-// Charm returns the service's charm.
-func (s *Service) Charm() (*Charm, error) {
-	url, err := s.CharmURL()
+// Charm returns the service's charm and whether units should upgrade to that
+// charm even if they are in an error state.
+func (s *Service) Charm() (ch *Charm, force bool, err error) {
+	ch, err = s.st.Charm(s.doc.CharmURL)
 	if err != nil {
-		panic(fmt.Errorf("cannot happen, err must be nil, got %v", err))
+		return nil, false, err
 	}
-	return s.st.Charm(url)
+	return ch, s.doc.ForceCharm, nil
+}
+
+// SetCharm changes the charm for the service. New units will be started with
+// this charm, and existing units will be upgraded to use it. If force is true,
+// units will be upgraded even if they are in an error state.
+func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
+	ops := []txn.Op{{
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: D{{"life", Alive}},
+		Update: D{{"$set", D{{"charmurl", ch.URL()}, {"forcecharm", force}}}},
+	}}
+	err = s.st.runner.Run(ops, "", nil)
+	if err != nil {
+		return fmt.Errorf("cannot set charm for service %q: %v", s, deadOnAbort(err))
+	}
+	s.doc.CharmURL = ch.URL()
+	s.doc.ForceCharm = force
+	return nil
 }
 
 // String returns the service name.
@@ -177,7 +177,7 @@ func (s *Service) addUnit(name string, principal string) (*Unit, error) {
 
 // AddUnit adds a new principal unit to the service.
 func (s *Service) AddUnit() (unit *Unit, err error) {
-	ch, err := s.Charm()
+	ch, _, err := s.Charm()
 	if err != nil {
 		return nil, fmt.Errorf("cannot add unit to service %q: %v", err)
 	}
@@ -194,7 +194,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 // AddUnitSubordinateTo adds a new subordinate unit to the service,
 // subordinate to principal.
 func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
-	ch, err := s.Charm()
+	ch, _, err := s.Charm()
 	if err != nil {
 		return nil, fmt.Errorf("cannot add unit to service %q: %v", err)
 	}
