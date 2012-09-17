@@ -185,22 +185,19 @@ func (w *MachinesWatcher) loop() (err error) {
 		return err
 	}
 	for {
-		if changes == nil {
+		for changes != nil {
 			select {
 			case <-w.st.watcher.Dead():
 				return watcher.MustErr(w.st.watcher)
 			case <-w.tomb.Dying():
 				return tomb.ErrDying
 			case c := <-ch:
-				changes = &MachinesChange{}
 				err := w.mergeChange(changes, c)
 				if err != nil {
 					return err
 				}
-				if changes.isEmpty() {
-					changes = nil
-				}
-				continue
+			case w.changeChan <- changes:
+				changes = nil
 			}
 		}
 		select {
@@ -209,12 +206,14 @@ func (w *MachinesWatcher) loop() (err error) {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c := <-ch:
+			changes = &MachinesChange{}
 			err := w.mergeChange(changes, c)
 			if err != nil {
 				return err
 			}
-		case w.changeChan <- changes:
-			changes = nil
+			if changes.isEmpty() {
+				changes = nil
+			}
 		}
 	}
 	return nil
