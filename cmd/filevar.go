@@ -7,24 +7,26 @@ import (
         "launchpad.net/gnuflag"
 )
 
-// FileVar represents a path to a file
+// FileVar represents a path to a file. If the flag is 
+// valid FileVar.ReadCloser will be non nil and FileVar
+// will be usable as an io.ReadCloser.
 type FileVar struct {
-	io.Reader
-	Name string
+	io.ReadCloser
+	Path string
 }
 
 // Set opens the file. 
 func (f *FileVar) Set(v string) error {
 	file, err := os.Open(v)
 	if err != nil { return err }
-	f.Reader = file
-	f.Name = v
+	f.ReadCloser = file
+	f.Path = v
 	return nil
 }
 
-// String returns the name of the file.
+// String returns the path to the file.
 func (f *FileVar) String() string {
-	return f.Name
+	return f.Path
 }
 
 func (f *FileVar) AddFlags(fs *gnuflag.FlagSet, name, desc string) {
