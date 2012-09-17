@@ -74,7 +74,7 @@ func (s *Service) SetCharmURL(url *charm.URL) (err error) {
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: D{{"life", Alive}},
+		Assert: notDead,
 		Update: D{{"$set", D{{"charmurl", url}}}},
 	}}
 	err = s.st.runner.Run(ops, "", nil)
@@ -91,7 +91,7 @@ func (s *Service) SetExposed() error {
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: D{{"life", Alive}},
+		Assert: notDead,
 		Update: D{{"$set", D{{"exposed", true}}}},
 	}}
 	err := s.st.runner.Run(ops, "", nil)
@@ -108,7 +108,7 @@ func (s *Service) ClearExposed() error {
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: D{{"life", Alive}},
+		Assert: notDead,
 		Update: D{{"$set", D{{"exposed", false}}}},
 	}}
 	err := s.st.runner.Run(ops, "", nil)
@@ -143,7 +143,7 @@ func (s *Service) Refresh() error {
 
 // newUnitName returns the next unit name.
 func (s *Service) newUnitName() (string, error) {
-	sel := D{{"_id", s.doc.Name}, {"life", Alive}}
+	sel := append(notDead, D{{"_id", s.doc.Name}}...)
 	change := mgo.Change{Update: D{{"$inc", D{{"unitseq", 1}}}}}
 	result := serviceDoc{}
 	_, err := s.st.services.Find(sel).Apply(change, &result)
@@ -235,11 +235,10 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 
 func (s *Service) unitDoc(name string) (*unitDoc, error) {
 	udoc := &unitDoc{}
-	sel := D{
+	sel := append(notDead, D{
 		{"_id", name},
 		{"service", s.doc.Name},
-		{"life", Alive},
-	}
+	}...)
 	err := s.st.units.Find(sel).One(udoc)
 	if err != nil {
 		return nil, err
@@ -259,7 +258,7 @@ func (s *Service) Unit(name string) (*Unit, error) {
 // AllUnits returns all units of the service.
 func (s *Service) AllUnits() (units []*Unit, err error) {
 	docs := []unitDoc{}
-	sel := D{{"service", s.doc.Name}, {"life", Alive}}
+	sel := append(notDead, D{{"service", s.doc.Name}}...)
 	err = s.st.units.Find(sel).All(&docs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all units from service %q: %v", err)
@@ -273,10 +272,9 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 // Relations returns a Relation for every relation the service is in.
 func (s *Service) Relations() (relations []*Relation, err error) {
 	defer trivial.ErrorContextf(&err, "can't get relations for service %q", s)
-	sel := D{
-		{"life", Alive},
+	sel := append(notDead, D{
 		{"endpoints.servicename", s.doc.Name},
-	}
+	}...)
 	docs := []relationDoc{}
 	err = s.st.relations.Find(sel).All(&docs)
 	if err != nil {

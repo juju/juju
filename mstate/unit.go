@@ -137,7 +137,7 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: D{{"life", Alive}},
+		Assert: notDead,
 		Update: D{{"$set", D{{"tools", t}}}},
 	}}
 	err = u.st.runner.Run(ops, "", nil)
@@ -310,7 +310,7 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 		return *u.doc.MachineId, nil
 	}
 	pudoc := unitDoc{}
-	sel := D{{"_id", u.doc.Principal}, {"life", Alive}}
+	sel := append(notDead, D{{"_id", u.doc.Principal}}...)
 	err = u.st.units.Find(sel).One(&pudoc)
 	if err != nil {
 		return 0, err
@@ -324,13 +324,12 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 // AssignToMachine assigns this unit to a given machine.
 func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot assign unit %q to machine %s", u, m)
-	assert := D{
+	assert := append(notDead, D{
 		{"$or", []D{
 			D{{"machineid", nil}},
 			D{{"machineid", m.Id()}},
 		}},
-		{"life", Alive},
-	}
+	}...)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
