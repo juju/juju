@@ -183,7 +183,7 @@ var deployTests = []struct {
 		&DeployCommand{ServiceName: "service-name"},
 	}, {
 		[]string{"--config", "/path/to/config.yaml", "charm-name"},
-		&DeployCommand{ConfPath: "/path/to/config.yaml"},
+		&DeployCommand{Config: cmd.FileVar{Name: "/path/to/config.yaml"}},
 	}, {
 		[]string{"--repository", "/path/to/another-repo", "charm-name"},
 		&DeployCommand{RepoPath: "/path/to/another-repo"},
@@ -298,3 +298,7 @@ func (*CmdSuite) TestGetCommandInit(c *C) {
 	_, err := initGetCommand()
 	c.Assert(err, ErrorMatches, "no service name specified")
 }
+
+type FileVarSuite struct{}
+
+var _ = Suite(&FileVarSuite{})
