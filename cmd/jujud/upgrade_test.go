@@ -190,42 +190,42 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 }
 
 var delayedStopTests = []struct {
-	about         string
-	upgraderDelay time.Duration
-	storageDelay  time.Duration
-	propose       string
-	err           string
+	about             string
+	upgraderKillDelay time.Duration
+	storageDelay      time.Duration
+	propose           string
+	err               string
 }{{
-	about:         "same version",
-	upgraderDelay: time.Second,
-	propose:       "2.0.3",
+	about:             "same version",
+	upgraderKillDelay: time.Second,
+	propose:           "2.0.3",
 }, {
-	about:         "same version found for higher proposed version",
-	upgraderDelay: time.Second,
-	propose:       "2.0.4",
+	about:             "same version found for higher proposed version",
+	upgraderKillDelay: time.Second,
+	propose:           "2.0.4",
 }, {
-	about:         "no appropriate version found",
-	upgraderDelay: time.Second,
-	propose:       "2.0.3",
+	about:             "no appropriate version found",
+	upgraderKillDelay: time.Second,
+	propose:           "2.0.3",
 }, {
-	about:         "time out",
-	propose:       "2.0.6",
-	storageDelay:  time.Second,
-	upgraderDelay: 10 * time.Millisecond,
-	err:           "download aborted.*",
+	about:             "time out",
+	propose:           "2.0.6",
+	storageDelay:      time.Second,
+	upgraderKillDelay: 10 * time.Millisecond,
+	err:               "upgrader aborted download.*",
 }, {
-	about:         "successful upgrade",
-	upgraderDelay: time.Second,
-	propose:       "2.0.6",
+	about:             "successful upgrade",
+	upgraderKillDelay: time.Second,
+	propose:           "2.0.6",
 	// enough delay that the stop will probably arrive before the
 	// tools have downloaded, thus checking that the
 	// upgrader really did wait for the download.
 	storageDelay: 5 * time.Millisecond,
 	err:          `must restart:.*2\.0\.6.*`,
 }, {
-	about:         "fetch error",
-	upgraderDelay: time.Second,
-	propose:       "2.0.7",
+	about:             "fetch error",
+	upgraderKillDelay: time.Second,
+	propose:           "2.0.7",
 },
 }
 
@@ -240,7 +240,7 @@ func (s *upgraderSuite) TestDelayedStop(c *C) {
 
 	for i, test := range delayedStopTests {
 		c.Logf("%d. %v", i, test.about)
-		upgraderDelay = test.upgraderDelay
+		upgraderKillDelay = test.upgraderKillDelay
 		dummy.SetStorageDelay(test.storageDelay)
 		proposed := version.MustParse(test.propose)
 		s.proposeVersion(c, proposed, true)

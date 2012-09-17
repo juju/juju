@@ -80,7 +80,7 @@ func (m *Machiner) loop() {
 }
 
 func (a *Machiner) String() string {
-	return fmt.Sprintf("machine %d worker", a.machine.Id())
+	return fmt.Sprintf("machiner for machine %d", a.machine.Id())
 }
 
 // Wait waits until the Machiner has died, and returns the error encountered.

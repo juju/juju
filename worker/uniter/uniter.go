@@ -99,7 +99,7 @@ func (u *Uniter) Stop() error {
 }
 
 func (u *Uniter) String() string {
-	return "uniter worker for " + u.unit.Name()
+	return "uniter for " + u.unit.Name()
 }
 
 func (u *Uniter) Dying() <-chan struct{} {

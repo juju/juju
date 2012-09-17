@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-var upgraderDelay = 5 * time.Minute
+var upgraderKillDelay = 5 * time.Minute
 
 // An Upgrader observes the version information for an agent in the
 // environment state, and handles the downloading and unpacking of
@@ -91,9 +91,9 @@ func (u *Upgrader) run() error {
 	w := u.st.WatchEnvironConfig()
 	defer watcher.Stop(w, &u.tomb)
 
-	// We can't use worker.WaitForEnviron because then we miss the
-	// first config event, so we initialise the environ when we are
-	// first able.
+	// Rather than using worker.WaitForEnviron, invalid environments are
+	// managed explicitly so that all configuration changes are observed
+	// by the loop below.
 	var environ environs.Environ
 
 	// TODO(rog) retry downloads when they fail.
@@ -108,7 +108,7 @@ func (u *Upgrader) run() error {
 	// undelayed behaviour when:
 	// 1) We find there's no upgrade to do.
 	// 2) A download fails.
-	tomb := delayedTomb(&u.tomb, upgraderDelay)
+	tomb := delayedTomb(&u.tomb, upgraderKillDelay)
 	noDelay := func() {
 		if tomb != &u.tomb {
 			tomb.Kill(nil)
@@ -208,7 +208,7 @@ func (u *Upgrader) run() error {
 			return &UpgradedError{tools}
 		case <-tomb.Dying():
 			if download != nil {
-				return fmt.Errorf("download aborted of %q", downloadTools.URL)
+				return fmt.Errorf("upgrader aborted download of %q", downloadTools.URL)
 			}
 			return nil
 		}
