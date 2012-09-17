@@ -1,6 +1,7 @@
 package mstate
 
 import (
+	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/mstate/watcher"
 	"launchpad.net/tomb"
 )
@@ -92,6 +93,112 @@ func (w *MachineWatcher) loop(m *Machine) (err error) {
 			case w.changeChan <- m:
 			}
 			break
+		}
+	}
+	return nil
+}
+
+// WatchMachines returns a watcher for observing machines being
+// added or removed.
+func (s *State) WatchMachines() *MachinesWatcher {
+	return newMachinesWatcher(s)
+}
+
+// newMachinesWatcher creates and starts a watcher to watch information
+// about machines being added or deleted.
+func newMachinesWatcher(st *State) *MachinesWatcher {
+	w := &MachinesWatcher{
+		changeChan:    make(chan *MachinesChange),
+		knownMachines: make(map[int]*Machine),
+		commonWatcher: commonWatcher{st: st},
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.changeChan)
+		w.tomb.Kill(w.loop(st))
+	}()
+	return w
+}
+
+// Changes returns a channel that will receive changes when machines are
+// added or deleted. The Added field in the first event on the channel
+// holds the initial state as returned by State.AllMachines.
+func (w *MachinesWatcher) Changes() <-chan *MachinesChange {
+	return w.changeChan
+}
+
+// Stop stops the watcher and returns any errors encountered while watching.
+func (w *MachinesWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
+}
+
+func (w *MachinesWatcher) appendChange(changes *MachinesChange, ch watcher.Change) (err error) {
+	id := ch.Id.(int)
+	if m, ok := w.knownMachines[id]; ch.Revno == -1 && ok {
+		m.doc.Life = Dead
+		changes.Removed = append(changes.Removed, m)
+		delete(w.knownMachines, id)
+		return nil
+	}
+	doc := &machineDoc{}
+	err = w.st.machines.FindId(id).One(doc)
+	if err == mgo.ErrNotFound {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	m := newMachine(w.st, doc)
+	if _, ok := w.knownMachines[id]; !ok {
+		changes.Added = append(changes.Added, m)
+	}
+	w.knownMachines[id] = m
+	return nil
+}
+
+func (changes *MachinesChange) isEmpty() bool {
+	return len(changes.Added)+len(changes.Removed) == 0
+}
+
+func (w *MachinesWatcher) loop(st *State) (err error) {
+	ch := make(chan watcher.Change)
+	st.watcher.WatchCollection(st.machines.Name, ch)
+	defer st.watcher.UnwatchCollection(st.machines.Name, ch)
+	for {
+		changes := &MachinesChange{}
+		select {
+		case <-st.watcher.Dead():
+			return watcher.MustErr(st.watcher)
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case c := <-ch:
+			err := w.appendChange(changes, c)
+			if err != nil {
+				return err
+			}
+		}
+		for {
+			select {
+			case <-st.watcher.Dead():
+				return watcher.MustErr(st.watcher)
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case c := <-ch:
+				err := w.appendChange(changes, c)
+				if err != nil {
+					return err
+				}
+				continue
+			default:
+			}
+			break
+		}
+		if !changes.isEmpty() {
+			select {
+			case w.changeChan <- changes:
+			default:
+			}
 		}
 	}
 	return nil
