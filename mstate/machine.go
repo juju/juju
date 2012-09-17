@@ -20,7 +20,8 @@ type machineDoc struct {
 	Id         int `bson:"_id"`
 	InstanceId string
 	Life       Life
-	TxnRevno   int64 `bson:"txn-revno"`
+	Tools      *Tools `bson:",omitempty"`
+	TxnRevno   int64  `bson:"txn-revno"`
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -42,7 +43,36 @@ func (m *Machine) Life() Life {
 	return m.doc.Life
 }
 
-// Kill sets the machine lifecycle to Dying if it is Alive.
+// AgentTools returns the tools that the agent is currently running.
+func (m *Machine) AgentTools() (*Tools, error) {
+	if m.doc.Tools == nil {
+		return &Tools{}, nil
+	}
+	tools := *m.doc.Tools
+	return &tools, nil
+}
+
+// SetAgentTools sets the tools that the agent is currently running.
+func (m *Machine) SetAgentTools(t *Tools) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot set agent tools for machine %v", m)
+	if t.Series == "" || t.Arch == "" {
+		return fmt.Errorf("empty series or arch")
+	}
+	ops := []txn.Op{{
+		C:      m.st.machines.Name,
+		Id:     m.doc.Id,
+		Assert: D{{"life", Alive}},
+		Update: D{{"$set", D{{"tools", t}}}},
+	}}
+	err = m.st.runner.Run(ops, "", nil)
+	if err != nil {
+		return deadOnAbort(err)
+	}
+	tools := *t
+	m.doc.Tools = &tools
+	return nil
+}
+
 // It does nothing otherwise.
 func (m *Machine) Kill() error {
 	err := ensureLife(m.st, m.st.machines, m.doc.Id, Dying, "machine")

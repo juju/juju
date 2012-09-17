@@ -104,6 +104,10 @@ func (p *Provisioner) Wait() error {
 	return p.tomb.Wait()
 }
 
+func (p *Provisioner) String() string {
+	return "provisioning worker"
+}
+
 // Stop stops the Provisioner and returns any error encountered while
 // provisioning.
 func (p *Provisioner) Stop() error {
