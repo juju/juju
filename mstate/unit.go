@@ -3,8 +3,8 @@ package mstate
 import (
 	"errors"
 	"fmt"
-	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/mstate/presence"
 	"launchpad.net/juju-core/trivial"
 	"strings"
@@ -47,13 +47,6 @@ const (
 	UnitDown      UnitStatus = "down"      // Agent is down or not communicating
 )
 
-// NeedsUpgrade describes if a unit needs an
-// upgrade and if this is forced.
-type NeedsUpgrade struct {
-	Upgrade bool
-	Force   bool
-}
-
 // Port identifies a network port number for a particular protocol.
 type Port struct {
 	Protocol string `yaml:"proto"`
@@ -71,12 +64,12 @@ type UnitSettings struct {
 type unitDoc struct {
 	Name           string `bson:"_id"`
 	Service        string
+	CharmURL       *charm.URL
 	Principal      string
 	PublicAddress  string
 	PrivateAddress string
 	MachineId      *int
 	Resolved       ResolvedMode
-	NeedsUpgrade   *NeedsUpgrade
 	Life           Life
 }
 
@@ -222,6 +215,30 @@ func (u *Unit) SetStatus(status UnitStatus, info string) error {
 	if err != nil {
 		return fmt.Errorf("cannot set status of unit %q: %v", u, err)
 	}
+	return nil
+}
+
+// Charm returns the charm this unit is currently using.
+func (u *Unit) Charm() (ch *Charm, err error) {
+	if u.doc.CharmURL == nil {
+		return nil, fmt.Errorf("charm URL of unit %q not found", u)
+	}
+	return u.st.Charm(u.doc.CharmURL)
+}
+
+// SetCharm marks the unit as currently using the supplied charm.
+func (u *Unit) SetCharm(ch *Charm) (err error) {
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: D{{"life", Alive}},
+		Update: D{{"$set", D{{"charmurl", ch.URL()}}}},
+	}}
+	err = u.st.runner.Run(ops, "", nil)
+	if err != nil {
+		return fmt.Errorf("cannot set charm for unit %q: %v", u, deadOnAbort(err))
+	}
+	u.doc.CharmURL = ch.URL()
 	return nil
 }
 
@@ -425,52 +442,6 @@ func (u *Unit) ClearResolved() error {
 		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, deadOnAbort(err))
 	}
 	u.doc.Resolved = ResolvedNone
-	return nil
-}
-
-// NeedsUpgrade returns whether the unit needs an upgrade 
-// and if it does, if this is forced.
-func (u *Unit) NeedsUpgrade() (*NeedsUpgrade, error) {
-	if u.doc.NeedsUpgrade == nil {
-		return &NeedsUpgrade{Upgrade: false, Force: false}, nil
-	}
-	return u.doc.NeedsUpgrade, nil
-}
-
-// SetNeedsUpgrade informs the unit that it should perform 
-// a regular or forced upgrade.
-func (u *Unit) SetNeedsUpgrade(force bool) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot inform unit %q about upgrade", u)
-	nu := &NeedsUpgrade{Upgrade: true, Force: force}
-	change := D{{"$set", D{{"needsupgrade", nu}}}}
-	sel := D{
-		{"_id", u.doc.Name},
-		{"$or", []D{
-			D{{"needsupgrade", nil}},
-			D{{"needsupgrade", nu}},
-		}},
-	}
-	err = u.st.units.Update(sel, change)
-	if err == mgo.ErrNotFound {
-		return errors.New("upgrade already enabled")
-	}
-	if err != nil {
-		return err
-	}
-	u.doc.NeedsUpgrade = nu
-	return nil
-}
-
-// ClearNeedsUpgrade resets the upgrade notification. It is typically
-// done by the unit agent before beginning the upgrade.
-func (u *Unit) ClearNeedsUpgrade() error {
-	change := D{{"$set", D{{"needsupgrade", nil}}}}
-	sel := D{{"_id", u.doc.Name}}
-	err := u.st.units.Update(sel, change)
-	if err != nil {
-		return fmt.Errorf("upgrade notification for unit %q cannot be reset: %v", u, err)
-	}
-	u.doc.NeedsUpgrade = nil
 	return nil
 }
 

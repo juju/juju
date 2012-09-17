@@ -21,6 +21,7 @@ func TestPackage(t *stdtesting.T) {
 // test suites (StateSuite, CharmSuite, MachineSuite, etc).
 type ConnSuite struct {
 	testing.MgoSuite
+	testing.LoggingSuite
 	charms    *mgo.Collection
 	machines  *mgo.Collection
 	relations *mgo.Collection
@@ -29,7 +30,18 @@ type ConnSuite struct {
 	State     *state.State
 }
 
+func (cs *ConnSuite) SetUpSuite(c *C) {
+	cs.LoggingSuite.SetUpSuite(c)
+	cs.MgoSuite.SetUpSuite(c)
+}
+
+func (cs *ConnSuite) TearDownSuite(c *C) {
+	cs.MgoSuite.TearDownSuite(c)
+	cs.LoggingSuite.TearDownSuite(c)
+}
+
 func (cs *ConnSuite) SetUpTest(c *C) {
+	cs.LoggingSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
 	cs.charms = cs.MgoSuite.Session.DB("juju").C("charms")
 	cs.machines = cs.MgoSuite.Session.DB("juju").C("machines")
@@ -44,6 +56,7 @@ func (cs *ConnSuite) SetUpTest(c *C) {
 func (cs *ConnSuite) TearDownTest(c *C) {
 	cs.State.Close()
 	cs.MgoSuite.TearDownTest(c)
+	cs.LoggingSuite.TearDownTest(c)
 }
 
 func (s *ConnSuite) AllMachines(c *C) []int {

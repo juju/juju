@@ -2,7 +2,6 @@ package mstate_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
 	state "launchpad.net/juju-core/mstate"
 )
 
@@ -23,37 +22,39 @@ func (s *ServiceSuite) SetUpTest(c *C) {
 }
 
 func (s *ServiceSuite) TestServiceCharm(c *C) {
-	// Check that getting and setting the service charm URL works correctly.
-	testcurl, err := s.service.CharmURL()
+	ch, force, err := s.service.Charm()
 	c.Assert(err, IsNil)
-	c.Assert(testcurl.String(), Equals, s.charm.URL().String())
+	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
+	c.Assert(force, Equals, false)
 
-	// TODO BUG https://bugs.launchpad.net/juju-core/+bug/1020318
-	testcurl = charm.MustParseURL("local:myseries/mydummy-1")
-	err = s.service.SetCharmURL(testcurl)
+	// TODO: SetCharm must validate the change (version, relations, etc)
+	wp := s.AddTestingCharm(c, "wordpress")
+	err = s.service.SetCharm(wp, true)
 	c.Assert(err, IsNil)
-	testcurl, err = s.service.CharmURL()
+	ch, force, err = s.service.Charm()
 	c.Assert(err, IsNil)
-	c.Assert(testcurl.String(), Equals, "local:myseries/mydummy-1")
+	c.Assert(ch.URL(), DeepEquals, wp.URL())
+	c.Assert(force, Equals, true)
 }
 
 func (s *ServiceSuite) TestServiceRefesh(c *C) {
 	s1, err := s.State.Service(s.service.Name())
 	c.Assert(err, IsNil)
 
-	newcurl := charm.MustParseURL("local:myseries/mydummy-1")
-	err = s.service.SetCharmURL(newcurl)
+	err = s.service.SetCharm(s.charm, true)
 	c.Assert(err, IsNil)
 
-	testcurl, err := s1.CharmURL()
+	testch, force, err := s1.Charm()
 	c.Assert(err, IsNil)
-	c.Assert(testcurl, DeepEquals, s.charm.URL())
+	c.Assert(force, Equals, false)
+	c.Assert(testch.URL(), DeepEquals, s.charm.URL())
 
 	err = s1.Refresh()
 	c.Assert(err, IsNil)
-	testcurl, err = s1.CharmURL()
+	testch, force, err = s1.Charm()
 	c.Assert(err, IsNil)
-	c.Assert(testcurl, DeepEquals, newcurl)
+	c.Assert(force, Equals, true)
+	c.Assert(testch.URL(), DeepEquals, s.charm.URL())
 }
 
 func (s *ServiceSuite) TestServiceExposed(c *C) {
