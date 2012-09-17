@@ -236,9 +236,8 @@ func Listen(c chan<- Operation) {
 	}
 }
 
-// SetStorageDelay causes any storage download
-// operation in any current environment
-// to be delayed for the given duration.
+// SetStorageDelay causes any storage download operation in any current
+// environment to be delayed for the given duration.
 func SetStorageDelay(d time.Duration) {
 	p := &providerInstance
 	p.mu.Lock()
