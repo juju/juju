@@ -141,7 +141,7 @@ func (s *WatcherSuite) update(c *C, coll string, id interface{}) (revno int64) {
 		panic(err)
 	}
 	revno = s.revno(coll, id)
-	c.Logf("insert(%#v, %#v) => revno %d", coll, id, revno)
+	c.Logf("update(%#v, %#v) => revno %d", coll, id, revno)
 	return revno
 }
 
@@ -414,7 +414,7 @@ func (s *WatcherSuite) TestWatchUnwatchOnQueue(c *C) {
 	for i := 0; i < N; i++ {
 		s.insert(c, "test", i)
 	}
-	s.w.StartSync()
+	s.w.Sync()
 	for i := 0; i < N; i++ {
 		s.w.Watch("test", i, -1, s.ch)
 	}
