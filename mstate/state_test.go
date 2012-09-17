@@ -9,6 +9,8 @@ import (
 	state "launchpad.net/juju-core/mstate"
 	"launchpad.net/juju-core/testing"
 	"net/url"
+	"sort"
+	"time"
 )
 
 type D []bson.DocElem
@@ -207,7 +209,7 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 	c.Assert(final, DeepEquals, current)
 }
 
-var machinesWatchtest = []struct {
+var machinesWatchTests = []struct {
 	test    func(*C, *state.State)
 	added   []int
 	removed []int
@@ -312,4 +314,68 @@ var machinesWatchtest = []struct {
 		added:   []int{25},
 		removed: []int{9},
 	},
+}
+
+func (s *StateSuite) TestWatchMachines(c *C) {
+	machineWatcher := s.State.WatchMachines()
+	defer func() {
+		c.Assert(machineWatcher.Stop(), IsNil)
+	}()
+	for i, test := range machinesWatchTests {
+		c.Logf("test %d", i)
+		test.test(c, s.State)
+		s.State.StartSync()
+		got := &state.MachinesChange{}
+		for {
+			select {
+			case new, ok := <-machineWatcher.Changes():
+				c.Assert(ok, Equals, true)
+				addMachineChanges(got, new)
+				if moreMachinesRequired(got, test.added, test.removed) {
+					continue
+				}
+				assertSameMachines(c, got, test.added, test.removed)
+			case <-time.After(500 * time.Millisecond):
+				c.Fatalf("did not get change, want: added: %#v, removed: %#v, got: %#v", test.added, test.removed, got)
+			}
+			break
+		}
+	}
+	select {
+	case got := <-machineWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func moreMachinesRequired(got *state.MachinesChange, added, removed []int) bool {
+	return len(got.Added)+len(got.Removed) < len(added)+len(removed)
+}
+
+func addMachineChanges(changes *state.MachinesChange, more *state.MachinesChange) {
+	changes.Added = append(changes.Added, more.Added...)
+	changes.Removed = append(changes.Removed, more.Removed...)
+}
+
+type machineSlice []*state.Machine
+
+func (m machineSlice) Len() int           { return len(m) }
+func (m machineSlice) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
+func (m machineSlice) Less(i, j int) bool { return m[i].Id() < m[j].Id() }
+
+func assertSameMachines(c *C, got *state.MachinesChange, added, removed []int) {
+	c.Assert(got, NotNil)
+	c.Assert(len(got.Added), Equals, len(added))
+	c.Assert(len(got.Removed), Equals, len(removed))
+
+	sort.Sort(machineSlice(got.Added))
+	sort.Sort(machineSlice(got.Removed))
+	for i, g := range got.Added {
+		id := added[i]
+		c.Assert(g.Id(), Equals, id)
+	}
+	for i, g := range got.Removed {
+		id := removed[i]
+		c.Assert(g.Id(), Equals, id)
+	}
 }
