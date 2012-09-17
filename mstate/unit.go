@@ -135,7 +135,7 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: D{{"life", Alive}},
-		Update: D{{"$set", D{{"tools", *t}}}},
+		Update: D{{"$set", D{{"tools", t}}}},
 	}}
 	err = u.st.runner.Run(ops, "", nil)
 	if err != nil {
