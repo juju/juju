@@ -18,11 +18,11 @@ func runAddUnit(c *C, args ...string) error {
 	com := &AddUnitCommand{}
 	err := com.Init(newFlagSet(), args)
 	c.Assert(err, IsNil)
-	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}})
+	return com.Run(&cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}})
 }
 
 func (s *AddUnitSuite) TestAddUnit(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "dummy")
+	testing.Charms.BundlePath(s.seriesPath, "series", "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")

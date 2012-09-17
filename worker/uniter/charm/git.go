@@ -1,6 +1,7 @@
 package charm
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,6 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 )
+
+var ErrConflict = errors.New("charm upgrade has conflicts")
 
 // GitDir exposes a specialized subset of git operations on a directory.
 type GitDir struct {
@@ -161,21 +164,6 @@ func (d *GitDir) Log() ([]string, error) {
 	return strings.Split(trim, "\n"), nil
 }
 
-// ReadCharmURL reads the charm identity file from the directory.
-func (d *GitDir) ReadCharmURL() (*charm.URL, error) {
-	path := filepath.Join(d.path, ".juju-charm")
-	surl := ""
-	if err := trivial.ReadYaml(path, &surl); err != nil {
-		return nil, err
-	}
-	return charm.ParseURL(surl)
-}
-
-// WriteCharmURL writes a charm identity file into the directory.
-func (d *GitDir) WriteCharmURL(url *charm.URL) error {
-	return trivial.WriteYaml(filepath.Join(d.path, ".juju-charm"), url.String())
-}
-
 // cmd runs the specified command inside the directory. Errors will be logged
 // in detail.
 func (d *GitDir) cmd(args ...string) error {
@@ -204,4 +192,19 @@ func (d *GitDir) statuses() ([]string, error) {
 		}
 	}
 	return statuses, nil
+}
+
+// ReadCharmURL reads the charm identity file from the supplied GitDir.
+func ReadCharmURL(d *GitDir) (*charm.URL, error) {
+	path := filepath.Join(d.path, ".juju-charm")
+	surl := ""
+	if err := trivial.ReadYaml(path, &surl); err != nil {
+		return nil, err
+	}
+	return charm.ParseURL(surl)
+}
+
+// WriteCharmURL writes a charm identity file into the directory.
+func WriteCharmURL(d *GitDir, url *charm.URL) error {
+	return trivial.WriteYaml(filepath.Join(d.path, ".juju-charm"), url.String())
 }

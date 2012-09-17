@@ -12,7 +12,6 @@ import (
 type BootstrapCommand struct {
 	StateInfo  state.Info
 	InstanceId string
-	EnvType    string
 	EnvConfig  map[string]interface{}
 }
 
@@ -25,7 +24,6 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	stateInfoVar(f, &c.StateInfo, "zookeeper-servers", []string{"127.0.0.1:2181"}, "address of zookeeper to initialize")
 	f.StringVar(&c.InstanceId, "instance-id", "", "instance id of this machine")
-	f.StringVar(&c.EnvType, "env-type", "", "environment type")
 	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
 	if err := f.Parse(true, args); err != nil {
 		return err
@@ -36,8 +34,8 @@ func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if c.InstanceId == "" {
 		return requiredError("instance-id")
 	}
-	if c.EnvType == "" {
-		return requiredError("env-type")
+	if len(c.EnvConfig) == 0 {
+		return requiredError("env-config")
 	}
 	return cmd.CheckEmpty(f.Args())
 }
@@ -56,14 +54,14 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
-	// Set the instance id of machine/0 
+	// Set the instance id of machine/0
 	if err := m.SetInstanceId(c.InstanceId); err != nil {
 		return err
 	}
 	return nil
 }
 
-// yamlBase64Value implements gnuflag.Value on a map[string]interface{}. 
+// yamlBase64Value implements gnuflag.Value on a map[string]interface{}.
 type yamlBase64Value map[string]interface{}
 
 // Set decodes the base64 value into yaml then expands that into a map.

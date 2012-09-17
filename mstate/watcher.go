@@ -70,7 +70,7 @@ func (w *MachineWatcher) loop(m *Machine) (err error) {
 	defer st.watcher.Unwatch(st.machines.Name, id, ch)
 	for {
 		select {
-		case <-st.watcher.Dying():
+		case <-st.watcher.Dead():
 			return watcher.MustErr(st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
@@ -81,7 +81,7 @@ func (w *MachineWatcher) loop(m *Machine) (err error) {
 		}
 		for {
 			select {
-			case <-st.watcher.Dying():
+			case <-st.watcher.Dead():
 				return watcher.MustErr(st.watcher)
 			case <-w.tomb.Dying():
 				return tomb.ErrDying

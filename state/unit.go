@@ -481,6 +481,13 @@ func (u *Unit) AgentAlive() (bool, error) {
 	return presence.Alive(u.st.zk, u.zkAgentPath())
 }
 
+// PathKey returns a name identifying the unit that can be used as a
+// file name.  The returned key will be different from other
+// PathKeys returned by any other entities from the same state.
+func (u *Unit) PathKey() string {
+	return "unit-" + strings.Replace(u.Name(), "/", "-", -1)
+}
+
 // WaitAgentAlive blocks until the respective agent is alive.
 func (u *Unit) WaitAgentAlive(timeout time.Duration) error {
 	err := presence.WaitAlive(u.st.zk, u.zkAgentPath(), timeout)

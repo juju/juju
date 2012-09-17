@@ -304,6 +304,7 @@ func (e *environ) userData(machineId int, info *state.Info, tools *state.Tools, 
 		StateInfo:          info,
 		InstanceIdAccessor: "$(curl http://169.254.169.254/1.0/meta-data/instance-id)",
 		ProviderType:       "ec2",
+		DataDir:            "/var/lib/juju",
 		Tools:              tools,
 		MachineId:          machineId,
 		AuthorizedKeys:     e.ecfg().AuthorizedKeys(),
@@ -653,6 +654,7 @@ func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
 func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
+	sourceGroups := []ec2.UserSecurityGroup{{Name: e.groupName()}}
 	jujuGroup, err := e.ensureGroup(e.groupName(),
 		[]ec2.IPPerm{
 			{
@@ -661,7 +663,24 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 				ToPort:    22,
 				SourceIPs: []string{"0.0.0.0/0"},
 			},
-			// TODO authorize internal traffic
+			{
+				Protocol:     "tcp",
+				FromPort:     0,
+				ToPort:       65535,
+				SourceGroups: sourceGroups,
+			},
+			{
+				Protocol:     "udp",
+				FromPort:     0,
+				ToPort:       65535,
+				SourceGroups: sourceGroups,
+			},
+			{
+				Protocol:     "icmp",
+				FromPort:     -1,
+				ToPort:       -1,
+				SourceGroups: sourceGroups,
+			},
 		})
 	if err != nil {
 		return nil, err
@@ -686,7 +705,6 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 		return zeroGroup, err
 	}
 
-	want := newPermSet(perms)
 	var have permSet
 	if err == nil {
 		g = resp.SecurityGroup
@@ -695,13 +713,15 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 		if err != nil {
 			return zeroGroup, err
 		}
+		info := resp.Groups[0]
 		// It's possible that the old group has the wrong
 		// description here, but if it does it's probably due
 		// to something deliberately playing games with juju,
 		// so we ignore it.
-		have = newPermSet(resp.Groups[0].IPPerms)
-		g = resp.Groups[0].SecurityGroup
+		have = newPermSet(info.IPPerms)
+		g = info.SecurityGroup
 	}
+	want := newPermSet(perms)
 	revoke := make(permSet)
 	for p := range have {
 		if !want[p] {
@@ -731,14 +751,14 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 }
 
 // permKey represents a permission for a group or an ip address range
-// to access the given range of ports. Only one of groupId or ipAddr
+// to access the given range of ports. Only one of groupName or ipAddr
 // should be non-empty.
 type permKey struct {
-	protocol string
-	fromPort int
-	toPort   int
-	groupId  string
-	ipAddr   string
+	protocol  string
+	fromPort  int
+	toPort    int
+	groupName string
+	ipAddr    string
 }
 
 type permSet map[permKey]bool
@@ -755,10 +775,10 @@ func newPermSet(ps []ec2.IPPerm) permSet {
 			toPort:   p.ToPort,
 		}
 		for _, g := range p.SourceGroups {
-			k.groupId = g.Id
+			k.groupName = g.Name
 			m[k] = true
 		}
-		k.groupId = ""
+		k.groupName = ""
 		for _, ip := range p.SourceIPs {
 			k.ipAddr = ip
 			m[k] = true
@@ -781,7 +801,7 @@ func (m permSet) ipPerms() (ps []ec2.IPPerm) {
 		if p.ipAddr != "" {
 			ipp.SourceIPs = []string{p.ipAddr}
 		} else {
-			ipp.SourceGroups = []ec2.UserSecurityGroup{{Id: p.groupId}}
+			ipp.SourceGroups = []ec2.UserSecurityGroup{{Name: p.groupName}}
 		}
 		ps = append(ps, ipp)
 	}
@@ -807,7 +827,7 @@ var metadataHost = "http://169.254.169.254"
 // http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
 func fetchMetadata(name string) (value string, err error) {
 	for a := shortAttempt.Start(); a.Next(); {
-		uri := fmt.Sprintf("%s/1.0/meta-data/%s", metadataHost, name)
+		uri := fmt.Sprintf("%s/2011-01-01/meta-data/%s", metadataHost, name)
 		var resp *http.Response
 		resp, err = http.Get(uri)
 		if err != nil {

@@ -105,7 +105,7 @@ var statusTests = []struct {
 	{
 		"add two services and expose one",
 		func(st *state.State, conn *juju.Conn, c *C) {
-			ch := coretesting.Charms.Dir("dummy")
+			ch := coretesting.Charms.Dir("series", "dummy")
 			curl := charm.MustParseURL(
 				fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
 			)
@@ -255,7 +255,7 @@ func (s *StatusSuite) testStatus(format string, marshal func(v interface{}) ([]b
 	for _, t := range statusTests {
 		c.Logf("testing %s: %s", format, t.title)
 		t.prepare(s.State, s.Conn, c)
-		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}}
+		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
 		code := cmd.Main(&StatusCommand{}, ctx, []string{"--format", format})
 		c.Check(code, Equals, 0)
 		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), Equals, "")

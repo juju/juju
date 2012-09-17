@@ -5,7 +5,6 @@ import (
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
 )
 
 type acCreator func() (cmd.Command, *AgentConf)
@@ -29,13 +28,13 @@ func CheckAgentCommand(c *C, create acCreator, args []string) cmd.Command {
 	com, conf := create()
 	c.Assert(initCmd(com, args), IsNil)
 	c.Assert(conf.StateInfo.Addrs, DeepEquals, []string{"zk1:2181", "zk2:2181"})
-	c.Assert(conf.JujuDir, Equals, environs.VarDir)
-	args = append(args, "--juju-directory", "jd")
+	c.Assert(conf.DataDir, Equals, "/var/lib/juju")
+	args = append(args, "--data-dir", "jd")
 
 	com, conf = create()
 	c.Assert(initCmd(com, args), IsNil)
 	c.Assert(conf.StateInfo.Addrs, DeepEquals, []string{"zk1:2181", "zk2:2181"})
-	c.Assert(conf.JujuDir, Equals, "jd")
+	c.Assert(conf.DataDir, Equals, "jd")
 	return com
 }
 
@@ -44,7 +43,7 @@ func CheckAgentCommand(c *C, create acCreator, args []string) cmd.Command {
 func ParseAgentCommand(ac cmd.Command, args []string) error {
 	common := []string{
 		"--zookeeper-servers", "zk:2181",
-		"--juju-directory", "jd",
+		"--data-dir", "jd",
 	}
 	return initCmd(ac, append(common, args...))
 }

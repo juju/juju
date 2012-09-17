@@ -7,6 +7,7 @@ import (
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/mstate/presence"
 	"launchpad.net/juju-core/trivial"
+	"strings"
 	"time"
 )
 
@@ -196,7 +197,10 @@ func (u *Unit) Status() (s UnitStatus, info string, err error) {
 	case UnitStopped:
 		return UnitStopped, "", nil
 	}
-	alive := u.AgentAlive()
+	alive, err := u.AgentAlive()
+	if err != nil {
+		return "", "", err
+	}
 	if !alive {
 		s = UnitDown
 	}
@@ -222,35 +226,36 @@ func (u *Unit) SetStatus(status UnitStatus, info string) error {
 }
 
 // AgentAlive returns whether the respective remote agent is alive.
-func (u *Unit) AgentAlive() bool {
-	return u.st.presencew.Alive(u.globalKey())
+func (u *Unit) AgentAlive() (bool, error) {
+	return u.st.pwatcher.Alive(u.globalKey())
+}
+
+// PathKey returns a name identifying the unit that can be used as a
+// file name.  The returned key will be different from other
+// PathKeys returned by any other entities from the same state.
+func (u *Unit) PathKey() string {
+	return "unit-" + strings.Replace(u.Name(), "/", "-", -1)
 }
 
 // WaitAgentAlive blocks until the respective agent is alive.
-func (u *Unit) WaitAgentAlive(timeout time.Duration) error {
+func (u *Unit) WaitAgentAlive(timeout time.Duration) (err error) {
+	defer trivial.ErrorContextf(&err, "waiting for agent of unit %q", u)
 	ch := make(chan presence.Change)
-	u.st.presencew.Add(u.globalKey(), ch)
-	defer u.st.presencew.Remove(u.globalKey(), ch)
-	// Initial check.
-	select {
-	case change := <-ch:
-		if change.Alive {
-			return nil
+	u.st.pwatcher.Watch(u.globalKey(), ch)
+	defer u.st.pwatcher.Unwatch(u.globalKey(), ch)
+	for i := 0; i < 2; i++ {
+		select {
+		case change := <-ch:
+			if change.Alive {
+				return nil
+			}
+		case <-time.After(timeout):
+			return fmt.Errorf("still not alive after timeout")
+		case <-u.st.pwatcher.Dead():
+			return u.st.pwatcher.Err()
 		}
-	case <-time.After(timeout):
-		return fmt.Errorf("waiting for agent of unit %q: still not alive after timeout", u)
 	}
-	// Hasn't been alive, so now wait for change.
-	select {
-	case change := <-ch:
-		if change.Alive {
-			return nil
-		}
-		panic(fmt.Sprintf("presence reported dead status twice in a row for unit %q", u))
-	case <-time.After(timeout):
-		return fmt.Errorf("waiting for agent of unit %q: still not alive after timeout", u)
-	}
-	panic("unreachable")
+	panic(fmt.Sprintf("presence reported dead status twice in a row for unit %q", u))
 }
 
 // SetAgentAlive signals that the agent for unit u is alive. 

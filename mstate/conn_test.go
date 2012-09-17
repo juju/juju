@@ -59,7 +59,7 @@ func (s *ConnSuite) AllMachines(c *C) []int {
 }
 
 func (s *ConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
-	ch := testing.Charms.Dir(name)
+	ch := testing.Charms.Dir("series", name)
 	ident := fmt.Sprintf("%s-%d", name, ch.Revision())
 	curl := charm.MustParseURL("local:series/" + ident)
 	bundleURL, err := url.Parse("http://bundles.example.com/" + ident)

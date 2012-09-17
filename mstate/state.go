@@ -38,7 +38,8 @@ type State struct {
 	presence  *mgo.Collection
 	runner    *txn.Runner
 	watcher   *watcher.Watcher
-	presencew *presence.Watcher
+	pwatcher  *presence.Watcher
+	fwd       *sshForwarder
 }
 
 func deadOnAbort(err error) error {
@@ -365,16 +366,16 @@ func (s *State) Unit(name string) (*Unit, error) {
 	return newUnit(s, &doc), nil
 }
 
-// ForcePresenceRefresh forces a synchronous refresh of 
-// the presence watcher knowledge
-func (s *State) ForcePresenceRefresh() {
-	s.presencew.ForceRefresh()
-}
-
 // StartSync forces watchers to resynchronize their state with the
 // database immediately. This will happen periodically automatically.
 func (s *State) StartSync() {
-	// TODO Make presence more like watcher, add it here, and
-	// remove ForcePresenceRefresh.
 	s.watcher.StartSync()
+	s.pwatcher.StartSync()
+}
+
+// Sync forces watchers to resynchronize their state with the
+// database immediately, and waits until all events are known.
+func (s *State) Sync() {
+	s.watcher.Sync()
+	s.pwatcher.Sync()
 }

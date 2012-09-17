@@ -92,7 +92,7 @@ func (s *StateSuite) TestInitalizeWithConfig(c *C) {
 		"zookeeper":       true,
 		"authorized-keys": "i-am-a-key",
 		"default-series":  "precise",
-		"development": true,
+		"development":     true,
 	}
 	st, err := state.Initialize(s.StateInfo(c), m)
 	c.Assert(err, IsNil)
@@ -171,7 +171,7 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 
 func (s *StateSuite) TestAddCharm(c *C) {
 	// Check that adding charms from scratch works correctly.
-	ch := coretesting.Charms.Dir("dummy")
+	ch := coretesting.Charms.Dir("series", "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
