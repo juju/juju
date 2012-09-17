@@ -110,10 +110,22 @@ func (s *UnitSuite) TestUnitCharm(c *C) {
 
 	err = s.unit.SetCharm(s.charm)
 	c.Assert(err, IsNil)
-
 	ch, err := s.unit.Charm()
 	c.Assert(err, IsNil)
 	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
+
+	err = s.unit.Kill()
+	c.Assert(err, IsNil)
+	err = s.unit.SetCharm(s.charm)
+	c.Assert(err, IsNil)
+	ch, err = s.unit.Charm()
+	c.Assert(err, IsNil)
+	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
+
+	err = s.unit.Die()
+	c.Assert(err, IsNil)
+	err = s.unit.SetCharm(s.charm)
+	c.Assert(err, ErrorMatches, `cannot set charm for unit "wordpress/0": not found or not alive`)
 }
 
 func (s *UnitSuite) TestPathKey(c *C) {

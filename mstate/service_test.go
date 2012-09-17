@@ -35,6 +35,11 @@ func (s *ServiceSuite) TestServiceCharm(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ch.URL(), DeepEquals, wp.URL())
 	c.Assert(force, Equals, true)
+
+	err = s.service.Kill()
+	c.Assert(err, IsNil)
+	err = s.service.SetCharm(wp, false)
+	c.Assert(err, ErrorMatches, `cannot set charm for service "mysql": not found or not alive`)
 }
 
 func (s *ServiceSuite) TestServiceRefesh(c *C) {
