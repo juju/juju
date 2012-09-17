@@ -206,3 +206,110 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 	final := env.AllAttrs()
 	c.Assert(final, DeepEquals, current)
 }
+
+var machinesWatchtest = []struct {
+	test    func(*C, *state.State)
+	added   []int
+	removed []int
+}{
+	{
+		test: func(c *C, s *state.State) {
+			_, err := s.AddMachine()
+			c.Assert(err, IsNil)
+		},
+		added: []int{0},
+	},
+	{
+		test: func(c *C, s *state.State) {
+			_, err := s.AddMachine()
+			c.Assert(err, IsNil)
+		},
+		added: []int{1},
+	},
+	{
+		test: func(c *C, s *state.State) {
+			_, err := s.AddMachine()
+			c.Assert(err, IsNil)
+			_, err = s.AddMachine()
+			c.Assert(err, IsNil)
+		},
+		added: []int{2, 3},
+	},
+	{
+		test: func(c *C, s *state.State) {
+			m3, err := s.Machine(3)
+			c.Assert(err, IsNil)
+			err = m3.Die()
+			c.Assert(err, IsNil)
+			err = s.RemoveMachine(3)
+			c.Assert(err, IsNil)
+		},
+		removed: []int{3},
+	},
+	{
+		test: func(c *C, s *state.State) {
+			m0, err := s.Machine(0)
+			c.Assert(err, IsNil)
+			err = m0.Die()
+			c.Assert(err, IsNil)
+			err = s.RemoveMachine(0)
+			c.Assert(err, IsNil)
+			m2, err := s.Machine(2)
+			c.Assert(err, IsNil)
+			err = m2.Die()
+			c.Assert(err, IsNil)
+			err = s.RemoveMachine(2)
+			c.Assert(err, IsNil)
+		},
+		removed: []int{0, 2},
+	},
+	{
+		test: func(c *C, s *state.State) {
+			_, err := s.AddMachine()
+			c.Assert(err, IsNil)
+			m1, err := s.Machine(1)
+			c.Assert(err, IsNil)
+			err = m1.Die()
+			c.Assert(err, IsNil)
+			err = s.RemoveMachine(1)
+			c.Assert(err, IsNil)
+		},
+		added:   []int{4},
+		removed: []int{1},
+	},
+	{
+		test: func(c *C, s *state.State) {
+			machines := [20]*state.Machine{}
+			var err error
+			for i := 0; i < len(machines); i++ {
+				machines[i], err = s.AddMachine()
+				c.Assert(err, IsNil)
+			}
+			for i := 0; i < len(machines); i++ {
+				err = machines[i].SetInstanceId("spam" + fmt.Sprint(i))
+				c.Assert(err, IsNil)
+			}
+			for i := 10; i < len(machines); i++ {
+				err = machines[i].Die()
+				c.Assert(err, IsNil)
+				err = s.RemoveMachine(i + 5)
+				c.Assert(err, IsNil)
+			}
+		},
+		added: []int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
+	},
+	{
+		test: func(c *C, s *state.State) {
+			_, err := s.AddMachine()
+			c.Assert(err, IsNil)
+			m9, err := s.Machine(9)
+			c.Assert(err, IsNil)
+			err = m9.Die()
+			c.Assert(err, IsNil)
+			err = s.RemoveMachine(9)
+			c.Assert(err, IsNil)
+		},
+		added:   []int{25},
+		removed: []int{9},
+	},
+}
