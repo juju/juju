@@ -214,12 +214,10 @@ var machinesWatchTests = []struct {
 	added   []int
 	removed []int
 }{
-	// 0
 	{
 		test:  func(_ *C, _ *state.State) {},
 		added: []int{},
 	},
-	// 1
 	{
 		test: func(c *C, s *state.State) {
 			_, err := s.AddMachine()
@@ -227,7 +225,6 @@ var machinesWatchTests = []struct {
 		},
 		added: []int{0},
 	},
-	// 2
 	{
 		test: func(c *C, s *state.State) {
 			_, err := s.AddMachine()
@@ -235,7 +232,6 @@ var machinesWatchTests = []struct {
 		},
 		added: []int{1},
 	},
-	// 3
 	{
 		test: func(c *C, s *state.State) {
 			_, err := s.AddMachine()
@@ -245,7 +241,6 @@ var machinesWatchTests = []struct {
 		},
 		added: []int{2, 3},
 	},
-	// 4
 	{
 		test: func(c *C, s *state.State) {
 			m3, err := s.Machine(3)
@@ -257,7 +252,6 @@ var machinesWatchTests = []struct {
 		},
 		removed: []int{3},
 	},
-	// 5
 	{
 		test: func(c *C, s *state.State) {
 			m0, err := s.Machine(0)
@@ -275,7 +269,6 @@ var machinesWatchTests = []struct {
 		},
 		removed: []int{0, 2},
 	},
-	// 6
 	{
 		test: func(c *C, s *state.State) {
 			_, err := s.AddMachine()
@@ -290,7 +283,6 @@ var machinesWatchTests = []struct {
 		added:   []int{4},
 		removed: []int{1},
 	},
-	// 7
 	{
 		test: func(c *C, s *state.State) {
 			machines := [20]*state.Machine{}
@@ -312,7 +304,6 @@ var machinesWatchTests = []struct {
 		},
 		added: []int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
 	},
-	// 8
 	{
 		test: func(c *C, s *state.State) {
 			_, err := s.AddMachine()
@@ -376,19 +367,24 @@ func (m machineSlice) Len() int           { return len(m) }
 func (m machineSlice) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
 func (m machineSlice) Less(i, j int) bool { return m[i].Id() < m[j].Id() }
 
-func assertSameMachines(c *C, got *state.MachinesChange, added, removed []int) {
-	c.Assert(got, NotNil)
-	c.Assert(len(got.Added), Equals, len(added))
-	c.Assert(len(got.Removed), Equals, len(removed))
-
-	sort.Sort(machineSlice(got.Added))
-	sort.Sort(machineSlice(got.Removed))
-	for i, g := range got.Added {
-		id := added[i]
-		c.Assert(g.Id(), Equals, id)
+func assertSameMachines(c *C, change *state.MachinesChange, added, removed []int) {
+	c.Assert(change, NotNil)
+	if len(added) == 0 {
+		added = nil
 	}
-	for i, g := range got.Removed {
-		id := removed[i]
-		c.Assert(g.Id(), Equals, id)
+	if len(removed) == 0 {
+		removed = nil
 	}
+	sort.Sort(machineSlice(change.Added))
+	sort.Sort(machineSlice(change.Removed))
+	var got []int
+	for _, g := range change.Added {
+		got = append(got, g.Id())
+	}
+	c.Assert(got, DeepEquals, added)
+	got = nil
+	for _, g := range change.Removed {
+		got = append(got, g.Id())
+	}
+	c.Assert(got, DeepEquals, removed)
 }
