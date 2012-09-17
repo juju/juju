@@ -276,15 +276,15 @@ func (w *ServicesWatcher) mergeChange(changes *ServicesChange, ch watcher.Change
 		delete(w.knownServices, name)
 		return nil
 	}
-	doc := serviceDoc{}
-	err = w.st.services.FindId(name).One(&doc)
+	doc := &serviceDoc{}
+	err = w.st.services.FindId(name).One(doc)
 	if err == mgo.ErrNotFound {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	svc := &Service{st: w.st, doc: doc}
+	svc := newService(w.st, doc)
 	if _, ok := w.knownServices[name]; !ok {
 		changes.Added = append(changes.Added, svc)
 	}
@@ -304,7 +304,7 @@ func (w *ServicesWatcher) getInitialEvent() (initial *ServicesChange, err error)
 		return nil, err
 	}
 	for _, doc := range docs {
-		svc := &Service{st: w.st, doc: doc}
+		svc := newService(w.st, &doc)
 		w.knownServices[doc.Name] = svc
 		changes.Added = append(changes.Added, svc)
 	}
