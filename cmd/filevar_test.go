@@ -34,6 +34,7 @@ func (s *FileVarSuite) TestValidFileVar(c *C) {
 	fs, config := fs()
 	err := fs.Parse(false, []string{"--config", s.ValidPath})
 	c.Assert(err, IsNil)
+	defer config.ReadCloser.Close()
 	c.Assert(config.Path, Equals, s.ValidPath)
 	c.Assert(config.ReadCloser, NotNil)
 }

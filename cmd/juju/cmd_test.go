@@ -237,6 +237,7 @@ func (*CmdSuite) TestDeployCommandInit(c *C) {
 	file.Close()
 	com, err := initDeployCommand("--config", path, "charm-name")
 	c.Assert(err, IsNil)
+	defer com.Config.Close()
 	c.Assert(com.Config.Path, Equals, path)
 	c.Assert(com.Config.ReadCloser, NotNil)
 
