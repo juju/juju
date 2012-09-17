@@ -20,8 +20,8 @@ type machineDoc struct {
 	Id         int `bson:"_id"`
 	InstanceId string
 	Life       Life
-	Tools      *Tools		`bson:",omitempty"`
-	TxnRevno   int64 `bson:"txn-revno"`
+	Tools      *Tools `bson:",omitempty"`
+	TxnRevno   int64  `bson:"txn-revno"`
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {

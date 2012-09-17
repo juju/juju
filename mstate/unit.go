@@ -77,7 +77,7 @@ type unitDoc struct {
 	MachineId      *int
 	Resolved       ResolvedMode
 	NeedsUpgrade   *NeedsUpgrade
-	Tools          *Tools	`bson:",omitempty"`
+	Tools          *Tools `bson:",omitempty"`
 	Life           Life
 }
 
