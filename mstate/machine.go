@@ -20,7 +20,7 @@ type machineDoc struct {
 	Id         int `bson:"_id"`
 	InstanceId string
 	Life       Life
-	Tools Tools
+	Tools      Tools
 	TxnRevno   int64 `bson:"txn-revno"`
 }
 

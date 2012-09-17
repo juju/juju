@@ -47,11 +47,11 @@ func (s *ToolsSuite) TestMachineAgentTools(c *C) {
 	testAgentTools(c, m, "machine 0")
 }
 
-//func (s *ToolsSuite) TestUnitAgentTools(c *C) {
-//	charm := s.AddTestingCharm(c, "dummy")
-//	svc, err := s.State.AddService("wordpress", charm)
-//	c.Assert(err, IsNil)
-//	unit, err := svc.AddUnit()
-//	c.Assert(err, IsNil)
-//	testAgentTools(c, unit, "unit")
-//}
+func (s *ToolsSuite) TestUnitAgentTools(c *C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	svc, err := s.State.AddService("wordpress", charm)
+	c.Assert(err, IsNil)
+	unit, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	testAgentTools(c, unit, "unit wordpress/0")
+}
