@@ -521,7 +521,7 @@ func (t *sshTest) sshDaemon(sshdPort, serverPort int) *os.Process {
 	// wait til the server port is up.
 	impatientAttempt := environs.AttemptStrategy{
 		Total: 5 * time.Second,
-		Delay: 5 * time.Millisecond,
+		Delay: 100 * time.Millisecond,
 	}
 	for a := impatientAttempt.Start(); a.Next(); {
 		c, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", sshdPort))
