@@ -20,7 +20,7 @@ type machineDoc struct {
 	Id         int `bson:"_id"`
 	InstanceId string
 	Life       Life
-	Tools      Tools
+	Tools      *Tools		`bson:",omitempty"`
 	TxnRevno   int64 `bson:"txn-revno"`
 }
 
@@ -45,7 +45,10 @@ func (m *Machine) Life() Life {
 
 // AgentTools returns the tools that the agent is currently running.
 func (m *Machine) AgentTools() (*Tools, error) {
-	tools := m.doc.Tools
+	if m.doc.Tools == nil {
+		return &Tools{}, nil
+	}
+	tools := *m.doc.Tools
 	return &tools, nil
 }
 
@@ -59,13 +62,14 @@ func (m *Machine) SetAgentTools(t *Tools) (err error) {
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: D{{"life", Alive}},
-		Update: D{{"$set", D{{"tools", *t}}}},
+		Update: D{{"$set", D{{"tools", t}}}},
 	}}
 	err = m.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return deadOnAbort(err)
 	}
-	m.doc.Tools = *t
+	tools := *t
+	m.doc.Tools = &tools
 	return nil
 }
 

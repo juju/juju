@@ -77,7 +77,7 @@ type unitDoc struct {
 	MachineId      *int
 	Resolved       ResolvedMode
 	NeedsUpgrade   *NeedsUpgrade
-	Tools          Tools
+	Tools          *Tools	`bson:",omitempty"`
 	Life           Life
 }
 
@@ -121,7 +121,10 @@ func (u *Unit) Life() Life {
 
 // AgentTools returns the tools that the agent is currently running.
 func (u *Unit) AgentTools() (*Tools, error) {
-	tools := u.doc.Tools
+	if u.doc.Tools == nil {
+		return &Tools{}, nil
+	}
+	tools := *u.doc.Tools
 	return &tools, nil
 }
 
@@ -141,7 +144,8 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 	if err != nil {
 		return deadOnAbort(err)
 	}
-	u.doc.Tools = *t
+	tools := *t
+	u.doc.Tools = &tools
 	return nil
 }
 
