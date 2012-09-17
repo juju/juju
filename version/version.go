@@ -5,6 +5,7 @@ package version
 import (
 	"fmt"
 	"io/ioutil"
+	"labix.org/v2/mgo/bson"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -55,6 +56,28 @@ type Binary struct {
 
 func (v Binary) String() string {
 	return fmt.Sprintf("%v-%s-%s", v.Number, v.Series, v.Arch)
+}
+
+// GetBSON turns v into a bson.Getter so it can be saved directly
+// on a MongoDB database with mgo.
+func (v Binary) GetBSON() (interface{}, error) {
+	return v.String(), nil
+}
+
+// SetBSON turns v into a bson.Setter so it can be loaded directly
+// from a MongoDB database with mgo.
+func (vp *Binary) SetBSON(raw bson.Raw) error {
+	var s string
+	err := raw.Unmarshal(&s)
+	if err != nil {
+		return err
+	}
+	v, err := ParseBinary(s)
+	if err != nil {
+		return err
+	}
+	*vp = v
+	return nil
 }
 
 var (
@@ -138,6 +161,28 @@ func (v Number) Less(w Number) bool {
 		return v.Patch < w.Patch
 	}
 	return false
+}
+
+// GetBSON turns v into a bson.Getter so it can be saved directly
+// on a MongoDB database with mgo.
+func (v Number) GetBSON() (interface{}, error) {
+	return v.String(), nil
+}
+
+// SetBSON turns v into a bson.Setter so it can be loaded directly
+// from a MongoDB database with mgo.
+func (vp *Number) SetBSON(raw bson.Raw) error {
+	var s string
+	err := raw.Unmarshal(&s)
+	if err != nil {
+		return err
+	}
+	v, err := Parse(s)
+	if err != nil {
+		return err
+	}
+	*vp = v
+	return nil
 }
 
 func isOdd(x int) bool {
