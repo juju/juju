@@ -91,7 +91,7 @@ func (s *Service) SetExposed() error {
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: notDead,
+		Assert: isAlive,
 		Update: D{{"$set", D{{"exposed", true}}}},
 	}}
 	err := s.st.runner.Run(ops, "", nil)

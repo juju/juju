@@ -155,7 +155,7 @@ func (s *MachineSuite) TestMachineRefresh(c *C) {
 func (s *MachineSuite) TestRefreshWhenNotAlive(c *C) {
 	// Refresh should work regardless of liveness status.
 	m := s.machine
-	err := s.SetInstanceId("foo")
+	err := m.SetInstanceId("foo")
 	c.Assert(err, IsNil)
 
 	err = m.Kill()

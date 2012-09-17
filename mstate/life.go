@@ -18,6 +18,7 @@ const (
 )
 
 var notDead = D{{"life", D{{"$ne", Dead}}}}
+var isAlive = D{{"life", Alive}}
 
 var lifeStrings = [nLife]string{
 	Alive: "alive",
