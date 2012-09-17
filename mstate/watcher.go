@@ -115,7 +115,7 @@ func newMachinesWatcher(st *State) *MachinesWatcher {
 	go func() {
 		defer w.tomb.Done()
 		defer close(w.changeChan)
-		w.tomb.Kill(w.loop(st))
+		w.tomb.Kill(w.loop())
 	}()
 	return w
 }
@@ -161,15 +161,51 @@ func (changes *MachinesChange) isEmpty() bool {
 	return len(changes.Added)+len(changes.Removed) == 0
 }
 
-func (w *MachinesWatcher) loop(st *State) (err error) {
+func (w *MachinesWatcher) getInitialEvent() (initial *MachinesChange, err error) {
+	changes := &MachinesChange{}
+	docs := []machineDoc{}
+	err = w.st.machines.Find(nil).All(&docs)
+	if err != nil {
+		return nil, err
+	}
+	for _, doc := range docs {
+		m := newMachine(w.st, &doc)
+		w.knownMachines[doc.Id] = m
+		changes.Added = append(changes.Added, m)
+	}
+	return changes, nil
+}
+
+func (w *MachinesWatcher) loop() (err error) {
 	ch := make(chan watcher.Change)
-	st.watcher.WatchCollection(st.machines.Name, ch)
-	defer st.watcher.UnwatchCollection(st.machines.Name, ch)
+	w.st.watcher.WatchCollection(w.st.machines.Name, ch)
+	defer w.st.watcher.UnwatchCollection(w.st.machines.Name, ch)
+	changes, err := w.getInitialEvent()
+	if err != nil {
+		return err
+	}
 	for {
-		changes := &MachinesChange{}
+		if changes == nil {
+			select {
+			case <-w.st.watcher.Dead():
+				return watcher.MustErr(w.st.watcher)
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case c := <-ch:
+				changes = &MachinesChange{}
+				err := w.appendChange(changes, c)
+				if err != nil {
+					return err
+				}
+				if changes.isEmpty() {
+					changes = nil
+				}
+				continue
+			}
+		}
 		select {
-		case <-st.watcher.Dead():
-			return watcher.MustErr(st.watcher)
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c := <-ch:
@@ -177,28 +213,8 @@ func (w *MachinesWatcher) loop(st *State) (err error) {
 			if err != nil {
 				return err
 			}
-		}
-		for {
-			select {
-			case <-st.watcher.Dead():
-				return watcher.MustErr(st.watcher)
-			case <-w.tomb.Dying():
-				return tomb.ErrDying
-			case c := <-ch:
-				err := w.appendChange(changes, c)
-				if err != nil {
-					return err
-				}
-				continue
-			default:
-			}
-			break
-		}
-		if !changes.isEmpty() {
-			select {
-			case w.changeChan <- changes:
-			default:
-			}
+		case w.changeChan <- changes:
+			changes = nil
 		}
 	}
 	return nil

@@ -215,6 +215,10 @@ var machinesWatchTests = []struct {
 	removed []int
 }{
 	{
+		test:  func(_ *C, _ *state.State) {},
+		added: []int{},
+	},
+	{
 		test: func(c *C, s *state.State) {
 			_, err := s.AddMachine()
 			c.Assert(err, IsNil)
