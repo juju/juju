@@ -89,11 +89,15 @@ func (s *ServiceSuite) TestServiceExposed(c *C) {
 	c.Assert(err, IsNil)
 	err = s.service.SetExposed()
 	c.Assert(err, ErrorMatches, ".*: not found or not alive")
+	err = s.service.ClearExposed()
+	c.Assert(err, ErrorMatches, ".*: not found or not alive")
 
 	// Check that we cannot set the exposed flag when the service is dead.
 	err = s.service.Die()
 	c.Assert(err, IsNil)
 	err = s.service.SetExposed()
+	c.Assert(err, ErrorMatches, ".*: not found or not alive")
+	err = s.service.ClearExposed()
 	c.Assert(err, ErrorMatches, ".*: not found or not alive")
 }
 
