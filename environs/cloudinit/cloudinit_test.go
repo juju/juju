@@ -90,6 +90,7 @@ func (t *cloudinitTest) check(c *C, cfg *cloudinit.MachineConfig) {
 		t.checkEnvConfig(c)
 	}
 	t.checkPackage(c, "libzookeeper-mt2")
+	t.checkPackage(c, "git")
 
 	if t.cfg.Provisioner {
 		t.checkScripts(c, "jujud provisioning --zookeeper-servers 'localhost"+cloudinit.ZkPortSuffix+"'")

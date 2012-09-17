@@ -325,5 +325,4 @@ func (*CmdSuite) TestSetCommandInit(c *C) {
 	c.Assert(len(cmd.Options), Equals, 1)
 	c.Assert(cmd.Options[0].Key, Equals, "name")
 	c.Assert(cmd.Options[0].Value, Equals, "cow")
-
 }
