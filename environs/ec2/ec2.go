@@ -827,7 +827,7 @@ var metadataHost = "http://169.254.169.254"
 // http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
 func fetchMetadata(name string) (value string, err error) {
 	for a := shortAttempt.Start(); a.Next(); {
-		uri := fmt.Sprintf("%s/1.0/meta-data/%s", metadataHost, name)
+		uri := fmt.Sprintf("%s/2011-01-01/meta-data/%s", metadataHost, name)
 		var resp *http.Response
 		resp, err = http.Get(uri)
 		if err != nil {

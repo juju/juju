@@ -94,6 +94,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.AddPackage("libzookeeper-mt2")
+	c.AddPackage("git")
 	if cfg.StateServer {
 		// TODO(dfc) remove these once we cut over to mstate
 		c.AddPackage("default-jre-headless")
