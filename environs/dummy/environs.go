@@ -109,6 +109,7 @@ type environState struct {
 	insts         map[string]*instance
 	ports         map[int]map[state.Port]bool
 	bootstrapped  bool
+	storageDelay  time.Duration
 	storage       *storage
 	publicStorage *storage
 	httpListener  net.Listener
@@ -126,9 +127,10 @@ type environ struct {
 // There are two instances for each environState
 // instance, one for public files and one for private.
 type storage struct {
-	path  string // path prefix in http space.
-	state *environState
-	files map[string][]byte
+	path     string // path prefix in http space.
+	state    *environState
+	files    map[string][]byte
+	poisoned map[string]error
 }
 
 // discardOperations discards all Operations written to it.
@@ -230,6 +232,19 @@ func Listen(c chan<- Operation) {
 	for _, st := range p.state {
 		st.mu.Lock()
 		st.ops = c
+		st.mu.Unlock()
+	}
+}
+
+// SetStorageDelay causes any storage download operation in any current
+// environment to be delayed for the given duration.
+func SetStorageDelay(d time.Duration) {
+	p := &providerInstance
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, st := range p.state {
+		st.mu.Lock()
+		st.storageDelay = d
 		st.mu.Unlock()
 	}
 }
