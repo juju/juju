@@ -1,7 +1,6 @@
 package mstate_test
 
 import (
-	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	state "launchpad.net/juju-core/mstate"
@@ -101,29 +100,28 @@ func (s *ServiceSuite) TestServiceExposed(c *C) {
 
 func (s *ServiceSuite) TestAddSubordinateUnitWhenNotAlive(c *C) {
 	loggingCharm := s.AddTestingCharm(c, "logging")
+	loggingService, err := s.State.AddService("logging", loggingCharm)
+	c.Assert(err, IsNil)
 	principalService, err := s.State.AddService("svc", s.charm)
 	c.Assert(err, IsNil)
 	principalUnit, err := principalService.AddUnit()
 	c.Assert(err, IsNil)
 
-	// Test for all combinations of liveness of principal unit
-	// and subordinate service. AddUnitSubordinateTo should
-	// fail when either are not alive.
-	i := 0
-	const notAliveErrPat = ".*: unit already exists or service or principal unit are not alive"
-	assertOkForLife(c, principalUnit, "", "", "", func() error {
-		i++
-		logging, err := s.State.AddService(fmt.Sprintf("logging%d", i), loggingCharm)
-		c.Assert(err, IsNil)
-		aliveErr := ""
-		if principalUnit.Life() != state.Alive {
-			aliveErr = notAliveErrPat
-		}
-		assertOkForLife(c, logging, aliveErr, notAliveErrPat, notAliveErrPat, func() error {
-			_, err := logging.AddUnitSubordinateTo(principalUnit)
-			return err
-		})
-		return nil
+	const errPat = ".*: unit already exists or service or principal unit are not alive"
+	// Test that AddUnitSubordinateTo fails when the principal unit is
+	// not alive.
+	assertOkForLife(c, principalUnit, errPat, errPat, func() error {
+		_, err := loggingService.AddUnitSubordinateTo(principalUnit)
+		return err
+	})
+
+	// Test that AddUnitSubordinateTo fails when the service is
+	// not alive.
+	principalUnit, err = principalService.AddUnit()
+	c.Assert(err, IsNil)
+	assertOkForLife(c, loggingService, errPat, errPat, func() error {
+		_, err := loggingService.AddUnitSubordinateTo(principalUnit)
+		return err
 	})
 }
 
@@ -176,7 +174,7 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 	c.Assert(err, ErrorMatches, "a subordinate unit must be added to a principal unit")
 
 	const errPat = ".*: unit already exists or service is not alive"
-	assertOkForLife(c, s.service, "", errPat, errPat, func() error {
+	assertOkForLife(c, s.service, errPat, errPat, func() error {
 		_, err = s.service.AddUnit()
 		return err
 	})

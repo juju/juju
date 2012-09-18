@@ -326,7 +326,7 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is subordinate")
 	}
-	assert := append(notDead, D{
+	assert := append(isAlive, D{
 		{"$or", []D{
 			D{{"machineid", nil}},
 			D{{"machineid", m.Id()}},
@@ -340,32 +340,17 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	}, {
 		C:      u.st.machines.Name,
 		Id:     m.Id(),
-		Assert: D{{"life", Alive}},
+		Assert: isAlive,
 	}}
 	err = u.st.runner.Run(ops, "", nil)
 	if err == nil {
 		u.doc.MachineId = &m.doc.Id
 		return nil
 	}
-	err = u.Refresh()
-	if err != nil {
-		return err
+	if err == txn.ErrAborted {
+		return fmt.Errorf("machine or unit dead, or already assigned to machine")
 	}
-	err = m.Refresh()
-	if err != nil {
-		return err
-	}
-	switch {
-	case u.doc.MachineId != nil && *u.doc.MachineId != m.Id():
-		return fmt.Errorf("already assigned to machine %s", *u.doc.MachineId)
-	case u.doc.Life != Alive:
-		return fmt.Errorf("unit is %v", u.doc.Life)
-	case m.doc.Life != Alive:
-		return fmt.Errorf("machine is %v", m.doc.Life)
-	default:
-		panic("unreachable")
-	}
-	panic("unreachable")
+	return err
 }
 
 // UnassignFromMachine removes the assignment between this unit and the

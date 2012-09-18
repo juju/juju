@@ -201,16 +201,22 @@ func (s *LifeSuite) TestLifecycleStateChanges(c *C) {
 	}
 }
 
+// assertOkForAllLife asserts that the given checks pass in
+// in all life states.
 func assertOkForAllLife(c *C, obj lifer, checks ...func() error) {
-	assertOkForLife(c, obj, "", "", "", checks...)
+	assertOkForLife(c, obj, "", "", checks...)
 }
 
+// assertOkForAllLife asserts that the given checks pass in
+// in all life states but Dead.
 func assertOkWhenNotDead(c *C, obj lifer, checks ...func() error) {
-	assertOkForLife(c, obj, "", "", notAliveErrPat, checks...)
+	assertOkForLife(c, obj, "", notAliveErrPat, checks...)
 }
 
+// assertOkForAllLife asserts that the given checks pass only
+// when the object is Alive.
 func assertOkWhenAliveOnly(c *C, obj lifer, checks ...func() error) {
-	assertOkForLife(c, obj, "", notAliveErrPat, notAliveErrPat, checks...)
+	assertOkForLife(c, obj, notAliveErrPat, notAliveErrPat, checks...)
 }
 
 const notAliveErrPat = ".*: not found or not alive"
@@ -233,13 +239,12 @@ func runLifeChecks(c *C, obj lifer, expectErr string, checks []func() error) {
 	}
 }
 
-
 // assertOkForLife sets obj to Dying and Dead in turn, and asserts
 // that the errors from the given checks match aliveErr, dyingErr and deadErr
 // in each respective life state.
-func assertOkForLife(c *C, obj lifer, aliveErr, dyingErr, deadErr string, checks ...func() error) {
+func assertOkForLife(c *C, obj lifer, dyingErr, deadErr string, checks ...func() error) {
 	c.Logf("checking life of %v (%T)", obj, obj)
-	runLifeChecks(c, obj, aliveErr, checks)
+	runLifeChecks(c, obj, "", checks)
 	err := obj.Kill()
 	c.Assert(err, IsNil)
 	runLifeChecks(c, obj, dyingErr, checks)
