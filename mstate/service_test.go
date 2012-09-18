@@ -29,13 +29,18 @@ func (s *ServiceSuite) TestServiceCharm(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(testcurl.String(), Equals, s.charm.URL().String())
 
-	// TODO BUG https://bugs.launchpad.net/juju-core/+bug/1020318
-	testcurl = charm.MustParseURL("local:myseries/mydummy-1")
-	err = s.service.SetCharmURL(testcurl)
-	c.Assert(err, IsNil)
-	testcurl, err = s.service.CharmURL()
-	c.Assert(err, IsNil)
-	c.Assert(testcurl.String(), Equals, "local:myseries/mydummy-1")
+	assertOkWhenAliveOnly(c, s.service, func() error {
+		// TODO BUG https://bugs.launchpad.net/juju-core/+bug/1020318
+		testcurl = charm.MustParseURL("local:myseries/mydummy-1")
+		err = s.service.SetCharmURL(testcurl)
+		if err != nil {
+			return err
+		}
+		testcurl, err = s.service.CharmURL()
+		c.Assert(err, IsNil)
+		c.Assert(testcurl.String(), Equals, "local:myseries/mydummy-1")
+		return nil
+	})
 }
 
 func (s *ServiceSuite) TestServiceRefesh(c *C) {
@@ -85,84 +90,41 @@ func (s *ServiceSuite) TestServiceExposed(c *C) {
 	err = s.service.ClearExposed()
 	c.Assert(err, IsNil)
 
-	// Check that we cannot set the exposed flag when the service is dying.
-	err = s.service.Kill()
-	c.Assert(err, IsNil)
-	err = s.service.SetExposed()
-	c.Assert(err, ErrorMatches, ".*: not found or not alive")
-	err = s.service.ClearExposed()
-	c.Assert(err, ErrorMatches, ".*: not found or not alive")
-
-	// Check that we cannot set the exposed flag when the service is dead.
-	err = s.service.Die()
-	c.Assert(err, IsNil)
-	err = s.service.SetExposed()
-	c.Assert(err, ErrorMatches, ".*: not found or not alive")
-	err = s.service.ClearExposed()
-	c.Assert(err, ErrorMatches, ".*: not found or not alive")
-}
-
-func (s *ServiceSuite) testAddSubordinateUnitWhenNotAlive(c *C, svcLife, principalLife state.Life) {
-	principalService, err := s.State.AddService("mysql", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, IsNil)
-	principalUnit, err := principalService.AddUnit()
-	c.Assert(err, IsNil)
-	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, IsNil)
-
-	ensureLife(c, logging, svcLife)
-	ensureLife(c, principalUnit, principalLife)
-	subUnit, err := logging.AddUnitSubordinateTo(principalUnit)
-	c.Check(err, ErrorMatches, ".*: unit already exists or service or principal unit are not alive")
-	c.Assert(subUnit, IsNil)
+	assertOkWhenAliveOnly(c, s.service,
+		func() error {
+			return s.service.SetExposed()
+		},
+		func() error {
+			return s.service.ClearExposed()
+		})
 }
 
 func (s *ServiceSuite) TestAddSubordinateUnitWhenNotAlive(c *C) {
 	loggingCharm := s.AddTestingCharm(c, "logging")
+	principalService, err := s.State.AddService("svc", s.charm)
+	c.Assert(err, IsNil)
+	principalUnit, err := principalService.AddUnit()
+	c.Assert(err, IsNil)
+
+	// Test for all combinations of liveness of principal unit
+	// and subordinate service. AddUnitSubordinateTo should
+	// fail when either are not alive.
 	i := 0
-	// test tests the error for some combination of service and principal
-	// aliveness.
-	test := func(svcLife, principalLife state.Life) {
+	const notAliveErrPat = ".*: unit already exists or service or principal unit are not alive"
+	assertOkForLife(c, principalUnit, "", "", "", func() error {
 		i++
-		principalService, err := s.State.AddService(fmt.Sprintf("p%d", i), s.charm)
+		logging, err := s.State.AddService(fmt.Sprintf("logging%d", i), loggingCharm)
 		c.Assert(err, IsNil)
-		principalUnit, err := principalService.AddUnit()
-		c.Assert(err, IsNil)
-		logging, err := s.State.AddService(fmt.Sprintf("l%d", i), loggingCharm)
-		c.Assert(err, IsNil)
-
-		ensureLife(c, logging, svcLife)
-		ensureLife(c, principalUnit, principalLife)
-		subUnit, err := logging.AddUnitSubordinateTo(principalUnit)
-		c.Check(err, ErrorMatches, ".*: unit already exists or service or principal unit are not alive")
-		c.Assert(subUnit, IsNil)
-	}
-		
-	lives := []state.Life{state.Dying, state.Dead}
-	for _, svcLife := range lives {
-		for _, principalLife := range lives {
-			if svcLife != state.Alive || principalLife != state.Alive {
-				c.Logf("service: %v; principal: %v", svcLife, principalLife)
-				test(svcLife, principalLife)
-			}
+		aliveErr := ""
+		if principalUnit.Life() != state.Alive {
+			aliveErr = notAliveErrPat
 		}
-	}
-}
-
-type lifer interface {
-	Die() error
-	Kill() error
-}
-
-func ensureLife(c *C, l lifer, life state.Life) {
-	switch life {
-	case state.Dying:
-		err := l.Kill()
-		c.Assert(err, IsNil)
-	case state.Dead:
-		err := l.Die()
-		c.Assert(err, IsNil)
-	}
+		assertOkForLife(c, logging, aliveErr, notAliveErrPat, notAliveErrPat, func() error {
+			_, err := logging.AddUnitSubordinateTo(principalUnit)
+			return err
+		})
+		return nil
+	})
 }
 
 func (s *ServiceSuite) TestAddUnit(c *C) {
@@ -213,11 +175,11 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 	_, err = logging.AddUnitSubordinateTo(subZero)
 	c.Assert(err, ErrorMatches, "a subordinate unit must be added to a principal unit")
 
-	// Check that AddUnit fails when the service is dying.
-	err = s.service.Kill()
-	c.Assert(err, IsNil)
-	_, err = s.service.AddUnit()
-	c.Assert(err, ErrorMatches, ".*: unit already exists or service is not alive")
+	const errPat = ".*: unit already exists or service is not alive"
+	assertOkForLife(c, s.service, "", errPat, errPat, func() error {
+		_, err = s.service.AddUnit()
+		return err
+	})
 }
 
 func (s *ServiceSuite) TestReadUnit(c *C) {
@@ -249,41 +211,26 @@ func (s *ServiceSuite) TestReadUnit(c *C) {
 	unit, err = s.service.Unit("wordpress/0")
 	c.Assert(err, ErrorMatches, `cannot get unit "wordpress/0" from service "mysql": .*`)
 
-	test := func() {
+	checkAllUnits := func() error {
 		// Check that retrieving all units works.
 		units, err := s.service.AllUnits()
-		c.Assert(err, IsNil)
+		if err != nil {
+			return err
+		}
 		c.Assert(len(units), Equals, 2)
 		c.Assert(units[0].Name(), Equals, "mysql/0")
 		c.Assert(units[1].Name(), Equals, "mysql/1")
-
-		unit, err := s.service.Unit("mysql/0")
-		c.Assert(err, IsNil)
-		c.Assert(unit.Name(), Equals, "mysql/0")
+		return nil
 	}
-	test()
-
-	// Check that we can get units when the service is dying.
-	err = s.service.Kill()
-	c.Assert(err, IsNil)
-	test()
-
-	// Check that we can get units when the service is dead.
-	err = s.service.Die()
-	c.Assert(err, IsNil)
-	test()
+	checkUnit := func() error {
+		_, err := s.service.Unit("mysql/0")
+		return err
+	}
+	assertOkForAllLife(c, s.service, checkAllUnits, checkUnit)
 
 	unit0, err := s.service.Unit("mysql/0")
 	c.Assert(err, IsNil)
-	// Check that we can get a unit when it's dying.
-	err = unit0.Kill()
-	c.Assert(err, IsNil)
-	test()
-
-	// Check that we can get a unit when it's dead.
-	err = unit0.Die()
-	c.Assert(err, IsNil)
-	test()
+	assertOkForAllLife(c, unit0, checkAllUnits, checkUnit)
 }
 
 func (s *ServiceSuite) TestRemoveUnit(c *C) {

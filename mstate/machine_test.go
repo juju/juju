@@ -153,27 +153,23 @@ func (s *MachineSuite) TestMachineRefresh(c *C) {
 }
 
 func (s *MachineSuite) TestRefreshWhenNotAlive(c *C) {
-	// Refresh should work regardless of liveness status.
+	// Refresh and instance id should work regardless of liveness status.
 	m := s.machine
 	err := m.SetInstanceId("foo")
 	c.Assert(err, IsNil)
 
-	err = m.Kill()
-	c.Assert(err, IsNil)
-	err = m.Refresh()
-	c.Assert(err, IsNil)
-	id, err := m.InstanceId()
-	c.Assert(err, IsNil)
-	c.Assert(id, Equals, "foo")
-
-	err = m.Die()
-	c.Assert(err, IsNil)
-	err = m.Refresh()
-	c.Assert(err, IsNil)
-
-	id, err = m.InstanceId()
-	c.Assert(err, IsNil)
-	c.Assert(id, Equals, "foo")
+	assertOkForAllLife(c, s.machine, func() error {
+		err = m.Refresh()
+		c.Assert(err, IsNil)
+		if err != nil {
+			return err
+		}
+		id, err := m.InstanceId()
+		c.Assert(err, IsNil)
+		c.Assert(id, Equals, "foo")
+		return nil
+	})
+		
 }
 
 func (s *MachineSuite) TestMachineUnits(c *C) {

@@ -74,7 +74,7 @@ func (s *Service) SetCharmURL(url *charm.URL) (err error) {
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: notDead,
+		Assert: isAlive,
 		Update: D{{"$set", D{{"charmurl", url}}}},
 	}}
 	err = s.st.runner.Run(ops, "", nil)

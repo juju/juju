@@ -310,8 +310,7 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 		return *u.doc.MachineId, nil
 	}
 	pudoc := unitDoc{}
-	sel := append(notDead, D{{"_id", u.doc.Principal}}...)
-	err = u.st.units.Find(sel).One(&pudoc)
+	err = u.st.units.Find(D{{"_id", u.doc.Principal}}).One(&pudoc)
 	if err != nil {
 		return 0, err
 	}
@@ -324,6 +323,9 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 // AssignToMachine assigns this unit to a given machine.
 func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot assign unit %q to machine %s", u, m)
+	if u.doc.Principal != "" {
+		return fmt.Errorf("unit is subordinate")
+	}
 	assert := append(notDead, D{
 		{"$or", []D{
 			D{{"machineid", nil}},

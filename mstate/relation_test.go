@@ -79,20 +79,12 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	c.Assert(err, IsNil)
 	_, err = s.State.AddRelation(proep, reqep)
 	c.Assert(err, ErrorMatches, `cannot add relation "pro:foo req:bar": .*`)
-	assertOneRelation(c, pro, 0, proep, reqep)
-	assertOneRelation(c, req, 0, reqep, proep)
 
-	// Check we can still see the relations even though the relation is dying.
-	err = rel.Kill()
-	c.Assert(err, IsNil)
-	assertOneRelation(c, pro, 0, proep, reqep)
-	assertOneRelation(c, req, 0, reqep, proep)
-
-	// Check we can still see the relations even though the relation is dead.
-	err = rel.Die()
-	c.Assert(err, IsNil)
-	assertOneRelation(c, pro, 0, proep, reqep)
-	assertOneRelation(c, req, 0, reqep, proep)
+	assertOkForAllLife(c, rel, func() error {
+		assertOneRelation(c, pro, 0, proep, reqep)
+		assertOneRelation(c, req, 0, reqep, proep)
+		return nil
+	})
 
 	// Remove the relation, and check it can't be removed again.
 	err = s.State.RemoveRelation(rel)

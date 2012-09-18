@@ -69,6 +69,32 @@ func (s *AssignSuite) TestAssignUnitToMachineAgainFails(c *C) {
 	c.Assert(machineId, Equals, 1)
 }
 
+func (s *AssignSuite) TestAssignedMachineIdWhenNotAlive(c *C) {
+	machine, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+
+	err = s.unit.AssignToMachine(machine)
+	c.Assert(err, IsNil)
+
+	subCharm := s.AddTestingCharm(c, "logging")
+	subSvc, err := s.State.AddService("logging", subCharm)
+	c.Assert(err, IsNil)
+
+	subUnit, err := subSvc.AddUnitSubordinateTo(s.unit)
+	c.Assert(err, IsNil)
+
+	assertOkForAllLife(c, s.unit,
+		func() error {
+			_, err = s.unit.AssignedMachineId()
+			return err
+		},
+		func() error {
+			_, err = subUnit.AssignedMachineId()
+			return err
+		})
+}
+
+
 func (s *AssignSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 	// Check that unassigning while the state changes fails nicely.
 	// Remove the unit for the tests.
@@ -107,6 +133,8 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
 
 	m1, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
+	err = log1Unit.AssignToMachine(m1)
+	c.Assert(err, ErrorMatches, ".*: unit is subordinate")
 	err = s.unit.AssignToMachine(m1)
 	c.Assert(err, IsNil)
 
