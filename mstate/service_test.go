@@ -255,6 +255,22 @@ func (s *ServiceSuite) TestReadUnit(c *C) {
 	c.Assert(len(units), Equals, 2)
 	c.Assert(units[0].Name(), Equals, "mysql/0")
 	c.Assert(units[1].Name(), Equals, "mysql/1")
+
+	// Check that we can get units when the service is dying.
+	err = s.service.Kill()
+	c.Assert(err, IsNil)
+	_, err = s.service.Unit("mysql/0")
+	c.Check(err, IsNil)
+	_, err = s.service.AllUnits()
+	c.Check(err, IsNil)
+
+	// Check that we can get units when the service is dead.
+	err = s.service.Die()
+	c.Assert(err, IsNil)
+	_, err = s.service.Unit("mysql/0")
+	c.Check(err, IsNil)
+	_, err = s.service.AllUnits()
+	c.Check(err, IsNil)
 }
 
 func (s *ServiceSuite) TestRemoveUnit(c *C) {
