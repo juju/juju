@@ -98,7 +98,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	if c.Config.Path != nil {
+	if c.Config.Path != "" {
 		// TODO many dependencies :(
 		return errors.New("state.Service.SetConfig not implemented (format 2...)")
 	}

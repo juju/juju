@@ -237,7 +237,6 @@ func (*CmdSuite) TestDeployCommandInit(c *C) {
 
 	com, err := initDeployCommand("--config", "testconfig.yaml", "charm-name")
 	c.Assert(err, IsNil)
-	c.Assert(*com.Config.Path, NotNil)
 	r, err := com.Config.Open(ctx)
 	c.Assert(err, IsNil)
 	c.Assert(r.(*os.File).Name(), Equals, path)

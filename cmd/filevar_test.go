@@ -34,8 +34,7 @@ func (s *FileVarSuite) TestValidFileVar(c *C) {
 	fs, config := fs()
 	err := fs.Parse(false, []string{"--config", s.ValidPath})
 	c.Assert(err, IsNil)
-	c.Assert(config.Path, NotNil)
-	c.Assert(*config.Path, Equals, s.ValidPath)
+	c.Assert(config.Path, Equals, s.ValidPath)
 	r, err := config.Open(s.ctx)
 	c.Assert(err, IsNil)
 	defer r.Close()
@@ -44,8 +43,7 @@ func (s *FileVarSuite) TestValidFileVar(c *C) {
 func (s *FileVarSuite) TestInvalidFileVar(c *C) {
 	fs, config := fs()
 	err := fs.Parse(false, []string{"--config", s.InvalidPath})
-	c.Assert(config.Path, NotNil)
-	c.Assert(*config.Path, Equals, s.InvalidPath)
+	c.Assert(config.Path, Equals, s.InvalidPath)
 	_, err = config.Open(s.ctx)
 	c.Assert(err, ErrorMatches, "*permission denied")
 }
