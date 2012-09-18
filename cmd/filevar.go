@@ -10,7 +10,7 @@ type FileVar struct {
 	Path string
 }
 
-// Set opens the file. 
+// Set stores the chosen path name in f.Path.
 func (f *FileVar) Set(v string) error {
 	f.Path = v
 	return nil
