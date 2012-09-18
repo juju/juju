@@ -10,6 +10,8 @@ import (
 type tooler interface {
 	AgentTools() (*mstate.Tools, error)
 	SetAgentTools(t *mstate.Tools) error
+	Kill() error
+	Die() error
 }
 
 var _ = Suite(&ToolsSuite{})
@@ -39,6 +41,18 @@ func testAgentTools(c *C, obj tooler, agent string) {
 	t3, err := obj.AgentTools()
 	c.Assert(err, IsNil)
 	c.Assert(t3, DeepEquals, t2)
+
+	// Check we can set tools when the object is dying.
+	err = obj.Kill()
+	c.Assert(err, IsNil)
+	err = obj.SetAgentTools(t2)
+	c.Assert(err, IsNil)
+
+	// Check we cannot set tools when the object is dead.
+	err = obj.Die()
+	c.Assert(err, IsNil)
+	err = obj.SetAgentTools(t2)
+	c.Assert(err, ErrorMatches, ".*: not found or not alive")
 }
 
 func (s *ToolsSuite) TestMachineAgentTools(c *C) {
