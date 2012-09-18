@@ -9,12 +9,12 @@ import (
 )
 
 type FileVarSuite struct {
-	ctx *cmd.Context
+	ctx         *cmd.Context
 	ValidPath   string
 	InvalidPath string // invalid path refers to a file which is not readable
 }
 
-var _ = Suite(&FileVarSuite{ })
+var _ = Suite(&FileVarSuite{})
 
 func (s *FileVarSuite) SetUpTest(c *C) {
 	s.ctx = &cmd.Context{c.MkDir(), nil, nil, nil}
@@ -38,7 +38,7 @@ func (s *FileVarSuite) TestValidFileVar(c *C) {
 	c.Assert(*config.Path, Equals, s.ValidPath)
 	r, err := config.Open(s.ctx)
 	c.Assert(err, IsNil)
-	defer r.Close()	
+	defer r.Close()
 }
 
 func (s *FileVarSuite) TestInvalidFileVar(c *C) {

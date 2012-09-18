@@ -1,10 +1,10 @@
 package cmd
 
 import (
-	"io"
-	"os"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 )
 
 // FileVar represents a path to a file. 
@@ -29,5 +29,5 @@ func (f *FileVar) Open(ctx *Context) (io.ReadCloser, error) {
 
 // String returns the path to the file.
 func (f *FileVar) String() string {
-	return fmt.Sprint(f.Path)	
+	return fmt.Sprint(f.Path)
 }
