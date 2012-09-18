@@ -51,6 +51,7 @@ type ServicesChange struct {
 type ServiceUnitsWatcher struct {
 	commonWatcher
 	service    *Service
+	prefix     string
 	changeChan chan *ServiceUnitsChange
 	knownUnits map[string]*Unit
 }
@@ -383,6 +384,7 @@ func newServiceUnitsWatcher(svc *Service) *ServiceUnitsWatcher {
 		changeChan:    make(chan *ServiceUnitsChange),
 		knownUnits:    make(map[string]*Unit),
 		service:       svc,
+		prefix:        svc.doc.Name + "/",
 		commonWatcher: commonWatcher{st: svc.st},
 	}
 	go func() {
@@ -408,7 +410,7 @@ func (w *ServiceUnitsWatcher) Stop() error {
 
 func (w *ServiceUnitsWatcher) mergeChange(changes *ServiceUnitsChange, ch watcher.Change) (err error) {
 	name := ch.Id.(string)
-	if !strings.HasPrefix(name, w.service.doc.Name+"/") {
+	if !strings.HasPrefix(name, w.prefix) {
 		return nil
 	}
 	if unit, ok := w.knownUnits[name]; ch.Revno == -1 && ok {
