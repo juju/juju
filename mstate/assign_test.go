@@ -94,7 +94,6 @@ func (s *AssignSuite) TestAssignedMachineIdWhenNotAlive(c *C) {
 		})
 }
 
-
 func (s *AssignSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 	// Check that unassigning while the state changes fails nicely.
 	// Remove the unit for the tests.

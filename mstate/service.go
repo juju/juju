@@ -149,9 +149,9 @@ func (s *Service) newUnitName() (string, error) {
 // addUnit adds the named unit.
 func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
 	udoc := &unitDoc{
-		Name:      name,
-		Service:   s.doc.Name,
-		Life:      Alive,
+		Name:    name,
+		Service: s.doc.Name,
+		Life:    Alive,
 	}
 	ops := []txn.Op{{
 		C:      s.st.units.Name,
@@ -166,14 +166,14 @@ func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
 	if principal != nil {
 		udoc.Principal = principal.Name()
 		ops = append(ops, txn.Op{
-			C: s.st.units.Name,
-			Id: principal.Name(),
+			C:      s.st.units.Name,
+			Id:     principal.Name(),
 			Assert: isAlive,
 		})
 	}
 	err := s.st.runner.Run(ops, "", nil)
 	if err != nil {
-		if err == txn.ErrAborted{
+		if err == txn.ErrAborted {
 			if principal == nil {
 				err = fmt.Errorf("unit already exists or service is not alive")
 			} else {

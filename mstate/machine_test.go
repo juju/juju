@@ -169,7 +169,7 @@ func (s *MachineSuite) TestRefreshWhenNotAlive(c *C) {
 		c.Assert(id, Equals, "foo")
 		return nil
 	})
-		
+
 }
 
 func (s *MachineSuite) TestMachineUnits(c *C) {
