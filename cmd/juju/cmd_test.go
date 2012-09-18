@@ -336,4 +336,20 @@ func (*CmdSuite) TestSetCommandInit(c *C) {
 	c.Assert(len(cmd.Options), Equals, 1)
 	c.Assert(cmd.Options[0].Key, Equals, "name")
 	c.Assert(cmd.Options[0].Value, Equals, "cow")
+
+	// test --config path
+	dir := c.MkDir()
+	path := filepath.Join(dir, "testconfig.yaml")
+	file, err := os.Create(path)
+	c.Assert(err, IsNil)
+	file.Close()
+	com, err := initSetCommand("--config", path, "service")
+	c.Assert(err, IsNil)
+	defer com.Config.Close()
+	c.Assert(com.Config.Path, Equals, path)
+	c.Assert(com.Config.ReadCloser, NotNil)
+
+	// --config path, but no service
+	com, err = initSetCommand("--config", path)
+	c.Assert(err, ErrorMatches, "no service name specified")
 }
