@@ -212,21 +212,26 @@ func (s *ServiceSuite) TestReadUnit(c *C) {
 	unit, err = s.service.Unit("wordpress/0")
 	c.Assert(err, ErrorMatches, `cannot get unit "wordpress/0" from service "mysql": .*`)
 
+	units, err := s.service.AllUnits()
+	c.Assert(err, IsNil)
+	c.Assert(sortedUnitNames(units), DeepEquals, []string{"mysql/0", "mysql/1"})
+}
+
+func (s *ServiceSuite) TestReadUnitWhenDying(c *C) {
+	// Test that we can read units from the service whatever
+	// their life state.
+	_, err := s.service.AddUnit()
+	c.Assert(err, IsNil)
 	checkAllUnits := func() error {
 		// Check that retrieving all units works.
-		units, err := s.service.AllUnits()
-		if err != nil {
-			return err
-		}
-		c.Assert(len(units), Equals, 2)
-		c.Assert(units[0].Name(), Equals, "mysql/0")
-		c.Assert(units[1].Name(), Equals, "mysql/1")
-		return nil
+		_, err := s.service.AllUnits()
+		return err
 	}
 	checkUnit := func() error {
 		_, err := s.service.Unit("mysql/0")
 		return err
 	}
+
 	testWhenDying(c, s.service, noErr, noErr, checkAllUnits, checkUnit)
 
 	unit0, err := s.service.Unit("mysql/0")

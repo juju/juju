@@ -341,7 +341,7 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot assign unit %q to machine %s", u, m)
 	if u.doc.Principal != "" {
-		return fmt.Errorf("unit is subordinate")
+		return fmt.Errorf("unit is a subordinate")
 	}
 	assert := append(isAlive, D{
 		{"$or", []D{

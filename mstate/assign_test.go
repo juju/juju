@@ -133,7 +133,7 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
 	machine, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 	err = log1Unit.AssignToMachine(machine)
-	c.Assert(err, ErrorMatches, ".*: unit is subordinate")
+	c.Assert(err, ErrorMatches, ".*: unit is a subordinate")
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, IsNil)
 

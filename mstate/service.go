@@ -275,7 +275,7 @@ func (s *Service) Unit(name string) (*Unit, error) {
 // AllUnits returns all units of the service.
 func (s *Service) AllUnits() (units []*Unit, err error) {
 	docs := []unitDoc{}
-	err = s.st.units.Find(D{{"service", s.doc.Name}}).Sort("_id").All(&docs)
+	err = s.st.units.Find(D{{"service", s.doc.Name}}).All(&docs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all units from service %q: %v", err)
 	}
