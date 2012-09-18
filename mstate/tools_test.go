@@ -10,6 +10,9 @@ import (
 type tooler interface {
 	AgentTools() (*mstate.Tools, error)
 	SetAgentTools(t *mstate.Tools) error
+	Kill() error
+	Die() error
+	Life() mstate.Life
 }
 
 var _ = Suite(&ToolsSuite{})
@@ -39,6 +42,10 @@ func testAgentTools(c *C, obj tooler, agent string) {
 	t3, err := obj.AgentTools()
 	c.Assert(err, IsNil)
 	c.Assert(t3, DeepEquals, t2)
+
+	testWhenDying(c, obj, noErr, notAliveErr, func() error {
+		return obj.SetAgentTools(t2)
+	})
 }
 
 func (s *ToolsSuite) TestMachineAgentTools(c *C) {

@@ -72,34 +72,27 @@ func (s *Service) IsExposed() (bool, error) {
 // SetExposed marks the service as exposed.
 // See ClearExposed and IsExposed.
 func (s *Service) SetExposed() error {
-	ops := []txn.Op{{
-		C:      s.st.services.Name,
-		Id:     s.doc.Name,
-		Assert: D{{"life", Alive}},
-		Update: D{{"$set", D{{"exposed", true}}}},
-	}}
-	err := s.st.runner.Run(ops, "", nil)
-	if err != nil {
-		return fmt.Errorf("cannot set exposed flag for service %q: %v", s, deadOnAbort(err))
-	}
-	s.doc.Exposed = true
-	return nil
+	return s.setExposed(true)
 }
 
 // ClearExposed removes the exposed flag from the service.
 // See SetExposed and IsExposed.
 func (s *Service) ClearExposed() error {
+	return s.setExposed(false)
+}
+
+func (s *Service) setExposed(exposed bool) error {
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: D{{"life", Alive}},
-		Update: D{{"$set", D{{"exposed", false}}}},
+		Assert: isAlive,
+		Update: D{{"$set", D{{"exposed", exposed}}}},
 	}}
 	err := s.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot clear exposed flag for service %q: %v", s, deadOnAbort(err))
+		return fmt.Errorf("cannot set exposed flag for service %q to %v: %v", s, exposed, deadOnAbort(err))
 	}
-	s.doc.Exposed = false
+	s.doc.Exposed = exposed
 	return nil
 }
 
@@ -120,7 +113,7 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: D{{"life", Alive}},
+		Assert: isAlive,
 		Update: D{{"$set", D{{"charmurl", ch.URL()}, {"forcecharm", force}}}},
 	}}
 	err = s.st.runner.Run(ops, "", nil)
@@ -147,72 +140,92 @@ func (s *Service) Refresh() error {
 
 // newUnitName returns the next unit name.
 func (s *Service) newUnitName() (string, error) {
-	sel := D{{"_id", s.doc.Name}, {"life", Alive}}
 	change := mgo.Change{Update: D{{"$inc", D{{"unitseq", 1}}}}}
 	result := serviceDoc{}
-	_, err := s.st.services.Find(sel).Apply(change, &result)
+	_, err := s.st.services.Find(D{{"_id", s.doc.Name}}).Apply(change, &result)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("cannot increment unit sequence: %v", err)
 	}
 	name := s.doc.Name + "/" + strconv.Itoa(result.UnitSeq)
 	return name, nil
 }
 
 // addUnit adds the named unit.
-func (s *Service) addUnit(name string, principal string) (*Unit, error) {
-	udoc := unitDoc{
-		Name:      name,
-		Service:   s.doc.Name,
-		Principal: principal,
-		Life:      Alive,
+func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
+	udoc := &unitDoc{
+		Name:    name,
+		Service: s.doc.Name,
+		Life:    Alive,
 	}
 	ops := []txn.Op{{
 		C:      s.st.units.Name,
-		Id:     udoc.Name,
+		Id:     name,
 		Assert: txn.DocMissing,
 		Insert: udoc,
+	}, {
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: isAlive,
 	}}
+	if principal != nil {
+		udoc.Principal = principal.Name()
+		ops = append(ops, txn.Op{
+			C:      s.st.units.Name,
+			Id:     principal.Name(),
+			Assert: isAlive,
+		})
+	}
 	err := s.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return nil, fmt.Errorf("cannot add unit to service %q", s)
+		if err == txn.ErrAborted {
+			if principal == nil {
+				err = fmt.Errorf("service is not alive")
+			} else {
+				err = fmt.Errorf("service or principal unit are not alive")
+			}
+		}
+		return nil, err
+
 	}
-	return newUnit(s.st, &udoc), nil
+	return newUnit(s.st, udoc), nil
 }
 
 // AddUnit adds a new principal unit to the service.
 func (s *Service) AddUnit() (unit *Unit, err error) {
+	defer trivial.ErrorContextf(&err, "cannot add unit to service %q", s)
 	ch, _, err := s.Charm()
 	if err != nil {
-		return nil, fmt.Errorf("cannot add unit to service %q: %v", err)
+		return nil, err
 	}
 	if ch.Meta().Subordinate {
-		return nil, fmt.Errorf("cannot directly add units to subordinate service %q", s)
+		return nil, fmt.Errorf("unit is a subordinate")
 	}
 	name, err := s.newUnitName()
 	if err != nil {
-		return nil, fmt.Errorf("cannot add unit to service %q: %v", err)
+		return nil, err
 	}
-	return s.addUnit(name, "")
+	return s.addUnit(name, nil)
 }
 
 // AddUnitSubordinateTo adds a new subordinate unit to the service,
 // subordinate to principal.
-func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
+func (s *Service) AddUnitSubordinateTo(principal *Unit) (unit *Unit, err error) {
+	defer trivial.ErrorContextf(&err, "cannot add unit to service %q as a subordinate of %q", s, principal)
 	ch, _, err := s.Charm()
 	if err != nil {
-		return nil, fmt.Errorf("cannot add unit to service %q: %v", err)
+		return nil, err
 	}
 	if !ch.Meta().Subordinate {
-		return nil, fmt.Errorf("cannot add unit of principal service %q as a subordinate of %q", s, principal)
+		return nil, fmt.Errorf("service is not a subordinate")
 	}
 	if !principal.IsPrincipal() {
-		return nil, errors.New("a subordinate unit must be added to a principal unit")
+		return nil, fmt.Errorf("unit is not a principal")
 	}
 	name, err := s.newUnitName()
 	if err != nil {
-		return nil, fmt.Errorf("cannot add unit to service %q: %v", err)
+		return nil, err
 	}
-	return s.addUnit(name, principal.Name())
+	return s.addUnit(name, principal)
 }
 
 // RemoveUnit removes the given unit from s.
@@ -242,7 +255,6 @@ func (s *Service) unitDoc(name string) (*unitDoc, error) {
 	sel := D{
 		{"_id", name},
 		{"service", s.doc.Name},
-		{"life", Alive},
 	}
 	err := s.st.units.Find(sel).One(udoc)
 	if err != nil {
@@ -263,8 +275,7 @@ func (s *Service) Unit(name string) (*Unit, error) {
 // AllUnits returns all units of the service.
 func (s *Service) AllUnits() (units []*Unit, err error) {
 	docs := []unitDoc{}
-	sel := D{{"service", s.doc.Name}, {"life", Alive}}
-	err = s.st.units.Find(sel).All(&docs)
+	err = s.st.units.Find(D{{"service", s.doc.Name}}).All(&docs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all units from service %q: %v", err)
 	}
@@ -277,12 +288,8 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 // Relations returns a Relation for every relation the service is in.
 func (s *Service) Relations() (relations []*Relation, err error) {
 	defer trivial.ErrorContextf(&err, "can't get relations for service %q", s)
-	sel := D{
-		{"life", Alive},
-		{"endpoints.servicename", s.doc.Name},
-	}
 	docs := []relationDoc{}
-	err = s.st.relations.Find(sel).All(&docs)
+	err = s.st.relations.Find(D{{"endpoints.servicename", s.doc.Name}}).All(&docs)
 	if err != nil {
 		return nil, err
 	}

@@ -130,7 +130,7 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: D{{"life", Alive}},
+		Assert: notDead,
 		Update: D{{"$set", D{{"tools", t}}}},
 	}}
 	err = u.st.runner.Run(ops, "", nil)
@@ -327,8 +327,7 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 		return *u.doc.MachineId, nil
 	}
 	pudoc := unitDoc{}
-	sel := D{{"_id", u.doc.Principal}, {"life", Alive}}
-	err = u.st.units.Find(sel).One(&pudoc)
+	err = u.st.units.Find(D{{"_id", u.doc.Principal}}).One(&pudoc)
 	if err != nil {
 		return 0, err
 	}
@@ -341,13 +340,15 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 // AssignToMachine assigns this unit to a given machine.
 func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot assign unit %q to machine %s", u, m)
-	assert := D{
+	if u.doc.Principal != "" {
+		return fmt.Errorf("unit is a subordinate")
+	}
+	assert := append(isAlive, D{
 		{"$or", []D{
 			D{{"machineid", nil}},
 			D{{"machineid", m.Id()}},
 		}},
-		{"life", Alive},
-	}
+	}...)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
@@ -356,32 +357,17 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	}, {
 		C:      u.st.machines.Name,
 		Id:     m.Id(),
-		Assert: D{{"life", Alive}},
+		Assert: isAlive,
 	}}
 	err = u.st.runner.Run(ops, "", nil)
 	if err == nil {
 		u.doc.MachineId = &m.doc.Id
 		return nil
 	}
-	err = u.Refresh()
-	if err != nil {
-		return err
+	if err == txn.ErrAborted {
+		return fmt.Errorf("machine or unit dead, or already assigned to machine")
 	}
-	err = m.Refresh()
-	if err != nil {
-		return err
-	}
-	switch {
-	case u.doc.MachineId != nil && *u.doc.MachineId != m.Id():
-		return fmt.Errorf("already assigned to machine %s", *u.doc.MachineId)
-	case u.doc.Life != Alive:
-		return fmt.Errorf("unit is %v", u.doc.Life)
-	case m.doc.Life != Alive:
-		return fmt.Errorf("machine is %v", m.doc.Life)
-	default:
-		panic("unreachable")
-	}
-	panic("unreachable")
+	return err
 }
 
 // UnassignFromMachine removes the assignment between this unit and the
