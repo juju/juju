@@ -136,36 +136,54 @@ func (s *Service) Refresh() error {
 
 // newUnitName returns the next unit name.
 func (s *Service) newUnitName() (string, error) {
-	sel := append(notDead, D{{"_id", s.doc.Name}}...)
 	change := mgo.Change{Update: D{{"$inc", D{{"unitseq", 1}}}}}
 	result := serviceDoc{}
-	_, err := s.st.services.Find(sel).Apply(change, &result)
+	_, err := s.st.services.Find(D{{"_id", s.doc.Name}}).Apply(change, &result)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("cannot increment unit sequence: %v", err)
 	}
 	name := s.doc.Name + "/" + strconv.Itoa(result.UnitSeq)
 	return name, nil
 }
 
 // addUnit adds the named unit.
-func (s *Service) addUnit(name string, principal string) (*Unit, error) {
-	udoc := unitDoc{
+func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
+	udoc := &unitDoc{
 		Name:      name,
 		Service:   s.doc.Name,
-		Principal: principal,
 		Life:      Alive,
 	}
 	ops := []txn.Op{{
 		C:      s.st.units.Name,
-		Id:     udoc.Name,
+		Id:     name,
 		Assert: txn.DocMissing,
 		Insert: udoc,
+	}, {
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: isAlive,
 	}}
+	if principal != nil {
+		udoc.Principal = principal.Name()
+		ops = append(ops, txn.Op{
+			C: s.st.units.Name,
+			Id: principal.Name(),
+			Assert: isAlive,
+		})
+	}
 	err := s.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return nil, fmt.Errorf("cannot add unit to service %q", s)
+		if err == txn.ErrAborted{
+			if principal == nil {
+				err = fmt.Errorf("unit already exists or service is not alive")
+			} else {
+				err = fmt.Errorf("unit already exists or service or principal unit are not alive")
+			}
+		}
+		return nil, fmt.Errorf("cannot add unit to service %q: %v", s, err)
+
 	}
-	return newUnit(s.st, &udoc), nil
+	return newUnit(s.st, udoc), nil
 }
 
 // AddUnit adds a new principal unit to the service.
@@ -181,7 +199,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot add unit to service %q: %v", err)
 	}
-	return s.addUnit(name, "")
+	return s.addUnit(name, nil)
 }
 
 // AddUnitSubordinateTo adds a new subordinate unit to the service,
@@ -189,7 +207,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
 	ch, err := s.Charm()
 	if err != nil {
-		return nil, fmt.Errorf("cannot add unit to service %q: %v", err)
+		return nil, fmt.Errorf("cannot add unit to service %q: %v", s, err)
 	}
 	if !ch.Meta().Subordinate {
 		return nil, fmt.Errorf("cannot add unit of principal service %q as a subordinate of %q", s, principal)
@@ -199,9 +217,9 @@ func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
 	}
 	name, err := s.newUnitName()
 	if err != nil {
-		return nil, fmt.Errorf("cannot add unit to service %q: %v", err)
+		return nil, fmt.Errorf("cannot add unit to service %q: %v", s, err)
 	}
-	return s.addUnit(name, principal.Name())
+	return s.addUnit(name, principal)
 }
 
 // RemoveUnit removes the given unit from s.
