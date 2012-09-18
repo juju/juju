@@ -203,7 +203,7 @@ func (s *LifeSuite) TestLifecycleStateChanges(c *C) {
 
 const (
 	notAliveErr = ".*: not found or not alive"
-	noErr = ""
+	noErr       = ""
 )
 
 type lifer interface {
