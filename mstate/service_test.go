@@ -232,3 +232,134 @@ func (s *ServiceSuite) TestServiceConfig(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"spam": "spam", "eggs": "spam", "chaos": "emeralds"})
 }
+
+var serviceUnitsWatchTests = []struct {
+	test    func(*C, *state.State, *state.Service)
+	added   []string
+	removed []string
+}{
+	{
+		test:  func(_ *C, _ *state.State, _ *state.Service) {},
+		added: []string{},
+	},
+	{
+		test: func(c *C, s *state.State, service *state.Service) {
+			_, err := service.AddUnit()
+			c.Assert(err, IsNil)
+		},
+		added: []string{"mysql/0"},
+	},
+	{
+		test: func(c *C, s *state.State, service *state.Service) {
+			_, err := service.AddUnit()
+			c.Assert(err, IsNil)
+		},
+		added: []string{"mysql/1"},
+	},
+	{
+		test: func(c *C, s *state.State, service *state.Service) {
+			_, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			_, err = service.AddUnit()
+			c.Assert(err, IsNil)
+		},
+		added: []string{"mysql/2", "mysql/3"},
+	},
+	{
+		test: func(c *C, s *state.State, service *state.Service) {
+			unit3, err := service.Unit("mysql/3")
+			c.Assert(err, IsNil)
+			err = unit3.Die()
+			c.Assert(err, IsNil)
+			err = service.RemoveUnit(unit3)
+			c.Assert(err, IsNil)
+		},
+		removed: []string{"mysql/3"},
+	},
+	{
+		test: func(c *C, s *state.State, service *state.Service) {
+			unit0, err := service.Unit("mysql/0")
+			c.Assert(err, IsNil)
+			err = unit0.Die()
+			c.Assert(err, IsNil)
+			err = service.RemoveUnit(unit0)
+			c.Assert(err, IsNil)
+			unit2, err := service.Unit("mysql/2")
+			c.Assert(err, IsNil)
+			err = unit2.Die()
+			c.Assert(err, IsNil)
+			err = service.RemoveUnit(unit2)
+			c.Assert(err, IsNil)
+		},
+		removed: []string{"mysql/0", "mysql/2"},
+	},
+	{
+		test: func(c *C, s *state.State, service *state.Service) {
+			_, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			unit1, err := service.Unit("mysql/1")
+			c.Assert(err, IsNil)
+			err = unit1.Die()
+			c.Assert(err, IsNil)
+			err = service.RemoveUnit(unit1)
+			c.Assert(err, IsNil)
+		},
+		added:   []string{"mysql/4"},
+		removed: []string{"mysql/1"},
+	},
+	{
+		test: func(c *C, s *state.State, service *state.Service) {
+			units := [20]*state.Unit{}
+			var err error
+			for i := 0; i < len(units); i++ {
+				units[i], err = service.AddUnit()
+				c.Assert(err, IsNil)
+			}
+			for i := 10; i < len(units); i++ {
+				err = units[i].Die()
+				c.Assert(err, IsNil)
+				err = service.RemoveUnit(units[i])
+				c.Assert(err, IsNil)
+			}
+		},
+		added: []string{"mysql/5", "mysql/6", "mysql/7", "mysql/8", "mysql/9", "mysql/10", "mysql/11", "mysql/12", "mysql/13", "mysql/14"},
+	},
+	{
+		test: func(c *C, s *state.State, service *state.Service) {
+			_, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			unit9, err := service.Unit("mysql/9")
+			c.Assert(err, IsNil)
+			err = unit9.Die()
+			c.Assert(err, IsNil)
+			err = service.RemoveUnit(unit9)
+			c.Assert(err, IsNil)
+		},
+		added:   []string{"mysql/25"},
+		removed: []string{"mysql/9"},
+	},
+	{
+		test: func(c *C, s *state.State, service *state.Service) {
+			_, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			_, err = service.AddUnit()
+			c.Assert(err, IsNil)
+			ch, _, err := service.Charm()
+			c.Assert(err, IsNil)
+			svc, err := s.AddService("bacon", ch)
+			c.Assert(err, IsNil)
+			_, err = svc.AddUnit()
+			c.Assert(err, IsNil)
+			_, err = svc.AddUnit()
+			c.Assert(err, IsNil)
+			unit14, err := service.Unit("mysql/14")
+			c.Assert(err, IsNil)
+			err = unit14.Die()
+			c.Assert(err, IsNil)
+			err = service.RemoveUnit(unit14)
+			c.Assert(err, IsNil)
+		},
+		added:   []string{"mysql/26", "mysql/27"},
+		removed: []string{"mysql/14"},
+	},
+}

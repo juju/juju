@@ -47,6 +47,21 @@ type ServicesChange struct {
 	Removed []*Service
 }
 
+type ServiceUnitsWatcher struct {
+	commonWatcher
+	service    *Service
+	changeChan chan *ServiceUnitsChange
+	knownUnits map[string]*Unit
+}
+
+// ServiceUnitsChange contains information about
+// units that have been added to or removed from
+// services.
+type ServiceUnitsChange struct {
+	Added   []*Unit
+	Removed []*Unit
+}
+
 // newMachineWatcher creates and starts a watcher to watch information
 // about the machine.
 func newMachineWatcher(m *Machine) *MachineWatcher {
@@ -342,6 +357,127 @@ func (w *ServicesWatcher) loop() (err error) {
 			return tomb.ErrDying
 		case c := <-ch:
 			changes = &ServicesChange{}
+			err := w.mergeChange(changes, c)
+			if err != nil {
+				return err
+			}
+			if changes.isEmpty() {
+				changes = nil
+			}
+		}
+	}
+	return nil
+}
+
+// WatchUnits returns a watcher for observing units being
+// added or removed.
+func (s *State) WatchUnits() *ServiceUnitsWatcher {
+	return newServiceUnitsWatcher(s)
+}
+
+// newServiceUnitsWatcher creates and starts a watcher to watch information
+// about units being added or deleted.
+func newServiceUnitsWatcher(st *State) *ServiceUnitsWatcher {
+	w := &ServiceUnitsWatcher{
+		changeChan:    make(chan *ServiceUnitsChange),
+		knownUnits:    make(map[string]*Unit),
+		commonWatcher: commonWatcher{st: st},
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.changeChan)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns a channel that will receive changes when units are
+// added or deleted. The Added field in the first event on the channel
+// holds the initial state as returned by State.AllUnits.
+func (w *ServiceUnitsWatcher) Changes() <-chan *ServiceUnitsChange {
+	return w.changeChan
+}
+
+// Stop stops the watcher and returns any errors encountered while watching.
+func (w *ServiceUnitsWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
+}
+
+func (w *ServiceUnitsWatcher) mergeChange(changes *ServiceUnitsChange, ch watcher.Change) (err error) {
+	name := ch.Id.(string)
+	if unit, ok := w.knownUnits[name]; ch.Revno == -1 && ok {
+		unit.doc.Life = Dead
+		changes.Removed = append(changes.Removed, unit)
+		delete(w.knownUnits, name)
+		return nil
+	}
+	doc := &unitDoc{}
+	err = w.st.units.FindId(name).One(doc)
+	if err == mgo.ErrNotFound {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	unit := newUnit(w.st, doc)
+	if _, ok := w.knownUnits[name]; !ok {
+		changes.Added = append(changes.Added, unit)
+	}
+	w.knownUnits[name] = unit
+	return nil
+}
+
+func (changes *ServiceUnitsChange) isEmpty() bool {
+	return len(changes.Added)+len(changes.Removed) == 0
+}
+
+func (w *ServiceUnitsWatcher) getInitialEvent() (initial *ServiceUnitsChange, err error) {
+	changes := &ServiceUnitsChange{}
+	docs := []unitDoc{}
+	err = w.st.units.Find(nil).All(&docs)
+	if err != nil {
+		return nil, err
+	}
+	for _, doc := range docs {
+		unit := newUnit(w.st, &doc)
+		w.knownUnits[doc.Name] = unit
+		changes.Added = append(changes.Added, unit)
+	}
+	return changes, nil
+}
+
+func (w *ServiceUnitsWatcher) loop() (err error) {
+	ch := make(chan watcher.Change)
+	w.st.watcher.WatchCollection(w.st.units.Name, ch)
+	defer w.st.watcher.UnwatchCollection(w.st.units.Name, ch)
+	changes, err := w.getInitialEvent()
+	if err != nil {
+		return err
+	}
+	for {
+		for changes != nil {
+			select {
+			case <-w.st.watcher.Dead():
+				return watcher.MustErr(w.st.watcher)
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case c := <-ch:
+				err := w.mergeChange(changes, c)
+				if err != nil {
+					return err
+				}
+			case w.changeChan <- changes:
+				changes = nil
+			}
+		}
+		select {
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case c := <-ch:
+			changes = &ServiceUnitsChange{}
 			err := w.mergeChange(changes, c)
 			if err != nil {
 				return err
