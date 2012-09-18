@@ -240,7 +240,7 @@ func (*CmdSuite) TestDeployCommandInit(c *C) {
 	r, err := com.Config.Open(ctx)
 	c.Assert(err, IsNil)
 	c.Assert(r.(*os.File).Name(), Equals, path)
-	defer r.Close()
+	r.Close()
 
 	// missing args
 	_, err = initDeployCommand()
