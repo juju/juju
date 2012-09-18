@@ -56,7 +56,7 @@ var indexes = []struct {
 }{
 	// After the first public release, do not remove entries from here
 	// without adding them to a list of indexes to drop, to ensure
-	// old databases are course-corrected.
+	// old databases are modified to have the correct indexes.
 	{"relations", []string{"endpoints.relationname"}},
 	{"relations", []string{"endpoints.servicename"}},
 	{"units", []string{"service"}},
