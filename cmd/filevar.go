@@ -1,27 +1,27 @@
 package cmd
 
 import (
-	"io"
-	"os"
+	"errors"
+	"io/ioutil"
 )
 
-// FileVar represents a path to a file. If the flag is 
-// valid FileVar.ReadCloser will be non nil and FileVar
-// will be usable as an io.ReadCloser.
+// FileVar represents a path to a file. 
 type FileVar struct {
-	io.ReadCloser
 	Path string
 }
 
 // Set opens the file. 
 func (f *FileVar) Set(v string) error {
-	file, err := os.Open(v)
-	if err != nil {
-		return err
-	}
-	f.ReadCloser = file
 	f.Path = v
 	return nil
+}
+
+// Read returns the contents of the file.
+func (f *FileVar) Read(ctx *Context) ([]byte, error) {
+	if f.Path == "" {
+		return nil, errors.New("path not set")
+	}
+	return ioutil.ReadFile(f.Path)
 }
 
 // String returns the path to the file.
