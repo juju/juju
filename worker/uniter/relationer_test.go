@@ -113,7 +113,7 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	c.Assert(f, PanicMatches, "hooks already started!")
 
 	// Join u/1 to the relation, and check that we receive the expected hooks.
-	err = ru1.Join()
+	err = ru1.EnsureJoin()
 	c.Assert(err, IsNil)
 	err = ru1.Pinger().Start()
 	c.Assert(err, IsNil)
@@ -138,7 +138,7 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	err = r.StopHooks()
 	c.Assert(err, IsNil)
 	kill(c, ru1.Pinger())
-	err = ru2.Join()
+	err = ru2.EnsureJoin()
 	c.Assert(err, IsNil)
 	err = ru2.Pinger().Start()
 	c.Assert(err, IsNil)
@@ -285,7 +285,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 
 func (s *RelationerSuite) TestSetDying(c *C) {
 	ru1 := s.AddRelationUnit(c, "u/1")
-	err := ru1.Join()
+	err := ru1.EnsureJoin()
 	c.Assert(err, IsNil)
 	err = ru1.Pinger().Start()
 	c.Assert(err, IsNil)

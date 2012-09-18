@@ -183,9 +183,9 @@ func (ru *RelationUnit) Pinger() *presence.Pinger {
 	return ru.pinger
 }
 
-// Join ensures that the required relation unit settings are in place, and
+// EnsureJoin ensures that the required relation unit settings are in place, and
 // that it is safe to start the pinger.
-func (ru *RelationUnit) Join() (err error) {
+func (ru *RelationUnit) EnsureJoin() (err error) {
 	defer trivial.ErrorContextf(&err, "cannot initialize state for unit %q in relation %q", ru.unit, ru.relation)
 	if err = ru.scope.prepareJoin(ru.st.zk, ru.endpoint.RelationRole); err != nil {
 		return
@@ -200,13 +200,13 @@ func (ru *RelationUnit) Join() (err error) {
 	)
 }
 
-// Depart kills the pinger, signalling that the unit has permanently departed
+// EnsureDepart kills the pinger, signalling that the unit has permanently departed
 // the relation. This method is confusing, because the client already has access
 // to the pinger, and is an artifact of this package's historical conflation of
 // presence and *potential* presence. The mstate implementation will share an
-// API, but Depart will not need to touch the pinger, because the concerns will
-// be more usefully separated.
-func (ru *RelationUnit) Depart() error {
+// API, but EnsureDepart will not need to touch the pinger, because the concerns
+// will be more usefully separated.
+func (ru *RelationUnit) EnsureDepart() error {
 	return ru.pinger.Kill()
 }
 
