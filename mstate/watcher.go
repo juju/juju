@@ -408,7 +408,7 @@ func (w *ServiceUnitsWatcher) Stop() error {
 
 func (w *ServiceUnitsWatcher) mergeChange(changes *ServiceUnitsChange, ch watcher.Change) (err error) {
 	name := ch.Id.(string)
-	if !strings.HasPrefix(name, w.service.doc.Name) {
+	if !strings.HasPrefix(name, w.service.doc.Name+"/") {
 		return nil
 	}
 	if unit, ok := w.knownUnits[name]; ch.Revno == -1 && ok {
