@@ -230,17 +230,19 @@ func (*CmdSuite) TestDeployCommandInit(c *C) {
 
 	// test relative --config path
 	ctx := &cmd.Context{c.MkDir(), nil, nil, nil}
+	expected := []byte("test: data")
 	path := ctx.AbsPath("testconfig.yaml")
 	file, err := os.Create(path)
+	c.Assert(err, IsNil)
+	_, err = file.Write(expected)
 	c.Assert(err, IsNil)
 	file.Close()
 
 	com, err := initDeployCommand("--config", "testconfig.yaml", "charm-name")
 	c.Assert(err, IsNil)
-	r, err := com.Config.Open(ctx)
+	actual, err := com.Config.Read(ctx)
 	c.Assert(err, IsNil)
-	c.Assert(r.(*os.File).Name(), Equals, path)
-	r.Close()
+	c.Assert(expected, DeepEquals, actual)
 
 	// missing args
 	_, err = initDeployCommand()

@@ -21,7 +21,7 @@ func (f *FileVar) Read(ctx *Context) ([]byte, error) {
 	if f.Path == "" {
 		return nil, errors.New("path not set")
 	}
-	return ioutil.ReadFile(f.Path)
+	return ioutil.ReadFile(ctx.AbsPath(f.Path))
 }
 
 // String returns the path to the file.
