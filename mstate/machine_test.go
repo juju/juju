@@ -40,7 +40,7 @@ func (s *MachineSuite) TestMachineSetAgentAlive(c *C) {
 
 func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
 	// test -gocheck.f TestMachineWaitAgentAlive
-	timeout := 5 * time.Second
+	timeout := 200 * time.Millisecond
 	alive, err := s.machine.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
@@ -158,7 +158,7 @@ func (s *MachineSuite) TestRefreshWhenNotAlive(c *C) {
 	err := m.SetInstanceId("foo")
 	c.Assert(err, IsNil)
 
-	assertOkForAllLife(c, s.machine, func() error {
+	testWhenDying(c, s.machine, "", "", func() error {
 		err = m.Refresh()
 		c.Assert(err, IsNil)
 		if err != nil {

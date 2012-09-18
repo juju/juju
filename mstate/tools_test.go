@@ -43,7 +43,7 @@ func testAgentTools(c *C, obj tooler, agent string) {
 	c.Assert(err, IsNil)
 	c.Assert(t3, DeepEquals, t2)
 
-	assertOkWhenNotDead(c, obj, func() error {
+	testWhenDying(c, obj, "", notAliveErr, func() error {
 		return obj.SetAgentTools(t2)
 	})
 }

@@ -396,7 +396,7 @@ func (s *RelationContextSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	s.ru, err = s.rel.Unit(unit)
 	c.Assert(err, IsNil)
-	err = s.ru.Init()
+	err = s.ru.EnsureJoin()
 	c.Assert(err, IsNil)
 }
 

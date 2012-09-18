@@ -174,7 +174,7 @@ func (s *State) Charm(curl *charm.URL) (*Charm, error) {
 // AddService creates a new service state with the given unique name
 // and the charm state.
 func (s *State) AddService(name string, ch *Charm) (service *Service, err error) {
-	sdoc := serviceDoc{
+	sdoc := &serviceDoc{
 		Name:     name,
 		CharmURL: ch.URL(),
 		Life:     Alive,
@@ -192,7 +192,7 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 		}
 		return nil, fmt.Errorf("cannot add service %q: %v", name, err)
 	}
-	return &Service{st: s, doc: sdoc}, nil
+	return newService(s, sdoc), nil
 }
 
 // RemoveService removes a service from the state. It will also remove all
@@ -248,13 +248,13 @@ func (s *State) RemoveService(svc *Service) (err error) {
 
 // Service returns a service state by name.
 func (s *State) Service(name string) (service *Service, err error) {
-	sdoc := serviceDoc{}
+	sdoc := &serviceDoc{}
 	sel := D{{"_id", name}}
-	err = s.services.Find(sel).One(&sdoc)
+	err = s.services.Find(sel).One(sdoc)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get service %q: %v", name, err)
 	}
-	return &Service{st: s, doc: sdoc}, nil
+	return newService(s, sdoc), nil
 }
 
 // AllServices returns all deployed services in the environment.
@@ -265,7 +265,7 @@ func (s *State) AllServices() (services []*Service, err error) {
 		return nil, fmt.Errorf("cannot get all services")
 	}
 	for _, v := range sdocs {
-		services = append(services, &Service{st: s, doc: v})
+		services = append(services, newService(s, &v))
 	}
 	return services, nil
 }
