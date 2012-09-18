@@ -309,3 +309,31 @@ func (*CmdSuite) TestGetCommandInit(c *C) {
 	_, err := initGetCommand()
 	c.Assert(err, ErrorMatches, "no service name specified")
 }
+
+func initSetCommand(args ...string) (*SetCommand, error) {
+	com := &SetCommand{}
+	return com, com.Init(newFlagSet(), args)
+}
+
+func (*CmdSuite) TestSetCommandInit(c *C) {
+	// missing args
+	_, err := initSetCommand()
+	c.Assert(err, ErrorMatches, "no service name specified")
+	// missing service name
+	_, err = initSetCommand("name=cow")
+	c.Assert(err, ErrorMatches, "no service name specified")
+	// incorrect option
+	_, err = initSetCommand("dummy", "name", "cow")
+	c.Assert(err, ErrorMatches, "invalid option")
+	_, err = initSetCommand("dummy", "name=")
+	c.Assert(err, ErrorMatches, "missing option value")
+	_, err = initSetCommand("dummy", "=cow")
+	c.Assert(err, ErrorMatches, "missing option key")
+
+	// strange, but correct
+	cmd, err := initSetCommand("dummy", "name = cow")
+	c.Assert(err, IsNil)
+	c.Assert(len(cmd.Options), Equals, 1)
+	c.Assert(cmd.Options[0].Key, Equals, "name")
+	c.Assert(cmd.Options[0].Value, Equals, "cow")
+}
