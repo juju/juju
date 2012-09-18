@@ -83,7 +83,7 @@ func (s *AssignSuite) TestAssignedMachineIdWhenNotAlive(c *C) {
 	subUnit, err := subSvc.AddUnitSubordinateTo(s.unit)
 	c.Assert(err, IsNil)
 
-	testWhenDying(c, s.unit, "", "",
+	testWhenDying(c, s.unit, noErr, noErr,
 		func() error {
 			_, err = s.unit.AssignedMachineId()
 			return err

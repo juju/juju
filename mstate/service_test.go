@@ -110,7 +110,7 @@ func (s *ServiceSuite) TestAddSubordinateUnitWhenNotAlive(c *C) {
 	principalUnit, err := principalService.AddUnit()
 	c.Assert(err, IsNil)
 
-	const errPat = ".*: unit already exists or service or principal unit are not alive"
+	const errPat = ".*: service or principal unit are not alive"
 	// Test that AddUnitSubordinateTo fails when the principal unit is
 	// not alive.
 	testWhenDying(c, principalUnit, errPat, errPat, func() error {
@@ -143,7 +143,7 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 
 	// Check that principal units cannot be added to principal units.
 	_, err = s.service.AddUnitSubordinateTo(unitZero)
-	c.Assert(err, ErrorMatches, `cannot add unit of principal service "mysql" as a subordinate of "mysql/0"`)
+	c.Assert(err, ErrorMatches, `cannot add unit to service "mysql" as a subordinate of "mysql/0": service is not a subordinate`)
 
 	// Assign the principal unit to a machine.
 	m, err := s.State.AddMachine()
@@ -170,13 +170,13 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 
 	// Check that subordinate units must be added to other units.
 	_, err = logging.AddUnit()
-	c.Assert(err, ErrorMatches, `cannot directly add units to subordinate service "logging"`)
+	c.Assert(err, ErrorMatches, `cannot add unit to service "logging": unit is a subordinate`)
 
 	// Check that subordinate units cannnot be added to subordinate units.
 	_, err = logging.AddUnitSubordinateTo(subZero)
-	c.Assert(err, ErrorMatches, "a subordinate unit must be added to a principal unit")
+	c.Assert(err, ErrorMatches, `cannot add unit to service "logging" as a subordinate of "logging/0": unit is not a principal`)
 
-	const errPat = ".*: unit already exists or service is not alive"
+	const errPat = ".*: service is not alive"
 	testWhenDying(c, s.service, errPat, errPat, func() error {
 		_, err = s.service.AddUnit()
 		return err
@@ -227,11 +227,11 @@ func (s *ServiceSuite) TestReadUnit(c *C) {
 		_, err := s.service.Unit("mysql/0")
 		return err
 	}
-	testWhenDying(c, s.service, "", "", checkAllUnits, checkUnit)
+	testWhenDying(c, s.service, noErr, noErr, checkAllUnits, checkUnit)
 
 	unit0, err := s.service.Unit("mysql/0")
 	c.Assert(err, IsNil)
-	testWhenDying(c, unit0, "", "", checkAllUnits, checkUnit)
+	testWhenDying(c, unit0, noErr, noErr, checkAllUnits, checkUnit)
 }
 
 func (s *ServiceSuite) TestRemoveUnit(c *C) {

@@ -179,12 +179,12 @@ func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
 	if err != nil {
 		if err == txn.ErrAborted {
 			if principal == nil {
-				err = fmt.Errorf("unit already exists or service is not alive")
+				err = fmt.Errorf("service is not alive")
 			} else {
-				err = fmt.Errorf("unit already exists or service or principal unit are not alive")
+				err = fmt.Errorf("service or principal unit are not alive")
 			}
 		}
-		return nil, fmt.Errorf("cannot add unit to service %q: %v", s, err)
+		return nil, err
 
 	}
 	return newUnit(s.st, udoc), nil
@@ -192,36 +192,38 @@ func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
 
 // AddUnit adds a new principal unit to the service.
 func (s *Service) AddUnit() (unit *Unit, err error) {
+	defer trivial.ErrorContextf(&err, "cannot add unit to service %q", s)
 	ch, _, err := s.Charm()
 	if err != nil {
-		return nil, fmt.Errorf("cannot add unit to service %q: %v", err)
+		return nil, err
 	}
 	if ch.Meta().Subordinate {
-		return nil, fmt.Errorf("cannot directly add units to subordinate service %q", s)
+		return nil, fmt.Errorf("unit is a subordinate")
 	}
 	name, err := s.newUnitName()
 	if err != nil {
-		return nil, fmt.Errorf("cannot add unit to service %q: %v", err)
+		return nil, err
 	}
 	return s.addUnit(name, nil)
 }
 
 // AddUnitSubordinateTo adds a new subordinate unit to the service,
 // subordinate to principal.
-func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
+func (s *Service) AddUnitSubordinateTo(principal *Unit) (unit *Unit, err error) {
+	defer trivial.ErrorContextf(&err, "cannot add unit to service %q as a subordinate of %q", s, principal)
 	ch, _, err := s.Charm()
 	if err != nil {
-		return nil, fmt.Errorf("cannot add unit to service %q: %v", s, err)
+		return nil, err
 	}
 	if !ch.Meta().Subordinate {
-		return nil, fmt.Errorf("cannot add unit of principal service %q as a subordinate of %q", s, principal)
+		return nil, fmt.Errorf("service is not a subordinate")
 	}
 	if !principal.IsPrincipal() {
-		return nil, errors.New("a subordinate unit must be added to a principal unit")
+		return nil, fmt.Errorf("unit is not a principal")
 	}
 	name, err := s.newUnitName()
 	if err != nil {
-		return nil, fmt.Errorf("cannot add unit to service %q: %v", s, err)
+		return nil, err
 	}
 	return s.addUnit(name, principal)
 }
