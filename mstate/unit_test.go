@@ -149,7 +149,7 @@ func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
 }
 
 func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
-	timeout := 5 * time.Second
+	timeout := 200 * time.Millisecond
 	alive, err := s.unit.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)

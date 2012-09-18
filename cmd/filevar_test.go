@@ -6,10 +6,10 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"os"
-	"path/filepath"
 )
 
 type FileVarSuite struct {
+	ctx         *cmd.Context
 	ValidPath   string
 	InvalidPath string // invalid path refers to a file which is not readable
 }
@@ -17,9 +17,9 @@ type FileVarSuite struct {
 var _ = Suite(&FileVarSuite{})
 
 func (s *FileVarSuite) SetUpTest(c *C) {
-	dir := c.MkDir()
-	s.ValidPath = filepath.Join(dir, "valid.yaml")
-	s.InvalidPath = filepath.Join(dir, "invalid.yaml")
+	s.ctx = &cmd.Context{c.MkDir(), nil, nil, nil}
+	s.ValidPath = s.ctx.AbsPath("valid.yaml")
+	s.InvalidPath = s.ctx.AbsPath("invalid.yaml")
 	f, err := os.Create(s.ValidPath)
 	c.Assert(err, IsNil)
 	f.Close()
@@ -34,17 +34,17 @@ func (s *FileVarSuite) TestValidFileVar(c *C) {
 	fs, config := fs()
 	err := fs.Parse(false, []string{"--config", s.ValidPath})
 	c.Assert(err, IsNil)
-	defer config.ReadCloser.Close()
 	c.Assert(config.Path, Equals, s.ValidPath)
-	c.Assert(config.ReadCloser, NotNil)
+	_, err = config.Read(s.ctx)
+	c.Assert(err, IsNil)
 }
 
 func (s *FileVarSuite) TestInvalidFileVar(c *C) {
 	fs, config := fs()
 	err := fs.Parse(false, []string{"--config", s.InvalidPath})
-	c.Assert(err, ErrorMatches, ".*permission denied")
-	c.Assert(config.Path, Equals, "")
-	c.Assert(config.ReadCloser, IsNil)
+	c.Assert(config.Path, Equals, s.InvalidPath)
+	_, err = config.Read(s.ctx)
+	c.Assert(err, ErrorMatches, "*permission denied")
 }
 
 func fs() (*gnuflag.FlagSet, *cmd.FileVar) {

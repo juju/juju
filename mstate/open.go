@@ -50,9 +50,18 @@ func DialInfo(info *Info) (*State, error) {
 	return st, err
 }
 
-var indexes = []mgo.Index{
-	{Key: []string{"endpoints.relationname"}},
-	{Key: []string{"endpoints.servicename"}},
+var indexes = []struct {
+	collection string
+	key        []string
+}{
+	// After the first public release, do not remove entries from here
+	// without adding them to a list of indexes to drop, to ensure
+	// old databases are modified to have the correct indexes.
+	{"relations", []string{"endpoints.relationname"}},
+	{"relations", []string{"endpoints.servicename"}},
+	{"units", []string{"service"}},
+	{"units", []string{"principal"}},
+	{"units", []string{"machineid"}},
 }
 
 // The capped collection used for transaction logs defaults to 200MB.
@@ -97,8 +106,9 @@ func newState(session *mgo.Session, fwd *sshForwarder) (*State, error) {
 	st.runner.ChangeLog(db.C("txns.log"))
 	st.watcher = watcher.New(db.C("txns.log"))
 	st.pwatcher = presence.NewWatcher(pdb.C("presence"))
-	for _, index := range indexes {
-		if err := st.relations.EnsureIndex(index); err != nil {
+	for _, item := range indexes {
+		index := mgo.Index{Key: item.key}
+		if err := db.C(item.collection).EnsureIndex(index); err != nil {
 			return nil, fmt.Errorf("cannot create database index: %v", err)
 		}
 	}

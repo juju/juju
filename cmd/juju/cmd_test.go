@@ -3,7 +3,6 @@ package main
 import (
 	"net/http"
 	"os"
-	"path/filepath"
 	"reflect"
 
 	"launchpad.net/gnuflag"
@@ -229,17 +228,19 @@ func (*CmdSuite) TestDeployCommandInit(c *C) {
 		c.Assert(com, DeepEquals, t.com)
 	}
 
-	// test --config path
-	dir := c.MkDir()
-	path := filepath.Join(dir, "testconfig.yaml")
+	// test relative --config path
+	ctx := &cmd.Context{c.MkDir(), nil, nil, nil}
+	path := ctx.AbsPath("testconfig.yaml")
 	file, err := os.Create(path)
 	c.Assert(err, IsNil)
 	file.Close()
-	com, err := initDeployCommand("--config", path, "charm-name")
+
+	com, err := initDeployCommand("--config", "testconfig.yaml", "charm-name")
 	c.Assert(err, IsNil)
-	defer com.Config.Close()
-	c.Assert(com.Config.Path, Equals, path)
-	c.Assert(com.Config.ReadCloser, NotNil)
+	r, err := com.Config.Open(ctx)
+	c.Assert(err, IsNil)
+	c.Assert(r.(*os.File).Name(), Equals, path)
+	r.Close()
 
 	// missing args
 	_, err = initDeployCommand()
@@ -308,4 +309,32 @@ func (*CmdSuite) TestGetCommandInit(c *C) {
 	// missing args
 	_, err := initGetCommand()
 	c.Assert(err, ErrorMatches, "no service name specified")
+}
+
+func initSetCommand(args ...string) (*SetCommand, error) {
+	com := &SetCommand{}
+	return com, com.Init(newFlagSet(), args)
+}
+
+func (*CmdSuite) TestSetCommandInit(c *C) {
+	// missing args
+	_, err := initSetCommand()
+	c.Assert(err, ErrorMatches, "no service name specified")
+	// missing service name
+	_, err = initSetCommand("name=cow")
+	c.Assert(err, ErrorMatches, "no service name specified")
+	// incorrect option
+	_, err = initSetCommand("dummy", "name", "cow")
+	c.Assert(err, ErrorMatches, "invalid option")
+	_, err = initSetCommand("dummy", "name=")
+	c.Assert(err, ErrorMatches, "missing option value")
+	_, err = initSetCommand("dummy", "=cow")
+	c.Assert(err, ErrorMatches, "missing option key")
+
+	// strange, but correct
+	cmd, err := initSetCommand("dummy", "name = cow")
+	c.Assert(err, IsNil)
+	c.Assert(len(cmd.Options), Equals, 1)
+	c.Assert(cmd.Options[0].Key, Equals, "name")
+	c.Assert(cmd.Options[0].Value, Equals, "cow")
 }
