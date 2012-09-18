@@ -407,6 +407,12 @@ func (w *ServiceUnitsWatcher) Stop() error {
 
 func (w *ServiceUnitsWatcher) mergeChange(changes *ServiceUnitsChange, ch watcher.Change) (err error) {
 	name := ch.Id.(string)
+	if len(name) <= len(w.service.doc.Name) {
+		return nil
+	}
+	if name[:len(w.service.doc.Name)] != w.service.doc.Name {
+		return nil
+	}
 	if unit, ok := w.knownUnits[name]; ch.Revno == -1 && ok {
 		unit.doc.Life = Dead
 		changes.Removed = append(changes.Removed, unit)
@@ -414,10 +420,7 @@ func (w *ServiceUnitsWatcher) mergeChange(changes *ServiceUnitsChange, ch watche
 		return nil
 	}
 	doc := &unitDoc{}
-	err = w.st.units.Find(D{
-		{"_id", name},
-		{"service", w.service.Name()},
-	}).One(doc)
+	err = w.st.units.FindId(name).One(doc)
 	if err == mgo.ErrNotFound {
 		return nil
 	}
