@@ -42,13 +42,6 @@ type State struct {
 	fwd       *sshForwarder
 }
 
-func deadOnAbort(err error) error {
-	if err == txn.ErrAborted {
-		return fmt.Errorf("not found or not alive")
-	}
-	return err
-}
-
 func (s *State) EnvironConfig() (*config.Config, error) {
 	configNode, err := readConfigNode(s, "e")
 	if err != nil {
@@ -90,6 +83,9 @@ func (s *State) AddMachine() (m *Machine, err error) {
 	return newMachine(s, &mdoc), nil
 }
 
+var errNotDead = fmt.Errorf("not found or not dead")
+var errNotAlive = fmt.Errorf("not found or not alive")
+
 // RemoveMachine removes the machine with the the given id.
 func (s *State) RemoveMachine(id int) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot remove machine %d", id)
@@ -111,8 +107,8 @@ func (s *State) RemoveMachine(id int) (err error) {
 		Remove: true,
 	}}
 	err = s.runner.Run(ops, "", nil)
-	if err != nil {
-		return deadOnAbort(err)
+	if err == txn.ErrAborted {
+		return errNotDead
 	}
 	return nil
 }
@@ -240,6 +236,9 @@ func (s *State) RemoveService(svc *Service) (err error) {
 		Remove: true,
 	}}
 	err = s.runner.Run(ops, "", nil)
+	if err == txn.ErrAborted {
+		return errNotDead
+	}
 	if err != nil {
 		return err
 	}
@@ -353,8 +352,8 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 		Remove: true,
 	}}
 	err = s.runner.Run(ops, "", nil)
-	if err != nil {
-		return deadOnAbort(err)
+	if err == txn.ErrAborted {
+		return errNotDead
 	}
 	return nil
 }

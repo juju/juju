@@ -71,6 +71,7 @@ func (s *Service) CharmURL() (url *charm.URL, err error) {
 
 // SetCharmURL changes the charm URL for the service.
 func (s *Service) SetCharmURL(url *charm.URL) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot set the charm URL of service %q", s)
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
@@ -78,8 +79,11 @@ func (s *Service) SetCharmURL(url *charm.URL) (err error) {
 		Update: D{{"$set", D{{"charmurl", url}}}},
 	}}
 	err = s.st.runner.Run(ops, "", nil)
+	if err == txn.ErrAborted {
+		return errNotAlive
+	}
 	if err != nil {
-		return fmt.Errorf("cannot set the charm URL of service %q: %v", s, deadOnAbort(err))
+		return err
 	}
 	s.doc.CharmURL = url
 	return nil
@@ -97,16 +101,20 @@ func (s *Service) ClearExposed() error {
 	return s.setExposed(false)
 }
 
-func (s *Service) setExposed(exposed bool) error {
+func (s *Service) setExposed(exposed bool) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot set exposed flag for service %q to %v", s, exposed)
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
 		Assert: isAlive,
 		Update: D{{"$set", D{{"exposed", exposed}}}},
 	}}
-	err := s.st.runner.Run(ops, "", nil)
+	err = s.st.runner.Run(ops, "", nil)
+	if err == txn.ErrAborted {
+		return errNotAlive
+	}
 	if err != nil {
-		return fmt.Errorf("cannot set exposed flag for service %q to %v: %v", s, exposed, deadOnAbort(err))
+		return err
 	}
 	s.doc.Exposed = exposed
 	return nil
@@ -238,8 +246,11 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 		Remove: true,
 	}}
 	err = s.st.runner.Run(ops, "", nil)
+	if err == txn.ErrAborted {
+		return errNotDead
+	}
 	if err != nil {
-		return deadOnAbort(err)
+		return err
 	}
 	return nil
 }
