@@ -3,6 +3,8 @@ package mstate_test
 import (
 	. "launchpad.net/gocheck"
 	state "launchpad.net/juju-core/mstate"
+	"sort"
+	"time"
 )
 
 type ServiceSuite struct {
@@ -322,7 +324,7 @@ var serviceUnitsWatchTests = []struct {
 				c.Assert(err, IsNil)
 			}
 		},
-		added: []string{"mysql/5", "mysql/6", "mysql/7", "mysql/8", "mysql/9", "mysql/10", "mysql/11", "mysql/12", "mysql/13", "mysql/14"},
+		added: []string{"mysql/10", "mysql/11", "mysql/12", "mysql/13", "mysql/14", "mysql/5", "mysql/6", "mysql/7", "mysql/8", "mysql/9"},
 	},
 	{
 		test: func(c *C, s *state.State, service *state.Service) {
@@ -362,4 +364,73 @@ var serviceUnitsWatchTests = []struct {
 		added:   []string{"mysql/26", "mysql/27"},
 		removed: []string{"mysql/14"},
 	},
+}
+
+func (s *ServiceSuite) TestWatchUnits(c *C) {
+	unitWatcher := s.service.WatchUnits()
+	defer func() {
+		c.Assert(unitWatcher.Stop(), IsNil)
+	}()
+	for i, test := range serviceUnitsWatchTests {
+		c.Logf("test %d", i)
+		test.test(c, s.State, s.service)
+		s.State.StartSync()
+		got := &state.ServiceUnitsChange{}
+		for {
+			select {
+			case new, ok := <-unitWatcher.Changes():
+				c.Assert(ok, Equals, true)
+				addUnitChanges(got, new)
+				if moreUnitsRequired(got, test.added, test.removed) {
+					continue
+				}
+				assertSameUnits(c, got, test.added, test.removed)
+			case <-time.After(500 * time.Millisecond):
+				c.Fatalf("did not get change, want: added: %#v, removed: %#v, got: %#v", test.added, test.removed, got)
+			}
+			break
+		}
+	}
+	select {
+	case got := <-unitWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func moreUnitsRequired(got *state.ServiceUnitsChange, added, removed []string) bool {
+	return len(got.Added)+len(got.Removed) < len(added)+len(removed)
+}
+
+func addUnitChanges(changes *state.ServiceUnitsChange, more *state.ServiceUnitsChange) {
+	changes.Added = append(changes.Added, more.Added...)
+	changes.Removed = append(changes.Removed, more.Removed...)
+}
+
+type unitSlice []*state.Unit
+
+func (m unitSlice) Len() int           { return len(m) }
+func (m unitSlice) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
+func (m unitSlice) Less(i, j int) bool { return m[i].Name() < m[j].Name() }
+
+func assertSameUnits(c *C, change *state.ServiceUnitsChange, added, removed []string) {
+	c.Assert(change, NotNil)
+	if len(added) == 0 {
+		added = nil
+	}
+	if len(removed) == 0 {
+		removed = nil
+	}
+	sort.Sort(unitSlice(change.Added))
+	sort.Sort(unitSlice(change.Removed))
+	var got []string
+	for _, g := range change.Added {
+		got = append(got, g.Name())
+	}
+	c.Assert(got, DeepEquals, added)
+	got = nil
+	for _, g := range change.Removed {
+		got = append(got, g.Name())
+	}
+	c.Assert(got, DeepEquals, removed)
 }

@@ -371,17 +371,18 @@ func (w *ServicesWatcher) loop() (err error) {
 
 // WatchUnits returns a watcher for observing units being
 // added or removed.
-func (s *State) WatchUnits() *ServiceUnitsWatcher {
+func (s *Service) WatchUnits() *ServiceUnitsWatcher {
 	return newServiceUnitsWatcher(s)
 }
 
 // newServiceUnitsWatcher creates and starts a watcher to watch information
 // about units being added or deleted.
-func newServiceUnitsWatcher(st *State) *ServiceUnitsWatcher {
+func newServiceUnitsWatcher(svc *Service) *ServiceUnitsWatcher {
 	w := &ServiceUnitsWatcher{
 		changeChan:    make(chan *ServiceUnitsChange),
 		knownUnits:    make(map[string]*Unit),
-		commonWatcher: commonWatcher{st: st},
+		service:       svc,
+		commonWatcher: commonWatcher{st: svc.st},
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -413,7 +414,10 @@ func (w *ServiceUnitsWatcher) mergeChange(changes *ServiceUnitsChange, ch watche
 		return nil
 	}
 	doc := &unitDoc{}
-	err = w.st.units.FindId(name).One(doc)
+	err = w.st.units.Find(D{
+		{"_id", name},
+		{"service", w.service.Name()},
+	}).One(doc)
 	if err == mgo.ErrNotFound {
 		return nil
 	}
@@ -435,7 +439,7 @@ func (changes *ServiceUnitsChange) isEmpty() bool {
 func (w *ServiceUnitsWatcher) getInitialEvent() (initial *ServiceUnitsChange, err error) {
 	changes := &ServiceUnitsChange{}
 	docs := []unitDoc{}
-	err = w.st.units.Find(nil).All(&docs)
+	err = w.st.units.Find(D{{"service", w.service.Name()}}).All(&docs)
 	if err != nil {
 		return nil, err
 	}
