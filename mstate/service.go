@@ -282,11 +282,8 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 // Relations returns a Relation for every relation the service is in.
 func (s *Service) Relations() (relations []*Relation, err error) {
 	defer trivial.ErrorContextf(&err, "can't get relations for service %q", s)
-	sel := append(notDead, D{
-		{"endpoints.servicename", s.doc.Name},
-	}...)
 	docs := []relationDoc{}
-	err = s.st.relations.Find(sel).All(&docs)
+	err = s.st.relations.Find(D{{"endpoints.servicename", s.doc.Name}}).All(&docs)
 	if err != nil {
 		return nil, err
 	}
