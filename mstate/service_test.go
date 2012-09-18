@@ -249,28 +249,41 @@ func (s *ServiceSuite) TestReadUnit(c *C) {
 	unit, err = s.service.Unit("wordpress/0")
 	c.Assert(err, ErrorMatches, `cannot get unit "wordpress/0" from service "mysql": .*`)
 
-	// Check that retrieving all units works.
-	units, err := s.service.AllUnits()
-	c.Assert(err, IsNil)
-	c.Assert(len(units), Equals, 2)
-	c.Assert(units[0].Name(), Equals, "mysql/0")
-	c.Assert(units[1].Name(), Equals, "mysql/1")
+	test := func() {
+		// Check that retrieving all units works.
+		units, err := s.service.AllUnits()
+		c.Assert(err, IsNil)
+		c.Assert(len(units), Equals, 2)
+		c.Assert(units[0].Name(), Equals, "mysql/0")
+		c.Assert(units[1].Name(), Equals, "mysql/1")
+
+		unit, err := s.service.Unit("mysql/0")
+		c.Assert(err, IsNil)
+		c.Assert(unit.Name(), Equals, "mysql/0")
+	}
+	test()
 
 	// Check that we can get units when the service is dying.
 	err = s.service.Kill()
 	c.Assert(err, IsNil)
-	_, err = s.service.Unit("mysql/0")
-	c.Check(err, IsNil)
-	_, err = s.service.AllUnits()
-	c.Check(err, IsNil)
+	test()
 
 	// Check that we can get units when the service is dead.
 	err = s.service.Die()
 	c.Assert(err, IsNil)
-	_, err = s.service.Unit("mysql/0")
-	c.Check(err, IsNil)
-	_, err = s.service.AllUnits()
-	c.Check(err, IsNil)
+	test()
+
+	unit0, err := s.service.Unit("mysql/0")
+	c.Assert(err, IsNil)
+	// Check that we can get a unit when it's dying.
+	err = unit0.Kill()
+	c.Assert(err, IsNil)
+	test()
+
+	// Check that we can get a unit when it's dead.
+	err = unit0.Die()
+	c.Assert(err, IsNil)
+	test()
 }
 
 func (s *ServiceSuite) TestRemoveUnit(c *C) {

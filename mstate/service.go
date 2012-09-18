@@ -246,10 +246,10 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 
 func (s *Service) unitDoc(name string) (*unitDoc, error) {
 	udoc := &unitDoc{}
-	sel := append(notDead, D{
+	sel := D{
 		{"_id", name},
 		{"service", s.doc.Name},
-	}...)
+	}
 	err := s.st.units.Find(sel).One(udoc)
 	if err != nil {
 		return nil, err
@@ -269,8 +269,7 @@ func (s *Service) Unit(name string) (*Unit, error) {
 // AllUnits returns all units of the service.
 func (s *Service) AllUnits() (units []*Unit, err error) {
 	docs := []unitDoc{}
-	sel := append(notDead, D{{"service", s.doc.Name}}...)
-	err = s.st.units.Find(sel).All(&docs)
+	err = s.st.units.Find(D{{"service", s.doc.Name}}).Sort("_id").All(&docs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all units from service %q: %v", err)
 	}
