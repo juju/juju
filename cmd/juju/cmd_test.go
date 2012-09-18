@@ -3,7 +3,6 @@ package main
 import (
 	"net/http"
 	"os"
-	"path/filepath"
 	"reflect"
 
 	"launchpad.net/gnuflag"
@@ -229,17 +228,20 @@ func (*CmdSuite) TestDeployCommandInit(c *C) {
 		c.Assert(com, DeepEquals, t.com)
 	}
 
-	// test --config path
-	dir := c.MkDir()
-	path := filepath.Join(dir, "testconfig.yaml")
+	// test relative --config path
+	ctx := &cmd.Context{c.MkDir(), nil, nil, nil}
+	path := ctx.AbsPath("testconfig.yaml")
 	file, err := os.Create(path)
 	c.Assert(err, IsNil)
 	file.Close()
-	com, err := initDeployCommand("--config", path, "charm-name")
+
+	com, err := initDeployCommand("--config", "testconfig.yaml", "charm-name")
 	c.Assert(err, IsNil)
-	defer com.Config.Close()
-	c.Assert(com.Config.Path, Equals, path)
-	c.Assert(com.Config.ReadCloser, NotNil)
+	c.Assert(*com.Config.Path, NotNil)
+	r, err := com.Config.Open(ctx)
+	c.Assert(err, IsNil)
+	c.Assert(r.(*os.File).Name(), Equals, path)
+	defer r.Close()
 
 	// missing args
 	_, err = initDeployCommand()
