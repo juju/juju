@@ -380,11 +380,15 @@ func (u *Unit) UnassignFromMachine() (err error) {
 		Id:     u.doc.Name,
 		Assert: txn.DocExists,
 		Update: D{{"$set", D{{"machineid", nil}}}},
-	}, {
-		C:      u.st.machines.Name,
-		Id:     u.doc.MachineId,
-		Update: D{{"$pull", D{{"principals", u.doc.Name}}}},
 	}}
+	if u.doc.MachineId != nil {
+		ops = append(ops, txn.Op{
+			C:      u.st.machines.Name,
+			Id:     u.doc.MachineId,
+			Assert: txn.DocExists,
+			Update: D{{"$pull", D{{"principals", u.doc.Name}}}},
+		})
+	}
 	err = u.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, deadOnAbort(err))

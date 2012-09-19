@@ -238,6 +238,12 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 	if u.doc.Service != s.doc.Name {
 		return fmt.Errorf("unit is not assigned to service %q", s)
 	}
+	if u.doc.MachineId != nil {
+		err = u.UnassignFromMachine()
+		if err != nil {
+			return err
+		}
+	}
 	ops := []txn.Op{{
 		C:      s.st.units.Name,
 		Id:     u.doc.Name,

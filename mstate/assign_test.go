@@ -213,11 +213,23 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *C) {
 	_, err = logService.AddUnitSubordinateTo(unit)
 	c.Assert(err, IsNil)
 
-	doc := map[string][]string{}
+	doc := make(map[string][]string)
 	s.ConnSuite.machines.FindId(machine.Id()).One(&doc)
 	principals, ok := doc["principals"]
 	if !ok {
 		c.Errorf(`machine document does not have a "principals" field`)
 	}
 	c.Assert(principals, DeepEquals, []string{"wordpress/1", "wordpress/2"})
+
+	err = unit.Die()
+	c.Assert(err, IsNil)
+	err = s.service.RemoveUnit(unit)
+	c.Assert(err, IsNil)
+	doc = make(map[string][]string)
+	s.ConnSuite.machines.FindId(machine.Id()).One(&doc)
+	principals, ok = doc["principals"]
+	if !ok {
+		c.Errorf(`machine document does not have a "principals" field`)
+	}
+	c.Assert(principals, DeepEquals, []string{"wordpress/1"})
 }
