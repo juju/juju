@@ -10,8 +10,8 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/worker/provisioner"
 	stdtesting "testing"
 )
 

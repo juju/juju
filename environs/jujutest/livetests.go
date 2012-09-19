@@ -9,8 +9,8 @@ import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/trivial"
+	"launchpad.net/juju-core/version"
 	"time"
 )
 
