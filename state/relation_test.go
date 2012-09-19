@@ -4,8 +4,8 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/state"
 	state "launchpad.net/juju-core/mstate"
+	"launchpad.net/juju-core/state"
 	"strings"
 )
 
