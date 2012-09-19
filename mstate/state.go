@@ -339,8 +339,6 @@ func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error)
 
 // RemoveRelation removes the supplied relation.
 func (s *State) RemoveRelation(r *Relation) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot remove relation %q", r.doc.Key)
-
 	if r.doc.Life != Dead {
 		panic(fmt.Errorf("relation %q is not dead", r))
 	}

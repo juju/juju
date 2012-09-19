@@ -367,7 +367,6 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 // UnassignFromMachine removes the assignment between this unit and the
 // machine it's assigned to.
 func (u *Unit) UnassignFromMachine() (err error) {
-	defer trivial.ErrorContextf(&err, "cannot unassign unit %q from machine", u)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,

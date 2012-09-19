@@ -178,7 +178,6 @@ func (m *Machine) Units() (units []*Unit, err error) {
 
 // SetInstanceId sets the provider specific machine id for this machine.
 func (m *Machine) SetInstanceId(id string) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot set instance id of machine %s", m)
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
@@ -186,7 +185,7 @@ func (m *Machine) SetInstanceId(id string) (err error) {
 		Update: D{{"$set", D{{"instanceid", id}}}},
 	}}
 	if err := m.st.runner.Run(ops, "", nil); err != nil {
-		return onAbort(err, errNotAlive)
+		return fmt.Errorf("cannot set instance id of machine %s: %v", m, onAbort(err, errNotAlive)
 	}
 	m.doc.InstanceId = id
 	return nil
