@@ -195,3 +195,29 @@ func (s *AssignSuite) TestAssignMachineWhenDying(c *C) {
 	err = unit.UnassignFromMachine()
 	c.Assert(err, IsNil)
 }
+
+func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *C) {
+	machine, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	unit, err := s.service.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, IsNil)
+	unit, err = s.service.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, IsNil)
+	subCharm := s.AddTestingCharm(c, "logging")
+	logService, err := s.State.AddService("logging", subCharm)
+	c.Assert(err, IsNil)
+	_, err = logService.AddUnitSubordinateTo(unit)
+	c.Assert(err, IsNil)
+
+	doc := map[string][]string{}
+	s.ConnSuite.machines.FindId(machine.Id()).One(&doc)
+	principals, ok := doc["principals"]
+	if !ok {
+		c.Errorf(`machine document does not have a "principals" field`)
+	}
+	c.Assert(principals, DeepEquals, []string{"wordpress/1", "wordpress/2"})
+}
