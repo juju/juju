@@ -83,7 +83,6 @@ func (s *State) AddMachine() (m *Machine, err error) {
 	return newMachine(s, &mdoc), nil
 }
 
-var errNotDead = fmt.Errorf("not found or not dead")
 var errNotAlive = fmt.Errorf("not found or not alive")
 
 func onAbort(txnErr, err error) error {
@@ -101,7 +100,7 @@ func (s *State) RemoveMachine(id int) (err error) {
 		return err
 	}
 	if m.doc.Life != Dead {
-		panic(fmt.Errorf("machine %d is not dead", id))
+		return fmt.Errorf("machine is not dead")
 	}
 	sel := D{
 		{"_id", id},
@@ -114,7 +113,8 @@ func (s *State) RemoveMachine(id int) (err error) {
 		Remove: true,
 	}}
 	if err := s.runner.Run(ops, "", nil); err != nil {
-		return onAbort(err, errNotDead)
+		// If aborted, the machine is either dead or recreated.
+		return onAbort(err, nil)
 	}
 	return nil
 }
@@ -203,7 +203,7 @@ func (s *State) RemoveService(svc *Service) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot remove service %q", svc)
 
 	if svc.doc.Life != Dead {
-		panic(fmt.Errorf("service %q is not dead", svc))
+		return fmt.Errorf("service is not dead")
 	}
 	rels, err := svc.Relations()
 	if err != nil {
@@ -239,7 +239,8 @@ func (s *State) RemoveService(svc *Service) (err error) {
 		Remove: true,
 	}}
 	if err := s.runner.Run(ops, "", nil); err != nil {
-		return onAbort(err, errNotDead)
+		// If aborted, the service is either dead or recreated.
+		return onAbort(err, nil)
 	}
 	return nil
 }
@@ -339,8 +340,9 @@ func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error)
 
 // RemoveRelation removes the supplied relation.
 func (s *State) RemoveRelation(r *Relation) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot remove relation %q", r.doc.Key)
 	if r.doc.Life != Dead {
-		panic(fmt.Errorf("relation %q is not dead", r))
+		return fmt.Errorf("relation is not dead")
 	}
 	ops := []txn.Op{{
 		C:      s.relations.Name,
@@ -349,7 +351,8 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 		Remove: true,
 	}}
 	if err := s.runner.Run(ops, "", nil); err != nil {
-		return fmt.Errorf("cannot remove relation %q: %v", r.doc.Key, onAbort(err, errNotDead))
+		// If aborted, the relation is either dead or recreated.
+		return onAbort(err, nil)
 	}
 	return nil
 }
@@ -376,31 +379,4 @@ func (s *State) StartSync() {
 func (s *State) Sync() {
 	s.watcher.Sync()
 	s.pwatcher.Sync()
-}
-
-// AssignUnit places the unit on a machine. Depending on the policy, and the
-// state of the environment, this may lead to new instances being launched
-// within the environment.
-func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot assign unit %q to machine", u)
-	if !u.IsPrincipal() {
-		return fmt.Errorf("is a subordinate")
-	}
-	var m *Machine
-	switch policy {
-	case AssignLocal:
-		if m, err = s.Machine(0); err != nil {
-			return err
-		}
-	case AssignUnused:
-		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
-			return err
-		}
-		if m, err = s.AddMachine(); err != nil {
-			return err
-		}
-	default:
-		panic(fmt.Errorf("unknown unit assignment policy: %q", policy))
-	}
-	return u.AssignToMachine(m)
 }

@@ -242,7 +242,8 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 		Remove: true,
 	}}
 	if err := s.st.runner.Run(ops, "", nil); err != nil {
-		return onAbort(err, errNotDead)
+		// If aborted, the unit is either dead or recreated.
+		return onAbort(err, nil)
 	}
 	return nil
 }
