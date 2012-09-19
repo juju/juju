@@ -2,8 +2,10 @@ package mstate
 
 import (
 	"labix.org/v2/mgo"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/mstate/watcher"
 	"launchpad.net/tomb"
+	"sort"
 	"strings"
 )
 
@@ -62,6 +64,23 @@ type ServiceUnitsWatcher struct {
 type ServiceUnitsChange struct {
 	Added   []*Unit
 	Removed []*Unit
+}
+
+// RelationScopeWatcher observes changes to the set of units
+// in a particular relation scope.
+type RelationScopeWatcher struct {
+	commonWatcher
+	prefix     string
+	ignore     string
+	knownUnits map[string]bool
+	changeChan chan *RelationScopeChange
+}
+
+// RelationScopeChange contains information about units that have
+// joined or departed a particular relation scope.
+type RelationScopeChange struct {
+	Added   []string
+	Removed []string
 }
 
 // newMachineWatcher creates and starts a watcher to watch information
@@ -487,6 +506,124 @@ func (w *ServiceUnitsWatcher) loop() (err error) {
 			changes = &ServiceUnitsChange{}
 			err := w.mergeChange(changes, c)
 			if err != nil {
+				return err
+			}
+			if changes.isEmpty() {
+				changes = nil
+			}
+		}
+	}
+	return nil
+}
+
+func newRelationScopeWatcher(st *State, scope, ignore string) *RelationScopeWatcher {
+	w := &RelationScopeWatcher{
+		commonWatcher: commonWatcher{st: st},
+		prefix:        scope + "#",
+		ignore:        ignore,
+		changeChan:    make(chan *RelationScopeChange),
+		knownUnits:    make(map[string]bool),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.changeChan)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns a channel that will receive changes when units join and
+// depart a relation scope. The Added field in the first event on the channel
+// holds the initial state.
+func (w *RelationScopeWatcher) Changes() <-chan *RelationScopeChange {
+	return w.changeChan
+}
+
+// Stop stops the watcher and returns any errors encountered while watching.
+func (w *RelationScopeWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
+}
+
+func (changes *RelationScopeChange) isEmpty() bool {
+	return len(changes.Added)+len(changes.Removed) == 0
+}
+
+func (w *RelationScopeWatcher) mergeChange(changes *RelationScopeChange, ch watcher.Change) (err error) {
+	doc := &relationRefDoc{ch.Id.(string)}
+	if !strings.HasPrefix(doc.Key, w.prefix) {
+		return nil
+	}
+	name := doc.UnitName()
+	if name == w.ignore {
+		return nil
+	}
+	if ch.Revno == -1 {
+		if w.knownUnits[name] {
+			changes.Removed = append(changes.Removed, name)
+			delete(w.knownUnits, name)
+		}
+		return nil
+	}
+	if !w.knownUnits[name] {
+		changes.Added = append(changes.Added, name)
+		w.knownUnits[name] = true
+	}
+	return nil
+}
+
+func (w *RelationScopeWatcher) getInitialEvent() (initial *RelationScopeChange, err error) {
+	changes := &RelationScopeChange{}
+	docs := []relationRefDoc{}
+	sel := D{{"_id", D{{"$regex", "^" + w.prefix}}}}
+	err = w.st.relationRefs.Find(sel).All(&docs)
+	if err != nil {
+		return nil, err
+	}
+	for _, doc := range docs {
+		if name := doc.UnitName(); name != w.ignore {
+			changes.Added = append(changes.Added, name)
+			w.knownUnits[name] = true
+		}
+	}
+	return changes, nil
+}
+
+func (w *RelationScopeWatcher) loop() error {
+	ch := make(chan watcher.Change)
+	w.st.watcher.WatchCollection(w.st.relationRefs.Name, ch)
+	defer w.st.watcher.UnwatchCollection(w.st.relationRefs.Name, ch)
+	changes, err := w.getInitialEvent()
+	if err != nil {
+		return err
+	}
+	for {
+		for changes != nil {
+			sort.Strings(changes.Added)
+			sort.Strings(changes.Removed)
+			select {
+			case <-w.st.watcher.Dead():
+				return watcher.MustErr(w.st.watcher)
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case c := <-ch:
+				log.Printf("tick %#v", c)
+				if err := w.mergeChange(changes, c); err != nil {
+					return err
+				}
+			case w.changeChan <- changes:
+				changes = nil
+			}
+		}
+		select {
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case c := <-ch:
+			log.Printf("tock %#v", c)
+			changes = &RelationScopeChange{}
+			if err := w.mergeChange(changes, c); err != nil {
 				return err
 			}
 			if changes.isEmpty() {

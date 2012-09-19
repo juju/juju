@@ -85,15 +85,16 @@ func newState(session *mgo.Session, fwd *sshForwarder) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	st := &State{
-		db:        db,
-		charms:    db.C("charms"),
-		machines:  db.C("machines"),
-		relations: db.C("relations"),
-		services:  db.C("services"),
-		settings:  db.C("settings"),
-		units:     db.C("units"),
-		presence:  pdb.C("presence"),
-		fwd:       fwd,
+		db:           db,
+		charms:       db.C("charms"),
+		machines:     db.C("machines"),
+		relations:    db.C("relations"),
+		relationRefs: db.C("relationRefs"),
+		services:     db.C("services"),
+		settings:     db.C("settings"),
+		units:        db.C("units"),
+		presence:     pdb.C("presence"),
+		fwd:          fwd,
 	}
 	log := db.C("txns.log")
 	info := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}

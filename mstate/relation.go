@@ -2,6 +2,7 @@ package mstate
 
 import (
 	"fmt"
+	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/trivial"
 	"sort"
@@ -218,6 +219,59 @@ func (ru *RelationUnit) Endpoint() RelationEndpoint {
 	return ru.endpoint
 }
 
+// EnsureJoin ensures that the unit's relation settings contain the expected
+// private-address key, and adds a document to relationRefs indicating that
+// the unit is using the relation and that the relation must not be removed
+// before the reference has been dropped. The ref document's existence is
+// also used to determine *potential* unit presence in the relation: that
+// is, other units will watch for this unit's presence if and only if this
+// relation unit's ref document exists.
+func (ru *RelationUnit) EnsureJoin() (err error) {
+	defer trivial.ErrorContextf(&err, "cannot initialize state for unit %q in relation %q", ru.unit, ru.relation)
+	address, err := ru.unit.PrivateAddress()
+	if err != nil {
+		return err
+	}
+	key, err := ru.key(ru.unit.Name())
+	if err != nil {
+		return err
+	}
+	node := newConfigNode(ru.st, key)
+	node.Set("private-address", address)
+	if _, err = node.Write(); err != nil {
+		return err
+	}
+	ops := []txn.Op{{
+		C:      ru.st.relationRefs.Name,
+		Id:     key,
+		Insert: relationRefDoc{key},
+	}}
+	return ru.st.runner.Run(ops, "", nil)
+}
+
+// EnsureDepart ensures that the relation unit's ref document does not exist.
+// See EnsureJoin.
+func (ru *RelationUnit) EnsureDepart() error {
+	key, err := ru.key(ru.unit.Name())
+	if err != nil {
+		return err
+	}
+	ops := []txn.Op{{
+		C:      ru.st.relationRefs.Name,
+		Id:     key,
+		Remove: true,
+	}}
+	return ru.st.runner.Run(ops, "", nil)
+}
+
+// WatchScope returns a watcher which notifies of similarly-scoped counterpart
+// units joining and departing the relation.
+func (ru *RelationUnit) WatchScope() *RelationScopeWatcher {
+	role := ru.endpoint.RelationRole.counterpartRole()
+	scope := strings.Join([]string{ru.scope, string(role)}, "#")
+	return newRelationScopeWatcher(ru.st, scope, ru.unit.Name())
+}
+
 // Settings returns a ConfigNode which allows access to the unit's settings
 // within the relation.
 func (ru *RelationUnit) Settings() (*ConfigNode, error) {
@@ -265,4 +319,15 @@ func (ru *RelationUnit) key(uname string) (string, error) {
 	}
 	parts := []string{ru.scope, string(ep.RelationRole), uname}
 	return strings.Join(parts, "#"), nil
+}
+
+// relationRefDoc represents the theoretical presence of a unit in a relation.
+// The relation, container, role, and unit are all encoded in the key.
+type relationRefDoc struct {
+	Key string `bson:"_id"`
+}
+
+func (d *relationRefDoc) UnitName() string {
+	parts := strings.Split(d.Key, "#")
+	return parts[len(parts)-1]
 }

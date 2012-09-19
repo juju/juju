@@ -28,18 +28,19 @@ type Tools struct {
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	db        *mgo.Database
-	charms    *mgo.Collection
-	machines  *mgo.Collection
-	relations *mgo.Collection
-	services  *mgo.Collection
-	settings  *mgo.Collection
-	units     *mgo.Collection
-	presence  *mgo.Collection
-	runner    *txn.Runner
-	watcher   *watcher.Watcher
-	pwatcher  *presence.Watcher
-	fwd       *sshForwarder
+	db           *mgo.Database
+	charms       *mgo.Collection
+	machines     *mgo.Collection
+	relations    *mgo.Collection
+	relationRefs *mgo.Collection
+	services     *mgo.Collection
+	settings     *mgo.Collection
+	units        *mgo.Collection
+	presence     *mgo.Collection
+	runner       *txn.Runner
+	watcher      *watcher.Watcher
+	pwatcher     *presence.Watcher
+	fwd          *sshForwarder
 }
 
 func deadOnAbort(err error) error {
