@@ -185,7 +185,7 @@ func (s *UnitSuite) TestGetSetClearResolved(c *C) {
 	err = s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, IsNil)
 	err = s.unit.SetResolved(state.ResolvedNoHooks)
-	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": flag already set`)
+	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
 	retry, err := s.unit.Resolved()
 	c.Assert(err, IsNil)
 	c.Assert(retry, Equals, state.ResolvedNoHooks)
@@ -200,4 +200,13 @@ func (s *UnitSuite) TestGetSetClearResolved(c *C) {
 
 	err = s.unit.SetResolved(state.ResolvedMode(999))
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": invalid error resolution mode: 999`)
+}
+
+func (s *UnitSuite) TestSetClearResolvedWhenDying(c *C) {
+	testWhenDying(c, s.unit, notAliveErr, notAliveErr, func() error {
+		err := s.unit.SetResolved(state.ResolvedNoHooks)
+		cerr := s.unit.ClearResolved()
+		c.Assert(cerr, IsNil)
+		return err
+	})
 }

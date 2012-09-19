@@ -421,14 +421,27 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	if !(0 <= mode && mode < nResolvedModes) {
 		return fmt.Errorf("invalid error resolution mode: %v", mode)
 	}
+	assert := append(isAlive, D{{"resolved", ResolvedNone}}...)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: D{{"resolved", ResolvedNone}},
+		Assert: assert,
 		Update: D{{"$set", D{{"resolved", mode}}}},
 	}}
 	if err := u.st.runner.Run(ops, "", nil); err != nil {
-		return onAbort(err, errors.New("flag already set"))
+		if err == txn.ErrAborted {
+			// Find which assertion failed so we can give a
+			// more specific error.
+			u1, err := u.st.Unit(u.Name())
+			if err != nil {
+				return err
+			}
+			if u1.Life() != Alive {
+				return errNotAlive
+			}
+			return fmt.Errorf("already resolved")
+		}
+		return err
 	}
 	u.doc.Resolved = mode
 	return nil
