@@ -488,7 +488,7 @@ func (s *RelationUnitSuite) assertScopeChange(c *C, w *state.RelationScopeWatche
 		c.Assert(ok, Equals, true)
 		c.Assert(ch.Added, DeepEquals, added)
 		c.Assert(ch.Removed, DeepEquals, removed)
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(500 * time.Millisecond):
 		c.Fatalf("no change")
 	}
 }

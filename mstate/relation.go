@@ -219,14 +219,17 @@ func (ru *RelationUnit) Endpoint() RelationEndpoint {
 	return ru.endpoint
 }
 
-// EnsureJoin ensures that the unit's relation settings contain the expected
-// private-address key, and adds a document to relationRefs indicating that
-// the unit is using the relation and that the relation must not be removed
-// before the reference has been dropped. The ref document's existence is
-// also used to determine *potential* unit presence in the relation: that
-// is, other units will watch for this unit's presence if and only if this
-// relation unit's ref document exists.
+// EnsureJoin ensures that the unit holds a reference to the relation, which
+// signals to counterpart units that they should consider the unit a potential
+// participant in the relation.
 func (ru *RelationUnit) EnsureJoin() (err error) {
+	// EnsureJoin ensures that the unit's relation settings contain the expected
+	// private-address key, and adds a document to relationRefs indicating that
+	// the unit is using the relation and that the relation must not be removed
+	// before the reference has been dropped. The ref document's existence is
+	// also used to determine *potential* unit presence in the relation: that
+	// is, other units will watch for this unit's presence if and only if this
+	// relation unit's ref document exists.
 	defer trivial.ErrorContextf(&err, "cannot initialize state for unit %q in relation %q", ru.unit, ru.relation)
 	address, err := ru.unit.PrivateAddress()
 	if err != nil {
@@ -249,8 +252,9 @@ func (ru *RelationUnit) EnsureJoin() (err error) {
 	return ru.st.runner.Run(ops, "", nil)
 }
 
-// EnsureDepart ensures that the relation unit's ref document does not exist.
-// See EnsureJoin.
+// EnsureDepart ensures that the unit does not hold a reference to the relation,
+// and hence signals to counterpart units that the unit is definitely not a
+// participant in the relation.
 func (ru *RelationUnit) EnsureDepart() error {
 	key, err := ru.key(ru.unit.Name())
 	if err != nil {
@@ -268,7 +272,7 @@ func (ru *RelationUnit) EnsureDepart() error {
 // units joining and departing the relation.
 func (ru *RelationUnit) WatchScope() *RelationScopeWatcher {
 	role := ru.endpoint.RelationRole.counterpartRole()
-	scope := strings.Join([]string{ru.scope, string(role)}, "#")
+	scope := ru.scope + "#" + string(role)
 	return newRelationScopeWatcher(ru.st, scope, ru.unit.Name())
 }
 
@@ -329,7 +333,7 @@ type relationRefDoc struct {
 	Key string `bson:"_id"`
 }
 
-func (d *relationRefDoc) UnitName() string {
+func (d *relationRefDoc) unitName() string {
 	parts := strings.Split(d.Key, "#")
 	return parts[len(parts)-1]
 }

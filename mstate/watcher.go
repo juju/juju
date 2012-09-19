@@ -2,7 +2,6 @@ package mstate
 
 import (
 	"labix.org/v2/mgo"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/mstate/watcher"
 	"launchpad.net/tomb"
 	"sort"
@@ -554,7 +553,7 @@ func (w *RelationScopeWatcher) mergeChange(changes *RelationScopeChange, ch watc
 	if !strings.HasPrefix(doc.Key, w.prefix) {
 		return nil
 	}
-	name := doc.UnitName()
+	name := doc.unitName()
 	if name == w.ignore {
 		return nil
 	}
@@ -581,7 +580,7 @@ func (w *RelationScopeWatcher) getInitialEvent() (initial *RelationScopeChange, 
 		return nil, err
 	}
 	for _, doc := range docs {
-		if name := doc.UnitName(); name != w.ignore {
+		if name := doc.unitName(); name != w.ignore {
 			changes.Added = append(changes.Added, name)
 			w.knownUnits[name] = true
 		}
@@ -607,7 +606,6 @@ func (w *RelationScopeWatcher) loop() error {
 			case <-w.tomb.Dying():
 				return tomb.ErrDying
 			case c := <-ch:
-				log.Printf("tick %#v", c)
 				if err := w.mergeChange(changes, c); err != nil {
 					return err
 				}
@@ -621,7 +619,6 @@ func (w *RelationScopeWatcher) loop() error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c := <-ch:
-			log.Printf("tock %#v", c)
 			changes = &RelationScopeChange{}
 			if err := w.mergeChange(changes, c); err != nil {
 				return err

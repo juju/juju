@@ -89,7 +89,7 @@ func newState(session *mgo.Session, fwd *sshForwarder) (*State, error) {
 		charms:       db.C("charms"),
 		machines:     db.C("machines"),
 		relations:    db.C("relations"),
-		relationRefs: db.C("relationRefs"),
+		relationRefs: db.C("relation-refs"),
 		services:     db.C("services"),
 		settings:     db.C("settings"),
 		units:        db.C("units"),
