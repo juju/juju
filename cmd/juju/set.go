@@ -14,7 +14,7 @@ type SetCommand struct {
 	EnvName     string
 	ServiceName string
 	Options     []Option
-	ConfPath    string
+	Config      cmd.FileVar
 }
 
 type Option struct {
@@ -27,7 +27,7 @@ func (c *SetCommand) Info() *cmd.Info {
 
 func (c *SetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	addEnvironFlags(&c.EnvName, f)
-	f.StringVar(&c.ConfPath, "config", "", "path to yaml-formatted service config")
+	f.Var(&c.Config, "config", "path to yaml-formatted service config")
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
