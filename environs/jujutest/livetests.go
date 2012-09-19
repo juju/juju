@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/trivial"
 	"time"
 )
 
@@ -287,7 +288,7 @@ func setAgentVersion(st *state.State, vers version.Number) error {
 	return st.SetEnvironConfig(cfg)
 }
 
-var waitAgent = environs.AttemptStrategy{
+var waitAgent = trivial.AttemptStrategy{
 	Total: 30 * time.Second,
 	Delay: 1 * time.Second,
 }

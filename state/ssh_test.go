@@ -7,6 +7,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/trivial"
 	"net"
 	"os"
 	"os/exec"
@@ -519,7 +520,7 @@ func (t *sshTest) sshDaemon(sshdPort, serverPort int) *os.Process {
 	}()
 
 	// wait til the server port is up.
-	impatientAttempt := environs.AttemptStrategy{
+	impatientAttempt := trivial.AttemptStrategy{
 		Total: 5 * time.Second,
 		Delay: 100 * time.Millisecond,
 	}

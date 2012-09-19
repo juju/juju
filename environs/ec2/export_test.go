@@ -4,6 +4,7 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/trivial"
 	"net/http"
 )
 
@@ -84,7 +85,7 @@ var originalLongAttempt = longAttempt
 // and this reduces the test time from 30s to 3s.
 func ShortTimeouts(short bool) {
 	if short {
-		shortAttempt = environs.AttemptStrategy{
+		shortAttempt = trivial.AttemptStrategy{
 			Total: 0.25e9,
 			Delay: 0.01e9,
 		}
