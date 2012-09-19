@@ -2,39 +2,18 @@ package state_test
 
 import (
 	"fmt"
+	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
-	"launchpad.net/gozk/zookeeper"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
-	coretesting "launchpad.net/juju-core/testing"
+	state "launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
 	"net/url"
 	"sort"
-	stdtesting "testing"
 	"time"
 )
 
-// TestPackage integrates the tests into gotest.
-func TestPackage(t *stdtesting.T) {
-	coretesting.ZkTestPackage(t)
-}
-
-// ConnSuite is a testing.StateSuite with direct access to the
-// State's underlying zookeeper.Conn.
-// TODO: Separate test methods that use zkConn into a single ZooKeeper-
-// specific suite, and use plain StateSuites elsewhere, so we can maybe
-// eventually have a single set of tests that work against both state and
-// mstate.
-type ConnSuite struct {
-	testing.JujuConnSuite
-	zkConn *zookeeper.Conn
-}
-
-func (s *ConnSuite) SetUpTest(c *C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.zkConn = state.ZkConn(s.State)
-}
+type D []bson.DocElem
 
 type StateSuite struct {
 	ConnSuite
@@ -42,136 +21,18 @@ type StateSuite struct {
 
 var _ = Suite(&StateSuite{})
 
-func (s *StateSuite) TestInitialize(c *C) {
-	// Check that initialization of an already-initialized state succeeds.
-	st, err := state.Initialize(s.StateInfo(c), nil)
-	c.Assert(err, IsNil)
-	c.Assert(st, NotNil)
-	st.Close()
-
-	// Check that Open blocks until Initialize has succeeded.
-	coretesting.ZkRemoveTree(s.zkConn, "/")
-
-	errc := make(chan error)
-	go func() {
-		st, err := state.Open(s.StateInfo(c))
-		errc <- err
-		if st != nil {
-			st.Close()
-		}
-	}()
-
-	// Wait a little while to verify that it's actually blocking.
-	time.Sleep(200 * time.Millisecond)
-	select {
-	case err := <-errc:
-		c.Fatalf("state.Open did not block (returned error %v)", err)
-	default:
-	}
-
-	st, err = state.Initialize(s.StateInfo(c), nil)
-	c.Assert(err, IsNil)
-	c.Assert(st, NotNil)
-	defer st.Close()
-
-	select {
-	case err := <-errc:
+func (s *StateSuite) TestDialAgain(c *C) {
+	// Ensure idempotent operations on Dial are working fine.
+	for i := 0; i < 2; i++ {
+		st, err := state.Dial(testing.MgoAddr)
 		c.Assert(err, IsNil)
-	case <-time.After(1e9):
-		c.Fatalf("state.Open blocked forever")
-	}
-}
-
-func (s *StateSuite) TestInitalizeWithConfig(c *C) {
-	// clean existing state
-	coretesting.ZkRemoveTree(s.zkConn, "/")
-
-	m := map[string]interface{}{
-		"name":            "only",
-		"type":            "dummy",
-		"zookeeper":       true,
-		"authorized-keys": "i-am-a-key",
-		"default-series":  "precise",
-		"development":     true,
-	}
-	st, err := state.Initialize(s.StateInfo(c), m)
-	c.Assert(err, IsNil)
-	c.Assert(st, NotNil)
-	defer st.Close()
-	env, err := st.EnvironConfig()
-	c.Assert(env.AllAttrs(), DeepEquals, m)
-}
-
-type attrs map[string]interface{}
-
-var environmentWatchTests = []attrs{
-	{
-		"type":            "my-type",
-		"name":            "my-name",
-		"authorized-keys": "i-am-a-key",
-	},
-	{
-		// Add an attribute.
-		"type":            "my-type",
-		"name":            "my-name",
-		"default-series":  "my-series",
-		"authorized-keys": "i-am-a-key",
-	},
-	{
-		// Set a new attribute value.
-		"type":            "my-type",
-		"name":            "my-new-name",
-		"default-series":  "my-series",
-		"authorized-keys": "i-am-a-key",
-	},
-}
-
-var initialEnvironment = `name: test,
-type: test,
-authorized-keys: i-am-a-key,
-default-series: precise`
-
-func (s *StateSuite) TestWatchEnvironment(c *C) {
-	// Re-init the environment originally created by JujuConnSuite,
-	// so that we know what we have.
-	_, err := s.zkConn.Set("/environment", initialEnvironment, -1)
-	c.Assert(err, IsNil)
-	environConfigWatcher := s.State.WatchEnvironConfig()
-	defer func() {
-		c.Assert(environConfigWatcher.Stop(), IsNil)
-	}()
-
-	_, ok := <-environConfigWatcher.Changes()
-	c.Assert(ok, Equals, true)
-
-	for i, test := range environmentWatchTests {
-		c.Logf("test %d", i)
-		change, err := config.New(test)
-		c.Assert(err, IsNil)
-		err = s.State.SetEnvironConfig(change)
-		c.Assert(err, IsNil)
-		select {
-		case got, ok := <-environConfigWatcher.Changes():
-			c.Assert(ok, Equals, true)
-			gotAttrs := got.AllAttrs()
-			for key, value := range test {
-				c.Assert(gotAttrs[key], Equals, value)
-			}
-		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("did not get change: %#v", test)
-		}
-	}
-
-	select {
-	case got := <-environConfigWatcher.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
-	case <-time.After(100 * time.Millisecond):
+		c.Assert(st.Close(), IsNil)
 	}
 }
 
 func (s *StateSuite) TestAddCharm(c *C) {
 	// Check that adding charms from scratch works correctly.
-	ch := coretesting.Charms.Dir("series", "dummy")
+	ch := testing.Charms.Dir("series", "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
@@ -180,21 +41,18 @@ func (s *StateSuite) TestAddCharm(c *C) {
 	dummy, err := s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
 	c.Assert(err, IsNil)
 	c.Assert(dummy.URL().String(), Equals, curl.String())
-	children, _, err := s.zkConn.Children("/charms")
+
+	doc := state.CharmDoc{}
+	err = s.charms.FindId(curl).One(&doc)
 	c.Assert(err, IsNil)
-	c.Assert(children, DeepEquals, []string{"local_3a_series_2f_dummy-1"})
+	c.Logf("%#v", doc)
+	c.Assert(doc.URL, DeepEquals, curl)
 }
 
-func (s *StateSuite) TestMissingCharms(c *C) {
-	// Check that getting a nonexistent charm fails.
-	curl := charm.MustParseURL("local:series/random-99")
-	_, err := s.State.Charm(curl)
-	c.Assert(err, ErrorMatches, `cannot get charm "local:series/random-99": .*`)
-
-	// Add a separate charm, test missing charm still missing.
-	s.AddTestingCharm(c, "dummy")
-	_, err = s.State.Charm(curl)
-	c.Assert(err, ErrorMatches, `cannot get charm "local:series/random-99": .*`)
+func (s *StateSuite) AssertMachineCount(c *C, expect int) {
+	ms, err := s.State.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(len(ms), Equals, expect)
 }
 
 func (s *StateSuite) TestAddMachine(c *C) {
@@ -205,10 +63,8 @@ func (s *StateSuite) TestAddMachine(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(machine1.Id(), Equals, 1)
 
-	children, _, err := s.zkConn.Children("/machines")
-	c.Assert(err, IsNil)
-	sort.Strings(children)
-	c.Assert(children, DeepEquals, []string{"machine-0000000000", "machine-0000000001"})
+	machines := s.AllMachines(c)
+	c.Assert(machines, DeepEquals, []int{0, 1})
 }
 
 func (s *StateSuite) TestRemoveMachine(c *C) {
@@ -216,17 +72,18 @@ func (s *StateSuite) TestRemoveMachine(c *C) {
 	c.Assert(err, IsNil)
 	_, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
+	err = machine.Die()
+	c.Assert(err, IsNil)
 	err = s.State.RemoveMachine(machine.Id())
 	c.Assert(err, IsNil)
 
-	children, _, err := s.zkConn.Children("/machines")
-	c.Assert(err, IsNil)
-	sort.Strings(children)
-	c.Assert(children, DeepEquals, []string{"machine-0000000001"})
+	machines := s.AllMachines(c)
+	c.Assert(machines, DeepEquals, []int{1})
 
 	// Removing a non-existing machine has to fail.
+	// BUG(aram): use error strings from state.
 	err = s.State.RemoveMachine(machine.Id())
-	c.Assert(err, ErrorMatches, "cannot remove machine 0: machine not found")
+	c.Assert(err, ErrorMatches, "cannot remove machine 0: .*")
 }
 
 func (s *StateSuite) TestReadMachine(c *C) {
@@ -238,92 +95,16 @@ func (s *StateSuite) TestReadMachine(c *C) {
 	c.Assert(machine.Id(), Equals, expectedId)
 }
 
-func (s *StateSuite) TestReadNonExistentMachine(c *C) {
-	_, err := s.State.Machine(0)
-	c.Assert(err, ErrorMatches, "machine 0 not found")
-
-	_, err = s.State.AddMachine()
-	c.Assert(err, IsNil)
-	_, err = s.State.Machine(1)
-	c.Assert(err, ErrorMatches, "machine 1 not found")
-}
-
 func (s *StateSuite) TestAllMachines(c *C) {
-	assertMachineCount(c, s.State, 0)
-	_, err := s.State.AddMachine()
-	c.Assert(err, IsNil)
-	assertMachineCount(c, s.State, 1)
-	_, err = s.State.AddMachine()
-	c.Assert(err, IsNil)
-	assertMachineCount(c, s.State, 2)
-}
-
-type machinesWatchTest struct {
-	test func(*state.State) error
-	want func(*state.State) *state.MachinesChange
-}
-
-var machinesWatchTests = []machinesWatchTest{
-	{
-		func(_ *state.State) error {
-			return nil
-		},
-		func(_ *state.State) *state.MachinesChange {
-			return &state.MachinesChange{}
-		},
-	},
-	{
-		func(s *state.State) error {
-			_, err := s.AddMachine()
-			return err
-		},
-		func(s *state.State) *state.MachinesChange {
-			return &state.MachinesChange{Added: []*state.Machine{state.NewMachine(s, "machine-0000000000")}}
-		},
-	},
-	{
-		func(s *state.State) error {
-			_, err := s.AddMachine()
-			return err
-		},
-		func(s *state.State) *state.MachinesChange {
-			return &state.MachinesChange{Added: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
-		},
-	},
-	{
-		func(s *state.State) error {
-			return s.RemoveMachine(1)
-		},
-		func(s *state.State) *state.MachinesChange {
-			return &state.MachinesChange{Removed: []*state.Machine{state.NewMachine(s, "machine-0000000001")}}
-		},
-	},
-}
-
-func (s *StateSuite) TestWatchMachines(c *C) {
-	machineWatcher := s.State.WatchMachines()
-	defer func() {
-		c.Assert(machineWatcher.Stop(), IsNil)
-	}()
-
-	for i, test := range machinesWatchTests {
-		c.Logf("test %d", i)
-		err := test.test(s.State)
+	numInserts := 42
+	for i := 0; i < numInserts; i++ {
+		err := s.machines.Insert(D{{"_id", i}, {"life", state.Alive}})
 		c.Assert(err, IsNil)
-		want := test.want(s.State)
-		select {
-		case got, ok := <-machineWatcher.Changes():
-			c.Assert(ok, Equals, true)
-			c.Assert(got, DeepEquals, want)
-		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("did not get change: %#v", want)
-		}
 	}
-
-	select {
-	case got := <-machineWatcher.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
-	case <-time.After(100 * time.Millisecond):
+	s.AssertMachineCount(c, numInserts)
+	ms, _ := s.State.AllMachines()
+	for k, v := range ms {
+		c.Assert(v.Id(), Equals, k)
 	}
 }
 
@@ -340,18 +121,15 @@ func (s *StateSuite) TestAddService(c *C) {
 	wordpress, err = s.State.Service("wordpress")
 	c.Assert(err, IsNil)
 	c.Assert(wordpress.Name(), Equals, "wordpress")
-	wch, force, err := wordpress.Charm()
+	ch, _, err := wordpress.Charm()
 	c.Assert(err, IsNil)
-	c.Assert(wch.URL(), DeepEquals, charm.URL())
-	c.Assert(force, Equals, false)
-
+	c.Assert(ch.URL(), DeepEquals, charm.URL())
 	mysql, err = s.State.Service("mysql")
 	c.Assert(err, IsNil)
 	c.Assert(mysql.Name(), Equals, "mysql")
-	mch, force, err := mysql.Charm()
+	ch, _, err = mysql.Charm()
 	c.Assert(err, IsNil)
-	c.Assert(mch.URL(), DeepEquals, charm.URL())
-	c.Assert(force, Equals, false)
+	c.Assert(ch.URL(), DeepEquals, charm.URL())
 }
 
 func (s *StateSuite) TestRemoveService(c *C) {
@@ -360,19 +138,23 @@ func (s *StateSuite) TestRemoveService(c *C) {
 	c.Assert(err, IsNil)
 
 	// Remove of existing service.
+	err = service.Die()
+	c.Assert(err, IsNil)
 	err = s.State.RemoveService(service)
 	c.Assert(err, IsNil)
 	_, err = s.State.Service("wordpress")
-	c.Assert(err, ErrorMatches, `cannot get service "wordpress": service with name "wordpress" not found`)
+	c.Assert(err, ErrorMatches, `cannot get service "wordpress": .*`)
 
-	// Remove of an illegal service, it has already been removed.
+	// Remove of an invalid service, it has already been removed.
+	// BUG(aram): use error strings from state.
 	err = s.State.RemoveService(service)
-	c.Assert(err, ErrorMatches, `cannot remove service "wordpress": cannot get relations for service "wordpress": environment state has changed`)
+	c.Assert(err, ErrorMatches, `cannot remove service "wordpress": .*`)
 }
 
 func (s *StateSuite) TestReadNonExistentService(c *C) {
+	// BUG(aram): use error strings from state.
 	_, err := s.State.Service("pressword")
-	c.Assert(err, ErrorMatches, `cannot get service "pressword": service with name "pressword" not found`)
+	c.Assert(err, ErrorMatches, `cannot get service "pressword": .*`)
 }
 
 func (s *StateSuite) TestAllServices(c *C) {
@@ -399,91 +181,387 @@ func (s *StateSuite) TestAllServices(c *C) {
 	c.Assert(services[1].Name(), Equals, "mysql")
 }
 
-var serviceWatchTests = []struct {
-	testOp string
-	name   string
-	idx    int
-}{
-	{"none", "", 0},
-	{"add", "wordpress", 0},
-	{"add", "mysql", 1},
-	{"remove", "wordpress", 0},
+func (s *StateSuite) TestEnvironConfig(c *C) {
+	initial := map[string]interface{}{
+		"name":            "test",
+		"type":            "test",
+		"authorized-keys": "i-am-a-key",
+		"default-series":  "precise",
+		"development":     true,
+	}
+	env, err := config.New(initial)
+	c.Assert(err, IsNil)
+	err = s.State.SetEnvironConfig(env)
+	c.Assert(err, IsNil)
+	env, err = s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	current := env.AllAttrs()
+	c.Assert(current, DeepEquals, initial)
+
+	current["authorized-keys"] = "i-am-a-new-key"
+	env, err = config.New(current)
+	c.Assert(err, IsNil)
+	err = s.State.SetEnvironConfig(env)
+	c.Assert(err, IsNil)
+	env, err = s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	final := env.AllAttrs()
+	c.Assert(final, DeepEquals, current)
 }
 
-func (s *StateSuite) TestWatchServices(c *C) {
-	charm := s.AddTestingCharm(c, "dummy")
-	servicesWatcher := s.State.WatchServices()
-	defer func() {
-		c.Assert(servicesWatcher.Stop(), IsNil)
-	}()
-	services := make([]*state.Service, 2)
-
-	for i, test := range serviceWatchTests {
-		c.Logf("test %d", i)
-		var want *state.ServicesChange
-		switch test.testOp {
-		case "none":
-			want = &state.ServicesChange{}
-		case "add":
+var machinesWatchTests = []struct {
+	test    func(*C, *state.State)
+	added   []int
+	removed []int
+}{
+	{
+		test:  func(_ *C, _ *state.State) {},
+		added: []int{},
+	},
+	{
+		test: func(c *C, s *state.State) {
+			_, err := s.AddMachine()
+			c.Assert(err, IsNil)
+		},
+		added: []int{0},
+	},
+	{
+		test: func(c *C, s *state.State) {
+			_, err := s.AddMachine()
+			c.Assert(err, IsNil)
+		},
+		added: []int{1},
+	},
+	{
+		test: func(c *C, s *state.State) {
+			_, err := s.AddMachine()
+			c.Assert(err, IsNil)
+			_, err = s.AddMachine()
+			c.Assert(err, IsNil)
+		},
+		added: []int{2, 3},
+	},
+	{
+		test: func(c *C, s *state.State) {
+			m3, err := s.Machine(3)
+			c.Assert(err, IsNil)
+			err = m3.Die()
+			c.Assert(err, IsNil)
+			err = s.RemoveMachine(3)
+			c.Assert(err, IsNil)
+		},
+		removed: []int{3},
+	},
+	{
+		test: func(c *C, s *state.State) {
+			m0, err := s.Machine(0)
+			c.Assert(err, IsNil)
+			err = m0.Die()
+			c.Assert(err, IsNil)
+			err = s.RemoveMachine(0)
+			c.Assert(err, IsNil)
+			m2, err := s.Machine(2)
+			c.Assert(err, IsNil)
+			err = m2.Die()
+			c.Assert(err, IsNil)
+			err = s.RemoveMachine(2)
+			c.Assert(err, IsNil)
+		},
+		removed: []int{0, 2},
+	},
+	{
+		test: func(c *C, s *state.State) {
+			_, err := s.AddMachine()
+			c.Assert(err, IsNil)
+			m1, err := s.Machine(1)
+			c.Assert(err, IsNil)
+			err = m1.Die()
+			c.Assert(err, IsNil)
+			err = s.RemoveMachine(1)
+			c.Assert(err, IsNil)
+		},
+		added:   []int{4},
+		removed: []int{1},
+	},
+	{
+		test: func(c *C, s *state.State) {
+			machines := [20]*state.Machine{}
 			var err error
-			services[test.idx], err = s.State.AddService(test.name, charm)
+			for i := 0; i < len(machines); i++ {
+				machines[i], err = s.AddMachine()
+				c.Assert(err, IsNil)
+			}
+			for i := 0; i < len(machines); i++ {
+				err = machines[i].SetInstanceId("spam" + fmt.Sprint(i))
+				c.Assert(err, IsNil)
+			}
+			for i := 10; i < len(machines); i++ {
+				err = machines[i].Die()
+				c.Assert(err, IsNil)
+				err = s.RemoveMachine(i + 5)
+				c.Assert(err, IsNil)
+			}
+		},
+		added: []int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
+	},
+	{
+		test: func(c *C, s *state.State) {
+			_, err := s.AddMachine()
 			c.Assert(err, IsNil)
-			want = &state.ServicesChange{[]*state.Service{services[test.idx]}, nil}
-		case "remove":
-			service, err := s.State.Service(test.name)
+			m9, err := s.Machine(9)
 			c.Assert(err, IsNil)
-			err = s.State.RemoveService(service)
+			err = m9.Die()
 			c.Assert(err, IsNil)
-			want = &state.ServicesChange{nil, []*state.Service{services[test.idx]}}
-			services[test.idx] = nil
-		}
-		select {
-		case got, ok := <-servicesWatcher.Changes():
-			c.Assert(ok, Equals, true)
-			c.Assert(got, DeepEquals, want)
-		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("did not get change: %#v", want)
+			err = s.RemoveMachine(9)
+			c.Assert(err, IsNil)
+		},
+		added:   []int{25},
+		removed: []int{9},
+	},
+}
+
+func (s *StateSuite) TestWatchMachines(c *C) {
+	machineWatcher := s.State.WatchMachines()
+	defer func() {
+		c.Assert(machineWatcher.Stop(), IsNil)
+	}()
+	for i, test := range machinesWatchTests {
+		c.Logf("test %d", i)
+		test.test(c, s.State)
+		s.State.StartSync()
+		got := &state.MachinesChange{}
+		for {
+			select {
+			case new, ok := <-machineWatcher.Changes():
+				c.Assert(ok, Equals, true)
+				addMachineChanges(got, new)
+				if moreMachinesRequired(got, test.added, test.removed) {
+					continue
+				}
+				assertSameMachines(c, got, test.added, test.removed)
+			case <-time.After(500 * time.Millisecond):
+				c.Fatalf("did not get change, want: added: %#v, removed: %#v, got: %#v", test.added, test.removed, got)
+			}
+			break
 		}
 	}
-
 	select {
-	case got := <-servicesWatcher.Changes():
+	case got := <-machineWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
 }
 
-var diffTests = []struct {
-	A, B, want []string
-}{
-	{[]string{"A", "B", "C"}, []string{"A", "D", "C"}, []string{"B"}},
-	{[]string{"A", "B", "C"}, []string{"C", "B", "A"}, nil},
-	{[]string{"A", "B", "C"}, []string{"B"}, []string{"A", "C"}},
-	{[]string{"B"}, []string{"A", "B", "C"}, nil},
-	{[]string{"A", "D", "C"}, []string{}, []string{"A", "D", "C"}},
-	{[]string{}, []string{"A", "D", "C"}, nil},
+func moreMachinesRequired(got *state.MachinesChange, added, removed []int) bool {
+	return len(got.Added)+len(got.Removed) < len(added)+len(removed)
 }
 
-func (*StateSuite) TestDiff(c *C) {
-	for _, test := range diffTests {
-		c.Assert(test.want, DeepEquals, state.Diff(test.A, test.B))
+func addMachineChanges(changes *state.MachinesChange, more *state.MachinesChange) {
+	changes.Added = append(changes.Added, more.Added...)
+	changes.Removed = append(changes.Removed, more.Removed...)
+}
+
+type machineSlice []*state.Machine
+
+func (m machineSlice) Len() int           { return len(m) }
+func (m machineSlice) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
+func (m machineSlice) Less(i, j int) bool { return m[i].Id() < m[j].Id() }
+
+func assertSameMachines(c *C, change *state.MachinesChange, added, removed []int) {
+	c.Assert(change, NotNil)
+	if len(added) == 0 {
+		added = nil
+	}
+	if len(removed) == 0 {
+		removed = nil
+	}
+	sort.Sort(machineSlice(change.Added))
+	sort.Sort(machineSlice(change.Removed))
+	var got []int
+	for _, g := range change.Added {
+		got = append(got, g.Id())
+	}
+	c.Assert(got, DeepEquals, added)
+	got = nil
+	for _, g := range change.Removed {
+		got = append(got, g.Id())
+	}
+	c.Assert(got, DeepEquals, removed)
+}
+
+var servicesWatchTests = []struct {
+	test    func(*C, *state.State, *state.Charm)
+	added   []string
+	removed []string
+}{
+	{
+		test:  func(_ *C, _ *state.State, _ *state.Charm) {},
+		added: []string{},
+	},
+	{
+		test: func(c *C, s *state.State, ch *state.Charm) {
+			_, err := s.AddService("0", ch)
+			c.Assert(err, IsNil)
+		},
+		added: []string{"0"},
+	},
+	{
+		test: func(c *C, s *state.State, ch *state.Charm) {
+			_, err := s.AddService("1", ch)
+			c.Assert(err, IsNil)
+		},
+		added: []string{"1"},
+	},
+	{
+		test: func(c *C, s *state.State, ch *state.Charm) {
+			_, err := s.AddService("2", ch)
+			c.Assert(err, IsNil)
+			_, err = s.AddService("3", ch)
+			c.Assert(err, IsNil)
+		},
+		added: []string{"2", "3"},
+	},
+	{
+		test: func(c *C, s *state.State, _ *state.Charm) {
+			svc3, err := s.Service("3")
+			c.Assert(err, IsNil)
+			err = svc3.Die()
+			c.Assert(err, IsNil)
+			err = s.RemoveService(svc3)
+			c.Assert(err, IsNil)
+		},
+		removed: []string{"3"},
+	},
+	{
+		test: func(c *C, s *state.State, _ *state.Charm) {
+			svc0, err := s.Service("0")
+			c.Assert(err, IsNil)
+			err = svc0.Die()
+			c.Assert(err, IsNil)
+			err = s.RemoveService(svc0)
+			c.Assert(err, IsNil)
+			svc2, err := s.Service("2")
+			c.Assert(err, IsNil)
+			err = svc2.Die()
+			c.Assert(err, IsNil)
+			err = s.RemoveService(svc2)
+			c.Assert(err, IsNil)
+		},
+		removed: []string{"0", "2"},
+	},
+	{
+		test: func(c *C, s *state.State, ch *state.Charm) {
+			_, err := s.AddService("4", ch)
+			c.Assert(err, IsNil)
+			svc1, err := s.Service("1")
+			c.Assert(err, IsNil)
+			err = svc1.Die()
+			c.Assert(err, IsNil)
+			err = s.RemoveService(svc1)
+			c.Assert(err, IsNil)
+		},
+		added:   []string{"4"},
+		removed: []string{"1"},
+	},
+	{
+		test: func(c *C, s *state.State, ch *state.Charm) {
+			services := [20]*state.Service{}
+			var err error
+			for i := 0; i < len(services); i++ {
+				services[i], err = s.AddService("s"+fmt.Sprint(i), ch)
+				c.Assert(err, IsNil)
+			}
+			for i := 10; i < len(services); i++ {
+				err = services[i].Die()
+				c.Assert(err, IsNil)
+				err = s.RemoveService(services[i])
+				c.Assert(err, IsNil)
+			}
+		},
+		added: []string{"s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9"},
+	},
+	{
+		test: func(c *C, s *state.State, ch *state.Charm) {
+			_, err := s.AddService("twenty five", ch)
+			c.Assert(err, IsNil)
+			svc9, err := s.Service("s9")
+			c.Assert(err, IsNil)
+			err = svc9.Die()
+			c.Assert(err, IsNil)
+			err = s.RemoveService(svc9)
+			c.Assert(err, IsNil)
+		},
+		added:   []string{"twenty five"},
+		removed: []string{"s9"},
+	},
+}
+
+func (s *StateSuite) TestWatchServices(c *C) {
+	serviceWatcher := s.State.WatchServices()
+	defer func() {
+		c.Assert(serviceWatcher.Stop(), IsNil)
+	}()
+	charm := s.AddTestingCharm(c, "dummy")
+	for i, test := range servicesWatchTests {
+		c.Logf("test %d", i)
+		test.test(c, s.State, charm)
+		s.State.StartSync()
+		got := &state.ServicesChange{}
+		for {
+			select {
+			case new, ok := <-serviceWatcher.Changes():
+				c.Assert(ok, Equals, true)
+				addServiceChanges(got, new)
+				if moreServicesRequired(got, test.added, test.removed) {
+					continue
+				}
+				assertSameServices(c, got, test.added, test.removed)
+			case <-time.After(500 * time.Millisecond):
+				c.Fatalf("did not get change, want: added: %#v, removed: %#v, got: %#v", test.added, test.removed, got)
+			}
+			break
+		}
+	}
+	select {
+	case got := <-serviceWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
 	}
 }
 
-var sortPortsTests = []struct {
-	have, want []state.Port
-}{
-	{nil, []state.Port{}},
-	{[]state.Port{{"b", 1}, {"a", 99}, {"a", 1}}, []state.Port{{"a", 1}, {"a", 99}, {"b", 1}}},
+func moreServicesRequired(got *state.ServicesChange, added, removed []string) bool {
+	return len(got.Added)+len(got.Removed) < len(added)+len(removed)
 }
 
-func (*StateSuite) TestSortPorts(c *C) {
-	for _, t := range sortPortsTests {
-		p := make([]state.Port, len(t.have))
-		copy(p, t.have)
-		state.SortPorts(p)
-		c.Check(p, DeepEquals, t.want)
-		state.SortPorts(p)
-		c.Check(p, DeepEquals, t.want)
+func addServiceChanges(changes *state.ServicesChange, more *state.ServicesChange) {
+	changes.Added = append(changes.Added, more.Added...)
+	changes.Removed = append(changes.Removed, more.Removed...)
+}
+
+type serviceSlice []*state.Service
+
+func (m serviceSlice) Len() int           { return len(m) }
+func (m serviceSlice) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
+func (m serviceSlice) Less(i, j int) bool { return m[i].Name() < m[j].Name() }
+
+func assertSameServices(c *C, change *state.ServicesChange, added, removed []string) {
+	c.Assert(change, NotNil)
+	if len(added) == 0 {
+		added = nil
 	}
+	if len(removed) == 0 {
+		removed = nil
+	}
+	sort.Sort(serviceSlice(change.Added))
+	sort.Sort(serviceSlice(change.Removed))
+	var got []string
+	for _, g := range change.Added {
+		got = append(got, g.Name())
+	}
+	c.Assert(got, DeepEquals, added)
+	got = nil
+	for _, g := range change.Removed {
+		got = append(got, g.Name())
+	}
+	c.Assert(got, DeepEquals, removed)
 }

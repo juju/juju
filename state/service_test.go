@@ -2,8 +2,7 @@ package state_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/state"
+	state "launchpad.net/juju-core/state"
 	"sort"
 	"time"
 )
@@ -32,12 +31,37 @@ func (s *ServiceSuite) TestServiceCharm(c *C) {
 
 	// TODO: SetCharm must validate the change (version, relations, etc)
 	wp := s.AddTestingCharm(c, "wordpress")
-	err = s.service.SetCharm(wp, true)
+
+	testWhenDying(c, s.service, notAliveErr, notAliveErr, func() error {
+		err := s.service.SetCharm(wp, true)
+		if err == nil {
+			ch, force, err1 := s.service.Charm()
+			c.Assert(err1, IsNil)
+			c.Assert(ch.URL(), DeepEquals, wp.URL())
+			c.Assert(force, Equals, true)
+		}
+		return err
+	})
+}
+
+func (s *ServiceSuite) TestServiceRefesh(c *C) {
+	s1, err := s.State.Service(s.service.Name())
 	c.Assert(err, IsNil)
-	ch, force, err = s.service.Charm()
+
+	err = s.service.SetCharm(s.charm, true)
 	c.Assert(err, IsNil)
-	c.Assert(ch.URL(), DeepEquals, wp.URL())
+
+	testch, force, err := s1.Charm()
+	c.Assert(err, IsNil)
+	c.Assert(force, Equals, false)
+	c.Assert(testch.URL(), DeepEquals, s.charm.URL())
+
+	err = s1.Refresh()
+	c.Assert(err, IsNil)
+	testch, force, err = s1.Charm()
+	c.Assert(err, IsNil)
 	c.Assert(force, Equals, true)
+	c.Assert(testch.URL(), DeepEquals, s.charm.URL())
 }
 
 func (s *ServiceSuite) TestServiceExposed(c *C) {
@@ -58,7 +82,7 @@ func (s *ServiceSuite) TestServiceExposed(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(exposed, Equals, false)
 
-	// Check that setting and clearing the exposed flag multiple doesn't fail.
+	// Check that setting and clearing the exposed flag repeatedly does not fail.
 	err = s.service.SetExposed()
 	c.Assert(err, IsNil)
 	err = s.service.SetExposed()
@@ -67,6 +91,41 @@ func (s *ServiceSuite) TestServiceExposed(c *C) {
 	c.Assert(err, IsNil)
 	err = s.service.ClearExposed()
 	c.Assert(err, IsNil)
+
+	testWhenDying(c, s.service, notAliveErr, notAliveErr,
+		func() error {
+			return s.service.SetExposed()
+		},
+		func() error {
+			return s.service.ClearExposed()
+		})
+}
+
+func (s *ServiceSuite) TestAddSubordinateUnitWhenNotAlive(c *C) {
+	loggingCharm := s.AddTestingCharm(c, "logging")
+	loggingService, err := s.State.AddService("logging", loggingCharm)
+	c.Assert(err, IsNil)
+	principalService, err := s.State.AddService("svc", s.charm)
+	c.Assert(err, IsNil)
+	principalUnit, err := principalService.AddUnit()
+	c.Assert(err, IsNil)
+
+	const errPat = ".*: service or principal unit are not alive"
+	// Test that AddUnitSubordinateTo fails when the principal unit is
+	// not alive.
+	testWhenDying(c, principalUnit, errPat, errPat, func() error {
+		_, err := loggingService.AddUnitSubordinateTo(principalUnit)
+		return err
+	})
+
+	// Test that AddUnitSubordinateTo fails when the service is
+	// not alive.
+	principalUnit, err = principalService.AddUnit()
+	c.Assert(err, IsNil)
+	testWhenDying(c, loggingService, errPat, errPat, func() error {
+		_, err := loggingService.AddUnitSubordinateTo(principalUnit)
+		return err
+	})
 }
 
 func (s *ServiceSuite) TestAddUnit(c *C) {
@@ -84,7 +143,7 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 
 	// Check that principal units cannot be added to principal units.
 	_, err = s.service.AddUnitSubordinateTo(unitZero)
-	c.Assert(err, ErrorMatches, `cannot add unit of principal service "mysql" as a subordinate of "mysql/0"`)
+	c.Assert(err, ErrorMatches, `cannot add unit to service "mysql" as a subordinate of "mysql/0": service is not a subordinate`)
 
 	// Assign the principal unit to a machine.
 	m, err := s.State.AddMachine()
@@ -111,11 +170,17 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 
 	// Check that subordinate units must be added to other units.
 	_, err = logging.AddUnit()
-	c.Assert(err, ErrorMatches, `cannot directly add units to subordinate service "logging"`)
+	c.Assert(err, ErrorMatches, `cannot add unit to service "logging": unit is a subordinate`)
 
 	// Check that subordinate units cannnot be added to subordinate units.
 	_, err = logging.AddUnitSubordinateTo(subZero)
-	c.Assert(err, ErrorMatches, "a subordinate unit must be added to a principal unit")
+	c.Assert(err, ErrorMatches, `cannot add unit to service "logging" as a subordinate of "logging/0": unit is not a principal`)
+
+	const errPat = ".*: service is not alive"
+	testWhenDying(c, s.service, errPat, errPat, func() error {
+		_, err = s.service.AddUnit()
+		return err
+	})
 }
 
 func (s *ServiceSuite) TestReadUnit(c *C) {
@@ -131,11 +196,11 @@ func (s *ServiceSuite) TestReadUnit(c *C) {
 	// Check that retrieving a non-existent or an invalidly
 	// named unit fail nicely.
 	unit, err = s.service.Unit("mysql")
-	c.Assert(err, ErrorMatches, `cannot get unit "mysql" from service "mysql": "mysql" is not a valid unit name`)
+	c.Assert(err, ErrorMatches, `cannot get unit "mysql" from service "mysql":.*`)
 	unit, err = s.service.Unit("mysql/0/0")
-	c.Assert(err, ErrorMatches, `cannot get unit "mysql/0/0" from service "mysql": "mysql/0/0" is not a valid unit name`)
+	c.Assert(err, ErrorMatches, `cannot get unit "mysql/0/0" from service "mysql": .*`)
 	unit, err = s.service.Unit("pressword/0")
-	c.Assert(err, ErrorMatches, `cannot get unit "pressword/0" from service "mysql": unit not found`)
+	c.Assert(err, ErrorMatches, `cannot get unit "pressword/0" from service "mysql": .*`)
 
 	// Add another service to check units are not misattributed.
 	mysql, err := s.State.AddService("wordpress", s.charm)
@@ -143,15 +208,35 @@ func (s *ServiceSuite) TestReadUnit(c *C) {
 	_, err = mysql.AddUnit()
 	c.Assert(err, IsNil)
 
+	// BUG(aram): use error strings from state.
 	unit, err = s.service.Unit("wordpress/0")
-	c.Assert(err, ErrorMatches, `cannot get unit "wordpress/0" from service "mysql": unit not found`)
+	c.Assert(err, ErrorMatches, `cannot get unit "wordpress/0" from service "mysql": .*`)
 
-	// Check that retrieving all units works.
 	units, err := s.service.AllUnits()
 	c.Assert(err, IsNil)
-	c.Assert(len(units), Equals, 2)
-	c.Assert(units[0].Name(), Equals, "mysql/0")
-	c.Assert(units[1].Name(), Equals, "mysql/1")
+	c.Assert(sortedUnitNames(units), DeepEquals, []string{"mysql/0", "mysql/1"})
+}
+
+func (s *ServiceSuite) TestReadUnitWhenDying(c *C) {
+	// Test that we can read units from the service whatever
+	// their life state.
+	_, err := s.service.AddUnit()
+	c.Assert(err, IsNil)
+	checkAllUnits := func() error {
+		// Check that retrieving all units works.
+		_, err := s.service.AllUnits()
+		return err
+	}
+	checkUnit := func() error {
+		_, err := s.service.Unit("mysql/0")
+		return err
+	}
+
+	testWhenDying(c, s.service, noErr, noErr, checkAllUnits, checkUnit)
+
+	unit0, err := s.service.Unit("mysql/0")
+	c.Assert(err, IsNil)
+	testWhenDying(c, unit0, noErr, noErr, checkAllUnits, checkUnit)
 }
 
 func (s *ServiceSuite) TestRemoveUnit(c *C) {
@@ -163,6 +248,8 @@ func (s *ServiceSuite) TestRemoveUnit(c *C) {
 	// Check that removing a unit works.
 	unit, err := s.service.Unit("mysql/0")
 	c.Assert(err, IsNil)
+	err = unit.Die()
+	c.Assert(err, IsNil)
 	err = s.service.RemoveUnit(unit)
 	c.Assert(err, IsNil)
 
@@ -172,357 +259,238 @@ func (s *ServiceSuite) TestRemoveUnit(c *C) {
 	c.Assert(units[0].Name(), Equals, "mysql/1")
 
 	// Check that removing a non-existent unit fails nicely.
-	// TODO improve error message.
+	// TODO(aram): improve error message.
+	// BUG(aram): use error strings from state.
 	err = s.service.RemoveUnit(unit)
-	c.Assert(err, ErrorMatches, `cannot unassign unit "mysql/0" from machine: environment state has changed`)
+	c.Assert(err, ErrorMatches, `cannot remove unit "mysql/0": .*`)
 }
 
 func (s *ServiceSuite) TestReadUnitWithChangingState(c *C) {
 	// Check that reading a unit after removing the service
 	// fails nicely.
-	err := s.State.RemoveService(s.service)
+	err := s.service.Die()
+	c.Assert(err, IsNil)
+	err = s.State.RemoveService(s.service)
 	c.Assert(err, IsNil)
 	_, err = s.State.Unit("mysql/0")
-	// TODO BUG https://bugs.launchpad.net/juju-core/+bug/1020322
-	c.Assert(err, ErrorMatches, `cannot get unit "mysql/0": cannot get service "mysql": service with name "mysql" not found`)
+	c.Assert(err, ErrorMatches, `cannot get unit "mysql/0": not found`)
 }
 
-var serviceWatchConfigData = []map[string]interface{}{
-	{},
-	{"foo": "bar", "baz": "yadda"},
-	{"baz": "yadda"},
+func (s *ServiceSuite) TestServiceConfig(c *C) {
+	env, err := s.service.Config()
+	c.Assert(err, IsNil)
+	err = env.Read()
+	c.Assert(err, IsNil)
+	c.Assert(env.Map(), DeepEquals, map[string]interface{}{})
+
+	env.Update(map[string]interface{}{"spam": "eggs", "eggs": "spam"})
+	env.Update(map[string]interface{}{"spam": "spam", "chaos": "emeralds"})
+	_, err = env.Write()
+	c.Assert(err, IsNil)
+
+	env, err = s.service.Config()
+	c.Assert(err, IsNil)
+	err = env.Read()
+	c.Assert(err, IsNil)
+	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"spam": "spam", "eggs": "spam", "chaos": "emeralds"})
 }
 
-func (s *ServiceSuite) TestWatchConfig(c *C) {
-	config, err := s.service.Config()
-	c.Assert(err, IsNil)
-	c.Assert(config.Keys(), HasLen, 0)
-
-	configWatcher := s.service.WatchConfig()
-	defer func() {
-		c.Assert(configWatcher.Stop(), IsNil)
-	}()
-
-	// Two change events.
-	config.Set("foo", "bar")
-	config.Set("baz", "yadda")
-	changes, err := config.Write()
-	c.Assert(err, IsNil)
-	c.Assert(changes, DeepEquals, []state.ItemChange{{
-		Key:      "baz",
-		Type:     state.ItemAdded,
-		NewValue: "yadda",
-	}, {
-		Key:      "foo",
-		Type:     state.ItemAdded,
-		NewValue: "bar",
-	}})
-	time.Sleep(100 * time.Millisecond)
-	config.Delete("foo")
-	changes, err = config.Write()
-	c.Assert(err, IsNil)
-	c.Assert(changes, DeepEquals, []state.ItemChange{{
-		Key:      "foo",
-		Type:     state.ItemDeleted,
-		OldValue: "bar",
-	}})
-
-	for _, want := range serviceWatchConfigData {
-		select {
-		case got, ok := <-configWatcher.Changes():
-			c.Assert(ok, Equals, true)
-			c.Assert(got.Map(), DeepEquals, want)
-		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("did not get change: %#v", want)
-		}
-	}
-
-	select {
-	case got := <-configWatcher.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
-	case <-time.After(100 * time.Millisecond):
-	}
-}
-
-func (s *ServiceSuite) TestWatchConfigIllegalData(c *C) {
-	configWatcher := s.service.WatchConfig()
-	defer func() {
-		c.Assert(configWatcher.Stop(), ErrorMatches, "unmarshall error: YAML error: .*")
-	}()
-
-	// Receive empty change after service adding.
-	select {
-	case got, ok := <-configWatcher.Changes():
-		c.Assert(ok, Equals, true)
-		c.Assert(got.Map(), DeepEquals, map[string]interface{}{})
-	case <-time.After(100 * time.Millisecond):
-		c.Fatalf("unexpected timeout")
-	}
-
-	// Set config to illegal data.
-	_, err := s.zkConn.Set("/services/service-0000000000/config", "---", -1)
-	c.Assert(err, IsNil)
-
-	select {
-	case _, ok := <-configWatcher.Changes():
-		c.Assert(ok, Equals, false)
-	case <-time.After(100 * time.Millisecond):
-	}
-}
-
-func (s *ServiceSuite) TestWatchCharm(c *C) {
-	// Check initial event.
-	w := s.service.WatchCharm()
-	defer w.Stop()
-	assertChange := func(curl *charm.URL, force bool) {
-		select {
-		case ch, ok := <-w.Changes():
-			c.Assert(ok, Equals, true)
-			c.Assert(ch.Charm.URL(), DeepEquals, curl)
-			c.Assert(ch.Force, Equals, force)
-		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("expected change, got none")
-		}
-	}
-	assertChange(s.charm.URL(), false)
-
-	// Check resetting the same charm has no effect.
-	err := s.service.SetCharm(s.charm, false)
-	c.Assert(err, IsNil)
-	assertNoChange := func() {
-		select {
-		case ch, ok := <-w.Changes():
-			c.Fatalf("got unexpected change: %#v, %t", ch, ok)
-		case <-time.After(200 * time.Millisecond):
-		}
-	}
-	assertNoChange()
-
-	// Set the force flag.
-	err = s.service.SetCharm(s.charm, true)
-	c.Assert(err, IsNil)
-	assertChange(s.charm.URL(), true)
-
-	// Set a different charm.
-	alt := s.AddTestingCharm(c, "mysql")
-	err = s.service.SetCharm(alt, true)
-	c.Assert(err, IsNil)
-	assertChange(alt.URL(), true)
-
-	// Reset the original charm.
-	err = s.service.SetCharm(s.charm, false)
-	c.Assert(err, IsNil)
-	assertChange(s.charm.URL(), false)
-
-	// Stop the watcher.
-	err = w.Stop()
-	c.Assert(err, IsNil)
-	select {
-	case _, ok := <-w.Changes():
-		c.Assert(ok, Equals, false)
-	default:
-		c.Fatalf("channel not closed")
-	}
-}
-
-var serviceExposedTests = []struct {
-	test func(s *state.Service) error
-	want bool
+var serviceUnitsWatchTests = []struct {
+	test    func(*C, *state.State, *state.Service)
+	added   []string
+	removed []string
 }{
-	{func(s *state.Service) error { return nil }, false},
-	{func(s *state.Service) error { return s.SetExposed() }, true},
-	{func(s *state.Service) error { return s.ClearExposed() }, false},
-	{func(s *state.Service) error { return s.SetExposed() }, true},
-}
-
-func (s *ServiceSuite) TestWatchExposed(c *C) {
-	exposedWatcher := s.service.WatchExposed()
-	defer func() {
-		c.Assert(exposedWatcher.Stop(), IsNil)
-	}()
-
-	for i, test := range serviceExposedTests {
-		c.Logf("test %d", i)
-		err := test.test(s.service)
-		c.Assert(err, IsNil)
-		select {
-		case got, ok := <-exposedWatcher.Changes():
-			c.Assert(ok, Equals, true)
-			c.Assert(got, Equals, test.want)
-		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("did not get change: %#v", test.want)
-		}
-	}
-
-	select {
-	case got := <-exposedWatcher.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
-	case <-time.After(100 * time.Millisecond):
-	}
-}
-
-func (s *ServiceSuite) TestWatchExposedContent(c *C) {
-	exposedWatcher := s.service.WatchExposed()
-	defer func() {
-		c.Assert(exposedWatcher.Stop(), IsNil)
-	}()
-
-	s.service.SetExposed()
-	select {
-	case got, ok := <-exposedWatcher.Changes():
-		c.Assert(ok, Equals, true)
-		c.Assert(got, Equals, true)
-	case <-time.After(200 * time.Millisecond):
-		c.Fatalf("did not get change: %#v", true)
-	}
-
-	// Re-set exposed with some data.
-	_, err := s.zkConn.Set("/services/service-0000000000/exposed", "some: data", -1)
-	c.Assert(err, IsNil)
-
-	select {
-	case got := <-exposedWatcher.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
-	case <-time.After(200 * time.Millisecond):
-	}
-}
-
-var serviceUnitTests = []struct {
-	testOp string
-	idx    int
-}{
-	{"none", 0},
-	{"add", 0},
-	{"add", 1},
-	{"remove", 0},
+	{
+		test:  func(_ *C, _ *state.State, _ *state.Service) {},
+		added: []string{},
+	},
+	{
+		test: func(c *C, s *state.State, service *state.Service) {
+			_, err := service.AddUnit()
+			c.Assert(err, IsNil)
+		},
+		added: []string{"mysql/0"},
+	},
+	{
+		test: func(c *C, s *state.State, service *state.Service) {
+			_, err := service.AddUnit()
+			c.Assert(err, IsNil)
+		},
+		added: []string{"mysql/1"},
+	},
+	{
+		test: func(c *C, s *state.State, service *state.Service) {
+			_, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			_, err = service.AddUnit()
+			c.Assert(err, IsNil)
+		},
+		added: []string{"mysql/2", "mysql/3"},
+	},
+	{
+		test: func(c *C, s *state.State, service *state.Service) {
+			unit3, err := service.Unit("mysql/3")
+			c.Assert(err, IsNil)
+			err = unit3.Die()
+			c.Assert(err, IsNil)
+			err = service.RemoveUnit(unit3)
+			c.Assert(err, IsNil)
+		},
+		removed: []string{"mysql/3"},
+	},
+	{
+		test: func(c *C, s *state.State, service *state.Service) {
+			unit0, err := service.Unit("mysql/0")
+			c.Assert(err, IsNil)
+			err = unit0.Die()
+			c.Assert(err, IsNil)
+			err = service.RemoveUnit(unit0)
+			c.Assert(err, IsNil)
+			unit2, err := service.Unit("mysql/2")
+			c.Assert(err, IsNil)
+			err = unit2.Die()
+			c.Assert(err, IsNil)
+			err = service.RemoveUnit(unit2)
+			c.Assert(err, IsNil)
+		},
+		removed: []string{"mysql/0", "mysql/2"},
+	},
+	{
+		test: func(c *C, s *state.State, service *state.Service) {
+			_, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			unit1, err := service.Unit("mysql/1")
+			c.Assert(err, IsNil)
+			err = unit1.Die()
+			c.Assert(err, IsNil)
+			err = service.RemoveUnit(unit1)
+			c.Assert(err, IsNil)
+		},
+		added:   []string{"mysql/4"},
+		removed: []string{"mysql/1"},
+	},
+	{
+		test: func(c *C, s *state.State, service *state.Service) {
+			units := [20]*state.Unit{}
+			var err error
+			for i := 0; i < len(units); i++ {
+				units[i], err = service.AddUnit()
+				c.Assert(err, IsNil)
+			}
+			for i := 10; i < len(units); i++ {
+				err = units[i].Die()
+				c.Assert(err, IsNil)
+				err = service.RemoveUnit(units[i])
+				c.Assert(err, IsNil)
+			}
+		},
+		added: []string{"mysql/10", "mysql/11", "mysql/12", "mysql/13", "mysql/14", "mysql/5", "mysql/6", "mysql/7", "mysql/8", "mysql/9"},
+	},
+	{
+		test: func(c *C, s *state.State, service *state.Service) {
+			_, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			unit9, err := service.Unit("mysql/9")
+			c.Assert(err, IsNil)
+			err = unit9.Die()
+			c.Assert(err, IsNil)
+			err = service.RemoveUnit(unit9)
+			c.Assert(err, IsNil)
+		},
+		added:   []string{"mysql/25"},
+		removed: []string{"mysql/9"},
+	},
+	{
+		test: func(c *C, s *state.State, service *state.Service) {
+			_, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			_, err = service.AddUnit()
+			c.Assert(err, IsNil)
+			ch, _, err := service.Charm()
+			c.Assert(err, IsNil)
+			svc, err := s.AddService("bacon", ch)
+			c.Assert(err, IsNil)
+			_, err = svc.AddUnit()
+			c.Assert(err, IsNil)
+			_, err = svc.AddUnit()
+			c.Assert(err, IsNil)
+			unit14, err := service.Unit("mysql/14")
+			c.Assert(err, IsNil)
+			err = unit14.Die()
+			c.Assert(err, IsNil)
+			err = service.RemoveUnit(unit14)
+			c.Assert(err, IsNil)
+		},
+		added:   []string{"mysql/26", "mysql/27"},
+		removed: []string{"mysql/14"},
+	},
 }
 
 func (s *ServiceSuite) TestWatchUnits(c *C) {
-	unitsWatcher := s.service.WatchUnits()
+	unitWatcher := s.service.WatchUnits()
 	defer func() {
-		c.Assert(unitsWatcher.Stop(), IsNil)
+		c.Assert(unitWatcher.Stop(), IsNil)
 	}()
-	units := make([]*state.Unit, 2)
-
-	for i, test := range serviceUnitTests {
+	for i, test := range serviceUnitsWatchTests {
 		c.Logf("test %d", i)
-		var want *state.ServiceUnitsChange
-		switch test.testOp {
-		case "none":
-			want = &state.ServiceUnitsChange{}
-		case "add":
-			var err error
-			units[test.idx], err = s.service.AddUnit()
-			c.Assert(err, IsNil)
-			want = &state.ServiceUnitsChange{[]*state.Unit{units[test.idx]}, nil}
-		case "remove":
-			err := s.service.RemoveUnit(units[test.idx])
-			c.Assert(err, IsNil)
-			want = &state.ServiceUnitsChange{nil, []*state.Unit{units[test.idx]}}
-			units[test.idx] = nil
-		}
-		select {
-		case got, ok := <-unitsWatcher.Changes():
-			c.Assert(ok, Equals, true)
-			c.Assert(got, DeepEquals, want)
-		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("did not get change: %#v", want)
+		test.test(c, s.State, s.service)
+		s.State.StartSync()
+		got := &state.ServiceUnitsChange{}
+		for {
+			select {
+			case new, ok := <-unitWatcher.Changes():
+				c.Assert(ok, Equals, true)
+				addUnitChanges(got, new)
+				if moreUnitsRequired(got, test.added, test.removed) {
+					continue
+				}
+				assertSameUnits(c, got, test.added, test.removed)
+			case <-time.After(500 * time.Millisecond):
+				c.Fatalf("did not get change, want: added: %#v, removed: %#v, got: %#v", test.added, test.removed, got)
+			}
+			break
 		}
 	}
-
 	select {
-	case got := <-unitsWatcher.Changes():
+	case got := <-unitWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
 }
 
-func assertRelationIds(c *C, rels []*state.Relation, ids []int) {
-	c.Assert(rels, HasLen, len(ids))
-	relids := []int{}
-	for _, rel := range rels {
-		relids = append(relids, rel.Id())
-	}
-	sort.Ints(ids)
-	sort.Ints(relids)
-	for i, id := range ids {
-		c.Assert(relids[i], Equals, id)
-	}
+func moreUnitsRequired(got *state.ServiceUnitsChange, added, removed []string) bool {
+	return len(got.Added)+len(got.Removed) < len(added)+len(removed)
 }
 
-func (s *ServiceSuite) TestWatchRelations(c *C) {
-	w := s.service.WatchRelations()
+func addUnitChanges(changes *state.ServiceUnitsChange, more *state.ServiceUnitsChange) {
+	changes.Added = append(changes.Added, more.Added...)
+	changes.Removed = append(changes.Removed, more.Removed...)
+}
 
-	// Check initial event, and lack of followup.
-	assertChange := func(adds, removes []int) {
-		select {
-		case change := <-w.Changes():
-			assertRelationIds(c, change.Added, adds)
-			assertRelationIds(c, change.Removed, removes)
-		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("expected change, got nothing")
-		}
+type unitSlice []*state.Unit
+
+func (m unitSlice) Len() int           { return len(m) }
+func (m unitSlice) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
+func (m unitSlice) Less(i, j int) bool { return m[i].Name() < m[j].Name() }
+
+func assertSameUnits(c *C, change *state.ServiceUnitsChange, added, removed []string) {
+	c.Assert(change, NotNil)
+	if len(added) == 0 {
+		added = nil
 	}
-	assertChange(nil, nil)
-	assertNoChange := func() {
-		select {
-		case change := <-w.Changes():
-			c.Fatalf("expected nothing, got %#v", change)
-		case <-time.After(200 * time.Millisecond):
-		}
+	if len(removed) == 0 {
+		removed = nil
 	}
-	assertNoChange()
-
-	// Add a couple of services, check no changes.
-	_, err := s.State.AddService("wp1", s.charm)
-	c.Assert(err, IsNil)
-	_, err = s.State.AddService("wp2", s.charm)
-	c.Assert(err, IsNil)
-	assertNoChange()
-
-	// Add a relation; check change.
-	mysqlep := state.RelationEndpoint{"mysql", "ifce", "foo", state.RoleProvider, charm.ScopeGlobal}
-	wp1ep := state.RelationEndpoint{"wp1", "ifce", "bar", state.RoleRequirer, charm.ScopeGlobal}
-	rel, err := s.State.AddRelation(mysqlep, wp1ep)
-	c.Assert(err, IsNil)
-	assertChange([]int{0}, nil)
-	assertNoChange()
-
-	// Add another relation; check change.
-	wp2ep := state.RelationEndpoint{"wp2", "ifce", "baz", state.RoleRequirer, charm.ScopeGlobal}
-	_, err = s.State.AddRelation(mysqlep, wp2ep)
-	c.Assert(err, IsNil)
-	assertChange([]int{1}, nil)
-	assertNoChange()
-
-	// Remove one of the relations; check change.
-	err = s.State.RemoveRelation(rel)
-	c.Assert(err, IsNil)
-	assertChange(nil, []int{0})
-	assertNoChange()
-
-	// Stop watcher; check change chan is closed.
-	err = w.Stop()
-	c.Assert(err, IsNil)
-	assertClosed := func() {
-		select {
-		case _, ok := <-w.Changes():
-			c.Assert(ok, Equals, false)
-		default:
-			c.Fatalf("Changes not closed")
-		}
+	sort.Sort(unitSlice(change.Added))
+	sort.Sort(unitSlice(change.Removed))
+	var got []string
+	for _, g := range change.Added {
+		got = append(got, g.Name())
 	}
-	assertClosed()
-
-	// Add a new relation; start a new watcher; check initial event.
-	rel, err = s.State.AddRelation(mysqlep, wp1ep)
-	c.Assert(err, IsNil)
-	w = s.service.WatchRelations()
-	assertChange([]int{1, 2}, nil)
-	assertNoChange()
-
-	// Stop new watcher; check change chan is closed.
-	err = w.Stop()
-	c.Assert(err, IsNil)
-	assertClosed()
+	c.Assert(got, DeepEquals, added)
+	got = nil
+	for _, g := range change.Removed {
+		got = append(got, g.Name())
+	}
+	c.Assert(got, DeepEquals, removed)
 }
