@@ -308,28 +308,28 @@ func (s *RelationUnitSuite) TestPeerWatchScope(c *C) {
 	s.assertScopeChange(c, w0, nil, nil)
 	s.assertNoScopeChange(c, w0)
 
-	// Join ru0, check no change; but private-address written.
-	err := pr.ru0.EnsureJoin()
+	// ru0 enters; check no change, but private-address written.
+	err := pr.ru0.EnterScope()
 	c.Assert(err, IsNil)
 	s.assertNoScopeChange(c, w0)
 	node, err := pr.ru0.Settings()
 	c.Assert(err, IsNil)
 	c.Assert(node.Map(), DeepEquals, map[string]interface{}{"private-address": "peer-0.example.com"})
 
-	// Join ru1, check change is observed.
-	err = pr.ru1.EnsureJoin()
+	// ru1 enters; check change is observed.
+	err = pr.ru1.EnterScope()
 	c.Assert(err, IsNil)
 	s.assertScopeChange(c, w0, []string{"peer/1"}, nil)
 	s.assertNoScopeChange(c, w0)
 
-	// Join ru1 again, check no problems and no changes.
-	err = pr.ru1.EnsureJoin()
+	// ru1 enters again, check no problems and no changes.
+	err = pr.ru1.EnterScope()
 	c.Assert(err, IsNil)
 	s.assertNoScopeChange(c, w0)
 
-	// Stop watching, join ru2.
+	// Stop watching; ru2 enters.
 	stop(c, w0)
-	err = pr.ru2.EnsureJoin()
+	err = pr.ru2.EnterScope()
 	c.Assert(err, IsNil)
 
 	// Start watch again, check initial event.
@@ -338,14 +338,14 @@ func (s *RelationUnitSuite) TestPeerWatchScope(c *C) {
 	s.assertScopeChange(c, w0, []string{"peer/1", "peer/2"}, nil)
 	s.assertNoScopeChange(c, w0)
 
-	// Depart ru1, check event.
-	err = pr.ru1.EnsureDepart()
+	// ru1 leaves; check event.
+	err = pr.ru1.LeaveScope()
 	c.Assert(err, IsNil)
 	s.assertScopeChange(c, w0, nil, []string{"peer/1"})
 	s.assertNoScopeChange(c, w0)
 
-	// Depart ru1 again, check no problems and no changes.
-	err = pr.ru1.EnsureDepart()
+	// ru1 leaves again; check no problems and no changes.
+	err = pr.ru1.LeaveScope()
 	c.Assert(err, IsNil)
 	s.assertNoScopeChange(c, w0)
 }
@@ -363,8 +363,8 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
 	}
 	s.assertNoScopeChange(c, ws...)
 
-	// Join pru0, check detected only by req RUs.
-	err := prr.pru0.EnsureJoin()
+	// pru0 enters; check detected only by req RUs.
+	err := prr.pru0.EnterScope()
 	c.Assert(err, IsNil)
 	rws := func() []*state.RelationScopeWatcher {
 		return []*state.RelationScopeWatcher{ws[2], ws[3]}
@@ -374,8 +374,8 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
 	}
 	s.assertNoScopeChange(c, ws...)
 
-	// Join req0, check detected only by pro RUs.
-	err = prr.rru0.EnsureJoin()
+	// req0 enters; check detected only by pro RUs.
+	err = prr.rru0.EnterScope()
 	c.Assert(err, IsNil)
 	pws := func() []*state.RelationScopeWatcher {
 		return []*state.RelationScopeWatcher{ws[0], ws[1]}
@@ -385,13 +385,13 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
 	}
 	s.assertNoScopeChange(c, ws...)
 
-	// Stop watches; join remaining RUs.
+	// Stop watches; remaining RUs enter.
 	for _, w := range ws {
 		stop(c, w)
 	}
-	err = prr.pru1.EnsureJoin()
+	err = prr.pru1.EnterScope()
 	c.Assert(err, IsNil)
-	err = prr.rru1.EnsureJoin()
+	err = prr.rru1.EnterScope()
 	c.Assert(err, IsNil)
 
 	// Start new watches, check initial events.
@@ -407,16 +407,16 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
 	}
 	s.assertNoScopeChange(c, ws...)
 
-	// Depart pru0, check detected only by req RUs.
-	err = prr.pru0.EnsureDepart()
+	// pru0 leaves; check detected only by req RUs.
+	err = prr.pru0.LeaveScope()
 	c.Assert(err, IsNil)
 	for _, w := range rws() {
 		s.assertScopeChange(c, w, nil, []string{"pro/0"})
 	}
 	s.assertNoScopeChange(c, ws...)
 
-	// Depart rru0, check detected only by pro RUs.
-	err = prr.rru0.EnsureDepart()
+	// rru0 leaves; check detected only by pro RUs.
+	err = prr.rru0.LeaveScope()
 	c.Assert(err, IsNil)
 	for _, w := range pws() {
 		s.assertScopeChange(c, w, nil, []string{"req/0"})
@@ -437,25 +437,25 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *C) {
 	}
 	s.assertNoScopeChange(c, ws...)
 
-	// Join pru0, check detected only by same-container req.
-	err := prr.pru0.EnsureJoin()
+	// pru0 enters; check detected only by same-container req.
+	err := prr.pru0.EnterScope()
 	c.Assert(err, IsNil)
 	s.assertScopeChange(c, ws[2], []string{"pro/0"}, nil)
 	s.assertNoScopeChange(c, ws...)
 
-	// Join req1, check detected only by same-container pro.
-	err = prr.rru1.EnsureJoin()
+	// req1 enters; check detected only by same-container pro.
+	err = prr.rru1.EnterScope()
 	c.Assert(err, IsNil)
 	s.assertScopeChange(c, ws[1], []string{"req/1"}, nil)
 	s.assertNoScopeChange(c, ws...)
 
-	// Stop watches; join remaining RUs.
+	// Stop watches; remaining RUs enter scope.
 	for _, w := range ws {
 		stop(c, w)
 	}
-	err = prr.pru1.EnsureJoin()
+	err = prr.pru1.EnterScope()
 	c.Assert(err, IsNil)
-	err = prr.rru0.EnsureJoin()
+	err = prr.rru0.EnterScope()
 	c.Assert(err, IsNil)
 
 	// Start new watches, check initial events.
@@ -469,30 +469,30 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *C) {
 	s.assertScopeChange(c, ws[3], []string{"pro/1"}, nil)
 	s.assertNoScopeChange(c, ws...)
 
-	// Depart pru0, check detected only by same-container req.
-	err = prr.pru0.EnsureDepart()
+	// pru0 leaves; check detected only by same-container req.
+	err = prr.pru0.LeaveScope()
 	c.Assert(err, IsNil)
 	s.assertScopeChange(c, ws[2], nil, []string{"pro/0"})
 	s.assertNoScopeChange(c, ws...)
 
-	// Depart rru0, check detected only by same-container pro.
-	err = prr.rru0.EnsureDepart()
+	// rru0 leaves; check detected only by same-container pro.
+	err = prr.rru0.LeaveScope()
 	c.Assert(err, IsNil)
 	s.assertScopeChange(c, ws[0], nil, []string{"req/0"})
 	s.assertNoScopeChange(c, ws...)
 }
 
-func (s *RelationUnitSuite) assertScopeChange(c *C, w *state.RelationScopeWatcher, added, removed []string) {
+func (s *RelationUnitSuite) assertScopeChange(c *C, w *state.RelationScopeWatcher, entered, left []string) {
 	s.State.StartSync()
 	select {
 	case ch, ok := <-w.Changes():
 		c.Assert(ok, Equals, true)
-		sort.Strings(added)
-		sort.Strings(ch.Added)
-		c.Assert(ch.Added, DeepEquals, added)
-		sort.Strings(removed)
-		sort.Strings(ch.Removed)
-		c.Assert(ch.Removed, DeepEquals, removed)
+		sort.Strings(entered)
+		sort.Strings(ch.Entered)
+		c.Assert(ch.Entered, DeepEquals, entered)
+		sort.Strings(left)
+		sort.Strings(ch.Left)
+		c.Assert(ch.Left, DeepEquals, left)
 	case <-time.After(500 * time.Millisecond):
 		c.Fatalf("no change")
 	}

@@ -219,17 +219,10 @@ func (ru *RelationUnit) Endpoint() RelationEndpoint {
 	return ru.endpoint
 }
 
-// EnsureJoin ensures that the unit holds a reference to the relation, which
-// signals to counterpart units that they should consider the unit a potential
-// participant in the relation.
-func (ru *RelationUnit) EnsureJoin() (err error) {
-	// EnsureJoin ensures that the unit's relation settings contain the expected
-	// private-address key, and adds a document to relationRefs indicating that
-	// the unit is using the relation and that the relation must not be removed
-	// before the reference has been dropped. The ref document's existence is
-	// also used to determine *potential* unit presence in the relation: that
-	// is, other units will watch for this unit's presence if and only if this
-	// relation unit's ref document exists.
+// EnterScope signals that the unit may be present in the relation, and
+// ensures that minimal settings exist, thereby allowing other units to
+// observe changes to its presence and settings.
+func (ru *RelationUnit) EnterScope() (err error) {
 	defer trivial.ErrorContextf(&err, "cannot initialize state for unit %q in relation %q", ru.unit, ru.relation)
 	address, err := ru.unit.PrivateAddress()
 	if err != nil {
@@ -252,10 +245,9 @@ func (ru *RelationUnit) EnsureJoin() (err error) {
 	return ru.st.runner.Run(ops, "", nil)
 }
 
-// EnsureDepart ensures that the unit does not hold a reference to the relation,
-// and hence signals to counterpart units that the unit is definitely not a
-// participant in the relation.
-func (ru *RelationUnit) EnsureDepart() error {
+// LeaveScope signals that the unit will never again be present in the
+// relation.
+func (ru *RelationUnit) LeaveScope() error {
 	key, err := ru.key(ru.unit.Name())
 	if err != nil {
 		return err
@@ -268,8 +260,8 @@ func (ru *RelationUnit) EnsureDepart() error {
 	return ru.st.runner.Run(ops, "", nil)
 }
 
-// WatchScope returns a watcher which notifies of similarly-scoped counterpart
-// units joining and departing the relation.
+// WatchScope returns a watcher which notifies of counterpart units
+// entering and leaving the unit's scope.
 func (ru *RelationUnit) WatchScope() *RelationScopeWatcher {
 	role := ru.endpoint.RelationRole.counterpartRole()
 	scope := ru.scope + "#" + string(role)
