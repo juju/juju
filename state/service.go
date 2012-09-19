@@ -173,6 +173,7 @@ func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
 			C:      s.st.units.Name,
 			Id:     principal.Name(),
 			Assert: isAlive,
+			Update: D{{"$addToSet", D{{"subordinates", name}}}},
 		})
 	}
 	err := s.st.runner.Run(ops, "", nil)
@@ -237,12 +238,26 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 	if u.doc.Service != s.doc.Name {
 		return fmt.Errorf("unit is not assigned to service %q", s)
 	}
+	if u.doc.MachineId != nil {
+		err = u.UnassignFromMachine()
+		if err != nil {
+			return err
+		}
+	}
 	ops := []txn.Op{{
 		C:      s.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: D{{"life", Dead}},
 		Remove: true,
 	}}
+	if u.doc.Principal != "" {
+		ops = append(ops, txn.Op{
+			C:      s.st.units.Name,
+			Id:     u.doc.Principal,
+			Assert: txn.DocExists,
+			Update: D{{"$pull", D{{"subordinates", u.doc.Name}}}},
+		})
+	}
 	err = s.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return deadOnAbort(err)

@@ -66,6 +66,7 @@ type unitDoc struct {
 	Service        string
 	CharmURL       *charm.URL
 	Principal      string
+	Subordinates   []string
 	PublicAddress  string
 	PrivateAddress string
 	MachineId      *int
@@ -353,11 +354,12 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: assert,
-		Update: D{{"$set", D{{"machineid", m.Id()}}}},
+		Update: D{{"$set", D{{"machineid", m.doc.Id}}}},
 	}, {
 		C:      u.st.machines.Name,
-		Id:     m.Id(),
+		Id:     m.doc.Id,
 		Assert: isAlive,
+		Update: D{{"$addToSet", D{{"principals", u.doc.Name}}}},
 	}}
 	err = u.st.runner.Run(ops, "", nil)
 	if err == nil {
@@ -379,6 +381,14 @@ func (u *Unit) UnassignFromMachine() (err error) {
 		Assert: txn.DocExists,
 		Update: D{{"$set", D{{"machineid", nil}}}},
 	}}
+	if u.doc.MachineId != nil {
+		ops = append(ops, txn.Op{
+			C:      u.st.machines.Name,
+			Id:     u.doc.MachineId,
+			Assert: txn.DocExists,
+			Update: D{{"$pull", D{{"principals", u.doc.Name}}}},
+		})
+	}
 	err = u.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, deadOnAbort(err))
