@@ -1,4 +1,4 @@
-package environs
+package trivial
 
 import (
 	"time"
