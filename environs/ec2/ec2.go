@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/http"
 	"strings"
@@ -27,12 +28,12 @@ var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
 // state transition (for instance an instance taking a while to release
 // a security group after termination).  The former failure mode is
 // dealt with by shortAttempt, the latter by longAttempt.
-var shortAttempt = environs.AttemptStrategy{
+var shortAttempt = trivial.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
 }
 
-var longAttempt = environs.AttemptStrategy{
+var longAttempt = trivial.AttemptStrategy{
 	Total: 3 * time.Minute,
 	Delay: 1 * time.Second,
 }
