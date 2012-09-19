@@ -180,7 +180,7 @@ func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
 	if err != nil {
 		return nil, err
 	}
-	scope := []string{strconv.Itoa(r.doc.Id)}
+	scope := []string{"r", strconv.Itoa(r.doc.Id)}
 	if ep.RelationScope == charm.ScopeContainer {
 		container := u.doc.Principal
 		if container == "" {
@@ -241,7 +241,9 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 	if err != nil {
 		return nil, err
 	}
-	if n, err := ru.st.settings.Find(D{{"_id", key}}).Count(); err != nil {
+	// TODO drop Count once readConfigNode refuses to read
+	// non-existent settings (which it should).
+	if n, err := ru.st.settings.FindId(key).Count(); err != nil {
 		return nil, err
 	} else if n == 0 {
 		return nil, fmt.Errorf("not found")
