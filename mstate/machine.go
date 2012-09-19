@@ -19,6 +19,7 @@ type Machine struct {
 type machineDoc struct {
 	Id         int `bson:"_id"`
 	InstanceId string
+	Principals []string
 	Life       Life
 	Tools      *Tools `bson:",omitempty"`
 	TxnRevno   int64  `bson:"txn-revno"`

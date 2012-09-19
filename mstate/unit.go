@@ -354,11 +354,12 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: assert,
-		Update: D{{"$set", D{{"machineid", m.Id()}}}},
+		Update: D{{"$set", D{{"machineid", m.doc.Id}}}},
 	}, {
 		C:      u.st.machines.Name,
-		Id:     m.Id(),
+		Id:     m.doc.Id,
 		Assert: isAlive,
+		Update: D{{"$addToSet", D{{"principals", u.doc.Name}}}},
 	}}
 	err = u.st.runner.Run(ops, "", nil)
 	if err == nil {
@@ -379,6 +380,10 @@ func (u *Unit) UnassignFromMachine() (err error) {
 		Id:     u.doc.Name,
 		Assert: txn.DocExists,
 		Update: D{{"$set", D{{"machineid", nil}}}},
+	}, {
+		C:      u.st.machines.Name,
+		Id:     u.doc.MachineId,
+		Update: D{{"$pull", D{{"principals", u.doc.Name}}}},
 	}}
 	err = u.st.runner.Run(ops, "", nil)
 	if err != nil {
