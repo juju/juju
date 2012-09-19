@@ -15,7 +15,7 @@ var _ = Suite(&ConfigNodeSuite{})
 
 func (s *ConfigNodeSuite) SetUpTest(c *C) {
 	s.MgoSuite.SetUpTest(c)
-	state, err := Dial(testing.MgoAddr)
+	state, err := Open(&Info{Addrs: []string{testing.MgoAddr}})
 	c.Assert(err, IsNil)
 	s.state = state
 	s.path = "/config"

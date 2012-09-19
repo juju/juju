@@ -3,7 +3,7 @@ package watcher_test
 import (
 	"errors"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/mstate/watcher"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 )
 

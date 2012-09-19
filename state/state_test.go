@@ -24,7 +24,7 @@ var _ = Suite(&StateSuite{})
 func (s *StateSuite) TestDialAgain(c *C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Dial(testing.MgoAddr)
+		st, err := state.Open(&state.Info{Addrs: []string{testing.MgoAddr}})
 		c.Assert(err, IsNil)
 		c.Assert(st.Close(), IsNil)
 	}
