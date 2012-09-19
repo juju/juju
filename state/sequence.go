@@ -1,4 +1,4 @@
-package mstate
+package state
 
 import (
 	"fmt"

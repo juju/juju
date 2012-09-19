@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker/provisioner"
 	stdtesting "testing"
 )
@@ -26,7 +27,7 @@ type ProvisionerSuite struct {
 
 var _ = Suite(&ProvisionerSuite{})
 
-var veryShortAttempt = environs.AttemptStrategy{
+var veryShortAttempt = trivial.AttemptStrategy{
 	Total: 1 * time.Second,
 	Delay: 80 * time.Millisecond,
 }
