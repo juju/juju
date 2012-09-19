@@ -66,6 +66,7 @@ type unitDoc struct {
 	Service        string
 	CharmURL       *charm.URL
 	Principal      string
+	Subordinates   []string
 	PublicAddress  string
 	PrivateAddress string
 	MachineId      *int
