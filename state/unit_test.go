@@ -213,11 +213,11 @@ func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *C) {
 
 	doc := make(map[string][]string)
 	s.ConnSuite.units.FindId(s.unit.Name()).One(&doc)
-	principals, ok := doc["subordinates"]
+	subordinates, ok := doc["subordinates"]
 	if !ok {
 		c.Errorf(`unit document does not have a "subordinates" field`)
 	}
-	c.Assert(principals, DeepEquals, []string{"logging/0", "logging/1"})
+	c.Assert(subordinates, DeepEquals, []string{"logging/0", "logging/1"})
 
 	err = su1.Die()
 	c.Assert(err, IsNil)
@@ -225,9 +225,9 @@ func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *C) {
 	c.Assert(err, IsNil)
 	doc = make(map[string][]string)
 	s.ConnSuite.units.FindId(s.unit.Name()).One(&doc)
-	principals, ok = doc["subordinates"]
+	subordinates, ok = doc["subordinates"]
 	if !ok {
 		c.Errorf(`unit document does not have a "subordinates" field`)
 	}
-	c.Assert(principals, DeepEquals, []string{"logging/0"})
+	c.Assert(subordinates, DeepEquals, []string{"logging/0"})
 }
