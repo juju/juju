@@ -646,3 +646,49 @@ func (w *ServiceRelationsWatcher) loop() (err error) {
 	}
 	return nil
 }
+
+// newMachineUnitsWatcher creates and starts a watcher to watch information
+// about units being added or deleted from the machine.
+func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
+	w := &MachineWatcher{
+		changeChan:    make(chan *Machine),
+		machine:       mknown,
+		knownUnits:    make(map[string]*Unit),
+		commonWatcher: commonWatcher{st: m.st},
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.changeChan)
+		w.tomb.Kill(w.loop(m))
+	}()
+	return w
+}
+
+// Changes returns a channel that will receive changes when units are
+// added or deleted. The Added field in the first event on the channel
+// holds the initial state as returned by Machine.Units.
+func (w *MachineUnitsWatcher) Changes() <-chan *MachineUnitsChange {
+	return w.changeChan
+}
+
+func (w *MachineUnitsWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
+}
+
+func (w *MachineUnitsWatcher) mergeChange(changes *MachineUnitsChange, ch watcher.Change) (err error) {
+	if ch.Revno == -1 {
+		return errors.New("machine has been removed")
+	}
+	err = w.machine.Refresh()
+	if err != nil {
+		return err
+	}
+	
+	
+	return nil
+}
+
+func (changes *MachineUnitsChange) isEmpty() bool {
+	return len(changes.Added)+len(changes.Removed) == 0
+}
