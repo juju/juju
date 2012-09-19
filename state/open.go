@@ -25,16 +25,20 @@ type Info struct {
 	UseSSH bool
 }
 
-// DialInfo connects to the server described by the given
+// Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
 // representing the environment connected to.
-func DialInfo(info *Info) (*State, error) {
+func Open(info *Info) (*State, error) {
 	log.Printf("state: opening state; mongo addresses: %q", info.Addrs)
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no mongo addresses")
 	}
 	if !info.UseSSH {
-		return Dial(strings.Join(info.Addrs, ","))
+		session, err := mgo.Dial(strings.Join(info.Addrs, ","))
+		if err != nil {
+			return nil, err
+		}
+		return newState(session, nil)
 	}
 	if len(info.Addrs) > 1 {
 		return nil, errors.New("ssh connect does not support multiple addresses")
@@ -71,15 +75,6 @@ var (
 	logSize      = 200000000
 	logSizeTests = 1000000
 )
-
-func Dial(servers string) (*State, error) {
-	log.Printf("opening state with servers: %q", servers)
-	session, err := mgo.Dial(servers)
-	if err != nil {
-		return nil, err
-	}
-	return newState(session, nil)
-}
 
 func newState(session *mgo.Session, fwd *sshForwarder) (*State, error) {
 	db := session.DB("juju")
