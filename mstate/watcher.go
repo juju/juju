@@ -550,6 +550,9 @@ func (w *ServiceRelationsWatcher) Stop() error {
 
 func (w *ServiceRelationsWatcher) mergeChange(changes *RelationsChange, ch watcher.Change) (err error) {
 	key := ch.Id.(string)
+	if !strings.HasPrefix(key, w.service.doc.Name+":") && !strings.Contains(key, " "+w.service.doc.Name+":") {
+		return nil
+	}
 	if relation, ok := w.knownRelations[key]; ch.Revno == -1 && ok {
 		relation.doc.Life = Dead
 		changes.Removed = append(changes.Removed, relation)
