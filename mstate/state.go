@@ -86,6 +86,13 @@ func (s *State) AddMachine() (m *Machine, err error) {
 var errNotDead = fmt.Errorf("not found or not dead")
 var errNotAlive = fmt.Errorf("not found or not alive")
 
+func onAbort(txnErr, err error) error {
+	if txnErr == txn.ErrAborted {
+		return err
+	}
+	return txnErr
+}
+
 // RemoveMachine removes the machine with the the given id.
 func (s *State) RemoveMachine(id int) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot remove machine %d", id)
@@ -106,9 +113,8 @@ func (s *State) RemoveMachine(id int) (err error) {
 		Assert: sel,
 		Remove: true,
 	}}
-	err = s.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
-		return errNotDead
+	if err := s.runner.Run(ops, "", nil); err != nil {
+		return onAbort(err, errNotDead)
 	}
 	return nil
 }
@@ -181,13 +187,10 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 		Assert: txn.DocMissing,
 		Insert: sdoc,
 	}}
-	err = s.runner.Run(ops, "", nil)
-	if err != nil {
-		if err == txn.ErrAborted {
-			err = fmt.Errorf("duplicate service name")
-		}
-		return nil, fmt.Errorf("cannot add service %q: %v", name, err)
+	if err := s.runner.Run(ops, "", nil); err != nil {
+		return nil, fmt.Errorf("cannot add service %q: %v", name, onAbort(err, fmt.Errorf("duplicate service name")))
 	}
+
 	return newService(s, sdoc), nil
 }
 
@@ -235,12 +238,8 @@ func (s *State) RemoveService(svc *Service) (err error) {
 		Assert: D{{"life", Dead}},
 		Remove: true,
 	}}
-	err = s.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
-		return errNotDead
-	}
-	if err != nil {
-		return err
+	if err := s.runner.Run(ops, "", nil); err != nil {
+		return onAbort(err, errNotDead)
 	}
 	return nil
 }
@@ -351,9 +350,8 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 		Assert: D{{"life", Dead}},
 		Remove: true,
 	}}
-	err = s.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
-		return errNotDead
+	if err := s.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot remove relation %q: %v", r.doc.Key, onAbort(err, errNotDead))
 	}
 	return nil
 }

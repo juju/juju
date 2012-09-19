@@ -133,12 +133,8 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 		Assert: notDead,
 		Update: D{{"$set", D{{"tools", t}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
-		return errNotAlive
-	}
-	if err != nil {
-		return err
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		return onAbort(err, errNotAlive)
 	}
 	tools := *t
 	u.doc.Tools = &tools
@@ -262,19 +258,14 @@ func (u *Unit) Charm() (ch *Charm, err error) {
 
 // SetCharm marks the unit as currently using the supplied charm.
 func (u *Unit) SetCharm(ch *Charm) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot set charm for unit %q", u)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: D{{"life", D{{"$ne", Dead}}}},
+		Assert: notDead,
 		Update: D{{"$set", D{{"charmurl", ch.URL()}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
-		return errNotAlive
-	}
-	if err != nil {
-		return err
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set charm for unit %q: %v", u, onAbort(err, errNotAlive))
 	}
 	u.doc.CharmURL = ch.URL()
 	return nil
@@ -366,15 +357,11 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 		Id:     m.Id(),
 		Assert: isAlive,
 	}}
-	err = u.st.runner.Run(ops, "", nil)
-	if err == nil {
-		u.doc.MachineId = &m.doc.Id
-		return nil
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		return onAbort(err, fmt.Errorf("machine or unit dead, or already assigned to machine"))
 	}
-	if err == txn.ErrAborted {
-		return fmt.Errorf("machine or unit dead, or already assigned to machine")
-	}
-	return err
+	u.doc.MachineId = &m.doc.Id
+	return nil
 }
 
 // UnassignFromMachine removes the assignment between this unit and the
@@ -387,12 +374,8 @@ func (u *Unit) UnassignFromMachine() (err error) {
 		Assert: txn.DocExists,
 		Update: D{{"$set", D{{"machineid", nil}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
-		return &NotFoundError{"machine"}
-	}
-	if err != nil {
-		return err
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, &NotFoundError{"machine"}))
 	}
 	u.doc.MachineId = nil
 	return nil
@@ -400,19 +383,14 @@ func (u *Unit) UnassignFromMachine() (err error) {
 
 // SetPublicAddress sets the public address of the unit.
 func (u *Unit) SetPublicAddress(address string) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot set public address of unit %q", u)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: txn.DocExists,
 		Update: D{{"$set", D{{"publicaddress", address}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
-		return &NotFoundError{"machine"}
-	}
-	if err != nil {
-		return err
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, &NotFoundError{"machine"}))
 	}
 	u.doc.PublicAddress = address
 	return nil
@@ -450,12 +428,8 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 		Assert: D{{"resolved", ResolvedNone}},
 		Update: D{{"$set", D{{"resolved", mode}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
-		return errors.New("flag already set")
-	}
-	if err != nil {
-		return err
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		return onAbort(err, errors.New("flag already set"))
 	}
 	u.doc.Resolved = mode
 	return nil

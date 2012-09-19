@@ -82,19 +82,14 @@ func (s *Service) ClearExposed() error {
 }
 
 func (s *Service) setExposed(exposed bool) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot set exposed flag for service %q to %v", s, exposed)
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
 		Assert: isAlive,
 		Update: D{{"$set", D{{"exposed", exposed}}}},
 	}}
-	err = s.st.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
-		return errNotAlive
-	}
-	if err != nil {
-		return err
+	if err := s.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set exposed flag for service %q to %v: %v", s, exposed, onAbort(err, errNotAlive))
 	}
 	s.doc.Exposed = exposed
 	return nil
@@ -114,19 +109,14 @@ func (s *Service) Charm() (ch *Charm, force bool, err error) {
 // this charm, and existing units will be upgraded to use it. If force is true,
 // units will be upgraded even if they are in an error state.
 func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot set charm for service %q", s)
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
 		Assert: isAlive,
 		Update: D{{"$set", D{{"charmurl", ch.URL()}, {"forcecharm", force}}}},
 	}}
-	err = s.st.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
-		return errNotAlive
-	}
-	if err != nil {
-		return err
+	if err := s.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set charm for service %q: %v", s, onAbort(err, errNotAlive))
 	}
 	s.doc.CharmURL = ch.URL()
 	s.doc.ForceCharm = force
@@ -251,12 +241,8 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 		Assert: D{{"life", Dead}},
 		Remove: true,
 	}}
-	err = s.st.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
-		return errNotDead
-	}
-	if err != nil {
-		return err
+	if err := s.st.runner.Run(ops, "", nil); err != nil {
+		return onAbort(err, errNotDead)
 	}
 	return nil
 }
@@ -288,7 +274,7 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 	docs := []unitDoc{}
 	err = s.st.units.Find(D{{"service", s.doc.Name}}).All(&docs)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get all units from service %q: %v", err)
+		return nil, fmt.Errorf("cannot get all units from service %q: %v", s, err)
 	}
 	for i := range docs {
 		units = append(units, newUnit(s.st, &docs[i]))

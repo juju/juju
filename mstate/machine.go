@@ -64,9 +64,8 @@ func (m *Machine) SetAgentTools(t *Tools) (err error) {
 		Assert: notDead,
 		Update: D{{"$set", D{{"tools", t}}}},
 	}}
-	err = m.st.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
-		return errNotAlive
+	if err := m.st.runner.Run(ops, "", nil); err != nil {
+		return onAbort(err, errNotAlive)
 	}
 	tools := *t
 	m.doc.Tools = &tools
@@ -186,12 +185,8 @@ func (m *Machine) SetInstanceId(id string) (err error) {
 		Assert: notDead,
 		Update: D{{"$set", D{{"instanceid", id}}}},
 	}}
-	err = m.st.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
-		return errNotDead
-	}
-	if err != nil {
-		return err
+	if err := m.st.runner.Run(ops, "", nil); err != nil {
+		return onAbort(err, errNotAlive)
 	}
 	m.doc.InstanceId = id
 	return nil
