@@ -185,7 +185,7 @@ func (m *Machine) SetInstanceId(id string) (err error) {
 		Update: D{{"$set", D{{"instanceid", id}}}},
 	}}
 	if err := m.st.runner.Run(ops, "", nil); err != nil {
-		return fmt.Errorf("cannot set instance id of machine %s: %v", m, onAbort(err, errNotAlive)
+		return fmt.Errorf("cannot set instance id of machine %s: %v", m, onAbort(err, errNotAlive))
 	}
 	m.doc.InstanceId = id
 	return nil
