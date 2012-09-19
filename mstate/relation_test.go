@@ -1,9 +1,11 @@
 package mstate_test
 
 import (
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	state "launchpad.net/juju-core/mstate"
+	"strings"
 )
 
 type RelationSuite struct {
@@ -202,3 +204,164 @@ func assertOneRelation(c *C, srv *state.Service, relId int, endpoints ...state.R
 	c.Assert(err, IsNil)
 	c.Assert(eps, DeepEquals, []state.RelationEndpoint{expectEp})
 }
+
+type RelationUnitSuite struct {
+	ConnSuite
+}
+
+var _ = Suite(&RelationUnitSuite{})
+
+func (s *RelationUnitSuite) TestPeerSettings(c *C) {
+	pr := NewPeerRelation(c, &s.ConnSuite)
+	rus := RUs{pr.ru0, pr.ru1}
+
+	// Check missing settings cannot be read by any RU.
+	for _, ru := range rus {
+		_, err := ru.ReadSettings("peer/0")
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/0" in relation "peer:name": not found`)
+	}
+
+	// Add settings for one RU.
+	node, err := pr.ru0.Settings()
+	c.Assert(err, IsNil)
+	c.Assert(node.Map(), HasLen, 0)
+	node.Set("meme", "socially-awkward-penguin")
+	_, err = node.Write()
+	c.Assert(err, IsNil)
+
+	// Check settings can be read by every RU.
+	for _, ru := range rus {
+		m, err := ru.ReadSettings("peer/0")
+		c.Assert(err, IsNil)
+		c.Assert(m, DeepEquals, map[string]interface{}{"meme": "socially-awkward-penguin"})
+	}
+}
+
+func (s *RelationUnitSuite) TestProReqSettings(c *C) {
+	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+	rus := RUs{prr.pru0, prr.pru1, prr.rru0, prr.rru1}
+
+	// Check missing settings cannot be read by any RU.
+	for _, ru := range rus {
+		_, err := ru.ReadSettings("pro/0")
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "pro:pname req:rname": not found`)
+	}
+
+	// Add settings for one RU.
+	node, err := prr.pru0.Settings()
+	c.Assert(err, IsNil)
+	c.Assert(node.Map(), HasLen, 0)
+	node.Set("meme", "foul-bachelor-frog")
+	_, err = node.Write()
+	c.Assert(err, IsNil)
+
+	// Check settings can be read by every RU.
+	for _, ru := range rus {
+		m, err := ru.ReadSettings("pro/0")
+		c.Assert(err, IsNil)
+		c.Assert(m, DeepEquals, map[string]interface{}{"meme": "foul-bachelor-frog"})
+	}
+}
+
+func (s *RelationUnitSuite) TestContainerSettings(c *C) {
+	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+	rus := RUs{prr.pru0, prr.pru1, prr.rru0, prr.rru1}
+
+	// Check missing settings cannot be read by any RU.
+	for _, ru := range rus {
+		_, err := ru.ReadSettings("pro/0")
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "pro:pname req:rname": not found`)
+	}
+
+	// Add settings for one RU.
+	node, err := prr.pru0.Settings()
+	c.Assert(err, IsNil)
+	c.Assert(node.Map(), HasLen, 0)
+	node.Set("meme", "foul-bachelor-frog")
+	_, err = node.Write()
+	c.Assert(err, IsNil)
+
+	// Check settings can be read by RUs in the same container.
+	rus0 := RUs{prr.pru0, prr.rru0}
+	for _, ru := range rus0 {
+		m, err := ru.ReadSettings("pro/0")
+		c.Assert(err, IsNil)
+		c.Assert(m, DeepEquals, map[string]interface{}{"meme": "foul-bachelor-frog"})
+	}
+
+	// Check settings are still inaccessible to RUs outside that container
+	rus1 := RUs{prr.pru1, prr.rru1}
+	for _, ru := range rus1 {
+		_, err := ru.ReadSettings("pro/0")
+		c.Assert(err, ErrorMatches, `cannot read settings for unit "pro/0" in relation "pro:pname req:rname": not found`)
+	}
+}
+
+type PeerRelation struct {
+	u0, u1   *state.Unit
+	ru0, ru1 *state.RelationUnit
+}
+
+func NewPeerRelation(c *C, s *ConnSuite) *PeerRelation {
+	ch := s.AddTestingCharm(c, "dummy")
+	svc, err := s.State.AddService("peer", ch)
+	c.Assert(err, IsNil)
+	ep := state.RelationEndpoint{"peer", "ifce", "name", state.RolePeer, charm.ScopeGlobal}
+	rel, err := s.State.AddRelation(ep)
+	c.Assert(err, IsNil)
+	pr := &PeerRelation{}
+	pr.u0, pr.ru0 = addRU(c, svc, rel, nil)
+	pr.u1, pr.ru1 = addRU(c, svc, rel, nil)
+	return pr
+}
+
+type ProReqRelation struct {
+	pu0, pu1, ru0, ru1     *state.Unit
+	pru0, pru1, rru0, rru1 *state.RelationUnit
+}
+
+func NewProReqRelation(c *C, s *ConnSuite, scope charm.RelationScope) *ProReqRelation {
+	ch := s.AddTestingCharm(c, "dummy")
+	psvc, err := s.State.AddService("pro", ch)
+	c.Assert(err, IsNil)
+	if scope == charm.ScopeContainer {
+		ch = s.AddTestingCharm(c, "logging")
+	}
+	rsvc, err := s.State.AddService("req", ch)
+	c.Assert(err, IsNil)
+	pep := state.RelationEndpoint{"pro", "ifce", "pname", state.RoleProvider, scope}
+	rep := state.RelationEndpoint{"req", "ifce", "rname", state.RoleRequirer, scope}
+	rel, err := s.State.AddRelation(pep, rep)
+	c.Assert(err, IsNil)
+	prr := &ProReqRelation{}
+	prr.pu0, prr.pru0 = addRU(c, psvc, rel, nil)
+	prr.pu1, prr.pru1 = addRU(c, psvc, rel, nil)
+	if scope == charm.ScopeGlobal {
+		prr.ru0, prr.rru0 = addRU(c, rsvc, rel, nil)
+		prr.ru1, prr.rru1 = addRU(c, rsvc, rel, nil)
+	} else {
+		prr.ru0, prr.rru0 = addRU(c, rsvc, rel, prr.pu0)
+		prr.ru1, prr.rru1 = addRU(c, rsvc, rel, prr.pu1)
+	}
+	return prr
+}
+
+func addRU(c *C, svc *state.Service, rel *state.Relation, principal *state.Unit) (*state.Unit, *state.RelationUnit) {
+	var u *state.Unit
+	var err error
+	if principal == nil {
+		u, err = svc.AddUnit()
+		c.Assert(err, IsNil)
+		addr := fmt.Sprintf("%s.example.com", strings.Replace(u.Name(), "/", "-", 1))
+		err = u.SetPrivateAddress(addr)
+		c.Assert(err, IsNil)
+	} else {
+		u, err = svc.AddUnitSubordinateTo(principal)
+		c.Assert(err, IsNil)
+	}
+	ru, err := rel.Unit(u)
+	c.Assert(err, IsNil)
+	return u, ru
+}
+
+type RUs []*state.RelationUnit
