@@ -201,3 +201,33 @@ func (s *UnitSuite) TestGetSetClearResolved(c *C) {
 	err = s.unit.SetResolved(state.ResolvedMode(999))
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": invalid error resolution mode: 999`)
 }
+
+func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *C) {
+	subCharm := s.AddTestingCharm(c, "logging")
+	logService, err := s.State.AddService("logging", subCharm)
+	c.Assert(err, IsNil)
+	_, err = logService.AddUnitSubordinateTo(s.unit)
+	c.Assert(err, IsNil)
+	su1, err := logService.AddUnitSubordinateTo(s.unit)
+	c.Assert(err, IsNil)
+
+	doc := make(map[string][]string)
+	s.ConnSuite.units.FindId(s.unit.Name()).One(&doc)
+	principals, ok := doc["subordinates"]
+	if !ok {
+		c.Errorf(`unit document does not have a "subordinates" field`)
+	}
+	c.Assert(principals, DeepEquals, []string{"logging/0", "logging/1"})
+
+	err = su1.Die()
+	c.Assert(err, IsNil)
+	err = logService.RemoveUnit(su1)
+	c.Assert(err, IsNil)
+	doc = make(map[string][]string)
+	s.ConnSuite.units.FindId(s.unit.Name()).One(&doc)
+	principals, ok = doc["subordinates"]
+	if !ok {
+		c.Errorf(`unit document does not have a "subordinates" field`)
+	}
+	c.Assert(principals, DeepEquals, []string{"logging/0"})
+}
