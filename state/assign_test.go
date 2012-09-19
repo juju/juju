@@ -2,7 +2,7 @@ package state_test
 
 import (
 	. "launchpad.net/gocheck"
-	state "launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state"
 )
 
 type AssignSuite struct {

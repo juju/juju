@@ -3,7 +3,7 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	state "launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state"
 )
 
 type LifeSuite struct {
