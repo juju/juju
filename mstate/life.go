@@ -17,6 +17,9 @@ const (
 	nLife
 )
 
+var notDead = D{{"life", D{{"$ne", Dead}}}}
+var isAlive = D{{"life", Alive}}
+
 var lifeStrings = [nLife]string{
 	Alive: "alive",
 	Dying: "dying",
@@ -35,8 +38,9 @@ type Living interface {
 	Refresh() error
 }
 
-// ensureLife changes the lifecycle state of the entity with
-// the id in the collection.
+// ensureLife advances the lifecycle state of the entity with the given
+// id in the given collection, if necessary.  Life specifies the desired
+// life state, which cannot be Alive.
 func ensureLife(st *State, coll *mgo.Collection, id interface{}, life Life, descr string) error {
 	if life == Alive {
 		panic("cannot set life to alive")

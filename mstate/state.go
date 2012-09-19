@@ -187,7 +187,10 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 	}}
 	err = s.runner.Run(ops, "", nil)
 	if err != nil {
-		return nil, fmt.Errorf("cannot add service %q:", name, err)
+		if err == txn.ErrAborted {
+			err = fmt.Errorf("duplicate service name")
+		}
+		return nil, fmt.Errorf("cannot add service %q: %v", name, err)
 	}
 	return newService(s, sdoc), nil
 }

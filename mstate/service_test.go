@@ -31,17 +31,17 @@ func (s *ServiceSuite) TestServiceCharm(c *C) {
 
 	// TODO: SetCharm must validate the change (version, relations, etc)
 	wp := s.AddTestingCharm(c, "wordpress")
-	err = s.service.SetCharm(wp, true)
-	c.Assert(err, IsNil)
-	ch, force, err = s.service.Charm()
-	c.Assert(err, IsNil)
-	c.Assert(ch.URL(), DeepEquals, wp.URL())
-	c.Assert(force, Equals, true)
 
-	err = s.service.Kill()
-	c.Assert(err, IsNil)
-	err = s.service.SetCharm(wp, false)
-	c.Assert(err, ErrorMatches, `cannot set charm for service "mysql": not found or not alive`)
+	testWhenDying(c, s.service, notAliveErr, notAliveErr, func() error {
+		err := s.service.SetCharm(wp, true)
+		if err == nil {
+			ch, force, err1 := s.service.Charm()
+			c.Assert(err1, IsNil)
+			c.Assert(ch.URL(), DeepEquals, wp.URL())
+			c.Assert(force, Equals, true)
+		}
+		return err
+	})
 }
 
 func (s *ServiceSuite) TestServiceRefesh(c *C) {
@@ -91,6 +91,41 @@ func (s *ServiceSuite) TestServiceExposed(c *C) {
 	c.Assert(err, IsNil)
 	err = s.service.ClearExposed()
 	c.Assert(err, IsNil)
+
+	testWhenDying(c, s.service, notAliveErr, notAliveErr,
+		func() error {
+			return s.service.SetExposed()
+		},
+		func() error {
+			return s.service.ClearExposed()
+		})
+}
+
+func (s *ServiceSuite) TestAddSubordinateUnitWhenNotAlive(c *C) {
+	loggingCharm := s.AddTestingCharm(c, "logging")
+	loggingService, err := s.State.AddService("logging", loggingCharm)
+	c.Assert(err, IsNil)
+	principalService, err := s.State.AddService("svc", s.charm)
+	c.Assert(err, IsNil)
+	principalUnit, err := principalService.AddUnit()
+	c.Assert(err, IsNil)
+
+	const errPat = ".*: service or principal unit are not alive"
+	// Test that AddUnitSubordinateTo fails when the principal unit is
+	// not alive.
+	testWhenDying(c, principalUnit, errPat, errPat, func() error {
+		_, err := loggingService.AddUnitSubordinateTo(principalUnit)
+		return err
+	})
+
+	// Test that AddUnitSubordinateTo fails when the service is
+	// not alive.
+	principalUnit, err = principalService.AddUnit()
+	c.Assert(err, IsNil)
+	testWhenDying(c, loggingService, errPat, errPat, func() error {
+		_, err := loggingService.AddUnitSubordinateTo(principalUnit)
+		return err
+	})
 }
 
 func (s *ServiceSuite) TestAddUnit(c *C) {
@@ -108,7 +143,7 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 
 	// Check that principal units cannot be added to principal units.
 	_, err = s.service.AddUnitSubordinateTo(unitZero)
-	c.Assert(err, ErrorMatches, `cannot add unit of principal service "mysql" as a subordinate of "mysql/0"`)
+	c.Assert(err, ErrorMatches, `cannot add unit to service "mysql" as a subordinate of "mysql/0": service is not a subordinate`)
 
 	// Assign the principal unit to a machine.
 	m, err := s.State.AddMachine()
@@ -135,11 +170,17 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 
 	// Check that subordinate units must be added to other units.
 	_, err = logging.AddUnit()
-	c.Assert(err, ErrorMatches, `cannot directly add units to subordinate service "logging"`)
+	c.Assert(err, ErrorMatches, `cannot add unit to service "logging": unit is a subordinate`)
 
 	// Check that subordinate units cannnot be added to subordinate units.
 	_, err = logging.AddUnitSubordinateTo(subZero)
-	c.Assert(err, ErrorMatches, "a subordinate unit must be added to a principal unit")
+	c.Assert(err, ErrorMatches, `cannot add unit to service "logging" as a subordinate of "logging/0": unit is not a principal`)
+
+	const errPat = ".*: service is not alive"
+	testWhenDying(c, s.service, errPat, errPat, func() error {
+		_, err = s.service.AddUnit()
+		return err
+	})
 }
 
 func (s *ServiceSuite) TestReadUnit(c *C) {
@@ -171,12 +212,31 @@ func (s *ServiceSuite) TestReadUnit(c *C) {
 	unit, err = s.service.Unit("wordpress/0")
 	c.Assert(err, ErrorMatches, `cannot get unit "wordpress/0" from service "mysql": .*`)
 
-	// Check that retrieving all units works.
 	units, err := s.service.AllUnits()
 	c.Assert(err, IsNil)
-	c.Assert(len(units), Equals, 2)
-	c.Assert(units[0].Name(), Equals, "mysql/0")
-	c.Assert(units[1].Name(), Equals, "mysql/1")
+	c.Assert(sortedUnitNames(units), DeepEquals, []string{"mysql/0", "mysql/1"})
+}
+
+func (s *ServiceSuite) TestReadUnitWhenDying(c *C) {
+	// Test that we can read units from the service whatever
+	// their life state.
+	_, err := s.service.AddUnit()
+	c.Assert(err, IsNil)
+	checkAllUnits := func() error {
+		// Check that retrieving all units works.
+		_, err := s.service.AllUnits()
+		return err
+	}
+	checkUnit := func() error {
+		_, err := s.service.Unit("mysql/0")
+		return err
+	}
+
+	testWhenDying(c, s.service, noErr, noErr, checkAllUnits, checkUnit)
+
+	unit0, err := s.service.Unit("mysql/0")
+	c.Assert(err, IsNil)
+	testWhenDying(c, unit0, noErr, noErr, checkAllUnits, checkUnit)
 }
 
 func (s *ServiceSuite) TestRemoveUnit(c *C) {

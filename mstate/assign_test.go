@@ -69,6 +69,31 @@ func (s *AssignSuite) TestAssignUnitToMachineAgainFails(c *C) {
 	c.Assert(machineId, Equals, 1)
 }
 
+func (s *AssignSuite) TestAssignedMachineIdWhenNotAlive(c *C) {
+	machine, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+
+	err = s.unit.AssignToMachine(machine)
+	c.Assert(err, IsNil)
+
+	subCharm := s.AddTestingCharm(c, "logging")
+	subSvc, err := s.State.AddService("logging", subCharm)
+	c.Assert(err, IsNil)
+
+	subUnit, err := subSvc.AddUnitSubordinateTo(s.unit)
+	c.Assert(err, IsNil)
+
+	testWhenDying(c, s.unit, noErr, noErr,
+		func() error {
+			_, err = s.unit.AssignedMachineId()
+			return err
+		},
+		func() error {
+			_, err = subUnit.AssignedMachineId()
+			return err
+		})
+}
+
 func (s *AssignSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 	// Check that unassigning while the state changes fails nicely.
 	// Remove the unit for the tests.
@@ -105,16 +130,18 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
 	log2Unit, err := logService2.AddUnitSubordinateTo(s.unit)
 	c.Assert(err, IsNil)
 
-	m1, err := s.State.AddMachine()
+	machine, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
-	err = s.unit.AssignToMachine(m1)
+	err = log1Unit.AssignToMachine(machine)
+	c.Assert(err, ErrorMatches, ".*: unit is a subordinate")
+	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, IsNil)
 
 	id, err := log1Unit.AssignedMachineId()
 	c.Assert(err, IsNil)
-	c.Check(id, Equals, m1.Id())
+	c.Check(id, Equals, machine.Id())
 	id, err = log2Unit.AssignedMachineId()
-	c.Check(id, Equals, m1.Id())
+	c.Check(id, Equals, machine.Id())
 
 	// Check that unassigning the principal unassigns the
 	// subordinates too.
@@ -124,4 +151,47 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
 	c.Assert(err, ErrorMatches, `cannot get machine id of unit "logging1/0": unit not assigned to machine`)
 	_, err = log2Unit.AssignedMachineId()
 	c.Assert(err, ErrorMatches, `cannot get machine id of unit "logging2/0": unit not assigned to machine`)
+}
+
+func (s *AssignSuite) TestAssignMachineWhenDying(c *C) {
+	machine, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+
+	const errPat = ".*: machine or unit dead, or already assigned to machine"
+	unit, err := s.service.AddUnit()
+	c.Assert(err, IsNil)
+	testWhenDying(c, unit, errPat, errPat, func() error {
+		return unit.AssignToMachine(machine)
+	})
+
+	unit, err = s.service.AddUnit()
+	c.Assert(err, IsNil)
+	testWhenDying(c, machine, errPat, errPat, func() error {
+		return unit.AssignToMachine(machine)
+	})
+
+	// Check that UnassignFromMachine works when the unit is dead.
+	machine, err = s.State.AddMachine()
+	c.Assert(err, IsNil)
+	unit, err = s.service.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, IsNil)
+	err = unit.Die()
+	c.Assert(err, IsNil)
+	err = unit.UnassignFromMachine()
+	c.Assert(err, IsNil)
+
+	// Check that UnassignFromMachine works when the machine is
+	// dead.
+	machine, err = s.State.AddMachine()
+	c.Assert(err, IsNil)
+	unit, err = s.service.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, IsNil)
+	err = machine.Die()
+	c.Assert(err, IsNil)
+	err = unit.UnassignFromMachine()
+	c.Assert(err, IsNil)
 }

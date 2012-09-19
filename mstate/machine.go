@@ -61,7 +61,7 @@ func (m *Machine) SetAgentTools(t *Tools) (err error) {
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
-		Assert: D{{"life", Alive}},
+		Assert: notDead,
 		Update: D{{"$set", D{{"tools", t}}}},
 	}}
 	err = m.st.runner.Run(ops, "", nil)
@@ -166,8 +166,7 @@ func (m *Machine) Units() (units []*Unit, err error) {
 	for _, pudoc := range pudocs {
 		units = append(units, newUnit(m.st, &pudoc))
 		docs := []unitDoc{}
-		sel := D{{"principal", pudoc.Name}, {"life", Alive}}
-		err = m.st.units.Find(sel).All(&docs)
+		err = m.st.units.Find(D{{"principal", pudoc.Name}}).All(&docs)
 		if err != nil {
 			return nil, err
 		}
@@ -183,7 +182,7 @@ func (m *Machine) SetInstanceId(id string) error {
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
-		Assert: D{{"life", Alive}},
+		Assert: notDead,
 		Update: D{{"$set", D{{"instanceid", id}}}},
 	}}
 	err := m.st.runner.Run(ops, "", nil)

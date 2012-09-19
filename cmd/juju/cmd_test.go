@@ -230,17 +230,19 @@ func (*CmdSuite) TestDeployCommandInit(c *C) {
 
 	// test relative --config path
 	ctx := &cmd.Context{c.MkDir(), nil, nil, nil}
+	expected := []byte("test: data")
 	path := ctx.AbsPath("testconfig.yaml")
 	file, err := os.Create(path)
+	c.Assert(err, IsNil)
+	_, err = file.Write(expected)
 	c.Assert(err, IsNil)
 	file.Close()
 
 	com, err := initDeployCommand("--config", "testconfig.yaml", "charm-name")
 	c.Assert(err, IsNil)
-	r, err := com.Config.Open(ctx)
+	actual, err := com.Config.Read(ctx)
 	c.Assert(err, IsNil)
-	c.Assert(r.(*os.File).Name(), Equals, path)
-	r.Close()
+	c.Assert(expected, DeepEquals, actual)
 
 	// missing args
 	_, err = initDeployCommand()
@@ -332,25 +334,29 @@ func (*CmdSuite) TestSetCommandInit(c *C) {
 	c.Assert(err, ErrorMatches, "missing option key")
 
 	// strange, but correct
-	cmd, err := initSetCommand("dummy", "name = cow")
+	sc, err := initSetCommand("dummy", "name = cow")
 	c.Assert(err, IsNil)
-	c.Assert(len(cmd.Options), Equals, 1)
-	c.Assert(cmd.Options[0].Key, Equals, "name")
-	c.Assert(cmd.Options[0].Value, Equals, "cow")
+	c.Assert(len(sc.Options), Equals, 1)
+	c.Assert(sc.Options[0].Key, Equals, "name")
+	c.Assert(sc.Options[0].Value, Equals, "cow")
 
 	// test --config path
-	dir := c.MkDir()
-	path := filepath.Join(dir, "testconfig.yaml")
+	expected := []byte("this: is some test data")
+	ctx := &cmd.Context{c.MkDir(), nil, nil, nil}
+	path := ctx.AbsPath("testconfig.yaml")
 	file, err := os.Create(path)
 	c.Assert(err, IsNil)
-	file.Close()
-	com, err := initSetCommand("--config", path, "service")
+	_, err = file.Write(expected)
 	c.Assert(err, IsNil)
-	defer com.Config.Close()
-	c.Assert(com.Config.Path, Equals, path)
-	c.Assert(com.Config.ReadCloser, NotNil)
+	file.Close()
+	com, err := initSetCommand("--config", "testconfig.yaml", "service")
+	c.Assert(err, IsNil)
+	c.Assert(com.Config.Path, Equals, "testconfig.yaml")
+	actual, err := com.Config.Read(ctx)
+	c.Assert(err, IsNil)
+	c.Assert(actual, DeepEquals, expected)
 
 	// --config path, but no service
-	com, err = initSetCommand("--config", path)
+	com, err = initSetCommand("--config", "testconfig")
 	c.Assert(err, ErrorMatches, "no service name specified")
 }
