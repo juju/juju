@@ -10,7 +10,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
-	"launchpad.net/trivial"
+	"launchpad.net/juju-core/trivial"
 	"time"
 )
 

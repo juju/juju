@@ -4,7 +4,7 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/trivial"
+	"launchpad.net/juju-core/trivial"
 	"net/http"
 )
 

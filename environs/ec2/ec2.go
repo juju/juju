@@ -12,7 +12,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
-	"launchpad.net/trivial"
+	"launchpad.net/juju-core/trivial"
 	"net/http"
 	"strings"
 	"sync"

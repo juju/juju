@@ -11,7 +11,7 @@ import (
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/provisioner"
-	"launchpad.net/trivial"
+	"launchpad.net/juju-core/trivial"
 	stdtesting "testing"
 )
 
