@@ -238,9 +238,9 @@ func (ru *RelationUnit) EnterScope() (err error) {
 		return err
 	}
 	ops := []txn.Op{{
-		C:      ru.st.relationRefs.Name,
+		C:      ru.st.relationScopes.Name,
 		Id:     key,
-		Insert: relationRefDoc{key},
+		Insert: relationScopeDoc{key},
 	}}
 	return ru.st.runner.Run(ops, "", nil)
 }
@@ -253,7 +253,7 @@ func (ru *RelationUnit) LeaveScope() error {
 		return err
 	}
 	ops := []txn.Op{{
-		C:      ru.st.relationRefs.Name,
+		C:      ru.st.relationScopes.Name,
 		Id:     key,
 		Remove: true,
 	}}
@@ -307,7 +307,7 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 
 // key returns a string, based on the relation and the supplied unit name,
 // which is used as a key for that unit within this relation in the settings,
-// presence, and relationRefs collections.
+// presence, and relationScopes collections.
 func (ru *RelationUnit) key(uname string) (string, error) {
 	uparts := strings.Split(uname, "/")
 	sname := uparts[0]
@@ -319,13 +319,13 @@ func (ru *RelationUnit) key(uname string) (string, error) {
 	return strings.Join(parts, "#"), nil
 }
 
-// relationRefDoc represents the theoretical presence of a unit in a relation.
+// relationScopeDoc represents the potential presence of a unit in a relation.
 // The relation, container, role, and unit are all encoded in the key.
-type relationRefDoc struct {
+type relationScopeDoc struct {
 	Key string `bson:"_id"`
 }
 
-func (d *relationRefDoc) unitName() string {
+func (d *relationScopeDoc) unitName() string {
 	parts := strings.Split(d.Key, "#")
 	return parts[len(parts)-1]
 }

@@ -667,7 +667,7 @@ func (changes *RelationScopeChange) isEmpty() bool {
 }
 
 func (w *RelationScopeWatcher) mergeChange(changes *RelationScopeChange, ch watcher.Change) (err error) {
-	doc := &relationRefDoc{ch.Id.(string)}
+	doc := &relationScopeDoc{ch.Id.(string)}
 	if !strings.HasPrefix(doc.Key, w.prefix) {
 		return nil
 	}
@@ -691,9 +691,9 @@ func (w *RelationScopeWatcher) mergeChange(changes *RelationScopeChange, ch watc
 
 func (w *RelationScopeWatcher) getInitialEvent() (initial *RelationScopeChange, err error) {
 	changes := &RelationScopeChange{}
-	docs := []relationRefDoc{}
+	docs := []relationScopeDoc{}
 	sel := D{{"_id", D{{"$regex", "^" + w.prefix}}}}
-	err = w.st.relationRefs.Find(sel).All(&docs)
+	err = w.st.relationScopes.Find(sel).All(&docs)
 	if err != nil {
 		return nil, err
 	}
@@ -708,8 +708,8 @@ func (w *RelationScopeWatcher) getInitialEvent() (initial *RelationScopeChange, 
 
 func (w *RelationScopeWatcher) loop() error {
 	ch := make(chan watcher.Change)
-	w.st.watcher.WatchCollection(w.st.relationRefs.Name, ch)
-	defer w.st.watcher.UnwatchCollection(w.st.relationRefs.Name, ch)
+	w.st.watcher.WatchCollection(w.st.relationScopes.Name, ch)
+	defer w.st.watcher.UnwatchCollection(w.st.relationScopes.Name, ch)
 	changes, err := w.getInitialEvent()
 	if err != nil {
 		return err
