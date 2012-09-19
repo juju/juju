@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/testing"
 	"net"
 	"os"
@@ -504,7 +505,6 @@ func (t *sshTest) sshDaemon(sshdPort, serverPort int) *os.Process {
 	t.c.Logf("starting sshd: %q", cmd.Args)
 	err = cmd.Start()
 	t.c.Assert(err, IsNil)
-
 	go func() {
 		defer r.Close()
 		br := bufio.NewReader(r)
@@ -515,11 +515,22 @@ func (t *sshTest) sshDaemon(sshdPort, serverPort int) *os.Process {
 			}
 			t.c.Logf("sshd: %s", line)
 		}
-		err := cmd.Wait()
-		t.c.Logf("ssh has exited: %v", err)
+		t.c.Logf("sshd has exited: %v", cmd.Wait())
 	}()
 
-	return cmd.Process
+	// wait til the server port is up.
+	impatientAttempt := environs.AttemptStrategy{
+		Total: 5 * time.Second,
+		Delay: 100 * time.Millisecond,
+	}
+	for a := impatientAttempt.Start(); a.Next(); {
+		c, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", sshdPort))
+		if err == nil {
+			c.Close()
+			return cmd.Process
+		}
+	}
+	panic("something went wrong with sshd")
 }
 
 // assert is like C.Assert except that it calls Check and then runtime.Goexit

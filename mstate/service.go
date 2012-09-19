@@ -18,11 +18,16 @@ type Service struct {
 
 // serviceDoc represents the internal state of a service in MongoDB.
 type serviceDoc struct {
-	Name     string `bson:"_id"`
-	CharmURL *charm.URL
-	Life     Life
-	UnitSeq  int
-	Exposed  bool
+	Name       string `bson:"_id"`
+	CharmURL   *charm.URL
+	ForceCharm bool
+	Life       Life
+	UnitSeq    int
+	Exposed    bool
+}
+
+func newService(st *State, doc *serviceDoc) *Service {
+	return &Service{st: st, doc: *doc}
 }
 
 // Name returns the service name.
@@ -64,31 +69,6 @@ func (s *Service) IsExposed() (bool, error) {
 	return s.doc.Exposed, nil
 }
 
-// CharmURL returns the charm URL this service is supposed to use.
-func (s *Service) CharmURL() (url *charm.URL, err error) {
-	return s.doc.CharmURL, nil
-}
-
-// SetCharmURL changes the charm URL for the service.
-func (s *Service) SetCharmURL(url *charm.URL) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot set the charm URL of service %q", s)
-	ops := []txn.Op{{
-		C:      s.st.services.Name,
-		Id:     s.doc.Name,
-		Assert: isAlive,
-		Update: D{{"$set", D{{"charmurl", url}}}},
-	}}
-	err = s.st.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
-		return errNotAlive
-	}
-	if err != nil {
-		return err
-	}
-	s.doc.CharmURL = url
-	return nil
-}
-
 // SetExposed marks the service as exposed.
 // See ClearExposed and IsExposed.
 func (s *Service) SetExposed() error {
@@ -120,13 +100,33 @@ func (s *Service) setExposed(exposed bool) (err error) {
 	return nil
 }
 
-// Charm returns the service's charm.
-func (s *Service) Charm() (*Charm, error) {
-	url, err := s.CharmURL()
+// Charm returns the service's charm and whether units should upgrade to that
+// charm even if they are in an error state.
+func (s *Service) Charm() (ch *Charm, force bool, err error) {
+	ch, err = s.st.Charm(s.doc.CharmURL)
 	if err != nil {
-		panic(fmt.Errorf("cannot happen, err must be nil, got %v", err))
+		return nil, false, err
 	}
-	return s.st.Charm(url)
+	return ch, s.doc.ForceCharm, nil
+}
+
+// SetCharm changes the charm for the service. New units will be started with
+// this charm, and existing units will be upgraded to use it. If force is true,
+// units will be upgraded even if they are in an error state.
+func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
+	ops := []txn.Op{{
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: isAlive,
+		Update: D{{"$set", D{{"charmurl", ch.URL()}, {"forcecharm", force}}}},
+	}}
+	err = s.st.runner.Run(ops, "", nil)
+	if err != nil {
+		return fmt.Errorf("cannot set charm for service %q: %v", s, deadOnAbort(err))
+	}
+	s.doc.CharmURL = ch.URL()
+	s.doc.ForceCharm = force
+	return nil
 }
 
 // String returns the service name.
@@ -183,12 +183,12 @@ func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
 	if err != nil {
 		if err == txn.ErrAborted {
 			if principal == nil {
-				err = fmt.Errorf("unit already exists or service is not alive")
+				err = fmt.Errorf("service is not alive")
 			} else {
-				err = fmt.Errorf("unit already exists or service or principal unit are not alive")
+				err = fmt.Errorf("service or principal unit are not alive")
 			}
 		}
-		return nil, fmt.Errorf("cannot add unit to service %q: %v", s, err)
+		return nil, err
 
 	}
 	return newUnit(s.st, udoc), nil
@@ -196,36 +196,38 @@ func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
 
 // AddUnit adds a new principal unit to the service.
 func (s *Service) AddUnit() (unit *Unit, err error) {
-	ch, err := s.Charm()
+	defer trivial.ErrorContextf(&err, "cannot add unit to service %q", s)
+	ch, _, err := s.Charm()
 	if err != nil {
-		return nil, fmt.Errorf("cannot add unit to service %q: %v", err)
+		return nil, err
 	}
 	if ch.Meta().Subordinate {
-		return nil, fmt.Errorf("cannot directly add units to subordinate service %q", s)
+		return nil, fmt.Errorf("unit is a subordinate")
 	}
 	name, err := s.newUnitName()
 	if err != nil {
-		return nil, fmt.Errorf("cannot add unit to service %q: %v", err)
+		return nil, err
 	}
 	return s.addUnit(name, nil)
 }
 
 // AddUnitSubordinateTo adds a new subordinate unit to the service,
 // subordinate to principal.
-func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
-	ch, err := s.Charm()
+func (s *Service) AddUnitSubordinateTo(principal *Unit) (unit *Unit, err error) {
+	defer trivial.ErrorContextf(&err, "cannot add unit to service %q as a subordinate of %q", s, principal)
+	ch, _, err := s.Charm()
 	if err != nil {
-		return nil, fmt.Errorf("cannot add unit to service %q: %v", s, err)
+		return nil, err
 	}
 	if !ch.Meta().Subordinate {
-		return nil, fmt.Errorf("cannot add unit of principal service %q as a subordinate of %q", s, principal)
+		return nil, fmt.Errorf("service is not a subordinate")
 	}
 	if !principal.IsPrincipal() {
-		return nil, errors.New("a subordinate unit must be added to a principal unit")
+		return nil, fmt.Errorf("unit is not a principal")
 	}
 	name, err := s.newUnitName()
 	if err != nil {
-		return nil, fmt.Errorf("cannot add unit to service %q: %v", s, err)
+		return nil, err
 	}
 	return s.addUnit(name, principal)
 }
@@ -280,7 +282,7 @@ func (s *Service) Unit(name string) (*Unit, error) {
 // AllUnits returns all units of the service.
 func (s *Service) AllUnits() (units []*Unit, err error) {
 	docs := []unitDoc{}
-	err = s.st.units.Find(D{{"service", s.doc.Name}}).Sort("_id").All(&docs)
+	err = s.st.units.Find(D{{"service", s.doc.Name}}).All(&docs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all units from service %q: %v", err)
 	}

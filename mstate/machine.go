@@ -166,8 +166,7 @@ func (m *Machine) Units() (units []*Unit, err error) {
 	for _, pudoc := range pudocs {
 		units = append(units, newUnit(m.st, &pudoc))
 		docs := []unitDoc{}
-		sel := append(notDead, D{{"principal", pudoc.Name}}...)
-		err = m.st.units.Find(sel).All(&docs)
+		err = m.st.units.Find(D{{"principal", pudoc.Name}}).All(&docs)
 		if err != nil {
 			return nil, err
 		}

@@ -80,7 +80,7 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	_, err = s.State.AddRelation(proep, reqep)
 	c.Assert(err, ErrorMatches, `cannot add relation "pro:foo req:bar": .*`)
 
-	assertOkForAllLife(c, rel, func() error {
+	testWhenDying(c, rel, noErr, noErr, func() error {
 		assertOneRelation(c, pro, 0, proep, reqep)
 		assertOneRelation(c, req, 0, reqep, proep)
 		return nil

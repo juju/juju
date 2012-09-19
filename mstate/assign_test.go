@@ -83,7 +83,7 @@ func (s *AssignSuite) TestAssignedMachineIdWhenNotAlive(c *C) {
 	subUnit, err := subSvc.AddUnitSubordinateTo(s.unit)
 	c.Assert(err, IsNil)
 
-	assertOkForAllLife(c, s.unit,
+	testWhenDying(c, s.unit, noErr, noErr,
 		func() error {
 			_, err = s.unit.AssignedMachineId()
 			return err
@@ -133,7 +133,7 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
 	machine, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 	err = log1Unit.AssignToMachine(machine)
-	c.Assert(err, ErrorMatches, ".*: unit is subordinate")
+	c.Assert(err, ErrorMatches, ".*: unit is a subordinate")
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, IsNil)
 
@@ -151,31 +151,26 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
 	c.Assert(err, ErrorMatches, `cannot get machine id of unit "logging1/0": unit not assigned to machine`)
 	_, err = log2Unit.AssignedMachineId()
 	c.Assert(err, ErrorMatches, `cannot get machine id of unit "logging2/0": unit not assigned to machine`)
+}
+
+func (s *AssignSuite) TestAssignMachineWhenDying(c *C) {
+	machine, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
 
 	const errPat = ".*: machine or unit dead, or already assigned to machine"
 	unit, err := s.service.AddUnit()
 	c.Assert(err, IsNil)
-	assertOkForLife(c, unit, errPat, errPat, func() error {
+	testWhenDying(c, unit, errPat, errPat, func() error {
 		return unit.AssignToMachine(machine)
 	})
 
 	unit, err = s.service.AddUnit()
 	c.Assert(err, IsNil)
-	assertOkForLife(c, machine, errPat, errPat, func() error {
+	testWhenDying(c, machine, errPat, errPat, func() error {
 		return unit.AssignToMachine(machine)
 	})
 
-	// Don't use assertOkForAllLife here because once
-	// the machine has been unassigned, we can't run
-	// UnassignFromMachine again, nor can we reassign
-	// the machine, because that will fail if the unit is Dying.
-	// UnassignFromMachine itself doesn't mention life,
-	// so this test should be sufficient to guard against
-	// someone inadvertantly adding isAlive or notDead to
-	// the transaction criteria.
-
-	// Check that UnassignFromMachine works even
-	// when the machine or the unit are dead.
+	// Check that UnassignFromMachine works when the unit is dead.
 	machine, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
 	unit, err = s.service.AddUnit()
@@ -187,6 +182,8 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
 	err = unit.UnassignFromMachine()
 	c.Assert(err, IsNil)
 
+	// Check that UnassignFromMachine works when the machine is
+	// dead.
 	machine, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
 	unit, err = s.service.AddUnit()
