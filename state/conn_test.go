@@ -1,11 +1,11 @@
-package mstate_test
+package state_test
 
 import (
 	"fmt"
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	state "launchpad.net/juju-core/mstate"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"net/url"
 	"sort"
@@ -49,7 +49,7 @@ func (cs *ConnSuite) SetUpTest(c *C) {
 	cs.services = cs.MgoSuite.Session.DB("juju").C("services")
 	cs.units = cs.MgoSuite.Session.DB("juju").C("units")
 	var err error
-	cs.State, err = state.Dial(testing.MgoAddr)
+	cs.State, err = state.Open(&state.Info{Addrs: []string{testing.MgoAddr}})
 	c.Assert(err, IsNil)
 }
 

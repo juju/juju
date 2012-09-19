@@ -1,10 +1,15 @@
-package environs_test
+package trivial_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/trivial"
+	"testing"
 	"time"
 )
+
+func Test(t *testing.T) {
+	TestingT(t)
+}
 
 type attemptSuite struct{}
 
@@ -12,7 +17,7 @@ var _ = Suite(attemptSuite{})
 
 func (attemptSuite) TestAttemptTiming(c *C) {
 	const delta = 0.01e9
-	testAttempt := environs.AttemptStrategy{
+	testAttempt := trivial.AttemptStrategy{
 		Total: 0.25e9,
 		Delay: 0.1e9,
 	}

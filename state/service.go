@@ -3,331 +3,322 @@ package state
 import (
 	"errors"
 	"fmt"
-	"launchpad.net/gozk/zookeeper"
+	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/trivial"
-	pathPkg "path"
+	"strconv"
 )
 
 // Service represents the state of a service.
 type Service struct {
-	st   *State
-	key  string
-	name string
+	st  *State
+	doc serviceDoc
+}
+
+// serviceDoc represents the internal state of a service in MongoDB.
+type serviceDoc struct {
+	Name       string `bson:"_id"`
+	CharmURL   *charm.URL
+	ForceCharm bool
+	Life       Life
+	UnitSeq    int
+	Exposed    bool
+}
+
+func newService(st *State, doc *serviceDoc) *Service {
+	return &Service{st: st, doc: *doc}
 }
 
 // Name returns the service name.
 func (s *Service) Name() string {
-	return s.name
+	return s.doc.Name
 }
 
-// serviceCharm extracts the charm-related information from a ConfigNode.
-func serviceCharm(st *State, node *ConfigNode) (ch *Charm, force bool, err error) {
-	iurl, _ := node.Get("charm")
-	surl, _ := iurl.(string)
-	url, err := charm.ParseURL(surl)
-	if err != nil {
-		return
-	}
-	ch, err = st.Charm(url)
-	if err != nil {
-		return
-	}
-	iforce, _ := node.Get("force-charm")
-	force, _ = iforce.(bool)
-	return
+// Life returns whether the service is Alive, Dying or Dead.
+func (s *Service) Life() Life {
+	return s.doc.Life
 }
 
-// Charm returns the service's charm, and whether units should upgrade to that
+// Kill sets the service lifecycle to Dying if it is Alive.
+// It does nothing otherwise.
+func (s *Service) Kill() error {
+	err := ensureLife(s.st, s.st.services, s.doc.Name, Dying, "service")
+	if err != nil {
+		return err
+	}
+	s.doc.Life = Dying
+	return nil
+}
+
+// Die sets the service lifecycle to Dead if it is Alive or Dying.
+// It does nothing otherwise.
+func (s *Service) Die() error {
+	err := ensureLife(s.st, s.st.services, s.doc.Name, Dead, "service")
+	if err != nil {
+		return err
+	}
+	s.doc.Life = Dead
+	return nil
+}
+
+// IsExposed returns whether this service is exposed. The explicitly open
+// ports (with open-port) for exposed services may be accessed from machines
+// outside of the local deployment network. See SetExposed and ClearExposed.
+func (s *Service) IsExposed() (bool, error) {
+	return s.doc.Exposed, nil
+}
+
+// SetExposed marks the service as exposed.
+// See ClearExposed and IsExposed.
+func (s *Service) SetExposed() error {
+	return s.setExposed(true)
+}
+
+// ClearExposed removes the exposed flag from the service.
+// See SetExposed and IsExposed.
+func (s *Service) ClearExposed() error {
+	return s.setExposed(false)
+}
+
+func (s *Service) setExposed(exposed bool) error {
+	ops := []txn.Op{{
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: isAlive,
+		Update: D{{"$set", D{{"exposed", exposed}}}},
+	}}
+	err := s.st.runner.Run(ops, "", nil)
+	if err != nil {
+		return fmt.Errorf("cannot set exposed flag for service %q to %v: %v", s, exposed, deadOnAbort(err))
+	}
+	s.doc.Exposed = exposed
+	return nil
+}
+
+// Charm returns the service's charm and whether units should upgrade to that
 // charm even if they are in an error state.
 func (s *Service) Charm() (ch *Charm, force bool, err error) {
-	defer trivial.ErrorContextf(&err, "cannot get charm for service %q", s)
-	node, err := readConfigNode(s.st.zk, s.zkPath())
+	ch, err = s.st.Charm(s.doc.CharmURL)
 	if err != nil {
-		return
+		return nil, false, err
 	}
-	return serviceCharm(s.st, node)
+	return ch, s.doc.ForceCharm, nil
 }
 
 // SetCharm changes the charm for the service. New units will be started with
 // this charm, and existing units will be upgraded to use it. If force is true,
 // units will be upgraded even if they are in an error state.
 func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot set charm for service %q", s)
-	node, err := readConfigNode(s.st.zk, s.zkPath())
+	ops := []txn.Op{{
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: isAlive,
+		Update: D{{"$set", D{{"charmurl", ch.URL()}, {"forcecharm", force}}}},
+	}}
+	err = s.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return
+		return fmt.Errorf("cannot set charm for service %q: %v", s, deadOnAbort(err))
 	}
-	node.Set("charm", ch.URL().String())
-	node.Set("force-charm", force)
-	_, err = node.Write()
-	return
+	s.doc.CharmURL = ch.URL()
+	s.doc.ForceCharm = force
+	return nil
 }
 
-// WatchCharm returns a watcher that sends notifications of changes to the
-// service's charm.
-func (s *Service) WatchCharm() *ServiceCharmWatcher {
-	return newServiceCharmWatcher(s.st, s.zkPath())
+// String returns the service name.
+func (s *Service) String() string {
+	return s.doc.Name
 }
 
-// addUnit adds a new unit to the service. If s is a subordinate service,
-// principalKey must be the unit key of some principal unit.
-func (s *Service) addUnit(principalKey string) (unit *Unit, err error) {
-	defer trivial.ErrorContextf(&err, "cannot add unit to service %q", s)
-	// Create ZooKeeper node.
-	keyPrefix := s.zkPath() + "/units/unit-" + s.key[len("service-"):] + "-"
-	path, err := s.st.zk.Create(keyPrefix, "", zookeeper.SEQUENCE, zkPermAll)
+func (s *Service) Refresh() error {
+	err := s.st.services.FindId(s.doc.Name).One(&s.doc)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("cannot refresh service %v: %v", s, err)
 	}
-	key := pathPkg.Base(path)
-	addUnit := func(t *topology) error {
-		if !t.HasService(s.key) {
-			return stateChanged
+	return nil
+}
+
+// newUnitName returns the next unit name.
+func (s *Service) newUnitName() (string, error) {
+	change := mgo.Change{Update: D{{"$inc", D{{"unitseq", 1}}}}}
+	result := serviceDoc{}
+	_, err := s.st.services.Find(D{{"_id", s.doc.Name}}).Apply(change, &result)
+	if err != nil {
+		return "", fmt.Errorf("cannot increment unit sequence: %v", err)
+	}
+	name := s.doc.Name + "/" + strconv.Itoa(result.UnitSeq)
+	return name, nil
+}
+
+// addUnit adds the named unit.
+func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
+	udoc := &unitDoc{
+		Name:    name,
+		Service: s.doc.Name,
+		Life:    Alive,
+	}
+	ops := []txn.Op{{
+		C:      s.st.units.Name,
+		Id:     name,
+		Assert: txn.DocMissing,
+		Insert: udoc,
+	}, {
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: isAlive,
+	}}
+	if principal != nil {
+		udoc.Principal = principal.Name()
+		ops = append(ops, txn.Op{
+			C:      s.st.units.Name,
+			Id:     principal.Name(),
+			Assert: isAlive,
+			Update: D{{"$addToSet", D{{"subordinates", name}}}},
+		})
+	}
+	err := s.st.runner.Run(ops, "", nil)
+	if err != nil {
+		if err == txn.ErrAborted {
+			if principal == nil {
+				err = fmt.Errorf("service is not alive")
+			} else {
+				err = fmt.Errorf("service or principal unit are not alive")
+			}
 		}
-		err := t.AddUnit(key, principalKey)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-	if err := retryTopologyChange(s.st.zk, addUnit); err != nil {
 		return nil, err
+
 	}
-	return s.newUnit(key, principalKey), nil
+	return newUnit(s.st, udoc), nil
 }
 
 // AddUnit adds a new principal unit to the service.
-func (s *Service) AddUnit() (*Unit, error) {
+func (s *Service) AddUnit() (unit *Unit, err error) {
+	defer trivial.ErrorContextf(&err, "cannot add unit to service %q", s)
 	ch, _, err := s.Charm()
 	if err != nil {
 		return nil, err
 	}
 	if ch.Meta().Subordinate {
-		return nil, fmt.Errorf("cannot directly add units to subordinate service %q", s)
+		return nil, fmt.Errorf("unit is a subordinate")
 	}
-	return s.addUnit("")
+	name, err := s.newUnitName()
+	if err != nil {
+		return nil, err
+	}
+	return s.addUnit(name, nil)
 }
 
 // AddUnitSubordinateTo adds a new subordinate unit to the service,
 // subordinate to principal.
-func (s *Service) AddUnitSubordinateTo(principal *Unit) (*Unit, error) {
+func (s *Service) AddUnitSubordinateTo(principal *Unit) (unit *Unit, err error) {
+	defer trivial.ErrorContextf(&err, "cannot add unit to service %q as a subordinate of %q", s, principal)
 	ch, _, err := s.Charm()
 	if err != nil {
 		return nil, err
 	}
 	if !ch.Meta().Subordinate {
-		return nil, fmt.Errorf("cannot add unit of principal service %q as a subordinate of %q", s, principal)
+		return nil, fmt.Errorf("service is not a subordinate")
 	}
 	if !principal.IsPrincipal() {
-		return nil, errors.New("a subordinate unit must be added to a principal unit")
+		return nil, fmt.Errorf("unit is not a principal")
 	}
-	return s.addUnit(principal.key)
+	name, err := s.newUnitName()
+	if err != nil {
+		return nil, err
+	}
+	return s.addUnit(name, principal)
 }
 
-// RemoveUnit() removes a unit.
-func (s *Service) RemoveUnit(unit *Unit) error {
-	// First unassign from machine if currently assigned.
-	if err := unit.UnassignFromMachine(); err != nil {
-		return err
+// RemoveUnit removes the given unit from s.
+func (s *Service) RemoveUnit(u *Unit) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot remove unit %q", u)
+	if u.doc.Life != Dead {
+		return errors.New("unit is not dead")
 	}
-	removeUnit := func(t *topology) error {
-		if !t.HasUnit(unit.key) {
-			return fmt.Errorf("unit not found")
-		}
-		if err := t.RemoveUnit(unit.key); err != nil {
+	if u.doc.Service != s.doc.Name {
+		return fmt.Errorf("unit is not assigned to service %q", s)
+	}
+	if u.doc.MachineId != nil {
+		err = u.UnassignFromMachine()
+		if err != nil {
 			return err
 		}
-		return nil
 	}
-	if err := retryTopologyChange(s.st.zk, removeUnit); err != nil {
-		return err
+	ops := []txn.Op{{
+		C:      s.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: D{{"life", Dead}},
+		Remove: true,
+	}}
+	if u.doc.Principal != "" {
+		ops = append(ops, txn.Op{
+			C:      s.st.units.Name,
+			Id:     u.doc.Principal,
+			Assert: txn.DocExists,
+			Update: D{{"$pull", D{{"subordinates", u.doc.Name}}}},
+		})
 	}
-	return zkRemoveTree(s.st.zk, unit.zkPath())
+	err = s.st.runner.Run(ops, "", nil)
+	if err != nil {
+		return deadOnAbort(err)
+	}
+	return nil
+}
+
+func (s *Service) unitDoc(name string) (*unitDoc, error) {
+	udoc := &unitDoc{}
+	sel := D{
+		{"_id", name},
+		{"service", s.doc.Name},
+	}
+	err := s.st.units.Find(sel).One(udoc)
+	if err != nil {
+		return nil, err
+	}
+	return udoc, nil
 }
 
 // Unit returns the service's unit with name.
-func (s *Service) Unit(name string) (unit *Unit, err error) {
-	defer trivial.ErrorContextf(&err, "cannot get unit %q from service %q", name, s)
-	serviceName, serviceId, err := parseUnitName(name)
+func (s *Service) Unit(name string) (*Unit, error) {
+	udoc, err := s.unitDoc(name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot get unit %q from service %q: %v", name, s.doc.Name, err)
 	}
-	// Check for matching service name.
-	if serviceName != s.name {
-		return nil, fmt.Errorf("unit not found")
-	}
-	topology, err := readTopology(s.st.zk)
-	if err != nil {
-		return nil, err
-	}
-	if !topology.HasService(s.key) {
-		return nil, stateChanged
-	}
-
-	// Check that unit exists.
-	key := makeUnitKey(s.key, serviceId)
-	_, tunit, err := topology.serviceAndUnit(key)
-	if err != nil {
-		return nil, err
-	}
-	return s.newUnit(key, tunit.Principal), nil
+	return newUnit(s.st, udoc), nil
 }
 
 // AllUnits returns all units of the service.
 func (s *Service) AllUnits() (units []*Unit, err error) {
-	defer trivial.ErrorContextf(&err, "cannot get all units from service %q", s)
-	topology, err := readTopology(s.st.zk)
+	docs := []unitDoc{}
+	err = s.st.units.Find(D{{"service", s.doc.Name}}).All(&docs)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot get all units from service %q: %v", err)
 	}
-	if !topology.HasService(s.key) {
-		return nil, stateChanged
-	}
-	keys, err := topology.UnitKeys(s.key)
-	if err != nil {
-		return nil, err
-	}
-	// Assemble units.
-	units = []*Unit{}
-	for _, key := range keys {
-		_, tunit, err := topology.serviceAndUnit(key)
-		if err != nil {
-			return nil, fmt.Errorf("inconsistent topology: %v", err)
-		}
-		units = append(units, s.newUnit(key, tunit.Principal))
+	for i := range docs {
+		units = append(units, newUnit(s.st, &docs[i]))
 	}
 	return units, nil
 }
 
-// WatchUnits creates a watcher for the assigned units
-// of the service.
-func (s *Service) WatchUnits() *ServiceUnitsWatcher {
-	return newServiceUnitsWatcher(s)
-}
-
-// relationsFromTopology returns a Relation for every relation the service
-// is in, according to the supplied topology.
-func (s *Service) relationsFromTopology(t *topology) ([]*Relation, error) {
-	if !t.HasService(s.key) {
-		return nil, stateChanged
-	}
-	trs, err := t.RelationsForService(s.key)
+// Relations returns a Relation for every relation the service is in.
+func (s *Service) Relations() (relations []*Relation, err error) {
+	defer trivial.ErrorContextf(&err, "can't get relations for service %q", s)
+	docs := []relationDoc{}
+	err = s.st.relations.Find(D{{"endpoints.servicename", s.doc.Name}}).All(&docs)
 	if err != nil {
 		return nil, err
 	}
-	relations := []*Relation{}
-	for key, tr := range trs {
-		r := &Relation{s.st, key, make([]RelationEndpoint, len(tr.Endpoints))}
-		i := 0
-		for _, tep := range tr.Endpoints {
-			sname := s.name
-			if tep.Service != s.key {
-				if sname, err = t.ServiceName(tep.Service); err != nil {
-					return nil, err
-				}
-			}
-			r.endpoints[i] = RelationEndpoint{
-				sname, tr.Interface, tep.RelationName, tep.RelationRole, tr.Scope,
-			}
-			i++
-		}
-		relations = append(relations, r)
+	for _, v := range docs {
+		relations = append(relations, newRelation(s.st, &v))
 	}
 	return relations, nil
 }
 
-// Relations returns a Relation for every relation the service is in.
-func (s *Service) Relations() (relations []*Relation, err error) {
-	defer trivial.ErrorContextf(&err, "cannot get relations for service %q", s.name)
-	t, err := readTopology(s.st.zk)
-	if err != nil {
-		return nil, err
-	}
-	return s.relationsFromTopology(t)
-}
-
-// WatchRelations returns a watcher which notifies of changes to the
-// set of relations in which this service is participating.
-func (s *Service) WatchRelations() *ServiceRelationsWatcher {
-	return newServiceRelationsWatcher(s)
-}
-
-// IsExposed returns whether this service is exposed.
-// The explicitly open ports (with open-port) for exposed
-// services may be accessed from machines outside of the
-// local deployment network. See SetExposed and ClearExposed.
-func (s *Service) IsExposed() (bool, error) {
-	stat, err := s.st.zk.Exists(s.zkExposedPath())
-	if err != nil {
-		return false, fmt.Errorf("cannot check if service %q is exposed: %v", s, err)
-	}
-	return stat != nil, nil
-}
-
-// SetExposed marks the service as exposed.
-// See ClearExposed and IsExposed.
-func (s *Service) SetExposed() error {
-	_, err := s.st.zk.Create(s.zkExposedPath(), "", 0, zkPermAll)
-	if err != nil && !zookeeper.IsError(err, zookeeper.ZNODEEXISTS) {
-		return fmt.Errorf("cannot set exposed flag for service %q: %v", s, err)
-	}
-	return nil
-}
-
-// ClearExposed removes the exposed flag from the service.
-// See SetExposed and IsExposed.
-func (s *Service) ClearExposed() error {
-	err := s.st.zk.Delete(s.zkExposedPath(), -1)
-	if err != nil && !zookeeper.IsError(err, zookeeper.ZNONODE) {
-		return fmt.Errorf("cannot clear exposed flag for service %q: %v", s, err)
-	}
-	return nil
-}
-
-// WatchExposed creates a watcher for the exposed flag
-// of the service.
-func (s *Service) WatchExposed() *FlagWatcher {
-	return newFlagWatcher(s.st, s.zkExposedPath())
-}
-
 // Config returns the configuration node for the service.
 func (s *Service) Config() (config *ConfigNode, err error) {
-	config, err = readConfigNode(s.st.zk, s.zkConfigPath())
+	config, err = readConfigNode(s.st, "s/"+s.Name())
 	if err != nil {
 		return nil, fmt.Errorf("cannot get configuration of service %q: %v", s, err)
 	}
 	return config, nil
-}
-
-// WatchConfig creates a watcher for the configuration node
-// of the service.
-func (s *Service) WatchConfig() *ConfigWatcher {
-	return newConfigWatcher(s.st, s.zkConfigPath())
-}
-
-// String returns the service name.
-func (s *Service) String() string {
-	return s.Name()
-}
-
-// newUnit creates a *Unit.
-func (s *Service) newUnit(key, principalKey string) *Unit {
-	return newUnit(s.st, s.name, key, principalKey)
-}
-
-// zkPath returns the ZooKeeper base path for the service.
-func (s *Service) zkPath() string {
-	return fmt.Sprintf("/services/%s", s.key)
-}
-
-// zkConfigPath returns the ZooKeeper path for the service configuration.
-func (s *Service) zkConfigPath() string {
-	return s.zkPath() + "/config"
-}
-
-// zkExposedPath, if exists in ZooKeeper, indicates, that a
-// service is exposed.
-func (s *Service) zkExposedPath() string {
-	return s.zkPath() + "/exposed"
 }
