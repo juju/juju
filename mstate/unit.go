@@ -262,6 +262,7 @@ func (u *Unit) Charm() (ch *Charm, err error) {
 
 // SetCharm marks the unit as currently using the supplied charm.
 func (u *Unit) SetCharm(ch *Charm) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot set charm for unit %q", u)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
@@ -269,8 +270,11 @@ func (u *Unit) SetCharm(ch *Charm) (err error) {
 		Update: D{{"$set", D{{"charmurl", ch.URL()}}}},
 	}}
 	err = u.st.runner.Run(ops, "", nil)
+	if err == txn.ErrAborted {
+		return errNotAlive
+	}
 	if err != nil {
-		return fmt.Errorf("cannot set charm for unit %q: %v", u, deadOnAbort(err))
+		return err
 	}
 	u.doc.CharmURL = ch.URL()
 	return nil

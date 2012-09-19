@@ -114,6 +114,7 @@ func (s *Service) Charm() (ch *Charm, force bool, err error) {
 // this charm, and existing units will be upgraded to use it. If force is true,
 // units will be upgraded even if they are in an error state.
 func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot set charm for service %q", s)
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
@@ -121,8 +122,11 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 		Update: D{{"$set", D{{"charmurl", ch.URL()}, {"forcecharm", force}}}},
 	}}
 	err = s.st.runner.Run(ops, "", nil)
+	if err == txn.ErrAborted {
+		return errNotAlive
+	}
 	if err != nil {
-		return fmt.Errorf("cannot set charm for service %q: %v", s, deadOnAbort(err))
+		return err
 	}
 	s.doc.CharmURL = ch.URL()
 	s.doc.ForceCharm = force
