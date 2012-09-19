@@ -382,3 +382,30 @@ func (s *State) Sync() {
 	s.watcher.Sync()
 	s.pwatcher.Sync()
 }
+
+// AssignUnit places the unit on a machine. Depending on the policy, and the
+// state of the environment, this may lead to new instances being launched
+// within the environment.
+func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot assign unit %q to machine", u)
+	if !u.IsPrincipal() {
+		return fmt.Errorf("is a subordinate")
+	}
+	var m *Machine
+	switch policy {
+	case AssignLocal:
+		if m, err = s.Machine(0); err != nil {
+			return err
+		}
+	case AssignUnused:
+		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
+			return err
+		}
+		if m, err = s.AddMachine(); err != nil {
+			return err
+		}
+	default:
+		panic(fmt.Errorf("unknown unit assignment policy: %q", policy))
+	}
+	return u.AssignToMachine(m)
+}
