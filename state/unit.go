@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/trivial"
+	"sort"
 	"strings"
 	"time"
 )
@@ -469,4 +470,23 @@ func (u *Unit) Config() (config *ConfigNode, err error) {
 		return nil, fmt.Errorf("cannot get configuration of unit %q: %v", u, err)
 	}
 	return config, nil
+}
+
+type portSlice []Port
+
+func (p portSlice) Len() int      { return len(p) }
+func (p portSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
+func (p portSlice) Less(i, j int) bool {
+	p1 := p[i]
+	p2 := p[j]
+	if p1.Protocol != p2.Protocol {
+		return p1.Protocol < p2.Protocol
+	}
+	return p1.Number < p2.Number
+}
+
+// SortPorts sorts the given ports, first by protocol,
+// then by number.
+func SortPorts(ports []Port) {
+	sort.Sort(portSlice(ports))
 }
