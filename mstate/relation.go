@@ -3,7 +3,9 @@ package mstate
 import (
 	"fmt"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/trivial"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -172,6 +174,29 @@ func (r *Relation) RelatedEndpoints(serviceName string) ([]RelationEndpoint, err
 	return eps, nil
 }
 
+// Unit returns a RelationUnit for the supplied unit.
+func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
+	ep, err := r.Endpoint(u.doc.Service)
+	if err != nil {
+		return nil, err
+	}
+	scope := []string{strconv.Itoa(r.doc.Id)}
+	if ep.RelationScope == charm.ScopeContainer {
+		container := u.doc.Principal
+		if container == "" {
+			container = u.doc.Name
+		}
+		scope = append(scope, container)
+	}
+	return &RelationUnit{
+		st:       r.st,
+		relation: r,
+		unit:     u,
+		endpoint: ep,
+		scope:    strings.Join(scope, "#"),
+	}, nil
+}
+
 // RelationUnit holds information about a single unit in a relation, and
 // allows clients to conveniently access unit-specific functionality.
 type RelationUnit struct {
@@ -179,6 +204,7 @@ type RelationUnit struct {
 	relation *Relation
 	unit     *Unit
 	endpoint RelationEndpoint
+	scope    string
 }
 
 // Relation returns the relation associated with the unit.
@@ -192,16 +218,51 @@ func (ru *RelationUnit) Endpoint() RelationEndpoint {
 	return ru.endpoint
 }
 
-// Unit returns a RelationUnit for the supplied unit.
-func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
-	ep, err := r.Endpoint(u.doc.Service)
+// Settings returns a ConfigNode which allows access to the unit's settings
+// within the relation.
+func (ru *RelationUnit) Settings() (*ConfigNode, error) {
+	key, err := ru.key(ru.unit.Name())
 	if err != nil {
 		return nil, err
 	}
-	return &RelationUnit{
-		st:       r.st,
-		relation: r,
-		unit:     u,
-		endpoint: ep,
-	}, nil
+	return readConfigNode(ru.st, key)
+}
+
+// ReadSettings returns a map holding the settings of the unit with the
+// supplied name within this relation. An error will be returned if the
+// relation no longer exists, or if the unit's service is not part of the
+// relation, or the settings are invalid; but mere non-existence of the
+// unit is not grounds for an error, because the unit settings are
+// guaranteed to persist for the lifetime of the relation, regardless
+// of the lifetime of the unit.
+func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, err error) {
+	defer trivial.ErrorContextf(&err, "cannot read settings for unit %q in relation %q", uname, ru.relation)
+	key, err := ru.key(uname)
+	if err != nil {
+		return nil, err
+	}
+	if n, err := ru.st.settings.Find(D{{"_id", key}}).Count(); err != nil {
+		return nil, err
+	} else if n == 0 {
+		return nil, fmt.Errorf("not found")
+	}
+	node, err := readConfigNode(ru.st, key)
+	if err != nil {
+		return nil, err
+	}
+	return node.Map(), nil
+}
+
+// key returns a string, based on the relation and the supplied unit name,
+// which is used as a key for that unit within this relation in the settings,
+// presence, and relationRefs collections.
+func (ru *RelationUnit) key(uname string) (string, error) {
+	uparts := strings.Split(uname, "/")
+	sname := uparts[0]
+	ep, err := ru.relation.Endpoint(sname)
+	if err != nil {
+		return "", err
+	}
+	parts := []string{ru.scope, string(ep.RelationRole), uname}
+	return strings.Join(parts, "#"), nil
 }
