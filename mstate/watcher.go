@@ -79,6 +79,18 @@ type RelationsChange struct {
 	Removed []*Relation
 }
 
+type MachineUnitsWatcher struct {
+	commonWatcher
+	machine    *Machine
+	changeChan chan *ServiceUnitsChange
+	knownUnits map[string]*Unit
+}
+
+type MachineUnitsChange struct {
+	Added   []*Unit
+	Removed []*Unit
+}
+
 // newMachineWatcher creates and starts a watcher to watch information
 // about the machine.
 func newMachineWatcher(m *Machine) *MachineWatcher {
