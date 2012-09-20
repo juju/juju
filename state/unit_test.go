@@ -202,6 +202,80 @@ func (s *UnitSuite) TestGetSetClearResolved(c *C) {
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": invalid error resolution mode: 999`)
 }
 
+func (s *UnitSuite) TestGetOpenPorts(c *C) {
+	// Verify no open ports before activity.
+	open, err := s.unit.OpenPorts()
+	c.Assert(err, IsNil)
+	c.Assert(open, HasLen, 0)
+
+	// Now open and close port.
+	err = s.unit.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+	open, err = s.unit.OpenPorts()
+	c.Assert(err, IsNil)
+	c.Assert(open, DeepEquals, []state.Port{
+		{"tcp", 80},
+	})
+
+	err = s.unit.OpenPort("udp", 53)
+	c.Assert(err, IsNil)
+	open, err = s.unit.OpenPorts()
+	c.Assert(err, IsNil)
+	c.Assert(open, DeepEquals, []state.Port{
+		{"tcp", 80},
+		{"udp", 53},
+	})
+
+	err = s.unit.OpenPort("tcp", 53)
+	c.Assert(err, IsNil)
+	open, err = s.unit.OpenPorts()
+	c.Assert(err, IsNil)
+	c.Assert(open, DeepEquals, []state.Port{
+		{"tcp", 80},
+		{"udp", 53},
+		{"tcp", 53},
+	})
+
+	err = s.unit.OpenPort("tcp", 443)
+	c.Assert(err, IsNil)
+	open, err = s.unit.OpenPorts()
+	c.Assert(err, IsNil)
+	c.Assert(open, DeepEquals, []state.Port{
+		{"tcp", 80},
+		{"udp", 53},
+		{"tcp", 53},
+		{"tcp", 443},
+	})
+
+	err = s.unit.ClosePort("tcp", 80)
+	c.Assert(err, IsNil)
+	open, err = s.unit.OpenPorts()
+	c.Assert(err, IsNil)
+	c.Assert(open, DeepEquals, []state.Port{
+		{"udp", 53},
+		{"tcp", 53},
+		{"tcp", 443},
+	})
+
+	err = s.unit.ClosePort("tcp", 80)
+	c.Assert(err, IsNil)
+	open, err = s.unit.OpenPorts()
+	c.Assert(err, IsNil)
+	c.Assert(open, DeepEquals, []state.Port{
+		{"udp", 53},
+		{"tcp", 53},
+		{"tcp", 443},
+	})
+}
+
+func (s *UnitSuite) TestOpenClosePortWhenDying(c *C) {
+	testWhenDying(c, s.unit, "", notAliveErr, func() error {
+		return s.unit.OpenPort("tcp", 20)
+	}, func() error {
+		return s.unit.ClosePort("tcp", 20)
+	})
+}
+
 func (s *UnitSuite) TestSetClearResolvedWhenDying(c *C) {
 	testWhenDying(c, s.unit, notAliveErr, notAliveErr, func() error {
 		err := s.unit.SetResolved(state.ResolvedNoHooks)

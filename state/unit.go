@@ -50,8 +50,12 @@ const (
 
 // Port identifies a network port number for a particular protocol.
 type Port struct {
-	Protocol string `yaml:"proto"`
-	Number   int    `yaml:"port"`
+	Protocol string
+	Number   int
+}
+
+func (p Port) String() string {
+	return fmt.Sprintf("%s:%d", p.Protocol, p.Number)
 }
 
 // UnitSettings holds information about a service unit's settings within a
@@ -73,6 +77,7 @@ type unitDoc struct {
 	MachineId      *int
 	Resolved       ResolvedMode
 	Tools          *Tools `bson:",omitempty"`
+	Ports          []Port
 	Life           Life
 }
 
@@ -248,6 +253,61 @@ func (u *Unit) SetStatus(status UnitStatus, info string) error {
 		return fmt.Errorf("cannot set status of unit %q: %v", u, err)
 	}
 	return nil
+}
+
+// OpenPort sets the policy of the port with protocol and number to be opened.
+func (u *Unit) OpenPort(protocol string, number int) (err error) {
+	port := Port{Protocol: protocol, Number: number}
+	defer trivial.ErrorContextf(&err, "cannot open port %v for unit %q", port, u)
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: notDead,
+		Update: D{{"$addToSet", D{{"ports", port}}}},
+	}}
+	err = u.st.runner.Run(ops, "", nil)
+	if err != nil {
+		return onAbort(err, errNotAlive)
+	}
+	found := false
+	for _, p := range u.doc.Ports {
+		if p == port {
+			break
+		}
+	}
+	if !found {
+		u.doc.Ports = append(u.doc.Ports, port)
+	}
+	return nil
+}
+
+// ClosePort sets the policy of the port with protocol and number to be closed.
+func (u *Unit) ClosePort(protocol string, number int) (err error) {
+	port := Port{Protocol: protocol, Number: number}
+	defer trivial.ErrorContextf(&err, "cannot close port %v for unit %q", port, u)
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: notDead,
+		Update: D{{"$pull", D{{"ports", port}}}},
+	}}
+	err = u.st.runner.Run(ops, "", nil)
+	if err != nil {
+		return onAbort(err, errNotAlive)
+	}
+	newPorts := make([]Port, 0, len(u.doc.Ports))
+	for _, p := range u.doc.Ports {
+		if p != port {
+			newPorts = append(newPorts, p)
+		}
+	}
+	u.doc.Ports = newPorts
+	return nil
+}
+
+// OpenPorts returns a slice containing the open ports of the unit.
+func (u *Unit) OpenPorts() (openPorts []Port, err error) {
+	return append([]Port{}, u.doc.Ports...), nil
 }
 
 // Charm returns the charm this unit is currently using.
