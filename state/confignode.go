@@ -57,7 +57,8 @@ type ConfigNode struct {
 	// The difference between disk and core
 	// determines the delta to be applied when ConfigNode.Write
 	// is called.
-	core map[string]interface{}
+	core     map[string]interface{}
+	txnRevno int64
 }
 
 // NotFoundError represents the error that something is not found.
@@ -211,6 +212,7 @@ func (c *ConfigNode) Read() error {
 	if err != nil {
 		return fmt.Errorf("cannot read configuration node %q: %v", c.path, err)
 	}
+	c.txnRevno = config["txn-revno"]
 	cleanMap(config)
 	c.disk = copyMap(config)
 	c.core = copyMap(config)
