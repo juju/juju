@@ -285,59 +285,6 @@ func (s *UnitSuite) TestSetClearResolvedWhenDying(c *C) {
 	})
 }
 
-func (s *UnitSuite) TestGetSetClearUnitUpgrade(c *C) {
-	// Defaults to false and false.
-	needsUpgrade, err := s.unit.NeedsUpgrade()
-	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{false, false})
-
-	// Can be set.
-	err = s.unit.SetNeedsUpgrade(false)
-	c.Assert(err, IsNil)
-	needsUpgrade, err = s.unit.NeedsUpgrade()
-	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{true, false})
-
-	// Can be set multiple times.
-	err = s.unit.SetNeedsUpgrade(false)
-	c.Assert(err, IsNil)
-	needsUpgrade, err = s.unit.NeedsUpgrade()
-	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{true, false})
-
-	// Can be cleared.
-	err = s.unit.ClearNeedsUpgrade()
-	c.Assert(err, IsNil)
-	needsUpgrade, err = s.unit.NeedsUpgrade()
-	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{false, false})
-
-	// Can be cleared multiple times
-	err = s.unit.ClearNeedsUpgrade()
-	c.Assert(err, IsNil)
-	needsUpgrade, err = s.unit.NeedsUpgrade()
-	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{false, false})
-
-	// Can be set forced.
-	err = s.unit.SetNeedsUpgrade(true)
-	c.Assert(err, IsNil)
-	needsUpgrade, err = s.unit.NeedsUpgrade()
-	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{true, true})
-
-	// Can be set forced multiple times.
-	err = s.unit.SetNeedsUpgrade(true)
-	c.Assert(err, IsNil)
-	needsUpgrade, err = s.unit.NeedsUpgrade()
-	c.Assert(err, IsNil)
-	c.Assert(needsUpgrade, DeepEquals, &state.NeedsUpgrade{true, true})
-
-	// Can't be set multiple times with different force flag.
-	err = s.unit.SetNeedsUpgrade(false)
-	c.Assert(err, ErrorMatches, `cannot inform unit "wordpress/0" about upgrade: upgrade already enabled`)
-}
-
 func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *C) {
 	subCharm := s.AddTestingCharm(c, "logging")
 	logService, err := s.State.AddService("logging", subCharm)
