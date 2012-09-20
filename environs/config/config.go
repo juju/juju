@@ -134,6 +134,7 @@ func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
 	for k, v := range attrs {
 		m[k] = v
 	}
+	fmt.Println(m)
 	return New(m)
 }
 

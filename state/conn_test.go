@@ -81,3 +81,7 @@ func (s *ConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	c.Assert(err, IsNil)
 	return sch
 }
+
+func (s *ConnSuite) StateInfo(c *C) *state.Info {
+	return &state.Info{Addrs: []string{testing.MgoAddr}}
+}

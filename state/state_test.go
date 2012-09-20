@@ -566,16 +566,17 @@ func assertSameServices(c *C, change *state.ServicesChange, added, removed []str
 	c.Assert(got, DeepEquals, removed)
 }
 
-func (s *StateSuite) TestInitalizeWithConfig(c *C) {
+func (s *StateSuite) TestInitalize(c *C) {
 	m := map[string]interface{}{
-		"name":            "only",
 		"type":            "dummy",
-		"zookeeper":       true,
+		"name":            "lisboa",
 		"authorized-keys": "i-am-a-key",
 		"default-series":  "precise",
 		"development":     true,
 	}
-	st, err := state.Initialize(s.StateInfo(c), m)
+	cfg, err := config.New(m)
+	c.Assert(err, IsNil)
+	st, err := state.Initialize(s.StateInfo(c), cfg)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	defer st.Close()
