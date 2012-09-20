@@ -252,8 +252,6 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
 		c.Assert(err, IsNil)
 		units[i] = u
 	}
-	c.Logf("added initial units")
-	printMachines(c, s.State)
 
 	// Assign the suite's unit to a machine, then remove the service
 	// so the machine becomes available again.
@@ -266,8 +264,6 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
 	// TODO s.unit.Die
 	err = s.State.RemoveService(s.service)
 	c.Assert(err, IsNil)
-	c.Logf("removed service")
-	printMachines(c, s.State)
 
 	// Check that AssignToUnusedMachine finds the old (now unused) machine.
 	newService, err := s.State.AddService("wordpress2", s.charm)
@@ -277,9 +273,6 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
 	reusedMachine, err := newUnit.AssignToUnusedMachine()
 	c.Assert(err, IsNil)
 	c.Assert(reusedMachine.Id(), Equals, origMachine.Id())
-
-	c.Logf("assigned to old machine")
-	printMachines(c, s.State)
 
 	// Check that it fails when called again, even when there's an available machine
 	m, err := s.State.AddMachine()
@@ -291,16 +284,11 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
 	err = s.State.RemoveMachine(m.Id())
 	c.Assert(err, IsNil)
 
-	c.Logf("failed to assign again")
-	printMachines(c, s.State)
-
 	// Try to assign another unit to an unused machine
 	// and check that we can't
 	newUnit, err = newService.AddUnit()
 	c.Assert(err, IsNil)
 
-	c.Logf("added unit")
-	printMachines(c, s.State)
 	m, err = newUnit.AssignToUnusedMachine()
 	c.Assert(m, IsNil)
 	c.Assert(err, ErrorMatches, `all machines in use`)
@@ -313,16 +301,6 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
 	m, err = newUnit.AssignToUnusedMachine()
 	c.Assert(m, IsNil)
 	c.Assert(err, ErrorMatches, `all machines in use`)
-}
-
-func printMachines(c *C, st *state.State) {
-	ms, err := st.AllMachines()
-	c.Assert(err, IsNil)
-	for _, m := range ms {
-		units, err := m.Units()
-		c.Assert(err, IsNil)
-		c.Logf("machine %v: %v", m, units)
-	}
 }
 
 func (s *AssignSuite) TestAssignUnitToUnusedMachineWithChangingService(c *C) {

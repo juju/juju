@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/trivial"
 	"sort"
@@ -414,19 +413,10 @@ var (
 // - alreadyAssignedErr when the unit has already been assigned
 // - notUnusedErr when the machine already has a unit assigned (if onlyIfUnused is true)
 func (u *Unit) assignToMachine(m *Machine, onlyIfUnused bool) (err error) {
-	log.Printf("trying to assign %v to machine %v (unit life: %v)", u, m, u.Life())
-	u1, err := u.st.Unit(u.Name())
-	if err != nil {
-		log.Printf("cannot get unit: %v", err)
-	} else {
-		log.Printf("underlying unit life: %v", u1.Life())
-	}
-
 	if u.doc.MachineId != nil {
 		if *u.doc.MachineId != m.Id() {
 			return alreadyAssignedErr
 		}
-		log.Printf("unit is already assigned to correct machine")
 		return nil
 	}
 	if u.doc.Principal != "" {
@@ -454,7 +444,6 @@ func (u *Unit) assignToMachine(m *Machine, onlyIfUnused bool) (err error) {
 		Update: D{{"$addToSet", D{{"principals", u.doc.Name}}}},
 	}}
 	if err := u.st.runner.Run(ops, "", nil); err != nil {
-		log.Printf("txn fail: %v", err)
 		if err != txn.ErrAborted {
 			return err
 		}
@@ -476,7 +465,6 @@ func (u *Unit) assignToMachine(m *Machine, onlyIfUnused bool) (err error) {
 		}
 		return notUnusedErr
 	}
-	log.Printf("assignment succeeded")
 	u.doc.MachineId = &m.doc.Id
 	return nil
 }
@@ -497,14 +485,13 @@ var noUnusedMachines = errors.New("all machines in use")
 func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
 	// Select all machines with no principals except the bootstrap machine.
 	sel := D{{"principals", D{{"$size", 0}}}, {"_id", D{{"$ne", 0}}}}
-	// TODO use Batch(1) when mgo bug is fixed.
+	// TODO use Batch(1). See https://bugs.launchpad.net/mgo/+bug/1053509
 	iter := u.st.machines.Find(sel).Batch(2).Prefetch(0).Iter()
 	var mdoc machineDoc
 	for iter.Next(&mdoc) {
 		m := newMachine(u.st, &mdoc)
-		err := u.assignToMachine(m, true)
-		log.Printf("assignToMachine returned %v", err)
-		switch err {
+
+		switch err := u.assignToMachine(m, true); err {
 		case nil:
 			return m, nil
 		case notUnusedErr, machineDeadErr:
