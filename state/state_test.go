@@ -72,6 +72,8 @@ func (s *StateSuite) TestRemoveMachine(c *C) {
 	c.Assert(err, IsNil)
 	_, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
+	err = s.State.RemoveMachine(machine.Id())
+	c.Assert(err, ErrorMatches, "cannot remove machine 0: machine is not dead")
 	err = machine.Die()
 	c.Assert(err, IsNil)
 	err = s.State.RemoveMachine(machine.Id())
@@ -138,6 +140,8 @@ func (s *StateSuite) TestRemoveService(c *C) {
 	c.Assert(err, IsNil)
 
 	// Remove of existing service.
+	err = s.State.RemoveService(service)
+	c.Assert(err, ErrorMatches, `cannot remove service "wordpress": service is not dead`)
 	err = service.Die()
 	c.Assert(err, IsNil)
 	err = s.State.RemoveService(service)
@@ -145,10 +149,8 @@ func (s *StateSuite) TestRemoveService(c *C) {
 	_, err = s.State.Service("wordpress")
 	c.Assert(err, ErrorMatches, `cannot get service "wordpress": .*`)
 
-	// Remove of an invalid service, it has already been removed.
-	// BUG(aram): use error strings from state.
 	err = s.State.RemoveService(service)
-	c.Assert(err, ErrorMatches, `cannot remove service "wordpress": .*`)
+	c.Assert(err, IsNil)
 }
 
 func (s *StateSuite) TestReadNonExistentService(c *C) {

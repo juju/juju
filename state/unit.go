@@ -67,6 +67,7 @@ type unitDoc struct {
 	Service        string
 	CharmURL       *charm.URL
 	Principal      string
+	Subordinates   []string
 	PublicAddress  string
 	PrivateAddress string
 	MachineId      *int
@@ -134,9 +135,8 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 		Assert: notDead,
 		Update: D{{"$set", D{{"tools", t}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
-	if err != nil {
-		return deadOnAbort(err)
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		return onAbort(err, errNotAlive)
 	}
 	tools := *t
 	u.doc.Tools = &tools
@@ -263,12 +263,11 @@ func (u *Unit) SetCharm(ch *Charm) (err error) {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: D{{"life", D{{"$ne", Dead}}}},
+		Assert: notDead,
 		Update: D{{"$set", D{{"charmurl", ch.URL()}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
-	if err != nil {
-		return fmt.Errorf("cannot set charm for unit %q: %v", u, deadOnAbort(err))
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set charm for unit %q: %v", u, onAbort(err, errNotAlive))
 	}
 	u.doc.CharmURL = ch.URL()
 	return nil
@@ -354,51 +353,57 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: assert,
-		Update: D{{"$set", D{{"machineid", m.Id()}}}},
+		Update: D{{"$set", D{{"machineid", m.doc.Id}}}},
 	}, {
 		C:      u.st.machines.Name,
-		Id:     m.Id(),
+		Id:     m.doc.Id,
 		Assert: isAlive,
+		Update: D{{"$addToSet", D{{"principals", u.doc.Name}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
-	if err == nil {
-		u.doc.MachineId = &m.doc.Id
-		return nil
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		return onAbort(err, fmt.Errorf("machine or unit dead, or already assigned to machine"))
 	}
-	if err == txn.ErrAborted {
-		return fmt.Errorf("machine or unit dead, or already assigned to machine")
-	}
-	return err
+	u.doc.MachineId = &m.doc.Id
+	return nil
 }
 
 // UnassignFromMachine removes the assignment between this unit and the
 // machine it's assigned to.
 func (u *Unit) UnassignFromMachine() (err error) {
+	// TODO check local machine id and add an assert that the
+	// machine id is as expected.
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: txn.DocExists,
 		Update: D{{"$set", D{{"machineid", nil}}}},
 	}}
+	if u.doc.MachineId != nil {
+		ops = append(ops, txn.Op{
+			C:      u.st.machines.Name,
+			Id:     u.doc.MachineId,
+			Assert: txn.DocExists,
+			Update: D{{"$pull", D{{"principals", u.doc.Name}}}},
+		})
+	}
 	err = u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, deadOnAbort(err))
+		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, &NotFoundError{"machine"}))
 	}
 	u.doc.MachineId = nil
 	return nil
 }
 
 // SetPublicAddress sets the public address of the unit.
-func (u *Unit) SetPublicAddress(address string) error {
+func (u *Unit) SetPublicAddress(address string) (err error) {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: txn.DocExists,
 		Update: D{{"$set", D{{"publicaddress", address}}}},
 	}}
-	err := u.st.runner.Run(ops, "", nil)
-	if err != nil {
-		return fmt.Errorf("cannot set public address of unit %q: %v", u, deadOnAbort(err))
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, &NotFoundError{"machine"}))
 	}
 	u.doc.PublicAddress = address
 	return nil
@@ -414,7 +419,7 @@ func (u *Unit) SetPrivateAddress(address string) error {
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot set private address of unit %q: %v", u, deadOnAbort(err))
+		return fmt.Errorf("cannot set private address of unit %q: %v", u, &NotFoundError{"unit"})
 	}
 	u.doc.PrivateAddress = address
 	return nil
@@ -430,17 +435,26 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	if !(0 <= mode && mode < nResolvedModes) {
 		return fmt.Errorf("invalid error resolution mode: %v", mode)
 	}
+	assert := append(isAlive, D{{"resolved", ResolvedNone}}...)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: D{{"resolved", ResolvedNone}},
+		Assert: assert,
 		Update: D{{"$set", D{{"resolved", mode}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
-		return errors.New("flag already set")
-	}
-	if err != nil {
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		if err == txn.ErrAborted {
+			// Find which assertion failed so we can give a
+			// more specific error.
+			u1, err := u.st.Unit(u.Name())
+			if err != nil {
+				return err
+			}
+			if u1.Life() != Alive {
+				return errNotAlive
+			}
+			return fmt.Errorf("already resolved")
+		}
 		return err
 	}
 	u.doc.Resolved = mode
@@ -457,7 +471,7 @@ func (u *Unit) ClearResolved() error {
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, deadOnAbort(err))
+		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, &NotFoundError{"unit"})
 	}
 	u.doc.Resolved = ResolvedNone
 	return nil

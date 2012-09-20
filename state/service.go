@@ -81,16 +81,15 @@ func (s *Service) ClearExposed() error {
 	return s.setExposed(false)
 }
 
-func (s *Service) setExposed(exposed bool) error {
+func (s *Service) setExposed(exposed bool) (err error) {
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
 		Assert: isAlive,
 		Update: D{{"$set", D{{"exposed", exposed}}}},
 	}}
-	err := s.st.runner.Run(ops, "", nil)
-	if err != nil {
-		return fmt.Errorf("cannot set exposed flag for service %q to %v: %v", s, exposed, deadOnAbort(err))
+	if err := s.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set exposed flag for service %q to %v: %v", s, exposed, onAbort(err, errNotAlive))
 	}
 	s.doc.Exposed = exposed
 	return nil
@@ -116,9 +115,8 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 		Assert: isAlive,
 		Update: D{{"$set", D{{"charmurl", ch.URL()}, {"forcecharm", force}}}},
 	}}
-	err = s.st.runner.Run(ops, "", nil)
-	if err != nil {
-		return fmt.Errorf("cannot set charm for service %q: %v", s, deadOnAbort(err))
+	if err := s.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set charm for service %q: %v", s, onAbort(err, errNotAlive))
 	}
 	s.doc.CharmURL = ch.URL()
 	s.doc.ForceCharm = force
@@ -173,6 +171,7 @@ func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
 			C:      s.st.units.Name,
 			Id:     principal.Name(),
 			Assert: isAlive,
+			Update: D{{"$addToSet", D{{"subordinates", name}}}},
 		})
 	}
 	err := s.st.runner.Run(ops, "", nil)
@@ -237,15 +236,32 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 	if u.doc.Service != s.doc.Name {
 		return fmt.Errorf("unit is not assigned to service %q", s)
 	}
+	if u.doc.MachineId != nil {
+		err = u.UnassignFromMachine()
+		if err != nil {
+			return err
+		}
+	}
 	ops := []txn.Op{{
 		C:      s.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: D{{"life", Dead}},
 		Remove: true,
 	}}
+	if u.doc.Principal != "" {
+		ops = append(ops, txn.Op{
+			C:      s.st.units.Name,
+			Id:     u.doc.Principal,
+			Assert: txn.DocExists,
+			Update: D{{"$pull", D{{"subordinates", u.doc.Name}}}},
+		})
+	}
+	// TODO assert that subordinates are empty before deleting
+	// a principal
 	err = s.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return deadOnAbort(err)
+		// If aborted, the unit is either dead or recreated.
+		return onAbort(err, nil)
 	}
 	return nil
 }
@@ -277,7 +293,7 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 	docs := []unitDoc{}
 	err = s.st.units.Find(D{{"service", s.doc.Name}}).All(&docs)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get all units from service %q: %v", err)
+		return nil, fmt.Errorf("cannot get all units from service %q: %v", s, err)
 	}
 	for i := range docs {
 		units = append(units, newUnit(s.st, &docs[i]))
