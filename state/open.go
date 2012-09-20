@@ -17,11 +17,11 @@ import (
 // servers holding juju state and can be used to make a
 // connection to that cluster.
 type Info struct {
-	// Addrs gives the addresses of the MongoDB servers for the state. 
+	// Addrs gives the addresses of the MongoDB servers for the state.
 	// Each address should be in the form address:port.
 	Addrs []string
 
-	// UseSSH specifies whether MongoDB should be contacted through an 
+	// UseSSH specifies whether MongoDB should be contacted through an
 	// SSH tunnel.
 	UseSSH bool
 }
@@ -104,15 +104,16 @@ func newState(session *mgo.Session, fwd *sshForwarder) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	st := &State{
-		db:        db,
-		charms:    db.C("charms"),
-		machines:  db.C("machines"),
-		relations: db.C("relations"),
-		services:  db.C("services"),
-		settings:  db.C("settings"),
-		units:     db.C("units"),
-		presence:  pdb.C("presence"),
-		fwd:       fwd,
+		db:             db,
+		charms:         db.C("charms"),
+		machines:       db.C("machines"),
+		relations:      db.C("relations"),
+		relationScopes: db.C("relationscopes"),
+		services:       db.C("services"),
+		settings:       db.C("settings"),
+		units:          db.C("units"),
+		presence:       pdb.C("presence"),
+		fwd:            fwd,
 	}
 	log := db.C("txns.log")
 	info := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}

@@ -190,19 +190,33 @@ func (s *ServiceSuite) TestReadUnit(c *C) {
 	c.Assert(err, IsNil)
 	_, err = s.service.AddUnit()
 	c.Assert(err, IsNil)
-	// Check that retrieving a unit works correctly.
+
+	// Check that retrieving a unit from the service works correctly.
 	unit, err := s.service.Unit("mysql/0")
+	c.Assert(err, IsNil)
+	c.Assert(unit.Name(), Equals, "mysql/0")
+
+	// Check that retrieving a unit from state works correctly.
+	unit, err = s.State.Unit("mysql/0")
 	c.Assert(err, IsNil)
 	c.Assert(unit.Name(), Equals, "mysql/0")
 
 	// Check that retrieving a non-existent or an invalidly
 	// named unit fail nicely.
 	unit, err = s.service.Unit("mysql")
-	c.Assert(err, ErrorMatches, `cannot get unit "mysql" from service "mysql":.*`)
+	c.Assert(err, ErrorMatches, `"mysql" is not a valid unit name`)
 	unit, err = s.service.Unit("mysql/0/0")
-	c.Assert(err, ErrorMatches, `cannot get unit "mysql/0/0" from service "mysql": .*`)
+	c.Assert(err, ErrorMatches, `"mysql/0/0" is not a valid unit name`)
 	unit, err = s.service.Unit("pressword/0")
 	c.Assert(err, ErrorMatches, `cannot get unit "pressword/0" from service "mysql": .*`)
+
+	// Check direct state retrieval also fails nicely.
+	unit, err = s.State.Unit("mysql")
+	c.Assert(err, ErrorMatches, `"mysql" is not a valid unit name`)
+	unit, err = s.State.Unit("mysql/0/0")
+	c.Assert(err, ErrorMatches, `"mysql/0/0" is not a valid unit name`)
+	unit, err = s.State.Unit("pressword/0")
+	c.Assert(err, ErrorMatches, `cannot get unit "pressword/0": not found`)
 
 	// Add another service to check units are not misattributed.
 	mysql, err := s.State.AddService("wordpress", s.charm)
@@ -250,6 +264,8 @@ func (s *ServiceSuite) TestRemoveUnit(c *C) {
 	// Check that removing a unit works.
 	unit, err := s.service.Unit("mysql/0")
 	c.Assert(err, IsNil)
+	err = s.service.RemoveUnit(unit)
+	c.Assert(err, ErrorMatches, `cannot remove unit "mysql/0": unit is not dead`)
 	err = unit.Die()
 	c.Assert(err, IsNil)
 	err = s.service.RemoveUnit(unit)
@@ -260,17 +276,16 @@ func (s *ServiceSuite) TestRemoveUnit(c *C) {
 	c.Assert(units, HasLen, 1)
 	c.Assert(units[0].Name(), Equals, "mysql/1")
 
-	// Check that removing a non-existent unit fails nicely.
-	// TODO(aram): improve error message.
-	// BUG(aram): use error strings from state.
 	err = s.service.RemoveUnit(unit)
-	c.Assert(err, ErrorMatches, `cannot remove unit "mysql/0": .*`)
+	c.Assert(err, IsNil)
 }
 
 func (s *ServiceSuite) TestReadUnitWithChangingState(c *C) {
 	// Check that reading a unit after removing the service
 	// fails nicely.
-	err := s.service.Die()
+	err := s.State.RemoveService(s.service)
+	c.Assert(err, ErrorMatches, `cannot remove service "mysql": service is not dead`)
+	err = s.service.Die()
 	c.Assert(err, IsNil)
 	err = s.State.RemoveService(s.service)
 	c.Assert(err, IsNil)

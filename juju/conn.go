@@ -4,12 +4,6 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
-	"regexp"
-)
-
-var (
-	ValidService = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
-	ValidUnit    = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
 )
 
 // Conn holds a connection to a juju environment and its

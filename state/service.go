@@ -81,16 +81,15 @@ func (s *Service) ClearExposed() error {
 	return s.setExposed(false)
 }
 
-func (s *Service) setExposed(exposed bool) error {
+func (s *Service) setExposed(exposed bool) (err error) {
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
 		Assert: isAlive,
 		Update: D{{"$set", D{{"exposed", exposed}}}},
 	}}
-	err := s.st.runner.Run(ops, "", nil)
-	if err != nil {
-		return fmt.Errorf("cannot set exposed flag for service %q to %v: %v", s, exposed, deadOnAbort(err))
+	if err := s.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set exposed flag for service %q to %v: %v", s, exposed, onAbort(err, errNotAlive))
 	}
 	s.doc.Exposed = exposed
 	return nil
@@ -116,9 +115,8 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 		Assert: isAlive,
 		Update: D{{"$set", D{{"charmurl", ch.URL()}, {"forcecharm", force}}}},
 	}}
-	err = s.st.runner.Run(ops, "", nil)
-	if err != nil {
-		return fmt.Errorf("cannot set charm for service %q: %v", s, deadOnAbort(err))
+	if err := s.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set charm for service %q: %v", s, onAbort(err, errNotAlive))
 	}
 	s.doc.CharmURL = ch.URL()
 	s.doc.ForceCharm = force
@@ -258,9 +256,12 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 			Update: D{{"$pull", D{{"subordinates", u.doc.Name}}}},
 		})
 	}
+	// TODO assert that subordinates are empty before deleting
+	// a principal
 	err = s.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return deadOnAbort(err)
+		// If aborted, the unit is either dead or recreated.
+		return onAbort(err, nil)
 	}
 	return nil
 }
@@ -280,6 +281,9 @@ func (s *Service) unitDoc(name string) (*unitDoc, error) {
 
 // Unit returns the service's unit with name.
 func (s *Service) Unit(name string) (*Unit, error) {
+	if !IsUnitName(name) {
+		return nil, fmt.Errorf("%q is not a valid unit name", name)
+	}
 	udoc, err := s.unitDoc(name)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get unit %q from service %q: %v", name, s.doc.Name, err)

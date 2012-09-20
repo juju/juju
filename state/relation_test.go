@@ -5,7 +5,9 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
+	"sort"
 	"strings"
+	"time"
 )
 
 type RelationSuite struct {
@@ -82,18 +84,21 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	_, err = s.State.AddRelation(proep, reqep)
 	c.Assert(err, ErrorMatches, `cannot add relation "pro:foo req:bar": .*`)
 
+	err = s.State.RemoveRelation(rel)
+	c.Assert(err, ErrorMatches, `cannot remove relation "pro:foo req:bar": relation is not dead`)
+
 	testWhenDying(c, rel, noErr, noErr, func() error {
 		assertOneRelation(c, pro, 0, proep, reqep)
 		assertOneRelation(c, req, 0, reqep, proep)
 		return nil
 	})
 
-	// Remove the relation, and check it can't be removed again.
+	// Remove the relation, and check it's ok to remove again.
 	err = s.State.RemoveRelation(rel)
 	c.Assert(err, IsNil)
 
 	err = s.State.RemoveRelation(rel)
-	c.Assert(err, ErrorMatches, `cannot remove relation "pro:foo req:bar": .*`)
+	c.Assert(err, IsNil)
 
 	// Check that we can add it again if we want to; but this time,
 	// give one of the endpoints container scope and check that both
@@ -128,7 +133,7 @@ func (s *RelationSuite) TestPeerRelation(c *C) {
 	c.Assert(err, IsNil)
 	assertNoRelations(c, peer)
 	err = s.State.RemoveRelation(rel)
-	c.Assert(err, ErrorMatches, `cannot remove relation "peer:baz": .*`)
+	c.Assert(err, IsNil)
 }
 
 func (s *RelationSuite) TestRemoveServiceRemovesRelations(c *C) {
@@ -145,39 +150,6 @@ func (s *RelationSuite) TestRemoveServiceRemovesRelations(c *C) {
 	c.Assert(err, ErrorMatches, `cannot get service "peer": not found`)
 	_, err = s.State.Relation(peerep)
 	c.Assert(err, ErrorMatches, `cannot get relation "peer:baz": not found`)
-}
-
-func (s *RelationSuite) TestLifecycle(c *C) {
-	peer, err := s.State.AddService("peer", s.charm)
-	c.Assert(err, IsNil)
-	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
-	assertNoRelations(c, peer)
-
-	rel, err := s.State.AddRelation(peerep)
-	c.Assert(err, IsNil)
-	life := rel.Life()
-	c.Assert(life, Equals, state.Alive)
-
-	// Check legal next state.
-	err = rel.Kill()
-	c.Assert(err, IsNil)
-	life = rel.Life()
-	c.Assert(life, Equals, state.Dying)
-
-	// Check legal repeated state setting.
-	err = rel.Kill()
-	c.Assert(err, IsNil)
-	life = rel.Life()
-	c.Assert(life, Equals, state.Dying)
-
-	// Check non-dead removal.
-	c.Assert(func() { s.State.RemoveRelation(rel) }, PanicMatches, `relation .* is not dead`)
-
-	// Check final state.
-	err = rel.Die()
-	c.Assert(err, IsNil)
-	life = rel.Life()
-	c.Assert(life, Equals, state.Dead)
 }
 
 func assertNoRelations(c *C, srv *state.Service) {
@@ -297,9 +269,219 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 	}
 }
 
+func (s *RelationUnitSuite) TestPeerWatchScope(c *C) {
+	pr := NewPeerRelation(c, &s.ConnSuite)
+
+	// Test empty initial event.
+	w0 := pr.ru0.WatchScope()
+	defer stop(c, w0)
+	s.assertScopeChange(c, w0, nil, nil)
+	s.assertNoScopeChange(c, w0)
+
+	// ru0 enters; check no change, but private-address written.
+	err := pr.ru0.EnterScope()
+	c.Assert(err, IsNil)
+	s.assertNoScopeChange(c, w0)
+	node, err := pr.ru0.Settings()
+	c.Assert(err, IsNil)
+	c.Assert(node.Map(), DeepEquals, map[string]interface{}{"private-address": "peer-0.example.com"})
+
+	// ru1 enters; check change is observed.
+	err = pr.ru1.EnterScope()
+	c.Assert(err, IsNil)
+	s.assertScopeChange(c, w0, []string{"peer/1"}, nil)
+	s.assertNoScopeChange(c, w0)
+
+	// ru1 enters again, check no problems and no changes.
+	err = pr.ru1.EnterScope()
+	c.Assert(err, IsNil)
+	s.assertNoScopeChange(c, w0)
+
+	// Stop watching; ru2 enters.
+	stop(c, w0)
+	err = pr.ru2.EnterScope()
+	c.Assert(err, IsNil)
+
+	// Start watch again, check initial event.
+	w0 = pr.ru0.WatchScope()
+	defer stop(c, w0)
+	s.assertScopeChange(c, w0, []string{"peer/1", "peer/2"}, nil)
+	s.assertNoScopeChange(c, w0)
+
+	// ru1 leaves; check event.
+	err = pr.ru1.LeaveScope()
+	c.Assert(err, IsNil)
+	s.assertScopeChange(c, w0, nil, []string{"peer/1"})
+	s.assertNoScopeChange(c, w0)
+
+	// ru1 leaves again; check no problems and no changes.
+	err = pr.ru1.LeaveScope()
+	c.Assert(err, IsNil)
+	s.assertNoScopeChange(c, w0)
+}
+
+func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
+	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+
+	// Test empty initial events for all RUs.
+	ws := prr.watches()
+	for _, w := range ws {
+		defer stop(c, w)
+	}
+	for _, w := range ws {
+		s.assertScopeChange(c, w, nil, nil)
+	}
+	s.assertNoScopeChange(c, ws...)
+
+	// pru0 enters; check detected only by req RUs.
+	err := prr.pru0.EnterScope()
+	c.Assert(err, IsNil)
+	rws := func() []*state.RelationScopeWatcher {
+		return []*state.RelationScopeWatcher{ws[2], ws[3]}
+	}
+	for _, w := range rws() {
+		s.assertScopeChange(c, w, []string{"pro/0"}, nil)
+	}
+	s.assertNoScopeChange(c, ws...)
+
+	// req0 enters; check detected only by pro RUs.
+	err = prr.rru0.EnterScope()
+	c.Assert(err, IsNil)
+	pws := func() []*state.RelationScopeWatcher {
+		return []*state.RelationScopeWatcher{ws[0], ws[1]}
+	}
+	for _, w := range pws() {
+		s.assertScopeChange(c, w, []string{"req/0"}, nil)
+	}
+	s.assertNoScopeChange(c, ws...)
+
+	// Stop watches; remaining RUs enter.
+	for _, w := range ws {
+		stop(c, w)
+	}
+	err = prr.pru1.EnterScope()
+	c.Assert(err, IsNil)
+	err = prr.rru1.EnterScope()
+	c.Assert(err, IsNil)
+
+	// Start new watches, check initial events.
+	ws = prr.watches()
+	for _, w := range ws {
+		defer stop(c, w)
+	}
+	for _, w := range pws() {
+		s.assertScopeChange(c, w, []string{"req/0", "req/1"}, nil)
+	}
+	for _, w := range rws() {
+		s.assertScopeChange(c, w, []string{"pro/0", "pro/1"}, nil)
+	}
+	s.assertNoScopeChange(c, ws...)
+
+	// pru0 leaves; check detected only by req RUs.
+	err = prr.pru0.LeaveScope()
+	c.Assert(err, IsNil)
+	for _, w := range rws() {
+		s.assertScopeChange(c, w, nil, []string{"pro/0"})
+	}
+	s.assertNoScopeChange(c, ws...)
+
+	// rru0 leaves; check detected only by pro RUs.
+	err = prr.rru0.LeaveScope()
+	c.Assert(err, IsNil)
+	for _, w := range pws() {
+		s.assertScopeChange(c, w, nil, []string{"req/0"})
+	}
+	s.assertNoScopeChange(c, ws...)
+}
+
+func (s *RelationUnitSuite) TestContainerWatchScope(c *C) {
+	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+
+	// Test empty initial events for all RUs.
+	ws := prr.watches()
+	for _, w := range ws {
+		defer stop(c, w)
+	}
+	for _, w := range ws {
+		s.assertScopeChange(c, w, nil, nil)
+	}
+	s.assertNoScopeChange(c, ws...)
+
+	// pru0 enters; check detected only by same-container req.
+	err := prr.pru0.EnterScope()
+	c.Assert(err, IsNil)
+	s.assertScopeChange(c, ws[2], []string{"pro/0"}, nil)
+	s.assertNoScopeChange(c, ws...)
+
+	// req1 enters; check detected only by same-container pro.
+	err = prr.rru1.EnterScope()
+	c.Assert(err, IsNil)
+	s.assertScopeChange(c, ws[1], []string{"req/1"}, nil)
+	s.assertNoScopeChange(c, ws...)
+
+	// Stop watches; remaining RUs enter scope.
+	for _, w := range ws {
+		stop(c, w)
+	}
+	err = prr.pru1.EnterScope()
+	c.Assert(err, IsNil)
+	err = prr.rru0.EnterScope()
+	c.Assert(err, IsNil)
+
+	// Start new watches, check initial events.
+	ws = prr.watches()
+	for _, w := range ws {
+		defer stop(c, w)
+	}
+	s.assertScopeChange(c, ws[0], []string{"req/0"}, nil)
+	s.assertScopeChange(c, ws[1], []string{"req/1"}, nil)
+	s.assertScopeChange(c, ws[2], []string{"pro/0"}, nil)
+	s.assertScopeChange(c, ws[3], []string{"pro/1"}, nil)
+	s.assertNoScopeChange(c, ws...)
+
+	// pru0 leaves; check detected only by same-container req.
+	err = prr.pru0.LeaveScope()
+	c.Assert(err, IsNil)
+	s.assertScopeChange(c, ws[2], nil, []string{"pro/0"})
+	s.assertNoScopeChange(c, ws...)
+
+	// rru0 leaves; check detected only by same-container pro.
+	err = prr.rru0.LeaveScope()
+	c.Assert(err, IsNil)
+	s.assertScopeChange(c, ws[0], nil, []string{"req/0"})
+	s.assertNoScopeChange(c, ws...)
+}
+
+func (s *RelationUnitSuite) assertScopeChange(c *C, w *state.RelationScopeWatcher, entered, left []string) {
+	s.State.StartSync()
+	select {
+	case ch, ok := <-w.Changes():
+		c.Assert(ok, Equals, true)
+		sort.Strings(entered)
+		sort.Strings(ch.Entered)
+		c.Assert(ch.Entered, DeepEquals, entered)
+		sort.Strings(left)
+		sort.Strings(ch.Left)
+		c.Assert(ch.Left, DeepEquals, left)
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("no change")
+	}
+}
+
+func (s *RelationUnitSuite) assertNoScopeChange(c *C, ws ...*state.RelationScopeWatcher) {
+	s.State.StartSync()
+	for _, w := range ws {
+		select {
+		case ch, ok := <-w.Changes():
+			c.Fatalf("got unwanted change: %#v, %t", ch, ok)
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+}
+
 type PeerRelation struct {
-	u0, u1   *state.Unit
-	ru0, ru1 *state.RelationUnit
+	u0, u1, u2    *state.Unit
+	ru0, ru1, ru2 *state.RelationUnit
 }
 
 func NewPeerRelation(c *C, s *ConnSuite) *PeerRelation {
@@ -312,6 +494,7 @@ func NewPeerRelation(c *C, s *ConnSuite) *PeerRelation {
 	pr := &PeerRelation{}
 	pr.u0, pr.ru0 = addRU(c, svc, rel, nil)
 	pr.u1, pr.ru1 = addRU(c, svc, rel, nil)
+	pr.u2, pr.ru2 = addRU(c, svc, rel, nil)
 	return pr
 }
 
@@ -346,22 +529,100 @@ func NewProReqRelation(c *C, s *ConnSuite, scope charm.RelationScope) *ProReqRel
 	return prr
 }
 
+func (prr *ProReqRelation) watches() []*state.RelationScopeWatcher {
+	return []*state.RelationScopeWatcher{
+		prr.pru0.WatchScope(), prr.pru1.WatchScope(),
+		prr.rru0.WatchScope(), prr.rru1.WatchScope(),
+	}
+}
+
 func addRU(c *C, svc *state.Service, rel *state.Relation, principal *state.Unit) (*state.Unit, *state.RelationUnit) {
 	var u *state.Unit
 	var err error
 	if principal == nil {
 		u, err = svc.AddUnit()
-		c.Assert(err, IsNil)
-		addr := fmt.Sprintf("%s.example.com", strings.Replace(u.Name(), "/", "-", 1))
-		err = u.SetPrivateAddress(addr)
-		c.Assert(err, IsNil)
 	} else {
 		u, err = svc.AddUnitSubordinateTo(principal)
-		c.Assert(err, IsNil)
 	}
+	c.Assert(err, IsNil)
+	addr := fmt.Sprintf("%s.example.com", strings.Replace(u.Name(), "/", "-", 1))
+	err = u.SetPrivateAddress(addr)
+	c.Assert(err, IsNil)
 	ru, err := rel.Unit(u)
 	c.Assert(err, IsNil)
 	return u, ru
 }
 
 type RUs []*state.RelationUnit
+
+type stopper interface {
+	Stop() error
+}
+
+func stop(c *C, s stopper) {
+	c.Assert(s.Stop(), IsNil)
+}
+
+type OriginalRelationUnitSuite struct {
+	ConnSuite
+	charm *state.Charm
+}
+
+var _ = Suite(&OriginalRelationUnitSuite{})
+
+func (s *OriginalRelationUnitSuite) SetUpTest(c *C) {
+	s.ConnSuite.SetUpTest(c)
+	s.charm = s.AddTestingCharm(c, "dummy")
+}
+
+func (s *OriginalRelationUnitSuite) TestRelationUnitReadSettings(c *C) {
+	// Create a peer service with a relation and two units.
+	peer, err := s.State.AddService("peer", s.charm)
+	c.Assert(err, IsNil)
+	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
+	rel, err := s.State.AddRelation(peerep)
+	c.Assert(err, IsNil)
+	u0, err := peer.AddUnit()
+	c.Assert(err, IsNil)
+	ru0, err := rel.Unit(u0)
+	c.Assert(err, IsNil)
+	u1, err := peer.AddUnit()
+	c.Assert(err, IsNil)
+	ru1, err := rel.Unit(u1)
+	c.Assert(err, IsNil)
+
+	// Check various errors.
+	_, err = ru0.ReadSettings("nonsense")
+	c.Assert(err, ErrorMatches, `cannot read settings for unit "nonsense" in relation "peer:baz": "nonsense" is not a valid unit name`)
+	_, err = ru0.ReadSettings("unknown/0")
+	c.Assert(err, ErrorMatches, `cannot read settings for unit "unknown/0" in relation "peer:baz": service "unknown" is not a member of "peer:baz"`)
+	_, err = ru0.ReadSettings("peer/pressure")
+	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/pressure" in relation "peer:baz": "peer/pressure" is not a valid unit name`)
+	_, err = ru0.ReadSettings("peer/1")
+	c.Assert(err, ErrorMatches, `cannot read settings for unit "peer/1" in relation "peer:baz": not found`)
+
+	// Put some valid settings in ru1, and check they are now accessible to
+	// both RelationUnits.
+	node, err := ru1.Settings()
+	c.Assert(err, IsNil)
+	node.Set("catchphrase", "eat my shorts")
+	_, err = node.Write()
+	c.Assert(err, IsNil)
+	assertSettings := func(ru *state.RelationUnit, expect map[string]interface{}) {
+		settings, err := ru.ReadSettings("peer/1")
+		c.Assert(err, IsNil)
+		c.Assert(settings, DeepEquals, expect)
+	}
+	assertSettings(ru0, map[string]interface{}{"catchphrase": "eat my shorts"})
+	assertSettings(ru1, map[string]interface{}{"catchphrase": "eat my shorts"})
+
+	// Delete the settings content, but not the node, and check that they
+	// are still accessible without error.
+	node.Delete("catchphrase")
+	_, err = node.Write()
+	c.Assert(err, IsNil)
+	assertSettings(ru0, map[string]interface{}{})
+	assertSettings(ru1, map[string]interface{}{})
+
+	// TODO(fwer) handle relation removal
+}

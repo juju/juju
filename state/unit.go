@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/trivial"
+	"sort"
 	"strings"
 	"time"
 )
@@ -49,8 +50,12 @@ const (
 
 // Port identifies a network port number for a particular protocol.
 type Port struct {
-	Protocol string `yaml:"proto"`
-	Number   int    `yaml:"port"`
+	Protocol string
+	Number   int
+}
+
+func (p Port) String() string {
+	return fmt.Sprintf("%s:%d", p.Protocol, p.Number)
 }
 
 // UnitSettings holds information about a service unit's settings within a
@@ -72,6 +77,7 @@ type unitDoc struct {
 	MachineId      *int
 	Resolved       ResolvedMode
 	Tools          *Tools `bson:",omitempty"`
+	Ports          []Port
 	Life           Life
 }
 
@@ -134,9 +140,8 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 		Assert: notDead,
 		Update: D{{"$set", D{{"tools", t}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
-	if err != nil {
-		return deadOnAbort(err)
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		return onAbort(err, errNotAlive)
 	}
 	tools := *t
 	u.doc.Tools = &tools
@@ -250,6 +255,61 @@ func (u *Unit) SetStatus(status UnitStatus, info string) error {
 	return nil
 }
 
+// OpenPort sets the policy of the port with protocol and number to be opened.
+func (u *Unit) OpenPort(protocol string, number int) (err error) {
+	port := Port{Protocol: protocol, Number: number}
+	defer trivial.ErrorContextf(&err, "cannot open port %v for unit %q", port, u)
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: notDead,
+		Update: D{{"$addToSet", D{{"ports", port}}}},
+	}}
+	err = u.st.runner.Run(ops, "", nil)
+	if err != nil {
+		return onAbort(err, errNotAlive)
+	}
+	found := false
+	for _, p := range u.doc.Ports {
+		if p == port {
+			break
+		}
+	}
+	if !found {
+		u.doc.Ports = append(u.doc.Ports, port)
+	}
+	return nil
+}
+
+// ClosePort sets the policy of the port with protocol and number to be closed.
+func (u *Unit) ClosePort(protocol string, number int) (err error) {
+	port := Port{Protocol: protocol, Number: number}
+	defer trivial.ErrorContextf(&err, "cannot close port %v for unit %q", port, u)
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: notDead,
+		Update: D{{"$pull", D{{"ports", port}}}},
+	}}
+	err = u.st.runner.Run(ops, "", nil)
+	if err != nil {
+		return onAbort(err, errNotAlive)
+	}
+	newPorts := make([]Port, 0, len(u.doc.Ports))
+	for _, p := range u.doc.Ports {
+		if p != port {
+			newPorts = append(newPorts, p)
+		}
+	}
+	u.doc.Ports = newPorts
+	return nil
+}
+
+// OpenPorts returns a slice containing the open ports of the unit.
+func (u *Unit) OpenPorts() (openPorts []Port, err error) {
+	return append([]Port{}, u.doc.Ports...), nil
+}
+
 // Charm returns the charm this unit is currently using.
 func (u *Unit) Charm() (ch *Charm, err error) {
 	if u.doc.CharmURL == nil {
@@ -263,12 +323,11 @@ func (u *Unit) SetCharm(ch *Charm) (err error) {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: D{{"life", D{{"$ne", Dead}}}},
+		Assert: notDead,
 		Update: D{{"$set", D{{"charmurl", ch.URL()}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
-	if err != nil {
-		return fmt.Errorf("cannot set charm for unit %q: %v", u, deadOnAbort(err))
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set charm for unit %q: %v", u, onAbort(err, errNotAlive))
 	}
 	u.doc.CharmURL = ch.URL()
 	return nil
@@ -361,20 +420,18 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 		Assert: isAlive,
 		Update: D{{"$addToSet", D{{"principals", u.doc.Name}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
-	if err == nil {
-		u.doc.MachineId = &m.doc.Id
-		return nil
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		return onAbort(err, fmt.Errorf("machine or unit dead, or already assigned to machine"))
 	}
-	if err == txn.ErrAborted {
-		return fmt.Errorf("machine or unit dead, or already assigned to machine")
-	}
-	return err
+	u.doc.MachineId = &m.doc.Id
+	return nil
 }
 
 // UnassignFromMachine removes the assignment between this unit and the
 // machine it's assigned to.
 func (u *Unit) UnassignFromMachine() (err error) {
+	// TODO check local machine id and add an assert that the
+	// machine id is as expected.
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
@@ -391,23 +448,22 @@ func (u *Unit) UnassignFromMachine() (err error) {
 	}
 	err = u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, deadOnAbort(err))
+		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, &NotFoundError{"machine"}))
 	}
 	u.doc.MachineId = nil
 	return nil
 }
 
 // SetPublicAddress sets the public address of the unit.
-func (u *Unit) SetPublicAddress(address string) error {
+func (u *Unit) SetPublicAddress(address string) (err error) {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: txn.DocExists,
 		Update: D{{"$set", D{{"publicaddress", address}}}},
 	}}
-	err := u.st.runner.Run(ops, "", nil)
-	if err != nil {
-		return fmt.Errorf("cannot set public address of unit %q: %v", u, deadOnAbort(err))
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, &NotFoundError{"machine"}))
 	}
 	u.doc.PublicAddress = address
 	return nil
@@ -423,7 +479,7 @@ func (u *Unit) SetPrivateAddress(address string) error {
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot set private address of unit %q: %v", u, deadOnAbort(err))
+		return fmt.Errorf("cannot set private address of unit %q: %v", u, &NotFoundError{"unit"})
 	}
 	u.doc.PrivateAddress = address
 	return nil
@@ -439,17 +495,26 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	if !(0 <= mode && mode < nResolvedModes) {
 		return fmt.Errorf("invalid error resolution mode: %v", mode)
 	}
+	assert := append(isAlive, D{{"resolved", ResolvedNone}}...)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: D{{"resolved", ResolvedNone}},
+		Assert: assert,
 		Update: D{{"$set", D{{"resolved", mode}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
-		return errors.New("flag already set")
-	}
-	if err != nil {
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		if err == txn.ErrAborted {
+			// Find which assertion failed so we can give a
+			// more specific error.
+			u1, err := u.st.Unit(u.Name())
+			if err != nil {
+				return err
+			}
+			if u1.Life() != Alive {
+				return errNotAlive
+			}
+			return fmt.Errorf("already resolved")
+		}
 		return err
 	}
 	u.doc.Resolved = mode
@@ -466,7 +531,7 @@ func (u *Unit) ClearResolved() error {
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, deadOnAbort(err))
+		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, &NotFoundError{"unit"})
 	}
 	u.doc.Resolved = ResolvedNone
 	return nil
@@ -479,4 +544,23 @@ func (u *Unit) Config() (config *ConfigNode, err error) {
 		return nil, fmt.Errorf("cannot get configuration of unit %q: %v", u, err)
 	}
 	return config, nil
+}
+
+type portSlice []Port
+
+func (p portSlice) Len() int      { return len(p) }
+func (p portSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
+func (p portSlice) Less(i, j int) bool {
+	p1 := p[i]
+	p2 := p[j]
+	if p1.Protocol != p2.Protocol {
+		return p1.Protocol < p2.Protocol
+	}
+	return p1.Number < p2.Number
+}
+
+// SortPorts sorts the given ports, first by protocol,
+// then by number.
+func SortPorts(ports []Port) {
+	sort.Sort(portSlice(ports))
 }
