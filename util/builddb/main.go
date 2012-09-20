@@ -9,11 +9,11 @@ import (
 	"launchpad.net/juju-core/state"
 	corelog "log"
 	"os"
+	"path/filepath"
+	"time"
 
 	// Register the provider
 	_ "launchpad.net/juju-core/environs/ec2"
-	"path/filepath"
-	"time"
 )
 
 func main() {
