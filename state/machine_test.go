@@ -531,7 +531,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	service, err := s.State.AddService("mysql", charm)
 	c.Assert(err, IsNil)
-	unitWatcher := s.machine.WatchUnits()
+	unitWatcher := s.machine.WatchPrincipalUnits()
 	defer func() {
 		c.Assert(unitWatcher.Stop(), IsNil)
 	}()

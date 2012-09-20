@@ -651,9 +651,9 @@ func (w *ServiceRelationsWatcher) loop() (err error) {
 	return nil
 }
 
-// WatchUnits returns a watcher for observing units being
+// WatchPrincipalUnits returns a watcher for observing units being
 // added to or removed from the machine.
-func (m *Machine) WatchUnits() *MachineUnitsWatcher {
+func (m *Machine) WatchPrincipalUnits() *MachineUnitsWatcher {
 	return newMachineUnitsWatcher(m)
 }
 
