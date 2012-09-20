@@ -63,7 +63,7 @@ func Initialize(info *Info, cfg *config.Config) (*State, error) {
 		return nil, err
 	}
 	// A valid environment config is used as a signal that the
-	// state has already been initalised. If this is the case
+	// state has already been initalized. If this is the case
 	// do nothing.
 	_, err = st.EnvironConfig()
 	if err == nil {
