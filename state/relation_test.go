@@ -5,7 +5,9 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
+	"sort"
 	"strings"
+	"time"
 )
 
 type RelationSuite struct {
@@ -267,9 +269,219 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 	}
 }
 
+func (s *RelationUnitSuite) TestPeerWatchScope(c *C) {
+	pr := NewPeerRelation(c, &s.ConnSuite)
+
+	// Test empty initial event.
+	w0 := pr.ru0.WatchScope()
+	defer stop(c, w0)
+	s.assertScopeChange(c, w0, nil, nil)
+	s.assertNoScopeChange(c, w0)
+
+	// ru0 enters; check no change, but private-address written.
+	err := pr.ru0.EnterScope()
+	c.Assert(err, IsNil)
+	s.assertNoScopeChange(c, w0)
+	node, err := pr.ru0.Settings()
+	c.Assert(err, IsNil)
+	c.Assert(node.Map(), DeepEquals, map[string]interface{}{"private-address": "peer-0.example.com"})
+
+	// ru1 enters; check change is observed.
+	err = pr.ru1.EnterScope()
+	c.Assert(err, IsNil)
+	s.assertScopeChange(c, w0, []string{"peer/1"}, nil)
+	s.assertNoScopeChange(c, w0)
+
+	// ru1 enters again, check no problems and no changes.
+	err = pr.ru1.EnterScope()
+	c.Assert(err, IsNil)
+	s.assertNoScopeChange(c, w0)
+
+	// Stop watching; ru2 enters.
+	stop(c, w0)
+	err = pr.ru2.EnterScope()
+	c.Assert(err, IsNil)
+
+	// Start watch again, check initial event.
+	w0 = pr.ru0.WatchScope()
+	defer stop(c, w0)
+	s.assertScopeChange(c, w0, []string{"peer/1", "peer/2"}, nil)
+	s.assertNoScopeChange(c, w0)
+
+	// ru1 leaves; check event.
+	err = pr.ru1.LeaveScope()
+	c.Assert(err, IsNil)
+	s.assertScopeChange(c, w0, nil, []string{"peer/1"})
+	s.assertNoScopeChange(c, w0)
+
+	// ru1 leaves again; check no problems and no changes.
+	err = pr.ru1.LeaveScope()
+	c.Assert(err, IsNil)
+	s.assertNoScopeChange(c, w0)
+}
+
+func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
+	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+
+	// Test empty initial events for all RUs.
+	ws := prr.watches()
+	for _, w := range ws {
+		defer stop(c, w)
+	}
+	for _, w := range ws {
+		s.assertScopeChange(c, w, nil, nil)
+	}
+	s.assertNoScopeChange(c, ws...)
+
+	// pru0 enters; check detected only by req RUs.
+	err := prr.pru0.EnterScope()
+	c.Assert(err, IsNil)
+	rws := func() []*state.RelationScopeWatcher {
+		return []*state.RelationScopeWatcher{ws[2], ws[3]}
+	}
+	for _, w := range rws() {
+		s.assertScopeChange(c, w, []string{"pro/0"}, nil)
+	}
+	s.assertNoScopeChange(c, ws...)
+
+	// req0 enters; check detected only by pro RUs.
+	err = prr.rru0.EnterScope()
+	c.Assert(err, IsNil)
+	pws := func() []*state.RelationScopeWatcher {
+		return []*state.RelationScopeWatcher{ws[0], ws[1]}
+	}
+	for _, w := range pws() {
+		s.assertScopeChange(c, w, []string{"req/0"}, nil)
+	}
+	s.assertNoScopeChange(c, ws...)
+
+	// Stop watches; remaining RUs enter.
+	for _, w := range ws {
+		stop(c, w)
+	}
+	err = prr.pru1.EnterScope()
+	c.Assert(err, IsNil)
+	err = prr.rru1.EnterScope()
+	c.Assert(err, IsNil)
+
+	// Start new watches, check initial events.
+	ws = prr.watches()
+	for _, w := range ws {
+		defer stop(c, w)
+	}
+	for _, w := range pws() {
+		s.assertScopeChange(c, w, []string{"req/0", "req/1"}, nil)
+	}
+	for _, w := range rws() {
+		s.assertScopeChange(c, w, []string{"pro/0", "pro/1"}, nil)
+	}
+	s.assertNoScopeChange(c, ws...)
+
+	// pru0 leaves; check detected only by req RUs.
+	err = prr.pru0.LeaveScope()
+	c.Assert(err, IsNil)
+	for _, w := range rws() {
+		s.assertScopeChange(c, w, nil, []string{"pro/0"})
+	}
+	s.assertNoScopeChange(c, ws...)
+
+	// rru0 leaves; check detected only by pro RUs.
+	err = prr.rru0.LeaveScope()
+	c.Assert(err, IsNil)
+	for _, w := range pws() {
+		s.assertScopeChange(c, w, nil, []string{"req/0"})
+	}
+	s.assertNoScopeChange(c, ws...)
+}
+
+func (s *RelationUnitSuite) TestContainerWatchScope(c *C) {
+	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+
+	// Test empty initial events for all RUs.
+	ws := prr.watches()
+	for _, w := range ws {
+		defer stop(c, w)
+	}
+	for _, w := range ws {
+		s.assertScopeChange(c, w, nil, nil)
+	}
+	s.assertNoScopeChange(c, ws...)
+
+	// pru0 enters; check detected only by same-container req.
+	err := prr.pru0.EnterScope()
+	c.Assert(err, IsNil)
+	s.assertScopeChange(c, ws[2], []string{"pro/0"}, nil)
+	s.assertNoScopeChange(c, ws...)
+
+	// req1 enters; check detected only by same-container pro.
+	err = prr.rru1.EnterScope()
+	c.Assert(err, IsNil)
+	s.assertScopeChange(c, ws[1], []string{"req/1"}, nil)
+	s.assertNoScopeChange(c, ws...)
+
+	// Stop watches; remaining RUs enter scope.
+	for _, w := range ws {
+		stop(c, w)
+	}
+	err = prr.pru1.EnterScope()
+	c.Assert(err, IsNil)
+	err = prr.rru0.EnterScope()
+	c.Assert(err, IsNil)
+
+	// Start new watches, check initial events.
+	ws = prr.watches()
+	for _, w := range ws {
+		defer stop(c, w)
+	}
+	s.assertScopeChange(c, ws[0], []string{"req/0"}, nil)
+	s.assertScopeChange(c, ws[1], []string{"req/1"}, nil)
+	s.assertScopeChange(c, ws[2], []string{"pro/0"}, nil)
+	s.assertScopeChange(c, ws[3], []string{"pro/1"}, nil)
+	s.assertNoScopeChange(c, ws...)
+
+	// pru0 leaves; check detected only by same-container req.
+	err = prr.pru0.LeaveScope()
+	c.Assert(err, IsNil)
+	s.assertScopeChange(c, ws[2], nil, []string{"pro/0"})
+	s.assertNoScopeChange(c, ws...)
+
+	// rru0 leaves; check detected only by same-container pro.
+	err = prr.rru0.LeaveScope()
+	c.Assert(err, IsNil)
+	s.assertScopeChange(c, ws[0], nil, []string{"req/0"})
+	s.assertNoScopeChange(c, ws...)
+}
+
+func (s *RelationUnitSuite) assertScopeChange(c *C, w *state.RelationScopeWatcher, entered, left []string) {
+	s.State.StartSync()
+	select {
+	case ch, ok := <-w.Changes():
+		c.Assert(ok, Equals, true)
+		sort.Strings(entered)
+		sort.Strings(ch.Entered)
+		c.Assert(ch.Entered, DeepEquals, entered)
+		sort.Strings(left)
+		sort.Strings(ch.Left)
+		c.Assert(ch.Left, DeepEquals, left)
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("no change")
+	}
+}
+
+func (s *RelationUnitSuite) assertNoScopeChange(c *C, ws ...*state.RelationScopeWatcher) {
+	s.State.StartSync()
+	for _, w := range ws {
+		select {
+		case ch, ok := <-w.Changes():
+			c.Fatalf("got unwanted change: %#v, %t", ch, ok)
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+}
+
 type PeerRelation struct {
-	u0, u1   *state.Unit
-	ru0, ru1 *state.RelationUnit
+	u0, u1, u2    *state.Unit
+	ru0, ru1, ru2 *state.RelationUnit
 }
 
 func NewPeerRelation(c *C, s *ConnSuite) *PeerRelation {
@@ -282,6 +494,7 @@ func NewPeerRelation(c *C, s *ConnSuite) *PeerRelation {
 	pr := &PeerRelation{}
 	pr.u0, pr.ru0 = addRU(c, svc, rel, nil)
 	pr.u1, pr.ru1 = addRU(c, svc, rel, nil)
+	pr.u2, pr.ru2 = addRU(c, svc, rel, nil)
 	return pr
 }
 
@@ -316,25 +529,39 @@ func NewProReqRelation(c *C, s *ConnSuite, scope charm.RelationScope) *ProReqRel
 	return prr
 }
 
+func (prr *ProReqRelation) watches() []*state.RelationScopeWatcher {
+	return []*state.RelationScopeWatcher{
+		prr.pru0.WatchScope(), prr.pru1.WatchScope(),
+		prr.rru0.WatchScope(), prr.rru1.WatchScope(),
+	}
+}
+
 func addRU(c *C, svc *state.Service, rel *state.Relation, principal *state.Unit) (*state.Unit, *state.RelationUnit) {
 	var u *state.Unit
 	var err error
 	if principal == nil {
 		u, err = svc.AddUnit()
-		c.Assert(err, IsNil)
-		addr := fmt.Sprintf("%s.example.com", strings.Replace(u.Name(), "/", "-", 1))
-		err = u.SetPrivateAddress(addr)
-		c.Assert(err, IsNil)
 	} else {
 		u, err = svc.AddUnitSubordinateTo(principal)
-		c.Assert(err, IsNil)
 	}
+	c.Assert(err, IsNil)
+	addr := fmt.Sprintf("%s.example.com", strings.Replace(u.Name(), "/", "-", 1))
+	err = u.SetPrivateAddress(addr)
+	c.Assert(err, IsNil)
 	ru, err := rel.Unit(u)
 	c.Assert(err, IsNil)
 	return u, ru
 }
 
 type RUs []*state.RelationUnit
+
+type stopper interface {
+	Stop() error
+}
+
+func stop(c *C, s stopper) {
+	c.Assert(s.Stop(), IsNil)
+}
 
 type OriginalRelationUnitSuite struct {
 	ConnSuite
