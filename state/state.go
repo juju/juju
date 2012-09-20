@@ -58,13 +58,6 @@ type State struct {
 	fwd       *sshForwarder
 }
 
-func deadOnAbort(err error) error {
-	if err == txn.ErrAborted {
-		return fmt.Errorf("not found or not alive")
-	}
-	return err
-}
-
 func (s *State) EnvironConfig() (*config.Config, error) {
 	configNode, err := readConfigNode(s, "e")
 	if err != nil {
@@ -106,6 +99,15 @@ func (s *State) AddMachine() (m *Machine, err error) {
 	return newMachine(s, &mdoc), nil
 }
 
+var errNotAlive = fmt.Errorf("not found or not alive")
+
+func onAbort(txnErr, err error) error {
+	if txnErr == txn.ErrAborted {
+		return err
+	}
+	return txnErr
+}
+
 // RemoveMachine removes the machine with the the given id.
 func (s *State) RemoveMachine(id int) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot remove machine %d", id)
@@ -114,7 +116,7 @@ func (s *State) RemoveMachine(id int) (err error) {
 		return err
 	}
 	if m.doc.Life != Dead {
-		panic(fmt.Errorf("machine %d is not dead", id))
+		return fmt.Errorf("machine is not dead")
 	}
 	sel := D{
 		{"_id", id},
@@ -126,9 +128,9 @@ func (s *State) RemoveMachine(id int) (err error) {
 		Assert: sel,
 		Remove: true,
 	}}
-	err = s.runner.Run(ops, "", nil)
-	if err != nil {
-		return deadOnAbort(err)
+	if err := s.runner.Run(ops, "", nil); err != nil {
+		// If aborted, the machine is either dead or recreated.
+		return onAbort(err, nil)
 	}
 	return nil
 }
@@ -204,13 +206,10 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 		Assert: txn.DocMissing,
 		Insert: sdoc,
 	}}
-	err = s.runner.Run(ops, "", nil)
-	if err != nil {
-		if err == txn.ErrAborted {
-			err = fmt.Errorf("duplicate service name")
-		}
-		return nil, fmt.Errorf("cannot add service %q: %v", name, err)
+	if err := s.runner.Run(ops, "", nil); err != nil {
+		return nil, fmt.Errorf("cannot add service %q: %v", name, onAbort(err, fmt.Errorf("duplicate service name")))
 	}
+
 	return newService(s, sdoc), nil
 }
 
@@ -223,7 +222,7 @@ func (s *State) RemoveService(svc *Service) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot remove service %q", svc)
 
 	if svc.doc.Life != Dead {
-		panic(fmt.Errorf("service %q is not dead", svc))
+		return fmt.Errorf("service is not dead")
 	}
 	rels, err := svc.Relations()
 	if err != nil {
@@ -258,9 +257,9 @@ func (s *State) RemoveService(svc *Service) (err error) {
 		Assert: D{{"life", Dead}},
 		Remove: true,
 	}}
-	err = s.runner.Run(ops, "", nil)
-	if err != nil {
-		return err
+	if err := s.runner.Run(ops, "", nil); err != nil {
+		// If aborted, the service is either dead or recreated.
+		return onAbort(err, nil)
 	}
 	return nil
 }
@@ -364,9 +363,8 @@ func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error)
 // RemoveRelation removes the supplied relation.
 func (s *State) RemoveRelation(r *Relation) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot remove relation %q", r.doc.Key)
-
 	if r.doc.Life != Dead {
-		panic(fmt.Errorf("relation %q is not dead", r))
+		return fmt.Errorf("relation is not dead")
 	}
 	ops := []txn.Op{{
 		C:      s.relations.Name,
@@ -374,9 +372,9 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 		Assert: D{{"life", Dead}},
 		Remove: true,
 	}}
-	err = s.runner.Run(ops, "", nil)
-	if err != nil {
-		return deadOnAbort(err)
+	if err := s.runner.Run(ops, "", nil); err != nil {
+		// If aborted, the relation is either dead or recreated.
+		return onAbort(err, nil)
 	}
 	return nil
 }
