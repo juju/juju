@@ -210,3 +210,33 @@ func (s *UnitSuite) TestSetClearResolvedWhenDying(c *C) {
 		return err
 	})
 }
+
+func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *C) {
+	subCharm := s.AddTestingCharm(c, "logging")
+	logService, err := s.State.AddService("logging", subCharm)
+	c.Assert(err, IsNil)
+	_, err = logService.AddUnitSubordinateTo(s.unit)
+	c.Assert(err, IsNil)
+	su1, err := logService.AddUnitSubordinateTo(s.unit)
+	c.Assert(err, IsNil)
+
+	doc := make(map[string][]string)
+	s.ConnSuite.units.FindId(s.unit.Name()).One(&doc)
+	subordinates, ok := doc["subordinates"]
+	if !ok {
+		c.Errorf(`unit document does not have a "subordinates" field`)
+	}
+	c.Assert(subordinates, DeepEquals, []string{"logging/0", "logging/1"})
+
+	err = su1.Die()
+	c.Assert(err, IsNil)
+	err = logService.RemoveUnit(su1)
+	c.Assert(err, IsNil)
+	doc = make(map[string][]string)
+	s.ConnSuite.units.FindId(s.unit.Name()).One(&doc)
+	subordinates, ok = doc["subordinates"]
+	if !ok {
+		c.Errorf(`unit document does not have a "subordinates" field`)
+	}
+	c.Assert(subordinates, DeepEquals, []string{"logging/0"})
+}
