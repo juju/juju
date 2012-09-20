@@ -34,7 +34,7 @@ func (a *UnitAgent) Init(f *gnuflag.FlagSet, args []string) error {
 	if a.UnitName == "" {
 		return requiredError("unit-name")
 	}
-	if !juju.ValidUnit.MatchString(a.UnitName) {
+	if !state.ValidUnit.MatchString(a.UnitName) {
 		return fmt.Errorf(`--unit-name option expects "<service>/<n>" argument`)
 	}
 	return a.Conf.checkArgs(f.Args())

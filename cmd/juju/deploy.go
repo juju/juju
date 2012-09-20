@@ -94,6 +94,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	// TODO check for valid service name *before* touching state?
 	ch, err := conn.PutCharm(curl, repo, c.BumpRevision)
 	if err != nil {
 		return err

@@ -110,6 +110,11 @@ func (s *StateSuite) TestAllMachines(c *C) {
 
 func (s *StateSuite) TestAddService(c *C) {
 	charm := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService("haha/borken", charm)
+	c.Assert(err, ErrorMatches, `"haha/borken" is not a valid service name`)
+	_, err = s.State.Service("haha/borken")
+	c.Assert(err, ErrorMatches, `"haha/borken" is not a valid service name`)
+
 	wordpress, err := s.State.AddService("wordpress", charm)
 	c.Assert(err, IsNil)
 	c.Assert(wordpress.Name(), Equals, "wordpress")
@@ -400,75 +405,75 @@ var servicesWatchTests = []struct {
 	},
 	{
 		test: func(c *C, s *state.State, ch *state.Charm) {
-			_, err := s.AddService("0", ch)
+			_, err := s.AddService("s0", ch)
 			c.Assert(err, IsNil)
 		},
-		added: []string{"0"},
+		added: []string{"s0"},
 	},
 	{
 		test: func(c *C, s *state.State, ch *state.Charm) {
-			_, err := s.AddService("1", ch)
+			_, err := s.AddService("s1", ch)
 			c.Assert(err, IsNil)
 		},
-		added: []string{"1"},
+		added: []string{"s1"},
 	},
 	{
 		test: func(c *C, s *state.State, ch *state.Charm) {
-			_, err := s.AddService("2", ch)
+			_, err := s.AddService("s2", ch)
 			c.Assert(err, IsNil)
-			_, err = s.AddService("3", ch)
+			_, err = s.AddService("s3", ch)
 			c.Assert(err, IsNil)
 		},
-		added: []string{"2", "3"},
+		added: []string{"s2", "s3"},
 	},
 	{
 		test: func(c *C, s *state.State, _ *state.Charm) {
-			svc3, err := s.Service("3")
+			svc3, err := s.Service("s3")
 			c.Assert(err, IsNil)
 			err = svc3.Die()
 			c.Assert(err, IsNil)
 			err = s.RemoveService(svc3)
 			c.Assert(err, IsNil)
 		},
-		removed: []string{"3"},
+		removed: []string{"s3"},
 	},
 	{
 		test: func(c *C, s *state.State, _ *state.Charm) {
-			svc0, err := s.Service("0")
+			svc0, err := s.Service("s0")
 			c.Assert(err, IsNil)
 			err = svc0.Die()
 			c.Assert(err, IsNil)
 			err = s.RemoveService(svc0)
 			c.Assert(err, IsNil)
-			svc2, err := s.Service("2")
+			svc2, err := s.Service("s2")
 			c.Assert(err, IsNil)
 			err = svc2.Die()
 			c.Assert(err, IsNil)
 			err = s.RemoveService(svc2)
 			c.Assert(err, IsNil)
 		},
-		removed: []string{"0", "2"},
+		removed: []string{"s0", "s2"},
 	},
 	{
 		test: func(c *C, s *state.State, ch *state.Charm) {
-			_, err := s.AddService("4", ch)
+			_, err := s.AddService("s4", ch)
 			c.Assert(err, IsNil)
-			svc1, err := s.Service("1")
+			svc1, err := s.Service("s1")
 			c.Assert(err, IsNil)
 			err = svc1.Die()
 			c.Assert(err, IsNil)
 			err = s.RemoveService(svc1)
 			c.Assert(err, IsNil)
 		},
-		added:   []string{"4"},
-		removed: []string{"1"},
+		added:   []string{"s4"},
+		removed: []string{"s1"},
 	},
 	{
 		test: func(c *C, s *state.State, ch *state.Charm) {
 			services := [20]*state.Service{}
 			var err error
 			for i := 0; i < len(services); i++ {
-				services[i], err = s.AddService("s"+fmt.Sprint(i), ch)
+				services[i], err = s.AddService("ss"+fmt.Sprint(i), ch)
 				c.Assert(err, IsNil)
 			}
 			for i := 10; i < len(services); i++ {
@@ -478,21 +483,21 @@ var servicesWatchTests = []struct {
 				c.Assert(err, IsNil)
 			}
 		},
-		added: []string{"s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9"},
+		added: []string{"ss0", "ss1", "ss2", "ss3", "ss4", "ss5", "ss6", "ss7", "ss8", "ss9"},
 	},
 	{
 		test: func(c *C, s *state.State, ch *state.Charm) {
-			_, err := s.AddService("twenty five", ch)
+			_, err := s.AddService("twenty-five", ch)
 			c.Assert(err, IsNil)
-			svc9, err := s.Service("s9")
+			svc9, err := s.Service("ss9")
 			c.Assert(err, IsNil)
 			err = svc9.Die()
 			c.Assert(err, IsNil)
 			err = s.RemoveService(svc9)
 			c.Assert(err, IsNil)
 		},
-		added:   []string{"twenty five"},
-		removed: []string{"s9"},
+		added:   []string{"twenty-five"},
+		removed: []string{"ss9"},
 	},
 }
 
@@ -564,4 +569,21 @@ func assertSameServices(c *C, change *state.ServicesChange, added, removed []str
 		got = append(got, g.Name())
 	}
 	c.Assert(got, DeepEquals, removed)
+}
+
+func (*StateSuite) TestValidRegexps(c *C) {
+	assertService := func(s string, expect bool) {
+		c.Assert(state.ValidService.MatchString(s), Equals, expect)
+		c.Assert(state.ValidUnit.MatchString(s+"/0"), Equals, expect)
+		c.Assert(state.ValidUnit.MatchString(s+"/99"), Equals, expect)
+		c.Assert(state.ValidUnit.MatchString(s+"/-1"), Equals, false)
+		c.Assert(state.ValidUnit.MatchString(s+"/blah"), Equals, false)
+	}
+	assertService("", false)
+	assertService("33", false)
+	assertService("wordpress", true)
+	assertService("w0rd-pre55", true)
+	assertService("foo2", true)
+	assertService("foo-2", false)
+	assertService("foo-2foo", true)
 }
