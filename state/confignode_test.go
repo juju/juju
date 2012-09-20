@@ -355,5 +355,7 @@ func (s *ConfigNodeSuite) TestWriteTwice(c *C) {
 
 	err = nodeOne.Read()
 	c.Assert(err, IsNil)
-	c.Assert(nodeOne, DeepEquals, nodeTwo)
+	c.Assert(nodeOne.path, Equals, nodeTwo.path)
+	c.Assert(nodeOne.disk, DeepEquals, nodeTwo.disk)
+	c.Assert(nodeOne.core, DeepEquals, nodeTwo.core)
 }
