@@ -8,3 +8,12 @@ if [ -n "$BADFMT" ]; then
 	echo "gofmt is sad:\n\n$BADFMT"
 	exit 1
 fi
+
+VERSION=`go version | awk '{print $3}'`
+if [ $VERSION == 'devel' ]; then
+	go tool vet \
+		-methods \
+		-printf \
+		-rangeloops \
+		.
+fi

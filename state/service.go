@@ -292,7 +292,7 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 	docs := []unitDoc{}
 	err = s.st.units.Find(D{{"service", s.doc.Name}}).All(&docs)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get all units from service %q: %v", err)
+		return nil, fmt.Errorf("cannot get all units from service %q: %v", s, err)
 	}
 	for i := range docs {
 		units = append(units, newUnit(s.st, &docs[i]))
