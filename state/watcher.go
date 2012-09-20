@@ -1,7 +1,7 @@
 package state
 
 import (
-	"errors"
+	"fmt"
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
@@ -688,7 +688,7 @@ func (w *MachineUnitsWatcher) Stop() error {
 
 func (w *MachineUnitsWatcher) mergeChange(changes *MachineUnitsChange, ch watcher.Change) (err error) {
 	if ch.Revno == -1 {
-		return errors.New("machine has been removed")
+		return fmt.Errorf("machine has been removed")
 	}
 	err = w.machine.Refresh()
 	if err != nil {
@@ -697,11 +697,13 @@ func (w *MachineUnitsWatcher) mergeChange(changes *MachineUnitsChange, ch watche
 	units := make(map[string]*Unit)
 	for _, name := range w.machine.doc.Principals {
 		var unit *Unit
+		doc := &unitDoc{}
 		if _, ok := w.knownUnits[name]; !ok {
-			err = w.st.units.FindId(name).One(unit)
+			err = w.st.units.FindId(name).One(doc)
 			if err != nil {
 				return err
 			}
+			unit = newUnit(w.st, doc)
 			changes.Added = append(changes.Added, unit)
 			w.knownUnits[name] = unit
 		}

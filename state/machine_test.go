@@ -500,7 +500,7 @@ var machineUnitsWatchTests = []struct {
 			err = service.RemoveUnit(unit14)
 			c.Assert(err, IsNil)
 		},
-		added:   []string{"mysql/26", "mysql/27"},
+		added:   []string{"bacon/0", "bacon/1", "mysql/26", "mysql/27"},
 		removed: []string{"mysql/14"},
 	},
 	{
