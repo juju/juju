@@ -1,6 +1,7 @@
 package state
 
 import (
+	"fmt"
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
@@ -107,6 +108,22 @@ type RelationScopeWatcher struct {
 type RelationScopeChange struct {
 	Entered []string
 	Left    []string
+}
+
+// MachineUnitsWatcher observes the assignment and removal of units
+// to and from a machine.
+type MachineUnitsWatcher struct {
+	commonWatcher
+	machine    *Machine
+	changeChan chan *MachineUnitsChange
+	knownUnits map[string]*Unit
+}
+
+// MachineUnitsChange contains information about units that have been
+// assigned to or removed from the machine.
+type MachineUnitsChange struct {
+	Added   []*Unit
+	Removed []*Unit
 }
 
 // newMachineWatcher creates and starts a watcher to watch information
@@ -627,6 +644,138 @@ func (w *ServiceRelationsWatcher) loop() (err error) {
 			return tomb.ErrDying
 		case c := <-ch:
 			changes = &RelationsChange{}
+			err := w.mergeChange(changes, c)
+			if err != nil {
+				return err
+			}
+			if changes.isEmpty() {
+				changes = nil
+			}
+		}
+	}
+	return nil
+}
+
+// WatchPrincipalUnits returns a watcher for observing units being
+// added to or removed from the machine.
+func (m *Machine) WatchPrincipalUnits() *MachineUnitsWatcher {
+	return newMachineUnitsWatcher(m)
+}
+
+// newMachineUnitsWatcher creates and starts a watcher to watch information
+// about units being added to or deleted from the machine.
+func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
+	w := &MachineUnitsWatcher{
+		changeChan:    make(chan *MachineUnitsChange),
+		machine:       m,
+		knownUnits:    make(map[string]*Unit),
+		commonWatcher: commonWatcher{st: m.st},
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.changeChan)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns a channel that will receive changes when units are
+// added or deleted. The Added field in the first event on the channel
+// holds the initial state as returned by Machine.Units.
+func (w *MachineUnitsWatcher) Changes() <-chan *MachineUnitsChange {
+	return w.changeChan
+}
+
+func (w *MachineUnitsWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
+}
+
+func (w *MachineUnitsWatcher) mergeChange(changes *MachineUnitsChange, ch watcher.Change) (err error) {
+	if ch.Revno == -1 {
+		return fmt.Errorf("machine has been removed")
+	}
+	err = w.machine.Refresh()
+	if err != nil {
+		return err
+	}
+	units := make(map[string]*Unit)
+	for _, name := range w.machine.doc.Principals {
+		var unit *Unit
+		doc := &unitDoc{}
+		if _, ok := w.knownUnits[name]; !ok {
+			err = w.st.units.FindId(name).One(doc)
+			if err == mgo.ErrNotFound {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+			unit = newUnit(w.st, doc)
+			changes.Added = append(changes.Added, unit)
+			w.knownUnits[name] = unit
+		}
+		units[name] = unit
+	}
+	for name, unit := range w.knownUnits {
+		if _, ok := units[name]; !ok {
+			changes.Removed = append(changes.Removed, unit)
+			delete(w.knownUnits, name)
+		}
+	}
+	return nil
+}
+
+func (changes *MachineUnitsChange) isEmpty() bool {
+	return len(changes.Added)+len(changes.Removed) == 0
+}
+
+func (w *MachineUnitsWatcher) getInitialEvent() (initial *MachineUnitsChange, err error) {
+	changes := &MachineUnitsChange{}
+	docs := []unitDoc{}
+	err = w.st.units.Find(D{{"_id", D{{"$in", w.machine.doc.Principals}}}}).All(&docs)
+	if err != nil {
+		return nil, err
+	}
+	for _, doc := range docs {
+		unit := newUnit(w.st, &doc)
+		w.knownUnits[doc.Name] = unit
+		changes.Added = append(changes.Added, unit)
+	}
+	return changes, nil
+}
+
+func (w *MachineUnitsWatcher) loop() (err error) {
+	ch := make(chan watcher.Change)
+	w.st.watcher.Watch(w.st.machines.Name, w.machine.doc.Id, w.machine.doc.TxnRevno, ch)
+	defer w.st.watcher.Unwatch(w.st.machines.Name, w.machine.doc.Id, ch)
+	changes, err := w.getInitialEvent()
+	if err != nil {
+		return err
+	}
+	for {
+		for changes != nil {
+			select {
+			case <-w.st.watcher.Dead():
+				return watcher.MustErr(w.st.watcher)
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case c := <-ch:
+				err := w.mergeChange(changes, c)
+				if err != nil {
+					return err
+				}
+			case w.changeChan <- changes:
+				changes = nil
+			}
+		}
+		select {
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case c := <-ch:
+			changes = &MachineUnitsChange{}
 			err := w.mergeChange(changes, c)
 			if err != nil {
 				return err

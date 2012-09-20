@@ -336,3 +336,259 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 	case <-time.After(100 * time.Millisecond):
 	}
 }
+
+var machineUnitsWatchTests = []struct {
+	test    func(*C, *MachineSuite, *state.Service)
+	added   []string
+	removed []string
+}{
+	{
+		test:  func(_ *C, _ *MachineSuite, _ *state.Service) {},
+		added: []string{},
+	},
+	{
+		test: func(c *C, s *MachineSuite, service *state.Service) {
+			unit, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			err = unit.AssignToMachine(s.machine)
+			c.Assert(err, IsNil)
+		},
+		added: []string{"mysql/0"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, service *state.Service) {
+			unit, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			err = unit.AssignToMachine(s.machine)
+			c.Assert(err, IsNil)
+		},
+		added: []string{"mysql/1"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, service *state.Service) {
+			unit2, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			err = unit2.AssignToMachine(s.machine)
+			c.Assert(err, IsNil)
+			unit3, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			err = unit3.AssignToMachine(s.machine)
+			c.Assert(err, IsNil)
+		},
+		added: []string{"mysql/2", "mysql/3"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, service *state.Service) {
+			unit3, err := service.Unit("mysql/3")
+			c.Assert(err, IsNil)
+			err = unit3.Die()
+			c.Assert(err, IsNil)
+			err = service.RemoveUnit(unit3)
+			c.Assert(err, IsNil)
+		},
+		removed: []string{"mysql/3"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, service *state.Service) {
+			unit0, err := service.Unit("mysql/0")
+			c.Assert(err, IsNil)
+			err = unit0.Die()
+			c.Assert(err, IsNil)
+			err = service.RemoveUnit(unit0)
+			c.Assert(err, IsNil)
+			unit2, err := service.Unit("mysql/2")
+			c.Assert(err, IsNil)
+			err = unit2.Die()
+			c.Assert(err, IsNil)
+			err = service.RemoveUnit(unit2)
+			c.Assert(err, IsNil)
+		},
+		removed: []string{"mysql/0", "mysql/2"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, service *state.Service) {
+			unit4, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			err = unit4.AssignToMachine(s.machine)
+			c.Assert(err, IsNil)
+			unit1, err := service.Unit("mysql/1")
+			c.Assert(err, IsNil)
+			err = unit1.Die()
+			c.Assert(err, IsNil)
+			err = service.RemoveUnit(unit1)
+			c.Assert(err, IsNil)
+		},
+		added:   []string{"mysql/4"},
+		removed: []string{"mysql/1"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, service *state.Service) {
+			units := [20]*state.Unit{}
+			var err error
+			for i := 0; i < len(units); i++ {
+				units[i], err = service.AddUnit()
+				c.Assert(err, IsNil)
+				err = units[i].AssignToMachine(s.machine)
+				c.Assert(err, IsNil)
+			}
+			for i := 10; i < len(units); i++ {
+				err = units[i].Die()
+				c.Assert(err, IsNil)
+				err = service.RemoveUnit(units[i])
+				c.Assert(err, IsNil)
+			}
+		},
+		added: []string{"mysql/10", "mysql/11", "mysql/12", "mysql/13", "mysql/14", "mysql/5", "mysql/6", "mysql/7", "mysql/8", "mysql/9"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, service *state.Service) {
+			unit25, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			err = unit25.AssignToMachine(s.machine)
+			c.Assert(err, IsNil)
+			unit9, err := service.Unit("mysql/9")
+			c.Assert(err, IsNil)
+			err = unit9.Die()
+			c.Assert(err, IsNil)
+			err = service.RemoveUnit(unit9)
+			c.Assert(err, IsNil)
+		},
+		added:   []string{"mysql/25"},
+		removed: []string{"mysql/9"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, service *state.Service) {
+			unit26, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			err = unit26.AssignToMachine(s.machine)
+			c.Assert(err, IsNil)
+			unit27, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			err = unit27.AssignToMachine(s.machine)
+			c.Assert(err, IsNil)
+
+			ch, _, err := service.Charm()
+			c.Assert(err, IsNil)
+			svc, err := s.State.AddService("bacon", ch)
+			c.Assert(err, IsNil)
+			bacon0, err := svc.AddUnit()
+			c.Assert(err, IsNil)
+			err = bacon0.AssignToMachine(s.machine)
+			c.Assert(err, IsNil)
+			bacon1, err := svc.AddUnit()
+			c.Assert(err, IsNil)
+			err = bacon1.AssignToMachine(s.machine)
+			c.Assert(err, IsNil)
+
+			spammachine, err := s.State.AddMachine()
+			c.Assert(err, IsNil)
+			svc, err = s.State.AddService("spam", ch)
+			c.Assert(err, IsNil)
+			spam0, err := svc.AddUnit()
+			c.Assert(err, IsNil)
+			err = spam0.AssignToMachine(spammachine)
+			c.Assert(err, IsNil)
+			spam1, err := svc.AddUnit()
+			c.Assert(err, IsNil)
+			err = spam1.AssignToMachine(spammachine)
+			c.Assert(err, IsNil)
+
+			unit14, err := service.Unit("mysql/14")
+			c.Assert(err, IsNil)
+			err = unit14.Die()
+			c.Assert(err, IsNil)
+			err = service.RemoveUnit(unit14)
+			c.Assert(err, IsNil)
+		},
+		added:   []string{"bacon/0", "bacon/1", "mysql/26", "mysql/27"},
+		removed: []string{"mysql/14"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, service *state.Service) {
+			unit28, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			err = unit28.AssignToMachine(s.machine)
+			c.Assert(err, IsNil)
+			unit29, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			err = unit29.AssignToMachine(s.machine)
+			c.Assert(err, IsNil)
+			subCharm := s.AddTestingCharm(c, "logging")
+			logService, err := s.State.AddService("logging", subCharm)
+			c.Assert(err, IsNil)
+			_, err = logService.AddUnitSubordinateTo(unit28)
+			c.Assert(err, IsNil)
+			_, err = logService.AddUnitSubordinateTo(unit28)
+			c.Assert(err, IsNil)
+			_, err = logService.AddUnitSubordinateTo(unit29)
+			c.Assert(err, IsNil)
+		},
+		added: []string{"mysql/28", "mysql/29"},
+	},
+}
+
+func (s *MachineSuite) TestWatchUnits(c *C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	service, err := s.State.AddService("mysql", charm)
+	c.Assert(err, IsNil)
+	unitWatcher := s.machine.WatchPrincipalUnits()
+	defer func() {
+		c.Assert(unitWatcher.Stop(), IsNil)
+	}()
+	for i, test := range machineUnitsWatchTests {
+		c.Logf("test %d", i)
+		test.test(c, s, service)
+		s.State.StartSync()
+		got := &state.MachineUnitsChange{}
+		for {
+			select {
+			case new, ok := <-unitWatcher.Changes():
+				c.Assert(ok, Equals, true)
+				addMachineUnitChanges(got, new)
+				if moreMachineUnitsRequired(got, test.added, test.removed) {
+					continue
+				}
+				assertSameMachineUnits(c, got, test.added, test.removed)
+			case <-time.After(500 * time.Millisecond):
+				c.Fatalf("did not get change, want: added: %#v, removed: %#v, got: %#v", test.added, test.removed, got)
+			}
+			break
+		}
+	}
+	select {
+	case got := <-unitWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func moreMachineUnitsRequired(got *state.MachineUnitsChange, added, removed []string) bool {
+	return len(got.Added)+len(got.Removed) < len(added)+len(removed)
+}
+
+func addMachineUnitChanges(changes *state.MachineUnitsChange, more *state.MachineUnitsChange) {
+	changes.Added = append(changes.Added, more.Added...)
+	changes.Removed = append(changes.Removed, more.Removed...)
+}
+
+func assertSameMachineUnits(c *C, change *state.MachineUnitsChange, added, removed []string) {
+	c.Assert(change, NotNil)
+	if len(added) == 0 {
+		added = nil
+	}
+	if len(removed) == 0 {
+		removed = nil
+	}
+	sort.Sort(unitSlice(change.Added))
+	sort.Sort(unitSlice(change.Removed))
+	var got []string
+	for _, g := range change.Added {
+		got = append(got, g.Name())
+	}
+	c.Assert(got, DeepEquals, added)
+	got = nil
+	for _, g := range change.Removed {
+		got = append(got, g.Name())
+	}
+	c.Assert(got, DeepEquals, removed)
+}
