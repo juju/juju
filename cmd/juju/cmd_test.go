@@ -1,6 +1,10 @@
 package main
 
 import (
+	"net/http"
+	"os"
+	"reflect"
+
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
@@ -8,9 +12,6 @@ import (
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/version"
-	"net/http"
-	"os"
-	"reflect"
 )
 
 type CmdSuite struct {
@@ -182,9 +183,6 @@ var deployTests = []struct {
 		[]string{"charm-name", "service-name"},
 		&DeployCommand{ServiceName: "service-name"},
 	}, {
-		[]string{"--config", "/path/to/config.yaml", "charm-name"},
-		&DeployCommand{ConfPath: "/path/to/config.yaml"},
-	}, {
 		[]string{"--repository", "/path/to/another-repo", "charm-name"},
 		&DeployCommand{RepoPath: "/path/to/another-repo"},
 	}, {
@@ -230,8 +228,24 @@ func (*CmdSuite) TestDeployCommandInit(c *C) {
 		c.Assert(com, DeepEquals, t.com)
 	}
 
+	// test relative --config path
+	ctx := &cmd.Context{c.MkDir(), nil, nil, nil}
+	expected := []byte("test: data")
+	path := ctx.AbsPath("testconfig.yaml")
+	file, err := os.Create(path)
+	c.Assert(err, IsNil)
+	_, err = file.Write(expected)
+	c.Assert(err, IsNil)
+	file.Close()
+
+	com, err := initDeployCommand("--config", "testconfig.yaml", "charm-name")
+	c.Assert(err, IsNil)
+	actual, err := com.Config.Read(ctx)
+	c.Assert(err, IsNil)
+	c.Assert(expected, DeepEquals, actual)
+
 	// missing args
-	_, err := initDeployCommand()
+	_, err = initDeployCommand()
 	c.Assert(err, ErrorMatches, "no charm specified")
 
 	// bad unit count
@@ -296,5 +310,53 @@ func initGetCommand(args ...string) (*GetCommand, error) {
 func (*CmdSuite) TestGetCommandInit(c *C) {
 	// missing args
 	_, err := initGetCommand()
+	c.Assert(err, ErrorMatches, "no service name specified")
+}
+
+func initSetCommand(args ...string) (*SetCommand, error) {
+	com := &SetCommand{}
+	return com, com.Init(newFlagSet(), args)
+}
+
+func (*CmdSuite) TestSetCommandInit(c *C) {
+	// missing args
+	_, err := initSetCommand()
+	c.Assert(err, ErrorMatches, "no service name specified")
+	// missing service name
+	_, err = initSetCommand("name=cow")
+	c.Assert(err, ErrorMatches, "no service name specified")
+	// incorrect option
+	_, err = initSetCommand("dummy", "name", "cow")
+	c.Assert(err, ErrorMatches, "invalid option")
+	_, err = initSetCommand("dummy", "name=")
+	c.Assert(err, ErrorMatches, "missing option value")
+	_, err = initSetCommand("dummy", "=cow")
+	c.Assert(err, ErrorMatches, "missing option key")
+
+	// strange, but correct
+	sc, err := initSetCommand("dummy", "name = cow")
+	c.Assert(err, IsNil)
+	c.Assert(len(sc.Options), Equals, 1)
+	c.Assert(sc.Options[0].Key, Equals, "name")
+	c.Assert(sc.Options[0].Value, Equals, "cow")
+
+	// test --config path
+	expected := []byte("this: is some test data")
+	ctx := &cmd.Context{c.MkDir(), nil, nil, nil}
+	path := ctx.AbsPath("testconfig.yaml")
+	file, err := os.Create(path)
+	c.Assert(err, IsNil)
+	_, err = file.Write(expected)
+	c.Assert(err, IsNil)
+	file.Close()
+	com, err := initSetCommand("--config", "testconfig.yaml", "service")
+	c.Assert(err, IsNil)
+	c.Assert(com.Config.Path, Equals, "testconfig.yaml")
+	actual, err := com.Config.Read(ctx)
+	c.Assert(err, IsNil)
+	c.Assert(actual, DeepEquals, expected)
+
+	// --config path, but no service
+	com, err = initSetCommand("--config", "testconfig")
 	c.Assert(err, ErrorMatches, "no service name specified")
 }
