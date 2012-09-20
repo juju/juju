@@ -573,6 +573,60 @@ func assertSameServices(c *C, change *state.ServicesChange, added, removed []str
 	c.Assert(got, DeepEquals, removed)
 }
 
+func (s *StateSuite) TestInitialize(c *C) {
+	m := map[string]interface{}{
+		"type":            "dummy",
+		"name":            "lisboa",
+		"authorized-keys": "i-am-a-key",
+		"default-series":  "precise",
+		"development":     true,
+	}
+	cfg, err := config.New(m)
+	c.Assert(err, IsNil)
+	st, err := state.Initialize(s.StateInfo(c), cfg)
+	c.Assert(err, IsNil)
+	c.Assert(st, NotNil)
+	defer st.Close()
+	env, err := st.EnvironConfig()
+	c.Assert(env.AllAttrs(), DeepEquals, m)
+}
+
+func (s *StateSuite) TestDoubleInitialize(c *C) {
+	m := map[string]interface{}{
+		"type":            "dummy",
+		"name":            "lisboa",
+		"authorized-keys": "i-am-a-key",
+		"default-series":  "precise",
+		"development":     true,
+	}
+	cfg, err := config.New(m)
+	c.Assert(err, IsNil)
+	st, err := state.Initialize(s.StateInfo(c), cfg)
+	c.Assert(err, IsNil)
+	c.Assert(st, NotNil)
+	env1, err := st.EnvironConfig()
+	st.Close()
+
+	// initialize again, there should be no error and the 
+	// environ config should not change.
+	m = map[string]interface{}{
+		"type":            "dummy",
+		"name":            "sydney",
+		"authorized-keys": "i-am-not-an-animal",
+		"default-series":  "xanadu",
+		"development":     false,
+	}
+	cfg, err = config.New(m)
+	c.Assert(err, IsNil)
+	st, err = state.Initialize(s.StateInfo(c), cfg)
+	c.Assert(err, IsNil)
+	c.Assert(st, NotNil)
+	env2, err := st.EnvironConfig()
+	st.Close()
+
+	c.Assert(env1.AllAttrs(), DeepEquals, env2.AllAttrs())
+}
+
 var sortPortsTests = []struct {
 	have, want []state.Port
 }{

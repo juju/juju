@@ -714,7 +714,7 @@ func (w *MachineUnitsWatcher) mergeChange(changes *MachineUnitsChange, ch watche
 		if _, ok := w.knownUnits[name]; !ok {
 			err = w.st.units.FindId(name).One(doc)
 			if err == mgo.ErrNotFound {
-				return nil
+				continue
 			}
 			if err != nil {
 				return err
