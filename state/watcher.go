@@ -13,6 +13,19 @@ type commonWatcher struct {
 	tomb tomb.Tomb
 }
 
+// Stop stops the watcher, and returns any error encountered while running
+// or shutting down.
+func (w *commonWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
+}
+
+// Err returns any error encountered while running or shutting down, or
+// tomb.ErrStillAlive if the watcher is still running.
+func (w *commonWatcher) Err() error {
+	return w.tomb.Err()
+}
+
 // MachineWatcher observes changes to the settings of a machine.
 type MachineWatcher struct {
 	commonWatcher
@@ -79,6 +92,23 @@ type RelationsChange struct {
 	Removed []*Relation
 }
 
+// RelationScopeWatcher observes changes to the set of units
+// in a particular relation scope.
+type RelationScopeWatcher struct {
+	commonWatcher
+	prefix     string
+	ignore     string
+	knownUnits map[string]bool
+	changeChan chan *RelationScopeChange
+}
+
+// RelationScopeChange contains information about units that have
+// entered or left a particular scope.
+type RelationScopeChange struct {
+	Entered []string
+	Left    []string
+}
+
 // newMachineWatcher creates and starts a watcher to watch information
 // about the machine.
 func newMachineWatcher(m *Machine) *MachineWatcher {
@@ -101,11 +131,6 @@ func newMachineWatcher(m *Machine) *MachineWatcher {
 // as returned by Machine.Info.
 func (w *MachineWatcher) Changes() <-chan *Machine {
 	return w.changeChan
-}
-
-func (w *MachineWatcher) Stop() error {
-	w.tomb.Kill(nil)
-	return w.tomb.Wait()
 }
 
 func (w *MachineWatcher) loop(m *Machine) (err error) {
@@ -171,12 +196,6 @@ func newMachinesWatcher(st *State) *MachinesWatcher {
 // holds the initial state as returned by State.AllMachines.
 func (w *MachinesWatcher) Changes() <-chan *MachinesChange {
 	return w.changeChan
-}
-
-// Stop stops the watcher and returns any errors encountered while watching.
-func (w *MachinesWatcher) Stop() error {
-	w.tomb.Kill(nil)
-	return w.tomb.Wait()
 }
 
 func (w *MachinesWatcher) mergeChange(changes *MachinesChange, ch watcher.Change) (err error) {
@@ -294,12 +313,6 @@ func (w *ServicesWatcher) Changes() <-chan *ServicesChange {
 	return w.changeChan
 }
 
-// Stop stops the watcher and returns any errors encountered while watching.
-func (w *ServicesWatcher) Stop() error {
-	w.tomb.Kill(nil)
-	return w.tomb.Wait()
-}
-
 func (w *ServicesWatcher) mergeChange(changes *ServicesChange, ch watcher.Change) (err error) {
 	name := ch.Id.(string)
 	if svc, ok := w.knownServices[name]; ch.Revno == -1 && ok {
@@ -415,12 +428,6 @@ func newServiceUnitsWatcher(svc *Service) *ServiceUnitsWatcher {
 // holds the initial state as returned by State.AllUnits.
 func (w *ServiceUnitsWatcher) Changes() <-chan *ServiceUnitsChange {
 	return w.changeChan
-}
-
-// Stop stops the watcher and returns any errors encountered while watching.
-func (w *ServiceUnitsWatcher) Stop() error {
-	w.tomb.Kill(nil)
-	return w.tomb.Wait()
 }
 
 func (w *ServiceUnitsWatcher) mergeChange(changes *ServiceUnitsChange, ch watcher.Change) (err error) {
@@ -542,12 +549,6 @@ func (w *ServiceRelationsWatcher) Changes() <-chan *RelationsChange {
 	return w.changeChan
 }
 
-// Stop stops the watcher and returns any errors encountered while watching.
-func (w *ServiceRelationsWatcher) Stop() error {
-	w.tomb.Kill(nil)
-	return w.tomb.Wait()
-}
-
 func (w *ServiceRelationsWatcher) mergeChange(changes *RelationsChange, ch watcher.Change) (err error) {
 	key := ch.Id.(string)
 	if !strings.HasPrefix(key, w.service.doc.Name+":") && !strings.Contains(key, " "+w.service.doc.Name+":") {
@@ -628,6 +629,114 @@ func (w *ServiceRelationsWatcher) loop() (err error) {
 			changes = &RelationsChange{}
 			err := w.mergeChange(changes, c)
 			if err != nil {
+				return err
+			}
+			if changes.isEmpty() {
+				changes = nil
+			}
+		}
+	}
+	return nil
+}
+
+func newRelationScopeWatcher(st *State, scope, ignore string) *RelationScopeWatcher {
+	w := &RelationScopeWatcher{
+		commonWatcher: commonWatcher{st: st},
+		prefix:        scope + "#",
+		ignore:        ignore,
+		changeChan:    make(chan *RelationScopeChange),
+		knownUnits:    make(map[string]bool),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.changeChan)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns a channel that will receive changes when units enter and
+// leave a relation scope. The Entered field in the first event on the channel
+// holds the initial state.
+func (w *RelationScopeWatcher) Changes() <-chan *RelationScopeChange {
+	return w.changeChan
+}
+
+func (changes *RelationScopeChange) isEmpty() bool {
+	return len(changes.Entered)+len(changes.Left) == 0
+}
+
+func (w *RelationScopeWatcher) mergeChange(changes *RelationScopeChange, ch watcher.Change) (err error) {
+	doc := &relationScopeDoc{ch.Id.(string)}
+	if !strings.HasPrefix(doc.Key, w.prefix) {
+		return nil
+	}
+	name := doc.unitName()
+	if name == w.ignore {
+		return nil
+	}
+	if ch.Revno == -1 {
+		if w.knownUnits[name] {
+			changes.Left = append(changes.Left, name)
+			delete(w.knownUnits, name)
+		}
+		return nil
+	}
+	if !w.knownUnits[name] {
+		changes.Entered = append(changes.Entered, name)
+		w.knownUnits[name] = true
+	}
+	return nil
+}
+
+func (w *RelationScopeWatcher) getInitialEvent() (initial *RelationScopeChange, err error) {
+	changes := &RelationScopeChange{}
+	docs := []relationScopeDoc{}
+	sel := D{{"_id", D{{"$regex", "^" + w.prefix}}}}
+	err = w.st.relationScopes.Find(sel).All(&docs)
+	if err != nil {
+		return nil, err
+	}
+	for _, doc := range docs {
+		if name := doc.unitName(); name != w.ignore {
+			changes.Entered = append(changes.Entered, name)
+			w.knownUnits[name] = true
+		}
+	}
+	return changes, nil
+}
+
+func (w *RelationScopeWatcher) loop() error {
+	ch := make(chan watcher.Change)
+	w.st.watcher.WatchCollection(w.st.relationScopes.Name, ch)
+	defer w.st.watcher.UnwatchCollection(w.st.relationScopes.Name, ch)
+	changes, err := w.getInitialEvent()
+	if err != nil {
+		return err
+	}
+	for {
+		for changes != nil {
+			select {
+			case <-w.st.watcher.Dead():
+				return watcher.MustErr(w.st.watcher)
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case c := <-ch:
+				if err := w.mergeChange(changes, c); err != nil {
+					return err
+				}
+			case w.changeChan <- changes:
+				changes = nil
+			}
+		}
+		select {
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case c := <-ch:
+			changes = &RelationScopeChange{}
+			if err := w.mergeChange(changes, c); err != nil {
 				return err
 			}
 			if changes.isEmpty() {
