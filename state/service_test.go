@@ -442,11 +442,11 @@ func (s *ServiceSuite) TestWatchUnits(c *C) {
 			select {
 			case new, ok := <-unitWatcher.Changes():
 				c.Assert(ok, Equals, true)
-				addUnitChanges(got, new)
-				if moreUnitsRequired(got, test.added, test.removed) {
+				AddServiceUnitChanges(got, new)
+				if moreServiceUnitsRequired(got, test.added, test.removed) {
 					continue
 				}
-				assertSameUnits(c, got, test.added, test.removed)
+				assertSameServiceUnits(c, got, test.added, test.removed)
 			case <-time.After(500 * time.Millisecond):
 				c.Fatalf("did not get change, want: added: %#v, removed: %#v, got: %#v", test.added, test.removed, got)
 			}
@@ -460,11 +460,11 @@ func (s *ServiceSuite) TestWatchUnits(c *C) {
 	}
 }
 
-func moreUnitsRequired(got *state.ServiceUnitsChange, added, removed []string) bool {
+func moreServiceUnitsRequired(got *state.ServiceUnitsChange, added, removed []string) bool {
 	return len(got.Added)+len(got.Removed) < len(added)+len(removed)
 }
 
-func addUnitChanges(changes *state.ServiceUnitsChange, more *state.ServiceUnitsChange) {
+func AddServiceUnitChanges(changes *state.ServiceUnitsChange, more *state.ServiceUnitsChange) {
 	changes.Added = append(changes.Added, more.Added...)
 	changes.Removed = append(changes.Removed, more.Removed...)
 }
@@ -475,7 +475,7 @@ func (m unitSlice) Len() int           { return len(m) }
 func (m unitSlice) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
 func (m unitSlice) Less(i, j int) bool { return m[i].Name() < m[j].Name() }
 
-func assertSameUnits(c *C, change *state.ServiceUnitsChange, added, removed []string) {
+func assertSameServiceUnits(c *C, change *state.ServiceUnitsChange, added, removed []string) {
 	c.Assert(change, NotNil)
 	if len(added) == 0 {
 		added = nil

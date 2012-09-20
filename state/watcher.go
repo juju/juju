@@ -651,8 +651,14 @@ func (w *ServiceRelationsWatcher) loop() (err error) {
 	return nil
 }
 
+// WatchUnits returns a watcher for observing units being
+// added to or removed from the machine.
+func (m *Machine) WatchUnits() *MachineUnitsWatcher {
+	return newMachineUnitsWatcher(m)
+}
+
 // newMachineUnitsWatcher creates and starts a watcher to watch information
-// about units being added or deleted from the machine.
+// about units being added to or deleted from the machine.
 func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 	w := &MachineUnitsWatcher{
 		changeChan:    make(chan *MachineUnitsChange),

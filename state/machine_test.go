@@ -526,3 +526,69 @@ var machineUnitsWatchTests = []struct {
 		added: []string{"mysql/28", "mysql/29"},
 	},
 }
+
+func (s *MachineSuite) TestWatchUnits(c *C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	service, err := s.State.AddService("mysql", charm)
+	c.Assert(err, IsNil)
+	unitWatcher := s.machine.WatchUnits()
+	defer func() {
+		c.Assert(unitWatcher.Stop(), IsNil)
+	}()
+	for i, test := range machineUnitsWatchTests {
+		c.Logf("test %d", i)
+		test.test(c, s, service)
+		s.State.StartSync()
+		got := &state.MachineUnitsChange{}
+		for {
+			select {
+			case new, ok := <-unitWatcher.Changes():
+				c.Assert(ok, Equals, true)
+				addMachineUnitChanges(got, new)
+				if moreMachineUnitsRequired(got, test.added, test.removed) {
+					continue
+				}
+				assertSameMachineUnits(c, got, test.added, test.removed)
+			case <-time.After(500 * time.Millisecond):
+				c.Fatalf("did not get change, want: added: %#v, removed: %#v, got: %#v", test.added, test.removed, got)
+			}
+			break
+		}
+	}
+	select {
+	case got := <-unitWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func moreMachineUnitsRequired(got *state.MachineUnitsChange, added, removed []string) bool {
+	return len(got.Added)+len(got.Removed) < len(added)+len(removed)
+}
+
+func addMachineUnitChanges(changes *state.MachineUnitsChange, more *state.MachineUnitsChange) {
+	changes.Added = append(changes.Added, more.Added...)
+	changes.Removed = append(changes.Removed, more.Removed...)
+}
+
+func assertSameMachineUnits(c *C, change *state.MachineUnitsChange, added, removed []string) {
+	c.Assert(change, NotNil)
+	if len(added) == 0 {
+		added = nil
+	}
+	if len(removed) == 0 {
+		removed = nil
+	}
+	sort.Sort(unitSlice(change.Added))
+	sort.Sort(unitSlice(change.Removed))
+	var got []string
+	for _, g := range change.Added {
+		got = append(got, g.Name())
+	}
+	c.Assert(got, DeepEquals, added)
+	got = nil
+	for _, g := range change.Removed {
+		got = append(got, g.Name())
+	}
+	c.Assert(got, DeepEquals, removed)
+}
