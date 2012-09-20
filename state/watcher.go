@@ -3,6 +3,7 @@ package state
 import (
 	"fmt"
 	"labix.org/v2/mgo"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 	"strings"
@@ -130,7 +131,7 @@ type MachineUnitsChange struct {
 // environment configuration.
 type EnvironConfigWatcher struct {
 	commonWatcher
-	e *config.Config
+	changeChan chan *config.Config
 }
 
 // newMachineWatcher creates and starts a watcher to watch information
@@ -897,6 +898,68 @@ func (w *RelationScopeWatcher) loop() error {
 			}
 			if changes.isEmpty() {
 				changes = nil
+			}
+		}
+	}
+	return nil
+}
+
+// WatchEnvironConfig returns a watcher for observing changes
+// to the environment configuration.
+func (s *State) WatchEnvironConfig() *EnvironConfigWatcher {
+	return newEnvironConfigWatcher(s)
+}
+
+func newEnvironConfigWatcher(s *State) *EnvironConfigWatcher {
+	w := &EnvironConfigWatcher{
+		changeChan:    make(chan *config.Config),
+		commonWatcher: commonWatcher{st: s},
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.changeChan)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns a channel that will receive the new environment
+// configuration when a change is detected. Note that multiple changes may
+// be observed as a single event in the channel.
+func (w *EnvironConfigWatcher) Changes() <-chan *config.Config {
+	return w.changeChan
+}
+
+func (w *EnvironConfigWatcher) loop() (err error) {
+	ch := make(chan watcher.Change)
+	w.st.watcher.Watch(w.st.settings.Name, "e", 0, ch)
+	defer w.st.watcher.Unwatch(w.st.settings.Name, "e", ch)
+	var config *config.Config
+	for {
+		for config != nil {
+			select {
+			case <-w.st.watcher.Dead():
+				return watcher.MustErr(w.st.watcher)
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case <-ch:
+				config, err = w.st.EnvironConfig()
+				if err != nil {
+					return err
+				}
+			case w.changeChan <- config:
+				config = nil
+			}
+		}
+		select {
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-ch:
+			config, err = w.st.EnvironConfig()
+			if err != nil {
+				return err
 			}
 		}
 	}
