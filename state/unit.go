@@ -397,9 +397,18 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 	return *pudoc.MachineId, nil
 }
 
-// AssignToMachine assigns this unit to a given machine.
-func (u *Unit) AssignToMachine(m *Machine) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot assign unit %q to machine %s", u, m)
+var machineDeadErr = errors.New("machine is dead")
+var unitDeadErr = errors.New("unit is dead")
+var cannotAssignErr = errors.New("unit cannot be assigned to machine")
+
+// assignToMachine is the internal version of AssignToMachine,
+// also used by AssignToUnusedMachine. It returns specific errors
+// in some cases:
+// - machineDeadErr when the machine is not alive.
+// - unitDeadErr when the unit is not alive.
+// - cannotAssignErr when the unit has already been assigned,
+// or the machine already has a unit assigned (if onlyIfUnused is true)
+func (u *Unit) assignToMachine(m *Machine, onlyIfUnused bool) (err error) {
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
 	}
@@ -409,6 +418,10 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 			D{{"machineid", m.Id()}},
 		}},
 	}...)
+	massert := isAlive
+	if onlyIfUnused {
+		massert = append(massert, D{{"principals", D{{"$count", 0}}}}...)
+	}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
@@ -417,14 +430,64 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	}, {
 		C:      u.st.machines.Name,
 		Id:     m.doc.Id,
-		Assert: isAlive,
+		Assert: massert,
 		Update: D{{"$addToSet", D{{"principals", u.doc.Name}}}},
 	}}
 	if err := u.st.runner.Run(ops, "", nil); err != nil {
-		return onAbort(err, fmt.Errorf("machine or unit dead, or already assigned to machine"))
+		if err != txn.ErrAborted {
+			return err
+		}
+		u0, err := u.st.Unit(u.Name())
+		if err != nil {
+			return err
+		}
+		if u0.Life() != Alive {
+			return unitDeadErr
+		}
+		m0, err := u.st.Machine(m.Id())
+		if err != nil {
+			return err
+		}
+		if m0.Life() != Alive {
+			return machineDeadErr
+		}
+		return cannotAssignErr
 	}
 	u.doc.MachineId = &m.doc.Id
 	return nil
+}
+
+// AssignToMachine assigns this unit to a given machine.
+func (u *Unit) AssignToMachine(m *Machine) error {
+	err := u.assignToMachine(m, false)
+	if err == nil {
+		return nil
+	}
+	if err == cannotAssignErr {
+		err = fmt.Errorf("unit is already assigned to another machine")
+	}
+	return fmt.Errorf("cannot assign unit %q to machine %s: err", u, m, err)
+}
+
+var noUnusedMachines = errors.New("all machines in use")
+
+// AssignToUnusedMachine assigns u to a machine without other units.
+// If there are no unused machines besides machine 0, an error is returned.
+func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
+	sel := D{{"principals", D{{"$size", 0}}}}
+	iter := u.st.machines.Find(sel).Batch(1).Iter()
+	var mdoc machineDoc
+	for iter.Next(&mdoc) {
+		m := newMachine(u.st, &mdoc)
+		switch err := u.assignToMachine(m, true); err {
+		case nil:
+			return m, nil
+		case cannotAssignErr, machineDeadErr:
+		default:
+			return nil, fmt.Errorf("cannot assign %s to machine %d: %v", u.Name(), m.Id(), err)
+		}
+	}
+	return nil, noUnusedMachines
 }
 
 // UnassignFromMachine removes the assignment between this unit and the
