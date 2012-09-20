@@ -692,6 +692,18 @@ authorized-keys: i-am-a-key,
 default-series: precise`
 
 func (s *StateSuite) TestWatchEnvironment(c *C) {
+	m := map[string]interface{}{
+		"type":            "dummy",
+		"name":            "lisboa",
+		"authorized-keys": "i-am-a-key",
+		"default-series":  "precise",
+		"development":     true,
+	}
+	cfg, err := config.New(m)
+	c.Assert(err, IsNil)
+	st, err := state.Initialize(s.StateInfo(c), cfg)
+	c.Assert(err, IsNil)
+	c.Assert(st, NotNil)
 	environConfigWatcher := s.State.WatchEnvironConfig()
 	defer func() {
 		c.Assert(environConfigWatcher.Stop(), IsNil)
