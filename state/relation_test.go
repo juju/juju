@@ -474,7 +474,7 @@ func (s *RelationUnitSuite) assertNoScopeChange(c *C, ws ...*state.RelationScope
 		select {
 		case ch, ok := <-w.Changes():
 			c.Fatalf("got unwanted change: %#v, %t", ch, ok)
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(50 * time.Millisecond):
 		}
 	}
 }

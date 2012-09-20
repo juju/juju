@@ -243,7 +243,7 @@ func (*sshSuite) TestSSHConnect(c *C) {
 	// The SSH forwarder will have tried to start the SSH
 	// client, but it will fail because there's no daemon to
 	// connect to. Wait a while to allow this to happen.
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 
 	// Start the daemon and the client.
 	c.Logf("--------- starting sshd")
@@ -257,7 +257,7 @@ func (*sshSuite) TestSSHConnect(c *C) {
 	// The SSH client process should now successfully start,
 	// but the client will fail to connect because the server
 	// has not been started. Wait a while for this to happen.
-	time.Sleep(2000 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 
 	// Start the server to finally allow the full connection
 	// to take place.
