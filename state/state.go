@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/url"
+	"regexp"
 )
 
 type D []bson.DocElem
@@ -23,6 +24,21 @@ type D []bson.DocElem
 type Tools struct {
 	version.Binary
 	URL string
+}
+
+var (
+	validService = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
+	validUnit    = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
+)
+
+// IsServiceName returns whether name is a valid service name.
+func IsServiceName(name string) bool {
+	return validService.MatchString(name)
+}
+
+// IsUnitName returns whether name is a valid unit name.
+func IsUnitName(name string) bool {
+	return validUnit.MatchString(name)
 }
 
 // State represents the state of an environment
@@ -41,13 +57,6 @@ type State struct {
 	watcher        *watcher.Watcher
 	pwatcher       *presence.Watcher
 	fwd            *sshForwarder
-}
-
-func deadOnAbort(err error) error {
-	if err == txn.ErrAborted {
-		return fmt.Errorf("not found or not alive")
-	}
-	return err
 }
 
 func (s *State) EnvironConfig() (*config.Config, error) {
@@ -91,6 +100,15 @@ func (s *State) AddMachine() (m *Machine, err error) {
 	return newMachine(s, &mdoc), nil
 }
 
+var errNotAlive = fmt.Errorf("not found or not alive")
+
+func onAbort(txnErr, err error) error {
+	if txnErr == txn.ErrAborted {
+		return err
+	}
+	return txnErr
+}
+
 // RemoveMachine removes the machine with the the given id.
 func (s *State) RemoveMachine(id int) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot remove machine %d", id)
@@ -99,7 +117,7 @@ func (s *State) RemoveMachine(id int) (err error) {
 		return err
 	}
 	if m.doc.Life != Dead {
-		panic(fmt.Errorf("machine %d is not dead", id))
+		return fmt.Errorf("machine is not dead")
 	}
 	sel := D{
 		{"_id", id},
@@ -111,9 +129,9 @@ func (s *State) RemoveMachine(id int) (err error) {
 		Assert: sel,
 		Remove: true,
 	}}
-	err = s.runner.Run(ops, "", nil)
-	if err != nil {
-		return deadOnAbort(err)
+	if err := s.runner.Run(ops, "", nil); err != nil {
+		// If aborted, the machine is either dead or recreated.
+		return onAbort(err, nil)
 	}
 	return nil
 }
@@ -175,6 +193,9 @@ func (s *State) Charm(curl *charm.URL) (*Charm, error) {
 // AddService creates a new service state with the given unique name
 // and the charm state.
 func (s *State) AddService(name string, ch *Charm) (service *Service, err error) {
+	if !IsServiceName(name) {
+		return nil, fmt.Errorf("%q is not a valid service name", name)
+	}
 	sdoc := &serviceDoc{
 		Name:     name,
 		CharmURL: ch.URL(),
@@ -186,13 +207,10 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 		Assert: txn.DocMissing,
 		Insert: sdoc,
 	}}
-	err = s.runner.Run(ops, "", nil)
-	if err != nil {
-		if err == txn.ErrAborted {
-			err = fmt.Errorf("duplicate service name")
-		}
-		return nil, fmt.Errorf("cannot add service %q: %v", name, err)
+	if err := s.runner.Run(ops, "", nil); err != nil {
+		return nil, fmt.Errorf("cannot add service %q: %v", name, onAbort(err, fmt.Errorf("duplicate service name")))
 	}
+
 	return newService(s, sdoc), nil
 }
 
@@ -205,7 +223,7 @@ func (s *State) RemoveService(svc *Service) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot remove service %q", svc)
 
 	if svc.doc.Life != Dead {
-		panic(fmt.Errorf("service %q is not dead", svc))
+		return fmt.Errorf("service is not dead")
 	}
 	rels, err := svc.Relations()
 	if err != nil {
@@ -240,15 +258,18 @@ func (s *State) RemoveService(svc *Service) (err error) {
 		Assert: D{{"life", Dead}},
 		Remove: true,
 	}}
-	err = s.runner.Run(ops, "", nil)
-	if err != nil {
-		return err
+	if err := s.runner.Run(ops, "", nil); err != nil {
+		// If aborted, the service is either dead or recreated.
+		return onAbort(err, nil)
 	}
 	return nil
 }
 
 // Service returns a service state by name.
 func (s *State) Service(name string) (service *Service, err error) {
+	if !IsServiceName(name) {
+		return nil, fmt.Errorf("%q is not a valid service name", name)
+	}
 	sdoc := &serviceDoc{}
 	sel := D{{"_id", name}}
 	err = s.services.Find(sel).One(sdoc)
@@ -343,9 +364,8 @@ func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error)
 // RemoveRelation removes the supplied relation.
 func (s *State) RemoveRelation(r *Relation) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot remove relation %q", r.doc.Key)
-
 	if r.doc.Life != Dead {
-		panic(fmt.Errorf("relation %q is not dead", r))
+		return fmt.Errorf("relation is not dead")
 	}
 	ops := []txn.Op{{
 		C:      s.relations.Name,
@@ -353,15 +373,18 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 		Assert: D{{"life", Dead}},
 		Remove: true,
 	}}
-	err = s.runner.Run(ops, "", nil)
-	if err != nil {
-		return deadOnAbort(err)
+	if err := s.runner.Run(ops, "", nil); err != nil {
+		// If aborted, the relation is either dead or recreated.
+		return onAbort(err, nil)
 	}
 	return nil
 }
 
 // Unit returns a unit by name.
 func (s *State) Unit(name string) (*Unit, error) {
+	if !IsUnitName(name) {
+		return nil, fmt.Errorf("%q is not a valid unit name", name)
+	}
 	doc := unitDoc{}
 	err := s.units.FindId(name).One(&doc)
 	if err != nil {
