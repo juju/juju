@@ -3,6 +3,7 @@ package state
 import (
 	"fmt"
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/txn"
 	"sort"
 )
 
@@ -159,13 +160,26 @@ func (c *ConfigNode) Write() ([]ItemChange, error) {
 		return []ItemChange{}, nil
 	}
 	sort.Sort(itemChangeSlice(changes))
-	change := D{
-		{"$inc", D{{"version", 1}}},
-		{"$set", upserts},
-		{"$unset", deletions},
+	inserts := copyMap(upserts)
+	inserts["version"] = 1
+	ops := []txn.Op{{
+		C:      c.st.settings.Name,
+		Id:     c.path,
+		Insert: inserts,
+	}}
+	if err := c.st.runner.Run(ops, "", nil); err != nil {
+		return nil, fmt.Errorf("cannot write configuration node %q: %v", c.path, err)
 	}
-	_, err := c.st.settings.UpsertId(c.path, change)
-	if err != nil {
+	ops = []txn.Op{{
+		C:  c.st.settings.Name,
+		Id: c.path,
+		Update: D{
+			{"$inc", D{{"version", 1}}},
+			{"$set", upserts},
+			{"$unset", deletions},
+		},
+	}}
+	if err := c.st.runner.Run(ops, "", nil); err != nil {
 		return nil, fmt.Errorf("cannot write configuration node %q: %v", c.path, err)
 	}
 	c.disk = copyMap(c.core)
@@ -184,6 +198,8 @@ func newConfigNode(st *State, path string) *ConfigNode {
 func cleanMap(in map[string]interface{}) {
 	delete(in, "_id")
 	delete(in, "version")
+	delete(in, "txn-revno")
+	delete(in, "txn-queue")
 }
 
 // Read (re)reads the node data into c.
