@@ -15,5 +15,6 @@ if [ $VERSION == 'devel' ]; then
 		-methods \
 		-printf \
 		-rangeloops \
+		-printfuncs ErrorContextf:1 \
 		.
 fi
