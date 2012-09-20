@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/trivial"
 	"sort"
@@ -130,7 +131,7 @@ func (u *Unit) AgentTools() (*Tools, error) {
 
 // SetAgentTools sets the tools that the agent is currently running.
 func (u *Unit) SetAgentTools(t *Tools) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot set agent tools for unit %v", u)
+	defer trivial.ErrorContextf(&err, "cannot set agent tools for unit %q", u)
 	if t.Series == "" || t.Arch == "" {
 		return fmt.Errorf("empty series or arch")
 	}
@@ -397,18 +398,37 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 	return *pudoc.MachineId, nil
 }
 
-var machineDeadErr = errors.New("machine is dead")
-var unitDeadErr = errors.New("unit is dead")
-var cannotAssignErr = errors.New("unit cannot be assigned to machine")
+var (
+	machineDeadErr     = errors.New("machine is dead")
+	unitDeadErr        = errors.New("unit is dead")
+	cannotAssignErr    = errors.New("unit cannot be assigned to machine")
+	alreadyAssignedErr = errors.New("unit is already assigned to a machine")
+	notUnusedErr       = errors.New("machine is not unused")
+)
 
 // assignToMachine is the internal version of AssignToMachine,
 // also used by AssignToUnusedMachine. It returns specific errors
 // in some cases:
 // - machineDeadErr when the machine is not alive.
 // - unitDeadErr when the unit is not alive.
-// - cannotAssignErr when the unit has already been assigned,
-// or the machine already has a unit assigned (if onlyIfUnused is true)
+// - alreadyAssignedErr when the unit has already been assigned
+// - notUnusedErr when the machine already has a unit assigned (if onlyIfUnused is true)
 func (u *Unit) assignToMachine(m *Machine, onlyIfUnused bool) (err error) {
+	log.Printf("trying to assign %v to machine %v (unit life: %v)", u, m, u.Life())
+	u1, err := u.st.Unit(u.Name())
+	if err != nil {
+		log.Printf("cannot get unit: %v", err)
+	} else {
+		log.Printf("underlying unit life: %v", u1.Life())
+	}
+
+	if u.doc.MachineId != nil {
+		if *u.doc.MachineId != m.Id() {
+			return alreadyAssignedErr
+		}
+		log.Printf("unit is already assigned to correct machine")
+		return nil
+	}
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
 	}
@@ -420,7 +440,7 @@ func (u *Unit) assignToMachine(m *Machine, onlyIfUnused bool) (err error) {
 	}...)
 	massert := isAlive
 	if onlyIfUnused {
-		massert = append(massert, D{{"principals", D{{"$count", 0}}}}...)
+		massert = append(massert, D{{"principals", D{{"$size", 0}}}}...)
 	}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
@@ -434,6 +454,7 @@ func (u *Unit) assignToMachine(m *Machine, onlyIfUnused bool) (err error) {
 		Update: D{{"$addToSet", D{{"principals", u.doc.Name}}}},
 	}}
 	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		log.Printf("txn fail: %v", err)
 		if err != txn.ErrAborted {
 			return err
 		}
@@ -441,18 +462,21 @@ func (u *Unit) assignToMachine(m *Machine, onlyIfUnused bool) (err error) {
 		if err != nil {
 			return err
 		}
-		if u0.Life() != Alive {
-			return unitDeadErr
-		}
 		m0, err := u.st.Machine(m.Id())
 		if err != nil {
 			return err
 		}
-		if m0.Life() != Alive {
+		switch {
+		case u0.Life() != Alive:
+			return unitDeadErr
+		case m0.Life() != Alive:
 			return machineDeadErr
+		case u0.doc.MachineId != nil:
+			return alreadyAssignedErr
 		}
-		return cannotAssignErr
+		return notUnusedErr
 	}
+	log.Printf("assignment succeeded")
 	u.doc.MachineId = &m.doc.Id
 	return nil
 }
@@ -460,13 +484,10 @@ func (u *Unit) assignToMachine(m *Machine, onlyIfUnused bool) (err error) {
 // AssignToMachine assigns this unit to a given machine.
 func (u *Unit) AssignToMachine(m *Machine) error {
 	err := u.assignToMachine(m, false)
-	if err == nil {
-		return nil
+	if err != nil {
+		return fmt.Errorf("cannot assign unit %q to machine %v: %v", u, m, err)
 	}
-	if err == cannotAssignErr {
-		err = fmt.Errorf("unit is already assigned to another machine")
-	}
-	return fmt.Errorf("cannot assign unit %q to machine %s: err", u, m, err)
+	return nil
 }
 
 var noUnusedMachines = errors.New("all machines in use")
@@ -474,19 +495,25 @@ var noUnusedMachines = errors.New("all machines in use")
 // AssignToUnusedMachine assigns u to a machine without other units.
 // If there are no unused machines besides machine 0, an error is returned.
 func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
-	sel := D{{"principals", D{{"$size", 0}}}}
-	iter := u.st.machines.Find(sel).Batch(1).Iter()
+	// Select all machines with no principals except the bootstrap machine.
+	sel := D{{"principals", D{{"$size", 0}}}, {"_id", D{{"$ne", 0}}}}
+	// TODO use Batch(1) when mgo bug is fixed.
+	iter := u.st.machines.Find(sel).Batch(2).Prefetch(0).Iter()
 	var mdoc machineDoc
 	for iter.Next(&mdoc) {
 		m := newMachine(u.st, &mdoc)
-		switch err := u.assignToMachine(m, true); err {
+		err := u.assignToMachine(m, true)
+		log.Printf("assignToMachine returned %v", err)
+		switch err {
 		case nil:
 			return m, nil
-		case cannotAssignErr, machineDeadErr:
+		case notUnusedErr, machineDeadErr:
 		default:
-			return nil, fmt.Errorf("cannot assign %s to machine %d: %v", u.Name(), m.Id(), err)
+			return nil, fmt.Errorf("cannot assign unit %q to unused machine: %v", u.Name(), err)
 		}
 	}
+	// TODO check to see if the unit has now been assigned,
+	// and if so return a more descriptive error.
 	return nil, noUnusedMachines
 }
 
