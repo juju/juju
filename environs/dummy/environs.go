@@ -397,7 +397,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		if err != nil {
 			return err
 		}
-		st, err := state.Initialize(info, cfg.AllAttrs())
+		st, err := state.Initialize(info, cfg)
 		if err != nil {
 			panic(err)
 		}
