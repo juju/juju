@@ -27,9 +27,19 @@ type Tools struct {
 }
 
 var (
-	ValidService = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
-	ValidUnit    = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
+	validService = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
+	validUnit    = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
 )
+
+// IsServiceName returns true if name is a valid service name.
+func IsServiceName(name string) bool {
+	return validService.MatchString(name)
+}
+
+// IsUnitName returns true if name is a valid service name.
+func IsUnitName(name string) bool {
+	return validUnit.MatchString(name)
+}
 
 // State represents the state of an environment
 // managed by juju.
@@ -180,7 +190,7 @@ func (s *State) Charm(curl *charm.URL) (*Charm, error) {
 // AddService creates a new service state with the given unique name
 // and the charm state.
 func (s *State) AddService(name string, ch *Charm) (service *Service, err error) {
-	if !ValidService.MatchString(name) {
+	if !IsServiceName(name) {
 		return nil, fmt.Errorf("%q is not a valid service name", name)
 	}
 	sdoc := &serviceDoc{
@@ -257,7 +267,7 @@ func (s *State) RemoveService(svc *Service) (err error) {
 
 // Service returns a service state by name.
 func (s *State) Service(name string) (service *Service, err error) {
-	if !ValidService.MatchString(name) {
+	if !IsServiceName(name) {
 		return nil, fmt.Errorf("%q is not a valid service name", name)
 	}
 	sdoc := &serviceDoc{}
@@ -373,7 +383,7 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 
 // Unit returns a unit by name.
 func (s *State) Unit(name string) (*Unit, error) {
-	if !ValidUnit.MatchString(name) {
+	if !IsUnitName(name) {
 		return nil, fmt.Errorf("%q is not a valid unit name", name)
 	}
 	doc := unitDoc{}

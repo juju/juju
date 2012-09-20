@@ -571,13 +571,13 @@ func assertSameServices(c *C, change *state.ServicesChange, added, removed []str
 	c.Assert(got, DeepEquals, removed)
 }
 
-func (*StateSuite) TestValidRegexps(c *C) {
+func (*StateSuite) TestNameChecks(c *C) {
 	assertService := func(s string, expect bool) {
-		c.Assert(state.ValidService.MatchString(s), Equals, expect)
-		c.Assert(state.ValidUnit.MatchString(s+"/0"), Equals, expect)
-		c.Assert(state.ValidUnit.MatchString(s+"/99"), Equals, expect)
-		c.Assert(state.ValidUnit.MatchString(s+"/-1"), Equals, false)
-		c.Assert(state.ValidUnit.MatchString(s+"/blah"), Equals, false)
+		c.Assert(state.IsServiceName(s), Equals, expect)
+		c.Assert(state.IsUnitName(s+"/0"), Equals, expect)
+		c.Assert(state.IsUnitName(s+"/99"), Equals, expect)
+		c.Assert(state.IsUnitName(s+"/-1"), Equals, false)
+		c.Assert(state.IsUnitName(s+"/blah"), Equals, false)
 	}
 	assertService("", false)
 	assertService("33", false)
