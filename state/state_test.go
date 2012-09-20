@@ -709,6 +709,7 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 	defer func() {
 		c.Assert(environConfigWatcher.Stop(), IsNil)
 	}()
+	s.State.StartSync()
 
 	_, ok := <-environConfigWatcher.Changes()
 	c.Assert(ok, Equals, true)
@@ -719,6 +720,7 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 		c.Assert(err, IsNil)
 		err = s.State.SetEnvironConfig(change)
 		c.Assert(err, IsNil)
+		s.State.StartSync()
 		select {
 		case got, ok := <-environConfigWatcher.Changes():
 			c.Assert(ok, Equals, true)

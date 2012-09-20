@@ -932,12 +932,16 @@ func (w *EnvironConfigWatcher) Changes() <-chan *config.Config {
 
 func (w *EnvironConfigWatcher) loop() (err error) {
 	ch := make(chan watcher.Change)
-	w.st.watcher.Watch(w.st.settings.Name, "e", 0, ch)
-	defer w.st.watcher.Unwatch(w.st.settings.Name, "e", ch)
-	config, err := w.st.EnvironConfig()
+	configNode, err := readConfigNode(w.st, "e")
 	if err != nil {
 		return err
 	}
+	config, err := config.New(configNode.Map())
+	if err != nil {
+		return err
+	}
+	w.st.watcher.Watch(w.st.settings.Name, "e", configNode.txnRevno, ch)
+	defer w.st.watcher.Unwatch(w.st.settings.Name, "e", ch)
 	for {
 		for config != nil {
 			select {

@@ -212,7 +212,7 @@ func (c *ConfigNode) Read() error {
 	if err != nil {
 		return fmt.Errorf("cannot read configuration node %q: %v", c.path, err)
 	}
-	c.txnRevno = config["txn-revno"]
+	c.txnRevno = config["txn-revno"].(int64)
 	cleanMap(config)
 	c.disk = copyMap(config)
 	c.core = copyMap(config)
