@@ -126,6 +126,13 @@ type MachineUnitsChange struct {
 	Removed []*Unit
 }
 
+// EnvironConfigWatcher observes changes to the
+// environment configuration.
+type EnvironConfigWatcher struct {
+	commonWatcher
+	e *config.Config
+}
+
 // newMachineWatcher creates and starts a watcher to watch information
 // about the machine.
 func newMachineWatcher(m *Machine) *MachineWatcher {
