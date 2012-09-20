@@ -700,6 +700,9 @@ func (w *MachineUnitsWatcher) mergeChange(changes *MachineUnitsChange, ch watche
 		doc := &unitDoc{}
 		if _, ok := w.knownUnits[name]; !ok {
 			err = w.st.units.FindId(name).One(doc)
+			if err == mgo.ErrNotFound {
+				return nil
+			}
 			if err != nil {
 				return err
 			}
@@ -725,7 +728,7 @@ func (changes *MachineUnitsChange) isEmpty() bool {
 func (w *MachineUnitsWatcher) getInitialEvent() (initial *MachineUnitsChange, err error) {
 	changes := &MachineUnitsChange{}
 	docs := []unitDoc{}
-	err = w.st.units.Find(D{{"machineid", w.machine.Id()}}).All(&docs)
+	err = w.st.units.Find(D{{"_id", D{{"$in", w.machine.doc.Principals}}}}).All(&docs)
 	if err != nil {
 		return nil, err
 	}
