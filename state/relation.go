@@ -219,9 +219,9 @@ func (ru *RelationUnit) Endpoint() RelationEndpoint {
 	return ru.endpoint
 }
 
-// EnterScope signals that the unit may be present in the relation, and
-// ensures that minimal settings exist, thereby allowing other units to
-// observe changes to its presence and settings.
+// EnterScope ensures that the unit has entered its scope in the relation.
+// A unit is a member of a relation when it has both entered its respective
+// scope and its pinger is signaling presence in the environment.
 func (ru *RelationUnit) EnterScope() (err error) {
 	defer trivial.ErrorContextf(&err, "cannot initialize state for unit %q in relation %q", ru.unit, ru.relation)
 	address, err := ru.unit.PrivateAddress()
@@ -245,8 +245,7 @@ func (ru *RelationUnit) EnterScope() (err error) {
 	return ru.st.runner.Run(ops, "", nil)
 }
 
-// LeaveScope signals that the unit will never again be present in the
-// relation.
+// LeaveScope signals that the unit has left its scope in the relation.
 func (ru *RelationUnit) LeaveScope() error {
 	key, err := ru.key(ru.unit.Name())
 	if err != nil {
@@ -322,7 +321,7 @@ func (ru *RelationUnit) key(uname string) (string, error) {
 	return strings.Join(parts, "#"), nil
 }
 
-// relationScopeDoc represents the potential presence of a unit in a relation.
+// relationScopeDoc represents a unit which is in a relation scope.
 // The relation, container, role, and unit are all encoded in the key.
 type relationScopeDoc struct {
 	Key string `bson:"_id"`
