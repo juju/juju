@@ -704,6 +704,7 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 	st, err := state.Initialize(s.StateInfo(c), cfg)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
+	defer st.Close()
 	environConfigWatcher := s.State.WatchEnvironConfig()
 	defer func() {
 		c.Assert(environConfigWatcher.Stop(), IsNil)

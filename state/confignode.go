@@ -161,7 +161,6 @@ func (c *ConfigNode) Write() ([]ItemChange, error) {
 	}
 	sort.Sort(itemChangeSlice(changes))
 	inserts := copyMap(upserts)
-	inserts["version"] = 1
 	ops := []txn.Op{{
 		C:      c.st.settings.Name,
 		Id:     c.path,
@@ -174,7 +173,6 @@ func (c *ConfigNode) Write() ([]ItemChange, error) {
 		C:  c.st.settings.Name,
 		Id: c.path,
 		Update: D{
-			{"$inc", D{{"version", 1}}},
 			{"$set", upserts},
 			{"$unset", deletions},
 		},
@@ -197,7 +195,6 @@ func newConfigNode(st *State, path string) *ConfigNode {
 // cleanMap cleans the map of version and _id fields.
 func cleanMap(in map[string]interface{}) {
 	delete(in, "_id")
-	delete(in, "version")
 	delete(in, "txn-revno")
 	delete(in, "txn-queue")
 }
