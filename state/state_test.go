@@ -567,3 +567,21 @@ func assertSameServices(c *C, change *state.ServicesChange, added, removed []str
 	}
 	c.Assert(got, DeepEquals, removed)
 }
+
+var sortPortsTests = []struct {
+	have, want []state.Port
+}{
+	{nil, []state.Port{}},
+	{[]state.Port{{"b", 1}, {"a", 99}, {"a", 1}}, []state.Port{{"a", 1}, {"a", 99}, {"b", 1}}},
+}
+
+func (*StateSuite) TestSortPorts(c *C) {
+	for _, t := range sortPortsTests {
+		p := make([]state.Port, len(t.have))
+		copy(p, t.have)
+		state.SortPorts(p)
+		c.Check(p, DeepEquals, t.want)
+		state.SortPorts(p)
+		c.Check(p, DeepEquals, t.want)
+	}
+}
