@@ -82,18 +82,21 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	_, err = s.State.AddRelation(proep, reqep)
 	c.Assert(err, ErrorMatches, `cannot add relation "pro:foo req:bar": .*`)
 
+	err = s.State.RemoveRelation(rel)
+	c.Assert(err, ErrorMatches, `cannot remove relation "pro:foo req:bar": relation is not dead`)
+
 	testWhenDying(c, rel, noErr, noErr, func() error {
 		assertOneRelation(c, pro, 0, proep, reqep)
 		assertOneRelation(c, req, 0, reqep, proep)
 		return nil
 	})
 
-	// Remove the relation, and check it can't be removed again.
+	// Remove the relation, and check it's ok to remove again.
 	err = s.State.RemoveRelation(rel)
 	c.Assert(err, IsNil)
 
 	err = s.State.RemoveRelation(rel)
-	c.Assert(err, ErrorMatches, `cannot remove relation "pro:foo req:bar": .*`)
+	c.Assert(err, IsNil)
 
 	// Check that we can add it again if we want to; but this time,
 	// give one of the endpoints container scope and check that both
@@ -128,7 +131,7 @@ func (s *RelationSuite) TestPeerRelation(c *C) {
 	c.Assert(err, IsNil)
 	assertNoRelations(c, peer)
 	err = s.State.RemoveRelation(rel)
-	c.Assert(err, ErrorMatches, `cannot remove relation "peer:baz": .*`)
+	c.Assert(err, IsNil)
 }
 
 func (s *RelationSuite) TestRemoveServiceRemovesRelations(c *C) {
@@ -145,39 +148,6 @@ func (s *RelationSuite) TestRemoveServiceRemovesRelations(c *C) {
 	c.Assert(err, ErrorMatches, `cannot get service "peer": not found`)
 	_, err = s.State.Relation(peerep)
 	c.Assert(err, ErrorMatches, `cannot get relation "peer:baz": not found`)
-}
-
-func (s *RelationSuite) TestLifecycle(c *C) {
-	peer, err := s.State.AddService("peer", s.charm)
-	c.Assert(err, IsNil)
-	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
-	assertNoRelations(c, peer)
-
-	rel, err := s.State.AddRelation(peerep)
-	c.Assert(err, IsNil)
-	life := rel.Life()
-	c.Assert(life, Equals, state.Alive)
-
-	// Check legal next state.
-	err = rel.Kill()
-	c.Assert(err, IsNil)
-	life = rel.Life()
-	c.Assert(life, Equals, state.Dying)
-
-	// Check legal repeated state setting.
-	err = rel.Kill()
-	c.Assert(err, IsNil)
-	life = rel.Life()
-	c.Assert(life, Equals, state.Dying)
-
-	// Check non-dead removal.
-	c.Assert(func() { s.State.RemoveRelation(rel) }, PanicMatches, `relation .* is not dead`)
-
-	// Check final state.
-	err = rel.Die()
-	c.Assert(err, IsNil)
-	life = rel.Life()
-	c.Assert(life, Equals, state.Dead)
 }
 
 func assertNoRelations(c *C, srv *state.Service) {

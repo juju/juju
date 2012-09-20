@@ -65,9 +65,8 @@ func (m *Machine) SetAgentTools(t *Tools) (err error) {
 		Assert: notDead,
 		Update: D{{"$set", D{{"tools", t}}}},
 	}}
-	err = m.st.runner.Run(ops, "", nil)
-	if err != nil {
-		return deadOnAbort(err)
+	if err := m.st.runner.Run(ops, "", nil); err != nil {
+		return onAbort(err, errNotAlive)
 	}
 	tools := *t
 	m.doc.Tools = &tools
@@ -179,16 +178,15 @@ func (m *Machine) Units() (units []*Unit, err error) {
 }
 
 // SetInstanceId sets the provider specific machine id for this machine.
-func (m *Machine) SetInstanceId(id string) error {
+func (m *Machine) SetInstanceId(id string) (err error) {
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: notDead,
 		Update: D{{"$set", D{{"instanceid", id}}}},
 	}}
-	err := m.st.runner.Run(ops, "", nil)
-	if err != nil {
-		return fmt.Errorf("cannot set instance id of machine %s: %v", m, deadOnAbort(err))
+	if err := m.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set instance id of machine %s: %v", m, onAbort(err, errNotAlive))
 	}
 	m.doc.InstanceId = id
 	return nil
