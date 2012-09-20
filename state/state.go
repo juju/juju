@@ -31,12 +31,12 @@ var (
 	validUnit    = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
 )
 
-// IsServiceName returns true if name is a valid service name.
+// IsServiceName returns whether name is a valid service name.
 func IsServiceName(name string) bool {
 	return validService.MatchString(name)
 }
 
-// IsUnitName returns true if name is a valid service name.
+// IsUnitName returns whether name is a valid unit name.
 func IsUnitName(name string) bool {
 	return validUnit.MatchString(name)
 }
