@@ -54,6 +54,31 @@ func Open(info *Info) (*State, error) {
 	return st, err
 }
 
+// Initialize sets up an initial empty state and returns it. 
+// This needs to be performed only once for a given environment.
+// If config is non nil its contents will be written into the environment
+// configuration for this state.
+func Initialize(info *Info, config map[string]interface{}) (*State, error) {
+	st, err := Open(info)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("state: initializing state")
+	if config != nil {
+		cfg, err := st.EnvironConfig()
+		if err != nil {
+			st.Close()
+			return nil, err
+		}
+		_, err = cfg.Apply(config)
+		if err != nil {
+			st.Close()
+			return nil, err
+		}
+	}
+	return st, nil
+}
+
 var indexes = []struct {
 	collection string
 	key        []string
