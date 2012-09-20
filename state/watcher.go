@@ -934,7 +934,10 @@ func (w *EnvironConfigWatcher) loop() (err error) {
 	ch := make(chan watcher.Change)
 	w.st.watcher.Watch(w.st.settings.Name, "e", 0, ch)
 	defer w.st.watcher.Unwatch(w.st.settings.Name, "e", ch)
-	var config *config.Config
+	config, err := w.st.EnvironConfig()
+	if err != nil {
+		return err
+	}
 	for {
 		for config != nil {
 			select {
