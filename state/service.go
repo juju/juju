@@ -281,6 +281,9 @@ func (s *Service) unitDoc(name string) (*unitDoc, error) {
 
 // Unit returns the service's unit with name.
 func (s *Service) Unit(name string) (*Unit, error) {
+	if !IsUnitName(name) {
+		return nil, fmt.Errorf("%q is not a valid unit name", name)
+	}
 	udoc, err := s.unitDoc(name)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get unit %q from service %q: %v", name, s.doc.Name, err)

@@ -190,19 +190,33 @@ func (s *ServiceSuite) TestReadUnit(c *C) {
 	c.Assert(err, IsNil)
 	_, err = s.service.AddUnit()
 	c.Assert(err, IsNil)
-	// Check that retrieving a unit works correctly.
+
+	// Check that retrieving a unit from the service works correctly.
 	unit, err := s.service.Unit("mysql/0")
+	c.Assert(err, IsNil)
+	c.Assert(unit.Name(), Equals, "mysql/0")
+
+	// Check that retrieving a unit from state works correctly.
+	unit, err = s.State.Unit("mysql/0")
 	c.Assert(err, IsNil)
 	c.Assert(unit.Name(), Equals, "mysql/0")
 
 	// Check that retrieving a non-existent or an invalidly
 	// named unit fail nicely.
 	unit, err = s.service.Unit("mysql")
-	c.Assert(err, ErrorMatches, `cannot get unit "mysql" from service "mysql":.*`)
+	c.Assert(err, ErrorMatches, `"mysql" is not a valid unit name`)
 	unit, err = s.service.Unit("mysql/0/0")
-	c.Assert(err, ErrorMatches, `cannot get unit "mysql/0/0" from service "mysql": .*`)
+	c.Assert(err, ErrorMatches, `"mysql/0/0" is not a valid unit name`)
 	unit, err = s.service.Unit("pressword/0")
 	c.Assert(err, ErrorMatches, `cannot get unit "pressword/0" from service "mysql": .*`)
+
+	// Check direct state retrieval also fails nicely.
+	unit, err = s.State.Unit("mysql")
+	c.Assert(err, ErrorMatches, `"mysql" is not a valid unit name`)
+	unit, err = s.State.Unit("mysql/0/0")
+	c.Assert(err, ErrorMatches, `"mysql/0/0" is not a valid unit name`)
+	unit, err = s.State.Unit("pressword/0")
+	c.Assert(err, ErrorMatches, `cannot get unit "pressword/0": not found`)
 
 	// Add another service to check units are not misattributed.
 	mysql, err := s.State.AddService("wordpress", s.charm)
@@ -443,11 +457,11 @@ func (s *ServiceSuite) TestWatchUnits(c *C) {
 			select {
 			case new, ok := <-unitWatcher.Changes():
 				c.Assert(ok, Equals, true)
-				addUnitChanges(got, new)
-				if moreUnitsRequired(got, test.added, test.removed) {
+				AddServiceUnitChanges(got, new)
+				if moreServiceUnitsRequired(got, test.added, test.removed) {
 					continue
 				}
-				assertSameUnits(c, got, test.added, test.removed)
+				assertSameServiceUnits(c, got, test.added, test.removed)
 			case <-time.After(500 * time.Millisecond):
 				c.Fatalf("did not get change, want: added: %#v, removed: %#v, got: %#v", test.added, test.removed, got)
 			}
@@ -461,11 +475,11 @@ func (s *ServiceSuite) TestWatchUnits(c *C) {
 	}
 }
 
-func moreUnitsRequired(got *state.ServiceUnitsChange, added, removed []string) bool {
+func moreServiceUnitsRequired(got *state.ServiceUnitsChange, added, removed []string) bool {
 	return len(got.Added)+len(got.Removed) < len(added)+len(removed)
 }
 
-func addUnitChanges(changes *state.ServiceUnitsChange, more *state.ServiceUnitsChange) {
+func AddServiceUnitChanges(changes *state.ServiceUnitsChange, more *state.ServiceUnitsChange) {
 	changes.Added = append(changes.Added, more.Added...)
 	changes.Removed = append(changes.Removed, more.Removed...)
 }
@@ -476,7 +490,7 @@ func (m unitSlice) Len() int           { return len(m) }
 func (m unitSlice) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
 func (m unitSlice) Less(i, j int) bool { return m[i].Name() < m[j].Name() }
 
-func assertSameUnits(c *C, change *state.ServiceUnitsChange, added, removed []string) {
+func assertSameServiceUnits(c *C, change *state.ServiceUnitsChange, added, removed []string) {
 	c.Assert(change, NotNil)
 	if len(added) == 0 {
 		added = nil

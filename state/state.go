@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net/url"
+	"regexp"
 )
 
 type D []bson.DocElem
@@ -25,21 +26,37 @@ type Tools struct {
 	URL string
 }
 
+var (
+	validService = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
+	validUnit    = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
+)
+
+// IsServiceName returns whether name is a valid service name.
+func IsServiceName(name string) bool {
+	return validService.MatchString(name)
+}
+
+// IsUnitName returns whether name is a valid unit name.
+func IsUnitName(name string) bool {
+	return validUnit.MatchString(name)
+}
+
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	db        *mgo.Database
-	charms    *mgo.Collection
-	machines  *mgo.Collection
-	relations *mgo.Collection
-	services  *mgo.Collection
-	settings  *mgo.Collection
-	units     *mgo.Collection
-	presence  *mgo.Collection
-	runner    *txn.Runner
-	watcher   *watcher.Watcher
-	pwatcher  *presence.Watcher
-	fwd       *sshForwarder
+	db             *mgo.Database
+	charms         *mgo.Collection
+	machines       *mgo.Collection
+	relations      *mgo.Collection
+	relationScopes *mgo.Collection
+	services       *mgo.Collection
+	settings       *mgo.Collection
+	units          *mgo.Collection
+	presence       *mgo.Collection
+	runner         *txn.Runner
+	watcher        *watcher.Watcher
+	pwatcher       *presence.Watcher
+	fwd            *sshForwarder
 }
 
 func (s *State) EnvironConfig() (*config.Config, error) {
@@ -176,6 +193,9 @@ func (s *State) Charm(curl *charm.URL) (*Charm, error) {
 // AddService creates a new service state with the given unique name
 // and the charm state.
 func (s *State) AddService(name string, ch *Charm) (service *Service, err error) {
+	if !IsServiceName(name) {
+		return nil, fmt.Errorf("%q is not a valid service name", name)
+	}
 	sdoc := &serviceDoc{
 		Name:     name,
 		CharmURL: ch.URL(),
@@ -247,6 +267,9 @@ func (s *State) RemoveService(svc *Service) (err error) {
 
 // Service returns a service state by name.
 func (s *State) Service(name string) (service *Service, err error) {
+	if !IsServiceName(name) {
+		return nil, fmt.Errorf("%q is not a valid service name", name)
+	}
 	sdoc := &serviceDoc{}
 	sel := D{{"_id", name}}
 	err = s.services.Find(sel).One(sdoc)
@@ -359,6 +382,9 @@ func (s *State) RemoveRelation(r *Relation) (err error) {
 
 // Unit returns a unit by name.
 func (s *State) Unit(name string) (*Unit, error) {
+	if !IsUnitName(name) {
+		return nil, fmt.Errorf("%q is not a valid unit name", name)
+	}
 	doc := unitDoc{}
 	err := s.units.FindId(name).One(&doc)
 	if err != nil {

@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/trivial"
 	"sort"
@@ -218,6 +219,54 @@ func (ru *RelationUnit) Endpoint() RelationEndpoint {
 	return ru.endpoint
 }
 
+// EnterScope ensures that the unit has entered its scope in the relation.
+// A unit is a member of a relation when it has both entered its respective
+// scope and its pinger is signaling presence in the environment.
+func (ru *RelationUnit) EnterScope() (err error) {
+	defer trivial.ErrorContextf(&err, "cannot initialize state for unit %q in relation %q", ru.unit, ru.relation)
+	address, err := ru.unit.PrivateAddress()
+	if err != nil {
+		return err
+	}
+	key, err := ru.key(ru.unit.Name())
+	if err != nil {
+		return err
+	}
+	node := newConfigNode(ru.st, key)
+	node.Set("private-address", address)
+	if _, err = node.Write(); err != nil {
+		return err
+	}
+	ops := []txn.Op{{
+		C:      ru.st.relationScopes.Name,
+		Id:     key,
+		Insert: relationScopeDoc{key},
+	}}
+	return ru.st.runner.Run(ops, "", nil)
+}
+
+// LeaveScope signals that the unit has left its scope in the relation.
+func (ru *RelationUnit) LeaveScope() error {
+	key, err := ru.key(ru.unit.Name())
+	if err != nil {
+		return err
+	}
+	ops := []txn.Op{{
+		C:      ru.st.relationScopes.Name,
+		Id:     key,
+		Remove: true,
+	}}
+	return ru.st.runner.Run(ops, "", nil)
+}
+
+// WatchScope returns a watcher which notifies of counterpart units
+// entering and leaving the unit's scope.
+func (ru *RelationUnit) WatchScope() *RelationScopeWatcher {
+	role := ru.endpoint.RelationRole.counterpartRole()
+	scope := ru.scope + "#" + string(role)
+	return newRelationScopeWatcher(ru.st, scope, ru.unit.Name())
+}
+
 // Settings returns a ConfigNode which allows access to the unit's settings
 // within the relation.
 func (ru *RelationUnit) Settings() (*ConfigNode, error) {
@@ -237,6 +286,9 @@ func (ru *RelationUnit) Settings() (*ConfigNode, error) {
 // of the lifetime of the unit.
 func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, err error) {
 	defer trivial.ErrorContextf(&err, "cannot read settings for unit %q in relation %q", uname, ru.relation)
+	if !IsUnitName(uname) {
+		return nil, fmt.Errorf("%q is not a valid unit name", uname)
+	}
 	key, err := ru.key(uname)
 	if err != nil {
 		return nil, err
@@ -257,7 +309,7 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 
 // key returns a string, based on the relation and the supplied unit name,
 // which is used as a key for that unit within this relation in the settings,
-// presence, and relationRefs collections.
+// presence, and relationScopes collections.
 func (ru *RelationUnit) key(uname string) (string, error) {
 	uparts := strings.Split(uname, "/")
 	sname := uparts[0]
@@ -267,4 +319,15 @@ func (ru *RelationUnit) key(uname string) (string, error) {
 	}
 	parts := []string{ru.scope, string(ep.RelationRole), uname}
 	return strings.Join(parts, "#"), nil
+}
+
+// relationScopeDoc represents a unit which is in a relation scope.
+// The relation, container, role, and unit are all encoded in the key.
+type relationScopeDoc struct {
+	Key string `bson:"_id"`
+}
+
+func (d *relationScopeDoc) unitName() string {
+	parts := strings.Split(d.Key, "#")
+	return parts[len(parts)-1]
 }
