@@ -7,6 +7,7 @@ import (
 
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
@@ -52,6 +53,29 @@ func Open(info *Info) (*State, error) {
 		return nil, err
 	}
 	return st, err
+}
+
+// Initialize sets up an initial empty state and returns it. 
+// This needs to be performed only once for a given environment.
+func Initialize(info *Info, cfg *config.Config) (*State, error) {
+	st, err := Open(info)
+	if err != nil {
+		return nil, err
+	}
+	// A valid environment config is used as a signal that the
+	// state has already been initalized. If this is the case
+	// do nothing.
+	_, err = st.EnvironConfig()
+	if err == nil {
+		return st, nil
+	}
+	log.Printf("state: storing no-secrets environment configuration")
+	err = st.SetEnvironConfig(cfg)
+	if err != nil {
+		st.Close()
+		return nil, err
+	}
+	return st, nil
 }
 
 var indexes = []struct {
