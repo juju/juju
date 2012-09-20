@@ -72,6 +72,8 @@ func (s *StateSuite) TestRemoveMachine(c *C) {
 	c.Assert(err, IsNil)
 	_, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
+	err = s.State.RemoveMachine(machine.Id())
+	c.Assert(err, ErrorMatches, "cannot remove machine 0: machine is not dead")
 	err = machine.Die()
 	c.Assert(err, IsNil)
 	err = s.State.RemoveMachine(machine.Id())
@@ -110,6 +112,11 @@ func (s *StateSuite) TestAllMachines(c *C) {
 
 func (s *StateSuite) TestAddService(c *C) {
 	charm := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService("haha/borken", charm)
+	c.Assert(err, ErrorMatches, `"haha/borken" is not a valid service name`)
+	_, err = s.State.Service("haha/borken")
+	c.Assert(err, ErrorMatches, `"haha/borken" is not a valid service name`)
+
 	wordpress, err := s.State.AddService("wordpress", charm)
 	c.Assert(err, IsNil)
 	c.Assert(wordpress.Name(), Equals, "wordpress")
@@ -138,6 +145,8 @@ func (s *StateSuite) TestRemoveService(c *C) {
 	c.Assert(err, IsNil)
 
 	// Remove of existing service.
+	err = s.State.RemoveService(service)
+	c.Assert(err, ErrorMatches, `cannot remove service "wordpress": service is not dead`)
 	err = service.Die()
 	c.Assert(err, IsNil)
 	err = s.State.RemoveService(service)
@@ -145,10 +154,8 @@ func (s *StateSuite) TestRemoveService(c *C) {
 	_, err = s.State.Service("wordpress")
 	c.Assert(err, ErrorMatches, `cannot get service "wordpress": .*`)
 
-	// Remove of an invalid service, it has already been removed.
-	// BUG(aram): use error strings from state.
 	err = s.State.RemoveService(service)
-	c.Assert(err, ErrorMatches, `cannot remove service "wordpress": .*`)
+	c.Assert(err, IsNil)
 }
 
 func (s *StateSuite) TestReadNonExistentService(c *C) {
@@ -400,75 +407,75 @@ var servicesWatchTests = []struct {
 	},
 	{
 		test: func(c *C, s *state.State, ch *state.Charm) {
-			_, err := s.AddService("0", ch)
+			_, err := s.AddService("s0", ch)
 			c.Assert(err, IsNil)
 		},
-		added: []string{"0"},
+		added: []string{"s0"},
 	},
 	{
 		test: func(c *C, s *state.State, ch *state.Charm) {
-			_, err := s.AddService("1", ch)
+			_, err := s.AddService("s1", ch)
 			c.Assert(err, IsNil)
 		},
-		added: []string{"1"},
+		added: []string{"s1"},
 	},
 	{
 		test: func(c *C, s *state.State, ch *state.Charm) {
-			_, err := s.AddService("2", ch)
+			_, err := s.AddService("s2", ch)
 			c.Assert(err, IsNil)
-			_, err = s.AddService("3", ch)
+			_, err = s.AddService("s3", ch)
 			c.Assert(err, IsNil)
 		},
-		added: []string{"2", "3"},
+		added: []string{"s2", "s3"},
 	},
 	{
 		test: func(c *C, s *state.State, _ *state.Charm) {
-			svc3, err := s.Service("3")
+			svc3, err := s.Service("s3")
 			c.Assert(err, IsNil)
 			err = svc3.Die()
 			c.Assert(err, IsNil)
 			err = s.RemoveService(svc3)
 			c.Assert(err, IsNil)
 		},
-		removed: []string{"3"},
+		removed: []string{"s3"},
 	},
 	{
 		test: func(c *C, s *state.State, _ *state.Charm) {
-			svc0, err := s.Service("0")
+			svc0, err := s.Service("s0")
 			c.Assert(err, IsNil)
 			err = svc0.Die()
 			c.Assert(err, IsNil)
 			err = s.RemoveService(svc0)
 			c.Assert(err, IsNil)
-			svc2, err := s.Service("2")
+			svc2, err := s.Service("s2")
 			c.Assert(err, IsNil)
 			err = svc2.Die()
 			c.Assert(err, IsNil)
 			err = s.RemoveService(svc2)
 			c.Assert(err, IsNil)
 		},
-		removed: []string{"0", "2"},
+		removed: []string{"s0", "s2"},
 	},
 	{
 		test: func(c *C, s *state.State, ch *state.Charm) {
-			_, err := s.AddService("4", ch)
+			_, err := s.AddService("s4", ch)
 			c.Assert(err, IsNil)
-			svc1, err := s.Service("1")
+			svc1, err := s.Service("s1")
 			c.Assert(err, IsNil)
 			err = svc1.Die()
 			c.Assert(err, IsNil)
 			err = s.RemoveService(svc1)
 			c.Assert(err, IsNil)
 		},
-		added:   []string{"4"},
-		removed: []string{"1"},
+		added:   []string{"s4"},
+		removed: []string{"s1"},
 	},
 	{
 		test: func(c *C, s *state.State, ch *state.Charm) {
 			services := [20]*state.Service{}
 			var err error
 			for i := 0; i < len(services); i++ {
-				services[i], err = s.AddService("s"+fmt.Sprint(i), ch)
+				services[i], err = s.AddService("ss"+fmt.Sprint(i), ch)
 				c.Assert(err, IsNil)
 			}
 			for i := 10; i < len(services); i++ {
@@ -478,21 +485,21 @@ var servicesWatchTests = []struct {
 				c.Assert(err, IsNil)
 			}
 		},
-		added: []string{"s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9"},
+		added: []string{"ss0", "ss1", "ss2", "ss3", "ss4", "ss5", "ss6", "ss7", "ss8", "ss9"},
 	},
 	{
 		test: func(c *C, s *state.State, ch *state.Charm) {
-			_, err := s.AddService("twenty five", ch)
+			_, err := s.AddService("twenty-five", ch)
 			c.Assert(err, IsNil)
-			svc9, err := s.Service("s9")
+			svc9, err := s.Service("ss9")
 			c.Assert(err, IsNil)
 			err = svc9.Die()
 			c.Assert(err, IsNil)
 			err = s.RemoveService(svc9)
 			c.Assert(err, IsNil)
 		},
-		added:   []string{"twenty five"},
-		removed: []string{"s9"},
+		added:   []string{"twenty-five"},
+		removed: []string{"ss9"},
 	},
 }
 
@@ -564,4 +571,39 @@ func assertSameServices(c *C, change *state.ServicesChange, added, removed []str
 		got = append(got, g.Name())
 	}
 	c.Assert(got, DeepEquals, removed)
+}
+
+var sortPortsTests = []struct {
+	have, want []state.Port
+}{
+	{nil, []state.Port{}},
+	{[]state.Port{{"b", 1}, {"a", 99}, {"a", 1}}, []state.Port{{"a", 1}, {"a", 99}, {"b", 1}}},
+}
+
+func (*StateSuite) TestSortPorts(c *C) {
+	for _, t := range sortPortsTests {
+		p := make([]state.Port, len(t.have))
+		copy(p, t.have)
+		state.SortPorts(p)
+		c.Check(p, DeepEquals, t.want)
+		state.SortPorts(p)
+		c.Check(p, DeepEquals, t.want)
+	}
+}
+
+func (*StateSuite) TestNameChecks(c *C) {
+	assertService := func(s string, expect bool) {
+		c.Assert(state.IsServiceName(s), Equals, expect)
+		c.Assert(state.IsUnitName(s+"/0"), Equals, expect)
+		c.Assert(state.IsUnitName(s+"/99"), Equals, expect)
+		c.Assert(state.IsUnitName(s+"/-1"), Equals, false)
+		c.Assert(state.IsUnitName(s+"/blah"), Equals, false)
+	}
+	assertService("", false)
+	assertService("33", false)
+	assertService("wordpress", true)
+	assertService("w0rd-pre55", true)
+	assertService("foo2", true)
+	assertService("foo-2", false)
+	assertService("foo-2foo", true)
 }
