@@ -13,6 +13,7 @@ type tooler interface {
 	EnsureDying() error
 	EnsureDead() error
 	Life() state.Life
+	Refresh() error
 }
 
 var _ = Suite(&ToolsSuite{})
@@ -40,6 +41,11 @@ func testAgentTools(c *C, obj tooler, agent string) {
 	err = obj.SetAgentTools(t2)
 	c.Assert(err, IsNil)
 	t3, err := obj.AgentTools()
+	c.Assert(err, IsNil)
+	c.Assert(t3, DeepEquals, t2)
+	err = obj.Refresh()
+	c.Assert(err, IsNil)
+	t3, err = obj.AgentTools()
 	c.Assert(err, IsNil)
 	c.Assert(t3, DeepEquals, t2)
 
