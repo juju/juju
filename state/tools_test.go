@@ -10,8 +10,8 @@ import (
 type tooler interface {
 	AgentTools() (*state.Tools, error)
 	SetAgentTools(t *state.Tools) error
-	Kill() error
-	Die() error
+	EnsureDying() error
+	EnsureDead() error
 	Life() state.Life
 }
 

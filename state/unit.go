@@ -148,10 +148,10 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 	return nil
 }
 
-// Kill sets the unit lifecycle to Dying if it is Alive.
+// EnsureDying sets the unit lifecycle to Dying if it is Alive.
 // It does nothing otherwise.
-func (u *Unit) Kill() error {
-	err := ensureLife(u.st, u.st.units, u.doc.Name, Dying, "unit")
+func (u *Unit) EnsureDying() error {
+	err := ensureDying(u.st, u.st.units, u.doc.Name, "unit")
 	if err != nil {
 		return err
 	}
@@ -159,10 +159,10 @@ func (u *Unit) Kill() error {
 	return nil
 }
 
-// Die sets the unit lifecycle to Dead if it is Alive or Dying.
+// EnsureDead sets the unit lifecycle to Dead if it is Alive or Dying.
 // It does nothing otherwise.
-func (u *Unit) Die() error {
-	err := ensureLife(u.st, u.st.units, u.doc.Name, Dead, "unit")
+func (u *Unit) EnsureDead() error {
+	err := ensureDead(u.st, u.st.units, u.doc.Name, "unit", nil, "")
 	if err != nil {
 		return err
 	}

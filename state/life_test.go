@@ -183,10 +183,10 @@ func (s *LifeSuite) TestLifecycleStateChanges(c *C) {
 			s.prepareFixture(living, lfix, v.cached, v.dbinitial, c)
 			switch v.desired {
 			case state.Dying:
-				err := living.Kill()
+				err := living.EnsureDying()
 				c.Assert(err, IsNil)
 			case state.Dead:
-				err := living.Die()
+				err := living.EnsureDead()
 				c.Assert(err, IsNil)
 			default:
 				panic("desired lifecycle can only be dying or dead")
@@ -194,7 +194,7 @@ func (s *LifeSuite) TestLifecycleStateChanges(c *C) {
 			err := living.Refresh()
 			c.Assert(err, IsNil)
 			c.Assert(living.Life(), Equals, v.dbfinal)
-			err = living.Die()
+			err = living.EnsureDead()
 			c.Assert(err, IsNil)
 			lfix.teardown(s, c)
 		}
@@ -207,8 +207,8 @@ const (
 )
 
 type lifer interface {
-	Die() error
-	Kill() error
+	EnsureDead() error
+	EnsureDying() error
 	Life() state.Life
 }
 
@@ -229,11 +229,10 @@ func runLifeChecks(c *C, obj lifer, expectErr string, checks []func() error) {
 // in each respective life state.
 func testWhenDying(c *C, obj lifer, dyingErr, deadErr string, checks ...func() error) {
 	c.Logf("checking life of %v (%T)", obj, obj)
-	runLifeChecks(c, obj, noErr, checks)
-	err := obj.Kill()
+	err := obj.EnsureDying()
 	c.Assert(err, IsNil)
 	runLifeChecks(c, obj, dyingErr, checks)
-	err = obj.Die()
+	err = obj.EnsureDead()
 	c.Assert(err, IsNil)
 	runLifeChecks(c, obj, deadErr, checks)
 }

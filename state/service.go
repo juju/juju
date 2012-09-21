@@ -6,6 +6,7 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/trivial"
 	"strconv"
 )
@@ -23,6 +24,7 @@ type serviceDoc struct {
 	ForceCharm bool
 	Life       Life
 	UnitSeq    int
+	UnitCount  int
 	Exposed    bool
 }
 
@@ -40,10 +42,10 @@ func (s *Service) Life() Life {
 	return s.doc.Life
 }
 
-// Kill sets the service lifecycle to Dying if it is Alive.
+// EnsureDying sets the service lifecycle to Dying if it is Alive.
 // It does nothing otherwise.
-func (s *Service) Kill() error {
-	err := ensureLife(s.st, s.st.services, s.doc.Name, Dying, "service")
+func (s *Service) EnsureDying() error {
+	err := ensureDying(s.st, s.st.services, s.doc.Name, "service")
 	if err != nil {
 		return err
 	}
@@ -51,10 +53,19 @@ func (s *Service) Kill() error {
 	return nil
 }
 
-// Die sets the service lifecycle to Dead if it is Alive or Dying.
-// It does nothing otherwise.
-func (s *Service) Die() error {
-	err := ensureLife(s.st, s.st.services, s.doc.Name, Dead, "service")
+// EnsureDead sets the service lifecycle to Dead if it is Alive or Dying.
+// It does nothing otherwise. It will return an error if the service still
+// has units.
+func (s *Service) EnsureDead() error {
+	assertOps := []txn.Op{{
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: D{{"unitcount", 0}},
+	}}
+	err := ensureDead(
+		s.st, s.st.services, s.doc.Name, "service",
+		assertOps, "service still has units",
+	)
 	if err != nil {
 		return err
 	}
@@ -164,6 +175,7 @@ func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
 		Assert: isAlive,
+		Update: D{{"$inc", D{{"unitcount", 1}}}},
 	}}
 	if principal != nil {
 		udoc.Principal = principal.Name()
@@ -184,8 +196,8 @@ func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
 			}
 		}
 		return nil, err
-
 	}
+	s.doc.UnitCount += 1
 	return newUnit(s.st, udoc), nil
 }
 
@@ -247,6 +259,11 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 		Id:     u.doc.Name,
 		Assert: D{{"life", Dead}},
 		Remove: true,
+	}, {
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: D{{"unitcount", D{{"$gt", 0}}}},
+		Update: D{{"$inc", D{{"unitcount", -1}}}},
 	}}
 	if u.doc.Principal != "" {
 		ops = append(ops, txn.Op{
@@ -260,9 +277,11 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 	// a principal
 	err = s.st.runner.Run(ops, "", nil)
 	if err != nil {
+		log.Printf("BLAM %#v", err)
 		// If aborted, the unit is either dead or recreated.
 		return onAbort(err, nil)
 	}
+	s.doc.UnitCount -= 1
 	return nil
 }
 
@@ -302,6 +321,11 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 		units = append(units, newUnit(s.st, &docs[i]))
 	}
 	return units, nil
+}
+
+// UnitCount returns the number of units in the service.
+func (s *Service) UnitCount() int {
+	return s.doc.UnitCount
 }
 
 // Relations returns a Relation for every relation the service is in.

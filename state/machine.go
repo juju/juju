@@ -73,9 +73,10 @@ func (m *Machine) SetAgentTools(t *Tools) (err error) {
 	return nil
 }
 
+// EnsureDying sets the machine lifecycle to Dying if it is Alive.
 // It does nothing otherwise.
-func (m *Machine) Kill() error {
-	err := ensureLife(m.st, m.st.machines, m.doc.Id, Dying, "machine")
+func (m *Machine) EnsureDying() error {
+	err := ensureDying(m.st, m.st.machines, m.doc.Id, "machine")
 	if err != nil {
 		return err
 	}
@@ -83,10 +84,10 @@ func (m *Machine) Kill() error {
 	return nil
 }
 
-// Die sets the machine lifecycle to Dead if it is Alive or Dying.
+// EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
 // It does nothing otherwise.
-func (m *Machine) Die() error {
-	err := ensureLife(m.st, m.st.machines, m.doc.Id, Dead, "machine")
+func (m *Machine) EnsureDead() error {
+	err := ensureDead(m.st, m.st.machines, m.doc.Id, "machine", nil, "")
 	if err != nil {
 		return err
 	}

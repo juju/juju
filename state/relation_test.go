@@ -87,6 +87,8 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	err = s.State.RemoveRelation(rel)
 	c.Assert(err, ErrorMatches, `cannot remove relation "pro:foo req:bar": relation is not dead`)
 
+	assertOneRelation(c, pro, 0, proep, reqep)
+	assertOneRelation(c, req, 0, reqep, proep)
 	testWhenDying(c, rel, noErr, noErr, func() error {
 		assertOneRelation(c, pro, 0, proep, reqep)
 		assertOneRelation(c, req, 0, reqep, proep)
@@ -127,7 +129,7 @@ func (s *RelationSuite) TestPeerRelation(c *C) {
 	assertOneRelation(c, peer, 0, peerep)
 
 	// Remove the relation, and check it can't be removed again.
-	err = rel.Die()
+	err = rel.EnsureDead()
 	c.Assert(err, IsNil)
 	err = s.State.RemoveRelation(rel)
 	c.Assert(err, IsNil)
@@ -142,7 +144,7 @@ func (s *RelationSuite) TestRemoveServiceRemovesRelations(c *C) {
 	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
 	_, err = s.State.AddRelation(peerep)
 	c.Assert(err, IsNil)
-	err = peer.Die()
+	err = peer.EnsureDead()
 	c.Assert(err, IsNil)
 	err = s.State.RemoveService(peer)
 	c.Assert(err, IsNil)

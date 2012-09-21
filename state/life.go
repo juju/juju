@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/trivial"
 )
 
 // Life represents the lifecycle state of the entities
@@ -33,35 +34,49 @@ func (l Life) String() string {
 // Living describes state entities with a lifecycle.
 type Living interface {
 	Life() Life
-	Kill() error
-	Die() error
+	EnsureDying() error
+	EnsureDead() error
 	Refresh() error
 }
 
-// ensureLife advances the lifecycle state of the entity with the given
-// id in the given collection, if necessary.  Life specifies the desired
-// life state, which cannot be Alive.
-func ensureLife(st *State, coll *mgo.Collection, id interface{}, life Life, descr string) error {
-	if life == Alive {
-		panic("cannot set life to alive")
-	}
-	sel := D{
-		// $lte is used so that we don't overwrite a previous
-		// change we don't know about. 
-		{"life", D{{"$lte", life}}},
-	}
+// ensureDying advances the specified entity's life status to Dying, if necessary.
+func ensureDying(st *State, coll *mgo.Collection, id interface{}, desc string) error {
 	ops := []txn.Op{{
 		C:      coll.Name,
 		Id:     id,
-		Assert: sel,
-		Update: D{{"$set", D{{"life", life}}}},
+		Assert: isAlive,
+		Update: D{{"$set", D{{"life", Dying}}}},
 	}}
-	err := st.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
+	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
 		return nil
+	} else if err != nil {
+		return fmt.Errorf("cannot set life to Dying for %s %q: %v", desc, id, err)
 	}
-	if err != nil {
-		return fmt.Errorf("cannot set life to %q for %s %q: %v", life, descr, id, err)
+	return nil
+}
+
+// ensureDead advances the specified entity's life status to Dead, if necessary.
+// Preconditions can be supplied in assertOps; if the preconditions fail, the error
+// will contain assertMsg. If the entity is not found, no error is returned.
+func ensureDead(st *State, coll *mgo.Collection, id interface{}, desc string, assertOps []txn.Op, assertMsg string) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot set life to Dead for %s %q", desc, id)
+	ops := append(assertOps, txn.Op{
+		C:      coll.Name,
+		Id:     id,
+		Update: D{{"$set", D{{"life", Dead}}}},
+	})
+	if err = st.runner.Run(ops, "", nil); err == nil {
+		return nil
+	} else if err != txn.ErrAborted {
+		return err
+	}
+	var doc struct{ Life Life }
+	if err = coll.FindId(id).One(&doc); err == mgo.ErrNotFound {
+		return nil
+	} else if err != nil {
+		return err
+	} else if doc.Life != Dead {
+		return fmt.Errorf(assertMsg)
 	}
 	return nil
 }

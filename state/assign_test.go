@@ -97,7 +97,7 @@ func (s *AssignSuite) TestAssignedMachineIdWhenNotAlive(c *C) {
 func (s *AssignSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 	// Check that unassigning while the state changes fails nicely.
 	// Remove the unit for the tests.
-	err := s.unit.Die()
+	err := s.unit.EnsureDead()
 	c.Assert(err, IsNil)
 	err = s.service.RemoveUnit(s.unit)
 	c.Assert(err, IsNil)
@@ -107,7 +107,7 @@ func (s *AssignSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 	_, err = s.unit.AssignedMachineId()
 	c.Assert(err, ErrorMatches, `cannot get machine id of unit "wordpress/0": unit not assigned to machine`)
 
-	err = s.service.Die()
+	err = s.service.EnsureDead()
 	c.Assert(err, IsNil)
 	err = s.State.RemoveService(s.service)
 	c.Assert(err, IsNil)
@@ -181,7 +181,7 @@ func (s *AssignSuite) TestAssignMachineWhenDying(c *C) {
 	c.Assert(err, IsNil)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, IsNil)
-	err = unit.Die()
+	err = unit.EnsureDead()
 	c.Assert(err, IsNil)
 	err = unit.UnassignFromMachine()
 	c.Assert(err, IsNil)
@@ -194,7 +194,7 @@ func (s *AssignSuite) TestAssignMachineWhenDying(c *C) {
 	c.Assert(err, IsNil)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, IsNil)
-	err = machine.Die()
+	err = machine.EnsureDead()
 	c.Assert(err, IsNil)
 	err = unit.UnassignFromMachine()
 	c.Assert(err, IsNil)
@@ -225,7 +225,7 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *C) {
 	}
 	c.Assert(principals, DeepEquals, []string{"wordpress/1", "wordpress/2"})
 
-	err = unit.Die()
+	err = unit.EnsureDead()
 	c.Assert(err, IsNil)
 	err = s.service.RemoveUnit(unit)
 	c.Assert(err, IsNil)
@@ -253,16 +253,15 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
 		units[i] = u
 	}
 
-	// Assign the suite's unit to a machine, then remove the service
+	// Assign the suite's unit to a machine, then remove the unit
 	// so the machine becomes available again.
 	origMachine, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
 	err = s.unit.AssignToMachine(origMachine)
 	c.Assert(err, IsNil)
-	err = s.service.Die()
+	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
-	// TODO s.unit.Die
-	err = s.State.RemoveService(s.service)
+	err = s.service.RemoveUnit(s.unit)
 	c.Assert(err, IsNil)
 
 	// Check that AssignToUnusedMachine finds the old (now unused) machine.
@@ -279,7 +278,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
 	c.Assert(err, IsNil)
 	_, err = newUnit.AssignToUnusedMachine()
 	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress2/0" to unused machine: unit is already assigned to a machine`)
-	err = m.Die()
+	err = m.EnsureDead()
 	c.Assert(err, IsNil)
 	err = s.State.RemoveMachine(m.Id())
 	c.Assert(err, IsNil)
@@ -296,31 +295,15 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
 	// Add a dying machine and check that it is not chosen.
 	m, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
-	err = m.Kill()
+	err = m.EnsureDying()
 	c.Assert(err, IsNil)
 	m, err = newUnit.AssignToUnusedMachine()
 	c.Assert(m, IsNil)
 	c.Assert(err, ErrorMatches, `all machines in use`)
 }
 
-func (s *AssignSuite) TestAssignUnitToUnusedMachineWithChangingService(c *C) {
-	// Check for a 'state changed' error if a service is manipulated
-	// during reuse.
-	err := s.service.Die()
-	c.Assert(err, IsNil)
-	err = s.State.RemoveService(s.service)
-	c.Assert(err, IsNil)
-	_, err = s.State.AddMachine()
-	c.Assert(err, IsNil)
-
-	_, err = s.unit.AssignToUnusedMachine()
-	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to unused machine.*: cannot get unit "wordpress/0": not found`)
-}
-
 func (s *AssignSuite) TestAssignUnitToUnusedMachineWithChangingUnit(c *C) {
-	// Check for a 'state changed' error if a unit is manipulated
-	// during reuse.
-	err := s.unit.Die()
+	err := s.unit.EnsureDead()
 	c.Assert(err, IsNil)
 	err = s.service.RemoveUnit(s.unit)
 	c.Assert(err, IsNil)
