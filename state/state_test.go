@@ -100,13 +100,26 @@ func (s *StateSuite) TestReadMachine(c *C) {
 func (s *StateSuite) TestAllMachines(c *C) {
 	numInserts := 42
 	for i := 0; i < numInserts; i++ {
-		err := s.machines.Insert(D{{"_id", i}, {"life", state.Alive}})
+		m, err := s.State.AddMachine()
+		c.Assert(err, IsNil)
+		err = m.SetInstanceId(fmt.Sprintf("foo-%d", i))
+		c.Assert(err, IsNil)
+		err = m.SetAgentTools(newTools("7.8.9-foo-bar", "http://arble.tgz"))
+		c.Assert(err, IsNil)
+		err = m.Kill()
 		c.Assert(err, IsNil)
 	}
 	s.AssertMachineCount(c, numInserts)
 	ms, _ := s.State.AllMachines()
-	for k, v := range ms {
-		c.Assert(v.Id(), Equals, k)
+	for i, m := range ms {
+		c.Assert(m.Id(), Equals, i)
+		instId, err := m.InstanceId()
+		c.Assert(err, IsNil)
+		c.Assert(instId, Equals, fmt.Sprintf("foo-%d", i))
+		tools, err := m.AgentTools()
+		c.Check(err, IsNil)
+		c.Check(tools, DeepEquals, newTools("7.8.9-foo-bar", "http://arble.tgz"))
+		c.Assert(m.Life(), Equals, state.Dying)
 	}
 }
 

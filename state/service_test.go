@@ -765,3 +765,71 @@ func (s *ServiceSuite) TestWatchService(c *C) {
 	case <-time.After(100 * time.Millisecond):
 	}
 }
+
+func (s *ServiceSuite) TestWatchConfig(c *C) {
+	config, err := s.service.Config()
+	c.Assert(err, IsNil)
+	c.Assert(config.Keys(), HasLen, 0)
+
+	configWatcher := s.service.WatchConfig()
+	defer func() {
+		c.Assert(configWatcher.Stop(), IsNil)
+	}()
+
+	s.State.StartSync()
+	select {
+	case got, ok := <-configWatcher.Changes():
+		c.Assert(ok, Equals, true)
+		c.Assert(got.Map(), DeepEquals, map[string]interface{}{})
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("did not get change")
+	}
+
+	// Two change events.
+	config.Set("foo", "bar")
+	config.Set("baz", "yadda")
+	changes, err := config.Write()
+	c.Assert(err, IsNil)
+	c.Assert(changes, DeepEquals, []state.ItemChange{{
+		Key:      "baz",
+		Type:     state.ItemAdded,
+		NewValue: "yadda",
+	}, {
+		Key:      "foo",
+		Type:     state.ItemAdded,
+		NewValue: "bar",
+	}})
+
+	s.State.StartSync()
+	select {
+	case got, ok := <-configWatcher.Changes():
+		c.Assert(ok, Equals, true)
+		c.Assert(got.Map(), DeepEquals, map[string]interface{}{"baz": "yadda", "foo": "bar"})
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("did not get change")
+	}
+
+	config.Delete("foo")
+	changes, err = config.Write()
+	c.Assert(err, IsNil)
+	c.Assert(changes, DeepEquals, []state.ItemChange{{
+		Key:      "foo",
+		Type:     state.ItemDeleted,
+		OldValue: "bar",
+	}})
+
+	s.State.StartSync()
+	select {
+	case got, ok := <-configWatcher.Changes():
+		c.Assert(ok, Equals, true)
+		c.Assert(got.Map(), DeepEquals, map[string]interface{}{"baz": "yadda"})
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("did not get change")
+	}
+
+	select {
+	case got := <-configWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
