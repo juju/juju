@@ -80,16 +80,12 @@ func (t *cloudinitTest) check(c *C, cfg *cloudinit.MachineConfig) {
 	t.checkScripts(c, "wget.*"+regexp.QuoteMeta(t.cfg.Tools.URL)+".*tar .*xz")
 
 	if t.cfg.StateServer {
-		// TODO(dfc) remove this after the switch to mstate
-		t.checkPackage(c, "zookeeperd")
-		t.checkPackage(c, "mongodb-server")
-		t.checkScripts(c, "jujud bootstrap-state")
 		t.checkScripts(c, regexp.QuoteMeta(t.cfg.InstanceIdAccessor))
 	}
 	if t.cfg.Config != nil {
+		t.checkScripts(c, "tools/mongo-.*tgz")
 		t.checkEnvConfig(c)
 	}
-	t.checkPackage(c, "libzookeeper-mt2")
 	t.checkPackage(c, "git")
 
 	if t.cfg.Provisioner {
