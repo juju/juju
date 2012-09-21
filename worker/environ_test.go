@@ -5,6 +5,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
@@ -23,6 +24,7 @@ func TestPackage(t *stdtesting.T) {
 
 func (s *suite) TestStop(c *C) {
 	w := s.State.WatchEnvironConfig()
+	defer stopWatcher(c, w)
 	stop := make(chan struct{})
 	done := make(chan error)
 	go func() {
@@ -32,6 +34,11 @@ func (s *suite) TestStop(c *C) {
 	}()
 	close(stop)
 	c.Assert(<-done, Equals, tomb.ErrDying)
+}
+
+func stopWatcher(c *C, w *state.EnvironConfigWatcher) {
+	err := w.Stop()
+	c.Check(err, IsNil)
 }
 
 func (s *suite) TestInvalidConfig(c *C) {
@@ -48,6 +55,7 @@ func (s *suite) TestInvalidConfig(c *C) {
 	c.Assert(err, IsNil)
 
 	w := s.State.WatchEnvironConfig()
+	defer stopWatcher(c, w)
 	done := make(chan environs.Environ)
 	go func() {
 		env, err := worker.WaitForEnviron(w, nil)
@@ -65,6 +73,7 @@ func (s *suite) TestInvalidConfig(c *C) {
 
 	err = s.State.SetEnvironConfig(validCfg)
 	c.Assert(err, IsNil)
+	s.State.StartSync()
 
 	env := <-done
 	c.Assert(env, NotNil)

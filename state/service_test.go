@@ -68,21 +68,15 @@ func (s *ServiceSuite) TestServiceRefesh(c *C) {
 
 func (s *ServiceSuite) TestServiceExposed(c *C) {
 	// Check that querying for the exposed flag works correctly.
-	exposed, err := s.service.IsExposed()
-	c.Assert(err, IsNil)
-	c.Assert(exposed, Equals, false)
+	c.Assert(s.service.IsExposed(), Equals, false)
 
 	// Check that setting and clearing the exposed flag works correctly.
-	err = s.service.SetExposed()
+	err := s.service.SetExposed()
 	c.Assert(err, IsNil)
-	exposed, err = s.service.IsExposed()
-	c.Assert(err, IsNil)
-	c.Assert(exposed, Equals, true)
+	c.Assert(s.service.IsExposed(), Equals, true)
 	err = s.service.ClearExposed()
 	c.Assert(err, IsNil)
-	exposed, err = s.service.IsExposed()
-	c.Assert(err, IsNil)
-	c.Assert(exposed, Equals, false)
+	c.Assert(s.service.IsExposed(), Equals, false)
 
 	// Check that setting and clearing the exposed flag repeatedly does not fail.
 	err = s.service.SetExposed()
@@ -759,18 +753,82 @@ func (s *ServiceSuite) TestWatchService(c *C) {
 		case service, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
 			c.Assert(service.Name(), Equals, s.service.Name())
-			life := service.Life()
-			c.Assert(err, IsNil)
-			exposed, err := service.IsExposed()
-			c.Assert(err, IsNil)
-			c.Assert(life, Equals, test.Life)
-			c.Assert(exposed, Equals, test.Exposed)
+			c.Assert(service.Life(), Equals, test.Life)
+			c.Assert(service.IsExposed(), Equals, test.Exposed)
 		case <-time.After(500 * time.Millisecond):
 			c.Fatalf("did not get change: %v %v", test.Exposed, test.Life)
 		}
 	}
 	select {
 	case got := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func (s *ServiceSuite) TestWatchConfig(c *C) {
+	config, err := s.service.Config()
+	c.Assert(err, IsNil)
+	c.Assert(config.Keys(), HasLen, 0)
+
+	configWatcher := s.service.WatchConfig()
+	defer func() {
+		c.Assert(configWatcher.Stop(), IsNil)
+	}()
+
+	s.State.StartSync()
+	select {
+	case got, ok := <-configWatcher.Changes():
+		c.Assert(ok, Equals, true)
+		c.Assert(got.Map(), DeepEquals, map[string]interface{}{})
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("did not get change")
+	}
+
+	// Two change events.
+	config.Set("foo", "bar")
+	config.Set("baz", "yadda")
+	changes, err := config.Write()
+	c.Assert(err, IsNil)
+	c.Assert(changes, DeepEquals, []state.ItemChange{{
+		Key:      "baz",
+		Type:     state.ItemAdded,
+		NewValue: "yadda",
+	}, {
+		Key:      "foo",
+		Type:     state.ItemAdded,
+		NewValue: "bar",
+	}})
+
+	s.State.StartSync()
+	select {
+	case got, ok := <-configWatcher.Changes():
+		c.Assert(ok, Equals, true)
+		c.Assert(got.Map(), DeepEquals, map[string]interface{}{"baz": "yadda", "foo": "bar"})
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("did not get change")
+	}
+
+	config.Delete("foo")
+	changes, err = config.Write()
+	c.Assert(err, IsNil)
+	c.Assert(changes, DeepEquals, []state.ItemChange{{
+		Key:      "foo",
+		Type:     state.ItemDeleted,
+		OldValue: "bar",
+	}})
+
+	s.State.StartSync()
+	select {
+	case got, ok := <-configWatcher.Changes():
+		c.Assert(ok, Equals, true)
+		c.Assert(got.Map(), DeepEquals, map[string]interface{}{"baz": "yadda"})
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("did not get change")
+	}
+
+	select {
+	case got := <-configWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}

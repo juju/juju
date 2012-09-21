@@ -123,14 +123,14 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
 }
 
 func (s *MachineSuite) TestMachineSetInstanceId(c *C) {
-	machine, err := s.State.AddMachine()
-	c.Assert(err, IsNil)
-	err = machine.SetInstanceId("umbrella/0")
+	err := s.machine.SetInstanceId("umbrella/0")
 	c.Assert(err, IsNil)
 
-	n, err := s.machines.Find(D{{"instanceid", "umbrella/0"}}).Count()
+	m, err := s.State.Machine(s.machine.Id())
 	c.Assert(err, IsNil)
-	c.Assert(n, Equals, 1)
+	id, err := m.InstanceId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, "umbrella/0")
 }
 
 func (s *MachineSuite) TestMachineRefresh(c *C) {
