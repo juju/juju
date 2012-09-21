@@ -94,8 +94,6 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.AddPackage("git")
-	if cfg.StateServer {
-	}
 
 	addScripts(c,
 		fmt.Sprintf("sudo mkdir -p %s", cfg.DataDir),
