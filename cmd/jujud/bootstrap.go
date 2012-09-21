@@ -6,6 +6,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 )
 
@@ -42,7 +43,11 @@ func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
-	st, err := state.Initialize(&c.StateInfo, c.EnvConfig)
+	cfg, err := config.New(c.EnvConfig)
+	if err != nil {
+		return err
+	}
+	st, err := state.Initialize(&c.StateInfo, cfg)
 	if err != nil {
 		return err
 	}

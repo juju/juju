@@ -24,7 +24,7 @@ func runUnexpose(c *C, args ...string) error {
 func (s *UnexposeSuite) assertExposed(c *C, service string, expected bool) {
 	svc, err := s.State.Service(service)
 	c.Assert(err, IsNil)
-	actual, err := svc.IsExposed()
+	actual := svc.IsExposed()
 	c.Assert(actual, Equals, expected)
 }
 
@@ -44,5 +44,5 @@ func (s *UnexposeSuite) TestUnexpose(c *C) {
 	s.assertExposed(c, "some-service-name", false)
 
 	err = runUnexpose(c, "nonexistent-service")
-	c.Assert(err, ErrorMatches, `.*service with name "nonexistent-service" not found`)
+	c.Assert(err, ErrorMatches, `cannot get service "nonexistent-service": not found`)
 }

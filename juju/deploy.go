@@ -121,7 +121,7 @@ func (conn *Conn) AddUnits(svc *state.Service, n int) ([]*state.Unit, error) {
 			return nil, fmt.Errorf("cannot add unit %d/%d to service %q: %v", i+1, n, svc.Name(), err)
 		}
 		if err := conn.State.AssignUnit(unit, policy); err != nil {
-			return nil, fmt.Errorf("cannot assign machine to unit %s of service %q: %v", unit.Name(), svc.Name(), err)
+			return nil, err
 		}
 		units[i] = unit
 	}
