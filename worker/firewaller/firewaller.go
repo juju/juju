@@ -280,7 +280,7 @@ func newMachineData(machine *state.Machine, fw *Firewaller) *machineData {
 	md := &machineData{
 		firewaller: fw,
 		machine:    machine,
-		watcher:    machine.WatchPrincipalUnits(),
+		watcher:    machine.WatchPrincipalUnits(), // FIXME THIS MUST WATCH *ALL* UNITS.
 		unitds:     make(map[string]*unitData),
 		ports:      make([]state.Port, 0),
 	}
@@ -420,12 +420,7 @@ func newServiceData(service *state.Service, fw *Firewaller) *serviceData {
 		watcher:    service.Watch(),
 		unitds:     make(map[string]*unitData),
 	}
-	var err error
-	sd.exposed, err = service.IsExposed()
-	if err != nil {
-		sd.firewaller.tomb.Kill(err)
-		return sd
-	}
+	sd.exposed = service.IsExposed()
 	go sd.watchLoop(sd.exposed)
 	return sd
 }

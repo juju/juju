@@ -75,6 +75,10 @@ func (s *JujuConnSuite) Reset(c *C) {
 	s.setUpConn(c)
 }
 
+func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
+	return &state.Info{Addrs: []string{testing.MgoAddr}}
+}
+
 func (s *JujuConnSuite) setUpConn(c *C) {
 	if s.RootDir != "" {
 		panic("JujuConnSuite.setUpConn without teardown")
