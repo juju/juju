@@ -7,7 +7,7 @@ import (
 
 type AssignSuite struct {
 	ConnSuite
-	charm   *state.Charm
+	charm *state.Charm
 }
 
 var _ = Suite(&AssignSuite{})
@@ -267,7 +267,7 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *C) {
 }
 
 func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
-	_, err := s.State.AddMachine()		// bootstrap machine
+	_, err := s.State.AddMachine() // bootstrap machine
 	c.Assert(err, IsNil)
 	service, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
@@ -340,7 +340,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
 }
 
 func (s *AssignSuite) TestAssignUnitToUnusedMachineWithRemovedService(c *C) {
-	_, err := s.State.AddMachine()		// bootstrap machine
+	_, err := s.State.AddMachine() // bootstrap machine
 	c.Assert(err, IsNil)
 	service, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
@@ -349,7 +349,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachineWithRemovedService(c *C) {
 	// Fail if service is removed.
 	err = service.Die()
 	c.Assert(err, IsNil)
-	
+
 	err = s.State.RemoveService(service)
 	c.Assert(err, IsNil)
 	_, err = s.State.AddMachine()
@@ -360,7 +360,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachineWithRemovedService(c *C) {
 }
 
 func (s *AssignSuite) TestAssignUnitToUnusedMachineWithRemovedUnit(c *C) {
-	_, err := s.State.AddMachine()		// bootstrap machine
+	_, err := s.State.AddMachine() // bootstrap machine
 	c.Assert(err, IsNil)
 	service, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
@@ -379,7 +379,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachineWithRemovedUnit(c *C) {
 }
 
 func (s *AssignSuite) TestAssignUnitToUnusedMachineOnlyZero(c *C) {
-	_, err := s.State.AddMachine()		// bootstrap machine
+	_, err := s.State.AddMachine() // bootstrap machine
 	c.Assert(err, IsNil)
 	service, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
@@ -391,7 +391,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachineOnlyZero(c *C) {
 }
 
 func (s *AssignSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
-	_, err := s.State.AddMachine()		// bootstrap machine
+	_, err := s.State.AddMachine() // bootstrap machine
 	c.Assert(err, IsNil)
 	service, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
@@ -411,7 +411,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 }
 
 func (s *AssignSuite) TestAssignUnit(c *C) {
-	_, err := s.State.AddMachine()		// bootstrap machine
+	_, err := s.State.AddMachine() // bootstrap machine
 	c.Assert(err, IsNil)
 	service, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
