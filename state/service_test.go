@@ -710,3 +710,68 @@ func addRelationChanges(changes *state.RelationsChange, more *state.RelationsCha
 	changes.Added = append(changes.Added, more.Added...)
 	changes.Removed = append(changes.Removed, more.Removed...)
 }
+
+var watchServiceTests = []struct {
+	test    func(m *state.Service) error
+	Exposed bool
+	Life    state.Life
+}{
+	{
+		test: func(s *state.Service) error {
+			return s.SetExposed()
+		},
+		Exposed: true,
+	},
+	{
+		test: func(s *state.Service) error {
+			return s.ClearExposed()
+		},
+		Exposed: false,
+	},
+	{
+		test: func(s *state.Service) error {
+			return s.Kill()
+		},
+		Life: state.Dying,
+	},
+}
+
+func (s *ServiceSuite) TestWatchService(c *C) {
+	w := s.service.Watch()
+	defer func() {
+		c.Assert(w.Stop(), IsNil)
+	}()
+	s.State.StartSync()
+	select {
+	case svc, ok := <-w.Changes():
+		c.Assert(ok, Equals, true)
+		c.Assert(svc.Name(), Equals, s.service.Name())
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("did not get change: %v", s.service)
+	}
+
+	for i, test := range watchServiceTests {
+		c.Logf("test %d", i)
+		err := test.test(s.service)
+		c.Assert(err, IsNil)
+		s.State.StartSync()
+		select {
+		case service, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(service.Name(), Equals, s.service.Name())
+			life := service.Life()
+			c.Assert(err, IsNil)
+			exposed, err := service.IsExposed()
+			c.Assert(err, IsNil)
+			c.Assert(life, Equals, test.Life)
+			c.Assert(exposed, Equals, test.Exposed)
+		case <-time.After(500 * time.Millisecond):
+			c.Fatalf("did not get change: %v %v", test.Exposed, test.Life)
+		}
+	}
+	select {
+	case got := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
