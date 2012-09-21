@@ -138,10 +138,6 @@ func (s *JujuConnSuite) WriteConfig(config string) {
 	}
 }
 
-func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
-	return &state.Info{Addrs: []string{testing.MgoAddr}}
-}
-
 func (s *JujuConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	ch := testing.Charms.Dir("series", name)
 	ident := fmt.Sprintf("%s-%d", name, ch.Revision())

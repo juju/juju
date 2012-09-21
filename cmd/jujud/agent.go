@@ -20,13 +20,13 @@ type stateInfoValue state.Info
 
 var validAddr = regexp.MustCompile("^.+:[0-9]+$")
 
-// Set splits the comma-separated list of server addresses and stores
+// Set splits the comma-separated list of state server addresses and stores
 // onto v's Addrs. Addresses must include port numbers.
 func (v *stateInfoValue) Set(value string) error {
 	addrs := strings.Split(value, ",")
 	for _, addr := range addrs {
 		if !validAddr.MatchString(addr) {
-			return fmt.Errorf("%q is not a valid server address", addr)
+			return fmt.Errorf("%q is not a valid state server address", addr)
 		}
 	}
 	v.Addrs = addrs

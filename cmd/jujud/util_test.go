@@ -23,17 +23,17 @@ func CheckAgentCommand(c *C, create acCreator, args []string) cmd.Command {
 	com, _ := create()
 	err := initCmd(com, args)
 	c.Assert(err, ErrorMatches, "--state-servers option must be set")
-	args = append(args, "--state-servers", "zk1:2181,zk2:2181")
+	args = append(args, "--state-servers", "st1:37017,st2:37017")
 
 	com, conf := create()
 	c.Assert(initCmd(com, args), IsNil)
-	c.Assert(conf.StateInfo.Addrs, DeepEquals, []string{"zk1:2181", "zk2:2181"})
+	c.Assert(conf.StateInfo.Addrs, DeepEquals, []string{"st1:37017", "st2:37017"})
 	c.Assert(conf.DataDir, Equals, "/var/lib/juju")
 	args = append(args, "--data-dir", "jd")
 
 	com, conf = create()
 	c.Assert(initCmd(com, args), IsNil)
-	c.Assert(conf.StateInfo.Addrs, DeepEquals, []string{"zk1:2181", "zk2:2181"})
+	c.Assert(conf.StateInfo.Addrs, DeepEquals, []string{"st1:37017", "st2:37017"})
 	c.Assert(conf.DataDir, Equals, "jd")
 	return com
 }
@@ -42,7 +42,7 @@ func CheckAgentCommand(c *C, create acCreator, args []string) cmd.Command {
 // before parsing an agent command and returning the result.
 func ParseAgentCommand(ac cmd.Command, args []string) error {
 	common := []string{
-		"--state-servers", "zk:2181",
+		"--state-servers", "st:37017",
 		"--data-dir", "jd",
 	}
 	return initCmd(ac, append(common, args...))

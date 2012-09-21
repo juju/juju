@@ -30,14 +30,14 @@ func (s *BootstrapSuite) TestParse(c *C) {
 	args = append(args, "--env-config", b64yaml{"foo": 123}.encode())
 	cmd, err := initBootstrapCommand(args)
 	c.Assert(err, IsNil)
-	c.Assert(cmd.StateInfo.Addrs, DeepEquals, []string{"127.0.0.1:2181"})
+	c.Assert(cmd.StateInfo.Addrs, DeepEquals, []string{"127.0.0.1:37017"})
 	c.Assert(cmd.InstanceId, Equals, "iWhatever")
 	c.Assert(cmd.EnvConfig, DeepEquals, map[string]interface{}{"foo": 123})
 
-	args = append(args, "--state-servers", "zk1:2181,zk2:2181")
+	args = append(args, "--state-servers", "st1:37017,st2:37017")
 	cmd, err = initBootstrapCommand(args)
 	c.Assert(err, IsNil)
-	c.Assert(cmd.StateInfo.Addrs, DeepEquals, []string{"zk1:2181", "zk2:2181"})
+	c.Assert(cmd.StateInfo.Addrs, DeepEquals, []string{"st1:37017", "st2:37017"})
 
 	args = append(args, "haha disregard that")
 	_, err = initBootstrapCommand(args)

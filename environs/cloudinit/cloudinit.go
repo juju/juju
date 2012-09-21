@@ -16,7 +16,7 @@ import (
 
 // TODO(dfc) duplicated from environs/ec2
 
-const zkPort = 2181
+const zkPort = 37017
 
 var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
 

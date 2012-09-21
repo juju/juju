@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-const mgoPort = 2181
+const mgoPort = 37017
 
 var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
 
@@ -238,7 +238,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
 	err = e.saveState(&bootstrapState{
-		MgoInstances: []string{inst.Id()},
+		StateInstances: []string{inst.Id()},
 	})
 	if err != nil {
 		// ignore error on StopInstance because the previous error is
@@ -263,9 +263,9 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	var addrs []string
 	// Wait for the DNS names of any of the instances
 	// to become available.
-	log.Printf("environs/ec2: waiting for DNS name(s) of state server instances %v", st.MgoInstances)
+	log.Printf("environs/ec2: waiting for DNS name(s) of state server instances %v", st.StateInstances)
 	for a := longAttempt.Start(); len(addrs) == 0 && a.Next(); {
-		insts, err := e.Instances(st.MgoInstances)
+		insts, err := e.Instances(st.StateInstances)
 		if err != nil && err != environs.ErrPartialInstances {
 			return nil, err
 		}
@@ -280,7 +280,7 @@ func (e *environ) StateInfo() (*state.Info, error) {
 		}
 	}
 	if len(addrs) == 0 {
-		return nil, fmt.Errorf("timed out waiting for mgo address from %v", st.MgoInstances)
+		return nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
 	}
 	return &state.Info{
 		Addrs:  addrs,

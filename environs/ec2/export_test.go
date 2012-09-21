@@ -9,7 +9,7 @@ import (
 )
 
 type BootstrapState struct {
-	MgoInstances []string
+	StateInstances []string
 }
 
 func LoadState(e environs.Environ) (*BootstrapState, error) {
@@ -17,7 +17,7 @@ func LoadState(e environs.Environ) (*BootstrapState, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &BootstrapState{s.MgoInstances}, nil
+	return &BootstrapState{s.StateInstances}, nil
 }
 
 func GroupName(e environs.Environ) string {
