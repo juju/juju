@@ -17,9 +17,16 @@ func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 
+type FirewallerSuite struct {
+	testing.JujuConnSuite
+	op    <-chan dummy.Operation
+	charm *state.Charm
+}
+
 // assertPorts retrieves the open ports of the instance and compares them
 // to the expected. 
-func assertPorts(c *C, inst environs.Instance, machineId int, expected []state.Port) {
+func (s *FirewallerSuite) assertPorts(c *C, inst environs.Instance, machineId int, expected []state.Port) {
+	s.State.StartSync()
 	start := time.Now()
 	for {
 		got, err := inst.Ports(machineId)
@@ -33,19 +40,13 @@ func assertPorts(c *C, inst environs.Instance, machineId int, expected []state.P
 			c.Succeed()
 			return
 		}
-		if time.Since(start) > 5000*time.Millisecond {
+		if time.Since(start) > 5*time.Second {
 			c.Fatalf("timed out: expected %q; got %q", expected, got)
 			return
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
 	panic("unreachable")
-}
-
-type FirewallerSuite struct {
-	testing.JujuConnSuite
-	op    <-chan dummy.Operation
-	charm *state.Charm
 }
 
 var _ = Suite(&FirewallerSuite{})
@@ -94,12 +95,12 @@ func (s *FirewallerSuite) TestNotExposedService(c *C) {
 	err = u.OpenPort("tcp", 8080)
 	c.Assert(err, IsNil)
 
-	assertPorts(c, inst, m.Id(), nil)
+	s.assertPorts(c, inst, m.Id(), nil)
 
 	err = u.ClosePort("tcp", 80)
 	c.Assert(err, IsNil)
 
-	assertPorts(c, inst, m.Id(), nil)
+	s.assertPorts(c, inst, m.Id(), nil)
 }
 
 func (s *FirewallerSuite) TestExposedService(c *C) {
@@ -119,12 +120,12 @@ func (s *FirewallerSuite) TestExposedService(c *C) {
 	err = u.OpenPort("tcp", 8080)
 	c.Assert(err, IsNil)
 
-	assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}, {"tcp", 8080}})
+	s.assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}, {"tcp", 8080}})
 
 	err = u.ClosePort("tcp", 80)
 	c.Assert(err, IsNil)
 
-	assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 8080}})
+	s.assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 8080}})
 }
 
 func (s *FirewallerSuite) TestMachineWithoutInstanceId(c *C) {
@@ -144,12 +145,12 @@ func (s *FirewallerSuite) TestMachineWithoutInstanceId(c *C) {
 	inst2 := s.startInstance(c, m2)
 	err = u2.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
-	assertPorts(c, inst2, m2.Id(), []state.Port{{"tcp", 80}})
+	s.assertPorts(c, inst2, m2.Id(), []state.Port{{"tcp", 80}})
 
 	inst1 := s.startInstance(c, m1)
 	err = u1.OpenPort("tcp", 8080)
 	c.Assert(err, IsNil)
-	assertPorts(c, inst1, m1.Id(), []state.Port{{"tcp", 8080}})
+	s.assertPorts(c, inst1, m1.Id(), []state.Port{{"tcp", 8080}})
 }
 
 func (s *FirewallerSuite) TestMultipleUnits(c *C) {
@@ -171,16 +172,16 @@ func (s *FirewallerSuite) TestMultipleUnits(c *C) {
 	err = u2.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
 
-	assertPorts(c, inst1, m1.Id(), []state.Port{{"tcp", 80}})
-	assertPorts(c, inst2, m2.Id(), []state.Port{{"tcp", 80}})
+	s.assertPorts(c, inst1, m1.Id(), []state.Port{{"tcp", 80}})
+	s.assertPorts(c, inst2, m2.Id(), []state.Port{{"tcp", 80}})
 
 	err = u1.ClosePort("tcp", 80)
 	c.Assert(err, IsNil)
 	err = u2.ClosePort("tcp", 80)
 	c.Assert(err, IsNil)
 
-	assertPorts(c, inst1, m1.Id(), nil)
-	assertPorts(c, inst2, m2.Id(), nil)
+	s.assertPorts(c, inst1, m1.Id(), nil)
+	s.assertPorts(c, inst2, m2.Id(), nil)
 }
 
 func (s *FirewallerSuite) TestFirewallerStartWithState(c *C) {
@@ -197,13 +198,13 @@ func (s *FirewallerSuite) TestFirewallerStartWithState(c *C) {
 	c.Assert(err, IsNil)
 
 	// Nothing open without firewaller.
-	assertPorts(c, inst, m.Id(), nil)
+	s.assertPorts(c, inst, m.Id(), nil)
 
 	// Starting the firewaller opens the ports.
 	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
-	assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}, {"tcp", 8080}})
+	s.assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}, {"tcp", 8080}})
 
 	err = svc.SetExposed()
 	c.Assert(err, IsNil)
@@ -226,7 +227,7 @@ func (s *FirewallerSuite) TestFirewallerStartWithPartialState(c *C) {
 	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
 
-	assertPorts(c, inst, m.Id(), nil)
+	s.assertPorts(c, inst, m.Id(), nil)
 
 	// Complete steps to open port.
 	u, err := svc.AddUnit()
@@ -236,7 +237,7 @@ func (s *FirewallerSuite) TestFirewallerStartWithPartialState(c *C) {
 	err = u.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
 
-	assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}})
+	s.assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}})
 }
 
 func (s *FirewallerSuite) TestSetClearExposedService(c *C) {
@@ -254,17 +255,17 @@ func (s *FirewallerSuite) TestSetClearExposedService(c *C) {
 	c.Assert(err, IsNil)
 
 	// Not exposed service, so no open port.
-	assertPorts(c, inst, m.Id(), nil)
+	s.assertPorts(c, inst, m.Id(), nil)
 
 	// SeExposed opens the ports.
 	err = svc.SetExposed()
 	c.Assert(err, IsNil)
 
-	assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}, {"tcp", 8080}})
+	s.assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}, {"tcp", 8080}})
 
 	// ClearExposed closes the ports again.
 	err = svc.ClearExposed()
 	c.Assert(err, IsNil)
 
-	assertPorts(c, inst, m.Id(), nil)
+	s.assertPorts(c, inst, m.Id(), nil)
 }
