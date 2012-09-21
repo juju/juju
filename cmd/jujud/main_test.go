@@ -47,7 +47,7 @@ func (s *MainSuite) TestParseErrors(c *C) {
 	checkMessage(c, msgf, "--cheese", "cavitate")
 
 	cmds := []string{"bootstrap-state", "unit", "machine", "provisioning"}
-	msgz := `invalid value "localhost:37017,srv" for flag --state-servers: "srv" is not a valid zookeeper address`
+	msgz := `invalid value "localhost:37017,srv" for flag --state-servers: "srv" is not a valid state server address`
 	for _, cmd := range cmds {
 		checkMessage(c, msgf, cmd, "--cheese")
 		checkMessage(c, msgz, cmd, "--state-servers", "localhost:37017,srv")
