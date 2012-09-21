@@ -16,16 +16,19 @@ import (
 var _ = Suite(&DeploySuite{})
 
 type DeploySuite struct {
-	testing.ZkSuite
+	testing.LoggingSuite
+	testing.MgoSuite
 	conn *juju.Conn
 	repo *charm.LocalRepository
 }
 
 func (s *DeploySuite) SetUpTest(c *C) {
+	s.LoggingSuite.SetUpTest(c)
+	s.MgoSuite.SetUpTest(c)
 	attrs := map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
-		"zookeeper":       true,
+		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
 	}
 	environ, err := environs.NewFromAttrs(attrs)
@@ -45,6 +48,19 @@ func (s *DeploySuite) TearDownTest(c *C) {
 	c.Check(err, IsNil)
 	s.conn.Close()
 	s.conn = nil
+	s.LoggingSuite.SetUpTest(c)
+	s.MgoSuite.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
+}
+
+func (s *DeploySuite) SetUpSuite(c *C) {
+	s.LoggingSuite.SetUpSuite(c)
+	s.MgoSuite.SetUpSuite(c)
+}
+
+func (s *DeploySuite) TearDownSuite(c *C) {
+	s.LoggingSuite.TearDownSuite(c)
+	s.MgoSuite.TearDownSuite(c)
 }
 
 func (s *DeploySuite) TestPutCharmBasic(c *C) {

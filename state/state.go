@@ -210,8 +210,12 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 	if err := s.runner.Run(ops, "", nil); err != nil {
 		return nil, fmt.Errorf("cannot add service %q: %v", name, onAbort(err, fmt.Errorf("duplicate service name")))
 	}
-
-	return newService(s, sdoc), nil
+	// Refresh to pick the txn-revno.
+	svc := newService(s, sdoc)
+	if err = svc.Refresh(); err != nil {
+		return nil, err
+	}
+	return svc, nil
 }
 
 // RemoveService removes a service from the state. It will also remove all

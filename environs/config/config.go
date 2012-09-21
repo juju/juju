@@ -16,7 +16,7 @@ type Config struct {
 // and authorized-keys-path is also translated into authorized-keys
 // by loading the content from respective file.
 //
-// The required keys are: "name", "type", "default-series" and "authorized-keys",
+// The required keys are: "name", "type" and "authorized-keys",
 // all of type string. Additional keys recognised are: "agent-version" and
 // "development", of types string and bool respectively.
 func New(attrs map[string]interface{}) (*Config, error) {
