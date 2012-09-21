@@ -19,9 +19,9 @@ import (
 	"time"
 )
 
-const zkPort = 2181
+const mgoPort = 37017
 
-var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
+var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
 
 // A request may fail to due "eventual consistency" semantics, which
 // should resolve fairly quickly.  A request may also fail due to a slow
@@ -238,7 +238,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
 	err = e.saveState(&bootstrapState{
-		ZookeeperInstances: []string{inst.Id()},
+		StateInstances: []string{inst.Id()},
 	})
 	if err != nil {
 		// ignore error on StopInstance because the previous error is
@@ -263,9 +263,9 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	var addrs []string
 	// Wait for the DNS names of any of the instances
 	// to become available.
-	log.Printf("environs/ec2: waiting for zookeeper DNS name(s) of instances %v", st.ZookeeperInstances)
+	log.Printf("environs/ec2: waiting for DNS name(s) of state server instances %v", st.StateInstances)
 	for a := longAttempt.Start(); len(addrs) == 0 && a.Next(); {
-		insts, err := e.Instances(st.ZookeeperInstances)
+		insts, err := e.Instances(st.StateInstances)
 		if err != nil && err != environs.ErrPartialInstances {
 			return nil, err
 		}
@@ -275,12 +275,12 @@ func (e *environ) StateInfo() (*state.Info, error) {
 			}
 			name := inst.(*instance).Instance.DNSName
 			if name != "" {
-				addrs = append(addrs, name+zkPortSuffix)
+				addrs = append(addrs, name+mgoPortSuffix)
 			}
 		}
 	}
 	if len(addrs) == 0 {
-		return nil, fmt.Errorf("timed out waiting for zk address from %v", st.ZookeeperInstances)
+		return nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
 	}
 	return &state.Info{
 		Addrs:  addrs,

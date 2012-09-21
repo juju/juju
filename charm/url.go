@@ -204,9 +204,9 @@ func (u *URL) SetBSON(raw bson.Raw) error {
 }
 
 // Quote translates a charm url string into one which can be safely used
-// in a file path (whether on disk or in zookeeper). ASCII letters, ASCII
-// digits, dot and dash stay the same; other characters are translated to
-// their hex representation surrounded by underscores.
+// in a file path.  ASCII letters, ASCII digits, dot and dash stay the
+// same; other characters are translated to their hex representation
+// surrounded by underscores.
 func Quote(unsafe string) string {
 	safe := make([]byte, 0, len(unsafe)*4)
 	for i := 0; i < len(unsafe); i++ {

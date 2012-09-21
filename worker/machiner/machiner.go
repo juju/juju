@@ -45,7 +45,7 @@ func newMachiner(machine *state.Machine, info *state.Info, dataDir string, cont 
 
 func (m *Machiner) loop() {
 	defer m.tomb.Done()
-	w := m.machine.WatchUnits()
+	w := m.machine.WatchPrincipalUnits()
 	defer watcher.Stop(w, &m.tomb)
 
 	// TODO read initial units, check if they're running

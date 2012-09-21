@@ -89,8 +89,6 @@ func (s *repoSuite) assertUnitMachines(c *C, units []*state.Unit) {
 
 	machines, err := s.State.AllMachines()
 	c.Assert(err, IsNil)
-	// NOTE: this will fail when state.Initialize starts doing
-	// the right thing and poking machine 0 into ZK state.
 	c.Assert(machines, HasLen, len(units))
 	unitNames := []string{}
 	for _, m := range machines {

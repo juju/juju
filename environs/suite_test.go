@@ -8,7 +8,3 @@ import (
 func Test(t *testing.T) {
 	TestingT(t)
 }
-
-type suite struct{}
-
-var _ = Suite(suite{})

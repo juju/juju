@@ -16,7 +16,7 @@ import (
 
 // TODO(dfc) duplicated from environs/ec2
 
-const zkPort = 2181
+const zkPort = 37017
 
 var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
 
@@ -39,8 +39,8 @@ type MachineConfig struct {
 	ProviderType string
 
 	// StateInfo holds the means for the new instance to communicate with the
-	// juju state. Unless the new machine is running zookeeper (ZooKeeper is
-	// set), there must be at least one zookeeper address supplied.
+	// juju state. Unless the new machine is running a state server (StateServer is
+	// set), there must be at least one state server address supplied.
 	StateInfo *state.Info
 
 	// Tools is juju tools to be used on the new machine.
@@ -130,7 +130,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --instance-id "+cfg.InstanceIdAccessor+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
-				" --zookeeper-servers localhost"+zkPortSuffix+
+				" --state-servers localhost"+zkPortSuffix+
 				debugFlag,
 		)
 	}
@@ -160,7 +160,7 @@ func addAgentScript(c *cloudinit.Config, cfg *MachineConfig, name, args string) 
 	svc := upstart.NewService(fmt.Sprintf("jujud-%s", name))
 	cmd := fmt.Sprintf(
 		"%s/jujud %s"+
-			" --zookeeper-servers '%s'"+
+			" --state-servers '%s'"+
 			" --log-file /var/log/juju/%s-agent.log"+
 			" --data-dir '%s'"+
 			" %s",
