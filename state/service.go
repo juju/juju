@@ -24,6 +24,7 @@ type serviceDoc struct {
 	Life       Life
 	UnitSeq    int
 	Exposed    bool
+	TxnRevno   int64 `bson:"txn-revno"`
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
