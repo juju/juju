@@ -401,7 +401,7 @@ var (
 	machineDeadErr     = errors.New("machine is dead")
 	unitDeadErr        = errors.New("unit is dead")
 	alreadyAssignedErr = errors.New("unit is already assigned to a machine")
-	inUseErr       = errors.New("machine is not unused")
+	inUseErr           = errors.New("machine is not unused")
 )
 
 // assignToMachine is the internal version of AssignToMachine,
@@ -496,7 +496,7 @@ func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
 			return m, nil
 		}
 		if err != inUseErr && err != machineDeadErr {
-		    return nil, fmt.Errorf("cannot assign unit %q to unused machine: %v", u, err)
+			return nil, fmt.Errorf("cannot assign unit %q to unused machine: %v", u, err)
 		}
 	}
 	return nil, noUnusedMachines
