@@ -161,22 +161,22 @@ func (c *ConfigNode) Write() ([]ItemChange, error) {
 		return []ItemChange{}, nil
 	}
 	sort.Sort(itemChangeSlice(changes))
-	inserts := copyMap(upserts)
 	ops := []txn.Op{{
-		C:      c.st.settings.Name,
-		Id:     c.path,
-		Insert: inserts,
-	}}
-	if err := c.st.runner.Run(ops, "", nil); err != nil {
-		return nil, fmt.Errorf("cannot write configuration node %q: %v", c.path, err)
-	}
-	ops = []txn.Op{{
 		C:  c.st.settings.Name,
 		Id: c.path,
 		Update: D{
 			{"$set", upserts},
 			{"$unset", deletions},
 		},
+	}}
+	if err := c.st.runner.Run(ops, "", nil); err != nil {
+		return nil, fmt.Errorf("cannot write configuration node %q: %v", c.path, err)
+	}
+	inserts := copyMap(upserts)
+	ops = []txn.Op{{
+		C:      c.st.settings.Name,
+		Id:     c.path,
+		Insert: inserts,
 	}}
 	if err := c.st.runner.Run(ops, "", nil); err != nil {
 		return nil, fmt.Errorf("cannot write configuration node %q: %v", c.path, err)
