@@ -280,7 +280,7 @@ func newMachineData(machine *state.Machine, fw *Firewaller) *machineData {
 	md := &machineData{
 		firewaller: fw,
 		machine:    machine,
-		watcher:    machine.WatchUnits(),
+		watcher:    machine.WatchPrincipalUnits(),
 		unitds:     make(map[string]*unitData),
 		ports:      make([]state.Port, 0),
 	}
@@ -327,7 +327,7 @@ type unitData struct {
 	tomb       tomb.Tomb
 	firewaller *Firewaller
 	unit       *state.Unit
-	watcher    *state.PortsWatcher
+	watcher    *state.UnitWatcher
 	serviced   *serviceData
 	machined   *machineData
 	ports      []state.Port
@@ -339,7 +339,7 @@ func newUnitData(unit *state.Unit, fw *Firewaller) *unitData {
 	ud := &unitData{
 		firewaller: fw,
 		unit:       unit,
-		watcher:    unit.WatchPorts(),
+		watcher:    unit.Watch(),
 		ports:      make([]state.Port, 0),
 	}
 	go ud.watchLoop()
@@ -350,15 +350,22 @@ func newUnitData(unit *state.Unit, fw *Firewaller) *unitData {
 func (ud *unitData) watchLoop() {
 	defer ud.tomb.Done()
 	defer ud.watcher.Stop()
+	var ports []state.Port
 	for {
 		select {
 		case <-ud.tomb.Dying():
 			return
-		case change, ok := <-ud.watcher.Changes():
+		case unit, ok := <-ud.watcher.Changes():
 			if !ok {
 				ud.firewaller.tomb.Kill(watcher.MustErr(ud.watcher))
 				return
 			}
+			change := unit.OpenedPorts()
+			state.SortPorts(change)
+			if !portsChanged(change, ports) {
+				continue
+			}
+			ports = append([]state.Port(nil), change...)
 			select {
 			case ud.firewaller.portsChange <- &portsChange{ud, change}:
 			case <-ud.tomb.Dying():
@@ -366,6 +373,20 @@ func (ud *unitData) watchLoop() {
 			}
 		}
 	}
+}
+
+// portsChanged returns whether old and new contain the same set ports.
+// Both old and new must be sorted.
+func portsChanged(old, new []state.Port) bool {
+	if len(old) != len(new) {
+		return true
+	}
+	for i, p := range old {
+		if new[i] != p {
+			return true
+		}
+	}
+	return false
 }
 
 // Stop stops the unit watching.
@@ -385,7 +406,7 @@ type serviceData struct {
 	tomb       tomb.Tomb
 	firewaller *Firewaller
 	service    *state.Service
-	watcher    *state.FlagWatcher
+	watcher    *state.ServiceWatcher
 	exposed    bool
 	unitds     map[string]*unitData
 }
@@ -396,7 +417,7 @@ func newServiceData(service *state.Service, fw *Firewaller) *serviceData {
 	sd := &serviceData{
 		firewaller: fw,
 		service:    service,
-		watcher:    service.WatchExposed(),
+		watcher:    service.Watch(),
 		unitds:     make(map[string]*unitData),
 	}
 	var err error
@@ -405,23 +426,28 @@ func newServiceData(service *state.Service, fw *Firewaller) *serviceData {
 		sd.firewaller.tomb.Kill(err)
 		return sd
 	}
-	go sd.watchLoop()
+	go sd.watchLoop(sd.exposed)
 	return sd
 }
 
 // watchLoop watches the service's exposed flag for changes.
-func (sd *serviceData) watchLoop() {
+func (sd *serviceData) watchLoop(exposed bool) {
 	defer sd.tomb.Done()
 	defer sd.watcher.Stop()
 	for {
 		select {
 		case <-sd.tomb.Dying():
 			return
-		case change, ok := <-sd.watcher.Changes():
+		case service, ok := <-sd.watcher.Changes():
 			if !ok {
 				sd.firewaller.tomb.Kill(watcher.MustErr(sd.watcher))
 				return
 			}
+			change := service.IsExposed()
+			if change == exposed {
+				continue
+			}
+			exposed = change
 			select {
 			case sd.firewaller.exposedChange <- &exposedChange{sd, change}:
 			case <-sd.tomb.Dying():

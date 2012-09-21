@@ -66,8 +66,8 @@ func (s *Service) Die() error {
 // IsExposed returns whether this service is exposed. The explicitly open
 // ports (with open-port) for exposed services may be accessed from machines
 // outside of the local deployment network. See SetExposed and ClearExposed.
-func (s *Service) IsExposed() (bool, error) {
-	return s.doc.Exposed, nil
+func (s *Service) IsExposed() bool
+	return s.doc.Exposed
 }
 
 // SetExposed marks the service as exposed.
