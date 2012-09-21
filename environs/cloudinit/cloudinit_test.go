@@ -80,24 +80,20 @@ func (t *cloudinitTest) check(c *C, cfg *cloudinit.MachineConfig) {
 	t.checkScripts(c, "wget.*"+regexp.QuoteMeta(t.cfg.Tools.URL)+".*tar .*xz")
 
 	if t.cfg.StateServer {
-		// TODO(dfc) remove this after the switch to mstate
-		t.checkPackage(c, "zookeeperd")
-		t.checkPackage(c, "mongodb-server")
-		t.checkScripts(c, "jujud bootstrap-state")
 		t.checkScripts(c, regexp.QuoteMeta(t.cfg.InstanceIdAccessor))
 	}
 	if t.cfg.Config != nil {
+		t.checkScripts(c, "tools/mongo-.*tgz")
 		t.checkEnvConfig(c)
 	}
-	t.checkPackage(c, "libzookeeper-mt2")
 	t.checkPackage(c, "git")
 
 	if t.cfg.Provisioner {
-		t.checkScripts(c, "jujud provisioning --state-servers 'localhost"+cloudinit.ZkPortSuffix+"'")
+		t.checkScripts(c, "jujud provisioning --state-servers 'localhost:37017'")
 	}
 
 	if t.cfg.StateServer {
-		t.checkScripts(c, "jujud machine --state-servers 'localhost"+cloudinit.ZkPortSuffix+"' .* --machine-id [0-9]+")
+		t.checkScripts(c, "jujud machine --state-servers 'localhost:37017' .* --machine-id [0-9]+")
 	} else {
 		t.checkScripts(c, "jujud machine --state-servers '"+strings.Join(t.cfg.StateInfo.Addrs, ",")+"' .* --machine-id [0-9]+")
 	}
