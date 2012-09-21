@@ -931,9 +931,9 @@ func (w *EnvironConfigWatcher) Changes() <-chan *config.Config {
 }
 
 func (w *EnvironConfigWatcher) loop() (err error) {
-	configWatcher := w.st.watchConfig("e")
-	defer configWatcher.Stop()
-	changes := configWatcher.Changes()
+	settingsWatcher := w.st.watchConfig("e")
+	defer settingsWatcher.Stop()
+	changes := settingsWatcher.Changes()
 	configNode := <-changes
 	cfg, err := config.New(configNode.Map())
 	if err != nil {
@@ -970,18 +970,18 @@ func (w *EnvironConfigWatcher) loop() (err error) {
 	return nil
 }
 
-type configWatcher struct {
+type settingsWatcher struct {
 	commonWatcher
 	changeChan chan *ConfigNode
 }
 
 // watchConfig creates a watcher for observing changes to settings.
-func (s *State) watchConfig(key string) *configWatcher {
+func (s *State) watchConfig(key string) *settingsWatcher {
 	return newConfigWatcher(s, key)
 }
 
-func newConfigWatcher(s *State, key string) *configWatcher {
-	w := &configWatcher{
+func newConfigWatcher(s *State, key string) *settingsWatcher {
+	w := &settingsWatcher{
 		changeChan:    make(chan *ConfigNode),
 		commonWatcher: commonWatcher{st: s},
 	}
@@ -995,11 +995,11 @@ func newConfigWatcher(s *State, key string) *configWatcher {
 
 // Changes returns a channel that will receive the new settings.
 // Multiple changes may be observed as a single event in the channel.
-func (w *configWatcher) Changes() <-chan *ConfigNode {
+func (w *settingsWatcher) Changes() <-chan *ConfigNode {
 	return w.changeChan
 }
 
-func (w *configWatcher) loop(key string) (err error) {
+func (w *settingsWatcher) loop(key string) (err error) {
 	ch := make(chan watcher.Change)
 	configNode, err := readConfigNode(w.st, key)
 	if err != nil {
@@ -1073,7 +1073,6 @@ func (w *UnitWatcher) loop(unit *Unit) (err error) {
 	name := unit.doc.Name
 	w.st.watcher.Watch(w.st.units.Name, name, unit.doc.TxnRevno, ch)
 	defer w.st.watcher.Unwatch(w.st.units.Name, name, ch)
-	unit = nil
 	for {
 		for unit != nil {
 			select {
