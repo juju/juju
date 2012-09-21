@@ -15,7 +15,7 @@ func (OpenSuite) TestNewDummyEnviron(c *C) {
 	config := map[string]interface{}{
 		"name":            "foo",
 		"type":            "dummy",
-		"state":       false,
+		"state":           false,
 		"authorized-keys": "i-am-a-key",
 	}
 	env, err := environs.NewFromAttrs(config)

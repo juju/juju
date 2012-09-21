@@ -5,12 +5,12 @@ import (
 	"io/ioutil"
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
+	"net"
 	"os"
 	"os/exec"
 	"strconv"
 	stdtesting "testing"
 	"time"
-	"net"
 )
 
 // MgoAddr holds the address of the shared MongoDB server set up by

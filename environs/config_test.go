@@ -171,8 +171,8 @@ environments:
 
 func (suite) TestConfigRoundTrip(c *C) {
 	cfg, err := config.New(map[string]interface{}{
-		"name":      "bladaam",
-		"type":      "dummy",
+		"name":  "bladaam",
+		"type":  "dummy",
 		"state": false,
 	})
 	c.Assert(err, IsNil)

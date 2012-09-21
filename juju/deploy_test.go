@@ -28,7 +28,7 @@ func (s *DeploySuite) SetUpTest(c *C) {
 	attrs := map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
-		"state":       true,
+		"state":           true,
 		"authorized-keys": "i-am-a-key",
 	}
 	environ, err := environs.NewFromAttrs(attrs)

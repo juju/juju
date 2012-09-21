@@ -250,9 +250,9 @@ func SetStorageDelay(d time.Duration) {
 
 var checker = schema.StrictFieldMap(
 	schema.Fields{
-		"state": schema.Bool(),
-		"broken":    schema.String(),
-		"secret":    schema.String(),
+		"state":  schema.Bool(),
+		"broken": schema.String(),
+		"secret": schema.String(),
 	},
 	schema.Defaults{
 		"broken": "",
