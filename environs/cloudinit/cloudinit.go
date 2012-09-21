@@ -16,9 +16,9 @@ import (
 
 // TODO(dfc) duplicated from environs/ec2
 
-const zkPort = 37017
+const mgoPort = 37017
 
-var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
+var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
 
 // MachineConfig represents initialization information for a new juju machine.
 // Creation of cloudinit data from this struct is largely provider-independent,
@@ -124,7 +124,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --instance-id "+cfg.InstanceIdAccessor+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
-				" --state-servers localhost"+zkPortSuffix+
+				" --state-servers localhost"+mgoPortSuffix+
 				debugFlag,
 		)
 		if err := addMongoToBoot(c); err != nil {
@@ -134,7 +134,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --instance-id "+cfg.InstanceIdAccessor+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
-				" --state-servers localhost"+zkPortSuffix+
+				" --state-servers localhost"+mgoPortSuffix+
 				debugFlag,
 		)
 	}
@@ -220,7 +220,7 @@ func (cfg *MachineConfig) jujuTools() string {
 func (cfg *MachineConfig) zookeeperHostAddrs() string {
 	var hosts []string
 	if cfg.StateServer {
-		hosts = append(hosts, "localhost"+zkPortSuffix)
+		hosts = append(hosts, "localhost"+mgoPortSuffix)
 	}
 	if cfg.StateInfo != nil {
 		hosts = append(hosts, cfg.StateInfo.Addrs...)
