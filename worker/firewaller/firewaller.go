@@ -277,7 +277,7 @@ type machineData struct {
 // newMachineData returns a new data value for tracking details of the
 // machine, and starts watching the machine for units added or removed.
 func newMachineData(machine *state.Machine, fw *Firewaller) *machineData {
-	// BUG The firewaller must watch *ALL* units, not just principals.
+	// BUG(niemeyer): The firewaller must watch *ALL* units, not just principals.
 	md := &machineData{
 		firewaller: fw,
 		machine:    machine,
@@ -379,14 +379,14 @@ func (ud *unitData) watchLoop() {
 // Both old and new must be sorted.
 func samePorts(old, new []state.Port) bool {
 	if len(old) != len(new) {
-		return true
+		return false
 	}
 	for i, p := range old {
 		if new[i] != p {
-			return true
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 // Stop stops the unit watching.
