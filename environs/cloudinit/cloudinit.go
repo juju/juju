@@ -130,7 +130,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --instance-id "+cfg.InstanceIdAccessor+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
-				" --zookeeper-servers localhost"+zkPortSuffix+
+				" --state-servers localhost"+zkPortSuffix+
 				debugFlag,
 		)
 	}
@@ -160,7 +160,7 @@ func addAgentScript(c *cloudinit.Config, cfg *MachineConfig, name, args string) 
 	svc := upstart.NewService(fmt.Sprintf("jujud-%s", name))
 	cmd := fmt.Sprintf(
 		"%s/jujud %s"+
-			" --zookeeper-servers '%s'"+
+			" --state-servers '%s'"+
 			" --log-file /var/log/juju/%s-agent.log"+
 			" --data-dir '%s'"+
 			" %s",

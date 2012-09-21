@@ -34,7 +34,7 @@ func (s *BootstrapSuite) TestParse(c *C) {
 	c.Assert(cmd.InstanceId, Equals, "iWhatever")
 	c.Assert(cmd.EnvConfig, DeepEquals, map[string]interface{}{"foo": 123})
 
-	args = append(args, "--zookeeper-servers", "zk1:2181,zk2:2181")
+	args = append(args, "--state-servers", "zk1:2181,zk2:2181")
 	cmd, err = initBootstrapCommand(args)
 	c.Assert(err, IsNil)
 	c.Assert(cmd.StateInfo.Addrs, DeepEquals, []string{"zk1:2181", "zk2:2181"})
@@ -45,7 +45,7 @@ func (s *BootstrapSuite) TestParse(c *C) {
 }
 
 func (s *BootstrapSuite) TestSetMachineId(c *C) {
-	args := []string{"--zookeeper-servers"}
+	args := []string{"--state-servers"}
 	args = append(args, s.StateInfo(c).Addrs...)
 	args = append(args, "--instance-id", "over9000")
 	args = append(args, "--env-config", b64yaml{"blah": "blah"}.encode())
@@ -93,7 +93,7 @@ var base64ConfigTests = []struct {
 func (s *BootstrapSuite) TestBase64Config(c *C) {
 	for i, t := range base64ConfigTests {
 		c.Logf("test %d", i)
-		args := []string{"--zookeeper-servers"}
+		args := []string{"--state-servers"}
 		args = append(args, s.StateInfo(c).Addrs...)
 		args = append(args, "--instance-id", "over9000")
 		args = append(args, t.input...)

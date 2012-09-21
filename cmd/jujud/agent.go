@@ -56,7 +56,7 @@ type AgentConf struct {
 // addFlags injects common agent flags into f.
 func (c *AgentConf) addFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.DataDir, "data-dir", "/var/lib/juju", "directory for juju data")
-	stateInfoVar(f, &c.StateInfo, "zookeeper-servers", nil, "zookeeper servers to connect to")
+	stateInfoVar(f, &c.StateInfo, "state-servers", nil, "zookeeper servers to connect to")
 }
 
 // checkArgs checks that required flags have been set and that args is empty.
@@ -65,7 +65,7 @@ func (c *AgentConf) checkArgs(args []string) error {
 		return requiredError("data-dir")
 	}
 	if c.StateInfo.Addrs == nil {
-		return requiredError("zookeeper-servers")
+		return requiredError("state-servers")
 	}
 	return cmd.CheckEmpty(args)
 }

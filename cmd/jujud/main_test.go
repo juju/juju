@@ -47,28 +47,28 @@ func (s *MainSuite) TestParseErrors(c *C) {
 	checkMessage(c, msgf, "--cheese", "cavitate")
 
 	cmds := []string{"bootstrap-state", "unit", "machine", "provisioning"}
-	msgz := `invalid value "localhost:2181,zk" for flag --zookeeper-servers: "zk" is not a valid zookeeper address`
+	msgz := `invalid value "localhost:2181,zk" for flag --state-servers: "zk" is not a valid zookeeper address`
 	for _, cmd := range cmds {
 		checkMessage(c, msgf, cmd, "--cheese")
-		checkMessage(c, msgz, cmd, "--zookeeper-servers", "localhost:2181,zk")
+		checkMessage(c, msgz, cmd, "--state-servers", "localhost:2181,zk")
 	}
 
 	msga := `unrecognized args: ["toastie"]`
 	checkMessage(c, msga,
 		"bootstrap-state",
-		"--zookeeper-servers", "zk:2181",
+		"--state-servers", "zk:2181",
 		"--instance-id", "ii",
 		"--env-config", b64yaml{"blah": "blah"}.encode(),
 		"toastie")
 	checkMessage(c, msga, "unit",
-		"--zookeeper-servers", "localhost:2181,zk:2181",
+		"--state-servers", "localhost:2181,zk:2181",
 		"--unit-name", "un/0",
 		"toastie")
 	checkMessage(c, msga, "machine",
-		"--zookeeper-servers", "zk:2181",
+		"--state-servers", "zk:2181",
 		"--machine-id", "42",
 		"toastie")
 	checkMessage(c, msga, "provisioning",
-		"--zookeeper-servers", "127.0.0.1:2181",
+		"--state-servers", "127.0.0.1:2181",
 		"toastie")
 }

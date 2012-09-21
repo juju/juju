@@ -22,14 +22,14 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 
 // Init initializes the command for running.
 func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	stateInfoVar(f, &c.StateInfo, "zookeeper-servers", []string{"127.0.0.1:2181"}, "address of zookeeper to initialize")
+	stateInfoVar(f, &c.StateInfo, "state-servers", []string{"127.0.0.1:2181"}, "address of zookeeper to initialize")
 	f.StringVar(&c.InstanceId, "instance-id", "", "instance id of this machine")
 	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
 	if c.StateInfo.Addrs == nil {
-		return requiredError("zookeeper-servers")
+		return requiredError("state-servers")
 	}
 	if c.InstanceId == "" {
 		return requiredError("instance-id")

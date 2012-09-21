@@ -22,8 +22,8 @@ func initCmd(c cmd.Command, args []string) error {
 func CheckAgentCommand(c *C, create acCreator, args []string) cmd.Command {
 	com, _ := create()
 	err := initCmd(com, args)
-	c.Assert(err, ErrorMatches, "--zookeeper-servers option must be set")
-	args = append(args, "--zookeeper-servers", "zk1:2181,zk2:2181")
+	c.Assert(err, ErrorMatches, "--state-servers option must be set")
+	args = append(args, "--state-servers", "zk1:2181,zk2:2181")
 
 	com, conf := create()
 	c.Assert(initCmd(com, args), IsNil)
@@ -42,7 +42,7 @@ func CheckAgentCommand(c *C, create acCreator, args []string) cmd.Command {
 // before parsing an agent command and returning the result.
 func ParseAgentCommand(ac cmd.Command, args []string) error {
 	common := []string{
-		"--zookeeper-servers", "zk:2181",
+		"--state-servers", "zk:2181",
 		"--data-dir", "jd",
 	}
 	return initCmd(ac, append(common, args...))
