@@ -4,9 +4,9 @@ import (
 	"encoding/base64"
 	"fmt"
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 )
 
