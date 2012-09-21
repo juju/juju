@@ -326,12 +326,6 @@ var watchUnitTests = []struct {
 }{
 	{
 		func(u *state.Unit) error {
-			return nil
-		},
-		unitInfo{},
-	},
-	{
-		func(u *state.Unit) error {
 			return u.SetPublicAddress("example.foobar.com")
 		},
 		unitInfo{
@@ -361,6 +355,11 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 	defer func() {
 		c.Assert(w.Stop(), IsNil)
 	}()
+	s.State.StartSync()
+	u, ok := <-w.Changes()
+	c.Assert(ok, Equals, true)
+	c.Assert(u, DeepEquals, s.unit)
+
 	for i, test := range watchUnitTests {
 		c.Logf("test %d", i)
 		err := test.test(s.unit)

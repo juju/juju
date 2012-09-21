@@ -1073,7 +1073,6 @@ func (w *UnitWatcher) loop(unit *Unit) (err error) {
 	name := unit.doc.Name
 	w.st.watcher.Watch(w.st.units.Name, name, unit.doc.TxnRevno, ch)
 	defer w.st.watcher.Unwatch(w.st.units.Name, name, ch)
-	unit = nil
 	for {
 		for unit != nil {
 			select {
