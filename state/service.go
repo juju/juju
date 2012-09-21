@@ -24,6 +24,7 @@ type serviceDoc struct {
 	Life       Life
 	UnitSeq    int
 	Exposed    bool
+	TxnRevno   int64 `bson:"txn-revno"`
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
@@ -186,6 +187,7 @@ func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
 		return nil, err
 
 	}
+	// Refresh to pick the txn-revno.
 	u := newUnit(s.st, udoc)
 	err = u.Refresh()
 	if err != nil {

@@ -1103,3 +1103,69 @@ func (w *UnitWatcher) loop(unit *Unit) (err error) {
 	}
 	return nil
 }
+
+// ServiceWatcher observes changes to a service.
+type ServiceWatcher struct {
+	commonWatcher
+	changeChan chan *Service
+}
+
+// Watch return a watcher for observing changes to a service.
+func (s *Service) Watch() *ServiceWatcher {
+	return newServiceWatcher(s)
+}
+
+func newServiceWatcher(s *Service) *ServiceWatcher {
+	w := &ServiceWatcher{
+		changeChan:    make(chan *Service),
+		commonWatcher: commonWatcher{st: s.st},
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.changeChan)
+		w.tomb.Kill(w.loop(s))
+	}()
+	return w
+}
+
+// Changes returns a channel that will receive the new version of a service.
+// Multiple changes may be observed as a single event in the channel.
+func (w *ServiceWatcher) Changes() <-chan *Service {
+	return w.changeChan
+}
+
+func (w *ServiceWatcher) loop(service *Service) (err error) {
+	ch := make(chan watcher.Change)
+	name := service.doc.Name
+	w.st.watcher.Watch(w.st.services.Name, name, service.doc.TxnRevno, ch)
+	defer w.st.watcher.Unwatch(w.st.services.Name, name, ch)
+	for {
+		for service != nil {
+			select {
+			case <-w.st.watcher.Dead():
+				return watcher.MustErr(w.st.watcher)
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case <-ch:
+				service, err = w.st.Service(name)
+				if err != nil {
+					return err
+				}
+			case w.changeChan <- service:
+				service = nil
+			}
+		}
+		select {
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-ch:
+			service, err = w.st.Service(name)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
