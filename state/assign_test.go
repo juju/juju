@@ -3,6 +3,7 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
+	"sort"
 )
 
 type AssignSuite struct {
@@ -425,7 +426,7 @@ func (s *AssignSuite) TestAssignUnitBadPolicy(c *C) {
 	c.Assert(fail, PanicMatches, `unknown unit assignment policy: "random"`)
 	_, err = unit.AssignedMachineId()
 	c.Assert(err, NotNil)
-	assertMachineCount(c, s.State, 1)
+	assertMachineCount(c, s.State, 0)
 }
 
 func (s *AssignSuite) TestAssignUnitLocalPolicy(c *C) {
@@ -451,21 +452,21 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicy(c *C) {
 	c.Assert(err, IsNil)
 	service, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
-	unit, err := service.AddUnit()
-	c.Assert(err, IsNil)
 
 	// Check unassigned placements with no unused machines.
 	for i := 0; i < 10; i++ {
 		unit, err := service.AddUnit()
 		c.Assert(err, IsNil)
-		err := s.State.AssignUnit(unit, state.AssignUnused)
+		err = s.State.AssignUnit(unit, state.AssignUnused)
 		c.Assert(err, IsNil)
-		mid, err = unit.AssignedMachineId()
+		mid, err := unit.AssignedMachineId()
 		c.Assert(err, IsNil)
 		c.Assert(mid, Equals, 1+i)
-		assertMachineCount(c, s.State, 2)
+		assertMachineCount(c, s.State, i+2)
 
 		// Sanity check that the machine knows about its assigned unit.
+		m, err := s.State.Machine(mid)
+		c.Assert(err, IsNil)
 		units, err := m.Units()
 		c.Assert(err, IsNil)
 		c.Assert(units, HasLen, 1)
@@ -477,14 +478,19 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicy(c *C) {
 	for mid := 1; mid < 11; mid += 2 {
 		m, err := s.State.Machine(mid)
 		c.Assert(err, IsNil)
-		units, err := m.PrincipalUnits()
+		units, err := m.Units()
 		c.Assert(err, IsNil)
 		c.Assert(units, HasLen, 1)
+		unit := units[0]
+		err = unit.UnassignFromMachine()
+		c.Assert(err, IsNil)
+		err = unit.Die()
+		c.Assert(err, IsNil)
 		unused = append(unused, mid)
 	}
 	// Add some more unused machines
 	for i := 0; i < 4; i++ {
-		m, err := s.State.Machine(mid)
+		m, err := s.State.AddMachine()
 		c.Assert(err, IsNil)
 		unused = append(unused, m.Id())
 	}
@@ -494,9 +500,11 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicy(c *C) {
 	for _ = range unused {
 		unit, err := service.AddUnit()
 		c.Assert(err, IsNil)
-		m, err := s.State.AssignUnit(unit, state.AssignUnused)
+		err = s.State.AssignUnit(unit, state.AssignUnused)
 		c.Assert(err, IsNil)
-		got = append(got, m)
+		mid, err := unit.AssignedMachineId()
+		c.Assert(err, IsNil)
+		got = append(got, mid)
 	}
 	sort.Ints(unused)
 	sort.Ints(got)
@@ -524,5 +532,5 @@ func (s *AssignSuite) TestAssignSubordinate(c *C) {
 func assertMachineCount(c *C, st *state.State, expect int) {
 	ms, err := st.AllMachines()
 	c.Assert(err, IsNil)
-	c.Assert(ms, HasLen, expect)
+	c.Assert(ms, HasLen, expect, Commentf("%v", ms))
 }
