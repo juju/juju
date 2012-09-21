@@ -23,7 +23,6 @@ type serviceDoc struct {
 	ForceCharm bool
 	Life       Life
 	UnitSeq    int
-	UnitCount  int
 	Exposed    bool
 	TxnRevno   int64 `bson:"txn-revno"`
 }
@@ -58,9 +57,12 @@ func (s *Service) EnsureDying() error {
 // has units.
 func (s *Service) EnsureDead() error {
 	assertOps := []txn.Op{{
-		C:      s.st.services.Name,
-		Id:     s.doc.Name,
-		Assert: D{{"unitcount", 0}},
+		C:  s.st.services.Name,
+		Id: s.doc.Name,
+		Assert: D{{"$or", []D{
+			D{{"unitcount", nil}},
+			D{{"unitcount", 0}},
+		}}},
 	}}
 	err := ensureDead(
 		s.st, s.st.services, s.doc.Name, "service",
@@ -197,7 +199,6 @@ func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
 		}
 		return nil, err
 	}
-	s.doc.UnitCount += 1
 	// Refresh to pick the txn-revno.
 	u := newUnit(s.st, udoc)
 	err = u.Refresh()
@@ -286,7 +287,6 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 		// If aborted, the unit is either dead or recreated.
 		return onAbort(err, nil)
 	}
-	s.doc.UnitCount -= 1
 	return nil
 }
 
@@ -326,11 +326,6 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 		units = append(units, newUnit(s.st, &docs[i]))
 	}
 	return units, nil
-}
-
-// UnitCount returns the number of units in the service.
-func (s *Service) UnitCount() int {
-	return s.doc.UnitCount
 }
 
 // Relations returns a Relation for every relation the service is in.

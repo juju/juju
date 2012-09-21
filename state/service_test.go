@@ -130,11 +130,9 @@ func (s *ServiceSuite) TestAddSubordinateUnitWhenNotAlive(c *C) {
 }
 
 func (s *ServiceSuite) TestAddUnit(c *C) {
-	c.Assert(s.service.UnitCount(), Equals, 0)
 	// Check that principal units can be added on their own.
 	unitZero, err := s.service.AddUnit()
 	c.Assert(err, IsNil)
-	c.Assert(s.service.UnitCount(), Equals, 1)
 	c.Assert(unitZero.Name(), Equals, "mysql/0")
 	principal := unitZero.IsPrincipal()
 	c.Assert(principal, Equals, true)
@@ -268,7 +266,6 @@ func (s *ServiceSuite) TestRemoveUnit(c *C) {
 	c.Assert(err, IsNil)
 	_, err = s.service.AddUnit()
 	c.Assert(err, IsNil)
-	c.Assert(s.service.UnitCount(), Equals, 2)
 
 	// Check that removing a unit works.
 	unit, err := s.service.Unit("mysql/0")
@@ -284,11 +281,9 @@ func (s *ServiceSuite) TestRemoveUnit(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 1)
 	c.Assert(units[0].Name(), Equals, "mysql/1")
-	c.Assert(s.service.UnitCount(), Equals, 1)
 
 	err = s.service.RemoveUnit(unit)
 	c.Assert(err, IsNil)
-	c.Assert(s.service.UnitCount(), Equals, 1)
 }
 
 func (s *ServiceSuite) TestLifeWithUnits(c *C) {
