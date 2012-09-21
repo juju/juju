@@ -39,7 +39,6 @@ func (s *Service) WatchCharm() *ServiceCharmWatcher {
 	panic("unimplemented")
 }
 
-
 // WatchResolved returns a watcher that fires when the unit
 // is marked as having had its problems resolved. See
 // SetResolved for details.
