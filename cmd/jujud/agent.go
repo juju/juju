@@ -20,20 +20,20 @@ type stateInfoValue state.Info
 
 var validAddr = regexp.MustCompile("^.+:[0-9]+$")
 
-// Set splits the comma-separated list of ZooKeeper addresses and stores
+// Set splits the comma-separated list of server addresses and stores
 // onto v's Addrs. Addresses must include port numbers.
 func (v *stateInfoValue) Set(value string) error {
 	addrs := strings.Split(value, ",")
 	for _, addr := range addrs {
 		if !validAddr.MatchString(addr) {
-			return fmt.Errorf("%q is not a valid zookeeper address", addr)
+			return fmt.Errorf("%q is not a valid server address", addr)
 		}
 	}
 	v.Addrs = addrs
 	return nil
 }
 
-// String returns the list of ZooKeeper addresses joined by commas.
+// String returns the list of server addresses joined by commas.
 func (v *stateInfoValue) String() string {
 	if v.Addrs != nil {
 		return strings.Join(v.Addrs, ",")
@@ -56,7 +56,7 @@ type AgentConf struct {
 // addFlags injects common agent flags into f.
 func (c *AgentConf) addFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.DataDir, "data-dir", "/var/lib/juju", "directory for juju data")
-	stateInfoVar(f, &c.StateInfo, "state-servers", nil, "zookeeper servers to connect to")
+	stateInfoVar(f, &c.StateInfo, "state-servers", nil, "state servers to connect to")
 }
 
 // checkArgs checks that required flags have been set and that args is empty.

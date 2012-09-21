@@ -237,11 +237,11 @@ var verifyTests = []struct {
 	{"missing environment configuration", func(cfg *cloudinit.MachineConfig) {
 		cfg.Config = nil
 	}},
-	{"missing zookeeper hosts", func(cfg *cloudinit.MachineConfig) {
+	{"missing state server hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
 		cfg.StateInfo = nil
 	}},
-	{"missing zookeeper hosts", func(cfg *cloudinit.MachineConfig) {
+	{"missing state server hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
 		cfg.StateInfo = &state.Info{}
 	}},

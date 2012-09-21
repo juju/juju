@@ -39,8 +39,8 @@ type MachineConfig struct {
 	ProviderType string
 
 	// StateInfo holds the means for the new instance to communicate with the
-	// juju state. Unless the new machine is running zookeeper (ZooKeeper is
-	// set), there must be at least one zookeeper address supplied.
+	// juju state. Unless the new machine is running a state server (StateServer is
+	// set), there must be at least one state server address supplied.
 	StateInfo *state.Info
 
 	// Tools is juju tools to be used on the new machine.

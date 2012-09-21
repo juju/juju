@@ -61,7 +61,7 @@ environments:
 environments:
     only:
         type: dummy
-`, "only", `.*zookeeper: expected bool, got nothing`,
+`, "only", `.*state-server: expected bool, got nothing`,
 	}, {`
 environments:
     only:

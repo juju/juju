@@ -55,7 +55,7 @@ func (s *ConfigNodeSuite) TestUpdateWithoutWrite(c *C) {
 }
 
 func (s *ConfigNodeSuite) TestUpdateWithWrite(c *C) {
-	// Check that write updates the local and the ZooKeeper state.
+	// Check that write updates the local and the server state.
 	node, err := readConfigNode(s.state, s.path)
 	c.Assert(err, IsNil)
 	options := map[string]interface{}{"alpha": "beta", "one": 1}

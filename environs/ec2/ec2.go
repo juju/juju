@@ -263,7 +263,7 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	var addrs []string
 	// Wait for the DNS names of any of the instances
 	// to become available.
-	log.Printf("environs/ec2: waiting for zookeeper DNS name(s) of instances %v", st.MgoInstances)
+	log.Printf("environs/ec2: waiting for DNS name(s) of state server instances %v", st.MgoInstances)
 	for a := longAttempt.Start(); len(addrs) == 0 && a.Next(); {
 		insts, err := e.Instances(st.MgoInstances)
 		if err != nil && err != environs.ErrPartialInstances {
