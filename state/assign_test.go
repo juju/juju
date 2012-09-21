@@ -199,11 +199,16 @@ func (s *AssignSuite) TestAssignMachineWhenDying(c *C) {
 	unit, err = service.AddUnit()
 	c.Assert(err, IsNil)
 	testWhenDying(c, machine, machineDeadErr, machineDeadErr, assignTest)
+}
+
+func (s *AssignSuite) TestUnassignMachineWhenDying(c *C) {
+	service, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
 
 	// Check that UnassignFromMachine works when the unit is dead.
-	machine, err = s.State.AddMachine()
+	machine, err := s.State.AddMachine()
 	c.Assert(err, IsNil)
-	unit, err = service.AddUnit()
+	unit, err := service.AddUnit()
 	c.Assert(err, IsNil)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, IsNil)
