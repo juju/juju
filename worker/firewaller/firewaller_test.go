@@ -268,12 +268,3 @@ func (s *FirewallerSuite) TestSetClearExposedService(c *C) {
 
 	assertPorts(c, inst, m.Id(), nil)
 }
-
-func (s *FirewallerSuite) TestFirewallerStopOnStateClose(c *C) {
-	st, err := state.Open(s.StateInfo(c))
-	c.Assert(err, IsNil)
-	fw := firewaller.NewFirewaller(st)
-	st.Close()
-	c.Check(fw.Wait(), ErrorMatches, ".* zookeeper is closing")
-	c.Assert(fw.Stop(), ErrorMatches, ".* zookeeper is closing")
-}
