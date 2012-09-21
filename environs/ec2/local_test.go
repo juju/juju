@@ -232,8 +232,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	var x map[interface{}]interface{}
 	err = goyaml.Unmarshal(inst.UserData, &x)
 	c.Assert(err, IsNil)
-	CheckPackage(c, x, "zookeeper", true)
-	CheckPackage(c, x, "zookeeperd", true)
+	CheckPackage(c, x, "git", true)
 	CheckScripts(c, x, "jujud bootstrap-state", true)
 	// TODO check for provisioning agent
 	// TODO check for machine agent
