@@ -13,7 +13,7 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
-	coretesting.ZkTestPackage(t)
+	coretesting.MgoTestPackage(t)
 }
 
 type MachinerSuite struct {
@@ -68,6 +68,10 @@ func (s *MachinerSuite) TestMachinerDeployDestroy(c *C) {
 		action:        make(chan string, 5),
 	}
 	machiner := machiner.NewMachinerWithContainer(m0, stateInfo, s.DataDir(), dcontainer)
+	defer func() {
+		err := machiner.Stop()
+		c.Assert(err, IsNil)
+	}()
 
 	tests := []struct {
 		change  func()
@@ -105,14 +109,13 @@ func (s *MachinerSuite) TestMachinerDeployDestroy(c *C) {
 	for i, t := range tests {
 		c.Logf("test %d", i)
 		t.change()
+		s.State.StartSync()
 		for _, a := range t.actions {
 			dcontainer.checkAction(c, a)
 		}
 		dcontainer.checkAction(c, "")
 	}
 
-	err = machiner.Stop()
-	c.Assert(err, IsNil)
 }
 
 type dummyContainer struct {
