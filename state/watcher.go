@@ -1171,7 +1171,7 @@ func (w *ServiceWatcher) loop(service *Service) (err error) {
 }
 
 type RelationUnitsWatcher struct {
-    commonWatcher
+	commonWatcher
 }
 
 type RelationUnitsChange struct {
