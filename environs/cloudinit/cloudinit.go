@@ -194,7 +194,7 @@ func addMongoToBoot(c *cloudinit.Config) error {
 	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    "juju state database",
-		Cmd:     "/opt/mongo/bin/mongod --port 37017 --bind_ip 0.0.0.0 --dbpath=/var/lib/juju/db",
+		Cmd:     "/opt/mongo/bin/mongod --port 37017 --bind_ip 0.0.0.0 --dbpath=/var/lib/juju/db --noprealloc",
 	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {

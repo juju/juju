@@ -35,7 +35,7 @@ func Open(info *Info) (*State, error) {
 		return nil, errors.New("no mongo addresses")
 	}
 	if !info.UseSSH {
-		session, err := mgo.Dial(strings.Join(info.Addrs, ","))
+		session, err := mgo.DialWithTimeout(strings.Join(info.Addrs, ","), 1 * time.Minute)
 		if err != nil {
 			return nil, err
 		}
