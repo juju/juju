@@ -88,7 +88,7 @@ var brokenConfig = `
 environments:
     one:
         type: dummy
-        zookeeper: false
+        state: false
         authorized-keys: i-am-a-key
         broken: %s
 `

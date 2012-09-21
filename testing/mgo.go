@@ -10,6 +10,7 @@ import (
 	"strconv"
 	stdtesting "testing"
 	"time"
+	"net"
 )
 
 // MgoAddr holds the address of the shared MongoDB server set up by
@@ -121,4 +122,18 @@ func (s *MgoSuite) TearDownTest(c *C) {
 		c.Logf("Waiting for sockets to die: %d in use, %d alive", stats.SocketsInUse, stats.SocketsAlive)
 		time.Sleep(500 * time.Millisecond)
 	}
+}
+
+// FindTCPPort finds an unused TCP port and returns it.
+// Use of this function has an inherent race condition - another
+// process may claim the port before we try to use it.
+// We hope that the probability is small enough during
+// testing to be negligible.
+func FindTCPPort() int {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		panic(err)
+	}
+	l.Close()
+	return l.Addr().(*net.TCPAddr).Port
 }

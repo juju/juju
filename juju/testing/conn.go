@@ -41,7 +41,7 @@ var config = []byte(`
 environments:
     dummyenv:
         type: dummy
-        zookeeper: true
+        state: true
         authorized-keys: 'i-am-a-key'
         default-series: decrepit
 `)

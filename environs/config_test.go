@@ -62,7 +62,7 @@ environments:
 environments:
     only:
         type: dummy
-        zookeeper: false
+        state: false
         unknown-value: causes-an-error
 `, "only", `.*unknown-value: expected nothing, got "causes-an-error"`,
 	},
@@ -87,7 +87,7 @@ var configTests = []struct {
 environments:
     only:
         type: dummy
-        zookeeper: false
+        state: false
 `, func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, IsNil)
@@ -98,7 +98,7 @@ default:
 environments:
     valid:
         type: dummy
-        zookeeper: false
+        state: false
     invalid:
         type: crazy
 `, func(c *C, es *environs.Environs) {
@@ -112,10 +112,10 @@ environments:
 environments:
     one:
         type: dummy
-        zookeeper: false
+        state: false
     two:
         type: dummy
-        zookeeper: false
+        state: false
 `, func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, ErrorMatches, `no default environment found`)
@@ -142,7 +142,7 @@ func (suite) TestConfigFile(c *C) {
 environments:
     only:
         type: dummy
-        zookeeper: false
+        state: false
         authorized-keys: i-am-a-key
 `
 	err = ioutil.WriteFile(path, []byte(env), 0666)
@@ -173,7 +173,7 @@ func (suite) TestConfigRoundTrip(c *C) {
 	cfg, err := config.New(map[string]interface{}{
 		"name":      "bladaam",
 		"type":      "dummy",
-		"zookeeper": false,
+		"state": false,
 	})
 	c.Assert(err, IsNil)
 	provider, err := environs.Provider(cfg.Type())
