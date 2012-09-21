@@ -130,7 +130,7 @@ func (u *Unit) AgentTools() (*Tools, error) {
 
 // SetAgentTools sets the tools that the agent is currently running.
 func (u *Unit) SetAgentTools(t *Tools) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot set agent tools for unit %v", u)
+	defer trivial.ErrorContextf(&err, "cannot set agent tools for unit %q", u)
 	if t.Series == "" || t.Arch == "" {
 		return fmt.Errorf("empty series or arch")
 	}
@@ -397,9 +397,27 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 	return *pudoc.MachineId, nil
 }
 
-// AssignToMachine assigns this unit to a given machine.
-func (u *Unit) AssignToMachine(m *Machine) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot assign unit %q to machine %s", u, m)
+var (
+	machineDeadErr     = errors.New("machine is dead")
+	unitDeadErr        = errors.New("unit is dead")
+	alreadyAssignedErr = errors.New("unit is already assigned to a machine")
+	inUseErr           = errors.New("machine is not unused")
+)
+
+// assignToMachine is the internal version of AssignToMachine,
+// also used by AssignToUnusedMachine. It returns specific errors
+// in some cases:
+// - machineDeadErr when the machine is not alive.
+// - unitDeadErr when the unit is not alive.
+// - alreadyAssignedErr when the unit has already been assigned
+// - inUseErr when the machine already has a unit assigned (if unused is true)
+func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
+	if u.doc.MachineId != nil {
+		if *u.doc.MachineId != m.Id() {
+			return alreadyAssignedErr
+		}
+		return nil
+	}
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
 	}
@@ -409,6 +427,10 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 			D{{"machineid", m.Id()}},
 		}},
 	}...)
+	massert := isAlive
+	if unused {
+		massert = append(massert, D{{"principals", D{{"$size", 0}}}}...)
+	}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
@@ -417,14 +439,67 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	}, {
 		C:      u.st.machines.Name,
 		Id:     m.doc.Id,
-		Assert: isAlive,
+		Assert: massert,
 		Update: D{{"$addToSet", D{{"principals", u.doc.Name}}}},
 	}}
-	if err := u.st.runner.Run(ops, "", nil); err != nil {
-		return onAbort(err, fmt.Errorf("machine or unit dead, or already assigned to machine"))
+	err = u.st.runner.Run(ops, "", nil)
+	if err == nil {
+		u.doc.MachineId = &m.doc.Id
+		return nil
 	}
-	u.doc.MachineId = &m.doc.Id
+	if err != txn.ErrAborted {
+		return err
+	}
+	u0, err := u.st.Unit(u.Name())
+	if err != nil {
+		return err
+	}
+	m0, err := u.st.Machine(m.Id())
+	if err != nil {
+		return err
+	}
+	switch {
+	case u0.Life() != Alive:
+		return unitDeadErr
+	case m0.Life() != Alive:
+		return machineDeadErr
+	case u0.doc.MachineId != nil || !unused:
+		return alreadyAssignedErr
+	}
+	return inUseErr
+}
+
+// AssignToMachine assigns this unit to a given machine.
+func (u *Unit) AssignToMachine(m *Machine) error {
+	err := u.assignToMachine(m, false)
+	if err != nil {
+		return fmt.Errorf("cannot assign unit %q to machine %v: %v", u, m, err)
+	}
 	return nil
+}
+
+var noUnusedMachines = errors.New("all machines in use")
+
+// AssignToUnusedMachine assigns u to a machine without other units.
+// If there are no unused machines besides machine 0, an error is returned.
+func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
+	// Select all machines with no principals except the bootstrap machine.
+	sel := D{{"principals", D{{"$size", 0}}}, {"_id", D{{"$ne", 0}}}}
+	// TODO use Batch(1). See https://bugs.launchpad.net/mgo/+bug/1053509
+	iter := u.st.machines.Find(sel).Batch(2).Prefetch(0).Iter()
+	var mdoc machineDoc
+	for iter.Next(&mdoc) {
+		m := newMachine(u.st, &mdoc)
+
+		err := u.assignToMachine(m, true)
+		if err == nil {
+			return m, nil
+		}
+		if err != inUseErr && err != machineDeadErr {
+			return nil, fmt.Errorf("cannot assign unit %q to unused machine: %v", u, err)
+		}
+	}
+	return nil, noUnusedMachines
 }
 
 // UnassignFromMachine removes the assignment between this unit and the
