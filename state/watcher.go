@@ -1169,3 +1169,16 @@ func (w *ServiceWatcher) loop(service *Service) (err error) {
 	}
 	return nil
 }
+
+type RelationUnitsWatcher struct {
+    commonWatcher
+}
+
+type RelationUnitsChange struct {
+	Changed  map[string]UnitSettings
+	Departed []string
+}
+
+func (ru *RelationUnit) Watch() *RelationUnitsWatcher {
+	return nil
+}
