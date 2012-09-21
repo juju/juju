@@ -22,6 +22,8 @@ var (
 	sshUser          = "ubuntu@"
 )
 
+const dialTimeout = 30 * time.Minute
+
 // sshDial dials the MongoDB instance at addr through
 // an SSH proxy.
 func sshDial(addr, keyFile string) (*sshForwarder, *mgo.Session, error) {
@@ -30,7 +32,8 @@ func sshDial(addr, keyFile string) (*sshForwarder, *mgo.Session, error) {
 		return nil, nil, err
 	}
 	defer trivial.ErrorContextf(&err, "cannot dial MongoDB via SSH at address %s", addr)
-	conn, err := mgo.Dial(fwd.localAddr)
+
+	conn, err := mgo.DialWithTimeout(fwd.localAddr, dialTimeout)
 	if err != nil {
 		fwd.stop()
 		return nil, nil, err

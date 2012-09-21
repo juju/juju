@@ -53,8 +53,6 @@ func (t *Tests) TestStartStop(c *C) {
 }
 
 func (t *Tests) TestBootstrap(c *C) {
-	// TODO remove this when tools can build
-	c.Skip("skip until tools can build")
 	// TODO tests for Bootstrap(true)
 	e := t.Open(c)
 	err := e.Bootstrap(false)
