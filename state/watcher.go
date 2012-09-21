@@ -1139,7 +1139,6 @@ func (w *ServiceWatcher) loop(service *Service) (err error) {
 	name := service.doc.Name
 	w.st.watcher.Watch(w.st.services.Name, name, service.doc.TxnRevno, ch)
 	defer w.st.watcher.Unwatch(w.st.services.Name, name, ch)
-	service = nil
 	for {
 		for service != nil {
 			select {

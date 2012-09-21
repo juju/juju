@@ -356,9 +356,13 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 		c.Assert(w.Stop(), IsNil)
 	}()
 	s.State.StartSync()
-	u, ok := <-w.Changes()
-	c.Assert(ok, Equals, true)
-	c.Assert(u, DeepEquals, s.unit)
+	select {
+	case u, ok := <-w.Changes():
+		c.Assert(ok, Equals, true)
+		c.Assert(u, DeepEquals, s.unit)
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("did not get change: %v", s.unit)
+	}
 
 	for i, test := range watchUnitTests {
 		c.Logf("test %d", i)

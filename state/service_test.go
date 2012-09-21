@@ -711,44 +711,28 @@ func addRelationChanges(changes *state.RelationsChange, more *state.RelationsCha
 	changes.Removed = append(changes.Removed, more.Removed...)
 }
 
-type serviceInfo struct {
+var watchServiceTests = []struct {
+	test    func(m *state.Service) error
 	Exposed bool
 	Life    state.Life
-}
-
-var watchServiceTests = []struct {
-	test func(m *state.Service) error
-	want serviceInfo
 }{
 	{
-		func(s *state.Service) error {
-			return nil
-		},
-		serviceInfo{},
-	},
-	{
-		func(s *state.Service) error {
+		test: func(s *state.Service) error {
 			return s.SetExposed()
 		},
-		serviceInfo{
-			Exposed: true,
-		},
+		Exposed: true,
 	},
 	{
-		func(s *state.Service) error {
+		test: func(s *state.Service) error {
 			return s.ClearExposed()
 		},
-		serviceInfo{
-			Exposed: false,
-		},
+		Exposed: false,
 	},
 	{
-		func(s *state.Service) error {
+		test: func(s *state.Service) error {
 			return s.Kill()
 		},
-		serviceInfo{
-			Life: state.Dying,
-		},
+		Life: state.Dying,
 	},
 }
 
@@ -757,6 +741,15 @@ func (s *ServiceSuite) TestWatchService(c *C) {
 	defer func() {
 		c.Assert(w.Stop(), IsNil)
 	}()
+	s.State.StartSync()
+	select {
+	case svc, ok := <-w.Changes():
+		c.Assert(ok, Equals, true)
+		c.Assert(svc, DeepEquals, s.service)
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("did not get change: %v", s.service)
+	}
+
 	for i, test := range watchServiceTests {
 		c.Logf("test %d", i)
 		err := test.test(s.service)
@@ -766,14 +759,14 @@ func (s *ServiceSuite) TestWatchService(c *C) {
 		case service, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
 			c.Assert(service.Name(), Equals, s.service.Name())
-			var info serviceInfo
-			info.Life = service.Life()
+			life := service.Life()
 			c.Assert(err, IsNil)
-			info.Exposed, err = service.IsExposed()
+			exposed, err := service.IsExposed()
 			c.Assert(err, IsNil)
-			c.Assert(info, DeepEquals, test.want)
+			c.Assert(life, Equals, test.Life)
+			c.Assert(exposed, Equals, test.Exposed)
 		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("did not get change: %v", test.want)
+			c.Fatalf("did not get change: %v %v", test.Exposed, test.Life)
 		}
 	}
 	select {
