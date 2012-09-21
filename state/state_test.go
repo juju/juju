@@ -661,3 +661,83 @@ func (*StateSuite) TestNameChecks(c *C) {
 	assertService("foo-2", false)
 	assertService("foo-2foo", true)
 }
+
+type attrs map[string]interface{}
+
+var environmentWatchTests = []attrs{
+	{
+		"type":            "my-type",
+		"name":            "my-name",
+		"authorized-keys": "i-am-a-key",
+	},
+	{
+		// Add an attribute.
+		"type":            "my-type",
+		"name":            "my-name",
+		"default-series":  "my-series",
+		"authorized-keys": "i-am-a-key",
+	},
+	{
+		// Set a new attribute value.
+		"type":            "my-type",
+		"name":            "my-new-name",
+		"default-series":  "my-series",
+		"authorized-keys": "i-am-a-key",
+	},
+}
+
+var initialEnvironment = `name: test,
+type: test,
+authorized-keys: i-am-a-key,
+default-series: precise`
+
+func (s *StateSuite) TestWatchEnvironment(c *C) {
+	m := map[string]interface{}{
+		"type":            "dummy",
+		"name":            "lisboa",
+		"authorized-keys": "i-am-a-key",
+		"default-series":  "precise",
+		"development":     true,
+	}
+	cfg, err := config.New(m)
+	c.Assert(err, IsNil)
+	st, err := state.Initialize(s.StateInfo(c), cfg)
+	c.Assert(err, IsNil)
+	c.Assert(st, NotNil)
+	defer st.Close()
+	environConfigWatcher := s.State.WatchEnvironConfig()
+	defer func() {
+		c.Assert(environConfigWatcher.Stop(), IsNil)
+	}()
+	s.State.StartSync()
+
+	cfg, ok := <-environConfigWatcher.Changes()
+	c.Assert(ok, Equals, true)
+	attrs := cfg.AllAttrs()
+	c.Assert(attrs, DeepEquals, m)
+
+	for i, test := range environmentWatchTests {
+		c.Logf("test %d", i)
+		change, err := config.New(test)
+		c.Assert(err, IsNil)
+		err = s.State.SetEnvironConfig(change)
+		c.Assert(err, IsNil)
+		s.State.StartSync()
+		select {
+		case got, ok := <-environConfigWatcher.Changes():
+			c.Assert(ok, Equals, true)
+			gotAttrs := got.AllAttrs()
+			for key, value := range test {
+				c.Assert(gotAttrs[key], Equals, value)
+			}
+		case <-time.After(500 * time.Millisecond):
+			c.Fatalf("did not get change: %#v", test)
+		}
+	}
+
+	select {
+	case got := <-environConfigWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
