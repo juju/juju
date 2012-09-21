@@ -1250,4 +1250,3 @@ type ConfigWatcher struct {
 func (s *Service) WatchConfig() *ConfigWatcher {
 	return &ConfigWatcher{newSettingsWatcher(s.st, "s#"+s.Name())}
 }
-
