@@ -84,7 +84,7 @@ func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	attrs := map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
-		"state-server":           true,
+		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
 	}
@@ -117,7 +117,7 @@ func (cs *ConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 	env, err := environs.NewFromAttrs(map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
-		"state-server":           true,
+		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
 		"secret":          "squirrel",
 	})

@@ -11,6 +11,7 @@ import (
 )
 
 type suite struct{}
+
 var _ = Suite(suite{})
 
 var invalidConfigTests = []struct {
@@ -174,8 +175,8 @@ environments:
 
 func (suite) TestConfigRoundTrip(c *C) {
 	cfg, err := config.New(map[string]interface{}{
-		"name":  "bladaam",
-		"type":  "dummy",
+		"name":         "bladaam",
+		"type":         "dummy",
 		"state-server": false,
 	})
 	c.Assert(err, IsNil)
