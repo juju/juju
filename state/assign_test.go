@@ -3,6 +3,7 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
+	"sort"
 )
 
 type AssignSuite struct {
@@ -415,9 +416,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachineNoneAvailable(c *C) {
 	c.Assert(err, ErrorMatches, `all machines in use`)
 }
 
-func (s *AssignSuite) TestAssignUnit(c *C) {
-	_, err := s.State.AddMachine() // bootstrap machine
-	c.Assert(err, IsNil)
+func (s *AssignSuite) TestAssignUnitBadPolicy(c *C) {
 	service, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
 	unit, err := service.AddUnit()
@@ -427,49 +426,111 @@ func (s *AssignSuite) TestAssignUnit(c *C) {
 	c.Assert(fail, PanicMatches, `unknown unit assignment policy: "random"`)
 	_, err = unit.AssignedMachineId()
 	c.Assert(err, NotNil)
-	assertMachineCount(c, s.State, 1)
+	assertMachineCount(c, s.State, 0)
+}
 
-	// Check local placement
-	err = s.State.AssignUnit(unit, state.AssignLocal)
+func (s *AssignSuite) TestAssignUnitLocalPolicy(c *C) {
+	_, err := s.State.AddMachine() // bootstrap machine
 	c.Assert(err, IsNil)
-	mid, err := unit.AssignedMachineId()
+	service, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
-	c.Assert(mid, Equals, 0)
-	assertMachineCount(c, s.State, 1)
+	unit, err := service.AddUnit()
+	c.Assert(err, IsNil)
 
-	// Check unassigned placement with no unused machines
-	unit1, err := service.AddUnit()
-	c.Assert(err, IsNil)
-	err = s.State.AssignUnit(unit1, state.AssignUnused)
-	c.Assert(err, IsNil)
-	mid, err = unit1.AssignedMachineId()
-	c.Assert(err, IsNil)
-	c.Assert(mid, Equals, 1)
-	assertMachineCount(c, s.State, 2)
+	for i := 0; i < 2; i++ {
+		err = s.State.AssignUnit(unit, state.AssignLocal)
+		c.Assert(err, IsNil)
+		mid, err := unit.AssignedMachineId()
+		c.Assert(err, IsNil)
+		c.Assert(mid, Equals, 0)
+		assertMachineCount(c, s.State, 1)
+	}
+}
 
-	// Check unassigned placement on an unused machine
-	_, err = s.State.AddMachine()
-	unit2, err := service.AddUnit()
+func (s *AssignSuite) TestAssignUnitUnusedPolicy(c *C) {
+	_, err := s.State.AddMachine() // bootstrap machine
 	c.Assert(err, IsNil)
-	err = s.State.AssignUnit(unit2, state.AssignUnused)
+	service, err := s.State.AddService("wordpress", s.charm)
 	c.Assert(err, IsNil)
-	mid, err = unit2.AssignedMachineId()
+
+	// Check unassigned placements with no unused machines.
+	for i := 0; i < 10; i++ {
+		unit, err := service.AddUnit()
+		c.Assert(err, IsNil)
+		err = s.State.AssignUnit(unit, state.AssignUnused)
+		c.Assert(err, IsNil)
+		mid, err := unit.AssignedMachineId()
+		c.Assert(err, IsNil)
+		c.Assert(mid, Equals, 1+i)
+		assertMachineCount(c, s.State, i+2)
+
+		// Sanity check that the machine knows about its assigned unit.
+		m, err := s.State.Machine(mid)
+		c.Assert(err, IsNil)
+		units, err := m.Units()
+		c.Assert(err, IsNil)
+		c.Assert(units, HasLen, 1)
+		c.Assert(units[0].Name(), Equals, unit.Name())
+	}
+
+	// Remove units from alternate machines.
+	var unused []int
+	for mid := 1; mid < 11; mid += 2 {
+		m, err := s.State.Machine(mid)
+		c.Assert(err, IsNil)
+		units, err := m.Units()
+		c.Assert(err, IsNil)
+		c.Assert(units, HasLen, 1)
+		unit := units[0]
+		err = unit.UnassignFromMachine()
+		c.Assert(err, IsNil)
+		err = unit.Die()
+		c.Assert(err, IsNil)
+		unused = append(unused, mid)
+	}
+	// Add some more unused machines
+	for i := 0; i < 4; i++ {
+		m, err := s.State.AddMachine()
+		c.Assert(err, IsNil)
+		unused = append(unused, m.Id())
+	}
+
+	// Assign units to all the unused machines.
+	var got []int
+	for _ = range unused {
+		unit, err := service.AddUnit()
+		c.Assert(err, IsNil)
+		err = s.State.AssignUnit(unit, state.AssignUnused)
+		c.Assert(err, IsNil)
+		mid, err := unit.AssignedMachineId()
+		c.Assert(err, IsNil)
+		got = append(got, mid)
+	}
+	sort.Ints(unused)
+	sort.Ints(got)
+	c.Assert(got, DeepEquals, unused)
+}
+
+func (s *AssignSuite) TestAssignSubordinate(c *C) {
+	_, err := s.State.AddMachine() // bootstrap machine
 	c.Assert(err, IsNil)
-	c.Assert(mid, Equals, 2)
-	assertMachineCount(c, s.State, 3)
+	service, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	unit, err := service.AddUnit()
+	c.Assert(err, IsNil)
 
 	// Check cannot assign subordinates to machines
 	subCharm := s.AddTestingCharm(c, "logging")
 	logging, err := s.State.AddService("logging", subCharm)
 	c.Assert(err, IsNil)
-	unit3, err := logging.AddUnitSubordinateTo(unit2)
+	unit2, err := logging.AddUnitSubordinateTo(unit)
 	c.Assert(err, IsNil)
-	err = s.State.AssignUnit(unit3, state.AssignUnused)
+	err = s.State.AssignUnit(unit2, state.AssignUnused)
 	c.Assert(err, ErrorMatches, `subordinate unit "logging/0" cannot be assigned directly to a machine`)
 }
 
 func assertMachineCount(c *C, st *state.State, expect int) {
 	ms, err := st.AllMachines()
 	c.Assert(err, IsNil)
-	c.Assert(ms, HasLen, expect)
+	c.Assert(ms, HasLen, expect, Commentf("%v", ms))
 }
