@@ -71,7 +71,7 @@ func (s *ServiceSuite) TestServiceExposed(c *C) {
 	c.Assert(s.service.IsExposed(), Equals, false)
 
 	// Check that setting and clearing the exposed flag works correctly.
-	err = s.service.SetExposed()
+	err := s.service.SetExposed()
 	c.Assert(err, IsNil)
 	c.Assert(s.service.IsExposed(), Equals, true)
 	err = s.service.ClearExposed()
