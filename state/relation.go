@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"launchpad.net/juju-core/state/presence"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/trivial"
@@ -206,6 +207,12 @@ type RelationUnit struct {
 	unit     *Unit
 	endpoint RelationEndpoint
 	scope    string
+}
+
+// Pinger exposes the pinger used to signal the unit's participation
+// in the relation to the rest of the system.
+func (ru *RelationUnit) Pinger() *presence.Pinger {
+	panic("not implemented")
 }
 
 // Relation returns the relation associated with the unit.
