@@ -136,11 +136,11 @@ func (s *State) RemoveMachine(id int) (err error) {
 	return nil
 }
 
-// AllMachines returns all machines in the environment.
+// AllMachines returns all machines in the environment
+// ordered by id.
 func (s *State) AllMachines() (machines []*Machine, err error) {
 	mdocs := []machineDoc{}
-	sel := D{}
-	err = s.machines.Find(sel).Select(D{{"_id", 1}}).All(&mdocs)
+	err = s.machines.Find(nil).Sort("_id").All(&mdocs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all machines: %v", err)
 	}
@@ -417,9 +417,13 @@ func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
 			return err
 		}
-		if _, err := s.AddMachine(); err != nil {
+		m, err := s.AddMachine()
+		if err != nil {
 			return err
 		}
+		return u.AssignToMachine(m)
+
+		// TODO(rog) reinstate this code
 		// This works if two AssignUnits are racing each other,
 		// but might not if someone picks the machine we've
 		// just created and tries to assign a unit to that machine
