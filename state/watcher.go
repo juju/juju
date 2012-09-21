@@ -3,6 +3,7 @@ package state
 import (
 	"fmt"
 	"labix.org/v2/mgo"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 	"strings"
@@ -124,6 +125,13 @@ type MachineUnitsWatcher struct {
 type MachineUnitsChange struct {
 	Added   []*Unit
 	Removed []*Unit
+}
+
+// EnvironConfigWatcher observes changes to the
+// environment configuration.
+type EnvironConfigWatcher struct {
+	commonWatcher
+	changeChan chan *config.Config
 }
 
 // newMachineWatcher creates and starts a watcher to watch information
@@ -890,6 +898,206 @@ func (w *RelationScopeWatcher) loop() error {
 			}
 			if changes.isEmpty() {
 				changes = nil
+			}
+		}
+	}
+	return nil
+}
+
+// WatchEnvironConfig returns a watcher for observing changes
+// to the environment configuration.
+func (s *State) WatchEnvironConfig() *EnvironConfigWatcher {
+	return newEnvironConfigWatcher(s)
+}
+
+func newEnvironConfigWatcher(s *State) *EnvironConfigWatcher {
+	w := &EnvironConfigWatcher{
+		changeChan:    make(chan *config.Config),
+		commonWatcher: commonWatcher{st: s},
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.changeChan)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns a channel that will receive the new environment
+// configuration when a change is detected. Note that multiple changes may
+// be observed as a single event in the channel.
+func (w *EnvironConfigWatcher) Changes() <-chan *config.Config {
+	return w.changeChan
+}
+
+func (w *EnvironConfigWatcher) loop() (err error) {
+	settingsWatcher := w.st.watchConfig("e")
+	defer settingsWatcher.Stop()
+	changes := settingsWatcher.Changes()
+	configNode := <-changes
+	cfg, err := config.New(configNode.Map())
+	if err != nil {
+		return err
+	}
+	for {
+		for cfg != nil {
+			select {
+			case <-w.st.watcher.Dead():
+				return watcher.MustErr(w.st.watcher)
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case configNode := <-changes:
+				cfg, err = config.New(configNode.Map())
+				if err != nil {
+					return err
+				}
+			case w.changeChan <- cfg:
+				cfg = nil
+			}
+		}
+		select {
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case configNode := <-changes:
+			cfg, err = config.New(configNode.Map())
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+type settingsWatcher struct {
+	commonWatcher
+	changeChan chan *ConfigNode
+}
+
+// watchConfig creates a watcher for observing changes to settings.
+func (s *State) watchConfig(key string) *settingsWatcher {
+	return newConfigWatcher(s, key)
+}
+
+func newConfigWatcher(s *State, key string) *settingsWatcher {
+	w := &settingsWatcher{
+		changeChan:    make(chan *ConfigNode),
+		commonWatcher: commonWatcher{st: s},
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.changeChan)
+		w.tomb.Kill(w.loop(key))
+	}()
+	return w
+}
+
+// Changes returns a channel that will receive the new settings.
+// Multiple changes may be observed as a single event in the channel.
+func (w *settingsWatcher) Changes() <-chan *ConfigNode {
+	return w.changeChan
+}
+
+func (w *settingsWatcher) loop(key string) (err error) {
+	ch := make(chan watcher.Change)
+	configNode, err := readConfigNode(w.st, key)
+	if err != nil {
+		return err
+	}
+	w.st.watcher.Watch(w.st.settings.Name, key, configNode.txnRevno, ch)
+	defer w.st.watcher.Unwatch(w.st.settings.Name, key, ch)
+	for {
+		for configNode != nil {
+			select {
+			case <-w.st.watcher.Dead():
+				return watcher.MustErr(w.st.watcher)
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case <-ch:
+				configNode, err = readConfigNode(w.st, key)
+				if err != nil {
+					return err
+				}
+			case w.changeChan <- configNode:
+				configNode = nil
+			}
+		}
+		select {
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-ch:
+			configNode, err = readConfigNode(w.st, key)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// UnitWatcher observes changes to a unit.
+type UnitWatcher struct {
+	commonWatcher
+	changeChan chan *Unit
+}
+
+// Watch return a watcher for observing changes to a unit.
+func (u *Unit) Watch() *UnitWatcher {
+	return newUnitWatcher(u)
+}
+
+func newUnitWatcher(u *Unit) *UnitWatcher {
+	w := &UnitWatcher{
+		changeChan:    make(chan *Unit),
+		commonWatcher: commonWatcher{st: u.st},
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.changeChan)
+		w.tomb.Kill(w.loop(u))
+	}()
+	return w
+}
+
+// Changes returns a channel that will receive the new version of a unit.
+// Multiple changes may be observed as a single event in the channel.
+func (w *UnitWatcher) Changes() <-chan *Unit {
+	return w.changeChan
+}
+
+func (w *UnitWatcher) loop(unit *Unit) (err error) {
+	ch := make(chan watcher.Change)
+	name := unit.doc.Name
+	w.st.watcher.Watch(w.st.units.Name, name, unit.doc.TxnRevno, ch)
+	defer w.st.watcher.Unwatch(w.st.units.Name, name, ch)
+	for {
+		for unit != nil {
+			select {
+			case <-w.st.watcher.Dead():
+				return watcher.MustErr(w.st.watcher)
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case <-ch:
+				unit, err = w.st.Unit(name)
+				if err != nil {
+					return err
+				}
+			case w.changeChan <- unit:
+				unit = nil
+			}
+		}
+		select {
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-ch:
+			unit, err = w.st.Unit(name)
+			if err != nil {
+				return err
 			}
 		}
 	}

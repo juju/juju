@@ -3,6 +3,7 @@ package state
 import (
 	"fmt"
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/txn"
 	"sort"
 )
 
@@ -56,7 +57,8 @@ type ConfigNode struct {
 	// The difference between disk and core
 	// determines the delta to be applied when ConfigNode.Write
 	// is called.
-	core map[string]interface{}
+	core     map[string]interface{}
+	txnRevno int64
 }
 
 // NotFoundError represents the error that something is not found.
@@ -131,7 +133,7 @@ func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 // overwriting unrelated changes made to the node since it was last read.
 func (c *ConfigNode) Write() ([]ItemChange, error) {
 	changes := []ItemChange{}
-	upserts := map[string]interface{}{}
+	updates := map[string]interface{}{}
 	deletions := map[string]int{}
 	for key := range cacheKeys(c.disk, c.core) {
 		old, ondisk := c.disk[key]
@@ -143,10 +145,10 @@ func (c *ConfigNode) Write() ([]ItemChange, error) {
 		switch {
 		case incore && ondisk:
 			change = ItemChange{ItemModified, key, old, new}
-			upserts[key] = new
+			updates[key] = new
 		case incore && !ondisk:
 			change = ItemChange{ItemAdded, key, nil, new}
-			upserts[key] = new
+			updates[key] = new
 		case ondisk && !incore:
 			change = ItemChange{ItemDeleted, key, old, nil}
 			deletions[key] = 1
@@ -159,13 +161,24 @@ func (c *ConfigNode) Write() ([]ItemChange, error) {
 		return []ItemChange{}, nil
 	}
 	sort.Sort(itemChangeSlice(changes))
-	change := D{
-		{"$inc", D{{"version", 1}}},
-		{"$set", upserts},
-		{"$unset", deletions},
+	ops := []txn.Op{{
+		C:  c.st.settings.Name,
+		Id: c.path,
+		Update: D{
+			{"$set", updates},
+			{"$unset", deletions},
+		},
+	}}
+	if err := c.st.runner.Run(ops, "", nil); err != nil {
+		return nil, fmt.Errorf("cannot write configuration node %q: %v", c.path, err)
 	}
-	_, err := c.st.settings.UpsertId(c.path, change)
-	if err != nil {
+	inserts := copyMap(updates)
+	ops = []txn.Op{{
+		C:      c.st.settings.Name,
+		Id:     c.path,
+		Insert: inserts,
+	}}
+	if err := c.st.runner.Run(ops, "", nil); err != nil {
 		return nil, fmt.Errorf("cannot write configuration node %q: %v", c.path, err)
 	}
 	c.disk = copyMap(c.core)
@@ -183,7 +196,8 @@ func newConfigNode(st *State, path string) *ConfigNode {
 // cleanMap cleans the map of version and _id fields.
 func cleanMap(in map[string]interface{}) {
 	delete(in, "_id")
-	delete(in, "version")
+	delete(in, "txn-revno")
+	delete(in, "txn-queue")
 }
 
 // Read (re)reads the node data into c.
@@ -198,6 +212,7 @@ func (c *ConfigNode) Read() error {
 	if err != nil {
 		return fmt.Errorf("cannot read configuration node %q: %v", c.path, err)
 	}
+	c.txnRevno = config["txn-revno"].(int64)
 	cleanMap(config)
 	c.disk = copyMap(config)
 	c.core = copyMap(config)
