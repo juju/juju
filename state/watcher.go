@@ -977,10 +977,10 @@ type settingsWatcher struct {
 
 // watchConfig creates a watcher for observing changes to settings.
 func (s *State) watchConfig(key string) *settingsWatcher {
-	return newConfigWatcher(s, key)
+	return newSettingsWatcher(s, key)
 }
 
-func newConfigWatcher(s *State, key string) *settingsWatcher {
+func newSettingsWatcher(s *State, key string) *settingsWatcher {
 	w := &settingsWatcher{
 		changeChan:    make(chan *ConfigNode),
 		commonWatcher: commonWatcher{st: s},
@@ -1168,4 +1168,12 @@ func (w *ServiceWatcher) loop(service *Service) (err error) {
 		}
 	}
 	return nil
+}
+
+type ConfigWatcher struct {
+	*settingsWatcher
+}
+
+func (s *Service) WatchConfig() *ConfigWatcher {
+	return &ConfigWatcher{newSettingsWatcher(s.st, "s/"+s.Name())}
 }
