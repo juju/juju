@@ -68,21 +68,15 @@ func (s *ServiceSuite) TestServiceRefesh(c *C) {
 
 func (s *ServiceSuite) TestServiceExposed(c *C) {
 	// Check that querying for the exposed flag works correctly.
-	exposed, err := s.service.IsExposed()
-	c.Assert(err, IsNil)
-	c.Assert(exposed, Equals, false)
+	c.Assert(s.service.IsExposed(), Equals, false)
 
 	// Check that setting and clearing the exposed flag works correctly.
-	err = s.service.SetExposed()
+	err := s.service.SetExposed()
 	c.Assert(err, IsNil)
-	exposed, err = s.service.IsExposed()
-	c.Assert(err, IsNil)
-	c.Assert(exposed, Equals, true)
+	c.Assert(s.service.IsExposed(), Equals, true)
 	err = s.service.ClearExposed()
 	c.Assert(err, IsNil)
-	exposed, err = s.service.IsExposed()
-	c.Assert(err, IsNil)
-	c.Assert(exposed, Equals, false)
+	c.Assert(s.service.IsExposed(), Equals, false)
 
 	// Check that setting and clearing the exposed flag repeatedly does not fail.
 	err = s.service.SetExposed()
@@ -759,12 +753,8 @@ func (s *ServiceSuite) TestWatchService(c *C) {
 		case service, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
 			c.Assert(service.Name(), Equals, s.service.Name())
-			life := service.Life()
-			c.Assert(err, IsNil)
-			exposed, err := service.IsExposed()
-			c.Assert(err, IsNil)
-			c.Assert(life, Equals, test.Life)
-			c.Assert(exposed, Equals, test.Exposed)
+			c.Assert(service.Life(), Equals, test.Life)
+			c.Assert(service.IsExposed(), Equals, test.Exposed)
 		case <-time.After(500 * time.Millisecond):
 			c.Fatalf("did not get change: %v %v", test.Exposed, test.Life)
 		}
