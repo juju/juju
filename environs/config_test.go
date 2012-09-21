@@ -10,6 +10,9 @@ import (
 	"path/filepath"
 )
 
+type suite struct{}
+var _ = Suite(suite{})
+
 var invalidConfigTests = []struct {
 	env string
 	err string

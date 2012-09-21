@@ -303,7 +303,7 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	}
 	state := p.state[name]
 	if state == nil {
-		if ecfg.state() && len(p.state) != 0 {
+		if ecfg.stateServer() && len(p.state) != 0 {
 			var old string
 			for oldName := range p.state {
 				old = oldName
@@ -390,7 +390,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	if e.state.bootstrapped {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
-	if e.ecfg().state() {
+	if e.ecfg().stateServer() {
 		info := stateInfo()
 		cfg, err := environs.BootstrapConfig(&providerInstance, e.ecfg().Config, tools)
 		if err != nil {
@@ -412,7 +412,7 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	if err := e.checkBroken("StateInfo"); err != nil {
 		return nil, err
 	}
-	if !e.ecfg().state() {
+	if !e.ecfg().stateServer() {
 		return nil, errors.New("dummy environment has no state configured")
 	}
 	if !e.state.bootstrapped {
