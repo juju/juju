@@ -9,6 +9,79 @@ import (
 	"strings"
 )
 
+type watcherStubs interface {
+	Stop() error
+	Wait() error
+	Err() error
+}
+
+type ServiceCharmWatcher struct {
+	watcherStubs
+}
+
+// ServiceCharmChange describes a change to the service's charm, and
+// whether units should upgrade to that charm in spite of error states.
+type ServiceCharmChange struct {
+	Charm *Charm
+	Force bool
+}
+
+// Changes returns a channel that will receive notifications
+// about changes to the service's charm. The first event on the
+// channel hold the initial state of the charm.
+func (w *ServiceCharmWatcher) Changes() <-chan ServiceCharmChange {
+	panic("not implemented")
+}
+
+// WatchCharm returns a watcher that sends notifications of changes to the
+// service's charm.
+func (s *Service) WatchCharm() *ServiceCharmWatcher {
+	panic("not implemented")
+}
+
+// WatchResolved returns a watcher that fires when the unit
+// is marked as having had its problems resolved. See
+// SetResolved for details.
+func (u *Unit) WatchResolved() *ResolvedWatcher {
+	panic("not implemented")
+}
+
+// ResolvedWatcher observes changes to a unit's resolved
+// mode. See SetResolved for details.
+type ResolvedWatcher struct {
+	watcherStubs
+}
+
+// Changes returns a channel that will receive the new
+// resolved mode when a change is detected. Note that multiple
+// changes may be observed as a single event in the channel.
+// The first event on the channel holds the initial
+// state as returned by Unit.Resolved.
+func (w *ResolvedWatcher) Changes() <-chan ResolvedMode {
+	panic("not implemented")
+}
+
+type RelationUnitsWatcher struct {
+	watcherStubs
+}
+
+type RelationUnitsChange struct {
+	Changed  map[string]UnitSettings
+	Departed []string
+}
+
+func (ru *RelationUnit) Watch() *RelationUnitsWatcher {
+	panic("not implemented")
+}
+
+// Changes returns a channel that will receive the changes to
+// the relation when detected.
+// The first event on the channel holds the initial state of the
+// relation in its Changed field.
+func (w *RelationUnitsWatcher) Changes() <-chan RelationUnitsChange {
+	panic("not implemented")
+}
+
 // commonWatcher is part of all client watchers.
 type commonWatcher struct {
 	st   *State
@@ -1176,17 +1249,4 @@ type ConfigWatcher struct {
 
 func (s *Service) WatchConfig() *ConfigWatcher {
 	return &ConfigWatcher{newSettingsWatcher(s.st, "s#"+s.Name())}
-}
-
-type RelationUnitsWatcher struct {
-	commonWatcher
-}
-
-type RelationUnitsChange struct {
-	Changed  map[string]UnitSettings
-	Departed []string
-}
-
-func (ru *RelationUnit) Watch() *RelationUnitsWatcher {
-	return nil
 }
