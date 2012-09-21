@@ -2,7 +2,7 @@
 // purposes, registered with environs under the name "dummy".
 // 
 // The configuration YAML for the testing environment
-// must specify a "state" property with a boolean
+// must specify a "state-server" property with a boolean
 // value. If this is true, a state server will be started
 // the first time StateInfo is called on a newly reset environment.
 // 
@@ -250,7 +250,7 @@ func SetStorageDelay(d time.Duration) {
 
 var checker = schema.StrictFieldMap(
 	schema.Fields{
-		"state":  schema.Bool(),
+		"state-server":  schema.Bool(),
 		"broken": schema.String(),
 		"secret": schema.String(),
 	},
@@ -265,8 +265,8 @@ type environConfig struct {
 	attrs map[string]interface{}
 }
 
-func (c *environConfig) state() bool {
-	return c.attrs["state"].(bool)
+func (c *environConfig) stateServer() bool {
+	return c.attrs["state-server"].(bool)
 }
 
 func (c *environConfig) broken() string {

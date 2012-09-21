@@ -26,16 +26,16 @@ default:
 environments:
     peckham:
         type: dummy
-        state: false
+        state-server: false
         authorized-keys: i-am-a-key
     walthamstow:
         type: dummy
-        state: false
+        state-server: false
         authorized-keys: i-am-a-key
     brokenenv:
         type: dummy
         broken: Bootstrap Destroy
-        state: false
+        state-server: false
         authorized-keys: i-am-a-key
 `
 

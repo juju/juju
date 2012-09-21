@@ -29,7 +29,7 @@ func (t *ToolsSuite) SetUpTest(c *C) {
 	env, err := environs.NewFromAttrs(map[string]interface{}{
 		"name":            "test",
 		"type":            "dummy",
-		"state":           false,
+		"state-server":           false,
 		"authorized-keys": "i-am-a-key",
 	})
 	c.Assert(err, IsNil)

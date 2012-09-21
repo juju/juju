@@ -15,7 +15,7 @@ func init() {
 environments:
     only:
         type: dummy
-        state: true
+        state-server: true
         secret: pork
 `
 	envs, err := environs.ReadEnvironsBytes([]byte(config))

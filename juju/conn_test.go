@@ -47,7 +47,7 @@ default:
 environments:
     erewhemos:
         type: dummy
-        state: true
+        state-server: true
         authorized-keys: i-am-a-key
 `), 0644)
 	if err != nil {
@@ -84,7 +84,7 @@ func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	attrs := map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
-		"state":           true,
+		"state-server":           true,
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
 	}
@@ -117,7 +117,7 @@ func (cs *ConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 	env, err := environs.NewFromAttrs(map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
-		"state":           true,
+		"state-server":           true,
 		"authorized-keys": "i-am-a-key",
 		"secret":          "squirrel",
 	})
