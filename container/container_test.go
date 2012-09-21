@@ -21,7 +21,7 @@ type suite struct {
 var _ = Suite(&suite{})
 
 func TestPackage(t *stdtesting.T) {
-	coretesting.ZkTestPackage(t)
+	coretesting.MgoTestPackage(t)
 }
 
 var _ container.Container = (*container.Simple)(nil)
@@ -68,7 +68,7 @@ func (s *suite) TestDeploy(c *C) {
 
 	c.Assert(string(data), Matches, `(.|\n)+`+
 		`.*/unit-dummy-0/jujud unit`+
-		` --zookeeper-servers 'a,b'`+
+		` --state-servers 'a,b'`+
 		` --log-file /var/log/juju/unit-dummy-0\.log`+
 		` --unit-name dummy/0\n`+
 		`(.|\n)*`)

@@ -18,7 +18,7 @@ type suite struct {
 var _ = Suite(&suite{})
 
 func TestPackage(t *stdtesting.T) {
-	coretesting.ZkTestPackage(t)
+	coretesting.MgoTestPackage(t)
 }
 
 func (s *suite) TestStop(c *C) {

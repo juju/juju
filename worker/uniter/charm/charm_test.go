@@ -19,7 +19,7 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
-	coretesting.ZkTestPackage(t)
+	coretesting.MgoTestPackage(t)
 }
 
 type BundlesDirSuite struct {

@@ -15,7 +15,7 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
-	coretesting.ZkTestPackage(t)
+	coretesting.MgoTestPackage(t)
 }
 
 func dummyContext(c *C) *cmd.Context {
