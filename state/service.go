@@ -23,6 +23,7 @@ type serviceDoc struct {
 	ForceCharm bool
 	Life       Life
 	UnitSeq    int
+	UnitCount  int
 	Exposed    bool
 	TxnRevno   int64 `bson:"txn-revno"`
 }
@@ -57,12 +58,9 @@ func (s *Service) EnsureDying() error {
 // has units.
 func (s *Service) EnsureDead() error {
 	assertOps := []txn.Op{{
-		C:  s.st.services.Name,
-		Id: s.doc.Name,
-		Assert: D{{"$or", []D{
-			D{{"unitcount", nil}},
-			D{{"unitcount", 0}},
-		}}},
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: D{{"unitcount", 0}},
 	}}
 	err := ensureDead(s.st, s.st.services, s.doc.Name, "service", assertOps, "service still has units")
 	if err != nil {
