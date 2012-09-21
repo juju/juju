@@ -2,10 +2,9 @@
 // purposes, registered with environs under the name "dummy".
 // 
 // The configuration YAML for the testing environment
-// must specify a "zookeeper" property with a boolean
-// value. If this is true, a zookeeper instance will be started
+// must specify a "state" property with a boolean
+// value. If this is true, a state server will be started
 // the first time StateInfo is called on a newly reset environment.
-// NOTE: ZooKeeper isn't actually being started yet.
 // 
 // The configuration data also accepts a "broken" property
 // of type boolean. If this is non-empty, any operation
@@ -39,10 +38,10 @@ import (
 )
 
 // stateInfo returns a *state.Info which allows clients to connect to the
-// shared dummy zookeeper, if it exists.
+// shared dummy state, if it exists.
 func stateInfo() *state.Info {
 	if testing.MgoAddr == "" {
-		panic("dummy environ zookeeper tests must be run with MgoTestPackage")
+		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
 	return &state.Info{Addrs: []string{testing.MgoAddr}}
 }
@@ -251,7 +250,7 @@ func SetStorageDelay(d time.Duration) {
 
 var checker = schema.StrictFieldMap(
 	schema.Fields{
-		"zookeeper": schema.Bool(),
+		"state": schema.Bool(),
 		"broken":    schema.String(),
 		"secret":    schema.String(),
 	},
@@ -266,8 +265,8 @@ type environConfig struct {
 	attrs map[string]interface{}
 }
 
-func (c *environConfig) zookeeper() bool {
-	return c.attrs["zookeeper"].(bool)
+func (c *environConfig) state() bool {
+	return c.attrs["state"].(bool)
 }
 
 func (c *environConfig) broken() string {
@@ -304,13 +303,13 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	}
 	state := p.state[name]
 	if state == nil {
-		if ecfg.zookeeper() && len(p.state) != 0 {
+		if ecfg.state() && len(p.state) != 0 {
 			var old string
 			for oldName := range p.state {
 				old = oldName
 				break
 			}
-			panic(fmt.Errorf("cannot share a zookeeper between two dummy environs; old %q; new %q", old, name))
+			panic(fmt.Errorf("cannot share a state between two dummy environs; old %q; new %q", old, name))
 		}
 		state = newState(name, p.ops)
 		p.state[name] = state
@@ -391,7 +390,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	if e.state.bootstrapped {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
-	if e.ecfg().zookeeper() {
+	if e.ecfg().state() {
 		info := stateInfo()
 		cfg, err := environs.BootstrapConfig(&providerInstance, e.ecfg().Config, tools)
 		if err != nil {
@@ -413,8 +412,8 @@ func (e *environ) StateInfo() (*state.Info, error) {
 	if err := e.checkBroken("StateInfo"); err != nil {
 		return nil, err
 	}
-	if !e.ecfg().zookeeper() {
-		return nil, errors.New("dummy environment has no zookeeper configured")
+	if !e.ecfg().state() {
+		return nil, errors.New("dummy environment has no state configured")
 	}
 	if !e.state.bootstrapped {
 		return nil, errors.New("dummy environment not bootstrapped")
