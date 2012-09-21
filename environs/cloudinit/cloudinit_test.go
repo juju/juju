@@ -93,11 +93,11 @@ func (t *cloudinitTest) check(c *C, cfg *cloudinit.MachineConfig) {
 	t.checkPackage(c, "git")
 
 	if t.cfg.Provisioner {
-		t.checkScripts(c, "jujud provisioning --state-servers 'localhost"+cloudinit.MgoPortSuffix+"'")
+		t.checkScripts(c, "jujud provisioning --state-servers 'localhost"+cloudinit.ZkPortSuffix+"'")
 	}
 
 	if t.cfg.StateServer {
-		t.checkScripts(c, "jujud machine --state-servers 'localhost"+cloudinit.MgoPortSuffix+"' .* --machine-id [0-9]+")
+		t.checkScripts(c, "jujud machine --state-servers 'localhost"+cloudinit.ZkPortSuffix+"' .* --machine-id [0-9]+")
 	} else {
 		t.checkScripts(c, "jujud machine --state-servers '"+strings.Join(t.cfg.StateInfo.Addrs, ",")+"' .* --machine-id [0-9]+")
 	}
@@ -237,11 +237,11 @@ var verifyTests = []struct {
 	{"missing environment configuration", func(cfg *cloudinit.MachineConfig) {
 		cfg.Config = nil
 	}},
-	{"missing state server hosts", func(cfg *cloudinit.MachineConfig) {
+	{"missing zookeeper hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
 		cfg.StateInfo = nil
 	}},
-	{"missing state server hosts", func(cfg *cloudinit.MachineConfig) {
+	{"missing zookeeper hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
 		cfg.StateInfo = &state.Info{}
 	}},

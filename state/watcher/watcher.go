@@ -9,7 +9,6 @@ import (
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/tomb"
-	"local/runtime/debug"
 	"time"
 )
 
@@ -94,7 +93,6 @@ func New(changelog *mgo.Collection) *Watcher {
 
 // Stop stops all the watcher activities.
 func (w *Watcher) Stop() error {
-	log.Printf("base watcher stopping from %s", debug.Callers(0, 10))
 	w.tomb.Kill(nil)
 	return w.tomb.Wait()
 }
@@ -193,7 +191,6 @@ func (w *Watcher) loop() error {
 	for {
 		select {
 		case <-w.tomb.Dying():
-			log.Printf("underlying watcher is dying")
 			return tomb.ErrDying
 		case <-w.next:
 			w.next = time.After(period)
