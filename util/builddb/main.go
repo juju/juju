@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
@@ -56,13 +55,13 @@ func build() error {
 
 	log.Printf("Waiting for unit to reach started status...")
 	unit := units[0]
-	status, info, err := unit.Status()
+	status, _, err := unit.Status()
 	if err != nil {
 		return err
 	}
 	for status != state.UnitStarted {
 		time.Sleep(2 * time.Second)
-		status, info, err = unit.Status()
+		status, _, err = unit.Status()
 		if err != nil {
 			return err
 		}
