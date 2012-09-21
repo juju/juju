@@ -162,6 +162,7 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, name, args string) 
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
 	toolsDir := environs.AgentToolsDir(cfg.DataDir, name)
+	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
 	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Binary, toolsDir))
 	svc := upstart.NewService("jujud-" + name)
 	cmd := fmt.Sprintf(
@@ -195,7 +196,7 @@ func addMongoToBoot(c *cloudinit.Config) error {
 	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    "juju state database",
-		Cmd:     "/opt/mongo/bin/mongod --port 37017 --bind_ip 127.0.0.1 --dbpath=/var/lib/juju/db",
+		Cmd:     "/opt/mongo/bin/mongod --port 37017 --bind_ip 0.0.0.0 --dbpath=/var/lib/juju/db",
 	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {
