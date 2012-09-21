@@ -186,7 +186,12 @@ func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
 		return nil, err
 
 	}
-	return newUnit(s.st, udoc), nil
+	u := newUnit(s.st, udoc)
+	err = u.Refresh()
+	if err != nil {
+		return nil, err
+	}
+	return u, nil
 }
 
 // AddUnit adds a new principal unit to the service.
