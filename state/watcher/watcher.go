@@ -9,8 +9,8 @@ import (
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/tomb"
-	"time"
 	"local/runtime/debug"
+	"time"
 )
 
 // A Watcher can watch any number of collections and documents for changes.
