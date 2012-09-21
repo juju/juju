@@ -30,20 +30,20 @@ type ServiceCharmChange struct {
 // about changes to the service's charm. The first event on the
 // channel hold the initial state of the charm.
 func (w *ServiceCharmWatcher) Changes() <-chan ServiceCharmChange {
-	panic("unimplemented")
+	panic("not implemented")
 }
 
 // WatchCharm returns a watcher that sends notifications of changes to the
 // service's charm.
 func (s *Service) WatchCharm() *ServiceCharmWatcher {
-	panic("unimplemented")
+	panic("not implemented")
 }
 
 // WatchResolved returns a watcher that fires when the unit
 // is marked as having had its problems resolved. See
 // SetResolved for details.
 func (u *Unit) WatchResolved() *ResolvedWatcher {
-	panic("unimplemented")
+	panic("not implemented")
 }
 
 // ResolvedWatcher observes changes to a unit's resolved
@@ -1250,3 +1250,4 @@ type ConfigWatcher struct {
 func (s *Service) WatchConfig() *ConfigWatcher {
 	return &ConfigWatcher{newSettingsWatcher(s.st, "s#"+s.Name())}
 }
+
