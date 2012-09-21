@@ -711,8 +711,10 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 	}()
 	s.State.StartSync()
 
-	_, ok := <-environConfigWatcher.Changes()
+	cfg, ok := <-environConfigWatcher.Changes()
 	c.Assert(ok, Equals, true)
+	attrs := cfg.AllAttrs()
+	c.Assert(attrs, DeepEquals, m)
 
 	for i, test := range environmentWatchTests {
 		c.Logf("test %d", i)
