@@ -24,7 +24,7 @@ func runUnexpose(c *C, args ...string) error {
 func (s *UnexposeSuite) assertExposed(c *C, service string, expected bool) {
 	svc, err := s.State.Service(service)
 	c.Assert(err, IsNil)
-	actual, err := svc.IsExposed()
+	actual := svc.IsExposed()
 	c.Assert(actual, Equals, expected)
 }
 

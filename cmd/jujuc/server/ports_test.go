@@ -33,8 +33,7 @@ func (s *PortsSuite) TestOpenClose(c *C) {
 		c.Assert(code, Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), Equals, "")
 		c.Assert(bufferString(ctx.Stderr), Equals, "")
-		open, err := s.unit.OpenPorts()
-		c.Assert(err, IsNil)
+		open := s.unit.OpenedPorts()
 		c.Assert(open, DeepEquals, t.open)
 	}
 }
