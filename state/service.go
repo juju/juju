@@ -64,10 +64,7 @@ func (s *Service) EnsureDead() error {
 			D{{"unitcount", 0}},
 		}}},
 	}}
-	err := ensureDead(
-		s.st, s.st.services, s.doc.Name, "service",
-		assertOps, "service still has units",
-	)
+	err := ensureDead(s.st, s.st.services, s.doc.Name, "service", assertOps, "service still has units")
 	if err != nil {
 		return err
 	}
@@ -282,8 +279,13 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 	}
 	// TODO assert that subordinates are empty before deleting
 	// a principal
-	err = s.st.runner.Run(ops, "", nil)
-	if err != nil {
+	if err = s.st.runner.Run(ops, "", nil); err != nil {
+		// TODO Remove this once we know the logic is right:
+		if c, err := s.st.units.FindId(u.doc.Name).Count(); err != nil {
+			return err
+		} else if c > 0 {
+			return fmt.Errorf("cannot remove unit; something smells bad")
+		}
 		// If aborted, the unit is either dead or recreated.
 		return onAbort(err, nil)
 	}

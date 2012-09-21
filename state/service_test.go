@@ -295,6 +295,8 @@ func (s *ServiceSuite) TestLifeWithUnits(c *C) {
 	c.Assert(err, ErrorMatches, `cannot set life to Dead for service "mysql": service still has units`)
 	err = unit.EnsureDead()
 	c.Assert(err, IsNil)
+	err = s.service.EnsureDead()
+	c.Assert(err, ErrorMatches, `cannot set life to Dead for service "mysql": service still has units`)
 	err = s.service.RemoveUnit(unit)
 	c.Assert(err, IsNil)
 	err = s.service.EnsureDead()
