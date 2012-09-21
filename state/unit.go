@@ -306,9 +306,11 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 	return nil
 }
 
-// OpenPorts returns a slice containing the open ports of the unit.
-func (u *Unit) OpenPorts() (openPorts []Port, err error) {
-	return append([]Port{}, u.doc.Ports...), nil
+// OpenedPorts returns a slice containing the open ports of the unit.
+func (u *Unit) OpenedPorts() []Port {
+	ports := append([]Port{}, u.doc.Ports...)
+	SortPorts(ports)
+	return ports
 }
 
 // Charm returns the charm this unit is currently using.
