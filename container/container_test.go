@@ -21,7 +21,7 @@ type suite struct {
 var _ = Suite(&suite{})
 
 func TestPackage(t *stdtesting.T) {
-	coretesting.ZkTestPackage(t)
+	coretesting.MgoTestPackage(t)
 }
 
 var _ container.Container = (*container.Simple)(nil)

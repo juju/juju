@@ -16,7 +16,7 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
-	testing.ZkTestPackage(t)
+	testing.MgoTestPackage(t)
 }
 
 type MainSuite struct{}

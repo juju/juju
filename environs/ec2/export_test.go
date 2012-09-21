@@ -9,7 +9,7 @@ import (
 )
 
 type BootstrapState struct {
-	ZookeeperInstances []string
+	MgoInstances []string
 }
 
 func LoadState(e environs.Environ) (*BootstrapState, error) {
@@ -17,7 +17,7 @@ func LoadState(e environs.Environ) (*BootstrapState, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &BootstrapState{s.ZookeeperInstances}, nil
+	return &BootstrapState{s.MgoInstances}, nil
 }
 
 func GroupName(e environs.Environ) string {
@@ -100,7 +100,7 @@ func EC2ErrCode(err error) string {
 	return ec2ErrCode(err)
 }
 
-var ZkPortSuffix = zkPortSuffix
+var ZkPortSuffix = mgoPortSuffix
 
 // FabricateInstance creates a new fictitious instance
 // given an existing instance and a new id.

@@ -41,10 +41,10 @@ import (
 // stateInfo returns a *state.Info which allows clients to connect to the
 // shared dummy zookeeper, if it exists.
 func stateInfo() *state.Info {
-	if testing.ZkAddr == "" {
-		panic("dummy environ zookeeper tests must be run with ZkTestPackage")
+	if testing.MgoAddr == "" {
+		panic("dummy environ zookeeper tests must be run with MgoTestPackage")
 	}
-	return &state.Info{Addrs: []string{testing.ZkAddr}}
+	return &state.Info{Addrs: []string{testing.MgoAddr}}
 }
 
 // Operation represents an action on the dummy provider.
@@ -166,8 +166,8 @@ func Reset() {
 	}
 	providerInstance.ops = discardOperations
 	providerInstance.state = make(map[string]*environState)
-	if testing.ZkAddr != "" {
-		testing.ZkReset()
+	if testing.MgoAddr != "" {
+		testing.MgoReset()
 	}
 }
 
@@ -452,8 +452,8 @@ func (e *environ) Destroy([]environs.Instance) error {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	e.state.ops <- OpDestroy{Env: e.state.name}
-	if testing.ZkAddr != "" {
-		testing.ZkReset()
+	if testing.MgoAddr != "" {
+		testing.MgoReset()
 	}
 	e.state.bootstrapped = false
 	e.state.storage.files = make(map[string][]byte)

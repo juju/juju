@@ -35,5 +35,5 @@ environments:
 }
 
 func TestSuite(t *stdtesting.T) {
-	testing.ZkTestPackage(t)
+	testing.MgoTestPackage(t)
 }

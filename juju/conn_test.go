@@ -14,7 +14,7 @@ import (
 )
 
 func Test(t *stdtesting.T) {
-	coretesting.ZkTestPackage(t)
+	coretesting.MgoTestPackage(t)
 }
 
 type ConnSuite struct {

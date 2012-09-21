@@ -10,7 +10,7 @@ import (
 const stateFile = "provider-state"
 
 type bootstrapState struct {
-	ZookeeperInstances []string `yaml:"zookeeper-instances"`
+	MgoInstances []string `yaml:"mgo-instances"`
 }
 
 func (e *environ) saveState(state *bootstrapState) error {

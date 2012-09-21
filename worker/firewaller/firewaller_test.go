@@ -14,7 +14,7 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
-	coretesting.ZkTestPackage(t)
+	coretesting.MgoTestPackage(t)
 }
 
 // assertPorts retrieves the open ports of the instance and compares them
