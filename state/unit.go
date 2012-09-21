@@ -400,9 +400,8 @@ func (u *Unit) AssignedMachineId() (id int, err error) {
 var (
 	machineDeadErr     = errors.New("machine is dead")
 	unitDeadErr        = errors.New("unit is dead")
-	cannotAssignErr    = errors.New("unit cannot be assigned to machine")
 	alreadyAssignedErr = errors.New("unit is already assigned to a machine")
-	notUnusedErr       = errors.New("machine is not unused")
+	inUseErr       = errors.New("machine is not unused")
 )
 
 // assignToMachine is the internal version of AssignToMachine,
@@ -411,8 +410,8 @@ var (
 // - machineDeadErr when the machine is not alive.
 // - unitDeadErr when the unit is not alive.
 // - alreadyAssignedErr when the unit has already been assigned
-// - notUnusedErr when the machine already has a unit assigned (if onlyIfUnused is true)
-func (u *Unit) assignToMachine(m *Machine, onlyIfUnused bool) (err error) {
+// - inUseErr when the machine already has a unit assigned (if unused is true)
+func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	if u.doc.MachineId != nil {
 		if *u.doc.MachineId != m.Id() {
 			return alreadyAssignedErr
@@ -429,7 +428,7 @@ func (u *Unit) assignToMachine(m *Machine, onlyIfUnused bool) (err error) {
 		}},
 	}...)
 	massert := isAlive
-	if onlyIfUnused {
+	if unused {
 		massert = append(massert, D{{"principals", D{{"$size", 0}}}}...)
 	}
 	ops := []txn.Op{{
@@ -443,30 +442,31 @@ func (u *Unit) assignToMachine(m *Machine, onlyIfUnused bool) (err error) {
 		Assert: massert,
 		Update: D{{"$addToSet", D{{"principals", u.doc.Name}}}},
 	}}
-	if err := u.st.runner.Run(ops, "", nil); err != nil {
-		if err != txn.ErrAborted {
-			return err
-		}
-		u0, err := u.st.Unit(u.Name())
-		if err != nil {
-			return err
-		}
-		m0, err := u.st.Machine(m.Id())
-		if err != nil {
-			return err
-		}
-		switch {
-		case u0.Life() != Alive:
-			return unitDeadErr
-		case m0.Life() != Alive:
-			return machineDeadErr
-		case u0.doc.MachineId != nil:
-			return alreadyAssignedErr
-		}
-		return notUnusedErr
+	err = u.st.runner.Run(ops, "", nil)
+	if err == nil {
+		u.doc.MachineId = &m.doc.Id
+		return nil
 	}
-	u.doc.MachineId = &m.doc.Id
-	return nil
+	if err != txn.ErrAborted {
+		return err
+	}
+	u0, err := u.st.Unit(u.Name())
+	if err != nil {
+		return err
+	}
+	m0, err := u.st.Machine(m.Id())
+	if err != nil {
+		return err
+	}
+	switch {
+	case u0.Life() != Alive:
+		return unitDeadErr
+	case m0.Life() != Alive:
+		return machineDeadErr
+	case u0.doc.MachineId != nil || !unused:
+		return alreadyAssignedErr
+	}
+	return inUseErr
 }
 
 // AssignToMachine assigns this unit to a given machine.
@@ -491,16 +491,14 @@ func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
 	for iter.Next(&mdoc) {
 		m := newMachine(u.st, &mdoc)
 
-		switch err := u.assignToMachine(m, true); err {
-		case nil:
+		err := u.assignToMachine(m, true)
+		if err == nil {
 			return m, nil
-		case notUnusedErr, machineDeadErr:
-		default:
-			return nil, fmt.Errorf("cannot assign unit %q to unused machine: %v", u.Name(), err)
+		}
+		if err != inUseErr && err != machineDeadErr {
+		    return nil, fmt.Errorf("cannot assign unit %q to unused machine: %v", u, err)
 		}
 	}
-	// TODO check to see if the unit has now been assigned,
-	// and if so return a more descriptive error.
 	return nil, noUnusedMachines
 }
 
