@@ -314,3 +314,80 @@ func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *C) {
 	}
 	c.Assert(subordinates, DeepEquals, []string{"logging/0"})
 }
+
+type unitInfo struct {
+	PublicAddress string
+	Life          state.Life
+}
+
+var watchUnitTests = []struct {
+	test func(m *state.Unit) error
+	want unitInfo
+}{
+	{
+		func(u *state.Unit) error {
+			return u.SetPublicAddress("example.foobar.com")
+		},
+		unitInfo{
+			PublicAddress: "example.foobar.com",
+		},
+	},
+	{
+		func(u *state.Unit) error {
+			return u.SetPublicAddress("ubuntu.com")
+		},
+		unitInfo{
+			PublicAddress: "ubuntu.com",
+		},
+	},
+	{
+		func(u *state.Unit) error {
+			return u.EnsureDying()
+		},
+		unitInfo{
+			Life: state.Dying,
+		},
+	},
+}
+
+func (s *UnitSuite) TestWatchUnit(c *C) {
+	w := s.unit.Watch()
+	defer func() {
+		c.Assert(w.Stop(), IsNil)
+	}()
+	s.State.StartSync()
+	select {
+	case u, ok := <-w.Changes():
+		c.Assert(ok, Equals, true)
+		c.Assert(u.Name(), Equals, s.unit.Name())
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("did not get change: %v", s.unit)
+	}
+
+	for i, test := range watchUnitTests {
+		c.Logf("test %d", i)
+		err := test.test(s.unit)
+		c.Assert(err, IsNil)
+		s.State.StartSync()
+		select {
+		case unit, ok := <-w.Changes():
+			c.Assert(ok, Equals, true)
+			c.Assert(unit.Name(), Equals, s.unit.Name())
+			var info unitInfo
+			info.Life = unit.Life()
+			c.Assert(err, IsNil)
+			if test.want.PublicAddress != "" {
+				info.PublicAddress, err = unit.PublicAddress()
+				c.Assert(err, IsNil)
+			}
+			c.Assert(info, DeepEquals, test.want)
+		case <-time.After(500 * time.Millisecond):
+			c.Fatalf("did not get change: %v", test.want)
+		}
+	}
+	select {
+	case got := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}

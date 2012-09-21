@@ -26,6 +26,7 @@ type serviceDoc struct {
 	UnitSeq    int
 	UnitCount  int
 	Exposed    bool
+	TxnRevno   int64 `bson:"txn-revno"`
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
@@ -198,7 +199,13 @@ func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
 		return nil, err
 	}
 	s.doc.UnitCount += 1
-	return newUnit(s.st, udoc), nil
+	// Refresh to pick the txn-revno.
+	u := newUnit(s.st, udoc)
+	err = u.Refresh()
+	if err != nil {
+		return nil, err
+	}
+	return u, nil
 }
 
 // AddUnit adds a new principal unit to the service.

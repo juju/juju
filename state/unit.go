@@ -79,6 +79,7 @@ type unitDoc struct {
 	Tools          *Tools `bson:",omitempty"`
 	Ports          []Port
 	Life           Life
+	TxnRevno       int64 `bson:"txn-revno"`
 }
 
 // Unit represents the state of a service unit.

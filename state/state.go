@@ -210,8 +210,12 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 	if err := s.runner.Run(ops, "", nil); err != nil {
 		return nil, fmt.Errorf("cannot add service %q: %v", name, onAbort(err, fmt.Errorf("duplicate service name")))
 	}
-
-	return newService(s, sdoc), nil
+	// Refresh to pick the txn-revno.
+	svc := newService(s, sdoc)
+	if err = svc.Refresh(); err != nil {
+		return nil, err
+	}
+	return svc, nil
 }
 
 // RemoveService removes a service from the state. It will also remove all
@@ -391,6 +395,39 @@ func (s *State) Unit(name string) (*Unit, error) {
 		return nil, fmt.Errorf("cannot get unit %q: %v", name, err)
 	}
 	return newUnit(s, &doc), nil
+}
+
+// AssignUnit places the unit on a machine. Depending on the policy, and the
+// state of the environment, this may lead to new instances being launched
+// within the environment.
+func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
+	if !u.IsPrincipal() {
+		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
+	}
+	defer trivial.ErrorContextf(&err, "cannot assign unit %q to machine", u)
+	var m *Machine
+	switch policy {
+	case AssignLocal:
+		m, err = s.Machine(0)
+		if err != nil {
+			return err
+		}
+		return u.AssignToMachine(m)
+	case AssignUnused:
+		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
+			return err
+		}
+		if _, err := s.AddMachine(); err != nil {
+			return err
+		}
+		// This works if two AssignUnits are racing each other,
+		// but might not if someone picks the machine we've
+		// just created and tries to assign a unit to that machine
+		// specifically. This should never happen in practice.
+		_, err = u.AssignToUnusedMachine()
+		return err
+	}
+	panic(fmt.Errorf("unknown unit assignment policy: %q", policy))
 }
 
 // StartSync forces watchers to resynchronize their state with the

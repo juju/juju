@@ -55,7 +55,7 @@ func (s *ConfigNodeSuite) TestUpdateWithoutWrite(c *C) {
 }
 
 func (s *ConfigNodeSuite) TestUpdateWithWrite(c *C) {
-	// Check that write updates the local and the ZooKeeper state.
+	// Check that write updates the local and the server state.
 	node, err := readConfigNode(s.state, s.path)
 	c.Assert(err, IsNil)
 	options := map[string]interface{}{"alpha": "beta", "one": 1}
@@ -193,7 +193,7 @@ func (s *ConfigNodeSuite) TestMultipleReads(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(value, Equals, "bar")
 
-	// Now get another state instance and change ZooKeeper state.
+	// Now get another state instance and change underlying state.
 	nodeTwo, err := readConfigNode(s.state, s.path)
 	c.Assert(err, IsNil)
 	nodeTwo.Update(map[string]interface{}{"foo": "different"})
@@ -355,5 +355,7 @@ func (s *ConfigNodeSuite) TestWriteTwice(c *C) {
 
 	err = nodeOne.Read()
 	c.Assert(err, IsNil)
-	c.Assert(nodeOne, DeepEquals, nodeTwo)
+	c.Assert(nodeOne.path, Equals, nodeTwo.path)
+	c.Assert(nodeOne.disk, DeepEquals, nodeTwo.disk)
+	c.Assert(nodeOne.core, DeepEquals, nodeTwo.core)
 }

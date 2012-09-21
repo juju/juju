@@ -15,7 +15,7 @@ func init() {
 environments:
     only:
         type: dummy
-        zookeeper: true
+        state-server: true
         secret: pork
 `
 	envs, err := environs.ReadEnvironsBytes([]byte(config))
@@ -35,5 +35,5 @@ environments:
 }
 
 func TestSuite(t *stdtesting.T) {
-	testing.ZkTestPackage(t)
+	testing.MgoTestPackage(t)
 }
