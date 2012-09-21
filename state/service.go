@@ -6,7 +6,6 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/trivial"
 	"strconv"
 )
@@ -284,7 +283,6 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 	// a principal
 	err = s.st.runner.Run(ops, "", nil)
 	if err != nil {
-		log.Printf("BLAM %#v", err)
 		// If aborted, the unit is either dead or recreated.
 		return onAbort(err, nil)
 	}
