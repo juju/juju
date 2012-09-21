@@ -437,8 +437,7 @@ func bundleTools(w io.Writer, vers *version.Binary) (version.Binary, error) {
 	}
 	defer os.RemoveAll(dir)
 
-	//cmd := exec.Command("go", "install", "launchpad.net/juju-core/cmd/...")
-	cmd := exec.Command("/bin/bash", "-c", fmt.Sprintf("mkdir %s; echo \"#!/bin/sh\necho 0.0.1-precise-amd64\" > %s/jujud; chmod +x %s/jujud", dir, dir, dir))
+	cmd := exec.Command("go", "install", "launchpad.net/juju-core/cmd/...")
 	cmd.Env = setenv(os.Environ(), "GOBIN="+dir)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
