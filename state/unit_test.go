@@ -359,7 +359,7 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 	select {
 	case u, ok := <-w.Changes():
 		c.Assert(ok, Equals, true)
-		c.Assert(u, DeepEquals, s.unit)
+		c.Assert(u.Name(), Equals, s.unit.Name())
 	case <-time.After(500 * time.Millisecond):
 		c.Fatalf("did not get change: %v", s.unit)
 	}

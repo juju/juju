@@ -745,7 +745,7 @@ func (s *ServiceSuite) TestWatchService(c *C) {
 	select {
 	case svc, ok := <-w.Changes():
 		c.Assert(ok, Equals, true)
-		c.Assert(svc, DeepEquals, s.service)
+		c.Assert(svc.Name(), Equals, s.service.Name())
 	case <-time.After(500 * time.Millisecond):
 		c.Fatalf("did not get change: %v", s.service)
 	}
