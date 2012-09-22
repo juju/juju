@@ -30,6 +30,13 @@ func (s *StateSuite) TestDialAgain(c *C) {
 	}
 }
 
+func (s *StateSuite) TestIsNotFound(c *C) {
+	err1 := fmt.Errorf("unrelated error")
+	err2 := &state.NotFoundError{}
+	c.Assert(state.IsNotFound(err1), Equals, false)
+	c.Assert(state.IsNotFound(err2), Equals, true)
+}
+
 func (s *StateSuite) TestAddCharm(c *C) {
 	// Check that adding charms from scratch works correctly.
 	ch := testing.Charms.Dir("series", "dummy")
@@ -100,7 +107,7 @@ func (s *StateSuite) TestReadMachine(c *C) {
 func (s *StateSuite) TestMachineNotFound(c *C) {
 	_, err := s.State.Machine(0)
 	c.Assert(err, ErrorMatches, "machine 0 not found")
-	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
 func (s *StateSuite) TestAllMachines(c *C) {
@@ -162,7 +169,7 @@ func (s *StateSuite) TestAddService(c *C) {
 func (s *StateSuite) TestServiceNotFound(c *C) {
 	_, err := s.State.Service("bummer")
 	c.Assert(err, ErrorMatches, `service "bummer" not found`)
-	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
 func (s *StateSuite) TestRemoveService(c *C) {

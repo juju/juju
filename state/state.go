@@ -55,6 +55,11 @@ func notFound(format string, args ...interface{}) error {
 	return &NotFoundError{format, args}
 }
 
+func IsNotFound(err error) bool {
+	_, ok := err.(*NotFoundError)
+	return ok
+}
+
 // State represents the state of an environment
 // managed by juju.
 type State struct {

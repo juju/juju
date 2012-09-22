@@ -70,7 +70,7 @@ func (s *RelationSuite) TestRelationNotFound(c *C) {
 	mongo := state.RelationEndpoint{"mongo", "mongodb", "server", state.RoleProvider, charm.ScopeGlobal}
 	_, err := s.State.Relation(subway, mongo)
 	c.Assert(err, ErrorMatches, `relation "mongo:server subway:db" not found`)
-	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
 func (s *RelationSuite) TestProviderRequirerRelation(c *C) {

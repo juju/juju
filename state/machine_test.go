@@ -96,13 +96,13 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
 	iid, err := machine.InstanceId()
-	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+	c.Assert(state.IsNotFound(err), Equals, true)
 	c.Assert(iid, Equals, "")
 }
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {
 	iid, err := s.machine.InstanceId()
-	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+	c.Assert(state.IsNotFound(err), Equals, true)
 	c.Assert(err, ErrorMatches, "instance id for machine 0 not found")
 	c.Assert(iid, Equals, "")
 }
@@ -119,7 +119,7 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
 	iid, err := machine.InstanceId()
-	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+	c.Assert(state.IsNotFound(err), Equals, true)
 	c.Assert(iid, Equals, "")
 }
 
@@ -323,7 +323,7 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 			//info.tools, err = m.AgentTools()
 			//c.Assert(err, IsNil)
 			info.instanceId, err = m.InstanceId()
-			if _, ok := err.(*state.NotFoundError); !ok {
+			if !state.IsNotFound(err) {
 				c.Assert(err, IsNil)
 			}
 			c.Assert(info, DeepEquals, test.want)
