@@ -103,6 +103,7 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {
 	iid, err := s.machine.InstanceId()
 	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+	c.Assert(err, ErrorMatches, "instance id for machine 0 not found")
 	c.Assert(iid, Equals, "")
 }
 
