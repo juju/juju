@@ -69,20 +69,19 @@ func (fw *Firewaller) loop() error {
 			if !ok {
 				return watcher.MustErr(fw.machinesWatcher)
 			}
-			for _, machine := range change.Removed {
-				machined, ok := fw.machineds[machine.Id()]
-				if !ok {
-					panic("trying to remove machine that was not added")
-				}
-				delete(fw.machineds, machine.Id())
+			for _, id := range change.Dead {
+				machined := fw.machineds[id]
+				delete(fw.machineds, id)
 				if err := machined.Stop(); err != nil {
-					log.Printf("machine data %d returned error when stopping: %v", machine.Id(), err)
+					log.Printf("machine %d watcher returned error when stopping: %v", id, err)
 				}
-				log.Debugf("firewaller: stopped watching machine %d", machine.Id())
+				log.Debugf("firewaller: stopped watching machine %d", id)
 			}
-			for _, machine := range change.Added {
-				fw.machineds[machine.Id()] = newMachineData(machine, fw)
-				log.Debugf("firewaller: started watching machine %d", machine.Id())
+			for _, id := range change.Alive {
+				m, err := fw.st.Machine(id)
+				if err == 
+				fw.machineds[id] = newMachineData(id, fw)
+				log.Debugf("firewaller: started watching machine %d", id)
 			}
 		case change := <-fw.unitsChange:
 			changed := []*unitData{}
@@ -276,7 +275,7 @@ type machineData struct {
 
 // newMachineData returns a new data value for tracking details of the
 // machine, and starts watching the machine for units added or removed.
-func newMachineData(machine *state.Machine, fw *Firewaller) *machineData {
+func newMachineData(id machine *state.Machine, fw *Firewaller) *machineData {
 	// BUG(niemeyer): The firewaller must watch *ALL* units, not just principals.
 	md := &machineData{
 		firewaller: fw,
