@@ -186,7 +186,7 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 	}
 	// Open and close the ports.
 	m, err := machined.machine()
-	if _, ok := err.(*state.NotFoundError); ok {
+	if state.IsNotFound(err) {
 		return nil
 	}
 	if err != nil {
@@ -270,22 +270,21 @@ type unitsChange struct {
 
 // machineData holds machine details and watches units added or removed.
 type machineData struct {
-	tomb       tomb.Tomb
-	firewaller *Firewaller
-	id         int
-	unitds     map[string]*unitData
-	ports      []state.Port
+	tomb   tomb.Tomb
+	fw     *Firewaller
+	id     int
+	unitds map[string]*unitData
+	ports  []state.Port
 }
 
 // newMachineData returns a new data value for tracking details of the
 // machine, and starts watching the machine for units added or removed.
 func newMachineData(id int, fw *Firewaller) *machineData {
-	// BUG(niemeyer): The firewaller must watch *ALL* units, not just principals.
 	md := &machineData{
-		firewaller: fw,
-		id:         id,
-		unitds:     make(map[string]*unitData),
-		ports:      make([]state.Port, 0),
+		fw:     fw,
+		id:     id,
+		unitds: make(map[string]*unitData),
+		ports:  make([]state.Port, 0),
 	}
 	go md.watchLoop()
 	return md
@@ -299,21 +298,27 @@ func (md *machineData) machine() (*state.Machine, error) {
 func (md *machineData) watchLoop() {
 	defer md.tomb.Done()
 	m, err := md.machine()
-	if  != nil {
+	if state.IsNotFound(err) {
+		return
 	}
-	watcher = machine.WatchPrincipalUnits(),
-	defer md.watcher.Stop()
+	if err != nil {
+		md.fw.tomb.Killf("firewaller: cannot watch machine units: %v", err)
+		return
+	}
+	// BUG(niemeyer): The firewaller must watch all units, not just principals.
+	w := m.WatchPrincipalUnits()
+	defer w.Stop()
 	for {
 		select {
 		case <-md.tomb.Dying():
 			return
-		case change, ok := <-md.watcher.Changes():
+		case change, ok := <-w.Changes():
 			if !ok {
-				md.firewaller.tomb.Kill(watcher.MustErr(md.watcher))
+				md.fw.tomb.Kill(watcher.MustErr(w))
 				return
 			}
 			select {
-			case md.firewaller.unitsChange <- &unitsChange{md, change}:
+			case md.fw.unitsChange <- &unitsChange{md, change}:
 			case <-md.tomb.Dying():
 				return
 			}
