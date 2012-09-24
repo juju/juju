@@ -41,6 +41,25 @@ func IsUnitName(name string) bool {
 	return validUnit.MatchString(name)
 }
 
+// NotFoundError represents the error that something is not found.
+type NotFoundError struct {
+	format string
+	args   []interface{}
+}
+
+func (e *NotFoundError) Error() string {
+	return fmt.Sprintf(e.format+" not found", e.args...)
+}
+
+func notFound(format string, args ...interface{}) error {
+	return &NotFoundError{format, args}
+}
+
+func IsNotFound(err error) bool {
+	_, ok := err.(*NotFoundError)
+	return ok
+}
+
 // State represents the state of an environment
 // managed by juju.
 type State struct {
@@ -155,6 +174,9 @@ func (s *State) Machine(id int) (*Machine, error) {
 	mdoc := &machineDoc{}
 	sel := D{{"_id", id}}
 	err := s.machines.Find(sel).One(mdoc)
+	if err == mgo.ErrNotFound {
+		return nil, notFound("machine %d", id)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get machine %d: %v", id, err)
 	}
@@ -183,10 +205,12 @@ func (s *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bu
 func (s *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
 	err := s.charms.Find(D{{"_id", curl}}).One(cdoc)
+	if err == mgo.ErrNotFound {
+		return nil, notFound("charm %q", curl)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
 	}
-
 	return newCharm(s, cdoc)
 }
 
@@ -277,6 +301,9 @@ func (s *State) Service(name string) (service *Service, err error) {
 	sdoc := &serviceDoc{}
 	sel := D{{"_id", name}}
 	err = s.services.Find(sel).One(sdoc)
+	if err == mgo.ErrNotFound {
+		return nil, notFound("service %q", name)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get service %q: %v", name, err)
 	}
@@ -355,12 +382,14 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 
 // Relation returns the existing relation with the given endpoints.
 func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error) {
-	defer trivial.ErrorContextf(&err, "cannot get relation %q", relationKey(endpoints))
-
 	doc := relationDoc{}
-	err = s.relations.Find(D{{"_id", relationKey(endpoints)}}).One(&doc)
+	key := relationKey(endpoints)
+	err = s.relations.Find(D{{"_id", key}}).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, notFound("relation %q", key)
+	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot get relation %q: %v", key, err)
 	}
 	return newRelation(s, &doc), nil
 }
@@ -391,6 +420,9 @@ func (s *State) Unit(name string) (*Unit, error) {
 	}
 	doc := unitDoc{}
 	err := s.units.FindId(name).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, notFound("unit %q", name)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get unit %q: %v", name, err)
 	}

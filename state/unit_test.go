@@ -23,6 +23,12 @@ func (s *UnitSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (s *UnitSuite) TestUnitNotFound(c *C) {
+	_, err := s.State.Unit("subway/0")
+	c.Assert(err, ErrorMatches, `unit "subway/0" not found`)
+	c.Assert(state.IsNotFound(err), Equals, true)
+}
+
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
 	address, err := s.unit.PublicAddress()
 	c.Assert(err, ErrorMatches, `public address of unit "wordpress/0" not found`)

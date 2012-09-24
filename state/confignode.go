@@ -61,15 +61,6 @@ type ConfigNode struct {
 	txnRevno int64
 }
 
-// NotFoundError represents the error that something is not found.
-type NotFoundError struct {
-	what string
-}
-
-func (e *NotFoundError) Error() string {
-	return fmt.Sprintf("%s not found", e.what)
-}
-
 // Keys returns the current keys in alphabetical order.
 func (c *ConfigNode) Keys() []string {
 	keys := []string{}

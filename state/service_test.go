@@ -210,7 +210,7 @@ func (s *ServiceSuite) TestReadUnit(c *C) {
 	unit, err = s.State.Unit("mysql/0/0")
 	c.Assert(err, ErrorMatches, `"mysql/0/0" is not a valid unit name`)
 	unit, err = s.State.Unit("pressword/0")
-	c.Assert(err, ErrorMatches, `cannot get unit "pressword/0": not found`)
+	c.Assert(err, ErrorMatches, `unit "pressword/0" not found`)
 
 	// Add another service to check units are not misattributed.
 	mysql, err := s.State.AddService("wordpress", s.charm)
@@ -284,7 +284,7 @@ func (s *ServiceSuite) TestReadUnitWithChangingState(c *C) {
 	err = s.State.RemoveService(s.service)
 	c.Assert(err, IsNil)
 	_, err = s.State.Unit("mysql/0")
-	c.Assert(err, ErrorMatches, `cannot get unit "mysql/0": not found`)
+	c.Assert(err, ErrorMatches, `unit "mysql/0" not found`)
 }
 
 func (s *ServiceSuite) TestServiceConfig(c *C) {

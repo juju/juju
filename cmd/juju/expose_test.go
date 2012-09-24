@@ -40,5 +40,5 @@ func (s *ExposeSuite) TestExpose(c *C) {
 	s.assertExposed(c, "some-service-name")
 
 	err = runExpose(c, "nonexistent-service")
-	c.Assert(err, ErrorMatches, `cannot get service "nonexistent-service": not found`)
+	c.Assert(err, ErrorMatches, `service "nonexistent-service" not found`)
 }

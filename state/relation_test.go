@@ -63,9 +63,14 @@ func (s *RelationSuite) TestRelationErrors(c *C) {
 	c.Assert(err, ErrorMatches, `cannot add relation "": cannot relate 0 endpoints`)
 	_, err = s.State.AddRelation(proep, reqep, peerep)
 	c.Assert(err, ErrorMatches, `cannot add relation "peer:baz pro:foo req:bar": cannot relate 3 endpoints`)
+}
 
-	_, err = s.State.Relation(peerep)
-	c.Assert(err, ErrorMatches, `cannot get relation "peer:baz": .*`)
+func (s *RelationSuite) TestRelationNotFound(c *C) {
+	subway := state.RelationEndpoint{"subway", "mongodb", "db", state.RoleRequirer, charm.ScopeGlobal}
+	mongo := state.RelationEndpoint{"mongo", "mongodb", "server", state.RoleProvider, charm.ScopeGlobal}
+	_, err := s.State.Relation(subway, mongo)
+	c.Assert(err, ErrorMatches, `relation "mongo:server subway:db" not found`)
+	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
 func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
@@ -147,9 +152,9 @@ func (s *RelationSuite) TestRemoveServiceRemovesRelations(c *C) {
 	err = s.State.RemoveService(peer)
 	c.Assert(err, IsNil)
 	_, err = s.State.Service("peer")
-	c.Assert(err, ErrorMatches, `cannot get service "peer": not found`)
+	c.Assert(err, ErrorMatches, `service "peer" not found`)
 	_, err = s.State.Relation(peerep)
-	c.Assert(err, ErrorMatches, `cannot get relation "peer:baz": not found`)
+	c.Assert(err, ErrorMatches, `relation "peer:baz" not found`)
 }
 
 func assertNoRelations(c *C, srv *state.Service) {
