@@ -43,16 +43,15 @@ func IsUnitName(name string) bool {
 
 // NotFoundError represents the error that something is not found.
 type NotFoundError struct {
-	format string
-	args   []interface{}
+	msg string
 }
 
 func (e *NotFoundError) Error() string {
-	return fmt.Sprintf(e.format+" not found", e.args...)
+	return e.msg
 }
 
 func notFound(format string, args ...interface{}) error {
-	return &NotFoundError{format, args}
+	return &NotFoundError{fmt.Sprintf(format+" not found", args...)}
 }
 
 func IsNotFound(err error) bool {
@@ -381,10 +380,10 @@ func (s *State) AddRelation(endpoints ...RelationEndpoint) (r *Relation, err err
 }
 
 // Relation returns the existing relation with the given endpoints.
-func (s *State) Relation(endpoints ...RelationEndpoint) (r *Relation, err error) {
+func (s *State) Relation(endpoints ...RelationEndpoint) (*Relation, error) {
 	doc := relationDoc{}
 	key := relationKey(endpoints)
-	err = s.relations.Find(D{{"_id", key}}).One(&doc)
+	err := s.relations.Find(D{{"_id", key}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, notFound("relation %q", key)
 	}
