@@ -150,7 +150,7 @@ var uniterTests = []uniterTest{
 		startUniter{`failed to create uniter for unit "u/0": .*state must be a directory`},
 	), ut(
 		"unknown unit",
-		startUniter{`failed to create uniter for unit "u/0": cannot get unit .*`},
+		startUniter{`failed to create uniter for unit "u/0": unit "u/0" not found`},
 	),
 	// Check error conditions during unit bootstrap phase.
 	ut(
@@ -678,6 +678,10 @@ func (createUniter) step(c *C, ctx *context) {
 		case <-timeout:
 			c.Fatalf("timed out waiting for unit addresses")
 		case <-time.After(50 * time.Millisecond):
+			err := ctx.unit.Refresh()
+			if err != nil {
+				c.Fatalf("unit refresh failed: %v", err)
+			}
 			private, err := ctx.unit.PrivateAddress()
 			if err != nil || private != "private.dummy.address.example.com" {
 				continue
@@ -807,43 +811,35 @@ type waitUnit struct {
 
 func (s waitUnit) step(c *C, ctx *context) {
 	timeout := time.After(5 * time.Second)
-	// Resolved check is easy...
-	resolved := ctx.unit.WatchResolved()
-	defer stop(c, resolved)
-	resolvedOk := false
-	for !resolvedOk {
-		select {
-		case ch := <-resolved.Changes():
-			resolvedOk = ch == s.resolved
-			if !resolvedOk {
-				c.Logf("%#v", ch)
-			}
-		case <-timeout:
-			c.Fatalf("never reached desired state")
-		}
-	}
-
-	// ...but we have no status/charm watchers, so just poll.
 	for {
 		select {
 		case <-time.After(50 * time.Millisecond):
+			err := ctx.unit.Refresh()
+			if err != nil {
+				c.Fatalf("cannot refresh unit: %v", err)
+			}
+			resolved := ctx.unit.Resolved()
+			if resolved != s.resolved {
+				c.Logf("want resolved mode %q, got %q; still waiting", s.resolved, resolved)
+				continue
+			}
 			status, info, err := ctx.unit.Status()
 			c.Assert(err, IsNil)
 			if status != s.status {
-				c.Logf("wrong status: %s", status)
+				c.Logf("want unit status %q, got %q; still waiting", s.status, status)
 				continue
 			}
 			if info != s.info {
-				c.Logf("wrong info: %s", info)
+				c.Logf("want unit status info %q, got %q; still waiting", s.info, info)
 				continue
 			}
 			ch, err := ctx.unit.Charm()
-			if err != nil {
-				c.Logf("no charm")
-				continue
-			}
-			if *ch.URL() != *curl(s.charm) {
-				c.Logf("wrong charm: %s", ch.URL())
+			if err != nil || *ch.URL() != *curl(s.charm) {
+				var got string
+				if ch != nil {
+					got = ch.URL().String()
+				}
+				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
 				continue
 			}
 			return
