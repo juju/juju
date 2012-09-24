@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
@@ -35,7 +36,7 @@ func Open(info *Info) (*State, error) {
 		return nil, errors.New("no mongo addresses")
 	}
 	if !info.UseSSH {
-		session, err := mgo.Dial(strings.Join(info.Addrs, ","))
+		session, err := mgo.DialWithTimeout(strings.Join(info.Addrs, ","), 10 * time.Minute)
 		if err != nil {
 			return nil, err
 		}
@@ -92,11 +93,11 @@ var indexes = []struct {
 	{"units", []string{"machineid"}},
 }
 
-// The capped collection used for transaction logs defaults to 200MB.
+// The capped collection used for transaction logs defaults to 10MB.
 // It's tweaked in export_test.go to 1MB to avoid the overhead of
-// creating and deleting the large file repeatedly.
+// creating and deleting the large file repeatedly in tests.
 var (
-	logSize      = 200000000
+	logSize      = 10000000
 	logSizeTests = 1000000
 )
 
