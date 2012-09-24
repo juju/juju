@@ -318,7 +318,6 @@ func (w *MachinesWatcher) merge(changes *MachinesChange, ch watcher.Change) erro
 	if err != nil {
 		return err
 	}
-	// TODO(niemeyer): Alive+Dead == nothing?
 	if c > 0 {
 		if !w.alive[id] {
 			w.alive[id] = true
@@ -342,7 +341,6 @@ func (w *MachinesWatcher) loop() (err error) {
 		return err
 	}
 	out := w.out
-	nul := make(chan *MachinesChange)
 	for {
 		select {
 		case <-w.st.watcher.Dead():
@@ -358,7 +356,7 @@ func (w *MachinesWatcher) loop() (err error) {
 			}
 		case out <- changes:
 			changes = &MachinesChange{}
-			out = nul
+			out = nil
 		}
 	}
 	return nil
