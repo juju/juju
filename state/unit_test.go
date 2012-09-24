@@ -184,23 +184,29 @@ func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
 }
 
 func (s *UnitSuite) TestGetSetClearResolved(c *C) {
-	setting, err := s.unit.Resolved()
-	c.Assert(err, IsNil)
-	c.Assert(setting, Equals, state.ResolvedNone)
+	mode := s.unit.Resolved()
+	c.Assert(mode, Equals, state.ResolvedNone)
 
-	err = s.unit.SetResolved(state.ResolvedNoHooks)
+	err := s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, IsNil)
 	err = s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
-	retry, err := s.unit.Resolved()
+
+	mode = s.unit.Resolved()
+	c.Assert(mode, Equals, state.ResolvedNoHooks)
+	err = s.unit.Refresh()
 	c.Assert(err, IsNil)
-	c.Assert(retry, Equals, state.ResolvedNoHooks)
+	mode = s.unit.Resolved()
+	c.Assert(mode, Equals, state.ResolvedNoHooks)
 
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
-	setting, err = s.unit.Resolved()
+	mode = s.unit.Resolved()
+	c.Assert(mode, Equals, state.ResolvedNone)
+	err = s.unit.Refresh()
 	c.Assert(err, IsNil)
-	c.Assert(setting, Equals, state.ResolvedNone)
+	mode = s.unit.Resolved()
+	c.Assert(mode, Equals, state.ResolvedNone)
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
 
