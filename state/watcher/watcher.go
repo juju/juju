@@ -374,13 +374,11 @@ func (w *Watcher) sync() error {
 					revno = -1
 				}
 				if w.current[key] == revno {
-					log.Printf("ignoring %#v: %d", key, revno)
 					continue
 				}
 				w.current[key] = revno
 				// Queue notifications for per-collection watches.
 				for _, info := range w.watches[watchKey{c.Name, nil}] {
-					log.Printf("sending to coll watch")
 					w.syncEvents = append(w.syncEvents, event{info.ch, key, revno})
 				}
 				// Queue notifications for per-document watches.

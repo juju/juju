@@ -30,6 +30,13 @@ func (s *StateSuite) TestDialAgain(c *C) {
 	}
 }
 
+func (s *StateSuite) TestIsNotFound(c *C) {
+	err1 := fmt.Errorf("unrelated error")
+	err2 := &state.NotFoundError{}
+	c.Assert(state.IsNotFound(err1), Equals, false)
+	c.Assert(state.IsNotFound(err2), Equals, true)
+}
+
 func (s *StateSuite) TestAddCharm(c *C) {
 	// Check that adding charms from scratch works correctly.
 	ch := testing.Charms.Dir("series", "dummy")
@@ -97,6 +104,12 @@ func (s *StateSuite) TestReadMachine(c *C) {
 	c.Assert(machine.Id(), Equals, expectedId)
 }
 
+func (s *StateSuite) TestMachineNotFound(c *C) {
+	_, err := s.State.Machine(0)
+	c.Assert(err, ErrorMatches, "machine 0 not found")
+	c.Assert(state.IsNotFound(err), Equals, true)
+}
+
 func (s *StateSuite) TestAllMachines(c *C) {
 	c.Skip("Marshalling of agent tools is currently broken")
 	numInserts := 42
@@ -153,6 +166,12 @@ func (s *StateSuite) TestAddService(c *C) {
 	c.Assert(ch.URL(), DeepEquals, charm.URL())
 }
 
+func (s *StateSuite) TestServiceNotFound(c *C) {
+	_, err := s.State.Service("bummer")
+	c.Assert(err, ErrorMatches, `service "bummer" not found`)
+	c.Assert(state.IsNotFound(err), Equals, true)
+}
+
 func (s *StateSuite) TestRemoveService(c *C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	service, err := s.State.AddService("wordpress", charm)
@@ -166,16 +185,10 @@ func (s *StateSuite) TestRemoveService(c *C) {
 	err = s.State.RemoveService(service)
 	c.Assert(err, IsNil)
 	_, err = s.State.Service("wordpress")
-	c.Assert(err, ErrorMatches, `cannot get service "wordpress": .*`)
+	c.Assert(err, ErrorMatches, `service "wordpress" not found`)
 
 	err = s.State.RemoveService(service)
 	c.Assert(err, IsNil)
-}
-
-func (s *StateSuite) TestReadNonExistentService(c *C) {
-	// BUG(aram): use error strings from state.
-	_, err := s.State.Service("pressword")
-	c.Assert(err, ErrorMatches, `cannot get service "pressword": .*`)
 }
 
 func (s *StateSuite) TestAllServices(c *C) {
@@ -231,66 +244,57 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 }
 
 var machinesWatchTests = []struct {
-	test    func(*C, *state.State)
-	added   []int
-	removed []int
+	test  func(*C, *state.State)
+	alive []int
+	dead  []int
 }{
 	{
-		test:  func(_ *C, _ *state.State) {},
-		added: []int{},
-	},
-	{
+		test: func(_ *C, _ *state.State) {},
+	}, {
 		test: func(c *C, s *state.State) {
 			_, err := s.AddMachine()
 			c.Assert(err, IsNil)
 		},
-		added: []int{0},
-	},
-	{
+		alive: []int{0},
+	}, {
 		test: func(c *C, s *state.State) {
 			_, err := s.AddMachine()
 			c.Assert(err, IsNil)
+			m0, err := s.Machine(0)
+			c.Assert(err, IsNil)
+			err = m0.SetInstanceId("spam")
+			c.Assert(err, IsNil)
 		},
-		added: []int{1},
-	},
-	{
+		alive: []int{1},
+	}, {
 		test: func(c *C, s *state.State) {
 			_, err := s.AddMachine()
 			c.Assert(err, IsNil)
 			_, err = s.AddMachine()
 			c.Assert(err, IsNil)
 		},
-		added: []int{2, 3},
-	},
-	{
+		alive: []int{2, 3},
+	}, {
 		test: func(c *C, s *state.State) {
 			m3, err := s.Machine(3)
 			c.Assert(err, IsNil)
 			err = m3.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine(3)
-			c.Assert(err, IsNil)
 		},
-		removed: []int{3},
-	},
-	{
+		dead: []int{3},
+	}, {
 		test: func(c *C, s *state.State) {
 			m0, err := s.Machine(0)
 			c.Assert(err, IsNil)
 			err = m0.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine(0)
-			c.Assert(err, IsNil)
 			m2, err := s.Machine(2)
 			c.Assert(err, IsNil)
 			err = m2.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine(2)
-			c.Assert(err, IsNil)
 		},
-		removed: []int{0, 2},
-	},
-	{
+		dead: []int{0, 2},
+	}, {
 		test: func(c *C, s *state.State) {
 			_, err := s.AddMachine()
 			c.Assert(err, IsNil)
@@ -298,13 +302,10 @@ var machinesWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = m1.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine(1)
-			c.Assert(err, IsNil)
 		},
-		added:   []int{4},
-		removed: []int{1},
-	},
-	{
+		alive: []int{4},
+		dead:  []int{1},
+	}, {
 		test: func(c *C, s *state.State) {
 			machines := [20]*state.Machine{}
 			var err error
@@ -319,13 +320,10 @@ var machinesWatchTests = []struct {
 			for i := 10; i < len(machines); i++ {
 				err = machines[i].EnsureDead()
 				c.Assert(err, IsNil)
-				err = s.RemoveMachine(i + 5)
-				c.Assert(err, IsNil)
 			}
 		},
-		added: []int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
-	},
-	{
+		alive: []int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
+	}, {
 		test: func(c *C, s *state.State) {
 			_, err := s.AddMachine()
 			c.Assert(err, IsNil)
@@ -333,11 +331,9 @@ var machinesWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = m9.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine(9)
-			c.Assert(err, IsNil)
 		},
-		added:   []int{25},
-		removed: []int{9},
+		alive: []int{25},
+		dead:  []int{9},
 	},
 }
 
@@ -355,13 +351,13 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 			select {
 			case new, ok := <-machineWatcher.Changes():
 				c.Assert(ok, Equals, true)
-				addMachineChanges(got, new)
-				if moreMachinesRequired(got, test.added, test.removed) {
+				addMachinesChange(got, new)
+				if moreMachinesRequired(got, test.alive, test.dead) {
 					continue
 				}
-				assertSameMachines(c, got, test.added, test.removed)
+				assertSameMachines(c, got, test.alive, test.dead)
 			case <-time.After(500 * time.Millisecond):
-				c.Fatalf("did not get change, want: added: %#v, removed: %#v, got: %#v", test.added, test.removed, got)
+				c.Fatalf("did not get change, want: alive: %#v, dead: %#v, got: %#v", test.alive, test.dead, got)
 			}
 			break
 		}
@@ -373,41 +369,21 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 	}
 }
 
-func moreMachinesRequired(got *state.MachinesChange, added, removed []int) bool {
-	return len(got.Added)+len(got.Removed) < len(added)+len(removed)
+func moreMachinesRequired(got *state.MachinesChange, alive, dead []int) bool {
+	return len(got.Alive)+len(got.Dead) < len(alive)+len(dead)
 }
 
-func addMachineChanges(changes *state.MachinesChange, more *state.MachinesChange) {
-	changes.Added = append(changes.Added, more.Added...)
-	changes.Removed = append(changes.Removed, more.Removed...)
+func addMachinesChange(change *state.MachinesChange, more *state.MachinesChange) {
+	change.Alive = append(change.Alive, more.Alive...)
+	change.Dead = append(change.Dead, more.Dead...)
 }
 
-type machineSlice []*state.Machine
-
-func (m machineSlice) Len() int           { return len(m) }
-func (m machineSlice) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
-func (m machineSlice) Less(i, j int) bool { return m[i].Id() < m[j].Id() }
-
-func assertSameMachines(c *C, change *state.MachinesChange, added, removed []int) {
-	c.Assert(change, NotNil)
-	if len(added) == 0 {
-		added = nil
-	}
-	if len(removed) == 0 {
-		removed = nil
-	}
-	sort.Sort(machineSlice(change.Added))
-	sort.Sort(machineSlice(change.Removed))
-	var got []int
-	for _, g := range change.Added {
-		got = append(got, g.Id())
-	}
-	c.Assert(got, DeepEquals, added)
-	got = nil
-	for _, g := range change.Removed {
-		got = append(got, g.Id())
-	}
-	c.Assert(got, DeepEquals, removed)
+func assertSameMachines(c *C, got *state.MachinesChange, alive, dead []int) {
+	c.Assert(got, NotNil)
+	sort.Ints(got.Alive)
+	sort.Ints(got.Dead)
+	c.Assert(got.Alive, DeepEquals, alive)
+	c.Assert(got.Dead, DeepEquals, dead)
 }
 
 var servicesWatchTests = []struct {
@@ -678,7 +654,7 @@ func (*StateSuite) TestNameChecks(c *C) {
 
 type attrs map[string]interface{}
 
-var environmentWatchTests = []attrs{
+var watchEnvironConfigTests = []attrs{
 	{
 		"type":            "my-type",
 		"name":            "my-name",
@@ -700,37 +676,12 @@ var environmentWatchTests = []attrs{
 	},
 }
 
-var initialEnvironment = `name: test,
-type: test,
-authorized-keys: i-am-a-key,
-default-series: precise`
-
-func (s *StateSuite) TestWatchEnvironment(c *C) {
-	m := map[string]interface{}{
-		"type":            "dummy",
-		"name":            "lisboa",
-		"authorized-keys": "i-am-a-key",
-		"default-series":  "precise",
-		"development":     true,
-	}
-	cfg, err := config.New(m)
-	c.Assert(err, IsNil)
-	st, err := state.Initialize(s.StateInfo(c), cfg)
-	c.Assert(err, IsNil)
-	c.Assert(st, NotNil)
-	defer st.Close()
-	environConfigWatcher := s.State.WatchEnvironConfig()
+func (s *StateSuite) TestWatchEnvironConfig(c *C) {
+	watcher := s.State.WatchEnvironConfig()
 	defer func() {
-		c.Assert(environConfigWatcher.Stop(), IsNil)
+		c.Assert(watcher.Stop(), IsNil)
 	}()
-	s.State.StartSync()
-
-	cfg, ok := <-environConfigWatcher.Changes()
-	c.Assert(ok, Equals, true)
-	attrs := cfg.AllAttrs()
-	c.Assert(attrs, DeepEquals, m)
-
-	for i, test := range environmentWatchTests {
+	for i, test := range watchEnvironConfigTests {
 		c.Logf("test %d", i)
 		change, err := config.New(test)
 		c.Assert(err, IsNil)
@@ -738,20 +689,97 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 		c.Assert(err, IsNil)
 		s.State.StartSync()
 		select {
-		case got, ok := <-environConfigWatcher.Changes():
+		case got, ok := <-watcher.Changes():
 			c.Assert(ok, Equals, true)
-			gotAttrs := got.AllAttrs()
-			for key, value := range test {
-				c.Assert(gotAttrs[key], Equals, value)
-			}
+			c.Assert(got.AllAttrs(), DeepEquals, change.AllAttrs())
 		case <-time.After(500 * time.Millisecond):
 			c.Fatalf("did not get change: %#v", test)
 		}
 	}
 
 	select {
-	case got := <-environConfigWatcher.Changes():
+	case got := <-watcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func (s *StateSuite) TestWatchEnvironConfigInitialConfig(c *C) {
+	cfg, err := config.New(watchEnvironConfigTests[0])
+	c.Assert(err, IsNil)
+	err = s.State.SetEnvironConfig(cfg)
+	c.Assert(err, IsNil)
+	s.State.Sync()
+	watcher := s.State.WatchEnvironConfig()
+	defer watcher.Stop()
+	select {
+	case got, ok := <-watcher.Changes():
+		c.Assert(ok, Equals, true)
+		c.Assert(got.AllAttrs(), DeepEquals, cfg.AllAttrs())
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("did not get change")
+	}
+}
+
+func (s *StateSuite) TestWatchEnvironConfigInvalidConfig(c *C) {
+	m := map[string]interface{}{
+		"type":            "dummy",
+		"name":            "lisboa",
+		"authorized-keys": "i-am-a-key",
+	}
+	cfg1, err := config.New(m)
+	c.Assert(err, IsNil)
+	err = s.State.SetEnvironConfig(cfg1)
+	c.Assert(err, IsNil)
+
+	// Corrupt the environment configuration.
+	settings := s.Session.DB("juju").C("settings")
+	err = settings.UpdateId("e", bson.D{{"$unset", bson.D{{"name", 1}}}})
+	c.Assert(err, IsNil)
+
+	s.State.Sync()
+
+	// Start watching the configuration.
+	watcher := s.State.WatchEnvironConfig()
+	defer watcher.Stop()
+	done := make(chan *config.Config)
+	go func() {
+		select {
+		case cfg, ok := <-watcher.Changes():
+			if !ok {
+				c.Errorf("watcher channel closed")
+			} else {
+				done <- cfg
+			}
+		case <-time.After(5 * time.Second):
+			c.Fatalf("no environment configuration observed")
+		}
+	}()
+
+	s.State.Sync()
+
+	// The invalid configuration must not have been generated.
+	select {
+	case <-done:
+		c.Fatalf("configuration returned too soon")
 	case <-time.After(100 * time.Millisecond):
+	}
+
+	// Fix the configuration.
+	cfg2, err := config.New(map[string]interface{}{
+		"type":            "dummy",
+		"name":            "lisboa",
+		"authorized-keys": "new-key",
+	})
+	c.Assert(err, IsNil)
+	err = s.State.SetEnvironConfig(cfg2)
+	c.Assert(err, IsNil)
+
+	s.State.StartSync()
+	select {
+	case cfg3 := <-done:
+		c.Assert(cfg3.AllAttrs(), DeepEquals, cfg2.AllAttrs())
+	case <-time.After(5 * time.Second):
+		c.Fatalf("no environment configuration observed")
 	}
 }

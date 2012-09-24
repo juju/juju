@@ -363,7 +363,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachineWithRemovedService(c *C) {
 	_, err = s.State.AddMachine()
 	c.Assert(err, IsNil)
 	_, err = unit.AssignToUnusedMachine()
-	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to unused machine.*: cannot get unit "wordpress/0": not found`)
+	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to unused machine.*: unit "wordpress/0" not found`)
 }
 
 func (s *AssignSuite) TestAssignUnitToUnusedMachineWithRemovedUnit(c *C) {
@@ -382,7 +382,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachineWithRemovedUnit(c *C) {
 	c.Assert(err, IsNil)
 
 	_, err = unit.AssignToUnusedMachine()
-	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to unused machine.*: cannot get unit "wordpress/0": not found`)
+	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to unused machine.*: unit "wordpress/0" not found`)
 }
 
 func (s *AssignSuite) TestAssignUnitToUnusedMachineOnlyZero(c *C) {

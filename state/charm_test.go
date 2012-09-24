@@ -3,6 +3,7 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/state"
 	"net/url"
 )
 
@@ -40,10 +41,9 @@ func (s *CharmSuite) TestCharm(c *C) {
 	)
 }
 
-func (s *CharmSuite) TestGetNonExistentCharm(c *C) {
-	// Check that getting a non-existent charm fails nicely.
-
+func (s *CharmSuite) TestCharmNotFound(c *C) {
 	curl := charm.MustParseURL("local:anotherseries/dummy-1")
 	_, err := s.State.Charm(curl)
-	c.Assert(err, ErrorMatches, `cannot get charm "local:anotherseries/dummy-1": .*`)
+	c.Assert(err, ErrorMatches, `charm "local:anotherseries/dummy-1" not found`)
+	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
 }

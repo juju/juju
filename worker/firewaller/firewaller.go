@@ -69,20 +69,17 @@ func (fw *Firewaller) loop() error {
 			if !ok {
 				return watcher.MustErr(fw.machinesWatcher)
 			}
-			for _, machine := range change.Removed {
-				machined, ok := fw.machineds[machine.Id()]
-				if !ok {
-					panic("trying to remove machine that was not added")
-				}
-				delete(fw.machineds, machine.Id())
+			for _, id := range change.Dead {
+				machined := fw.machineds[id]
+				delete(fw.machineds, id)
 				if err := machined.Stop(); err != nil {
-					log.Printf("machine data %d returned error when stopping: %v", machine.Id(), err)
+					log.Printf("machine %d watcher returned error when stopping: %v", id, err)
 				}
-				log.Debugf("firewaller: stopped watching machine %d", machine.Id())
+				log.Debugf("firewaller: stopped watching machine %d", id)
 			}
-			for _, machine := range change.Added {
-				fw.machineds[machine.Id()] = newMachineData(machine, fw)
-				log.Debugf("firewaller: started watching machine %d", machine.Id())
+			for _, id := range change.Alive {
+				fw.machineds[id] = newMachineData(id, fw)
+				log.Debugf("firewaller: started watching machine %d", id)
 			}
 		case change := <-fw.unitsChange:
 			changed := []*unitData{}
@@ -151,7 +148,7 @@ func (fw *Firewaller) loop() error {
 func (fw *Firewaller) flushUnits(unitds []*unitData) error {
 	machineds := map[int]*machineData{}
 	for _, unitd := range unitds {
-		machineds[unitd.machined.machine.Id()] = unitd.machined
+		machineds[unitd.machined.id] = unitd.machined
 	}
 	for _, machined := range machineds {
 		if err := fw.flushMachine(machined); err != nil {
@@ -188,7 +185,14 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 		return nil
 	}
 	// Open and close the ports.
-	instanceId, err := machined.machine.InstanceId()
+	m, err := machined.machine()
+	if state.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	instanceId, err := m.InstanceId()
 	if err != nil {
 		return err
 	}
@@ -197,22 +201,22 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 		return err
 	}
 	if len(toOpen) > 0 {
-		err = instances[0].OpenPorts(machined.machine.Id(), toOpen)
+		err = instances[0].OpenPorts(machined.id, toOpen)
 		if err != nil {
-			// TODO(mue) Add a retry logic later.
+			// TODO(mue) Add local retry logic.
 			return err
 		}
 		state.SortPorts(toOpen)
-		log.Printf("firewaller: opened ports %v on machine %d", toOpen, machined.machine.Id())
+		log.Printf("firewaller: opened ports %v on machine %d", toOpen, machined.id)
 	}
 	if len(toClose) > 0 {
-		err = instances[0].ClosePorts(machined.machine.Id(), toClose)
+		err = instances[0].ClosePorts(machined.id, toClose)
 		if err != nil {
-			// TODO(mue) Add a retry logic later.
+			// TODO(mue) Add local retry logic.
 			return err
 		}
 		state.SortPorts(toClose)
-		log.Printf("firewaller: closed ports %v on machine %d", toClose, machined.machine.Id())
+		log.Printf("firewaller: closed ports %v on machine %d", toClose, machined.id)
 	}
 	return nil
 }
@@ -266,44 +270,55 @@ type unitsChange struct {
 
 // machineData holds machine details and watches units added or removed.
 type machineData struct {
-	tomb       tomb.Tomb
-	firewaller *Firewaller
-	machine    *state.Machine
-	watcher    *state.MachineUnitsWatcher
-	unitds     map[string]*unitData
-	ports      []state.Port
+	tomb   tomb.Tomb
+	fw     *Firewaller
+	id     int
+	unitds map[string]*unitData
+	ports  []state.Port
 }
 
 // newMachineData returns a new data value for tracking details of the
 // machine, and starts watching the machine for units added or removed.
-func newMachineData(machine *state.Machine, fw *Firewaller) *machineData {
-	// BUG(niemeyer): The firewaller must watch *ALL* units, not just principals.
+func newMachineData(id int, fw *Firewaller) *machineData {
 	md := &machineData{
-		firewaller: fw,
-		machine:    machine,
-		watcher:    machine.WatchPrincipalUnits(),
-		unitds:     make(map[string]*unitData),
-		ports:      make([]state.Port, 0),
+		fw:     fw,
+		id:     id,
+		unitds: make(map[string]*unitData),
+		ports:  make([]state.Port, 0),
 	}
 	go md.watchLoop()
 	return md
 }
 
+func (md *machineData) machine() (*state.Machine, error) {
+	return md.fw.st.Machine(md.id)
+}
+
 // watchLoop watches the machine for units added or removed.
 func (md *machineData) watchLoop() {
 	defer md.tomb.Done()
-	defer md.watcher.Stop()
+	m, err := md.machine()
+	if state.IsNotFound(err) {
+		return
+	}
+	if err != nil {
+		md.fw.tomb.Killf("firewaller: cannot watch machine units: %v", err)
+		return
+	}
+	// BUG(niemeyer): The firewaller must watch all units, not just principals.
+	w := m.WatchPrincipalUnits()
+	defer w.Stop()
 	for {
 		select {
 		case <-md.tomb.Dying():
 			return
-		case change, ok := <-md.watcher.Changes():
+		case change, ok := <-w.Changes():
 			if !ok {
-				md.firewaller.tomb.Kill(watcher.MustErr(md.watcher))
+				md.fw.tomb.Kill(watcher.MustErr(w))
 				return
 			}
 			select {
-			case md.firewaller.unitsChange <- &unitsChange{md, change}:
+			case md.fw.unitsChange <- &unitsChange{md, change}:
 			case <-md.tomb.Dying():
 				return
 			}

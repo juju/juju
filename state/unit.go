@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/trivial"
 	"sort"
@@ -13,8 +12,8 @@ import (
 	"time"
 )
 
-// ResolvedMode describes the way state transition errors 
-// are resolved. 
+// ResolvedMode describes the way state transition errors
+// are resolved.
 type ResolvedMode int
 
 const (
@@ -28,7 +27,7 @@ const (
 type AssignmentPolicy string
 
 const (
-	// AssignLocal indicates that all service units should be assigned 
+	// AssignLocal indicates that all service units should be assigned
 	// to machine 0.
 	AssignLocal AssignmentPolicy = "local"
 	// AssignUnused indicates that every service unit should be assigned
@@ -370,7 +369,7 @@ func (u *Unit) WaitAgentAlive(timeout time.Duration) (err error) {
 	panic(fmt.Sprintf("presence reported dead status twice in a row for unit %q", u))
 }
 
-// SetAgentAlive signals that the agent for unit u is alive. 
+// SetAgentAlive signals that the agent for unit u is alive.
 // It returns the started pinger.
 func (u *Unit) SetAgentAlive() (*presence.Pinger, error) {
 	p := presence.NewPinger(u.st.presence, u.globalKey())
@@ -527,7 +526,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 	}
 	err = u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, &NotFoundError{"machine"}))
+		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, notFound("machine")))
 	}
 	u.doc.MachineId = nil
 	return nil
@@ -542,7 +541,7 @@ func (u *Unit) SetPublicAddress(address string) (err error) {
 		Update: D{{"$set", D{{"publicaddress", address}}}},
 	}}
 	if err := u.st.runner.Run(ops, "", nil); err != nil {
-		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, &NotFoundError{"machine"}))
+		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, notFound("machine")))
 	}
 	u.doc.PublicAddress = address
 	return nil
@@ -556,17 +555,11 @@ func (u *Unit) SetPrivateAddress(address string) error {
 		Assert: txn.DocExists,
 		Update: D{{"$set", D{{"privateaddress", address}}}},
 	}}
-	log.Printf("UNIT %s: RUNNING ops: %#v", u, ops)
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot set private address of unit %q: %v", u, &NotFoundError{"unit"})
+		return fmt.Errorf("cannot set private address of unit %q: %v", u, notFound("unit"))
 	}
-	log.Printf("UNIT %s: RAN ops", u)
 	u.doc.PrivateAddress = address
-	if err := u.Refresh(); err != nil {
-		return err
-	}
-	log.Printf("UNIT %s: private address really is %s %d", u, u.doc.PrivateAddress, u.doc.TxnRevno)
 	return nil
 }
 
@@ -616,7 +609,7 @@ func (u *Unit) ClearResolved() error {
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, &NotFoundError{"unit"})
+		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, notFound("unit"))
 	}
 	u.doc.Resolved = ResolvedNone
 	return nil
