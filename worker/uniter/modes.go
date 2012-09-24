@@ -20,18 +20,25 @@ type Mode func(u *Uniter) (Mode, error)
 func ModeInit(u *Uniter) (next Mode, err error) {
 	defer errorContextf(&err, "ModeInit")
 	log.Printf("updating unit addresses")
+	log.Printf("getting provider config")
 	cfg, err := u.st.EnvironConfig()
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("getting provider")
 	provider, err := environs.Provider(cfg.Type())
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("got provider")
 	if private, err := provider.PrivateAddress(); err != nil {
 		return nil, err
 	} else if err = u.unit.SetPrivateAddress(private); err != nil {
 		return nil, err
+	} else {
+		log.Printf("set: %s", private)
+		private, _ = provider.PrivateAddress()
+		log.Printf("got: %s", private)
 	}
 	if public, err := provider.PublicAddress(); err != nil {
 		return nil, err

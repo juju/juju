@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/trivial"
 	"sort"
@@ -547,7 +548,7 @@ func (u *Unit) SetPublicAddress(address string) (err error) {
 	return nil
 }
 
-// SetPrivateAddress sets the public address of the unit.
+// SetPrivateAddress sets the private address of the unit.
 func (u *Unit) SetPrivateAddress(address string) error {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
@@ -555,11 +556,17 @@ func (u *Unit) SetPrivateAddress(address string) error {
 		Assert: txn.DocExists,
 		Update: D{{"$set", D{{"privateaddress", address}}}},
 	}}
+	log.Printf("UNIT %s: RUNNING ops: %#v", u, ops)
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
 		return fmt.Errorf("cannot set private address of unit %q: %v", u, &NotFoundError{"unit"})
 	}
+	log.Printf("UNIT %s: RAN ops", u)
 	u.doc.PrivateAddress = address
+	if err := u.Refresh(); err != nil {
+		return err
+	}
+	log.Printf("UNIT %s: private address really is %s %d", u, u.doc.PrivateAddress, u.doc.TxnRevno)
 	return nil
 }
 

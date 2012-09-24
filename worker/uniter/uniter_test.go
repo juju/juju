@@ -670,19 +670,21 @@ type createUniter struct{}
 func (createUniter) step(c *C, ctx *context) {
 	step(c, ctx, createServiceAndUnit{})
 	step(c, ctx, startUniter{})
-
-	// Poll for correct address settings (consequence of "dummy" env type).
+	w := ctx.unit.Watch()
+	defer stop(c, w)
 	timeout := time.After(1 * time.Second)
 	for {
 		select {
 		case <-timeout:
 			c.Fatalf("timed out waiting for unit addresses")
 		case <-time.After(50 * time.Millisecond):
-			private, err := ctx.unit.PrivateAddress()
+			ctx.st.StartSync()
+		case u := <-w.Changes():
+			private, err := u.PrivateAddress()
 			if err != nil || private != "private.dummy.address.example.com" {
 				continue
 			}
-			public, err := ctx.unit.PublicAddress()
+			public, err := u.PublicAddress()
 			if err != nil || public != "public.dummy.address.example.com" {
 				continue
 			}

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 	"strings"
@@ -1026,7 +1025,6 @@ func (w *RelationUnitsWatcher) mergeSettings(changes *RelationUnitsChange, key s
 	} else {
 		changes.Changed[name] = settings
 	}
-	log.Printf("\nCHANGED %s %d\n", key, node.txnRevno)
 	return node.txnRevno, nil
 }
 
@@ -1037,7 +1035,6 @@ func (w *RelationUnitsWatcher) scopeChanges(c *RelationScopeChange) (*RelationUn
 	changes := &RelationUnitsChange{}
 	for _, name := range c.Entered {
 		key := w.sw.prefix + name
-		log.Printf("\nJOINED %s\n", key)
 		revno, err := w.mergeSettings(changes, key)
 		if err != nil {
 			return nil, err
@@ -1048,7 +1045,6 @@ func (w *RelationUnitsWatcher) scopeChanges(c *RelationScopeChange) (*RelationUn
 	}
 	for _, name := range c.Left {
 		key := w.sw.prefix + name
-		log.Printf("\nDEPARTED %s\n", key)
 		changes.Departed = append(changes.Departed, name)
 		w.st.watcher.Unwatch(w.st.settings.Name, key, w.settingsChan)
 		delete(w.watching, key)
@@ -1081,7 +1077,6 @@ func (w *RelationUnitsWatcher) loop() (err error) {
 					return err
 				}
 			case w.changeChan <- *changes:
-				log.Printf("\n=== SENT ===\n")
 				emittedValue = true
 				changes = nil
 			}
