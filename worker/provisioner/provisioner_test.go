@@ -49,11 +49,8 @@ func (s *ProvisionerSuite) SetUpTest(c *C) {
 // so the ConfigNode returned from the watcher will not pass
 // validation.
 func (s *ProvisionerSuite) invalidateEnvironment() error {
-	//zkConn := coretesting.ZkConnect()
-	//_, err := zkConn.Set("/environment", "type: test\nname: 1", -1)
-	//zkConn.Close()
-	//return err
-	return nil
+	settings := s.Session.DB("juju").C("settings")
+	return settings.UpdateId("e", map[string]int64{"txn-revno": int64(0)})
 }
 
 // fixEnvironment undoes the work of invalidateEnvironment.
@@ -69,6 +66,7 @@ func (s *ProvisionerSuite) stopProvisioner(c *C, p *provisioner.Provisioner) {
 // with a machine id the same as m's, and that the machine's
 // instance id has been set appropriately.
 func (s *ProvisionerSuite) checkStartInstance(c *C, m *state.Machine, secret string) {
+	s.State.StartSync()
 	for {
 		select {
 		case o := <-s.op:
@@ -92,6 +90,7 @@ func (s *ProvisionerSuite) checkStartInstance(c *C, m *state.Machine, secret str
 
 // checkNotStartInstance checks that an instance was not started
 func (s *ProvisionerSuite) checkNotStartInstance(c *C) {
+	s.State.StartSync()
 	for {
 		select {
 		case o := <-s.op:
@@ -110,6 +109,7 @@ func (s *ProvisionerSuite) checkNotStartInstance(c *C) {
 
 // checkStopInstance checks that an instance has been stopped.
 func (s *ProvisionerSuite) checkStopInstance(c *C) {
+	s.State.StartSync()
 	// use the non fatal variants to avoid leaking provisioners.    
 	for {
 		select {
@@ -131,7 +131,7 @@ func (s *ProvisionerSuite) checkStopInstance(c *C) {
 // that matches that of the given instance. If the instance is nil,
 // It checks that the instance id is unset.
 func (s *ProvisionerSuite) checkMachineId(c *C, m *state.Machine, inst environs.Instance) {
-	// TODO(dfc) add machine.WatchConfig() to avoid having to poll.
+	// TODO(dfc) add machine.Watch() to avoid having to poll.
 	instId := ""
 	if inst != nil {
 		instId = inst.Id()
