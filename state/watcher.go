@@ -1006,8 +1006,8 @@ func (w *EnvironConfigWatcher) Changes() <-chan *config.Config {
 func (w *EnvironConfigWatcher) loop() (err error) {
 	sw := w.st.watchSettings("e")
 	defer sw.Stop()
-	nul := make(chan *config.Config)
-	out := nul
+	out := w.out
+	out = nil
 	cfg := &config.Config{}
 	for {
 		select {
@@ -1023,10 +1023,10 @@ func (w *EnvironConfigWatcher) loop() (err error) {
 			if err == nil {
 				out = w.out
 			} else {
-				out = nul
+				out = nil
 			}
 		case out <- cfg:
-			out = nul
+			out = nil
 		}
 	}
 	return nil
