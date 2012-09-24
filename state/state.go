@@ -234,7 +234,7 @@ func (s *State) RemoveService(svc *Service) (err error) {
 		return err
 	}
 	for _, rel := range rels {
-		err = rel.Die()
+		err = rel.EnsureDead()
 		if err != nil {
 			return err
 		}
@@ -248,7 +248,7 @@ func (s *State) RemoveService(svc *Service) (err error) {
 		return err
 	}
 	for _, unit := range units {
-		err = unit.Die()
+		err = unit.EnsureDead()
 		if err != nil {
 			return err
 		}

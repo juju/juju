@@ -23,6 +23,7 @@ type serviceDoc struct {
 	ForceCharm bool
 	Life       Life
 	UnitSeq    int
+	UnitCount  int
 	Exposed    bool
 	TxnRevno   int64 `bson:"txn-revno"`
 }
@@ -41,10 +42,10 @@ func (s *Service) Life() Life {
 	return s.doc.Life
 }
 
-// Kill sets the service lifecycle to Dying if it is Alive.
+// EnsureDying sets the service lifecycle to Dying if it is Alive.
 // It does nothing otherwise.
-func (s *Service) Kill() error {
-	err := ensureLife(s.st, s.st.services, s.doc.Name, Dying, "service")
+func (s *Service) EnsureDying() error {
+	err := ensureDying(s.st, s.st.services, s.doc.Name, "service")
 	if err != nil {
 		return err
 	}
@@ -52,10 +53,16 @@ func (s *Service) Kill() error {
 	return nil
 }
 
-// Die sets the service lifecycle to Dead if it is Alive or Dying.
-// It does nothing otherwise.
-func (s *Service) Die() error {
-	err := ensureLife(s.st, s.st.services, s.doc.Name, Dead, "service")
+// EnsureDead sets the service lifecycle to Dead if it is Alive or Dying.
+// It does nothing otherwise. It will return an error if the service still
+// has units.
+func (s *Service) EnsureDead() error {
+	assertOps := []txn.Op{{
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: D{{"unitcount", 0}},
+	}}
+	err := ensureDead(s.st, s.st.services, s.doc.Name, "service", assertOps, "service still has units")
 	if err != nil {
 		return err
 	}
@@ -165,6 +172,7 @@ func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
 		Assert: isAlive,
+		Update: D{{"$inc", D{{"unitcount", 1}}}},
 	}}
 	if principal != nil {
 		udoc.Principal = principal.Name()
@@ -185,7 +193,6 @@ func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
 			}
 		}
 		return nil, err
-
 	}
 	// Refresh to pick the txn-revno.
 	u := newUnit(s.st, udoc)
@@ -254,6 +261,11 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 		Id:     u.doc.Name,
 		Assert: D{{"life", Dead}},
 		Remove: true,
+	}, {
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: D{{"unitcount", D{{"$gt", 0}}}},
+		Update: D{{"$inc", D{{"unitcount", -1}}}},
 	}}
 	if u.doc.Principal != "" {
 		ops = append(ops, txn.Op{
@@ -265,8 +277,13 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 	}
 	// TODO assert that subordinates are empty before deleting
 	// a principal
-	err = s.st.runner.Run(ops, "", nil)
-	if err != nil {
+	if err = s.st.runner.Run(ops, "", nil); err != nil {
+		// TODO Remove this once we know the logic is right:
+		if c, err := s.st.units.FindId(u.doc.Name).Count(); err != nil {
+			return err
+		} else if c > 0 {
+			return fmt.Errorf("cannot remove unit; something smells bad")
+		}
 		// If aborted, the unit is either dead or recreated.
 		return onAbort(err, nil)
 	}

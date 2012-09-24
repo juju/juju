@@ -114,7 +114,7 @@ func (s *UnitSuite) TestUnitCharm(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
 
-	err = s.unit.Kill()
+	err = s.unit.EnsureDying()
 	c.Assert(err, IsNil)
 	err = s.unit.SetCharm(s.charm)
 	c.Assert(err, IsNil)
@@ -122,7 +122,7 @@ func (s *UnitSuite) TestUnitCharm(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
 
-	err = s.unit.Die()
+	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
 	err = s.unit.SetCharm(s.charm)
 	c.Assert(err, ErrorMatches, `cannot set charm for unit "wordpress/0": not found or not alive`)
@@ -294,7 +294,7 @@ func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *C) {
 	}
 	c.Assert(subordinates, DeepEquals, []string{"logging/0", "logging/1"})
 
-	err = su1.Die()
+	err = su1.EnsureDead()
 	c.Assert(err, IsNil)
 	err = logService.RemoveUnit(su1)
 	c.Assert(err, IsNil)
@@ -334,7 +334,7 @@ var watchUnitTests = []struct {
 	},
 	{
 		func(u *state.Unit) error {
-			return u.Kill()
+			return u.EnsureDying()
 		},
 		unitInfo{
 			Life: state.Dying,
