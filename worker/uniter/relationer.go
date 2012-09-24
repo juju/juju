@@ -34,10 +34,10 @@ func (r *Relationer) Context() *server.RelationContext {
 	return r.ctx
 }
 
+// Join initializes local state and causes the unit to enter its relation
+// scope, allowing its counterpart units to detect its presence and settings
+// changes.
 func (r *Relationer) Join() error {
-	if r.dying {
-		panic("dying relationer must not join!")
-	}
 	if err := r.dir.Ensure(); err != nil {
 		return err
 	}

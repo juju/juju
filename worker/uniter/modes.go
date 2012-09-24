@@ -20,7 +20,6 @@ type Mode func(u *Uniter) (Mode, error)
 func ModeInit(u *Uniter) (next Mode, err error) {
 	defer errorContextf(&err, "ModeInit")
 	log.Printf("updating unit addresses")
-	log.Printf("getting provider config")
 	cfg, err := u.st.EnvironConfig()
 	if err != nil {
 		return nil, err

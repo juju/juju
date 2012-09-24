@@ -959,6 +959,8 @@ func (w *RelationScopeWatcher) loop() error {
 	return nil
 }
 
+// Watch returns a watcher that notifies of changes to conterpart units in
+// the relation.
 func (ru *RelationUnit) Watch() *RelationUnitsWatcher {
 	return newRelationUnitsWatcher(ru)
 }
