@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 	"strings"
@@ -58,27 +59,6 @@ type ResolvedWatcher struct {
 // The first event on the channel holds the initial
 // state as returned by Unit.Resolved.
 func (w *ResolvedWatcher) Changes() <-chan ResolvedMode {
-	panic("not implemented")
-}
-
-type RelationUnitsWatcher struct {
-	watcherStubs
-}
-
-type RelationUnitsChange struct {
-	Changed  map[string]UnitSettings
-	Departed []string
-}
-
-func (ru *RelationUnit) Watch() *RelationUnitsWatcher {
-	panic("not implemented")
-}
-
-// Changes returns a channel that will receive the changes to
-// the relation when detected.
-// The first event on the channel holds the initial state of the
-// relation in its Changed field.
-func (w *RelationUnitsWatcher) Changes() <-chan RelationUnitsChange {
 	panic("not implemented")
 }
 
@@ -182,6 +162,29 @@ type RelationScopeWatcher struct {
 type RelationScopeChange struct {
 	Entered []string
 	Left    []string
+}
+
+// RelationUnitsWatcher sends notifications of units entering and leaving the
+// scope of a RelationUnit, and changes to the settings of those units known
+// to have entered.
+type RelationUnitsWatcher struct {
+	commonWatcher
+	sw           *RelationScopeWatcher
+	watching     map[string]bool
+	settingsChan chan watcher.Change
+	changeChan   chan RelationUnitsChange
+}
+
+// RelationUnitsChange represents a hook-oriented representation of the changes
+// to a set of counterpart units. When a counterpart first enters scope, it is
+// noted in the Joined field, and its settings are noted in the Changed field.
+// Subsequently, settings changed will be noted in the Changed field alone, until
+// the couterpart leaves the scope; at that point, it will be noted in the
+// Departed field, and no further events will be sent for that counterpart unit.
+type RelationUnitsChange struct {
+	Joined   []string
+	Changed  map[string]UnitSettings
+	Departed []string
 }
 
 // MachineUnitsWatcher observes the assignment and removal of units
@@ -975,6 +978,136 @@ func (w *RelationScopeWatcher) loop() error {
 		}
 	}
 	return nil
+}
+
+func (ru *RelationUnit) Watch() *RelationUnitsWatcher {
+	return newRelationUnitsWatcher(ru)
+}
+
+func newRelationUnitsWatcher(ru *RelationUnit) *RelationUnitsWatcher {
+	w := &RelationUnitsWatcher{
+		commonWatcher: commonWatcher{st: ru.st},
+		sw:            ru.WatchScope(),
+		watching:      map[string]bool{},
+		settingsChan:  make(chan watcher.Change),
+		changeChan:    make(chan RelationUnitsChange),
+	}
+	go func() {
+		defer w.finish()
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns a channel that will receive the changes to
+// counterpart units in a relation. The first event on the
+// channel holds the initial state of the relation in its
+// Joined and Changed fields.
+func (w *RelationUnitsWatcher) Changes() <-chan RelationUnitsChange {
+	return w.changeChan
+}
+
+func (changes *RelationUnitsChange) isEmpty() bool {
+	return len(changes.Joined)+len(changes.Changed)+len(changes.Departed) == 0
+}
+
+// mergeSettings reads the relation settings node for the unit with the
+// supplied id, and sets a value in the Changed field keyed on the unit's
+// name. It returns the mgo/txn revision number of the settings node.
+func (w *RelationUnitsWatcher) mergeSettings(changes *RelationUnitsChange, key string) (int64, error) {
+	node, err := readConfigNode(w.st, key)
+	if err != nil {
+		return -1, err
+	}
+	name := (&relationScopeDoc{key}).unitName()
+	settings := UnitSettings{node.txnRevno, node.Map()}
+	if changes.Changed == nil {
+		changes.Changed = map[string]UnitSettings{name: settings}
+	} else {
+		changes.Changed[name] = settings
+	}
+	log.Printf("\nCHANGED %s %d\n", key, node.txnRevno)
+	return node.txnRevno, nil
+}
+
+// scopeChanges starts and stops settings watches on the units entering and
+// leaving the scope in the supplied event, and returns a RelationUnitsChange
+// expressing the changes to the relation and it settings.
+func (w *RelationUnitsWatcher) scopeChanges(c *RelationScopeChange) (*RelationUnitsChange, error) {
+	changes := &RelationUnitsChange{}
+	for _, name := range c.Entered {
+		key := w.sw.prefix + name
+		log.Printf("\nJOINED %s\n", key)
+		revno, err := w.mergeSettings(changes, key)
+		if err != nil {
+			return nil, err
+		}
+		changes.Joined = append(changes.Joined, name)
+		w.st.watcher.Watch(w.st.settings.Name, key, revno, w.settingsChan)
+		w.watching[key] = true
+	}
+	for _, name := range c.Left {
+		key := w.sw.prefix + name
+		log.Printf("\nDEPARTED %s\n", key)
+		changes.Departed = append(changes.Departed, name)
+		w.st.watcher.Unwatch(w.st.settings.Name, key, w.settingsChan)
+		delete(w.watching, key)
+	}
+	return changes, nil
+}
+
+func (w *RelationUnitsWatcher) finish() {
+	watcher.Stop(w.sw, &w.tomb)
+	for key := range w.watching {
+		w.st.watcher.Unwatch(w.st.settings.Name, key, w.settingsChan)
+	}
+	close(w.settingsChan)
+	close(w.changeChan)
+	w.tomb.Done()
+}
+
+func (w *RelationUnitsWatcher) loop() (err error) {
+	emittedValue := false
+	var changes *RelationUnitsChange
+	for {
+		for changes != nil {
+			select {
+			case <-w.st.watcher.Dead():
+				return watcher.MustErr(w.st.watcher)
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case c := <-w.settingsChan:
+				if _, err = w.mergeSettings(changes, c.Id.(string)); err != nil {
+					return err
+				}
+			case w.changeChan <- *changes:
+				log.Printf("\n=== SENT ===\n")
+				emittedValue = true
+				changes = nil
+			}
+		}
+		changes = &RelationUnitsChange{}
+		select {
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case c := <-w.settingsChan:
+			_, err = w.mergeSettings(changes, c.Id.(string))
+		case c, ok := <-w.sw.Changes():
+			if !ok {
+				return watcher.MustErr(w.sw)
+			}
+			changes, err = w.scopeChanges(c)
+		}
+		if err != nil {
+			return err
+		}
+		if emittedValue && changes.isEmpty() {
+			changes = nil
+		}
+	}
+	panic("unreachable")
 }
 
 // WatchEnvironConfig returns a watcher for observing changes

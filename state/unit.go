@@ -61,7 +61,7 @@ func (p Port) String() string {
 // UnitSettings holds information about a service unit's settings within a
 // relation.
 type UnitSettings struct {
-	Version  int
+	Version  int64
 	Settings map[string]interface{}
 }
 

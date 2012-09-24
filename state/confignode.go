@@ -133,7 +133,7 @@ func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 // overwriting unrelated changes made to the node since it was last read.
 func (c *ConfigNode) Write() ([]ItemChange, error) {
 	changes := []ItemChange{}
-	updates := map[string]interface{}{}
+	upserts := map[string]interface{}{}
 	deletions := map[string]int{}
 	for key := range cacheKeys(c.disk, c.core) {
 		old, ondisk := c.disk[key]
@@ -145,10 +145,10 @@ func (c *ConfigNode) Write() ([]ItemChange, error) {
 		switch {
 		case incore && ondisk:
 			change = ItemChange{ItemModified, key, old, new}
-			updates[key] = new
+			upserts[key] = new
 		case incore && !ondisk:
 			change = ItemChange{ItemAdded, key, nil, new}
-			updates[key] = new
+			upserts[key] = new
 		case ondisk && !incore:
 			change = ItemChange{ItemDeleted, key, old, nil}
 			deletions[key] = 1
@@ -161,18 +161,18 @@ func (c *ConfigNode) Write() ([]ItemChange, error) {
 		return []ItemChange{}, nil
 	}
 	sort.Sort(itemChangeSlice(changes))
+	inserts := copyMap(upserts)
 	ops := []txn.Op{{
 		C:  c.st.settings.Name,
 		Id: c.path,
 		Update: D{
-			{"$set", updates},
+			{"$set", upserts},
 			{"$unset", deletions},
 		},
 	}}
 	if err := c.st.runner.Run(ops, "", nil); err != nil {
 		return nil, fmt.Errorf("cannot write configuration node %q: %v", c.path, err)
 	}
-	inserts := copyMap(updates)
 	ops = []txn.Op{{
 		C:      c.st.settings.Name,
 		Id:     c.path,
