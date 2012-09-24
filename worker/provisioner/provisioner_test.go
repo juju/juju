@@ -1,6 +1,7 @@
 package provisioner_test
 
 import (
+	"labix.org/v2/mgo/bson"
 	"time"
 
 	. "launchpad.net/gocheck"
@@ -50,7 +51,7 @@ func (s *ProvisionerSuite) SetUpTest(c *C) {
 // validation.
 func (s *ProvisionerSuite) invalidateEnvironment() error {
 	settings := s.Session.DB("juju").C("settings")
-	return settings.UpdateId("e", map[string]int64{"txn-revno": int64(0)})
+	return settings.UpdateId("e", bson.D{{"$unset", bson.D{{"type", 1}}}})
 }
 
 // fixEnvironment undoes the work of invalidateEnvironment.
@@ -75,7 +76,7 @@ func (s *ProvisionerSuite) checkStartInstance(c *C, m *state.Machine, secret str
 				c.Assert(o.Info, DeepEquals, s.StateInfo(c))
 				c.Assert(o.MachineId, Equals, m.Id())
 				c.Assert(o.Instance, NotNil)
-				s.checkMachineId(c, m, o.Instance)
+				s.checkInstanceId(c, m, o.Instance)
 				c.Assert(o.Secret, Equals, secret)
 				return
 			default:
@@ -127,24 +128,25 @@ func (s *ProvisionerSuite) checkStopInstance(c *C) {
 	}
 }
 
-// checkMachineIdSet checks that the machine has an instance id
+// checkInstanceIdSet checks that the machine has an instance id
 // that matches that of the given instance. If the instance is nil,
 // It checks that the instance id is unset.
-func (s *ProvisionerSuite) checkMachineId(c *C, m *state.Machine, inst environs.Instance) {
+func (s *ProvisionerSuite) checkInstanceId(c *C, m *state.Machine, inst environs.Instance) {
 	// TODO(dfc) add machine.Watch() to avoid having to poll.
+	s.State.StartSync()
 	instId := ""
 	if inst != nil {
 		instId = inst.Id()
 	}
 	for a := veryShortAttempt.Start(); a.Next(); {
-		_, err := m.InstanceId()
-		_, notset := err.(*state.NotFoundError)
-		if notset {
+		err := m.Refresh()
+		c.Assert(err, IsNil)
+		_, err = m.InstanceId()
+		if state.IsNotFound(err) {
 			if inst == nil {
 				return
-			} else {
-				continue
 			}
+			continue
 		}
 		c.Assert(err, IsNil)
 		break
@@ -170,12 +172,11 @@ func (s *ProvisionerSuite) TestSimple(c *C) {
 
 	s.checkStartInstance(c, m, "pork")
 
-	// now remove it
-	c.Assert(s.State.RemoveMachine(m.Id()), IsNil)
+	// now mark it as dying
+	c.Assert(m.Die(), IsNil)
 
 	// watch the PA remove it
 	s.checkStopInstance(c)
-	s.checkMachineId(c, m, nil)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(c *C) {
@@ -282,9 +283,8 @@ func (s *ProvisionerSuite) TestProvisioningStopsUnknownInstances(c *C) {
 	// stop the PA
 	c.Check(p.Stop(), IsNil)
 
-	// remove the machine
-	err = s.State.RemoveMachine(m.Id())
-	c.Check(err, IsNil)
+	// mark the machine as dead
+	c.Assert(m.Die(), IsNil)
 
 	// start a new provisioner
 	p = provisioner.NewProvisioner(s.State)
@@ -311,13 +311,8 @@ func (s *ProvisionerSuite) TestProvisioningStopsOnlyUnknownInstances(c *C) {
 	// stop the PA
 	c.Check(p.Stop(), IsNil)
 
-	// remove the machine
-	err = s.State.RemoveMachine(m.Id())
-	c.Check(err, IsNil)
-
-	machines, err := s.State.AllMachines()
-	c.Check(err, IsNil)
-	c.Check(len(machines), Equals, 0) // it's really gone   
+	// mark the machine as dead
+	c.Assert(m.Die(), IsNil)
 
 	// start a new provisioner
 	p = provisioner.NewProvisioner(s.State)

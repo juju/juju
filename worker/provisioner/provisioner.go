@@ -18,8 +18,8 @@ type Provisioner struct {
 
 	// machine.Id => environs.Instance
 	instances map[int]environs.Instance
-	// instance.Id => *state.Machine
-	machines map[string]*state.Machine
+	// instance.Id => machine id
+	machines map[string]int
 }
 
 // NewProvisioner returns a new Provisioner. When new machines
@@ -29,7 +29,7 @@ func NewProvisioner(st *state.State) *Provisioner {
 	p := &Provisioner{
 		st:        st,
 		instances: make(map[int]environs.Instance),
-		machines:  make(map[string]*state.Machine),
+		machines:  make(map[string]int),
 	}
 	go func() {
 		defer p.tomb.Done()
@@ -160,13 +160,17 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 		return nil, err
 	}
 	for _, m := range machines {
-		id, err := m.InstanceId()
-		if err != nil {
-			if _, ok := err.(*state.NotFoundError); !ok {
-				return nil, err
-			}
+		if m.Life() == state.Dead {
+			continue
 		}
-		delete(instances, id)
+		instId, err := m.InstanceId()
+		if state.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		delete(instances, instId)
 	}
 	var unknown []environs.Instance
 	for _, i := range instances {
@@ -227,7 +231,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 
 	// populate the local cache
 	p.instances[m.Id()] = inst
-	p.machines[inst.Id()] = m
+	p.machines[inst.Id()] = m.Id()
 	log.Printf("provisioner started machine %s as instance %s", m, inst.Id())
 	return nil
 }
@@ -244,9 +248,9 @@ func (p *Provisioner) stopInstances(instances []environs.Instance) error {
 
 	// cleanup cache
 	for _, i := range instances {
-		if m, ok := p.machines[i.Id()]; ok {
+		if id, ok := p.machines[i.Id()]; ok {
 			delete(p.machines, i.Id())
-			delete(p.instances, m.Id())
+			delete(p.instances, id)
 		}
 	}
 	return nil
