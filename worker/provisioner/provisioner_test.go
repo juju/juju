@@ -173,7 +173,7 @@ func (s *ProvisionerSuite) TestSimple(c *C) {
 	s.checkStartInstance(c, m, "pork")
 
 	// now mark it as dying
-	c.Assert(m.Die(), IsNil)
+	c.Assert(m.EnsureDead(), IsNil)
 
 	// watch the PA remove it
 	s.checkStopInstance(c)
@@ -284,7 +284,7 @@ func (s *ProvisionerSuite) TestProvisioningStopsUnknownInstances(c *C) {
 	c.Check(p.Stop(), IsNil)
 
 	// mark the machine as dead
-	c.Assert(m.Die(), IsNil)
+	c.Assert(m.EnsureDead(), IsNil)
 
 	// start a new provisioner
 	p = provisioner.NewProvisioner(s.State)
@@ -312,7 +312,7 @@ func (s *ProvisionerSuite) TestProvisioningStopsOnlyUnknownInstances(c *C) {
 	c.Check(p.Stop(), IsNil)
 
 	// mark the machine as dead
-	c.Assert(m.Die(), IsNil)
+	c.Assert(m.EnsureDead(), IsNil)
 
 	// start a new provisioner
 	p = provisioner.NewProvisioner(s.State)
