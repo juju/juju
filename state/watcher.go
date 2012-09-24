@@ -249,8 +249,8 @@ func (w *MachineWatcher) loop(m *Machine) (err error) {
 // from the environment.
 type MachinesWatcher struct {
 	commonWatcher
-	changeChan chan *MachinesChange
-	alive      map[int]bool
+	out   chan *MachinesChange
+	alive map[int]bool
 }
 
 // MachinesChange holds the ids of machines that are observed to
@@ -275,12 +275,12 @@ func (s *State) WatchMachines() *MachinesWatcher {
 func newMachinesWatcher(st *State) *MachinesWatcher {
 	w := &MachinesWatcher{
 		commonWatcher: commonWatcher{st: st},
-		changeChan:    make(chan *MachinesChange),
+		out:           make(chan *MachinesChange),
 		alive:         make(map[int]bool),
 	}
 	go func() {
 		defer w.tomb.Done()
-		defer close(w.changeChan)
+		defer close(w.out)
 		w.tomb.Kill(w.loop())
 	}()
 	return w
@@ -290,7 +290,7 @@ func newMachinesWatcher(st *State) *MachinesWatcher {
 // added or deleted. The Alive field in the first event on the channel
 // holds the initial state as returned by State.AllMachines.
 func (w *MachinesWatcher) Changes() <-chan *MachinesChange {
-	return w.changeChan
+	return w.out
 }
 
 func (w *MachinesWatcher) initial(changes *MachinesChange) (err error) {
@@ -318,6 +318,7 @@ func (w *MachinesWatcher) merge(changes *MachinesChange, ch watcher.Change) erro
 	if err != nil {
 		return err
 	}
+	// TODO(niemeyer): Alive+Dead == nothing?
 	if c > 0 {
 		if !w.alive[id] {
 			w.alive[id] = true
@@ -340,23 +341,9 @@ func (w *MachinesWatcher) loop() (err error) {
 	if err = w.initial(changes); err != nil {
 		return err
 	}
-	initial := true
+	out := w.out
+	nul := make(chan *MachinesChange)
 	for {
-		for initial || !changes.empty() {
-			select {
-			case <-w.st.watcher.Dead():
-				return watcher.MustErr(w.st.watcher)
-			case <-w.tomb.Dying():
-				return tomb.ErrDying
-			case c := <-ch:
-				if err := w.merge(changes, c); err != nil {
-					return err
-				}
-			case w.changeChan <- changes:
-				initial = false
-				changes = &MachinesChange{}
-			}
-		}
 		select {
 		case <-w.st.watcher.Dead():
 			return watcher.MustErr(w.st.watcher)
@@ -366,6 +353,12 @@ func (w *MachinesWatcher) loop() (err error) {
 			if err := w.merge(changes, c); err != nil {
 				return err
 			}
+			if !changes.empty() {
+				out = w.out
+			}
+		case out <- changes:
+			changes = &MachinesChange{}
+			out = nul
 		}
 	}
 	return nil
