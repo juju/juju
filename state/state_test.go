@@ -654,7 +654,7 @@ func (*StateSuite) TestNameChecks(c *C) {
 
 type attrs map[string]interface{}
 
-var environmentWatchTests = []attrs{
+var watchEnvironConfigTests = []attrs{
 	{
 		"type":            "my-type",
 		"name":            "my-name",
@@ -676,37 +676,12 @@ var environmentWatchTests = []attrs{
 	},
 }
 
-var initialEnvironment = `name: test,
-type: test,
-authorized-keys: i-am-a-key,
-default-series: precise`
-
-func (s *StateSuite) TestWatchEnvironment(c *C) {
-	m := map[string]interface{}{
-		"type":            "dummy",
-		"name":            "lisboa",
-		"authorized-keys": "i-am-a-key",
-		"default-series":  "precise",
-		"development":     true,
-	}
-	cfg, err := config.New(m)
-	c.Assert(err, IsNil)
-	st, err := state.Initialize(s.StateInfo(c), cfg)
-	c.Assert(err, IsNil)
-	c.Assert(st, NotNil)
-	defer st.Close()
-	environConfigWatcher := s.State.WatchEnvironConfig()
+func (s *StateSuite) TestWatchEnvironConfig(c *C) {
+	watcher := s.State.WatchEnvironConfig()
 	defer func() {
-		c.Assert(environConfigWatcher.Stop(), IsNil)
+		c.Assert(watcher.Stop(), IsNil)
 	}()
-	s.State.StartSync()
-
-	cfg, ok := <-environConfigWatcher.Changes()
-	c.Assert(ok, Equals, true)
-	attrs := cfg.AllAttrs()
-	c.Assert(attrs, DeepEquals, m)
-
-	for i, test := range environmentWatchTests {
+	for i, test := range watchEnvironConfigTests {
 		c.Logf("test %d", i)
 		change, err := config.New(test)
 		c.Assert(err, IsNil)
@@ -714,20 +689,97 @@ func (s *StateSuite) TestWatchEnvironment(c *C) {
 		c.Assert(err, IsNil)
 		s.State.StartSync()
 		select {
-		case got, ok := <-environConfigWatcher.Changes():
+		case got, ok := <-watcher.Changes():
 			c.Assert(ok, Equals, true)
-			gotAttrs := got.AllAttrs()
-			for key, value := range test {
-				c.Assert(gotAttrs[key], Equals, value)
-			}
+			c.Assert(got.AllAttrs(), DeepEquals, change.AllAttrs())
 		case <-time.After(500 * time.Millisecond):
 			c.Fatalf("did not get change: %#v", test)
 		}
 	}
 
 	select {
-	case got := <-environConfigWatcher.Changes():
+	case got := <-watcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func (s *StateSuite) TestWatchEnvironConfigInitialConfig(c *C) {
+	cfg, err := config.New(watchEnvironConfigTests[0])
+	c.Assert(err, IsNil)
+	err = s.State.SetEnvironConfig(cfg)
+	c.Assert(err, IsNil)
+	s.State.Sync()
+	watcher := s.State.WatchEnvironConfig()
+	defer watcher.Stop()
+	select {
+	case got, ok := <-watcher.Changes():
+		c.Assert(ok, Equals, true)
+		c.Assert(got.AllAttrs(), DeepEquals, cfg.AllAttrs())
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("did not get change")
+	}
+}
+
+func (s *StateSuite) TestWatchEnvironConfigInvalidConfig(c *C) {
+	m := map[string]interface{}{
+		"type":            "dummy",
+		"name":            "lisboa",
+		"authorized-keys": "i-am-a-key",
+	}
+	cfg1, err := config.New(m)
+	c.Assert(err, IsNil)
+	err = s.State.SetEnvironConfig(cfg1)
+	c.Assert(err, IsNil)
+
+	// Corrupt the environment configuration.
+	settings := s.Session.DB("juju").C("settings")
+	err = settings.UpdateId("e", bson.D{{"$unset", bson.D{{"name", 1}}}})
+	c.Assert(err, IsNil)
+
+	s.State.Sync()
+
+	// Start watching the configuration.
+	watcher := s.State.WatchEnvironConfig()
+	defer watcher.Stop()
+	done := make(chan *config.Config)
+	go func() {
+		select {
+		case cfg, ok := <-watcher.Changes():
+			if !ok {
+				c.Errorf("watcher channel closed")
+			} else {
+				done <- cfg
+			}
+		case <-time.After(5 * time.Second):
+			c.Fatalf("no environment configuration observed")
+		}
+	}()
+
+	s.State.Sync()
+
+	// The invalid configuration must not have been generated.
+	select {
+	case <-done:
+		c.Fatalf("configuration returned too soon")
 	case <-time.After(100 * time.Millisecond):
+	}
+
+	// Fix the configuration.
+	cfg2, err := config.New(map[string]interface{}{
+		"type":            "dummy",
+		"name":            "lisboa",
+		"authorized-keys": "new-key",
+	})
+	c.Assert(err, IsNil)
+	err = s.State.SetEnvironConfig(cfg2)
+	c.Assert(err, IsNil)
+
+	s.State.StartSync()
+	select {
+	case cfg3 := <-done:
+		c.Assert(cfg3.AllAttrs(), DeepEquals, cfg2.AllAttrs())
+	case <-time.After(5 * time.Second):
+		c.Fatalf("no environment configuration observed")
 	}
 }

@@ -185,13 +185,6 @@ type MachineUnitsChange struct {
 	Removed []*Unit
 }
 
-// EnvironConfigWatcher observes changes to the
-// environment configuration.
-type EnvironConfigWatcher struct {
-	commonWatcher
-	changeChan chan *config.Config
-}
-
 // newMachineWatcher creates and starts a watcher to watch information
 // about the machine.
 func newMachineWatcher(m *Machine) *MachineWatcher {
@@ -973,6 +966,13 @@ func (w *RelationScopeWatcher) loop() error {
 	return nil
 }
 
+// EnvironConfigWatcher observes changes to the
+// environment configuration.
+type EnvironConfigWatcher struct {
+	commonWatcher
+	out chan *config.Config
+}
+
 // WatchEnvironConfig returns a watcher for observing changes
 // to the environment configuration.
 func (s *State) WatchEnvironConfig() *EnvironConfigWatcher {
@@ -981,12 +981,12 @@ func (s *State) WatchEnvironConfig() *EnvironConfigWatcher {
 
 func newEnvironConfigWatcher(s *State) *EnvironConfigWatcher {
 	w := &EnvironConfigWatcher{
-		changeChan:    make(chan *config.Config),
 		commonWatcher: commonWatcher{st: s},
+		out:           make(chan *config.Config),
 	}
 	go func() {
 		defer w.tomb.Done()
-		defer close(w.changeChan)
+		defer close(w.out)
 		w.tomb.Kill(w.loop())
 	}()
 	return w
@@ -996,47 +996,33 @@ func newEnvironConfigWatcher(s *State) *EnvironConfigWatcher {
 // configuration when a change is detected. Note that multiple changes may
 // be observed as a single event in the channel.
 func (w *EnvironConfigWatcher) Changes() <-chan *config.Config {
-	return w.changeChan
+	return w.out
 }
 
 func (w *EnvironConfigWatcher) loop() (err error) {
-	settingsWatcher := w.st.watchConfig("e")
-	defer settingsWatcher.Stop()
-	changes := settingsWatcher.Changes()
-	configNode, ok := <-changes
-	if !ok {
-		return watcher.MustErr(settingsWatcher)
-	}
-	cfg, err := config.New(configNode.Map())
-	if err != nil {
-		return err
-	}
+	sw := w.st.watchSettings("e")
+	defer sw.Stop()
+	nul := make(chan *config.Config)
+	out := nul
+	cfg := &config.Config{}
 	for {
-		for cfg != nil {
-			select {
-			case <-w.st.watcher.Dead():
-				return watcher.MustErr(w.st.watcher)
-			case <-w.tomb.Dying():
-				return tomb.ErrDying
-			case configNode := <-changes:
-				cfg, err = config.New(configNode.Map())
-				if err != nil {
-					return err
-				}
-			case w.changeChan <- cfg:
-				cfg = nil
-			}
-		}
 		select {
 		case <-w.st.watcher.Dead():
 			return watcher.MustErr(w.st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case configNode := <-changes:
-			cfg, err = config.New(configNode.Map())
-			if err != nil {
-				return err
+		case configNode, ok := <-sw.Changes():
+			if !ok {
+				return watcher.MustErr(sw)
 			}
+			cfg, err = config.New(configNode.Map())
+			if err == nil {
+				out = w.out
+			} else {
+				out = nul
+			}
+		case out <- cfg:
+			out = nul
 		}
 	}
 	return nil
@@ -1044,22 +1030,22 @@ func (w *EnvironConfigWatcher) loop() (err error) {
 
 type settingsWatcher struct {
 	commonWatcher
-	changeChan chan *ConfigNode
+	out chan *ConfigNode
 }
 
-// watchConfig creates a watcher for observing changes to settings.
-func (s *State) watchConfig(key string) *settingsWatcher {
+// watchSettings creates a watcher for observing changes to settings.
+func (s *State) watchSettings(key string) *settingsWatcher {
 	return newSettingsWatcher(s, key)
 }
 
 func newSettingsWatcher(s *State, key string) *settingsWatcher {
 	w := &settingsWatcher{
-		changeChan:    make(chan *ConfigNode),
 		commonWatcher: commonWatcher{st: s},
+		out:           make(chan *ConfigNode),
 	}
 	go func() {
 		defer w.tomb.Done()
-		defer close(w.changeChan)
+		defer close(w.out)
 		w.tomb.Kill(w.loop(key))
 	}()
 	return w
@@ -1068,7 +1054,7 @@ func newSettingsWatcher(s *State, key string) *settingsWatcher {
 // Changes returns a channel that will receive the new settings.
 // Multiple changes may be observed as a single event in the channel.
 func (w *settingsWatcher) Changes() <-chan *ConfigNode {
-	return w.changeChan
+	return w.out
 }
 
 func (w *settingsWatcher) loop(key string) (err error) {
@@ -1079,22 +1065,9 @@ func (w *settingsWatcher) loop(key string) (err error) {
 	}
 	w.st.watcher.Watch(w.st.settings.Name, key, configNode.txnRevno, ch)
 	defer w.st.watcher.Unwatch(w.st.settings.Name, key, ch)
+	out := w.out
+	nul := make(chan *ConfigNode)
 	for {
-		for configNode != nil {
-			select {
-			case <-w.st.watcher.Dead():
-				return watcher.MustErr(w.st.watcher)
-			case <-w.tomb.Dying():
-				return tomb.ErrDying
-			case <-ch:
-				configNode, err = readConfigNode(w.st, key)
-				if err != nil {
-					return err
-				}
-			case w.changeChan <- configNode:
-				configNode = nil
-			}
-		}
 		select {
 		case <-w.st.watcher.Dead():
 			return watcher.MustErr(w.st.watcher)
@@ -1105,6 +1078,9 @@ func (w *settingsWatcher) loop(key string) (err error) {
 			if err != nil {
 				return err
 			}
+			out = w.out
+		case out <- configNode:
+			out = nul
 		}
 	}
 	return nil
