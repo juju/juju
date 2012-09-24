@@ -172,8 +172,8 @@ func (u *Unit) EnsureDead() error {
 }
 
 // Resolved returns the resolved mode for the unit.
-func (u *Unit) Resolved() (mode ResolvedMode, err error) {
-	return u.doc.Resolved, nil
+func (u *Unit) Resolved() ResolvedMode {
+	return u.doc.Resolved
 }
 
 // IsPrincipal returns whether the unit is deployed in its own container,
