@@ -30,6 +30,13 @@ func (s *StateSuite) TestDialAgain(c *C) {
 	}
 }
 
+func (s *StateSuite) TestIsNotFound(c *C) {
+	err1 := fmt.Errorf("unrelated error")
+	err2 := &state.NotFoundError{}
+	c.Assert(state.IsNotFound(err1), Equals, false)
+	c.Assert(state.IsNotFound(err2), Equals, true)
+}
+
 func (s *StateSuite) TestAddCharm(c *C) {
 	// Check that adding charms from scratch works correctly.
 	ch := testing.Charms.Dir("series", "dummy")
@@ -97,6 +104,12 @@ func (s *StateSuite) TestReadMachine(c *C) {
 	c.Assert(machine.Id(), Equals, expectedId)
 }
 
+func (s *StateSuite) TestMachineNotFound(c *C) {
+	_, err := s.State.Machine(0)
+	c.Assert(err, ErrorMatches, "machine 0 not found")
+	c.Assert(state.IsNotFound(err), Equals, true)
+}
+
 func (s *StateSuite) TestAllMachines(c *C) {
 	c.Skip("Marshalling of agent tools is currently broken")
 	numInserts := 42
@@ -153,6 +166,12 @@ func (s *StateSuite) TestAddService(c *C) {
 	c.Assert(ch.URL(), DeepEquals, charm.URL())
 }
 
+func (s *StateSuite) TestServiceNotFound(c *C) {
+	_, err := s.State.Service("bummer")
+	c.Assert(err, ErrorMatches, `service "bummer" not found`)
+	c.Assert(state.IsNotFound(err), Equals, true)
+}
+
 func (s *StateSuite) TestRemoveService(c *C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	service, err := s.State.AddService("wordpress", charm)
@@ -166,16 +185,10 @@ func (s *StateSuite) TestRemoveService(c *C) {
 	err = s.State.RemoveService(service)
 	c.Assert(err, IsNil)
 	_, err = s.State.Service("wordpress")
-	c.Assert(err, ErrorMatches, `cannot get service "wordpress": .*`)
+	c.Assert(err, ErrorMatches, `service "wordpress" not found`)
 
 	err = s.State.RemoveService(service)
 	c.Assert(err, IsNil)
-}
-
-func (s *StateSuite) TestReadNonExistentService(c *C) {
-	// BUG(aram): use error strings from state.
-	_, err := s.State.Service("pressword")
-	c.Assert(err, ErrorMatches, `cannot get service "pressword": .*`)
 }
 
 func (s *StateSuite) TestAllServices(c *C) {

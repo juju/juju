@@ -526,7 +526,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 	}
 	err = u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, &NotFoundError{"machine"}))
+		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, notFound("machine")))
 	}
 	u.doc.MachineId = nil
 	return nil
@@ -541,7 +541,7 @@ func (u *Unit) SetPublicAddress(address string) (err error) {
 		Update: D{{"$set", D{{"publicaddress", address}}}},
 	}}
 	if err := u.st.runner.Run(ops, "", nil); err != nil {
-		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, &NotFoundError{"machine"}))
+		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, notFound("machine")))
 	}
 	u.doc.PublicAddress = address
 	return nil
@@ -557,7 +557,7 @@ func (u *Unit) SetPrivateAddress(address string) error {
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot set private address of unit %q: %v", u, &NotFoundError{"unit"})
+		return fmt.Errorf("cannot set private address of unit %q: %v", u, notFound("unit"))
 	}
 	u.doc.PrivateAddress = address
 	return nil
@@ -609,7 +609,7 @@ func (u *Unit) ClearResolved() error {
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, &NotFoundError{"unit"})
+		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, notFound("unit"))
 	}
 	u.doc.Resolved = ResolvedNone
 	return nil
