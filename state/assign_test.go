@@ -485,7 +485,7 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicy(c *C) {
 		unit := units[0]
 		err = unit.UnassignFromMachine()
 		c.Assert(err, IsNil)
-		err = unit.Die()
+		err = unit.EnsureDying()
 		c.Assert(err, IsNil)
 		unused = append(unused, mid)
 	}
