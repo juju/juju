@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
@@ -35,7 +36,7 @@ func Open(info *Info) (*State, error) {
 		return nil, errors.New("no mongo addresses")
 	}
 	if !info.UseSSH {
-		session, err := mgo.DialWithTimeout(strings.Join(info.Addrs, ","), 1 * time.Minute)
+		session, err := mgo.DialWithTimeout(strings.Join(info.Addrs, ","), 10 * time.Minute)
 		if err != nil {
 			return nil, err
 		}
