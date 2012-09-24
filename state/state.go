@@ -44,11 +44,11 @@ func IsUnitName(name string) bool {
 // NotFoundError represents the error that something is not found.
 type NotFoundError struct {
 	format string
-	args []interface{}
+	args   []interface{}
 }
 
 func (e *NotFoundError) Error() string {
-	return fmt.Sprintf(e.format + " not found", e.args...)
+	return fmt.Sprintf(e.format+" not found", e.args...)
 }
 
 func notFound(format string, args ...interface{}) error {
