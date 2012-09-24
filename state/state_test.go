@@ -244,66 +244,57 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 }
 
 var machinesWatchTests = []struct {
-	test    func(*C, *state.State)
-	added   []int
-	removed []int
+	test  func(*C, *state.State)
+	alive []int
+	dead  []int
 }{
 	{
-		test:  func(_ *C, _ *state.State) {},
-		added: []int{},
-	},
-	{
+		test: func(_ *C, _ *state.State) {},
+	}, {
 		test: func(c *C, s *state.State) {
 			_, err := s.AddMachine()
 			c.Assert(err, IsNil)
 		},
-		added: []int{0},
-	},
-	{
+		alive: []int{0},
+	}, {
 		test: func(c *C, s *state.State) {
 			_, err := s.AddMachine()
 			c.Assert(err, IsNil)
+			m0, err := s.Machine(0)
+			c.Assert(err, IsNil)
+			err = m0.SetInstanceId("spam")
+			c.Assert(err, IsNil)
 		},
-		added: []int{1},
-	},
-	{
+		alive: []int{1},
+	}, {
 		test: func(c *C, s *state.State) {
 			_, err := s.AddMachine()
 			c.Assert(err, IsNil)
 			_, err = s.AddMachine()
 			c.Assert(err, IsNil)
 		},
-		added: []int{2, 3},
-	},
-	{
+		alive: []int{2, 3},
+	}, {
 		test: func(c *C, s *state.State) {
 			m3, err := s.Machine(3)
 			c.Assert(err, IsNil)
 			err = m3.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine(3)
-			c.Assert(err, IsNil)
 		},
-		removed: []int{3},
-	},
-	{
+		dead: []int{3},
+	}, {
 		test: func(c *C, s *state.State) {
 			m0, err := s.Machine(0)
 			c.Assert(err, IsNil)
 			err = m0.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine(0)
-			c.Assert(err, IsNil)
 			m2, err := s.Machine(2)
 			c.Assert(err, IsNil)
 			err = m2.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine(2)
-			c.Assert(err, IsNil)
 		},
-		removed: []int{0, 2},
-	},
-	{
+		dead: []int{0, 2},
+	}, {
 		test: func(c *C, s *state.State) {
 			_, err := s.AddMachine()
 			c.Assert(err, IsNil)
@@ -311,13 +302,10 @@ var machinesWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = m1.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine(1)
-			c.Assert(err, IsNil)
 		},
-		added:   []int{4},
-		removed: []int{1},
-	},
-	{
+		alive: []int{4},
+		dead:  []int{1},
+	}, {
 		test: func(c *C, s *state.State) {
 			machines := [20]*state.Machine{}
 			var err error
@@ -332,13 +320,10 @@ var machinesWatchTests = []struct {
 			for i := 10; i < len(machines); i++ {
 				err = machines[i].EnsureDead()
 				c.Assert(err, IsNil)
-				err = s.RemoveMachine(i + 5)
-				c.Assert(err, IsNil)
 			}
 		},
-		added: []int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
-	},
-	{
+		alive: []int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
+	}, {
 		test: func(c *C, s *state.State) {
 			_, err := s.AddMachine()
 			c.Assert(err, IsNil)
@@ -346,11 +331,9 @@ var machinesWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = m9.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine(9)
-			c.Assert(err, IsNil)
 		},
-		added:   []int{25},
-		removed: []int{9},
+		alive: []int{25},
+		dead:  []int{9},
 	},
 }
 
@@ -368,13 +351,13 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 			select {
 			case new, ok := <-machineWatcher.Changes():
 				c.Assert(ok, Equals, true)
-				addMachineChanges(got, new)
-				if moreMachinesRequired(got, test.added, test.removed) {
+				addMachinesChange(got, new)
+				if moreMachinesRequired(got, test.alive, test.dead) {
 					continue
 				}
-				assertSameMachines(c, got, test.added, test.removed)
+				assertSameMachines(c, got, test.alive, test.dead)
 			case <-time.After(500 * time.Millisecond):
-				c.Fatalf("did not get change, want: added: %#v, removed: %#v, got: %#v", test.added, test.removed, got)
+				c.Fatalf("did not get change, want: alive: %#v, dead: %#v, got: %#v", test.alive, test.dead, got)
 			}
 			break
 		}
@@ -386,41 +369,21 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 	}
 }
 
-func moreMachinesRequired(got *state.MachinesChange, added, removed []int) bool {
-	return len(got.Added)+len(got.Removed) < len(added)+len(removed)
+func moreMachinesRequired(got *state.MachinesChange, alive, dead []int) bool {
+	return len(got.Alive)+len(got.Dead) < len(alive)+len(dead)
 }
 
-func addMachineChanges(changes *state.MachinesChange, more *state.MachinesChange) {
-	changes.Added = append(changes.Added, more.Added...)
-	changes.Removed = append(changes.Removed, more.Removed...)
+func addMachinesChange(change *state.MachinesChange, more *state.MachinesChange) {
+	change.Alive = append(change.Alive, more.Alive...)
+	change.Dead = append(change.Dead, more.Dead...)
 }
 
-type machineSlice []*state.Machine
-
-func (m machineSlice) Len() int           { return len(m) }
-func (m machineSlice) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
-func (m machineSlice) Less(i, j int) bool { return m[i].Id() < m[j].Id() }
-
-func assertSameMachines(c *C, change *state.MachinesChange, added, removed []int) {
-	c.Assert(change, NotNil)
-	if len(added) == 0 {
-		added = nil
-	}
-	if len(removed) == 0 {
-		removed = nil
-	}
-	sort.Sort(machineSlice(change.Added))
-	sort.Sort(machineSlice(change.Removed))
-	var got []int
-	for _, g := range change.Added {
-		got = append(got, g.Id())
-	}
-	c.Assert(got, DeepEquals, added)
-	got = nil
-	for _, g := range change.Removed {
-		got = append(got, g.Id())
-	}
-	c.Assert(got, DeepEquals, removed)
+func assertSameMachines(c *C, got *state.MachinesChange, alive, dead []int) {
+	c.Assert(got, NotNil)
+	sort.Ints(got.Alive)
+	sort.Ints(got.Dead)
+	c.Assert(got.Alive, DeepEquals, alive)
+	c.Assert(got.Dead, DeepEquals, dead)
 }
 
 var servicesWatchTests = []struct {
