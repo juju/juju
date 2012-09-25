@@ -1070,6 +1070,8 @@ func (w *RelationUnitsWatcher) loop() (err error) {
 			}
 			if !sentInitial || !changes.empty() {
 				out = w.out
+			} else {
+				out = nil
 			}
 		case c := <-w.updates:
 			if _, err = w.mergeSettings(&changes, c.Id.(string)); err != nil {
