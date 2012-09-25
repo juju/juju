@@ -233,7 +233,7 @@ type RelationContext struct {
 
 // NewRelationContext creates a new context for the given relation unit.
 // The unit-name keys of members supplies the initial membership.
-func NewRelationContext(ru *state.RelationUnit, members map[string]int) *RelationContext {
+func NewRelationContext(ru *state.RelationUnit, members map[string]int64) *RelationContext {
 	ctx := &RelationContext{ru: ru, members: SettingsMap{}}
 	for unit := range members {
 		ctx.members[unit] = nil
