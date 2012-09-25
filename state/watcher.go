@@ -182,7 +182,7 @@ type MachineUnitsChange struct {
 // MachineWatcher observes changes to the properties of a machine.
 type MachineWatcher struct {
 	commonWatcher
-	out chan int
+	out chan struct{}
 }
 
 // newMachineWatcher creates and starts a watcher to watch information
@@ -190,7 +190,7 @@ type MachineWatcher struct {
 func newMachineWatcher(m *Machine) *MachineWatcher {
 	w := &MachineWatcher{
 		commonWatcher: commonWatcher{st: m.st},
-		out:           make(chan int),
+		out:           make(chan struct{}),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -200,14 +200,16 @@ func newMachineWatcher(m *Machine) *MachineWatcher {
 	return w
 }
 
-// Changes returns a channel that will receive the machine id
+// Changes returns a channel that will receive an event
 // when a change is detected. Note that multiple changes may
 // be observed as a single event in the channel.
 // As conventional for watchers, an initial event is sent when
 // the watcher starts up, whether changes are detected or not.
-func (w *MachineWatcher) Changes() <-chan int {
+func (w *MachineWatcher) Changes() <-chan struct{} {
 	return w.out
 }
+
+var nothing struct{}
 
 func (w *MachineWatcher) loop(m *Machine) (err error) {
 	ch := make(chan watcher.Change)
@@ -224,7 +226,7 @@ func (w *MachineWatcher) loop(m *Machine) (err error) {
 			return tomb.ErrDying
 		case <-ch:
 			out = w.out
-		case out <- id:
+		case out <- nothing:
 			out = nil
 		}
 	}
