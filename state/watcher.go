@@ -101,12 +101,6 @@ func (w *commonWatcher) Err() error {
 	return w.tomb.Err()
 }
 
-// MachineWatcher observes changes to the settings of a machine.
-type MachineWatcher struct {
-	commonWatcher
-	changeChan chan *Machine
-}
-
 // ServicesWatcher observes the addition and removal of services.
 type ServicesWatcher struct {
 	commonWatcher
@@ -185,29 +179,37 @@ type MachineUnitsChange struct {
 	Removed []*Unit
 }
 
+// MachineWatcher observes changes to the properties of a machine.
+type MachineWatcher struct {
+	commonWatcher
+	out chan struct{}
+}
+
 // newMachineWatcher creates and starts a watcher to watch information
 // about the machine.
 func newMachineWatcher(m *Machine) *MachineWatcher {
 	w := &MachineWatcher{
-		changeChan:    make(chan *Machine),
 		commonWatcher: commonWatcher{st: m.st},
+		out:           make(chan struct{}),
 	}
 	go func() {
 		defer w.tomb.Done()
-		defer close(w.changeChan)
+		defer close(w.out)
 		w.tomb.Kill(w.loop(m))
 	}()
 	return w
 }
 
-// Changes returns a channel that will receive the new
-// *Machine when a change is detected. Note that multiple
-// changes may be observed as a single event in the channel.
-// The first event on the channel holds the initial state
-// as returned by Machine.Info.
-func (w *MachineWatcher) Changes() <-chan *Machine {
-	return w.changeChan
+// Changes returns a channel that will receive an event
+// when a change is detected. Note that multiple changes may
+// be observed as a single event in the channel.
+// As conventional for watchers, an initial event is sent when
+// the watcher starts up, whether changes are detected or not.
+func (w *MachineWatcher) Changes() <-chan struct{} {
+	return w.out
 }
+
+var nothing struct{}
 
 func (w *MachineWatcher) loop(m *Machine) (err error) {
 	ch := make(chan watcher.Change)
@@ -215,6 +217,7 @@ func (w *MachineWatcher) loop(m *Machine) (err error) {
 	st := m.st
 	st.watcher.Watch(st.machines.Name, id, m.doc.TxnRevno, ch)
 	defer st.watcher.Unwatch(st.machines.Name, id, ch)
+	out := w.out
 	for {
 		select {
 		case <-st.watcher.Dead():
@@ -222,24 +225,9 @@ func (w *MachineWatcher) loop(m *Machine) (err error) {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-ch:
-		}
-		if m, err = st.Machine(id); err != nil {
-			return err
-		}
-		for {
-			select {
-			case <-st.watcher.Dead():
-				return watcher.MustErr(st.watcher)
-			case <-w.tomb.Dying():
-				return tomb.ErrDying
-			case <-ch:
-				if err := m.Refresh(); err != nil {
-					return err
-				}
-				continue
-			case w.changeChan <- m:
-			}
-			break
+			out = w.out
+		case out <- nothing:
+			out = nil
 		}
 	}
 	return nil
