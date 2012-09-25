@@ -226,7 +226,7 @@ func (t *LiveTests) machineAgentTools(c *C, m *state.Machine) (w *state.MachineW
 	w = m.Watch()
 
 	var gotTools *state.Tools
-	for _ = range w.Changes() {
+	for m := range w.Changes() {
 		tools, err := m.AgentTools()
 		c.Assert(err, IsNil)
 		if tools.URL == "" {
