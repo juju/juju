@@ -115,7 +115,12 @@ func (s *State) AddMachine() (m *Machine, err error) {
 	if err != nil {
 		return nil, err
 	}
-	return newMachine(s, &mdoc), nil
+	// Refresh to pick the txn-revno.
+	m = newMachine(s, &mdoc)
+	if err = m.Refresh(); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 var errNotAlive = fmt.Errorf("not found or not alive")
