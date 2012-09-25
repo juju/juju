@@ -254,53 +254,19 @@ func tools(tools int, url string) *state.Tools {
 	}
 }
 
-var watchMachineTests = []struct {
-	test func(m *state.Machine) error
-	want machineInfo
-}{
-	{
-		func(m *state.Machine) error {
-			return nil
-		},
-		machineInfo{
-			tools: &state.Tools{},
-		},
+var watchMachineTests = []func(m *state.Machine) error{
+	func(m *state.Machine) error {
+		return nil
 	},
-	{
-		func(m *state.Machine) error {
-			return m.SetInstanceId("m-foo")
-		},
-		machineInfo{
-			tools:      &state.Tools{},
-			instanceId: "m-foo",
-		},
+	func(m *state.Machine) error {
+		return m.SetInstanceId("m-foo")
 	},
-	{
-		func(m *state.Machine) error {
-			return m.SetInstanceId("")
-		},
-		machineInfo{
-			tools:      &state.Tools{},
-			instanceId: "",
-		},
+	func(m *state.Machine) error {
+		return m.SetInstanceId("")
 	},
-	// TODO SetAgentTools is missing.
-	//{
-	//  func(m *state.Machine) error {
-	//      return m.SetAgentTools(tools(3, "baz"))
-	//  },
-	//  machineInfo{
-	//      tools: tools(3, "baz"),
-	//  },
-	//},
-	//{
-	//  func(m *state.Machine) error {
-	//      return m.SetAgentTools(tools(4, "khroomph"))
-	//  },
-	//  machineInfo{
-	//      tools: tools(4, "khroomph"),
-	//  },
-	//},
+	func(m *state.Machine) error {
+		return m.SetAgentTools(tools(3, "baz"))
+	},
 }
 
 func (s *MachineSuite) TestWatchMachine(c *C) {
@@ -310,31 +276,21 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 	}()
 	for i, test := range watchMachineTests {
 		c.Logf("test %d", i)
-		err := test.test(s.machine)
+		err := test(s.machine)
 		c.Assert(err, IsNil)
 		s.State.StartSync()
 		select {
-		case m, ok := <-w.Changes():
+		case id, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
-			c.Assert(m.Id(), Equals, s.machine.Id())
-			var info machineInfo
-			// TODO AgentTools is missing.
-			info.tools = test.want.tools
-			//info.tools, err = m.AgentTools()
-			//c.Assert(err, IsNil)
-			info.instanceId, err = m.InstanceId()
-			if !state.IsNotFound(err) {
-				c.Assert(err, IsNil)
-			}
-			c.Assert(info, DeepEquals, test.want)
-		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("did not get change: %v", test.want)
+			c.Assert(id, Equals, s.machine.Id())
+		case <-time.After(5 * time.Second):
+			c.Fatalf("did not get change")
 		}
 	}
 	select {
 	case got := <-w.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(50 * time.Millisecond):
 	}
 }
 

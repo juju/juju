@@ -36,12 +36,12 @@ type Meta struct {
 	Name        string
 	Summary     string
 	Description string
-	Provides    map[string]Relation
-	Requires    map[string]Relation
-	Peers       map[string]Relation
-	Format      int
-	OldRevision int // Obsolete
 	Subordinate bool
+	Provides    map[string]Relation `bson:",omitempty"`
+	Requires    map[string]Relation `bson:",omitempty"`
+	Peers       map[string]Relation `bson:",omitempty"`
+	Format      int                 `bson:",omitempty"`
+	OldRevision int                 `bson:",omitempty"` // Obsolete
 }
 
 // ReadMeta reads the content of a metadata.yaml file and returns
