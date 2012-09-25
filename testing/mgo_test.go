@@ -4,14 +4,20 @@ import (
 	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/testing"
+	stdtesting "testing"
 )
 
-type mgoSuite struct{}
+type mgoSuite struct {
+	T *stdtesting.T
+}
 
-var _ = Suite(mgoSuite{})
+func TestMgoSuite(t *stdtesting.T) {
+	Suite(&mgoSuite{t})
+	TestingT(t)
+}
 
-func (mgoSuite) TestMgoStartAndClean(c *C) {
-	server, dbdir := testing.StartMgoServer()
+func (s *mgoSuite) TestMgoStartAndClean(c *C) {
+	server, dbdir := testing.StartMgoServer(s.T)
 	defer testing.MgoDestroy(server, dbdir)
 	c.Assert(testing.MgoAddr, Not(Equals), "")
 
