@@ -148,29 +148,6 @@ type RelationScopeChange struct {
 	Left    []string
 }
 
-// RelationUnitsWatcher sends notifications of units entering and leaving the
-// scope of a RelationUnit, and changes to the settings of those units known
-// to have entered.
-type RelationUnitsWatcher struct {
-	commonWatcher
-	sw           *RelationScopeWatcher
-	watching     map[string]bool
-	settingsChan chan watcher.Change
-	changeChan   chan RelationUnitsChange
-}
-
-// RelationUnitsChange represents a hook-oriented representation of the changes
-// to a set of counterpart units. When a counterpart first enters scope, it is
-// noted in the Joined field, and its settings are noted in the Changed field.
-// Subsequently, settings changed will be noted in the Changed field alone, until
-// the couterpart leaves the scope; at that point, it will be noted in the
-// Departed field, and no further events will be sent for that counterpart unit.
-type RelationUnitsChange struct {
-	Joined   []string
-	Changed  map[string]UnitSettings
-	Departed []string
-}
-
 // MachineUnitsWatcher observes the assignment and removal of units
 // to and from a machine.
 type MachineUnitsWatcher struct {
@@ -959,6 +936,32 @@ func (w *RelationScopeWatcher) loop() error {
 	return nil
 }
 
+// RelationUnitsWatcher sends notifications of units entering and leaving the
+// scope of a RelationUnit, and changes to the settings of those units known
+// to have entered.
+type RelationUnitsWatcher struct {
+	commonWatcher
+	sw       *RelationScopeWatcher
+	watching map[string]bool
+	updates  chan watcher.Change
+	out      chan RelationUnitsChange
+}
+
+// RelationUnitsChange holds notifications of units entering and leaving the
+// scope of a RelationUnit, and changes to the settings of those units known
+// to have entered.
+//
+// When a counterpart first enters scope, it is/ noted in the Joined field,
+// and its settings are noted in the Changed field. Subsequently, settings
+// changes will be noted in the Changed field alone, until the couterpart
+// leaves the scope; at that point, it will be noted in the Departed field,
+// and no further events will be sent for that counterpart unit.
+type RelationUnitsChange struct {
+	Joined   []string
+	Changed  map[string]UnitSettings
+	Departed []string
+}
+
 // Watch returns a watcher that notifies of changes to conterpart units in
 // the relation.
 func (ru *RelationUnit) Watch() *RelationUnitsWatcher {
@@ -970,8 +973,8 @@ func newRelationUnitsWatcher(ru *RelationUnit) *RelationUnitsWatcher {
 		commonWatcher: commonWatcher{st: ru.st},
 		sw:            ru.WatchScope(),
 		watching:      map[string]bool{},
-		settingsChan:  make(chan watcher.Change),
-		changeChan:    make(chan RelationUnitsChange),
+		updates:       make(chan watcher.Change),
+		out:           make(chan RelationUnitsChange),
 	}
 	go func() {
 		defer w.finish()
@@ -985,10 +988,10 @@ func newRelationUnitsWatcher(ru *RelationUnit) *RelationUnitsWatcher {
 // channel holds the initial state of the relation in its
 // Joined and Changed fields.
 func (w *RelationUnitsWatcher) Changes() <-chan RelationUnitsChange {
-	return w.changeChan
+	return w.out
 }
 
-func (changes *RelationUnitsChange) isEmpty() bool {
+func (changes *RelationUnitsChange) empty() bool {
 	return len(changes.Joined)+len(changes.Changed)+len(changes.Departed) == 0
 }
 
@@ -1010,78 +1013,82 @@ func (w *RelationUnitsWatcher) mergeSettings(changes *RelationUnitsChange, key s
 	return node.txnRevno, nil
 }
 
-// scopeChanges starts and stops settings watches on the units entering and
-// leaving the scope in the supplied event, and returns a RelationUnitsChange
-// expressing the changes to the relation and it settings.
-func (w *RelationUnitsWatcher) scopeChanges(c *RelationScopeChange) (*RelationUnitsChange, error) {
-	changes := &RelationUnitsChange{}
+// mergeScope starts and stops settings watches on the units entering and
+// leaving the scope in the supplied RelationScopeChange event, and applies
+// the expressed changes to the supplied RelationUnitsChange event.
+func (w *RelationUnitsWatcher) mergeScope(changes *RelationUnitsChange, c *RelationScopeChange) error {
 	for _, name := range c.Entered {
 		key := w.sw.prefix + name
 		revno, err := w.mergeSettings(changes, key)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		changes.Joined = append(changes.Joined, name)
-		w.st.watcher.Watch(w.st.settings.Name, key, revno, w.settingsChan)
+		changes.Departed = remove(changes.Departed, name)
+		w.st.watcher.Watch(w.st.settings.Name, key, revno, w.updates)
 		w.watching[key] = true
 	}
 	for _, name := range c.Left {
 		key := w.sw.prefix + name
 		changes.Departed = append(changes.Departed, name)
-		w.st.watcher.Unwatch(w.st.settings.Name, key, w.settingsChan)
+		if changes.Changed != nil {
+			delete(changes.Changed, name)
+		}
+		changes.Joined = remove(changes.Joined, name)
+		w.st.watcher.Unwatch(w.st.settings.Name, key, w.updates)
 		delete(w.watching, key)
 	}
-	return changes, nil
+	return nil
+}
+
+func remove(src []string, target string) []string {
+	for i, v := range src {
+		if target == v {
+			return append(src[:i], src[i+1:len(src)-1]...)
+		}
+	}
+	return src
 }
 
 func (w *RelationUnitsWatcher) finish() {
 	watcher.Stop(w.sw, &w.tomb)
 	for key := range w.watching {
-		w.st.watcher.Unwatch(w.st.settings.Name, key, w.settingsChan)
+		w.st.watcher.Unwatch(w.st.settings.Name, key, w.updates)
 	}
-	close(w.settingsChan)
-	close(w.changeChan)
+	close(w.updates)
+	close(w.out)
 	w.tomb.Done()
 }
 
 func (w *RelationUnitsWatcher) loop() (err error) {
-	emittedValue := false
-	var changes *RelationUnitsChange
+	sentInitial := false
+	changes := RelationUnitsChange{}
+	var out chan RelationUnitsChange
 	for {
-		for changes != nil {
-			select {
-			case <-w.st.watcher.Dead():
-				return watcher.MustErr(w.st.watcher)
-			case <-w.tomb.Dying():
-				return tomb.ErrDying
-			case c := <-w.settingsChan:
-				if _, err = w.mergeSettings(changes, c.Id.(string)); err != nil {
-					return err
-				}
-			case w.changeChan <- *changes:
-				emittedValue = true
-				changes = nil
-			}
-		}
-		changes = &RelationUnitsChange{}
 		select {
 		case <-w.st.watcher.Dead():
 			return watcher.MustErr(w.st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case c := <-w.settingsChan:
-			_, err = w.mergeSettings(changes, c.Id.(string))
 		case c, ok := <-w.sw.Changes():
 			if !ok {
 				return watcher.MustErr(w.sw)
 			}
-			changes, err = w.scopeChanges(c)
-		}
-		if err != nil {
-			return err
-		}
-		if emittedValue && changes.isEmpty() {
-			changes = nil
+			if err = w.mergeScope(&changes, c); err != nil {
+				return err
+			}
+			if !sentInitial || !changes.empty() {
+				out = w.out
+			}
+		case c := <-w.updates:
+			if _, err = w.mergeSettings(&changes, c.Id.(string)); err != nil {
+				return err
+			}
+			out = w.out
+		case out <- changes:
+			sentInitial = true
+			changes = RelationUnitsChange{}
+			out = nil
 		}
 	}
 	panic("unreachable")

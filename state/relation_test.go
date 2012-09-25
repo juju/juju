@@ -1096,7 +1096,7 @@ func (s *OriginalRelationUnitSuite) assertChange(
 	select {
 	case ch, ok := <-w.Changes():
 		if !ok {
-			c.Fatalf("channel closed: watcher error %#v", w.Err())
+			c.Fatalf("channel closed; watcher error: %#v", w.Err())
 		}
 		sort.Strings(joined)
 		sort.Strings(ch.Joined)
@@ -1108,7 +1108,7 @@ func (s *OriginalRelationUnitSuite) assertChange(
 		sort.Strings(departed)
 		sort.Strings(ch.Departed)
 		c.Assert(departed, DeepEquals, ch.Departed)
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(5 * time.Second):
 		c.Fatalf("expected joined %#v, changed %#v, departed %#v; got nothing", joined, changed, departed)
 	}
 }
@@ -1118,6 +1118,6 @@ func (s *OriginalRelationUnitSuite) assertNoChange(c *C, w *state.RelationUnitsW
 	select {
 	case ch := <-w.Changes():
 		c.Fatalf("got %#v, expected nothing", ch)
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(50 * time.Millisecond):
 	}
 }

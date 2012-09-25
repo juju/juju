@@ -81,13 +81,13 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *C) {
 	}
 
 	// re-Join is no-op.
-	//err = r.Join()
-	//c.Assert(err, IsNil)
+	err = r.Join()
+	c.Assert(err, IsNil)
 	s.State.StartSync()
 	select {
 	case ch, ok := <-w.Changes():
 		c.Fatalf("got unexpected change: %#v, %#v", ch, ok)
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(50 * time.Millisecond):
 	}
 
 	// u/0 leaves scope; u/1 observes it.
@@ -103,7 +103,7 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *C) {
 		c.Assert(ch.Joined, HasLen, 0)
 		c.Assert(ch.Changed, HasLen, 0)
 		c.Assert(ch.Departed, DeepEquals, []string{"u/0"})
-	case <-time.After(5000 * time.Millisecond):
+	case <-time.After(5 * time.Second):
 		c.Fatalf("timed out waiting for absence detection")
 	}
 }
