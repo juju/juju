@@ -1238,9 +1238,11 @@ func (w *UnitWatcher) Changes() <-chan *Unit {
 }
 
 func (w *UnitWatcher) loop(unit *Unit) (err error) {
-	ch := make(chan watcher.Change)
 	name := unit.doc.Name
-	unit = w.st.Unit(name)
+	if unit, err = w.st.Unit(name); err != nil {
+		return err
+	}
+	ch := make(chan watcher.Change)
 	w.st.watcher.Watch(w.st.units.Name, name, unit.doc.TxnRevno, ch)
 	defer w.st.watcher.Unwatch(w.st.units.Name, name, ch)
 	for {
@@ -1251,8 +1253,7 @@ func (w *UnitWatcher) loop(unit *Unit) (err error) {
 			case <-w.tomb.Dying():
 				return tomb.ErrDying
 			case <-ch:
-				unit, err = w.st.Unit(name)
-				if err != nil {
+				if unit, err = w.st.Unit(name); err != nil {
 					return err
 				}
 			case w.changeChan <- unit:
@@ -1265,8 +1266,7 @@ func (w *UnitWatcher) loop(unit *Unit) (err error) {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-ch:
-			unit, err = w.st.Unit(name)
-			if err != nil {
+			if unit, err = w.st.Unit(name); err != nil {
 				return err
 			}
 		}
@@ -1305,9 +1305,11 @@ func (w *ServiceWatcher) Changes() <-chan *Service {
 }
 
 func (w *ServiceWatcher) loop(service *Service) (err error) {
-	ch := make(chan watcher.Change)
 	name := service.doc.Name
-	service = w.st.Service(name)
+	if service, err = w.st.Service(name); err != nil {
+		return err
+	}
+	ch := make(chan watcher.Change)
 	w.st.watcher.Watch(w.st.services.Name, name, service.doc.TxnRevno, ch)
 	defer w.st.watcher.Unwatch(w.st.services.Name, name, ch)
 	for {
@@ -1318,8 +1320,7 @@ func (w *ServiceWatcher) loop(service *Service) (err error) {
 			case <-w.tomb.Dying():
 				return tomb.ErrDying
 			case <-ch:
-				service, err = w.st.Service(name)
-				if err != nil {
+				if service, err = w.st.Service(name); err != nil {
 					return err
 				}
 			case w.changeChan <- service:
@@ -1332,8 +1333,7 @@ func (w *ServiceWatcher) loop(service *Service) (err error) {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-ch:
-			service, err = w.st.Service(name)
-			if err != nil {
+			if service, err = w.st.Service(name); err != nil {
 				return err
 			}
 		}

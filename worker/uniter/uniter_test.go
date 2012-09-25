@@ -141,138 +141,135 @@ func (ctx *context) matchLogHooks(c *C) (bool, bool) {
 }
 
 var uniterTests = []uniterTest{
-	/*
-	   // Check conditions that can cause the uniter to fail to start.
-	   ut(
-	       "unable to create state dir",
-	       writeFile{"state", 0644},
-	       createCharm{},
-	       createServiceAndUnit{},
-	       startUniter{`failed to create uniter for unit "u/0": .*state must be a directory`},
-	   ), ut(
-	       "unknown unit",
-	       startUniter{`failed to create uniter for unit "u/0": unit "u/0" not found`},
-	   ),
-	   // Check error conditions during unit bootstrap phase.
-	   ut(
-	       "insane deployment",
-	       createCharm{},
-	       serveCharm{},
-	       writeFile{"charm", 0644},
-	       createUniter{},
-	       waitUniterDead{`ModeInstalling: charm deployment failed: ".*XXX/charm" is not a directory`},
-	   ), ut(
-	       "charm cannot be downloaded",
-	       createCharm{},
-	       custom{func(c *C, ctx *context) {
-	           coretesting.Server.Response(404, nil, nil)
-	       }},
-	       createUniter{},
-	       waitUniterDead{`ModeInstalling: failed to download charm .* 404 Not Found`},
-	   ), ut(
-	       "install hook fail and resolve",
-	       startupError{"install"},
-	       verifyWaiting{},
-
-	       resolveError{state.ResolvedNoHooks},
-	       waitUnit{
-	           status: state.UnitStarted,
-	       },
-	       waitHooks{"start", "config-changed"},
-	   ), ut(
-	       "install hook fail and retry",
-	       startupError{"install"},
-	       verifyWaiting{},
-
-	       resolveError{state.ResolvedRetryHooks},
-	       waitUnit{
-	           status: state.UnitError,
-	           info:   `hook failed: "install"`,
-	       },
-	       waitHooks{"fail-install"},
-	       fixHook{"install"},
-	       verifyWaiting{},
-
-	       resolveError{state.ResolvedRetryHooks},
-	       waitUnit{
-	           status: state.UnitStarted,
-	       },
-	       waitHooks{"install", "start", "config-changed"},
-	   ), ut(
-	       "start hook fail and resolve",
-	       startupError{"start"},
-	       verifyWaiting{},
-
-	       resolveError{state.ResolvedNoHooks},
-	       waitUnit{
-	           status: state.UnitStarted,
-	       },
-	       waitHooks{"config-changed"},
-	       verifyRunning{},
-	   ), ut(
-	       "start hook fail and retry",
-	       startupError{"start"},
-	       verifyWaiting{},
-
-	       resolveError{state.ResolvedRetryHooks},
-	       waitUnit{
-	           status: state.UnitError,
-	           info:   `hook failed: "start"`,
-	       },
-	       waitHooks{"fail-start"},
-	       verifyWaiting{},
-
-	       fixHook{"start"},
-	       resolveError{state.ResolvedRetryHooks},
-	       waitUnit{
-	           status: state.UnitStarted,
-	       },
-	       waitHooks{"start", "config-changed"},
-	       verifyRunning{},
-	   ), ut(
-	       "config-changed hook fail and resolve",
-	       startupError{"config-changed"},
-	       verifyWaiting{},
-
-	       // Note: we'll run another config-changed as soon as we hit the
-	       // started state, so the broken hook would actually prevent us
-	       // from advancing at all if we didn't fix it.
-	       fixHook{"config-changed"},
-	       resolveError{state.ResolvedNoHooks},
-	       waitUnit{
-	           status: state.UnitStarted,
-	       },
-	       waitHooks{"config-changed"},
-	       // If we'd accidentally retried that hook, somehow, we would get
-	       // an extra config-changed as we entered started; see that we don't.
-	       waitHooks{},
-	       verifyRunning{},
-	   ), ut(
-	       "config-changed hook fail and retry",
-	       startupError{"config-changed"},
-	       verifyWaiting{},
-
-	       resolveError{state.ResolvedRetryHooks},
-	       waitUnit{
-	           status: state.UnitError,
-	           info:   `hook failed: "config-changed"`,
-	       },
-	       waitHooks{"fail-config-changed"},
-	       verifyWaiting{},
-
-	       fixHook{"config-changed"},
-	       resolveError{state.ResolvedRetryHooks},
-	       waitUnit{
-	           status: state.UnitStarted,
-	       },
-	       // Note: the second config-changed hook is automatically run as we
-	       // enter started. IMO the simplicity and clarity of that approach
-	       // outweigh this slight inelegance.
-	       waitHooks{"config-changed", "config-changed"},
-	       verifyRunning{},
-	   ), 
-	*/
+	// Check conditions that can cause the uniter to fail to start.
 	ut(
+		"unable to create state dir",
+		writeFile{"state", 0644},
+		createCharm{},
+		createServiceAndUnit{},
+		startUniter{`failed to create uniter for unit "u/0": .*state must be a directory`},
+	), ut(
+		"unknown unit",
+		startUniter{`failed to create uniter for unit "u/0": unit "u/0" not found`},
+	),
+	// Check error conditions during unit bootstrap phase.
+	ut(
+		"insane deployment",
+		createCharm{},
+		serveCharm{},
+		writeFile{"charm", 0644},
+		createUniter{},
+		waitUniterDead{`ModeInstalling: charm deployment failed: ".*charm" is not a directory`},
+	), ut(
+		"charm cannot be downloaded",
+		createCharm{},
+		custom{func(c *C, ctx *context) {
+			coretesting.Server.Response(404, nil, nil)
+		}},
+		createUniter{},
+		waitUniterDead{`ModeInstalling: failed to download charm .* 404 Not Found`},
+	), ut(
+		"install hook fail and resolve",
+		startupError{"install"},
+		verifyWaiting{},
+
+		resolveError{state.ResolvedNoHooks},
+		waitUnit{
+			status: state.UnitStarted,
+		},
+		waitHooks{"start", "config-changed"},
+	), ut(
+		"install hook fail and retry",
+		startupError{"install"},
+		verifyWaiting{},
+
+		resolveError{state.ResolvedRetryHooks},
+		waitUnit{
+			status: state.UnitError,
+			info:   `hook failed: "install"`,
+		},
+		waitHooks{"fail-install"},
+		fixHook{"install"},
+		verifyWaiting{},
+
+		resolveError{state.ResolvedRetryHooks},
+		waitUnit{
+			status: state.UnitStarted,
+		},
+		waitHooks{"install", "start", "config-changed"},
+	), ut(
+		"start hook fail and resolve",
+		startupError{"start"},
+		verifyWaiting{},
+
+		resolveError{state.ResolvedNoHooks},
+		waitUnit{
+			status: state.UnitStarted,
+		},
+		waitHooks{"config-changed"},
+		verifyRunning{},
+	), ut(
+		"start hook fail and retry",
+		startupError{"start"},
+		verifyWaiting{},
+
+		resolveError{state.ResolvedRetryHooks},
+		waitUnit{
+			status: state.UnitError,
+			info:   `hook failed: "start"`,
+		},
+		waitHooks{"fail-start"},
+		verifyWaiting{},
+
+		fixHook{"start"},
+		resolveError{state.ResolvedRetryHooks},
+		waitUnit{
+			status: state.UnitStarted,
+		},
+		waitHooks{"start", "config-changed"},
+		verifyRunning{},
+	), ut(
+		"config-changed hook fail and resolve",
+		startupError{"config-changed"},
+		verifyWaiting{},
+
+		// Note: we'll run another config-changed as soon as we hit the
+		// started state, so the broken hook would actually prevent us
+		// from advancing at all if we didn't fix it.
+		fixHook{"config-changed"},
+		resolveError{state.ResolvedNoHooks},
+		waitUnit{
+			status: state.UnitStarted,
+		},
+		waitHooks{"config-changed"},
+		// If we'd accidentally retried that hook, somehow, we would get
+		// an extra config-changed as we entered started; see that we don't.
+		waitHooks{},
+		verifyRunning{},
+	), ut(
+		"config-changed hook fail and retry",
+		startupError{"config-changed"},
+		verifyWaiting{},
+
+		resolveError{state.ResolvedRetryHooks},
+		waitUnit{
+			status: state.UnitError,
+			info:   `hook failed: "config-changed"`,
+		},
+		waitHooks{"fail-config-changed"},
+		verifyWaiting{},
+
+		fixHook{"config-changed"},
+		resolveError{state.ResolvedRetryHooks},
+		waitUnit{
+			status: state.UnitStarted,
+		},
+		// Note: the second config-changed hook is automatically run as we
+		// enter started. IMO the simplicity and clarity of that approach
+		// outweigh this slight inelegance.
+		waitHooks{"config-changed", "config-changed"},
+		verifyRunning{},
+	), ut(
 		"steady state config change",
 		quickStart{},
 		changeConfig{},
@@ -729,7 +726,7 @@ func (s waitUniterDead) step(c *C, ctx *context) {
 	case <-u.Dying():
 		err := u.Wait()
 		c.Assert(err, ErrorMatches, s.err)
-	case <-time.After(3 * time.Second):
+	case <-time.After(5 * time.Second):
 		c.Fatalf("uniter still alive")
 	}
 }
@@ -815,7 +812,7 @@ type waitUnit struct {
 }
 
 func (s waitUnit) step(c *C, ctx *context) {
-	timeout := time.After(15 * time.Second)
+	timeout := time.After(10 * time.Second)
 	for {
 		select {
 		case <-time.After(50 * time.Millisecond):
@@ -871,7 +868,7 @@ func (s waitHooks) step(c *C, ctx *context) {
 	if match {
 		return
 	}
-	timeout := time.After(5 * time.Second)
+	timeout := time.After(10 * time.Second)
 	for {
 		select {
 		case <-time.After(50 * time.Millisecond):
