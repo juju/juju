@@ -74,6 +74,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	c.Assert(err, IsNil, Commentf("opening environ %q", t.Name))
 	c.Assert(e, NotNil)
 	t.Env = e
+	c.Logf("environment configuration: %v", e.Config().AllAttrs())
 }
 
 func (t *LiveTests) TearDownSuite(c *C) {
