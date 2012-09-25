@@ -96,13 +96,14 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
 	iid, err := machine.InstanceId()
-	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+	c.Assert(state.IsNotFound(err), Equals, true)
 	c.Assert(iid, Equals, "")
 }
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {
 	iid, err := s.machine.InstanceId()
-	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(err, ErrorMatches, "instance id for machine 0 not found")
 	c.Assert(iid, Equals, "")
 }
 
@@ -118,7 +119,7 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
 	iid, err := machine.InstanceId()
-	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+	c.Assert(state.IsNotFound(err), Equals, true)
 	c.Assert(iid, Equals, "")
 }
 
@@ -285,20 +286,20 @@ var watchMachineTests = []struct {
 	},
 	// TODO SetAgentTools is missing.
 	//{
-	//	func(m *state.Machine) error {
-	//		return m.SetAgentTools(tools(3, "baz"))
-	//	},
-	//	machineInfo{
-	//		tools: tools(3, "baz"),
-	//	},
+	//  func(m *state.Machine) error {
+	//      return m.SetAgentTools(tools(3, "baz"))
+	//  },
+	//  machineInfo{
+	//      tools: tools(3, "baz"),
+	//  },
 	//},
 	//{
-	//	func(m *state.Machine) error {
-	//		return m.SetAgentTools(tools(4, "khroomph"))
-	//	},
-	//	machineInfo{
-	//		tools: tools(4, "khroomph"),
-	//	},
+	//  func(m *state.Machine) error {
+	//      return m.SetAgentTools(tools(4, "khroomph"))
+	//  },
+	//  machineInfo{
+	//      tools: tools(4, "khroomph"),
+	//  },
 	//},
 }
 
@@ -322,7 +323,7 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 			//info.tools, err = m.AgentTools()
 			//c.Assert(err, IsNil)
 			info.instanceId, err = m.InstanceId()
-			if _, ok := err.(*state.NotFoundError); !ok {
+			if !state.IsNotFound(err) {
 				c.Assert(err, IsNil)
 			}
 			c.Assert(info, DeepEquals, test.want)
@@ -381,7 +382,7 @@ var machineUnitsWatchTests = []struct {
 		test: func(c *C, s *MachineSuite, service *state.Service) {
 			unit3, err := service.Unit("mysql/3")
 			c.Assert(err, IsNil)
-			err = unit3.Die()
+			err = unit3.EnsureDead()
 			c.Assert(err, IsNil)
 			err = service.RemoveUnit(unit3)
 			c.Assert(err, IsNil)
@@ -392,13 +393,13 @@ var machineUnitsWatchTests = []struct {
 		test: func(c *C, s *MachineSuite, service *state.Service) {
 			unit0, err := service.Unit("mysql/0")
 			c.Assert(err, IsNil)
-			err = unit0.Die()
+			err = unit0.EnsureDead()
 			c.Assert(err, IsNil)
 			err = service.RemoveUnit(unit0)
 			c.Assert(err, IsNil)
 			unit2, err := service.Unit("mysql/2")
 			c.Assert(err, IsNil)
-			err = unit2.Die()
+			err = unit2.EnsureDead()
 			c.Assert(err, IsNil)
 			err = service.RemoveUnit(unit2)
 			c.Assert(err, IsNil)
@@ -413,7 +414,7 @@ var machineUnitsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			unit1, err := service.Unit("mysql/1")
 			c.Assert(err, IsNil)
-			err = unit1.Die()
+			err = unit1.EnsureDead()
 			c.Assert(err, IsNil)
 			err = service.RemoveUnit(unit1)
 			c.Assert(err, IsNil)
@@ -432,7 +433,7 @@ var machineUnitsWatchTests = []struct {
 				c.Assert(err, IsNil)
 			}
 			for i := 10; i < len(units); i++ {
-				err = units[i].Die()
+				err = units[i].EnsureDead()
 				c.Assert(err, IsNil)
 				err = service.RemoveUnit(units[i])
 				c.Assert(err, IsNil)
@@ -448,7 +449,7 @@ var machineUnitsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			unit9, err := service.Unit("mysql/9")
 			c.Assert(err, IsNil)
-			err = unit9.Die()
+			err = unit9.EnsureDead()
 			c.Assert(err, IsNil)
 			err = service.RemoveUnit(unit9)
 			c.Assert(err, IsNil)
@@ -495,7 +496,7 @@ var machineUnitsWatchTests = []struct {
 
 			unit14, err := service.Unit("mysql/14")
 			c.Assert(err, IsNil)
-			err = unit14.Die()
+			err = unit14.EnsureDead()
 			c.Assert(err, IsNil)
 			err = service.RemoveUnit(unit14)
 			c.Assert(err, IsNil)

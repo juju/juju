@@ -23,6 +23,12 @@ func (s *UnitSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (s *UnitSuite) TestUnitNotFound(c *C) {
+	_, err := s.State.Unit("subway/0")
+	c.Assert(err, ErrorMatches, `unit "subway/0" not found`)
+	c.Assert(state.IsNotFound(err), Equals, true)
+}
+
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
 	address, err := s.unit.PublicAddress()
 	c.Assert(err, ErrorMatches, `public address of unit "wordpress/0" not found`)
@@ -114,7 +120,7 @@ func (s *UnitSuite) TestUnitCharm(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
 
-	err = s.unit.Kill()
+	err = s.unit.EnsureDying()
 	c.Assert(err, IsNil)
 	err = s.unit.SetCharm(s.charm)
 	c.Assert(err, IsNil)
@@ -122,7 +128,7 @@ func (s *UnitSuite) TestUnitCharm(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
 
-	err = s.unit.Die()
+	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
 	err = s.unit.SetCharm(s.charm)
 	c.Assert(err, ErrorMatches, `cannot set charm for unit "wordpress/0": not found or not alive`)
@@ -178,23 +184,29 @@ func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
 }
 
 func (s *UnitSuite) TestGetSetClearResolved(c *C) {
-	setting, err := s.unit.Resolved()
-	c.Assert(err, IsNil)
-	c.Assert(setting, Equals, state.ResolvedNone)
+	mode := s.unit.Resolved()
+	c.Assert(mode, Equals, state.ResolvedNone)
 
-	err = s.unit.SetResolved(state.ResolvedNoHooks)
+	err := s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, IsNil)
 	err = s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
-	retry, err := s.unit.Resolved()
+
+	mode = s.unit.Resolved()
+	c.Assert(mode, Equals, state.ResolvedNoHooks)
+	err = s.unit.Refresh()
 	c.Assert(err, IsNil)
-	c.Assert(retry, Equals, state.ResolvedNoHooks)
+	mode = s.unit.Resolved()
+	c.Assert(mode, Equals, state.ResolvedNoHooks)
 
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
-	setting, err = s.unit.Resolved()
+	mode = s.unit.Resolved()
+	c.Assert(mode, Equals, state.ResolvedNone)
+	err = s.unit.Refresh()
 	c.Assert(err, IsNil)
-	c.Assert(setting, Equals, state.ResolvedNone)
+	mode = s.unit.Resolved()
+	c.Assert(mode, Equals, state.ResolvedNone)
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
 
@@ -294,7 +306,7 @@ func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *C) {
 	}
 	c.Assert(subordinates, DeepEquals, []string{"logging/0", "logging/1"})
 
-	err = su1.Die()
+	err = su1.EnsureDead()
 	c.Assert(err, IsNil)
 	err = logService.RemoveUnit(su1)
 	c.Assert(err, IsNil)
@@ -334,7 +346,7 @@ var watchUnitTests = []struct {
 	},
 	{
 		func(u *state.Unit) error {
-			return u.Kill()
+			return u.EnsureDying()
 		},
 		unitInfo{
 			Life: state.Dying,
@@ -343,6 +355,13 @@ var watchUnitTests = []struct {
 }
 
 func (s *UnitSuite) TestWatchUnit(c *C) {
+	altunit, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, IsNil)
+	err = altunit.SetPublicAddress("newer-address")
+	c.Assert(err, IsNil)
+	_, err = s.unit.PublicAddress()
+	c.Assert(err, ErrorMatches, `public address of unit ".*" not found`)
+
 	w := s.unit.Watch()
 	defer func() {
 		c.Assert(w.Stop(), IsNil)
@@ -352,6 +371,9 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 	case u, ok := <-w.Changes():
 		c.Assert(ok, Equals, true)
 		c.Assert(u.Name(), Equals, s.unit.Name())
+		addr, err := u.PublicAddress()
+		c.Assert(err, IsNil)
+		c.Assert(addr, Equals, "newer-address")
 	case <-time.After(500 * time.Millisecond):
 		c.Fatalf("did not get change: %v", s.unit)
 	}

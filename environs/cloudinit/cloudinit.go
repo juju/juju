@@ -121,22 +121,17 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		addScripts(c,
 			"mkdir -p /opt",
 			fmt.Sprintf("wget --no-verbose -O - %s | tar xz -C /opt", shquote(url)),
-			cfg.jujuTools()+"/jujud bootstrap-state"+
-				" --instance-id "+cfg.InstanceIdAccessor+
-				" --env-config "+shquote(base64yaml(cfg.Config))+
-				" --state-servers localhost"+mgoPortSuffix+
-				debugFlag,
 		)
 		if err := addMongoToBoot(c); err != nil {
 			return nil, err
 		}
-		addScripts(c,
-			cfg.jujuTools()+"/jujud bootstrap-state"+
-				" --instance-id "+cfg.InstanceIdAccessor+
-				" --env-config "+shquote(base64yaml(cfg.Config))+
-				" --state-servers localhost"+mgoPortSuffix+
-				debugFlag,
+		addScripts(c, cfg.jujuTools()+"/jujud bootstrap-state"+
+			" --instance-id "+cfg.InstanceIdAccessor+
+			" --env-config "+shquote(base64yaml(cfg.Config))+
+			" --state-servers localhost"+mgoPortSuffix+
+			debugFlag,
 		)
+
 	}
 
 	if err := addAgentToBoot(c, cfg, "machine", fmt.Sprintf("--machine-id %d "+debugFlag, cfg.MachineId)); err != nil {
@@ -195,7 +190,7 @@ func addMongoToBoot(c *cloudinit.Config) error {
 		Service: *svc,
 		Desc:    "juju state database",
 		Cmd:     fmt.Sprintf(
-			"/opt/mongo/bin/mongod --port %d --bind_ip 0.0.0.0 --dbpath=/var/lib/juju/db --noprealloc --smallfiles",
+			"/opt/mongo/bin/mongod --port %d --bind_ip 0.0.0.0 --dbpath=/var/lib/juju/db --smallfiles --noprealloc",
 			mgoPort),
 	}
 	cmds, err := conf.InstallCommands()
