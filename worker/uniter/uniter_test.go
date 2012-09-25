@@ -150,7 +150,7 @@ var uniterTests = []uniterTest{
 		startUniter{`failed to create uniter for unit "u/0": .*state must be a directory`},
 	), ut(
 		"unknown unit",
-		startUniter{`failed to create uniter for unit "u/0": cannot get unit .*`},
+		startUniter{`failed to create uniter for unit "u/0": unit "u/0" not found`},
 	),
 	// Check error conditions during unit bootstrap phase.
 	ut(
@@ -670,14 +670,14 @@ type createUniter struct{}
 func (createUniter) step(c *C, ctx *context) {
 	step(c, ctx, createServiceAndUnit{})
 	step(c, ctx, startUniter{})
-
-	// Poll for correct address settings (consequence of "dummy" env type).
 	timeout := time.After(1 * time.Second)
 	for {
 		select {
 		case <-timeout:
 			c.Fatalf("timed out waiting for unit addresses")
 		case <-time.After(50 * time.Millisecond):
+			err := ctx.unit.Refresh()
+			c.Assert(err, IsNil)
 			private, err := ctx.unit.PrivateAddress()
 			if err != nil || private != "private.dummy.address.example.com" {
 				continue
