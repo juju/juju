@@ -765,6 +765,14 @@ var watchServiceTests = []struct {
 }
 
 func (s *ServiceSuite) TestWatchService(c *C) {
+	altservice, err := s.State.Service(s.service.Name())
+	c.Assert(err, IsNil)
+	err = altservice.SetCharm(s.charm, true)
+	c.Assert(err, IsNil)
+	_, force, err := s.service.Charm()
+	c.Assert(err, IsNil)
+	c.Assert(force, Equals, false)
+
 	w := s.service.Watch()
 	defer func() {
 		c.Assert(w.Stop(), IsNil)
@@ -774,6 +782,9 @@ func (s *ServiceSuite) TestWatchService(c *C) {
 	case svc, ok := <-w.Changes():
 		c.Assert(ok, Equals, true)
 		c.Assert(svc.Name(), Equals, s.service.Name())
+		_, force, err := svc.Charm()
+		c.Assert(err, IsNil)
+		c.Assert(force, Equals, true)
 	case <-time.After(500 * time.Millisecond):
 		c.Fatalf("did not get change: %v", s.service)
 	}

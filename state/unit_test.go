@@ -355,6 +355,13 @@ var watchUnitTests = []struct {
 }
 
 func (s *UnitSuite) TestWatchUnit(c *C) {
+	altunit, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, IsNil)
+	err = altunit.SetPublicAddress("newer-address")
+	c.Assert(err, IsNil)
+	_, err = s.unit.PublicAddress()
+	c.Assert(err, ErrorMatches, `public address of unit ".*" not found`)
+
 	w := s.unit.Watch()
 	defer func() {
 		c.Assert(w.Stop(), IsNil)
@@ -364,6 +371,9 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 	case u, ok := <-w.Changes():
 		c.Assert(ok, Equals, true)
 		c.Assert(u.Name(), Equals, s.unit.Name())
+		addr, err := u.PublicAddress()
+		c.Assert(err, IsNil)
+		c.Assert(addr, Equals, "newer-address")
 	case <-time.After(500 * time.Millisecond):
 		c.Fatalf("did not get change: %v", s.unit)
 	}
