@@ -174,9 +174,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 
 	// Wait for machine agent to come up on the bootstrap
 	// machine and find the deployed series from that.
-	m0, err := conn.State.Machine(0)
-	c.Assert(err, IsNil)
-	w0, tools0 := t.machineAgentTools(c, m0)
+	w0, tools0 := t.watchMachine(c, conn, 0)
 	defer w0.Stop()
 
 	// Create a new service and deploy a unit of it.
@@ -196,9 +194,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	// and announce itself.
 	mid, err := unit.AssignedMachineId()
 	c.Assert(err, IsNil)
-	m1, err := conn.State.Machine(mid)
-	c.Assert(err, IsNil)
-	w1, tools1 := t.machineAgentTools(c, m1)
+	w1, tools1 := t.watchMachine(c, conn, mid)
 	defer w1.Stop()
 	c.Assert(tools1.Binary, Equals, tools0.Binary)
 
@@ -212,21 +208,31 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	// check that the PA removes it.
 	err = svc.RemoveUnit(unit)
 	c.Assert(err, IsNil)
-	err = conn.State.RemoveMachine(m1.Id())
+	err = conn.State.RemoveMachine(w1.Id())
 	c.Assert(err, IsNil)
 	c.Logf("waiting for instance to be removed")
-	t.assertStopInstance(c, m1)
-	assertInstanceId(c, m1, nil)
+	t.assertStopInstance(c, w1.Machine)
+	assertInstanceId(c, w1.Machine, nil)
+}
+
+type machineWatcher struct {
+	*state.Machine
+	*state.MachineWatcher
 }
 
 // machineAgentTools waits for the given machine agent
 // to start and returns the machine watcher and the tools that it's running.
-func (t *LiveTests) machineAgentTools(c *C, m *state.Machine) (w *state.MachineWatcher, tools *state.Tools) {
+func (t *LiveTests) watchMachine(c *C, conn *juju.Conn, mid int) (*machineWatcher, *state.Tools) {
+	m, err := conn.State.Machine(mid)
+	c.Assert(err, IsNil)
+
+	w := &machineWatcher{m, m.Watch()}
 	c.Logf("waiting for machine %d to signal agent version", m.Id())
-	w = m.Watch()
 
 	var gotTools *state.Tools
-	for m := range w.Changes() {
+	for _ = range w.Changes() {
+		err := m.Refresh()
+		c.Assert(err, IsNil)
 		tools, err := m.AgentTools()
 		c.Assert(err, IsNil)
 		if tools.URL == "" {
@@ -243,7 +249,7 @@ func (t *LiveTests) machineAgentTools(c *C, m *state.Machine) (w *state.MachineW
 
 // checkUpgrade sets the environment agent version and checks that
 // all the provided watchers upgrade to the requested version.
-func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binary, watchers ...*state.MachineWatcher) {
+func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binary, watchers ...*machineWatcher) {
 	c.Logf("putting testing version of juju tools")
 	upgradeTools, err := environs.PutTools(t.Env.Storage(), &newVersion)
 	c.Assert(err, IsNil)
@@ -255,11 +261,13 @@ func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binar
 
 	for i, w := range watchers {
 		c.Logf("waiting for upgrade %d", i)
-		m, ok := <-w.Changes()
+		_, ok := <-w.Changes()
 		if !c.Check(ok, Equals, true, Commentf("watcher %d died: %v", i, w.Err())) {
 			continue
 		}
-		tools, err := m.AgentTools()
+		err := w.Refresh()
+		c.Assert(err, IsNil)
+		tools, err := w.AgentTools()
 		if !c.Check(err, IsNil) {
 			continue
 		}
