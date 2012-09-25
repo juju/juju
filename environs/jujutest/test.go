@@ -74,7 +74,20 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	c.Assert(err, IsNil, Commentf("opening environ %q", t.Name))
 	c.Assert(e, NotNil)
 	t.Env = e
-	c.Logf("environment configuration: %v", e.Config().AllAttrs())
+	c.Logf("environment configuration: %#v", publicAttrs(e))
+}
+
+func publicAttrs(e environs.Environ) map[string]interface{} {
+	cfg := e.Config()
+	secrets, err := e.Provider().SecretAttrs(cfg)
+	if err != nil {
+		panic(err)
+	}
+	attrs := cfg.AllAttrs()
+	for attr := range secrets {
+		delete(attrs, attr)
+	}
+	return attrs
 }
 
 func (t *LiveTests) TearDownSuite(c *C) {
