@@ -176,9 +176,10 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	// machine and find the deployed series from that.
 	m0, err := conn.State.Machine(0)
 	c.Assert(err, IsNil)
-	mw0 := newMachineToolsWatcher(c, m0)
-	defer mw0.Stop()
-	mtools0 := waitAgentTools(c, mw0)
+	w0 := newMachineToolWaiter(m0)
+	defer w0.Stop()
+
+	mtools0 := waitAgentTools(c, w0)
 
 	// Create a new service and deploy a unit of it.
 	c.Logf("deploying service")
@@ -224,118 +225,88 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	assertInstanceId(c, m1, nil)
 }
 
-// waitAgentTools waits for the given machine agent
-// to start and returns the tools that the agent is running.
-func waitAgentTools(c *C, w toolsWatcher) *state.Tools {
-	c.Logf("waiting for %v to signal agent version", w)
-
-	var gotTools *state.Tools
-	for tools := range w.Changes() {
-		if tools.URL == "" {
-			// Agent hasn't started yet.
-			continue
-		}
-		gotTools = tools
-		break
-	}
-	c.Assert(gotTools, NotNil, Commentf("tools watcher died: %v", w.Err()))
-	c.Assert(gotTools.Binary, Equals, version.Current)
-	return gotTools
-}
-
-// differentTools sends only tools it receives that are different
-// from the previous tools it has received.
-func differentTools(in <-chan *state.Tools) <-chan *state.Tools {
-	out := make(chan *state.Tools)
-	var current *state.Tools
-	go func() {
-		for tools := range in {
-			if current == nil || *tools != *current {
-				out <- tools
-			}
-			current = tools
-		}
-		close(out)
-	}()
-	return out
-}
-
-type toolsWatcher interface {
-	Stop() error
-	Changes() <-chan *state.Tools
+type tooler interface {
+	AgentTools() (*state.Tools, error)
+	Refresh()
 	String() string
+}
+
+type watcher interface {
+	Stop() error
 	Err() error
 }
 
-type unitToolsWatcher struct {
-	*state.Unit
-	*state.UnitWatcher
-	changes <-chan *state.Tools
+type toolsWaiter struct {
+	lastTools *state.Tools
+	changes chan struct{}
+	watcher
+	tooler
 }
 
-func newUnitToolsWatcher(c *C, unit *state.Unit) *unitToolsWatcher {
-	ch := make(chan *state.Tools)
-	w := &unitToolsWatcher{
-		unit,
-		unit.Watch(),
-		differentTools(ch),
+func newMachineToolWaiter(m *state.Machine) *toolsWaiter {
+	waiter := &toolsWaiter{
+		changes: make(chan tooler, 1),
+		w: m.Watch(),
 	}
 	go func() {
-		defer close(ch)
-		for u := range w.UnitWatcher.Changes() {
-			tools, err := u.AgentTools()
-			if err != nil {
-				c.Errorf("unit agent tools watcher died: %v", err)
-				break
-			}
-			ch <- tools
+		for m := range waiter.Changes() {
+			waiter.changes <- m
 		}
+		close(waiter.changes)
 	}()
-	return w
+	return waiter
 }
 
-func (w *unitToolsWatcher) Changes() <-chan *state.Tools {
-	return w.changes
-}
-
-type machineToolsWatcher struct {
-	m *state.Machine
-	*state.MachineWatcher
-	changes <-chan *state.Tools
-}
-
-func newMachineToolsWatcher(c *C, machine *state.Machine) *machineToolsWatcher {
-	ch := make(chan *state.Tools)
-	w := &machineToolsWatcher{
-		machine,
-		machine.Watch(),
-		differentTools(ch),
+func newUnitToolWaiter(u *state.Unit) *toolsWaiter {
+	waiter := &toolsWaiter{
+		changes: make(chan tooler, 1),
+		w: u.Watch(),
 	}
 	go func() {
-		defer close(ch)
-		for m := range w.MachineWatcher.Changes() {
-			tools, err := m.AgentTools()
-			if err != nil {
-				c.Errorf("machine agent tools watcher died: %v", err)
-				break
-			}
-			ch <- tools
+		for u := range waiter.Changes() {
+			waiter.changes <- u
 		}
+		close(waiter.changes)
 	}()
-	return w
+	return waiter
 }
 
-func (w *machineToolsWatcher) String() string {
-	return "machine " + w.m.String()
+// nextTools returns the next changed tools.
+func (w *toolsWaiter) NextTools(c *C) *state.Tools {
+	for _ = range w.changes {
+		w.Refresh()
+		tools, err := w.AgentTools()
+		c.Assert(err, IsNil)
+		changed := w.lastTools == nil || *tools == *w.lastTools
+		w.lastTools = tools
+		if changed {
+			return tools
+		}
+		c.Logf("found same tools")
+	}
+	c.Fatalf("watcher finished: %v", w.w.Err())
 }
 
-func (w *machineToolsWatcher) Changes() <-chan *state.Tools {
-	return w.changes
+// waitAgentTools waits for the given machine agent
+// to start and returns the tools that it is running.
+func waitAgentTools(c *C, w *toolsWaiter ) *state.Tools {
+	c.Logf("waiting for %v to signal agent version", w)
+
+	var tools *state.Tools
+	for {
+		if tools = w.NextTools(c); tools.URL == "" {
+			// Agent hasn't started yet.
+			continue
+		}
+		break
+	}
+	c.Assert(tools.Binary, Equals, version.Current)
+	return tools
 }
 
 // checkUpgrade sets the environment agent version and checks that
 // all the provided watchers upgrade to the requested version.
-func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binary, watchers ...toolsWatcher) {
+func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
 	upgradeTools, err := environs.PutTools(t.Env.Storage(), &newVersion)
 	c.Assert(err, IsNil)
@@ -345,12 +316,10 @@ func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binar
 	err = setAgentVersion(conn.State, newVersion.Number)
 	c.Assert(err, IsNil)
 
-	for i, w := range watchers {
-		c.Logf("waiting for upgrade %d", i)
-		tools, ok := <-w.Changes()
-		if !c.Check(ok, Equals, true, Commentf("watcher %d died: %v", i, w.Err())) {
-			continue
-		}
+	for i, w := range waiters {
+		c.Logf("waiting for upgrade of %d: %v", i, w.String)
+
+		tools := w.NextTools()
 		// N.B. We can't test that the URL is the same because there's
 		// no guarantee that it is, even though it might be referring to
 		// the same thing.
