@@ -1240,6 +1240,7 @@ func (w *UnitWatcher) Changes() <-chan *Unit {
 func (w *UnitWatcher) loop(unit *Unit) (err error) {
 	ch := make(chan watcher.Change)
 	name := unit.doc.Name
+	unit = w.st.Unit(name)
 	w.st.watcher.Watch(w.st.units.Name, name, unit.doc.TxnRevno, ch)
 	defer w.st.watcher.Unwatch(w.st.units.Name, name, ch)
 	for {
@@ -1306,6 +1307,7 @@ func (w *ServiceWatcher) Changes() <-chan *Service {
 func (w *ServiceWatcher) loop(service *Service) (err error) {
 	ch := make(chan watcher.Change)
 	name := service.doc.Name
+	service = w.st.Service(name)
 	w.st.watcher.Watch(w.st.services.Name, name, service.doc.TxnRevno, ch)
 	defer w.st.watcher.Unwatch(w.st.services.Name, name, ch)
 	for {
