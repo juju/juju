@@ -710,6 +710,11 @@ func (s *OriginalRelationUnitSuite) TestPeerRelationUnit(c *C) {
 	s.assertChange(c, w0, []string{"peer/1"}, expectChanged, nil)
 	s.assertNoChange(c, w0)
 
+	// Join again, check it's a no-op.
+	err = ru1.EnterScope()
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, w0)
+
 	// Start watching the relation from the perspective of the second unit,
 	// and check that it sees the right state.
 	w1 := ru1.Watch()
@@ -870,6 +875,12 @@ func (s *OriginalRelationUnitSuite) TestGlobalProReqRelationUnit(c *C) {
 	s.assertChange(c, prow0, expectJoined, expectChanged, nil)
 	s.assertNoChange(c, prow0)
 	s.assertChange(c, prow1, expectJoined, expectChanged, nil)
+	s.assertNoChange(c, prow1)
+
+	// Join again, check no-op.
+	err = reqru0.EnterScope()
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, prow0)
 	s.assertNoChange(c, prow1)
 
 	// Join the second requirer, and check the provider units see the change.

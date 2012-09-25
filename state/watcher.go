@@ -1041,13 +1041,15 @@ func (w *RelationUnitsWatcher) mergeScope(changes *RelationUnitsChange, c *Relat
 	return nil
 }
 
-func remove(src []string, target string) []string {
-	for i, v := range src {
-		if target == v {
-			return append(src[:i], src[i+1:len(src)-1]...)
+// remove removes s from strs and returns the modified slice.
+func remove(strs []string, s string) []string {
+	for i, v := range strs {
+		if s == v {
+			strs[i] = strs[len(strs)-1]
+			return strs[:len(strs)-1]
 		}
 	}
-	return src
+	return strs
 }
 
 func (w *RelationUnitsWatcher) finish() {
@@ -1063,7 +1065,8 @@ func (w *RelationUnitsWatcher) finish() {
 func (w *RelationUnitsWatcher) loop() (err error) {
 	sentInitial := false
 	changes := RelationUnitsChange{}
-	var out chan RelationUnitsChange
+	out := w.out
+	out = nil
 	for {
 		select {
 		case <-w.st.watcher.Dead():

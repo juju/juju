@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/trivial"
 	"sort"
 	"strconv"
@@ -238,10 +237,8 @@ func (ru *RelationUnit) EnterScope() (err error) {
 		return err
 	}
 	node.Set("private-address", address)
-	if cl, err := node.Write(); err != nil {
+	if _, err := node.Write(); err != nil {
 		return err
-	} else {
-		log.Printf("\n\nwrote CL: %#v\n\n", cl)
 	}
 	ops := []txn.Op{{
 		C:      ru.st.relationScopes.Name,
