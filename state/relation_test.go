@@ -710,6 +710,11 @@ func (s *OriginalRelationUnitSuite) TestPeerRelationUnit(c *C) {
 	s.assertChange(c, w0, []string{"peer/1"}, expectChanged, nil)
 	s.assertNoChange(c, w0)
 
+	// Join again, check it's a no-op.
+	err = ru1.EnterScope()
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, w0)
+
 	// Start watching the relation from the perspective of the second unit,
 	// and check that it sees the right state.
 	w1 := ru1.Watch()
@@ -870,6 +875,12 @@ func (s *OriginalRelationUnitSuite) TestGlobalProReqRelationUnit(c *C) {
 	s.assertChange(c, prow0, expectJoined, expectChanged, nil)
 	s.assertNoChange(c, prow0)
 	s.assertChange(c, prow1, expectJoined, expectChanged, nil)
+	s.assertNoChange(c, prow1)
+
+	// Join again, check no-op.
+	err = reqru0.EnterScope()
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, prow0)
 	s.assertNoChange(c, prow1)
 
 	// Join the second requirer, and check the provider units see the change.
@@ -1096,7 +1107,7 @@ func (s *OriginalRelationUnitSuite) assertChange(
 	select {
 	case ch, ok := <-w.Changes():
 		if !ok {
-			c.Fatalf("channel closed: watcher error %#v", w.Err())
+			c.Fatalf("channel closed; watcher error: %#v", w.Err())
 		}
 		sort.Strings(joined)
 		sort.Strings(ch.Joined)
@@ -1108,7 +1119,7 @@ func (s *OriginalRelationUnitSuite) assertChange(
 		sort.Strings(departed)
 		sort.Strings(ch.Departed)
 		c.Assert(departed, DeepEquals, ch.Departed)
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(5 * time.Second):
 		c.Fatalf("expected joined %#v, changed %#v, departed %#v; got nothing", joined, changed, departed)
 	}
 }
@@ -1118,6 +1129,6 @@ func (s *OriginalRelationUnitSuite) assertNoChange(c *C, w *state.RelationUnitsW
 	select {
 	case ch := <-w.Changes():
 		c.Fatalf("got %#v, expected nothing", ch)
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(50 * time.Millisecond):
 	}
 }

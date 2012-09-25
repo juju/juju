@@ -98,6 +98,19 @@ type context struct {
 	uniter  *uniter.Uniter
 }
 
+func (ctx *context) run(c *C, steps []stepper) {
+	defer func() {
+		if ctx.uniter != nil {
+			err := ctx.uniter.Stop()
+			c.Assert(err, IsNil)
+		}
+	}()
+	for i, s := range steps {
+		c.Logf("step %d", i)
+		step(c, ctx, s)
+	}
+}
+
 var goodHook = `
 #!/bin/bash
 juju-log UniterSuite-%d %s
@@ -572,26 +585,15 @@ func (s *UniterSuite) TestUniter(c *C) {
 			err := os.RemoveAll(unitDir)
 			c.Assert(err, IsNil)
 		}
-		func() {
-			c.Logf("\ntest %d: %s\n", i, t.summary)
-			ctx := &context{
-				st:      s.State,
-				id:      i,
-				path:    unitDir,
-				dataDir: s.dataDir,
-				charms:  coretesting.ResponseMap{},
-			}
-			defer func() {
-				if ctx.uniter != nil {
-					err := ctx.uniter.Stop()
-					c.Assert(err, IsNil)
-				}
-			}()
-			for i, s := range t.steps {
-				c.Logf("step %d", i)
-				step(c, ctx, s)
-			}
-		}()
+		c.Logf("\ntest %d: %s\n", i, t.summary)
+		ctx := &context{
+			st:      s.State,
+			id:      i,
+			path:    unitDir,
+			dataDir: s.dataDir,
+			charms:  coretesting.ResponseMap{},
+		}
+		ctx.run(c, t.steps)
 	}
 }
 
@@ -726,7 +728,7 @@ func (s waitUniterDead) step(c *C, ctx *context) {
 	case <-u.Dying():
 		err := u.Wait()
 		c.Assert(err, ErrorMatches, s.err)
-	case <-time.After(1 * time.Second):
+	case <-time.After(5 * time.Second):
 		c.Fatalf("uniter still alive")
 	}
 }
@@ -812,11 +814,10 @@ type waitUnit struct {
 }
 
 func (s waitUnit) step(c *C, ctx *context) {
-	timeout := time.After(10 * time.Second)
+	timeout := time.After(5 * time.Second)
 	for {
 		select {
 		case <-time.After(50 * time.Millisecond):
-			ctx.st.StartSync() // to detect presence change
 			err := ctx.unit.Refresh()
 			if err != nil {
 				c.Fatalf("cannot refresh unit: %v", err)
@@ -835,6 +836,7 @@ func (s waitUnit) step(c *C, ctx *context) {
 				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
 				continue
 			}
+			ctx.st.Sync() // Ensure presence watcher is up to date for Status call.
 			status, info, err := ctx.unit.Status()
 			c.Assert(err, IsNil)
 			if status != s.status {
@@ -868,7 +870,7 @@ func (s waitHooks) step(c *C, ctx *context) {
 	if match {
 		return
 	}
-	timeout := time.After(10 * time.Second)
+	timeout := time.After(5 * time.Second)
 	for {
 		select {
 		case <-time.After(50 * time.Millisecond):

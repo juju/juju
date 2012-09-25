@@ -232,9 +232,12 @@ func (ru *RelationUnit) EnterScope() (err error) {
 	if err != nil {
 		return err
 	}
-	node := newConfigNode(ru.st, key)
+	node, err := readConfigNode(ru.st, key)
+	if err != nil {
+		return err
+	}
 	node.Set("private-address", address)
-	if _, err = node.Write(); err != nil {
+	if _, err := node.Write(); err != nil {
 		return err
 	}
 	ops := []txn.Op{{
