@@ -1,7 +1,6 @@
 package watcher
 
 import (
-	"fmt"
 	"launchpad.net/tomb"
 )
 
@@ -28,9 +27,9 @@ func Stop(w Stopper, t *tomb.Tomb) {
 func MustErr(w Errer) error {
 	err := w.Err()
 	if err == nil {
-		panic(fmt.Errorf("watcher %#v was stopped cleanly", w))
+		panic("watcher was stopped cleanly")
 	} else if err == tomb.ErrStillAlive {
-		panic(fmt.Errorf("watcher %#v is still running", w))
+		panic("watcher is still running")
 	}
 	return err
 }

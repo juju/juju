@@ -726,7 +726,7 @@ func (s waitUniterDead) step(c *C, ctx *context) {
 	case <-u.Dying():
 		err := u.Wait()
 		c.Assert(err, ErrorMatches, s.err)
-	case <-time.After(5 * time.Second):
+	case <-time.After(1 * time.Second):
 		c.Fatalf("uniter still alive")
 	}
 }

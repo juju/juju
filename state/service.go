@@ -6,7 +6,6 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/trivial"
 	"strconv"
 )
@@ -118,7 +117,6 @@ func (s *Service) Charm() (ch *Charm, force bool, err error) {
 // this charm, and existing units will be upgraded to use it. If force is true,
 // units will be upgraded even if they are in an error state.
 func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
-	log.Printf("\n\nSET CHARM %s\n\n", ch.URL())
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
