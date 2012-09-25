@@ -19,7 +19,7 @@ type EnvironProvider interface {
 	// for consideration when validating changes.
 	Validate(cfg, old *config.Config) (valid *config.Config, err error)
 
-	// SecretAttrs filters the supplied configuation returning only values
+	// SecretAttrs filters the supplied configuration returning only values
 	// which are considered sensitive.
 	SecretAttrs(cfg *config.Config) (map[string]interface{}, error)
 
