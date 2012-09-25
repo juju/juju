@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func Test(t *stdtesting.T) { testing.ZkTestPackage(t) }
+func Test(t *stdtesting.T) { testing.MgoTestPackage(t) }
 
 type HookQueueSuite struct{}
 

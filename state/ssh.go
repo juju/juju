@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"launchpad.net/gozk/zookeeper"
+	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/tomb"
@@ -22,30 +22,23 @@ var (
 	sshUser          = "ubuntu@"
 )
 
-// sshDial dials the ZooKeeper instance at addr through
+const dialTimeout = 30 * time.Minute
+
+// sshDial dials the MongoDB instance at addr through
 // an SSH proxy.
-func sshDial(addr, keyFile string) (fwd *sshForwarder, con *zookeeper.Conn, err error) {
-	fwd, err = newSSHForwarder(addr, keyFile)
+func sshDial(addr, keyFile string) (*sshForwarder, *mgo.Session, error) {
+	fwd, err := newSSHForwarder(addr, keyFile)
 	if err != nil {
 		return nil, nil, err
 	}
-	defer trivial.ErrorContextf(&err, "cannot dial ZooKeeper via SSH at address %s", addr)
-	zk, session, err := zookeeper.Dial(fwd.localAddr, zkTimeout)
+	defer trivial.ErrorContextf(&err, "cannot dial MongoDB via SSH at address %s", addr)
+
+	conn, err := mgo.DialWithTimeout(fwd.localAddr, dialTimeout)
 	if err != nil {
 		fwd.stop()
 		return nil, nil, err
 	}
-
-	select {
-	case e := <-session:
-		if !e.Ok() {
-			fwd.stop()
-			return nil, nil, fmt.Errorf("critical zk event: %v", e)
-		}
-	case <-fwd.Dead():
-		return nil, nil, fwd.stop()
-	}
-	return fwd, zk, nil
+	return fwd, conn, nil
 }
 
 type sshForwarder struct {
@@ -66,7 +59,7 @@ func newSSHForwarder(remoteAddr, keyFile string) (fwd *sshForwarder, err error) 
 	if err != nil {
 		return nil, err
 	}
-	localPort, err := chooseZkPort()
+	localPort, err := choosePort()
 	if err != nil {
 		return nil, fmt.Errorf("cannot choose local port: %v", err)
 	}
@@ -276,7 +269,7 @@ func parseSSHError(s string) *sshError {
 	return err
 }
 
-func chooseZkPort() (int, error) {
+func choosePort() (int, error) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return 0, err

@@ -45,7 +45,7 @@ func newMachiner(machine *state.Machine, info *state.Info, dataDir string, cont 
 
 func (m *Machiner) loop() {
 	defer m.tomb.Done()
-	w := m.machine.WatchUnits()
+	w := m.machine.WatchPrincipalUnits()
 	defer watcher.Stop(w, &m.tomb)
 
 	// TODO read initial units, check if they're running
@@ -80,7 +80,7 @@ func (m *Machiner) loop() {
 }
 
 func (a *Machiner) String() string {
-	return fmt.Sprintf("machine %d worker", a.machine.Id())
+	return fmt.Sprintf("machiner for machine %d", a.machine.Id())
 }
 
 // Wait waits until the Machiner has died, and returns the error encountered.

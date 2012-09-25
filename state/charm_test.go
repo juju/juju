@@ -1,12 +1,10 @@
 package state_test
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"io"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	"net/http"
+	"launchpad.net/juju-core/state"
+	"net/url"
 )
 
 type CharmSuite struct {
@@ -27,6 +25,10 @@ func (s *CharmSuite) TestCharm(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(dummy.URL().String(), Equals, s.curl.String())
 	c.Assert(dummy.Revision(), Equals, 1)
+	bundleURL, err := url.Parse("http://bundles.example.com/dummy-1")
+	c.Assert(err, IsNil)
+	c.Assert(dummy.BundleURL(), DeepEquals, bundleURL)
+	c.Assert(dummy.BundleSha256(), Equals, "dummy-1-sha256")
 	meta := dummy.Meta()
 	c.Assert(meta.Name, Equals, "dummy")
 	config := dummy.Config()
@@ -37,12 +39,11 @@ func (s *CharmSuite) TestCharm(c *C) {
 			Type:        "string",
 		},
 	)
-	resp, err := http.Get(dummy.BundleURL().String())
-	c.Assert(err, IsNil)
-	defer resp.Body.Close()
-	c.Assert(resp.StatusCode, Equals, http.StatusOK)
-	hash := sha256.New()
-	_, err = io.Copy(hash, resp.Body)
-	c.Assert(err, IsNil)
-	c.Assert(dummy.BundleSha256(), Equals, hex.EncodeToString(hash.Sum(nil)))
+}
+
+func (s *CharmSuite) TestCharmNotFound(c *C) {
+	curl := charm.MustParseURL("local:anotherseries/dummy-1")
+	_, err := s.State.Charm(curl)
+	c.Assert(err, ErrorMatches, `charm "local:anotherseries/dummy-1" not found`)
+	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
 }

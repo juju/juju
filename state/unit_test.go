@@ -23,6 +23,12 @@ func (s *UnitSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (s *UnitSuite) TestUnitNotFound(c *C) {
+	_, err := s.State.Unit("subway/0")
+	c.Assert(err, ErrorMatches, `unit "subway/0" not found`)
+	c.Assert(state.IsNotFound(err), Equals, true)
+}
+
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
 	address, err := s.unit.PublicAddress()
 	c.Assert(err, ErrorMatches, `public address of unit "wordpress/0" not found`)
@@ -43,6 +49,30 @@ func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
 	c.Assert(address, Equals, "example.local")
 }
 
+func (s *UnitSuite) TestRefresh(c *C) {
+	unit1, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, IsNil)
+
+	err = s.unit.SetPrivateAddress("example.local")
+	c.Assert(err, IsNil)
+	err = s.unit.SetPublicAddress("example.foobar.com")
+	c.Assert(err, IsNil)
+
+	address, err := unit1.PrivateAddress()
+	c.Assert(err, ErrorMatches, `private address of unit "wordpress/0" not found`)
+	address, err = unit1.PublicAddress()
+	c.Assert(err, ErrorMatches, `public address of unit "wordpress/0" not found`)
+
+	err = unit1.Refresh()
+	c.Assert(err, IsNil)
+	address, err = unit1.PrivateAddress()
+	c.Assert(err, IsNil)
+	c.Assert(address, Equals, "example.local")
+	address, err = unit1.PublicAddress()
+	c.Assert(err, IsNil)
+	c.Assert(address, Equals, "example.foobar.com")
+}
+
 func (s *UnitSuite) TestGetSetStatus(c *C) {
 	fail := func() { s.unit.SetStatus(state.UnitPending, "") }
 	c.Assert(fail, PanicMatches, "unit status must not be set to pending")
@@ -54,6 +84,7 @@ func (s *UnitSuite) TestGetSetStatus(c *C) {
 
 	err = s.unit.SetStatus(state.UnitStarted, "")
 	c.Assert(err, IsNil)
+
 	status, info, err = s.unit.Status()
 	c.Assert(err, IsNil)
 	c.Assert(status, Equals, state.UnitDown)
@@ -65,6 +96,7 @@ func (s *UnitSuite) TestGetSetStatus(c *C) {
 		c.Assert(p.Kill(), IsNil)
 	}()
 
+	s.State.StartSync()
 	status, info, err = s.unit.Status()
 	c.Assert(err, IsNil)
 	c.Assert(status, Equals, state.UnitStarted)
@@ -84,91 +116,22 @@ func (s *UnitSuite) TestUnitCharm(c *C) {
 
 	err = s.unit.SetCharm(s.charm)
 	c.Assert(err, IsNil)
-
 	ch, err := s.unit.Charm()
 	c.Assert(err, IsNil)
 	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
-}
 
-func (s *UnitSuite) TestGetSetClearResolved(c *C) {
-	setting, err := s.unit.Resolved()
+	err = s.unit.EnsureDying()
 	c.Assert(err, IsNil)
-	c.Assert(setting, Equals, state.ResolvedNone)
+	err = s.unit.SetCharm(s.charm)
+	c.Assert(err, IsNil)
+	ch, err = s.unit.Charm()
+	c.Assert(err, IsNil)
+	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
 
-	err = s.unit.SetResolved(state.ResolvedNoHooks)
+	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
-	err = s.unit.SetResolved(state.ResolvedNoHooks)
-	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": flag already set`)
-	retry, err := s.unit.Resolved()
-	c.Assert(err, IsNil)
-	c.Assert(retry, Equals, state.ResolvedNoHooks)
-
-	err = s.unit.ClearResolved()
-	c.Assert(err, IsNil)
-	setting, err = s.unit.Resolved()
-	c.Assert(err, IsNil)
-	c.Assert(setting, Equals, state.ResolvedNone)
-	err = s.unit.ClearResolved()
-	c.Assert(err, IsNil)
-
-	err = s.unit.SetResolved(state.ResolvedMode(999))
-	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": invalid error resolution mode: 999`)
-}
-
-func (s *UnitSuite) TestGetOpenPorts(c *C) {
-	// Verify no open ports before activity.
-	open, err := s.unit.OpenPorts()
-	c.Assert(err, IsNil)
-	c.Assert(open, HasLen, 0)
-
-	// Now open and close port.
-	err = s.unit.OpenPort("tcp", 80)
-	c.Assert(err, IsNil)
-	open, err = s.unit.OpenPorts()
-	c.Assert(err, IsNil)
-	c.Assert(open, DeepEquals, []state.Port{
-		{"tcp", 80},
-	})
-
-	err = s.unit.OpenPort("udp", 53)
-	c.Assert(err, IsNil)
-	open, err = s.unit.OpenPorts()
-	c.Assert(err, IsNil)
-	c.Assert(open, DeepEquals, []state.Port{
-		{"tcp", 80},
-		{"udp", 53},
-	})
-
-	err = s.unit.OpenPort("tcp", 53)
-	c.Assert(err, IsNil)
-	open, err = s.unit.OpenPorts()
-	c.Assert(err, IsNil)
-	c.Assert(open, DeepEquals, []state.Port{
-		{"tcp", 80},
-		{"udp", 53},
-		{"tcp", 53},
-	})
-
-	err = s.unit.OpenPort("tcp", 443)
-	c.Assert(err, IsNil)
-	open, err = s.unit.OpenPorts()
-	c.Assert(err, IsNil)
-	c.Assert(open, DeepEquals, []state.Port{
-		{"tcp", 80},
-		{"udp", 53},
-		{"tcp", 53},
-		{"tcp", 443},
-	})
-
-	err = s.unit.ClosePort("tcp", 80)
-	c.Assert(err, IsNil)
-	open, err = s.unit.OpenPorts()
-	c.Assert(err, IsNil)
-	c.Assert(open, DeepEquals, []state.Port{
-		{"udp", 53},
-		{"tcp", 53},
-		{"tcp", 443},
-	})
+	err = s.unit.SetCharm(s.charm)
+	c.Assert(err, ErrorMatches, `cannot set charm for unit "wordpress/0": not found or not alive`)
 }
 
 func (s *UnitSuite) TestPathKey(c *C) {
@@ -183,26 +146,27 @@ func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
 	pinger, err := s.unit.SetAgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(pinger, Not(IsNil))
-	defer pinger.Kill()
+	defer pinger.Stop()
 
+	s.State.Sync()
 	alive, err = s.unit.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
 }
 
 func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
-	timeout := 5 * time.Second
+	timeout := 200 * time.Millisecond
 	alive, err := s.unit.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 
 	err = s.unit.WaitAgentAlive(timeout)
-	c.Assert(err, ErrorMatches, `waiting for agent of unit "wordpress/0": presence: still not alive after timeout`)
+	c.Assert(err, ErrorMatches, `waiting for agent of unit "wordpress/0": still not alive after timeout`)
 
 	pinger, err := s.unit.SetAgentAlive()
 	c.Assert(err, IsNil)
-	c.Assert(pinger, Not(IsNil))
 
+	s.State.StartSync()
 	err = s.unit.WaitAgentAlive(timeout)
 	c.Assert(err, IsNil)
 
@@ -210,156 +174,227 @@ func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
 
-	pinger.Kill()
+	err = pinger.Kill()
+	c.Assert(err, IsNil)
 
+	s.State.Sync()
 	alive, err = s.unit.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 }
 
-type unitWatchResolvedTest struct {
-	test func(*state.Unit) error
-	want state.ResolvedMode
+func (s *UnitSuite) TestGetSetClearResolved(c *C) {
+	mode := s.unit.Resolved()
+	c.Assert(mode, Equals, state.ResolvedNone)
+
+	err := s.unit.SetResolved(state.ResolvedNoHooks)
+	c.Assert(err, IsNil)
+	err = s.unit.SetResolved(state.ResolvedNoHooks)
+	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
+
+	mode = s.unit.Resolved()
+	c.Assert(mode, Equals, state.ResolvedNoHooks)
+	err = s.unit.Refresh()
+	c.Assert(err, IsNil)
+	mode = s.unit.Resolved()
+	c.Assert(mode, Equals, state.ResolvedNoHooks)
+
+	err = s.unit.ClearResolved()
+	c.Assert(err, IsNil)
+	mode = s.unit.Resolved()
+	c.Assert(mode, Equals, state.ResolvedNone)
+	err = s.unit.Refresh()
+	c.Assert(err, IsNil)
+	mode = s.unit.Resolved()
+	c.Assert(mode, Equals, state.ResolvedNone)
+	err = s.unit.ClearResolved()
+	c.Assert(err, IsNil)
+
+	err = s.unit.SetResolved(state.ResolvedMode(999))
+	c.Assert(err, ErrorMatches, `cannot set resolved mode for unit "wordpress/0": invalid error resolution mode: 999`)
 }
 
-var unitWatchResolvedTests = []unitWatchResolvedTest{
-	{func(u *state.Unit) error { return nil }, state.ResolvedNone},
-	{func(u *state.Unit) error { return u.SetResolved(state.ResolvedRetryHooks) }, state.ResolvedRetryHooks},
-	{func(u *state.Unit) error { return u.ClearResolved() }, state.ResolvedNone},
-	{func(u *state.Unit) error { return u.SetResolved(state.ResolvedNoHooks) }, state.ResolvedNoHooks},
+func (s *UnitSuite) TestOpenedPorts(c *C) {
+	// Verify no open ports before activity.
+	c.Assert(s.unit.OpenedPorts(), HasLen, 0)
+
+	// Now open and close port.
+	err := s.unit.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+	open := s.unit.OpenedPorts()
+	c.Assert(open, DeepEquals, []state.Port{
+		{"tcp", 80},
+	})
+
+	err = s.unit.OpenPort("udp", 53)
+	c.Assert(err, IsNil)
+	open = s.unit.OpenedPorts()
+	c.Assert(open, DeepEquals, []state.Port{
+		{"tcp", 80},
+		{"udp", 53},
+	})
+
+	err = s.unit.OpenPort("tcp", 53)
+	c.Assert(err, IsNil)
+	open = s.unit.OpenedPorts()
+	c.Assert(open, DeepEquals, []state.Port{
+		{"tcp", 53},
+		{"tcp", 80},
+		{"udp", 53},
+	})
+
+	err = s.unit.OpenPort("tcp", 443)
+	c.Assert(err, IsNil)
+	open = s.unit.OpenedPorts()
+	c.Assert(open, DeepEquals, []state.Port{
+		{"tcp", 53},
+		{"tcp", 80},
+		{"tcp", 443},
+		{"udp", 53},
+	})
+
+	err = s.unit.ClosePort("tcp", 80)
+	c.Assert(err, IsNil)
+	open = s.unit.OpenedPorts()
+	c.Assert(open, DeepEquals, []state.Port{
+		{"tcp", 53},
+		{"tcp", 443},
+		{"udp", 53},
+	})
+
+	err = s.unit.ClosePort("tcp", 80)
+	c.Assert(err, IsNil)
+	open = s.unit.OpenedPorts()
+	c.Assert(open, DeepEquals, []state.Port{
+		{"tcp", 53},
+		{"tcp", 443},
+		{"udp", 53},
+	})
 }
 
-func (s *UnitSuite) TestUnitWatchResolved(c *C) {
-	resolvedWatcher := s.unit.WatchResolved()
-	defer func() {
-		c.Assert(resolvedWatcher.Stop(), IsNil)
-	}()
+func (s *UnitSuite) TestOpenClosePortWhenDying(c *C) {
+	testWhenDying(c, s.unit, "", notAliveErr, func() error {
+		return s.unit.OpenPort("tcp", 20)
+	}, func() error {
+		return s.unit.ClosePort("tcp", 20)
+	})
+}
 
-	for i, test := range unitWatchResolvedTests {
-		c.Logf("test %d", i)
-		err := test.test(s.unit)
-		c.Assert(err, IsNil)
-		select {
-		case got, ok := <-resolvedWatcher.Changes():
-			c.Assert(ok, Equals, true)
-			c.Assert(got, Equals, test.want)
-		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("did not get change: %#v", test.want)
-		}
+func (s *UnitSuite) TestSetClearResolvedWhenDying(c *C) {
+	testWhenDying(c, s.unit, notAliveErr, notAliveErr, func() error {
+		err := s.unit.SetResolved(state.ResolvedNoHooks)
+		cerr := s.unit.ClearResolved()
+		c.Assert(cerr, IsNil)
+		return err
+	})
+}
+
+func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *C) {
+	subCharm := s.AddTestingCharm(c, "logging")
+	logService, err := s.State.AddService("logging", subCharm)
+	c.Assert(err, IsNil)
+	_, err = logService.AddUnitSubordinateTo(s.unit)
+	c.Assert(err, IsNil)
+	su1, err := logService.AddUnitSubordinateTo(s.unit)
+	c.Assert(err, IsNil)
+
+	doc := make(map[string][]string)
+	s.ConnSuite.units.FindId(s.unit.Name()).One(&doc)
+	subordinates, ok := doc["subordinates"]
+	if !ok {
+		c.Errorf(`unit document does not have a "subordinates" field`)
 	}
+	c.Assert(subordinates, DeepEquals, []string{"logging/0", "logging/1"})
 
-	select {
-	case got := <-resolvedWatcher.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
-	case <-time.After(100 * time.Millisecond):
+	err = su1.EnsureDead()
+	c.Assert(err, IsNil)
+	err = logService.RemoveUnit(su1)
+	c.Assert(err, IsNil)
+	doc = make(map[string][]string)
+	s.ConnSuite.units.FindId(s.unit.Name()).One(&doc)
+	subordinates, ok = doc["subordinates"]
+	if !ok {
+		c.Errorf(`unit document does not have a "subordinates" field`)
 	}
-}
-
-type unitWatchPortsTest struct {
-	test func(*state.Unit) error
-	want []state.Port
-}
-
-var unitWatchPortsTests = []unitWatchPortsTest{
-	{func(u *state.Unit) error { return nil }, nil},
-	{func(u *state.Unit) error { return u.OpenPort("tcp", 80) }, []state.Port{{"tcp", 80}}},
-	{func(u *state.Unit) error { return u.OpenPort("udp", 53) }, []state.Port{{"tcp", 80}, {"udp", 53}}},
-	{func(u *state.Unit) error { return u.ClosePort("tcp", 80) }, []state.Port{{"udp", 53}}},
-}
-
-func (s *UnitSuite) TestUnitWatchPorts(c *C) {
-	portsWatcher := s.unit.WatchPorts()
-	defer func() {
-		c.Assert(portsWatcher.Stop(), IsNil)
-	}()
-
-	for i, test := range unitWatchPortsTests {
-		c.Logf("test %d", i)
-		err := test.test(s.unit)
-		c.Assert(err, IsNil)
-		select {
-		case got, ok := <-portsWatcher.Changes():
-			c.Assert(ok, Equals, true)
-			c.Assert(got, DeepEquals, test.want)
-		case <-time.After(200 * time.Millisecond):
-			c.Fatalf("did not get change: %#v", test.want)
-		}
-	}
-
-	select {
-	case got := <-portsWatcher.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
-	case <-time.After(100 * time.Millisecond):
-	}
+	c.Assert(subordinates, DeepEquals, []string{"logging/0"})
 }
 
 type unitInfo struct {
-	publicAddress string
-	tools         *state.Tools
+	PublicAddress string
+	Life          state.Life
 }
 
 var watchUnitTests = []struct {
-	test func(u *state.Unit) error
+	test func(m *state.Unit) error
 	want unitInfo
 }{
 	{
 		func(u *state.Unit) error {
-			return nil
+			return u.SetPublicAddress("example.foobar.com")
 		},
 		unitInfo{
-			tools: &state.Tools{},
+			PublicAddress: "example.foobar.com",
 		},
 	},
 	{
 		func(u *state.Unit) error {
-			return u.SetPublicAddress("localhost")
+			return u.SetPublicAddress("ubuntu.com")
 		},
 		unitInfo{
-			publicAddress: "localhost",
-			tools:         &state.Tools{},
+			PublicAddress: "ubuntu.com",
 		},
 	},
 	{
 		func(u *state.Unit) error {
-			return u.SetAgentTools(tools(3, "baz"))
+			return u.EnsureDying()
 		},
 		unitInfo{
-			publicAddress: "localhost",
-			tools:         tools(3, "baz"),
-		},
-	},
-	{
-		func(u *state.Unit) error {
-			return u.SetAgentTools(tools(4, "khroomph"))
-		},
-		unitInfo{
-			publicAddress: "localhost",
-			tools:         tools(4, "khroomph"),
+			Life: state.Dying,
 		},
 	},
 }
 
 func (s *UnitSuite) TestWatchUnit(c *C) {
+	altunit, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, IsNil)
+	err = altunit.SetPublicAddress("newer-address")
+	c.Assert(err, IsNil)
+	_, err = s.unit.PublicAddress()
+	c.Assert(err, ErrorMatches, `public address of unit ".*" not found`)
+
 	w := s.unit.Watch()
 	defer func() {
 		c.Assert(w.Stop(), IsNil)
 	}()
+	s.State.StartSync()
+	select {
+	case u, ok := <-w.Changes():
+		c.Assert(ok, Equals, true)
+		c.Assert(u.Name(), Equals, s.unit.Name())
+		addr, err := u.PublicAddress()
+		c.Assert(err, IsNil)
+		c.Assert(addr, Equals, "newer-address")
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("did not get change: %v", s.unit)
+	}
+
 	for i, test := range watchUnitTests {
 		c.Logf("test %d", i)
 		err := test.test(s.unit)
 		c.Assert(err, IsNil)
+		s.State.StartSync()
 		select {
-		case u, ok := <-w.Changes():
+		case unit, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
-			c.Assert(u.Name(), Equals, s.unit.Name())
+			c.Assert(unit.Name(), Equals, s.unit.Name())
 			var info unitInfo
-			info.tools, err = u.AgentTools()
+			info.Life = unit.Life()
 			c.Assert(err, IsNil)
-			info.publicAddress, err = u.PublicAddress()
-			if _, ok := err.(*state.NotFoundError); !ok {
+			if test.want.PublicAddress != "" {
+				info.PublicAddress, err = unit.PublicAddress()
 				c.Assert(err, IsNil)
 			}
-			c.Assert(info, DeepEquals, test.want, Commentf("%+v", info.tools))
+			c.Assert(info, DeepEquals, test.want)
 		case <-time.After(500 * time.Millisecond):
 			c.Fatalf("did not get change: %v", test.want)
 		}

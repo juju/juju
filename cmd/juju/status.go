@@ -173,10 +173,7 @@ func processService(service *state.Service) (map[string]interface{}, error) {
 		return nil, err
 	}
 	r["charm"] = ch.Meta().Name
-
-	if exposed, err := service.IsExposed(); err == nil {
-		r["exposed"] = exposed
-	}
+	r["exposed"] = service.IsExposed()
 
 	// TODO(dfc) service.IsSubordinate() ?
 

@@ -275,7 +275,7 @@ func UnpackTools(dataDir string, tools *state.Tools, r io.Reader) (err error) {
 			return fmt.Errorf("bad name %q in tools archive", hdr.Name)
 		}
 		if hdr.Typeflag != tar.TypeReg {
-			return fmt.Errorf("bad file type %#c in file %q in tools archive", hdr.Typeflag, hdr.Name)
+			return fmt.Errorf("bad file type %c in file %q in tools archive", hdr.Typeflag, hdr.Name)
 		}
 		name := filepath.Join(dir, hdr.Name)
 		if err := writeFile(name, os.FileMode(hdr.Mode&0777), tr); err != nil {

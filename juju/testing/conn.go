@@ -30,7 +30,7 @@ import (
 // $HOME is set to point to RootDir/home/ubuntu.
 type JujuConnSuite struct {
 	testing.LoggingSuite
-	testing.ZkSuite
+	testing.MgoSuite
 	Conn    *juju.Conn
 	State   *state.State
 	RootDir string // The faked-up root directory.
@@ -41,30 +41,30 @@ var config = []byte(`
 environments:
     dummyenv:
         type: dummy
-        zookeeper: true
+        state-server: true
         authorized-keys: 'i-am-a-key'
         default-series: decrepit
 `)
 
 func (s *JujuConnSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
-	s.ZkSuite.SetUpSuite(c)
+	s.MgoSuite.SetUpSuite(c)
 }
 
 func (s *JujuConnSuite) TearDownSuite(c *C) {
-	s.ZkSuite.TearDownSuite(c)
+	s.MgoSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 }
 
 func (s *JujuConnSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.ZkSuite.SetUpTest(c)
+	s.MgoSuite.SetUpTest(c)
 	s.setUpConn(c)
 }
 
 func (s *JujuConnSuite) TearDownTest(c *C) {
 	s.tearDownConn(c)
-	s.ZkSuite.TearDownTest(c)
+	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
@@ -73,6 +73,10 @@ func (s *JujuConnSuite) TearDownTest(c *C) {
 func (s *JujuConnSuite) Reset(c *C) {
 	s.tearDownConn(c)
 	s.setUpConn(c)
+}
+
+func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
+	return &state.Info{Addrs: []string{testing.MgoAddr}}
 }
 
 func (s *JujuConnSuite) setUpConn(c *C) {
@@ -136,10 +140,6 @@ func (s *JujuConnSuite) WriteConfig(config string) {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
-	return &state.Info{Addrs: []string{testing.ZkAddr}}
 }
 
 func (s *JujuConnSuite) AddTestingCharm(c *C, name string) *state.Charm {

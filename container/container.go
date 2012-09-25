@@ -63,7 +63,7 @@ func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) 
 		}
 	}()
 	cmd := fmt.Sprintf(
-		"%s unit --zookeeper-servers '%s' --log-file %s --unit-name %s",
+		"%s unit --state-servers '%s' --log-file %s --unit-name %s",
 		filepath.Join(toolsDir, "jujud"),
 		strings.Join(info.Addrs, ","),
 		filepath.Join("/var/log/juju", unit.PathKey()+".log"),

@@ -248,7 +248,7 @@ var statusTests = []struct {
 		},
 	},
 
-	// TODO(dfc) test failing components by destructively mutating zk under the hood
+	// TODO(dfc) test failing components by destructively mutating the state under the hood
 }
 
 func (s *StatusSuite) testStatus(format string, marshal func(v interface{}) ([]byte, error), unmarshal func(data []byte, v interface{}) error, c *C) {

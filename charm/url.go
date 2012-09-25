@@ -178,12 +178,18 @@ func (u *URL) String() string {
 // GetBSON turns u into a bson.Getter so it can be saved directly
 // on a MongoDB database with mgo.
 func (u *URL) GetBSON() (interface{}, error) {
+	if u == nil {
+		return nil, nil
+	}
 	return u.String(), nil
 }
 
 // SetBSON turns u into a bson.Setter so it can be loaded directly
 // from a MongoDB database with mgo.
 func (u *URL) SetBSON(raw bson.Raw) error {
+	if raw.Kind == 10 {
+		return bson.SetZero
+	}
 	var s string
 	err := raw.Unmarshal(&s)
 	if err != nil {
@@ -198,9 +204,9 @@ func (u *URL) SetBSON(raw bson.Raw) error {
 }
 
 // Quote translates a charm url string into one which can be safely used
-// in a file path (whether on disk or in zookeeper). ASCII letters, ASCII
-// digits, dot and dash stay the same; other characters are translated to
-// their hex representation surrounded by underscores.
+// in a file path.  ASCII letters, ASCII digits, dot and dash stay the
+// same; other characters are translated to their hex representation
+// surrounded by underscores.
 func Quote(unsafe string) string {
 	safe := make([]byte, 0, len(unsafe)*4)
 	for i := 0; i < len(unsafe); i++ {

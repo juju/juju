@@ -41,7 +41,7 @@ func (r *Relationer) Join() error {
 	if r.dying {
 		panic("dying relationer must not join!")
 	}
-	if err := r.ru.Init(); err != nil {
+	if err := r.ru.EnterScope(); err != nil {
 		return err
 	}
 	if err := r.dir.Ensure(); err != nil {
@@ -120,7 +120,7 @@ func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
 // CommitHook persists the fact of the supplied hook's completion.
 func (r *Relationer) CommitHook(hi hook.Info) error {
 	if hi.Kind == hook.RelationBroken {
-		if err := r.ru.Pinger().Kill(); err != nil {
+		if err := r.ru.LeaveScope(); err != nil {
 			return err
 		}
 	}

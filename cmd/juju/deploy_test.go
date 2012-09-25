@@ -89,8 +89,6 @@ func (s *repoSuite) assertUnitMachines(c *C, units []*state.Unit) {
 
 	machines, err := s.State.AllMachines()
 	c.Assert(err, IsNil)
-	// NOTE: this will fail when state.Initialize starts doing
-	// the right thing and poking machine 0 into ZK state.
 	c.Assert(machines, HasLen, len(units))
 	unitNames := []string{}
 	for _, m := range machines {
@@ -151,9 +149,9 @@ func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
 	// Verify state not touched...
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	_, err = s.State.Charm(curl)
-	c.Assert(err, ErrorMatches, `cannot get charm "local:precise/dummy-1": charm not found`)
+	c.Assert(err, ErrorMatches, `charm "local:precise/dummy-1" not found`)
 	_, err = s.State.Service("dummy")
-	c.Assert(err, ErrorMatches, `cannot get service "dummy": service with name "dummy" not found`)
+	c.Assert(err, ErrorMatches, `service "dummy" not found`)
 }
 
 func (s *DeploySuite) TestAddsPeerRelations(c *C) {
