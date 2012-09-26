@@ -184,7 +184,13 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, name, args string) 
 }
 
 func addMongoToBoot(c *cloudinit.Config) error {
-	addScripts(c, fmt.Sprintf("mkdir -p /var/lib/juju/db"))
+	addScripts(c,
+		"mkdir -p /var/lib/juju/db/journal",
+		// Otherwise we get three files with 100M+ each, which takes time.
+		"dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc.0",
+		"dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc.1",
+		"dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc.2",
+		)
 	svc := upstart.NewService("juju-db")
 	conf := &upstart.Conf{
 		Service: *svc,
