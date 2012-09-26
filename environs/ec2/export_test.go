@@ -4,11 +4,12 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/trivial"
 	"net/http"
 )
 
 type BootstrapState struct {
-	ZookeeperInstances []string
+	StateInstances []string
 }
 
 func LoadState(e environs.Environ) (*BootstrapState, error) {
@@ -16,7 +17,7 @@ func LoadState(e environs.Environ) (*BootstrapState, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &BootstrapState{s.ZookeeperInstances}, nil
+	return &BootstrapState{s.StateInstances}, nil
 }
 
 func GroupName(e environs.Environ) string {
@@ -84,7 +85,7 @@ var originalLongAttempt = longAttempt
 // and this reduces the test time from 30s to 3s.
 func ShortTimeouts(short bool) {
 	if short {
-		shortAttempt = environs.AttemptStrategy{
+		shortAttempt = trivial.AttemptStrategy{
 			Total: 0.25e9,
 			Delay: 0.01e9,
 		}
@@ -99,7 +100,7 @@ func EC2ErrCode(err error) string {
 	return ec2ErrCode(err)
 }
 
-var ZkPortSuffix = zkPortSuffix
+var MgoPortSuffix = mgoPortSuffix
 
 // FabricateInstance creates a new fictitious instance
 // given an existing instance and a new id.

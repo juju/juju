@@ -310,7 +310,7 @@ func setUpDir(c *C, basedir, name string, contents map[string]string) string {
 func assertState(c *C, dir *relation.StateDir, relsdir string, relationId int, members msi, pending string, deleted bool) {
 	expect := &relation.State{
 		RelationId:     relationId,
-		Members:        map[string]int(members),
+		Members:        map[string]int64(members),
 		ChangedPending: pending,
 	}
 	c.Assert(dir.State(), DeepEquals, expect)

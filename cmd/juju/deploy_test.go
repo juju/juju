@@ -27,11 +27,19 @@ type repoSuite struct {
 
 func (s *repoSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
+	// Change the environ's config to ensure we're using the one in state,
+	// not the one in the local environments.yaml
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	cfg, err = cfg.Apply(map[string]interface{}{"default-series": "precise"})
+	c.Assert(err, IsNil)
+	err = s.State.SetEnvironConfig(cfg)
+	c.Assert(err, IsNil)
 	s.repoPath = os.Getenv("JUJU_REPOSITORY")
 	repoPath := c.MkDir()
 	os.Setenv("JUJU_REPOSITORY", repoPath)
 	s.seriesPath = filepath.Join(repoPath, "precise")
-	err := os.Mkdir(s.seriesPath, 0777)
+	err = os.Mkdir(s.seriesPath, 0777)
 	c.Assert(err, IsNil)
 }
 
@@ -81,8 +89,6 @@ func (s *repoSuite) assertUnitMachines(c *C, units []*state.Unit) {
 
 	machines, err := s.State.AllMachines()
 	c.Assert(err, IsNil)
-	// NOTE: this will fail when state.Initialize starts doing
-	// the right thing and poking machine 0 into ZK state.
 	c.Assert(machines, HasLen, len(units))
 	unitNames := []string{}
 	for _, m := range machines {
@@ -109,7 +115,7 @@ func runDeploy(c *C, args ...string) error {
 }
 
 func (s *DeploySuite) TestCharmDir(c *C) {
-	coretesting.Charms.ClonedDirPath(s.seriesPath, "dummy")
+	coretesting.Charms.ClonedDirPath(s.seriesPath, "series", "dummy")
 	err := runDeploy(c, "local:dummy")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
@@ -117,7 +123,7 @@ func (s *DeploySuite) TestCharmDir(c *C) {
 }
 
 func (s *DeploySuite) TestUpgradeCharmDir(c *C) {
-	dirPath := coretesting.Charms.ClonedDirPath(s.seriesPath, "dummy")
+	dirPath := coretesting.Charms.ClonedDirPath(s.seriesPath, "series", "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-2")
@@ -129,7 +135,7 @@ func (s *DeploySuite) TestUpgradeCharmDir(c *C) {
 }
 
 func (s *DeploySuite) TestCharmBundle(c *C) {
-	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
+	coretesting.Charms.BundlePath(s.seriesPath, "series", "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
@@ -137,19 +143,19 @@ func (s *DeploySuite) TestCharmBundle(c *C) {
 }
 
 func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
-	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
+	coretesting.Charms.BundlePath(s.seriesPath, "series", "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
 	c.Assert(err, ErrorMatches, `cannot increment version of charm "local:precise/dummy-1": not a directory`)
 	// Verify state not touched...
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	_, err = s.State.Charm(curl)
-	c.Assert(err, ErrorMatches, `cannot get charm "local:precise/dummy-1": charm not found`)
+	c.Assert(err, ErrorMatches, `charm "local:precise/dummy-1" not found`)
 	_, err = s.State.Service("dummy")
-	c.Assert(err, ErrorMatches, `cannot get service "dummy": service with name "dummy" not found`)
+	c.Assert(err, ErrorMatches, `service "dummy" not found`)
 }
 
 func (s *DeploySuite) TestAddsPeerRelations(c *C) {
-	coretesting.Charms.BundlePath(s.seriesPath, "riak")
+	coretesting.Charms.BundlePath(s.seriesPath, "series", "riak")
 	err := runDeploy(c, "local:riak")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/riak-7")
@@ -163,7 +169,7 @@ func (s *DeploySuite) TestAddsPeerRelations(c *C) {
 }
 
 func (s *DeploySuite) TestNumUnits(c *C) {
-	coretesting.Charms.BundlePath(s.seriesPath, "dummy")
+	coretesting.Charms.BundlePath(s.seriesPath, "series", "dummy")
 	err := runDeploy(c, "local:dummy", "-n", "13")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
@@ -171,7 +177,7 @@ func (s *DeploySuite) TestNumUnits(c *C) {
 }
 
 func (s *DeploySuite) TestSubordinateCharm(c *C) {
-	coretesting.Charms.BundlePath(s.seriesPath, "logging")
+	coretesting.Charms.BundlePath(s.seriesPath, "series", "logging")
 	err := runDeploy(c, "local:logging")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/logging-1")

@@ -36,11 +36,12 @@ type Meta struct {
 	Name        string
 	Summary     string
 	Description string
-	Provides    map[string]Relation
-	Requires    map[string]Relation
-	Peers       map[string]Relation
-	OldRevision int // Obsolete
 	Subordinate bool
+	Provides    map[string]Relation `bson:",omitempty"`
+	Requires    map[string]Relation `bson:",omitempty"`
+	Peers       map[string]Relation `bson:",omitempty"`
+	Format      int                 `bson:",omitempty"`
+	OldRevision int                 `bson:",omitempty"` // Obsolete
 }
 
 // ReadMeta reads the content of a metadata.yaml file and returns
@@ -69,6 +70,7 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 	meta.Provides = parseRelations(m["provides"])
 	meta.Requires = parseRelations(m["requires"])
 	meta.Peers = parseRelations(m["peers"])
+	meta.Format = int(m["format"].(int64))
 	if rev := m["revision"]; rev != nil {
 		// Obsolete
 		meta.OldRevision = int(m["revision"].(int64))
@@ -195,6 +197,7 @@ var charmSchema = schema.FieldMap(
 		"provides":    schema.StringMap(ifaceExpander(nil)),
 		"requires":    schema.StringMap(ifaceExpander(int64(1))),
 		"revision":    schema.Int(), // Obsolete
+		"format":      schema.Int(),
 		"subordinate": schema.Bool(),
 	},
 	schema.Defaults{
@@ -202,6 +205,7 @@ var charmSchema = schema.FieldMap(
 		"requires":    schema.Omit,
 		"peers":       schema.Omit,
 		"revision":    schema.Omit,
+		"format":      1,
 		"subordinate": schema.Omit,
 	},
 )

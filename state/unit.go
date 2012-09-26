@@ -3,34 +3,36 @@ package state
 import (
 	"errors"
 	"fmt"
-	"launchpad.net/goyaml"
-	"launchpad.net/gozk/zookeeper"
+	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/trivial"
-	"strconv"
+	"sort"
 	"strings"
 	"time"
 )
 
-// ResolvedMode describes the way state transition errors 
-// are resolved. 
+// ResolvedMode describes the way state transition errors
+// are resolved.
 type ResolvedMode int
 
 const (
-	ResolvedNone       ResolvedMode = 0
-	ResolvedRetryHooks ResolvedMode = 1000
-	ResolvedNoHooks    ResolvedMode = 1001
+	ResolvedNone ResolvedMode = iota
+	ResolvedRetryHooks
+	ResolvedNoHooks
+	nResolvedModes
 )
 
 // AssignmentPolicy controls what machine a unit will be assigned to.
 type AssignmentPolicy string
 
 const (
-	// AssignLocal indicates that all service units should be assigned to machine 0.
+	// AssignLocal indicates that all service units should be assigned
+	// to machine 0.
 	AssignLocal AssignmentPolicy = "local"
-	// AssignUnused indicates that every service unit should be assigned to a
-	// dedicated machine, and that new machines should be launched if required.
+	// AssignUnused indicates that every service unit should be assigned
+	// to a dedicated machine, and that new machines should be launched
+	// if required.
 	AssignUnused AssignmentPolicy = "unused"
 )
 
@@ -46,124 +48,171 @@ const (
 	UnitDown      UnitStatus = "down"      // Agent is down or not communicating
 )
 
-// agentPingerPeriod defines the period of pinging the
-// ZooKeeper to signal that a unit agent is alive. It's
-// also used by machine.
-var (
-	agentPingerPeriod = 1 * time.Second
-)
-
 // Port identifies a network port number for a particular protocol.
 type Port struct {
-	Protocol string `yaml:"proto"`
-	Number   int    `yaml:"port"`
+	Protocol string
+	Number   int
 }
 
-// openPortsNode represents the content of the
-// ports node of a unit.
-type openPortsNode struct {
-	Open []Port
+func (p Port) String() string {
+	return fmt.Sprintf("%s:%d", p.Protocol, p.Number)
+}
+
+// UnitSettings holds information about a service unit's settings within a
+// relation.
+type UnitSettings struct {
+	Version  int64
+	Settings map[string]interface{}
+}
+
+// unitDoc represents the internal state of a unit in MongoDB.
+type unitDoc struct {
+	Name           string `bson:"_id"`
+	Service        string
+	CharmURL       *charm.URL
+	Principal      string
+	Subordinates   []string
+	PublicAddress  string
+	PrivateAddress string
+	MachineId      *int
+	Resolved       ResolvedMode
+	Tools          *Tools `bson:",omitempty"`
+	Ports          []Port
+	Life           Life
+	TxnRevno       int64 `bson:"txn-revno"`
 }
 
 // Unit represents the state of a service unit.
 type Unit struct {
-	st           *State
-	key          string
-	serviceName  string
-	principalKey string
-	agentTools
+	st  *State
+	doc unitDoc
+}
+
+func newUnit(st *State, udoc *unitDoc) *Unit {
+	return &Unit{
+		st:  st,
+		doc: *udoc,
+	}
 }
 
 // ServiceName returns the service name.
 func (u *Unit) ServiceName() string {
-	return u.serviceName
-}
-
-// Name returns the unit name.
-func (u *Unit) Name() string {
-	return fmt.Sprintf("%s/%d", u.serviceName, keySeq(u.key))
+	return u.doc.Service
 }
 
 // String returns the unit as string.
 func (u *Unit) String() string {
-	return u.Name()
+	return u.doc.Name
 }
 
-// makeUnitKey returns a unit key made up from the service key
-// and the unit sequence number within the service.
-func makeUnitKey(serviceKey string, unitSeq int) string {
-	if !strings.HasPrefix(serviceKey, "service-") {
-		panic(fmt.Errorf("invalid service key %q", serviceKey))
-	}
-	return fmt.Sprintf("unit-%s-%010d", serviceKey[len("service-"):], unitSeq)
+// Name returns the unit name.
+func (u *Unit) Name() string {
+	return u.doc.Name
 }
 
-func serviceKeyForUnitKey(unitKey string) (string, error) {
-	if !strings.HasPrefix(unitKey, "unit-") {
-		return "", fmt.Errorf("invalid unit key %q", unitKey)
-	}
-	k := unitKey[len("unit-"):]
-	i := strings.Index(k, "-")
-	if i <= 0 {
-		return "", fmt.Errorf("invalid unit key %q", unitKey)
-	}
-	return "service-" + k[0:i], nil
+// globalKey returns the global database key for the unit.
+func (u *Unit) globalKey() string {
+	return "u#" + u.doc.Name
 }
 
-func newUnit(st *State, serviceName string, key, principalKey string) *Unit {
-	u := &Unit{
-		st:           st,
-		serviceName:  serviceName,
-		key:          key,
-		principalKey: principalKey,
-	}
-	u.agentTools = agentTools{
-		st:    st,
-		path:  u.zkPath(),
-		agent: "unit",
-	}
-	return u
+// Life returns whether the unit is Alive, Dying or Dead.
+func (u *Unit) Life() Life {
+	return u.doc.Life
 }
 
-func (st *State) unitFromKey(t *topology, unitKey string) (*Unit, error) {
-	tsvc, tunit, err := t.serviceAndUnit(unitKey)
+// AgentTools returns the tools that the agent is currently running.
+func (u *Unit) AgentTools() (*Tools, error) {
+	if u.doc.Tools == nil {
+		return &Tools{}, nil
+	}
+	tools := *u.doc.Tools
+	return &tools, nil
+}
+
+// SetAgentTools sets the tools that the agent is currently running.
+func (u *Unit) SetAgentTools(t *Tools) (err error) {
+	defer trivial.ErrorContextf(&err, "cannot set agent tools for unit %q", u)
+	if t.Series == "" || t.Arch == "" {
+		return fmt.Errorf("empty series or arch")
+	}
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: notDead,
+		Update: D{{"$set", D{{"tools", t}}}},
+	}}
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		return onAbort(err, errNotAlive)
+	}
+	tools := *t
+	u.doc.Tools = &tools
+	return nil
+}
+
+// EnsureDying sets the unit lifecycle to Dying if it is Alive.
+// It does nothing otherwise.
+func (u *Unit) EnsureDying() error {
+	err := ensureDying(u.st, u.st.units, u.doc.Name, "unit")
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return newUnit(st, tsvc.Name, unitKey, tunit.Principal), nil
+	u.doc.Life = Dying
+	return nil
+}
+
+// EnsureDead sets the unit lifecycle to Dead if it is Alive or Dying.
+// It does nothing otherwise.
+func (u *Unit) EnsureDead() error {
+	err := ensureDead(u.st, u.st.units, u.doc.Name, "unit", nil, "")
+	if err != nil {
+		return err
+	}
+	u.doc.Life = Dead
+	return nil
+}
+
+// Resolved returns the resolved mode for the unit.
+func (u *Unit) Resolved() ResolvedMode {
+	return u.doc.Resolved
+}
+
+// IsPrincipal returns whether the unit is deployed in its own container,
+// and can therefore have subordinate services deployed alongside it.
+func (u *Unit) IsPrincipal() bool {
+	return u.doc.Principal == ""
 }
 
 // PublicAddress returns the public address of the unit.
 func (u *Unit) PublicAddress() (string, error) {
-	return getConfigString(u.st.zk, u.zkPath(), "public-address",
-		"public address of unit %q", u)
+	if u.doc.PublicAddress == "" {
+		return "", fmt.Errorf("public address of unit %q not found", u)
+	}
+	return u.doc.PublicAddress, nil
 }
 
-// SetPublicAddress sets the public address of the unit.
-func (u *Unit) SetPublicAddress(address string) (err error) {
-	return setConfigString(u.st.zk, u.zkPath(), "public-address", address,
-		"public address of unit %q", u)
-}
-
-// PrivateAddress returns the private address of the unit.
+// PrivateAddress returns the public address of the unit.
 func (u *Unit) PrivateAddress() (string, error) {
-	return getConfigString(u.st.zk, u.zkPath(), "private-address",
-		"private address of unit %q", u)
+	if u.doc.PrivateAddress == "" {
+		return "", fmt.Errorf("private address of unit %q not found", u)
+	}
+	return u.doc.PrivateAddress, nil
 }
 
-// SetPrivateAddress sets the private address of the unit.
-func (u *Unit) SetPrivateAddress(address string) (err error) {
-	return setConfigString(u.st.zk, u.zkPath(), "private-address", address,
-		"private address of unit %q", u)
+func (u *Unit) Refresh() error {
+	err := u.st.units.FindId(u.doc.Name).One(&u.doc)
+	if err != nil {
+		return fmt.Errorf("cannot refresh unit %q: %v", u, err)
+	}
+	return nil
 }
 
 // Status returns the status of the unit's agent.
 func (u *Unit) Status() (s UnitStatus, info string, err error) {
-	cn, err := readConfigNode(u.st.zk, u.zkPath())
+	config, err := u.Config()
 	if err != nil {
 		return "", "", fmt.Errorf("cannot read status of unit %q: %v", u, err)
 	}
-	raw, found := cn.Get("status")
+	raw, found := config.Get("status")
 	if !found {
 		return UnitPending, "", nil
 	}
@@ -171,7 +220,7 @@ func (u *Unit) Status() (s UnitStatus, info string, err error) {
 	switch s {
 	case UnitError:
 		// We always expect an info if status is 'error'.
-		raw, found = cn.Get("status-info")
+		raw, found = config.Get("status-info")
 		if !found {
 			panic("no status-info found for unit error")
 		}
@@ -194,81 +243,242 @@ func (u *Unit) SetStatus(status UnitStatus, info string) error {
 	if status == UnitPending {
 		panic("unit status must not be set to pending")
 	}
-	cn, err := readConfigNode(u.st.zk, u.zkPath())
+	config, err := u.Config()
 	if err != nil {
 		return err
 	}
-	cn.Set("status", status)
-	cn.Set("status-info", info)
-	_, err = cn.Write()
+	config.Set("status", status)
+	config.Set("status-info", info)
+	_, err = config.Write()
 	if err != nil {
 		return fmt.Errorf("cannot set status of unit %q: %v", u, err)
 	}
 	return nil
 }
 
+// OpenPort sets the policy of the port with protocol and number to be opened.
+func (u *Unit) OpenPort(protocol string, number int) (err error) {
+	port := Port{Protocol: protocol, Number: number}
+	defer trivial.ErrorContextf(&err, "cannot open port %v for unit %q", port, u)
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: notDead,
+		Update: D{{"$addToSet", D{{"ports", port}}}},
+	}}
+	err = u.st.runner.Run(ops, "", nil)
+	if err != nil {
+		return onAbort(err, errNotAlive)
+	}
+	found := false
+	for _, p := range u.doc.Ports {
+		if p == port {
+			break
+		}
+	}
+	if !found {
+		u.doc.Ports = append(u.doc.Ports, port)
+	}
+	return nil
+}
+
+// ClosePort sets the policy of the port with protocol and number to be closed.
+func (u *Unit) ClosePort(protocol string, number int) (err error) {
+	port := Port{Protocol: protocol, Number: number}
+	defer trivial.ErrorContextf(&err, "cannot close port %v for unit %q", port, u)
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: notDead,
+		Update: D{{"$pull", D{{"ports", port}}}},
+	}}
+	err = u.st.runner.Run(ops, "", nil)
+	if err != nil {
+		return onAbort(err, errNotAlive)
+	}
+	newPorts := make([]Port, 0, len(u.doc.Ports))
+	for _, p := range u.doc.Ports {
+		if p != port {
+			newPorts = append(newPorts, p)
+		}
+	}
+	u.doc.Ports = newPorts
+	return nil
+}
+
+// OpenedPorts returns a slice containing the open ports of the unit.
+func (u *Unit) OpenedPorts() []Port {
+	ports := append([]Port{}, u.doc.Ports...)
+	SortPorts(ports)
+	return ports
+}
+
 // Charm returns the charm this unit is currently using.
 func (u *Unit) Charm() (ch *Charm, err error) {
-	surl, err := getConfigString(u.st.zk, u.zkPath(), "charm",
-		"charm URL of unit %q", u)
-	if err != nil {
-		return nil, err
+	if u.doc.CharmURL == nil {
+		return nil, fmt.Errorf("charm URL of unit %q not found", u)
 	}
-	url, err := charm.ParseURL(surl)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse charm URL of unit %q: %v", u, err)
-	}
-	return u.st.Charm(url)
+	return u.st.Charm(u.doc.CharmURL)
 }
 
 // SetCharm marks the unit as currently using the supplied charm.
 func (u *Unit) SetCharm(ch *Charm) (err error) {
-	return setConfigString(u.st.zk, u.zkPath(), "charm", ch.URL().String(),
-		"charm URL of unit %q", u)
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: notDead,
+		Update: D{{"$set", D{{"charmurl", ch.URL()}}}},
+	}}
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set charm for unit %q: %v", u, onAbort(err, errNotAlive))
+	}
+	u.doc.CharmURL = ch.URL()
+	return nil
 }
 
-// IsPrincipal returns whether the unit is deployed in its own container,
-// and can therefore have subordinate services deployed alongside it.
-func (u *Unit) IsPrincipal() bool {
-	return u.principalKey == ""
+// AgentAlive returns whether the respective remote agent is alive.
+func (u *Unit) AgentAlive() (bool, error) {
+	return u.st.pwatcher.Alive(u.globalKey())
+}
+
+// PathKey returns a name identifying the unit that can be used as a
+// file name.  The returned key will be different from other
+// PathKeys returned by any other entities from the same state.
+func (u *Unit) PathKey() string {
+	return "unit-" + strings.Replace(u.Name(), "/", "-", -1)
+}
+
+// WaitAgentAlive blocks until the respective agent is alive.
+func (u *Unit) WaitAgentAlive(timeout time.Duration) (err error) {
+	defer trivial.ErrorContextf(&err, "waiting for agent of unit %q", u)
+	ch := make(chan presence.Change)
+	u.st.pwatcher.Watch(u.globalKey(), ch)
+	defer u.st.pwatcher.Unwatch(u.globalKey(), ch)
+	for i := 0; i < 2; i++ {
+		select {
+		case change := <-ch:
+			if change.Alive {
+				return nil
+			}
+		case <-time.After(timeout):
+			return fmt.Errorf("still not alive after timeout")
+		case <-u.st.pwatcher.Dead():
+			return u.st.pwatcher.Err()
+		}
+	}
+	panic(fmt.Sprintf("presence reported dead status twice in a row for unit %q", u))
+}
+
+// SetAgentAlive signals that the agent for unit u is alive.
+// It returns the started pinger.
+func (u *Unit) SetAgentAlive() (*presence.Pinger, error) {
+	p := presence.NewPinger(u.st.presence, u.globalKey())
+	err := p.Start()
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 // AssignedMachineId returns the id of the assigned machine.
 func (u *Unit) AssignedMachineId() (id int, err error) {
 	defer trivial.ErrorContextf(&err, "cannot get machine id of unit %q", u)
-	topology, err := readTopology(u.st.zk)
+	if u.IsPrincipal() {
+		if u.doc.MachineId == nil {
+			return 0, errors.New("unit not assigned to machine")
+		}
+		return *u.doc.MachineId, nil
+	}
+	pudoc := unitDoc{}
+	err = u.st.units.Find(D{{"_id", u.doc.Principal}}).One(&pudoc)
 	if err != nil {
 		return 0, err
 	}
-	if !topology.HasUnit(u.key) {
-		return 0, stateChanged
+	if pudoc.MachineId == nil {
+		return 0, errors.New("unit not assigned to machine")
 	}
-	machineKey, err := topology.UnitMachineKey(u.key)
+	return *pudoc.MachineId, nil
+}
+
+var (
+	machineDeadErr     = errors.New("machine is dead")
+	unitDeadErr        = errors.New("unit is dead")
+	alreadyAssignedErr = errors.New("unit is already assigned to a machine")
+	inUseErr           = errors.New("machine is not unused")
+)
+
+// assignToMachine is the internal version of AssignToMachine,
+// also used by AssignToUnusedMachine. It returns specific errors
+// in some cases:
+// - machineDeadErr when the machine is not alive.
+// - unitDeadErr when the unit is not alive.
+// - alreadyAssignedErr when the unit has already been assigned
+// - inUseErr when the machine already has a unit assigned (if unused is true)
+func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
+	if u.doc.MachineId != nil {
+		if *u.doc.MachineId != m.Id() {
+			return alreadyAssignedErr
+		}
+		return nil
+	}
+	if u.doc.Principal != "" {
+		return fmt.Errorf("unit is a subordinate")
+	}
+	assert := append(isAlive, D{
+		{"$or", []D{
+			D{{"machineid", nil}},
+			D{{"machineid", m.Id()}},
+		}},
+	}...)
+	massert := isAlive
+	if unused {
+		massert = append(massert, D{{"principals", D{{"$size", 0}}}}...)
+	}
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: assert,
+		Update: D{{"$set", D{{"machineid", m.doc.Id}}}},
+	}, {
+		C:      u.st.machines.Name,
+		Id:     m.doc.Id,
+		Assert: massert,
+		Update: D{{"$addToSet", D{{"principals", u.doc.Name}}}},
+	}}
+	err = u.st.runner.Run(ops, "", nil)
+	if err == nil {
+		u.doc.MachineId = &m.doc.Id
+		return nil
+	}
+	if err != txn.ErrAborted {
+		return err
+	}
+	u0, err := u.st.Unit(u.Name())
 	if err != nil {
-		return 0, err
+		return err
 	}
-	return keySeq(machineKey), nil
+	m0, err := u.st.Machine(m.Id())
+	if err != nil {
+		return err
+	}
+	switch {
+	case u0.Life() != Alive:
+		return unitDeadErr
+	case m0.Life() != Alive:
+		return machineDeadErr
+	case u0.doc.MachineId != nil || !unused:
+		return alreadyAssignedErr
+	}
+	return inUseErr
 }
 
 // AssignToMachine assigns this unit to a given machine.
-func (u *Unit) AssignToMachine(machine *Machine) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot assign unit %q to machine %s", u, machine)
-	assignUnit := func(t *topology) error {
-		if !t.HasUnit(u.key) {
-			return stateChanged
-		}
-		machineKey, err := t.UnitMachineKey(u.key)
-		if err == unitNotAssigned {
-			return t.AssignUnitToMachine(u.key, machine.key)
-		} else if err != nil {
-			return err
-		} else if machineKey == machine.key {
-			// Everything is fine, it's already assigned.
-			return nil
-		}
-		return fmt.Errorf("unit already assigned to machine %d", keySeq(machineKey))
+func (u *Unit) AssignToMachine(m *Machine) error {
+	err := u.assignToMachine(m, false)
+	if err != nil {
+		return fmt.Errorf("cannot assign unit %q to machine %v: %v", u, m, err)
 	}
-	return retryTopologyChange(u.st.zk, assignUnit)
+	return nil
 }
 
 var noUnusedMachines = errors.New("all machines in use")
@@ -276,290 +486,159 @@ var noUnusedMachines = errors.New("all machines in use")
 // AssignToUnusedMachine assigns u to a machine without other units.
 // If there are no unused machines besides machine 0, an error is returned.
 func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
-	machineKey := ""
-	assignUnusedUnit := func(t *topology) error {
-		if !t.HasUnit(u.key) {
-			return stateChanged
+	// Select all machines with no principals except the bootstrap machine.
+	sel := D{{"principals", D{{"$size", 0}}}, {"_id", D{{"$ne", 0}}}}
+	// TODO use Batch(1). See https://bugs.launchpad.net/mgo/+bug/1053509
+	iter := u.st.machines.Find(sel).Batch(2).Prefetch(0).Iter()
+	var mdoc machineDoc
+	for iter.Next(&mdoc) {
+		m := newMachine(u.st, &mdoc)
+
+		err := u.assignToMachine(m, true)
+		if err == nil {
+			return m, nil
 		}
-		for _, machineKey = range t.MachineKeys() {
-			if keySeq(machineKey) != 0 {
-				hasUnits, err := t.MachineHasUnits(machineKey)
-				if err != nil {
-					return err
-				}
-				if !hasUnits {
-					break
-				}
-			}
-			// Reset machine key.
-			machineKey = ""
+		if err != inUseErr && err != machineDeadErr {
+			return nil, fmt.Errorf("cannot assign unit %q to unused machine: %v", u, err)
 		}
-		if machineKey == "" {
-			return noUnusedMachines
-		}
-		if err := t.AssignUnitToMachine(u.key, machineKey); err != nil {
-			return err
-		}
-		return nil
 	}
-	if err := retryTopologyChange(u.st.zk, assignUnusedUnit); err != nil {
-		if err == noUnusedMachines {
-			return nil, err
-		}
-		return nil, fmt.Errorf("cannot assign unit %q to unused machine: %v", u, err)
-	}
-	return newMachine(u.st, machineKey), nil
+	return nil, noUnusedMachines
 }
 
-// UnassignFromMachine removes the assignment between this unit and
-// the machine it's assigned to.
+// UnassignFromMachine removes the assignment between this unit and the
+// machine it's assigned to.
 func (u *Unit) UnassignFromMachine() (err error) {
-	defer trivial.ErrorContextf(&err, "cannot unassign unit %q from machine", u.Name())
-	unassignUnit := func(t *topology) error {
-		if !t.HasUnit(u.key) {
-			return stateChanged
-		}
-		// If for whatever reason it's already not assigned to a
-		// machine, ignore it and move forward so that we don't
-		// have to deal with conflicts.
-		key, err := t.UnitMachineKey(u.key)
-		if err == nil && key != "" {
-			t.UnassignUnitFromMachine(u.key)
-		}
-		return nil
+	// TODO check local machine id and add an assert that the
+	// machine id is as expected.
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: txn.DocExists,
+		Update: D{{"$set", D{{"machineid", nil}}}},
+	}}
+	if u.doc.MachineId != nil {
+		ops = append(ops, txn.Op{
+			C:      u.st.machines.Name,
+			Id:     u.doc.MachineId,
+			Assert: txn.DocExists,
+			Update: D{{"$pull", D{{"principals", u.doc.Name}}}},
+		})
 	}
-	return retryTopologyChange(u.st.zk, unassignUnit)
-}
-
-// Resolved returns the resolved mode for the unit.
-func (u *Unit) Resolved() (mode ResolvedMode, err error) {
-	defer trivial.ErrorContextf(&err, "cannot get resolved mode for unit %q", u)
-	yaml, _, err := u.st.zk.Get(u.zkResolvedPath())
-	if zookeeper.IsError(err, zookeeper.ZNONODE) {
-		// Default value.
-		return ResolvedNone, nil
-	}
+	err = u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return ResolvedNone, err
+		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, notFound("machine")))
 	}
-	setting := &struct{ Retry ResolvedMode }{}
-	if err = goyaml.Unmarshal([]byte(yaml), setting); err != nil {
-		return ResolvedNone, err
-	}
-	mode = setting.Retry
-	if err := validResolvedMode(mode, false); err != nil {
-		return ResolvedNone, err
-	}
-	return mode, nil
+	u.doc.MachineId = nil
+	return nil
 }
 
-// SetResolved marks the unit as having had any previous state
-// transition problems resolved, and informs the unit that it may
-// attempt to reestablish normal workflow.
-// The resolved mode parameter informs whether to attempt to 
-// reexecute previous failed hooks or to continue as if they had 
-// succeeded before.
+// SetPublicAddress sets the public address of the unit.
+func (u *Unit) SetPublicAddress(address string) (err error) {
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: txn.DocExists,
+		Update: D{{"$set", D{{"publicaddress", address}}}},
+	}}
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, notFound("machine")))
+	}
+	u.doc.PublicAddress = address
+	return nil
+}
+
+// SetPrivateAddress sets the private address of the unit.
+func (u *Unit) SetPrivateAddress(address string) error {
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: txn.DocExists,
+		Update: D{{"$set", D{{"privateaddress", address}}}},
+	}}
+	err := u.st.runner.Run(ops, "", nil)
+	if err != nil {
+		return fmt.Errorf("cannot set private address of unit %q: %v", u, notFound("unit"))
+	}
+	u.doc.PrivateAddress = address
+	return nil
+}
+
+// SetResolved marks the unit as having had any previous state transition
+// problems resolved, and informs the unit that it may attempt to
+// reestablish normal workflow. The resolved mode parameter informs
+// whether to attempt to reexecute previous failed hooks or to continue
+// as if they had succeeded before.
 func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot set resolved mode for unit %q", u)
-	if err := validResolvedMode(mode, false); err != nil {
+	if !(0 <= mode && mode < nResolvedModes) {
+		return fmt.Errorf("invalid error resolution mode: %v", mode)
+	}
+	assert := append(isAlive, D{{"resolved", ResolvedNone}}...)
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: assert,
+		Update: D{{"$set", D{{"resolved", mode}}}},
+	}}
+	if err := u.st.runner.Run(ops, "", nil); err != nil {
+		if err == txn.ErrAborted {
+			// Find which assertion failed so we can give a
+			// more specific error.
+			u1, err := u.st.Unit(u.Name())
+			if err != nil {
+				return err
+			}
+			if u1.Life() != Alive {
+				return errNotAlive
+			}
+			return fmt.Errorf("already resolved")
+		}
 		return err
 	}
-	setting := &struct{ Retry ResolvedMode }{mode}
-	yaml, err := goyaml.Marshal(setting)
-	if err != nil {
-		return err
-	}
-	_, err = u.st.zk.Create(u.zkResolvedPath(), string(yaml), 0, zkPermAll)
-	if zookeeper.IsError(err, zookeeper.ZNODEEXISTS) {
-		return fmt.Errorf("flag already set")
-	}
-	return err
+	u.doc.Resolved = mode
+	return nil
 }
 
 // ClearResolved removes any resolved setting on the unit.
-func (u *Unit) ClearResolved() (err error) {
-	defer trivial.ErrorContextf(&err, "resolved mode for unit %q cannot be cleared", u)
-	err = u.st.zk.Delete(u.zkResolvedPath(), -1)
-	if zookeeper.IsError(err, zookeeper.ZNONODE) {
-		// Node doesn't exist, so same state.
-		return nil
-	}
-	return err
-}
-
-// WatchResolved returns a watcher that fires when the unit
-// is marked as having had its problems resolved. See
-// SetResolved for details.
-func (u *Unit) WatchResolved() *ResolvedWatcher {
-	return newResolvedWatcher(u.st, u.zkResolvedPath())
-}
-
-// OpenPort sets the policy of the port with protocol and number to be opened.
-func (u *Unit) OpenPort(protocol string, number int) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot open port %s:%d for unit %q", protocol, number, u)
-	openPort := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
-		var ports openPortsNode
-		if oldYaml != "" {
-			if err := goyaml.Unmarshal([]byte(oldYaml), &ports); err != nil {
-				return "", err
-			}
-		}
-		portToOpen := Port{protocol, number}
-		found := false
-		for _, openPort := range ports.Open {
-			if openPort == portToOpen {
-				found = true
-				break
-			}
-		}
-		if !found {
-			ports.Open = append(ports.Open, portToOpen)
-		}
-		newYaml, err := goyaml.Marshal(ports)
-		if err != nil {
-			return "", err
-		}
-		return string(newYaml), nil
-	}
-	return u.st.zk.RetryChange(u.zkPortsPath(), 0, zkPermAll, openPort)
-}
-
-// ClosePort sets the policy of the port with protocol and number to be closed.
-func (u *Unit) ClosePort(protocol string, number int) (err error) {
-	defer trivial.ErrorContextf(&err, "cannot close port %s:%d for unit %q", protocol, number, u)
-	closePort := func(oldYaml string, stat *zookeeper.Stat) (string, error) {
-		var ports openPortsNode
-		if oldYaml != "" {
-			if err := goyaml.Unmarshal([]byte(oldYaml), &ports); err != nil {
-				return "", err
-			}
-		}
-		portToClose := Port{protocol, number}
-		newOpenPorts := []Port{}
-		for _, oldOpenPort := range ports.Open {
-			if oldOpenPort != portToClose {
-				newOpenPorts = append(newOpenPorts, oldOpenPort)
-			}
-		}
-		ports.Open = newOpenPorts
-		newYaml, err := goyaml.Marshal(ports)
-		if err != nil {
-			return "", err
-		}
-		return string(newYaml), nil
-	}
-	return u.st.zk.RetryChange(u.zkPortsPath(), 0, zkPermAll, closePort)
-}
-
-// OpenPorts returns a slice containing the open ports of the unit.
-func (u *Unit) OpenPorts() (openPorts []Port, err error) {
-	defer trivial.ErrorContextf(&err, "cannot get open ports of unit %q", u)
-	yaml, _, err := u.st.zk.Get(u.zkPortsPath())
-	if zookeeper.IsError(err, zookeeper.ZNONODE) {
-		// Default value.
-		return nil, nil
-	}
+func (u *Unit) ClearResolved() error {
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: txn.DocExists,
+		Update: D{{"$set", D{{"resolved", ResolvedNone}}}},
+	}}
+	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, notFound("unit"))
 	}
-	var ports openPortsNode
-	if err = goyaml.Unmarshal([]byte(yaml), &ports); err != nil {
-		return nil, err
-	}
-	return ports.Open, nil
-}
-
-// WatchResolved returns a watcher that fires when the
-// list of open ports of the unit is changed.
-// See OpenPorts for details.
-func (u *Unit) WatchPorts() *PortsWatcher {
-	return newPortsWatcher(u.st, u.zkPortsPath())
-}
-
-// AgentAlive returns whether the respective remote agent is alive.
-func (u *Unit) AgentAlive() (bool, error) {
-	return presence.Alive(u.st.zk, u.zkAgentPath())
-}
-
-// WaitAgentAlive blocks until the respective agent is alive.
-func (u *Unit) WaitAgentAlive(timeout time.Duration) error {
-	err := presence.WaitAlive(u.st.zk, u.zkAgentPath(), timeout)
-	if err != nil {
-		return fmt.Errorf("waiting for agent of unit %q: %v", u, err)
-	}
+	u.doc.Resolved = ResolvedNone
 	return nil
 }
 
-// SetAgentAlive signals that the agent for unit u is alive
-// by starting a pinger on its presence node. It returns the
-// started pinger.
-func (u *Unit) SetAgentAlive() (*presence.Pinger, error) {
-	return presence.StartPinger(u.st.zk, u.zkAgentPath(), agentPingerPeriod)
-}
-
-// zkPath returns the ZooKeeper base path for the unit.
-func (u *Unit) zkPath() string {
-	skey, err := serviceKeyForUnitKey(u.key)
+// Config returns the configuration node for the unit.
+func (u *Unit) Config() (config *ConfigNode, err error) {
+	config, err = readConfigNode(u.st, u.globalKey())
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("cannot get configuration of unit %q: %v", u, err)
 	}
-	return fmt.Sprintf("/services/%s/units/%s", skey, u.key)
+	return config, nil
 }
 
-// zkPortsPath returns the ZooKeeper path for the open ports.
-func (u *Unit) zkPortsPath() string {
-	return u.zkPath() + "/ports"
+type portSlice []Port
+
+func (p portSlice) Len() int      { return len(p) }
+func (p portSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
+func (p portSlice) Less(i, j int) bool {
+	p1 := p[i]
+	p2 := p[j]
+	if p1.Protocol != p2.Protocol {
+		return p1.Protocol < p2.Protocol
+	}
+	return p1.Number < p2.Number
 }
 
-// zkAgentPath returns the ZooKeeper path for the unit agent.
-func (u *Unit) zkAgentPath() string {
-	return u.zkPath() + "/agent"
-}
-
-// zkResolvedPath returns the ZooKeeper path for the mark to resolve a unit.
-func (u *Unit) zkResolvedPath() string {
-	return u.zkPath() + "/resolved"
-}
-
-// parseUnitName parses a unit name like "wordpress/0" into
-// its service name and sequence number parts.
-func parseUnitName(name string) (serviceName string, serviceSeq int, err error) {
-	parts := strings.Split(name, "/")
-	if len(parts) != 2 {
-		return "", 0, fmt.Errorf("%q is not a valid unit name", name)
-	}
-	seq, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return "", 0, fmt.Errorf("%q is not a valid unit name", name)
-	}
-	return parts[0], int(seq), nil
-}
-
-// parseResolvedMode returns the resolved mode serialized
-// in yaml if it is valid, or an error otherwise.
-func parseResolvedMode(yaml string) (ResolvedMode, error) {
-	var setting struct {
-		Retry ResolvedMode
-	}
-	if err := goyaml.Unmarshal([]byte(yaml), &setting); err != nil {
-		return ResolvedNone, err
-	}
-	mode := setting.Retry
-	if err := validResolvedMode(mode, true); err != nil {
-		return ResolvedNone, err
-	}
-	return mode, nil
-}
-
-// validResolvedMode returns an error if the provided
-// mode isn't valid. ResolvedNone is only considered a
-// valid mode if acceptNone is true.
-func validResolvedMode(mode ResolvedMode, acceptNone bool) error {
-	if acceptNone && mode == ResolvedNone {
-		return nil
-	}
-	if mode != ResolvedRetryHooks && mode != ResolvedNoHooks {
-		return fmt.Errorf("invalid error resolution mode: %d", mode)
-	}
-	return nil
+// SortPorts sorts the given ports, first by protocol,
+// then by number.
+func SortPorts(ports []Port) {
+	sort.Sort(portSlice(ports))
 }

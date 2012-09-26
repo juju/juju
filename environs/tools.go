@@ -16,11 +16,6 @@ import (
 	"strings"
 )
 
-// VarDir is the directory where juju data is stored.
-// The tools directories are stored inside the "tools" subdirectory
-// inside VarDir.
-var VarDir = "/var/lib/juju"
-
 var toolPrefix = "tools/juju-"
 
 // ToolsList holds a list of available tools.  Private tools take
@@ -240,15 +235,15 @@ func bestTools(toolsList []*state.Tools, vers version.Binary, flags ToolsSearchF
 const urlFile = "downloaded-url.txt"
 
 // toolsParentDir returns the tools parent directory.
-func toolsParentDir() string {
-	return path.Join(VarDir, "tools")
+func toolsParentDir(dataDir string) string {
+	return path.Join(dataDir, "tools")
 }
 
 // UnpackTools reads a set of juju tools in gzipped tar-archive
-// format and unpacks them into the appropriate tools directory.
-// If a valid tools directory already exists, UnpackTools returns
-// without error.
-func UnpackTools(tools *state.Tools, r io.Reader) (err error) {
+// format and unpacks them into the appropriate tools directory
+// within dataDir. If a valid tools directory already exists,
+// UnpackTools returns without error.
+func UnpackTools(dataDir string, tools *state.Tools, r io.Reader) (err error) {
 	zr, err := gzip.NewReader(r)
 	if err != nil {
 		return err
@@ -257,11 +252,11 @@ func UnpackTools(tools *state.Tools, r io.Reader) (err error) {
 
 	// Make a temporary directory in the tools directory,
 	// first ensuring that the tools directory exists.
-	err = os.MkdirAll(toolsParentDir(), 0755)
+	err = os.MkdirAll(toolsParentDir(dataDir), 0755)
 	if err != nil {
 		return err
 	}
-	dir, err := ioutil.TempDir(toolsParentDir(), "unpacking-")
+	dir, err := ioutil.TempDir(toolsParentDir(dataDir), "unpacking-")
 	if err != nil {
 		return err
 	}
@@ -280,7 +275,7 @@ func UnpackTools(tools *state.Tools, r io.Reader) (err error) {
 			return fmt.Errorf("bad name %q in tools archive", hdr.Name)
 		}
 		if hdr.Typeflag != tar.TypeReg {
-			return fmt.Errorf("bad file type %#c in file %q in tools archive", hdr.Typeflag, hdr.Name)
+			return fmt.Errorf("bad file type %c in file %q in tools archive", hdr.Typeflag, hdr.Name)
 		}
 		name := filepath.Join(dir, hdr.Name)
 		if err := writeFile(name, os.FileMode(hdr.Mode&0777), tr); err != nil {
@@ -292,12 +287,12 @@ func UnpackTools(tools *state.Tools, r io.Reader) (err error) {
 		return err
 	}
 
-	err = os.Rename(dir, ToolsDir(tools.Binary))
+	err = os.Rename(dir, ToolsDir(dataDir, tools.Binary))
 	// If we've failed to rename the directory, it may be because
 	// the directory already exists - if ReadTools succeeds, we
 	// assume all's ok.
 	if err != nil {
-		_, err := ReadTools(tools.Binary)
+		_, err := ReadTools(dataDir, tools.Binary)
 		if err == nil {
 			return nil
 		}
@@ -324,9 +319,9 @@ func writeFile(name string, mode os.FileMode, r io.Reader) error {
 }
 
 // ReadTools checks that the tools for the given version exist
-// and returns a Tools instance describing them.
-func ReadTools(vers version.Binary) (*state.Tools, error) {
-	dir := ToolsDir(vers)
+// in the dataDir directory, and returns a Tools instance describing them.
+func ReadTools(dataDir string, vers version.Binary) (*state.Tools, error) {
+	dir := ToolsDir(dataDir, vers)
 	urlData, err := ioutil.ReadFile(filepath.Join(dir, urlFile))
 	if err != nil {
 		return nil, fmt.Errorf("cannot read URL in tools directory: %v", err)
@@ -344,19 +339,19 @@ func ReadTools(vers version.Binary) (*state.Tools, error) {
 }
 
 // ChangeAgentTools atomically replaces the agent-specific symlink
-// under the tools directory so it points to the previously unpacked
+// under dataDir so it points to the previously unpacked
 // version vers. It returns the new tools read.
-func ChangeAgentTools(agentName string, vers version.Binary) (*state.Tools, error) {
-	tools, err := ReadTools(vers)
+func ChangeAgentTools(dataDir string, agentName string, vers version.Binary) (*state.Tools, error) {
+	tools, err := ReadTools(dataDir, vers)
 	if err != nil {
 		return nil, err
 	}
-	tmpName := AgentToolsDir("tmplink-" + agentName)
+	tmpName := AgentToolsDir(dataDir, "tmplink-"+agentName)
 	err = os.Symlink(tools.Binary.String(), tmpName)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create tools symlink: %v", err)
 	}
-	err = os.Rename(tmpName, AgentToolsDir(agentName))
+	err = os.Rename(tmpName, AgentToolsDir(dataDir, agentName))
 	if err != nil {
 		return nil, fmt.Errorf("cannot update tools symlink: %v", err)
 	}
@@ -370,16 +365,18 @@ func ToolsStoragePath(vers version.Binary) string {
 }
 
 // ToolsDir returns the slash-separated directory name that is used to
-// store binaries for the given version of the juju tools.
-func ToolsDir(vers version.Binary) string {
-	return path.Join(VarDir, "tools", vers.String())
+// store binaries for the given version of the juju tools
+// within the dataDir directory.
+func ToolsDir(dataDir string, vers version.Binary) string {
+	return path.Join(dataDir, "tools", vers.String())
 }
 
 // AgentToolsDir returns the slash-separated directory name that is used
-// to store binaries for the tools used by the given agent.
+// to store binaries for the tools used by the given agent
+// within the given dataDir directory.
 // Conventionally it is a symbolic link to the actual tools directory.
-func AgentToolsDir(agentName string) string {
-	return path.Join(VarDir, "tools", agentName)
+func AgentToolsDir(dataDir, agentName string) string {
+	return path.Join(dataDir, "tools", agentName)
 }
 
 // ToolsSearchFlags gives options when searching
@@ -440,19 +437,28 @@ func bundleTools(w io.Writer, vers *version.Binary) (version.Binary, error) {
 	}
 	defer os.RemoveAll(dir)
 
-	cmd := exec.Command("go", "install", "launchpad.net/juju-core/cmd/...")
-	cmd.Env = setenv(os.Environ(), "GOBIN="+dir)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return version.Binary{}, fmt.Errorf("build failed: %v; %s", err, out)
+	cmds := [][]string{
+		{"go", "install", "launchpad.net/juju-core/cmd/jujud"},
+		{"go", "install", "launchpad.net/juju-core/cmd/jujuc"},
+		{"strip", dir + "/jujud"},
+		{"strip", dir + "/jujuc"},
+	}
+	env := setenv(os.Environ(), "GOBIN="+dir)
+	for _, args := range cmds {
+		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Env = env
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return version.Binary{}, fmt.Errorf("build failed: %v; %s", err, out)
+		}
 	}
 	if vers != nil {
 		if err := ioutil.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte((*vers).String()), 0666); err != nil {
 			return version.Binary{}, err
 		}
 	}
-	cmd = exec.Command(filepath.Join(dir, "jujud"), "version")
-	out, err = cmd.CombinedOutput()
+	cmd := exec.Command(filepath.Join(dir, "jujud"), "version")
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return version.Binary{}, fmt.Errorf("cannot get version from %q: %v; %s", cmd.Args[0], err, out)
 	}

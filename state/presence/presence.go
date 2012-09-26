@@ -1,553 +1,650 @@
-// The presence package is intended as a replacement for zookeeper ephemeral
-// nodes; the primary difference is that node timeout is unrelated to session
-// timeout, and this allows us to restart a presence-enabled process "silently"
-// (from the perspective of the rest of the system) without dealing with the
-// complication of session re-establishment.
-
+// The presence package implements an interface for observing liveness
+// of arbitrary keys (agents, processes, etc) on top of MongoDB.
+// The design works by periodically updating the database so that
+// watchers can tell an arbitrary key is alive.
 package presence
 
 import (
 	"fmt"
-	zk "launchpad.net/gozk/zookeeper"
+	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
+	"strconv"
+	"sync"
 	"time"
 )
 
-// changeNode wraps a zookeeper node and can induce watches on that node to fire.
-type changeNode struct {
-	conn    *zk.Conn
-	path    string
-	content string
+// The implementation works by assigning a unique sequence number to each
+// pinger that is alive, and the pinger is then responsible for
+// periodically updating the current time slot document with its
+// sequence number so that watchers can tell it is alive.
+//
+// The internal implementation of the time slot document is as follows:
+//
+// {
+//   "_id":   <time slot>, 
+//   "alive": { hex(<pinger seq> / 63) : (1 << (<pinger seq> % 63) | <others>) },
+//   "dead":  { hex(<pinger seq> / 63) : (1 << (<pinger seq> % 63) | <others>) },
+// }
+//
+// All pingers that have their sequence number under "alive" and not
+// under "dead" are currently alive. This design enables implementing
+// a ping with a single update operation, a kill with another operation,
+// and obtaining liveness data with a single query that returns two
+// documents (the last two time slots).
+//
+// A new pinger sequence is obtained every time a pinger starts by
+// atomically incrementing a counter in a globally used document in a
+// helper collection. That sequence number is then inserted into the
+// beings collection to establish the mapping between pinger sequence
+// and key.
+
+// BUG(gn): The pings and beings collection currently grow without bound.
+
+// A Watcher can watch any number of pinger keys for liveness changes.
+type Watcher struct {
+	tomb   tomb.Tomb
+	base   *mgo.Collection
+	pings  *mgo.Collection
+	beings *mgo.Collection
+
+	// delta is an approximate clock skew between the local system
+	// clock and the database clock.
+	delta time.Duration
+
+	// beingKey and beingSeq are the pinger seq <=> key mappings.
+	// Entries in these maps are considered alive.
+	beingKey map[int64]string
+	beingSeq map[string]int64
+
+	// watches has the per-key observer channels from Watch/Unwatch.
+	watches map[string][]chan<- Change
+
+	// pending contains all the events to be dispatched to the watcher
+	// channels. They're queued during processing and flushed at the
+	// end to simplify the algorithm.
+	pending []event
+
+	// request is used to deliver requests from the public API into
+	// the the gorotuine loop.
+	request chan interface{}
+
+	// syncDone contains pending done channels from sync requests.
+	syncDone []chan bool
+
+	// next will dispatch when it's time to sync the database
+	// knowledge. It's maintained here so that ForceRefresh
+	// can manipulate it to force a sync sooner.
+	next <-chan time.Time
 }
 
-// change sets the zookeeper node's content (creating it if it doesn't exist) and
-// returns the node's new MTime.
-func (n *changeNode) change() (mtime time.Time, err error) {
-	stat, err := n.conn.Set(n.path, n.content, -1)
-	if zk.IsError(err, zk.ZNONODE) {
-		_, err = n.conn.Create(n.path, n.content, 0, zk.WorldACL(zk.PERM_ALL))
-		if err == nil || zk.IsError(err, zk.ZNODEEXISTS) {
-			// *Someone* created the node anyway; just try again.
-			return n.change()
-		}
-	}
-	if err != nil {
-		return
-	}
-	return stat.MTime(), nil
-}
-
-// Pinger allows a client to control the existence and refreshment of a
-// presence node. Pingers can be started whenever they are stopped, and
-// stopped whenever they are not killed.
-type Pinger struct {
-	conn     *zk.Conn
-	target   changeNode
-	period   time.Duration
-	killed   bool
-	tomb     *tomb.Tomb
-	lastPing time.Time
-}
-
-// NewPinger returns a stopped Pinger.
-func NewPinger(conn *zk.Conn, path string, period time.Duration) *Pinger {
-	return &Pinger{
-		conn:   conn,
-		target: changeNode{conn, path, period.String()},
-		period: period,
-	}
-}
-
-// StartPinger returns a started Pinger.
-func StartPinger(conn *zk.Conn, path string, period time.Duration) (*Pinger, error) {
-	p := NewPinger(conn, path, period)
-	if err := p.Start(); err != nil {
-		return nil, err
-	}
-	return p, nil
-}
-
-// Start begins periodically refreshing the context of the Pinger's path.
-// Start panics if called consecutively or after Kill.
-func (p *Pinger) Start() error {
-	if p.tomb != nil {
-		panic("pinger is already started")
-	}
-	if p.killed {
-		panic("pinger has been killed")
-	}
-	_, err := p.target.change()
-	if err != nil {
-		return err
-	}
-	p.lastPing = time.Now()
-	p.tomb = &tomb.Tomb{}
-	go p.loop()
-	return nil
-}
-
-// Stop stops the periodic writes to the target node, if they are occurring.
-// If this is the case, a final write to the node will be triggered, so that
-// watchers will time out as late as possible.
-func (p *Pinger) Stop() error {
-	if p.killed {
-		panic("pinger has been killed")
-	}
-	if p.tomb != nil {
-		p.tomb.Kill(nil)
-		err := p.tomb.Wait()
-		p.tomb = nil
-		return err
-	}
-	return nil
-}
-
-// Kill deletes the Pinger's target node, immediately signalling permanent
-// departure to any watchers. Once the Pinger has been killed it must not
-// be used again.
-func (p *Pinger) Kill() error {
-	if p.killed {
-		return nil
-	}
-	if err := p.Stop(); err != nil {
-		return err
-	}
-	p.killed = true
-	err := p.conn.Delete(p.target.path, -1)
-	if zk.IsError(err, zk.ZNONODE) {
-		err = nil
-	}
-	return err
-}
-
-// loop calls change on p.target every p.period nanoseconds until p is stopped.
-func (p *Pinger) loop() {
-	defer func() {
-		// If we haven't encountered an error, always send a final write, to
-		// ensure watchers detect the pinger's death as late as possible.
-		if p.tomb.Err() == nil {
-			_, err := p.target.change()
-			p.tomb.Kill(err)
-		}
-		p.tomb.Done()
-	}()
-	for {
-		select {
-		case <-p.tomb.Dying():
-			debugf("presence: %s pinger died after %s wait", p.target.path, time.Now().Sub(p.lastPing))
-			return
-		case now := <-p.nextPing():
-			debugf("presence: %s pinger awakened after %s wait", p.target.path, time.Now().Sub(p.lastPing))
-			p.lastPing = now
-			mtime, err := p.target.change()
-			if err != nil {
-				p.tomb.Kill(err)
-				return
-			}
-			debugf("presence: wrote to %s at (zk) %s", p.target.path, mtime)
-		}
-	}
-}
-
-// nextPing returns a channel that will receive an event when the pinger is next
-// due to fire.
-func (p *Pinger) nextPing() <-chan time.Time {
-	next := p.lastPing.Add(p.period)
-	wait := next.Sub(time.Now())
-	if wait <= 0 {
-		wait = 0
-	}
-	debugf("presence: anticipating ping of %s in %s", p.target.path, wait)
-	return time.After(wait)
-}
-
-// node represents the state of a presence node from a watcher's perspective.
-type node struct {
-	conn    *zk.Conn
-	path    string
-	alive   bool
-	timeout time.Duration
-}
-
-// setState sets the current values of n.alive and n.timeout, given the
-// content and stat of the zookeeper node (which must exist). firstTime
-// should be true iff n.setState has not already been called.
-func (n *node) setState(content string, stat *zk.Stat, firstTime bool) error {
-	// Always check and reset timeout; it could change.
-	period, err := time.ParseDuration(content)
-	if err != nil {
-		return fmt.Errorf("%s presence node has bad data: %q", n.path, content)
-	}
-	// Worst observed combination of GC pauses and scheduler weirdness led to
-	// a gap between "500ms" pings of >1000ms; timeout should comfortably beat
-	// that. This is largely an artifact of the notably short periods used in
-	// tests; actual distributed Pingers should use longer periods in order to
-	// compensate for network flakiness... and to allow a comfortable buffer
-	// for pinger re-establishment by a replacement process when (eg when
-	// upgrading agent binaries).
-	n.timeout = period * 3
-	if firstTime {
-		clock := changeNode{n.conn, "/clock", ""}
-		now, err := clock.change()
-		if err != nil {
-			return err
-		}
-		mtime := stat.MTime()
-		delay := now.Sub(mtime)
-		n.alive = delay < n.timeout
-		debugf(`
-presence: initial diagnosis of %s
-  now (zk)          %s
-  last write (zk)   %s
-  apparent delay    %s
-  timeout           %s
-  alive             %t
-`[1:], n.path, now, mtime, delay, n.timeout, n.alive)
-	} else {
-		// If this method is not being run for the first time, we know that
-		// the node has just changed, so we know that it's alive and there's
-		// no need to check for staleness with the clock node.
-		n.alive = true
-	}
-	return nil
-}
-
-// update reads from ZooKeeper the current values of n.alive and n.timeout.
-func (n *node) update() error {
-	content, stat, err := n.conn.Get(n.path)
-	if zk.IsError(err, zk.ZNONODE) {
-		n.alive = false
-		n.timeout = 0
-		return nil
-	} else if err != nil {
-		return err
-	}
-	return n.setState(content, stat, true)
-}
-
-// updateW reads from ZooKeeper the current values of n.alive and n.timeout,
-// and returns a ZooKeeper watch that will be notified of data or existence
-// changes. firstTime should be true iff n.updateW has not already been called.
-func (n *node) updateW(firstTime bool) (<-chan zk.Event, error) {
-	content, stat, watch, err := n.conn.GetW(n.path)
-	if zk.IsError(err, zk.ZNONODE) {
-		n.alive = false
-		n.timeout = 0
-		stat, watch, err = n.conn.ExistsW(n.path)
-		if err != nil {
-			return nil, err
-		}
-		if stat != nil {
-			// Someone *just* created the node; try again.
-			return n.updateW(firstTime)
-		}
-		return watch, nil
-	} else if err != nil {
-		return nil, err
-	}
-	return watch, n.setState(content, stat, firstTime)
-}
-
-// waitDead sends false to watch when the node is deleted, or when it has
-// not been updated recently enough to still qualify as alive. zkWatch must
-// be observing changes on the existent node at n.path.
-func (n *node) waitDead(zkWatch <-chan zk.Event, watch chan bool) {
-	for n.alive {
-		select {
-		case <-time.After(n.timeout):
-			if err := n.update(); err != nil {
-				close(watch)
-				return
-			}
-		case event := <-zkWatch:
-			if !event.Ok() {
-				close(watch)
-				return
-			}
-			switch event.Type {
-			case zk.EVENT_DELETED:
-				n.alive = false
-			case zk.EVENT_CHANGED:
-				var err error
-				zkWatch, err = n.updateW(false)
-				if err != nil {
-					close(watch)
-					return
-				}
-			default:
-				panic(fmt.Errorf("Unexpected event: %v", event))
-			}
-		}
-	}
-	watch <- false
-}
-
-// waitAlive sends true to watch when the node is changed or created. zkWatch
-// must be observing changes on the stale/nonexistent node at n.path.
-func (n *node) waitAlive(zkWatch <-chan zk.Event, watch chan bool) {
-	for !n.alive {
-		event := <-zkWatch
-		if !event.Ok() {
-			close(watch)
-			return
-		}
-		switch event.Type {
-		case zk.EVENT_CREATED, zk.EVENT_CHANGED:
-			n.alive = true
-		case zk.EVENT_DELETED:
-			// The pinger is still dead (just differently dead); start a new watch.
-			var err error
-			zkWatch, err = n.updateW(false)
-			if err != nil {
-				close(watch)
-				return
-			}
-		default:
-			panic(fmt.Errorf("Unexpected event: %v", event))
-		}
-	}
-	watch <- true
-}
-
-// Alive returns whether the Pinger at the given path seems to be alive.
-func Alive(conn *zk.Conn, path string) (bool, error) {
-	n := &node{conn: conn, path: path}
-	err := n.update()
-	return n.alive, err
-}
-
-// AliveW returns whether the Pinger at the given path seems to be alive.
-// It also returns a channel that will receive the new status when it changes.
-// If an error is encountered after AliveW returns, the channel will be closed.
-func AliveW(conn *zk.Conn, path string) (bool, <-chan bool, error) {
-	n := &node{conn: conn, path: path}
-	zkWatch, err := n.updateW(true)
-	if err != nil {
-		return false, nil, err
-	}
-	alive := n.alive
-	watch := make(chan bool)
-	if alive {
-		go n.waitDead(zkWatch, watch)
-	} else {
-		go n.waitAlive(zkWatch, watch)
-	}
-	return alive, watch, nil
-}
-
-// WaitAlive blocks until the node at the given path
-// has been recently pinged or a timeout occurs.
-func WaitAlive(conn *zk.Conn, path string, timeout time.Duration) error {
-	alive, watch, err := AliveW(conn, path)
-	if err != nil {
-		return err
-	}
-	if alive {
-		return nil
-	}
-	select {
-	case alive, ok := <-watch:
-		if !ok {
-			return fmt.Errorf("presence: channel closed while waiting")
-		}
-		if !alive {
-			return fmt.Errorf("presence: alive watch misbehaved while waiting")
-		}
-	case <-time.After(timeout):
-		return fmt.Errorf("presence: still not alive after timeout")
-	}
-	return nil
-}
-
-// ChildrenWatcher mimics state/watcher's ChildrenWatcher, but treats nodes that
-// do not have active Pingers as nonexistent.
-type ChildrenWatcher struct {
-	conn    *zk.Conn
-	tomb    tomb.Tomb
-	path    string
-	alive   map[string]bool
-	stops   map[string]chan bool
-	updates chan aliveChange
-	changes chan watcher.ChildrenChange
-}
-
-// aliveChange is used internally by ChildrenWatcher to communicate node
-// status changes from childLoop goroutines to the main loop goroutine.
-type aliveChange struct {
+type event struct {
+	ch    chan<- Change
 	key   string
 	alive bool
 }
 
-// NewChildrenWatcher returns a ChildrenWatcher that notifies of the
-// presence and absence of Pingers in the direct child nodes of path.
-func NewChildrenWatcher(conn *zk.Conn, path string) *ChildrenWatcher {
-	w := &ChildrenWatcher{
-		conn:    conn,
-		path:    path,
-		alive:   make(map[string]bool),
-		stops:   make(map[string]chan bool),
-		updates: make(chan aliveChange),
-		changes: make(chan watcher.ChildrenChange),
+// Change holds a liveness change notification.
+type Change struct {
+	Key   string
+	Alive bool
+}
+
+// NewWatcher returns a new Watcher.
+func NewWatcher(base *mgo.Collection) *Watcher {
+	w := &Watcher{
+		base:     base,
+		pings:    pingsC(base),
+		beings:   beingsC(base),
+		beingKey: make(map[int64]string),
+		beingSeq: make(map[string]int64),
+		watches:  make(map[string][]chan<- Change),
+		request:  make(chan interface{}),
 	}
-	go w.loop()
+	go func() {
+		w.tomb.Kill(w.loop())
+		w.tomb.Done()
+	}()
 	return w
 }
 
-// Changes returns a channel on which presence changes can be received.
-// The first event returns the current set of children on which Pingers
-// are active.
-func (w *ChildrenWatcher) Changes() <-chan watcher.ChildrenChange {
-	return w.changes
-}
-
-// Stop terminates the watcher and returns any error encountered while watching.
-func (w *ChildrenWatcher) Stop() error {
+// Stop stops all the watcher activities.
+func (w *Watcher) Stop() error {
 	w.tomb.Kill(nil)
 	return w.tomb.Wait()
 }
 
-// Err returns the error that stopped the watcher, or
-// tomb.ErrStillAlive if the watcher is still running.
-func (w *ChildrenWatcher) Err() error {
+// Dead returns a channel that is closed when the watcher has stopped.
+func (w *Watcher) Dead() <-chan struct{} {
+	return w.tomb.Dead()
+}
+
+// Err returns the error with which the watcher stopped.
+// It returns nil if the watcher stopped cleanly, tomb.ErrStillAlive
+// if the watcher is still running properly, or the respective error
+// if the watcher is terminating or has terminated with an error.
+func (w *Watcher) Err() error {
 	return w.tomb.Err()
 }
 
-func (w *ChildrenWatcher) loop() {
-	defer w.finish()
-	cw := watcher.NewChildrenWatcher(w.conn, w.path)
-	defer watcher.Stop(cw, &w.tomb)
-	emittedValue := false
-	for {
-		var change watcher.ChildrenChange
-		select {
-		case <-w.tomb.Dying():
-			return
-		case ch, ok := <-cw.Changes():
-			var err error
-			if !ok {
-				err = watcher.MustErr(cw)
-			} else {
-				change, err = w.changeWatches(ch)
-			}
-			if err != nil {
-				w.tomb.Kill(err)
-				return
-			}
-			if emittedValue && len(change.Added) == 0 && len(change.Removed) == 0 {
-				continue
-			}
-		case ch, ok := <-w.updates:
-			if !ok {
-				panic("updates channel closed")
-			}
-			if ch.alive {
-				w.alive[ch.key] = true
-				change = watcher.ChildrenChange{Added: []string{ch.key}}
-			} else if w.alive[ch.key] {
-				delete(w.alive, ch.key)
-				change = watcher.ChildrenChange{Removed: []string{ch.key}}
-			} else {
-				// The node is already known to be dead, as a result of a
-				// child removal detected by cw, and no further action need
-				// be taken.
-				continue
-			}
-		}
-		select {
-		case <-w.tomb.Dying():
-			return
-		case w.changes <- change:
-			emittedValue = true
-		}
+type reqWatch struct {
+	key string
+	ch  chan<- Change
+}
+
+type reqUnwatch struct {
+	key string
+	ch  chan<- Change
+}
+
+type reqSync struct {
+	done chan bool
+}
+
+type reqAlive struct {
+	key    string
+	result chan bool
+}
+
+func (w *Watcher) sendReq(req interface{}) {
+	select {
+	case w.request <- req:
+	case <-w.tomb.Dying():
 	}
 }
 
-// finish tidies up any active watches on the child nodes, closes
-// channels, and marks the watcher as finished.
-func (w *ChildrenWatcher) finish() {
-	for _, stop := range w.stops {
-		stop <- true
-	}
-	// No need to close w.updates.
-	close(w.changes)
-	w.tomb.Done()
+// Watch starts watching the liveness of key. An event will
+// be sent onto ch to report the initial status for the key, and
+// from then on a new event will be sent whenever a change is
+// detected. Change values sent to the channel must be consumed,
+// or the whole watcher will blocked.
+func (w *Watcher) Watch(key string, ch chan<- Change) {
+	w.sendReq(reqWatch{key, ch})
 }
 
-// changeWatches starts new presence watches on newly-added candidates, and
-// stops them on deleted ones. It returns a ChildrenChange representing only
-// those changes that correspond to the presence or hitherto-undetected
-// absence of a Pinger on a candidate node.
-func (w *ChildrenWatcher) changeWatches(ch watcher.ChildrenChange) (watcher.ChildrenChange, error) {
-	change := watcher.ChildrenChange{}
-	for _, key := range ch.Removed {
-		stop := w.stops[key]
-		delete(w.stops, key)
-		stop <- true
-		// The node might not already be known to be dead.
-		if w.alive[key] {
-			delete(w.alive, key)
-			change.Removed = append(change.Removed, key)
-		}
-	}
-	for _, key := range ch.Added {
-		path := w.path + "/" + key
-		alive, aliveW, err := AliveW(w.conn, path)
-		if err != nil {
-			return watcher.ChildrenChange{}, err
-		}
-		stop := make(chan bool)
-		w.stops[key] = stop
-		go w.childLoop(key, path, aliveW, stop)
-		if alive {
-			w.alive[key] = true
-			change.Added = append(change.Added, key)
-		}
-	}
-	return change, nil
+// Unwatch stops watching the liveness of key via ch.
+func (w *Watcher) Unwatch(key string, ch chan<- Change) {
+	w.sendReq(reqUnwatch{key, ch})
 }
 
-// childLoop sends aliveChange events to w.updates, in response to presence
-// changes received from watch (which is refreshed internally as required),
-// until its stop chan is closed.
-func (w *ChildrenWatcher) childLoop(key, path string, watch <-chan bool, stop <-chan bool) {
+// StartSync forces the watcher to load new events from the database.
+func (w *Watcher) StartSync() {
+	w.sendReq(reqSync{nil})
+}
+
+// Sync forces the watcher to load new events from the database and blocks
+// until all events have been dispatched.
+func (w *Watcher) Sync() {
+	done := make(chan bool)
+	w.sendReq(reqSync{done})
+	select {
+	case <-done:
+	case <-w.tomb.Dying():
+	}
+}
+
+// Alive returns whether the key is currently considered alive by w,
+// or an error in case the watcher is dying.
+func (w *Watcher) Alive(key string) (bool, error) {
+	result := make(chan bool, 1)
+	w.sendReq(reqAlive{key, result})
+	var alive bool
+	select {
+	case alive = <-result:
+	case <-w.tomb.Dying():
+		return false, fmt.Errorf("cannot check liveness: watcher is dying")
+	}
+	return alive, nil
+}
+
+// period is the length of each time slot in seconds.
+// It's not a time.Duration because the code is more convenient like
+// this and also because sub-second timings don't work as the slot
+// identifier is an int64 in seconds.
+var period int64 = 30
+
+// loop implements the main watcher loop.
+func (w *Watcher) loop() error {
+	var err error
+	if w.delta, err = clockDelta(w.base); err != nil {
+		return err
+	}
+	w.next = time.After(0)
 	for {
 		select {
-		case <-stop:
-			return
-		case alive, ok := <-watch:
-			if !ok {
-				w.tomb.Killf("presence watch on %q failed", path)
-				return
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.next:
+			w.next = time.After(time.Duration(period) * time.Second)
+			syncDone := w.syncDone
+			w.syncDone = nil
+			if err := w.sync(); err != nil {
+				return err
 			}
-			// We definitely need to watch again; do so early, so we can verify
-			// that the state has changed an odd number of times since we last
-			// notified, and thereby only send notifications on real changes.
-			aliveNow, newWatch, err := AliveW(w.conn, path)
-			if err != nil {
-				w.tomb.Kill(err)
-				return
+			w.flush()
+			for _, done := range syncDone {
+				close(done)
 			}
-			watch = newWatch
-			if aliveNow != alive {
-				continue
-			}
+		case req := <-w.request:
+			w.handle(req)
+			w.flush()
+		}
+	}
+	return nil
+}
+
+// flush sends all pending events to their respective channels.
+func (w *Watcher) flush() {
+	// w.pending may get new requests as we handle other requests.
+	for i := 0; i < len(w.pending); i++ {
+		e := &w.pending[i]
+		for e.ch != nil {
 			select {
-			case <-stop:
+			case <-w.tomb.Dying():
 				return
-			case w.updates <- aliveChange{key, aliveNow}:
+			case req := <-w.request:
+				w.handle(req)
+				continue
+			case e.ch <- Change{e.key, e.alive}:
+			}
+			break
+		}
+	}
+	w.pending = w.pending[:0]
+}
+
+// handle deals with requests delivered by the public API
+// onto the background watcher goroutine.
+func (w *Watcher) handle(req interface{}) {
+	log.Debugf("presence: got request: %#v", req)
+	switch r := req.(type) {
+	case reqSync:
+		w.next = time.After(0)
+		if r.done != nil {
+			w.syncDone = append(w.syncDone, r.done)
+		}
+	case reqWatch:
+		for _, ch := range w.watches[r.key] {
+			if ch == r.ch {
+				panic("adding channel twice for same key")
 			}
 		}
+		w.watches[r.key] = append(w.watches[r.key], r.ch)
+		_, alive := w.beingSeq[r.key]
+		w.pending = append(w.pending, event{r.ch, r.key, alive})
+	case reqUnwatch:
+		watches := w.watches[r.key]
+		for i, ch := range watches {
+			if ch == r.ch {
+				watches[i] = watches[len(watches)-1]
+				w.watches[r.key] = watches[:len(watches)-1]
+				break
+			}
+		}
+		for i := range w.pending {
+			e := &w.pending[i]
+			if e.key == r.key && e.ch == r.ch {
+				e.ch = nil
+			}
+		}
+	case reqAlive:
+		_, alive := w.beingSeq[r.key]
+		r.result <- alive
+	default:
+		panic(fmt.Errorf("unknown request: %T", req))
 	}
 }
 
-// Debug, when true, causes detailed presence logs to be generated.
-var Debug = false
+type beingInfo struct {
+	Seq int64  "_id,omitempty"
+	Key string "key,omitempty"
+}
 
-// debugf passes its args on to log.Debugf if Debug is true.
-func debugf(format string, args ...interface{}) {
-	if Debug {
-		log.Debugf(format, args...)
+type pingInfo struct {
+	Slot  int64            "_id"
+	Alive map[string]int64 ",omitempty"
+	Dead  map[string]int64 ",omitempty"
+}
+
+// sync updates the watcher knowledge from the database, and
+// queues events to observing channels. It fetches the last two time
+// slots and compares the union of both to the in-memory state.
+func (w *Watcher) sync() error {
+	log.Debugf("presence: synchronizing watcher knowledge with database...")
+	slot := timeSlot(time.Now(), w.delta)
+	var ping []pingInfo
+	err := w.pings.Find(bson.D{{"$or", []pingInfo{{Slot: slot}, {Slot: slot - period}}}}).All(&ping)
+	if err != nil && err == mgo.ErrNotFound {
+		return err
 	}
+
+	// Learn about all enforced deaths.
+	dead := make(map[int64]bool)
+	for i := range ping {
+		for key, value := range ping[i].Dead {
+			k, err := strconv.ParseInt(key, 16, 64)
+			if err != nil {
+				panic(fmt.Errorf("presence cannot parse dead key: %q", key))
+			}
+			k *= 63
+			for i := int64(0); i < 63 && value > 0; i++ {
+				on := value&1 == 1
+				value >>= 1
+				if !on {
+					continue
+				}
+				seq := k + i
+				dead[seq] = true
+				log.Debugf("presence: found seq=%d dead", seq)
+			}
+		}
+	}
+
+	// Learn about all the pingers that reported and queue
+	// events for those that weren't known to be alive and
+	// are not reportedly dead either.
+	alive := make(map[int64]bool)
+	being := beingInfo{}
+	for i := range ping {
+		for key, value := range ping[i].Alive {
+			k, err := strconv.ParseInt(key, 16, 64)
+			if err != nil {
+				panic(fmt.Errorf("presence cannot parse alive key: %q", key))
+			}
+			k *= 63
+			for i := int64(0); i < 63 && value > 0; i++ {
+				on := value&1 == 1
+				value >>= 1
+				if !on {
+					continue
+				}
+				seq := k + i
+				alive[seq] = true
+				if _, ok := w.beingKey[seq]; ok {
+					continue
+				}
+				err := w.beings.Find(bson.D{{"_id", seq}}).One(&being)
+				if err == mgo.ErrNotFound {
+					log.Printf("presence: found seq=%d unowned", seq)
+					continue
+				} else if err != nil {
+					return err
+				}
+				cur := w.beingSeq[being.Key]
+				if cur < seq {
+					delete(w.beingKey, cur)
+				} else {
+					// Current sequence is more recent.
+					continue
+				}
+				w.beingKey[seq] = being.Key
+				w.beingSeq[being.Key] = seq
+				if cur > 0 || dead[seq] {
+					continue
+				}
+				log.Debugf("presence: found seq=%d alive with key %q", seq, being.Key)
+				for _, ch := range w.watches[being.Key] {
+					w.pending = append(w.pending, event{ch, being.Key, true})
+				}
+			}
+		}
+	}
+
+	// Pingers that were known to be alive and haven't reported
+	// in the last two slots are now considered dead. Dispatch
+	// the respective events and forget their sequences.
+	for seq, key := range w.beingKey {
+		if dead[seq] || !alive[seq] {
+			delete(w.beingKey, seq)
+			delete(w.beingSeq, key)
+			for _, ch := range w.watches[key] {
+				w.pending = append(w.pending, event{ch, key, false})
+			}
+		}
+	}
+	return nil
+}
+
+// A Pinger periodically reports that a specific key is alive, so that
+// watchers interested on that fact can react appropriately.
+type Pinger struct {
+	mu       sync.Mutex
+	tomb     tomb.Tomb
+	base     *mgo.Collection
+	pings    *mgo.Collection
+	started  bool
+	beingKey string
+	beingSeq int64
+	fieldKey string // hex(beingKey / 63)
+	fieldBit uint64 // 1 << (beingKey%63)
+	lastSlot int64
+	delta    time.Duration
+}
+
+// NewPinger returns a new Pinger to report that key is alive.
+// It starts reporting after Start is called.
+func NewPinger(base *mgo.Collection, key string) *Pinger {
+	return &Pinger{base: base, pings: pingsC(base), beingKey: key}
+}
+
+// Start starts periodically reporting that p's key is alive.
+func (p *Pinger) Start() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.started {
+		return fmt.Errorf("pinger already started")
+	}
+	p.tomb = tomb.Tomb{}
+	if err := p.prepare(); err != nil {
+		return err
+	}
+	log.Debugf("presence: starting pinger for %q with seq=%d", p.beingKey, p.beingSeq)
+	if err := p.ping(); err != nil {
+		return err
+	}
+	p.started = true
+	go func() {
+		p.tomb.Kill(p.loop())
+		p.tomb.Done()
+	}()
+	return nil
+}
+
+// Stop stops p's periodical ping.
+// Watchers will not notice p has stopped pinging until the
+// previous ping times out.
+func (p *Pinger) Stop() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.started {
+		log.Debugf("presence: stopping pinger for %q with seq=%d", p.beingKey, p.beingSeq)
+	}
+	p.tomb.Kill(nil)
+	err := p.tomb.Wait()
+	// TODO ping one more time to guarantee a late timeout.
+	p.started = false
+	return err
+
+}
+
+// Stop stops p's periodical ping and immediately report that it is dead.
+func (p *Pinger) Kill() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.started {
+		log.Debugf("presence: killing pinger for %q (was started)", p.beingKey)
+		return p.killStarted()
+	}
+	log.Debugf("presence: killing pinger for %q (was stopped)", p.beingKey)
+	return p.killStopped()
+}
+
+// killStarted kills the pinger while it is running, by first
+// stopping it and then recording in the last pinged slot that
+// the pinger was killed.
+func (p *Pinger) killStarted() error {
+	p.tomb.Kill(nil)
+	killErr := p.tomb.Wait()
+	p.started = false
+
+	slot := p.lastSlot
+	udoc := bson.D{{"$inc", bson.D{{"dead." + p.fieldKey, p.fieldBit}}}}
+	if _, err := p.pings.UpsertId(slot, udoc); err != nil {
+		return err
+	}
+	return killErr
+}
+
+// killStopped kills the pinger while it is not running, by
+// first allocating a new sequence, and then atomically recording
+// the new sequence both as alive and dead at once.
+func (p *Pinger) killStopped() error {
+	if err := p.prepare(); err != nil {
+		return err
+	}
+	slot := timeSlot(time.Now(), p.delta)
+	udoc := bson.D{{"$inc", bson.D{
+		{"dead." + p.fieldKey, p.fieldBit},
+		{"alive." + p.fieldKey, p.fieldBit},
+	}}}
+	_, err := p.pings.UpsertId(slot, udoc)
+	return err
+}
+
+// loop is the main pinger loop that runs while it is
+// in started state.
+func (p *Pinger) loop() error {
+	for {
+		select {
+		case <-p.tomb.Dying():
+			return tomb.ErrDying
+		case <-time.After(time.Duration(float64(period+1)*0.75) * time.Second):
+			if err := p.ping(); err != nil {
+				return err
+			}
+		}
+	}
+	panic("unreachable")
+}
+
+// prepare allocates a new unique sequence for the
+// pinger key and prepares the pinger to use it.
+func (p *Pinger) prepare() error {
+	change := mgo.Change{
+		Update:    bson.D{{"$inc", bson.D{{"seq", int64(1)}}}},
+		Upsert:    true,
+		ReturnNew: true,
+	}
+	seqs := seqsC(p.base)
+	var seq struct{ Seq int64 }
+	if _, err := seqs.FindId("beings").Apply(change, &seq); err != nil {
+		return err
+	}
+	p.beingSeq = seq.Seq
+	p.fieldKey = fmt.Sprintf("%x", p.beingSeq/63)
+	p.fieldBit = 1 << uint64(p.beingSeq%63)
+	p.lastSlot = 0
+	beings := beingsC(p.base)
+	return beings.Insert(beingInfo{p.beingSeq, p.beingKey})
+}
+
+// ping records updates the current time slot with the
+// sequence in use by the pinger.
+func (p *Pinger) ping() error {
+	log.Debugf("presence: pinging %q with seq=%d", p.beingKey, p.beingSeq)
+	if p.delta == 0 {
+		delta, err := clockDelta(p.base)
+		if err != nil {
+			return err
+		}
+		p.delta = delta
+	}
+	slot := timeSlot(time.Now(), p.delta)
+	if slot == p.lastSlot {
+		// Never, ever, ping the same slot twice.
+		// The increment below would corrupt the slot.
+		return nil
+	}
+	p.lastSlot = slot
+	if _, err := p.pings.UpsertId(slot, bson.D{{"$inc", bson.D{{"alive." + p.fieldKey, p.fieldBit}}}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+// clockDelta returns the approximate skew between
+// the local clock and the database clock.
+func clockDelta(c *mgo.Collection) (time.Duration, error) {
+	var server struct {
+		time.Time "retval"
+	}
+	for i := 0; i < 10; i++ {
+		before := time.Now()
+		err := c.Database.Run(bson.D{{"$eval", "function() { return new Date(); }"}}, &server)
+		after := time.Now()
+		if err != nil {
+			return 0, err
+		}
+		delay := after.Sub(before)
+		if delay > 5*time.Second {
+			continue
+		}
+		return server.Sub(before), nil
+	}
+	return 0, fmt.Errorf("cannot synchronize clock with database server")
+}
+
+// timeSlot returns the current time slot, in seconds since the
+// epoch, for the provided now time. The delta skew is applied
+// to the now time to improve the synchronization with a
+// centrally agreed time.
+//
+// The result of this method may be manipulated for test purposes
+// by fakeTimeSlot and realTimeSlot.
+func timeSlot(now time.Time, delta time.Duration) int64 {
+	fake := !fakeNow.IsZero()
+	if fake {
+		now = fakeNow
+	}
+	slot := now.Add(delta).Unix()
+	slot -= slot % period
+	if fake {
+		slot += int64(fakeOffset) * period
+	}
+	return slot
+}
+
+var fakeNow time.Time
+var fakeOffset int
+
+// fakeTimeSlot hardcodes the slot time returned by the timeSlot
+// function for testing purposes. The offset parameter is the slot
+// position to return: offsets +1 and -1 are +period and -period
+// seconds from slot 0, respectively.
+func fakeTimeSlot(offset int) {
+	if fakeNow.IsZero() {
+		fakeNow = time.Now()
+	}
+	fakeOffset = offset
+	log.Printf("Faking presence to time slot %d", offset)
+}
+
+// realTimeSlot disables the hardcoding introduced by fakeTimeSlot.
+func realTimeSlot() {
+	fakeNow = time.Time{}
+	fakeOffset = 0
+	log.Printf("Not faking presence time. Real time slot in use.")
+}
+
+func seqsC(base *mgo.Collection) *mgo.Collection {
+	return base.Database.C(base.Name + ".seqs")
+}
+
+func beingsC(base *mgo.Collection) *mgo.Collection {
+	return base.Database.C(base.Name + ".beings")
+}
+
+func pingsC(base *mgo.Collection) *mgo.Collection {
+	return base.Database.C(base.Name + ".pings")
 }

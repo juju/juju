@@ -16,7 +16,7 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
-	testing.ZkTestPackage(t)
+	testing.MgoTestPackage(t)
 }
 
 type MainSuite struct{}
@@ -88,7 +88,7 @@ var brokenConfig = `
 environments:
     one:
         type: dummy
-        zookeeper: false
+        state-server: false
         authorized-keys: i-am-a-key
         broken: %s
 `
@@ -144,6 +144,8 @@ var commandNames = []string{
 	"deploy",
 	"destroy-environment",
 	"expose",
+	"get",
+	"set",
 	"ssh",
 	"status",
 	"unexpose",

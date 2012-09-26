@@ -1,315 +1,399 @@
+// The watcher package provides an interface for observing changes
+// to arbitrary MongoDB documents that are maintained via the
+// mgo/txn transaction package.
 package watcher
 
 import (
 	"fmt"
-	"launchpad.net/gozk/zookeeper"
+	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/tomb"
+	"time"
 )
 
-// Stopper is implemented by all watchers.
-type Stopper interface {
-	Stop() error
+// A Watcher can watch any number of collections and documents for changes.
+type Watcher struct {
+	tomb tomb.Tomb
+	log  *mgo.Collection
+
+	// watches holds the observers managed by Watch/Unwatch.
+	watches map[watchKey][]watchInfo
+
+	// current holds the current txn-revno values for all the observed
+	// documents known to exist. Documents not observed or deleted are
+	// omitted from this map and are considered to have revno -1.
+	current map[watchKey]int64
+
+	// syncEvents and requestEvents contain the events to be
+	// dispatched to the watcher channels. They're queued during
+	// processing and flushed at the end to simplify the algorithm.
+	// The two queues are separated because events from sync are
+	// handled in reverse order due to the way the algorithm works.
+	syncEvents, requestEvents []event
+
+	// request is used to deliver requests from the public API into
+	// the the goroutine loop.
+	request chan interface{}
+
+	// syncDone contains pending done channels from sync requests.
+	syncDone []chan bool
+
+	// lastId is the most recent transaction id observed by a sync.
+	lastId interface{}
+
+	// next will dispatch when it's time to sync the database
+	// knowledge. It's maintained here so that Sync and StartSync
+	// can manipulate it to force a sync sooner.
+	next <-chan time.Time
 }
 
-// Errer is implemented by all watchers.
-type Errer interface {
-	Err() error
+// A Change holds information about a document change.
+type Change struct {
+	// C and Id hold the collection name and document _id field value.
+	C  string
+	Id interface{}
+
+	// Revno is the latest known value for the document's txn-revno
+	// field, or -1 if the document was deleted.
+	Revno int64
 }
 
-// Stop stops the watcher. If an error is returned by the
-// watcher, t is killed with the error.
-func Stop(w Stopper, t *tomb.Tomb) {
-	if err := w.Stop(); err != nil {
-		t.Kill(err)
+type watchKey struct {
+	c  string
+	id interface{} // nil when watching collection
+}
+
+type watchInfo struct {
+	ch    chan<- Change
+	revno int64
+}
+
+type event struct {
+	ch    chan<- Change
+	key   watchKey
+	revno int64
+}
+
+// New returns a new Watcher observing the changelog collection,
+// which must be a capped collection maintained by mgo/txn.
+func New(changelog *mgo.Collection) *Watcher {
+	w := &Watcher{
+		log:     changelog,
+		watches: make(map[watchKey][]watchInfo),
+		current: make(map[watchKey]int64),
+		request: make(chan interface{}),
 	}
-}
-
-// MustErr returns the error with which w died.
-// Calling it will panic if w is still running or was stopped cleanly.
-func MustErr(w Errer) error {
-	err := w.Err()
-	if err == nil {
-		panic("watcher was stopped cleanly")
-	} else if err == tomb.ErrStillAlive {
-		panic("watcher is still running")
-	}
-	return err
-}
-
-// ContentChange holds information on the existence
-// and contents of a node. Version and Content will be
-// zeroed when exists is false.
-type ContentChange struct {
-	Exists  bool
-	Version int
-	Content string
-}
-
-// ContentWatcher observes a ZooKeeper node and delivers a
-// notification when a content change is detected.
-type ContentWatcher struct {
-	zk           *zookeeper.Conn
-	path         string
-	tomb         tomb.Tomb
-	changeChan   chan ContentChange
-	emittedValue bool
-	content      ContentChange
-}
-
-// NewContentWatcher creates a ContentWatcher observing
-// the ZooKeeper node at watchedPath.
-func NewContentWatcher(zk *zookeeper.Conn, watchedPath string) *ContentWatcher {
-	w := &ContentWatcher{
-		zk:         zk,
-		path:       watchedPath,
-		changeChan: make(chan ContentChange),
-	}
-	go w.loop()
+	go func() {
+		w.tomb.Kill(w.loop())
+		w.tomb.Done()
+	}()
 	return w
 }
 
-// Changes returns a channel that will receive the new node
-// content when a change is detected. Note that multiple
-// changes may be observed as a single event in the channel.
-// The first event on the channel holds the initial state.
-func (w *ContentWatcher) Changes() <-chan ContentChange {
-	return w.changeChan
-}
-
-// Dying returns a channel that is closed when the
-// watcher has stopped or is about to stop.
-func (w *ContentWatcher) Dying() <-chan struct{} {
-	return w.tomb.Dying()
-}
-
-// Err returns the error that stopped the watcher, or
-// tomb.ErrStillAlive if the watcher is still running.
-func (w *ContentWatcher) Err() error {
-	return w.tomb.Err()
-}
-
-// Stop stops the watch and returns any error encountered
-// while watching. This method should always be called before
-// discarding the watcher.
-func (w *ContentWatcher) Stop() error {
+// Stop stops all the watcher activities.
+func (w *Watcher) Stop() error {
 	w.tomb.Kill(nil)
 	return w.tomb.Wait()
 }
 
-// loop is the backend for watching.
-func (w *ContentWatcher) loop() {
-	defer w.tomb.Done()
-	defer close(w.changeChan)
+// Dead returns a channel that is closed when the watcher has stopped.
+func (w *Watcher) Dead() <-chan struct{} {
+	return w.tomb.Dead()
+}
 
-	watch, err := w.update()
-	if err != nil {
-		w.tomb.Kill(err)
-		return
-	}
+// Err returns the error with which the watcher stopped.
+// It returns nil if the watcher stopped cleanly, tomb.ErrStillAlive
+// if the watcher is still running properly, or the respective error
+// if the watcher is terminating or has terminated with an error.
+func (w *Watcher) Err() error {
+	return w.tomb.Err()
+}
 
-	for {
-		select {
-		case <-w.tomb.Dying():
-			return
-		case evt := <-watch:
-			if !evt.Ok() {
-				w.tomb.Killf("watcher: critical session event: %v", evt)
-				return
-			}
-			watch, err = w.update()
-			if err != nil {
-				w.tomb.Kill(err)
-				return
-			}
-		}
+type reqWatch struct {
+	key  watchKey
+	info watchInfo
+}
+
+type reqUnwatch struct {
+	key watchKey
+	ch  chan<- Change
+}
+
+type reqSync struct {
+	done chan bool
+}
+
+func (w *Watcher) sendReq(req interface{}) {
+	select {
+	case w.request <- req:
+	case <-w.tomb.Dying():
 	}
 }
 
-// update retrieves the node content and emits it as well as an existence
-// flag to the change channel if it has changed. It returns the next watch.
-func (w *ContentWatcher) update() (nextWatch <-chan zookeeper.Event, err error) {
-	var content string
-	var stat *zookeeper.Stat
-	// Repeat until we have a valid watch or an error.
+// Watch starts watching the given collection and document id.
+// An event will be sent onto ch whenever a matching document's txn-revno
+// field is observed to change after a transaction is applied. The revno
+// parameter holds the currently known revision number for the document.
+// Non-existent documents are represented by a -1 revno.
+func (w *Watcher) Watch(collection string, id interface{}, revno int64, ch chan<- Change) {
+	if id == nil {
+		panic("watcher: cannot watch a document with nil id")
+	}
+	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, revno}})
+}
+
+// WatchCollection starts watching the given collection.
+// An event will be sent onto ch whenever the txn-revno field is observed
+// to change after a transaction is applied for any document in the collection.
+func (w *Watcher) WatchCollection(collection string, ch chan<- Change) {
+	w.sendReq(reqWatch{watchKey{collection, nil}, watchInfo{ch, 0}})
+}
+
+// Unwatch stops watching the given collection and document id via ch.
+func (w *Watcher) Unwatch(collection string, id interface{}, ch chan<- Change) {
+	if id == nil {
+		panic("watcher: cannot unwatch a document with nil id")
+	}
+	w.sendReq(reqUnwatch{watchKey{collection, id}, ch})
+}
+
+// UnwatchCollection stops watching the given collection via ch.
+func (w *Watcher) UnwatchCollection(collection string, ch chan<- Change) {
+	w.sendReq(reqUnwatch{watchKey{collection, nil}, ch})
+}
+
+// StartSync forces the watcher to load new events from the database.
+func (w *Watcher) StartSync() {
+	w.sendReq(reqSync{nil})
+}
+
+// Sync forces the watcher to load new events from the database and blocks
+// until all events have been dispatched.
+func (w *Watcher) Sync() {
+	done := make(chan bool)
+	w.sendReq(reqSync{done})
+	select {
+	case <-done:
+	case <-w.tomb.Dying():
+	}
+}
+
+// period is the delay between each sync.
+var period time.Duration = 5 * time.Second
+
+// loop implements the main watcher loop.
+func (w *Watcher) loop() error {
+	w.next = time.After(0)
+	if err := w.initLastId(); err != nil {
+		return err
+	}
 	for {
-		content, stat, nextWatch, err = w.zk.GetW(w.path)
-		if err == nil {
-			// Node exists, so leave the loop.
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.next:
+			w.next = time.After(period)
+			syncDone := w.syncDone
+			w.syncDone = nil
+			if err := w.sync(); err != nil {
+				return err
+			}
+			w.flush()
+			for _, done := range syncDone {
+				close(done)
+			}
+		case req := <-w.request:
+			w.handle(req)
+			w.flush()
+		}
+	}
+	panic("not reached")
+}
+
+// flush sends all pending events to their respective channels.
+func (w *Watcher) flush() {
+	// refreshEvents are stored newest first.
+	for i := len(w.syncEvents) - 1; i >= 0; i-- {
+		e := &w.syncEvents[i]
+		for e.ch != nil {
+			select {
+			case <-w.tomb.Dying():
+				return
+			case req := <-w.request:
+				w.handle(req)
+				continue
+			case e.ch <- Change{e.key.c, e.key.id, e.revno}:
+			}
 			break
 		}
-		if zookeeper.IsError(err, zookeeper.ZNONODE) {
-			// Need a new watch to receive a signal when the node is created.
-			stat, nextWatch, err = w.zk.ExistsW(w.path)
-			if stat != nil {
-				// Node has been created just before ExistsW(),
-				// so call GetW() with new loop run again.
+	}
+	// requestEvents are stored oldest first, and
+	// may grow during the loop.
+	for i := 0; i < len(w.requestEvents); i++ {
+		e := &w.requestEvents[i]
+		for e.ch != nil {
+			select {
+			case <-w.tomb.Dying():
+				return
+			case req := <-w.request:
+				w.handle(req)
 				continue
+			case e.ch <- Change{e.key.c, e.key.id, e.revno}:
 			}
-			if err == nil {
-				// Got a valid watch, so leave loop.
+			break
+		}
+	}
+	w.syncEvents = w.syncEvents[:0]
+	w.requestEvents = w.requestEvents[:0]
+}
+
+// handle deals with requests delivered by the public API
+// onto the background watcher goroutine.
+func (w *Watcher) handle(req interface{}) {
+	log.Debugf("watcher: got request: %#v", req)
+	switch r := req.(type) {
+	case reqSync:
+		w.next = time.After(0)
+		if r.done != nil {
+			w.syncDone = append(w.syncDone, r.done)
+		}
+	case reqWatch:
+		for _, info := range w.watches[r.key] {
+			if info.ch == r.info.ch {
+				panic("adding channel twice for the same collection/document")
+			}
+		}
+		if revno, ok := w.current[r.key]; ok && (revno > r.info.revno || revno == -1 && r.info.revno >= 0) {
+			r.info.revno = revno
+			w.requestEvents = append(w.requestEvents, event{r.info.ch, r.key, revno})
+		}
+		w.watches[r.key] = append(w.watches[r.key], r.info)
+	case reqUnwatch:
+		watches := w.watches[r.key]
+		for i, info := range watches {
+			if info.ch == r.ch {
+				watches[i] = watches[len(watches)-1]
+				w.watches[r.key] = watches[:len(watches)-1]
 				break
 			}
 		}
-		// Any other error during GetW() or ExistsW().
-		return nil, fmt.Errorf("watcher: cannot get content of node %q: %v", w.path, err)
-	}
-	newContent := ContentChange{}
-	if stat != nil {
-		newContent.Exists = true
-		newContent.Version = stat.Version()
-		newContent.Content = content
-	}
-	if w.emittedValue && newContent == w.content {
-		return nextWatch, nil
-	}
-	w.content = newContent
-	select {
-	case <-w.tomb.Dying():
-		return nil, tomb.ErrDying
-	case w.changeChan <- w.content:
-		w.emittedValue = true
-	}
-	return nextWatch, nil
-}
-
-// ChildrenChange contains information about
-// children that have been added or removed.
-type ChildrenChange struct {
-	Added   []string
-	Removed []string
-}
-
-// ChildrenWatcher observes a ZooKeeper node and delivers a
-// notification when child nodes are added or removed.
-type ChildrenWatcher struct {
-	zk           *zookeeper.Conn
-	path         string
-	tomb         tomb.Tomb
-	changeChan   chan ChildrenChange
-	emittedValue bool
-	children     map[string]bool
-}
-
-// NewChildrenWatcher creates a ChildrenWatcher observing
-// the ZooKeeper node at watchedPath.
-func NewChildrenWatcher(zk *zookeeper.Conn, watchedPath string) *ChildrenWatcher {
-	w := &ChildrenWatcher{
-		zk:         zk,
-		path:       watchedPath,
-		changeChan: make(chan ChildrenChange),
-		children:   make(map[string]bool),
-	}
-	go w.loop()
-	return w
-}
-
-// Changes returns a channel that will receive the changes
-// performed to the set of children of the watched node.
-// Note that multiple changes may be observed as a single
-// event in the channel.
-// The first event on the channel represents the initial
-// state - the Added field will hold the children found
-// when NewChildrenWatcher was called.
-func (w *ChildrenWatcher) Changes() <-chan ChildrenChange {
-	return w.changeChan
-}
-
-// Dying returns a channel that is closed when the
-// watcher has stopped or is about to stop.
-func (w *ChildrenWatcher) Dying() <-chan struct{} {
-	return w.tomb.Dying()
-}
-
-// Err returns the error that stopped the watcher, or
-// tomb.ErrStillAlive if the watcher is still running.
-func (w *ChildrenWatcher) Err() error {
-	return w.tomb.Err()
-}
-
-// Stop stops the watch and returns any error encountered
-// while watching. This method should always be called before
-// discarding the watcher.
-func (w *ChildrenWatcher) Stop() error {
-	w.tomb.Kill(nil)
-	return w.tomb.Wait()
-}
-
-// loop is the backend for watching.
-func (w *ChildrenWatcher) loop() {
-	defer w.tomb.Done()
-	defer close(w.changeChan)
-
-	watch, err := w.update(zookeeper.EVENT_CHILD)
-	if err != nil {
-		w.tomb.Kill(err)
-		return
-	}
-
-	for {
-		select {
-		case <-w.tomb.Dying():
-			return
-		case evt := <-watch:
-			if !evt.Ok() {
-				w.tomb.Killf("watcher: critical session event: %v", evt)
-				return
-			}
-			watch, err = w.update(evt.Type)
-			if err != nil {
-				w.tomb.Kill(err)
-				return
+		for i := range w.requestEvents {
+			e := &w.requestEvents[i]
+			if e.key == r.key && e.ch == r.ch {
+				e.ch = nil
 			}
 		}
+		for i := range w.syncEvents {
+			e := &w.syncEvents[i]
+			if e.key == r.key && e.ch == r.ch {
+				e.ch = nil
+			}
+		}
+	default:
+		panic(fmt.Errorf("unknown request: %T", req))
 	}
 }
 
-// update retrieves the node children and emits the added or deleted children to 
-// the change channel if it has changed. It returns the next watch.
-func (w *ChildrenWatcher) update(eventType int) (nextWatch <-chan zookeeper.Event, err error) {
-	retrievedChildren := []string{}
-	for {
-		retrievedChildren, _, nextWatch, err = w.zk.ChildrenW(w.path)
-		if zookeeper.IsError(err, zookeeper.ZNONODE) {
-			var stat *zookeeper.Stat
-			if stat, nextWatch, err = w.zk.ExistsW(w.path); err != nil {
-				return
-			} else if stat != nil {
-				// The node suddenly turns out to exist; try to get
-				// a child watch again.
-				continue
-			}
+type logInfo struct {
+	Docs   []interface{} `bson:"d"`
+	Revnos []int64       `bson:"r"`
+}
+
+// initLastId reads the most recent changelog document and initializes
+// lastId with it. This causes all history that precedes the creation
+// of the watcher to be ignored.
+func (w *Watcher) initLastId() error {
+	log.Debugf("watcher: reading most recent document to ignore past history...")
+	var entry struct {
+		Id interface{} "_id"
+	}
+	err := w.log.Find(nil).Sort("-$natural").One(&entry)
+	if err != nil && err != mgo.ErrNotFound {
+		return err
+	}
+	w.lastId = entry.Id
+	return nil
+}
+
+// sync updates the watcher knowledge from the database, and
+// queues events to observing channels.
+func (w *Watcher) sync() error {
+	log.Debugf("watcher: loading new events from changelog collection...")
+	// Iterate through log events in reverse insertion order (newest first).
+	iter := w.log.Find(nil).Batch(10).Sort("-$natural").Iter()
+	seen := make(map[watchKey]bool)
+	first := true
+	lastId := w.lastId
+	var entry bson.D
+	for iter.Next(&entry) {
+		if len(entry) == 0 {
+			log.Debugf("watcher: got empty changelog document")
+			continue
+		}
+		id := entry[0]
+		if id.Name != "_id" {
+			panic("watcher: _id field isn't first entry")
+		}
+		if first {
+			w.lastId = id.Value
+			first = false
+		}
+		if id.Value == lastId {
 			break
 		}
-		if err != nil {
-			return
+		log.Debugf("watcher: got changelog document: %#v", entry)
+		for _, c := range entry[1:] {
+			// See txn's Runner.ChangeLog for the structure of log entries.
+			var d, r []interface{}
+			dr, _ := c.Value.(bson.D)
+			for _, item := range dr {
+				switch item.Name {
+				case "d":
+					d, _ = item.Value.([]interface{})
+				case "r":
+					r, _ = item.Value.([]interface{})
+				}
+			}
+			if len(d) == 0 || len(d) != len(r) {
+				log.Printf("watcher: changelog has invalid collection document: %#v", c)
+				continue
+			}
+			for i := len(d) - 1; i >= 0; i-- {
+				key := watchKey{c.Name, d[i]}
+				if seen[key] {
+					continue
+				}
+				seen[key] = true
+				revno, ok := r[i].(int64)
+				if !ok {
+					log.Printf("watcher: changelog has revno with type %T: %#v", r[i], r[i])
+					continue
+				}
+				if revno < 0 {
+					revno = -1
+				}
+				if w.current[key] == revno {
+					continue
+				}
+				w.current[key] = revno
+				// Queue notifications for per-collection watches.
+				for _, info := range w.watches[watchKey{c.Name, nil}] {
+					w.syncEvents = append(w.syncEvents, event{info.ch, key, revno})
+				}
+				// Queue notifications for per-document watches.
+				infos := w.watches[key]
+				for i, info := range infos {
+					if revno > info.revno || revno < 0 && info.revno >= 0 {
+						infos[i].revno = revno
+						w.syncEvents = append(w.syncEvents, event{info.ch, key, revno})
+					}
+				}
+			}
 		}
-		break
 	}
-	children := make(map[string]bool)
-	for _, child := range retrievedChildren {
-		children[child] = true
+	if iter.Err() != nil {
+		return fmt.Errorf("watcher iteration error: %v", iter.Err())
 	}
-	var change ChildrenChange
-	for child, _ := range w.children {
-		if !children[child] {
-			change.Removed = append(change.Removed, child)
-			delete(w.children, child)
-		}
-	}
-	for child, _ := range children {
-		if !w.children[child] {
-			change.Added = append(change.Added, child)
-			w.children[child] = true
-		}
-	}
-	if w.emittedValue && len(change.Removed) == 0 && len(change.Added) == 0 {
-		return
-	}
-	select {
-	case <-w.tomb.Dying():
-		return nil, tomb.ErrDying
-	case w.changeChan <- change:
-		w.emittedValue = true
-	}
-	return
+	return nil
 }

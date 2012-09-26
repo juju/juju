@@ -19,39 +19,41 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
-	coretesting.ZkTestPackage(t)
+	coretesting.MgoTestPackage(t)
 }
 
-type CharmSuite struct {
+type BundlesDirSuite struct {
 	coretesting.HTTPSuite
 	testing.JujuConnSuite
 }
 
-func (s *CharmSuite) SetUpSuite(c *C) {
+var _ = Suite(&BundlesDirSuite{})
+
+func (s *BundlesDirSuite) SetUpSuite(c *C) {
 	s.HTTPSuite.SetUpSuite(c)
 	s.JujuConnSuite.SetUpSuite(c)
 }
 
-func (s *CharmSuite) TearDownSuite(c *C) {
+func (s *BundlesDirSuite) TearDownSuite(c *C) {
 	s.JujuConnSuite.TearDownSuite(c)
 	s.HTTPSuite.TearDownSuite(c)
 }
 
-func (s *CharmSuite) SetUpTest(c *C) {
+func (s *BundlesDirSuite) SetUpTest(c *C) {
 	s.HTTPSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
 }
 
-func (s *CharmSuite) TearDownTest(c *C) {
+func (s *BundlesDirSuite) TearDownTest(c *C) {
 	s.JujuConnSuite.TearDownTest(c)
 	s.HTTPSuite.TearDownTest(c)
 }
 
-func (s *CharmSuite) AddCharm(c *C) (*state.Charm, []byte) {
+func (s *BundlesDirSuite) AddCharm(c *C) (*state.Charm, []byte) {
 	curl := corecharm.MustParseURL("cs:series/dummy-1")
 	surl, err := url.Parse(s.URL("/some/charm.bundle"))
 	c.Assert(err, IsNil)
-	bunpath := coretesting.Charms.BundlePath(c.MkDir(), "dummy")
+	bunpath := coretesting.Charms.BundlePath(c.MkDir(), "series", "dummy")
 	bun, err := corecharm.ReadBundle(bunpath)
 	c.Assert(err, IsNil)
 	bundata, hash := readHash(c, bunpath)
@@ -59,87 +61,6 @@ func (s *CharmSuite) AddCharm(c *C) (*state.Charm, []byte) {
 	c.Assert(err, IsNil)
 	return sch, bundata
 }
-
-type ManagerSuite struct {
-	CharmSuite
-}
-
-var _ = Suite(&ManagerSuite{})
-
-func (s *ManagerSuite) TestStatus(c *C) {
-	mgr := charm.NewManager(c.MkDir(), c.MkDir())
-	_, err := mgr.ReadState()
-	c.Assert(err, Equals, charm.ErrMissing)
-
-	scharmURL := "cs:series/expansion-123"
-	charmURL := corecharm.MustParseURL(scharmURL)
-	err = mgr.WriteState(charm.Deployed, charmURL)
-	c.Assert(err, IsNil)
-	_, err = mgr.ReadState()
-	c.Assert(err, Equals, charm.ErrMissing)
-
-	setCharmURL(c, mgr, "roflcopter")
-	_, err = mgr.ReadState()
-	c.Assert(err, ErrorMatches, `charm URL has invalid schema: "roflcopter"`)
-
-	statusURL := corecharm.MustParseURL("cs:series/contraction-987")
-	for _, expect := range []charm.Status{
-		charm.Installing, charm.Upgrading, charm.Conflicted,
-	} {
-		err = mgr.WriteState(expect, statusURL)
-		c.Assert(err, IsNil)
-		st, err := mgr.ReadState()
-		c.Assert(err, IsNil)
-		c.Assert(st.Status, Equals, expect)
-		c.Assert(st.URL, DeepEquals, statusURL)
-	}
-
-	setCharmURL(c, mgr, scharmURL)
-	err = mgr.WriteState(charm.Deployed, statusURL)
-	c.Assert(err, IsNil)
-	st, err := mgr.ReadState()
-	c.Assert(err, IsNil)
-	c.Assert(st.Status, Equals, charm.Deployed)
-	c.Assert(st.URL, DeepEquals, charmURL)
-}
-
-func (s *ManagerSuite) TestUpdate(c *C) {
-	// TODO: reimplement SUT using bzr; write much much nastier tests.
-	mgr := charm.NewManager(c.MkDir(), c.MkDir())
-	sch, bundata := s.AddCharm(c)
-	err := os.Chmod(mgr.CharmDir(), 0555)
-	c.Assert(err, IsNil)
-	defer os.Chmod(mgr.CharmDir(), 0755)
-
-	coretesting.Server.Response(200, nil, bundata)
-	err = mgr.Update(sch, nil)
-	expect := fmt.Sprintf("failed to write charm to %s: .*", mgr.CharmDir())
-	c.Assert(err, ErrorMatches, expect)
-	_, err = mgr.ReadState()
-	c.Assert(err, Equals, charm.ErrMissing)
-
-	err = os.Chmod(mgr.CharmDir(), 0755)
-	c.Assert(err, IsNil)
-	err = mgr.Update(sch, nil)
-	c.Assert(err, IsNil)
-	err = mgr.WriteState(charm.Deployed, corecharm.MustParseURL("cs:series/not-canonical-1"))
-	st, err := mgr.ReadState()
-	c.Assert(err, IsNil)
-	c.Assert(st.Status, Equals, charm.Deployed)
-	c.Assert(st.URL, DeepEquals, sch.URL())
-}
-
-func setCharmURL(c *C, mgr *charm.Manager, url string) {
-	path := filepath.Join(mgr.CharmDir(), ".juju-charm")
-	err := ioutil.WriteFile(path, []byte(url), 0644)
-	c.Assert(err, IsNil)
-}
-
-type BundlesDirSuite struct {
-	CharmSuite
-}
-
-var _ = Suite(&BundlesDirSuite{})
 
 func (s *BundlesDirSuite) TestGet(c *C) {
 	basedir := c.MkDir()

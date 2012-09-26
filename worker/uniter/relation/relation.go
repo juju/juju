@@ -20,7 +20,7 @@ type State struct {
 
 	// Members is a map from unit name to the last change version
 	// for which a hook.Info was delivered on the output channel.
-	Members map[string]int
+	Members map[string]int64
 
 	// ChangedPending indicates that a "relation-changed" hook for the given
 	// unit name must be the first hook.Info to be sent to the output channel.
@@ -34,7 +34,7 @@ func (s *State) copy() *State {
 		ChangedPending: s.ChangedPending,
 	}
 	if s.Members != nil {
-		copy.Members = map[string]int{}
+		copy.Members = map[string]int64{}
 		for m, v := range s.Members {
 			copy.Members[m] = v
 		}
@@ -97,7 +97,7 @@ func (d *StateDir) State() *State {
 func ReadStateDir(dirPath string, relationId int) (d *StateDir, err error) {
 	d = &StateDir{
 		filepath.Join(dirPath, strconv.Itoa(relationId)),
-		State{relationId, map[string]int{}, ""},
+		State{relationId, map[string]int64{}, ""},
 	}
 	defer trivial.ErrorContextf(&err, "cannot load relation state from %q", d.path)
 	if _, err := os.Stat(d.path); os.IsNotExist(err) {
@@ -217,6 +217,6 @@ func (d *StateDir) Write(hi hook.Info) (err error) {
 
 // diskInfo defines the relation unit data serialization.
 type diskInfo struct {
-	ChangeVersion  *int `yaml:"change-version"`
-	ChangedPending bool `yaml:"changed-pending,omitempty"`
+	ChangeVersion  *int64 `yaml:"change-version"`
+	ChangedPending bool   `yaml:"changed-pending,omitempty"`
 }

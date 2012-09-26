@@ -16,9 +16,9 @@ import (
 
 // TODO(dfc) duplicated from environs/ec2
 
-const zkPort = 2181
+const mgoPort = 37017
 
-var zkPortSuffix = fmt.Sprintf(":%d", zkPort)
+var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
 
 // MachineConfig represents initialization information for a new juju machine.
 // Creation of cloudinit data from this struct is largely provider-independent,
@@ -39,12 +39,16 @@ type MachineConfig struct {
 	ProviderType string
 
 	// StateInfo holds the means for the new instance to communicate with the
-	// juju state. Unless the new machine is running zookeeper (ZooKeeper is
-	// set), there must be at least one zookeeper address supplied.
+	// juju state. Unless the new machine is running a state server (StateServer is
+	// set), there must be at least one state server address supplied.
 	StateInfo *state.Info
 
 	// Tools is juju tools to be used on the new machine.
 	Tools *state.Tools
+
+	// DataDir holds the directory that juju state will be put in the new
+	// machine.
+	DataDir string
 
 	// MachineId identifies the new machine. It must be non-negative.
 	MachineId int
@@ -89,19 +93,10 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	c := cloudinit.New()
 
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
-	c.AddPackage("libzookeeper-mt2")
-	if cfg.StateServer {
-		// TODO(dfc) remove these once we cut over to mstate
-		c.AddPackage("default-jre-headless")
-		c.AddPackage("zookeeper")
-		c.AddPackage("zookeeperd")
-
-		// mongodb
-		c.AddPackage("mongodb-server")
-	}
+	c.AddPackage("git")
 
 	addScripts(c,
-		fmt.Sprintf("sudo mkdir -p %s", environs.VarDir),
+		fmt.Sprintf("sudo mkdir -p %s", cfg.DataDir),
 		"sudo mkdir -p /var/log/juju")
 
 	// Make a directory for the tools to live in, then fetch the
@@ -113,33 +108,37 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		fmt.Sprintf("echo -n %s > $bin/downloaded-url.txt", shquote(cfg.Tools.URL)),
 	)
 
-	addScripts(c,
-		"JUJU_ZOOKEEPER="+shquote(cfg.zookeeperHostAddrs()),
-		fmt.Sprintf("JUJU_MACHINE_ID=%d", cfg.MachineId),
-	)
-
 	debugFlag := ""
-	if log.Debug {
+	// TODO: disable debug mode by default when the system is stable.
+	if true || log.Debug {
 		debugFlag = " --debug"
 	}
 
 	if cfg.StateServer {
-		// zookeeper scripts
+		// TODO The public bucket must come from the environment configuration.
+		b := cfg.Tools.Binary
+		url := fmt.Sprintf("http://juju-dist.s3.amazonaws.com/tools/mongo-2.2.0-%s-%s.tgz", b.Series, b.Arch)
 		addScripts(c,
-			cfg.jujuTools()+"/jujud bootstrap-state"+
-				" --instance-id "+cfg.InstanceIdAccessor+
-				" --env-type "+shquote(cfg.ProviderType)+
-				" --env-config "+shquote(base64yaml(cfg.Config))+
-				" --zookeeper-servers localhost"+zkPortSuffix+
-				debugFlag,
+			"mkdir -p /opt",
+			fmt.Sprintf("wget -O - %s | tar xz -C /opt", shquote(url)),
 		)
+		if err := addMongoToBoot(c); err != nil {
+			return nil, err
+		}
+		addScripts(c, cfg.jujuTools()+"/jujud bootstrap-state"+
+			" --instance-id "+cfg.InstanceIdAccessor+
+			" --env-config "+shquote(base64yaml(cfg.Config))+
+			" --state-servers localhost"+mgoPortSuffix+
+			debugFlag,
+		)
+
 	}
 
-	if err := addAgentScript(c, cfg, "machine", fmt.Sprintf("--machine-id %d "+debugFlag, cfg.MachineId)); err != nil {
+	if err := addAgentToBoot(c, cfg, "machine", fmt.Sprintf("--machine-id %d "+debugFlag, cfg.MachineId)); err != nil {
 		return nil, err
 	}
 	if cfg.Provisioner {
-		if err := addAgentScript(c, cfg, "provisioning", debugFlag); err != nil {
+		if err := addAgentToBoot(c, cfg, "provisioning", debugFlag); err != nil {
 			return nil, err
 		}
 	}
@@ -151,16 +150,25 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	return c, nil
 }
 
-func addAgentScript(c *cloudinit.Config, cfg *MachineConfig, name, args string) error {
+func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, name, args string) error {
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
-	toolsDir := environs.AgentToolsDir(name)
-	addScripts(c, fmt.Sprintf("ln -s $bin %s", toolsDir))
-	svc := upstart.NewService(fmt.Sprintf("jujud-%s", name))
+	toolsDir := environs.AgentToolsDir(cfg.DataDir, name)
+	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
+	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Binary, toolsDir))
+	svc := upstart.NewService("jujud-" + name)
 	cmd := fmt.Sprintf(
-		"%s/jujud %s --zookeeper-servers '%s' --log-file /var/log/juju/%s-agent.log %s",
-		toolsDir, name, cfg.zookeeperHostAddrs(), name, args,
+		"%s/jujud %s"+
+			" --state-servers '%s'"+
+			" --log-file /var/log/juju/%s-agent.log"+
+			" --data-dir '%s'"+
+			" %s",
+		toolsDir, name,
+		cfg.zookeeperHostAddrs(),
+		name,
+		cfg.DataDir,
+		args,
 	)
 	conf := &upstart.Conf{
 		Service: *svc,
@@ -169,7 +177,23 @@ func addAgentScript(c *cloudinit.Config, cfg *MachineConfig, name, args string) 
 	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {
-		return fmt.Errorf("cannot make cloud-init %s agent upstart script: %v", name, err)
+		return fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", name, err)
+	}
+	addScripts(c, cmds...)
+	return nil
+}
+
+func addMongoToBoot(c *cloudinit.Config) error {
+	addScripts(c, fmt.Sprintf("mkdir -p /var/lib/juju/db"))
+	svc := upstart.NewService("juju-db")
+	conf := &upstart.Conf{
+		Service: *svc,
+		Desc:    "juju state database",
+		Cmd:     "/opt/mongo/bin/mongod --port=37017 --bind_ip=0.0.0.0 --dbpath=/var/lib/juju/db --smallfiles --noprealloc",
+	}
+	cmds, err := conf.InstallCommands()
+	if err != nil {
+		return fmt.Errorf("cannot make cloud-init upstart script for the state database: %v", err)
 	}
 	addScripts(c, cmds...)
 	return nil
@@ -185,13 +209,13 @@ func versionDir(toolsURL string) string {
 }
 
 func (cfg *MachineConfig) jujuTools() string {
-	return environs.ToolsDir(cfg.Tools.Binary)
+	return environs.ToolsDir(cfg.DataDir, cfg.Tools.Binary)
 }
 
 func (cfg *MachineConfig) zookeeperHostAddrs() string {
 	var hosts []string
 	if cfg.StateServer {
-		hosts = append(hosts, "localhost"+zkPortSuffix)
+		hosts = append(hosts, "localhost"+mgoPortSuffix)
 	}
 	if cfg.StateInfo != nil {
 		hosts = append(hosts, cfg.StateInfo.Addrs...)
@@ -212,6 +236,9 @@ func verifyConfig(cfg *MachineConfig) error {
 	}
 	if cfg.ProviderType == "" {
 		return requiresError("provider type")
+	}
+	if cfg.DataDir == "" {
+		return requiresError("var directory")
 	}
 	if cfg.Tools == nil {
 		return requiresError("tools")

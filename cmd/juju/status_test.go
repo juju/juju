@@ -105,7 +105,7 @@ var statusTests = []struct {
 	{
 		"add two services and expose one",
 		func(st *state.State, conn *juju.Conn, c *C) {
-			ch := coretesting.Charms.Dir("dummy")
+			ch := coretesting.Charms.Dir("series", "dummy")
 			curl := charm.MustParseURL(
 				fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
 			)
@@ -248,7 +248,7 @@ var statusTests = []struct {
 		},
 	},
 
-	// TODO(dfc) test failing components by destructively mutating zk under the hood
+	// TODO(dfc) test failing components by destructively mutating the state under the hood
 }
 
 func (s *StatusSuite) testStatus(format string, marshal func(v interface{}) ([]byte, error), unmarshal func(data []byte, v interface{}) error, c *C) {

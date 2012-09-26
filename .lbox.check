@@ -1,0 +1,20 @@
+#!/bin/sh
+
+set -e
+
+BADFMT=`find * -name '*.go' | xargs gofmt -l`
+if [ -n "$BADFMT" ]; then
+	BADFMT=`echo "$BADFMT" | sed "s/^/  /"`
+	echo "gofmt is sad:\n\n$BADFMT"
+	exit 1
+fi
+
+VERSION=`go version | awk '{print $3}'`
+if [ $VERSION == 'devel' ]; then
+	go tool vet \
+		-methods \
+		-printf \
+		-rangeloops \
+		-printfuncs ErrorContextf:1 \
+		.
+fi

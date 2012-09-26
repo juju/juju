@@ -12,7 +12,7 @@ import (
 )
 
 func repoMeta(name string) io.Reader {
-	charmDir := testing.Charms.DirPath(name)
+	charmDir := testing.Charms.DirPath("series", name)
 	file, err := os.Open(filepath.Join(charmDir, "metadata.yaml"))
 	if err != nil {
 		panic(err)
@@ -29,13 +29,26 @@ type MetaSuite struct{}
 
 var _ = Suite(&MetaSuite{})
 
-func (s *MetaSuite) TestReadMeta(c *C) {
+func (s *MetaSuite) TestReadMetaVersion1(c *C) {
 	meta, err := charm.ReadMeta(repoMeta("dummy"))
 	c.Assert(err, IsNil)
 	c.Assert(meta.Name, Equals, "dummy")
 	c.Assert(meta.Summary, Equals, "That's a dummy charm.")
 	c.Assert(meta.Description, Equals,
 		"This is a longer description which\npotentially contains multiple lines.\n")
+	c.Assert(meta.Format, Equals, 1)
+	c.Assert(meta.OldRevision, Equals, 0)
+	c.Assert(meta.Subordinate, Equals, false)
+}
+
+func (s *MetaSuite) TestReadMetaVersion2(c *C) {
+	meta, err := charm.ReadMeta(repoMeta("dummy-v2"))
+	c.Assert(err, IsNil)
+	c.Assert(meta.Name, Equals, "dummy-v2")
+	c.Assert(meta.Summary, Equals, "That's a new dummy charm.")
+	c.Assert(meta.Description, Equals,
+		"This is a longer description which\npotentially contains multiple lines.\n")
+	c.Assert(meta.Format, Equals, 2)
 	c.Assert(meta.OldRevision, Equals, 0)
 	c.Assert(meta.Subordinate, Equals, false)
 }

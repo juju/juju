@@ -2,54 +2,61 @@ package state
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/testing"
 )
 
 type ConfigNodeSuite struct {
-	testing.ZkConnSuite
-	path string
+	testing.MgoSuite
+	state *State
+	path  string
 }
 
 var _ = Suite(&ConfigNodeSuite{})
 
-func (s *ConfigNodeSuite) SetUpSuite(c *C) {
-	s.ZkConnSuite.SetUpSuite(c)
+func (s *ConfigNodeSuite) SetUpTest(c *C) {
+	s.MgoSuite.SetUpTest(c)
+	state, err := Open(&Info{Addrs: []string{testing.MgoAddr}})
+	c.Assert(err, IsNil)
+	s.state = state
 	s.path = "/config"
+}
+
+func (s *ConfigNodeSuite) TearDownTest(c *C) {
+	s.state.Close()
+	s.MgoSuite.TearDownTest(c)
 }
 
 func (s *ConfigNodeSuite) TestCreateEmptyConfigNode(c *C) {
 	// Check that creating an empty node works correctly.
-	node, err := createConfigNode(s.ZkConn, s.path, nil)
+	node, err := createConfigNode(s.state, s.path, nil)
 	c.Assert(err, IsNil)
 	c.Assert(node.Keys(), DeepEquals, []string{})
 }
 
 func (s *ConfigNodeSuite) TestReadWithoutWrite(c *C) {
 	// Check reading without writing.
-	node, err := readConfigNode(s.ZkConn, s.path)
+	node, err := readConfigNode(s.state, s.path)
 	c.Assert(err, IsNil)
 	c.Assert(node, Not(IsNil))
 }
 
-func (s *ConfigNodeSuite) TestSetWithoutWrite(c *C) {
-	// Check that config values can be set.
-	_, err := s.ZkConn.Create(s.path, "", 0, zkPermAll)
-	c.Assert(err, IsNil)
-	node, err := readConfigNode(s.ZkConn, s.path)
+func (s *ConfigNodeSuite) TestUpdateWithoutWrite(c *C) {
+	// Check that config values can be updated.
+	node, err := readConfigNode(s.state, s.path)
 	c.Assert(err, IsNil)
 	options := map[string]interface{}{"alpha": "beta", "one": 1}
 	node.Update(options)
 	c.Assert(node.Map(), DeepEquals, options)
 	// Node data has to be empty.
-	yaml, _, err := s.ZkConn.Get("/config")
+	mgoData := []interface{}{}
+	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.path).All(&mgoData)
 	c.Assert(err, IsNil)
-	c.Assert(yaml, Equals, "")
+	c.Assert(mgoData, HasLen, 0)
 }
 
-func (s *ConfigNodeSuite) TestSetWithWrite(c *C) {
-	// Check that write updates the local and the ZooKeeper state.
-	node, err := readConfigNode(s.ZkConn, s.path)
+func (s *ConfigNodeSuite) TestUpdateWithWrite(c *C) {
+	// Check that write updates the local and the server state.
+	node, err := readConfigNode(s.state, s.path)
 	c.Assert(err, IsNil)
 	options := map[string]interface{}{"alpha": "beta", "one": 1}
 	node.Update(options)
@@ -61,19 +68,20 @@ func (s *ConfigNodeSuite) TestSetWithWrite(c *C) {
 	})
 	// Check local state.
 	c.Assert(node.Map(), DeepEquals, options)
-	// Check ZooKeeper state.
-	yaml, _, err := s.ZkConn.Get(s.path)
+
+	// Check MongoDB state.
+	mgoData := make(map[string]interface{}, 0)
+	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.path).One(&mgoData)
 	c.Assert(err, IsNil)
-	zkData := make(map[string]interface{})
-	err = goyaml.Unmarshal([]byte(yaml), zkData)
-	c.Assert(zkData, DeepEquals, options)
+	cleanMap(mgoData)
+	c.Assert(mgoData, DeepEquals, options)
 }
 
 func (s *ConfigNodeSuite) TestConflictOnSet(c *C) {
 	// Check version conflict errors.
-	nodeOne, err := readConfigNode(s.ZkConn, s.path)
+	nodeOne, err := readConfigNode(s.state, s.path)
 	c.Assert(err, IsNil)
-	nodeTwo, err := readConfigNode(s.ZkConn, s.path)
+	nodeTwo, err := readConfigNode(s.state, s.path)
 	c.Assert(err, IsNil)
 
 	optionsOld := map[string]interface{}{"alpha": "beta", "one": 1}
@@ -130,7 +138,7 @@ func (s *ConfigNodeSuite) TestConflictOnSet(c *C) {
 
 func (s *ConfigNodeSuite) TestSetItem(c *C) {
 	// Check that Set works as expected.
-	node, err := readConfigNode(s.ZkConn, s.path)
+	node, err := readConfigNode(s.state, s.path)
 	c.Assert(err, IsNil)
 	options := map[string]interface{}{"alpha": "beta", "one": 1}
 	node.Set("alpha", "beta")
@@ -143,17 +151,17 @@ func (s *ConfigNodeSuite) TestSetItem(c *C) {
 	})
 	// Check local state.
 	c.Assert(node.Map(), DeepEquals, options)
-	// Check ZooKeeper state.
-	yaml, _, err := s.ZkConn.Get(s.path)
+	// Check MongoDB state.
+	mgoData := make(map[string]interface{}, 0)
+	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.path).One(&mgoData)
 	c.Assert(err, IsNil)
-	zkData := make(map[string]interface{})
-	err = goyaml.Unmarshal([]byte(yaml), zkData)
-	c.Assert(zkData, DeepEquals, options)
+	cleanMap(mgoData)
+	c.Assert(mgoData, DeepEquals, options)
 }
 
 func (s *ConfigNodeSuite) TestMultipleReads(c *C) {
 	// Check that reads without writes always resets the data.
-	nodeOne, err := readConfigNode(s.ZkConn, s.path)
+	nodeOne, err := readConfigNode(s.state, s.path)
 	c.Assert(err, IsNil)
 	nodeOne.Update(map[string]interface{}{"alpha": "beta", "foo": "bar"})
 	value, ok := nodeOne.Get("alpha")
@@ -185,8 +193,8 @@ func (s *ConfigNodeSuite) TestMultipleReads(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(value, Equals, "bar")
 
-	// Now get another state instance and change ZooKeeper state.
-	nodeTwo, err := readConfigNode(s.ZkConn, s.path)
+	// Now get another state instance and change underlying state.
+	nodeTwo, err := readConfigNode(s.state, s.path)
 	c.Assert(err, IsNil)
 	nodeTwo.Update(map[string]interface{}{"foo": "different"})
 	changes, err = nodeTwo.Write()
@@ -208,7 +216,7 @@ func (s *ConfigNodeSuite) TestMultipleReads(c *C) {
 
 func (s *ConfigNodeSuite) TestDeleteEmptiesState(c *C) {
 	// Check that delete creates an empty state.
-	node, err := readConfigNode(s.ZkConn, s.path)
+	node, err := readConfigNode(s.state, s.path)
 	c.Assert(err, IsNil)
 	node.Set("a", "foo")
 	changes, err := node.Write()
@@ -227,7 +235,7 @@ func (s *ConfigNodeSuite) TestDeleteEmptiesState(c *C) {
 
 func (s *ConfigNodeSuite) TestReadResync(c *C) {
 	// Check that read pulls the data into the node.
-	nodeOne, err := readConfigNode(s.ZkConn, s.path)
+	nodeOne, err := readConfigNode(s.state, s.path)
 	c.Assert(err, IsNil)
 	nodeOne.Set("a", "foo")
 	changes, err := nodeOne.Write()
@@ -235,7 +243,7 @@ func (s *ConfigNodeSuite) TestReadResync(c *C) {
 	c.Assert(changes, DeepEquals, []ItemChange{
 		{ItemAdded, "a", nil, "foo"},
 	})
-	nodeTwo, err := readConfigNode(s.ZkConn, s.path)
+	nodeTwo, err := readConfigNode(s.state, s.path)
 	c.Assert(err, IsNil)
 	nodeTwo.Delete("a")
 	changes, err = nodeTwo.Write()
@@ -259,7 +267,7 @@ func (s *ConfigNodeSuite) TestReadResync(c *C) {
 
 func (s *ConfigNodeSuite) TestMultipleWrites(c *C) {
 	// Check that multiple writes only do the right changes.
-	node, err := readConfigNode(s.ZkConn, s.path)
+	node, err := readConfigNode(s.state, s.path)
 	c.Assert(err, IsNil)
 	node.Update(map[string]interface{}{"foo": "bar", "this": "that"})
 	changes, err := node.Write()
@@ -294,14 +302,16 @@ func (s *ConfigNodeSuite) TestMultipleWrites(c *C) {
 }
 
 func (s *ConfigNodeSuite) TestMultipleWritesAreStable(c *C) {
-	node, err := readConfigNode(s.ZkConn, s.path)
+	node, err := readConfigNode(s.state, s.path)
 	c.Assert(err, IsNil)
 	node.Update(map[string]interface{}{"foo": "bar", "this": "that"})
 	_, err = node.Write()
 	c.Assert(err, IsNil)
 
-	stat, err := s.ZkConn.Exists(s.path)
-	version := stat.Version()
+	mgoData := make(map[string]interface{})
+	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.path).One(&mgoData)
+	c.Assert(err, IsNil)
+	version := mgoData["version"]
 	for i := 0; i < 100; i++ {
 		node.Set("value", i)
 		node.Set("foo", "bar")
@@ -310,14 +320,16 @@ func (s *ConfigNodeSuite) TestMultipleWritesAreStable(c *C) {
 		_, err := node.Write()
 		c.Assert(err, IsNil)
 	}
-	stat, err = s.ZkConn.Exists(s.path)
-	newVersion := stat.Version()
+	mgoData = make(map[string]interface{})
+	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.path).One(&mgoData)
+	c.Assert(err, IsNil)
+	newVersion := mgoData["version"]
 	c.Assert(version, Equals, newVersion)
 }
 
 func (s *ConfigNodeSuite) TestWriteTwice(c *C) {
 	// Check the correct writing into a node by two config nodes.
-	nodeOne, err := readConfigNode(s.ZkConn, s.path)
+	nodeOne, err := readConfigNode(s.state, s.path)
 	c.Assert(err, IsNil)
 	nodeOne.Set("a", "foo")
 	changes, err := nodeOne.Write()
@@ -326,7 +338,7 @@ func (s *ConfigNodeSuite) TestWriteTwice(c *C) {
 		{ItemAdded, "a", nil, "foo"},
 	})
 
-	nodeTwo, err := readConfigNode(s.ZkConn, s.path)
+	nodeTwo, err := readConfigNode(s.state, s.path)
 	c.Assert(err, IsNil)
 	nodeTwo.Set("a", "bar")
 	changes, err = nodeTwo.Write()
@@ -343,5 +355,7 @@ func (s *ConfigNodeSuite) TestWriteTwice(c *C) {
 
 	err = nodeOne.Read()
 	c.Assert(err, IsNil)
-	c.Assert(nodeOne, DeepEquals, nodeTwo)
+	c.Assert(nodeOne.path, Equals, nodeTwo.path)
+	c.Assert(nodeOne.disk, DeepEquals, nodeTwo.disk)
+	c.Assert(nodeOne.core, DeepEquals, nodeTwo.core)
 }

@@ -2,14 +2,13 @@ package state
 
 import (
 	"fmt"
-	"launchpad.net/goyaml"
-	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/trivial"
+	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/txn"
 	"sort"
 )
 
 const (
-	ItemAdded = iota + 1
+	ItemAdded = iota
 	ItemModified
 	ItemDeleted
 )
@@ -45,198 +44,27 @@ func (ics itemChangeSlice) Len() int           { return len(ics) }
 func (ics itemChangeSlice) Less(i, j int) bool { return ics[i].Key < ics[j].Key }
 func (ics itemChangeSlice) Swap(i, j int)      { ics[i], ics[j] = ics[j], ics[i] }
 
-// A ConfigNode represents the data of a ZooKeeper node
-// containing YAML-based settings. It manages changes to
-// the data as a delta in memory, and merges them back
-// onto the node when explicitly requested.
+// A ConfigNode manages changes to settings as a delta in memory and merges
+// them back in the database when explicitly requested.
 type ConfigNode struct {
-	zk   *zookeeper.Conn
+	st   *State
 	path string
-	// pristineCache holds the values in the config node before
+	// disk holds the values in the config node before
 	// any keys have been changed. It is reset on Read and Write
 	// operations.
-	pristineCache map[string]interface{}
+	disk map[string]interface{}
 	// cache holds the current values in the config node.
-	// The difference between pristineCache and cache
+	// The difference between disk and core
 	// determines the delta to be applied when ConfigNode.Write
 	// is called.
-	cache map[string]interface{}
-}
-
-func newConfigNode(zk *zookeeper.Conn, path string) *ConfigNode {
-	return &ConfigNode{
-		zk:    zk,
-		path:  path,
-		cache: make(map[string]interface{}),
-	}
-}
-
-// createConfigNode writes an initial config node.
-func createConfigNode(zk *zookeeper.Conn, path string, values map[string]interface{}) (*ConfigNode, error) {
-	c := newConfigNode(zk, path)
-	c.cache = copyCache(values)
-	_, err := c.Write()
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
-}
-
-// parseConfigNode creates a config node based on a pre-read content.
-func parseConfigNode(zk *zookeeper.Conn, path, content string) (*ConfigNode, error) {
-	c := newConfigNode(zk, path)
-	if err := c.setPristineContent(content); err != nil {
-		return nil, err
-	}
-	c.cache = copyCache(c.pristineCache)
-	return c, nil
-}
-
-// setPristineContent sets the currently known contents of the node.
-// It does not affect the user-set contents.
-func (c *ConfigNode) setPristineContent(content string) (err error) {
-	if err = goyaml.Unmarshal([]byte(content), &c.pristineCache); err != nil {
-		return fmt.Errorf("unmarshall error: %v", err)
-	}
-	return nil
-}
-
-// readConfigNode returns the ConfigNode for path.
-func readConfigNode(zk *zookeeper.Conn, path string) (*ConfigNode, error) {
-	c := newConfigNode(zk, path)
-	if err := c.Read(); err != nil {
-		return nil, err
-	}
-	return c, nil
-}
-
-// NotFoundError represents the error that something is not found.
-type NotFoundError struct {
-	what string
-}
-
-func (e *NotFoundError) Error() string {
-	return fmt.Sprintf("%s not found", e.what)
-}
-
-// getConfigString returns the string-valued attribute in the ConfigNode at path.
-// If there is an error, the given format and arguments are used to construct
-// a string describing the attribute.
-func getConfigString(zk *zookeeper.Conn, path, attr string, whatFmt string, whatArgs ...interface{}) (string, error) {
-	cn, err := readConfigNode(zk, path)
-	if err != nil {
-		return "", fmt.Errorf("cannot get %s: %v", fmt.Sprintf(whatFmt, whatArgs...), err)
-	}
-	val, ok := cn.Get(attr)
-	if !ok {
-		return "", &NotFoundError{fmt.Sprintf(whatFmt, whatArgs...)}
-	}
-	sval, ok := val.(string)
-	if !ok {
-		return "", fmt.Errorf("invalid type of value %#v of %s: %T", val, fmt.Sprintf(whatFmt, whatArgs...), val)
-	}
-	return sval, nil
-}
-
-// setConfigString sets the value of the attribute in the ConfigNode at path.
-// If there is an error, the given format and arguments are used to construct
-// a string describing the attribute.
-func setConfigString(zk *zookeeper.Conn, path, attr, val, whatFmt string, whatArgs ...interface{}) error {
-	config, err := readConfigNode(zk, path)
-	if err != nil {
-		return err
-	}
-	config.Set(attr, val)
-	_, err = config.Write()
-	if err != nil {
-		return fmt.Errorf("cannot set %s to %q: %v", fmt.Sprintf(whatFmt, whatArgs...), val, err)
-	}
-	return nil
-}
-
-// Read (re)reads the node data into c.
-func (c *ConfigNode) Read() (err error) {
-	defer trivial.ErrorContextf(&err, "cannot read configuration node %q", c.path)
-	yaml, _, err := c.zk.Get(c.path)
-	if err != nil {
-		if !zookeeper.IsError(err, zookeeper.ZNONODE) {
-			return err
-		}
-	}
-	if err := c.setPristineContent(yaml); err != nil {
-		return err
-	}
-	c.cache = copyCache(c.pristineCache)
-	return nil
-}
-
-// Write writes changes made to c back onto its node.
-// Changes are written as a delta applied on top of the
-// latest version of the node, to prevent overwriting
-// unrelated changes made to the node since it was last read.
-func (c *ConfigNode) Write() (changes []ItemChange, err error) {
-	defer trivial.ErrorContextf(&err, "cannot write configuration node %q", c.path)
-	// changes is used by applyChanges to return the changes to
-	// this scope.
-	changes = []ItemChange{}
-	// nil is a possible value for a key, so we use missing as
-	// a marker to simplify the algorithm below.
-	missing := new(bool)
-	applyChanges := func(yaml string, stat *zookeeper.Stat) (string, error) {
-		changes = changes[:0]
-		current := make(map[string]interface{})
-		if yaml != "" {
-			if err := goyaml.Unmarshal([]byte(yaml), current); err != nil {
-				return "", err
-			}
-		}
-		for key := range cacheKeys(c.pristineCache, c.cache) {
-			oldValue, ok := c.pristineCache[key]
-			if !ok {
-				oldValue = missing
-			}
-			newValue, ok := c.cache[key]
-			if !ok {
-				newValue = missing
-			}
-			if oldValue == newValue {
-				continue
-			}
-			var change ItemChange
-			if newValue != missing {
-				current[key] = newValue
-				if oldValue != missing {
-					change = ItemChange{ItemModified, key, oldValue, newValue}
-				} else {
-					change = ItemChange{ItemAdded, key, nil, newValue}
-				}
-			} else if _, ok := current[key]; ok {
-				delete(current, key)
-				change = ItemChange{ItemDeleted, key, oldValue, nil}
-			}
-			changes = append(changes, change)
-		}
-		if len(changes) == 0 {
-			return yaml, nil
-		}
-		currentYaml, err := goyaml.Marshal(current)
-		if err != nil {
-			return "", err
-		}
-		return string(currentYaml), nil
-	}
-	if err := c.zk.RetryChange(c.path, 0, zkPermAll, applyChanges); err != nil {
-		return nil, err
-	}
-	sort.Sort(itemChangeSlice(changes))
-	c.pristineCache = copyCache(c.cache)
-	return changes, nil
+	core     map[string]interface{}
+	txnRevno int64
 }
 
 // Keys returns the current keys in alphabetical order.
 func (c *ConfigNode) Keys() []string {
 	keys := []string{}
-	for key := range c.cache {
+	for key := range c.core {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
@@ -245,34 +73,34 @@ func (c *ConfigNode) Keys() []string {
 
 // Get returns the value of key and whether it was found.
 func (c *ConfigNode) Get(key string) (value interface{}, found bool) {
-	value, found = c.cache[key]
+	value, found = c.core[key]
 	return
 }
 
 // Map returns all keys and values of the node.
 func (c *ConfigNode) Map() map[string]interface{} {
-	return copyCache(c.cache)
+	return copyMap(c.core)
 }
 
 // Set sets key to value
 func (c *ConfigNode) Set(key string, value interface{}) {
-	c.cache[key] = value
+	c.core[key] = value
 }
 
 // Update sets multiple key/value pairs.
 func (c *ConfigNode) Update(kv map[string]interface{}) {
 	for key, value := range kv {
-		c.cache[key] = value
+		c.core[key] = value
 	}
 }
 
 // Delete removes key.
 func (c *ConfigNode) Delete(key string) {
-	delete(c.cache, key)
+	delete(c.core, key)
 }
 
-// copyCache copies the keys and values of one cache into a new one.
-func copyCache(in map[string]interface{}) (out map[string]interface{}) {
+// copyMap copies the keys and values of one map into a new one.
+func copyMap(in map[string]interface{}) (out map[string]interface{}) {
 	out = make(map[string]interface{})
 	for key, value := range in {
 		out[key] = value
@@ -289,4 +117,115 @@ func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 		}
 	}
 	return keys
+}
+
+// Write writes changes made to c back onto its node.  Changes are written
+// as a delta applied on top of the latest version of the node, to prevent
+// overwriting unrelated changes made to the node since it was last read.
+func (c *ConfigNode) Write() ([]ItemChange, error) {
+	changes := []ItemChange{}
+	updates := map[string]interface{}{}
+	deletions := map[string]int{}
+	for key := range cacheKeys(c.disk, c.core) {
+		old, ondisk := c.disk[key]
+		new, incore := c.core[key]
+		if new == old {
+			continue
+		}
+		var change ItemChange
+		switch {
+		case incore && ondisk:
+			change = ItemChange{ItemModified, key, old, new}
+			updates[key] = new
+		case incore && !ondisk:
+			change = ItemChange{ItemAdded, key, nil, new}
+			updates[key] = new
+		case ondisk && !incore:
+			change = ItemChange{ItemDeleted, key, old, nil}
+			deletions[key] = 1
+		default:
+			panic("unreachable")
+		}
+		changes = append(changes, change)
+	}
+	if len(changes) == 0 {
+		return []ItemChange{}, nil
+	}
+	sort.Sort(itemChangeSlice(changes))
+	ops := []txn.Op{{
+		C:  c.st.settings.Name,
+		Id: c.path,
+		Update: D{
+			{"$set", updates},
+			{"$unset", deletions},
+		},
+	}}
+	if err := c.st.runner.Run(ops, "", nil); err != nil {
+		return nil, fmt.Errorf("cannot write configuration node %q: %v", c.path, err)
+	}
+	inserts := copyMap(updates)
+	ops = []txn.Op{{
+		C:      c.st.settings.Name,
+		Id:     c.path,
+		Insert: inserts,
+	}}
+	if err := c.st.runner.Run(ops, "", nil); err != nil {
+		return nil, fmt.Errorf("cannot write configuration node %q: %v", c.path, err)
+	}
+	c.disk = copyMap(c.core)
+	return changes, nil
+}
+
+func newConfigNode(st *State, path string) *ConfigNode {
+	return &ConfigNode{
+		st:   st,
+		path: path,
+		core: make(map[string]interface{}),
+	}
+}
+
+// cleanMap cleans the map of version and _id fields.
+func cleanMap(in map[string]interface{}) {
+	delete(in, "_id")
+	delete(in, "txn-revno")
+	delete(in, "txn-queue")
+}
+
+// Read (re)reads the node data into c.
+func (c *ConfigNode) Read() error {
+	config := map[string]interface{}{}
+	err := c.st.settings.FindId(c.path).One(config)
+	if err == mgo.ErrNotFound {
+		c.disk = nil
+		c.core = make(map[string]interface{})
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("cannot read configuration node %q: %v", c.path, err)
+	}
+	c.txnRevno = config["txn-revno"].(int64)
+	cleanMap(config)
+	c.disk = copyMap(config)
+	c.core = copyMap(config)
+	return nil
+}
+
+// readConfigNode returns the ConfigNode for path.
+func readConfigNode(st *State, path string) (*ConfigNode, error) {
+	c := newConfigNode(st, path)
+	if err := c.Read(); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+// createConfigNode writes an initial config node.
+func createConfigNode(st *State, path string, values map[string]interface{}) (*ConfigNode, error) {
+	c := newConfigNode(st, path)
+	c.core = copyMap(values)
+	_, err := c.Write()
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }

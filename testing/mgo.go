@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
+	"net"
 	"os"
 	"os/exec"
 	"strconv"
@@ -25,10 +26,10 @@ type MgoSuite struct {
 
 // StartMgoServer starts a MongoDB server in a temporary directory.
 // It panics if it encounters an error.
-func StartMgoServer() (server *exec.Cmd, dbdir string) {
-	dbdir, err := ioutil.TempDir("", "test-mgo")
+func StartMgoServer() (server *exec.Cmd, dbdir string, err error) {
+	dbdir, err = ioutil.TempDir("", "test-mgo")
 	if err != nil {
-		panic(fmt.Errorf("cannot create temporary directory: %v", err))
+		return
 	}
 	mgoport := strconv.Itoa(FindTCPPort())
 	mgoargs := []string{
@@ -44,10 +45,10 @@ func StartMgoServer() (server *exec.Cmd, dbdir string) {
 	err = server.Start()
 	if err != nil {
 		os.RemoveAll(dbdir)
-		panic(fmt.Errorf("cannot start MongoDB server: %v", err))
+		return
 	}
 	MgoAddr = "localhost:" + mgoport
-	return server, dbdir
+	return
 }
 
 func MgoDestroy(server *exec.Cmd, dbdir string) {
@@ -59,7 +60,10 @@ func MgoDestroy(server *exec.Cmd, dbdir string) {
 // MgoTestPackage should be called to register the tests for any package that
 // requires a MongoDB server.
 func MgoTestPackage(t *stdtesting.T) {
-	server, dbdir := StartMgoServer()
+	server, dbdir, err := StartMgoServer()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer MgoDestroy(server, dbdir)
 	TestingT(t)
 }
@@ -121,4 +125,18 @@ func (s *MgoSuite) TearDownTest(c *C) {
 		c.Logf("Waiting for sockets to die: %d in use, %d alive", stats.SocketsInUse, stats.SocketsAlive)
 		time.Sleep(500 * time.Millisecond)
 	}
+}
+
+// FindTCPPort finds an unused TCP port and returns it.
+// Use of this function has an inherent race condition - another
+// process may claim the port before we try to use it.
+// We hope that the probability is small enough during
+// testing to be negligible.
+func FindTCPPort() int {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		panic(err)
+	}
+	l.Close()
+	return l.Addr().(*net.TCPAddr).Port
 }

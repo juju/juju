@@ -8,10 +8,12 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/version"
-	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
 	"os"
+	"time"
 )
+
+var upgraderKillDelay = 5 * time.Minute
 
 // An Upgrader observes the version information for an agent in the
 // environment state, and handles the downloading and unpacking of
@@ -22,6 +24,7 @@ type Upgrader struct {
 	tomb       tomb.Tomb
 	st         *state.State
 	agentState AgentState
+	dataDir    string
 }
 
 // UpgradedError is returned by an Upgrader to report that
@@ -42,16 +45,21 @@ type AgentState interface {
 }
 
 // NewUpgrader returns a new Upgrader watching the given agent.
-func NewUpgrader(st *state.State, agentState AgentState) *Upgrader {
+func NewUpgrader(st *state.State, agentState AgentState, dataDir string) *Upgrader {
 	u := &Upgrader{
 		st:         st,
 		agentState: agentState,
+		dataDir:    dataDir,
 	}
 	go func() {
 		defer u.tomb.Done()
 		u.tomb.Kill(u.run())
 	}()
 	return u
+}
+
+func (u *Upgrader) String() string {
+	return "upgrader"
 }
 
 func (u *Upgrader) Stop() error {
@@ -65,7 +73,7 @@ func (u *Upgrader) Wait() error {
 
 func (u *Upgrader) run() error {
 	// Let the state know the version that is currently running.
-	currentTools, err := environs.ReadTools(version.Current)
+	currentTools, err := environs.ReadTools(u.dataDir, version.Current)
 	if err != nil {
 		// Don't abort everything because we can't find the tools directory.
 		// The problem should sort itself out as we will immediately
@@ -83,10 +91,10 @@ func (u *Upgrader) run() error {
 	w := u.st.WatchEnvironConfig()
 	defer watcher.Stop(w, &u.tomb)
 
-	environ, err := worker.WaitForEnviron(w, u.tomb.Dying())
-	if err != nil {
-		return err
-	}
+	// Rather than using worker.WaitForEnviron, invalid environments are
+	// managed explicitly so that all configuration changes are observed
+	// by the loop below.
+	var environ environs.Environ
 
 	// TODO(rog) retry downloads when they fail.
 	var (
@@ -94,6 +102,19 @@ func (u *Upgrader) run() error {
 		downloadTools *state.Tools
 		downloadDone  <-chan downloader.Status
 	)
+	// If we're killed early on (probably as a result of some other
+	// task dying) we allow ourselves some time to try to connect to
+	// the state and download a new version. We return to normal
+	// undelayed behaviour when:
+	// 1) We find there's no upgrade to do.
+	// 2) A download fails.
+	tomb := delayedTomb(&u.tomb, upgraderKillDelay)
+	noDelay := func() {
+		if tomb != &u.tomb {
+			tomb.Kill(nil)
+			tomb = &u.tomb
+		}
+	}
 	for {
 		// We wait for the tools to change while we're downloading
 		// so that if something goes wrong (for instance a bad URL
@@ -104,10 +125,19 @@ func (u *Upgrader) run() error {
 			if !ok {
 				return watcher.MustErr(w)
 			}
-			err := environ.SetConfig(cfg)
-			if err != nil {
-				log.Printf("provisioner loaded invalid environment configuration: %v", err)
-				// continue on, because the version number is still significant.
+			var err error
+			if environ == nil {
+				environ, err = environs.New(cfg)
+				if err != nil {
+					log.Printf("upgrader: loaded invalid initial environment configuration: %v", err)
+					break
+				}
+			} else {
+				err = environ.SetConfig(cfg)
+				if err != nil {
+					log.Printf("upgrader: loaded invalid environment configuration: %v", err)
+					// continue on, because the version number is still significant.
+				}
 			}
 			vers := cfg.AgentVersion()
 			if download != nil {
@@ -123,12 +153,13 @@ func (u *Upgrader) run() error {
 			// Ignore the proposed tools if we're already running the
 			// proposed version.
 			if vers == version.Current.Number {
+				noDelay()
 				break
 			}
 			binary := version.Current
 			binary.Number = vers
 
-			if tools, err := environs.ReadTools(binary); err == nil {
+			if tools, err := environs.ReadTools(u.dataDir, binary); err == nil {
 				// The tools have already been downloaded, so use them.
 				return &UpgradedError{tools}
 			}
@@ -139,6 +170,7 @@ func (u *Upgrader) run() error {
 			tools, err := environs.FindTools(environ, binary, flags)
 			if err != nil {
 				log.Printf("upgrader: error finding tools for %v: %v", binary, err)
+				noDelay()
 				// TODO(rog): poll until tools become available.
 				break
 			}
@@ -146,10 +178,12 @@ func (u *Upgrader) run() error {
 				if tools.Number == version.Current.Number {
 					// TODO(rog): poll until tools become available.
 					log.Printf("upgrader: version %v requested but found only current version: %v", binary, tools.Number)
+					noDelay()
 					break
 				}
 				log.Printf("upgrader: cannot find exact tools match for %s; using %s instead", binary, tools.Binary)
 			}
+			log.Printf("upgrader: downloading %q", tools.URL)
 			download = downloader.New(tools.URL, "")
 			downloadTools = tools
 			downloadDone = download.Done()
@@ -158,21 +192,42 @@ func (u *Upgrader) run() error {
 			download, downloadTools, downloadDone = nil, nil, nil
 			if status.Err != nil {
 				log.Printf("upgrader: download of %v failed: %v", tools.Binary, status.Err)
+				noDelay()
 				break
 			}
-			err := environs.UnpackTools(tools, status.File)
+			err := environs.UnpackTools(u.dataDir, tools, status.File)
 			status.File.Close()
 			if err := os.Remove(status.File.Name()); err != nil {
 				log.Printf("upgrader: cannot remove temporary download file: %v", err)
 			}
 			if err != nil {
 				log.Printf("upgrader: cannot unpack %v tools: %v", tools.Binary, err)
+				noDelay()
 				break
 			}
 			return &UpgradedError{tools}
-		case <-u.tomb.Dying():
+		case <-tomb.Dying():
+			if download != nil {
+				return fmt.Errorf("upgrader aborted download of %q", downloadTools.URL)
+			}
 			return nil
 		}
 	}
 	panic("not reached")
+}
+
+// delayedTomb returns a tomb that starts dying a given duration
+// after t starts dying.
+func delayedTomb(t *tomb.Tomb, d time.Duration) *tomb.Tomb {
+	var delayed tomb.Tomb
+	go func() {
+		select {
+		case <-t.Dying():
+			time.Sleep(d)
+			delayed.Kill(nil)
+		case <-delayed.Dying():
+			return
+		}
+	}()
+	return &delayed
 }

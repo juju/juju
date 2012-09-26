@@ -111,7 +111,7 @@ func (s *StoreSuite) TestCharmPublisher(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(pub.Revision(), Equals, 0)
 
-	err = pub.Publish(testing.Charms.ClonedDir(c.MkDir(), "dummy"))
+	err = pub.Publish(testing.Charms.ClonedDir(c.MkDir(), "series", "dummy"))
 	c.Assert(err, IsNil)
 
 	for _, url := range urls {
@@ -535,7 +535,10 @@ func (s *StoreSuite) TestCountersTokenCaching(c *C) {
 	// Now go behind the scenes and corrupt all the tokens.
 	tokens := s.Session.DB("juju").C("stat.tokens")
 	iter := tokens.Find(nil).Iter()
-	var t struct{ Id int "_id"; Token string "t" }
+	var t struct {
+		Id    int    "_id"
+		Token string "t"
+	}
 	for iter.Next(&t) {
 		err := tokens.UpdateId(t.Id, bson.M{"$set": bson.M{"t": "corrupted" + t.Token}})
 		c.Assert(err, IsNil)

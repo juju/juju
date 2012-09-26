@@ -5,7 +5,6 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/relation"
@@ -51,46 +50,62 @@ func (s *RelationerSuite) AddRelationUnit(c *C, name string) *state.RelationUnit
 	return ru
 }
 
-func (s *RelationerSuite) TestStartStopPresence(c *C) {
+func (s *RelationerSuite) TestEnterLeaveScope(c *C) {
 	ru1 := s.AddRelationUnit(c, "u/1")
 	r := uniter.NewRelationer(s.ru, s.dir, s.hooks)
 
-	// Check that a watcher does not consider u/0 to be alive.
+	// u/1 does not consider u/0 to be alive.
 	w := ru1.Watch()
 	defer stop(c, w)
+	s.State.StartSync()
 	ch, ok := <-w.Changes()
 	c.Assert(ok, Equals, true)
+	c.Assert(ch.Joined, HasLen, 0)
 	c.Assert(ch.Changed, HasLen, 0)
 	c.Assert(ch.Departed, HasLen, 0)
 
-	// Start u/0's pinger and check it is observed by u/1.
+	// u/0 enters scope; u/1 observes it.
 	err := r.Join()
 	c.Assert(err, IsNil)
-	defer abandon(c, r)
-	assertChanged(c, w)
+	s.State.StartSync()
+	select {
+	case ch, ok := <-w.Changes():
+		c.Assert(ok, Equals, true)
+		c.Assert(ch.Joined, DeepEquals, []string{"u/0"})
+		c.Assert(ch.Changed, HasLen, 1)
+		_, found := ch.Changed["u/0"]
+		c.Assert(found, Equals, true)
+		c.Assert(ch.Departed, HasLen, 0)
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("timed out waiting for presence detection")
+	}
 
-	// Check that we can't start u/0's pinger again while it's running.
-	f := func() { r.Join() }
-	c.Assert(f, PanicMatches, "pinger is already started")
-
-	// Stop the pinger and check the change is observed.
-	err = r.Abandon()
-	c.Assert(err, IsNil)
-	assertDeparted(c, w)
-
-	// Stop it again to check that multiple stops are safe.
-	err = r.Abandon()
-	c.Assert(err, IsNil)
-
-	// Check we can start it again, and it works...
+	// re-Join is no-op.
 	err = r.Join()
 	c.Assert(err, IsNil)
-	assertChanged(c, w)
+	s.State.StartSync()
+	select {
+	case ch, ok := <-w.Changes():
+		c.Fatalf("got unexpected change: %#v, %#v", ch, ok)
+	case <-time.After(50 * time.Millisecond):
+	}
 
-	// ..and stop it again, and that works too.
-	err = r.Abandon()
+	// u/0 leaves scope; u/1 observes it.
+	hi := hook.Info{Kind: hook.RelationBroken}
+	_, err = r.PrepareHook(hi)
 	c.Assert(err, IsNil)
-	assertDeparted(c, w)
+	err = r.CommitHook(hi)
+	c.Assert(err, IsNil)
+	s.State.StartSync()
+	select {
+	case ch, ok := <-w.Changes():
+		c.Assert(ok, Equals, true)
+		c.Assert(ch.Joined, HasLen, 0)
+		c.Assert(ch.Changed, HasLen, 0)
+		c.Assert(ch.Departed, DeepEquals, []string{"u/0"})
+	case <-time.After(5 * time.Second):
+		c.Fatalf("timed out waiting for absence detection")
+	}
 }
 
 func (s *RelationerSuite) TestStartStopHooks(c *C) {
@@ -99,13 +114,13 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	r := uniter.NewRelationer(s.ru, s.dir, s.hooks)
 	err := r.Join()
 	c.Assert(err, IsNil)
-	defer r.Abandon()
 
 	// Check no hooks are being sent.
 	s.assertNoHook(c)
 
 	// Start hooks, and check that still no changes are sent.
 	r.StartHooks()
+	defer stopHooks(c, r)
 	s.assertNoHook(c)
 
 	// Check we can't start hooks again.
@@ -113,11 +128,8 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	c.Assert(f, PanicMatches, "hooks already started!")
 
 	// Join u/1 to the relation, and check that we receive the expected hooks.
-	err = ru1.Init()
+	err = ru1.EnterScope()
 	c.Assert(err, IsNil)
-	err = ru1.Pinger().Start()
-	c.Assert(err, IsNil)
-	defer kill(c, ru1.Pinger())
 	s.assertHook(c, hook.Info{
 		Kind:       hook.RelationJoined,
 		RemoteUnit: "u/1",
@@ -137,12 +149,10 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 	// Stop hooks, make more changes, check no events.
 	err = r.StopHooks()
 	c.Assert(err, IsNil)
-	kill(c, ru1.Pinger())
-	err = ru2.Init()
+	err = ru1.LeaveScope()
 	c.Assert(err, IsNil)
-	err = ru2.Pinger().Start()
+	err = ru2.EnterScope()
 	c.Assert(err, IsNil)
-	defer kill(c, ru2.Pinger())
 	node, err := ru2.Settings()
 	c.Assert(err, IsNil)
 	node.Set("private-address", "roehampton")
@@ -157,6 +167,7 @@ func (s *RelationerSuite) TestStartStopHooks(c *C) {
 
 	// Start them again, and check we get the expected events sent.
 	r.StartHooks()
+	defer stopHooks(c, r)
 	s.assertHook(c, hook.Info{
 		Kind:       hook.RelationDeparted,
 		RemoteUnit: "u/1",
@@ -190,7 +201,6 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	r := uniter.NewRelationer(s.ru, s.dir, s.hooks)
 	err := r.Join()
 	c.Assert(err, IsNil)
-	defer r.Abandon()
 	ctx := r.Context()
 	c.Assert(ctx.Units(), HasLen, 0)
 
@@ -242,7 +252,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	// relation state...
 	err = r.CommitHook(joined)
 	c.Assert(err, IsNil)
-	c.Assert(s.dir.State().Members, DeepEquals, map[string]int{"u/1": 0})
+	c.Assert(s.dir.State().Members, DeepEquals, map[string]int64{"u/1": 0})
 	c.Assert(ctx.Units(), DeepEquals, []string{"u/1"})
 	s1, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
@@ -252,7 +262,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	name, err = r.PrepareHook(changed)
 	c.Assert(err, IsNil)
 	c.Assert(name, Equals, "my-relation-relation-changed")
-	c.Assert(s.dir.State().Members, DeepEquals, map[string]int{"u/1": 0})
+	c.Assert(s.dir.State().Members, DeepEquals, map[string]int64{"u/1": 0})
 	c.Assert(ctx.Units(), DeepEquals, []string{"u/1"})
 	s1, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
@@ -261,7 +271,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	// ...and commit it.
 	err = r.CommitHook(changed)
 	c.Assert(err, IsNil)
-	c.Assert(s.dir.State().Members, DeepEquals, map[string]int{"u/1": 7})
+	c.Assert(s.dir.State().Members, DeepEquals, map[string]int64{"u/1": 7})
 	c.Assert(ctx.Units(), DeepEquals, []string{"u/1"})
 
 	// To verify implied behaviour above, prepare a new joined hook with
@@ -279,22 +289,19 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	// ...and so is relation state on commit.
 	err = r.CommitHook(joined)
 	c.Assert(err, IsNil)
-	c.Assert(s.dir.State().Members, DeepEquals, map[string]int{"u/1": 7, "u/2": 3})
+	c.Assert(s.dir.State().Members, DeepEquals, map[string]int64{"u/1": 7, "u/2": 3})
 	c.Assert(ctx.Units(), DeepEquals, []string{"u/1", "u/2"})
 }
 
 func (s *RelationerSuite) TestSetDying(c *C) {
 	ru1 := s.AddRelationUnit(c, "u/1")
-	err := ru1.Init()
+	err := ru1.EnterScope()
 	c.Assert(err, IsNil)
-	err = ru1.Pinger().Start()
-	c.Assert(err, IsNil)
-	defer kill(c, ru1.Pinger())
 	r := uniter.NewRelationer(s.ru, s.dir, s.hooks)
 	err = r.Join()
 	c.Assert(err, IsNil)
-	defer r.Abandon()
 	r.StartHooks()
+	defer stopHooks(c, r)
 	s.assertHook(c, hook.Info{
 		Kind:       hook.RelationJoined,
 		RemoteUnit: "u/1",
@@ -328,31 +335,8 @@ func (s *RelationerSuite) TestSetDying(c *C) {
 	// be destroyed. Can't see a clean way to do so currently.
 }
 
-func assertChanged(c *C, w *state.RelationUnitsWatcher) {
-	select {
-	case ch, ok := <-w.Changes():
-		c.Assert(ok, Equals, true)
-		c.Assert(ch.Changed, HasLen, 1)
-		_, found := ch.Changed["u/0"]
-		c.Assert(found, Equals, true)
-		c.Assert(ch.Departed, HasLen, 0)
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("timed out waiting for presence detection")
-	}
-}
-
-func assertDeparted(c *C, w *state.RelationUnitsWatcher) {
-	select {
-	case ch, ok := <-w.Changes():
-		c.Assert(ok, Equals, true)
-		c.Assert(ch.Changed, HasLen, 0)
-		c.Assert(ch.Departed, DeepEquals, []string{"u/0"})
-	case <-time.After(5000 * time.Millisecond):
-		c.Fatalf("timed out waiting for absence detection")
-	}
-}
-
 func (s *RelationerSuite) assertNoHook(c *C) {
+	s.State.StartSync()
 	select {
 	case hi, ok := <-s.hooks:
 		c.Fatalf("got unexpected hook info %#v (%b)", hi, ok)
@@ -361,9 +345,11 @@ func (s *RelationerSuite) assertNoHook(c *C) {
 }
 
 func (s *RelationerSuite) assertHook(c *C, expect hook.Info) {
+	s.State.StartSync()
 	select {
 	case hi, ok := <-s.hooks:
 		c.Assert(ok, Equals, true)
+		expect.ChangeVersion = hi.ChangeVersion
 		c.Assert(hi, DeepEquals, expect)
 		c.Assert(s.dir.Write(hi), Equals, nil)
 	case <-time.After(500 * time.Millisecond):
@@ -371,18 +357,14 @@ func (s *RelationerSuite) assertHook(c *C, expect hook.Info) {
 	}
 }
 
-func kill(c *C, p *presence.Pinger) {
-	c.Assert(p.Kill(), Equals, nil)
-}
-
 type stopper interface {
 	Stop() error
 }
 
 func stop(c *C, s stopper) {
-	c.Assert(s.Stop(), Equals, nil)
+	c.Assert(s.Stop(), IsNil)
 }
 
-func abandon(c *C, r *uniter.Relationer) {
-	c.Assert(r.Abandon(), Equals, nil)
+func stopHooks(c *C, r *uniter.Relationer) {
+	c.Assert(r.StopHooks(), IsNil)
 }

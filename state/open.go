@@ -3,85 +3,75 @@ package state
 import (
 	"errors"
 	"fmt"
-	"launchpad.net/goyaml"
-	"launchpad.net/gozk/zookeeper"
-	"launchpad.net/juju-core/log"
 	"strings"
 	"time"
+
+	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/state/watcher"
 )
 
 // Info encapsulates information about cluster of
 // servers holding juju state and can be used to make a
 // connection to that cluster.
 type Info struct {
-	// Addrs gives the addresses of the ZooKeeper
-	// servers for the state. Each address should be in the form
-	// address:port.
+	// Addrs gives the addresses of the MongoDB servers for the state.
+	// Each address should be in the form address:port.
 	Addrs []string
 
-	// UseSSH specifies whether ZooKeeper
-	// should be contacted through an SSH port
-	// forwarder.
+	// UseSSH specifies whether MongoDB should be contacted through an
+	// SSH tunnel.
 	UseSSH bool
 }
-
-const zkTimeout = 15e9
 
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
 // representing the environment connected to.
 func Open(info *Info) (*State, error) {
-	st, err := open(info)
+	log.Printf("state: opening state; mongo addresses: %q", info.Addrs)
+	if len(info.Addrs) == 0 {
+		return nil, errors.New("no mongo addresses")
+	}
+	if !info.UseSSH {
+		session, err := mgo.DialWithTimeout(strings.Join(info.Addrs, ","), 10*time.Minute)
+		if err != nil {
+			return nil, err
+		}
+		return newState(session, nil)
+	}
+	if len(info.Addrs) > 1 {
+		return nil, errors.New("ssh connect does not support multiple addresses")
+	}
+	fwd, session, err := sshDial(info.Addrs[0], "")
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("state: waiting for state to be initialized")
-	err = st.waitForInitialization(3 * time.Minute)
+	st, err := newState(session, fwd)
 	if err != nil {
 		return nil, err
 	}
 	return st, err
 }
 
-func open(info *Info) (*State, error) {
-	log.Printf("state: opening state; zookeeper addresses: %q", info.Addrs)
-	if len(info.Addrs) == 0 {
-		return nil, fmt.Errorf("no zookeeper addresses")
-	}
-	if !info.UseSSH {
-		zk, session, err := zookeeper.Dial(strings.Join(info.Addrs, ","), zkTimeout)
-		if err != nil {
-			return nil, err
-		}
-		if !(<-session).Ok() {
-			return nil, errors.New("Could not connect to zookeeper")
-		}
-		// TODO decide what to do with session events - currently
-		// we will panic if the session event channel fills up.
-		return &State{zk, nil}, nil
-	}
-	if len(info.Addrs) > 1 {
-		return nil, fmt.Errorf("ssh connect does not support multiple addresses")
-	}
-	fwd, zk, err := sshDial(info.Addrs[0], "")
+// Initialize sets up an initial empty state and returns it. 
+// This needs to be performed only once for a given environment.
+func Initialize(info *Info, cfg *config.Config) (*State, error) {
+	st, err := Open(info)
 	if err != nil {
 		return nil, err
 	}
-	return &State{zk, fwd}, nil
-}
-
-// Initialize sets up an initial empty state in ZooKeeper and returns
-// it.  This needs to be performed only once for a given cluster of
-// ZooKeeper servers.
-// If config is non nil its contents will be written into the environment
-// configuration for this state.
-func Initialize(info *Info, config map[string]interface{}) (*State, error) {
-	st, err := open(info)
-	if err != nil {
-		return nil, err
+	// A valid environment config is used as a signal that the
+	// state has already been initalized. If this is the case
+	// do nothing.
+	_, err = st.EnvironConfig()
+	if err == nil {
+		return st, nil
 	}
-	log.Printf("state: initializing zookeeper")
-	err = st.initialize(config)
+	log.Printf("state: storing no-secrets environment configuration")
+	err = st.SetEnvironConfig(cfg)
 	if err != nil {
 		st.Close()
 		return nil, err
@@ -89,83 +79,71 @@ func Initialize(info *Info, config map[string]interface{}) (*State, error) {
 	return st, nil
 }
 
-func (s *State) initialize(config map[string]interface{}) error {
-	already, err := s.initialized()
-	if err != nil || already {
-		return err
-	}
-	// Create new nodes.
-	if _, err := s.zk.Create("/charms", "", 0, zkPermAll); err != nil {
-		return err
-	}
-	if _, err := s.zk.Create("/services", "", 0, zkPermAll); err != nil {
-		return err
-	}
-	if _, err := s.zk.Create("/machines", "", 0, zkPermAll); err != nil {
-		return err
-	}
-	if _, err := s.zk.Create("/units", "", 0, zkPermAll); err != nil {
-		return err
-	}
-	if _, err := s.zk.Create("/relations", "", 0, zkPermAll); err != nil {
-		return err
-	}
-	// TODO Create node for bootstrap machine.
+var indexes = []struct {
+	collection string
+	key        []string
+}{
+	// After the first public release, do not remove entries from here
+	// without adding them to a list of indexes to drop, to ensure
+	// old databases are modified to have the correct indexes.
+	{"relations", []string{"endpoints.relationname"}},
+	{"relations", []string{"endpoints.servicename"}},
+	{"units", []string{"service"}},
+	{"units", []string{"principal"}},
+	{"units", []string{"machineid"}},
+}
 
-	if config != nil {
-		yaml, err := goyaml.Marshal(config)
+// The capped collection used for transaction logs defaults to 10MB.
+// It's tweaked in export_test.go to 1MB to avoid the overhead of
+// creating and deleting the large file repeatedly in tests.
+var (
+	logSize      = 10000000
+	logSizeTests = 1000000
+)
+
+func newState(session *mgo.Session, fwd *sshForwarder) (*State, error) {
+	db := session.DB("juju")
+	pdb := session.DB("presence")
+	st := &State{
+		db:             db,
+		charms:         db.C("charms"),
+		machines:       db.C("machines"),
+		relations:      db.C("relations"),
+		relationScopes: db.C("relationscopes"),
+		services:       db.C("services"),
+		settings:       db.C("settings"),
+		units:          db.C("units"),
+		presence:       pdb.C("presence"),
+		fwd:            fwd,
+	}
+	log := db.C("txns.log")
+	info := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
+	// The lack of error code for this error was reported upstream:
+	//     https://jira.mongodb.org/browse/SERVER-6992
+	if err := log.Create(&info); err != nil && err.Error() != "collection already exists" {
+		return nil, fmt.Errorf("cannot create log collection: %v", err)
+	}
+	st.runner = txn.NewRunner(db.C("txns"))
+	st.runner.ChangeLog(db.C("txns.log"))
+	st.watcher = watcher.New(db.C("txns.log"))
+	st.pwatcher = presence.NewWatcher(pdb.C("presence"))
+	for _, item := range indexes {
+		index := mgo.Index{Key: item.key}
+		if err := db.C(item.collection).EnsureIndex(index); err != nil {
+			return nil, fmt.Errorf("cannot create database index: %v", err)
+		}
+	}
+	return st, nil
+}
+
+func (st *State) Close() error {
+	err1 := st.watcher.Stop()
+	err2 := st.pwatcher.Stop()
+	st.db.Session.Close()
+	for _, err := range []error{err1, err2} {
 		if err != nil {
 			return err
 		}
-		if _, err := s.zk.Create(zkEnvironmentPath, string(yaml), 0, zkPermAll); err != nil {
-			return err
-		}
-	}
-
-	// Finally creation of /initialized as marker.
-	if _, err := s.zk.Create("/initialized", "", 0, zkPermAll); err != nil {
-		return err
 	}
 	return nil
-}
-
-func (s *State) initialized() (bool, error) {
-	stat, err := s.zk.Exists("/initialized")
-	if err != nil {
-		return false, err
-	}
-	return stat != nil, nil
-}
-
-func (s *State) waitForInitialization(timeout time.Duration) error {
-	stat, watch, err := s.zk.ExistsW("/initialized")
-	if err != nil {
-		return err
-	}
-	if stat != nil {
-		return nil
-	}
-	select {
-	case e := <-watch:
-		if !e.Ok() {
-			return fmt.Errorf("session error: %v", e)
-		}
-	case <-time.After(timeout):
-		return fmt.Errorf("timed out waiting for initialization")
-	}
-	return nil
-}
-
-func (st *State) Close() (err error) {
-	zkErr := st.zk.Close()
-	if st.fwd != nil {
-		err = st.fwd.stop()
-	}
-	// Perhaps an SSH forwarding error might be more
-	// interesting than a zk close error; few
-	// people check Close errors anyway.
-	if err == nil {
-		err = zkErr
-	}
-	return
 }

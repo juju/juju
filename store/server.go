@@ -85,6 +85,7 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 			skey = charmStatsKey(curl, "charm-info")
 			c.Sha256 = info.BundleSha256()
 			c.Revision = info.Revision()
+			c.Digest = info.Digest()
 		} else {
 			if err == ErrNotFound {
 				skey = charmStatsKey(curl, "charm-missing")

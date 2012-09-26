@@ -34,36 +34,23 @@ func (r *Relationer) Context() *server.RelationContext {
 	return r.ctx
 }
 
-// Join starts the periodic signalling of the unit's presence in the relation.
-// It must not be called again until Abandon has been called, and must not be
-// called at all if SetDying has been called.
+// Join initializes local state and causes the unit to enter its relation
+// scope, allowing its counterpart units to detect its presence and settings
+// changes.
 func (r *Relationer) Join() error {
 	if r.dying {
 		panic("dying relationer must not join!")
 	}
-	if err := r.ru.Init(); err != nil {
-		return err
-	}
 	if err := r.dir.Ensure(); err != nil {
 		return err
 	}
-	return r.ru.Pinger().Start()
-}
-
-// Abandon stops the periodic signalling of the unit's presence in the relation.
-// It does not immediately signal that the unit has departed the relation; this
-// is done only when a -broken hook is committed.
-func (r *Relationer) Abandon() error {
-	return r.ru.Pinger().Stop()
+	return r.ru.EnterScope()
 }
 
 // SetDying informs the relationer that the unit is departing the relation,
 // and that the only hooks it should send henceforth are -departed hooks,
 // until the relation is empty, followed by a -broken hook.
 func (r *Relationer) SetDying() error {
-	if err := r.Abandon(); err != nil {
-		return err
-	}
 	if r.queue != nil {
 		if err := r.StopHooks(); err != nil {
 			return err
@@ -120,7 +107,7 @@ func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
 // CommitHook persists the fact of the supplied hook's completion.
 func (r *Relationer) CommitHook(hi hook.Info) error {
 	if hi.Kind == hook.RelationBroken {
-		if err := r.ru.Pinger().Kill(); err != nil {
+		if err := r.ru.LeaveScope(); err != nil {
 			return err
 		}
 	}

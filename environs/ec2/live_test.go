@@ -99,20 +99,23 @@ func (t *LiveTests) TearDownTest(c *C) {
 	t.LoggingSuite.TearDownTest(c)
 }
 
+// TODO(niemeyer): Looks like many of those tests should be moved to jujutest.LiveTests.
+
 func (t *LiveTests) TestInstanceDNSName(c *C) {
 	inst, err := t.Env.StartInstance(30, jujutest.InvalidStateInfo, nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst})
 	dns, err := inst.WaitDNSName()
-	c.Check(err, IsNil)
-	c.Check(dns, Not(Equals), "")
+	// TODO(niemeyer): This assert sometimes fails with "no instances found"
+	c.Assert(err, IsNil)
+	c.Assert(dns, Not(Equals), "")
 
 	insts, err := t.Env.Instances([]string{inst.Id()})
 	c.Assert(err, IsNil)
 	c.Assert(len(insts), Equals, 1)
 
 	ec2inst := ec2.InstanceEC2(insts[0])
-	c.Check(ec2inst.DNSName, Equals, dns)
+	c.Assert(ec2inst.DNSName, Equals, dns)
 }
 
 func (t *LiveTests) TestInstanceGroups(c *C) {
@@ -190,8 +193,9 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	// that the unneeded permission that we added earlier
 	// has been deleted).
 	perms := info[0].IPPerms
-	c.Assert(perms, HasLen, 1)
+	c.Assert(perms, HasLen, 4)
 	checkPortAllowed(c, perms, 22)
+	checkSecurityGroupAllowed(c, perms, groups[0])
 
 	// The old machine group should have been reused also.
 	c.Check(groups[2].Id, Equals, oldMachineGroup.Id)
@@ -254,6 +258,34 @@ func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {
 		}
 	}
 	c.Errorf("ip port permission not found for %d in %#v", port, perms)
+}
+
+func checkSecurityGroupAllowed(c *C, perms []amzec2.IPPerm, g amzec2.SecurityGroup) {
+	protos := map[string]struct {
+		fromPort int
+		toPort   int
+	}{
+		"tcp":  {0, 65535},
+		"udp":  {0, 65535},
+		"icmp": {-1, -1},
+	}
+	for _, perm := range perms {
+		if len(perm.SourceGroups) > 0 {
+			c.Check(perm.SourceGroups, HasLen, 1)
+			c.Check(perm.SourceGroups[0].Id, Equals, g.Id)
+			ports, ok := protos[perm.Protocol]
+			if !ok {
+				c.Errorf("unexpected protocol in security group: %q", perm.Protocol)
+				continue
+			}
+			delete(protos, perm.Protocol)
+			c.Check(perm.FromPort, Equals, ports.fromPort)
+			c.Check(perm.ToPort, Equals, ports.toPort)
+		}
+	}
+	if len(protos) > 0 {
+		c.Errorf("%d security group permission not found for %#v in %#v", len(protos), g, perms)
+	}
 }
 
 func (t *LiveTests) TestStopInstances(c *C) {

@@ -3,8 +3,10 @@ package state
 import (
 	"bufio"
 	"fmt"
+	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/trivial"
 	"net"
 	"os"
 	"os/exec"
@@ -17,7 +19,7 @@ import (
 )
 
 type sshSuite struct {
-	testing.ZkSuite
+	testing.MgoSuite
 	testing.LoggingSuite
 }
 
@@ -30,28 +32,28 @@ func init() {
 	// unnecessary.
 	// b) we'll get an error later anyway if the file mode is not as
 	// requested.
-	os.Chmod("sshtest/id_rsa", 0600)
+	os.Chmod("../testing/sshdata/id_rsa", 0600)
 }
 
 var _ = Suite(&sshSuite{})
 
 func (s *sshSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
-	s.ZkSuite.SetUpSuite(c)
+	s.MgoSuite.SetUpSuite(c)
 }
 
 func (s *sshSuite) TearDownSuite(c *C) {
-	s.ZkSuite.TearDownSuite(c)
+	s.MgoSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 }
 
 func (s *sshSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.ZkSuite.SetUpTest(c)
+	s.MgoSuite.SetUpTest(c)
 }
 
 func (s *sshSuite) TearDownTest(c *C) {
-	s.ZkSuite.TearDownTest(c)
+	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
@@ -241,7 +243,7 @@ func (*sshSuite) TestSSHConnect(c *C) {
 	// The SSH forwarder will have tried to start the SSH
 	// client, but it will fail because there's no daemon to
 	// connect to. Wait a while to allow this to happen.
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 
 	// Start the daemon and the client.
 	c.Logf("--------- starting sshd")
@@ -255,7 +257,7 @@ func (*sshSuite) TestSSHConnect(c *C) {
 	// The SSH client process should now successfully start,
 	// but the client will fail to connect because the server
 	// has not been started. Wait a while for this to happen.
-	time.Sleep(2000 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 
 	// Start the server to finally allow the full connection
 	// to take place.
@@ -276,14 +278,14 @@ func (*sshSuite) TestSSHConnect(c *C) {
 	// attempting to connect again
 }
 
-func testingZkPort() int {
-	_, serverPort, err := net.SplitHostPort(testing.ZkAddr)
+func testingPort() int {
+	_, serverPort, err := net.SplitHostPort(testing.MgoAddr)
 	if err != nil {
-		panic("bad local zk address: " + testing.ZkAddr)
+		panic("bad local mongo address: " + testing.MgoAddr)
 	}
 	port, err := strconv.Atoi(serverPort)
 	if err != nil {
-		panic("bad local zk port: " + testing.ZkAddr)
+		panic("bad local mongo port: " + testing.MgoAddr)
 	}
 	return port
 }
@@ -295,25 +297,40 @@ func (*sshSuite) TestSSHDial(c *C) {
 	t.setSSHParams(sshdPort)
 	defer t.resetSSHParams()
 
-	serverPort := testingZkPort()
+	serverPort := testingPort()
 
 	p := t.sshDaemon(sshdPort, serverPort)
 	defer p.Kill()
 
-	fwd, zk, err := sshDial(testing.ZkAddr, t.file("id_rsa"))
+	fwd, session, err := sshDial(testing.MgoAddr, t.file("id_rsa"))
 	c.Assert(err, IsNil)
 	defer func() {
+		session.Close()
 		err := fwd.stop()
 		c.Assert(err, IsNil)
 	}()
 
-	// Simplest test to make sure the connection is working.
-
-	_, err = zk.Create("/testit", "", 0, zkPermAll)
+	// Exercise mgo to make sure the connection is working
+	// These tests are taken from testing/mgo_test.go
+	menu := session.DB("food").C("menu")
+	err = menu.Insert(
+		bson.D{{"spam", "lots"}},
+		bson.D{{"eggs", "fried"}},
+	)
 	c.Assert(err, IsNil)
-
-	err = zk.Delete("/testit", -1)
+	food := make([]map[string]string, 0)
+	err = menu.Find(nil).All(&food)
 	c.Assert(err, IsNil)
+	c.Assert(food, HasLen, 2)
+	c.Assert(food[0]["spam"], Equals, "lots")
+	c.Assert(food[1]["eggs"], Equals, "fried")
+
+	testing.MgoReset()
+	morefood := make([]map[string]string, 0)
+	err = menu.Find(nil).All(&morefood)
+	c.Assert(err, IsNil)
+	c.Assert(morefood, HasLen, 0)
+
 }
 
 // TestSSHSimpleConnect tests a slightly simpler configuration
@@ -399,12 +416,12 @@ func (t *sshTest) resetSSHParams() {
 
 // file returns the full path name of an ssh test file.
 func (t *sshTest) file(name string) string {
-	return filepath.Join(t.dir, "sshtest", name)
+	return filepath.Join(t.dir, "../testing/sshdata", name)
 }
 
 // dialTwice tests that a client can contact a server through the
 // port forwarding ssh client and daemon.
-// It represents the ZooKeeper client.
+// It represents the state server client.
 func (t *sshTest) dialTwice(addr string, done chan<- struct{}) {
 	defer close(done)
 
@@ -441,7 +458,7 @@ func (t *sshTest) dial(addr string, msg string) {
 	panic("not reached")
 }
 
-// acceptTwice waits twice to be dialled. It represents the ZooKeeper
+// acceptTwice waits twice to be dialled. It represents the state
 // server.
 func (t *sshTest) acceptTwice(addr string) {
 	l, err := net.Listen("tcp", addr)
@@ -488,7 +505,6 @@ func (t *sshTest) sshDaemon(sshdPort, serverPort int) *os.Process {
 	t.c.Logf("starting sshd: %q", cmd.Args)
 	err = cmd.Start()
 	t.c.Assert(err, IsNil)
-
 	go func() {
 		defer r.Close()
 		br := bufio.NewReader(r)
@@ -499,11 +515,22 @@ func (t *sshTest) sshDaemon(sshdPort, serverPort int) *os.Process {
 			}
 			t.c.Logf("sshd: %s", line)
 		}
-		err := cmd.Wait()
-		t.c.Logf("ssh has exited: %v", err)
+		t.c.Logf("sshd has exited: %v", cmd.Wait())
 	}()
 
-	return cmd.Process
+	// wait til the server port is up.
+	impatientAttempt := trivial.AttemptStrategy{
+		Total: 5 * time.Second,
+		Delay: 100 * time.Millisecond,
+	}
+	for a := impatientAttempt.Start(); a.Next(); {
+		c, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", sshdPort))
+		if err == nil {
+			c.Close()
+			return cmd.Process
+		}
+	}
+	panic("something went wrong with sshd")
 }
 
 // assert is like C.Assert except that it calls Check and then runtime.Goexit

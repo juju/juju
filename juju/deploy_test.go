@@ -16,16 +16,19 @@ import (
 var _ = Suite(&DeploySuite{})
 
 type DeploySuite struct {
-	testing.ZkSuite
+	testing.LoggingSuite
+	testing.MgoSuite
 	conn *juju.Conn
 	repo *charm.LocalRepository
 }
 
 func (s *DeploySuite) SetUpTest(c *C) {
+	s.LoggingSuite.SetUpTest(c)
+	s.MgoSuite.SetUpTest(c)
 	attrs := map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
-		"zookeeper":       true,
+		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
 	}
 	environ, err := environs.NewFromAttrs(attrs)
@@ -45,12 +48,25 @@ func (s *DeploySuite) TearDownTest(c *C) {
 	c.Check(err, IsNil)
 	s.conn.Close()
 	s.conn = nil
+	s.LoggingSuite.SetUpTest(c)
+	s.MgoSuite.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
+}
+
+func (s *DeploySuite) SetUpSuite(c *C) {
+	s.LoggingSuite.SetUpSuite(c)
+	s.MgoSuite.SetUpSuite(c)
+}
+
+func (s *DeploySuite) TearDownSuite(c *C) {
+	s.LoggingSuite.TearDownSuite(c)
+	s.MgoSuite.TearDownSuite(c)
 }
 
 func (s *DeploySuite) TestPutCharmBasic(c *C) {
-	curl := testing.Charms.ClonedURL(s.repo.Path, "riak")
+	curl := testing.Charms.ClonedURL(s.repo.Path, "series", "riak")
 	curl.Revision = -1 // make sure we trigger the repo.Latest logic.
-	sch, err := s.conn.PutCharm(curl, s.repo.Path, false)
+	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)
 	c.Assert(sch.Meta().Summary, Equals, "K/V storage engine")
 
@@ -67,7 +83,7 @@ func (s *DeploySuite) TestPutBundledCharm(c *C) {
 	w, err := os.Create(filepath.Join(dir, "riak.charm"))
 	c.Assert(err, IsNil)
 	defer w.Close()
-	charmDir := testing.Charms.Dir("riak")
+	charmDir := testing.Charms.Dir("series", "riak")
 	err = charmDir.BundleTo(w)
 	c.Assert(err, IsNil)
 
@@ -79,7 +95,7 @@ func (s *DeploySuite) TestPutBundledCharm(c *C) {
 		Name:     "riak",
 		Revision: -1,
 	}
-	sch, err := s.conn.PutCharm(curl, s.repo.Path, false)
+	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)
 	c.Assert(sch.Meta().Summary, Equals, "K/V storage engine")
 
@@ -91,10 +107,10 @@ func (s *DeploySuite) TestPutBundledCharm(c *C) {
 
 func (s *DeploySuite) TestPutCharmUpload(c *C) {
 	repo := &charm.LocalRepository{c.MkDir()}
-	curl := testing.Charms.ClonedURL(repo.Path, "riak")
+	curl := testing.Charms.ClonedURL(repo.Path, "series", "riak")
 
 	// Put charm for the first time.
-	sch, err := s.conn.PutCharm(curl, repo.Path, false)
+	sch, err := s.conn.PutCharm(curl, repo, false)
 	c.Assert(err, IsNil)
 	c.Assert(sch.Meta().Summary, Equals, "K/V storage engine")
 
@@ -111,7 +127,7 @@ func (s *DeploySuite) TestPutCharmUpload(c *C) {
 	c.Assert(err, IsNil)
 
 	// Put charm again and check that it has not changed in the state.
-	sch, err = s.conn.PutCharm(curl, repo.Path, false)
+	sch, err = s.conn.PutCharm(curl, repo, false)
 	c.Assert(err, IsNil)
 
 	sch, err = s.conn.State.Charm(sch.URL())
@@ -121,7 +137,7 @@ func (s *DeploySuite) TestPutCharmUpload(c *C) {
 
 	// Put charm again, with bumpRevision this time, and check that
 	// it has changed.
-	sch, err = s.conn.PutCharm(curl, repo.Path, true)
+	sch, err = s.conn.PutCharm(curl, repo, true)
 	c.Assert(err, IsNil)
 
 	sch, err = s.conn.State.Charm(sch.URL())
@@ -131,8 +147,8 @@ func (s *DeploySuite) TestPutCharmUpload(c *C) {
 }
 
 func (s *DeploySuite) TestAddService(c *C) {
-	curl := testing.Charms.ClonedURL(s.repo.Path, "riak")
-	sch, err := s.conn.PutCharm(curl, s.repo.Path, false)
+	curl := testing.Charms.ClonedURL(s.repo.Path, "series", "riak")
+	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)
 
 	svc, err := s.conn.AddService("testriak", sch)
@@ -153,8 +169,8 @@ func (s *DeploySuite) TestAddService(c *C) {
 }
 
 func (s *DeploySuite) TestAddServiceDefaultName(c *C) {
-	curl := testing.Charms.ClonedURL(s.repo.Path, "riak")
-	sch, err := s.conn.PutCharm(curl, s.repo.Path, false)
+	curl := testing.Charms.ClonedURL(s.repo.Path, "series", "riak")
+	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)
 
 	svc, err := s.conn.AddService("", sch)
@@ -163,8 +179,8 @@ func (s *DeploySuite) TestAddServiceDefaultName(c *C) {
 }
 
 func (s *DeploySuite) TestAddUnits(c *C) {
-	curl := testing.Charms.ClonedURL(s.repo.Path, "riak")
-	sch, err := s.conn.PutCharm(curl, s.repo.Path, false)
+	curl := testing.Charms.ClonedURL(s.repo.Path, "series", "riak")
+	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)
 	svc, err := s.conn.AddService("testriak", sch)
 	c.Assert(err, IsNil)

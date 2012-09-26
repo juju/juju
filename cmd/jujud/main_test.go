@@ -11,7 +11,7 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
-	testing.ZkTestPackage(t)
+	testing.MgoTestPackage(t)
 }
 
 type MainSuite struct{}
@@ -30,8 +30,10 @@ func TestRunMain(t *stdtesting.T) {
 
 func checkMessage(c *C, msg string, cmd ...string) {
 	args := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "jujud"}, cmd...)
+	c.Logf("check %#v", args)
 	ps := exec.Command(os.Args[0], args...)
 	output, err := ps.CombinedOutput()
+	c.Logf(string(output))
 	c.Assert(err, ErrorMatches, "exit status 2")
 	lines := strings.Split(string(output), "\n")
 	c.Assert(lines[len(lines)-2], Equals, "error: "+msg)
@@ -45,27 +47,28 @@ func (s *MainSuite) TestParseErrors(c *C) {
 	checkMessage(c, msgf, "--cheese", "cavitate")
 
 	cmds := []string{"bootstrap-state", "unit", "machine", "provisioning"}
-	msgz := `invalid value "localhost:2181,zk" for flag --zookeeper-servers: "zk" is not a valid zookeeper address`
+	msgz := `invalid value "localhost:37017,srv" for flag --state-servers: "srv" is not a valid state server address`
 	for _, cmd := range cmds {
 		checkMessage(c, msgf, cmd, "--cheese")
-		checkMessage(c, msgz, cmd, "--zookeeper-servers", "localhost:2181,zk")
+		checkMessage(c, msgz, cmd, "--state-servers", "localhost:37017,srv")
 	}
 
 	msga := `unrecognized args: ["toastie"]`
-	checkMessage(c, msga, "bootstrap-state",
-		"--zookeeper-servers", "zk:2181",
+	checkMessage(c, msga,
+		"bootstrap-state",
+		"--state-servers", "st:37017",
 		"--instance-id", "ii",
-		"--env-type", "et",
+		"--env-config", b64yaml{"blah": "blah"}.encode(),
 		"toastie")
 	checkMessage(c, msga, "unit",
-		"--zookeeper-servers", "localhost:2181,zk:2181",
+		"--state-servers", "localhost:37017,st:37017",
 		"--unit-name", "un/0",
 		"toastie")
 	checkMessage(c, msga, "machine",
-		"--zookeeper-servers", "zk:2181",
+		"--state-servers", "st:37017",
 		"--machine-id", "42",
 		"toastie")
 	checkMessage(c, msga, "provisioning",
-		"--zookeeper-servers", "127.0.0.1:2181",
+		"--state-servers", "127.0.0.1:37017",
 		"toastie")
 }

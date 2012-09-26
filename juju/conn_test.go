@@ -14,7 +14,7 @@ import (
 )
 
 func Test(t *stdtesting.T) {
-	coretesting.ZkTestPackage(t)
+	coretesting.MgoTestPackage(t)
 }
 
 type ConnSuite struct {
@@ -47,7 +47,7 @@ default:
 environments:
     erewhemos:
         type: dummy
-        zookeeper: true
+        state-server: true
         authorized-keys: i-am-a-key
 `), 0644)
 	if err != nil {
@@ -84,7 +84,7 @@ func (cs *ConnSuite) TestConnStateSecretsSideEffect(c *C) {
 	attrs := map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
-		"zookeeper":       true,
+		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
 		"secret":          "pork",
 	}
@@ -117,7 +117,7 @@ func (cs *ConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 	env, err := environs.NewFromAttrs(map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
-		"zookeeper":       true,
+		"state-server":    true,
 		"authorized-keys": "i-am-a-key",
 		"secret":          "squirrel",
 	})
@@ -129,21 +129,4 @@ func (cs *ConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *C) {
 	cfg, err := conn.State.EnvironConfig()
 	c.Assert(err, IsNil)
 	c.Assert(cfg.UnknownAttrs()["secret"], Equals, "pork")
-}
-
-func (*ConnSuite) TestValidRegexps(c *C) {
-	assertService := func(s string, expect bool) {
-		c.Assert(juju.ValidService.MatchString(s), Equals, expect)
-		c.Assert(juju.ValidUnit.MatchString(s+"/0"), Equals, expect)
-		c.Assert(juju.ValidUnit.MatchString(s+"/99"), Equals, expect)
-		c.Assert(juju.ValidUnit.MatchString(s+"/-1"), Equals, false)
-		c.Assert(juju.ValidUnit.MatchString(s+"/blah"), Equals, false)
-	}
-	assertService("", false)
-	assertService("33", false)
-	assertService("wordpress", true)
-	assertService("w0rd-pre55", true)
-	assertService("foo2", true)
-	assertService("foo-2", false)
-	assertService("foo-2foo", true)
 }

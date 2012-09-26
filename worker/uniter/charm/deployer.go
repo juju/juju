@@ -26,8 +26,8 @@ func NewDeployer(path string) *Deployer {
 	}
 }
 
-// SetCharm causes subsequent calls to Deploy to deploy the supplied charm.
-func (d *Deployer) SetCharm(bun *charm.Bundle, url *charm.URL) error {
+// Stage causes subsequent calls to Deploy to deploy the supplied charm.
+func (d *Deployer) Stage(bun *charm.Bundle, url *charm.URL) error {
 	// Read present state of current.
 	if err := trivial.EnsureDir(d.path); err != nil {
 		return err
@@ -38,7 +38,7 @@ func (d *Deployer) SetCharm(bun *charm.Bundle, url *charm.URL) error {
 		return err
 	}
 	if srcExists {
-		prevURL, err := d.current.ReadCharmURL()
+		prevURL, err := ReadCharmURL(d.current)
 		if err != nil {
 			return err
 		}
@@ -68,10 +68,10 @@ func (d *Deployer) SetCharm(bun *charm.Bundle, url *charm.URL) error {
 	if err = bun.ExpandTo(path); err != nil {
 		return err
 	}
-	if err = repo.WriteCharmURL(url); err != nil {
+	if err = WriteCharmURL(repo, url); err != nil {
 		return err
 	}
-	if err = repo.Snapshotf("imported charm %s from %s", url, bun.Path); err != nil {
+	if err = repo.Snapshotf("Imported charm %q from %q.", url, bun.Path); err != nil {
 		return err
 	}
 
@@ -113,7 +113,7 @@ func (d *Deployer) Deploy(target *GitDir) (err error) {
 func (d *Deployer) install(target *GitDir) error {
 	defer d.collectOrphans()
 	log.Printf("preparing new charm deployment")
-	url, err := d.current.ReadCharmURL()
+	url, err := ReadCharmURL(d.current)
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func (d *Deployer) install(target *GitDir) error {
 	if err = repo.Pull(d.current); err != nil {
 		return err
 	}
-	if err = repo.Snapshotf("deployed charm %s", url); err != nil {
+	if err = repo.Snapshotf("Deployed charm %q.", url); err != nil {
 		return err
 	}
 	log.Printf("deploying charm")
@@ -139,7 +139,7 @@ func (d *Deployer) install(target *GitDir) error {
 // no conflicts, it will be snapshotted before any changes are made.
 func (d *Deployer) upgrade(target *GitDir) error {
 	log.Printf("preparing charm upgrade")
-	url, err := d.current.ReadCharmURL()
+	url, err := ReadCharmURL(d.current)
 	if err != nil {
 		return err
 	}
@@ -153,7 +153,7 @@ func (d *Deployer) upgrade(target *GitDir) error {
 			return err
 		} else if !conflicted {
 			log.Printf("snapshotting dirty charm before upgrade")
-			if err = target.Snapshotf("pre-upgrade snapshot"); err != nil {
+			if err = target.Snapshotf("Pre-upgrade snapshot."); err != nil {
 				return err
 			}
 		}
@@ -162,7 +162,7 @@ func (d *Deployer) upgrade(target *GitDir) error {
 	if err := target.Pull(d.current); err != nil {
 		return err
 	}
-	return target.Snapshotf("upgraded charm to %s", url)
+	return target.Snapshotf("Upgraded charm to %q.", url)
 }
 
 // collectOrphans deletes all repos in path except the one pointed to by current.

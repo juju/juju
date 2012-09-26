@@ -6,13 +6,13 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 )
 
 type BootstrapCommand struct {
 	StateInfo  state.Info
 	InstanceId string
-	EnvType    string
 	EnvConfig  map[string]interface{}
 }
 
@@ -23,28 +23,31 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 
 // Init initializes the command for running.
 func (c *BootstrapCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	stateInfoVar(f, &c.StateInfo, "zookeeper-servers", []string{"127.0.0.1:2181"}, "address of zookeeper to initialize")
+	stateInfoVar(f, &c.StateInfo, "state-servers", []string{"127.0.0.1:37017"}, "address of state server to initialize")
 	f.StringVar(&c.InstanceId, "instance-id", "", "instance id of this machine")
-	f.StringVar(&c.EnvType, "env-type", "", "environment type")
 	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
 	if c.StateInfo.Addrs == nil {
-		return requiredError("zookeeper-servers")
+		return requiredError("state-servers")
 	}
 	if c.InstanceId == "" {
 		return requiredError("instance-id")
 	}
-	if c.EnvType == "" {
-		return requiredError("env-type")
+	if len(c.EnvConfig) == 0 {
+		return requiredError("env-config")
 	}
 	return cmd.CheckEmpty(f.Args())
 }
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
-	st, err := state.Initialize(&c.StateInfo, c.EnvConfig)
+	cfg, err := config.New(c.EnvConfig)
+	if err != nil {
+		return err
+	}
+	st, err := state.Initialize(&c.StateInfo, cfg)
 	if err != nil {
 		return err
 	}
@@ -56,14 +59,14 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
-	// Set the instance id of machine/0 
+	// Set the instance id of machine/0
 	if err := m.SetInstanceId(c.InstanceId); err != nil {
 		return err
 	}
 	return nil
 }
 
-// yamlBase64Value implements gnuflag.Value on a map[string]interface{}. 
+// yamlBase64Value implements gnuflag.Value on a map[string]interface{}.
 type yamlBase64Value map[string]interface{}
 
 // Set decodes the base64 value into yaml then expands that into a map.

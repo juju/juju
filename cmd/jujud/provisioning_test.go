@@ -35,7 +35,7 @@ func (s *ProvisioningSuite) TestRunStop(c *C) {
 
 	a := &ProvisioningAgent{
 		Conf: AgentConf{
-			JujuDir:   "/var/lib/juju",
+			DataDir:   "/var/lib/juju",
 			StateInfo: *s.StateInfo(c),
 		},
 	}
@@ -66,9 +66,11 @@ func (s *ProvisioningSuite) TestRunStop(c *C) {
 	w := m.Watch()
 	for _ = range w.Changes() {
 		_, err := m.InstanceId()
-		if err == nil {
-			break
+		if state.IsNotFound(err) {
+			continue
 		}
+		c.Assert(err, IsNil)
+		break
 	}
 	err = units[0].OpenPort("tcp", 999)
 	c.Assert(err, IsNil)

@@ -27,14 +27,14 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
-	coretesting.ZkTestPackage(t)
+	coretesting.MgoTestPackage(t)
 }
 
 type UniterSuite struct {
 	testing.JujuConnSuite
 	coretesting.HTTPSuite
-	varDir  string
-	oldPath string
+	dataDir  string
+	oldLcAll string
 }
 
 var _ = Suite(&UniterSuite{})
@@ -42,9 +42,8 @@ var _ = Suite(&UniterSuite{})
 func (s *UniterSuite) SetUpSuite(c *C) {
 	s.JujuConnSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
-	s.varDir = c.MkDir()
-	environs.VarDir = s.varDir // it's restored by JujuConnSuite.
-	toolsDir := environs.AgentToolsDir("unit-u-0")
+	s.dataDir = c.MkDir()
+	toolsDir := environs.AgentToolsDir(s.dataDir, "unit-u-0")
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, IsNil)
 	cmd := exec.Command("go", "build", "launchpad.net/juju-core/cmd/jujuc")
@@ -52,17 +51,17 @@ func (s *UniterSuite) SetUpSuite(c *C) {
 	out, err := cmd.CombinedOutput()
 	c.Logf(string(out))
 	c.Assert(err, IsNil)
-	s.oldPath = os.Getenv("PATH")
-	os.Setenv("PATH", toolsDir+":"+s.oldPath)
+	s.oldLcAll = os.Getenv("LC_ALL")
+	os.Setenv("LC_ALL", "en_US")
 }
 
 func (s *UniterSuite) TearDownSuite(c *C) {
-	os.Setenv("PATH", s.oldPath)
+	os.Setenv("LC_ALL", s.oldLcAll)
 }
 
 func (s *UniterSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
-	environs.VarDir = s.varDir
+	s.HTTPSuite.SetUpTest(c)
 }
 
 func (s *UniterSuite) TearDownTest(c *C) {
@@ -72,7 +71,6 @@ func (s *UniterSuite) TearDownTest(c *C) {
 
 func (s *UniterSuite) Reset(c *C) {
 	s.JujuConnSuite.Reset(c)
-	environs.VarDir = s.varDir
 }
 
 type uniterTest struct {
@@ -89,20 +87,33 @@ type stepper interface {
 }
 
 type context struct {
-	id     int
-	path   string
-	st     *state.State
-	charms coretesting.ResponseMap
-	hooks  []string
-	svc    *state.Service
-	unit   *state.Unit
-	uniter *uniter.Uniter
+	id      int
+	path    string
+	dataDir string
+	st      *state.State
+	charms  coretesting.ResponseMap
+	hooks   []string
+	svc     *state.Service
+	unit    *state.Unit
+	uniter  *uniter.Uniter
+}
+
+func (ctx *context) run(c *C, steps []stepper) {
+	defer func() {
+		if ctx.uniter != nil {
+			err := ctx.uniter.Stop()
+			c.Assert(err, IsNil)
+		}
+	}()
+	for i, s := range steps {
+		c.Logf("step %d", i)
+		step(c, ctx, s)
+	}
 }
 
 var goodHook = `
 #!/bin/bash
 juju-log UniterSuite-%d %s
-exit 0
 `[1:]
 
 var badHook = `
@@ -122,7 +133,7 @@ func (ctx *context) writeHook(c *C, path string, good bool) {
 }
 
 func (ctx *context) matchLogHooks(c *C) (bool, bool) {
-	hookPattern := fmt.Sprintf(`^.* UniterSuite-%d ([a-z-]+)$`, ctx.id)
+	hookPattern := fmt.Sprintf(`^.* JUJU u/0: UniterSuite-%d ([a-z-]+)$`, ctx.id)
 	hookRegexp := regexp.MustCompile(hookPattern)
 	var actual []string
 	for _, line := range strings.Split(c.GetTestLog(), "\n") {
@@ -145,15 +156,24 @@ func (ctx *context) matchLogHooks(c *C) (bool, bool) {
 var uniterTests = []uniterTest{
 	// Check conditions that can cause the uniter to fail to start.
 	ut(
-		"unable to create directories",
+		"unable to create state dir",
 		writeFile{"state", 0644},
+		createCharm{},
+		createServiceAndUnit{},
 		startUniter{`failed to create uniter for unit "u/0": .*state must be a directory`},
 	), ut(
 		"unknown unit",
-		startUniter{`failed to create uniter for unit "u/0": cannot get unit .*`},
+		startUniter{`failed to create uniter for unit "u/0": unit "u/0" not found`},
 	),
 	// Check error conditions during unit bootstrap phase.
 	ut(
+		"insane deployment",
+		createCharm{},
+		serveCharm{},
+		writeFile{"charm", 0644},
+		createUniter{},
+		waitUniterDead{`ModeInstalling: charm deployment failed: ".*charm" is not a directory`},
+	), ut(
 		"charm cannot be downloaded",
 		createCharm{},
 		custom{func(c *C, ctx *context) {
@@ -162,19 +182,14 @@ var uniterTests = []uniterTest{
 		createUniter{},
 		waitUniterDead{`ModeInstalling: failed to download charm .* 404 Not Found`},
 	), ut(
-		"charm cannot be installed",
-		writeFile{"charm", 0644},
-		createCharm{},
-		serveCharm{},
-		createUniter{},
-		waitUniterDead{`ModeInstalling: failed to write charm to .*`},
-	), ut(
 		"install hook fail and resolve",
 		startupError{"install"},
 		verifyWaiting{},
 
 		resolveError{state.ResolvedNoHooks},
-		waitUnit{status: state.UnitStarted},
+		waitUnit{
+			status: state.UnitStarted,
+		},
 		waitHooks{"start", "config-changed"},
 	), ut(
 		"install hook fail and retry",
@@ -182,13 +197,18 @@ var uniterTests = []uniterTest{
 		verifyWaiting{},
 
 		resolveError{state.ResolvedRetryHooks},
-		waitUnit{status: state.UnitError, info: `hook failed: "install"`},
+		waitUnit{
+			status: state.UnitError,
+			info:   `hook failed: "install"`,
+		},
 		waitHooks{"fail-install"},
 		fixHook{"install"},
 		verifyWaiting{},
 
 		resolveError{state.ResolvedRetryHooks},
-		waitUnit{status: state.UnitStarted},
+		waitUnit{
+			status: state.UnitStarted,
+		},
 		waitHooks{"install", "start", "config-changed"},
 	), ut(
 		"start hook fail and resolve",
@@ -196,7 +216,9 @@ var uniterTests = []uniterTest{
 		verifyWaiting{},
 
 		resolveError{state.ResolvedNoHooks},
-		waitUnit{status: state.UnitStarted},
+		waitUnit{
+			status: state.UnitStarted,
+		},
 		waitHooks{"config-changed"},
 		verifyRunning{},
 	), ut(
@@ -205,13 +227,18 @@ var uniterTests = []uniterTest{
 		verifyWaiting{},
 
 		resolveError{state.ResolvedRetryHooks},
-		waitUnit{status: state.UnitError, info: `hook failed: "start"`},
+		waitUnit{
+			status: state.UnitError,
+			info:   `hook failed: "start"`,
+		},
 		waitHooks{"fail-start"},
 		verifyWaiting{},
 
 		fixHook{"start"},
 		resolveError{state.ResolvedRetryHooks},
-		waitUnit{status: state.UnitStarted},
+		waitUnit{
+			status: state.UnitStarted,
+		},
 		waitHooks{"start", "config-changed"},
 		verifyRunning{},
 	), ut(
@@ -224,7 +251,9 @@ var uniterTests = []uniterTest{
 		// from advancing at all if we didn't fix it.
 		fixHook{"config-changed"},
 		resolveError{state.ResolvedNoHooks},
-		waitUnit{status: state.UnitStarted},
+		waitUnit{
+			status: state.UnitStarted,
+		},
 		waitHooks{"config-changed"},
 		// If we'd accidentally retried that hook, somehow, we would get
 		// an extra config-changed as we entered started; see that we don't.
@@ -236,13 +265,18 @@ var uniterTests = []uniterTest{
 		verifyWaiting{},
 
 		resolveError{state.ResolvedRetryHooks},
-		waitUnit{status: state.UnitError, info: `hook failed: "config-changed"`},
+		waitUnit{
+			status: state.UnitError,
+			info:   `hook failed: "config-changed"`,
+		},
 		waitHooks{"fail-config-changed"},
 		verifyWaiting{},
 
 		fixHook{"config-changed"},
 		resolveError{state.ResolvedRetryHooks},
-		waitUnit{status: state.UnitStarted},
+		waitUnit{
+			status: state.UnitStarted,
+		},
 		// Note: the second config-changed hook is automatically run as we
 		// enter started. IMO the simplicity and clarity of that approach
 		// outweigh this slight inelegance.
@@ -252,14 +286,298 @@ var uniterTests = []uniterTest{
 		"steady state config change",
 		quickStart{},
 		changeConfig{},
-		waitUnit{status: state.UnitStarted},
+		waitUnit{
+			status: state.UnitStarted,
+		},
 		waitHooks{"config-changed"},
 		verifyRunning{},
+	),
+	// Upgrade tests
+	ut(
+		"steady state upgrade",
+		quickStart{},
+		createCharm{revision: 1},
+		upgradeCharm{revision: 1},
+		waitUnit{
+			status: state.UnitStarted,
+		},
+		waitHooks{"upgrade-charm", "config-changed"},
+		verifyCharm{revision: 1},
+		verifyRunning{},
+	), ut(
+		"steady state forced upgrade (identical behaviour)",
+		quickStart{},
+		createCharm{revision: 1},
+		upgradeCharm{revision: 1, forced: true},
+		waitUnit{
+			status: state.UnitStarted,
+			charm:  1,
+		},
+		waitHooks{"upgrade-charm", "config-changed"},
+		verifyCharm{revision: 1},
+		verifyRunning{},
+	), ut(
+		"steady state upgrade hook fail and resolve",
+		quickStart{},
+		createCharm{revision: 1, badHooks: []string{"upgrade-charm"}},
+		upgradeCharm{revision: 1},
+		waitUnit{
+			status: state.UnitError,
+			info:   `hook failed: "upgrade-charm"`,
+			charm:  1,
+		},
+		waitHooks{"fail-upgrade-charm"},
+		verifyCharm{revision: 1},
+		verifyWaiting{},
+
+		resolveError{state.ResolvedNoHooks},
+		waitUnit{
+			status: state.UnitStarted,
+			charm:  1,
+		},
+		waitHooks{"config-changed"},
+		verifyRunning{},
+	), ut(
+		"steady state upgrade hook fail and retry",
+		quickStart{},
+		createCharm{revision: 1, badHooks: []string{"upgrade-charm"}},
+		upgradeCharm{revision: 1},
+		waitUnit{
+			status: state.UnitError,
+			info:   `hook failed: "upgrade-charm"`,
+			charm:  1,
+		},
+		waitHooks{"fail-upgrade-charm"},
+		verifyCharm{revision: 1},
+		verifyWaiting{},
+
+		resolveError{state.ResolvedRetryHooks},
+		waitUnit{
+			status: state.UnitError,
+			info:   `hook failed: "upgrade-charm"`,
+			charm:  1,
+		},
+		waitHooks{"fail-upgrade-charm"},
+		verifyWaiting{},
+
+		fixHook{"upgrade-charm"},
+		resolveError{state.ResolvedRetryHooks},
+		waitUnit{
+			status: state.UnitStarted,
+			charm:  1,
+		},
+		waitHooks{"upgrade-charm", "config-changed"},
+		verifyRunning{},
+	), ut(
+		"error state unforced upgrade (ignored until started state)",
+		startupError{"start"},
+		createCharm{revision: 1},
+		upgradeCharm{revision: 1},
+		waitUnit{
+			status: state.UnitError,
+			info:   `hook failed: "start"`,
+		},
+		waitHooks{},
+		verifyCharm{},
+		verifyWaiting{},
+
+		resolveError{state.ResolvedNoHooks},
+		waitUnit{
+			status: state.UnitStarted,
+			charm:  1,
+		},
+		waitHooks{"config-changed", "upgrade-charm", "config-changed"},
+		verifyCharm{revision: 1},
+		verifyRunning{},
+	), ut(
+		"error state forced upgrade",
+		startupError{"start"},
+		createCharm{revision: 1},
+		upgradeCharm{revision: 1, forced: true},
+		waitUnit{
+			status: state.UnitError,
+			info:   `hook failed: "start"`,
+			charm:  1,
+		},
+		waitHooks{},
+		verifyCharm{revision: 1},
+		verifyWaiting{},
+
+		resolveError{state.ResolvedNoHooks},
+		waitUnit{
+			status: state.UnitStarted,
+			charm:  1,
+		},
+		waitHooks{"config-changed"},
+		verifyRunning{},
+	), ut(
+		"upgrade: conflicting files",
+		createCharm{
+			customize: func(c *C, path string) {
+				start := filepath.Join(path, "hooks", "start")
+				f, err := os.OpenFile(start, os.O_WRONLY|os.O_APPEND, 0755)
+				c.Assert(err, IsNil)
+				defer f.Close()
+				_, err = f.Write([]byte("echo USERDATA > data"))
+				c.Assert(err, IsNil)
+			},
+		},
+		serveCharm{},
+		createUniter{},
+		waitUnit{
+			status: state.UnitStarted,
+		},
+		waitHooks{"install", "start", "config-changed"},
+		verifyCharm{},
+
+		createCharm{
+			revision: 1,
+			customize: func(c *C, path string) {
+				data := filepath.Join(path, "data")
+				err := ioutil.WriteFile(data, []byte("<nelson>ha ha</nelson>"), 0644)
+				c.Assert(err, IsNil)
+			},
+		},
+		serveCharm{},
+		upgradeCharm{revision: 1},
+		waitUnit{
+			status: state.UnitError,
+			info:   "upgrade failed",
+		},
+		verifyWaiting{},
+		verifyCharm{dirty: true},
+
+		// NOTE: this is just dumbly committing the conflicts, but AFAICT this
+		// is the only reasonable solution; if the user tells us it's resolved
+		// we have to take their word for it.
+		resolveError{state.ResolvedNoHooks},
+		waitHooks{"upgrade-charm", "config-changed"},
+		waitUnit{
+			status: state.UnitStarted,
+			charm:  1,
+		},
+		verifyCharm{revision: 1},
+	), ut(
+		`upgrade: conflicting directories`,
+		createCharm{
+			customize: func(c *C, path string) {
+				err := os.Mkdir(filepath.Join(path, "data"), 0755)
+				c.Assert(err, IsNil)
+				start := filepath.Join(path, "hooks", "start")
+				f, err := os.OpenFile(start, os.O_WRONLY|os.O_APPEND, 0755)
+				c.Assert(err, IsNil)
+				defer f.Close()
+				_, err = f.Write([]byte("echo DATA > data/newfile"))
+				c.Assert(err, IsNil)
+			},
+		},
+		serveCharm{},
+		createUniter{},
+		waitUnit{
+			status: state.UnitStarted,
+		},
+		waitHooks{"install", "start", "config-changed"},
+		verifyCharm{},
+
+		createCharm{
+			revision: 1,
+			customize: func(c *C, path string) {
+				data := filepath.Join(path, "data")
+				err := ioutil.WriteFile(data, []byte("<nelson>ha ha</nelson>"), 0644)
+				c.Assert(err, IsNil)
+			},
+		},
+		serveCharm{},
+		upgradeCharm{revision: 1},
+		waitUnit{
+			status: state.UnitError,
+			info:   "upgrade failed",
+		},
+		verifyWaiting{},
+		verifyCharm{dirty: true},
+
+		resolveError{state.ResolvedNoHooks},
+		waitHooks{"upgrade-charm", "config-changed"},
+		waitUnit{
+			status: state.UnitStarted,
+			charm:  1,
+		},
+		verifyCharm{revision: 1},
+	), ut(
+		"upgrade conflict resolved with forced upgrade",
+		createCharm{
+			customize: func(c *C, path string) {
+				start := filepath.Join(path, "hooks", "start")
+				f, err := os.OpenFile(start, os.O_WRONLY|os.O_APPEND, 0755)
+				c.Assert(err, IsNil)
+				defer f.Close()
+				_, err = f.Write([]byte("echo STARTDATA > data"))
+				c.Assert(err, IsNil)
+			},
+		},
+		serveCharm{},
+		createUniter{},
+		waitUnit{
+			status: state.UnitStarted,
+		},
+		waitHooks{"install", "start", "config-changed"},
+		verifyCharm{},
+
+		createCharm{
+			revision: 1,
+			customize: func(c *C, path string) {
+				data := filepath.Join(path, "data")
+				err := ioutil.WriteFile(data, []byte("<nelson>ha ha</nelson>"), 0644)
+				c.Assert(err, IsNil)
+				ignore := filepath.Join(path, "ignore")
+				err = ioutil.WriteFile(ignore, []byte("anything"), 0644)
+				c.Assert(err, IsNil)
+			},
+		},
+		serveCharm{},
+		upgradeCharm{revision: 1},
+		waitUnit{
+			status: state.UnitError,
+			info:   "upgrade failed",
+		},
+		verifyWaiting{},
+		verifyCharm{dirty: true},
+
+		createCharm{
+			revision: 2,
+			customize: func(c *C, path string) {
+				otherdata := filepath.Join(path, "otherdata")
+				err := ioutil.WriteFile(otherdata, []byte("blah"), 0644)
+				c.Assert(err, IsNil)
+			},
+		},
+		serveCharm{},
+		upgradeCharm{revision: 2, forced: true},
+		waitUnit{
+			status: state.UnitStarted,
+			charm:  2,
+		},
+		verifyCharm{revision: 2},
+		custom{func(c *C, ctx *context) {
+			// otherdata should exist (in v2)
+			otherdata, err := ioutil.ReadFile(filepath.Join(ctx.path, "charm", "otherdata"))
+			c.Assert(err, IsNil)
+			c.Assert(string(otherdata), Equals, "blah")
+
+			// ignore should not (only in v1)
+			_, err = os.Stat(filepath.Join(ctx.path, "charm", "ignore"))
+			c.Assert(os.IsNotExist(err), Equals, true)
+
+			// data should contain what was written in the start hook
+			data, err := ioutil.ReadFile(filepath.Join(ctx.path, "charm", "data"))
+			c.Assert(err, IsNil)
+			c.Assert(string(data), Equals, "STARTDATA\n")
+		}},
 	),
 }
 
 func (s *UniterSuite) TestUniter(c *C) {
-	unitDir := filepath.Join(environs.VarDir, "units", "u-0")
+	unitDir := filepath.Join(s.dataDir, "agents", "unit-u-0")
 	for i, t := range uniterTests {
 		if i != 0 {
 			s.Reset(c)
@@ -269,19 +587,13 @@ func (s *UniterSuite) TestUniter(c *C) {
 		}
 		c.Logf("\ntest %d: %s\n", i, t.summary)
 		ctx := &context{
-			id:     i,
-			path:   unitDir,
-			st:     s.State,
-			charms: coretesting.ResponseMap{},
+			st:      s.State,
+			id:      i,
+			path:    unitDir,
+			dataDir: s.dataDir,
+			charms:  coretesting.ResponseMap{},
 		}
-		for i, s := range t.steps {
-			c.Logf("step %d", i)
-			step(c, ctx, s)
-		}
-		if ctx.uniter != nil {
-			err := ctx.uniter.Stop()
-			c.Assert(err, IsNil)
-		}
+		ctx.run(c, t.steps)
 	}
 }
 
@@ -291,12 +603,13 @@ func step(c *C, ctx *context, s stepper) {
 }
 
 type createCharm struct {
-	revision int
-	badHooks []string
+	revision  int
+	badHooks  []string
+	customize func(*C, string)
 }
 
 func (s createCharm) step(c *C, ctx *context) {
-	base := coretesting.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	base := coretesting.Charms.ClonedDirPath(c.MkDir(), "series", "dummy")
 	for _, name := range []string{"install", "start", "config-changed", "upgrade-charm"} {
 		path := filepath.Join(base, "hooks", name)
 		good := true
@@ -306,6 +619,9 @@ func (s createCharm) step(c *C, ctx *context) {
 			}
 		}
 		ctx.writeHook(c, path, good)
+	}
+	if s.customize != nil {
+		s.customize(c, base)
 	}
 	dir, err := charm.ReadDir(base)
 	c.Assert(err, IsNil)
@@ -329,13 +645,13 @@ func (s createCharm) step(c *C, ctx *context) {
 
 type serveCharm struct{}
 
-func (s serveCharm) step(c *C, ctx *context) {
+func (serveCharm) step(c *C, ctx *context) {
 	coretesting.Server.ResponseMap(1, ctx.charms)
 }
 
-type createUniter struct{}
+type createServiceAndUnit struct{}
 
-func (s createUniter) step(c *C, ctx *context) {
+func (createServiceAndUnit) step(c *C, ctx *context) {
 	cfg, err := config.New(map[string]interface{}{
 		"name":            "testenv",
 		"type":            "dummy",
@@ -353,20 +669,28 @@ func (s createUniter) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	ctx.svc = svc
 	ctx.unit = unit
-	step(c, ctx, startUniter{})
+}
 
-	// Poll for correct address settings (consequence of "dummy" env type).
+type createUniter struct{}
+
+func (createUniter) step(c *C, ctx *context) {
+	step(c, ctx, createServiceAndUnit{})
+	step(c, ctx, startUniter{})
 	timeout := time.After(1 * time.Second)
 	for {
 		select {
 		case <-timeout:
 			c.Fatalf("timed out waiting for unit addresses")
 		case <-time.After(50 * time.Millisecond):
-			private, err := unit.PrivateAddress()
+			err := ctx.unit.Refresh()
+			if err != nil {
+				c.Fatalf("unit refresh failed: %v", err)
+			}
+			private, err := ctx.unit.PrivateAddress()
 			if err != nil || private != "private.dummy.address.example.com" {
 				continue
 			}
-			public, err := unit.PublicAddress()
+			public, err := ctx.unit.PublicAddress()
 			if err != nil || public != "public.dummy.address.example.com" {
 				continue
 			}
@@ -383,12 +707,12 @@ func (s startUniter) step(c *C, ctx *context) {
 	if ctx.uniter != nil {
 		panic("don't start two uniters!")
 	}
-	u, err := uniter.NewUniter(ctx.st, "u/0")
+	u, err := uniter.NewUniter(ctx.st, "u/0", ctx.dataDir)
 	if s.err == "" {
 		c.Assert(err, IsNil)
 		ctx.uniter = u
 	} else {
-		c.Assert(u, IsNil)
+		c.Check(u, IsNil)
 		c.Assert(err, ErrorMatches, s.err)
 	}
 }
@@ -404,7 +728,7 @@ func (s waitUniterDead) step(c *C, ctx *context) {
 	case <-u.Dying():
 		err := u.Wait()
 		c.Assert(err, ErrorMatches, s.err)
-	case <-time.After(1000 * time.Millisecond):
+	case <-time.After(5 * time.Second):
 		c.Fatalf("uniter still alive")
 	}
 }
@@ -490,44 +814,37 @@ type waitUnit struct {
 }
 
 func (s waitUnit) step(c *C, ctx *context) {
-	timeout := time.After(2000 * time.Millisecond)
-	// Upgrade/resolved checks are easy...
-	resolved := ctx.unit.WatchResolved()
-	defer stop(c, resolved)
-	resolvedOk := false
-	for !resolvedOk {
-		select {
-		case ch := <-resolved.Changes():
-			resolvedOk = ch == s.resolved
-			if !resolvedOk {
-				c.Logf("%#v", ch)
-			}
-		case <-timeout:
-			c.Fatalf("never reached desired state")
-		}
-	}
-
-	// ...but we have no status/charm watchers, so just poll.
+	timeout := time.After(5 * time.Second)
 	for {
 		select {
 		case <-time.After(50 * time.Millisecond):
-			status, info, err := ctx.unit.Status()
-			c.Assert(err, IsNil)
-			if status != s.status {
-				c.Logf("wrong status: %s", status)
-				continue
+			err := ctx.unit.Refresh()
+			if err != nil {
+				c.Fatalf("cannot refresh unit: %v", err)
 			}
-			if info != s.info {
-				c.Logf("wrong info: %s", info)
+			resolved := ctx.unit.Resolved()
+			if resolved != s.resolved {
+				c.Logf("want resolved mode %q, got %q; still waiting", s.resolved, resolved)
 				continue
 			}
 			ch, err := ctx.unit.Charm()
-			if err != nil {
-				c.Logf("no charm")
+			if err != nil || *ch.URL() != *curl(s.charm) {
+				var got string
+				if ch != nil {
+					got = ch.URL().String()
+				}
+				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
 				continue
 			}
-			if *ch.URL() != *curl(s.charm) {
-				c.Logf("wrong charm: %s", ch.URL())
+			ctx.st.Sync() // Ensure presence watcher is up to date for Status call.
+			status, info, err := ctx.unit.Status()
+			c.Assert(err, IsNil)
+			if status != s.status {
+				c.Logf("want unit status %q, got %q; still waiting", s.status, status)
+				continue
+			}
+			if info != s.info {
+				c.Logf("want unit status info %q, got %q; still waiting", s.info, info)
 				continue
 			}
 			return
@@ -553,10 +870,10 @@ func (s waitHooks) step(c *C, ctx *context) {
 	if match {
 		return
 	}
-	timeout := time.After(2000 * time.Millisecond)
+	timeout := time.After(5 * time.Second)
 	for {
 		select {
-		case <-time.After(200 * time.Millisecond):
+		case <-time.After(50 * time.Millisecond):
 			if match, _ = ctx.matchLogHooks(c); match {
 				return
 			}
@@ -599,20 +916,44 @@ func (s upgradeCharm) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	err = ctx.svc.SetCharm(sch, s.forced)
 	c.Assert(err, IsNil)
+	serveCharm{}.step(c, ctx)
 }
 
 type verifyCharm struct {
 	revision int
+	dirty    bool
 }
 
 func (s verifyCharm) step(c *C, ctx *context) {
-	path := filepath.Join(ctx.path, "charm", "revision")
-	content, err := ioutil.ReadFile(path)
+	if !s.dirty {
+		path := filepath.Join(ctx.path, "charm", "revision")
+		content, err := ioutil.ReadFile(path)
+		c.Assert(err, IsNil)
+		c.Assert(string(content), Equals, strconv.Itoa(s.revision))
+		err = ctx.unit.Refresh()
+		c.Assert(err, IsNil)
+		ch, err := ctx.unit.Charm()
+		c.Assert(err, IsNil)
+		c.Assert(ch.URL(), DeepEquals, curl(s.revision))
+	}
+
+	// Even if the charm itself has been updated correctly, it is possible that
+	// a hook has run and is being committed by git; which will cause all manner
+	// of bad stuff to happen when we try to get the status below. There's no
+	// general way to guarantee that this is not happening, but the following
+	// voodoo sleep has been observed to be sufficient in practice.
+	time.Sleep(500 * time.Millisecond)
+
+	cmd := exec.Command("git", "status")
+	cmd.Dir = filepath.Join(ctx.path, "charm")
+	out, err := cmd.CombinedOutput()
 	c.Assert(err, IsNil)
-	c.Assert(string(content), Equals, strconv.Itoa(s.revision))
-	ch, err := ctx.unit.Charm()
-	c.Assert(err, IsNil)
-	c.Assert(ch.URL(), DeepEquals, curl(s.revision))
+
+	cmp := Equals
+	if s.dirty {
+		cmp = Not(Equals)
+	}
+	c.Assert(string(out), cmp, "# On branch master\nnothing to commit (working directory clean)\n")
 }
 
 type writeFile struct {

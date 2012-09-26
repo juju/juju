@@ -209,12 +209,12 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	// check that the state holds the id of the bootstrap machine.
 	state, err := ec2.LoadState(t.env)
 	c.Assert(err, IsNil)
-	c.Assert(state.ZookeeperInstances, HasLen, 1)
+	c.Assert(state.StateInstances, HasLen, 1)
 
-	insts, err := t.env.Instances(state.ZookeeperInstances)
+	insts, err := t.env.Instances(state.StateInstances)
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 1)
-	c.Check(insts[0].Id(), Equals, state.ZookeeperInstances[0])
+	c.Check(insts[0].Id(), Equals, state.StateInstances[0])
 
 	info, err := t.env.StateInfo()
 	c.Assert(err, IsNil)
@@ -232,13 +232,10 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	var x map[interface{}]interface{}
 	err = goyaml.Unmarshal(inst.UserData, &x)
 	c.Assert(err, IsNil)
-	CheckPackage(c, x, "zookeeper", true)
-	CheckPackage(c, x, "zookeeperd", true)
+	CheckPackage(c, x, "git", true)
 	CheckScripts(c, x, "jujud bootstrap-state", true)
 	// TODO check for provisioning agent
 	// TODO check for machine agent
-	CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='localhost%s'", ec2.ZkPortSuffix), true)
-	CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID=0"), true)
 
 	// check that a new instance will be started without
 	// zookeeper, with a machine agent, and without a
@@ -254,8 +251,6 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	CheckPackage(c, x, "zookeeperd", false)
 	// TODO check for provisioning agent
 	// TODO check for machine agent
-	CheckScripts(c, x, fmt.Sprintf("JUJU_ZOOKEEPER='%s%s'", bootstrapDNS, ec2.ZkPortSuffix), true)
-	CheckScripts(c, x, fmt.Sprintf("JUJU_MACHINE_ID=1"), true)
 
 	p := t.env.Provider()
 	addr, err := p.PublicAddress()

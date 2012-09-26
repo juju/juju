@@ -10,6 +10,10 @@ import (
 	"path/filepath"
 )
 
+type suite struct{}
+
+var _ = Suite(suite{})
+
 var invalidConfigTests = []struct {
 	env string
 	err string
@@ -57,12 +61,12 @@ environments:
 environments:
     only:
         type: dummy
-`, "only", `.*zookeeper: expected bool, got nothing`,
+`, "only", `.*state-server: expected bool, got nothing`,
 	}, {`
 environments:
     only:
         type: dummy
-        zookeeper: false
+        state-server: false
         unknown-value: causes-an-error
 `, "only", `.*unknown-value: expected nothing, got "causes-an-error"`,
 	},
@@ -87,7 +91,7 @@ var configTests = []struct {
 environments:
     only:
         type: dummy
-        zookeeper: false
+        state-server: false
 `, func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, IsNil)
@@ -98,7 +102,7 @@ default:
 environments:
     valid:
         type: dummy
-        zookeeper: false
+        state-server: false
     invalid:
         type: crazy
 `, func(c *C, es *environs.Environs) {
@@ -112,10 +116,10 @@ environments:
 environments:
     one:
         type: dummy
-        zookeeper: false
+        state-server: false
     two:
         type: dummy
-        zookeeper: false
+        state-server: false
 `, func(c *C, es *environs.Environs) {
 		e, err := es.Open("")
 		c.Assert(err, ErrorMatches, `no default environment found`)
@@ -142,7 +146,7 @@ func (suite) TestConfigFile(c *C) {
 environments:
     only:
         type: dummy
-        zookeeper: false
+        state-server: false
         authorized-keys: i-am-a-key
 `
 	err = ioutil.WriteFile(path, []byte(env), 0666)
@@ -171,9 +175,9 @@ environments:
 
 func (suite) TestConfigRoundTrip(c *C) {
 	cfg, err := config.New(map[string]interface{}{
-		"name":      "bladaam",
-		"type":      "dummy",
-		"zookeeper": false,
+		"name":         "bladaam",
+		"type":         "dummy",
+		"state-server": false,
 	})
 	c.Assert(err, IsNil)
 	provider, err := environs.Provider(cfg.Type())

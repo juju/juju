@@ -24,12 +24,12 @@ func runExpose(c *C, args ...string) error {
 func (s *ExposeSuite) assertExposed(c *C, service string) {
 	svc, err := s.State.Service(service)
 	c.Assert(err, IsNil)
-	exposed, err := svc.IsExposed()
+	exposed := svc.IsExposed()
 	c.Assert(exposed, Equals, true)
 }
 
 func (s *ExposeSuite) TestExpose(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "dummy")
+	testing.Charms.BundlePath(s.seriesPath, "series", "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
@@ -40,5 +40,5 @@ func (s *ExposeSuite) TestExpose(c *C) {
 	s.assertExposed(c, "some-service-name")
 
 	err = runExpose(c, "nonexistent-service")
-	c.Assert(err, ErrorMatches, `.*service with name "nonexistent-service" not found`)
+	c.Assert(err, ErrorMatches, `service "nonexistent-service" not found`)
 }
