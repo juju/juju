@@ -96,6 +96,9 @@ func (s *UnitSuite) TestRunStop(c *C) {
 				continue
 			case state.UnitStarted:
 				c.Logf("started!")
+			case state.UnitDown:
+				s.State.StartSync()
+				c.Logf("unit is still down")
 			default:
 				c.Fatalf("unexpected status %s %s", st, info)
 			}

@@ -17,42 +17,30 @@ import (
 	"time"
 )
 
-var _ = Suite(&upgraderSuite{})
+var _ = Suite(&UpgraderSuite{})
 
-type upgraderSuite struct {
+type UpgraderSuite struct {
 	oldVersion version.Binary
 	testing.JujuConnSuite
 }
 
-func (s *upgraderSuite) SetUpTest(c *C) {
+func (s *UpgraderSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.oldVersion = version.Current
 }
 
-func (s *upgraderSuite) TearDownTest(c *C) {
+func (s *UpgraderSuite) TearDownTest(c *C) {
 	version.Current = s.oldVersion
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *upgraderSuite) TestUpgraderError(c *C) {
-	st, err := state.Open(s.StateInfo(c))
-	c.Assert(err, IsNil)
-	// We have no installed tools, so the logic should set the agent
-	// tools anyway, but with no URL.
-	u := startUpgrader(c, st, c.MkDir(), &state.Tools{Binary: version.Current})
-
-	// Close the state under the watcher and check that the upgrader dies.
-	st.Close()
-	waitDeath(c, u, nil, "watcher: cannot get content of node.*")
-}
-
-func (s *upgraderSuite) TestUpgraderStop(c *C) {
+func (s *UpgraderSuite) TestUpgraderStop(c *C) {
 	u := startUpgrader(c, s.State, c.MkDir(), &state.Tools{Binary: version.Current})
 	err := u.Stop()
 	c.Assert(err, IsNil)
 }
 
-func (s *upgraderSuite) proposeVersion(c *C, vers version.Number, development bool) {
+func (s *UpgraderSuite) proposeVersion(c *C, vers version.Number, development bool) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
 	attrs := cfg.AllAttrs()
@@ -64,7 +52,7 @@ func (s *upgraderSuite) proposeVersion(c *C, vers version.Number, development bo
 	c.Assert(err, IsNil)
 }
 
-func (s *upgraderSuite) uploadTools(c *C, vers version.Binary) *state.Tools {
+func (s *UpgraderSuite) uploadTools(c *C, vers version.Binary) *state.Tools {
 	tgz := coretesting.TarGz(
 		coretesting.NewTarFile("juju", 0777, "juju contents "+vers.String()),
 		coretesting.NewTarFile("jujuc", 0777, "jujuc contents "+vers.String()),
@@ -131,7 +119,7 @@ var upgraderTests = []struct {
 },
 }
 
-func (s *upgraderSuite) TestUpgrader(c *C) {
+func (s *UpgraderSuite) TestUpgrader(c *C) {
 	dataDir, currentTools := s.primeTools(c, version.MustParseBinary("2.0.0-foo-bar"))
 	// Remove the tools from the storage so that we're sure that the
 	// uploader isn't trying to fetch them.
@@ -171,8 +159,10 @@ func (s *upgraderSuite) TestUpgrader(c *C) {
 		}
 		if test.propose != "" {
 			s.proposeVersion(c, version.MustParse(test.propose), test.devVersion)
+			s.State.StartSync()
 		}
 		if test.upgradeTo == "" {
+			s.State.StartSync()
 			assertNothingHappens(c, upgraderDone)
 		} else {
 			tools := uploaded[version.MustParse(test.upgradeTo)]
@@ -229,7 +219,7 @@ var delayedStopTests = []struct {
 },
 }
 
-func (s *upgraderSuite) TestDelayedStop(c *C) {
+func (s *UpgraderSuite) TestDelayedStop(c *C) {
 	defer dummy.SetStorageDelay(0)
 	dataDir, tools := s.primeTools(c, version.MustParseBinary("2.0.3-foo-bar"))
 	s.uploadTools(c, version.MustParseBinary("2.0.5-foo-bar"))
@@ -259,12 +249,12 @@ func (s *upgraderSuite) TestDelayedStop(c *C) {
 	}
 }
 
-func (s *upgraderSuite) poisonVersion(vers version.Binary) {
+func (s *UpgraderSuite) poisonVersion(vers version.Binary) {
 	path := environs.ToolsStoragePath(vers)
 	dummy.Poison(s.Conn.Environ.Storage(), path, fmt.Errorf("poisoned file"))
 }
 
-func (s *upgraderSuite) removeVersion(c *C, vers version.Binary) {
+func (s *UpgraderSuite) removeVersion(c *C, vers version.Binary) {
 	path := environs.ToolsStoragePath(vers)
 	err := s.Conn.Environ.Storage().Remove(path)
 	c.Assert(err, IsNil)
@@ -272,7 +262,7 @@ func (s *upgraderSuite) removeVersion(c *C, vers version.Binary) {
 
 // primeTools sets up the current version of the tools to vers and
 // makes sure that they're available in the returned dataDir.
-func (s *upgraderSuite) primeTools(c *C, vers version.Binary) (dataDir string, tools *state.Tools) {
+func (s *UpgraderSuite) primeTools(c *C, vers version.Binary) (dataDir string, tools *state.Tools) {
 	dataDir = c.MkDir()
 	// Set up the current version and tools.
 	version.Current = vers
