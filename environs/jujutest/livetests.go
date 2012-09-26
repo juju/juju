@@ -209,6 +209,8 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	tools1 := waitAgentTools(c, w1)
 	c.Assert(tools1, NotNil)
 	c.Assert(tools1.Binary, Equals, tools0.Binary)
+	instId1, err := w1.tooler.(*state.Machine).InstanceId()
+	c.Assert(err, IsNil)
 
 	// Check that we can upgrade the environment.
 	newVersion := tools1.Binary
@@ -223,9 +225,10 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	// 4. Machine dies by itself
 	// 5. Provisioner removes dead machine
 	//
-	c.Logf("removing unit")
+
 	// Now remove the unit and its assigned machine and
 	// check that the PA removes it.
+	c.Logf("removing unit")
 	err = unit.EnsureDead()
 	c.Assert(err, IsNil)
 	err = svc.RemoveUnit(unit)
@@ -234,15 +237,16 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	c.Assert(err, IsNil)
 	err = conn.State.RemoveMachine(mid1)
 	c.Assert(err, IsNil)
+	
 	c.Logf("waiting for instance to be removed")
-	t.assertStopInstance(c, w1.Machine)
-	assertInstanceId(c, w1.Machine, nil)
+	t.assertStopInstance(c, conn.Environ, instId1)
 }
 
 type tooler interface {
+	Life() state.Life
 	EnsureDead() error
 	AgentTools() (*state.Tools, error)
-	Refresh()
+	Refresh() error
 	String() string
 }
 
@@ -259,13 +263,15 @@ type toolsWaiter struct {
 }
 
 func newMachineToolWaiter(m *state.Machine) *toolsWaiter {
+	w := m.Watch()
 	waiter := &toolsWaiter{
-		changes: make(chan tooler, 1),
-		w: m.Watch(),
+		changes: make(chan struct{}, 1),
+		watcher: w,
+		tooler: m,
 	}
 	go func() {
-		for m := range waiter.Changes() {
-			waiter.changes <- m
+		for _ = range w.Changes() {
+			waiter.changes <- struct{}{}
 		}
 		close(waiter.changes)
 	}()
@@ -289,10 +295,11 @@ func (w *toolsWaiter) NextTools(c *C) *state.Tools {
 		}
 		c.Logf("found same tools")
 	}
-	c.Fatalf("watcher finished: %v", w.w.Err())
+	c.Fatalf("watcher finished: %v", w.Err())
+	panic("unreachable")
 }
 
-// waitAgentTools waits for the given machine agent
+// waitAgentTools waits for the given agent
 // to start and returns the tools that it is running.
 func waitAgentTools(c *C, w *toolsWaiter ) *state.Tools {
 	c.Logf("waiting for %v to signal agent version", w)
@@ -324,9 +331,9 @@ func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binar
 	c.Assert(err, IsNil)
 
 	for i, w := range waiters {
-		c.Logf("waiting for upgrade of %d: %v", i, w.String)
+		c.Logf("waiting for upgrade of %d: %v", i, w.String())
 
-		tools := w.NextTools()
+		tools := w.NextTools(c)
 		c.Assert(tools, NotNil)
 		// N.B. We can't test that the URL is the same because there's
 		// no guarantee that it is, even though it might be referring to
@@ -375,16 +382,17 @@ func (t *LiveTests) assertStartInstance(c *C, m *state.Machine) {
 	c.Fatalf("provisioner failed to start machine after %v", waitAgent.Total)
 }
 
-func (t *LiveTests) assertStopInstance(c *C, m *state.Machine) {
-	// Wait for machine id to be cleared.
+func (t *LiveTests) assertStopInstance(c *C, env environs.Environ, instId string) {
+	var err error
 	for a := waitAgent.Start(); a.Next(); {
-		err := m.Refresh()
-		c.Assert(err, IsNil)
-		_, err = m.InstanceId()
-		if state.IsNotFound(err) {
+		_, err = t.Env.Instances([]string{instId})
+		if err == nil {
+			continue
+		}
+		if err == environs.ErrNoInstances {
 			return
 		}
-		c.Assert(err, IsNil)
+		c.Logf("error from Instances: %v", err)
 	}
 	c.Fatalf("provisioner failed to stop machine after %v", waitAgent.Total)
 }
