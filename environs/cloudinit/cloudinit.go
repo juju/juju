@@ -190,7 +190,7 @@ func addMongoToBoot(c *cloudinit.Config) error {
 		"dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc.0",
 		"dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc.1",
 		"dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc.2",
-		)
+	)
 	svc := upstart.NewService("juju-db")
 	conf := &upstart.Conf{
 		Service: *svc,
