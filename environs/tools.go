@@ -438,10 +438,8 @@ func bundleTools(w io.Writer, vers *version.Binary) (version.Binary, error) {
 	defer os.RemoveAll(dir)
 
 	cmds := [][]string{
-		{"go", "install", "launchpad.net/juju-core/cmd/jujud"},
-		{"go", "install", "launchpad.net/juju-core/cmd/jujuc"},
-		{"strip", dir + "/jujud"},
-		{"strip", dir + "/jujuc"},
+		{"go", "install", "launchpad.net/juju-core/cmd/jujud", "launchpad.net/juju-core/cmd/jujuc"},
+		{"strip", dir + "/jujud", dir + "/jujuc"},
 	}
 	env := setenv(os.Environ(), "GOBIN="+dir)
 	for _, args := range cmds {
@@ -449,7 +447,7 @@ func bundleTools(w io.Writer, vers *version.Binary) (version.Binary, error) {
 		cmd.Env = env
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			return version.Binary{}, fmt.Errorf("build failed: %v; %s", err, out)
+			return version.Binary{}, fmt.Errorf("build command %q failed: %v; %s", args[0], err, out)
 		}
 	}
 	if vers != nil {
