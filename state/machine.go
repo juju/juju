@@ -96,7 +96,7 @@ func (m *Machine) EnsureDead() error {
 	return nil
 }
 
-// Refresh reads the contents of the Machine from the underlying
+// Refresh refreshes the contents of the machine from the underlying
 // state. It returns a NotFoundError if the machine has been removed.
 func (m *Machine) Refresh() error {
 	doc := machineDoc{}
