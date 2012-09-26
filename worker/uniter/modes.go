@@ -151,8 +151,8 @@ func ModeStarted(u *Uniter) (next Mode, err error) {
 	starting := true
 	configw := u.service.WatchConfig()
 	defer stop(configw, &next, &err)
-	var charmw *state.ServiceCharmWatcher
-	var charms <-chan state.ServiceCharmChange
+	var servicew *state.ServiceWatcher
+	var serviceChanges <-chan *state.Service
 	for {
 		select {
 		case <-u.tomb.Dying():
@@ -171,20 +171,24 @@ func ModeStarted(u *Uniter) (next Mode, err error) {
 			if starting {
 				// If we haven't already set up additional watches, do so now.
 				starting = false
-				charmw = u.service.WatchCharm()
-				defer stop(charmw, &next, &err)
-				charms = charmw.Changes()
+				servicew = u.service.Watch()
+				defer stop(servicew, &next, &err)
+				serviceChanges = servicew.Changes()
 			}
-		case ch, ok := <-charms:
+		case service, ok := <-serviceChanges:
 			if !ok {
-				return nil, watcher.MustErr(charmw)
+				return nil, watcher.MustErr(servicew)
+			}
+			ch, _, err := service.Charm()
+			if err != nil {
+				return nil, err
 			}
 			url, err := charm.ReadCharmURL(u.charm)
 			if err != nil {
 				return nil, err
 			}
-			if *ch.Charm.URL() != *url {
-				return ModeUpgrading(ch.Charm), nil
+			if *ch.URL() != *url {
+				return ModeUpgrading(ch), nil
 			}
 		}
 		// TODO: unit death; relations.
@@ -211,19 +215,20 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	}
 
 	// Wait for shutdown, error resolution, or forced charm upgrade.
-	resolvedw := u.unit.WatchResolved()
-	defer stop(resolvedw, &next, &err)
-	charmw := u.service.WatchCharm()
-	defer stop(charmw, &next, &err)
+	unitw := u.unit.Watch()
+	defer stop(unitw, &next, &err)
+	servicew := u.service.Watch()
+	defer stop(servicew, &next, &err)
 	for {
 		select {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
-		case rm, ok := <-resolvedw.Changes():
+		case unit, ok := <-unitw.Changes():
+			// TODO: unit death.
 			if !ok {
-				return nil, watcher.MustErr(resolvedw)
+				return nil, watcher.MustErr(unitw)
 			}
-			switch rm {
+			switch unit.Resolved() {
 			case state.ResolvedNone:
 				continue
 			case state.ResolvedRetryHooks:
@@ -231,9 +236,9 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 			case state.ResolvedNoHooks:
 				err = u.commitHook(*s.Hook)
 			default:
-				panic(fmt.Errorf("unhandled resolved mode %q", rm))
+				panic(fmt.Errorf("unhandled resolved mode %q", unit.Resolved()))
 			}
-			if e := u.unit.ClearResolved(); e != nil {
+			if e := unit.ClearResolved(); e != nil {
 				err = e
 			}
 			if err == errHookFailed {
@@ -242,19 +247,22 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 				return nil, err
 			}
 			return ModeContinue, nil
-		case ch, ok := <-charmw.Changes():
+		case service, ok := <-servicew.Changes():
 			if !ok {
-				return nil, watcher.MustErr(charmw)
+				return nil, watcher.MustErr(servicew)
+			}
+			ch, force, err := service.Charm()
+			if err != nil {
+				return nil, err
 			}
 			url, err := charm.ReadCharmURL(u.charm)
 			if err != nil {
 				return nil, err
 			}
-			if ch.Force && *ch.Charm.URL() != *url {
-				return ModeUpgrading(ch.Charm), nil
+			if force && *ch.URL() != *url {
+				return ModeUpgrading(ch), nil
 			}
 		}
-		// TODO: unit death.
 	}
 	panic("unreachable")
 }
@@ -282,29 +290,33 @@ func ModeConflicted(sch *state.Charm) Mode {
 		if err = u.unit.SetStatus(state.UnitError, "upgrade failed"); err != nil {
 			return nil, err
 		}
-		resolvedw := u.unit.WatchResolved()
-		defer stop(resolvedw, &next, &err)
-		charmw := u.service.WatchCharm()
-		defer stop(charmw, &next, &err)
+		unitw := u.unit.Watch()
+		defer stop(unitw, &next, &err)
+		servicew := u.service.Watch()
+		defer stop(servicew, &next, &err)
 		for {
 			select {
 			case <-u.tomb.Dying():
 				return nil, tomb.ErrDying
-			case ch, ok := <-charmw.Changes():
+			case service, ok := <-servicew.Changes():
 				if !ok {
-					return nil, watcher.MustErr(charmw)
+					return nil, watcher.MustErr(servicew)
 				}
-				if ch.Force && *ch.Charm.URL() != *sch.URL() {
+				ch, force, err := service.Charm()
+				if err != nil {
+					return nil, err
+				}
+				if force && *ch.URL() != *sch.URL() {
 					if err := u.charm.Revert(); err != nil {
 						return nil, err
 					}
-					return ModeUpgrading(ch.Charm), nil
+					return ModeUpgrading(ch), nil
 				}
-			case rm, ok := <-resolvedw.Changes():
+			case unit, ok := <-unitw.Changes():
 				if !ok {
-					return nil, watcher.MustErr(resolvedw)
+					return nil, watcher.MustErr(unitw)
 				}
-				if rm == state.ResolvedNone {
+				if unit.Resolved() == state.ResolvedNone {
 					continue
 				}
 				err := u.charm.Snapshotf("Upgrade conflict resolved.")

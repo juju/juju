@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/trivial"
 	"sort"
 	"strconv"
@@ -209,12 +208,6 @@ type RelationUnit struct {
 	scope    string
 }
 
-// Pinger exposes the pinger used to signal the unit's participation
-// in the relation to the rest of the system.
-func (ru *RelationUnit) Pinger() *presence.Pinger {
-	panic("not implemented")
-}
-
 // Relation returns the relation associated with the unit.
 func (ru *RelationUnit) Relation() *Relation {
 	return ru.relation
@@ -239,9 +232,12 @@ func (ru *RelationUnit) EnterScope() (err error) {
 	if err != nil {
 		return err
 	}
-	node := newConfigNode(ru.st, key)
+	node, err := readConfigNode(ru.st, key)
+	if err != nil {
+		return err
+	}
 	node.Set("private-address", address)
-	if _, err = node.Write(); err != nil {
+	if _, err := node.Write(); err != nil {
 		return err
 	}
 	ops := []txn.Op{{

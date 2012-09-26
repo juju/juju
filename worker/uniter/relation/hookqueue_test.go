@@ -16,7 +16,7 @@ type HookQueueSuite struct{}
 
 var _ = Suite(&HookQueueSuite{})
 
-type msi map[string]int
+type msi map[string]int64
 
 type hookQueueTest struct {
 	summary string
@@ -268,7 +268,7 @@ func (d advance) check(c *C, in chan state.RelationUnitsChange, out chan hook.In
 type expect struct {
 	hook    hook.Kind
 	unit    string
-	version int
+	version int64
 	members msi
 }
 
@@ -301,7 +301,7 @@ func (d expect) check(c *C, in chan state.RelationUnitsChange, out chan hook.Inf
 	}
 }
 
-func settings(name string, version int) map[string]interface{} {
+func settings(name string, version int64) map[string]interface{} {
 	if version == -1 {
 		// Accommodate required events for units no longer present in the
 		// relation, whose settings will not be available through the stream

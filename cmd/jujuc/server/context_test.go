@@ -452,7 +452,7 @@ func (s *RelationContextSuite) TestMemberCaching(c *C) {
 	node.Set("ping", "pong")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
-	ctx := server.NewRelationContext(s.ru, map[string]int{"u/1": 0})
+	ctx := server.NewRelationContext(s.ru, map[string]int64{"u/1": 0})
 
 	// Check that uncached settings are read from state.
 	settings, err := ctx.ReadSettings("u/1")

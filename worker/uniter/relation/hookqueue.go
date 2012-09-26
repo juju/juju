@@ -57,7 +57,7 @@ type unitInfo struct {
 
 	// version and settings hold the most recent settings known
 	// to the AliveHookQueue.
-	version  int
+	version  int64
 	settings map[string]interface{}
 
 	// joined is set to true when a "relation-joined" is popped for this unit.
@@ -318,7 +318,7 @@ type DyingHookQueue struct {
 	tomb           tomb.Tomb
 	out            chan<- hook.Info
 	relationId     int
-	members        map[string]int
+	members        map[string]int64
 	changedPending string
 }
 
@@ -328,7 +328,7 @@ func NewDyingHookQueue(initial *State, out chan<- hook.Info) *DyingHookQueue {
 	q := &DyingHookQueue{
 		out:            out,
 		relationId:     initial.RelationId,
-		members:        map[string]int{},
+		members:        map[string]int64{},
 		changedPending: initial.ChangedPending,
 	}
 	for m, v := range initial.Members {

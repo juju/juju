@@ -161,6 +161,8 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	}
 	t.BootstrapOnce(c)
 
+	// TODO(niemeyer): Stop growing this kitchen sink test and split it into proper parts.
+
 	c.Logf("opening connection")
 	conn, err := juju.NewConn(t.Env)
 	c.Assert(err, IsNil)
@@ -203,10 +205,22 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	newVersion.Patch++
 	t.checkUpgrade(c, conn, newVersion, w0, w1)
 
+	// BUG(niemeyer): Logic below is very much wrong. Must be:
+	//
+	// 1. EnsureDying on the unit and EnsureDying on the machine
+	// 2. Unit dies by itself
+	// 3. Machine removes dead unit
+	// 4. Machine dies by itself
+	// 5. Provisioner removes dead machine
+	//
 	c.Logf("removing unit")
 	// Now remove the unit and its assigned machine and
 	// check that the PA removes it.
+	err = unit.EnsureDead()
+	c.Assert(err, IsNil)
 	err = svc.RemoveUnit(unit)
+	c.Assert(err, IsNil)
+	err = w1.EnsureDead()
 	c.Assert(err, IsNil)
 	err = conn.State.RemoveMachine(w1.Id())
 	c.Assert(err, IsNil)
@@ -232,18 +246,27 @@ func (t *LiveTests) watchMachine(c *C, conn *juju.Conn, mid int) (*machineWatche
 	var gotTools *state.Tools
 	for _ = range w.Changes() {
 		err := m.Refresh()
-		c.Assert(err, IsNil)
-		tools, err := m.AgentTools()
-		c.Assert(err, IsNil)
-		if tools.URL == "" {
-			// Machine agent hasn't started yet.
-			continue
+		if !c.Check(err, IsNil) {
+			break
 		}
-		gotTools = tools
-		break
+		tools, err := m.AgentTools()
+		if !c.Check(err, IsNil) {
+			break
+		}
+		if tools.URL != "" {
+			gotTools = tools
+			break
+		}
+		// Machine agent hasn't started yet.
 	}
-	c.Assert(gotTools, NotNil, Commentf("tools watcher died: %v", w.Err()))
-	c.Assert(gotTools.Binary, Equals, version.Current)
+	if gotTools == nil {
+		w.Stop()
+		c.Fatalf("got no tools; machine watcher error: %v", w.Err())
+	}
+	if gotTools.Binary != version.Current {
+		w.Stop()
+		c.Assert(gotTools.Binary, Equals, version.Current)
+	}
 	return w, gotTools
 }
 
@@ -259,12 +282,16 @@ func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binar
 	err = setAgentVersion(conn.State, newVersion.Number)
 	c.Assert(err, IsNil)
 
+	// TODO(niemeyer): This helper is broken. There's nothing here waiting
+	// for the *upgrade* to happen. It's simply waiting for the first
+	// change to the machine, and assuming that it is an upgrade.
+	// This should be refactored to be more resilient, perhaps closer to the
+	// existing pattern in other helper methods.
+
 	for i, w := range watchers {
 		c.Logf("waiting for upgrade %d", i)
 		_, ok := <-w.Changes()
-		if !c.Check(ok, Equals, true, Commentf("watcher %d died: %v", i, w.Err())) {
-			continue
-		}
+		c.Assert(ok, Equals, true, Commentf("watcher %d died: %v", i, w.Err()))
 		err := w.Refresh()
 		c.Assert(err, IsNil)
 		tools, err := w.AgentTools()
@@ -304,8 +331,10 @@ var waitAgent = trivial.AttemptStrategy{
 func (t *LiveTests) assertStartInstance(c *C, m *state.Machine) {
 	// Wait for machine to get an instance id.
 	for a := waitAgent.Start(); a.Next(); {
+		err := m.Refresh()
+		c.Assert(err, IsNil)
 		instId, err := m.InstanceId()
-		if _, ok := err.(*state.NotFoundError); ok {
+		if state.IsNotFound(err) {
 			continue
 		}
 		c.Assert(err, IsNil)
@@ -319,10 +348,13 @@ func (t *LiveTests) assertStartInstance(c *C, m *state.Machine) {
 func (t *LiveTests) assertStopInstance(c *C, m *state.Machine) {
 	// Wait for machine id to be cleared.
 	for a := waitAgent.Start(); a.Next(); {
-		if instId, err := m.InstanceId(); instId == "" {
-			c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+		err := m.Refresh()
+		c.Assert(err, IsNil)
+		_, err = m.InstanceId()
+		if state.IsNotFound(err) {
 			return
 		}
+		c.Assert(err, IsNil)
 	}
 	c.Fatalf("provisioner failed to stop machine after %v", waitAgent.Total)
 }
@@ -331,16 +363,16 @@ func (t *LiveTests) assertStopInstance(c *C, m *state.Machine) {
 // that matches that of the given instance. If the instance is nil,
 // It asserts that the instance id is unset.
 func assertInstanceId(c *C, m *state.Machine, inst environs.Instance) {
-	// TODO(dfc) add machine.WatchConfig() to avoid having to poll.
-	var instId, id string
+	var wantId, gotId string
 	var err error
 	if inst != nil {
-		instId = inst.Id()
+		wantId = inst.Id()
 	}
 	for a := waitAgent.Start(); a.Next(); {
-		id, err = m.InstanceId()
-		_, notset := err.(*state.NotFoundError)
-		if notset {
+		err := m.Refresh()
+		c.Assert(err, IsNil)
+		gotId, err = m.InstanceId()
+		if state.IsNotFound(err) {
 			if inst == nil {
 				return
 			}
@@ -350,7 +382,7 @@ func assertInstanceId(c *C, m *state.Machine, inst environs.Instance) {
 		break
 	}
 	c.Assert(err, IsNil)
-	c.Assert(id, Equals, instId)
+	c.Assert(gotId, Equals, wantId)
 }
 
 // TODO check that binary data works ok?
