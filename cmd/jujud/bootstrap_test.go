@@ -48,7 +48,12 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 	args := []string{"--state-servers"}
 	args = append(args, s.StateInfo(c).Addrs...)
 	args = append(args, "--instance-id", "over9000")
-	args = append(args, "--env-config", b64yaml{"blah": "blah"}.encode())
+	args = append(args, "--env-config", b64yaml{
+		"name":            "dummyenv",
+		"type":            "dummy",
+		"state-server":    "false",
+		"authorized-keys": "i-am-a-key",
+	}.encode())
 	cmd, err := initBootstrapCommand(args)
 	c.Assert(err, IsNil)
 	err = cmd.Run(nil)

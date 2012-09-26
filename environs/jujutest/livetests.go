@@ -161,6 +161,8 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	}
 	t.BootstrapOnce(c)
 
+	// TODO(niemeyer): Stop growing this kitchen sink test and split it into proper parts.
+
 	c.Logf("opening connection")
 	conn, err := juju.NewConn(t.Env)
 	c.Assert(err, IsNil)
@@ -174,12 +176,14 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 
 	// Wait for machine agent to come up on the bootstrap
 	// machine and find the deployed series from that.
+	// Wait for machine agent to come up on the bootstrap
+	// machine and find the deployed series from that.
 	m0, err := conn.State.Machine(0)
 	c.Assert(err, IsNil)
-	w0 := newMachineToolWaiter(m0)
-	defer w0.Stop()
+	mw0 := newMachineToolWaiter(m0)
+	defer mw0.Stop()
 
-	mtools0 := waitAgentTools(c, w0)
+	mtools0 := waitAgentTools(c, mw0)
 
 	// Create a new service and deploy a unit of it.
 	c.Logf("deploying service")
@@ -196,15 +200,17 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 
 	// Wait for the unit's machine and associated agent to come up
 	// and announce itself.
-	mid, err := unit.AssignedMachineId()
+	mid1, err := unit.AssignedMachineId()
 	c.Assert(err, IsNil)
-	m1, err := conn.State.Machine(mid)
+	m1, err := conn.State.Machine(mid1)
 	c.Assert(err, IsNil)
-	mw1 := newMachineToolsWatcher(c, m1)
+	mw1 := newMachineToolWaiter(m1)
 	defer mw1.Stop()
-	waitAgentTools(c, mw1)
-
-	uw := newUnitToolsWatcher(c, unit)
+	mtools1 := waitAgentTools(c, mw1)
+	c.Assert(mtools1.Binary, Equals, mtools0.Binary)
+	instId1, err := mw1.tooler.(*state.Machine).InstanceId()
+	c.Assert(err, IsNil)
+	uw := newUnitToolWaiter(unit)
 	defer uw.Stop()
 	utools := waitAgentTools(c, uw)
 
@@ -213,21 +219,36 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	newVersion.Patch++
 	t.checkUpgrade(c, conn, newVersion, mw0, mw1, uw)
 
-	c.Logf("removing unit")
+	// BUG(niemeyer): Logic below is very much wrong. Must be:
+	//
+	// 1. EnsureDying on the unit and EnsureDying on the machine
+	// 2. Unit dies by itself
+	// 3. Machine removes dead unit
+	// 4. Machine dies by itself
+	// 5. Provisioner removes dead machine
+	//
+
 	// Now remove the unit and its assigned machine and
 	// check that the PA removes it.
+	c.Logf("removing unit")
+	err = unit.EnsureDead()
+	c.Assert(err, IsNil)
 	err = svc.RemoveUnit(unit)
 	c.Assert(err, IsNil)
-	err = conn.State.RemoveMachine(m1.Id())
+	err = mw1.EnsureDead()
 	c.Assert(err, IsNil)
+	err = conn.State.RemoveMachine(mid1)
+	c.Assert(err, IsNil)
+	
 	c.Logf("waiting for instance to be removed")
-	t.assertStopInstance(c, m1)
-	assertInstanceId(c, m1, nil)
+	t.assertStopInstance(c, conn.Environ, instId1)
 }
 
 type tooler interface {
+	Life() state.Life
+	EnsureDead() error
 	AgentTools() (*state.Tools, error)
-	Refresh()
+	Refresh() error
 	String() string
 }
 
@@ -244,13 +265,15 @@ type toolsWaiter struct {
 }
 
 func newMachineToolWaiter(m *state.Machine) *toolsWaiter {
+	w := m.Watch()
 	waiter := &toolsWaiter{
-		changes: make(chan tooler, 1),
-		w: m.Watch(),
+		changes: make(chan struct{}, 1),
+		watcher: w,
+		tooler: m,
 	}
 	go func() {
-		for m := range waiter.Changes() {
-			waiter.changes <- m
+		for _ = range w.Changes() {
+			waiter.changes <- struct{}{}
 		}
 		close(waiter.changes)
 	}()
@@ -258,23 +281,29 @@ func newMachineToolWaiter(m *state.Machine) *toolsWaiter {
 }
 
 func newUnitToolWaiter(u *state.Unit) *toolsWaiter {
+	w := u.Watch()
 	waiter := &toolsWaiter{
-		changes: make(chan tooler, 1),
-		w: u.Watch(),
+		changes: make(chan struct{}, 1),
+		watcher: w,
+		tooler: u,
 	}
 	go func() {
-		for u := range waiter.Changes() {
-			waiter.changes <- u
+		for _ = range w.Changes() {
+			waiter.changes <- struct{}{}
 		}
 		close(waiter.changes)
 	}()
 	return waiter
 }
 
-// nextTools returns the next changed tools.
+// nextTools returns the next changed tools.  It returns
+// nil if the waiter dies.
 func (w *toolsWaiter) NextTools(c *C) *state.Tools {
 	for _ = range w.changes {
 		w.Refresh()
+		if w.Life() == state.Dead {
+			return nil
+		}
 		tools, err := w.AgentTools()
 		c.Assert(err, IsNil)
 		changed := w.lastTools == nil || *tools == *w.lastTools
@@ -284,17 +313,20 @@ func (w *toolsWaiter) NextTools(c *C) *state.Tools {
 		}
 		c.Logf("found same tools")
 	}
-	c.Fatalf("watcher finished: %v", w.w.Err())
+	c.Fatalf("watcher finished: %v", w.Err())
+	panic("unreachable")
 }
 
-// waitAgentTools waits for the given machine agent
+// waitAgentTools waits for the given agent
 // to start and returns the tools that it is running.
 func waitAgentTools(c *C, w *toolsWaiter ) *state.Tools {
 	c.Logf("waiting for %v to signal agent version", w)
 
 	var tools *state.Tools
 	for {
-		if tools = w.NextTools(c); tools.URL == "" {
+		tools := w.NextTools(c)
+		c.Assert(tools, NotNil)
+		if tools.URL == "" {
 			// Agent hasn't started yet.
 			continue
 		}
@@ -317,9 +349,10 @@ func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binar
 	c.Assert(err, IsNil)
 
 	for i, w := range waiters {
-		c.Logf("waiting for upgrade of %d: %v", i, w.String)
+		c.Logf("waiting for upgrade of %d: %v", i, w.String())
 
-		tools := w.NextTools()
+		tools := w.NextTools(c)
+		c.Assert(tools, NotNil)
 		// N.B. We can't test that the URL is the same because there's
 		// no guarantee that it is, even though it might be referring to
 		// the same thing.
@@ -353,8 +386,10 @@ var waitAgent = trivial.AttemptStrategy{
 func (t *LiveTests) assertStartInstance(c *C, m *state.Machine) {
 	// Wait for machine to get an instance id.
 	for a := waitAgent.Start(); a.Next(); {
+		err := m.Refresh()
+		c.Assert(err, IsNil)
 		instId, err := m.InstanceId()
-		if _, ok := err.(*state.NotFoundError); ok {
+		if state.IsNotFound(err) {
 			continue
 		}
 		c.Assert(err, IsNil)
@@ -365,13 +400,17 @@ func (t *LiveTests) assertStartInstance(c *C, m *state.Machine) {
 	c.Fatalf("provisioner failed to start machine after %v", waitAgent.Total)
 }
 
-func (t *LiveTests) assertStopInstance(c *C, m *state.Machine) {
-	// Wait for machine id to be cleared.
+func (t *LiveTests) assertStopInstance(c *C, env environs.Environ, instId string) {
+	var err error
 	for a := waitAgent.Start(); a.Next(); {
-		if instId, err := m.InstanceId(); instId == "" {
-			c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+		_, err = t.Env.Instances([]string{instId})
+		if err == nil {
+			continue
+		}
+		if err == environs.ErrNoInstances {
 			return
 		}
+		c.Logf("error from Instances: %v", err)
 	}
 	c.Fatalf("provisioner failed to stop machine after %v", waitAgent.Total)
 }
@@ -380,16 +419,16 @@ func (t *LiveTests) assertStopInstance(c *C, m *state.Machine) {
 // that matches that of the given instance. If the instance is nil,
 // It asserts that the instance id is unset.
 func assertInstanceId(c *C, m *state.Machine, inst environs.Instance) {
-	// TODO(dfc) add machine.WatchConfig() to avoid having to poll.
-	var instId, id string
+	var wantId, gotId string
 	var err error
 	if inst != nil {
-		instId = inst.Id()
+		wantId = inst.Id()
 	}
 	for a := waitAgent.Start(); a.Next(); {
-		id, err = m.InstanceId()
-		_, notset := err.(*state.NotFoundError)
-		if notset {
+		err := m.Refresh()
+		c.Assert(err, IsNil)
+		gotId, err = m.InstanceId()
+		if state.IsNotFound(err) {
 			if inst == nil {
 				return
 			}
@@ -399,7 +438,7 @@ func assertInstanceId(c *C, m *state.Machine, inst environs.Instance) {
 		break
 	}
 	c.Assert(err, IsNil)
-	c.Assert(id, Equals, instId)
+	c.Assert(gotId, Equals, wantId)
 }
 
 // TODO check that binary data works ok?

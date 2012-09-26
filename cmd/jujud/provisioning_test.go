@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/juju/testing"
 	"reflect"
 	"time"
@@ -66,9 +67,11 @@ func (s *ProvisioningSuite) TestRunStop(c *C) {
 	w := m.Watch()
 	for _ = range w.Changes() {
 		_, err := m.InstanceId()
-		if err == nil {
-			break
+		if state.IsNotFound(err) {
+			continue
 		}
+		c.Assert(err, IsNil)
+		break
 	}
 	err = units[0].OpenPort("tcp", 999)
 	c.Assert(err, IsNil)

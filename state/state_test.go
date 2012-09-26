@@ -783,3 +783,42 @@ func (s *StateSuite) TestWatchEnvironConfigInvalidConfig(c *C) {
 		c.Fatalf("no environment configuration observed")
 	}
 }
+
+func (s *StateSuite) TestAddAndGetEquivalence(c *C) {
+	// The equivalence tested here isn't necessarily correct, and
+	// comparing private details is discouraged in the project.
+	// The implementation might choose to cache information, or
+	// to have different logic when adding or removing, and the
+	// comparison might fail despite it being correct.
+	// That said, we've had bugs with txn-revno being incorrect
+	// before, so this testing at least ensures we're conscious
+	// about such changes.
+
+	m1, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	m2, err := s.State.Machine(m1.Id())
+	c.Assert(m1, DeepEquals, m2)
+
+	charm1 := s.AddTestingCharm(c, "dummy")
+	charm2, err := s.State.Charm(charm1.URL())
+	c.Assert(err, IsNil)
+	c.Assert(charm1, DeepEquals, charm2)
+
+	service1, err := s.State.AddService("dummy", charm1)
+	c.Assert(err, IsNil)
+	service2, err := s.State.Service("dummy")
+	c.Assert(err, IsNil)
+	c.Assert(service1, DeepEquals, service2)
+
+	unit1, err := service1.AddUnit()
+	c.Assert(err, IsNil)
+	unit2, err := s.State.Unit("dummy/0")
+	c.Assert(err, IsNil)
+	c.Assert(unit1, DeepEquals, unit2)
+
+	peer := state.RelationEndpoint{"dummy", "ifce", "name", state.RolePeer, charm.ScopeGlobal}
+	relation1, err := s.State.AddRelation(peer)
+	c.Assert(err, IsNil)
+	relation2, err := s.State.Relation(peer)
+	c.Assert(relation1, DeepEquals, relation2)
+}

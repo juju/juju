@@ -9,79 +9,6 @@ import (
 	"strings"
 )
 
-type watcherStubs interface {
-	Stop() error
-	Wait() error
-	Err() error
-}
-
-type ServiceCharmWatcher struct {
-	watcherStubs
-}
-
-// ServiceCharmChange describes a change to the service's charm, and
-// whether units should upgrade to that charm in spite of error states.
-type ServiceCharmChange struct {
-	Charm *Charm
-	Force bool
-}
-
-// Changes returns a channel that will receive notifications
-// about changes to the service's charm. The first event on the
-// channel hold the initial state of the charm.
-func (w *ServiceCharmWatcher) Changes() <-chan ServiceCharmChange {
-	panic("not implemented")
-}
-
-// WatchCharm returns a watcher that sends notifications of changes to the
-// service's charm.
-func (s *Service) WatchCharm() *ServiceCharmWatcher {
-	panic("not implemented")
-}
-
-// WatchResolved returns a watcher that fires when the unit
-// is marked as having had its problems resolved. See
-// SetResolved for details.
-func (u *Unit) WatchResolved() *ResolvedWatcher {
-	panic("not implemented")
-}
-
-// ResolvedWatcher observes changes to a unit's resolved
-// mode. See SetResolved for details.
-type ResolvedWatcher struct {
-	watcherStubs
-}
-
-// Changes returns a channel that will receive the new
-// resolved mode when a change is detected. Note that multiple
-// changes may be observed as a single event in the channel.
-// The first event on the channel holds the initial
-// state as returned by Unit.Resolved.
-func (w *ResolvedWatcher) Changes() <-chan ResolvedMode {
-	panic("not implemented")
-}
-
-type RelationUnitsWatcher struct {
-	watcherStubs
-}
-
-type RelationUnitsChange struct {
-	Changed  map[string]UnitSettings
-	Departed []string
-}
-
-func (ru *RelationUnit) Watch() *RelationUnitsWatcher {
-	panic("not implemented")
-}
-
-// Changes returns a channel that will receive the changes to
-// the relation when detected.
-// The first event on the channel holds the initial state of the
-// relation in its Changed field.
-func (w *RelationUnitsWatcher) Changes() <-chan RelationUnitsChange {
-	panic("not implemented")
-}
-
 // commonWatcher is part of all client watchers.
 type commonWatcher struct {
 	st   *State
@@ -99,12 +26,6 @@ func (w *commonWatcher) Stop() error {
 // tomb.ErrStillAlive if the watcher is still running.
 func (w *commonWatcher) Err() error {
 	return w.tomb.Err()
-}
-
-// MachineWatcher observes changes to the settings of a machine.
-type MachineWatcher struct {
-	commonWatcher
-	changeChan chan *Machine
 }
 
 // ServicesWatcher observes the addition and removal of services.
@@ -185,28 +106,34 @@ type MachineUnitsChange struct {
 	Removed []*Unit
 }
 
+// MachineWatcher observes changes to the properties of a machine.
+type MachineWatcher struct {
+	commonWatcher
+	out chan int
+}
+
 // newMachineWatcher creates and starts a watcher to watch information
 // about the machine.
 func newMachineWatcher(m *Machine) *MachineWatcher {
 	w := &MachineWatcher{
-		changeChan:    make(chan *Machine),
 		commonWatcher: commonWatcher{st: m.st},
+		out:           make(chan int),
 	}
 	go func() {
 		defer w.tomb.Done()
-		defer close(w.changeChan)
+		defer close(w.out)
 		w.tomb.Kill(w.loop(m))
 	}()
 	return w
 }
 
-// Changes returns a channel that will receive the new
-// *Machine when a change is detected. Note that multiple
-// changes may be observed as a single event in the channel.
-// The first event on the channel holds the initial state
-// as returned by Machine.Info.
-func (w *MachineWatcher) Changes() <-chan *Machine {
-	return w.changeChan
+// Changes returns a channel that will receive a machine id
+// when a change is detected. Note that multiple changes may
+// be observed as a single event in the channel.
+// As conventional for watchers, an initial event is sent when
+// the watcher starts up, whether changes are detected or not.
+func (w *MachineWatcher) Changes() <-chan int {
+	return w.out
 }
 
 func (w *MachineWatcher) loop(m *Machine) (err error) {
@@ -215,6 +142,7 @@ func (w *MachineWatcher) loop(m *Machine) (err error) {
 	st := m.st
 	st.watcher.Watch(st.machines.Name, id, m.doc.TxnRevno, ch)
 	defer st.watcher.Unwatch(st.machines.Name, id, ch)
+	out := w.out
 	for {
 		select {
 		case <-st.watcher.Dead():
@@ -222,24 +150,9 @@ func (w *MachineWatcher) loop(m *Machine) (err error) {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-ch:
-		}
-		if m, err = st.Machine(id); err != nil {
-			return err
-		}
-		for {
-			select {
-			case <-st.watcher.Dead():
-				return watcher.MustErr(st.watcher)
-			case <-w.tomb.Dying():
-				return tomb.ErrDying
-			case <-ch:
-				if err := m.Refresh(); err != nil {
-					return err
-				}
-				continue
-			case w.changeChan <- m:
-			}
-			break
+			out = w.out
+		case out <- id:
+			out = nil
 		}
 	}
 	return nil
@@ -957,6 +870,169 @@ func (w *RelationScopeWatcher) loop() error {
 	return nil
 }
 
+// RelationUnitsWatcher sends notifications of units entering and leaving the
+// scope of a RelationUnit, and changes to the settings of those units known
+// to have entered.
+type RelationUnitsWatcher struct {
+	commonWatcher
+	sw       *RelationScopeWatcher
+	watching map[string]bool
+	updates  chan watcher.Change
+	out      chan RelationUnitsChange
+}
+
+// RelationUnitsChange holds notifications of units entering and leaving the
+// scope of a RelationUnit, and changes to the settings of those units known
+// to have entered.
+//
+// When a counterpart first enters scope, it is/ noted in the Joined field,
+// and its settings are noted in the Changed field. Subsequently, settings
+// changes will be noted in the Changed field alone, until the couterpart
+// leaves the scope; at that point, it will be noted in the Departed field,
+// and no further events will be sent for that counterpart unit.
+type RelationUnitsChange struct {
+	Joined   []string
+	Changed  map[string]UnitSettings
+	Departed []string
+}
+
+// Watch returns a watcher that notifies of changes to conterpart units in
+// the relation.
+func (ru *RelationUnit) Watch() *RelationUnitsWatcher {
+	return newRelationUnitsWatcher(ru)
+}
+
+func newRelationUnitsWatcher(ru *RelationUnit) *RelationUnitsWatcher {
+	w := &RelationUnitsWatcher{
+		commonWatcher: commonWatcher{st: ru.st},
+		sw:            ru.WatchScope(),
+		watching:      map[string]bool{},
+		updates:       make(chan watcher.Change),
+		out:           make(chan RelationUnitsChange),
+	}
+	go func() {
+		defer w.finish()
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns a channel that will receive the changes to
+// counterpart units in a relation. The first event on the
+// channel holds the initial state of the relation in its
+// Joined and Changed fields.
+func (w *RelationUnitsWatcher) Changes() <-chan RelationUnitsChange {
+	return w.out
+}
+
+func (changes *RelationUnitsChange) empty() bool {
+	return len(changes.Joined)+len(changes.Changed)+len(changes.Departed) == 0
+}
+
+// mergeSettings reads the relation settings node for the unit with the
+// supplied id, and sets a value in the Changed field keyed on the unit's
+// name. It returns the mgo/txn revision number of the settings node.
+func (w *RelationUnitsWatcher) mergeSettings(changes *RelationUnitsChange, key string) (int64, error) {
+	node, err := readConfigNode(w.st, key)
+	if err != nil {
+		return -1, err
+	}
+	name := (&relationScopeDoc{key}).unitName()
+	settings := UnitSettings{node.txnRevno, node.Map()}
+	if changes.Changed == nil {
+		changes.Changed = map[string]UnitSettings{name: settings}
+	} else {
+		changes.Changed[name] = settings
+	}
+	return node.txnRevno, nil
+}
+
+// mergeScope starts and stops settings watches on the units entering and
+// leaving the scope in the supplied RelationScopeChange event, and applies
+// the expressed changes to the supplied RelationUnitsChange event.
+func (w *RelationUnitsWatcher) mergeScope(changes *RelationUnitsChange, c *RelationScopeChange) error {
+	for _, name := range c.Entered {
+		key := w.sw.prefix + name
+		revno, err := w.mergeSettings(changes, key)
+		if err != nil {
+			return err
+		}
+		changes.Joined = append(changes.Joined, name)
+		changes.Departed = remove(changes.Departed, name)
+		w.st.watcher.Watch(w.st.settings.Name, key, revno, w.updates)
+		w.watching[key] = true
+	}
+	for _, name := range c.Left {
+		key := w.sw.prefix + name
+		changes.Departed = append(changes.Departed, name)
+		if changes.Changed != nil {
+			delete(changes.Changed, name)
+		}
+		changes.Joined = remove(changes.Joined, name)
+		w.st.watcher.Unwatch(w.st.settings.Name, key, w.updates)
+		delete(w.watching, key)
+	}
+	return nil
+}
+
+// remove removes s from strs and returns the modified slice.
+func remove(strs []string, s string) []string {
+	for i, v := range strs {
+		if s == v {
+			strs[i] = strs[len(strs)-1]
+			return strs[:len(strs)-1]
+		}
+	}
+	return strs
+}
+
+func (w *RelationUnitsWatcher) finish() {
+	watcher.Stop(w.sw, &w.tomb)
+	for key := range w.watching {
+		w.st.watcher.Unwatch(w.st.settings.Name, key, w.updates)
+	}
+	close(w.updates)
+	close(w.out)
+	w.tomb.Done()
+}
+
+func (w *RelationUnitsWatcher) loop() (err error) {
+	sentInitial := false
+	changes := RelationUnitsChange{}
+	out := w.out
+	out = nil
+	for {
+		select {
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case c, ok := <-w.sw.Changes():
+			if !ok {
+				return watcher.MustErr(w.sw)
+			}
+			if err = w.mergeScope(&changes, c); err != nil {
+				return err
+			}
+			if !sentInitial || !changes.empty() {
+				out = w.out
+			} else {
+				out = nil
+			}
+		case c := <-w.updates:
+			if _, err = w.mergeSettings(&changes, c.Id.(string)); err != nil {
+				return err
+			}
+			out = w.out
+		case out <- changes:
+			sentInitial = true
+			changes = RelationUnitsChange{}
+			out = nil
+		}
+	}
+	panic("unreachable")
+}
+
 // EnvironConfigWatcher observes changes to the
 // environment configuration.
 type EnvironConfigWatcher struct {
@@ -1108,11 +1184,11 @@ func (w *UnitWatcher) Changes() <-chan *Unit {
 }
 
 func (w *UnitWatcher) loop(unit *Unit) (err error) {
-	ch := make(chan watcher.Change)
 	name := unit.doc.Name
 	if unit, err = w.st.Unit(name); err != nil {
 		return err
 	}
+	ch := make(chan watcher.Change)
 	w.st.watcher.Watch(w.st.units.Name, name, unit.doc.TxnRevno, ch)
 	defer w.st.watcher.Unwatch(w.st.units.Name, name, ch)
 	for {
@@ -1175,11 +1251,11 @@ func (w *ServiceWatcher) Changes() <-chan *Service {
 }
 
 func (w *ServiceWatcher) loop(service *Service) (err error) {
-	ch := make(chan watcher.Change)
 	name := service.doc.Name
 	if service, err = w.st.Service(name); err != nil {
 		return err
 	}
+	ch := make(chan watcher.Change)
 	w.st.watcher.Watch(w.st.services.Name, name, service.doc.TxnRevno, ch)
 	defer w.st.watcher.Unwatch(w.st.services.Name, name, ch)
 	for {

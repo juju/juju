@@ -98,6 +98,19 @@ type context struct {
 	uniter  *uniter.Uniter
 }
 
+func (ctx *context) run(c *C, steps []stepper) {
+	defer func() {
+		if ctx.uniter != nil {
+			err := ctx.uniter.Stop()
+			c.Assert(err, IsNil)
+		}
+	}()
+	for i, s := range steps {
+		c.Logf("step %d", i)
+		step(c, ctx, s)
+	}
+}
+
 var goodHook = `
 #!/bin/bash
 juju-log UniterSuite-%d %s
@@ -151,8 +164,7 @@ var uniterTests = []uniterTest{
 		waitUniterDead{`failed to initialize uniter for unit "u/0": .*state must be a directory`},
 	), ut(
 		"unknown unit",
-		startUniter{},
-		waitUniterDead{`failed to initialize uniter for unit "u/0": cannot get unit .*`},
+		startUniter{`failed to create uniter for unit "u/0": unit "u/0" not found`},
 	),
 	// Check error conditions during unit bootstrap phase.
 	ut(
@@ -161,7 +173,7 @@ var uniterTests = []uniterTest{
 		serveCharm{},
 		writeFile{"charm", 0644},
 		createUniter{},
-		waitUniterDead{`ModeInstalling: charm deployment failed: ".*/charm" is not a directory`},
+		waitUniterDead{`ModeInstalling: charm deployment failed: ".*charm" is not a directory`},
 	), ut(
 		"charm cannot be downloaded",
 		createCharm{},
@@ -582,14 +594,7 @@ func (s *UniterSuite) TestUniter(c *C) {
 			dataDir: s.dataDir,
 			charms:  coretesting.ResponseMap{},
 		}
-		for i, s := range t.steps {
-			c.Logf("step %d", i)
-			step(c, ctx, s)
-		}
-		if ctx.uniter != nil {
-			err := ctx.uniter.Stop()
-			c.Assert(err, IsNil)
-		}
+		ctx.run(c, t.steps)
 	}
 }
 
@@ -672,14 +677,16 @@ type createUniter struct{}
 func (createUniter) step(c *C, ctx *context) {
 	step(c, ctx, createServiceAndUnit{})
 	step(c, ctx, startUniter{})
-
-	// Poll for correct address settings (consequence of "dummy" env type).
 	timeout := time.After(1 * time.Second)
 	for {
 		select {
 		case <-timeout:
 			c.Fatalf("timed out waiting for unit addresses")
 		case <-time.After(50 * time.Millisecond):
+			err := ctx.unit.Refresh()
+			if err != nil {
+				c.Fatalf("unit refresh failed: %v", err)
+			}
 			private, err := ctx.unit.PrivateAddress()
 			if err != nil || private != "private.dummy.address.example.com" {
 				continue
@@ -713,7 +720,7 @@ func (s waitUniterDead) step(c *C, ctx *context) {
 	case <-u.Dying():
 		err := u.Wait()
 		c.Assert(err, ErrorMatches, s.err)
-	case <-time.After(1000 * time.Millisecond):
+	case <-time.After(5 * time.Second):
 		c.Fatalf("uniter still alive")
 	}
 }
@@ -800,43 +807,36 @@ type waitUnit struct {
 
 func (s waitUnit) step(c *C, ctx *context) {
 	timeout := time.After(5 * time.Second)
-	// Resolved check is easy...
-	resolved := ctx.unit.WatchResolved()
-	defer stop(c, resolved)
-	resolvedOk := false
-	for !resolvedOk {
-		select {
-		case ch := <-resolved.Changes():
-			resolvedOk = ch == s.resolved
-			if !resolvedOk {
-				c.Logf("%#v", ch)
-			}
-		case <-timeout:
-			c.Fatalf("never reached desired state")
-		}
-	}
-
-	// ...but we have no status/charm watchers, so just poll.
 	for {
 		select {
 		case <-time.After(50 * time.Millisecond):
-			status, info, err := ctx.unit.Status()
-			c.Assert(err, IsNil)
-			if status != s.status {
-				c.Logf("wrong status: %s", status)
-				continue
+			err := ctx.unit.Refresh()
+			if err != nil {
+				c.Fatalf("cannot refresh unit: %v", err)
 			}
-			if info != s.info {
-				c.Logf("wrong info: %s", info)
+			resolved := ctx.unit.Resolved()
+			if resolved != s.resolved {
+				c.Logf("want resolved mode %q, got %q; still waiting", s.resolved, resolved)
 				continue
 			}
 			ch, err := ctx.unit.Charm()
-			if err != nil {
-				c.Logf("no charm")
+			if err != nil || *ch.URL() != *curl(s.charm) {
+				var got string
+				if ch != nil {
+					got = ch.URL().String()
+				}
+				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
 				continue
 			}
-			if *ch.URL() != *curl(s.charm) {
-				c.Logf("wrong charm: %s", ch.URL())
+			ctx.st.Sync() // Ensure presence watcher is up to date for Status call.
+			status, info, err := ctx.unit.Status()
+			c.Assert(err, IsNil)
+			if status != s.status {
+				c.Logf("want unit status %q, got %q; still waiting", s.status, status)
+				continue
+			}
+			if info != s.info {
+				c.Logf("want unit status info %q, got %q; still waiting", s.info, info)
 				continue
 			}
 			return
@@ -922,6 +922,8 @@ func (s verifyCharm) step(c *C, ctx *context) {
 		content, err := ioutil.ReadFile(path)
 		c.Assert(err, IsNil)
 		c.Assert(string(content), Equals, strconv.Itoa(s.revision))
+		err = ctx.unit.Refresh()
+		c.Assert(err, IsNil)
 		ch, err := ctx.unit.Charm()
 		c.Assert(err, IsNil)
 		c.Assert(ch.URL(), DeepEquals, curl(s.revision))
