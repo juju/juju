@@ -78,7 +78,7 @@ func (s *ToolsSuite) TestMarshalUnmarshal(c *C) {
 	// Check the exact document.
 	want := bson.M{
 		"version": tools.Binary.String(),
-		"url": tools.URL,
+		"url":     tools.URL,
 	}
 	got := bson.M{}
 	err = bson.Unmarshal(data, &got)

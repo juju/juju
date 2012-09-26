@@ -29,7 +29,7 @@ type Tools struct {
 
 type toolsDoc struct {
 	Version version.Binary
-	URL string
+	URL     string
 }
 
 func (t *Tools) GetBSON() (interface{}, error) {
