@@ -288,7 +288,7 @@ func (w *toolsWaiter) NextTools(c *C) *state.Tools {
 		}
 		tools, err := w.AgentTools()
 		c.Assert(err, IsNil)
-		changed := w.lastTools == nil || *tools == *w.lastTools
+		changed := w.lastTools == nil || *tools != *w.lastTools
 		w.lastTools = tools
 		if changed {
 			return tools
