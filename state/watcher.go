@@ -1298,11 +1298,80 @@ func (s *Service) WatchConfig() *ConfigWatcher {
 // MachineUnitsWatcher observes the assignment and removal of units
 // to and from a machine.
 type MachineUnitsWatcher struct {
+	commonWatcher
+	machine *Machine
+	out     chan []string
+	known   map[string]bool
 }
 
-// UnitsChange contains information about units that have been
-// assigned to or removed from the machine.
-type UnitsChange struct {
-	Alive []string
-	Dead  []string
+// WatchUnits returns a watcher for observing units being assigned to
+// or removed from a machine.
+func (m *Machine) WatchPrincipalUnits() *MachinePrincipalUnitsWatcher {
+	return newMachineUnitsWatcher(m)
+}
+
+func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
+	w := &MachineUnitsWatcher{
+		commonWatcher: commonWatcher{st: m.st},
+		out:           make(chan []string),
+		alive:         make(map[string]bool),
+		machine:       m,
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+func (w *MachineUnitsWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
+}
+
+// Changes returns a channel that will receive changes when units are added
+// or removed from the machine. The first event on the channel holds the
+// initial state as returned by Machine.Units.
+func (w *MachineUnitsWatcher) Changes() <-chan *UnitsChange {
+	return w.out
+}
+
+func (w *MachineUnitsWatcher) initial() (changes []string, err error) {
+	changes := []string{}
+	var pudocs []struct {
+		Name string `bson:"_id"`
+	}
+	err = w.st.units.Find(append(notDead, D{{"machineid", w.machine.doc.Id}}...)).Select(D{{"_id", 1}}).All(&pudocs)
+	if err != nil {
+		return nil, err
+	}
+	for _, pudoc := range pudocs {
+		changes = append(changes, pudoc.Name)
+		w.known[pudoc.Name] = true
+		sudocs := pudocs
+		err = w.st.units.Find(append(notDead, D{{"principal", pudoc.Name}}...)).Select(D{{"_id", 1}}).All(&sudocs)
+		if err != nil {
+			return nil, err
+		}
+		for _, sudoc := range sudocs {
+			changes = append(changes, sudoc.Name)
+			w.known[sudoc.Name] = true
+		}
+	}
+	return changes, nil
+}
+
+func (w *MachineUnitsWatcher) merge(pending []string, ch watcher.Change) (changes []string, err error) {
+	id := ch.Id.(string)
+	if ch.Revno == -1 {
+		delete(w.known, id)
+		return pending, nil
+	}
+	if _, ok := w.known[id]; !ok {
+		w.known[id] = true
+		changes = append(pending, id)
+		return changes, nil
+	}
+	return pending, nil
 }
