@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/trivial"
@@ -102,6 +103,9 @@ func (r *Relation) String() string {
 func (r *Relation) Refresh() error {
 	doc := relationDoc{}
 	err := r.st.relations.FindId(r.doc.Key).One(&doc)
+	if err == mgo.ErrNotFound {
+		return notFound("relation %v", r)
+	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh relation %v: %v", r, err)
 	}

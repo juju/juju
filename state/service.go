@@ -138,6 +138,9 @@ func (s *Service) String() string {
 
 func (s *Service) Refresh() error {
 	err := s.st.services.FindId(s.doc.Name).One(&s.doc)
+	if err == mgo.ErrNotFound {
+		return notFound("service %v", s)
+	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh service %v: %v", s, err)
 	}

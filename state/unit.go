@@ -3,6 +3,7 @@ package state
 import (
 	"errors"
 	"fmt"
+	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/presence"
@@ -200,6 +201,9 @@ func (u *Unit) PrivateAddress() (string, error) {
 
 func (u *Unit) Refresh() error {
 	err := u.st.units.FindId(u.doc.Name).One(&u.doc)
+	if err == mgo.ErrNotFound {
+		return notFound("unit %q", u)
+	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh unit %q: %v", u, err)
 	}

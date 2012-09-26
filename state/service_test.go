@@ -44,7 +44,7 @@ func (s *ServiceSuite) TestServiceCharm(c *C) {
 	})
 }
 
-func (s *ServiceSuite) TestServiceRefesh(c *C) {
+func (s *ServiceSuite) TestServiceRefresh(c *C) {
 	s1, err := s.State.Service(s.service.Name())
 	c.Assert(err, IsNil)
 
@@ -62,6 +62,13 @@ func (s *ServiceSuite) TestServiceRefesh(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(force, Equals, true)
 	c.Assert(testch.URL(), DeepEquals, s.charm.URL())
+
+	err = s.service.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.State.RemoveService(s.service)
+	c.Assert(err, IsNil)
+	err = s.service.Refresh()
+	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
 }
 
 func (s *ServiceSuite) TestServiceExposed(c *C) {

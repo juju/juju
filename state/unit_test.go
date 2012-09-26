@@ -71,6 +71,15 @@ func (s *UnitSuite) TestRefresh(c *C) {
 	address, err = unit1.PublicAddress()
 	c.Assert(err, IsNil)
 	c.Assert(address, Equals, "example.foobar.com")
+
+	err = unit1.EnsureDead()
+	c.Assert(err, IsNil)
+	svc, err := s.State.Service(unit1.ServiceName())
+	c.Assert(err, IsNil)
+	err = svc.RemoveUnit(unit1)
+	c.Assert(err, IsNil)
+	err = unit1.Refresh()
+	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
 }
 
 func (s *UnitSuite) TestGetSetStatus(c *C) {
