@@ -95,7 +95,7 @@ func (s *ToolsSuite) TestMarshalUnmarshal(c *C) {
 func (s *ToolsSuite) TestUnmarshalNilRoundtrip(c *C) {
 	// We have a custom unmarshaller that should keep
 	// the field unset when it finds a nil value.
-	var v struct { Tools *state.Tools }
+	var v struct{ Tools *state.Tools }
 	data, err := bson.Marshal(&v)
 	c.Assert(err, IsNil)
 	err = bson.Unmarshal(data, &v)
