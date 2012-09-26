@@ -7,23 +7,23 @@ import (
 	stdtesting "testing"
 )
 
-type mgoSuite struct {
-	T *stdtesting.T
-}
+type mgoSuite struct{}
+
+var _ = Suite(&mgoSuite{})
 
 func TestMgoSuite(t *stdtesting.T) {
-	Suite(&mgoSuite{t})
 	TestingT(t)
 }
 
 func (s *mgoSuite) TestMgoStartAndClean(c *C) {
-	server, dbdir := testing.StartMgoServer(s.T)
+	server, dbdir, err := testing.StartMgoServer()
+	c.Assert(err, IsNil)
 	defer testing.MgoDestroy(server, dbdir)
 	c.Assert(testing.MgoAddr, Not(Equals), "")
 
 	session := testing.MgoDial()
 	menu := session.DB("food").C("menu")
-	err := menu.Insert(
+	err = menu.Insert(
 		bson.D{{"spam", "lots"}},
 		bson.D{{"eggs", "fried"}},
 	)
