@@ -99,20 +99,23 @@ func (t *LiveTests) TearDownTest(c *C) {
 	t.LoggingSuite.TearDownTest(c)
 }
 
+// TODO(niemeyer): Looks like many of those tests should be moved to jujutest.LiveTests.
+
 func (t *LiveTests) TestInstanceDNSName(c *C) {
 	inst, err := t.Env.StartInstance(30, jujutest.InvalidStateInfo, nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst})
 	dns, err := inst.WaitDNSName()
-	c.Check(err, IsNil)
-	c.Check(dns, Not(Equals), "")
+	// TODO(niemeyer): This assert sometimes fails with "no instances found"
+	c.Assert(err, IsNil)
+	c.Assert(dns, Not(Equals), "")
 
 	insts, err := t.Env.Instances([]string{inst.Id()})
 	c.Assert(err, IsNil)
 	c.Assert(len(insts), Equals, 1)
 
 	ec2inst := ec2.InstanceEC2(insts[0])
-	c.Check(ec2inst.DNSName, Equals, dns)
+	c.Assert(ec2inst.DNSName, Equals, dns)
 }
 
 func (t *LiveTests) TestInstanceGroups(c *C) {
