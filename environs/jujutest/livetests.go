@@ -306,7 +306,7 @@ func waitAgentTools(c *C, w *toolsWaiter ) *state.Tools {
 
 	var tools *state.Tools
 	for {
-		tools := w.NextTools(c)
+		tools = w.NextTools(c)
 		c.Assert(tools, NotNil)
 		if tools.URL == "" {
 			// Agent hasn't started yet.
