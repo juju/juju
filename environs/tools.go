@@ -440,8 +440,8 @@ func bundleTools(w io.Writer, vers *version.Binary) (version.Binary, error) {
 	cmds := [][]string{
 		{"go", "install", "launchpad.net/juju-core/cmd/jujud"},
 		{"go", "install", "launchpad.net/juju-core/cmd/jujuc"},
-		{"strip", dir+"/jujud"},
-		{"strip", dir+"/jujuc"},
+		{"strip", dir + "/jujud"},
+		{"strip", dir + "/jujuc"},
 	}
 	env := setenv(os.Environ(), "GOBIN="+dir)
 	for _, args := range cmds {
