@@ -142,7 +142,7 @@ func (s *RelationSuite) TestRefresh(c *C) {
 	err = s.State.RemoveRelation(rel)
 	c.Assert(err, IsNil)
 	err = rel1.Refresh()
-	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
 func (s *RelationSuite) TestPeerRelation(c *C) {

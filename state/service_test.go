@@ -68,7 +68,7 @@ func (s *ServiceSuite) TestServiceRefresh(c *C) {
 	err = s.State.RemoveService(s.service)
 	c.Assert(err, IsNil)
 	err = s.service.Refresh()
-	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
 func (s *ServiceSuite) TestServiceExposed(c *C) {

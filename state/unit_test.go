@@ -79,7 +79,7 @@ func (s *UnitSuite) TestRefresh(c *C) {
 	err = svc.RemoveUnit(unit1)
 	c.Assert(err, IsNil)
 	err = unit1.Refresh()
-	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
 func (s *UnitSuite) TestGetSetStatus(c *C) {

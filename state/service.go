@@ -144,7 +144,7 @@ func (s *Service) Refresh() error {
 		return notFound("service %v", s)
 	}
 	if err != nil {
-		return fmt.Errorf("cannot refresh service %v: %v", s, err)
+		return fmt.Errorf("cannot refresh service %q: %v", s, err)
 	}
 	return nil
 }

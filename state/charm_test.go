@@ -45,5 +45,5 @@ func (s *CharmSuite) TestCharmNotFound(c *C) {
 	curl := charm.MustParseURL("local:anotherseries/dummy-1")
 	_, err := s.State.Charm(curl)
 	c.Assert(err, ErrorMatches, `charm "local:anotherseries/dummy-1" not found`)
-	c.Assert(err, FitsTypeOf, &state.NotFoundError{})
+	c.Assert(state.IsNotFound(err), Equals, true)
 }
