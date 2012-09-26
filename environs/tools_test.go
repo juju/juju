@@ -60,10 +60,12 @@ var commandTests = []struct {
 	cmd    []string
 	output string
 }{
+	// TODO(niemeyer): Reintroduce this once we start deploying to the public bucket.
+	//{
+	//	[]string{"juju", "arble"},
+	//	"error: unrecognized command: juju arble\n",
+	//},
 	{
-		[]string{"juju", "arble"},
-		"error: unrecognized command: juju arble\n",
-	}, {
 		[]string{"jujud", "arble"},
 		"error: unrecognized command: jujud arble\n",
 	}, {
