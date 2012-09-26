@@ -120,6 +120,31 @@ func (s *RelationSuite) TestProviderRequirerRelation(c *C) {
 	assertOneRelation(c, pro, 2, proep, reqep)
 }
 
+func (s *RelationSuite) TestRefresh(c *C) {
+	peer, err := s.State.AddService("peer", s.charm)
+	c.Assert(err, IsNil)
+	// Add a relation, and check we can only do so once.
+	peerep := state.RelationEndpoint{"peer", "ifce", "baz", state.RolePeer, charm.ScopeGlobal}
+	rel, err := s.State.AddRelation(peerep)
+	c.Assert(err, IsNil)
+
+	rels, err := peer.Relations()
+	c.Assert(err, IsNil)
+	rel1 := rels[0]
+	err = rel.EnsureDead()
+	c.Assert(err, IsNil)
+
+	c.Assert(rel1.Life(), Equals, state.Alive)
+	err = rel1.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(rel1.Life(), Equals, state.Dead)
+
+	err = s.State.RemoveRelation(rel)
+	c.Assert(err, IsNil)
+	err = rel1.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+}
+
 func (s *RelationSuite) TestPeerRelation(c *C) {
 	peer, err := s.State.AddService("peer", s.charm)
 	c.Assert(err, IsNil)
