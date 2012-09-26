@@ -26,10 +26,10 @@ type MgoSuite struct {
 
 // StartMgoServer starts a MongoDB server in a temporary directory.
 // It panics if it encounters an error.
-func StartMgoServer() (server *exec.Cmd, dbdir string) {
-	dbdir, err := ioutil.TempDir("", "test-mgo")
+func StartMgoServer() (server *exec.Cmd, dbdir string, err error) {
+	dbdir, err = ioutil.TempDir("", "test-mgo")
 	if err != nil {
-		panic(fmt.Errorf("cannot create temporary directory: %v", err))
+		return
 	}
 	mgoport := strconv.Itoa(FindTCPPort())
 	mgoargs := []string{
@@ -45,10 +45,10 @@ func StartMgoServer() (server *exec.Cmd, dbdir string) {
 	err = server.Start()
 	if err != nil {
 		os.RemoveAll(dbdir)
-		panic(fmt.Errorf("cannot start MongoDB server: %v", err))
+		return
 	}
 	MgoAddr = "localhost:" + mgoport
-	return server, dbdir
+	return
 }
 
 func MgoDestroy(server *exec.Cmd, dbdir string) {
@@ -60,7 +60,10 @@ func MgoDestroy(server *exec.Cmd, dbdir string) {
 // MgoTestPackage should be called to register the tests for any package that
 // requires a MongoDB server.
 func MgoTestPackage(t *stdtesting.T) {
-	server, dbdir := StartMgoServer()
+	server, dbdir, err := StartMgoServer()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer MgoDestroy(server, dbdir)
 	TestingT(t)
 }

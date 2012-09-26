@@ -4,20 +4,26 @@ import (
 	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/testing"
+	stdtesting "testing"
 )
 
 type mgoSuite struct{}
 
-var _ = Suite(mgoSuite{})
+var _ = Suite(&mgoSuite{})
 
-func (mgoSuite) TestMgoStartAndClean(c *C) {
-	server, dbdir := testing.StartMgoServer()
+func TestMgoSuite(t *stdtesting.T) {
+	TestingT(t)
+}
+
+func (s *mgoSuite) TestMgoStartAndClean(c *C) {
+	server, dbdir, err := testing.StartMgoServer()
+	c.Assert(err, IsNil)
 	defer testing.MgoDestroy(server, dbdir)
 	c.Assert(testing.MgoAddr, Not(Equals), "")
 
 	session := testing.MgoDial()
 	menu := session.DB("food").C("menu")
-	err := menu.Insert(
+	err = menu.Insert(
 		bson.D{{"spam", "lots"}},
 		bson.D{{"eggs", "fried"}},
 	)
