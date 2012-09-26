@@ -136,6 +136,8 @@ func (s *Service) String() string {
 	return s.doc.Name
 }
 
+// Refresh refreshes the contents of the Service from the underlying
+// state. It returns a NotFoundError if the service has been removed.
 func (s *Service) Refresh() error {
 	err := s.st.services.FindId(s.doc.Name).One(&s.doc)
 	if err == mgo.ErrNotFound {

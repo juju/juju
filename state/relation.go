@@ -100,6 +100,8 @@ func (r *Relation) String() string {
 	return r.doc.Key
 }
 
+// Refresh refreshes the contents of the relation from the underlying
+// state. It returns a NotFoundError if the relation has been removed.
 func (r *Relation) Refresh() error {
 	doc := relationDoc{}
 	err := r.st.relations.FindId(r.doc.Key).One(&doc)
@@ -113,6 +115,7 @@ func (r *Relation) Refresh() error {
 	return nil
 }
 
+// Life returns the relation's current life state.
 func (r *Relation) Life() Life {
 	return r.doc.Life
 }

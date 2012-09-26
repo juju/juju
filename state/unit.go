@@ -199,6 +199,8 @@ func (u *Unit) PrivateAddress() (string, error) {
 	return u.doc.PrivateAddress, nil
 }
 
+// Refresh refreshes the contents of the Unit from the underlying
+// state. It returns a NotFoundError if the unit has been removed.
 func (u *Unit) Refresh() error {
 	err := u.st.units.FindId(u.doc.Name).One(&u.doc)
 	if err == mgo.ErrNotFound {
