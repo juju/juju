@@ -237,7 +237,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	c.Assert(err, IsNil)
 	err = conn.State.RemoveMachine(mid1)
 	c.Assert(err, IsNil)
-	
+
 	c.Logf("waiting for instance to be removed")
 	t.assertStopInstance(c, conn.Environ, instId1)
 }
@@ -257,7 +257,7 @@ type watcher interface {
 
 type toolsWaiter struct {
 	lastTools *state.Tools
-	changes chan struct{}
+	changes   chan struct{}
 	watcher
 	tooler
 }
@@ -267,7 +267,7 @@ func newMachineToolWaiter(m *state.Machine) *toolsWaiter {
 	waiter := &toolsWaiter{
 		changes: make(chan struct{}, 1),
 		watcher: w,
-		tooler: m,
+		tooler:  m,
 	}
 	go func() {
 		for _ = range w.Changes() {
@@ -301,7 +301,7 @@ func (w *toolsWaiter) NextTools(c *C) *state.Tools {
 
 // waitAgentTools waits for the given agent
 // to start and returns the tools that it is running.
-func waitAgentTools(c *C, w *toolsWaiter ) *state.Tools {
+func waitAgentTools(c *C, w *toolsWaiter) *state.Tools {
 	c.Logf("waiting for %v to signal agent version", w)
 
 	var tools *state.Tools
