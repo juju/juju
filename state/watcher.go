@@ -1294,3 +1294,15 @@ type ConfigWatcher struct {
 func (s *Service) WatchConfig() *ConfigWatcher {
 	return &ConfigWatcher{newSettingsWatcher(s.st, "s#"+s.Name())}
 }
+
+// MachineUnitsWatcher observes the assignment and removal of units
+// to and from a machine.
+type MachineUnitsWatcher struct {
+}
+
+// UnitsChange contains information about units that have been
+// assigned to or removed from the machine.
+type UnitsChange struct {
+	Alive []string
+	Dead  []string
+}
