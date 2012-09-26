@@ -18,12 +18,32 @@ import (
 	"regexp"
 )
 
+// TODO(niemeyer): This must not be exported.
 type D []bson.DocElem
 
 // Tools describes a particular set of juju tools and where to find them.
 type Tools struct {
 	version.Binary
 	URL string
+}
+
+type toolsDoc struct {
+	Version version.Binary
+	URL string
+}
+
+func (t *Tools) GetBSON() (interface{}, error) {
+	return &toolsDoc{t.Binary, t.URL}, nil
+}
+
+func (t *Tools) SetBSON(raw bson.Raw) error {
+	var doc toolsDoc
+	if err := raw.Unmarshal(&doc); err != nil {
+		return err
+	}
+	t.Binary = doc.Version
+	t.URL = doc.URL
+	return nil
 }
 
 var (
