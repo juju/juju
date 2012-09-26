@@ -90,18 +90,18 @@ type RelationScopeChange struct {
 	Left    []string
 }
 
-// MachineUnitsWatcher observes the assignment and removal of units
+// MachinePrincipalUnitsWatcher observes the assignment and removal of units
 // to and from a machine.
-type MachineUnitsWatcher struct {
+type MachinePrincipalUnitsWatcher struct {
 	commonWatcher
 	machine    *Machine
-	changeChan chan *MachineUnitsChange
+	changeChan chan *MachinePrincipalUnitsChange
 	knownUnits map[string]*Unit
 }
 
-// MachineUnitsChange contains information about units that have been
+// MachinePrincipalUnitsChange contains information about units that have been
 // assigned to or removed from the machine.
-type MachineUnitsChange struct {
+type MachinePrincipalUnitsChange struct {
 	Added   []*Unit
 	Removed []*Unit
 }
@@ -632,15 +632,15 @@ func (w *ServiceRelationsWatcher) loop() (err error) {
 
 // WatchPrincipalUnits returns a watcher for observing units being
 // added to or removed from the machine.
-func (m *Machine) WatchPrincipalUnits() *MachineUnitsWatcher {
-	return newMachineUnitsWatcher(m)
+func (m *Machine) WatchPrincipalUnits() *MachinePrincipalUnitsWatcher {
+	return newMachinePrincipalUnitsWatcher(m)
 }
 
-// newMachineUnitsWatcher creates and starts a watcher to watch information
+// newMachinePrincipalUnitsWatcher creates and starts a watcher to watch information
 // about units being added to or deleted from the machine.
-func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
-	w := &MachineUnitsWatcher{
-		changeChan:    make(chan *MachineUnitsChange),
+func newMachinePrincipalUnitsWatcher(m *Machine) *MachinePrincipalUnitsWatcher {
+	w := &MachinePrincipalUnitsWatcher{
+		changeChan:    make(chan *MachinePrincipalUnitsChange),
 		machine:       m,
 		knownUnits:    make(map[string]*Unit),
 		commonWatcher: commonWatcher{st: m.st},
@@ -656,16 +656,16 @@ func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 // Changes returns a channel that will receive changes when units are
 // added or deleted. The Added field in the first event on the channel
 // holds the initial state as returned by Machine.Units.
-func (w *MachineUnitsWatcher) Changes() <-chan *MachineUnitsChange {
+func (w *MachinePrincipalUnitsWatcher) Changes() <-chan *MachinePrincipalUnitsChange {
 	return w.changeChan
 }
 
-func (w *MachineUnitsWatcher) Stop() error {
+func (w *MachinePrincipalUnitsWatcher) Stop() error {
 	w.tomb.Kill(nil)
 	return w.tomb.Wait()
 }
 
-func (w *MachineUnitsWatcher) mergeChange(changes *MachineUnitsChange, ch watcher.Change) (err error) {
+func (w *MachinePrincipalUnitsWatcher) mergeChange(changes *MachinePrincipalUnitsChange, ch watcher.Change) (err error) {
 	if ch.Revno == -1 {
 		return fmt.Errorf("machine has been removed")
 	}
@@ -700,12 +700,12 @@ func (w *MachineUnitsWatcher) mergeChange(changes *MachineUnitsChange, ch watche
 	return nil
 }
 
-func (changes *MachineUnitsChange) isEmpty() bool {
+func (changes *MachinePrincipalUnitsChange) isEmpty() bool {
 	return len(changes.Added)+len(changes.Removed) == 0
 }
 
-func (w *MachineUnitsWatcher) getInitialEvent() (initial *MachineUnitsChange, err error) {
-	changes := &MachineUnitsChange{}
+func (w *MachinePrincipalUnitsWatcher) getInitialEvent() (initial *MachinePrincipalUnitsChange, err error) {
+	changes := &MachinePrincipalUnitsChange{}
 	docs := []unitDoc{}
 	err = w.st.units.Find(D{{"_id", D{{"$in", w.machine.doc.Principals}}}}).All(&docs)
 	if err != nil {
@@ -719,7 +719,7 @@ func (w *MachineUnitsWatcher) getInitialEvent() (initial *MachineUnitsChange, er
 	return changes, nil
 }
 
-func (w *MachineUnitsWatcher) loop() (err error) {
+func (w *MachinePrincipalUnitsWatcher) loop() (err error) {
 	ch := make(chan watcher.Change)
 	w.st.watcher.Watch(w.st.machines.Name, w.machine.doc.Id, w.machine.doc.TxnRevno, ch)
 	defer w.st.watcher.Unwatch(w.st.machines.Name, w.machine.doc.Id, ch)
@@ -749,7 +749,7 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c := <-ch:
-			changes = &MachineUnitsChange{}
+			changes = &MachinePrincipalUnitsChange{}
 			err := w.mergeChange(changes, c)
 			if err != nil {
 				return err

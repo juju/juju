@@ -265,7 +265,7 @@ func (fw *Firewaller) Stop() error {
 // unitsChange contains the changed units for one specific machine. 
 type unitsChange struct {
 	machined *machineData
-	*state.MachineUnitsChange
+	*state.MachinePrincipalUnitsChange
 }
 
 // machineData holds machine details and watches units added or removed.

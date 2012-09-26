@@ -165,7 +165,7 @@ func (s *MachineSuite) TestRefreshWhenNotAlive(c *C) {
 
 }
 
-func (s *MachineSuite) TestMachineUnits(c *C) {
+func (s *MachineSuite) TestMachinePrincipalUnits(c *C) {
 	// Check that Machine.Units works correctly.
 
 	// Make three machines, three services and three units for each service;
@@ -496,16 +496,16 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 		c.Logf("test %d", i)
 		test.test(c, s, service)
 		s.State.StartSync()
-		got := &state.MachineUnitsChange{}
+		got := &state.MachinePrincipalUnitsChange{}
 		for {
 			select {
 			case new, ok := <-unitWatcher.Changes():
 				c.Assert(ok, Equals, true)
 				addMachineUnitChanges(got, new)
-				if moreMachineUnitsRequired(got, test.added, test.removed) {
+				if moreMachinePrincipalUnitsRequired(got, test.added, test.removed) {
 					continue
 				}
-				assertSameMachineUnits(c, got, test.added, test.removed)
+				assertSameMachinePrincipalUnits(c, got, test.added, test.removed)
 			case <-time.After(500 * time.Millisecond):
 				c.Fatalf("did not get change, want: added: %#v, removed: %#v, got: %#v", test.added, test.removed, got)
 			}
@@ -519,16 +519,16 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	}
 }
 
-func moreMachineUnitsRequired(got *state.MachineUnitsChange, added, removed []string) bool {
+func moreMachinePrincipalUnitsRequired(got *state.MachinePrincipalUnitsChange, added, removed []string) bool {
 	return len(got.Added)+len(got.Removed) < len(added)+len(removed)
 }
 
-func addMachineUnitChanges(changes *state.MachineUnitsChange, more *state.MachineUnitsChange) {
+func addMachineUnitChanges(changes *state.MachinePrincipalUnitsChange, more *state.MachinePrincipalUnitsChange) {
 	changes.Added = append(changes.Added, more.Added...)
 	changes.Removed = append(changes.Removed, more.Removed...)
 }
 
-func assertSameMachineUnits(c *C, change *state.MachineUnitsChange, added, removed []string) {
+func assertSameMachinePrincipalUnits(c *C, change *state.MachinePrincipalUnitsChange, added, removed []string) {
 	c.Assert(change, NotNil)
 	if len(added) == 0 {
 		added = nil
