@@ -254,6 +254,8 @@ type watcher interface {
 
 type toolsWaiter struct {
 	lastTools *state.Tools
+	// changes is a chan of struct{} so that it can
+	// be used with different kinds of entity watcher.
 	changes   chan struct{}
 	watcher
 	tooler tooler
@@ -307,7 +309,7 @@ func (w *toolsWaiter) NextTools(c *C) (*state.Tools, error) {
 // waitAgentTools waits for the given agent
 // to start and returns the tools that it is running.
 func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *state.Tools {
-	c.Logf("waiting for %v to signal agent version", w)
+	c.Logf("waiting for %v to signal agent version", w.tooler.String())
 	tools, err := w.NextTools(c)
 	c.Assert(err, IsNil)
 	c.Check(tools.Binary, Equals, expect)
