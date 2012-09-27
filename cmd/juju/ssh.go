@@ -50,7 +50,7 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer c.Close()
-	host, err := c.hostFromTarget()
+	host, err := hostFromTarget(c.Conn, c.Target)
 	if err != nil {
 		return err
 	}
@@ -63,11 +63,11 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	return cmd.Run()
 }
 
-func (c *SSHCommand) hostFromTarget(target string) (string, error) {
+func hostFromTarget(conn *juju.Conn, target string) (string, error) {
 	// is the target the id of a machine ?
 	if id, err := strconv.Atoi(target); err == nil {
 		log.Printf("juju/ssh: fetching machine address using juju machine id")
-		machine, err := c.State.Machine(id)
+		machine, err := conn.State.Machine(id)
 		if err != nil {
 			return "", err
 		}
@@ -78,7 +78,7 @@ func (c *SSHCommand) hostFromTarget(target string) (string, error) {
 			instid, err := machine.InstanceId()
 			if err == nil {
 				w.Stop()
-				inst, err := c.Environ.Instances([]string{instid})
+				inst, err := conn.Environ.Instances([]string{instid})
 				if err != nil {
 					return "", err
 				}
@@ -89,15 +89,14 @@ func (c *SSHCommand) hostFromTarget(target string) (string, error) {
 		return "", w.Stop()
 	}
 	// maybe the target is a unit
-	if unit, err := c.State.Unit(target); err == nil {
-		log.Printf("unit %s, err %v", unit, err)
+	if unit, err := conn.State.Unit(target); err == nil {
 		log.Printf("juju/ssh: fetching machine address using unit name")
 		id, err := unit.AssignedMachineId()
 		// TODO(dfc) add a watcher here
 		if err != nil {
 			return "", err
 		}
-		machine, err := c.State.Machine(id)
+		machine, err := conn.State.Machine(id)
 		if err != nil {
 			return "", err
 		}
@@ -108,7 +107,7 @@ func (c *SSHCommand) hostFromTarget(target string) (string, error) {
 			instid, err := machine.InstanceId()
 			if err == nil {
 				w.Stop()
-				inst, err := c.Environ.Instances([]string{instid})
+				inst, err := conn.Environ.Instances([]string{instid})
 				if err != nil {
 					return "", err
 				}

@@ -11,7 +11,6 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 )
 
