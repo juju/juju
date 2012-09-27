@@ -15,13 +15,12 @@ import (
 
 // ResolvedMode describes the way state transition errors
 // are resolved.
-type ResolvedMode int
+type ResolvedMode string
 
 const (
-	ResolvedNone ResolvedMode = iota
-	ResolvedRetryHooks
-	ResolvedNoHooks
-	nResolvedModes
+	ResolvedNone ResolvedMode = ""
+	ResolvedRetryHooks ResolvedMode = "retry-hooks"
+	ResolvedNoHooks ResolvedMode = "no-hooks"
 )
 
 // AssignmentPolicy controls what machine a unit will be assigned to.
@@ -577,8 +576,10 @@ func (u *Unit) SetPrivateAddress(address string) error {
 // as if they had succeeded before.
 func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	defer trivial.ErrorContextf(&err, "cannot set resolved mode for unit %q", u)
-	if !(0 <= mode && mode < nResolvedModes) {
-		return fmt.Errorf("invalid error resolution mode: %v", mode)
+	switch mode {
+	case ResolvedNone, ResolvedRetryHooks, ResolvedNoHooks:
+	default:
+		return fmt.Errorf("invalid error resolution mode: %q", mode)
 	}
 	assert := append(isAlive, D{{"resolved", ResolvedNone}}...)
 	ops := []txn.Op{{
