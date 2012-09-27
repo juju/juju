@@ -128,6 +128,44 @@ func (s *FirewallerSuite) TestExposedService(c *C) {
 	s.assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 8080}})
 }
 
+func (s *FirewallerSuite) TestMultipleExposedServices(c *C) {
+	fw := firewaller.NewFirewaller(s.State)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
+
+	svc1, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	err = svc1.SetExposed()
+	c.Assert(err, IsNil)
+
+	u1, m1 := s.addUnit(c, svc1)
+	inst1 := s.startInstance(c, m1)
+	err = u1.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+	err = u1.OpenPort("tcp", 8080)
+	c.Assert(err, IsNil)
+
+	svc2, err := s.State.AddService("mysql", s.charm)
+	c.Assert(err, IsNil)
+	err = svc2.SetExposed()
+	c.Assert(err, IsNil)
+
+	u2, m2 := s.addUnit(c, svc2)
+	inst2 := s.startInstance(c, m2)
+	err = u2.OpenPort("tcp", 3306)
+	c.Assert(err, IsNil)
+
+	s.assertPorts(c, inst1, m1.Id(), []state.Port{{"tcp", 80}, {"tcp", 8080}})
+	s.assertPorts(c, inst2, m2.Id(), []state.Port{{"tcp", 3306}})
+
+	err = u1.ClosePort("tcp", 80)
+	c.Assert(err, IsNil)
+	err = u2.ClosePort("tcp", 3306)
+	c.Assert(err, IsNil)
+
+	s.assertPorts(c, inst1, m1.Id(), []state.Port{{"tcp", 8080}})
+	s.assertPorts(c, inst2, m2.Id(), nil)
+}
+
 func (s *FirewallerSuite) TestMachineWithoutInstanceId(c *C) {
 	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), IsNil) }()
@@ -329,4 +367,54 @@ func (s *FirewallerSuite) TestRemoveService(c *C) {
 	c.Assert(err, IsNil)
 
 	s.assertPorts(c, inst, m.Id(), nil)
+}
+
+func (s *FirewallerSuite) TestRemoveMultipleServices(c *C) {
+	fw := firewaller.NewFirewaller(s.State)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
+
+	svc1, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	err = svc1.SetExposed()
+	c.Assert(err, IsNil)
+
+	u1, m1 := s.addUnit(c, svc1)
+	inst1 := s.startInstance(c, m1)
+	err = u1.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+
+	svc2, err := s.State.AddService("mysql", s.charm)
+	c.Assert(err, IsNil)
+	err = svc2.SetExposed()
+	c.Assert(err, IsNil)
+
+	u2, m2 := s.addUnit(c, svc2)
+	inst2 := s.startInstance(c, m2)
+	err = u2.OpenPort("tcp", 3306)
+	c.Assert(err, IsNil)
+
+	s.assertPorts(c, inst1, m1.Id(), []state.Port{{"tcp", 80}})
+	s.assertPorts(c, inst2, m2.Id(), []state.Port{{"tcp", 3306}})
+
+	// Remove services.
+	err = u2.EnsureDead()
+	c.Assert(err, IsNil)
+	err = svc2.RemoveUnit(u2)
+	c.Assert(err, IsNil)
+	err = svc2.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.State.RemoveService(svc2)
+	c.Assert(err, IsNil)
+
+	err = u1.EnsureDead()
+	c.Assert(err, IsNil)
+	err = svc1.RemoveUnit(u1)
+	c.Assert(err, IsNil)
+	err = svc1.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.State.RemoveService(svc1)
+	c.Assert(err, IsNil)
+
+	s.assertPorts(c, inst1, m1.Id(), nil)
+	s.assertPorts(c, inst2, m2.Id(), nil)
 }

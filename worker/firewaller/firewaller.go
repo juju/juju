@@ -88,22 +88,7 @@ func (fw *Firewaller) loop() error {
 				if !ok {
 					panic("trying to remove unit that was not added")
 				}
-				serviced := unitd.serviced
-				machined := unitd.machined
-				if err := unitd.Stop(); err != nil {
-					log.Printf("unit watcher %q returned error when stopping: %v", unit.Name(), err)
-				}
-				// Clean up after stopping.
-				delete(fw.unitds, unit.Name())
-				delete(machined.unitds, unit.Name())
-				delete(serviced.unitds, unit.Name())
-				if len(serviced.unitds) == 0 {
-					// Stop service data after all units are removed.
-					if err := serviced.Stop(); err != nil {
-						log.Printf("service watcher %q returned error when stopping: %v", serviced.service, err)
-					}
-					delete(fw.serviceds, serviced.service.Name())
-				}
+				fw.forgetUnit(unitd)
 				changed = append(changed, unitd)
 				log.Debugf("firewaller: stopped watching unit %s", unit.Name())
 			}
@@ -128,7 +113,6 @@ func (fw *Firewaller) loop() error {
 				}
 				unitd.serviced = fw.serviceds[unit.ServiceName()]
 				unitd.serviced.unitds[unit.Name()] = unitd
-				fw.serviceds[unit.ServiceName()].unitds[unit.Name()] = unitd
 				changed = append(changed, unitd)
 				log.Debugf("firewaller: started watching unit %s", unit.Name())
 			}
@@ -229,6 +213,27 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 		log.Printf("firewaller: closed ports %v on machine %d", toClose, machined.id)
 	}
 	return nil
+}
+
+// forgetUnit cleans the unit data after the unit is removed.
+func (fw *Firewaller) forgetUnit(unitd *unitData) {
+	name := unitd.unit.Name()
+	serviced := unitd.serviced
+	machined := unitd.machined
+	if err := unitd.Stop(); err != nil {
+		log.Printf("unit watcher %q returned error when stopping: %v", name, err)
+	}
+	// Clean up after stopping.
+	delete(fw.unitds, name)
+	delete(machined.unitds, name)
+	delete(serviced.unitds, name)
+	if len(serviced.unitds) == 0 {
+		// Stop service data after all units are removed.
+		if err := serviced.Stop(); err != nil {
+			log.Printf("service watcher %q returned error when stopping: %v", serviced.service, err)
+		}
+		delete(fw.serviceds, serviced.service.Name())
+	}
 }
 
 // stopWatchers stops all the firewaller's watchers.
@@ -384,10 +389,7 @@ func (ud *unitData) watchLoop() {
 		case unit, ok := <-ud.watcher.Changes():
 			if !ok {
 				err := watcher.MustErr(ud.watcher)
-				if state.IsNotFound(err) {
-					// Removed before watcher notification received.
-					log.Debugf("firewaller: unit %q has been removed", ud.unit)
-				} else {
+				if !state.IsNotFound(err) {
 					ud.fw.tomb.Kill(err)
 				}
 				return
@@ -467,10 +469,7 @@ func (sd *serviceData) watchLoop(exposed bool) {
 		case service, ok := <-sd.watcher.Changes():
 			if !ok {
 				err := watcher.MustErr(sd.watcher)
-				if state.IsNotFound(err) {
-					// Removed before watcher notification received.
-					log.Debugf("firewaller: service %q has been removed", sd.service)
-				} else {
+				if !state.IsNotFound(err) {
 					sd.fw.tomb.Kill(err)
 				}
 				return

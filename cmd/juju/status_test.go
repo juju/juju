@@ -67,9 +67,8 @@ var statusTests = []struct {
 		map[string]interface{}{
 			"machines": map[int]interface{}{
 				0: map[string]interface{}{
-					"dns-name":      "dummyenv-0.dns",
-					"instance-id":   "dummyenv-0",
-					"agent-version": "0.0.0",
+					"dns-name":    "dummyenv-0.dns",
+					"instance-id": "dummyenv-0",
 				},
 			},
 			"services": make(map[string]interface{}),
@@ -161,14 +160,12 @@ var statusTests = []struct {
 					"agent-version": "1.2.3",
 				},
 				1: map[string]interface{}{
-					"dns-name":      "dummyenv-1.dns",
-					"instance-id":   "dummyenv-1",
-					"agent-version": "0.0.0",
+					"dns-name":    "dummyenv-1.dns",
+					"instance-id": "dummyenv-1",
 				},
 				2: map[string]interface{}{
-					"dns-name":      "dummyenv-2.dns",
-					"instance-id":   "dummyenv-2",
-					"agent-version": "0.0.0",
+					"dns-name":    "dummyenv-2.dns",
+					"instance-id": "dummyenv-2",
 				},
 			},
 			"services": map[string]interface{}{
@@ -210,14 +207,12 @@ var statusTests = []struct {
 					"agent-version": "1.2.3",
 				},
 				1: map[string]interface{}{
-					"dns-name":      "dummyenv-1.dns",
-					"instance-id":   "dummyenv-1",
-					"agent-version": "0.0.0",
+					"dns-name":    "dummyenv-1.dns",
+					"instance-id": "dummyenv-1",
 				},
 				2: map[string]interface{}{
-					"dns-name":      "dummyenv-2.dns",
-					"instance-id":   "dummyenv-2",
-					"agent-version": "0.0.0",
+					"dns-name":    "dummyenv-2.dns",
+					"instance-id": "dummyenv-2",
 				},
 			},
 			"services": map[string]interface{}{
@@ -225,10 +220,9 @@ var statusTests = []struct {
 					"exposed": true,
 					"units": map[string]interface{}{
 						"exposed-service/0": map[string]interface{}{
-							"agent-version": "0.0.0",
-							"machine":       2,
-							"status":        "error",
-							"status-info":   "You Require More Vespene Gas",
+							"machine":     2,
+							"status":      "error",
+							"status-info": "You Require More Vespene Gas",
 						},
 					},
 					"charm": "dummy",
@@ -238,9 +232,8 @@ var statusTests = []struct {
 					"exposed": false,
 					"units": map[string]interface{}{
 						"dummy-service/0": map[string]interface{}{
-							"agent-version": "0.0.0",
-							"machine":       1,
-							"status":        "pending",
+							"machine": 1,
+							"status":  "pending",
 						},
 					},
 				},
