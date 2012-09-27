@@ -2,6 +2,7 @@ package state_test
 
 import (
 	"fmt"
+	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
@@ -30,8 +31,6 @@ func newTools(vers, url string) *state.Tools {
 }
 
 func testAgentTools(c *C, obj tooler, agent string) {
-	c.Skip("Marshalling of agent tools is currently broken")
-
 	// object starts with zero'd tools.
 	t, err := obj.AgentTools()
 	c.Assert(err, IsNil)
@@ -69,4 +68,37 @@ func (s *ToolsSuite) TestUnitAgentTools(c *C) {
 	unit, err := svc.AddUnit()
 	c.Assert(err, IsNil)
 	testAgentTools(c, unit, `unit "wordpress/0"`)
+}
+
+func (s *ToolsSuite) TestMarshalUnmarshal(c *C) {
+	tools := newTools("7.8.9-foo-bar", "http://arble.tgz")
+	data, err := bson.Marshal(&tools)
+	c.Assert(err, IsNil)
+
+	// Check the exact document.
+	want := bson.M{
+		"version": tools.Binary.String(),
+		"url":     tools.URL,
+	}
+	got := bson.M{}
+	err = bson.Unmarshal(data, &got)
+	c.Assert(err, IsNil)
+	c.Assert(got, DeepEquals, want)
+
+	// Check that it unpacks properly too.
+	var t state.Tools
+	err = bson.Unmarshal(data, &t)
+	c.Assert(err, IsNil)
+	c.Assert(t, Equals, *tools)
+}
+
+func (s *ToolsSuite) TestUnmarshalNilRoundtrip(c *C) {
+	// We have a custom unmarshaller that should keep
+	// the field unset when it finds a nil value.
+	var v struct{ Tools *state.Tools }
+	data, err := bson.Marshal(&v)
+	c.Assert(err, IsNil)
+	err = bson.Unmarshal(data, &v)
+	c.Assert(err, IsNil)
+	c.Assert(v.Tools, IsNil)
 }

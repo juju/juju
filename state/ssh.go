@@ -30,7 +30,7 @@ func sshDial(addr, keyFile string) (*sshForwarder, *mgo.Session, error) {
 		return nil, nil, err
 	}
 	defer trivial.ErrorContextf(&err, "cannot dial MongoDB via SSH at address %s", addr)
-	conn, err := mgo.Dial(fwd.localAddr)
+	conn, err := mgo.DialWithTimeout(fwd.localAddr, 10*time.Minute)
 	if err != nil {
 		fwd.stop()
 		return nil, nil, err

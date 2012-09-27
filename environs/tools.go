@@ -437,19 +437,26 @@ func bundleTools(w io.Writer, vers *version.Binary) (version.Binary, error) {
 	}
 	defer os.RemoveAll(dir)
 
-	cmd := exec.Command("go", "install", "launchpad.net/juju-core/cmd/...")
-	cmd.Env = setenv(os.Environ(), "GOBIN="+dir)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return version.Binary{}, fmt.Errorf("build failed: %v; %s", err, out)
+	cmds := [][]string{
+		{"go", "install", "launchpad.net/juju-core/cmd/jujud", "launchpad.net/juju-core/cmd/jujuc"},
+		{"strip", dir + "/jujud", dir + "/jujuc"},
+	}
+	env := setenv(os.Environ(), "GOBIN="+dir)
+	for _, args := range cmds {
+		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Env = env
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return version.Binary{}, fmt.Errorf("build command %q failed: %v; %s", args[0], err, out)
+		}
 	}
 	if vers != nil {
 		if err := ioutil.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte((*vers).String()), 0666); err != nil {
 			return version.Binary{}, err
 		}
 	}
-	cmd = exec.Command(filepath.Join(dir, "jujud"), "version")
-	out, err = cmd.CombinedOutput()
+	cmd := exec.Command(filepath.Join(dir, "jujud"), "version")
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return version.Binary{}, fmt.Errorf("cannot get version from %q: %v; %s", cmd.Args[0], err, out)
 	}

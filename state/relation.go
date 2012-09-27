@@ -2,9 +2,9 @@ package state
 
 import (
 	"fmt"
+	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/trivial"
 	"sort"
 	"strconv"
@@ -100,9 +100,14 @@ func (r *Relation) String() string {
 	return r.doc.Key
 }
 
+// Refresh refreshes the contents of the relation from the underlying
+// state. It returns a NotFoundError if the relation has been removed.
 func (r *Relation) Refresh() error {
 	doc := relationDoc{}
 	err := r.st.relations.FindId(r.doc.Key).One(&doc)
+	if err == mgo.ErrNotFound {
+		return notFound("relation %v", r)
+	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh relation %v: %v", r, err)
 	}
@@ -110,6 +115,7 @@ func (r *Relation) Refresh() error {
 	return nil
 }
 
+// Life returns the relation's current life state.
 func (r *Relation) Life() Life {
 	return r.doc.Life
 }
@@ -209,12 +215,6 @@ type RelationUnit struct {
 	scope    string
 }
 
-// Pinger exposes the pinger used to signal the unit's participation
-// in the relation to the rest of the system.
-func (ru *RelationUnit) Pinger() *presence.Pinger {
-	panic("not implemented")
-}
-
 // Relation returns the relation associated with the unit.
 func (ru *RelationUnit) Relation() *Relation {
 	return ru.relation
@@ -239,9 +239,12 @@ func (ru *RelationUnit) EnterScope() (err error) {
 	if err != nil {
 		return err
 	}
-	node := newConfigNode(ru.st, key)
+	node, err := readConfigNode(ru.st, key)
+	if err != nil {
+		return err
+	}
 	node.Set("private-address", address)
-	if _, err = node.Write(); err != nil {
+	if _, err := node.Write(); err != nil {
 		return err
 	}
 	ops := []txn.Op{{

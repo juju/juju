@@ -5,6 +5,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
 	"reflect"
 	"time"
 )
@@ -56,7 +57,7 @@ func (s *ProvisioningSuite) TestRunStop(c *C) {
 	c.Assert(err, IsNil)
 	units, err := s.Conn.AddUnits(svc, 1)
 	c.Assert(err, IsNil)
-	c.Check(opRecvTimeout(c, op, dummy.OpStartInstance{}), NotNil)
+	c.Check(s.opRecvTimeout(c, op, dummy.OpStartInstance{}), NotNil)
 
 	// Wait for the instance id to show up in the state.
 	id, err := units[0].AssignedMachineId()
@@ -64,16 +65,21 @@ func (s *ProvisioningSuite) TestRunStop(c *C) {
 	m, err := s.State.Machine(id)
 	c.Assert(err, IsNil)
 	w := m.Watch()
+	defer w.Stop()
 	for _ = range w.Changes() {
+		err = m.Refresh()
+		c.Assert(err, IsNil)
 		_, err := m.InstanceId()
-		if err == nil {
-			break
+		if state.IsNotFound(err) {
+			continue
 		}
+		c.Assert(err, IsNil)
+		break
 	}
 	err = units[0].OpenPort("tcp", 999)
 	c.Assert(err, IsNil)
 
-	c.Check(opRecvTimeout(c, op, dummy.OpOpenPorts{}), NotNil)
+	c.Check(s.opRecvTimeout(c, op, dummy.OpOpenPorts{}), NotNil)
 
 	err = a.Stop()
 	c.Assert(err, IsNil)
@@ -81,14 +87,15 @@ func (s *ProvisioningSuite) TestRunStop(c *C) {
 	select {
 	case err := <-done:
 		c.Assert(err, IsNil)
-	case <-time.After(2 * time.Second):
+	case <-time.After(5 * time.Second):
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
 }
 
 // opRecvTimeout waits for any of the given kinds of operation to
 // be received from ops, and times out if not.
-func opRecvTimeout(c *C, opc <-chan dummy.Operation, kinds ...dummy.Operation) dummy.Operation {
+func (s *ProvisioningSuite) opRecvTimeout(c *C, opc <-chan dummy.Operation, kinds ...dummy.Operation) dummy.Operation {
+	s.State.StartSync()
 	for {
 		select {
 		case op := <-opc:
@@ -98,7 +105,7 @@ func opRecvTimeout(c *C, opc <-chan dummy.Operation, kinds ...dummy.Operation) d
 				}
 			}
 			c.Logf("discarding unknown event %#v", op)
-		case <-time.After(2 * time.Second):
+		case <-time.After(5 * time.Second):
 			c.Fatalf("time out wating for operation")
 		}
 	}

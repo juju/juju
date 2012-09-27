@@ -3,6 +3,7 @@ package state
 import (
 	"errors"
 	"fmt"
+	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/presence"
@@ -12,8 +13,8 @@ import (
 	"time"
 )
 
-// ResolvedMode describes the way state transition errors 
-// are resolved. 
+// ResolvedMode describes the way state transition errors
+// are resolved.
 type ResolvedMode int
 
 const (
@@ -27,7 +28,7 @@ const (
 type AssignmentPolicy string
 
 const (
-	// AssignLocal indicates that all service units should be assigned 
+	// AssignLocal indicates that all service units should be assigned
 	// to machine 0.
 	AssignLocal AssignmentPolicy = "local"
 	// AssignUnused indicates that every service unit should be assigned
@@ -61,7 +62,7 @@ func (p Port) String() string {
 // UnitSettings holds information about a service unit's settings within a
 // relation.
 type UnitSettings struct {
-	Version  int
+	Version  int64
 	Settings map[string]interface{}
 }
 
@@ -198,8 +199,13 @@ func (u *Unit) PrivateAddress() (string, error) {
 	return u.doc.PrivateAddress, nil
 }
 
+// Refresh refreshes the contents of the Unit from the underlying
+// state. It returns a NotFoundError if the unit has been removed.
 func (u *Unit) Refresh() error {
 	err := u.st.units.FindId(u.doc.Name).One(&u.doc)
+	if err == mgo.ErrNotFound {
+		return notFound("unit %q", u)
+	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh unit %q: %v", u, err)
 	}
@@ -369,7 +375,7 @@ func (u *Unit) WaitAgentAlive(timeout time.Duration) (err error) {
 	panic(fmt.Sprintf("presence reported dead status twice in a row for unit %q", u))
 }
 
-// SetAgentAlive signals that the agent for unit u is alive. 
+// SetAgentAlive signals that the agent for unit u is alive.
 // It returns the started pinger.
 func (u *Unit) SetAgentAlive() (*presence.Pinger, error) {
 	p := presence.NewPinger(u.st.presence, u.globalKey())
@@ -547,7 +553,7 @@ func (u *Unit) SetPublicAddress(address string) (err error) {
 	return nil
 }
 
-// SetPrivateAddress sets the public address of the unit.
+// SetPrivateAddress sets the private address of the unit.
 func (u *Unit) SetPrivateAddress(address string) error {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,

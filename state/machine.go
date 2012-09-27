@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/trivial"
@@ -95,9 +96,14 @@ func (m *Machine) EnsureDead() error {
 	return nil
 }
 
+// Refresh refreshes the contents of the machine from the underlying
+// state. It returns a NotFoundError if the machine has been removed.
 func (m *Machine) Refresh() error {
 	doc := machineDoc{}
 	err := m.st.machines.FindId(m.doc.Id).One(&doc)
+	if err == mgo.ErrNotFound {
+		return notFound("machine %v", m)
+	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh machine %v: %v", m, err)
 	}
