@@ -418,3 +418,67 @@ func (s *FirewallerSuite) TestRemoveMultipleServices(c *C) {
 	s.assertPorts(c, inst1, m1.Id(), nil)
 	s.assertPorts(c, inst2, m2.Id(), nil)
 }
+
+func (s *FirewallerSuite) TestDeadMachine(c *C) {
+	fw := firewaller.NewFirewaller(s.State)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
+
+	svc, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	err = svc.SetExposed()
+	c.Assert(err, IsNil)
+
+	u, m := s.addUnit(c, svc)
+	inst := s.startInstance(c, m)
+	err = u.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+
+	s.assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}})
+
+	// Remove unit and service, also tested without. Has no effect.
+	err = u.EnsureDead()
+	c.Assert(err, IsNil)
+	err = svc.RemoveUnit(u)
+	c.Assert(err, IsNil)
+	err = svc.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.State.RemoveService(svc)
+	c.Assert(err, IsNil)
+
+	// Kill machine.
+	err = m.EnsureDead()
+	c.Assert(err, IsNil)
+
+	s.assertPorts(c, inst, m.Id(), nil)
+}
+
+func (s *FirewallerSuite) TestRemoveMachine(c *C) {
+	fw := firewaller.NewFirewaller(s.State)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
+
+	svc, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	err = svc.SetExposed()
+	c.Assert(err, IsNil)
+
+	u, m := s.addUnit(c, svc)
+	inst := s.startInstance(c, m)
+	err = u.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+
+	s.assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}})
+
+	// Remove unit.
+	err = u.EnsureDead()
+	c.Assert(err, IsNil)
+	err = svc.RemoveUnit(u)
+	c.Assert(err, IsNil)
+
+	// Remove machine. Nothing bad should happen, but can't
+	// assert port state since the machine must have been
+	// destroyed and we lost its reference.
+	err = m.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.State.RemoveMachine(m.Id())
+	c.Assert(err, IsNil)
+}
