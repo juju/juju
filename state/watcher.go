@@ -1410,6 +1410,9 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 	ch := make(chan watcher.Change)
 	w.st.watcher.Watch(w.st.machines.Name, w.machine.doc.Id, w.machine.doc.TxnRevno, ch)
 	defer w.st.watcher.Unwatch(w.st.machines.Name, w.machine.doc.Id, ch)
+	all := make(chan watcher.Change)
+	w.st.watcher.WatchCollection(w.st.units.Name, all)
+	defer w.st.watcher.UnwatchCollection(w.st.units.Name, all)
 	changes, err := w.initial()
 	if err != nil {
 		return err
@@ -1420,6 +1423,7 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 		w.wg.Add(1)
 		go w.watchSubordinates(unit, newunits)
 	}
+	out := w.out
 	for {
 		select {
 		case <-w.st.watcher.Dead():
@@ -1429,10 +1433,10 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 		case units := <-newunits:
 			for _, u := range units {
 				w.mu.Lock()
-				w.known[unit] = true
+				w.known[u] = true
 				w.mu.Unlock()
 			}
-			changes = append(changes, units)
+			changes = append(changes, units...)
 		case <-ch:
 			err = w.machine.Refresh()
 			if err != nil {
@@ -1449,6 +1453,14 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 				}
 			}
 			w.principals = newprincipals
+		case c := <-all:
+			changes = merge(changes, c)
+			if len(changes) > 0 {
+				out = w.out
+			}
+		case out <- changes:
+			out = nil
+			changes = nil
 		}
 	}
 	panic("unreachable")
