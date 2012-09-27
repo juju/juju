@@ -47,15 +47,6 @@ func (s *SSHSuite) TearDownTest(c *C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *SSHSuite) TestFakeSSH(c *C) {
-	cmd := exec.Command("ssh", "1", "two", "III")
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-	err := cmd.Run()
-	c.Assert(err, IsNil)
-	c.Assert(stdout.String(), Equals, "1 two III\n")
-}
-
 var sshTests = []struct {
 	args   []string
 	result string

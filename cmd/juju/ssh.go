@@ -11,7 +11,7 @@ import (
 	"launchpad.net/juju-core/log"
 )
 
-// SSHCommand is responsible for launchin an ssh shell on a given unit or machine.
+// SSHCommand is responsible for launching a ssh shell on a given unit or machine.
 type SSHCommand struct {
 	EnvName string
 	Target  string
