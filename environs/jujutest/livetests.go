@@ -207,7 +207,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	w1 := newMachineToolWaiter(m1)
 	defer w1.Stop()
 	tools1 := waitAgentTools(c, w1, tools0.Binary)
-	instId1, err := w1.tooler.(*state.Machine).InstanceId()
+	instId1, err := m1.InstanceId()
 	c.Assert(err, IsNil)
 
 	// Check that we can upgrade the environment.
@@ -231,7 +231,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	c.Assert(err, IsNil)
 	err = svc.RemoveUnit(unit)
 	c.Assert(err, IsNil)
-	err = w1.EnsureDead()
+	err = m1.EnsureDead()
 	c.Assert(err, IsNil)
 	err = conn.State.RemoveMachine(mid1)
 	c.Assert(err, IsNil)
@@ -242,7 +242,6 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 
 type tooler interface {
 	Life() state.Life
-	EnsureDead() error
 	AgentTools() (*state.Tools, error)
 	Refresh() error
 	String() string
@@ -257,7 +256,7 @@ type toolsWaiter struct {
 	lastTools *state.Tools
 	changes   chan struct{}
 	watcher
-	tooler
+	tooler tooler
 }
 
 func newMachineToolWaiter(m *state.Machine) *toolsWaiter {
@@ -280,19 +279,21 @@ func newMachineToolWaiter(m *state.Machine) *toolsWaiter {
 // until the tools are actually set.
 func (w *toolsWaiter) NextTools(c *C) (*state.Tools, error) {
 	for _ = range w.changes {
-		err := w.Refresh()
+		err := w.tooler.Refresh()
 		if err != nil {
 			return nil, fmt.Errorf("cannot refresh: %v", err)
 		}
-		if w.Life() == state.Dead {
+		if w.tooler.Life() == state.Dead {
 			return nil, fmt.Errorf("object is dead")
 		}
-		tools, err := w.AgentTools()
+		tools, err := w.tooler.AgentTools()
 		if state.IsNotFound(err) {
 			c.Logf("tools not yet set")
 			continue
 		}
-		c.Assert(err, IsNil)
+		if err != nil {
+			return nil, err
+		}
 		changed := w.lastTools == nil || *tools != *w.lastTools
 		w.lastTools = tools
 		if changed {
@@ -300,7 +301,7 @@ func (w *toolsWaiter) NextTools(c *C) (*state.Tools, error) {
 		}
 		c.Logf("found same tools")
 	}
-	return nil, fmt.Errorf("watcher finished: %v", w.Err())
+	return nil, fmt.Errorf("watcher closed prematurely: %v", w.Err())
 }
 
 // waitAgentTools waits for the given agent
@@ -326,7 +327,7 @@ func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binar
 	c.Assert(err, IsNil)
 
 	for i, w := range waiters {
-		c.Logf("waiting for upgrade of %d: %v", i, w.String())
+		c.Logf("waiting for upgrade of %d: %v", i, w.tooler.String())
 
 		waitAgentTools(c, w, newVersion)
 		c.Logf("upgrade %d successful", i)
