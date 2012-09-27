@@ -1300,11 +1300,12 @@ func (s *Service) WatchConfig() *ConfigWatcher {
 // to and from a machine.
 type MachineUnitsWatcher struct {
 	commonWatcher
-	wg      sync.WaitGroup
-	machine *Machine
-	out     chan []string
-	known   map[string]bool
-	mu      sync.Mutex
+	wg         sync.WaitGroup
+	machine    *Machine
+	out        chan []string
+	known      map[string]bool
+	principals map[string]bool
+	mu         sync.Mutex
 }
 
 // WatchUnits returns a watcher for observing units being assigned to
@@ -1414,9 +1415,41 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 		return err
 	}
 	newunits := make(chan []string)
-	for _, principal := range w.machine.doc.Principals {
+	for _, unit := range w.machine.doc.Principals {
+		w.principals[unit] = true
 		w.wg.Add(1)
-		go w.watchSubordinates(principal, newunits)
+		go w.watchSubordinates(unit, newunits)
+	}
+	for {
+		select {
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case units := <-newunits:
+			for _, u := range units {
+				w.mu.Lock()
+				w.known[unit] = true
+				w.mu.Unlock()
+			}
+			changes = append(changes, units)
+		case <-ch:
+			err = w.machine.Refresh()
+			if err != nil {
+				w.tomb.Kill(err)
+				return err
+			}
+			newprincipals := map[string]bool{}
+			for _, unit := range w.machine.doc.Principals {
+				newprincipals[unit] = true
+				if !w.principals[unit] {
+					w.principals[unit] = true
+					w.wg.Add(1)
+					go w.watchSubordinates(unit, newunits)
+				}
+			}
+			w.principals = newprincipals
+		}
 	}
 	panic("unreachable")
 }
