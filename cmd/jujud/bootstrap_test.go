@@ -5,6 +5,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
 )
 
 type BootstrapSuite struct {
@@ -63,9 +64,12 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(machines), Equals, 1)
 
-	instid, err := machines[0].InstanceId()
+	m := machines[0]
+	c.Assert(m.Id(), Equals, 0)
+	instid, err := m.InstanceId()
 	c.Assert(err, IsNil)
 	c.Assert(instid, Equals, "over9000")
+	c.Assert(m.Workers(), DeepEquals, []state.WorkerKind{state.MachineWorker, state.ProvisionerWorker, state.FirewallerWorker})
 }
 
 var base64ConfigTests = []struct {
