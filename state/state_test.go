@@ -111,7 +111,6 @@ func (s *StateSuite) TestMachineNotFound(c *C) {
 }
 
 func (s *StateSuite) TestAllMachines(c *C) {
-	c.Skip("Marshalling of agent tools is currently broken")
 	numInserts := 42
 	for i := 0; i < numInserts; i++ {
 		m, err := s.State.AddMachine()

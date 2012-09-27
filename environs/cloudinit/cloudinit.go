@@ -104,7 +104,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	addScripts(c,
 		"bin="+shquote(cfg.jujuTools()),
 		"mkdir -p $bin",
-		fmt.Sprintf("wget -O - %s | tar xz -C $bin", shquote(cfg.Tools.URL)),
+		fmt.Sprintf("wget --no-verbose -O - %s | tar xz -C $bin", shquote(cfg.Tools.URL)),
 		fmt.Sprintf("echo -n %s > $bin/downloaded-url.txt", shquote(cfg.Tools.URL)),
 	)
 
@@ -120,7 +120,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 		url := fmt.Sprintf("http://juju-dist.s3.amazonaws.com/tools/mongo-2.2.0-%s-%s.tgz", b.Series, b.Arch)
 		addScripts(c,
 			"mkdir -p /opt",
-			fmt.Sprintf("wget -O - %s | tar xz -C /opt", shquote(url)),
+			fmt.Sprintf("wget --no-verbose -O - %s | tar xz -C /opt", shquote(url)),
 		)
 		if err := addMongoToBoot(c); err != nil {
 			return nil, err
@@ -195,7 +195,9 @@ func addMongoToBoot(c *cloudinit.Config) error {
 	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    "juju state database",
-		Cmd:     "/opt/mongo/bin/mongod --port=37017 --bind_ip=0.0.0.0 --dbpath=/var/lib/juju/db --smallfiles --noprealloc",
+		Cmd: fmt.Sprintf(
+			"/opt/mongo/bin/mongod --port %d --bind_ip 0.0.0.0 --dbpath=/var/lib/juju/db --smallfiles --noprealloc",
+			mgoPort),
 	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {
