@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 	"strings"
+	"sync"
 )
 
 // commonWatcher is part of all client watchers.
@@ -1299,14 +1300,16 @@ func (s *Service) WatchConfig() *ConfigWatcher {
 // to and from a machine.
 type MachineUnitsWatcher struct {
 	commonWatcher
+	wg      sync.WaitGroup
 	machine *Machine
 	out     chan []string
 	known   map[string]bool
+	mu      sync.Mutex
 }
 
 // WatchUnits returns a watcher for observing units being assigned to
 // or removed from a machine.
-func (m *Machine) WatchPrincipalUnits() *MachinePrincipalUnitsWatcher {
+func (m *Machine) WatchUnits() *MachineUnitsWatcher {
 	return newMachineUnitsWatcher(m)
 }
 
@@ -1314,7 +1317,7 @@ func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 	w := &MachineUnitsWatcher{
 		commonWatcher: commonWatcher{st: m.st},
 		out:           make(chan []string),
-		alive:         make(map[string]bool),
+		known:         make(map[string]bool),
 		machine:       m,
 	}
 	go func() {
@@ -1333,12 +1336,11 @@ func (w *MachineUnitsWatcher) Stop() error {
 // Changes returns a channel that will receive changes when units are added
 // or removed from the machine. The first event on the channel holds the
 // initial state as returned by Machine.Units.
-func (w *MachineUnitsWatcher) Changes() <-chan *UnitsChange {
+func (w *MachineUnitsWatcher) Changes() <-chan []string {
 	return w.out
 }
 
 func (w *MachineUnitsWatcher) initial() (changes []string, err error) {
-	changes := []string{}
 	var pudocs []struct {
 		Name string `bson:"_id"`
 	}
@@ -1362,16 +1364,55 @@ func (w *MachineUnitsWatcher) initial() (changes []string, err error) {
 	return changes, nil
 }
 
-func (w *MachineUnitsWatcher) merge(pending []string, ch watcher.Change) (changes []string, err error) {
-	id := ch.Id.(string)
-	if ch.Revno == -1 {
-		delete(w.known, id)
-		return pending, nil
+func (w *MachineUnitsWatcher) loop() (err error) {
+	defer w.wg.Wait()
+	mch := make(chan watcher.Change)
+	w.st.watcher.Watch(w.st.machines.Name, w.machine.doc.Id, w.machine.doc.TxnRevno, mch)
+	defer w.st.watcher.Unwatch(w.st.machines.Name, w.machine.doc.Id, mch)
+	changes, err := w.initial()
+	if err != nil {
+		return err
 	}
-	if _, ok := w.known[id]; !ok {
-		w.known[id] = true
-		changes = append(pending, id)
-		return changes, nil
+	uch := make(chan []string)
+	for _, uname := range w.machine.doc.Principals {
+		w.wg.Add(1)
+		go func(name string) {
+			defer w.wg.Done()
+			ch := make(chan watcher.Change)
+			w.st.watcher.Watch(w.st.units.Name, name, 0, ch)
+			defer w.st.watcher.Unwatch(w.st.units.Name, name, ch)
+			for {
+				select {
+				case <-w.st.watcher.Dead():
+					return
+				case <-w.tomb.Dying():
+					return
+				case c, ok := <-ch:
+					if !ok {
+						return
+					}
+					var u struct {
+						subordinates []string
+					}
+					err := w.st.units.FindId(name).Select(D{{"subordinates", 1}}).One(u)
+					if err != nil {
+						w.tomb.Kill(err)
+						return
+					}
+					subs := []string{}
+					for _, sub := range u.subordinates {
+						w.mu.Lock()
+						if !w.known[sub] {
+							subs = append(subs, sub)
+						}
+						w.mu.Unlock()
+					}
+					if len(subs) > 0 {
+						uch <- subs
+					}
+				}
+			}
+		}(uname)
 	}
-	return pending, nil
+	panic("unreachable")
 }
