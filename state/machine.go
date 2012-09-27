@@ -46,6 +46,7 @@ func (m *Machine) Life() Life {
 }
 
 // AgentTools returns the tools that the agent is currently running.
+// It returns a *NotFoundError if the tools have not yet been set.
 func (m *Machine) AgentTools() (*Tools, error) {
 	if m.doc.Tools == nil {
 		return nil, notFound("agent tools for machine %v", m)
