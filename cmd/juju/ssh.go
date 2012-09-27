@@ -90,7 +90,6 @@ func (c *SSHCommand) hostFromTarget() (string, error) {
 	}
 	// maybe the target is a unit
 	if unit, err := c.State.Unit(c.Target); err == nil {
-		log.Printf("unit %s, err %v", unit, err)
 		log.Printf("juju/ssh: fetching machine address using unit name")
 		id, err := unit.AssignedMachineId()
 		// TODO(dfc) add a watcher here
