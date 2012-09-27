@@ -18,9 +18,9 @@ import (
 type ResolvedMode string
 
 const (
-	ResolvedNone ResolvedMode = ""
+	ResolvedNone       ResolvedMode = ""
 	ResolvedRetryHooks ResolvedMode = "retry-hooks"
-	ResolvedNoHooks ResolvedMode = "no-hooks"
+	ResolvedNoHooks    ResolvedMode = "no-hooks"
 )
 
 // AssignmentPolicy controls what machine a unit will be assigned to.
