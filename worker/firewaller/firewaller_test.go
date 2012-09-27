@@ -269,3 +269,64 @@ func (s *FirewallerSuite) TestSetClearExposedService(c *C) {
 
 	s.assertPorts(c, inst, m.Id(), nil)
 }
+
+func (s *FirewallerSuite) TestRemoveUnit(c *C) {
+	fw := firewaller.NewFirewaller(s.State)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
+
+	svc, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	err = svc.SetExposed()
+	c.Assert(err, IsNil)
+
+	u1, m1 := s.addUnit(c, svc)
+	inst1 := s.startInstance(c, m1)
+	err = u1.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+
+	u2, m2 := s.addUnit(c, svc)
+	inst2 := s.startInstance(c, m2)
+	err = u2.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+
+	s.assertPorts(c, inst1, m1.Id(), []state.Port{{"tcp", 80}})
+	s.assertPorts(c, inst2, m2.Id(), []state.Port{{"tcp", 80}})
+
+	// Remove unit.
+	err = u1.EnsureDead()
+	c.Assert(err, IsNil)
+	err = svc.RemoveUnit(u1)
+	c.Assert(err, IsNil)
+
+	s.assertPorts(c, inst1, m1.Id(), nil)
+	s.assertPorts(c, inst2, m2.Id(), []state.Port{{"tcp", 80}})
+}
+
+func (s *FirewallerSuite) TestRemoveService(c *C) {
+	fw := firewaller.NewFirewaller(s.State)
+	defer func() { c.Assert(fw.Stop(), IsNil) }()
+
+	svc, err := s.State.AddService("wordpress", s.charm)
+	c.Assert(err, IsNil)
+	err = svc.SetExposed()
+	c.Assert(err, IsNil)
+
+	u, m := s.addUnit(c, svc)
+	inst := s.startInstance(c, m)
+	err = u.OpenPort("tcp", 80)
+	c.Assert(err, IsNil)
+
+	s.assertPorts(c, inst, m.Id(), []state.Port{{"tcp", 80}})
+
+	// Remove service.
+	err = u.EnsureDead()
+	c.Assert(err, IsNil)
+	err = svc.RemoveUnit(u)
+	c.Assert(err, IsNil)
+	err = svc.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.State.RemoveService(svc)
+	c.Assert(err, IsNil)
+
+	s.assertPorts(c, inst, m.Id(), nil)
+}
