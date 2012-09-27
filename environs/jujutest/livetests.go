@@ -183,7 +183,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	w0 := newMachineToolWaiter(m0)
 	defer w0.Stop()
 
-	tools0 := waitAgentTools(c, w0)
+	tools0 := waitAgentTools(c, w0, version.Current)
 
 	// Create a new service and deploy a unit of it.
 	c.Logf("deploying service")
@@ -206,9 +206,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	c.Assert(err, IsNil)
 	w1 := newMachineToolWaiter(m1)
 	defer w1.Stop()
-	tools1 := waitAgentTools(c, w1)
-	c.Assert(tools1, NotNil)
-	c.Assert(tools1.Binary, Equals, tools0.Binary)
+	tools1 := waitAgentTools(c, w1, tools0.Binary)
 	instId1, err := w1.tooler.(*state.Machine).InstanceId()
 	c.Assert(err, IsNil)
 
@@ -278,43 +276,40 @@ func newMachineToolWaiter(m *state.Machine) *toolsWaiter {
 	return waiter
 }
 
-// nextTools returns the next changed tools.  It returns
-// nil if the waiter dies.
-func (w *toolsWaiter) NextTools(c *C) *state.Tools {
+// NextTools returns the next changed tools, waiting
+// until the tools are actually set.
+func (w *toolsWaiter) NextTools(c *C) (*state.Tools, error) {
 	for _ = range w.changes {
-		w.Refresh()
+		err := w.Refresh()
+		if err != nil {
+			return nil, fmt.Errorf("cannot refresh: %v", err)
+		}
 		if w.Life() == state.Dead {
-			return nil
+			return nil, fmt.Errorf("object is dead")
 		}
 		tools, err := w.AgentTools()
+		if state.IsNotFound(err) {
+			c.Logf("tools not yet set")
+			continue
+		}
 		c.Assert(err, IsNil)
 		changed := w.lastTools == nil || *tools != *w.lastTools
 		w.lastTools = tools
 		if changed {
-			return tools
+			return tools, nil
 		}
 		c.Logf("found same tools")
 	}
-	c.Fatalf("watcher finished: %v", w.Err())
-	panic("unreachable")
+	return nil, fmt.Errorf("watcher finished: %v", w.Err())
 }
 
 // waitAgentTools waits for the given agent
 // to start and returns the tools that it is running.
-func waitAgentTools(c *C, w *toolsWaiter) *state.Tools {
+func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *state.Tools {
 	c.Logf("waiting for %v to signal agent version", w)
-
-	var tools *state.Tools
-	for {
-		tools = w.NextTools(c)
-		c.Assert(tools, NotNil)
-		if tools.URL == "" {
-			// Agent hasn't started yet.
-			continue
-		}
-		break
-	}
-	c.Assert(tools.Binary, Equals, version.Current)
+	tools, err := w.NextTools(c)
+	c.Assert(err, IsNil)
+	c.Check(tools.Binary, Equals, expect)
 	return tools
 }
 
@@ -333,14 +328,8 @@ func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binar
 	for i, w := range waiters {
 		c.Logf("waiting for upgrade of %d: %v", i, w.String())
 
-		tools := w.NextTools(c)
-		c.Assert(tools, NotNil)
-		// N.B. We can't test that the URL is the same because there's
-		// no guarantee that it is, even though it might be referring to
-		// the same thing.
-		if c.Check(tools.Binary, DeepEquals, newVersion) {
-			c.Logf("upgrade %d successful", i)
-		}
+		waitAgentTools(c, w, newVersion)
+		c.Logf("upgrade %d successful", i)
 	}
 }
 
