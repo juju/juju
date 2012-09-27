@@ -1406,7 +1406,22 @@ func (w *MachineUnitsWatcher) watchSubordinates(principal string, changes chan [
 }
 
 func (w *MachineUnitsWatcher) merge(changes []string, c watcher.Change) []string {
-	return nil
+	name := c.Id.(string)
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if c.Revno == -1 {
+		delete(w.known, name)
+		return changes
+	}
+	if !w.known[name] {
+		return changes
+	}
+	for i, unit := range changes {
+		if unit == name {
+			return append(changes[:i], append(changes[i+1:], name)...)
+		}
+	}
+	return append(changes, name)
 }
 
 func (w *MachineUnitsWatcher) loop() (err error) {
