@@ -491,7 +491,7 @@ var machinePrincipalsWatchTests = []struct {
 	},
 }
 
-func (s *MachineSuite) TestWatchUnits(c *C) {
+func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	service, err := s.State.AddService("mysql", charm)
 	c.Assert(err, IsNil)
@@ -555,4 +555,302 @@ func assertSameMachinePrincipalUnits(c *C, change *state.MachinePrincipalUnitsCh
 		got = append(got, g.Name())
 	}
 	c.Assert(got, DeepEquals, removed)
+}
+
+var machineUnitsWatchTests = []struct {
+	test    func(*C, *MachineSuite, *state.Unit, *state.Charm)
+	added   []string
+	removed []string
+}{
+	{
+		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
+			log, err := s.State.AddService("log0", subCh)
+			c.Assert(err, IsNil)
+			_, err = log.AddUnitSubordinateTo(principal)
+			c.Assert(err, IsNil)
+		},
+		added: []string{"log0/0"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
+			log, err := s.State.AddService("log1", subCh)
+			c.Assert(err, IsNil)
+			_, err = log.AddUnitSubordinateTo(principal)
+			c.Assert(err, IsNil)
+		},
+		added: []string{"log1/0"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
+			log2, err := s.State.AddService("log2", subCh)
+			c.Assert(err, IsNil)
+			_, err = log2.AddUnitSubordinateTo(principal)
+			c.Assert(err, IsNil)
+			log3, err := s.State.AddService("log3", subCh)
+			c.Assert(err, IsNil)
+			_, err = log3.AddUnitSubordinateTo(principal)
+			c.Assert(err, IsNil)
+		},
+		added: []string{"log2/0", "log3/0"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
+			log4, err := s.State.AddService("log4", subCh)
+			c.Assert(err, IsNil)
+			_, err = log4.AddUnitSubordinateTo(principal)
+			c.Assert(err, IsNil)
+			_, err = log4.AddUnitSubordinateTo(principal)
+			c.Assert(err, IsNil)
+			_, err = log4.AddUnitSubordinateTo(principal)
+			c.Assert(err, IsNil)
+		},
+		added: []string{"log4/0", "log4/1", "log4/2"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
+			svc, err := s.State.Service("log0")
+			c.Assert(err, IsNil)
+			unit, err := svc.Unit("log0/0")
+			c.Assert(err, IsNil)
+			err = unit.Die()
+			c.Assert(err, IsNil)
+			err = svc.RemoveUnit(unit)
+			c.Assert(err, IsNil)
+		},
+		removed: []string{"log0/0"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
+			svc, err := s.State.Service("log1")
+			c.Assert(err, IsNil)
+			unit, err := svc.Unit("log1/0")
+			c.Assert(err, IsNil)
+			err = unit.Die()
+			c.Assert(err, IsNil)
+			err = svc.RemoveUnit(unit)
+			c.Assert(err, IsNil)
+		},
+		removed: []string{"log1/0"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
+			svc2, err := s.State.Service("log2")
+			c.Assert(err, IsNil)
+			unit2, err := svc2.Unit("log2/0")
+			c.Assert(err, IsNil)
+			err = unit2.Die()
+			c.Assert(err, IsNil)
+			err = svc2.RemoveUnit(unit2)
+			c.Assert(err, IsNil)
+			svc3, err := s.State.Service("log3")
+			c.Assert(err, IsNil)
+			unit3, err := svc3.Unit("log3/0")
+			c.Assert(err, IsNil)
+			err = unit3.Die()
+			c.Assert(err, IsNil)
+			err = svc3.RemoveUnit(unit3)
+			c.Assert(err, IsNil)
+		},
+		removed: []string{"log2/0", "log3/0"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
+			svc, err := s.State.Service("log4")
+			c.Assert(err, IsNil)
+			unit, err := svc.Unit("log4/0")
+			c.Assert(err, IsNil)
+			err = unit.Die()
+			c.Assert(err, IsNil)
+			err = svc.RemoveUnit(unit)
+			c.Assert(err, IsNil)
+		},
+		removed: []string{"log4/0"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
+			svc, err := s.State.Service("log4")
+			c.Assert(err, IsNil)
+			unit, err := svc.Unit("log4/1")
+			c.Assert(err, IsNil)
+			err = unit.Die()
+			c.Assert(err, IsNil)
+			err = svc.RemoveUnit(unit)
+			c.Assert(err, IsNil)
+			log, err := s.State.AddService("log5", subCh)
+			c.Assert(err, IsNil)
+			_, err = log.AddUnitSubordinateTo(principal)
+			c.Assert(err, IsNil)
+		},
+		added:   []string{"log5/0"},
+		removed: []string{"log4/1"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
+			svc, err := s.State.Service("log4")
+			c.Assert(err, IsNil)
+			unit, err := svc.Unit("log4/2")
+			c.Assert(err, IsNil)
+			err = unit.Die()
+			c.Assert(err, IsNil)
+			err = svc.RemoveUnit(unit)
+			c.Assert(err, IsNil)
+			log, err := s.State.Service("log5")
+			c.Assert(err, IsNil)
+			unit, err = log.Unit("log5/0")
+			c.Assert(err, IsNil)
+			err = unit.Die()
+			c.Assert(err, IsNil)
+			err = log.RemoveUnit(unit)
+			c.Assert(err, IsNil)
+			_, err = log.AddUnitSubordinateTo(principal)
+			c.Assert(err, IsNil)
+			_, err = log.AddUnitSubordinateTo(principal)
+			c.Assert(err, IsNil)
+		},
+		added:   []string{"log5/1", "log5/2"},
+		removed: []string{"log4/2", "log5/0"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
+			log10, err := s.State.AddService("log10", subCh)
+			c.Assert(err, IsNil)
+			log20, err := s.State.AddService("log20", subCh)
+			c.Assert(err, IsNil)
+			units10 := [10]*state.Unit{}
+			units20 := [20]*state.Unit{}
+			for i := 0; i < len(units20); i++ {
+				units20[i], err = log20.AddUnitSubordinateTo(principal)
+				c.Assert(err, IsNil)
+			}
+			for i := 0; i < len(units10); i++ {
+				units10[i], err = log10.AddUnitSubordinateTo(principal)
+				c.Assert(err, IsNil)
+			}
+			for i := 10; i < len(units20); i++ {
+				err = units20[i].Die()
+				c.Assert(err, IsNil)
+				err = log20.RemoveUnit(units20[i])
+				c.Assert(err, IsNil)
+			}
+			for i := 5; i < len(units10); i++ {
+				err = units10[i].Die()
+				c.Assert(err, IsNil)
+				err = log10.RemoveUnit(units10[i])
+				c.Assert(err, IsNil)
+			}
+		},
+		added: []string{"log10/0", "log10/1", "log10/2", "log10/3", "log10/4", "log20/0", "log20/1", "log20/2", "log20/3", "log20/4", "log20/5", "log20/6", "log20/7", "log20/8", "log20/9"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
+			svc, err := s.State.Service("log20")
+			c.Assert(err, IsNil)
+			unit, err := svc.Unit("log20/9")
+			c.Assert(err, IsNil)
+			err = unit.Die()
+			c.Assert(err, IsNil)
+			err = svc.RemoveUnit(unit)
+			c.Assert(err, IsNil)
+			log, err := s.State.AddService("log30", subCh)
+			c.Assert(err, IsNil)
+			_, err = log.AddUnitSubordinateTo(principal)
+			c.Assert(err, IsNil)
+		},
+		added:   []string{"log30/0"},
+		removed: []string{"log20/9"},
+	},
+	{
+		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
+			svc20, err := s.State.Service("log20")
+			c.Assert(err, IsNil)
+			unit208, err := svc20.Unit("log20/8")
+			c.Assert(err, IsNil)
+			err = unit208.Die()
+			c.Assert(err, IsNil)
+			err = svc20.RemoveUnit(unit208)
+			c.Assert(err, IsNil)
+			log35, err := s.State.AddService("log35", subCh)
+			c.Assert(err, IsNil)
+			_, err = log35.AddUnitSubordinateTo(principal)
+			c.Assert(err, IsNil)
+
+			err = principal.Refresh()
+			c.Assert(err, IsNil)
+			svc, err := s.State.Service(principal.ServiceName())
+			c.Assert(err, IsNil)
+			ch, _, err := svc.Charm()
+			c.Assert(err, IsNil)
+			log98, err := s.State.AddService("log98", ch)
+			c.Assert(err, IsNil)
+			log99, err := s.State.AddService("log99", subCh)
+			c.Assert(err, IsNil)
+			unit980, err := log98.AddUnit()
+			c.Assert(err, IsNil)
+			_, err = log99.AddUnitSubordinateTo(unit980)
+			c.Assert(err, IsNil)
+			_, err = log99.AddUnitSubordinateTo(unit980)
+			c.Assert(err, IsNil)
+			m, err := s.State.AddMachine()
+			c.Assert(err, IsNil)
+			err = unit980.AssignToMachine(m)
+		},
+		added:   []string{"log35/0"},
+		removed: []string{"log20/8"},
+	},
+}
+
+func (s *MachineSuite) TestWatchUnits(c *C) {
+	unitWatcher := s.machine.WatchUnits()
+	defer func() {
+		c.Assert(unitWatcher.Stop(), IsNil)
+	}()
+	s.State.StartSync()
+	select {
+	case got := <-unitWatcher.Changes():
+		assertSameMachineUnits(c, got, []string{}, []string{})
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("did not get change: %#v", &state.MachineUnitsChange{})
+	}
+
+	charm := s.AddTestingCharm(c, "dummy")
+	service, err := s.State.AddService("mysql", charm)
+	c.Assert(err, IsNil)
+	principal, err := service.AddUnit()
+	c.Assert(err, IsNil)
+	err = principal.AssignToMachine(s.machine)
+	c.Assert(err, IsNil)
+	s.State.StartSync()
+	select {
+	case got := <-unitWatcher.Changes():
+		assertSameMachineUnits(c, got, []string{"mysql/0"}, []string{})
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("did not get change: %+v", struct{ Added []string }{[]string{"mysql/0"}})
+	}
+
+	subCh := s.AddTestingCharm(c, "logging")
+	for i, test := range machineUnitsWatchTests {
+		c.Logf("test %d", i)
+		test.test(c, s, principal, subCh)
+		s.State.StartSync()
+		got := &state.MachineUnitsChange{}
+		for {
+			select {
+			case new, ok := <-unitWatcher.Changes():
+				c.Assert(ok, Equals, true)
+				addMachineUnitChanges(got, new)
+				if moreMachineUnitsRequired(got, test.added, test.removed) {
+					continue
+				}
+				assertSameMachineUnits(c, got, test.added, test.removed)
+			case <-time.After(500 * time.Millisecond):
+				c.Fatalf("did not get change, want: added: %#v, removed: %#v, got: %#v", test.added, test.removed, got)
+			}
+			break
+		}
+	}
+	select {
+	case got := <-unitWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
 }
