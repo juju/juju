@@ -207,6 +207,9 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	w1 := newMachineToolWaiter(m1)
 	defer w1.Stop()
 	tools1 := waitAgentTools(c, w1, tools0.Binary)
+
+	err = m1.Refresh()
+	c.Assert(err, IsNil)
 	instId1, err := m1.InstanceId()
 	c.Assert(err, IsNil)
 
@@ -257,7 +260,7 @@ type toolsWaiter struct {
 	// changes is a chan of struct{} so that it can
 	// be used with different kinds of entity watcher.
 	changes chan struct{}
-	watcher
+	watcher watcher
 	tooler tooler
 }
 
@@ -275,6 +278,10 @@ func newMachineToolWaiter(m *state.Machine) *toolsWaiter {
 		close(waiter.changes)
 	}()
 	return waiter
+}
+
+func (w *toolsWaiter) Stop() error {
+	return w.watcher.Stop()
 }
 
 // NextTools returns the next changed tools, waiting
@@ -303,7 +310,7 @@ func (w *toolsWaiter) NextTools(c *C) (*state.Tools, error) {
 		}
 		c.Logf("found same tools")
 	}
-	return nil, fmt.Errorf("watcher closed prematurely: %v", w.Err())
+	return nil, fmt.Errorf("watcher closed prematurely: %v", w.watcher.Err())
 }
 
 // waitAgentTools waits for the given agent
