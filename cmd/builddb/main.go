@@ -53,17 +53,25 @@ func build() error {
 		return err
 	}
 
-	log.Printf("Waiting for unit to reach started status...")
+	log.Printf("Waiting for unit to reach %q status...", state.UnitStarted)
 	unit := units[0]
-	status, _, err := unit.Status()
+	last, info, err := unit.Status()
 	if err != nil {
 		return err
 	}
-	for status != state.UnitStarted {
+	logStatus(last, info)
+	for last != state.UnitStarted {
 		time.Sleep(2 * time.Second)
-		status, _, err = unit.Status()
+		if err := unit.Refresh(); err != nil {
+			return err
+		}
+		status, info, err := unit.Status()
 		if err != nil {
 			return err
+		}
+		if status != last {
+			logStatus(status, info)
+			last = status
 		}
 	}
 	addr, err := unit.PublicAddress()
@@ -73,4 +81,12 @@ func build() error {
 	log.Printf("Built files published at http://%s", addr)
 	log.Printf("Remember to destroy the environment when you're done...")
 	return nil
+}
+
+func logStatus(status state.UnitStatus, info string) {
+	if info == "" {
+		log.Printf("Unit status is %q", status)
+	} else {
+		log.Printf("Unit status is %q: %s", status, info)
+	}
 }

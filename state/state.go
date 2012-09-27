@@ -33,10 +33,17 @@ type toolsDoc struct {
 }
 
 func (t *Tools) GetBSON() (interface{}, error) {
+	if t == nil {
+		return nil, nil
+	}
 	return &toolsDoc{t.Binary, t.URL}, nil
 }
 
 func (t *Tools) SetBSON(raw bson.Raw) error {
+	if raw.Kind == 10 {
+		// Preserve the nil value in that case.
+		return bson.SetZero
+	}
 	var doc toolsDoc
 	if err := raw.Unmarshal(&doc); err != nil {
 		return err
