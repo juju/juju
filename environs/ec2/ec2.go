@@ -827,8 +827,9 @@ var metadataHost = "http://169.254.169.254"
 // fetchMetadata fetches a single atom of data from the ec2 instance metadata service.
 // http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
 func fetchMetadata(name string) (value string, err error) {
+	uri := fmt.Sprintf("%s/2011-01-01/meta-data/%s", metadataHost, name)
+	defer trivial.ErrorContextf(&err, "cannot get %q", uri)
 	for a := shortAttempt.Start(); a.Next(); {
-		uri := fmt.Sprintf("%s/2011-01-01/meta-data/%s", metadataHost, name)
 		var resp *http.Response
 		resp, err = http.Get(uri)
 		if err != nil {
