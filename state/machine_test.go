@@ -808,11 +808,13 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 		c.Fatalf("did not get change: %#v", []string{"mysql/0"})
 	}
 
+	dead := []string{}
 	subCh := s.AddTestingCharm(c, "logging")
 	for i, test := range machineUnitsWatchTests {
 		c.Logf("test %d", i)
 		test.test(c, s, principal, subCh)
 		s.State.StartSync()
+		dead = append(dead, test.dead...)
 		got := []string{}
 		want := append([]string(nil), test.alive...)
 		want = append(want, test.dead...)
@@ -836,6 +838,39 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 			}
 			break
 		}
+	}
+
+	for _, uname := range dead {
+		unit, err := s.State.Unit(uname)
+		c.Assert(err, IsNil)
+		svc, err := s.State.Service(unit.ServiceName())
+		c.Assert(err, IsNil)
+		err = svc.RemoveUnit(unit)
+		c.Assert(err, IsNil)
+	}
+	s.State.StartSync()
+	select {
+	case got := <-unitWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	service, err = s.State.AddService("wordpress", charm)
+	c.Assert(err, IsNil)
+	unit0, err := service.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit0.AssignToMachine(s.machine)
+	c.Assert(err, IsNil)
+	unit1, err := service.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit1.AssignToMachine(s.machine)
+	c.Assert(err, IsNil)
+	s.State.StartSync()
+	select {
+	case got := <-unitWatcher.Changes():
+		c.Assert(got, DeepEquals, []string{"wordpress/0", "wordpress/1"})
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("did not get change: %#v", []string{"wordpress/0", "wordpress/1"})
 	}
 
 	select {
