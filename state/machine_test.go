@@ -301,7 +301,7 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 	}
 }
 
-var machineUnitsWatchTests = []struct {
+var machinePrincipalsWatchTests = []struct {
 	test    func(*C, *MachineSuite, *state.Service)
 	added   []string
 	removed []string
@@ -499,7 +499,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	defer func() {
 		c.Assert(unitWatcher.Stop(), IsNil)
 	}()
-	for i, test := range machineUnitsWatchTests {
+	for i, test := range machinePrincipalsWatchTests {
 		c.Logf("test %d", i)
 		test.test(c, s, service)
 		s.State.StartSync()
