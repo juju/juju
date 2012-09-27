@@ -1405,6 +1405,10 @@ func (w *MachineUnitsWatcher) watchSubordinates(principal string, changes chan [
 	}
 }
 
+func (w *MachineUnitsWatcher) merge(changes []string, c watcher.Change) []string {
+	return nil
+}
+
 func (w *MachineUnitsWatcher) loop() (err error) {
 	defer w.wg.Wait()
 	ch := make(chan watcher.Change)
@@ -1454,7 +1458,7 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 			}
 			w.principals = newprincipals
 		case c := <-all:
-			changes = merge(changes, c)
+			changes = w.merge(changes, c)
 			if len(changes) > 0 {
 				out = w.out
 			}
