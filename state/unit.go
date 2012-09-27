@@ -122,9 +122,10 @@ func (u *Unit) Life() Life {
 }
 
 // AgentTools returns the tools that the agent is currently running.
+// It returns a *NotFoundError if the tools have not yet been set.
 func (u *Unit) AgentTools() (*Tools, error) {
 	if u.doc.Tools == nil {
-		return &Tools{}, nil
+		return nil, notFound("agent tools for unit %q", u)
 	}
 	tools := *u.doc.Tools
 	return &tools, nil

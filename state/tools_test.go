@@ -33,8 +33,8 @@ func newTools(vers, url string) *state.Tools {
 func testAgentTools(c *C, obj tooler, agent string) {
 	// object starts with zero'd tools.
 	t, err := obj.AgentTools()
-	c.Assert(err, IsNil)
-	c.Assert(t, DeepEquals, &state.Tools{})
+	c.Assert(t, IsNil)
+	c.Assert(state.IsNotFound(err), Equals, true)
 
 	err = obj.SetAgentTools(&state.Tools{})
 	c.Assert(err, ErrorMatches, fmt.Sprintf("cannot set agent tools for %s: empty series or arch", agent))
