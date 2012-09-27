@@ -63,9 +63,9 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	return cmd.Run()
 }
 
-func (c *SSHCommand) hostFromTarget() (string, error) {
+func (c *SSHCommand) hostFromTarget(target string) (string, error) {
 	// is the target the id of a machine ?
-	if id, err := strconv.Atoi(c.Target); err == nil {
+	if id, err := strconv.Atoi(target); err == nil {
 		log.Printf("juju/ssh: fetching machine address using juju machine id")
 		machine, err := c.State.Machine(id)
 		if err != nil {
@@ -89,7 +89,7 @@ func (c *SSHCommand) hostFromTarget() (string, error) {
 		return "", w.Stop()
 	}
 	// maybe the target is a unit
-	if unit, err := c.State.Unit(c.Target); err == nil {
+	if unit, err := c.State.Unit(target); err == nil {
 		log.Printf("unit %s, err %v", unit, err)
 		log.Printf("juju/ssh: fetching machine address using unit name")
 		id, err := unit.AssignedMachineId()
