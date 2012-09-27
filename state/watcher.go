@@ -1406,17 +1406,17 @@ func (w *MachineUnitsWatcher) watchSubordinates(principal string, changes chan [
 
 func (w *MachineUnitsWatcher) loop() (err error) {
 	defer w.wg.Wait()
-	mch := make(chan watcher.Change)
-	w.st.watcher.Watch(w.st.machines.Name, w.machine.doc.Id, w.machine.doc.TxnRevno, mch)
-	defer w.st.watcher.Unwatch(w.st.machines.Name, w.machine.doc.Id, mch)
+	ch := make(chan watcher.Change)
+	w.st.watcher.Watch(w.st.machines.Name, w.machine.doc.Id, w.machine.doc.TxnRevno, ch)
+	defer w.st.watcher.Unwatch(w.st.machines.Name, w.machine.doc.Id, ch)
 	changes, err := w.initial()
 	if err != nil {
 		return err
 	}
-	uch := make(chan []string)
-	for _, uname := range w.machine.doc.Principals {
+	newunits := make(chan []string)
+	for _, principal := range w.machine.doc.Principals {
 		w.wg.Add(1)
-		go w.watchSubordinates(uname, uch)
+		go w.watchSubordinates(principal, newunits)
 	}
 	panic("unreachable")
 }
