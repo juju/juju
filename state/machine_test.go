@@ -1,6 +1,7 @@
 package state_test
 
 import (
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
@@ -614,8 +615,6 @@ var machineUnitsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = unit.EnsureDead()
 			c.Assert(err, IsNil)
-			err = svc.RemoveUnit(unit)
-			c.Assert(err, IsNil)
 		},
 		dead: []string{"log0/0"},
 	},
@@ -626,8 +625,6 @@ var machineUnitsWatchTests = []struct {
 			unit, err := svc.Unit("log1/0")
 			c.Assert(err, IsNil)
 			err = unit.EnsureDead()
-			c.Assert(err, IsNil)
-			err = svc.RemoveUnit(unit)
 			c.Assert(err, IsNil)
 		},
 		dead: []string{"log1/0"},
@@ -640,15 +637,11 @@ var machineUnitsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = unit2.EnsureDead()
 			c.Assert(err, IsNil)
-			err = svc2.RemoveUnit(unit2)
-			c.Assert(err, IsNil)
 			svc3, err := s.State.Service("log3")
 			c.Assert(err, IsNil)
 			unit3, err := svc3.Unit("log3/0")
 			c.Assert(err, IsNil)
 			err = unit3.EnsureDead()
-			c.Assert(err, IsNil)
-			err = svc3.RemoveUnit(unit3)
 			c.Assert(err, IsNil)
 		},
 		dead: []string{"log2/0", "log3/0"},
@@ -661,8 +654,6 @@ var machineUnitsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = unit.EnsureDead()
 			c.Assert(err, IsNil)
-			err = svc.RemoveUnit(unit)
-			c.Assert(err, IsNil)
 		},
 		dead: []string{"log4/0"},
 	},
@@ -673,8 +664,6 @@ var machineUnitsWatchTests = []struct {
 			unit, err := svc.Unit("log4/1")
 			c.Assert(err, IsNil)
 			err = unit.EnsureDead()
-			c.Assert(err, IsNil)
-			err = svc.RemoveUnit(unit)
 			c.Assert(err, IsNil)
 			log, err := s.State.AddService("log5", subCh)
 			c.Assert(err, IsNil)
@@ -692,15 +681,11 @@ var machineUnitsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = unit.EnsureDead()
 			c.Assert(err, IsNil)
-			err = svc.RemoveUnit(unit)
-			c.Assert(err, IsNil)
 			log, err := s.State.Service("log5")
 			c.Assert(err, IsNil)
 			unit, err = log.Unit("log5/0")
 			c.Assert(err, IsNil)
 			err = unit.EnsureDead()
-			c.Assert(err, IsNil)
-			err = log.RemoveUnit(unit)
 			c.Assert(err, IsNil)
 			_, err = log.AddUnitSubordinateTo(principal)
 			c.Assert(err, IsNil)
@@ -749,8 +734,6 @@ var machineUnitsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = unit.EnsureDead()
 			c.Assert(err, IsNil)
-			err = svc.RemoveUnit(unit)
-			c.Assert(err, IsNil)
 			log, err := s.State.AddService("log30", subCh)
 			c.Assert(err, IsNil)
 			_, err = log.AddUnitSubordinateTo(principal)
@@ -766,8 +749,6 @@ var machineUnitsWatchTests = []struct {
 			unit208, err := svc20.Unit("log20/8")
 			c.Assert(err, IsNil)
 			err = unit208.EnsureDead()
-			c.Assert(err, IsNil)
-			err = svc20.RemoveUnit(unit208)
 			c.Assert(err, IsNil)
 			log35, err := s.State.AddService("log35", subCh)
 			c.Assert(err, IsNil)
@@ -810,6 +791,51 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 		c.Assert(got, DeepEquals, []string(nil))
 	case <-time.After(500 * time.Millisecond):
 		c.Fatalf("did not get change: %#v", []string(nil))
+	}
+
+	charm := s.AddTestingCharm(c, "dummy")
+	service, err := s.State.AddService("mysql", charm)
+	c.Assert(err, IsNil)
+	principal, err := service.AddUnit()
+	c.Assert(err, IsNil)
+	err = principal.AssignToMachine(s.machine)
+	c.Assert(err, IsNil)
+	s.State.StartSync()
+	select {
+	case got := <-unitWatcher.Changes():
+		c.Assert(got, DeepEquals, []string{"mysql/0"})
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("did not get change: %#v", []string{"mysql/0"})
+	}
+
+	subCh := s.AddTestingCharm(c, "logging")
+	for i, test := range machineUnitsWatchTests {
+		c.Logf("test %d", i)
+		test.test(c, s, principal, subCh)
+		s.State.StartSync()
+		got := []string{}
+		want := append([]string(nil), test.alive...)
+		want = append(want, test.dead...)
+		sort.Strings(want)
+		for {
+			select {
+			case new, ok := <-unitWatcher.Changes():
+				c.Assert(ok, Equals, true)
+				fmt.Printf("\n ## new: %#v\n", new)
+				got = append(got, new...)
+				fmt.Printf(" ## got: %#v\n", got)
+				fmt.Printf(" ## len(got): %#v, len(want): %#v\n", len(got), len(want))
+				if len(got) < len(want) {
+					continue
+				}
+				fmt.Printf(" ## passed continue\n")
+				sort.Strings(got)
+				c.Assert(got, DeepEquals, want)
+			case <-time.After(500 * time.Millisecond):
+				c.Fatalf("did not get change, want: %#v", want)
+			}
+			break
+		}
 	}
 
 	select {
