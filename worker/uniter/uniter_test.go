@@ -164,7 +164,8 @@ var uniterTests = []uniterTest{
 		waitUniterDead{`failed to initialize uniter for unit "u/0": .*state must be a directory`},
 	), ut(
 		"unknown unit",
-		startUniter{`failed to create uniter for unit "u/0": unit "u/0" not found`},
+		startUniter{},
+		waitUniterDead{`failed to initialize uniter for unit "u/0": unit "u/0" not found`},
 	),
 	// Check error conditions during unit bootstrap phase.
 	ut(
@@ -700,7 +701,7 @@ func (createUniter) step(c *C, ctx *context) {
 	}
 }
 
-type startUniter struct{}
+type startUniter struct {}
 
 func (s startUniter) step(c *C, ctx *context) {
 	if ctx.uniter != nil {
