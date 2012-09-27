@@ -288,7 +288,7 @@ func newUnitToolWaiter(u *state.Unit) *toolsWaiter {
 	waiter := &toolsWaiter{
 		changes: make(chan struct{}, 1),
 		watcher: w,
-		tooler: u,
+		tooler:  u,
 	}
 	go func() {
 		for _ = range w.Changes() {

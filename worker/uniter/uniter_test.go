@@ -701,7 +701,7 @@ func (createUniter) step(c *C, ctx *context) {
 	}
 }
 
-type startUniter struct {}
+type startUniter struct{}
 
 func (s startUniter) step(c *C, ctx *context) {
 	if ctx.uniter != nil {
