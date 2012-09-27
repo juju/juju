@@ -137,7 +137,7 @@ func (t *ToolsSuite) TestUploadBadBuild(c *C) {
 
 	tools, err := environs.PutTools(t.env.Storage(), nil)
 	c.Assert(tools, IsNil)
-	c.Assert(err, ErrorMatches, `build failed: exit status 1; can't load package:(.|\n)*`)
+	c.Assert(err, ErrorMatches, `build command "go" failed: exit status 1; can't load package:(.|\n)*`)
 }
 
 var unpackToolsBadDataTests = []struct {

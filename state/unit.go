@@ -3,6 +3,7 @@ package state
 import (
 	"errors"
 	"fmt"
+	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/presence"
@@ -121,9 +122,10 @@ func (u *Unit) Life() Life {
 }
 
 // AgentTools returns the tools that the agent is currently running.
+// It returns a *NotFoundError if the tools have not yet been set.
 func (u *Unit) AgentTools() (*Tools, error) {
 	if u.doc.Tools == nil {
-		return &Tools{}, nil
+		return nil, notFound("agent tools for unit %q", u)
 	}
 	tools := *u.doc.Tools
 	return &tools, nil
@@ -198,8 +200,13 @@ func (u *Unit) PrivateAddress() (string, error) {
 	return u.doc.PrivateAddress, nil
 }
 
+// Refresh refreshes the contents of the Unit from the underlying
+// state. It returns a NotFoundError if the unit has been removed.
 func (u *Unit) Refresh() error {
 	err := u.st.units.FindId(u.doc.Name).One(&u.doc)
+	if err == mgo.ErrNotFound {
+		return notFound("unit %q", u)
+	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh unit %q: %v", u, err)
 	}

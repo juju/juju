@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/trivial"
@@ -45,9 +46,10 @@ func (m *Machine) Life() Life {
 }
 
 // AgentTools returns the tools that the agent is currently running.
+// It returns a *NotFoundError if the tools have not yet been set.
 func (m *Machine) AgentTools() (*Tools, error) {
 	if m.doc.Tools == nil {
-		return &Tools{}, nil
+		return nil, notFound("agent tools for machine %v", m)
 	}
 	tools := *m.doc.Tools
 	return &tools, nil
@@ -95,9 +97,14 @@ func (m *Machine) EnsureDead() error {
 	return nil
 }
 
+// Refresh refreshes the contents of the machine from the underlying
+// state. It returns a NotFoundError if the machine has been removed.
 func (m *Machine) Refresh() error {
 	doc := machineDoc{}
 	err := m.st.machines.FindId(m.doc.Id).One(&doc)
+	if err == mgo.ErrNotFound {
+		return notFound("machine %v", m)
+	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh machine %v: %v", m, err)
 	}

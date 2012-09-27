@@ -151,6 +151,13 @@ func (s *MachineSuite) TestMachineRefresh(c *C) {
 	c.Assert(err, IsNil)
 	m1Id, _ = m1.InstanceId()
 	c.Assert(m1Id, Equals, newId)
+
+	err = m0.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.State.RemoveMachine(m0.Id())
+	c.Assert(err, IsNil)
+	err = m0.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
 func (s *MachineSuite) TestRefreshWhenNotAlive(c *C) {

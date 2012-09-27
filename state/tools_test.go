@@ -33,8 +33,8 @@ func newTools(vers, url string) *state.Tools {
 func testAgentTools(c *C, obj tooler, agent string) {
 	// object starts with zero'd tools.
 	t, err := obj.AgentTools()
-	c.Assert(err, IsNil)
-	c.Assert(t, DeepEquals, &state.Tools{})
+	c.Assert(t, IsNil)
+	c.Assert(state.IsNotFound(err), Equals, true)
 
 	err = obj.SetAgentTools(&state.Tools{})
 	c.Assert(err, ErrorMatches, fmt.Sprintf("cannot set agent tools for %s: empty series or arch", agent))
@@ -90,4 +90,15 @@ func (s *ToolsSuite) TestMarshalUnmarshal(c *C) {
 	err = bson.Unmarshal(data, &t)
 	c.Assert(err, IsNil)
 	c.Assert(t, Equals, *tools)
+}
+
+func (s *ToolsSuite) TestUnmarshalNilRoundtrip(c *C) {
+	// We have a custom unmarshaller that should keep
+	// the field unset when it finds a nil value.
+	var v struct{ Tools *state.Tools }
+	data, err := bson.Marshal(&v)
+	c.Assert(err, IsNil)
+	err = bson.Unmarshal(data, &v)
+	c.Assert(err, IsNil)
+	c.Assert(v.Tools, IsNil)
 }

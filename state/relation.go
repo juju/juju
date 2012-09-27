@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/trivial"
@@ -99,9 +100,14 @@ func (r *Relation) String() string {
 	return r.doc.Key
 }
 
+// Refresh refreshes the contents of the relation from the underlying
+// state. It returns a NotFoundError if the relation has been removed.
 func (r *Relation) Refresh() error {
 	doc := relationDoc{}
 	err := r.st.relations.FindId(r.doc.Key).One(&doc)
+	if err == mgo.ErrNotFound {
+		return notFound("relation %v", r)
+	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh relation %v: %v", r, err)
 	}
@@ -109,6 +115,7 @@ func (r *Relation) Refresh() error {
 	return nil
 }
 
+// Life returns the relation's current life state.
 func (r *Relation) Life() Life {
 	return r.doc.Life
 }
