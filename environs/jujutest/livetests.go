@@ -261,7 +261,7 @@ type toolsWaiter struct {
 	// be used with different kinds of entity watcher.
 	changes chan struct{}
 	watcher watcher
-	tooler tooler
+	tooler  tooler
 }
 
 func newMachineToolWaiter(m *state.Machine) *toolsWaiter {
