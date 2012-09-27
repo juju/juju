@@ -1364,6 +1364,46 @@ func (w *MachineUnitsWatcher) initial() (changes []string, err error) {
 	return changes, nil
 }
 
+func (w *MachineUnitsWatcher) watchSubordinates(principal string, changes chan []string) {
+	defer w.wg.Done()
+	ch := make(chan watcher.Change)
+	w.st.watcher.Watch(w.st.units.Name, principal, 0, ch)
+	defer w.st.watcher.Unwatch(w.st.units.Name, principal, ch)
+	for {
+		var c watcher.Change
+		var ok bool
+		select {
+		case <-w.st.watcher.Dead():
+			return
+		case <-w.tomb.Dying():
+			return
+		case c, ok = <-ch:
+			if !ok || c.Revno == -1 {
+				return
+			}
+			var u struct {
+				subordinates []string
+			}
+			err := w.st.units.FindId(principal).Select(D{{"subordinates", 1}}).One(u)
+			if err != nil {
+				w.tomb.Kill(err)
+				return
+			}
+			subordinates := []string{}
+			for _, sub := range u.subordinates {
+				w.mu.Lock()
+				if !w.known[sub] {
+					subordinates = append(subordinates, sub)
+				}
+				w.mu.Unlock()
+			}
+			if len(subordinates) > 0 {
+				changes <- subordinates
+			}
+		}
+	}
+}
+
 func (w *MachineUnitsWatcher) loop() (err error) {
 	defer w.wg.Wait()
 	mch := make(chan watcher.Change)
@@ -1376,43 +1416,7 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 	uch := make(chan []string)
 	for _, uname := range w.machine.doc.Principals {
 		w.wg.Add(1)
-		go func(name string) {
-			defer w.wg.Done()
-			ch := make(chan watcher.Change)
-			w.st.watcher.Watch(w.st.units.Name, name, 0, ch)
-			defer w.st.watcher.Unwatch(w.st.units.Name, name, ch)
-			for {
-				select {
-				case <-w.st.watcher.Dead():
-					return
-				case <-w.tomb.Dying():
-					return
-				case c, ok := <-ch:
-					if !ok {
-						return
-					}
-					var u struct {
-						subordinates []string
-					}
-					err := w.st.units.FindId(name).Select(D{{"subordinates", 1}}).One(u)
-					if err != nil {
-						w.tomb.Kill(err)
-						return
-					}
-					subs := []string{}
-					for _, sub := range u.subordinates {
-						w.mu.Lock()
-						if !w.known[sub] {
-							subs = append(subs, sub)
-						}
-						w.mu.Unlock()
-					}
-					if len(subs) > 0 {
-						uch <- subs
-					}
-				}
-			}
-		}(uname)
+		go w.watchSubordinates(uname, uch)
 	}
 	panic("unreachable")
 }
