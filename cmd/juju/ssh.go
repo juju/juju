@@ -56,7 +56,7 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	}
 	args := []string{"-l", "ubuntu", "-t", "-o", "StrictHostKeyChecking no", "-o", "PasswordAuthentication no", host, "--"}
 	args = append(args, c.Args...)
-	cmd := exec.Command("/usr/bin/ssh", args...)
+	cmd := exec.Command("ssh", args...)
 	cmd.Stdin = ctx.Stdin
 	cmd.Stdout = ctx.Stdout
 	cmd.Stderr = ctx.Stderr

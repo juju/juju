@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"net/url"
 	"os"
@@ -29,6 +30,7 @@ echo $@
 
 func (s *SSHSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
+
 	path := c.MkDir()
 	s.oldpath = os.Getenv("PATH")
 	os.Setenv("PATH", path+":"+s.oldpath)
@@ -58,12 +60,14 @@ var sshTests = []struct {
 	args   []string
 	result string
 }{
-	{[]string{"0"}, ""},
-	{[]string{"mysql/0"}, ""},
-	{[]string{"mongodb/1"}, ""},
+	{[]string{"0"}, "-l ubuntu -t -o StrictHostKeyChecking no -o PasswordAuthentication no dummyenv-0.dns --\n"},
+	{[]string{"0", "uname -a"}, "-l ubuntu -t -o StrictHostKeyChecking no -o PasswordAuthentication no dummyenv-0.dns -- uname -a\n"},
+	{[]string{"mysql/0"}, "-l ubuntu -t -o StrictHostKeyChecking no -o PasswordAuthentication no dummyenv-0.dns --\n"},
+	{[]string{"mongodb/1"}, "-l ubuntu -t -o StrictHostKeyChecking no -o PasswordAuthentication no dummyenv-2.dns --\n"},
 }
 
 func (s *SSHSuite) TestSSHCommand(c *C) {
+	m := s.makeMachines(3, c)
 	ch := coretesting.Charms.Dir("series", "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
@@ -72,9 +76,22 @@ func (s *SSHSuite) TestSSHCommand(c *C) {
 	c.Assert(err, IsNil)
 	dummy, err := s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
 	c.Assert(err, IsNil)
-	_, err = s.State.AddService("mysql", dummy)
+	srv, err := s.State.AddService("mysql", dummy)
 	c.Assert(err, IsNil)
-	_, err = s.State.AddService("mongodb", dummy)
+	u, err := srv.AddUnit()
+	c.Assert(err, IsNil)
+	err = u.AssignToMachine(m[0])
+	c.Assert(err, IsNil)
+
+	srv, err = s.State.AddService("mongodb", dummy)
+	c.Assert(err, IsNil)
+	u, err = srv.AddUnit()
+	c.Assert(err, IsNil)
+	err = u.AssignToMachine(m[1])
+	c.Assert(err, IsNil)
+	u, err = srv.AddUnit()
+	c.Assert(err, IsNil)
+	err = u.AssignToMachine(m[2])
 	c.Assert(err, IsNil)
 
 	for _, t := range sshTests {
@@ -85,4 +102,19 @@ func (s *SSHSuite) TestSSHCommand(c *C) {
 		c.Check(ctx.Stderr.(*bytes.Buffer).String(), Equals, "")
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), Equals, t.result)
 	}
+}
+
+func (s *SSHSuite) makeMachines(n int, c *C) []*state.Machine {
+	var machines = make([]*state.Machine, n)
+	for i := 0; i < n; i++ {
+		m, err := s.State.AddMachine()
+		c.Assert(err, IsNil)
+		// must set an instance id as the ssh command uses that as a signal the machine
+		// has been provisioned
+		inst, err := s.Conn.Environ.StartInstance(m.Id(), nil, nil)
+		c.Assert(err, IsNil)
+		c.Assert(m.SetInstanceId(inst.Id()), IsNil)
+		machines[i] = m
+	}
+	return machines
 }
