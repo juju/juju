@@ -50,13 +50,28 @@ var sshTests = []struct {
 	args   []string
 	result string
 }{
-	{[]string{"0"}, "-l ubuntu -t -o StrictHostKeyChecking no -o PasswordAuthentication no dummyenv-0.dns --\n"},
+	{
+		[]string{"0"},
+		"-l ubuntu -t -o StrictHostKeyChecking no -o PasswordAuthentication no dummyenv-0.dns\n",
+	},
 	// juju ssh 0 'uname -a'
-	{[]string{"0", "uname -a"}, "-l ubuntu -t -o StrictHostKeyChecking no -o PasswordAuthentication no dummyenv-0.dns -- uname -a\n"},
+	{
+		[]string{"0", "uname -a"},
+		"-l ubuntu -t -o StrictHostKeyChecking no -o PasswordAuthentication no dummyenv-0.dns uname -a\n",
+	},
 	// juju ssh 0 -- uname -a
-	{[]string{"0", "--", "uname", "-a"}, "-l ubuntu -t -o StrictHostKeyChecking no -o PasswordAuthentication no dummyenv-0.dns -- uname -a\n"},
-	{[]string{"mysql/0"}, "-l ubuntu -t -o StrictHostKeyChecking no -o PasswordAuthentication no dummyenv-0.dns --\n"},
-	{[]string{"mongodb/1"}, "-l ubuntu -t -o StrictHostKeyChecking no -o PasswordAuthentication no dummyenv-2.dns --\n"},
+	{
+		[]string{"0", "--", "uname", "-a"},
+		"-l ubuntu -t -o StrictHostKeyChecking no -o PasswordAuthentication no dummyenv-0.dns uname -a\n",
+	},
+	{
+		[]string{"mysql/0"},
+		"-l ubuntu -t -o StrictHostKeyChecking no -o PasswordAuthentication no dummyenv-0.dns\n",
+	},
+	{
+		[]string{"mongodb/1"},
+		"-l ubuntu -t -o StrictHostKeyChecking no -o PasswordAuthentication no dummyenv-2.dns\n",
+	},
 }
 
 func (s *SSHSuite) TestSSHCommand(c *C) {
@@ -71,21 +86,12 @@ func (s *SSHSuite) TestSSHCommand(c *C) {
 	c.Assert(err, IsNil)
 	srv, err := s.State.AddService("mysql", dummy)
 	c.Assert(err, IsNil)
-	u, err := srv.AddUnit()
-	c.Assert(err, IsNil)
-	err = u.AssignToMachine(m[0])
-	c.Assert(err, IsNil)
+	s.addUnit(srv, m[0], c)
 
 	srv, err = s.State.AddService("mongodb", dummy)
 	c.Assert(err, IsNil)
-	u, err = srv.AddUnit()
-	c.Assert(err, IsNil)
-	err = u.AssignToMachine(m[1])
-	c.Assert(err, IsNil)
-	u, err = srv.AddUnit()
-	c.Assert(err, IsNil)
-	err = u.AssignToMachine(m[2])
-	c.Assert(err, IsNil)
+	s.addUnit(srv, m[1], c)
+	s.addUnit(srv, m[2], c)
 
 	for _, t := range sshTests {
 		c.Logf("testing juju ssh %s", t.args)
@@ -110,4 +116,20 @@ func (s *SSHSuite) makeMachines(n int, c *C) []*state.Machine {
 		machines[i] = m
 	}
 	return machines
+}
+
+func (s *SSHSuite) addUnit(srv *state.Service, m *state.Machine, c *C) {
+	u, err := srv.AddUnit()
+	c.Assert(err, IsNil)
+	err = u.AssignToMachine(m)
+	c.Assert(err, IsNil)
+	// fudge unit.SetPublicAddress
+	id, err := m.InstanceId()
+	c.Assert(err, IsNil)
+	insts, err := s.Conn.Environ.Instances([]string{id})
+	c.Assert(err, IsNil)
+	addr, err := insts[0].WaitDNSName()
+	c.Assert(err, IsNil)
+	err = u.SetPublicAddress(addr)
+	c.Assert(err, IsNil)
 }
