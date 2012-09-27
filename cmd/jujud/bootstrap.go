@@ -54,7 +54,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	defer st.Close()
 
 	// Manually insert machine/0 into the state
-	m, err := st.AddMachine()
+	m, err := st.AddMachine(state.MachineWorker)
 	if err != nil {
 		return err
 	}

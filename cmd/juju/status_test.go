@@ -41,7 +41,7 @@ var statusTests = []struct {
 	{
 		"simulate juju bootstrap by adding machine/0 to the state",
 		func(st *state.State, _ *juju.Conn, c *C) {
-			m, err := st.AddMachine()
+			m, err := st.AddMachine(state.MachineWorker)
 			c.Assert(err, IsNil)
 			c.Assert(m.Id(), Equals, 0)
 		},
@@ -143,7 +143,7 @@ var statusTests = []struct {
 		"add two more machines for units",
 		func(st *state.State, conn *juju.Conn, c *C) {
 			for i := 1; i < 3; i++ {
-				m, err := st.AddMachine()
+				m, err := st.AddMachine(state.MachineWorker)
 				c.Assert(err, IsNil)
 				c.Assert(m.Id(), Equals, i)
 				inst, err := conn.Environ.StartInstance(m.Id(), nil, nil)

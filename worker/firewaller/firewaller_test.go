@@ -211,7 +211,7 @@ func (s *FirewallerSuite) TestFirewallerStartWithState(c *C) {
 }
 
 func (s *FirewallerSuite) TestFirewallerStartWithPartialState(c *C) {
-	m, err := s.State.AddMachine()
+	m, err := s.State.AddMachine(state.MachineWorker)
 	c.Assert(err, IsNil)
 	inst, err := s.Conn.Environ.StartInstance(m.Id(), s.StateInfo(c), nil)
 	c.Assert(err, IsNil)

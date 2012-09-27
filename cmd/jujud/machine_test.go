@@ -4,6 +4,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
 )
 
 type MachineSuite struct {
@@ -51,7 +52,7 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *C) {
 }
 
 func (s *MachineSuite) TestRunStop(c *C) {
-	m, err := s.State.AddMachine()
+	m, err := s.State.AddMachine(state.MachineWorker)
 	c.Assert(err, IsNil)
 	a := &MachineAgent{
 		Conf: AgentConf{
