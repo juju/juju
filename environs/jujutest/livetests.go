@@ -256,7 +256,7 @@ type toolsWaiter struct {
 	lastTools *state.Tools
 	// changes is a chan of struct{} so that it can
 	// be used with different kinds of entity watcher.
-	changes   chan struct{}
+	changes chan struct{}
 	watcher
 	tooler tooler
 }
