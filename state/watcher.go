@@ -1371,7 +1371,6 @@ func (w *MachineUnitsWatcher) watchSubordinates(principal string, changes chan [
 	ch := make(chan watcher.Change)
 	w.st.watcher.Watch(w.st.units.Name, principal, 0, ch)
 	defer w.st.watcher.Unwatch(w.st.units.Name, principal, ch)
-	fmt.Printf("\n  !!! ->sW: principal: %v\n\n", principal)
 	for {
 		var c watcher.Change
 		var ok bool
@@ -1381,7 +1380,6 @@ func (w *MachineUnitsWatcher) watchSubordinates(principal string, changes chan [
 		case <-w.tomb.Dying():
 			return
 		case c, ok = <-ch:
-			fmt.Printf("  !! event: %#v\n", c)
 			if !ok || c.Revno == -1 {
 				return
 			}
@@ -1393,7 +1391,6 @@ func (w *MachineUnitsWatcher) watchSubordinates(principal string, changes chan [
 				w.tomb.Kill(err)
 				return
 			}
-			fmt.Printf("  !! subordinates: %#v\n", u.Subordinates)
 			subordinates := []string{}
 			for _, unit := range u.Subordinates {
 				w.mu.Lock()
@@ -1410,7 +1407,6 @@ func (w *MachineUnitsWatcher) watchSubordinates(principal string, changes chan [
 }
 
 func (w *MachineUnitsWatcher) merge(changes []string, c watcher.Change) []string {
-	fmt.Printf("\n  ! M1\n")
 	name := c.Id.(string)
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -1418,12 +1414,9 @@ func (w *MachineUnitsWatcher) merge(changes []string, c watcher.Change) []string
 		delete(w.known, name)
 		return changes
 	}
-	fmt.Printf("\n  ! M2\n")
 	if !w.known[name] {
-		fmt.Printf("\n  ! M2 returns %#v\n", changes)
 		return changes
 	}
-	fmt.Printf("\n  ! M3\n")
 	for i, unit := range changes {
 		if unit == name {
 			return append(changes[:i], append(changes[i+1:], name)...)
@@ -1452,14 +1445,12 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 	}
 	out := w.out
 	for {
-		fmt.Printf("\n !!!! loop changes: %#v\n", changes)
 		select {
 		case <-w.st.watcher.Dead():
 			return watcher.MustErr(w.st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case units := <-newunits:
-			fmt.Printf("\n  !!! nU: %#v\n", units)
 			for _, u := range units {
 				w.mu.Lock()
 				w.known[u] = true
@@ -1467,7 +1458,6 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 			}
 			changes = append(changes, units...)
 			out = w.out
-			fmt.Printf("\n  !!! nU changes: %#v\n", changes)
 		case <-ch:
 			err = w.machine.Refresh()
 			if err != nil {
@@ -1485,14 +1475,11 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 			}
 			w.principals = newprincipals
 		case c := <-all:
-			fmt.Printf("\n  !!! from All: %#v\n", changes)
 			changes = w.merge(changes, c)
-			fmt.Printf("\n  !!! from All+: %#v\n", changes)
 			if len(changes) > 0 {
 				out = w.out
 			}
 		case out <- changes:
-			fmt.Printf("\n  !!! delivered: %#v\n", changes)
 			out = nil
 			changes = nil
 		}
