@@ -1,7 +1,6 @@
 package state_test
 
 import (
-	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
@@ -40,7 +39,6 @@ func (s *MachineSuite) TestMachineSetAgentAlive(c *C) {
 }
 
 func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
-	// test -gocheck.f TestMachineWaitAgentAlive
 	timeout := 200 * time.Millisecond
 	alive, err := s.machine.AgentAlive()
 	c.Assert(err, IsNil)
@@ -823,16 +821,22 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 			select {
 			case new, ok := <-unitWatcher.Changes():
 				c.Assert(ok, Equals, true)
-				fmt.Printf("\n ## new: %#v\n", new)
 				got = append(got, new...)
-				fmt.Printf(" ## got: %#v\n", got)
-				fmt.Printf(" ## len(got): %#v, len(want): %#v\n", len(got), len(want))
 				if len(got) < len(want) {
 					continue
 				}
-				fmt.Printf(" ## passed continue\n")
 				sort.Strings(got)
 				c.Assert(got, DeepEquals, want)
+				for _, name := range test.alive {
+					unit, err := s.State.Unit(name)
+					c.Assert(err, IsNil)
+					c.Assert(unit.Life(), Equals, state.Alive)
+				}
+				for _, name := range test.dead {
+					unit, err := s.State.Unit(name)
+					c.Assert(err, IsNil)
+					c.Assert(unit.Life(), Equals, state.Dead)
+				}
 			case <-time.After(500 * time.Millisecond):
 				c.Fatalf("did not get change, want: %#v", want)
 			}
