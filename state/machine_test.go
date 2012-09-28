@@ -258,7 +258,9 @@ func tools(tools int, url string) *state.Tools {
 	return &state.Tools{
 		URL: url,
 		Binary: version.Binary{
-			Number: version.Number{0, 0, tools},
+			Number: version.Number{
+				Major: 0, Minor: 0, Patch: tools,
+			},
 			Series: "series",
 			Arch:   "arch",
 		},
