@@ -67,7 +67,7 @@ func (s *StateSuite) TestAddMachine(c *C) {
 	c.Assert(err, ErrorMatches, "cannot add a new machine: new machine must be started with a machine worker")
 	c.Assert(m0, IsNil)
 	m0, err = s.State.AddMachine(state.MachinerWorker, state.MachinerWorker)
-	c.Assert(err, ErrorMatches, "cannot add a new machine: duplicate worker: machine")
+	c.Assert(err, ErrorMatches, "cannot add a new machine: duplicate worker: machiner")
 	c.Assert(m0, IsNil)
 	m0, err = s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
