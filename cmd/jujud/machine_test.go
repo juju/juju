@@ -68,3 +68,32 @@ func (s *MachineSuite) TestRunStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(<-done, IsNil)
 }
+
+func (s *MachineSuite) TestWithDeadMachine(c *C) {
+	m, err := s.State.AddMachine()
+	c.Assert(err, IsNil)
+	err = m.EnsureDead()
+	c.Assert(err, IsNil)
+	a := &MachineAgent{
+		Conf: AgentConf{
+			DataDir:   c.MkDir(),
+			StateInfo: *s.StateInfo(c),
+		},
+		MachineId: m.Id(),
+	}
+	err = runWithTimeout(a)
+	c.Assert(err, IsNil)
+
+	// try again with the machine removed.
+	err = s.State.RemoveMachine(m.Id())
+	c.Assert(err, IsNil)
+	a = &MachineAgent{
+		Conf: AgentConf{
+			DataDir:   c.MkDir(),
+			StateInfo: *s.StateInfo(c),
+		},
+		MachineId: m.Id(),
+	}
+	err = runWithTimeout(a)
+	c.Assert(err, IsNil)
+}

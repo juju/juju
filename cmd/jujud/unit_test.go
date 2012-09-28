@@ -1,14 +1,13 @@
 package main
 
 import (
-	"io/ioutil"
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/version"
-	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -53,30 +52,7 @@ func (s *UnitSuite) TestParseUnknown(c *C) {
 }
 
 func (s *UnitSuite) TestRunStop(c *C) {
-	// Set up state.
-	ch := s.AddTestingCharm(c, "dummy")
-	svc, err := s.Conn.AddService("dummy", ch)
-	c.Assert(err, IsNil)
-	unit, err := svc.AddUnit()
-	c.Assert(err, IsNil)
-
-	// Set up local environment.
-	dataDir := s.DataDir()
-	vers := version.Current.String()
-	toolsDir := filepath.Join(dataDir, "tools", vers)
-	err = os.MkdirAll(toolsDir, 0755)
-	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(filepath.Join(toolsDir, "jujuc"), nil, 0644)
-	c.Assert(err, IsNil)
-	toolsLink := filepath.Join(dataDir, "tools", "unit-dummy-0")
-	err = os.Symlink(vers, toolsLink)
-	c.Assert(err, IsNil)
-
-	// Run a unit agent.
-	a := &UnitAgent{
-		Conf:     AgentConf{dataDir, *s.StateInfo(c)},
-		UnitName: unit.Name(),
-	}
+	a, unit, _ := s.newAgent(c)
 	done := make(chan error)
 	go func() {
 		done <- a.Run(nil)
@@ -105,7 +81,89 @@ func (s *UnitSuite) TestRunStop(c *C) {
 		}
 		break
 	}
-	err = a.Stop()
+	err := a.Stop()
 	c.Assert(err, IsNil)
 	c.Assert(<-done, IsNil)
+}
+
+
+// newAgent starts a new unit agent running a unit
+// of the dummy charm.
+func (s *UnitSuite) newAgent(c *C) (*UnitAgent, *state.Unit, *state.Tools) {
+	ch := s.AddTestingCharm(c, "dummy")
+	svc, err := s.Conn.AddService("dummy", ch)
+	c.Assert(err, IsNil)
+	unit, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+
+	dataDir, tools := primeTools(c, s.Conn, version.Current)
+	tools1, err := environs.ChangeAgentTools(dataDir, unit.PathKey(), version.Current)
+	c.Assert(err, IsNil)
+	c.Assert(tools1, DeepEquals, tools)
+
+	return &UnitAgent{
+		Conf:     AgentConf{dataDir, *s.StateInfo(c)},
+		UnitName: unit.Name(),
+	}, unit, tools
+}
+
+func (s *UnitSuite) TestUpgrade(c *C) {
+	newVers := version.Current
+	newVers.Patch++
+	newTools := uploadTools(c, s.Conn, newVers)
+	proposeVersion(c, s.State, newVers.Number, true)
+	a, _, currentTools := s.newAgent(c)
+	defer a.Stop()
+	err := runWithTimeout(a)
+	c.Assert(err, FitsTypeOf, &UpgradeReadyError{})
+	ug := err.(*UpgradeReadyError)
+	c.Assert(ug.Tools, DeepEquals, newTools)
+	c.Assert(ug.OldTools, DeepEquals, currentTools)
+}
+
+func (s *UnitSuite) TestWithDeadUnit(c *C) {
+	ch := s.AddTestingCharm(c, "dummy")
+	svc, err := s.Conn.AddService("dummy", ch)
+	c.Assert(err, IsNil)
+	unit, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit.EnsureDead()
+	c.Assert(err, IsNil)
+
+	dataDir := c.MkDir()
+	a := &UnitAgent{
+		Conf:     AgentConf{dataDir, *s.StateInfo(c)},
+		UnitName: unit.Name(),
+	}
+	err = runWithTimeout(a)
+	c.Assert(err, IsNil)
+
+	// try again when the unit has been removed.
+	err = svc.RemoveUnit(unit)
+	c.Assert(err, IsNil)
+	a = &UnitAgent{
+		Conf:     AgentConf{dataDir, *s.StateInfo(c)},
+		UnitName: unit.Name(),
+	}
+	err = runWithTimeout(a)
+	c.Assert(err, IsNil)
+}
+
+type runner interface {
+	Run(*cmd.Context) error
+	Stop() error
+}
+
+func runWithTimeout(runner runner) error {
+	done := make(chan error)
+	go func() {
+		done <- runner.Run(nil)
+	}()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(5 * time.Second):
+	}
+	err := runner.Stop()
+	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
 }
