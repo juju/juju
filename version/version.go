@@ -39,12 +39,14 @@ func init() {
 // fixed the patch number is incremented; when new features are added
 // the minor number is incremented and patch is reset; and when
 // compatibility is broken the major version is incremented and minor
-// and patch are reset.  If any of the numbers is odd it
+// and patch are reset. The build number represents a build version.
+// If any number is odd other than Build, it
 // indicates that the release is still in development.
 type Number struct {
 	Major int
 	Minor int
 	Patch int
+	Build int
 }
 
 // Binary specifies a binary version of juju.
@@ -81,8 +83,8 @@ func (vp *Binary) SetBSON(raw bson.Raw) error {
 }
 
 var (
-	binaryPat = regexp.MustCompile(`^(\d{1,9})\.(\d{1,9})\.(\d{1,9})-([^-]+)-([^-]+)$`)
-	numberPat = regexp.MustCompile(`^(\d{1,9})\.(\d{1,9})\.(\d{1,9})$`)
+	binaryPat = regexp.MustCompile(`^(\d{1,9})\.(\d{1,9})\.(\d{1,9})(\.\d{1,9})?-([^-]+)-([^-]+)$`)
+	numberPat = regexp.MustCompile(`^(\d{1,9})\.(\d{1,9})\.(\d{1,9})(\.\d{1,9})?$`)
 )
 
 // MustParse parses a version and panics if it does
@@ -115,8 +117,11 @@ func ParseBinary(s string) (Binary, error) {
 	v.Major = atoi(m[1])
 	v.Minor = atoi(m[2])
 	v.Patch = atoi(m[3])
-	v.Series = m[4]
-	v.Arch = m[5]
+	if m[4] != "" {
+		v.Build = atoi(m[4][1:])
+	}
+	v.Series = m[5]
+	v.Arch = m[6]
 	return v, nil
 }
 
@@ -132,6 +137,9 @@ func Parse(s string) (Number, error) {
 	v.Major = atoi(m[1])
 	v.Minor = atoi(m[2])
 	v.Patch = atoi(m[3])
+	if m[4] != "" {
+		v.Build = atoi(m[4][1:])
+	}
 	return v, nil
 }
 
@@ -146,7 +154,11 @@ func atoi(s string) int {
 }
 
 func (v Number) String() string {
-	return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
+	s := fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
+	if v.Build > 0 {
+		s += fmt.Sprintf(".%d", v.Build)
+	}
+	return s
 }
 
 // Less returns whether v is semantically earlier in the
@@ -159,6 +171,8 @@ func (v Number) Less(w Number) bool {
 		return v.Minor < w.Minor
 	case v.Patch != w.Patch:
 		return v.Patch < w.Patch
+	case v.Build != w.Build:
+		return v.Build < w.Build
 	}
 	return false
 }
