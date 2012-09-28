@@ -309,7 +309,7 @@ var machinesWatchTests = []struct {
 		},
 		[]int{0},
 	}, {
-		"Report non-Dead machines that are removed",
+		"Report previously known machines that are removed",
 		func(c *C, s *state.State) {
 			m0, err := s.Machine(0)
 			c.Assert(err, IsNil)

@@ -171,11 +171,6 @@ type MachinesWatcher struct {
 	life map[int]Life
 }
 
-type machineLifeDoc struct {
-	Id   int `bson:"_id"`
-	Life Life
-}
-
 var lifeFields = D{{"_id", 1}, {"life", 1}}
 
 // WatchMachines returns a new MachinesWatcher.
@@ -205,7 +200,7 @@ func (w *MachinesWatcher) Changes() <-chan []int {
 
 func (w *MachinesWatcher) initial() (ids []int, err error) {
 	iter := w.st.machines.Find(nil).Select(lifeFields).Iter()
-	var doc machineLifeDoc
+	var doc machineDoc
 	for iter.Next(&doc) {
 		ids = append(ids, doc.Id)
 		w.life[doc.Id] = doc.Life
@@ -230,7 +225,7 @@ func (w *MachinesWatcher) merge(ids []int, ch watcher.Change) ([]int, error) {
 		delete(w.life, id)
 		return ids, nil
 	}
-	doc := machineLifeDoc{id, Dead}
+	doc := machineDoc{Id: id, Life: Dead}
 	err := w.st.machines.FindId(id).Select(lifeFields).One(&doc)
 	if err != nil && err != mgo.ErrNotFound {
 		return nil, err
