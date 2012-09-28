@@ -43,7 +43,7 @@ func (m *Machine) globalKey() string {
 
 // PathKey returns a name identifying the machine that can be used as a
 // file name.  The returned key will be different from other
-// PathKeys returned by any other entities from the same state.
+// PathKey values returned by any other entities from the same state.
 func (m *Machine) PathKey() string {
 	return fmt.Sprintf("machine-%d", m.doc.Id)
 }
