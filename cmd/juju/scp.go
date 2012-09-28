@@ -12,10 +12,7 @@ import (
 
 // SCPCommand is responsible for launching a scp command to copy files to/from remote machine(s)
 type SCPCommand struct {
-	EnvName string
-	Target  string
-	Args    []string
-	*juju.Conn
+	SSHCommon
 }
 
 func (c *SCPCommand) Info() *cmd.Info {
@@ -53,7 +50,7 @@ func (c *SCPCommand) Run(ctx *cmd.Context) error {
 		// 2001:db8::1:2:/somepath.
 		// BUG(dfc) This will also not work if the local path has a : in it.
 		if v := strings.SplitN(c.Args[i], ":", 2); len(v) > 1 {
-			host, err := hostFromTarget(c.Conn, v[0])
+			host, err := c.hostFromTarget(v[0])
 			if err != nil {
 				return err
 			}

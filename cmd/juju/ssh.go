@@ -9,10 +9,16 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state"
 )
 
 // SSHCommand is responsible for launching a ssh shell on a given unit or machine.
 type SSHCommand struct {
+	SSHCommon
+}
+
+// SSHCommon provides common methods for SSHCommand and SCPCommand.
+type SSHCommon struct {
 	EnvName string
 	Target  string
 	Args    []string
@@ -29,20 +35,19 @@ func (c *SSHCommand) Init(f *gnuflag.FlagSet, args []string) error {
 		return err
 	}
 	args = f.Args()
-	switch len(args) {
-	case 0:
+	if len(args) == 0 {
 		return errors.New("no service name specified")
-	default:
-		c.Args = args[1:]
-		fallthrough
-	case 1:
+	} else if len(args) == 1 {
 		c.Target = args[0]
+	} else {
+		c.Target = args[0]
+		c.Args = args[1:]
 	}
 	return nil
 }
 
-// Run resolves c.Target to a machine, or host of a unit and
-// forks ssh with c.Args, if provided.
+// Run resolves c.Target to a machine, to the address of a i
+// machine or unit forks ssh passing any arguments provided.
 func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	var err error
 	c.Conn, err = juju.NewConnFromName(c.EnvName)
@@ -50,11 +55,11 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer c.Close()
-	host, err := hostFromTarget(c.Conn, c.Target)
+	host, err := c.hostFromTarget(c.Target)
 	if err != nil {
 		return err
 	}
-	args := []string{"-l", "ubuntu", "-t", "-o", "StrictHostKeyChecking no", "-o", "PasswordAuthentication no", host, "--"}
+	args := []string{"-l", "ubuntu", "-t", "-o", "StrictHostKeyChecking no", "-o", "PasswordAuthentication no", host}
 	args = append(args, c.Args...)
 	cmd := exec.Command("ssh", args...)
 	cmd.Stdin = ctx.Stdin
@@ -63,59 +68,43 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	return cmd.Run()
 }
 
-func hostFromTarget(conn *juju.Conn, target string) (string, error) {
+func (c *SSHCommon) hostFromTarget(target string) (string, error) {
 	// is the target the id of a machine ?
 	if id, err := strconv.Atoi(target); err == nil {
-		log.Printf("juju/ssh: fetching machine address using juju machine id")
-		machine, err := conn.State.Machine(id)
-		if err != nil {
-			return "", err
-		}
-		// wait for instance id
-		// TODO(dfc) use WaitAgentAlive() ?
-		w := machine.Watch()
-		for _ = range w.Changes() {
-			instid, err := machine.InstanceId()
-			if err == nil {
-				w.Stop()
-				inst, err := conn.Environ.Instances([]string{instid})
-				if err != nil {
-					return "", err
-				}
-				return inst[0].DNSName()
-			}
-		}
-		// oops, watcher closed before we could get an answer
-		return "", w.Stop()
+		log.Printf("looking up address for machine %d...", id)
+		// TODO(dfc) maybe we should have machine.PublicAddres() ?
+		return c.machinePublicAddress(id)
 	}
-	// maybe the target is a unit
-	if unit, err := conn.State.Unit(target); err == nil {
-		log.Printf("juju/ssh: fetching machine address using unit name")
-		id, err := unit.AssignedMachineId()
-		// TODO(dfc) add a watcher here
+	// maybe the target is a unit ?
+	if state.IsUnitName(target) {
+		log.Printf("Looking up address for unit %q...", c.Target)
+		unit, err := c.State.Unit(target)
 		if err != nil {
 			return "", err
 		}
-		machine, err := conn.State.Machine(id)
-		if err != nil {
-			return "", err
-		}
-		// wait for instance id
-		// TODO(dfc) use WaitAgentAlive() ?
-		w := machine.Watch()
-		for _ = range w.Changes() {
-			instid, err := machine.InstanceId()
-			if err == nil {
-				w.Stop()
-				inst, err := conn.Environ.Instances([]string{instid})
-				if err != nil {
-					return "", err
-				}
-				return inst[0].DNSName()
-			}
-		}
-		// oops, watcher closed before we could get an answer
-		return "", w.Stop()
+		return unit.PublicAddress()
 	}
 	return "", errors.New("no such unit or machine")
+}
+
+func (c *SSHCommon) machinePublicAddress(id int) (string, error) {
+	machine, err := c.State.Machine(id)
+	if err != nil {
+		return "", err
+	}
+	// wait for instance id
+	w := machine.Watch()
+	for _ = range w.Changes() {
+		instid, err := machine.InstanceId()
+		if err == nil {
+			w.Stop()
+			inst, err := c.Environ.Instances([]string{instid})
+			if err != nil {
+				return "", err
+			}
+			return inst[0].WaitDNSName()
+		}
+	}
+	// oops, watcher closed before we could get an answer
+	return "", w.Stop()
 }
