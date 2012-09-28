@@ -60,7 +60,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 		if err == uniter.ErrDead {
 			return nil
 		}
-		log.Printf("uniter: %v", err)
+		log.Printf("uniter error: %v", err)
 		select {
 		case <-a.tomb.Dying():
 			a.tomb.Kill(err)
