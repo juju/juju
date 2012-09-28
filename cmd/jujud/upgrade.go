@@ -46,7 +46,7 @@ func (e *UpgradeReadyError) Upgrade() error {
 	if err != nil {
 		return err
 	}
-	log.Printf("upgrader: upgraded from %v to %v (%q)", e.OldTools.Binary, e.Tools.Binary, e.Tools.URL)
+	log.Printf("upgrader: upgraded from %v to %v (%q)", e.OldTools.Binary, tools.Binary, tools.URL)
 	return nil
 }
 

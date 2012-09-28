@@ -165,8 +165,13 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 			s.State.StartSync()
 			assertNothingHappens(c, upgraderDone)
 		} else {
+			ug := waitDeath(c, u)
 			tools := uploaded[version.MustParse(test.upgradeTo)]
-			waitDeath(c, u, tools, "")
+			c.Check(ug.Tools, DeepEquals, tools)
+			c.Check(ug.OldTools.Binary, Equals, version.Current)
+			c.Check(ug.DataDir, Equals, dataDir)
+			c.Check(ug.AgentName, Equals, "testagent")
+
 			// Check that the upgraded version was really downloaded.
 			data, err := ioutil.ReadFile(filepath.Join(environs.ToolsDir(dataDir, tools.Binary), "jujud"))
 			c.Assert(err, IsNil)
@@ -211,7 +216,7 @@ var delayedStopTests = []struct {
 	// tools have downloaded, thus checking that the
 	// upgrader really did wait for the download.
 	storageDelay: 5 * time.Millisecond,
-	err:          `must restart:.*2\.0\.6.*`,
+	err:          `must restart: agent has been upgraded`,
 }, {
 	about:             "fetch error",
 	upgraderKillDelay: time.Second,
@@ -275,6 +280,23 @@ func (s *UpgraderSuite) primeTools(c *C, vers version.Binary) (dataDir string, t
 	return dataDir, tools
 }
 
+func (s *UpgraderSuite) TestUpgraderReadyErrorUpgrade(c *C) {
+	dataDir, currentTools := s.primeTools(c, version.MustParseBinary("2.0.2-foo-bar"))
+	ug := &UpgradeReadyError{
+		AgentName: "foo",
+		OldTools: &state.Tools{Binary: version.MustParseBinary("2.0.0-foo-bar")},
+		Tools: currentTools,
+		DataDir: dataDir,
+	}
+	err := ug.Upgrade()
+	c.Assert(err, IsNil)
+	d := environs.AgentToolsDir(dataDir, "foo")
+	data, err := ioutil.ReadFile(filepath.Join(d, "jujud"))
+	c.Assert(err, IsNil)
+	c.Assert(string(data), Equals, "jujud contents 2.0.2-foo-bar")
+}
+
+
 func assertNothingHappens(c *C, upgraderDone <-chan error) {
 	select {
 	case got := <-upgraderDone:
@@ -306,24 +328,19 @@ func startUpgrader(c *C, st *state.State, dataDir string, expectTools *state.Too
 	return u
 }
 
-func waitDeath(c *C, u *Upgrader, upgradeTo *state.Tools, errPat string) {
+func waitDeath(c *C, u *Upgrader) *UpgradeReadyError {
 	done := make(chan error, 1)
 	go func() {
 		done <- u.Wait()
 	}()
 	select {
 	case err := <-done:
-		switch {
-		case upgradeTo != nil:
-			c.Assert(err, DeepEquals, &UpgradedError{upgradeTo})
-		case errPat != "":
-			c.Assert(err, ErrorMatches, errPat)
-		default:
-			c.Assert(err, IsNil)
-		}
+		c.Assert(err, FitsTypeOf, &UpgradeReadyError{})
+		return err.(*UpgradeReadyError)
 	case <-time.After(500 * time.Millisecond):
 		c.Fatalf("upgrader did not die as expected")
 	}
+	panic("unreachable")
 }
 
 type testAgentState chan *state.Tools
@@ -333,3 +350,8 @@ func (as testAgentState) SetAgentTools(tools *state.Tools) error {
 	as <- &t
 	return nil
 }
+
+func (as testAgentState) PathKey() string {
+	return "testagent"
+}
+
