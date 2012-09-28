@@ -35,13 +35,14 @@ func init() {
 	Current = MustParseBinary(strings.TrimSpace(string(v)))
 }
 
-// Number represents a juju version. When bugs are
-// fixed the patch number is incremented; when new features are added
-// the minor number is incremented and patch is reset; and when
-// compatibility is broken the major version is incremented and minor
-// and patch are reset. The build number represents a build version.
-// If any number is odd other than Build, it
-// indicates that the release is still in development.
+// Number represents a juju version.  When bugs are fixed the patch
+// number is incremented; when new features are added the minor number
+// is incremented and patch is reset; and when compatibility is broken
+// the major version is incremented and minor and patch are reset.  The
+// build number is automatically assigned and has no well defined
+// sequence.  If the build number is greater than zero or any of the
+// other numbers are odd, it indicates that the release is still in
+// development.
 type Number struct {
 	Major int
 	Minor int
@@ -207,7 +208,7 @@ func isOdd(x int) bool {
 // version. A version with an odd-numbered major, minor
 // or patch version is considered to be a development version.
 func (v Number) IsDev() bool {
-	return isOdd(v.Major) || isOdd(v.Minor) || isOdd(v.Patch)
+	return isOdd(v.Major) || isOdd(v.Minor) || isOdd(v.Patch) || v.Build > 0
 }
 
 func readSeries(releaseFile string) string {

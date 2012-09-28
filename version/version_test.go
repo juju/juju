@@ -77,9 +77,9 @@ var parseTests = []struct {
 		dev:    true,
 	},
 	{
-		v:      "0.0.1",
-		expect: version.Number{Patch: 1},
-		dev:    true,
+		v:      "0.0.2",
+		expect: version.Number{Patch: 2},
+		dev:    false,
 	},
 	{
 		v:      "10.234.3456",
@@ -88,6 +88,10 @@ var parseTests = []struct {
 	},
 	{v: "1.2.3.4",
 		expect: version.Number{Major: 1, Minor: 2, Patch: 3, Build: 4},
+		dev:    true,
+	},
+	{v: "2.4.6.8",
+		expect: version.Number{Major: 2, Minor: 4, Patch: 6, Build: 8},
 		dev:    true,
 	},
 	{
