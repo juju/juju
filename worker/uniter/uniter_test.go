@@ -160,10 +160,12 @@ var uniterTests = []uniterTest{
 		writeFile{"state", 0644},
 		createCharm{},
 		createServiceAndUnit{},
-		startUniter{`failed to create uniter for unit "u/0": .*state must be a directory`},
+		startUniter{},
+		waitUniterDead{`failed to initialize uniter for unit "u/0": .*state must be a directory`},
 	), ut(
 		"unknown unit",
-		startUniter{`failed to create uniter for unit "u/0": unit "u/0" not found`},
+		startUniter{},
+		waitUniterDead{`failed to initialize uniter for unit "u/0": unit "u/0" not found`},
 	),
 	// Check error conditions during unit bootstrap phase.
 	ut(
@@ -699,22 +701,13 @@ func (createUniter) step(c *C, ctx *context) {
 	}
 }
 
-type startUniter struct {
-	err string
-}
+type startUniter struct{}
 
 func (s startUniter) step(c *C, ctx *context) {
 	if ctx.uniter != nil {
 		panic("don't start two uniters!")
 	}
-	u, err := uniter.NewUniter(ctx.st, "u/0", ctx.dataDir)
-	if s.err == "" {
-		c.Assert(err, IsNil)
-		ctx.uniter = u
-	} else {
-		c.Check(u, IsNil)
-		c.Assert(err, ErrorMatches, s.err)
-	}
+	ctx.uniter = uniter.NewUniter(ctx.st, "u/0", ctx.dataDir)
 }
 
 type waitUniterDead struct {

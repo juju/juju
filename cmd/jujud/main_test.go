@@ -46,7 +46,7 @@ func (s *MainSuite) TestParseErrors(c *C) {
 	msgf := "flag provided but not defined: --cheese"
 	checkMessage(c, msgf, "--cheese", "cavitate")
 
-	cmds := []string{"bootstrap-state", "unit", "machine", "provisioning"}
+	cmds := []string{"bootstrap-state", "unit", "machine"}
 	msgz := `invalid value "localhost:37017,srv" for flag --state-servers: "srv" is not a valid state server address`
 	for _, cmd := range cmds {
 		checkMessage(c, msgf, cmd, "--cheese")
@@ -67,8 +67,5 @@ func (s *MainSuite) TestParseErrors(c *C) {
 	checkMessage(c, msga, "machine",
 		"--state-servers", "st:37017",
 		"--machine-id", "42",
-		"toastie")
-	checkMessage(c, msga, "provisioning",
-		"--state-servers", "127.0.0.1:37017",
 		"toastie")
 }

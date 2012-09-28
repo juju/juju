@@ -126,6 +126,6 @@ waiting:
 }
 
 func isUpgraded(err error) bool {
-	_, ok := err.(*UpgradedError)
+	_, ok := err.(*UpgradeReadyError)
 	return ok
 }

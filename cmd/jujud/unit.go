@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/tomb"
 	"time"
@@ -47,15 +48,30 @@ func (a *UnitAgent) Stop() error {
 
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
+	defer log.Printf("uniter: unit agent exiting")
 	defer a.tomb.Done()
 	for a.tomb.Err() == tomb.ErrStillAlive {
 		err := a.runOnce()
-		log.Printf("uniter error: %v", err)
+		if ug, ok := err.(*UpgradeReadyError); ok {
+			if err = ug.ChangeAgentTools(); err == nil {
+				// Return and let upstart deal with the restart.
+				return ug
+			}
+		}
+		if err == worker.ErrDead {
+			log.Printf("uniter: unit is dead")
+			return nil
+		}
+		if err == nil {
+			log.Printf("uniter: workers died with no error")
+		} else {
+			log.Printf("uniter: %v", err)
+		}
 		select {
 		case <-a.tomb.Dying():
 			a.tomb.Kill(err)
 		case <-time.After(retryDelay):
-			log.Printf("rerunning uniter")
+			log.Printf("uniter: rerunning uniter")
 		}
 	}
 	return a.tomb.Err()
@@ -68,9 +84,15 @@ func (a *UnitAgent) runOnce() error {
 		return err
 	}
 	defer st.Close()
-	u, err := uniter.NewUniter(st, a.UnitName, a.Conf.DataDir)
+	unit, err := st.Unit(a.UnitName)
+	if state.IsNotFound(err) || err == nil && unit.Life() == state.Dead {
+		return worker.ErrDead
+	}
 	if err != nil {
 		return err
 	}
-	return runTasks(a.tomb.Dying(), u)
+	return runTasks(a.tomb.Dying(),
+		uniter.NewUniter(st, unit.Name(), a.Conf.DataDir),
+		NewUpgrader(st, unit, a.Conf.DataDir),
+	)
 }
