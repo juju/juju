@@ -146,6 +146,7 @@ var commandNames = []string{
 	"expose",
 	"get",
 	"set",
+	"ssh",
 	"status",
 	"unexpose",
 	"upgrade-juju",
