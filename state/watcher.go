@@ -1447,8 +1447,10 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 	for {
 		select {
 		case <-w.st.watcher.Dead():
+			close(newunits)
 			return watcher.MustErr(w.st.watcher)
 		case <-w.tomb.Dying():
+			close(newunits)
 			return tomb.ErrDying
 		case units := <-newunits:
 			for _, u := range units {
