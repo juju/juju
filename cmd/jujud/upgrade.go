@@ -19,7 +19,7 @@ var upgraderKillDelay = 5 * time.Minute
 // environment state, and handles the downloading and unpacking of
 // new versions of the juju tools when necessary.
 //
-// When a new version is available Wait and Stop return UpgradedError.
+// When a new version is available Wait and Stop return UpgradeReadyError.
 type Upgrader struct {
 	tomb       tomb.Tomb
 	st         *state.State
@@ -27,14 +27,27 @@ type Upgrader struct {
 	dataDir    string
 }
 
-// UpgradedError is returned by an Upgrader to report that
-// an upgrade has been performed and a restart is due.
-type UpgradedError struct {
-	*state.Tools
+// UpgradeReadyError is returned by an Upgrader to report that
+// an upgrade is ready to be performed and a restart is due.
+type UpgradeReadyError struct {
+	AgentName string
+	OldTools *state.Tools
+	Tools *state.Tools
+	DataDir string
 }
 
-func (e *UpgradedError) Error() string {
-	return fmt.Sprintf("must restart: agent has been upgraded to %v (from %q)", e.Binary, e.URL)
+func (e *UpgradeReadyError) Error() string {
+	return "must restart: agent has been upgraded"
+}
+
+// Upgrade does the actual agent upgrade.
+func (e *UpgradeReadyError) Upgrade() error {
+	tools, err := environs.ChangeAgentTools(e.DataDir, e.AgentName, e.Tools.Binary)
+	if err != nil {
+		return err
+	}
+	log.Printf("upgrader: upgraded from %v to %v (%q)", e.OldTools.Binary, e.Tools.Binary, e.Tools.URL)
+	return nil
 }
 
 // The AgentState interface is implemented by state types
@@ -42,6 +55,7 @@ func (e *UpgradedError) Error() string {
 type AgentState interface {
 	// SetAgentTools sets the tools that the agent is currently running.
 	SetAgentTools(tools *state.Tools) error
+	PathKey() string
 }
 
 // NewUpgrader returns a new Upgrader watching the given agent.
@@ -161,7 +175,7 @@ func (u *Upgrader) run() error {
 
 			if tools, err := environs.ReadTools(u.dataDir, binary); err == nil {
 				// The tools have already been downloaded, so use them.
-				return &UpgradedError{tools}
+				return u.newError(currentTools, tools)
 			}
 			flags := environs.CompatVersion
 			if cfg.Development() {
@@ -205,7 +219,7 @@ func (u *Upgrader) run() error {
 				noDelay()
 				break
 			}
-			return &UpgradedError{tools}
+			return u.newError(currentTools, tools)
 		case <-tomb.Dying():
 			if download != nil {
 				return fmt.Errorf("upgrader aborted download of %q", downloadTools.URL)
@@ -214,6 +228,15 @@ func (u *Upgrader) run() error {
 		}
 	}
 	panic("not reached")
+}
+
+func (u *Upgrader) newError(old, new *state.Tools) *UpgradeReadyError {
+	return &UpgradeReadyError{
+		AgentName: u.agentState.PathKey(),
+		OldTools: old,
+		DataDir: u.dataDir,
+		Tools: new,
+	}
 }
 
 // delayedTomb returns a tomb that starts dying a given duration

@@ -48,40 +48,39 @@ func (a *UnitAgent) Stop() error {
 
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
+	defer log.Printf("unit agent exiting")
 	defer a.tomb.Done()
 	for a.tomb.Err() == tomb.ErrStillAlive {
-		unit, err := a.runOnce()
-		if ug, ok := err.(*UpgradedError); ok {
-			tools, err1 := environs.ChangeAgentTools(a.Conf.DataDir, unit.PathKey(), ug.Binary)
-			if err1 == nil {
-				log.Printf("exiting to upgrade to %v from %q", tools.Binary, tools.URL)
+		err := a.runOnce()
+		if ug, ok := err.(*UpgradeReadyError); ok {
+			if err = ug.Upgrade(); err == nil {
 				// Return and let upstart deal with the restart.
-				return nil
+				return ug
 			}
-			err = err1
 		}
+		log.Printf("uniter: %v", err)
 		select {
 		case <-a.tomb.Dying():
 			a.tomb.Kill(err)
 		case <-time.After(retryDelay):
-			log.Printf("rerunning uniter after error: %v", err)
+			log.Printf("rerunning uniter")
 		}
 	}
 	return a.tomb.Err()
 }
 
 // runOnce runs a uniter once.
-func (a *UnitAgent) runOnce() (*state.Unit, error) {
+func (a *UnitAgent) runOnce() error {
 	st, err := state.Open(&a.Conf.StateInfo)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer st.Close()
 	unit, err := st.Unit(a.UnitName)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return unit, runTasks(a.tomb.Dying(),
+	return runTasks(a.tomb.Dying(),
 		uniter.NewUniter(st, unit.Name(), a.Conf.DataDir),
 		NewUpgrader(st, unit, a.Conf.DataDir),
 	)

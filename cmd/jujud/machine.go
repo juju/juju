@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/machiner"
@@ -49,14 +48,11 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	for a.tomb.Err() == tomb.ErrStillAlive {
 		log.Printf("machine agent starting")
 		err := a.runOnce()
-		if ug, ok := err.(*UpgradedError); ok {
-			tools, err1 := environs.ChangeAgentTools(a.Conf.DataDir, "machine", ug.Binary)
-			if err1 == nil {
-				log.Printf("exiting to upgrade to %v from %q", tools.Binary, tools.URL)
+		if ug, ok := err.(*UpgradeReadyError); ok {
+			if err = ug.Upgrade(); err == nil {
 				// Return and let upstart deal with the restart.
-				return nil
+				return ug
 			}
-			err = err1
 		}
 		select {
 		case <-a.tomb.Dying():
