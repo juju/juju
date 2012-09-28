@@ -62,15 +62,11 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 			log.Printf("uniter: unit is dead")
 			return nil
 		}
-<<<<<<< TREE
-		log.Printf("uniter error: %v", err)
-=======
 		if err == nil {
 			log.Printf("uniter: workers died with no error")
 		} else {
 			log.Printf("uniter: %v", err)
 		}
->>>>>>> MERGE-SOURCE
 		select {
 		case <-a.tomb.Dying():
 			a.tomb.Kill(err)
