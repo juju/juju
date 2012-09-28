@@ -69,17 +69,8 @@ func (fw *Firewaller) loop() error {
 			if !ok {
 				return watcher.MustErr(fw.machinesWatcher)
 			}
-			for _, id := range change.Dead {
-				machined := fw.machineds[id]
-				delete(fw.machineds, id)
-				if err := machined.Stop(); err != nil {
-					log.Printf("machine %d watcher returned error when stopping: %v", id, err)
-				}
-				log.Debugf("firewaller: stopped watching machine %d", id)
-			}
-			for _, id := range change.Alive {
-				fw.machineds[id] = newMachineData(id, fw)
-				log.Debugf("firewaller: started watching machine %d", id)
+			for _, id := range change {
+				fw.machineLifeChanged(id)
 			}
 		case change := <-fw.unitsChange:
 			changed := []*unitData{}
@@ -215,6 +206,45 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 	return nil
 }
 
+// machineLifeChanged starts watching new machines when the firewaller
+// is starting, or when new machines come to life, and stops watching
+// machines that are dying.
+func (fw *Firewaller) machineLifeChanged(id int) error {
+	m, err := fw.st.Machine(id)
+	found := !state.IsNotFound(err)
+	if found && err != nil {
+		return err
+	}
+	dead := !found || m.Life() == state.Dead
+	machined, known := fw.machineds[id]
+	if known && dead {
+		return fw.forgetMachine(machined)
+	}
+	if !known && !dead {
+		fw.machineds[id] = newMachineData(id, fw)
+		log.Debugf("firewaller: started watching machine %d", id)
+	}
+	return nil
+}
+
+func (fw *Firewaller) forgetMachine(machined *machineData) error {
+	for _, unitd := range machined.unitds {
+		unitd.ports = nil
+	}
+	if err := fw.flushMachine(machined); err != nil {
+		return err
+	}
+	for _, unitd := range machined.unitds {
+		fw.forgetUnit(unitd)
+	}
+	delete(fw.machineds, machined.id)
+	if err := machined.Stop(); err != nil {
+		return err
+	}
+	log.Debugf("firewaller: stopped watching machine %d", machined.id)
+	return nil
+}
+
 // forgetUnit cleans the unit data after the unit is removed.
 func (fw *Firewaller) forgetUnit(unitd *unitData) {
 	name := unitd.unit.Name()
@@ -329,7 +359,10 @@ func (md *machineData) watchLoop() {
 			return
 		case change, ok := <-w.Changes():
 			if !ok {
-				md.fw.tomb.Kill(watcher.MustErr(w))
+				_, err := md.machine()
+				if !state.IsNotFound(err) {
+					md.fw.tomb.Kill(watcher.MustErr(w))
+				}
 				return
 			}
 			select {
@@ -388,6 +421,7 @@ func (ud *unitData) watchLoop() {
 			return
 		case unit, ok := <-ud.watcher.Changes():
 			if !ok {
+				// TODO(niemeyer): Unit watcher shouldn't return a unit.
 				err := watcher.MustErr(ud.watcher)
 				if !state.IsNotFound(err) {
 					ud.fw.tomb.Kill(err)
@@ -468,6 +502,7 @@ func (sd *serviceData) watchLoop(exposed bool) {
 			return
 		case service, ok := <-sd.watcher.Changes():
 			if !ok {
+				// TODO(niemeyer): Service watcher shouldn't return a service.
 				err := watcher.MustErr(sd.watcher)
 				if !state.IsNotFound(err) {
 					sd.fw.tomb.Kill(err)
