@@ -39,8 +39,6 @@ type Uniter struct {
 	rand     *rand.Rand
 }
 
-var ErrDead = errors.New("unit is dead")
-
 // NewUniter creates a new Uniter which will install, run, and upgrade a
 // charm on behalf of the named unit, by executing hooks and operations
 // provoked by changes in st.

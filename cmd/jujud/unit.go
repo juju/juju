@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/tomb"
 	"time"
@@ -52,15 +53,24 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	for a.tomb.Err() == tomb.ErrStillAlive {
 		err := a.runOnce()
 		if ug, ok := err.(*UpgradeReadyError); ok {
-			if err = ug.Upgrade(); err == nil {
+			if err = ug.ChangeAgentTools(); err == nil {
 				// Return and let upstart deal with the restart.
 				return ug
 			}
 		}
-		if err == uniter.ErrDead {
+		if err == worker.ErrDead {
+			log.Printf("uniter: unit is dead")
 			return nil
 		}
+<<<<<<< TREE
 		log.Printf("uniter error: %v", err)
+=======
+		if err == nil {
+			log.Printf("uniter: workers died with no error")
+		} else {
+			log.Printf("uniter: %v", err)
+		}
+>>>>>>> MERGE-SOURCE
 		select {
 		case <-a.tomb.Dying():
 			a.tomb.Kill(err)
@@ -80,7 +90,7 @@ func (a *UnitAgent) runOnce() error {
 	defer st.Close()
 	unit, err := st.Unit(a.UnitName)
 	if state.IsNotFound(err) || err == nil && unit.Life() == state.Dead {
-		return uniter.ErrDead
+		return worker.ErrDead
 	}
 	if err != nil {
 		return err

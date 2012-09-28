@@ -32,17 +32,17 @@ type Upgrader struct {
 type UpgradeReadyError struct {
 	AgentName string
 	OldTools  *state.Tools
-	Tools     *state.Tools
+	NewTools  *state.Tools
 	DataDir   string
 }
 
 func (e *UpgradeReadyError) Error() string {
-	return "must restart: agent has been upgraded"
+	return "must restart: an agent upgrade is available"
 }
 
-// Upgrade does the actual agent upgrade.
-func (e *UpgradeReadyError) Upgrade() error {
-	tools, err := environs.ChangeAgentTools(e.DataDir, e.AgentName, e.Tools.Binary)
+// ChangeAgentTools does the actual agent upgrade.
+func (e *UpgradeReadyError) ChangeAgentTools() error {
+	tools, err := environs.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools.Binary)
 	if err != nil {
 		return err
 	}
@@ -175,7 +175,7 @@ func (u *Upgrader) run() error {
 
 			if tools, err := environs.ReadTools(u.dataDir, binary); err == nil {
 				// The tools have already been downloaded, so use them.
-				return u.newError(currentTools, tools)
+				return u.upgradeReady(currentTools, tools)
 			}
 			flags := environs.CompatVersion
 			if cfg.Development() {
@@ -219,7 +219,7 @@ func (u *Upgrader) run() error {
 				noDelay()
 				break
 			}
-			return u.newError(currentTools, tools)
+			return u.upgradeReady(currentTools, tools)
 		case <-tomb.Dying():
 			if download != nil {
 				return fmt.Errorf("upgrader aborted download of %q", downloadTools.URL)
@@ -230,12 +230,12 @@ func (u *Upgrader) run() error {
 	panic("not reached")
 }
 
-func (u *Upgrader) newError(old, new *state.Tools) *UpgradeReadyError {
+func (u *Upgrader) upgradeReady(old, new *state.Tools) *UpgradeReadyError {
 	return &UpgradeReadyError{
 		AgentName: u.agentState.PathKey(),
 		OldTools:  old,
 		DataDir:   u.dataDir,
-		Tools:     new,
+		NewTools:  new,
 	}
 }
 

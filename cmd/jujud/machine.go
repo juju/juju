@@ -7,6 +7,7 @@ import (
 	_ "launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/firewaller"
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/provisioner"
@@ -55,15 +56,20 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		log.Printf("machine agent starting")
 		err := a.runOnce()
 		if ug, ok := err.(*UpgradeReadyError); ok {
-			if err = ug.Upgrade(); err == nil {
+			if err = ug.ChangeAgentTools(); err == nil {
 				// Return and let upstart deal with the restart.
 				return ug
 			}
 		}
-		if err == machiner.ErrDead {
+		if err == worker.ErrDead {
+			log.Printf("uniter: machine is dead")
 			return nil
 		}
-		log.Printf("machiner: %v", err)
+		if err == nil {
+			log.Printf("machiner: workers died with no error")
+		} else {
+			log.Printf("machiner: %v", err)
+		}
 		select {
 		case <-a.tomb.Dying():
 			a.tomb.Kill(err)
@@ -82,7 +88,7 @@ func (a *MachineAgent) runOnce() error {
 	defer st.Close()
 	m, err := st.Machine(a.MachineId)
 	if state.IsNotFound(err) || err == nil && m.Life() == state.Dead {
-		return machiner.ErrDead
+		return worker.ErrDead
 	}
 	if err != nil {
 		return err

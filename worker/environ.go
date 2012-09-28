@@ -1,12 +1,15 @@
 package worker
 
 import (
+	"errors"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 )
+
+var ErrDead = errors.New("agent entity is dead")
 
 var loadedInvalid = func() {}
 
