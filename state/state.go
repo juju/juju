@@ -124,9 +124,9 @@ func (s *State) SetEnvironConfig(cfg *config.Config) error {
 type WorkerKind string
 
 const (
-	MachinerWorker WorkerKind = "machiner"
+	MachinerWorker    WorkerKind = "machiner"
 	ProvisionerWorker WorkerKind = "provisioner"
-	FirewallerWorker WorkerKind = "firewaller"
+	FirewallerWorker  WorkerKind = "firewaller"
 )
 
 // AddMachine adds a new machine that when deployed will have a
