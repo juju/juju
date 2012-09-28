@@ -71,7 +71,7 @@ func (s *MachineSuite) TestRunStop(c *C) {
 }
 
 func (s *MachineSuite) TestWithDeadMachine(c *C) {
-	m, err := s.State.AddMachine()
+	m, err := s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
 	err = m.EnsureDead()
 	c.Assert(err, IsNil)
