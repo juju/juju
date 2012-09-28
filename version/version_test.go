@@ -110,6 +110,7 @@ func (suite) TestParse(c *C) {
 			c.Assert(err, IsNil)
 			c.Assert(got, Equals, test.expect)
 			c.Check(got.IsDev(), Equals, test.dev)
+			c.Check(got.String(), Equals, test.v)
 		}
 	}
 }
