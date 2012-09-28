@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/tomb"
 	"time"
@@ -57,7 +58,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 				return ug
 			}
 		}
-		if err == uniter.ErrDead {
+		if err == worker.ErrDead {
 			return nil
 		}
 		log.Printf("uniter: %v", err)
@@ -80,7 +81,7 @@ func (a *UnitAgent) runOnce() error {
 	defer st.Close()
 	unit, err := st.Unit(a.UnitName)
 	if state.IsNotFound(err) || err == nil && unit.Life() == state.Dead {
-		return uniter.ErrDead
+		return worker.ErrDead
 	}
 	if err != nil {
 		return err

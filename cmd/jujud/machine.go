@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/tomb"
 	"time"
@@ -55,7 +56,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 				return ug
 			}
 		}
-		if err == machiner.ErrDead {
+		if err == worker.ErrDead {
 			return nil
 		}
 		log.Printf("machiner: %v", err)
@@ -77,7 +78,7 @@ func (a *MachineAgent) runOnce() error {
 	defer st.Close()
 	m, err := st.Machine(a.MachineId)
 	if state.IsNotFound(err) || err == nil && m.Life() == state.Dead {
-		return machiner.ErrDead
+		return worker.ErrDead
 	}
 	if err != nil {
 		return err
