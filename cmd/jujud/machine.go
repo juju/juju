@@ -7,9 +7,13 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/machiner"
+	"launchpad.net/juju-core/worker/firewaller"
+	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/tomb"
 	"time"
 )
+
+var retryDelay = 3 * time.Second
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
@@ -82,8 +86,22 @@ func (a *MachineAgent) runOnce() error {
 	if err != nil {
 		return err
 	}
-	return runTasks(a.tomb.Dying(),
-		machiner.NewMachiner(m, &a.Conf.StateInfo, a.Conf.DataDir),
-		NewUpgrader(st, m, a.Conf.DataDir),
-	)
+	tasks := []task{NewUpgrader(st, m, a.Conf.DataDir)}
+	for _, w := range m.Workers() {
+		var t task
+		switch w {
+		case state.MachinerWorker:
+			t = machiner.NewMachiner(m, &a.Conf.StateInfo, a.Conf.DataDir)
+		case state.ProvisionerWorker:
+			t = provisioner.NewProvisioner(st)
+		case state.FirewallerWorker:
+			t = firewaller.NewFirewaller(st)
+		}
+		if t == nil {
+			log.Printf("ignoring unknown worker task %q", w)
+			continue
+		}
+		tasks = append(tasks, t)
+	}
+	return runTasks(a.tomb.Dying(), tasks...)
 }

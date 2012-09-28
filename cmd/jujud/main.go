@@ -19,7 +19,6 @@ func Main(args []string) {
 	jujud := &cmd.SuperCommand{Name: "jujud", Doc: jujudDoc, Log: &cmd.Log{}}
 	jujud.Register(&BootstrapCommand{})
 	jujud.Register(&MachineAgent{})
-	jujud.Register(&ProvisioningAgent{})
 	jujud.Register(&UnitAgent{})
 	jujud.Register(&VersionCommand{})
 	os.Exit(cmd.Main(jujud, cmd.DefaultContext(), args[1:]))
