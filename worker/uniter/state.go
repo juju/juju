@@ -66,7 +66,8 @@ type State struct {
 }
 
 // validate returns an error if the state violates expectations.
-func (st State) validate() error {
+func (st State) validate() (err error) {
+	defer trivial.ErrorContextf(&err, "invalid uniter state")
 	hasHook := st.Hook != nil
 	hasCharm := st.CharmURL != nil
 	switch st.Op {
@@ -121,7 +122,7 @@ func (f *StateFile) Read() (*State, error) {
 		}
 	}
 	if err := st.validate(); err != nil {
-		return nil, fmt.Errorf("invalid uniter state at %q: %v", f.path, err)
+		return nil, fmt.Errorf("cannot read charm state at %q: %v", f.path, err)
 	}
 	return &st, nil
 }
