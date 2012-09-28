@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/tomb"
 	"time"
@@ -44,6 +45,7 @@ func (a *MachineAgent) Stop() error {
 
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
+	defer log.Printf("machine agent exiting")
 	defer a.tomb.Done()
 	for a.tomb.Err() == tomb.ErrStillAlive {
 		log.Printf("machine agent starting")
@@ -54,7 +56,15 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 				return ug
 			}
 		}
-		log.Printf("machiner: %v", err)
+		if err == worker.ErrDead {
+			log.Printf("uniter: machine is dead")
+			return nil
+		}
+		if err == nil {
+			log.Printf("machiner: workers died with no error")
+		} else {
+			log.Printf("machiner: %v", err)
+		}
 		select {
 		case <-a.tomb.Dying():
 			a.tomb.Kill(err)
@@ -72,6 +82,9 @@ func (a *MachineAgent) runOnce() error {
 	}
 	defer st.Close()
 	m, err := st.Machine(a.MachineId)
+	if state.IsNotFound(err) || err == nil && m.Life() == state.Dead {
+		return worker.ErrDead
+	}
 	if err != nil {
 		return err
 	}

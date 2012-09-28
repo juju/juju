@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/tomb"
 	"time"
@@ -57,6 +58,10 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 				return ug
 			}
 		}
+		if err == worker.ErrDead {
+			log.Printf("uniter: unit is dead")
+			return nil
+		}
 		if err == nil {
 			log.Printf("uniter: workers died with no error")
 		} else {
@@ -80,6 +85,9 @@ func (a *UnitAgent) runOnce() error {
 	}
 	defer st.Close()
 	unit, err := st.Unit(a.UnitName)
+	if state.IsNotFound(err) || err == nil && unit.Life() == state.Dead {
+		return worker.ErrDead
+	}
 	if err != nil {
 		return err
 	}

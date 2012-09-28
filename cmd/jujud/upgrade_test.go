@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -38,32 +39,6 @@ func (s *UpgraderSuite) TestUpgraderStop(c *C) {
 	u := startUpgrader(c, s.State, c.MkDir(), &state.Tools{Binary: version.Current})
 	err := u.Stop()
 	c.Assert(err, IsNil)
-}
-
-func (s *UpgraderSuite) proposeVersion(c *C, vers version.Number, development bool) {
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, IsNil)
-	attrs := cfg.AllAttrs()
-	attrs["agent-version"] = vers.String()
-	attrs["development"] = development
-	newCfg, err := config.New(attrs)
-	c.Assert(err, IsNil)
-	err = s.State.SetEnvironConfig(newCfg)
-	c.Assert(err, IsNil)
-}
-
-func (s *UpgraderSuite) uploadTools(c *C, vers version.Binary) *state.Tools {
-	tgz := coretesting.TarGz(
-		coretesting.NewTarFile("juju", 0777, "juju contents "+vers.String()),
-		coretesting.NewTarFile("jujuc", 0777, "jujuc contents "+vers.String()),
-		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()),
-	)
-	storage := s.Conn.Environ.Storage()
-	err := storage.Put(environs.ToolsStoragePath(vers), bytes.NewReader(tgz), int64(len(tgz)))
-	c.Assert(err, IsNil)
-	url, err := s.Conn.Environ.Storage().URL(environs.ToolsStoragePath(vers))
-	c.Assert(err, IsNil)
-	return &state.Tools{URL: url, Binary: vers}
 }
 
 type proposal struct {
@@ -120,7 +95,7 @@ var upgraderTests = []struct {
 }
 
 func (s *UpgraderSuite) TestUpgrader(c *C) {
-	dataDir, currentTools := s.primeTools(c, version.MustParseBinary("2.0.0-foo-bar"))
+	dataDir, currentTools := primeTools(c, s.Conn, version.MustParseBinary("2.0.0-foo-bar"))
 	// Remove the tools from the storage so that we're sure that the
 	// uploader isn't trying to fetch them.
 	resp, err := http.Get(currentTools.URL)
@@ -146,7 +121,7 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 		for _, v := range test.upload {
 			vers := version.Current
 			vers.Number = version.MustParse(v)
-			tools := s.uploadTools(c, vers)
+			tools := uploadTools(c, s.Conn, vers)
 			uploaded[vers.Number] = tools
 		}
 		if test.current != "" {
@@ -158,7 +133,7 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 			u = startUpgrader(c, s.State, dataDir, currentTools)
 		}
 		if test.propose != "" {
-			s.proposeVersion(c, version.MustParse(test.propose), test.devVersion)
+			proposeVersion(c, s.State, version.MustParse(test.propose), test.devVersion)
 			s.State.StartSync()
 		}
 		if test.upgradeTo == "" {
@@ -226,11 +201,11 @@ var delayedStopTests = []struct {
 
 func (s *UpgraderSuite) TestDelayedStop(c *C) {
 	defer dummy.SetStorageDelay(0)
-	dataDir, tools := s.primeTools(c, version.MustParseBinary("2.0.3-foo-bar"))
-	s.uploadTools(c, version.MustParseBinary("2.0.5-foo-bar"))
-	s.uploadTools(c, version.MustParseBinary("2.0.6-foo-bar"))
-	s.uploadTools(c, version.MustParseBinary("2.0.6-foo-bar"))
-	s.uploadTools(c, version.MustParseBinary("2.0.7-foo-bar"))
+	dataDir, tools := primeTools(c, s.Conn, version.MustParseBinary("2.0.3-foo-bar"))
+	uploadTools(c, s.Conn, version.MustParseBinary("2.0.5-foo-bar"))
+	uploadTools(c, s.Conn, version.MustParseBinary("2.0.6-foo-bar"))
+	uploadTools(c, s.Conn, version.MustParseBinary("2.0.6-foo-bar"))
+	uploadTools(c, s.Conn, version.MustParseBinary("2.0.7-foo-bar"))
 	s.poisonVersion(version.MustParseBinary("2.0.7-foo-bar"))
 
 	for i, test := range delayedStopTests {
@@ -238,7 +213,7 @@ func (s *UpgraderSuite) TestDelayedStop(c *C) {
 		upgraderKillDelay = test.upgraderKillDelay
 		dummy.SetStorageDelay(test.storageDelay)
 		proposed := version.MustParse(test.propose)
-		s.proposeVersion(c, proposed, true)
+		proposeVersion(c, s.State, proposed, true)
 		u := startUpgrader(c, s.State, dataDir, tools)
 		t0 := time.Now()
 		err := u.Stop()
@@ -265,23 +240,8 @@ func (s *UpgraderSuite) removeVersion(c *C, vers version.Binary) {
 	c.Assert(err, IsNil)
 }
 
-// primeTools sets up the current version of the tools to vers and
-// makes sure that they're available in the returned dataDir.
-func (s *UpgraderSuite) primeTools(c *C, vers version.Binary) (dataDir string, tools *state.Tools) {
-	dataDir = c.MkDir()
-	// Set up the current version and tools.
-	version.Current = vers
-	tools = s.uploadTools(c, vers)
-	resp, err := http.Get(tools.URL)
-	c.Assert(err, IsNil)
-	defer resp.Body.Close()
-	err = environs.UnpackTools(dataDir, tools, resp.Body)
-	c.Assert(err, IsNil)
-	return dataDir, tools
-}
-
 func (s *UpgraderSuite) TestUpgraderReadyErrorUpgrade(c *C) {
-	dataDir, currentTools := s.primeTools(c, version.MustParseBinary("2.0.2-foo-bar"))
+	dataDir, currentTools := primeTools(c, s.Conn, version.MustParseBinary("2.0.2-foo-bar"))
 	ug := &UpgradeReadyError{
 		AgentName: "foo",
 		OldTools:  &state.Tools{Binary: version.MustParseBinary("2.0.0-foo-bar")},
@@ -352,4 +312,45 @@ func (as testAgentState) SetAgentTools(tools *state.Tools) error {
 
 func (as testAgentState) PathKey() string {
 	return "testagent"
+}
+
+func proposeVersion(c *C, st *state.State, vers version.Number, development bool) {
+	cfg, err := st.EnvironConfig()
+	c.Assert(err, IsNil)
+	attrs := cfg.AllAttrs()
+	attrs["agent-version"] = vers.String()
+	attrs["development"] = development
+	newCfg, err := config.New(attrs)
+	c.Assert(err, IsNil)
+	err = st.SetEnvironConfig(newCfg)
+	c.Assert(err, IsNil)
+}
+
+func uploadTools(c *C, conn *juju.Conn, vers version.Binary) *state.Tools {
+	tgz := coretesting.TarGz(
+		coretesting.NewTarFile("juju", 0777, "juju contents "+vers.String()),
+		coretesting.NewTarFile("jujuc", 0777, "jujuc contents "+vers.String()),
+		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()),
+	)
+	storage := conn.Environ.Storage()
+	err := storage.Put(environs.ToolsStoragePath(vers), bytes.NewReader(tgz), int64(len(tgz)))
+	c.Assert(err, IsNil)
+	url, err := conn.Environ.Storage().URL(environs.ToolsStoragePath(vers))
+	c.Assert(err, IsNil)
+	return &state.Tools{URL: url, Binary: vers}
+}
+
+// primeTools sets up the current version of the tools to vers and
+// makes sure that they're available in the returned dataDir.
+func primeTools(c *C, conn *juju.Conn, vers version.Binary) (dataDir string, tools *state.Tools) {
+	dataDir = c.MkDir()
+	// Set up the current version and tools.
+	version.Current = vers
+	tools = uploadTools(c, conn, vers)
+	resp, err := http.Get(tools.URL)
+	c.Assert(err, IsNil)
+	defer resp.Body.Close()
+	err = environs.UnpackTools(dataDir, tools, resp.Body)
+	c.Assert(err, IsNil)
+	return dataDir, tools
 }
