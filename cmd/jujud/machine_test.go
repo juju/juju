@@ -6,8 +6,8 @@ import (
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"time"
 	"reflect"
+	"time"
 )
 
 type MachineSuite struct {
@@ -104,8 +104,8 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 
 func (s *MachineSuite) TestProvisionerFirewaller(c *C) {
 	m, err := s.State.AddMachine(
-		state.MachinerWorker, 
-		state.ProvisionerWorker, 
+		state.MachinerWorker,
+		state.ProvisionerWorker,
 		state.FirewallerWorker)
 	c.Assert(err, IsNil)
 
