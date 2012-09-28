@@ -32,12 +32,8 @@ func (c *SSHCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	args = f.Args()
 	if len(args) == 0 {
 		return errors.New("no service name specified")
-	} else if len(args) == 1 {
-		c.Target = args[0]
-	} else {
-		c.Target = args[0]
-		c.Args = args[1:]
 	}
+	c.Target, c.Args = args[0], args[1:]
 	return nil
 }
 
