@@ -52,7 +52,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	for a.tomb.Err() == tomb.ErrStillAlive {
 		err := a.runOnce()
 		if ug, ok := err.(*UpgradeReadyError); ok {
-			if err = ug.Upgrade(); err == nil {
+			if err = ug.ChangeAgentTools(); err == nil {
 				// Return and let upstart deal with the restart.
 				return ug
 			}

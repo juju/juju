@@ -76,16 +76,16 @@ func (*agentSuite) TestUpgradeErrorLog(c *C) {
 	tasks := newTestTasks(7)
 	tasks[0].stopErr = fmt.Errorf("zero")
 	tasks[1].stopErr = fmt.Errorf("one")
-	tasks[2].stopErr = &UpgradeReadyError{Tools: mkTools("1.1.1")}
+	tasks[2].stopErr = &UpgradeReadyError{NewTools: mkTools("1.1.1")}
 	tasks[3].kill <- fmt.Errorf("three")
 	tasks[4].stopErr = fmt.Errorf("four")
-	tasks[5].stopErr = &UpgradeReadyError{Tools: mkTools("2.2.2")}
+	tasks[5].stopErr = &UpgradeReadyError{NewTools: mkTools("2.2.2")}
 	tasks[6].stopErr = fmt.Errorf("six")
 
 	expectLog := `
 (.|\n)*task0: zero
 .*task1: one
-.*task2: must restart: agent has been upgraded
+.*task2: must restart: an agent upgrade is available
 .*task3: three
 .*task4: four
 .*task6: six
