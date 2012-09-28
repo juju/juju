@@ -46,9 +46,7 @@ func (c *SCPCommand) Run(ctx *cmd.Context) error {
 	// translate arguments in the form 0:/somepath or service/0:/somepath into 
 	// ubuntu@machine:/somepath so they can be presented to scp.
 	for i := range c.Args {
-		// BUG(dfc) This will not work for IPv6 addresses if the user passes
-		// 2001:db8::1:2:/somepath.
-		// BUG(dfc) This will also not work if the local path has a : in it.
+		// BUG(dfc) This will not work for IPv6 addresses like 2001:db8::1:2:/somepath.
 		if v := strings.SplitN(c.Args[i], ":", 2); len(v) > 1 {
 			host, err := c.hostFromTarget(v[0])
 			if err != nil {
