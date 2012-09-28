@@ -31,9 +31,9 @@ type Upgrader struct {
 // an upgrade is ready to be performed and a restart is due.
 type UpgradeReadyError struct {
 	AgentName string
-	OldTools *state.Tools
-	Tools *state.Tools
-	DataDir string
+	OldTools  *state.Tools
+	Tools     *state.Tools
+	DataDir   string
 }
 
 func (e *UpgradeReadyError) Error() string {
@@ -233,9 +233,9 @@ func (u *Upgrader) run() error {
 func (u *Upgrader) newError(old, new *state.Tools) *UpgradeReadyError {
 	return &UpgradeReadyError{
 		AgentName: u.agentState.PathKey(),
-		OldTools: old,
-		DataDir: u.dataDir,
-		Tools: new,
+		OldTools:  old,
+		DataDir:   u.dataDir,
+		Tools:     new,
 	}
 }
 

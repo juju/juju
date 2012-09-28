@@ -4,9 +4,9 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/version"
 	"time"
 )
@@ -85,7 +85,6 @@ func (s *UnitSuite) TestRunStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(<-done, IsNil)
 }
-
 
 // newAgent starts a new unit agent running a unit
 // of the dummy charm.
