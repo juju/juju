@@ -809,6 +809,7 @@ type waitUnit struct {
 func (s waitUnit) step(c *C, ctx *context) {
 	timeout := time.After(5 * time.Second)
 	for {
+		ctx.st.StartSync()
 		select {
 		case <-time.After(50 * time.Millisecond):
 			err := ctx.unit.Refresh()
@@ -829,7 +830,6 @@ func (s waitUnit) step(c *C, ctx *context) {
 				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
 				continue
 			}
-			ctx.st.Sync() // Ensure presence watcher is up to date for Status call.
 			status, info, err := ctx.unit.Status()
 			c.Assert(err, IsNil)
 			if status != s.status {
@@ -852,7 +852,8 @@ type waitHooks []string
 func (s waitHooks) step(c *C, ctx *context) {
 	if len(s) == 0 {
 		// Give unwanted hooks a moment to run...
-		time.Sleep(200 * time.Millisecond)
+		ctx.st.StartSync()
+		time.Sleep(100 * time.Millisecond)
 	}
 	ctx.hooks = append(ctx.hooks, s...)
 	c.Logf("waiting for hooks: %#v", ctx.hooks)
@@ -865,6 +866,7 @@ func (s waitHooks) step(c *C, ctx *context) {
 	}
 	timeout := time.After(5 * time.Second)
 	for {
+		ctx.st.StartSync()
 		select {
 		case <-time.After(50 * time.Millisecond):
 			if match, _ = ctx.matchLogHooks(c); match {
