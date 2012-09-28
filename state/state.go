@@ -124,13 +124,13 @@ func (s *State) SetEnvironConfig(cfg *config.Config) error {
 type WorkerKind string
 
 const (
-	MachineWorker     WorkerKind = "machine"
-	ProvisionerWorker WorkerKind = "firewaller"
-	FirewallerWorker  WorkerKind = "provisioner"
+	MachinerWorker WorkerKind = "machiner"
+	ProvisionerWorker WorkerKind = "provisioner"
+	FirewallerWorker WorkerKind = "firewaller"
 )
 
-// AddMachine creates a new machine in the state
-// that will run the given workers.
+// AddMachine adds a new machine that when deployed will have a
+// machine agent running the provided workers.
 func (s *State) AddMachine(workers ...WorkerKind) (m *Machine, err error) {
 	defer trivial.ErrorContextf(&err, "cannot add a new machine")
 	wset := make(map[WorkerKind]bool)
@@ -140,7 +140,7 @@ func (s *State) AddMachine(workers ...WorkerKind) (m *Machine, err error) {
 		}
 		wset[w] = true
 	}
-	if !wset[MachineWorker] {
+	if !wset[MachinerWorker] {
 		return nil, fmt.Errorf("new machine must be started with a machine worker")
 	}
 	id, err := s.sequence("machine")
@@ -500,7 +500,7 @@ func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
 			return err
 		}
-		m, err := s.AddMachine(MachineWorker)
+		m, err := s.AddMachine(MachinerWorker)
 		if err != nil {
 			return err
 		}

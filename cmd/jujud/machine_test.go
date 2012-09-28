@@ -52,7 +52,7 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *C) {
 }
 
 func (s *MachineSuite) TestRunStop(c *C) {
-	m, err := s.State.AddMachine(state.MachineWorker)
+	m, err := s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
 	a := &MachineAgent{
 		Conf: AgentConf{

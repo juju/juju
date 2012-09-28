@@ -46,8 +46,7 @@ func (m *Machine) Life() Life {
 	return m.doc.Life
 }
 
-// Workers returns the workers that the machine agent is configured
-// to run.
+// Workers returns the workers that the machine agent for m must run.
 func (m *Machine) Workers() []WorkerKind {
 	return m.doc.Workers
 }

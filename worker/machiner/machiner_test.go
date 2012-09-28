@@ -23,7 +23,7 @@ type MachinerSuite struct {
 var _ = Suite(&MachinerSuite{})
 
 func (s *MachinerSuite) TestMachinerStartStop(c *C) {
-	m, err := s.State.AddMachine(state.MachineWorker)
+	m, err := s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
 
 	p := machiner.NewMachiner(m, &state.Info{}, c.MkDir())
@@ -50,10 +50,10 @@ func (s *MachinerSuite) TestMachinerDeployDestroy(c *C) {
 	ud1, err := d1.AddUnit()
 	c.Assert(err, IsNil)
 
-	m0, err := s.State.AddMachine(state.MachineWorker)
+	m0, err := s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
 
-	m1, err := s.State.AddMachine(state.MachineWorker)
+	m1, err := s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
 
 	err = ud0.AssignToMachine(m0)
