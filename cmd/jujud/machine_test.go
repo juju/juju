@@ -124,8 +124,8 @@ func (s *MachineSuite) TestProvisionerFirewaller(c *C) {
 		done <- a.Run(nil)
 	}()
 
-	// Check that the provisioner is alive by doing a rudimentary check
-	// that it responds to state changes.
+	// Check that the provisioner and firewaller are alive by doing
+	// a rudimentary check that it responds to state changes.
 
 	// Add one unit to a service; it should get allocated a machine
 	// and then its ports should be opened.
