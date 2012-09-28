@@ -53,7 +53,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	for a.tomb.Err() == tomb.ErrStillAlive {
 		err := a.runOnce()
 		if ug, ok := err.(*UpgradeReadyError); ok {
-			if err = ug.Upgrade(); err == nil {
+			if err = ug.ChangeAgentTools(); err == nil {
 				// Return and let upstart deal with the restart.
 				return ug
 			}
@@ -61,7 +61,11 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 		if err == worker.ErrDead {
 			return nil
 		}
-		log.Printf("uniter: %v", err)
+		if err == nil {
+			log.Printf("uniter: workers died with no error")
+		} else {
+			log.Printf("uniter: %v", err)
+		}
 		select {
 		case <-a.tomb.Dying():
 			a.tomb.Kill(err)

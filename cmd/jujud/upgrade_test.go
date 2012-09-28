@@ -142,7 +142,7 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 		} else {
 			ug := waitDeath(c, u)
 			tools := uploaded[version.MustParse(test.upgradeTo)]
-			c.Check(ug.Tools, DeepEquals, tools)
+			c.Check(ug.NewTools, DeepEquals, tools)
 			c.Check(ug.OldTools.Binary, Equals, version.Current)
 			c.Check(ug.DataDir, Equals, dataDir)
 			c.Check(ug.AgentName, Equals, "testagent")
@@ -191,7 +191,7 @@ var delayedStopTests = []struct {
 	// tools have downloaded, thus checking that the
 	// upgrader really did wait for the download.
 	storageDelay: 5 * time.Millisecond,
-	err:          `must restart: agent has been upgraded`,
+	err:          `must restart: an agent upgrade is available`,
 }, {
 	about:             "fetch error",
 	upgraderKillDelay: time.Second,
@@ -245,10 +245,10 @@ func (s *UpgraderSuite) TestUpgraderReadyErrorUpgrade(c *C) {
 	ug := &UpgradeReadyError{
 		AgentName: "foo",
 		OldTools:  &state.Tools{Binary: version.MustParseBinary("2.0.0-foo-bar")},
-		Tools:     currentTools,
+		NewTools:  currentTools,
 		DataDir:   dataDir,
 	}
-	err := ug.Upgrade()
+	err := ug.ChangeAgentTools()
 	c.Assert(err, IsNil)
 	d := environs.AgentToolsDir(dataDir, "foo")
 	data, err := ioutil.ReadFile(filepath.Join(d, "jujud"))
