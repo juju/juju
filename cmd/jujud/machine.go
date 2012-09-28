@@ -86,6 +86,7 @@ func (a *MachineAgent) runOnce() error {
 	if err != nil {
 		return err
 	}
+	log.Printf("machine agent running tasks: %v", m.Workers())
 	tasks := []task{NewUpgrader(st, m, a.Conf.DataDir)}
 	for _, w := range m.Workers() {
 		var t task
@@ -103,5 +104,6 @@ func (a *MachineAgent) runOnce() error {
 		}
 		tasks = append(tasks, t)
 	}
+	log.Printf("final tasks: %#v", tasks)
 	return runTasks(a.tomb.Dying(), tasks...)
 }
