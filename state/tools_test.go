@@ -56,7 +56,7 @@ func testAgentTools(c *C, obj tooler, agent string) {
 }
 
 func (s *ToolsSuite) TestMachineAgentTools(c *C) {
-	m, err := s.State.AddMachine()
+	m, err := s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
 	testAgentTools(c, m, "machine 0")
 }

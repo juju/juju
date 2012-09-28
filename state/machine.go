@@ -24,6 +24,7 @@ type machineDoc struct {
 	Life       Life
 	Tools      *Tools `bson:",omitempty"`
 	TxnRevno   int64  `bson:"txn-revno"`
+	Workers    []WorkerKind
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -43,6 +44,11 @@ func (m *Machine) globalKey() string {
 // Life returns whether the machine is Alive, Dying or Dead.
 func (m *Machine) Life() Life {
 	return m.doc.Life
+}
+
+// Workers returns the workers that the machine agent for m must run.
+func (m *Machine) Workers() []WorkerKind {
+	return m.doc.Workers
 }
 
 // AgentTools returns the tools that the agent is currently running.
