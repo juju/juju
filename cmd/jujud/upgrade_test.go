@@ -285,7 +285,7 @@ func (s *UpgraderSuite) TestUpgraderReadyErrorUpgrade(c *C) {
 	ug := &UpgradeReadyError{
 		AgentName: "foo",
 		OldTools:  &state.Tools{Binary: version.MustParseBinary("2.0.0-foo-bar")},
-		NewTools:     currentTools,
+		NewTools:  currentTools,
 		DataDir:   dataDir,
 	}
 	err := ug.ChangeAgentTools()

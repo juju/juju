@@ -32,7 +32,7 @@ type Upgrader struct {
 type UpgradeReadyError struct {
 	AgentName string
 	OldTools  *state.Tools
-	NewTools     *state.Tools
+	NewTools  *state.Tools
 	DataDir   string
 }
 
@@ -235,7 +235,7 @@ func (u *Upgrader) upgradeReady(old, new *state.Tools) *UpgradeReadyError {
 		AgentName: u.agentState.PathKey(),
 		OldTools:  old,
 		DataDir:   u.dataDir,
-		NewTools:     new,
+		NewTools:  new,
 	}
 }
 
