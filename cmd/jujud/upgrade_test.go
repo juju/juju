@@ -284,9 +284,9 @@ func (s *UpgraderSuite) TestUpgraderReadyErrorUpgrade(c *C) {
 	dataDir, currentTools := s.primeTools(c, version.MustParseBinary("2.0.2-foo-bar"))
 	ug := &UpgradeReadyError{
 		AgentName: "foo",
-		OldTools: &state.Tools{Binary: version.MustParseBinary("2.0.0-foo-bar")},
-		Tools: currentTools,
-		DataDir: dataDir,
+		OldTools:  &state.Tools{Binary: version.MustParseBinary("2.0.0-foo-bar")},
+		Tools:     currentTools,
+		DataDir:   dataDir,
 	}
 	err := ug.Upgrade()
 	c.Assert(err, IsNil)
@@ -295,7 +295,6 @@ func (s *UpgraderSuite) TestUpgraderReadyErrorUpgrade(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(string(data), Equals, "jujud contents 2.0.2-foo-bar")
 }
-
 
 func assertNothingHappens(c *C, upgraderDone <-chan error) {
 	select {
@@ -354,4 +353,3 @@ func (as testAgentState) SetAgentTools(tools *state.Tools) error {
 func (as testAgentState) PathKey() string {
 	return "testagent"
 }
-
