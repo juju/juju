@@ -853,7 +853,7 @@ func (s waitHooks) step(c *C, ctx *context) {
 	ctx.st.StartSync()
 	if len(s) == 0 {
 		// Give unwanted hooks a moment to run...
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 	ctx.hooks = append(ctx.hooks, s...)
 	c.Logf("waiting for hooks: %#v", ctx.hooks)
