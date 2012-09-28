@@ -116,7 +116,7 @@ func (s *UnitSuite) TestUpgrade(c *C) {
 	err := runWithTimeout(a)
 	c.Assert(err, FitsTypeOf, &UpgradeReadyError{})
 	ug := err.(*UpgradeReadyError)
-	c.Assert(ug.Tools, DeepEquals, newTools)
+	c.Assert(ug.NewTools, DeepEquals, newTools)
 	c.Assert(ug.OldTools, DeepEquals, currentTools)
 }
 

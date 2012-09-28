@@ -57,9 +57,14 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 			}
 		}
 		if err == worker.ErrDead {
+			log.Printf("uniter: machine is dead")
 			return nil
 		}
-		log.Printf("machiner: %v", err)
+		if err == nil {
+			log.Printf("machiner: workers died with no error")
+		} else {
+			log.Printf("machiner: %v", err)
+		}
 		select {
 		case <-a.tomb.Dying():
 			a.tomb.Kill(err)

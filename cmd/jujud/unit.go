@@ -59,6 +59,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 			}
 		}
 		if err == worker.ErrDead {
+			log.Printf("uniter: unit is dead")
 			return nil
 		}
 		if err == nil {
