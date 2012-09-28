@@ -54,11 +54,12 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 				return ug
 			}
 		}
+		log.Printf("machiner: %v", err)
 		select {
 		case <-a.tomb.Dying():
 			a.tomb.Kill(err)
 		case <-time.After(retryDelay):
-			log.Printf("restarting machiner after error: %v", err)
+			log.Printf("rerunning machiner")
 		}
 	}
 	return a.tomb.Err()
