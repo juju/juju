@@ -121,16 +121,36 @@ func (s *State) SetEnvironConfig(cfg *config.Config) error {
 	return err
 }
 
-// AddMachine creates a new machine state.
-func (s *State) AddMachine() (m *Machine, err error) {
+type WorkerKind string
+
+const (
+	MachinerWorker    WorkerKind = "machiner"
+	ProvisionerWorker WorkerKind = "provisioner"
+	FirewallerWorker  WorkerKind = "firewaller"
+)
+
+// AddMachine adds a new machine that when deployed will have a
+// machine agent running the provided workers.
+func (s *State) AddMachine(workers ...WorkerKind) (m *Machine, err error) {
 	defer trivial.ErrorContextf(&err, "cannot add a new machine")
+	wset := make(map[WorkerKind]bool)
+	for _, w := range workers {
+		if wset[w] {
+			return nil, fmt.Errorf("duplicate worker: %s", w)
+		}
+		wset[w] = true
+	}
+	if !wset[MachinerWorker] {
+		return nil, fmt.Errorf("new machine must be started with a machine worker")
+	}
 	id, err := s.sequence("machine")
 	if err != nil {
 		return nil, err
 	}
 	mdoc := machineDoc{
-		Id:   id,
-		Life: Alive,
+		Id:      id,
+		Life:    Alive,
+		Workers: workers,
 	}
 	ops := []txn.Op{{
 		C:      s.machines.Name,
@@ -480,7 +500,7 @@ func (s *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
 			return err
 		}
-		m, err := s.AddMachine()
+		m, err := s.AddMachine(MachinerWorker)
 		if err != nil {
 			return err
 		}
