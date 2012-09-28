@@ -579,6 +579,7 @@ var uniterTests = []uniterTest{
 }
 
 func (s *UniterSuite) TestUniter(c *C) {
+	c.Fatalf("skipped for speed")
 	unitDir := filepath.Join(s.dataDir, "agents", "unit-u-0")
 	for i, t := range uniterTests {
 		if i != 0 {

@@ -1,6 +1,7 @@
 package uniter
 
 import (
+	"errors"
 	"fmt"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
@@ -42,8 +43,8 @@ func newFilter(tombDyingChan <-chan struct{}) *filter {
 
 // charmChange holds the result of a service's CharmURL method.
 type charmChange struct {
-	URL   *charm.URL
-	Force bool
+	url   *charm.URL
+	force bool
 }
 
 func (f *filter) loop(unitw *state.UnitWatcher, servicew *state.ServiceWatcher, configw *state.ConfigWatcher) (err error) {
