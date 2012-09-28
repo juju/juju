@@ -152,7 +152,7 @@ func (s *StateFileSuite) TestStates(c *C) {
 			c.Assert(err, IsNil)
 		}
 		if t.err != "" {
-			c.Assert(write, PanicMatches, "invalid uniter state: " + t.err)
+			c.Assert(write, PanicMatches, "invalid uniter state: "+t.err)
 			err := trivial.WriteYaml(path, &t.st)
 			c.Assert(err, IsNil)
 			_, err = file.Read()
