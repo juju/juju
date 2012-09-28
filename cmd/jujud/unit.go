@@ -57,6 +57,9 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 				return ug
 			}
 		}
+		if err == uniter.ErrDead {
+			return nil
+		}
 		log.Printf("uniter: %v", err)
 		select {
 		case <-a.tomb.Dying():
@@ -76,6 +79,9 @@ func (a *UnitAgent) runOnce() error {
 	}
 	defer st.Close()
 	unit, err := st.Unit(a.UnitName)
+	if state.IsNotFound(err) || err == nil && unit.Life() == state.Dead {
+		return uniter.ErrDead
+	}
 	if err != nil {
 		return err
 	}

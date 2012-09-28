@@ -44,6 +44,7 @@ func (a *MachineAgent) Stop() error {
 
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
+	defer log.Printf("machine agent exiting")
 	defer a.tomb.Done()
 	for a.tomb.Err() == tomb.ErrStillAlive {
 		log.Printf("machine agent starting")
@@ -53,6 +54,9 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 				// Return and let upstart deal with the restart.
 				return ug
 			}
+		}
+		if err == machiner.ErrDead {
+			return nil
 		}
 		select {
 		case <-a.tomb.Dying():
@@ -71,6 +75,9 @@ func (a *MachineAgent) runOnce() error {
 	}
 	defer st.Close()
 	m, err := st.Machine(a.MachineId)
+	if state.IsNotFound(err) || err == nil && m.Life() == state.Dead {
+		return machiner.ErrDead
+	}
 	if err != nil {
 		return err
 	}

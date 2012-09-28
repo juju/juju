@@ -1,6 +1,7 @@
 package machiner
 
 import (
+	"errors"
 	"fmt"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs"
@@ -19,6 +20,8 @@ type Machiner struct {
 	stateInfo      *state.Info
 	tools          *state.Tools
 }
+
+var ErrDead = errors.New("machine is dead")
 
 // NewMachiner starts a machine agent running that
 // deploys agents in the given directory.
