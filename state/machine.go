@@ -41,6 +41,13 @@ func (m *Machine) globalKey() string {
 	return "m#" + m.String()
 }
 
+// PathKey returns a name identifying the machine that can be used as a
+// file name.  The returned key will be different from other
+// PathKey values returned by any other entities from the same state.
+func (m *Machine) PathKey() string {
+	return fmt.Sprintf("machine-%d", m.doc.Id)
+}
+
 // Life returns whether the machine is Alive, Dying or Dead.
 func (m *Machine) Life() Life {
 	return m.doc.Life

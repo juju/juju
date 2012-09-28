@@ -47,10 +47,21 @@ func (a *UnitAgent) Stop() error {
 
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
+	defer log.Printf("unit agent exiting")
 	defer a.tomb.Done()
 	for a.tomb.Err() == tomb.ErrStillAlive {
 		err := a.runOnce()
-		log.Printf("uniter error: %v", err)
+		if ug, ok := err.(*UpgradeReadyError); ok {
+			if err = ug.ChangeAgentTools(); err == nil {
+				// Return and let upstart deal with the restart.
+				return ug
+			}
+		}
+		if err == nil {
+			log.Printf("uniter: workers died with no error")
+		} else {
+			log.Printf("uniter: %v", err)
+		}
 		select {
 		case <-a.tomb.Dying():
 			a.tomb.Kill(err)
@@ -68,9 +79,12 @@ func (a *UnitAgent) runOnce() error {
 		return err
 	}
 	defer st.Close()
-	u, err := uniter.NewUniter(st, a.UnitName, a.Conf.DataDir)
+	unit, err := st.Unit(a.UnitName)
 	if err != nil {
 		return err
 	}
-	return runTasks(a.tomb.Dying(), u)
+	return runTasks(a.tomb.Dying(),
+		uniter.NewUniter(st, unit.Name(), a.Conf.DataDir),
+		NewUpgrader(st, unit, a.Conf.DataDir),
+	)
 }

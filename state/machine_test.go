@@ -38,6 +38,10 @@ func (s *MachineSuite) TestMachineSetAgentAlive(c *C) {
 	c.Assert(alive, Equals, true)
 }
 
+func (s *MachineSuite) TestPathKey(c *C) {
+	c.Assert(s.machine.PathKey(), Equals, "machine-0")
+}
+
 func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
 	// test -gocheck.f TestMachineWaitAgentAlive
 	timeout := 200 * time.Millisecond
