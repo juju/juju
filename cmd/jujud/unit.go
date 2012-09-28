@@ -48,7 +48,7 @@ func (a *UnitAgent) Stop() error {
 
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
-	defer log.Printf("unit agent exiting")
+	defer log.Printf("uniter: unit agent exiting")
 	defer a.tomb.Done()
 	for a.tomb.Err() == tomb.ErrStillAlive {
 		err := a.runOnce()
@@ -71,7 +71,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 		case <-a.tomb.Dying():
 			a.tomb.Kill(err)
 		case <-time.After(retryDelay):
-			log.Printf("rerunning uniter")
+			log.Printf("uniter: rerunning uniter")
 		}
 	}
 	return a.tomb.Err()
