@@ -93,6 +93,7 @@ author "Juju Team <juju@lists.ubuntu.com>"
 start on runlevel [2345]
 stop on runlevel [!2345]
 respawn
+normal exit 0
 {{range $k, $v := .Env}}env {{$k}}={{$v|printf "%q"}}
 {{end}}
 exec {{.Cmd}}{{if .Out}} >> {{.Out}} 2>&1{{end}}
@@ -107,6 +108,7 @@ type Conf struct {
 	// Env holds the environment variables that will be set when the command runs.
 	Env map[string]string
 	// Cmd is the command (with arguments) that will be run.
+	// The command will be restarted if it exits with a non-zero exit code.
 	Cmd string
 	// Out, if set, will redirect output to that path.
 	Out string
