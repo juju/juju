@@ -91,7 +91,7 @@ func (f *filter) loop(unitw *state.UnitWatcher) (err error) {
 	var rm *state.ResolvedMode
 	var ch *charmChange
 
-	log.Printf("filtering unit changes")
+	log.Printf("watching unit changes")
 	for {
 		select {
 		case <-f.tomb.Dying():
@@ -120,16 +120,17 @@ func (f *filter) loop(unitw *state.UnitWatcher) (err error) {
 			// If we have not previously done so, we discover the service and
 			// start watchers for the service and its config...
 			if service == nil {
-				log.Printf("filtering service and config changes")
 				if service, err = unit.Service(); err != nil {
 					return err
 				}
 				configw = service.WatchConfig()
 				defer watcher.Stop(configw, &f.tomb)
 				configChanges = configw.Changes()
+				log.Printf("watching config changes")
 				servicew = service.Watch()
 				defer watcher.Stop(servicew, &f.tomb)
 				serviceChanges = servicew.Changes()
+				log.Printf("watching service changes")
 			}
 
 		// ...and handle the config and service changes as follows.

@@ -8,7 +8,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
@@ -20,14 +20,13 @@ import (
 
 // Uniter implements the capabilities of the unit agent. It is not intended to
 // implement the actual *behaviour* of the unit agent; that responsibility is
-// delegated to Mode values, which are expected to use the capabilities of the
-// uniter to react appropriately to changes in the system.
+// delegated to Mode values, which are expected to react to events and direct
+// the uniter's responses to them.
 type Uniter struct {
 	tomb    tomb.Tomb
 	st      *state.State
 	unit    *state.Unit
 	service *state.Service
-	pinger  *presence.Pinger
 
 	dataDir  string
 	baseDir  string
@@ -37,6 +36,8 @@ type Uniter struct {
 	deployer *charm.Deployer
 	sf       *StateFile
 	rand     *rand.Rand
+
+	*filter
 }
 
 // NewUniter creates a new Uniter which will install, run, and upgrade a
@@ -48,13 +49,8 @@ func NewUniter(st *state.State, name string, dataDir string) *Uniter {
 		dataDir: dataDir,
 	}
 	go func() {
-		err := u.loop(name)
-		log.Printf("uniter shutting down: %s", err)
-		u.tomb.Kill(err)
-		if u.pinger != nil {
-			u.tomb.Kill(u.pinger.Stop())
-		}
-		u.tomb.Done()
+		defer u.tomb.Done()
+		u.tomb.Kill(u.loop(name))
 	}()
 	return u
 }
@@ -63,11 +59,33 @@ func (u *Uniter) loop(name string) error {
 	if err := u.init(name); err != nil {
 		return err
 	}
-	var err error
-	mode := ModeInit
-	for mode != nil {
-		mode, err = mode(u)
+
+	// Announce our presence to the world.
+	pinger, err := u.unit.SetAgentAlive()
+	if err != nil {
+		return err
 	}
+	defer watcher.Stop(pinger, &u.tomb)
+	log.Printf("unit %q started pinger", u.unit)
+
+	// Start filtering state change events for consumption by modes.
+	u.filter = newFilter(u.unit)
+	defer watcher.Stop(u.filter, &u.tomb)
+	go func() {
+		u.tomb.Kill(u.filter.Wait())
+	}()
+
+	// Run modes until we encounter an error.
+	mode := ModeInit
+	for err == nil {
+		select {
+		case <-u.tomb.Dying():
+			err = tomb.ErrDying
+		default:
+			mode, err = mode(u)
+		}
+	}
+	log.Printf("unit %q shutting down: %s", u.unit, err)
 	return err
 }
 
@@ -87,10 +105,6 @@ func (u *Uniter) init(name string) (err error) {
 		return err
 	}
 	u.service, err = u.st.Service(u.unit.ServiceName())
-	if err != nil {
-		return err
-	}
-	u.pinger, err = u.unit.SetAgentAlive()
 	if err != nil {
 		return err
 	}
@@ -117,6 +131,45 @@ func (u *Uniter) Dying() <-chan struct{} {
 
 func (u *Uniter) Wait() error {
 	return u.tomb.Wait()
+}
+
+// errNoUpgrade indicates that the uniter should not upgrade its charm.
+var errNoUpgrade = errors.New("no upgrades available")
+
+// getUpgrade returns the charm to which the deployment should be upgraded,
+// given the supplied service charm information. If no upgrade is appropriate,
+// errNoUpgrade is returned.
+func (u *Uniter) getUpgrade(ch *charmChange, mustForce bool) (*state.Charm, error) {
+	proposed := ch.url
+	log.Printf("considering upgrade request: %s", proposed)
+	if mustForce && !ch.force {
+		log.Printf("request denied: not forced")
+		return nil, errNoUpgrade
+	}
+	select {
+	case <-u.unitDying():
+		log.Printf("request denied: unit is dying")
+		return nil, errNoUpgrade
+	default:
+	}
+	log.Printf("reading current charm")
+	s, err := u.sf.Read()
+	if err != nil {
+		return nil, err
+	}
+	current := s.CharmURL
+	if current == nil {
+		current, err = charm.ReadCharmURL(u.charm)
+		if err != nil {
+			return nil, err
+		}
+	}
+	log.Printf("current charm is %s", current)
+	if *current == *proposed {
+		log.Printf("request denied: already upgraded")
+		return nil, errNoUpgrade
+	}
+	return u.st.Charm(proposed)
 }
 
 // deploy deploys the supplied charm, and sets follow-up hook operation state
@@ -222,21 +275,22 @@ func (u *Uniter) runHook(hi hook.Info) error {
 	if err := u.sf.Write(RunHook, Pending, &hi, nil); err != nil {
 		return err
 	}
-	log.Printf("running hook %q", hookName)
+	log.Printf("running %q hook", hookName)
 	if err := hctx.RunHook(hookName, u.charm.Path(), u.toolsDir, socketPath); err != nil {
 		log.Printf("hook failed: %s", err)
 		return errHookFailed
 	}
-	log.Printf("hook succeeded")
+	if err := u.sf.Write(RunHook, Done, &hi, nil); err != nil {
+		return err
+	}
+	log.Printf("ran %q hook", hookName)
 	return u.commitHook(hi)
 }
 
 // commitHook ensures that state is consistent with the supplied hook, and
 // that the fact of the hook's completion is persisted.
 func (u *Uniter) commitHook(hi hook.Info) error {
-	if err := u.sf.Write(RunHook, Done, &hi, nil); err != nil {
-		return err
-	}
+	log.Printf("committing %q hook", hi.Kind)
 	if hi.Kind.IsRelation() {
 		panic("relation hooks are not yet supported")
 		// TODO: commit relation state changes.
@@ -247,6 +301,52 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 	if err := u.sf.Write(Abide, Pending, &hi, nil); err != nil {
 		return err
 	}
-	log.Printf("hook complete")
+	log.Printf("committed %q hook", hi.Kind)
 	return nil
+}
+
+// resolveError abstracts away the commonalities of different resolution
+// operations. It does nothing when rm is ResolvedNone; otherwise, it calls
+// the supplied resolveFunc and clears the unit's Resolved flag (regardless
+// or resolveFunc success or failure). It returns true if rf succeeded and
+// the flag was cleared successfully.
+func (u *Uniter) resolveError(rm state.ResolvedMode, rf resolveFunc) (success bool, err error) {
+	if rm == state.ResolvedNone {
+		return false, nil
+	}
+	switch rm {
+	case state.ResolvedRetryHooks:
+		err = rf(u, true)
+	case state.ResolvedNoHooks:
+		err = rf(u, false)
+	default:
+		panic(fmt.Errorf("unhandled resolved mode %q", rf))
+	}
+	if e := u.unit.ClearResolved(); e != nil {
+		err = e
+	}
+	return err == nil, nil
+}
+
+// resolveFunc values specify the uniter's response to user resolution of
+// different kinds of errors.
+type resolveFunc func(u *Uniter, retry bool) error
+
+// resolveConflict commits the current state of the charm deployment,
+// thereby resolving git conflicts.
+func resolveConflict(u *Uniter, _ bool) error {
+	log.Printf("resolving upgrade conflict")
+	return u.charm.Snapshotf("Upgrade conflict resolved.")
+}
+
+// getResolveHook returns a resolveFunc that either runs or commits the
+// supplied hook, depending on the value of the retry parameter.
+func getResolveHook(hi hook.Info) resolveFunc {
+	return func(u *Uniter, retry bool) error {
+		log.Printf("resolving hook error")
+		if retry {
+			return u.runHook(hi)
+		}
+		return u.commitHook(hi)
+	}
 }

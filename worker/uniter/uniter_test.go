@@ -174,7 +174,7 @@ var uniterTests = []uniterTest{
 		serveCharm{},
 		writeFile{"charm", 0644},
 		createUniter{},
-		waitUniterDead{`ModeInstalling: charm deployment failed: ".*charm" is not a directory`},
+		waitUniterDead{`ModeInstalling cs:series/dummy-0: charm deployment failed: ".*charm" is not a directory`},
 	), ut(
 		"charm cannot be downloaded",
 		createCharm{},
@@ -182,7 +182,7 @@ var uniterTests = []uniterTest{
 			coretesting.Server.Response(404, nil, nil)
 		}},
 		createUniter{},
-		waitUniterDead{`ModeInstalling: failed to download charm .* 404 Not Found`},
+		waitUniterDead{`ModeInstalling cs:series/dummy-0: failed to download charm .* 404 Not Found`},
 	), ut(
 		"install hook fail and resolve",
 		startupError{"install"},
