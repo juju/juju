@@ -30,22 +30,39 @@ func (s *FilterSuite) SetUpTest(c *C) {
 func (s *FilterSuite) TestUnitDeath(c *C) {
 	f := newFilter(s.unit)
 	defer f.Stop()
-	s.State.StartSync()
-	select {
-	case <-time.After(50 * time.Millisecond):
-	case <-f.unitDying():
-		c.Fatalf("unexpected receive")
+	assertNotClosed := func() {
+		s.State.StartSync()
+		select {
+		case <-time.After(50 * time.Millisecond):
+		case <-f.unitDying():
+			c.Fatalf("unexpected receive")
+		}
 	}
+	assertNotClosed()
 
-	err := s.unit.EnsureDying()
+	// Irrelevant change.
+	err := s.unit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, IsNil)
-	s.State.StartSync()
-	select {
-	case <-time.After(50 * time.Millisecond):
-		c.Fatalf("dying not detected")
-	case _, ok := <-f.unitDying():
-		c.Assert(ok, Equals, false)
+	assertNotClosed()
+
+	// Set dying.
+	err = s.unit.EnsureDying()
+	c.Assert(err, IsNil)
+	assertClosed := func() {
+		s.State.StartSync()
+		select {
+		case <-time.After(50 * time.Millisecond):
+			c.Fatalf("dying not detected")
+		case _, ok := <-f.unitDying():
+			c.Assert(ok, Equals, false)
+		}
 	}
+	assertClosed()
+
+	// Another irrelevant change.
+	err = s.unit.ClearResolved()
+	c.Assert(err, IsNil)
+	assertClosed()
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)

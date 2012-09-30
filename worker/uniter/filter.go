@@ -50,7 +50,9 @@ func newFilter(unit *state.Unit) *filter {
 	go func() {
 		defer f.tomb.Done()
 		defer watcher.Stop(unitw, &f.tomb)
-		f.tomb.Kill(f.loop(unitw))
+		err := f.loop(unitw)
+		log.Printf("filter error: %v", err)
+		f.tomb.Kill(err)
 	}()
 	return f
 }
@@ -63,6 +65,7 @@ func (f *filter) loop(unitw *state.UnitWatcher) (err error) {
 	// mooted service-config-per-charm-version behaviour.
 	var ok bool
 	var unit *state.Unit
+	var life state.Life
 	var service *state.Service
 	var configw *state.ConfigWatcher
 	var configChanges <-chan *state.ConfigNode
@@ -91,7 +94,7 @@ func (f *filter) loop(unitw *state.UnitWatcher) (err error) {
 	var rm *state.ResolvedMode
 	var ch *charmChange
 
-	log.Printf("filtering unit changes")
+	log.Printf("watching unit changes")
 	for {
 		select {
 		case <-f.tomb.Dying():
@@ -101,12 +104,14 @@ func (f *filter) loop(unitw *state.UnitWatcher) (err error) {
 			if !ok {
 				return watcher.MustErr(unitw)
 			}
-			switch unit.Life() {
-			case state.Dying:
-				log.Printf("unit is dying")
-				close(f.outUnitDying)
-			case state.Dead:
-				return ErrDead
+			if life != unit.Life() {
+				switch life = unit.Life(); life {
+				case state.Dying:
+					log.Printf("unit is dying")
+					close(f.outUnitDying)
+				case state.Dead:
+					return ErrDead
+				}
 			}
 			rm_ := unit.Resolved()
 			if rm != nil && *rm == rm_ {
@@ -120,16 +125,17 @@ func (f *filter) loop(unitw *state.UnitWatcher) (err error) {
 			// If we have not previously done so, we discover the service and
 			// start watchers for the service and its config...
 			if service == nil {
-				log.Printf("filtering service and config changes")
 				if service, err = unit.Service(); err != nil {
 					return err
 				}
 				configw = service.WatchConfig()
 				defer watcher.Stop(configw, &f.tomb)
 				configChanges = configw.Changes()
+				log.Printf("watching config changes")
 				servicew = service.Watch()
 				defer watcher.Stop(servicew, &f.tomb)
 				serviceChanges = servicew.Changes()
+				log.Printf("watching service changes")
 			}
 
 		// ...and handle the config and service changes as follows.
