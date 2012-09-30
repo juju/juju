@@ -117,7 +117,7 @@ func ModeUpgrading(sch *state.Charm) Mode {
 	}
 }
 
-// ModeStarting is responsible for running the "start" hook.
+// ModeStarting runs the "start" hook.
 func ModeStarting(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeStarting", &next, &err)()
 	if err = u.unit.SetStatus(state.UnitInstalled, ""); err != nil {
@@ -132,7 +132,7 @@ func ModeStopping(u *Uniter) (next Mode, err error) {
 	return nil, u.runHook(hook.Info{Kind: hook.Stop})
 }
 
-// ModeTerminating marks the unit dead, and returns ErrUnitDead.
+// ModeTerminating marks the unit dead and returns ErrDead.
 func ModeTerminating(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeTerminating", &next, &err)()
 	if err = u.unit.SetStatus(state.UnitStopped, ""); err != nil {
@@ -217,8 +217,8 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 		return nil, err
 	}
 	resolveHook := getResolveHook(*s.Hook)
-	u.wantCharmEvent()
 	u.wantResolvedEvent()
+	u.wantCharmEvent()
 	for {
 		select {
 		case <-u.Dying():
@@ -251,8 +251,8 @@ func ModeConflicted(sch *state.Charm) Mode {
 		if err = u.unit.SetStatus(state.UnitError, "upgrade failed"); err != nil {
 			return nil, err
 		}
-		u.wantCharmEvent()
 		u.wantResolvedEvent()
+		u.wantCharmEvent()
 		for {
 			select {
 			case <-u.Dying():

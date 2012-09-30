@@ -167,6 +167,7 @@ var uniterTests = []uniterTest{
 		startUniter{},
 		waitUniterDead{`failed to initialize uniter for unit "u/0": unit "u/0" not found`},
 	),
+
 	// Check error conditions during unit bootstrap phase.
 	ut(
 		"insane deployment",
@@ -280,11 +281,14 @@ var uniterTests = []uniterTest{
 			status: state.UnitStarted,
 		},
 		// Note: the second config-changed hook is automatically run as we
-		// enter started. IMO the simplicity and clarity of that approach
+		// re-enter ModeAbide. IMO the simplicity and clarity of that approach
 		// outweigh this slight inelegance.
 		waitHooks{"config-changed", "config-changed"},
 		verifyRunning{},
-	), ut(
+	),
+
+	// Steady state changes.
+	ut(
 		"steady state config change",
 		quickStart{},
 		changeConfig{},
@@ -294,7 +298,53 @@ var uniterTests = []uniterTest{
 		waitHooks{"config-changed"},
 		verifyRunning{},
 	),
-	// Upgrade tests
+
+	// Reaction to entity deaths.
+	ut(
+		"steady state service dying",
+		quickStart{},
+		serviceDying,
+		waitHooks{"stop"},
+		waitUniterDead{},
+	), ut(
+		"steady state unit dying",
+		quickStart{},
+		unitDying,
+		waitHooks{"stop"},
+		waitUniterDead{},
+	), ut(
+		"steady state unit dead",
+		quickStart{},
+		unitDead,
+		waitHooks{},
+		waitUniterDead{},
+	), ut(
+		"hook error service dying",
+		startupError{"start"},
+		serviceDying,
+		verifyWaiting{},
+		fixHook{"start"},
+		resolveError{state.ResolvedRetryHooks},
+		waitHooks{"start", "config-changed", "stop"},
+		waitUniterDead{},
+	), ut(
+		"hook error unit dying",
+		startupError{"start"},
+		unitDying,
+		verifyWaiting{},
+		fixHook{"start"},
+		resolveError{state.ResolvedRetryHooks},
+		waitHooks{"start", "config-changed", "stop"},
+		waitUniterDead{},
+	), ut(
+		"hook error unit dead",
+		startupError{"start"},
+		unitDead,
+		waitHooks{},
+		waitUniterDead{},
+	),
+
+	// Upgrade scenarios.
 	ut(
 		"steady state upgrade",
 		quickStart{},
@@ -414,40 +464,7 @@ var uniterTests = []uniterTest{
 		verifyRunning{},
 	), ut(
 		"upgrade: conflicting files",
-		createCharm{
-			customize: func(c *C, path string) {
-				start := filepath.Join(path, "hooks", "start")
-				f, err := os.OpenFile(start, os.O_WRONLY|os.O_APPEND, 0755)
-				c.Assert(err, IsNil)
-				defer f.Close()
-				_, err = f.Write([]byte("echo USERDATA > data"))
-				c.Assert(err, IsNil)
-			},
-		},
-		serveCharm{},
-		createUniter{},
-		waitUnit{
-			status: state.UnitStarted,
-		},
-		waitHooks{"install", "start", "config-changed"},
-		verifyCharm{},
-
-		createCharm{
-			revision: 1,
-			customize: func(c *C, path string) {
-				data := filepath.Join(path, "data")
-				err := ioutil.WriteFile(data, []byte("<nelson>ha ha</nelson>"), 0644)
-				c.Assert(err, IsNil)
-			},
-		},
-		serveCharm{},
-		upgradeCharm{revision: 1},
-		waitUnit{
-			status: state.UnitError,
-			info:   "upgrade failed",
-		},
-		verifyWaiting{},
-		verifyCharm{dirty: true},
+		startUpgradeError{},
 
 		// NOTE: this is just dumbly committing the conflicts, but AFAICT this
 		// is the only reasonable solution; if the user tells us it's resolved
@@ -507,44 +524,7 @@ var uniterTests = []uniterTest{
 		verifyCharm{revision: 1},
 	), ut(
 		"upgrade conflict resolved with forced upgrade",
-		createCharm{
-			customize: func(c *C, path string) {
-				start := filepath.Join(path, "hooks", "start")
-				f, err := os.OpenFile(start, os.O_WRONLY|os.O_APPEND, 0755)
-				c.Assert(err, IsNil)
-				defer f.Close()
-				_, err = f.Write([]byte("echo STARTDATA > data"))
-				c.Assert(err, IsNil)
-			},
-		},
-		serveCharm{},
-		createUniter{},
-		waitUnit{
-			status: state.UnitStarted,
-		},
-		waitHooks{"install", "start", "config-changed"},
-		verifyCharm{},
-
-		createCharm{
-			revision: 1,
-			customize: func(c *C, path string) {
-				data := filepath.Join(path, "data")
-				err := ioutil.WriteFile(data, []byte("<nelson>ha ha</nelson>"), 0644)
-				c.Assert(err, IsNil)
-				ignore := filepath.Join(path, "ignore")
-				err = ioutil.WriteFile(ignore, []byte("anything"), 0644)
-				c.Assert(err, IsNil)
-			},
-		},
-		serveCharm{},
-		upgradeCharm{revision: 1},
-		waitUnit{
-			status: state.UnitError,
-			info:   "upgrade failed",
-		},
-		verifyWaiting{},
-		verifyCharm{dirty: true},
-
+		startUpgradeError{},
 		createCharm{
 			revision: 2,
 			customize: func(c *C, path string) {
@@ -575,6 +555,28 @@ var uniterTests = []uniterTest{
 			c.Assert(err, IsNil)
 			c.Assert(string(data), Equals, "STARTDATA\n")
 		}},
+	), ut(
+		"upgrade conflict service dying",
+		startUpgradeError{},
+		serviceDying,
+		verifyWaiting{},
+		resolveError{state.ResolvedNoHooks},
+		waitHooks{"upgrade-charm", "config-changed", "stop"},
+		waitUniterDead{},
+	), ut(
+		"upgrade conflict unit dying",
+		startUpgradeError{},
+		unitDying,
+		verifyWaiting{},
+		resolveError{state.ResolvedNoHooks},
+		waitHooks{"upgrade-charm", "config-changed", "stop"},
+		waitUniterDead{},
+	), ut(
+		"upgrade conflict unit dead",
+		startUpgradeError{},
+		unitDead,
+		waitHooks{},
+		waitUniterDead{},
 	),
 }
 
@@ -610,9 +612,11 @@ type createCharm struct {
 	customize func(*C, string)
 }
 
+var charmHooks = []string{"install", "start", "config-changed", "upgrade-charm", "stop"}
+
 func (s createCharm) step(c *C, ctx *context) {
 	base := coretesting.Charms.ClonedDirPath(c.MkDir(), "series", "dummy")
-	for _, name := range []string{"install", "start", "config-changed", "upgrade-charm"} {
+	for _, name := range charmHooks {
 		path := filepath.Join(base, "hooks", name)
 		good := true
 		for _, bad := range s.badHooks {
@@ -720,7 +724,14 @@ func (s waitUniterDead) step(c *C, ctx *context) {
 	select {
 	case <-u.Dying():
 		err := u.Wait()
-		c.Assert(err, ErrorMatches, s.err)
+		if s.err == "" {
+			c.Assert(err, Equals, uniter.ErrDead)
+			err = ctx.unit.Refresh()
+			c.Assert(err, IsNil)
+			c.Assert(ctx.unit.Life(), Equals, state.Dead)
+		} else {
+			c.Assert(err, ErrorMatches, s.err)
+		}
 	case <-time.After(5 * time.Second):
 		c.Fatalf("uniter still alive")
 	}
@@ -951,6 +962,53 @@ func (s verifyCharm) step(c *C, ctx *context) {
 	c.Assert(string(out), cmp, "# On branch master\nnothing to commit (working directory clean)\n")
 }
 
+type startUpgradeError struct{}
+
+func (s startUpgradeError) step(c *C, ctx *context) {
+	steps := []stepper{
+		createCharm{
+			customize: func(c *C, path string) {
+				start := filepath.Join(path, "hooks", "start")
+				f, err := os.OpenFile(start, os.O_WRONLY|os.O_APPEND, 0755)
+				c.Assert(err, IsNil)
+				defer f.Close()
+				_, err = f.Write([]byte("echo STARTDATA > data"))
+				c.Assert(err, IsNil)
+			},
+		},
+		serveCharm{},
+		createUniter{},
+		waitUnit{
+			status: state.UnitStarted,
+		},
+		waitHooks{"install", "start", "config-changed"},
+		verifyCharm{},
+
+		createCharm{
+			revision: 1,
+			customize: func(c *C, path string) {
+				data := filepath.Join(path, "data")
+				err := ioutil.WriteFile(data, []byte("<nelson>ha ha</nelson>"), 0644)
+				c.Assert(err, IsNil)
+				ignore := filepath.Join(path, "ignore")
+				err = ioutil.WriteFile(ignore, []byte("anything"), 0644)
+				c.Assert(err, IsNil)
+			},
+		},
+		serveCharm{},
+		upgradeCharm{revision: 1},
+		waitUnit{
+			status: state.UnitError,
+			info:   "upgrade failed",
+		},
+		verifyWaiting{},
+		verifyCharm{dirty: true},
+	}
+	for _, s_ := range steps {
+		step(c, ctx, s_)
+	}
+}
+
 type writeFile struct {
 	path string
 	mode os.FileMode
@@ -983,6 +1041,18 @@ type custom struct {
 func (s custom) step(c *C, ctx *context) {
 	s.f(c, ctx)
 }
+
+var serviceDying = custom{func(c *C, ctx *context) {
+	c.Assert(ctx.svc.EnsureDying(), IsNil)
+}}
+
+var unitDying = custom{func(c *C, ctx *context) {
+	c.Assert(ctx.unit.EnsureDying(), IsNil)
+}}
+
+var unitDead = custom{func(c *C, ctx *context) {
+	c.Assert(ctx.unit.EnsureDead(), IsNil)
+}}
 
 func curl(revision int) *charm.URL {
 	return charm.MustParseURL("cs:series/dummy").WithRevision(revision)
