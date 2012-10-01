@@ -6,7 +6,6 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
 	"strings"
-	"sync"
 )
 
 // commonWatcher is part of all client watchers.
@@ -1291,12 +1290,9 @@ func (s *Service) WatchConfig() *ConfigWatcher {
 // to and from a machine.
 type MachineUnitsWatcher struct {
 	commonWatcher
-	wg         sync.WaitGroup
-	machine    *Machine
-	out        chan []string
-	known      map[string]bool
-	principals map[string]bool
-	mu         sync.Mutex
+	machine *Machine
+	out     chan []string
+	known   map[string]Life
 }
 
 // WatchUnits returns a watcher for observing units being assigned to
@@ -1309,8 +1305,7 @@ func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 	w := &MachineUnitsWatcher{
 		commonWatcher: commonWatcher{st: m.st},
 		out:           make(chan []string),
-		known:         make(map[string]bool),
-		principals:    make(map[string]bool),
+		known:         make(map[string]Life),
 		machine:       m,
 	}
 	go func() {
@@ -1334,141 +1329,170 @@ func (w *MachineUnitsWatcher) Changes() <-chan []string {
 }
 
 func (w *MachineUnitsWatcher) initial() (changes []string, err error) {
-	var pudocs []struct {
-		Name string `bson:"_id"`
-	}
-	err = w.st.units.Find(append(notDead, D{{"machineid", w.machine.doc.Id}}...)).Select(D{{"_id", 1}}).All(&pudocs)
+	pudocs := []unitDoc{}
+	err = w.st.units.Find(append(notDead, D{{"machineid", w.machine.doc.Id}}...)).Select(lifeFields).All(&pudocs)
 	if err != nil {
 		return nil, err
 	}
 	for _, pudoc := range pudocs {
 		changes = append(changes, pudoc.Name)
-		w.known[pudoc.Name] = true
-		sudocs := pudocs
-		err = w.st.units.Find(append(notDead, D{{"principal", pudoc.Name}}...)).Select(D{{"_id", 1}}).All(&sudocs)
-		if err != nil {
+		w.known[pudoc.Name] = pudoc.Life
+		sudocs := []unitDoc{}
+		err = w.st.units.Find(append(notDead, D{{"principal", pudoc.Name}}...)).Select(lifeFields).All(&sudocs)
+		if err != nil && err != mgo.ErrNotFound {
 			return nil, err
+		}
+		if err == mgo.ErrNotFound {
+			continue
 		}
 		for _, sudoc := range sudocs {
 			changes = append(changes, sudoc.Name)
-			w.known[sudoc.Name] = true
+			w.known[sudoc.Name] = sudoc.Life
 		}
 	}
 	return changes, nil
 }
 
-func (w *MachineUnitsWatcher) watchSubordinates(principal string, changes chan []string) {
-	defer w.wg.Done()
-	ch := make(chan watcher.Change)
-	w.st.watcher.Watch(w.st.units.Name, principal, 0, ch)
-	defer w.st.watcher.Unwatch(w.st.units.Name, principal, ch)
-	for {
-		var c watcher.Change
-		var ok bool
-		select {
-		case <-w.st.watcher.Dead():
-			return
-		case <-w.tomb.Dying():
-			return
-		case c, ok = <-ch:
-			if !ok || c.Revno == -1 {
-				return
-			}
-			var u struct {
-				Subordinates []string
-			}
-			err := w.st.units.FindId(principal).Select(D{{"subordinates", 1}}).One(&u)
-			if err != nil {
-				w.tomb.Kill(err)
-				return
-			}
-			subordinates := []string{}
-			for _, unit := range u.Subordinates {
-				w.mu.Lock()
-				if !w.known[unit] {
-					subordinates = append(subordinates, unit)
-				}
-				w.mu.Unlock()
-			}
-			if len(subordinates) > 0 {
-				changes <- subordinates
-			}
-		}
-	}
-}
-
-func (w *MachineUnitsWatcher) merge(changes []string, c watcher.Change) []string {
+func (w *MachineUnitsWatcher) mergePrincipalChange(changes []string, c watcher.Change) []string {
 	name := c.Id.(string)
-	w.mu.Lock()
-	defer w.mu.Unlock()
 	if c.Revno == -1 {
+		if life, ok := w.known[name]; ok && life != Dead {
+			delete(w.known, name)
+			return append(changes, name)
+		}
 		delete(w.known, name)
 		return changes
 	}
-	if !w.known[name] {
+	var unit Unit
+	err := w.st.units.FindId(name).Select(D{{"subordinates", 1}}).One(&unit)
+	if err == mgo.ErrNotFound {
 		return changes
 	}
-	for i, unit := range changes {
-		if unit == name {
-			return append(changes[:i], append(changes[i+1:], name)...)
+	if err != nil {
+		w.tomb.Kill(err)
+		return nil
+	}
+	for _, sname := range unit.doc.Subordinates {
+		if _, ok := w.known[sname]; !ok {
+			doc := unitDoc{}
+			err = w.st.units.FindId(sname).Select(lifeFields).One(&doc)
+			if err == mgo.ErrNotFound {
+				continue
+			}
+			if err != nil {
+				w.tomb.Kill(err)
+				return nil
+			}
+			w.known[sname] = doc.Life
+			changes = append(changes, sname)
 		}
 	}
-	return append(changes, name)
+	return changes
+}
+
+func (w *MachineUnitsWatcher) mergeUnitChange(changes []string, c watcher.Change) []string {
+	name := c.Id.(string)
+	if _, ok := w.known[name]; !ok {
+		return changes
+	}
+	knownLife := w.known[name]
+	if c.Revno == -1 {
+		delete(w.known, name)
+		if knownLife != Dead {
+			return append(changes, name)
+		}
+		return changes
+	}
+	doc := unitDoc{}
+	err := w.st.units.FindId(name).Select(lifeFields).One(&doc)
+	if err != nil && err != mgo.ErrNotFound {
+		w.tomb.Kill(err)
+		return nil
+	}
+	if err == mgo.ErrNotFound {
+		if knownLife != Dead {
+			delete(w.known, name)
+			return append(changes, name)
+		}
+		return changes
+	}
+	if doc.Life != knownLife {
+		return append(changes, name)
+	}
+	return changes
 }
 
 func (w *MachineUnitsWatcher) loop() (err error) {
-	defer w.wg.Wait()
-	ch := make(chan watcher.Change)
-	w.st.watcher.Watch(w.st.machines.Name, w.machine.doc.Id, w.machine.doc.TxnRevno, ch)
-	defer w.st.watcher.Unwatch(w.st.machines.Name, w.machine.doc.Id, ch)
-	all := make(chan watcher.Change)
-	w.st.watcher.WatchCollection(w.st.units.Name, all)
-	defer w.st.watcher.UnwatchCollection(w.st.units.Name, all)
+	// fires when the machine changes.
+	machineCh := make(chan watcher.Change)
+	// fires when any known principal assigned to the machine changes.
+	principalCh := make(chan watcher.Change)
+	// fires when any unit, assigned to the machine or not, changes.
+	allCh := make(chan watcher.Change)
+
+	w.st.watcher.Watch(w.st.machines.Name, w.machine.doc.Id, w.machine.doc.TxnRevno, machineCh)
+	defer w.st.watcher.Unwatch(w.st.machines.Name, w.machine.doc.Id, machineCh)
+	w.st.watcher.WatchCollection(w.st.units.Name, allCh)
+	defer w.st.watcher.UnwatchCollection(w.st.units.Name, allCh)
+
 	changes, err := w.initial()
 	if err != nil {
 		return err
 	}
-	newunits := make(chan []string)
+	knownPrincipals := make(map[string]bool)
 	for _, unit := range w.machine.doc.Principals {
-		w.principals[unit] = true
-		w.wg.Add(1)
-		go w.watchSubordinates(unit, newunits)
+		knownPrincipals[unit] = true
+		w.st.watcher.Watch(w.st.units.Name, unit, 0, principalCh)
 	}
+	defer func() {
+		for _, unit := range knownPrincipals {
+			w.st.watcher.Unwatch(w.st.units.Name, unit, principalCh)
+		}
+	}()
 	out := w.out
 	for {
 		select {
 		case <-w.st.watcher.Dead():
-			close(newunits)
 			return watcher.MustErr(w.st.watcher)
 		case <-w.tomb.Dying():
-			close(newunits)
 			return tomb.ErrDying
-		case units := <-newunits:
-			for _, u := range units {
-				w.mu.Lock()
-				w.known[u] = true
-				w.mu.Unlock()
+		case c := <-principalCh:
+			changes = w.mergePrincipalChange(changes, c)
+			if len(changes) > 0 {
+				out = w.out
 			}
-			changes = append(changes, units...)
-			out = w.out
-		case <-ch:
+		case <-machineCh:
 			err = w.machine.Refresh()
 			if err != nil {
 				w.tomb.Kill(err)
 				return err
 			}
-			newprincipals := map[string]bool{}
+			newPrincipals := make(map[string]bool)
 			for _, unit := range w.machine.doc.Principals {
-				newprincipals[unit] = true
-				if !w.principals[unit] {
+				newPrincipals[unit] = true
+				if !knownPrincipals[unit] {
+					doc := unitDoc{}
+					err = w.st.units.FindId(unit).Select(lifeFields).One(&doc)
+					if err != nil && err != mgo.ErrNotFound {
+						return err
+					}
+					if err == mgo.ErrNotFound {
+						continue
+					}
+					w.known[unit] = doc.Life
 					changes = append(changes, unit)
-					w.wg.Add(1)
-					go w.watchSubordinates(unit, newunits)
+					w.st.watcher.Watch(w.st.units.Name, unit, 0, principalCh)
 				}
 			}
-			w.principals = newprincipals
-		case c := <-all:
-			changes = w.merge(changes, c)
+			for unit := range knownPrincipals {
+				if !newPrincipals[unit] {
+					w.st.watcher.Unwatch(w.st.units.Name, unit, principalCh)
+				}
+				delete(w.known, unit)
+			}
+			knownPrincipals = newPrincipals
+		case c := <-allCh:
+			changes = w.mergeUnitChange(changes, c)
 			if len(changes) > 0 {
 				out = w.out
 			}
