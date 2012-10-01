@@ -160,10 +160,12 @@ var uniterTests = []uniterTest{
 		writeFile{"state", 0644},
 		createCharm{},
 		createServiceAndUnit{},
-		startUniter{`failed to create uniter for unit "u/0": .*state must be a directory`},
+		startUniter{},
+		waitUniterDead{`failed to initialize uniter for unit "u/0": .*state must be a directory`},
 	), ut(
 		"unknown unit",
-		startUniter{`failed to create uniter for unit "u/0": unit "u/0" not found`},
+		startUniter{},
+		waitUniterDead{`failed to initialize uniter for unit "u/0": unit "u/0" not found`},
 	),
 	// Check error conditions during unit bootstrap phase.
 	ut(
@@ -699,22 +701,13 @@ func (createUniter) step(c *C, ctx *context) {
 	}
 }
 
-type startUniter struct {
-	err string
-}
+type startUniter struct{}
 
 func (s startUniter) step(c *C, ctx *context) {
 	if ctx.uniter != nil {
 		panic("don't start two uniters!")
 	}
-	u, err := uniter.NewUniter(ctx.st, "u/0", ctx.dataDir)
-	if s.err == "" {
-		c.Assert(err, IsNil)
-		ctx.uniter = u
-	} else {
-		c.Check(u, IsNil)
-		c.Assert(err, ErrorMatches, s.err)
-	}
+	ctx.uniter = uniter.NewUniter(ctx.st, "u/0", ctx.dataDir)
 }
 
 type waitUniterDead struct {
@@ -816,6 +809,7 @@ type waitUnit struct {
 func (s waitUnit) step(c *C, ctx *context) {
 	timeout := time.After(5 * time.Second)
 	for {
+		ctx.st.StartSync()
 		select {
 		case <-time.After(50 * time.Millisecond):
 			err := ctx.unit.Refresh()
@@ -836,7 +830,6 @@ func (s waitUnit) step(c *C, ctx *context) {
 				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
 				continue
 			}
-			ctx.st.Sync() // Ensure presence watcher is up to date for Status call.
 			status, info, err := ctx.unit.Status()
 			c.Assert(err, IsNil)
 			if status != s.status {
@@ -859,7 +852,8 @@ type waitHooks []string
 func (s waitHooks) step(c *C, ctx *context) {
 	if len(s) == 0 {
 		// Give unwanted hooks a moment to run...
-		time.Sleep(200 * time.Millisecond)
+		ctx.st.StartSync()
+		time.Sleep(100 * time.Millisecond)
 	}
 	ctx.hooks = append(ctx.hooks, s...)
 	c.Logf("waiting for hooks: %#v", ctx.hooks)
@@ -872,6 +866,7 @@ func (s waitHooks) step(c *C, ctx *context) {
 	}
 	timeout := time.After(5 * time.Second)
 	for {
+		ctx.st.StartSync()
 		select {
 		case <-time.After(50 * time.Millisecond):
 			if match, _ = ctx.matchLogHooks(c); match {

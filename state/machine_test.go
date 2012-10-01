@@ -18,7 +18,7 @@ var _ = Suite(&MachineSuite{})
 func (s *MachineSuite) SetUpTest(c *C) {
 	s.ConnSuite.SetUpTest(c)
 	var err error
-	s.machine, err = s.State.AddMachine()
+	s.machine, err = s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
 }
 
@@ -36,6 +36,10 @@ func (s *MachineSuite) TestMachineSetAgentAlive(c *C) {
 	alive, err = s.machine.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, true)
+}
+
+func (s *MachineSuite) TestPathKey(c *C) {
+	c.Assert(s.machine.PathKey(), Equals, "machine-0")
 }
 
 func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
@@ -69,7 +73,7 @@ func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
 }
 
 func (s *MachineSuite) TestMachineInstanceId(c *C) {
-	machine, err := s.State.AddMachine()
+	machine, err := s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
 	err = s.machines.Update(
 		D{{"_id", machine.Id()}},
@@ -84,7 +88,7 @@ func (s *MachineSuite) TestMachineInstanceId(c *C) {
 }
 
 func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
-	machine, err := s.State.AddMachine()
+	machine, err := s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
 	err = s.machines.Update(
 		D{{"_id", machine.Id()}},
@@ -107,7 +111,7 @@ func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {
 }
 
 func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
-	machine, err := s.State.AddMachine()
+	machine, err := s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
 	err = s.machines.Update(
 		D{{"_id", machine.Id()}},
@@ -134,7 +138,7 @@ func (s *MachineSuite) TestMachineSetInstanceId(c *C) {
 }
 
 func (s *MachineSuite) TestMachineRefresh(c *C) {
-	m0, err := s.State.AddMachine()
+	m0, err := s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
 	oldId, _ := m0.InstanceId()
 
@@ -179,9 +183,9 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *C) {
 	// tells us the right thing.
 
 	m1 := s.machine
-	m2, err := s.State.AddMachine()
+	m2, err := s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
-	m3, err := s.State.AddMachine()
+	m3, err := s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
 
 	dummy := s.AddTestingCharm(c, "dummy")
@@ -253,7 +257,9 @@ func tools(tools int, url string) *state.Tools {
 	return &state.Tools{
 		URL: url,
 		Binary: version.Binary{
-			Number: version.Number{0, 0, tools},
+			Number: version.Number{
+				Major: 0, Minor: 0, Patch: tools,
+			},
 			Series: "series",
 			Arch:   "arch",
 		},
@@ -443,7 +449,7 @@ var machinePrincipalsWatchTests = []struct {
 			err = bacon1.AssignToMachine(s.machine)
 			c.Assert(err, IsNil)
 
-			spammachine, err := s.State.AddMachine()
+			spammachine, err := s.State.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
 			svc, err = s.State.AddService("spam", ch)
 			c.Assert(err, IsNil)

@@ -1,7 +1,6 @@
 package state
 
 import (
-	"fmt"
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state/watcher"
@@ -159,38 +158,33 @@ func (w *MachineWatcher) loop(m *Machine) (err error) {
 	return nil
 }
 
-// MachinesWatcher notifies about machines being added or removed
-// from the environment.
+// MachinesWatcher notifies about lifecycle changes for all machines
+// in the environment.
+// 
+// The first event emitted will contain the ids of all machines found
+// irrespective of their life state. From then on a new event is emitted
+// whenever one or more machines are added or change their lifecycle.
+//
+// After a machine is found to be Dead, no further event will include it.
 type MachinesWatcher struct {
 	commonWatcher
-	out   chan *MachinesChange
-	alive map[int]bool
+	out  chan []int
+	life map[int]Life
 }
 
-// MachinesChange holds the ids of machines that are observed to
-// be alive or dead.
-type MachinesChange struct {
-	Alive []int
-	Dead  []int
-}
+var lifeFields = D{{"_id", 1}, {"life", 1}}
 
-func (c *MachinesChange) empty() bool {
-	return len(c.Alive)+len(c.Dead) == 0
-}
-
-// WatchMachines returns a watcher for observing machines being
-// added or removed.
+// WatchMachines returns a new MachinesWatcher.
 func (s *State) WatchMachines() *MachinesWatcher {
 	return newMachinesWatcher(s)
 }
 
-// newMachinesWatcher creates and starts a watcher to watch information
-// about machines being added or deleted.
+// WatchMachines returns a new MachinesWatcher.
 func newMachinesWatcher(st *State) *MachinesWatcher {
 	w := &MachinesWatcher{
 		commonWatcher: commonWatcher{st: st},
-		out:           make(chan *MachinesChange),
-		alive:         make(map[int]bool),
+		out:           make(chan []int),
+		life:          make(map[int]Life),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -200,58 +194,58 @@ func newMachinesWatcher(st *State) *MachinesWatcher {
 	return w
 }
 
-// Changes returns a channel that will receive changes when machines are
-// added or deleted. The Alive field in the first event on the channel
-// holds the initial state as returned by State.AllMachines.
-func (w *MachinesWatcher) Changes() <-chan *MachinesChange {
+// Changes returns the event channel for the MachinesWatcher.
+func (w *MachinesWatcher) Changes() <-chan []int {
 	return w.out
 }
 
-func (w *MachinesWatcher) initial(changes *MachinesChange) (err error) {
-	iter := w.st.machines.Find(notDead).Select(D{{"_id", 1}}).Iter()
-	var doc struct {
-		Id int `bson:"_id"`
-	}
+func (w *MachinesWatcher) initial() (ids []int, err error) {
+	iter := w.st.machines.Find(nil).Select(lifeFields).Iter()
+	var doc machineDoc
 	for iter.Next(&doc) {
-		changes.Alive = append(changes.Alive, doc.Id)
-		w.alive[doc.Id] = true
+		ids = append(ids, doc.Id)
+		w.life[doc.Id] = doc.Life
 	}
 	if err := iter.Err(); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return ids, nil
 }
 
-func (w *MachinesWatcher) merge(changes *MachinesChange, ch watcher.Change) error {
+func (w *MachinesWatcher) merge(ids []int, ch watcher.Change) ([]int, error) {
 	id := ch.Id.(int)
-	if ch.Revno == -1 && w.alive[id] {
-		panic("machine removed before being dead")
-	}
-	qdoc := D{{"_id", id}, {"life", D{{"$ne", Dead}}}}
-	c, err := w.st.machines.Find(qdoc).Count()
-	if err != nil {
-		return err
-	}
-	if c > 0 {
-		if !w.alive[id] {
-			w.alive[id] = true
-			changes.Alive = append(changes.Alive, id)
-		}
-	} else {
-		if w.alive[id] {
-			delete(w.alive, id)
-			changes.Dead = append(changes.Dead, id)
+	for _, pending := range ids {
+		if id == pending {
+			return ids, nil
 		}
 	}
-	return nil
+	if ch.Revno == -1 {
+		if life, ok := w.life[id]; ok && life != Dead {
+			ids = append(ids, id)
+		}
+		delete(w.life, id)
+		return ids, nil
+	}
+	doc := machineDoc{Id: id, Life: Dead}
+	err := w.st.machines.FindId(id).Select(lifeFields).One(&doc)
+	if err != nil && err != mgo.ErrNotFound {
+		return nil, err
+	}
+	if life, ok := w.life[id]; !ok || doc.Life != life {
+		ids = append(ids, id)
+		if err != mgo.ErrNotFound {
+			w.life[id] = doc.Life
+		}
+	}
+	return ids, nil
 }
 
 func (w *MachinesWatcher) loop() (err error) {
 	ch := make(chan watcher.Change)
 	w.st.watcher.WatchCollection(w.st.machines.Name, ch)
 	defer w.st.watcher.UnwatchCollection(w.st.machines.Name, ch)
-	changes := &MachinesChange{}
-	if err = w.initial(changes); err != nil {
+	ids, err := w.initial()
+	if err != nil {
 		return err
 	}
 	out := w.out
@@ -262,14 +256,14 @@ func (w *MachinesWatcher) loop() (err error) {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c := <-ch:
-			if err := w.merge(changes, c); err != nil {
+			if ids, err = w.merge(ids, c); err != nil {
 				return err
 			}
-			if !changes.empty() {
+			if len(ids) > 0 {
 				out = w.out
 			}
-		case out <- changes:
-			changes = &MachinesChange{}
+		case out <- ids:
+			ids = nil
 			out = nil
 		}
 	}
@@ -667,9 +661,6 @@ func (w *MachinePrincipalUnitsWatcher) Stop() error {
 }
 
 func (w *MachinePrincipalUnitsWatcher) mergeChange(changes *MachinePrincipalUnitsChange, ch watcher.Change) (err error) {
-	if ch.Revno == -1 {
-		return fmt.Errorf("machine has been removed")
-	}
 	err = w.machine.Refresh()
 	if err != nil {
 		return err

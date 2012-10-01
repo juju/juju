@@ -30,6 +30,9 @@ func (s *ServiceSuite) TestServiceCharm(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ch.URL(), DeepEquals, s.charm.URL())
 	c.Assert(force, Equals, false)
+	url, force := s.service.CharmURL()
+	c.Assert(url, DeepEquals, s.charm.URL())
+	c.Assert(force, Equals, false)
 
 	// TODO: SetCharm must validate the change (version, relations, etc)
 	wp := s.AddTestingCharm(c, "wordpress")
@@ -37,6 +40,9 @@ func (s *ServiceSuite) TestServiceCharm(c *C) {
 	ch, force, err1 := s.service.Charm()
 	c.Assert(err1, IsNil)
 	c.Assert(ch.URL(), DeepEquals, wp.URL())
+	c.Assert(force, Equals, true)
+	url, force = s.service.CharmURL()
+	c.Assert(url, DeepEquals, wp.URL())
 	c.Assert(force, Equals, true)
 
 	testWhenDying(c, s.service, notAliveErr, notAliveErr, func() error {
@@ -148,7 +154,7 @@ func (s *ServiceSuite) TestAddUnit(c *C) {
 	c.Assert(err, ErrorMatches, `cannot add unit to service "mysql" as a subordinate of "mysql/0": service is not a subordinate`)
 
 	// Assign the principal unit to a machine.
-	m, err := s.State.AddMachine()
+	m, err := s.State.AddMachine(state.MachinerWorker)
 	c.Assert(err, IsNil)
 	err = unitZero.AssignToMachine(m)
 	c.Assert(err, IsNil)

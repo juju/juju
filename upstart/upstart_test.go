@@ -144,6 +144,7 @@ author "Juju Team <juju@lists.ubuntu.com>"
 start on runlevel [2345]
 stop on runlevel [!2345]
 respawn
+normal exit 0
 `
 
 func (s *UpstartSuite) dummyConf(c *C) *upstart.Conf {

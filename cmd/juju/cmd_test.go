@@ -313,6 +313,21 @@ func (*CmdSuite) TestSSHCommandInit(c *C) {
 	c.Assert(err, ErrorMatches, "no service name specified")
 }
 
+func initSCPCommand(args ...string) (*SCPCommand, error) {
+	com := &SCPCommand{}
+	return com, com.Init(newFlagSet(), args)
+}
+
+func (*CmdSuite) TestSCPCommandInit(c *C) {
+	// missing args
+	_, err := initSCPCommand()
+	c.Assert(err, ErrorMatches, "at least two arguments required")
+
+	// not enough args
+	_, err = initSCPCommand("mysql/0:foo")
+	c.Assert(err, ErrorMatches, "at least two arguments required")
+}
+
 func initGetCommand(args ...string) (*GetCommand, error) {
 	com := &GetCommand{}
 	return com, com.Init(newFlagSet(), args)

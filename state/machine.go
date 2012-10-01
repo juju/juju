@@ -24,6 +24,7 @@ type machineDoc struct {
 	Life       Life
 	Tools      *Tools `bson:",omitempty"`
 	TxnRevno   int64  `bson:"txn-revno"`
+	Workers    []WorkerKind
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -40,9 +41,21 @@ func (m *Machine) globalKey() string {
 	return "m#" + m.String()
 }
 
+// PathKey returns a name identifying the machine that can be used as a
+// file name.  The returned key will be different from other
+// PathKey values returned by any other entities from the same state.
+func (m *Machine) PathKey() string {
+	return fmt.Sprintf("machine-%d", m.doc.Id)
+}
+
 // Life returns whether the machine is Alive, Dying or Dead.
 func (m *Machine) Life() Life {
 	return m.doc.Life
+}
+
+// Workers returns the workers that the machine agent for m must run.
+func (m *Machine) Workers() []WorkerKind {
+	return m.doc.Workers
 }
 
 // AgentTools returns the tools that the agent is currently running.
