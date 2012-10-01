@@ -563,9 +563,8 @@ func assertSameMachinePrincipalUnits(c *C, change *state.MachinePrincipalUnitsCh
 }
 
 var machineUnitsWatchTests = []struct {
-	test  func(*C, *MachineSuite, *state.Unit, *state.Charm)
-	alive []string
-	dead  []string
+	test    func(*C, *MachineSuite, *state.Unit, *state.Charm)
+	changes []string
 }{
 	{
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
@@ -574,22 +573,22 @@ var machineUnitsWatchTests = []struct {
 			_, err = log.AddUnitSubordinateTo(principal)
 			c.Assert(err, IsNil)
 		},
-		alive: []string{"log0/0"},
+		changes: []string{"log0/0"},
 	},
 	{
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
-			// svc, err := s.State.Service("log0")
-			// c.Assert(err, IsNil)
-			// unit, err := svc.Unit("log0/0")
-			// c.Assert(err, IsNil)
-			// err = unit.SetPublicAddress("what.ever")
-			// c.Assert(err, IsNil)
+			svc, err := s.State.Service("log0")
+			c.Assert(err, IsNil)
+			unit, err := svc.Unit("log0/0")
+			c.Assert(err, IsNil)
+			err = unit.SetPublicAddress("what.ever")
+			c.Assert(err, IsNil)
 			log, err := s.State.AddService("log1", subCh)
 			c.Assert(err, IsNil)
 			_, err = log.AddUnitSubordinateTo(principal)
 			c.Assert(err, IsNil)
 		},
-		alive: []string{"log1/0"},
+		changes: []string{"log1/0"},
 	},
 	{
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
@@ -602,7 +601,7 @@ var machineUnitsWatchTests = []struct {
 			_, err = log3.AddUnitSubordinateTo(principal)
 			c.Assert(err, IsNil)
 		},
-		alive: []string{"log2/0", "log3/0"},
+		changes: []string{"log2/0", "log3/0"},
 	},
 	{
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
@@ -615,7 +614,7 @@ var machineUnitsWatchTests = []struct {
 			_, err = log4.AddUnitSubordinateTo(principal)
 			c.Assert(err, IsNil)
 		},
-		alive: []string{"log4/0", "log4/1", "log4/2"},
+		changes: []string{"log4/0", "log4/1", "log4/2"},
 	},
 	{
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
@@ -626,7 +625,7 @@ var machineUnitsWatchTests = []struct {
 			err = unit.EnsureDead()
 			c.Assert(err, IsNil)
 		},
-		dead: []string{"log0/0"},
+		changes: []string{"log0/0"},
 	},
 	{
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
@@ -637,7 +636,7 @@ var machineUnitsWatchTests = []struct {
 			err = unit.EnsureDead()
 			c.Assert(err, IsNil)
 		},
-		dead: []string{"log1/0"},
+		changes: []string{"log1/0"},
 	},
 	{
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
@@ -654,7 +653,7 @@ var machineUnitsWatchTests = []struct {
 			err = unit3.EnsureDead()
 			c.Assert(err, IsNil)
 		},
-		dead: []string{"log2/0", "log3/0"},
+		changes: []string{"log2/0", "log3/0"},
 	},
 	{
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
@@ -665,7 +664,7 @@ var machineUnitsWatchTests = []struct {
 			err = unit.EnsureDead()
 			c.Assert(err, IsNil)
 		},
-		dead: []string{"log4/0"},
+		changes: []string{"log4/0"},
 	},
 	{
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
@@ -680,8 +679,7 @@ var machineUnitsWatchTests = []struct {
 			_, err = log.AddUnitSubordinateTo(principal)
 			c.Assert(err, IsNil)
 		},
-		alive: []string{"log5/0"},
-		dead:  []string{"log4/1"},
+		changes: []string{"log5/0", "log4/1"},
 	},
 	{
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
@@ -702,8 +700,7 @@ var machineUnitsWatchTests = []struct {
 			_, err = log.AddUnitSubordinateTo(principal)
 			c.Assert(err, IsNil)
 		},
-		alive: []string{"log5/1", "log5/2"},
-		dead:  []string{"log4/2", "log5/0"},
+		changes: []string{"log5/1", "log5/2", "log4/2", "log5/0"},
 	},
 	{
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
@@ -734,7 +731,7 @@ var machineUnitsWatchTests = []struct {
 				c.Assert(err, IsNil)
 			}
 		},
-		alive: []string{"log10/0", "log10/1", "log10/2", "log10/3", "log10/4", "log20/0", "log20/1", "log20/2", "log20/3", "log20/4", "log20/5", "log20/6", "log20/7", "log20/8", "log20/9"},
+		changes: []string{"log10/0", "log10/1", "log10/2", "log10/3", "log10/4", "log20/0", "log20/1", "log20/2", "log20/3", "log20/4", "log20/5", "log20/6", "log20/7", "log20/8", "log20/9"},
 	},
 	{
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
@@ -749,8 +746,7 @@ var machineUnitsWatchTests = []struct {
 			_, err = log.AddUnitSubordinateTo(principal)
 			c.Assert(err, IsNil)
 		},
-		alive: []string{"log30/0"},
-		dead:  []string{"log20/9"},
+		changes: []string{"log30/0", "log20/9"},
 	},
 	{
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
@@ -785,8 +781,7 @@ var machineUnitsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = unit980.AssignToMachine(m)
 		},
-		alive: []string{"log35/0"},
-		dead:  []string{"log20/8"},
+		changes: []string{"log35/0", "log20/8"},
 	},
 }
 
@@ -818,16 +813,15 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 		c.Fatalf("did not get change: %#v", []string{"mysql/0"})
 	}
 
-	dead := []string{}
+	all := []string{}
 	subCh := s.AddTestingCharm(c, "logging")
 	for i, test := range machineUnitsWatchTests {
 		c.Logf("test %d", i)
 		test.test(c, s, principal, subCh)
 		s.State.StartSync()
-		dead = append(dead, test.dead...)
+		all = append(all, test.changes...)
 		got := []string{}
-		want := append([]string(nil), test.alive...)
-		want = append(want, test.dead...)
+		want := append([]string(nil), test.changes...)
 		sort.Strings(want)
 		for {
 			select {
@@ -839,16 +833,6 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 				}
 				sort.Strings(got)
 				c.Assert(got, DeepEquals, want)
-				for _, name := range test.alive {
-					unit, err := s.State.Unit(name)
-					c.Assert(err, IsNil)
-					c.Assert(unit.Life(), Equals, state.Alive)
-				}
-				for _, name := range test.dead {
-					unit, err := s.State.Unit(name)
-					c.Assert(err, IsNil)
-					c.Assert(unit.Life(), Equals, state.Dead)
-				}
 			case <-time.After(500 * time.Millisecond):
 				c.Fatalf("did not get change, want: %#v", want)
 			}
@@ -856,8 +840,11 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 		}
 	}
 
-	for _, uname := range dead {
+	for _, uname := range all {
 		unit, err := s.State.Unit(uname)
+		if state.IsNotFound(err) || unit.Life() != state.Dead {
+			continue
+		}
 		c.Assert(err, IsNil)
 		svc, err := s.State.Service(unit.ServiceName())
 		c.Assert(err, IsNil)
