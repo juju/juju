@@ -1,7 +1,6 @@
 package state
 
 import (
-	"fmt"
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state/watcher"
@@ -1355,7 +1354,6 @@ func (w *MachineUnitsWatcher) initial() (changes []string, err error) {
 }
 
 func (w *MachineUnitsWatcher) mergePrincipalChange(changes []string, c watcher.Change) []string {
-	fmt.Printf("\n  !! pc: \n")
 	name := c.Id.(string)
 	if c.Revno == -1 {
 		if life, ok := w.known[name]; ok && life != Dead {
@@ -1374,10 +1372,8 @@ func (w *MachineUnitsWatcher) mergePrincipalChange(changes []string, c watcher.C
 		w.tomb.Kill(err)
 		return nil
 	}
-	fmt.Printf("\n  !! pc: new principal: %v\n", pdoc)
 	for _, sname := range pdoc.Subordinates {
 		if _, ok := w.known[sname]; !ok {
-			fmt.Printf("\n  !! pc: new subordinate: %v\n", sname)
 			udoc := unitDoc{}
 			err = w.st.units.FindId(sname).Select(lifeFields).One(&udoc)
 			if err == mgo.ErrNotFound {
@@ -1444,7 +1440,6 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("\n  !!! got initial: %v\n", changes)
 	knownPrincipals := make(map[string]bool)
 	for _, unit := range w.machine.doc.Principals {
 		knownPrincipals[unit] = true
@@ -1463,9 +1458,7 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c := <-principalCh:
-			fmt.Printf("\n  !!! old: %v principal changed: %v", changes, c)
 			changes = w.mergePrincipalChange(changes, c)
-			fmt.Printf("\n  !!! new: %v", changes)
 			if len(changes) > 0 {
 				out = w.out
 			}
@@ -1475,7 +1468,6 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 				w.tomb.Kill(err)
 				return err
 			}
-			fmt.Printf("\n  !!! machine changed: %v\n", w.machine.doc)
 			newPrincipals := make(map[string]bool)
 			for _, unit := range w.machine.doc.Principals {
 				newPrincipals[unit] = true
@@ -1488,7 +1480,6 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 					if err == mgo.ErrNotFound {
 						continue
 					}
-					fmt.Printf("\n  !!! new principal: %v\n", unit)
 					w.known[unit] = doc.Life
 					changes = append(changes, unit)
 					w.st.watcher.Watch(w.st.units.Name, unit, doc.TxnRevno, principalCh)
@@ -1502,14 +1493,11 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 			}
 			knownPrincipals = newPrincipals
 		case c := <-allCh:
-			fmt.Printf("\n  !!! old: %v got unit change: %v\n", changes, c)
 			changes = w.mergeUnitChange(changes, c)
 			if len(changes) > 0 {
-				fmt.Printf("\n  !!! merged unit change: %v\n", changes)
 				out = w.out
 			}
 		case out <- changes:
-			fmt.Printf("\n  !!! sent change: %v\n", changes)
 			out = nil
 			changes = nil
 		}
