@@ -563,10 +563,12 @@ func assertSameMachinePrincipalUnits(c *C, change *state.MachinePrincipalUnitsCh
 }
 
 var machineUnitsWatchTests = []struct {
+	summary string
 	test    func(*C, *MachineSuite, *state.Unit, *state.Charm)
 	changes []string
 }{
 	{
+		summary: "Add a subordinate unit",
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
 			log, err := s.State.AddService("log0", subCh)
 			c.Assert(err, IsNil)
@@ -576,6 +578,7 @@ var machineUnitsWatchTests = []struct {
 		changes: []string{"log0/0"},
 	},
 	{
+		summary: "Ignore unrelated change",
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
 			svc, err := s.State.Service("log0")
 			c.Assert(err, IsNil)
@@ -591,6 +594,7 @@ var machineUnitsWatchTests = []struct {
 		changes: []string{"log1/0"},
 	},
 	{
+		summary: "Add two units at once",
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
 			log2, err := s.State.AddService("log2", subCh)
 			c.Assert(err, IsNil)
@@ -604,6 +608,7 @@ var machineUnitsWatchTests = []struct {
 		changes: []string{"log2/0", "log3/0"},
 	},
 	{
+		summary: "Add three units at once",
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
 			log4, err := s.State.AddService("log4", subCh)
 			c.Assert(err, IsNil)
@@ -617,17 +622,19 @@ var machineUnitsWatchTests = []struct {
 		changes: []string{"log4/0", "log4/1", "log4/2"},
 	},
 	{
+		summary: "Report dying unit",
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
 			svc, err := s.State.Service("log0")
 			c.Assert(err, IsNil)
 			unit, err := svc.Unit("log0/0")
 			c.Assert(err, IsNil)
-			err = unit.EnsureDead()
+			err = unit.EnsureDying()
 			c.Assert(err, IsNil)
 		},
 		changes: []string{"log0/0"},
 	},
 	{
+		summary: "Report dead unit",
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
 			svc, err := s.State.Service("log1")
 			c.Assert(err, IsNil)
@@ -639,12 +646,13 @@ var machineUnitsWatchTests = []struct {
 		changes: []string{"log1/0"},
 	},
 	{
+		summary: "Report multiple dying or dead units",
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
 			svc2, err := s.State.Service("log2")
 			c.Assert(err, IsNil)
 			unit2, err := svc2.Unit("log2/0")
 			c.Assert(err, IsNil)
-			err = unit2.EnsureDead()
+			err = unit2.EnsureDying()
 			c.Assert(err, IsNil)
 			svc3, err := s.State.Service("log3")
 			c.Assert(err, IsNil)
@@ -656,6 +664,7 @@ var machineUnitsWatchTests = []struct {
 		changes: []string{"log2/0", "log3/0"},
 	},
 	{
+		summary: "Report dead unit",
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
 			svc, err := s.State.Service("log4")
 			c.Assert(err, IsNil)
@@ -667,6 +676,7 @@ var machineUnitsWatchTests = []struct {
 		changes: []string{"log4/0"},
 	},
 	{
+		summary: "Report dead unit and a new, alive, unit",
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
 			svc, err := s.State.Service("log4")
 			c.Assert(err, IsNil)
@@ -682,6 +692,7 @@ var machineUnitsWatchTests = []struct {
 		changes: []string{"log5/0", "log4/1"},
 	},
 	{
+		summary: "Report multiple dead units and multiple new, alive, units",
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
 			svc, err := s.State.Service("log4")
 			c.Assert(err, IsNil)
@@ -703,6 +714,7 @@ var machineUnitsWatchTests = []struct {
 		changes: []string{"log5/1", "log5/2", "log4/2", "log5/0"},
 	},
 	{
+		summary: "Add many, change many, and remove many at once",
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
 			log10, err := s.State.AddService("log10", subCh)
 			c.Assert(err, IsNil)
@@ -734,6 +746,7 @@ var machineUnitsWatchTests = []struct {
 		changes: []string{"log10/0", "log10/1", "log10/2", "log10/3", "log10/4", "log20/0", "log20/1", "log20/2", "log20/3", "log20/4", "log20/5", "log20/6", "log20/7", "log20/8", "log20/9"},
 	},
 	{
+		summary: "report dead when first seen and also add a new unit",
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
 			svc, err := s.State.Service("log20")
 			c.Assert(err, IsNil)
@@ -749,6 +762,7 @@ var machineUnitsWatchTests = []struct {
 		changes: []string{"log30/0", "log20/9"},
 	},
 	{
+		summary: "report only units assigned to this machine",
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
 			svc20, err := s.State.Service("log20")
 			c.Assert(err, IsNil)
@@ -783,6 +797,20 @@ var machineUnitsWatchTests = []struct {
 		},
 		changes: []string{"log35/0", "log20/8"},
 	},
+	{
+		summary: "Report previously known machines that are removed",
+		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
+			svc, err := s.State.Service("log35")
+			c.Assert(err, IsNil)
+			unit, err := svc.Unit("log35/0")
+			c.Assert(err, IsNil)
+			err = unit.EnsureDead()
+			c.Assert(err, IsNil)
+			err = svc.RemoveUnit(unit)
+			c.Assert(err, IsNil)
+		},
+		changes: []string{"log35/0"},
+	},
 }
 
 func (s *MachineSuite) TestWatchUnits(c *C) {
@@ -790,6 +818,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	defer func() {
 		c.Assert(unitWatcher.Stop(), IsNil)
 	}()
+	// Check initial event.
 	s.State.StartSync()
 	select {
 	case got := <-unitWatcher.Changes():
@@ -798,6 +827,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 		c.Fatalf("did not get change: %#v", []string(nil))
 	}
 
+	// Check principal unit assignment.
 	charm := s.AddTestingCharm(c, "dummy")
 	service, err := s.State.AddService("mysql", charm)
 	c.Assert(err, IsNil)
@@ -816,7 +846,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	all := []string{}
 	subCh := s.AddTestingCharm(c, "logging")
 	for i, test := range machineUnitsWatchTests {
-		c.Logf("test %d", i)
+		c.Logf("test %d: %s", i, test.summary)
 		test.test(c, s, principal, subCh)
 		s.State.StartSync()
 		all = append(all, test.changes...)
@@ -840,6 +870,8 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 		}
 	}
 
+	// Check that removing units we already got a Dead event does not
+	// yield any more events.
 	for _, uname := range all {
 		unit, err := s.State.Unit(uname)
 		if state.IsNotFound(err) || unit.Life() != state.Dead {
@@ -858,6 +890,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	case <-time.After(100 * time.Millisecond):
 	}
 
+	// Check assignment of additional principal units. 
 	service, err = s.State.AddService("wordpress", charm)
 	c.Assert(err, IsNil)
 	unit0, err := service.AddUnit()
@@ -876,6 +909,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 		c.Fatalf("did not get change: %#v", []string{"wordpress/0", "wordpress/1"})
 	}
 
+	// Check the lack of spurious events.
 	select {
 	case got := <-unitWatcher.Changes():
 		c.Fatalf("got unexpected change: %#v", got)
