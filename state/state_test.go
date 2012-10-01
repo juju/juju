@@ -261,24 +261,20 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 }
 
 var machinesWatchTests = []struct {
-	summary string
-	test    func(*C, *state.State)
-	changes []int
+	test  func(*C, *state.State)
+	alive []int
+	dead  []int
 }{
 	{
-		"Do nothing",
-		func(_ *C, _ *state.State) {},
-		nil,
+		test: func(_ *C, _ *state.State) {},
 	}, {
-		"Add a machine",
-		func(c *C, s *state.State) {
+		test: func(c *C, s *state.State) {
 			_, err := s.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
 		},
-		[]int{0},
+		alive: []int{0},
 	}, {
-		"Ignore unrelated changes",
-		func(c *C, s *state.State) {
+		test: func(c *C, s *state.State) {
 			_, err := s.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
 			m0, err := s.Machine(0)
@@ -286,48 +282,25 @@ var machinesWatchTests = []struct {
 			err = m0.SetInstanceId("spam")
 			c.Assert(err, IsNil)
 		},
-		[]int{1},
+		alive: []int{1},
 	}, {
-		"Add two machines at once",
-		func(c *C, s *state.State) {
+		test: func(c *C, s *state.State) {
 			_, err := s.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
 			_, err = s.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
 		},
-		[]int{2, 3},
+		alive: []int{2, 3},
 	}, {
-		"Report machines that become Dying",
-		func(c *C, s *state.State) {
-			m3, err := s.Machine(3)
-			c.Assert(err, IsNil)
-			err = m3.EnsureDying()
-			c.Assert(err, IsNil)
-		},
-		[]int{3},
-	}, {
-		"Report machines that become Dead",
-		func(c *C, s *state.State) {
+		test: func(c *C, s *state.State) {
 			m3, err := s.Machine(3)
 			c.Assert(err, IsNil)
 			err = m3.EnsureDead()
 			c.Assert(err, IsNil)
 		},
-		[]int{3},
+		dead: []int{3},
 	}, {
-		"Do not report Dead machines that are removed",
-		func(c *C, s *state.State) {
-			m0, err := s.Machine(0)
-			c.Assert(err, IsNil)
-			err = m0.EnsureDying()
-			c.Assert(err, IsNil)
-			err = s.RemoveMachine(3)
-			c.Assert(err, IsNil)
-		},
-		[]int{0},
-	}, {
-		"Report previously known machines that are removed",
-		func(c *C, s *state.State) {
+		test: func(c *C, s *state.State) {
 			m0, err := s.Machine(0)
 			c.Assert(err, IsNil)
 			err = m0.EnsureDead()
@@ -336,13 +309,10 @@ var machinesWatchTests = []struct {
 			c.Assert(err, IsNil)
 			err = m2.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveMachine(2)
-			c.Assert(err, IsNil)
 		},
-		[]int{0, 2},
+		dead: []int{0, 2},
 	}, {
-		"Added and Dead machines at once",
-		func(c *C, s *state.State) {
+		test: func(c *C, s *state.State) {
 			_, err := s.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
 			m1, err := s.Machine(1)
@@ -350,10 +320,10 @@ var machinesWatchTests = []struct {
 			err = m1.EnsureDead()
 			c.Assert(err, IsNil)
 		},
-		[]int{1, 4},
+		alive: []int{4},
+		dead:  []int{1},
 	}, {
-		"Add many, change many, and remove many at once",
-		func(c *C, s *state.State) {
+		test: func(c *C, s *state.State) {
 			machines := [20]*state.Machine{}
 			var err error
 			for i := 0; i < len(machines); i++ {
@@ -367,48 +337,20 @@ var machinesWatchTests = []struct {
 			for i := 10; i < len(machines); i++ {
 				err = machines[i].EnsureDead()
 				c.Assert(err, IsNil)
-				err = s.RemoveMachine(machines[i].Id())
-				c.Assert(err, IsNil)
 			}
 		},
-		[]int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
+		alive: []int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
 	}, {
-		"Report Dead when first seen",
-		func(c *C, s *state.State) {
-			m, err := s.AddMachine(state.MachinerWorker)
+		test: func(c *C, s *state.State) {
+			_, err := s.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
-			err = m.EnsureDead()
+			m9, err := s.Machine(9)
+			c.Assert(err, IsNil)
+			err = m9.EnsureDead()
 			c.Assert(err, IsNil)
 		},
-		[]int{25},
-	}, {
-		"Do not report never-seen and removed",
-		func(c *C, s *state.State) {
-			m, err := s.AddMachine(state.MachinerWorker)
-			c.Assert(err, IsNil)
-			err = m.EnsureDead()
-			c.Assert(err, IsNil)
-			err = s.RemoveMachine(m.Id())
-			c.Assert(err, IsNil)
-
-			_, err = s.AddMachine(state.MachinerWorker)
-			c.Assert(err, IsNil)
-		},
-		[]int{27},
-	}, {
-		"Take into account what's already in the queue",
-		func(c *C, s *state.State) {
-			m, err := s.AddMachine(state.MachinerWorker)
-			c.Assert(err, IsNil)
-			s.Sync()
-			err = m.EnsureDead()
-			c.Assert(err, IsNil)
-			s.Sync()
-			err = s.RemoveMachine(m.Id())
-			c.Assert(err, IsNil)
-			s.Sync()
-		},
-		[]int{28},
+		alive: []int{25},
+		dead:  []int{9},
 	},
 }
 
@@ -418,22 +360,21 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 		c.Assert(machineWatcher.Stop(), IsNil)
 	}()
 	for i, test := range machinesWatchTests {
-		c.Logf("Test %d: %s", i, test.summary)
+		c.Logf("test %d", i)
 		test.test(c, s.State)
 		s.State.StartSync()
-		var got []int
+		got := &state.MachinesChange{}
 		for {
 			select {
-			case ids, ok := <-machineWatcher.Changes():
+			case new, ok := <-machineWatcher.Changes():
 				c.Assert(ok, Equals, true)
-				got = append(got, ids...)
-				if len(got) < len(test.changes) {
+				addMachinesChange(got, new)
+				if moreMachinesRequired(got, test.alive, test.dead) {
 					continue
 				}
-				sort.Ints(got)
-				c.Assert(got, DeepEquals, test.changes)
+				assertSameMachines(c, got, test.alive, test.dead)
 			case <-time.After(500 * time.Millisecond):
-				c.Fatalf("did not get change: want %#v, got %#v", test.changes, got)
+				c.Fatalf("did not get change, want: alive: %#v, dead: %#v, got: %#v", test.alive, test.dead, got)
 			}
 			break
 		}
@@ -443,6 +384,23 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
+}
+
+func moreMachinesRequired(got *state.MachinesChange, alive, dead []int) bool {
+	return len(got.Alive)+len(got.Dead) < len(alive)+len(dead)
+}
+
+func addMachinesChange(change *state.MachinesChange, more *state.MachinesChange) {
+	change.Alive = append(change.Alive, more.Alive...)
+	change.Dead = append(change.Dead, more.Dead...)
+}
+
+func assertSameMachines(c *C, got *state.MachinesChange, alive, dead []int) {
+	c.Assert(got, NotNil)
+	sort.Ints(got.Alive)
+	sort.Ints(got.Dead)
+	c.Assert(got.Alive, DeepEquals, alive)
+	c.Assert(got.Dead, DeepEquals, dead)
 }
 
 var servicesWatchTests = []struct {
@@ -881,3 +839,30 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *C) {
 	relation2, err := s.State.Relation(peer)
 	c.Assert(relation1, DeepEquals, relation2)
 }
+
+type setPassworder interface {
+	SetPassword(password string) (auth string, err error)
+}
+
+func openWithAuth(auth string) error {
+	st, err := state.Open(&state.Info{
+		Addrs: []string{testing.MgoAddr},
+		Auth: auth,
+	})
+	if err == nil {
+		st.Close()
+	}
+	return err
+}
+
+func (s *StateSuite) TestOpenWithBadAuth(c *C) {
+	err := openWithAuth("")
+	c.Assert(err, ErrorMatches, "bad auth")
+	err = openWithAuth("/foo")
+	c.Assert(err, ErrorMatches, "bad auth")
+	err = openWithAuth("admin/arble")
+	c.Assert(err, ErrorMatches, "bad user")
+}
+
+func testSetPassword(c *C, entity setPassworder) {
+	auth, err := entity.SetPassword(

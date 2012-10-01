@@ -25,6 +25,10 @@ type Info struct {
 	// UseSSH specifies whether MongoDB should be contacted through an
 	// SSH tunnel.
 	UseSSH bool
+
+	// Auth holds authorization information to use when connecting.
+	// See the SetPassword method on Machine and Unit.
+	Auth string
 }
 
 // Open connects to the server described by the given
@@ -40,7 +44,7 @@ func Open(info *Info) (*State, error) {
 		if err != nil {
 			return nil, err
 		}
-		return newState(session, nil)
+		return newState(session, nil, info.Auth)
 	}
 	if len(info.Addrs) > 1 {
 		return nil, errors.New("ssh connect does not support multiple addresses")
@@ -49,7 +53,7 @@ func Open(info *Info) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
-	st, err := newState(session, fwd)
+	st, err := newState(session, fwd, info.Auth)
 	if err != nil {
 		return nil, err
 	}
@@ -101,9 +105,31 @@ var (
 	logSizeTests = 1000000
 )
 
-func newState(session *mgo.Session, fwd *sshForwarder) (*State, error) {
+func login(db *mgo.Database, auth string) error {
+	// TODO lose this method when we use SSL authentication.
+	if auth == "" {
+		return nil
+	}
+	i := strings.Index(auth, "/")
+	if i <= 0 {
+		return nil, fmt.Errorf("invalid authorization information")
+	}
+	user, pass := auth[0:i], auth[i+1:]
+	if err := db.Login(user, pass); err != nil {
+		return fmt.Errorf("cannot log in as %q: %v", user, err)
+	}
+	return nil
+}
+
+func newState(session *mgo.Session, fwd *sshForwarder, auth string) (*State, error) {
 	db := session.DB("juju")
+	if err := login(db, auth); err != nil {
+		return nil, err
+	}
 	pdb := session.DB("presence")
+	if err := login(pdb, auth); err != nil {
+		return err
+	}
 	st := &State{
 		db:             db,
 		charms:         db.C("charms"),
