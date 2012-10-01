@@ -1,6 +1,7 @@
 package state
 
 import (
+	"fmt"
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state/watcher"
@@ -1354,6 +1355,7 @@ func (w *MachineUnitsWatcher) initial() (changes []string, err error) {
 }
 
 func (w *MachineUnitsWatcher) mergePrincipalChange(changes []string, c watcher.Change) []string {
+	fmt.Printf("\n  !! pc: \n")
 	name := c.Id.(string)
 	if c.Revno == -1 {
 		if life, ok := w.known[name]; ok && life != Dead {
@@ -1363,8 +1365,8 @@ func (w *MachineUnitsWatcher) mergePrincipalChange(changes []string, c watcher.C
 		delete(w.known, name)
 		return changes
 	}
-	var unit Unit
-	err := w.st.units.FindId(name).Select(D{{"subordinates", 1}}).One(&unit)
+	var pdoc unitDoc
+	err := w.st.units.FindId(name).Select(D{{"subordinates", 1}}).One(&pdoc)
 	if err == mgo.ErrNotFound {
 		return changes
 	}
@@ -1372,10 +1374,12 @@ func (w *MachineUnitsWatcher) mergePrincipalChange(changes []string, c watcher.C
 		w.tomb.Kill(err)
 		return nil
 	}
-	for _, sname := range unit.doc.Subordinates {
+	fmt.Printf("\n  !! pc: new principal: %v\n", pdoc)
+	for _, sname := range pdoc.Subordinates {
 		if _, ok := w.known[sname]; !ok {
-			doc := unitDoc{}
-			err = w.st.units.FindId(sname).Select(lifeFields).One(&doc)
+			fmt.Printf("\n  !! pc: new subordinate: %v\n", sname)
+			udoc := unitDoc{}
+			err = w.st.units.FindId(sname).Select(lifeFields).One(&udoc)
 			if err == mgo.ErrNotFound {
 				continue
 			}
@@ -1383,7 +1387,7 @@ func (w *MachineUnitsWatcher) mergePrincipalChange(changes []string, c watcher.C
 				w.tomb.Kill(err)
 				return nil
 			}
-			w.known[sname] = doc.Life
+			w.known[sname] = udoc.Life
 			changes = append(changes, sname)
 		}
 	}
@@ -1417,6 +1421,7 @@ func (w *MachineUnitsWatcher) mergeUnitChange(changes []string, c watcher.Change
 		return changes
 	}
 	if doc.Life != knownLife {
+		w.known[name] = doc.Life
 		return append(changes, name)
 	}
 	return changes
@@ -1439,6 +1444,7 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 	if err != nil {
 		return err
 	}
+	fmt.Printf("\n  !!! got initial: %v\n", changes)
 	knownPrincipals := make(map[string]bool)
 	for _, unit := range w.machine.doc.Principals {
 		knownPrincipals[unit] = true
@@ -1457,7 +1463,9 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c := <-principalCh:
+			fmt.Printf("\n  !!! old: %v principal changed: %v", changes, c)
 			changes = w.mergePrincipalChange(changes, c)
+			fmt.Printf("\n  !!! new: %v", changes)
 			if len(changes) > 0 {
 				out = w.out
 			}
@@ -1467,21 +1475,23 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 				w.tomb.Kill(err)
 				return err
 			}
+			fmt.Printf("\n  !!! machine changed: %v\n", w.machine.doc)
 			newPrincipals := make(map[string]bool)
 			for _, unit := range w.machine.doc.Principals {
 				newPrincipals[unit] = true
 				if !knownPrincipals[unit] {
 					doc := unitDoc{}
-					err = w.st.units.FindId(unit).Select(lifeFields).One(&doc)
+					err = w.st.units.FindId(unit).Select(append(lifeFields, D{{"txn-revno", 1}}...)).One(&doc)
 					if err != nil && err != mgo.ErrNotFound {
 						return err
 					}
 					if err == mgo.ErrNotFound {
 						continue
 					}
+					fmt.Printf("\n  !!! new principal: %v\n", unit)
 					w.known[unit] = doc.Life
 					changes = append(changes, unit)
-					w.st.watcher.Watch(w.st.units.Name, unit, 0, principalCh)
+					w.st.watcher.Watch(w.st.units.Name, unit, doc.TxnRevno, principalCh)
 				}
 			}
 			for unit := range knownPrincipals {
@@ -1492,11 +1502,14 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 			}
 			knownPrincipals = newPrincipals
 		case c := <-allCh:
+			fmt.Printf("\n  !!! old: %v got unit change: %v\n", changes, c)
 			changes = w.mergeUnitChange(changes, c)
 			if len(changes) > 0 {
+				fmt.Printf("\n  !!! merged unit change: %v\n", changes)
 				out = w.out
 			}
 		case out <- changes:
+			fmt.Printf("\n  !!! sent change: %v\n", changes)
 			out = nil
 			changes = nil
 		}
