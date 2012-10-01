@@ -22,23 +22,23 @@ var scpTests = []struct {
 }{
 	{
 		[]string{"0:foo", "."},
-		"-o StrictHostKeyChecking no -o PasswordAuthentication no ubuntu@dummyenv-0.dns:foo .\n",
+		commonArgs + "ubuntu@dummyenv-0.dns:foo .\n",
 	},
 	{
 		[]string{"foo", "0:"},
-		"-o StrictHostKeyChecking no -o PasswordAuthentication no foo ubuntu@dummyenv-0.dns:\n",
+		commonArgs + "foo ubuntu@dummyenv-0.dns:\n",
 	},
 	{
 		[]string{"0:foo", "mysql/0:/foo"},
-		"-o StrictHostKeyChecking no -o PasswordAuthentication no ubuntu@dummyenv-0.dns:foo ubuntu@dummyenv-0.dns:/foo\n",
+		commonArgs + "ubuntu@dummyenv-0.dns:foo ubuntu@dummyenv-0.dns:/foo\n",
 	},
 	{
 		[]string{"a", "b", "mysql/0"},
-		"-o StrictHostKeyChecking no -o PasswordAuthentication no a b mysql/0\n",
+		commonArgs + "a b mysql/0\n",
 	},
 	{
 		[]string{"mongodb/1:foo", "mongodb/0:"},
-		"-o StrictHostKeyChecking no -o PasswordAuthentication no ubuntu@dummyenv-2.dns:foo ubuntu@dummyenv-1.dns:\n",
+		commonArgs + "ubuntu@dummyenv-2.dns:foo ubuntu@dummyenv-1.dns:\n",
 	},
 }
 

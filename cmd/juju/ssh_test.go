@@ -52,7 +52,10 @@ func (s *SSHCommonSuite) TearDownTest(c *C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-const commonArgs = "-l ubuntu -t -o StrictHostKeyChecking no -o PasswordAuthentication no "
+const (
+	commonArgs = `-o StrictHostKeyChecking no -o PasswordAuthentication no `
+	sshArgs    = `-l ubuntu -t ` + commonArgs
+)
 
 var sshTests = []struct {
 	args   []string
@@ -60,25 +63,25 @@ var sshTests = []struct {
 }{
 	{
 		[]string{"0"},
-		commonArgs + "dummyenv-0.dns\n",
+		sshArgs + "dummyenv-0.dns\n",
 	},
 	// juju ssh 0 'uname -a'
 	{
 		[]string{"0", "uname -a"},
-		commonArgs + "dummyenv-0.dns uname -a\n",
+		sshArgs + "dummyenv-0.dns uname -a\n",
 	},
 	// juju ssh 0 -- uname -a
 	{
 		[]string{"0", "--", "uname", "-a"},
-		commonArgs + "dummyenv-0.dns uname -a\n",
+		sshArgs + "dummyenv-0.dns uname -a\n",
 	},
 	{
 		[]string{"mysql/0"},
-		commonArgs + "dummyenv-0.dns\n",
+		sshArgs + "dummyenv-0.dns\n",
 	},
 	{
 		[]string{"mongodb/1"},
-		commonArgs + "dummyenv-2.dns\n",
+		sshArgs + "dummyenv-2.dns\n",
 	},
 }
 
