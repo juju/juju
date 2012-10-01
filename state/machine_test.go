@@ -578,12 +578,12 @@ var machineUnitsWatchTests = []struct {
 	},
 	{
 		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
-			svc, err := s.State.Service("log0")
-			c.Assert(err, IsNil)
-			unit, err := svc.Unit("log0/0")
-			c.Assert(err, IsNil)
-			err = unit.SetPublicAddress("what.ever")
-			c.Assert(err, IsNil)
+			// svc, err := s.State.Service("log0")
+			// c.Assert(err, IsNil)
+			// unit, err := svc.Unit("log0/0")
+			// c.Assert(err, IsNil)
+			// err = unit.SetPublicAddress("what.ever")
+			// c.Assert(err, IsNil)
 			log, err := s.State.AddService("log1", subCh)
 			c.Assert(err, IsNil)
 			_, err = log.AddUnitSubordinateTo(principal)
@@ -781,7 +781,7 @@ var machineUnitsWatchTests = []struct {
 			c.Assert(err, IsNil)
 			_, err = log99.AddUnitSubordinateTo(unit980)
 			c.Assert(err, IsNil)
-			m, err := s.State.AddMachine()
+			m, err := s.State.AddMachine(state.MachinerWorker)
 			c.Assert(err, IsNil)
 			err = unit980.AssignToMachine(m)
 		},
