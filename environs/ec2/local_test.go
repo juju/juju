@@ -30,6 +30,7 @@ environments:
     public-bucket: public-tools
     access-key: x
     secret-key: x
+    machine-security-groups: true
 `)
 
 func registerLocalTests() {
