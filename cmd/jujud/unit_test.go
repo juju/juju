@@ -96,7 +96,7 @@ func (s *UnitSuite) newAgent(c *C) (*UnitAgent, *state.Unit, *state.Tools) {
 	c.Assert(err, IsNil)
 
 	dataDir, tools := primeTools(c, s.Conn, version.Current)
-	tools1, err := environs.ChangeAgentTools(dataDir, unit.PathKey(), version.Current)
+	tools1, err := environs.ChangeAgentTools(dataDir, unit.EntityName(), version.Current)
 	c.Assert(err, IsNil)
 	c.Assert(tools1, DeepEquals, tools)
 

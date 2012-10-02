@@ -41,10 +41,10 @@ func (m *Machine) globalKey() string {
 	return "m#" + m.String()
 }
 
-// PathKey returns a name identifying the machine that can be used as a
+// EntityName returns a name identifying the machine that can be used as a
 // file name.  The returned key will be different from other
-// PathKey values returned by any other entities from the same state.
-func (m *Machine) PathKey() string {
+// EntityName values returned by any other entities from the same state.
+func (m *Machine) EntityName() string {
 	return fmt.Sprintf("machine-%d", m.doc.Id)
 }
 
