@@ -31,7 +31,7 @@ type Info struct {
 	// This may be "admin" to connect as the administrator.
 	Entity string
 
-	// Password holds the password for the given entity.
+	// Password holds the password for the connecting entity.
 	Password string
 }
 
