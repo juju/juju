@@ -1381,6 +1381,7 @@ func (w *MachineUnitsWatcher) merge(pending []string, unit string) (new []string
 		return pending, nil
 	}
 	if w.known[unit] != doc.Life {
+		w.known[unit] = doc.Life
 		for _, v := range pending {
 			if v == unit {
 				return pending, nil
@@ -1423,6 +1424,9 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 			changes, err = w.updateMachine(changes)
 			if err != nil {
 				return err
+			}
+			if len(changes) > 0 {
+				out = w.out
 			}
 		case c := <-w.in:
 			changes, err = w.merge(changes, c.Id.(string))

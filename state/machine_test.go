@@ -870,8 +870,8 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 		}
 	}
 
-	// Check that removing units we already got a Dead event does not
-	// yield any more events.
+	// Check that removing units for which we already got a Dead event
+	// does not yield any more events.
 	for _, uname := range all {
 		unit, err := s.State.Unit(uname)
 		if state.IsNotFound(err) || unit.Life() != state.Dead {
