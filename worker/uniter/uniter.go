@@ -77,12 +77,12 @@ func (u *Uniter) init(name string) (err error) {
 	if err != nil {
 		return err
 	}
-	pathKey := u.unit.PathKey()
-	u.toolsDir = environs.AgentToolsDir(u.dataDir, pathKey)
+	ename := u.unit.EntityName()
+	u.toolsDir = environs.AgentToolsDir(u.dataDir, ename)
 	if err := EnsureJujucSymlinks(u.toolsDir); err != nil {
 		return err
 	}
-	u.baseDir = filepath.Join(u.dataDir, "agents", pathKey)
+	u.baseDir = filepath.Join(u.dataDir, "agents", ename)
 	if err := trivial.EnsureDir(filepath.Join(u.baseDir, "state")); err != nil {
 		return err
 	}

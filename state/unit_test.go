@@ -105,7 +105,7 @@ func (s *UnitSuite) TestGetSetStatus(c *C) {
 		c.Assert(p.Kill(), IsNil)
 	}()
 
-	s.State.StartSync()
+	s.State.Sync()
 	status, info, err = s.unit.Status()
 	c.Assert(err, IsNil)
 	c.Assert(status, Equals, state.UnitStarted)
@@ -143,8 +143,8 @@ func (s *UnitSuite) TestUnitCharm(c *C) {
 	c.Assert(err, ErrorMatches, `cannot set charm for unit "wordpress/0": not found or not alive`)
 }
 
-func (s *UnitSuite) TestPathKey(c *C) {
-	c.Assert(s.unit.PathKey(), Equals, "unit-wordpress-0")
+func (s *UnitSuite) TestEntityName(c *C) {
+	c.Assert(s.unit.EntityName(), Equals, "unit-wordpress-0")
 }
 
 func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {

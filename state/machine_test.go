@@ -38,8 +38,8 @@ func (s *MachineSuite) TestMachineSetAgentAlive(c *C) {
 	c.Assert(alive, Equals, true)
 }
 
-func (s *MachineSuite) TestPathKey(c *C) {
-	c.Assert(s.machine.PathKey(), Equals, "machine-0")
+func (s *MachineSuite) TestEntityName(c *C) {
+	c.Assert(s.machine.EntityName(), Equals, "machine-0")
 }
 
 func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
