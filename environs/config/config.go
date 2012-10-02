@@ -75,7 +75,7 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	// Check firewall mode.
 	firewallMode := FirewallMode(c.m["firewall-mode"].(string))
 	if firewallMode != FwDefault && firewallMode != FwGlobal {
-		return nil, fmt.Errorf("invalid firewall mode %q in environment configuration", firewallMode)
+		return nil, fmt.Errorf("invalid firewall mode in environment configuration: %q", firewallMode)
 	}
 
 	// Copy unknown attributes onto the type-specific map.

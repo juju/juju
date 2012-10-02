@@ -153,7 +153,7 @@ var configTests = []struct {
 			"name":          "my-name",
 			"firewall-mode": "illegal",
 		},
-		"invalid firewall mode .* in environment configuration",
+		"invalid firewall mode in environment configuration: .*",
 	},
 }
 
