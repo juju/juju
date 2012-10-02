@@ -90,10 +90,9 @@ func (m *Machine) SetAgentTools(t *Tools) (err error) {
 
 // SetPassword sets the password the agent responsible for the machine
 // should use to communicate with the state servers.  Previous passwords
-// are invalidated. The returned authorization can be used in
-// the Auth field of the Info value when calling Open.
-func (m *Machine) SetPassword(password string) (auth string, err error) {
-	return m.st.setPassword(m.PathKey(), password)
+// are invalidated.
+func (m *Machine) SetPassword(password string) error {
+	return m.st.setPassword(m.EntityName(), password)
 }
 
 // EnsureDying sets the machine lifecycle to Dying if it is Alive.

@@ -840,14 +840,11 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *C) {
 	c.Assert(relation1, DeepEquals, relation2)
 }
 
-type setPassworder interface {
-	SetPassword(password string) (auth string, err error)
-}
-
-func openWithAuth(auth string) error {
+func openWithAuth(entity, password string) error {
 	st, err := state.Open(&state.Info{
 		Addrs: []string{testing.MgoAddr},
-		Auth: auth,
+		Entity: entity,
+		Password: password,
 	})
 	if err == nil {
 		st.Close()
@@ -856,13 +853,29 @@ func openWithAuth(auth string) error {
 }
 
 func (s *StateSuite) TestOpenWithBadAuth(c *C) {
-	err := openWithAuth("")
-	c.Assert(err, ErrorMatches, "bad auth")
-	err = openWithAuth("/foo")
-	c.Assert(err, ErrorMatches, "bad auth")
-	err = openWithAuth("admin/arble")
+	err := openWithAuth("foo", "bar")
+	c.Assert(err, ErrorMatches, "bad user")
+	err = openWithAuth("foo", "")
 	c.Assert(err, ErrorMatches, "bad user")
 }
 
+type setPassworder interface {
+	EntityName() string
+	SetPassword(password string) error
+}
+
 func testSetPassword(c *C, entity setPassworder) {
-	auth, err := entity.SetPassword(
+	err := entity.SetPassword("foo")
+	c.Assert(err, IsNil)
+	err = openWithAuth(entity.EntityName, "foo")
+	c.Assert(err, IsNil)
+	err = openWithAuth(entity.EntityName, "bar")
+	c.Assert(err, ErrorMatches, "bad auth")
+
+	err = entity.SetPassword("bar")
+	c.Assert(err, IsNil)
+	err = openWithAuth(entity.EntityName, "foo")
+	c.Assert(err, ErrorMatches, "bad auth 2")
+	err = openWithAuth(entity.EntityName, "bar")
+	c.Assert(err, IsNil)
+}

@@ -152,10 +152,9 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 
 // SetPassword sets the password the agent responsible for the unit
 // should use to communicate with the state servers.  Previous passwords
-// are invalidated. The returned authorization can be used in
-// the Auth field of the Info value when calling Open.
-func (u *Unit) SetPassword(password string) (auth string, err error) {
-	return m.st.setPassword(u.PathKey(), password)
+// are invalidated.
+func (u *Unit) SetPassword(password string) error {
+	return u.st.setPassword(u.EntityName(), password)
 }
 
 // EnsureDying sets the unit lifecycle to Dying if it is Alive.

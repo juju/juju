@@ -42,6 +42,10 @@ func (s *MachineSuite) TestEntityName(c *C) {
 	c.Assert(s.machine.EntityName(), Equals, "machine-0")
 }
 
+func (s *MachineSuite) TestSetPassword(c *C) {
+	testSetPassword(c, s.machine)
+}
+
 func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
 	// test -gocheck.f TestMachineWaitAgentAlive
 	timeout := 200 * time.Millisecond

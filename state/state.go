@@ -293,21 +293,18 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 	return svc, nil
 }
 
-func (s *State) setPassword(pathKey, password string) (auth string, err error) {
-	if err := s.db.AddUser(pathKey, password, false); err != nil {
-		return "", fmt.Errorf("cannot set password for %q in db: %v", name, err)
+func (s *State) setPassword(name, password string) error {
+	if err := s.db.AddUser(name, password, false); err != nil {
+		return fmt.Errorf("cannot set password for %q: %v", name, err)
 	}
-	if err := s.presence.AddUser(pathKey, password, false); err != nil {
-		return "", fmt.Errorf("cannot set password for %q in presence: %v", name, err)
-	}
-	return name + "/" + password, nil
+	return nil
 }
 
 // SetPassword sets the password the administrator
 // should use to communicate with the state servers.  Previous passwords
 // are invalidated. The returned authorization can be used in
 // the Auth field of the Info value when calling Open.
-func (s *State) SetPassword(password string) (auth string, err error) {
+func (s *State) SetPassword(password string) error {
 	return s.setPassword("admin", password)
 }
 

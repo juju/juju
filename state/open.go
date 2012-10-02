@@ -26,9 +26,13 @@ type Info struct {
 	// SSH tunnel.
 	UseSSH bool
 
-	// Auth holds authorization information to use when connecting.
-	// See the SetPassword method on Machine and Unit.
-	Auth string
+	// Entity holds the name of the entity that is connecting.
+	// (See the EntityName methods on various types).
+	// This may be "admin" to connect as the administrator.
+	Entity string
+
+	// Password holds the password for the given entity.
+	Password string
 }
 
 // Open connects to the server described by the given
@@ -40,12 +44,17 @@ func Open(info *Info) (*State, error) {
 		return nil, errors.New("no mongo addresses")
 	}
 	if !info.UseSSH {
-		session, err := mgo.DialWithTimeout(strings.Join(info.Addrs, ","), 10*time.Minute)
+		url := strings.Join(info.Addrs, ",")
+		if info.Entity != "" {
+			url = info.Entity + ":" + info.Password + "@" + url
+		}
+		session, err := mgo.DialWithTimeout(url, 10*time.Minute)
 		if err != nil {
 			return nil, err
 		}
-		return newState(session, nil, info.Auth)
+		return newState(session, nil)
 	}
+	// TODO implement authorization on SSL connection; drop sshDial.
 	if len(info.Addrs) > 1 {
 		return nil, errors.New("ssh connect does not support multiple addresses")
 	}
@@ -53,7 +62,7 @@ func Open(info *Info) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
-	st, err := newState(session, fwd, info.Auth)
+	st, err := newState(session, fwd)
 	if err != nil {
 		return nil, err
 	}
@@ -105,31 +114,9 @@ var (
 	logSizeTests = 1000000
 )
 
-func login(db *mgo.Database, auth string) error {
-	// TODO lose this method when we use SSL authentication.
-	if auth == "" {
-		return nil
-	}
-	i := strings.Index(auth, "/")
-	if i <= 0 {
-		return nil, fmt.Errorf("invalid authorization information")
-	}
-	user, pass := auth[0:i], auth[i+1:]
-	if err := db.Login(user, pass); err != nil {
-		return fmt.Errorf("cannot log in as %q: %v", user, err)
-	}
-	return nil
-}
-
-func newState(session *mgo.Session, fwd *sshForwarder, auth string) (*State, error) {
+func newState(session *mgo.Session, fwd *sshForwarder) (*State, error) {
 	db := session.DB("juju")
-	if err := login(db, auth); err != nil {
-		return nil, err
-	}
 	pdb := session.DB("presence")
-	if err := login(pdb, auth); err != nil {
-		return err
-	}
 	st := &State{
 		db:             db,
 		charms:         db.C("charms"),
