@@ -347,10 +347,10 @@ func (u *Unit) AgentAlive() (bool, error) {
 	return u.st.pwatcher.Alive(u.globalKey())
 }
 
-// PathKey returns a name identifying the unit that can be used as a
-// file name.  The returned key will be different from other
-// PathKey values returned by any other entities from the same state.
-func (u *Unit) PathKey() string {
+// EntityName returns a name identifying the unit that is safe to use
+// as a file name.  The returned name will be different from other
+// EntityName values returned by any other entities from the same state.
+func (u *Unit) EntityName() string {
 	return "unit-" + strings.Replace(u.Name(), "/", "-", -1)
 }
 
