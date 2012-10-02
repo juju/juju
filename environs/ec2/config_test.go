@@ -39,7 +39,6 @@ type configTest struct {
 	pbucket   string
 	accessKey string
 	secretKey string
-	machine   bool
 	err       string
 }
 
@@ -113,7 +112,6 @@ func (t configTest) check(c *C) {
 		c.Assert(ecfg.accessKey(), DeepEquals, testAuth.AccessKey)
 		c.Assert(ecfg.secretKey(), DeepEquals, testAuth.SecretKey)
 	}
-	c.Assert(ecfg.machineSecurityGroups(), Equals, t.machine)
 }
 
 var configTests = []configTest{
@@ -198,11 +196,6 @@ var configTests = []configTest{
 		config: attrs{
 			"admin-secret": "Futumpsh",
 		},
-	}, {
-		config: attrs{
-			"machine-security-groups": true,
-		},
-		machine: true,
 	},
 }
 

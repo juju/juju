@@ -213,6 +213,7 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 		"type":            "my-type",
 		"name":            "my-name",
 		"authorized-keys": "my-keys",
+		"firewall-mode":   string(config.FwDefault),
 		"default-series":  version.Current.Series,
 		"unknown":         "my-unknown",
 	}

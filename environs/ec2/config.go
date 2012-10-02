@@ -9,21 +9,19 @@ import (
 
 var configChecker = schema.StrictFieldMap(
 	schema.Fields{
-		"access-key":              schema.String(),
-		"secret-key":              schema.String(),
-		"region":                  schema.String(),
-		"control-bucket":          schema.String(),
-		"public-bucket":           schema.String(),
-		"admin-secret":            schema.String(), // Unused. Here just for compatibility.
-		"machine-security-groups": schema.Bool(),
+		"access-key":     schema.String(),
+		"secret-key":     schema.String(),
+		"region":         schema.String(),
+		"control-bucket": schema.String(),
+		"public-bucket":  schema.String(),
+		"admin-secret":   schema.String(), // Unused. Here just for compatibility.
 	},
 	schema.Defaults{
-		"access-key":              "",
-		"secret-key":              "",
-		"region":                  "us-east-1",
-		"public-bucket":           "",
-		"admin-secret":            schema.Omit,
-		"machine-security-groups": false,
+		"access-key":    "",
+		"secret-key":    "",
+		"region":        "us-east-1",
+		"public-bucket": "",
+		"admin-secret":  schema.Omit,
 	},
 )
 
@@ -50,10 +48,6 @@ func (c *environConfig) accessKey() string {
 
 func (c *environConfig) secretKey() string {
 	return c.attrs["secret-key"].(string)
-}
-
-func (c *environConfig) machineSecurityGroups() bool {
-	return c.attrs["machine-security-groups"].(bool)
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {

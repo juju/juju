@@ -6,6 +6,15 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
+// FirewallMode defines if the firewall manages ports
+// per machine of global.
+type FirewallMode string
+
+const (
+	FwDefault FirewallMode = "default"
+	FwGlobal  FirewallMode = "global"
+)
+
 // Config holds an immutable environment configuration.
 type Config struct {
 	m, t map[string]interface{}
@@ -87,6 +96,12 @@ func (c *Config) AuthorizedKeys() string {
 	return c.m["authorized-keys"].(string)
 }
 
+// FirewallMode returns whether the firewall should
+// manage ports per machine or global.
+func (c *Config) FirewallMode() FirewallMode {
+	return FirewallMode(c.m["firewall-mode"].(string))
+}
+
 // AgentVersion returns the proposed version number for the agent tools.
 // It returns the zero version if unset.
 func (c *Config) AgentVersion() version.Number {
@@ -143,6 +158,7 @@ var fields = schema.Fields{
 	"default-series":       schema.String(),
 	"authorized-keys":      schema.String(),
 	"authorized-keys-path": schema.String(),
+	"firewall-mode":        schema.String(),
 	"agent-version":        schema.String(),
 	"development":          schema.Bool(),
 }
@@ -151,6 +167,7 @@ var defaults = schema.Defaults{
 	"default-series":       version.Current.Series,
 	"authorized-keys":      "",
 	"authorized-keys-path": "",
+	"firewall-mode":        FwDefault,
 	"agent-version":        schema.Omit,
 	"development":          false,
 }

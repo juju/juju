@@ -566,7 +566,7 @@ func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 		return nil
 	}
 	// Give permissions for anyone to access the given ports.
-	// TODO(mue) Choose group after inst.e.ecfg().machineSecurityGroups().
+	// TODO(mue) Choose group depending on inst.e.Config().FirewallMode().
 	ipPerms := portsToIPPerms(ports)
 	g := ec2.SecurityGroup{Name: inst.e.machineGroupName(machineId)}
 	_, err := inst.e.ec2().AuthorizeSecurityGroup(g, ipPerms)
@@ -600,7 +600,7 @@ func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 	// Revoke permissions for anyone to access the given ports.
 	// Note that ec2 allows the revocation of permissions that aren't
 	// granted, so this is naturally idempotent.
-	// TODO(mue) Choose group after inst.e.ecfg().machineSecurityGroups().
+	// TODO(mue) Choose group depending on inst.e.Config().FirewallMode().
 	g := ec2.SecurityGroup{Name: inst.e.machineGroupName(machineId)}
 	_, err := inst.e.ec2().RevokeSecurityGroup(g, portsToIPPerms(ports))
 	if err != nil {
@@ -624,7 +624,7 @@ func portsToIPPerms(ports []state.Port) []ec2.IPPerm {
 }
 
 func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
-	// TODO(mue) Choose group after inst.e.ecfg().machineSecurityGroups().
+	// TODO(mue) Choose group depending on inst.e.Config().FirewallMode().
 	g := ec2.SecurityGroup{Name: inst.e.machineGroupName(machineId)}
 	resp, err := inst.e.ec2().SecurityGroups([]ec2.SecurityGroup{g}, nil)
 	if err != nil {
@@ -688,8 +688,8 @@ func (e *environ) setUpGroups(machineId int) ([]ec2.SecurityGroup, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO(mue) Ensure machine group only if e.ecfg().machineSecurityGroups()
-	// is true.
+	// TODO(mue) Ensure machine group only if e.Config().FirewallMode()
+	// is config.FwDefault.
 	jujuMachineGroup, err := e.ensureGroup(e.machineGroupName(machineId), nil)
 	if err != nil {
 		return nil, err

@@ -28,7 +28,6 @@ environments:
     type: ec2
     control-bucket: 'juju-test-%s'
     public-bucket: 'juju-public-test-%s'
-    machine-security-groups: true
 `, uniqueName, uniqueName, uniqueName)
 
 // uniqueName is generated afresh for every test, so that
