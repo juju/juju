@@ -104,9 +104,6 @@ func (s *storage) List(prefix string) ([]string, error) {
 func (s *storage) deleteAll() error {
 	names, err := s.List("")
 	if err != nil {
-		if _, ok := err.(*environs.NotFoundError); ok {
-			return nil
-		}
 		return err
 	}
 	// Remove all the objects in parallel so that we incur less round-trips.
@@ -137,7 +134,11 @@ func (s *storage) deleteAll() error {
 	// Even DelBucket fails, it won't harm if we try again - the operation
 	// might have succeeded even if we get an error.
 	s.madeBucket = false
-	return s.bucket.DelBucket()
+	err = s.bucket.DelBucket()
+	if s3ErrorStatusCode(err) == 404 {
+		return nil
+	}
+	return err
 }
 
 func maybeNotFound(err error) error {

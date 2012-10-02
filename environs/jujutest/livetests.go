@@ -150,6 +150,7 @@ func (t *LiveTests) TestBootstrapMultiple(c *C) {
 
 	c.Logf("destroy env")
 	t.Destroy(c)
+	t.Destroy(c) // Again, should work fine and do nothing.
 
 	// check that we can bootstrap after destroy
 	t.BootstrapOnce(c)
