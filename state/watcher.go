@@ -1286,17 +1286,25 @@ func (s *Service) WatchConfig() *ConfigWatcher {
 	return &ConfigWatcher{newSettingsWatcher(s.st, "s#"+s.Name())}
 }
 
-// MachineUnitsWatcher observes the assignment and removal of units
-// to and from a machine.
+// MachineUnitsWatcher notifies about assignments and lifecycle changes
+// for all units of a machine.
+// 
+// The first event emitted contains the unit names of all units currently
+// assigned to the machine, irrespective of their life state. From then on,
+// a new event is emitted whenever a unit is assigned to or unassigned from
+// the machine, or the lifecycle of a unit that is currently assigned to
+// the machine changes.
+// 
+// After a unit is found to be Dead, no further event will include it.
 type MachineUnitsWatcher struct {
 	commonWatcher
 	machine *Machine
 	out     chan []string
+	in      chan watcher.Change
 	known   map[string]Life
 }
 
-// WatchUnits returns a watcher for observing units being assigned to
-// or removed from a machine.
+// WatchUnits returns a new MachineUnitsWatcher for m.
 func (m *Machine) WatchUnits() *MachineUnitsWatcher {
 	return newMachineUnitsWatcher(m)
 }
@@ -1305,6 +1313,7 @@ func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 	w := &MachineUnitsWatcher{
 		commonWatcher: commonWatcher{st: m.st},
 		out:           make(chan []string),
+		in:            make(chan watcher.Change),
 		known:         make(map[string]Life),
 		machine:       m,
 	}
@@ -1321,135 +1330,88 @@ func (w *MachineUnitsWatcher) Stop() error {
 	return w.tomb.Wait()
 }
 
-// Changes returns a channel that will receive changes when units are added
-// or removed from the machine. The first event on the channel holds the
-// initial state as returned by Machine.Units.
+// Changes returns the event channel for w.
 func (w *MachineUnitsWatcher) Changes() <-chan []string {
 	return w.out
 }
 
 func (w *MachineUnitsWatcher) initial() (changes []string, err error) {
-	pudocs := []unitDoc{}
-	err = w.st.units.Find(append(notDead, D{{"machineid", w.machine.doc.Id}}...)).Select(lifeFields).All(&pudocs)
+	return w.updateMachine(changes)
+}
+
+func (w *MachineUnitsWatcher) updateMachine(pending []string) (new []string, err error) {
+	err = w.machine.Refresh()
 	if err != nil {
 		return nil, err
 	}
-	for _, pudoc := range pudocs {
-		changes = append(changes, pudoc.Name)
-		w.known[pudoc.Name] = pudoc.Life
-		sudocs := []unitDoc{}
-		err = w.st.units.Find(append(notDead, D{{"principal", pudoc.Name}}...)).Select(lifeFields).All(&sudocs)
-		if err != nil && err != mgo.ErrNotFound {
-			return nil, err
-		}
-		if err == mgo.ErrNotFound {
-			continue
-		}
-		for _, sudoc := range sudocs {
-			changes = append(changes, sudoc.Name)
-			w.known[sudoc.Name] = sudoc.Life
-		}
-	}
-	return changes, nil
-}
-
-func (w *MachineUnitsWatcher) mergePrincipalChange(changes []string, c watcher.Change) []string {
-	name := c.Id.(string)
-	if c.Revno == -1 {
-		if life, ok := w.known[name]; ok && life != Dead {
-			delete(w.known, name)
-			return append(changes, name)
-		}
-		delete(w.known, name)
-		return changes
-	}
-	var pdoc unitDoc
-	err := w.st.units.FindId(name).Select(D{{"subordinates", 1}}).One(&pdoc)
-	if err == mgo.ErrNotFound {
-		return changes
-	}
-	if err != nil {
-		w.tomb.Kill(err)
-		return nil
-	}
-	for _, sname := range pdoc.Subordinates {
-		if _, ok := w.known[sname]; !ok {
-			udoc := unitDoc{}
-			err = w.st.units.FindId(sname).Select(lifeFields).One(&udoc)
-			if err == mgo.ErrNotFound {
-				continue
-			}
+	for _, unit := range w.machine.doc.Principals {
+		if _, ok := w.known[unit]; !ok {
+			pending, err = w.merge(pending, unit)
 			if err != nil {
-				w.tomb.Kill(err)
-				return nil
+				return nil, err
 			}
-			w.known[sname] = udoc.Life
-			changes = append(changes, sname)
 		}
 	}
-	return changes
+	return pending, nil
 }
 
-func (w *MachineUnitsWatcher) mergeUnitChange(changes []string, c watcher.Change) []string {
-	name := c.Id.(string)
-	if _, ok := w.known[name]; !ok {
-		return changes
-	}
-	knownLife := w.known[name]
-	if c.Revno == -1 {
-		delete(w.known, name)
-		if knownLife != Dead {
-			return append(changes, name)
-		}
-		return changes
-	}
+func (w *MachineUnitsWatcher) merge(pending []string, unit string) (new []string, err error) {
 	doc := unitDoc{}
-	err := w.st.units.FindId(name).Select(lifeFields).One(&doc)
+	err = w.st.units.FindId(unit).One(&doc)
 	if err != nil && err != mgo.ErrNotFound {
-		w.tomb.Kill(err)
-		return nil
+		return nil, err
 	}
 	if err == mgo.ErrNotFound {
-		if knownLife != Dead {
-			delete(w.known, name)
-			return append(changes, name)
+		w.st.watcher.Unwatch(w.st.units.Name, unit, w.in)
+		if w.known[unit] != Dead {
+			return append(pending, unit), nil
 		}
-		return changes
+		return pending, nil
 	}
-	if doc.Life != knownLife {
-		w.known[name] = doc.Life
-		return append(changes, name)
+	if _, ok := w.known[unit]; !ok {
+		w.known[unit] = doc.Life
+		w.st.watcher.Watch(w.st.units.Name, unit, doc.TxnRevno, w.in)
+		pending = append(pending, unit)
+		for _, unit := range doc.Subordinates {
+			pending, err = w.merge(pending, unit)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return pending, nil
 	}
-	return changes
+	if w.known[unit] != doc.Life {
+		for _, v := range pending {
+			if v == unit {
+				return pending, nil
+			}
+		}
+		return append(pending, unit), nil
+	}
+	for _, unit := range doc.Subordinates {
+		if _, ok := w.known[unit]; !ok {
+			pending, err = w.merge(pending, unit)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return pending, nil
 }
 
 func (w *MachineUnitsWatcher) loop() (err error) {
-	// fires when the machine changes.
+	defer func() {
+		for _, unit := range w.known {
+			w.st.watcher.Unwatch(w.st.units.Name, unit, w.in)
+		}
+	}()
 	machineCh := make(chan watcher.Change)
-	// fires when any known principal assigned to the machine changes.
-	principalCh := make(chan watcher.Change)
-	// fires when any unit, assigned to the machine or not, changes.
-	allCh := make(chan watcher.Change)
-
 	w.st.watcher.Watch(w.st.machines.Name, w.machine.doc.Id, w.machine.doc.TxnRevno, machineCh)
 	defer w.st.watcher.Unwatch(w.st.machines.Name, w.machine.doc.Id, machineCh)
-	w.st.watcher.WatchCollection(w.st.units.Name, allCh)
-	defer w.st.watcher.UnwatchCollection(w.st.units.Name, allCh)
-
 	changes, err := w.initial()
 	if err != nil {
 		return err
 	}
-	knownPrincipals := make(map[string]bool)
-	for _, unit := range w.machine.doc.Principals {
-		knownPrincipals[unit] = true
-		w.st.watcher.Watch(w.st.units.Name, unit, 0, principalCh)
-	}
-	defer func() {
-		for _, unit := range knownPrincipals {
-			w.st.watcher.Unwatch(w.st.units.Name, unit, principalCh)
-		}
-	}()
 	out := w.out
 	for {
 		select {
@@ -1457,43 +1419,16 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 			return watcher.MustErr(w.st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case c := <-principalCh:
-			changes = w.mergePrincipalChange(changes, c)
-			if len(changes) > 0 {
-				out = w.out
-			}
 		case <-machineCh:
-			err = w.machine.Refresh()
+			changes, err = w.updateMachine(changes)
 			if err != nil {
-				w.tomb.Kill(err)
 				return err
 			}
-			newPrincipals := make(map[string]bool)
-			for _, unit := range w.machine.doc.Principals {
-				newPrincipals[unit] = true
-				if !knownPrincipals[unit] {
-					doc := unitDoc{}
-					err = w.st.units.FindId(unit).Select(append(lifeFields, D{{"txn-revno", 1}}...)).One(&doc)
-					if err != nil && err != mgo.ErrNotFound {
-						return err
-					}
-					if err == mgo.ErrNotFound {
-						continue
-					}
-					w.known[unit] = doc.Life
-					changes = append(changes, unit)
-					w.st.watcher.Watch(w.st.units.Name, unit, doc.TxnRevno, principalCh)
-				}
+		case c := <-w.in:
+			changes, err = w.merge(changes, c.Id.(string))
+			if err != nil {
+				return err
 			}
-			for unit := range knownPrincipals {
-				if !newPrincipals[unit] {
-					w.st.watcher.Unwatch(w.st.units.Name, unit, principalCh)
-				}
-				delete(w.known, unit)
-			}
-			knownPrincipals = newPrincipals
-		case c := <-allCh:
-			changes = w.mergeUnitChange(changes, c)
 			if len(changes) > 0 {
 				out = w.out
 			}
