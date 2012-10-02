@@ -40,8 +40,11 @@ func (t *Tests) SetUpTest(c *C) {
 }
 
 func (t *Tests) TearDownTest(c *C) {
-	t.Env.Destroy(nil)
-	t.Env = nil
+	if t.Env != nil {
+		err := t.Env.Destroy(nil)
+		c.Check(err, IsNil)
+		t.Env = nil
+	}
 	t.LoggingSuite.TearDownTest(c)
 }
 
@@ -91,9 +94,11 @@ func publicAttrs(e environs.Environ) map[string]interface{} {
 }
 
 func (t *LiveTests) TearDownSuite(c *C) {
-	err := t.Env.Destroy(nil)
-	c.Check(err, IsNil)
-	t.Env = nil
+	if t.Env != nil {
+		err := t.Env.Destroy(nil)
+		c.Check(err, IsNil)
+		t.Env = nil
+	}
 	t.LoggingSuite.TearDownSuite(c)
 }
 
