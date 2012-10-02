@@ -43,30 +43,29 @@ func Open(info *Info) (*State, error) {
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no mongo addresses")
 	}
-	if !info.UseSSH {
-		url := strings.Join(info.Addrs, ",")
-		if info.Entity != "" {
-			url = info.Entity + ":" + info.Password + "@" + url
+	var (
+		session *mgo.Session
+		fwd     *sshForwarder
+		err     error
+	)
+	if info.UseSSH {
+		// TODO implement authorization on SSL connection; drop sshDial.
+		if len(info.Addrs) > 1 {
+			return nil, errors.New("ssh connect does not support multiple addresses")
 		}
-		session, err := mgo.DialWithTimeout(url, 10*time.Minute)
-		if err != nil {
-			return nil, err
-		}
-		return newState(session, nil)
+		fwd, session, err = sshDial(info.Addrs[0], "")
+	} else {
+		session, err = mgo.DialWithTimeout(strings.Join(info.Addrs, ","), 10*time.Minute)
 	}
-	// TODO implement authorization on SSL connection; drop sshDial.
-	if len(info.Addrs) > 1 {
-		return nil, errors.New("ssh connect does not support multiple addresses")
-	}
-	fwd, session, err := sshDial(info.Addrs[0], "")
 	if err != nil {
 		return nil, err
 	}
-	st, err := newState(session, fwd)
+	st, err := newState(session, fwd, info.Entity, info.Password)
 	if err != nil {
+		session.Close()
 		return nil, err
 	}
-	return st, err
+	return st, nil
 }
 
 // Initialize sets up an initial empty state and returns it. 
@@ -114,9 +113,18 @@ var (
 	logSizeTests = 1000000
 )
 
-func newState(session *mgo.Session, fwd *sshForwarder) (*State, error) {
+func newState(session *mgo.Session, fwd *sshForwarder, entity, password string) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
+	if entity != "" {
+		if err := db.Login(entity, password); err != nil {
+			return nil, fmt.Errorf("cannot log in to juju database: %v", err)
+		}
+		if err := db.Login(entity, password); err != nil {
+			return nil, fmt.Errorf("cannot log in to presence database: %v", err)
+		}
+	}
+
 	st := &State{
 		db:             db,
 		charms:         db.C("charms"),

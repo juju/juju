@@ -300,14 +300,6 @@ func (s *State) setPassword(name, password string) error {
 	return nil
 }
 
-// SetPassword sets the password the administrator
-// should use to communicate with the state servers.  Previous passwords
-// are invalidated. The returned authorization can be used in
-// the Auth field of the Info value when calling Open.
-func (s *State) SetPassword(password string) error {
-	return s.setPassword("admin", password)
-}
-
 // RemoveService removes a service from the state. It will also remove all
 // its units and break any of its existing relations.
 func (s *State) RemoveService(svc *Service) (err error) {
