@@ -111,6 +111,24 @@ var upgradeJujuTests = []struct {
 	args:           []string{"--upload-tools"},
 	expectErr:      "cannot find newest version: no tools found",
 	expectUploaded: "2.0.1-foo-bar",
+}, {
+	about:          "upload and bump version",
+	private:        []string{"2.4.6-foo-bar", "2.4.8-foo-bar"},
+	public:         []string{"2.4.10-foo-bar"},
+	currentVersion: "2.4.6-foo-bar",
+	agentVersion:   "2.4.0",
+	args:           []string{"--upload-tools", "--bump-version"},
+	expectVersion:  "2.4.6.1",
+	expectUploaded: "2.4.6.1-foo-bar",
+}, {
+	about:          "upload with previously bumped version",
+	private:        []string{"2.4.6-foo-bar", "2.4.6.1-foo-bar", "2.4.8-foo-bar"},
+	public:         []string{"2.4.10-foo-bar"},
+	currentVersion: "2.4.6-foo-bar",
+	agentVersion:   "2.4.6.1",
+	args:           []string{"--upload-tools", "--bump-version"},
+	expectVersion:  "2.4.6.2",
+	expectUploaded: "2.4.6.2-foo-bar",
 },
 }
 
