@@ -6,13 +6,18 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-// FirewallMode defines if the firewall manages ports
-// per machine of global.
+// FirewallMode defines the way in which the environment
+// handles opening and closing of firewall ports.
 type FirewallMode string
 
 const (
+	// FwDefault is the environment-specific default mode. 
 	FwDefault FirewallMode = "default"
-	FwGlobal  FirewallMode = "global"
+
+	// FwGlobal requests the use of a single firewall group for all machines.
+	// When ports are opened for one machine, all machines will have the same
+	// port opened.
+	FwGlobal FirewallMode = "global"
 )
 
 // Config holds an immutable environment configuration.
