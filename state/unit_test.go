@@ -105,7 +105,7 @@ func (s *UnitSuite) TestGetSetStatus(c *C) {
 		c.Assert(p.Kill(), IsNil)
 	}()
 
-	s.State.StartSync()
+	s.State.Sync()
 	status, info, err = s.unit.Status()
 	c.Assert(err, IsNil)
 	c.Assert(status, Equals, state.UnitStarted)
