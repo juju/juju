@@ -1315,7 +1315,7 @@ func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 		out:           make(chan []string),
 		in:            make(chan watcher.Change),
 		known:         make(map[string]Life),
-		machine:       m,
+		machine:       &Machine{m.st, m.doc}, // Copy so it may be freely refreshed
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -1333,10 +1333,6 @@ func (w *MachineUnitsWatcher) Stop() error {
 // Changes returns the event channel for w.
 func (w *MachineUnitsWatcher) Changes() <-chan []string {
 	return w.out
-}
-
-func (w *MachineUnitsWatcher) initial() (changes []string, err error) {
-	return w.updateMachine(changes)
 }
 
 func (w *MachineUnitsWatcher) updateMachine(pending []string) (new []string, err error) {
@@ -1361,37 +1357,34 @@ func (w *MachineUnitsWatcher) merge(pending []string, unit string) (new []string
 	if err != nil && err != mgo.ErrNotFound {
 		return nil, err
 	}
+	life, known := w.known[unit]
 	if err == mgo.ErrNotFound {
-		w.st.watcher.Unwatch(w.st.units.Name, unit, w.in)
-		if w.known[unit] != Dead {
-			return append(pending, unit), nil
+		if known {
+			w.st.watcher.Unwatch(w.st.units.Name, unit, w.in)
+			if life != Dead {
+				return append(pending, unit), nil
+			}
 		}
 		return pending, nil
 	}
-	if _, ok := w.known[unit]; !ok {
-		w.known[unit] = doc.Life
+	if !known {
 		w.st.watcher.Watch(w.st.units.Name, unit, doc.TxnRevno, w.in)
 		pending = append(pending, unit)
-		for _, unit := range doc.Subordinates {
-			pending, err = w.merge(pending, unit)
-			if err != nil {
-				return nil, err
-			}
-		}
-		return pending, nil
-	}
-	if w.known[unit] != doc.Life {
-		w.known[unit] = doc.Life
+	} else if life != doc.Life {
+		found := false
 		for _, v := range pending {
 			if v == unit {
-				return pending, nil
+				found = true
 			}
 		}
-		return append(pending, unit), nil
+		if !found {
+			pending = append(pending, unit)
+		}
 	}
-	for _, unit := range doc.Subordinates {
-		if _, ok := w.known[unit]; !ok {
-			pending, err = w.merge(pending, unit)
+	w.known[unit] = doc.Life
+	for _, subunit := range doc.Subordinates {
+		if _, ok := w.known[subunit]; !ok {
+			pending, err = w.merge(pending, subunit)
 			if err != nil {
 				return nil, err
 			}
@@ -1409,7 +1402,7 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 	machineCh := make(chan watcher.Change)
 	w.st.watcher.Watch(w.st.machines.Name, w.machine.doc.Id, w.machine.doc.TxnRevno, machineCh)
 	defer w.st.watcher.Unwatch(w.st.machines.Name, w.machine.doc.Id, machineCh)
-	changes, err := w.initial()
+	changes, err := w.updateMachine([]string(nil))
 	if err != nil {
 		return err
 	}

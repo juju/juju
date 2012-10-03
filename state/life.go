@@ -12,7 +12,7 @@ import (
 type Life int8
 
 const (
-	Alive Life = iota
+	Alive Life = iota + 1
 	Dying
 	Dead
 	nLife
