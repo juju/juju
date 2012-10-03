@@ -95,6 +95,11 @@ func newUnit(st *State, udoc *unitDoc) *Unit {
 	}
 }
 
+// Service returns the service.
+func (u *Unit) Service() (*Service, error) {
+	return u.st.Service(u.doc.Service)
+}
+
 // ServiceName returns the service name.
 func (u *Unit) ServiceName() string {
 	return u.doc.Service
