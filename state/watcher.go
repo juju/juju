@@ -374,7 +374,7 @@ func (w *ServicesWatcher) loop() (err error) {
 // of their life state. Subsequent events return batches of newly added
 // units and units which have changed their lifecycle, up to when they are
 // found dead.
-type ServiceUnitsWatcher2 struct {
+type ServiceUnitsWatcher struct {
 	commonWatcher
 	service *Service
 	in      chan watcher.Change
@@ -383,17 +383,17 @@ type ServiceUnitsWatcher2 struct {
 }
 
 // Changes returns the event channel for w.
-func (w *ServiceUnitsWatcher2) Changes() <-chan []string {
+func (w *ServiceUnitsWatcher) Changes() <-chan []string {
 	return w.out
 }
 
 // WatchUnits returns a new ServiceUnitsWatcher for s.
-func (s *Service) WatchUnits2() *ServiceUnitsWatcher2 {
-	return newServiceUnitsWatcher2(s)
+func (s *Service) WatchUnits() *ServiceUnitsWatcher {
+	return newServiceUnitsWatcher(s)
 }
 
-func newServiceUnitsWatcher2(svc *Service) *ServiceUnitsWatcher2 {
-	w := &ServiceUnitsWatcher2{
+func newServiceUnitsWatcher(svc *Service) *ServiceUnitsWatcher {
+	w := &ServiceUnitsWatcher{
 		commonWatcher: commonWatcher{st: svc.st},
 		service:       svc,
 		known:         make(map[string]Life),
@@ -408,11 +408,11 @@ func newServiceUnitsWatcher2(svc *Service) *ServiceUnitsWatcher2 {
 	return w
 }
 
-func (w *ServiceUnitsWatcher2) initial() (changes []string, err error) {
+func (w *ServiceUnitsWatcher) initial() (changes []string, err error) {
 	return w.updateService(changes)
 }
 
-func (w *ServiceUnitsWatcher2) updateService(pending []string) (changes []string, err error) {
+func (w *ServiceUnitsWatcher) updateService(pending []string) (changes []string, err error) {
 	doc := serviceDoc{}
 	err = w.st.services.FindId(w.service.doc.Name).One(&doc)
 	if err != nil {
@@ -429,7 +429,7 @@ func (w *ServiceUnitsWatcher2) updateService(pending []string) (changes []string
 	return pending, nil
 }
 
-func (w *ServiceUnitsWatcher2) merge(pending []string, name string) (changes []string, err error) {
+func (w *ServiceUnitsWatcher) merge(pending []string, name string) (changes []string, err error) {
 	doc := unitDoc{}
 	err = w.st.units.FindId(name).One(&doc)
 	if err != nil && err != mgo.ErrNotFound {
@@ -459,7 +459,7 @@ func (w *ServiceUnitsWatcher2) merge(pending []string, name string) (changes []s
 	return append(pending, name), nil
 }
 
-func (w *ServiceUnitsWatcher2) loop() (err error) {
+func (w *ServiceUnitsWatcher) loop() (err error) {
 	serviceCh := make(chan watcher.Change)
 	w.st.watcher.Watch(w.st.services.Name, w.service.doc.Name, w.service.doc.TxnRevno, serviceCh)
 	defer w.st.watcher.Unwatch(w.st.services.Name, w.service.doc.Name, serviceCh)

@@ -348,7 +348,7 @@ func (m unitSlice) Len() int           { return len(m) }
 func (m unitSlice) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
 func (m unitSlice) Less(i, j int) bool { return m[i].Name() < m[j].Name() }
 
-var serviceUnitsWatchTests2 = []struct {
+var serviceUnitsWatchTests = []struct {
 	summary string
 	test    func(*C, *state.State, *state.Service)
 	changes []string
@@ -540,13 +540,13 @@ var serviceUnitsWatchTests2 = []struct {
 	},
 }
 
-func (s *ServiceSuite) TestWatchUnits2(c *C) {
-	unitWatcher := s.service.WatchUnits2()
+func (s *ServiceSuite) TestWatchUnits(c *C) {
+	unitWatcher := s.service.WatchUnits()
 	defer func() {
 		c.Assert(unitWatcher.Stop(), IsNil)
 	}()
 	all := []string{}
-	for i, test := range serviceUnitsWatchTests2 {
+	for i, test := range serviceUnitsWatchTests {
 		c.Logf("test %d: %s", i, test.summary)
 		test.test(c, s.State, s.service)
 		s.State.StartSync()
