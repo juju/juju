@@ -530,3 +530,13 @@ func (s *State) Sync() {
 	s.watcher.Sync()
 	s.pwatcher.Sync()
 }
+
+func (s *State) SetAdminPassword(password string) error {
+	if err := s.db.AddUser("admin", password, false); err != nil {
+		return fmt.Errorf("cannot set admin password in juju db: %v", err)
+	}
+	if err := s.presence.Database.AddUser("admin", password, false); err != nil {
+		return fmt.Errorf("cannot set admin password in presence db: %v", err)
+	}
+	return nil
+}

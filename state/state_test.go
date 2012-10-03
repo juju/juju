@@ -881,3 +881,16 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *C) {
 	relation2, err := s.State.Relation(peer)
 	c.Assert(relation1, DeepEquals, relation2)
 }
+
+func (s *StateSuite) TestSetAdminPassword(c *C) {
+	err := s.MgoSuite.Session.DB("juju").Login("admin", "foo")
+	c.Assert(err, ErrorMatches, "auth fails")
+	err = s.MgoSuite.Session.DB("presence").Login("admin", "foo")
+	c.Assert(err, ErrorMatches, "auth fails")
+	err = s.State.SetAdminPassword("foo")
+	c.Assert(err, IsNil)
+	err = s.MgoSuite.Session.DB("juju").Login("admin", "foo")
+	c.Assert(err, IsNil)
+	err = s.MgoSuite.Session.DB("presence").Login("admin", "foo")
+	c.Assert(err, IsNil)
+}
