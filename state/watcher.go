@@ -576,6 +576,12 @@ func (w *ServiceUnitsWatcher2) merge(pending []string, name string) (changes []s
 		if w.known[name] != Dead {
 			return append(pending, name), nil
 		}
+		return pending, nil
+	}
+	if _, ok := w.known[name]; !ok {
+		w.st.watcher.Watch(w.st.units.Name, name, doc.TxnRevno, w.in)
+		w.known[name] = doc.Life
+		return append(pending, name), nil
 	}
 	if w.known[name] == doc.Life {
 		return pending, nil

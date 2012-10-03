@@ -558,7 +558,7 @@ var serviceUnitsWatchTests2 = []struct {
 			_, err := service.AddUnit()
 			c.Assert(err, IsNil)
 		},
-		[]string{"mysql/1"},
+		[]string{"mysql/0"},
 	},
 	{
 		"Add a unit, ignore unrelated change",
@@ -570,7 +570,7 @@ var serviceUnitsWatchTests2 = []struct {
 			err = unit0.SetPublicAddress("what.ever")
 			c.Assert(err, IsNil)
 		},
-		[]string{"mysql/0"},
+		[]string{"mysql/1"},
 	},
 	{
 		"Add two units at once",
@@ -694,7 +694,7 @@ var serviceUnitsWatchTests2 = []struct {
 			_, err = service.AddUnit()
 			c.Assert(err, IsNil)
 		},
-		[]string{"mysql/17", "mysql/18"},
+		[]string{"mysql/27", "mysql/28"},
 	},
 	{
 		"report only units assigned to this machine",
@@ -718,19 +718,19 @@ var serviceUnitsWatchTests2 = []struct {
 			err = service.RemoveUnit(unit10)
 			c.Assert(err, IsNil)
 		},
-		[]string{"mysql/10", "mysql/19", "mysql/20"},
+		[]string{"mysql/10", "mysql/29", "mysql/30"},
 	},
 	{
 		"Report previously known machines that are removed",
 		func(c *C, s *state.State, service *state.Service) {
-			unit20, err := service.Unit("mysql/20")
+			unit30, err := service.Unit("mysql/30")
 			c.Assert(err, IsNil)
-			err = unit20.EnsureDead()
+			err = unit30.EnsureDead()
 			c.Assert(err, IsNil)
-			err = service.RemoveUnit(unit20)
+			err = service.RemoveUnit(unit30)
 			c.Assert(err, IsNil)
 		},
-		[]string{"mysql/20"},
+		[]string{"mysql/30"},
 	},
 }
 
