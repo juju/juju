@@ -235,7 +235,7 @@ func (s *ConfigSuite) TearDownTest(c *C) {
 
 func (s *ConfigSuite) TestConfig(c *C) {
 	for i, t := range configTests {
-		c.Logf("test %d: %q", i, t.config)
+		c.Logf("test %d: %v", i, t.config)
 		t.check(c)
 	}
 }

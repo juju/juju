@@ -310,7 +310,7 @@ func (as testAgentState) SetAgentTools(tools *state.Tools) error {
 	return nil
 }
 
-func (as testAgentState) PathKey() string {
+func (as testAgentState) EntityName() string {
 	return "testagent"
 }
 
