@@ -535,7 +535,7 @@ func (s *State) Sync() {
 // to access the state. If the password is non-empty,
 // all subsequent attempts to access the state must
 // be authorized; otherwise no authorization is required.
-func(s *State) SetAdminPassword(password string) error {
+func (s *State) SetAdminPassword(password string) error {
 	admin := s.db.Session.DB("admin")
 	if password != "" {
 		if err := admin.AddUser("admin", password, false); err != nil {

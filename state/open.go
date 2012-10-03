@@ -47,7 +47,7 @@ func Open(info *Info) (*State, error) {
 		// TODO implement authorization on SSL connection; drop sshDial.
 		if len(info.Addrs) > 1 {
 			return nil, errors.New("ssh connect does not support multiple addresses")
- 		}
+		}
 		fwd, session, err = sshDial(info.Addrs[0], "")
 	} else {
 		session, err = mgo.DialWithTimeout(strings.Join(info.Addrs, ","), 10*time.Minute)
