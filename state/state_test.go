@@ -239,6 +239,7 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"default-series":  "precise",
 		"development":     true,
+		"firewall-mode":   "default",
 	}
 	env, err := config.New(initial)
 	c.Assert(err, IsNil)
@@ -629,6 +630,7 @@ func (s *StateSuite) TestInitialize(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"default-series":  "precise",
 		"development":     true,
+		"firewall-mode":   "default",
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
@@ -647,6 +649,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"authorized-keys": "i-am-a-key",
 		"default-series":  "precise",
 		"development":     true,
+		"firewall-mode":   "default",
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
@@ -664,6 +667,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"authorized-keys": "i-am-not-an-animal",
 		"default-series":  "xanadu",
 		"development":     false,
+		"firewall-mode":   "default",
 	}
 	cfg, err = config.New(m)
 	c.Assert(err, IsNil)
@@ -923,4 +927,29 @@ func testSetPassword(c *C, entity setPassworder) {
 	c.Assert(err, ErrorMatches, "cannot log in to juju database: auth fails")
 	err = openWithAuth(name, "bar")
 	c.Assert(err, IsNil)
+}
+
+func (s *StateSuite) TestSetAdminPassword(c *C) {
+	err := s.State.SetAdminPassword("foo")
+	c.Assert(err, IsNil)
+	defer s.State.SetAdminPassword("")
+	info := s.StateInfo(c)
+	st, err := state.Open(info)
+	if st != nil {
+		st.Close()
+	}
+	c.Assert(err, ErrorMatches, "unauthorized access")
+
+	info.Password = "foo"
+	st, err = state.Open(info)
+	c.Assert(err, IsNil)
+	st.Close()
+
+	err = s.State.SetAdminPassword("")
+	c.Assert(err, IsNil)
+
+	info.Password = ""
+	st, err = state.Open(info)
+	c.Assert(err, IsNil)
+	st.Close()
 }

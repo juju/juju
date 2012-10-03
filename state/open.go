@@ -26,10 +26,9 @@ type Info struct {
 	// SSH tunnel.
 	UseSSH bool
 
-	// Entity holds the name of the entity that is connecting.
-	// (See the EntityName methods on various types).
+	// EntityName holds the name of the entity that is connecting.
 	// This may be "admin" to connect as the administrator.
-	Entity string
+	EntityName string
 
 	// Password holds the password for the connecting entity.
 	Password string
@@ -60,7 +59,7 @@ func Open(info *Info) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
-	st, err := newState(session, fwd, info.Entity, info.Password)
+	st, err := newState(session, fwd, info.EntityName, info.Password)
 	if err != nil {
 		session.Close()
 		return nil, err
@@ -116,7 +115,13 @@ var (
 func newState(session *mgo.Session, fwd *sshForwarder, entity, password string) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
-	if entity != "" {
+	if entity == "admin" {
+		admin := session.DB("admin")
+		// TODO log in to admin database only if entity name is "admin".
+		if err := admin.Login("admin", password); err != nil {
+			return nil, fmt.Errorf("cannot log in to admin database: %v", err)
+		}
+	} else if entity != "" {
 		if err := db.Login(entity, password); err != nil {
 			return nil, fmt.Errorf("cannot log in to juju database: %v", err)
 		}
@@ -124,7 +129,6 @@ func newState(session *mgo.Session, fwd *sshForwarder, entity, password string) 
 			return nil, fmt.Errorf("cannot log in to presence database: %v", err)
 		}
 	}
-
 	st := &State{
 		db:             db,
 		charms:         db.C("charms"),
@@ -141,8 +145,12 @@ func newState(session *mgo.Session, fwd *sshForwarder, entity, password string) 
 	info := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
 	// The lack of error code for this error was reported upstream:
 	//     https://jira.mongodb.org/browse/SERVER-6992
-	if err := log.Create(&info); err != nil && err.Error() != "collection already exists" {
-		return nil, fmt.Errorf("cannot create log collection: %v", err)
+	err := log.Create(&info)
+	if err != nil && err.Error() != "collection already exists" {
+		if err, ok := err.(*mgo.QueryError); ok && err.Code == 10057 {
+			return nil, fmt.Errorf("unauthorized access")
+		}
+		return nil, fmt.Errorf("cannot create log collection: %#v", err)
 	}
 	st.runner = txn.NewRunner(db.C("txns"))
 	st.runner.ChangeLog(db.C("txns.log"))
