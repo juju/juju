@@ -542,6 +542,249 @@ func assertSameServiceUnits(c *C, change *state.ServiceUnitsChange, added, remov
 	c.Assert(got, DeepEquals, removed)
 }
 
+var serviceUnitsWatchTests2 = []struct {
+	summary string
+	test    func(*C, *state.State, *state.Service)
+	changes []string
+}{
+	{
+		"Check initial empty event",
+		func(_ *C, _ *state.State, _ *state.Service) {},
+		[]string(nil),
+	},
+	{
+		"Add a unit",
+		func(c *C, s *state.State, service *state.Service) {
+			_, err := service.AddUnit()
+			c.Assert(err, IsNil)
+		},
+		[]string{"mysql/1"},
+	},
+	{
+		"Add a unit, ignore unrelated change",
+		func(c *C, s *state.State, service *state.Service) {
+			_, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			unit0, err := service.Unit("mysql/0")
+			c.Assert(err, IsNil)
+			err = unit0.SetPublicAddress("what.ever")
+			c.Assert(err, IsNil)
+		},
+		[]string{"mysql/0"},
+	},
+	{
+		"Add two units at once",
+		func(c *C, s *state.State, service *state.Service) {
+			_, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			_, err = service.AddUnit()
+			c.Assert(err, IsNil)
+		},
+		[]string{"mysql/2", "mysql/3"},
+	},
+	{
+		"Report dying unit",
+		func(c *C, s *state.State, service *state.Service) {
+			unit0, err := service.Unit("mysql/0")
+			c.Assert(err, IsNil)
+			err = unit0.EnsureDying()
+			c.Assert(err, IsNil)
+		},
+		[]string{"mysql/0"},
+	},
+	{
+		"Report dead unit",
+		func(c *C, s *state.State, service *state.Service) {
+			unit2, err := service.Unit("mysql/2")
+			c.Assert(err, IsNil)
+			err = unit2.EnsureDying()
+			c.Assert(err, IsNil)
+		},
+		[]string{"mysql/2"},
+	},
+	{
+		"Report multiple dead or dying units",
+		func(c *C, s *state.State, service *state.Service) {
+			unit0, err := service.Unit("mysql/0")
+			c.Assert(err, IsNil)
+			err = unit0.EnsureDead()
+			c.Assert(err, IsNil)
+			unit1, err := service.Unit("mysql/1")
+			c.Assert(err, IsNil)
+			err = unit1.EnsureDead()
+			c.Assert(err, IsNil)
+		},
+		[]string{"mysql/0", "mysql/1"},
+	},
+	{
+		"Report dying unit along with a new, alive unit",
+		func(c *C, s *state.State, service *state.Service) {
+			unit3, err := service.Unit("mysql/3")
+			c.Assert(err, IsNil)
+			err = unit3.EnsureDying()
+			c.Assert(err, IsNil)
+			_, err = service.AddUnit()
+			c.Assert(err, IsNil)
+		},
+		[]string{"mysql/3", "mysql/4"},
+	},
+	{
+		"Report multiple dead units and multiple new, alive, units",
+		func(c *C, s *state.State, service *state.Service) {
+			unit3, err := service.Unit("mysql/3")
+			c.Assert(err, IsNil)
+			err = unit3.EnsureDead()
+			c.Assert(err, IsNil)
+			unit4, err := service.Unit("mysql/4")
+			c.Assert(err, IsNil)
+			err = unit4.EnsureDead()
+			c.Assert(err, IsNil)
+			_, err = service.AddUnit()
+			c.Assert(err, IsNil)
+			_, err = service.AddUnit()
+			c.Assert(err, IsNil)
+		},
+		[]string{"mysql/3", "mysql/4", "mysql/5", "mysql/6"},
+	},
+	{
+		"Add many, and remove many at once",
+		func(c *C, s *state.State, service *state.Service) {
+			units := [20]*state.Unit{}
+			var err error
+			for i := 0; i < len(units); i++ {
+				units[i], err = service.AddUnit()
+				c.Assert(err, IsNil)
+			}
+			for i := 10; i < len(units); i++ {
+				err = units[i].EnsureDead()
+				c.Assert(err, IsNil)
+				err = service.RemoveUnit(units[i])
+				c.Assert(err, IsNil)
+			}
+		},
+		[]string{"mysql/10", "mysql/11", "mysql/12", "mysql/13", "mysql/14", "mysql/15", "mysql/16", "mysql/7", "mysql/8", "mysql/9"},
+	},
+	{
+		"Change many at once",
+		func(c *C, s *state.State, service *state.Service) {
+			units := [10]*state.Unit{}
+			var err error
+			for i := 0; i < len(units); i++ {
+				units[i], err = service.Unit("mysql/" + fmt.Sprint(i+7))
+				c.Assert(err, IsNil)
+			}
+			for _, unit := range units {
+				err = unit.EnsureDying()
+				c.Assert(err, IsNil)
+			}
+			err = units[8].EnsureDead()
+			c.Assert(err, IsNil)
+			err = units[9].EnsureDead()
+			c.Assert(err, IsNil)
+		},
+		[]string{"mysql/10", "mysql/11", "mysql/12", "mysql/13", "mysql/14", "mysql/15", "mysql/16", "mysql/7", "mysql/8", "mysql/9"},
+	},
+	{
+		"Report dead when first seen and also add a new unit",
+		func(c *C, s *state.State, service *state.Service) {
+			unit, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			err = unit.EnsureDead()
+			c.Assert(err, IsNil)
+			_, err = service.AddUnit()
+			c.Assert(err, IsNil)
+		},
+		[]string{"mysql/17", "mysql/18"},
+	},
+	{
+		"report only units assigned to this machine",
+		func(c *C, s *state.State, service *state.Service) {
+			_, err := service.AddUnit()
+			c.Assert(err, IsNil)
+			_, err = service.AddUnit()
+			c.Assert(err, IsNil)
+			ch, _, err := service.Charm()
+			c.Assert(err, IsNil)
+			svc, err := s.AddService("bacon", ch)
+			c.Assert(err, IsNil)
+			_, err = svc.AddUnit()
+			c.Assert(err, IsNil)
+			_, err = svc.AddUnit()
+			c.Assert(err, IsNil)
+			unit10, err := service.Unit("mysql/10")
+			c.Assert(err, IsNil)
+			err = unit10.EnsureDead()
+			c.Assert(err, IsNil)
+			err = service.RemoveUnit(unit10)
+			c.Assert(err, IsNil)
+		},
+		[]string{"mysql/10", "mysql/19", "mysql/20"},
+	},
+	{
+		"Report previously known machines that are removed",
+		func(c *C, s *state.State, service *state.Service) {
+			unit20, err := service.Unit("mysql/20")
+			c.Assert(err, IsNil)
+			err = unit20.EnsureDead()
+			c.Assert(err, IsNil)
+			err = service.RemoveUnit(unit20)
+			c.Assert(err, IsNil)
+		},
+		[]string{"mysql/20"},
+	},
+}
+
+func (s *ServiceSuite) TestWatchUnits2(c *C) {
+	unitWatcher := s.service.WatchUnits2()
+	defer func() {
+		c.Assert(unitWatcher.Stop(), IsNil)
+	}()
+	all := []string{}
+	for i, test := range serviceUnitsWatchTests2 {
+		c.Logf("test %d: %s", i, test.summary)
+		test.test(c, s.State, s.service)
+		s.State.StartSync()
+		all = append(all, test.changes...)
+		var got []string
+		want := append([]string(nil), test.changes...)
+		sort.Strings(want)
+		for {
+			select {
+			case new, ok := <-unitWatcher.Changes():
+				c.Assert(ok, Equals, true)
+				got = append(got, new...)
+				if len(got) < len(want) {
+					continue
+				}
+				sort.Strings(got)
+				c.Assert(got, DeepEquals, want)
+			case <-time.After(500 * time.Millisecond):
+				c.Fatalf("did not get change, want: %#v", want)
+			}
+			break
+		}
+	}
+	// Check that removing units for which we already got a Dead event
+	// does not yield any more events.
+	for _, uname := range all {
+		unit, err := s.State.Unit(uname)
+		if state.IsNotFound(err) || unit.Life() != state.Dead {
+			continue
+		}
+		c.Assert(err, IsNil)
+		svc, err := s.State.Service(unit.ServiceName())
+		c.Assert(err, IsNil)
+		err = svc.RemoveUnit(unit)
+		c.Assert(err, IsNil)
+	}
+	s.State.StartSync()
+	select {
+	case got := <-unitWatcher.Changes():
+		c.Fatalf("got unexpected change: %#v", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
 func assertRelationIds(c *C, rels []*state.Relation, ids []int) {
 	c.Assert(rels, HasLen, len(ids))
 	relids := []int{}
