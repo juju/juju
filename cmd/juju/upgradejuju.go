@@ -15,6 +15,7 @@ import (
 type UpgradeJujuCommand struct {
 	EnvName      string
 	UploadTools  bool
+	BumpVersion  bool
 	Version      version.Number
 	Development  bool
 	conn         *juju.Conn
@@ -33,6 +34,7 @@ func (c *UpgradeJujuCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	var vers string
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools")
 	f.StringVar(&vers, "version", "", "version to upgrade to (defaults to highest available version with the current major version number)")
+	f.BoolVar(&c.BumpVersion, "bump-version", false, "upload the tools with a higher build number if necessary, and use that version (overrides --version)")
 	f.BoolVar(&c.Development, "dev", false, "allow development versions to be chosen")
 
 	if err := f.Parse(true, args); err != nil {
@@ -72,6 +74,11 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) error {
 	}
 	if c.UploadTools {
 		var forceVersion *version.Binary
+		if c.BumpVersion {
+			vers := c.bumpedVersion()
+			forceVersion = &vers
+			c.Version = vers.Number
+		}
 		tools, err := putTools(c.conn.Environ.Storage(), forceVersion)
 		if err != nil {
 			return err
@@ -108,6 +115,23 @@ func (c *UpgradeJujuCommand) newestVersion() (version.Number, error) {
 		return version.Number{}, fmt.Errorf("no tools found")
 	}
 	return max.Number, nil
+}
+
+// bumpedVersion returns the current version with a build version higher than
+// any of the same version in the private tools storage.
+func (c *UpgradeJujuCommand) bumpedVersion() version.Binary {
+	vers := version.Current
+	// We ignore the public tools because anything in the private
+	// storage will override them.
+	for _, t := range c.toolsList.Private {
+		if t.Major != vers.Major || t.Minor != vers.Minor || t.Patch != vers.Patch {
+			continue
+		}
+		if t.Build >= vers.Build {
+			vers.Build = t.Build + 1
+		}
+	}
+	return vers
 }
 
 // highestVersion returns the tools with the highest

@@ -6,6 +6,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/tomb"
@@ -141,7 +142,7 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 	if err = u.unit.EnsureDead(); err != nil {
 		return nil, err
 	}
-	return nil, ErrDead
+	return nil, worker.ErrDead
 }
 
 // ModeAbide is the Uniter's usual steady state. It watches for and responds to:
@@ -294,7 +295,7 @@ func modeContext(name string, next *Mode, err *error) func() {
 			}
 		case errHookFailed:
 			*next, *err = ModeHookError, nil
-		case tomb.ErrDying, ErrDead:
+		case tomb.ErrDying, worker.ErrDead:
 			log.Printf(name + " shutting down")
 		default:
 			*err = errors.New(name + ": " + (*err).Error())

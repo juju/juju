@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
 	"net/url"
 	"os"
@@ -725,7 +726,7 @@ func (s waitUniterDead) step(c *C, ctx *context) {
 	case <-u.Dying():
 		err := u.Wait()
 		if s.err == "" {
-			c.Assert(err, Equals, uniter.ErrDead)
+			c.Assert(err, Equals, worker.ErrDead)
 			err = ctx.unit.Refresh()
 			c.Assert(err, IsNil)
 			c.Assert(ctx.unit.Life(), Equals, state.Dead)
