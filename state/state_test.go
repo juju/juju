@@ -891,7 +891,7 @@ func (s *StateSuite) TestSetAdminPassword(c *C) {
 	if st != nil {
 		st.Close()
 	}
-	c.Assert(err, ErrorMatches, "unauthorized access to database")
+	c.Assert(err, ErrorMatches, "unauthorized access")
 
 	info.Password = "foo"
 	st, err = state.Open(info)

@@ -137,7 +137,7 @@ func newState(session *mgo.Session, fwd *sshForwarder, password string) (*State,
 	err := log.Create(&info)
 	if err != nil && err.Error() != "collection already exists" {
 		if err, ok := err.(*mgo.QueryError); ok && err.Code == 10057 {
-			return nil, fmt.Errorf("unauthorized access to database")
+			return nil, fmt.Errorf("unauthorized access")
 		}
 		return nil, fmt.Errorf("cannot create log collection: %#v", err)
 	}
