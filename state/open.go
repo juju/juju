@@ -134,8 +134,12 @@ func newState(session *mgo.Session, fwd *sshForwarder, password string) (*State,
 	info := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
 	// The lack of error code for this error was reported upstream:
 	//     https://jira.mongodb.org/browse/SERVER-6992
-	if err := log.Create(&info); err != nil && err.Error() != "collection already exists" {
-		return nil, fmt.Errorf("cannot create log collection: %v", err)
+	err := log.Create(&info)
+	if err != nil && err.Error() != "collection already exists" {
+		if err, ok := err.(*mgo.QueryError); ok && err.Code == 10057 {
+			return nil, fmt.Errorf("unauthorized access to database")
+		}
+		return nil, fmt.Errorf("cannot create log collection: %#v", err)
 	}
 	st.runner = txn.NewRunner(db.C("txns"))
 	st.runner.ChangeLog(db.C("txns.log"))

@@ -885,12 +885,13 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *C) {
 func (s *StateSuite) TestSetAdminPassword(c *C) {
 	err := s.State.SetAdminPassword("foo")
 	c.Assert(err, IsNil)
+	defer s.State.SetAdminPassword("")
 	info := s.StateInfo(c)
 	st, err := state.Open(info)
 	if st != nil {
 		st.Close()
 	}
-	c.Assert(err, ErrorMatches, "cannot create log collection: unauthorized db.*")
+	c.Assert(err, ErrorMatches, "unauthorized access to database")
 
 	info.Password = "foo"
 	st, err = state.Open(info)
