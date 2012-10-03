@@ -42,7 +42,7 @@ func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	charm, _, err := c.Service.Charm()	
+	charm, _, err := c.Service.Charm()
 	if err != nil {
 		return err
 	}
