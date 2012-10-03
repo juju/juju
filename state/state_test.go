@@ -883,14 +883,25 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *C) {
 }
 
 func (s *StateSuite) TestSetAdminPassword(c *C) {
-	err := s.MgoSuite.Session.DB("juju").Login("admin", "foo")
-	c.Assert(err, ErrorMatches, "auth fails")
-	err = s.MgoSuite.Session.DB("presence").Login("admin", "foo")
-	c.Assert(err, ErrorMatches, "auth fails")
-	err = s.State.SetAdminPassword("foo")
+	err := s.State.SetAdminPassword("foo")
 	c.Assert(err, IsNil)
-	err = s.MgoSuite.Session.DB("juju").Login("admin", "foo")
+	info := s.StateInfo(c)
+	st, err := state.Open(info)
+	if st != nil {
+		st.Close()
+	}
+	c.Assert(err, ErrorMatches, "cannot create log collection: unauthorized db.*")
+
+	info.Password = "foo"
+	st, err = state.Open(info)
 	c.Assert(err, IsNil)
-	err = s.MgoSuite.Session.DB("presence").Login("admin", "foo")
+	st.Close()
+
+	err = s.State.SetAdminPassword("")
 	c.Assert(err, IsNil)
+
+	info.Password = ""
+	st, err = state.Open(info)
+	c.Assert(err, IsNil)
+	st.Close()
 }

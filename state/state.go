@@ -531,12 +531,23 @@ func (s *State) Sync() {
 	s.pwatcher.Sync()
 }
 
-func (s *State) SetAdminPassword(password string) error {
-	if err := s.db.AddUser("admin", password, false); err != nil {
-		return fmt.Errorf("cannot set admin password in juju db: %v", err)
-	}
-	if err := s.presence.Database.AddUser("admin", password, false); err != nil {
-		return fmt.Errorf("cannot set admin password in presence db: %v", err)
+// SetAdminPassword sets the administrative password
+// to access the state. If the password is non-empty,
+// all subsequent attempts to access the state must
+// be authorized; otherwise no authorization is required.
+func(s *State) SetAdminPassword(password string) error {
+	admin := s.db.Session.DB("admin")
+	if password != "" {
+		if err := admin.AddUser("admin", password, false); err != nil {
+			return fmt.Errorf("cannot set admin password: %v", err)
+		}
+		if err := admin.Login("admin", password); err != nil {
+			return fmt.Errorf("cannot login after setting password: %v", err)
+		}
+	} else {
+		if err := admin.RemoveUser("admin"); err != nil {
+			return fmt.Errorf("cannot remove admin user: %v", err)
+		}
 	}
 	return nil
 }

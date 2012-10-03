@@ -25,6 +25,9 @@ type Info struct {
 	// UseSSH specifies whether MongoDB should be contacted through an
 	// SSH tunnel.
 	UseSSH bool
+
+	// TODO use entity name too.
+	Password string
 }
 
 // Open connects to the server described by the given
@@ -35,25 +38,29 @@ func Open(info *Info) (*State, error) {
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no mongo addresses")
 	}
-	if !info.UseSSH {
-		session, err := mgo.DialWithTimeout(strings.Join(info.Addrs, ","), 10*time.Minute)
-		if err != nil {
-			return nil, err
-		}
-		return newState(session, nil)
+	var (
+		session *mgo.Session
+		fwd     *sshForwarder
+		err     error
+	)
+	if info.UseSSH {
+		// TODO implement authorization on SSL connection; drop sshDial.
+		if len(info.Addrs) > 1 {
+			return nil, errors.New("ssh connect does not support multiple addresses")
+ 		}
+		fwd, session, err = sshDial(info.Addrs[0], "")
+	} else {
+		session, err = mgo.DialWithTimeout(strings.Join(info.Addrs, ","), 10*time.Minute)
 	}
-	if len(info.Addrs) > 1 {
-		return nil, errors.New("ssh connect does not support multiple addresses")
-	}
-	fwd, session, err := sshDial(info.Addrs[0], "")
 	if err != nil {
 		return nil, err
 	}
-	st, err := newState(session, fwd)
+	st, err := newState(session, fwd, info.Password)
 	if err != nil {
+		session.Close()
 		return nil, err
 	}
-	return st, err
+	return st, nil
 }
 
 // Initialize sets up an initial empty state and returns it. 
@@ -101,9 +108,16 @@ var (
 	logSizeTests = 1000000
 )
 
-func newState(session *mgo.Session, fwd *sshForwarder) (*State, error) {
+func newState(session *mgo.Session, fwd *sshForwarder, password string) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
+	if password != "" {
+		admin := session.DB("admin")
+		// TODO log in to admin database only if entity name is "admin".
+		if err := admin.Login("admin", password); err != nil {
+			return nil, fmt.Errorf("cannot log in to admin database: %v", err)
+		}
+	}
 	st := &State{
 		db:             db,
 		charms:         db.C("charms"),
