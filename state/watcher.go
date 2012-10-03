@@ -504,6 +504,13 @@ func (w *ServiceUnitsWatcher) loop() (err error) {
 	return nil
 }
 
+type ServiceUnitsWatcher2 struct {
+	commonWatcher
+	service *Service
+	out     chan []string
+	known   map[string]Life
+}
+
 // WatchRelations returns a watcher for observing relations being
 // added or removed from the service.
 func (s *Service) WatchRelations() *ServiceRelationsWatcher {
