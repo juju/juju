@@ -104,19 +104,19 @@ func parse(options []string) (map[string]string, []string, error) {
 	)
 	for _, o := range options {
 		s := strings.Split(o, "=")
-		switch len(s) {
-		case 2:
-			m[s[0]] = s[1]
-		case 1:
-			d = append(d, s[0])
-		default:
+		if len(s) != 2 {
 			return nil, nil, fmt.Errorf("invalid option: %q", o)
+		}
+		if len(s[1]) > 0 {
+			m[s[0]] = s[1]
+		} else {
+			d = append(d, s[0])
 		}
 	}
 	return m, d, nil
 }
 
-// strip removes from options any keys whoes values are the charm defaults
+// strip removes from options any keys whoes valus match the charm defaults
 func strip(options map[string]interface{}, config *charm.Config) map[string]interface{} {
 	for k, v := range options {
 		if ch, ok := config.Options[k]; ok {
