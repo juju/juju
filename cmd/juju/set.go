@@ -120,6 +120,10 @@ func parse(options []string) (map[string]string, []string, error) {
 		if len(s) != 2 {
 			return nil, nil, fmt.Errorf("invalid option: %q", o)
 		}
+		if s[0] == "" {
+			return nil, nil, errors.New("missing option name")
+		}
+
 		if len(s[1]) > 0 {
 			m[s[0]] = s[1]
 		} else {

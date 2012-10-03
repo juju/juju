@@ -79,3 +79,60 @@ func (s *ConfigSuite) TestGetConfig(c *C) {
 		c.Assert(actual, DeepEquals, expected)
 	}
 }
+
+var setTests = []struct {
+	args     []string               // command to be executed
+	expected map[string]interface{} // resulting configuration of the dummy service.
+	err      string                 // error regex
+}{
+	{
+		// unnown option
+		[]string{"foo=bar"},
+		nil,
+		"error: Unknown configuration option: \"foo\"\n",
+	}, {
+		// invalid option
+		[]string{"foo", "bar"},
+		nil,
+		"error: invalid option: \"foo\"\n",
+	}, {
+		// whack option
+		[]string{"=bar"},
+		nil,
+		"error: missing option name\n",
+	}, {
+		// set outlook
+		[]string{"outlook=positive"},
+		map[string]interface{}{
+			"outlook": "positive",
+		},
+		"",
+	}, {
+		// unset outlook and set title
+		[]string{"outlook=", "title=sir"},
+		map[string]interface{}{
+			"title": "sir",
+		},
+		"",
+	},
+}
+
+func (s *ConfigSuite) TestSetConfig(c *C) {
+	sch := s.AddTestingCharm(c, "dummy")
+	svc, err := s.State.AddService("dummy-service", sch)
+	c.Assert(err, IsNil)
+	for _, t := range setTests {
+		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
+		args := append([]string{"dummy-service"}, t.args...)
+		code := cmd.Main(&SetCommand{}, ctx, args)
+		if code != 0 {
+			c.Assert(ctx.Stderr.(*bytes.Buffer).String(), Matches, t.err)
+		} else {
+			cfg, err := svc.Config()
+			c.Assert(err, IsNil)
+			c.Assert(cfg.Map(), DeepEquals, t.expected)
+		}
+	}
+}
+
+// TODO(dfc) add --config $FILE tetts
