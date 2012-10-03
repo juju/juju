@@ -73,7 +73,6 @@ func (f *filter) loop(unitw *state.UnitWatcher) (err error) {
 		// nil, because no event is ready to send; once the relevant initial change
 		// event has been handled, they are set to the filter fields with the
 		// corresponding names, and are reset to nil when the event has been sent.
-		// because we have yet to receive changes from any watcher.
 		outResolved chan<- *state.ResolvedMode
 		outConfig   chan<- struct{}
 		outCharm    chan<- *charmChange
@@ -92,7 +91,6 @@ func (f *filter) loop(unitw *state.UnitWatcher) (err error) {
 		ch *charmChange
 	)
 
-	log.Printf("filter starting up")
 	for {
 		select {
 		case <-f.tomb.Dying():
@@ -135,7 +133,6 @@ func (f *filter) loop(unitw *state.UnitWatcher) (err error) {
 			servicew = service.Watch()
 			defer watcher.Stop(servicew, &f.tomb)
 			serviceChanges = servicew.Changes()
-			log.Printf("filter running")
 
 		// ...and handle the config and service changes as follows.
 		case _, ok := <-configChanges:
