@@ -504,11 +504,134 @@ func (w *ServiceUnitsWatcher) loop() (err error) {
 	return nil
 }
 
+// ServiceUnitsWatcher notifies about the lifecycle changes of the units
+// belonging to the service. The first event returned by the watcher is the
+// set of names of all units that are part of the service, irrespective
+// of their life state. Subsequent events return batches of newly added
+// units and units which have changed their lifecycle, up to when they are
+// found dead.
 type ServiceUnitsWatcher2 struct {
 	commonWatcher
 	service *Service
+	in      chan watcher.Change
 	out     chan []string
 	known   map[string]Life
+}
+
+// Changes returns the event channel for w.
+func (w *ServiceUnitsWatcher2) Changes() <-chan []string {
+	return w.out
+}
+
+// WatchUnits returns a new ServiceUnitsWatcher for s.
+func (s *Service) WatchUnits2() *ServiceUnitsWatcher2 {
+	return newServiceUnitsWatcher2(s)
+}
+
+func newServiceUnitsWatcher2(svc *Service) *ServiceUnitsWatcher2 {
+	w := &ServiceUnitsWatcher2{
+		commonWatcher: commonWatcher{st: svc.st},
+		service:       svc,
+		known:         make(map[string]Life),
+		in:            make(chan watcher.Change),
+		out:           make(chan []string),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+func (w *ServiceUnitsWatcher2) initial() (changes []string, err error) {
+	return w.updateService(changes)
+}
+
+func (w *ServiceUnitsWatcher2) updateService(pending []string) (changes []string, err error) {
+	doc := serviceDoc{}
+	err = w.st.services.FindId(w.service.doc.Name).One(&doc)
+	if err != nil {
+		return nil, err
+	}
+	// for _, unit := range doc.Units {
+		// if _, ok := w.known[unit]; !ok {
+			// pending, err = w.merge(pending, unit)
+			// if err != nil {
+				// return nil, err
+			// }
+		// }
+	// }
+	return pending, nil
+}
+
+func (w *ServiceUnitsWatcher2) merge(pending []string, name string) (changes []string, err error) {
+	doc := unitDoc{}
+	err = w.st.units.FindId(name).One(&doc)
+	if err != nil && err != mgo.ErrNotFound {
+		return nil, err
+	}
+	if err == mgo.ErrNotFound {
+		w.st.watcher.Unwatch(w.st.units.Name, name, w.in)
+		if w.known[name] != Dead {
+			return append(pending, name), nil
+		}
+	}
+	if w.known[name] == doc.Life {
+		return pending, nil
+	}
+	w.known[name] = doc.Life
+	for _, v := range pending {
+		if name == v {
+			return pending, nil
+		}
+	}
+	return append(pending, name), nil
+}
+
+func (w *ServiceUnitsWatcher2) loop() (err error) {
+	serviceCh := make(chan watcher.Change)
+	w.st.watcher.Watch(w.st.services.Name, w.service.doc.Name, w.service.doc.TxnRevno, serviceCh)
+	defer w.st.watcher.Unwatch(w.st.services.Name, w.service.doc.Name, serviceCh)
+	defer func() {
+		for _, name := range w.known {
+			w.st.watcher.Unwatch(w.st.units.Name, name, w.in)
+		}
+	}()
+	changes, err := w.initial()
+	if err != nil {
+		return err
+	}
+	out := w.out
+	for {
+		select {
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-serviceCh:
+			changes, err = w.updateService(changes)
+			if err != nil {
+				return err
+			}
+			if len(changes) > 0 {
+				out = w.out
+			}
+		case c := <-w.in:
+			name := c.Id.(string)
+			changes, err = w.merge(changes, name)
+			if err != nil {
+				return err
+			}
+			if len(changes) > 0 {
+				out = w.out
+			}
+		case out <- changes:
+			out = nil
+			changes = nil
+		}
+	}
+	return nil
 }
 
 // WatchRelations returns a watcher for observing relations being
