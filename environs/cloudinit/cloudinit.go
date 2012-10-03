@@ -190,7 +190,6 @@ func addMongoToBoot(c *cloudinit.Config) error {
 		Service: *svc,
 		Desc:    "juju state database",
 		Cmd: "/opt/mongo/bin/mongod" +
-			" --auth" +
 			" --dbpath=/var/lib/juju/db" +
 			" --bind_ip 0.0.0.0" +
 			"--port " + fmt.Sprint(mgoPort) +
