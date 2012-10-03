@@ -135,4 +135,4 @@ func (s *ConfigSuite) TestSetConfig(c *C) {
 	}
 }
 
-// TODO(dfc) add --config $FILE tetts
+// TODO(dfc) add --config $FILE tests
