@@ -113,6 +113,12 @@ func (s *Service) Charm() (ch *Charm, force bool, err error) {
 	return ch, s.doc.ForceCharm, nil
 }
 
+// CharmURL returns the service's charm URL, and whether units should upgrade
+// to the charm with that URL even if they are in an error state.
+func (s *Service) CharmURL() (curl *charm.URL, force bool) {
+	return s.doc.CharmURL, s.doc.ForceCharm
+}
+
 // SetCharm changes the charm for the service. New units will be started with
 // this charm, and existing units will be upgraded to use it. If force is true,
 // units will be upgraded even if they are in an error state.

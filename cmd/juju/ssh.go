@@ -14,6 +14,11 @@ import (
 
 // SSHCommand is responsible for launching a ssh shell on a given unit or machine.
 type SSHCommand struct {
+	SSHCommon
+}
+
+// SSHCommon provides common methods for SSHCommand and SCPCommand.
+type SSHCommon struct {
 	EnvName string
 	Target  string
 	Args    []string
@@ -46,7 +51,7 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer c.Close()
-	host, err := c.hostFromTarget()
+	host, err := c.hostFromTarget(c.Target)
 	if err != nil {
 		return err
 	}
@@ -59,17 +64,17 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	return cmd.Run()
 }
 
-func (c *SSHCommand) hostFromTarget() (string, error) {
+func (c *SSHCommon) hostFromTarget(target string) (string, error) {
 	// is the target the id of a machine ?
-	if id, err := strconv.Atoi(c.Target); err == nil {
+	if id, err := strconv.Atoi(target); err == nil {
 		log.Printf("looking up address for machine %d...", id)
 		// TODO(dfc) maybe we should have machine.PublicAddres() ?
 		return c.machinePublicAddress(id)
 	}
-	// maybe the target is a unit
-	if state.IsUnitName(c.Target) {
+	// maybe the target is a unit ?
+	if state.IsUnitName(target) {
 		log.Printf("Looking up address for unit %q...", c.Target)
-		unit, err := c.State.Unit(c.Target)
+		unit, err := c.State.Unit(target)
 		if err != nil {
 			return "", err
 		}
@@ -78,7 +83,7 @@ func (c *SSHCommand) hostFromTarget() (string, error) {
 	return "", errors.New("no such unit or machine")
 }
 
-func (c *SSHCommand) machinePublicAddress(id int) (string, error) {
+func (c *SSHCommon) machinePublicAddress(id int) (string, error) {
 	machine, err := c.State.Machine(id)
 	if err != nil {
 		return "", err

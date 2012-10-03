@@ -40,7 +40,6 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		InstanceIdAccessor: "$instance_id",
 		MachineId:          0,
 		ProviderType:       "ec2",
-		Provisioner:        true,
 		AuthorizedKeys:     "sshkey1",
 		Tools:              newSimpleTools("1.2.3-linux-amd64"),
 		StateServer:        true,
@@ -50,7 +49,6 @@ var cloudinitTests = []cloudinit.MachineConfig{
 	{
 		MachineId:      99,
 		ProviderType:   "ec2",
-		Provisioner:    false,
 		AuthorizedKeys: "sshkey1",
 		DataDir:        "/var/lib/juju",
 		StateServer:    false,
@@ -87,10 +85,6 @@ func (t *cloudinitTest) check(c *C, cfg *cloudinit.MachineConfig) {
 		t.checkEnvConfig(c)
 	}
 	t.checkPackage(c, "git")
-
-	if t.cfg.Provisioner {
-		t.checkScripts(c, "jujud provisioning --state-servers 'localhost:37017'")
-	}
 
 	if t.cfg.StateServer {
 		t.checkScripts(c, "jujud machine --state-servers 'localhost:37017' .* --machine-id [0-9]+")
@@ -259,7 +253,6 @@ var verifyTests = []struct {
 // checked for by NewCloudInit.
 func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	cfg := &cloudinit.MachineConfig{
-		Provisioner:        true,
 		StateServer:        true,
 		InstanceIdAccessor: "$instance_id",
 		ProviderType:       "ec2",

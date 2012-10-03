@@ -55,7 +55,7 @@ func (p *Provisioner) loop() error {
 	}
 
 	// Call processMachines to stop any unknown instances before watching machines.
-	if err := p.processMachines(nil, nil); err != nil {
+	if err := p.processMachines(nil); err != nil {
 		return err
 	}
 
@@ -74,13 +74,13 @@ func (p *Provisioner) loop() error {
 			if err := p.environ.SetConfig(cfg); err != nil {
 				log.Printf("provisioner loaded invalid environment configuration: %v", err)
 			}
-		case machines, ok := <-machinesWatcher.Changes():
+		case ids, ok := <-machinesWatcher.Changes():
 			if !ok {
 				return watcher.MustErr(machinesWatcher)
 			}
 			// TODO(dfc) fire process machines periodically to shut down unknown
 			// instances.
-			if err := p.processMachines(machines.Alive, machines.Dead); err != nil {
+			if err := p.processMachines(ids); err != nil {
 				return err
 			}
 		}
@@ -115,27 +115,25 @@ func (p *Provisioner) Stop() error {
 	return p.tomb.Wait()
 }
 
-func (p *Provisioner) processMachines(alive, dead []int) error {
-	// step 1. find which of the added machines have not
-	// yet been allocated a started instance.
-	notstarted, err := p.findNotStarted(alive)
+func (p *Provisioner) processMachines(ids []int) error {
+	// Find machines without an instance id or that are dead
+	pending, dead, err := p.pendingOrDead(ids)
 	if err != nil {
 		return err
 	}
 
-	// step 2. start an instance for any machines we found.
-	if err := p.startMachines(notstarted); err != nil {
+	// Start an instance for the pending ones
+	if err := p.startMachines(pending); err != nil {
 		return err
 	}
 
-	// step 3. stop all machines that were removed from the state.
+	// Stop all machines that are dead
 	stopping, err := p.instancesForMachines(dead)
 	if err != nil {
 		return err
 	}
 
-	// step 4. find instances which are running but have no machine 
-	// associated with them.
+	// Find running instances that have no machines associated
 	unknown, err := p.findUnknownInstances()
 	if err != nil {
 		return err
@@ -154,7 +152,7 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 	for _, i := range all {
 		instances[i.Id()] = i
 	}
-	// TODO(dfc) this is very inefficient, p.machines cache may help.
+	// TODO(dfc) this is very inefficient.
 	machines, err := p.st.AllMachines()
 	if err != nil {
 		return nil, err
@@ -179,29 +177,36 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 	return unknown, nil
 }
 
-// findNotStarted finds machines without an InstanceId set, these are defined as not started.
-func (p *Provisioner) findNotStarted(alive []int) ([]*state.Machine, error) {
-	var notstarted []*state.Machine
+// pendingOrDead looks up machines with ids and retuns those that do not
+// have an instance id assigned yet, and also those that are dead.
+func (p *Provisioner) pendingOrDead(ids []int) (pending, dead []*state.Machine, err error) {
 	// TODO(niemeyer): ms, err := st.Machines(alive)
-	for _, id := range alive {
+	for _, id := range ids {
 		m, err := p.st.Machine(id)
 		if state.IsNotFound(err) {
 			continue
 		}
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		inst, err := m.InstanceId()
-		if state.IsNotFound(err) {
-			notstarted = append(notstarted, m)
+		switch m.Life() {
+		case state.Dead:
+			dead = append(dead, m)
+			continue
+		case state.Dying:
 			continue
 		}
-		if err != nil && !state.IsNotFound(err) {
-			return nil, err
+		instId, err := m.InstanceId()
+		if state.IsNotFound(err) {
+			pending = append(pending, m)
+			continue
 		}
-		log.Printf("machine %s already started as instance %q", m, inst)
+		if err != nil {
+			return nil, nil, err
+		}
+		log.Printf("machine %v already started as instance %q", m, instId)
 	}
-	return notstarted, nil
+	return
 }
 
 func (p *Provisioner) startMachines(machines []*state.Machine) error {
@@ -257,16 +262,15 @@ func (p *Provisioner) stopInstances(instances []environs.Instance) error {
 }
 
 // instanceForMachine returns the environs.Instance that represents this machine's instance.
-func (p *Provisioner) instanceForMachine(id int) (environs.Instance, error) {
-	inst, ok := p.instances[id]
+func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, error) {
+	inst, ok := p.instances[m.Id()]
 	if ok {
 		return inst, nil
 	}
-	m, err := p.st.Machine(id)
-	if err != nil {
-		return nil, err
-	}
 	instId, err := m.InstanceId()
+	if state.IsNotFound(err) {
+		panic("cannot have unset instance ids here")
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -282,11 +286,11 @@ func (p *Provisioner) instanceForMachine(id int) (environs.Instance, error) {
 // instancesForMachines returns a list of environs.Instance that represent
 // the list of machines running in the provider. Missing machines are
 // omitted from the list.
-func (p *Provisioner) instancesForMachines(ids []int) ([]environs.Instance, error) {
+func (p *Provisioner) instancesForMachines(ms []*state.Machine) ([]environs.Instance, error) {
 	var insts []environs.Instance
-	for _, id := range ids {
-		inst, err := p.instanceForMachine(id)
-		if state.IsNotFound(err) || err == environs.ErrNoInstances {
+	for _, m := range ms {
+		inst, err := p.instanceForMachine(m)
+		if err == environs.ErrNoInstances {
 			continue
 		}
 		if err != nil {

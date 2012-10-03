@@ -150,6 +150,7 @@ func (t *LiveTests) TestBootstrapMultiple(c *C) {
 
 	c.Logf("destroy env")
 	t.Destroy(c)
+	t.Destroy(c) // Again, should work fine and do nothing.
 
 	// check that we can bootstrap after destroy
 	t.BootstrapOnce(c)
@@ -180,15 +181,15 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	// machine and find the deployed series from that.
 	m0, err := conn.State.Machine(0)
 	c.Assert(err, IsNil)
-	w0 := newMachineToolWaiter(m0)
-	defer w0.Stop()
+	mw0 := newMachineToolWaiter(m0)
+	defer mw0.Stop()
 
-	tools0 := waitAgentTools(c, w0, version.Current)
+	mtools0 := waitAgentTools(c, mw0, version.Current)
 
 	// Create a new service and deploy a unit of it.
 	c.Logf("deploying service")
 	repoDir := c.MkDir()
-	url := testing.Charms.ClonedURL(repoDir, tools0.Series, "dummy")
+	url := testing.Charms.ClonedURL(repoDir, mtools0.Series, "dummy")
 	sch, err := conn.PutCharm(url, &charm.LocalRepository{repoDir}, false)
 
 	c.Assert(err, IsNil)
@@ -204,19 +205,22 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	c.Assert(err, IsNil)
 	m1, err := conn.State.Machine(mid1)
 	c.Assert(err, IsNil)
-	w1 := newMachineToolWaiter(m1)
-	defer w1.Stop()
-	tools1 := waitAgentTools(c, w1, tools0.Binary)
+	mw1 := newMachineToolWaiter(m1)
+	defer mw1.Stop()
+	waitAgentTools(c, mw1, mtools0.Binary)
 
 	err = m1.Refresh()
 	c.Assert(err, IsNil)
 	instId1, err := m1.InstanceId()
 	c.Assert(err, IsNil)
+	uw := newUnitToolWaiter(unit)
+	defer uw.Stop()
+	utools := waitAgentTools(c, uw, version.Current)
 
 	// Check that we can upgrade the environment.
-	newVersion := tools1.Binary
+	newVersion := utools.Binary
 	newVersion.Patch++
-	t.checkUpgrade(c, conn, newVersion, w0, w1)
+	t.checkUpgrade(c, conn, newVersion, mw0, mw1, uw)
 
 	// BUG(niemeyer): Logic below is very much wrong. Must be:
 	//
@@ -270,6 +274,22 @@ func newMachineToolWaiter(m *state.Machine) *toolsWaiter {
 		changes: make(chan struct{}, 1),
 		watcher: w,
 		tooler:  m,
+	}
+	go func() {
+		for _ = range w.Changes() {
+			waiter.changes <- struct{}{}
+		}
+		close(waiter.changes)
+	}()
+	return waiter
+}
+
+func newUnitToolWaiter(u *state.Unit) *toolsWaiter {
+	w := u.Watch()
+	waiter := &toolsWaiter{
+		changes: make(chan struct{}, 1),
+		watcher: w,
+		tooler:  u,
 	}
 	go func() {
 		for _ = range w.Changes() {

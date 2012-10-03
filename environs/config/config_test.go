@@ -130,6 +130,30 @@ var configTests = []struct {
 			"name": "",
 		},
 		"empty name in environment configuration",
+	}, {
+		// Default firewall mode.
+		attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"firewall-mode": config.FwDefault,
+		},
+		"",
+	}, {
+		// Global firewall mode.
+		attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"firewall-mode": config.FwGlobal,
+		},
+		"",
+	}, {
+		// Illegal firewall mode.
+		attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"firewall-mode": "illegal",
+		},
+		"invalid firewall mode in environment configuration: .*",
 	},
 }
 
@@ -213,6 +237,7 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 		"type":            "my-type",
 		"name":            "my-name",
 		"authorized-keys": "my-keys",
+		"firewall-mode":   string(config.FwDefault),
 		"default-series":  version.Current.Series,
 		"unknown":         "my-unknown",
 	}

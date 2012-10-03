@@ -56,7 +56,7 @@ func (*agentSuite) TestTaskStop(c *C) {
 
 func (*agentSuite) TestUpgradeGetsPrecedence(c *C) {
 	tasks := newTestTasks(2)
-	tasks[1].stopErr = &UpgradedError{}
+	tasks[1].stopErr = &UpgradeReadyError{}
 	go func() {
 		time.Sleep(10 * time.Millisecond)
 		tasks[0].kill <- fmt.Errorf("stop")
@@ -76,16 +76,16 @@ func (*agentSuite) TestUpgradeErrorLog(c *C) {
 	tasks := newTestTasks(7)
 	tasks[0].stopErr = fmt.Errorf("zero")
 	tasks[1].stopErr = fmt.Errorf("one")
-	tasks[2].stopErr = &UpgradedError{mkTools("1.1.1")}
+	tasks[2].stopErr = &UpgradeReadyError{NewTools: mkTools("1.1.1")}
 	tasks[3].kill <- fmt.Errorf("three")
 	tasks[4].stopErr = fmt.Errorf("four")
-	tasks[5].stopErr = &UpgradedError{mkTools("2.2.2")}
+	tasks[5].stopErr = &UpgradeReadyError{NewTools: mkTools("2.2.2")}
 	tasks[6].stopErr = fmt.Errorf("six")
 
 	expectLog := `
 (.|\n)*task0: zero
 .*task1: one
-.*task2: must restart.*1\.1\.1.*
+.*task2: must restart: an agent upgrade is available
 .*task3: three
 .*task4: four
 .*task6: six

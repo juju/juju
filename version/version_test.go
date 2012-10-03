@@ -32,6 +32,10 @@ var cmpTests = []struct {
 	{"1.1.0", "1.0.0", false, false},
 	{"1.0.0", "2.0.0", true, false},
 	{"2.0.0", "1.0.0", false, false},
+	{"2.0.0.0", "2.0.0", false, true},
+	{"2.0.0.0", "2.0.0.0", false, true},
+	{"2.0.0.1", "2.0.0.0", false, false},
+	{"2.0.1.10", "2.0.0.0", false, false},
 }
 
 func (suite) TestComparison(c *C) {
@@ -73,14 +77,22 @@ var parseTests = []struct {
 		dev:    true,
 	},
 	{
-		v:      "0.0.1",
-		expect: version.Number{Patch: 1},
-		dev:    true,
+		v:      "0.0.2",
+		expect: version.Number{Patch: 2},
+		dev:    false,
 	},
 	{
 		v:      "10.234.3456",
 		expect: version.Number{Major: 10, Minor: 234, Patch: 3456},
 		dev:    false,
+	},
+	{v: "1.2.3.4",
+		expect: version.Number{Major: 1, Minor: 2, Patch: 3, Build: 4},
+		dev:    true,
+	},
+	{v: "2.4.6.8",
+		expect: version.Number{Major: 2, Minor: 4, Patch: 6, Build: 8},
+		dev:    true,
 	},
 	{
 		v:   "1234567890.2.1",
@@ -102,16 +114,18 @@ func (suite) TestParse(c *C) {
 			c.Assert(err, IsNil)
 			c.Assert(got, Equals, test.expect)
 			c.Check(got.IsDev(), Equals, test.dev)
+			c.Check(got.String(), Equals, test.v)
 		}
 	}
 }
 
-func binaryVersion(major, minor, patch int, series, arch string) version.Binary {
+func binaryVersion(major, minor, patch, build int, series, arch string) version.Binary {
 	return version.Binary{
 		Number: version.Number{
 			Major: major,
 			Minor: minor,
 			Patch: patch,
+			Build: build,
 		},
 		Series: series,
 		Arch:   arch,
@@ -125,7 +139,11 @@ var parseBinaryTests = []struct {
 }{
 	{
 		v:      "1.2.3-a-b",
-		expect: binaryVersion(1, 2, 3, "a", "b"),
+		expect: binaryVersion(1, 2, 3, 0, "a", "b"),
+	},
+	{
+		v:      "1.2.3.4-a-b",
+		expect: binaryVersion(1, 2, 3, 4, "a", "b"),
 	},
 	{
 		v:   "1.2.3--b",

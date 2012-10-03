@@ -6,6 +6,20 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
+// FirewallMode defines the way in which the environment
+// handles opening and closing of firewall ports.
+type FirewallMode string
+
+const (
+	// FwDefault is the environment-specific default mode. 
+	FwDefault FirewallMode = "default"
+
+	// FwGlobal requests the use of a single firewall group for all machines.
+	// When ports are opened for one machine, all machines will have the same
+	// port opened.
+	FwGlobal FirewallMode = "global"
+)
+
 // Config holds an immutable environment configuration.
 type Config struct {
 	m, t map[string]interface{}
@@ -58,6 +72,12 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		}
 	}
 
+	// Check firewall mode.
+	firewallMode := FirewallMode(c.m["firewall-mode"].(string))
+	if firewallMode != FwDefault && firewallMode != FwGlobal {
+		return nil, fmt.Errorf("invalid firewall mode in environment configuration: %q", firewallMode)
+	}
+
 	// Copy unknown attributes onto the type-specific map.
 	for k, v := range attrs {
 		if _, ok := fields[k]; !ok {
@@ -85,6 +105,12 @@ func (c *Config) DefaultSeries() string {
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
 	return c.m["authorized-keys"].(string)
+}
+
+// FirewallMode returns whether the firewall should
+// manage ports per machine or global.
+func (c *Config) FirewallMode() FirewallMode {
+	return FirewallMode(c.m["firewall-mode"].(string))
 }
 
 // AgentVersion returns the proposed version number for the agent tools.
@@ -143,6 +169,7 @@ var fields = schema.Fields{
 	"default-series":       schema.String(),
 	"authorized-keys":      schema.String(),
 	"authorized-keys-path": schema.String(),
+	"firewall-mode":        schema.String(),
 	"agent-version":        schema.String(),
 	"development":          schema.Bool(),
 }
@@ -151,6 +178,7 @@ var defaults = schema.Defaults{
 	"default-series":       version.Current.Series,
 	"authorized-keys":      "",
 	"authorized-keys-path": "",
+	"firewall-mode":        FwDefault,
 	"agent-version":        schema.Omit,
 	"development":          false,
 }

@@ -24,9 +24,6 @@ var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
 // Creation of cloudinit data from this struct is largely provider-independent,
 // but we'll keep it internal until we need to factor it out.
 type MachineConfig struct {
-	// Provisioner specifies whether the new machine will run a provisioning agent.
-	Provisioner bool
-
 	// StateServer specifies whether the new machine will run a ZooKeeper 
 	// or MongoDB instance.
 	StateServer bool
@@ -134,13 +131,10 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 
 	}
 
-	if err := addAgentToBoot(c, cfg, "machine", fmt.Sprintf("--machine-id %d "+debugFlag, cfg.MachineId)); err != nil {
+	if err := addAgentToBoot(c, cfg, "machine",
+		fmt.Sprintf("machine-%d", cfg.MachineId),
+		fmt.Sprintf("--machine-id %d "+debugFlag, cfg.MachineId)); err != nil {
 		return nil, err
-	}
-	if cfg.Provisioner {
-		if err := addAgentToBoot(c, cfg, "provisioning", debugFlag); err != nil {
-			return nil, err
-		}
 	}
 
 	// general options
@@ -150,7 +144,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	return c, nil
 }
 
-func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, name, args string) error {
+func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args string) error {
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
@@ -164,7 +158,7 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, name, args string) 
 			" --log-file /var/log/juju/%s-agent.log"+
 			" --data-dir '%s'"+
 			" %s",
-		toolsDir, name,
+		toolsDir, kind,
 		cfg.zookeeperHostAddrs(),
 		name,
 		cfg.DataDir,
