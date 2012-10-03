@@ -5,6 +5,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker"
 	"time"
 )
 
@@ -72,7 +73,7 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 	case <-time.After(50 * time.Millisecond):
 		c.Fatalf("dead not detected")
 	}
-	c.Assert(f.Wait(), Equals, ErrDead)
+	c.Assert(f.Wait(), Equals, worker.ErrDead)
 }
 
 func (s *FilterSuite) TestServiceDeath(c *C) {

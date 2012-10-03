@@ -1,18 +1,14 @@
 package uniter
 
 import (
-	"errors"
 	"fmt"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
 )
-
-// ErrDead indicates that a uniter's unit is dead, and that the Uniter
-// will take no further actions.
-var ErrDead = errors.New("unit is dead")
 
 // filter collects unit, service, and service config information from separate
 // state watchers, and presents it as events on channels designed specifically
@@ -58,43 +54,45 @@ func newFilter(unit *state.Unit) *filter {
 }
 
 func (f *filter) loop(unitw *state.UnitWatcher) (err error) {
-	// We start off not even knowing what unit we're watching; we determine this
-	// from the initial unit change event, and use that to start watchers on the
-	// appropriate service and its config.
-	// TODO I guess it'll actually have to be unit.WatchConfig(), given the
-	// mooted service-config-per-charm-version behaviour.
-	var ok bool
-	var unit *state.Unit
-	var life state.Life
-	var service *state.Service
-	var configw *state.ConfigWatcher
-	var configChanges <-chan *state.ConfigNode
-	var servicew *state.ServiceWatcher
-	var serviceChanges <-chan *state.Service
+	var (
+		// We start off not even knowing what unit we're watching; we determine this
+		// from the initial unit change event, and use that to start watchers on the
+		// appropriate service and its config.
+		// TODO I guess it'll actually have to be unit.WatchConfig(), given the
+		// mooted service-config-per-charm-version behaviour.
+		ok             bool
+		unit           *state.Unit
+		life           state.Life
+		service        *state.Service
+		configw        *state.ConfigWatcher
+		configChanges  <-chan *state.ConfigNode
+		servicew       *state.ServiceWatcher
+		serviceChanges <-chan *state.Service
 
-	// The out chans are used to send events to the client. They all start out
-	// nil, because no event is ready to send; once the relevant initial change
-	// event has been handled, they are set to the filter fields with the
-	// corresponding names, and are reset to nil when the event has been sent.
-	// because we have yet to receive changes from any watcher.
-	var outResolved chan<- *state.ResolvedMode
-	var outConfig chan<- struct{}
-	var outCharm chan<- *charmChange
+		// The out chans are used to send events to the client. They all start out
+		// nil, because no event is ready to send; once the relevant initial change
+		// event has been handled, they are set to the filter fields with the
+		// corresponding names, and are reset to nil when the event has been sent.
+		// because we have yet to receive changes from any watcher.
+		outResolved chan<- *state.ResolvedMode
+		outConfig   chan<- struct{}
+		outCharm    chan<- *charmChange
 
-	// The want chans are used to respond to requests for particular events.
-	// They start out nil, and are set to the filter fields with corresponding
-	// names, once the first event on the corresponding *Out chan is ready.
-	var wantResolved <-chan struct{}
-	var wantConfig <-chan struct{}
-	var wantCharm <-chan struct{}
+		// The want chans are used to respond to requests for particular events.
+		// They start out nil, and are set to the filter fields with corresponding
+		// names, once the first event on the corresponding out chan is ready.
+		wantResolved <-chan struct{}
+		wantConfig   <-chan struct{}
+		wantCharm    <-chan struct{}
 
-	// rm and ch hold the events corresponding to the most recent known states
-	// of the unit and the service. The config event, being stateless, does not
-	// need to be recorded.
-	var rm *state.ResolvedMode
-	var ch *charmChange
+		// rm and ch hold the events corresponding to the most recent known states
+		// of the unit and the service. The config event, being stateless, does not
+		// need to be recorded.
+		rm *state.ResolvedMode
+		ch *charmChange
+	)
 
-	log.Printf("watching unit changes")
+	log.Printf("filter starting up")
 	for {
 		select {
 		case <-f.tomb.Dying():
@@ -110,7 +108,8 @@ func (f *filter) loop(unitw *state.UnitWatcher) (err error) {
 					log.Printf("unit is dying")
 					close(f.outUnitDying)
 				case state.Dead:
-					return ErrDead
+					log.Printf("unit is dead")
+					return worker.ErrDead
 				}
 			}
 			rm_ := unit.Resolved()
@@ -124,19 +123,19 @@ func (f *filter) loop(unitw *state.UnitWatcher) (err error) {
 
 			// If we have not previously done so, we discover the service and
 			// start watchers for the service and its config...
-			if service == nil {
-				if service, err = unit.Service(); err != nil {
-					return err
-				}
-				configw = service.WatchConfig()
-				defer watcher.Stop(configw, &f.tomb)
-				configChanges = configw.Changes()
-				log.Printf("watching config changes")
-				servicew = service.Watch()
-				defer watcher.Stop(servicew, &f.tomb)
-				serviceChanges = servicew.Changes()
-				log.Printf("watching service changes")
+			if service != nil {
+				break
 			}
+			if service, err = unit.Service(); err != nil {
+				return err
+			}
+			configw = service.WatchConfig()
+			defer watcher.Stop(configw, &f.tomb)
+			configChanges = configw.Changes()
+			servicew = service.Watch()
+			defer watcher.Stop(servicew, &f.tomb)
+			serviceChanges = servicew.Changes()
+			log.Printf("filter running")
 
 		// ...and handle the config and service changes as follows.
 		case _, ok := <-configChanges:
@@ -174,14 +173,15 @@ func (f *filter) loop(unitw *state.UnitWatcher) (err error) {
 		case outResolved <- rm:
 			log.Debugf("filter: sent resolved event")
 			outResolved = nil
-		case outConfig <- tick:
+		case outConfig <- nothing:
 			log.Debugf("filter: sent config event")
 			outConfig = nil
 		case outCharm <- ch:
 			log.Debugf("filter: sent charm event")
 			outCharm = nil
 
-		// On request, reactivate an out chan to ensure an event will be sent.
+		// On request, make sure an out chan is active, to ensure
+		// an event will be sent.
 		case <-wantResolved:
 			log.Debugf("filter: ensuring resolved event")
 			outResolved = f.outResolved
@@ -236,7 +236,7 @@ func (f *filter) charmEvents() <-chan *charmChange {
 func (f *filter) wantResolvedEvent() {
 	select {
 	case <-f.tomb.Dying():
-	case f.wantResolved <- tick:
+	case f.wantResolved <- nothing:
 	}
 }
 
@@ -244,7 +244,7 @@ func (f *filter) wantResolvedEvent() {
 func (f *filter) wantConfigEvent() {
 	select {
 	case <-f.tomb.Dying():
-	case f.wantConfig <- tick:
+	case f.wantConfig <- nothing:
 	}
 }
 
@@ -252,9 +252,9 @@ func (f *filter) wantConfigEvent() {
 func (f *filter) wantCharmEvent() {
 	select {
 	case <-f.tomb.Dying():
-	case f.wantCharm <- tick:
+	case f.wantCharm <- nothing:
 	}
 }
 
-// tick is marginally more pleasant to read than "struct{}{}".
-var tick = struct{}{}
+// nothing is marginally more pleasant to read than "struct{}{}".
+var nothing = struct{}{}
