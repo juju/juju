@@ -148,7 +148,9 @@ func (s *UnitSuite) TestEntityName(c *C) {
 }
 
 func (s *UnitSuite) TestSetPassword(c *C) {
-	testSetPassword(c, s.unit)
+	testSetPassword(c, func(st *state.State) (entity, error) {
+		return st.Unit(s.unit.Name())
+	})
 }
 
 func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {

@@ -293,13 +293,6 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 	return svc, nil
 }
 
-func (s *State) setPassword(name, password string) error {
-	if err := s.db.AddUser(name, password, false); err != nil {
-		return fmt.Errorf("cannot set password for %q: %v", name, err)
-	}
-	return nil
-}
-
 // RemoveService removes a service from the state. It will also remove all
 // its units and break any of its existing relations.
 func (s *State) RemoveService(svc *Service) (err error) {
@@ -555,6 +548,16 @@ func (s *State) SetAdminPassword(password string) error {
 		if err := admin.RemoveUser("admin"); err != nil {
 			return fmt.Errorf("cannot remove admin user: %v", err)
 		}
+	}
+	return nil
+}
+
+func (s *State) setPassword(name, password string) error {
+	if err := s.db.AddUser(name, password, false); err != nil {
+		return fmt.Errorf("cannot set password in juju db for %q: %v", name, err)
+	}
+	if err := s.db.Session.DB("presence").AddUser(name, password, false); err != nil {
+		return fmt.Errorf("cannot set password in presence db for %q: %v", name, err)
 	}
 	return nil
 }

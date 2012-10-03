@@ -37,6 +37,7 @@ type Info struct {
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
 // representing the environment connected to.
+// It returns ErrUnauthorized if access is unauthorized.
 func Open(info *Info) (*State, error) {
 	log.Printf("state: opening state; mongo addresses: %q", info.Addrs)
 	if len(info.Addrs) == 0 {
@@ -69,6 +70,7 @@ func Open(info *Info) (*State, error) {
 
 // Initialize sets up an initial empty state and returns it. 
 // This needs to be performed only once for a given environment.
+// It returns ErrUnauthorized if access is unauthorized.
 func Initialize(info *Info, cfg *config.Config) (*State, error) {
 	st, err := Open(info)
 	if err != nil {
@@ -112,6 +114,21 @@ var (
 	logSizeTests = 1000000
 )
 
+var ErrUnauthorized = errors.New("unauthorized access")
+
+func maybeUnauthorized(err error, msg string) error {
+	if err == nil {
+		return nil
+	}
+	if err.Error() == "auth fails" {
+		return ErrUnauthorized
+	}
+	if err, ok := err.(*mgo.QueryError); ok && err.Code == 10057 {
+		return ErrUnauthorized
+	}
+	return fmt.Errorf("%s: %v", msg, err)
+}
+
 func newState(session *mgo.Session, fwd *sshForwarder, entity, password string) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
@@ -119,14 +136,14 @@ func newState(session *mgo.Session, fwd *sshForwarder, entity, password string) 
 		admin := session.DB("admin")
 		// TODO log in to admin database only if entity name is "admin".
 		if err := admin.Login("admin", password); err != nil {
-			return nil, fmt.Errorf("cannot log in to admin database: %v", err)
+			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
 	} else if entity != "" {
 		if err := db.Login(entity, password); err != nil {
-			return nil, fmt.Errorf("cannot log in to juju database: %v", err)
+			return nil, maybeUnauthorized(err, "cannot log in to juju database")
 		}
-		if err := db.Login(entity, password); err != nil {
-			return nil, fmt.Errorf("cannot log in to presence database: %v", err)
+		if err := pdb.Login(entity, password); err != nil {
+			return nil, maybeUnauthorized(err, "cannot log in to presence database")
 		}
 	}
 	st := &State{
@@ -147,10 +164,7 @@ func newState(session *mgo.Session, fwd *sshForwarder, entity, password string) 
 	//     https://jira.mongodb.org/browse/SERVER-6992
 	err := log.Create(&info)
 	if err != nil && err.Error() != "collection already exists" {
-		if err, ok := err.(*mgo.QueryError); ok && err.Code == 10057 {
-			return nil, fmt.Errorf("unauthorized access")
-		}
-		return nil, fmt.Errorf("cannot create log collection: %#v", err)
+		return nil, maybeUnauthorized(err, "cannot create log collection")
 	}
 	st.runner = txn.NewRunner(db.C("txns"))
 	st.runner.ChangeLog(db.C("txns.log"))

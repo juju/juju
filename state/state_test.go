@@ -886,12 +886,8 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *C) {
 	c.Assert(relation1, DeepEquals, relation2)
 }
 
-func openWithAuth(entity, password string) error {
-	st, err := state.Open(&state.Info{
-		Addrs:    []string{testing.MgoAddr},
-		Entity:   entity,
-		Password: password,
-	})
+func tryOpenState(info *state.Info) error {
+	st, err := state.Open(info)
 	if err == nil {
 		st.Close()
 	}
@@ -899,33 +895,69 @@ func openWithAuth(entity, password string) error {
 }
 
 func (s *StateSuite) TestOpenWithoutSetPassword(c *C) {
-	err := openWithAuth("arble", "bar")
-	c.Assert(err, ErrorMatches, "cannot log in to juju database: auth fails")
-	err = openWithAuth("arble", "")
-	c.Assert(err, ErrorMatches, "cannot log in to juju database: auth fails")
-	err = openWithAuth("", "")
+	info := s.StateInfo(c)
+	info.EntityName, info.Password = "arble", "bar"
+	err := tryOpenState(info)
+	c.Assert(err, Equals, state.ErrUnauthorized)
+
+	info.EntityName, info.Password = "arble", ""
+	err = tryOpenState(info)
+	c.Assert(err, Equals, state.ErrUnauthorized)
+
+	info.EntityName, info.Password = "", ""
+	err = tryOpenState(info)
 	c.Assert(err, IsNil)
 }
 
-type setPassworder interface {
+type entity interface {
 	EntityName() string
 	SetPassword(password string) error
 }
 
-func testSetPassword(c *C, entity setPassworder) {
-	err := entity.SetPassword("foo")
-	name := entity.EntityName()
+func testSetPassword(c *C, getEntity func(st *state.State) (entity, error)) {
+	info := &state.Info{
+		Addrs: []string{testing.MgoAddr},
+	}
+	st, err := state.Open(info)
 	c.Assert(err, IsNil)
-	err = openWithAuth(name, "foo")
+	defer st.Close()
+	// Turn on fully-authenticated mode.
+	err = st.SetAdminPassword("admin-secret")
 	c.Assert(err, IsNil)
-	err = openWithAuth(name, "bar")
-	c.Assert(err, ErrorMatches, "cannot log in to juju database: auth fails")
+	defer st.SetAdminPassword("")
 
-	err = entity.SetPassword("bar")
+	// Set the password for the entity
+	ent, err := getEntity(st)
 	c.Assert(err, IsNil)
-	err = openWithAuth(name, "foo")
-	c.Assert(err, ErrorMatches, "cannot log in to juju database: auth fails")
-	err = openWithAuth(name, "bar")
+	err = ent.SetPassword("foo")
+	c.Assert(err, IsNil)
+
+	// Check that we cannot log in with the wrong password.
+	info.EntityName = ent.EntityName()
+	info.Password = "bar"
+	err = tryOpenState(info)
+	c.Assert(err, Equals, state.ErrUnauthorized)
+
+	// Check that we can log in with the correct password.
+	info.Password = "foo"
+	st, err = state.Open(info)
+	c.Assert(err, IsNil)
+	defer st.Close()
+
+	// Change the password with an entity derived from the newly
+	// opened and authenticated state.
+	ent, err = getEntity(st)
+	err = ent.SetPassword("bar")
+	c.Assert(err, IsNil)
+
+	// Check that we cannot log in with the old password.
+	info.Password = "foo"
+	err = tryOpenState(info)
+	c.Assert(err, Equals, state.ErrUnauthorized)
+
+	// Check that we can log in with the correct password.
+	info.Password = "bar"
+	err = tryOpenState(info)
 	c.Assert(err, IsNil)
 }
 
@@ -934,22 +966,22 @@ func (s *StateSuite) TestSetAdminPassword(c *C) {
 	c.Assert(err, IsNil)
 	defer s.State.SetAdminPassword("")
 	info := s.StateInfo(c)
-	st, err := state.Open(info)
-	if st != nil {
-		st.Close()
-	}
-	c.Assert(err, ErrorMatches, "unauthorized access")
+	info.EntityName = "admin"
+	err = tryOpenState(info)
+	c.Assert(err, Equals, state.ErrUnauthorized)
 
-	info.Password = "foo"
-	st, err = state.Open(info)
+	info.EntityName, info.Password = "", ""
+	err = tryOpenState(info)
+	c.Assert(err, Equals, state.ErrUnauthorized)
+
+	info.EntityName, info.Password = "admin", "foo"
+	err = tryOpenState(info)
 	c.Assert(err, IsNil)
-	st.Close()
 
 	err = s.State.SetAdminPassword("")
 	c.Assert(err, IsNil)
 
-	info.Password = ""
-	st, err = state.Open(info)
+	info.EntityName, info.Password = "", ""
+	err = tryOpenState(info)
 	c.Assert(err, IsNil)
-	st.Close()
 }

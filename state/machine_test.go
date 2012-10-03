@@ -43,7 +43,9 @@ func (s *MachineSuite) TestEntityName(c *C) {
 }
 
 func (s *MachineSuite) TestSetPassword(c *C) {
-	testSetPassword(c, s.machine)
+	testSetPassword(c, func(st *state.State) (entity, error) {
+		return st.Machine(s.machine.Id())
+	})
 }
 
 func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
