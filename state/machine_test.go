@@ -811,6 +811,18 @@ var machineUnitsWatchTests = []struct {
 		},
 		changes: []string{"log35/0"},
 	},
+	{
+		summary: "Add a subordinate and change life at the same time",
+		test: func(c *C, s *MachineSuite, principal *state.Unit, subCh *state.Charm) {
+			log, err := s.State.AddService("log40", subCh)
+			c.Assert(err, IsNil)
+			_, err = log.AddUnitSubordinateTo(principal)
+			c.Assert(err, IsNil)
+			err = principal.EnsureDying()
+			c.Assert(err, IsNil)
+		},
+		changes: []string{"log40/0", "mysql/0"},
+	},
 }
 
 func (s *MachineSuite) TestWatchUnits(c *C) {
