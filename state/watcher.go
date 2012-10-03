@@ -554,14 +554,14 @@ func (w *ServiceUnitsWatcher2) updateService(pending []string) (changes []string
 	if err != nil {
 		return nil, err
 	}
-	// for _, unit := range doc.Units {
-	// if _, ok := w.known[unit]; !ok {
-	// pending, err = w.merge(pending, unit)
-	// if err != nil {
-	// return nil, err
-	// }
-	// }
-	// }
+	for _, unit := range doc.Units {
+		if _, ok := w.known[unit]; !ok {
+			pending, err = w.merge(pending, unit)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
 	return pending, nil
 }
 
