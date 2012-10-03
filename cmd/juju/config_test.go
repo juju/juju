@@ -57,8 +57,8 @@ var getTests = []struct {
 
 func (s *ConfigSuite) TestGetConfig(c *C) {
 	sch := s.AddTestingCharm(c, "dummy")
-        _, err := s.State.AddService("dummy-service", sch)
-        c.Assert(err, IsNil)
+	_, err := s.State.AddService("dummy-service", sch)
+	c.Assert(err, IsNil)
 	for _, t := range getTests {
 		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
 		code := cmd.Main(&GetCommand{}, ctx, []string{t.service})
@@ -79,6 +79,3 @@ func (s *ConfigSuite) TestGetConfig(c *C) {
 		c.Assert(actual, DeepEquals, expected)
 	}
 }
-
-var setTests = []struct {
-	cmd string	

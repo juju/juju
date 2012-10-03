@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/log"
 )
 
 // SetCommand updates the configuration of a service
@@ -74,21 +75,33 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	validated, err := charm.Config().Validate(unvalidated)
+	chcfg := charm.Config()
+	// 1. Validate will convert this partial configuration
+	// into a full configuration by inserting charm defaults
+	// for missing values.
+	validated, err := chcfg.Validate(unvalidated)
 	if err != nil {
 		return err
 	}
-	// Validate will insert into validated 
-	validated = strip(validated, charm.Config())
+	// 2. strip out the additional default keys added in the previous step.
+	validated = strip(validated, chcfg)
 	cfg, err := srv.Config()
 	if err != nil {
 		return err
 	}
-	cfg.Update(validated)
 
-	// remove any orphaned keys
-	for _, k := range remove {
-		cfg.Delete(k)
+	// 3. Update any keys that remain after validation and filtering.
+	if len(validated) > 0 {
+		log.Debugf("updating configuration items: %v", validated)
+		cfg.Update(validated)
+	}
+
+	// 4. Delete any removed keys.
+	if len(remove) > 0 {
+		log.Debugf("removing configuration items: %v", remove)
+		for _, k := range remove {
+			cfg.Delete(k)
+		}
 	}
 	_, err = cfg.Write()
 	return err
@@ -116,11 +129,11 @@ func parse(options []string) (map[string]string, []string, error) {
 	return m, d, nil
 }
 
-// strip removes from options any keys whoes valus match the charm defaults
+// strip removes from options any keys whos values match the charm defaults.
 func strip(options map[string]interface{}, config *charm.Config) map[string]interface{} {
 	for k, v := range options {
 		if ch, ok := config.Options[k]; ok {
-			if ch.Default != nil && reflect.DeepEqual(ch.Default, v) {
+			if reflect.DeepEqual(ch.Default, v) {
 				delete(options, k)
 			}
 		}
