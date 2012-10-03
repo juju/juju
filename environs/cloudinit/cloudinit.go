@@ -194,8 +194,8 @@ func addMongoToBoot(c *cloudinit.Config) error {
 			" --dbpath=/var/lib/juju/db" +
 			" --bind_ip 0.0.0.0" +
 			"--port " + fmt.Sprint(mgoPort) +
-			" --noprealloc",
-			" --smallfiles" +
+			" --noprealloc" +
+			" --smallfiles",
 	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {
