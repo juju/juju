@@ -2,7 +2,7 @@ package uniter
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/cmd/jujuc/server"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"os"
 	"path/filepath"
 )
@@ -10,7 +10,7 @@ import (
 // EnsureJujucSymlinks creates a symbolic link to jujuc within dir for each
 // hook command. If the commands already exist, this operation does nothing.
 func EnsureJujucSymlinks(dir string) (err error) {
-	for _, name := range server.CommandNames() {
+	for _, name := range jujuc.CommandNames() {
 		// The link operation fails when the target already exists,
 		// so this is a no-op when the command names already
 		// exist.
