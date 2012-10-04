@@ -25,6 +25,7 @@ import (
 type Uniter struct {
 	tomb    tomb.Tomb
 	st      *state.State
+	f       *filter
 	unit    *state.Unit
 	service *state.Service
 
@@ -36,8 +37,6 @@ type Uniter struct {
 	deployer *charm.Deployer
 	sf       *StateFile
 	rand     *rand.Rand
-
-	*filter
 }
 
 // NewUniter creates a new Uniter which will install, run, and upgrade a
@@ -59,15 +58,16 @@ func (u *Uniter) loop(name string) (err error) {
 	if err = u.init(name); err != nil {
 		return err
 	}
+	log.Printf("unit %q started", u.unit)
 
 	// Start filtering state change events for consumption by modes.
-	u.filter, err = newFilter(u.st, name)
+	u.f, err = newFilter(u.st, name)
 	if err != nil {
 		return err
 	}
-	defer watcher.Stop(u.filter, &u.tomb)
+	defer watcher.Stop(u.f, &u.tomb)
 	go func() {
-		u.tomb.Kill(u.filter.Wait())
+		u.tomb.Kill(u.f.Wait())
 	}()
 
 	// Announce our presence to the world.
@@ -76,7 +76,6 @@ func (u *Uniter) loop(name string) (err error) {
 		return err
 	}
 	defer watcher.Stop(pinger, &u.tomb)
-	log.Printf("unit %q started pinger", u.unit)
 
 	// Run modes until we encounter an error.
 	mode := ModeInit

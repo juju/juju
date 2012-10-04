@@ -190,11 +190,11 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	// correspond to changes relative to the state at the time we first ran
 	// the hook.
 	cc := hook.Info{Kind: hook.ConfigChanged}
-	u.wantConfigEvent()
+	u.f.WantConfigEvent()
 	select {
 	case <-u.Dying():
 		return nil, tomb.ErrDying
-	case <-u.configEvents():
+	case <-u.f.ConfigEvents():
 		if err = u.runHook(cc); err == errHookFailed {
 			return ModeHookError, nil
 		} else if err != nil {
@@ -206,21 +206,21 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if err != nil {
 		return nil, err
 	}
-	u.wantCharmEvent(url, false)
+	u.f.WantUpgradeEvent(url, false)
 	for {
 		select {
 		case <-u.Dying():
 			return nil, tomb.ErrDying
-		case <-u.unitDying():
+		case <-u.f.UnitDying():
 			// TODO don't stop until all relations broken.
 			return ModeStopping, nil
-		case <-u.configEvents():
+		case <-u.f.ConfigEvents():
 			if err = u.runHook(cc); err == errHookFailed {
 				return ModeHookError, nil
 			} else if err != nil {
 				return nil, err
 			}
-		case upgrade := <-u.charmEvents():
+		case upgrade := <-u.f.UpgradeEvents():
 			return ModeUpgrading(upgrade), nil
 		}
 	}
@@ -247,13 +247,13 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	if err != nil {
 		return nil, err
 	}
-	u.wantResolvedEvent()
-	u.wantCharmEvent(url, true)
+	u.f.WantResolvedEvent()
+	u.f.WantUpgradeEvent(url, true)
 	for {
 		select {
 		case <-u.Dying():
 			return nil, tomb.ErrDying
-		case rm := <-u.resolvedEvents():
+		case rm := <-u.f.ResolvedEvents():
 			switch rm {
 			case state.ResolvedRetryHooks:
 				err = u.runHook(*s.Hook)
@@ -271,7 +271,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 				return nil, err
 			}
 			return ModeContinue, nil
-		case upgrade := <-u.charmEvents():
+		case upgrade := <-u.f.UpgradeEvents():
 			return ModeUpgrading(upgrade), nil
 		}
 	}
@@ -287,13 +287,13 @@ func ModeConflicted(sch *state.Charm) Mode {
 		if err = u.unit.SetStatus(state.UnitError, "upgrade failed"); err != nil {
 			return nil, err
 		}
-		u.wantResolvedEvent()
-		u.wantCharmEvent(sch.URL(), true)
+		u.f.WantResolvedEvent()
+		u.f.WantUpgradeEvent(sch.URL(), true)
 		for {
 			select {
 			case <-u.Dying():
 				return nil, tomb.ErrDying
-			case <-u.resolvedEvents():
+			case <-u.f.ResolvedEvents():
 				err = u.charm.Snapshotf("Upgrade conflict resolved.")
 				if e := u.unit.ClearResolved(); e != nil {
 					return nil, e
@@ -302,7 +302,7 @@ func ModeConflicted(sch *state.Charm) Mode {
 					return nil, err
 				}
 				return ModeUpgrading(sch), nil
-			case upgrade := <-u.charmEvents():
+			case upgrade := <-u.f.UpgradeEvents():
 				if err := u.charm.Revert(); err != nil {
 					return nil, err
 				}

@@ -36,7 +36,7 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 		s.State.StartSync()
 		select {
 		case <-time.After(50 * time.Millisecond):
-		case <-f.unitDying():
+		case <-f.UnitDying():
 			c.Fatalf("unexpected receive")
 		}
 	}
@@ -55,7 +55,7 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 		select {
 		case <-time.After(50 * time.Millisecond):
 			c.Fatalf("dying not detected")
-		case _, ok := <-f.unitDying():
+		case _, ok := <-f.UnitDying():
 			c.Assert(ok, Equals, false)
 		}
 	}
@@ -66,6 +66,7 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 	c.Assert(err, IsNil)
 	assertClosed()
 
+	// Set dead.
 	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
 	s.State.StartSync()
@@ -84,7 +85,7 @@ func (s *FilterSuite) TestServiceDeath(c *C) {
 	s.State.StartSync()
 	select {
 	case <-time.After(50 * time.Millisecond):
-	case <-f.unitDying():
+	case <-f.UnitDying():
 		c.Fatalf("unexpected receive")
 	}
 
@@ -94,7 +95,7 @@ func (s *FilterSuite) TestServiceDeath(c *C) {
 loop:
 	for {
 		select {
-		case <-f.unitDying():
+		case <-f.UnitDying():
 			break loop
 		case <-time.After(50 * time.Millisecond):
 			s.State.StartSync()
@@ -118,7 +119,7 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 	assertNoChange := func() {
 		s.State.StartSync()
 		select {
-		case rm := <-f.resolvedEvents():
+		case rm := <-f.ResolvedEvents():
 			c.Fatalf("unexpected %#v", rm)
 		case <-time.After(50 * time.Millisecond):
 		}
@@ -126,7 +127,7 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 	assertNoChange()
 
 	// Request an event; no interesting event is available.
-	f.wantResolvedEvent()
+	f.WantResolvedEvent()
 	assertNoChange()
 
 	// Change the unit in an irrelevant way; no events.
@@ -140,7 +141,7 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 	assertChange := func(expect state.ResolvedMode) {
 		s.State.Sync()
 		select {
-		case rm := <-f.resolvedEvents():
+		case rm := <-f.ResolvedEvents():
 			c.Assert(rm, Equals, expect)
 		case <-time.After(50 * time.Millisecond):
 			c.Fatalf("timed out")
@@ -151,13 +152,13 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 
 	// Request a few events, and change the unit a few times; when
 	// we finally receive, only the most recent state is sent.
-	f.wantResolvedEvent()
+	f.WantResolvedEvent()
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
-	f.wantResolvedEvent()
+	f.WantResolvedEvent()
 	err = s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, IsNil)
-	f.wantResolvedEvent()
+	f.WantResolvedEvent()
 	assertChange(state.ResolvedNoHooks)
 	assertNoChange()
 }
@@ -171,7 +172,7 @@ func (s *FilterSuite) TestCharmEvents(c *C) {
 	assertNoChange := func() {
 		s.State.StartSync()
 		select {
-		case sch := <-f.charmEvents():
+		case sch := <-f.UpgradeEvents():
 			c.Fatalf("unexpected %#v", sch)
 		case <-time.After(50 * time.Millisecond):
 		}
@@ -179,7 +180,7 @@ func (s *FilterSuite) TestCharmEvents(c *C) {
 	assertNoChange()
 
 	// Request an event relative to the existing state; nothing.
-	f.wantCharmEvent(s.ch.URL(), false)
+	f.WantUpgradeEvent(s.ch.URL(), false)
 	assertNoChange()
 
 	// Change the service in an irrelevant way; no events.
@@ -194,7 +195,7 @@ func (s *FilterSuite) TestCharmEvents(c *C) {
 	assertChange := func(url *charm.URL) {
 		s.State.Sync()
 		select {
-		case sch := <-f.charmEvents():
+		case sch := <-f.UpgradeEvents():
 			c.Assert(sch.URL(), DeepEquals, url)
 		case <-time.After(50 * time.Millisecond):
 			c.Fatalf("timed out")
@@ -205,12 +206,12 @@ func (s *FilterSuite) TestCharmEvents(c *C) {
 
 	// Request a change relative to the original state, unforced;
 	// same event is sent.
-	f.wantCharmEvent(s.ch.URL(), false)
+	f.WantUpgradeEvent(s.ch.URL(), false)
 	assertChange(ch.URL())
 	assertNoChange()
 
 	// Request a forced change relative to the initial state; no change...
-	f.wantCharmEvent(s.ch.URL(), true)
+	f.WantUpgradeEvent(s.ch.URL(), true)
 	assertNoChange()
 
 	// ...and still no change when we have a forced upgrade to that state...
@@ -233,7 +234,7 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	assertChange := func() {
 		s.State.Sync()
 		select {
-		case _, ok := <-f.configEvents():
+		case _, ok := <-f.ConfigEvents():
 			c.Assert(ok, Equals, true)
 		case <-time.After(50 * time.Millisecond):
 			c.Fatalf("timed out")
@@ -243,7 +244,7 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	assertNoChange := func() {
 		s.State.StartSync()
 		select {
-		case <-f.configEvents():
+		case <-f.ConfigEvents():
 			c.Fatalf("unexpected config event")
 		case <-time.After(50 * time.Millisecond):
 		}
@@ -251,7 +252,7 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	assertNoChange()
 
 	// Request an event; it matches the previous one.
-	f.wantConfigEvent()
+	f.WantConfigEvent()
 	assertChange()
 	assertNoChange()
 
@@ -264,17 +265,17 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	assertChange()
 	assertNoChange()
 
-	// Request a few events, and change the unit a few times; when
+	// Request a few events, and change the config a few times; when
 	// we finally receive, only a single event is sent.
-	f.wantConfigEvent()
+	f.WantConfigEvent()
 	node.Set("title", "20,000 leagues in the cloud")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
-	f.wantConfigEvent()
+	f.WantConfigEvent()
 	node.Set("outlook", "precipitous")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
-	f.wantConfigEvent()
+	f.WantConfigEvent()
 	assertChange()
 	assertNoChange()
 }
