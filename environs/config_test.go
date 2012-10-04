@@ -6,6 +6,8 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	_ "launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/version"
 	"os"
 	"path/filepath"
 )
@@ -175,9 +177,10 @@ environments:
 
 func (suite) TestConfigRoundTrip(c *C) {
 	cfg, err := config.New(map[string]interface{}{
-		"name":         "bladaam",
-		"type":         "dummy",
-		"state-server": false,
+		"name":            "bladaam",
+		"type":            "dummy",
+		"state-server":    false,
+		"authorized-keys": "i-am-a-key",
 	})
 	c.Assert(err, IsNil)
 	provider, err := environs.Provider(cfg.Type())
@@ -187,4 +190,31 @@ func (suite) TestConfigRoundTrip(c *C) {
 	env, err := environs.New(cfg)
 	c.Assert(err, IsNil)
 	c.Assert(cfg.AllAttrs(), DeepEquals, env.Config().AllAttrs())
+}
+
+func (suite) TestBootstrapConfig(c *C) {
+	cfg, err := config.New(map[string]interface{}{
+		"name":            "bladaam",
+		"type":            "dummy",
+		"state-server":    false,
+		"admin-secret":    "highly",
+		"secret":          "um",
+		"authorized-keys": "i-am-a-key",
+	})
+	c.Assert(err, IsNil)
+	provider, err := environs.Provider(cfg.Type())
+	c.Assert(err, IsNil)
+
+	tools := &state.Tools{
+		URL:    "http://x",
+		Binary: version.MustParseBinary("1.2.3-foo-bar"),
+	}
+	cfg1, err := environs.BootstrapConfig(provider, cfg, tools)
+	c.Assert(err, IsNil)
+
+	expect := cfg.AllAttrs()
+	delete(expect, "secret")
+	expect["admin-secret"] = ""
+	expect["agent-version"] = "1.2.3"
+	c.Assert(cfg1.AllAttrs(), DeepEquals, expect)
 }

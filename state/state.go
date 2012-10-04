@@ -116,6 +116,9 @@ func (s *State) EnvironConfig() (*config.Config, error) {
 // SetEnvironConfig replaces the current configuration of the 
 // environment with the passed configuration.
 func (s *State) SetEnvironConfig(cfg *config.Config) error {
+	if cfg.AdminSecret() != "" {
+		return fmt.Errorf("admin-secret should never be written to the state")
+	}
 	attrs := cfg.AllAttrs()
 	_, err := createConfigNode(s, "e", attrs)
 	return err
