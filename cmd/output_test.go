@@ -91,7 +91,8 @@ var outputTests = map[string][]struct {
 func (s *CmdSuite) TestOutputFormat(c *C) {
 	for format, tests := range outputTests {
 		c.Logf("format %s", format)
-		args := []string{}
+		var args []string
+		// --format nnn
 		if format != "" {
 			args = []string{"--format", format}
 		}
@@ -103,6 +104,19 @@ func (s *CmdSuite) TestOutputFormat(c *C) {
 			c.Assert(bufferString(ctx.Stdout), Equals, t.output)
 			c.Assert(bufferString(ctx.Stderr), Equals, "")
 		}
+		// --format=nnn
+		if format != "" {
+			args = []string{"--format=" + format}
+		}
+		for i, t := range tests {
+			c.Logf("  test %d", i)
+			ctx := dummyContext(c)
+			result := cmd.Main(&OutputCommand{value: t.value}, ctx, args)
+			c.Assert(result, Equals, 0)
+			c.Assert(bufferString(ctx.Stdout), Equals, t.output)
+			c.Assert(bufferString(ctx.Stderr), Equals, "")
+		}
+
 	}
 
 	ctx := dummyContext(c)
