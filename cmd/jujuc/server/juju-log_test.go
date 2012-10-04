@@ -85,3 +85,17 @@ func (s *JujuLogSuite) TestRequiresMessage(c *C) {
 	err = com.Init(dummyFlagSet(), nil)
 	c.Assert(err, ErrorMatches, "no message specified")
 }
+
+func (s *JujuLogSuite) TestLogLevel(c *C) {
+	ctx := &server.HookContext{}
+	com, err := ctx.NewCommand("juju-log")
+	c.Assert(err, IsNil)
+	// missing log level argument
+	err = com.Init(dummyFlagSet(), []string{"-l"})
+	c.Assert(err, ErrorMatches, "flag needs an argument.*")
+	com, err = ctx.NewCommand("juju-log")
+	c.Assert(err, IsNil)
+	// valid log level
+	err = com.Init(dummyFlagSet(), []string{"-l", "FATAL"})
+	c.Assert(err, ErrorMatches, "no message specified")
+}
