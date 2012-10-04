@@ -554,3 +554,13 @@ func (s *State) SetAdminPassword(password string) error {
 	}
 	return nil
 }
+
+func (s *State) setPassword(name, password string) error {
+	if err := s.db.AddUser(name, password, false); err != nil {
+		return fmt.Errorf("cannot set password in juju db for %q: %v", name, err)
+	}
+	if err := s.db.Session.DB("presence").AddUser(name, password, false); err != nil {
+		return fmt.Errorf("cannot set password in presence db for %q: %v", name, err)
+	}
+	return nil
+}
