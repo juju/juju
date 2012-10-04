@@ -530,3 +530,27 @@ func (s *State) Sync() {
 	s.watcher.Sync()
 	s.pwatcher.Sync()
 }
+
+// SetAdminPassword sets the administrative password
+// to access the state. If the password is non-empty,
+// all subsequent attempts to access the state must
+// be authorized; otherwise no authorization is required.
+func (s *State) SetAdminPassword(password string) error {
+	admin := s.db.Session.DB("admin")
+	if password != "" {
+		// On 2.2+, we get a "need to login" error without a code when
+		// adding the first user because we go from no-auth+no-login to
+		// auth+no-login. Not great. Hopefully being fixed in 2.4.
+		if err := admin.AddUser("admin", password, false); err != nil && err.Error() != "need to login" {
+			return fmt.Errorf("cannot set admin password: %v", err)
+		}
+		if err := admin.Login("admin", password); err != nil {
+			return fmt.Errorf("cannot login after setting password: %v", err)
+		}
+	} else {
+		if err := admin.RemoveUser("admin"); err != nil {
+			return fmt.Errorf("cannot remove admin user: %v", err)
+		}
+	}
+	return nil
+}

@@ -885,3 +885,28 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *C) {
 	relation2, err := s.State.Relation(peer)
 	c.Assert(relation1, DeepEquals, relation2)
 }
+
+func (s *StateSuite) TestSetAdminPassword(c *C) {
+	err := s.State.SetAdminPassword("foo")
+	c.Assert(err, IsNil)
+	defer s.State.SetAdminPassword("")
+	info := s.StateInfo(c)
+	st, err := state.Open(info)
+	if st != nil {
+		st.Close()
+	}
+	c.Assert(err, ErrorMatches, "unauthorized access")
+
+	info.Password = "foo"
+	st, err = state.Open(info)
+	c.Assert(err, IsNil)
+	st.Close()
+
+	err = s.State.SetAdminPassword("")
+	c.Assert(err, IsNil)
+
+	info.Password = ""
+	st, err = state.Open(info)
+	c.Assert(err, IsNil)
+	st.Close()
+}
