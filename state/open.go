@@ -27,10 +27,10 @@ type Info struct {
 	UseSSH bool
 
 	// EntityName holds the name of the entity that is connecting.
-	// This may be "admin" to connect as the administrator.
+	// It should be empty when connecting as an administrator.
 	EntityName string
 
-	// Password holds the password for the connecting entity.
+	// Password holds the password for the administrator or connecting entity.
 	Password string
 }
 
@@ -120,6 +120,8 @@ func maybeUnauthorized(err error, msg string) error {
 	if err == nil {
 		return nil
 	}
+	// Unauthorized access errors have no error code,
+	// just a simple error string.
 	if err.Error() == "auth fails" {
 		return ErrUnauthorized
 	}
@@ -132,18 +134,17 @@ func maybeUnauthorized(err error, msg string) error {
 func newState(session *mgo.Session, fwd *sshForwarder, entity, password string) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
-	if entity == "admin" {
-		admin := session.DB("admin")
-		// TODO log in to admin database only if entity name is "admin".
-		if err := admin.Login("admin", password); err != nil {
-			return nil, maybeUnauthorized(err, "cannot log in to admin database")
-		}
-	} else if entity != "" {
+	if entity != "" {
 		if err := db.Login(entity, password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to juju database")
 		}
 		if err := pdb.Login(entity, password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to presence database")
+		}
+	} else if password != "" {
+		admin := session.DB("admin")
+		if err := admin.Login("admin", password); err != nil {
+			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
 	}
 	st := &State{

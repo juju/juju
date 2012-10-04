@@ -947,6 +947,7 @@ func testSetPassword(c *C, getEntity func(st *state.State) (entity, error)) {
 	// Change the password with an entity derived from the newly
 	// opened and authenticated state.
 	ent, err = getEntity(st)
+	c.Assert(err, IsNil)
 	err = ent.SetPassword("bar")
 	c.Assert(err, IsNil)
 
@@ -959,6 +960,11 @@ func testSetPassword(c *C, getEntity func(st *state.State) (entity, error)) {
 	info.Password = "bar"
 	err = tryOpenState(info)
 	c.Assert(err, IsNil)
+
+	// Check that the administrator can still log in.
+	info.EntityName, info.Password = "", "admin-secret"
+	err = tryOpenState(info)
+	c.Assert(err, IsNil)
 }
 
 func (s *StateSuite) TestSetAdminPassword(c *C) {
@@ -966,22 +972,17 @@ func (s *StateSuite) TestSetAdminPassword(c *C) {
 	c.Assert(err, IsNil)
 	defer s.State.SetAdminPassword("")
 	info := s.StateInfo(c)
-	info.EntityName = "admin"
 	err = tryOpenState(info)
 	c.Assert(err, Equals, state.ErrUnauthorized)
 
-	info.EntityName, info.Password = "", ""
-	err = tryOpenState(info)
-	c.Assert(err, Equals, state.ErrUnauthorized)
-
-	info.EntityName, info.Password = "admin", "foo"
+	info.Password = "foo"
 	err = tryOpenState(info)
 	c.Assert(err, IsNil)
 
 	err = s.State.SetAdminPassword("")
 	c.Assert(err, IsNil)
 
-	info.EntityName, info.Password = "", ""
+	info.Password = ""
 	err = tryOpenState(info)
 	c.Assert(err, IsNil)
 }
