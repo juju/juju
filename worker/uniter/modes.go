@@ -18,7 +18,7 @@ type Mode func(u *Uniter) (Mode, error)
 
 // ModeInit is the initial Uniter mode.
 func ModeInit(u *Uniter) (next Mode, err error) {
-	defer modeContext("ModeInit", &next, &err)()
+	defer modeContext("ModeInit", &err)()
 	log.Printf("updating unit addresses")
 	cfg, err := u.st.EnvironConfig()
 	if err != nil {
@@ -43,7 +43,7 @@ func ModeInit(u *Uniter) (next Mode, err error) {
 
 // ModeContinue determines what action to take based on persistent uniter state.
 func ModeContinue(u *Uniter) (next Mode, err error) {
-	defer modeContext("ModeContinue", &next, &err)()
+	defer modeContext("ModeContinue", &err)()
 
 	// When no charm exists, install it.
 	s, err := u.sf.Read()
@@ -72,11 +72,17 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	case RunHook:
 		if s.OpStep == Queued {
 			log.Printf("found queued %q hook", s.Hook.Kind)
-			return nil, u.runHook(*s.Hook)
+			if err = u.runHook(*s.Hook); err != nil && err != errHookFailed {
+				return nil, err
+			}
+			return ModeContinue, nil
 		}
 		if s.OpStep == Done {
 			log.Printf("found uncommitted %q hook", s.Hook.Kind)
-			return nil, u.commitHook(*s.Hook)
+			if err = u.commitHook(*s.Hook); err != nil {
+				return nil, err
+			}
+			return ModeContinue, nil
 		}
 		log.Printf("awaiting error resolution for %q hook", s.Hook.Kind)
 		return ModeHookError, nil
@@ -99,43 +105,58 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 
 // ModeInstalling is responsible for the initial charm deployment.
 func ModeInstalling(sch *state.Charm) Mode {
+	name := fmt.Sprintf("ModeInstalling %s", sch.URL())
 	return func(u *Uniter) (next Mode, err error) {
-		name := fmt.Sprintf("ModeInstalling %s", sch.URL())
-		defer modeContext(name, &next, &err)()
-		return nil, u.deploy(sch, Install)
+		defer modeContext(name, &err)()
+		if err = u.deploy(sch, Install); err != nil {
+			return nil, err
+		}
+		return ModeContinue, nil
 	}
 }
 
 // ModeUpgrading is responsible for upgrading the charm.
 func ModeUpgrading(sch *state.Charm) Mode {
+	name := fmt.Sprintf("ModeUpgrading %s", sch.URL())
 	return func(u *Uniter) (next Mode, err error) {
-		name := fmt.Sprintf("ModeUpgrading %s", sch.URL())
-		defer modeContext(name, &next, &err)()
+		defer modeContext(name, &err)()
 		if err = u.deploy(sch, Upgrade); err == charm.ErrConflict {
 			return ModeConflicted(sch), nil
+		} else if err != nil {
+			return nil, err
 		}
-		return nil, err
+		return ModeContinue, nil
 	}
 }
 
 // ModeStarting runs the "start" hook.
 func ModeStarting(u *Uniter) (next Mode, err error) {
-	defer modeContext("ModeStarting", &next, &err)()
+	defer modeContext("ModeStarting", &err)()
 	if err = u.unit.SetStatus(state.UnitInstalled, ""); err != nil {
 		return nil, err
 	}
-	return nil, u.runHook(hook.Info{Kind: hook.Start})
+	if err := u.runHook(hook.Info{Kind: hook.Start}); err == errHookFailed {
+		return ModeHookError, nil
+	} else if err != nil {
+		return nil, err
+	}
+	return ModeContinue, nil
 }
 
 // ModeStopping runs the "stop" hook.
 func ModeStopping(u *Uniter) (next Mode, err error) {
-	defer modeContext("ModeStopping", &next, &err)()
-	return nil, u.runHook(hook.Info{Kind: hook.Stop})
+	defer modeContext("ModeStopping", &err)()
+	if err := u.runHook(hook.Info{Kind: hook.Stop}); err == errHookFailed {
+		return ModeHookError, nil
+	} else if err != nil {
+		return nil, err
+	}
+	return ModeContinue, nil
 }
 
 // ModeTerminating marks the unit dead and returns ErrDead.
 func ModeTerminating(u *Uniter) (next Mode, err error) {
-	defer modeContext("ModeTerminating", &next, &err)()
+	defer modeContext("ModeTerminating", &err)()
 	if err = u.unit.SetStatus(state.UnitStopped, ""); err != nil {
 		return nil, err
 	}
@@ -151,7 +172,7 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 // * relation changes (not implemented)
 // * unit death
 func ModeAbide(u *Uniter) (next Mode, err error) {
-	defer modeContext("ModeAbide", &next, &err)()
+	defer modeContext("ModeAbide", &err)()
 	s, err := u.sf.Read()
 	if err != nil {
 		return nil, err
@@ -163,20 +184,29 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 		return nil, err
 	}
 
-	// Execute an initial config-changed hook regardless of state.
+	// Prime the filter by requesting a config event, then handling it. This
+	// has two purposes: (1) run a config-change hook before doing anything
+	// else and (2) ensure that subsequent config events received actually
+	// correspond to changes relative to the state at the time we first ran
+	// the hook.
 	cc := hook.Info{Kind: hook.ConfigChanged}
 	u.wantConfigEvent()
 	select {
 	case <-u.Dying():
 		return nil, tomb.ErrDying
 	case <-u.configEvents():
-		if err = u.runHook(cc); err != nil {
+		if err = u.runHook(cc); err == errHookFailed {
+			return ModeHookError, nil
+		} else if err != nil {
 			return nil, err
 		}
 	}
 
-	// Watch for everything else (including further config changes).
-	u.wantCharmEvent()
+	url, err := charm.ReadCharmURL(u.charm)
+	if err != nil {
+		return nil, err
+	}
+	u.wantCharmEvent(url, false)
 	for {
 		select {
 		case <-u.Dying():
@@ -185,16 +215,12 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 			// TODO don't stop until all relations broken.
 			return ModeStopping, nil
 		case <-u.configEvents():
-			if err = u.runHook(cc); err != nil {
-				return nil, err
-			}
-		case ch := <-u.charmEvents():
-			upgrade, err := u.getUpgrade(ch, false)
-			if err == errNoUpgrade {
-				continue
+			if err = u.runHook(cc); err == errHookFailed {
+				return ModeHookError, nil
 			} else if err != nil {
 				return nil, err
 			}
+		case upgrade := <-u.charmEvents():
 			return ModeUpgrading(upgrade), nil
 		}
 	}
@@ -205,7 +231,7 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 // * user resolution of hook errors
 // * charm upgrade requests
 func ModeHookError(u *Uniter) (next Mode, err error) {
-	defer modeContext("ModeHookError", &next, &err)()
+	defer modeContext("ModeHookError", &err)()
 	s, err := u.sf.Read()
 	if err != nil {
 		return nil, err
@@ -217,26 +243,35 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	if err = u.unit.SetStatus(state.UnitError, msg); err != nil {
 		return nil, err
 	}
-	resolveHook := getResolveHook(*s.Hook)
+	url, err := charm.ReadCharmURL(u.charm)
+	if err != nil {
+		return nil, err
+	}
 	u.wantResolvedEvent()
-	u.wantCharmEvent()
+	u.wantCharmEvent(url, true)
 	for {
 		select {
 		case <-u.Dying():
 			return nil, tomb.ErrDying
 		case rm := <-u.resolvedEvents():
-			if success, err := u.resolveError(*rm, resolveHook); success {
-				return ModeContinue, nil
-			} else if err != nil && err != errHookFailed {
-				return nil, err
+			switch rm {
+			case state.ResolvedRetryHooks:
+				err = u.runHook(*s.Hook)
+			case state.ResolvedNoHooks:
+				err = u.commitHook(*s.Hook)
+			default:
+				return nil, fmt.Errorf("unknown resolved mode %q", rm)
 			}
-		case ch := <-u.charmEvents():
-			upgrade, err := u.getUpgrade(ch, true)
-			if err == errNoUpgrade {
+			if e := u.unit.ClearResolved(); e != nil {
+				return nil, e
+			}
+			if err == errHookFailed {
 				continue
 			} else if err != nil {
 				return nil, err
 			}
+			return ModeContinue, nil
+		case upgrade := <-u.charmEvents():
 			return ModeUpgrading(upgrade), nil
 		}
 	}
@@ -248,30 +283,26 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 // * forced charm upgrade requests
 func ModeConflicted(sch *state.Charm) Mode {
 	return func(u *Uniter) (next Mode, err error) {
-		defer modeContext("ModeConflicted", &next, &err)()
+		defer modeContext("ModeConflicted", &err)()
 		if err = u.unit.SetStatus(state.UnitError, "upgrade failed"); err != nil {
 			return nil, err
 		}
 		u.wantResolvedEvent()
-		u.wantCharmEvent()
+		u.wantCharmEvent(sch.URL(), true)
 		for {
 			select {
 			case <-u.Dying():
 				return nil, tomb.ErrDying
-			case rm := <-u.resolvedEvents():
-				if success, err := u.resolveError(*rm, resolveConflict); success {
-					return ModeUpgrading(sch), nil
-				} else if err != nil {
-					return nil, err
+			case <-u.resolvedEvents():
+				err = u.charm.Snapshotf("Upgrade conflict resolved.")
+				if e := u.unit.ClearResolved(); e != nil {
+					return nil, e
 				}
-			case ch := <-u.charmEvents():
-				upgrade, err := u.getUpgrade(ch, true)
 				if err != nil {
-					if err == errNoUpgrade {
-						continue
-					}
 					return nil, err
 				}
+				return ModeUpgrading(sch), nil
+			case upgrade := <-u.charmEvents():
 				if err := u.charm.Revert(); err != nil {
 					return nil, err
 				}
@@ -284,19 +315,12 @@ func ModeConflicted(sch *state.Charm) Mode {
 
 // modeContext returns a function that implements logging and common error
 // manipulation for Mode funcs.
-func modeContext(name string, next *Mode, err *error) func() {
+func modeContext(name string, err *error) func() {
 	log.Printf(name + " starting")
 	return func() {
 		log.Debugf(name + " exiting")
 		switch *err {
-		case nil:
-			if *next == nil {
-				*next = ModeContinue
-			}
-		case errHookFailed:
-			*next, *err = ModeHookError, nil
-		case tomb.ErrDying, worker.ErrDead:
-			log.Printf(name + " shutting down")
+		case nil, tomb.ErrDying, worker.ErrDead:
 		default:
 			*err = errors.New(name + ": " + (*err).Error())
 		}

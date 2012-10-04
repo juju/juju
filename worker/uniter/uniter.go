@@ -55,10 +55,20 @@ func NewUniter(st *state.State, name string, dataDir string) *Uniter {
 	return u
 }
 
-func (u *Uniter) loop(name string) error {
-	if err := u.init(name); err != nil {
+func (u *Uniter) loop(name string) (err error) {
+	if err = u.init(name); err != nil {
 		return err
 	}
+
+	// Start filtering state change events for consumption by modes.
+	u.filter, err = newFilter(u.st, name)
+	if err != nil {
+		return err
+	}
+	defer watcher.Stop(u.filter, &u.tomb)
+	go func() {
+		u.tomb.Kill(u.filter.Wait())
+	}()
 
 	// Announce our presence to the world.
 	pinger, err := u.unit.SetAgentAlive()
@@ -67,13 +77,6 @@ func (u *Uniter) loop(name string) error {
 	}
 	defer watcher.Stop(pinger, &u.tomb)
 	log.Printf("unit %q started pinger", u.unit)
-
-	// Start filtering state change events for consumption by modes.
-	u.filter = newFilter(u.unit)
-	defer watcher.Stop(u.filter, &u.tomb)
-	go func() {
-		u.tomb.Kill(u.filter.Wait())
-	}()
 
 	// Run modes until we encounter an error.
 	mode := ModeInit
@@ -131,45 +134,6 @@ func (u *Uniter) Dying() <-chan struct{} {
 
 func (u *Uniter) Wait() error {
 	return u.tomb.Wait()
-}
-
-// errNoUpgrade indicates that the uniter should not upgrade its charm.
-var errNoUpgrade = errors.New("no upgrades available")
-
-// getUpgrade returns the charm to which the deployment should be upgraded,
-// given the supplied service charm information. If no upgrade is appropriate,
-// errNoUpgrade is returned.
-func (u *Uniter) getUpgrade(ch *charmChange, mustForce bool) (*state.Charm, error) {
-	proposed := ch.url
-	log.Printf("considering upgrade request: %s", proposed)
-	if mustForce && !ch.force {
-		log.Printf("request denied: not forced")
-		return nil, errNoUpgrade
-	}
-	select {
-	case <-u.unitDying():
-		log.Printf("request denied: unit is dying")
-		return nil, errNoUpgrade
-	default:
-	}
-	log.Printf("reading current charm")
-	s, err := u.sf.Read()
-	if err != nil {
-		return nil, err
-	}
-	current := s.CharmURL
-	if current == nil {
-		current, err = charm.ReadCharmURL(u.charm)
-		if err != nil {
-			return nil, err
-		}
-	}
-	log.Printf("current charm is %s", current)
-	if *current == *proposed {
-		log.Printf("request denied: already upgraded")
-		return nil, errNoUpgrade
-	}
-	return u.st.Charm(proposed)
 }
 
 // deploy deploys the supplied charm, and sets follow-up hook operation state
@@ -303,50 +267,4 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 	}
 	log.Printf("committed %q hook", hi.Kind)
 	return nil
-}
-
-// resolveError abstracts away the commonalities of different resolution
-// operations. It does nothing when rm is ResolvedNone; otherwise, it calls
-// the supplied resolveFunc and clears the unit's Resolved flag (regardless
-// or resolveFunc success or failure). It returns true if rf succeeded and
-// the flag was cleared successfully.
-func (u *Uniter) resolveError(rm state.ResolvedMode, rf resolveFunc) (success bool, err error) {
-	if rm == state.ResolvedNone {
-		return false, nil
-	}
-	switch rm {
-	case state.ResolvedRetryHooks:
-		err = rf(u, true)
-	case state.ResolvedNoHooks:
-		err = rf(u, false)
-	default:
-		panic(fmt.Errorf("unhandled resolved mode %q", rf))
-	}
-	if e := u.unit.ClearResolved(); e != nil {
-		err = e
-	}
-	return err == nil, nil
-}
-
-// resolveFunc values specify the uniter's response to user resolution of
-// different kinds of errors.
-type resolveFunc func(u *Uniter, retry bool) error
-
-// resolveConflict commits the current state of the charm deployment,
-// thereby resolving git conflicts.
-func resolveConflict(u *Uniter, _ bool) error {
-	log.Printf("resolving upgrade conflict")
-	return u.charm.Snapshotf("Upgrade conflict resolved.")
-}
-
-// getResolveHook returns a resolveFunc that either runs or commits the
-// supplied hook, depending on the value of the retry parameter.
-func getResolveHook(hi hook.Info) resolveFunc {
-	return func(u *Uniter, retry bool) error {
-		log.Printf("resolving hook error")
-		if retry {
-			return u.runHook(hi)
-		}
-		return u.commitHook(hi)
-	}
 }
