@@ -101,8 +101,8 @@ func (s *UnitSuite) newAgent(c *C) (*UnitAgent, *state.Unit, *state.Tools) {
 	c.Assert(tools1, DeepEquals, tools)
 
 	return &UnitAgent{
-		Conf:     AgentConf{
-			DataDir: dataDir,
+		Conf: AgentConf{
+			DataDir:   dataDir,
 			StateInfo: *s.StateInfo(c),
 		},
 		UnitName: unit.Name(),
@@ -134,8 +134,8 @@ func (s *UnitSuite) TestWithDeadUnit(c *C) {
 
 	dataDir := c.MkDir()
 	a := &UnitAgent{
-		Conf:     AgentConf{
-			DataDir: dataDir,
+		Conf: AgentConf{
+			DataDir:   dataDir,
 			StateInfo: *s.StateInfo(c),
 		},
 		UnitName: unit.Name(),
@@ -147,8 +147,8 @@ func (s *UnitSuite) TestWithDeadUnit(c *C) {
 	err = svc.RemoveUnit(unit)
 	c.Assert(err, IsNil)
 	a = &UnitAgent{
-		Conf:     AgentConf{
-			DataDir: dataDir,
+		Conf: AgentConf{
+			DataDir:   dataDir,
 			StateInfo: *s.StateInfo(c),
 		},
 		UnitName: unit.Name(),
