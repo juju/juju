@@ -116,6 +116,9 @@ func (s *State) EnvironConfig() (*config.Config, error) {
 // SetEnvironConfig replaces the current configuration of the 
 // environment with the passed configuration.
 func (s *State) SetEnvironConfig(cfg *config.Config) error {
+	if cfg.AdminSecret() != "" {
+		return fmt.Errorf("admin-secret should never be written to the state")
+	}
 	attrs := cfg.AllAttrs()
 	_, err := createConfigNode(s, "e", attrs)
 	return err
@@ -551,6 +554,16 @@ func (s *State) SetAdminPassword(password string) error {
 		if err := admin.RemoveUser("admin"); err != nil {
 			return fmt.Errorf("cannot remove admin user: %v", err)
 		}
+	}
+	return nil
+}
+
+func (s *State) setPassword(name, password string) error {
+	if err := s.db.AddUser(name, password, false); err != nil {
+		return fmt.Errorf("cannot set password in juju db for %q: %v", name, err)
+	}
+	if err := s.db.Session.DB("presence").AddUser(name, password, false); err != nil {
+		return fmt.Errorf("cannot set password in presence db for %q: %v", name, err)
 	}
 	return nil
 }

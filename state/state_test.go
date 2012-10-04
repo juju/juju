@@ -240,6 +240,7 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 		"default-series":  "precise",
 		"development":     true,
 		"firewall-mode":   "default",
+		"admin-secret":    "",
 	}
 	env, err := config.New(initial)
 	c.Assert(err, IsNil)
@@ -259,6 +260,21 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 	c.Assert(err, IsNil)
 	final := env.AllAttrs()
 	c.Assert(final, DeepEquals, current)
+}
+
+func (s *StateSuite) TestEnvironConfigWithAdminSecret(c *C) {
+	initial := map[string]interface{}{
+		"name":            "test",
+		"type":            "test",
+		"authorized-keys": "i-am-a-key",
+		"default-series":  "precise",
+		"development":     true,
+		"admin-secret":    "foo",
+	}
+	env, err := config.New(initial)
+	c.Assert(err, IsNil)
+	err = s.State.SetEnvironConfig(env)
+	c.Assert(err, ErrorMatches, "admin-secret should never be written to the state")
 }
 
 var machinesWatchTests = []struct {
@@ -631,6 +647,7 @@ func (s *StateSuite) TestInitialize(c *C) {
 		"default-series":  "precise",
 		"development":     true,
 		"firewall-mode":   "default",
+		"admin-secret":    "",
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
@@ -650,6 +667,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"default-series":  "precise",
 		"development":     true,
 		"firewall-mode":   "default",
+		"admin-secret":    "",
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
@@ -668,6 +686,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"default-series":  "xanadu",
 		"development":     false,
 		"firewall-mode":   "default",
+		"admin-secret":    "",
 	}
 	cfg, err = config.New(m)
 	c.Assert(err, IsNil)
@@ -886,27 +905,103 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *C) {
 	c.Assert(relation1, DeepEquals, relation2)
 }
 
+func tryOpenState(info *state.Info) error {
+	st, err := state.Open(info)
+	if err == nil {
+		st.Close()
+	}
+	return err
+}
+
+func (s *StateSuite) TestOpenWithoutSetPassword(c *C) {
+	info := s.StateInfo(c)
+	info.EntityName, info.Password = "arble", "bar"
+	err := tryOpenState(info)
+	c.Assert(err, Equals, state.ErrUnauthorized)
+
+	info.EntityName, info.Password = "arble", ""
+	err = tryOpenState(info)
+	c.Assert(err, Equals, state.ErrUnauthorized)
+
+	info.EntityName, info.Password = "", ""
+	err = tryOpenState(info)
+	c.Assert(err, IsNil)
+}
+
+type entity interface {
+	EntityName() string
+	SetPassword(password string) error
+}
+
+func testSetPassword(c *C, getEntity func(st *state.State) (entity, error)) {
+	info := &state.Info{
+		Addrs: []string{testing.MgoAddr},
+	}
+	st, err := state.Open(info)
+	c.Assert(err, IsNil)
+	defer st.Close()
+	// Turn on fully-authenticated mode.
+	err = st.SetAdminPassword("admin-secret")
+	c.Assert(err, IsNil)
+	defer st.SetAdminPassword("")
+
+	// Set the password for the entity
+	ent, err := getEntity(st)
+	c.Assert(err, IsNil)
+	err = ent.SetPassword("foo")
+	c.Assert(err, IsNil)
+
+	// Check that we cannot log in with the wrong password.
+	info.EntityName = ent.EntityName()
+	info.Password = "bar"
+	err = tryOpenState(info)
+	c.Assert(err, Equals, state.ErrUnauthorized)
+
+	// Check that we can log in with the correct password.
+	info.Password = "foo"
+	st, err = state.Open(info)
+	c.Assert(err, IsNil)
+	defer st.Close()
+
+	// Change the password with an entity derived from the newly
+	// opened and authenticated state.
+	ent, err = getEntity(st)
+	c.Assert(err, IsNil)
+	err = ent.SetPassword("bar")
+	c.Assert(err, IsNil)
+
+	// Check that we cannot log in with the old password.
+	info.Password = "foo"
+	err = tryOpenState(info)
+	c.Assert(err, Equals, state.ErrUnauthorized)
+
+	// Check that we can log in with the correct password.
+	info.Password = "bar"
+	err = tryOpenState(info)
+	c.Assert(err, IsNil)
+
+	// Check that the administrator can still log in.
+	info.EntityName, info.Password = "", "admin-secret"
+	err = tryOpenState(info)
+	c.Assert(err, IsNil)
+}
+
 func (s *StateSuite) TestSetAdminPassword(c *C) {
 	err := s.State.SetAdminPassword("foo")
 	c.Assert(err, IsNil)
 	defer s.State.SetAdminPassword("")
 	info := s.StateInfo(c)
-	st, err := state.Open(info)
-	if st != nil {
-		st.Close()
-	}
-	c.Assert(err, ErrorMatches, "unauthorized access")
+	err = tryOpenState(info)
+	c.Assert(err, Equals, state.ErrUnauthorized)
 
 	info.Password = "foo"
-	st, err = state.Open(info)
+	err = tryOpenState(info)
 	c.Assert(err, IsNil)
-	st.Close()
 
 	err = s.State.SetAdminPassword("")
 	c.Assert(err, IsNil)
 
 	info.Password = ""
-	st, err = state.Open(info)
+	err = tryOpenState(info)
 	c.Assert(err, IsNil)
-	st.Close()
 }

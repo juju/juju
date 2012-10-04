@@ -155,6 +155,13 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 	return nil
 }
 
+// SetPassword sets the password the agent responsible for the unit
+// should use to communicate with the state servers.  Previous passwords
+// are invalidated.
+func (u *Unit) SetPassword(password string) error {
+	return u.st.setPassword(u.EntityName(), password)
+}
+
 // EnsureDying sets the unit lifecycle to Dying if it is Alive.
 // It does nothing otherwise.
 func (u *Unit) EnsureDying() error {

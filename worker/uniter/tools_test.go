@@ -3,10 +3,10 @@ package uniter_test
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cmd/jujuc/server"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/uniter"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"os"
 	"path/filepath"
 	"time"
@@ -28,8 +28,8 @@ func (s *ToolsSuite) SetUpTest(c *C) {
 }
 
 func (s *ToolsSuite) TestEnsureJujucSymlinks(c *C) {
-	jujuc := filepath.Join(s.toolsDir, "jujuc")
-	err := ioutil.WriteFile(jujuc, []byte("assume sane"), 0755)
+	jujucPath := filepath.Join(s.toolsDir, "jujuc")
+	err := ioutil.WriteFile(jujucPath, []byte("assume sane"), 0755)
 	c.Assert(err, IsNil)
 
 	assertLink := func(path string) time.Time {
@@ -45,7 +45,7 @@ func (s *ToolsSuite) TestEnsureJujucSymlinks(c *C) {
 	err = uniter.EnsureJujucSymlinks(s.toolsDir)
 	c.Assert(err, IsNil)
 	mtimes := map[string]time.Time{}
-	for _, name := range server.CommandNames() {
+	for _, name := range jujuc.CommandNames() {
 		tool := filepath.Join(s.toolsDir, name)
 		mtimes[tool] = assertLink(tool)
 	}

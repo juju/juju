@@ -49,14 +49,16 @@ func stateInfoVar(fs *gnuflag.FlagSet, target *state.Info, name string, value []
 
 // AgentConf handles command-line flags shared by all agents.
 type AgentConf struct {
-	DataDir   string
-	StateInfo state.Info
+	DataDir         string
+	StateInfo       state.Info
+	InitialPassword string
 }
 
 // addFlags injects common agent flags into f.
 func (c *AgentConf) addFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.DataDir, "data-dir", "/var/lib/juju", "directory for juju data")
 	stateInfoVar(f, &c.StateInfo, "state-servers", nil, "state servers to connect to")
+	f.StringVar(&c.InitialPassword, "initial-password", "", "initial password for state")
 }
 
 // checkArgs checks that required flags have been set and that args is empty.
