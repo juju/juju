@@ -31,22 +31,21 @@ type filter struct {
 	outResolved   chan state.ResolvedMode
 	outResolvedOn chan state.ResolvedMode
 
-	// The want* chans are used to indicate that the filter should sent
+	// The want* chans are used to indicate that the filter should send
 	// events if it has them available.
 	wantConfig   chan struct{}
-	wantUpgrade  chan upgradeReq
+	wantUpgrade  chan serviceCharm
 	wantResolved chan struct{}
 
 	// The following fields hold state that is collected while running,
 	// and used to detect interesting changes to express as events.
-	unit        *state.Unit
-	life        state.Life
-	rm          state.ResolvedMode
-	service     *state.Service
-	upgradeReq  upgradeReq
-	gotCharmURL *charm.URL
-	gotForce    bool
-	upgrade     *state.Charm
+	unit             *state.Unit
+	life             state.Life
+	resolved         state.ResolvedMode
+	service          *state.Service
+	upgradeRequested serviceCharm
+	upgradeAvailable serviceCharm
+	upgrade          *state.Charm
 }
 
 // newFilter returns a filter that handles state changes pertaining to the
@@ -63,7 +62,7 @@ func newFilter(st *state.State, unitName string) (*filter, error) {
 		outResolvedOn: make(chan state.ResolvedMode),
 		wantResolved:  make(chan struct{}),
 		wantConfig:    make(chan struct{}),
-		wantUpgrade:   make(chan upgradeReq),
+		wantUpgrade:   make(chan serviceCharm),
 	}
 	go func() {
 		defer f.tomb.Done()
@@ -128,7 +127,7 @@ func (f *filter) WantConfigEvent() {
 func (f *filter) WantUpgradeEvent(url *charm.URL, mustForce bool) {
 	select {
 	case <-f.tomb.Dying():
-	case f.wantUpgrade <- upgradeReq{url, mustForce}:
+	case f.wantUpgrade <- serviceCharm{url, mustForce}:
 	}
 }
 
@@ -153,7 +152,7 @@ func (f *filter) loop(unitName string) (err error) {
 	if err != nil {
 		return err
 	}
-	f.upgradeReq.url, _ = f.service.CharmURL()
+	f.upgradeRequested.url, _ = f.service.CharmURL()
 	if err = f.serviceChanged(); err != nil {
 		return err
 	}
@@ -164,10 +163,12 @@ func (f *filter) loop(unitName string) (err error) {
 	configw := f.service.WatchConfig()
 	defer watcher.Stop(configw, &f.tomb)
 
-	// By consuming the initial config change before reading wantConfig, we
-	// ensure that no sequence of calls can produce more than a single event
-	// for the same config version (except when a wantConfig causes an old
-	// event to be sent explicitly).
+	// Consume first event so that this sequence doesn't happen:
+	//
+	// 1) WantConfigEvent called; channel unblocked
+	// 2) Config event sent
+	// 3) Initial config event received; channel unblocked
+	// 4) Config event sent again, for the same configuration
 	select {
 	case <-f.tomb.Dying():
 		return tomb.ErrDying
@@ -212,25 +213,25 @@ func (f *filter) loop(unitName string) (err error) {
 			f.outConfig = nil
 		case f.outUpgrade <- f.upgrade:
 			log.Debugf("filter: sent upgrade event")
-			f.upgradeReq.url = f.upgrade.URL()
+			f.upgradeRequested.url = f.upgrade.URL()
 			f.outUpgrade = nil
-		case f.outResolved <- f.rm:
+		case f.outResolved <- f.resolved:
 			log.Debugf("filter: sent resolved event")
 			f.outResolved = nil
 
-		// On request, ensure that if an event is available it will be resent.
+		// Handle explicit requests for events.
 		case <-f.wantConfig:
 			log.Debugf("filter: want config event")
 			f.outConfig = f.outConfigOn
 		case req := <-f.wantUpgrade:
 			log.Debugf("filter: want upgrade event")
-			f.upgradeReq = req
+			f.upgradeRequested = req
 			if err = f.upgradeChanged(); err != nil {
 				return err
 			}
 		case <-f.wantResolved:
 			log.Debugf("filter: want resolved event")
-			if f.rm != state.ResolvedNone {
+			if f.resolved != state.ResolvedNone {
 				f.outResolved = f.outResolvedOn
 			}
 		}
@@ -251,9 +252,9 @@ func (f *filter) unitChanged() error {
 			return worker.ErrDead
 		}
 	}
-	if rm := f.unit.Resolved(); rm != f.rm {
-		f.rm = rm
-		if f.rm != state.ResolvedNone {
+	if resolved := f.unit.Resolved(); resolved != f.resolved {
+		f.resolved = resolved
+		if f.resolved != state.ResolvedNone {
 			f.outResolved = f.outResolvedOn
 		}
 	}
@@ -262,7 +263,8 @@ func (f *filter) unitChanged() error {
 
 // serviceChanged responds to changes in the service.
 func (f *filter) serviceChanged() error {
-	f.gotCharmURL, f.gotForce = f.service.CharmURL()
+	url, force := f.service.CharmURL()
+	f.upgradeAvailable = serviceCharm{url, force}
 	switch f.service.Life() {
 	case state.Dying:
 		if err := f.unit.EnsureDying(); err != nil {
@@ -283,25 +285,26 @@ func (f *filter) upgradeChanged() (err error) {
 		f.outUpgrade = nil
 		return nil
 	}
-	if *f.gotCharmURL != *f.upgradeReq.url {
-		if f.gotForce || !f.upgradeReq.mustForce {
+	if *f.upgradeAvailable.url != *f.upgradeRequested.url {
+		if f.upgradeAvailable.force || !f.upgradeRequested.force {
 			log.Debugf("filter: preparing new upgrade event")
-			f.upgrade, err = f.st.Charm(f.gotCharmURL)
-			if err != nil {
-				return err
+			if f.upgrade == nil || *f.upgrade.URL() != *f.upgradeAvailable.url {
+				if f.upgrade, err = f.st.Charm(f.upgradeAvailable.url); err != nil {
+					return err
+				}
 			}
 			f.outUpgrade = f.outUpgradeOn
+			return nil
 		}
 	}
 	log.Debugf("filter: no new charm event")
 	return nil
 }
 
-// upgradeReq holds a current charm URL, and whether changes to that charm
-// must be forced to be considered upgrades.
-type upgradeReq struct {
-	url       *charm.URL
-	mustForce bool
+// serviceCharm holds information about a charm.
+type serviceCharm struct {
+	url   *charm.URL
+	force bool
 }
 
 // nothing is marginally more pleasant to read than "struct{}{}".
