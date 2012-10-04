@@ -42,11 +42,30 @@ func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	charm, _, err := c.Service.Charm()
+	if err != nil {
+		return err
+	}
+	// TODO Remove this once state is fixed to report default values.
+	cfg, err := charm.Config().Validate(nil)
+	if err != nil {
+		return err
+	}
+	cfg = merge(conf.Map(), cfg)
 	var value interface{}
 	if c.Key == "" {
-		value = conf.Map()
+		value = cfg
 	} else {
-		value, _ = conf.Get(c.Key)
+		value, _ = cfg[c.Key]
 	}
 	return c.out.Write(ctx, value)
+}
+
+func merge(a, b map[string]interface{}) map[string]interface{} {
+	for k, v := range b {
+		if _, ok := a[k]; !ok {
+			a[k] = v
+		}
+	}
+	return a
 }
