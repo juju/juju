@@ -248,7 +248,7 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 		"authorized-keys": "my-keys",
 		"firewall-mode":   string(config.FwDefault),
 		"default-series":  version.Current.Series,
-		"admin-secret": "foo",
+		"admin-secret":    "foo",
 		"unknown":         "my-unknown",
 	}
 	cfg, err := config.New(attrs)

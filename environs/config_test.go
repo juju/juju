@@ -3,11 +3,11 @@ package environs_test
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/version"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/environs/config"
 	_ "launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/version"
 	"os"
 	"path/filepath"
 )
@@ -177,9 +177,9 @@ environments:
 
 func (suite) TestConfigRoundTrip(c *C) {
 	cfg, err := config.New(map[string]interface{}{
-		"name":         "bladaam",
-		"type":         "dummy",
-		"state-server": false,
+		"name":            "bladaam",
+		"type":            "dummy",
+		"state-server":    false,
 		"authorized-keys": "i-am-a-key",
 	})
 	c.Assert(err, IsNil)
@@ -194,11 +194,11 @@ func (suite) TestConfigRoundTrip(c *C) {
 
 func (suite) TestBootstrapConfig(c *C) {
 	cfg, err := config.New(map[string]interface{}{
-		"name":         "bladaam",
-		"type":         "dummy",
-		"state-server": false,
-		"admin-secret": "highly",
-		"secret": "um",
+		"name":            "bladaam",
+		"type":            "dummy",
+		"state-server":    false,
+		"admin-secret":    "highly",
+		"secret":          "um",
 		"authorized-keys": "i-am-a-key",
 	})
 	c.Assert(err, IsNil)
@@ -206,7 +206,7 @@ func (suite) TestBootstrapConfig(c *C) {
 	c.Assert(err, IsNil)
 
 	tools := &state.Tools{
-		URL: "http://x",
+		URL:    "http://x",
 		Binary: version.MustParseBinary("1.2.3-foo-bar"),
 	}
 	cfg1, err := environs.BootstrapConfig(provider, cfg, tools)
