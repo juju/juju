@@ -12,7 +12,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker"
@@ -744,11 +743,9 @@ type stopUniter struct {
 }
 
 func (s stopUniter) step(c *C, ctx *context) {
-	log.Printf("TEST stopping...")
 	u := ctx.uniter
 	ctx.uniter = nil
 	err := u.Stop()
-	log.Printf("TEST stopped")
 	if s.err == "" {
 		c.Assert(err, IsNil)
 	} else {

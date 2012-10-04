@@ -95,7 +95,7 @@ func (f *filter) loop(unitName string) (err error) {
 	var outCharm chan<- *state.Charm
 	updateCharm := func() (err error) {
 		if life != state.Alive {
-			log.Debugf("charm check skipped, unit is dying")
+			log.Debugf("filter: charm check skipped, unit is dying")
 			outCharm = nil
 			return nil
 		}
@@ -109,7 +109,7 @@ func (f *filter) loop(unitName string) (err error) {
 				outCharm = f.outCharm
 			}
 		}
-		log.Debugf("no new charm event")
+		log.Debugf("filter: no new charm event")
 		return nil
 	}
 	serviceChanged := func() error {
@@ -149,11 +149,9 @@ func (f *filter) loop(unitName string) (err error) {
 	}
 
 	for {
-		log.Printf("TICK")
 		var ok bool
 		select {
 		case <-f.tomb.Dying():
-			log.Printf("DYING")
 			return tomb.ErrDying
 
 		// Handle watcher changes.
