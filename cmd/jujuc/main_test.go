@@ -7,7 +7,7 @@ import (
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/cmd/jujuc/server"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -84,7 +84,7 @@ func run(c *C, sockPath string, contextId string, exit int, cmd ...string) strin
 
 type MainSuite struct {
 	sockPath string
-	server   *server.Server
+	server   *jujuc.Server
 }
 
 var _ = Suite(&MainSuite{})
@@ -100,7 +100,7 @@ func (s *MainSuite) SetUpSuite(c *C) {
 		return &RemoteCommand{}, nil
 	}
 	s.sockPath = filepath.Join(c.MkDir(), "test.sock")
-	srv, err := server.NewServer(factory, s.sockPath)
+	srv, err := jujuc.NewServer(factory, s.sockPath)
 	c.Assert(err, IsNil)
 	s.server = srv
 	go func() {

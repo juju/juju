@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/cmd/jujuc/server"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -12,6 +11,7 @@ import (
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"launchpad.net/tomb"
 	"math/rand"
 	"path/filepath"
@@ -194,7 +194,7 @@ func (u *Uniter) runHook(hi hook.Info) error {
 		// TODO: update relation context; get hook name.
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
-	hctx := server.HookContext{
+	hctx := jujuc.HookContext{
 		Service:    u.service,
 		Unit:       u.unit,
 		Id:         hctxId,
@@ -211,7 +211,7 @@ func (u *Uniter) runHook(hi hook.Info) error {
 		return hctx.NewCommand(cmdName)
 	}
 	socketPath := filepath.Join(u.baseDir, "agent.socket")
-	srv, err := server.NewServer(getCmd, socketPath)
+	srv, err := jujuc.NewServer(getCmd, socketPath)
 	if err != nil {
 		return err
 	}

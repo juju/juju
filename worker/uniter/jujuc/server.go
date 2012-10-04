@@ -1,7 +1,7 @@
-// The cmd/jujuc/server package allows a process to expose an RPC interface that
-// allows client processes to delegate execution of cmd.Commands to a server
-// process (with the exposed commands amenable to specialisation by context id).
-package server
+// The worker/uniter/jujuc package implements the server side of the jujuc proxy
+// tool, which forwards command invocations to the unit agent process so that
+// they can be executed against specific state.
+package jujuc
 
 import (
 	"bytes"

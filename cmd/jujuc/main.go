@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/cmd/jujuc/server"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"net/rpc"
 	"os"
 	"path/filepath"
@@ -55,7 +55,7 @@ func Main(args []string) (code int, err error) {
 	if err != nil {
 		return
 	}
-	req := server.Request{
+	req := jujuc.Request{
 		ContextId:   contextId,
 		Dir:         dir,
 		CommandName: commandName,
@@ -70,7 +70,7 @@ func Main(args []string) (code int, err error) {
 		return
 	}
 	defer client.Close()
-	var resp server.Response
+	var resp jujuc.Response
 	err = client.Call("Jujuc.Main", req, &resp)
 	if err != nil {
 		return
