@@ -240,6 +240,7 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 		"default-series":  "precise",
 		"development":     true,
 		"firewall-mode":   "default",
+		"admin-secret":    "",
 	}
 	env, err := config.New(initial)
 	c.Assert(err, IsNil)
@@ -259,6 +260,12 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 	c.Assert(err, IsNil)
 	final := env.AllAttrs()
 	c.Assert(final, DeepEquals, current)
+
+	initial["admin-secret"] = "foo"
+	env, err = config.New(initial)
+	c.Assert(err, IsNil)
+	err = s.State.SetEnvironConfig(env)
+	c.Assert(err, ErrorMatches, "admin-secret should never be written to the state")
 }
 
 var machinesWatchTests = []struct {

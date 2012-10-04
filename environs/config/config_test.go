@@ -90,6 +90,7 @@ var configTests = []struct {
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
 			"development":     false,
+			"admin-secret":    "pork",
 		},
 		"",
 	}, {
@@ -210,6 +211,14 @@ func (*ConfigSuite) TestConfig(c *C) {
 			c.Assert(cfg.DefaultSeries(), Equals, version.Current.Series)
 		}
 
+		if m, _ := test.attrs["firewall-mode"].(string); m != "" {
+			c.Assert(cfg.FirewallMode(), Equals, config.FirewallMode(m))
+		}
+
+		if secret, _ := test.attrs["admin-secret"].(string); secret != "" {
+			c.Assert(cfg.AdminSecret(), Equals, secret)
+		}
+
 		if path, _ := test.attrs["authorized-keys-path"].(string); path != "" {
 			for _, kf := range kfiles {
 				if kf.name == filepath.Base(path) {
@@ -240,6 +249,7 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 		"firewall-mode":   string(config.FwDefault),
 		"default-series":  version.Current.Series,
 		"unknown":         "my-unknown",
+		"admin-secret":    "foo",
 	}
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
