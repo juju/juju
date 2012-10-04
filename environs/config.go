@@ -154,6 +154,8 @@ func BootstrapConfig(p EnvironProvider, cfg *config.Config, tools *state.Tools) 
 	for k, _ := range secrets {
 		delete(m, k)
 	}
+	// We never want to push admin-secret to the cloud.
+	delete(m, "admin-secret")
 	m["agent-version"] = tools.Number.String()
 	return config.New(m)
 }

@@ -1,13 +1,13 @@
-package server_test
+package jujuc_test
 
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/cmd/jujuc/server"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
 type RelationIdsSuite struct {
@@ -15,7 +15,7 @@ type RelationIdsSuite struct {
 	ch      *state.Charm
 	service *state.Service
 	unit    *state.Unit
-	relctxs map[int]*server.RelationContext
+	relctxs map[int]*jujuc.RelationContext
 }
 
 var _ = Suite(&RelationIdsSuite{})
@@ -28,7 +28,7 @@ func (s *RelationIdsSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	s.unit, err = s.service.AddUnit()
 	c.Assert(err, IsNil)
-	s.relctxs = map[int]*server.RelationContext{}
+	s.relctxs = map[int]*jujuc.RelationContext{}
 	s.AddRelatedServices(c, "x", 3)
 	s.AddRelatedServices(c, "y", 1)
 }
@@ -47,16 +47,16 @@ func (s *RelationIdsSuite) AddRelatedServices(c *C, relname string, count int) {
 		c.Assert(err, IsNil)
 		ru, err := rel.Unit(s.unit)
 		c.Assert(err, IsNil)
-		s.relctxs[rel.Id()] = server.NewRelationContext(ru, nil)
+		s.relctxs[rel.Id()] = jujuc.NewRelationContext(ru, nil)
 	}
 }
 
-func (s *RelationIdsSuite) GetHookContext(c *C, relid int) *server.HookContext {
+func (s *RelationIdsSuite) GetHookContext(c *C, relid int) *jujuc.HookContext {
 	if relid != -1 {
 		_, found := s.relctxs[relid]
 		c.Assert(found, Equals, true)
 	}
-	return &server.HookContext{
+	return &jujuc.HookContext{
 		Service:        s.service,
 		Unit:           s.unit,
 		Id:             "TestCtx",

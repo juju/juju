@@ -1,4 +1,4 @@
-package server_test
+package jujuc_test
 
 import (
 	"errors"
@@ -7,7 +7,7 @@ import (
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/cmd/jujuc/server"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"net/rpc"
 	"os"
 	"path/filepath"
@@ -57,7 +57,7 @@ func factory(contextId, cmdName string) (cmd.Command, error) {
 }
 
 type ServerSuite struct {
-	server   *server.Server
+	server   *jujuc.Server
 	sockPath string
 	err      chan error
 }
@@ -66,7 +66,7 @@ var _ = Suite(&ServerSuite{})
 
 func (s *ServerSuite) SetUpTest(c *C) {
 	s.sockPath = filepath.Join(c.MkDir(), "test.sock")
-	srv, err := server.NewServer(factory, s.sockPath)
+	srv, err := jujuc.NewServer(factory, s.sockPath)
 	c.Assert(err, IsNil)
 	c.Assert(srv, NotNil)
 	s.server = srv
@@ -81,7 +81,7 @@ func (s *ServerSuite) TearDownTest(c *C) {
 	c.Assert(os.IsNotExist(err), Equals, true)
 }
 
-func (s *ServerSuite) Call(c *C, req server.Request) (resp server.Response, err error) {
+func (s *ServerSuite) Call(c *C, req jujuc.Request) (resp jujuc.Response, err error) {
 	client, err := rpc.Dial("unix", s.sockPath)
 	c.Assert(err, IsNil)
 	defer client.Close()
@@ -91,7 +91,7 @@ func (s *ServerSuite) Call(c *C, req server.Request) (resp server.Response, err 
 
 func (s *ServerSuite) TestHappyPath(c *C) {
 	dir := c.MkDir()
-	resp, err := s.Call(c, server.Request{
+	resp, err := s.Call(c, jujuc.Request{
 		"validCtx", dir, "remote", []string{"--value", "something"},
 	})
 	c.Assert(err, IsNil)
@@ -110,7 +110,7 @@ func (s *ServerSuite) TestLocks(c *C) {
 		wg.Add(1)
 		go func() {
 			dir := c.MkDir()
-			resp, err := s.Call(c, server.Request{
+			resp, err := s.Call(c, jujuc.Request{
 				"validCtx", dir, "remote", []string{"--slow"},
 			})
 			c.Assert(err, IsNil)
@@ -125,14 +125,14 @@ func (s *ServerSuite) TestLocks(c *C) {
 
 func (s *ServerSuite) TestBadCommandName(c *C) {
 	dir := c.MkDir()
-	_, err := s.Call(c, server.Request{"validCtx", dir, "", nil})
+	_, err := s.Call(c, jujuc.Request{"validCtx", dir, "", nil})
 	c.Assert(err, ErrorMatches, "bad request: command not specified")
-	_, err = s.Call(c, server.Request{"validCtx", dir, "witchcraft", nil})
+	_, err = s.Call(c, jujuc.Request{"validCtx", dir, "witchcraft", nil})
 	c.Assert(err, ErrorMatches, `bad request: unknown command "witchcraft"`)
 }
 
 func (s *ServerSuite) TestBadDir(c *C) {
-	for _, req := range []server.Request{
+	for _, req := range []jujuc.Request{
 		{"validCtx", "", "anything", nil},
 		{"validCtx", "foo/bar", "anything", nil},
 	} {
@@ -142,12 +142,12 @@ func (s *ServerSuite) TestBadDir(c *C) {
 }
 
 func (s *ServerSuite) TestBadContextId(c *C) {
-	_, err := s.Call(c, server.Request{"whatever", c.MkDir(), "remote", nil})
+	_, err := s.Call(c, jujuc.Request{"whatever", c.MkDir(), "remote", nil})
 	c.Assert(err, ErrorMatches, `bad request: unknown context "whatever"`)
 }
 
-func (s *ServerSuite) AssertBadCommand(c *C, args []string, code int) server.Response {
-	resp, err := s.Call(c, server.Request{"validCtx", c.MkDir(), args[0], args[1:]})
+func (s *ServerSuite) AssertBadCommand(c *C, args []string, code int) jujuc.Response {
+	resp, err := s.Call(c, jujuc.Request{"validCtx", c.MkDir(), args[0], args[1:]})
 	c.Assert(err, IsNil)
 	c.Assert(resp.Code, Equals, code)
 	return resp

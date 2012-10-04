@@ -1,7 +1,4 @@
-// The cmd/jujuc/server package implements the server side of the jujuc proxy
-// tool, which forwards command invocations to the unit agent process so that
-// they can be executed against specific state.
-package server
+package jujuc
 
 import (
 	"bufio"

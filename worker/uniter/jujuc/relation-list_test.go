@@ -1,10 +1,10 @@
-package server_test
+package jujuc_test
 
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/cmd/jujuc/server"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
 type RelationListSuite struct {
@@ -158,11 +158,11 @@ options:
 	}
 }
 
-func setMembers(rctx *server.RelationContext, members []string) {
+func setMembers(rctx *jujuc.RelationContext, members []string) {
 	for _, u := range rctx.Units() {
 		rctx.DeleteMember(u)
 	}
-	m := server.SettingsMap{}
+	m := jujuc.SettingsMap{}
 	for _, name := range members {
 		m[name] = nil
 	}

@@ -1,4 +1,4 @@
-package server
+package jujuc
 
 import (
 	"launchpad.net/gnuflag"
