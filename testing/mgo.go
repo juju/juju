@@ -33,6 +33,7 @@ func StartMgoServer() (server *exec.Cmd, dbdir string, err error) {
 	}
 	mgoport := strconv.Itoa(FindTCPPort())
 	mgoargs := []string{
+		"--auth",
 		"--dbpath", dbdir,
 		"--bind_ip", "localhost",
 		"--port", mgoport,
@@ -97,7 +98,7 @@ func MgoReset() {
 	defer session.Close()
 	dbnames, err := session.DatabaseNames()
 	if err != nil {
-		panic("Cannot get MongoDB database names")
+		panic(err)
 	}
 	for _, name := range dbnames {
 		switch name {
