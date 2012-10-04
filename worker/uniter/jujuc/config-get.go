@@ -46,6 +46,7 @@ func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	// TODO Remove this once state is fixed to report default values.
 	cfg, err := charm.Config().Validate(nil)
 	if err != nil {
 		return err
