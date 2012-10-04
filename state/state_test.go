@@ -647,7 +647,7 @@ func (s *StateSuite) TestInitialize(c *C) {
 		"default-series":  "precise",
 		"development":     true,
 		"firewall-mode":   "default",
-		"admin-secret": "",
+		"admin-secret":    "",
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
@@ -667,7 +667,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"default-series":  "precise",
 		"development":     true,
 		"firewall-mode":   "default",
-		"admin-secret": "",
+		"admin-secret":    "",
 	}
 	cfg, err := config.New(m)
 	c.Assert(err, IsNil)
@@ -686,7 +686,7 @@ func (s *StateSuite) TestDoubleInitialize(c *C) {
 		"default-series":  "xanadu",
 		"development":     false,
 		"firewall-mode":   "default",
-		"admin-secret": "",
+		"admin-secret":    "",
 	}
 	cfg, err = config.New(m)
 	c.Assert(err, IsNil)
