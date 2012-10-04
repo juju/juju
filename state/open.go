@@ -25,39 +25,52 @@ type Info struct {
 	// UseSSH specifies whether MongoDB should be contacted through an
 	// SSH tunnel.
 	UseSSH bool
+
+	// EntityName holds the name of the entity that is connecting.
+	// It should be empty when connecting as an administrator.
+	EntityName string
+
+	// Password holds the password for the administrator or connecting entity.
+	Password string
 }
 
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
 // representing the environment connected to.
+// It returns ErrUnauthorized if access is unauthorized.
 func Open(info *Info) (*State, error) {
 	log.Printf("state: opening state; mongo addresses: %q", info.Addrs)
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no mongo addresses")
 	}
-	if !info.UseSSH {
-		session, err := mgo.DialWithTimeout(strings.Join(info.Addrs, ","), 10*time.Minute)
-		if err != nil {
-			return nil, err
+	var (
+		session *mgo.Session
+		fwd     *sshForwarder
+		err     error
+	)
+	if info.UseSSH {
+		// TODO implement authorization on SSL connection; drop sshDial.
+		if len(info.Addrs) > 1 {
+			return nil, errors.New("ssh connect does not support multiple addresses")
 		}
-		return newState(session, nil)
+		fwd, session, err = sshDial(info.Addrs[0], "")
+	} else {
+		session, err = mgo.DialWithTimeout(strings.Join(info.Addrs, ","), 10*time.Minute)
 	}
-	if len(info.Addrs) > 1 {
-		return nil, errors.New("ssh connect does not support multiple addresses")
-	}
-	fwd, session, err := sshDial(info.Addrs[0], "")
 	if err != nil {
 		return nil, err
 	}
-	st, err := newState(session, fwd)
+	st, err := newState(session, fwd, info.EntityName, info.Password)
 	if err != nil {
+		session.Close()
 		return nil, err
 	}
-	return st, err
+	return st, nil
 }
 
 // Initialize sets up an initial empty state and returns it. 
 // This needs to be performed only once for a given environment.
+// It returns ErrUnauthorized if access is unauthorized.
 func Initialize(info *Info, cfg *config.Config) (*State, error) {
 	st, err := Open(info)
 	if err != nil {
@@ -101,9 +114,39 @@ var (
 	logSizeTests = 1000000
 )
 
-func newState(session *mgo.Session, fwd *sshForwarder) (*State, error) {
+var ErrUnauthorized = errors.New("unauthorized access")
+
+func maybeUnauthorized(err error, msg string) error {
+	if err == nil {
+		return nil
+	}
+	// Unauthorized access errors have no error code,
+	// just a simple error string.
+	if err.Error() == "auth fails" {
+		return ErrUnauthorized
+	}
+	if err, ok := err.(*mgo.QueryError); ok && err.Code == 10057 {
+		return ErrUnauthorized
+	}
+	return fmt.Errorf("%s: %v", msg, err)
+}
+
+func newState(session *mgo.Session, fwd *sshForwarder, entity, password string) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
+	if entity != "" {
+		if err := db.Login(entity, password); err != nil {
+			return nil, maybeUnauthorized(err, "cannot log in to juju database")
+		}
+		if err := pdb.Login(entity, password); err != nil {
+			return nil, maybeUnauthorized(err, "cannot log in to presence database")
+		}
+	} else if password != "" {
+		admin := session.DB("admin")
+		if err := admin.Login("admin", password); err != nil {
+			return nil, maybeUnauthorized(err, "cannot log in to admin database")
+		}
+	}
 	st := &State{
 		db:             db,
 		charms:         db.C("charms"),
@@ -120,8 +163,9 @@ func newState(session *mgo.Session, fwd *sshForwarder) (*State, error) {
 	info := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
 	// The lack of error code for this error was reported upstream:
 	//     https://jira.mongodb.org/browse/SERVER-6992
-	if err := log.Create(&info); err != nil && err.Error() != "collection already exists" {
-		return nil, fmt.Errorf("cannot create log collection: %v", err)
+	err := log.Create(&info)
+	if err != nil && err.Error() != "collection already exists" {
+		return nil, maybeUnauthorized(err, "cannot create log collection")
 	}
 	st.runner = txn.NewRunner(db.C("txns"))
 	st.runner.ChangeLog(db.C("txns.log"))

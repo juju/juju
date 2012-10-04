@@ -25,7 +25,8 @@ func (s *ConfigGetSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-var configGetYamlMap = "(spline-reticulation: 45\nmonsters: false\n|monsters: false\nspline-reticulation: 45\n)"
+var configGetYamlMap = "monsters: false\nspline-reticulation: 45\ntitle: My Title\nusername: admin001\n"
+
 var configGetTests = []struct {
 	args []string
 	out  string
@@ -41,7 +42,7 @@ var configGetTests = []struct {
 	{[]string{"--format", "json", "missing"}, "null\n"},
 	{nil, configGetYamlMap},
 	{[]string{"--format", "yaml"}, configGetYamlMap},
-	{[]string{"--format", "json"}, `{"monsters":false,"spline-reticulation":45}` + "\n"},
+	{[]string{"--format", "json"}, `{"monsters":false,"spline-reticulation":45,"title":"My Title","username":"admin001"}` + "\n"},
 }
 
 func (s *ConfigGetSuite) TestOutputFormat(c *C) {

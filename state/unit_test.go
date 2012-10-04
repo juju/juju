@@ -29,6 +29,12 @@ func (s *UnitSuite) TestUnitNotFound(c *C) {
 	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
+func (s *UnitSuite) TestService(c *C) {
+	svc, err := s.unit.Service()
+	c.Assert(err, IsNil)
+	c.Assert(svc.Name(), Equals, s.unit.ServiceName())
+}
+
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
 	address, err := s.unit.PublicAddress()
 	c.Assert(err, ErrorMatches, `public address of unit "wordpress/0" not found`)
@@ -145,6 +151,12 @@ func (s *UnitSuite) TestUnitCharm(c *C) {
 
 func (s *UnitSuite) TestEntityName(c *C) {
 	c.Assert(s.unit.EntityName(), Equals, "unit-wordpress-0")
+}
+
+func (s *UnitSuite) TestSetPassword(c *C) {
+	testSetPassword(c, func(st *state.State) (entity, error) {
+		return st.Unit(s.unit.Name())
+	})
 }
 
 func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
