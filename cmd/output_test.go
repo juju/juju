@@ -92,7 +92,6 @@ func (s *CmdSuite) TestOutputFormat(c *C) {
 	for format, tests := range outputTests {
 		c.Logf("format %s", format)
 		var args []string
-		// --format nnn
 		if format != "" {
 			args = []string{"--format", format}
 		}
@@ -104,19 +103,6 @@ func (s *CmdSuite) TestOutputFormat(c *C) {
 			c.Assert(bufferString(ctx.Stdout), Equals, t.output)
 			c.Assert(bufferString(ctx.Stderr), Equals, "")
 		}
-		// --format=nnn
-		if format != "" {
-			args = []string{"--format=" + format}
-		}
-		for i, t := range tests {
-			c.Logf("  test %d", i)
-			ctx := dummyContext(c)
-			result := cmd.Main(&OutputCommand{value: t.value}, ctx, args)
-			c.Assert(result, Equals, 0)
-			c.Assert(bufferString(ctx.Stdout), Equals, t.output)
-			c.Assert(bufferString(ctx.Stderr), Equals, "")
-		}
-
 	}
 
 	ctx := dummyContext(c)
@@ -124,4 +110,14 @@ func (s *CmdSuite) TestOutputFormat(c *C) {
 	c.Assert(result, Equals, 2)
 	c.Assert(bufferString(ctx.Stdout), Equals, "")
 	c.Assert(bufferString(ctx.Stderr), Matches, ".*: unknown format \"cuneiform\"\n")
+}
+
+// Py juju allowed both --format json and --format=json. This test verifies that juju is 
+// being built against a version of the gnuflag library (rev 14 or above) that supports 
+// this argument format.
+func (s *CmdSuite) TestFormatAlternativeSyntax(c *C) {
+	ctx := dummyContext(c)
+	result := cmd.Main(&OutputCommand{}, ctx, []string{"--format=json"})
+	c.Assert(result, Equals, 0)
+	c.Assert(bufferString(ctx.Stdout), Equals, "null\n")
 }
