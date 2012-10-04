@@ -43,20 +43,17 @@ func (c *SetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 // Run updates the configuration of a service
 func (c *SetCommand) Run(ctx *cmd.Context) error {
+	var unvalidated = make(map[string]string)
+	var remove []string
 	contents, err := c.Config.Read(ctx)
-	if err != nil && err != cmd.PathNotSetError {
+	if err != nil && err != cmd.ErrNoPath {
 		return err
 	}
-	var (
-		unvalidated = make(map[string]string)
-		remove      []string
-	)
 	if len(contents) > 0 {
 		if err := goyaml.Unmarshal(contents, &unvalidated); err != nil {
 			return err
 		}
-	}
-	if len(unvalidated) == 0 {
+	} else {
 		unvalidated, remove, err = parse(c.Options)
 		if err != nil {
 			return err
@@ -110,27 +107,20 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 // parse parses the option k=v strings into a map of options to be 
 // updated in the config. Keys with empty values are returned separately
 // and should be removed.
-func parse(options []string) (map[string]string, []string, error) {
-	var (
-		m = make(map[string]string)
-		d []string
-	)
+func parse(options []string) (kv map[string]string, del []string, err error) {
+	kv = make(map[string]string)
 	for _, o := range options {
 		s := strings.Split(o, "=")
-		if len(s) != 2 {
+		if len(s) != 2 || s[0] == "" {
 			return nil, nil, fmt.Errorf("invalid option: %q", o)
 		}
-		if s[0] == "" {
-			return nil, nil, errors.New("missing option name")
-		}
-
 		if len(s[1]) > 0 {
-			m[s[0]] = s[1]
+			kv[s[0]] = s[1]
 		} else {
-			d = append(d, s[0])
+			del = append(del, s[0])
 		}
 	}
-	return m, d, nil
+	return
 }
 
 // strip removes from options any keys whos values match the charm defaults.

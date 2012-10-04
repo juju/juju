@@ -99,7 +99,7 @@ var setTests = []struct {
 		// whack option
 		[]string{"=bar"},
 		nil,
-		"error: missing option name\n",
+		"error: invalid option: \"=bar\"\n",
 	}, {
 		// set outlook
 		[]string{"outlook=positive"},
