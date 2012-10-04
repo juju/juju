@@ -126,6 +126,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 			" --instance-id "+cfg.InstanceIdAccessor+
 			" --env-config "+shquote(base64yaml(cfg.Config))+
 			" --state-servers localhost"+mgoPortSuffix+
+			" --initial-password "+shquote(cfg.StateInfo.Password)+
 			debugFlag,
 		)
 
@@ -157,6 +158,7 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args st
 			" --state-servers '%s'"+
 			" --log-file /var/log/juju/%s-agent.log"+
 			" --data-dir '%s'"+
+			" --initial-password "+shquote(cfg.Password)+
 			" %s",
 		toolsDir, kind,
 		cfg.zookeeperHostAddrs(),
