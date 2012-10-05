@@ -29,6 +29,7 @@ func (PasswordSuite) TestPasswordHash(c *C) {
 		c.Logf("test %d", i)
 		h := trivial.PasswordHash(t)
 		c.Logf("hash %q", h)
+		c.Assert(len(h), Equals, 24)
 		c.Assert(hs[h], Equals, false)
 		hs[h] = true
 		// check it's deterministic
