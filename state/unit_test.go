@@ -153,6 +153,12 @@ func (s *UnitSuite) TestEntityName(c *C) {
 	c.Assert(s.unit.EntityName(), Equals, "unit-wordpress-0")
 }
 
+func (s *UnitSuite) TestSetPassword(c *C) {
+	testSetPassword(c, func(st *state.State) (entity, error) {
+		return st.Unit(s.unit.Name())
+	})
+}
+
 func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
 	alive, err := s.unit.AgentAlive()
 	c.Assert(err, IsNil)
@@ -295,13 +301,23 @@ func (s *UnitSuite) TestOpenClosePortWhenDying(c *C) {
 	})
 }
 
-func (s *UnitSuite) TestSetClearResolvedWhenDying(c *C) {
-	testWhenDying(c, s.unit, notAliveErr, notAliveErr, func() error {
-		err := s.unit.SetResolved(state.ResolvedNoHooks)
-		cerr := s.unit.ClearResolved()
-		c.Assert(cerr, IsNil)
-		return err
-	})
+func (s *UnitSuite) TestSetClearResolvedWhenNotAlive(c *C) {
+	err := s.unit.EnsureDying()
+	c.Assert(err, IsNil)
+	err = s.unit.SetResolved(state.ResolvedNoHooks)
+	c.Assert(err, IsNil)
+	err = s.unit.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(s.unit.Resolved(), Equals, state.ResolvedNoHooks)
+	err = s.unit.ClearResolved()
+	c.Assert(err, IsNil)
+
+	err = s.unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.unit.SetResolved(state.ResolvedRetryHooks)
+	c.Assert(err, ErrorMatches, notAliveErr)
+	err = s.unit.ClearResolved()
+	c.Assert(err, IsNil)
 }
 
 func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *C) {

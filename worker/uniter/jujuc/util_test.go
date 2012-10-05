@@ -1,4 +1,4 @@
-package server_test
+package jujuc_test
 
 import (
 	"bytes"
@@ -6,10 +6,10 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/cmd/jujuc/server"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"strings"
 	stdtesting "testing"
 )
@@ -32,7 +32,7 @@ type HookContextSuite struct {
 	service  *state.Service
 	unit     *state.Unit
 	relunits map[int]*state.RelationUnit
-	relctxs  map[int]*server.RelationContext
+	relctxs  map[int]*jujuc.RelationContext
 }
 
 func (s *HookContextSuite) SetUpTest(c *C) {
@@ -43,7 +43,7 @@ func (s *HookContextSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	s.unit = s.AddUnit(c)
 	s.relunits = map[int]*state.RelationUnit{}
-	s.relctxs = map[int]*server.RelationContext{}
+	s.relctxs = map[int]*jujuc.RelationContext{}
 	s.AddRelationContext(c, "peer0")
 	s.AddRelationContext(c, "peer1")
 }
@@ -68,15 +68,15 @@ func (s *HookContextSuite) AddRelationContext(c *C, name string) {
 	s.relunits[rel.Id()] = ru
 	err = ru.EnterScope()
 	c.Assert(err, IsNil)
-	s.relctxs[rel.Id()] = server.NewRelationContext(ru, nil)
+	s.relctxs[rel.Id()] = jujuc.NewRelationContext(ru, nil)
 }
 
-func (s *HookContextSuite) GetHookContext(c *C, relid int, remote string) *server.HookContext {
+func (s *HookContextSuite) GetHookContext(c *C, relid int, remote string) *jujuc.HookContext {
 	if relid != -1 {
 		_, found := s.relctxs[relid]
 		c.Assert(found, Equals, true)
 	}
-	return &server.HookContext{
+	return &jujuc.HookContext{
 		Service:        s.service,
 		Unit:           s.unit,
 		Id:             "TestCtx",

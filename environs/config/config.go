@@ -107,6 +107,12 @@ func (c *Config) AuthorizedKeys() string {
 	return c.m["authorized-keys"].(string)
 }
 
+// AdminSecret returns the administrator password.
+// It's empty if the password has not been set.
+func (c *Config) AdminSecret() string {
+	return c.m["admin-secret"].(string)
+}
+
 // FirewallMode returns whether the firewall should
 // manage ports per machine or global.
 func (c *Config) FirewallMode() FirewallMode {
@@ -172,6 +178,7 @@ var fields = schema.Fields{
 	"firewall-mode":        schema.String(),
 	"agent-version":        schema.String(),
 	"development":          schema.Bool(),
+	"admin-secret":         schema.String(),
 }
 
 var defaults = schema.Defaults{
@@ -181,6 +188,7 @@ var defaults = schema.Defaults{
 	"firewall-mode":        FwDefault,
 	"agent-version":        schema.Omit,
 	"development":          false,
+	"admin-secret":         "",
 }
 
 var checker = schema.FieldMap(fields, defaults)
