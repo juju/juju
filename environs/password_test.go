@@ -23,28 +23,16 @@ func (PasswordSuite) TestRandomBytes(c *C) {
 }
 
 func (PasswordSuite) TestPasswordHash(c *C) {
-	tests := []struct {
-		salt, pass string
-	}{{
-		"", "",
-	}, {
-		"xxxxxxxx", "a",
-	}, {
-		"xxxxxxxy", "a",
-	}, {
-		"a", "a longer password than i would usually bother with",
-	}}
-
+	tests := []string{"", "a", "a longer password than i would usually bother with"}
 	hs := make(map[string]bool)
-
 	for i, t := range tests {
 		c.Logf("test %d", i)
-		h := environs.PasswordHash([]byte(t.salt), t.pass)
+		h := environs.PasswordHash(t)
 		c.Logf("hash %q", h)
 		c.Assert(hs[h], Equals, false)
 		hs[h] = true
 		// check it's deterministic
-		h1 := environs.PasswordHash([]byte(t.salt), t.pass)
+		h1 := environs.PasswordHash(t)
 		c.Assert(h1, Equals, h)
 	}
 }
