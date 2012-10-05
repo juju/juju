@@ -46,8 +46,8 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		StateInfo: &state.Info{
 			Password: "arble",
 		},
-		Config:             envConfig,
-		DataDir:            "/var/lib/juju",
+		Config:  envConfig,
+		DataDir: "/var/lib/juju",
 	},
 	{
 		MachineId:      99,
@@ -56,8 +56,8 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		DataDir:        "/var/lib/juju",
 		StateServer:    false,
 		Tools:          newSimpleTools("1.2.3-linux-amd64"),
-		StateInfo:      &state.Info{
-			Addrs: []string{"state-addr.example.com"},
+		StateInfo: &state.Info{
+			Addrs:    []string{"state-addr.example.com"},
 			Password: "arble",
 		},
 	},
@@ -93,17 +93,17 @@ func (t *cloudinitTest) check(c *C, cfg *cloudinit.MachineConfig) {
 	t.checkPackage(c, "git")
 
 	if t.cfg.StateServer {
-		t.checkScripts(c, "jujud bootstrap-state" +
-			".* --state-servers localhost:37017" +
-			".*--initial-password '" + t.cfg.StateInfo.Password + "'")
+		t.checkScripts(c, "jujud bootstrap-state"+
+			".* --state-servers localhost:37017"+
+			".*--initial-password '"+t.cfg.StateInfo.Password+"'")
 		t.checkScripts(c, "jujud machine"+
 			" --state-servers 'localhost:37017' "+
-			".*--initial-password '" + t.cfg.StateInfo.Password + "'"+
+			".*--initial-password '"+t.cfg.StateInfo.Password+"'"+
 			".* --machine-id [0-9]+")
 	} else {
 		t.checkScripts(c, "jujud machine"+
 			" --state-servers '"+strings.Join(t.cfg.StateInfo.Addrs, ",")+"'"+
-			".*--initial-password '" + t.cfg.StateInfo.Password + "'"+
+			".*--initial-password '"+t.cfg.StateInfo.Password+"'"+
 			" .*--machine-id [0-9]+")
 	}
 }
@@ -292,7 +292,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	c.Assert(err, IsNil)
 
 	for _, test := range verifyTests {
-		
+
 		cfg1 := *cfg
 		test.mutate(&cfg1)
 		t, err := cloudinit.New(&cfg1)
