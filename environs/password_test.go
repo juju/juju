@@ -13,12 +13,13 @@ func (PasswordSuite) TestRandomBytes(c *C) {
 	b, err := environs.RandomBytes(16)
 	c.Assert(err, IsNil)
 	c.Assert(b, HasLen, 16)
+	x0 := b[0]
 	for _, x := range b {
-		if x != 0 {
+		if x != x0 {
 			return
 		}
 	}
-	c.Errorf("all zero bytes in result of RandomBytes")
+	c.Errorf("all same bytes in result of RandomBytes")
 }
 
 func (PasswordSuite) TestPasswordHash(c *C) {
