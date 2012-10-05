@@ -552,7 +552,7 @@ func (s *State) SetAdminPassword(password string) error {
 		}
 	} else {
 		if err := admin.RemoveUser("admin"); err != nil && err != mgo.ErrNotFound {
-			return fmt.Errorf("cannot remove admin user; %v", err)
+			return fmt.Errorf("cannot remove admin user: %v", err)
 		}
 	}
 	return nil

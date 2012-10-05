@@ -1006,8 +1006,7 @@ func (s *StateSuite) TestSetAdminPassword(c *C) {
 	err = s.State.SetAdminPassword("")
 	c.Assert(err, IsNil)
 
-	// Check that removing the password is
-	// idempotent.
+	// Check that removing the password is idempotent.
 	err = s.State.SetAdminPassword("")
 	c.Assert(err, IsNil)
 
