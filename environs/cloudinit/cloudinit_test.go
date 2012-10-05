@@ -43,6 +43,9 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		AuthorizedKeys:     "sshkey1",
 		Tools:              newSimpleTools("1.2.3-linux-amd64"),
 		StateServer:        true,
+		StateInfo: &state.Info{
+			Password: "arble",
+		},
 		Config:             envConfig,
 		DataDir:            "/var/lib/juju",
 	},
@@ -53,7 +56,10 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		DataDir:        "/var/lib/juju",
 		StateServer:    false,
 		Tools:          newSimpleTools("1.2.3-linux-amd64"),
-		StateInfo:      &state.Info{Addrs: []string{"zk1"}},
+		StateInfo:      &state.Info{
+			Addrs: []string{"state-addr.example.com"},
+			Password: "arble",
+		},
 	},
 }
 
@@ -87,9 +93,18 @@ func (t *cloudinitTest) check(c *C, cfg *cloudinit.MachineConfig) {
 	t.checkPackage(c, "git")
 
 	if t.cfg.StateServer {
-		t.checkScripts(c, "jujud machine --state-servers 'localhost:37017' .* --machine-id [0-9]+")
+		t.checkScripts(c, "jujud bootstrap-state" +
+			".* --state-servers localhost:37017" +
+			".*--initial-password '" + t.cfg.StateInfo.Password + "'")
+		t.checkScripts(c, "jujud machine"+
+			" --state-servers 'localhost:37017' "+
+			".*--initial-password '" + t.cfg.StateInfo.Password + "'"+
+			".* --machine-id [0-9]+")
 	} else {
-		t.checkScripts(c, "jujud machine --state-servers '"+strings.Join(t.cfg.StateInfo.Addrs, ",")+"' .* --machine-id [0-9]+")
+		t.checkScripts(c, "jujud machine"+
+			" --state-servers '"+strings.Join(t.cfg.StateInfo.Addrs, ",")+"'"+
+			".*--initial-password '" + t.cfg.StateInfo.Password + "'"+
+			" .*--machine-id [0-9]+")
 	}
 }
 
@@ -219,33 +234,42 @@ var verifyTests = []struct {
 	err    string
 	mutate func(*cloudinit.MachineConfig)
 }{
-	{"negative machine id", func(cfg *cloudinit.MachineConfig) { cfg.MachineId = -1 }},
-	{"missing provider type", func(cfg *cloudinit.MachineConfig) { cfg.ProviderType = "" }},
+	{"negative machine id", func(cfg *cloudinit.MachineConfig) {
+		cfg.MachineId = -1
+	}},
+	{"missing provider type", func(cfg *cloudinit.MachineConfig) {
+		cfg.ProviderType = ""
+	}},
 	{"missing instance id accessor", func(cfg *cloudinit.MachineConfig) {
 		cfg.InstanceIdAccessor = ""
 	}},
 	{"missing environment configuration", func(cfg *cloudinit.MachineConfig) {
 		cfg.Config = nil
 	}},
-	{"missing zookeeper hosts", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateServer = false
+	{"missing state info", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateInfo = nil
 	}},
-	{"missing zookeeper hosts", func(cfg *cloudinit.MachineConfig) {
+	{"missing state hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
-		cfg.StateInfo = &state.Info{}
+		cfg.StateInfo.Addrs = nil
 	}},
 	{"missing var directory", func(cfg *cloudinit.MachineConfig) {
 		cfg.DataDir = ""
-		cfg.StateInfo = &state.Info{}
 	}},
 	{"missing tools", func(cfg *cloudinit.MachineConfig) {
 		cfg.Tools = nil
-		cfg.StateInfo = &state.Info{}
 	}},
 	{"missing tools URL", func(cfg *cloudinit.MachineConfig) {
 		cfg.Tools = &state.Tools{}
-		cfg.StateInfo = &state.Info{}
+	}},
+	{"password has disallowed characters", func(cfg *cloudinit.MachineConfig) {
+		cfg.StateInfo.Password = "'"
+	}},
+	{"password has disallowed characters", func(cfg *cloudinit.MachineConfig) {
+		cfg.StateInfo.Password = "\\"
+	}},
+	{"password has disallowed characters", func(cfg *cloudinit.MachineConfig) {
+		cfg.StateInfo.Password = "\n"
 	}},
 }
 
@@ -268,6 +292,7 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	c.Assert(err, IsNil)
 
 	for _, test := range verifyTests {
+		
 		cfg1 := *cfg
 		test.mutate(&cfg1)
 		t, err := cloudinit.New(&cfg1)

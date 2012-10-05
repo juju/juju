@@ -38,6 +38,7 @@ type MachineConfig struct {
 	// StateInfo holds the means for the new instance to communicate with the
 	// juju state. Unless the new machine is running a state server (StateServer is
 	// set), there must be at least one state server address supplied.
+	// The entity name will be ignored.
 	StateInfo *state.Info
 
 	// Tools is juju tools to be used on the new machine.
@@ -158,12 +159,13 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args st
 			" --state-servers '%s'"+
 			" --log-file /var/log/juju/%s-agent.log"+
 			" --data-dir '%s'"+
-			" --initial-password "+shquote(cfg.Password)+
+			" --initial-password '%s'"+
 			" %s",
 		toolsDir, kind,
 		cfg.zookeeperHostAddrs(),
 		name,
 		cfg.DataDir,
+		cfg.StateInfo.Password,
 		args,
 	)
 	conf := &upstart.Conf{
@@ -253,6 +255,9 @@ func verifyConfig(cfg *MachineConfig) error {
 	if cfg.Tools.URL == "" {
 		return requiresError("tools URL")
 	}
+	if cfg.StateInfo == nil {
+		return requiresError("state info")
+	}
 	if cfg.StateServer {
 		if cfg.InstanceIdAccessor == "" {
 			return requiresError("instance id accessor")
@@ -261,8 +266,13 @@ func verifyConfig(cfg *MachineConfig) error {
 			return requiresError("environment configuration")
 		}
 	} else {
-		if cfg.StateInfo == nil || len(cfg.StateInfo.Addrs) == 0 {
-			return requiresError("zookeeper hosts")
+		if len(cfg.StateInfo.Addrs) == 0 {
+			return requiresError("state hosts")
+		}
+	}
+	for _, r := range cfg.StateInfo.Password {
+		if r == '\'' || r == '\\' || r < 32 {
+			return fmt.Errorf("invalid machine configuration: password has disallowed characters")
 		}
 	}
 	return nil
