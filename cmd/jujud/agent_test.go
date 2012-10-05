@@ -167,29 +167,33 @@ func initCmd(c cmd.Command, args []string) error {
 // options are handled by a Command; it returns an instance of that
 // command pre-parsed with the always-required options and whatever others
 // are necessary to allow parsing to succeed (specified in args).
-func CheckAgentCommand(c *C, create acCreator, args []string) cmd.Command {
-	com, _ := create()
-	err := initCmd(com, args)
-	c.Assert(err, ErrorMatches, "--state-servers option must be set")
-
-	args = append(args, "--state-servers", "st1:37017,st2:37017")
+func CheckAgentCommand(c *C, create acCreator, args []string, which agentFlags) cmd.Command {
 	com, conf := create()
-	c.Assert(initCmd(com, args), IsNil)
-	c.Assert(conf.StateInfo.Addrs, DeepEquals, []string{"st1:37017", "st2:37017"})
-	c.Assert(conf.DataDir, Equals, "/var/lib/juju")
+	if which&flagStateInfo != 0 {
+		err := initCmd(com, args)
+		c.Assert(err, ErrorMatches, "--state-servers option must be set")
+		args = append(args, "--state-servers", "st1:37017,st2:37017")
+		c.Assert(initCmd(com, args), IsNil)
+		c.Assert(conf.StateInfo.Addrs, DeepEquals, []string{"st1:37017", "st2:37017"})
+	}
+	if which&flagDataDir != 0 {
+		c.Assert(conf.DataDir, Equals, "/var/lib/juju")
+		badArgs := append(args, "--data-dir", "")
+		com, conf = create()
+		err := initCmd(com, badArgs)
+		c.Assert(err, ErrorMatches, "--data-dir option must be set")
 
-	args = append(args, "--data-dir", "jd")
-	com, conf = create()
-	c.Assert(initCmd(com, args), IsNil)
-	c.Assert(conf.StateInfo.Addrs, DeepEquals, []string{"st1:37017", "st2:37017"})
-	c.Assert(conf.DataDir, Equals, "jd")
-
-	args = append(args, "--initial-password", "secret")
-	com, conf = create()
-	c.Assert(initCmd(com, args), IsNil)
-	c.Assert(conf.StateInfo.Addrs, DeepEquals, []string{"st1:37017", "st2:37017"})
-	c.Assert(conf.DataDir, Equals, "jd")
-	c.Assert(conf.InitialPassword, Equals, "secret")
+		args = append(args, "--data-dir", "jd")
+		com, conf = create()
+		c.Assert(initCmd(com, args), IsNil)
+		c.Assert(conf.DataDir, Equals, "jd")
+	}
+	if which&flagInitialPassword != 0 {
+		args = append(args, "--initial-password", "secret")
+		com, conf = create()
+		c.Assert(initCmd(com, args), IsNil)
+		c.Assert(conf.InitialPassword, Equals, "secret")
+	}
 	return com
 }
 

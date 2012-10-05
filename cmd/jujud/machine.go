@@ -31,7 +31,7 @@ func (a *MachineAgent) Info() *cmd.Info {
 
 // Init initializes the command for running.
 func (a *MachineAgent) Init(f *gnuflag.FlagSet, args []string) error {
-	a.Conf.addFlags(f)
+	a.Conf.addFlags(f, flagAll)
 	f.IntVar(&a.MachineId, "machine-id", -1, "id of the machine to run")
 	if err := f.Parse(true, args); err != nil {
 		return err

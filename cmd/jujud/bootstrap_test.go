@@ -28,7 +28,7 @@ func (s *BootstrapSuite) TestParse(c *C) {
 	a := CheckAgentCommand(c, create, []string{
 		"--env-config", b64yaml{"foo": 123}.encode(),
 		"--instance-id", "iWhatever",
-	})
+	}, flagInitialPassword|flagStateInfo)
 	cmd := a.(*BootstrapCommand)
 	c.Check(cmd.InstanceId, Equals, "iWhatever")
 }
