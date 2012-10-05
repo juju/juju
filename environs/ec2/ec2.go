@@ -233,9 +233,8 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	if err != nil {
 		return fmt.Errorf("unable to determine inital configuration: %v", err)
 	}
-	info := &state.Info{
-		Password: e.Config().AdminSecret(),
-	}
+	// TODO add initial password argument to Bootstrap.
+	info := &state.Info{}
 	inst, err := e.startInstance(0, info, tools, true, config)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
