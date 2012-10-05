@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 )
@@ -20,29 +21,28 @@ func initBootstrapCommand(args []string) (*BootstrapCommand, error) {
 }
 
 func (s *BootstrapSuite) TestParse(c *C) {
-	args := []string{}
-	_, err := initBootstrapCommand(args)
-	c.Assert(err, ErrorMatches, "--instance-id option must be set")
+	create := func() (cmd.Command, *AgentConf) {
+		a := &BootstrapCommand{}
+		return a, &a.Conf
+	}
+	a := CheckAgentCommand(c, create, []string{
+		"--env-config", b64yaml{"foo": 123}.encode(),
+		"--instance-id", "iWhatever",
+	})
+	cmd := a.(*BootstrapCommand)
+	c.Check(cmd.InstanceId, Equals, "iWhatever")
+}
 
-	args = append(args, "--instance-id", "iWhatever")
-	_, err = initBootstrapCommand(args)
+func (s *BootstrapSuite) TestParseNoInstanceId(c *C) {
+	ecfg := b64yaml{"foo": 123}.encode()
+	_, err := initBootstrapCommand([]string{"--env-config", ecfg})
+	c.Assert(err, ErrorMatches, "--instance-id option must be set")
+}
+
+func (s *BootstrapSuite) TestParseNoEnvConfig(c *C) {
+	_, err := initBootstrapCommand([]string{"--instance-id", "x"})
 	c.Assert(err, ErrorMatches, "--env-config option must be set")
 
-	args = append(args, "--env-config", b64yaml{"foo": 123}.encode())
-	cmd, err := initBootstrapCommand(args)
-	c.Assert(err, IsNil)
-	c.Assert(cmd.StateInfo.Addrs, DeepEquals, []string{"127.0.0.1:37017"})
-	c.Assert(cmd.InstanceId, Equals, "iWhatever")
-	c.Assert(cmd.EnvConfig, DeepEquals, map[string]interface{}{"foo": 123})
-
-	args = append(args, "--state-servers", "st1:37017,st2:37017")
-	cmd, err = initBootstrapCommand(args)
-	c.Assert(err, IsNil)
-	c.Assert(cmd.StateInfo.Addrs, DeepEquals, []string{"st1:37017", "st2:37017"})
-
-	args = append(args, "haha disregard that")
-	_, err = initBootstrapCommand(args)
-	c.Assert(err, ErrorMatches, `unrecognized args: \["haha disregard that"\]`)
 }
 
 func (s *BootstrapSuite) TestSetMachineId(c *C) {
