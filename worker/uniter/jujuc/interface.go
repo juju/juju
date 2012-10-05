@@ -1,5 +1,7 @@
 package jujuc
 
+import "errors"
+
 // Context expresses the capabilities of a hook.
 type Context interface {
 
