@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/upstart"
 	"path"
 	"strings"
@@ -38,7 +39,8 @@ type MachineConfig struct {
 	// StateInfo holds the means for the new instance to communicate with the
 	// juju state. Unless the new machine is running a state server (StateServer is
 	// set), there must be at least one state server address supplied.
-	// The entity name will be ignored.
+	// The entity name must match that of the machine being started,
+	// or be empty when starting a state server.
 	StateInfo *state.Info
 
 	// Tools is juju tools to be used on the new machine.
@@ -61,12 +63,6 @@ type MachineConfig struct {
 
 	// Config holds the initial environment configuration.
 	Config *config.Config
-}
-
-type requiresError string
-
-func (e requiresError) Error() string {
-	return "invalid machine configuration: missing " + string(e)
 }
 
 func addScripts(c *cloudinit.Config, scripts ...string) {
@@ -163,7 +159,7 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, name, args st
 			" --initial-password '%s'"+
 			" %s",
 		toolsDir, kind,
-		cfg.zookeeperHostAddrs(),
+		cfg.stateHostAddrs(),
 		name,
 		cfg.DataDir,
 		cfg.StateInfo.Password,
@@ -222,7 +218,7 @@ func (cfg *MachineConfig) jujuTools() string {
 	return environs.ToolsDir(cfg.DataDir, cfg.Tools.Binary)
 }
 
-func (cfg *MachineConfig) zookeeperHostAddrs() string {
+func (cfg *MachineConfig) stateHostAddrs() string {
 	var hosts []string
 	if cfg.StateServer {
 		hosts = append(hosts, "localhost"+mgoPortSuffix)
@@ -240,40 +236,53 @@ func shquote(s string) string {
 	return `'` + strings.Replace(s, `'`, `'"'"'`, -1) + `'`
 }
 
-func verifyConfig(cfg *MachineConfig) error {
+type requiresError string
+
+func (e requiresError) Error() string {
+	return "invalid machine configuration: missing " + string(e)
+}
+
+func verifyConfig(cfg *MachineConfig) (err error) {
+	defer trivial.ErrorContextf(&err, "invalid machine configuration")
 	if cfg.MachineId < 0 {
-		return fmt.Errorf("invalid machine configuration: negative machine id")
+		return fmt.Errorf("negative machine id")
 	}
 	if cfg.ProviderType == "" {
-		return requiresError("provider type")
+		return fmt.Errorf("missing provider type")
 	}
 	if cfg.DataDir == "" {
-		return requiresError("var directory")
+		return fmt.Errorf("missing var directory")
 	}
 	if cfg.Tools == nil {
-		return requiresError("tools")
+		return fmt.Errorf("missing tools")
 	}
 	if cfg.Tools.URL == "" {
-		return requiresError("tools URL")
+		return fmt.Errorf("missing tools URL")
 	}
 	if cfg.StateInfo == nil {
-		return requiresError("state info")
+		return fmt.Errorf("missing state info")
 	}
 	if cfg.StateServer {
 		if cfg.InstanceIdAccessor == "" {
-			return requiresError("instance id accessor")
+			return fmt.Errorf("missing instance id accessor")
 		}
 		if cfg.Config == nil {
-			return requiresError("environment configuration")
+			return fmt.Errorf("missing environment configuration")
+		}
+		if cfg.StateInfo.EntityName != "" {
+			return fmt.Errorf("entity name must be blank when starting a state server")
 		}
 	} else {
 		if len(cfg.StateInfo.Addrs) == 0 {
-			return requiresError("state hosts")
+			return fmt.Errorf("missing state hosts")
+		}
+		if cfg.StateInfo.EntityName != fmt.Sprintf("machine-%d", cfg.MachineId) {
+			return fmt.Errorf("entity name must match started machine")
 		}
 	}
 	for _, r := range cfg.StateInfo.Password {
 		if r == '\'' || r == '\\' || r < 32 {
-			return fmt.Errorf("invalid machine configuration: password has disallowed characters")
+			return fmt.Errorf("password has disallowed characters")
 		}
 	}
 	return nil

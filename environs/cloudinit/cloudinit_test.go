@@ -57,8 +57,9 @@ var cloudinitTests = []cloudinit.MachineConfig{
 		StateServer:    false,
 		Tools:          newSimpleTools("1.2.3-linux-amd64"),
 		StateInfo: &state.Info{
-			Addrs:    []string{"state-addr.example.com"},
-			Password: "arble",
+			Addrs:      []string{"state-addr.example.com"},
+			EntityName: "machine-99",
+			Password:   "arble",
 		},
 	},
 }
@@ -251,7 +252,7 @@ var verifyTests = []struct {
 	}},
 	{"missing state hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
-		cfg.StateInfo.Addrs = nil
+		cfg.StateInfo = &state.Info{EntityName: "machine-99"}
 	}},
 	{"missing var directory", func(cfg *cloudinit.MachineConfig) {
 		cfg.DataDir = ""
@@ -261,6 +262,23 @@ var verifyTests = []struct {
 	}},
 	{"missing tools URL", func(cfg *cloudinit.MachineConfig) {
 		cfg.Tools = &state.Tools{}
+	}},
+	{"entity name must match started machine", func(cfg *cloudinit.MachineConfig) {
+		cfg.StateServer = false
+		info := *cfg.StateInfo
+		info.EntityName = "machine-0"
+		cfg.StateInfo = &info
+	}},
+	{"entity name must match started machine", func(cfg *cloudinit.MachineConfig) {
+		cfg.StateServer = false
+		info := *cfg.StateInfo
+		info.EntityName = ""
+		cfg.StateInfo = &info
+	}},
+	{"entity name must be blank when starting a state server", func(cfg *cloudinit.MachineConfig) {
+		info := *cfg.StateInfo
+		info.EntityName = "machine-0"
+		cfg.StateInfo = &info
 	}},
 	{"password has disallowed characters", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateInfo.Password = "'"
@@ -283,15 +301,18 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 		MachineId:          99,
 		Tools:              newSimpleTools("9.9.9-linux-arble"),
 		AuthorizedKeys:     "sshkey1",
-		StateInfo:          &state.Info{Addrs: []string{"zkhost"}},
-		Config:             envConfig,
-		DataDir:            "/var/lib/juju",
+		StateInfo: &state.Info{
+			Addrs: []string{"host"},
+		},
+		Config:  envConfig,
+		DataDir: "/var/lib/juju",
 	}
 	// check that the base configuration does not give an error
 	_, err := cloudinit.New(cfg)
 	c.Assert(err, IsNil)
 
-	for _, test := range verifyTests {
+	for i, test := range verifyTests {
+		c.Logf("test %d. %s", i, test.err)
 		cfg1 := *cfg
 		test.mutate(&cfg1)
 		t, err := cloudinit.New(&cfg1)
