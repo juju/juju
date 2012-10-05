@@ -4,14 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/cmd/jujuc/server"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"launchpad.net/tomb"
 	"math/rand"
 	"path/filepath"
@@ -20,14 +20,14 @@ import (
 
 // Uniter implements the capabilities of the unit agent. It is not intended to
 // implement the actual *behaviour* of the unit agent; that responsibility is
-// delegated to Mode values, which are expected to use the capabilities of the
-// uniter to react appropriately to changes in the system.
+// delegated to Mode values, which are expected to react to events and direct
+// the uniter's responses to them.
 type Uniter struct {
 	tomb    tomb.Tomb
 	st      *state.State
+	f       *filter
 	unit    *state.Unit
 	service *state.Service
-	pinger  *presence.Pinger
 
 	dataDir  string
 	baseDir  string
@@ -48,26 +48,46 @@ func NewUniter(st *state.State, name string, dataDir string) *Uniter {
 		dataDir: dataDir,
 	}
 	go func() {
-		err := u.loop(name)
-		log.Printf("uniter shutting down: %s", err)
-		u.tomb.Kill(err)
-		if u.pinger != nil {
-			u.tomb.Kill(u.pinger.Stop())
-		}
-		u.tomb.Done()
+		defer u.tomb.Done()
+		u.tomb.Kill(u.loop(name))
 	}()
 	return u
 }
 
-func (u *Uniter) loop(name string) error {
-	if err := u.init(name); err != nil {
+func (u *Uniter) loop(name string) (err error) {
+	if err = u.init(name); err != nil {
 		return err
 	}
-	var err error
-	mode := ModeInit
-	for mode != nil {
-		mode, err = mode(u)
+	log.Printf("unit %q started", u.unit)
+
+	// Start filtering state change events for consumption by modes.
+	u.f, err = newFilter(u.st, name)
+	if err != nil {
+		return err
 	}
+	defer watcher.Stop(u.f, &u.tomb)
+	go func() {
+		u.tomb.Kill(u.f.Wait())
+	}()
+
+	// Announce our presence to the world.
+	pinger, err := u.unit.SetAgentAlive()
+	if err != nil {
+		return err
+	}
+	defer watcher.Stop(pinger, &u.tomb)
+
+	// Run modes until we encounter an error.
+	mode := ModeInit
+	for err == nil {
+		select {
+		case <-u.tomb.Dying():
+			err = tomb.ErrDying
+		default:
+			mode, err = mode(u)
+		}
+	}
+	log.Printf("unit %q shutting down: %s", u.unit, err)
 	return err
 }
 
@@ -87,10 +107,6 @@ func (u *Uniter) init(name string) (err error) {
 		return err
 	}
 	u.service, err = u.st.Service(u.unit.ServiceName())
-	if err != nil {
-		return err
-	}
-	u.pinger, err = u.unit.SetAgentAlive()
 	if err != nil {
 		return err
 	}
@@ -194,7 +210,7 @@ func (u *Uniter) runHook(hi hook.Info) error {
 		// TODO: update relation context; get hook name.
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
-	hctx := server.HookContext{
+	hctx := jujuc.HookContext{
 		Service:    u.service,
 		Unit:       u.unit,
 		Id:         hctxId,
@@ -211,7 +227,7 @@ func (u *Uniter) runHook(hi hook.Info) error {
 		return hctx.NewCommand(cmdName)
 	}
 	socketPath := filepath.Join(u.baseDir, "agent.socket")
-	srv, err := server.NewServer(getCmd, socketPath)
+	srv, err := jujuc.NewServer(getCmd, socketPath)
 	if err != nil {
 		return err
 	}
@@ -222,21 +238,22 @@ func (u *Uniter) runHook(hi hook.Info) error {
 	if err := u.sf.Write(RunHook, Pending, &hi, nil); err != nil {
 		return err
 	}
-	log.Printf("running hook %q", hookName)
+	log.Printf("running %q hook", hookName)
 	if err := hctx.RunHook(hookName, u.charm.Path(), u.toolsDir, socketPath); err != nil {
 		log.Printf("hook failed: %s", err)
 		return errHookFailed
 	}
-	log.Printf("hook succeeded")
+	if err := u.sf.Write(RunHook, Done, &hi, nil); err != nil {
+		return err
+	}
+	log.Printf("ran %q hook", hookName)
 	return u.commitHook(hi)
 }
 
 // commitHook ensures that state is consistent with the supplied hook, and
 // that the fact of the hook's completion is persisted.
 func (u *Uniter) commitHook(hi hook.Info) error {
-	if err := u.sf.Write(RunHook, Done, &hi, nil); err != nil {
-		return err
-	}
+	log.Printf("committing %q hook", hi.Kind)
 	if hi.Kind.IsRelation() {
 		panic("relation hooks are not yet supported")
 		// TODO: commit relation state changes.
@@ -247,6 +264,6 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 	if err := u.sf.Write(Abide, Pending, &hi, nil); err != nil {
 		return err
 	}
-	log.Printf("hook complete")
+	log.Printf("committed %q hook", hi.Kind)
 	return nil
 }

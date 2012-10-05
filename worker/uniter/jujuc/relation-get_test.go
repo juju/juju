@@ -1,11 +1,11 @@
-package server_test
+package jujuc_test
 
 import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/cmd/jujuc/server"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"path/filepath"
 )
 
@@ -160,7 +160,7 @@ func (s *RelationGetSuite) SetUpTest(c *C) {
 	node.Set("private-address", "foo: bar\n")
 
 	// Add some member settings for a "member" in relation 1.
-	s.relctxs[1].UpdateMembers(server.SettingsMap{
+	s.relctxs[1].UpdateMembers(jujuc.SettingsMap{
 		"m/0": map[string]interface{}{"pew": "pew\npew\n"},
 	})
 

@@ -29,20 +29,21 @@ func (s *FilterSuite) SetUpTest(c *C) {
 }
 
 func (s *FilterSuite) TestUnitDeath(c *C) {
-	f := newFilter(s.unit)
+	f, err := newFilter(s.State, s.unit.Name())
+	c.Assert(err, IsNil)
 	defer f.Stop()
 	assertNotClosed := func() {
 		s.State.StartSync()
 		select {
 		case <-time.After(50 * time.Millisecond):
-		case <-f.unitDying():
+		case <-f.UnitDying():
 			c.Fatalf("unexpected receive")
 		}
 	}
 	assertNotClosed()
 
 	// Irrelevant change.
-	err := s.unit.SetResolved(state.ResolvedRetryHooks)
+	err = s.unit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, IsNil)
 	assertNotClosed()
 
@@ -54,7 +55,7 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 		select {
 		case <-time.After(50 * time.Millisecond):
 			c.Fatalf("dying not detected")
-		case _, ok := <-f.unitDying():
+		case _, ok := <-f.UnitDying():
 			c.Assert(ok, Equals, false)
 		}
 	}
@@ -65,6 +66,7 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 	c.Assert(err, IsNil)
 	assertClosed()
 
+	// Set dead.
 	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
 	s.State.StartSync()
@@ -77,22 +79,23 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 }
 
 func (s *FilterSuite) TestServiceDeath(c *C) {
-	f := newFilter(s.unit)
+	f, err := newFilter(s.State, s.unit.Name())
+	c.Assert(err, IsNil)
 	defer f.Stop()
 	s.State.StartSync()
 	select {
 	case <-time.After(50 * time.Millisecond):
-	case <-f.unitDying():
+	case <-f.UnitDying():
 		c.Fatalf("unexpected receive")
 	}
 
-	err := s.svc.EnsureDying()
+	err = s.svc.EnsureDying()
 	c.Assert(err, IsNil)
 	timeout := time.After(500 * time.Millisecond)
 loop:
 	for {
 		select {
-		case <-f.unitDying():
+		case <-f.UnitDying():
 			break loop
 		case <-time.After(50 * time.Millisecond):
 			s.State.StartSync()
@@ -108,126 +111,130 @@ loop:
 }
 
 func (s *FilterSuite) TestResolvedEvents(c *C) {
-	f := newFilter(s.unit)
+	f, err := newFilter(s.State, s.unit.Name())
+	c.Assert(err, IsNil)
 	defer f.Stop()
 
-	// Initial event.
-	assertChange := func(expect state.ResolvedMode) {
-		s.State.Sync()
-		select {
-		case rm := <-f.resolvedEvents():
-			c.Assert(*rm, Equals, expect)
-		case <-time.After(50 * time.Millisecond):
-			c.Fatalf("timed out")
-		}
-	}
-	assertChange(state.ResolvedNone)
+	// No initial event; not worth mentioning ResolvedNone.
 	assertNoChange := func() {
 		s.State.StartSync()
 		select {
-		case rm := <-f.resolvedEvents():
+		case rm := <-f.ResolvedEvents():
 			c.Fatalf("unexpected %#v", rm)
 		case <-time.After(50 * time.Millisecond):
 		}
 	}
 	assertNoChange()
 
-	// Request an event; it matches the previous one.
-	f.wantResolvedEvent()
-	assertChange(state.ResolvedNone)
+	// Request an event; no interesting event is available.
+	f.WantResolvedEvent()
 	assertNoChange()
 
 	// Change the unit in an irrelevant way; no events.
-	err := s.unit.SetCharm(s.ch)
+	err = s.unit.SetCharm(s.ch)
 	c.Assert(err, IsNil)
 	assertNoChange()
 
-	// Change the unit's resolved; new event received.
+	// Change the unit's resolved to an interesting value; new event received.
 	err = s.unit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, IsNil)
+	assertChange := func(expect state.ResolvedMode) {
+		s.State.Sync()
+		select {
+		case rm := <-f.ResolvedEvents():
+			c.Assert(rm, Equals, expect)
+		case <-time.After(50 * time.Millisecond):
+			c.Fatalf("timed out")
+		}
+	}
 	assertChange(state.ResolvedRetryHooks)
 	assertNoChange()
 
 	// Request a few events, and change the unit a few times; when
 	// we finally receive, only the most recent state is sent.
-	f.wantResolvedEvent()
+	f.WantResolvedEvent()
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
-	f.wantResolvedEvent()
+	f.WantResolvedEvent()
 	err = s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, IsNil)
-	f.wantResolvedEvent()
-	err = s.unit.ClearResolved()
-	c.Assert(err, IsNil)
-	f.wantResolvedEvent()
-	assertChange(state.ResolvedNone)
+	f.WantResolvedEvent()
+	assertChange(state.ResolvedNoHooks)
 	assertNoChange()
 }
 
 func (s *FilterSuite) TestCharmEvents(c *C) {
-	f := newFilter(s.unit)
+	f, err := newFilter(s.State, s.unit.Name())
+	c.Assert(err, IsNil)
 	defer f.Stop()
 
-	// Initial event.
-	assertChange := func(url *charm.URL, force bool) {
-		s.State.Sync()
-		select {
-		case ch := <-f.charmEvents():
-			c.Assert(ch, DeepEquals, &charmChange{url, force})
-		case <-time.After(50 * time.Millisecond):
-			c.Fatalf("timed out")
-		}
-	}
-	assertChange(s.ch.URL(), false)
+	// No initial event is sent.
 	assertNoChange := func() {
 		s.State.StartSync()
 		select {
-		case ch := <-f.charmEvents():
-			c.Fatalf("unexpected %#v", ch)
+		case sch := <-f.UpgradeEvents():
+			c.Fatalf("unexpected %#v", sch)
 		case <-time.After(50 * time.Millisecond):
 		}
 	}
 	assertNoChange()
 
-	// Request an event; it matches the previous one.
-	f.wantCharmEvent()
-	assertChange(s.ch.URL(), false)
+	// Request an event relative to the existing state; nothing.
+	f.WantUpgradeEvent(s.ch.URL(), false)
 	assertNoChange()
 
 	// Change the service in an irrelevant way; no events.
-	err := s.svc.SetExposed()
+	err = s.svc.SetExposed()
 	c.Assert(err, IsNil)
 	assertNoChange()
 
 	// Change the service's charm; new event received.
-	err = s.svc.SetCharm(s.ch, true)
-	c.Assert(err, IsNil)
-	assertChange(s.ch.URL(), true)
-	assertNoChange()
-
-	// Request a few events, and change the unit a few times; when
-	// we finally receive, only the most recent state is sent.
-	f.wantCharmEvent()
 	ch := s.AddTestingCharm(c, "dummy-v2")
-	err = s.svc.SetCharm(ch, true)
-	c.Assert(err, IsNil)
-	f.wantCharmEvent()
 	err = s.svc.SetCharm(ch, false)
 	c.Assert(err, IsNil)
-	f.wantCharmEvent()
-	assertChange(ch.URL(), false)
+	assertChange := func(url *charm.URL) {
+		s.State.Sync()
+		select {
+		case sch := <-f.UpgradeEvents():
+			c.Assert(sch.URL(), DeepEquals, url)
+		case <-time.After(50 * time.Millisecond):
+			c.Fatalf("timed out")
+		}
+	}
+	assertChange(ch.URL())
+	assertNoChange()
+
+	// Request a change relative to the original state, unforced;
+	// same event is sent.
+	f.WantUpgradeEvent(s.ch.URL(), false)
+	assertChange(ch.URL())
+	assertNoChange()
+
+	// Request a forced change relative to the initial state; no change...
+	f.WantUpgradeEvent(s.ch.URL(), true)
+	assertNoChange()
+
+	// ...and still no change when we have a forced upgrade to that state...
+	err = s.svc.SetCharm(s.ch, true)
+	c.Assert(err, IsNil)
+	assertNoChange()
+
+	// ...but a *forced* change to a different charm does generate an event.
+	err = s.svc.SetCharm(ch, true)
+	assertChange(ch.URL())
 	assertNoChange()
 }
 
 func (s *FilterSuite) TestConfigEvents(c *C) {
-	f := newFilter(s.unit)
+	f, err := newFilter(s.State, s.unit.Name())
+	c.Assert(err, IsNil)
 	defer f.Stop()
 
 	// Initial event.
 	assertChange := func() {
 		s.State.Sync()
 		select {
-		case _, ok := <-f.configEvents():
+		case _, ok := <-f.ConfigEvents():
 			c.Assert(ok, Equals, true)
 		case <-time.After(50 * time.Millisecond):
 			c.Fatalf("timed out")
@@ -237,7 +244,7 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	assertNoChange := func() {
 		s.State.StartSync()
 		select {
-		case <-f.configEvents():
+		case <-f.ConfigEvents():
 			c.Fatalf("unexpected config event")
 		case <-time.After(50 * time.Millisecond):
 		}
@@ -245,7 +252,7 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	assertNoChange()
 
 	// Request an event; it matches the previous one.
-	f.wantConfigEvent()
+	f.WantConfigEvent()
 	assertChange()
 	assertNoChange()
 
@@ -258,17 +265,17 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	assertChange()
 	assertNoChange()
 
-	// Request a few events, and change the unit a few times; when
+	// Request a few events, and change the config a few times; when
 	// we finally receive, only a single event is sent.
-	f.wantConfigEvent()
+	f.WantConfigEvent()
 	node.Set("title", "20,000 leagues in the cloud")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
-	f.wantConfigEvent()
+	f.WantConfigEvent()
 	node.Set("outlook", "precipitous")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
-	f.wantConfigEvent()
+	f.WantConfigEvent()
 	assertChange()
 	assertNoChange()
 }
