@@ -292,7 +292,6 @@ func (cloudinitSuite) TestCloudInitVerify(c *C) {
 	c.Assert(err, IsNil)
 
 	for _, test := range verifyTests {
-
 		cfg1 := *cfg
 		test.mutate(&cfg1)
 		t, err := cloudinit.New(&cfg1)
