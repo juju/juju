@@ -158,10 +158,9 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 	err = t.Env.SetConfig(newConfig)
 	c.Assert(err, IsNil)
 
-	// Create instances and checkopen ports on both instances.
+	// Create instances and check open ports on both instances.
 	inst1, err := t.Env.StartInstance(1, InvalidStateInfo, nil)
 	c.Assert(err, IsNil)
-	c.Assert(inst1, NotNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 	ports, err := inst1.Ports(1)
 	c.Assert(err, IsNil)
@@ -169,7 +168,6 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 
 	inst2, err := t.Env.StartInstance(2, InvalidStateInfo, nil)
 	c.Assert(err, IsNil)
-	c.Assert(inst2, NotNil)
 	ports, err = inst2.Ports(2)
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
