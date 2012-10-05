@@ -22,8 +22,6 @@ import (
 // you need to make sure the region you use here
 // has entries in the images/query txt files.
 var functionalConfig = []byte(`
-default:
-  sample
 environments:
   sample:
     type: ec2
@@ -32,14 +30,6 @@ environments:
     public-bucket: public-tools
     access-key: x
     secret-key: x
-  global:
-    type: ec2
-    region: test
-    control-bucket: test-bucket
-    public-bucket: public-tools
-    access-key: x
-    secret-key: x
-    firewall-mode: global
 `)
 
 func registerLocalTests() {

@@ -1,14 +1,14 @@
-package server_test
+package jujuc_test
 
 import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/cmd/jujuc/server"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"os"
 	"path/filepath"
 	"strings"
@@ -401,11 +401,11 @@ func (s *RelationContextSuite) SetUpTest(c *C) {
 }
 
 func (s *RelationContextSuite) TestChangeMembers(c *C) {
-	ctx := server.NewRelationContext(s.ru, nil)
+	ctx := jujuc.NewRelationContext(s.ru, nil)
 	c.Assert(ctx.Units(), HasLen, 0)
 
 	// Check the units and settings after a simple update.
-	ctx.UpdateMembers(server.SettingsMap{
+	ctx.UpdateMembers(jujuc.SettingsMap{
 		"u/2": {"baz": 2},
 		"u/4": {"qux": 4},
 	})
@@ -419,7 +419,7 @@ func (s *RelationContextSuite) TestChangeMembers(c *C) {
 	assertSettings("u/4", map[string]interface{}{"qux": 4})
 
 	// Send a second update; check that members are only added, not removed.
-	ctx.UpdateMembers(server.SettingsMap{
+	ctx.UpdateMembers(jujuc.SettingsMap{
 		"u/1": {"foo": 1},
 		"u/2": nil,
 		"u/3": {"bar": 3},
@@ -452,7 +452,7 @@ func (s *RelationContextSuite) TestMemberCaching(c *C) {
 	node.Set("ping", "pong")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
-	ctx := server.NewRelationContext(s.ru, map[string]int64{"u/1": 0})
+	ctx := jujuc.NewRelationContext(s.ru, map[string]int64{"u/1": 0})
 
 	// Check that uncached settings are read from state.
 	settings, err := ctx.ReadSettings("u/1")
@@ -476,7 +476,7 @@ func (s *RelationContextSuite) TestMemberCaching(c *C) {
 
 	// Check that updating the context overwrites the cached settings, and
 	// that the contents of state are ignored.
-	ctx.UpdateMembers(server.SettingsMap{"u/1": {"entirely": "different"}})
+	ctx.UpdateMembers(jujuc.SettingsMap{"u/1": {"entirely": "different"}})
 	settings, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
 	c.Assert(settings, DeepEquals, map[string]interface{}{"entirely": "different"})
@@ -492,7 +492,7 @@ func (s *RelationContextSuite) TestNonMemberCaching(c *C) {
 	node.Set("ping", "pong")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
-	ctx := server.NewRelationContext(s.ru, nil)
+	ctx := jujuc.NewRelationContext(s.ru, nil)
 
 	// Check that settings are read from state.
 	settings, err := ctx.ReadSettings("u/1")
@@ -517,7 +517,7 @@ func (s *RelationContextSuite) TestNonMemberCaching(c *C) {
 }
 
 func (s *RelationContextSuite) TestSettings(c *C) {
-	ctx := server.NewRelationContext(s.ru, nil)
+	ctx := jujuc.NewRelationContext(s.ru, nil)
 
 	// Change Settings, then clear cache without writing.
 	node, err := ctx.Settings()

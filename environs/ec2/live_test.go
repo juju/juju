@@ -8,7 +8,6 @@ import (
 	amzec2 "launchpad.net/goamz/ec2"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/testing"
@@ -122,16 +121,11 @@ func (t *LiveTests) TestInstanceDNSName(c *C) {
 func (t *LiveTests) TestInstanceGroups(c *C) {
 	ec2conn := ec2.EnvironEC2(t.Env)
 
-	var groups []amzec2.SecurityGroup
-	if t.Env.Config().FirewallMode() == config.FwDefault {
-		groups = amzec2.SecurityGroupNames(
-			ec2.GroupName(t.Env),
-			ec2.MachineGroupName(t.Env, 98),
-			ec2.MachineGroupName(t.Env, 99),
-		)
-	} else {
-		groups = amzec2.SecurityGroupNames(ec2.GroupName(t.Env))
-	}
+	groups := amzec2.SecurityGroupNames(
+		ec2.GroupName(t.Env),
+		ec2.MachineGroupName(t.Env, 98),
+		ec2.MachineGroupName(t.Env, 99),
+	)
 	info := make([]amzec2.SecurityGroupInfo, len(groups))
 
 	// Create a group with the same name as the juju group
@@ -163,12 +157,9 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst0})
 
-	var oldMachineGroup amzec2.SecurityGroup
-	if t.Env.Config().FirewallMode() == config.FwDefault {
-		// Create a same-named group for the second instance
-		// before starting it, to check that it's reused correctly.
-		oldMachineGroup = createGroup(c, ec2conn, groups[2].Name, "old machine group")
-	}
+	// Create a same-named group for the second instance
+	// before starting it, to check that it's reused correctly.
+	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
 	inst1, err := t.Env.StartInstance(99, jujutest.InvalidStateInfo, nil)
 	c.Assert(err, IsNil)
@@ -206,10 +197,8 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	checkPortAllowed(c, perms, 22)
 	checkSecurityGroupAllowed(c, perms, groups[0])
 
-	if t.Env.Config().FirewallMode() == config.FwDefault {
-		// The old machine group should have been reused also.
-		c.Check(groups[2].Id, Equals, oldMachineGroup.Id)
-	}
+	// The old machine group should have been reused also.
+	c.Check(groups[2].Id, Equals, oldMachineGroup.Id)
 
 	// Check that each instance is part of the correct groups.
 	resp, err := ec2conn.Instances([]string{inst0.Id(), inst1.Id()}, nil)
@@ -223,15 +212,11 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 		inst := r.Instances[0]
 		switch inst.InstanceId {
 		case inst0.Id():
-			if t.Env.Config().FirewallMode() == config.FwDefault {
-				c.Assert(hasSecurityGroup(r, groups[1]), Equals, true, msg)
-				c.Assert(hasSecurityGroup(r, groups[2]), Equals, false, msg)
-			}
+			c.Assert(hasSecurityGroup(r, groups[1]), Equals, true, msg)
+			c.Assert(hasSecurityGroup(r, groups[2]), Equals, false, msg)
 		case inst1.Id():
-			if t.Env.Config().FirewallMode() == config.FwDefault {
-				c.Assert(hasSecurityGroup(r, groups[2]), Equals, true, msg)
-				c.Assert(hasSecurityGroup(r, groups[1]), Equals, false, msg)
-			}
+			c.Assert(hasSecurityGroup(r, groups[2]), Equals, true, msg)
+			c.Assert(hasSecurityGroup(r, groups[1]), Equals, false, msg)
 		default:
 			c.Errorf("unknown instance found: %v", inst)
 		}

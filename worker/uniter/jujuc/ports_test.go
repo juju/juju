@@ -1,4 +1,4 @@
-package server_test
+package jujuc_test
 
 import (
 	. "launchpad.net/gocheck"
