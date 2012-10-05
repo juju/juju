@@ -102,7 +102,7 @@ func (t *LiveTests) TearDownTest(c *C) {
 // TODO(niemeyer): Looks like many of those tests should be moved to jujutest.LiveTests.
 
 func (t *LiveTests) TestInstanceDNSName(c *C) {
-	inst, err := t.Env.StartInstance(30, jujutest.InvalidStateInfo, nil)
+	inst, err := t.Env.StartInstance(30, jujutest.InvalidStateInfo(30), nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst})
 	dns, err := inst.WaitDNSName()
@@ -153,7 +153,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 		})
 	c.Assert(err, IsNil)
 
-	inst0, err := t.Env.StartInstance(98, jujutest.InvalidStateInfo, nil)
+	inst0, err := t.Env.StartInstance(98, jujutest.InvalidStateInfo(98), nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst0})
 
@@ -161,7 +161,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	// before starting it, to check that it's reused correctly.
 	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
-	inst1, err := t.Env.StartInstance(99, jujutest.InvalidStateInfo, nil)
+	inst1, err := t.Env.StartInstance(99, jujutest.InvalidStateInfo(99), nil)
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
 
@@ -292,12 +292,12 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	// It would be nice if this test was in jujutest, but
 	// there's no way for jujutest to fabricate a valid-looking
 	// instance id.
-	inst0, err := t.Env.StartInstance(40, jujutest.InvalidStateInfo, nil)
+	inst0, err := t.Env.StartInstance(40, jujutest.InvalidStateInfo(40), nil)
 	c.Assert(err, IsNil)
 
 	inst1 := ec2.FabricateInstance(inst0, "i-aaaaaaaa")
 
-	inst2, err := t.Env.StartInstance(41, jujutest.InvalidStateInfo, nil)
+	inst2, err := t.Env.StartInstance(41, jujutest.InvalidStateInfo(41), nil)
 	c.Assert(err, IsNil)
 
 	err = t.Env.StopInstances([]environs.Instance{inst0, inst1, inst2})
