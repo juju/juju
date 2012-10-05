@@ -553,3 +553,13 @@ func (s *RelationContextSuite) TestSettings(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(settings, DeepEquals, expect)
 }
+
+type InterfaceSuite struct {
+	HookContextSuite
+}
+
+var _ = Suite(&InterfaceSuite{})
+
+func (s *InterfaceSuite) TestFatal(c *C) {
+	c.Fatalf("Joifdhjeoif")
+}

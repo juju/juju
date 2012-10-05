@@ -38,20 +38,10 @@ func (c *ConfigGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
-	conf, err := c.Service.Config()
+	cfg, err := c.Config()
 	if err != nil {
 		return err
 	}
-	charm, _, err := c.Service.Charm()
-	if err != nil {
-		return err
-	}
-	// TODO Remove this once state is fixed to report default values.
-	cfg, err := charm.Config().Validate(nil)
-	if err != nil {
-		return err
-	}
-	cfg = merge(conf.Map(), cfg)
 	var value interface{}
 	if c.Key == "" {
 		value = cfg
@@ -59,13 +49,4 @@ func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
 		value, _ = cfg[c.Key]
 	}
 	return c.out.Write(ctx, value)
-}
-
-func merge(a, b map[string]interface{}) map[string]interface{} {
-	for k, v := range b {
-		if _, ok := a[k]; !ok {
-			a[k] = v
-		}
-	}
-	return a
 }
