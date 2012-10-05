@@ -1,8 +1,8 @@
-package environs_test
+package trivial_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/trivial"
 )
 
 type PasswordSuite struct{}
@@ -10,7 +10,7 @@ type PasswordSuite struct{}
 var _ = Suite(&PasswordSuite{})
 
 func (PasswordSuite) TestRandomBytes(c *C) {
-	b, err := environs.RandomBytes(16)
+	b, err := trivial.RandomBytes(16)
 	c.Assert(err, IsNil)
 	c.Assert(b, HasLen, 16)
 	x0 := b[0]
@@ -27,12 +27,12 @@ func (PasswordSuite) TestPasswordHash(c *C) {
 	hs := make(map[string]bool)
 	for i, t := range tests {
 		c.Logf("test %d", i)
-		h := environs.PasswordHash(t)
+		h := trivial.PasswordHash(t)
 		c.Logf("hash %q", h)
 		c.Assert(hs[h], Equals, false)
 		hs[h] = true
 		// check it's deterministic
-		h1 := environs.PasswordHash(t)
+		h1 := trivial.PasswordHash(t)
 		c.Assert(h1, Equals, h)
 	}
 }
