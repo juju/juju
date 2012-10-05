@@ -11,7 +11,7 @@ import (
 )
 
 type BootstrapCommand struct {
-	Conf      AgentConf
+	Conf       AgentConf
 	InstanceId string
 	EnvConfig  map[string]interface{}
 }
