@@ -593,7 +593,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	default:
 		return fmt.Errorf("invalid error resolution mode: %q", mode)
 	}
-	assert := append(isAlive, D{{"resolved", ResolvedNone}}...)
+	assert := append(notDead, D{{"resolved", ResolvedNone}}...)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
