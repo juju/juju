@@ -16,6 +16,7 @@ func InvalidStateInfo(machineId int) *state.Info {
 	return &state.Info{
 		Addrs:      []string{"0.1.2.3:1234"},
 		EntityName: fmt.Sprintf("machine-%d", machineId),
+		Password: "unimportant",
 	}
 }
 
