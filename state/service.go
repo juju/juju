@@ -24,7 +24,6 @@ type serviceDoc struct {
 	Life       Life
 	UnitSeq    int
 	UnitCount  int
-	Units      []string
 	Exposed    bool
 	TxnRevno   int64 `bson:"txn-revno"`
 }
@@ -184,10 +183,7 @@ func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
 		Assert: isAlive,
-		Update: D{
-			{"$addToSet", D{{"units", name}}},
-			{"$inc", D{{"unitcount", 1}}},
-		},
+		Update: D{{"$inc", D{{"unitcount", 1}}}},
 	}}
 	if principal != nil {
 		udoc.Principal = principal.Name()
@@ -280,10 +276,7 @@ func (s *Service) RemoveUnit(u *Unit) (err error) {
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
 		Assert: D{{"unitcount", D{{"$gt", 0}}}},
-		Update: D{
-			{"$pull", D{{"units", u.doc.Name}}},
-			{"$inc", D{{"unitcount", -1}}},
-		},
+		Update: D{{"$inc", D{{"unitcount", -1}}}},
 	}}
 	if u.doc.Principal != "" {
 		ops = append(ops, txn.Op{
