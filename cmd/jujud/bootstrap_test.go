@@ -46,15 +46,16 @@ func (s *BootstrapSuite) TestParseNoEnvConfig(c *C) {
 }
 
 func (s *BootstrapSuite) TestSetMachineId(c *C) {
-	args := []string{"--state-servers"}
-	args = append(args, s.StateInfo(c).Addrs...)
-	args = append(args, "--instance-id", "over9000")
-	args = append(args, "--env-config", b64yaml{
-		"name":            "dummyenv",
-		"type":            "dummy",
-		"state-server":    "false",
-		"authorized-keys": "i-am-a-key",
-	}.encode())
+	args := []string{
+		"--state-servers", s.StateInfo(c).Addrs[0],
+		"--instance-id", "over9000",
+		"--env-config", b64yaml{
+			"name":            "dummyenv",
+			"type":            "dummy",
+			"state-server":    false,
+			"authorized-keys": "i-am-a-key",
+		}.encode(),
+	}
 	cmd, err := initBootstrapCommand(args)
 	c.Assert(err, IsNil)
 	err = cmd.Run(nil)
@@ -70,15 +71,16 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 }
 
 func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
-	args := []string{"--state-servers"}
-	args = append(args, s.StateInfo(c).Addrs...)
-	args = append(args, "--instance-id", "over9000")
-	args = append(args, "--env-config", b64yaml{
-		"name":            "dummyenv",
-		"type":            "dummy",
-		"state-server":    "false",
-		"authorized-keys": "i-am-a-key",
-	}.encode())
+	args := []string{
+		"--state-servers", s.StateInfo(c).Addrs[0],
+		"--instance-id", "over9000",
+		"--env-config", b64yaml{
+			"name":            "dummyenv",
+			"type":            "dummy",
+			"state-server":    false,
+			"authorized-keys": "i-am-a-key",
+		}.encode(),
+	}
 	cmd, err := initBootstrapCommand(args)
 	c.Assert(err, IsNil)
 	err = cmd.Run(nil)
@@ -88,6 +90,23 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(m.Workers(), DeepEquals, []state.WorkerKind{state.MachinerWorker, state.ProvisionerWorker, state.FirewallerWorker})
 }
+
+//func (s *BootstrapSuite) TestInitialPassword(c *C) {
+//	args := []string{
+//		"--state-servers", s.StateInfo(c).Addrs[0],
+//		"--instance-id", "over9000",
+//		"--env-config", b64yaml{
+//			"name":            "dummyenv",
+//			"type":            "dummy",
+//			"state-server":    false,
+//			"authorized-keys": "i-am-a-key",
+//		}.encode(),
+//	}
+//	cmd, err := initBootstrapCommand(args)
+//	c.Assert(err, IsNil)
+//	err = cmd.Run(nil)
+//	c.Assert(err, IsNil)
+//}
 
 var base64ConfigTests = []struct {
 	input    []string
