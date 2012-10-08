@@ -563,16 +563,22 @@ var _ = Suite(&InterfaceSuite{})
 func (s *InterfaceSuite) TestTrivial(c *C) {
 	ctx := s.GetHookContext(c, -1, "")
 	c.Assert(ctx.UnitName(), Equals, "u/0")
-	c.Assert(ctx.RelationId(), Equals, -1)
-	c.Assert(ctx.RemoteUnitName(), Equals, "")
+	_, err := ctx.RelationId()
+	c.Assert(err, Equals, jujuc.ErrNoRelation)
+	_, err = ctx.RemoteUnitName()
+	c.Assert(err, Equals, jujuc.ErrNoRemote)
 	c.Assert(ctx.RelationIds(), HasLen, 2)
 
 	ctx.RelationId_ = 0
-	c.Assert(ctx.RelationId(), Equals, 0)
+	id, err := ctx.RelationId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, 0)
 	ctx.RemoteUnitName_ = "u/123"
-	c.Assert(ctx.RemoteUnitName(), Equals, "u/123")
+	name, err := ctx.RemoteUnitName()
+	c.Assert(err, IsNil)
+	c.Assert(name, Equals, "u/123")
 
-	_, err := ctx.Relation(999)
+	_, err = ctx.Relation(999)
 	c.Assert(err, Equals, jujuc.ErrNoRelation)
 	r, err := ctx.Relation(1)
 	c.Assert(err, IsNil)
@@ -620,8 +626,7 @@ func (s *InterfaceSuite) TestConfigCaching(c *C) {
 	_, err = node.Write()
 	c.Assert(err, IsNil)
 
-	// Local view is updated immediately.
-	// BUG: a Context should present a static view of the system.
+	// Local view is updated immediately. TODO lp:1063619
 	cfg, err = ctx.Config()
 	c.Assert(err, IsNil)
 	c.Assert(cfg, DeepEquals, map[string]interface{}{
