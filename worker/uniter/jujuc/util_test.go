@@ -78,9 +78,9 @@ func (s *HookContextSuite) GetHookContext(c *C, relid int, remote string) *jujuc
 	}
 	return &jujuc.HookContext{
 		Service:        s.service,
-		Unit:           s.unit,
+		Unit_:          s.unit,
 		Id:             "TestCtx",
-		RelationId:     relid,
+		RelationId_:    relid,
 		RemoteUnitName: remote,
 		Relations:      s.relctxs,
 	}

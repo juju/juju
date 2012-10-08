@@ -560,6 +560,72 @@ type InterfaceSuite struct {
 
 var _ = Suite(&InterfaceSuite{})
 
-func (s *InterfaceSuite) TestFatal(c *C) {
-	c.Fatalf("Joifdhjeoif")
+func (s *InterfaceSuite) TestTrivial(c *C) {
+	ctx := s.GetHookContext(c, -1, "")
+	c.Assert(ctx.Unit(), Equals, "u/0")
+	c.Assert(ctx.RelationId(), Equals, -1)
+	c.Assert(ctx.CounterpartUnit(), Equals, "")
+	c.Assert(ctx.RelationIds(), HasLen, 2)
+
+	ctx.RelationId_ = 0
+	c.Assert(ctx.RelationId(), Equals, 0)
+	ctx.RemoteUnitName = "u/123"
+	c.Assert(ctx.CounterpartUnit(), Equals, "u/123")
+
+	_, err := ctx.Relation(999)
+	c.Assert(err, Equals, jujuc.ErrRelationNotFound)
+	r, err := ctx.Relation(1)
+	c.Assert(err, IsNil)
+	c.Assert(r.Name(), Equals, "peer1")
+	c.Assert(r.FakeId(), Equals, "peer1:1")
+}
+
+func (s *InterfaceSuite) TestUnitCaching(c *C) {
+	ctx := s.GetHookContext(c, -1, "")
+	pr, err := ctx.PrivateAddress()
+	c.Assert(err, IsNil)
+	c.Assert(pr, Equals, "u-0.example.com")
+	_, err = ctx.PublicAddress()
+	c.Assert(err, ErrorMatches, `public address of unit "u/0" not found`)
+
+	// Change remote state.
+	u, err := s.State.Unit("u/0")
+	c.Assert(err, IsNil)
+	err = u.SetPrivateAddress("")
+	c.Assert(err, IsNil)
+	err = u.SetPublicAddress("blah.example.com")
+	c.Assert(err, IsNil)
+
+	// Local view is unchanged.
+	pr, err = ctx.PrivateAddress()
+	c.Assert(err, IsNil)
+	c.Assert(pr, Equals, "u-0.example.com")
+	_, err = ctx.PublicAddress()
+	c.Assert(err, ErrorMatches, `public address of unit "u/0" not found`)
+}
+
+func (s *InterfaceSuite) TestConfigCaching(c *C) {
+	ctx := s.GetHookContext(c, -1, "")
+	cfg, err := ctx.Config()
+	c.Assert(err, IsNil)
+	c.Assert(cfg, DeepEquals, map[string]interface{}{
+		"title":    "My Title",
+		"username": "admin001",
+	})
+
+	// Change remote config.
+	node, err := s.service.Config()
+	c.Assert(err, IsNil)
+	node.Set("title", "Something Else")
+	_, err = node.Write()
+	c.Assert(err, IsNil)
+
+	// Local view is updated immediately.
+	// BUG: a Context should present a static view of the system.
+	cfg, err = ctx.Config()
+	c.Assert(err, IsNil)
+	c.Assert(cfg, DeepEquals, map[string]interface{}{
+		"title":    "Something Else",
+		"username": "admin001",
+	})
 }

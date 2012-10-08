@@ -65,7 +65,7 @@ func (c *RelationGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 	var settings map[string]interface{}
-	if c.UnitName == c.Unit.Name() {
+	if c.UnitName == c.Unit_.Name() {
 		node, err := c.Relations[c.RelationId].Settings()
 		if err != nil {
 			return err
@@ -73,7 +73,7 @@ func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 		settings = node.Map()
 	} else {
 		var err error
-		settings, err = c.Relations[c.RelationId].ReadSettings(c.UnitName)
+		settings, err = c.Relations[c.RelationId_].ReadSettings(c.UnitName)
 		if err != nil {
 			return err
 		}

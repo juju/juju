@@ -43,9 +43,9 @@ func (c *UnitGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 func (c *UnitGetCommand) Run(ctx *cmd.Context) (err error) {
 	var value string
 	if c.Key == "private-address" {
-		value, err = c.Unit.PrivateAddress()
+		value, err = c.Unit_.PrivateAddress()
 	} else {
-		value, err = c.Unit.PublicAddress()
+		value, err = c.Unit_.PublicAddress()
 	}
 	if err != nil {
 		return

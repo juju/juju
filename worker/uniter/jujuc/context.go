@@ -152,7 +152,7 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		"CHARM_DIR=" + charmDir,
 		"JUJU_CONTEXT_ID=" + ctx.Id,
 		"JUJU_AGENT_SOCKET=" + socketPath,
-		"JUJU_UNIT_NAME=" + ctx.Unit.Name(),
+		"JUJU_UNIT_NAME=" + ctx.Unit_.Name(),
 	}
 	if ctx.RelationId_ != -1 {
 		vars = append(vars, "JUJU_RELATION="+ctx.envRelation())
@@ -387,7 +387,7 @@ func (ctx *RelationContext) ReadSettings(unit string) (settings map[string]inter
 // relationIdValue returns a gnuflag.Value for convenient parsing of relation
 // ids in context.
 func (ctx *HookContext) relationIdValue(result *int) *relationIdValue {
-	*result = ctx.RelationId
+	*result = ctx.RelationId_
 	return &relationIdValue{result: result, ctx: ctx, value: ctx.envRelationId()}
 }
 
