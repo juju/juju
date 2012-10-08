@@ -1,10 +1,10 @@
-package server_test
+package jujuc_test
 
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/cmd/jujuc/server"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
 type RelationSetSuite struct {
@@ -155,7 +155,7 @@ func (s *RelationSetSuite) TestInit(c *C) {
 		err = com.Init(dummyFlagSet(), t.args)
 		if t.err == "" {
 			c.Assert(err, IsNil)
-			rset := com.(*server.RelationSetCommand)
+			rset := com.(*jujuc.RelationSetCommand)
 			c.Assert(rset.RelationId, Equals, t.relid)
 			c.Assert(rset.Settings, DeepEquals, t.settings)
 		} else {
@@ -198,7 +198,7 @@ func (s *RelationSetSuite) TestRun(c *C) {
 		c.Assert(err, IsNil)
 		com, err := hctx.NewCommand("relation-set")
 		c.Assert(err, IsNil)
-		rset := com.(*server.RelationSetCommand)
+		rset := com.(*jujuc.RelationSetCommand)
 		rset.RelationId = 1
 		rset.Settings = t.change
 		ctx := dummyContext(c)

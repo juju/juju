@@ -1,4 +1,4 @@
-package server
+package jujuc
 
 import (
 	"errors"
@@ -13,6 +13,7 @@ type JujuLogCommand struct {
 	*HookContext
 	Message string
 	Debug   bool
+	Level   string // unused
 }
 
 func NewJujuLogCommand(ctx *HookContext) (cmd.Command, error) {
@@ -25,6 +26,7 @@ func (c *JujuLogCommand) Info() *cmd.Info {
 
 func (c *JujuLogCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	f.BoolVar(&c.Debug, "debug", false, "log at debug level")
+	f.StringVar(&c.Level, "l", "INFO", "Send log message at the given level")
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}

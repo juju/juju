@@ -95,6 +95,11 @@ func newUnit(st *State, udoc *unitDoc) *Unit {
 	}
 }
 
+// Service returns the service.
+func (u *Unit) Service() (*Service, error) {
+	return u.st.Service(u.doc.Service)
+}
+
 // ServiceName returns the service name.
 func (u *Unit) ServiceName() string {
 	return u.doc.Service
@@ -148,6 +153,13 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 	tools := *t
 	u.doc.Tools = &tools
 	return nil
+}
+
+// SetPassword sets the password the agent responsible for the unit
+// should use to communicate with the state servers.  Previous passwords
+// are invalidated.
+func (u *Unit) SetPassword(password string) error {
+	return u.st.setPassword(u.EntityName(), password)
 }
 
 // EnsureDying sets the unit lifecycle to Dying if it is Alive.
@@ -581,7 +593,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	default:
 		return fmt.Errorf("invalid error resolution mode: %q", mode)
 	}
-	assert := append(isAlive, D{{"resolved", ResolvedNone}}...)
+	assert := append(notDead, D{{"resolved", ResolvedNone}}...)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,

@@ -21,7 +21,7 @@ func (s *MachineSuite) TestParseSuccess(c *C) {
 		a := &MachineAgent{}
 		return a, &a.Conf
 	}
-	a := CheckAgentCommand(c, create, []string{"--machine-id", "42"})
+	a := CheckAgentCommand(c, create, []string{"--machine-id", "42"}, flagAll)
 	c.Assert(a.(*MachineAgent).MachineId, Equals, 42)
 }
 

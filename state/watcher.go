@@ -73,18 +73,18 @@ type RelationScopeChange struct {
 	Left    []string
 }
 
-// MachineUnitsWatcher observes the assignment and removal of units
+// MachinePrincipalUnitsWatcher observes the assignment and removal of units
 // to and from a machine.
-type MachineUnitsWatcher struct {
+type MachinePrincipalUnitsWatcher struct {
 	commonWatcher
 	machine    *Machine
-	changeChan chan *MachineUnitsChange
+	changeChan chan *MachinePrincipalUnitsChange
 	knownUnits map[string]*Unit
 }
 
-// MachineUnitsChange contains information about units that have been
+// MachinePrincipalUnitsChange contains information about units that have been
 // assigned to or removed from the machine.
-type MachineUnitsChange struct {
+type MachinePrincipalUnitsChange struct {
 	Added   []*Unit
 	Removed []*Unit
 }
@@ -626,15 +626,15 @@ func (w *ServiceRelationsWatcher) loop() (err error) {
 
 // WatchPrincipalUnits returns a watcher for observing units being
 // added to or removed from the machine.
-func (m *Machine) WatchPrincipalUnits() *MachineUnitsWatcher {
-	return newMachineUnitsWatcher(m)
+func (m *Machine) WatchPrincipalUnits() *MachinePrincipalUnitsWatcher {
+	return newMachinePrincipalUnitsWatcher(m)
 }
 
-// newMachineUnitsWatcher creates and starts a watcher to watch information
+// newMachinePrincipalUnitsWatcher creates and starts a watcher to watch information
 // about units being added to or deleted from the machine.
-func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
-	w := &MachineUnitsWatcher{
-		changeChan:    make(chan *MachineUnitsChange),
+func newMachinePrincipalUnitsWatcher(m *Machine) *MachinePrincipalUnitsWatcher {
+	w := &MachinePrincipalUnitsWatcher{
+		changeChan:    make(chan *MachinePrincipalUnitsChange),
 		machine:       m,
 		knownUnits:    make(map[string]*Unit),
 		commonWatcher: commonWatcher{st: m.st},
@@ -650,16 +650,16 @@ func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 // Changes returns a channel that will receive changes when units are
 // added or deleted. The Added field in the first event on the channel
 // holds the initial state as returned by Machine.Units.
-func (w *MachineUnitsWatcher) Changes() <-chan *MachineUnitsChange {
+func (w *MachinePrincipalUnitsWatcher) Changes() <-chan *MachinePrincipalUnitsChange {
 	return w.changeChan
 }
 
-func (w *MachineUnitsWatcher) Stop() error {
+func (w *MachinePrincipalUnitsWatcher) Stop() error {
 	w.tomb.Kill(nil)
 	return w.tomb.Wait()
 }
 
-func (w *MachineUnitsWatcher) mergeChange(changes *MachineUnitsChange, ch watcher.Change) (err error) {
+func (w *MachinePrincipalUnitsWatcher) mergeChange(changes *MachinePrincipalUnitsChange, ch watcher.Change) (err error) {
 	err = w.machine.Refresh()
 	if err != nil {
 		return err
@@ -691,12 +691,12 @@ func (w *MachineUnitsWatcher) mergeChange(changes *MachineUnitsChange, ch watche
 	return nil
 }
 
-func (changes *MachineUnitsChange) isEmpty() bool {
+func (changes *MachinePrincipalUnitsChange) isEmpty() bool {
 	return len(changes.Added)+len(changes.Removed) == 0
 }
 
-func (w *MachineUnitsWatcher) getInitialEvent() (initial *MachineUnitsChange, err error) {
-	changes := &MachineUnitsChange{}
+func (w *MachinePrincipalUnitsWatcher) getInitialEvent() (initial *MachinePrincipalUnitsChange, err error) {
+	changes := &MachinePrincipalUnitsChange{}
 	docs := []unitDoc{}
 	err = w.st.units.Find(D{{"_id", D{{"$in", w.machine.doc.Principals}}}}).All(&docs)
 	if err != nil {
@@ -710,7 +710,7 @@ func (w *MachineUnitsWatcher) getInitialEvent() (initial *MachineUnitsChange, er
 	return changes, nil
 }
 
-func (w *MachineUnitsWatcher) loop() (err error) {
+func (w *MachinePrincipalUnitsWatcher) loop() (err error) {
 	ch := make(chan watcher.Change)
 	w.st.watcher.Watch(w.st.machines.Name, w.machine.doc.Id, w.machine.doc.TxnRevno, ch)
 	defer w.st.watcher.Unwatch(w.st.machines.Name, w.machine.doc.Id, ch)
@@ -740,7 +740,7 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c := <-ch:
-			changes = &MachineUnitsChange{}
+			changes = &MachinePrincipalUnitsChange{}
 			err := w.mergeChange(changes, c)
 			if err != nil {
 				return err
@@ -1284,4 +1284,155 @@ type ConfigWatcher struct {
 
 func (s *Service) WatchConfig() *ConfigWatcher {
 	return &ConfigWatcher{newSettingsWatcher(s.st, "s#"+s.Name())}
+}
+
+// MachineUnitsWatcher notifies about assignments and lifecycle changes
+// for all units of a machine.
+// 
+// The first event emitted contains the unit names of all units currently
+// assigned to the machine, irrespective of their life state. From then on,
+// a new event is emitted whenever a unit is assigned to or unassigned from
+// the machine, or the lifecycle of a unit that is currently assigned to
+// the machine changes.
+// 
+// After a unit is found to be Dead, no further event will include it.
+type MachineUnitsWatcher struct {
+	commonWatcher
+	machine *Machine
+	out     chan []string
+	in      chan watcher.Change
+	known   map[string]Life
+}
+
+// WatchUnits returns a new MachineUnitsWatcher for m.
+func (m *Machine) WatchUnits() *MachineUnitsWatcher {
+	return newMachineUnitsWatcher(m)
+}
+
+func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
+	w := &MachineUnitsWatcher{
+		commonWatcher: commonWatcher{st: m.st},
+		out:           make(chan []string),
+		in:            make(chan watcher.Change),
+		known:         make(map[string]Life),
+		machine:       &Machine{m.st, m.doc}, // Copy so it may be freely refreshed
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+func (w *MachineUnitsWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
+}
+
+// Changes returns the event channel for w.
+func (w *MachineUnitsWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+func (w *MachineUnitsWatcher) updateMachine(pending []string) (new []string, err error) {
+	err = w.machine.Refresh()
+	if err != nil {
+		return nil, err
+	}
+	for _, unit := range w.machine.doc.Principals {
+		if _, ok := w.known[unit]; !ok {
+			pending, err = w.merge(pending, unit)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return pending, nil
+}
+
+func (w *MachineUnitsWatcher) merge(pending []string, unit string) (new []string, err error) {
+	doc := unitDoc{}
+	err = w.st.units.FindId(unit).One(&doc)
+	if err != nil && err != mgo.ErrNotFound {
+		return nil, err
+	}
+	life, known := w.known[unit]
+	if err == mgo.ErrNotFound {
+		if known {
+			w.st.watcher.Unwatch(w.st.units.Name, unit, w.in)
+			if life != Dead {
+				return append(pending, unit), nil
+			}
+		}
+		return pending, nil
+	}
+	if !known {
+		w.st.watcher.Watch(w.st.units.Name, unit, doc.TxnRevno, w.in)
+		pending = append(pending, unit)
+	} else if life != doc.Life {
+		found := false
+		for _, v := range pending {
+			if v == unit {
+				found = true
+			}
+		}
+		if !found {
+			pending = append(pending, unit)
+		}
+	}
+	w.known[unit] = doc.Life
+	for _, subunit := range doc.Subordinates {
+		if _, ok := w.known[subunit]; !ok {
+			pending, err = w.merge(pending, subunit)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return pending, nil
+}
+
+func (w *MachineUnitsWatcher) loop() (err error) {
+	defer func() {
+		for _, unit := range w.known {
+			w.st.watcher.Unwatch(w.st.units.Name, unit, w.in)
+		}
+	}()
+	machineCh := make(chan watcher.Change)
+	w.st.watcher.Watch(w.st.machines.Name, w.machine.doc.Id, w.machine.doc.TxnRevno, machineCh)
+	defer w.st.watcher.Unwatch(w.st.machines.Name, w.machine.doc.Id, machineCh)
+	changes, err := w.updateMachine([]string(nil))
+	if err != nil {
+		return err
+	}
+	out := w.out
+	for {
+		select {
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-machineCh:
+			changes, err = w.updateMachine(changes)
+			if err != nil {
+				return err
+			}
+			if len(changes) > 0 {
+				out = w.out
+			}
+		case c := <-w.in:
+			changes, err = w.merge(changes, c.Id.(string))
+			if err != nil {
+				return err
+			}
+			if len(changes) > 0 {
+				out = w.out
+			}
+		case out <- changes:
+			out = nil
+			changes = nil
+		}
+	}
+	panic("unreachable")
 }

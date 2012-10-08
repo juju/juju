@@ -70,7 +70,6 @@ func (t *LiveTests) TestPorts(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(inst1, NotNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
-
 	ports, err := inst1.Ports(1)
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
@@ -93,9 +92,10 @@ func (t *LiveTests) TestPorts(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	// Check there's no crosstalk to another machine
 	err = inst2.OpenPorts(2, []state.Port{{"tcp", 89}, {"tcp", 45}})
 	c.Assert(err, IsNil)
+
+	// Check there's no crosstalk to another machine
 	ports, err = inst2.Ports(2)
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}})
@@ -104,11 +104,13 @@ func (t *LiveTests) TestPorts(c *C) {
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"udp", 67}})
 
 	// Check that opening the same port again is ok.
+	oldPorts, err := inst2.Ports(2)
+	c.Assert(err, IsNil)
 	err = inst2.OpenPorts(2, []state.Port{{"tcp", 45}})
 	c.Assert(err, IsNil)
 	ports, err = inst2.Ports(2)
 	c.Assert(err, IsNil)
-	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}})
+	c.Assert(ports, DeepEquals, oldPorts)
 
 	// Check that opening the same port again and another port is ok.
 	err = inst2.OpenPorts(2, []state.Port{{"tcp", 45}, {"tcp", 99}})
@@ -117,9 +119,10 @@ func (t *LiveTests) TestPorts(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
 
-	// Check that we can close ports and that there's no crosstalk.
 	err = inst2.ClosePorts(2, []state.Port{{"tcp", 45}, {"tcp", 99}})
 	c.Assert(err, IsNil)
+
+	// Check that we can close ports and that there's no crosstalk.
 	ports, err = inst2.Ports(2)
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 89}})
@@ -138,6 +141,74 @@ func (t *LiveTests) TestPorts(c *C) {
 	c.Assert(err, IsNil)
 	ports, err = inst2.Ports(2)
 	c.Assert(ports, DeepEquals, []state.Port{{"tcp", 89}})
+}
+
+func (t *LiveTests) TestGlobalPorts(c *C) {
+	// Change configuration.
+	oldConfig := t.Env.Config()
+	defer func() {
+		err := t.Env.SetConfig(oldConfig)
+		c.Assert(err, IsNil)
+	}()
+
+	attrs := t.Env.Config().AllAttrs()
+	attrs["firewall-mode"] = "global"
+	newConfig, err := t.Env.Config().Apply(attrs)
+	c.Assert(err, IsNil)
+	err = t.Env.SetConfig(newConfig)
+	c.Assert(err, IsNil)
+
+	// Create instances and check open ports on both instances.
+	inst1, err := t.Env.StartInstance(1, InvalidStateInfo, nil)
+	c.Assert(err, IsNil)
+	defer t.Env.StopInstances([]environs.Instance{inst1})
+	ports, err := inst1.Ports(1)
+	c.Assert(err, IsNil)
+	c.Assert(ports, HasLen, 0)
+
+	inst2, err := t.Env.StartInstance(2, InvalidStateInfo, nil)
+	c.Assert(err, IsNil)
+	ports, err = inst2.Ports(2)
+	c.Assert(err, IsNil)
+	c.Assert(ports, HasLen, 0)
+	defer t.Env.StopInstances([]environs.Instance{inst2})
+
+	err = inst1.OpenPorts(1, []state.Port{{"udp", 67}, {"tcp", 45}})
+	c.Assert(err, IsNil)
+	err = inst2.OpenPorts(2, []state.Port{{"tcp", 89}, {"tcp", 99}})
+	c.Assert(err, IsNil)
+
+	ports1, err := inst1.Ports(1)
+	c.Assert(err, IsNil)
+	c.Assert(ports1, HasLen, 4)
+	ports2, err := inst2.Ports(2)
+	c.Assert(err, IsNil)
+	c.Assert(ports1, HasLen, 4)
+	c.Assert(ports1, DeepEquals, ports2)
+
+	// Check that closing ports on one instance effect on both.
+	err = inst1.ClosePorts(1, []state.Port{{"tcp", 99}, {"udp", 67}})
+	c.Assert(err, IsNil)
+
+	ports1, err = inst1.Ports(1)
+	c.Assert(err, IsNil)
+	c.Assert(ports1, HasLen, 2)
+	ports2, err = inst2.Ports(2)
+	c.Assert(err, IsNil)
+	c.Assert(ports1, HasLen, 2)
+	c.Assert(ports1, DeepEquals, ports2)
+
+	// Check that we can close ports that aren't there.
+	err = inst1.ClosePorts(1, []state.Port{{"tcp", 111}, {"udp", 222}})
+	c.Assert(err, IsNil)
+
+	ports1, err = inst1.Ports(1)
+	c.Assert(err, IsNil)
+	c.Assert(ports1, HasLen, 2)
+	ports2, err = inst2.Ports(2)
+	c.Assert(err, IsNil)
+	c.Assert(ports1, HasLen, 2)
+	c.Assert(ports1, DeepEquals, ports2)
 }
 
 func (t *LiveTests) TestBootstrapMultiple(c *C) {
