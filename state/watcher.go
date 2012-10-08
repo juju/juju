@@ -438,7 +438,7 @@ func (w *ServiceUnitsWatcher) merge(pending []string, name string) (changes []st
 	return append(pending, name), nil
 }
 
-func (w *ServiceUnitsWatcher) init() (changes []string, err error) {
+func (w *ServiceUnitsWatcher) initial() (changes []string, err error) {
 	docs := []unitDoc{}
 	err = w.st.units.Find(D{{"service", w.service.doc.Name}}).Select(D{{"_id", 1}, {"Life", 1}}).All(&docs)
 	if err != nil {
@@ -455,7 +455,7 @@ func (w *ServiceUnitsWatcher) loop() (err error) {
 	ch := make(chan watcher.Change)
 	w.st.watcher.WatchCollection(w.st.units.Name, ch)
 	defer w.st.watcher.UnwatchCollection(w.st.units.Name, ch)
-	changes, err := w.init()
+	changes, err := w.initial()
 	if err != nil {
 		return err
 	}
