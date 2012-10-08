@@ -560,34 +560,36 @@ type InterfaceSuite struct {
 
 var _ = Suite(&InterfaceSuite{})
 
+func (s *InterfaceSuite) GetContext(c *C, relId int, remoteName string) jujuc.Context {
+	return s.HookContextSuite.GetHookContext(c, relId, remoteName)
+}
+
 func (s *InterfaceSuite) TestTrivial(c *C) {
-	ctx := s.GetHookContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "")
 	c.Assert(ctx.UnitName(), Equals, "u/0")
-	_, err := ctx.RelationId()
-	c.Assert(err, Equals, jujuc.ErrNoRelation)
-	_, err = ctx.RemoteUnitName()
-	c.Assert(err, Equals, jujuc.ErrNoRemote)
+	c.Assert(ctx.HasHookRelation(), Equals, false)
+	c.Assert(func() { ctx.HookRelation() }, PanicMatches, "unknown relation -1")
+	c.Assert(ctx.HasRemoteUnit(), Equals, false)
+	c.Assert(func() { ctx.RemoteUnitName() }, PanicMatches, "remote unit not available")
 	c.Assert(ctx.RelationIds(), HasLen, 2)
+	c.Assert(ctx.HasRelation(0), Equals, true)
+	c.Assert(ctx.Relation(0).Name(), Equals, "peer0")
+	c.Assert(ctx.Relation(0).FakeId(), Equals, "peer0:0")
+	c.Assert(ctx.HasRelation(123), Equals, false)
+	c.Assert(func() { ctx.Relation(123) }, PanicMatches, "unknown relation 123")
 
-	ctx.RelationId_ = 0
-	id, err := ctx.RelationId()
-	c.Assert(err, IsNil)
-	c.Assert(id, Equals, 0)
-	ctx.RemoteUnitName_ = "u/123"
-	name, err := ctx.RemoteUnitName()
-	c.Assert(err, IsNil)
-	c.Assert(name, Equals, "u/123")
+	ctx = s.GetContext(c, 1, "")
+	c.Assert(ctx.HasHookRelation(), Equals, true)
+	c.Assert(ctx.HookRelation().Name(), Equals, "peer1")
+	c.Assert(ctx.HookRelation().FakeId(), Equals, "peer1:1")
 
-	_, err = ctx.Relation(999)
-	c.Assert(err, Equals, jujuc.ErrNoRelation)
-	r, err := ctx.Relation(1)
-	c.Assert(err, IsNil)
-	c.Assert(r.Name(), Equals, "peer1")
-	c.Assert(r.FakeId(), Equals, "peer1:1")
+	ctx = s.GetContext(c, 1, "u/123")
+	c.Assert(ctx.HasRemoteUnit(), Equals, true)
+	c.Assert(ctx.RemoteUnitName(), Equals, "u/123")
 }
 
 func (s *InterfaceSuite) TestUnitCaching(c *C) {
-	ctx := s.GetHookContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "")
 	pr, err := ctx.PrivateAddress()
 	c.Assert(err, IsNil)
 	c.Assert(pr, Equals, "u-0.example.com")
@@ -611,7 +613,7 @@ func (s *InterfaceSuite) TestUnitCaching(c *C) {
 }
 
 func (s *InterfaceSuite) TestConfigCaching(c *C) {
-	ctx := s.GetHookContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "")
 	cfg, err := ctx.Config()
 	c.Assert(err, IsNil)
 	c.Assert(cfg, DeepEquals, map[string]interface{}{

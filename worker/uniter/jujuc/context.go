@@ -94,20 +94,42 @@ func merge(a, b map[string]interface{}) map[string]interface{} {
 	return a
 }
 
-// RelationId is needed to implement Context.
-func (ctx *HookContext) RelationId() (int, error) {
-	if ctx.RelationId_ == -1 {
-		return -1, ErrNoRelation
-	}
-	return ctx.RelationId_, nil
+// HasHookRelation is needed to implement Context.
+func (ctx *HookContext) HasHookRelation() bool {
+	return ctx.HasRelation(ctx.RelationId_)
+}
+
+// HookRelation is needed to implement Context.
+func (ctx *HookContext) HookRelation() ContextRelation {
+	return ctx.Relation(ctx.RelationId_)
+}
+
+// HasRemoteUnit is needed to implement Context.
+func (ctx *HookContext) HasRemoteUnit() bool {
+	return ctx.RemoteUnitName_ != ""
 }
 
 // RemoteUnitName is needed to implement Context.
-func (ctx *HookContext) RemoteUnitName() (string, error) {
+func (ctx *HookContext) RemoteUnitName() string {
 	if ctx.RemoteUnitName_ == "" {
-		return "", ErrNoRemote
+		panic("remote unit not available")
 	}
-	return ctx.RemoteUnitName_, nil
+	return ctx.RemoteUnitName_
+}
+
+// HasRelation is needed to implement Context.
+func (ctx *HookContext) HasRelation(id int) bool {
+	_, found := ctx.Relations[id]
+	return found
+}
+
+// Relation is needed to implement Context.
+func (ctx *HookContext) Relation(id int) ContextRelation {
+	r, found := ctx.Relations[id]
+	if !found {
+		panic(fmt.Errorf("unknown relation %d", id))
+	}
+	return r
 }
 
 // RelationIds is needed to implement Context.
@@ -117,15 +139,6 @@ func (ctx *HookContext) RelationIds() []int {
 		ids = append(ids, id)
 	}
 	return ids
-}
-
-// Relation is needed to implement Context.
-func (ctx *HookContext) Relation(id int) (ContextRelation, error) {
-	r, found := ctx.Relations[id]
-	if !found {
-		return nil, ErrNoRelation
-	}
-	return r, nil
 }
 
 // newCommands maps Command names to initializers.
