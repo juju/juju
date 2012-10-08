@@ -414,11 +414,9 @@ func (w *ServiceUnitsWatcher) merge(pending []string, name string) (changes []st
 	}
 	life, known := w.known[name]
 	if err == mgo.ErrNotFound {
-		if known {
-			delete(w.known, name)
-			if life != Dead {
-				return append(pending, name), nil
-			}
+		delete(w.known, name)
+		if known && life != Dead {
+			return append(pending, name), nil
 		}
 		return pending, nil
 	}
