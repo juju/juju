@@ -1,24 +1,11 @@
 package jujutest
 
 import (
-	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"time"
 )
-
-// InvalidStateInfo holds information about no state - it will always give
-// an error when connected to. The machine id gives the
-// machine id of the machine to be started 
-func InvalidStateInfo(machineId int) *state.Info {
-	return &state.Info{
-		Addrs:      []string{"0.1.2.3:1234"},
-		EntityName: fmt.Sprintf("machine-%d", machineId),
-		Password:   "unimportant",
-	}
-}
 
 // Tests is a gocheck suite containing tests verifying juju functionality
 // against the environment with Name that must exist within Environs. The

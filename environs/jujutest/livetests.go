@@ -7,8 +7,9 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"time"
@@ -21,7 +22,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(insts, HasLen, 0)
 
-	inst, err := t.Env.StartInstance(0, InvalidStateInfo(0), nil)
+	inst, err := t.Env.StartInstance(0, testing.InvalidStateInfo(0), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst, NotNil)
 	id0 := inst.Id()
@@ -66,7 +67,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 }
 
 func (t *LiveTests) TestPorts(c *C) {
-	inst1, err := t.Env.StartInstance(1, InvalidStateInfo(1), nil)
+	inst1, err := t.Env.StartInstance(1, testing.InvalidStateInfo(1), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst1, NotNil)
 	defer t.Env.StopInstances([]environs.Instance{inst1})
@@ -75,7 +76,7 @@ func (t *LiveTests) TestPorts(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	inst2, err := t.Env.StartInstance(2, InvalidStateInfo(2), nil)
+	inst2, err := t.Env.StartInstance(2, testing.InvalidStateInfo(2), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst2, NotNil)
 	ports, err = inst2.Ports(2)
@@ -189,7 +190,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	// Create a new service and deploy a unit of it.
 	c.Logf("deploying service")
 	repoDir := c.MkDir()
-	url := testing.Charms.ClonedURL(repoDir, mtools0.Series, "dummy")
+	url := coretesting.Charms.ClonedURL(repoDir, mtools0.Series, "dummy")
 	sch, err := conn.PutCharm(url, &charm.LocalRepository{repoDir}, false)
 
 	c.Assert(err, IsNil)
@@ -501,7 +502,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 		URL:    url,
 	}
 
-	inst, err := t.Env.StartInstance(4, InvalidStateInfo(4), tools)
+	inst, err := t.Env.StartInstance(4, testing.InvalidStateInfo(4), tools)
 	if inst != nil {
 		err := t.Env.StopInstances([]environs.Instance{inst})
 		c.Check(err, IsNil)
