@@ -223,7 +223,9 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	// however as the PA only knows one state.Info, and that info is used by MAs and 
 	// UAs to locate the ZK for this environment, it is logical to use the same 
 	// state.Info as the PA. 
-	inst, err := p.environ.StartInstance(m.Id(), p.info, nil)
+	info := *p.info
+	info.EntityName = m.EntityName()
+	inst, err := p.environ.StartInstance(m.Id(), &info, nil)
 	if err != nil {
 		log.Printf("provisioner cannot start machine %s: %v", m, err)
 		return err
