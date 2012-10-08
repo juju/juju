@@ -120,7 +120,6 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 			return nil, err
 		}
 		addScripts(c, cfg.jujuTools()+"/jujud bootstrap-state"+
-			" --data-dir "+shquote(cfg.DataDir)+
 			" --instance-id "+cfg.InstanceIdAccessor+
 			" --env-config "+shquote(base64yaml(cfg.Config))+
 			" --state-servers localhost"+mgoPortSuffix+
