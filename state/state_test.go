@@ -987,7 +987,12 @@ func testSetPassword(c *C, getEntity func(st *state.State) (entity, error)) {
 }
 
 func (s *StateSuite) TestSetAdminPassword(c *C) {
-	err := s.State.SetAdminPassword("foo")
+	// Check that we can SetAdminPassword to nothing when there's
+	// no password currently set.
+	err := s.State.SetAdminPassword("")
+	c.Assert(err, IsNil)
+
+	err = s.State.SetAdminPassword("foo")
 	c.Assert(err, IsNil)
 	defer s.State.SetAdminPassword("")
 	info := s.StateInfo(c)
@@ -998,6 +1003,10 @@ func (s *StateSuite) TestSetAdminPassword(c *C) {
 	err = tryOpenState(info)
 	c.Assert(err, IsNil)
 
+	err = s.State.SetAdminPassword("")
+	c.Assert(err, IsNil)
+
+	// Check that removing the password is idempotent.
 	err = s.State.SetAdminPassword("")
 	c.Assert(err, IsNil)
 

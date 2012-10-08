@@ -22,7 +22,7 @@ func (s *UnitSuite) TestParseSuccess(c *C) {
 		a := &UnitAgent{}
 		return a, &a.Conf
 	}
-	uc := CheckAgentCommand(c, create, []string{"--unit-name", "w0rd-pre55/1"})
+	uc := CheckAgentCommand(c, create, []string{"--unit-name", "w0rd-pre55/1"}, flagAll)
 	c.Assert(uc.(*UnitAgent).UnitName, Equals, "w0rd-pre55/1")
 }
 
