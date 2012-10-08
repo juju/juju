@@ -114,13 +114,20 @@ func (s *State) EnvironConfig() (*config.Config, error) {
 }
 
 // SetEnvironConfig replaces the current configuration of the 
-// environment with the passed configuration.
+// environment with the provided configuration.
 func (s *State) SetEnvironConfig(cfg *config.Config) error {
 	if cfg.AdminSecret() != "" {
 		return fmt.Errorf("admin-secret should never be written to the state")
 	}
-	attrs := cfg.AllAttrs()
-	_, err := createSettings(s, "e", attrs)
+	// TODO(niemeyer): This isn't entirely right as the change is done as a
+	// delta that the user didn't ask for. Instead, take a (old, new) config
+	// pair, and apply *known* delta.
+	settings, err := readSettings(s, "e")
+	if err != nil {
+		return err
+	}
+	settings.Update(cfg.AllAttrs())
+	_, err = settings.Write()
 	return err
 }
 

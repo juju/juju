@@ -1117,14 +1117,19 @@ func (w *settingsWatcher) Changes() <-chan *Settings {
 
 func (w *settingsWatcher) loop(key string) (err error) {
 	ch := make(chan watcher.Change)
+	revno := int64(-1)
 	settings, err := readSettings(w.st, key)
-	if err != nil {
+	if err == nil {
+		revno = settings.txnRevno
+	} else if !IsNotFound(err) {
 		return err
 	}
-	w.st.watcher.Watch(w.st.settings.Name, key, settings.txnRevno, ch)
+	w.st.watcher.Watch(w.st.settings.Name, key, revno, ch)
 	defer w.st.watcher.Unwatch(w.st.settings.Name, key, ch)
 	out := w.out
-	nul := make(chan *Settings)
+	if revno == -1 {
+		out = nil
+	}
 	for {
 		select {
 		case <-w.st.watcher.Dead():
@@ -1138,7 +1143,7 @@ func (w *settingsWatcher) loop(key string) (err error) {
 			}
 			out = w.out
 		case out <- settings:
-			out = nul
+			out = nil
 		}
 	}
 	return nil
