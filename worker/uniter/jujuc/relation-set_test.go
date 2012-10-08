@@ -22,7 +22,7 @@ func (s *RelationSetSuite) TestHelp(c *C) {
 	for i, t := range helpTests {
 		c.Logf("test %d", i)
 		hctx := s.GetHookContext(c, t.relid, "")
-		com, err := hctx.NewCommand("relation-set")
+		com, err := jujuc.NewCommand(hctx, "relation-set")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
@@ -150,7 +150,7 @@ func (s *RelationSetSuite) TestInit(c *C) {
 	for i, t := range relationSetInitTests {
 		c.Logf("test %d", i)
 		hctx := s.GetHookContext(c, t.ctxrelid, "")
-		com, err := hctx.NewCommand("relation-set")
+		com, err := jujuc.NewCommand(hctx, "relation-set")
 		c.Assert(err, IsNil)
 		err = com.Init(dummyFlagSet(), t.args)
 		if t.err == "" {
@@ -196,7 +196,7 @@ func (s *RelationSetSuite) TestRun(c *C) {
 
 		// Run the command.
 		c.Assert(err, IsNil)
-		com, err := hctx.NewCommand("relation-set")
+		com, err := jujuc.NewCommand(hctx, "relation-set")
 		c.Assert(err, IsNil)
 		rset := com.(*jujuc.RelationSetCommand)
 		rset.RelationId = 1
@@ -205,7 +205,7 @@ func (s *RelationSetSuite) TestRun(c *C) {
 		err = com.Run(ctx)
 		c.Assert(err, IsNil)
 
-		// Check that the changes are present in the RelationContext's
+		// Check that the changes are present in the ContextRelation's
 		// settings...
 		node, err := hctx.Relations[1].Settings()
 		c.Assert(err, IsNil)

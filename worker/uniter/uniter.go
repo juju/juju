@@ -210,7 +210,7 @@ func (u *Uniter) runHook(hi hook.Info) error {
 		// TODO: update relation context; get hook name.
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
-	hctx := jujuc.HookContext{
+	hctx := &HookContext{
 		Service:    u.service,
 		Unit:       u.unit,
 		Id:         hctxId,
@@ -224,7 +224,7 @@ func (u *Uniter) runHook(hi hook.Info) error {
 		if ctxId != hctxId {
 			return nil, fmt.Errorf("expected context id %q, got %q", hctxId, ctxId)
 		}
-		return hctx.NewCommand(cmdName)
+		return jujuc.NewCommand(hctx, cmdName)
 	}
 	socketPath := filepath.Join(u.baseDir, "agent.socket")
 	srv, err := jujuc.NewServer(getCmd, socketPath)

@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"path/filepath"
 )
 
@@ -49,7 +50,7 @@ func (s *ConfigGetSuite) TestOutputFormat(c *C) {
 	for i, t := range configGetTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetHookContext(c, -1, "")
-		com, err := hctx.NewCommand("config-get")
+		com, err := jujuc.NewCommand(hctx, "config-get")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, t.args)
@@ -61,7 +62,7 @@ func (s *ConfigGetSuite) TestOutputFormat(c *C) {
 
 func (s *ConfigGetSuite) TestHelp(c *C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := hctx.NewCommand("config-get")
+	com, err := jujuc.NewCommand(hctx, "config-get")
 	c.Assert(err, IsNil)
 	ctx := dummyContext(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
@@ -82,7 +83,7 @@ If a key is given, only the value for that key will be printed.
 
 func (s *ConfigGetSuite) TestOutputPath(c *C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := hctx.NewCommand("config-get")
+	com, err := jujuc.NewCommand(hctx, "config-get")
 	c.Assert(err, IsNil)
 	ctx := dummyContext(c)
 	code := cmd.Main(com, ctx, []string{"--output", "some-file", "monsters"})
@@ -96,7 +97,7 @@ func (s *ConfigGetSuite) TestOutputPath(c *C) {
 
 func (s *ConfigGetSuite) TestUnknownArg(c *C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := hctx.NewCommand("config-get")
+	com, err := jujuc.NewCommand(hctx, "config-get")
 	c.Assert(err, IsNil)
 	err = com.Init(dummyFlagSet(), []string{"multiple", "keys"})
 	c.Assert(err, ErrorMatches, `unrecognized args: \["keys"\]`)

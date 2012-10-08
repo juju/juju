@@ -4,6 +4,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
@@ -105,7 +106,7 @@ func (s *RelationListSuite) TestRelationList(c *C) {
 		hctx := s.GetHookContext(c, t.relid, "")
 		setMembers(hctx.Relations[0], t.members0)
 		setMembers(hctx.Relations[1], t.members1)
-		com, err := hctx.NewCommand("relation-list")
+		com, err := jujuc.NewCommand(hctx, "relation-list")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, t.args)
@@ -146,7 +147,7 @@ options:
 	} {
 		c.Logf("test relid %d", relid)
 		hctx := s.GetHookContext(c, relid, "")
-		com, err := hctx.NewCommand("relation-list")
+		com, err := jujuc.NewCommand(hctx, "relation-list")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
@@ -158,11 +159,11 @@ options:
 	}
 }
 
-func setMembers(rctx *jujuc.RelationContext, members []string) {
+func setMembers(rctx *uniter.ContextRelation, members []string) {
 	for _, u := range rctx.UnitNames() {
 		rctx.DeleteMember(u)
 	}
-	m := jujuc.SettingsMap{}
+	m := uniter.SettingsMap{}
 	for _, name := range members {
 		m[name] = nil
 	}
