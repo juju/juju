@@ -47,8 +47,8 @@ func (ics itemChangeSlice) Swap(i, j int)      { ics[i], ics[j] = ics[j], ics[i]
 // A Settings manages changes to settings as a delta in memory and merges
 // them back in the database when explicitly requested.
 type Settings struct {
-	st   *State
-	path string
+	st  *State
+	key string
 	// disk holds the values in the config node before
 	// any keys have been changed. It is reset on Read and Write
 	// operations.
@@ -154,32 +154,28 @@ func (c *Settings) Write() ([]ItemChange, error) {
 	sort.Sort(itemChangeSlice(changes))
 	ops := []txn.Op{{
 		C:  c.st.settings.Name,
-		Id: c.path,
+		Id: c.key,
+		Assert: txn.DocExists,
 		Update: D{
 			{"$set", updates},
 			{"$unset", deletions},
 		},
 	}}
-	if err := c.st.runner.Run(ops, "", nil); err != nil {
-		return nil, fmt.Errorf("cannot write configuration node %q: %v", c.path, err)
+	err := c.st.runner.Run(ops, "", nil)
+	if err == txn.ErrAborted {
+		return nil, notFound("settings")
 	}
-	inserts := copyMap(updates)
-	ops = []txn.Op{{
-		C:      c.st.settings.Name,
-		Id:     c.path,
-		Insert: inserts,
-	}}
-	if err := c.st.runner.Run(ops, "", nil); err != nil {
-		return nil, fmt.Errorf("cannot write configuration node %q: %v", c.path, err)
+	if err != nil {
+		return nil, fmt.Errorf("cannot write settings: %v", err)
 	}
 	c.disk = copyMap(c.core)
 	return changes, nil
 }
 
-func newSettings(st *State, path string) *Settings {
+func newSettings(st *State, key string) *Settings {
 	return &Settings{
 		st:   st,
-		path: path,
+		key: key,
 		core: make(map[string]interface{}),
 	}
 }
@@ -194,14 +190,14 @@ func cleanMap(in map[string]interface{}) {
 // Read (re)reads the node data into c.
 func (c *Settings) Read() error {
 	config := map[string]interface{}{}
-	err := c.st.settings.FindId(c.path).One(config)
+	err := c.st.settings.FindId(c.key).One(config)
 	if err == mgo.ErrNotFound {
 		c.disk = nil
 		c.core = make(map[string]interface{})
-		return nil
+		return notFound("settings")
 	}
 	if err != nil {
-		return fmt.Errorf("cannot read configuration node %q: %v", c.path, err)
+		return fmt.Errorf("cannot read settings: %v", err)
 	}
 	c.txnRevno = config["txn-revno"].(int64)
 	cleanMap(config)
@@ -210,22 +206,40 @@ func (c *Settings) Read() error {
 	return nil
 }
 
-// readSettings returns the Settings for path.
-func readSettings(st *State, path string) (*Settings, error) {
-	c := newSettings(st, path)
-	if err := c.Read(); err != nil {
+// readSettings returns the Settings for key.
+func readSettings(st *State, key string) (*Settings, error) {
+	s := newSettings(st, key)
+	if err := s.Read(); err != nil {
 		return nil, err
 	}
-	return c, nil
+	return s, nil
 }
 
 // createSettings writes an initial config node.
-func createSettings(st *State, path string, values map[string]interface{}) (*Settings, error) {
-	c := newSettings(st, path)
-	c.core = copyMap(values)
-	_, err := c.Write()
-	if err != nil {
-		return nil, err
+func createSettings(st *State, key string, values map[string]interface{}) (*Settings, error) {
+	s := newSettings(st, key)
+	s.core = copyMap(values)
+	ops := []txn.Op{{
+		C:      s.st.settings.Name,
+		Id:     s.key,
+		Assert: txn.DocMissing,
+		Insert: s.core,
+	}}
+	err := s.st.runner.Run(ops, "", nil)
+	if err == txn.ErrAborted {
+		return nil, fmt.Errorf("cannot overwrite existing settings")
 	}
-	return c, nil
+	if err != nil {
+		return nil, fmt.Errorf("cannot write settings: %v", err)
+	}
+	return s, nil
+}
+
+// removeSettings returns the Settings for key.
+func removeSettings(st *State, key string) error {
+	err := st.settings.RemoveId(key)
+	if err == mgo.ErrNotFound {
+		return notFound("settings")
+	}
+	return nil
 }

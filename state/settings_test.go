@@ -8,7 +8,7 @@ import (
 type SettingsSuite struct {
 	testing.MgoSuite
 	state *State
-	path  string
+	key  string
 }
 
 var _ = Suite(&SettingsSuite{})
@@ -19,7 +19,7 @@ func (s *SettingsSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 
 	s.state = state
-	s.path = "/config"
+	s.key = "config"
 }
 
 func (s *SettingsSuite) TearDownTest(c *C) {
@@ -28,36 +28,39 @@ func (s *SettingsSuite) TearDownTest(c *C) {
 }
 
 func (s *SettingsSuite) TestCreateEmptySettings(c *C) {
-	// Check that creating an empty node works correctly.
-	node, err := createSettings(s.state, s.path, nil)
+	node, err := createSettings(s.state, s.key, nil)
 	c.Assert(err, IsNil)
 	c.Assert(node.Keys(), DeepEquals, []string{})
 }
 
-func (s *SettingsSuite) TestReadWithoutWrite(c *C) {
-	// Check reading without writing.
-	node, err := readSettings(s.state, s.path)
+func (s *SettingsSuite) TestCannotOverwrite(c *C) {
+	_, err := createSettings(s.state, s.key, nil)
 	c.Assert(err, IsNil)
-	c.Assert(node, Not(IsNil))
+	_, err = createSettings(s.state, s.key, nil)
+	c.Assert(err, ErrorMatches, "cannot overwrite existing settings")
 }
 
-func (s *SettingsSuite) TestUpdateWithoutWrite(c *C) {
-	// Check that config values can be updated.
-	node, err := readSettings(s.state, s.path)
+func (s *SettingsSuite) TestCannotReadMissing(c *C) {
+	_, err := readSettings(s.state, s.key)
+	c.Assert(err, ErrorMatches, "settings not found")
+	c.Assert(IsNotFound(err), Equals, true)
+}
+
+func (s *SettingsSuite) TestCannotWriteMissing(c *C) {
+	node, err := createSettings(s.state, s.key, nil)
 	c.Assert(err, IsNil)
-	options := map[string]interface{}{"alpha": "beta", "one": 1}
-	node.Update(options)
-	c.Assert(node.Map(), DeepEquals, options)
-	// Node data has to be empty.
-	mgoData := []interface{}{}
-	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.path).All(&mgoData)
+
+	err = removeSettings(s.state, s.key)
 	c.Assert(err, IsNil)
-	c.Assert(mgoData, HasLen, 0)
+
+	node.Set("foo", "bar")
+	_, err = node.Write()
+	c.Assert(err, ErrorMatches, "settings not found")
+	c.Assert(IsNotFound(err), Equals, true)
 }
 
 func (s *SettingsSuite) TestUpdateWithWrite(c *C) {
-	// Check that write updates the local and the server state.
-	node, err := readSettings(s.state, s.path)
+	node, err := createSettings(s.state, s.key, nil)
 	c.Assert(err, IsNil)
 	options := map[string]interface{}{"alpha": "beta", "one": 1}
 	node.Update(options)
@@ -67,12 +70,13 @@ func (s *SettingsSuite) TestUpdateWithWrite(c *C) {
 		{ItemAdded, "alpha", nil, "beta"},
 		{ItemAdded, "one", nil, 1},
 	})
+
 	// Check local state.
 	c.Assert(node.Map(), DeepEquals, options)
 
 	// Check MongoDB state.
 	mgoData := make(map[string]interface{}, 0)
-	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.path).One(&mgoData)
+	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.key).One(&mgoData)
 	c.Assert(err, IsNil)
 	cleanMap(mgoData)
 	c.Assert(mgoData, DeepEquals, options)
@@ -80,9 +84,9 @@ func (s *SettingsSuite) TestUpdateWithWrite(c *C) {
 
 func (s *SettingsSuite) TestConflictOnSet(c *C) {
 	// Check version conflict errors.
-	nodeOne, err := readSettings(s.state, s.path)
+	nodeOne, err := createSettings(s.state, s.key, nil)
 	c.Assert(err, IsNil)
-	nodeTwo, err := readSettings(s.state, s.path)
+	nodeTwo, err := readSettings(s.state, s.key)
 	c.Assert(err, IsNil)
 
 	optionsOld := map[string]interface{}{"alpha": "beta", "one": 1}
@@ -139,7 +143,7 @@ func (s *SettingsSuite) TestConflictOnSet(c *C) {
 
 func (s *SettingsSuite) TestSetItem(c *C) {
 	// Check that Set works as expected.
-	node, err := readSettings(s.state, s.path)
+	node, err := createSettings(s.state, s.key, nil)
 	c.Assert(err, IsNil)
 	options := map[string]interface{}{"alpha": "beta", "one": 1}
 	node.Set("alpha", "beta")
@@ -154,7 +158,7 @@ func (s *SettingsSuite) TestSetItem(c *C) {
 	c.Assert(node.Map(), DeepEquals, options)
 	// Check MongoDB state.
 	mgoData := make(map[string]interface{}, 0)
-	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.path).One(&mgoData)
+	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.key).One(&mgoData)
 	c.Assert(err, IsNil)
 	cleanMap(mgoData)
 	c.Assert(mgoData, DeepEquals, options)
@@ -162,7 +166,7 @@ func (s *SettingsSuite) TestSetItem(c *C) {
 
 func (s *SettingsSuite) TestMultipleReads(c *C) {
 	// Check that reads without writes always resets the data.
-	nodeOne, err := readSettings(s.state, s.path)
+	nodeOne, err := createSettings(s.state, s.key, nil)
 	c.Assert(err, IsNil)
 	nodeOne.Update(map[string]interface{}{"alpha": "beta", "foo": "bar"})
 	value, ok := nodeOne.Get("alpha")
@@ -195,7 +199,7 @@ func (s *SettingsSuite) TestMultipleReads(c *C) {
 	c.Assert(value, Equals, "bar")
 
 	// Now get another state instance and change underlying state.
-	nodeTwo, err := readSettings(s.state, s.path)
+	nodeTwo, err := readSettings(s.state, s.key)
 	c.Assert(err, IsNil)
 	nodeTwo.Update(map[string]interface{}{"foo": "different"})
 	changes, err = nodeTwo.Write()
@@ -216,8 +220,7 @@ func (s *SettingsSuite) TestMultipleReads(c *C) {
 }
 
 func (s *SettingsSuite) TestDeleteEmptiesState(c *C) {
-	// Check that delete creates an empty state.
-	node, err := readSettings(s.state, s.path)
+	node, err := createSettings(s.state, s.key, nil)
 	c.Assert(err, IsNil)
 	node.Set("a", "foo")
 	changes, err := node.Write()
@@ -236,7 +239,7 @@ func (s *SettingsSuite) TestDeleteEmptiesState(c *C) {
 
 func (s *SettingsSuite) TestReadResync(c *C) {
 	// Check that read pulls the data into the node.
-	nodeOne, err := readSettings(s.state, s.path)
+	nodeOne, err := createSettings(s.state, s.key, nil)
 	c.Assert(err, IsNil)
 	nodeOne.Set("a", "foo")
 	changes, err := nodeOne.Write()
@@ -244,7 +247,7 @@ func (s *SettingsSuite) TestReadResync(c *C) {
 	c.Assert(changes, DeepEquals, []ItemChange{
 		{ItemAdded, "a", nil, "foo"},
 	})
-	nodeTwo, err := readSettings(s.state, s.path)
+	nodeTwo, err := readSettings(s.state, s.key)
 	c.Assert(err, IsNil)
 	nodeTwo.Delete("a")
 	changes, err = nodeTwo.Write()
@@ -268,7 +271,7 @@ func (s *SettingsSuite) TestReadResync(c *C) {
 
 func (s *SettingsSuite) TestMultipleWrites(c *C) {
 	// Check that multiple writes only do the right changes.
-	node, err := readSettings(s.state, s.path)
+	node, err := createSettings(s.state, s.key, nil)
 	c.Assert(err, IsNil)
 	node.Update(map[string]interface{}{"foo": "bar", "this": "that"})
 	changes, err := node.Write()
@@ -303,14 +306,14 @@ func (s *SettingsSuite) TestMultipleWrites(c *C) {
 }
 
 func (s *SettingsSuite) TestMultipleWritesAreStable(c *C) {
-	node, err := readSettings(s.state, s.path)
+	node, err := createSettings(s.state, s.key, nil)
 	c.Assert(err, IsNil)
 	node.Update(map[string]interface{}{"foo": "bar", "this": "that"})
 	_, err = node.Write()
 	c.Assert(err, IsNil)
 
 	mgoData := make(map[string]interface{})
-	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.path).One(&mgoData)
+	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.key).One(&mgoData)
 	c.Assert(err, IsNil)
 	version := mgoData["version"]
 	for i := 0; i < 100; i++ {
@@ -322,7 +325,7 @@ func (s *SettingsSuite) TestMultipleWritesAreStable(c *C) {
 		c.Assert(err, IsNil)
 	}
 	mgoData = make(map[string]interface{})
-	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.path).One(&mgoData)
+	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.key).One(&mgoData)
 	c.Assert(err, IsNil)
 	newVersion := mgoData["version"]
 	c.Assert(version, Equals, newVersion)
@@ -330,7 +333,7 @@ func (s *SettingsSuite) TestMultipleWritesAreStable(c *C) {
 
 func (s *SettingsSuite) TestWriteTwice(c *C) {
 	// Check the correct writing into a node by two config nodes.
-	nodeOne, err := readSettings(s.state, s.path)
+	nodeOne, err := createSettings(s.state, s.key, nil)
 	c.Assert(err, IsNil)
 	nodeOne.Set("a", "foo")
 	changes, err := nodeOne.Write()
@@ -339,7 +342,7 @@ func (s *SettingsSuite) TestWriteTwice(c *C) {
 		{ItemAdded, "a", nil, "foo"},
 	})
 
-	nodeTwo, err := readSettings(s.state, s.path)
+	nodeTwo, err := readSettings(s.state, s.key)
 	c.Assert(err, IsNil)
 	nodeTwo.Set("a", "bar")
 	changes, err = nodeTwo.Write()
@@ -356,7 +359,7 @@ func (s *SettingsSuite) TestWriteTwice(c *C) {
 
 	err = nodeOne.Read()
 	c.Assert(err, IsNil)
-	c.Assert(nodeOne.path, Equals, nodeTwo.path)
+	c.Assert(nodeOne.key, Equals, nodeTwo.key)
 	c.Assert(nodeOne.disk, DeepEquals, nodeTwo.disk)
 	c.Assert(nodeOne.core, DeepEquals, nodeTwo.core)
 }
