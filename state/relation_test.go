@@ -1111,7 +1111,7 @@ func (s *OriginalRelationUnitSuite) TestContainerProReqRelationUnit(c *C) {
 	// connections are in place.
 }
 
-func changeSettings(c *C, ru *state.RelationUnit) *state.ConfigNode {
+func changeSettings(c *C, ru *state.RelationUnit) *state.Settings {
 	node, err := ru.Settings()
 	c.Assert(err, IsNil)
 	value, _ := node.Get("value")

@@ -924,7 +924,7 @@ func (changes *RelationUnitsChange) empty() bool {
 // supplied id, and sets a value in the Changed field keyed on the unit's
 // name. It returns the mgo/txn revision number of the settings node.
 func (w *RelationUnitsWatcher) mergeSettings(changes *RelationUnitsChange, key string) (int64, error) {
-	node, err := readConfigNode(w.st, key)
+	node, err := readSettings(w.st, key)
 	if err != nil {
 		return -1, err
 	}
@@ -1069,11 +1069,11 @@ func (w *EnvironConfigWatcher) loop() (err error) {
 			return watcher.MustErr(w.st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case configNode, ok := <-sw.Changes():
+		case settings, ok := <-sw.Changes():
 			if !ok {
 				return watcher.MustErr(sw)
 			}
-			cfg, err = config.New(configNode.Map())
+			cfg, err = config.New(settings.Map())
 			if err == nil {
 				out = w.out
 			} else {
@@ -1088,7 +1088,7 @@ func (w *EnvironConfigWatcher) loop() (err error) {
 
 type settingsWatcher struct {
 	commonWatcher
-	out chan *ConfigNode
+	out chan *Settings
 }
 
 // watchSettings creates a watcher for observing changes to settings.
@@ -1099,7 +1099,7 @@ func (s *State) watchSettings(key string) *settingsWatcher {
 func newSettingsWatcher(s *State, key string) *settingsWatcher {
 	w := &settingsWatcher{
 		commonWatcher: commonWatcher{st: s},
-		out:           make(chan *ConfigNode),
+		out:           make(chan *Settings),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -1111,20 +1111,20 @@ func newSettingsWatcher(s *State, key string) *settingsWatcher {
 
 // Changes returns a channel that will receive the new settings.
 // Multiple changes may be observed as a single event in the channel.
-func (w *settingsWatcher) Changes() <-chan *ConfigNode {
+func (w *settingsWatcher) Changes() <-chan *Settings {
 	return w.out
 }
 
 func (w *settingsWatcher) loop(key string) (err error) {
 	ch := make(chan watcher.Change)
-	configNode, err := readConfigNode(w.st, key)
+	settings, err := readSettings(w.st, key)
 	if err != nil {
 		return err
 	}
-	w.st.watcher.Watch(w.st.settings.Name, key, configNode.txnRevno, ch)
+	w.st.watcher.Watch(w.st.settings.Name, key, settings.txnRevno, ch)
 	defer w.st.watcher.Unwatch(w.st.settings.Name, key, ch)
 	out := w.out
-	nul := make(chan *ConfigNode)
+	nul := make(chan *Settings)
 	for {
 		select {
 		case <-w.st.watcher.Dead():
@@ -1132,12 +1132,12 @@ func (w *settingsWatcher) loop(key string) (err error) {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-ch:
-			configNode, err = readConfigNode(w.st, key)
+			settings, err = readSettings(w.st, key)
 			if err != nil {
 				return err
 			}
 			out = w.out
-		case out <- configNode:
+		case out <- settings:
 			out = nul
 		}
 	}

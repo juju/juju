@@ -47,7 +47,7 @@ func (s *ProvisionerSuite) SetUpTest(c *C) {
 }
 
 // invalidateEnvironment alters the environment configuration
-// so the ConfigNode returned from the watcher will not pass
+// so the Settings returned from the watcher will not pass
 // validation.
 func (s *ProvisionerSuite) invalidateEnvironment() error {
 	settings := s.Session.DB("juju").C("settings")

@@ -220,7 +220,7 @@ type RelationContext struct {
 	members SettingsMap
 
 	// settings allows read and write access to the relation unit settings.
-	settings *state.ConfigNode
+	settings *state.Settings
 
 	// cache is a short-term cache that enables consistent access to settings
 	// for units that are not currently participating in the relation. Its
@@ -274,9 +274,9 @@ func (ctx *RelationContext) DeleteMember(unitName string) {
 	delete(ctx.members, unitName)
 }
 
-// Settings returns a ConfigNode that gives read and write access to the
+// Settings returns a Settings that gives read and write access to the
 // unit's relation settings.
-func (ctx *RelationContext) Settings() (*state.ConfigNode, error) {
+func (ctx *RelationContext) Settings() (*state.Settings, error) {
 	if ctx.settings == nil {
 		node, err := ctx.ru.Settings()
 		if err != nil {
