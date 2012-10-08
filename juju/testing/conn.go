@@ -37,9 +37,9 @@ type JujuConnSuite struct {
 	oldHome string
 }
 
-// InvalidStateInfo holds information about no state - it will always give
-// an error when connected to. The machine id gives the
-// machine id of the machine to be started 
+// InvalidStateInfo holds information about no state - it will always
+// give an error when connected to.  The machine id gives the machine id
+// of the machine to be started
 func InvalidStateInfo(machineId int) *state.Info {
 	return &state.Info{
 		Addrs:      []string{"0.1.2.3:1234"},
