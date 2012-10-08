@@ -73,7 +73,9 @@ func (s *ProvisionerSuite) checkStartInstance(c *C, m *state.Machine, secret str
 		case o := <-s.op:
 			switch o := o.(type) {
 			case dummy.OpStartInstance:
-				c.Assert(o.Info, DeepEquals, s.StateInfo(c))
+				info := s.StateInfo(c)
+				info.EntityName = m.EntityName()
+				c.Assert(o.Info, DeepEquals, info)
 				c.Assert(o.MachineId, Equals, m.Id())
 				c.Assert(o.Instance, NotNil)
 				s.checkInstanceId(c, m, o.Instance)
