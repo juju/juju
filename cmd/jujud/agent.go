@@ -49,24 +49,42 @@ func stateInfoVar(fs *gnuflag.FlagSet, target *state.Info, name string, value []
 
 // AgentConf handles command-line flags shared by all agents.
 type AgentConf struct {
+	accept          agentFlags
 	DataDir         string
 	StateInfo       state.Info
 	InitialPassword string
 }
 
+type agentFlags int
+
+const (
+	flagStateInfo agentFlags = 1 << iota
+	flagInitialPassword
+	flagDataDir
+
+	flagAll agentFlags = ^0
+)
+
 // addFlags injects common agent flags into f.
-func (c *AgentConf) addFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.DataDir, "data-dir", "/var/lib/juju", "directory for juju data")
-	stateInfoVar(f, &c.StateInfo, "state-servers", nil, "state servers to connect to")
-	f.StringVar(&c.InitialPassword, "initial-password", "", "initial password for state")
+func (c *AgentConf) addFlags(f *gnuflag.FlagSet, accept agentFlags) {
+	if accept&flagDataDir != 0 {
+		f.StringVar(&c.DataDir, "data-dir", "/var/lib/juju", "directory for juju data")
+	}
+	if accept&flagStateInfo != 0 {
+		stateInfoVar(f, &c.StateInfo, "state-servers", nil, "state servers to connect to")
+	}
+	if accept&flagInitialPassword != 0 {
+		f.StringVar(&c.InitialPassword, "initial-password", "", "initial password for state")
+	}
+	c.accept = accept
 }
 
 // checkArgs checks that required flags have been set and that args is empty.
 func (c *AgentConf) checkArgs(args []string) error {
-	if c.DataDir == "" {
+	if c.accept&flagDataDir != 0 && c.DataDir == "" {
 		return requiredError("data-dir")
 	}
-	if c.StateInfo.Addrs == nil {
+	if c.accept&flagStateInfo != 0 && c.StateInfo.Addrs == nil {
 		return requiredError("state-servers")
 	}
 	return cmd.CheckEmpty(args)
