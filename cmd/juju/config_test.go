@@ -114,6 +114,21 @@ var setTests = []struct {
 			"title": "sir",
 		},
 		"",
+	}, {
+		// set a default value
+		[]string{"username=admin001"},
+		map[string]interface{}{
+			"username": "admin001",
+			"title":    "sir",
+		},
+		"",
+	}, {
+		// unset a default value, set a different default
+		[]string{"username=", "title=My Title"},
+		map[string]interface{}{
+			"title": "My Title",
+		},
+		"",
 	},
 }
 
@@ -124,6 +139,7 @@ func (s *ConfigSuite) TestSetConfig(c *C) {
 	for _, t := range setTests {
 		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
 		args := append([]string{"dummy-service"}, t.args...)
+		c.Logf("%s", args)
 		code := cmd.Main(&SetCommand{}, ctx, args)
 		if code != 0 {
 			c.Assert(ctx.Stderr.(*bytes.Buffer).String(), Matches, t.err)

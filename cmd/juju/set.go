@@ -3,12 +3,10 @@ package main
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
@@ -72,16 +70,15 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	chcfg := charm.Config()
 	// 1. Validate will convert this partial configuration
 	// into a full configuration by inserting charm defaults
 	// for missing values.
-	validated, err := chcfg.Validate(unvalidated)
+	validated, err := charm.Config().Validate(unvalidated)
 	if err != nil {
 		return err
 	}
 	// 2. strip out the additional default keys added in the previous step.
-	validated = strip(validated, chcfg)
+	validated = strip(validated, unvalidated)
 	cfg, err := srv.Config()
 	if err != nil {
 		return err
@@ -123,14 +120,12 @@ func parse(options []string) (kv map[string]string, del []string, err error) {
 	return
 }
 
-// strip removes from options any keys whos values match the charm defaults.
-func strip(options map[string]interface{}, config *charm.Config) map[string]interface{} {
-	for k, v := range options {
-		if ch, ok := config.Options[k]; ok {
-			if reflect.DeepEqual(ch.Default, v) {
-				delete(options, k)
-			}
+// strip removes from validated, any keys which are not also present in unvalidated.
+func strip(validated map[string]interface{}, unvalidated map[string]string) map[string]interface{} {
+	for k, _ := range validated {
+		if _, ok := unvalidated[k]; !ok {
+			delete(validated, k)
 		}
 	}
-	return options
+	return validated
 }
