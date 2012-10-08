@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"os"
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
@@ -129,6 +130,21 @@ var setTests = []struct {
 			"title": "My Title",
 		},
 		"",
+	}, {
+		// --config missing
+		[]string{"--config", "missing.yaml"},
+		nil,
+		"error.*no such file or directory\n",
+		// TODO(dfc) possible gocheck bug
+		//	}, {
+		//		// --config $FILE test
+		//		[]string{"--config", "testconfig.yaml"},
+		//		map[string]interface{}{
+		//			"title":       "My Title",
+		//			"username":    "admin001",
+		//			"skill-level": 9000,
+		//		},
+		//		"",
 	},
 }
 
@@ -136,10 +152,12 @@ func (s *ConfigSuite) TestSetConfig(c *C) {
 	sch := s.AddTestingCharm(c, "dummy")
 	svc, err := s.State.AddService("dummy-service", sch)
 	c.Assert(err, IsNil)
+	dir := c.MkDir()
+	setupConfigfile(c, dir)
 	for _, t := range setTests {
-		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
 		args := append([]string{"dummy-service"}, t.args...)
 		c.Logf("%s", args)
+		ctx := &cmd.Context{dir, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
 		code := cmd.Main(&SetCommand{}, ctx, args)
 		if code != 0 {
 			c.Assert(ctx.Stderr.(*bytes.Buffer).String(), Matches, t.err)
@@ -151,4 +169,12 @@ func (s *ConfigSuite) TestSetConfig(c *C) {
 	}
 }
 
-// TODO(dfc) add --config $FILE tests
+func setupConfigfile(c *C, dir string) {
+	ctx := &cmd.Context{dir, nil, nil, nil}
+	path := ctx.AbsPath("testconfig.yaml")
+	file, err := os.Create(path)
+	c.Assert(err, IsNil)
+	_, err = file.Write([]byte("skill-level: 9000\nusername: admin001\n\n"))
+	c.Assert(err, IsNil)
+	file.Close()
+}

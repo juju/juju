@@ -371,4 +371,8 @@ func (*CmdSuite) TestSetCommandInit(c *C) {
 	// --config path, but no service
 	com, err = initSetCommand("--config", "testconfig")
 	c.Assert(err, ErrorMatches, "no service name specified")
+
+	// --config and options specified
+	com, err = initSetCommand("service", "--config", "testconfig", "bees=")
+	c.Assert(err, ErrorMatches, "must specify either --config or options, not both")
 }

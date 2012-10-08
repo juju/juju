@@ -35,6 +35,9 @@ func (c *SetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	if len(args) == 0 || len(strings.Split(args[0], "=")) > 1 {
 		return errors.New("no service name specified")
 	}
+	if len(c.Config.Path) > 0 && len(args) > 1 {
+		return errors.New("must specify either --config or options, not both")
+	}
 	c.ServiceName, c.Options = args[0], args[1:]
 	return nil
 }
@@ -83,13 +86,11 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-
 	// 3. Update any keys that remain after validation and filtering.
 	if len(validated) > 0 {
 		log.Debugf("updating configuration items: %v", validated)
 		cfg.Update(validated)
 	}
-
 	// 4. Delete any removed keys.
 	if len(remove) > 0 {
 		log.Debugf("removing configuration items: %v", remove)
