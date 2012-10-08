@@ -402,14 +402,14 @@ func (s *RelationContextSuite) SetUpTest(c *C) {
 
 func (s *RelationContextSuite) TestChangeMembers(c *C) {
 	ctx := jujuc.NewRelationContext(s.ru, nil)
-	c.Assert(ctx.Units(), HasLen, 0)
+	c.Assert(ctx.UnitNames(), HasLen, 0)
 
 	// Check the units and settings after a simple update.
 	ctx.UpdateMembers(jujuc.SettingsMap{
 		"u/2": {"baz": 2},
 		"u/4": {"qux": 4},
 	})
-	c.Assert(ctx.Units(), DeepEquals, []string{"u/2", "u/4"})
+	c.Assert(ctx.UnitNames(), DeepEquals, []string{"u/2", "u/4"})
 	assertSettings := func(unit string, expect map[string]interface{}) {
 		actual, err := ctx.ReadSettings(unit)
 		c.Assert(err, IsNil)
@@ -424,7 +424,7 @@ func (s *RelationContextSuite) TestChangeMembers(c *C) {
 		"u/2": nil,
 		"u/3": {"bar": 3},
 	})
-	c.Assert(ctx.Units(), DeepEquals, []string{"u/1", "u/2", "u/3", "u/4"})
+	c.Assert(ctx.UnitNames(), DeepEquals, []string{"u/1", "u/2", "u/3", "u/4"})
 
 	// Check that all settings remain cached, including u/2's (which lacked
 	// new settings data in the second update).
@@ -435,7 +435,7 @@ func (s *RelationContextSuite) TestChangeMembers(c *C) {
 
 	// Delete a member, and check that it is no longer a member...
 	ctx.DeleteMember("u/2")
-	c.Assert(ctx.Units(), DeepEquals, []string{"u/1", "u/3", "u/4"})
+	c.Assert(ctx.UnitNames(), DeepEquals, []string{"u/1", "u/3", "u/4"})
 
 	// ...and that its settings are no longer cached.
 	_, err := ctx.ReadSettings("u/2")
@@ -562,18 +562,18 @@ var _ = Suite(&InterfaceSuite{})
 
 func (s *InterfaceSuite) TestTrivial(c *C) {
 	ctx := s.GetHookContext(c, -1, "")
-	c.Assert(ctx.Unit(), Equals, "u/0")
+	c.Assert(ctx.UnitName(), Equals, "u/0")
 	c.Assert(ctx.RelationId(), Equals, -1)
-	c.Assert(ctx.CounterpartUnit(), Equals, "")
+	c.Assert(ctx.RemoteUnitName(), Equals, "")
 	c.Assert(ctx.RelationIds(), HasLen, 2)
 
 	ctx.RelationId_ = 0
 	c.Assert(ctx.RelationId(), Equals, 0)
-	ctx.RemoteUnitName = "u/123"
-	c.Assert(ctx.CounterpartUnit(), Equals, "u/123")
+	ctx.RemoteUnitName_ = "u/123"
+	c.Assert(ctx.RemoteUnitName(), Equals, "u/123")
 
 	_, err := ctx.Relation(999)
-	c.Assert(err, Equals, jujuc.ErrRelationNotFound)
+	c.Assert(err, Equals, jujuc.ErrNoRelation)
 	r, err := ctx.Relation(1)
 	c.Assert(err, IsNil)
 	c.Assert(r.Name(), Equals, "peer1")

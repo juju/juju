@@ -2,11 +2,18 @@ package jujuc
 
 import "errors"
 
-// Context expresses the capabilities of a hook.
+// ErrNoRemote indicates that a Context is not associated with a remote unit.
+var ErrNoRemote = errors.New("remote unit not found")
+
+// ErrNoRelation indicates that some relation is not known to the unit.
+var ErrNoRelation = errors.New("relation not found")
+
+// Context is the interface that all hook helper commands
+// depend on to interact with the rest of the system.
 type Context interface {
 
 	// Unit returns the executing unit's name.
-	Unit() string
+	UnitName() string
 
 	// PublicAddress returns the executing unit's public address.
 	PublicAddress() (string, error)
@@ -27,50 +34,48 @@ type Context interface {
 	Config() (map[string]interface{}, error)
 
 	// RelationId returns the id of the relation associated with the hook.
-	// If the hook is not a relation hook, it returns -1.
-	RelationId() int
+	// It returns ErrNoRelation when not running a relation hook.
+	RelationId() (int, error)
 
-	// CounterpartUnit returns the name of the counterpart unit associated with
-	// the hook. If the hook is not a relation hook, or if no counterpart unit
-	// is associated, it returns "".
-	CounterpartUnit() string
+	// RemoteUnitName returns the name of the remote unit the hook
+	// execution is associated with. It returns ErrNoRemote if no
+	// remote unit is associated with the hook execution.
+	RemoteUnitName() (string, error)
 
 	// RelationIds returns the ids of all relations the executing unit is
 	// currently participating in.
 	RelationIds() []int
 
-	// Relation returns the relation with the supplied id. If the relation is
-	// not known, it returns ErrRelationNotFound.
-	Relation(id int) (Relation, error)
+	// Relation returns the relation with the supplied id. It returns
+	// ErrNoRelation when the relation is not known.
+	Relation(id int) (ContextRelation, error)
 }
 
-// ErrRelationNotFound indicates that some relation is not known to the unit.
-var ErrRelationNotFound = errors.New("relation not found")
+// ContextRelation expresses the capabilities of a hook with respect to a relation.
+type ContextRelation interface {
 
-// Relation expresses the capabilities of a hook with respect to a relation.
-type Relation interface {
-
-	// Name returns a string of the form "relation-name", which identifies
-	// the kind of relation only.
+	// Name returns the name the locally executing charm assigned to this relation.
 	Name() string
 
 	// FakeId returns a string of the form "relation-name:123", which uniquely
-	// identifies the relation to the hook.
+	// identifies the relation to the hook. In reality, the identification
+	// of the relation is the integer following the colon, but the composed
+	// name is useful to humans observing it.
 	FakeId() string
 
-	// Units returns a list of the counterpart units in the relation.
-	Units() []string
+	// Settings allows read/write access to the local unit's settings in
+	// this relation.
+	Settings() (Settings, error)
 
-	// Settings allows read/write access to the unit's settings in this relation.
-	Settings() (MapChanger, error)
+	// UnitNames returns a list of the remote units in the relation.
+	UnitNames() []string
 
-	// ReadSettings returns the settings of any counterpart unit in the
-	// relation.
+	// ReadSettings returns the settings of any remote unit in the relation.
 	ReadSettings(unit string) (map[string]interface{}, error)
 }
 
-// MapChanger exposes map-like functionality.
-type MapChanger interface {
+// Settings is implemented by types that manipulate unit settings.
+type Settings interface {
 	Map() map[string]interface{}
 	Get(string) (interface{}, bool)
 	Set(string, interface{})

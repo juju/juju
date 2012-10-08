@@ -57,12 +57,12 @@ func (s *RelationIdsSuite) GetHookContext(c *C, relid int) *jujuc.HookContext {
 		c.Assert(found, Equals, true)
 	}
 	return &jujuc.HookContext{
-		Service:        s.service,
-		Unit_:          s.unit,
-		Id:             "TestCtx",
-		RelationId_:    relid,
-		RemoteUnitName: "",
-		Relations:      s.relctxs,
+		Service:         s.service,
+		Unit:            s.unit,
+		Id:              "TestCtx",
+		RelationId_:     relid,
+		RemoteUnitName_: "",
+		Relations:       s.relctxs,
 	}
 }
 

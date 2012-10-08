@@ -19,7 +19,7 @@ import (
 
 type HookContext struct {
 	Service *state.Service
-	Unit_   *state.Unit
+	Unit    *state.Unit
 
 	// Id identifies the context.
 	Id string
@@ -29,34 +29,34 @@ type HookContext struct {
 	// otherwise, its value must be a valid key into the Relations map.
 	RelationId_ int
 
-	// RemoteUnitName identifies the changing unit of the executing relation
+	// RemoteUnitName_ identifies the changing unit of the executing relation
 	// hook. It will be empty if the context is not running a relation hook,
 	// or if it is running a relation-broken hook.
-	RemoteUnitName string
+	RemoteUnitName_ string
 
 	// Relations contains the context for every relation the unit is a member
 	// of, keyed on relation id.
 	Relations map[int]*RelationContext
 }
 
-func (ctx *HookContext) Unit() string {
-	return ctx.Unit_.Name()
+func (ctx *HookContext) UnitName() string {
+	return ctx.Unit.Name()
 }
 
 func (ctx *HookContext) PublicAddress() (string, error) {
-	return ctx.Unit_.PublicAddress()
+	return ctx.Unit.PublicAddress()
 }
 
 func (ctx *HookContext) PrivateAddress() (string, error) {
-	return ctx.Unit_.PrivateAddress()
+	return ctx.Unit.PrivateAddress()
 }
 
 func (ctx *HookContext) OpenPort(protocol string, port int) error {
-	return ctx.Unit_.OpenPort(protocol, port)
+	return ctx.Unit.OpenPort(protocol, port)
 }
 
 func (ctx *HookContext) ClosePort(protocol string, port int) error {
-	return ctx.Unit_.ClosePort(protocol, port)
+	return ctx.Unit.ClosePort(protocol, port)
 }
 
 func (ctx *HookContext) Config() (map[string]interface{}, error) {
@@ -89,8 +89,8 @@ func (ctx *HookContext) RelationId() int {
 	return ctx.RelationId_
 }
 
-func (ctx *HookContext) CounterpartUnit() string {
-	return ctx.RemoteUnitName
+func (ctx *HookContext) RemoteUnitName() string {
+	return ctx.RemoteUnitName_
 }
 
 func (ctx *HookContext) RelationIds() []int {
@@ -101,10 +101,10 @@ func (ctx *HookContext) RelationIds() []int {
 	return ids
 }
 
-func (ctx *HookContext) Relation(id int) (Relation, error) {
+func (ctx *HookContext) Relation(id int) (ContextRelation, error) {
 	r, found := ctx.Relations[id]
 	if !found {
-		return nil, ErrRelationNotFound
+		return nil, ErrNoRelation
 	}
 	return r, nil
 }
@@ -152,13 +152,13 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		"CHARM_DIR=" + charmDir,
 		"JUJU_CONTEXT_ID=" + ctx.Id,
 		"JUJU_AGENT_SOCKET=" + socketPath,
-		"JUJU_UNIT_NAME=" + ctx.Unit_.Name(),
+		"JUJU_UNIT_NAME=" + ctx.Unit.Name(),
 	}
 	if ctx.RelationId_ != -1 {
 		vars = append(vars, "JUJU_RELATION="+ctx.envRelation())
 		vars = append(vars, "JUJU_RELATION_ID="+ctx.envRelationId())
-		if ctx.RemoteUnitName != "" {
-			vars = append(vars, "JUJU_REMOTE_UNIT="+ctx.RemoteUnitName)
+		if ctx.RemoteUnitName_ != "" {
+			vars = append(vars, "JUJU_REMOTE_UNIT="+ctx.RemoteUnitName_)
 		}
 	}
 	return vars
@@ -347,7 +347,7 @@ func (ctx *RelationContext) FakeId() string {
 	return fmt.Sprintf("%s:%d", ctx.Name(), ctx.ru.Relation().Id())
 }
 
-func (ctx *RelationContext) Units() (units []string) {
+func (ctx *RelationContext) UnitNames() (units []string) {
 	for unit := range ctx.members {
 		units = append(units, unit)
 	}
@@ -355,7 +355,7 @@ func (ctx *RelationContext) Units() (units []string) {
 	return units
 }
 
-func (ctx *RelationContext) Settings() (MapChanger, error) {
+func (ctx *RelationContext) Settings() (Settings, error) {
 	if ctx.settings == nil {
 		node, err := ctx.ru.Settings()
 		if err != nil {

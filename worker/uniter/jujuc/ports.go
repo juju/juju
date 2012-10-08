@@ -73,7 +73,7 @@ func NewOpenPortCommand(ctx *HookContext) (cmd.Command, error) {
 		HookContext: ctx,
 		info:        openPortInfo,
 		action: func(c *portCommand) error {
-			return c.Unit_.OpenPort(c.Protocol, c.Port)
+			return c.Unit.OpenPort(c.Protocol, c.Port)
 		},
 	}, nil
 }
@@ -87,7 +87,7 @@ func NewClosePortCommand(ctx *HookContext) (cmd.Command, error) {
 		HookContext: ctx,
 		info:        closePortInfo,
 		action: func(c *portCommand) error {
-			return c.Unit_.ClosePort(c.Protocol, c.Port)
+			return c.Unit.ClosePort(c.Protocol, c.Port)
 		},
 	}, nil
 }

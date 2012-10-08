@@ -25,9 +25,9 @@ func (c *RelationGetCommand) Info() *cmd.Info {
 relation-get prints the value of a unit's relation setting, specified by key.
 If no key is given, or if the key is "-", all keys and values will be printed.
 `
-	if c.RemoteUnitName != "" {
+	if c.RemoteUnitName_ != "" {
 		args = "[<key> [<unit id>]]"
-		doc += fmt.Sprintf("Current default unit id is %q.", c.RemoteUnitName)
+		doc += fmt.Sprintf("Current default unit id is %q.", c.RemoteUnitName_)
 	}
 	return &cmd.Info{
 		"relation-get", args, "get relation settings", doc,
@@ -52,7 +52,7 @@ func (c *RelationGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 		}
 		args = args[1:]
 	}
-	c.UnitName = c.RemoteUnitName
+	c.UnitName = c.RemoteUnitName_
 	if len(args) > 0 {
 		c.UnitName = args[0]
 		args = args[1:]
@@ -65,7 +65,7 @@ func (c *RelationGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 	var settings map[string]interface{}
-	if c.UnitName == c.Unit_.Name() {
+	if c.UnitName == c.Unit.Name() {
 		node, err := c.Relations[c.RelationId].Settings()
 		if err != nil {
 			return err
