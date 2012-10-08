@@ -1,13 +1,5 @@
 package jujuc
 
-import "errors"
-
-// ErrNoRemote indicates that a Context is not associated with a remote unit.
-var ErrNoRemote = errors.New("remote unit not found")
-
-// ErrNoRelation indicates that some relation is not known to the unit.
-var ErrNoRelation = errors.New("relation not found")
-
 // Context is the interface that all hook helper commands
 // depend on to interact with the rest of the system.
 type Context interface {
@@ -33,26 +25,41 @@ type Context interface {
 	// Config returns the current service configuration of the executing unit.
 	Config() (map[string]interface{}, error)
 
-	// RelationId returns the id of the relation associated with the hook.
-	// It returns ErrNoRelation when not running a relation hook.
-	RelationId() (int, error)
+	// HasHookRelation returns whether the executing hook has an associated
+	// relation.
+	HasHookRelation() bool
 
-	// RemoteUnitName returns the name of the remote unit the hook
-	// execution is associated with. It returns ErrNoRemote if no
-	// remote unit is associated with the hook execution.
-	RemoteUnitName() (string, error)
+	// HookRelation returns the ContextRelation associated with the executing
+	// hook. It panics if no relation is associated.
+	HookRelation() ContextRelation
+
+	// HasRemoteUnit returns whether the executing hook has an associated
+	// remote unit.
+	HasRemoteUnit() bool
+
+	// RemoteUnitName returns the name of the remote unit the hook execution
+	// is associated with. It panics if there is no remote unit associated
+	// with the hook execution.
+	RemoteUnitName() string
+
+	// HasRelation returns whether the executing unit is participating in
+	// the relation with the supplied id.
+	HasRelation(id int) bool
+
+	// Relation returns the relation with the supplied id. It panics if the
+	// executing unit is not participating in a relation with that id.
+	Relation(id int) ContextRelation
 
 	// RelationIds returns the ids of all relations the executing unit is
 	// currently participating in.
 	RelationIds() []int
-
-	// Relation returns the relation with the supplied id. It returns
-	// ErrNoRelation when the relation is not known.
-	Relation(id int) (ContextRelation, error)
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.
 type ContextRelation interface {
+
+	// Id returns an integer which uniquely identifies the relation.
+	Id() int
 
 	// Name returns the name the locally executing charm assigned to this relation.
 	Name() string
@@ -80,31 +87,4 @@ type Settings interface {
 	Get(string) (interface{}, bool)
 	Set(string, interface{})
 	Delete(string)
-}
-
-// envRelation returns the relation name exposed to hooks as JUJU_RELATION.
-// If the context does not have a relation, it will return an empty string.
-func envRelation(ctx Context) string {
-	id, err := ctx.RelationId()
-	if err != nil {
-		if err != ErrNoRelation {
-			panic(err)
-		}
-		return ""
-	}
-	r, err := ctx.Relation(id)
-	if err != nil {
-		panic(err)
-	}
-	return r.Name()
-}
-
-// envRelationId returns the relation id exposed to hooks as JUJU_RELATION_ID.
-// If the context does not have a relation, it will return an empty string.
-// Otherwise, it will panic if RelationId is not a key in the Relations map.
-func (ctx *HookContext) envRelationId() string {
-	if ctx.RelationId_ == -1 {
-		return ""
-	}
-	return ctx.Relations[ctx.RelationId_].FakeId()
 }

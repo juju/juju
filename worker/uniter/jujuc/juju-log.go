@@ -39,15 +39,11 @@ func (c *JujuLogCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *JujuLogCommand) Run(_ *cmd.Context) error {
-	s := []string{c.ctx.UnitName()}
-	if id, err := c.ctx.RelationId(); err != nil {
-		return err
-	} else if r, err := c.ctx.Relation(id); err != nil {
-		return err
-	} else {
-		s = append(s, r.FakeId())
+	badge := c.ctx.UnitName()
+	if c.ctx.HasHookRelation() {
+		badge = badge + " " + c.ctx.HookRelation().FakeId()
 	}
-	msg := strings.Join(s, " ") + ": " + c.Message
+	msg := badge + ": " + c.Message
 	if c.Debug {
 		log.Debugf("%s", msg)
 	} else {

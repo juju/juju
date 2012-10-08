@@ -25,7 +25,7 @@ func (c *RelationSetCommand) Info() *cmd.Info {
 }
 
 func (c *RelationSetCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	f.Var(c.relationIdValue(&c.RelationId), "r", "specify a relation by id")
+	f.Var(newRelationIdValue(c.ctx, &c.RelationId), "r", "specify a relation by id")
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
@@ -47,7 +47,7 @@ func (c *RelationSetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
-	node, err := c.Relations[c.RelationId].Settings()
+	node, err := c.ctx.Relation(c.RelationId).Settings()
 	for k, v := range c.Settings {
 		if v != "" {
 			node.Set(k, v)

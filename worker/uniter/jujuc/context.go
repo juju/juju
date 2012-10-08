@@ -94,20 +94,42 @@ func merge(a, b map[string]interface{}) map[string]interface{} {
 	return a
 }
 
-// RelationId is needed to implement Context.
-func (ctx *HookContext) RelationId() (int, error) {
-	if ctx.RelationId_ == -1 {
-		return -1, ErrNoRelation
-	}
-	return ctx.RelationId_, nil
+// HasHookRelation is needed to implement Context.
+func (ctx *HookContext) HasHookRelation() bool {
+	return ctx.HasRelation(ctx.RelationId_)
+}
+
+// HookRelation is needed to implement Context.
+func (ctx *HookContext) HookRelation() ContextRelation {
+	return ctx.Relation(ctx.RelationId_)
+}
+
+// HasRemoteUnit is needed to implement Context.
+func (ctx *HookContext) HasRemoteUnit() bool {
+	return ctx.RemoteUnitName_ != ""
 }
 
 // RemoteUnitName is needed to implement Context.
-func (ctx *HookContext) RemoteUnitName() (string, error) {
+func (ctx *HookContext) RemoteUnitName() string {
 	if ctx.RemoteUnitName_ == "" {
-		return "", ErrNoRemote
+		panic("remote unit not available")
 	}
-	return ctx.RemoteUnitName_, nil
+	return ctx.RemoteUnitName_
+}
+
+// HasRelation is needed to implement Context.
+func (ctx *HookContext) HasRelation(id int) bool {
+	_, found := ctx.Relations[id]
+	return found
+}
+
+// Relation is needed to implement Context.
+func (ctx *HookContext) Relation(id int) ContextRelation {
+	r, found := ctx.Relations[id]
+	if !found {
+		panic(fmt.Errorf("unknown relation %d", id))
+	}
+	return r
 }
 
 // RelationIds is needed to implement Context.
@@ -117,15 +139,6 @@ func (ctx *HookContext) RelationIds() []int {
 		ids = append(ids, id)
 	}
 	return ids
-}
-
-// Relation is needed to implement Context.
-func (ctx *HookContext) Relation(id int) (ContextRelation, error) {
-	r, found := ctx.Relations[id]
-	if !found {
-		return nil, ErrNoRelation
-	}
-	return r, nil
 }
 
 // newCommands maps Command names to initializers.
@@ -173,11 +186,12 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		"JUJU_AGENT_SOCKET=" + socketPath,
 		"JUJU_UNIT_NAME=" + ctx.Unit.Name(),
 	}
-	if ctx.RelationId_ != -1 {
-		vars = append(vars, "JUJU_RELATION="+ctx.envRelation())
-		vars = append(vars, "JUJU_RELATION_ID="+ctx.envRelationId())
-		if ctx.RemoteUnitName_ != "" {
-			vars = append(vars, "JUJU_REMOTE_UNIT="+ctx.RemoteUnitName_)
+	if ctx.HasHookRelation() {
+		r := ctx.HookRelation()
+		vars = append(vars, "JUJU_RELATION="+r.Name())
+		vars = append(vars, "JUJU_RELATION_ID="+r.FakeId())
+		if ctx.HasRemoteUnit() {
+			vars = append(vars, "JUJU_REMOTE_UNIT="+ctx.RemoteUnitName())
 		}
 	}
 	return vars
@@ -339,17 +353,18 @@ func (ctx *RelationContext) DeleteMember(unitName string) {
 	delete(ctx.members, unitName)
 }
 
-// Name is needed to implement ContextRelation.
+func (ctx *RelationContext) Id() int {
+	return ctx.ru.Relation().Id()
+}
+
 func (ctx *RelationContext) Name() string {
 	return ctx.ru.Endpoint().RelationName
 }
 
-// FakeId is needed to implement ContextRelation.
 func (ctx *RelationContext) FakeId() string {
 	return fmt.Sprintf("%s:%d", ctx.Name(), ctx.ru.Relation().Id())
 }
 
-// UnitNames is needed to implement ContextRelation.
 func (ctx *RelationContext) UnitNames() (units []string) {
 	for unit := range ctx.members {
 		units = append(units, unit)
@@ -358,7 +373,6 @@ func (ctx *RelationContext) UnitNames() (units []string) {
 	return units
 }
 
-// Settings is needed to implement ContextRelation.
 func (ctx *RelationContext) Settings() (Settings, error) {
 	if ctx.settings == nil {
 		node, err := ctx.ru.Settings()
@@ -370,7 +384,6 @@ func (ctx *RelationContext) Settings() (Settings, error) {
 	return ctx.settings, nil
 }
 
-// ReadSettings is needed to implement ContextRelation.
 func (ctx *RelationContext) ReadSettings(unit string) (settings map[string]interface{}, err error) {
 	settings, member := ctx.members[unit]
 	if settings == nil {
@@ -392,19 +405,15 @@ func (ctx *RelationContext) ReadSettings(unit string) (settings map[string]inter
 // relationIdValue returns a gnuflag.Value for convenient parsing of relation
 // ids in context.
 func newRelationIdValue(ctx Context, result *int) *relationIdValue {
-	id, err := ctx.RelationId()
-	if err == ErrNoRelation {
-		*result = -1
-		return &relationIdValue{result: result, ctx: ctx}
-	} else if err != nil {
-		panic(err)
+	v := &relationIdValue{result: result, ctx: ctx}
+	id := -1
+	if ctx.HasHookRelation() {
+		r := ctx.HookRelation()
+		id = r.Id()
+		v.value = r.FakeId()
 	}
 	*result = id
-	r, err := ctx.Relation(id)
-	if err != nil {
-		panic(err)
-	}
-	return &relationIdValue{result: result, ctx: ctx, value: r.FakeId()}
+	return v
 }
 
 // relationIdValue implements gnuflag.Value for use in relation hook commands.
@@ -431,8 +440,8 @@ func (v *relationIdValue) Set(value string) error {
 	if err != nil {
 		return fmt.Errorf("invalid relation id")
 	}
-	if _, err := v.ctx.Relation(id); err != nil {
-		return err
+	if !v.ctx.HasRelation(id) {
+		return fmt.Errorf("unknown relation id")
 	}
 	*v.result = id
 	v.value = value
