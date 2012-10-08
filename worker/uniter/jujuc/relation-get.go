@@ -73,7 +73,7 @@ func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 		settings = node.Map()
 	} else {
 		var err error
-		settings, err = c.Relations[c.RelationId_].ReadSettings(c.UnitName)
+		settings, err = c.Relations[c.RelationId].ReadSettings(c.UnitName)
 		if err != nil {
 			return err
 		}
