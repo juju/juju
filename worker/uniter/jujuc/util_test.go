@@ -80,7 +80,7 @@ func (s *HookContextSuite) GetHookContext(c *C, relid int, remote string) *jujuc
 		Service:         s.service,
 		Unit:            s.unit,
 		Id:              "TestCtx",
-		RelationId_:     relid,
+		RelationId:      relid,
 		RemoteUnitName_: remote,
 		Relations:       s.relctxs,
 	}
