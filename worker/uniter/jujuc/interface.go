@@ -81,3 +81,30 @@ type Settings interface {
 	Set(string, interface{})
 	Delete(string)
 }
+
+// envRelation returns the relation name exposed to hooks as JUJU_RELATION.
+// If the context does not have a relation, it will return an empty string.
+func envRelation(ctx Context) string {
+	id, err := ctx.RelationId()
+	if err != nil {
+		if err != ErrNoRelation {
+			panic(err)
+		}
+		return ""
+	}
+	r, err := ctx.Relation(id)
+	if err != nil {
+		panic(err)
+	}
+	return r.Name()
+}
+
+// envRelationId returns the relation id exposed to hooks as JUJU_RELATION_ID.
+// If the context does not have a relation, it will return an empty string.
+// Otherwise, it will panic if RelationId is not a key in the Relations map.
+func (ctx *HookContext) envRelationId() string {
+	if ctx.RelationId_ == -1 {
+		return ""
+	}
+	return ctx.Relations[ctx.RelationId_].FakeId()
+}

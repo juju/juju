@@ -9,13 +9,13 @@ import (
 
 // RelationSetCommand implements the relation-set command.
 type RelationSetCommand struct {
-	*HookContext
+	ctx        Context
 	RelationId int
 	Settings   map[string]string
 }
 
-func NewRelationSetCommand(ctx *HookContext) (cmd.Command, error) {
-	return &RelationSetCommand{HookContext: ctx, Settings: map[string]string{}}, nil
+func NewRelationSetCommand(ctx Context) cmd.Command {
+	return &RelationSetCommand{ctx: ctx, Settings: map[string]string{}}
 }
 
 func (c *RelationSetCommand) Info() *cmd.Info {

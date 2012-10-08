@@ -129,7 +129,7 @@ func (ctx *HookContext) Relation(id int) (ContextRelation, error) {
 }
 
 // newCommands maps Command names to initializers.
-var newCommands = map[string]func(*HookContext) (cmd.Command, error){
+var newCommands = map[string]func(Context) cmd.Command{
 	"close-port":    NewClosePortCommand,
 	"config-get":    NewConfigGetCommand,
 	"juju-log":      NewJujuLogCommand,
@@ -157,7 +157,7 @@ func (ctx *HookContext) NewCommand(name string) (cmd.Command, error) {
 	if f == nil {
 		return nil, fmt.Errorf("unknown command: %s", name)
 	}
-	return f(ctx)
+	return f(ctx), nil
 }
 
 // hookVars returns an os.Environ-style list of strings necessary to run a hook
@@ -270,26 +270,6 @@ func (l *hookLogger) stop() {
 	l.mu.Lock()
 	l.stopped = true
 	l.mu.Unlock()
-}
-
-// envRelation returns the relation name exposed to hooks as JUJU_RELATION.
-// If the context does not have a relation, it will return an empty string.
-// Otherwise, it will panic if RelationId is not a key in the Relations map.
-func (ctx *HookContext) envRelation() string {
-	if ctx.RelationId_ == -1 {
-		return ""
-	}
-	return ctx.Relations[ctx.RelationId_].Name()
-}
-
-// envRelationId returns the relation id exposed to hooks as JUJU_RELATION_ID.
-// If the context does not have a relation, it will return an empty string.
-// Otherwise, it will panic if RelationId is not a key in the Relations map.
-func (ctx *HookContext) envRelationId() string {
-	if ctx.RelationId_ == -1 {
-		return ""
-	}
-	return ctx.Relations[ctx.RelationId_].FakeId()
 }
 
 // SettingsMap is a map from unit name to relation settings.
@@ -411,15 +391,26 @@ func (ctx *RelationContext) ReadSettings(unit string) (settings map[string]inter
 
 // relationIdValue returns a gnuflag.Value for convenient parsing of relation
 // ids in context.
-func (ctx *HookContext) relationIdValue(result *int) *relationIdValue {
-	*result = ctx.RelationId_
-	return &relationIdValue{result: result, ctx: ctx, value: ctx.envRelationId()}
+func newRelationIdValue(ctx Context, result *int) *relationIdValue {
+	id, err := ctx.RelationId()
+	if err == ErrNoRelation {
+		*result = -1
+		return &relationIdValue{result: result, ctx: ctx}
+	} else if err != nil {
+		panic(err)
+	}
+	*result = id
+	r, err := ctx.Relation(id)
+	if err != nil {
+		panic(err)
+	}
+	return &relationIdValue{result: result, ctx: ctx, value: r.FakeId()}
 }
 
 // relationIdValue implements gnuflag.Value for use in relation hook commands.
 type relationIdValue struct {
 	result *int
-	ctx    *HookContext
+	ctx    Context
 	value  string
 }
 
@@ -440,8 +431,8 @@ func (v *relationIdValue) Set(value string) error {
 	if err != nil {
 		return fmt.Errorf("invalid relation id")
 	}
-	if _, found := v.ctx.Relations[id]; !found {
-		return fmt.Errorf("unknown relation id")
+	if _, err := v.ctx.Relation(id); err != nil {
+		return err
 	}
 	*v.result = id
 	v.value = value

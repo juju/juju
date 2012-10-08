@@ -9,21 +9,28 @@ import (
 
 // RelationIdsCommand implements the relation-ids command.
 type RelationIdsCommand struct {
-	*HookContext
+	ctx  Context
 	Name string
 	out  cmd.Output
 }
 
-func NewRelationIdsCommand(ctx *HookContext) (cmd.Command, error) {
-	return &RelationIdsCommand{HookContext: ctx}, nil
+func NewRelationIdsCommand(ctx Context) cmd.Command {
+	return &RelationIdsCommand{ctx: ctx}
 }
 
 func (c *RelationIdsCommand) Info() *cmd.Info {
 	args := "<name>"
 	doc := ""
-	if name := c.envRelation(); name != "" {
+	id, err := c.ctx.RelationId()
+	if err != nil {
+		if err != ErrNoRelation {
+			panic(err)
+		}
+	} else if r, err := c.ctx.Relation(id); err != nil {
+		panic(err)
+	} else {
 		args = "[<name>]"
-		doc = fmt.Sprintf("Current default relation name is %q.", name)
+		doc = fmt.Sprintf("Current default relation name is %q.", r.Name())
 	}
 	return &cmd.Info{
 		"relation-ids", args, "list all relation ids with the given relation name", doc,

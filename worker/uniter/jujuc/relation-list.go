@@ -8,13 +8,13 @@ import (
 
 // RelationListCommand implements the relation-list command.
 type RelationListCommand struct {
-	*HookContext
+	ctx        Context
 	RelationId int
 	out        cmd.Output
 }
 
-func NewRelationListCommand(ctx *HookContext) (cmd.Command, error) {
-	return &RelationListCommand{HookContext: ctx}, nil
+func NewRelationListCommand(ctx Context) cmd.Command {
+	return &RelationListCommand{ctx: ctx}
 }
 
 func (c *RelationListCommand) Info() *cmd.Info {

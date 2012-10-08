@@ -9,13 +9,13 @@ import (
 
 // UnitGetCommand implements the unit-get command.
 type UnitGetCommand struct {
-	*HookContext
+	ctx Context
 	Key string
 	out cmd.Output
 }
 
-func NewUnitGetCommand(ctx *HookContext) (cmd.Command, error) {
-	return &UnitGetCommand{HookContext: ctx}, nil
+func NewUnitGetCommand(ctx Context) cmd.Command {
+	return &UnitGetCommand{ctx: ctx}
 }
 
 func (c *UnitGetCommand) Info() *cmd.Info {
