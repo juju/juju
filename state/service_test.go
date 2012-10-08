@@ -542,44 +542,41 @@ func assertSameServiceUnits(c *C, change *state.ServiceUnitsChange, added, remov
 	c.Assert(got, DeepEquals, removed)
 }
 
-func assertRelationIds(c *C, rels []*state.Relation, ids []int) {
-	c.Assert(rels, HasLen, len(ids))
-	relids := []int{}
-	for _, rel := range rels {
-		relids = append(relids, rel.Id())
-	}
-	sort.Ints(ids)
-	sort.Ints(relids)
-	for i, id := range ids {
-		c.Assert(relids[i], Equals, id)
-	}
-}
-
 func (s *ServiceSuite) TestWatchRelations(c *C) {
 	relationsWatcher := s.service.WatchRelations()
 	defer func() {
 		c.Assert(relationsWatcher.Stop(), IsNil)
 	}()
 
-	s.State.StartSync()
-	// Check initial event, and lack of followup.
-	assertChange := func(adds, removes []int) {
-		select {
-		case change := <-relationsWatcher.Changes():
-			assertRelationIds(c, change.Added, adds)
-			assertRelationIds(c, change.Removed, removes)
-		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("expected change, got nothing")
+	assertChange := func(want []int) {
+		var got []int
+		for {
+			select {
+			case new := <-relationsWatcher.Changes():
+				got = append(got, new...)
+				if len(got) < len(want) {
+					continue
+				}
+				sort.Ints(got)
+				sort.Ints(want)
+				c.Assert(got, DeepEquals, want)
+				return
+			case <-time.After(500 * time.Millisecond):
+				c.Fatalf("expected %#v, got nothing", want)
+			}
 		}
 	}
-	assertChange(nil, nil)
 	assertNoChange := func() {
 		select {
-		case change := <-relationsWatcher.Changes():
-			c.Fatalf("expected nothing, got %#v", change)
+		case got := <-relationsWatcher.Changes():
+			c.Fatalf("expected nothing, got %#v", got)
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
+
+	// Check initial event, and lack of followup.
+	s.State.StartSync()
+	assertChange(nil)
 	assertNoChange()
 
 	// Add a couple of services, check no changes.
@@ -596,7 +593,7 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	rel, err := s.State.AddRelation(mysqlep, wp1ep)
 	c.Assert(err, IsNil)
 	s.State.StartSync()
-	assertChange([]int{0}, nil)
+	assertChange([]int{0})
 	assertNoChange()
 
 	// Add another relation; check change.
@@ -604,17 +601,22 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	_, err = s.State.AddRelation(mysqlep, wp2ep)
 	c.Assert(err, IsNil)
 	s.State.StartSync()
-	assertChange([]int{1}, nil)
+	assertChange([]int{1})
 	assertNoChange()
 
+	// Set relation to dying; check change.
+	err = rel.EnsureDying()
+	c.Assert(err, IsNil)
 	s.State.StartSync()
+	assertChange([]int{0})
+
 	// Remove a relation; check change.
 	err = rel.EnsureDead()
 	c.Assert(err, IsNil)
 	err = s.State.RemoveRelation(rel)
 	c.Assert(err, IsNil)
 	s.State.StartSync()
-	assertChange(nil, []int{0})
+	assertChange([]int{0})
 
 	// Stop watcher; check change chan is closed.
 	err = relationsWatcher.Stop()
@@ -635,38 +637,15 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	s.State.StartSync()
 	relationsWatcher = s.service.WatchRelations()
 	s.State.StartSync()
-	assertChange([]int{1, 2}, nil)
+	assertChange([]int{1, 2})
 	assertNoChange()
 
-	// Stop new watcher; check change chan is closed.
-	err = relationsWatcher.Stop()
-	c.Assert(err, IsNil)
-	assertClosed()
-}
-
-func (s *ServiceSuite) TestWatchRelationsMultipleEvents(c *C) {
-	relationsWatcher := s.service.WatchRelations()
-	defer func() {
-		c.Assert(relationsWatcher.Stop(), IsNil)
-	}()
-	s.State.StartSync()
-	want := &state.RelationsChange{}
-	select {
-	case got, ok := <-relationsWatcher.Changes():
-		c.Assert(ok, Equals, true)
-		c.Assert(got, DeepEquals, want)
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("didn't get change: %#v", want)
-	}
 	relations := make([]*state.Relation, 5)
 	endpoints := make([]state.RelationEndpoint, 5)
-	var err error
-	mysqlep := state.RelationEndpoint{"mysql", "ifce", "foo", state.RoleProvider, charm.ScopeGlobal}
-
 	for i := 0; i < 5; i++ {
-		_, err := s.State.AddService("wp"+fmt.Sprint(i), s.charm)
+		_, err := s.State.AddService("hadoop"+fmt.Sprint(i), s.charm)
 		c.Assert(err, IsNil)
-		endpoints[i] = state.RelationEndpoint{"wp" + fmt.Sprint(i), "ifce", "spam" + fmt.Sprint(i), state.RoleRequirer, charm.ScopeGlobal}
+		endpoints[i] = state.RelationEndpoint{"hadoop" + fmt.Sprint(i), "ifce", "spam" + fmt.Sprint(i), state.RoleRequirer, charm.ScopeGlobal}
 		relations[i], err = s.State.AddRelation(mysqlep, endpoints[i])
 		c.Assert(err, IsNil)
 	}
@@ -674,71 +653,35 @@ func (s *ServiceSuite) TestWatchRelationsMultipleEvents(c *C) {
 	c.Assert(err, IsNil)
 	err = s.State.RemoveRelation(relations[4])
 	c.Assert(err, IsNil)
-	relations[4] = nil
-	want = &state.RelationsChange{Added: relations[:4]}
 	s.State.StartSync()
-	got := &state.RelationsChange{}
-	for {
-		select {
-		case new, ok := <-relationsWatcher.Changes():
-			c.Assert(ok, Equals, true)
-			addRelationChanges(got, new)
-			if moreRelationsRequired(got, want) {
-				continue
-			}
-			c.Assert(got, DeepEquals, want)
-		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("didn't get change: %#v", want)
-		}
-		break
-	}
+	assertChange([]int{3, 4, 5, 6})
+	assertNoChange()
+
+	err = relations[0].EnsureDying()
+	c.Assert(err, IsNil)
+	err = relations[1].EnsureDying()
+	c.Assert(err, IsNil)
+	s.State.StartSync()
+	assertChange([]int{3, 4})
+	assertNoChange()
 
 	for i := 0; i < 4; i++ {
 		err = relations[i].EnsureDead()
 		c.Assert(err, IsNil)
-	}
-	want.Removed = relations[:4]
-	for i := 0; i < 4; i++ {
 		err = s.State.RemoveRelation(relations[i])
 		c.Assert(err, IsNil)
 	}
-	_, err = s.State.AddService("wp", s.charm)
-	ep := state.RelationEndpoint{"wp", "ifce", "spam", state.RoleRequirer, charm.ScopeGlobal}
-	rel, err := s.State.AddRelation(mysqlep, ep)
-	c.Assert(err, IsNil)
-	want.Added = []*state.Relation{rel}
-
 	s.State.StartSync()
-	got = &state.RelationsChange{}
-	for {
-		select {
-		case new, ok := <-relationsWatcher.Changes():
-			c.Assert(ok, Equals, true)
-			addRelationChanges(got, new)
-			if moreRelationsRequired(got, want) {
-				continue
-			}
-			c.Assert(got, DeepEquals, want)
-		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("didn't get change: %#v", want)
-		}
-		break
-	}
+	assertChange([]int{3, 4, 5, 6})
+	assertNoChange()
 
-	select {
-	case got := <-relationsWatcher.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
-	case <-time.After(100 * time.Millisecond):
-	}
-}
-
-func moreRelationsRequired(got, want *state.RelationsChange) bool {
-	return len(got.Added)+len(got.Removed) < len(want.Added)+len(want.Removed)
-}
-
-func addRelationChanges(changes *state.RelationsChange, more *state.RelationsChange) {
-	changes.Added = append(changes.Added, more.Added...)
-	changes.Removed = append(changes.Removed, more.Removed...)
+	_, err = s.State.AddService("postgresql", s.charm)
+	ep := state.RelationEndpoint{"postgresql", "ifce", "spam", state.RoleRequirer, charm.ScopeGlobal}
+	_, err = s.State.AddRelation(mysqlep, ep)
+	c.Assert(err, IsNil)
+	s.State.StartSync()
+	assertChange([]int{8})
+	assertNoChange()
 }
 
 func removeAllUnits(c *C, s *state.Service) {

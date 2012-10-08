@@ -562,11 +562,11 @@ func (w *ServiceRelationsWatcher) merge(pending []int, key string) (new []int, e
 		}
 		return pending, nil
 	}
+	w.known[key] = doc
 	if !known {
 		return append(pending, doc.Id), nil
 	}
 	if old.Life != doc.Life {
-		w.known[key] = doc
 		for _, v := range pending {
 			if v == doc.Id {
 				return pending, nil
@@ -598,6 +598,10 @@ func (w *ServiceRelationsWatcher) loop() (err error) {
 			key := c.Id.(string)
 			if !strings.HasPrefix(key, prefix1) && !strings.Contains(key, prefix2) {
 				continue
+			}
+			changes, err = w.merge(changes, key)
+			if err != nil {
+				return err
 			}
 			if len(changes) > 0 {
 				out = w.out
