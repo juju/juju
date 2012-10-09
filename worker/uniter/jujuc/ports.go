@@ -13,7 +13,6 @@ const portFormat = "<port>[/<protocol>]"
 
 // portCommand implements the open-port and close-port commands.
 type portCommand struct {
-	*HookContext
 	info     *cmd.Info
 	action   func(*portCommand) error
 	Protocol string
@@ -68,26 +67,24 @@ var openPortInfo = &cmd.Info{
 	"The port will only be open while the service is exposed.",
 }
 
-func NewOpenPortCommand(ctx *HookContext) (cmd.Command, error) {
+func NewOpenPortCommand(ctx Context) cmd.Command {
 	return &portCommand{
-		HookContext: ctx,
-		info:        openPortInfo,
+		info: openPortInfo,
 		action: func(c *portCommand) error {
-			return c.Unit.OpenPort(c.Protocol, c.Port)
+			return ctx.OpenPort(c.Protocol, c.Port)
 		},
-	}, nil
+	}
 }
 
 var closePortInfo = &cmd.Info{
 	"close-port", portFormat, "ensure a port is always closed", "",
 }
 
-func NewClosePortCommand(ctx *HookContext) (cmd.Command, error) {
+func NewClosePortCommand(ctx Context) cmd.Command {
 	return &portCommand{
-		HookContext: ctx,
-		info:        closePortInfo,
+		info: closePortInfo,
 		action: func(c *portCommand) error {
-			return c.Unit.ClosePort(c.Protocol, c.Port)
+			return ctx.ClosePort(c.Protocol, c.Port)
 		},
-	}, nil
+	}
 }

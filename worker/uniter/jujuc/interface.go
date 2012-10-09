@@ -25,30 +25,17 @@ type Context interface {
 	// Config returns the current service configuration of the executing unit.
 	Config() (map[string]interface{}, error)
 
-	// HasHookRelation returns whether the executing hook has an associated
-	// relation.
-	HasHookRelation() bool
-
 	// HookRelation returns the ContextRelation associated with the executing
-	// hook. It panics if no relation is associated.
-	HookRelation() ContextRelation
-
-	// HasRemoteUnit returns whether the executing hook has an associated
-	// remote unit.
-	HasRemoteUnit() bool
+	// hook if it was found, and whether it was found.
+	HookRelation() (ContextRelation, bool)
 
 	// RemoteUnitName returns the name of the remote unit the hook execution
-	// is associated with. It panics if there is no remote unit associated
-	// with the hook execution.
-	RemoteUnitName() string
+	// is associated with if it was found, and whether it was found.
+	RemoteUnitName() (string, bool)
 
-	// HasRelation returns whether the executing unit is participating in
-	// the relation with the supplied id.
-	HasRelation(id int) bool
-
-	// Relation returns the relation with the supplied id. It panics if the
-	// executing unit is not participating in a relation with that id.
-	Relation(id int) ContextRelation
+	// Relation returns the relation with the supplied id if it was found, and
+	// whether it was found.
+	Relation(id int) (ContextRelation, bool)
 
 	// RelationIds returns the ids of all relations the executing unit is
 	// currently participating in.
@@ -57,6 +44,9 @@ type Context interface {
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.
 type ContextRelation interface {
+
+	// Id returns an integer which uniquely identifies the relation.
+	Id() int
 
 	// Name returns the name the locally executing charm assigned to this relation.
 	Name() string
