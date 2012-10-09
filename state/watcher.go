@@ -504,6 +504,116 @@ func (w *ServiceUnitsWatcher) loop() (err error) {
 	return nil
 }
 
+// ServiceWatcher2 notifies about the lifecycle changes of the services
+// in the environment. The first event returned by the watcher is the set
+// of names of all services, irrespective of their life state. Subsequent
+// events returns batches of newly added services and services which have
+// changed their lifecycle. After a service is found dead, no further event
+// will include it.
+type ServiceWatcher2 struct {
+	commonWatcher
+	out   chan []string
+	known map[string]Life
+}
+
+// Changes returns the event channel for w.
+func (w *ServiceWatcher2) Changes() <-chan []string {
+	return w.out
+}
+
+// WatchServices2 returns a new ServiceWatcher2.
+func (s *State) WatchServices2() *ServiceWatcher2 {
+	return newServiceWatcher2(s)
+}
+
+func newServiceWatcher2(s *State) *ServiceWatcher2 {
+	w := &ServiceWatcher2{
+		commonWatcher: commonWatcher{st: s},
+		out:           make(chan []string),
+		known:         make(map[string]Life),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+func (w *ServiceWatcher2) initial() (change []string, err error) {
+	docs := []serviceDoc{}
+	err = w.st.services.Find(nil).Select(lifeFields).All(&docs)
+	if err != nil {
+		return nil, err
+	}
+	for _, doc := range docs {
+		w.known[doc.Name] = doc.Life
+		change = append(change, doc.Name)
+	}
+	return change, nil
+}
+
+func (w *ServiceWatcher2) merge(pending []string, name string) (new []string, err error) {
+	doc := serviceDoc{}
+	err = w.st.services.FindId(name).One(&doc)
+	if err != nil && err != mgo.ErrNotFound {
+		return nil, err
+	}
+	life, known := w.known[name]
+	if err == mgo.ErrNotFound {
+		delete(w.known, name)
+		if known && life != Dead {
+			return append(pending, name), nil
+		}
+		return pending, nil
+	}
+	w.known[name] = doc.Life
+	if !known {
+		return append(pending, name), nil
+	}
+	if life != doc.Life {
+		for _, v := range pending {
+			if v == name {
+				return pending, nil
+			}
+		}
+		pending = append(pending, name)
+	}
+	return pending, nil
+}
+
+func (w *ServiceWatcher2) loop() (err error) {
+	ch := make(chan watcher.Change)
+	w.st.watcher.WatchCollection(w.st.services.Name, ch)
+	defer w.st.watcher.UnwatchCollection(w.st.services.Name, ch)
+	changes, err := w.initial()
+	if err != nil {
+		return err
+	}
+	out := w.out
+	for {
+		select {
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case c := <-ch:
+			name := c.Id.(string)
+			changes, err = w.merge(changes, name)
+			if err != nil {
+				return err
+			}
+			if len(changes) > 0 {
+				out = w.out
+			}
+		case out <- changes:
+			out = nil
+			changes = nil
+		}
+	}
+	return nil
+}
+
 // WatchRelations returns a watcher for observing relations being
 // added or removed from the service.
 func (s *Service) WatchRelations() *ServiceRelationsWatcher {
