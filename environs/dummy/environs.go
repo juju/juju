@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/version"
 	"net"
 	"net/http"
@@ -404,7 +405,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		}
 		if password := e.Config().AdminSecret(); password != "" {
 			if err := st.SetAdminPassword(trivial.PasswordHash(password)); err != nil {
-				return fmt.Errrorf("cannot set admin password: %v", err)
+				return fmt.Errorf("cannot set admin password: %v", err)
 			}
 		}
 		if err := st.Close(); err != nil {
