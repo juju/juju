@@ -115,35 +115,17 @@ func (c *Context) Config() (map[string]interface{}, error) {
 	}, nil
 }
 
-func (c *Context) HasHookRelation() bool {
-	return c.HasRelation(c.relid)
-}
-
-func (c *Context) HookRelation() jujuc.ContextRelation {
+func (c *Context) HookRelation() (jujuc.ContextRelation, bool) {
 	return c.Relation(c.relid)
 }
 
-func (c *Context) HasRemoteUnit() bool {
-	return c.remote != ""
+func (c *Context) RemoteUnitName() (string, bool) {
+	return c.remote, c.remote != ""
 }
 
-func (c *Context) RemoteUnitName() string {
-	if !c.HasRemoteUnit() {
-		panic("borken")
-	}
-	return c.remote
-}
-
-func (c *Context) HasRelation(id int) bool {
-	_, found := c.rels[id]
-	return found
-}
-
-func (c *Context) Relation(id int) jujuc.ContextRelation {
-	if !c.HasRelation(id) {
-		panic("borken")
-	}
-	return c.rels[id]
+func (c *Context) Relation(id int) (jujuc.ContextRelation, bool) {
+	r, found := c.rels[id]
+	return r, found
 }
 
 func (c *Context) RelationIds() []int {

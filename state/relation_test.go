@@ -226,9 +226,10 @@ func (s *RelationUnitSuite) TestPeerSettings(c *C) {
 	}
 
 	// Add settings for one RU.
+	err := pr.ru0.EnterScope()
+	c.Assert(err, IsNil)
 	node, err := pr.ru0.Settings()
 	c.Assert(err, IsNil)
-	c.Assert(node.Map(), HasLen, 0)
 	node.Set("meme", "socially-awkward-penguin")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
@@ -237,7 +238,7 @@ func (s *RelationUnitSuite) TestPeerSettings(c *C) {
 	for _, ru := range rus {
 		m, err := ru.ReadSettings("peer/0")
 		c.Assert(err, IsNil)
-		c.Assert(m, DeepEquals, map[string]interface{}{"meme": "socially-awkward-penguin"})
+		c.Assert(m["meme"], Equals, "socially-awkward-penguin")
 	}
 }
 
@@ -252,9 +253,10 @@ func (s *RelationUnitSuite) TestProReqSettings(c *C) {
 	}
 
 	// Add settings for one RU.
+	err := prr.pru0.EnterScope()
+	c.Assert(err, IsNil)
 	node, err := prr.pru0.Settings()
 	c.Assert(err, IsNil)
-	c.Assert(node.Map(), HasLen, 0)
 	node.Set("meme", "foul-bachelor-frog")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
@@ -263,7 +265,7 @@ func (s *RelationUnitSuite) TestProReqSettings(c *C) {
 	for _, ru := range rus {
 		m, err := ru.ReadSettings("pro/0")
 		c.Assert(err, IsNil)
-		c.Assert(m, DeepEquals, map[string]interface{}{"meme": "foul-bachelor-frog"})
+		c.Assert(m["meme"], Equals, "foul-bachelor-frog")
 	}
 }
 
@@ -278,9 +280,10 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 	}
 
 	// Add settings for one RU.
+	err := prr.pru0.EnterScope()
+	c.Assert(err, IsNil)
 	node, err := prr.pru0.Settings()
 	c.Assert(err, IsNil)
-	c.Assert(node.Map(), HasLen, 0)
 	node.Set("meme", "foul-bachelor-frog")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
@@ -290,7 +293,7 @@ func (s *RelationUnitSuite) TestContainerSettings(c *C) {
 	for _, ru := range rus0 {
 		m, err := ru.ReadSettings("pro/0")
 		c.Assert(err, IsNil)
-		c.Assert(m, DeepEquals, map[string]interface{}{"meme": "foul-bachelor-frog"})
+		c.Assert(m["meme"], Equals, "foul-bachelor-frog")
 	}
 
 	// Check settings are still inaccessible to RUs outside that container
@@ -653,26 +656,30 @@ func (s *OriginalRelationUnitSuite) TestRelationUnitReadSettings(c *C) {
 
 	// Put some valid settings in ru1, and check they are now accessible to
 	// both RelationUnits.
+	err = u1.SetPrivateAddress("ru1.example.com")
+	c.Assert(err, IsNil)
+	err = ru1.EnterScope()
+	c.Assert(err, IsNil)
 	node, err := ru1.Settings()
 	c.Assert(err, IsNil)
 	node.Set("catchphrase", "eat my shorts")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
-	assertSettings := func(ru *state.RelationUnit, expect map[string]interface{}) {
+	assertSetting := func(ru *state.RelationUnit, expect interface{}) {
 		settings, err := ru.ReadSettings("peer/1")
 		c.Assert(err, IsNil)
-		c.Assert(settings, DeepEquals, expect)
+		c.Assert(settings["catchphrase"], Equals, expect)
 	}
-	assertSettings(ru0, map[string]interface{}{"catchphrase": "eat my shorts"})
-	assertSettings(ru1, map[string]interface{}{"catchphrase": "eat my shorts"})
+	assertSetting(ru0, "eat my shorts")
+	assertSetting(ru1, "eat my shorts")
 
 	// Delete the settings content, but not the node, and check that they
 	// are still accessible without error.
 	node.Delete("catchphrase")
 	_, err = node.Write()
 	c.Assert(err, IsNil)
-	assertSettings(ru0, map[string]interface{}{})
-	assertSettings(ru1, map[string]interface{}{})
+	assertSetting(ru0, nil)
+	assertSetting(ru1, nil)
 
 	// TODO(fwer) handle relation removal
 }
@@ -1111,7 +1118,7 @@ func (s *OriginalRelationUnitSuite) TestContainerProReqRelationUnit(c *C) {
 	// connections are in place.
 }
 
-func changeSettings(c *C, ru *state.RelationUnit) *state.ConfigNode {
+func changeSettings(c *C, ru *state.RelationUnit) *state.Settings {
 	node, err := ru.Settings()
 	c.Assert(err, IsNil)
 	value, _ := node.Get("value")
