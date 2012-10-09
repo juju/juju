@@ -54,9 +54,8 @@ func StartMgoServer() (server *exec.Cmd, dbdir string, err error) {
 		return
 	}
 	MgoAddr = "localhost:" + mgoport
-	// Give ourselves a logged in session so that
-	// we can manipulate the db even when an admin
-	// password has been set.
+	// Give ourselves a logged in session so that we can manipulate
+	// the db even when an admin password has been set.
 	session := MgoDial()
 	admin := session.DB("admin")
 	if err := admin.AddUser("admin", "foo", false); err != nil && err.Error() != "need to login" {
@@ -86,7 +85,6 @@ func MgoTestPackage(t *stdtesting.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	defer MgoDestroy(server, dbdir)
 	TestingT(t)
 }
