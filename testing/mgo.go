@@ -17,6 +17,11 @@ import (
 // StartMgoServer.
 var MgoAddr string
 
+// mgoSession holds an admin-authenticated connection to the above mongo
+// address so that we can manipulate the database even when
+// authentication has been set up during a test.
+var mgoSession *mgo.Session
+
 // MgoSuite is a suite that deletes all content from the shared MongoDB
 // server at the end of every test and supplies a connection to the shared
 // MongoDB server.
@@ -49,10 +54,26 @@ func StartMgoServer() (server *exec.Cmd, dbdir string, err error) {
 		return
 	}
 	MgoAddr = "localhost:" + mgoport
+	// Give ourselves a logged in session so that
+	// we can manipulate the db even when an admin
+	// password has been set.
+	session := MgoDial()
+	admin := session.DB("admin")
+	if err := admin.AddUser("admin", "foo", false); err != nil && err.Error() != "need to login" {
+		panic(fmt.Errorf("cannot add admin user: %v", err))
+	}
+	if err := admin.Login("admin", "foo"); err != nil {
+		panic(fmt.Errorf("cannot login after setting password: %v", err))
+	}
+	if err := admin.RemoveUser("admin"); err != nil {
+		panic(fmt.Errorf("cannot remove admin user: %v", err))
+	}
+	mgoSession = session
 	return
 }
 
 func MgoDestroy(server *exec.Cmd, dbdir string) {
+	mgoSession.Close()
 	server.Process.Kill()
 	server.Process.Wait()
 	os.RemoveAll(dbdir)
@@ -65,6 +86,7 @@ func MgoTestPackage(t *stdtesting.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	defer MgoDestroy(server, dbdir)
 	TestingT(t)
 }
@@ -94,9 +116,7 @@ func (s *MgoSuite) SetUpTest(c *C) {
 
 // MgoReset deletes all content from the shared MongoDB server.
 func MgoReset() {
-	session := MgoDial()
-	defer session.Close()
-	dbnames, err := session.DatabaseNames()
+	dbnames, err := mgoSession.DatabaseNames()
 	if err != nil {
 		panic(err)
 	}
@@ -104,11 +124,16 @@ func MgoReset() {
 		switch name {
 		case "admin", "local", "config":
 		default:
-			err = session.DB(name).DropDatabase()
+			err = mgoSession.DB(name).DropDatabase()
 			if err != nil {
 				panic(fmt.Errorf("Cannot drop MongoDB database %v: %v", name, err))
 			}
 		}
+	}
+	// TODO(rog) remove all admin users when mgo provides a facility to list them,
+	err = mgoSession.DB("admin").RemoveUser("admin")
+	if err != nil && err != mgo.ErrNotFound {
+		panic(err)
 	}
 }
 
@@ -117,7 +142,7 @@ func (s *MgoSuite) TearDownTest(c *C) {
 	s.Session.Close()
 	for i := 0; ; i++ {
 		stats := mgo.GetStats()
-		if stats.SocketsInUse == 0 && stats.SocketsAlive == 0 {
+		if stats.SocketsInUse <= 1 && stats.SocketsAlive <= 1 {
 			break
 		}
 		if i == 20 {
