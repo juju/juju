@@ -211,10 +211,10 @@ func (u *Uniter) runHook(hi hook.Info) error {
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
 	hctx := &HookContext{
-		Service:    u.service,
-		Unit:       u.unit,
-		Id:         hctxId,
-		RelationId: -1,
+		service:    u.service,
+		unit:       u.unit,
+		id:         hctxId,
+		relationId: -1,
 	}
 
 	// Prepare server.
