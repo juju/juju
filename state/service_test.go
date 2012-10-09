@@ -637,7 +637,13 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	s.State.StartSync()
 	relationsWatcher = s.service.WatchRelations()
 	s.State.StartSync()
-	assertChange([]int{1, 2})
+	select {
+	case got := <-relationsWatcher.Changes():
+		sort.Ints(got)
+		c.Assert(got, DeepEquals, []int{1, 2})
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("expected %#v, got nothing", []int{1, 2})
+	}
 	assertNoChange()
 
 	relations := make([]*state.Relation, 5)
