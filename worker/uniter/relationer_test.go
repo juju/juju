@@ -202,7 +202,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	err := r.Join()
 	c.Assert(err, IsNil)
 	ctx := r.Context()
-	c.Assert(ctx.Units(), HasLen, 0)
+	c.Assert(ctx.UnitNames(), HasLen, 0)
 
 	// Check preparing an invalid hook changes nothing.
 	changed := hook.Info{
@@ -215,7 +215,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	}
 	_, err = r.PrepareHook(changed)
 	c.Assert(err, ErrorMatches, `inappropriate "relation-changed" for "u/1": unit has not joined`)
-	c.Assert(ctx.Units(), HasLen, 0)
+	c.Assert(ctx.UnitNames(), HasLen, 0)
 	c.Assert(s.dir.State().Members, HasLen, 0)
 
 	// Check preparing a valid hook updates the context, but not persistent
@@ -231,7 +231,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(s.dir.State().Members, HasLen, 0)
 	c.Assert(name, Equals, "my-relation-relation-joined")
-	c.Assert(ctx.Units(), DeepEquals, []string{"u/1"})
+	c.Assert(ctx.UnitNames(), DeepEquals, []string{"u/1"})
 	s1, err := ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
 	c.Assert(s1, DeepEquals, joined.Members["u/1"])
@@ -243,7 +243,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	_, err = r.PrepareHook(changed)
 	c.Assert(err, ErrorMatches, `inappropriate "relation-changed" for "u/1": unit has not joined`)
 	c.Assert(s.dir.State().Members, HasLen, 0)
-	c.Assert(ctx.Units(), DeepEquals, []string{"u/1"})
+	c.Assert(ctx.UnitNames(), DeepEquals, []string{"u/1"})
 	s1, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
 	c.Assert(s1, DeepEquals, joined.Members["u/1"])
@@ -253,7 +253,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	err = r.CommitHook(joined)
 	c.Assert(err, IsNil)
 	c.Assert(s.dir.State().Members, DeepEquals, map[string]int64{"u/1": 0})
-	c.Assert(ctx.Units(), DeepEquals, []string{"u/1"})
+	c.Assert(ctx.UnitNames(), DeepEquals, []string{"u/1"})
 	s1, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
 	c.Assert(s1, DeepEquals, joined.Members["u/1"])
@@ -263,7 +263,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(name, Equals, "my-relation-relation-changed")
 	c.Assert(s.dir.State().Members, DeepEquals, map[string]int64{"u/1": 0})
-	c.Assert(ctx.Units(), DeepEquals, []string{"u/1"})
+	c.Assert(ctx.UnitNames(), DeepEquals, []string{"u/1"})
 	s1, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
 	c.Assert(s1, DeepEquals, map[string]interface{}{"private-address": "u-1.example.com"})
@@ -272,7 +272,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	err = r.CommitHook(changed)
 	c.Assert(err, IsNil)
 	c.Assert(s.dir.State().Members, DeepEquals, map[string]int64{"u/1": 7})
-	c.Assert(ctx.Units(), DeepEquals, []string{"u/1"})
+	c.Assert(ctx.UnitNames(), DeepEquals, []string{"u/1"})
 
 	// To verify implied behaviour above, prepare a new joined hook with
 	// missing membership information, and check relation context
@@ -284,13 +284,13 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(s.dir.State().Members, HasLen, 1)
 	c.Assert(name, Equals, "my-relation-relation-joined")
-	c.Assert(ctx.Units(), DeepEquals, []string{"u/1", "u/2"})
+	c.Assert(ctx.UnitNames(), DeepEquals, []string{"u/1", "u/2"})
 
 	// ...and so is relation state on commit.
 	err = r.CommitHook(joined)
 	c.Assert(err, IsNil)
 	c.Assert(s.dir.State().Members, DeepEquals, map[string]int64{"u/1": 7, "u/2": 3})
-	c.Assert(ctx.Units(), DeepEquals, []string{"u/1", "u/2"})
+	c.Assert(ctx.UnitNames(), DeepEquals, []string{"u/1", "u/2"})
 }
 
 func (s *RelationerSuite) TestSetDying(c *C) {

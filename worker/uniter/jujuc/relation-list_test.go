@@ -159,7 +159,7 @@ options:
 }
 
 func setMembers(rctx *jujuc.RelationContext, members []string) {
-	for _, u := range rctx.Units() {
+	for _, u := range rctx.UnitNames() {
 		rctx.DeleteMember(u)
 	}
 	m := jujuc.SettingsMap{}
