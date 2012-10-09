@@ -128,7 +128,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 	info.EntityName, info.Password = "machine-0", "foo"
 	testOpenState(c, info, nil)
 
-	info.EntityName= ""
+	info.EntityName = ""
 	st, err := state.Open(info)
 	c.Assert(err, IsNil)
 	defer st.Close()
