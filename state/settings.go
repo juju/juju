@@ -153,8 +153,8 @@ func (c *Settings) Write() ([]ItemChange, error) {
 	}
 	sort.Sort(itemChangeSlice(changes))
 	ops := []txn.Op{{
-		C:  c.st.settings.Name,
-		Id: c.key,
+		C:      c.st.settings.Name,
+		Id:     c.key,
 		Assert: txn.DocExists,
 		Update: D{
 			{"$set", updates},
@@ -175,7 +175,7 @@ func (c *Settings) Write() ([]ItemChange, error) {
 func newSettings(st *State, key string) *Settings {
 	return &Settings{
 		st:   st,
-		key: key,
+		key:  key,
 		core: make(map[string]interface{}),
 	}
 }
@@ -257,7 +257,6 @@ func overwriteSettings(st *State, key string, values map[string]interface{}) (*S
 	}
 	return s, nil
 }
-
 
 // removeSettings returns the Settings for key.
 func removeSettings(st *State, key string) error {

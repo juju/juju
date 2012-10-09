@@ -8,7 +8,7 @@ import (
 type SettingsSuite struct {
 	testing.MgoSuite
 	state *State
-	key  string
+	key   string
 }
 
 var _ = Suite(&SettingsSuite{})
