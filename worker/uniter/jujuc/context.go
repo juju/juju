@@ -31,30 +31,17 @@ type Context interface {
 	// Config returns the current service configuration of the executing unit.
 	Config() (map[string]interface{}, error)
 
-	// HasHookRelation returns whether the executing hook has an associated
-	// relation.
-	HasHookRelation() bool
-
 	// HookRelation returns the ContextRelation associated with the executing
-	// hook. It panics if no relation is associated.
-	HookRelation() ContextRelation
-
-	// HasRemoteUnit returns whether the executing hook has an associated
-	// remote unit.
-	HasRemoteUnit() bool
+	// hook if it was found, and whether it was found.
+	HookRelation() (ContextRelation, bool)
 
 	// RemoteUnitName returns the name of the remote unit the hook execution
-	// is associated with. It panics if there is no remote unit associated
-	// with the hook execution.
-	RemoteUnitName() string
+	// is associated with if it was found, and whether it was found.
+	RemoteUnitName() (string, bool)
 
-	// HasRelation returns whether the executing unit is participating in
-	// the relation with the supplied id.
-	HasRelation(id int) bool
-
-	// Relation returns the relation with the supplied id. It panics if the
-	// executing unit is not participating in a relation with that id.
-	Relation(id int) ContextRelation
+	// Relation returns the relation with the supplied id if it was found, and
+	// whether it was found.
+	Relation(id int) (ContextRelation, bool)
 
 	// RelationIds returns the ids of all relations the executing unit is
 	// currently participating in.
@@ -100,8 +87,7 @@ type Settings interface {
 func newRelationIdValue(ctx Context, result *int) *relationIdValue {
 	v := &relationIdValue{result: result, ctx: ctx}
 	id := -1
-	if ctx.HasHookRelation() {
-		r := ctx.HookRelation()
+	if r, found := ctx.HookRelation(); found {
 		id = r.Id()
 		v.value = r.FakeId()
 	}
@@ -133,7 +119,7 @@ func (v *relationIdValue) Set(value string) error {
 	if err != nil {
 		return fmt.Errorf("invalid relation id")
 	}
-	if !v.ctx.HasRelation(id) {
+	if _, found := v.ctx.Relation(id); !found {
 		return fmt.Errorf("unknown relation id")
 	}
 	*v.result = id

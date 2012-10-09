@@ -79,6 +79,8 @@ type unitDoc struct {
 	Tools          *Tools `bson:",omitempty"`
 	Ports          []Port
 	Life           Life
+	Status         UnitStatus
+	StatusInfo     string
 	TxnRevno       int64 `bson:"txn-revno"`
 }
 
@@ -225,35 +227,31 @@ func (u *Unit) Refresh() error {
 }
 
 // Status returns the status of the unit's agent.
-func (u *Unit) Status() (s UnitStatus, info string, err error) {
-	config, err := u.Config()
-	if err != nil {
-		return "", "", fmt.Errorf("cannot read status of unit %q: %v", u, err)
+func (u *Unit) Status() (status UnitStatus, info string, err error) {
+	status, info = u.doc.Status, u.doc.StatusInfo
+	if status == UnitPending {
+		return
 	}
-	raw, found := config.Get("status")
-	if !found {
-		return UnitPending, "", nil
-	}
-	s = UnitStatus(raw.(string))
-	switch s {
+	switch status {
 	case UnitError:
 		// We always expect an info if status is 'error'.
-		raw, found = config.Get("status-info")
-		if !found {
+		if info == "" {
 			panic("no status-info found for unit error")
 		}
-		return s, raw.(string), nil
+		return
 	case UnitStopped:
-		return UnitStopped, "", nil
+		return
 	}
+
+	// TODO(fwereade,niemeyer): Take this out of Status and drop error result.
 	alive, err := u.AgentAlive()
 	if err != nil {
 		return "", "", err
 	}
 	if !alive {
-		s = UnitDown
+		return UnitDown, "", nil
 	}
-	return s, "", nil
+	return
 }
 
 // SetStatus sets the status of the unit.
@@ -261,16 +259,18 @@ func (u *Unit) SetStatus(status UnitStatus, info string) error {
 	if status == UnitPending {
 		panic("unit status must not be set to pending")
 	}
-	config, err := u.Config()
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: notDead,
+		Update: D{{"$set", D{{"status", status}, {"statusinfo", info}}}},
+	}}
+	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, errNotAlive))
 	}
-	config.Set("status", status)
-	config.Set("status-info", info)
-	_, err = config.Write()
-	if err != nil {
-		return fmt.Errorf("cannot set status of unit %q: %v", u, err)
-	}
+	u.doc.Status = status
+	u.doc.StatusInfo = info
 	return nil
 }
 
@@ -633,15 +633,6 @@ func (u *Unit) ClearResolved() error {
 	}
 	u.doc.Resolved = ResolvedNone
 	return nil
-}
-
-// Config returns the configuration node for the unit.
-func (u *Unit) Config() (config *ConfigNode, err error) {
-	config, err = readConfigNode(u.st, u.globalKey())
-	if err != nil {
-		return nil, fmt.Errorf("cannot get configuration of unit %q: %v", u, err)
-	}
-	return config, nil
 }
 
 type portSlice []Port

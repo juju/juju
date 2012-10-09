@@ -167,8 +167,12 @@ func (s *RelationGetSuite) SetUpTest(c *C) {
 
 	// Add some faked-up settings for a non-member in relation 1.
 	unit := s.AddUnit(c)
+	err = unit.SetPrivateAddress("u-0.example.com")
+	c.Assert(err, IsNil)
 	rel := s.relunits[1].Relation()
 	ru, err := rel.Unit(unit)
+	c.Assert(err, IsNil)
+	err = ru.EnterScope()
 	c.Assert(err, IsNil)
 	setSettings(c, ru, map[string]interface{}{"value": "12345"})
 }
