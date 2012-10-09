@@ -36,7 +36,7 @@ func (c *SetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 		return errors.New("no service name specified")
 	}
 	if len(c.Config.Path) > 0 && len(args) > 1 {
-		return errors.New("must specify either --config or options, not both")
+		return errors.New("cannot specify --config when using key=value arguments")
 	}
 	c.ServiceName, c.Options = args[0], args[1:]
 	return nil

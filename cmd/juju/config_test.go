@@ -135,16 +135,15 @@ var setTests = []struct {
 		[]string{"--config", "missing.yaml"},
 		nil,
 		"error.*no such file or directory\n",
-		// TODO(dfc) possible gocheck bug
-		//	}, {
-		//		// --config $FILE test
-		//		[]string{"--config", "testconfig.yaml"},
-		//		map[string]interface{}{
-		//			"title":       "My Title",
-		//			"username":    "admin001",
-		//			"skill-level": 9000,
-		//		},
-		//		"",
+	}, {
+		// --config $FILE test
+		[]string{"--config", "testconfig.yaml"},
+		map[string]interface{}{
+			"title":       "My Title",
+			"username":    "admin001",
+			"skill-level": int64(9000), // yaml int types are int64
+		},
+		"",
 	},
 }
 

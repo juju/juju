@@ -374,5 +374,5 @@ func (*CmdSuite) TestSetCommandInit(c *C) {
 
 	// --config and options specified
 	com, err = initSetCommand("service", "--config", "testconfig", "bees=")
-	c.Assert(err, ErrorMatches, "must specify either --config or options, not both")
+	c.Assert(err, ErrorMatches, "cannot specify --config when using key=value arguments")
 }
