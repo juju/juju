@@ -27,20 +27,6 @@ func (w *commonWatcher) Err() error {
 	return w.tomb.Err()
 }
 
-// ServicesWatcher observes the addition and removal of services.
-type ServicesWatcher struct {
-	commonWatcher
-	changeChan    chan *ServicesChange
-	knownServices map[string]*Service
-}
-
-// ServicesChange holds services that were added or removed
-// from the environment.
-type ServicesChange struct {
-	Added   []*Service
-	Removed []*Service
-}
-
 type ServiceUnitsWatcher struct {
 	commonWatcher
 	service    *Service
@@ -269,121 +255,6 @@ func (w *MachinesWatcher) loop() (err error) {
 	return nil
 }
 
-// WatchServices returns a watcher for observing services being
-// added or removed.
-func (s *State) WatchServices() *ServicesWatcher {
-	return newServicesWatcher(s)
-}
-
-// newServicesWatcher creates and starts a watcher to watch information
-// about services being added or deleted.
-func newServicesWatcher(st *State) *ServicesWatcher {
-	w := &ServicesWatcher{
-		changeChan:    make(chan *ServicesChange),
-		knownServices: make(map[string]*Service),
-		commonWatcher: commonWatcher{st: st},
-	}
-	go func() {
-		defer w.tomb.Done()
-		defer close(w.changeChan)
-		w.tomb.Kill(w.loop())
-	}()
-	return w
-}
-
-// Changes returns a channel that will receive changes when services are
-// added or deleted. The Added field in the first event on the channel
-// holds the initial state as returned by State.AllServices.
-func (w *ServicesWatcher) Changes() <-chan *ServicesChange {
-	return w.changeChan
-}
-
-func (w *ServicesWatcher) mergeChange(changes *ServicesChange, ch watcher.Change) (err error) {
-	name := ch.Id.(string)
-	if svc, ok := w.knownServices[name]; ch.Revno == -1 && ok {
-		svc.doc.Life = Dead
-		changes.Removed = append(changes.Removed, svc)
-		delete(w.knownServices, name)
-		return nil
-	}
-	doc := &serviceDoc{}
-	err = w.st.services.FindId(name).One(doc)
-	if err == mgo.ErrNotFound {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	svc := newService(w.st, doc)
-	if _, ok := w.knownServices[name]; !ok {
-		changes.Added = append(changes.Added, svc)
-	}
-	w.knownServices[name] = svc
-	return nil
-}
-
-func (changes *ServicesChange) isEmpty() bool {
-	return len(changes.Added)+len(changes.Removed) == 0
-}
-
-func (w *ServicesWatcher) getInitialEvent() (initial *ServicesChange, err error) {
-	changes := &ServicesChange{}
-	docs := []serviceDoc{}
-	err = w.st.services.Find(nil).All(&docs)
-	if err != nil {
-		return nil, err
-	}
-	for _, doc := range docs {
-		svc := newService(w.st, &doc)
-		w.knownServices[doc.Name] = svc
-		changes.Added = append(changes.Added, svc)
-	}
-	return changes, nil
-}
-
-func (w *ServicesWatcher) loop() (err error) {
-	ch := make(chan watcher.Change)
-	w.st.watcher.WatchCollection(w.st.services.Name, ch)
-	defer w.st.watcher.UnwatchCollection(w.st.services.Name, ch)
-	changes, err := w.getInitialEvent()
-	if err != nil {
-		return err
-	}
-	for {
-		for changes != nil {
-			select {
-			case <-w.st.watcher.Dead():
-				return watcher.MustErr(w.st.watcher)
-			case <-w.tomb.Dying():
-				return tomb.ErrDying
-			case c := <-ch:
-				err := w.mergeChange(changes, c)
-				if err != nil {
-					return err
-				}
-			case w.changeChan <- changes:
-				changes = nil
-			}
-		}
-		select {
-		case <-w.st.watcher.Dead():
-			return watcher.MustErr(w.st.watcher)
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case c := <-ch:
-			changes = &ServicesChange{}
-			err := w.mergeChange(changes, c)
-			if err != nil {
-				return err
-			}
-			if changes.isEmpty() {
-				changes = nil
-			}
-		}
-	}
-	return nil
-}
-
 // WatchUnits returns a watcher for observing units being
 // added or removed.
 func (s *Service) WatchUnits() *ServiceUnitsWatcher {
@@ -504,30 +375,30 @@ func (w *ServiceUnitsWatcher) loop() (err error) {
 	return nil
 }
 
-// ServiceWatcher2 notifies about the lifecycle changes of the services
+// ServicesWatcher notifies about the lifecycle changes of the services
 // in the environment. The first event returned by the watcher is the set
 // of names of all services, irrespective of their life state. Subsequent
 // events returns batches of newly added services and services which have
 // changed their lifecycle. After a service is found dead, no further event
 // will include it.
-type ServiceWatcher2 struct {
+type ServicesWatcher struct {
 	commonWatcher
 	out   chan []string
 	known map[string]Life
 }
 
 // Changes returns the event channel for w.
-func (w *ServiceWatcher2) Changes() <-chan []string {
+func (w *ServicesWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-// WatchServices2 returns a new ServiceWatcher2.
-func (s *State) WatchServices2() *ServiceWatcher2 {
-	return newServiceWatcher2(s)
+// WatchServices returns a new ServicesWatcher.
+func (s *State) WatchServices() *ServicesWatcher {
+	return newServicesWatcher(s)
 }
 
-func newServiceWatcher2(s *State) *ServiceWatcher2 {
-	w := &ServiceWatcher2{
+func newServicesWatcher(s *State) *ServicesWatcher {
+	w := &ServicesWatcher{
 		commonWatcher: commonWatcher{st: s},
 		out:           make(chan []string),
 		known:         make(map[string]Life),
@@ -540,7 +411,7 @@ func newServiceWatcher2(s *State) *ServiceWatcher2 {
 	return w
 }
 
-func (w *ServiceWatcher2) initial() (change []string, err error) {
+func (w *ServicesWatcher) initial() (change []string, err error) {
 	docs := []serviceDoc{}
 	err = w.st.services.Find(nil).Select(lifeFields).All(&docs)
 	if err != nil {
@@ -553,7 +424,7 @@ func (w *ServiceWatcher2) initial() (change []string, err error) {
 	return change, nil
 }
 
-func (w *ServiceWatcher2) merge(pending []string, name string) (new []string, err error) {
+func (w *ServicesWatcher) merge(pending []string, name string) (new []string, err error) {
 	doc := serviceDoc{}
 	err = w.st.services.FindId(name).One(&doc)
 	if err != nil && err != mgo.ErrNotFound {
@@ -582,7 +453,7 @@ func (w *ServiceWatcher2) merge(pending []string, name string) (new []string, er
 	return pending, nil
 }
 
-func (w *ServiceWatcher2) loop() (err error) {
+func (w *ServicesWatcher) loop() (err error) {
 	ch := make(chan watcher.Change)
 	w.st.watcher.WatchCollection(w.st.services.Name, ch)
 	defer w.st.watcher.UnwatchCollection(w.st.services.Name, ch)

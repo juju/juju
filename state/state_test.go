@@ -577,7 +577,7 @@ var servicesWatchTests = []struct {
 }
 
 func (s *StateSuite) TestWatchServices(c *C) {
-	serviceWatcher := s.State.WatchServices2()
+	serviceWatcher := s.State.WatchServices()
 	defer func() {
 		c.Assert(serviceWatcher.Stop(), IsNil)
 	}()
