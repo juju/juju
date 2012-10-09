@@ -351,20 +351,6 @@ func (*CmdSuite) TestSetCommandInit(c *C) {
 	// missing service name
 	_, err = initSetCommand("name=cow")
 	c.Assert(err, ErrorMatches, "no service name specified")
-	// incorrect option
-	_, err = initSetCommand("dummy", "name", "cow")
-	c.Assert(err, ErrorMatches, "invalid option")
-	_, err = initSetCommand("dummy", "name=")
-	c.Assert(err, ErrorMatches, "missing option value")
-	_, err = initSetCommand("dummy", "=cow")
-	c.Assert(err, ErrorMatches, "missing option key")
-
-	// strange, but correct
-	sc, err := initSetCommand("dummy", "name = cow")
-	c.Assert(err, IsNil)
-	c.Assert(len(sc.Options), Equals, 1)
-	c.Assert(sc.Options[0].Key, Equals, "name")
-	c.Assert(sc.Options[0].Value, Equals, "cow")
 
 	// test --config path
 	expected := []byte("this: is some test data")
@@ -385,4 +371,8 @@ func (*CmdSuite) TestSetCommandInit(c *C) {
 	// --config path, but no service
 	com, err = initSetCommand("--config", "testconfig")
 	c.Assert(err, ErrorMatches, "no service name specified")
+
+	// --config and options specified
+	com, err = initSetCommand("service", "--config", "testconfig", "bees=")
+	c.Assert(err, ErrorMatches, "cannot specify --config when using key=value arguments")
 }

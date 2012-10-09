@@ -59,7 +59,7 @@ var statusTests = []struct {
 		func(st *state.State, conn *juju.Conn, c *C) {
 			m, err := st.Machine(0)
 			c.Assert(err, IsNil)
-			inst, err := conn.Environ.StartInstance(m.Id(), nil, nil)
+			inst, err := conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
 			c.Assert(err, IsNil)
 			err = m.SetInstanceId(inst.Id())
 			c.Assert(err, IsNil)
@@ -146,7 +146,7 @@ var statusTests = []struct {
 				m, err := st.AddMachine(state.MachinerWorker)
 				c.Assert(err, IsNil)
 				c.Assert(m.Id(), Equals, i)
-				inst, err := conn.Environ.StartInstance(m.Id(), nil, nil)
+				inst, err := conn.Environ.StartInstance(m.Id(), testing.InvalidStateInfo(m.Id()), nil)
 				c.Assert(err, IsNil)
 				err = m.SetInstanceId(inst.Id())
 				c.Assert(err, IsNil)

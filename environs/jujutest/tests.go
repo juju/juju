@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/juju/testing"
 	"net/http"
 	"time"
 )
@@ -17,12 +18,12 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 0)
 
-	inst0, err := e.StartInstance(0, InvalidStateInfo, nil)
+	inst0, err := e.StartInstance(0, testing.InvalidStateInfo(0), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst0, NotNil)
 	id0 := inst0.Id()
 
-	inst1, err := e.StartInstance(1, InvalidStateInfo, nil)
+	inst1, err := e.StartInstance(1, testing.InvalidStateInfo(1), nil)
 	c.Assert(err, IsNil)
 	c.Assert(inst1, NotNil)
 	id1 := inst1.Id()
