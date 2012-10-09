@@ -81,7 +81,7 @@ type unitDoc struct {
 	Life           Life
 	Status         UnitStatus
 	StatusInfo     string
-	TxnRevno       int64  `bson:"txn-revno"`
+	TxnRevno       int64 `bson:"txn-revno"`
 }
 
 // Unit represents the state of a service unit.
