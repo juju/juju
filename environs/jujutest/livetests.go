@@ -145,6 +145,8 @@ func (t *LiveTests) TestPorts(c *C) {
 }
 
 func (t *LiveTests) TestGlobalPorts(c *C) {
+	c.Skip("Global firewall mode is unfinished")
+
 	// Change configuration.
 	oldConfig := t.Env.Config()
 	defer func() {
