@@ -20,9 +20,9 @@ func NewRelationListCommand(ctx Context) cmd.Command {
 func (c *RelationListCommand) Info() *cmd.Info {
 	args := "<id>"
 	doc := ""
-	if c.ctx.HasHookRelation() {
+	if r, found := c.ctx.HookRelation(); found {
 		args = "[<id>]"
-		doc = fmt.Sprintf("Current default relation id is %q.", c.ctx.HookRelation().FakeId())
+		doc = fmt.Sprintf("Current default relation id is %q.", r.FakeId())
 	}
 	return &cmd.Info{
 		"relation-list", args, "list relation units", doc,
@@ -49,5 +49,9 @@ func (c *RelationListCommand) Init(f *gnuflag.FlagSet, args []string) (err error
 }
 
 func (c *RelationListCommand) Run(ctx *cmd.Context) error {
-	return c.out.Write(ctx, c.ctx.Relation(c.RelationId).UnitNames())
+	r, found := c.ctx.Relation(c.RelationId)
+	if !found {
+		return fmt.Errorf("unknown relation id")
+	}
+	return c.out.Write(ctx, r.UnitNames())
 }

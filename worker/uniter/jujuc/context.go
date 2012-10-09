@@ -91,36 +91,17 @@ func merge(a, b map[string]interface{}) map[string]interface{} {
 	return a
 }
 
-func (ctx *HookContext) HasHookRelation() bool {
-	return ctx.HasRelation(ctx.RelationId)
-}
-
-func (ctx *HookContext) HookRelation() ContextRelation {
+func (ctx *HookContext) HookRelation() (ContextRelation, bool) {
 	return ctx.Relation(ctx.RelationId)
 }
 
-func (ctx *HookContext) HasRemoteUnit() bool {
-	return ctx.RemoteUnitName_ != ""
+func (ctx *HookContext) RemoteUnitName() (string, bool) {
+	return ctx.RemoteUnitName_, ctx.RemoteUnitName_ != ""
 }
 
-func (ctx *HookContext) RemoteUnitName() string {
-	if ctx.RemoteUnitName_ == "" {
-		panic("remote unit not available")
-	}
-	return ctx.RemoteUnitName_
-}
-
-func (ctx *HookContext) HasRelation(id int) bool {
-	_, found := ctx.Relations[id]
-	return found
-}
-
-func (ctx *HookContext) Relation(id int) ContextRelation {
+func (ctx *HookContext) Relation(id int) (ContextRelation, bool) {
 	r, found := ctx.Relations[id]
-	if !found {
-		panic(fmt.Errorf("unknown relation %d", id))
-	}
-	return r
+	return r, found
 }
 
 func (ctx *HookContext) RelationIds() []int {
@@ -176,12 +157,11 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		"JUJU_AGENT_SOCKET=" + socketPath,
 		"JUJU_UNIT_NAME=" + ctx.Unit.Name(),
 	}
-	if ctx.HasHookRelation() {
-		r := ctx.HookRelation()
+	if r, found := ctx.HookRelation(); found {
 		vars = append(vars, "JUJU_RELATION="+r.Name())
 		vars = append(vars, "JUJU_RELATION_ID="+r.FakeId())
-		if ctx.HasRemoteUnit() {
-			vars = append(vars, "JUJU_REMOTE_UNIT="+ctx.RemoteUnitName())
+		if name, found := ctx.RemoteUnitName(); found {
+			vars = append(vars, "JUJU_REMOTE_UNIT="+name)
 		}
 	}
 	return vars
@@ -397,8 +377,7 @@ func (ctx *RelationContext) ReadSettings(unit string) (settings map[string]inter
 func newRelationIdValue(ctx Context, result *int) *relationIdValue {
 	v := &relationIdValue{result: result, ctx: ctx}
 	id := -1
-	if ctx.HasHookRelation() {
-		r := ctx.HookRelation()
+	if r, found := ctx.HookRelation(); found {
 		id = r.Id()
 		v.value = r.FakeId()
 	}
@@ -430,7 +409,7 @@ func (v *relationIdValue) Set(value string) error {
 	if err != nil {
 		return fmt.Errorf("invalid relation id")
 	}
-	if !v.ctx.HasRelation(id) {
+	if _, found := v.ctx.Relation(id); !found {
 		return fmt.Errorf("unknown relation id")
 	}
 	*v.result = id
