@@ -308,7 +308,7 @@ type RelationContext struct {
 	members SettingsMap
 
 	// settings allows read and write access to the relation unit settings.
-	settings *state.ConfigNode
+	settings *state.Settings
 
 	// cache is a short-term cache that enables consistent access to settings
 	// for units that are not currently participating in the relation. Its
