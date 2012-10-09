@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"os"
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
@@ -16,13 +17,6 @@ type ConfigSuite struct {
 }
 
 var _ = Suite(&ConfigSuite{})
-
-func (s *ConfigSuite) SetUpTest(c *C) {
-	s.JujuConnSuite.SetUpTest(c)
-	sch := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("dummy-service", sch)
-	c.Assert(err, IsNil)
-}
 
 var getTests = []struct {
 	service  string
@@ -63,6 +57,9 @@ var getTests = []struct {
 }
 
 func (s *ConfigSuite) TestGetConfig(c *C) {
+	sch := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService("dummy-service", sch)
+	c.Assert(err, IsNil)
 	for _, t := range getTests {
 		ctx := &cmd.Context{c.MkDir(), &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
 		code := cmd.Main(&GetCommand{}, ctx, []string{t.service})
@@ -82,4 +79,101 @@ func (s *ConfigSuite) TestGetConfig(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(actual, DeepEquals, expected)
 	}
+}
+
+var setTests = []struct {
+	args     []string               // command to be executed
+	expected map[string]interface{} // resulting configuration of the dummy service.
+	err      string                 // error regex
+}{
+	{
+		// unnown option
+		[]string{"foo=bar"},
+		nil,
+		"error: Unknown configuration option: \"foo\"\n",
+	}, {
+		// invalid option
+		[]string{"foo", "bar"},
+		nil,
+		"error: invalid option: \"foo\"\n",
+	}, {
+		// whack option
+		[]string{"=bar"},
+		nil,
+		"error: invalid option: \"=bar\"\n",
+	}, {
+		// set outlook
+		[]string{"outlook=positive"},
+		map[string]interface{}{
+			"outlook": "positive",
+		},
+		"",
+	}, {
+		// unset outlook and set title
+		[]string{"outlook=", "title=sir"},
+		map[string]interface{}{
+			"title": "sir",
+		},
+		"",
+	}, {
+		// set a default value
+		[]string{"username=admin001"},
+		map[string]interface{}{
+			"username": "admin001",
+			"title":    "sir",
+		},
+		"",
+	}, {
+		// unset a default value, set a different default
+		[]string{"username=", "title=My Title"},
+		map[string]interface{}{
+			"title": "My Title",
+		},
+		"",
+	}, {
+		// --config missing
+		[]string{"--config", "missing.yaml"},
+		nil,
+		"error.*no such file or directory\n",
+	}, {
+		// --config $FILE test
+		[]string{"--config", "testconfig.yaml"},
+		map[string]interface{}{
+			"title":       "My Title",
+			"username":    "admin001",
+			"skill-level": int64(9000), // yaml int types are int64
+		},
+		"",
+	},
+}
+
+func (s *ConfigSuite) TestSetConfig(c *C) {
+	sch := s.AddTestingCharm(c, "dummy")
+	svc, err := s.State.AddService("dummy-service", sch)
+	c.Assert(err, IsNil)
+	dir := c.MkDir()
+	setupConfigfile(c, dir)
+	for _, t := range setTests {
+		args := append([]string{"dummy-service"}, t.args...)
+		c.Logf("%s", args)
+		ctx := &cmd.Context{dir, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}}
+		code := cmd.Main(&SetCommand{}, ctx, args)
+		if code != 0 {
+			c.Assert(ctx.Stderr.(*bytes.Buffer).String(), Matches, t.err)
+		} else {
+			cfg, err := svc.Config()
+			c.Assert(err, IsNil)
+			c.Assert(cfg.Map(), DeepEquals, t.expected)
+		}
+	}
+}
+
+func setupConfigfile(c *C, dir string) {
+	ctx := &cmd.Context{dir, nil, nil, nil}
+	path := ctx.AbsPath("testconfig.yaml")
+	file, err := os.Create(path)
+	c.Assert(err, IsNil)
+	_, err = file.Write([]byte("skill-level: 9000\nusername: admin001\n\n"))
+	c.Assert(err, IsNil)
+	file.Close()
 }

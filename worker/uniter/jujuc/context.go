@@ -17,11 +17,12 @@ import (
 	"time"
 )
 
-// HookContext is responsible for the state against which a jujuc-forwarded
-// command will execute within a unit agent; it implements the core of the
-// various jujuc tools, and is involved in constructing a suitable shell
-// environment in which to execute a hook (which is likely to call jujuc
-// tools that need this specific HookContext).
+// HookContext is the implementation of jujuc.Context. Its fields remain
+// exposed only in the short term: the type will be moving out of the jujuc
+// package very soon, but for the moment the jujuc tests depend on this
+// implementation of Context. In the medium term, all fields will become
+// hidden, and the trailing _ on RemoteUnitName_ (which avoids a collision
+// with Context) will be dropped.
 type HookContext struct {
 	Service *state.Service
 	Unit    *state.Unit
@@ -34,14 +35,100 @@ type HookContext struct {
 	// otherwise, its value must be a valid key into the Relations map.
 	RelationId int
 
-	// RemoteUnitName identifies the changing unit of the executing relation
+	// RemoteUnitName_ identifies the changing unit of the executing relation
 	// hook. It will be empty if the context is not running a relation hook,
 	// or if it is running a relation-broken hook.
-	RemoteUnitName string
+	RemoteUnitName_ string
 
 	// Relations contains the context for every relation the unit is a member
 	// of, keyed on relation id.
 	Relations map[int]*RelationContext
+}
+
+func (ctx *HookContext) UnitName() string {
+	return ctx.Unit.Name()
+}
+
+func (ctx *HookContext) PublicAddress() (string, error) {
+	return ctx.Unit.PublicAddress()
+}
+
+func (ctx *HookContext) PrivateAddress() (string, error) {
+	return ctx.Unit.PrivateAddress()
+}
+
+func (ctx *HookContext) OpenPort(protocol string, port int) error {
+	return ctx.Unit.OpenPort(protocol, port)
+}
+
+func (ctx *HookContext) ClosePort(protocol string, port int) error {
+	return ctx.Unit.ClosePort(protocol, port)
+}
+
+func (ctx *HookContext) Config() (map[string]interface{}, error) {
+	node, err := ctx.Service.Config()
+	if err != nil {
+		return nil, err
+	}
+	charm, _, err := ctx.Service.Charm()
+	if err != nil {
+		return nil, err
+	}
+	// TODO Remove this once state is fixed to report default values.
+	cfg, err := charm.Config().Validate(nil)
+	if err != nil {
+		return nil, err
+	}
+	return merge(node.Map(), cfg), nil
+}
+
+func merge(a, b map[string]interface{}) map[string]interface{} {
+	for k, v := range b {
+		if _, ok := a[k]; !ok {
+			a[k] = v
+		}
+	}
+	return a
+}
+
+func (ctx *HookContext) HasHookRelation() bool {
+	return ctx.HasRelation(ctx.RelationId)
+}
+
+func (ctx *HookContext) HookRelation() ContextRelation {
+	return ctx.Relation(ctx.RelationId)
+}
+
+func (ctx *HookContext) HasRemoteUnit() bool {
+	return ctx.RemoteUnitName_ != ""
+}
+
+func (ctx *HookContext) RemoteUnitName() string {
+	if ctx.RemoteUnitName_ == "" {
+		panic("remote unit not available")
+	}
+	return ctx.RemoteUnitName_
+}
+
+func (ctx *HookContext) HasRelation(id int) bool {
+	_, found := ctx.Relations[id]
+	return found
+}
+
+func (ctx *HookContext) Relation(id int) ContextRelation {
+	r, found := ctx.Relations[id]
+	if !found {
+		panic(fmt.Errorf("unknown relation %d", id))
+	}
+	return r
+}
+
+func (ctx *HookContext) RelationIds() []int {
+	ids := []int{}
+	for id := range ctx.Relations {
+		ids = append(ids, id)
+	}
+	return ids
 }
 
 // newCommands maps Command names to initializers.
@@ -92,8 +179,8 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 	if ctx.RelationId != -1 {
 		vars = append(vars, "JUJU_RELATION="+ctx.envRelation())
 		vars = append(vars, "JUJU_RELATION_ID="+ctx.envRelationId())
-		if ctx.RemoteUnitName != "" {
-			vars = append(vars, "JUJU_REMOTE_UNIT="+ctx.RemoteUnitName)
+		if ctx.RemoteUnitName_ != "" {
+			vars = append(vars, "JUJU_REMOTE_UNIT="+ctx.RemoteUnitName_)
 		}
 	}
 	return vars
@@ -195,7 +282,7 @@ func (ctx *HookContext) envRelation() string {
 	if ctx.RelationId == -1 {
 		return ""
 	}
-	return ctx.Relations[ctx.RelationId].ru.Endpoint().RelationName
+	return ctx.Relations[ctx.RelationId].Name()
 }
 
 // envRelationId returns the relation id exposed to hooks as JUJU_RELATION_ID.
@@ -205,13 +292,14 @@ func (ctx *HookContext) envRelationId() string {
 	if ctx.RelationId == -1 {
 		return ""
 	}
-	return fmt.Sprintf("%s:%d", ctx.envRelation(), ctx.RelationId)
+	return ctx.Relations[ctx.RelationId].FakeId()
 }
 
 // SettingsMap is a map from unit name to relation settings.
 type SettingsMap map[string]map[string]interface{}
 
-// RelationContext exposes relation membership and unit settings information.
+// RelationContext is the implementation of jujuc.ContextRelation.
+// It implements ContextRelation.
 type RelationContext struct {
 	ru *state.RelationUnit
 
@@ -274,9 +362,23 @@ func (ctx *RelationContext) DeleteMember(unitName string) {
 	delete(ctx.members, unitName)
 }
 
-// Settings returns a Settings that gives read and write access to the
-// unit's relation settings.
-func (ctx *RelationContext) Settings() (*state.Settings, error) {
+func (ctx *RelationContext) Name() string {
+	return ctx.ru.Endpoint().RelationName
+}
+
+func (ctx *RelationContext) FakeId() string {
+	return fmt.Sprintf("%s:%d", ctx.Name(), ctx.ru.Relation().Id())
+}
+
+func (ctx *RelationContext) UnitNames() (units []string) {
+	for unit := range ctx.members {
+		units = append(units, unit)
+	}
+	sort.Strings(units)
+	return units
+}
+
+func (ctx *RelationContext) Settings() (Settings, error) {
 	if ctx.settings == nil {
 		node, err := ctx.ru.Settings()
 		if err != nil {
@@ -287,18 +389,6 @@ func (ctx *RelationContext) Settings() (*state.Settings, error) {
 	return ctx.settings, nil
 }
 
-// Units returns the names of the units that are present in the relation, in
-// alphabetical order.
-func (ctx *RelationContext) Units() (units []string) {
-	for unit := range ctx.members {
-		units = append(units, unit)
-	}
-	sort.Strings(units)
-	return units
-}
-
-// ReadSettings returns the settings of a unit that is now, or was once,
-// participating in the relation.
 func (ctx *RelationContext) ReadSettings(unit string) (settings map[string]interface{}, err error) {
 	settings, member := ctx.members[unit]
 	if settings == nil {

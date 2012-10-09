@@ -10,6 +10,8 @@ type FileVar struct {
 	Path string
 }
 
+var ErrNoPath = errors.New("path not set")
+
 // Set stores the chosen path name in f.Path.
 func (f *FileVar) Set(v string) error {
 	f.Path = v
@@ -19,7 +21,7 @@ func (f *FileVar) Set(v string) error {
 // Read returns the contents of the file.
 func (f *FileVar) Read(ctx *Context) ([]byte, error) {
 	if f.Path == "" {
-		return nil, errors.New("path not set")
+		return nil, ErrNoPath
 	}
 	return ioutil.ReadFile(ctx.AbsPath(f.Path))
 }
