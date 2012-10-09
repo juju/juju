@@ -943,7 +943,6 @@ func testSetPassword(c *C, getEntity func(st *state.State) (entity, error)) {
 	// Turn on fully-authenticated mode.
 	err = st.SetAdminPassword("admin-secret")
 	c.Assert(err, IsNil)
-	defer st.SetAdminPassword("")
 
 	// Set the password for the entity
 	ent, err := getEntity(st)
@@ -959,9 +958,9 @@ func testSetPassword(c *C, getEntity func(st *state.State) (entity, error)) {
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
-	st, err = state.Open(info)
+	st1, err := state.Open(info)
 	c.Assert(err, IsNil)
-	defer st.Close()
+	defer st1.Close()
 
 	// Change the password with an entity derived from the newly
 	// opened and authenticated state.
@@ -983,6 +982,10 @@ func testSetPassword(c *C, getEntity func(st *state.State) (entity, error)) {
 	// Check that the administrator can still log in.
 	info.EntityName, info.Password = "", "admin-secret"
 	err = tryOpenState(info)
+	c.Assert(err, IsNil)
+
+	// Remove the admin password so that the test harness can reset.
+	err = st.SetAdminPassword("")
 	c.Assert(err, IsNil)
 }
 

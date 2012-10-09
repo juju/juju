@@ -51,7 +51,7 @@ func startMgoServer() error {
 		"--smallfiles",
 		"--nojournal",
 	}
-	server = exec.Command("mongod", mgoargs...)
+	server := exec.Command("mongod", mgoargs...)
 	if err := server.Start(); err != nil {
 		os.RemoveAll(dbdir)
 		return err
@@ -67,7 +67,7 @@ func destroyMgoServer() {
 		mgoServer.Process.Kill()
 		mgoServer.Process.Wait()
 		os.RemoveAll(mgoDbDir)
-		mgoAddr, mgoServer, mgoDbDir = "", nil, ""
+		MgoAddr, mgoServer, mgoDbDir = "", nil, ""
 	}
 }
 
@@ -123,7 +123,7 @@ func MgoReset() {
 		dbnames, err = session.DatabaseNames()
 	}
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("%#v %T %v", err, err, err))
 	}
 	for _, name := range dbnames {
 		switch name {
@@ -138,8 +138,10 @@ func MgoReset() {
 }
 
 func isUnauthorized(err error) bool {
-	if err, ok := err.(*mgo.QueryError); ok && err.Code == 10057 {
-		return true
+	if err, ok := err.(*mgo.QueryError); ok {
+		if err.Code == 10057 || err.Message == "need to login" {
+			return true
+		}
 	}
 	return false
 }
