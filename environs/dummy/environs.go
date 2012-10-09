@@ -396,11 +396,16 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 		info := stateInfo()
 		cfg, err := environs.BootstrapConfig(&providerInstance, e.ecfg().Config, tools)
 		if err != nil {
-			return err
+			return fmt.Errorf("cannot make bootstrap config: %v", err)
 		}
 		st, err := state.Initialize(info, cfg)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("cannot initialize state: %v", err)
+		}
+		if password := e.Config().AdminSecret(); password != "" {
+			if err := st.SetAdminPassword(trivial.PasswordHash(password)); err != nil {
+				return fmt.Errrorf("cannot set admin password: %v", err)
+			}
 		}
 		if err := st.Close(); err != nil {
 			panic(err)

@@ -545,7 +545,7 @@ func (s *State) SetAdminPassword(password string) error {
 		// adding the first user because we go from no-auth+no-login to
 		// auth+no-login. Not great. Hopefully being fixed in 2.4.
 		if err := admin.AddUser("admin", password, false); err != nil && err.Error() != "need to login" {
-			return fmt.Errorf("cannot set admin password: %v", err)
+			return fmt.Errorf("cannot add admin user: %v", err)
 		}
 		if err := admin.Login("admin", password); err != nil {
 			return fmt.Errorf("cannot login after setting password: %v", err)

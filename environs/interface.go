@@ -121,11 +121,14 @@ type Environ interface {
 	// Name returns the Environ's name.
 	Name() string
 
-	// Bootstrap initializes the state for the environment,
-	// possibly starting one or more instances.
-	// If uploadTools is true, the current version of
-	// the juju tools will be uploaded and used
+	// Bootstrap initializes the state for the environment, possibly
+	// starting one or more instances.  If uploadTools is true, the
+	// current version of the juju tools will be uploaded and used
 	// on the environment's instances.
+	// If the configuration's AdminSecret is non-empty, the
+	// adminstrator password on the newly bootstrapped
+	// state will be set to a hash of it (see trivial.PasswordHash),
+	// and should be changed at the first opportunity.
 	Bootstrap(uploadTools bool) error
 
 	// StateInfo returns information on the state initialized
