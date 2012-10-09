@@ -22,8 +22,8 @@ var (
 	// mgoServer holds the running MongoDB command.
 	mgoServer *exec.Cmd
 
-	// mgoDbDir holds the directory that MongoDB is running in.
-	mgoDbDir string
+	// mgoDir holds the directory that MongoDB is running in.
+	mgoDir string
 )
 
 // MgoSuite is a suite that deletes all content from the shared MongoDB
@@ -58,7 +58,7 @@ func startMgoServer() error {
 	}
 	MgoAddr = "localhost:" + mgoport
 	mgoServer = server
-	mgoDbDir = dbdir
+	mgoDir = dbdir
 	return nil
 }
 
@@ -66,8 +66,8 @@ func destroyMgoServer() {
 	if mgoServer != nil {
 		mgoServer.Process.Kill()
 		mgoServer.Process.Wait()
-		os.RemoveAll(mgoDbDir)
-		MgoAddr, mgoServer, mgoDbDir = "", nil, ""
+		os.RemoveAll(mgoDir)
+		MgoAddr, mgoServer, mgoDir = "", nil, ""
 	}
 }
 
