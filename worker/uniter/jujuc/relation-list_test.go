@@ -4,12 +4,11 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
 type RelationListSuite struct {
-	HookContextSuite
+	ContextSuite
 }
 
 var _ = Suite(&RelationListSuite{})
@@ -79,7 +78,7 @@ var relationListTests = []struct {
 		summary: "json formatting 1",
 		relid:   1,
 		args:    []string{"--format", "json"},
-		out:     "null",
+		out:     "[]",
 	}, {
 		summary:  "json formatting 2",
 		members1: []string{"foo", "bar", "baz"},
@@ -104,8 +103,8 @@ func (s *RelationListSuite) TestRelationList(c *C) {
 	for i, t := range relationListTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := s.GetHookContext(c, t.relid, "")
-		setMembers(hctx.Relations[0], t.members0)
-		setMembers(hctx.Relations[1], t.members1)
+		setMembers(hctx.rels[0], t.members0)
+		setMembers(hctx.rels[1], t.members1)
 		com, err := jujuc.NewCommand(hctx, "relation-list")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
@@ -159,13 +158,9 @@ options:
 	}
 }
 
-func setMembers(rctx *uniter.ContextRelation, members []string) {
-	for _, u := range rctx.UnitNames() {
-		rctx.DeleteMember(u)
-	}
-	m := uniter.SettingsMap{}
+func setMembers(rctx *ContextRelation, members []string) {
+	rctx.units = map[string]Settings{}
 	for _, name := range members {
-		m[name] = nil
+		rctx.units[name] = nil
 	}
-	rctx.UpdateMembers(m)
 }

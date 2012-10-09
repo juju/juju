@@ -166,7 +166,7 @@ func (s *ServerSuite) TestBrokenCommand(c *C) {
 }
 
 type NewCommandSuite struct {
-	HookContextSuite
+	ContextSuite
 }
 
 var _ = Suite(&NewCommandSuite{})

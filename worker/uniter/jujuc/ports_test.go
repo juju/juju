@@ -3,30 +3,29 @@ package jujuc_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
 type PortsSuite struct {
-	HookContextSuite
+	ContextSuite
 }
 
 var _ = Suite(&PortsSuite{})
 
 var portsTests = []struct {
-	cmd  []string
-	open []state.Port
+	cmd    []string
+	expect map[string]bool
 }{
-	{[]string{"open-port", "80"}, []state.Port{{"tcp", 80}}},
-	{[]string{"open-port", "99/tcp"}, []state.Port{{"tcp", 80}, {"tcp", 99}}},
-	{[]string{"close-port", "80/TCP"}, []state.Port{{"tcp", 99}}},
-	{[]string{"open-port", "123/udp"}, []state.Port{{"tcp", 99}, {"udp", 123}}},
-	{[]string{"close-port", "9999/UDP"}, []state.Port{{"tcp", 99}, {"udp", 123}}},
+	{[]string{"open-port", "80"}, map[string]bool{"80/tcp": true}},
+	{[]string{"open-port", "99/tcp"}, map[string]bool{"80/tcp": true, "99/tcp": true}},
+	{[]string{"close-port", "80/TCP"}, map[string]bool{"99/tcp": true}},
+	{[]string{"open-port", "123/udp"}, map[string]bool{"99/tcp": true, "123/udp": true}},
+	{[]string{"close-port", "9999/UDP"}, map[string]bool{"99/tcp": true, "123/udp": true}},
 }
 
 func (s *PortsSuite) TestOpenClose(c *C) {
+	hctx := s.GetHookContext(c, -1, "")
 	for _, t := range portsTests {
-		hctx := s.GetHookContext(c, -1, "")
 		com, err := jujuc.NewCommand(hctx, t.cmd[0])
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
@@ -34,8 +33,7 @@ func (s *PortsSuite) TestOpenClose(c *C) {
 		c.Assert(code, Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), Equals, "")
 		c.Assert(bufferString(ctx.Stderr), Equals, "")
-		open := s.unit.OpenedPorts()
-		c.Assert(open, DeepEquals, t.open)
+		c.Assert(hctx.ports, DeepEquals, t.expect)
 	}
 }
 

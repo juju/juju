@@ -9,22 +9,10 @@ import (
 )
 
 type ConfigGetSuite struct {
-	HookContextSuite
+	ContextSuite
 }
 
 var _ = Suite(&ConfigGetSuite{})
-
-func (s *ConfigGetSuite) SetUpTest(c *C) {
-	s.HookContextSuite.SetUpTest(c)
-	conf, err := s.service.Config()
-	c.Assert(err, IsNil)
-	conf.Update(map[string]interface{}{
-		"monsters":            false,
-		"spline-reticulation": 45.0,
-	})
-	_, err = conf.Write()
-	c.Assert(err, IsNil)
-}
 
 var configGetYamlMap = "monsters: false\nspline-reticulation: 45\ntitle: My Title\nusername: admin001\n"
 

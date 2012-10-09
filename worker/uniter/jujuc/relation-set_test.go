@@ -8,7 +8,7 @@ import (
 )
 
 type RelationSetSuite struct {
-	HookContextSuite
+	ContextSuite
 }
 
 var _ = Suite(&RelationSetSuite{})
