@@ -636,8 +636,8 @@ func (u *Unit) ClearResolved() error {
 }
 
 // Config returns the configuration node for the unit.
-func (u *Unit) Config() (config *ConfigNode, err error) {
-	config, err = readConfigNode(u.st, u.globalKey())
+func (u *Unit) Config() (config *Settings, err error) {
+	config, err = readSettings(u.st, u.globalKey())
 	if err != nil {
 		return nil, fmt.Errorf("cannot get configuration of unit %q: %v", u, err)
 	}

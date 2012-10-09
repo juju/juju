@@ -13,7 +13,7 @@ const (
 	ItemDeleted
 )
 
-// ItemChange represents the change of an item in a configNode.
+// ItemChange represents the change of an item in a settings.
 type ItemChange struct {
 	Type     int
 	Key      string
@@ -44,9 +44,9 @@ func (ics itemChangeSlice) Len() int           { return len(ics) }
 func (ics itemChangeSlice) Less(i, j int) bool { return ics[i].Key < ics[j].Key }
 func (ics itemChangeSlice) Swap(i, j int)      { ics[i], ics[j] = ics[j], ics[i] }
 
-// A ConfigNode manages changes to settings as a delta in memory and merges
+// A Settings manages changes to settings as a delta in memory and merges
 // them back in the database when explicitly requested.
-type ConfigNode struct {
+type Settings struct {
 	st   *State
 	path string
 	// disk holds the values in the config node before
@@ -55,14 +55,14 @@ type ConfigNode struct {
 	disk map[string]interface{}
 	// cache holds the current values in the config node.
 	// The difference between disk and core
-	// determines the delta to be applied when ConfigNode.Write
+	// determines the delta to be applied when Settings.Write
 	// is called.
 	core     map[string]interface{}
 	txnRevno int64
 }
 
 // Keys returns the current keys in alphabetical order.
-func (c *ConfigNode) Keys() []string {
+func (c *Settings) Keys() []string {
 	keys := []string{}
 	for key := range c.core {
 		keys = append(keys, key)
@@ -72,30 +72,30 @@ func (c *ConfigNode) Keys() []string {
 }
 
 // Get returns the value of key and whether it was found.
-func (c *ConfigNode) Get(key string) (value interface{}, found bool) {
+func (c *Settings) Get(key string) (value interface{}, found bool) {
 	value, found = c.core[key]
 	return
 }
 
 // Map returns all keys and values of the node.
-func (c *ConfigNode) Map() map[string]interface{} {
+func (c *Settings) Map() map[string]interface{} {
 	return copyMap(c.core)
 }
 
 // Set sets key to value
-func (c *ConfigNode) Set(key string, value interface{}) {
+func (c *Settings) Set(key string, value interface{}) {
 	c.core[key] = value
 }
 
 // Update sets multiple key/value pairs.
-func (c *ConfigNode) Update(kv map[string]interface{}) {
+func (c *Settings) Update(kv map[string]interface{}) {
 	for key, value := range kv {
 		c.core[key] = value
 	}
 }
 
 // Delete removes key.
-func (c *ConfigNode) Delete(key string) {
+func (c *Settings) Delete(key string) {
 	delete(c.core, key)
 }
 
@@ -122,7 +122,7 @@ func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 // Write writes changes made to c back onto its node.  Changes are written
 // as a delta applied on top of the latest version of the node, to prevent
 // overwriting unrelated changes made to the node since it was last read.
-func (c *ConfigNode) Write() ([]ItemChange, error) {
+func (c *Settings) Write() ([]ItemChange, error) {
 	changes := []ItemChange{}
 	updates := map[string]interface{}{}
 	deletions := map[string]int{}
@@ -176,8 +176,8 @@ func (c *ConfigNode) Write() ([]ItemChange, error) {
 	return changes, nil
 }
 
-func newConfigNode(st *State, path string) *ConfigNode {
-	return &ConfigNode{
+func newSettings(st *State, path string) *Settings {
+	return &Settings{
 		st:   st,
 		path: path,
 		core: make(map[string]interface{}),
@@ -192,7 +192,7 @@ func cleanMap(in map[string]interface{}) {
 }
 
 // Read (re)reads the node data into c.
-func (c *ConfigNode) Read() error {
+func (c *Settings) Read() error {
 	config := map[string]interface{}{}
 	err := c.st.settings.FindId(c.path).One(config)
 	if err == mgo.ErrNotFound {
@@ -210,18 +210,18 @@ func (c *ConfigNode) Read() error {
 	return nil
 }
 
-// readConfigNode returns the ConfigNode for path.
-func readConfigNode(st *State, path string) (*ConfigNode, error) {
-	c := newConfigNode(st, path)
+// readSettings returns the Settings for path.
+func readSettings(st *State, path string) (*Settings, error) {
+	c := newSettings(st, path)
 	if err := c.Read(); err != nil {
 		return nil, err
 	}
 	return c, nil
 }
 
-// createConfigNode writes an initial config node.
-func createConfigNode(st *State, path string, values map[string]interface{}) (*ConfigNode, error) {
-	c := newConfigNode(st, path)
+// createSettings writes an initial config node.
+func createSettings(st *State, path string, values map[string]interface{}) (*Settings, error) {
+	c := newSettings(st, path)
 	c.core = copyMap(values)
 	_, err := c.Write()
 	if err != nil {
