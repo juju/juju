@@ -943,7 +943,6 @@ func testSetPassword(c *C, getEntity func(st *state.State) (entity, error)) {
 	// Turn on fully-authenticated mode.
 	err = st.SetAdminPassword("admin-secret")
 	c.Assert(err, IsNil)
-	defer st.SetAdminPassword("")
 
 	// Set the password for the entity
 	ent, err := getEntity(st)
@@ -994,7 +993,6 @@ func (s *StateSuite) TestSetAdminPassword(c *C) {
 
 	err = s.State.SetAdminPassword("foo")
 	c.Assert(err, IsNil)
-	defer s.State.SetAdminPassword("")
 	info := s.StateInfo(c)
 	err = tryOpenState(info)
 	c.Assert(err, Equals, state.ErrUnauthorized)
