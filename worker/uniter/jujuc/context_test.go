@@ -447,39 +447,43 @@ func (s *RelationContextSuite) TestMemberCaching(c *C) {
 	c.Assert(err, IsNil)
 	ru, err := s.rel.Unit(unit)
 	c.Assert(err, IsNil)
-	node, err := ru.Settings()
+	err = unit.SetPrivateAddress("u-1.example.com")
 	c.Assert(err, IsNil)
-	node.Set("ping", "pong")
-	_, err = node.Write()
+	err = ru.EnterScope()
+	c.Assert(err, IsNil)
+	settings, err := ru.Settings()
+	c.Assert(err, IsNil)
+	settings.Set("ping", "pong")
+	_, err = settings.Write()
 	c.Assert(err, IsNil)
 	ctx := jujuc.NewRelationContext(s.ru, map[string]int64{"u/1": 0})
 
 	// Check that uncached settings are read from state.
-	settings, err := ctx.ReadSettings("u/1")
+	m, err := ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	expect := node.Map()
-	c.Assert(settings, DeepEquals, expect)
+	expect := settings.Map()
+	c.Assert(m, DeepEquals, expect)
 
 	// Check that changes to state do not affect the cached settings.
-	node.Set("ping", "pow")
-	_, err = node.Write()
+	settings.Set("ping", "pow")
+	_, err = settings.Write()
 	c.Assert(err, IsNil)
-	settings, err = ctx.ReadSettings("u/1")
+	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, expect)
+	c.Assert(m, DeepEquals, expect)
 
 	// Check that ClearCache spares the members cache.
 	ctx.ClearCache()
-	settings, err = ctx.ReadSettings("u/1")
+	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, expect)
+	c.Assert(m, DeepEquals, expect)
 
 	// Check that updating the context overwrites the cached settings, and
 	// that the contents of state are ignored.
 	ctx.UpdateMembers(jujuc.SettingsMap{"u/1": {"entirely": "different"}})
-	settings, err = ctx.ReadSettings("u/1")
+	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, map[string]interface{}{"entirely": "different"})
+	c.Assert(m, DeepEquals, map[string]interface{}{"entirely": "different"})
 }
 
 func (s *RelationContextSuite) TestNonMemberCaching(c *C) {
@@ -487,33 +491,37 @@ func (s *RelationContextSuite) TestNonMemberCaching(c *C) {
 	c.Assert(err, IsNil)
 	ru, err := s.rel.Unit(unit)
 	c.Assert(err, IsNil)
-	node, err := ru.Settings()
+	err = unit.SetPrivateAddress("u-1.example.com")
 	c.Assert(err, IsNil)
-	node.Set("ping", "pong")
-	_, err = node.Write()
+	err = ru.EnterScope()
+	c.Assert(err, IsNil)
+	settings, err := ru.Settings()
+	c.Assert(err, IsNil)
+	settings.Set("ping", "pong")
+	_, err = settings.Write()
 	c.Assert(err, IsNil)
 	ctx := jujuc.NewRelationContext(s.ru, nil)
 
 	// Check that settings are read from state.
-	settings, err := ctx.ReadSettings("u/1")
+	m, err := ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	expect := node.Map()
-	c.Assert(settings, DeepEquals, expect)
+	expect := settings.Map()
+	c.Assert(m, DeepEquals, expect)
 
 	// Check that changes to state do not affect the obtained settings...
-	node.Set("ping", "pow")
-	_, err = node.Write()
+	settings.Set("ping", "pow")
+	_, err = settings.Write()
 	c.Assert(err, IsNil)
-	settings, err = ctx.ReadSettings("u/1")
+	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, expect)
+	c.Assert(m, DeepEquals, expect)
 
 	// ...until the caches are cleared.
 	ctx.ClearCache()
 	c.Assert(err, IsNil)
-	settings, err = ctx.ReadSettings("u/1")
+	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, map[string]interface{}{"ping": "pow"})
+	c.Assert(m["ping"], Equals, "pow")
 }
 
 func (s *RelationContextSuite) TestSettings(c *C) {
