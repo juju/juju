@@ -106,7 +106,8 @@ type environState struct {
 	mu            sync.Mutex
 	maxId         int // maximum instance id allocated so far.
 	insts         map[string]*instance
-	ports         map[int]map[state.Port]bool
+	globalPorts   map[state.Port]bool
+	firewallMode  config.FirewallMode
 	bootstrapped  bool
 	storageDelay  time.Duration
 	storage       *storage
@@ -173,12 +174,13 @@ func Reset() {
 // newState creates the state for a new environment with the
 // given name and starts an http server listening for
 // storage requests.
-func newState(name string, ops chan<- Operation) *environState {
+func newState(name string, ops chan<- Operation, fwmode config.FirewallMode) *environState {
 	s := &environState{
-		name:  name,
-		ops:   ops,
-		insts: make(map[string]*instance),
-		ports: make(map[int]map[state.Port]bool),
+		name:         name,
+		ops:          ops,
+		insts:        make(map[string]*instance),
+		globalPorts:  make(map[state.Port]bool),
+		firewallMode: fwmode,
 	}
 	s.storage = newStorage(s, "/"+name+"/private")
 	s.publicStorage = newStorage(s, "/"+name+"/public")
@@ -311,7 +313,7 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 			}
 			panic(fmt.Errorf("cannot share a state between two dummy environs; old %q; new %q", old, name))
 		}
-		state = newState(name, p.ops)
+		state = newState(name, p.ops, ecfg.FirewallMode())
 		p.state[name] = state
 	}
 	env := &environ{
@@ -468,6 +470,9 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.To
 	}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
+	if info.EntityName != fmt.Sprintf("machine-%d", machineId) {
+		return nil, fmt.Errorf("entity name must match started machine")
+	}
 	if tools != nil && (strings.HasPrefix(tools.Series, "unknown") || strings.HasPrefix(tools.Arch, "unknown")) {
 		return nil, fmt.Errorf("cannot find image for %s-%s", tools.Series, tools.Arch)
 	}
@@ -583,8 +588,9 @@ func (inst *instance) OpenPorts(machineId int, ports []state.Port) error {
 		InstanceId: inst.Id(),
 		Ports:      ports,
 	}
+	m := inst.portsMap()
 	for _, p := range ports {
-		inst.ports[p] = true
+		m[p] = true
 	}
 	return nil
 }
@@ -602,8 +608,9 @@ func (inst *instance) ClosePorts(machineId int, ports []state.Port) error {
 		InstanceId: inst.Id(),
 		Ports:      ports,
 	}
+	m := inst.portsMap()
 	for _, p := range ports {
-		delete(inst.ports, p)
+		delete(m, p)
 	}
 	return nil
 }
@@ -615,11 +622,25 @@ func (inst *instance) Ports(machineId int) (ports []state.Port, err error) {
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
-	for p := range inst.ports {
+	m := inst.portsMap()
+	for p := range m {
 		ports = append(ports, p)
 	}
 	state.SortPorts(ports)
 	return
+}
+
+// portsMap returns the map of open ports for the instance, taking
+// into account the firewall mode in the environment configuration.
+func (inst *instance) portsMap() map[state.Port]bool {
+	switch inst.state.firewallMode {
+	case config.FwDefault:
+		// dummy simulates ec2 by default: per instance security groups.
+		return inst.ports
+	case config.FwGlobal:
+		return inst.state.globalPorts
+	}
+	panic("unknown firewall mode: " + string(inst.state.firewallMode))
 }
 
 // providerDelay controls the delay before dummy responds.
