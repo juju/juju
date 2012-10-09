@@ -46,15 +46,16 @@ func (s *BootstrapSuite) TestParseNoEnvConfig(c *C) {
 }
 
 func (s *BootstrapSuite) TestSetMachineId(c *C) {
-	args := []string{"--state-servers"}
-	args = append(args, s.StateInfo(c).Addrs...)
-	args = append(args, "--instance-id", "over9000")
-	args = append(args, "--env-config", b64yaml{
-		"name":            "dummyenv",
-		"type":            "dummy",
-		"state-server":    "false",
-		"authorized-keys": "i-am-a-key",
-	}.encode())
+	args := []string{
+		"--state-servers", s.StateInfo(c).Addrs[0],
+		"--instance-id", "over9000",
+		"--env-config", b64yaml{
+			"name":            "dummyenv",
+			"type":            "dummy",
+			"state-server":    false,
+			"authorized-keys": "i-am-a-key",
+		}.encode(),
+	}
 	cmd, err := initBootstrapCommand(args)
 	c.Assert(err, IsNil)
 	err = cmd.Run(nil)
@@ -70,15 +71,16 @@ func (s *BootstrapSuite) TestSetMachineId(c *C) {
 }
 
 func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
-	args := []string{"--state-servers"}
-	args = append(args, s.StateInfo(c).Addrs...)
-	args = append(args, "--instance-id", "over9000")
-	args = append(args, "--env-config", b64yaml{
-		"name":            "dummyenv",
-		"type":            "dummy",
-		"state-server":    "false",
-		"authorized-keys": "i-am-a-key",
-	}.encode())
+	args := []string{
+		"--state-servers", s.StateInfo(c).Addrs[0],
+		"--instance-id", "over9000",
+		"--env-config", b64yaml{
+			"name":            "dummyenv",
+			"type":            "dummy",
+			"state-server":    false,
+			"authorized-keys": "i-am-a-key",
+		}.encode(),
+	}
 	cmd, err := initBootstrapCommand(args)
 	c.Assert(err, IsNil)
 	err = cmd.Run(nil)
@@ -87,6 +89,65 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	m, err := s.State.Machine(0)
 	c.Assert(err, IsNil)
 	c.Assert(m.Workers(), DeepEquals, []state.WorkerKind{state.MachinerWorker, state.ProvisionerWorker, state.FirewallerWorker})
+}
+
+func testOpenState(c *C, info *state.Info, expectErr error) {
+	st, err := state.Open(info)
+	if st != nil {
+		st.Close()
+	}
+	if expectErr != nil {
+		c.Assert(err, Equals, expectErr)
+	} else {
+		c.Assert(err, IsNil)
+	}
+}
+
+func (s *BootstrapSuite) TestInitialPassword(c *C) {
+	// First get a state that's properly logged in, so
+	// that we can reset the password if something goes wrong.
+	err := s.State.SetAdminPassword("arble")
+	c.Assert(err, IsNil)
+	info := s.StateInfo(c)
+	info.Password = "arble"
+	st, err := state.Open(info)
+	c.Assert(err, IsNil)
+	defer st.Close()
+	defer func() {
+		if err := st.SetAdminPassword(""); err != nil {
+			c.Errorf("cannot reset admin password: %v", err)
+		}
+	}()
+	// Revert to previous passwordless state.
+	err = s.State.SetAdminPassword("")
+	c.Assert(err, IsNil)
+
+	args := []string{
+		"--state-servers", s.StateInfo(c).Addrs[0],
+		"--instance-id", "over9000",
+		"--env-config", b64yaml{
+			"name":            "dummyenv",
+			"type":            "dummy",
+			"state-server":    false,
+			"authorized-keys": "i-am-a-key",
+		}.encode(),
+		"--initial-password", "foo",
+	}
+	cmd, err := initBootstrapCommand(args)
+	c.Assert(err, IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, IsNil)
+
+	// Check that we cannot now connect to the state
+	// without a password.
+	info = s.StateInfo(c)
+	testOpenState(c, info, state.ErrUnauthorized)
+
+	info.Password = "foo"
+	testOpenState(c, info, nil)
+
+	info.EntityName = "machine-0"
+	testOpenState(c, info, nil)
 }
 
 var base64ConfigTests = []struct {

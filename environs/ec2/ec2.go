@@ -345,6 +345,7 @@ func (e *environ) startInstance(machineId int, info *state.Info, tools *state.To
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
+	log.Debugf("ec2 user data: %s", userData)
 	groups, err := e.setUpGroups(machineId)
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
