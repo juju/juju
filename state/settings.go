@@ -215,6 +215,8 @@ func readSettings(st *State, key string) (*Settings, error) {
 	return s, nil
 }
 
+var errSettingsExist = fmt.Errorf("cannot overwrite existing settings")
+
 // createSettings writes an initial config node.
 func createSettings(st *State, key string, values map[string]interface{}) (*Settings, error) {
 	s := newSettings(st, key)
@@ -227,7 +229,7 @@ func createSettings(st *State, key string, values map[string]interface{}) (*Sett
 	}}
 	err := s.st.runner.Run(ops, "", nil)
 	if err == txn.ErrAborted {
-		return nil, fmt.Errorf("cannot overwrite existing settings")
+		return nil, errSettingsExist
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot create settings: %v", err)
