@@ -237,7 +237,7 @@ func createSettings(st *State, key string, values map[string]interface{}) (*Sett
 	return s, nil
 }
 
-// removeSettings returns the Settings for key.
+// removeSettings removes the Settings for key.
 func removeSettings(st *State, key string) error {
 	err := st.settings.RemoveId(key)
 	if err == mgo.ErrNotFound {
