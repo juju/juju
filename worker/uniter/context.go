@@ -95,36 +95,17 @@ func merge(a, b map[string]interface{}) map[string]interface{} {
 	return a
 }
 
-func (ctx *HookContext) HasHookRelation() bool {
-	return ctx.HasRelation(ctx.relationId)
-}
-
-func (ctx *HookContext) HookRelation() jujuc.ContextRelation {
+func (ctx *HookContext) HookRelation() (jujuc.ContextRelation, bool) {
 	return ctx.Relation(ctx.relationId)
 }
 
-func (ctx *HookContext) HasRemoteUnit() bool {
-	return ctx.remoteUnitName != ""
+func (ctx *HookContext) RemoteUnitName() (string, bool) {
+	return ctx.remoteUnitName, ctx.remoteUnitName != ""
 }
 
-func (ctx *HookContext) RemoteUnitName() string {
-	if ctx.remoteUnitName == "" {
-		panic("remote unit not available")
-	}
-	return ctx.remoteUnitName
-}
-
-func (ctx *HookContext) HasRelation(id int) bool {
-	_, found := ctx.relations[id]
-	return found
-}
-
-func (ctx *HookContext) Relation(id int) jujuc.ContextRelation {
+func (ctx *HookContext) Relation(id int) (jujuc.ContextRelation, bool) {
 	r, found := ctx.relations[id]
-	if !found {
-		panic(fmt.Errorf("unknown relation %d", id))
-	}
-	return r
+	return r, found
 }
 
 func (ctx *HookContext) RelationIds() []int {
@@ -148,12 +129,11 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		"JUJU_AGENT_SOCKET=" + socketPath,
 		"JUJU_UNIT_NAME=" + ctx.unit.Name(),
 	}
-	if ctx.HasHookRelation() {
-		r := ctx.HookRelation()
+	if r, found := ctx.HookRelation(); found {
 		vars = append(vars, "JUJU_RELATION="+r.Name())
 		vars = append(vars, "JUJU_RELATION_ID="+r.FakeId())
-		if ctx.HasRemoteUnit() {
-			vars = append(vars, "JUJU_REMOTE_UNIT="+ctx.RemoteUnitName())
+		if name, found := ctx.RemoteUnitName(); found {
+			vars = append(vars, "JUJU_REMOTE_UNIT="+name)
 		}
 	}
 	return vars
@@ -260,7 +240,7 @@ type ContextRelation struct {
 	members SettingsMap
 
 	// settings allows read and write access to the relation unit settings.
-	settings *state.ConfigNode
+	settings *state.Settings
 
 	// cache is a short-term cache that enables consistent access to settings
 	// for units that are not currently participating in the relation. Its

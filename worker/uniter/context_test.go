@@ -412,39 +412,43 @@ func (s *ContextRelationSuite) TestMemberCaching(c *C) {
 	c.Assert(err, IsNil)
 	ru, err := s.rel.Unit(unit)
 	c.Assert(err, IsNil)
-	node, err := ru.Settings()
+	err = unit.SetPrivateAddress("u-1.example.com")
 	c.Assert(err, IsNil)
-	node.Set("ping", "pong")
-	_, err = node.Write()
+	err = ru.EnterScope()
+	c.Assert(err, IsNil)
+	settings, err := ru.Settings()
+	c.Assert(err, IsNil)
+	settings.Set("ping", "pong")
+	_, err = settings.Write()
 	c.Assert(err, IsNil)
 	ctx := uniter.NewContextRelation(s.ru, map[string]int64{"u/1": 0})
 
 	// Check that uncached settings are read from state.
-	settings, err := ctx.ReadSettings("u/1")
+	m, err := ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	expect := node.Map()
-	c.Assert(settings, DeepEquals, expect)
+	expect := settings.Map()
+	c.Assert(m, DeepEquals, expect)
 
 	// Check that changes to state do not affect the cached settings.
-	node.Set("ping", "pow")
-	_, err = node.Write()
+	settings.Set("ping", "pow")
+	_, err = settings.Write()
 	c.Assert(err, IsNil)
-	settings, err = ctx.ReadSettings("u/1")
+	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, expect)
+	c.Assert(m, DeepEquals, expect)
 
 	// Check that ClearCache spares the members cache.
 	ctx.ClearCache()
-	settings, err = ctx.ReadSettings("u/1")
+	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, expect)
+	c.Assert(m, DeepEquals, expect)
 
 	// Check that updating the context overwrites the cached settings, and
 	// that the contents of state are ignored.
 	ctx.UpdateMembers(uniter.SettingsMap{"u/1": {"entirely": "different"}})
-	settings, err = ctx.ReadSettings("u/1")
+	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, map[string]interface{}{"entirely": "different"})
+	c.Assert(m, DeepEquals, map[string]interface{}{"entirely": "different"})
 }
 
 func (s *ContextRelationSuite) TestNonMemberCaching(c *C) {
@@ -452,33 +456,37 @@ func (s *ContextRelationSuite) TestNonMemberCaching(c *C) {
 	c.Assert(err, IsNil)
 	ru, err := s.rel.Unit(unit)
 	c.Assert(err, IsNil)
-	node, err := ru.Settings()
+	err = unit.SetPrivateAddress("u-1.example.com")
 	c.Assert(err, IsNil)
-	node.Set("ping", "pong")
-	_, err = node.Write()
+	err = ru.EnterScope()
+	c.Assert(err, IsNil)
+	settings, err := ru.Settings()
+	c.Assert(err, IsNil)
+	settings.Set("ping", "pong")
+	_, err = settings.Write()
 	c.Assert(err, IsNil)
 	ctx := uniter.NewContextRelation(s.ru, nil)
 
 	// Check that settings are read from state.
-	settings, err := ctx.ReadSettings("u/1")
+	m, err := ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	expect := node.Map()
-	c.Assert(settings, DeepEquals, expect)
+	expect := settings.Map()
+	c.Assert(m, DeepEquals, expect)
 
 	// Check that changes to state do not affect the obtained settings...
-	node.Set("ping", "pow")
-	_, err = node.Write()
+	settings.Set("ping", "pow")
+	_, err = settings.Write()
 	c.Assert(err, IsNil)
-	settings, err = ctx.ReadSettings("u/1")
+	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, expect)
+	c.Assert(m, DeepEquals, expect)
 
 	// ...until the caches are cleared.
 	ctx.ClearCache()
 	c.Assert(err, IsNil)
-	settings, err = ctx.ReadSettings("u/1")
+	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, map[string]interface{}{"ping": "pow"})
+	c.Assert(m["ping"], Equals, "pow")
 }
 
 func (s *ContextRelationSuite) TestSettings(c *C) {
@@ -532,25 +540,31 @@ func (s *InterfaceSuite) GetContext(c *C, relId int, remoteName string) jujuc.Co
 func (s *InterfaceSuite) TestTrivial(c *C) {
 	ctx := s.GetContext(c, -1, "")
 	c.Assert(ctx.UnitName(), Equals, "u/0")
-	c.Assert(ctx.HasHookRelation(), Equals, false)
-	c.Assert(func() { ctx.HookRelation() }, PanicMatches, "unknown relation -1")
-	c.Assert(ctx.HasRemoteUnit(), Equals, false)
-	c.Assert(func() { ctx.RemoteUnitName() }, PanicMatches, "remote unit not available")
+	r, found := ctx.HookRelation()
+	c.Assert(found, Equals, false)
+	c.Assert(r, IsNil)
+	name, found := ctx.RemoteUnitName()
+	c.Assert(found, Equals, false)
+	c.Assert(name, Equals, "")
 	c.Assert(ctx.RelationIds(), HasLen, 2)
-	c.Assert(ctx.HasRelation(0), Equals, true)
-	c.Assert(ctx.Relation(0).Name(), Equals, "peer0")
-	c.Assert(ctx.Relation(0).FakeId(), Equals, "peer0:0")
-	c.Assert(ctx.HasRelation(123), Equals, false)
-	c.Assert(func() { ctx.Relation(123) }, PanicMatches, "unknown relation 123")
+	r, found = ctx.Relation(0)
+	c.Assert(found, Equals, true)
+	c.Assert(r.Name(), Equals, "peer0")
+	c.Assert(r.FakeId(), Equals, "peer0:0")
+	r, found = ctx.Relation(123)
+	c.Assert(found, Equals, false)
+	c.Assert(r, IsNil)
 
 	ctx = s.GetContext(c, 1, "")
-	c.Assert(ctx.HasHookRelation(), Equals, true)
-	c.Assert(ctx.HookRelation().Name(), Equals, "peer1")
-	c.Assert(ctx.HookRelation().FakeId(), Equals, "peer1:1")
+	r, found = ctx.HookRelation()
+	c.Assert(found, Equals, true)
+	c.Assert(r.Name(), Equals, "peer1")
+	c.Assert(r.FakeId(), Equals, "peer1:1")
 
 	ctx = s.GetContext(c, 1, "u/123")
-	c.Assert(ctx.HasRemoteUnit(), Equals, true)
-	c.Assert(ctx.RemoteUnitName(), Equals, "u/123")
+	name, found = ctx.RemoteUnitName()
+	c.Assert(found, Equals, true)
+	c.Assert(name, Equals, "u/123")
 }
 
 func (s *InterfaceSuite) TestUnitCaching(c *C) {

@@ -64,6 +64,8 @@ func (s *UnitSuite) TestRunStop(c *C) {
 		case <-timeout:
 			c.Fatalf("no activity detected")
 		case <-time.After(50 * time.Millisecond):
+			err := unit.Refresh()
+			c.Assert(err, IsNil)
 			st, info, err := unit.Status()
 			c.Assert(err, IsNil)
 			switch st {

@@ -40,8 +40,8 @@ func (c *JujuLogCommand) Init(f *gnuflag.FlagSet, args []string) error {
 
 func (c *JujuLogCommand) Run(_ *cmd.Context) error {
 	badge := c.ctx.UnitName()
-	if c.ctx.HasHookRelation() {
-		badge = badge + " " + c.ctx.HookRelation().FakeId()
+	if r, found := c.ctx.HookRelation(); found {
+		badge = badge + " " + r.FakeId()
 	}
 	msg := badge + ": " + c.Message
 	if c.Debug {

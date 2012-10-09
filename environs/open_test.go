@@ -11,7 +11,7 @@ type OpenSuite struct{}
 var _ = Suite(&OpenSuite{})
 
 func (OpenSuite) TestNewDummyEnviron(c *C) {
-	// matches *ConfigNode.Map()
+	// matches *Settings.Map()
 	config := map[string]interface{}{
 		"name":            "foo",
 		"type":            "dummy",

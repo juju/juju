@@ -47,12 +47,16 @@ func (c *RelationSetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
-	node, err := c.ctx.Relation(c.RelationId).Settings()
+	r, found := c.ctx.Relation(c.RelationId)
+	if !found {
+		return fmt.Errorf("unknown relation id")
+	}
+	settings, err := r.Settings()
 	for k, v := range c.Settings {
 		if v != "" {
-			node.Set(k, v)
+			settings.Set(k, v)
 		} else {
-			node.Delete(k)
+			settings.Delete(k)
 		}
 	}
 	return nil

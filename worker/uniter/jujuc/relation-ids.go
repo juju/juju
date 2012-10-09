@@ -21,9 +21,9 @@ func NewRelationIdsCommand(ctx Context) cmd.Command {
 func (c *RelationIdsCommand) Info() *cmd.Info {
 	args := "<name>"
 	doc := ""
-	if c.ctx.HasHookRelation() {
+	if r, found := c.ctx.HookRelation(); found {
 		args = "[<name>]"
-		doc = fmt.Sprintf("Current default relation name is %q.", c.ctx.HookRelation().Name())
+		doc = fmt.Sprintf("Current default relation name is %q.", r.Name())
 	}
 	return &cmd.Info{
 		"relation-ids", args, "list all relation ids with the given relation name", doc,
@@ -36,8 +36,8 @@ func (c *RelationIdsCommand) Init(f *gnuflag.FlagSet, args []string) error {
 		return err
 	}
 	args = f.Args()
-	if c.ctx.HasHookRelation() {
-		c.Name = c.ctx.HookRelation().Name()
+	if r, found := c.ctx.HookRelation(); found {
+		c.Name = r.Name()
 	}
 	if len(args) > 0 {
 		c.Name = args[0]
@@ -51,8 +51,7 @@ func (c *RelationIdsCommand) Init(f *gnuflag.FlagSet, args []string) error {
 func (c *RelationIdsCommand) Run(ctx *cmd.Context) error {
 	result := []string{}
 	for _, id := range c.ctx.RelationIds() {
-		r := c.ctx.Relation(id)
-		if r.Name() == c.Name {
+		if r, found := c.ctx.Relation(id); found && r.Name() == c.Name {
 			result = append(result, r.FakeId())
 		}
 	}
