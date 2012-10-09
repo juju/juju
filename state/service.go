@@ -173,6 +173,7 @@ func (s *Service) addUnit(name string, principal *Unit) (*Unit, error) {
 		Name:    name,
 		Service: s.doc.Name,
 		Life:    Alive,
+		Status:  UnitPending,
 	}
 	ops := []txn.Op{{
 		C:      s.st.units.Name,
