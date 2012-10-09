@@ -237,27 +237,6 @@ func createSettings(st *State, key string, values map[string]interface{}) (*Sett
 	return s, nil
 }
 
-// overwriteSettings writes a full settings document replacing the
-// previous values. The document must already exist.
-func overwriteSettings(st *State, key string, values map[string]interface{}) (*Settings, error) {
-	s := newSettings(st, key)
-	s.core = copyMap(values)
-	ops := []txn.Op{{
-		C:      s.st.settings.Name,
-		Id:     s.key,
-		Assert: txn.DocExists,
-		Update: s.core,
-	}}
-	err := s.st.runner.Run(ops, "", nil)
-	if err == txn.ErrAborted {
-		return nil, notFound("settings")
-	}
-	if err != nil {
-		return nil, fmt.Errorf("cannot update settings: %v", err)
-	}
-	return s, nil
-}
-
 // removeSettings returns the Settings for key.
 func removeSettings(st *State, key string) error {
 	err := st.settings.RemoveId(key)
