@@ -652,12 +652,5 @@ func (s *HookContextSuite) GetHookContext(c *C, relid int, remote string) *unite
 		_, found := s.relctxs[relid]
 		c.Assert(found, Equals, true)
 	}
-	return &uniter.HookContext{
-		Service:         s.service,
-		Unit:            s.unit,
-		Id:              "TestCtx",
-		RelationId:      relid,
-		RemoteUnitName_: remote,
-		Relations:       s.relctxs,
-	}
+	return uniter.NewHookContext(s.service, s.unit, "TestCtx", relid, remote, s.relctxs)
 }

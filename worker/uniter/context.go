@@ -15,59 +15,66 @@ import (
 	"time"
 )
 
-// HookContext is the implementation of jujuc.Context. Its fields remain
-// exposed only in the short term: the jujuc tests depend on this
-// implementation of Context. In the medium term, all fields will become
-// hidden, and the trailing _ on RemoteUnitName_ (which avoids a collision
-// with Context) will be dropped.
+// HookContext is the implementation of jujuc.Context.
 type HookContext struct {
-	Service *state.Service
-	Unit    *state.Unit
+	service *state.Service
+	unit    *state.Unit
 
-	// Id identifies the context.
-	Id string
+	// id identifies the context.
+	id string
 
-	// RelationId identifies the relation for which a relation hook is
+	// relationId identifies the relation for which a relation hook is
 	// executing. If it is -1, the context is not running a relation hook;
-	// otherwise, its value must be a valid key into the Relations map.
-	RelationId int
+	// otherwise, its value must be a valid key into the relations map.
+	relationId int
 
-	// RemoteUnitName_ identifies the changing unit of the executing relation
+	// remoteUnitName identifies the changing unit of the executing relation
 	// hook. It will be empty if the context is not running a relation hook,
 	// or if it is running a relation-broken hook.
-	RemoteUnitName_ string
+	remoteUnitName string
 
-	// Relations contains the context for every relation the unit is a member
+	// relations contains the context for every relation the unit is a member
 	// of, keyed on relation id.
-	Relations map[int]*ContextRelation
+	relations map[int]*ContextRelation
+}
+
+func NewHookContext(service *state.Service, unit *state.Unit, id string, relationId int, remoteUnitName string, relations map[int]*ContextRelation) *HookContext {
+	return &HookContext{
+		service:        service,
+		unit:           unit,
+		id:             id,
+		relationId:     relationId,
+		remoteUnitName: remoteUnitName,
+		relations:      relations,
+	}
 }
 
 func (ctx *HookContext) UnitName() string {
-	return ctx.Unit.Name()
+	return ctx.unit.Name()
 }
 
 func (ctx *HookContext) PublicAddress() (string, error) {
-	return ctx.Unit.PublicAddress()
+	return ctx.unit.PublicAddress()
 }
 
 func (ctx *HookContext) PrivateAddress() (string, error) {
-	return ctx.Unit.PrivateAddress()
+	return ctx.unit.PrivateAddress()
 }
 
 func (ctx *HookContext) OpenPort(protocol string, port int) error {
-	return ctx.Unit.OpenPort(protocol, port)
+	return ctx.unit.OpenPort(protocol, port)
 }
 
 func (ctx *HookContext) ClosePort(protocol string, port int) error {
-	return ctx.Unit.ClosePort(protocol, port)
+	return ctx.unit.ClosePort(protocol, port)
 }
 
 func (ctx *HookContext) Config() (map[string]interface{}, error) {
-	node, err := ctx.Service.Config()
+	node, err := ctx.service.Config()
 	if err != nil {
 		return nil, err
 	}
-	charm, _, err := ctx.Service.Charm()
+	charm, _, err := ctx.service.Charm()
 	if err != nil {
 		return nil, err
 	}
@@ -89,31 +96,31 @@ func merge(a, b map[string]interface{}) map[string]interface{} {
 }
 
 func (ctx *HookContext) HasHookRelation() bool {
-	return ctx.HasRelation(ctx.RelationId)
+	return ctx.HasRelation(ctx.relationId)
 }
 
 func (ctx *HookContext) HookRelation() jujuc.ContextRelation {
-	return ctx.Relation(ctx.RelationId)
+	return ctx.Relation(ctx.relationId)
 }
 
 func (ctx *HookContext) HasRemoteUnit() bool {
-	return ctx.RemoteUnitName_ != ""
+	return ctx.remoteUnitName != ""
 }
 
 func (ctx *HookContext) RemoteUnitName() string {
-	if ctx.RemoteUnitName_ == "" {
+	if ctx.remoteUnitName == "" {
 		panic("remote unit not available")
 	}
-	return ctx.RemoteUnitName_
+	return ctx.remoteUnitName
 }
 
 func (ctx *HookContext) HasRelation(id int) bool {
-	_, found := ctx.Relations[id]
+	_, found := ctx.relations[id]
 	return found
 }
 
 func (ctx *HookContext) Relation(id int) jujuc.ContextRelation {
-	r, found := ctx.Relations[id]
+	r, found := ctx.relations[id]
 	if !found {
 		panic(fmt.Errorf("unknown relation %d", id))
 	}
@@ -122,7 +129,7 @@ func (ctx *HookContext) Relation(id int) jujuc.ContextRelation {
 
 func (ctx *HookContext) RelationIds() []int {
 	ids := []int{}
-	for id := range ctx.Relations {
+	for id := range ctx.relations {
 		ids = append(ids, id)
 	}
 	return ids
@@ -137,9 +144,9 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		"DEBIAN_FRONTEND=noninteractive",
 		"PATH=" + toolsDir + ":" + os.Getenv("PATH"),
 		"CHARM_DIR=" + charmDir,
-		"JUJU_CONTEXT_ID=" + ctx.Id,
+		"JUJU_CONTEXT_ID=" + ctx.id,
 		"JUJU_AGENT_SOCKET=" + socketPath,
-		"JUJU_UNIT_NAME=" + ctx.Unit.Name(),
+		"JUJU_UNIT_NAME=" + ctx.unit.Name(),
 	}
 	if ctx.HasHookRelation() {
 		r := ctx.HookRelation()
@@ -177,7 +184,7 @@ func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string)
 		}
 	}
 	write := err == nil
-	for id, rctx := range ctx.Relations {
+	for id, rctx := range ctx.relations {
 		if write {
 			if e := rctx.WriteSettings(); e != nil {
 				e = fmt.Errorf(
