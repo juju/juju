@@ -8,7 +8,7 @@ import (
 )
 
 type RelationSetSuite struct {
-	HookContextSuite
+	ContextSuite
 }
 
 var _ = Suite(&RelationSetSuite{})
@@ -167,7 +167,7 @@ func (s *RelationSetSuite) TestInit(c *C) {
 // Tests start with a relation with the settings {"base": "value"}
 var relationSetRunTests = []struct {
 	change map[string]string
-	expect map[string]interface{}
+	expect Settings
 }{
 	{
 		map[string]string{"base": ""},
@@ -186,16 +186,12 @@ func (s *RelationSetSuite) TestRun(c *C) {
 	for i, t := range relationSetRunTests {
 		c.Logf("test %d", i)
 
-		// Set base settings for this test's relations.
-		hctx.Relations[1].ClearCache()
-		pristine := map[string]interface{}{"pristine": "untouched"}
-		setSettings(c, s.relunits[0], pristine)
-		basic := map[string]interface{}{"base": "value"}
-		setSettings(c, s.relunits[1], basic)
-		settings, err := s.relunits[1].ReadSettings("u/0")
+		pristine := Settings{"pristine": "untouched"}
+		hctx.rels[0].units["u/0"] = pristine
+		basic := Settings{"base": "value"}
+		hctx.rels[1].units["u/0"] = basic
 
 		// Run the command.
-		c.Assert(err, IsNil)
 		com, err := jujuc.NewCommand(hctx, "relation-set")
 		c.Assert(err, IsNil)
 		rset := com.(*jujuc.RelationSetCommand)
@@ -205,34 +201,8 @@ func (s *RelationSetSuite) TestRun(c *C) {
 		err = com.Run(ctx)
 		c.Assert(err, IsNil)
 
-		// Check that the changes are present in the ContextRelation's
-		// settings...
-		node, err := hctx.Relations[1].Settings()
-		c.Assert(err, IsNil)
-		c.Assert(node.Map(), DeepEquals, t.expect)
-
-		// ...but are not persisted to state...
-		settings, err = s.relunits[1].ReadSettings("u/0")
-		c.Assert(err, IsNil)
-		c.Assert(settings, DeepEquals, basic)
-
-		// ...until we ask for it.
-		err = hctx.Relations[1].WriteSettings()
-		c.Assert(err, IsNil)
-		settings, err = s.relunits[1].ReadSettings("u/0")
-		c.Assert(settings, DeepEquals, t.expect)
-
-		// For paranoia's sake, check that the other relation's settings have
-		// not been touched...
-		settings, err = s.relunits[0].ReadSettings("u/0")
-		c.Assert(err, IsNil)
-		c.Assert(settings, DeepEquals, pristine)
-
-		// ...even when flushed.
-		err = hctx.Relations[0].WriteSettings()
-		c.Assert(err, IsNil)
-		settings, err = s.relunits[0].ReadSettings("u/0")
-		c.Assert(err, IsNil)
-		c.Assert(settings, DeepEquals, pristine)
+		// Check changes.
+		c.Assert(hctx.rels[0].units["u/0"], DeepEquals, pristine)
+		c.Assert(hctx.rels[1].units["u/0"], DeepEquals, t.expect)
 	}
 }

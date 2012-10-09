@@ -3,18 +3,15 @@ package jujuc_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
-	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	stdlog "log"
 )
 
 type JujuLogSuite struct {
-	HookContextSuite
+	ContextSuite
 }
 
 var _ = Suite(&JujuLogSuite{})
@@ -28,12 +25,6 @@ func pushLog(debug bool) (buf *bytes.Buffer, pop func()) {
 	}
 }
 
-func dummyFlagSet() *gnuflag.FlagSet {
-	f := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
-	f.SetOutput(ioutil.Discard)
-	return f
-}
-
 var commonLogTests = []struct {
 	debugEnabled bool
 	debugFlag    bool
@@ -45,7 +36,7 @@ var commonLogTests = []struct {
 	{true, true, "JUJU:DEBUG"},
 }
 
-func assertLogs(c *C, ctx *uniter.HookContext, badge string) {
+func assertLogs(c *C, ctx jujuc.Context, badge string) {
 	msg1 := "the chickens"
 	msg2 := "are 110% AWESOME"
 	com, err := jujuc.NewCommand(ctx, "juju-log")
@@ -80,7 +71,7 @@ func (s *JujuLogSuite) TestBadges(c *C) {
 }
 
 func (s *JujuLogSuite) TestRequiresMessage(c *C) {
-	ctx := &uniter.HookContext{}
+	ctx := &Context{}
 	com, err := jujuc.NewCommand(ctx, "juju-log")
 	c.Assert(err, IsNil)
 	err = com.Init(dummyFlagSet(), nil)
@@ -88,7 +79,7 @@ func (s *JujuLogSuite) TestRequiresMessage(c *C) {
 }
 
 func (s *JujuLogSuite) TestLogLevel(c *C) {
-	ctx := &uniter.HookContext{}
+	ctx := &Context{}
 	com, err := jujuc.NewCommand(ctx, "juju-log")
 	c.Assert(err, IsNil)
 	// missing log level argument

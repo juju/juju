@@ -9,18 +9,10 @@ import (
 )
 
 type UnitGetSuite struct {
-	HookContextSuite
+	ContextSuite
 }
 
 var _ = Suite(&UnitGetSuite{})
-
-func (s *UnitGetSuite) SetUpTest(c *C) {
-	s.HookContextSuite.SetUpTest(c)
-	err := s.unit.SetPublicAddress("gimli.minecraft.example.com")
-	c.Assert(err, IsNil)
-	err = s.unit.SetPrivateAddress("192.168.0.99")
-	c.Assert(err, IsNil)
-}
 
 var unitGetTests = []struct {
 	args []string
