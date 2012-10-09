@@ -654,11 +654,6 @@ func (w *MachinePrincipalUnitsWatcher) Changes() <-chan *MachinePrincipalUnitsCh
 	return w.changeChan
 }
 
-func (w *MachinePrincipalUnitsWatcher) Stop() error {
-	w.tomb.Kill(nil)
-	return w.tomb.Wait()
-}
-
 func (w *MachinePrincipalUnitsWatcher) mergeChange(changes *MachinePrincipalUnitsChange, ch watcher.Change) (err error) {
 	err = w.machine.Refresh()
 	if err != nil {
@@ -1328,11 +1323,6 @@ func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 		w.tomb.Kill(w.loop())
 	}()
 	return w
-}
-
-func (w *MachineUnitsWatcher) Stop() error {
-	w.tomb.Kill(nil)
-	return w.tomb.Wait()
 }
 
 // Changes returns the event channel for w.

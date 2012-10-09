@@ -49,5 +49,5 @@ func (c *RelationListCommand) Init(f *gnuflag.FlagSet, args []string) (err error
 }
 
 func (c *RelationListCommand) Run(ctx *cmd.Context) error {
-	return c.out.Write(ctx, c.Relations[c.RelationId].Units())
+	return c.out.Write(ctx, c.Relations[c.RelationId].UnitNames())
 }

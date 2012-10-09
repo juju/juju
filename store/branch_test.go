@@ -169,6 +169,11 @@ func (dir bzrDir) path(args ...string) string {
 
 func (dir bzrDir) run(args ...string) []byte {
 	cmd := exec.Command("bzr", args...)
+	oldemail := os.Getenv("EMAIL")
+	defer os.Setenv("EMAIL", oldemail)
+	// bzr will complain if bzr whoami has not been run previously,
+	// avoid this by passing $EMAIL into the environment.
+	os.Setenv("EMAIL", "nobody@example.com")
 	cmd.Dir = string(dir)
 	output, err := cmd.Output()
 	if err != nil {
