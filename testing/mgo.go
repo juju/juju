@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/log"
 	"net"
 	"os"
 	"os/exec"
@@ -13,14 +14,17 @@ import (
 	"time"
 )
 
-// MgoAddr holds the address of the shared MongoDB server set up by
-// StartMgoServer.
-var MgoAddr string
+var (
+	// MgoAddr holds the address of the shared MongoDB server set up by
+	// MgoTestPackage.
+	MgoAddr string
 
-// mgoSession holds an admin-authenticated connection to the above mongo
-// address so that we can manipulate the database even when
-// authentication has been set up during a test.
-var mgoSession *mgo.Session
+	// mgoServer holds the running MongoDB command.
+	mgoServer *exec.Cmd
+
+	// mgoDbDir holds the directory that MongoDB is running in.
+	mgoDbDir string
+)
 
 // MgoSuite is a suite that deletes all content from the shared MongoDB
 // server at the end of every test and supplies a connection to the shared
@@ -29,12 +33,12 @@ type MgoSuite struct {
 	Session *mgo.Session
 }
 
-// StartMgoServer starts a MongoDB server in a temporary directory.
+// startMgoServer starts a MongoDB server in a temporary directory.
 // It panics if it encounters an error.
-func StartMgoServer() (server *exec.Cmd, dbdir string, err error) {
-	dbdir, err = ioutil.TempDir("", "test-mgo")
+func startMgoServer() error {
+	dbdir, err := ioutil.TempDir("", "test-mgo")
 	if err != nil {
-		return
+		return err
 	}
 	mgoport := strconv.Itoa(FindTCPPort())
 	mgoargs := []string{
@@ -48,44 +52,32 @@ func StartMgoServer() (server *exec.Cmd, dbdir string, err error) {
 		"--nojournal",
 	}
 	server = exec.Command("mongod", mgoargs...)
-	err = server.Start()
-	if err != nil {
+	if err := server.Start(); err != nil {
 		os.RemoveAll(dbdir)
-		return
+		return err
 	}
 	MgoAddr = "localhost:" + mgoport
-	// Give ourselves a logged in session so that we can manipulate
-	// the db even when an admin password has been set.
-	session := MgoDial()
-	admin := session.DB("admin")
-	if err := admin.AddUser("admin", "foo", false); err != nil && err.Error() != "need to login" {
-		panic(fmt.Errorf("cannot add admin user: %v", err))
-	}
-	if err := admin.Login("admin", "foo"); err != nil {
-		panic(fmt.Errorf("cannot login after setting password: %v", err))
-	}
-	if err := admin.RemoveUser("admin"); err != nil {
-		panic(fmt.Errorf("cannot remove admin user: %v", err))
-	}
-	mgoSession = session
-	return
+	mgoServer = server
+	mgoDbDir = dbdir
+	return nil
 }
 
-func MgoDestroy(server *exec.Cmd, dbdir string) {
-	mgoSession.Close()
-	server.Process.Kill()
-	server.Process.Wait()
-	os.RemoveAll(dbdir)
+func destroyMgoServer() {
+	if mgoServer != nil {
+		mgoServer.Process.Kill()
+		mgoServer.Process.Wait()
+		os.RemoveAll(mgoDbDir)
+		mgoAddr, mgoServer, mgoDbDir = "", nil, ""
+	}
 }
 
 // MgoTestPackage should be called to register the tests for any package that
 // requires a MongoDB server.
 func MgoTestPackage(t *stdtesting.T) {
-	server, dbdir, err := StartMgoServer()
-	if err != nil {
+	if err := startMgoServer(); err != nil {
 		t.Fatal(err)
 	}
-	defer MgoDestroy(server, dbdir)
+	defer destroyMgoServer()
 	TestingT(t)
 }
 
@@ -114,7 +106,22 @@ func (s *MgoSuite) SetUpTest(c *C) {
 
 // MgoReset deletes all content from the shared MongoDB server.
 func MgoReset() {
-	dbnames, err := mgoSession.DatabaseNames()
+	session := MgoDial()
+	defer session.Close()
+	dbnames, err := session.DatabaseNames()
+	if isUnauthorized(err) {
+		// If we've got an unauthorized access error, so we're
+		// locked out of the database.  We restart it to regain
+		// access.  This should only happen when tests fail.
+		destroyMgoServer()
+		log.Printf("testing: restarting MongoDB server after unauthorized access")
+		if err := startMgoServer(); err != nil {
+			panic(err)
+		}
+		session = MgoDial()
+		defer session.Close()
+		dbnames, err = session.DatabaseNames()
+	}
 	if err != nil {
 		panic(err)
 	}
@@ -122,17 +129,19 @@ func MgoReset() {
 		switch name {
 		case "admin", "local", "config":
 		default:
-			err = mgoSession.DB(name).DropDatabase()
+			err = session.DB(name).DropDatabase()
 			if err != nil {
 				panic(fmt.Errorf("Cannot drop MongoDB database %v: %v", name, err))
 			}
 		}
 	}
-	// TODO(rog) remove all admin users when mgo provides a facility to list them,
-	err = mgoSession.DB("admin").RemoveUser("admin")
-	if err != nil && err != mgo.ErrNotFound {
-		panic(err)
+}
+
+func isUnauthorized(err error) bool {
+	if err, ok := err.(*mgo.QueryError); ok && err.Code == 10057 {
+		return true
 	}
+	return false
 }
 
 func (s *MgoSuite) TearDownTest(c *C) {
@@ -140,7 +149,7 @@ func (s *MgoSuite) TearDownTest(c *C) {
 	s.Session.Close()
 	for i := 0; ; i++ {
 		stats := mgo.GetStats()
-		if stats.SocketsInUse <= 1 && stats.SocketsAlive <= 1 {
+		if stats.SocketsInUse == 0 && stats.SocketsAlive == 0 {
 			break
 		}
 		if i == 20 {

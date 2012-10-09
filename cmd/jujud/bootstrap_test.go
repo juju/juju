@@ -104,6 +104,24 @@ func testOpenState(c *C, info *state.Info, expectErr error) {
 }
 
 func (s *BootstrapSuite) TestInitialPassword(c *C) {
+	// First get a state that's properly logged in, so
+	// that we can reset the password if something goes wrong.
+	err := s.State.SetAdminPassword("arble")
+	c.Assert(err, IsNil)
+	defer func() {
+		if err := s.State.SetAdminPassword(""); err != nil {
+			c.Errorf("cannot reset admin password: %v", err)
+		}
+	}()
+	info := s.StateInfo(c)
+	info.Password = "arble"
+	st, err := state.Open(info)
+	c.Assert(err, IsNil)
+	defer st.Close()
+	// Revert to previous passwordless state.
+	err = st.SetAdminPassword("")
+	c.Assert(err, IsNil)
+
 	args := []string{
 		"--state-servers", s.StateInfo(c).Addrs[0],
 		"--instance-id", "over9000",
@@ -122,7 +140,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 
 	// Check that we cannot now connect to the state
 	// without a password.
-	info := s.StateInfo(c)
+	info = s.StateInfo(c)
 	testOpenState(c, info, state.ErrUnauthorized)
 
 	info.Password = "foo"
