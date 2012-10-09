@@ -105,11 +105,11 @@ type State struct {
 }
 
 func (s *State) EnvironConfig() (*config.Config, error) {
-	configNode, err := readConfigNode(s, "e")
+	settings, err := readSettings(s, "e")
 	if err != nil {
 		return nil, err
 	}
-	attrs := configNode.Map()
+	attrs := settings.Map()
 	return config.New(attrs)
 }
 
@@ -120,7 +120,7 @@ func (s *State) SetEnvironConfig(cfg *config.Config) error {
 		return fmt.Errorf("admin-secret should never be written to the state")
 	}
 	attrs := cfg.AllAttrs()
-	_, err := createConfigNode(s, "e", attrs)
+	_, err := createSettings(s, "e", attrs)
 	return err
 }
 

@@ -239,7 +239,7 @@ func (ru *RelationUnit) EnterScope() (err error) {
 	if err != nil {
 		return err
 	}
-	node, err := readConfigNode(ru.st, key)
+	node, err := readSettings(ru.st, key)
 	if err != nil {
 		return err
 	}
@@ -277,14 +277,14 @@ func (ru *RelationUnit) WatchScope() *RelationScopeWatcher {
 	return newRelationScopeWatcher(ru.st, scope, ru.unit.Name())
 }
 
-// Settings returns a ConfigNode which allows access to the unit's settings
+// Settings returns a Settings which allows access to the unit's settings
 // within the relation.
-func (ru *RelationUnit) Settings() (*ConfigNode, error) {
+func (ru *RelationUnit) Settings() (*Settings, error) {
 	key, err := ru.key(ru.unit.Name())
 	if err != nil {
 		return nil, err
 	}
-	return readConfigNode(ru.st, key)
+	return readSettings(ru.st, key)
 }
 
 // ReadSettings returns a map holding the settings of the unit with the
@@ -303,14 +303,14 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 	if err != nil {
 		return nil, err
 	}
-	// TODO drop Count once readConfigNode refuses to read
+	// TODO drop Count once readSettings refuses to read
 	// non-existent settings (which it should).
 	if n, err := ru.st.settings.FindId(key).Count(); err != nil {
 		return nil, err
 	} else if n == 0 {
 		return nil, fmt.Errorf("not found")
 	}
-	node, err := readConfigNode(ru.st, key)
+	node, err := readSettings(ru.st, key)
 	if err != nil {
 		return nil, err
 	}
