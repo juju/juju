@@ -123,7 +123,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 	// Check that we cannot now connect to the state
 	// without a password.
 	info := s.StateInfo(c)
-	testOpenState(c, info, nil)
+	testOpenState(c, info, state.ErrUnauthorized)
 
 	info.EntityName, info.Password = "machine-0", "foo"
 	testOpenState(c, info, nil)
