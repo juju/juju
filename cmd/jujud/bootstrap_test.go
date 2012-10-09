@@ -108,18 +108,18 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 	// that we can reset the password if something goes wrong.
 	err := s.State.SetAdminPassword("arble")
 	c.Assert(err, IsNil)
+	defer func() {
+		if err := s.State.SetAdminPassword(""); err != nil {
+			c.Errorf("cannot reset admin password: %v", err)
+		}
+	}()
 	info := s.StateInfo(c)
 	info.Password = "arble"
 	st, err := state.Open(info)
 	c.Assert(err, IsNil)
 	defer st.Close()
-	defer func() {
-		if err := st.SetAdminPassword(""); err != nil {
-			c.Errorf("cannot reset admin password: %v", err)
-		}
-	}()
 	// Revert to previous passwordless state.
-	err = s.State.SetAdminPassword("")
+	err = st.SetAdminPassword("")
 	c.Assert(err, IsNil)
 
 	args := []string{
