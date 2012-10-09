@@ -4,18 +4,22 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	// "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"sort"
-	stdtesting "testing"
+	"testing"
 )
 
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+func TestPackage(t *testing.T) { TestingT(t) }
+
+func dummyFlagSet() *gnuflag.FlagSet {
+	f := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
+	f.SetOutput(ioutil.Discard)
+	return f
 }
 
 func dummyContext(c *C) *cmd.Context {

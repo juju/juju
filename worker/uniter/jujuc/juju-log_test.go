@@ -3,8 +3,6 @@ package jujuc_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
-	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
@@ -25,12 +23,6 @@ func pushLog(debug bool) (buf *bytes.Buffer, pop func()) {
 	return buf, func() {
 		log.Target, log.Debug = oldTarget, oldDebug
 	}
-}
-
-func dummyFlagSet() *gnuflag.FlagSet {
-	f := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
-	f.SetOutput(ioutil.Discard)
-	return f
 }
 
 var commonLogTests = []struct {
