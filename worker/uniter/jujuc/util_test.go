@@ -9,7 +9,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/worker/uniter/jujuc"
+	"launchpad.net/juju-core/worker/uniter"
 	"strings"
 	stdtesting "testing"
 )
@@ -26,13 +26,15 @@ func bufferString(w io.Writer) string {
 	return w.(*bytes.Buffer).String()
 }
 
+// HookContextSuite is due for replacement; a forthcoming branch will
+// allow us to run jujuc tests without using the state package at all.
 type HookContextSuite struct {
 	testing.JujuConnSuite
 	ch       *state.Charm
 	service  *state.Service
 	unit     *state.Unit
 	relunits map[int]*state.RelationUnit
-	relctxs  map[int]*jujuc.RelationContext
+	relctxs  map[int]*uniter.ContextRelation
 }
 
 func (s *HookContextSuite) SetUpTest(c *C) {
@@ -43,9 +45,9 @@ func (s *HookContextSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	s.unit = s.AddUnit(c)
 	s.relunits = map[int]*state.RelationUnit{}
-	s.relctxs = map[int]*jujuc.RelationContext{}
-	s.AddRelationContext(c, "peer0")
-	s.AddRelationContext(c, "peer1")
+	s.relctxs = map[int]*uniter.ContextRelation{}
+	s.AddContextRelation(c, "peer0")
+	s.AddContextRelation(c, "peer1")
 }
 
 func (s *HookContextSuite) AddUnit(c *C) *state.Unit {
@@ -57,7 +59,7 @@ func (s *HookContextSuite) AddUnit(c *C) *state.Unit {
 	return unit
 }
 
-func (s *HookContextSuite) AddRelationContext(c *C, name string) {
+func (s *HookContextSuite) AddContextRelation(c *C, name string) {
 	ep := state.RelationEndpoint{
 		s.service.Name(), "ifce", name, state.RolePeer, charm.ScopeGlobal,
 	}
@@ -68,15 +70,15 @@ func (s *HookContextSuite) AddRelationContext(c *C, name string) {
 	s.relunits[rel.Id()] = ru
 	err = ru.EnterScope()
 	c.Assert(err, IsNil)
-	s.relctxs[rel.Id()] = jujuc.NewRelationContext(ru, nil)
+	s.relctxs[rel.Id()] = uniter.NewContextRelation(ru, nil)
 }
 
-func (s *HookContextSuite) GetHookContext(c *C, relid int, remote string) *jujuc.HookContext {
+func (s *HookContextSuite) GetHookContext(c *C, relid int, remote string) *uniter.HookContext {
 	if relid != -1 {
 		_, found := s.relctxs[relid]
 		c.Assert(found, Equals, true)
 	}
-	return &jujuc.HookContext{
+	return &uniter.HookContext{
 		Service:         s.service,
 		Unit:            s.unit,
 		Id:              "TestCtx",

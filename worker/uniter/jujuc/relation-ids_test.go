@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
@@ -15,7 +16,7 @@ type RelationIdsSuite struct {
 	ch      *state.Charm
 	service *state.Service
 	unit    *state.Unit
-	relctxs map[int]*jujuc.RelationContext
+	relctxs map[int]*uniter.ContextRelation
 }
 
 var _ = Suite(&RelationIdsSuite{})
@@ -28,7 +29,7 @@ func (s *RelationIdsSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	s.unit, err = s.service.AddUnit()
 	c.Assert(err, IsNil)
-	s.relctxs = map[int]*jujuc.RelationContext{}
+	s.relctxs = map[int]*uniter.ContextRelation{}
 	s.AddRelatedServices(c, "x", 3)
 	s.AddRelatedServices(c, "y", 1)
 }
@@ -47,16 +48,16 @@ func (s *RelationIdsSuite) AddRelatedServices(c *C, relname string, count int) {
 		c.Assert(err, IsNil)
 		ru, err := rel.Unit(s.unit)
 		c.Assert(err, IsNil)
-		s.relctxs[rel.Id()] = jujuc.NewRelationContext(ru, nil)
+		s.relctxs[rel.Id()] = uniter.NewContextRelation(ru, nil)
 	}
 }
 
-func (s *RelationIdsSuite) GetHookContext(c *C, relid int) *jujuc.HookContext {
+func (s *RelationIdsSuite) GetHookContext(c *C, relid int) *uniter.HookContext {
 	if relid != -1 {
 		_, found := s.relctxs[relid]
 		c.Assert(found, Equals, true)
 	}
-	return &jujuc.HookContext{
+	return &uniter.HookContext{
 		Service:         s.service,
 		Unit:            s.unit,
 		Id:              "TestCtx",
@@ -138,7 +139,7 @@ func (s *RelationIdsSuite) TestRelationIds(c *C) {
 	for i, t := range relationIdsTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := s.GetHookContext(c, t.relid)
-		com, err := hctx.NewCommand("relation-ids")
+		com, err := jujuc.NewCommand(hctx, "relation-ids")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, t.args)
@@ -178,7 +179,7 @@ options:
 	} {
 		c.Logf("relid %d", relid)
 		hctx := s.GetHookContext(c, relid)
-		com, err := hctx.NewCommand("relation-ids")
+		com, err := jujuc.NewCommand(hctx, "relation-ids")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, []string{"--help"})

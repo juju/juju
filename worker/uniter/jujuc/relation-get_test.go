@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"path/filepath"
 )
@@ -160,7 +161,7 @@ func (s *RelationGetSuite) SetUpTest(c *C) {
 	node.Set("private-address", "foo: bar\n")
 
 	// Add some member settings for a "member" in relation 1.
-	s.relctxs[1].UpdateMembers(jujuc.SettingsMap{
+	s.relctxs[1].UpdateMembers(uniter.SettingsMap{
 		"m/0": map[string]interface{}{"pew": "pew\npew\n"},
 	})
 
@@ -180,7 +181,7 @@ func (s *RelationGetSuite) TestRelationGet(c *C) {
 	for i, t := range relationGetTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := s.GetHookContext(c, t.relid, t.unit)
-		com, err := hctx.NewCommand("relation-get")
+		com, err := jujuc.NewCommand(hctx, "relation-get")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, t.args)
@@ -245,7 +246,7 @@ func (s *RelationGetSuite) TestHelp(c *C) {
 	for i, t := range relationGetHelpTests {
 		c.Logf("test %d", i)
 		hctx := s.GetHookContext(c, t.relid, t.unit)
-		com, err := hctx.NewCommand("relation-get")
+		com, err := jujuc.NewCommand(hctx, "relation-get")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
@@ -262,7 +263,7 @@ func (s *RelationGetSuite) TestHelp(c *C) {
 
 func (s *RelationGetSuite) TestOutputPath(c *C) {
 	hctx := s.GetHookContext(c, 1, "m/0")
-	com, err := hctx.NewCommand("relation-get")
+	com, err := jujuc.NewCommand(hctx, "relation-get")
 	c.Assert(err, IsNil)
 	ctx := dummyContext(c)
 	code := cmd.Main(com, ctx, []string{"--output", "some-file", "pew"})

@@ -8,6 +8,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	stdlog "log"
 )
@@ -44,10 +45,10 @@ var commonLogTests = []struct {
 	{true, true, "JUJU:DEBUG"},
 }
 
-func assertLogs(c *C, ctx *jujuc.HookContext, badge string) {
+func assertLogs(c *C, ctx *uniter.HookContext, badge string) {
 	msg1 := "the chickens"
 	msg2 := "are 110% AWESOME"
-	com, err := ctx.NewCommand("juju-log")
+	com, err := jujuc.NewCommand(ctx, "juju-log")
 	c.Assert(err, IsNil)
 	for _, t := range commonLogTests {
 		buf, pop := pushLog(t.debugEnabled)
@@ -79,21 +80,21 @@ func (s *JujuLogSuite) TestBadges(c *C) {
 }
 
 func (s *JujuLogSuite) TestRequiresMessage(c *C) {
-	ctx := &jujuc.HookContext{}
-	com, err := ctx.NewCommand("juju-log")
+	ctx := &uniter.HookContext{}
+	com, err := jujuc.NewCommand(ctx, "juju-log")
 	c.Assert(err, IsNil)
 	err = com.Init(dummyFlagSet(), nil)
 	c.Assert(err, ErrorMatches, "no message specified")
 }
 
 func (s *JujuLogSuite) TestLogLevel(c *C) {
-	ctx := &jujuc.HookContext{}
-	com, err := ctx.NewCommand("juju-log")
+	ctx := &uniter.HookContext{}
+	com, err := jujuc.NewCommand(ctx, "juju-log")
 	c.Assert(err, IsNil)
 	// missing log level argument
 	err = com.Init(dummyFlagSet(), []string{"-l"})
 	c.Assert(err, ErrorMatches, "flag needs an argument.*")
-	com, err = ctx.NewCommand("juju-log")
+	com, err = jujuc.NewCommand(ctx, "juju-log")
 	c.Assert(err, IsNil)
 	// valid log level
 	err = com.Init(dummyFlagSet(), []string{"-l", "FATAL"})
