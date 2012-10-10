@@ -96,6 +96,8 @@ func (s *UnitSuite) newAgent(c *C) (*UnitAgent, *state.Unit, *state.Tools) {
 	c.Assert(err, IsNil)
 	unit, err := svc.AddUnit()
 	c.Assert(err, IsNil)
+	err = unit.SetPassword("unit-password")
+	c.Assert(err, IsNil)
 
 	dataDir, tools := primeTools(c, s.Conn, version.Current)
 	tools1, err := environs.ChangeAgentTools(dataDir, unit.EntityName(), version.Current)
@@ -106,6 +108,7 @@ func (s *UnitSuite) newAgent(c *C) (*UnitAgent, *state.Unit, *state.Tools) {
 		Conf: AgentConf{
 			DataDir:   dataDir,
 			StateInfo: *s.StateInfo(c),
+			InitialPassword: "unit-password",
 		},
 		UnitName: unit.Name(),
 	}, unit, tools
@@ -131,6 +134,8 @@ func (s *UnitSuite) TestWithDeadUnit(c *C) {
 	c.Assert(err, IsNil)
 	unit, err := svc.AddUnit()
 	c.Assert(err, IsNil)
+	err = unit.SetPassword("unit-password")
+	c.Assert(err, IsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, IsNil)
 
@@ -139,6 +144,7 @@ func (s *UnitSuite) TestWithDeadUnit(c *C) {
 		Conf: AgentConf{
 			DataDir:   dataDir,
 			StateInfo: *s.StateInfo(c),
+			InitialPassword: "unit-password",
 		},
 		UnitName: unit.Name(),
 	}
@@ -152,6 +158,7 @@ func (s *UnitSuite) TestWithDeadUnit(c *C) {
 		Conf: AgentConf{
 			DataDir:   dataDir,
 			StateInfo: *s.StateInfo(c),
+			InitialPassword: "unit-password",
 		},
 		UnitName: unit.Name(),
 	}
