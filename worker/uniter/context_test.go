@@ -1,4 +1,4 @@
-package jujuc_test
+package uniter_test
 
 import (
 	"fmt"
@@ -8,48 +8,13 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 )
-
-type GetCommandSuite struct {
-	HookContextSuite
-}
-
-var _ = Suite(&GetCommandSuite{})
-
-var getCommandTests = []struct {
-	name string
-	err  string
-}{
-	{"close-port", ""},
-	{"config-get", ""},
-	{"juju-log", ""},
-	{"open-port", ""},
-	{"relation-get", ""},
-	{"relation-set", ""},
-	{"unit-get", ""},
-	{"random", "unknown command: random"},
-}
-
-func (s *GetCommandSuite) TestGetCommand(c *C) {
-	ctx := s.GetHookContext(c, 0, "")
-	for _, t := range getCommandTests {
-		com, err := ctx.NewCommand(t.name)
-		if t.err == "" {
-			// At this level, just check basic sanity; commands are tested in
-			// more detail elsewhere.
-			c.Assert(err, IsNil)
-			c.Assert(com.Info().Name, Equals, t.name)
-		} else {
-			c.Assert(com, IsNil)
-			c.Assert(err, ErrorMatches, t.err)
-		}
-	}
-}
 
 type RunHookSuite struct {
 	HookContextSuite
@@ -371,16 +336,16 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *C) {
 	c.Assert(settings1, DeepEquals, node1.Map())
 }
 
-type RelationContextSuite struct {
+type ContextRelationSuite struct {
 	testing.JujuConnSuite
 	svc *state.Service
 	rel *state.Relation
 	ru  *state.RelationUnit
 }
 
-var _ = Suite(&RelationContextSuite{})
+var _ = Suite(&ContextRelationSuite{})
 
-func (s *RelationContextSuite) SetUpTest(c *C) {
+func (s *ContextRelationSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
 	ch := s.AddTestingCharm(c, "dummy")
 	var err error
@@ -400,12 +365,12 @@ func (s *RelationContextSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *RelationContextSuite) TestChangeMembers(c *C) {
-	ctx := jujuc.NewRelationContext(s.ru, nil)
+func (s *ContextRelationSuite) TestChangeMembers(c *C) {
+	ctx := uniter.NewContextRelation(s.ru, nil)
 	c.Assert(ctx.UnitNames(), HasLen, 0)
 
 	// Check the units and settings after a simple update.
-	ctx.UpdateMembers(jujuc.SettingsMap{
+	ctx.UpdateMembers(uniter.SettingsMap{
 		"u/2": {"baz": 2},
 		"u/4": {"qux": 4},
 	})
@@ -419,7 +384,7 @@ func (s *RelationContextSuite) TestChangeMembers(c *C) {
 	assertSettings("u/4", map[string]interface{}{"qux": 4})
 
 	// Send a second update; check that members are only added, not removed.
-	ctx.UpdateMembers(jujuc.SettingsMap{
+	ctx.UpdateMembers(uniter.SettingsMap{
 		"u/1": {"foo": 1},
 		"u/2": nil,
 		"u/3": {"bar": 3},
@@ -442,82 +407,90 @@ func (s *RelationContextSuite) TestChangeMembers(c *C) {
 	c.Assert(err, ErrorMatches, `cannot read settings for unit "u/2" in relation "u:ring": not found`)
 }
 
-func (s *RelationContextSuite) TestMemberCaching(c *C) {
+func (s *ContextRelationSuite) TestMemberCaching(c *C) {
 	unit, err := s.svc.AddUnit()
 	c.Assert(err, IsNil)
 	ru, err := s.rel.Unit(unit)
 	c.Assert(err, IsNil)
-	node, err := ru.Settings()
+	err = unit.SetPrivateAddress("u-1.example.com")
 	c.Assert(err, IsNil)
-	node.Set("ping", "pong")
-	_, err = node.Write()
+	err = ru.EnterScope()
 	c.Assert(err, IsNil)
-	ctx := jujuc.NewRelationContext(s.ru, map[string]int64{"u/1": 0})
+	settings, err := ru.Settings()
+	c.Assert(err, IsNil)
+	settings.Set("ping", "pong")
+	_, err = settings.Write()
+	c.Assert(err, IsNil)
+	ctx := uniter.NewContextRelation(s.ru, map[string]int64{"u/1": 0})
 
 	// Check that uncached settings are read from state.
-	settings, err := ctx.ReadSettings("u/1")
+	m, err := ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	expect := node.Map()
-	c.Assert(settings, DeepEquals, expect)
+	expect := settings.Map()
+	c.Assert(m, DeepEquals, expect)
 
 	// Check that changes to state do not affect the cached settings.
-	node.Set("ping", "pow")
-	_, err = node.Write()
+	settings.Set("ping", "pow")
+	_, err = settings.Write()
 	c.Assert(err, IsNil)
-	settings, err = ctx.ReadSettings("u/1")
+	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, expect)
+	c.Assert(m, DeepEquals, expect)
 
 	// Check that ClearCache spares the members cache.
 	ctx.ClearCache()
-	settings, err = ctx.ReadSettings("u/1")
+	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, expect)
+	c.Assert(m, DeepEquals, expect)
 
 	// Check that updating the context overwrites the cached settings, and
 	// that the contents of state are ignored.
-	ctx.UpdateMembers(jujuc.SettingsMap{"u/1": {"entirely": "different"}})
-	settings, err = ctx.ReadSettings("u/1")
+	ctx.UpdateMembers(uniter.SettingsMap{"u/1": {"entirely": "different"}})
+	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, map[string]interface{}{"entirely": "different"})
+	c.Assert(m, DeepEquals, map[string]interface{}{"entirely": "different"})
 }
 
-func (s *RelationContextSuite) TestNonMemberCaching(c *C) {
+func (s *ContextRelationSuite) TestNonMemberCaching(c *C) {
 	unit, err := s.svc.AddUnit()
 	c.Assert(err, IsNil)
 	ru, err := s.rel.Unit(unit)
 	c.Assert(err, IsNil)
-	node, err := ru.Settings()
+	err = unit.SetPrivateAddress("u-1.example.com")
 	c.Assert(err, IsNil)
-	node.Set("ping", "pong")
-	_, err = node.Write()
+	err = ru.EnterScope()
 	c.Assert(err, IsNil)
-	ctx := jujuc.NewRelationContext(s.ru, nil)
+	settings, err := ru.Settings()
+	c.Assert(err, IsNil)
+	settings.Set("ping", "pong")
+	_, err = settings.Write()
+	c.Assert(err, IsNil)
+	ctx := uniter.NewContextRelation(s.ru, nil)
 
 	// Check that settings are read from state.
-	settings, err := ctx.ReadSettings("u/1")
+	m, err := ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	expect := node.Map()
-	c.Assert(settings, DeepEquals, expect)
+	expect := settings.Map()
+	c.Assert(m, DeepEquals, expect)
 
 	// Check that changes to state do not affect the obtained settings...
-	node.Set("ping", "pow")
-	_, err = node.Write()
+	settings.Set("ping", "pow")
+	_, err = settings.Write()
 	c.Assert(err, IsNil)
-	settings, err = ctx.ReadSettings("u/1")
+	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, expect)
+	c.Assert(m, DeepEquals, expect)
 
 	// ...until the caches are cleared.
 	ctx.ClearCache()
 	c.Assert(err, IsNil)
-	settings, err = ctx.ReadSettings("u/1")
+	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, map[string]interface{}{"ping": "pow"})
+	c.Assert(m["ping"], Equals, "pow")
 }
 
-func (s *RelationContextSuite) TestSettings(c *C) {
-	ctx := jujuc.NewRelationContext(s.ru, nil)
+func (s *ContextRelationSuite) TestSettings(c *C) {
+	ctx := uniter.NewContextRelation(s.ru, nil)
 
 	// Change Settings, then clear cache without writing.
 	node, err := ctx.Settings()
@@ -567,25 +540,31 @@ func (s *InterfaceSuite) GetContext(c *C, relId int, remoteName string) jujuc.Co
 func (s *InterfaceSuite) TestTrivial(c *C) {
 	ctx := s.GetContext(c, -1, "")
 	c.Assert(ctx.UnitName(), Equals, "u/0")
-	c.Assert(ctx.HasHookRelation(), Equals, false)
-	c.Assert(func() { ctx.HookRelation() }, PanicMatches, "unknown relation -1")
-	c.Assert(ctx.HasRemoteUnit(), Equals, false)
-	c.Assert(func() { ctx.RemoteUnitName() }, PanicMatches, "remote unit not available")
+	r, found := ctx.HookRelation()
+	c.Assert(found, Equals, false)
+	c.Assert(r, IsNil)
+	name, found := ctx.RemoteUnitName()
+	c.Assert(found, Equals, false)
+	c.Assert(name, Equals, "")
 	c.Assert(ctx.RelationIds(), HasLen, 2)
-	c.Assert(ctx.HasRelation(0), Equals, true)
-	c.Assert(ctx.Relation(0).Name(), Equals, "peer0")
-	c.Assert(ctx.Relation(0).FakeId(), Equals, "peer0:0")
-	c.Assert(ctx.HasRelation(123), Equals, false)
-	c.Assert(func() { ctx.Relation(123) }, PanicMatches, "unknown relation 123")
+	r, found = ctx.Relation(0)
+	c.Assert(found, Equals, true)
+	c.Assert(r.Name(), Equals, "peer0")
+	c.Assert(r.FakeId(), Equals, "peer0:0")
+	r, found = ctx.Relation(123)
+	c.Assert(found, Equals, false)
+	c.Assert(r, IsNil)
 
 	ctx = s.GetContext(c, 1, "")
-	c.Assert(ctx.HasHookRelation(), Equals, true)
-	c.Assert(ctx.HookRelation().Name(), Equals, "peer1")
-	c.Assert(ctx.HookRelation().FakeId(), Equals, "peer1:1")
+	r, found = ctx.HookRelation()
+	c.Assert(found, Equals, true)
+	c.Assert(r.Name(), Equals, "peer1")
+	c.Assert(r.FakeId(), Equals, "peer1:1")
 
 	ctx = s.GetContext(c, 1, "u/123")
-	c.Assert(ctx.HasRemoteUnit(), Equals, true)
-	c.Assert(ctx.RemoteUnitName(), Equals, "u/123")
+	name, found = ctx.RemoteUnitName()
+	c.Assert(found, Equals, true)
+	c.Assert(name, Equals, "u/123")
 }
 
 func (s *InterfaceSuite) TestUnitCaching(c *C) {
@@ -635,4 +614,57 @@ func (s *InterfaceSuite) TestConfigCaching(c *C) {
 		"title":    "Something Else",
 		"username": "admin001",
 	})
+}
+
+type HookContextSuite struct {
+	testing.JujuConnSuite
+	ch       *state.Charm
+	service  *state.Service
+	unit     *state.Unit
+	relunits map[int]*state.RelationUnit
+	relctxs  map[int]*uniter.ContextRelation
+}
+
+func (s *HookContextSuite) SetUpTest(c *C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.ch = s.AddTestingCharm(c, "dummy")
+	var err error
+	s.service, err = s.State.AddService("u", s.ch)
+	c.Assert(err, IsNil)
+	s.unit = s.AddUnit(c)
+	s.relunits = map[int]*state.RelationUnit{}
+	s.relctxs = map[int]*uniter.ContextRelation{}
+	s.AddContextRelation(c, "peer0")
+	s.AddContextRelation(c, "peer1")
+}
+
+func (s *HookContextSuite) AddUnit(c *C) *state.Unit {
+	unit, err := s.service.AddUnit()
+	c.Assert(err, IsNil)
+	name := strings.Replace(unit.Name(), "/", "-", 1)
+	err = unit.SetPrivateAddress(name + ".example.com")
+	c.Assert(err, IsNil)
+	return unit
+}
+
+func (s *HookContextSuite) AddContextRelation(c *C, name string) {
+	ep := state.RelationEndpoint{
+		s.service.Name(), "ifce", name, state.RolePeer, charm.ScopeGlobal,
+	}
+	rel, err := s.State.AddRelation(ep)
+	c.Assert(err, IsNil)
+	ru, err := rel.Unit(s.unit)
+	c.Assert(err, IsNil)
+	s.relunits[rel.Id()] = ru
+	err = ru.EnterScope()
+	c.Assert(err, IsNil)
+	s.relctxs[rel.Id()] = uniter.NewContextRelation(ru, nil)
+}
+
+func (s *HookContextSuite) GetHookContext(c *C, relid int, remote string) *uniter.HookContext {
+	if relid != -1 {
+		_, found := s.relctxs[relid]
+		c.Assert(found, Equals, true)
+	}
+	return uniter.NewHookContext(s.service, s.unit, "TestCtx", relid, remote, s.relctxs)
 }

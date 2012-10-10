@@ -9,13 +9,13 @@ import (
 
 // RelationSetCommand implements the relation-set command.
 type RelationSetCommand struct {
-	*HookContext
+	ctx        Context
 	RelationId int
 	Settings   map[string]string
 }
 
-func NewRelationSetCommand(ctx *HookContext) (cmd.Command, error) {
-	return &RelationSetCommand{HookContext: ctx, Settings: map[string]string{}}, nil
+func NewRelationSetCommand(ctx Context) cmd.Command {
+	return &RelationSetCommand{ctx: ctx, Settings: map[string]string{}}
 }
 
 func (c *RelationSetCommand) Info() *cmd.Info {
@@ -25,7 +25,7 @@ func (c *RelationSetCommand) Info() *cmd.Info {
 }
 
 func (c *RelationSetCommand) Init(f *gnuflag.FlagSet, args []string) error {
-	f.Var(c.relationIdValue(&c.RelationId), "r", "specify a relation by id")
+	f.Var(newRelationIdValue(c.ctx, &c.RelationId), "r", "specify a relation by id")
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
@@ -47,12 +47,16 @@ func (c *RelationSetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
-	node, err := c.Relations[c.RelationId].Settings()
+	r, found := c.ctx.Relation(c.RelationId)
+	if !found {
+		return fmt.Errorf("unknown relation id")
+	}
+	settings, err := r.Settings()
 	for k, v := range c.Settings {
 		if v != "" {
-			node.Set(k, v)
+			settings.Set(k, v)
 		} else {
-			node.Delete(k)
+			settings.Delete(k)
 		}
 	}
 	return nil

@@ -7,13 +7,13 @@ import (
 
 // ConfigGetCommand implements the config-get command.
 type ConfigGetCommand struct {
-	*HookContext
+	ctx Context
 	Key string // The key to show. If empty, show all.
 	out cmd.Output
 }
 
-func NewConfigGetCommand(ctx *HookContext) (cmd.Command, error) {
-	return &ConfigGetCommand{HookContext: ctx}, nil
+func NewConfigGetCommand(ctx Context) cmd.Command {
+	return &ConfigGetCommand{ctx: ctx}
 }
 
 func (c *ConfigGetCommand) Info() *cmd.Info {
@@ -38,7 +38,7 @@ func (c *ConfigGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
-	cfg, err := c.Config()
+	cfg, err := c.ctx.Config()
 	if err != nil {
 		return err
 	}

@@ -8,15 +8,15 @@ import (
 
 // RelationGetCommand implements the relation-get command.
 type RelationGetCommand struct {
-	*HookContext
+	ctx        Context
 	RelationId int
 	Key        string
 	UnitName   string
 	out        cmd.Output
 }
 
-func NewRelationGetCommand(ctx *HookContext) (cmd.Command, error) {
-	return &RelationGetCommand{HookContext: ctx}, nil
+func NewRelationGetCommand(ctx Context) cmd.Command {
+	return &RelationGetCommand{ctx: ctx}
 }
 
 func (c *RelationGetCommand) Info() *cmd.Info {
@@ -25,9 +25,9 @@ func (c *RelationGetCommand) Info() *cmd.Info {
 relation-get prints the value of a unit's relation setting, specified by key.
 If no key is given, or if the key is "-", all keys and values will be printed.
 `
-	if c.RemoteUnitName_ != "" {
+	if name, found := c.ctx.RemoteUnitName(); found {
 		args = "[<key> [<unit id>]]"
-		doc += fmt.Sprintf("Current default unit id is %q.", c.RemoteUnitName_)
+		doc += fmt.Sprintf("Current default unit id is %q.", name)
 	}
 	return &cmd.Info{
 		"relation-get", args, "get relation settings", doc,
@@ -37,7 +37,7 @@ If no key is given, or if the key is "-", all keys and values will be printed.
 func (c *RelationGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 	// TODO FWER implement --format shell lp:1033511
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	f.Var(c.relationIdValue(&c.RelationId), "r", "specify a relation by id")
+	f.Var(newRelationIdValue(c.ctx, &c.RelationId), "r", "specify a relation by id")
 	if err := f.Parse(true, args); err != nil {
 		return err
 	}
@@ -52,7 +52,9 @@ func (c *RelationGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 		}
 		args = args[1:]
 	}
-	c.UnitName = c.RemoteUnitName_
+	if name, found := c.ctx.RemoteUnitName(); found {
+		c.UnitName = name
+	}
 	if len(args) > 0 {
 		c.UnitName = args[0]
 		args = args[1:]
@@ -64,16 +66,20 @@ func (c *RelationGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 }
 
 func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
+	r, found := c.ctx.Relation(c.RelationId)
+	if !found {
+		return fmt.Errorf("unknown relation id")
+	}
 	var settings map[string]interface{}
-	if c.UnitName == c.Unit.Name() {
-		node, err := c.Relations[c.RelationId].Settings()
+	if c.UnitName == c.ctx.UnitName() {
+		node, err := r.Settings()
 		if err != nil {
 			return err
 		}
 		settings = node.Map()
 	} else {
 		var err error
-		settings, err = c.Relations[c.RelationId].ReadSettings(c.UnitName)
+		settings, err = r.ReadSettings(c.UnitName)
 		if err != nil {
 			return err
 		}
