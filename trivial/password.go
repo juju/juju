@@ -21,6 +21,15 @@ func RandomBytes(n int) ([]byte, error) {
 	return buf, nil
 }
 
+// RandomPassword generates a random base64-encoded password.
+func RandomPassword() (string, error) {
+	b, err := RandomBytes(18)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(b), nil
+}
+
 // PasswordHash returns base64-encoded one-way hash of the provided salt
 // and password that is computationally hard to crack by iterating
 // through possible passwords.
