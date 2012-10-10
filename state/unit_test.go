@@ -153,6 +153,10 @@ func (s *UnitSuite) TestEntityName(c *C) {
 	c.Assert(s.unit.EntityName(), Equals, "unit-wordpress-0")
 }
 
+func (s *UnitSuite) TestUnitEntityName(c *C) {
+	c.Assert(state.UnitEntityName("wordpress/2"), Equals, "unit-wordpress-2")
+}
+
 func (s *UnitSuite) TestSetPassword(c *C) {
 	testSetPassword(c, func(st *state.State) (entity, error) {
 		return st.Unit(s.unit.Name())

@@ -233,7 +233,9 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	if err != nil {
 		return fmt.Errorf("unable to determine inital configuration: %v", err)
 	}
-	inst, err := e.startInstance(0, nil, tools, true, config)
+	// TODO add initial password argument to Bootstrap.
+	info := &state.Info{}
+	inst, err := e.startInstance(0, info, tools, true, config)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -343,6 +345,7 @@ func (e *environ) startInstance(machineId int, info *state.Info, tools *state.To
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
+	log.Debugf("ec2 user data: %q", userData)
 	groups, err := e.setUpGroups(machineId)
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)

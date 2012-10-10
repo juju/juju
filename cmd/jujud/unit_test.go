@@ -64,6 +64,8 @@ func (s *UnitSuite) TestRunStop(c *C) {
 		case <-timeout:
 			c.Fatalf("no activity detected")
 		case <-time.After(50 * time.Millisecond):
+			err := unit.Refresh()
+			c.Assert(err, IsNil)
 			st, info, err := unit.Status()
 			c.Assert(err, IsNil)
 			switch st {
@@ -94,6 +96,8 @@ func (s *UnitSuite) newAgent(c *C) (*UnitAgent, *state.Unit, *state.Tools) {
 	c.Assert(err, IsNil)
 	unit, err := svc.AddUnit()
 	c.Assert(err, IsNil)
+	err = unit.SetPassword("unit-password")
+	c.Assert(err, IsNil)
 
 	dataDir, tools := primeTools(c, s.Conn, version.Current)
 	tools1, err := environs.ChangeAgentTools(dataDir, unit.EntityName(), version.Current)
@@ -102,8 +106,9 @@ func (s *UnitSuite) newAgent(c *C) (*UnitAgent, *state.Unit, *state.Tools) {
 
 	return &UnitAgent{
 		Conf: AgentConf{
-			DataDir:   dataDir,
-			StateInfo: *s.StateInfo(c),
+			DataDir:         dataDir,
+			StateInfo:       *s.StateInfo(c),
+			InitialPassword: "unit-password",
 		},
 		UnitName: unit.Name(),
 	}, unit, tools
@@ -129,14 +134,17 @@ func (s *UnitSuite) TestWithDeadUnit(c *C) {
 	c.Assert(err, IsNil)
 	unit, err := svc.AddUnit()
 	c.Assert(err, IsNil)
+	err = unit.SetPassword("unit-password")
+	c.Assert(err, IsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, IsNil)
 
 	dataDir := c.MkDir()
 	a := &UnitAgent{
 		Conf: AgentConf{
-			DataDir:   dataDir,
-			StateInfo: *s.StateInfo(c),
+			DataDir:         dataDir,
+			StateInfo:       *s.StateInfo(c),
+			InitialPassword: "unit-password",
 		},
 		UnitName: unit.Name(),
 	}
@@ -148,8 +156,9 @@ func (s *UnitSuite) TestWithDeadUnit(c *C) {
 	c.Assert(err, IsNil)
 	a = &UnitAgent{
 		Conf: AgentConf{
-			DataDir:   dataDir,
-			StateInfo: *s.StateInfo(c),
+			DataDir:         dataDir,
+			StateInfo:       *s.StateInfo(c),
+			InitialPassword: "unit-password",
 		},
 		UnitName: unit.Name(),
 	}

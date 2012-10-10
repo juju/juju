@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/uniter/hook"
-	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"launchpad.net/juju-core/worker/uniter/relation"
 )
 
 // Relationer manages a unit's presence in a relation.
 type Relationer struct {
-	ctx   *jujuc.RelationContext
+	ctx   *ContextRelation
 	ru    *state.RelationUnit
 	dir   *relation.StateDir
 	queue relation.HookQueue
@@ -22,15 +21,15 @@ type Relationer struct {
 // relation until explicitly requested.
 func NewRelationer(ru *state.RelationUnit, dir *relation.StateDir, hooks chan<- hook.Info) *Relationer {
 	return &Relationer{
-		ctx:   jujuc.NewRelationContext(ru, dir.State().Members),
+		ctx:   NewContextRelation(ru, dir.State().Members),
 		ru:    ru,
 		dir:   dir,
 		hooks: hooks,
 	}
 }
 
-// Context returns the RelationContext associated with r.
-func (r *Relationer) Context() *jujuc.RelationContext {
+// Context returns the ContextRelation associated with r.
+func (r *Relationer) Context() *ContextRelation {
 	return r.ctx
 }
 
@@ -98,7 +97,7 @@ func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
 	if hi.Kind == hook.RelationDeparted {
 		r.ctx.DeleteMember(hi.RemoteUnit)
 	} else if hi.RemoteUnit != "" {
-		r.ctx.UpdateMembers(jujuc.SettingsMap{hi.RemoteUnit: nil})
+		r.ctx.UpdateMembers(SettingsMap{hi.RemoteUnit: nil})
 	}
 	name := r.ru.Endpoint().RelationName
 	return fmt.Sprintf("%s-%s", name, hi.Kind), nil

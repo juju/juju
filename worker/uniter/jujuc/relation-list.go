@@ -8,21 +8,21 @@ import (
 
 // RelationListCommand implements the relation-list command.
 type RelationListCommand struct {
-	*HookContext
+	ctx        Context
 	RelationId int
 	out        cmd.Output
 }
 
-func NewRelationListCommand(ctx *HookContext) (cmd.Command, error) {
-	return &RelationListCommand{HookContext: ctx}, nil
+func NewRelationListCommand(ctx Context) cmd.Command {
+	return &RelationListCommand{ctx: ctx}
 }
 
 func (c *RelationListCommand) Info() *cmd.Info {
 	args := "<id>"
 	doc := ""
-	if id := c.envRelationId(); id != "" {
+	if r, found := c.ctx.HookRelation(); found {
 		args = "[<id>]"
-		doc = fmt.Sprintf("Current default relation id is %q.", id)
+		doc = fmt.Sprintf("Current default relation id is %q.", r.FakeId())
 	}
 	return &cmd.Info{
 		"relation-list", args, "list relation units", doc,
@@ -35,7 +35,7 @@ func (c *RelationListCommand) Init(f *gnuflag.FlagSet, args []string) (err error
 		return err
 	}
 	args = f.Args()
-	v := c.relationIdValue(&c.RelationId)
+	v := newRelationIdValue(c.ctx, &c.RelationId)
 	if len(args) > 0 {
 		if err := v.Set(args[0]); err != nil {
 			return err
@@ -49,5 +49,9 @@ func (c *RelationListCommand) Init(f *gnuflag.FlagSet, args []string) (err error
 }
 
 func (c *RelationListCommand) Run(ctx *cmd.Context) error {
-	return c.out.Write(ctx, c.Relations[c.RelationId].Units())
+	r, found := c.ctx.Relation(c.RelationId)
+	if !found {
+		return fmt.Errorf("unknown relation id")
+	}
+	return c.out.Write(ctx, r.UnitNames())
 }

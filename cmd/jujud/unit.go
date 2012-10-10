@@ -79,7 +79,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 
 // runOnce runs a uniter once.
 func (a *UnitAgent) runOnce() error {
-	st, err := state.Open(&a.Conf.StateInfo)
+	st, err := openState(state.UnitEntityName(a.UnitName), &a.Conf)
 	if err != nil {
 		return err
 	}

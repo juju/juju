@@ -79,13 +79,15 @@ func Initialize(info *Info, cfg *config.Config) (*State, error) {
 	// A valid environment config is used as a signal that the
 	// state has already been initalized. If this is the case
 	// do nothing.
-	_, err = st.EnvironConfig()
-	if err == nil {
+	if _, err = st.EnvironConfig(); !IsNotFound(err) {
 		return st, nil
 	}
-	log.Printf("state: storing no-secrets environment configuration")
-	err = st.SetEnvironConfig(cfg)
-	if err != nil {
+	log.Printf("storing no-secrets environment configuration")
+	if _, err = createSettings(st, "e", nil); err != nil {
+		st.Close()
+		return nil, err
+	}
+	if err = st.SetEnvironConfig(cfg); err != nil {
 		st.Close()
 		return nil, err
 	}
