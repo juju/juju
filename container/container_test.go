@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/version"
 	"os"
 	"path/filepath"
+	"regexp"
 	stdtesting "testing"
 )
 
@@ -65,12 +66,14 @@ func (s *suite) TestDeploy(c *C) {
 
 	data, err := ioutil.ReadFile(upstartScript)
 	c.Assert(err, IsNil)
+	script := string(data)
 
-	c.Assert(string(data), Matches, `(.|\n)+`+
+	c.Assert(script, Matches, `(.|\n)+`+
 		`.*/unit-dummy-0/jujud unit`+
 		` --state-servers 'a,b'`+
 		` --log-file /var/log/juju/unit-dummy-0\.log`+
-		` --unit-name dummy/0\n`+
+		` --unit-name dummy/0`+
+		` --initial-password [a-zA-Z0-9+/]+\n`+
 		`(.|\n)*`)
 
 	// We can't check that the unit directory is created, because
@@ -79,6 +82,20 @@ func (s *suite) TestDeploy(c *C) {
 	unitDir := filepath.Join(cont.DataDir, "agents", "unit-dummy-0")
 	err = os.MkdirAll(filepath.Join(unitDir, "foo"), 0777)
 	c.Assert(err, IsNil)
+
+	// Extract the password from the upstart script and check we can
+	// connect to the state with it.
+	pat := regexp.MustCompile(" --initial-password ([a-zA-Z0-9+/]+)\n")
+	m := pat.FindStringSubmatch(script)
+	c.Assert(m, HasLen, 2)
+
+	info = s.StateInfo(c)
+	info.EntityName = unit.EntityName()
+	info.Password = m[1]
+	c.Logf("connecting with %#v", info)
+	st, err := state.Open(info)
+	c.Assert(err, IsNil)
+	st.Close()
 
 	err = cont.Destroy(unit)
 	c.Assert(err, IsNil)

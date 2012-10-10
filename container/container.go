@@ -5,6 +5,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/trivial"
 	"launchpad.net/juju-core/upstart"
 	"os"
 	"path/filepath"
@@ -62,12 +63,21 @@ func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) 
 			}
 		}
 	}()
+	password, err := trivial.RandomPassword()
+	if err != nil {
+		return fmt.Errorf("cannot make password for unit: %v", err)
+	}
 	cmd := fmt.Sprintf(
-		"%s unit --state-servers '%s' --log-file %s --unit-name %s",
+		"%s unit"+
+			" --state-servers '%s'"+
+			" --log-file %s"+
+			" --unit-name %s"+
+			" --initial-password %s",
 		filepath.Join(toolsDir, "jujud"),
 		strings.Join(info.Addrs, ","),
 		filepath.Join("/var/log/juju", unit.EntityName()+".log"),
-		unit.Name())
+		unit.Name(),
+		password)
 
 	conf := &upstart.Conf{
 		Service: *c.service(unit),
@@ -85,6 +95,10 @@ func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) 
 			}
 		}
 	}()
+
+	if err := unit.SetPassword(password); err != nil {
+		return fmt.Errorf("cannot set password for unit: %v", err)
+	}
 	return conf.Install()
 }
 
