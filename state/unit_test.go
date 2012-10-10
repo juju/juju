@@ -226,7 +226,7 @@ func (s *UnitSuite) TestSetPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
 	err = st.SetAdminPassword("")
 	c.Assert(err, IsNil)
 }
-	
+
 func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
 	alive, err := s.unit.AgentAlive()
 	c.Assert(err, IsNil)
