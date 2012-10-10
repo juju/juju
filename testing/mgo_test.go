@@ -7,7 +7,10 @@ import (
 	stdtesting "testing"
 )
 
-type mgoSuite struct{}
+type mgoSuite struct {
+	testing.LoggingSuite
+	testing.MgoSuite
+}
 
 var _ = Suite(&mgoSuite{})
 
@@ -15,10 +18,41 @@ func TestMgoSuite(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
 
+func (s *mgoSuite) SetUpSuite(c *C) {
+	s.LoggingSuite.SetUpSuite(c)
+	s.MgoSuite.SetUpSuite(c)
+}
+
+func (s *mgoSuite) TearDownSuite(c *C) {
+	s.LoggingSuite.TearDownSuite(c)
+	s.MgoSuite.TearDownSuite(c)
+}
+
+func (s *mgoSuite) SetUpTest(c *C) {
+	s.LoggingSuite.SetUpTest(c)
+	s.MgoSuite.SetUpTest(c)
+}
+
+func (s *mgoSuite) TearDownTest(c *C) {
+	s.LoggingSuite.TearDownTest(c)
+	s.MgoSuite.TearDownTest(c)
+}
+
+func (s *mgoSuite) TestMgoResetWhenUnauthorized(c *C) {
+	session := testing.MgoDial()
+	defer session.Close()
+	err := session.DB("admin").AddUser("admin", "foo", false)
+	if err != nil && err.Error() != "need to login" {
+		c.Assert(err, IsNil)
+	}
+	// The test will fail if the reset does not succeed
+}
+
 func (s *mgoSuite) TestMgoStartAndClean(c *C) {
 	c.Assert(testing.MgoAddr, Not(Equals), "")
 
 	session := testing.MgoDial()
+	defer session.Close()
 	menu := session.DB("food").C("menu")
 	err := menu.Insert(
 		bson.D{{"spam", "lots"}},

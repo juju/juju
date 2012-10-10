@@ -110,7 +110,7 @@ func MgoReset() {
 	defer session.Close()
 	dbnames, err := session.DatabaseNames()
 	if isUnauthorized(err) {
-		// If we've got an unauthorized access error, so we're
+		// If we've got an unauthorized access error, we're
 		// locked out of the database.  We restart it to regain
 		// access.  This should only happen when tests fail.
 		destroyMgoServer()
@@ -118,12 +118,10 @@ func MgoReset() {
 		if err := startMgoServer(); err != nil {
 			panic(err)
 		}
-		session = MgoDial()
-		defer session.Close()
-		dbnames, err = session.DatabaseNames()
+		return
 	}
 	if err != nil {
-		panic(fmt.Errorf("%#v %T %v", err, err, err))
+		panic(err)
 	}
 	for _, name := range dbnames {
 		switch name {

@@ -130,7 +130,7 @@ func New(cfg *MachineConfig) (*cloudinit.Config, error) {
 	}
 
 	if err := addAgentToBoot(c, cfg, "machine",
-		fmt.Sprintf("machine-%d", cfg.MachineId),
+		state.MachineEntityName(cfg.MachineId),
 		fmt.Sprintf("--machine-id %d "+debugFlag, cfg.MachineId)); err != nil {
 		return nil, err
 	}
@@ -276,7 +276,7 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if len(cfg.StateInfo.Addrs) == 0 {
 			return fmt.Errorf("missing state hosts")
 		}
-		if cfg.StateInfo.EntityName != fmt.Sprintf("machine-%d", cfg.MachineId) {
+		if cfg.StateInfo.EntityName != state.MachineEntityName(cfg.MachineId) {
 			return fmt.Errorf("entity name must match started machine")
 		}
 	}

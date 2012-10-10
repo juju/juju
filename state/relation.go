@@ -239,12 +239,17 @@ func (ru *RelationUnit) EnterScope() (err error) {
 	if err != nil {
 		return err
 	}
-	node, err := readSettings(ru.st, key)
-	if err != nil {
-		return err
-	}
-	node.Set("private-address", address)
-	if _, err := node.Write(); err != nil {
+	_, err = createSettings(ru.st, key, map[string]interface{}{"private-address": address})
+	if err == errSettingsExist {
+		node, err := readSettings(ru.st, key)
+		if err != nil {
+			return err
+		}
+		node.Set("private-address", address)
+		if _, err := node.Write(); err != nil {
+			return err
+		}
+	} else if err != nil {
 		return err
 	}
 	ops := []txn.Op{{

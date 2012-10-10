@@ -11,8 +11,41 @@ import (
 	"net/rpc"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 )
+
+// newCommands maps Command names to initializers.
+var newCommands = map[string]func(Context) cmd.Command{
+	"close-port":    NewClosePortCommand,
+	"config-get":    NewConfigGetCommand,
+	"juju-log":      NewJujuLogCommand,
+	"open-port":     NewOpenPortCommand,
+	"relation-get":  NewRelationGetCommand,
+	"relation-ids":  NewRelationIdsCommand,
+	"relation-list": NewRelationListCommand,
+	"relation-set":  NewRelationSetCommand,
+	"unit-get":      NewUnitGetCommand,
+}
+
+// CommandNames returns the names of all jujuc commands.
+func CommandNames() (names []string) {
+	for name := range newCommands {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return
+}
+
+// NewCommand returns an instance of the named Command, initialized to execute
+// against the supplied Context.
+func NewCommand(ctx Context, name string) (cmd.Command, error) {
+	f := newCommands[name]
+	if f == nil {
+		return nil, fmt.Errorf("unknown command: %s", name)
+	}
+	return f(ctx), nil
+}
 
 // Request contains the information necessary to run a Command remotely.
 type Request struct {

@@ -476,7 +476,7 @@ func (e *environ) StartInstance(machineId int, info *state.Info, tools *state.To
 	}
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
-	if info.EntityName != fmt.Sprintf("machine-%d", machineId) {
+	if info.EntityName != state.MachineEntityName(machineId) {
 		return nil, fmt.Errorf("entity name must match started machine")
 	}
 	if tools != nil && (strings.HasPrefix(tools.Series, "unknown") || strings.HasPrefix(tools.Arch, "unknown")) {

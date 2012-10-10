@@ -81,7 +81,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 }
 
 func (a *MachineAgent) runOnce() error {
-	st, err := state.Open(&a.Conf.StateInfo)
+	st, err := openState(state.MachineEntityName(a.MachineId), &a.Conf)
 	if err != nil {
 		return err
 	}

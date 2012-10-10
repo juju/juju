@@ -242,28 +242,30 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 		"firewall-mode":   "default",
 		"admin-secret":    "",
 	}
-	env, err := config.New(initial)
+	cfg, err := config.New(initial)
 	c.Assert(err, IsNil)
-	err = s.State.SetEnvironConfig(env)
+	st, err := state.Initialize(&state.Info{Addrs: []string{testing.MgoAddr}}, cfg)
 	c.Assert(err, IsNil)
-	env, err = s.State.EnvironConfig()
+	st.Close()
 	c.Assert(err, IsNil)
-	current := env.AllAttrs()
+	cfg, err = s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	current := cfg.AllAttrs()
 	c.Assert(current, DeepEquals, initial)
 
 	current["authorized-keys"] = "i-am-a-new-key"
-	env, err = config.New(current)
+	cfg, err = config.New(current)
 	c.Assert(err, IsNil)
-	err = s.State.SetEnvironConfig(env)
+	err = s.State.SetEnvironConfig(cfg)
 	c.Assert(err, IsNil)
-	env, err = s.State.EnvironConfig()
+	cfg, err = s.State.EnvironConfig()
 	c.Assert(err, IsNil)
-	final := env.AllAttrs()
+	final := cfg.AllAttrs()
 	c.Assert(final, DeepEquals, current)
 }
 
 func (s *StateSuite) TestEnvironConfigWithAdminSecret(c *C) {
-	initial := map[string]interface{}{
+	attrs := map[string]interface{}{
 		"name":            "test",
 		"type":            "test",
 		"authorized-keys": "i-am-a-key",
@@ -271,9 +273,19 @@ func (s *StateSuite) TestEnvironConfigWithAdminSecret(c *C) {
 		"development":     true,
 		"admin-secret":    "foo",
 	}
-	env, err := config.New(initial)
+	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
-	err = s.State.SetEnvironConfig(env)
+	_, err = state.Initialize(&state.Info{Addrs: []string{testing.MgoAddr}}, cfg)
+	c.Assert(err, ErrorMatches, "admin-secret should never be written to the state")
+
+	delete(attrs, "admin-secret")
+	cfg, err = config.New(attrs)
+	st, err := state.Initialize(&state.Info{Addrs: []string{testing.MgoAddr}}, cfg)
+	c.Assert(err, IsNil)
+	st.Close()
+
+	cfg, err = cfg.Apply(map[string]interface{}{"admin-secret": "foo"})
+	err = s.State.SetEnvironConfig(cfg)
 	c.Assert(err, ErrorMatches, "admin-secret should never be written to the state")
 }
 
@@ -767,7 +779,14 @@ func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 		c.Logf("test %d", i)
 		change, err := config.New(test)
 		c.Assert(err, IsNil)
-		err = s.State.SetEnvironConfig(change)
+		if i == 0 {
+			st, err := state.Initialize(&state.Info{Addrs: []string{testing.MgoAddr}}, change)
+			c.Assert(err, IsNil)
+			st.Close()
+		} else {
+			err = s.State.SetEnvironConfig(change)
+			c.Assert(err, IsNil)
+		}
 		c.Assert(err, IsNil)
 		s.State.StartSync()
 		select {
@@ -786,11 +805,12 @@ func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 	}
 }
 
-func (s *StateSuite) TestWatchEnvironConfigInitialConfig(c *C) {
+func (s *StateSuite) TestWatchEnvironConfigAfterCreation(c *C) {
 	cfg, err := config.New(watchEnvironConfigTests[0])
 	c.Assert(err, IsNil)
-	err = s.State.SetEnvironConfig(cfg)
+	st, err := state.Initialize(&state.Info{Addrs: []string{testing.MgoAddr}}, cfg)
 	c.Assert(err, IsNil)
+	st.Close()
 	s.State.Sync()
 	watcher := s.State.WatchEnvironConfig()
 	defer watcher.Stop()
@@ -811,8 +831,9 @@ func (s *StateSuite) TestWatchEnvironConfigInvalidConfig(c *C) {
 	}
 	cfg1, err := config.New(m)
 	c.Assert(err, IsNil)
-	err = s.State.SetEnvironConfig(cfg1)
+	st, err := state.Initialize(&state.Info{Addrs: []string{testing.MgoAddr}}, cfg1)
 	c.Assert(err, IsNil)
+	st.Close()
 
 	// Corrupt the environment configuration.
 	settings := s.Session.DB("juju").C("settings")
@@ -984,7 +1005,7 @@ func testSetPassword(c *C, getEntity func(st *state.State) (entity, error)) {
 	err = tryOpenState(info)
 	c.Assert(err, IsNil)
 
-	// Remove the admin password so that the test harness can reset.
+	// Remove the admin password so that the test harness can reset the state.
 	err = st.SetAdminPassword("")
 	c.Assert(err, IsNil)
 }

@@ -47,6 +47,7 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *C) {
 		Conf: AgentConf{
 			DataDir:   c.MkDir(),
 			StateInfo: *s.StateInfo(c),
+			InitialPassword: "machine-password",
 		},
 		MachineId: 2,
 	}
@@ -54,13 +55,25 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *C) {
 	c.Assert(err, ErrorMatches, "some error")
 }
 
+func addMachine(st *state.State, workers ...state.WorkerKind) *state.Machine {
+	m, err := st.AddMachine(workers...)
+	if err != nil {
+		panic(err)
+	}
+	err = m.SetPassword("machine-password")
+	if err != nil {
+		panic(err)
+	}
+	return m
+}
+
 func (s *MachineSuite) TestRunStop(c *C) {
-	m, err := s.State.AddMachine(state.MachinerWorker)
-	c.Assert(err, IsNil)
+	m := addMachine(s.State, state.MachinerWorker)
 	a := &MachineAgent{
 		Conf: AgentConf{
 			DataDir:   c.MkDir(),
 			StateInfo: *s.StateInfo(c),
+			InitialPassword: "machine-password",
 		},
 		MachineId: m.Id(),
 	}
@@ -68,20 +81,20 @@ func (s *MachineSuite) TestRunStop(c *C) {
 	go func() {
 		done <- a.Run(nil)
 	}()
-	err = a.Stop()
+	err := a.Stop()
 	c.Assert(err, IsNil)
 	c.Assert(<-done, IsNil)
 }
 
 func (s *MachineSuite) TestWithDeadMachine(c *C) {
-	m, err := s.State.AddMachine(state.MachinerWorker)
-	c.Assert(err, IsNil)
-	err = m.EnsureDead()
+	m := addMachine(s.State, state.MachinerWorker)
+	err := m.EnsureDead()
 	c.Assert(err, IsNil)
 	a := &MachineAgent{
 		Conf: AgentConf{
 			DataDir:   c.MkDir(),
 			StateInfo: *s.StateInfo(c),
+			InitialPassword: "machine-password",
 		},
 		MachineId: m.Id(),
 	}
@@ -95,6 +108,7 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 		Conf: AgentConf{
 			DataDir:   c.MkDir(),
 			StateInfo: *s.StateInfo(c),
+			InitialPassword: "machine-password",
 		},
 		MachineId: m.Id(),
 	}
@@ -103,11 +117,10 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 }
 
 func (s *MachineSuite) TestProvisionerFirewaller(c *C) {
-	m, err := s.State.AddMachine(
+	m := addMachine(s.State, 
 		state.MachinerWorker,
 		state.ProvisionerWorker,
 		state.FirewallerWorker)
-	c.Assert(err, IsNil)
 
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
@@ -116,6 +129,7 @@ func (s *MachineSuite) TestProvisionerFirewaller(c *C) {
 		Conf: AgentConf{
 			DataDir:   c.MkDir(),
 			StateInfo: *s.StateInfo(c),
+			InitialPassword: "machine-password",
 		},
 		MachineId: m.Id(),
 	}
