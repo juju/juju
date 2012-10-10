@@ -134,6 +134,7 @@ func maybeUnauthorized(err error, msg string) error {
 func newState(session *mgo.Session, fwd *sshForwarder, entity, password string) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
+	log.Printf("state login: %q, password %q", entity, password)
 	if entity != "" {
 		if err := db.Login(entity, password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to juju database")
