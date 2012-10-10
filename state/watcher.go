@@ -242,7 +242,7 @@ func (w *MachinesWatcher) loop() (err error) {
 	return nil
 }
 
-// ServicesWatcher notifies about the lifecycle changes of the services
+// ServicesWatcher notifies about the lifecycle changes for the services
 // in the environment. The first event returned by the watcher is the set
 // of names of all services, irrespective of their life state. Subsequent
 // events returns batches of newly added services and services which have
@@ -279,14 +279,14 @@ func newServicesWatcher(s *State) *ServicesWatcher {
 }
 
 func (w *ServicesWatcher) initial() (change []string, err error) {
-	docs := []serviceDoc{}
-	err = w.st.services.Find(nil).Select(lifeFields).All(&docs)
-	if err != nil {
-		return nil, err
-	}
-	for _, doc := range docs {
+	doc := &serviceDoc{}
+	iter := w.st.services.Find(nil).Select(lifeFields).Iter()
+	for iter.Next(doc) {
 		w.known[doc.Name] = doc.Life
 		change = append(change, doc.Name)
+	}
+	if iter.Err() != nil {
+		return nil, err
 	}
 	return change, nil
 }
@@ -300,7 +300,7 @@ func (w *ServicesWatcher) merge(pending []string, name string) (new []string, er
 	life, known := w.known[name]
 	if err == mgo.ErrNotFound {
 		delete(w.known, name)
-		if known && life != Dead {
+		if known && life != Dead && !hasString(pending, name) {
 			return append(pending, name), nil
 		}
 		return pending, nil
@@ -309,15 +309,10 @@ func (w *ServicesWatcher) merge(pending []string, name string) (new []string, er
 	if !known {
 		return append(pending, name), nil
 	}
-	if life != doc.Life {
-		for _, v := range pending {
-			if v == name {
-				return pending, nil
-			}
-		}
-		pending = append(pending, name)
+	if life == doc.Life || hasString(pending, name) {
+		return pending, nil
 	}
-	return pending, nil
+	return append(pending, name), nil
 }
 
 func (w *ServicesWatcher) loop() (err error) {
