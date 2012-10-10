@@ -3,6 +3,7 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
 	"time"
 )
 
@@ -163,6 +164,69 @@ func (s *UnitSuite) TestSetPassword(c *C) {
 	})
 }
 
+func (s *UnitSuite) TestSetPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
+	// Make a second unit to use later.
+	subCharm := s.AddTestingCharm(c, "logging")
+	logService, err := s.State.AddService("logging", subCharm)
+	c.Assert(err, IsNil)
+	subUnit, err := logService.AddUnitSubordinateTo(s.unit)
+	c.Assert(err, IsNil)
+
+	info := &state.Info{
+		Addrs: []string{testing.MgoAddr},
+	}
+	st, err := state.Open(info)
+	c.Assert(err, IsNil)
+	defer st.Close()
+	// Turn on fully-authenticated mode.
+	err = st.SetAdminPassword("admin-secret")
+	c.Assert(err, IsNil)
+
+	m, err := st.AddMachine(state.MachinerWorker)
+	c.Assert(err, IsNil)
+	err = m.SetPassword("foo")
+	c.Assert(err, IsNil)
+
+	// Sanity check that we cannot connect with the wrong
+	// password
+	info.EntityName = m.EntityName()
+	info.Password = "foo1"
+	err = tryOpenState(info)
+	c.Assert(err, Equals, state.ErrUnauthorized)
+
+	// Connect as the machine entity.
+	info.EntityName = m.EntityName()
+	info.Password = "foo"
+	st1, err := state.Open(info)
+	c.Assert(err, IsNil)
+	defer st1.Close()
+
+	// Change the password for a unit derived from
+	// the machine entity's state.
+	unit, err := st1.Unit(s.unit.Name())
+	c.Assert(err, IsNil)
+	err = unit.SetPassword("bar")
+	c.Assert(err, IsNil)
+
+	// Now connect as the unit entity and, as that
+	// that entity, change the password for a new unit.
+	info.EntityName = unit.EntityName()
+	info.Password = "bar"
+	st2, err := state.Open(info)
+	c.Assert(err, IsNil)
+	defer st2.Close()
+
+	// Check that we can set its password.
+	unit, err = st2.Unit(subUnit.Name())
+	c.Assert(err, IsNil)
+	err = unit.SetPassword("bar2")
+	c.Assert(err, IsNil)
+
+	// Clear the admin password, so tests can reset the db.
+	err = st.SetAdminPassword("")
+	c.Assert(err, IsNil)
+}
+	
 func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
 	alive, err := s.unit.AgentAlive()
 	c.Assert(err, IsNil)
