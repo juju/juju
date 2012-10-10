@@ -105,22 +105,29 @@ type State struct {
 }
 
 func (s *State) EnvironConfig() (*config.Config, error) {
-	configNode, err := readConfigNode(s, "e")
+	settings, err := readSettings(s, "e")
 	if err != nil {
 		return nil, err
 	}
-	attrs := configNode.Map()
+	attrs := settings.Map()
 	return config.New(attrs)
 }
 
 // SetEnvironConfig replaces the current configuration of the 
-// environment with the passed configuration.
+// environment with the provided configuration.
 func (s *State) SetEnvironConfig(cfg *config.Config) error {
 	if cfg.AdminSecret() != "" {
 		return fmt.Errorf("admin-secret should never be written to the state")
 	}
-	attrs := cfg.AllAttrs()
-	_, err := createConfigNode(s, "e", attrs)
+	// TODO(niemeyer): This isn't entirely right as the change is done as a
+	// delta that the user didn't ask for. Instead, take a (old, new) config
+	// pair, and apply *known* delta.
+	settings, err := readSettings(s, "e")
+	if err != nil {
+		return err
+	}
+	settings.Update(cfg.AllAttrs())
+	_, err = settings.Write()
 	return err
 }
 
@@ -279,7 +286,12 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 		CharmURL: ch.URL(),
 		Life:     Alive,
 	}
+	svc := newService(s, sdoc)
 	ops := []txn.Op{{
+		C:      s.settings.Name,
+		Id:     svc.globalKey(),
+		Insert: D{},
+	}, {
 		C:      s.services.Name,
 		Id:     name,
 		Assert: txn.DocMissing,
@@ -289,7 +301,6 @@ func (s *State) AddService(name string, ch *Charm) (service *Service, err error)
 		return nil, fmt.Errorf("cannot add service %q: %v", name, onAbort(err, fmt.Errorf("duplicate service name")))
 	}
 	// Refresh to pick the txn-revno.
-	svc := newService(s, sdoc)
 	if err = svc.Refresh(); err != nil {
 		return nil, err
 	}
@@ -338,6 +349,10 @@ func (s *State) RemoveService(svc *Service) (err error) {
 		C:      s.services.Name,
 		Id:     svc.doc.Name,
 		Assert: D{{"life", Dead}},
+		Remove: true,
+	}, {
+		C:      s.settings.Name,
+		Id:     svc.globalKey(),
 		Remove: true,
 	}}
 	if err := s.runner.Run(ops, "", nil); err != nil {

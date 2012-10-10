@@ -1,423 +1,104 @@
 package jujuc
 
 import (
-	"bufio"
 	"fmt"
-	"io"
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
-	"sync"
-	"time"
 )
 
-// HookContext is the implementation of jujuc.Context. Its fields remain
-// exposed only in the short term: the type will be moving out of the jujuc
-// package very soon, but for the moment the jujuc tests depend on this
-// implementation of Context. In the medium term, all fields will become
-// hidden, and the trailing _ on RemoteUnitName_ (which avoids a collision
-// with Context) will be dropped.
-type HookContext struct {
-	Service *state.Service
-	Unit    *state.Unit
+// Context is the interface that all hook helper commands
+// depend on to interact with the rest of the system.
+type Context interface {
 
-	// Id identifies the context.
-	Id string
+	// Unit returns the executing unit's name.
+	UnitName() string
 
-	// RelationId identifies the relation for which a relation hook is
-	// executing. If it is -1, the context is not running a relation hook;
-	// otherwise, its value must be a valid key into the Relations map.
-	RelationId int
+	// PublicAddress returns the executing unit's public address.
+	PublicAddress() (string, error)
 
-	// RemoteUnitName_ identifies the changing unit of the executing relation
-	// hook. It will be empty if the context is not running a relation hook,
-	// or if it is running a relation-broken hook.
-	RemoteUnitName_ string
+	// PrivateAddress returns the executing unit's private address.
+	PrivateAddress() (string, error)
 
-	// Relations contains the context for every relation the unit is a member
-	// of, keyed on relation id.
-	Relations map[int]*RelationContext
+	// OpenPort marks the supplied port for opening when the executing unit's
+	// service is exposed.
+	OpenPort(protocol string, port int) error
+
+	// ClosePort ensures the supplied port is closed even when the executing
+	// unit's service is exposed (unless it is opened separately by a co-
+	// located unit).
+	ClosePort(protocol string, port int) error
+
+	// Config returns the current service configuration of the executing unit.
+	Config() (map[string]interface{}, error)
+
+	// HookRelation returns the ContextRelation associated with the executing
+	// hook if it was found, and whether it was found.
+	HookRelation() (ContextRelation, bool)
+
+	// RemoteUnitName returns the name of the remote unit the hook execution
+	// is associated with if it was found, and whether it was found.
+	RemoteUnitName() (string, bool)
+
+	// Relation returns the relation with the supplied id if it was found, and
+	// whether it was found.
+	Relation(id int) (ContextRelation, bool)
+
+	// RelationIds returns the ids of all relations the executing unit is
+	// currently participating in.
+	RelationIds() []int
 }
 
-func (ctx *HookContext) UnitName() string {
-	return ctx.Unit.Name()
+// ContextRelation expresses the capabilities of a hook with respect to a relation.
+type ContextRelation interface {
+
+	// Id returns an integer which uniquely identifies the relation.
+	Id() int
+
+	// Name returns the name the locally executing charm assigned to this relation.
+	Name() string
+
+	// FakeId returns a string of the form "relation-name:123", which uniquely
+	// identifies the relation to the hook. In reality, the identification
+	// of the relation is the integer following the colon, but the composed
+	// name is useful to humans observing it.
+	FakeId() string
+
+	// Settings allows read/write access to the local unit's settings in
+	// this relation.
+	Settings() (Settings, error)
+
+	// UnitNames returns a list of the remote units in the relation.
+	UnitNames() []string
+
+	// ReadSettings returns the settings of any remote unit in the relation.
+	ReadSettings(unit string) (map[string]interface{}, error)
 }
 
-func (ctx *HookContext) PublicAddress() (string, error) {
-	return ctx.Unit.PublicAddress()
+// Settings is implemented by types that manipulate unit settings.
+type Settings interface {
+	Map() map[string]interface{}
+	Get(string) (interface{}, bool)
+	Set(string, interface{})
+	Delete(string)
 }
 
-func (ctx *HookContext) PrivateAddress() (string, error) {
-	return ctx.Unit.PrivateAddress()
-}
-
-func (ctx *HookContext) OpenPort(protocol string, port int) error {
-	return ctx.Unit.OpenPort(protocol, port)
-}
-
-func (ctx *HookContext) ClosePort(protocol string, port int) error {
-	return ctx.Unit.ClosePort(protocol, port)
-}
-
-func (ctx *HookContext) Config() (map[string]interface{}, error) {
-	node, err := ctx.Service.Config()
-	if err != nil {
-		return nil, err
+// newRelationIdValue returns a gnuflag.Value for convenient parsing of relation
+// ids in ctx.
+func newRelationIdValue(ctx Context, result *int) *relationIdValue {
+	v := &relationIdValue{result: result, ctx: ctx}
+	id := -1
+	if r, found := ctx.HookRelation(); found {
+		id = r.Id()
+		v.value = r.FakeId()
 	}
-	charm, _, err := ctx.Service.Charm()
-	if err != nil {
-		return nil, err
-	}
-	// TODO Remove this once state is fixed to report default values.
-	cfg, err := charm.Config().Validate(nil)
-	if err != nil {
-		return nil, err
-	}
-	return merge(node.Map(), cfg), nil
+	*result = id
+	return v
 }
 
-func merge(a, b map[string]interface{}) map[string]interface{} {
-	for k, v := range b {
-		if _, ok := a[k]; !ok {
-			a[k] = v
-		}
-	}
-	return a
-}
-
-func (ctx *HookContext) HasHookRelation() bool {
-	return ctx.HasRelation(ctx.RelationId)
-}
-
-func (ctx *HookContext) HookRelation() ContextRelation {
-	return ctx.Relation(ctx.RelationId)
-}
-
-func (ctx *HookContext) HasRemoteUnit() bool {
-	return ctx.RemoteUnitName_ != ""
-}
-
-func (ctx *HookContext) RemoteUnitName() string {
-	if ctx.RemoteUnitName_ == "" {
-		panic("remote unit not available")
-	}
-	return ctx.RemoteUnitName_
-}
-
-func (ctx *HookContext) HasRelation(id int) bool {
-	_, found := ctx.Relations[id]
-	return found
-}
-
-func (ctx *HookContext) Relation(id int) ContextRelation {
-	r, found := ctx.Relations[id]
-	if !found {
-		panic(fmt.Errorf("unknown relation %d", id))
-	}
-	return r
-}
-
-func (ctx *HookContext) RelationIds() []int {
-	ids := []int{}
-	for id := range ctx.Relations {
-		ids = append(ids, id)
-	}
-	return ids
-}
-
-// newCommands maps Command names to initializers.
-var newCommands = map[string]func(*HookContext) (cmd.Command, error){
-	"close-port":    NewClosePortCommand,
-	"config-get":    NewConfigGetCommand,
-	"juju-log":      NewJujuLogCommand,
-	"open-port":     NewOpenPortCommand,
-	"relation-get":  NewRelationGetCommand,
-	"relation-ids":  NewRelationIdsCommand,
-	"relation-list": NewRelationListCommand,
-	"relation-set":  NewRelationSetCommand,
-	"unit-get":      NewUnitGetCommand,
-}
-
-// CommandNames returns the names of all jujuc commands.
-func CommandNames() (names []string) {
-	for name := range newCommands {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return
-}
-
-// NewCommand returns an instance of the named Command, initialized to execute
-// against this HookContext.
-func (ctx *HookContext) NewCommand(name string) (cmd.Command, error) {
-	f := newCommands[name]
-	if f == nil {
-		return nil, fmt.Errorf("unknown command: %s", name)
-	}
-	return f(ctx)
-}
-
-// hookVars returns an os.Environ-style list of strings necessary to run a hook
-// such that it can know what environment it's operating in, and can call back
-// into ctx.
-func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string {
-	vars := []string{
-		"APT_LISTCHANGES_FRONTEND=none",
-		"DEBIAN_FRONTEND=noninteractive",
-		"PATH=" + toolsDir + ":" + os.Getenv("PATH"),
-		"CHARM_DIR=" + charmDir,
-		"JUJU_CONTEXT_ID=" + ctx.Id,
-		"JUJU_AGENT_SOCKET=" + socketPath,
-		"JUJU_UNIT_NAME=" + ctx.Unit.Name(),
-	}
-	if ctx.RelationId != -1 {
-		vars = append(vars, "JUJU_RELATION="+ctx.envRelation())
-		vars = append(vars, "JUJU_RELATION_ID="+ctx.envRelationId())
-		if ctx.RemoteUnitName_ != "" {
-			vars = append(vars, "JUJU_REMOTE_UNIT="+ctx.RemoteUnitName_)
-		}
-	}
-	return vars
-}
-
-// RunHook executes a hook in an environment which allows it to to call back
-// into ctx to execute jujuc tools.
-func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
-	ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
-	ps.Env = ctx.hookVars(charmDir, toolsDir, socketPath)
-	ps.Dir = charmDir
-	outReader, err := ps.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	ps.Stderr = ps.Stdout
-	logger := &hookLogger{
-		r:    outReader,
-		done: make(chan struct{}),
-	}
-	go logger.run()
-	err = ps.Run()
-	logger.stop()
-	if ee, ok := err.(*exec.Error); ok && err != nil {
-		if os.IsNotExist(ee.Err) {
-			// Missing hook is perfectly valid.
-			return nil
-		}
-	}
-	write := err == nil
-	for id, rctx := range ctx.Relations {
-		if write {
-			if e := rctx.WriteSettings(); e != nil {
-				e = fmt.Errorf(
-					"could not write settings from %q to relation %d: %v",
-					hookName, id, e,
-				)
-				log.Printf("%v", e)
-				if err == nil {
-					err = e
-				}
-			}
-		}
-		rctx.ClearCache()
-	}
-	return err
-}
-
-type hookLogger struct {
-	r       io.ReadCloser
-	done    chan struct{}
-	mu      sync.Mutex
-	stopped bool
-}
-
-func (l *hookLogger) run() {
-	defer close(l.done)
-	defer l.r.Close()
-	br := bufio.NewReaderSize(l.r, 4096)
-	for {
-		line, _, err := br.ReadLine()
-		if err != nil {
-			if err != io.EOF {
-				log.Printf("cannot read hook output: %v", err)
-			}
-			break
-		}
-		l.mu.Lock()
-		if l.stopped {
-			l.mu.Unlock()
-			return
-		}
-		log.Printf("HOOK %s", line)
-		l.mu.Unlock()
-	}
-}
-
-func (l *hookLogger) stop() {
-	// We can see the process exit before the logger has processed
-	// all its output, so allow a moment for the data buffered
-	// in the pipe to be processed. We don't wait indefinitely though,
-	// because the hook may have started a background process
-	// that keeps the pipe open.
-	select {
-	case <-l.done:
-	case <-time.After(100 * time.Millisecond):
-	}
-	// We can't close the pipe asynchronously, so just
-	// stifle output instead.
-	l.mu.Lock()
-	l.stopped = true
-	l.mu.Unlock()
-}
-
-// envRelation returns the relation name exposed to hooks as JUJU_RELATION.
-// If the context does not have a relation, it will return an empty string.
-// Otherwise, it will panic if RelationId is not a key in the Relations map.
-func (ctx *HookContext) envRelation() string {
-	if ctx.RelationId == -1 {
-		return ""
-	}
-	return ctx.Relations[ctx.RelationId].Name()
-}
-
-// envRelationId returns the relation id exposed to hooks as JUJU_RELATION_ID.
-// If the context does not have a relation, it will return an empty string.
-// Otherwise, it will panic if RelationId is not a key in the Relations map.
-func (ctx *HookContext) envRelationId() string {
-	if ctx.RelationId == -1 {
-		return ""
-	}
-	return ctx.Relations[ctx.RelationId].FakeId()
-}
-
-// SettingsMap is a map from unit name to relation settings.
-type SettingsMap map[string]map[string]interface{}
-
-// RelationContext is the implementation of jujuc.ContextRelation.
-// It implements ContextRelation.
-type RelationContext struct {
-	ru *state.RelationUnit
-
-	// members contains settings for known relation members. Nil values
-	// indicate members whose settings have not yet been cached.
-	members SettingsMap
-
-	// settings allows read and write access to the relation unit settings.
-	settings *state.ConfigNode
-
-	// cache is a short-term cache that enables consistent access to settings
-	// for units that are not currently participating in the relation. Its
-	// contents should be cleared whenever a new hook is executed.
-	cache SettingsMap
-}
-
-// NewRelationContext creates a new context for the given relation unit.
-// The unit-name keys of members supplies the initial membership.
-func NewRelationContext(ru *state.RelationUnit, members map[string]int64) *RelationContext {
-	ctx := &RelationContext{ru: ru, members: SettingsMap{}}
-	for unit := range members {
-		ctx.members[unit] = nil
-	}
-	ctx.ClearCache()
-	return ctx
-}
-
-// WriteSettings persists all changes made to the unit's relation settings.
-func (ctx *RelationContext) WriteSettings() (err error) {
-	if ctx.settings != nil {
-		_, err = ctx.settings.Write()
-	}
-	return
-}
-
-// ClearCache discards all cached settings for units that are not members
-// of the relation, and all unwritten changes to the unit's relation settings.
-// including any changes to Settings that have not been written.
-func (ctx *RelationContext) ClearCache() {
-	ctx.settings = nil
-	ctx.cache = make(SettingsMap)
-}
-
-// UpdateMembers ensures that the context is aware of every supplied member
-// unit. For each supplied member that has non-nil settings, the cached
-// settings will be overwritten; but nil settings will not overwrite cached
-// ones.
-func (ctx *RelationContext) UpdateMembers(members SettingsMap) {
-	for m, s := range members {
-		_, found := ctx.members[m]
-		if !found || s != nil {
-			ctx.members[m] = s
-		}
-	}
-}
-
-// DeleteMember drops the membership and cache of a single remote unit, without
-// perturbing settings for the remaining members.
-func (ctx *RelationContext) DeleteMember(unitName string) {
-	delete(ctx.members, unitName)
-}
-
-func (ctx *RelationContext) Name() string {
-	return ctx.ru.Endpoint().RelationName
-}
-
-func (ctx *RelationContext) FakeId() string {
-	return fmt.Sprintf("%s:%d", ctx.Name(), ctx.ru.Relation().Id())
-}
-
-func (ctx *RelationContext) UnitNames() (units []string) {
-	for unit := range ctx.members {
-		units = append(units, unit)
-	}
-	sort.Strings(units)
-	return units
-}
-
-func (ctx *RelationContext) Settings() (Settings, error) {
-	if ctx.settings == nil {
-		node, err := ctx.ru.Settings()
-		if err != nil {
-			return nil, err
-		}
-		ctx.settings = node
-	}
-	return ctx.settings, nil
-}
-
-func (ctx *RelationContext) ReadSettings(unit string) (settings map[string]interface{}, err error) {
-	settings, member := ctx.members[unit]
-	if settings == nil {
-		if settings = ctx.cache[unit]; settings == nil {
-			settings, err = ctx.ru.ReadSettings(unit)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	if member {
-		ctx.members[unit] = settings
-	} else {
-		ctx.cache[unit] = settings
-	}
-	return settings, nil
-}
-
-// relationIdValue returns a gnuflag.Value for convenient parsing of relation
-// ids in context.
-func (ctx *HookContext) relationIdValue(result *int) *relationIdValue {
-	*result = ctx.RelationId
-	return &relationIdValue{result: result, ctx: ctx, value: ctx.envRelationId()}
-}
-
-// relationIdValue implements gnuflag.Value for use in relation hook commands.
+// relationIdValue implements gnuflag.Value for use in relation commands.
 type relationIdValue struct {
 	result *int
-	ctx    *HookContext
+	ctx    Context
 	value  string
 }
 
@@ -438,7 +119,7 @@ func (v *relationIdValue) Set(value string) error {
 	if err != nil {
 		return fmt.Errorf("invalid relation id")
 	}
-	if _, found := v.ctx.Relations[id]; !found {
+	if _, found := v.ctx.Relation(id); !found {
 		return fmt.Errorf("unknown relation id")
 	}
 	*v.result = id

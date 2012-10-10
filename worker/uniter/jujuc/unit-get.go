@@ -9,13 +9,13 @@ import (
 
 // UnitGetCommand implements the unit-get command.
 type UnitGetCommand struct {
-	*HookContext
+	ctx Context
 	Key string
 	out cmd.Output
 }
 
-func NewUnitGetCommand(ctx *HookContext) (cmd.Command, error) {
-	return &UnitGetCommand{HookContext: ctx}, nil
+func NewUnitGetCommand(ctx Context) cmd.Command {
+	return &UnitGetCommand{ctx: ctx}
 }
 
 func (c *UnitGetCommand) Info() *cmd.Info {
@@ -43,9 +43,9 @@ func (c *UnitGetCommand) Init(f *gnuflag.FlagSet, args []string) error {
 func (c *UnitGetCommand) Run(ctx *cmd.Context) (err error) {
 	var value string
 	if c.Key == "private-address" {
-		value, err = c.Unit.PrivateAddress()
+		value, err = c.ctx.PrivateAddress()
 	} else {
-		value, err = c.Unit.PublicAddress()
+		value, err = c.ctx.PublicAddress()
 	}
 	if err != nil {
 		return

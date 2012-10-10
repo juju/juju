@@ -3,66 +3,27 @@ package jujuc_test
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
 type RelationIdsSuite struct {
-	testing.JujuConnSuite
-	ch      *state.Charm
-	service *state.Service
-	unit    *state.Unit
-	relctxs map[int]*jujuc.RelationContext
+	ContextSuite
 }
 
 var _ = Suite(&RelationIdsSuite{})
 
 func (s *RelationIdsSuite) SetUpTest(c *C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.ch = s.AddTestingCharm(c, "dummy")
-	var err error
-	s.service, err = s.State.AddService("main", s.ch)
-	c.Assert(err, IsNil)
-	s.unit, err = s.service.AddUnit()
-	c.Assert(err, IsNil)
-	s.relctxs = map[int]*jujuc.RelationContext{}
+	s.ContextSuite.SetUpTest(c)
+	s.rels = map[int]*ContextRelation{}
 	s.AddRelatedServices(c, "x", 3)
 	s.AddRelatedServices(c, "y", 1)
 }
 
 func (s *RelationIdsSuite) AddRelatedServices(c *C, relname string, count int) {
-	mainep := state.RelationEndpoint{
-		"main", "ifce", relname, state.RoleProvider, charm.ScopeGlobal,
-	}
 	for i := 0; i < count; i++ {
-		service, err := s.State.AddService(fmt.Sprintf("%s%d", relname, i), s.ch)
-		c.Assert(err, IsNil)
-		otherep := state.RelationEndpoint{
-			service.Name(), "ifce", relname, state.RoleRequirer, charm.ScopeGlobal,
-		}
-		rel, err := s.State.AddRelation(mainep, otherep)
-		c.Assert(err, IsNil)
-		ru, err := rel.Unit(s.unit)
-		c.Assert(err, IsNil)
-		s.relctxs[rel.Id()] = jujuc.NewRelationContext(ru, nil)
-	}
-}
-
-func (s *RelationIdsSuite) GetHookContext(c *C, relid int) *jujuc.HookContext {
-	if relid != -1 {
-		_, found := s.relctxs[relid]
-		c.Assert(found, Equals, true)
-	}
-	return &jujuc.HookContext{
-		Service:         s.service,
-		Unit:            s.unit,
-		Id:              "TestCtx",
-		RelationId:      relid,
-		RemoteUnitName_: "",
-		Relations:       s.relctxs,
+		id := len(s.rels)
+		s.rels[id] = &ContextRelation{id, relname, nil}
 	}
 }
 
@@ -137,8 +98,8 @@ var relationIdsTests = []struct {
 func (s *RelationIdsSuite) TestRelationIds(c *C) {
 	for i, t := range relationIdsTests {
 		c.Logf("test %d: %s", i, t.summary)
-		hctx := s.GetHookContext(c, t.relid)
-		com, err := hctx.NewCommand("relation-ids")
+		hctx := s.GetHookContext(c, t.relid, "")
+		com, err := jujuc.NewCommand(hctx, "relation-ids")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, t.args)
@@ -177,8 +138,8 @@ options:
 		3:  {"relation-ids [options] [<name>]", "\nCurrent default relation name is \"y\".\n"},
 	} {
 		c.Logf("relid %d", relid)
-		hctx := s.GetHookContext(c, relid)
-		com, err := hctx.NewCommand("relation-ids")
+		hctx := s.GetHookContext(c, relid, "")
+		com, err := jujuc.NewCommand(hctx, "relation-ids")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, []string{"--help"})

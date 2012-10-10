@@ -4,22 +4,15 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"path/filepath"
 )
 
 type UnitGetSuite struct {
-	HookContextSuite
+	ContextSuite
 }
 
 var _ = Suite(&UnitGetSuite{})
-
-func (s *UnitGetSuite) SetUpTest(c *C) {
-	s.HookContextSuite.SetUpTest(c)
-	err := s.unit.SetPublicAddress("gimli.minecraft.example.com")
-	c.Assert(err, IsNil)
-	err = s.unit.SetPrivateAddress("192.168.0.99")
-	c.Assert(err, IsNil)
-}
 
 var unitGetTests = []struct {
 	args []string
@@ -36,7 +29,7 @@ var unitGetTests = []struct {
 func (s *UnitGetSuite) TestOutputFormat(c *C) {
 	for _, t := range unitGetTests {
 		hctx := s.GetHookContext(c, -1, "")
-		com, err := hctx.NewCommand("unit-get")
+		com, err := jujuc.NewCommand(hctx, "unit-get")
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, t.args)
@@ -48,7 +41,7 @@ func (s *UnitGetSuite) TestOutputFormat(c *C) {
 
 func (s *UnitGetSuite) TestHelp(c *C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := hctx.NewCommand("unit-get")
+	com, err := jujuc.NewCommand(hctx, "unit-get")
 	c.Assert(err, IsNil)
 	ctx := dummyContext(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
@@ -67,7 +60,7 @@ options:
 
 func (s *UnitGetSuite) TestOutputPath(c *C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := hctx.NewCommand("unit-get")
+	com, err := jujuc.NewCommand(hctx, "unit-get")
 	c.Assert(err, IsNil)
 	ctx := dummyContext(c)
 	code := cmd.Main(com, ctx, []string{"--output", "some-file", "private-address"})
@@ -81,7 +74,7 @@ func (s *UnitGetSuite) TestOutputPath(c *C) {
 
 func (s *UnitGetSuite) TestUnknownSetting(c *C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := hctx.NewCommand("unit-get")
+	com, err := jujuc.NewCommand(hctx, "unit-get")
 	c.Assert(err, IsNil)
 	err = com.Init(dummyFlagSet(), []string{"protected-address"})
 	c.Assert(err, ErrorMatches, `unknown setting "protected-address"`)
@@ -89,7 +82,7 @@ func (s *UnitGetSuite) TestUnknownSetting(c *C) {
 
 func (s *UnitGetSuite) TestUnknownArg(c *C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := hctx.NewCommand("unit-get")
+	com, err := jujuc.NewCommand(hctx, "unit-get")
 	c.Assert(err, IsNil)
 	err = com.Init(dummyFlagSet(), []string{"private-address", "blah"})
 	c.Assert(err, ErrorMatches, `unrecognized args: \["blah"\]`)
