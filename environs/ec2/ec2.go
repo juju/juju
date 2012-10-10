@@ -237,9 +237,7 @@ func (e *environ) Bootstrap(uploadTools bool) error {
 	if password != "" {
 		password = trivial.PasswordHash(password)
 	}
-	info := &state.Info{
-		Password: password,
-	}
+	info := &state.Info{Password: password}
 	inst, err := e.startInstance(0, info, tools, true, config)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)

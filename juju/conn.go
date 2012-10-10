@@ -27,7 +27,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 	st, err := state.Open(info)
 	if err == state.ErrUnauthorized {
 		// We can't connect with the administrator password,;
-		// perhaps we are the first connection and the
+		// perhaps this was the first connection and the
 		// password has not been changed yet.
 		info.Password = trivial.PasswordHash(password)
 		st, err = state.Open(info)
