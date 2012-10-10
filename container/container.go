@@ -97,7 +97,7 @@ func (c *Simple) Deploy(unit *state.Unit, info *state.Info, tools *state.Tools) 
 	}()
 
 	if err := unit.SetPassword(password); err != nil {
-		return fmt.Errorf("cannot set password for new machine: %v", err)
+		return fmt.Errorf("cannot set password for unit: %v", err)
 	}
 	return conf.Install()
 }
