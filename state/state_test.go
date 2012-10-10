@@ -475,55 +475,61 @@ func (s *StateSuite) TestWatchMachines(c *C) {
 }
 
 var servicesWatchTests = []struct {
+	summary string
 	test    func(*C, *state.State, *state.Charm)
-	added   []string
-	removed []string
+	changes []string
 }{
 	{
-		test:  func(_ *C, _ *state.State, _ *state.Charm) {},
-		added: []string{},
+		"check initial empty event",
+		func(_ *C, _ *state.State, _ *state.Charm) {},
+		[]string(nil),
 	},
 	{
-		test: func(c *C, s *state.State, ch *state.Charm) {
+		"add a service",
+		func(c *C, s *state.State, ch *state.Charm) {
 			_, err := s.AddService("s0", ch)
 			c.Assert(err, IsNil)
 		},
-		added: []string{"s0"},
+		[]string{"s0"},
 	},
 	{
-		test: func(c *C, s *state.State, ch *state.Charm) {
-			_, err := s.AddService("s1", ch)
+		"add a service and test unrelated change",
+		func(c *C, s *state.State, ch *state.Charm) {
+			svc, err := s.Service("s0")
+			c.Assert(err, IsNil)
+			err = svc.SetExposed()
+			c.Assert(err, IsNil)
+			_, err = s.AddService("s1", ch)
 			c.Assert(err, IsNil)
 		},
-		added: []string{"s1"},
+		[]string{"s1"},
 	},
 	{
-		test: func(c *C, s *state.State, ch *state.Charm) {
+		"add two services",
+		func(c *C, s *state.State, ch *state.Charm) {
 			_, err := s.AddService("s2", ch)
 			c.Assert(err, IsNil)
 			_, err = s.AddService("s3", ch)
 			c.Assert(err, IsNil)
 		},
-		added: []string{"s2", "s3"},
+		[]string{"s2", "s3"},
 	},
 	{
-		test: func(c *C, s *state.State, _ *state.Charm) {
+		"die a service",
+		func(c *C, s *state.State, _ *state.Charm) {
 			svc3, err := s.Service("s3")
 			c.Assert(err, IsNil)
 			err = svc3.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveService(svc3)
-			c.Assert(err, IsNil)
 		},
-		removed: []string{"s3"},
+		[]string{"s3"},
 	},
 	{
-		test: func(c *C, s *state.State, _ *state.Charm) {
+		"die and remove multiple services",
+		func(c *C, s *state.State, _ *state.Charm) {
 			svc0, err := s.Service("s0")
 			c.Assert(err, IsNil)
 			err = svc0.EnsureDead()
-			c.Assert(err, IsNil)
-			err = s.RemoveService(svc0)
 			c.Assert(err, IsNil)
 			svc2, err := s.Service("s2")
 			c.Assert(err, IsNil)
@@ -532,10 +538,11 @@ var servicesWatchTests = []struct {
 			err = s.RemoveService(svc2)
 			c.Assert(err, IsNil)
 		},
-		removed: []string{"s0", "s2"},
+		[]string{"s0", "s2"},
 	},
 	{
-		test: func(c *C, s *state.State, ch *state.Charm) {
+		"add and remove a service at the same time",
+		func(c *C, s *state.State, ch *state.Charm) {
 			_, err := s.AddService("s4", ch)
 			c.Assert(err, IsNil)
 			svc1, err := s.Service("s1")
@@ -545,11 +552,11 @@ var servicesWatchTests = []struct {
 			err = s.RemoveService(svc1)
 			c.Assert(err, IsNil)
 		},
-		added:   []string{"s4"},
-		removed: []string{"s1"},
+		[]string{"s1", "s4"},
 	},
 	{
-		test: func(c *C, s *state.State, ch *state.Charm) {
+		"add and remove many services at once",
+		func(c *C, s *state.State, ch *state.Charm) {
 			services := [20]*state.Service{}
 			var err error
 			for i := 0; i < len(services); i++ {
@@ -563,21 +570,21 @@ var servicesWatchTests = []struct {
 				c.Assert(err, IsNil)
 			}
 		},
-		added: []string{"ss0", "ss1", "ss2", "ss3", "ss4", "ss5", "ss6", "ss7", "ss8", "ss9"},
+		[]string{"ss0", "ss1", "ss2", "ss3", "ss4", "ss5", "ss6", "ss7", "ss8", "ss9"},
 	},
 	{
-		test: func(c *C, s *state.State, ch *state.Charm) {
+		"set exposed and change life at the same time",
+		func(c *C, s *state.State, ch *state.Charm) {
 			_, err := s.AddService("twenty-five", ch)
 			c.Assert(err, IsNil)
 			svc9, err := s.Service("ss9")
 			c.Assert(err, IsNil)
+			err = svc9.SetExposed()
+			c.Assert(err, IsNil)
 			err = svc9.EnsureDead()
 			c.Assert(err, IsNil)
-			err = s.RemoveService(svc9)
-			c.Assert(err, IsNil)
 		},
-		added:   []string{"twenty-five"},
-		removed: []string{"ss9"},
+		[]string{"twenty-five", "ss9"},
 	},
 }
 
@@ -588,21 +595,23 @@ func (s *StateSuite) TestWatchServices(c *C) {
 	}()
 	charm := s.AddTestingCharm(c, "dummy")
 	for i, test := range servicesWatchTests {
-		c.Logf("test %d", i)
+		c.Logf("test %d: %s", i, test.summary)
 		test.test(c, s.State, charm)
 		s.State.StartSync()
-		got := &state.ServicesChange{}
+		var got []string
 		for {
 			select {
 			case new, ok := <-serviceWatcher.Changes():
 				c.Assert(ok, Equals, true)
-				addServiceChanges(got, new)
-				if moreServicesRequired(got, test.added, test.removed) {
+				got = append(got, new...)
+				if len(got) < len(test.changes) {
 					continue
 				}
-				assertSameServices(c, got, test.added, test.removed)
+				sort.Strings(got)
+				sort.Strings(test.changes)
+				c.Assert(got, DeepEquals, test.changes)
 			case <-time.After(500 * time.Millisecond):
-				c.Fatalf("did not get change, want: added: %#v, removed: %#v, got: %#v", test.added, test.removed, got)
+				c.Fatalf("did not get change, want: %#v, got: %#v", test.changes, got)
 			}
 			break
 		}
@@ -612,43 +621,6 @@ func (s *StateSuite) TestWatchServices(c *C) {
 		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
-}
-
-func moreServicesRequired(got *state.ServicesChange, added, removed []string) bool {
-	return len(got.Added)+len(got.Removed) < len(added)+len(removed)
-}
-
-func addServiceChanges(changes *state.ServicesChange, more *state.ServicesChange) {
-	changes.Added = append(changes.Added, more.Added...)
-	changes.Removed = append(changes.Removed, more.Removed...)
-}
-
-type serviceSlice []*state.Service
-
-func (m serviceSlice) Len() int           { return len(m) }
-func (m serviceSlice) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
-func (m serviceSlice) Less(i, j int) bool { return m[i].Name() < m[j].Name() }
-
-func assertSameServices(c *C, change *state.ServicesChange, added, removed []string) {
-	c.Assert(change, NotNil)
-	if len(added) == 0 {
-		added = nil
-	}
-	if len(removed) == 0 {
-		removed = nil
-	}
-	sort.Sort(serviceSlice(change.Added))
-	sort.Sort(serviceSlice(change.Removed))
-	var got []string
-	for _, g := range change.Added {
-		got = append(got, g.Name())
-	}
-	c.Assert(got, DeepEquals, added)
-	got = nil
-	for _, g := range change.Removed {
-		got = append(got, g.Name())
-	}
-	c.Assert(got, DeepEquals, removed)
 }
 
 func (s *StateSuite) TestInitialize(c *C) {
