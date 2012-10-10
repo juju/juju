@@ -20,6 +20,9 @@ type HookContext struct {
 	service *state.Service
 	unit    *state.Unit
 
+	// config holds the service configuration.
+	config map[string]interface{}
+
 	// id identifies the context.
 	id string
 
@@ -70,20 +73,23 @@ func (ctx *HookContext) ClosePort(protocol string, port int) error {
 }
 
 func (ctx *HookContext) Config() (map[string]interface{}, error) {
-	node, err := ctx.service.Config()
-	if err != nil {
-		return nil, err
+	if ctx.config == nil {
+		settings, err := ctx.service.Config()
+		if err != nil {
+			return nil, err
+		}
+		charm, _, err := ctx.service.Charm()
+		if err != nil {
+			return nil, err
+		}
+		// TODO Remove this once state is fixed to report default values.
+		cfg, err := charm.Config().Validate(nil)
+		if err != nil {
+			return nil, err
+		}
+		ctx.config = merge(settings.Map(), cfg)
 	}
-	charm, _, err := ctx.service.Charm()
-	if err != nil {
-		return nil, err
-	}
-	// TODO Remove this once state is fixed to report default values.
-	cfg, err := charm.Config().Validate(nil)
-	if err != nil {
-		return nil, err
-	}
-	return merge(node.Map(), cfg), nil
+	return ctx.config, nil
 }
 
 func merge(a, b map[string]interface{}) map[string]interface{} {
