@@ -155,8 +155,11 @@ func isUpgraded(err error) bool {
 func openState(entityName string, conf *AgentConf) (*state.State, error) {
 	// TODO read password from file and try to use that
 	info := conf.StateInfo
-	info.EntityName = entityName
-	info.Password = conf.InitialPassword
+	// TODO remove this test when passwords are correctly set
+	// up before starting agents.
+	if conf.InitialPassword != "" {
+		info.EntityName = entityName
+		info.Password = conf.InitialPassword
+	}
 	return state.Open(&info)
 }
-
