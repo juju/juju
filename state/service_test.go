@@ -583,10 +583,11 @@ func (s *ServiceSuite) TestWatchUnits(c *C) {
 	c.Assert(unitWatcher.Stop(), IsNil)
 	unitWatcher = s.service.WatchUnits()
 	s.State.StartSync()
-	want := []string{"mysql/2", "mysql/5", "mysql/6", "mysql/7", "mysql/8", "mysql/9", "mysql/11", "mysql/12", "mysql/13", "mysql/14", "mysql/28", "mysql/29"}
+	want := []string{"mysql/11", "mysql/12", "mysql/13", "mysql/14", "mysql/2", "mysql/28", "mysql/29", "mysql/5", "mysql/6", "mysql/7", "mysql/8", "mysql/9"}
 	select {
 	case got, ok := <-unitWatcher.Changes():
 		c.Assert(ok, Equals, true)
+		sort.Strings(got)
 		c.Assert(got, DeepEquals, want)
 	case <-time.After(500 * time.Millisecond):
 		c.Fatalf("did not get change, want: %#v", want)
