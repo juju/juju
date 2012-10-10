@@ -182,7 +182,15 @@ func (s *UnitSuite) TestSetPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
 	err = st.SetAdminPassword("admin-secret")
 	c.Assert(err, IsNil)
 
+	// Add a new machine, assign the units to it
+	// and set its password.
 	m, err := st.AddMachine(state.MachinerWorker)
+	c.Assert(err, IsNil)
+	unit, err := st.Unit(s.unit.Name())
+	c.Assert(err, IsNil)
+	subUnit, err = st.Unit(subUnit.Name())
+	c.Assert(err, IsNil)
+	err = unit.AssignToMachine(m)
 	c.Assert(err, IsNil)
 	err = m.SetPassword("foo")
 	c.Assert(err, IsNil)
@@ -203,7 +211,7 @@ func (s *UnitSuite) TestSetPasswordOnUnitAfterConnectingAsMachineEntity(c *C) {
 
 	// Change the password for a unit derived from
 	// the machine entity's state.
-	unit, err := st1.Unit(s.unit.Name())
+	unit, err = st1.Unit(s.unit.Name())
 	c.Assert(err, IsNil)
 	err = unit.SetPassword("bar")
 	c.Assert(err, IsNil)
