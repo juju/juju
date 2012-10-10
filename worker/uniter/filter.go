@@ -33,9 +33,12 @@ type filter struct {
 
 	// The want* chans are used to indicate that the filter should send
 	// events if it has them available.
-	wantConfig   chan struct{}
 	wantUpgrade  chan serviceCharm
 	wantResolved chan struct{}
+
+	// resetConfig is used to indicate that any pending config event
+	// should be discarded.
+	resetConfig chan struct{}
 
 	// The following fields hold state that is collected while running,
 	// and used to detect interesting changes to express as events.
@@ -61,8 +64,8 @@ func newFilter(st *state.State, unitName string) (*filter, error) {
 		outResolved:   make(chan state.ResolvedMode),
 		outResolvedOn: make(chan state.ResolvedMode),
 		wantResolved:  make(chan struct{}),
-		wantConfig:    make(chan struct{}),
 		wantUpgrade:   make(chan serviceCharm),
+		resetConfig:   make(chan struct{}),
 	}
 	go func() {
 		defer f.tomb.Done()
@@ -91,12 +94,6 @@ func (f *filter) UnitDying() <-chan struct{} {
 	return f.outUnitDying
 }
 
-// ConfigEvents returns a channel that will receive a signal whenever the service's
-// configuration changes, or when an event is explicitly requested.
-func (f *filter) ConfigEvents() <-chan struct{} {
-	return f.outConfigOn
-}
-
 // UpgradeEvents returns a channel that will receive a new charm whenever an
 // upgrade is indicated. Events should not be read until the baseline state
 // has been specified by calling WantUpgradeEvent.
@@ -112,12 +109,10 @@ func (f *filter) ResolvedEvents() <-chan state.ResolvedMode {
 	return f.outResolvedOn
 }
 
-// WantConfigEvent indicates that the filter should send a config event.
-func (f *filter) WantConfigEvent() {
-	select {
-	case <-f.tomb.Dying():
-	case f.wantConfig <- nothing:
-	}
+// ConfigEvents returns a channel that will receive a signal whenever the service's
+// configuration changes, or when an event is explicitly requested.
+func (f *filter) ConfigEvents() <-chan struct{} {
+	return f.outConfigOn
 }
 
 // WantUpgradeEvent sets the baseline from which service charm changes will
@@ -137,6 +132,15 @@ func (f *filter) WantResolvedEvent() {
 	select {
 	case <-f.tomb.Dying():
 	case f.wantResolved <- nothing:
+	}
+}
+
+// ResetConfigEvent indicates that the filter should discard any pending
+// config event.
+func (f *filter) ResetConfigEvent() {
+	select {
+	case <-f.tomb.Dying():
+	case f.resetConfig <- nothing:
 	}
 }
 
@@ -163,19 +167,10 @@ func (f *filter) loop(unitName string) (err error) {
 	configw := f.service.WatchConfig()
 	defer watcher.Stop(configw, &f.tomb)
 
-	// Consume first event so that this sequence doesn't happen:
-	//
-	// 1) WantConfigEvent called; channel unblocked
-	// 2) Config event sent
-	// 3) Initial config event received; channel unblocked
-	// 4) Config event sent again, for the same configuration
-	select {
-	case <-f.tomb.Dying():
-		return tomb.ErrDying
-	case <-configw.Changes():
-		f.outConfig = f.outConfigOn
-	}
-
+	// Config events cannot be meaningfully reset until one is available;
+	// once we receive the initial change, we unblock reset requests by
+	// setting this channel to its namesake on f.
+	var resetConfig chan struct{}
 	for {
 		var ok bool
 		select {
@@ -206,11 +201,9 @@ func (f *filter) loop(unitName string) (err error) {
 			}
 			log.Debugf("filter: preparing new config event")
 			f.outConfig = f.outConfigOn
+			resetConfig = f.resetConfig
 
 		// Send events on active out chans.
-		case f.outConfig <- nothing:
-			log.Debugf("filter: sent config event")
-			f.outConfig = nil
 		case f.outUpgrade <- f.upgrade:
 			log.Debugf("filter: sent upgrade event")
 			f.upgradeRequested.url = f.upgrade.URL()
@@ -218,11 +211,11 @@ func (f *filter) loop(unitName string) (err error) {
 		case f.outResolved <- f.resolved:
 			log.Debugf("filter: sent resolved event")
 			f.outResolved = nil
+		case f.outConfig <- nothing:
+			log.Debugf("filter: sent config event")
+			f.outConfig = nil
 
-		// Handle explicit requests for events.
-		case <-f.wantConfig:
-			log.Debugf("filter: want config event")
-			f.outConfig = f.outConfigOn
+		// Handle explicit requests.
 		case req := <-f.wantUpgrade:
 			log.Debugf("filter: want upgrade event")
 			f.upgradeRequested = req
@@ -234,6 +227,9 @@ func (f *filter) loop(unitName string) (err error) {
 			if f.resolved != state.ResolvedNone {
 				f.outResolved = f.outResolvedOn
 			}
+		case <-resetConfig:
+			log.Debugf("filter: reset config event")
+			f.outConfig = nil
 		}
 	}
 	panic("unreachable")

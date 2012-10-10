@@ -184,17 +184,8 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 		return nil, err
 	}
 
-	// Prime the filter by requesting a config event, then handling it. This
-	// has two purposes: (1) run a config-change hook before doing anything
-	// else and (2) ensure that subsequent config events received actually
-	// correspond to changes relative to the state at the time we first ran
-	// the hook.
 	cc := hook.Info{Kind: hook.ConfigChanged}
-	u.f.WantConfigEvent()
-	select {
-	case <-u.Dying():
-		return nil, tomb.ErrDying
-	case <-u.f.ConfigEvents():
+	if !u.ranConfigChanged {
 		if err = u.runHook(cc); err == errHookFailed {
 			return ModeHookError, nil
 		} else if err != nil {
