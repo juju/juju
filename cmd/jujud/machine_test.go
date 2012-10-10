@@ -45,8 +45,8 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *C) {
 	c.Skip("agents don't yet distinguish between temporary and permanent errors")
 	a := &MachineAgent{
 		Conf: AgentConf{
-			DataDir:   c.MkDir(),
-			StateInfo: *s.StateInfo(c),
+			DataDir:         c.MkDir(),
+			StateInfo:       *s.StateInfo(c),
 			InitialPassword: "machine-password",
 		},
 		MachineId: 2,
@@ -71,8 +71,8 @@ func (s *MachineSuite) TestRunStop(c *C) {
 	m := addMachine(s.State, state.MachinerWorker)
 	a := &MachineAgent{
 		Conf: AgentConf{
-			DataDir:   c.MkDir(),
-			StateInfo: *s.StateInfo(c),
+			DataDir:         c.MkDir(),
+			StateInfo:       *s.StateInfo(c),
 			InitialPassword: "machine-password",
 		},
 		MachineId: m.Id(),
@@ -92,8 +92,8 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 	c.Assert(err, IsNil)
 	a := &MachineAgent{
 		Conf: AgentConf{
-			DataDir:   c.MkDir(),
-			StateInfo: *s.StateInfo(c),
+			DataDir:         c.MkDir(),
+			StateInfo:       *s.StateInfo(c),
 			InitialPassword: "machine-password",
 		},
 		MachineId: m.Id(),
@@ -106,8 +106,8 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 	c.Assert(err, IsNil)
 	a = &MachineAgent{
 		Conf: AgentConf{
-			DataDir:   c.MkDir(),
-			StateInfo: *s.StateInfo(c),
+			DataDir:         c.MkDir(),
+			StateInfo:       *s.StateInfo(c),
 			InitialPassword: "machine-password",
 		},
 		MachineId: m.Id(),
@@ -117,7 +117,7 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 }
 
 func (s *MachineSuite) TestProvisionerFirewaller(c *C) {
-	m := addMachine(s.State, 
+	m := addMachine(s.State,
 		state.MachinerWorker,
 		state.ProvisionerWorker,
 		state.FirewallerWorker)
@@ -127,8 +127,8 @@ func (s *MachineSuite) TestProvisionerFirewaller(c *C) {
 
 	a := &MachineAgent{
 		Conf: AgentConf{
-			DataDir:   c.MkDir(),
-			StateInfo: *s.StateInfo(c),
+			DataDir:         c.MkDir(),
+			StateInfo:       *s.StateInfo(c),
 			InitialPassword: "machine-password",
 		},
 		MachineId: m.Id(),

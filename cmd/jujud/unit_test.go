@@ -106,8 +106,8 @@ func (s *UnitSuite) newAgent(c *C) (*UnitAgent, *state.Unit, *state.Tools) {
 
 	return &UnitAgent{
 		Conf: AgentConf{
-			DataDir:   dataDir,
-			StateInfo: *s.StateInfo(c),
+			DataDir:         dataDir,
+			StateInfo:       *s.StateInfo(c),
 			InitialPassword: "unit-password",
 		},
 		UnitName: unit.Name(),
@@ -142,8 +142,8 @@ func (s *UnitSuite) TestWithDeadUnit(c *C) {
 	dataDir := c.MkDir()
 	a := &UnitAgent{
 		Conf: AgentConf{
-			DataDir:   dataDir,
-			StateInfo: *s.StateInfo(c),
+			DataDir:         dataDir,
+			StateInfo:       *s.StateInfo(c),
 			InitialPassword: "unit-password",
 		},
 		UnitName: unit.Name(),
@@ -156,8 +156,8 @@ func (s *UnitSuite) TestWithDeadUnit(c *C) {
 	c.Assert(err, IsNil)
 	a = &UnitAgent{
 		Conf: AgentConf{
-			DataDir:   dataDir,
-			StateInfo: *s.StateInfo(c),
+			DataDir:         dataDir,
+			StateInfo:       *s.StateInfo(c),
 			InitialPassword: "unit-password",
 		},
 		UnitName: unit.Name(),
