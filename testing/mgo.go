@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
-	"launchpad.net/log"
+	"launchpad.net/juju-core/log"
 	"net"
 	"os"
 	"os/exec"
