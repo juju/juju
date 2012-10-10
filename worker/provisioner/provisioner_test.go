@@ -84,7 +84,7 @@ func (s *ProvisionerSuite) checkStartInstance(c *C, m *state.Machine, secret str
 				st, err := state.Open(o.Info)
 				c.Assert(err, IsNil)
 				st.Close()
-				
+
 				c.Assert(o.MachineId, Equals, m.Id())
 				c.Assert(o.Instance, NotNil)
 				s.checkInstanceId(c, m, o.Instance)
