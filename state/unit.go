@@ -359,11 +359,17 @@ func (u *Unit) AgentAlive() (bool, error) {
 	return u.st.pwatcher.Alive(u.globalKey())
 }
 
+// UnitEntityName returns the entity name for the
+// unit with the given name.
+func UnitEntityName(unitName string) string {
+	return "unit-" + strings.Replace(unitName, "/", "-", -1)
+}
+
 // EntityName returns a name identifying the unit that is safe to use
 // as a file name.  The returned name will be different from other
 // EntityName values returned by any other entities from the same state.
 func (u *Unit) EntityName() string {
-	return "unit-" + strings.Replace(u.Name(), "/", "-", -1)
+	return UnitEntityName(u.Name())
 }
 
 // WaitAgentAlive blocks until the respective agent is alive.
