@@ -3,38 +3,37 @@ package jujuc_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
 type PortsSuite struct {
-	HookContextSuite
+	ContextSuite
 }
 
 var _ = Suite(&PortsSuite{})
 
 var portsTests = []struct {
-	cmd  []string
-	open []state.Port
+	cmd    []string
+	expect map[string]bool
 }{
-	{[]string{"open-port", "80"}, []state.Port{{"tcp", 80}}},
-	{[]string{"open-port", "99/tcp"}, []state.Port{{"tcp", 80}, {"tcp", 99}}},
-	{[]string{"close-port", "80/TCP"}, []state.Port{{"tcp", 99}}},
-	{[]string{"open-port", "123/udp"}, []state.Port{{"tcp", 99}, {"udp", 123}}},
-	{[]string{"close-port", "9999/UDP"}, []state.Port{{"tcp", 99}, {"udp", 123}}},
+	{[]string{"open-port", "80"}, map[string]bool{"80/tcp": true}},
+	{[]string{"open-port", "99/tcp"}, map[string]bool{"80/tcp": true, "99/tcp": true}},
+	{[]string{"close-port", "80/TCP"}, map[string]bool{"99/tcp": true}},
+	{[]string{"open-port", "123/udp"}, map[string]bool{"99/tcp": true, "123/udp": true}},
+	{[]string{"close-port", "9999/UDP"}, map[string]bool{"99/tcp": true, "123/udp": true}},
 }
 
 func (s *PortsSuite) TestOpenClose(c *C) {
+	hctx := s.GetHookContext(c, -1, "")
 	for _, t := range portsTests {
-		hctx := s.GetHookContext(c, -1, "")
-		com, err := hctx.NewCommand(t.cmd[0])
+		com, err := jujuc.NewCommand(hctx, t.cmd[0])
 		c.Assert(err, IsNil)
 		ctx := dummyContext(c)
 		code := cmd.Main(com, ctx, t.cmd[1:])
 		c.Assert(code, Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), Equals, "")
 		c.Assert(bufferString(ctx.Stderr), Equals, "")
-		open := s.unit.OpenedPorts()
-		c.Assert(open, DeepEquals, t.open)
+		c.Assert(hctx.ports, DeepEquals, t.expect)
 	}
 }
 
@@ -55,7 +54,7 @@ func (s *PortsSuite) TestBadArgs(c *C) {
 	for _, name := range []string{"open-port", "close-port"} {
 		for _, t := range badPortsTests {
 			hctx := s.GetHookContext(c, -1, "")
-			com, err := hctx.NewCommand(name)
+			com, err := jujuc.NewCommand(hctx, name)
 			c.Assert(err, IsNil)
 			err = com.Init(dummyFlagSet(), t.args)
 			c.Assert(err, ErrorMatches, t.err)
@@ -65,7 +64,7 @@ func (s *PortsSuite) TestBadArgs(c *C) {
 
 func (s *PortsSuite) TestHelp(c *C) {
 	hctx := s.GetHookContext(c, -1, "")
-	open, err := hctx.NewCommand("open-port")
+	open, err := jujuc.NewCommand(hctx, "open-port")
 	c.Assert(err, IsNil)
 	c.Assert(string(open.Info().Help(dummyFlagSet())), Equals, `
 usage: open-port <port>[/<protocol>]
@@ -74,7 +73,7 @@ purpose: register a port to open
 The port will only be open while the service is exposed.
 `[1:])
 
-	close, err := hctx.NewCommand("close-port")
+	close, err := jujuc.NewCommand(hctx, "close-port")
 	c.Assert(err, IsNil)
 	c.Assert(string(close.Info().Help(dummyFlagSet())), Equals, `
 usage: close-port <port>[/<protocol>]

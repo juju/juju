@@ -37,6 +37,11 @@ func (s *Service) Name() string {
 	return s.doc.Name
 }
 
+// globalKey returns the global database key for the service.
+func (s *Service) globalKey() string {
+	return "s#" + s.doc.Name
+}
+
 // Life returns whether the service is Alive, Dying or Dead.
 func (s *Service) Life() Life {
 	return s.doc.Life
@@ -356,7 +361,7 @@ func (s *Service) Relations() (relations []*Relation, err error) {
 
 // Config returns the configuration node for the service.
 func (s *Service) Config() (config *Settings, err error) {
-	config, err = readSettings(s.st, "s#"+s.Name())
+	config, err = readSettings(s.st, s.globalKey())
 	if err != nil {
 		return nil, fmt.Errorf("cannot get configuration of service %q: %v", s, err)
 	}
